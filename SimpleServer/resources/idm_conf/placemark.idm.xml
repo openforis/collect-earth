@@ -1,0 +1,409 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<survey xmlns="http://www.openforis.org/idml/3.0" xmlns:collect="http://www.openforis.org/collect/3.0/collect"
+	xmlns:ui="http://www.openforis.org/collect/3.0/ui" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xsi:schemaLocation="http://www.openforis.org/idml/3.0 
+	https://raw.github.com/openforis/idm/master/idm-api/src/main/resources/idml3.xsd      
+	http://www.openforis.org/collect/3.0/ui 
+	https://raw.github.com/openforis/collect/master/collect-core/src/main/resources/idml3-ui.xsd"
+	lastId="1000">
+	<project>Open Foris Eye</project>
+	<uri>http://www.openforis.org/idm/eye</uri>
+	<cycle>2013-2014</cycle>
+	<description></description>
+	<language>en</language>
+	<applicationOptions>
+		<options type="ui">
+			<tabSet xmlns="http://www.openforis.org/collect/3.0/ui" name="placemark">
+				<tab name="placemark">
+					<label>Placemark</label>
+				</tab>
+			</tabSet>
+		</options>
+	</applicationOptions>
+	<codeLists>
+		<list id="100" name="land_use">
+			<label type="item">Land Use</label>
+			<label type="list">Land Uses</label>
+			<codingScheme scope="local" />
+			<hierarchy>
+				<level name="use">
+					<label>Use</label>
+				</level>
+				<level name="type">
+					<label>Type</label>
+				</level>
+			</hierarchy>
+			<items>
+				<item id="101">
+					<code>forest</code>
+					<label>Forest</label>
+					<item id="102">
+						<code>birch-Aspen</code>
+						<label>Birch-Aspen</label>
+					</item>
+					<item id="103">
+						<code>larch</code>
+						<label>Larch</label>
+					</item>
+					<item id="104">
+						<code>pine</code>
+						<label>Pine</label>
+					</item>
+					<item id="105">
+						<code>siberianpine</code>
+						<label>Siberian Pine</label>
+					</item>
+					<item id="106">
+						<code>spruce</code>
+						<label>Spruce</label>
+					</item>
+					<item id="107">
+						<code>saxaul</code>
+						<label>Saxaul</label>
+					</item>
+
+					<item id="108">
+						<code>coniferousAndDeciduous</code>
+						<label>Coniferous and deciduous</label>
+					</item>
+					<item id="109">
+						<code>shrubs</code>
+						<label>Shrubs</label>
+					</item>
+					<item id="110">
+						<code>open</code>
+						<label>Open</label>
+					</item>
+				</item>
+				<item id="120">
+					<code>cropland</code>
+					<label>Cropland</label>
+					<item id="121">
+						<code>irrigation</code>
+						<label>Irrigation</label>
+					</item>
+				</item>
+				
+				<item id="130">
+					<code>grassland</code>
+					<label>Grassland</label>
+					<item id="131">
+						<code>dessertSteppe</code>
+						<label>Dessert Steppe</label>
+					</item>
+					
+					<item id="132">
+						<code>mountainDessertSteppe</code>
+						<label>Mountain Dessert Steppe</label>
+					</item>
+					
+					<item id="133">
+						<code>mountainForesSteppe</code>
+						<label>Mountain Forest Steppe</label>
+					</item>
+					
+					<item id="134">
+						<code>mountainSteppe</code>
+						<label>Mountain Steppe</label>
+					</item>
+					
+					<item id="135">
+						<code>steppeAndDrySteppe</code>
+						<label>Steppe and Dry Steppe</label>
+					</item>
+					
+					<item id="136">
+						<code>meadowAndMeadowSwamp</code>
+						<label>Meadow and Meadow Swamp</label>
+					</item>
+					
+					<item id="137">
+						<code>meadowPasture</code>
+						<label>Meadow Pasture</label>
+					</item>
+					
+					<item id="138">
+						<code>meadowSteppe</code>
+						<label>Meadow Steppe</label>
+					</item>
+					
+				</item>
+				
+				<item id="140">
+					<code>settlement</code>
+					<label>Settlement</label>
+					<item id="141">
+						<code>largerUrbanCenters</code>
+						<label>Larger Urban Centers</label>
+					</item>
+					<item id="142">
+						<code>village</code>
+						<label>Village</label>
+					</item>
+					<item id="143">
+						<code>settlementWithTrees</code>
+						<label>Settlement with Trees</label>
+					</item>
+				</item>
+				
+				<item id="150">
+					<code>otherLand</code>
+					<label>Other Land</label>
+					<item id="151">
+						<code>lakes</code>
+						<label>Lakes</label>
+					</item>
+					<item id="152">
+						<code>largeRivers</code>
+						<label>largeRivers</label>
+					</item>
+					<item id="153">
+						<code>bareAreas</code>
+						<label>Bare Areas</label>
+					</item>
+				</item>
+			</items>
+		</list>
+		<list id="200" name="topographical_accessibility">
+			<label type="item">Accessibility</label>
+			<label type="list">Accessibility</label>
+			<codingScheme scope="local" />
+			<items>
+				<item id="201">
+					<code>0-1</code>
+					<label>D &lt; 1km</label>
+				</item>
+				<item id="202">
+					<code>1-5</code>
+					<label>1km &lt; D &lt; 5km</label>
+				</item>
+				<item id="203">
+					<code>5-10</code>
+					<label>5km &lt; D &lt; 10km</label>
+				</item>
+				<item id="204">
+					<code>10-more</code>
+					<label>10km &lt; D</label>
+				</item>
+			</items>
+		</list>
+		<list id="300" name="topographical_elements">
+			<label type="item">Element</label>
+			<label type="list">Elements</label>
+			<item id="301">
+					<code>road</code>
+					<label>Road</label>
+			</item>
+			<item id="302">
+					<code>river</code>
+					<label>River</label>
+			</item>
+			<item id="303">
+					<code>house</code>
+					<label>House</label>
+			</item>
+			<item id="304">
+					<code>other</code>
+					<label>Other</label>
+			</item>
+		</list>
+		<list id="400" name="topographical_elements_coverage">
+			<label type="item">Coverage</label>
+			<label type="list">Coverages</label>
+			<item id="401">
+					<code>0-10</code>
+					<label>&lt; 10%</label>
+			</item>
+			<item id="402">
+					<code>10-30</code>
+					<label>10 - 30%</label>
+			</item>
+			<item id="403">
+					<code>30-60</code>
+					<label>30 - 60%</label>
+			</item>
+			<item id="404">
+					<code>60-100</code>
+					<label>60 - 100%</label>
+			</item>
+		</list>
+		<list id="500" name="human_impact_type">
+			<label type="item">Human Impact Type</label>
+			<label type="list">Human Impact Types</label>
+			<item id="501">
+					<code>logging</code>
+					<label>Logging</label>
+			</item>
+						<item id="502">
+					<code>fire</code>
+					<label>Fire</label>
+			</item>
+			<item id="503">
+					<code>grazing</code>
+					<label>Grazing</label>
+			</item>
+			<item id="504">
+					<code>mining</code>
+					<label>Mining</label>
+			</item>
+			<item id="505">
+					<code>other</code>
+					<label>Other</label>
+			</item>
+		</list>
+		<list id="600" name="human_impact_grade">
+			<label type="item">Human Impact Grade</label>
+			<label type="list">Human Impact Grades</label>
+			<item id="601">
+					<code>low</code>
+					<label>Low</label>
+			</item>
+			<item id="602">
+					<code>medium</code>
+					<label>Medium</label>
+			</item>
+			<item id="603">
+					<code>high</code>
+					<label>High</label>
+			</item>
+			
+		</list>
+		<list id="700" name="rs_satellite">
+			<label type="item">Satellite</label>
+			<label type="list">Satellites</label>
+			<item id="701">
+					<code>landsatt</code>
+					<label>Landsatt</label>
+			</item>
+			<item id="702">
+					<code>quickbird</code>
+					<label>Quickbird</label>
+			</item>
+			<item id="703">
+					<code>rapidEye</code>
+					<label>Rapid Eye</label>
+			</item>
+			<item id="704">
+					<code>other</code>
+					<label>Other</label>
+			</item>
+		</list>
+		<list id="800" name="crown_cover">
+			<label type="item">Crown Cover</label>
+			<label type="list">Crown Cover</label>
+			<item id="801">
+					<code>noCover</code>
+					<label>No Cover</label>
+					<item id="802">
+						<code>burnt</code>
+						<label>Burnt</label>
+					</item>
+					<item id="803">
+						<code>logging</code>
+						<label>Logging</label>
+					</item>
+					<item id="804">
+						<code>other</code>
+						<label>Other</label>
+					</item>
+			</item>
+			<item id="805">
+					<code>10-30</code>
+					<label>10 - 30%</label>
+			</item>
+			<item id="806">
+					<code>30-50</code>
+					<label>30 - 50%</label>
+			</item>
+			<item id="807">
+					<code>50-70</code>
+					<label>50 - 70%</label>
+			</item>
+			<item id="808">
+					<code>70-100</code>
+					<label>70 - 100%</label>
+			</item>
+		</list>
+		<list id="900" name="crown_type">
+			<label type="item">Crown Type</label>
+			<label type="list">Crown Type</label>
+			<item id="901">
+				<code>sparse</code>
+				<label>Sparse</label>
+			</item>
+			<item id="902">
+				<code>grouped</code>
+				<label>Grouped</label>
+			</item>
+			<item id="903">
+				<code>linear</code>
+				<label>Linear</label>
+			</item>
+			<item id="904">
+				<code>unknown</code>
+				<label>Unknown</label>
+			</item>
+		</list>
+	</codeLists>
+	<schema>
+		<entity id="1" name="plot" ui:tabSet="placemark" ui:tab="placemark">
+			<label xml:lang="en">Plot</label>
+			<text id="2" name="id" required="true" key="true">
+				<label xml:lang="en">Id</label>
+			</text>
+			<coordinate id="3" name="location">
+				<label xml:lang="en">Location</label>
+			</coordinate>
+			<text id="4" name="operator">
+				<label xml:lang="en">Operator</label>
+			</text>
+			<code id="5" name="land_use" list="land_use">
+				<label xml:lang="en">Land use</label>
+			</code>
+			<boolean id="6" name="land_use_change">
+				<label xml:lang="en">Land use change</label>
+			</boolean>
+			<code id="7" name="land_use_type" list="land_use" 
+				parent="land_use">
+				<label xml:lang="en">Land use type</label>
+			</code>
+			<code id="8" name="topography_accessibility" list="topographical_accessibility">
+				<label xml:lang="en">Topography Accessibility</label>
+			</code>
+			<code id="9" name="topography_elements" list="topographical_elements"
+				multiple="true">
+				<label xml:lang="en">Topography Elements</label>
+			</code>
+			<code id="10" name="topography_coverage" list="topographical_elements_coverage">
+				<label xml:lang="en">Topography Elements Coverage</label>
+			</code>
+			<code id="11" name="human_impact_type" list="human_impact_type"
+				multiple="true">
+				<label xml:lang="en">Human Impact Type</label>
+			</code>
+			<code id="12" name="human_impact_grade" list="human_impact_grade">
+				<label xml:lang="en">Human Impact Grade</label>
+			</code>
+			<number id="13" name="human_impact_year" type="integer">
+				<label xml:lang="en">Human Impact Year</label>
+			</number>
+			<date id="14" name="rs_date">
+				<label xml:lang="en">RS Date</label>
+			</date>
+			<code id="15" name="rs_satellite" list="rs_satellite">
+				<label xml:lang="en">RS Satellite</label>
+			</code>
+			
+	
+			<code id="16" name="crown_cover" list="crown_cover">
+				<label xml:lang="en">Crown Cover</label>
+			</code>
+			<code id="17" name="crown_type" list="crown_type">
+				<label xml:lang="en">Crown Type</label>
+			</code>
+			<boolean id="18" name="actively_saved">
+				<label xml:lang="en"Actively saved by user</label>
+			</boolean>
+		</entity>
+	</schema>
+</survey>
