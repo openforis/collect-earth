@@ -31,7 +31,7 @@ ${html_for_ballong}
 
 	<Folder>
 		<GroundOverlay> 
-		 <Icon><href>http://localhost:8093/eye/placemarkIcon?gePlacemarkId=${placemark.placemarkId}</href></Icon>
+		 <Icon><href>http://localhost:8093/eye/placemarkIcon?collect_text_id=${placemark.placemarkId}</href></Icon>
 		 <LatLonBox>
 		  <south>${placemark.region.south}</south><north>${placemark.region.north}</north>
 		  <west>${placemark.region.west}</west><east>${placemark.region.east}</east> 

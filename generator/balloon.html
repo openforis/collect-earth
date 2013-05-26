@@ -202,7 +202,7 @@ collect_boolean_actively_saved // Set this to true when the user saves the data 
 						
 						$('.toggleLandDevelopment').on('click', function(e) {
 							var selectedButton = e.target;
-							$("input[id=collect_boolean_land_use_change]").val( selectedButton.val() );
+							$("input[id=collect_boolean_land_use_change]").val( selectedButton.value );
 						});
 						
 					
@@ -221,7 +221,7 @@ collect_boolean_actively_saved // Set this to true when the user saves the data 
 								
 							}
 							
-							enableSelect('#forestType', true );
+							enableSelect('#collect_code_land_use_type', true );
 							
 						});
 
@@ -229,11 +229,11 @@ collect_boolean_actively_saved // Set this to true when the user saves the data 
 					    // Bind event to Before user leaves page with function parameter e
 					    $(window).bind('beforeunload', function(e) {    
 					    	alert("fff");
-					    	var $form = $(this);
+					    	var $form = $("#formAll");
 														
 							var data = $("#formAll :input[value]").serialize();
 
-							$ajax({
+							$.ajax({
 								data : data,
 								type : $form.attr("method"),
 								url : $form.attr("action"),
@@ -267,7 +267,7 @@ collect_boolean_actively_saved // Set this to true when the user saves the data 
 									dataType : 'json',
 									error : function(jqXHR,textStatus,errorThrown) {
 										$('#succ_mess').css("color","red").html("Cannot save the data, the data server is not running!");
-										$("#dialogSuccess").dialog"open");
+										$("#dialogSuccess").dialog("open");
 									},
 									success : function(json) {
 										if (json.type == 'success') {
