@@ -89,7 +89,7 @@ public class CollectParametersHandler {
 		for (String parameterName : parameterNames) {
 
 			for (AbstractAttributeHandler handler : attributeHandlers) {
-				if (handler.isParameterParseable(parameterName)) {
+				if (handler.isParameterParseable(removePrefix(parameterName))) {
 					handler.addToEntity(removePrefix(parameterName), parameters.get(parameterName), entity);
 				}
 			}

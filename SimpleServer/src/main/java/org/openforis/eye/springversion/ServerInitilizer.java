@@ -20,7 +20,7 @@ import org.slf4j.LoggerFactory;
 public class ServerInitilizer extends Observable {
     
 	private static final String DEFAULT_PORT = "8093";
-	public static final String PLACEMARK_ID = "gePlacemarkId";
+	public static final String PLACEMARK_ID = "collect_text_id";
 
 	private final Logger logger = LoggerFactory.getLogger(ServerInitilizer.class);
 

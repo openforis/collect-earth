@@ -80,7 +80,7 @@ public class EyeSurveyService {
 		List<CollectRecord> summaries = recordManager.loadSummaries(collectSurvey, ROOT_ENTITY, placemarkId);
 		CollectRecord record = null;
 		Map<String, String> placemarkParameters = null;
-		if (summaries.size() > 0) { // DELETE IF ALREADY PRESENT
+		if (summaries.size() > 0) {
 			record = summaries.get(0);
 			record = recordManager.load(collectSurvey, record.getId(), Step.ENTRY.getStepNumber());
 			

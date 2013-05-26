@@ -190,159 +190,173 @@
 		<list id="300" name="topographical_elements">
 			<label type="item">Element</label>
 			<label type="list">Elements</label>
-			<item id="301">
-					<code>road</code>
-					<label>Road</label>
-			</item>
-			<item id="302">
-					<code>river</code>
-					<label>River</label>
-			</item>
-			<item id="303">
-					<code>house</code>
-					<label>House</label>
-			</item>
-			<item id="304">
-					<code>other</code>
-					<label>Other</label>
-			</item>
+			<items>
+				<item id="301" >
+				    <code>road</code>
+				    <label>Road</label>
+				</item>
+				<item id="302">
+						<code>river</code>
+						<label>River</label>
+				</item>
+				<item id="303">
+						<code>house</code>
+						<label>House</label>
+				</item>
+				<item id="304">
+						<code>other</code>
+						<label>Other</label>
+				</item>
+			</items>
+			
 		</list>
 		<list id="400" name="topographical_elements_coverage">
 			<label type="item">Coverage</label>
 			<label type="list">Coverages</label>
-			<item id="401">
-					<code>0-10</code>
-					<label>&lt; 10%</label>
-			</item>
-			<item id="402">
-					<code>10-30</code>
-					<label>10 - 30%</label>
-			</item>
-			<item id="403">
-					<code>30-60</code>
-					<label>30 - 60%</label>
-			</item>
-			<item id="404">
-					<code>60-100</code>
-					<label>60 - 100%</label>
-			</item>
+				<items>
+				<item id="401">
+						<code>0-10</code>
+						<label>&lt; 10%</label>
+				</item>
+				<item id="402">
+						<code>10-30</code>
+						<label>10 - 30%</label>
+				</item>
+				<item id="403">
+						<code>30-60</code>
+						<label>30 - 60%</label>
+				</item>
+				<item id="404">
+						<code>60-100</code>
+						<label>60 - 100%</label>
+				</item>
+			</items>
 		</list>
 		<list id="500" name="human_impact_type">
 			<label type="item">Human Impact Type</label>
 			<label type="list">Human Impact Types</label>
-			<item id="501">
-					<code>logging</code>
-					<label>Logging</label>
-			</item>
-						<item id="502">
-					<code>fire</code>
-					<label>Fire</label>
-			</item>
-			<item id="503">
-					<code>grazing</code>
-					<label>Grazing</label>
-			</item>
-			<item id="504">
-					<code>mining</code>
-					<label>Mining</label>
-			</item>
-			<item id="505">
-					<code>other</code>
-					<label>Other</label>
-			</item>
+			<items>
+				<item id="501">
+						<code>logging</code>
+						<label>Logging</label>
+				</item>
+							<item id="502">
+						<code>fire</code>
+						<label>Fire</label>
+				</item>
+				<item id="503">
+						<code>grazing</code>
+						<label>Grazing</label>
+				</item>
+				<item id="504">
+						<code>mining</code>
+						<label>Mining</label>
+				</item>
+				<item id="505">
+						<code>other</code>
+						<label>Other</label>
+				</item>
+			</items>
 		</list>
 		<list id="600" name="human_impact_grade">
 			<label type="item">Human Impact Grade</label>
 			<label type="list">Human Impact Grades</label>
-			<item id="601">
-					<code>low</code>
-					<label>Low</label>
-			</item>
-			<item id="602">
-					<code>medium</code>
-					<label>Medium</label>
-			</item>
-			<item id="603">
-					<code>high</code>
-					<label>High</label>
-			</item>
-			
+			<items>
+				<item id="601">
+						<code>low</code>
+						<label>Low</label>
+				</item>
+				<item id="602">
+						<code>medium</code>
+						<label>Medium</label>
+				</item>
+				<item id="603">
+						<code>high</code>
+						<label>High</label>
+				</item>
+			</items>
 		</list>
 		<list id="700" name="rs_satellite">
 			<label type="item">Satellite</label>
 			<label type="list">Satellites</label>
-			<item id="701">
-					<code>landsatt</code>
-					<label>Landsatt</label>
-			</item>
-			<item id="702">
-					<code>quickbird</code>
-					<label>Quickbird</label>
-			</item>
-			<item id="703">
-					<code>rapidEye</code>
-					<label>Rapid Eye</label>
-			</item>
-			<item id="704">
-					<code>other</code>
-					<label>Other</label>
-			</item>
+			<items>
+				<item id="701">
+						<code>landsatt</code>
+						<label>Landsatt</label>
+				</item>
+				<item id="702">
+						<code>quickbird</code>
+						<label>Quickbird</label>
+				</item>
+				<item id="703">
+						<code>rapidEye</code>
+						<label>Rapid Eye</label>
+				</item>
+				<item id="704">
+						<code>other</code>
+						<label>Other</label>
+				</item>
+			</items>
 		</list>
 		<list id="800" name="crown_cover">
 			<label type="item">Crown Cover</label>
 			<label type="list">Crown Cover</label>
-			<item id="801">
-					<code>noCover</code>
-					<label>No Cover</label>
-					<item id="802">
-						<code>burnt</code>
-						<label>Burnt</label>
-					</item>
-					<item id="803">
-						<code>logging</code>
-						<label>Logging</label>
-					</item>
-					<item id="804">
-						<code>other</code>
-						<label>Other</label>
-					</item>
-			</item>
-			<item id="805">
-					<code>10-30</code>
-					<label>10 - 30%</label>
-			</item>
-			<item id="806">
-					<code>30-50</code>
-					<label>30 - 50%</label>
-			</item>
-			<item id="807">
-					<code>50-70</code>
-					<label>50 - 70%</label>
-			</item>
-			<item id="808">
-					<code>70-100</code>
-					<label>70 - 100%</label>
-			</item>
+			<items>
+				<item id="801">
+						<code>noCover</code>
+						<label>No Cover</label>
+						<item id="802">
+							<code>burnt</code>
+							<label>Burnt</label>
+						</item>
+						<item id="803">
+							<code>logging</code>
+							<label>Logging</label>
+						</item>
+						<item id="804">
+							<code>other</code>
+							<label>Other</label>
+						</item>
+				</item>
+				<item id="805">
+						<code>10-30</code>
+						<label>10 - 30%</label>
+				</item>
+				<item id="806">
+						<code>30-50</code>
+						<label>30 - 50%</label>
+				</item>
+				<item id="807">
+						<code>50-70</code>
+						<label>50 - 70%</label>
+				</item>
+				<item id="808">
+						<code>70-100</code>
+						<label>70 - 100%</label>
+				</item>
+			</items>
 		</list>
 		<list id="900" name="crown_type">
 			<label type="item">Crown Type</label>
 			<label type="list">Crown Type</label>
-			<item id="901">
-				<code>sparse</code>
-				<label>Sparse</label>
-			</item>
-			<item id="902">
-				<code>grouped</code>
-				<label>Grouped</label>
-			</item>
-			<item id="903">
-				<code>linear</code>
-				<label>Linear</label>
-			</item>
-			<item id="904">
-				<code>unknown</code>
-				<label>Unknown</label>
-			</item>
+			<items>
+				<item id="901">
+					<code>sparse</code>
+					<label>Sparse</label>
+				</item>
+				<item id="902">
+					<code>grouped</code>
+					<label>Grouped</label>
+				</item>
+				<item id="903">
+					<code>linear</code>
+					<label>Linear</label>
+				</item>
+				<item id="904">
+					<code>unknown</code>
+					<label>Unknown</label>
+				</item>
+			</items>
 		</list>
 	</codeLists>
 	<schema>
@@ -402,7 +416,7 @@
 				<label xml:lang="en">Crown Type</label>
 			</code>
 			<boolean id="18" name="actively_saved">
-				<label xml:lang="en"Actively saved by user</label>
+				<label xml:lang="en">Actively saved by user</label>
 			</boolean>
 		</entity>
 	</schema>

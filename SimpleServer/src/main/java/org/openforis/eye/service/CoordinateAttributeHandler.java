@@ -22,8 +22,13 @@ public class CoordinateAttributeHandler extends AbstractAttributeHandler {
 	@Override
 	public void addToEntity(String parameterName, String parameterValue, Entity entity) {
 		String[] coordinatesCSV = parameterValue.split(",");
+		String srs = "";
+		if (coordinatesCSV.length > 2) {
+			srs = coordinatesCSV[2];
+		}
+
 		EntityBuilder.addValue(entity, removePrefix(parameterName),
-				new Coordinate(Double.parseDouble(coordinatesCSV[0]), Double.parseDouble(coordinatesCSV[1]), coordinatesCSV[2]));
+				new Coordinate(Double.parseDouble(coordinatesCSV[0]), Double.parseDouble(coordinatesCSV[1]), srs));
 	}
 
 

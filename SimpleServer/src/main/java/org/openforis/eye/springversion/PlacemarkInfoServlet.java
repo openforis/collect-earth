@@ -1,6 +1,7 @@
 package org.openforis.eye.springversion;
 
 import java.io.IOException;
+import java.util.HashMap;
 import java.util.Map;
 
 import javax.servlet.http.HttpServletRequest;
@@ -34,6 +35,9 @@ public class PlacemarkInfoServlet extends JsonPocessorServlet {
 				getLogger().info("A placemark was found with these properties" + collectedData.toString());
 
 			} else {
+				if (collectedData == null) {
+					collectedData = new HashMap<String, String>();
+				}
 				setResult(false, "No placemark found", collectedData);
 				getLogger().info("No placemark found " + collectedData.toString());
 			}
