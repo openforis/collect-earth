@@ -1,0 +1,347 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>Test Form</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<script src="files/jquery/jquery.js"></script>
+<script src="files/jquery/jquery-ui.js"></script>
+<script src="files/jquery/jquery.blockUI.js"></script>
+<link href="files/jquery/jquery-ui.css" rel="stylesheet" />
+
+<link href="files/bootstrap/bootstrap.css" rel="stylesheet">
+<!-- <script src="files/bootstrap/bootstrap.min.js"></script> -->
+
+<script>
+	var collapsedState = false;
+
+	var toggleCollapsed = function() {
+		if (collapsedState == false) {
+			document.getElementById('collapsableDiv').style.width = '200px';
+			document.getElementById('collapsableDiv').style.height = '200px';
+			document.getElementById('contentDiv').style.display = 'none';
+			collapsedState = true;
+		} else {
+			document.getElementById('collapsableDiv').style.width = '400px';
+			document.getElementById('collapsableDiv').style.height = '400px';
+			document.getElementById('contentDiv').style.display = 'block';
+			collapsedState = false;
+		}
+		document.getElementById('dummy').src = "about:blank";
+	}
+
+	var forceWindowCloseAfterDialogCloses = function($dialog) {
+		$dialog.on("dialogclose", function(event, ui) {
+
+			window.open("#$[next_id];balloonFlyto");
+			// window.close();
+
+		});
+	}
+
+	var checkIfPlacemarkAlreadyFilled = function($form) {
+
+		data = $form.serialize();
+
+		$.ajax({
+			data : data,
+			type : "POST",
+			url : "http://localhost:8093/eye/placemarkInfo",
+			dataType : 'json',
+			error : function(jqXHR, textStatus, errorThrown) {
+				$('#succ_mess').css("color", "red").html("The data server is not running!");
+				$("#dialogSuccess").dialog("open");
+			},
+			success : function(json) {
+				if (json.type == 'success') {
+					$('#succ_mess').css("color", "red").html("The data for this placemark has already been filled");
+					$("#dialogSuccess").dialog("open");
+					forceWindowCloseAfterDialogCloses($("#dialogSuccess"));
+				}
+
+			}
+		});
+	}
+
+	$(document).ready( function() {
+
+			$("#dialogSuccess")
+					.dialog({
+						modal : true,
+						autoOpen : false,
+						buttons : {
+							Ok : function() {
+								$(this).dialog("close");
+							}
+						}
+					});
+
+			$(window).resize(
+					function() {
+						$("#dialog-message").dialog("option","position", "center");
+					});
+
+			$("#tabsTypeOfTerrain").tabs(
+					{
+						activate : function(event, ui) {
+
+							var selectedTab = event.currentTarget;
+							var idSelected = $(event.currentTarget).attr("name");
+							$("input[id=type_of_terrain]").val(idSelected);
+
+						}
+					});
+
+			$("#forestTypeDiv").buttonset();
+			$("#crownCoverDiv").buttonset();
+
+			$('input[name="radioForest"]').change(function() {
+				var idSelected = $(this).attr("id");
+				$("input[id=type_of_forest]").val(idSelected);
+				$("#crownCoverDiv").show();
+			});
+
+			$('input[name="radioCrown"]').change(function() {
+				var idSelected = $(this).attr("id");
+				$("input[id=crown_cover]").val(idSelected);
+				$("#imageResolutionDiv").show();
+			});
+
+			$("#crownCoverDiv").hide();
+
+			$('#formAll').submit(
+				function(e) {
+					e.preventDefault();
+					var $form = $(this), data = $form
+							.serialize();
+
+					$.blockUI({
+								message : 'Sumitting data..'
+							});
+					// unblock when ajax activity stops 
+					$(document).ajaxStop($.unblockUI);
+
+					$.ajax({
+						data : data,
+						type : $form.attr("method"),
+						url : $form.attr("action"),
+						dataType : 'json',
+						error : function(jqXHR,textStatus,errorThrown) {
+							$('#succ_mess')
+									.css("color","red")
+									.html("Cannot save the data, the data server is not running!");
+							$("#dialogSuccess")
+									.dialog("open");
+						},
+						success : function(json) {
+							if (json.type == 'success') {
+								$('#succ_mess')
+										.css("color","green")
+										.html(json.message);
+								forceWindowCloseAfterDialogCloses($("#dialogSuccess"));
+							} else if (json.type == 'warning') {
+								$('#succ_mess')
+										.css("color","yellow")
+										.html(json.message);
+							} else if (json.type == 'error') {
+								$('#succ_mess')
+										.css("color","red")
+										.html(json.message);
+							}
+							$("#dialogSuccess").dialog("open");
+						}
+					});
+				});
+			});
+</script>
+<style type="text/css">
+body {
+	font-family: "Trebuchet MS", "Helvetica", "Arial", "Verdana",
+		"sans-serif";
+	/* 	font-size: 62.5%; */
+}
+
+.selectDiv {
+	border: 2px solid #5F5D69;
+	border-top-left-radius: 6px;
+	border-top-right-radius: 6px;
+}
+
+.selectDiv h2 {
+	padding: 2px;
+	color: #5F5D69;
+	line-height: 20px;
+	background-color: #F6F5FF;
+	font-size: 8pt; /* or whatever */
+	margin-bottom: 10px;
+	margin-top: 5px;
+}
+</style>
+
+</head>
+<body>
+
+	<div id="collapsableDiv" class="collapse in">
+		<form id="formAll" method="POST"
+			action="http://localhost:8093/eye/saveData">
+
+			<input type="hidden" id="type_of_terrain" name="type_of_terrain"
+				value="" /> <input type="hidden" id="type_of_forest"
+				name="type_of_forest" value="" /> <input type="hidden"
+				id="crown_cover" name="crown_cover" value="" /> <input
+				type="hidden" id="longitude" name="longitude" value="$[longitude]" />
+			<input type="hidden" id="latitude" name="latitude"
+				value=" $[latitude]" /> <input type="hidden" id="gePlacemarkId"
+				name="gePlacemarkId" value="$[id]" />
+
+
+			<!-- 	 // removed class container  -->
+			<a href="#" onclick="toggleCollapsed(); return false;"> simple collapsible </a>
+			<div id="contentDiv">
+				<div id="dialogSuccess" title="Information">
+						<span class="ui-icon ui-icon-circle-check"
+							style="float: left; margin: 0 7px 50px 0;"> </span>
+					<div id="succ_mess"></div>
+				</div>
+
+				<div id="tabsTypeOfTerrain">
+					<ul>
+						<li><a href="#tabsForest" name="forest">Forest</a></li>
+						<li><a href="#tabsOwl" name="owl">Owl</a></li>
+						<li><a href="#tabsOther" name="other">Other</a></li>
+						<li><a href="#tabsWater" name="water">Water</a></li>
+						<li><a href="#tabsNoData" name="noData">No Data</a></li>
+						<span style="float: right;">LAND USE TYPE</span>
+					</ul>
+
+
+					<div id="tabsForest">
+
+						<div id="forestTypeDiv" class="selectDiv">
+							<h2>Forest Type</h2>
+							<input type="radio" id="decidious" name="radioForest" /><label
+								for="decidious">Dry Decidious</label> <input type="radio"
+								id="dryEvergreen" name="radioForest" /><label
+								for="dryEvergreen">Dry Evergreen</label> <input type="radio"
+								id="moistEvergreen" name="radioForest" /><label
+								for="moistEvergreen">Moist Evergreen</label> <input type="radio"
+								id="forestWoodland" name="radioForest" /><label
+								for="forestWoodland">Forest WoodLand</label> <input type="radio"
+								id="plantation" name="radioForest" /><label for="plantation">Plantation</label>
+						</div>
+
+						<div id="crownCoverDiv" class="selectDiv">
+							<h2>Crown Cover</h2>
+
+							<input type="radio" id="4" name="radioCrown" /><label for="4">00-04%</label>
+							<input type="radio" id="9" name="radioCrown" /><label for="9">05-09%</label>
+							<input type="radio" id="19" name="radioCrown" /><label for="19">10-19%</label>
+							<input type="radio" id="49" name="radioCrown" /><label for="49">20-49%</label>
+							<input type="radio" id="79" name="radioCrown" /><label for="79">50-79%</label>
+							<input type="radio" id="100" name="radioCrown" /><label
+								for="100">79%</label>
+						</div>
+
+					</div>
+
+					<div id="tabsOwl">
+						<h2>Content heading 2</h2>
+						<p class="text-error">dsfdsfs</p>
+						<span class="label label-warning">Warning</span> <a
+							href="#ge_1;flyto" id="flyBack"> Back to start - DO NOT
+							REMOVE</a><br /> <a href="#ge_1;balloonFlyto">Fly to balloon</a><br/> <a
+							href="#" onclick="window.open('#ge_1;balloonFlyto')">Fly to
+							balloon2</a><br/>
+
+						<div class="alert">
+							<button type="button" class="close" data-dismiss="alert">&times;</button>
+							<strong>Warning!</strong> Best check yo self, you're not looking
+							too good.
+						</div>
+						<p>Morbi tincidunt, dui sit amet facilisis feugiat, odio metus
+							gravida ante, ut pharetra massa metus id nunc. Duis scelerisque
+							molestie turpis. Sed fringilla, massa eget luctus malesuada,
+							metus eros molestie lectus, ut tempus eros massa ut dolor. Aenean
+							aliquet fringilla sem. Suspendisse sed ligula in ligula suscipit
+							aliquam. Praesent in eros vestibulum mi adipiscing adipiscing.
+							Morbi facilisis. Curabitur ornare consequat nunc. Aenean vel
+							metus. Ut posuere viverra nulla. Aliquam erat volutpat.
+							Pellentesque convallis. Maecenas feugiat, tellus pellentesque
+							pretium posuere, felis lorem euismod felis, eu ornare leo nisi
+							vel felis. Mauris consectetur tortor et purus.</p>
+					</div>
+					<div id="tabsOther">
+						<h2>Content heading 3</h2>
+						<p>Mauris eleifend est et turpis. Duis id erat. Suspendisse
+							potenti. Aliquam vulputate, pede vel vehicula accumsan, mi neque
+							rutrum erat, eu congue orci lorem eget lorem. Vestibulum non
+							ante. Class aptent taciti sociosqu ad litora torquent per conubia
+							nostra, per inceptos himenaeos. Fusce sodales. Quisque eu urna
+							vel enim commodo pellentesque. Praesent eu risus hendrerit ligula
+							tempus pretium. Curabitur lorem enim, pretium nec, feugiat nec,
+							luctus a, lacus.</p>
+						<p>Duis cursus. Maecenas ligula eros, blandit nec, pharetra
+							at, semper at, magna. Nullam ac lacus. Nulla facilisi. Praesent
+							viverra justo vitae neque. Praesent blandit adipiscing velit.
+							Suspendisse potenti. Donec mattis, pede vel pharetra blandit,
+							magna ligula faucibus eros, id euismod lacus dolor eget odio. Nam
+							scelerisque. Donec non libero sed nulla mattis commodo. Ut
+							sagittis. Donec nisi lectus, feugiat porttitor, tempor ac, tempor
+							vitae, pede. Aenean vehicula velit eu tellus interdum rutrum.
+							Maecenas commodo. Pellentesque nec elit. Fusce in lacus. Vivamus
+							a libero vitae lectus hendrerit hendrerit.</p>
+					</div>
+					<div id="tabsWater">
+						<h2>Content heading 3</h2>
+						<p>Mauris eleifend est et turpis. Duis id erat. Suspendisse
+							potenti. Aliquam vulputate, pede vel vehicula accumsan, mi neque
+							rutrum erat, eu congue orci lorem eget lorem. Vestibulum non
+							ante. Class aptent taciti sociosqu ad litora torquent per conubia
+							nostra, per inceptos himenaeos. Fusce sodales. Quisque eu urna
+							vel enim commodo pellentesque. Praesent eu risus hendrerit ligula
+							tempus pretium. Curabitur lorem enim, pretium nec, feugiat nec,
+							luctus a, lacus.</p>
+						<p>Duis cursus. Maecenas ligula eros, blandit nec, pharetra
+							at, semper at, magna. Nullam ac lacus. Nulla facilisi. Praesent
+							viverra justo vitae neque. Praesent blandit adipiscing velit.
+							Suspendisse potenti. Donec mattis, pede vel pharetra blandit,
+							magna ligula faucibus eros, id euismod lacus dolor eget odio. Nam
+							scelerisque. Donec non libero sed nulla mattis commodo. Ut
+							sagittis. Donec nisi lectus, feugiat porttitor, tempor ac, tempor
+							vitae, pede. Aenean vehicula velit eu tellus interdum rutrum.
+							Maecenas commodo. Pellentesque nec elit. Fusce in lacus. Vivamus
+							a libero vitae lectus hendrerit hendrerit.</p>
+					</div>
+					<div id="tabsNoData">
+						<h2>Content heading 3</h2>
+						<p>Mauris eleifend est et turpis. Duis id erat. Suspendisse
+							potenti. Aliquam vulputate, pede vel vehicula accumsan, mi neque
+							rutrum erat, eu congue orci lorem eget lorem. Vestibulum non
+							ante. Class aptent taciti sociosqu ad litora torquent per conubia
+							nostra, per inceptos himenaeos. Fusce sodales. Quisque eu urna
+							vel enim commodo pellentesque. Praesent eu risus hendrerit ligula
+							tempus pretium. Curabitur lorem enim, pretium nec, feugiat nec,
+							luctus a, lacus.</p>
+						<p>Duis cursus. Maecenas ligula eros, blandit nec, pharetra
+							at, semper at, magna. Nullam ac lacus. Nulla facilisi. Praesent
+							viverra justo vitae neque. Praesent blandit adipiscing velit.
+							Suspendisse potenti. Donec mattis, pede vel pharetra blandit,
+							magna ligula faucibus eros, id euismod lacus dolor eget odio. Nam
+							scelerisque. Donec non libero sed nulla mattis commodo. Ut
+							sagittis. Donec nisi lectus, feugiat porttitor, tempor ac, tempor
+							vitae, pede. Aenean vehicula velit eu tellus interdum rutrum.
+							Maecenas commodo. Pellentesque nec elit. Fusce in lacus. Vivamus
+							a libero vitae lectus hendrerit hendrerit.</p>
+					</div>
+				</div>
+				<div class="form-actions">
+					<button type="submit" class="btn btn-primary">Save changes</button>
+				</div>
+			</div>
+
+
+		</form>
+	</div>
+	<iframe style="display: none" id="dummy" src="about:blank"></iframe>
+</body>
+</html>

@@ -1,0 +1,21 @@
+<html>
+<head>
+<style>
+#sizer { width: 400px; border: 1px solid red; }
+</style>
+<script>
+function resizeBalloon() {
+document.getElementById('sizer').style.width = '200px';
+document.getElementById('sizer').style.height = '500px';
+
+document.getElementById('dummy').src = "about:blank";
+}
+</script>
+</head>
+<body>
+<div id="sizer">
+<a href="#" onclick="resizeBalloon(); return false;">Resize balloon</a>
+</div>
+<iframe style="display: none" id="dummy" src="about:blank"></iframe>
+</body>
+</html>
