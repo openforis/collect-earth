@@ -14,8 +14,8 @@ public class TextAttributeHandler extends AbstractAttributeHandler {
 	}
 
 	@Override
-	public String getAttributeFromParameter(String parameterName, Entity entity) {
-		return ((TextAttribute) entity.get(removePrefix(parameterName), 0)).getValue().getValue();
+	public String getAttributeFromParameter(String parameterName, Entity entity, int index) {
+		return ((TextAttribute) entity.get(removePrefix(parameterName), index)).getValue().getValue();
 	}
 
 	@Override

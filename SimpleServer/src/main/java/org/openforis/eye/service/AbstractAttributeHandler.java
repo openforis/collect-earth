@@ -14,7 +14,11 @@ public abstract class AbstractAttributeHandler {
 
 	public abstract void addToEntity(String parameterName, String parameterValue, Entity entity);
 
-	public abstract String getAttributeFromParameter(String parameterName, Entity entity);
+	public abstract String getAttributeFromParameter(String parameterName, Entity entity, int index);
+
+	public String getAttributeFromParameter(String parameterName, Entity entity) {
+		return getAttributeFromParameter(parameterName, entity, 0);
+	}
 
 	public String getPrefix() {
 		return prefix;

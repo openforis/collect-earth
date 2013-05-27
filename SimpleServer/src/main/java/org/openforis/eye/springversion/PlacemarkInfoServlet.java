@@ -23,12 +23,16 @@ public class PlacemarkInfoServlet extends JsonPocessorServlet {
 		Map<String, String> collectedData = extractRequestData(request);
 
 		String placemarkId = getPlacemarkId(collectedData);
+
+		// REMOVE THIS!!!!¬
+		placemarkId = "testPlacemark";
+
 		if (placemarkId == null) {
 			setResult(false, "No placemark ID found in the request", collectedData);
 			getLogger().error("No placemark ID found in the received request");
 		} else {
 
-			collectedData = getDataAccessor().getData(getPlacemarkId(collectedData));
+			collectedData = getDataAccessor().getData(placemarkId);
 			if (collectedData != null && collectedData.size() > 0) {
 
 				setResult(true, "The placemark was found", collectedData);

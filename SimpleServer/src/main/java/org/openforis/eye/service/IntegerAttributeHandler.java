@@ -14,8 +14,8 @@ public class IntegerAttributeHandler extends AbstractAttributeHandler {
 	}
 
 	@Override
-	public String getAttributeFromParameter(String parameterName, Entity entity) {
-		return ((IntegerAttribute) entity.get(removePrefix(parameterName), 0)).getValue().getValue().toString();
+	public String getAttributeFromParameter(String parameterName, Entity entity, int index) {
+		return ((IntegerAttribute) entity.get(removePrefix(parameterName), index)).getValue().getValue().toString();
 	}
 
 	@Override

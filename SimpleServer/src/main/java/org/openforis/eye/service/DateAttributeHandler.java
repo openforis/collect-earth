@@ -15,8 +15,8 @@ public class DateAttributeHandler extends AbstractAttributeHandler {
 	}
 
 	@Override
-	public String getAttributeFromParameter(String parameterName, Entity entity) {
-		return ((DateAttribute) entity.get(removePrefix(parameterName), 0)).getValue().toXmlDate();
+	public String getAttributeFromParameter(String parameterName, Entity entity, int index) {
+		return ((DateAttribute) entity.get(removePrefix(parameterName), index)).getValue().toXmlDate();
 	}
 
 	@Override

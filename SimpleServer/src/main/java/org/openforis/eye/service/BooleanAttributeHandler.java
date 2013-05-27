@@ -14,9 +14,9 @@ public class BooleanAttributeHandler extends AbstractAttributeHandler {
 	}
 
 	@Override
-	public String getAttributeFromParameter(String parameterName, Entity entity) {
+	public String getAttributeFromParameter(String parameterName, Entity entity, int index) {
 		// Values true / false
-		return ((BooleanAttribute) entity.get(removePrefix(parameterName), 0)).getValue().getValue().toString();
+		return ((BooleanAttribute) entity.get(removePrefix(parameterName), index)).getValue().getValue().toString();
 	}
 
 	@Override

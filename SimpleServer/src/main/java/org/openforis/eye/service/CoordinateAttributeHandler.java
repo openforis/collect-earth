@@ -15,8 +15,9 @@ public class CoordinateAttributeHandler extends AbstractAttributeHandler {
 	}
 
 	@Override
-	public String getAttributeFromParameter(String parameterName, Entity entity) {
-		return ((CoordinateAttribute) entity.get(removePrefix(parameterName), 0)).getValue().toString();
+	public String getAttributeFromParameter(String parameterName, Entity entity, int index) {
+		return ((CoordinateAttribute) entity.get(removePrefix(parameterName), index)).getValue().getX() + ","
+				+ ((CoordinateAttribute) entity.get(removePrefix(parameterName), index)).getValue().getY();
 	}
 
 	@Override
@@ -26,6 +27,15 @@ public class CoordinateAttributeHandler extends AbstractAttributeHandler {
 		if (coordinatesCSV.length > 2) {
 			srs = coordinatesCSV[2];
 		}
+		// REMOVE THIS!!
+		// -----------------------
+		if (coordinatesCSV[0].equals("$[longitude]")) {
+			coordinatesCSV[0] = "0";
+		}
+		if (coordinatesCSV[1].equals("$[latitude]")) {
+			coordinatesCSV[1] = "0";
+		}
+		// -----------------------
 
 		EntityBuilder.addValue(entity, removePrefix(parameterName),
 				new Coordinate(Double.parseDouble(coordinatesCSV[0]), Double.parseDouble(coordinatesCSV[1]), srs));

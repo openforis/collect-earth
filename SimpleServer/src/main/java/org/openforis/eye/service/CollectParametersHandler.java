@@ -6,6 +6,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
+import org.apache.commons.lang3.StringUtils;
 import org.openforis.idm.metamodel.NodeDefinition;
 import org.openforis.idm.model.Attribute;
 import org.openforis.idm.model.Entity;
@@ -17,6 +18,8 @@ import org.springframework.context.annotation.ClassPathScanningCandidateComponen
 import org.springframework.core.type.filter.AssignableTypeFilter;
 
 public class CollectParametersHandler {
+
+	private static final String PARAMETER_SEPARATOR = "===";
 
 	public static final String COLLECT_PREFIX = "collect_";
 
@@ -43,14 +46,18 @@ public class CollectParametersHandler {
 						// Saves into "collect_text_parameter"
 						String collectParamName = COLLECT_PREFIX + paramName;
 						if( parameters.get( collectParamName ) != null ){
+
+							int index = StringUtils.countMatches(parameters.get(collectParamName), PARAMETER_SEPARATOR) + 1;
+
 							parameters.put(
 									collectParamName,
-									parameters.get(collectParamName) + " "
-											+ handler.getAttributeFromParameter(paramName, plotEntity));
+									parameters.get(collectParamName) + PARAMETER_SEPARATOR
+											+ handler.getAttributeFromParameter(paramName, plotEntity, index));
 							
 						}else{
 							parameters.put(collectParamName, handler.getAttributeFromParameter(paramName, plotEntity));
 						}
+						break;
 					}
 				}
 			}
@@ -84,17 +91,47 @@ public class CollectParametersHandler {
 		return parameterName.substring(COLLECT_PREFIX.length());
 	}
 
+	private String removeArraySuffix(String parameterName) {
+
+		int lastUnderscore = parameterName.lastIndexOf("_");
+		String passibleInteger = parameterName.substring(lastUnderscore + 1);
+
+		try {
+			Integer.parseInt(passibleInteger);
+
+			parameterName = parameterName.substring(0, lastUnderscore);
+
+		} catch (NumberFormatException e) {
+			// It is not an integer suffix, do nothing
+		}
+
+		return parameterName;
+	}
+
 	public void saveToEntity(Map<String, String> parameters, Entity entity) {
 		Set<String> parameterNames = parameters.keySet();
 		for (String parameterName : parameterNames) {
 
+			String parameterValue = parameters.get(parameterName);
+			String cleanName = cleanUpParameterName(parameterName);
+
 			for (AbstractAttributeHandler handler : attributeHandlers) {
-				if (handler.isParameterParseable(removePrefix(parameterName))) {
-					handler.addToEntity(removePrefix(parameterName), parameters.get(parameterName), entity);
+				if (handler.isParameterParseable(cleanName)) {
+					if (parameterValue == null || parameterValue.length() == 0) {
+						entity.remove(cleanName, 0);
+					} else {
+						handler.addToEntity(cleanName, parameterValue, entity);
+					}
 				}
 			}
 		}
 
+	}
+
+	private String cleanUpParameterName(String parameterName) {
+		parameterName = removeArraySuffix(parameterName);
+		parameterName = removePrefix(parameterName);
+		return parameterName;
 	}
 
 }

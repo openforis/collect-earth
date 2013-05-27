@@ -15,8 +15,8 @@ public class CodeAttributeHandler extends AbstractAttributeHandler {
 	}
 
 	@Override
-	public String getAttributeFromParameter(String parameterName, Entity entity) {
-		return ((CodeAttribute) entity.get(removePrefix(parameterName), 0)).getValue().getCode();
+	public String getAttributeFromParameter(String parameterName, Entity entity, int index) {
+		return ((CodeAttribute) entity.get(removePrefix(parameterName), index)).getValue().getCode();
 	}
 
 	@Override

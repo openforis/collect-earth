@@ -22,8 +22,18 @@ public abstract class JsonPocessorServlet extends DataAccessingServlet {
 		@SuppressWarnings("rawtypes")
 		Enumeration enParams = request.getParameterNames();
 		while (enParams.hasMoreElements()) {
+
 			String paramName = (String) enParams.nextElement();
-			collectedData.put(paramName, request.getParameter(paramName).toString());
+			String[] values = request.getParameterValues(paramName);
+			if (values.length == 1) {
+				collectedData.put(paramName, values[0]);
+			} else {
+				int i = 1;
+				for (String val : values) {
+					collectedData.put(paramName + "_" + i, val);
+					i++;
+				}
+			}
 		}
 		return collectedData;
 	}
@@ -59,7 +69,7 @@ public abstract class JsonPocessorServlet extends DataAccessingServlet {
 
 	protected void setResult(boolean success, String message, Map<String, String> collectedData) {
 		collectedData.put("type", success ? "success" : "error"); // success,error,warning
-		collectedData.put("message", "The data has been saved");
+		collectedData.put("message", message);
 	}
 
 }
