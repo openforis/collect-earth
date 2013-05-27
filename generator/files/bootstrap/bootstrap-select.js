@@ -46,6 +46,7 @@
             if (id !== undefined) {
                 var _this = this;
                 this.button.attr('data-id', id);
+                this.button.attr('id', id);
                 $('label[for="' + id + '"]').click(function(){
                     _this.$newElement.find('button[data-id='+id+']').focus(); 
                 })
