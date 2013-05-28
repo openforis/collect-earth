@@ -5,6 +5,7 @@ import org.openforis.idm.model.Coordinate;
 import org.openforis.idm.model.CoordinateAttribute;
 import org.openforis.idm.model.Entity;
 import org.openforis.idm.model.EntityBuilder;
+import org.openforis.idm.model.Value;
 
 public class CoordinateAttributeHandler extends AbstractAttributeHandler {
 
@@ -22,6 +23,12 @@ public class CoordinateAttributeHandler extends AbstractAttributeHandler {
 
 	@Override
 	public void addToEntity(String parameterName, String parameterValue, Entity entity) {
+		Coordinate coord = extractCoordinate(parameterValue);
+
+		EntityBuilder.addValue(entity, removePrefix(parameterName), coord);
+	}
+
+	private Coordinate extractCoordinate(String parameterValue) {
 		String[] coordinatesCSV = parameterValue.split(",");
 		String srs = "";
 		if (coordinatesCSV.length > 2) {
@@ -37,13 +44,18 @@ public class CoordinateAttributeHandler extends AbstractAttributeHandler {
 		}
 		// -----------------------
 
-		EntityBuilder.addValue(entity, removePrefix(parameterName),
-				new Coordinate(Double.parseDouble(coordinatesCSV[0]), Double.parseDouble(coordinatesCSV[1]), srs));
+		Coordinate coord = new Coordinate(Double.parseDouble(coordinatesCSV[0]), Double.parseDouble(coordinatesCSV[1]), srs);
+		return coord;
 	}
 
 
 	@Override
 	public boolean isAttributeParseable(Attribute value) {
 		return value instanceof CoordinateAttribute;
+	}
+
+	@Override
+	public Value getAttributeValue(String parameterValue) {
+		return extractCoordinate(parameterValue);
 	}
 }

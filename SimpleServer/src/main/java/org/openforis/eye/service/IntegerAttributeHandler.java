@@ -4,6 +4,8 @@ import org.openforis.idm.model.Attribute;
 import org.openforis.idm.model.Entity;
 import org.openforis.idm.model.EntityBuilder;
 import org.openforis.idm.model.IntegerAttribute;
+import org.openforis.idm.model.IntegerValue;
+import org.openforis.idm.model.Value;
 
 public class IntegerAttributeHandler extends AbstractAttributeHandler {
 
@@ -26,6 +28,11 @@ public class IntegerAttributeHandler extends AbstractAttributeHandler {
 	@Override
 	public boolean isAttributeParseable(Attribute value) {
 		return value instanceof IntegerAttribute;
+	}
+
+	@Override
+	public Value getAttributeValue(String parameterValue) {
+		return new IntegerValue(Integer.parseInt(parameterValue), null);
 	}
 
 }

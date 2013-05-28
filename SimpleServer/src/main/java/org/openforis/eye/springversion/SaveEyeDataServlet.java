@@ -20,7 +20,9 @@ public class SaveEyeDataServlet extends JsonPocessorServlet {
 		Map<String, String> collectedData = extractRequestData(request);
 
 		// REMOVE THIS!!!!
-		collectedData.put("collect_text_id", "testPlacemark");
+		if (collectedData.get("collect_text_id").equals("$[id]")) {
+			collectedData.put("collect_text_id", "testPlacemark");
+		}
 
 		if (collectedData.size() == 0) {
 			setResult(false, "Empty request", collectedData);

@@ -4,6 +4,8 @@ import org.openforis.idm.model.Attribute;
 import org.openforis.idm.model.Entity;
 import org.openforis.idm.model.EntityBuilder;
 import org.openforis.idm.model.TextAttribute;
+import org.openforis.idm.model.TextValue;
+import org.openforis.idm.model.Value;
 
 public class TextAttributeHandler extends AbstractAttributeHandler {
 
@@ -26,6 +28,11 @@ public class TextAttributeHandler extends AbstractAttributeHandler {
 	@Override
 	public boolean isAttributeParseable(Attribute value) {
 		return value instanceof TextAttribute;
+	}
+
+	@Override
+	public Value getAttributeValue(String parameterValue) {
+		return new TextValue(parameterValue);
 	}
 
 }

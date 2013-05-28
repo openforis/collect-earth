@@ -4,6 +4,7 @@ import org.openforis.idm.model.Attribute;
 import org.openforis.idm.model.BooleanAttribute;
 import org.openforis.idm.model.Entity;
 import org.openforis.idm.model.EntityBuilder;
+import org.openforis.idm.model.Value;
 
 public class BooleanAttributeHandler extends AbstractAttributeHandler {
 
@@ -19,6 +20,7 @@ public class BooleanAttributeHandler extends AbstractAttributeHandler {
 		return ((BooleanAttribute) entity.get(removePrefix(parameterName), index)).getValue().getValue().toString();
 	}
 
+
 	@Override
 	public void addToEntity(String parameterName, String parameterValue, Entity entity) {
 		EntityBuilder.addValue(entity, removePrefix(parameterName), Boolean.parseBoolean(parameterValue));
@@ -28,5 +30,11 @@ public class BooleanAttributeHandler extends AbstractAttributeHandler {
 	@Override
 	public boolean isAttributeParseable(Attribute value) {
 		return value instanceof BooleanAttribute;
+	}
+
+	@Override
+	public Value getAttributeValue(String parameterValue) {
+		// TODO Auto-generated method stub
+		return null;
 	}
 }

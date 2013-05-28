@@ -16,6 +16,8 @@ import org.openforis.collect.persistence.SurveyImportException;
 import org.openforis.idm.metamodel.Schema;
 import org.openforis.idm.metamodel.xml.IdmlParseException;
 import org.openforis.idm.model.Entity;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 
 public class EyeSurveyService {
@@ -36,6 +38,8 @@ public class EyeSurveyService {
 	CollectSurvey collectSurvey;
 
 	String idmFilePath;
+
+	Logger logger = LoggerFactory.getLogger(this.getClass());
 
 	public EyeSurveyService(String idmFilePath) {
 		super();
@@ -62,34 +66,35 @@ public class EyeSurveyService {
 		if (summaries.size() > 0) {
 			record = summaries.get(0);
 			record = recordManager.load(collectSurvey, record.getId(), Step.ENTRY.getStepNumber());
-			
 			placemarkParameters = collectParametersHandler.getParameters(record.getRootEntity());
-
 		}
 		return placemarkParameters;
 	}
 
 
 	public void storePlacemark(Map<String, String> parameters, String sessionId) throws RecordPersistenceException {
-		List<CollectRecord> summaries = recordManager
-				.loadSummaries(collectSurvey, ROOT_ENTITY, parameters.get("collect_text_id"));
+		List<CollectRecord> summaries = recordManager.loadSummaries(collectSurvey, ROOT_ENTITY, parameters.get("collect_text_id"));
 
 		CollectRecord record = null;
+		boolean update = false;
+		Entity plotEntity = null;
 		if (summaries.size() > 0) { // DELETE IF ALREADY PRESENT
 			record = summaries.get(0);
-			recordManager.delete(record.getId());
+			// recordManager.delete(record.getId());
+			update = true;
+			plotEntity = record.createRootEntity(ROOT_ENTITY);
+			logger.warn("Update a plot entity with data " + parameters.toString());
+		} else {
+			// Create new record
+			Schema schema = collectSurvey.getSchema();
+			record = recordManager.create(collectSurvey, schema.getRootEntityDefinition(ROOT_ENTITY), null, null, sessionId);
+			plotEntity = record.getRootEntity();
+			logger.warn("Creating a new plot entity with data " + parameters.toString());
 		}
-
-		// Create new record
-		Schema schema = collectSurvey.getSchema();
-		CollectRecord storeRecord = recordManager.create(collectSurvey, schema.getRootEntityDefinition(ROOT_ENTITY), null, null,
-				sessionId);
-		Entity plotEntity = storeRecord.getRootEntity();
-
 		// Populate the data of the record using the HTTP parameters received
 		collectParametersHandler.saveToEntity(parameters, plotEntity);
 
-		recordManager.save(storeRecord, sessionId);
+		recordManager.save(record, sessionId);
 	}
 
 }

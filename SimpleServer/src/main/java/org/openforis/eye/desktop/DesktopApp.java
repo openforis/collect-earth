@@ -79,7 +79,7 @@ public class DesktopApp {
 
 	private static void openInTemporaryFile() throws IOException {
 
-		Desktop.getDesktop().open(new File("../generator/resultAnssi.kml"));
+		Desktop.getDesktop().open(new File("gePlugin.kmz"));
 
 		// InputStream resource =
 		// Thread.currentThread().getContextClassLoader().getResourceAsStream("gePlugin.kmz");

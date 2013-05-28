@@ -24,8 +24,10 @@ public class PlacemarkInfoServlet extends JsonPocessorServlet {
 
 		String placemarkId = getPlacemarkId(collectedData);
 
-		// REMOVE THIS!!!!¬
-		placemarkId = "testPlacemark";
+		// REMOVE THIS!!!!
+		if (placemarkId.equals("$[id]")) {
+			placemarkId = "testPlacemark";
+		}
 
 		if (placemarkId == null) {
 			setResult(false, "No placemark ID found in the request", collectedData);

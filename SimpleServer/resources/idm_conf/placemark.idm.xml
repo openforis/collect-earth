@@ -50,7 +50,7 @@
 						<label>Pine</label>
 					</item>
 					<item id="105">
-						<code>siberianpine</code>
+						<code>siberianPine</code>
 						<label>Siberian Pine</label>
 					</item>
 					<item id="106">
@@ -155,11 +155,20 @@
 					</item>
 					<item id="152">
 						<code>largeRivers</code>
-						<label>largeRivers</label>
+						<label>Large Rivers</label>
 					</item>
 					<item id="153">
 						<code>bareAreas</code>
 						<label>Bare Areas</label>
+					</item>
+				</item>
+				
+				<item id="160">
+					<code>wetLand</code>
+					<label>Wet Land</label>
+					<item id="161">
+						<code>swamp</code>
+						<label>Swamp</label>
 					</item>
 				</item>
 			</items>
@@ -281,8 +290,8 @@
 			<label type="list">Satellites</label>
 			<items>
 				<item id="701">
-						<code>landsatt</code>
-						<label>Landsatt</label>
+						<code>landsat</code>
+						<label>Landsat</label>
 				</item>
 				<item id="702">
 						<code>quickbird</code>
@@ -299,43 +308,48 @@
 			</items>
 		</list>
 		<list id="800" name="crown_cover">
-			<label type="item">Crown Cover</label>
 			<label type="list">Crown Cover</label>
 			<items>
 				<item id="801">
-						<code>noCover</code>
-						<label>No Cover</label>
-						<item id="802">
-							<code>burnt</code>
-							<label>Burnt</label>
-						</item>
-						<item id="803">
-							<code>logging</code>
-							<label>Logging</label>
-						</item>
-						<item id="804">
-							<code>other</code>
-							<label>Other</label>
-						</item>
+					<code>0</code>
+					<label>No cover (&lt;10%)</label>
 				</item>
 				<item id="805">
-						<code>10-30</code>
-						<label>10 - 30%</label>
+					<code>10-30</code>
+					<label>10 - 30%</label>
 				</item>
 				<item id="806">
-						<code>30-50</code>
-						<label>30 - 50%</label>
+					<code>30-50</code>
+					<label>30 - 50%</label>
 				</item>
 				<item id="807">
-						<code>50-70</code>
-						<label>50 - 70%</label>
+					<code>50-70</code>
+					<label>50 - 70%</label>
 				</item>
 				<item id="808">
-						<code>70-100</code>
-						<label>70 - 100%</label>
+					<code>70-100</code>
+					<label>70 - 100%</label>
 				</item>
 			</items>
 		</list>
+		<list id="810" name="deforestation_reason">
+			<label type="list">Reasons for no cover</label>
+			<items>		
+				<item id="811">
+					<code>burnt</code>
+					<label>Burnt</label>
+				</item>
+				<item id="812">
+					<code>logging</code>
+					<label>Logging</label>
+				</item>
+				<item id="813">
+					<code>other</code>
+					<label>Other</label>
+				</item>
+			</items>
+		</list>
+
 		<list id="900" name="crown_type">
 			<label type="item">Crown Type</label>
 			<label type="list">Crown Type</label>
@@ -377,20 +391,21 @@
 			<boolean id="6" name="land_use_change">
 				<label xml:lang="en">Land use change</label>
 			</boolean>
-			<code id="7" name="land_use_type" list="land_use" 
-				parent="land_use">
+			<code id="7" name="land_use_type" list="land_use" parent="land_use">
 				<label xml:lang="en">Land use type</label>
 			</code>
 			<code id="8" name="topography_accessibility" list="topographical_accessibility">
-				<label xml:lang="en">Topography Accessibility</label>
+				<label xml:lang="en">Accessibility</label>
 			</code>
-			<code id="9" name="topography_elements" list="topographical_elements"
-				multiple="true">
-				<label xml:lang="en">Topography Elements</label>
-			</code>
-			<code id="10" name="topography_coverage" list="topographical_elements_coverage">
-				<label xml:lang="en">Topography Elements Coverage</label>
-			</code>
+			<entity id="" name="topography">
+				<label xml:lang="en">Topography</label>
+				<code id="9" name="element" list="topographical_elements" multiple="true" key="true">
+					<label xml:lang="en">Element</label>
+				</code>
+				<code id="10" name="coverage" list="topographical_elements_coverage" required="true">
+					<label xml:lang="en">Coverage</label>
+				</code>
+			</entity>
 			<code id="11" name="human_impact_type" list="human_impact_type"
 				multiple="true">
 				<label xml:lang="en">Human Impact Type</label>
@@ -407,10 +422,11 @@
 			<code id="15" name="rs_satellite" list="rs_satellite">
 				<label xml:lang="en">RS Satellite</label>
 			</code>
-			
-	
 			<code id="16" name="crown_cover" list="crown_cover">
 				<label xml:lang="en">Crown Cover</label>
+			</code>
+			<code id="" name="deforestation_reason" list="deforestation_reason" relevant="crown_cover='0'">
+				<label xml:lang="en">Deforestation reason</label>
 			</code>
 			<code id="17" name="crown_type" list="crown_type">
 				<label xml:lang="en">Crown Type</label>

@@ -117,11 +117,12 @@ public class CollectParametersHandler {
 
 			for (AbstractAttributeHandler handler : attributeHandlers) {
 				if (handler.isParameterParseable(cleanName)) {
-					if (parameterValue == null || parameterValue.length() == 0) {
-						entity.remove(cleanName, 0);
-					} else {
-						handler.addToEntity(cleanName, parameterValue, entity);
-					}
+					// if (parameterValue == null || parameterValue.length() ==
+					// 0) {
+					// entity.remove(cleanName, 0);
+					// } else {
+					handler.addOrUpdate(cleanName, parameterValue, entity);
+					// }
 				}
 			}
 		}

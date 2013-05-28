@@ -1,7 +1,10 @@
 package org.openforis.eye.service;
 
+import org.openforis.idm.metamodel.NodeDefinition;
 import org.openforis.idm.model.Attribute;
 import org.openforis.idm.model.Entity;
+import org.openforis.idm.model.Node;
+import org.openforis.idm.model.Value;
 
 public abstract class AbstractAttributeHandler {
 
@@ -12,7 +15,22 @@ public abstract class AbstractAttributeHandler {
 		this.prefix = prefix;
 	}
 
-	public abstract void addToEntity(String parameterName, String parameterValue, Entity entity);
+	public void addOrUpdate(String parameterName, String parameterValue, Entity entity) {
+
+		String idmName = removePrefix(parameterName);
+		Node<? extends NodeDefinition> node = entity.get(idmName, 0);
+		if (node == null) {
+			addToEntity(parameterName, parameterValue, entity);
+		} else {
+			Attribute attribute = (Attribute) entity.get(idmName, 0);
+			attribute.setValue(getAttributeValue(parameterValue));
+		}
+
+	}
+
+	protected abstract Value getAttributeValue(String parameterValue);
+
+	protected abstract void addToEntity(String parameterName, String parameterValue, Entity entity);
 
 	public abstract String getAttributeFromParameter(String parameterName, Entity entity, int index);
 

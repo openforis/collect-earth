@@ -5,6 +5,7 @@ import org.openforis.idm.model.Code;
 import org.openforis.idm.model.CodeAttribute;
 import org.openforis.idm.model.Entity;
 import org.openforis.idm.model.EntityBuilder;
+import org.openforis.idm.model.Value;
 
 public class CodeAttributeHandler extends AbstractAttributeHandler {
 
@@ -28,6 +29,11 @@ public class CodeAttributeHandler extends AbstractAttributeHandler {
 	@Override
 	public boolean isAttributeParseable(Attribute value) {
 		return value instanceof CodeAttribute;
+	}
+
+	@Override
+	public Value getAttributeValue(String parameterValue) {
+		return new Code(parameterValue);
 	}
 
 }
