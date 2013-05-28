@@ -108,203 +108,255 @@ collect_code_human_impact_type = "fire===logging===grazing"
 		
 	}
 
-	var checkIfPlacemarkAlreadyFilled = function(formName) {
+	var fillDataWithJson = function(json) {
 
-		data = $( formName + " :input[value]").serialize();
+		// 						if (json.type == 'success' && json.collect_boolean_actively_saved == 'true') {
+		// 							$('#succ_mess').css("color", "red").html( "The data for this placemark has already been filled");
+		// 							$("#dialogSuccess").dialog( "open" );
+		// 							forceWindowCloseAfterDialogCloses($("#dialogSuccess"));
+		// 						}else if(json.type == 'success'){
+		$.each(json, function(key, value) {
 
-		$.ajax({
+			if ($("input[name='" + key + "']").length == 1) {
+				$("input[name='" + key + "']").val(value);
+			} else if ($("select[name='" + key + "']").length == 1) {
+				var values = value.split("===");
+				$("select[name='" + key + "']").selectpicker('val',
+						values);
+			}
+
+		});
+		// 						}
+	}
+	
+	var initializeChangeEventSaver = function(){
+		// SAVING DATA WHEN DATA CHANGES
+		// Bind event to Before user leaves page with function parameter e
+		// The window onbeforeunload or onunload events do not work in Google Earth
+		$('input[name^=collect], select[name^=collect], button[name^=collect]').change(function() {
+				var $form = $("#formAll");
+
+				var data = $form.find(
+						'input, select, textarea, button')
+						.serialize();
+
+				$.ajax({
 					data : data,
-					type : "POST",
-					url : "http://localhost:8093/eye/placemarkInfo",
-					dataType : 'json',
-					error : function(jqXHR, textStatus, errorThrown) {
-						$('#succ_mess').css("color", "red").html( "The data server is not running!");
-						$("#dialogSuccess").dialog( "open" );
-					},
-					success : function(json) {
-// 						if (json.type == 'success' && json.collect_boolean_actively_saved == 'true') {
-// 							$('#succ_mess').css("color", "red").html( "The data for this placemark has already been filled");
-// 							$("#dialogSuccess").dialog( "open" );
-// 							forceWindowCloseAfterDialogCloses($("#dialogSuccess"));
-// 						}else if(json.type == 'success'){
-							 $.each(json,function(key,value) {
-
-								 if( $("input[name='"+key+"']").length == 1 ){
-						         	$("input[name='"+key+"']").val(value);
-								 }else if( $("select[name='"+key+"']").length == 1 ){
-									 var values = value.split("==="); 
-									 
-						         	$("select[name='"+key+"']").selectpicker('val', values );
-								 }
-								 
-						      });
-// 						}
-
-					}
+					type : $form.attr("method"),
+					url : $form.attr("action"),
+					dataType : 'json'
 				});
+		});
+	}
+	
+	var interpretJsonSaveResponse = function(json) {
+		if (json.type == 'success') {
+			$('#succ_mess').css("color", "green").html(json.message);
+			forceWindowCloseAfterDialogCloses($("#dialogSuccess"));
+		} else if (json.type == 'warning') {
+			$('#succ_mess').css("color", "yellow").html(json.message);
+		} else if (json.type == 'error') {
+			$('#succ_mess').css("color", "red").html(json.message);
+		}
+		$("#dialogSuccess").dialog("open");
 	}
 
-	$(document).ready(
+	var checkIfPlacemarkAlreadyFilled = function(formName) {
+
+		data = $(formName + " :input[value]").serialize();
+
+		$.ajax({
+			data : data,
+			type : "POST",
+			url : "http://localhost:8093/eye/placemarkInfo",
+			dataType : 'json',
+			error : function(jqXHR, textStatus, errorThrown) {
+				$('#succ_mess').css("color", "red").html(
+						"The data server is not running!");
+				$("#dialogSuccess").dialog("open");
+			},
+			success : function(json){
+				fillDataWithJson(json);
+				initializeChangeEventSaver();
+			}
+		});
+	}
+
+	$(document)
+			.ready(
 					function() {
 
-					
-						$('a[data-toggle="tab"]').on('shown', function(e) {
-							var selectedTab = e.target;
-							var idSelected = selectedTab.name;
-							$("input[id=collect_code_land_use]").val(idSelected);
+						$('a[data-toggle="tab"]').on(
+								'shown',
+								function(e) {
+									var selectedTab = e.target;
+									var idSelected = selectedTab.name;
+									$("input[id=collect_code_land_use]").val(
+											idSelected);
 
-						});
+								});
 
-						$('#forestType').change(function() {
-							var idSelected = $(this).attr("id");
-							$("input[id=collect_code_land_use_type]").val(idSelected);
-							$("#crownCoverDiv").show();
-						});
+						$('#forestType').change(
+								function() {
+									var idSelected = $(this).attr("id");
+									$("input[id=collect_code_land_use_type]")
+											.val(idSelected);
+									$("#crownCoverDiv").show();
+								});
 
-						$('#radioCrown').change(function() {
-							var idSelected = $(this).attr("id");
-							$("input[id=collect_code_crown_cover]").val(idSelected);
-							$("#imageResolutionDiv").show();
-						});
-						
-						$('#humanImpactType').change(function() {
-							var selectedValues = $(this).val(); // If the human impact is "noImpact" then diable the other inputs
-							
-							if(selectedValues.length > 1 && jQuery.inArray( "noImpact", selectedValues) !== -1 ) {
-								$(this).selectpicker('deselectAll');
-								$(this).selectpicker('val', "noImpact");
-								$(this).selectpicker('refresh');
-								
-							}
-							
-							$('.humanImpactInput').each(function(){
-								if( jQuery.inArray( "noImpact", selectedValues) !== -1 ) {
-									$(this).prop('disabled',true);
-									$(this).selectpicker('deselectAll');
-								}else{
-									$(this).prop('disabled',false);
-								}
-								$(this).selectpicker('refresh');
-							});
-							
-						});
-						
+						$('#radioCrown').change(
+								function() {
+									var idSelected = $(this).attr("id");
+									$("input[id=collect_code_crown_cover]")
+											.val(idSelected);
+									$("#imageResolutionDiv").show();
+								});
+
+						$('#humanImpactType')
+								.change(
+										function() {
+											var selectedValues = $(this).val(); // If the human impact is "noImpact" then diable the other inputs
+
+											if (selectedValues.length > 1
+													&& jQuery.inArray(
+															"noImpact",
+															selectedValues) !== -1) {
+												$(this).selectpicker(
+														'deselectAll');
+												$(this).selectpicker('val',
+														"noImpact");
+												$(this).selectpicker('refresh');
+
+											}
+
+											$('.humanImpactInput')
+													.each(
+															function() {
+																if (jQuery
+																		.inArray(
+																				"noImpact",
+																				selectedValues) !== -1) {
+																	$(this)
+																			.prop(
+																					'disabled',
+																					true);
+																	$(this)
+																			.selectpicker(
+																					'deselectAll');
+																} else {
+																	$(this)
+																			.prop(
+																					'disabled',
+																					false);
+																}
+																$(this)
+																		.selectpicker(
+																				'refresh');
+															});
+
+										});
 
 						fillYears();
-						
-						
+
 						// Declares the Jquery Dialog ( The Bootstrap dialog does not work in Google Earth )
-						 $( "#dialogSuccess" ).dialog({
-							 modal: true,
-							 autoOpen: false,
-							 buttons: {
-							 	Ok: function() {
-									 $( this ).dialog( "close" );
-							 	}
-							 }
+						$("#dialogSuccess").dialog({
+							modal : true,
+							autoOpen : false,
+							buttons : {
+								Ok : function() {
+									$(this).dialog("close");
+								}
+							}
 						});
-						
+
 						// Mark the selects as "bootstratp-select" enabled 
 						$('.selectpicker').selectpicker();
 
-
 						
-						$("#elements").change( function(){
-								toggleDependantSelect("#elements", '#elementsCover');
-							}
-						);
-						
-						$('.toggleLandDevelopment').on('click', function(e) {
-							var selectedButton = e.target;
-							$("input[id=collect_boolean_land_use_change]").val( selectedButton.value );
+						$('.landUseTypeSelector').change( function(e){
+							var selectedUseType = e.target;
+							var value = selectedUseType.val();
+							$("input[id=collect_code_land_use_type]").val(value);
 						});
 						
-					
+						$("#elements").change(
+								function() {
+									toggleDependantSelect("#elements",
+											'#elementsCover');
+								});
+
+						$('.toggleLandDevelopment')
+								.on(
+										'click',
+										function(e) {
+											var selectedButton = e.target;
+											$(
+													"input[id=collect_boolean_land_use_change]")
+													.val(selectedButton.value);
+										});
+
 						// Initialize forest specific properties
-						$("#crownCoverDiv").hide();
-						
+						// $("#crownCoverDiv").hide();
+
 						$('.toggleForestDevelopment').on('click', function(e) {
 							var that = $(this);
-							
+
 							if (that.attr("id") == "FLtoFL") {
 								$('#otToFlGroup').attr("disabled", true);
 								$('#flToFlGroup').attr("disabled", false);
 							} else {
 								$('#flToFlGroup').attr("disabled", true);
 								$('#otToFlGroup').attr("disabled", false);
-								
+
 							}
-							
-							enableSelect('#collect_code_land_use_type', true );
-							
+
+							enableSelect('.landUseTypeSelector', true);
+
 						});
 
-						// SAVING DATA WHEN WINDOW CLOSES
-					    // Bind event to Before user leaves page with function parameter e
-					    $(window).bind('beforeunload', function(e) {    
+										
+						// SAVING DATA WHEN USER SUBMITS
+						$('#formAll')
+								.submit(
+										function(e) {
+											e.preventDefault();
 
-					    	var $form = $("#formAll");
-														
-							var data = $("#formAll :input[value]").serialize();
+											// Mark this as the "real submit" (as opposed when saving data just because the user closes the window) so we can show the placemark as interpreted
+											$(
+													"input[id=collect_boolean_actively_saved]")
+													.val("true");
 
-							$.ajax({
-								data : data,
-								type : $form.attr("method"),
-								url : $form.attr("action"),
-								dataType : 'json'
-							});
-					    })
-					    
-					    								
-						
-					    // SAVING DATA WHEN USER SUBMITS
-						$('#formAll').submit(
-							function(e) {
-								e.preventDefault();
-								
-								// Mark this as the "real submit" (as opposed when saving data just because the user closes the window) so we can show the placemark as interpreted
-								$("input[id=collect_boolean_actively_saved]").val("true");
-																
-								var $form = $(this);
+											var $form = $(this);
 
-								//var data = $( "#formAll :input[value] :select[value]").serialize(); // diable serialization problems
-								//var data = $form.serialize();
-								var data = $form.find('input, select, textarea, button').serialize();
-								
-								$.ajax({
-									data : data,
-									type : $form.attr("method"),
-									url : $form.attr("action"),
-									dataType : 'json',
-									error : function(jqXHR,textStatus,errorThrown) {
-										$('#succ_mess').css("color","red").html("Cannot save the data, the data server is not running!");
-										$("#dialogSuccess").dialog("open");
-									},
-									success : function(json) {
-										if (json.type == 'success') {
-											$('#succ_mess').css("color","green").html(json.message);
-											forceWindowCloseAfterDialogCloses($("#dialogSuccess"));
-										} else if (json.type == 'warning') {
-											$('#succ_mess').css("color","yellow").html(json.message);
-										} else if (json.type == 'error') {
-											$('#succ_mess').css("color","red").html(json.message);
-										}
-										$("#dialogSuccess").dialog("open");
-									},
-									complete: function(){
-										$.unblockUI();
-									},
-									beforeSend : function(){ 
-										$.blockUI({
-											message : 'Sumitting data..'
+											//var data = $( "#formAll :input[value] :select[value]").serialize(); // diable serialization problems
+											//var data = $form.serialize();
+											var data = $form.find('input, select, textarea, button').serialize();
+
+											$.ajax({
+														data : data,
+														type : $form.attr("method"),
+														url : $form.attr("action"),
+														dataType : 'json',
+														error : function(jqXHR, textStatus, errorThrown) {
+															$('#succ_mess').css("color","red").html("Cannot save the data, the data server is not running!");
+															$("#dialogSuccess").dialog("open");
+														},
+														success : interpretJsonSaveResponse(json),
+														complete : function() {
+															$.unblockUI();
+														},
+														beforeSend : function() {
+															$
+																	.blockUI({
+																		message : 'Sumitting data..'
+																	});
+														}
+													});
+
 										});
-									}
-								});
-
-							});
 
 						checkIfPlacemarkAlreadyFilled('#formAll');
-
+						
 					});
 </script>
 <style type="text/css">
@@ -442,27 +494,28 @@ hr {
 										</td>
 									</tr>
 								</table>
-								<hr />
+							
+								<hr/>
 								<div class="input-prepend">
 									<span class="add-on">Type</span> 
 									
-									<select disabled="true" name="collect_code_land_use_type"
-										class="selectpicker  show-tick show-menu-arrow "
-										id="collect_code_land_use_type" title="No type selected"
-										data-container=".tabsForest">
+									<select name="select_forest_type"
+										class="selectpicker  show-tick show-menu-arrow landUseTypeSelector "
+										id="select_forest_type" title="No type selected"
+										data-container="tabsForest">
 										<optgroup label="FL > FL" disabled id="flToFlGroup">
-											<option>Birch-Aspen</option>
-											<option>Larch</option>
-											<option>Pine</option>
-											<option>Siberian Pine</option>
-											<option>Spruce</option>
-											<option>Saxaul</option>
+											<option value="birch-Aspen">Birch-Aspen</option>
+											<option value="larch">Larch</option>
+											<option value="pine">Pine</option>
+											<option value="siberianPine">Siberian Pine</option>
+											<option value="spruce">Spruce</option>
+											<option value="saxaul">Saxaul</option>
 										</optgroup>
 										<optgroup label="OL > FL" disabled  id="otToFlGroup">
-											<option>Coniferous and deciduous</option>
-											<option>Saxaul</option>
-											<option>Shrubs</option>
-											<option>Open</option>
+											<option value="coniferousAndDecidious">Coniferous and deciduous</option>
+											<option value="saxaul">Saxaul</option>
+											<option value="shrubs">Shrubs</option>
+											<option value="open">Open</option>
 										</optgroup>
 									</select>
 								</div>
@@ -477,9 +530,9 @@ hr {
 								<select name="collect_code_crown_cover"
 									class="selectpicker  show-tick show-menu-arrow "
 									id="collect_code_crown_cover" title="Nothing selected"
-									data-container=".tabsForest" >
-									<option>No cover</option>
-									<optgroup label="No cover" disabled >
+									data-container="tabsForest">
+									
+									<optgroup label="No cover" >
 											<option value="burnt">Burnt</option>
 											<option value="logging">Logging</option>
 											<option value="other">Other</option>
@@ -489,12 +542,16 @@ hr {
 									<option value="30-50">30-50%</option>
 									<option value="50-70">50-70%</option>
 									<option value="70-100">70-100%</option>
-								</select>
-								
+								</select>		
+										
+							</div>
+							<HR />
+							<div class="input-prepend">
+								<span class="add-on">Type</span> 					
 								<select name="collect_code_crown_type"
 									class="selectpicker  show-tick show-menu-arrow "
 									id="collect_code_crown_type" title="Nothing selected"
-									data-container=".tabsForest"  data-width="110px">
+									data-container="tabsForest" >
 									
 									<option value="sparse">Sparse</option>
 									<option value="grouped">Grouped</option>
@@ -510,7 +567,6 @@ hr {
 
 					<div id="tabsCropland" class="tab-pane">
 						<div id="croplandTypeDiv" class="selectDiv">
-							<h2>Forest Type</h2>
 							<h2>Cropland</h2>
 							<div class="control-group">
 								<table style="width: 100%; align: middle">
@@ -529,14 +585,15 @@ hr {
 								</table>
 								<hr />
 								<div class="input-prepend">
+								
 									<span class="add-on">Cropland Type</span> 
 									
 									<select 
-										class="selectpicker  show-tick show-menu-arrow "
-										id="croplandType" title="No type selected"
-										data-container=".tabsCropland" disabled>
+										class="selectpicker  show-tick show-menu-arrow landUseTypeSelector "
+										id="select_cropland_type" name="select_cropland_type" title="No type selected"
+										  >
 
-										<option>Irrigated</option>
+										<option value="irrigation">Irrigation</option>
 
 									</select>
 								</div>
@@ -544,88 +601,151 @@ hr {
 						</div>
 					</div>
 					<div id="tabsOther" class="tab-pane">
-							<h2>Content heading 3</h2>
-							<p>Mauris eleifend est et turpis. Duis id erat. Suspendisse
-								potenti. Aliquam vulputate, pede vel vehicula accumsan, mi neque
-								rutrum erat, eu congue orci lorem eget lorem. Vestibulum non
-								ante. Class aptent taciti sociosqu ad litora torquent per
-								conubia nostra, per inceptos himenaeos. Fusce sodales. Quisque
-								eu urna vel enim commodo pellentesque. Praesent eu risus
-								hendrerit ligula tempus pretium. Curabitur lorem enim, pretium
-								nec, feugiat nec, luctus a, lacus.</p>
-							<p>Duis cursus. Maecenas ligula eros, blandit nec, pharetra
-								at, semper at, magna. Nullam ac lacus. Nulla facilisi. Praesent
-								viverra justo vitae neque. Praesent blandit adipiscing velit.
-								Suspendisse potenti. Donec mattis, pede vel pharetra blandit,
-								magna ligula faucibus eros, id euismod lacus dolor eget odio.
-								Nam scelerisque. Donec non libero sed nulla mattis commodo. Ut
-								sagittis. Donec nisi lectus, feugiat porttitor, tempor ac,
-								tempor vitae, pede. Aenean vehicula velit eu tellus interdum
-								rutrum. Maecenas commodo. Pellentesque nec elit. Fusce in lacus.
-								Vivamus a libero vitae lectus hendrerit hendrerit.</p>
+
+							<div id="otherlandTypeDiv" class="selectDiv" >
+								<h2>Other Type</h2>
+								<div class="control-group">
+									<table style="width: 100%; align: middle">
+										<tr>
+											<td align="center">
+												<div class="btn-group" data-toggle="buttons-radio">
+													<button type="button" class="btn btn-primary  btn-small toggleLandDevelopment"
+														id="OLtoOL" name="radioCrown" value="false">OL &gt; OL</button>
+													<button type="button" class="btn btn-primary btn-small toggleLandDevelopment"
+														id="OTtoOL" value="true">Other &gt; OL</button>
+												</div>
+											</td>
+										</tr>
+									</table>
+								
+									<hr/>
+									<div class="input-prepend">
+										<span class="add-on">Type</span> 
+										
+										<select name="select_other_type"
+											class="selectpicker show-tick show-menu-arrow landUseTypeSelector "
+											id="select_other_type" title="No type selected"
+											>
+												<option value="lakes">Lakes</option>
+												<option value="largeRivers">Village</option>
+												<option value="bareAreas">Bare Areas</option>
+															
+										</select>
+									</div>
+								</div>
+	
+							</div>						
+
+
 						</div>
 						<div id="tabsGrassland" class="tab-pane">
-							<h2>Content heading 3</h2>
-							<p>Mauris eleifend est et turpis. Duis id erat. Suspendisse
-								potenti. Aliquam vulputate, pede vel vehicula accumsan, mi neque
-								rutrum erat, eu congue orci lorem eget lorem. Vestibulum non
-								ante. Class aptent taciti sociosqu ad litora torquent per
-								conubia nostra, per inceptos himenaeos. Fusce sodales. Quisque
-								eu urna vel enim commodo pellentesque. Praesent eu risus
-								hendrerit ligula tempus pretium. Curabitur lorem enim, pretium
-								nec, feugiat nec, luctus a, lacus.</p>
-							<p>Duis cursus. Maecenas ligula eros, blandit nec, pharetra
-								at, semper at, magna. Nullam ac lacus. Nulla facilisi. Praesent
-								viverra justo vitae neque. Praesent blandit adipiscing velit.
-								Suspendisse potenti. Donec mattis, pede vel pharetra blandit,
-								magna ligula faucibus eros, id euismod lacus dolor eget odio.
-								Nam scelerisque. Donec non libero sed nulla mattis commodo. Ut
-								sagittis. Donec nisi lectus, feugiat porttitor, tempor ac,
-								tempor vitae, pede. Aenean vehicula velit eu tellus interdum
-								rutrum. Maecenas commodo. Pellentesque nec elit. Fusce in lacus.
-								Vivamus a libero vitae lectus hendrerit hendrerit.</p>
+							
+							<div id="grasslandTypeDiv" class="selectDiv" >
+								<h2>Grassland Type</h2>
+								<div class="control-group">
+									<table style="width: 100%; align: middle">
+										<tr>
+											<td align="center">
+												<div class="btn-group" data-toggle="buttons-radio">
+													<button type="button" class="btn btn-primary  btn-small toggleLandDevelopment"
+														id="GLtoGL" name="radioCrown" value="false">GL &gt; GL</button>
+													<button type="button" class="btn btn-primary btn-small toggleLandDevelopment"
+														id="OLtoGL" value="true">Other &gt; GL</button>
+												</div>
+											</td>
+										</tr>
+									</table>
+								
+									<hr/>
+									<div class="input-prepend">
+										<span class="add-on">Type</span> 
+										
+										<select name="select_grassland_type"
+											class="selectpicker show-tick show-menu-arrow landUseTypeSelector "
+											id="select_grassland_type" title="No type selected"
+											>
+												<option value="dessertSteppe">Dessert Steppe</option>
+												<option value="mountainDessertSteppe">Mountain Dessert Steppe</option>
+												<option value="mountainSteppe">Mountain Steppe</option>
+												<option value="steppeAndDrySteppe">Steppe and Dry Steppe</option>
+												<option value="meadowAndMeadowSwamp">Meadow and Meadow Swamp</option>
+												<option value="meadowPasture">Meadow Pasture</option>
+												<option value="meadowSteppe">Meadow Steppe</option>
+											
+										</select>
+									</div>
+								</div>
+	
+							</div>
+
+						
 						</div>
 						<div id="tabsWetland" class="tab-pane">
-							<h2>Content heading 3</h2>
-							<p>Mauris eleifend est et turpis. Duis id erat. Suspendisse
-								potenti. Aliquam vulputate, pede vel vehicula accumsan, mi neque
-								rutrum erat, eu congue orci lorem eget lorem. Vestibulum non
-								ante. Class aptent taciti sociosqu ad litora torquent per
-								conubia nostra, per inceptos himenaeos. Fusce sodales. Quisque
-								eu urna vel enim commodo pellentesque. Praesent eu risus
-								hendrerit ligula tempus pretium. Curabitur lorem enim, pretium
-								nec, feugiat nec, luctus a, lacus.</p>
-							<p>Duis cursus. Maecenas ligula eros, blandit nec, pharetra
-								at, semper at, magna. Nullam ac lacus. Nulla facilisi. Praesent
-								viverra justo vitae neque. Praesent blandit adipiscing velit.
-								Suspendisse potenti. Donec mattis, pede vel pharetra blandit,
-								magna ligula faucibus eros, id euismod lacus dolor eget odio.
-								Nam scelerisque. Donec non libero sed nulla mattis commodo. Ut
-								sagittis. Donec nisi lectus, feugiat porttitor, tempor ac,
-								tempor vitae, pede. Aenean vehicula velit eu tellus interdum
-								rutrum. Maecenas commodo. Pellentesque nec elit. Fusce in lacus.
-								Vivamus a libero vitae lectus hendrerit hendrerit.</p>
+							<div id="wetlandTypeDiv" class="selectDiv" >
+								<h2>Wetland Type</h2>
+								<div class="control-group">
+									<table style="width: 100%; align: middle">
+										<tr>
+											<td align="center">
+												<div class="btn-group" data-toggle="buttons-radio">
+													<button type="button" class="btn btn-primary  btn-small toggleLandDevelopment"
+														id="WLtoWL" name="radioCrown" value="false">WL &gt; WL</button>
+													<button type="button" class="btn btn-primary btn-small toggleLandDevelopment"
+														id="OLtoWL" value="true">Other &gt; WL</button>
+												</div>
+											</td>
+										</tr>
+									</table>
+								
+									<hr/>
+									<div class="input-prepend">
+										<span class="add-on">Type</span> 
+										
+										<select name="select_wetland_type"
+											class="selectpicker show-tick show-menu-arrow landUseTypeSelector "
+											id="select_wetland_type" title="No type selected"
+											>
+												<option value="swamp">Swamp</option>
+										</select>
+									</div>
+								</div>
+	
+							</div>
 						</div>
 						<div id="tabsSettlement" class="tab-pane">
-							<h2>Content heading 3</h2>
-							<p>Mauris eleifend est et turpis. Duis id erat. Suspendisse
-								potenti. Aliquam vulputate, pede vel vehicula accumsan, mi neque
-								rutrum erat, eu congue orci lorem eget lorem. Vestibulum non
-								ante. Class aptent taciti sociosqu ad litora torquent per
-								conubia nostra, per inceptos himenaeos. Fusce sodales. Quisque
-								eu urna vel enim commodo pellentesque. Praesent eu risus
-								hendrerit ligula tempus pretium. Curabitur lorem enim, pretium
-								nec, feugiat nec, luctus a, lacus.</p>
-							<p>Duis cursus. Maecenas ligula eros, blandit nec, pharetra
-								at, semper at, magna. Nullam ac lacus. Nulla facilisi. Praesent
-								viverra justo vitae neque. Praesent blandit adipiscing velit.
-								Suspendisse potenti. Donec mattis, pede vel pharetra blandit,
-								magna ligula faucibus eros, id euismod lacus dolor eget odio.
-								Nam scelerisque. Donec non libero sed nulla mattis commodo. Ut
-								sagittis. Donec nisi lectus, feugiat porttitor, tempor ac,
-								tempor vitae, pede. Aenean vehicula velit eu tellus interdum
-								rutrum. Maecenas commodo. Pellentesque nec elit. Fusce in lacus.
-								Vivamus a libero vitae lectus hendrerit hendrerit.</p>
+							<div id="settlementlandTypeDiv" class="selectDiv" >
+								<h2>Settlement Type</h2>
+								<div class="control-group">
+									<table style="width: 100%; align: middle">
+										<tr>
+											<td align="center">
+												<div class="btn-group" data-toggle="buttons-radio">
+													<button type="button" class="btn btn-primary  btn-small toggleLandDevelopment"
+														id="SLtoSL" name="radioCrown" value="false">SL &gt; SL</button>
+													<button type="button" class="btn btn-primary btn-small toggleLandDevelopment"
+														id="OLtoSL" value="true">Other &gt; SL</button>
+												</div>
+											</td>
+										</tr>
+									</table>
+								
+									<hr/>
+									<div class="input-prepend">
+										<span class="add-on">Type</span> 
+										
+										<select name="select_settlement_type"
+											class="selectpicker show-tick show-menu-arrow landUseTypeSelector "
+											id="select_settlement_type" title="No type selected"
+											>
+												<option value="largerUrbanCenters">Larger Urban Centers</option>
+												<option value="village">Village</option>
+												<option value="settlementWithTrees">Settlement with Trees</option>
+												
+										</select>
+									</div>
+								</div>
+	
+							</div>
 						</div>
 
 					</div>
@@ -645,6 +765,7 @@ hr {
 									<option value="5-10">5km&lt;D&lt;10km</option>
 									<option value="10-more">10km&lt;D</option>
 								</select>
+								
 							</div>
 							<hr />
 							<div class="input-prepend">
@@ -659,7 +780,7 @@ hr {
 								</select>
 								<select
 									name="collect_code_topography_coverage"
-									class="selectpicker show-tick show-menu-arrow " disabled
+									class="selectpicker show-tick show-menu-arrow "
 									id="collect_code_topography_coverage" title="No cover selected" data-width="110px">
 									<option value="0-10">0-10%</option>
 									<option value="10-30">10%-30%</option>
@@ -693,11 +814,12 @@ hr {
 								<span class="add-on">Grade</span> 
 								<select name="collect_code_human_impact_grade"
 									class="selectpicker  show-menu-arrow show-tick humanImpactInput"
-									id="collect_code_human_impact_grade" title="No grade selected" disabled >
+									id="collect_code_human_impact_grade" title="No grade selected"  >
 									<option value="low">Low</option>
 									<option value="medium">Medium</option>
 									<option value="high">High</option>
 								</select>
+								
 							</div>
 							<HR />
 							<div class="input-prepend">
@@ -705,7 +827,7 @@ hr {
 								<select
 									name="collect_integer_human_impact_year"
 									class="selectpicker  show-menu-arrow show-tick humanImpactInput" data-size="3"
-									id="collect_integer_human_impact_year" title="No year selected" disabled>
+									id="collect_integer_human_impact_year" title="No year selected" >
 									<option>Unknown</option>
 								</select>
 							</div>
@@ -725,7 +847,7 @@ hr {
 									class="selectpicker show-tick show-menu-arrow ">
 									<option value="rapidEye">Rapid Eye</option>
 									<option value="landsatt">Landsat</option>
-									<option value="queickbird">Quickbird</option>
+									<option value="quickbird">Quickbird</option>
 									<option value="other">Other</option>
 								</select>
 							</div>
