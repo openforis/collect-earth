@@ -136,10 +136,9 @@ collect_code_human_impact_type = "fire===logging===grazing"
 		$('input[name^=collect], select[name^=collect], button[name^=collect]').change(function() {
 				var $form = $("#formAll");
 
-				var data = $form.find(
-						'input, select, textarea, button')
-						.serialize();
-
+				var data = $(this).serialize();			
+				data = data + "&collect_text_id=$[id]";
+				
 				$.ajax({
 					data : data,
 					type : $form.attr("method"),
