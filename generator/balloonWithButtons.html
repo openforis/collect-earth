@@ -1,0 +1,837 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>Test Form</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<script src="files/jquery/jquery.js"></script>
+<script src="files/jquery/jquery-ui.js"></script>
+<script src="files/jquery/jquery.blockUI.js"></script>
+<script src="files/bootstrap/bootstrap.min.js"></script>
+<script src="files/bootstrap/bootstrap-select.js"></script>
+
+<link href="files/jquery/jquery-ui.css" rel="stylesheet" />
+<link href="files/bootstrap/bootstrap.css" rel="stylesheet" />
+<link href="files/bootstrap/bootstrap-select.css" rel="stylesheet" />
+
+<!-- 
+Values expected for Mongolia ( for the "HTTP parameters" -> "Collect format" conversion to work )
+
+All inputs that have processable information ( hidden or otherwise) should start with "collect_" :
+
+If the input is text then it should be followed by "text_"
+If the input is a code (option in combo-box for instance) then it should be followed by "code_"
+If the input is a date then it should be followed by "date_"
+If the input is a coordinate then it should be followed by "coord_"  ( the value expected has the format "longitude,latitude" )
+If the input is an integer then it should be followed by "integer_"
+If the input is a boolean then it should be followed by "boolean_"
+
+When multiple values can be sent ( in a multiple select for instance ) the data sent in the Http parameters has to be separated using " " ( a space ) 
+
+So, for Mongolia we expect these values :
+collect_text_id
+collect_coord_location
+collect_text_operator
+collect_code_land_use
+collect_boolean_land_use_change
+collect_code_land_use_type
+collect_code_topography_accessibility
+collect_code_topography_elements
+collect_code_topography_coverage
+collect_code_human_impact_type
+collect_code_human_impact_grade
+collect_integer_human_impact_year
+collect_date_rs_date
+collect_code_rs_satellite
+collect_code_crown_cover
+collect_code_crown_type
+collect_boolean_actively_saved // Set this to true when the user saves the data by actively clicking in submit
+
+When a value has multiple values they will be  separated with "===" i.e.
+collect_code_human_impact_type = "fire===logging===grazing"
+
+ -->
+
+<script>
+	var collapsedState = false;
+
+	var fillYears = function() {
+
+		for (year = new Date().getFullYear(); year > 1950; year--) {
+			$('#collect_integer_human_impact_year').append( $("<option></option>").attr("value", year).text( year) );
+		}
+	}
+
+	var toggleCollapsed = function() {
+		if (collapsedState == false) {
+			$('#collapsableContents').hide();
+			$('#collapseButton').attr("class", "icon-large icon-resize-full");
+			
+			collapsedState = true;
+		} else {
+			$('#collapsableContents').show();
+			$('#collapseButton').attr("class", "icon-large icon-resize-small");
+			collapsedState = false;
+		}
+	        
+		document.getElementById('dummy').src = "about:blank";
+	}
+
+	var forceWindowCloseAfterDialogCloses = function($dialog) {
+		$dialog.on("dialogclose", function(event, ui) {
+			window.open("#$[next_id];balloonFlyto");
+			
+		});
+	}
+	
+	var enableSelect = function( selectName, enable ){ //#elementsCover
+
+		if( enable == true  ){
+			 $(selectName).prop('disabled',false);
+		}else{
+			 $(selectName).prop('disabled',true);
+		}
+		
+		$(selectName).selectpicker('refresh');
+		
+	}
+	
+	var toggleDependantSelect = function( parentSelect, nameDependantSelect ){ //#elementsCover
+
+		var elementSelected = false;
+		$( parentSelect + " option:selected").each(function () {        
+			elementSelected = true;    
+		});  
+
+		enableSelect( nameDependantSelect, elementSelected );
+		
+		
+	}
+
+	var fillDataWithJson = function(json) {
+
+		// 						if (json.type == 'success' && json.collect_boolean_actively_saved == 'true') {
+		// 							$('#succ_mess').css("color", "red").html( "The data for this placemark has already been filled");
+		// 							$("#dialogSuccess").dialog( "open" );
+		// 							forceWindowCloseAfterDialogCloses($("#dialogSuccess"));
+		// 						}else if(json.type == 'success'){
+		$.each(json, function(key, value) {
+
+			// Do this for every key there might be different tryopes of elements with the same key than a hidden input
+			if ($("input[name='" + key + "']").length == 1) {
+				$("input[name='" + key + "']").val(value);
+			} 
+			
+			
+			if ($("select[name='" + key + "']").length == 1) {
+				var values = value.split("===");
+				$("select[name='" + key + "']").selectpicker('val',
+						values);
+			}else if( $('#'+key+'_group .btn-group').length == 1 ){ // button group exists
+				var values = value.split("===");
+				for (var i = 0; i < values.length; i++) {
+					$('#'+key+'_group.btn[value='+value+']').toggleClass('active'); // set the class to "active" on the chosen values
+				}
+			}
+
+		});
+		// 						}
+	}
+	
+	var initializeChangeEventSaver = function(){
+		
+		
+		$(".btn-group").find("button").click(function(){
+			
+			 var groupId = $(this).closest("div").attr("id");
+			 
+			 var suffixLength =  "_group".length;
+			 
+			 var idLength = groupId.length - suffixLength;
+			 
+			 var hiddenInputId = groupId.substring(0,  idLength );
+			
+			 $('#'+hiddenInputId).val( $(this).val() );// give the hidden input the same value as the button that just was clicked
+		});
+		
+		// SAVING DATA WHEN DATA CHANGES
+		// Bind event to Before user leaves page with function parameter e
+		// The window onbeforeunload or onunload events do not work in Google Earth
+		$('input[name^=collect], select[name^=collect], button[name^=collect]').change(
+			function() {
+				var $form = $("#formAll");
+
+				var data = $(this).serialize();			
+				data = data + "&collect_text_id=$[id]";
+				
+				$.ajax({
+					data : data,
+					type : $form.attr("method"),
+					url : $form.attr("action"),
+					dataType : 'json'
+				});
+		
+			}
+		);
+		
+		
+	}
+	
+	var interpretJsonSaveResponse = function(json) {
+		if (json.type == 'success') {
+			$('#succ_mess').css("color", "green").html(json.message);
+			forceWindowCloseAfterDialogCloses($("#dialogSuccess"));
+		} else if (json.type == 'warning') {
+			$('#succ_mess').css("color", "yellow").html(json.message);
+		} else if (json.type == 'error') {
+			$('#succ_mess').css("color", "red").html(json.message);
+		}
+		$("#dialogSuccess").dialog("open");
+	}
+
+	var checkIfPlacemarkAlreadyFilled = function(formName) {
+
+		data = $(formName + " :input[value]").serialize();
+
+		$.ajax({
+			data : data,
+			type : "POST",
+			url : "http://localhost:8093/eye/placemarkInfo",
+			dataType : 'json',
+			error : function(jqXHR, textStatus, errorThrown) {
+				$('#succ_mess').css("color", "red").html("The data server is not running!");
+				$("#dialogSuccess").dialog("open");
+			},
+			success : function(json){
+				fillDataWithJson(json);
+				initializeChangeEventSaver();
+			}
+		});
+	}
+
+	$(document)
+			.ready(
+					function() {
+
+						$('a[data-toggle="tab"]').on(
+								'shown',
+								function(e) {
+									var selectedTab = e.target;
+									var idSelected = selectedTab.name;
+									$("input[id=collect_code_land_use]").val(
+											idSelected);
+
+								});
+
+						$('#forestType').change(
+								function() {
+									var idSelected = $(this).attr("id");
+									$("input[id=collect_code_land_use_type]")
+											.val(idSelected);
+									$("#crownCoverDiv").show();
+								});
+
+						$('#radioCrown').change(
+								function() {
+									var idSelected = $(this).attr("id");
+									$("input[id=collect_code_crown_cover]")
+											.val(idSelected);
+									$("#imageResolutionDiv").show();
+								});
+
+						$('#humanImpactType')
+								.change(
+										function() {
+											var selectedValues = $(this).val(); // If the human impact is "noImpact" then diable the other inputs
+
+											if (selectedValues.length > 1
+													&& jQuery.inArray(
+															"noImpact",
+															selectedValues) !== -1) {
+												$(this).selectpicker(
+														'deselectAll');
+												$(this).selectpicker('val',
+														"noImpact");
+												$(this).selectpicker('refresh');
+
+											}
+
+											$('.humanImpactInput')
+													.each(
+															function() {
+																if (jQuery
+																		.inArray(
+																				"noImpact",
+																				selectedValues) !== -1) {
+																	$(this)
+																			.prop(
+																					'disabled',
+																					true);
+																	$(this)
+																			.selectpicker(
+																					'deselectAll');
+																} else {
+																	$(this)
+																			.prop(
+																					'disabled',
+																					false);
+																}
+																$(this)
+																		.selectpicker(
+																				'refresh');
+															});
+
+										});
+
+						fillYears();
+
+						// Declares the Jquery Dialog ( The Bootstrap dialog does not work in Google Earth )
+						$("#dialogSuccess").dialog({
+							modal : true,
+							autoOpen : false,
+							buttons : {
+								Ok : function() {
+									$(this).dialog("close");
+								}
+							}
+						});
+
+						// Mark the selects as "bootstratp-select" enabled 
+						$('.selectpicker').selectpicker();
+
+						
+						$('.landUseTypeSelector').change( function(e){
+							var selectedUseType = e.target;
+							var value = selectedUseType.val();
+							$("input[id=collect_code_land_use_type]").val(value);
+						});
+						
+						$("#elements").change(
+								function() {
+									toggleDependantSelect("#elements",
+											'#elementsCover');
+								});
+
+						$('.toggleLandDevelopment')
+								.on(
+										'click',
+										function(e) {
+											var selectedButton = e.target;
+											$(
+													"input[id=collect_boolean_land_use_change]")
+													.val(selectedButton.value);
+										});
+
+						// Initialize forest specific properties
+						// $("#crownCoverDiv").hide();
+
+						$('.toggleForestDevelopment').on('click', function(e) {
+							var that = $(this);
+
+							if (that.attr("id") == "FLtoFL") {
+								$('#otToFlGroup').attr("disabled", true);
+								$('#flToFlGroup').attr("disabled", false);
+							} else {
+								$('#flToFlGroup').attr("disabled", true);
+								$('#otToFlGroup').attr("disabled", false);
+
+							}
+
+							enableSelect('.landUseTypeSelector', true);
+
+						});
+
+										
+						// SAVING DATA WHEN USER SUBMITS
+						$('#formAll')
+								.submit(
+										function(e) {
+											e.preventDefault();
+
+											// Mark this as the "real submit" (as opposed when saving data just because the user closes the window) so we can show the placemark as interpreted
+											$(
+													"input[id=collect_boolean_actively_saved]")
+													.val("true");
+
+											var $form = $(this);
+
+											//var data = $( "#formAll :input[value] :select[value]").serialize(); // diable serialization problems
+											//var data = $form.serialize();
+											var data = $form.find('input, select, textarea, button').serialize();
+
+											$.ajax({
+														data : data,
+														type : $form.attr("method"),
+														url : $form.attr("action"),
+														dataType : 'json',
+														error : function(jqXHR, textStatus, errorThrown) {
+															$('#succ_mess').css("color","red").html("Cannot save the data, the data server is not running!");
+															$("#dialogSuccess").dialog("open");
+														},
+														success :  function(json) {
+															interpretJsonSaveResponse(json);
+														},
+														complete : function() {
+															$.unblockUI();
+														},
+														beforeSend : function() {
+															$
+																	.blockUI({
+																		message : 'Sumitting data..'
+																	});
+														}
+													});
+
+										});
+
+						checkIfPlacemarkAlreadyFilled('#formAll');
+						
+					});
+</script>
+<style type="text/css">
+
+#toolbar {
+	padding: 4px;
+	display: inline-block;
+	margin: 4px;
+}
+
+body {
+	font-family: "Trebuchet MS", "Helvetica", "Arial", "Verdana",
+		"sans-serif";
+}
+
+.selectDiv {
+	border: 2px solid #5F5D69;
+	border-top-left-radius: 6px;
+	border-top-right-radius: 6px;
+	width: 95%;
+	margin-left: 3px;
+}
+
+.selectDiv h2 {
+	padding: 2px;
+	color: #5F5D69;
+	line-height: 20px;
+	background-color: #F6F5FF;
+	font-size: 8pt; /* or whatever */
+	margin-bottom: 10px;
+	margin-top: 5px;
+}
+
+.add-on {
+	width: 100px !important;
+}
+
+.input-prepend .add-on, .input-prepend .btn {
+    margin-left: 4px;
+}
+
+label {
+	display: inline;
+}
+
+hr {
+	margin: 5px;
+}
+
+
+.bootstrap-select:not([class*="span"]) {
+    width: 170px;
+}
+
+.bootstrap-select {
+    width: 170px\9; /*IE8 and below*/
+}
+
+</style>
+
+</head>
+
+	<div id="dialogSuccess">
+		
+			<span class="ui-icon ui-icon-circle-check"
+				style="float: left; margin: 0 7px 50px 0;"> </span>
+			<div id="succ_mess"></div>
+		
+	</div>
+	
+<body>
+
+
+	<div id="contentDiv" style="width: 450px">
+
+			<form id="formAll" method="POST" action="http://localhost:8093/eye/saveData">
+
+				<input type="hidden" id="collect_coord_location" 
+					name="collect_coord_location" value="$[longitude],$[latitude]" />
+				<input type="hidden" id="collect_text_id"
+					name="collect_text_id" value="$[id]" />
+					
+
+				<input type="hidden"
+					id="collect_boolean_land_use_change" name="collect_boolean_land_use_change" value="" /> 
+				<input type="hidden" id="collect_code_land_use" name="collect_code_land_use"
+					value="" /> 
+				<input type="hidden" id="collect_code_land_use_type"
+					name="collect_code_land_use_type" value="" /> 				
+				<input type="hidden" id="collect_boolean_actively_saved"
+					name="collect_boolean_actively_saved" value="false" />
+					
+				<input type="hidden" id="collect_code_rs_satellite"
+					name="collect_code_rs_satellite"  />
+				<input type="hidden" id="collect_code_crown_type"
+					name="collect_code_crown_type"  />
+
+
+				<button class="btn btn-link" onclick="toggleCollapsed(); return false;"><i  class="icon-large icon-resize-small" id="collapseButton"></i></button>
+				<span style="align: right;">LAND USE TYPE <img src="files/img/mongolia.png" border="0" style="margin:5px;"/></span>
+
+				<div id="collapsableContents">
+					<div id="tabsTypeOfTerrain">
+	
+						<ul class="nav nav-tabs">
+							<li class="active"><a href="#tabsForest" name="forest"
+								data-toggle="tab">Forest</a></li>
+							<li><a href="#tabsCropland" name="cropland" data-toggle="tab">Cropland</a></li>
+							<li><a href="#tabsGrassland" name="grassland"
+								data-toggle="tab">Grassland</a></li>
+							<li><a href="#tabsWetland" name="wetland" data-toggle="tab">Wetland</a></li>
+							<li><a href="#tabsSettlement" name="settlement"
+								data-toggle="tab">Settlement</a></li>
+							<li><a href="#tabsOther" name="otherLand" data-toggle="tab">Other
+									land</a></li>
+							<!-- 	 // removed class container  -->
+							
+						</ul>
+					</div>
+
+					<div class="tab-content">
+					<div id="tabsForest" class="tab-pane active">
+
+						<div id="toolbar" class="ui-widget-header ui-corner-all" style="width:96%">
+							<h5>Forest</h5>
+							
+							<div class="control-group">
+								<div class="input-prepend">
+									<span class="add-on">Development</span> 
+									<div class="btn-group" data-toggle="buttons-radio">
+										<button type="button" class="btn btn-primary  toggleForestDevelopment toggleLandDevelopment"
+											id="FLtoFL" name="radioCrown" value="false">FL &gt; FL</button>
+										<button type="button" class="btn btn-primary toggleForestDevelopment toggleLandDevelopment"
+											id="OLtoFL" value="true">Other &gt; FL</button>
+									</div>
+								</div>
+								<hr/>
+								<div class="input-prepend">
+									
+									<div class="btn-group landUseTypeSelector" data-toggle="buttons-radio" id="collect_code_crown_cover" >
+									 	<button type="button" class="btn btn-primary forestToForest"  value="birch-Aspen" title="Birch-Aspen" >Birch-Aspen</button>
+									    <button type="button" class="btn btn-primary forestToForest" value="larch"title="Larch" >Larch</button>
+									    <button type="button" class="btn btn-primary forestToForest" value="pine" title="Pine">Pine</button>
+									    <button type="button" class="btn btn-primary forestToForest"  value="siberianPine" title="Siberian Pine" >Siberian Pine</button>
+									    <button type="button" class="btn btn-primary forestToForest" value="spruce" title="Spruce" >Spruce</button>
+									    <button type="button" class="btn btn-primary forestToForest" value="saxaul" title="Saxaul">Saxaul</button>
+									    <br/>									    
+									    <button type="button" class="btn btn-primary otherToForest" value="coniferousAndDecidious" title="Coniferous and deciduous">Coniferous and deciduous</button>
+									    <button type="button" class="btn btn-primary otherToForest" value="saxaul" title="Saxaul">Saxaul</button>
+									    <button type="button" class="btn btn-primary otherToForest" value="shrubs" title="Shrubs">Shrubs</button>
+									    <button type="button" class="btn btn-primary otherToForest" value="open" title="Open">Open</button>
+									   
+							   		</div>	
+								</div>
+							</div>
+						</div>
+
+						
+
+						<div id="toolbar" class="ui-widget-header ui-corner-all" style="width:96%" title="Crown Cover">
+							</h5>Crown Cover</h5>
+							<div class="input-prepend">
+								<span class="add-on">Cover</span> 
+								<div class="btn-group" data-toggle="buttons-radio" id="collect_code_crown_cover">
+								 	<button type="button" class="btn btn-primary"  value="burnt" title="No Cover - Burnt" >Burnt</button>
+								    <button type="button" class="btn btn-primary" value="logging"title="No Cover - Logging" >Logging</button>
+								    <button type="button" class="btn btn-primary" value="other" title="No Cover - other">Other</button>
+								    
+								    <br/>
+								    <button type="button" class="btn btn-primary"  value="10-30" title="Cover - 10-30%" >10-30%</button>
+								    <button type="button" class="btn btn-primary" value="30-50" title="No Cover - 30-50%" >30-50%</button>
+								    <button type="button" class="btn btn-primary" value="50-70" title="No Cover - 50-70%">50-70%</button>
+								    <button type="button" class="btn btn-primary" value="70-100" title="No Cover - 70-100%">70-100%</button>
+							    </div>	
+										
+							</div>
+							<HR />
+							<div class="input-prepend">
+								<span class="add-on">Crown</span> 					
+								<div class="btn-group" data-toggle="buttons-radio" id="collect_code_crown_type_group">
+								 	<button type="button" class="btn btn-primary"  value="sparse" >Sparse</button>
+								    <button type="button" class="btn btn-primary" value="grouped">Grouped</button>
+								    <button type="button" class="btn btn-primary" value="Linear">Linear</button>
+								     <button type="button" class="btn btn-primary" value="unknown" >Unknown</button>
+							    </div>
+							</div>
+							
+							
+						</div>
+					</div>
+
+					<div id="tabsCropland" class="tab-pane">
+						<div id="toolbar" class="ui-widget-header ui-corner-all" style="width:96%">
+							<h5>Cropland</h5>
+							<div class="control-group">
+								<div class="input-prepend">
+									<span class="add-on">Development</span> 
+									<div class="btn-group" data-toggle="buttons-radio">
+										<button type="button"
+											class="btn btn-primary  toggleLandDevelopment"
+											id="CLtoCL" name="radioCrown">CL &gt; CL</button>
+										<button type="button"
+											class="btn btn-primary toggleLandDevelopment"
+											id="OTtoCL">Other &gt; CL</button>
+									</div>
+								</div>
+								<hr />
+								<div class="input-prepend">
+								
+									<span class="add-on">Type</span> 
+									<div class="btn-group landUseTypeSelector" data-toggle="buttons-radio" id="cropland" >
+									 	<button type="button" class="btn btn-primary"  value=irrigation" >Irrigation</button>
+								    </div>
+								</div>
+							</div>
+						</div>
+					</div>
+					<div id="tabsOther" class="tab-pane">
+
+							<div id="toolbar" class="ui-widget-header ui-corner-all" style="width:96%">
+								<h5>Other Type</h5>
+								<div class="control-group">
+									<div class="input-prepend">
+										<span class="add-on">Development</span> 
+										<div class="btn-group" data-toggle="buttons-radio">
+											<button type="button" class="btn btn-primary toggleLandDevelopment"
+												id="OLtoOL" name="radioCrown" value="false">OL &gt; OL</button>
+											<button type="button" class="btn btn-primary toggleLandDevelopment"
+												id="OTtoOL" value="true">Other &gt; OL</button>
+										</div>
+									</div>
+											
+								
+									<hr/>
+									<div class="input-prepend">
+										<span class="add-on">Type</span> 
+
+										<div class="btn-group landUseTypeSelector" data-toggle="buttons-radio" id="other">
+										 	<button type="button" class="btn btn-primary"  value=lakes" >Lakes</button>
+										    <button type="button" class="btn btn-primary" value="largeRivers" title="Large River">Large River</button>
+										    <button type="button" class="btn btn-primary" value="bareAreas" title="Bare areas">Bare areas</button>
+									    </div>
+									</div>
+								</div>
+	
+							</div>						
+
+
+						</div>
+						<div id="tabsGrassland" class="tab-pane">
+							
+							<div id="toolbar" class="ui-widget-header ui-corner-all" style="width:96%">
+								<h5>Grassland Type</h5>
+								<div class="control-group">
+									<div class="input-prepend">
+										<span class="add-on">Development</span> 
+										<div class="btn-group" data-toggle="buttons-radio">
+											<button type="button" class="btn btn-primary toggleLandDevelopment"
+												id="GLtoGL" name="radioCrown" value="false">GL &gt; GL</button>
+											<button type="button" class="btn btn-primary toggleLandDevelopment"
+												id="OLtoGL" value="true">Other &gt; GL</button>
+										</div>
+									</div>
+								
+									<hr/>
+							
+									<div class="btn-group landUseTypeSelector" data-toggle="buttons-radio" id="grassland" >
+									 	<button type="button" class="btn btn-primary"  value=dessertSteppe" title="Dessert Steppe" >Dessert Steppe</button>
+									    <button type="button" class="btn btn-primary" value="mountainDessertSteppe" title="Mountain Dessert Steppe">Mountain Dessert Steppe</button>
+									    <button type="button" class="btn btn-primary" value="mountainSteppe" title="Mountain Steppe">Mountain Steppe</button>
+									    <button type="button" class="btn btn-primary" value="steppeAndDrySteppe" title="Steppe and Dry Steppe">Steppe&amp;Dry...</button>		<br/>								  
+									    <button type="button" class="btn btn-primary"  value=meadowAndMeadowSwamp" title="Meadow and Meadow Swamp">Meadow&amp;Meadow Swamp</button>
+									    <button type="button" class="btn btn-primary" value="meadowPasture" title="Meadow Pasture">Meadow Pasture</button>
+									    <button type="button" class="btn btn-primary" value="meadowSteppe" title="Meadow Steppe">Meadow Steppe</button>
+								    </div>
+									
+								</div>
+	
+							</div>
+
+						
+						</div>
+						<div id="tabsWetland" class="tab-pane">
+						
+							<div id="toolbar" class="ui-widget-header ui-corner-all" style="width:96%">
+								<h5>Wetland</h5>
+								<div class="control-group">
+									<div class="input-prepend">
+										<span class="add-on">Development</span> 
+										<div class="btn-group" data-toggle="buttons-radio">
+											<button type="button" class="btn btn-primary  toggleLandDevelopment"
+												id="WLtoWL" name="radioCrown" value="false">WL &gt; WL</button>
+											<button type="button" class="btn btn-primary toggleLandDevelopment"
+												id="OLtoWL" value="true">Other &gt; WL</button>
+										</div>
+									</div>
+								</div>
+									
+								<hr/>
+								<div class="input-prepend">
+									<span class="add-on">Type</span> 
+									<div class="btn-group landUseTypeSelector" data-toggle="buttons-radio" id="wetland">
+									 	<button type="button" class="btn btn-primary"  class="swamp">Swamp</button>
+								    </div>
+								</div>
+							</div>
+
+						</div>
+						<div id="tabsSettlement" class="tab-pane">
+						<div id="toolbar" class="ui-widget-header ui-corner-all" style="width:96%">
+								<h5>Settlement</h5>
+								<div class="control-group">
+									<div class="input-prepend">
+										<span class="add-on">Development</span> 
+										<div class="btn-group" data-toggle="buttons-radio">
+											<button type="button" class="btn btn-primary  toggleLandDevelopment"
+												id="SLtoSL" name="radioCrown" value="false">SL &gt; SL</button>
+											<button type="button" class="btn btn-primary toggleLandDevelopment"
+												id="OLtoSL" value="true">Other &gt; SL</button>
+										</div>
+									</div>
+								
+									<hr/>
+									<div class="input-prepend">
+										<span class="add-on">Type</span> 
+										
+										<div class="btn-group landUseTypeSelector" data-toggle="buttons-radio" id="settlement">
+										 	<button type="button" class="btn btn-primary"  value="largerUrbanCenters">Larger Urban Centers</button>
+										    <button type="button" class="btn btn-primary" value="village">Village</button>
+										    <button type="button" class="btn btn-primary" value="settlementWithTrees">Settlement with Trees</button>
+									    </div>
+
+									</div>
+								</div>
+	
+							</div>
+						</div>
+
+					</div>
+
+
+
+					<div id="commonDivs">
+						<div id="toolbar" class="ui-widget-header ui-corner-all">
+							<h5>Topography</h5>
+							<div class="input-prepend">
+								<span class="add-on">Accesibility</span> 
+								<div class="btn-group" data-toggle="buttons-radio" id="collect_code_topography_accessibility_group">
+								 	<button type="button" class="btn btn-primary"  value="0-1">D&lt;1km</button>
+								    <button type="button" class="btn btn-primary" value="1-5">1km&lt;D&lt;5km</button>
+								    <button type="button" class="btn btn-primary" value="5-10">5km&lt;D&lt;10km</button>
+								    <button type="button" class="btn btn-primary" value="10-more">10km&lt;D</button>
+							    </div>
+							</div>
+							<div class="input-prepend">
+								<span class="add-on">Elements</span> 
+								<div class="btn-group" data-toggle="buttons-radio" id="collect_code_topography_elements_group">
+								 	<button type="button" class="btn btn-primary"  value="road">Road</button>
+								    <button type="button" class="btn btn-primary" value="river">River</button>
+								    <button type="button" class="btn btn-primary" value="house">House</button>
+								    <button type="button" class="btn btn-primary" value="other">Other</button>
+								    <button type="button" class="btn btn-primary" title="No elements" class="active">None</button>
+							    </div>
+							</div>
+							<div class="input-prepend">
+								<span class="add-on">Coverage</span> 
+								<div class="btn-group" data-toggle="buttons-radio" id="collect_code_topography_coverage_group">
+								 	<button type="button" class="btn btn-primary"  value="0-10">0-10%</button>
+								    <button type="button" class="btn btn-primary" value="10-30">10%-30%</button>
+								    <button type="button" class="btn btn-primary" value="30-60">30%-60%</button>
+								    <button type="button" class="btn btn-primary" value="60-100">60%-100%</button>
+							    </div>
+							</div>
+						</div>
+
+					<div id="toolbar" class="ui-widget-header ui-corner-all">
+						<h5>Human impact</h5>
+							<div class="input-prepend">
+								<span class="add-on">Type</span> 
+								<div class="btn-group" data-toggle="buttons-checkbox" id="collect_code_human_impact_type_group">
+								 	<button type="button" class="btn btn-primary"  value="active">No impact</button>
+								    <button type="button" class="btn btn-primary" value="logging">Logging</button>
+								    <button type="button" class="btn btn-primary" value="grazing">Grazing</button>
+								    <button type="button" class="btn btn-primary" value="mining">Mining</button>
+								    <button type="button" class="btn btn-primary" value="other">Other</button>
+							    </div>
+								
+							</div>
+
+							<div class="input-prepend">
+								<span class="add-on">Grade</span> 
+
+								<div class="btn-group" data-toggle="buttons-radio" id="collect_code_human_impact_grade_group">
+								    <button type="button" class="btn btn-primary" value="low">Low</button>
+								    <button type="button" class="btn btn-primary" value="medium">Medium</button>
+								    <button type="button" class="btn btn-primary" value="high">High</button>
+							    </div>
+								
+							</div>
+
+							<div class="input-prepend">
+								<span class="add-on">Time</span> 
+								<select
+									name="collect_integer_human_impact_year"
+									class="selectpicker  show-menu-arrow show-tick humanImpactInput" data-size="3"
+									id="collect_integer_human_impact_year" title="No year selected" >
+									<option>Unknown</option>
+								</select>
+							</div>
+						</div>
+			
+						
+						<div id="toolbar" class="ui-widget-header ui-corner-all">
+						<h5>RS Data</h5>
+							<div class="input-prepend">
+								<span class="add-on">Satellite</span> 
+							    <div class="btn-group" data-toggle="buttons-radio" id="collect_code_rs_satellite_group">
+								    <button type="button" class="btn btn-primary" value="rapidEye">Rapid Eye</button>
+								    <button type="button" class="btn btn-primary" value="landsatt">Landsat</button>
+								    <button type="button" class="btn btn-primary" value="quickbird">Quickbird</button>
+								    <button type="button" class="btn btn-primary" value="other">Other</button>
+							    </div>
+							 </div>
+						
+							<div class="input-prepend">
+								<span class="add-on">Date</span>
+								 <input type="text" id="collect_date_rs_date" placeholder="Date of the interpreted image" id="">
+								
+							</div>
+						</div>
+							
+	
+						<div class="form-actions" style="clear: both" class="lowerDivs">
+							<button type="submit" class="btn btn-primary btn-small">Save
+								changes</button>
+						</div>
+
+
+					</div>
+
+
+				</div>
+
+			</form>
+		</div>
+	
+	<iframe style="display: none" id="dummy" src="about:blank"></iframe>
+</body>
+</html>
