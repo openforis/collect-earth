@@ -97,4 +97,23 @@ public class EyeSurveyService {
 		recordManager.save(record, sessionId);
 	}
 
+	public boolean isPlacemarSaved(Map<String, String> placemarkParameters) {
+		return placemarkParameters != null && placemarkParameters.get("collect_boolean_actively_saved") != null
+				&& placemarkParameters.get("collect_boolean_actively_saved").equals("true");
+	}
+	// protected NodeChangeSet updateRecord(CollectRecord record,
+	// NodeUpdateRequestSet nodeUpdateOptionSet) throws
+	// RecordPersistenceException, RecordIndexException {
+	// List<NodeUpdateRequest> opts = nodeUpdateOptionSet.getRequests();
+	// NodeChangeMap result = new NodeChangeMap();
+	// for (NodeUpdateRequest req : opts) {
+	// NodeChangeSet partialChangeSet = updateRecord(record, req);
+	// List<NodeChange<?>> changes = partialChangeSet.getChanges();
+	// for (NodeChange<?> change : changes) {
+	// result.addOrMergeChange(change);
+	// }
+	// }
+	// return new NodeChangeSet(result.getChanges());
+	// }
+
 }

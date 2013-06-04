@@ -7,6 +7,7 @@ import java.util.Map;
 import java.util.Set;
 
 import org.apache.commons.lang3.StringUtils;
+import org.openforis.idm.metamodel.EntityDefinition;
 import org.openforis.idm.metamodel.NodeDefinition;
 import org.openforis.idm.model.Attribute;
 import org.openforis.idm.model.Entity;
@@ -35,6 +36,10 @@ public class CollectParametersHandler {
 		Map<String, String> parameters = new HashMap<String, String>();
 
 		List<Node<? extends NodeDefinition>> children = plotEntity.getChildren();
+
+		List<EntityDefinition> definitons = plotEntity.getSchema().getRootEntityDefinitions();
+
+		
 
 		for (Node<? extends NodeDefinition> node : children) {
 			if (node instanceof Attribute) {
@@ -108,12 +113,16 @@ public class CollectParametersHandler {
 		return parameterName;
 	}
 
+
 	public void saveToEntity(Map<String, String> parameters, Entity entity) {
 		Set<String> parameterNames = parameters.keySet();
 		for (String parameterName : parameterNames) {
 
+			
+
 			String parameterValue = parameters.get(parameterName);
 			String cleanName = cleanUpParameterName(parameterName);
+
 
 			for (AbstractAttributeHandler handler : attributeHandlers) {
 				if (handler.isParameterParseable(cleanName)) {

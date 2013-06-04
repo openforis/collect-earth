@@ -20,7 +20,9 @@ public abstract class AbstractAttributeHandler {
 		String idmName = removePrefix(parameterName);
 		Node<? extends NodeDefinition> node = entity.get(idmName, 0);
 		if (node == null) {
-			addToEntity(parameterName, parameterValue, entity);
+			if (parameterValue.length() > 0) {
+				addToEntity(parameterName, parameterValue, entity);
+			}
 		} else {
 			Attribute attribute = (Attribute) entity.get(idmName, 0);
 			attribute.setValue(getAttributeValue(parameterValue));
