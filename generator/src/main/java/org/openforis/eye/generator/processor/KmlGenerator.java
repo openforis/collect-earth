@@ -3,15 +3,25 @@ package org.openforis.eye.generator.processor;
 import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.IOException;
+import java.io.StringReader;
 import java.io.StringWriter;
 import java.util.Map;
+
+import javax.xml.transform.OutputKeys;
+import javax.xml.transform.Source;
+import javax.xml.transform.Transformer;
+import javax.xml.transform.TransformerFactory;
+import javax.xml.transform.stream.StreamResult;
+import javax.xml.transform.stream.StreamSource;
 
 import org.apache.commons.io.FileUtils;
 import org.geotools.geometry.jts.JTS;
 import org.geotools.referencing.CRS;
+import org.geotools.referencing.GeodeticCalculator;
 import org.geotools.referencing.crs.DefaultGeographicCRS;
 import org.opengis.referencing.crs.CoordinateReferenceSystem;
 import org.opengis.referencing.operation.MathTransform;
+import org.opengis.referencing.operation.TransformException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -27,13 +37,14 @@ public abstract class KmlGenerator {
 
 	protected final Logger logger = LoggerFactory.getLogger(this.getClass());
 	private final String epsgCode;
+	private final GeodeticCalculator calc = new GeodeticCalculator(DefaultGeographicCRS.WGS84);
 
 	public KmlGenerator(String epsgCode) {
 		super();
 		this.epsgCode = epsgCode;
 	}
 
-	protected Point latLongToCartesian(double longitude, double latitude) throws Exception {
+	protected Point transformToWGS84(double longitude, double latitude) throws Exception {
 	
 		GeometryFactory gf = new GeometryFactory();
 		Coordinate c = new Coordinate(longitude, latitude);
@@ -46,11 +57,42 @@ public abstract class KmlGenerator {
 		return p1;
 	}
 
+	protected double[] getPointWithOffset(double[] originalPoint, double offsetLongitudeMeters, double offsetLatitudeMeters)
+			throws TransformException {
+		double longitudeDirection = 90; // EAST
+		if (offsetLongitudeMeters < 0) {
+			longitudeDirection = -90; // WEST
+		}
+
+		double latitudeDirection = 0; // NORTH
+		if (offsetLatitudeMeters < 0) {
+			latitudeDirection = 180; // SOUTH
+		}
+
+
+		calc.setStartingGeographicPoint(originalPoint[0], originalPoint[1]);
+
+		boolean longitudeChanged = false;
+		if (offsetLongitudeMeters != 0) {
+			calc.setDirection(longitudeDirection, Math.abs(offsetLongitudeMeters));
+			longitudeChanged = true;
+		}
+
+		if (offsetLatitudeMeters != 0) {
+			if (longitudeChanged) {
+				double[] firstMove = calc.getDestinationPosition().getCoordinate();
+				calc.setStartingGeographicPoint(firstMove[0], firstMove[1]);
+			}
+			calc.setDirection(latitudeDirection, Math.abs(offsetLatitudeMeters));
+		}
+
+		return calc.getDestinationPosition().getCoordinate();
+
+	}
+
 	public void generateFromCsv(String csvFile, String ballongFile, String freemarkerKmlTemplateFile, String destinationKmlFile) throws IOException, TemplateException {
 		String kml = getKmlCode(csvFile, ballongFile, freemarkerKmlTemplateFile);
-	
 		File f = new File(destinationKmlFile);
-	
 		try {
 			FileUtils.write(f, kml);
 		} catch (IOException e) {
@@ -74,13 +116,31 @@ public abstract class KmlGenerator {
 	
 		// Load template from source folder
 		Template template = cfg.getTemplate(freemarkerKmlTemplateFile);
-	
+
 		// Console output
 		StringWriter out = new StringWriter();
 		template.process(data, out);
 		out.flush();
-	
+		// return out.toString().replaceAll(">\\s*<", "><");
 		return out.toString();
+
+	}
+
+	private String compressKml(String input) {
+		try {
+			Source xmlInput = new StreamSource(new StringReader(input));
+			StringWriter stringWriter = new StringWriter();
+			StreamResult xmlOutput = new StreamResult(stringWriter);
+			TransformerFactory transformerFactory = TransformerFactory.newInstance();
+			// transformerFactory.setAttribute("indent-number", indent);
+			Transformer transformer = transformerFactory.newTransformer();
+			transformer.setOutputProperty(OutputKeys.INDENT, "no");
+			transformer.transform(xmlInput, xmlOutput);
+			return xmlOutput.getWriter().toString();
+		} catch (Exception e) {
+			throw new RuntimeException(e); // simple exception handling, please
+											// review it
+		}
 	}
 
 	protected abstract Map<String, Object> getTemplateData(String csvFile) throws FileNotFoundException,

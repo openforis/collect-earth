@@ -29,7 +29,8 @@ public class GenerateKML {
 		// }
 
 		try {
-			generateKml.generateFromCsv("grid-EPSG_3576-mongolia.csv", "balloon.html", "anssi_template.fmt", "resultAnssi.kml");
+			generateKml.generateFromCsv("grid-EPSG_3576-mongolia.csv", "balloonWithButtons.html", "anssi_template.fmt",
+					"resultAnssi.kml");
 		} catch (IOException e) {
 			logger.error("Could not generate KML file", e);
 		} catch (TemplateException e) {
