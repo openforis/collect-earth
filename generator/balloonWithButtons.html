@@ -31,7 +31,7 @@ When multiple values can be sent ( in a multiple select for instance ) the data 
 So, for Mongolia we expect these values :
 collect_text_id
 collect_coord_location
-collect_text_operator
+collect_text_operator ( filled in the EyeSurveyService store method as the operator name is fetched through a properties file)
 collect_code_land_use
 collect_boolean_land_use_change
 collect_code_land_use_type
@@ -94,8 +94,7 @@ collect_code_human_impact_type = "fire===logging===grazing"
 			var $form = $("#formAll");
 	
 			var data = $("#formAll").serialize();			
-			//data = data + "&collect_text_id=$[id]";
-			
+						
 			$.ajax({
 				data : data,
 				type : $form.attr("method"),
@@ -106,27 +105,21 @@ collect_code_human_impact_type = "fire===logging===grazing"
 	};
 	
 	var enableSelect = function( selectName, enable ){ //#elementsCover
-
 		if( enable == true  ){
 			 $(selectName).prop('disabled',false);
 		}else{
 			 $(selectName).prop('disabled',true);
 		}
-		
 		$(selectName).selectpicker('refresh');
-		
 	}
 	
 	var toggleDependantSelect = function( parentSelect, nameDependantSelect ){ //#elementsCover
-
 		var elementSelected = false;
 		$( parentSelect + " option:selected").each(function () {        
 			elementSelected = true;    
 		});  
 
 		enableSelect( nameDependantSelect, elementSelected );
-		
-		
 	}
 
 	var fillDataWithJson = function(json) {
@@ -151,7 +144,9 @@ collect_code_human_impact_type = "fire===logging===grazing"
 			}else if( $('#'+key+'_group').length == 1 ){ // button group exists
 				var values = value.split("===");
 				for (var i = 0; i < values.length; i++) {
-					$('#'+key+'_group.btn[value='+value+']').toggleClass('active'); // set the class to "active" on the chosen values
+					//$('#'+key+'_group .btn[value='+value+']').button('toggle'); // set the class to "active" on the chosen values
+					if( $('.btn[type=button][value='+value+']').length == 1)
+						$('.btn[type=button][value='+value+']').button('toggle');
 				}
 			}
 			
@@ -253,29 +248,6 @@ collect_code_human_impact_type = "fire===logging===grazing"
 			.ready(
 					function() {
 
-						$('a[data-toggle="tab"]').on(
-								'shown',
-								function(e) {
-									var selectedTab = e.target;
-									var idSelected = selectedTab.name;
-									$("input[id=collect_code_land_use]").val(idSelected);
-
-								});
-
-						$('#forestType').change(
-								function() {
-									var idSelected = $(this).attr("id");
-									$("input[id=collect_code_land_use_type]").val(idSelected);
-									$("#crownCoverDiv").show();
-								});
-
-						$('#radioCrown').change(
-								function() {
-									var idSelected = $(this).attr("id");
-									$("input[id=collect_code_crown_cover]").val(idSelected);
-									$("#imageResolutionDiv").show();
-								});
-
 						$('#humanImpactType')
 								.change(
 										function() {
@@ -318,43 +290,32 @@ collect_code_human_impact_type = "fire===logging===grazing"
 						// Mark the selects as "bootstratp-select" enabled 
 						$('.selectpicker').selectpicker();
 
-						
 						$("#elements").change(
 								function() {
 									toggleDependantSelect("#elements",
 											'#elementsCover');
 								});
 
-						$('.toggleLandDevelopment')
-								.on(
-										'click',
-										function(e) {
-											var selectedButton = e.target;
-											$(
-													"input[id=collect_boolean_land_use_change]")
-													.val(selectedButton.value);
-										});
-
-						// Initialize forest specific properties
-						// $("#crownCoverDiv").hide();
-
+						$('.toggleLandDevelopment').on(
+								'click',
+								function(e) {
+									var selectedButton = e.target;
+									$("input[id=collect_boolean_land_use_change]").val(selectedButton.value);
+								});
+						
 						$('.otherToForest').attr("disabled", true);
 						$('.forestToForest').attr("disabled", true);
 						
 						$('.toggleForestDevelopment').on('click', function(e) {
 							var that = $(this);
-
 							if (that.attr("id") == "FLtoFL") {
 								$('.otherToForest').attr("disabled", true);
 								$('.forestToForest').attr("disabled", false);
 							} else {
 								$('.forestToForest').attr("disabled", true);
 								$('.otherToForest').attr("disabled", false);
-
 							}
-
 							enableSelect('.landUseTypeSelector', true);
-
 						});
 
 										
@@ -362,12 +323,11 @@ collect_code_human_impact_type = "fire===logging===grazing"
 						$('#formAll')
 								.submit(
 										function(e) {
+											clearTimeout(ajaxTimeout); // So that the form is not save twice if the user clicks the submit button before the auto-save timeout has started
 											e.preventDefault();
 
 											// Mark this as the "real submit" (as opposed when saving data just because the user closes the window) so we can show the placemark as interpreted
-											$(
-													"input[id=collect_boolean_actively_saved]")
-													.val("true");
+											$("input[id=collect_boolean_actively_saved]").val("true");
 
 											var $form = $(this);
 
@@ -561,22 +521,22 @@ hr {
 								<div class="btn-group land_use_option" data-toggle="buttons-radio" id="collect_code_land_use_group">
 									<button type="button"
 										class="btn btn-primary active"
-										name="radioCrown" value="forest">Forest</button>
+										value="forest">Forest</button>
 									<button type="button"
 										class="btn btn-primary"
-										name="radioCrown" value="grassland">Grassland</button>
+										value="grassland">Grassland</button>
 									<button type="button"
 										class="btn btn-primary"
-										name="radioCrown" value="cropland">Cropland</button>
+										value="cropland">Cropland</button>
 									<button type="button"
 										class="btn btn-primary"
-										name="radioCrown" value="wetland">Wetland</button>
+										value="wetland">Wetland</button>
 									<button type="button"
 										class="btn btn-primary"
-										name="radioCrown" value="settlement">Settlement</button>
+										value="settlement">Settlement</button>
 									<button type="button"
 										class="btn btn-primary"
-										name="radioCrown" value="other">Other</button>
+										value="other">Other</button>
 								</div>
 							</div>
 						</div>
@@ -594,7 +554,7 @@ hr {
 								<div class="btn-group" data-toggle="buttons-radio">
 									<button type="button"
 										class="btn btn-primary  toggleForestDevelopment toggleLandDevelopment"
-										id="FLtoFL" name="radioCrown" value="false">FL &gt;
+										id="FLtoFL" value="false">FL &gt;
 										FL</button>
 									<button type="button"
 										class="btn btn-primary toggleForestDevelopment toggleLandDevelopment"
@@ -678,7 +638,7 @@ hr {
 									<div class="btn-group" data-toggle="buttons-radio">
 										<button type="button"
 											class="btn btn-primary  toggleLandDevelopment"
-											id="CLtoCL" name="radioCrown">CL &gt; CL</button>
+											id="CLtoCL" >CL &gt; CL</button>
 										<button type="button"
 											class="btn btn-primary toggleLandDevelopment"
 											id="OTtoCL">Other &gt; CL</button>
@@ -710,7 +670,7 @@ hr {
 								<div class="btn-group" data-toggle="buttons-radio">
 									<button type="button"
 										class="btn btn-primary toggleLandDevelopment" id="OLtoOL"
-										name="radioCrown" value="false">OL &gt; OL</button>
+										value="false">OL &gt; OL</button>
 									<button type="button"
 										class="btn btn-primary toggleLandDevelopment" id="OTtoOL"
 										value="true">Other &gt; OL</button>
@@ -747,7 +707,7 @@ hr {
 									<div class="btn-group" data-toggle="buttons-radio">
 										<button type="button"
 											class="btn btn-primary toggleLandDevelopment" id="GLtoGL"
-											name="radioCrown" value="false">GL &gt; GL</button>
+											value="false">GL &gt; GL</button>
 										<button type="button"
 											class="btn btn-primary toggleLandDevelopment" id="OLtoGL"
 											value="true">Other &gt; GL</button>
@@ -797,7 +757,7 @@ hr {
 									
 										<div class="btn-group" data-toggle="buttons-radio">
 											<button type="button" class="btn btn-primary  toggleLandDevelopment"
-												id="WLtoWL" name="radioCrown" value="false">WL &gt; WL</button>
+												id="WLtoWL" value="false">WL &gt; WL</button>
 											<button type="button" class="btn btn-primary toggleLandDevelopment"
 												id="OLtoWL" value="true">Other &gt; WL</button>
 										</div>
@@ -822,7 +782,7 @@ hr {
 									
 										<div class="btn-group" data-toggle="buttons-radio">
 											<button type="button" class="btn btn-primary  toggleLandDevelopment"
-												id="SLtoSL" name="radioCrown" value="false">SL &gt; SL</button>
+												id="SLtoSL" value="false">SL &gt; SL</button>
 											<button type="button" class="btn btn-primary toggleLandDevelopment"
 												id="OLtoSL" value="true">Other &gt; SL</button>
 										</div>
@@ -939,12 +899,10 @@ hr {
 
  <a href="#">I am clickable but not selected</a></div>  -->
 							    
-							 </div>
+						</div>
 						<div class="label-over">Time</div>
-									<div class="control-group">
-							
-								 <input type="text" id="collect_date_rs_date" placeholder="Date of the interpreted image" id="">
-								
+							<div class="control-group">
+								 <input type="text" id="collect_date_rs_date" name="collect_date_rs_date" placeholder="Date of the interpreted image" id="">
 							</div>
 						</div>
 							

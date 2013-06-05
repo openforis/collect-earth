@@ -35,6 +35,9 @@ public class EyeSurveyService {
 	@Autowired
 	CollectParametersHandler collectParametersHandler;
 
+	@Autowired
+	LocalPropertiesService localPropertiesService;
+
 	CollectSurvey collectSurvey;
 
 	String idmFilePath;
@@ -74,7 +77,9 @@ public class EyeSurveyService {
 
 	public void storePlacemark(Map<String, String> parameters, String sessionId) throws RecordPersistenceException {
 		List<CollectRecord> summaries = recordManager.loadSummaries(collectSurvey, ROOT_ENTITY, parameters.get("collect_text_id"));
-
+		// Add the operator to the collected data
+		parameters.put("collect_text_operator", localPropertiesService.getOperator());
+		
 		CollectRecord record = null;
 		boolean update = false;
 		Entity plotEntity = null;
