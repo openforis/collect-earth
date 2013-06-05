@@ -22,9 +22,13 @@ import org.springframework.beans.factory.annotation.Autowired;
 
 public class EyeSurveyService {
 
+	private static final String COLLECT_TEXT_OPERATOR = "collect_text_operator";
+
 	private static final String ROOT_ENTITY = "plot";
 
 	private static final String EYE_SURVEY_NAME = "eye";
+
+	private static final String SKIP_FILLED_PLOT_PARAMETER = "eye_skip_filled";
 
 	@Autowired
 	SurveyManager surveyManager;
@@ -62,7 +66,7 @@ public class EyeSurveyService {
 		}
 	}
 
-	public Map<String,String> getPlacemark(String placemarkId) {
+	public Map<String, String> getPlacemark(String placemarkId) {
 		List<CollectRecord> summaries = recordManager.loadSummaries(collectSurvey, ROOT_ENTITY, placemarkId);
 		CollectRecord record = null;
 		Map<String, String> placemarkParameters = null;
@@ -71,15 +75,17 @@ public class EyeSurveyService {
 			record = recordManager.load(collectSurvey, record.getId(), Step.ENTRY.getStepNumber());
 			placemarkParameters = collectParametersHandler.getParameters(record.getRootEntity());
 		}
+		
+		placemarkParameters.put(SKIP_FILLED_PLOT_PARAMETER, localPropertiesService.shouldSkipFilledPlots() + "");
+		
 		return placemarkParameters;
 	}
-
 
 	public void storePlacemark(Map<String, String> parameters, String sessionId) throws RecordPersistenceException {
 		List<CollectRecord> summaries = recordManager.loadSummaries(collectSurvey, ROOT_ENTITY, parameters.get("collect_text_id"));
 		// Add the operator to the collected data
-		parameters.put("collect_text_operator", localPropertiesService.getOperator());
-		
+		parameters.put(COLLECT_TEXT_OPERATOR, localPropertiesService.getOperator());
+
 		CollectRecord record = null;
 		boolean update = false;
 		Entity plotEntity = null;
@@ -99,6 +105,9 @@ public class EyeSurveyService {
 		// Populate the data of the record using the HTTP parameters received
 		collectParametersHandler.saveToEntity(parameters, plotEntity);
 
+		// Save extra information
+		localPropertiesService.setSkipFilledPlots(parameters.get(SKIP_FILLED_PLOT_PARAMETER));
+
 		recordManager.save(record, sessionId);
 	}
 
@@ -106,19 +115,5 @@ public class EyeSurveyService {
 		return placemarkParameters != null && placemarkParameters.get("collect_boolean_actively_saved") != null
 				&& placemarkParameters.get("collect_boolean_actively_saved").equals("true");
 	}
-	// protected NodeChangeSet updateRecord(CollectRecord record,
-	// NodeUpdateRequestSet nodeUpdateOptionSet) throws
-	// RecordPersistenceException, RecordIndexException {
-	// List<NodeUpdateRequest> opts = nodeUpdateOptionSet.getRequests();
-	// NodeChangeMap result = new NodeChangeMap();
-	// for (NodeUpdateRequest req : opts) {
-	// NodeChangeSet partialChangeSet = updateRecord(record, req);
-	// List<NodeChange<?>> changes = partialChangeSet.getChanges();
-	// for (NodeChange<?> change : changes) {
-	// result.addOrMergeChange(change);
-	// }
-	// }
-	// return new NodeChangeSet(result.getChanges());
-	// }
 
 }

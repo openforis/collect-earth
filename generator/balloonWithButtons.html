@@ -50,6 +50,10 @@ collect_boolean_actively_saved // Set this to true when the user saves the data 
 When a value has multiple values they will be  separated with "===" i.e.
 collect_code_human_impact_type = "fire===logging===grazing"
 
+
+
+Other inputs:
+eye_skip_filled
  -->
 
 <script>
@@ -85,6 +89,7 @@ collect_code_human_impact_type = "fire===logging===grazing"
 	}
 	
 	// To be used by the method that saves the data automatically when the user interacts with the form
+	// DO NOT REMOVE
 	var ajaxTimeout = null; 
 	
 	var ajaxDataUpdate = function(){
@@ -124,18 +129,11 @@ collect_code_human_impact_type = "fire===logging===grazing"
 
 	var fillDataWithJson = function(json) {
 
-		// 						if (json.type == 'success' && json.collect_boolean_actively_saved == 'true') {
-		// 							$('#succ_mess').css("color", "red").html( "The data for this placemark has already been filled");
-		// 							$("#dialogSuccess").dialog( "open" );
-		// 							forceWindowCloseAfterDialogCloses($("#dialogSuccess"));
-		// 						}else if(json.type == 'success'){
 		$.each(json, function(key, value) {
-
 			// Do this for every key there might be different tryopes of elements with the same key than a hidden input
 			if ($("input[name='" + key + "']").length == 1) {
 				$("input[name='" + key + "']").val(value);
 			} 
-			
 			
 			if ($("select[name='" + key + "']").length == 1) {
 				var values = value.split("===");
@@ -153,9 +151,14 @@ collect_code_human_impact_type = "fire===logging===grazing"
 			if( key == "collect_code_land_use_type"){
 				$('.landUseTypeSelector.btn[value='+value+']').toggleClass('active');
 			}
+			
+			
+			if( key == "eye_skip_filled" && value == 'true'){
+				$('#eye_skip_filled').attr('checked', value);				
+			}
+			
 
 		});
-		// 						}
 	}
 	
 		
@@ -163,13 +166,9 @@ collect_code_human_impact_type = "fire===logging===grazing"
 		
 		
 		$(".land_use_option").find("button").click(function(){
-			
 			 var selectedValue = $(this).val();
-			 
 			 $('.tab-pane').hide();
-			
 			 $('#tab_'+selectedValue).show();// give the hidden input the same value as the button that just was clicked
-			
 		});
 		
 		
@@ -179,12 +178,8 @@ collect_code_human_impact_type = "fire===logging===grazing"
 			var suffixLength =  "_group".length;
 			
 			if( groupId && groupId.length > suffixLength ){
-				 
-				 
 				 var idLength = groupId.length - suffixLength;
-				 
 				 var hiddenInputId = groupId.substring(0,  idLength );
-				
 				 $('#'+hiddenInputId).val( $(this).val() );// give the hidden input the same value as the button that just was clicked
 				 ajaxDataUpdate();
 			}
@@ -203,6 +198,7 @@ collect_code_human_impact_type = "fire===logging===grazing"
 		// SAVING DATA WHEN DATA CHANGES
 		// Bind event to Before user leaves page with function parameter e
 		// The window onbeforeunload or onunload events do not work in Google Earth
+		// OBS! The change event is not fired for the hidden inputs when the value is updated through jQuery's val()
 		$('input[name^=collect], select[name^=collect], button[name^=collect]').change(
 				function(e){
 					ajaxDataUpdate();
@@ -238,8 +234,23 @@ collect_code_human_impact_type = "fire===logging===grazing"
 				$("#dialogSuccess").dialog("open");
 			},
 			success : function(json){
-				fillDataWithJson(json);
-				initializeChangeEventSaver();
+				if( json.collect_boolean_actively_saved == 'true' && json.collect_text_id != 'testPlacemark'){ // 
+					
+					$('#succ_mess').css("color", "red").html( "The data for this placemark has already been filled");
+					$("#dialogSuccess").dialog( "open" );
+					
+					if( json.eye_skip_filled && json.eye_skip_filled == 'true'){
+						forceWindowCloseAfterDialogCloses($("#dialogSuccess"));
+					}
+					
+					
+				}else{
+					fillDataWithJson(json);
+					initializeChangeEventSaver();
+				}
+				
+				
+				
 			}
 		});
 	}
@@ -259,17 +270,17 @@ collect_code_human_impact_type = "fire===logging===grazing"
 												$(this).selectpicker('refresh');
 											}
 
-											$('.humanImpactInput')
-													.each(
-															function() {
-																if (jQuery.inArray( "noImpact", selectedValues) !== -1) {
-																	$(this).prop('disabled',true);
-																	$(this).selectpicker('deselectAll');
-																} else {
-																	$(this).prop('disabled',false);
-																}
-																$(this).selectpicker('refresh');
-															});
+											$('.humanImpactInput').each( 
+													function() {
+															if (jQuery.inArray( "noImpact", selectedValues) !== -1) {
+																$(this).prop('disabled',true);
+																$(this).selectpicker('deselectAll');
+															} else {
+																$(this).prop('disabled',false);
+															}
+															$(this).selectpicker('refresh');
+													}
+											);
 
 										});
 
@@ -351,10 +362,7 @@ collect_code_human_impact_type = "fire===logging===grazing"
 															$.unblockUI();
 														},
 														beforeSend : function() {
-															$
-																	.blockUI({
-																		message : 'Sumitting data..'
-																	});
+															$.blockUI({ message : 'Sumitting data..' });
 														}
 													});
 
@@ -450,6 +458,10 @@ hr {
     width: 170px\9; /*IE8 and below*/
 }
 
+.ui-dialog-titlebar-close {
+    background-image: url(files/img/close.png) !important;
+    background-position: left top !important;
+}
 </style>
 
 </head>
@@ -908,8 +920,10 @@ hr {
 							
 	
 						<div class="form-actions" style="clear: both" class="lowerDivs">
-							<button type="submit" class="btn btn-primary btn-small">Save
-								changes</button>
+							<button type="submit" class="btn btn-primary btn-small">Save changes</button>
+							<div style="float:right">
+							<label for="eye_skip_filled">Skip already filled plots</label> <input type="checkbox" id="" name="eye_skip_filled"/>
+							</div>
 						</div>
 
 
