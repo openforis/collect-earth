@@ -1,0 +1,30 @@
+<?xml version="1.0"?>
+<!DOCTYPE Configure PUBLIC "-//Mort Bay Consulting//DTD Configure//EN" "http://www.eclipse.org/jetty/configure.dtd">
+
+<Configure id="wac" class="org.eclipse.jetty.webapp.WebAppContext">
+    
+<!--      <Resource  -->
+<!-- 	   name="jdbc/collectDs"  -->
+<!-- 	   auth="Container" -->
+<!-- 	   type="javax.sql.DataSource" -->
+<!-- 	   factory="org.apache.commons.dbcp.BasicDataSourceFactory" -->
+<!-- 	   driverClassName="org.sqlite.JDBC" -->
+<!--        url="jdbc:sqlite:${catalina.home}/data/collect.db"> -->
+<!-- 	 </Resource> -->
+    
+	<New id="myds" class="org.eclipse.jetty.plus.jndi.Resource">
+		<Arg>jdbc/collectDs</Arg>
+		<Arg>
+			<New class="org.apache.commons.dbcp.BasicDataSource">
+				<Set name="url">jdbc:sqlite::memory:</Set>
+				<Set name="driverClassName">org.sqlite.JDBC</Set>
+			</New>
+			
+		</Arg>
+	</New>
+<!-- 	<New class="org.eclipse.jetty.plus.jndi.Link"> -->
+<!-- 	    <Arg><Ref refid='wac'/></Arg> -->
+<!-- 		<Arg>jdbc/collectDs</Arg> -->
+<!-- 		<Arg>javax.sql.DataSource</Arg> -->
+<!-- 	</New> -->
+</Configure>
