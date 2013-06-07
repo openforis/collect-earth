@@ -7,7 +7,7 @@
 	https://raw.github.com/openforis/collect/master/collect-core/src/main/resources/idml3-ui.xsd"
 	lastId="1000">
 	<project>Open Foris Eye</project>
-	<uri>http://www.openforis.org/idm/eye</uri>
+	<uri>http://www.openforis.org/idm/earth</uri>
 	<cycle>2013-2014</cycle>
 	<description></description>
 	<language>en</language>

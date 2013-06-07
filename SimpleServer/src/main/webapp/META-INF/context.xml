@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<Context path="/eye" reloadable="false">
+<Context path="/earth" reloadable="false">
     <ResourceLink name="jdbc/collectDs"
         type="javax.sql.DataSource"
         global="jdbc/collectDs"/>

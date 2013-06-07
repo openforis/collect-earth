@@ -31,7 +31,7 @@ When multiple values can be sent ( in a multiple select for instance ) the data 
 So, for Mongolia we expect these values :
 collect_text_id
 collect_coord_location
-collect_text_operator ( filled in the EyeSurveyService store method as the operator name is fetched through a properties file)
+collect_text_operator ( filled in the earthSurveyService store method as the operator name is fetched through a properties file)
 collect_code_land_use
 collect_boolean_land_use_change
 collect_code_land_use_type
@@ -53,7 +53,7 @@ collect_code_human_impact_type = "fire===logging===grazing"
 
 
 Other inputs:
-eye_skip_filled
+earth_skip_filled
  -->
 
 <script>
@@ -164,8 +164,8 @@ eye_skip_filled
 				
 			}
 			
-			if( key == "eye_skip_filled" && value == 'true'){
-				$('#eye_skip_filled').attr('checked', value);				
+			if( key == "earth_skip_filled" && value == 'true'){
+				$('#earth_skip_filled').attr('checked', value);				
 			}
 			
 			if( key == "collect_boolean_land_use_change" ){
@@ -256,7 +256,7 @@ eye_skip_filled
 			data : data,
 			type : "POST",
 			//url : "$[host]placemarkInfo",
-			url: "http://168.202.48.32:80/eye/placemarkInfo",
+			url: "http://168.202.48.32:80/earth/placemarkInfo",
 			dataType : 'json',
 			error : function(jqXHR, textStatus, errorThrown) {
 				$('#succ_mess').css("color", "red").html("The data server is not running!");
@@ -268,7 +268,7 @@ eye_skip_filled
 					$('#succ_mess').css("color", "red").html( "The data for this placemark has already been filled");
 					$("#dialogSuccess").dialog( "open" );
 					
-					if( json.eye_skip_filled && json.eye_skip_filled == 'true'){
+					if( json.earth_skip_filled && json.earth_skip_filled == 'true'){
 						forceWindowCloseAfterDialogCloses($("#dialogSuccess"));
 					}
 					
@@ -526,7 +526,7 @@ hr {
 	<div id="contentDiv" style="width: 450px">
 
 			<!-- <form id="formAll" method="POST" action="$[host]saveData"> -->
-			<form id="formAll" method="POST" action="http://168.202.48.32:80/eye/saveData">
+			<form id="formAll" method="POST" action="http://168.202.48.32:80/earth/saveData">
 			
 
 				<input type="hidden" id="collect_coord_location" 
@@ -967,7 +967,7 @@ hr {
 						<div class="form-actions" style="clear: both" class="lowerDivs">
 							<button type="submit" class="btn btn-primary btn-small">Save changes</button>
 							<div style="float:right">
-							<label for="eye_skip_filled">Skip already filled plots</label> <input type="checkbox" id="" name="eye_skip_filled"/>
+							<label for="earth_skip_filled">Skip already filled plots</label> <input type="checkbox" id="" name="earth_skip_filled"/>
 							</div>
 						</div>
 

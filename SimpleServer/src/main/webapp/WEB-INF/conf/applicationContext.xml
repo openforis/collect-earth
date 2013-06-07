@@ -19,7 +19,7 @@
 	    http://www.springframework.org/schema/tx/spring-tx-3.0.xsd"
 	default-lazy-init="true">
 
-	<context:component-scan base-package="org.openforis.eye"  />
+	<context:component-scan base-package="org.openforis.collect.earth.app"  />
 	<context:annotation-config />
 
 	<mvc:resources mapping="/assets/**" location="/assets/" />
@@ -54,7 +54,7 @@
 	<tx:annotation-driven transaction-manager="transactionManager"
 		proxy-target-class="true" />
 
-	<bean class="org.openforis.eye.springversion.CollectDataAccessor" id="dataAccessor" />
+	<bean class="org.openforis.collect.earth.app.springversion.CollectDataAccessor" id="dataAccessor" />
 	
 	<!-- ===================================== -->
 	<!-- DAO -->
@@ -164,15 +164,15 @@
 	<!-- EYE Specific Beans -->
 	<!-- ===================================== -->
 	
-	<bean id="eyeSurveyService" class="org.openforis.eye.service.EyeSurveyService"
+	<bean id="earthSurveyService" class="org.openforis.collect.earth.app.service.EarthSurveyService"
 		init-method="init" lazy-init="false">
 		<constructor-arg value="resources/idm_conf/placemark.idm.xml"/>
 	</bean>
 	
-	<bean id="collectParametersHandler" class="org.openforis.eye.service.CollectParametersHandler">
+	<bean id="collectParametersHandler" class="org.openforis.collect.earth.app.service.CollectParametersHandler">
 	</bean>
 	
-	<bean id="localPropertiesService" class="org.openforis.eye.service.LocalPropertiesService"
+	<bean id="localPropertiesService" class="org.openforis.collect.earth.app.service.LocalPropertiesService"
 		init-method="init" lazy-init="false">
 	</bean>
 	

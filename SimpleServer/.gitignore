@@ -3,3 +3,7 @@
 .settings
 .springBeans
 target
+/createJar.jardesc
+/eye.properties
+/gePlugin.kmz
+/resultAnssi.kml

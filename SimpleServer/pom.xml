@@ -2,10 +2,10 @@
 <project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
 	xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/maven-v4_0_0.xsd">
 	<modelVersion>4.0.0</modelVersion>
-	<groupId>org.openforis.collect.android</groupId>
+	<groupId>org.openforis.collect.earth</groupId>
 	<version>0.0.1-SNAPSHOT</version>
-	<name>SimpleServer</name>
-	<artifactId>SimpleServer</artifactId>
+	<name>Earth App</name>
+	<artifactId>collect-earth-app</artifactId>
 	<packaging>jar</packaging>
 
 	<properties>
@@ -31,7 +31,7 @@
 	<dependencies>
 	    	
 		<dependency>
-			<groupId>org.openforis.eye.generator</groupId>
+			<groupId>org.openforis.collect.earth.sampler</groupId>
 			<artifactId>generator</artifactId>
 			<version>0.0.1-SNAPSHOT</version>
 		</dependency>
@@ -167,7 +167,7 @@
 		      <configuration>
 		        <archive>
 		          <manifest>
-		            <mainClass>org.openforis.eye.desktop.DesktopApp</mainClass>
+		            <mainClass>org.openforis.collect.earth.app.desktop.EarthApp</mainClass>
 		          </manifest>
 		        </archive>
 		        <descriptorRefs>
@@ -220,7 +220,7 @@
 
             <!-- used to automatically identify the jar containing the main class. -->
             <!-- this is perhaps going to change -->
-            <mainClass>org.openforis.eye.desktop.DesktopApp</mainClass>
+            <mainClass>org.openforis.collect.earth.app.desktop.EarthApp</mainClass>
           </jnlp>
 
 
@@ -309,7 +309,7 @@
 							<addClasspath>true</addClasspath>
 							<classpathPrefix>${settings.localRepository}</classpathPrefix>
 							<classpathLayoutType>repository</classpathLayoutType>
-							<mainClass>org.openforis.eye.desktop.DesktopApp</mainClass>
+							<mainClass>org.openforis.collect.earth.app.desktop.EarthApp</mainClass>
 						</manifest>
 					</archive>
 				</configuration>
@@ -325,7 +325,7 @@
 					<assembleDirectory>target</assembleDirectory>
 					<programs>
 						<program>
-							<mainClass>org.openforis.eye.desktop.DesktopApp</mainClass>
+							<mainClass>org.openforis.collect.earth.app.desktop.EarthApp</mainClass>
 							<name>webapp</name>
 						</program>
 					</programs>
