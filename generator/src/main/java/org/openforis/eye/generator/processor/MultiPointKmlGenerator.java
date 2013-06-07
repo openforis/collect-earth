@@ -18,23 +18,28 @@ import com.vividsolutions.jts.geom.Point;
 
 public class MultiPointKmlGenerator extends KmlGenerator {
 
-	public MultiPointKmlGenerator(String epsgCode) {
-		super(epsgCode);
-		// TODO Auto-generated constructor stub
-	}
-
+	private static final int INNER_RECT_SIDE = 3;
 	private static final int NUM_OF_COLS = 5;
 	private static final int NUM_OF_ROWS = 5;
-	private static final int X_DISTANCE = 50;
-	private static final int Y_DISTANCE = 50;
+	private static final int X_DISTANCE = 20;
+	private static final int Y_DISTANCE = 20;
+	private String host;
+	private String port;
 
-	private static final int MARGIN = 50;
+	public MultiPointKmlGenerator(String epsgCode) {
+		super(epsgCode);
+	}
 
-	private static final int INNER_RECT_SIDE = 5;
+	// private static final int MARGIN = 20;
+
+	public MultiPointKmlGenerator(String epsgCode, String host, String port) {
+		super(epsgCode);
+		this.host = host;
+		this.port = port;
+	}
 
 	@Override
-	protected Map<String, Object> getTemplateData(String csvFile) throws FileNotFoundException,
-			IOException {
+	protected Map<String, Object> getTemplateData(String csvFile) throws FileNotFoundException, IOException {
 		Map<String, Object> data = new HashMap<String, Object>();
 
 		SimplePlacemarkObject previousPlacemark = null;
@@ -48,7 +53,7 @@ public class MultiPointKmlGenerator extends KmlGenerator {
 			// nextLine[] is an array of values from the line
 
 			try {
-				
+
 				String currentPlaceMarkId = "ge_" + nextRow[0];
 
 				if (previousPlacemark != null) {
@@ -59,39 +64,44 @@ public class MultiPointKmlGenerator extends KmlGenerator {
 
 				double originalX = Double.parseDouble(nextRow[1]);
 				double originalY = Double.parseDouble(nextRow[2]);
-				
-				Point transformedPoint = latLongToCartesian(originalX, originalY );
+
+				Point transformedPoint = transformToWGS84(originalX, originalY); // TOP-LEFT
+																					// position
+				double[] coordOriginalPoints = new double[] { transformedPoint.getX(), transformedPoint.getY() };
 
 				SimplePlacemarkObject parentPlacemark = new SimplePlacemarkObject(transformedPoint.getCoordinate(),
 						currentPlaceMarkId);
 
 				previousPlacemark = parentPlacemark;
-				
-				List<SimplePlacemarkObject> pointsInPlacemark = new ArrayList<SimplePlacemarkObject>();
-				int counter = 0;
-				for (int col = 0; col < NUM_OF_COLS; col++) {
-					double temX = originalX + col * X_DISTANCE;
-					for (int row = 0; row < NUM_OF_ROWS; row++) {
-						double temY = originalY - row * Y_DISTANCE;
 
-						transformedPoint = latLongToCartesian(temX, temY);
-						SimplePlacemarkObject insidePlacemark = new SimplePlacemarkObject(transformedPoint.getCoordinate(),
+				List<SimplePlacemarkObject> pointsInPlacemark = new ArrayList<SimplePlacemarkObject>();
+
+				for (int col = 1; col < NUM_OF_COLS; col++) {
+					double offsetLong = col * X_DISTANCE; // GO EAST
+					for (int row = 1; row < NUM_OF_ROWS; row++) {
+						double offsetLat = -(row * Y_DISTANCE); // GO SOUTH
+
+						double[] miniPlacemarkPosition = getPointWithOffset(coordOriginalPoints, offsetLong, offsetLat);
+						SimplePlacemarkObject insidePlacemark = new SimplePlacemarkObject(miniPlacemarkPosition,
 								currentPlaceMarkId);
-						
+
 						// Get the inner bounbdaiures of the squares
 						List<SimpleCoordinate> coords = new ArrayList<SimpleCoordinate>();
-						coords.add( new SimpleCoordinate( latLongToCartesian(temX , temY).getCoordinate() ) );
-						
-						coords.add( new SimpleCoordinate( latLongToCartesian(temX + INNER_RECT_SIDE , temY).getCoordinate() ) );
-						coords.add( new SimpleCoordinate( latLongToCartesian(temX  + INNER_RECT_SIDE , temY  + INNER_RECT_SIDE).getCoordinate() ) );
-						coords.add( new SimpleCoordinate( latLongToCartesian(temX , temY  + INNER_RECT_SIDE ).getCoordinate() ) );
-						
-						
-						coords.add( new SimpleCoordinate( latLongToCartesian(temX , temY).getCoordinate() ) );
+
+						coords.add(new SimpleCoordinate(miniPlacemarkPosition)); // TOP-LEFT
+
+						coords.add(new SimpleCoordinate(getPointWithOffset(miniPlacemarkPosition, INNER_RECT_SIDE, 0))); // TOP-RIGHT
+						coords.add(new SimpleCoordinate(getPointWithOffset(miniPlacemarkPosition, INNER_RECT_SIDE, // BOTTOM-RIGHT
+								INNER_RECT_SIDE)));
+						coords.add(new SimpleCoordinate(getPointWithOffset(miniPlacemarkPosition, 0, INNER_RECT_SIDE))); // BOTTOM-LEFT
+
+						// close the square
+						coords.add(new SimpleCoordinate(miniPlacemarkPosition)); // TOP-LEFT
+
 						insidePlacemark.setShape(coords);
-						
+
 						pointsInPlacemark.add(insidePlacemark);
-						
+
 					}
 
 				}
@@ -103,46 +113,39 @@ public class MultiPointKmlGenerator extends KmlGenerator {
 				String south, north, west, east;
 
 				// TOP LEFT
-				double tlX = originalX - MARGIN;
-				double tlY = originalY - (Y_DISTANCE * (NUM_OF_ROWS - 1)) - MARGIN;
-				transformedPoint = latLongToCartesian(tlX, tlY);
-				shapePoints.add(new SimpleCoordinate(transformedPoint.getCoordinate()));
+				shapePoints.add(new SimpleCoordinate(coordOriginalPoints));
 
-				north = transformedPoint.getCoordinate().y + "";
-				east = transformedPoint.getCoordinate().x + "";
+				north = coordOriginalPoints[1] + "";
+				west = coordOriginalPoints[0] + "";
 
 				// TOP RIGHT
-				tlX = originalX + (X_DISTANCE * (NUM_OF_COLS - 1)) + MARGIN;
-				tlY = originalY - (Y_DISTANCE * (NUM_OF_ROWS - 1)) - MARGIN;
-				transformedPoint = latLongToCartesian(tlX, tlY);
-				shapePoints.add(new SimpleCoordinate(transformedPoint.getCoordinate()));
+				double offsetLong = (X_DISTANCE * NUM_OF_COLS);
+				double offsetLat = 0;
 
-				west = transformedPoint.getCoordinate().x + "";
+				double[] squareCorner = getPointWithOffset(coordOriginalPoints, offsetLong, offsetLat);
+				shapePoints.add(new SimpleCoordinate(squareCorner));
+
+				east = squareCorner[0] + "";
 
 				// BOTTOM RIGHT
-				tlX = originalX + (X_DISTANCE * (NUM_OF_COLS - 1)) + MARGIN;
-				tlY = originalY + MARGIN;
-				transformedPoint = latLongToCartesian(tlX, tlY);
-				shapePoints.add(new SimpleCoordinate(transformedPoint.getCoordinate()));
+				offsetLong = (X_DISTANCE * NUM_OF_COLS);
+				offsetLat = -(Y_DISTANCE * NUM_OF_ROWS);
+				squareCorner = getPointWithOffset(coordOriginalPoints, offsetLong, offsetLat);
+				shapePoints.add(new SimpleCoordinate(squareCorner));
 
-				south = transformedPoint.getCoordinate().y + "";
+				south = squareCorner[1] + "";
 
 				// BOTTOM LEFT
-				tlX = originalX - MARGIN;
-				tlY = originalY + MARGIN;
-				transformedPoint = latLongToCartesian(tlX, tlY);
-				shapePoints.add(new SimpleCoordinate(transformedPoint.getCoordinate()));
+				offsetLong = 0;
+				offsetLat = -(Y_DISTANCE * NUM_OF_ROWS);
+				squareCorner = getPointWithOffset(coordOriginalPoints, offsetLong, offsetLat);
+				shapePoints.add(new SimpleCoordinate(squareCorner));
 
 				// TOP LEFT -- CLOSE RECTANGLE
-				tlX = originalX - MARGIN;
-				tlY = originalY - (Y_DISTANCE * (NUM_OF_ROWS - 1)) - MARGIN;
-				transformedPoint = latLongToCartesian(tlX, tlY);
-				shapePoints.add(new SimpleCoordinate(transformedPoint.getCoordinate()));
-
-
+				shapePoints.add(new SimpleCoordinate(coordOriginalPoints));
 
 				parentPlacemark.setShape(shapePoints);
-				
+
 				parentPlacemark.setRegion(new SimpleRegion(north, west, south, east));
 
 				placemarks.add(parentPlacemark);
@@ -156,9 +159,18 @@ public class MultiPointKmlGenerator extends KmlGenerator {
 		}
 		reader.close();
 		data.put("placemarks", placemarks);
+
+		String hostAndPort = "";
+		if (host != null && host.length() > 0) {
+			hostAndPort = host;
+			if (port != null && port.length() > 0) {
+				hostAndPort += ":" + port;
+			}
+
+			hostAndPort = "http://" + hostAndPort + "/eye/";
+		}
+		data.put("host", hostAndPort);
 		return data;
 	}
-
-
 
 }

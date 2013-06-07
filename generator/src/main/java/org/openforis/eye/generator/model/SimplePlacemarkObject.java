@@ -25,6 +25,13 @@ public class SimplePlacemarkObject {
 		this.nextPlacemarkId = "unknown";
 	}
 
+	public SimplePlacemarkObject(double[] coord, String placemarkId) {
+		super();
+		this.placemarkId = placemarkId;
+		this.coord = new SimpleCoordinate(new Coordinate(coord[0], coord[1]));
+		this.nextPlacemarkId = "unknown";
+	}
+
 	public SimpleCoordinate getCoord() {
 		return coord;
 	}

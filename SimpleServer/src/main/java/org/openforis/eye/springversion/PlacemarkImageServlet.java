@@ -20,25 +20,40 @@ import org.springframework.web.bind.annotation.RequestParam;
 @Controller
 public class PlacemarkImageServlet extends DataAccessingServlet {
 
-	private static final String FILLED_IMAGE = "/images/cross.png";
+	private static final String FILLED_IMAGE = "/images/redTransparent.png";
 
 	private static final String NON_FILLED_IMAGE = "/images/transparent.png";
+
+	private static final String LIST_FILLED_IMAGE = "/images/list_filled.png";
+
+	private static final String LIST_NON_FILLED_IMAGE = "/images/list_empty.png";
 
 	private byte[] filledImage;
 
 	private byte[] nonFilledImage;
+
+	private byte[] listFilledImage;
+
+	private byte[] listNonFilledImage;
 
 	@Autowired
 	EyeSurveyService eyeSurveyService;
 
 	@RequestMapping("/placemarkIcon")
 	public void getImage(HttpServletResponse response, HttpServletRequest request,
-			@RequestParam("collect_text_id") String placemarkId)
+			@RequestParam("collect_text_id") String placemarkId,
+			@RequestParam(value = "listView", required = false) Boolean listView)
 			throws IOException, URISyntaxException {
+
+		if (listView == null) {
+			listView = Boolean.FALSE;
+		}
 
 		if (filledImage == null) {
 			filledImage = readFile(FILLED_IMAGE, request.getSession().getServletContext());
 			nonFilledImage = readFile(NON_FILLED_IMAGE, request.getSession().getServletContext());
+			listFilledImage = readFile(LIST_FILLED_IMAGE, request.getSession().getServletContext());
+			listNonFilledImage = readFile(LIST_NON_FILLED_IMAGE, request.getSession().getServletContext());
 		}
 
 		// Check if placemark already filled
@@ -47,15 +62,22 @@ public class PlacemarkImageServlet extends DataAccessingServlet {
 		getLogger().info("Trying to load icon for placemark with id : " + placemarkId);
 
 		Map<String, String> placemarkParameters = eyeSurveyService.getPlacemark(placemarkId);
-		if (placemarkParameters == null) {
-			returnImage(response, NON_FILLED_IMAGE);
-			getLogger().info("EMPTY IMAGE FOR" + placemarkId);
+		String imageName = "";
+
+		if (eyeSurveyService.isPlacemarSavedActively(placemarkParameters)) {
+			if (listView) {
+				imageName = LIST_FILLED_IMAGE;
+			} else {
+				imageName = FILLED_IMAGE;
+			}
 		} else {
-			returnImage(response, FILLED_IMAGE);
-
-			getLogger().warn("FILLED IMAGE FOR" + placemarkId);
-
+			if (listView) {
+				imageName = LIST_NON_FILLED_IMAGE;
+			} else {
+				imageName = NON_FILLED_IMAGE;
+			}
 		}
+		returnImage(response, imageName);
 	}
 
 	private byte[] readFile(String filePath, ServletContext servletContext) throws MalformedURLException, URISyntaxException {
@@ -75,10 +97,17 @@ public class PlacemarkImageServlet extends DataAccessingServlet {
 		response.setHeader("Content-Disposition", "inline; filename=\"" + imageName + "\"");
 		response.setHeader("Cache-Control", "max-age=30");
 
-		byte[] resultingImage = filledImage;
-		if (imageName.equals(NON_FILLED_IMAGE)) {
+		byte[] resultingImage = null;
+		if (imageName.equals(FILLED_IMAGE)) {
+			resultingImage = filledImage;
+		} else if (imageName.equals(NON_FILLED_IMAGE)) {
 			resultingImage = nonFilledImage;
+		} else if (imageName.equals(LIST_NON_FILLED_IMAGE)) {
+			resultingImage = listNonFilledImage;
+		} else if (imageName.equals(LIST_FILLED_IMAGE)) {
+			resultingImage = listFilledImage;
 		}
+
 		response.setHeader("Content-Length", resultingImage.length + "");
 		writeToResponse(response, resultingImage);
 	}

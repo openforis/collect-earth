@@ -9,46 +9,21 @@ import java.util.Observer;
 
 import javax.swing.JOptionPane;
 
+import org.openforis.eye.generator.processor.KmlGenerator;
+import org.openforis.eye.generator.processor.KmzGenerator;
+import org.openforis.eye.generator.processor.MultiPointKmlGenerator;
+import org.openforis.eye.gui.MainEyeFrame;
+import org.openforis.eye.service.LocalPropertiesService;
 import org.openforis.eye.springversion.ServerInitilizer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import freemarker.template.TemplateException;
+
 public class DesktopApp {
 
 	final static Logger logger = LoggerFactory.getLogger(DesktopApp.class);
-	ServerInitilizer serverInitilizer;
-	/**
-	 * @param args
-	 */
-	public static void main(String[] args) {
-
-		try {
-
-			logger.info("START - Server Initilization");
-			ServerInitilizer serverInitilizer = new ServerInitilizer();
-			if (serverInitilizer.isServerAlreadyRunning()) {
-				closeSplash();
-				showMessage("The server is already running");
-				simulateClickKmz();
-			} else {
-				serverInitilizer.startServer(new Observer() {
-
-					@Override
-					public void update(Observable o, Object arg) {
-						logger.info("END - Server Initilization");
-						closeSplash();
-						simulateClickKmz();
-					}
-
-				});
-			}
-		} catch (Exception e) {
-			logger.error("The server could not start", e);
-		} finally {
-
-			closeSplash();
-		}
-	}
+	private static ServerInitilizer serverInitilizer;
 
 	private static void closeSplash() {
 		try {
@@ -64,16 +39,73 @@ public class DesktopApp {
 		}
 	}
 
-	private static void simulateClickKmz() {
+	public static ServerInitilizer getServerInitilizer() {
+		return serverInitilizer;
+	}
+
+	/**
+	 * @param args
+	 */
+	public static void main(String[] args) {
+
 		try {
-			if (Desktop.isDesktopSupported()) {
-				openInTemporaryFile();
+
+			LocalPropertiesService localPropertiesService = new LocalPropertiesService();
+			localPropertiesService.init();
+
+			logger.info("START - Generate KMZ file");
+
+			// KmlGenerator generateKml = new OnePointKmlGenerator();
+			KmlGenerator generateKml = new MultiPointKmlGenerator("EPSG:3576", localPropertiesService.getHost(),
+					localPropertiesService.getPort());
+			try {
+				String kmlResult = "resultAnssi.kml";
+				generateKml.generateFromCsv("mongolia_files/grid-EPSG_3576-mongolia.csv", "mongolia_files/balloon_mongolia.html",
+						"mongolia_files/kml_template.fmt",
+						kmlResult);
+				KmzGenerator.generateKmzFile("gePlugin.kmz", kmlResult, "mongolia_files/files");
+			} catch (IOException e) {
+				logger.error("Could not generate KML file", e);
+			} catch (TemplateException e) {
+				logger.error("Problems in the Freemarker template file." + e.getFTLInstructionStack(), e);
+			}
+
+			logger.info("END - Generate KMZ file");
+
+			logger.info("START - Server Initilization");
+			serverInitilizer = new ServerInitilizer();
+			if (serverInitilizer.isServerAlreadyRunning()) {
+				closeSplash();
+				showMessage("The server is already running");
+				simulateClickKmz();
 			} else {
-				showMessage("The KMZ file cannot be open");
+
+
+				serverInitilizer.startServer(new Observer() {
+
+					@Override
+					public void update(Observable o, Object arg) {
+						logger.info("END - Server Initilization");
+						closeSplash();
+						simulateClickKmz();
+						
+						// instantiate our spring dao object from the
+						// application context
+						
+
+
+						MainEyeFrame mainEyeFrame = new MainEyeFrame(serverInitilizer.getProperties());
+						mainEyeFrame.createWindow();
+					}
+
+				});
+
 			}
 		} catch (Exception e) {
-			showMessage("The KMZ file could not be found");
-			logger.error("The KMZ file could not be found", e);
+			logger.error("The server could not start", e);
+		} finally {
+
+			closeSplash();
 		}
 	}
 
@@ -103,6 +135,19 @@ public class DesktopApp {
 
 	private static void showMessage(String message) {
 		JOptionPane.showMessageDialog(null, message, "OpenForis Eye", JOptionPane.WARNING_MESSAGE);
+	}
+
+	private static void simulateClickKmz() {
+		try {
+			if (Desktop.isDesktopSupported()) {
+				openInTemporaryFile();
+			} else {
+				showMessage("The KMZ file cannot be open");
+			}
+		} catch (Exception e) {
+			showMessage("The KMZ file could not be found");
+			logger.error("The KMZ file could not be found", e);
+		}
 	}
 
 }

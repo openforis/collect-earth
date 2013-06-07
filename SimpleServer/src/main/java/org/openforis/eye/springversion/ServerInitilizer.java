@@ -7,22 +7,44 @@ import java.util.Observer;
 
 import org.eclipse.jetty.server.Server;
 import org.eclipse.jetty.webapp.WebAppContext;
+import org.openforis.eye.generator.processor.KmlGenerator;
+import org.openforis.eye.service.LocalPropertiesService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.web.context.support.WebApplicationContextUtils;
 
 /**
  * 
- * This class launches the web application in an embedded Jetty container.
- * This is the entry point to your application. The Java command that is used for
+ * This class launches the web application in an embedded Jetty container. This
+ * is the entry point to your application. The Java command that is used for
  * launching should fire this main method.
- *
+ * 
  */
 public class ServerInitilizer extends Observable {
-    
-	private static final String DEFAULT_PORT = "8093";
+	// Make sure that the default ports are the same for Server and Generator
+	private static final String DEFAULT_PORT = KmlGenerator.DEFAULT_PORT;
 	public static final String PLACEMARK_ID = "collect_text_id";
 
+	private Server server;
 	private final Logger logger = LoggerFactory.getLogger(ServerInitilizer.class);
+
+	private WebAppContext root;
+
+	private int getPort() {
+
+		LocalPropertiesService localPropertiesService = new LocalPropertiesService();
+		localPropertiesService.init();
+
+		String webPort = localPropertiesService.getPort();
+		if (webPort == null || webPort.isEmpty()) {
+			webPort = DEFAULT_PORT;
+		}
+		return Integer.parseInt(webPort);
+	}
+
+	public WebAppContext getRoot() {
+		return root;
+	}
 
 	public boolean isServerAlreadyRunning() {
 		boolean alreadyRunning = false;
@@ -40,36 +62,49 @@ public class ServerInitilizer extends Observable {
 		return alreadyRunning;
 	}
 
+	public void setRoot(WebAppContext root) {
+		this.root = root;
+	}
+
+	public LocalPropertiesService getProperties() {
+		LocalPropertiesService localPropertiesService = WebApplicationContextUtils.getRequiredWebApplicationContext(
+				getRoot().getServletContext()).getBean(LocalPropertiesService.class);
+		return localPropertiesService;
+	}
+
 	/**
 	 * @param args
 	 */
 	public void startServer(Observer observeInitialition) throws Exception {
-		
+
 		this.addObserver(observeInitialition);
-		
+
 		String webappDirLocation = "";
 
-        
-        //The port that we should run on can be set into an environment variable
-        //Look for that variable and default to 8080 if it isn't there.
+		// The port that we should run on can be set into an environment
+		// variable
+		// Look for that variable and default to 8080 if it isn't there.
 		// PropertyConfigurator.configure(this.getClass().getResource("/WEB-INF/conf/log4j.properties"));
 
-		Server server = new Server(getPort());
+		server = new Server(getPort());
 
-        WebAppContext root = new WebAppContext();
+		setRoot(new WebAppContext());
 
-		root.setContextPath("/eye");
-		root.setDescriptor(this.getClass().getResource("/WEB-INF/web.xml").toURI().toString());
-        root.setResourceBase(webappDirLocation);
-        
-        //Parent loader priority is a class loader setting that Jetty accepts.
-        //By default Jetty will behave like most web containers in that it will
-        //allow your application to replace non-server libraries that are part of the
-        //container. Setting parent loader priority to true changes this behavior.
-        //Read more here: http://wiki.eclipse.org/Jetty/Reference/Jetty_Classloading
-        root.setParentLoaderPriority(true);
+		getRoot().setContextPath("/eye");
+		getRoot().setDescriptor(this.getClass().getResource("/WEB-INF/web.xml").toURI().toString());
+		getRoot().setResourceBase(webappDirLocation);
 
-		server.setHandler(root);
+		// Parent loader priority is a class loader setting that Jetty accepts.
+		// By default Jetty will behave like most web containers in that it will
+		// allow your application to replace non-server libraries that are part
+		// of the
+		// container. Setting parent loader priority to true changes this
+		// behavior.
+		// Read more here:
+		// http://wiki.eclipse.org/Jetty/Reference/Jetty_Classloading
+		getRoot().setParentLoaderPriority(true);
+
+		server.setHandler(getRoot());
 
 		// System.setProperty("java.naming.factory.url.pkgs",
 		// "org.eclipse.jetty.jndi");
@@ -85,24 +120,20 @@ public class ServerInitilizer extends Observable {
 		// WebInfConfiguration(), envConfiguration, new WebXmlConfiguration()
 		// });
 
-
-
+		server.setGracefulShutdown(1000);
+		server.setStopAtShutdown(true);
 		server.start();
-        
 
 		setChanged();
 		notifyObservers();
 
-        
-        server.join();   
-    }
+		server.join();
+	}
 
-	private int getPort() {
-		String webPort = System.getenv("PORT");
-		if (webPort == null || webPort.isEmpty()) {
-			webPort = DEFAULT_PORT;
+	public void stopServer() throws Exception {
+		if (server != null && server.isRunning()) {
+			server.stop();
 		}
-		return Integer.parseInt(webPort);
 	}
 
 }

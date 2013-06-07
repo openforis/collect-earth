@@ -172,6 +172,9 @@
 	<bean id="collectParametersHandler" class="org.openforis.eye.service.CollectParametersHandler">
 	</bean>
 	
+	<bean id="localPropertiesService" class="org.openforis.eye.service.LocalPropertiesService"
+		init-method="init" lazy-init="false">
+	</bean>
 	
 	
 </beans>

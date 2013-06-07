@@ -7,12 +7,15 @@ import java.util.Map;
 import java.util.Set;
 
 import org.apache.commons.lang3.StringUtils;
+import org.openforis.collect.manager.RecordManager;
+import org.openforis.idm.metamodel.EntityDefinition;
 import org.openforis.idm.metamodel.NodeDefinition;
 import org.openforis.idm.model.Attribute;
 import org.openforis.idm.model.Entity;
 import org.openforis.idm.model.Node;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.config.BeanDefinition;
 import org.springframework.context.annotation.ClassPathScanningCandidateComponentProvider;
 import org.springframework.core.type.filter.AssignableTypeFilter;
@@ -27,6 +30,9 @@ public class CollectParametersHandler {
 
 	private final Logger logger = LoggerFactory.getLogger(CollectParametersHandler.class);
 
+	@Autowired
+	RecordManager recordManager;
+
 	public CollectParametersHandler() {
 		initiliaze();
 	}
@@ -35,6 +41,10 @@ public class CollectParametersHandler {
 		Map<String, String> parameters = new HashMap<String, String>();
 
 		List<Node<? extends NodeDefinition>> children = plotEntity.getChildren();
+
+		List<EntityDefinition> definitons = plotEntity.getSchema().getRootEntityDefinitions();
+
+		
 
 		for (Node<? extends NodeDefinition> node : children) {
 			if (node instanceof Attribute) {
@@ -108,25 +118,29 @@ public class CollectParametersHandler {
 		return parameterName;
 	}
 
+
 	public void saveToEntity(Map<String, String> parameters, Entity entity) {
 		Set<String> parameterNames = parameters.keySet();
 		for (String parameterName : parameterNames) {
-
 			String parameterValue = parameters.get(parameterName);
 			String cleanName = cleanUpParameterName(parameterName);
 
+
 			for (AbstractAttributeHandler handler : attributeHandlers) {
-				if (handler.isParameterParseable(cleanName)) {
-					// if (parameterValue == null || parameterValue.length() ==
-					// 0) {
-					// entity.remove(cleanName, 0);
-					// } else {
-					handler.addOrUpdate(cleanName, parameterValue, entity);
-					// }
+				try {
+					if (handler.isParameterParseable(cleanName)) {
+						// if (parameterValue == null || parameterValue.length() ==
+						// 0) {
+						// entity.remove(cleanName, 0);
+						// } else {
+						handler.addOrUpdate(cleanName, parameterValue, entity);
+						// }
+					}
+				} catch (Exception e) {
+					logger.error("Error while parsing parameter " + cleanName + " with value " + parameterValue);
 				}
 			}
 		}
-
 	}
 
 	private String cleanUpParameterName(String parameterName) {
