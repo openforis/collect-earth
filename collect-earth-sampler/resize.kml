@@ -1,0 +1,51 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<kml xmlns="http://www.opengis.net/kml/2.2"
+xmlns:gx="http://www.google.com/kml/ext/2.2">
+<!-- NOTE: this sample requires Google Earth 5.0 or higher -->
+<Placemark>
+
+<snippet>Click the link in the description balloon to resize the balloon!</snippet>
+<description><![CDATA[
+<html>
+<head>
+<style>
+#sizer { width: 400px; border: 1px solid red; }
+</style>
+<script>
+
+var collapsedState = false;
+
+	var toggleCollapsed = function() {
+		if (collapsedState == false) {
+			document.getElementById('sizer').style.width = '200px';
+			document.getElementById('sizer').style.height = '200px';
+						collapsedState = true;
+		} else {
+			document.getElementById('sizer').style.width = '400px';
+			document.getElementById('sizer').style.height = '400px';
+						collapsedState = false;
+		}
+		document.getElementById('dummy').src = "about:blank";
+	}
+
+function resizeBalloon() {
+document.getElementById('sizer').style.width = '200px';
+document.getElementById('sizer').style.height = '500px';
+
+document.getElementById('dummy').src = "about:blank";
+}
+</script>
+</head>
+<body>
+<div id="sizer">
+<a href="#" onclick="toggleCollapsed(); return false;">Resize balloon</a>
+</div>
+<iframe style="display: none" id="dummy" src="about:blank"></iframe>
+</body>
+</html>
+]]></description>
+<Point>
+<coordinates>-122,37</coordinates>
+</Point>
+</Placemark>
+</kml>
