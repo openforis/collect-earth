@@ -14,6 +14,8 @@ public class LocalPropertiesService {
 
 	private static final String OPERATOR_KEY = "operator";
 	private static final String SKIP_FILLED_KEY = "skip_filled_plots";
+	private static final String HOST_KEY = "host";
+	private static final String PORT_KEY = "port";
 	private final Logger logger = LoggerFactory.getLogger(LocalPropertiesService.class);
 	private Properties properties;
 	private static final String PROPERTIES_FILE = "eye.properties";
@@ -38,13 +40,35 @@ public class LocalPropertiesService {
 		}
 	}
 
-	public String getOperator() {
-		String operator = "";
-		if (properties.get(OPERATOR_KEY) != null) {
-			operator = (String) properties.get(OPERATOR_KEY);
+	private String getValue(String key) {
+		String value = "";
+		if (properties.get(key) != null) {
+			value = (String) properties.get(key);
 		}
 
-		return operator;
+		return value;
+	}
+
+	public String getHost() {
+		return getValue(HOST_KEY);
+	}
+
+	public void saveHost(String hostName) {
+		properties.put(HOST_KEY, hostName);
+		storeProperties();
+	}
+
+	public String getPort() {
+		return getValue(PORT_KEY);
+	}
+
+	public void savePort(String portName) {
+		properties.put(PORT_KEY, portName);
+		storeProperties();
+	}
+
+	public String getOperator() {
+		return getValue(OPERATOR_KEY);
 	}
 
 	public void saveOperator(String operatorName) {

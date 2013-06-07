@@ -29,6 +29,13 @@
 	</repositories>
 
 	<dependencies>
+	    	
+		<dependency>
+			<groupId>org.openforis.eye.generator</groupId>
+			<artifactId>generator</artifactId>
+			<version>0.0.1-SNAPSHOT</version>
+		</dependency>
+		
 		<!-- Jetty -->
 		<dependency>
 			<groupId>org.eclipse.jetty</groupId>

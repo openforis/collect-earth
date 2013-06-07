@@ -7,8 +7,11 @@ import java.util.Observer;
 
 import org.eclipse.jetty.server.Server;
 import org.eclipse.jetty.webapp.WebAppContext;
+import org.openforis.eye.generator.processor.KmlGenerator;
+import org.openforis.eye.service.LocalPropertiesService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.web.context.support.WebApplicationContextUtils;
 
 /**
  * 
@@ -18,16 +21,21 @@ import org.slf4j.LoggerFactory;
  * 
  */
 public class ServerInitilizer extends Observable {
-
-	private static final String DEFAULT_PORT = "8093";
+	// Make sure that the default ports are the same for Server and Generator
+	private static final String DEFAULT_PORT = KmlGenerator.DEFAULT_PORT;
 	public static final String PLACEMARK_ID = "collect_text_id";
-	private static Server server;
+
+	private Server server;
 	private final Logger logger = LoggerFactory.getLogger(ServerInitilizer.class);
 
 	private WebAppContext root;
 
 	private int getPort() {
-		String webPort = System.getenv("PORT");
+
+		LocalPropertiesService localPropertiesService = new LocalPropertiesService();
+		localPropertiesService.init();
+
+		String webPort = localPropertiesService.getPort();
 		if (webPort == null || webPort.isEmpty()) {
 			webPort = DEFAULT_PORT;
 		}
@@ -56,6 +64,12 @@ public class ServerInitilizer extends Observable {
 
 	public void setRoot(WebAppContext root) {
 		this.root = root;
+	}
+
+	public LocalPropertiesService getProperties() {
+		LocalPropertiesService localPropertiesService = WebApplicationContextUtils.getRequiredWebApplicationContext(
+				getRoot().getServletContext()).getBean(LocalPropertiesService.class);
+		return localPropertiesService;
 	}
 
 	/**

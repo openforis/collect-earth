@@ -64,7 +64,7 @@ public class PlacemarkImageServlet extends DataAccessingServlet {
 		Map<String, String> placemarkParameters = eyeSurveyService.getPlacemark(placemarkId);
 		String imageName = "";
 
-		if (eyeSurveyService.isPlacemarSaved(placemarkParameters)) {
+		if (eyeSurveyService.isPlacemarSavedActively(placemarkParameters)) {
 			if (listView) {
 				imageName = LIST_FILLED_IMAGE;
 			} else {

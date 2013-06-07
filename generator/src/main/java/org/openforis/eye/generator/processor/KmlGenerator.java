@@ -3,16 +3,8 @@ package org.openforis.eye.generator.processor;
 import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.IOException;
-import java.io.StringReader;
 import java.io.StringWriter;
 import java.util.Map;
-
-import javax.xml.transform.OutputKeys;
-import javax.xml.transform.Source;
-import javax.xml.transform.Transformer;
-import javax.xml.transform.TransformerFactory;
-import javax.xml.transform.stream.StreamResult;
-import javax.xml.transform.stream.StreamSource;
 
 import org.apache.commons.io.FileUtils;
 import org.geotools.geometry.jts.JTS;
@@ -35,26 +27,53 @@ import freemarker.template.TemplateException;
 
 public abstract class KmlGenerator {
 
-	protected final Logger logger = LoggerFactory.getLogger(this.getClass());
-	private final String epsgCode;
+	public static final String DEFAULT_HOST = "localhost";
+	public static final String DEFAULT_PORT = "80";
+
 	private final GeodeticCalculator calc = new GeodeticCalculator(DefaultGeographicCRS.WGS84);
+	private final String epsgCode;
+	protected final Logger logger = LoggerFactory.getLogger(this.getClass());
 
 	public KmlGenerator(String epsgCode) {
 		super();
 		this.epsgCode = epsgCode;
 	}
 
-	protected Point transformToWGS84(double longitude, double latitude) throws Exception {
-	
-		GeometryFactory gf = new GeometryFactory();
-		Coordinate c = new Coordinate(longitude, latitude);
-	
-		Point p = gf.createPoint(c);
-		// EPSG::1164 Mongolia ( ccording to http://www.epsg-registry.org/ )
-		CoordinateReferenceSystem utmCrs = CRS.decode(epsgCode);
-		MathTransform mathTransform = CRS.findMathTransform(utmCrs, DefaultGeographicCRS.WGS84, false);
-		Point p1 = (Point) JTS.transform(p, mathTransform);
-		return p1;
+	public void generateFromCsv(String csvFile, String ballongFile, String freemarkerKmlTemplateFile, String destinationKmlFile)
+			throws IOException, TemplateException {
+		String kml = getKmlCode(csvFile, ballongFile, freemarkerKmlTemplateFile);
+		File f = new File(destinationKmlFile);
+		try {
+			FileUtils.write(f, kml);
+		} catch (IOException e) {
+			logger.error("Could not generate KML file", e);
+		}
+	}
+
+	public String getKmlCode(String csvFile, String ballongFile, String freemarkerKmlTemplateFile) throws IOException,
+			TemplateException {
+
+		// Build the data-model
+		Map<String, Object> data = getTemplateData(csvFile);
+
+		// Get the HTML content of the ballong from a file, this way we can
+		// separate the KML generation so it is easier to create different KMLs
+		String ballongContents = FileUtils.readFileToString(new File(ballongFile));
+		data.put("html_for_ballong", ballongContents);
+
+		// Process the template file using the data in the "data" Map
+		Configuration cfg = new Configuration();
+
+		// Load template from source folder
+		Template template = cfg.getTemplate(freemarkerKmlTemplateFile);
+
+		// Console output
+		StringWriter out = new StringWriter();
+		template.process(data, out);
+		out.flush();
+		// return out.toString().replaceAll(">\\s*<", "><");
+		return out.toString();
+
 	}
 
 	protected double[] getPointWithOffset(double[] originalPoint, double offsetLongitudeMeters, double offsetLatitudeMeters)
@@ -68,7 +87,6 @@ public abstract class KmlGenerator {
 		if (offsetLatitudeMeters < 0) {
 			latitudeDirection = 180; // SOUTH
 		}
-
 
 		calc.setStartingGeographicPoint(originalPoint[0], originalPoint[1]);
 
@@ -90,60 +108,19 @@ public abstract class KmlGenerator {
 
 	}
 
-	public void generateFromCsv(String csvFile, String ballongFile, String freemarkerKmlTemplateFile, String destinationKmlFile) throws IOException, TemplateException {
-		String kml = getKmlCode(csvFile, ballongFile, freemarkerKmlTemplateFile);
-		File f = new File(destinationKmlFile);
-		try {
-			FileUtils.write(f, kml);
-		} catch (IOException e) {
-			logger.error("Could not generate KML file", e);
-		}
+	protected abstract Map<String, Object> getTemplateData(String csvFile) throws FileNotFoundException, IOException;
+
+	protected Point transformToWGS84(double longitude, double latitude) throws Exception {
+
+		GeometryFactory gf = new GeometryFactory();
+		Coordinate c = new Coordinate(longitude, latitude);
+
+		Point p = gf.createPoint(c);
+		// EPSG::1164 Mongolia ( ccording to http://www.epsg-registry.org/ )
+		CoordinateReferenceSystem utmCrs = CRS.decode(epsgCode);
+		MathTransform mathTransform = CRS.findMathTransform(utmCrs, DefaultGeographicCRS.WGS84, false);
+		Point p1 = (Point) JTS.transform(p, mathTransform);
+		return p1;
 	}
-
-	public String getKmlCode(String csvFile, String ballongFile, String freemarkerKmlTemplateFile) throws IOException, TemplateException {
-
-	
-		// Build the data-model
-		Map<String, Object> data = getTemplateData(csvFile);
-	
-		// Get the HTML content of the ballong from a file, this way we can
-		// separate the KML generation so it is easier to create different KMLs
-		String ballongContents = FileUtils.readFileToString(new File(ballongFile));
-		data.put("html_for_ballong", ballongContents);
-
-		// Process the template file using the data in the "data" Map
-		Configuration cfg = new Configuration();
-	
-		// Load template from source folder
-		Template template = cfg.getTemplate(freemarkerKmlTemplateFile);
-
-		// Console output
-		StringWriter out = new StringWriter();
-		template.process(data, out);
-		out.flush();
-		// return out.toString().replaceAll(">\\s*<", "><");
-		return out.toString();
-
-	}
-
-	private String compressKml(String input) {
-		try {
-			Source xmlInput = new StreamSource(new StringReader(input));
-			StringWriter stringWriter = new StringWriter();
-			StreamResult xmlOutput = new StreamResult(stringWriter);
-			TransformerFactory transformerFactory = TransformerFactory.newInstance();
-			// transformerFactory.setAttribute("indent-number", indent);
-			Transformer transformer = transformerFactory.newTransformer();
-			transformer.setOutputProperty(OutputKeys.INDENT, "no");
-			transformer.transform(xmlInput, xmlOutput);
-			return xmlOutput.getWriter().toString();
-		} catch (Exception e) {
-			throw new RuntimeException(e); // simple exception handling, please
-											// review it
-		}
-	}
-
-	protected abstract Map<String, Object> getTemplateData(String csvFile) throws FileNotFoundException,
-			IOException;
 
 }

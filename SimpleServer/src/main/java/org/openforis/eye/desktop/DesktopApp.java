@@ -9,12 +9,16 @@ import java.util.Observer;
 
 import javax.swing.JOptionPane;
 
+import org.openforis.eye.generator.processor.KmlGenerator;
+import org.openforis.eye.generator.processor.KmzGenerator;
+import org.openforis.eye.generator.processor.MultiPointKmlGenerator;
 import org.openforis.eye.gui.MainEyeFrame;
 import org.openforis.eye.service.LocalPropertiesService;
 import org.openforis.eye.springversion.ServerInitilizer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.web.context.support.WebApplicationContextUtils;
+
+import freemarker.template.TemplateException;
 
 public class DesktopApp {
 
@@ -46,6 +50,28 @@ public class DesktopApp {
 
 		try {
 
+			LocalPropertiesService localPropertiesService = new LocalPropertiesService();
+			localPropertiesService.init();
+
+			logger.info("START - Generate KMZ file");
+
+			// KmlGenerator generateKml = new OnePointKmlGenerator();
+			KmlGenerator generateKml = new MultiPointKmlGenerator("EPSG:3576", localPropertiesService.getHost(),
+					localPropertiesService.getPort());
+			try {
+				String kmlResult = "resultAnssi.kml";
+				generateKml.generateFromCsv("mongolia_files/grid-EPSG_3576-mongolia.csv", "mongolia_files/balloon_mongolia.html",
+						"mongolia_files/kml_template.fmt",
+						kmlResult);
+				KmzGenerator.generateKmzFile("gePlugin.kmz", kmlResult, "mongolia_files/files");
+			} catch (IOException e) {
+				logger.error("Could not generate KML file", e);
+			} catch (TemplateException e) {
+				logger.error("Problems in the Freemarker template file." + e.getFTLInstructionStack(), e);
+			}
+
+			logger.info("END - Generate KMZ file");
+
 			logger.info("START - Server Initilization");
 			serverInitilizer = new ServerInitilizer();
 			if (serverInitilizer.isServerAlreadyRunning()) {
@@ -65,12 +91,10 @@ public class DesktopApp {
 						
 						// instantiate our spring dao object from the
 						// application context
-						LocalPropertiesService localPropertiesService = WebApplicationContextUtils
-								.getRequiredWebApplicationContext(getServerInitilizer().getRoot().getServletContext()).getBean(
-								LocalPropertiesService.class);
 						
 
-						MainEyeFrame mainEyeFrame = new MainEyeFrame(localPropertiesService);
+
+						MainEyeFrame mainEyeFrame = new MainEyeFrame(serverInitilizer.getProperties());
 						mainEyeFrame.createWindow();
 					}
 

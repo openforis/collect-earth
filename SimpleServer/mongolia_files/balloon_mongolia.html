@@ -125,6 +125,12 @@ eye_skip_filled
 		enableSelect( nameDependantSelect, elementSelected );
 	}
 
+	var activateLandUseDivs = function( landUse ){
+		 var selectedValue = landUse.val();
+		 $('.tab-pane').hide();
+		 $('#tab_'+selectedValue).show();// give the hidden input the same value as the button that just was clicked
+	}
+	
 	var fillDataWithJson = function(json) {
 
 		$.each(json, function(key, value) {
@@ -144,26 +150,29 @@ eye_skip_filled
 				for (var i = 0; i < values.length; i++) {
 					//$('#'+key+'_group .btn[value='+value+']').button('toggle'); // set the class to "active" on the chosen values
 					if( $('.btn[type=button][value='+value+']').length == 1){
-						var toggleButton = $('.btn[type=button][value='+value+']');
+						var toggleButton = $('.btn[type=button][value=\''+value+'\']');
 						toggleButton.button('toggle');
+						if( key == "collect_code_land_use" ){
+							activateLandUseDivs( toggleButton );
+						}
 					}
 				}
 				
-			}else if( $('.landUseTypeSelector .btn[value='+value+']').length == 1 ){
-				var toggleButton = $('.landUseTypeSelector .btn[value='+value+']');
+			}else if( $('.landUseTypeSelector .btn[value=\''+value+'\']').length == 1 ){
+				var toggleButton = $('.landUseTypeSelector .btn[value=\''+value+'\']');
 				toggleButton.button('toggle');
-				//toggleButton.trigger('click'); 
-			}
-			
-			if( key == "collect_code_land_use_type"){
-				if($('.landUseTypeSelector.btn[value='+value+']').length == 1 )
-					$('.landUseTypeSelector.btn[value='+value+']').toggleClass('active');
+				
 			}
 			
 			if( key == "eye_skip_filled" && value == 'true'){
 				$('#eye_skip_filled').attr('checked', value);				
 			}
-
+			
+			if( key == "collect_boolean_land_use_change" ){
+				var toggleButton = $('.toggleLandDevelopment .btn[value='+value+']');			
+				toggleButton.button('toggle');
+			}
+			
 		});
 		
 	}
@@ -178,9 +187,21 @@ eye_skip_filled
 			var suffixLength =  "_group".length;
 			
 			if( groupId && groupId.length > suffixLength ){
+				
+				 var value = $(this).val();
+				// When we expect data sucha as "0;collect_code_deforestation_reason=burnt"
+				 var values = value.split(";");
+				
 				 var idLength = groupId.length - suffixLength;
 				 var hiddenInputId = groupId.substring(0,  idLength );
-				 $('#'+hiddenInputId).val( $(this).val() );// give the hidden input the same value as the button that just was clicked
+				 $('#'+hiddenInputId).val( values[0] );// give the hidden input the same value as the button that just was clicked
+				 
+				// If there is an extra value "collect_code_deforestation_reason=burnt"
+				 if( values.length == 2 ){
+					 var extraValues = values[1].split("=");
+					 $('#'+extraValues[0]).val( extraValues[1] );
+				 }
+				 
 				 ajaxDataUpdate();
 			}
 		});
@@ -210,7 +231,18 @@ eye_skip_filled
 			forceWindowCloseAfterDialogCloses($("#dialogSuccess"));
 		} else if (json.type == 'warning') {
 			$('#succ_mess').css("color", "yellow").html(json.message);
-		} else if (json.type == 'error') {
+		} else if (json.type == 'error' && json.valid_data && json.valid_data == 'false' ) {
+			
+			var message = "";
+			
+			$.each(json, function(key, value){
+				if( key.indexOf("validation_") == 0 ){
+					message += value + "<br>";
+				}
+			});
+			
+			$('#succ_mess').css("color", "red").html(message);
+		} else if (json.type == 'error'){
 			$('#succ_mess').css("color", "red").html(json.message);
 		}
 		$("#dialogSuccess").dialog("open");
@@ -223,7 +255,8 @@ eye_skip_filled
 		$.ajax({
 			data : data,
 			type : "POST",
-			url : "http://$[host]placemarkInfo",
+			//url : "$[host]placemarkInfo",
+			url: "http://168.202.48.32:80/eye/placemarkInfo",
 			dataType : 'json',
 			error : function(jqXHR, textStatus, errorThrown) {
 				$('#succ_mess').css("color", "red").html("The data server is not running!");
@@ -241,8 +274,10 @@ eye_skip_filled
 					
 					
 				}else{
-					fillDataWithJson(json);
 					initializeChangeEventSaver();
+				
+					fillDataWithJson(json);
+					
 				}
 				
 				
@@ -283,9 +318,7 @@ eye_skip_filled
 						fillYears();
 						
 						$(".land_use_option").find("button").click(function(){
-							 var selectedValue = $(this).val();
-							 $('.tab-pane').hide();
-							 $('#tab_'+selectedValue).show();// give the hidden input the same value as the button that just was clicked
+							activateLandUseDivs($(this));
 						});
 
 						// Declares the Jquery Dialog ( The Bootstrap dialog does not work in Google Earth )
@@ -335,9 +368,11 @@ eye_skip_filled
 						$('#formAll')
 								.submit(
 										function(e) {
-											clearTimeout(ajaxTimeout); // So that the form is not save twice if the user clicks the submit button before the auto-save timeout has started
+											
 											e.preventDefault();
 
+											clearTimeout(ajaxTimeout); // So that the form is not save twice if the user clicks the submit button before the auto-save timeout has started
+											
 											// Mark this as the "real submit" (as opposed when saving data just because the user closes the window) so we can show the placemark as interpreted
 											$("input[id=collect_boolean_actively_saved]").val("true");
 
@@ -490,7 +525,9 @@ hr {
 
 	<div id="contentDiv" style="width: 450px">
 
-			<form id="formAll" method="POST" action="http://$[host]saveData">
+			<!-- <form id="formAll" method="POST" action="$[host]saveData"> -->
+			<form id="formAll" method="POST" action="http://168.202.48.32:80/eye/saveData">
+			
 
 				<input type="hidden" id="collect_coord_location" 
 					name="collect_coord_location" value="$[longitude],$[latitude]" />
@@ -504,6 +541,8 @@ hr {
 					value="" /> 
 				<input type="hidden" id="collect_code_crown_cover" name="collect_code_crown_cover"
 					value="" /> 
+				<input type="hidden" id="collect_code_deforestation_reason" name="collect_code_deforestation_reason"
+					value="" />					
 				<input type="hidden" id="collect_code_land_use_type"
 					name="collect_code_land_use_type" value="" /> 				
 				<input type="hidden" id="collect_boolean_actively_saved"
@@ -577,8 +616,7 @@ hr {
 								<div class="btn-group" data-toggle="buttons-radio">
 									<button type="button"
 										class="btn btn-primary  toggleForestDevelopment toggleLandDevelopment"
-										id="FLtoFL" value="false">FL &gt;
-										FL</button>
+										id="FLtoFL" value="false">FL &gt; FL</button>
 									<button type="button"
 										class="btn btn-primary toggleForestDevelopment toggleLandDevelopment"
 										id="OLtoFL" value="true">Other &gt; FL</button>
@@ -586,6 +624,7 @@ hr {
 							</div>
 						
 							<div class="label-over">Type</div>
+							
 							<div class="control-group">
 								<div class="btn-group landUseTypeSelector"
 									data-toggle="buttons-radio">
@@ -622,21 +661,20 @@ hr {
 							
 							<div class="control-group">
 								<div class="btn-group" data-toggle="buttons-radio" id="collect_code_crown_cover_group">
-								 	<button type="button" class="btn btn-primary"  value="burnt" title="No Cover - Burnt" >Burnt</button>
-								    <button type="button" class="btn btn-primary" value="logging"title="No Cover - Logging" >Logging</button>
-								    <button type="button" class="btn btn-primary" value="other" title="No Cover - other">Other</button>
-							
-								    <button type="button" class="btn btn-primary"  value="10-30" title="Cover - 10-30%" >10-30%</button>
-								    <button type="button" class="btn btn-primary" value="30-50" title="No Cover - 30-50%" >30-50%</button>
-								    <button type="button" class="btn btn-primary" value="50-70" title="No Cover - 50-70%">50-70%</button>
-								    <button type="button" class="btn btn-primary" value="70-100" title="No Cover - 70-100%">70-100%</button>
+									<button type="button" class="btn btn-primary" value="0;collect_code_deforestation_reason=burnt" title="No Cover - Burnt" >Burnt</button>
+									<button type="button" class="btn btn-primary" value="0;collect_code_deforestation_reason=logging"title="No Cover - Logging" >Logging</button>
+									<button type="button" class="btn btn-primary" value="0;collect_code_deforestation_reason=other" title="No Cover - other">Other</button>
+								    <button type="button" class="btn btn-primary"  value="10-30;collect_code_deforestation_reason=" title="Cover - 10-30%" >10-30%</button>
+								    <button type="button" class="btn btn-primary" value="30-50;collect_code_deforestation_reason=" title="No Cover - 30-50%" >30-50%</button>
+								    <button type="button" class="btn btn-primary" value="50-70;collect_code_deforestation_reason=" title="No Cover - 50-70%">50-70%</button>
+								    <button type="button" class="btn btn-primary" value="70-100;collect_code_deforestation_reason=" title="No Cover - 70-100%">70-100%</button>
 							    </div>	
 							</div>
-									
 							
 							<div class="label-over">
 									Cover Type
 							</div>
+							
 							<div class="control-group">			
 								<div class="btn-group" data-toggle="buttons-radio" id="collect_code_crown_type_group">
 								 	<button type="button" class="btn btn-primary"  value="sparse" >Sparse</button>
@@ -646,8 +684,8 @@ hr {
 							    </div>
 							</div>
 							
-							
 						</div>
+						
 					</div>
 
 					<div id="tab_cropland" class="tab-pane">
@@ -689,7 +727,6 @@ hr {
 							<h5>Other Type</h5>
 							<div class="label-over">Development</div>
 							<div class="control-group">
-
 								<div class="btn-group" data-toggle="buttons-radio">
 									<button type="button"
 										class="btn btn-primary toggleLandDevelopment" id="OLtoOL"
@@ -699,7 +736,6 @@ hr {
 										value="true">Other &gt; OL</button>
 								</div>
 							</div>
-
 
 							<div class="label-over">Type</div>
 
@@ -717,7 +753,6 @@ hr {
 
 						</div>
 
-
 					</div>
 					<div id="tab_grassland" class="tab-pane">
 
@@ -725,8 +760,7 @@ hr {
 							style="width: 96%">
 							<h5>Grassland Type</h5>
 							<div class="label-over">Development</div>
-							<div class="control-group">
-								
+							<div class="control-group">								
 									<div class="btn-group" data-toggle="buttons-radio">
 										<button type="button"
 											class="btn btn-primary toggleLandDevelopment" id="GLtoGL"
@@ -739,6 +773,7 @@ hr {
 							</div>
 							
 							<div class="label-over">Type</div>
+
 							<div class="control-group">
 								<div class="btn-group landUseTypeSelector"
 									data-toggle="buttons-radio" id="grassland">
@@ -769,8 +804,8 @@ hr {
 
 						</div>
 
-
 					</div>
+
 					<div id="tab_wetland" class="tab-pane">
 						
 							<div id="toolbar" class="capsuleCat ui-corner-all" style="width:96%">
@@ -900,16 +935,15 @@ hr {
 							</div>
 						</div>
 			
-						
 						<div id="toolbar" class="capsuleCat ui-corner-all">
+			
 						<h5>RS Data</h5>
+			
 						<div class="label-over">Satellite</div>
-									<div class="control-group">
-							
-							
+								<div class="control-group">
 							    <div class="btn-group" data-toggle="buttons-radio" id="collect_code_rs_satellite_group">
 								    <button type="button" class="btn btn-primary" value="rapidEye">Rapid Eye</button>
-								    <button type="button" class="btn btn-primary" value="landsatt">Landsat</button>
+								    <button type="button" class="btn btn-primary" value="landsat">Landsat</button>
 								    <button type="button" class="btn btn-primary" value="quickbird">Quickbird</button>
 								    <button type="button" class="btn btn-primary" value="other">Other</button>
 							    </div>
@@ -937,18 +971,15 @@ hr {
 							</div>
 						</div>
 
-
 					</div>
 
-
-
-					</div>
+				</div>
 				
-
 			</form>
 			
 		</div>
 	
 	<iframe style="display: none" id="dummy" src="about:blank"></iframe>
+	
 </body>
 </html>
