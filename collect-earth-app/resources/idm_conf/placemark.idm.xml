@@ -74,6 +74,10 @@
 						<code>open</code>
 						<label>Open</label>
 					</item>
+					<item id="111">
+						<code>saxaul2</code>
+						<label>Saxaul(change)</label>
+					</item>
 				</item>
 				<item id="120">
 					<code>cropland</code>
@@ -239,6 +243,10 @@
 						<code>60-100</code>
 						<label>60 - 100%</label>
 				</item>
+				<item id="405">
+						<code>na</code>
+						<label>Not Applicable</label>
+				</item>
 			</items>
 		</list>
 		<list id="500" name="human_impact_type">
@@ -264,6 +272,10 @@
 				<item id="505">
 						<code>other</code>
 						<label>Other</label>
+				</item>
+				<item id="506">
+						<code>na</code>
+						<label>Not Applicable</label>
 				</item>
 			</items>
 		</list>
@@ -415,7 +427,7 @@
 			<code id="8" name="topography_accessibility" list="topographical_accessibility">
 				<label xml:lang="en">Accessibility</label>
 			</code>
-			<entity id="20" name="topography" multiple="true">
+			<entity id="20" name="topography" multiple="true" >
 			    <label xml:lang="en">Topography</label>
 				<code id="9" name="element" list="topographical_elements" key="true">
 					<label xml:lang="en">Element</label>
@@ -428,10 +440,10 @@
 				multiple="true">
 				<label xml:lang="en">Human Impact Type</label>
 			</code>
-			<code id="12" name="human_impact_grade" list="human_impact_grade">
+			<code id="12" name="human_impact_grade" list="human_impact_grade" relevant="human_impact_type!='na'">
 				<label xml:lang="en">Human Impact Grade</label>
 			</code>
-			<number id="13" name="human_impact_year" type="integer">
+			<number id="13" name="human_impact_year" type="integer" relevant="human_impact_type!='na'">
 				<label xml:lang="en">Human Impact Year</label>
 			</number>
 			<date id="14" name="rs_date">
@@ -443,10 +455,10 @@
 			<code id="16" name="crown_cover" list="crown_cover" relevant="land_use='forest'" >
 				<label xml:lang="en">Crown Cover</label>
 			</code>
-			<code id="19" name="deforestation_reason" list="deforestation_reason" relevant="crown_cover='0'" >
+			<code id="19" name="deforestation_reason" list="deforestation_reason" relevant="land_use='forest' and crown_cover='0'" >
 				<label xml:lang="en">Deforestation reason</label>
 			</code>
-			<code id="17" name="crown_type" list="crown_type" relevant="crown_cover!='0'">
+			<code id="17" name="crown_type" list="crown_type" relevant="land_use='forest' and crown_cover!='0'">
 				<label xml:lang="en">Crown Type</label>
 			</code>
 			<boolean id="18" name="actively_saved">

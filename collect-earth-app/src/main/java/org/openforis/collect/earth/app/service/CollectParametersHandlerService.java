@@ -8,6 +8,8 @@ import java.util.Set;
 
 import org.apache.commons.lang3.StringUtils;
 import org.openforis.collect.earth.app.service.handler.AbstractAttributeHandler;
+import org.openforis.collect.earth.app.service.handler.CodeAttributeHandler;
+import org.openforis.collect.earth.app.service.handler.EntityHandler;
 import org.openforis.collect.manager.RecordManager;
 import org.openforis.idm.metamodel.EntityDefinition;
 import org.openforis.idm.metamodel.NodeDefinition;
@@ -45,35 +47,54 @@ public class CollectParametersHandlerService {
 
 		List<EntityDefinition> definitons = plotEntity.getSchema().getRootEntityDefinitions();
 
-		
-
 		for (Node<? extends NodeDefinition> node : children) {
-			if (node instanceof Attribute) {
-				for (AbstractAttributeHandler handler : attributeHandlers) {
-					if (handler.isParseable(node)) {
-						// builds ie. "text_parameter"
-						String paramName = handler.getPrefix() + node.getName();
 
-						// Saves into "collect_text_parameter"
-						String collectParamName = COLLECT_PREFIX + paramName;
-						if( parameters.get( collectParamName ) != null ){
+			for (AbstractAttributeHandler handler : attributeHandlers) {
+				if (handler.isParseable(node)) {
+				
+					// builds ie. "text_parameter"
+					String paramName = handler.getPrefix() + node.getName();
+
+					// Saves into "collect_text_parameter"
+					String collectParamName = COLLECT_PREFIX + paramName;
+					if (node instanceof Attribute) {
+						if (parameters.get(collectParamName) != null) {
 
 							int index = StringUtils.countMatches(parameters.get(collectParamName), PARAMETER_SEPARATOR) + 1;
 
 							parameters.put(
 									collectParamName,
 									parameters.get(collectParamName) + PARAMETER_SEPARATOR
-											+ handler.getAttributeFromParameter(paramName, plotEntity, index));
-							
-						}else{
+									+ handler.getAttributeFromParameter(paramName, plotEntity, index));
+
+						} else {
 							parameters.put(collectParamName, handler.getAttributeFromParameter(paramName, plotEntity));
 						}
-						break;
+
+					} else if (node instanceof Entity) {
+						Entity entity = (Entity) node;
+						// result should be
+						// collect_entity_NAME[KEY].code_attribute
+						String entityKey = ((EntityHandler) handler).getEntityKey(entity);
+						collectParamName += "[" + entityKey + "]";
+
+						CodeAttributeHandler cah = new CodeAttributeHandler();
+
+						List<Node<? extends NodeDefinition>> entityChildren = entity.getChildren();
+						for (Node<? extends NodeDefinition> child : entityChildren) {
+							
+							if (child instanceof Attribute) {
+								parameters.put(collectParamName + ".code_" + child.getName(),
+										cah.getAttributeFromParameter(child.getName(), entity));
+							}
+						}
+
+
 					}
+					break;
 				}
 			}
 		}
-
 		return parameters;
 	}
 

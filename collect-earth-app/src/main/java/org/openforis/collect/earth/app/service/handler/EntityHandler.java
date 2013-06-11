@@ -1,11 +1,17 @@
 package org.openforis.collect.earth.app.service.handler;
 
+import java.util.List;
+
+import org.openforis.idm.metamodel.CodeAttributeDefinition;
+import org.openforis.idm.metamodel.NodeDefinition;
+import org.openforis.idm.model.CodeAttribute;
 import org.openforis.idm.model.Entity;
 import org.openforis.idm.model.EntityBuilder;
 import org.openforis.idm.model.Node;
 
 public class EntityHandler extends AbstractAttributeHandler<Entity> {
 
+	// Expected : colllect_entity_topography[house].code_coverage=XX
 	private static final String PREFIX = "entity_";
 
 	public EntityHandler() {
@@ -13,15 +19,63 @@ public class EntityHandler extends AbstractAttributeHandler<Entity> {
 	}
 
 	@Override
-	public void addOrUpdate(String parameterName, String parameterValue, Entity entity) {
+	public void addOrUpdate(String parameterName, String parameterValue, Entity parentEntity) {
+		// Expected parameter name:
+		// colllect_entity_topography[house].code_coverage=XX
+		parameterName = removePrefix(parameterName);
+		String childEntityName = getEntityName(parameterName);
+		String keyValue = getEntityKey(parameterName);
+		String entityAttribute = getEntityAttribute(parameterName);
 
-		int count = entity.getCount(parameterName);
-		for (int i = 0; i < count; i++) {
-			entity.remove(parameterName, 0);
+		Entity childEntity = geChildEntity(parentEntity, childEntityName, keyValue);
+		if (childEntity == null) {
+			childEntity = EntityBuilder.addEntity(parentEntity, childEntityName);
 		}
 
-		EntityBuilder.addEntity(entity, parameterName);
+		CodeAttributeHandler cah = new CodeAttributeHandler();
+		cah.addOrUpdate(entityAttribute, parameterValue, childEntity);
 
+	}
+
+	private Entity geChildEntity(Entity parentEntity, String entityName, String entityKey) {
+		List<Node<? extends NodeDefinition>> entities = parentEntity.getAll(entityName);
+		Entity foundEntity = null;
+		if (entities != null) {
+			for (Node<? extends NodeDefinition> entity : entities) {
+				String key = getEntityKey((Entity) entity);
+				if (key != null && key.equals(entityKey)) {
+					foundEntity = (Entity) entity;
+					break;
+				}
+			}
+		}
+		return foundEntity;
+	}
+
+	public String getEntityKey(Entity entity) {
+		String key = null;
+		CodeAttributeDefinition enumeratingKeyCodeAttribute = entity.getDefinition().getEnumeratingKeyCodeAttribute();
+		CodeAttribute keyAttribute = (CodeAttribute) entity.get(enumeratingKeyCodeAttribute.getName(), 0);
+		key = keyAttribute.getValue().getCode();
+		return key;
+	}
+
+	private String getEntityAttribute(String parameterName) {
+		int indexOfDot = parameterName.indexOf('.');
+		return parameterName.substring(indexOfDot + 1);
+	}
+
+	private String getEntityKey(String parameterName) {
+		int indexOfKeyStart = parameterName.indexOf("[");
+		int indexOfKeyEnd = parameterName.indexOf("]");
+		return parameterName.substring(indexOfKeyStart + 1, indexOfKeyEnd);
+	}
+
+	// topography[house].code_coverage=XX
+	private String getEntityName(String parameterName) {
+		int indexOfKey = parameterName.indexOf("[");
+		return parameterName.substring(0, indexOfKey);
+		
 	}
 
 	@Override
@@ -31,7 +85,6 @@ public class EntityHandler extends AbstractAttributeHandler<Entity> {
 
 	@Override
 	protected void addToEntity(String parameterName, String parameterValue, Entity entity) {
-
 	}
 
 	@Override
