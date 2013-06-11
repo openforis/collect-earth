@@ -11,6 +11,7 @@ import org.openforis.collect.earth.app.service.LocalPropertiesService;
 import org.openforis.collect.earth.sampler.processor.KmlGenerator;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.web.context.WebApplicationContext;
 import org.springframework.web.context.support.WebApplicationContextUtils;
 
 /**
@@ -66,11 +67,10 @@ public class ServerController extends Observable {
 		this.root = root;
 	}
 
-	public LocalPropertiesService getWebAppProperties() {
-		LocalPropertiesService localPropertiesService = WebApplicationContextUtils.getRequiredWebApplicationContext(
-				getRoot().getServletContext()).getBean(LocalPropertiesService.class);
-		return localPropertiesService;
+	public WebApplicationContext getContext() {
+		return WebApplicationContextUtils.getRequiredWebApplicationContext(getRoot().getServletContext());
 	}
+
 
 	/**
 	 * @param args

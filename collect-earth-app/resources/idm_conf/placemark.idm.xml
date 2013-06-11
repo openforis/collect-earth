@@ -373,6 +373,24 @@
 			</items>
 		</list>
 	</codeLists>
+	<spatialReferenceSystems>
+		<spatialReferenceSystem srid="EPSG:4326">
+			<label xml:lang="en">WGS 84</label>
+			<description xml:lang="en">WGS 84</description>
+			<wkt><![CDATA[
+	        GEOGCS["WGS 84",
+		  		DATUM["WGS_1984",
+		  			SPHEROID["WGS 84",6378137,298.257223563, AUTHORITY["EPSG","7030"]],
+		        	AUTHORITY["EPSG","6326"]],
+	    		PRIMEM["Greenwich",0,
+	        		AUTHORITY["EPSG","8901"]],
+	    		UNIT["degree",0.01745329251994328,
+	        		AUTHORITY["EPSG","9122"]],
+	    		AUTHORITY["EPSG","4326"]]
+			]]></wkt>
+		</spatialReferenceSystem>
+	</spatialReferenceSystems>
+	
 	<schema>
 		<entity id="1" name="plot" ui:tabSet="placemark" ui:tab="placemark">
 			<label xml:lang="en">Plot</label>
@@ -397,12 +415,12 @@
 			<code id="8" name="topography_accessibility" list="topographical_accessibility">
 				<label xml:lang="en">Accessibility</label>
 			</code>
-			<entity id="20" name="topography">
+			<entity id="20" name="topography" multiple="true">
 			    <label xml:lang="en">Topography</label>
-				<code id="9" name="element" list="topographical_elements" multiple="true" key="true">
+				<code id="9" name="element" list="topographical_elements" key="true">
 					<label xml:lang="en">Element</label>
 				</code>
-				<code id="10" name="coverage" list="topographical_elements_coverage" required="true">
+				<code id="10" name="coverage" list="topographical_elements_coverage">
 					<label xml:lang="en">Coverage</label>
 				</code>
 			</entity>
@@ -422,13 +440,13 @@
 			<code id="15" name="rs_satellite" list="rs_satellite">
 				<label xml:lang="en">RS Satellite</label>
 			</code>
-			<code id="16" name="crown_cover" list="crown_cover">
+			<code id="16" name="crown_cover" list="crown_cover" relevant="land_use='forest'" >
 				<label xml:lang="en">Crown Cover</label>
 			</code>
-			<code id="19" name="deforestation_reason" list="deforestation_reason" relevant="crown_cover='0'">
+			<code id="19" name="deforestation_reason" list="deforestation_reason" relevant="crown_cover='0'" >
 				<label xml:lang="en">Deforestation reason</label>
 			</code>
-			<code id="17" name="crown_type" list="crown_type">
+			<code id="17" name="crown_type" list="crown_type" relevant="crown_cover!='0'">
 				<label xml:lang="en">Crown Type</label>
 			</code>
 			<boolean id="18" name="actively_saved">

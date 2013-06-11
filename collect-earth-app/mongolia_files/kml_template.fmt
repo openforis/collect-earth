@@ -26,9 +26,9 @@ ${html_for_ballong}
 	<#list placemarks as placemark >
 
 <Folder>
-	<name>Cluster_${placemark.coord.longitude}_${placemark.coord.latitude}</name>
+	<name>Placemark ${placemark_index+1}</name>
 	<open>0</open>
-
+ 	<Snippet maxLines="2" >ID : ${placemark.placemarkId}</Snippet>
 	<Style>
 		<ListStyle>
 			<listItemType>checkHideChildren</listItemType>

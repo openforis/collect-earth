@@ -9,8 +9,9 @@ import java.util.Observer;
 
 import javax.swing.JOptionPane;
 
+import org.openforis.collect.earth.app.service.DataExportService;
 import org.openforis.collect.earth.app.service.LocalPropertiesService;
-import org.openforis.collect.earth.app.view.MainEyeFrame;
+import org.openforis.collect.earth.app.view.CollectEarthWindow;
 import org.openforis.collect.earth.sampler.processor.KmlGenerator;
 import org.openforis.collect.earth.sampler.processor.KmzGenerator;
 import org.openforis.collect.earth.sampler.processor.MultiPointKmlGenerator;
@@ -76,8 +77,8 @@ public class EarthApp {
 			String kmlResult = "resultAnssi.kml";
 
 
-			generateKml.generateFromCsv("mongolia_files/grid-EPSG_3576-mongolia.csv", "mongolia_files/balloon_mongolia.html",
-					"mongolia_files/kml_template.fmt", kmlResult);
+			generateKml.generateFromCsv(localPropertiesService.getValue("csv"), localPropertiesService.getValue("balloon"),
+					localPropertiesService.getValue("template"), kmlResult);
 
 			logger.info("KML File generated : " + kmlResult);
 
@@ -113,7 +114,16 @@ public class EarthApp {
 					logger.info("END - Server Initilization");
 					closeSplash();
 					simulateClickKmz();
-					MainEyeFrame mainEyeFrame = new MainEyeFrame(serverInitilizer.getWebAppProperties());
+
+					openMainWindow();
+				}
+
+				private void openMainWindow() {
+					LocalPropertiesService localPropertiesService = serverInitilizer.getContext().getBean(
+							LocalPropertiesService.class);
+					DataExportService dataExportService = serverInitilizer.getContext().getBean(DataExportService.class);
+
+					CollectEarthWindow mainEyeFrame = new CollectEarthWindow(localPropertiesService, dataExportService);
 					mainEyeFrame.createWindow();
 				}
 

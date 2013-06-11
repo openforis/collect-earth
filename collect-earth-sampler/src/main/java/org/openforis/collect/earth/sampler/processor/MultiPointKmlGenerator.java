@@ -18,11 +18,12 @@ import com.vividsolutions.jts.geom.Point;
 
 public class MultiPointKmlGenerator extends KmlGenerator {
 
-	private static final int INNER_RECT_SIDE = 3;
-	private static final int NUM_OF_COLS = 5;
-	private static final int NUM_OF_ROWS = 5;
-	private static final int X_DISTANCE = 20;
-	private static final int Y_DISTANCE = 20;
+	private static final String PLACEMARK_ID_PREFIX = "placemark_";
+	private static final int INNER_RECT_SIDE = 2;
+	private static final int NUM_OF_COLS = 6;
+	private static final int NUM_OF_ROWS = 6;
+	private static final float X_DISTANCE = 16.6667f;
+	private static final float Y_DISTANCE = 16.6667f;
 	private String host;
 	private String port;
 
@@ -44,9 +45,12 @@ public class MultiPointKmlGenerator extends KmlGenerator {
 
 		SimplePlacemarkObject previousPlacemark = null;
 
+		final double originalCoordGeneralOffsetX = (-1d * NUM_OF_COLS * X_DISTANCE / 2d) - INNER_RECT_SIDE / 2d;
+		final double originalCoordGeneralOffsetY = (NUM_OF_ROWS * Y_DISTANCE / 2d) - INNER_RECT_SIDE / 2d;
+
 		// Read CSV file so that we can store the information in a Map that can
 		// be used by freemarker to do the "goal-replacement"
-		CSVReader reader = new CSVReader(new FileReader(csvFile), ' ');
+		CSVReader reader = new CSVReader(new FileReader(csvFile), ',');
 		String[] nextRow;
 		List<SimplePlacemarkObject> placemarks = new ArrayList<SimplePlacemarkObject>();
 		while ((nextRow = reader.readNext()) != null) {
@@ -54,7 +58,7 @@ public class MultiPointKmlGenerator extends KmlGenerator {
 
 			try {
 
-				String currentPlaceMarkId = "ge_" + nextRow[0];
+				String currentPlaceMarkId = PLACEMARK_ID_PREFIX + nextRow[0];
 
 				if (previousPlacemark != null) {
 					// Give the current ID to the previous placemark so that we
@@ -66,8 +70,14 @@ public class MultiPointKmlGenerator extends KmlGenerator {
 				double originalY = Double.parseDouble(nextRow[2]);
 
 				Point transformedPoint = transformToWGS84(originalX, originalY); // TOP-LEFT
-																					// position
+
+				// This should be the position at the center of the plot
 				double[] coordOriginalPoints = new double[] { transformedPoint.getX(), transformedPoint.getY() };
+				// Since we use the coordinates with TOP-LEFT anchoring then we
+				// need to move the #original point@ to the top left so that
+				// the center ends up bein the expected original coord
+				coordOriginalPoints = getPointWithOffset(coordOriginalPoints, originalCoordGeneralOffsetX,
+						originalCoordGeneralOffsetY);
 
 				SimplePlacemarkObject parentPlacemark = new SimplePlacemarkObject(transformedPoint.getCoordinate(),
 						currentPlaceMarkId);

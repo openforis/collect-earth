@@ -40,7 +40,7 @@ public class LocalPropertiesService {
 		}
 	}
 
-	private String getValue(String key) {
+	public String getValue(String key) {
 		String value = "";
 		if (properties.get(key) != null) {
 			value = (String) properties.get(key);

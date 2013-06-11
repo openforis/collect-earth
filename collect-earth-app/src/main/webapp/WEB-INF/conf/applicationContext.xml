@@ -54,7 +54,7 @@
 	<tx:annotation-driven transaction-manager="transactionManager"
 		proxy-target-class="true" />
 
-	<bean class="org.openforis.collect.earth.app.springversion.CollectDataAccessor" id="dataAccessor" />
+	<bean class="org.openforis.collect.earth.app.server.CollectDataAccessor" id="dataAccessor" />
 	
 	<!-- ===================================== -->
 	<!-- DAO -->
@@ -169,8 +169,9 @@
 		<constructor-arg value="resources/idm_conf/placemark.idm.xml"/>
 	</bean>
 	
-	<bean id="collectParametersHandler" class="org.openforis.collect.earth.app.service.CollectParametersHandler">
-	</bean>
+	<bean id="dataExportService" class="org.openforis.collect.earth.app.service.DataExportService" />
+	
+	<bean id="collectParametersHandler" class="org.openforis.collect.earth.app.service.CollectParametersHandlerService"/>
 	
 	<bean id="localPropertiesService" class="org.openforis.collect.earth.app.service.LocalPropertiesService"
 		init-method="init" lazy-init="false">
