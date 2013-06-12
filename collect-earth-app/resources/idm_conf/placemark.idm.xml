@@ -437,13 +437,13 @@
 				</code>
 			</entity>
 			<code id="11" name="human_impact_type" list="human_impact_type"
-				multiple="true">
+				multiple="true" relevant="land_use!='settlement'">
 				<label xml:lang="en">Human Impact Type</label>
 			</code>
-			<code id="12" name="human_impact_grade" list="human_impact_grade" relevant="human_impact_type!='na'">
+			<code id="12" name="human_impact_grade" list="human_impact_grade" relevant="land_use!='settlement' and human_impact_type!='na'">
 				<label xml:lang="en">Human Impact Grade</label>
 			</code>
-			<number id="13" name="human_impact_year" type="integer" relevant="human_impact_type!='na'">
+			<number id="13" name="human_impact_year" type="integer" relevant="land_use!='settlement' and human_impact_type!='na'">
 				<label xml:lang="en">Human Impact Year</label>
 			</number>
 			<date id="14" name="rs_date">

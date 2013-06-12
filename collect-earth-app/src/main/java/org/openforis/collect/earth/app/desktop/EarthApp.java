@@ -14,7 +14,7 @@ import org.openforis.collect.earth.app.service.LocalPropertiesService;
 import org.openforis.collect.earth.app.view.CollectEarthWindow;
 import org.openforis.collect.earth.sampler.processor.KmlGenerator;
 import org.openforis.collect.earth.sampler.processor.KmzGenerator;
-import org.openforis.collect.earth.sampler.processor.MultiPointKmlGenerator;
+import org.openforis.collect.earth.sampler.processor.PolygonKmlGenerator;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -22,6 +22,7 @@ import freemarker.template.TemplateException;
 
 public class EarthApp {
 
+	private static final String KML_RESULTING_TEMP_FILE = "gridOfPlotsToInterpret.kml";
 	final static Logger logger = LoggerFactory.getLogger(EarthApp.class);
 	private static ServerController serverInitilizer;
 	private static final String KMZ_FILE_PATH = "gePlugin.kmz";
@@ -70,21 +71,24 @@ public class EarthApp {
 		logger.info("START - Generate KMZ file");
 
 		// KmlGenerator generateKml = new OnePointKmlGenerator();
-		KmlGenerator generateKml = new MultiPointKmlGenerator("EPSG:3576", localPropertiesService.getHost(),
+		KmlGenerator generateKml = new PolygonKmlGenerator("EPSG:3576", localPropertiesService.getHost(),
 				localPropertiesService.getPort());
 		try {
 
-			String kmlResult = "resultAnssi.kml";
-
-
 			generateKml.generateFromCsv(localPropertiesService.getValue("csv"), localPropertiesService.getValue("balloon"),
-					localPropertiesService.getValue("template"), kmlResult);
+					localPropertiesService.getValue("template"), KML_RESULTING_TEMP_FILE);
 
-			logger.info("KML File generated : " + kmlResult);
+			logger.info("KML File generated : " + KML_RESULTING_TEMP_FILE);
 
-			KmzGenerator.generateKmzFile(KMZ_FILE_PATH, kmlResult, "mongolia_files/files");
+			KmzGenerator.generateKmzFile(KMZ_FILE_PATH, KML_RESULTING_TEMP_FILE, "mongolia_files/files");
 
 			logger.info("KMZ File generated : " + KMZ_FILE_PATH);
+
+			File kmlFile = new File(KML_RESULTING_TEMP_FILE);
+			if (kmlFile.exists()) {
+				kmlFile.delete();
+				logger.info("KML File deleted : " + KML_RESULTING_TEMP_FILE);
+			}
 
 		} catch (IOException e) {
 			logger.error("Could not generate KML file", e);

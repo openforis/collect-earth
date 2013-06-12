@@ -129,6 +129,12 @@ earth_skip_filled
 		 var selectedValue = landUse.val();
 		 $('.tab-pane').hide(); // Hide all land use divs
 		 $('#tab_'+selectedValue).show();// Show the div for the actual selected land use
+		 
+		 if( selectedValue != 'settlement'){
+			 $('.settlementDiv').show();
+		 }else{
+			 $('.settlementDiv').hide();
+		 }
 	}
 	
 	var showForestByType = function( forestToForestType ){
@@ -290,8 +296,8 @@ earth_skip_filled
 		$.ajax({
 			data : data,
 			type : "POST",
-			//url : "$[host]placemarkInfo",
-			url: "http://168.202.48.32:8020/earth/placemarkInfo",
+			url : "$[host]placemarkInfo",
+			//url: "http://168.202.48.32:8020/earth/placemarkInfo",
 			dataType : 'json',
 			error : function(jqXHR, textStatus, errorThrown) {
 				$('#succ_mess').css("color", "red").html("The data server is not running!");
@@ -549,8 +555,8 @@ hr {
 
 	<div id="contentDiv" style="width: 450px">
 
-			<!-- <form id="formAll" method="POST" action="$[host]saveData"> -->
-			<form id="formAll" method="POST" action="http://168.202.48.32:8020/earth/saveData">
+			<form id="formAll" method="POST" action="$[host]saveData">
+			<!-- <form id="formAll" method="POST" action="http://168.202.48.32:8020/earth/saveData"> -->
 			
 
 				<input type="hidden" id="collect_coord_location" 
@@ -959,7 +965,7 @@ hr {
 							
 						</div>
 
-					<div id="toolbar" class="capsuleCat ui-corner-all">
+					<div id="toolbar" class="capsuleCat ui-corner-all settlementDiv">
 						<h5>Human impact</h5>
 							<div class="label-over">Type</div>
 									<div class="control-group">

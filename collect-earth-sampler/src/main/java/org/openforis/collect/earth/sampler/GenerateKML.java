@@ -5,7 +5,7 @@ import java.io.IOException;
 import org.apache.log4j.PropertyConfigurator;
 import org.openforis.collect.earth.sampler.processor.KmlGenerator;
 import org.openforis.collect.earth.sampler.processor.KmzGenerator;
-import org.openforis.collect.earth.sampler.processor.MultiPointKmlGenerator;
+import org.openforis.collect.earth.sampler.processor.PolygonKmlGenerator;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -16,7 +16,7 @@ public class GenerateKML {
 
 	public static void main(String[] args) {
 		// KmlGenerator generateKml = new OnePointKmlGenerator();
-		KmlGenerator generateKml = new MultiPointKmlGenerator("EPSG:3576");
+		KmlGenerator generateKml = new PolygonKmlGenerator("EPSG:3576");
 		PropertyConfigurator.configure("./log4j.properties");
 
 		try {

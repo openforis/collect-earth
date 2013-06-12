@@ -4,7 +4,6 @@ import java.io.FileNotFoundException;
 import java.io.FileReader;
 import java.io.IOException;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -17,7 +16,7 @@ import au.com.bytecode.opencsv.CSVReader;
 
 import com.vividsolutions.jts.geom.Point;
 
-public class MultiPointKmlGenerator extends KmlGenerator {
+public class PolygonKmlGenerator extends KmlGenerator {
 
 	private static final String PLACEMARK_ID_PREFIX = "placemark_";
 	private static final int INNER_RECT_SIDE = 2;
@@ -28,13 +27,13 @@ public class MultiPointKmlGenerator extends KmlGenerator {
 	private String host;
 	private String port;
 
-	public MultiPointKmlGenerator(String epsgCode) {
+	public PolygonKmlGenerator(String epsgCode) {
 		super(epsgCode);
 	}
 
 	// private static final int MARGIN = 20;
 
-	public MultiPointKmlGenerator(String epsgCode, String host, String port) {
+	public PolygonKmlGenerator(String epsgCode, String host, String port) {
 		super(epsgCode);
 		this.host = host;
 		this.port = port;
@@ -56,7 +55,6 @@ public class MultiPointKmlGenerator extends KmlGenerator {
 		List<SimplePlacemarkObject> placemarks = new ArrayList<SimplePlacemarkObject>();
 		while ((nextRow = reader.readNext()) != null) {
 			// nextLine[] is an array of values from the line
-			System.out.println(Arrays.toString(nextRow));
 			try {
 				String currentPlaceMarkId = PLACEMARK_ID_PREFIX + nextRow[0];
 				if (previousPlacemark != null) {

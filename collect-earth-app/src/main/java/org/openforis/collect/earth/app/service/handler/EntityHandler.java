@@ -56,7 +56,9 @@ public class EntityHandler extends AbstractAttributeHandler<Entity> {
 		String key = null;
 		CodeAttributeDefinition enumeratingKeyCodeAttribute = entity.getDefinition().getEnumeratingKeyCodeAttribute();
 		CodeAttribute keyAttribute = (CodeAttribute) entity.get(enumeratingKeyCodeAttribute.getName(), 0);
-		key = keyAttribute.getValue().getCode();
+		if (keyAttribute != null) {
+			key = keyAttribute.getValue().getCode();
+		}
 		return key;
 	}
 
