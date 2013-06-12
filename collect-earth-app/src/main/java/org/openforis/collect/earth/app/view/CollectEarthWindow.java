@@ -25,6 +25,7 @@ import javax.swing.JTextField;
 import javax.swing.SwingConstants;
 import javax.swing.WindowConstants;
 import javax.swing.border.Border;
+import javax.swing.filechooser.FileFilter;
 
 import org.openforis.collect.earth.app.desktop.EarthApp;
 import org.openforis.collect.earth.app.service.DataExportService;
@@ -169,6 +170,22 @@ public class CollectEarthWindow {
 
 	public void exportDataToCsv(ActionEvent e) {
 		JFileChooser fc = new JFileChooser();
+
+		fc.addChoosableFileFilter(new FileFilter() {
+
+			@Override
+			public String getDescription() {
+				return "CSV files";
+			}
+
+			@Override
+			public boolean accept(File f) {
+				return f.getName().endsWith(".csv");
+			}
+		});
+
+		fc.setAcceptAllFileFilterUsed(false);
+
 		// Handle open button action.
 
 		int returnVal = fc.showSaveDialog(getFrame());

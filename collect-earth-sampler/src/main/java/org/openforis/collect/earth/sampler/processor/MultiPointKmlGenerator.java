@@ -4,6 +4,7 @@ import java.io.FileNotFoundException;
 import java.io.FileReader;
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -55,14 +56,12 @@ public class MultiPointKmlGenerator extends KmlGenerator {
 		List<SimplePlacemarkObject> placemarks = new ArrayList<SimplePlacemarkObject>();
 		while ((nextRow = reader.readNext()) != null) {
 			// nextLine[] is an array of values from the line
-
+			System.out.println(Arrays.toString(nextRow));
 			try {
-
 				String currentPlaceMarkId = PLACEMARK_ID_PREFIX + nextRow[0];
-
 				if (previousPlacemark != null) {
 					// Give the current ID to the previous placemark so that we
-					// can move from plcemark to placemark
+					// can move from placemark to placemark
 					previousPlacemark.setNextPlacemarkId(currentPlaceMarkId);
 				}
 
