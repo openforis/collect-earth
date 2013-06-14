@@ -1,5 +1,9 @@
 package org.openforis.collect.earth.app.service.handler;
 
+import java.text.ParseException;
+import java.text.SimpleDateFormat;
+import java.util.Calendar;
+
 import org.openforis.idm.model.Date;
 import org.openforis.idm.model.DateAttribute;
 import org.openforis.idm.model.Entity;
@@ -11,13 +15,15 @@ public class DateAttributeHandler extends AbstractAttributeHandler<Value> {
 
 	private static final String PREFIX = "date_";
 
+	private static SimpleDateFormat sdf = new SimpleDateFormat("MM/dd/yyyy");
+
 	public DateAttributeHandler() {
 		super(PREFIX);
 	}
 
 	@Override
 	public String getAttributeFromParameter(String parameterName, Entity entity, int index) {
-		return ((DateAttribute) entity.get(removePrefix(parameterName), index)).getValue().toXmlDate();
+		return sdf.format(((DateAttribute) entity.get(removePrefix(parameterName), index)).getValue().toJavaDate());
 	}
 
 	@Override
@@ -26,12 +32,19 @@ public class DateAttributeHandler extends AbstractAttributeHandler<Value> {
 	}
 
 	private Date getDate(String parameterValue) {
+		// month/day/year
 		Date date;
 		try {
-			String[] coordinatesCSV = parameterValue.split("-");
-			date = new Date(Integer.parseInt(coordinatesCSV[0]), Integer.parseInt(coordinatesCSV[1]),
-					Integer.parseInt(coordinatesCSV[2]));
-		} catch (NumberFormatException e) {
+			java.util.Date dateParam = sdf.parse(parameterValue);
+			Calendar cal = Calendar.getInstance();
+			cal.setTime(dateParam);
+			int year = cal.get(Calendar.YEAR);
+			int month = cal.get(Calendar.MONTH) + 1; // Months starts with 0 in
+														// the calendar
+			int day = cal.get(Calendar.DAY_OF_MONTH);
+
+			date = new Date(year, month, day);
+		} catch (ParseException e) {
 			date = new Date(-1, -1, -1); // Force Collect validation to respond
 		}
 		return date;

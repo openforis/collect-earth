@@ -161,7 +161,7 @@
 	
 	
 	<!-- ===================================== -->
-	<!-- EYE Specific Beans -->
+	<!-- Collect Earth Specific Beans -->
 	<!-- ===================================== -->
 	
 	<bean id="earthSurveyService" class="org.openforis.collect.earth.app.service.EarthSurveyService"
@@ -172,6 +172,8 @@
 	<bean id="dataExportService" class="org.openforis.collect.earth.app.service.DataExportService" />
 	
 	<bean id="collectParametersHandler" class="org.openforis.collect.earth.app.service.CollectParametersHandlerService"/>
+	
+	<bean id="preloadedFilesService" class="org.openforis.collect.earth.app.service.PreloadedFilesService"/>
 	
 	<bean id="localPropertiesService" class="org.openforis.collect.earth.app.service.LocalPropertiesService"
 		init-method="init" lazy-init="false">

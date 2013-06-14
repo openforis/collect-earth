@@ -113,13 +113,13 @@ public class CollectEarthWindow {
 		c.gridx = 0;
 		c.gridy = 1;
 		c.gridwidth = GridBagConstraints.REMAINDER;
-		pane.add(new JLabel("<html><b>OpenForis Collect Earth server should be running while the operator interprets data.</b>"
-				+ "<br>" + "Please maintain this window open while you are using Google Earth!</hmtl>"), c);
+		pane.add(new JLabel("<html><b>Open Foris Collect Earth server should be running while the operator interprets data.</b>"
+				+ "<br>" + "Please maintain this window open while you are using Google Earth.</hmtl>"), c);
 
 		c.gridx = 0;
 		c.gridy = 2;
 		c.gridwidth = GridBagConstraints.REMAINDER;
-		JButton exportButton = new JButton("Export as CSV");
+		JButton exportButton = new JButton("Export to CSV");
 		exportButton.addActionListener(getExportActionListener());
 		pane.add(exportButton , c);
 
@@ -200,7 +200,7 @@ public class CollectEarthWindow {
 				dataExportService.exportSurveyAsCsv(fos);
 
 			} catch (Exception e1) {
-				logger.error("Error exporting the survey as a CSV.", e);
+				logger.error("Error exporting the survey as a CSV.", e1);
 			}
 		} else {
 			logger.info("Open command cancelled by user.");

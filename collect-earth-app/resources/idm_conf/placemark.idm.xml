@@ -6,7 +6,7 @@
 	http://www.openforis.org/collect/3.0/ui 
 	https://raw.github.com/openforis/collect/master/collect-core/src/main/resources/idml3-ui.xsd"
 	lastId="1000">
-	<project>Open Foris Eye</project>
+	<project>Open Foris Collect Earth</project>
 	<uri>http://www.openforis.org/idm/earth</uri>
 	<cycle>2013-2014</cycle>
 	<description></description>
@@ -317,6 +317,10 @@
 						<code>other</code>
 						<label>Other</label>
 				</item>
+				<item id="705">
+						<code>spot</code>
+						<label>Spot</label>
+				</item>
 			</items>
 		</list>
 		<list id="800" name="crown_cover">
@@ -362,9 +366,9 @@
 			</items>
 		</list>
 
-		<list id="900" name="crown_type">
-			<label type="item">Crown Type</label>
-			<label type="list">Crown Type</label>
+		<list id="900" name="cover_type">
+			<label type="item">Cover Type</label>
+			<label type="list">Cover Type</label>
 			<items>
 				<item id="901">
 					<code>sparse</code>
@@ -382,6 +386,10 @@
 					<code>unknown</code>
 					<label>Unknown</label>
 				</item>
+			    <item id="905">
+					<code>random</code>
+					<label>Random</label>
+				</item>				
 			</items>
 		</list>
 	</codeLists>
@@ -419,7 +427,7 @@
 				<label xml:lang="en">Land use</label>
 			</code>
 			<boolean id="6" name="land_use_change">
-				<label xml:lang="en">Land use change</label>
+				<label xml:lang="en">Land use development</label>
 			</boolean>
 			<code id="7" name="land_use_type" list="land_use" parent="land_use">
 				<label xml:lang="en">Land use type</label>
@@ -458,7 +466,7 @@
 			<code id="19" name="deforestation_reason" list="deforestation_reason" relevant="land_use='forest' and crown_cover='0'" >
 				<label xml:lang="en">Deforestation reason</label>
 			</code>
-			<code id="17" name="crown_type" list="crown_type" relevant="land_use='forest' and crown_cover!='0'">
+			<code id="17" name="cover_type" list="cover_type" relevant="land_use='forest' and crown_cover!='0'">
 				<label xml:lang="en">Crown Type</label>
 			</code>
 			<boolean id="18" name="actively_saved">

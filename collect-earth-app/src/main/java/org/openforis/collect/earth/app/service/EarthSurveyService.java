@@ -81,8 +81,12 @@ public class EarthSurveyService {
 				Node<?> node = record.getNodeByInternalId(recordValidationReportItem.getNodeId());
 				label = node.getDefinition().getLabel(Type.INSTANCE, "en");
 
-				parameters.put("validation_" + node.getDefinition().getName(),
-						label + " - " + recordValidationReportItem.getMessage());
+				String message = recordValidationReportItem.getMessage();
+				if (message.equals("Reason blank not specified")) {
+					message = "Field required";
+				}
+
+				parameters.put("validation_" + node.getDefinition().getName(), label + " - " + message);
 
 			} else {
 				label = recordValidationReportItem.getPath();

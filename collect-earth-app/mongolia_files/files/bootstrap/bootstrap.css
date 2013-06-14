@@ -651,7 +651,7 @@ h4 {
   font-size: 12.5px;
 }
 h5 {
-  font-size: 10px;
+  font-size: 12px;
 }
 h6 {
   font-size: 8.5px;
@@ -1787,7 +1787,7 @@ select:focus:invalid:focus {
   height: 10px;
   min-width: 16px;
   padding: 4px 5px;
-  font-size: 10px;
+  font-size: 12px;
   font-weight: normal;
   line-height: 10px;
   text-align: center;
@@ -2917,7 +2917,7 @@ input[type="submit"].btn.btn-mini {
 .btn-group > .btn,
 .btn-group > .dropdown-menu,
 .btn-group > .popover {
-  font-size: 10px;
+  font-size: 12px;
 }
 .btn-group > .btn-mini {
   font-size: 7.5px;

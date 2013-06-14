@@ -12,8 +12,8 @@ import javax.servlet.ServletContext;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 
-import org.apache.commons.io.FileUtils;
 import org.openforis.collect.earth.app.service.EarthSurveyService;
+import org.openforis.collect.earth.app.service.PreloadedFilesService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -32,16 +32,11 @@ public class PlacemarkImageServlet extends DataAccessingServlet {
 
 	private static final String LIST_NON_FILLED_IMAGE = "/images/list_empty.png";
 
-	private byte[] filledImage;
-
-	private byte[] nonFilledImage;
-
-	private byte[] listFilledImage;
-
-	private byte[] listNonFilledImage;
-
 	@Autowired
 	EarthSurveyService earthSurveyService;
+
+	@Autowired
+	PreloadedFilesService preloadedFilesService;
 
 	@RequestMapping("/placemarkIcon")
 	public void getImage(HttpServletResponse response, HttpServletRequest request,
@@ -51,13 +46,6 @@ public class PlacemarkImageServlet extends DataAccessingServlet {
 
 		if (listView == null) {
 			listView = Boolean.FALSE;
-		}
-
-		if (filledImage == null) {
-			filledImage = readFile(FILLED_IMAGE, request.getSession().getServletContext());
-			nonFilledImage = readFile(NON_FILLED_IMAGE, request.getSession().getServletContext());
-			listFilledImage = readFile(LIST_FILLED_IMAGE, request.getSession().getServletContext());
-			listNonFilledImage = readFile(LIST_NON_FILLED_IMAGE, request.getSession().getServletContext());
 		}
 
 		// Check if placemark already filled
@@ -81,22 +69,17 @@ public class PlacemarkImageServlet extends DataAccessingServlet {
 				imageName = NON_FILLED_IMAGE;
 			}
 		}
-		returnImage(response, imageName);
+		returnImage(response, request, imageName);
 	}
 
 	private byte[] readFile(String filePath, ServletContext servletContext) throws MalformedURLException, URISyntaxException {
 
 		File imageFile = new File(servletContext.getResource(filePath).toURI());
-		byte fileContent[] = new byte[0];
-		try {
-			fileContent = FileUtils.readFileToByteArray(imageFile);
-		} catch (IOException e) {
-			getLogger().error("Problems while reading the file " + filePath + " was not found.", e);
-		}
-		return fileContent;
+		return preloadedFilesService.getFileContent(imageFile);
 	}
 
-	private void returnImage(HttpServletResponse response, String imageName) throws IOException {
+	private void returnImage(HttpServletResponse response, HttpServletRequest request, String imageName) throws IOException,
+			URISyntaxException {
 		response.setHeader("Content-Type", "image/png");
 		response.setHeader("Content-Disposition", "inline; filename=\"" + imageName + "\"");
 		response.setHeader("Cache-Control", "max-age=30");
@@ -104,17 +87,20 @@ public class PlacemarkImageServlet extends DataAccessingServlet {
 
 		byte[] resultingImage = null;
 		if (imageName.equals(FILLED_IMAGE)) {
-			resultingImage = filledImage;
+			resultingImage = readFile(FILLED_IMAGE, request.getSession().getServletContext());
 		} else if (imageName.equals(NON_FILLED_IMAGE)) {
-			resultingImage = nonFilledImage;
+			resultingImage = readFile(NON_FILLED_IMAGE, request.getSession().getServletContext());
 		} else if (imageName.equals(LIST_NON_FILLED_IMAGE)) {
-			resultingImage = listNonFilledImage;
+			resultingImage = readFile(LIST_NON_FILLED_IMAGE, request.getSession().getServletContext());
 		} else if (imageName.equals(LIST_FILLED_IMAGE)) {
-			resultingImage = listFilledImage;
+			resultingImage = readFile(LIST_FILLED_IMAGE, request.getSession().getServletContext());
 		}
-
-		response.setHeader("Content-Length", resultingImage.length + "");
-		writeToResponse(response, resultingImage);
+		if (resultingImage != null) {
+			response.setHeader("Content-Length", resultingImage.length + "");
+			writeToResponse(response, resultingImage);
+		} else {
+			getLogger().error("There was a problem fetching the image, please check the name!");
+		}
 	}
 
 	private void writeToResponse(HttpServletResponse response, byte[] fileContents) throws IOException {

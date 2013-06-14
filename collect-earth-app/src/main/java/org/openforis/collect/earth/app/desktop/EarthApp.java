@@ -107,6 +107,7 @@ public class EarthApp {
 			closeSplash();
 			showMessage("The server is already running");
 			simulateClickKmz();
+			System.gc(); // THIS SHOULD BE REMOVED!
 		} else {
 
 
@@ -127,8 +128,8 @@ public class EarthApp {
 							LocalPropertiesService.class);
 					DataExportService dataExportService = serverInitilizer.getContext().getBean(DataExportService.class);
 
-					CollectEarthWindow mainEyeFrame = new CollectEarthWindow(localPropertiesService, dataExportService);
-					mainEyeFrame.createWindow();
+					CollectEarthWindow mainEarthWindow = new CollectEarthWindow(localPropertiesService, dataExportService);
+					mainEarthWindow.createWindow();
 				}
 
 			});
@@ -161,7 +162,7 @@ public class EarthApp {
 	}
 
 	private static void showMessage(String message) {
-		JOptionPane.showMessageDialog(null, message, "OpenForis Eye", JOptionPane.WARNING_MESSAGE);
+		JOptionPane.showMessageDialog(null, message, "Collect Earth", JOptionPane.WARNING_MESSAGE);
 	}
 
 	private static void simulateClickKmz() {

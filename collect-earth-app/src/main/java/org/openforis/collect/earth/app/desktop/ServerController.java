@@ -4,8 +4,10 @@ import java.io.IOException;
 import java.net.Socket;
 import java.util.Observable;
 import java.util.Observer;
+import java.util.concurrent.TimeUnit;
 
 import org.eclipse.jetty.server.Server;
+import org.eclipse.jetty.util.thread.ExecutorThreadPool;
 import org.eclipse.jetty.webapp.WebAppContext;
 import org.openforis.collect.earth.app.service.LocalPropertiesService;
 import org.openforis.collect.earth.sampler.processor.KmlGenerator;
@@ -87,6 +89,8 @@ public class ServerController extends Observable {
 		// PropertyConfigurator.configure(this.getClass().getResource("/WEB-INF/conf/log4j.properties"));
 
 		server = new Server(getPort());
+
+		server.setThreadPool(new ExecutorThreadPool(5, 50, 5, TimeUnit.SECONDS));
 
 		setRoot(new WebAppContext());
 

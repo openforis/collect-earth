@@ -44,7 +44,7 @@ collect_integer_human_impact_year
 collect_date_rs_date
 collect_code_rs_satellite
 collect_code_crown_cover
-collect_code_crown_type
+collect_code_cover_type
 collect_boolean_actively_saved // Set this to true when the user saves the data by actively clicking in submit
 
 When a value has multiple values they will be  separated with "===" i.e.
@@ -91,20 +91,25 @@ earth_skip_filled
 	var ajaxTimeout = null; 
 	
 	var ajaxDataUpdate = function(){
-		// Set a two second timeout so that the data is only sent to the server if the user stops clicking for over one second
-		clearTimeout(ajaxTimeout);
-		ajaxTimeout = setTimeout(function() {
-			var $form = $("#formAll");
-	
-			var data = $("#formAll").serialize();			
-						
-			$.ajax({
-				data : data,
-				type : $form.attr("method"),
-				url : $form.attr("action"),
-				dataType : 'json'
-			});
-		},100);
+		
+		var actively_saved = $("input[id=collect_boolean_actively_saved]").val();
+		// Only update automatically when the data has not been correctly saved before
+		if( actively_saved == 'false' ){
+			// Set a two second timeout so that the data is only sent to the server if the user stops clicking for over one second
+			clearTimeout(ajaxTimeout);
+			ajaxTimeout = setTimeout(function() {
+				var $form = $("#formAll");
+		
+				var data = $("#formAll").serialize();			
+							
+				$.ajax({
+					data : data,
+					type : $form.attr("method"),
+					url : $form.attr("action"),
+					dataType : 'json'
+				});
+			},100);
+		}
 	};
 	
 	var enableSelect = function( selectName, enable ){ //#elementsCover
@@ -135,16 +140,6 @@ earth_skip_filled
 		 }else{
 			 $('.settlementDiv').hide();
 		 }
-	}
-	
-	var showForestByType = function( forestToForestType ){
-		if ( forestToForestType == true ) {
-			$('.otherToForest').attr("disabled", true);
-			$('.forestToForest').attr("disabled", false);
-		} else {
-			$('.forestToForest').attr("disabled", true);
-			$('.otherToForest').attr("disabled", false);
-		}
 	}
 	
 	var fillDataWithJson = function(json) {
@@ -195,9 +190,7 @@ earth_skip_filled
 			}
 			
 		});
-		
-		showForestByType( $('.forestToForest').hasClass('active'));
-		
+			
 	}
 	
 		
@@ -302,6 +295,7 @@ earth_skip_filled
 			error : function(jqXHR, textStatus, errorThrown) {
 				$('#succ_mess').css("color", "red").html("The data server is not running!");
 				$("#dialogSuccess").dialog("open");
+				initializeChangeEventSaver();
 			},
 			success : function(json){
 				if( json.collect_boolean_actively_saved == 'true' && json.collect_text_id != 'testPlacemark'){ // 
@@ -382,16 +376,7 @@ earth_skip_filled
 									$("input[id=collect_boolean_land_use_change]").val(selectedButton.value);
 								});
 						
-						$('.otherToForest').attr("disabled", true);
-						$('.forestToForest').attr("disabled", true);
 						
-						$('.toggleForestDevelopment').on('click', function(e) {
-							
-							showForestByType(  $(this).attr("id") == "FLtoFL" );
-								
-							//enableSelect('.landUseTypeSelector', true);
-						});
-
 										
 						// SAVING DATA WHEN USER SUBMITS
 						$('#formAll')
@@ -480,9 +465,9 @@ body {
     background-color: #EEEEEE;
     border: 1px solid #CCCCCC;
     display: inline-block;
-    font-size: 10px;
+    font-size: 12px;
     font-weight: normal;
-    height: 10px;
+    height: 12px;
     line-height: 10px;
     min-width: 16px;
     padding: 4px 5px;
@@ -537,6 +522,9 @@ hr {
    	
 }
 
+.earthDiv{
+	width: 495px;
+}
 
 </style>
 
@@ -545,7 +533,7 @@ hr {
 	<div id="dialogSuccess">
 		
 			<span class="ui-icon ui-icon-circle-check"
-				style="float: left; margin: 0 7px 50px 0;"> </span>
+				style="float: left; margin: 0 7px 70px 0;"> </span>
 			<div id="succ_mess"></div>
 		
 	</div>
@@ -553,7 +541,7 @@ hr {
 <body>
 
 
-	<div id="contentDiv" style="width: 450px">
+	<div id="contentDiv" class="earthDiv" style="height : 600px; overflow : auto; "">
 
 			<form id="formAll" method="POST" action="$[host]saveData">
 			<!-- <form id="formAll" method="POST" action="http://168.202.48.32:8020/earth/saveData"> -->
@@ -572,8 +560,8 @@ hr {
 				<input type="hidden" id="collect_code_crown_cover" name="collect_code_crown_cover"
 					value="" class="collect_code_land_use_dependant" /> 
 					
-				<input type="hidden" id="collect_code_crown_type"
-					name="collect_code_crown_type"  class="collect_code_land_use_dependant collect_code_crown_cover_dependant" />
+				<input type="hidden" id="collect_code_cover_type"
+					name="collect_code_cover_type"  class="collect_code_land_use_dependant collect_code_crown_cover_dependant" />
 					
 				<input type="hidden" id="collect_code_deforestation_reason" name="collect_code_deforestation_reason"
 					value="" class="collect_code_land_use_dependant" />					
@@ -594,11 +582,15 @@ hr {
 				<input type="hidden" id="collect_code_human_impact_grade"
 					name="collect_code_human_impact_grade"  class="collect_code_human_impact_type_dependant"/>
 
-				<div style="background-image: url(files/img/Open-foris-banner2.jpg); height:47px;width:450px">
-				<span style="float: right;" >
+				<div style="background-image: url(files/img/Open-foris-banner2.jpg); height:47px;width:450px;clear:none;">
 				
-				LAND USE TYPE <img src="files/img/mongolia.png" border="0" style="margin:5px;"/>
-				<button class="btn btn-link" onclick="toggleCollapsed(); return false;"><i  class="icon-large icon-resize-small" id="collapseButton"></i></button>				
+				<span style="float: right;display:inline;margin-top:5px;" >
+				
+				<img src="files/img/mongolia.png" border="0" style="vertical-align:bottom;"/>
+<!-- 				
+Shirinking functionality removed!!!
+<button class="btn btn-link" onclick="toggleCollapsed(); return false;"><i  class="icon-large icon-resize-small" id="collapseButton"></i></button>				
+ -->
 				</span>
 				</div>
 				<div id="collapsableContents">
@@ -621,7 +613,7 @@ hr {
 										value="cropland">Cropland</button>
 									<button type="button"
 										class="btn btn-primary"
-										value="wetland">Wetland</button>
+										value="wetLand">Wetland</button>
 									<button type="button"
 										class="btn btn-primary"
 										value="settlement">Settlement</button>
@@ -657,28 +649,28 @@ hr {
 							<div class="control-group">
 								<div class="btn-group landUseTypeSelector"
 									data-toggle="buttons-radio">
-									<button type="button" class="btn btn-primary forestToForest collect_code_land_use_dependant"
+									<button type="button" class="btn btn-primary collect_code_land_use_dependant"
 										value="birch-Aspen" title="Birch-Aspen">Birch-Aspen</button>
-									<button type="button" class="btn btn-primary forestToForest collect_code_land_use_dependant"
+									<button type="button" class="btn btn-primary collect_code_land_use_dependant"
 										value="larch" title="Larch">Larch</button>
-									<button type="button" class="btn btn-primary forestToForest collect_code_land_use_dependant"
+									<button type="button" class="btn btn-primary collect_code_land_use_dependant"
 										value="pine" title="Pine">Pine</button>
-									<button type="button" class="btn btn-primary forestToForest collect_code_land_use_dependant"
+									<button type="button" class="btn btn-primary collect_code_land_use_dependant"
 										value="siberianPine" title="Siberian Pine">Siberian
 										Pine</button>
-									<button type="button" class="btn btn-primary forestToForest collect_code_land_use_dependant"
+									<button type="button" class="btn btn-primary collect_code_land_use_dependant"
 										value="spruce" title="Spruce">Spruce</button>
-									<button type="button" class="btn btn-primary forestToForest collect_code_land_use_dependant"
+									<button type="button" class="btn btn-primary collect_code_land_use_dependant"
 										value="saxaul" title="Saxaul">Saxaul</button>
 									<br />
-									<button type="button" class="btn btn-primary otherToForest collect_code_land_use_dependant"
+									<button type="button" class="btn btn-primary collect_code_land_use_dependant"
 										value="coniferousAndDeciduous" title="Coniferous and deciduous">Coniferous
 										and deciduous</button>
-									<button type="button" class="btn btn-primary otherToForest collect_code_land_use_dependant"
+									<button type="button" class="btn btn-primary collect_code_land_use_dependant"
 										value="saxaul2" title="Saxaul">Saxaul</button>
-									<button type="button" class="btn btn-primary otherToForest collect_code_land_use_dependant"
+									<button type="button" class="btn btn-primary collect_code_land_use_dependant"
 										value="shrubs" title="Shrubs">Shrubs</button>
-									<button type="button" class="btn btn-primary otherToForest collect_code_land_use_dependant"
+									<button type="button" class="btn btn-primary collect_code_land_use_dependant"
 										value="open" title="Open">Open</button>
 	
 								</div>
@@ -705,7 +697,8 @@ hr {
 							</div>
 							
 							<div class="control-group">			
-								<div class="btn-group" data-toggle="buttons-radio" id="collect_code_crown_type_group">
+								<div class="btn-group" data-toggle="buttons-radio" id="collect_code_cover_type_group">
+									<button type="button" class="btn btn-primary collect_code_land_use_dependant collect_code_crown_cover_dependant"  value="random" >Random</button>
 								 	<button type="button" class="btn btn-primary collect_code_land_use_dependant collect_code_crown_cover_dependant"  value="sparse" >Sparse</button>
 								    <button type="button" class="btn btn-primary collect_code_land_use_dependant collect_code_crown_cover_dependant" value="grouped">Grouped</button>
 								    <button type="button" class="btn btn-primary collect_code_land_use_dependant collect_code_crown_cover_dependant" value="linear">Linear</button>
@@ -811,15 +804,15 @@ hr {
 										Steppe</button>
 									<button type="button" class="btn btn-primary collect_code_land_use_dependant"
 										value="mountainDessertSteppe" title="Mountain Dessert Steppe">Mountain
-										Dessert Steppe</button>
+										Dessert S..</button>
 									<button type="button" class="btn btn-primary collect_code_land_use_dependant"
 										value="mountainSteppe" title="Mountain Steppe">Mountain
-										Steppe</button>
+										S...</button>
 									<button type="button" class="btn btn-primary collect_code_land_use_dependant"
 										value="steppeAndDrySteppe" title="Steppe and Dry Steppe">Steppe&amp;Dry...</button>
 									<br />
 									<button type="button" class="btn btn-primary collect_code_land_use_dependant"
-										value="meadowAndMeadowSwamp " title="Meadow and Meadow Swamp">Meadow&amp;Meadow
+										value="meadowAndMeadowSwamp" title="Meadow and Meadow Swamp">Meadow&amp;Meadow
 										Swamp</button>
 									<button type="button" class="btn btn-primary collect_code_land_use_dependant"
 										value="meadowPasture" title="Meadow Pasture">Meadow
@@ -835,7 +828,7 @@ hr {
 
 					</div>
 
-					<div id="tab_wetland" class="tab-pane">
+					<div id="tab_wetLand" class="tab-pane">
 						
 							<div id="toolbar" class="capsuleCat ui-corner-all" style="width:96%">
 								<h5>Wetland</h5>
@@ -854,7 +847,7 @@ hr {
 								
 								<div class="label-over">Type</div>
 									<div class="control-group">
-										<div class="btn-group landUseTypeSelector" data-toggle="buttons-radio" id="wetland">
+										<div class="btn-group landUseTypeSelector" data-toggle="buttons-radio" id="wetLand">
 										 	<button type="button" class="btn btn-primary collect_code_land_use_dependant"  value="swamp">Swamp</button>
 									    </div>
 									</div>
@@ -900,10 +893,10 @@ hr {
 									<div class="control-group">
 						
 								<div class="btn-group" data-toggle="buttons-radio" id="collect_code_topography_accessibility_group">
-								 	<button type="button" class="btn btn-primary"  value="0-1">D&lt;1km</button>
-								    <button type="button" class="btn btn-primary" value="1-5">1km&lt;D&lt;5km</button>
-								    <button type="button" class="btn btn-primary" value="5-10">5km&lt;D&lt;10km</button>
-								    <button type="button" class="btn btn-primary" value="10-more">10km&lt;D</button>
+								 	<button type="button" class="btn btn-primary"  value="0-1">D &lt; 1km</button>
+								    <button type="button" class="btn btn-primary" value="1-5">1km &lt; D &lt; 5km</button>
+								    <button type="button" class="btn btn-primary" value="5-10">5km &lt; D &lt; 10km</button>
+								    <button type="button" class="btn btn-primary" value="10-more">10km &lt; D</button>
 							    </div>
 							</div>
 							<div class="label-over">Elements</div>
@@ -988,7 +981,7 @@ hr {
 							    </div>
 								
 							</div>
-	<div class="label-over">Time</div>
+	<div class="label-over">Date</div>
 									<div class="control-group">
 							
 								<select
@@ -1010,6 +1003,7 @@ hr {
 								    <button type="button" class="btn btn-primary" value="rapidEye">Rapid Eye</button>
 								    <button type="button" class="btn btn-primary" value="landsat">Landsat</button>
 								    <button type="button" class="btn btn-primary" value="quickbird">Quickbird</button>
+								    <button type="button" class="btn btn-primary" value="spot">Spot</button>
 								    <button type="button" class="btn btn-primary" value="other">Other</button>
 							    </div>
 							  <!--  <div class="ui-state-default ui-state-active ui-corner-all"> 
@@ -1024,29 +1018,29 @@ hr {
 						</div>
 						<div class="label-over">Time</div>
 							<div class="control-group">
-								 <input type="text" id="collect_date_rs_date" name="collect_date_rs_date" placeholder="year-month-day">
+								 <input type="text" id="collect_date_rs_date" name="collect_date_rs_date" placeholder="month/day/year">
 							</div>
 						</div>
 							
 	
-						<div class="form-actions" style="clear: both" class="lowerDivs">
-							<button type="submit" class="btn btn-primary btn-small">Save changes</button>
-							<!-- 
-							COMMENT FOR NOW
-							<div style="float:right">
-							<label for="earth_skip_filled">Skip already filled plots</label> <input type="checkbox" id="earth_skip_filled" name="earth_skip_filled"/>
-							</div>
-							 -->
-						</div>
-
 					</div>
 
 				</div>
 				
-			</form>
+			
 			
 		</div>
-	
+		<div class="earthDiv">
+			<button type="submit" class="btn btn-success" style="margin-left:25%;margin-right:25%;margin-top:3px;">SUBMIT & VALIDATE</button>
+			<!-- 
+			COMMENT FOR NOW
+			<div style="float:right">
+			<label for="earth_skip_filled">Skip already filled plots</label> <input type="checkbox" id="earth_skip_filled" name="earth_skip_filled"/>
+			</div>
+			 -->
+		</div>
+		</form>
+
 	<iframe style="display: none" id="dummy" src="about:blank"></iframe>
 	
 </body>

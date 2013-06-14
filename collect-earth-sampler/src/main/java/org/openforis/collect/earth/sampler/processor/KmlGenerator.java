@@ -1,9 +1,11 @@
 package org.openforis.collect.earth.sampler.processor;
 
+import java.io.BufferedWriter;
 import java.io.File;
 import java.io.FileNotFoundException;
+import java.io.FileWriter;
 import java.io.IOException;
-import java.io.StringWriter;
+import java.io.Writer;
 import java.util.Map;
 
 import org.apache.commons.io.FileUtils;
@@ -41,16 +43,17 @@ public abstract class KmlGenerator {
 
 	public void generateFromCsv(String csvFile, String ballongFile, String freemarkerKmlTemplateFile, String destinationKmlFile)
 			throws IOException, TemplateException {
-		String kml = getKmlCode(csvFile, ballongFile, freemarkerKmlTemplateFile);
-		File f = new File(destinationKmlFile);
+
 		try {
-			FileUtils.write(f, kml);
+			File destinationFile = new File(destinationKmlFile);
+			getKmlCode(csvFile, ballongFile, freemarkerKmlTemplateFile, destinationFile);
 		} catch (IOException e) {
 			logger.error("Could not generate KML file", e);
 		}
 	}
 
-	public String getKmlCode(String csvFile, String ballongFile, String freemarkerKmlTemplateFile) throws IOException,
+	private void getKmlCode(String csvFile, String ballongFile, String freemarkerKmlTemplateFile, File destinationFile)
+			throws IOException,
 			TemplateException {
 
 		// Build the data-model
@@ -68,11 +71,11 @@ public abstract class KmlGenerator {
 		Template template = cfg.getTemplate(freemarkerKmlTemplateFile);
 
 		// Console output
-		StringWriter out = new StringWriter();
+		FileWriter fw = new FileWriter(destinationFile);
+		Writer out = new BufferedWriter(fw);
 		template.process(data, out);
 		out.flush();
-		// return out.toString().replaceAll(">\\s*<", "><");
-		return out.toString();
+		fw.close();
 
 	}
 

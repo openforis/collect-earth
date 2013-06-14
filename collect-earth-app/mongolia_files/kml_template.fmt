@@ -26,9 +26,8 @@ ${html_for_ballong}
 	<#list placemarks as placemark >
 
 <Folder>
-	<name>Placemark ${placemark_index+1}</name>
+	<name>Placemark ${placemark_index+1} (ID : ${placemark.placemarkId})</name>
 	<open>0</open>
- 	<Snippet maxLines="2" >ID : ${placemark.placemarkId}</Snippet>
 	<Style>
 		<ListStyle>
 			<listItemType>checkHideChildren</listItemType>
@@ -50,7 +49,16 @@ ${html_for_ballong}
 		</GroundOverlay>
 	</Folder>
 	
-	
+	<LookAt>
+      <longitude>${placemark.coord.longitude}</longitude>
+      <latitude>${placemark.coord.latitude}</latitude>
+      <altitude>0</altitude>
+      <range>400</range>
+      <tilt>0</tilt>
+      <heading>0</heading>
+      <altitudeMode>relativeToGround</altitudeMode>
+    </LookAt>
+    
 	<Placemark id="${placemark.placemarkId}">
 		<name>${placemark.placemarkId}</name>
 		<ExtendedData>
@@ -70,6 +78,16 @@ ${html_for_ballong}
      	</ExtendedData>
      	<gx:balloonVisibility>0</gx:balloonVisibility>
   		<styleUrl>#placemark-balloon-style</styleUrl>
+		
+		<LookAt>
+	      <longitude>${placemark.coord.longitude}</longitude>
+	      <latitude>${placemark.coord.latitude}</latitude>
+	      <altitude>0</altitude>
+	      <range>400</range>
+	      <tilt>0</tilt>
+	      <heading>0</heading>
+	      <altitudeMode>relativeToGround</altitudeMode>
+	    </LookAt>
 		
         <Polygon id="poly_${placemark.placemarkId}">
         	<outerBoundaryIs>

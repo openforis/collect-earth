@@ -10,7 +10,7 @@ import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.RequestMapping;
 
 @Controller
-public class SaveEyeDataServlet extends JsonPocessorServlet {
+public class SaveEarthDataServlet extends JsonPocessorServlet {
 
 
 	@Override
