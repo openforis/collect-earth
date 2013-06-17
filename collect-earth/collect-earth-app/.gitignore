@@ -8,3 +8,5 @@ target
 /gePlugin.kmz
 /resultAnssi.kml
 /server.log
+/collectEarthDatabase.db
+/earth_error.log
