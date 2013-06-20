@@ -1,7 +1,8 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<kml xmlns="http://www.opengis.net/kml/2.2" xmlns:gx="http://www.google.com/kml/ext/2.2" xmlns:kml="http://www.opengis.net/kml/2.2" xmlns:atom="http://www.w3.org/2005/Atom">
+<kml xmlns="http://www.opengis.net/kml/2.2" xmlns:gx="http://www.google.com/kml/ext/2.2" xmlns:kml="http://www.opengis.net/kml/2.2">
 <Document>
 	<name>Mongolia Interpretation</name>
+
 <Style id="placemark-balloon-style">
     <BalloonStyle>
       <text>
@@ -25,22 +26,22 @@ ${html_for_ballong}
  	 <#-- Iterate over placemarks, store values in variable placemark -- START -->
 	<#list placemarks as placemark >
 
-<Folder>
-	<name>Placemark ${placemark_index+1} (ID : ${placemark.placemarkId})</name>
+<Folder id="folder_${placemark.placemarkId}">
+	<name>Placemark:: ${placemark_index+1} (ID : ${placemark.placemarkId})</name>
 	<open>0</open>
 	<Style>
-		<ListStyle>
+		<ListStyle id="icon_${placemark.placemarkId}">
 			<listItemType>checkHideChildren</listItemType>
 			<ItemIcon>
 			    <state>open</state>
-			    <href>${host}placemarkIcon?collect_text_id=${placemark.placemarkId}&amp;listView=true</href>
+			   <href>${host}placemarkIcon?collect_text_id=${placemark.placemarkId}&amp;listView=true</href>
 			</ItemIcon>
 		</ListStyle>
 	</Style>
 
-	<Folder>
-		<GroundOverlay> 
-		 <Icon><href>${host}placemarkIcon?collect_text_id=${placemark.placemarkId}</href></Icon>
+	<Folder >
+		<GroundOverlay id="overlay_${placemark.placemarkId}"> 
+		<Icon ><href>${host}placemarkIcon?collect_text_id=${placemark.placemarkId}</href></Icon>
 		 <LatLonBox>
 		  <south>${placemark.region.south}</south><north>${placemark.region.north}</north>
 		  <west>${placemark.region.west}</west><east>${placemark.region.east}</east> 

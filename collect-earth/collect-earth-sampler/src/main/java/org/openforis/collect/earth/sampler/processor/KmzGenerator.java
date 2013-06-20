@@ -61,7 +61,8 @@ public class KmzGenerator {
 			addFileToZip("", kmlFile, zip);
 
 			// Add the Images/JS etc to the file folder
-			addFolderToZip("", dependantFolder, zip);
+			if (dependantFolder != null)
+				addFolderToZip("", dependantFolder, zip);
 
 		} catch (FileNotFoundException e) {
 			logger.error( "Could not find file " + e.getMessage() , e );

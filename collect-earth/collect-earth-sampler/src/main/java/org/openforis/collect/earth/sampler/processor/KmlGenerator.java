@@ -79,6 +79,20 @@ public abstract class KmlGenerator {
 
 	}
 
+	public static String getHostAddress(String host, String port) {
+		String hostAndPort = "";
+		if (host != null && host.length() > 0) {
+			hostAndPort = host;
+			if (port != null && port.length() > 0) {
+				hostAndPort += ":" + port;
+			}
+
+			hostAndPort = "http://" + hostAndPort + "/earth/";
+		}
+		return hostAndPort;
+
+	}
+
 	protected double[] getPointWithOffset(double[] originalPoint, double offsetLongitudeMeters, double offsetLatitudeMeters)
 			throws TransformException {
 		double longitudeDirection = 90; // EAST

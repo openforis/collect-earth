@@ -22,8 +22,8 @@ public class PolygonKmlGenerator extends KmlGenerator {
 	private static final int INNER_RECT_SIDE = 2;
 	private static final int NUM_OF_COLS = 6;
 	private static final int NUM_OF_ROWS = 6;
-	private static final float X_DISTANCE = 16.6667f;
-	private static final float Y_DISTANCE = 16.6667f;
+	private static final float X_DISTANCE = 20f;
+	private static final float Y_DISTANCE = 20f;
 	private String host;
 	private String port;
 
@@ -98,8 +98,8 @@ public class PolygonKmlGenerator extends KmlGenerator {
 						coords.add(new SimpleCoordinate(miniPlacemarkPosition)); // TOP-LEFT
 
 						coords.add(new SimpleCoordinate(getPointWithOffset(miniPlacemarkPosition, INNER_RECT_SIDE, 0))); // TOP-RIGHT
-						coords.add(new SimpleCoordinate(getPointWithOffset(miniPlacemarkPosition, INNER_RECT_SIDE, // BOTTOM-RIGHT
-								INNER_RECT_SIDE)));
+						coords.add(new SimpleCoordinate(getPointWithOffset(miniPlacemarkPosition, INNER_RECT_SIDE,
+								INNER_RECT_SIDE))); // BOTTOM-RIGHT
 						coords.add(new SimpleCoordinate(getPointWithOffset(miniPlacemarkPosition, 0, INNER_RECT_SIDE))); // BOTTOM-LEFT
 
 						// close the square
@@ -166,17 +166,8 @@ public class PolygonKmlGenerator extends KmlGenerator {
 		}
 		reader.close();
 		data.put("placemarks", placemarks);
+		data.put("host", KmlGenerator.getHostAddress(host, port));
 
-		String hostAndPort = "";
-		if (host != null && host.length() > 0) {
-			hostAndPort = host;
-			if (port != null && port.length() > 0) {
-				hostAndPort += ":" + port;
-			}
-
-			hostAndPort = "http://" + hostAndPort + "/earth/";
-		}
-		data.put("host", hostAndPort);
 		return data;
 	}
 

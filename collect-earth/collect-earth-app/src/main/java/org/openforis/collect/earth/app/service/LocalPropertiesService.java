@@ -16,6 +16,7 @@ public class LocalPropertiesService {
 	private static final String SKIP_FILLED_KEY = "skip_filled_plots";
 	private static final String HOST_KEY = "host";
 	private static final String PORT_KEY = "port";
+	private static final String GENERATED_KEY = "generated_on";
 	private final Logger logger = LoggerFactory.getLogger(LocalPropertiesService.class);
 	private Properties properties;
 	private static final String PROPERTIES_FILE = "earth.properties";
@@ -55,6 +56,15 @@ public class LocalPropertiesService {
 
 	public void saveHost(String hostName) {
 		properties.put(HOST_KEY, hostName);
+		storeProperties();
+	}
+
+	public String getGeneratedOn() {
+		return getValue(GENERATED_KEY);
+	}
+
+	public void saveGeneratedOn(String dateGenerated) {
+		properties.put(GENERATED_KEY, dateGenerated);
 		storeProperties();
 	}
 

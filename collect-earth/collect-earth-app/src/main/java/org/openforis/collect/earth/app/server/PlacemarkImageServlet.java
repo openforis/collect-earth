@@ -12,6 +12,7 @@ import javax.servlet.ServletContext;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 
+import org.openforis.collect.earth.app.EarthConstants;
 import org.openforis.collect.earth.app.service.EarthSurveyService;
 import org.openforis.collect.earth.app.service.PreloadedFilesService;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -23,14 +24,6 @@ import org.springframework.web.bind.annotation.RequestParam;
 public class PlacemarkImageServlet extends DataAccessingServlet {
 
 	private static final SimpleDateFormat sdf = new SimpleDateFormat("EEE, dd MMM yyyy HH:mm:ss zzz");
-
-	private static final String FILLED_IMAGE = "/images/redTransparent.png";
-
-	private static final String NON_FILLED_IMAGE = "/images/transparent.png";
-
-	private static final String LIST_FILLED_IMAGE = "/images/list_filled.png";
-
-	private static final String LIST_NON_FILLED_IMAGE = "/images/list_empty.png";
 
 	@Autowired
 	EarthSurveyService earthSurveyService;
@@ -58,15 +51,15 @@ public class PlacemarkImageServlet extends DataAccessingServlet {
 
 		if (earthSurveyService.isPlacemarSavedActively(placemarkParameters)) {
 			if (listView) {
-				imageName = LIST_FILLED_IMAGE;
+				imageName = EarthConstants.LIST_FILLED_IMAGE;
 			} else {
-				imageName = FILLED_IMAGE;
+				imageName = EarthConstants.FILLED_IMAGE;
 			}
 		} else {
 			if (listView) {
-				imageName = LIST_NON_FILLED_IMAGE;
+				imageName = EarthConstants.LIST_NON_FILLED_IMAGE;
 			} else {
-				imageName = NON_FILLED_IMAGE;
+				imageName = EarthConstants.NON_FILLED_IMAGE;
 			}
 		}
 		returnImage(response, request, imageName);
@@ -86,14 +79,14 @@ public class PlacemarkImageServlet extends DataAccessingServlet {
 		response.setHeader("Date", sdf.format(new Date()));
 
 		byte[] resultingImage = null;
-		if (imageName.equals(FILLED_IMAGE)) {
-			resultingImage = readFile(FILLED_IMAGE, request.getSession().getServletContext());
-		} else if (imageName.equals(NON_FILLED_IMAGE)) {
-			resultingImage = readFile(NON_FILLED_IMAGE, request.getSession().getServletContext());
-		} else if (imageName.equals(LIST_NON_FILLED_IMAGE)) {
-			resultingImage = readFile(LIST_NON_FILLED_IMAGE, request.getSession().getServletContext());
-		} else if (imageName.equals(LIST_FILLED_IMAGE)) {
-			resultingImage = readFile(LIST_FILLED_IMAGE, request.getSession().getServletContext());
+		if (imageName.equals(EarthConstants.FILLED_IMAGE)) {
+			resultingImage = readFile(EarthConstants.FILLED_IMAGE, request.getSession().getServletContext());
+		} else if (imageName.equals(EarthConstants.NON_FILLED_IMAGE)) {
+			resultingImage = readFile(EarthConstants.NON_FILLED_IMAGE, request.getSession().getServletContext());
+		} else if (imageName.equals(EarthConstants.LIST_NON_FILLED_IMAGE)) {
+			resultingImage = readFile(EarthConstants.LIST_NON_FILLED_IMAGE, request.getSession().getServletContext());
+		} else if (imageName.equals(EarthConstants.LIST_FILLED_IMAGE)) {
+			resultingImage = readFile(EarthConstants.LIST_FILLED_IMAGE, request.getSession().getServletContext());
 		}
 		if (resultingImage != null) {
 			response.setHeader("Content-Length", resultingImage.length + "");

@@ -3,15 +3,20 @@ package org.openforis.collect.earth.app.service;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
+import java.util.Arrays;
+import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Vector;
 
 import org.openforis.collect.manager.RecordManager;
 import org.openforis.collect.manager.SurveyManager;
 import org.openforis.collect.model.CollectRecord;
 import org.openforis.collect.model.CollectRecord.Step;
 import org.openforis.collect.model.CollectSurvey;
+import org.openforis.collect.model.RecordSummarySortField;
+import org.openforis.collect.model.RecordSummarySortField.Sortable;
 import org.openforis.collect.model.RecordValidationReportGenerator;
 import org.openforis.collect.model.RecordValidationReportItem;
 import org.openforis.collect.persistence.RecordPersistenceException;
@@ -37,6 +42,7 @@ public class EarthSurveyService {
 	public static final int ROOT_ENTITY_ID = 1;
 
 	private static final String SKIP_FILLED_PLOT_PARAMETER = "earth_skip_filled";
+
 
 	@Autowired
 	CollectParametersHandlerService collectParametersHandler;
@@ -214,6 +220,7 @@ public class EarthSurveyService {
 			System.out.println(plotEntity.toString());
 			// Do not save unless there is no validation errors
 			if (record.getErrors() == 0 && record.getSkipped() == 0) {
+				record.setModifiedDate(new Date());
 				recordManager.save(record, sessionId);
 				success = true;
 			}
@@ -224,12 +231,48 @@ public class EarthSurveyService {
 		return success;
 	}
 
+	public List<CollectRecord> getRecordsSavedSince(Date updatedSince) {
+		List<CollectRecord> summaries = recordManager.loadSummaries(getCollectSurvey(), ROOT_ENTITY_NAME, 0, 15,
+				Arrays.asList(new RecordSummarySortField(Sortable.DATE_MODIFIED, true)), (String[]) null);
+		if (summaries != null && !summaries.isEmpty()) {
+			List<CollectRecord> records = new Vector<CollectRecord>();
+			for (int i = 0; i < summaries.size(); i++) {
+				CollectRecord summary = summaries.get(i);
+				CollectRecord record = recordManager.load(getCollectSurvey(), summary.getId(), Step.ENTRY);
+
+				if (record.getModifiedDate() != null && (updatedSince == null || record.getModifiedDate().after(updatedSince))) {
+					records.add(record);
+				}
+				
+				if (record.getModifiedDate() != null && updatedSince != null && record.getModifiedDate().before(updatedSince)) {
+					break;
+				}
+			}
+			return records;
+		} else {
+			return null;
+		}
+	}
+
 	private CollectRecord createRecord(String sessionId) throws RecordPersistenceException {
 		CollectRecord record;
 		Schema schema = getCollectSurvey().getSchema();
 		record = recordManager
 				.create(getCollectSurvey(), schema.getRootEntityDefinition(ROOT_ENTITY_NAME), null, null, sessionId);
 		return record;
+	}
+
+	public List<String> getAllFilledPlacemarkIds() {
+		List<CollectRecord> summaries = recordManager.loadSummaries(getCollectSurvey(), ROOT_ENTITY_NAME);
+		List<String> ids = new Vector<String>();
+		for (CollectRecord record : summaries) {
+			CollectRecord recordloaded = recordManager.load(getCollectSurvey(), record.getId(), Step.ENTRY);
+			List<String> keys = recordloaded.getRootEntityKeyValues();
+			for (String key : keys) {
+				ids.add(key);
+			}
+		}
+		return ids;
 	}
 
 }
