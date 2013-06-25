@@ -2,7 +2,6 @@ package org.openforis.collect.earth.app.server;
 
 import java.io.IOException;
 import java.io.PrintWriter;
-import java.text.SimpleDateFormat;
 import java.util.Date;
 import java.util.Enumeration;
 import java.util.HashMap;
@@ -11,12 +10,12 @@ import java.util.Map;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 
+import org.openforis.collect.earth.app.EarthConstants;
+
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 
 public abstract class JsonPocessorServlet extends DataAccessingServlet {
-
-	private static final SimpleDateFormat sdf = new SimpleDateFormat("EEE, dd MMM yyyy HH:mm:ss zzz");
 
 	protected Map<String, String> extractRequestData(HttpServletRequest request) {
 		Map<String, String> collectedData = new HashMap<String, String>();
@@ -62,7 +61,7 @@ public abstract class JsonPocessorServlet extends DataAccessingServlet {
 		response.setHeader("Cache-control", "no-cache, no-store");
 		response.setHeader("Pragma", "no-cache");
 		response.setHeader("Expires", "-1");
-		response.setHeader("Date", sdf.format(new Date()));
+		response.setHeader("Date", EarthConstants.DATE_FORMAT_HTTP.format(new Date()));
 		response.setHeader("Access-Control-Allow-Origin", "*");
 		response.setHeader("Access-Control-Allow-Methods", "POST");
 		response.setHeader("Access-Control-Allow-Headers", "Content-Type");

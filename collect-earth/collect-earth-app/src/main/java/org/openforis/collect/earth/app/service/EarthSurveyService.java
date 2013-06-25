@@ -12,6 +12,7 @@ import java.util.Vector;
 
 import org.openforis.collect.manager.RecordManager;
 import org.openforis.collect.manager.SurveyManager;
+import org.openforis.collect.manager.exception.SurveyValidationException;
 import org.openforis.collect.model.CollectRecord;
 import org.openforis.collect.model.CollectRecord.Step;
 import org.openforis.collect.model.CollectSurvey;
@@ -148,14 +149,21 @@ public class EarthSurveyService {
 
 		// setCollectSurvey(surveyManager.get(EARTH_SURVEY_NAME));
 		if (getCollectSurvey() == null) {
-			CollectSurvey survey = surveyManager.unmarshalSurvey(new FileInputStream(new File(getIdmFilePath())));
-			survey.setName(EARTH_SURVEY_NAME);
-			if (surveyManager.get(EARTH_SURVEY_NAME) == null) { // NOT IN THE DB
-				surveyManager.importModel(survey);
-			} else { // UPDATE ALREADY EXISTANT MODEL
-				surveyManager.updateModel(survey);
+			CollectSurvey survey;
+			try {
+				survey = surveyManager.unmarshalSurvey(new FileInputStream(new File(getIdmFilePath())));
+
+				survey.setName(EARTH_SURVEY_NAME);
+				if (surveyManager.get(EARTH_SURVEY_NAME) == null) { // NOT IN
+																	// THE DB
+					surveyManager.importModel(survey);
+				} else { // UPDATE ALREADY EXISTANT MODEL
+					surveyManager.updateModel(survey);
+				}
+				setCollectSurvey(survey);
+			} catch (SurveyValidationException e) {
+				logger.error("Unable to validate survey at " + getIdmFilePath(), e);
 			}
-			setCollectSurvey(survey);
 		}
 	}
 
@@ -217,7 +225,6 @@ public class EarthSurveyService {
 				addValidationMessages(parameters, record);
 			}
 
-			System.out.println(plotEntity.toString());
 			// Do not save unless there is no validation errors
 			if (record.getErrors() == 0 && record.getSkipped() == 0) {
 				record.setModifiedDate(new Date());
@@ -234,17 +241,17 @@ public class EarthSurveyService {
 	public List<CollectRecord> getRecordsSavedSince(Date updatedSince) {
 		List<CollectRecord> summaries = recordManager.loadSummaries(getCollectSurvey(), ROOT_ENTITY_NAME, 0, 15,
 				Arrays.asList(new RecordSummarySortField(Sortable.DATE_MODIFIED, true)), (String[]) null);
-		if (summaries != null && !summaries.isEmpty()) {
+		if (updatedSince!=null && summaries != null && !summaries.isEmpty()) {
 			List<CollectRecord> records = new Vector<CollectRecord>();
 			for (int i = 0; i < summaries.size(); i++) {
 				CollectRecord summary = summaries.get(i);
 				CollectRecord record = recordManager.load(getCollectSurvey(), summary.getId(), Step.ENTRY);
 
-				if (record.getModifiedDate() != null && (updatedSince == null || record.getModifiedDate().after(updatedSince))) {
+				if (record.getModifiedDate() != null && record.getModifiedDate().after(updatedSince) ) {
 					records.add(record);
 				}
 				
-				if (record.getModifiedDate() != null && updatedSince != null && record.getModifiedDate().before(updatedSince)) {
+				if (record.getModifiedDate() != null && record.getModifiedDate().before(updatedSince)) {
 					break;
 				}
 			}

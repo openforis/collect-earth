@@ -4,7 +4,6 @@ import java.io.File;
 import java.io.IOException;
 import java.net.MalformedURLException;
 import java.net.URISyntaxException;
-import java.text.SimpleDateFormat;
 import java.util.Date;
 import java.util.Map;
 
@@ -23,7 +22,6 @@ import org.springframework.web.bind.annotation.RequestParam;
 @Controller
 public class PlacemarkImageServlet extends DataAccessingServlet {
 
-	private static final SimpleDateFormat sdf = new SimpleDateFormat("EEE, dd MMM yyyy HH:mm:ss zzz");
 
 	@Autowired
 	EarthSurveyService earthSurveyService;
@@ -76,7 +74,7 @@ public class PlacemarkImageServlet extends DataAccessingServlet {
 		response.setHeader("Content-Type", "image/png");
 		response.setHeader("Content-Disposition", "inline; filename=\"" + imageName + "\"");
 		response.setHeader("Cache-Control", "max-age=30");
-		response.setHeader("Date", sdf.format(new Date()));
+		response.setHeader("Date", EarthConstants.DATE_FORMAT_HTTP.format(new Date()));
 
 		byte[] resultingImage = null;
 		if (imageName.equals(EarthConstants.FILLED_IMAGE)) {

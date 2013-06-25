@@ -1,5 +1,10 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <kml xmlns="http://www.opengis.net/kml/2.2" xmlns:gx="http://www.google.com/kml/ext/2.2" xmlns:kml="http://www.opengis.net/kml/2.2">
+
+<NetworkLinkControl>
+<expires>${expiration}</expires>
+</NetworkLinkControl>
+
 <Document>
 	<name>Mongolia Interpretation</name>
 
@@ -27,13 +32,13 @@ ${html_for_ballong}
 	<#list placemarks as placemark >
 
 <Folder id="folder_${placemark.placemarkId}">
-	<name>Placemark:: ${placemark_index+1} (ID : ${placemark.placemarkId})</name>
+	<name>Placemark: ${placemark_index+1} (ID : ${placemark.placemarkId})</name>
 	<open>0</open>
 	<Style>
-		<ListStyle id="icon_${placemark.placemarkId}">
+		<ListStyle >
 			<listItemType>checkHideChildren</listItemType>
-			<ItemIcon>
-			    <state>open</state>
+			<ItemIcon id="icon_${placemark.placemarkId}">
+			   <state>open</state>
 			   <href>${host}placemarkIcon?collect_text_id=${placemark.placemarkId}&amp;listView=true</href>
 			</ItemIcon>
 		</ListStyle>
@@ -95,7 +100,7 @@ ${html_for_ballong}
 
 				<LinearRing>
 					<extrude>0</extrude>
-   
+   					
 					<coordinates>
 					<#-- Iterate over shape coordinates, store values in variable placemark -- START -->
 					<#list placemark.shape as coord>

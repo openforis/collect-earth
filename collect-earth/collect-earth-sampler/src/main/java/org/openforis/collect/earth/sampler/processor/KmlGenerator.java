@@ -6,6 +6,8 @@ import java.io.FileNotFoundException;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.io.Writer;
+import java.text.SimpleDateFormat;
+import java.util.Date;
 import java.util.Map;
 
 import org.apache.commons.io.FileUtils;
@@ -31,6 +33,7 @@ public abstract class KmlGenerator {
 
 	public static final String DEFAULT_HOST = "localhost";
 	public static final String DEFAULT_PORT = "80";
+	private static final SimpleDateFormat sdf = new SimpleDateFormat("EEE, dd MMM yyyy HH:mm:ss zzz");
 
 	private final GeodeticCalculator calc = new GeodeticCalculator(DefaultGeographicCRS.WGS84);
 	private final String epsgCode;
@@ -58,6 +61,7 @@ public abstract class KmlGenerator {
 
 		// Build the data-model
 		Map<String, Object> data = getTemplateData(csvFile);
+		data.put("expiration", sdf.format(new Date()));
 
 		// Get the HTML content of the ballong from a file, this way we can
 		// separate the KML generation so it is easier to create different KMLs
@@ -75,6 +79,7 @@ public abstract class KmlGenerator {
 		Writer out = new BufferedWriter(fw);
 		template.process(data, out);
 		out.flush();
+		out.close();
 		fw.close();
 
 	}

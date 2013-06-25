@@ -5,7 +5,6 @@ import java.io.IOException;
 import java.io.StringWriter;
 import java.io.Writer;
 import java.text.ParseException;
-import java.text.SimpleDateFormat;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
@@ -13,6 +12,7 @@ import java.util.Map;
 
 import javax.servlet.http.HttpServletResponse;
 
+import org.openforis.collect.earth.app.EarthConstants;
 import org.openforis.collect.earth.app.service.EarthSurveyService;
 import org.openforis.collect.earth.app.service.LocalPropertiesService;
 import org.openforis.collect.earth.sampler.processor.KmlGenerator;
@@ -33,7 +33,6 @@ import freemarker.template.TemplateException;
 public class PlacemarkUpdateServlet {
 
 	private static final String KML_FOR_UPDATES = "resources/updateIcons.fmt";
-	private static final SimpleDateFormat sdf = new SimpleDateFormat("EEE, dd MMM yyyy HH:mm:ss zzz");
 	private static final Logger logger = LoggerFactory.getLogger(PlacemarkUpdateServlet.class);
 
 	@Autowired
@@ -49,14 +48,14 @@ public class PlacemarkUpdateServlet {
 		try {
 			Date lastUpdateDate = null;
 			if (lastUpdate != null && lastUpdate.length() > 0) {
-				lastUpdateDate = sdf.parse(lastUpdate);
+				lastUpdateDate = EarthConstants.DATE_FORMAT_HTTP.parse(lastUpdate);
 			}
 
 			List<CollectRecord> lastUpdatedRecord = earthSurveyService.getRecordsSavedSince(lastUpdateDate);
 
 			Map<String, Object> data = new HashMap<String, Object>();
 			data.put("host", KmlGenerator.getHostAddress(localPropertiesService.getHost(), localPropertiesService.getPort()));
-			data.put("date", sdf.format(new Date()));
+			data.put("date", EarthConstants.DATE_FORMAT_HTTP.format(new Date()));
 			data.put("kmlGeneratedOn", localPropertiesService.getGeneratedOn());
 			data.put("placemark_ids", getPlacemarksId(lastUpdatedRecord));
 
@@ -70,6 +69,9 @@ public class PlacemarkUpdateServlet {
 	}
 
 	private String[] getPlacemarksId(List<CollectRecord> lastUpdatedRecord) {
+		if (lastUpdatedRecord == null) {
+			return new String[0];
+		}
 		String[] placemarIds = new String[lastUpdatedRecord.size()];
 		for (int i = 0; i < lastUpdatedRecord.size(); i++) {
 			if (lastUpdatedRecord.get(i).getRootEntity().get("id", 0) != null) {
@@ -106,7 +108,7 @@ public class PlacemarkUpdateServlet {
 	private void setKmlResponse(HttpServletResponse response, String kmlCode) throws IOException {
 		response.setHeader("Content-Type", "application/vnd.google-earth.kml+xml");
 		response.setHeader("Cache-Control", "max-age=30");
-		response.setHeader("Date", sdf.format(new Date()));
+		response.setHeader("Date", EarthConstants.DATE_FORMAT_HTTP.format(new Date()));
 		response.setHeader("Content-Length", kmlCode.getBytes().length + "");
 		response.getOutputStream().write(kmlCode.getBytes());
 		response.getOutputStream().close();

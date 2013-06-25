@@ -16,6 +16,7 @@ import org.openforis.collect.csv.ModelCsvWriter;
 import org.openforis.collect.csv.NodePositionColumnProvider;
 import org.openforis.collect.csv.PivotExpressionColumnProvider;
 import org.openforis.collect.csv.SingleAttributeColumnProvider;
+import org.openforis.collect.manager.CodeListManager;
 import org.openforis.collect.manager.RecordManager;
 import org.openforis.collect.model.CollectRecord;
 import org.openforis.collect.model.CollectRecord.Step;
@@ -34,6 +35,10 @@ public class DataExportService {
 
 	@Autowired
 	RecordManager recordManager;
+
+
+	@Autowired
+	CodeListManager codeListManager;
 
 	private ColumnProvider createAncestorColumnProvider(EntityDefinition entityDefn, int depth) {
 		List<AttributeDefinition> keyAttrDefns = entityDefn.getKeyAttributeDefinitions();
@@ -124,7 +129,7 @@ public class DataExportService {
 		Schema schema = earthSurveyService.getCollectSurvey().getSchema();
 		EntityDefinition entityDefn = (EntityDefinition) schema.getDefinitionById(EarthSurveyService.ROOT_ENTITY_ID);
 		List<ColumnProvider> columnProviders = createAncestorsColumnsProvider(entityDefn);
-		columnProviders.add(new AutomaticColumnProvider(entityDefn));
+		columnProviders.add(new AutomaticColumnProvider(codeListManager, entityDefn));
 		ColumnProvider provider = new ColumnProviderChain(columnProviders);
 		String axisPath = entityDefn.getPath();
 		return new DataTransformation(axisPath, provider);

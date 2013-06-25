@@ -65,7 +65,7 @@ public class EarthApp {
 
 			EarthApp earthApp = new EarthApp();
 
-			earthApp.generateKmzFile();
+			earthApp.generateKml();
 			earthApp.initializeServer();
 
 		} catch (Exception e) {
@@ -175,6 +175,7 @@ public class EarthApp {
 		Map<String, Object> data = new HashMap<String, Object>();
 		data.put("host", KmlGenerator.getHostAddress(localPropertiesService.getHost(), localPropertiesService.getPort()));
 		data.put("kmlGeneratedOn", localPropertiesService.getGeneratedOn());
+
 		// Console output
 		FileWriter fw = new FileWriter(KML_NETWORK_LINK_STARTER);
 		Writer out = new BufferedWriter(fw);
