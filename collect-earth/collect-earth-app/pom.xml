@@ -30,6 +30,7 @@
 
 	<dependencies>
 	    	
+	    	
 		<dependency>
 			<groupId>org.openforis.collect.earth</groupId>
 			<artifactId>collect-earth-sampler</artifactId>
@@ -159,7 +160,11 @@
 			<artifactId>kxml2</artifactId>
 			<version>2.3.0</version>
 		</dependency>
-		
+		<dependency>
+        	<groupId>org.seleniumhq.selenium</groupId>
+        	<artifactId>selenium-firefox-driver</artifactId>
+        	<version>2.33.0</version>
+    	</dependency>  
 		
 		
 <!-- 		REMOVE LATER! -->

@@ -44,23 +44,26 @@ public abstract class KmlGenerator {
 		this.epsgCode = epsgCode;
 	}
 
-	public void generateFromCsv(String csvFile, String ballongFile, String freemarkerKmlTemplateFile, String destinationKmlFile)
+	public void generateFromCsv(String csvFile, String ballongFile, String freemarkerKmlTemplateFile, String destinationKmlFile,
+			String distanceBetweenSamplePoints)
 			throws IOException, TemplateException {
 
 		try {
 			File destinationFile = new File(destinationKmlFile);
-			getKmlCode(csvFile, ballongFile, freemarkerKmlTemplateFile, destinationFile);
+			getKmlCode(csvFile, ballongFile, freemarkerKmlTemplateFile, destinationFile, distanceBetweenSamplePoints);
 		} catch (IOException e) {
 			logger.error("Could not generate KML file", e);
 		}
 	}
 
-	private void getKmlCode(String csvFile, String ballongFile, String freemarkerKmlTemplateFile, File destinationFile)
+	private void getKmlCode(String csvFile, String ballongFile, String freemarkerKmlTemplateFile, File destinationFile,
+			String distanceBetweenSamplePoints)
 			throws IOException,
 			TemplateException {
 
+		Float fDistancePoints = Float.parseFloat(distanceBetweenSamplePoints);
 		// Build the data-model
-		Map<String, Object> data = getTemplateData(csvFile);
+		Map<String, Object> data = getTemplateData(csvFile, fDistancePoints);
 		data.put("expiration", sdf.format(new Date()));
 
 		// Get the HTML content of the ballong from a file, this way we can
@@ -130,7 +133,8 @@ public abstract class KmlGenerator {
 
 	}
 
-	protected abstract Map<String, Object> getTemplateData(String csvFile) throws FileNotFoundException, IOException;
+	protected abstract Map<String, Object> getTemplateData(String csvFile, float distanceBetweenSamplePoints)
+			throws FileNotFoundException, IOException;
 
 	protected Point transformToWGS84(double longitude, double latitude) throws Exception {
 
@@ -139,10 +143,12 @@ public abstract class KmlGenerator {
 
 		Point p = gf.createPoint(c);
 		// EPSG::1164 Mongolia ( ccording to http://www.epsg-registry.org/ )
-		CoordinateReferenceSystem utmCrs = CRS.decode(epsgCode);
-		MathTransform mathTransform = CRS.findMathTransform(utmCrs, DefaultGeographicCRS.WGS84, false);
-		Point p1 = (Point) JTS.transform(p, mathTransform);
-		return p1;
+		if (epsgCode.trim().length() > 0 && !epsgCode.equals("LATLONG") && !epsgCode.equals("WGS84")) {
+			CoordinateReferenceSystem utmCrs = CRS.decode(epsgCode);
+			MathTransform mathTransform = CRS.findMathTransform(utmCrs, DefaultGeographicCRS.WGS84, false);
+			p = (Point) JTS.transform(p, mathTransform);
+		}
+		return p;
 	}
 
 }

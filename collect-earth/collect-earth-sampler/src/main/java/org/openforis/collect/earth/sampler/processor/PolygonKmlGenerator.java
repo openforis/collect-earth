@@ -22,8 +22,6 @@ public class PolygonKmlGenerator extends KmlGenerator {
 	private static final int INNER_RECT_SIDE = 2;
 	private static final int NUM_OF_COLS = 6;
 	private static final int NUM_OF_ROWS = 6;
-	private static final float X_DISTANCE = 20f;
-	private static final float Y_DISTANCE = 20f;
 	private String host;
 	private String port;
 
@@ -40,13 +38,14 @@ public class PolygonKmlGenerator extends KmlGenerator {
 	}
 
 	@Override
-	protected Map<String, Object> getTemplateData(String csvFile) throws FileNotFoundException, IOException {
+	protected Map<String, Object> getTemplateData(String csvFile, float distanceBetweenSamplePoints)
+			throws FileNotFoundException, IOException {
 		Map<String, Object> data = new HashMap<String, Object>();
 
 		SimplePlacemarkObject previousPlacemark = null;
 
-		final double originalCoordGeneralOffsetX = (-1d * NUM_OF_COLS * X_DISTANCE / 2d) - INNER_RECT_SIDE / 2d;
-		final double originalCoordGeneralOffsetY = (NUM_OF_ROWS * Y_DISTANCE / 2d) - INNER_RECT_SIDE / 2d;
+		final double originalCoordGeneralOffsetX = (-1d * NUM_OF_COLS * distanceBetweenSamplePoints / 2d) - INNER_RECT_SIDE / 2d;
+		final double originalCoordGeneralOffsetY = (NUM_OF_ROWS * distanceBetweenSamplePoints / 2d) - INNER_RECT_SIDE / 2d;
 
 		// Read CSV file so that we can store the information in a Map that can
 		// be used by freemarker to do the "goal-replacement"
@@ -84,9 +83,11 @@ public class PolygonKmlGenerator extends KmlGenerator {
 				List<SimplePlacemarkObject> pointsInPlacemark = new ArrayList<SimplePlacemarkObject>();
 
 				for (int col = 1; col < NUM_OF_COLS; col++) {
-					double offsetLong = col * X_DISTANCE; // GO EAST
+					double offsetLong = col * distanceBetweenSamplePoints; // GO
+																			// EAST
 					for (int row = 1; row < NUM_OF_ROWS; row++) {
-						double offsetLat = -(row * Y_DISTANCE); // GO SOUTH
+						double offsetLat = -(row * distanceBetweenSamplePoints); // GO
+																					// SOUTH
 
 						double[] miniPlacemarkPosition = getPointWithOffset(coordOriginalPoints, offsetLong, offsetLat);
 						SimplePlacemarkObject insidePlacemark = new SimplePlacemarkObject(miniPlacemarkPosition,
@@ -126,7 +127,7 @@ public class PolygonKmlGenerator extends KmlGenerator {
 				west = coordOriginalPoints[0] + "";
 
 				// TOP RIGHT
-				double offsetLong = (X_DISTANCE * NUM_OF_COLS);
+				double offsetLong = (distanceBetweenSamplePoints * NUM_OF_COLS);
 				double offsetLat = 0;
 
 				double[] squareCorner = getPointWithOffset(coordOriginalPoints, offsetLong, offsetLat);
@@ -135,8 +136,8 @@ public class PolygonKmlGenerator extends KmlGenerator {
 				east = squareCorner[0] + "";
 
 				// BOTTOM RIGHT
-				offsetLong = (X_DISTANCE * NUM_OF_COLS);
-				offsetLat = -(Y_DISTANCE * NUM_OF_ROWS);
+				offsetLong = (distanceBetweenSamplePoints * NUM_OF_COLS);
+				offsetLat = -(distanceBetweenSamplePoints * NUM_OF_ROWS);
 				squareCorner = getPointWithOffset(coordOriginalPoints, offsetLong, offsetLat);
 				shapePoints.add(new SimpleCoordinate(squareCorner));
 
@@ -144,7 +145,7 @@ public class PolygonKmlGenerator extends KmlGenerator {
 
 				// BOTTOM LEFT
 				offsetLong = 0;
-				offsetLat = -(Y_DISTANCE * NUM_OF_ROWS);
+				offsetLat = -(distanceBetweenSamplePoints * NUM_OF_ROWS);
 				squareCorner = getPointWithOffset(coordOriginalPoints, offsetLong, offsetLat);
 				shapePoints.add(new SimpleCoordinate(squareCorner));
 

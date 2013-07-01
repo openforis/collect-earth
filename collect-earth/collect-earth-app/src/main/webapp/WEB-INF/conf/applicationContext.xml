@@ -180,8 +180,9 @@
 	
 	<bean id="earthSurveyService" class="org.openforis.collect.earth.app.service.EarthSurveyService"
 		init-method="init" lazy-init="false">
-		<constructor-arg value="resources/idm_conf/placemark.idm.xml"/>
 	</bean>
+	
+	<bean id="browserService" class="org.openforis.collect.earth.app.desktop.BrowserService" />
 	
 	<bean id="dataExportService" class="org.openforis.collect.earth.app.service.DataExportService" />
 	

@@ -22,7 +22,8 @@ public class GenerateKML {
 		try {
 			String kmlResult = "resultAnssi.kml";
 			generateKml
-					.generateFromCsv("grid-EPSG_3576-mongolia.csv", "balloonWithButtons.html", "anssi_template.fmt", kmlResult);
+.generateFromCsv("grid-EPSG_3576-mongolia.csv", "balloonWithButtons.html", "anssi_template.fmt",
+					kmlResult, "EPSG:3576");
 			KmzGenerator.generateKmzFile("gePlugin.kmz", kmlResult, "files");
 		} catch (IOException e) {
 			logger.error("Could not generate KML file", e);

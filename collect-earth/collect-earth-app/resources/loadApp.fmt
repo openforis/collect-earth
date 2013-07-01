@@ -6,7 +6,7 @@
 	  <name>Survey</name>
 	  <Link>
 	    <!-- add date to avoid Google Earth from caching -->
-	    <href>${host}generated/plots.kml?generatedOn=${kmlGeneratedOn}</href>
+	    <href>${host}generated/gePlugin.kmz?generatedOn=${kmlGeneratedOn}</href>
 	   	<refreshMode>onExpire</refreshMode>
 	  </Link>
 	  

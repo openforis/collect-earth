@@ -33,6 +33,8 @@ import org.springframework.beans.factory.annotation.Autowired;
 
 public class EarthSurveyService {
 
+	private static final String COLLECT_BOOLEAN_ACTIVELY_SAVED = "collect_boolean_actively_saved";
+
 	private static final String COLLECT_TEXT_OPERATOR = "collect_text_operator";
 
 	private static final String EARTH_SURVEY_NAME = "earth";
@@ -50,8 +52,6 @@ public class EarthSurveyService {
 
 	private CollectSurvey collectSurvey;
 
-	String idmFilePath;
-
 	@Autowired
 	LocalPropertiesService localPropertiesService;
 
@@ -62,11 +62,6 @@ public class EarthSurveyService {
 
 	@Autowired
 	SurveyManager surveyManager;
-
-	public EarthSurveyService(String idmFilePath) {
-		super();
-		this.idmFilePath = idmFilePath;
-	}
 
 	private void addLocalProperties(Map<String, String> placemarkParameters) {
 		placemarkParameters.put(SKIP_FILLED_PLOT_PARAMETER, localPropertiesService.shouldSkipFilledPlots() + "");
@@ -113,7 +108,7 @@ public class EarthSurveyService {
 	}
 
 	private String getIdmFilePath() {
-		return idmFilePath;
+		return localPropertiesService.getValue("metadata_file");
 	}
 
 	public Map<String, String> getPlacemark(String placemarkId) {
@@ -168,8 +163,12 @@ public class EarthSurveyService {
 	}
 
 	public boolean isPlacemarSavedActively(Map<String, String> parameters) {
-		return parameters != null && parameters.get("collect_boolean_actively_saved") != null
-				&& parameters.get("collect_boolean_actively_saved").equals("true");
+		return parameters != null && parameters.get(COLLECT_BOOLEAN_ACTIVELY_SAVED) != null
+				&& parameters.get(COLLECT_BOOLEAN_ACTIVELY_SAVED).equals("true");
+	}
+
+	public void setPlacemarSavedActively(Map<String, String> parameters, boolean value) {
+		parameters.put(COLLECT_BOOLEAN_ACTIVELY_SAVED, value + "");
 	}
 
 	private void saveLocalProperties(Map<String, String> parameters) {
@@ -230,6 +229,11 @@ public class EarthSurveyService {
 				record.setModifiedDate(new Date());
 				recordManager.save(record, sessionId);
 				success = true;
+			} else {
+				// Save the data anyway but set the Actively Saved flag to false
+				setPlacemarSavedActively(parameters, false);
+				storePlacemark(parameters, sessionId);
+
 			}
 		} catch (RecordPersistenceException e) {
 			logger.error("Error while storing the record " + e.getMessage(), e);

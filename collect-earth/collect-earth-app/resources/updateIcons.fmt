@@ -4,7 +4,7 @@
 		<cookie>lastUpdate=${date}</cookie>
 		<#if placemark_ids?has_content >
 			<Update>
-				<targetHref>${host}generated/plots.kml?generatedOn=${kmlGeneratedOn}</targetHref>
+				<targetHref>${host}generated/gePlugin.kmz?generatedOn=${kmlGeneratedOn}</targetHref>
 			
 				<#list placemark_ids as placemark >
 					<Change>
@@ -13,6 +13,7 @@
 							<href>${host}placemarkIcon?collect_text_id=${placemark}&amp;listView=true&amp;date=${date}</href>
 						</ItemIcon>
 					</Change>
+					<!--
 					<Change>
 						<GroundOverlay targetId="overlay_${placemark}">
 							<Icon>
@@ -20,6 +21,7 @@
 							</Icon>
 						</GroundOverlay>
 					</Change>
+					-->
 				</#list>
 			</Update>
 		</#if>

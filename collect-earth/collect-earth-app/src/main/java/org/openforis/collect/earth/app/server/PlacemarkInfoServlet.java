@@ -15,6 +15,8 @@ import org.springframework.web.bind.annotation.RequestMapping;
 @Controller
 public class PlacemarkInfoServlet extends JsonPocessorServlet {
 
+	// @Autowired
+	// BrowserService browserService;
 
 	private String getPlacemarkId(Map<String, String> collectedData) {
 		return collectedData.get(ServerController.PLACEMARK_ID);
@@ -25,6 +27,9 @@ public class PlacemarkInfoServlet extends JsonPocessorServlet {
 		Map<String, String> collectedData = extractRequestData(request);
 
 		String placemarkId = getPlacemarkId(collectedData);
+
+		// String originalCoordinates =
+		// collectedData.get("collect_coord_location");
 
 		if (placemarkId == null) {
 			setResult(false, "No placemark ID found in the request", collectedData);
@@ -53,7 +58,10 @@ public class PlacemarkInfoServlet extends JsonPocessorServlet {
 
 		}
 
+		// browserService.openBrowser(originalCoordinates);
+
 		setJsonResponse(response, collectedData);
+
 
 	}
 

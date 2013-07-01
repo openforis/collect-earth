@@ -64,12 +64,12 @@ public class EarthApp {
 		try {
 
 			EarthApp earthApp = new EarthApp();
-
-			earthApp.generateKml();
+			earthApp.generateKmzFile();
 			earthApp.initializeServer();
 
 		} catch (Exception e) {
 			logger.error("The server could not start", e);
+			System.exit(1);
 		} finally {
 
 			closeSplash();
@@ -84,12 +84,14 @@ public class EarthApp {
 
 		logger.info("START - Generate KML file");
 		// KmlGenerator generateKml = new OnePointKmlGenerator();
-		KmlGenerator generateKml = new PolygonKmlGenerator("EPSG:3576", localPropertiesService.getHost(),
+		KmlGenerator generateKml = new PolygonKmlGenerator(localPropertiesService.getValue("coordinates_reference_system"),
+				localPropertiesService.getHost(),
 				localPropertiesService.getPort());
 		try {
 
 			generateKml.generateFromCsv(localPropertiesService.getValue("csv"), localPropertiesService.getValue("balloon"),
-					localPropertiesService.getValue("template"), KML_RESULTING_TEMP_FILE);
+					localPropertiesService.getValue("template"), KML_RESULTING_TEMP_FILE,
+					localPropertiesService.getValue("distance_between_sample_points"));
 		} catch (IOException e) {
 			logger.error("Could not generate KML file", e);
 		} catch (TemplateException e) {
@@ -107,7 +109,8 @@ public class EarthApp {
 		generateKml();
 
 		try {
-			KmzGenerator.generateKmzFile(KMZ_FILE_PATH, KML_RESULTING_TEMP_FILE, null); // "mongolia_files/files"
+			KmzGenerator.generateKmzFile(KMZ_FILE_PATH, KML_RESULTING_TEMP_FILE,
+					localPropertiesService.getValue("include_files_kmz"));
 			logger.info("KMZ File generated : " + KMZ_FILE_PATH);
 
 			File kmlFile = new File(KML_RESULTING_TEMP_FILE);
@@ -115,6 +118,7 @@ public class EarthApp {
 				kmlFile.delete();
 				logger.info("KML File deleted : " + KML_RESULTING_TEMP_FILE);
 			}
+
 
 
 		} catch (IOException e) {
@@ -187,7 +191,9 @@ public class EarthApp {
 		} catch (TemplateException e) {
 			logger.error("Error when producing starter KML from template", e);
 		}
+
 		out.flush();
+		out.close();
 		fw.close();
 
 

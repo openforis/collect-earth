@@ -148,6 +148,10 @@
 						<code>settlementWithTrees</code>
 						<label>Settlement with Trees</label>
 					</item>
+					<item id="144">
+						<code>service</code>
+						<label>Service</label>
+					</item>
 				</item>
 				
 				<item id="150">
@@ -175,6 +179,11 @@
 						<label>Swamp</label>
 					</item>
 				</item>
+				
+				<item id="170">
+					<code>noData</code>
+					<label>No data</label>					
+				</item>
 			</items>
 		</list>
 		<list id="200" name="topographical_accessibility">
@@ -198,6 +207,10 @@
 					<code>10-more</code>
 					<label>10km &lt; D</label>
 				</item>
+				<item id="205">
+					<code>unaccesible</code>
+					<label>Unaccesible</label>
+				</item>
 			</items>
 		</list>
 		<list id="300" name="topographical_elements">
@@ -219,6 +232,10 @@
 				<item id="304">
 						<code>other</code>
 						<label>Other</label>
+				</item>
+				<item id="305">
+						<code>trees</code>
+						<label>Trees</label>
 				</item>
 			</items>
 			
@@ -426,13 +443,16 @@
 			<code id="5" name="land_use" list="land_use">
 				<label xml:lang="en">Land use</label>
 			</code>
-			<boolean id="6" name="land_use_change">
+			<boolean id="6" name="land_use_change" relevant="land_use!='noData'">
 				<label xml:lang="en">Land use development</label>
 			</boolean>
-			<code id="7" name="land_use_type" list="land_use" parent="land_use">
+			<code id="7" name="land_use_type" list="land_use" parent="land_use" relevant="land_use!='noData'">
 				<label xml:lang="en">Land use type</label>
 			</code>
-			<code id="8" name="topography_accessibility" list="topographical_accessibility">
+			<boolean id="21" name="interpretation_uncertainty" relevant="land_use='forest' or land_use='grassland'" >
+				<label xml:lang="en">Interpretation uncertainty</label>
+			</boolean>
+			<code id="8" name="topography_accessibility" list="topographical_accessibility" relevant="land_use!='noData'">
 				<label xml:lang="en">Accessibility</label>
 			</code>
 			<entity id="20" name="topography" multiple="true" >
@@ -445,19 +465,19 @@
 				</code>
 			</entity>
 			<code id="11" name="human_impact_type" list="human_impact_type"
-				multiple="true" relevant="land_use!='settlement'">
+				multiple="true" relevant="land_use!='settlement' and land_use!='noData'">
 				<label xml:lang="en">Human Impact Type</label>
 			</code>
-			<code id="12" name="human_impact_grade" list="human_impact_grade" relevant="land_use!='settlement' and human_impact_type!='na'">
+			<code id="12" name="human_impact_grade" list="human_impact_grade" relevant="land_use!='noData' and land_use!='settlement' and human_impact_type!='na'">
 				<label xml:lang="en">Human Impact Grade</label>
 			</code>
-			<number id="13" name="human_impact_year" type="integer" relevant="land_use!='settlement' and human_impact_type!='na'">
+			<number id="13" name="human_impact_year" type="integer" relevant="land_use!='noData' and land_use!='settlement' and human_impact_type!='na'">
 				<label xml:lang="en">Human Impact Year</label>
 			</number>
-			<date id="14" name="rs_date">
+			<date id="14" name="rs_date" relevant="land_use!='noData'">
 				<label xml:lang="en">RS Date</label>
 			</date>
-			<code id="15" name="rs_satellite" list="rs_satellite">
+			<code id="15" name="rs_satellite" list="rs_satellite" relevant="land_use!='noData'">
 				<label xml:lang="en">RS Satellite</label>
 			</code>
 			<code id="16" name="crown_cover" list="crown_cover" relevant="land_use='forest'" >
