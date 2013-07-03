@@ -119,9 +119,17 @@ public class CollectEarthWindow {
 		c.gridx = 0;
 		c.gridy = 2;
 		c.gridwidth = GridBagConstraints.REMAINDER;
-		JButton exportButton = new JButton("Export to CSV");
+		JButton exportButton = new JButton("Export collected data to CSV file");
 		exportButton.addActionListener(getExportActionListener());
 		pane.add(exportButton , c);
+
+		c.gridx = 0;
+		c.gridy = 3;
+		c.gridwidth = GridBagConstraints.REMAINDER;
+		c.fill = GridBagConstraints.NONE;
+		JButton closeButton = new JButton("Close");
+		closeButton.addActionListener(getCloseActionListener());
+		pane.add(closeButton, c);
 
 		getFrame().getContentPane().add(pane);
 
@@ -164,6 +172,16 @@ public class CollectEarthWindow {
 			public void actionPerformed(ActionEvent e) {
 				exportDataToCsv(e);
 
+			}
+		};
+	}
+
+	private ActionListener getCloseActionListener() {
+		return new ActionListener() {
+
+			@Override
+			public void actionPerformed(ActionEvent e) {
+				frame.dispatchEvent(new WindowEvent(frame, WindowEvent.WINDOW_CLOSING));
 			}
 		};
 	}

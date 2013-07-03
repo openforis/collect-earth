@@ -7,6 +7,7 @@ import java.io.FileWriter;
 import java.io.IOException;
 import java.io.Writer;
 import java.text.SimpleDateFormat;
+import java.util.Arrays;
 import java.util.Date;
 import java.util.Map;
 
@@ -46,7 +47,7 @@ public abstract class KmlGenerator {
 
 	public void generateFromCsv(String csvFile, String ballongFile, String freemarkerKmlTemplateFile, String destinationKmlFile,
 			String distanceBetweenSamplePoints)
-			throws IOException, TemplateException {
+ throws IOException, TemplateException {
 
 		try {
 			File destinationFile = new File(destinationKmlFile);
@@ -58,8 +59,7 @@ public abstract class KmlGenerator {
 
 	private void getKmlCode(String csvFile, String ballongFile, String freemarkerKmlTemplateFile, File destinationFile,
 			String distanceBetweenSamplePoints)
-			throws IOException,
-			TemplateException {
+ throws IOException, TemplateException {
 
 		Float fDistancePoints = Float.parseFloat(distanceBetweenSamplePoints);
 		// Build the data-model
@@ -103,33 +103,46 @@ public abstract class KmlGenerator {
 
 	protected double[] getPointWithOffset(double[] originalPoint, double offsetLongitudeMeters, double offsetLatitudeMeters)
 			throws TransformException {
-		double longitudeDirection = 90; // EAST
-		if (offsetLongitudeMeters < 0) {
-			longitudeDirection = -90; // WEST
-		}
+		double[] movedPoint = null;
+		try {
 
-		double latitudeDirection = 0; // NORTH
-		if (offsetLatitudeMeters < 0) {
-			latitudeDirection = 180; // SOUTH
-		}
+			if (offsetLatitudeMeters == 0 && offsetLongitudeMeters == 0) {
+				movedPoint = originalPoint;
+			} else {
 
-		calc.setStartingGeographicPoint(originalPoint[0], originalPoint[1]);
+				double longitudeDirection = 90; // EAST
+				if (offsetLongitudeMeters < 0) {
+					longitudeDirection = -90; // WEST
+				}
 
-		boolean longitudeChanged = false;
-		if (offsetLongitudeMeters != 0) {
-			calc.setDirection(longitudeDirection, Math.abs(offsetLongitudeMeters));
-			longitudeChanged = true;
-		}
+				double latitudeDirection = 0; // NORTH
+				if (offsetLatitudeMeters < 0) {
+					latitudeDirection = 180; // SOUTH
+				}
 
-		if (offsetLatitudeMeters != 0) {
-			if (longitudeChanged) {
-				double[] firstMove = calc.getDestinationPosition().getCoordinate();
-				calc.setStartingGeographicPoint(firstMove[0], firstMove[1]);
+				calc.setStartingGeographicPoint(originalPoint[0], originalPoint[1]);
+
+				boolean longitudeChanged = false;
+				if (offsetLongitudeMeters != 0) {
+					calc.setDirection(longitudeDirection, Math.abs(offsetLongitudeMeters));
+					longitudeChanged = true;
+				}
+
+				if (offsetLatitudeMeters != 0) {
+					if (longitudeChanged) {
+						double[] firstMove = calc.getDestinationPosition().getCoordinate();
+						calc.setStartingGeographicPoint(firstMove[0], firstMove[1]);
+					}
+					calc.setDirection(latitudeDirection, Math.abs(offsetLatitudeMeters));
+				}
+
+				movedPoint = calc.getDestinationPosition().getCoordinate();
 			}
-			calc.setDirection(latitudeDirection, Math.abs(offsetLatitudeMeters));
+		} catch (Exception e) {
+			logger.error("Exception when moving point " + Arrays.toString(originalPoint) + " with offset longitude "
+					+ offsetLongitudeMeters + " and latitude " + offsetLatitudeMeters, e);
 		}
-
-		return calc.getDestinationPosition().getCoordinate();
+		return movedPoint;
 
 	}
 

@@ -17,9 +17,10 @@ import javax.swing.JOptionPane;
 import org.openforis.collect.earth.app.service.DataExportService;
 import org.openforis.collect.earth.app.service.LocalPropertiesService;
 import org.openforis.collect.earth.app.view.CollectEarthWindow;
+import org.openforis.collect.earth.sampler.processor.CircleKmlGenerator;
 import org.openforis.collect.earth.sampler.processor.KmlGenerator;
 import org.openforis.collect.earth.sampler.processor.KmzGenerator;
-import org.openforis.collect.earth.sampler.processor.PolygonKmlGenerator;
+import org.openforis.collect.earth.sampler.processor.SquareKmlGenerator;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -84,9 +85,17 @@ public class EarthApp {
 
 		logger.info("START - Generate KML file");
 		// KmlGenerator generateKml = new OnePointKmlGenerator();
-		KmlGenerator generateKml = new PolygonKmlGenerator(localPropertiesService.getValue("coordinates_reference_system"),
-				localPropertiesService.getHost(),
-				localPropertiesService.getPort());
+		KmlGenerator generateKml = null;
+		if (localPropertiesService.getValue("sample_shape").equals("CIRCLE")) {
+			generateKml = new CircleKmlGenerator(localPropertiesService.getValue("coordinates_reference_system"),
+					localPropertiesService.getHost(),
+					localPropertiesService.getPort());
+		}else{
+			generateKml = new SquareKmlGenerator(localPropertiesService.getValue("coordinates_reference_system"),
+					localPropertiesService.getHost(),
+					localPropertiesService.getPort());
+		}
+
 		try {
 
 			generateKml.generateFromCsv(localPropertiesService.getValue("csv"), localPropertiesService.getValue("balloon"),
@@ -153,12 +162,18 @@ public class EarthApp {
 				}
 
 				private void openMainWindow() {
-					LocalPropertiesService localPropertiesService = serverInitilizer.getContext().getBean(
+					final LocalPropertiesService localPropertiesService = serverInitilizer.getContext().getBean(
 							LocalPropertiesService.class);
-					DataExportService dataExportService = serverInitilizer.getContext().getBean(DataExportService.class);
+					final DataExportService dataExportService = serverInitilizer.getContext().getBean(DataExportService.class);
 
-					CollectEarthWindow mainEarthWindow = new CollectEarthWindow(localPropertiesService, dataExportService);
-					mainEarthWindow.createWindow();
+					javax.swing.SwingUtilities.invokeLater(new Runnable() {
+						@Override
+						public void run() {
+							CollectEarthWindow mainEarthWindow = new CollectEarthWindow(localPropertiesService, dataExportService);
+							mainEarthWindow.createWindow();
+						}
+					});
+
 				}
 
 			});
