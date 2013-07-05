@@ -15,7 +15,7 @@ public class DateAttributeHandler extends AbstractAttributeHandler<Value> {
 
 	private static final String PREFIX = "date_";
 
-	private static SimpleDateFormat sdf = new SimpleDateFormat("MM/dd/yyyy");
+	private final SimpleDateFormat sdf = new SimpleDateFormat("MM/dd/yyyy");
 
 	public DateAttributeHandler() {
 		super(PREFIX);

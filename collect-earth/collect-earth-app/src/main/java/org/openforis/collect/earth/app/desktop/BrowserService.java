@@ -8,9 +8,9 @@ import org.slf4j.LoggerFactory;
 
 public class BrowserService {
 
-	RemoteWebDriver driver;
+	private RemoteWebDriver driver;
 
-	Logger logger = LoggerFactory.getLogger(BrowserService.class);
+	private final Logger logger = LoggerFactory.getLogger(BrowserService.class);
 
 	public void openBrowser(String coordinates) {
 		try {

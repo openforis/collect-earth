@@ -8,7 +8,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 public class CollectDataAccessor implements DataAccessor {
 
 	@Autowired
-	EarthSurveyService earthSurveyService;
+	private EarthSurveyService earthSurveyService;
 
 	// private final Logger logger =
 	// LoggerFactory.getLogger(CollectDataAccessor.class);

@@ -13,9 +13,9 @@ import org.slf4j.LoggerFactory;
 
 public class KmzGenerator {
 
-	private static Logger logger = LoggerFactory.getLogger(KmzGenerator.class);
+	private final Logger logger = LoggerFactory.getLogger(KmzGenerator.class);
 
-	static private void addFileToZip(String path, String srcFile, ZipOutputStream zip) throws Exception {
+	private void addFileToZip(String path, String srcFile, ZipOutputStream zip) throws IOException {
 
 		File file = new File(srcFile);
 		if (file.isDirectory()) {
@@ -37,7 +37,7 @@ public class KmzGenerator {
 		}
 	}
 
-	static private void addFolderToZip(String path, String srcFolder, ZipOutputStream zip) throws Exception {
+	private void addFolderToZip(String path, String srcFolder, ZipOutputStream zip) throws IOException {
 		File folder = new File(srcFolder);
 
 		for (String fileName : folder.list()) {
@@ -49,7 +49,7 @@ public class KmzGenerator {
 		}
 	}
 
-	public static void generateKmzFile(String kmzFilename, String kmlFile, String dependantFolder) throws IOException {
+	public void generateKmzFile(String kmzFilename, String kmlFile, String dependantFolder) throws IOException {
 
 		ZipOutputStream zip = null;
 		FileOutputStream fileWriter = null;
@@ -61,9 +61,9 @@ public class KmzGenerator {
 			addFileToZip("", kmlFile, zip);
 
 			// Add the Images/JS etc to the file folder
-			if (dependantFolder != null)
+			if (dependantFolder != null) {
 				addFolderToZip("", dependantFolder, zip);
-
+			}
 		} catch (FileNotFoundException e) {
 			logger.error( "Could not find file " + e.getMessage() , e );
 		} catch (IOException e) {

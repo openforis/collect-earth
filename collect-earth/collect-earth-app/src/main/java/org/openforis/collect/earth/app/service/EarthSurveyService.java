@@ -3,6 +3,7 @@ package org.openforis.collect.earth.app.service;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Date;
 import java.util.HashMap;
@@ -48,20 +49,20 @@ public class EarthSurveyService {
 
 
 	@Autowired
-	CollectParametersHandlerService collectParametersHandler;
+	private CollectParametersHandlerService collectParametersHandler;
 
 	private CollectSurvey collectSurvey;
 
 	@Autowired
-	LocalPropertiesService localPropertiesService;
+	private LocalPropertiesService localPropertiesService;
 
-	Logger logger = LoggerFactory.getLogger(this.getClass());
-
-	@Autowired
-	RecordManager recordManager;
+	private final Logger logger = LoggerFactory.getLogger(this.getClass());
 
 	@Autowired
-	SurveyManager surveyManager;
+	private RecordManager recordManager;
+
+	@Autowired
+	private SurveyManager surveyManager;
 
 	private void addLocalProperties(Map<String, String> placemarkParameters) {
 		placemarkParameters.put(SKIP_FILLED_PLOT_PARAMETER, localPropertiesService.shouldSkipFilledPlots() + "");
@@ -246,7 +247,7 @@ public class EarthSurveyService {
 		List<CollectRecord> summaries = recordManager.loadSummaries(getCollectSurvey(), ROOT_ENTITY_NAME, 0, 15,
 				Arrays.asList(new RecordSummarySortField(Sortable.DATE_MODIFIED, true)), (String[]) null);
 		if (updatedSince!=null && summaries != null && !summaries.isEmpty()) {
-			List<CollectRecord> records = new Vector<CollectRecord>();
+			List<CollectRecord> records = new ArrayList<CollectRecord>();
 			for (int i = 0; i < summaries.size(); i++) {
 				CollectRecord summary = summaries.get(i);
 				CollectRecord record = recordManager.load(getCollectSurvey(), summary.getId(), Step.ENTRY);

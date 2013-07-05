@@ -16,7 +16,7 @@ public class SquareKmlGenerator extends PolygonKmlGenerator {
 
 
 	@Override
-	protected void fillExternalLine(float distanceBetweenSamplePoints, double[] coordOriginalPoints,
+	protected void fillExternalLine(float distanceBetweenSamplePoints, double[] coordOriginal,
 			SimplePlacemarkObject parentPlacemark) throws TransformException {
 		List<SimpleCoordinate> shapePoints = new ArrayList<SimpleCoordinate>();
 
@@ -24,21 +24,21 @@ public class SquareKmlGenerator extends PolygonKmlGenerator {
 		final double originalCoordGeneralOffsetX = (-1d * NUM_OF_COLS * distanceBetweenSamplePoints / 2d) - INNER_RECT_SIDE / 2d;
 		final double originalCoordGeneralOffsetY = (NUM_OF_ROWS * distanceBetweenSamplePoints / 2d) - INNER_RECT_SIDE / 2d;
 
-		coordOriginalPoints = getPointWithOffset(coordOriginalPoints, originalCoordGeneralOffsetX, originalCoordGeneralOffsetY);
+		double[] topLeftSquareCoord = getPointWithOffset(coordOriginal, originalCoordGeneralOffsetX, originalCoordGeneralOffsetY);
 
 		String south, north, west, east;
 
 		// TOP LEFT
-		shapePoints.add(new SimpleCoordinate(coordOriginalPoints));
+		shapePoints.add(new SimpleCoordinate(topLeftSquareCoord));
 
-		north = coordOriginalPoints[1] + "";
-		west = coordOriginalPoints[0] + "";
+		north = topLeftSquareCoord[1] + "";
+		west = topLeftSquareCoord[0] + "";
 
 		// TOP RIGHT
 		double offsetLong = (distanceBetweenSamplePoints * NUM_OF_COLS);
 		double offsetLat = 0;
 
-		double[] squareCorner = getPointWithOffset(coordOriginalPoints, offsetLong, offsetLat);
+		double[] squareCorner = getPointWithOffset(topLeftSquareCoord, offsetLong, offsetLat);
 		shapePoints.add(new SimpleCoordinate(squareCorner));
 
 		east = squareCorner[0] + "";
@@ -46,7 +46,7 @@ public class SquareKmlGenerator extends PolygonKmlGenerator {
 		// BOTTOM RIGHT
 		offsetLong = (distanceBetweenSamplePoints * NUM_OF_COLS);
 		offsetLat = -(distanceBetweenSamplePoints * NUM_OF_ROWS);
-		squareCorner = getPointWithOffset(coordOriginalPoints, offsetLong, offsetLat);
+		squareCorner = getPointWithOffset(topLeftSquareCoord, offsetLong, offsetLat);
 		shapePoints.add(new SimpleCoordinate(squareCorner));
 
 		south = squareCorner[1] + "";
@@ -54,11 +54,11 @@ public class SquareKmlGenerator extends PolygonKmlGenerator {
 		// BOTTOM LEFT
 		offsetLong = 0;
 		offsetLat = -(distanceBetweenSamplePoints * NUM_OF_ROWS);
-		squareCorner = getPointWithOffset(coordOriginalPoints, offsetLong, offsetLat);
+		squareCorner = getPointWithOffset(topLeftSquareCoord, offsetLong, offsetLat);
 		shapePoints.add(new SimpleCoordinate(squareCorner));
 
 		// TOP LEFT -- CLOSE RECTANGLE
-		shapePoints.add(new SimpleCoordinate(coordOriginalPoints));
+		shapePoints.add(new SimpleCoordinate(topLeftSquareCoord));
 
 		parentPlacemark.setShape(shapePoints);
 
@@ -67,15 +67,15 @@ public class SquareKmlGenerator extends PolygonKmlGenerator {
 
 
 	@Override
-	protected void fillSamplePoints(float distanceBetweenSamplePoints,
-			double[] coordOriginalPoints, String currentPlaceMarkId, SimplePlacemarkObject parentPlacemark)
+	protected void fillSamplePoints(float distanceBetweenSamplePoints, double[] coordOriginal, String currentPlaceMarkId,
+			SimplePlacemarkObject parentPlacemark)
 			throws TransformException {
 
 		// Move to the top-left point
 		final double originalCoordGeneralOffsetX = (-1d * NUM_OF_COLS * distanceBetweenSamplePoints / 2d) - INNER_RECT_SIDE / 2d;
 		final double originalCoordGeneralOffsetY = (NUM_OF_ROWS * distanceBetweenSamplePoints / 2d) - INNER_RECT_SIDE / 2d;
 
-		coordOriginalPoints = getPointWithOffset(coordOriginalPoints, originalCoordGeneralOffsetX, originalCoordGeneralOffsetY);
+		double[] topLeftCoord = getPointWithOffset(coordOriginal, originalCoordGeneralOffsetX, originalCoordGeneralOffsetY);
 
 		List<SimplePlacemarkObject> pointsInPlacemark = new ArrayList<SimplePlacemarkObject>();
 
@@ -86,7 +86,7 @@ public class SquareKmlGenerator extends PolygonKmlGenerator {
 				double offsetLat = -(row * distanceBetweenSamplePoints); // GO
 				// SOUTH
 
-				double[] miniPlacemarkPosition = getPointWithOffset(coordOriginalPoints, offsetLong, offsetLat);
+				double[] miniPlacemarkPosition = getPointWithOffset(topLeftCoord, offsetLong, offsetLat);
 				SimplePlacemarkObject insidePlacemark = new SimplePlacemarkObject(miniPlacemarkPosition,
 						currentPlaceMarkId);
 

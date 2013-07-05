@@ -7,7 +7,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 public abstract class DataAccessingServlet {
 
 	@Autowired
-	DataAccessor dataAccessor;
+	private DataAccessor dataAccessor;
 	private final Logger logger = LoggerFactory.getLogger(this.getClass());
 
 	public DataAccessingServlet() {

@@ -36,7 +36,11 @@ public class ServerController extends Observable {
 	private int getPort() {
 
 		LocalPropertiesService localPropertiesService = new LocalPropertiesService();
-		localPropertiesService.init();
+		try {
+			localPropertiesService.init();
+		} catch (IOException e) {
+			logger.error("Error initializing local properties", e);
+		}
 
 		String webPort = localPropertiesService.getPort();
 		if (webPort == null || webPort.isEmpty()) {

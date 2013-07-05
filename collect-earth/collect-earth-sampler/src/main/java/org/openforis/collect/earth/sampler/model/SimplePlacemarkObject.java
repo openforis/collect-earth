@@ -6,17 +6,17 @@ import com.vividsolutions.jts.geom.Coordinate;
 
 public class SimplePlacemarkObject {
 
-	protected SimpleCoordinate coord;
+	private SimpleCoordinate coord;
 
-	protected String nextPlacemarkId;
+	private String nextPlacemarkId;
 
-	protected String placemarkId;
+	private String placemarkId;
 
-	protected List<SimplePlacemarkObject> points;
+	private List<SimplePlacemarkObject> points;
 
-	protected SimpleRegion region;
+	private SimpleRegion region;
 
-	protected List<SimpleCoordinate> shape;
+	private List<SimpleCoordinate> shape;
 
 	public SimplePlacemarkObject(Coordinate coord, String placemarkId) {
 		super();

@@ -11,6 +11,7 @@ import java.awt.event.WindowAdapter;
 import java.awt.event.WindowEvent;
 import java.io.File;
 import java.io.FileOutputStream;
+import java.io.IOException;
 import java.net.MalformedURLException;
 
 import javax.swing.BorderFactory;
@@ -27,7 +28,7 @@ import javax.swing.WindowConstants;
 import javax.swing.border.Border;
 import javax.swing.filechooser.FileFilter;
 
-import org.openforis.collect.earth.app.desktop.EarthApp;
+import org.openforis.collect.earth.app.desktop.ServerController;
 import org.openforis.collect.earth.app.service.DataExportService;
 import org.openforis.collect.earth.app.service.LocalPropertiesService;
 import org.slf4j.Logger;
@@ -39,16 +40,23 @@ public class CollectEarthWindow {
 	private final LocalPropertiesService localPropertiesService;
 	private final DataExportService dataExportService;
 	private final Logger logger = LoggerFactory.getLogger(CollectEarthWindow.class);
+	private final ServerController serverController;
 
-	public CollectEarthWindow(LocalPropertiesService localPropertiesService, DataExportService dataExportService) {
+	public CollectEarthWindow(LocalPropertiesService localPropertiesService, DataExportService dataExportService,
+			ServerController serverController) {
 		super();
 		this.localPropertiesService = localPropertiesService;
 		this.dataExportService = dataExportService;
+		this.serverController = serverController;
 	}
 
 	public void createWindow() {
 
-		localPropertiesService.init();
+		try {
+			localPropertiesService.init();
+		} catch (IOException e3) {
+			logger.error("Error initializing local properties", e3);
+		}
 
 		// Create and set up the window.
 		setFrame(new JFrame("Collect Earth"));
@@ -72,7 +80,7 @@ public class CollectEarthWindow {
 									"<html>Are you sure that you want to close Collect Earth?<br>Closing the window will also close the Collect Earth server</html>",
 									"Confirmation needed", JOptionPane.YES_NO_OPTION);
 					if (confirmation == JOptionPane.YES_OPTION) {
-						EarthApp.getServerInitilizer().stopServer();
+						serverController.stopServer();
 						getFrame().setVisible(false);
 						getFrame().dispose();
 					}

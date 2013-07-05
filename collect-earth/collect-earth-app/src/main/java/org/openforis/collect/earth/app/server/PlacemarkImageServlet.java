@@ -4,6 +4,7 @@ import java.io.File;
 import java.io.IOException;
 import java.net.MalformedURLException;
 import java.net.URISyntaxException;
+import java.text.SimpleDateFormat;
 import java.util.Date;
 import java.util.Map;
 
@@ -24,10 +25,10 @@ public class PlacemarkImageServlet extends DataAccessingServlet {
 
 
 	@Autowired
-	EarthSurveyService earthSurveyService;
+	private EarthSurveyService earthSurveyService;
 
 	@Autowired
-	PreloadedFilesService preloadedFilesService;
+	private PreloadedFilesService preloadedFilesService;
 
 	@RequestMapping("/placemarkIcon")
 	public void getImage(HttpServletResponse response, HttpServletRequest request,
@@ -74,7 +75,7 @@ public class PlacemarkImageServlet extends DataAccessingServlet {
 		response.setHeader("Content-Type", "image/png");
 		response.setHeader("Content-Disposition", "inline; filename=\"" + imageName + "\"");
 		response.setHeader("Cache-Control", "max-age=30");
-		response.setHeader("Date", EarthConstants.DATE_FORMAT_HTTP.format(new Date()));
+		response.setHeader("Date", new SimpleDateFormat(EarthConstants.DATE_FORMAT_HTTP).format(new Date()));
 
 		byte[] resultingImage = null;
 		if (imageName.equals(EarthConstants.FILLED_IMAGE)) {

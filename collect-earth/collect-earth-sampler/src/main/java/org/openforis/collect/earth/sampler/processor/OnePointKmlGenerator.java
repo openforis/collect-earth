@@ -38,9 +38,9 @@ public class OnePointKmlGenerator extends KmlGenerator{
 				Point transformedPoint = transformToWGS84(Double.parseDouble(nextRow[1]), Double.parseDouble(nextRow[2]));
 				placemarks.add(new SimplePlacemarkObject(transformedPoint.getCoordinate(), "ge_" + nextRow[0]));
 			} catch (NumberFormatException e) {
-				logger.error("Error in the number formatting", e);
+				getLogger().error("Error in the number formatting", e);
 			} catch (Exception e) {
-				logger.error("Error in the number formatting", e);
+				getLogger().error("Errortransforming to WGS864", e);
 			}
 
 		}

@@ -3,8 +3,8 @@ package org.openforis.collect.earth.sampler.model;
 import com.vividsolutions.jts.geom.Coordinate;
 
 public class SimpleCoordinate {
-	public String latitude;
-	public String longitude;
+	private String latitude;
+	private String longitude;
 
 	public SimpleCoordinate(Coordinate coord) {
 		super();

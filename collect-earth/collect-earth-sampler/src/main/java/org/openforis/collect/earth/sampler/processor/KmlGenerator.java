@@ -16,6 +16,7 @@ import org.geotools.geometry.jts.JTS;
 import org.geotools.referencing.CRS;
 import org.geotools.referencing.GeodeticCalculator;
 import org.geotools.referencing.crs.DefaultGeographicCRS;
+import org.opengis.referencing.FactoryException;
 import org.opengis.referencing.crs.CoordinateReferenceSystem;
 import org.opengis.referencing.operation.MathTransform;
 import org.opengis.referencing.operation.TransformException;
@@ -34,11 +35,26 @@ public abstract class KmlGenerator {
 
 	public static final String DEFAULT_HOST = "localhost";
 	public static final String DEFAULT_PORT = "80";
-	private static final SimpleDateFormat sdf = new SimpleDateFormat("EEE, dd MMM yyyy HH:mm:ss zzz");
+	private static final SimpleDateFormat HTTP_HEADER_FORMAT = new SimpleDateFormat("EEE, dd MMM yyyy HH:mm:ss zzz");
+
+	public static String getHostAddress(String host, String port) {
+		String hostAndPort = "";
+		if (host != null && host.length() > 0) {
+			hostAndPort = host;
+			if (port != null && port.length() > 0) {
+				hostAndPort += ":" + port;
+			}
+
+			hostAndPort = "http://" + hostAndPort + "/earth/";
+		}
+		return hostAndPort;
+
+	}
 
 	private final GeodeticCalculator calc = new GeodeticCalculator(DefaultGeographicCRS.WGS84);
 	private final String epsgCode;
-	protected final Logger logger = LoggerFactory.getLogger(this.getClass());
+
+	private final Logger logger = LoggerFactory.getLogger(this.getClass());
 
 	public KmlGenerator(String epsgCode) {
 		super();
@@ -46,25 +62,23 @@ public abstract class KmlGenerator {
 	}
 
 	public void generateFromCsv(String csvFile, String ballongFile, String freemarkerKmlTemplateFile, String destinationKmlFile,
-			String distanceBetweenSamplePoints)
- throws IOException, TemplateException {
+			String distanceBetweenSamplePoints) throws IOException, TemplateException {
 
 		try {
 			File destinationFile = new File(destinationKmlFile);
 			getKmlCode(csvFile, ballongFile, freemarkerKmlTemplateFile, destinationFile, distanceBetweenSamplePoints);
 		} catch (IOException e) {
-			logger.error("Could not generate KML file", e);
+			getLogger().error("Could not generate KML file", e);
 		}
 	}
 
 	private void getKmlCode(String csvFile, String ballongFile, String freemarkerKmlTemplateFile, File destinationFile,
-			String distanceBetweenSamplePoints)
- throws IOException, TemplateException {
+			String distanceBetweenSamplePoints) throws IOException, TemplateException {
 
 		Float fDistancePoints = Float.parseFloat(distanceBetweenSamplePoints);
 		// Build the data-model
 		Map<String, Object> data = getTemplateData(csvFile, fDistancePoints);
-		data.put("expiration", sdf.format(new Date()));
+		data.put("expiration", HTTP_HEADER_FORMAT.format(new Date()));
 
 		// Get the HTML content of the ballong from a file, this way we can
 		// separate the KML generation so it is easier to create different KMLs
@@ -87,18 +101,8 @@ public abstract class KmlGenerator {
 
 	}
 
-	public static String getHostAddress(String host, String port) {
-		String hostAndPort = "";
-		if (host != null && host.length() > 0) {
-			hostAndPort = host;
-			if (port != null && port.length() > 0) {
-				hostAndPort += ":" + port;
-			}
-
-			hostAndPort = "http://" + hostAndPort + "/earth/";
-		}
-		return hostAndPort;
-
+	protected Logger getLogger() {
+		return logger;
 	}
 
 	protected double[] getPointWithOffset(double[] originalPoint, double offsetLongitudeMeters, double offsetLatitudeMeters)
@@ -139,8 +143,9 @@ public abstract class KmlGenerator {
 				movedPoint = calc.getDestinationPosition().getCoordinate();
 			}
 		} catch (Exception e) {
-			logger.error("Exception when moving point " + Arrays.toString(originalPoint) + " with offset longitude "
-					+ offsetLongitudeMeters + " and latitude " + offsetLatitudeMeters, e);
+			getLogger().error(
+					"Exception when moving point " + Arrays.toString(originalPoint) + " with offset longitude "
+							+ offsetLongitudeMeters + " and latitude " + offsetLatitudeMeters, e);
 		}
 		return movedPoint;
 
@@ -149,7 +154,8 @@ public abstract class KmlGenerator {
 	protected abstract Map<String, Object> getTemplateData(String csvFile, float distanceBetweenSamplePoints)
 			throws FileNotFoundException, IOException;
 
-	protected Point transformToWGS84(double longitude, double latitude) throws Exception {
+	protected Point transformToWGS84(double longitude, double latitude) throws IllegalArgumentException, TransformException,
+			FactoryException {
 
 		GeometryFactory gf = new GeometryFactory();
 		Coordinate c = new Coordinate(longitude, latitude);

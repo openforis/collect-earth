@@ -2,10 +2,10 @@ package org.openforis.collect.earth.sampler.model;
 
 public class SimpleRegion {
 
-	protected String east;
-	protected String north;
-	protected String south;
-	protected String west;
+	private String east;
+	private String north;
+	private String south;
+	private String west;
 
 	public SimpleRegion(String north, String west, String south, String east) {
 		super();

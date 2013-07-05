@@ -47,56 +47,6 @@ public class CircleKmlGenerator extends PolygonKmlGenerator {
 		parentPlacemark.setShape(shapePoints);
 	}
 
-	// @Override
-	// protected void fillSamplePoints(float distanceBetweenSamplePoints,
-	// double[] coordOriginalPoints, String currentPlaceMarkId,
-	// SimplePlacemarkObject parentPlacemark)
-	// throws TransformException {
-	//
-	// List<SimplePlacemarkObject> pointsInPlacemark = new
-	// ArrayList<SimplePlacemarkObject>();
-	//
-	// float arc = 360 / (INNER_LINES * 2); //
-	//
-	// for (int i = 0; i <= INNER_LINES * 2; i++) {
-	//
-	// for (int p = 1; p <= NUMBER_OF_POINTS_RADIUS; p++) {
-	//
-	// double t = i * arc;
-	// double offsetLong = Math.round((distanceBetweenSamplePoints * p) *
-	// Math.cos(Math.toRadians(t)));
-	// double offsetLat = Math.round((distanceBetweenSamplePoints * p) *
-	// Math.sin(Math.toRadians(t)));
-	//
-	// double[] miniPlacemarkPosition = getPointWithOffset(coordOriginalPoints,
-	// offsetLong, offsetLat);
-	// SimplePlacemarkObject insidePlacemark = new
-	// SimplePlacemarkObject(miniPlacemarkPosition, currentPlaceMarkId);
-	//
-	// // Get the inner bounbdaiures of the squares
-	// List<SimpleCoordinate> samplePointBoundaries =
-	// getSamplePointPolygon(miniPlacemarkPosition);
-	//
-	// insidePlacemark.setShape(samplePointBoundaries);
-	//
-	// pointsInPlacemark.add(insidePlacemark);
-	//
-	// }
-	//
-	// }
-	// SimplePlacemarkObject insidePlacemark = new
-	// SimplePlacemarkObject(coordOriginalPoints, currentPlaceMarkId);
-	// // Get the center sampling point
-	// List<SimpleCoordinate> samplePointBoundaries =
-	// getSamplePointPolygon(coordOriginalPoints);
-	//
-	// insidePlacemark.setShape(samplePointBoundaries);
-	//
-	// pointsInPlacemark.add(insidePlacemark);
-	//
-	// parentPlacemark.setPoints(pointsInPlacemark);
-	//
-	// }
 
 	@Override
 	protected void fillSamplePoints(float distanceBetweenSamplePoints,
@@ -171,17 +121,13 @@ public class CircleKmlGenerator extends PolygonKmlGenerator {
 	private SimplePlacemarkObject getRandomPosition(double orginalRadius, double[] centerCoordinates, String currentPlaceMarkId)
 			throws TransformException {
 
-		/*
-		 * http://www.anderswallin.net/2009/05/uniform-random-points-in-a-circle-
-		 * using-polar-coordinates/ r2 = R*sqrt(rand(Nmax,1)); theta2 =
-		 * 2*pi*rand(Nmax,1); x2 = r2.*cos(theta2); y2 = r2.*sin(theta2);
-		 */
+		// http://www.anderswallin.net/2009/05/uniform-random-points-in-a-circle-using-polar-coordinates
 
-		double theta = 2d * Math.PI * Math.random();
-		double R = orginalRadius * Math.sqrt(Math.random());
+		double randomAngle = 2d * Math.PI * Math.random();
+		double randomRadius = orginalRadius * Math.sqrt(Math.random());
 
-		double offsetLong = R * Math.cos(theta);
-		double offsetLat = R * Math.sin(theta);
+		double offsetLong = randomRadius * Math.cos(randomAngle);
+		double offsetLat = randomRadius * Math.sin(randomAngle);
 
 		double[] miniPlacemarkPosition = getPointWithOffset(centerCoordinates, offsetLong, offsetLat);
 		SimplePlacemarkObject insidePlacemark = new SimplePlacemarkObject(miniPlacemarkPosition, currentPlaceMarkId);

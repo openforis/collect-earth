@@ -4,6 +4,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Set;
 
 import org.apache.commons.lang3.StringUtils;
@@ -11,7 +12,6 @@ import org.openforis.collect.earth.app.service.handler.AbstractAttributeHandler;
 import org.openforis.collect.earth.app.service.handler.CodeAttributeHandler;
 import org.openforis.collect.earth.app.service.handler.EntityHandler;
 import org.openforis.collect.manager.RecordManager;
-import org.openforis.idm.metamodel.EntityDefinition;
 import org.openforis.idm.metamodel.NodeDefinition;
 import org.openforis.idm.model.Attribute;
 import org.openforis.idm.model.Entity;
@@ -34,7 +34,7 @@ public class CollectParametersHandlerService {
 	private final Logger logger = LoggerFactory.getLogger(CollectParametersHandlerService.class);
 
 	@Autowired
-	RecordManager recordManager;
+	private RecordManager recordManager;
 
 	public CollectParametersHandlerService() {
 		initiliaze();
@@ -44,8 +44,6 @@ public class CollectParametersHandlerService {
 		Map<String, String> parameters = new HashMap<String, String>();
 
 		List<Node<? extends NodeDefinition>> children = plotEntity.getChildren();
-
-		List<EntityDefinition> definitons = plotEntity.getSchema().getRootEntityDefinitions();
 
 		for (Node<? extends NodeDefinition> node : children) {
 
@@ -142,21 +140,15 @@ public class CollectParametersHandlerService {
 
 
 	public void saveToEntity(Map<String, String> parameters, Entity entity) {
-		Set<String> parameterNames = parameters.keySet();
-		for (String parameterName : parameterNames) {
-			String parameterValue = parameters.get(parameterName);
-			String cleanName = cleanUpParameterName(parameterName);
+		Set<Entry<String, String>> parameterEntries = parameters.entrySet();
+		for (Entry<String, String> entry : parameterEntries) {
+			String parameterValue = entry.getValue();
+			String cleanName = cleanUpParameterName(entry.getKey());
 
-
-			for (AbstractAttributeHandler handler : attributeHandlers) {
+			for (AbstractAttributeHandler<?> handler : attributeHandlers) {
 				try {
 					if (handler.isParameterParseable(cleanName)) {
-						// if (parameterValue == null || parameterValue.length() ==
-						// 0) {
-						// entity.remove(cleanName, 0);
-						// } else {
 						handler.addOrUpdate(cleanName, parameterValue, entity);
-						// }
 					}
 				} catch (Exception e) {
 					logger.error("Error while parsing parameter " + cleanName + " with value " + parameterValue, e);

@@ -25,19 +25,28 @@ public class LocalPropertiesService {
 
 	}
 
-	public void init() {
+	public void init() throws IOException {
 		properties = new Properties();
+		FileReader fr = null;
 		try {
 
 			File propertiesFile = new File(PROPERTIES_FILE);
 			if (!propertiesFile.exists()) {
-				propertiesFile.createNewFile();
+				boolean success = propertiesFile.createNewFile();
+				if (!success) {
+					throw new IOException("Could not create file " + propertiesFile.getAbsolutePath());
+				}
 			}
-			properties.load(new FileReader(propertiesFile));
+			fr = new FileReader(propertiesFile);
+			properties.load(fr);
 		} catch (FileNotFoundException e) {
 			logger.error("Could not find properties file", e);
 		} catch (IOException e) {
 			logger.error("Could not open properties file", e);
+		} finally {
+			if (fr != null) {
+				fr.close();
+			}
 		}
 	}
 
@@ -110,10 +119,20 @@ public class LocalPropertiesService {
 	}
 
 	private synchronized void storeProperties() {
+		FileWriter fw = null;
 		try {
-			properties.store(new FileWriter(new File(PROPERTIES_FILE)), null);
+			fw = new FileWriter(new File(PROPERTIES_FILE));
+			properties.store(fw, null);
 		} catch (IOException e) {
 			logger.error("The properties could not be saved", e);
+		} finally {
+			try {
+				if (fw != null) {
+					fw.close();
+				}
+			} catch (IOException e) {
+				logger.error("Error closing file writer", e);
+			}
 		}
 	}
 

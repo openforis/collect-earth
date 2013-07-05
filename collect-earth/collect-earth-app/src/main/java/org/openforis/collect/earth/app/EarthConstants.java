@@ -1,10 +1,9 @@
 package org.openforis.collect.earth.app;
 
-import java.text.SimpleDateFormat;
 
 public abstract class EarthConstants {
 
-	public static final SimpleDateFormat DATE_FORMAT_HTTP = new SimpleDateFormat("EEE, dd MMM yyyy HH:mm:ss zzz");
+	public static final String DATE_FORMAT_HTTP = "EEE, dd MMM yyyy HH:mm:ss zzz";
 
 	private EarthConstants() {
 		// TODO Auto-generated constructor stub

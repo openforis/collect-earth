@@ -4,6 +4,7 @@ import java.io.IOException;
 import java.io.OutputStream;
 import java.io.OutputStreamWriter;
 import java.io.Writer;
+import java.nio.charset.Charset;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -31,14 +32,13 @@ import org.springframework.beans.factory.annotation.Autowired;
 public class DataExportService {
 
 	@Autowired
-	EarthSurveyService earthSurveyService;
+	private EarthSurveyService earthSurveyService;
 
 	@Autowired
-	RecordManager recordManager;
-
+	private RecordManager recordManager;
 
 	@Autowired
-	CodeListManager codeListManager;
+	private CodeListManager codeListManager;
 
 	private ColumnProvider createAncestorColumnProvider(EntityDefinition entityDefn, int depth) {
 		List<AttributeDefinition> keyAttrDefns = entityDefn.getKeyAttributeDefinitions();
@@ -53,8 +53,7 @@ public class DataExportService {
 			providers.add(positionColumnProvider);
 		}
 		String expression = StringUtils.repeat("parent()", "/", depth);
-		ColumnProvider result = new PivotExpressionColumnProvider(expression, providers.toArray(new ColumnProvider[1]));
-		return result;
+		return new PivotExpressionColumnProvider(expression, providers.toArray(new ColumnProvider[1]));
 	}
 
 	private List<ColumnProvider> createAncestorsColumnsProvider(EntityDefinition entityDefn) {
@@ -99,12 +98,11 @@ public class DataExportService {
 
 	private ColumnProvider createPositionColumnProvider(EntityDefinition entityDefn) {
 		String columnName = createPositionColumnName(entityDefn);
-		NodePositionColumnProvider columnProvider = new NodePositionColumnProvider(columnName);
-		return columnProvider;
+		return new NodePositionColumnProvider(columnName);
 	}
 
 	public void exportSurveyAsCsv(OutputStream exportToStream) throws IOException, InvalidExpressionException {
-		Writer outputWriter = new OutputStreamWriter(exportToStream);
+		Writer outputWriter = new OutputStreamWriter(exportToStream, Charset.forName("UTF-8"));
 		DataTransformation transform = getTransform();
 
 		ModelCsvWriter modelWriter = new ModelCsvWriter(outputWriter, transform);
