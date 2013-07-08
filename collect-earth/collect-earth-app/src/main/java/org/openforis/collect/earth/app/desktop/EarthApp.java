@@ -32,9 +32,9 @@ public class EarthApp {
 
 	private static final String KML_RESULTING_TEMP_FILE = "generated/plots.kml";
 	private final static Logger LOGGER = LoggerFactory.getLogger(EarthApp.class);
-	private static ServerController serverInitilizer;
+	private static ServerController serverController;
 	private static final String KMZ_FILE_PATH = "generated/gePlugin.kmz";
-	private final LocalPropertiesService localPropertiesService = new LocalPropertiesService();
+	private final LocalPropertiesService nonSpringManagedLocalProperties = new LocalPropertiesService();
 
 	private static final String KML_NETWORK_LINK_TEMPLATE = "resources/loadApp.fmt";
 	private static final String KML_NETWORK_LINK_STARTER = "generated/loadApp.kml";
@@ -73,7 +73,7 @@ public class EarthApp {
 	}
 
 	private EarthApp() throws IOException {
-		localPropertiesService.init();
+		nonSpringManagedLocalProperties.init();
 	}
 
 	private void generateKml() {
@@ -81,21 +81,21 @@ public class EarthApp {
 		LOGGER.info("START - Generate KML file");
 		// KmlGenerator generateKml = new OnePointKmlGenerator();
 		KmlGenerator generateKml = null;
-		if (localPropertiesService.getValue("sample_shape").equals("CIRCLE")) {
-			generateKml = new CircleKmlGenerator(localPropertiesService.getValue("coordinates_reference_system"),
-					localPropertiesService.getHost(),
-					localPropertiesService.getPort());
+		if (nonSpringManagedLocalProperties.getValue("sample_shape").equals("CIRCLE")) {
+			generateKml = new CircleKmlGenerator(nonSpringManagedLocalProperties.getValue("coordinates_reference_system"),
+					nonSpringManagedLocalProperties.getHost(),
+					nonSpringManagedLocalProperties.getPort());
 		}else{
-			generateKml = new SquareKmlGenerator(localPropertiesService.getValue("coordinates_reference_system"),
-					localPropertiesService.getHost(),
-					localPropertiesService.getPort());
+			generateKml = new SquareKmlGenerator(nonSpringManagedLocalProperties.getValue("coordinates_reference_system"),
+					nonSpringManagedLocalProperties.getHost(),
+					nonSpringManagedLocalProperties.getPort());
 		}
 
 		try {
 
-			generateKml.generateFromCsv(localPropertiesService.getValue("csv"), localPropertiesService.getValue("balloon"),
-					localPropertiesService.getValue("template"), KML_RESULTING_TEMP_FILE,
-					localPropertiesService.getValue("distance_between_sample_points"));
+			generateKml.generateFromCsv(nonSpringManagedLocalProperties.getValue("csv"), nonSpringManagedLocalProperties.getValue("balloon"),
+					nonSpringManagedLocalProperties.getValue("template"), KML_RESULTING_TEMP_FILE,
+					nonSpringManagedLocalProperties.getValue("distance_between_sample_points"));
 		} catch (IOException e) {
 			LOGGER.error("Could not generate KML file", e);
 		} catch (TemplateException e) {
@@ -115,7 +115,7 @@ public class EarthApp {
 		try {
 			KmzGenerator kmzGenerator = new KmzGenerator();
 			kmzGenerator.generateKmzFile(KMZ_FILE_PATH, KML_RESULTING_TEMP_FILE,
-					localPropertiesService.getValue("include_files_kmz"));
+					nonSpringManagedLocalProperties.getValue("include_files_kmz"));
 			LOGGER.info("KMZ File generated : " + KMZ_FILE_PATH);
 
 			File kmlFile = new File(KML_RESULTING_TEMP_FILE);
@@ -140,37 +140,36 @@ public class EarthApp {
 	private void initializeServer() throws Exception {
 
 		LOGGER.info("START - Server Initilization");
-		serverInitilizer = new ServerController();
-		if (serverInitilizer.isServerAlreadyRunning()) {
+		serverController = new ServerController();
+		if (serverController.isServerAlreadyRunning()) {
 			closeSplash();
 			showMessage("The server is already running");
 			simulateClickKmz();
 			System.gc(); // THIS SHOULD BE REMOVED!
 		} else {
 
-
-			serverInitilizer.startServer(new Observer() {
+			serverController.startServer(new Observer() {
 
 				@Override
 				public void update(Observable o, Object arg) {
-
 					LOGGER.info("END - Server Initilization");
 					closeSplash();
+					LOGGER.info("Force opening of KMZ file in Google Earth");
 					simulateClickKmz();
-
+					LOGGER.info("Open Collect Earth swing interface");
 					openMainWindow();
 				}
 
 				private void openMainWindow() {
-					final LocalPropertiesService localPropertiesService = serverInitilizer.getContext().getBean(
+					final LocalPropertiesService localPropertiesService = serverController.getContext().getBean(
 							LocalPropertiesService.class);
-					final DataExportService dataExportService = serverInitilizer.getContext().getBean(DataExportService.class);
+					final DataExportService dataExportService = serverController.getContext().getBean(DataExportService.class);
 
 					javax.swing.SwingUtilities.invokeLater(new Runnable() {
 						@Override
 						public void run() {
 							CollectEarthWindow mainEarthWindow = new CollectEarthWindow(localPropertiesService,
-									dataExportService, serverInitilizer);
+									dataExportService, serverController);
 							mainEarthWindow.createWindow();
 						}
 					});
@@ -190,11 +189,11 @@ public class EarthApp {
 		// Load template from source folder
 		Template template = cfg.getTemplate(KML_NETWORK_LINK_TEMPLATE);
 
-		localPropertiesService.saveGeneratedOn(System.currentTimeMillis() + "");
+		nonSpringManagedLocalProperties.saveGeneratedOn(System.currentTimeMillis() + "");
 
 		Map<String, Object> data = new HashMap<String, Object>();
-		data.put("host", KmlGenerator.getHostAddress(localPropertiesService.getHost(), localPropertiesService.getPort()));
-		data.put("kmlGeneratedOn", localPropertiesService.getGeneratedOn());
+		data.put("host", KmlGenerator.getHostAddress(nonSpringManagedLocalProperties.getHost(), nonSpringManagedLocalProperties.getPort()));
+		data.put("kmlGeneratedOn", nonSpringManagedLocalProperties.getGeneratedOn());
 
 		// Console output
 		FileWriter fw = new FileWriter(KML_NETWORK_LINK_STARTER);

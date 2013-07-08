@@ -11,7 +11,7 @@ import org.slf4j.LoggerFactory;
 
 import freemarker.template.TemplateException;
 
-public class GenerateKML {
+public final class GenerateKML {
 
 	private GenerateKML() {
 	}
@@ -24,8 +24,7 @@ public class GenerateKML {
 
 		try {
 			String kmlResult = "resultAnssi.kml";
-			generateKml
-.generateFromCsv("grid-EPSG_3576-mongolia.csv", "balloonWithButtons.html", "anssi_template.fmt",
+			generateKml.generateFromCsv("grid-EPSG_3576-mongolia.csv", "balloonWithButtons.html", "anssi_template.fmt",
 					kmlResult, "EPSG:3576");
 			KmzGenerator kmzGenerator = new KmzGenerator();
 			kmzGenerator.generateKmzFile("gePlugin.kmz", kmlResult, "files");

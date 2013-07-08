@@ -23,17 +23,26 @@ public class KmzGenerator {
 		} else {
 			byte[] buf = new byte[1024];
 			int len;
-			FileInputStream in = new FileInputStream(srcFile);
-			String filePathName = path + "/" + file.getName();
-			// if in root folder no / necessary
-			if (path.length() == 0) {
-				filePathName = file.getName();
+			FileInputStream in = null;
+			try {
+				in = new FileInputStream(srcFile);
+				String filePathName = path + "/" + file.getName();
+				// if in root folder no / necessary
+				if (path.length() == 0) {
+					filePathName = file.getName();
+				}
+				zip.putNextEntry(new ZipEntry(filePathName));
+				while ((len = in.read(buf)) > 0) {
+					zip.write(buf, 0, len);
+				}
+			} catch (IOException e) {
+				logger.error("Error while writing to " + srcFile, e);
+			} finally {
+				if (in != null) {
+					in.close();
+				}
 			}
-			zip.putNextEntry(new ZipEntry(filePathName));
-			while ((len = in.read(buf)) > 0) {
-				zip.write(buf, 0, len);
-			}
-			in.close();
+
 		}
 	}
 

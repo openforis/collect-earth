@@ -2,10 +2,10 @@ package org.openforis.collect.earth.sampler.processor;
 
 import java.io.BufferedWriter;
 import java.io.File;
-import java.io.FileNotFoundException;
-import java.io.FileWriter;
+import java.io.FileOutputStream;
 import java.io.IOException;
-import java.io.Writer;
+import java.io.OutputStreamWriter;
+import java.nio.charset.Charset;
 import java.text.SimpleDateFormat;
 import java.util.Arrays;
 import java.util.Date;
@@ -35,7 +35,7 @@ public abstract class KmlGenerator {
 
 	public static final String DEFAULT_HOST = "localhost";
 	public static final String DEFAULT_PORT = "80";
-	private static final SimpleDateFormat HTTP_HEADER_FORMAT = new SimpleDateFormat("EEE, dd MMM yyyy HH:mm:ss zzz");
+	private final SimpleDateFormat httpHeaderDf = new SimpleDateFormat("EEE, dd MMM yyyy HH:mm:ss zzz");
 
 	public static String getHostAddress(String host, String port) {
 		String hostAndPort = "";
@@ -78,7 +78,7 @@ public abstract class KmlGenerator {
 		Float fDistancePoints = Float.parseFloat(distanceBetweenSamplePoints);
 		// Build the data-model
 		Map<String, Object> data = getTemplateData(csvFile, fDistancePoints);
-		data.put("expiration", HTTP_HEADER_FORMAT.format(new Date()));
+		data.put("expiration", httpHeaderDf.format(new Date()));
 
 		// Get the HTML content of the ballong from a file, this way we can
 		// separate the KML generation so it is easier to create different KMLs
@@ -92,12 +92,18 @@ public abstract class KmlGenerator {
 		Template template = cfg.getTemplate(freemarkerKmlTemplateFile);
 
 		// Console output
-		FileWriter fw = new FileWriter(destinationFile);
-		Writer out = new BufferedWriter(fw);
-		template.process(data, out);
-		out.flush();
-		out.close();
-		fw.close();
+		BufferedWriter fw = null;
+		try {
+			fw = new BufferedWriter(new OutputStreamWriter(new FileOutputStream(destinationFile), Charset.forName("UTF-8")));
+
+			template.process(data, fw);
+		} catch (Exception e) {
+			logger.error("Error writing KML file", e);
+		} finally {
+			if (fw != null) {
+				fw.close();
+			}
+		}
 
 	}
 
@@ -151,10 +157,9 @@ public abstract class KmlGenerator {
 
 	}
 
-	protected abstract Map<String, Object> getTemplateData(String csvFile, float distanceBetweenSamplePoints)
-			throws FileNotFoundException, IOException;
+	protected abstract Map<String, Object> getTemplateData(String csvFile, float distanceBetweenSamplePoints) throws IOException;
 
-	protected Point transformToWGS84(double longitude, double latitude) throws IllegalArgumentException, TransformException,
+	protected Point transformToWGS84(double longitude, double latitude) throws TransformException,
 			FactoryException {
 
 		GeometryFactory gf = new GeometryFactory();

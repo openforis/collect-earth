@@ -6,7 +6,9 @@ import java.util.Observable;
 import java.util.Observer;
 import java.util.concurrent.TimeUnit;
 
+import org.eclipse.jetty.server.Connector;
 import org.eclipse.jetty.server.Server;
+import org.eclipse.jetty.server.bio.SocketConnector;
 import org.eclipse.jetty.util.thread.ExecutorThreadPool;
 import org.eclipse.jetty.webapp.WebAppContext;
 import org.openforis.collect.earth.app.service.LocalPropertiesService;
@@ -92,7 +94,11 @@ public class ServerController extends Observable {
 		// Look for that variable and default to 8080 if it isn't there.
 		// PropertyConfigurator.configure(this.getClass().getResource("/WEB-INF/conf/log4j.properties"));
 
-		server = new Server(getPort());
+		server = new Server();
+		// Use blocking-IO connector to improve throughput
+		Connector connector = new SocketConnector();
+		connector.setPort(getPort());
+		server.setConnectors(new Connector[] { connector });
 
 		server.setThreadPool(new ExecutorThreadPool(5, 50, 5, TimeUnit.SECONDS));
 
@@ -113,20 +119,6 @@ public class ServerController extends Observable {
 		getRoot().setParentLoaderPriority(true);
 
 		server.setHandler(getRoot());
-
-		// System.setProperty("java.naming.factory.url.pkgs",
-		// "org.eclipse.jetty.jndi");
-		// System.setProperty("java.naming.factory.initial",
-		// "org.eclipse.jetty.jndi.InitialContextFactory");
-		//
-		// EnvConfiguration envConfiguration = new EnvConfiguration();
-		// URL url = new File(webappDirLocation +
-		// "/META-INF/jetty-env.xml").toURI().toURL();
-		// envConfiguration.setJettyEnvXml(url);
-		//
-		// root.setConfigurations(new Configuration[] { new
-		// WebInfConfiguration(), envConfiguration, new WebXmlConfiguration()
-		// });
 
 		server.setGracefulShutdown(1000);
 		server.setStopAtShutdown(true);

@@ -55,7 +55,7 @@
 			<artifactId>jetty-webapp</artifactId>
 			<version>${jetty.version}</version>
 		</dependency>
-		<dependency>
+		<!-- <dependency>
 			<groupId>org.eclipse.jetty</groupId>
 			<artifactId>jetty-jndi</artifactId>
 			<version>${jetty.version}</version>
@@ -64,7 +64,7 @@
 			<groupId>org.eclipse.jetty</groupId>
 			<artifactId>jetty-plus</artifactId>
 			<version>${jetty.version}</version>
-		</dependency>
+		</dependency> -->
 		
 		<dependency>
 			<groupId>org.openforis.collect</groupId>
@@ -147,7 +147,7 @@
 			<artifactId>commons-io</artifactId>
 			<version>2.4</version>
 		</dependency>
-		<dependency>
+ 		<dependency>
 			<groupId>commons-fileupload</groupId>
 			<artifactId>commons-fileupload</artifactId>
 			<version>1.2.1</version>
@@ -176,11 +176,11 @@
 			<artifactId>commons-dbcp</artifactId>
 			<version>1.4</version>
 		</dependency>
-		<dependency>
+<!-- 		<dependency>
 			  <groupId>org.mockito</groupId>
 			  <artifactId>mockito-all</artifactId>  
 			  <version>1.9.0</version> 
-		</dependency>
+		</dependency> -->
 	</dependencies>
 	<build>
 		<plugins>

@@ -123,19 +123,20 @@ public class CollectParametersHandlerService {
 
 	private String removeArraySuffix(String parameterName) {
 
-		int lastUnderscore = parameterName.lastIndexOf("_");
-		String passibleInteger = parameterName.substring(lastUnderscore + 1);
+		String cleanParamater = parameterName;
+		int lastUnderscore = cleanParamater.lastIndexOf("_");
+		String passibleInteger = cleanParamater.substring(lastUnderscore + 1);
 
 		try {
 			Integer.parseInt(passibleInteger);
 
-			parameterName = parameterName.substring(0, lastUnderscore);
+			cleanParamater = cleanParamater.substring(0, lastUnderscore);
 
 		} catch (NumberFormatException e) {
 			// It is not an integer suffix, do nothing
 		}
 
-		return parameterName;
+		return cleanParamater;
 	}
 
 
@@ -158,9 +159,9 @@ public class CollectParametersHandlerService {
 	}
 
 	private String cleanUpParameterName(String parameterName) {
-		parameterName = removeArraySuffix(parameterName);
-		parameterName = removePrefix(parameterName);
-		return parameterName;
+		String cleanParameter = removeArraySuffix(parameterName);
+		cleanParameter = removePrefix(cleanParameter);
+		return cleanParameter;
 	}
 
 }

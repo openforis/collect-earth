@@ -1,8 +1,10 @@
 package org.openforis.collect.earth.sampler.processor;
 
-import java.io.FileNotFoundException;
-import java.io.FileReader;
+import java.io.BufferedReader;
+import java.io.FileInputStream;
 import java.io.IOException;
+import java.io.InputStreamReader;
+import java.nio.charset.Charset;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -22,29 +24,40 @@ public class OnePointKmlGenerator extends KmlGenerator{
 	}
 
 	@Override
-	protected Map<String, Object> getTemplateData(String csvFile, float distanceBetweenSamplePoints)
-			throws FileNotFoundException,
-			IOException {
+	protected Map<String, Object> getTemplateData(String csvFile, float distanceBetweenSamplePoints) throws IOException {
 		Map<String, Object> data = new HashMap<String, Object>();
 
 		// Read CSV file so that we can store the information in a Map that can
 		// be used by freemarker to do the "goal-replacement"
-		CSVReader reader = new CSVReader(new FileReader(csvFile), ' ');
-		String[] nextRow;
-		List<SimplePlacemarkObject> placemarks = new ArrayList<SimplePlacemarkObject>();
-		while ((nextRow = reader.readNext()) != null) {
-			// nextLine[] is an array of values from the line
-			try {
-				Point transformedPoint = transformToWGS84(Double.parseDouble(nextRow[1]), Double.parseDouble(nextRow[2]));
-				placemarks.add(new SimplePlacemarkObject(transformedPoint.getCoordinate(), "ge_" + nextRow[0]));
-			} catch (NumberFormatException e) {
-				getLogger().error("Error in the number formatting", e);
-			} catch (Exception e) {
-				getLogger().error("Errortransforming to WGS864", e);
-			}
+		CSVReader reader = null;
+		List<SimplePlacemarkObject> placemarks = null;
+		try {
+			BufferedReader bufferedReader = new BufferedReader(new InputStreamReader(new FileInputStream(csvFile),
+					Charset.forName("UTF-8")));
+			reader = new CSVReader(bufferedReader, ',');
 
+			String[] nextRow;
+			placemarks = new ArrayList<SimplePlacemarkObject>();
+			while ((nextRow = reader.readNext()) != null) {
+				// nextLine[] is an array of values from the line
+				try {
+					Point transformedPoint = transformToWGS84(Double.parseDouble(nextRow[1]), Double.parseDouble(nextRow[2]));
+					placemarks.add(new SimplePlacemarkObject(transformedPoint.getCoordinate(), "ge_" + nextRow[0]));
+				} catch (NumberFormatException e) {
+					getLogger().error("Error in the number formatting", e);
+				} catch (Exception e) {
+					getLogger().error("Errortransforming to WGS864", e);
+				}
+
+			}
+		} catch (Exception e) {
+			getLogger().error("Error reading CSV file " + csvFile, e);
+		} finally {
+			if (reader != null) {
+				reader.close();
+			}
 		}
-		reader.close();
+
 		data.put("placemarks", placemarks);
 		return data;
 	}

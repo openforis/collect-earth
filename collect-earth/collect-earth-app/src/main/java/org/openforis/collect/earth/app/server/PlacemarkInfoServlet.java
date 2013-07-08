@@ -18,6 +18,7 @@ public class PlacemarkInfoServlet extends JsonPocessorServlet {
 	// @Autowired
 	// BrowserService browserService;
 
+
 	private String getPlacemarkId(Map<String, String> collectedData) {
 		return collectedData.get(ServerController.PLACEMARK_ID);
 	}
@@ -41,8 +42,7 @@ public class PlacemarkInfoServlet extends JsonPocessorServlet {
 				placemarkId = "testPlacemark";
 			}
 			collectedData = getDataAccessor().getData(placemarkId);
-			if (collectedData != null
- && collectedData.get(EarthSurveyService.PLACEMARK_FOUND_PARAMETER) != null
+			if (collectedData != null && collectedData.get(EarthSurveyService.PLACEMARK_FOUND_PARAMETER) != null
 					&& collectedData.get(EarthSurveyService.PLACEMARK_FOUND_PARAMETER).equals("true")) {
 
 				setResult(true, "The placemark was found", collectedData);
@@ -60,8 +60,7 @@ public class PlacemarkInfoServlet extends JsonPocessorServlet {
 
 		// browserService.openBrowser(originalCoordinates);
 
-		setJsonResponse(response, collectedData);
-
+		getJsonService().setJsonResponse(response, collectedData);
 
 	}
 

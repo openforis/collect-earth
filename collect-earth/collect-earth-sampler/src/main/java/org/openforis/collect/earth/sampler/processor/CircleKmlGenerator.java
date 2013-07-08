@@ -10,6 +10,10 @@ import org.opengis.referencing.operation.TransformException;
 
 public class CircleKmlGenerator extends PolygonKmlGenerator {
 
+	private static final int NUMBER_OF_NON_CENTRAL_SAMPLING_POINTS = 24;
+
+	private static final int RADIUS_OF_CIRCLE = 40;
+
 	private static final int NUMBER_OF_EXTERNAL_POINTS = 70;
 
 	private static final int MARGIN_CIRCLE = 5;
@@ -63,9 +67,10 @@ public class CircleKmlGenerator extends PolygonKmlGenerator {
 		pointsInPlacemark.add(insidePlacemark);
 
 		int numPoints = 0;
-		while (numPoints < 24) {
+		while (numPoints < NUMBER_OF_NON_CENTRAL_SAMPLING_POINTS) {
 
-			SimplePlacemarkObject randomSamplingPoint = getRandomPosition(40, coordOriginalPoints, currentPlaceMarkId);
+			SimplePlacemarkObject randomSamplingPoint = getRandomPosition(RADIUS_OF_CIRCLE, coordOriginalPoints,
+					currentPlaceMarkId);
 			if (!checkPlacemarkOverlaps(randomSamplingPoint, pointsInPlacemark)) {
 				pointsInPlacemark.add(randomSamplingPoint);
 				numPoints++;

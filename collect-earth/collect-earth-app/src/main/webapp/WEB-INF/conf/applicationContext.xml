@@ -186,6 +186,8 @@
 	
 	<bean id="dataExportService" class="org.openforis.collect.earth.app.service.DataExportService" />
 	
+	<bean id="jsonService" class="org.openforis.collect.earth.app.service.JsonService" />
+	
 	<bean id="collectParametersHandler" class="org.openforis.collect.earth.app.service.CollectParametersHandlerService"/>
 	
 	<bean id="preloadedFilesService" class="org.openforis.collect.earth.app.service.PreloadedFilesService"/>

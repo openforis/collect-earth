@@ -1,8 +1,11 @@
 package org.openforis.collect.earth.sampler.processor;
 
-import java.io.FileNotFoundException;
-import java.io.FileReader;
+import java.awt.geom.Rectangle2D;
+import java.io.BufferedReader;
+import java.io.FileInputStream;
 import java.io.IOException;
+import java.io.InputStreamReader;
+import java.nio.charset.Charset;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -35,59 +38,89 @@ public abstract class PolygonKmlGenerator extends KmlGenerator {
 	}
 
 	@Override
-	protected Map<String, Object> getTemplateData(String csvFile, float distanceBetweenSamplePoints)
-			throws FileNotFoundException, IOException {
+	protected Map<String, Object> getTemplateData(String csvFile, float distanceBetweenSamplePoints) throws IOException {
 		Map<String, Object> data = new HashMap<String, Object>();
 
 		SimplePlacemarkObject previousPlacemark = null;
 
+		
+		Rectangle2D viewFrame = new Rectangle2D.Float();
+		boolean firstPoint = true;
 		// Read CSV file so that we can store the information in a Map that can
 		// be used by freemarker to do the "goal-replacement"
-		CSVReader reader = new CSVReader(new FileReader(csvFile), ',');
 		String[] nextRow;
-		List<SimplePlacemarkObject> placemarks = new ArrayList<SimplePlacemarkObject>();
-		while ((nextRow = reader.readNext()) != null) {
-			try {
 
-				double originalX = Double.parseDouble(nextRow[1]);
-				double originalY = Double.parseDouble(nextRow[2]);
+		CSVReader reader = null;
+		List<SimplePlacemarkObject> placemarks = null;
+		try {
+			BufferedReader bufferedReader = new BufferedReader(new InputStreamReader(new FileInputStream(csvFile),
+					Charset.forName("UTF-8")));
+			reader = new CSVReader(bufferedReader, ',');
+			placemarks = new ArrayList<SimplePlacemarkObject>();
+			while ((nextRow = reader.readNext()) != null) {
+				try {
 
-				Point transformedPoint = transformToWGS84(originalX, originalY); // TOP-LEFT
+					double originalX = Double.parseDouble(nextRow[1]);
+					double originalY = Double.parseDouble(nextRow[2]);
+					Point transformedPoint = transformToWGS84(originalX, originalY); // TOP-LEFT
 
-				// This should be the position at the center of the plot
-				double[] coordOriginalPoints = new double[] { transformedPoint.getX(), transformedPoint.getY() };
-				// Since we use the coordinates with TOP-LEFT anchoring then we
-				// need to move the #original point@ to the top left so that
-				// the center ends up bein the expected original coord
+					if (firstPoint) {
+						viewFrame.setRect(transformedPoint.getX(), transformedPoint.getY(), 0, 0);
+						firstPoint = false;
+					} else {
+						Rectangle2D rectTemp = new Rectangle2D.Float();
+						rectTemp.setRect(transformedPoint.getX(), transformedPoint.getY(), 0, 0);
+						viewFrame = viewFrame.createUnion(rectTemp);
+					}
 
-				String currentPlaceMarkId = PLACEMARK_ID_PREFIX + nextRow[0];
-				SimplePlacemarkObject parentPlacemark = new SimplePlacemarkObject(transformedPoint.getCoordinate(),
-						currentPlaceMarkId);
 
-				if (previousPlacemark != null) {
-					// Give the current ID to the previous placemark so that we
-					// can move from placemark to placemark
-					previousPlacemark.setNextPlacemarkId(currentPlaceMarkId);
+					// This should be the position at the center of the plot
+					double[] coordOriginalPoints = new double[] { transformedPoint.getX(), transformedPoint.getY() };
+					// Since we use the coordinates with TOP-LEFT anchoring then
+					// we
+					// need to move the #original point@ to the top left so that
+					// the center ends up bein the expected original coord
+
+					String currentPlaceMarkId = PLACEMARK_ID_PREFIX + nextRow[0];
+					SimplePlacemarkObject parentPlacemark = new SimplePlacemarkObject(transformedPoint.getCoordinate(),
+							currentPlaceMarkId);
+
+					if (previousPlacemark != null) {
+						// Give the current ID to the previous placemark so that
+						// we
+						// can move from placemark to placemark
+						previousPlacemark.setNextPlacemarkId(currentPlaceMarkId);
+					}
+
+					previousPlacemark = parentPlacemark;
+
+					fillSamplePoints(distanceBetweenSamplePoints, coordOriginalPoints, currentPlaceMarkId, parentPlacemark);
+
+					fillExternalLine(distanceBetweenSamplePoints, coordOriginalPoints, parentPlacemark);
+
+					placemarks.add(parentPlacemark);
+
+				} catch (NumberFormatException e) {
+					logger.error("Error in the number formatting", e);
+				} catch (Exception e) {
+					logger.error("Error in the number formatting", e);
 				}
-
-				previousPlacemark = parentPlacemark;
-				
-				fillSamplePoints(distanceBetweenSamplePoints, coordOriginalPoints,
-						currentPlaceMarkId, parentPlacemark);
-
-				fillExternalLine(distanceBetweenSamplePoints, coordOriginalPoints, parentPlacemark);
-
-				placemarks.add(parentPlacemark);
-
-			} catch (NumberFormatException e) {
-				logger.error("Error in the number formatting", e);
-			} catch (Exception e) {
-				logger.error("Error in the number formatting", e);
 			}
-
+		} catch (Exception e) {
+			logger.error("Error reading CSV", e);
+		} finally {
+			if (reader != null) {
+				reader.close();
+			}
 		}
-		reader.close();
+
 		data.put("placemarks", placemarks);
+		data.put("region_north", viewFrame.getMaxY() + "");
+		data.put("region_south", viewFrame.getMinY() + "");
+		data.put("region_west", viewFrame.getMinX() + "");
+		data.put("region_east", viewFrame.getMaxX() + "");
+		data.put("region_center_X", viewFrame.getCenterX() + "");
+		data.put("region_center_Y", viewFrame.getCenterY() + "");
 		data.put("host", KmlGenerator.getHostAddress(host, port));
 
 		return data;
@@ -95,9 +128,7 @@ public abstract class PolygonKmlGenerator extends KmlGenerator {
 
 	protected List<SimpleCoordinate> getSamplePointPolygon(double[] miniPlacemarkPosition) throws TransformException {
 		List<SimpleCoordinate> coords = new ArrayList<SimpleCoordinate>();
-
 		coords.add(new SimpleCoordinate(miniPlacemarkPosition)); // TOP-LEFT
-
 		coords.add(new SimpleCoordinate(getPointWithOffset(miniPlacemarkPosition, INNER_RECT_SIDE, 0))); // TOP-RIGHT
 		coords.add(new SimpleCoordinate(getPointWithOffset(miniPlacemarkPosition, INNER_RECT_SIDE, INNER_RECT_SIDE))); // BOTTOM-RIGHT
 		coords.add(new SimpleCoordinate(getPointWithOffset(miniPlacemarkPosition, 0, INNER_RECT_SIDE))); // BOTTOM-LEFT

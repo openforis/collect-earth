@@ -147,6 +147,12 @@ earth_skip_filled
 		 }else{
 			 $('.settlementDiv').hide();
 		 }
+		 
+		 if( selectedValue != 'forest'){
+			 $('#trees_element').show();
+		 }else{
+			 $('#trees_element').hide();
+		 }
 	}
 	
 	var fillDataWithJson = function(json) {
@@ -978,7 +984,7 @@ Shirinking functionality removed!!!
 										</select>
 		
 									</div>
-									<div class="input-prepend">
+									<div class="input-prepend" id="trees_element">
 										<span class="add-on">Trees</span> <select
 											class="selectpicker  show-tick show-menu-arrow "
 											id="collect_entity_topography[trees].code_coverage" name="collect_entity_topography[trees].code_coverage"

@@ -7,7 +7,7 @@
 
 <Document>
 	<name>Mongolia Interpretation</name>
-
+	<open>1</open>
 <Style id="placemark-balloon-style">
     <BalloonStyle>
       <text>
@@ -27,7 +27,17 @@ ${html_for_ballong}
 	</PolyStyle>
 
 </Style>
-  
+ <LookAt>
+      <longitude>${region_center_X}</longitude>
+      <latitude>${region_center_Y}</latitude>
+      <altitude>0</altitude>
+      <range>150000</range>
+      <tilt>0</tilt>
+      <heading>0</heading>
+      <altitudeMode>relativeToGround</altitudeMode>
+ </LookAt>
+ 
+ 
  	 <#-- Iterate over placemarks, store values in variable placemark -- START -->
 	<#list placemarks as placemark >
 
@@ -53,6 +63,22 @@ ${html_for_ballong}
 		  <rotation>0.</rotation> 
 		 </LatLonBox>
 		</GroundOverlay>
+		<Region>
+			<LatLonAltBox>
+				<south>${placemark.region.south}</south>
+				<north>${placemark.region.north}</north>
+			  	<west>${placemark.region.west}</west>
+			  	<east>${placemark.region.east}</east> 
+				<minAltitude>0</minAltitude>
+				<maxAltitude>0</maxAltitude>
+			</LatLonAltBox>
+			<Lod>
+				<minLodPixels>16</minLodPixels>
+				<maxLodPixels>-1</maxLodPixels>
+				<minFadeExtent>0</minFadeExtent>
+				<maxFadeExtent>0</maxFadeExtent>
+			</Lod>
+		</Region>
 	</Folder>
 	
 	<LookAt>
@@ -64,6 +90,7 @@ ${html_for_ballong}
       <heading>0</heading>
       <altitudeMode>relativeToGround</altitudeMode>
     </LookAt>
+    
     
 	<Placemark id="${placemark.placemarkId}">
 		<name>${placemark.placemarkId}</name>
@@ -83,8 +110,8 @@ ${html_for_ballong}
 		      </Data>
      	</ExtendedData>
      	<gx:balloonVisibility>0</gx:balloonVisibility>
-  		<styleUrl>#placemark-balloon-style</styleUrl>
-		
+  		<styleUrl>#placemark-balloon-style</styleUrl>			
+			
 		<LookAt>
 	      <longitude>${placemark.coord.longitude}</longitude>
 	      <latitude>${placemark.coord.latitude}</latitude>

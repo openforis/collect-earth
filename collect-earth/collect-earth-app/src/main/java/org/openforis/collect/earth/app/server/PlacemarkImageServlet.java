@@ -23,7 +23,6 @@ import org.springframework.web.bind.annotation.RequestParam;
 @Controller
 public class PlacemarkImageServlet extends DataAccessingServlet {
 
-
 	@Autowired
 	private EarthSurveyService earthSurveyService;
 
@@ -36,26 +35,18 @@ public class PlacemarkImageServlet extends DataAccessingServlet {
 			@RequestParam(value = "listView", required = false) Boolean listView)
 			throws IOException, URISyntaxException {
 
-		if (listView == null) {
-			listView = Boolean.FALSE;
-		}
-
-		// Check if placemark already filled
-		// , @RequestParam String gePlacemarkId
-		// String gePlacemarkId = "";
-		getLogger().info("Trying to load icon for placemark with id : " + placemarkId);
 
 		Map<String, String> placemarkParameters = earthSurveyService.getPlacemark(placemarkId);
 		String imageName = "";
 
 		if (earthSurveyService.isPlacemarSavedActively(placemarkParameters)) {
-			if (listView) {
+			if (listView != null && listView) {
 				imageName = EarthConstants.LIST_FILLED_IMAGE;
 			} else {
 				imageName = EarthConstants.FILLED_IMAGE;
 			}
 		} else {
-			if (listView) {
+			if (listView != null && listView) {
 				imageName = EarthConstants.LIST_NON_FILLED_IMAGE;
 			} else {
 				imageName = EarthConstants.NON_FILLED_IMAGE;
@@ -96,7 +87,13 @@ public class PlacemarkImageServlet extends DataAccessingServlet {
 	}
 
 	private void writeToResponse(HttpServletResponse response, byte[] fileContents) throws IOException {
-		response.getOutputStream().write(fileContents);
-		response.getOutputStream().close();
+		try {
+			response.getOutputStream().write(fileContents);
+		} catch (Exception e) {
+			getLogger().error("Error writing reponse body to output stream ", e);
+		} finally {
+			response.getOutputStream().close();
+		}
+
 	}
 }

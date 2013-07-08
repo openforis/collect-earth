@@ -4,6 +4,7 @@
 	
 	<NetworkLink>
 	  <name>Survey</name>
+	  <open>1</open>
 	  <Link>
 	    <!-- add date to avoid Google Earth from caching -->
 	    <href>${host}generated/gePlugin.kmz?generatedOn=${kmlGeneratedOn}</href>

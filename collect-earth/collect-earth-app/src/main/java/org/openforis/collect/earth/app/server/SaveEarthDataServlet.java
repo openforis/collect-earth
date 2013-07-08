@@ -38,7 +38,7 @@ public class SaveEarthDataServlet extends JsonPocessorServlet {
 			}
 		}
 
-		setJsonResponse(response, collectedData);
+		getJsonService().setJsonResponse(response, collectedData);
 	}
 
 }

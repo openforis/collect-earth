@@ -35,18 +35,12 @@ import org.springframework.beans.factory.annotation.Autowired;
 public class EarthSurveyService {
 
 	private static final String COLLECT_BOOLEAN_ACTIVELY_SAVED = "collect_boolean_actively_saved";
-
 	private static final String COLLECT_TEXT_OPERATOR = "collect_text_operator";
-
 	private static final String EARTH_SURVEY_NAME = "earth";
-
 	public static final String PLACEMARK_FOUND_PARAMETER = "placemark_found";
-
-	public static final String ROOT_ENTITY_NAME = "plot";
 	public static final int ROOT_ENTITY_ID = 1;
-
+	public static final String ROOT_ENTITY_NAME = "plot";
 	private static final String SKIP_FILLED_PLOT_PARAMETER = "earth_skip_filled";
-
 
 	@Autowired
 	private CollectParametersHandlerService collectParametersHandler;
@@ -75,10 +69,11 @@ public class EarthSurveyService {
 	private void addValidationMessages(Map<String, String> parameters, CollectRecord record) {
 		// Validation
 		recordManager.validate(record);
+		
 		RecordValidationReportGenerator reportGenerator = new RecordValidationReportGenerator(record);
 		List<RecordValidationReportItem> validationItems = reportGenerator.generateValidationItems();
+		
 		for (RecordValidationReportItem recordValidationReportItem : validationItems) {
-
 			String label = "";
 			if (recordValidationReportItem.getNodeId() != null) {
 				Node<?> node = record.getNodeByInternalId(recordValidationReportItem.getNodeId());
@@ -104,6 +99,25 @@ public class EarthSurveyService {
 
 	}
 
+	private CollectRecord createRecord(String sessionId) throws RecordPersistenceException {
+		Schema schema = getCollectSurvey().getSchema();
+		CollectRecord record = recordManager.create(getCollectSurvey(), schema.getRootEntityDefinition(ROOT_ENTITY_NAME), null, null, sessionId);
+		return record;
+	}
+
+	public List<String> getAllFilledPlacemarkIds() {
+		List<CollectRecord> summaries = recordManager.loadSummaries(getCollectSurvey(), ROOT_ENTITY_NAME);
+		List<String> ids = new Vector<String>();
+		for (CollectRecord record : summaries) {
+			CollectRecord recordloaded = recordManager.load(getCollectSurvey(), record.getId(), Step.ENTRY);
+			List<String> keys = recordloaded.getRootEntityKeyValues();
+			for (String key : keys) {
+				ids.add(key);
+			}
+		}
+		return ids;
+	}
+
 	CollectSurvey getCollectSurvey() {
 		return collectSurvey;
 	}
@@ -120,14 +134,13 @@ public class EarthSurveyService {
 			record = summaries.get(0);
 			record = recordManager.load(getCollectSurvey(), record.getId(), Step.ENTRY);
 			placemarkParameters = collectParametersHandler.getParameters(record.getRootEntity());
-			
+
 			if (placemarkParameters.get("collect_code_crown_cover") != null
 					&& placemarkParameters.get("collect_code_crown_cover").equals("0")) {
 				placemarkParameters.put("collect_code_crown_cover",
-						"0;collect_code_deforestation_reason="
-						+ placemarkParameters.get("collect_code_deforestation_reason"));
+						"0;collect_code_deforestation_reason=" + placemarkParameters.get("collect_code_deforestation_reason"));
 			}
-			
+
 			addResultParameter(placemarkParameters, true);
 		} else {
 			placemarkParameters = new HashMap<String, String>();
@@ -137,6 +150,29 @@ public class EarthSurveyService {
 		addLocalProperties(placemarkParameters);
 
 		return placemarkParameters;
+	}
+
+	public List<CollectRecord> getRecordsSavedSince(Date updatedSince) {
+		List<CollectRecord> summaries = recordManager.loadSummaries(getCollectSurvey(), ROOT_ENTITY_NAME, 0, 15,
+				Arrays.asList(new RecordSummarySortField(Sortable.DATE_MODIFIED, true)), (String[]) null);
+		if (updatedSince != null && summaries != null && !summaries.isEmpty()) {
+			List<CollectRecord> records = new ArrayList<CollectRecord>();
+			for (int i = 0; i < summaries.size(); i++) {
+				CollectRecord summary = summaries.get(i);
+				CollectRecord record = recordManager.load(getCollectSurvey(), summary.getId(), Step.ENTRY);
+
+				if (record.getModifiedDate() != null && record.getModifiedDate().after(updatedSince)) {
+					records.add(record);
+				}
+
+				if (record.getModifiedDate() != null && record.getModifiedDate().before(updatedSince)) {
+					break;
+				}
+			}
+			return records;
+		} else {
+			return null;
+		}
 	}
 
 	public void init() throws FileNotFoundException, IdmlParseException, SurveyImportException {
@@ -168,10 +204,6 @@ public class EarthSurveyService {
 				&& parameters.get(COLLECT_BOOLEAN_ACTIVELY_SAVED).equals("true");
 	}
 
-	public void setPlacemarSavedActively(Map<String, String> parameters, boolean value) {
-		parameters.put(COLLECT_BOOLEAN_ACTIVELY_SAVED, value + "");
-	}
-
 	private void saveLocalProperties(Map<String, String> parameters) {
 		// Save extra information
 		localPropertiesService.setSkipFilledPlots(parameters.get(SKIP_FILLED_PLOT_PARAMETER));
@@ -179,6 +211,10 @@ public class EarthSurveyService {
 
 	void setCollectSurvey(CollectSurvey collectSurvey) {
 		this.collectSurvey = collectSurvey;
+	}
+
+	public void setPlacemarSavedActively(Map<String, String> parameters, boolean value) {
+		parameters.put(COLLECT_BOOLEAN_ACTIVELY_SAVED, value + "");
 	}
 
 	public boolean storePlacemark(Map<String, String> parameters, String sessionId) {
@@ -241,50 +277,6 @@ public class EarthSurveyService {
 		}
 
 		return success;
-	}
-
-	public List<CollectRecord> getRecordsSavedSince(Date updatedSince) {
-		List<CollectRecord> summaries = recordManager.loadSummaries(getCollectSurvey(), ROOT_ENTITY_NAME, 0, 15,
-				Arrays.asList(new RecordSummarySortField(Sortable.DATE_MODIFIED, true)), (String[]) null);
-		if (updatedSince!=null && summaries != null && !summaries.isEmpty()) {
-			List<CollectRecord> records = new ArrayList<CollectRecord>();
-			for (int i = 0; i < summaries.size(); i++) {
-				CollectRecord summary = summaries.get(i);
-				CollectRecord record = recordManager.load(getCollectSurvey(), summary.getId(), Step.ENTRY);
-
-				if (record.getModifiedDate() != null && record.getModifiedDate().after(updatedSince) ) {
-					records.add(record);
-				}
-				
-				if (record.getModifiedDate() != null && record.getModifiedDate().before(updatedSince)) {
-					break;
-				}
-			}
-			return records;
-		} else {
-			return null;
-		}
-	}
-
-	private CollectRecord createRecord(String sessionId) throws RecordPersistenceException {
-		CollectRecord record;
-		Schema schema = getCollectSurvey().getSchema();
-		record = recordManager
-				.create(getCollectSurvey(), schema.getRootEntityDefinition(ROOT_ENTITY_NAME), null, null, sessionId);
-		return record;
-	}
-
-	public List<String> getAllFilledPlacemarkIds() {
-		List<CollectRecord> summaries = recordManager.loadSummaries(getCollectSurvey(), ROOT_ENTITY_NAME);
-		List<String> ids = new Vector<String>();
-		for (CollectRecord record : summaries) {
-			CollectRecord recordloaded = recordManager.load(getCollectSurvey(), record.getId(), Step.ENTRY);
-			List<String> keys = recordloaded.getRootEntityKeyValues();
-			for (String key : keys) {
-				ids.add(key);
-			}
-		}
-		return ids;
 	}
 
 }

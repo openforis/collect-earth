@@ -105,16 +105,17 @@ public class LocalPropertiesService {
 	}
 
 	public void setSkipFilledPlots(String shouldSkip) {
+		String booleanSkip = "";
 		if (shouldSkip != null && shouldSkip.length() > 0) {
 			if (shouldSkip.equals("on")) {
-				shouldSkip = "true";
+				booleanSkip = "true";
 			} else if (shouldSkip.equals("off")) {
-				shouldSkip = "false";
+				booleanSkip = "false";
 			}
 		} else {
-			shouldSkip = "false";
+			booleanSkip = "false";
 		}
-		properties.put(SKIP_FILLED_KEY, shouldSkip);
+		properties.put(SKIP_FILLED_KEY, booleanSkip);
 		storeProperties();
 	}
 

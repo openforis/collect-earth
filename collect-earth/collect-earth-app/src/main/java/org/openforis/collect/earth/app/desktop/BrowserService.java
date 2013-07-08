@@ -22,12 +22,15 @@ public class BrowserService {
 		} catch (InterruptedException e) {
 			logger.error("Error when opening browser window", e);
 		}
+		
+
 		// driver.navigate().to("https://maps.google.com/?ll=" + latLong[1] +
 		// "," + latLong[0] + "&spn=0.16423,0.41851&t=h&z=12");
 	}
 
 	private void loadLayers() throws InterruptedException {
 		driver.navigate().to("http://earthengine.google.org/#detail/LANDSAT%2FL5_L1T_ANNUAL_GREENEST_TOA");
+		
 		driver.findElementById("d_open_button").click();
 		driver.wait(3000);
 
