@@ -492,6 +492,9 @@
 			<boolean id="18" name="actively_saved">
 				<label xml:lang="en">Actively saved by user</label>
 			</boolean>
+			<number id="30" name="elevation" type="integer" >
+				<label xml:lang="en">Elevation</label>
+			</number>
 		</entity>
 	</schema>
 </survey>

@@ -27,6 +27,15 @@ ${html_for_ballong}
 	</PolyStyle>
 
 </Style>
+
+	<Style id="line-style">
+		<LineStyle>
+			<color>#a00000ff</color>
+			 <colorMode>normal</colorMode>
+			<width>3</width>      
+		</LineStyle>
+	</Style>
+	
  <LookAt>
       <longitude>${region_center_X}</longitude>
       <latitude>${region_center_Y}</latitude>
@@ -91,7 +100,18 @@ ${html_for_ballong}
       <altitudeMode>relativeToGround</altitudeMode>
     </LookAt>
     
-    
+	<#if placemark.samplePointOutlined?? >
+	    <Placemark>
+	    	<styleUrl>#line-style</styleUrl>	
+			<LineString>
+	          <coordinates>
+		          <#list placemark.points[ placemark.samplePointOutlined ].shape as squareCorners>
+		          	${squareCorners.longitude},${squareCorners.latitude},0
+		          </#list>
+	          </coordinates>
+			</LineString>
+	    </Placemark>
+    </#if>
 	<Placemark id="${placemark.placemarkId}">
 		<name>${placemark.placemarkId}</name>
 		<ExtendedData>
@@ -100,6 +120,9 @@ ${html_for_ballong}
 		      </Data>
 		      <Data name="latitude">
 		        <value>${placemark.coord.latitude}</value>
+		      </Data>
+		       <Data name="elevation">
+		        <value>${placemark.elevation}</value>
 		      </Data>
 		       <Data name="next_id">
 		        <value>${placemark.nextPlacemarkId}</value>

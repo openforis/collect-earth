@@ -31,6 +31,7 @@ When multiple values can be sent ( in a multiple select for instance ) the data 
 So, for Mongolia we expect these values :
 collect_text_id
 collect_coord_location
+collect_integer_elevation
 collect_text_operator ( filled in the earthSurveyService store method as the operator name is fetched through a properties file)
 collect_code_land_use
 collect_boolean_land_use_change
@@ -560,7 +561,9 @@ hr {
 			
 
 				<input type="hidden" id="collect_coord_location" 
-					name="collect_coord_location" value="$[longitude],$[latitude]" />
+					name="collect_coord_location" value="$[latitude],$[longitude]" />
+				<input type="hidden" id="collect_integer_elevation" 
+					name="collect_integer_elevation" value="$[elevation]" />
 				<input type="hidden" id="collect_text_id"
 					name="collect_text_id" value="$[id]" />
 				<input type="hidden" id="collect_code_land_use" name="collect_code_land_use"
@@ -613,7 +616,7 @@ Shirinking functionality removed!!!
 	
 							<div id="toolbar" class="capsuleCat ui-corner-all"
 							style="width: 96%">
-							<h5>Land Use</h5>
+							<h5>Land Use long $[longitude], lat $[latitude]  -- Elevation $[elevation]</h5>
 							<div class="control-group">
 
 								<div class="btn-group land_use_option" data-toggle="buttons-radio" id="collect_code_land_use_group">
@@ -1073,7 +1076,7 @@ Shirinking functionality removed!!!
  								<a href="#">I am clickable but not selected</a></div>  -->
 							    
 						</div>
-						<div class="label-over">Time</div>
+						<div class="label-over">Date</div>
 							<div class="control-group">
 								 <input type="text" id="collect_date_rs_date" name="collect_date_rs_date" placeholder="month/day/year">
 							</div>

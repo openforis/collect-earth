@@ -12,26 +12,17 @@ import java.util.Date;
 import java.util.Map;
 
 import org.apache.commons.io.FileUtils;
-import org.geotools.geometry.jts.JTS;
-import org.geotools.referencing.CRS;
 import org.geotools.referencing.GeodeticCalculator;
 import org.geotools.referencing.crs.DefaultGeographicCRS;
-import org.opengis.referencing.FactoryException;
-import org.opengis.referencing.crs.CoordinateReferenceSystem;
-import org.opengis.referencing.operation.MathTransform;
 import org.opengis.referencing.operation.TransformException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
-import com.vividsolutions.jts.geom.Coordinate;
-import com.vividsolutions.jts.geom.GeometryFactory;
-import com.vividsolutions.jts.geom.Point;
 
 import freemarker.template.Configuration;
 import freemarker.template.Template;
 import freemarker.template.TemplateException;
 
-public abstract class KmlGenerator {
+public abstract class KmlGenerator extends AbstractEpsgAware {
 
 	public static final String DEFAULT_HOST = "localhost";
 	public static final String DEFAULT_PORT = "80";
@@ -52,13 +43,11 @@ public abstract class KmlGenerator {
 	}
 
 	private final GeodeticCalculator calc = new GeodeticCalculator(DefaultGeographicCRS.WGS84);
-	private final String epsgCode;
 
 	private final Logger logger = LoggerFactory.getLogger(this.getClass());
 
 	public KmlGenerator(String epsgCode) {
-		super();
-		this.epsgCode = epsgCode;
+		super(epsgCode);
 	}
 
 	public void generateFromCsv(String csvFile, String ballongFile, String freemarkerKmlTemplateFile, String destinationKmlFile,
@@ -158,21 +147,5 @@ public abstract class KmlGenerator {
 	}
 
 	protected abstract Map<String, Object> getTemplateData(String csvFile, float distanceBetweenSamplePoints) throws IOException;
-
-	protected Point transformToWGS84(double longitude, double latitude) throws TransformException,
-			FactoryException {
-
-		GeometryFactory gf = new GeometryFactory();
-		Coordinate c = new Coordinate(longitude, latitude);
-
-		Point p = gf.createPoint(c);
-		// EPSG::1164 Mongolia ( ccording to http://www.epsg-registry.org/ )
-		if (epsgCode.trim().length() > 0 && !epsgCode.equals("LATLONG") && !epsgCode.equals("WGS84")) {
-			CoordinateReferenceSystem utmCrs = CRS.decode(epsgCode);
-			MathTransform mathTransform = CRS.findMathTransform(utmCrs, DefaultGeographicCRS.WGS84, false);
-			p = (Point) JTS.transform(p, mathTransform);
-		}
-		return p;
-	}
 
 }

@@ -18,11 +18,24 @@ public class SimplePlacemarkObject {
 
 	private List<SimpleCoordinate> shape;
 
-	public SimplePlacemarkObject(Coordinate coord, String placemarkId) {
+	private Integer samplePointOutlined;
+
+	private int elevation;
+
+	public int getElevation() {
+		return elevation;
+	}
+
+	public void setElevation(int elevation) {
+		this.elevation = elevation;
+	}
+
+	public SimplePlacemarkObject(Coordinate coord, String placemarkId, Integer elevation) {
 		super();
 		this.placemarkId = placemarkId;
 		this.coord = new SimpleCoordinate(coord);
 		this.nextPlacemarkId = "unknown";
+		this.elevation = elevation;
 	}
 
 	public SimplePlacemarkObject(double[] coord, String placemarkId) {
@@ -78,6 +91,14 @@ public class SimplePlacemarkObject {
 
 	public void setShape(List<SimpleCoordinate> shape) {
 		this.shape = shape;
+	}
+
+	public Integer getSamplePointOutlined() {
+		return samplePointOutlined;
+	}
+
+	public void setSamplePointOutlined(Integer samplePointOutlined) {
+		this.samplePointOutlined = samplePointOutlined;
 	}
 
 }

@@ -1,0 +1,15 @@
+#Mon Jul 29 15:01:42 CEST 2013
+coordinates_reference_system=EPSG\:3576
+operator=alfonso
+port=8020
+inner_point_side=2
+csv=bhutan_files/dornod-EPSG_3576.csv
+include_files_kmz=bhutan_files/files
+skip_filled_plots=false
+distance_between_sample_points=20
+generated_on=1375102902896
+metadata_file=bhutan_files/placemark.idm.xml
+sample_shape=SQUARE
+template=bhutan_files/kml_template.fmt
+host=127.0.0.1
+balloon=bhutan_files/balloon_bhutan.html

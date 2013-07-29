@@ -31,8 +31,21 @@ public class EntityHandler extends AbstractAttributeHandler<Entity> {
 		if (childEntity == null) {
 			childEntity = EntityBuilder.addEntity(parentEntity, childEntityName);
 		}
+		AbstractAttributeHandler cah = null;
+		if (parameterName.contains("code_")) {
+			cah = new CodeAttributeHandler();
+		} else if (parameterName.contains("integer_")) {
+			cah = new IntegerAttributeHandler();
+		} else if (parameterName.contains("real_")) {
+			cah = new RealAttributeHandler();
+		} else if (parameterName.contains("text_")) {
+			cah = new TextAttributeHandler();
+		}
 
-		CodeAttributeHandler cah = new CodeAttributeHandler();
+		if (cah == null) {
+			int i = 0;
+		}
+
 		cah.addOrUpdate(entityAttribute, parameterValue, childEntity);
 
 	}
@@ -47,6 +60,7 @@ public class EntityHandler extends AbstractAttributeHandler<Entity> {
 					foundEntity = (Entity) entity;
 					break;
 				}
+				
 			}
 		}
 		return foundEntity;
@@ -55,10 +69,19 @@ public class EntityHandler extends AbstractAttributeHandler<Entity> {
 	public String getEntityKey(Entity entity) {
 		String key = null;
 		CodeAttributeDefinition enumeratingKeyCodeAttribute = entity.getDefinition().getEnumeratingKeyCodeAttribute();
-		CodeAttribute keyAttribute = (CodeAttribute) entity.get(enumeratingKeyCodeAttribute.getName(), 0);
+		CodeAttribute keyAttribute = null;
+		
+		List<Node<? extends NodeDefinition>> children = entity.getChildren();
+		for (Node<? extends NodeDefinition> child : children) {
+			if( child.getName().equals(enumeratingKeyCodeAttribute.getName() )){
+				keyAttribute = (CodeAttribute) child;
+			}
+		}
+
 		if (keyAttribute != null) {
 			key = keyAttribute.getValue().getCode();
 		}
+
 		return key;
 	}
 

@@ -37,10 +37,10 @@ public class CoordinateAttributeHandler extends AbstractAttributeHandler<Value> 
 		}
 		// REMOVE THIS!!
 		// -----------------------
-		if (coordinatesCSV[0].equals("$[longitude]")) {
+		if (coordinatesCSV[0].equals("$[latitude]")) {
 			coordinatesCSV[0] = "0";
 		}
-		if (coordinatesCSV[1].equals("$[latitude]")) {
+		if (coordinatesCSV[1].equals("$[longitude]")) {
 			coordinatesCSV[1] = "0";
 		}
 		// -----------------------

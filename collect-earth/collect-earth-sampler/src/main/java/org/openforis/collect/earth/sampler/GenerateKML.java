@@ -17,7 +17,7 @@ public final class GenerateKML {
 	}
 
 	public static void main(String[] args) {
-		KmlGenerator generateKml = new SquareKmlGenerator("EPSG:3576", "localhost", "8020");
+		KmlGenerator generateKml = new SquareKmlGenerator("EPSG:3576", "localhost", "8020", null);
 		PropertyConfigurator.configure("./log4j.properties");
 
 		Logger logger = LoggerFactory.getLogger(GenerateKML.class);

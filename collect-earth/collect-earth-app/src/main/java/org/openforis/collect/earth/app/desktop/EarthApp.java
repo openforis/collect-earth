@@ -7,7 +7,9 @@ import java.io.File;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.io.Writer;
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Observable;
 import java.util.Observer;
@@ -17,10 +19,13 @@ import javax.swing.JOptionPane;
 import org.openforis.collect.earth.app.service.DataExportService;
 import org.openforis.collect.earth.app.service.LocalPropertiesService;
 import org.openforis.collect.earth.app.view.CollectEarthWindow;
+import org.openforis.collect.earth.sampler.ElevationCalculations;
+import org.openforis.collect.earth.sampler.processor.AbstractEpsgAware;
 import org.openforis.collect.earth.sampler.processor.CircleKmlGenerator;
 import org.openforis.collect.earth.sampler.processor.KmlGenerator;
 import org.openforis.collect.earth.sampler.processor.KmzGenerator;
 import org.openforis.collect.earth.sampler.processor.SquareKmlGenerator;
+import org.openforis.collect.earth.sampler.processor.SquareWithCirclesKmlGenerator;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -58,16 +63,14 @@ public class EarthApp {
 	public static void main(String[] args) {
 
 		try {
-
 			EarthApp earthApp = new EarthApp();
+			earthApp.addElevationColumn();
 			earthApp.generateKmzFile();
 			earthApp.initializeServer();
-
 		} catch (Exception e) {
 			LOGGER.error("The server could not start", e);
 			System.exit(1);
 		} finally {
-
 			closeSplash();
 		}
 	}
@@ -76,26 +79,58 @@ public class EarthApp {
 		nonSpringManagedLocalProperties.init();
 	}
 
+	private void addElevationColumn() {
+		String csvFile = nonSpringManagedLocalProperties.getCsvFile();
+		String epsgCode = nonSpringManagedLocalProperties.getCrs();
+
+		if (!csvFile.endsWith(ElevationCalculations.ELEV_SUFFIX)) {
+			ElevationCalculations fillElevation = new ElevationCalculations(epsgCode);
+			String geoTiffDirectory = nonSpringManagedLocalProperties.getValue("elevation_geotif_directory");
+			File geoTifDir = new File( geoTiffDirectory );
+			File[] listFiles = geoTifDir.listFiles();
+			List<File> foundGeoTifs = new ArrayList<File>();
+			for (File file : listFiles) {
+				if( file.getName().toLowerCase().endsWith("tif") ||  file.getName().toLowerCase().endsWith("tiff")  ){
+					foundGeoTifs.add(file);
+				}
+			}
+			fillElevation.addElevationDataAndFixToWgs84(foundGeoTifs, new File(csvFile));
+			
+			// We change the name of the CSV file and CRS. The new file contains the elevation data in the last column. The coordinates were also changhed to WGS84
+			nonSpringManagedLocalProperties.saveCsvFile(csvFile + ElevationCalculations.ELEV_SUFFIX);
+			nonSpringManagedLocalProperties.saveCrs(AbstractEpsgAware.WGS84);
+		}
+	}
+
 	private void generateKml() {
 
 		LOGGER.info("START - Generate KML file");
 		// KmlGenerator generateKml = new OnePointKmlGenerator();
 		KmlGenerator generateKml = null;
-		if (nonSpringManagedLocalProperties.getValue("sample_shape").equals("CIRCLE")) {
-			generateKml = new CircleKmlGenerator(nonSpringManagedLocalProperties.getValue("coordinates_reference_system"),
-					nonSpringManagedLocalProperties.getHost(),
-					nonSpringManagedLocalProperties.getPort());
+
+		String plotShape = nonSpringManagedLocalProperties.getValue("sample_shape");
+		String crsSystem = nonSpringManagedLocalProperties.getCrs();
+		int innerPointSide = Integer.parseInt(nonSpringManagedLocalProperties.getValue("inner_point_side"));
+
+		if (plotShape.equals("CIRCLE")) {
+			generateKml = new CircleKmlGenerator(crsSystem, nonSpringManagedLocalProperties.getHost(),
+					nonSpringManagedLocalProperties.getPort(), innerPointSide);
+		} else if (plotShape.equals("SQUARE_CIRCLE")) {
+			generateKml = new SquareWithCirclesKmlGenerator(crsSystem, nonSpringManagedLocalProperties.getHost(),
+					nonSpringManagedLocalProperties.getPort(), innerPointSide);
 		}else{
-			generateKml = new SquareKmlGenerator(nonSpringManagedLocalProperties.getValue("coordinates_reference_system"),
-					nonSpringManagedLocalProperties.getHost(),
-					nonSpringManagedLocalProperties.getPort());
+			generateKml = new SquareKmlGenerator(crsSystem, nonSpringManagedLocalProperties.getHost(),
+					nonSpringManagedLocalProperties.getPort(), innerPointSide);
 		}
 
 		try {
+			String csvFile = nonSpringManagedLocalProperties.getCsvFile();
+			String balloon = nonSpringManagedLocalProperties.getValue("balloon");
+			String template = nonSpringManagedLocalProperties.getValue("template");
+			String distanceBetweenSamplePoints = nonSpringManagedLocalProperties.getValue("distance_between_sample_points");
 
-			generateKml.generateFromCsv(nonSpringManagedLocalProperties.getValue("csv"), nonSpringManagedLocalProperties.getValue("balloon"),
-					nonSpringManagedLocalProperties.getValue("template"), KML_RESULTING_TEMP_FILE,
-					nonSpringManagedLocalProperties.getValue("distance_between_sample_points"));
+			generateKml.generateFromCsv(csvFile, balloon, template, KML_RESULTING_TEMP_FILE, distanceBetweenSamplePoints);
+
 		} catch (IOException e) {
 			LOGGER.error("Could not generate KML file", e);
 		} catch (TemplateException e) {

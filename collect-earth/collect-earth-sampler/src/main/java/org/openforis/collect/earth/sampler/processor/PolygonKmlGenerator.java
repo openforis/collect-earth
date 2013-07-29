@@ -24,17 +24,19 @@ import com.vividsolutions.jts.geom.Point;
 public abstract class PolygonKmlGenerator extends KmlGenerator {
 
 	private static final String PLACEMARK_ID_PREFIX = "placemark_";
-	protected static final int INNER_RECT_SIDE = 2;
+	private static final Integer DEFAULT_INNER_POINT_SIDE = 2;
+	private Integer innerPointSide;
 	protected static final int NUM_OF_COLS = 6;
 	protected static final int NUM_OF_ROWS = 6;
 	private final String host;
 	private final String port;
 	private final Logger logger = LoggerFactory.getLogger(this.getClass());
 
-	public PolygonKmlGenerator(String epsgCode, String host, String port) {
+	public PolygonKmlGenerator(String epsgCode, String host, String port, Integer innerPointSide) {
 		super(epsgCode);
 		this.host = host;
 		this.port = port;
+		this.innerPointSide = innerPointSide;
 	}
 
 	@Override
@@ -62,6 +64,8 @@ public abstract class PolygonKmlGenerator extends KmlGenerator {
 
 					double originalX = Double.parseDouble(nextRow[1]);
 					double originalY = Double.parseDouble(nextRow[2]);
+					Integer elevation = Integer.parseInt(nextRow[3]);
+
 					Point transformedPoint = transformToWGS84(originalX, originalY); // TOP-LEFT
 
 					if (firstPoint) {
@@ -83,12 +87,11 @@ public abstract class PolygonKmlGenerator extends KmlGenerator {
 
 					String currentPlaceMarkId = PLACEMARK_ID_PREFIX + nextRow[0];
 					SimplePlacemarkObject parentPlacemark = new SimplePlacemarkObject(transformedPoint.getCoordinate(),
-							currentPlaceMarkId);
+							currentPlaceMarkId, elevation);
 
 					if (previousPlacemark != null) {
 						// Give the current ID to the previous placemark so that
-						// we
-						// can move from placemark to placemark
+						// we can move from placemark to placemark
 						previousPlacemark.setNextPlacemarkId(currentPlaceMarkId);
 					}
 
@@ -126,15 +129,16 @@ public abstract class PolygonKmlGenerator extends KmlGenerator {
 		return data;
 	}
 
-	protected List<SimpleCoordinate> getSamplePointPolygon(double[] miniPlacemarkPosition) throws TransformException {
+	protected List<SimpleCoordinate> getSamplePointPolygon(double[] topLeftPosition, int samplePointSide)
+			throws TransformException {
 		List<SimpleCoordinate> coords = new ArrayList<SimpleCoordinate>();
-		coords.add(new SimpleCoordinate(miniPlacemarkPosition)); // TOP-LEFT
-		coords.add(new SimpleCoordinate(getPointWithOffset(miniPlacemarkPosition, INNER_RECT_SIDE, 0))); // TOP-RIGHT
-		coords.add(new SimpleCoordinate(getPointWithOffset(miniPlacemarkPosition, INNER_RECT_SIDE, INNER_RECT_SIDE))); // BOTTOM-RIGHT
-		coords.add(new SimpleCoordinate(getPointWithOffset(miniPlacemarkPosition, 0, INNER_RECT_SIDE))); // BOTTOM-LEFT
+		coords.add(new SimpleCoordinate(topLeftPosition)); // TOP-LEFT
+		coords.add(new SimpleCoordinate(getPointWithOffset(topLeftPosition, samplePointSide, 0))); // TOP-RIGHT
+		coords.add(new SimpleCoordinate(getPointWithOffset(topLeftPosition, samplePointSide, samplePointSide))); // BOTTOM-RIGHT
+		coords.add(new SimpleCoordinate(getPointWithOffset(topLeftPosition, 0, samplePointSide))); // BOTTOM-LEFT
 
 		// close the square
-		coords.add(new SimpleCoordinate(miniPlacemarkPosition)); // TOP-LEFT
+		coords.add(new SimpleCoordinate(topLeftPosition)); // TOP-LEFT
 		return coords;
 	}
 	protected abstract void fillExternalLine(float distanceBetweenSamplePoints, double[] coordOriginalPoints,
@@ -143,5 +147,12 @@ public abstract class PolygonKmlGenerator extends KmlGenerator {
 
 	protected abstract void fillSamplePoints(float distanceBetweenSamplePoints, double[] coordOriginalPoints,
 			String currentPlaceMarkId, SimplePlacemarkObject parentPlacemark) throws TransformException;
+
+	protected int getPointSide() {
+		if (innerPointSide == null) {
+			innerPointSide = DEFAULT_INNER_POINT_SIDE;
+		}
+		return innerPointSide;
+	}
 
 }

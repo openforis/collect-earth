@@ -40,9 +40,10 @@ public class OnePointKmlGenerator extends KmlGenerator{
 			placemarks = new ArrayList<SimplePlacemarkObject>();
 			while ((nextRow = reader.readNext()) != null) {
 				// nextLine[] is an array of values from the line
+				Integer elevation = Integer.parseInt(nextRow[3]);
 				try {
 					Point transformedPoint = transformToWGS84(Double.parseDouble(nextRow[1]), Double.parseDouble(nextRow[2]));
-					placemarks.add(new SimplePlacemarkObject(transformedPoint.getCoordinate(), "ge_" + nextRow[0]));
+					placemarks.add(new SimplePlacemarkObject(transformedPoint.getCoordinate(), "ge_" + nextRow[0], elevation));
 				} catch (NumberFormatException e) {
 					getLogger().error("Error in the number formatting", e);
 				} catch (Exception e) {

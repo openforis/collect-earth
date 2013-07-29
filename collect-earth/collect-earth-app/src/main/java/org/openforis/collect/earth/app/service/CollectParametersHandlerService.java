@@ -11,11 +11,18 @@ import org.apache.commons.lang3.StringUtils;
 import org.openforis.collect.earth.app.service.handler.AbstractAttributeHandler;
 import org.openforis.collect.earth.app.service.handler.CodeAttributeHandler;
 import org.openforis.collect.earth.app.service.handler.EntityHandler;
+import org.openforis.collect.earth.app.service.handler.IntegerAttributeHandler;
+import org.openforis.collect.earth.app.service.handler.RealAttributeHandler;
+import org.openforis.collect.earth.app.service.handler.TextAttributeHandler;
 import org.openforis.collect.manager.RecordManager;
 import org.openforis.idm.metamodel.NodeDefinition;
 import org.openforis.idm.model.Attribute;
+import org.openforis.idm.model.CodeAttribute;
 import org.openforis.idm.model.Entity;
+import org.openforis.idm.model.IntegerAttribute;
 import org.openforis.idm.model.Node;
+import org.openforis.idm.model.RealAttribute;
+import org.openforis.idm.model.TextAttribute;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -76,20 +83,32 @@ public class CollectParametersHandlerService {
 						String entityKey = ((EntityHandler) handler).getEntityKey(entity);
 						collectParamName += "[" + entityKey + "]";
 
-						CodeAttributeHandler cah = new CodeAttributeHandler();
 
 						List<Node<? extends NodeDefinition>> entityChildren = entity.getChildren();
 						for (Node<? extends NodeDefinition> child : entityChildren) {
 							
-							if (child instanceof Attribute) {
+							if (child instanceof CodeAttribute) {
+								CodeAttributeHandler cah = new CodeAttributeHandler();
 								parameters.put(collectParamName + ".code_" + child.getName(),
 										cah.getAttributeFromParameter(child.getName(), entity));
+							} else if (child instanceof IntegerAttribute) {
+								IntegerAttributeHandler iah = new IntegerAttributeHandler();
+								parameters.put(collectParamName + ".integer_" + child.getName(),
+										iah.getAttributeFromParameter(child.getName(), entity));
+							} else if (child instanceof RealAttribute) {
+								RealAttributeHandler iah = new RealAttributeHandler();
+								parameters.put(collectParamName + ".real_" + child.getName(),
+										iah.getAttributeFromParameter(child.getName(), entity));
+							} else if (child instanceof TextAttribute) {
+								TextAttributeHandler tah = new TextAttributeHandler();
+								parameters.put(collectParamName + ".text_" + child.getName(),
+										tah.getAttributeFromParameter(child.getName(), entity));
 							}
 						}
 
 
 					}
-					break;
+
 				}
 			}
 		}

@@ -6,6 +6,7 @@ import java.util.List;
 
 import org.openforis.collect.earth.sampler.model.SimpleCoordinate;
 import org.openforis.collect.earth.sampler.model.SimplePlacemarkObject;
+import org.openforis.collect.earth.sampler.model.SimpleRegion;
 import org.opengis.referencing.operation.TransformException;
 
 public class CircleKmlGenerator extends PolygonKmlGenerator {
@@ -18,37 +19,43 @@ public class CircleKmlGenerator extends PolygonKmlGenerator {
 
 	private static final int MARGIN_CIRCLE = 5;
 
-	private static final int NUMBER_OF_POINTS_RADIUS = 2;
-
-	public CircleKmlGenerator(String epsgCode, String host, String port) {
-		super(epsgCode, host, port);
+	public CircleKmlGenerator(String epsgCode, String host, String port, Integer innerPointSide) {
+		super(epsgCode, host, port, innerPointSide);
 	}
 
 	@Override
-	protected void fillExternalLine(float distanceBetweenSamplePoints, double[] coordOriginalPoints,
+	protected void fillExternalLine(float radiusOfSamplingCircle, double[] centerCircleCoord,
 			SimplePlacemarkObject parentPlacemark) throws TransformException {
 		List<SimpleCoordinate> shapePoints = new ArrayList<SimpleCoordinate>();
 
 		float arc = 360 / NUMBER_OF_EXTERNAL_POINTS;
 
+		float radius = radiusOfSamplingCircle + MARGIN_CIRCLE;
+
 		for (int i = 0; i < NUMBER_OF_EXTERNAL_POINTS; i++) {
 			double t = i * arc;
-			double offsetLong = Math.round(((distanceBetweenSamplePoints * NUMBER_OF_POINTS_RADIUS) + MARGIN_CIRCLE)
-					* Math.cos(Math.toRadians(t)));
-			double offsetLat = Math.round(((distanceBetweenSamplePoints * NUMBER_OF_POINTS_RADIUS) + MARGIN_CIRCLE)
-					* Math.sin(Math.toRadians(t)));
+			double offsetLong = Math.round(radius * Math.cos(Math.toRadians(t)));
+			double offsetLat = Math.round(radius * Math.sin(Math.toRadians(t)));
 
-			double[] circunferencePosition = getPointWithOffset(coordOriginalPoints, offsetLong, offsetLat);
+			double[] circunferencePosition = getPointWithOffset(centerCircleCoord, offsetLong, offsetLat);
 			shapePoints.add(new SimpleCoordinate(circunferencePosition));
 		}
 		
 		// CLOSE
-		double offsetLong = Math.round(((distanceBetweenSamplePoints * NUMBER_OF_POINTS_RADIUS) + MARGIN_CIRCLE)* Math.cos(0));
-		double offsetLat = Math.round(((distanceBetweenSamplePoints * NUMBER_OF_POINTS_RADIUS) + MARGIN_CIRCLE) * Math.sin(0));
-		double[] circunferencePosition = getPointWithOffset(coordOriginalPoints, offsetLong, offsetLat);
+		double offsetLong = Math.round(radius * Math.cos(0));
+		double offsetLat = Math.round(radius * Math.sin(0));
+		double[] circunferencePosition = getPointWithOffset(centerCircleCoord, offsetLong, offsetLat);
 		shapePoints.add(new SimpleCoordinate(circunferencePosition));
 
 		parentPlacemark.setShape(shapePoints);
+
+		double[] left = getPointWithOffset(centerCircleCoord, -1 * radius, 0);
+		double[] right = getPointWithOffset(centerCircleCoord, radius, 0);
+
+		double[] top = getPointWithOffset(centerCircleCoord, 0, radius);
+		double[] bottom = getPointWithOffset(centerCircleCoord, 0, -1 * radius);
+
+		parentPlacemark.setRegion(new SimpleRegion(top[1] + "", left[0] + "", bottom[1] + "", right[0] + ""));
 	}
 
 
@@ -59,7 +66,7 @@ public class CircleKmlGenerator extends PolygonKmlGenerator {
 
 		List<SimplePlacemarkObject> pointsInPlacemark = new ArrayList<SimplePlacemarkObject>();
 
-		List<SimpleCoordinate> samplePointBoundaries = getSamplePointPolygon(coordOriginalPoints);
+		List<SimpleCoordinate> samplePointBoundaries = getSamplePointPolygon(coordOriginalPoints, getPointSide());
 		SimplePlacemarkObject insidePlacemark = new SimplePlacemarkObject(coordOriginalPoints, currentPlaceMarkId);
 		// Get the center sampling point
 		insidePlacemark.setShape(samplePointBoundaries);
@@ -134,10 +141,10 @@ public class CircleKmlGenerator extends PolygonKmlGenerator {
 		double offsetLong = randomRadius * Math.cos(randomAngle);
 		double offsetLat = randomRadius * Math.sin(randomAngle);
 
-		double[] miniPlacemarkPosition = getPointWithOffset(centerCoordinates, offsetLong, offsetLat);
-		SimplePlacemarkObject insidePlacemark = new SimplePlacemarkObject(miniPlacemarkPosition, currentPlaceMarkId);
+		double[] randomCenterPosition = getPointWithOffset(centerCoordinates, offsetLong, offsetLat);
+		SimplePlacemarkObject insidePlacemark = new SimplePlacemarkObject(randomCenterPosition, currentPlaceMarkId);
 
-		List<SimpleCoordinate> samplePointBoundaries = getSamplePointPolygon(miniPlacemarkPosition);
+		List<SimpleCoordinate> samplePointBoundaries = getSamplePointPolygon(randomCenterPosition, getPointSide());
 
 		insidePlacemark.setShape(samplePointBoundaries);
 

@@ -16,6 +16,8 @@ public class LocalPropertiesService {
 	private static final String SKIP_FILLED_KEY = "skip_filled_plots";
 	private static final String HOST_KEY = "host";
 	private static final String PORT_KEY = "port";
+	private static final String CSV_KEY = "csv";
+	private static final String CRS_KEY = "coordinates_reference_system";
 	private static final String GENERATED_KEY = "generated_on";
 	private final Logger logger = LoggerFactory.getLogger(LocalPropertiesService.class);
 	private Properties properties;
@@ -68,6 +70,15 @@ public class LocalPropertiesService {
 		storeProperties();
 	}
 
+	public String getCsvFile() {
+		return getValue(CSV_KEY);
+	}
+
+	public void saveCsvFile(String csvFile) {
+		properties.put(CSV_KEY, csvFile);
+		storeProperties();
+	}
+
 	public String getGeneratedOn() {
 		return getValue(GENERATED_KEY);
 	}
@@ -83,6 +94,15 @@ public class LocalPropertiesService {
 
 	public void savePort(String portName) {
 		properties.put(PORT_KEY, portName);
+		storeProperties();
+	}
+
+	public String getCrs() {
+		return getValue(CRS_KEY);
+	}
+
+	public void saveCrs(String crsName) {
+		properties.put(CRS_KEY, crsName);
 		storeProperties();
 	}
 
@@ -103,6 +123,7 @@ public class LocalPropertiesService {
 
 		return skipFilled;
 	}
+
 
 	public void setSkipFilledPlots(String shouldSkip) {
 		String booleanSkip = "";
