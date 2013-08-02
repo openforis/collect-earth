@@ -269,7 +269,7 @@ public class EarthSurveyService {
 			} else {
 				// Save the data anyway but set the Actively Saved flag to false
 				setPlacemarSavedActively(parameters, false);
-				storePlacemark(parameters, sessionId);
+				return storePlacemark(parameters, sessionId);
 
 			}
 		} catch (RecordPersistenceException e) {

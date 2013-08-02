@@ -24,6 +24,10 @@ public class SaveEarthDataServlet extends JsonPocessorServlet {
 			collectedData.put("collect_text_id", "testPlacemark");
 		}
 
+		if (collectedData.get("collect_integer_elevation").equals("$[elevation]")) {
+			collectedData.put("collect_integer_elevation", "10");
+		}
+
 		if (collectedData.size() == 0) {
 			setResult(false, "Empty request", collectedData);
 			getLogger().info("The request was empty");
