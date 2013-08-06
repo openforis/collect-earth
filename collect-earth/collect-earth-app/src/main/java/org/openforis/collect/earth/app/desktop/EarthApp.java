@@ -19,9 +19,9 @@ import javax.swing.JOptionPane;
 import org.openforis.collect.earth.app.service.DataExportService;
 import org.openforis.collect.earth.app.service.LocalPropertiesService;
 import org.openforis.collect.earth.app.view.CollectEarthWindow;
-import org.openforis.collect.earth.sampler.ElevationCalculations;
-import org.openforis.collect.earth.sampler.processor.AbstractEpsgAware;
+import org.openforis.collect.earth.sampler.processor.AbstractWgs84Transformer;
 import org.openforis.collect.earth.sampler.processor.CircleKmlGenerator;
+import org.openforis.collect.earth.sampler.processor.PreprocessElevationData;
 import org.openforis.collect.earth.sampler.processor.KmlGenerator;
 import org.openforis.collect.earth.sampler.processor.KmzGenerator;
 import org.openforis.collect.earth.sampler.processor.SquareKmlGenerator;
@@ -83,8 +83,8 @@ public class EarthApp {
 		String csvFile = nonSpringManagedLocalProperties.getCsvFile();
 		String epsgCode = nonSpringManagedLocalProperties.getCrs();
 
-		if (!csvFile.endsWith(ElevationCalculations.ELEV_SUFFIX)) {
-			ElevationCalculations fillElevation = new ElevationCalculations(epsgCode);
+		if (!csvFile.endsWith(PreprocessElevationData.ELEV_SUFFIX)) {
+			PreprocessElevationData fillElevation = new PreprocessElevationData(epsgCode);
 			String geoTiffDirectory = nonSpringManagedLocalProperties.getValue("elevation_geotif_directory");
 			File geoTifDir = new File( geoTiffDirectory );
 			File[] listFiles = geoTifDir.listFiles();
@@ -97,8 +97,8 @@ public class EarthApp {
 			fillElevation.addElevationDataAndFixToWgs84(foundGeoTifs, new File(csvFile));
 			
 			// We change the name of the CSV file and CRS. The new file contains the elevation data in the last column. The coordinates were also changhed to WGS84
-			nonSpringManagedLocalProperties.saveCsvFile(csvFile + ElevationCalculations.ELEV_SUFFIX);
-			nonSpringManagedLocalProperties.saveCrs(AbstractEpsgAware.WGS84);
+			nonSpringManagedLocalProperties.saveCsvFile(csvFile + PreprocessElevationData.ELEV_SUFFIX);
+			nonSpringManagedLocalProperties.saveCrs(AbstractWgs84Transformer.WGS84);
 		}
 	}
 

@@ -22,7 +22,7 @@ import freemarker.template.Configuration;
 import freemarker.template.Template;
 import freemarker.template.TemplateException;
 
-public abstract class KmlGenerator extends AbstractEpsgAware {
+public abstract class KmlGenerator extends AbstractWgs84Transformer {
 
 	public static final String DEFAULT_HOST = "localhost";
 	public static final String DEFAULT_PORT = "80";

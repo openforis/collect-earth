@@ -280,12 +280,9 @@ earth_skip_filled
 	}
 	
 	var interpretJsonSaveResponse = function(json) {
-		if (json.type == 'success') {
-			$('#succ_mess').css("color", "green").html(json.message);
-			forceWindowCloseAfterDialogCloses($("#dialogSuccess"));
-		} else if (json.type == 'warning') {
+		if (json.type == 'warning') {
 			$('#succ_mess').css("color", "yellow").html(json.message);
-		} else if (json.type == 'error' && json.valid_data && json.valid_data == 'false' ) {
+		} else if (json.type == 'success' && json.valid_data && json.valid_data == 'false' ) {
 			
 			var message = "";
 			
@@ -301,6 +298,9 @@ earth_skip_filled
 			$("input[id=collect_boolean_actively_saved]").val('false');
 			
 			
+		} else if (json.type == 'success') {
+			$('#succ_mess').css("color", "green").html(json.message);
+			forceWindowCloseAfterDialogCloses($("#dialogSuccess"));
 		} else if (json.type == 'error'){
 			$('#succ_mess').css("color", "red").html(json.message);
 		}
@@ -407,6 +407,7 @@ earth_skip_filled
 									$("input[id=collect_boolean_interpretation_uncertainty]").val(selectedButton.value);
 								});
 						
+						checkIfPlacemarkAlreadyFilled('#formAll');
 										
 						// SAVING DATA WHEN USER SUBMITS
 						$('#formAll')
@@ -432,7 +433,7 @@ earth_skip_filled
 														url : $form.attr("action"),
 														dataType : 'json',
 														error : function(jqXHR, textStatus, errorThrown) {
-															$('#succ_mess').css("color","red").html("Cannot save the data, the data server is not running!");
+															$('#succ_mess').css("color","red").html("Cannot save the data, the Collect Earth server is not running!");
 															$("#dialogSuccess").dialog("open");
 														},
 														success :  function(json) {
@@ -448,7 +449,7 @@ earth_skip_filled
 
 										});
 
-						checkIfPlacemarkAlreadyFilled('#formAll');
+						
 						
 					});
 </script>
@@ -533,6 +534,17 @@ hr {
 .btn-primary.active, .btn-warning.active, .btn-danger.active, .btn-success.active, .btn-info.active, .btn-inverse.active {
    	color: rgba(255, 255, 255, 0.45) !important;
    	
+}
+
+.firstElementToggle{
+    border-bottom-left-radius: 4px !important;
+    border-top-left-radius: 4px !important;
+    margin-left: 0 !important;
+}
+
+.lastElementToggle{
+    border-bottom-right-radius: 4px !important;
+    border-top-right-radius: 4px !important;
 }
 
 .earthDiv{
@@ -681,10 +693,10 @@ Shirinking functionality removed!!!
 										Pine</button>
 									<button type="button" class="btn btn-primary collect_code_land_use_dependant"
 										value="spruce" title="Spruce">Spruce</button>
-									<button type="button" class="btn btn-primary collect_code_land_use_dependant"
+									<button type="button" class="btn btn-primary collect_code_land_use_dependant lastElementToggle"
 										value="saxaul" title="Saxaul">Saxaul</button>
 									<br />
-									<button type="button" class="btn btn-primary collect_code_land_use_dependant"
+									<button type="button" class="btn btn-primary collect_code_land_use_dependant firstElementToggle"
 										value="coniferousAndDeciduous" title="Coniferous and deciduous">Coniferous
 										and deciduous</button>
 									<button type="button" class="btn btn-primary collect_code_land_use_dependant"
@@ -760,7 +772,7 @@ Shirinking functionality removed!!!
 									</div>
 							
 								
-							<div>
+							</div>
 							<div class="label-over">
 									Type
 							</div>
@@ -837,10 +849,10 @@ Shirinking functionality removed!!!
 									<button type="button" class="btn btn-primary collect_code_land_use_dependant"
 										value="mountainSteppe" title="Mountain Steppe">Mountain
 										S...</button>
-									<button type="button" class="btn btn-primary collect_code_land_use_dependant"
+									<button type="button" class="btn btn-primary collect_code_land_use_dependant lastElementToggle"
 										value="steppeAndDrySteppe" title="Steppe and Dry Steppe">Steppe&amp;Dry...</button>
 									<br />
-									<button type="button" class="btn btn-primary collect_code_land_use_dependant"
+									<button type="button" class="btn btn-primary collect_code_land_use_dependant firstElementToggle"
 										value="meadowAndMeadowSwamp" title="Meadow and Meadow Swamp">Meadow&amp;Meadow
 										Swamp</button>
 									<button type="button" class="btn btn-primary collect_code_land_use_dependant"

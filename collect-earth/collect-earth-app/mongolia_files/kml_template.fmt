@@ -122,7 +122,7 @@ ${html_for_ballong}
 		        <value>${placemark.coord.latitude}</value>
 		      </Data>
 		       <Data name="elevation">
-		        <value>${placemark.elevation}</value>
+		        <value>${placemark.elevation?string.computer}</value>
 		      </Data>
 		       <Data name="next_id">
 		        <value>${placemark.nextPlacemarkId}</value>
