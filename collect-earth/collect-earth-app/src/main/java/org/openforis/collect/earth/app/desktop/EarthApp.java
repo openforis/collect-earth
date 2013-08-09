@@ -21,9 +21,9 @@ import org.openforis.collect.earth.app.service.LocalPropertiesService;
 import org.openforis.collect.earth.app.view.CollectEarthWindow;
 import org.openforis.collect.earth.sampler.processor.AbstractWgs84Transformer;
 import org.openforis.collect.earth.sampler.processor.CircleKmlGenerator;
-import org.openforis.collect.earth.sampler.processor.PreprocessElevationData;
 import org.openforis.collect.earth.sampler.processor.KmlGenerator;
 import org.openforis.collect.earth.sampler.processor.KmzGenerator;
+import org.openforis.collect.earth.sampler.processor.PreprocessElevationData;
 import org.openforis.collect.earth.sampler.processor.SquareKmlGenerator;
 import org.openforis.collect.earth.sampler.processor.SquareWithCirclesKmlGenerator;
 import org.slf4j.Logger;
@@ -82,9 +82,11 @@ public class EarthApp {
 	private void addElevationColumn() {
 		String csvFile = nonSpringManagedLocalProperties.getCsvFile();
 		String epsgCode = nonSpringManagedLocalProperties.getCrs();
+		Integer distanceBetweenPoints = Integer.valueOf(nonSpringManagedLocalProperties
+				.getValue("distance_between_sample_points"));
 
 		if (!csvFile.endsWith(PreprocessElevationData.ELEV_SUFFIX)) {
-			PreprocessElevationData fillElevation = new PreprocessElevationData(epsgCode);
+			PreprocessElevationData fillElevation = new PreprocessElevationData(epsgCode, distanceBetweenPoints * 4);
 			String geoTiffDirectory = nonSpringManagedLocalProperties.getValue("elevation_geotif_directory");
 			File geoTifDir = new File( geoTiffDirectory );
 			File[] listFiles = geoTifDir.listFiles();

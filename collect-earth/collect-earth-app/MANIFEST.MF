@@ -7,49 +7,51 @@ SplashScreen-Image: images/joint_logo.gif
 Main-Class: org.openforis.collect.earth.app.desktop.EarthApp
 Class-Path: earth-libs/collect-earth-sampler-0.0.1-SNAPSHOT.jar earth-
  libs/opencsv-2.3.jar earth-libs/freemarker-2.3.19.jar earth-libs/gt-m
- ain-2.6.5.jar earth-libs/gt-api-2.6.5.jar earth-libs/jts-1.10.jar ear
- th-libs/jdom-1.0.jar earth-libs/gt-metadata-2.6.5.jar earth-libs/vecm
- ath-1.3.2.jar earth-libs/geoapi-2.3-M1.jar earth-libs/geoapi-pending-
- 2.3-M1.jar earth-libs/jsr-275-1.0-beta-2.jar earth-libs/gt-referencin
- g-2.6.5.jar earth-libs/gt-epsg-hsql-2.6.5.jar earth-libs/hsqldb-1.8.0
- .7.jar earth-libs/jetty-server-7.6.10.v20130312.jar earth-libs/javax.
- servlet-2.5.0.v201103041518.jar earth-libs/jetty-continuation-7.6.10.
- v20130312.jar earth-libs/jetty-http-7.6.10.v20130312.jar earth-libs/j
- etty-io-7.6.10.v20130312.jar earth-libs/jetty-servlet-7.6.10.v2013031
- 2.jar earth-libs/jetty-security-7.6.10.v20130312.jar earth-libs/jetty
- -webapp-7.6.10.v20130312.jar earth-libs/jetty-xml-7.6.10.v20130312.ja
- r earth-libs/jetty-util-7.6.10.v20130312.jar earth-libs/jetty-jndi-7.
- 6.10.v20130312.jar earth-libs/javax.mail.glassfish-1.4.1.v20100508202
- 0.jar earth-libs/javax.activation-1.1.0.v201105071233.jar earth-libs/
- jetty-plus-7.6.10.v20130312.jar earth-libs/javax.transaction-1.1.1.v2
- 01105210645.jar earth-libs/collect-core-3.0-CR1-SNAPSHOT.jar earth-li
- bs/commons-io-0.0.4-20130412.082016-1.jar earth-libs/idm-api-3.0-CR1-
- SNAPSHOT.jar earth-libs/commons-collections-0.0.2.jar earth-libs/comm
- ons-jxpath-1.4-20120215.jar earth-libs/commons-beanutils-1.8.3.jar ea
- rth-libs/idm-api-protostuff-3.0-CR1-SNAPSHOT.jar earth-libs/protostuf
- f-api-1.0.4.jar earth-libs/protostuff-core-1.0.4.jar earth-libs/proto
- stuff-runtime-1.0.4.jar earth-libs/protostuff-collectionschema-1.0.4.
- jar earth-libs/protostuff-xml-1.0.4.jar earth-libs/commons-logging-1.
- 1.1.jar earth-libs/commons-collections-3.2.1.jar earth-libs/commons-c
- odec-1.6.jar earth-libs/jooq-2.5.0.jar earth-libs/cglib-2.2.2.jar ear
- th-libs/asm-3.3.1.jar earth-libs/xmlpull-1.1.3.4a.jar earth-libs/luce
- ne-core-3.6.1.jar earth-libs/commons-lang3-3.0.jar earth-libs/android-liquibase-core-2.0.6-SNAPSHOT.jar earth-libs/spring-webmvc-
- 3.1.0.RELEASE.jar earth-libs/spring-asm-3.1.0.RELEASE.jar earth-libs/
- spring-beans-3.1.0.RELEASE.jar earth-libs/spring-context-support-3.1.
- 0.RELEASE.jar earth-libs/spring-core-3.1.0.RELEASE.jar earth-libs/spr
- ing-expression-3.1.0.RELEASE.jar earth-libs/spring-web-3.1.0.RELEASE.
- jar earth-libs/spring-context-3.1.0.RELEASE.jar earth-libs/spring-aop
- -3.1.0.RELEASE.jar earth-libs/spring-tx-3.1.0.RELEASE.jar earth-libs/
- aopalliance-1.0.jar earth-libs/spring-jdbc-3.1.0.RELEASE.jar earth-li
- bs/gson-2.2.3.jar earth-libs/sqlite-jdbc-3.7.2.jar earth-libs/log4j-1
- .2.17.jar earth-libs/slf4j-api-1.7.5.jar earth-libs/slf4j-log4j12-1.7
- .5.jar earth-libs/commons-io-2.4.jar earth-libs/commons-fileupload-1.
- 2.1.jar earth-libs/juli-6.0.26.jar earth-libs/kxml2-2.3.0.jar earth-l
- ibs/selenium-firefox-driver-2.33.0.jar earth-libs/selenium-remote-dri
- ver-2.33.0.jar earth-libs/cglib-nodep-2.1_3.jar earth-libs/json-20080
- 701.jar earth-libs/selenium-api-2.33.0.jar earth-libs/httpclient-4.2.
- 1.jar earth-libs/httpcore-4.2.1.jar earth-libs/guava-14.0.jar earth-l
- ibs/jna-3.4.0.jar earth-libs/platform-3.4.0.jar earth-libs/commons-ex
- ec-1.1.jar earth-libs/commons-dbcp-1.4.jar earth-libs/commons-pool-1.
- 5.4.jar earth-libs/mockito-all-1.9.0.jar
+ ain-9.4.jar earth-libs/gt-api-9.4.jar earth-libs/jts-1.13.jar earth-l
+ ibs/jdom-1.0.jar earth-libs/jai_core-1.1.3.jar earth-libs/gt-metadata
+ -9.4.jar earth-libs/gt-opengis-9.4.jar earth-libs/jsr-275-1.0-beta-2.
+ jar earth-libs/gt-referencing-9.4.jar earth-libs/vecmath-1.3.2.jar ea
+ rth-libs/jgridshift-1.0.jar earth-libs/gt-epsg-hsql-9.4.jar earth-lib
+ s/hsqldb-1.8.0.7.jar earth-libs/gt-geotiff-9.4.jar earth-libs/jai_ima
+ geio-1.1.jar earth-libs/imageio-ext-tiff-1.1.7.jar earth-libs/imageio
+ -ext-utilities-1.1.7.jar earth-libs/jai_codec-1.1.3.jar earth-libs/gt
+ -image-9.4.jar earth-libs/gt-coverage-9.4.jar earth-libs/jt-zonalstat
+ s-1.3.1.jar earth-libs/jt-utils-1.3.1.jar earth-libs/jetty-server-7.6
+ .10.v20130312.jar earth-libs/javax.servlet-2.5.0.v201103041518.jar ea
+ rth-libs/jetty-continuation-7.6.10.v20130312.jar earth-libs/jetty-htt
+ p-7.6.10.v20130312.jar earth-libs/jetty-io-7.6.10.v20130312.jar earth
+ -libs/jetty-servlet-7.6.10.v20130312.jar earth-libs/jetty-security-7.
+ 6.10.v20130312.jar earth-libs/jetty-webapp-7.6.10.v20130312.jar earth
+ -libs/jetty-xml-7.6.10.v20130312.jar earth-libs/jetty-util-7.6.10.v20
+ 130312.jar earth-libs/collect-core-3.0-CR1-SNAPSHOT.jar ear
+ th-libs/commons-io-0.0.4-20130802.123517-2.jar earth-libs/idm-api-3.0
+ -CR1-SNAPSHOT.jar earth-libs/commons-collections-0.0.2.jar earth-libs
+ /commons-jxpath-1.4-20120215.jar earth-libs/commons-beanutils-1.8.3.j
+ ar earth-libs/idm-api-protostuff-3.0-CR1-SNAPSHOT.jar earth-libs/prot
+ ostuff-api-1.0.4.jar earth-libs/protostuff-core-1.0.4.jar earth-libs/
+ protostuff-runtime-1.0.4.jar earth-libs/protostuff-collectionschema-1
+ .0.4.jar earth-libs/protostuff-xml-1.0.4.jar earth-libs/commons-loggi
+ ng-1.1.1.jar earth-libs/commons-collections-3.2.1.jar earth-libs/comm
+ ons-codec-1.6.jar earth-libs/jooq-2.5.0.jar earth-libs/cglib-2.2.2.ja
+ r earth-libs/asm-3.3.1.jar earth-libs/xmlpull-1.1.3.4a.jar earth-libs
+ /lucene-core-3.6.1.jar earth-libs/commons-lang3-3.0.jar earth-libs/an
+ droid-liquibase-core-2.0.6-SNAPSHOT.jar earth-libs/spring-we
+ bmvc-3.1.0.RELEASE.jar earth-libs/spring-asm-3.1.0.RELEASE.jar earth-
+ libs/spring-beans-3.1.0.RELEASE.jar earth-libs/spring-context-support
+ -3.1.0.RELEASE.jar earth-libs/spring-core-3.1.0.RELEASE.jar earth-lib
+ s/spring-expression-3.1.0.RELEASE.jar earth-libs/spring-web-3.1.0.REL
+ EASE.jar earth-libs/spring-context-3.1.0.RELEASE.jar earth-libs/sprin
+ g-aop-3.1.0.RELEASE.jar earth-libs/spring-tx-3.1.0.RELEASE.jar earth-
+ libs/aopalliance-1.0.jar earth-libs/spring-jdbc-3.1.0.RELEASE.jar ear
+ th-libs/gson-2.2.3.jar earth-libs/sqlite-jdbc-3.7.2.jar earth-libs/lo
+ g4j-1.2.17.jar earth-libs/slf4j-api-1.7.5.jar earth-libs/slf4j-log4j1
+ 2-1.7.5.jar earth-libs/commons-io-2.4.jar earth-libs/commons-fileuplo
+ ad-1.2.1.jar earth-libs/juli-6.0.26.jar earth-libs/kxml2-2.3.0.jar ea
+ rth-libs/selenium-firefox-driver-2.33.0.jar earth-libs/selenium-remot
+ e-driver-2.33.0.jar earth-libs/cglib-nodep-2.1_3.jar earth-libs/json-
+ 20080701.jar earth-libs/selenium-api-2.33.0.jar earth-libs/httpclient
+ -4.2.1.jar earth-libs/httpcore-4.2.1.jar earth-libs/guava-14.0.jar ea
+ rth-libs/jna-3.4.0.jar earth-libs/platform-3.4.0.jar earth-libs/commo
+ ns-exec-1.1.jar earth-libs/commons-dbcp-1.4.jar earth-libs/commons-po
+ ol-1.5.4.jar
 

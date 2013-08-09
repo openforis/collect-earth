@@ -1,13 +1,14 @@
-#Mon Jul 29 15:01:42 CEST 2013
-coordinates_reference_system=EPSG\:3576
+#Thu Aug 08 09:44:20 CEST 2013
+coordinates_reference_system=WGS84
 operator=alfonso
 port=8020
 inner_point_side=2
-csv=bhutan_files/dornod-EPSG_3576.csv
+csv=bhutan_files/dornod-EPSG_3576.csv_elev
 include_files_kmz=bhutan_files/files
+elevation_geotif_directory=mongolia_files/geotiffs
 skip_filled_plots=false
-distance_between_sample_points=20
-generated_on=1375102902896
+distance_between_sample_points=25
+generated_on=1375947526862
 metadata_file=bhutan_files/placemark.idm.xml
 sample_shape=SQUARE
 template=bhutan_files/kml_template.fmt

@@ -7,16 +7,10 @@ import java.io.IOException;
 import java.io.OutputStreamWriter;
 import java.nio.charset.Charset;
 import java.text.SimpleDateFormat;
-import java.util.Arrays;
 import java.util.Date;
 import java.util.Map;
 
 import org.apache.commons.io.FileUtils;
-import org.geotools.referencing.GeodeticCalculator;
-import org.geotools.referencing.crs.DefaultGeographicCRS;
-import org.opengis.referencing.operation.TransformException;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import freemarker.template.Configuration;
 import freemarker.template.Template;
@@ -41,10 +35,6 @@ public abstract class KmlGenerator extends AbstractWgs84Transformer {
 		return hostAndPort;
 
 	}
-
-	private final GeodeticCalculator calc = new GeodeticCalculator(DefaultGeographicCRS.WGS84);
-
-	private final Logger logger = LoggerFactory.getLogger(this.getClass());
 
 	public KmlGenerator(String epsgCode) {
 		super(epsgCode);
@@ -87,7 +77,7 @@ public abstract class KmlGenerator extends AbstractWgs84Transformer {
 
 			template.process(data, fw);
 		} catch (Exception e) {
-			logger.error("Error writing KML file", e);
+			getLogger().error("Error writing KML file", e);
 		} finally {
 			if (fw != null) {
 				fw.close();
@@ -96,55 +86,6 @@ public abstract class KmlGenerator extends AbstractWgs84Transformer {
 
 	}
 
-	protected Logger getLogger() {
-		return logger;
-	}
-
-	protected double[] getPointWithOffset(double[] originalPoint, double offsetLongitudeMeters, double offsetLatitudeMeters)
-			throws TransformException {
-		double[] movedPoint = null;
-		try {
-
-			if (offsetLatitudeMeters == 0 && offsetLongitudeMeters == 0) {
-				movedPoint = originalPoint;
-			} else {
-
-				double longitudeDirection = 90; // EAST
-				if (offsetLongitudeMeters < 0) {
-					longitudeDirection = -90; // WEST
-				}
-
-				double latitudeDirection = 0; // NORTH
-				if (offsetLatitudeMeters < 0) {
-					latitudeDirection = 180; // SOUTH
-				}
-
-				calc.setStartingGeographicPoint(originalPoint[0], originalPoint[1]);
-
-				boolean longitudeChanged = false;
-				if (offsetLongitudeMeters != 0) {
-					calc.setDirection(longitudeDirection, Math.abs(offsetLongitudeMeters));
-					longitudeChanged = true;
-				}
-
-				if (offsetLatitudeMeters != 0) {
-					if (longitudeChanged) {
-						double[] firstMove = calc.getDestinationPosition().getCoordinate();
-						calc.setStartingGeographicPoint(firstMove[0], firstMove[1]);
-					}
-					calc.setDirection(latitudeDirection, Math.abs(offsetLatitudeMeters));
-				}
-
-				movedPoint = calc.getDestinationPosition().getCoordinate();
-			}
-		} catch (Exception e) {
-			getLogger().error(
-					"Exception when moving point " + Arrays.toString(originalPoint) + " with offset longitude "
-							+ offsetLongitudeMeters + " and latitude " + offsetLatitudeMeters, e);
-		}
-		return movedPoint;
-
-	}
 
 	protected abstract Map<String, Object> getTemplateData(String csvFile, float distanceBetweenSamplePoints) throws IOException;
 

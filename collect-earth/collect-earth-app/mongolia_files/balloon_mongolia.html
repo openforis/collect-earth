@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html>
 <head>
-<title>Test Form</title>
+<title>Mongolia Collect Earth customization</title>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
 <script src="files/jquery/jquery.js"></script>
@@ -47,6 +47,10 @@ collect_code_rs_satellite
 collect_code_crown_cover
 collect_code_cover_type
 collect_boolean_actively_saved // Set this to true when the user saves the data by actively clicking in submit
+
+collect_code_orientation
+collect_real_slope_north_south
+collect_real_slope_west_east
 
 When a value has multiple values they will be  separated with "===" i.e.
 collect_code_human_impact_type = "fire===logging===grazing"
@@ -256,8 +260,9 @@ earth_skip_filled
 					 $('#'+extraValues[0]).val( extraValues[1] );
 				 }
 
+				ajaxDataUpdate();
 			}
-			ajaxDataUpdate();
+			
 		});
 		
 		$('.landUseTypeSelector').find("button").click( function(e){
@@ -271,7 +276,7 @@ earth_skip_filled
 		// Bind event to Before user leaves page with function parameter e
 		// The window onbeforeunload or onunload events do not work in Google Earth
 		// OBS! The change event is not fired for the hidden inputs when the value is updated through jQuery's val()
-		$('input[name^=collect], select[name^=collect], button[name^=collect]').change(
+		$('input[name^=collect], select[name^=collect], button[name^=collect] :not(type=submit)').change(
 				function(e){
 					ajaxDataUpdate();
 				}
@@ -318,7 +323,7 @@ earth_skip_filled
 			//url: "http://168.202.48.32:8020/earth/placemarkInfo",
 			dataType : 'json',
 			error : function(jqXHR, textStatus, errorThrown) {
-				$('#succ_mess').css("color", "red").html("The data server is not running!");
+				$('#succ_mess').css("color", "red").html("The Collect Earth server is not running!");
 				$("#dialogSuccess").dialog("open");
 				initializeChangeEventSaver();
 			},
@@ -432,6 +437,7 @@ earth_skip_filled
 														type : $form.attr("method"),
 														url : $form.attr("action"),
 														dataType : 'json',
+														timeout : 5000,
 														error : function(jqXHR, textStatus, errorThrown) {
 															$('#succ_mess').css("color","red").html("Cannot save the data, the Collect Earth server is not running!");
 															$("#dialogSuccess").dialog("open");
@@ -568,6 +574,7 @@ hr {
 	<form id="formAll" method="POST" action="$[host]saveData">
 	<div id="contentDiv" class="earthDiv" style="height:600px; overflow : auto;">
 
+			Orientation : $[orientation] slope north-south : $[slopeNorthSouth] west-east : $[slopeWestEast] Elevation : $[elevation]
 			
 			<!-- <form id="formAll" method="POST" action="http://168.202.48.32:8020/earth/saveData"> -->
 			
@@ -576,6 +583,13 @@ hr {
 					name="collect_coord_location" value="$[latitude],$[longitude]" />
 				<input type="hidden" id="collect_integer_elevation" 
 					name="collect_integer_elevation" value="$[elevation]" />
+				<input type="hidden" id="collect_code_orientation" 
+					name="collect_code_orientation" value="$[orientation]" />
+				<input type="hidden" id="collect_real_slope_north_south" 
+					name="collect_real_slope_north_south" value="$[slopeNorthSouth]" />
+				<input type="hidden" id="collect_real_slope_west_east" 
+					name="collect_real_slope_west_east" value="$[slopeWestEast]" />
+					
 				<input type="hidden" id="collect_text_id"
 					name="collect_text_id" value="$[id]" />
 				<input type="hidden" id="collect_code_land_use" name="collect_code_land_use"
@@ -628,7 +642,6 @@ Shirinking functionality removed!!!
 	
 							<div id="toolbar" class="capsuleCat ui-corner-all"
 							style="width: 96%">
-							<h5>Land Use long $[longitude], lat $[latitude]  -- Elevation $[elevation]</h5>
 							<div class="control-group">
 
 								<div class="btn-group land_use_option" data-toggle="buttons-radio" id="collect_code_land_use_group">

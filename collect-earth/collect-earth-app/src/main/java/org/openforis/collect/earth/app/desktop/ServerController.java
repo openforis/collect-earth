@@ -95,12 +95,12 @@ public class ServerController extends Observable {
 		// PropertyConfigurator.configure(this.getClass().getResource("/WEB-INF/conf/log4j.properties"));
 
 		server = new Server();
-		// Use blocking-IO connector to improve throughput
+//		// Use blocking-IO connector to improve throughput
 		Connector connector = new SocketConnector();
 		connector.setPort(getPort());
 		server.setConnectors(new Connector[] { connector });
 
-		server.setThreadPool(new ExecutorThreadPool(5, 50, 5, TimeUnit.SECONDS));
+		server.setThreadPool(new ExecutorThreadPool(10, 50, 5, TimeUnit.SECONDS));
 
 		setRoot(new WebAppContext());
 

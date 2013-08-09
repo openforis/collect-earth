@@ -65,6 +65,10 @@ public abstract class PolygonKmlGenerator extends KmlGenerator {
 					double originalX = Double.parseDouble(nextRow[1]);
 					double originalY = Double.parseDouble(nextRow[2]);
 					Integer elevation = Integer.parseInt(nextRow[3]);
+					String slope = nextRow[4];
+					String orientation = nextRow[5];
+					double slopeNorthSouth = Double.parseDouble(slope.split(":")[0]);
+					double slopeWestEast = Double.parseDouble(slope.split(":")[1]);
 
 					Point transformedPoint = transformToWGS84(originalX, originalY); // TOP-LEFT
 
@@ -87,7 +91,7 @@ public abstract class PolygonKmlGenerator extends KmlGenerator {
 
 					String currentPlaceMarkId = PLACEMARK_ID_PREFIX + nextRow[0];
 					SimplePlacemarkObject parentPlacemark = new SimplePlacemarkObject(transformedPoint.getCoordinate(),
-							currentPlaceMarkId, elevation);
+							currentPlaceMarkId, elevation, slopeNorthSouth, slopeWestEast, orientation);
 
 					if (previousPlacemark != null) {
 						// Give the current ID to the previous placemark so that
