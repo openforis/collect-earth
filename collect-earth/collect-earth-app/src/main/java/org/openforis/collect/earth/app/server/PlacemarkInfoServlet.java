@@ -7,16 +7,18 @@ import java.util.Map;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 
+import org.openforis.collect.earth.app.desktop.BrowserService;
 import org.openforis.collect.earth.app.desktop.ServerController;
 import org.openforis.collect.earth.app.service.EarthSurveyService;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.RequestMapping;
 
 @Controller
 public class PlacemarkInfoServlet extends JsonPocessorServlet {
 
-	// @Autowired
-	// BrowserService browserService;
+	@Autowired
+	BrowserService browserService;
 
 
 	private String getPlacemarkId(Map<String, String> collectedData) {
@@ -29,8 +31,7 @@ public class PlacemarkInfoServlet extends JsonPocessorServlet {
 
 		String placemarkId = getPlacemarkId(collectedData);
 
-		// String originalCoordinates =
-		// collectedData.get("collect_coord_location");
+		String originalCoordinates = collectedData.get("collect_coord_location");
 
 		if (placemarkId == null) {
 			setResult(false, "No placemark ID found in the request", collectedData);
@@ -58,7 +59,7 @@ public class PlacemarkInfoServlet extends JsonPocessorServlet {
 
 		}
 
-		// browserService.openBrowser(originalCoordinates);
+		browserService.openBrowser(originalCoordinates);
 
 		getJsonService().setJsonResponse(response, collectedData);
 
