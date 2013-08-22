@@ -3,11 +3,11 @@
 <Document>
 	<name>Collect Earth Data</name>
 	<NetworkLink>
-	  <name>${surveyName}</name>
+	  <name>Morocco - forest survey</name>
 	  <open>1</open>
 	  <Link>
 	    <!-- add date to avoid Google Earth from caching -->
-	    <href>${host}generated/gePlugin.kmz?generatedOn=${kmlGeneratedOn}</href>
+	    <href>http://127.0.0.1:8020/earth/generated/gePlugin.kmz?generatedOn=1377169960453</href>
 	   	<refreshMode>onExpire</refreshMode>
 	  </Link>
 	  
@@ -17,7 +17,7 @@
 	<NetworkLink>
 	  <name>Reload placemarks</name>
 	  <Link>
-	    <href>${host}placemarkUpdate</href>
+	    <href>http://127.0.0.1:8020/earth/placemarkUpdate</href>
 	    <refreshMode>onInterval</refreshMode>
     	<refreshInterval>5</refreshInterval>
 	  </Link>

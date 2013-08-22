@@ -21,6 +21,8 @@ public abstract class AbstractWgs84Transformer {
 
 	private static final String LATLONG = "LATLONG";
 	public static final String WGS84 = "WGS84";
+	public static final String EPSG4326 = "EPSG:4326";
+
 	final String sourceEpsgCode;
 
 	private final Logger logger = LoggerFactory.getLogger(this.getClass());
@@ -41,7 +43,8 @@ public abstract class AbstractWgs84Transformer {
 		Coordinate c = new Coordinate(longitude, latitude);
 	
 		Point p = gf.createPoint(c);
-		if (sourceEpsgCode.trim().length() > 0 && !sourceEpsgCode.equals(LATLONG) && !sourceEpsgCode.equals(WGS84)) {
+		if (sourceEpsgCode.trim().length() > 0 && !sourceEpsgCode.equals(LATLONG) && !sourceEpsgCode.equals(WGS84)
+				&& !sourceEpsgCode.equals(EPSG4326)) {
 			CoordinateReferenceSystem utmCrs = CRS.decode(sourceEpsgCode);
 			MathTransform mathTransform = CRS.findMathTransform(utmCrs, DefaultGeographicCRS.WGS84, false);
 			p = (Point) JTS.transform(p, mathTransform);

@@ -35,11 +35,12 @@ import freemarker.template.TemplateException;
 
 public class EarthApp {
 
+	private static final String SURVEY_NAME = "survey_name";
 	private static final String KML_RESULTING_TEMP_FILE = "generated/plots.kml";
 	private final static Logger LOGGER = LoggerFactory.getLogger(EarthApp.class);
 	private static ServerController serverController;
 	private static final String KMZ_FILE_PATH = "generated/gePlugin.kmz";
-	private final LocalPropertiesService nonSpringManagedLocalProperties = new LocalPropertiesService();
+	private final LocalPropertiesService nonSpringManagedProperties = new LocalPropertiesService();
 
 	private static final String KML_NETWORK_LINK_TEMPLATE = "resources/loadApp.fmt";
 	private static final String KML_NETWORK_LINK_STARTER = "generated/loadApp.kml";
@@ -76,32 +77,41 @@ public class EarthApp {
 	}
 
 	private EarthApp() throws IOException {
-		nonSpringManagedLocalProperties.init();
+		nonSpringManagedProperties.init();
 	}
 
 	private void addElevationColumn() {
-		String csvFile = nonSpringManagedLocalProperties.getCsvFile();
-		String epsgCode = nonSpringManagedLocalProperties.getCrs();
-		Integer distanceBetweenPoints = Integer.valueOf(nonSpringManagedLocalProperties
-				.getValue("distance_between_sample_points"));
+		String csvFile = nonSpringManagedProperties.getCsvFile();
+		String epsgCode = nonSpringManagedProperties.getCrs();
 
 		if (!csvFile.endsWith(PreprocessElevationData.ELEV_SUFFIX)) {
-			PreprocessElevationData fillElevation = new PreprocessElevationData(epsgCode, distanceBetweenPoints * 4);
-			String geoTiffDirectory = nonSpringManagedLocalProperties.getValue("elevation_geotif_directory");
-			File geoTifDir = new File( geoTiffDirectory );
-			File[] listFiles = geoTifDir.listFiles();
-			List<File> foundGeoTifs = new ArrayList<File>();
+			PreprocessElevationData fillElevation = new PreprocessElevationData(epsgCode);
+			List<File> foundGeoTifs = getGeoTifFiles();
+			if( foundGeoTifs!=null && foundGeoTifs.size() > 0 ){
+
+				fillElevation.addElevationDataAndFixToWgs84(foundGeoTifs, new File(csvFile));
+
+				// We change the name of the CSV file and CRS. The new file contains the elevation data in the last column. The coordinates were also changhed to WGS84
+				nonSpringManagedProperties.saveCsvFile(csvFile + PreprocessElevationData.ELEV_SUFFIX);
+				nonSpringManagedProperties.saveCrs(AbstractWgs84Transformer.WGS84);
+			}
+		}
+	}
+
+	private List<File> getGeoTifFiles() {
+		String geoTiffDirectory = nonSpringManagedProperties.getValue("elevation_geotif_directory");
+		File geoTifDir = new File(geoTiffDirectory);
+		File[] listFiles = geoTifDir.listFiles();
+		List<File> foundGeoTifs = null;
+		if (listFiles != null && listFiles.length > 0) {
+			foundGeoTifs = new ArrayList<File>();
 			for (File file : listFiles) {
-				if( file.getName().toLowerCase().endsWith("tif") ||  file.getName().toLowerCase().endsWith("tiff")  ){
+				if (file.getName().toLowerCase().endsWith("tif") || file.getName().toLowerCase().endsWith("tiff")) {
 					foundGeoTifs.add(file);
 				}
 			}
-			fillElevation.addElevationDataAndFixToWgs84(foundGeoTifs, new File(csvFile));
-			
-			// We change the name of the CSV file and CRS. The new file contains the elevation data in the last column. The coordinates were also changhed to WGS84
-			nonSpringManagedLocalProperties.saveCsvFile(csvFile + PreprocessElevationData.ELEV_SUFFIX);
-			nonSpringManagedLocalProperties.saveCrs(AbstractWgs84Transformer.WGS84);
 		}
+		return foundGeoTifs;
 	}
 
 	private void generateKml() {
@@ -110,26 +120,26 @@ public class EarthApp {
 		// KmlGenerator generateKml = new OnePointKmlGenerator();
 		KmlGenerator generateKml = null;
 
-		String plotShape = nonSpringManagedLocalProperties.getValue("sample_shape");
-		String crsSystem = nonSpringManagedLocalProperties.getCrs();
-		int innerPointSide = Integer.parseInt(nonSpringManagedLocalProperties.getValue("inner_point_side"));
+		String plotShape = nonSpringManagedProperties.getValue("sample_shape");
+		String crsSystem = nonSpringManagedProperties.getCrs();
+		int innerPointSide = Integer.parseInt(nonSpringManagedProperties.getValue("inner_point_side"));
 
 		if (plotShape.equals("CIRCLE")) {
-			generateKml = new CircleKmlGenerator(crsSystem, nonSpringManagedLocalProperties.getHost(),
-					nonSpringManagedLocalProperties.getPort(), innerPointSide);
+			generateKml = new CircleKmlGenerator(crsSystem, nonSpringManagedProperties.getHost(),
+					nonSpringManagedProperties.getPort(), innerPointSide);
 		} else if (plotShape.equals("SQUARE_CIRCLE")) {
-			generateKml = new SquareWithCirclesKmlGenerator(crsSystem, nonSpringManagedLocalProperties.getHost(),
-					nonSpringManagedLocalProperties.getPort(), innerPointSide);
+			generateKml = new SquareWithCirclesKmlGenerator(crsSystem, nonSpringManagedProperties.getHost(),
+					nonSpringManagedProperties.getPort(), innerPointSide);
 		}else{
-			generateKml = new SquareKmlGenerator(crsSystem, nonSpringManagedLocalProperties.getHost(),
-					nonSpringManagedLocalProperties.getPort(), innerPointSide);
+			generateKml = new SquareKmlGenerator(crsSystem, nonSpringManagedProperties.getHost(),
+					nonSpringManagedProperties.getPort(), innerPointSide);
 		}
 
 		try {
-			String csvFile = nonSpringManagedLocalProperties.getCsvFile();
-			String balloon = nonSpringManagedLocalProperties.getValue("balloon");
-			String template = nonSpringManagedLocalProperties.getValue("template");
-			String distanceBetweenSamplePoints = nonSpringManagedLocalProperties.getValue("distance_between_sample_points");
+			String csvFile = nonSpringManagedProperties.getCsvFile();
+			String balloon = nonSpringManagedProperties.getValue("balloon");
+			String template = nonSpringManagedProperties.getValue("template");
+			String distanceBetweenSamplePoints = nonSpringManagedProperties.getValue("distance_between_sample_points");
 
 			generateKml.generateFromCsv(csvFile, balloon, template, KML_RESULTING_TEMP_FILE, distanceBetweenSamplePoints);
 
@@ -152,7 +162,7 @@ public class EarthApp {
 		try {
 			KmzGenerator kmzGenerator = new KmzGenerator();
 			kmzGenerator.generateKmzFile(KMZ_FILE_PATH, KML_RESULTING_TEMP_FILE,
-					nonSpringManagedLocalProperties.getValue("include_files_kmz"));
+					nonSpringManagedProperties.getValue("include_files_kmz"));
 			LOGGER.info("KMZ File generated : " + KMZ_FILE_PATH);
 
 			File kmlFile = new File(KML_RESULTING_TEMP_FILE);
@@ -226,11 +236,12 @@ public class EarthApp {
 		// Load template from source folder
 		Template template = cfg.getTemplate(KML_NETWORK_LINK_TEMPLATE);
 
-		nonSpringManagedLocalProperties.saveGeneratedOn(System.currentTimeMillis() + "");
+		nonSpringManagedProperties.saveGeneratedOn(System.currentTimeMillis() + "");
 
 		Map<String, Object> data = new HashMap<String, Object>();
-		data.put("host", KmlGenerator.getHostAddress(nonSpringManagedLocalProperties.getHost(), nonSpringManagedLocalProperties.getPort()));
-		data.put("kmlGeneratedOn", nonSpringManagedLocalProperties.getGeneratedOn());
+		data.put("host", KmlGenerator.getHostAddress(nonSpringManagedProperties.getHost(), nonSpringManagedProperties.getPort()));
+		data.put("kmlGeneratedOn", nonSpringManagedProperties.getGeneratedOn());
+		data.put("surveyName", nonSpringManagedProperties.getValue(SURVEY_NAME));
 
 		// Console output
 		FileWriter fw = new FileWriter(KML_NETWORK_LINK_STARTER);

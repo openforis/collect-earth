@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html>
 <head>
-<title>Mongolia Collect Earth customization</title>
+<title>Bhutan Collect Earth customization</title>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
 <script src="files/jquery/jquery.js"></script>
@@ -105,8 +105,7 @@ earth_skip_filled
 			ajaxTimeout = setTimeout(function() {
 				var $form = $("#formAll");
 		
-				var data = $("#formAll").serialize();			
-							
+				var data = $("#formAll").serialize();							
 				$.ajax({
 					data : data,
 					type : $form.attr("method"),
@@ -202,8 +201,7 @@ earth_skip_filled
 						function () {        
 							$(this).button('toggle');
 						}
-				);
-							
+				);							
 			}
 			
 			if( key == "collect_boolean_interpretation_uncertainty" ){
@@ -349,7 +347,7 @@ earth_skip_filled
 				initializeChangeEventSaver();
 			});
 	}
-			
+	
 	var submitForm = function($form, submitCounter ){
 		var data = $form.find('input, select, textarea, button').serialize();
 		
@@ -446,21 +444,22 @@ earth_skip_filled
 								});
 						
 						checkIfPlacemarkAlreadyFilled('#formAll', 0);
-										
+				
+						
 						// SAVING DATA WHEN USER SUBMITS
 						$('#formAll')
 								.submit(
 										function(e) {
 											
 											e.preventDefault();
-
+											
 											clearTimeout(ajaxTimeout); // So that the form is not save twice if the user clicks the submit button before the auto-save timeout has started
 											
 											// Mark this as the "real submit" (as opposed when saving data just because the user closes the window) so we can show the placemark as interpreted
 											$("input[id=collect_boolean_actively_saved]").val("true");
 
 											submitForm( $(this), 0 );
-														}
+										}
 									);
 						
 					});
@@ -509,6 +508,17 @@ body {
 	display : inline-block;
 }
 
+.firstElementToggle{
+    border-bottom-left-radius: 4px !important;
+    border-top-left-radius: 4px !important;
+    margin-left: 0 !important;
+}
+
+.lastElementToggle{
+    border-bottom-right-radius: 4px !important;
+    border-top-right-radius: 4px !important;
+}
+
 .add-on {
 	width: 60px !important;
 }
@@ -548,17 +558,6 @@ hr {
    	
 }
 
-.firstElementToggle{
-    border-bottom-left-radius: 4px !important;
-    border-top-left-radius: 4px !important;
-    margin-left: 0 !important;
-}
-
-.lastElementToggle{
-    border-bottom-right-radius: 4px !important;
-    border-top-right-radius: 4px !important;
-}
-
 .earthDiv{
 	width: 530px;
 }
@@ -583,12 +582,13 @@ hr {
 	<div id="contentDiv" class="earthDiv" style="height:600px; overflow : auto;">
 
 			Orientation : $[orientation] slope north-south : $[slopeNorthSouth] west-east : $[slopeWestEast] Elevation : $[elevation]
-			
+					
 			<!-- <form id="formAll" method="POST" action="http://168.202.48.32:8020/earth/saveData"> -->
 			
 
 				<input type="hidden" id="collect_coord_location" 
 					name="collect_coord_location" value="$[latitude],$[longitude]" />
+					
 				<input type="hidden" id="collect_integer_elevation" 
 					name="collect_integer_elevation" value="$[elevation]" />
 				<input type="hidden" id="collect_code_orientation" 
@@ -638,11 +638,8 @@ hr {
 				
 				<span style="float: right;display:inline;margin-top:5px;" >
 				
-				<img src="files/img/mongolia.png" border="0" style="vertical-align:bottom;"/>
-<!-- 				
-Shirinking functionality removed!!!
-<button class="btn btn-link" onclick="toggleCollapsed(); return false;"><i  class="icon-large icon-resize-small" id="collapseButton"></i></button>				
- -->
+				<img src="files/img/bhutan.png" border="0" style="vertical-align:bottom;"/>
+
 				</span>
 				</div>
 				<div id="collapsableContents">
@@ -700,33 +697,24 @@ Shirinking functionality removed!!!
 						
 							<div class="label-over">Type</div>
 							
-							<div class="control-group">
-								<div class="btn-group landUseTypeSelector"
+							<div class="control-group landUseTypeSelector">
+								<div class="btn-group "
 									data-toggle="buttons-radio">
 									<button type="button" class="btn btn-primary collect_code_land_use_dependant"
-										value="birch-Aspen" title="Birch-Aspen">Birch-Aspen</button>
+										value="FCf" title="Fir Forest">Fir</button>
 									<button type="button" class="btn btn-primary collect_code_land_use_dependant"
-										value="larch" title="Larch">Larch</button>
+										value="FCm" title="Mixed Conifier Forest">Mixed Conifier</button>
 									<button type="button" class="btn btn-primary collect_code_land_use_dependant"
-										value="pine" title="Pine">Pine</button>
-									<button type="button" class="btn btn-primary collect_code_land_use_dependant"
-										value="siberianPine" title="Siberian Pine">Siberian
-										Pine</button>
-									<button type="button" class="btn btn-primary collect_code_land_use_dependant"
-										value="spruce" title="Spruce">Spruce</button>
+										value="FCb" title="Blue Pine Forest">Blue Pine</button>
 									<button type="button" class="btn btn-primary collect_code_land_use_dependant lastElementToggle"
-										value="saxaul" title="Saxaul">Saxaul</button>
-									<br />
+										value="FCc" title="Chir Pine forest" >Chir Pine</button>
+									<br/>
 									<button type="button" class="btn btn-primary collect_code_land_use_dependant firstElementToggle"
-										value="coniferousAndDeciduous" title="Coniferous and deciduous">Coniferous
-										and deciduous</button>
+										value="FB" title="Broadleaf forest">Broadleaf</button>
 									<button type="button" class="btn btn-primary collect_code_land_use_dependant"
-										value="saxaul2" title="Saxaul">Saxaul</button>
+										value="FBc" title="Broadleaf and conifier forest">Broadleaf with conifier</button>
 									<button type="button" class="btn btn-primary collect_code_land_use_dependant"
-										value="shrubs" title="Shrubs">Shrubs</button>
-									<button type="button" class="btn btn-primary collect_code_land_use_dependant"
-										value="open" title="Open">Open</button>
-	
+										value="SH" title="Shrubs">Shrubs</button>
 								</div>
 							</div>
 							<div class="label-over">Interpretation Uncertainty</div>
@@ -799,14 +787,32 @@ Shirinking functionality removed!!!
 							</div>
 							<div class="control-group">	
 									<div class="btn-group landUseTypeSelector" data-toggle="buttons-radio" id="cropland" >
-									 	<button type="button" class="btn btn-primary collect_code_land_use_dependant"  value="irrigation" >Irrigation</button>
+									 	<button type="button" class="btn btn-primary collect_code_land_use_dependant"  value="AC" >Chhuzhing Land</button>
+									 	<button type="button" class="btn btn-primary collect_code_land_use_dependant lastElementToggle"  value="AK" >Kamzhing Land</button>
+									 	<br/>
+									 	<button type="button" class="btn btn-primary collect_code_land_use_dependant firstElementToggle"  value="HA" title="Horticulture Land - Apple Orchard" > Apple Orchard</button>
+									 	<button type="button" class="btn btn-primary collect_code_land_use_dependant lastElementToggle"  value="HC" title="Horticulture Land - Citrus Orchard">Citrus Orchard</button>
+									 	<br/>
+									 	<button type="button" class="btn btn-primary collect_code_land_use_dependant firstElementToggle"  value="HAa" title="Horticulture Land - Areca Nut Plantation">Areca Nut Plantation</button>
+									 	<button type="button" class="btn btn-primary collect_code_land_use_dependant"  value="HCo"  title="Horticulture Land - Cardamom Plantation">Cardamom Plantation</button>
+									 	<button type="button" class="btn btn-primary collect_code_land_use_dependant"  value="HO" title="Horticulture Land - Others">Others</button>
 								    </div>
 							</div>
 								
+							<div class="label-over">Interpretation Uncertainty</div>
+							<div class="control-group">			
+								<div class="btn-group" data-toggle="buttons-radio">
+									<button type="button"
+										class="btn btn-primary toggleUncertainty collect_code_land_use_dependant"
+										id="FLUncertaintyTrue" value="true">YES</button>
+									<button type="button"
+										class="btn btn-primary  toggleUncertainty collect_code_land_use_dependant"
+										id="FLUncertainFalse" value="false" >NO</button>
+								</div>
 							</div>
 						</div>
 					</div>
-					</div>
+					
 					<div id="tab_otherLand" class="tab-pane">
 
 						<div id="toolbar" class="capsuleCat ui-corner-all"
@@ -826,14 +832,25 @@ Shirinking functionality removed!!!
 
 							<div class="label-over">Type</div>
 
-							<div class="control-group">
+							<div class="control-group ">
 								<div class="btn-group landUseTypeSelector"
 									data-toggle="buttons-radio" id="other">
-									<button type="button" class="btn btn-primary collect_code_land_use_dependant" value="lakes" >Lakes</button>
-									<button type="button" class="btn btn-primary collect_code_land_use_dependant"
-										value="largeRivers" title="Large River">Large Rivers</button>
-									<button type="button" class="btn btn-primary collect_code_land_use_dependant" value="bareAreas"
-										title="Bare areas">Bare Areas</button>
+									<button type="button" class="btn btn-primary collect_code_land_use_dependant" value="OS" title="Snow Cover" >Snow Cover</button>
+									<button type="button" class="btn btn-primary collect_code_land_use_dependant" value="WL" title="Water body - Lakes" >Lakes</button>
+									<button type="button" class="btn btn-primary collect_code_land_use_dependant"  title="Water body - Rivers"  value="WR">Rivers</button>
+									<button type="button" class="btn btn-primary collect_code_land_use_dependant lastElementToggle"  title="Water body - Reservoirs" value="WRe">Reservoirs</button>
+									<br/>
+									
+									<button type="button" class="btn btn-primary collect_code_land_use_dependant firstElementToggle" value="RR" title="Bare areas - Rocky outcrop" >Rocky Outcrop</button>
+									<button type="button" class="btn btn-primary collect_code_land_use_dependant"  title="Bare areas - Scree"  value="RS">Scree</button>
+									<button type="button" class="btn btn-primary collect_code_land_use_dependant lastElementToggle" title="Bare areas - Bare soils" value="BS">Bare soils</button>
+									<br/>
+									
+									<button type="button" class="btn btn-primary collect_code_land_use_dependant firstElementToggle" value=DL" title="Degraded areas - Landslides" >Landslides</button>
+									<button type="button" class="btn btn-primary collect_code_land_use_dependant"  title="Degraded areas - Gullies"  value="DG">Gullies</button>
+									<button type="button" class="btn btn-primary collect_code_land_use_dependant" title="Degraded areas - Ravines" value="DR">Ravines</button>
+									<button type="button" class="btn btn-primary collect_code_land_use_dependant" title="Degraded areas - Moraines" value="DM">Moraines</button>
+									
 								</div>
 
 							</div>
@@ -862,26 +879,7 @@ Shirinking functionality removed!!!
 								<div class="btn-group landUseTypeSelector"
 									data-toggle="buttons-radio" id="grassland">
 									<button type="button" class="btn btn-primary collect_code_land_use_dependant"
-										value="dessertSteppe" title="Dessert Steppe">Dessert
-										Steppe</button>
-									<button type="button" class="btn btn-primary collect_code_land_use_dependant"
-										value="mountainDessertSteppe" title="Mountain Dessert Steppe">Mountain
-										Dessert S..</button>
-									<button type="button" class="btn btn-primary collect_code_land_use_dependant"
-										value="mountainSteppe" title="Mountain Steppe">Mountain
-										S...</button>
-									<button type="button" class="btn btn-primary collect_code_land_use_dependant lastElementToggle"
-										value="steppeAndDrySteppe" title="Steppe and Dry Steppe">Steppe&amp;Dry...</button>
-									<br />
-									<button type="button" class="btn btn-primary collect_code_land_use_dependant firstElementToggle"
-										value="meadowAndMeadowSwamp" title="Meadow and Meadow Swamp">Meadow&amp;Meadow
-										Swamp</button>
-									<button type="button" class="btn btn-primary collect_code_land_use_dependant"
-										value="meadowPasture" title="Meadow Pasture">Meadow
-										Pasture</button>
-									<button type="button" class="btn btn-primary collect_code_land_use_dependant"
-										value="meadowSteppe" title="Meadow Steppe">Meadow
-										Steppe</button>
+										value="GP">Meadows</button>
 								</div>
 
 							</div>
@@ -920,7 +918,7 @@ Shirinking functionality removed!!!
 								<div class="label-over">Type</div>
 									<div class="control-group">
 										<div class="btn-group landUseTypeSelector" data-toggle="buttons-radio" id="wetLand">
-										 	<button type="button" class="btn btn-primary collect_code_land_use_dependant"  value="swamp">Swamp</button>
+										 	<button type="button" class="btn btn-primary collect_code_land_use_dependant"  value="MA">Marshy Areas</button>
 									    </div>
 									</div>
 							</div>
@@ -945,10 +943,8 @@ Shirinking functionality removed!!!
 								<div class="control-group">
 									
 									<div class="btn-group landUseTypeSelector" data-toggle="buttons-radio" id="settlement">
-									 	<button type="button" class="btn btn-primary collect_code_land_use_dependant"  value="largerUrbanCenters">Larger Urban Centers</button>
-									    <button type="button" class="btn btn-primary collect_code_land_use_dependant" value="village">Village</button>
-									    <button type="button" class="btn btn-primary collect_code_land_use_dependant" value="settlementWithTrees">Settlement with Trees</button>
-									    <button type="button" class="btn btn-primary collect_code_land_use_dependant" value="service">Service</button>
+									 	<button type="button" class="btn btn-primary collect_code_land_use_dependant"  value="BA">Built-up areas</button>
+									    <button type="button" class="btn btn-primary collect_code_land_use_dependant" value="NB">Non built-up areas</button>
 								    </div>
 
 								</div>

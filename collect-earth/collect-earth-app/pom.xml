@@ -165,10 +165,21 @@
 		<dependency>
         	<groupId>org.seleniumhq.selenium</groupId>
         	<artifactId>selenium-firefox-driver</artifactId>
-        	<version>2.33.0</version>
+        	<version>2.35.0</version>
     	</dependency>  
+		<dependency>
+			<groupId>org.seleniumhq.selenium</groupId>
+			<artifactId>selenium-chrome-driver</artifactId>
+			<version>2.35.0</version>
+		</dependency>
+            
 		
-		
+		<dependency>
+			<groupId>org.mockito</groupId>
+			<artifactId>mockito-all</artifactId>
+			<version>1.9.5</version>
+		</dependency>
+            
 <!-- 		REMOVE LATER! -->
 		
 		<dependency>

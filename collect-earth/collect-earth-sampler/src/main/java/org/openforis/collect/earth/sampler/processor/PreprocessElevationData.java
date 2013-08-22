@@ -19,6 +19,7 @@ import org.geotools.coverage.grid.GridCoverage2D;
 import org.geotools.gce.geotiff.GeoTiffReader;
 import org.geotools.geometry.DirectPosition2D;
 import org.geotools.referencing.crs.DefaultGeographicCRS;
+import org.opengis.coverage.PointOutsideCoverageException;
 import org.opengis.referencing.FactoryException;
 import org.opengis.referencing.operation.TransformException;
 import org.slf4j.Logger;
@@ -35,7 +36,7 @@ public class PreprocessElevationData extends AbstractWgs84Transformer {
 	private static final Logger logger = LoggerFactory.getLogger(PreprocessElevationData.class);
 	private static String NEW_LINE = System.getProperty("line.separator");
 	private static int GRID_SIZE = 90;
-
+	private List<GridCoverage2D> gridsWithElevationData;
 	private Integer sidePlotInMeters;
 	private final DecimalFormat df;
 
@@ -47,7 +48,7 @@ public class PreprocessElevationData extends AbstractWgs84Transformer {
 		NORTH, NORTH_EAST, EAST, SOUTH_EAST, SOUTH, SOUTH_WEST, WEST, NORTH_WEST, FLAT, UNKNOWN
 	};
 
-	public PreprocessElevationData(String epsgCode, Integer sidePlotInMeters) {
+	public PreprocessElevationData(String epsgCode) {
 		super(epsgCode);
 		//this.sidePlotInMeters = sidePlotInMeters;
 		this.sidePlotInMeters = 2 * GRID_SIZE;
@@ -60,7 +61,7 @@ public class PreprocessElevationData extends AbstractWgs84Transformer {
 		boolean success = true;
 		OutputStream overwriteToNewFile = null;
 		try {
-			List<GridCoverage2D> grids = loadGrids(elevationGeoTiffs);
+			gridsWithElevationData = loadGrids(elevationGeoTiffs);
 
 			overwriteToNewFile = getFileOverWrite(csvFile);
 
@@ -68,7 +69,7 @@ public class PreprocessElevationData extends AbstractWgs84Transformer {
 			String[] nextRow;
 			while ((nextRow = reader.readNext()) != null) {
 				try {
-					overwritePlacemarkInfo(grids, nextRow, overwriteToNewFile);
+					overwritePlacemarkInfo(nextRow, overwriteToNewFile);
 				} catch (IllegalArgumentException e) {
 					logger.error("Elevation not found but let us continue", e);
 				}
@@ -103,10 +104,36 @@ public class PreprocessElevationData extends AbstractWgs84Transformer {
 		return reader;
 	}
 
-	private Integer getElevationOnWgs84Point(GridCoverage2D coverage, double xCoordinate, double yCoordinate) {
-		int[] metadataAtPoint = (int[]) coverage.evaluate(new DirectPosition2D(DefaultGeographicCRS.WGS84, xCoordinate,
-				yCoordinate));
-		return metadataAtPoint[0];
+	private Integer getElevationOnWgs84Point(GridCoverage2D searchGrid, double xCoordinate, double yCoordinate,
+			boolean keepSearching) {
+
+		Integer elevation = null;
+		try {
+			int[] metadataAtPoint = (int[]) searchGrid.evaluate(new DirectPosition2D(DefaultGeographicCRS.WGS84, xCoordinate,
+					yCoordinate));
+			elevation = metadataAtPoint[0];
+		} catch (PointOutsideCoverageException e) {
+			logger.debug("Cannot find elevation data for this point : " + xCoordinate + " , " + yCoordinate + " in grid "
+					+ searchGrid);
+		}
+
+		if (elevation == null && keepSearching) {
+			for (GridCoverage2D elevationGrid : gridsWithElevationData) {
+				if( elevationGrid != null ){
+					elevation = getElevationOnWgs84Point(elevationGrid, xCoordinate, yCoordinate, false);
+					if( elevation!=null){
+						break;
+					}
+				}
+
+			}
+			if (elevation == null) {
+				throw new PointOutsideCoverageException("None of the GeoTifs contains data for coordinates " + xCoordinate
+						+ " , " + yCoordinate);
+			}
+		}
+
+		return elevation;
 	}
 
 	private OutputStream getFileOverWrite(File csvFile) throws IOException {
@@ -131,7 +158,7 @@ public class PreprocessElevationData extends AbstractWgs84Transformer {
 		return grids;
 	}
 
-	private void overwritePlacemarkInfo(List<GridCoverage2D> grids, String[] nextRow, OutputStream overwriteToNewFile)
+	private void overwritePlacemarkInfo( String[] nextRow, OutputStream overwriteToNewFile)
 			throws TransformException, FactoryException, IOException {
 		double originalX = Double.parseDouble(nextRow[1]);
 		double originalY = Double.parseDouble(nextRow[2]);
@@ -142,24 +169,23 @@ public class PreprocessElevationData extends AbstractWgs84Transformer {
 		String elevation = "-1";
 		String orientation = "UNKNOWN";
 		boolean foundElevation = false;
-		
-		for (GridCoverage2D grid : grids) {
 
-			try {
-				Integer elevationOnWgs84Point = getElevationOnWgs84Point(grid, wgs84Point.getX(), wgs84Point.getY());
-				
+
+		for (GridCoverage2D elevationGrid : gridsWithElevationData) {
+
+			Integer elevationOnWgs84Point = getElevationOnWgs84Point(elevationGrid, wgs84Point.getX(), wgs84Point.getY(), false);
+
+			if (elevationOnWgs84Point != null) {
 				// Slope as a percentage ( i.e. : 8 meters difference in 100 meters line)
-				double northSouthSlope = getSlope(grid, wgs84Point, SlopeDirection.NORTH_SOUTH, sidePlotInMeters);
-				double westEastSlope = getSlope(grid, wgs84Point, SlopeDirection.WEST_EAST, sidePlotInMeters);
-				
+				double northSouthSlope = getSlope(elevationGrid, wgs84Point, SlopeDirection.NORTH_SOUTH, sidePlotInMeters);
+				double westEastSlope = getSlope(elevationGrid, wgs84Point, SlopeDirection.WEST_EAST, sidePlotInMeters);
+
 				orientation = calculateOrientation(northSouthSlope, westEastSlope).name();
 				elevation = elevationOnWgs84Point.toString();
 				slope = df.format(northSouthSlope) + ":" + df.format(westEastSlope);
-				
+
 				foundElevation = true;
 				break;
-			} catch (Exception e) {
-				logger.debug("The grid contains no data por point " + wgs84Point);
 			}
 
 		}
@@ -217,7 +243,7 @@ public class PreprocessElevationData extends AbstractWgs84Transformer {
 		double offset = sideLength / 2d;
 		int numberOfObserbations = (sideLength / GRID_SIZE) + 1;
 		double observationSum = 0;
-		double[] center = new double[]{ centerPoint.getX(), centerPoint.getY() };
+		double[] center = new double[] { centerPoint.getX(), centerPoint.getY() };
 
 		try {
 			double[] southEastCorner = getPointWithOffset(center, -offset, offset); // Move north-west
@@ -227,14 +253,23 @@ public class PreprocessElevationData extends AbstractWgs84Transformer {
 				if (direction.equals(SlopeDirection.NORTH_SOUTH)) {
 					pointStart = getPointWithOffset(southEastCorner, GRID_SIZE * i, 0); // Move West by 90*i meters
 					pointEnd = getPointWithOffset(southEastCorner, GRID_SIZE * i, -sideLength); // Move West by 90*i meters and North by 180 m
-				}else{
+				} else {
 					pointStart = getPointWithOffset(southEastCorner, 0, -GRID_SIZE * i); // Move North by 90*i meters
 					pointEnd = getPointWithOffset(southEastCorner, sideLength, -GRID_SIZE * i); // Move North by 90*i meters and West by 180 m
 				}
-				
-				double elevationAtStart = getElevationOnWgs84Point(grid, pointStart[0], pointStart[1]);
-				double elevationAtEnd = getElevationOnWgs84Point(grid, pointEnd[0], pointEnd[1]);
-				observationSum += ((elevationAtEnd - elevationAtStart) / (double) sideLength) * 100d;
+
+				double elevationAtStart;
+				double elevationAtEnd;
+				try {
+					elevationAtStart = getElevationOnWgs84Point(grid, pointStart[0], pointStart[1], true);
+					elevationAtEnd = getElevationOnWgs84Point(grid, pointEnd[0], pointEnd[1], true);
+
+					observationSum += ((elevationAtEnd - elevationAtStart) / (double) sideLength) * 100d;
+				} catch (Exception e) {
+					// TODO Auto-generated catch block
+					e.printStackTrace();
+				}
+
 			}
 		} catch (TransformException e) {
 			getLogger().error("Error transforming point coordinates ", e);

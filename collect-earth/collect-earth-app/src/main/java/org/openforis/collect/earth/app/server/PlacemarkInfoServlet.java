@@ -20,7 +20,6 @@ public class PlacemarkInfoServlet extends JsonPocessorServlet {
 	@Autowired
 	BrowserService browserService;
 
-
 	private String getPlacemarkId(Map<String, String> collectedData) {
 		return collectedData.get(ServerController.PLACEMARK_ID);
 	}
@@ -38,7 +37,6 @@ public class PlacemarkInfoServlet extends JsonPocessorServlet {
 			getLogger().error("No placemark ID found in the received request");
 		} else {
 
-			// REMOVE THIS!!!!
 			if (placemarkId.equals("$[id]")) {
 				placemarkId = "testPlacemark";
 			}

@@ -19,6 +19,7 @@ public class LocalPropertiesService {
 	private static final String CSV_KEY = "csv";
 	private static final String CRS_KEY = "coordinates_reference_system";
 	private static final String GENERATED_KEY = "generated_on";
+	private static final String OPEN_EARTH_ENGINE = "open_earth_engine";
 	private final Logger logger = LoggerFactory.getLogger(LocalPropertiesService.class);
 	private Properties properties;
 	private static final String PROPERTIES_FILE = "earth.properties";
@@ -122,6 +123,15 @@ public class LocalPropertiesService {
 		}
 
 		return skipFilled;
+	}
+
+	public boolean isEarthEngineSupported() {
+		boolean earthEngine = false;
+		if (properties.get(OPEN_EARTH_ENGINE) != null && ((String) properties.get(OPEN_EARTH_ENGINE)).length() > 0) {
+			earthEngine = Boolean.parseBoolean((String) properties.get(OPEN_EARTH_ENGINE));
+		}
+
+		return earthEngine;
 	}
 
 
