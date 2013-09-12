@@ -32,7 +32,7 @@ import com.vividsolutions.jts.geom.Point;
 public class PreprocessElevationData extends AbstractWgs84Transformer {
 
 	private static final int SLOPE_PERCENTAGE_LIMIT = 10;
-	public static final String ELEV_SUFFIX = "_elev";
+	public static final String CSV_ELEV_EXTENSIOM = ".ced";
 	private static final Logger logger = LoggerFactory.getLogger(PreprocessElevationData.class);
 	private static String NEW_LINE = System.getProperty("line.separator");
 	private static int GRID_SIZE = 90;
@@ -139,7 +139,7 @@ public class PreprocessElevationData extends AbstractWgs84Transformer {
 	private OutputStream getFileOverWrite(File csvFile) throws IOException {
 
 		String name = csvFile.getName();
-		File newFile = new File(csvFile.getParent(), name + ELEV_SUFFIX);
+		File newFile = new File(csvFile.getParent(), name + CSV_ELEV_EXTENSIOM);
 		BufferedOutputStream bos = new BufferedOutputStream(new FileOutputStream(newFile));
 		return bos;
 	}

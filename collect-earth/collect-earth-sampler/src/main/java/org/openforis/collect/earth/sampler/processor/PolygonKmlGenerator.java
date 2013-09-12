@@ -23,7 +23,6 @@ import com.vividsolutions.jts.geom.Point;
 
 public abstract class PolygonKmlGenerator extends KmlGenerator {
 
-	private static final String PLACEMARK_ID_PREFIX = "placemark_";
 	private static final Integer DEFAULT_INNER_POINT_SIDE = 2;
 	private Integer innerPointSide;
 	protected static final int NUM_OF_COLS = 6;
@@ -40,7 +39,8 @@ public abstract class PolygonKmlGenerator extends KmlGenerator {
 	}
 
 	@Override
-	protected Map<String, Object> getTemplateData(String csvFile, float distanceBetweenSamplePoints) throws IOException {
+	protected Map<String, Object> getTemplateData(String csvFile, float distanceBetweenSamplePoints, float distancePlotBoundary)
+			throws IOException {
 		Map<String, Object> data = new HashMap<String, Object>();
 
 		SimplePlacemarkObject previousPlacemark = null;
@@ -89,7 +89,7 @@ public abstract class PolygonKmlGenerator extends KmlGenerator {
 					// need to move the #original point@ to the top left so that
 					// the center ends up bein the expected original coord
 
-					String currentPlaceMarkId = PLACEMARK_ID_PREFIX + nextRow[0];
+					String currentPlaceMarkId = nextRow[0];
 					SimplePlacemarkObject parentPlacemark = new SimplePlacemarkObject(transformedPoint.getCoordinate(),
 							currentPlaceMarkId, elevation, slopeNorthSouth, slopeWestEast, orientation);
 
@@ -103,7 +103,7 @@ public abstract class PolygonKmlGenerator extends KmlGenerator {
 
 					fillSamplePoints(distanceBetweenSamplePoints, coordOriginalPoints, currentPlaceMarkId, parentPlacemark);
 
-					fillExternalLine(distanceBetweenSamplePoints, coordOriginalPoints, parentPlacemark);
+					fillExternalLine(distanceBetweenSamplePoints, distancePlotBoundary, coordOriginalPoints, parentPlacemark);
 
 					placemarks.add(parentPlacemark);
 
@@ -145,12 +145,15 @@ public abstract class PolygonKmlGenerator extends KmlGenerator {
 		coords.add(new SimpleCoordinate(topLeftPosition)); // TOP-LEFT
 		return coords;
 	}
-	protected abstract void fillExternalLine(float distanceBetweenSamplePoints, double[] coordOriginalPoints,
+
+	protected abstract void fillExternalLine(float distanceBetweenSamplePoints, float distancePlotBoundary,
+			double[] coordOriginalPoints,
 			SimplePlacemarkObject parentPlacemark) throws TransformException;
 
 
-	protected abstract void fillSamplePoints(float distanceBetweenSamplePoints, double[] coordOriginalPoints,
-			String currentPlaceMarkId, SimplePlacemarkObject parentPlacemark) throws TransformException;
+	protected abstract void fillSamplePoints(float distanceBetweenSamplePoints,
+			double[] coordOriginalPoints, String currentPlaceMarkId, SimplePlacemarkObject parentPlacemark)
+			throws TransformException;
 
 	protected int getPointSide() {
 		if (innerPointSide == null) {

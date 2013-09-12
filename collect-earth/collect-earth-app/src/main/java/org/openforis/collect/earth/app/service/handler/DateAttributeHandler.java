@@ -4,6 +4,7 @@ import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.Calendar;
 
+import org.apache.log4j.Logger;
 import org.openforis.idm.model.Date;
 import org.openforis.idm.model.DateAttribute;
 import org.openforis.idm.model.Entity;
@@ -23,7 +24,14 @@ public class DateAttributeHandler extends AbstractAttributeHandler<Value> {
 
 	@Override
 	public String getAttributeFromParameter(String parameterName, Entity entity, int index) {
-		return sdf.format(((DateAttribute) entity.get(removePrefix(parameterName), index)).getValue().toJavaDate());
+		String attribute = "";
+
+		try {
+			attribute = sdf.format(((DateAttribute) entity.get(removePrefix(parameterName), index)).getValue().toJavaDate());
+		} catch (Exception e) {
+			Logger.getLogger(this.getClass()).error("Not able to parse date", e);
+		}
+		return attribute;
 	}
 
 	@Override
@@ -40,7 +48,7 @@ public class DateAttributeHandler extends AbstractAttributeHandler<Value> {
 			cal.setTime(dateParam);
 			int year = cal.get(Calendar.YEAR);
 			int month = cal.get(Calendar.MONTH) + 1; // Months starts with 0 in
-														// the calendar
+			// the calendar
 			int day = cal.get(Calendar.DAY_OF_MONTH);
 
 			date = new Date(year, month, day);

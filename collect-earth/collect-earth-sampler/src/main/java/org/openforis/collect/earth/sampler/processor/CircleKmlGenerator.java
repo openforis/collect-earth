@@ -24,7 +24,7 @@ public class CircleKmlGenerator extends PolygonKmlGenerator {
 	}
 
 	@Override
-	protected void fillExternalLine(float radiusOfSamplingCircle, double[] centerCircleCoord,
+	protected void fillExternalLine(float radiusOfSamplingCircle, float distanceToBoundary, double[] centerCircleCoord,
 			SimplePlacemarkObject parentPlacemark) throws TransformException {
 		List<SimpleCoordinate> shapePoints = new ArrayList<SimpleCoordinate>();
 

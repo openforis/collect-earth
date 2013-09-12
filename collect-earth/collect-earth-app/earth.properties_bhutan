@@ -1,7 +1,7 @@
-#Thu Aug 22 12:53:22 CEST 2013
+#Fri Aug 23 10:18:56 CEST 2013
 coordinates_reference_system=WGS84
 operator=alfonso
-open_earth_engine=true
+open_earth_engine=false
 port=8020
 inner_point_side=2
 csv=bhutan_files/bhutan-grid-epsg4326.csv_elev
@@ -9,7 +9,7 @@ include_files_kmz=bhutan_files/files
 elevation_geotif_directory=bhutan_files/geotiffs
 skip_filled_plots=false
 distance_between_sample_points=25
-generated_on=1377168671758
+generated_on=1377245748045
 metadata_file=bhutan_files/placemark.idm.xml
 template=bhutan_files/kml_template.fmt
 sample_shape=SQUARE

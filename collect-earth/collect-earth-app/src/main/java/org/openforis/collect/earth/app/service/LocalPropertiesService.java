@@ -12,17 +12,22 @@ import org.slf4j.LoggerFactory;
 
 public class LocalPropertiesService {
 
-	private static final String OPERATOR_KEY = "operator";
-	private static final String SKIP_FILLED_KEY = "skip_filled_plots";
-	private static final String HOST_KEY = "host";
-	private static final String PORT_KEY = "port";
-	private static final String CSV_KEY = "csv";
-	private static final String CRS_KEY = "coordinates_reference_system";
-	private static final String GENERATED_KEY = "generated_on";
-	private static final String OPEN_EARTH_ENGINE = "open_earth_engine";
+	public static final String OPERATOR_KEY = "operator";
+	public static final String SKIP_FILLED_KEY = "skip_filled_plots";
+	public static final String HOST_KEY = "host";
+	public static final String PORT_KEY = "port";
+	public static final String CSV_KEY = "csv";
+	public static final String KML_TEMPLATE_KEY = "template";
+	public static final String BALLOON_TEMPLATE_KEY = "balloon";
+	public static final String CRS_KEY = "coordinates_reference_system";
+	public static final String GENERATED_KEY = "generated_on";
+	public static final String OPEN_EARTH_ENGINE = "open_earth_engine";
 	private final Logger logger = LoggerFactory.getLogger(LocalPropertiesService.class);
 	private Properties properties;
-	private static final String PROPERTIES_FILE = "earth.properties";
+	public static final String PROPERTIES_FILE = "earth.properties";
+	private static final String KML_TEMPLATE_KEY_CHECKSUM = "template_checksum";
+	private static final String BALLOON_TEMPLATE_KEY_CHECKSUM = "balloon_checksum";
+	private static final String CSV_KEY_CHECKSUM = "csv_checksum";
 
 	public LocalPropertiesService() {
 
@@ -71,12 +76,47 @@ public class LocalPropertiesService {
 		storeProperties();
 	}
 
+	public String getTemplateFile() {
+		return getValue(KML_TEMPLATE_KEY);
+	}
+
+	public String getTemplateFileChecksum() {
+		return getValue(KML_TEMPLATE_KEY_CHECKSUM);
+	}
+
+	public void saveTemplateFileChecksum(String checksum) {
+		properties.put(KML_TEMPLATE_KEY_CHECKSUM, checksum);
+		storeProperties();
+	}
+
+	public String getBalloonFile() {
+		return getValue(BALLOON_TEMPLATE_KEY);
+	}
+
+	public String getBalloonFileChecksum() {
+		return getValue(BALLOON_TEMPLATE_KEY_CHECKSUM);
+	}
+
+	public void saveBalloonFileChecksum(String checksum) {
+		properties.put(BALLOON_TEMPLATE_KEY_CHECKSUM, checksum);
+		storeProperties();
+	}
+
 	public String getCsvFile() {
 		return getValue(CSV_KEY);
 	}
 
 	public void saveCsvFile(String csvFile) {
 		properties.put(CSV_KEY, csvFile);
+		storeProperties();
+	}
+
+	public String getCsvFileChecksum() {
+		return getValue(CSV_KEY_CHECKSUM);
+	}
+
+	public void saveCsvFileCehcksum(String checksum) {
+		properties.put(CSV_KEY_CHECKSUM, checksum);
 		storeProperties();
 	}
 

@@ -19,13 +19,17 @@ public class SquareKmlGenerator extends PolygonKmlGenerator {
 	}
 
 	@Override
-	protected void fillExternalLine(float distanceBetweenSamplePoints, double[] coordOriginal,
+	protected void fillExternalLine(float distanceBetweenSamplePoints, float distancePlotBoundary, double[] coordOriginal,
 			SimplePlacemarkObject parentPlacemark) throws TransformException {
 		List<SimpleCoordinate> shapePoints = new ArrayList<SimpleCoordinate>();
 
+		double xSideLength = (distanceBetweenSamplePoints * (NUM_OF_COLS - 2)) + 2 * distancePlotBoundary;
+		double ySideLength = (distanceBetweenSamplePoints * (NUM_OF_ROWS - 2)) + 2 * distancePlotBoundary;
+
 		// Move to the top-left point
-		final double originalCoordGeneralOffsetX = (-1d * NUM_OF_COLS * distanceBetweenSamplePoints / 2d);
-		final double originalCoordGeneralOffsetY = (NUM_OF_ROWS * distanceBetweenSamplePoints / 2d);
+		final double originalCoordGeneralOffsetX = (-1d * (NUM_OF_COLS - 2) * distanceBetweenSamplePoints / 2d)
+				- distancePlotBoundary;
+		final double originalCoordGeneralOffsetY = ((NUM_OF_ROWS - 2) * distanceBetweenSamplePoints / 2d) + distancePlotBoundary;
 
 		double[] topLeftSquareCoord = getPointWithOffset(coordOriginal, originalCoordGeneralOffsetX, originalCoordGeneralOffsetY);
 
@@ -38,7 +42,7 @@ public class SquareKmlGenerator extends PolygonKmlGenerator {
 		west = topLeftSquareCoord[0] + "";
 
 		// TOP RIGHT
-		double offsetLong = (distanceBetweenSamplePoints * NUM_OF_COLS);
+		double offsetLong = xSideLength;
 		double offsetLat = 0;
 
 		double[] squareCorner = getPointWithOffset(topLeftSquareCoord, offsetLong, offsetLat);
@@ -47,8 +51,8 @@ public class SquareKmlGenerator extends PolygonKmlGenerator {
 		east = squareCorner[0] + "";
 
 		// BOTTOM RIGHT
-		offsetLong = (distanceBetweenSamplePoints * NUM_OF_COLS);
-		offsetLat = -(distanceBetweenSamplePoints * NUM_OF_ROWS);
+		offsetLong = xSideLength;
+		offsetLat = -ySideLength;
 		squareCorner = getPointWithOffset(topLeftSquareCoord, offsetLong, offsetLat);
 		shapePoints.add(new SimpleCoordinate(squareCorner));
 
@@ -56,7 +60,7 @@ public class SquareKmlGenerator extends PolygonKmlGenerator {
 
 		// BOTTOM LEFT
 		offsetLong = 0;
-		offsetLat = -(distanceBetweenSamplePoints * NUM_OF_ROWS);
+		offsetLat = -ySideLength;
 		squareCorner = getPointWithOffset(topLeftSquareCoord, offsetLong, offsetLat);
 		shapePoints.add(new SimpleCoordinate(squareCorner));
 
@@ -82,6 +86,8 @@ public class SquareKmlGenerator extends PolygonKmlGenerator {
 
 		List<SimplePlacemarkObject> pointsInPlacemark = new ArrayList<SimplePlacemarkObject>();
 
+		boolean addCentralPoints = getPointSide() > 20;
+
 		for (int col = 1; col < NUM_OF_COLS; col++) {
 			double offsetLong = col * distanceBetweenSamplePoints; // GO
 			// EAST
@@ -97,13 +103,25 @@ public class SquareKmlGenerator extends PolygonKmlGenerator {
 
 				pointsInPlacemark.add(insidePlacemark);
 
+				if (addCentralPoints) {
+
+					double[] centerPosition = getPointWithOffset(miniPlacemarkPosition, getPointSide() / 2, getPointSide() / 2);
+					SimplePlacemarkObject centralPoint = new SimplePlacemarkObject(centerPosition, currentPlaceMarkId
+							+ "center");
+					centralPoint.setShape(getSamplePointPolygon(centerPosition, 1));
+					pointsInPlacemark.add(centralPoint);
+				}
 			}
 
 		}
 
 		int totalNumberOfPoints = (NUM_OF_COLS - 1) * (NUM_OF_ROWS - 1);
 		if (totalNumberOfPoints % 2 == 1) {
-			parentPlacemark.setSamplePointOutlined((int) Math.ceil((double) totalNumberOfPoints / 2d) - 1);
+			if (addCentralPoints) {
+				parentPlacemark.setSamplePointOutlined(totalNumberOfPoints - 1);
+			} else {
+				parentPlacemark.setSamplePointOutlined((int) Math.ceil((double) totalNumberOfPoints / 2d) - 1);
+			}
 		}
 
 		parentPlacemark.setPoints(pointsInPlacemark);

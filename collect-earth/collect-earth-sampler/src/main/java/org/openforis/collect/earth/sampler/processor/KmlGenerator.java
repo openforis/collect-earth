@@ -41,22 +41,24 @@ public abstract class KmlGenerator extends AbstractWgs84Transformer {
 	}
 
 	public void generateFromCsv(String csvFile, String ballongFile, String freemarkerKmlTemplateFile, String destinationKmlFile,
-			String distanceBetweenSamplePoints) throws IOException, TemplateException {
+			String distanceBetweenSamplePoints, String distancePlotBoundary) throws IOException, TemplateException {
 
 		try {
 			File destinationFile = new File(destinationKmlFile);
-			getKmlCode(csvFile, ballongFile, freemarkerKmlTemplateFile, destinationFile, distanceBetweenSamplePoints);
+			getKmlCode(csvFile, ballongFile, freemarkerKmlTemplateFile, destinationFile, distanceBetweenSamplePoints,
+					distancePlotBoundary);
 		} catch (IOException e) {
 			getLogger().error("Could not generate KML file", e);
 		}
 	}
 
 	private void getKmlCode(String csvFile, String ballongFile, String freemarkerKmlTemplateFile, File destinationFile,
-			String distanceBetweenSamplePoints) throws IOException, TemplateException {
+			String distanceBetweenSamplePoints, String distancePlotBoundary) throws IOException, TemplateException {
 
 		Float fDistancePoints = Float.parseFloat(distanceBetweenSamplePoints);
+		Float fDistancePlotBoundary = Float.parseFloat(distancePlotBoundary);
 		// Build the data-model
-		Map<String, Object> data = getTemplateData(csvFile, fDistancePoints);
+		Map<String, Object> data = getTemplateData(csvFile, fDistancePoints, fDistancePlotBoundary);
 		data.put("expiration", httpHeaderDf.format(new Date()));
 
 		// Get the HTML content of the ballong from a file, this way we can
@@ -87,6 +89,7 @@ public abstract class KmlGenerator extends AbstractWgs84Transformer {
 	}
 
 
-	protected abstract Map<String, Object> getTemplateData(String csvFile, float distanceBetweenSamplePoints) throws IOException;
+	protected abstract Map<String, Object> getTemplateData(String csvFile, float distanceBetweenSamplePoints,
+			float distancePlotBoundary) throws IOException;
 
 }

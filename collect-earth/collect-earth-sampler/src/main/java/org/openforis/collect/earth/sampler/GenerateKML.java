@@ -25,7 +25,7 @@ public final class GenerateKML {
 		try {
 			String kmlResult = "resultAnssi.kml";
 			generateKml.generateFromCsv("grid-EPSG_3576-mongolia.csv", "balloonWithButtons.html", "anssi_template.fmt",
-					kmlResult, "EPSG:3576");
+					kmlResult, "25", "10");
 			KmzGenerator kmzGenerator = new KmzGenerator();
 			kmzGenerator.generateKmzFile("gePlugin.kmz", kmlResult, "files");
 		} catch (IOException e) {

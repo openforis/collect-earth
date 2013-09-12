@@ -1,0 +1,18 @@
+#Fri Aug 23 09:46:13 CEST 2013
+operator=Lolaitol
+coordinates_reference_system=WGS84
+open_earth_engine=true
+port=8020
+inner_point_side=2
+csv=morocco_files/maroc.csv_elev
+include_files_kmz=morocco_files/files
+elevation_geotif_directory=morocco_files/geotiffs
+skip_filled_plots=false
+distance_between_sample_points=25
+generated_on=1377243973630
+metadata_file=morocco_files/placemark.idm.xml
+sample_shape=SQUARE
+template=morocco_files/kml_template.fmt
+survey_name=Morocco - forest survey
+host=127.0.0.1
+balloon=morocco_files/balloon_morocco.html

@@ -6,7 +6,7 @@
 </NetworkLinkControl>
 
 <Document>
-	<name>Bhutan Interpretation</name>
+	<name>Papua New Guinea Interpretation</name>
 
 <Style id="placemark-balloon-style">
     <BalloonStyle>
@@ -51,7 +51,7 @@ ${html_for_ballong}
 	<#list placemarks as placemark >
 
 <Folder id="folder_${placemark.placemarkId}">
-	<name>${placemark_index+1} - Sampling unit ID : ${placemark.placemarkId}</name>
+	<name>  ${placemark_index+1} - Sampling Unit ID : ${placemark.placemarkId}</name>
 	<open>0</open>
 	<Style>
 		<ListStyle >

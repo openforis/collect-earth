@@ -553,8 +553,6 @@ hr {
 <body>
 
 	<form id="formAll" method="POST" action="$[host]saveData">
-	<!-- <form id="formAll" method="POST" action="http://127.0.0.1:8020/earth/saveData"> -->
-	
 	<div id="contentDiv" class="earthDiv" style="height:600px; overflow : auto;">
 
 				<input type="hidden" id="collect_coord_location" 
@@ -579,7 +577,7 @@ hr {
 					id="collect_boolean_presence_planted_forest" name="collect_boolean_presence_planted_forest"/> 
 					
 				<input type="hidden"
-					id="collect_boolean_presence_woody_vegetation" name="collect_boolean_presence_woody_vegetation"/> 3
+					id="collect_boolean_presence_woody_vegetation" name="collect_boolean_presence_woody_vegetation"/>
 					
 				<input type="hidden" id="collect_code_topography_relief" name="collect_code_topography_relief" />
 					
@@ -599,6 +597,8 @@ hr {
 					<span style="float: right;display:inline;margin-top:5px;" >
 					
 					<img src="files/img/ethiopia.png" border="0" style="vertical-align:bottom;"/>
+					<img src="files/img/fao-logo.png" border="0" style="vertical-align:bottom;"/>
+					
 					<!-- 				
 					Shirinking functionality removed!!!
 					<button class="btn btn-link" onclick="toggleCollapsed(); return false;"><i  class="icon-large icon-resize-small" id="collapseButton"></i></button>				
@@ -609,7 +609,7 @@ hr {
 					<div >
 						<div id="toolbar" class="capsuleCat ui-corner-all"
 							style="width: 96%">
-							<h5>Land Use/Cover</h5>
+							<h5>Land Use/Cover - ID-TRACT: $[id] </h5>
 													
 							<div class="label-over">Land Use/Cover Classes (indicate the number of points falling in each LUCC 1-25 )</div>
 							
@@ -628,19 +628,18 @@ hr {
 										<td>
 											<div class="control-group" style="display:inline-block">
 											<div class="input-prepend">
-													<span class="add-on">Nat Forest cc<50%</span> 
+													<span class="add-on">Nat Forest cc&lt;50%</span> 
 													<input type="text" name="collect_entity_land_use[sparse_forest].integer_number_of_points" id="collect_entity_land_use[sparse_forest].integer_number_of_points" class="input-mini validateMax"/>
-														
 											</div>
 											</div>
-										
+	
 										</td>
 									</tr>
 									<tr>
 										<td>									
 											<div class="control-group" style="display:inline-block">
 												<div class="input-prepend">
-														<span class="add-on">Nat Forest cc>=50%</span> 
+														<span class="add-on">Nat Forest cc&gt;=50%</span> 
 														<input type="text" name="collect_entity_land_use[dense_forest].integer_number_of_points" id="collect_entity_land_use[dense_forest].integer_number_of_points" class="input-mini validateMax"/>
 															
 												</div>
@@ -670,7 +669,7 @@ hr {
 										<td>
 											<div class="control-group" style="display:inline-block">
 												<div class="input-prepend">
-														<span class="add-on">Other land cc<50%</span> 
+														<span class="add-on">Other land cc&gt;50%</span> 
 														<input type="text" name="collect_entity_land_use[sparse_other_land].integer_number_of_points" id="collect_entity_land_use[sparse_other_land].integer_number_of_points" class="input-mini validateMax"/>
 												</div>
 											</div>
@@ -682,7 +681,7 @@ hr {
 										<td colspan="2">
 											<div class="control-group" style="display:inline-block">
 											<div class="input-prepend">
-													<span class="add-on">Other land cc>=50%</span> 
+													<span class="add-on">Other land cc&gt;=50%</span> 
 													<input type="text" name="collect_entity_land_use[dense_other_land].integer_number_of_points" id="collect_entity_land_use[dense_other_land].integer_number_of_points" class="input-mini validateMax"/>
 														
 											</div>
@@ -909,7 +908,6 @@ hr {
 							<div class="label-over">Date</div>
 								<div class="control-group">
 									 	 <input type="text" id="collect_date_rs_date" name="collect_date_rs_date" placeholder="month/day/year">
-									</select>
 								</div>
 							</div>
 							<div id="toolbar" class="capsuleCat ui-corner-all">

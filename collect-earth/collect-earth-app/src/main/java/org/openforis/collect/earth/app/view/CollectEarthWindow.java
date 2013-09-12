@@ -219,6 +219,13 @@ public class CollectEarthWindow {
 		if (returnVal == JFileChooser.APPROVE_OPTION) {
 			try {
 				File file = fc.getSelectedFile();
+
+				String file_name = file.getAbsolutePath();
+				if (!file_name.endsWith(".csv")) {
+					file_name += ".csv";
+					file = new File(file_name);
+				}
+
 				// This is where a real application would open the file.
 				logger.info("Saving CSV to file: " + file.getName() + ".");
 				

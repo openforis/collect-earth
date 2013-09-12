@@ -51,7 +51,7 @@ ${html_for_ballong}
 	<#list placemarks as placemark >
 
 <Folder id="folder_${placemark.placemarkId}">
-	<name>Placemark: ${placemark_index+1} (ID : ${placemark.placemarkId})</name>
+	<name>${placemark_index+1} - Sampling Unit ID-TRACT : ${placemark.placemarkId}</name>
 	<open>0</open>
 	<Style>
 		<ListStyle >
@@ -65,14 +65,14 @@ ${html_for_ballong}
 	</Style>
 
 	<Folder >
-		<GroundOverlay id="overlay_${placemark.placemarkId}"> 
+		<!-- <GroundOverlay id="overlay_${placemark.placemarkId}"> 
 		<Icon ><href>${host}placemarkIcon?collect_text_id=${placemark.placemarkId}</href></Icon>
 		 <LatLonBox>
 		  <south>${placemark.region.south}</south><north>${placemark.region.north}</north>
 		  <west>${placemark.region.west}</west><east>${placemark.region.east}</east> 
 		  <rotation>0.</rotation> 
 		 </LatLonBox>
-		</GroundOverlay>
+		</GroundOverlay> -->
 		<Region>
 			<LatLonAltBox>
 				<south>${placemark.region.south}</south>

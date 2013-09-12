@@ -24,7 +24,8 @@ public class OnePointKmlGenerator extends KmlGenerator{
 	}
 
 	@Override
-	protected Map<String, Object> getTemplateData(String csvFile, float distanceBetweenSamplePoints) throws IOException {
+	protected Map<String, Object> getTemplateData(String csvFile, float distanceBetweenSamplePoints, float distancePlotBoundary)
+			throws IOException {
 		Map<String, Object> data = new HashMap<String, Object>();
 
 		// Read CSV file so that we can store the information in a Map that can

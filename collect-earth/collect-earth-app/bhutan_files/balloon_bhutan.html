@@ -258,8 +258,10 @@ earth_skip_filled
 					 $('#'+extraValues[0]).val( extraValues[1] );
 				 }
 
-				ajaxDataUpdate();
+				
 			}
+			
+			ajaxDataUpdate();
 			
 		});
 		
@@ -580,12 +582,6 @@ hr {
 	<!-- <form id="formAll" method="POST" action="http://127.0.0.1:8020/earth/saveData"> -->
 	
 	<div id="contentDiv" class="earthDiv" style="height:600px; overflow : auto;">
-
-			Orientation : $[orientation] slope north-south : $[slopeNorthSouth] west-east : $[slopeWestEast] Elevation : $[elevation]
-					
-			<!-- <form id="formAll" method="POST" action="http://168.202.48.32:8020/earth/saveData"> -->
-			
-
 				<input type="hidden" id="collect_coord_location" 
 					name="collect_coord_location" value="$[latitude],$[longitude]" />
 					
@@ -846,7 +842,7 @@ hr {
 									<button type="button" class="btn btn-primary collect_code_land_use_dependant lastElementToggle" title="Bare areas - Bare soils" value="BS">Bare soils</button>
 									<br/>
 									
-									<button type="button" class="btn btn-primary collect_code_land_use_dependant firstElementToggle" value=DL" title="Degraded areas - Landslides" >Landslides</button>
+									<button type="button" class="btn btn-primary collect_code_land_use_dependant firstElementToggle" value="DL" title="Degraded areas - Landslides" >Landslides</button>
 									<button type="button" class="btn btn-primary collect_code_land_use_dependant"  title="Degraded areas - Gullies"  value="DG">Gullies</button>
 									<button type="button" class="btn btn-primary collect_code_land_use_dependant" title="Degraded areas - Ravines" value="DR">Ravines</button>
 									<button type="button" class="btn btn-primary collect_code_land_use_dependant" title="Degraded areas - Moraines" value="DM">Moraines</button>
@@ -1114,7 +1110,7 @@ hr {
 				</div>
 		</div>
 		<div class="earthDiv">
-			<button type="submit" class="btn btn-success" style="margin-left:25%;margin-right:25%;margin-top:3px;">SUBMIT & VALIDATE</button>
+			<button type="submit" class="btn btn-success" style="margin-left:25%;margin-right:25%;margin-top:3px;">SUBMIT &amp; VALIDATE</button>
 			<!-- 
 			COMMENT FOR NOW
 			<div style="float:right">

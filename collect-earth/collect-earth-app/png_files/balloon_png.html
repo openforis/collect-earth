@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html>
 <head>
-<title>Mongolia Collect Earth customization</title>
+<title>Bhutan Collect Earth customization</title>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
 <script src="files/jquery/jquery.js"></script>
@@ -15,7 +15,7 @@
 <link href="files/bootstrap/bootstrap-select.css" rel="stylesheet" />
 
 <!-- 
-Values expected for Mongolia ( for the "HTTP parameters" -> "Collect format" conversion to work )
+Values expected for PNG ( for the "HTTP parameters" -> "Collect format" conversion to work )
 
 All inputs that have processable information ( hidden or otherwise) should start with "collect_" :
 
@@ -105,8 +105,7 @@ earth_skip_filled
 			ajaxTimeout = setTimeout(function() {
 				var $form = $("#formAll");
 		
-				var data = $("#formAll").serialize();			
-							
+				var data = $("#formAll").serialize();							
 				$.ajax({
 					data : data,
 					type : $form.attr("method"),
@@ -148,9 +147,12 @@ earth_skip_filled
 		 }
 		 
 		 if( selectedValue != 'settlement'){
-			 $('.settlementDiv').show();
+			 $('.humanImpactDiv').show();
+			 $('.distanceToRoadDiv').show();
+			
 		 }else{
-			 $('.settlementDiv').hide();
+			 $('.humanImpactDiv').hide();
+			 $('.distanceToRoadDiv').hide();
 		 }
 		 
 		 if( selectedValue != 'forest'){
@@ -202,8 +204,7 @@ earth_skip_filled
 						function () {        
 							$(this).button('toggle');
 						}
-				);
-							
+				);							
 			}
 			
 			if( key == "collect_boolean_interpretation_uncertainty" ){
@@ -232,7 +233,6 @@ earth_skip_filled
 			var suffixLength =  "_group".length;
 			
 			if( groupId && groupId.length > suffixLength ){
-				
 				 var value = $(this).val();
 				// When we expect data sucha as "0;collect_code_deforestation_reason=burnt"
 				 var values = value.split(";");
@@ -259,9 +259,9 @@ earth_skip_filled
 					 var extraValues = values[1].split("=");
 					 $('#'+extraValues[0]).val( extraValues[1] );
 				 }
-
-				ajaxDataUpdate();
 			}
+			
+			ajaxDataUpdate();
 			
 		});
 		
@@ -349,7 +349,7 @@ earth_skip_filled
 				initializeChangeEventSaver();
 			});
 	}
-			
+	
 	var submitForm = function($form, submitCounter ){
 		var data = $form.find('input, select, textarea, button').serialize();
 		
@@ -446,21 +446,22 @@ earth_skip_filled
 								});
 						
 						checkIfPlacemarkAlreadyFilled('#formAll', 0);
-										
+				
+						
 						// SAVING DATA WHEN USER SUBMITS
 						$('#formAll')
 								.submit(
 										function(e) {
 											
 											e.preventDefault();
-
+											
 											clearTimeout(ajaxTimeout); // So that the form is not save twice if the user clicks the submit button before the auto-save timeout has started
 											
 											// Mark this as the "real submit" (as opposed when saving data just because the user closes the window) so we can show the placemark as interpreted
 											$("input[id=collect_boolean_actively_saved]").val("true");
 
 											submitForm( $(this), 0 );
-														}
+										}
 									);
 						
 					});
@@ -509,6 +510,17 @@ body {
 	display : inline-block;
 }
 
+.firstElementToggle{
+    border-bottom-left-radius: 4px !important;
+    border-top-left-radius: 4px !important;
+    margin-left: 0 !important;
+}
+
+.lastElementToggle{
+    border-bottom-right-radius: 4px !important;
+    border-top-right-radius: 4px !important;
+}
+
 .add-on {
 	width: 60px !important;
 }
@@ -548,17 +560,6 @@ hr {
    	
 }
 
-.firstElementToggle{
-    border-bottom-left-radius: 4px !important;
-    border-top-left-radius: 4px !important;
-    margin-left: 0 !important;
-}
-
-.lastElementToggle{
-    border-bottom-right-radius: 4px !important;
-    border-top-right-radius: 4px !important;
-}
-
 .earthDiv{
 	width: 530px;
 }
@@ -581,14 +582,9 @@ hr {
 	<!-- <form id="formAll" method="POST" action="http://127.0.0.1:8020/earth/saveData"> -->
 	
 	<div id="contentDiv" class="earthDiv" style="height:600px; overflow : auto;">
-
-			Orientation : $[orientation] slope north-south : $[slopeNorthSouth] west-east : $[slopeWestEast] Elevation : $[elevation]
-			
-			<!-- <form id="formAll" method="POST" action="http://168.202.48.32:8020/earth/saveData"> -->
-			
-
 				<input type="hidden" id="collect_coord_location" 
 					name="collect_coord_location" value="$[latitude],$[longitude]" />
+					
 				<input type="hidden" id="collect_integer_elevation" 
 					name="collect_integer_elevation" value="$[elevation]" />
 				<input type="hidden" id="collect_code_orientation" 
@@ -638,11 +634,13 @@ hr {
 				
 				<span style="float: right;display:inline;margin-top:5px;" >
 				
-				<img src="files/img/mongolia.png" border="0" style="vertical-align:bottom;"/>
-<!-- 				
-Shirinking functionality removed!!!
-<button class="btn btn-link" onclick="toggleCollapsed(); return false;"><i  class="icon-large icon-resize-small" id="collapseButton"></i></button>				
- -->
+				<span style="float: left;display:inline;margin-top:5px;" >
+				Sampling Unit ID: $[id]<br/>
+				Elevation : $[elevation]<br/>
+				Aspect : $[orientation]
+				</span>
+				<img src="files/img/papuanewguinea.png" border="0" style="vertical-align:bottom;"/>
+				<img src="files/img/fao-logo.png" border="0" style="vertical-align:bottom;"/>
 				</span>
 				</div>
 				<div id="collapsableContents">
@@ -700,33 +698,41 @@ Shirinking functionality removed!!!
 						
 							<div class="label-over">Type</div>
 							
-							<div class="control-group">
-								<div class="btn-group landUseTypeSelector"
+							
+							<div class="control-group landUseTypeSelector">
+								<div class="btn-group "
 									data-toggle="buttons-radio">
 									<button type="button" class="btn btn-primary collect_code_land_use_dependant"
-										value="birch-Aspen" title="Birch-Aspen">Birch-Aspen</button>
+										value="low_altitude_forest_on_plainsand_fans" title="Low altitude forest on plainsand fans">Low altitude on plainsand</button>
 									<button type="button" class="btn btn-primary collect_code_land_use_dependant"
-										value="larch" title="Larch">Larch</button>
-									<button type="button" class="btn btn-primary collect_code_land_use_dependant"
-										value="pine" title="Pine">Pine</button>
-									<button type="button" class="btn btn-primary collect_code_land_use_dependant"
-										value="siberianPine" title="Siberian Pine">Siberian
-										Pine</button>
-									<button type="button" class="btn btn-primary collect_code_land_use_dependant"
-										value="spruce" title="Spruce">Spruce</button>
+										value="low_altitude_forest_on_uplands" title="Low altitude forest on uplands">Low altitude on uplands</button>
 									<button type="button" class="btn btn-primary collect_code_land_use_dependant lastElementToggle"
-										value="saxaul" title="Saxaul">Saxaul</button>
-									<br />
+										value="lower_montane_forest" title="Lower montane forest">Lower montane</button>
+									
+									<br/>
+									<button type="button" class="btn btn-primary collect_code_land_use_dependant firstElementToggle "
+										value="montane_forest" title="Montane forest" >Montane</button>
+									<button type="button" class="btn btn-primary collect_code_land_use_dependant"
+										value="coniferous" title="Coniferous forest">Coniferous</button>	
+									<button type="button" class="btn btn-primary collect_code_land_use_dependant "
+										value="dry_seasonal_forest" title="Dry seasonal forest">Dry seasonal</button>
+									<button type="button" class="btn btn-primary collect_code_land_use_dependant"
+										value="littoral_forest" title="Littoral forest">Littoral</button>
+									<button type="button" class="btn btn-primary collect_code_land_use_dependant lastElementToggle"
+										value="seral_forest" title="Seral Forest">Seral</button>
+										
+									<br/>
 									<button type="button" class="btn btn-primary collect_code_land_use_dependant firstElementToggle"
-										value="coniferousAndDeciduous" title="Coniferous and deciduous">Coniferous
-										and deciduous</button>
+										value="swamo_forest" title="Swamo forest">Swamo</button>
 									<button type="button" class="btn btn-primary collect_code_land_use_dependant"
-										value="saxaul2" title="Saxaul">Saxaul</button>
+										value="savanna" title="Savanna">Savanna</button>
 									<button type="button" class="btn btn-primary collect_code_land_use_dependant"
-										value="shrubs" title="Shrubs">Shrubs</button>
+										value="woodland" title="Woodland">Woodland</button>
 									<button type="button" class="btn btn-primary collect_code_land_use_dependant"
-										value="open" title="Open">Open</button>
-	
+										value="scrub" title="Scrub">Scrub</button>
+									<button type="button" class="btn btn-primary collect_code_land_use_dependant"
+										value="mangrove" title="Mangrove">Mangrove</button>
+									
 								</div>
 							</div>
 							<div class="label-over">Interpretation Uncertainty</div>
@@ -797,16 +803,35 @@ Shirinking functionality removed!!!
 							<div class="label-over">
 									Type
 							</div>
+
 							<div class="control-group">	
 									<div class="btn-group landUseTypeSelector" data-toggle="buttons-radio" id="cropland" >
-									 	<button type="button" class="btn btn-primary collect_code_land_use_dependant"  value="irrigation" >Irrigation</button>
+									 	<button type="button" class="btn btn-primary collect_code_land_use_dependant"  value="very_high_intensity_with_tree_crops" title="Very high intensity with tree crops" >Very high intensity with tree crops</button>
+									 	<button type="button" class="btn btn-primary collect_code_land_use_dependant lastElementToggle"  value="very_high_intensity" title="Very high intensity (Oil palm)" >Very high intensity (Oil palm)</button>
+									 	<br/>
+									 	<button type="button" class="btn btn-primary collect_code_land_use_dependant firstElementToggle"  value="high_intensity" title="High intensity" >High intensity</button>
+									 	<button type="button" class="btn btn-primary collect_code_land_use_dependant lastElementToggle"  value="moderate_intensity" title="Moderate intensity">Moderate intensity</button>
+									 	<br/>
+									 	<button type="button" class="btn btn-primary collect_code_land_use_dependant firstElementToggle"  value="low_intensity" title="Low intensity">Low intensity</button>
+									 	<button type="button" class="btn btn-primary collect_code_land_use_dependant"  value="very_low_intensity"  title="Very low intensity">Very low intensity</button>
+									 	<button type="button" class="btn btn-primary collect_code_land_use_dependant"  value="extremely_low_intensity" title="Extremely low intensity">Extremely low intensity</button>
 								    </div>
 							</div>
 								
+							<div class="label-over">Interpretation Uncertainty</div>
+							<div class="control-group">			
+								<div class="btn-group" data-toggle="buttons-radio">
+									<button type="button"
+										class="btn btn-primary toggleUncertainty collect_code_land_use_dependant"
+										id="FLUncertaintyTrue" value="true">YES</button>
+									<button type="button"
+										class="btn btn-primary  toggleUncertainty collect_code_land_use_dependant"
+										id="FLUncertainFalse" value="false" >NO</button>
+								</div>
 							</div>
 						</div>
 					</div>
-					</div>
+					
 					<div id="tab_otherLand" class="tab-pane">
 
 						<div id="toolbar" class="capsuleCat ui-corner-all"
@@ -825,15 +850,19 @@ Shirinking functionality removed!!!
 							</div>
 
 							<div class="label-over">Type</div>
-
-							<div class="control-group">
+					
+							<div class="control-group ">
 								<div class="btn-group landUseTypeSelector"
 									data-toggle="buttons-radio" id="other">
-									<button type="button" class="btn btn-primary collect_code_land_use_dependant" value="lakes" >Lakes</button>
-									<button type="button" class="btn btn-primary collect_code_land_use_dependant"
-										value="largeRivers" title="Large River">Large Rivers</button>
-									<button type="button" class="btn btn-primary collect_code_land_use_dependant" value="bareAreas"
-										title="Bare areas">Bare Areas</button>
+									<button type="button" class="btn btn-primary collect_code_land_use_dependant" value="barrein_soil" title="Barrein soil" >Barrein soil</button>
+									<button type="button" class="btn btn-primary collect_code_land_use_dependant" value="sand_soil" title="Sand soil" >Sand soil</button>
+									<button type="button" class="btn btn-primary collect_code_land_use_dependant lastElementToggle"  title="Land slides"  value="land_slides">Land slides</button>
+									
+									<br/>
+									<button type="button" class="btn btn-primary collect_code_land_use_dependant firstElementToggle"  title="Rock" value="rock">Rock</button>
+									<button type="button" class="btn btn-primary collect_code_land_use_dependant " value="river" title="River" >River</button>
+									<button type="button" class="btn btn-primary collect_code_land_use_dependant"  title="Lake"  value="lake">Lake</button>
+																	
 								</div>
 
 							</div>
@@ -847,6 +876,7 @@ Shirinking functionality removed!!!
 							style="width: 96%">
 							<h5>Grassland Type</h5>
 							<div class="label-over">Development</div>
+						
 							<div class="control-group">								
 									<div class="btn-group" data-toggle="buttons-radio">
 										<button type="button"
@@ -861,27 +891,12 @@ Shirinking functionality removed!!!
 							<div class="control-group">
 								<div class="btn-group landUseTypeSelector"
 									data-toggle="buttons-radio" id="grassland">
-									<button type="button" class="btn btn-primary collect_code_land_use_dependant"
-										value="dessertSteppe" title="Dessert Steppe">Dessert
-										Steppe</button>
-									<button type="button" class="btn btn-primary collect_code_land_use_dependant"
-										value="mountainDessertSteppe" title="Mountain Dessert Steppe">Mountain
-										Dessert S..</button>
-									<button type="button" class="btn btn-primary collect_code_land_use_dependant"
-										value="mountainSteppe" title="Mountain Steppe">Mountain
-										S...</button>
-									<button type="button" class="btn btn-primary collect_code_land_use_dependant lastElementToggle"
-										value="steppeAndDrySteppe" title="Steppe and Dry Steppe">Steppe&amp;Dry...</button>
-									<br />
-									<button type="button" class="btn btn-primary collect_code_land_use_dependant firstElementToggle"
-										value="meadowAndMeadowSwamp" title="Meadow and Meadow Swamp">Meadow&amp;Meadow
-										Swamp</button>
-									<button type="button" class="btn btn-primary collect_code_land_use_dependant"
-										value="meadowPasture" title="Meadow Pasture">Meadow
-										Pasture</button>
-									<button type="button" class="btn btn-primary collect_code_land_use_dependant"
-										value="meadowSteppe" title="Meadow Steppe">Meadow
-										Steppe</button>
+									<button type="button" class="btn btn-primary collect_code_land_use_dependant" title="Grassland and herbland"
+										value="grassland_and_herbland">Grassland and herbland</button>
+									<button type="button" class="btn btn-primary collect_code_land_use_dependant" title="Alpine grassland"
+										value="alpine_grassland">Alpine grassland</button>		
+									<button type="button" class="btn btn-primary collect_code_land_use_dependant" title="Subalpine grassland"
+										value="subalpine_grassland">Subalpine grassland</button>								
 								</div>
 
 							</div>
@@ -920,7 +935,7 @@ Shirinking functionality removed!!!
 								<div class="label-over">Type</div>
 									<div class="control-group">
 										<div class="btn-group landUseTypeSelector" data-toggle="buttons-radio" id="wetLand">
-										 	<button type="button" class="btn btn-primary collect_code_land_use_dependant"  value="swamp">Swamp</button>
+										 	<button type="button" class="btn btn-primary collect_code_land_use_dependant"  value="wetland">Wetland</button>
 									    </div>
 									</div>
 							</div>
@@ -943,12 +958,11 @@ Shirinking functionality removed!!!
 							
 								<div class="label-over">Type</div>
 								<div class="control-group">
-									
+				
 									<div class="btn-group landUseTypeSelector" data-toggle="buttons-radio" id="settlement">
-									 	<button type="button" class="btn btn-primary collect_code_land_use_dependant"  value="largerUrbanCenters">Larger Urban Centers</button>
-									    <button type="button" class="btn btn-primary collect_code_land_use_dependant" value="village">Village</button>
-									    <button type="button" class="btn btn-primary collect_code_land_use_dependant" value="settlementWithTrees">Settlement with Trees</button>
-									    <button type="button" class="btn btn-primary collect_code_land_use_dependant" value="service">Service</button>
+									 	<button type="button" class="btn btn-primary collect_code_land_use_dependant"  value="village">Village</button>
+									    <button type="button" class="btn btn-primary collect_code_land_use_dependant" value="large_settlement">Large settlement</button>
+									    <button type="button" class="btn btn-primary collect_code_land_use_dependant" value="infrastructure">Infrastructure</button>
 								    </div>
 
 								</div>
@@ -965,157 +979,159 @@ Shirinking functionality removed!!!
 					</div>					
 				</div>
 
-			<div id="commonDivs">
-				<div id="toolbar" class="capsuleCat ui-corner-all">
-					<h5>Topography</h5>
-					<div class="label-over">Accesibility</div>
-							<div class="control-group">
-				
-						<div class="btn-group" data-toggle="buttons-radio" id="collect_code_topography_accessibility_group">
-						 	<button type="button" class="btn btn-primary"  value="0-1">D&lt;1km</button>
-						    <button type="button" class="btn btn-primary" value="1-5">1km&lt; D &lt;5km</button>
-						    <button type="button" class="btn btn-primary" value="5-10">5km&lt; D &lt;10km</button>
-						    <button type="button" class="btn btn-primary" value="10-more">10km&lt;D</button>
-						     <button type="button" class="btn btn-primary" value="unaccesible">Unaccesible</button>
-					    </div>
-					</div>
-					<div class="label-over">Elements</div>
-						<div class="control-group">
-							<div class="input-prepend">
-								<span class="add-on">Road</span> <select
-									class="selectpicker  show-tick show-menu-arrow "
-									id="collect_entity_topography[road].code_coverage" name="collect_entity_topography[road].code_coverage"
-									>
-									<option value="na">Not Applicable</option>
-									<option  value="0-10">0-10%</option>
-									<option value="10-30">10-30%</option>
-									<option value="30-60">30-60%</option>
-									<option value="60-100">60-100%</option>
-								</select>
-
-							</div>
-							<div class="input-prepend">
-								<span class="add-on">River</span> <select
-									class="selectpicker  show-tick show-menu-arrow "
-									id="collect_entity_topography[river].code_coverage" name="collect_entity_topography[river].code_coverage"
-									>
-									<option value="na">Not Applicable</option>
-									<option  value="0-10">0-10%</option>
-									<option value="10-30">10-30%</option>
-									<option value="30-60">30-60%</option>
-									<option value="60-100">60-100%</option>
-								</select>
-
-							</div>
-							<div class="input-prepend">
-								<span class="add-on">House</span> <select
-									class="selectpicker  show-tick show-menu-arrow "
-									id="collect_entity_topography[house].code_coverage" name="collect_entity_topography[house].code_coverage"
-									>
-									<option value="na">Not Applicable</option>
-									<option  value="0-10">0-10%</option>
-									<option value="10-30">10-30%</option>
-									<option value="30-60">30-60%</option>
-									<option value="60-100">60-100%</option>
-								</select>
-
-							</div>
-							<div class="input-prepend" id="trees_element">
-								<span class="add-on">Trees</span> <select
-									class="selectpicker  show-tick show-menu-arrow "
-									id="collect_entity_topography[trees].code_coverage" name="collect_entity_topography[trees].code_coverage"
-									>
-									<option value="na">Not Applicable</option>
-									<option  value="0-10">0-10%</option>
-									<option value="10-30">10-30%</option>
-									<option value="30-60">30-60%</option>
-									<option value="60-100">60-100%</option>
-								</select>
-
-							</div>
-							<div class="input-prepend">
-								<span class="add-on">Other</span> <select
-									class="selectpicker  show-tick show-menu-arrow "
-									id="collect_entity_topography[other].code_coverage" name="collect_entity_topography[other].code_coverage"
-									>
-									<option value="na">Not Applicable</option>
-									<option  value="0-10">0-10%</option>
-									<option value="10-30">10-30%</option>
-									<option value="30-60">30-60%</option>
-									<option value="60-100">60-100%</option>
-								</select>
-
-							</div>
-
-					</div>
-					
-				</div>
-
-				<div id="toolbar" class="capsuleCat ui-corner-all settlementDiv">
-					<h5>Human impact</h5>
-					<div class="label-over">Type</div>
-							<div class="control-group">
-					
-						<div class="btn-group" data-toggle="buttons-radio" id="collect_code_human_impact_type_group">
-						 	<button type="button" class="btn btn-primary"  value="na" class="active">No impact</button>
-						    <button type="button" class="btn btn-primary" value="logging">Logging</button>
-						    <button type="button" class="btn btn-primary" value="grazing">Grazing</button>
-						    <button type="button" class="btn btn-primary" value="mining">Mining</button>
-						    <button type="button" class="btn btn-primary" value="other">Other</button>
-					    </div>
+					<div id="commonDivs">
+						<div id="toolbar" class="capsuleCat ui-corner-all">
+							<h5>Topography</h5>
+							<div class="label-over distanceToRoadDiv" >Accesibility</div>
+							
+							<div class="control-group distanceToRoadDiv" >
 						
-					</div>
-					<div class="label-over">Grade</div>
+								<div class="btn-group" data-toggle="buttons-radio" id="collect_code_topography_accessibility_group">
+								 	<button type="button" class="btn btn-primary"  value="0-1">D&lt;1km</button>
+								    <button type="button" class="btn btn-primary" value="1-5">1km&lt; D &lt;5km</button>
+								    <button type="button" class="btn btn-primary" value="5-10">5km&lt; D &lt;10km</button>
+								    <button type="button" class="btn btn-primary" value="10-more">10km&lt;D</button>
+								     <button type="button" class="btn btn-primary" value="unaccesible">Unaccesible</button>
+							    </div>
+							</div>
+							<div class="label-over">Elements</div>
+								<div class="control-group">
+									<div class="input-prepend">
+										<span class="add-on">Road</span> <select
+											class="selectpicker  show-tick show-menu-arrow "
+											id="collect_entity_topography[road].code_coverage" name="collect_entity_topography[road].code_coverage"
+											>
+											<option value="na">Not Applicable</option>
+											<option  value="0-10">0-10%</option>
+											<option value="10-30">10-30%</option>
+											<option value="30-60">30-60%</option>
+											<option value="60-100">60-100%</option>
+										</select>
+		
+									</div>
+									<div class="input-prepend">
+										<span class="add-on">River</span> <select
+											class="selectpicker  show-tick show-menu-arrow "
+											id="collect_entity_topography[river].code_coverage" name="collect_entity_topography[river].code_coverage"
+											>
+											<option value="na">Not Applicable</option>
+											<option  value="0-10">0-10%</option>
+											<option value="10-30">10-30%</option>
+											<option value="30-60">30-60%</option>
+											<option value="60-100">60-100%</option>
+										</select>
+		
+									</div>
+									<div class="input-prepend">
+										<span class="add-on">House</span> <select
+											class="selectpicker  show-tick show-menu-arrow "
+											id="collect_entity_topography[house].code_coverage" name="collect_entity_topography[house].code_coverage"
+											>
+											<option value="na">Not Applicable</option>
+											<option  value="0-10">0-10%</option>
+											<option value="10-30">10-30%</option>
+											<option value="30-60">30-60%</option>
+											<option value="60-100">60-100%</option>
+										</select>
+		
+									</div>
+									<div class="input-prepend" id="trees_element">
+										<span class="add-on">Trees</span> <select
+											class="selectpicker  show-tick show-menu-arrow "
+											id="collect_entity_topography[trees].code_coverage" name="collect_entity_topography[trees].code_coverage"
+											>
+											<option value="na">Not Applicable</option>
+											<option  value="0-10">0-10%</option>
+											<option value="10-30">10-30%</option>
+											<option value="30-60">30-60%</option>
+											<option value="60-100">60-100%</option>
+										</select>
+		
+									</div>
+									<div class="input-prepend">
+										<span class="add-on">Other</span> <select
+											class="selectpicker  show-tick show-menu-arrow "
+											id="collect_entity_topography[other].code_coverage" name="collect_entity_topography[other].code_coverage"
+											>
+											<option value="na">Not Applicable</option>
+											<option  value="0-10">0-10%</option>
+											<option value="10-30">10-30%</option>
+											<option value="30-60">30-60%</option>
+											<option value="60-100">60-100%</option>
+										</select>
+		
+									</div>
+
+							</div>
+							
+						</div>
+
+					<div id="toolbar" class="capsuleCat ui-corner-all humanImpactDiv">
+						<h5>Human impact</h5>
+							<div class="label-over">Type</div>
+									<div class="control-group">
+							
+								<div class="btn-group" data-toggle="buttons-radio" id="collect_code_human_impact_type_group">
+								 	<button type="button" class="btn btn-primary"  value="na" class="active">No impact</button>
+								    <button type="button" class="btn btn-primary" value="logging">Logging</button>
+								    <button type="button" class="btn btn-primary" value="grazing">Grazing</button>
+								    <button type="button" class="btn btn-primary" value="mining">Mining</button>
+								    <button type="button" class="btn btn-primary" value="other">Other</button>
+							    </div>
+								
+							</div>
+							<div class="label-over">Grade</div>
+									<div class="control-group">
+									<div class="btn-group" data-toggle="buttons-radio" id="collect_code_human_impact_grade_group">
+								    <button type="button" class="btn btn-primary collect_code_human_impact_type_dependant" value="low">Low</button>
+								    <button type="button" class="btn btn-primary collect_code_human_impact_type_dependant" value="medium">Medium</button>
+								    <button type="button" class="btn btn-primary collect_code_human_impact_type_dependant" value="high">High</button>
+							    </div>
+								
+							</div>
+							<div class="label-over">Date</div>
+									<div class="control-group">
+							
+								<select
+									name="collect_integer_human_impact_year"
+									class="selectpicker  show-menu-arrow show-tick humanImpactInput" data-size="3"
+									id="collect_integer_human_impact_year" title="No year selected" >
+									<option value="-1">Unknown</option>
+								</select>
+							</div>
+						</div>
+			
+						<div id="toolbar" class="capsuleCat ui-corner-all">
+			
+						<h5>RS Data</h5>
+			
+						<div class="label-over">Satellite</div>
+								<div class="control-group">
+							    <div class="btn-group" data-toggle="buttons-radio" id="collect_code_rs_satellite_group">
+								    <button type="button" class="btn btn-primary" value="rapidEye">Rapid Eye</button>
+								    <button type="button" class="btn btn-primary" value="landsat">Landsat</button>
+								    <button type="button" class="btn btn-primary" value="quickbird">Quickbird</button>
+								    <button type="button" class="btn btn-primary" value="spot">Spot</button>
+								    <button type="button" class="btn btn-primary" value="other">Other</button>
+							    </div>
+							  <!--  <div class="ui-state-default ui-state-active ui-corner-all"> 
+							    <div class="ui-icon ui-icon-circle-plus"></div>   <a href="#">I am clickable and selected</a></div>  
+							    
+							    <div class="ui-state-default ui-corner-all">  
+
+  								 <div class="ui-icon ui-icon-circle-plus"></div>  
+
+ 								<a href="#">I am clickable but not selected</a></div>  -->
+							    
+						</div>
+						<div class="label-over">Date</div>
 							<div class="control-group">
-							<div class="btn-group" data-toggle="buttons-radio" id="collect_code_human_impact_grade_group">
-						    <button type="button" class="btn btn-primary collect_code_human_impact_type_dependant" value="low">Low</button>
-						    <button type="button" class="btn btn-primary collect_code_human_impact_type_dependant" value="medium">Medium</button>
-						    <button type="button" class="btn btn-primary collect_code_human_impact_type_dependant" value="high">High</button>
-					    </div>
-						
-					</div>
-					<div class="label-over">Date</div>
-							<div class="control-group">
-					
-						<select
-							name="collect_integer_human_impact_year"
-							class="selectpicker  show-menu-arrow show-tick humanImpactInput" data-size="3"
-							id="collect_integer_human_impact_year" title="No year selected" >
-							<option value="-1">Unknown</option>
-						</select>
+								 <input type="text" id="collect_date_rs_date" name="collect_date_rs_date" placeholder="month/day/year">
+							</div>
+						</div>
 					</div>
 				</div>
-	
-				<div id="toolbar" class="capsuleCat ui-corner-all">
-	
-				<h5>RS Data</h5>
-	
-				<div class="label-over">Satellite</div>
-						<div class="control-group">
-					    <div class="btn-group" data-toggle="buttons-radio" id="collect_code_rs_satellite_group">
-						    <button type="button" class="btn btn-primary" value="rapidEye">Rapid Eye</button>
-						    <button type="button" class="btn btn-primary" value="landsat">Landsat</button>
-						    <button type="button" class="btn btn-primary" value="quickbird">Quickbird</button>
-						    <button type="button" class="btn btn-primary" value="spot">Spot</button>
-						    <button type="button" class="btn btn-primary" value="other">Other</button>
-					    </div>
-					  <!--  <div class="ui-state-default ui-state-active ui-corner-all"> 
-					    <div class="ui-icon ui-icon-circle-plus"></div>   <a href="#">I am clickable and selected</a></div>  
-					    
-					    <div class="ui-state-default ui-corner-all">  
-
-								 <div class="ui-icon ui-icon-circle-plus"></div>  
-
-							<a href="#">I am clickable but not selected</a></div>  -->
-					    
-				</div>
-				<div class="label-over">Date</div>
-					<div class="control-group">
-						 <input type="text" id="collect_date_rs_date" name="collect_date_rs_date" placeholder="month/day/year">
-					</div>
-				</div>
-			</div>
-
+		</div>
 		<div class="earthDiv">
 			<button type="submit" class="btn btn-success" style="margin-left:25%;margin-right:25%;margin-top:3px;">SUBMIT &amp; VALIDATE</button>
 			<!-- 

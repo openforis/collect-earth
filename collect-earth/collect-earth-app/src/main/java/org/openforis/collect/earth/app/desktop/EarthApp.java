@@ -4,6 +4,7 @@ import java.awt.Desktop;
 import java.awt.SplashScreen;
 import java.io.BufferedWriter;
 import java.io.File;
+import java.io.FileInputStream;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.io.Writer;
@@ -16,6 +17,7 @@ import java.util.Observer;
 
 import javax.swing.JOptionPane;
 
+import org.apache.commons.codec.digest.DigestUtils;
 import org.openforis.collect.earth.app.service.DataExportService;
 import org.openforis.collect.earth.app.service.LocalPropertiesService;
 import org.openforis.collect.earth.app.view.CollectEarthWindow;
@@ -84,7 +86,7 @@ public class EarthApp {
 		String csvFile = nonSpringManagedProperties.getCsvFile();
 		String epsgCode = nonSpringManagedProperties.getCrs();
 
-		if (!csvFile.endsWith(PreprocessElevationData.ELEV_SUFFIX)) {
+		if (!csvFile.endsWith(PreprocessElevationData.CSV_ELEV_EXTENSIOM)) {
 			PreprocessElevationData fillElevation = new PreprocessElevationData(epsgCode);
 			List<File> foundGeoTifs = getGeoTifFiles();
 			if( foundGeoTifs!=null && foundGeoTifs.size() > 0 ){
@@ -92,7 +94,7 @@ public class EarthApp {
 				fillElevation.addElevationDataAndFixToWgs84(foundGeoTifs, new File(csvFile));
 
 				// We change the name of the CSV file and CRS. The new file contains the elevation data in the last column. The coordinates were also changhed to WGS84
-				nonSpringManagedProperties.saveCsvFile(csvFile + PreprocessElevationData.ELEV_SUFFIX);
+				nonSpringManagedProperties.saveCsvFile(csvFile + PreprocessElevationData.CSV_ELEV_EXTENSIOM);
 				nonSpringManagedProperties.saveCrs(AbstractWgs84Transformer.WGS84);
 			}
 		}
@@ -137,11 +139,14 @@ public class EarthApp {
 
 		try {
 			String csvFile = nonSpringManagedProperties.getCsvFile();
-			String balloon = nonSpringManagedProperties.getValue("balloon");
-			String template = nonSpringManagedProperties.getValue("template");
+			String balloon = nonSpringManagedProperties.getBalloonFile();
+			String template = nonSpringManagedProperties.getTemplateFile();
 			String distanceBetweenSamplePoints = nonSpringManagedProperties.getValue("distance_between_sample_points");
+			String distancePlotBoundaries = nonSpringManagedProperties.getValue("distance_to_plot_boundaries");
 
-			generateKml.generateFromCsv(csvFile, balloon, template, KML_RESULTING_TEMP_FILE, distanceBetweenSamplePoints);
+			generateKml.generateFromCsv(csvFile, balloon, template, KML_RESULTING_TEMP_FILE, distanceBetweenSamplePoints,
+					distancePlotBoundaries);
+			updateFilesUsedChecksum();
 
 		} catch (IOException e) {
 			LOGGER.error("Could not generate KML file", e);
@@ -153,35 +158,66 @@ public class EarthApp {
 
 	}
 
-	private void generateKmzFile() {
+	private void updateFilesUsedChecksum() throws IOException {
+		String csvFile = nonSpringManagedProperties.getCsvFile();
+		String balloon = nonSpringManagedProperties.getBalloonFile();
+		String template = nonSpringManagedProperties.getTemplateFile();
+
+		nonSpringManagedProperties.saveBalloonFileChecksum(getMd5FromFile(balloon));
+		nonSpringManagedProperties.saveCsvFileCehcksum(getMd5FromFile(csvFile));
+		nonSpringManagedProperties.saveTemplateFileChecksum(getMd5FromFile(template));
+	}
+
+	private String getMd5FromFile(String csvFile) throws IOException {
+		return DigestUtils.md5Hex(new FileInputStream(new File(csvFile)));
+	}
+
+	private void generateKmzFile() throws IOException {
 
 		LOGGER.info("START - Generate KMZ file");
 
-		generateKml();
+		if (!isKmlUpToDate()) {
+			generateKml();
 
-		try {
-			KmzGenerator kmzGenerator = new KmzGenerator();
-			kmzGenerator.generateKmzFile(KMZ_FILE_PATH, KML_RESULTING_TEMP_FILE,
-					nonSpringManagedProperties.getValue("include_files_kmz"));
-			LOGGER.info("KMZ File generated : " + KMZ_FILE_PATH);
+			try {
+				KmzGenerator kmzGenerator = new KmzGenerator();
+				kmzGenerator.generateKmzFile(KMZ_FILE_PATH, KML_RESULTING_TEMP_FILE,
+						nonSpringManagedProperties.getValue("include_files_kmz"));
+				LOGGER.info("KMZ File generated : " + KMZ_FILE_PATH);
 
-			File kmlFile = new File(KML_RESULTING_TEMP_FILE);
-			if (kmlFile.exists()) {
-				boolean deleted = kmlFile.delete();
-				if (deleted) {
-					LOGGER.info("KML File deleted : " + KML_RESULTING_TEMP_FILE);
-				} else {
-					throw new IOException("The KML file could not be deleted at " + kmlFile.getPath());
+				File kmlFile = new File(KML_RESULTING_TEMP_FILE);
+				if (kmlFile.exists()) {
+					boolean deleted = kmlFile.delete();
+					if (deleted) {
+						LOGGER.info("KML File deleted : " + KML_RESULTING_TEMP_FILE);
+					} else {
+						throw new IOException("The KML file could not be deleted at " + kmlFile.getPath());
+					}
 				}
+
+			} catch (IOException e) {
+				LOGGER.error("Error while generating KMZ file", e);
 			}
 
+		}
+		LOGGER.info("END - Generate KMZ file");
+	}
 
+	private boolean isKmlUpToDate() throws IOException {
 
-		} catch (IOException e) {
-			LOGGER.error("Error while generating KMZ file", e);
+		String csvFile = nonSpringManagedProperties.getCsvFile();
+		String balloon = nonSpringManagedProperties.getBalloonFile();
+		String template = nonSpringManagedProperties.getTemplateFile();
+
+		boolean upToDate = true;
+		if (!nonSpringManagedProperties.getBalloonFileChecksum().trim().equals(getMd5FromFile(balloon))
+				|| !nonSpringManagedProperties.getTemplateFileChecksum().trim().equals(getMd5FromFile(template))
+				|| !nonSpringManagedProperties.getCsvFileChecksum().trim().equals(getMd5FromFile(csvFile))) {
+			upToDate = false;
 		}
 
-		LOGGER.info("END - Generate KMZ file");
+		return upToDate;
+
 	}
 
 	private void initializeServer() throws Exception {
