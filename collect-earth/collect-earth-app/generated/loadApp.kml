@@ -3,11 +3,11 @@
 <Document>
 	<name>Collect Earth Data</name>
 	<NetworkLink>
-	  <name>Ethiopia Land Use Survey</name>
+	  <name>Papua New Guinea - Land Use survey</name>
 	  <open>1</open>
 	  <Link>
 	    <!-- add date to avoid Google Earth from caching -->
-	    <href>http://127.0.0.1:8020/earth/generated/gePlugin.kmz?generatedOn=1378980764406</href>
+	    <href>http://127.0.0.1:8020/earth/generated/gePlugin.kmz?generatedOn=1379411344698</href>
 	   	<refreshMode>onExpire</refreshMode>
 	  </Link>
 	  
