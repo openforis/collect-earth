@@ -253,7 +253,7 @@ public class EarthApp {
 						public void run() {
 							CollectEarthWindow mainEarthWindow = new CollectEarthWindow(localPropertiesService,
 									dataExportService, serverController);
-							mainEarthWindow.createWindow();
+							mainEarthWindow.openWindow();
 						}
 					});
 

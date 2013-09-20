@@ -98,6 +98,8 @@ public class ServerController extends Observable {
 //		// Use blocking-IO connector to improve throughput
 		Connector connector = new SocketConnector();
 		connector.setPort(getPort());
+		connector.setMaxIdleTime(10000);
+		((SocketConnector) connector).setAcceptQueueSize(30000);
 		server.setConnectors(new Connector[] { connector });
 
 		server.setThreadPool(new ExecutorThreadPool(10, 50, 5, TimeUnit.SECONDS));

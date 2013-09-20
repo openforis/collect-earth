@@ -1,6 +1,8 @@
 package org.openforis.collect.earth.app.view;
 
+import java.awt.BorderLayout;
 import java.awt.Color;
+import java.awt.Dimension;
 import java.awt.Frame;
 import java.awt.GridBagConstraints;
 import java.awt.GridBagLayout;
@@ -17,17 +19,24 @@ import java.net.MalformedURLException;
 import javax.swing.BorderFactory;
 import javax.swing.ImageIcon;
 import javax.swing.JButton;
+import javax.swing.JDialog;
 import javax.swing.JFileChooser;
 import javax.swing.JFrame;
 import javax.swing.JLabel;
+import javax.swing.JMenu;
+import javax.swing.JMenuBar;
+import javax.swing.JMenuItem;
 import javax.swing.JOptionPane;
 import javax.swing.JPanel;
+import javax.swing.JScrollPane;
+import javax.swing.JTextArea;
 import javax.swing.JTextField;
 import javax.swing.SwingConstants;
 import javax.swing.WindowConstants;
 import javax.swing.border.Border;
 import javax.swing.filechooser.FileFilter;
 
+import org.apache.commons.io.FileUtils;
 import org.openforis.collect.earth.app.desktop.ServerController;
 import org.openforis.collect.earth.app.service.DataExportService;
 import org.openforis.collect.earth.app.service.LocalPropertiesService;
@@ -50,7 +59,113 @@ public class CollectEarthWindow {
 		this.serverController = serverController;
 	}
 
-	public void createWindow() {
+	public JMenuBar getMenu(JFrame frame) {
+		//Where the GUI is created:
+		JMenuBar menuBar;
+		JMenu menu;
+		JMenuItem menuItem;
+
+		//Create the menu bar.
+		menuBar = new JMenuBar();
+
+		//Build second menu in the menu bar.
+		menu = new JMenu("File");
+
+		menuItem = new JMenuItem("Exit");
+		menuItem.addActionListener(getCloseActionListener());
+		menu.add(menuItem);
+		menuBar.add(menu);
+
+		//Build second menu in the menu bar.
+		menu = new JMenu("Tools");
+
+		menuItem = new JMenuItem("Export data to CSV");
+		menuItem.addActionListener(getExportActionListener());
+		menu.add(menuItem);
+		menuBar.add(menu);
+
+		menuItem = new JMenuItem("Set properties");
+		menuItem.addActionListener(getPropertiesAction(frame));
+		menu.add(menuItem);
+		menuBar.add(menu);
+
+		menu = new JMenu("Help");
+
+		menuItem = new JMenuItem("Disclaimer");
+		menuItem.addActionListener(getDisclaimerAction(frame));
+		menu.add(menuItem);
+		menuBar.add(menu);
+
+
+		return menuBar;
+	}
+
+	private ActionListener getPropertiesAction(JFrame owner) {
+		final JDialog dialog = new JDialog(owner, "FAO Disclaimer notices");
+		dialog.setLocationRelativeTo(owner);
+		dialog.setSize(new Dimension(300, 400));
+		dialog.setModal(true);
+
+		return new ActionListener() {
+
+			@Override
+			public void actionPerformed(ActionEvent e) {
+				dialog.setVisible(true);
+			}
+		};
+
+	}
+
+	private ActionListener getDisclaimerAction(JFrame owner) {
+
+		final JDialog dialog = new JDialog(owner, "FAO Disclaimer notices");
+		dialog.setLocationRelativeTo(owner);
+		dialog.setSize(new Dimension(300, 400));
+		dialog.setModal(true);
+
+		BorderLayout layoutManager = new BorderLayout();
+
+		JPanel panel = new JPanel(layoutManager);
+
+		dialog.add( panel );
+
+		JTextArea textArea = new JTextArea(getDisclaimerText());
+		textArea.setEditable(false);
+		textArea.setLineWrap(true);
+		textArea.setWrapStyleWord(true);
+		JScrollPane scrollPane = new JScrollPane(textArea);
+		panel.add(scrollPane, BorderLayout.CENTER);
+		scrollPane.setPreferredSize(new Dimension(250, 250));
+
+		JButton close = new JButton("Close");
+		close.addActionListener(new ActionListener() {
+
+			@Override
+			public void actionPerformed(ActionEvent e) {
+				dialog.setVisible(false);
+			}
+		});
+		panel.add(close, BorderLayout.SOUTH);
+
+		return new ActionListener() {
+
+			@Override
+			public void actionPerformed(ActionEvent e) {
+				dialog.setVisible(true);
+			}
+		};
+	}
+
+	private String getDisclaimerText() {
+		try {
+			return FileUtils.readFileToString(new File("resources/disclaimer.txt"));
+		} catch (IOException e) {
+			logger.error("Disclaimer text not found", e);
+			return "Disclaimer text could not be found";
+		}
+	}
+
+	public void openWindow() {
 
 		try {
 			localPropertiesService.init();
@@ -159,6 +274,8 @@ public class CollectEarthWindow {
 			}
 		});
 
+		getFrame().setJMenuBar(getMenu(getFrame()));
+
 		// Display the window.
 		getFrame().setLocationRelativeTo(null);
 		getFrame().pack();
@@ -171,6 +288,7 @@ public class CollectEarthWindow {
 					"<html>OPERATOR NAME EMPTY!<br>Please fill the operator name and press the \"Update\" button.</hml>",
 					"Operator name cannot be empty", JOptionPane.ERROR_MESSAGE);
 		}
+
 	}
 
 	private ActionListener getExportActionListener() {
