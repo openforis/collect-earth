@@ -66,7 +66,7 @@
 			<version>${jetty.version}</version>
 		</dependency> -->
 		
-		<dependency>
+<!-- 		<dependency>
 			<groupId>org.openforis.collect</groupId>
 			<artifactId>collect-core</artifactId>
 			<version>3.0-CR1-SNAPSHOT</version>
@@ -76,7 +76,7 @@
                 <artifactId>liquibase-core</artifactId>
               </exclusion>
             </exclusions>
-		</dependency>
+		</dependency> -->
 		<dependency>
 			<groupId>org.apache.commons</groupId>
 			<artifactId>commons-lang3</artifactId>
@@ -192,6 +192,13 @@
 			  <artifactId>mockito-all</artifactId>  
 			  <version>1.9.0</version> 
 		</dependency> -->
+		
+		<dependency>
+			<groupId>org.apache.maven.plugins</groupId>
+			<artifactId>maven-dependency-plugin</artifactId>
+			<version>2.8</version>
+		</dependency>
+
 	</dependencies>
 	<build>
 		<plugins>
@@ -317,6 +324,7 @@
 		        <groupId>org.apache.maven.plugins</groupId>
 		        <artifactId>maven-dependency-plugin</artifactId>
 		        <version>2.8</version>
+
 		        <executions>
 		          <execution>
 		            <id>copy-dependencies</id>
