@@ -10,6 +10,7 @@ import javax.servlet.http.HttpServletResponse;
 import org.openforis.collect.earth.app.desktop.BrowserService;
 import org.openforis.collect.earth.app.desktop.ServerController;
 import org.openforis.collect.earth.app.service.EarthSurveyService;
+import org.openqa.selenium.remote.RemoteWebDriver;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -18,7 +19,10 @@ import org.springframework.web.bind.annotation.RequestMapping;
 public class PlacemarkInfoServlet extends JsonPocessorServlet {
 
 	@Autowired
-	BrowserService browserService;
+	private BrowserService browserService;
+
+	private static RemoteWebDriver webKitDriver = null;
+
 
 	private String getPlacemarkId(Map<String, String> collectedData) {
 		return collectedData.get(ServerController.PLACEMARK_ID);
@@ -30,7 +34,7 @@ public class PlacemarkInfoServlet extends JsonPocessorServlet {
 
 		String placemarkId = getPlacemarkId(collectedData);
 
-		String originalCoordinates = collectedData.get("collect_coord_location");
+		final String originalCoordinates = collectedData.get("collect_coord_location");
 
 		if (placemarkId == null) {
 			setResult(false, "No placemark ID found in the request", collectedData);
@@ -57,7 +61,18 @@ public class PlacemarkInfoServlet extends JsonPocessorServlet {
 
 		}
 
-		browserService.openBrowser(originalCoordinates);
+		synchronized (browserService) {
+			if (webKitDriver == null) {
+				webKitDriver = browserService.initBrowser();
+			}
+		}
+
+		Thread browserStarter = new Thread() {
+			public void run() {
+				webKitDriver = browserService.openBrowser(originalCoordinates, webKitDriver);
+			};
+		};
+		browserStarter.start();
 
 		getJsonService().setJsonResponse(response, collectedData);
 

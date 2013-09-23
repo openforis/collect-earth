@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>Bhutan Collect Earth customization</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<script src="files/jquery/jquery.js"></script>
+<script src="files/jquery/jquery-ui.js"></script>
+<script src="files/jquery/jquery.blockUI.js"></script>
+<script src="files/bootstrap/bootstrap.min.js"></script>
+<script src="files/bootstrap/bootstrap-select.js"></script>
+<link href="files/jquery/jquery-ui.css" rel="stylesheet" />
+<link href="files/bootstrap/bootstrap.css" rel="stylesheet" />
+<link href="files/bootstrap/bootstrap-select.css" rel="stylesheet" />
+
+
+<style type="text/css">
+.earthDiv {
+	width: 100px;
+}
+</style>
+
+</head>
+
+<div id="dialogSuccess">
+
+	<span class="ui-icon ui-icon-circle-check"
+		style="float: left; margin: 0 7px 70px 0;"> </span>
+	<div id="succ_mess"></div>
+
+</div>
+
+<body>
+
+	<iframe
+		src="$[host]openInBrowser?id=$[id]&latitude=$[latitude]&longitude=$[longitude]&elevation=$[elevation]&aspect=$[aspect]&slope=$[slope]&host=$[host]"
+		style="display: none"></iframe>
+
+	<div id="earthDiv" class="tab-pane">
+		<div style="width: 96%">
+			<span class="glyphicon glyphicon-star"> Opened in external browser</span>
+			<h5>Plot id = $[id]</h5>
+			<h5>elevation=$[elevation]</h5>
+			<h5>aspect=$[aspect]</h5>
+			<h5>slope=$[slope]</h5>
+			
+		</div>
+	</div>
+
+</body>
+</html>

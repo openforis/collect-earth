@@ -32,33 +32,11 @@ public class BrowserService {
 			}
 		}
 	*/
-	private RemoteWebDriver driver;
-
 	@Autowired
 	protected LocalPropertiesService localPropertiesService;
 
 	private final Logger logger = LoggerFactory.getLogger(BrowserService.class);
 
-	public BrowserService() {
-		attachShutDownHook();
-	}
-
-	private void attachShutDownHook() {
-		Runtime.getRuntime().addShutdownHook(new Thread() {
-			@Override
-			public void run() {
-				logger.info("Closing browser");
-				try {
-					if (driver != null) {
-						driver.quit();
-					}
-				} catch (Exception e) {
-					logger.error("Error when closing browser window", e);
-				}
-			}
-		});
-		logger.info("Shut Down Hook Attached.");
-	}
 
 	private String getExtraJavascript(String[] latLong) {
 
@@ -86,7 +64,8 @@ public class BrowserService {
 
 	}
 
-	private RemoteWebDriver initBrowser() {
+	public RemoteWebDriver initBrowser() {
+		RemoteWebDriver driver = null;
 		try {
 			FirefoxProfile ffprofile = new FirefoxProfile();
 			// ffprofile.setPreference(); //Set your preference here
@@ -99,7 +78,7 @@ public class BrowserService {
 		return driver;
 	}
 
-	private boolean isIdPresent(String elementId) {
+	private boolean isIdPresent(String elementId, RemoteWebDriver driver) {
 		boolean found = false;
 
 		try {
@@ -114,15 +93,15 @@ public class BrowserService {
 		return found;
 	}
 
-	private void loadLayers(String executeJavascript) throws InterruptedException {
-		if (!isIdPresent("workspace-el")) {
-			navigateTo("http://earthengine.google.org/#detail/LANDSAT%2FL5_L1T_ANNUAL_GREENEST_TOA");
-			if (waitFor("d_open_button")) {
+	private void loadLayers(String executeJavascript, RemoteWebDriver driver) throws InterruptedException {
+		if (!isIdPresent("workspace-el", driver)) {
+			navigateTo("http://earthengine.google.org/#detail/LANDSAT%2FL5_L1T_ANNUAL_GREENEST_TOA", driver);
+			if (waitFor("d_open_button", driver)) {
 				driver.findElementById("d_open_button").click();
 			}
 
 		}
-		if (waitFor("workspace-el")) {
+		if (waitFor("workspace-el", driver)) {
 			if (driver instanceof JavascriptExecutor) {
 				try {
 					((JavascriptExecutor) driver).executeScript(executeJavascript);
@@ -143,44 +122,42 @@ public class BrowserService {
 		}
 	}
 
-	private void navigateTo(String url) {
+	public synchronized RemoteWebDriver navigateTo(String url, RemoteWebDriver driver) {
+
+		if (driver == null) {
+			driver = initBrowser();
+		}
 
 		try {
 			driver.navigate().to(url);
 		} catch (UnreachableBrowserException e) {
 			// Browser closed, restart it!
-			initBrowser();
-			navigateTo(url);
+			driver = initBrowser();
+			navigateTo(url, driver);
 		}
+		return driver;
 	};
 
-	public void openBrowser(final String coordinates) {
-		Thread browserStarter = new Thread() {
-			public void run() {
-				openCoordinatesSync(coordinates);
-			};
-		};
-		browserStarter.start();
+	public synchronized RemoteWebDriver openBrowser(String coordinates, RemoteWebDriver driver) {
 
-	}
-
-	private synchronized void openCoordinatesSync(String coordinates) {
 		if (localPropertiesService.isEarthEngineSupported()) {
 			try {
 				String[] latLong = coordinates.split(",");
 				if (driver == null) {
-					initBrowser();
+					driver = initBrowser();
 				}
-				loadLayers(getExtraJavascript(latLong));
+				loadLayers(getExtraJavascript(latLong), driver);
 			} catch (InterruptedException e) {
 				logger.error("Error when opening browser window", e);
 			}
+
 		}
+		return driver;
 	}
 
-	private boolean waitFor(String elementId) {
+	private boolean waitFor(String elementId, RemoteWebDriver driver) {
 		int i = 0;
-		while (!isIdPresent(elementId)) {
+		while (!isIdPresent(elementId, driver)) {
 			try {
 				Thread.sleep(1000);
 			} catch (InterruptedException e) {

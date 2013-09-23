@@ -28,6 +28,16 @@ public class LocalPropertiesService {
 	private static final String KML_TEMPLATE_KEY_CHECKSUM = "template_checksum";
 	private static final String BALLOON_TEMPLATE_KEY_CHECKSUM = "balloon_checksum";
 	private static final String CSV_KEY_CHECKSUM = "csv_checksum";
+	public static final String DISTANCE_BETWEEN_SAMPLE_POINTS= "distance_between_sample_points";
+	public static final String DISTANCE_TO_PLOT_BOUNDARIES = "distance_to_plot_boundaries";
+	public static final String INNER_SUBPLOT_SIDE = "inner_point_side";
+	public static final String SAMPLE_SHAPE = "sample_shape";
+	public static final String OPEN_BALLOON_IN_FIREFOX = "open_separate_browser_form";
+	public static final String SIMPLE_BALLOON_FOR_FIREFOX = "simple_balloon_for_firefox";
+	public static final String FILES_TO_INCLUDE_IN_KMZ = "include_files_kmz";
+	public static final String ELEVATION_GEOTIF_DIRECTORY = "elevation_geotif_directory";
+	public static final String METADATA_FILE = "metadata_file";
+	
 
 	public LocalPropertiesService() {
 

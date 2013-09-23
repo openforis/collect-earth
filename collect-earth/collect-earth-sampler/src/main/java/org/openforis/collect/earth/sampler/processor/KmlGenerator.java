@@ -40,19 +40,19 @@ public abstract class KmlGenerator extends AbstractWgs84Transformer {
 		super(epsgCode);
 	}
 
-	public void generateFromCsv(String csvFile, String ballongFile, String freemarkerKmlTemplateFile, String destinationKmlFile,
+	public void generateFromCsv(String csvFile, String balloonFile, String freemarkerKmlTemplateFile, String destinationKmlFile,
 			String distanceBetweenSamplePoints, String distancePlotBoundary) throws IOException, TemplateException {
 
 		try {
 			File destinationFile = new File(destinationKmlFile);
-			getKmlCode(csvFile, ballongFile, freemarkerKmlTemplateFile, destinationFile, distanceBetweenSamplePoints,
+			getKmlCode(csvFile, balloonFile, freemarkerKmlTemplateFile, destinationFile, distanceBetweenSamplePoints,
 					distancePlotBoundary);
 		} catch (IOException e) {
 			getLogger().error("Could not generate KML file", e);
 		}
 	}
 
-	private void getKmlCode(String csvFile, String ballongFile, String freemarkerKmlTemplateFile, File destinationFile,
+	private void getKmlCode(String csvFile, String balloonFile, String freemarkerKmlTemplateFile, File destinationFile,
 			String distanceBetweenSamplePoints, String distancePlotBoundary) throws IOException, TemplateException {
 
 		Float fDistancePoints = Float.parseFloat(distanceBetweenSamplePoints);
@@ -61,10 +61,10 @@ public abstract class KmlGenerator extends AbstractWgs84Transformer {
 		Map<String, Object> data = getTemplateData(csvFile, fDistancePoints, fDistancePlotBoundary);
 		data.put("expiration", httpHeaderDf.format(new Date()));
 
-		// Get the HTML content of the ballong from a file, this way we can
+		// Get the HTML content of the balloon from a file, this way we can
 		// separate the KML generation so it is easier to create different KMLs
-		String ballongContents = FileUtils.readFileToString(new File(ballongFile));
-		data.put("html_for_ballong", ballongContents);
+		String balloonContents = FileUtils.readFileToString(new File(balloonFile));
+		data.put("html_for_balloon", balloonContents);
 
 		// Process the template file using the data in the "data" Map
 		Configuration cfg = new Configuration();

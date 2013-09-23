@@ -4,15 +4,15 @@
 <title>Bhutan Collect Earth customization</title>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
-<script src="files/jquery/jquery.js"></script>
-<script src="files/jquery/jquery-ui.js"></script>
-<script src="files/jquery/jquery.blockUI.js"></script>
-<script src="files/bootstrap/bootstrap.min.js"></script>
-<script src="files/bootstrap/bootstrap-select.js"></script>
+<script src="generated/files/jquery/jquery.js"></script>
+<script src="generated/files/jquery/jquery-ui.js"></script>
+<script src="generated/files/jquery/jquery.blockUI.js"></script>
+<script src="generated/files/bootstrap/bootstrap.min.js"></script>
+<script src="generated/files/bootstrap/bootstrap-select.js"></script>
 
-<link href="files/jquery/jquery-ui.css" rel="stylesheet" />
-<link href="files/bootstrap/bootstrap.css" rel="stylesheet" />
-<link href="files/bootstrap/bootstrap-select.css" rel="stylesheet" />
+<link href="generated/files/jquery/jquery-ui.css" rel="stylesheet" />
+<link href="generated/files/bootstrap/bootstrap.css" rel="stylesheet" />
+<link href="generated/files/bootstrap/bootstrap-select.css" rel="stylesheet" />
 
 <!-- 
 Values expected for PNG ( for the "HTTP parameters" -> "Collect format" conversion to work )
@@ -48,9 +48,8 @@ collect_code_crown_cover
 collect_code_cover_type
 collect_boolean_actively_saved // Set this to true when the user saves the data by actively clicking in submit
 
-collect_code_orientation
-collect_real_slope_north_south
-collect_real_slope_west_east
+collect_real_aspect
+collect_real_slope
 
 When a value has multiple values they will be  separated with "===" i.e.
 collect_code_human_impact_type = "fire===logging===grazing"
@@ -547,7 +546,7 @@ hr {
 }
 
 .ui-dialog-titlebar-close {
-    background-image: url(files/img/close.png) !important;
+    background-image: url(generated/files/img/close.png) !important;
     background-position: left top !important;
 }
 
@@ -587,13 +586,11 @@ hr {
 					
 				<input type="hidden" id="collect_integer_elevation" 
 					name="collect_integer_elevation" value="$[elevation]" />
-				<input type="hidden" id="collect_code_orientation" 
-					name="collect_code_orientation" value="$[orientation]" />
-				<input type="hidden" id="collect_real_slope_north_south" 
-					name="collect_real_slope_north_south" value="$[slopeNorthSouth]" />
-				<input type="hidden" id="collect_real_slope_west_east" 
-					name="collect_real_slope_west_east" value="$[slopeWestEast]" />
-					
+				<input type="hidden" id="collect_real_aspect" 
+					name="collect_real_aspect" value="$[aspect]" />
+				<input type="hidden" id="collect_real_slope" 
+					name="collect_real_slope" value="$[slope]" />
+									
 				<input type="hidden" id="collect_text_id"
 					name="collect_text_id" value="$[id]" />
 				<input type="hidden" id="collect_code_land_use" name="collect_code_land_use"
@@ -630,17 +627,18 @@ hr {
 				<input type="hidden" id="collect_code_human_impact_grade"
 					name="collect_code_human_impact_grade"  class="collect_code_human_impact_type_dependant"/>
 
-				<div style="background-image: url(files/img/Open-foris-banner2.jpg); height:47px;width:450px;clear:none;">
+				<div style="background-image: url(generated/files/img/Open-foris-banner2.jpg); height:47px;width:450px;clear:none;">
 				
 				<span style="float: right;display:inline;margin-top:5px;" >
 				
 				<span style="float: left;display:inline;margin-top:5px;" >
 				Sampling Unit ID: $[id]<br/>
 				Elevation : $[elevation]<br/>
-				Aspect : $[orientation]
+				Aspect : $[aspect]
+				Slope : $[slope]
 				</span>
-				<img src="files/img/papuanewguinea.png" border="0" style="vertical-align:bottom;"/>
-				<img src="files/img/fao-logo.png" border="0" style="vertical-align:bottom;"/>
+				<img src="generated/files/img/papuanewguinea.png" border="0" style="vertical-align:bottom;"/>
+				<img src="generated/files/img/fao-logo.png" border="0" style="vertical-align:bottom;"/>
 				</span>
 				</div>
 				<div id="collapsableContents">

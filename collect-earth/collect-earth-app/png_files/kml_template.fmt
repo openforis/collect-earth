@@ -15,7 +15,7 @@
 <![CDATA[
 
 
-${html_for_ballong}
+${html_for_balloon}
 
 
 ]]>
@@ -125,14 +125,11 @@ ${html_for_ballong}
 		       <Data name="elevation">
 		        <value>${placemark.elevation?string.computer}</value>
 		      </Data>
-		       <Data name="orientation">
-		        <value>${placemark.orientation}</value>
+		       <Data name="aspect">
+		        <value>${placemark.aspect?string.computer}</value>
 		      </Data>
-		       <Data name="slopeNorthSouth">
-		        <value>${placemark.slopeNorthSouth?string.computer}</value>
-		      </Data>
-		      <Data name="slopeWestEast">
-		        <value>${placemark.slopeWestEast?string.computer}</value>
+		       <Data name="slope">
+		        <value>${placemark.slope?string.computer}</value>
 		      </Data>
 		       <Data name="next_id">
 		        <value>${placemark.nextPlacemarkId}</value>

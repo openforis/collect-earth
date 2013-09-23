@@ -427,59 +427,6 @@
 				</item>				
 			</items>
 		</list>
-		
-		<list id="920" name="orientation">
-		    <label type="item">Orientation</label>
-			<items>
-				<item id="921">
-					<code>NORTH</code>
-					<label>NORTH</label>
-				</item>
-				<item id="922">
-					<code>NORTH_EAST</code>
-					<label>NORTH EAST</label>
-				</item>
-				<item id="923">
-					<code>EAST</code>
-					<label>EAST</label>
-				</item>
-				<item id="924">
-					<code>SOUTH_EAST</code>
-					<label>SOUTH EAST</label>
-				</item>
-			    <item id="925">
-					<code>SOUTH</code>
-					<label>SOUTH</label>
-				</item>			
-				<item id="926">
-					<code>SOUTH_WEST</code>
-					<label>SOUTH WEST</label>
-				</item>
-				<item id="927">
-					<code>WEST</code>
-					<label>WEST</label>
-				</item>
-				<item id="928">
-					<code>NORTH_WEST</code>
-					<label>NORTH WEST</label>
-				</item>
-				<item id="929">
-					<code>PLAIN</code>
-					<label>PLAIN</label>
-				</item>
-			    <item id="930">
-					<code>FLAT</code>
-					<label>FLAT</label>
-				</item>	
-				 <item id="931">
-					<code>UNKNOWN</code>
-					<label>UNKNOWN</label>
-				</item>					
-			</items>
-		</list>
-		
-		
-		
 	</codeLists>
 	<spatialReferenceSystems>
 		<spatialReferenceSystem srid="EPSG:4326">
@@ -566,15 +513,13 @@
 			<number id="30" name="elevation" type="integer" >
 				<label xml:lang="en">Elevation</label>
 			</number>
-			<code id="31" name="orientation" list="orientation">
-				<label xml:lang="en">Orientation</label>
-			</code>
-			<number id="32" name="slope_north_south" type="real" >
-				<label xml:lang="en">Slope North South</label>
+			<number id="31" name="aspect" type="real" >
+				<label xml:lang="en">Aspect</label>
 			</number>
-			<number id="33" name="slope_west_east" type="real" >
-				<label xml:lang="en">Slope West East</label>
+			<number id="32" name="slope" type="real" >
+				<label xml:lang="en">Slope</label>
 			</number>
+
 		</entity>
 	</schema>
 </survey>

@@ -7,7 +7,7 @@
 	  <open>1</open>
 	  <Link>
 	    <!-- add date to avoid Google Earth from caching -->
-	    <href>http://127.0.0.1:8020/earth/generated/gePlugin.kmz?generatedOn=1379411344698</href>
+	    <href>http://127.0.0.1:8020/earth/generated/gePlugin.kmz?generatedOn=1379851933604</href>
 	   	<refreshMode>onExpire</refreshMode>
 	  </Link>
 	  

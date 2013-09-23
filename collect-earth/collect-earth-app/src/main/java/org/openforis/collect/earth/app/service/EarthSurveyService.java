@@ -123,7 +123,7 @@ public class EarthSurveyService {
 	}
 
 	private String getIdmFilePath() {
-		return localPropertiesService.getValue("metadata_file");
+		return localPropertiesService.getValue(LocalPropertiesService.METADATA_FILE);
 	}
 
 	public Map<String, String> getPlacemark(String placemarkId) {

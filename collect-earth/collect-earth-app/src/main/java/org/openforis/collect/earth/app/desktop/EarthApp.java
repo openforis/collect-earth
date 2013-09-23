@@ -101,7 +101,7 @@ public class EarthApp {
 	}
 
 	private List<File> getGeoTifFiles() {
-		String geoTiffDirectory = nonSpringManagedProperties.getValue("elevation_geotif_directory");
+		String geoTiffDirectory = nonSpringManagedProperties.getValue(LocalPropertiesService.ELEVATION_GEOTIF_DIRECTORY);
 		File geoTifDir = new File(geoTiffDirectory);
 		File[] listFiles = geoTifDir.listFiles();
 		List<File> foundGeoTifs = null;
@@ -122,9 +122,9 @@ public class EarthApp {
 		// KmlGenerator generateKml = new OnePointKmlGenerator();
 		KmlGenerator generateKml = null;
 
-		String plotShape = nonSpringManagedProperties.getValue("sample_shape");
+		String plotShape = nonSpringManagedProperties.getValue( LocalPropertiesService.SAMPLE_SHAPE);
 		String crsSystem = nonSpringManagedProperties.getCrs();
-		int innerPointSide = Integer.parseInt(nonSpringManagedProperties.getValue("inner_point_side"));
+		int innerPointSide = Integer.parseInt(nonSpringManagedProperties.getValue( LocalPropertiesService.INNER_SUBPLOT_SIDE ));
 
 		if (plotShape.equals("CIRCLE")) {
 			generateKml = new CircleKmlGenerator(crsSystem, nonSpringManagedProperties.getHost(),
@@ -141,9 +141,18 @@ public class EarthApp {
 			String csvFile = nonSpringManagedProperties.getCsvFile();
 			String balloon = nonSpringManagedProperties.getBalloonFile();
 			String template = nonSpringManagedProperties.getTemplateFile();
-			String distanceBetweenSamplePoints = nonSpringManagedProperties.getValue("distance_between_sample_points");
-			String distancePlotBoundaries = nonSpringManagedProperties.getValue("distance_to_plot_boundaries");
+			String distanceBetweenSamplePoints = nonSpringManagedProperties.getValue(LocalPropertiesService.DISTANCE_BETWEEN_SAMPLE_POINTS );
+			String distancePlotBoundaries = nonSpringManagedProperties.getValue(LocalPropertiesService.DISTANCE_TO_PLOT_BOUNDARIES);
 
+			// In case the user sets up the OPEN_BALLOON_IN_FIREFOX flag to true. Meaning that a small ballon opens in the placemark which in its turn 
+			// opens a firefox browser with the real form
+			Boolean openBalloonInFirefox = new Boolean(
+					nonSpringManagedProperties.getValue(LocalPropertiesService.OPEN_BALLOON_IN_FIREFOX));
+			if (openBalloonInFirefox) {
+				balloon = nonSpringManagedProperties.getValue(LocalPropertiesService.SIMPLE_BALLOON_FOR_FIREFOX);
+			}
+			
+			
 			generateKml.generateFromCsv(csvFile, balloon, template, KML_RESULTING_TEMP_FILE, distanceBetweenSamplePoints,
 					distancePlotBoundaries);
 			updateFilesUsedChecksum();
@@ -182,7 +191,7 @@ public class EarthApp {
 			try {
 				KmzGenerator kmzGenerator = new KmzGenerator();
 				kmzGenerator.generateKmzFile(KMZ_FILE_PATH, KML_RESULTING_TEMP_FILE,
-						nonSpringManagedProperties.getValue("include_files_kmz"));
+						nonSpringManagedProperties.getValue(LocalPropertiesService.FILES_TO_INCLUDE_IN_KMZ));
 				LOGGER.info("KMZ File generated : " + KMZ_FILE_PATH);
 
 				File kmlFile = new File(KML_RESULTING_TEMP_FILE);

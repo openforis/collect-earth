@@ -22,11 +22,9 @@ public class SimplePlacemarkObject {
 
 	private int elevation;
 
-	private double slopeNorthSouth;
+	private double slope;
 
-	private double slopeWestEast;
-
-	private String orientation;
+	private double aspect;
 
 	public int getElevation() {
 		return elevation;
@@ -36,16 +34,14 @@ public class SimplePlacemarkObject {
 		this.elevation = elevation;
 	}
 
-	public SimplePlacemarkObject(Coordinate coord, String placemarkId, Integer elevation, double slopeNorthSouth,
-			double slopeWestEast, String orientation) {
+	public SimplePlacemarkObject(Coordinate coord, String placemarkId, Integer elevation, double slope, double aspect) {
 		super();
 		this.placemarkId = placemarkId;
 		this.coord = new SimpleCoordinate(coord);
 		this.nextPlacemarkId = "unknown";
 		this.elevation = elevation;
-		this.slopeNorthSouth = slopeNorthSouth;
-		this.slopeWestEast = slopeWestEast;
-		this.orientation = orientation;
+		this.slope = slope;
+		this.aspect = aspect;
 	}
 
 	public SimplePlacemarkObject(double[] coord, String placemarkId) {
@@ -111,28 +107,21 @@ public class SimplePlacemarkObject {
 		this.samplePointOutlined = samplePointOutlined;
 	}
 
-	public double getSlopeNorthSouth() {
-		return slopeNorthSouth;
+
+	public double getSlope() {
+		return slope;
 	}
 
-	public void setSlopeNorthSouth(double slopeNorthSouth) {
-		this.slopeNorthSouth = slopeNorthSouth;
+	public void setSlope(double slope) {
+		this.slope = slope;
 	}
 
-	public double getSlopeWestEast() {
-		return slopeWestEast;
+	public double getAspect() {
+		return aspect;
 	}
 
-	public void setSlopeWestEast(double slopeWestEast) {
-		this.slopeWestEast = slopeWestEast;
-	}
-
-	public String getOrientation() {
-		return orientation;
-	}
-
-	public void setOrientation(String orientation) {
-		this.orientation = orientation;
+	public void setAspect(double aspect) {
+		this.aspect = aspect;
 	}
 
 }

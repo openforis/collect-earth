@@ -18,6 +18,7 @@ import java.util.List;
 import org.geotools.coverage.grid.GridCoverage2D;
 import org.geotools.gce.geotiff.GeoTiffReader;
 import org.geotools.geometry.DirectPosition2D;
+import org.geotools.referencing.GeodeticCalculator;
 import org.geotools.referencing.crs.DefaultGeographicCRS;
 import org.opengis.coverage.PointOutsideCoverageException;
 import org.opengis.referencing.FactoryException;
@@ -31,30 +32,28 @@ import com.vividsolutions.jts.geom.Point;
 
 public class PreprocessElevationData extends AbstractWgs84Transformer {
 
-	private static final int SLOPE_PERCENTAGE_LIMIT = 10;
 	public static final String CSV_ELEV_EXTENSIOM = ".ced";
 	private static final Logger logger = LoggerFactory.getLogger(PreprocessElevationData.class);
 	private static String NEW_LINE = System.getProperty("line.separator");
-	private static int GRID_SIZE = 90;
 	private List<GridCoverage2D> gridsWithElevationData;
-	private Integer sidePlotInMeters;
 	private final DecimalFormat df;
-
-	private enum SlopeDirection {
-		NORTH_SOUTH, WEST_EAST;
-	};
-
-	private enum Orientation {
-		NORTH, NORTH_EAST, EAST, SOUTH_EAST, SOUTH, SOUTH_WEST, WEST, NORTH_WEST, FLAT, UNKNOWN
-	};
+	private GeodeticCalculator geodeticCalculator = new GeodeticCalculator();
 
 	public PreprocessElevationData(String epsgCode) {
 		super(epsgCode);
-		//this.sidePlotInMeters = sidePlotInMeters;
-		this.sidePlotInMeters = 2 * GRID_SIZE;
+
 		DecimalFormatSymbols dfs = DecimalFormatSymbols.getInstance();
 		dfs.setDecimalSeparator('.');
 		df = new DecimalFormat("#.##", dfs);
+	}
+
+	private double getGridSizeAtPosition(double longitude, double latitude){
+		
+		geodeticCalculator.setStartingGeographicPoint(longitude, latitude);
+		latitude = latitude + 3d / 3600d;
+		geodeticCalculator.setDestinationGeographicPoint(longitude, latitude);
+
+		return geodeticCalculator.getOrthodromicDistance();
 	}
 
 	public boolean addElevationDataAndFixToWgs84(List<File> elevationGeoTiffs, File csvFile) {
@@ -165,24 +164,21 @@ public class PreprocessElevationData extends AbstractWgs84Transformer {
 		Point wgs84Point = transformToWGS84(originalX, originalY); // TOP-LEFT
 		String placemarkId = nextRow[0];
 
-		String slope = "0:0";
 		String elevation = "-1";
-		String orientation = "UNKNOWN";
+		Double aspect = Double.valueOf(-1);
+		Double slope = Double.valueOf(-1);
 		boolean foundElevation = false;
-
-
+		
 		for (GridCoverage2D elevationGrid : gridsWithElevationData) {
-
+			double gridSize = getGridSizeAtPosition(wgs84Point.getX(), wgs84Point.getY());
 			Integer elevationOnWgs84Point = getElevationOnWgs84Point(elevationGrid, wgs84Point.getX(), wgs84Point.getY(), false);
 
 			if (elevationOnWgs84Point != null) {
-				// Slope as a percentage ( i.e. : 8 meters difference in 100 meters line)
-				double northSouthSlope = getSlope(elevationGrid, wgs84Point, SlopeDirection.NORTH_SOUTH, sidePlotInMeters);
-				double westEastSlope = getSlope(elevationGrid, wgs84Point, SlopeDirection.WEST_EAST, sidePlotInMeters);
-
-				orientation = calculateOrientation(northSouthSlope, westEastSlope).name();
+				double[] elevationMatrix = getElevationMatrix(elevationGrid, wgs84Point, gridSize);
+				
+				slope = getSlope(elevationMatrix, gridSize);
+				aspect = calculateAspect(elevationMatrix);
 				elevation = elevationOnWgs84Point.toString();
-				slope = df.format(northSouthSlope) + ":" + df.format(westEastSlope);
 
 				foundElevation = true;
 				break;
@@ -191,7 +187,8 @@ public class PreprocessElevationData extends AbstractWgs84Transformer {
 		}
 
 		// No elevation data found for point
-		String[] newValues = { placemarkId, wgs84Point.getX() + "", wgs84Point.getY() + "", elevation, slope, orientation };
+		String[] newValues = { placemarkId, wgs84Point.getX() + "", wgs84Point.getY() + "", elevation, df.format(slope),
+				df.format(aspect) };
 		writeLineToCsv(overwriteToNewFile, newValues);
 
 		if (!foundElevation) {
@@ -201,80 +198,72 @@ public class PreprocessElevationData extends AbstractWgs84Transformer {
 
 	}
 
-	private Orientation calculateOrientation(double northSouthSlope, double westEastSlope) {
-		if (northSouthSlope > SLOPE_PERCENTAGE_LIMIT) {
-			if (westEastSlope > SLOPE_PERCENTAGE_LIMIT) {
-				return Orientation.NORTH_WEST;
-			} else if (westEastSlope < -SLOPE_PERCENTAGE_LIMIT) {
-				return Orientation.NORTH_EAST;
-			} else {
-				return Orientation.NORTH;
-			}
-		} else if (northSouthSlope < -SLOPE_PERCENTAGE_LIMIT) {
-			if (westEastSlope > SLOPE_PERCENTAGE_LIMIT) {
-				return Orientation.SOUTH_WEST;
-			} else if (westEastSlope < -SLOPE_PERCENTAGE_LIMIT) {
-				return Orientation.SOUTH_EAST;
-			} else {
-				return Orientation.SOUTH;
-			}
-		} else {
-			if (westEastSlope > SLOPE_PERCENTAGE_LIMIT) {
-				return Orientation.WEST;
-			} else if (westEastSlope < -SLOPE_PERCENTAGE_LIMIT) {
-				return Orientation.EAST;
-			} else {
-				return Orientation.FLAT;
-			}
+	private double calculateAspect(double[] afWin) {
+		// See : http://svn.osgeo.org/gdal/trunk/gdal/apps/gdaldem.cpp
+		double degreesToRadians = Math.PI / 180.0;
+
+		double aspect;
+
+		double dx = ((afWin[2] + afWin[5] + afWin[5] + afWin[8]) - (afWin[0] + afWin[3] + afWin[3] + afWin[6]));
+
+		double dy = ((afWin[6] + afWin[7] + afWin[7] + afWin[8]) - (afWin[0] + afWin[1] + afWin[1] + afWin[2]));
+
+		aspect = (float) (Math.atan2(dy, -dx) / degreesToRadians);
+
+		if (dx == 0 && dy == 0) {
+			/* Flat area */
+			aspect = -1;
+		} else if (aspect < 0) {
+			aspect += 360.0;
 		}
+
+		if (aspect == 360.0)
+			aspect = 0.0;
+
+		return aspect;
 	}
 
-	private double getSlope(GridCoverage2D grid, Point centerPoint, SlopeDirection direction, Integer sideLength) {
+	private double[] getElevationMatrix(GridCoverage2D grid, Point centerPoint, double gridSize) {
 
-		// The elevation grid has a 90 meter resolution ( 90x90 cells).
-		// To calculate the slope we use the sideLength, if this is smaller than 180 meters then we change it to 180 m
-		// to make sure that more than one "elevation cell" is used and increase the accuracy.
-		// The slope is calculated using the average slope on the grid, given all the possible North-South and West-East lines.
-
-		if (sideLength < 2 * GRID_SIZE) {
-			sideLength = 2 * GRID_SIZE;
-		}
-
-		double offset = sideLength / 2d;
-		int numberOfObserbations = (sideLength / GRID_SIZE) + 1;
-		double observationSum = 0;
+		double offset = gridSize + 1;
+		double[] elevationMatrix = new double[9];
 		double[] center = new double[] { centerPoint.getX(), centerPoint.getY() };
 
 		try {
-			double[] southEastCorner = getPointWithOffset(center, -offset, offset); // Move north-west
-
-			for (int i = 0; i < numberOfObserbations; i++) {
-				double[] pointStart, pointEnd;
-				if (direction.equals(SlopeDirection.NORTH_SOUTH)) {
-					pointStart = getPointWithOffset(southEastCorner, GRID_SIZE * i, 0); // Move West by 90*i meters
-					pointEnd = getPointWithOffset(southEastCorner, GRID_SIZE * i, -sideLength); // Move West by 90*i meters and North by 180 m
-				} else {
-					pointStart = getPointWithOffset(southEastCorner, 0, -GRID_SIZE * i); // Move North by 90*i meters
-					pointEnd = getPointWithOffset(southEastCorner, sideLength, -GRID_SIZE * i); // Move North by 90*i meters and West by 180 m
+			double[] topLeftCorner = getPointWithOffset(center, -offset, offset); // Move north-west
+			// Copying algorightm from GDALDEM http://svn.osgeo.org/gdal/trunk/gdal/apps/gdaldem.cpp
+			// Top Left 0 Top center 1 Top Right 2 Mid Left 3 Mid center 4 Mid right 5 bottom left 6 Bottom center 7 Bottom right 8
+			int index = 0;
+			for (int row = 0; row < 3; row++) {
+				for (int col = 0; col < 3; col++) {
+					double[] cellPoint = getPointWithOffset(topLeftCorner, gridSize * col, -gridSize * row);
+					elevationMatrix[index++] = getElevationOnWgs84Point(grid, cellPoint[0], cellPoint[1], true);
 				}
-
-				double elevationAtStart;
-				double elevationAtEnd;
-				try {
-					elevationAtStart = getElevationOnWgs84Point(grid, pointStart[0], pointStart[1], true);
-					elevationAtEnd = getElevationOnWgs84Point(grid, pointEnd[0], pointEnd[1], true);
-
-					observationSum += ((elevationAtEnd - elevationAtStart) / (double) sideLength) * 100d;
-				} catch (Exception e) {
-					// TODO Auto-generated catch block
-					e.printStackTrace();
-				}
-
 			}
-		} catch (TransformException e) {
-			getLogger().error("Error transforming point coordinates ", e);
+		} catch (Exception e) {
+			logger.error("Error getting the elevation-matrix", e);
 		}
-		return observationSum / numberOfObserbations;
+		return elevationMatrix;
+	}
+
+	private double getSlope(double[] elevationMatrix, double gridSize) {
+
+		// For the slope algorithm check 
+		// http://www.cs.bgu.ac.il/~icbv071/Readings/1981-Horn-Hill_Shading_and_the_Reflectance_Map.pdf
+		// http://svn.osgeo.org/gdal/trunk/gdal/apps/gdaldem.cpp
+		double dx, dy, key;
+
+		dx = ((elevationMatrix[0] + elevationMatrix[3] + elevationMatrix[3] + elevationMatrix[6]) - (elevationMatrix[2]
+				+ elevationMatrix[5] + elevationMatrix[5] + elevationMatrix[8]))
+				/ gridSize;
+
+		dy = ((elevationMatrix[6] + elevationMatrix[7] + elevationMatrix[7] + elevationMatrix[8]) - (elevationMatrix[0]
+				+ elevationMatrix[1] + elevationMatrix[1] + elevationMatrix[2]))
+				/ gridSize;
+
+		key = (dx * dx + dy * dy);
+
+		return (double) (100 * (Math.sqrt(key) / 8));
 	}
 
 	// values : ID,LONG,LAT,ELEV
