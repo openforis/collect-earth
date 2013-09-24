@@ -61,12 +61,6 @@ public class PlacemarkInfoServlet extends JsonPocessorServlet {
 
 		}
 
-		synchronized (browserService) {
-			if (webKitDriver == null) {
-				webKitDriver = browserService.initBrowser();
-			}
-		}
-
 		Thread browserStarter = new Thread() {
 			public void run() {
 				webKitDriver = browserService.openBrowser(originalCoordinates, webKitDriver);
