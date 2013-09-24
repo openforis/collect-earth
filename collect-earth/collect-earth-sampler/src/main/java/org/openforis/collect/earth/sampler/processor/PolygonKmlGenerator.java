@@ -64,9 +64,14 @@ public abstract class PolygonKmlGenerator extends KmlGenerator {
 
 					double originalX = Double.parseDouble(nextRow[1]);
 					double originalY = Double.parseDouble(nextRow[2]);
-					Integer elevation = Integer.parseInt(nextRow[3]);
-					double slope = Double.parseDouble(nextRow[4]);
-					double aspect = Double.parseDouble(nextRow[5]);
+					Integer elevation = 0;
+					double slope = 0;
+					double aspect = 0;
+					if( nextRow.length > 3 ){
+						elevation = Integer.parseInt(nextRow[3]);
+						slope = Double.parseDouble(nextRow[4]);
+						aspect = Double.parseDouble(nextRow[5]);
+					}
 
 					Point transformedPoint = transformToWGS84(originalX, originalY); // TOP-LEFT
 

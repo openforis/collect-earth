@@ -55,18 +55,7 @@
 			<artifactId>jetty-webapp</artifactId>
 			<version>${jetty.version}</version>
 		</dependency>
-		<!-- <dependency>
-			<groupId>org.eclipse.jetty</groupId>
-			<artifactId>jetty-jndi</artifactId>
-			<version>${jetty.version}</version>
-		</dependency>
-		<dependency>
-			<groupId>org.eclipse.jetty</groupId>
-			<artifactId>jetty-plus</artifactId>
-			<version>${jetty.version}</version>
-		</dependency> -->
-		
-<!-- 		<dependency>
+ 		<dependency>
 			<groupId>org.openforis.collect</groupId>
 			<artifactId>collect-core</artifactId>
 			<version>3.0-CR1-SNAPSHOT</version>
@@ -76,7 +65,7 @@
                 <artifactId>liquibase-core</artifactId>
               </exclusion>
             </exclusions>
-		</dependency> -->
+		</dependency>
 		<dependency>
 			<groupId>org.apache.commons</groupId>
 			<artifactId>commons-lang3</artifactId>
@@ -250,19 +239,6 @@
           </dependencies-->
 
           <!--resourcesDirectory>${project.basedir}/src/main/jnlp/resources</resourcesDirectory--> <!-- default value -->
-
-          <!-- JNLP generation -->
-          <jnlp>
-            <!-- default values -->
-            <!--inputTemplateResourcePath>${project.basedir}</inputTemplateResourcePath-->
-            <!--inputTemplate>src/main/jnlp/template.vm</inputTemplate--> <!-- relative to inputTemplateResourcePath -->
-            <outputFile>app.jnlp</outputFile> <!-- defaults to launch.jnlp -->
-
-            <!-- used to automatically identify the jar containing the main class. -->
-            <!-- this is perhaps going to change -->
-            <mainClass>org.openforis.collect.earth.app.desktop.EarthApp</mainClass>
-          </jnlp>
-
 
           <!-- SIGNING -->
           <!-- defining this will automatically sign the jar and its dependencies, if necessary -->
