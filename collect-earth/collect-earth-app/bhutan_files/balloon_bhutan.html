@@ -36,7 +36,7 @@ collect_text_operator ( filled in the earthSurveyService store method as the ope
 collect_code_land_use
 collect_boolean_land_use_change
 collect_code_land_use_type
-collect_code_topography_accessibility
+collect_code_site_accessibility
 collect_entity_topography[X]_code_element
 collect_entity_topography[X]_code_coverage
 collect_code_human_impact_type
@@ -44,13 +44,14 @@ collect_code_human_impact_grade
 collect_integer_human_impact_year
 collect_date_rs_date
 collect_code_rs_satellite
-collect_code_crown_cover
-collect_code_cover_type
+collect_code_canopy_cover
+collect_code_canopy_type
 collect_boolean_actively_saved // Set this to true when the user saves the data by actively clicking in submit
 
-collect_code_orientation
-collect_real_slope_north_south
-collect_real_slope_west_east
+collect_real_aspect
+collect_real_slope
+collect_text_directions
+collect_code_bearing
 
 When a value has multiple values they will be  separated with "===" i.e.
 collect_code_human_impact_type = "fire===logging===grazing"
@@ -521,6 +522,16 @@ body {
     border-top-right-radius: 4px !important;
 }
 
+
+.independentElementToggle{
+    border-bottom-left-radius: 4px !important;
+    border-top-left-radius: 4px !important;
+    margin-left: 0 !important;
+    border-bottom-right-radius: 4px !important;
+    border-top-right-radius: 4px !important;
+}
+
+
 .add-on {
 	width: 60px !important;
 }
@@ -566,6 +577,8 @@ hr {
 
 .btn-fixed80 {
    	width: 80px; !important;
+   	margin-right:5px;
+   	margin-bottom:4px;
    	
 }
 
@@ -592,13 +605,16 @@ hr {
 					
 				<input type="hidden" id="collect_integer_elevation" 
 					name="collect_integer_elevation" value="$[elevation]" />
-				<input type="hidden" id="collect_code_orientation" 
-					name="collect_code_orientation" value="$[orientation]" />
-				<input type="hidden" id="collect_real_slope_north_south" 
-					name="collect_real_slope_north_south" value="$[slopeNorthSouth]" />
-				<input type="hidden" id="collect_real_slope_west_east" 
-					name="collect_real_slope_west_east" value="$[slopeWestEast]" />
-					
+				<input type="hidden" id="collect_real_aspect" 
+					name="collect_real_aspect" value="$[aspect]" />
+				<input type="hidden" id="collect_real_slope" 
+					name="collect_real_slope" value="slope" />
+									
+				<input type="hidden" id="collect_text_directions" 
+					name="collect_text_directions" value="slope" />
+				<input type="hidden" id="collect_code_site_bearing" 
+					name="collect_code_site_bearing" value="slope" />
+				
 				<input type="hidden" id="collect_text_id"
 					name="collect_text_id" value="$[id]" />
 				<input type="hidden" id="collect_code_land_use" name="collect_code_land_use"
@@ -610,11 +626,11 @@ hr {
 				<input type="hidden"
 					id="collect_boolean_interpretation_uncertainty" name="collect_boolean_interpretation_uncertainty" class="collect_code_land_use_dependant"/> 
 				
-				<input type="hidden" id="collect_code_crown_cover" name="collect_code_crown_cover"
+				<input type="hidden" id="collect_code_canopy_cover" name="collect_code_canopy_cover"
 					value="" class="collect_code_land_use_dependant" /> 
 					
-				<input type="hidden" id="collect_code_cover_type"
-					name="collect_code_cover_type"  class="collect_code_land_use_dependant collect_code_crown_cover_dependant" />
+				<input type="hidden" id="collect_code_canopy_type"
+					name="collect_code_canopy_type"  class="collect_code_land_use_dependant collect_code_canopy_cover_dependant" />
 					
 				<input type="hidden" id="collect_code_deforestation_reason" name="collect_code_deforestation_reason"
 					value="" class="collect_code_land_use_dependant" />					
@@ -627,8 +643,8 @@ hr {
 					
 				<input type="hidden" id="collect_code_rs_satellite"
 					name="collect_code_rs_satellite"  />
-				<input type="hidden" id="collect_code_topography_accessibility"
-					name="collect_code_topography_accessibility"  />
+				<input type="hidden" id="collect_code_site_accessibility"
+					name="collect_code_site_accessibility"  />
 				
 				<input type="hidden" id="collect_code_human_impact_type"
 					name="collect_code_human_impact_type"  />
@@ -652,29 +668,42 @@ hr {
 
 								<div class="btn-group land_use_option" data-toggle="buttons-radio" id="collect_code_land_use_group">
 									<button type="button"
-										class="btn btn-primary active btn-fixed80"
+										class="btn btn-primary active btn-fixed80 independentElementToggle"
 										value="forest">Forest</button>
 									<button type="button"
-										class="btn btn-primary btn-fixed80"
+										class="btn btn-primary btn-fixed80 independentElementToggle"
 										value="grassland">Grassland</button>
 									<button type="button"
-										class="btn btn-primary lastElementToggle btn-fixed80"
+										class="btn btn-primary btn-fixed80 independentElementToggle"
 										value="cropland">Cropland</button>
 									<br/>
 									<button type="button"
-										class="btn btn-primary firstElementToggle btn-fixed80"
+										class="btn btn-primary btn-fixed80 independentElementToggle"
 										value="wetLand">Wetland</button>
 									<button type="button"
-										class="btn btn-primary btn-fixed80"
+										class="btn btn-primary btn-fixed80 independentElementToggle"
 										value="settlement">Settlement</button>
 									<button type="button"
-										class="btn btn-primary lastElementToggle btn-fixed80"
+										class="btn btn-primary btn-fixed80 independentElementToggle"
 										value="otherLand">Other</button>
 									<br/>
 									<button type="button"
-										class="btn btn-primary btn-warning firstElementToggle btn-fixed80"
+										class="btn btn-primary btn-warning independentElementToggle btn-fixed80"
 										value="noData">No Data</button>
+									<div class="control-group">		
+										
+								<div class="btn-group" data-toggle="buttons-radio" style="float:right;clear:left;">
+									<button type="button"
+										class="btn btn-primary toggleUncertainty collect_code_land_use_dependant"
+										id="FLUncertaintyTrue" value="true">YES</button>
+									<button type="button"
+										class="btn btn-primary  toggleUncertainty collect_code_land_use_dependant"
+										id="FLUncertainFalse" value="false" >NO</button>
 								</div>
+								
+							</div>
+								</div>
+								
 							</div>
 						</div>
 						
@@ -733,18 +762,19 @@ hr {
 							</div>
 						</div>
 						<div id="toolbar" class="capsuleCat ui-corner-all" style="width:96%">
-							<h5>Crown Cover</h5>
+							<h5>Canopy</h5>
 							<div class="label-over">Cover</div>
 							
 							<div class="control-group">
-								<div class="btn-group" data-toggle="buttons-radio" id="collect_code_crown_cover_group">
-									<button type="button" class="btn btn-primary collect_code_land_use_dependant" value="0;collect_code_deforestation_reason=burnt" title="No Cover - Burnt" >Burnt</button>
-									<button type="button" class="btn btn-primary collect_code_land_use_dependant" value="0;collect_code_deforestation_reason=logging"title="No Cover - Logging" >Logging</button>
-									<button type="button" class="btn btn-primary collect_code_land_use_dependant" value="0;collect_code_deforestation_reason=other" title="No Cover - other">Other</button>
+								<div class="btn-group" data-toggle="buttons-radio" id="collect_code_canopy_cover_group">
+									<button type="button" class="btn btn-primary collect_code_land_use_dependant" value="0-10" title="Cover - 0-10%" >0-10%</button>
 								    <button type="button" class="btn btn-primary collect_code_land_use_dependant" value="10-30" title="Cover - 10-30%" >10-30%</button>
 								    <button type="button" class="btn btn-primary collect_code_land_use_dependant" value="30-50" title="No Cover - 30-50%" >30-50%</button>
 								    <button type="button" class="btn btn-primary collect_code_land_use_dependant" value="50-70" title="No Cover - 50-70%">50-70%</button>
 								    <button type="button" class="btn btn-primary collect_code_land_use_dependant" value="70-100" title="No Cover - 70-100%">70-100%</button>
+								    <button type="button" class="btn btn-primary collect_code_land_use_dependant" value="0;collect_code_deforestation_reason=burnt" title="No Cover - Burnt" >Burnt</button>
+									<button type="button" class="btn btn-primary collect_code_land_use_dependant" value="0;collect_code_deforestation_reason=other" title="No Cover - other">Other</button>
+								    
 							    </div>	
 							</div>
 							
@@ -753,12 +783,12 @@ hr {
 							</div>
 							
 							<div class="control-group">			
-								<div class="btn-group" data-toggle="buttons-radio" id="collect_code_cover_type_group">
-									<button type="button" class="btn btn-primary collect_code_land_use_dependant collect_code_crown_cover_dependant"  value="random" >Random</button>
-								 	<button type="button" class="btn btn-primary collect_code_land_use_dependant collect_code_crown_cover_dependant"  value="sparse" >Sparse</button>
-								    <button type="button" class="btn btn-primary collect_code_land_use_dependant collect_code_crown_cover_dependant" value="grouped">Grouped</button>
-								    <button type="button" class="btn btn-primary collect_code_land_use_dependant collect_code_crown_cover_dependant" value="linear">Linear</button>
-								     <button type="button" class="btn btn-primary collect_code_land_use_dependant collect_code_crown_cover_dependant" value="unknown" >Unknown</button>
+								<div class="btn-group" data-toggle="buttons-radio" id="collect_code_canopy_type_group">
+									<button type="button" class="btn btn-primary collect_code_land_use_dependant collect_code_canopy_cover_dependant"  value="random" >Random</button>
+								 	<button type="button" class="btn btn-primary collect_code_land_use_dependant collect_code_canopy_cover_dependant"  value="sparse" >Sparse</button>
+								    <button type="button" class="btn btn-primary collect_code_land_use_dependant collect_code_canopy_cover_dependant" value="grouped">Grouped</button>
+								    <button type="button" class="btn btn-primary collect_code_land_use_dependant collect_code_canopy_cover_dependant" value="linear">Linear</button>
+								     <button type="button" class="btn btn-primary collect_code_land_use_dependant collect_code_canopy_cover_dependant" value="unknown" >Unknown</button>
 							    </div>
 							</div>
 							
@@ -966,17 +996,39 @@ hr {
 
 					<div id="commonDivs">
 						<div id="toolbar" class="capsuleCat ui-corner-all">
-							<h5>Topography</h5>
-							<div class="label-over">Accesibility</div>
-									<div class="control-group">
+							<h5>Site description</h5>
+							<div class="label-over">Accesibility (distance km)</div>
+							<div class="control-group">
 						
-								<div class="btn-group" data-toggle="buttons-radio" id="collect_code_topography_accessibility_group">
-								 	<button type="button" class="btn btn-primary"  value="0-1">D&lt;1km</button>
-								    <button type="button" class="btn btn-primary" value="1-5">1km&lt; D &lt;5km</button>
-								    <button type="button" class="btn btn-primary" value="5-10">5km&lt; D &lt;10km</button>
-								    <button type="button" class="btn btn-primary" value="10-more">10km&lt;D</button>
-								     <button type="button" class="btn btn-primary" value="unaccesible">Unaccesible</button>
+								<div class="btn-group" data-toggle="buttons-radio" id="collect_code_site_accessibility_group">
+								 	<button type="button" class="btn btn-primary"  value="0-1">0-1</button>
+								    <button type="button" class="btn btn-primary" value="1-2">1-2</button>
+								    <button type="button" class="btn btn-primary" value="2-3">2-3</button>
+								    <button type="button" class="btn btn-primary" value="3-5">3-5</button>
+								    <button type="button" class="btn btn-primary" value="5-10">5-10</button>
+								    <button type="button" class="btn btn-primary" value="10-more">&gt;10</button>
+								    
+								     <button type="button" class="btn btn-primary" value="inaccesible">Inaccesible</button>
 							    </div>
+							</div>
+							<div class="label-over">Bearing</div>
+							<div class="control-group">
+						
+								<div class="btn-group" data-toggle="buttons-radio" id="collect_code_site_bearing_group">
+								 	<button type="button" class="btn btn-primary"  value="N">N</button>
+								    <button type="button" class="btn btn-primary" value="N-E">N-E</button>
+								    <button type="button" class="btn btn-primary" value="E">E</button>
+								    <button type="button" class="btn btn-primary" value="S-E">S-E</button>
+								    <button type="button" class="btn btn-primary" value="S">S</button>
+								    <button type="button" class="btn btn-primary" value="S-W">S-W</button>
+								    <button type="button" class="btn btn-primary" value="W">W</button>
+								    <button type="button" class="btn btn-primary" value="N-W">N-W</button>
+							    </div>
+							</div>
+							<div class="label-over">Directions</div>
+							<div class="control-group">
+									<textarea rows="3"  id="collect_text_directions" name="collect_text_directions"></textarea>
+							</div>
 							</div>
 							<div class="label-over">Elements</div>
 								<div class="control-group">
@@ -1094,7 +1146,7 @@ hr {
 							    <div class="btn-group" data-toggle="buttons-radio" id="collect_code_rs_satellite_group">
 								    <button type="button" class="btn btn-primary" value="rapidEye">Rapid Eye</button>
 								    <button type="button" class="btn btn-primary" value="landsat">Landsat</button>
-								    <button type="button" class="btn btn-primary" value="quickbird">Quickbird</button>
+								    <button type="button" class="btn btn-primary" value="digitalGlobe">Digital Globe</button>
 								    <button type="button" class="btn btn-primary" value="spot">Spot</button>
 								    <button type="button" class="btn btn-primary" value="other">Other</button>
 							    </div>
@@ -1115,7 +1167,7 @@ hr {
 						</div>
 					</div>
 				</div>
-		</div>
+
 		<div class="earthDiv">
 			<button type="submit" class="btn btn-success" style="margin-left:25%;margin-right:25%;margin-top:3px;">SUBMIT &amp; VALIDATE</button>
 			<!-- 
