@@ -18,6 +18,7 @@ import java.util.Observer;
 import javax.swing.JOptionPane;
 
 import org.apache.commons.codec.digest.DigestUtils;
+import org.apache.commons.io.FileUtils;
 import org.openforis.collect.earth.app.service.DataExportService;
 import org.openforis.collect.earth.app.service.LocalPropertiesService;
 import org.openforis.collect.earth.app.view.CollectEarthWindow;
@@ -38,14 +39,15 @@ import freemarker.template.TemplateException;
 public class EarthApp {
 
 	private static final String SURVEY_NAME = "survey_name";
-	private static final String KML_RESULTING_TEMP_FILE = "generated/plots.kml";
+	private static final String GENERATED_FOLDER = "earthFiles";
+	private static final String KML_RESULTING_TEMP_FILE = GENERATED_FOLDER + "/plots.kml";
 	private final static Logger LOGGER = LoggerFactory.getLogger(EarthApp.class);
 	private static ServerController serverController;
-	private static final String KMZ_FILE_PATH = "generated/gePlugin.kmz";
+	private static final String KMZ_FILE_PATH = GENERATED_FOLDER + "/gePlugin.kmz";
 	private final LocalPropertiesService nonSpringManagedProperties = new LocalPropertiesService();
 
 	private static final String KML_NETWORK_LINK_TEMPLATE = "resources/loadApp.fmt";
-	private static final String KML_NETWORK_LINK_STARTER = "generated/loadApp.kml";
+	private static final String KML_NETWORK_LINK_STARTER = GENERATED_FOLDER + "/loadApp.kml";
 
 	private static void closeSplash() {
 		try {
@@ -190,10 +192,12 @@ public class EarthApp {
 
 			try {
 				KmzGenerator kmzGenerator = new KmzGenerator();
-				kmzGenerator.generateKmzFile(KMZ_FILE_PATH, KML_RESULTING_TEMP_FILE,
-						nonSpringManagedProperties.getValue(LocalPropertiesService.FILES_TO_INCLUDE_IN_KMZ));
+				String folderToInclude = nonSpringManagedProperties.getValue(LocalPropertiesService.FILES_TO_INCLUDE_IN_KMZ);
+				kmzGenerator.generateKmzFile(KMZ_FILE_PATH, KML_RESULTING_TEMP_FILE, folderToInclude);
 				LOGGER.info("KMZ File generated : " + KMZ_FILE_PATH);
 
+				copyContentsToGeneratedFolder(folderToInclude);
+				
 				File kmlFile = new File(KML_RESULTING_TEMP_FILE);
 				if (kmlFile.exists()) {
 					boolean deleted = kmlFile.delete();
@@ -210,6 +214,12 @@ public class EarthApp {
 
 		}
 		LOGGER.info("END - Generate KMZ file");
+	}
+
+	private void copyContentsToGeneratedFolder(String folderToInclude) throws IOException {
+		File sourceDir = new File( folderToInclude );
+		File targetDir = new File( GENERATED_FOLDER );
+		FileUtils.copyDirectory(sourceDir, targetDir );
 	}
 
 	private boolean isKmlUpToDate() throws IOException {

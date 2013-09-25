@@ -37,7 +37,7 @@ public class LocalPropertiesService {
 	public static final String FILES_TO_INCLUDE_IN_KMZ = "include_files_kmz";
 	public static final String ELEVATION_GEOTIF_DIRECTORY = "elevation_geotif_directory";
 	public static final String METADATA_FILE = "metadata_file";
-	public static final String FIREFOX_BINARY_PATH = "firefox_binary_path";
+	public static final String FIREFOX_BINARY_PATH = "firefox_exe_path";
 	
 
 	public LocalPropertiesService() {
