@@ -4,7 +4,7 @@
 		<cookie>lastUpdate=${date}</cookie>
 		<#if placemark_ids?has_content >
 			<Update>
-				<targetHref>${host}generated/gePlugin.kmz?generatedOn=${kmlGeneratedOn}</targetHref>
+				<targetHref>${host}earthFiles/gePlugin.kmz?generatedOn=${kmlGeneratedOn}</targetHref>
 			
 				<#list placemark_ids as placemark >
 					<Change>

@@ -19,22 +19,6 @@ import org.springframework.beans.factory.annotation.Autowired;
 
 public class BrowserService {
 
-	/*	public static void main(String[] args) {
-			try {
-				BrowserService bs = new BrowserService();
-				LocalPropertiesService mockedProperties = org.mockito.Mockito.mock(LocalPropertiesService.class);
-				org.mockito.Mockito.when(mockedProperties.isEarthEngineSupported()).thenReturn(true);
-
-				bs.localPropertiesService = mockedProperties;
-
-				bs.openBrowser("44,55");
-				bs.openBrowser("10,4.555");
-			} catch (Exception e) {
-				// TODO Auto-generated catch block
-				e.printStackTrace();
-			}
-		}
-	 */
 	@Autowired
 	protected LocalPropertiesService localPropertiesService;
 
@@ -69,11 +53,13 @@ public class BrowserService {
 
 	private RemoteWebDriver initBrowser() {
 		RemoteWebDriver driver = null;
+		
 		try {
 			FirefoxProfile ffprofile = new FirefoxProfile();
 			FirefoxBinary firefoxBinary = null;
-					// ffprofile.setPreference(); //Set your preference here
-					String firefoxBinaryPath = localPropertiesService.getValue(LocalPropertiesService.FIREFOX_BINARY_PATH);
+
+			String firefoxBinaryPath = localPropertiesService.getValue(LocalPropertiesService.FIREFOX_BINARY_PATH);
+			
 			if( firefoxBinaryPath!= null && firefoxBinaryPath.trim().length() > 0  ){
 				firefoxBinary = new FirefoxBinary(new File(firefoxBinaryPath));
 				driver = new FirefoxDriver(firefoxBinary, ffprofile);
@@ -85,15 +71,12 @@ public class BrowserService {
 				} catch (WebDriverException e) {
 					logger.error( "The firefox executable firefox.exe cannot be found, please use edit earth.properties and add a line with the property " +LocalPropertiesService.FIREFOX_BINARY_PATH + " pointing to the full path to this file" , e );
 				}
-
 			}
-
-
+			
 		} catch (Exception e) {
 			logger.error("Problems starting Firefox browser", e);
-			// ffprofile.setPreference(); //Set your preference here
-			driver = new ChromeDriver();
 		}
+		
 		return driver;
 	}
 

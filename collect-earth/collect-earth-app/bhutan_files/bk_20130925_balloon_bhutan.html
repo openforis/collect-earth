@@ -1,0 +1,1126 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>Bhutan Collect Earth customization</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<script src="earthFiles/jquery/jquery.js"></script>
+<script src="earthFiles/jquery/jquery-ui.js"></script>
+<script src="earthFiles/jquery/jquery.blockUI.js"></script>
+<script src="earthFiles/bootstrap/bootstrap.min.js"></script>
+<script src="earthFiles/bootstrap/bootstrap-select.js"></script>
+
+<link href="earthFiles/jquery/jquery-ui.css" rel="stylesheet" />
+<link href="earthFiles/bootstrap/bootstrap.css" rel="stylesheet" />
+<link href="earthFiles/bootstrap/bootstrap-select.css" rel="stylesheet" />
+
+<!-- 
+Values expected for Mongolia ( for the "HTTP parameters" -> "Collect format" conversion to work )
+
+All inputs that have processable information ( hidden or otherwise) should start with "collect_" :
+
+If the input is text then it should be followed by "text_"
+If the input is a code (option in combo-box for instance) then it should be followed by "code_"
+If the input is a date then it should be followed by "date_"
+If the input is a coordinate then it should be followed by "coord_"  ( the value expected has the format "longitude,latitude" )
+If the input is an integer then it should be followed by "integer_"
+If the input is a boolean then it should be followed by "boolean_"
+
+When multiple values can be sent ( in a multiple select for instance ) the data sent in the Http parameters has to be separated using " " ( a space ) 
+
+So, for Mongolia we expect these values :
+collect_text_id
+collect_coord_location
+collect_integer_elevation
+collect_text_operator ( filled in the earthSurveyService store method as the operator name is fetched through a properties file)
+collect_code_land_use
+collect_boolean_land_use_change
+collect_code_land_use_type
+collect_code_topography_accessibility
+collect_entity_topography[X]_code_element
+collect_entity_topography[X]_code_coverage
+collect_code_human_impact_type
+collect_code_human_impact_grade
+collect_integer_human_impact_year
+collect_date_rs_date
+collect_code_rs_satellite
+collect_code_crown_cover
+collect_code_cover_type
+collect_boolean_actively_saved // Set this to true when the user saves the data by actively clicking in submit
+
+collect_code_orientation
+collect_real_slope_north_south
+collect_real_slope_west_east
+
+When a value has multiple values they will be  separated with "===" i.e.
+collect_code_human_impact_type = "fire===logging===grazing"
+
+
+
+Other inputs:
+earth_skip_filled
+ -->
+
+<script>
+	var collapsedState = false;
+
+	var fillYears = function() {
+
+		for (year = new Date().getFullYear(); year > 1950; year--) {
+			$('#collect_integer_human_impact_year').append( $("<option></option>").attr("value", year).text( year) );
+		}
+	};
+
+	var toggleCollapsed = function() {
+		if (collapsedState == false) {
+			$('#collapsableContents').hide();
+			$('#collapseButton').attr("class", "icon-large icon-resize-full");
+			collapsedState = true;
+		} else {
+			$('#collapsableContents').show();
+			$('#collapseButton').attr("class", "icon-large icon-resize-small");
+			collapsedState = false;
+		}
+	        
+		document.getElementById('dummy').src = "about:blank";
+	};
+
+	var forceWindowCloseAfterDialogCloses = function($dialog) {
+		$dialog.on("dialogclose", function(event, ui) {
+			window.open("#$[next_id];flyto"); //balloonFlyto - annoying to have the balloon open, doesn't let you see the plot
+		});
+	}
+	
+	// To be used by the method that saves the data automatically when the user interacts with the form
+	// DO NOT REMOVE
+	var ajaxTimeout = null; 
+	
+	var ajaxDataUpdate = function(){
+		
+		var actively_saved = $("input[id=collect_boolean_actively_saved]").val();
+		// Only update automatically when the data has not been correctly saved before
+		if( actively_saved == 'false' ){
+			// Set a two second timeout so that the data is only sent to the server if the user stops clicking for over one second
+			clearTimeout(ajaxTimeout);
+			ajaxTimeout = setTimeout(function() {
+				var $form = $("#formAll");
+		
+				var data = $("#formAll").serialize();							
+				$.ajax({
+					data : data,
+					type : $form.attr("method"),
+					url : $form.attr("action"),
+					dataType : 'json'
+				});
+			},100);
+		}
+	};
+	
+	var enableSelect = function( selectName, enable ){ //#elementsCover
+		if( enable == true  ){
+			 $(selectName).prop('disabled',false);
+		}else{
+			 $(selectName).prop('disabled',true);
+		}
+		$(selectName).selectpicker('refresh');
+	}
+	
+	var toggleDependantSelect = function( parentSelect, nameDependantSelect ){ //#elementsCover
+		var elementSelected = false;
+		$( parentSelect + " option:selected").each(function () {        
+			elementSelected = true;    
+		});  
+
+		enableSelect( nameDependantSelect, elementSelected );
+	}
+
+	var activateLandUseDivs = function( landUse ){
+		 var selectedValue = landUse.val();
+		 
+		 $('.tab-pane').hide(); // Hide all land use divs
+		 $('#tab_'+selectedValue).show();// Show the div for the actual selected land use
+		 
+		 if( selectedValue=='noData'){
+			 $('#commonDivs').hide();
+		 }else{
+			 $('#commonDivs').show();
+		 }
+		 
+		 if( selectedValue != 'settlement'){
+			 $('.settlementDiv').show();
+		 }else{
+			 $('.settlementDiv').hide();
+		 }
+		 
+		 if( selectedValue != 'forest'){
+			 $('#trees_element').show();
+		 }else{
+			 $('#trees_element').hide();
+		 }
+	}
+	
+	var fillDataWithJson = function(json) {
+
+		$.each(json, function(key, value) {
+			// Do this for every key there might be different tryopes of elements with the same key than a hidden input
+			if ($("input[name=\'" + key + "\']").length == 1) {
+				$("input[name=\'" + key + "\']").val(value);
+			} 
+			
+			if ($("select[name=\'" + key + "\']").length == 1) {
+				
+				var values = value.split("===");
+				$("select[name=\'" + key + "\']").selectpicker('val',	values);
+				
+			}else if( $('#'+key+'_group').length == 1 ){ // button group exists
+				
+				var values = value.split("===");
+				for (var i = 0; i < values.length; i++) {
+					//$('#'+key+'_group .btn[value='+value+']').button('toggle'); // set the class to "active" on the chosen values
+					if( $('#'+key+'_group .btn[value=\''+value+'\']').length == 1){
+						var toggleButton = $('#'+key+'_group .btn[value=\''+value+'\']');
+						toggleButton.button('toggle');
+						if( key == "collect_code_land_use" ){
+							activateLandUseDivs( toggleButton );
+						}
+					}
+				}
+				
+			}else if( $('.landUseTypeSelector .btn[value=\''+value+'\']').length == 1 ){
+				var toggleButton = $('.landUseTypeSelector .btn[value=\''+value+'\']');
+				toggleButton.button('toggle');				
+			}
+			
+			if( key == "earth_skip_filled" && value == 'true'){
+				$('#earth_skip_filled').attr('checked', value);				
+			}
+			
+			if( key == "collect_boolean_land_use_change" ){
+				
+				$('.toggleLandDevelopment[value=\''+value+'\']').each( 
+						function () {        
+							$(this).button('toggle');
+						}
+				);							
+			}
+			
+			if( key == "collect_boolean_interpretation_uncertainty" ){
+				
+				$('.toggleUncertainty[value=\''+value+'\']').each( 
+						function () {        
+							$(this).button('toggle');
+						}
+				);
+							
+			}
+			
+			
+			
+		});
+			
+	}
+	
+		
+	var initializeChangeEventSaver = function(){
+		
+		//$(".btn-group").find("button").click(function(){
+		$(".btn").click(function(){
+			var groupId = $(this).closest("div").attr("id");
+			 
+			var suffixLength =  "_group".length;
+			
+			if( groupId && groupId.length > suffixLength ){
+				
+				 var value = $(this).val();
+				// When we expect data sucha as "0;collect_code_deforestation_reason=burnt"
+				 var values = value.split(";");
+				
+				 var idLength = groupId.length - suffixLength;
+				 var hiddenInputId = groupId.substring(0,  idLength );
+				 $('#'+hiddenInputId).val( values[0] );// give the hidden input the same value as the button that just was clicked
+				 
+				 if( $('.'+hiddenInputId+'_dependant').length > 0 ){
+					var dependants =$('.'+hiddenInputId+'_dependant:hidden');
+					// Reset inputs
+					$('input.'+hiddenInputId+'_dependant:hidden').each( function(){
+						$(this).val('');
+					});
+					
+					//Reset buttons
+					$(':button.'+hiddenInputId+'_dependant').each( function(){
+						$(this).removeClass('active');
+					});
+				 }
+				 
+				// If there is an extra value "collect_code_deforestation_reason=burnt"
+				 if( values.length == 2 ){
+					 var extraValues = values[1].split("=");
+					 $('#'+extraValues[0]).val( extraValues[1] );
+				 }
+
+				
+			}
+			
+			ajaxDataUpdate();
+			
+		});
+		
+		$('.landUseTypeSelector').find("button").click( function(e){
+			var selectedUseType = e.target;
+			var value = selectedUseType.value;
+			$("input[id=collect_code_land_use_type]").val(value);
+			ajaxDataUpdate();
+		});
+		
+		// SAVING DATA WHEN DATA CHANGES
+		// Bind event to Before user leaves page with function parameter e
+		// The window onbeforeunload or onunload events do not work in Google Earth
+		// OBS! The change event is not fired for the hidden inputs when the value is updated through jQuery's val()
+		$('input[name^=collect], select[name^=collect], button[name^=collect]').change(
+				function(e){
+					ajaxDataUpdate();
+				}
+		);
+		
+	}
+	
+	var interpretJsonSaveResponse = function(json) {
+		if (json.type == 'warning') {
+			$('#succ_mess').css("color", "yellow").html(json.message);
+		} else if (json.type == 'success' && json.valid_data && json.valid_data == 'false' ) {
+			
+			var message = "";
+			
+			$.each(json, function(key, value){
+				if( key.indexOf("validation_") == 0 ){
+					message += value + "<br>";
+				}
+			});
+			
+			$('#succ_mess').css("color", "red").html(message);
+			
+			// Resest the "actively saved" parameter to false so that it is not sent aw true when the user fixes the validation
+			$("input[id=collect_boolean_actively_saved]").val('false');
+			
+			
+		} else if (json.type == 'success') {
+			$('#succ_mess').css("color", "green").html(json.message);
+			forceWindowCloseAfterDialogCloses($("#dialogSuccess"));
+		} else if (json.type == 'error'){
+			$('#succ_mess').css("color", "red").html(json.message);
+		}
+		$("#dialogSuccess").dialog("open");
+	}
+
+	var checkIfPlacemarkAlreadyFilled = function(formName, chechCount ) {
+
+		data = $(formName + " :input[value]").serialize();
+
+		$.ajax({
+			data : data,
+			type : "POST",
+			url : "$[host]placemarkInfo",
+			//url: "http://127.0.0.1:8020/earth/placemarkInfo",
+			dataType : 'json',
+			timeout : 5000
+		}).fail( function(jqXHR, textStatus, errorThrown) {
+			
+			if( chechCount < 3 ){
+				chechCount = chechCount + 1;
+				checkIfPlacemarkAlreadyFilled( formName, chechCount );
+			}else{
+				$('#succ_mess').css("color", "red").html("The Collect Earth server is not running!");
+				$("#dialogSuccess").dialog("open");
+				initializeChangeEventSaver();
+			}
+			
+		}).done( function(json){
+				if( json.collect_boolean_actively_saved == 'true' && json.collect_text_id != 'testPlacemark'){ // 
+					
+					$('#succ_mess').css("color", "red").html( "The data for this placemark has already been filled");
+					$("#dialogSuccess").dialog( "open" );
+					
+					if( json.earth_skip_filled && json.earth_skip_filled == 'true'){
+						forceWindowCloseAfterDialogCloses($("#dialogSuccess"));
+					}
+				}
+				// Pre-fills the form and after that initilizes the change event listeners for the inputs
+				fillDataWithJson(json);
+				initializeChangeEventSaver();
+			});
+	}
+	
+	var submitForm = function($form, submitCounter ){
+		var data = $form.find('input, select, textarea, button').serialize();
+		
+		var request = $.ajax({
+					data : data,
+					type : $form.attr("method"),
+					url : $form.attr("action"),
+					dataType : 'json',
+					timeout : 5000,
+					beforeSend : function() {			
+						$.blockUI({ message : 'Sumitting data..' });
+					}
+				}).done( function(json) {
+						interpretJsonSaveResponse(json);
+				}).fail( function(jqXHR, textStatus, errorThrown) {	
+					if( submitCounter < 3 ){
+						submitCounter = submitCounter + 1;
+						submitForm( $form, submitCounter );
+					}else{
+						$('#succ_mess').css("color","red").html("Cannot save the data, the Collect Earth server is not running! ");
+						$("#dialogSuccess").dialog("open");
+					}
+				}).always( function() {
+						$.unblockUI();
+				});
+	}
+
+	$(document)
+			.ready(
+					function() {
+
+						$('#humanImpactType')
+								.change(
+										function() {
+											var selectedValues = $(this).val(); // If the human impact is "noImpact" then disable the other inputs
+
+											if (selectedValues.length > 1 && jQuery.inArray( "noImpact", selectedValues) !== -1) {
+												$(this).selectpicker( 'deselectAll');
+												$(this).selectpicker('val', "noImpact");
+												$(this).selectpicker('refresh');
+											}
+
+											$('.humanImpactInput').each( 
+													function() {
+															if (jQuery.inArray( "noImpact", selectedValues) !== -1) {
+																$(this).prop('disabled',true);
+																$(this).selectpicker('deselectAll');
+															} else {
+																$(this).prop('disabled',false);
+															}
+															$(this).selectpicker('refresh');
+													}
+											);
+
+										});
+
+						fillYears();
+						
+						$(".land_use_option").find("button").click(function(){
+							activateLandUseDivs($(this));
+						});
+
+						// Declares the Jquery Dialog ( The Bootstrap dialog does not work in Google Earth )
+						$("#dialogSuccess").dialog({
+							modal : true,
+							autoOpen : false,
+							buttons : {
+								Ok : function() {
+									$(this).dialog("close");
+								}
+							}
+						});
+
+						// Mark the selects as "bootstratp-select" enabled 
+						$('.selectpicker').selectpicker();
+
+						$("#elements").change(
+								function() {
+									toggleDependantSelect("#elements",
+											'#elementsCover');
+								});
+
+						$('.toggleLandDevelopment').on(
+								'click',
+								function(e) {
+									var selectedButton = e.target;
+									$("input[id=collect_boolean_land_use_change]").val(selectedButton.value);
+								});
+						$('.toggleUncertainty').on(
+								'click',
+								function(e) {
+									var selectedButton = e.target;
+									$("input[id=collect_boolean_interpretation_uncertainty]").val(selectedButton.value);
+								});
+						
+						checkIfPlacemarkAlreadyFilled('#formAll', 0);
+				
+						
+						// SAVING DATA WHEN USER SUBMITS
+						$('#formAll')
+								.submit(
+										function(e) {
+											
+											e.preventDefault();
+											
+											clearTimeout(ajaxTimeout); // So that the form is not save twice if the user clicks the submit button before the auto-save timeout has started
+											
+											// Mark this as the "real submit" (as opposed when saving data just because the user closes the window) so we can show the placemark as interpreted
+											$("input[id=collect_boolean_actively_saved]").val("true");
+
+											submitForm( $(this), 0 );
+										}
+									);
+						
+					});
+</script>
+<style type="text/css">
+
+#toolbar {
+	padding: 4px;
+	display: inline-block;
+	margin: 1px;
+	width:96%;
+}
+
+body {
+	font-family: "Trebuchet MS", "Helvetica", "Arial", "Verdana",
+		"sans-serif";
+}
+
+.capsuleCat {
+    border: 1px solid #AED0EA;
+    color: #222222;
+    font-weight: bold;
+    background-color: #e9f3f9;
+}
+
+
+.label-over {
+    background-color: #EEEEEE;
+    border: 1px solid #CCCCCC;
+    display: inline-block;
+    font-size: 12px;
+    font-weight: normal;
+    height: 12px;
+    line-height: 10px;
+    min-width: 16px;
+    padding: 4px 5px;
+    text-align: center;
+    text-shadow: 0 1px 0 #FFFFFF;
+    width: auto;
+    margin-bottom: 5px;
+	margin-top: 5px;
+	border-top-left-radius: 8px;
+	border-top-right-radius: 8px;
+	border-bottom-left-radius: 8px;
+	border-bottom-right-radius: 8px;
+	display : inline-block;
+}
+
+.firstElementToggle{
+    border-bottom-left-radius: 4px !important;
+    border-top-left-radius: 4px !important;
+    margin-left: 0 !important;
+}
+
+.lastElementToggle{
+    border-bottom-right-radius: 4px !important;
+    border-top-right-radius: 4px !important;
+}
+
+.add-on {
+	width: 60px !important;
+}
+
+.input-prepend .add-on, .input-prepend .btn {
+    margin-left: 4px;
+}
+
+label {
+	display: inline;
+}
+
+hr {
+	margin: 5px;
+}
+
+
+.bootstrap-select:not([class*="span"]) {
+    width: 170px;
+}
+
+.bootstrap-select {
+    width: 170px\9; /*IE8 and below*/
+}
+
+.ui-dialog-titlebar-close {
+    background-image: url(earthFiles/img/close.png) !important;
+    background-position: left top !important;
+}
+
+.btn-primary {
+    background-color: #003dda !important;
+}
+
+.btn-primary.active, .btn-warning.active, .btn-danger.active, .btn-success.active, .btn-info.active, .btn-inverse.active {
+   	color: rgba(255, 255, 255, 0.45) !important;
+   	
+}
+
+.earthDiv{
+	width: 530px;
+}
+
+</style>
+
+</head>
+
+	<div id="dialogSuccess">
+		
+			<span class="ui-icon ui-icon-circle-check"
+				style="float: left; margin: 0 7px 70px 0;"> </span>
+			<div id="succ_mess"></div>
+		
+	</div>
+	
+<body>
+
+	<form id="formAll" method="POST" action="$[host]saveData">
+	<!-- <form id="formAll" method="POST" action="http://127.0.0.1:8020/earth/saveData"> -->
+	
+	<div id="contentDiv" class="earthDiv" style="height:600px; overflow : auto;">
+				<input type="hidden" id="collect_coord_location" 
+					name="collect_coord_location" value="$[latitude],$[longitude]" />
+					
+				<input type="hidden" id="collect_integer_elevation" 
+					name="collect_integer_elevation" value="$[elevation]" />
+				<input type="hidden" id="collect_code_orientation" 
+					name="collect_code_orientation" value="$[orientation]" />
+				<input type="hidden" id="collect_real_slope_north_south" 
+					name="collect_real_slope_north_south" value="$[slopeNorthSouth]" />
+				<input type="hidden" id="collect_real_slope_west_east" 
+					name="collect_real_slope_west_east" value="$[slopeWestEast]" />
+					
+				<input type="hidden" id="collect_text_id"
+					name="collect_text_id" value="$[id]" />
+				<input type="hidden" id="collect_code_land_use" name="collect_code_land_use"
+					value="forest" />  <!-- Use the forest land use as default -->
+				
+				<input type="hidden"
+					id="collect_boolean_land_use_change" name="collect_boolean_land_use_change" class="collect_code_land_use_dependant"/> 
+					
+				<input type="hidden"
+					id="collect_boolean_interpretation_uncertainty" name="collect_boolean_interpretation_uncertainty" class="collect_code_land_use_dependant"/> 
+				
+				<input type="hidden" id="collect_code_crown_cover" name="collect_code_crown_cover"
+					value="" class="collect_code_land_use_dependant" /> 
+					
+				<input type="hidden" id="collect_code_cover_type"
+					name="collect_code_cover_type"  class="collect_code_land_use_dependant collect_code_crown_cover_dependant" />
+					
+				<input type="hidden" id="collect_code_deforestation_reason" name="collect_code_deforestation_reason"
+					value="" class="collect_code_land_use_dependant" />					
+					
+				<input type="hidden" id="collect_code_land_use_type"
+					name="collect_code_land_use_type" class="collect_code_land_use_dependant"/> 		
+							
+				<input type="hidden" id="collect_boolean_actively_saved"
+					name="collect_boolean_actively_saved" value="false" />
+					
+				<input type="hidden" id="collect_code_rs_satellite"
+					name="collect_code_rs_satellite"  />
+				<input type="hidden" id="collect_code_topography_accessibility"
+					name="collect_code_topography_accessibility"  />
+				
+				<input type="hidden" id="collect_code_human_impact_type"
+					name="collect_code_human_impact_type"  />
+				<input type="hidden" id="collect_code_human_impact_grade"
+					name="collect_code_human_impact_grade"  class="collect_code_human_impact_type_dependant"/>
+
+				<div style="background-image: url(earthFiles/img/Open-foris-banner2.jpg); height:47px;width:450px;clear:none;">
+				
+				<span style="float: right;display:inline;margin-top:5px;" >
+				
+				<img src="earthFiles/img/bhutan.png" border="0" style="vertical-align:bottom;"/>
+
+				</span>
+				</div>
+				<div id="collapsableContents">
+					<div id="tabsTypeOfTerrain">
+	
+							<div id="toolbar" class="capsuleCat ui-corner-all"
+							style="width: 96%">
+							<div class="control-group">
+
+								<div class="btn-group land_use_option" data-toggle="buttons-radio" id="collect_code_land_use_group">
+									<button type="button"
+										class="btn btn-primary active"
+										value="forest">Forest</button>
+									<button type="button"
+										class="btn btn-primary"
+										value="grassland">Grassland</button>
+									<button type="button"
+										class="btn btn-primary"
+										value="cropland">Cropland</button>
+									<button type="button"
+										class="btn btn-primary"
+										value="wetLand">Wetland</button>
+									<button type="button"
+										class="btn btn-primary"
+										value="settlement">Settlement</button>
+									<button type="button"
+										class="btn btn-primary"
+										value="otherLand">Other</button>
+									<button type="button"
+										class="btn btn-primary btn-warning"
+										value="noData">No Data</button>
+								</div>
+							</div>
+						</div>
+						
+					</div>
+				<div class="tab-content">
+					<div id="tab_forest" class="tab-pane active">
+
+						<div id="toolbar" class="capsuleCat ui-corner-all"
+							style="width: 96%">
+							<h5>Forest</h5>
+							<div class="label-over">Development</div>
+							<div class="control-group">
+
+								<div class="btn-group" data-toggle="buttons-radio">
+									<button type="button"
+										class="btn btn-primary  toggleForestDevelopment toggleLandDevelopment collect_code_land_use_dependant"
+										id="FLtoFL" value="false">FL &gt; FL</button>
+									<button type="button"
+										class="btn btn-primary toggleForestDevelopment toggleLandDevelopment collect_code_land_use_dependant"
+										id="OLtoFL" value="true">Other &gt; FL</button>
+								</div>
+							</div>
+						
+							<div class="label-over">Type</div>
+							
+							<div class="control-group landUseTypeSelector">
+								<div class="btn-group "
+									data-toggle="buttons-radio">
+									<button type="button" class="btn btn-primary collect_code_land_use_dependant"
+										value="FCf" title="Fir Forest">Fir</button>
+									<button type="button" class="btn btn-primary collect_code_land_use_dependant"
+										value="FCm" title="Mixed Conifier Forest">Mixed Conifier</button>
+									<button type="button" class="btn btn-primary collect_code_land_use_dependant"
+										value="FCb" title="Blue Pine Forest">Blue Pine</button>
+									<button type="button" class="btn btn-primary collect_code_land_use_dependant lastElementToggle"
+										value="FCc" title="Chir Pine forest" >Chir Pine</button>
+									<br/>
+									<button type="button" class="btn btn-primary collect_code_land_use_dependant firstElementToggle"
+										value="FB" title="Broadleaf forest">Broadleaf</button>
+									<button type="button" class="btn btn-primary collect_code_land_use_dependant"
+										value="FBc" title="Broadleaf and conifier forest">Broadleaf with conifier</button>
+									<button type="button" class="btn btn-primary collect_code_land_use_dependant"
+										value="SH" title="Shrubs">Shrubs</button>
+								</div>
+							</div>
+							<div class="label-over">Interpretation Uncertainty</div>
+							<div class="control-group">			
+								<div class="btn-group" data-toggle="buttons-radio">
+									<button type="button"
+										class="btn btn-primary toggleUncertainty collect_code_land_use_dependant"
+										id="FLUncertaintyTrue" value="true">YES</button>
+									<button type="button"
+										class="btn btn-primary  toggleUncertainty collect_code_land_use_dependant"
+										id="FLUncertainFalse" value="false" >NO</button>
+								</div>
+							</div>
+						</div>
+						<div id="toolbar" class="capsuleCat ui-corner-all" style="width:96%">
+							<h5>Crown Cover</h5>
+							<div class="label-over">Cover</div>
+							
+							<div class="control-group">
+								<div class="btn-group" data-toggle="buttons-radio" id="collect_code_crown_cover_group">
+									<button type="button" class="btn btn-primary collect_code_land_use_dependant" value="0;collect_code_deforestation_reason=burnt" title="No Cover - Burnt" >Burnt</button>
+									<button type="button" class="btn btn-primary collect_code_land_use_dependant" value="0;collect_code_deforestation_reason=logging"title="No Cover - Logging" >Logging</button>
+									<button type="button" class="btn btn-primary collect_code_land_use_dependant" value="0;collect_code_deforestation_reason=other" title="No Cover - other">Other</button>
+								    <button type="button" class="btn btn-primary collect_code_land_use_dependant" value="10-30" title="Cover - 10-30%" >10-30%</button>
+								    <button type="button" class="btn btn-primary collect_code_land_use_dependant" value="30-50" title="No Cover - 30-50%" >30-50%</button>
+								    <button type="button" class="btn btn-primary collect_code_land_use_dependant" value="50-70" title="No Cover - 50-70%">50-70%</button>
+								    <button type="button" class="btn btn-primary collect_code_land_use_dependant" value="70-100" title="No Cover - 70-100%">70-100%</button>
+							    </div>	
+							</div>
+							
+							<div class="label-over">
+									Cover Type
+							</div>
+							
+							<div class="control-group">			
+								<div class="btn-group" data-toggle="buttons-radio" id="collect_code_cover_type_group">
+									<button type="button" class="btn btn-primary collect_code_land_use_dependant collect_code_crown_cover_dependant"  value="random" >Random</button>
+								 	<button type="button" class="btn btn-primary collect_code_land_use_dependant collect_code_crown_cover_dependant"  value="sparse" >Sparse</button>
+								    <button type="button" class="btn btn-primary collect_code_land_use_dependant collect_code_crown_cover_dependant" value="grouped">Grouped</button>
+								    <button type="button" class="btn btn-primary collect_code_land_use_dependant collect_code_crown_cover_dependant" value="linear">Linear</button>
+								     <button type="button" class="btn btn-primary collect_code_land_use_dependant collect_code_crown_cover_dependant" value="unknown" >Unknown</button>
+							    </div>
+							</div>
+							
+						</div>
+						
+					</div>
+
+					<div id="tab_cropland" class="tab-pane">
+						<div id="toolbar" class="capsuleCat ui-corner-all" style="width:96%">
+							<h5>Cropland</h5>
+							<div class="label-over">
+									Development
+							</div>
+							<div class="control-group">
+								
+									<div class="btn-group" data-toggle="buttons-radio">
+										<button type="button" value="false"
+											class="btn btn-primary  toggleLandDevelopment  collect_code_land_use_dependant"
+											id="CLtoCL" >CL &gt; CL</button>
+										<button type="button" value="true"
+											class="btn btn-primary toggleLandDevelopment  collect_code_land_use_dependant"
+											id="OTtoCL">Other &gt; CL</button>
+									</div>
+							
+								
+							</div>
+							<div class="label-over">
+									Type
+							</div>
+							<div class="control-group">	
+									<div class="btn-group landUseTypeSelector" data-toggle="buttons-radio" id="cropland" >
+									 	<button type="button" class="btn btn-primary collect_code_land_use_dependant"  value="AC" >Chhuzhing Land</button>
+									 	<button type="button" class="btn btn-primary collect_code_land_use_dependant lastElementToggle"  value="AK" >Kamzhing Land</button>
+									 	<br/>
+									 	<button type="button" class="btn btn-primary collect_code_land_use_dependant firstElementToggle"  value="HA" title="Horticulture Land - Apple Orchard" > Apple Orchard</button>
+									 	<button type="button" class="btn btn-primary collect_code_land_use_dependant lastElementToggle"  value="HC" title="Horticulture Land - Citrus Orchard">Citrus Orchard</button>
+									 	<br/>
+									 	<button type="button" class="btn btn-primary collect_code_land_use_dependant firstElementToggle"  value="HAa" title="Horticulture Land - Areca Nut Plantation">Areca Nut Plantation</button>
+									 	<button type="button" class="btn btn-primary collect_code_land_use_dependant"  value="HCo"  title="Horticulture Land - Cardamom Plantation">Cardamom Plantation</button>
+									 	<button type="button" class="btn btn-primary collect_code_land_use_dependant"  value="HO" title="Horticulture Land - Others">Others</button>
+								    </div>
+							</div>
+								
+							<div class="label-over">Interpretation Uncertainty</div>
+							<div class="control-group">			
+								<div class="btn-group" data-toggle="buttons-radio">
+									<button type="button"
+										class="btn btn-primary toggleUncertainty collect_code_land_use_dependant"
+										id="FLUncertaintyTrue" value="true">YES</button>
+									<button type="button"
+										class="btn btn-primary  toggleUncertainty collect_code_land_use_dependant"
+										id="FLUncertainFalse" value="false" >NO</button>
+								</div>
+							</div>
+						</div>
+					</div>
+					
+					<div id="tab_otherLand" class="tab-pane">
+
+						<div id="toolbar" class="capsuleCat ui-corner-all"
+							style="width: 96%">
+							<h5>Other Type</h5>
+							<div class="label-over">Development</div>
+							<div class="control-group">
+								<div class="btn-group" data-toggle="buttons-radio">
+									<button type="button"
+										class="btn btn-primary toggleLandDevelopment  collect_code_land_use_dependant" id="OLtoOL"
+										value="false">OL &gt; OL</button>
+									<button type="button"
+										class="btn btn-primary toggleLandDevelopment  collect_code_land_use_dependant" id="OTtoOL"
+										value="true">Other &gt; OL</button>
+								</div>
+							</div>
+
+							<div class="label-over">Type</div>
+
+							<div class="control-group ">
+								<div class="btn-group landUseTypeSelector"
+									data-toggle="buttons-radio" id="other">
+									<button type="button" class="btn btn-primary collect_code_land_use_dependant" value="OS" title="Snow Cover" >Snow Cover</button>
+									<button type="button" class="btn btn-primary collect_code_land_use_dependant" value="WL" title="Water body - Lakes" >Lakes</button>
+									<button type="button" class="btn btn-primary collect_code_land_use_dependant"  title="Water body - Rivers"  value="WR">Rivers</button>
+									<button type="button" class="btn btn-primary collect_code_land_use_dependant lastElementToggle"  title="Water body - Reservoirs" value="WRe">Reservoirs</button>
+									<br/>
+									
+									<button type="button" class="btn btn-primary collect_code_land_use_dependant firstElementToggle" value="RR" title="Bare areas - Rocky outcrop" >Rocky Outcrop</button>
+									<button type="button" class="btn btn-primary collect_code_land_use_dependant"  title="Bare areas - Scree"  value="RS">Scree</button>
+									<button type="button" class="btn btn-primary collect_code_land_use_dependant lastElementToggle" title="Bare areas - Bare soils" value="BS">Bare soils</button>
+									<br/>
+									
+									<button type="button" class="btn btn-primary collect_code_land_use_dependant firstElementToggle" value="DL" title="Degraded areas - Landslides" >Landslides</button>
+									<button type="button" class="btn btn-primary collect_code_land_use_dependant"  title="Degraded areas - Gullies"  value="DG">Gullies</button>
+									<button type="button" class="btn btn-primary collect_code_land_use_dependant" title="Degraded areas - Ravines" value="DR">Ravines</button>
+									<button type="button" class="btn btn-primary collect_code_land_use_dependant" title="Degraded areas - Moraines" value="DM">Moraines</button>
+									
+								</div>
+
+							</div>
+
+						</div>
+
+					</div>
+					<div id="tab_grassland" class="tab-pane">
+
+						<div id="toolbar" class="capsuleCat ui-corner-all"
+							style="width: 96%">
+							<h5>Grassland Type</h5>
+							<div class="label-over">Development</div>
+							<div class="control-group">								
+									<div class="btn-group" data-toggle="buttons-radio">
+										<button type="button"
+											class="btn btn-primary toggleLandDevelopment  collect_code_land_use_dependant" id="GLtoGL"
+											value="false">GL &gt; GL</button>
+										<button type="button"
+											class="btn btn-primary toggleLandDevelopment  collect_code_land_use_dependant" id="OLtoGL"
+											value="true">Other &gt; GL</button>
+									</div>
+							</div>
+							<div class="label-over">Type</div>
+							<div class="control-group">
+								<div class="btn-group landUseTypeSelector"
+									data-toggle="buttons-radio" id="grassland">
+									<button type="button" class="btn btn-primary collect_code_land_use_dependant"
+										value="GP">Meadows</button>
+								</div>
+
+							</div>
+							<div class="label-over">Interpretation Uncertainty</div>
+							<div class="control-group">			
+								<div class="btn-group" data-toggle="buttons-radio">
+									<button type="button"
+										class="btn btn-primary toggleUncertainty collect_code_land_use_dependant"
+										id="GLUncertaintyTrue" value="true">YES</button>
+									<button type="button"
+										class="btn btn-primary  toggleUncertainty collect_code_land_use_dependant"
+										id="GLUncertainFalse" value="false" >NO</button>
+								</div>
+							</div>
+						</div>
+
+					</div>
+
+					<div id="tab_wetLand" class="tab-pane">
+						
+							<div id="toolbar" class="capsuleCat ui-corner-all" style="width:96%">
+								<h5>Wetland</h5>
+								<div class="label-over">Development</div>
+									<div class="control-group">
+									
+										<div class="btn-group" data-toggle="buttons-radio">
+											<button type="button" class="btn btn-primary  toggleLandDevelopment  collect_code_land_use_dependant"
+												id="WLtoWL" value="false">WL &gt; WL</button>
+											<button type="button" class="btn btn-primary toggleLandDevelopment  collect_code_land_use_dependant"
+												id="OLtoWL" value="true">Other &gt; WL</button>
+										</div>
+									
+								</div>
+									
+								
+								<div class="label-over">Type</div>
+									<div class="control-group">
+										<div class="btn-group landUseTypeSelector" data-toggle="buttons-radio" id="wetLand">
+										 	<button type="button" class="btn btn-primary collect_code_land_use_dependant"  value="MA">Marshy Areas</button>
+									    </div>
+									</div>
+							</div>
+
+						</div>
+					<div id="tab_settlement" class="tab-pane">
+						<div id="toolbar" class="capsuleCat ui-corner-all" style="width:96%">
+								<h5>Settlement</h5>
+								<div class="label-over">Development</div>
+								<div class="control-group">
+								
+									<div class="btn-group" data-toggle="buttons-radio">
+										<button type="button" class="btn btn-primary  toggleLandDevelopment  collect_code_land_use_dependant"
+											id="SLtoSL" value="false">SL &gt; SL</button>
+										<button type="button" class="btn btn-primary toggleLandDevelopment  collect_code_land_use_dependant"
+											id="OLtoSL" value="true">Other &gt; SL</button>
+									</div>
+								</div>
+							
+							
+								<div class="label-over">Type</div>
+								<div class="control-group">
+									
+									<div class="btn-group landUseTypeSelector" data-toggle="buttons-radio" id="settlement">
+									 	<button type="button" class="btn btn-primary collect_code_land_use_dependant"  value="BA">Built-up areas</button>
+									    <button type="button" class="btn btn-primary collect_code_land_use_dependant" value="NB">Non built-up areas</button>
+								    </div>
+
+								</div>
+						</div>
+					</div>
+					<div id="tab_noData" class="tab-pane">
+						<div id="toolbar" class="capsuleCat ui-corner-all" style="width:96%">
+								<h5>No data</h5>
+								
+								<div class="control-group">
+									No data available for this plot.
+								</div>
+						</div>
+					</div>					
+				</div>
+
+					<div id="commonDivs">
+						<div id="toolbar" class="capsuleCat ui-corner-all">
+							<h5>Topography</h5>
+							<div class="label-over">Accesibility</div>
+									<div class="control-group">
+						
+								<div class="btn-group" data-toggle="buttons-radio" id="collect_code_topography_accessibility_group">
+								 	<button type="button" class="btn btn-primary"  value="0-1">D&lt;1km</button>
+								    <button type="button" class="btn btn-primary" value="1-5">1km&lt; D &lt;5km</button>
+								    <button type="button" class="btn btn-primary" value="5-10">5km&lt; D &lt;10km</button>
+								    <button type="button" class="btn btn-primary" value="10-more">10km&lt;D</button>
+								     <button type="button" class="btn btn-primary" value="unaccesible">Unaccesible</button>
+							    </div>
+							</div>
+							<div class="label-over">Elements</div>
+								<div class="control-group">
+									<div class="input-prepend">
+										<span class="add-on">Road</span> <select
+											class="selectpicker  show-tick show-menu-arrow "
+											id="collect_entity_topography[road].code_coverage" name="collect_entity_topography[road].code_coverage"
+											>
+											<option value="na">Not Applicable</option>
+											<option  value="0-10">0-10%</option>
+											<option value="10-30">10-30%</option>
+											<option value="30-60">30-60%</option>
+											<option value="60-100">60-100%</option>
+										</select>
+		
+									</div>
+									<div class="input-prepend">
+										<span class="add-on">River</span> <select
+											class="selectpicker  show-tick show-menu-arrow "
+											id="collect_entity_topography[river].code_coverage" name="collect_entity_topography[river].code_coverage"
+											>
+											<option value="na">Not Applicable</option>
+											<option  value="0-10">0-10%</option>
+											<option value="10-30">10-30%</option>
+											<option value="30-60">30-60%</option>
+											<option value="60-100">60-100%</option>
+										</select>
+		
+									</div>
+									<div class="input-prepend">
+										<span class="add-on">House</span> <select
+											class="selectpicker  show-tick show-menu-arrow "
+											id="collect_entity_topography[house].code_coverage" name="collect_entity_topography[house].code_coverage"
+											>
+											<option value="na">Not Applicable</option>
+											<option  value="0-10">0-10%</option>
+											<option value="10-30">10-30%</option>
+											<option value="30-60">30-60%</option>
+											<option value="60-100">60-100%</option>
+										</select>
+		
+									</div>
+									<div class="input-prepend" id="trees_element">
+										<span class="add-on">Trees</span> <select
+											class="selectpicker  show-tick show-menu-arrow "
+											id="collect_entity_topography[trees].code_coverage" name="collect_entity_topography[trees].code_coverage"
+											>
+											<option value="na">Not Applicable</option>
+											<option  value="0-10">0-10%</option>
+											<option value="10-30">10-30%</option>
+											<option value="30-60">30-60%</option>
+											<option value="60-100">60-100%</option>
+										</select>
+		
+									</div>
+									<div class="input-prepend">
+										<span class="add-on">Other</span> <select
+											class="selectpicker  show-tick show-menu-arrow "
+											id="collect_entity_topography[other].code_coverage" name="collect_entity_topography[other].code_coverage"
+											>
+											<option value="na">Not Applicable</option>
+											<option  value="0-10">0-10%</option>
+											<option value="10-30">10-30%</option>
+											<option value="30-60">30-60%</option>
+											<option value="60-100">60-100%</option>
+										</select>
+		
+									</div>
+
+							</div>
+							
+						</div>
+
+					<div id="toolbar" class="capsuleCat ui-corner-all settlementDiv">
+						<h5>Human impact</h5>
+							<div class="label-over">Type</div>
+									<div class="control-group">
+							
+								<div class="btn-group" data-toggle="buttons-radio" id="collect_code_human_impact_type_group">
+								 	<button type="button" class="btn btn-primary"  value="na" class="active">No impact</button>
+								    <button type="button" class="btn btn-primary" value="logging">Logging</button>
+								    <button type="button" class="btn btn-primary" value="grazing">Grazing</button>
+								    <button type="button" class="btn btn-primary" value="mining">Mining</button>
+								    <button type="button" class="btn btn-primary" value="other">Other</button>
+							    </div>
+								
+							</div>
+							<div class="label-over">Grade</div>
+									<div class="control-group">
+									<div class="btn-group" data-toggle="buttons-radio" id="collect_code_human_impact_grade_group">
+								    <button type="button" class="btn btn-primary collect_code_human_impact_type_dependant" value="low">Low</button>
+								    <button type="button" class="btn btn-primary collect_code_human_impact_type_dependant" value="medium">Medium</button>
+								    <button type="button" class="btn btn-primary collect_code_human_impact_type_dependant" value="high">High</button>
+							    </div>
+								
+							</div>
+							<div class="label-over">Date</div>
+									<div class="control-group">
+							
+								<select
+									name="collect_integer_human_impact_year"
+									class="selectpicker  show-menu-arrow show-tick humanImpactInput" data-size="3"
+									id="collect_integer_human_impact_year" title="No year selected" >
+									<option value="-1">Unknown</option>
+								</select>
+							</div>
+						</div>
+			
+						<div id="toolbar" class="capsuleCat ui-corner-all">
+			
+						<h5>RS Data</h5>
+			
+						<div class="label-over">Satellite</div>
+								<div class="control-group">
+							    <div class="btn-group" data-toggle="buttons-radio" id="collect_code_rs_satellite_group">
+								    <button type="button" class="btn btn-primary" value="rapidEye">Rapid Eye</button>
+								    <button type="button" class="btn btn-primary" value="landsat">Landsat</button>
+								    <button type="button" class="btn btn-primary" value="quickbird">Quickbird</button>
+								    <button type="button" class="btn btn-primary" value="spot">Spot</button>
+								    <button type="button" class="btn btn-primary" value="other">Other</button>
+							    </div>
+							  <!--  <div class="ui-state-default ui-state-active ui-corner-all"> 
+							    <div class="ui-icon ui-icon-circle-plus"></div>   <a href="#">I am clickable and selected</a></div>  
+							    
+							    <div class="ui-state-default ui-corner-all">  
+
+  								 <div class="ui-icon ui-icon-circle-plus"></div>  
+
+ 								<a href="#">I am clickable but not selected</a></div>  -->
+							    
+						</div>
+						<div class="label-over">Date</div>
+							<div class="control-group">
+								 <input type="text" id="collect_date_rs_date" name="collect_date_rs_date" placeholder="month/day/year">
+							</div>
+						</div>
+					</div>
+				</div>
+		</div>
+		<div class="earthDiv">
+			<button type="submit" class="btn btn-success" style="margin-left:25%;margin-right:25%;margin-top:3px;">SUBMIT &amp; VALIDATE</button>
+			<!-- 
+			COMMENT FOR NOW
+			<div style="float:right">
+			<label for="earth_skip_filled">Skip already filled plots</label> <input type="checkbox" id="earth_skip_filled" name="earth_skip_filled"/>
+			</div>
+			 -->
+		</div>
+	</form>
+
+	<iframe style="display: none" id="dummy" src="about:blank"></iframe>
+	
+</body>
+</html>

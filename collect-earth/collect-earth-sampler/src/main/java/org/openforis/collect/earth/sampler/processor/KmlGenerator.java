@@ -45,6 +45,7 @@ public abstract class KmlGenerator extends AbstractWgs84Transformer {
 
 		try {
 			File destinationFile = new File(destinationKmlFile);
+			destinationFile.getParentFile().mkdirs();
 			getKmlCode(csvFile, balloonFile, freemarkerKmlTemplateFile, destinationFile, distanceBetweenSamplePoints,
 					distancePlotBoundary);
 		} catch (IOException e) {
