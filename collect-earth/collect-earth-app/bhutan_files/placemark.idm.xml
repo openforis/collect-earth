@@ -547,12 +547,7 @@
 			<code id="19" name="deforestation_reason" list="deforestation_reason" relevant="land_use='forest' and crown_cover='0'" >
 				<label xml:lang="en">Deforestation reason</label>
 			</code>
-			<text name="directions" id="33" required="false" relevant="false()">
-			    <label xml:lang="en">Directions</label>
-			</text>
-			<code id="34" name="site_bearing" list="bearing"  >
-				<label xml:lang="en">Bearing</label>
-			</code>
+
 			<boolean id="18" name="actively_saved">
 				<label xml:lang="en">Actively saved by user</label>
 			</boolean>
@@ -565,6 +560,18 @@
 			<number id="32" name="slope" type="real" >
 				<label xml:lang="en">Slope</label>
 			</number>
+			
+			<text name="directions" id="33" required="false" relevant="false()">
+			    <label xml:lang="en">Directions</label>
+			</text>
+			<code id="34" name="site_bearing" list="bearing"  >
+				<label xml:lang="en">Bearing</label>
+			</code>
+			
+			<boolean id="35" name="actively_saved">
+				<label xml:lang="en">Actively saved by user</label>
+			</boolean>
+			
 		</entity>
 	</schema>
 </survey>
