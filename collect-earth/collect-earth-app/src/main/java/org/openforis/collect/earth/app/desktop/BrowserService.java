@@ -7,7 +7,6 @@ import org.openforis.collect.earth.app.service.LocalPropertiesService;
 import org.openqa.selenium.JavascriptExecutor;
 import org.openqa.selenium.WebDriverException;
 import org.openqa.selenium.WebElement;
-import org.openqa.selenium.chrome.ChromeDriver;
 import org.openqa.selenium.firefox.FirefoxBinary;
 import org.openqa.selenium.firefox.FirefoxDriver;
 import org.openqa.selenium.firefox.FirefoxProfile;
@@ -69,7 +68,7 @@ public class BrowserService {
 					firefoxBinary = new FirefoxBinary();
 					driver = new FirefoxDriver(firefoxBinary, ffprofile);
 				} catch (WebDriverException e) {
-					logger.error( "The firefox executable firefox.exe cannot be found, please use edit earth.properties and add a line with the property " +LocalPropertiesService.FIREFOX_BINARY_PATH + " pointing to the full path to this file" , e );
+					logger.error( "The firefox executable firefox.exe cannot be found, please edit earth.properties and add a line with the property " +LocalPropertiesService.FIREFOX_BINARY_PATH + " pointing to the full path to firefox.exe" , e );
 				}
 			}
 			

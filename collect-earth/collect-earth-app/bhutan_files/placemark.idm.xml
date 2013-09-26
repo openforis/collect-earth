@@ -191,30 +191,38 @@
 				</item>
 			</items>
 		</list>
-		<list id="200" name="topographical_accessibility">
+		<list id="200" name="site_accessibility">
 			<label type="item">Accessibility</label>
 			<label type="list">Accessibility</label>
 			<codingScheme scope="local" />
 			<items>
 				<item id="201">
 					<code>0-1</code>
-					<label>D &lt; 1km</label>
+					<label>0-1 km</label>
 				</item>
 				<item id="202">
-					<code>1-5</code>
-					<label>1km &lt; D &lt; 5km</label>
+					<code>1-2</code>
+					<label>1-2 km</label>
 				</item>
 				<item id="203">
-					<code>5-10</code>
-					<label>5km &lt; D &lt; 10km</label>
+					<code>2-3</code>
+					<label>2-3 km</label>
 				</item>
 				<item id="204">
-					<code>10-more</code>
-					<label>10km &lt; D</label>
+					<code>3-5</code>
+					<label>3-5 km</label>
 				</item>
 				<item id="205">
-					<code>unaccesible</code>
-					<label>Unaccesible</label>
+					<code>5-10</code>
+					<label>5-10 km</label>
+				</item>
+				<item id="206">
+					<code>10-more</code>
+					<label>&gt; 10 km</label>
+				</item>
+				<item id="207">
+					<code>inaccesible</code>
+					<label>Inaccesible</label>
 				</item>
 			</items>
 		</list>
@@ -241,6 +249,10 @@
 				<item id="305">
 						<code>trees</code>
 						<label>Trees</label>
+				</item>
+				<item id="306">
+						<code>lake</code>
+						<label>Lake</label>
 				</item>
 			</items>
 			
@@ -328,8 +340,8 @@
 						<label>Landsat</label>
 				</item>
 				<item id="702">
-						<code>quickbird</code>
-						<label>Quickbird</label>
+						<code>digitalGlobe</code>
+						<label>Digital Globe</label>
 				</item>
 				<item id="703">
 						<code>rapidEye</code>
@@ -345,28 +357,32 @@
 				</item>
 			</items>
 		</list>
-		<list id="800" name="crown_cover">
-			<label type="list">Crown Cover</label>
+		<list id="800" name="canopy_cover">
+			<label type="list">Canopy Cover</label>
 			<items>
 				<item id="801">
 					<code>0</code>
 					<label>No cover (&lt;10%)</label>
 				</item>
+				<item id="809">
+					<code>0-10</code>
+					<label>0-10%</label>
+				</item>
 				<item id="805">
 					<code>10-30</code>
-					<label>10 - 30%</label>
+					<label>10-30%</label>
 				</item>
 				<item id="806">
 					<code>30-50</code>
-					<label>30 - 50%</label>
+					<label>30-50%</label>
 				</item>
 				<item id="807">
 					<code>50-70</code>
-					<label>50 - 70%</label>
+					<label>50-70%</label>
 				</item>
 				<item id="808">
 					<code>70-100</code>
-					<label>70 - 100%</label>
+					<label>70-100%</label>
 				</item>
 			</items>
 		</list>
@@ -378,10 +394,6 @@
 					<label>Burnt</label>
 				</item>
 				<item id="812">
-					<code>logging</code>
-					<label>Logging</label>
-				</item>
-				<item id="813">
 					<code>other</code>
 					<label>Other</label>
 				</item>
@@ -389,8 +401,8 @@
 		</list>
 
 		<list id="900" name="cover_type">
-			<label type="item">Cover Type</label>
-			<label type="list">Cover Type</label>
+			<label type="item">Canopy Type</label>
+			<label type="list">Canopy Type</label>
 			<items>
 				<item id="901">
 					<code>sparse</code>
@@ -415,57 +427,44 @@
 			</items>
 		</list>
 		
-		<list id="920" name="orientation">
-		    <label type="item">Orientation</label>
+		
+		<list id="920" name="bearing">
+		    <label type="item">Bearing</label>
 			<items>
 				<item id="921">
-					<code>NORTH</code>
+					<code>N</code>
 					<label>NORTH</label>
 				</item>
 				<item id="922">
-					<code>NORTH_EAST</code>
+					<code>N-E</code>
 					<label>NORTH EAST</label>
 				</item>
 				<item id="923">
-					<code>EAST</code>
+					<code>E</code>
 					<label>EAST</label>
 				</item>
 				<item id="924">
-					<code>SOUTH_EAST</code>
+					<code>S-E</code>
 					<label>SOUTH EAST</label>
 				</item>
 			    <item id="925">
-					<code>SOUTH</code>
+					<code>E</code>
 					<label>SOUTH</label>
 				</item>			
 				<item id="926">
-					<code>SOUTH_WEST</code>
+					<code>S-W</code>
 					<label>SOUTH WEST</label>
 				</item>
 				<item id="927">
-					<code>WEST</code>
+					<code>W</code>
 					<label>WEST</label>
 				</item>
 				<item id="928">
-					<code>NORTH_WEST</code>
+					<code>N-W</code>
 					<label>NORTH WEST</label>
 				</item>
-				<item id="929">
-					<code>PLAIN</code>
-					<label>PLAIN</label>
-				</item>
-			    <item id="930">
-					<code>FLAT</code>
-					<label>FLAT</label>
-				</item>	
-				 <item id="931">
-					<code>UNKNOWN</code>
-					<label>UNKNOWN</label>
-				</item>					
 			</items>
 		</list>
-		
-		
 		
 	</codeLists>
 	<spatialReferenceSystems>
@@ -510,7 +509,7 @@
 			<boolean id="21" name="interpretation_uncertainty" relevant="land_use='forest' or land_use='grassland'" >
 				<label xml:lang="en">Interpretation uncertainty</label>
 			</boolean>
-			<code id="8" name="topography_accessibility" list="topographical_accessibility" relevant="land_use!='noData'">
+			<code id="8" name="site_accessibility" list="site_accessibility" relevant="land_use!='noData'">
 				<label xml:lang="en">Accessibility</label>
 			</code>
 			<entity id="20" name="topography" multiple="true" >
@@ -532,20 +531,27 @@
 			<number id="13" name="human_impact_year" type="integer" relevant="land_use!='noData' and land_use!='settlement' and human_impact_type!='na'">
 				<label xml:lang="en">Human Impact Year</label>
 			</number>
+			
 			<date id="14" name="rs_date" relevant="land_use!='noData'">
 				<label xml:lang="en">RS Date</label>
 			</date>
 			<code id="15" name="rs_satellite" list="rs_satellite" relevant="land_use!='noData'">
 				<label xml:lang="en">RS Satellite</label>
 			</code>
-			<code id="16" name="crown_cover" list="crown_cover" relevant="land_use='forest'" >
-				<label xml:lang="en">Crown Cover</label>
+			<code id="16" name="canopy_cover" list="canopy_cover" relevant="land_use='forest'" >
+				<label xml:lang="en">Canopy cover</label>
+			</code>
+			<code id="17" name="canopy_type" list="canopy_type" relevant="land_use='forest' and canopy_cover!='0'">
+				<label xml:lang="en">Canopy Type</label>
 			</code>
 			<code id="19" name="deforestation_reason" list="deforestation_reason" relevant="land_use='forest' and crown_cover='0'" >
 				<label xml:lang="en">Deforestation reason</label>
 			</code>
-			<code id="17" name="cover_type" list="cover_type" relevant="land_use='forest' and crown_cover!='0'">
-				<label xml:lang="en">Crown Type</label>
+			<text name="directions" id="33" required="false" relevant="false()">
+			    <label xml:lang="en">Directions</label>
+			</text>
+			<code id="34" name="site_bearing" list="bearing"  >
+				<label xml:lang="en">Bearing</label>
 			</code>
 			<boolean id="18" name="actively_saved">
 				<label xml:lang="en">Actively saved by user</label>
@@ -553,14 +559,11 @@
 			<number id="30" name="elevation" type="integer" >
 				<label xml:lang="en">Elevation</label>
 			</number>
-			<code id="31" name="orientation" list="orientation">
-				<label xml:lang="en">Orientation</label>
-			</code>
-			<number id="32" name="slope_north_south" type="real" >
-				<label xml:lang="en">Slope North South</label>
+			<number id="31" name="aspect"  type="real">
+				<label xml:lang="en">Aspect</label>
 			</number>
-			<number id="33" name="slope_west_east" type="real" >
-				<label xml:lang="en">Slope West East</label>
+			<number id="32" name="slope" type="real" >
+				<label xml:lang="en">Slope</label>
 			</number>
 		</entity>
 	</schema>
