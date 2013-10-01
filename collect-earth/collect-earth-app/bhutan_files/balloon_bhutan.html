@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html>
 <head>
-<title>Bhutan Collect Earth customization</title>
+<title>Bhutan Land Use survey</title>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
 <script src="earthFiles/jquery/jquery.js"></script>
@@ -17,7 +17,7 @@
 <!-- 
 Values expected for Mongolia ( for the "HTTP parameters" -> "Collect format" conversion to work )
 
-All inputs that have processable information ( hidden or otherwise) should start with "collect_" :
+All inputs that have proccesable information ( hidden or otherwise) should start with "collect_" :
 
 If the input is text then it should be followed by "text_"
 If the input is a code (option in combo-box for instance) then it should be followed by "code_"
@@ -33,9 +33,9 @@ collect_text_id
 collect_coord_location
 collect_integer_elevation
 collect_text_operator ( filled in the earthSurveyService store method as the operator name is fetched through a properties file)
-collect_code_land_use
-collect_boolean_land_use_change
-collect_code_land_use_type
+collect_code_land_use_category
+collect_code_land_use_subcategory
+collect_code_land_use_subdivision
 collect_code_site_accessibility
 collect_entity_topography[X]_code_element
 collect_entity_topography[X]_code_coverage
@@ -52,6 +52,9 @@ collect_real_aspect
 collect_real_slope
 collect_text_directions
 collect_code_bearing
+collect_boolean_land_use_category_accuracy
+collect_boolean_land_use_subcategory_accuracy
+collect_boolean_land_use_subdivision_accuracy
 
 When a value has multiple values they will be  separated with "===" i.e.
 collect_code_human_impact_type = "fire===logging===grazing"
@@ -168,7 +171,10 @@ earth_skip_filled
 				$("input[name=\'" + key + "\']").val(value);
 			} 
 			
-			if ($("select[name=\'" + key + "\']").length == 1) {
+
+			if ($("textarea[name=\'" + key + "\']").length == 1) {
+				$("textarea[name=\'" + key + "\']").val(value);
+			} else if ($("select[name=\'" + key + "\']").length == 1) {
 				
 				var values = value.split("===");
 				$("select[name=\'" + key + "\']").selectpicker('val',	values);
@@ -181,7 +187,7 @@ earth_skip_filled
 					if( $('#'+key+'_group .btn[value=\''+value+'\']').length == 1){
 						var toggleButton = $('#'+key+'_group .btn[value=\''+value+'\']');
 						toggleButton.button('toggle');
-						if( key == "collect_code_land_use" ){
+						if( key == "collect_code_land_use_category" ){
 							activateLandUseDivs( toggleButton );
 						}
 					}
@@ -196,7 +202,7 @@ earth_skip_filled
 				$('#earth_skip_filled').attr('checked', value);				
 			}
 			
-			if( key == "collect_boolean_land_use_change" ){
+			if( key == "collect_code_land_use_subcategory" ){
 				
 				$('.toggleLandDevelopment[value=\''+value+'\']').each( 
 						function () {        
@@ -205,15 +211,27 @@ earth_skip_filled
 				);							
 			}
 			
-			if( key == "collect_boolean_interpretation_uncertainty" ){
+			if( key == "collect_boolean_land_use_subdivision_accuracy" ){
 				
-				$('.toggleUncertainty[value=\''+value+'\']').each( 
+				$('.toggleAccuracySubDivision[value=\''+value+'\']').each( 
 						function () {        
 							$(this).button('toggle');
 						}
 				);
 							
 			}
+			
+			if( key == "collect_boolean_land_use_subcategory_accuracy" ){
+				
+				$('.toggleAccuracySubCategory[value=\''+value+'\']').each( 
+						function () {        
+							$(this).button('toggle');
+						}
+				);
+							
+			}
+			
+			
 			
 			
 			
@@ -242,15 +260,9 @@ earth_skip_filled
 				 
 				 if( $('.'+hiddenInputId+'_dependant').length > 0 ){
 					var dependants =$('.'+hiddenInputId+'_dependant:hidden');
-					// Reset inputs
-					$('input.'+hiddenInputId+'_dependant:hidden').each( function(){
-						$(this).val('');
-					});
 					
-					//Reset buttons
-					$(':button.'+hiddenInputId+'_dependant').each( function(){
-						$(this).removeClass('active');
-					});
+					resetDependants(hiddenInputId);
+					
 				 }
 				 
 				// If there is an extra value "collect_code_deforestation_reason=burnt"
@@ -266,10 +278,13 @@ earth_skip_filled
 			
 		});
 		
+		
+		
 		$('.landUseTypeSelector').find("button").click( function(e){
 			var selectedUseType = e.target;
 			var value = selectedUseType.value;
-			$("input[id=collect_code_land_use_type]").val(value);
+			$("input[id=collect_code_land_use_subdivision]").val(value);
+			resetDependants('collect_code_land_use_subdivision');
 			ajaxDataUpdate();
 		});
 		
@@ -351,6 +366,18 @@ earth_skip_filled
 			});
 	}
 	
+	var resetDependants = function( inputName){
+		// Reset inputs
+		$('input.'+inputName+'_dependant:hidden').each( function(){
+			$(this).val('');
+		});
+		
+		//Reset buttons
+		$(':button.'+inputName+'_dependant').each( function(){
+			$(this).removeClass('active');
+		});
+	}
+	
 	var submitForm = function($form, submitCounter ){
 		var data = $form.find('input, select, textarea, button').serialize();
 		
@@ -409,7 +436,7 @@ earth_skip_filled
 
 						fillYears();
 						
-						$(".land_use_option").find("button").click(function(){
+						$(".land_use_option").find("button").not(".no_land_use").click(function(){
 							activateLandUseDivs($(this));
 						});
 
@@ -437,13 +464,20 @@ earth_skip_filled
 								'click',
 								function(e) {
 									var selectedButton = e.target;
-									$("input[id=collect_boolean_land_use_change]").val(selectedButton.value);
+									$("input[id=collect_code_land_use_subcategory]").val(selectedButton.value);
+									resetDependants('collect_code_land_use_subcategory');
 								});
-						$('.toggleUncertainty').on(
+						$('.toggleAccuracySubDivision').on(
 								'click',
 								function(e) {
 									var selectedButton = e.target;
-									$("input[id=collect_boolean_interpretation_uncertainty]").val(selectedButton.value);
+									$("input[id=collect_boolean_land_use_subdivision_accuracy]").val(selectedButton.value);
+								});
+						$('.toggleAccuracySubCategory').on(
+								'click',
+								function(e) {
+									var selectedButton = e.target;
+									$("input[id=collect_boolean_land_use_subcategory_accuracy]").val(selectedButton.value);
 								});
 						
 						checkIfPlacemarkAlreadyFilled('#formAll', 0);
@@ -515,15 +549,18 @@ body {
     border-bottom-left-radius: 4px !important;
     border-top-left-radius: 4px !important;
     margin-left: 0 !important;
+    font-size: 12px;
 }
 
 .lastElementToggle{
     border-bottom-right-radius: 4px !important;
     border-top-right-radius: 4px !important;
+    font-size: 12px;
 }
 
 
 .independentElementToggle{
+	font-size: 12px;
     border-bottom-left-radius: 4px !important;
     border-top-left-radius: 4px !important;
     margin-left: 0 !important;
@@ -538,6 +575,7 @@ body {
 
 .input-prepend .add-on, .input-prepend .btn {
     margin-left: 4px;
+    margin-top: 4px;
 }
 
 label {
@@ -564,6 +602,7 @@ hr {
 
 .btn-primary {
     background-color: #003dda !important;
+    margin-top: 4px
 }
 
 .btn-primary.active, .btn-warning.active, .btn-danger.active, .btn-success.active, .btn-info.active, .btn-inverse.active {
@@ -572,7 +611,7 @@ hr {
 }
 
 .earthDiv{
-	width: 530px;
+	width: 350px;
 }
 
 .btn-fixed80 {
@@ -580,6 +619,39 @@ hr {
    	margin-right:5px;
    	margin-bottom:4px;
    	
+}
+
+.btn-fixed70 {
+   	width: 100px; !important;
+   	margin-right:3px;
+   	margin-bottom:4px;
+   	
+}
+
+.btnSimple80{
+	width: 80px; !important;
+}
+
+.btnSimple80x{
+	width: 80px; !important;
+	margin-right:3px;
+	font-size: 12px;
+    border-bottom-left-radius: 4px !important;
+    border-top-left-radius: 4px !important;
+    margin-left: 0 !important;
+    border-bottom-right-radius: 4px !important;
+    border-top-right-radius: 4px !important;
+}
+
+.btnSimple90x{
+	width: 110px; !important;
+	margin-right:3px;
+	font-size: 12px;
+    border-bottom-left-radius: 4px !important;
+    border-top-left-radius: 4px !important;
+    margin-left: 0 !important;
+    border-bottom-right-radius: 4px !important;
+    border-top-right-radius: 4px !important;
 }
 
 </style>
@@ -598,8 +670,8 @@ hr {
 
 	<form id="formAll" method="POST" action="$[host]saveData">
 	<!-- <form id="formAll" method="POST" action="http://127.0.0.1:8020/earth/saveData"> -->
-	
-	<div id="contentDiv" class="earthDiv" style="height:600px; overflow : auto;">
+	<div id="ScrollingDiv" style="overflow :none;" class="earthDiv">
+	<div id="contentDiv"  style="height:600px; ">
 				<input type="hidden" id="collect_coord_location" 
 					name="collect_coord_location" value="$[latitude],$[longitude]" />
 					
@@ -608,35 +680,41 @@ hr {
 				<input type="hidden" id="collect_real_aspect" 
 					name="collect_real_aspect" value="$[aspect]" />
 				<input type="hidden" id="collect_real_slope" 
-					name="collect_real_slope" value="slope" />
+					name="collect_real_slope" value="$[slope]" />
 									
-				<input type="hidden" id="collect_text_directions" 
-					name="collect_text_directions" value="slope" />
 				<input type="hidden" id="collect_code_site_bearing" 
-					name="collect_code_site_bearing" value="slope" />
+					name="collect_code_site_bearing" value="" class="collect_code_land_use_category_dependant" />
 				
 				<input type="hidden" id="collect_text_id"
 					name="collect_text_id" value="$[id]" />
-				<input type="hidden" id="collect_code_land_use" name="collect_code_land_use"
-					value="forest" />  <!-- Use the forest land use as default -->
-				
-				<input type="hidden"
-					id="collect_boolean_land_use_change" name="collect_boolean_land_use_change" class="collect_code_land_use_dependant"/> 
 					
+				<input type="hidden" id="collect_code_land_use_category" name="collect_code_land_use_category"
+					value="forest" />  <!-- Use the forest land use as default -->
 				<input type="hidden"
-					id="collect_boolean_interpretation_uncertainty" name="collect_boolean_interpretation_uncertainty" class="collect_code_land_use_dependant"/> 
+					id="collect_boolean_land_use_category_accuracy" name="collect_boolean_land_use_category_accuracy" class="collect_code_land_use_category_dependant"/> 
+										
 				
+				<input type="hidden"
+					id="collect_code_land_use_subcategory" name="collect_code_land_use_subcategory" class="collect_code_land_use_category_dependant"/> 
+	
+				<input type="hidden"
+					id="collect_boolean_land_use_subcategory_accuracy" name="collect_boolean_land_use_subcategory_accuracy" class="collect_code_land_use_category_dependant collect_code_land_use_subcategory_dependant"/> 
+	
+	
+				<input type="hidden"
+					id="collect_code_land_use_subdivision" name="collect_code_land_use_subdivision" class="collect_code_land_use_category_dependant"/> 
+				
+				<input type="hidden"
+					id="collect_boolean_land_use_subdivision_accuracy" name="collect_boolean_land_use_subdivision_accuracy" class="collect_code_land_use_subdivion_dependant collect_code_land_use_subcategory_dependant collect_code_land_use_category_dependant"/> 
+					
 				<input type="hidden" id="collect_code_canopy_cover" name="collect_code_canopy_cover"
-					value="" class="collect_code_land_use_dependant" /> 
+					value="" class="collect_code_land_use_category_dependant" /> 
 					
 				<input type="hidden" id="collect_code_canopy_type"
-					name="collect_code_canopy_type"  class="collect_code_land_use_dependant collect_code_canopy_cover_dependant" />
+					name="collect_code_canopy_type"  class="collect_code_land_use_category_dependant collect_code_canopy_cover_dependant" />
 					
 				<input type="hidden" id="collect_code_deforestation_reason" name="collect_code_deforestation_reason"
-					value="" class="collect_code_land_use_dependant" />					
-					
-				<input type="hidden" id="collect_code_land_use_type"
-					name="collect_code_land_use_type" class="collect_code_land_use_dependant"/> 		
+					value="" class="collect_code_land_use_category_dependant" />					
 							
 				<input type="hidden" id="collect_boolean_actively_saved"
 					name="collect_boolean_actively_saved" value="false" />
@@ -651,59 +729,90 @@ hr {
 				<input type="hidden" id="collect_code_human_impact_grade"
 					name="collect_code_human_impact_grade"  class="collect_code_human_impact_type_dependant"/>
 
-				<div style="background-image: url(earthFiles/img/Open-foris-banner2.jpg); height:47px;width:450px;clear:none;">
+				<div style="background-image: url(earthFiles/img/Open-foris-banner2.jpg); height:47px;clear:none;">
 				
-				<span style="float: right;display:inline;margin-top:5px;" >
-				
-				<img src="earthFiles/img/bhutan.png" border="0" style="vertical-align:bottom;"/>
-
-				</span>
+					<span style="float: right;display:inline;margin-top:5px;" >
+					
+				<!-- 	<span style="float: left;display:inline;margin-top:0px;" >
+					ID: $[id]<br/>
+					Height : $[elevation]<br/>
+					Aspect : $[aspect]<br/>
+					Slope : $[slope]
+					</span>-->
+					<img src="earthFiles/img/bhutan.png" border="0" style="vertical-align:bottom;"/>
+					<img src="earthFiles/img/bhutanForestAuthority.png" border="0" style="vertical-align:bottom;"/>
+					<img src="earthFiles/img/fao-logo.png" border="0" style="vertical-align:bottom;"/>
+					
+					
+					</span> 
 				</div>
 				<div id="collapsableContents">
 					<div id="tabsTypeOfTerrain">
 	
-							<div id="toolbar" class="capsuleCat ui-corner-all"
+						<div id="toolbar" class="capsuleCat ui-corner-all" style="position: relative;"
 							style="width: 96%">
-							<div class="control-group">
-
-								<div class="btn-group land_use_option" data-toggle="buttons-radio" id="collect_code_land_use_group">
-									<button type="button"
-										class="btn btn-primary active btn-fixed80 independentElementToggle"
-										value="forest">Forest</button>
-									<button type="button"
-										class="btn btn-primary btn-fixed80 independentElementToggle"
-										value="grassland">Grassland</button>
-									<button type="button"
-										class="btn btn-primary btn-fixed80 independentElementToggle"
-										value="cropland">Cropland</button>
-									<br/>
-									<button type="button"
-										class="btn btn-primary btn-fixed80 independentElementToggle"
-										value="wetLand">Wetland</button>
-									<button type="button"
-										class="btn btn-primary btn-fixed80 independentElementToggle"
-										value="settlement">Settlement</button>
-									<button type="button"
-										class="btn btn-primary btn-fixed80 independentElementToggle"
-										value="otherLand">Other</button>
-									<br/>
-									<button type="button"
-										class="btn btn-primary btn-warning independentElementToggle btn-fixed80"
-										value="noData">No Data</button>
-									<div class="control-group">		
-										
-								<div class="btn-group" data-toggle="buttons-radio" style="float:right;clear:left;">
-									<button type="button"
-										class="btn btn-primary toggleUncertainty collect_code_land_use_dependant"
-										id="FLUncertaintyTrue" value="true">YES</button>
-									<button type="button"
-										class="btn btn-primary  toggleUncertainty collect_code_land_use_dependant"
-										id="FLUncertainFalse" value="false" >NO</button>
-								</div>
+							<h5>Land use categories</h5>
+							
+							<div style="clear:both;">
+							<div class="control-group" style="float:left;vertical-align: bottom;" id="collect_code_land_use_category_group">
+								<table class="btn-group land_use_option" data-toggle="buttons-radio" >
+									<tr>
+										<td>
+											<button type="button"
+												class="btn btn-primary active btn-fixed80 independentElementToggle"
+												value="forest">Forest</button>
+										</td>
+										<td>
+											<button type="button"
+												class="btn btn-primary btn-fixed80 independentElementToggle"
+												value="grassland">Grassland</button>
+										</td>
+										<td>
+											<button type="button"
+											class="btn btn-primary btn-fixed80 independentElementToggle"
+											value="cropland">Cropland</button>
+										</td>
+									<tr>
+										<td>
+											<button type="button"
+											class="btn btn-primary btn-fixed80 independentElementToggle"
+											value="wetLand">Wetland</button>
+										</td>
+										<td>
+											<button type="button"
+											class="btn btn-primary btn-fixed80 independentElementToggle"
+											value="settlement">Settlement</button>
+										</td>
+										<td>
+											<button type="button"
+											class="btn btn-primary btn-fixed80 independentElementToggle"
+											value="otherLand">Other</button>
+										</td>
+									<tr>
+										<td>
+											<button type="button"
+											class="btn btn-primary btn-warning independentElementToggle btn-fixed80"
+											value="noData">No Data</button>
+										</td>
+										<td colspan="2">
 								
+											<div class="control-group" style="margin-bottom: 0px !important;">
+												<div class="input-prepend btn-group" data-toggle="buttons-radio" id="collect_boolean_land_use_category_accuracy_group">
+													<span class="add-on">Accuracy</span>
+													<button type="button" style="margin-left:0px"
+														class="btn btn-primary no_land_use collect_code_land_use_category_dependant firstElementToggle"
+														value="true">YES</button>
+													<button type="button"
+														class="btn btn-primary no_land_use collect_code_land_use_category_dependant "
+														value="false">NO</button>
+												</div>
+											</div>
+						
+										</td>
+									</tr>									
+								</table>
 							</div>
-								</div>
-								
+							
 							</div>
 						</div>
 						
@@ -711,84 +820,224 @@ hr {
 				<div class="tab-content">
 					<div id="tab_forest" class="tab-pane active">
 
+
+						<div id="toolbar" class="capsuleCat ui-corner-all" style="width: 96%">
+						
+							<h5>Land use sub-category</h5>
+							<table>
+								<tr>
+									<td>
+										<div class="control-group" >
+			
+											<div class="btn-group" data-toggle="buttons-radio">
+												<button type="button"
+													class="btn btn-primary toggleLandDevelopment collect_code_land_use_category_dependant"
+													id="FLtoFL" value="FLtoFL" title="Forest Land remaining Forest Land">FL &gt; FL</button>
+												<button type="button"
+													class="btn btn-primary toggleLandDevelopment collect_code_land_use_category_dependant"
+													id="OTtoFL" value="OTtoFL" title="Other Land becoming Forest Land" >OT &gt; FL</button>
+											</div>
+										</div>
+									</td>
+							
+									<td>
+										<div class="control-group" style="margin-bottom: 0px !important;">
+											<div class="input-prepend btn-group" data-toggle="buttons-radio">
+												<span class="add-on">Accuracy</span>
+												<button type="button" style="margin-left:0px"
+													class="btn btn-primary toggleAccuracySubCategory collect_code_land_use_category_dependant collect_code_land_use_subcategory_dependant firstElementToggle"
+													value="true">YES</button>
+												<button type="button"
+													class="btn btn-primary toggleAccuracySubCategory collect_code_land_use_category_dependant collect_code_land_use_subcategory_dependant"
+													value="false">NO</button>
+											</div>
+										</div>
+									</td>
+								</tr>
+							</table>
+						</div>
 						<div id="toolbar" class="capsuleCat ui-corner-all"
 							style="width: 96%">
-							<h5>Forest</h5>
-							<div class="label-over">Development</div>
-							<div class="control-group">
-
-								<div class="btn-group" data-toggle="buttons-radio">
-									<button type="button"
-										class="btn btn-primary  toggleForestDevelopment toggleLandDevelopment collect_code_land_use_dependant"
-										id="FLtoFL" value="false">FL &gt; FL</button>
-									<button type="button"
-										class="btn btn-primary toggleForestDevelopment toggleLandDevelopment collect_code_land_use_dependant"
-										id="OLtoFL" value="true">Other &gt; FL</button>
-								</div>
-							</div>
-						
-							<div class="label-over">Type</div>
 							
-							<div class="control-group landUseTypeSelector">
-								<div class="btn-group "
-									data-toggle="buttons-radio">
-									<button type="button" class="btn btn-primary collect_code_land_use_dependant"
-										value="FCf" title="Fir Forest">Fir</button>
-									<button type="button" class="btn btn-primary collect_code_land_use_dependant"
-										value="FCm" title="Mixed Conifier Forest">Mixed Conifier</button>
-									<button type="button" class="btn btn-primary collect_code_land_use_dependant"
-										value="FCb" title="Blue Pine Forest">Blue Pine</button>
-									<button type="button" class="btn btn-primary collect_code_land_use_dependant lastElementToggle"
-										value="FCc" title="Chir Pine forest" >Chir Pine</button>
-									<br/>
-									<button type="button" class="btn btn-primary collect_code_land_use_dependant firstElementToggle"
-										value="FB" title="Broadleaf forest">Broadleaf</button>
-									<button type="button" class="btn btn-primary collect_code_land_use_dependant"
-										value="FBc" title="Broadleaf and conifier forest">Broadleaf with conifier</button>
-									<button type="button" class="btn btn-primary collect_code_land_use_dependant"
-										value="SH" title="Shrubs">Shrubs</button>
+							<h5>Land use sub-division</h5>
+								<table class="control-group landUseTypeSelector btn-group" data-toggle="buttons-radio">
+									<tr>
+										<td>
+											<table>
+												<tr>
+													<td colspan="100%"><h5>Natural Forest</h5></td>
+												</tr>
+												<tr>
+													<td>
+														<button type="button"
+															class="btn btn-primary btn-fixed70 independentElementToggle"
+															value="STFr" title="Subtropical forest">Subtropical</button>
+													</td>
+													<td>
+														<button type="button"
+															class="btn btn-primary btn-fixed70 independentElementToggle"
+															value="WBFr" title="Warm Broadleaved forest">Warm
+															Broadleaved</button>
+													</td>
+
+												
+
+												</tr>
+												<tr>
+													<td>
+														<button type="button"
+															class="btn btn-primary btn-fixed70 independentElementToggle"
+															value="CPFr" title="Chirpine forest">Chirpine</button>
+													</td>
+													<td>
+														<button type="button"
+															class="btn btn-primary btn-fixed70 independentElementToggle"
+															value="CBFr" title="Cool Broadleaved Forest">Cool
+															Broadleaved</button>
+													</td>
+												</tr>
+												<tr>
+
+													
+													<td>
+														<button type="button"
+															class="btn btn-primary btn-fixed70 independentElementToggle"
+															value="EOFr" title="Evergreen Oak forest">Evergreen
+															Oak</button>
+													</td>
+
+													<td>
+														<button type="button"
+															class="btn btn-primary btn-fixed70 independentElementToggle"
+															value="BPFr" title="Blue Pine Forest">Blue Pine</button>
+													</td>
+												</tr>
+
+												<tr>
+
+													<td>
+														<button type="button"
+															class="btn btn-primary btn-fixed70 independentElementToggle"
+															value="SPFr" title="Spruce Forest">Spruce</button>
+													</td>
+													<td>
+														<button type="button"
+															class="btn btn-primary btn-fixed70 independentElementToggle"
+															value="HMFr" title="Hemlock forest">Hemlock</button>
+													</td>
+
+													
+												</tr>
+
+												<tr>
+													<td>
+														<button type="button"
+															class="btn btn-primary btn-fixed70 independentElementToggle"
+															value="FIFr" title="Fir forest">Fir forest</button>
+													</td>
+													
+													<td>
+														<button type="button"
+															class="btn btn-primary btn-fixed70 independentElementToggle"
+															value="JUSc" title="Juniper-Rhododendron Scrub">Juniper-Rhodod.</button>
+													</td>
+												</tr>
+												<tr>
+
+													<td>
+														<button type="button"
+															class="btn btn-primary btn-fixed70 independentElementToggle"
+															value="DASc" title="Dry Alpine Scrub">Dry Alpine</button>
+													</td>
+					
+													<td>
+														<button type="button"
+															class="btn btn-primary btn-fixed70 independentElementToggle"
+															value="NS" title="Not Sure">Not Sure</button>
+													</td>
+												</tr>
+
+											</table>
+										</td>
+										<td rowspan="100%" height="100%" valign="top">
+
+											<table style="border-left: 1px solid rgb(174, 206, 239);padding-left: 2px;">
+												<tr>
+													<td><h5>Forest Plantation</h5></td>
+												</tr>
+
+												<tr>
+
+													<td>
+														<button type="button"
+															class="btn btn-primary btn-fixed70 independentElementToggle"
+															value="FPc" title="Coniferous plantation">Coniferous</button>
+													</td>
+
+												</tr>
+												<tr>
+
+													<td>
+														<button type="button"
+															class="btn btn-primary btn-fixed70 independentElementToggle"
+															value="FPb" title="Broadleaf plantation">Broadleaf</button>
+													</td>
+
+												</tr>
+												<tr height="100%"><td>&nbsp;<br/><br/><br/><br/><br/><br/><br/><br/><br/><br/><br/></td></tr>
+											</table>
+
+
+										</td>
+									</tr>
+
+								</table>
+							
+							<div class="control-group" style="margin-bottom: 0px  !important;">
+								<div class="input-prepend btn-group" data-toggle="buttons-radio" >
+									<span class="add-on"  style="margin-left: 0px !important;">Accuracy</span>
+									<button type="button" style="margin-left:0px"
+										id="FLUncertaintyTrue" class="btn btn-primary toggleAccuracySubDivision collect_code_land_use_subdivision_dependant collect_code_land_use_category_dependant firstElementToggle"
+										value="true">YES</button>
+									<button type="button"
+										class="btn btn-primary toggleAccuracySubDivision collect_code_land_use_subdivision_dependant collect_code_land_use_category_dependant"
+										id="FLUncertainFalse" value="false">NO</button>
 								</div>
 							</div>
-							<div class="label-over">Interpretation Uncertainty</div>
-							<div class="control-group">			
-								<div class="btn-group" data-toggle="buttons-radio">
-									<button type="button"
-										class="btn btn-primary toggleUncertainty collect_code_land_use_dependant"
-										id="FLUncertaintyTrue" value="true">YES</button>
-									<button type="button"
-										class="btn btn-primary  toggleUncertainty collect_code_land_use_dependant"
-										id="FLUncertainFalse" value="false" >NO</button>
-								</div>
-							</div>
+							
 						</div>
 						<div id="toolbar" class="capsuleCat ui-corner-all" style="width:96%">
 							<h5>Canopy</h5>
-							<div class="label-over">Cover</div>
+							<div class="label-over">Cover ( in % )</div>
 							
 							<div class="control-group">
 								<div class="btn-group" data-toggle="buttons-radio" id="collect_code_canopy_cover_group">
-									<button type="button" class="btn btn-primary collect_code_land_use_dependant" value="0-10" title="Cover - 0-10%" >0-10%</button>
-								    <button type="button" class="btn btn-primary collect_code_land_use_dependant" value="10-30" title="Cover - 10-30%" >10-30%</button>
-								    <button type="button" class="btn btn-primary collect_code_land_use_dependant" value="30-50" title="No Cover - 30-50%" >30-50%</button>
-								    <button type="button" class="btn btn-primary collect_code_land_use_dependant" value="50-70" title="No Cover - 50-70%">50-70%</button>
-								    <button type="button" class="btn btn-primary collect_code_land_use_dependant" value="70-100" title="No Cover - 70-100%">70-100%</button>
-								    <button type="button" class="btn btn-primary collect_code_land_use_dependant" value="0;collect_code_deforestation_reason=burnt" title="No Cover - Burnt" >Burnt</button>
-									<button type="button" class="btn btn-primary collect_code_land_use_dependant" value="0;collect_code_deforestation_reason=other" title="No Cover - other">Other</button>
+									<button type="button" class="btn btn-primary collect_code_land_use_category_dependant" value="0-10" title="Cover - 0-10%" >0-10</button>
+								    <button type="button" class="btn btn-primary collect_code_land_use_category_dependant" value="10-30" title="Cover - 10-30%" >10-30</button>
+								    <button type="button" class="btn btn-primary collect_code_land_use_category_dependant" value="30-50" title="No Cover - 30-50%" >30-50</button>
+								    <button type="button" class="btn btn-primary collect_code_land_use_category_dependant" value="50-70" title="No Cover - 50-70%">50-70</button>
+								    <button type="button" class="btn btn-primary collect_code_land_use_category_dependant lastElementToggle" value="70-100" title="No Cover - 70-100%">70-100</button>
+								    <br/>
+								 `	<div class="input-prepend" style="margin-top:4px;">
+										<span class="add-on" style="margin-left:0px; ">No Cover</span>
+								    	<button type="button" class="btn btn-primary collect_code_land_use_category_dependant firstElementToggle" value="0;collect_code_deforestation_reason=burnt" title="No Cover - Burnt" >Burnt</button>
+										<button type="button" class="btn btn-primary collect_code_land_use_category_dependant lastElementToggle " style="margin-left:0px" value="0;collect_code_deforestation_reason=other" title="No Cover - other">Other</button>
+									</div>
 								    
 							    </div>	
 							</div>
 							
 							<div class="label-over">
-									Cover Type
+									Type
 							</div>
 							
 							<div class="control-group">			
 								<div class="btn-group" data-toggle="buttons-radio" id="collect_code_canopy_type_group">
-									<button type="button" class="btn btn-primary collect_code_land_use_dependant collect_code_canopy_cover_dependant"  value="random" >Random</button>
-								 	<button type="button" class="btn btn-primary collect_code_land_use_dependant collect_code_canopy_cover_dependant"  value="sparse" >Sparse</button>
-								    <button type="button" class="btn btn-primary collect_code_land_use_dependant collect_code_canopy_cover_dependant" value="grouped">Grouped</button>
-								    <button type="button" class="btn btn-primary collect_code_land_use_dependant collect_code_canopy_cover_dependant" value="linear">Linear</button>
-								     <button type="button" class="btn btn-primary collect_code_land_use_dependant collect_code_canopy_cover_dependant" value="unknown" >Unknown</button>
+									<button type="button" class="btn btn-primary collect_code_land_use_category_dependant collect_code_canopy_cover_dependant"  value="random" >Random</button>
+								 	<button type="button" class="btn btn-primary collect_code_land_use_category_dependant collect_code_canopy_cover_dependant"  value="sparse" >Sparse</button>
+								    <button type="button" class="btn btn-primary collect_code_land_use_category_dependant collect_code_canopy_cover_dependant" value="grouped">Grouped</button>
+								    <button type="button" class="btn btn-primary collect_code_land_use_category_dependant collect_code_canopy_cover_dependant" value="linear">Linear</button>
+								     <button type="button" class="btn btn-primary collect_code_land_use_category_dependant collect_code_canopy_cover_dependant" value="unknown" title="Unknown" >Unkn.</button>
 							    </div>
 							</div>
 							
@@ -798,96 +1047,150 @@ hr {
 
 					<div id="tab_cropland" class="tab-pane">
 						<div id="toolbar" class="capsuleCat ui-corner-all" style="width:96%">
-							<h5>Cropland</h5>
-							<div class="label-over">
-									Development
-							</div>
-							<div class="control-group">
-								
-									<div class="btn-group" data-toggle="buttons-radio">
-										<button type="button" value="false"
-											class="btn btn-primary  toggleLandDevelopment  collect_code_land_use_dependant"
-											id="CLtoCL" >CL &gt; CL</button>
-										<button type="button" value="true"
-											class="btn btn-primary toggleLandDevelopment  collect_code_land_use_dependant"
-											id="OTtoCL">Other &gt; CL</button>
+							<h5>Land use sub-category</h5>
+							<table>
+								<tr>
+									<td>
+									<div class="control-group">
+										
+											<div class="btn-group" data-toggle="buttons-radio">
+												<button type="button" value="CLtoCL"
+													class="btn btn-primary  toggleLandDevelopment  collect_code_land_use_category_dependant" title="Cropland remaining Cropland"
+													id="CLtoCL" >CL &gt; CL</button>
+												<button type="button" value="OTtoCL"
+													class="btn btn-primary toggleLandDevelopment  collect_code_land_use_category_dependant" title="Other type becoming Cropland"
+													id="OTtoCL">Other &gt; CL</button>
+											</div>
+									
+										
 									</div>
+									</td>
+									
+									<td>
+										<div class="control-group" style="margin-bottom: 0px !important;">
+											<div class="input-prepend btn-group" data-toggle="buttons-radio">
+												<span class="add-on">Accuracy</span>
+												<button type="button" style="margin-left:0px"
+													class="btn btn-primary toggleAccuracySubCategory collect_code_land_use_category_dependant collect_code_land_use_subcategory_dependant firstElementToggle"
+													value="true">YES</button>
+												<button type="button"
+													class="btn btn-primary toggleAccuracySubCategory collect_code_land_use_category_dependant collect_code_land_use_subcategory_dependant"
+													value="false">NO</button>
+											</div>
+										</div>
+									</td>
+								</tr>
+							</table>
+							</div>
+						<div id="toolbar" class="capsuleCat ui-corner-all"
+							style="width: 96%">
 							
-								
-							</div>
-							<div class="label-over">
-									Type
-							</div>
+							<h5>Land use sub-division</h5>
 							<div class="control-group">	
 									<div class="btn-group landUseTypeSelector" data-toggle="buttons-radio" id="cropland" >
-									 	<button type="button" class="btn btn-primary collect_code_land_use_dependant"  value="AC" >Chhuzhing Land</button>
-									 	<button type="button" class="btn btn-primary collect_code_land_use_dependant lastElementToggle"  value="AK" >Kamzhing Land</button>
+									 	<button type="button" class="btn btn-primary collect_code_land_use_category_dependant btnSimple90x"  value="AC" >Chhuzhing Land</button>
+									 	<button type="button" class="btn btn-primary collect_code_land_use_category_dependant btnSimple90x lastElementToggle"  value="AK" >Kamzhing Land</button>
 									 	<br/>
-									 	<button type="button" class="btn btn-primary collect_code_land_use_dependant firstElementToggle"  value="HA" title="Horticulture Land - Apple Orchard" > Apple Orchard</button>
-									 	<button type="button" class="btn btn-primary collect_code_land_use_dependant lastElementToggle"  value="HC" title="Horticulture Land - Citrus Orchard">Citrus Orchard</button>
+									 	<button type="button" class="btn btn-primary collect_code_land_use_category_dependant btnSimple90x firstElementToggle"  value="HA" title="Horticulture Land - Apple Orchard" > Apple Orchard</button>
+									 	<button type="button" class="btn btn-primary collect_code_land_use_category_dependant btnSimple90x lastElementToggle"  value="HC" title="Horticulture Land - Citrus Orchard">Citrus Orchard</button>
 									 	<br/>
-									 	<button type="button" class="btn btn-primary collect_code_land_use_dependant firstElementToggle"  value="HAa" title="Horticulture Land - Areca Nut Plantation">Areca Nut Plantation</button>
-									 	<button type="button" class="btn btn-primary collect_code_land_use_dependant"  value="HCo"  title="Horticulture Land - Cardamom Plantation">Cardamom Plantation</button>
-									 	<button type="button" class="btn btn-primary collect_code_land_use_dependant"  value="HO" title="Horticulture Land - Others">Others</button>
+									 	<button type="button" class="btn btn-primary collect_code_land_use_category_dependant btnSimple90x firstElementToggle"  value="HAa" title="Horticulture Land - Areca Nut Plantation">Areca Nut Plant.</button>
+									 	<button type="button" class="btn btn-primary collect_code_land_use_category_dependant btnSimple90x lastElementToggle"  value="HCo"  title="Horticulture Land - Cardamom Plantation">Cardamom Plant.</button>
+									 	<br/>
+									 	<button type="button" class="btn btn-primary collect_code_land_use_category_dependant firstElementToggle btnSimple90x"  value="HO" title="Horticulture Land - Others">Others</button>
 								    </div>
 							</div>
 								
-							<div class="label-over">Interpretation Uncertainty</div>
-							<div class="control-group">			
-								<div class="btn-group" data-toggle="buttons-radio">
+							<div class="control-group" style="margin-bottom: 0px  !important;">
+								<div class="input-prepend btn-group" data-toggle="buttons-radio" >
+									<span class="add-on"  style="margin-left: 0px !important;">Accuracy</span>
+									<button type="button" style="margin-left:0px"
+										id="FLUncertaintyTrue" class="btn btn-primary toggleAccuracySubDivision collect_code_land_use_subdivision_dependant collect_code_land_use_category_dependant firstElementToggle"
+										value="true">YES</button>
 									<button type="button"
-										class="btn btn-primary toggleUncertainty collect_code_land_use_dependant"
-										id="FLUncertaintyTrue" value="true">YES</button>
-									<button type="button"
-										class="btn btn-primary  toggleUncertainty collect_code_land_use_dependant"
-										id="FLUncertainFalse" value="false" >NO</button>
+										class="btn btn-primary toggleAccuracySubDivision collect_code_land_use_subdivision_dependant collect_code_land_use_category_dependant"
+										id="FLUncertainFalse" value="false">NO</button>
 								</div>
 							</div>
 						</div>
+						
 					</div>
 					
 					<div id="tab_otherLand" class="tab-pane">
 
 						<div id="toolbar" class="capsuleCat ui-corner-all"
 							style="width: 96%">
-							<h5>Other Type</h5>
-							<div class="label-over">Development</div>
-							<div class="control-group">
-								<div class="btn-group" data-toggle="buttons-radio">
-									<button type="button"
-										class="btn btn-primary toggleLandDevelopment  collect_code_land_use_dependant" id="OLtoOL"
-										value="false">OL &gt; OL</button>
-									<button type="button"
-										class="btn btn-primary toggleLandDevelopment  collect_code_land_use_dependant" id="OTtoOL"
-										value="true">Other &gt; OL</button>
-								</div>
-							</div>
+							<h5>Land use sub-category</h5>
 
-							<div class="label-over">Type</div>
+							<table>
+								<tr>
+									<td>
+										<div class="control-group">
+											<div class="btn-group" data-toggle="buttons-radio">
+												<button type="button"
+													class="btn btn-primary toggleLandDevelopment  collect_code_land_use_category_dependant" id="OLtoOL" title="Other land remaining Other land"
+													value="OLtoOL">OL &gt; OL</button>
+												<button type="button"
+													class="btn btn-primary toggleLandDevelopment  collect_code_land_use_category_dependant" id="OTtoOL" title="Other type becoming Other land"
+													value="OTtoOL">Other &gt; OL</button>
+											</div>
+										</div>
+									</td>
+									
+									<td>
+										<div class="control-group" style="margin-bottom: 0px !important;">
+											<div class="input-prepend btn-group" data-toggle="buttons-radio">
+												<span class="add-on">Accuracy</span>
+												<button type="button" style="margin-left:0px"
+													class="btn btn-primary toggleAccuracySubCategory collect_code_land_use_category_dependant collect_code_land_use_subcategory_dependant firstElementToggle"
+													value="true">YES</button>
+												<button type="button"
+													class="btn btn-primary toggleAccuracySubCategory collect_code_land_use_category_dependant collect_code_land_use_subcategory_dependant"
+													value="false">NO</button>
+											</div>
+										</div>
+									</td>
+								</tr>
+							</table>
+							</div>
+						<div id="toolbar" class="capsuleCat ui-corner-all"
+							style="width: 96%">
+							
+							<h5>Land use sub-division</h5>
 
 							<div class="control-group ">
 								<div class="btn-group landUseTypeSelector"
 									data-toggle="buttons-radio" id="other">
-									<button type="button" class="btn btn-primary collect_code_land_use_dependant" value="OS" title="Snow Cover" >Snow Cover</button>
-									<button type="button" class="btn btn-primary collect_code_land_use_dependant" value="WL" title="Water body - Lakes" >Lakes</button>
-									<button type="button" class="btn btn-primary collect_code_land_use_dependant"  title="Water body - Rivers"  value="WR">Rivers</button>
-									<button type="button" class="btn btn-primary collect_code_land_use_dependant lastElementToggle"  title="Water body - Reservoirs" value="WRe">Reservoirs</button>
+									<button type="button" class="btn btn-primary collect_code_land_use_category_dependant btnSimple80x" value="OS" title="Snow Cover" >Snow Cover</button>
+									<button type="button" class="btn btn-primary collect_code_land_use_category_dependant btnSimple80x" value="WL" title="Water body - Lakes" >Lakes</button>
+									<button type="button" class="btn btn-primary collect_code_land_use_category_dependant btnSimple80x"  title="Water body - Rivers"  value="WR">Rivers</button>
+									<button type="button" class="btn btn-primary collect_code_land_use_category_dependant btnSimple80x lastElementToggle"  title="Water body - Reservoirs" value="WRe">Reservoirs</button>
 									<br/>
 									
-									<button type="button" class="btn btn-primary collect_code_land_use_dependant firstElementToggle" value="RR" title="Bare areas - Rocky outcrop" >Rocky Outcrop</button>
-									<button type="button" class="btn btn-primary collect_code_land_use_dependant"  title="Bare areas - Scree"  value="RS">Scree</button>
-									<button type="button" class="btn btn-primary collect_code_land_use_dependant lastElementToggle" title="Bare areas - Bare soils" value="BS">Bare soils</button>
+									<button type="button" class="btn btn-primary collect_code_land_use_category_dependant firstElementToggle btnSimple80x" value="RR" title="Bare areas - Rocky outcrop" >Rocky Outcrop</button>
+									<button type="button" class="btn btn-primary collect_code_land_use_category_dependant btnSimple80x"  title="Bare areas - Scree"  value="RS">Scree</button>
+									<button type="button" class="btn btn-primary collect_code_land_use_category_dependant btnSimple80x"  title="Degraded areas - Gullies"  value="DG">Gullies</button>
+									<button type="button" class="btn btn-primary collect_code_land_use_category_dependant btnSimple80x lastElementToggle" title="Bare areas - Bare soils" value="BS">Bare soils</button>
 									<br/>
 									
-									<button type="button" class="btn btn-primary collect_code_land_use_dependant firstElementToggle" value="DL" title="Degraded areas - Landslides" >Landslides</button>
-									<button type="button" class="btn btn-primary collect_code_land_use_dependant"  title="Degraded areas - Gullies"  value="DG">Gullies</button>
-									<button type="button" class="btn btn-primary collect_code_land_use_dependant" title="Degraded areas - Ravines" value="DR">Ravines</button>
-									<button type="button" class="btn btn-primary collect_code_land_use_dependant" title="Degraded areas - Moraines" value="DM">Moraines</button>
+									<button type="button" class="btn btn-primary collect_code_land_use_category_dependant btnSimple80x firstElementToggle" value="DL" title="Degraded areas - Landslides" >Landslides</button>
+									<button type="button" class="btn btn-primary collect_code_land_use_category_dependant btnSimple80x" title="Degraded areas - Ravines" value="DR">Ravines</button>
+									<button type="button" class="btn btn-primary collect_code_land_use_category_dependantbtnSimple80x " title="Degraded areas - Moraines" value="DM">Moraines</button>
 									
 								</div>
 
 							</div>
-
+							<div class="control-group" style="margin-bottom: 0px  !important;">
+								<div class="input-prepend btn-group" data-toggle="buttons-radio" >
+									<span class="add-on"  style="margin-left: 0px !important;">Accuracy</span>
+									<button type="button" style="margin-left:0px"
+										id="FLUncertaintyTrue" class="btn btn-primary toggleAccuracySubDivision collect_code_land_use_subdivision_dependant collect_code_land_use_category_dependant firstElementToggle"
+										value="true">YES</button>
+									<button type="button"
+										class="btn btn-primary toggleAccuracySubDivision collect_code_land_use_subdivision_dependant collect_code_land_use_category_dependant"
+										id="FLUncertainFalse" value="false">NO</button>
+								</div>
+							</div>
 						</div>
 
 					</div>
@@ -895,36 +1198,60 @@ hr {
 
 						<div id="toolbar" class="capsuleCat ui-corner-all"
 							style="width: 96%">
-							<h5>Grassland Type</h5>
-							<div class="label-over">Development</div>
-							<div class="control-group">								
-									<div class="btn-group" data-toggle="buttons-radio">
-										<button type="button"
-											class="btn btn-primary toggleLandDevelopment  collect_code_land_use_dependant" id="GLtoGL"
-											value="false">GL &gt; GL</button>
-										<button type="button"
-											class="btn btn-primary toggleLandDevelopment  collect_code_land_use_dependant" id="OLtoGL"
-											value="true">Other &gt; GL</button>
+							<h5>Land use sub-category</h5>
+							<table>
+								<tr>
+									<td>
+									<div class="control-group">								
+											<div class="btn-group" data-toggle="buttons-radio">
+												<button type="button"
+													class="btn btn-primary toggleLandDevelopment  collect_code_land_use_category_dependant" id="GLtoGL"
+													value="GLtoGL">GL &gt; GL</button>
+												<button type="button"
+													class="btn btn-primary toggleLandDevelopment  collect_code_land_use_category_dependant" id="OTtoGL"
+													value="OTtoGL">Other &gt; GL</button>
+											</div>
 									</div>
+									
+									</td>
+									
+									<td>
+										<div class="control-group" style="margin-bottom: 0px !important;">
+											<div class="input-prepend btn-group" data-toggle="buttons-radio">
+												<span class="add-on">Accuracy</span>
+												<button type="button" style="margin-left:0px"
+													class="btn btn-primary toggleAccuracySubCategory collect_code_land_use_category_dependant collect_code_land_use_subcategory_dependant firstElementToggle"
+													value="true">YES</button>
+												<button type="button"
+													class="btn btn-primary toggleAccuracySubCategory collect_code_land_use_category_dependant collect_code_land_use_subcategory_dependant"
+													value="false">NO</button>
+											</div>
+										</div>
+									</td>
+								</tr>
+							</table>
 							</div>
-							<div class="label-over">Type</div>
+						<div id="toolbar" class="capsuleCat ui-corner-all"
+							style="width: 96%">
+							
+							<h5>Land use sub-division</h5>
 							<div class="control-group">
 								<div class="btn-group landUseTypeSelector"
 									data-toggle="buttons-radio" id="grassland">
-									<button type="button" class="btn btn-primary collect_code_land_use_dependant"
+									<button type="button" class="btn btn-primary collect_code_land_use_category_dependant"
 										value="GP">Meadows</button>
 								</div>
 
 							</div>
-							<div class="label-over">Interpretation Uncertainty</div>
-							<div class="control-group">			
-								<div class="btn-group" data-toggle="buttons-radio">
+							<div class="control-group" style="margin-bottom: 0px  !important;">
+								<div class="input-prepend btn-group" data-toggle="buttons-radio" >
+									<span class="add-on"  style="margin-left: 0px !important;">Accuracy</span>
+									<button type="button" style="margin-left:0px"
+										id="FLUncertaintyTrue" class="btn btn-primary toggleAccuracySubDivision collect_code_land_use_subdivision_dependant collect_code_land_use_category_dependant firstElementToggle"
+										value="true">YES</button>
 									<button type="button"
-										class="btn btn-primary toggleUncertainty collect_code_land_use_dependant"
-										id="GLUncertaintyTrue" value="true">YES</button>
-									<button type="button"
-										class="btn btn-primary  toggleUncertainty collect_code_land_use_dependant"
-										id="GLUncertainFalse" value="false" >NO</button>
+										class="btn btn-primary toggleAccuracySubDivision collect_code_land_use_subdivision_dependant collect_code_land_use_category_dependant"
+										id="FLUncertainFalse" value="false">NO</button>
 								</div>
 							</div>
 						</div>
@@ -934,53 +1261,119 @@ hr {
 					<div id="tab_wetLand" class="tab-pane">
 						
 							<div id="toolbar" class="capsuleCat ui-corner-all" style="width:96%">
-								<h5>Wetland</h5>
-								<div class="label-over">Development</div>
-									<div class="control-group">
-									
-										<div class="btn-group" data-toggle="buttons-radio">
-											<button type="button" class="btn btn-primary  toggleLandDevelopment  collect_code_land_use_dependant"
-												id="WLtoWL" value="false">WL &gt; WL</button>
-											<button type="button" class="btn btn-primary toggleLandDevelopment  collect_code_land_use_dependant"
-												id="OLtoWL" value="true">Other &gt; WL</button>
-										</div>
-									
-								</div>
-									
+								<h5>Land use sub-category</h5>
 								
-								<div class="label-over">Type</div>
+								<table>
+									<tr>
+										<td>	
+											<div class="control-group">
+											
+												<div class="btn-group" data-toggle="buttons-radio">
+													<button type="button" class="btn btn-primary  toggleLandDevelopment  collect_code_land_use_category_dependant"
+														id="WLtoWL" value="WLtoWL">WL &gt; WL</button>
+													<button type="button" class="btn btn-primary toggleLandDevelopment  collect_code_land_use_category_dependant"
+														id="OTtoWL" value="OTtoWL">Other &gt; WL</button>
+												</div>
+											
+											</div>
+										</td>
+									
+										<td>
+										<div class="control-group" style="margin-bottom: 0px !important;">
+											<div class="input-prepend btn-group" data-toggle="buttons-radio">
+												<span class="add-on">Accuracy</span>
+												<button type="button" style="margin-left:0px"
+													class="btn btn-primary toggleAccuracySubCategory collect_code_land_use_category_dependant collect_code_land_use_subcategory_dependant firstElementToggle"
+													value="true">YES</button>
+												<button type="button"
+													class="btn btn-primary toggleAccuracySubCategory collect_code_land_use_category_dependant collect_code_land_use_subcategory_dependant"
+													value="false">NO</button>
+											</div>
+										</div>
+									</td>
+								</tr>
+							</table>
+							</div>
+							<div id="toolbar" class="capsuleCat ui-corner-all"
+							style="width: 96%">
+							
+							<h5>Land use sub-division</h5>
 									<div class="control-group">
 										<div class="btn-group landUseTypeSelector" data-toggle="buttons-radio" id="wetLand">
-										 	<button type="button" class="btn btn-primary collect_code_land_use_dependant"  value="MA">Marshy Areas</button>
+										 	<button type="button" class="btn btn-primary collect_code_land_use_category_dependant"  value="MA">Marshy Areas</button>
 									    </div>
 									</div>
+									<div class="control-group" style="margin-bottom: 0px  !important;">
+								<div class="input-prepend btn-group" data-toggle="buttons-radio" >
+									<span class="add-on"  style="margin-left: 0px !important;">Accuracy</span>
+									<button type="button" style="margin-left:0px"
+										id="FLUncertaintyTrue" class="btn btn-primary toggleAccuracySubDivision collect_code_land_use_subdivision_dependant collect_code_land_use_category_dependant firstElementToggle"
+										value="true">YES</button>
+									<button type="button"
+										class="btn btn-primary toggleAccuracySubDivision collect_code_land_use_subdivision_dependant collect_code_land_use_category_dependant"
+										id="FLUncertainFalse" value="false">NO</button>
+								</div>
+							</div>
 							</div>
 
 						</div>
 					<div id="tab_settlement" class="tab-pane">
 						<div id="toolbar" class="capsuleCat ui-corner-all" style="width:96%">
-								<h5>Settlement</h5>
-								<div class="label-over">Development</div>
-								<div class="control-group">
+								<h5>Land use sub-category</h5>
 								
-									<div class="btn-group" data-toggle="buttons-radio">
-										<button type="button" class="btn btn-primary  toggleLandDevelopment  collect_code_land_use_dependant"
-											id="SLtoSL" value="false">SL &gt; SL</button>
-										<button type="button" class="btn btn-primary toggleLandDevelopment  collect_code_land_use_dependant"
-											id="OLtoSL" value="true">Other &gt; SL</button>
-									</div>
-								</div>
+								<table>
+									<tr>
+										<td>
+										<div class="control-group">
+										
+											<div class="btn-group" data-toggle="buttons-radio">
+												<button type="button" class="btn btn-primary  toggleLandDevelopment  collect_code_land_use_category_dependant"
+													id="SLtoSL" value="SLtoSL">SL &gt; SL</button>
+												<button type="button" class="btn btn-primary toggleLandDevelopment  collect_code_land_use_category_dependant"
+													id="OTtoSL" value="OTtoSL">Other &gt; SL</button>
+											</div>
+										</div>
+									</td>
+									
+									<td>
+										<div class="control-group" style="margin-bottom: 0px !important;">
+											<div class="input-prepend btn-group" data-toggle="buttons-radio">
+												<span class="add-on">Accuracy</span>
+												<button type="button" style="margin-left:0px"
+													class="btn btn-primary toggleAccuracySubCategory collect_code_land_use_category_dependant collect_code_land_use_subcategory_dependant firstElementToggle"
+													value="true">YES</button>
+												<button type="button"
+													class="btn btn-primary toggleAccuracySubCategory collect_code_land_use_category_dependant collect_code_land_use_subcategory_dependant"
+													value="false">NO</button>
+											</div>
+										</div>
+									</td>
+								</tr>
+							</table>							
+							</div>
+						<div id="toolbar" class="capsuleCat ui-corner-all"
+							style="width: 96%">
 							
-							
-								<div class="label-over">Type</div>
+							<h5>Land use sub-division</h5>
 								<div class="control-group">
 									
 									<div class="btn-group landUseTypeSelector" data-toggle="buttons-radio" id="settlement">
-									 	<button type="button" class="btn btn-primary collect_code_land_use_dependant"  value="BA">Built-up areas</button>
-									    <button type="button" class="btn btn-primary collect_code_land_use_dependant" value="NB">Non built-up areas</button>
+									 	<button type="button" class="btn btn-primary collect_code_land_use_category_dependant"  value="BA">Built-up areas</button>
+									    <button type="button" class="btn btn-primary collect_code_land_use_category_dependant" value="NB">Non built-up areas</button>
 								    </div>
 
 								</div>
+								<div class="control-group" style="margin-bottom: 0px  !important;">
+								<div class="input-prepend btn-group" data-toggle="buttons-radio" >
+									<span class="add-on"  style="margin-left: 0px !important;">Accuracy</span>
+									<button type="button" style="margin-left:0px"
+										id="FLUncertaintyTrue" class="btn btn-primary toggleAccuracySubDivision collect_code_land_use_subdivision_dependant collect_code_land_use_category_dependant firstElementToggle"
+										value="true">YES</button>
+									<button type="button"
+										class="btn btn-primary toggleAccuracySubDivision collect_code_land_use_subdivision_dependant collect_code_land_use_category_dependant"
+										id="FLUncertainFalse" value="false">NO</button>
+								</div>
+							</div>
 						</div>
 					</div>
 					<div id="tab_noData" class="tab-pane">
@@ -1008,27 +1401,26 @@ hr {
 								    <button type="button" class="btn btn-primary" value="5-10">5-10</button>
 								    <button type="button" class="btn btn-primary" value="10-more">&gt;10</button>
 								    
-								     <button type="button" class="btn btn-primary" value="inaccesible">Inaccesible</button>
+								     <button type="button" class="btn btn-primary" value="inaccesible" title="Innaccesible">Inacc.</button>
 							    </div>
 							</div>
 							<div class="label-over">Bearing</div>
 							<div class="control-group">
 						
 								<div class="btn-group" data-toggle="buttons-radio" id="collect_code_site_bearing_group">
-								 	<button type="button" class="btn btn-primary"  value="N">N</button>
-								    <button type="button" class="btn btn-primary" value="N-E">N-E</button>
-								    <button type="button" class="btn btn-primary" value="E">E</button>
-								    <button type="button" class="btn btn-primary" value="S-E">S-E</button>
-								    <button type="button" class="btn btn-primary" value="S">S</button>
-								    <button type="button" class="btn btn-primary" value="S-W">S-W</button>
-								    <button type="button" class="btn btn-primary" value="W">W</button>
-								    <button type="button" class="btn btn-primary" value="N-W">N-W</button>
+								 	<button type="button" class="btn btn-primary"  value="N" title="North">N</button>
+								    <button type="button" class="btn btn-primary" value="N-E" title="North-East">N-E</button>
+								    <button type="button" class="btn btn-primary" value="E" title="East">E</button>
+								    <button type="button" class="btn btn-primary" value="S-E" title="South-East">S-E</button>
+								    <button type="button" class="btn btn-primary" value="S" title="South">S</button>
+								    <button type="button" class="btn btn-primary" value="S-W" title="South-West">S-W</button>
+								    <button type="button" class="btn btn-primary" value="W" title="West">W</button>
+								    <button type="button" class="btn btn-primary" value="N-W" title="North-West">N-W</button>
 							    </div>
 							</div>
 							<div class="label-over">Directions</div>
 							<div class="control-group">
 									<textarea rows="3"  id="collect_text_directions" name="collect_text_directions"></textarea>
-							</div>
 							</div>
 							<div class="label-over">Elements</div>
 								<div class="control-group">
@@ -1109,75 +1501,78 @@ hr {
 		
 									</div>
 
+								</div>
 							</div>
 							
+							<div id="toolbar" class="capsuleCat ui-corner-all settlementDiv">
+								<h5>Human impact</h5>
+									<div class="label-over">Type</div>
+											<div class="control-group">
+									
+										<div class="btn-group" data-toggle="buttons-radio" id="collect_code_human_impact_type_group">
+										 	<button type="button" class="btn btn-primary btnSimple80"  value="none" class="active">None</button>
+										    <button type="button" class="btn btn-primary btnSimple80" value="logging">Logging</button>
+										    <button type="button" class="btn btn-primary btnSimple80 lastElementToggle" value="grazing">Grazing</button>
+										    <br/>
+										    <button type="button" class="btn btn-primary btnSimple80 firstElementToggle" value="fire">Fire</button>
+										    <button type="button" class="btn btn-primary btnSimple80" value="gardening">Gardening</button>
+										    <button type="button" class="btn btn-primary btnSimple80" value="other">Other</button>
+									    </div>
+										
+									</div>
+									<div class="label-over">Grade</div>
+											<div class="control-group">
+											<div class="btn-group" data-toggle="buttons-radio" id="collect_code_human_impact_grade_group">
+										    <button type="button" class="btn btn-primary collect_code_human_impact_type_dependant" value="low">Low</button>
+										    <button type="button" class="btn btn-primary collect_code_human_impact_type_dependant" value="medium">Medium</button>
+										    <button type="button" class="btn btn-primary collect_code_human_impact_type_dependant" value="high">High</button>
+									    </div>
+										
+									</div>
+									<div class="label-over">Time since disturbance</div>
+											<div class="control-group">
+									
+										<select
+											name="collect_integer_human_impact_year"
+											class="selectpicker  show-menu-arrow show-tick humanImpactInput" data-size="3"
+											id="collect_integer_human_impact_year" title="No year selected" >
+											<option value="-1">Unknown</option>
+										</select>
+									</div>
+								</div>
 						</div>
 
-					<div id="toolbar" class="capsuleCat ui-corner-all settlementDiv">
-						<h5>Human impact</h5>
-							<div class="label-over">Type</div>
-									<div class="control-group">
-							
-								<div class="btn-group" data-toggle="buttons-radio" id="collect_code_human_impact_type_group">
-								 	<button type="button" class="btn btn-primary"  value="na" class="active">No impact</button>
-								    <button type="button" class="btn btn-primary" value="logging">Logging</button>
-								    <button type="button" class="btn btn-primary" value="grazing">Grazing</button>
-								    <button type="button" class="btn btn-primary" value="mining">Mining</button>
-								    <button type="button" class="btn btn-primary" value="other">Other</button>
-							    </div>
-								
-							</div>
-							<div class="label-over">Grade</div>
-									<div class="control-group">
-									<div class="btn-group" data-toggle="buttons-radio" id="collect_code_human_impact_grade_group">
-								    <button type="button" class="btn btn-primary collect_code_human_impact_type_dependant" value="low">Low</button>
-								    <button type="button" class="btn btn-primary collect_code_human_impact_type_dependant" value="medium">Medium</button>
-								    <button type="button" class="btn btn-primary collect_code_human_impact_type_dependant" value="high">High</button>
-							    </div>
-								
-							</div>
-							<div class="label-over">Date</div>
-									<div class="control-group">
-							
-								<select
-									name="collect_integer_human_impact_year"
-									class="selectpicker  show-menu-arrow show-tick humanImpactInput" data-size="3"
-									id="collect_integer_human_impact_year" title="No year selected" >
-									<option value="-1">Unknown</option>
-								</select>
-							</div>
-						</div>
 			
 						<div id="toolbar" class="capsuleCat ui-corner-all">
 			
-						<h5>RS Data</h5>
-			
-						<div class="label-over">Satellite</div>
-								<div class="control-group">
-							    <div class="btn-group" data-toggle="buttons-radio" id="collect_code_rs_satellite_group">
-								    <button type="button" class="btn btn-primary" value="rapidEye">Rapid Eye</button>
-								    <button type="button" class="btn btn-primary" value="landsat">Landsat</button>
-								    <button type="button" class="btn btn-primary" value="digitalGlobe">Digital Globe</button>
-								    <button type="button" class="btn btn-primary" value="spot">Spot</button>
-								    <button type="button" class="btn btn-primary" value="other">Other</button>
-							    </div>
-							  <!--  <div class="ui-state-default ui-state-active ui-corner-all"> 
-							    <div class="ui-icon ui-icon-circle-plus"></div>   <a href="#">I am clickable and selected</a></div>  
-							    
-							    <div class="ui-state-default ui-corner-all">  
-
-  								 <div class="ui-icon ui-icon-circle-plus"></div>  
-
- 								<a href="#">I am clickable but not selected</a></div>  -->
-							    
-						</div>
-						<div class="label-over">Date</div>
-							<div class="control-group">
-								 <input type="text" id="collect_date_rs_date" name="collect_date_rs_date" placeholder="month/day/year">
+							<h5>RS Data</h5>
+				
+							<div class="label-over">Satellite</div>
+									<div class="control-group">
+								    <div class="btn-group" data-toggle="buttons-radio" id="collect_code_rs_satellite_group">
+									    <button type="button" class="btn btn-primary" value="rapidEye">RapidEye</button>
+									    <button type="button" class="btn btn-primary" value="landsat">Landsat</button>
+									    <button type="button" class="btn btn-primary" value="digitalGlobe" title="">DigitalGl.</button>
+									    <button type="button" class="btn btn-primary" value="spot">Spot</button>
+									    <button type="button" class="btn btn-primary" value="other">Other</button>
+								    </div>
+								  <!--  <div class="ui-state-default ui-state-active ui-corner-all"> 
+								    <div class="ui-icon ui-icon-circle-plus"></div>   <a href="#">I am clickable and selected</a></div>  
+								    
+								    <div class="ui-state-default ui-corner-all">  
+	
+	  								 <div class="ui-icon ui-icon-circle-plus"></div>  
+	
+	 								<a href="#">I am clickable but not selected</a></div>  -->
+								    
 							</div>
+							<div class="label-over">Date</div>
+								<div class="control-group">
+									 <input type="text" id="collect_date_rs_date" name="collect_date_rs_date" placeholder="month/day/year">
+								</div>
 						</div>
 					</div>
-				</div>
+				
 
 		<div class="earthDiv">
 			<button type="submit" class="btn btn-success" style="margin-left:25%;margin-right:25%;margin-top:3px;">SUBMIT &amp; VALIDATE</button>
@@ -1187,6 +1582,8 @@ hr {
 			<label for="earth_skip_filled">Skip already filled plots</label> <input type="checkbox" id="earth_skip_filled" name="earth_skip_filled"/>
 			</div>
 			 -->
+		</div>
+		</div>
 		</div>
 	</form>
 

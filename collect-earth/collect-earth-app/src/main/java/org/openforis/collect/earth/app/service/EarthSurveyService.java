@@ -126,7 +126,7 @@ public class EarthSurveyService {
 		return localPropertiesService.getValue(LocalPropertiesService.METADATA_FILE);
 	}
 
-	public Map<String, String> getPlacemark(String placemarkId) {
+	public synchronized Map<String, String> getPlacemark(String placemarkId) {
 		List<CollectRecord> summaries = recordManager.loadSummaries(getCollectSurvey(), ROOT_ENTITY_NAME, placemarkId);
 		CollectRecord record = null;
 		Map<String, String> placemarkParameters = null;

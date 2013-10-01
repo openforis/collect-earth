@@ -84,10 +84,10 @@ public class CollectEarthWindow {
 		menu.add(menuItem);
 		menuBar.add(menu);
 
-		menuItem = new JMenuItem("Set properties");
-		menuItem.addActionListener(getPropertiesAction(frame));
-		menu.add(menuItem);
-		menuBar.add(menu);
+//		menuItem = new JMenuItem("Set properties");
+//		menuItem.addActionListener(getPropertiesAction(frame));
+//		menu.add(menuItem);
+//		menuBar.add(menu);
 
 		menu = new JMenu("Help");
 
@@ -324,7 +324,7 @@ public class CollectEarthWindow {
 
 			@Override
 			public boolean accept(File f) {
-				return f.getName().endsWith(".csv");
+				return f.isDirectory() || f.getName().endsWith(".csv");
 			}
 		});
 

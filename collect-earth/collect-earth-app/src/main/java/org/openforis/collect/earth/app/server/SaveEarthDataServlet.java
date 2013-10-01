@@ -25,9 +25,21 @@ public class SaveEarthDataServlet extends JsonPocessorServlet {
 		}
 
 		if (collectedData.get("collect_integer_elevation").equals("$[elevation]")) {
-			collectedData.put("collect_integer_elevation", "10");
+			collectedData.put("collect_integer_elevation", "0");
 		}
 
+		if (collectedData.get("collect_real_slope").equals("$[slope]")) {
+			collectedData.put("collect_real_slope", "0");
+		}
+
+		if (collectedData.get("collect_real_aspect").equals("$[aspect]")) {
+			collectedData.put("collect_real_aspect", "0");
+		}
+		
+		if (collectedData.get("collect_coord_location").equals("$[latitude],$[longitude]")) {
+			collectedData.put("collect_coord_location", "0,0");
+		}
+		
 		if (collectedData.size() == 0) {
 			setResult(false, "Empty request", collectedData);
 			getLogger().info("The request was empty");

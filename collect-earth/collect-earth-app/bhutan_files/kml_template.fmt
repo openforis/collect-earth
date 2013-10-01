@@ -6,7 +6,7 @@
 </NetworkLinkControl>
 
 <Document>
-	<name>Bhutan Interpretation</name>
+	<name>Bhutan Land Use Survey</name>
 
 <Style id="placemark-balloon-style">
     <BalloonStyle>
@@ -126,13 +126,10 @@ ${html_for_balloon}
 		        <value>${placemark.elevation?string.computer}</value>
 		      </Data>
 		       <Data name="aspect">
-		        <value>${placemark.aspect}</value>
+		        <value>${placemark.aspect?string.computer}</value>
 		      </Data>
-		       <Data name="slopeNorthSouth">
-		        <value>${placemark.slopeNorthSouth?string.computer}</value>
-		      </Data>
-		      <Data name="slopeWestEast">
-		        <value>${placemark.slopeWestEast?string.computer}</value>
+		       <Data name="slope">
+		        <value>${placemark.slope?string.computer}</value>
 		      </Data>
 		       <Data name="next_id">
 		        <value>${placemark.nextPlacemarkId}</value>

@@ -28,9 +28,9 @@ public class BrowserService {
 
 		String jsonObject = ""
 				+ "var c=new google.maps.Map("
-				+ "	G(\"map\"),{center:new google.maps.LatLng(0,0),zoom:2,mapTypeId:google.maps.MapTypeId.SATELLITE,panControl:!1,streetViewControl:!1,scaleControl:!0,scrollwheel:!0,zoomControlOptions:{position:google.maps.ControlPosition.RIGHT_TOP,style:google.maps.ZoomControlStyle.LARGE}});"
+				+ "	H(\"map\"),{center:new google.maps.LatLng(0,0),zoom:2,mapTypeId:google.maps.MapTypeId.SATELLITE,panControl:!1,streetViewControl:!1,scaleControl:!0,scrollwheel:!0,zoomControlOptions:{position:google.maps.ControlPosition.RIGHT_TOP,style:google.maps.ZoomControlStyle.LARGE}});"
 				+ ""
-				+ "var b=G(\"workspace-el\"); "
+				+ "var b=H(\"workspace-el\"); "
 				+ ""
 				+ "var jsonObject = { \"viewport\":{ "
 				+ "\"zoom\":17,"
@@ -46,7 +46,7 @@ public class BrowserService {
 								+ "\"datalayers\":[{\"title\":\"Landsat 5 Annual Greenest-Pixel TOA Reflectance Composite\",\"originaltitle\":null,\"overlayvisible\":true,\"vis\":{\"opacity\":0.8,\"bands\":[\"40\",\"30\",\"20\"],\"max\":0.425,\"gamma\":1.2000000000000002},\"layermode\":\"advisory-mode\",\"datatype\":\"temporalcollection\",\"periodstart\":1325376000000,\"periodend\":1356998400000,\"id\":\"LANDSAT/L5_L1T_ANNUAL_GREENEST_TOA\",\"assetid\":\"L5_L1T_ANNUAL_GREENEST_TOA/2012\"}],"
 								+ "\"drawnpoints\":[],\"drawnpolys\":[],\"analysis\":null};";
 
-		return (jsonObject + " var pa=new Su(c,b); pa.J(jsonObject);");
+		return (jsonObject + " var pa=new Mt(c,b); pa.I(jsonObject);");
 
 	}
 
@@ -97,10 +97,20 @@ public class BrowserService {
 	private void loadLayers(String executeJavascript, RemoteWebDriver driver) throws InterruptedException {
 		if( driver != null ){
 			if (!isIdPresent("workspace-el", driver)) {
-				navigateTo("http://earthengine.google.org/#detail/LANDSAT%2FL5_L1T_ANNUAL_GREENEST_TOA", driver);
-				if (waitFor("d_open_button", driver)) {
-					driver.findElementById("d_open_button").click();
+				
+				String[] layers = {
+						//"http://earthengine.google.org/#detail/LANDSAT%2FL7_L1T_ANNUAL_GREENEST_TOA"
+						//"http://earthengine.google.org/#detail/LANDSAT%2FL5_L1T_ANNUAL_GREENEST_TOA",  
+						"http://earthengine.google.org/#detail/LANDSAT%2FLC8_L1T_ANNUAL_GREENEST_TOA"
+						};
+				for (String urlForLayer : layers) {
+					driver = navigateTo(urlForLayer, driver);
+					if (waitFor("d_open_button", driver)) {
+						driver.findElementById("d_open_button").click();
+						waitFor("workspace-el", driver);
+					}
 				}
+				
 
 			}
 			if (waitFor("workspace-el", driver)) {

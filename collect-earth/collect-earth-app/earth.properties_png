@@ -1,0 +1,25 @@
+#Fri Sep 27 10:47:07 CEST 2013
+inner_point_side=2
+balloon=png_files/balloon_png.html
+balloon_checksum=8f2bd9b0aa89ef2ea5991c37fe504381
+open_separate_browser_form=true
+csv_checksum=7cdd7816f43cde351f10d2f0cd8a98bb
+distance_between_sample_points=25
+include_files_kmz=png_files/earthFiles
+operator=alfonso
+template_checksum=
+csv=png_files/new_grids/PNG_4km_pt_W2_mini.csv.ced
+port=8020
+sample_shape=SQUARE
+skip_filled_plots=false
+coordinates_reference_system=WGS84
+distance_to_plot_boundaries=10
+host=127.0.0.1
+survey_name=Papua New Guinea - Land Use survey
+simple_balloon_for_firefox=png_files/redirect_balloon_png.html
+firefox_exe_path=C\:/Program Files (x86)/Mozilla Firefox/firefox.exe
+generated_on=1380271627935
+template=png_files/kml_template.fmt
+metadata_file=png_files/placemark.idm.xml
+elevation_geotif_directory=png_files/geotiffs
+open_earth_engine=true

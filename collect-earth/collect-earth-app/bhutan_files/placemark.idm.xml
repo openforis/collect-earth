@@ -38,35 +38,66 @@
 					<code>forest</code>
 					<label>Forest</label>
 					<item id="102">
-						<code>FCf</code>
-						<label>Fir forest</label>
+						<code>STFr</code>
+						<label>Subtropical forest</label>
 					</item>
 					<item id="103">
-						<code>FCm</code>
-						<label>Mixed Conifier forest</label>
+						<code>WBFr</code>
+						<label>Warm Broadleaved forest</label>
 					</item>
 					<item id="104">
-						<code>FCb</code>
-						<label>Blue Pine forest</label>
+						<code>CPFr</code>
+						<label>Chirpine forest</label>
 					</item>
 					<item id="105">
 						<code>FCc</code>
 						<label>Chir Pine forest</label>
 					</item>
 					<item id="106">
-						<code>FB</code>
-						<label>Broadleaf Forest</label>
+						<code>CBFr</code>
+						<label>Cool Broadleaved Forest</label>
 					</item>
 					<item id="107">
-						<code>FBc</code>
-						<label>Broadleaf and Conifier forest</label>
+						<code>EOFr</code>
+						<label>Evergreen Oak forest</label>
 					</item>
 
 					<item id="108">
-						<code>SH</code>
-						<label>Shrubs</label>
+						<code>BPFr</code>
+						<label>Blue Pine Forest</label>
 					</item>
-					
+					<item id="109">
+						<code>SPFr</code>
+						<label>Spruce Forest</label>
+					</item>
+					<item id="110">
+						<code>HMFr</code>
+						<label>Hemlock forest</label>
+					</item>
+					<item id="111">
+						<code>FIFr</code>
+						<label>Fir forest</label>
+					</item>
+					<item id="112">
+						<code>JUSc</code>
+						<label>Juniper-Rhododendron Scrub</label>
+					</item>
+					<item id="113">
+						<code>DASc</code>
+						<label>Dry Alpine Scrub</label>
+					</item>
+					<item id="114">
+						<code>NS</code>
+						<label>Not Sure</label>
+					</item>
+					<item id="115">
+						<code>FPc</code>
+						<label>Coniferous plantation</label>
+					</item>
+					<item id="116">
+						<code>FPb</code>
+						<label>Broadleaf plantation</label>
+					</item>
 				</item>
 				<item id="120">
 					<code>cropland</code>
@@ -166,11 +197,11 @@
 						<code>DG</code>
 						<label>Gullies</label>
 					</item>
-					<item id="159">
+					<item id="160">
 						<code>DR</code>
 						<label>Ravines</label>
 					</item>
-					<item id="160">
+					<item id="161">
 						<code>DM</code>
 						<label>Moraines</label>
 					</item>					
@@ -226,6 +257,62 @@
 				</item>
 			</items>
 		</list>
+		<list id="350" name="land_use_subcategory">
+			<label type="item">Land Use Sub-category</label>
+			<label type="list">Sub-Categories</label>
+			<items>
+				<item id="351" >
+				    <code>FLtoFL</code>
+				    <label>Forest Land remaining Forest Land</label>
+				</item>
+				<item id="352">
+						<code>OTtoFL</code>
+						<label>Other Land becoming Forest Land</label>
+				</item>
+				<item id="353" >
+				    <code>CLtoCL</code>
+				    <label>Crop Land remaining Crop Land</label>
+				</item>
+				<item id="354">
+						<code>OTtoCL</code>
+						<label>Other Land becoming Crop Land</label>
+				</item>
+				<item id="355" >
+				    <code>OLtoOL</code>
+				    <label>Other Land remaining Other Land</label>
+				</item>
+				<item id="356">
+						<code>OTtoOL</code>
+						<label>Land becoming Other Land</label>
+				</item>			
+				<item id="357" >
+				    <code>GLtoGL</code>
+				    <label>Grass Land remaining Grass Land</label>
+				</item>
+				<item id="358">
+						<code>OTtoGL</code>
+						<label>Other Land becoming Grass Land</label>
+				</item>		
+				<item id="359" >
+				    <code>WLtoWL</code>
+				    <label>Wet Land remaining Wet Land</label>
+				</item>
+				<item id="360">
+						<code>OTtoWL</code>
+						<label>Other Land becoming Wet Land</label>
+				</item>	
+				<item id="361" >
+				    <code>SLtoSL</code>
+				    <label>Settlement remaining Settlement</label>
+				</item>
+				<item id="362">
+						<code>OTtoSL</code>
+						<label>Other Land becoming Settlement</label>
+				</item>	
+			</items>
+			
+		</list>
+		
 		<list id="300" name="topographical_elements">
 			<label type="item">Element</label>
 			<label type="list">Elements</label>
@@ -291,7 +378,7 @@
 						<code>logging</code>
 						<label>Logging</label>
 				</item>
-							<item id="502">
+				<item id="502">
 						<code>fire</code>
 						<label>Fire</label>
 				</item>
@@ -300,16 +387,16 @@
 						<label>Grazing</label>
 				</item>
 				<item id="504">
-						<code>mining</code>
-						<label>Mining</label>
+						<code>gardening</code>
+						<label>Grazing</label>
 				</item>
 				<item id="505">
 						<code>other</code>
 						<label>Other</label>
 				</item>
 				<item id="506">
-						<code>na</code>
-						<label>Not Applicable</label>
+						<code>none</code>
+						<label>None</label>
 				</item>
 			</items>
 		</list>
@@ -357,7 +444,7 @@
 				</item>
 			</items>
 		</list>
-		<list id="800" name="canopy_cover">
+		<list id="800" name="canopy_cover_list">
 			<label type="list">Canopy Cover</label>
 			<items>
 				<item id="801">
@@ -400,7 +487,7 @@
 			</items>
 		</list>
 
-		<list id="900" name="cover_type">
+		<list id="900" name="canopy_type_list">
 			<label type="item">Canopy Type</label>
 			<label type="list">Canopy Type</label>
 			<items>
@@ -448,7 +535,7 @@
 					<label>SOUTH EAST</label>
 				</item>
 			    <item id="925">
-					<code>E</code>
+					<code>S</code>
 					<label>SOUTH</label>
 				</item>			
 				<item id="926">
@@ -497,81 +584,81 @@
 			<text id="4" name="operator">
 				<label xml:lang="en">Operator</label>
 			</text>
-			<code id="5" name="land_use" list="land_use">
+			<code id="5" name="land_use_category" list="land_use">
 				<label xml:lang="en">Land use</label>
 			</code>
-			<boolean id="6" name="land_use_change" relevant="land_use!='noData'">
-				<label xml:lang="en">Land use development</label>
+			<boolean id="6" name="land_use_category_accuracy" relevant="land_use_category!='noData'">
+				<label xml:lang="en">Land use Category interpretation accuracy</label>
 			</boolean>
-			<code id="7" name="land_use_type" list="land_use" parent="land_use" relevant="land_use!='noData'">
-				<label xml:lang="en">Land use type</label>
+			<code id="7" name="land_use_subcategory" relevant="land_use_category!='noData'" list="land_use_subcategory">
+				<label xml:lang="en">Land use Sub-Category</label>
 			</code>
-			<boolean id="21" name="interpretation_uncertainty" relevant="land_use='forest' or land_use='grassland'" >
-				<label xml:lang="en">Interpretation uncertainty</label>
+			<boolean id="8" name="land_use_subcategory_accuracy" relevant="land_use_category!='noData'">
+				<label xml:lang="en">Land use Sub-Category interpretation accuracy</label>
 			</boolean>
-			<code id="8" name="site_accessibility" list="site_accessibility" relevant="land_use!='noData'">
+			<code id="9" name="land_use_subdivision" list="land_use" parent="land_use_category" relevant="land_use_category!='noData'">
+				<label xml:lang="en">Land use Sub-Division</label>
+			</code>
+			
+			<boolean id="10" name="land_use_subdivision_accuracy" relevant="land_use_category!='noData'" >
+				<label xml:lang="en">Land Use Sub-Division interpretation accuracy</label>
+			</boolean>
+			<code id="11" name="site_accessibility" list="site_accessibility" relevant="land_use_category!='noData'">
 				<label xml:lang="en">Accessibility</label>
 			</code>
-			<entity id="20" name="topography" multiple="true" >
+			<code id="12" name="site_bearing" list="bearing" relevant="land_use_category!='noData' and site_accessibility!='inaccesible'" >
+				<label xml:lang="en">Bearing</label>
+			</code>
+			<text name="directions" id="13" required="false" relevant="false()">
+			    <label xml:lang="en">Directions</label>
+			</text>
+			<entity id="14" name="topography" multiple="true" >
 			    <label xml:lang="en">Topography</label>
-				<code id="9" name="element" list="topographical_elements" key="true">
+				<code id="15" name="element" list="topographical_elements" key="true">
 					<label xml:lang="en">Element</label>
 				</code>
-				<code id="10" name="coverage" list="topographical_elements_coverage">
+				<code id="16" name="coverage" list="topographical_elements_coverage">
 					<label xml:lang="en">Coverage</label>
 				</code>
 			</entity>
-			<code id="11" name="human_impact_type" list="human_impact_type"
-				multiple="true" relevant="land_use!='settlement' and land_use!='noData'">
+			<code id="17" name="human_impact_type" list="human_impact_type"
+				multiple="true" relevant="land_use_category!='settlement' and land_use_category!='noData'">
 				<label xml:lang="en">Human Impact Type</label>
 			</code>
-			<code id="12" name="human_impact_grade" list="human_impact_grade" relevant="land_use!='noData' and land_use!='settlement' and human_impact_type!='na'">
+			<code id="18" name="human_impact_grade" list="human_impact_grade" relevant="land_use_category!='noData' and land_use_category!='settlement' and human_impact_type!='none'">
 				<label xml:lang="en">Human Impact Grade</label>
 			</code>
-			<number id="13" name="human_impact_year" type="integer" relevant="land_use!='noData' and land_use!='settlement' and human_impact_type!='na'">
+			<number id="19" name="human_impact_year" type="integer" relevant="land_use_category!='noData' and land_use_category!='settlement' and human_impact_type!='none'">
 				<label xml:lang="en">Human Impact Year</label>
 			</number>
 			
-			<date id="14" name="rs_date" relevant="land_use!='noData'">
+			<date id="20" name="rs_date" relevant="land_use_category!='noData'">
 				<label xml:lang="en">RS Date</label>
 			</date>
-			<code id="15" name="rs_satellite" list="rs_satellite" relevant="land_use!='noData'">
+			<code id="21" name="rs_satellite" list="rs_satellite" relevant="land_use_category!='noData'">
 				<label xml:lang="en">RS Satellite</label>
 			</code>
-			<code id="16" name="canopy_cover" list="canopy_cover" relevant="land_use='forest'" >
+			<code id="22" name="canopy_cover" list="canopy_cover_list" relevant="land_use_category='forest'" >
 				<label xml:lang="en">Canopy cover</label>
 			</code>
-			<code id="17" name="canopy_type" list="canopy_type" relevant="land_use='forest' and canopy_cover!='0'">
+			<code id="23" name="canopy_type" list="canopy_type_list" relevant="land_use_category='forest' and canopy_cover!='0'">
 				<label xml:lang="en">Canopy Type</label>
 			</code>
-			<code id="19" name="deforestation_reason" list="deforestation_reason" relevant="land_use='forest' and crown_cover='0'" >
+			<code id="24" name="deforestation_reason" list="deforestation_reason" relevant="land_use_category='forest' and canopy_cover='0'" >
 				<label xml:lang="en">Deforestation reason</label>
 			</code>
-
-			<boolean id="18" name="actively_saved">
-				<label xml:lang="en">Actively saved by user</label>
-			</boolean>
-			<number id="30" name="elevation" type="integer" >
+			<number id="25" name="elevation" type="integer" >
 				<label xml:lang="en">Elevation</label>
 			</number>
-			<number id="31" name="aspect"  type="real">
+			<number id="26" name="aspect"  type="real">
 				<label xml:lang="en">Aspect</label>
 			</number>
-			<number id="32" name="slope" type="real" >
+			<number id="27" name="slope" type="real" >
 				<label xml:lang="en">Slope</label>
 			</number>
-			
-			<text name="directions" id="33" required="false" relevant="false()">
-			    <label xml:lang="en">Directions</label>
-			</text>
-			<code id="34" name="site_bearing" list="bearing"  >
-				<label xml:lang="en">Bearing</label>
-			</code>
-			
-			<boolean id="35" name="actively_saved">
+			<boolean id="28" name="actively_saved">
 				<label xml:lang="en">Actively saved by user</label>
 			</boolean>
-			
 		</entity>
 	</schema>
 </survey>

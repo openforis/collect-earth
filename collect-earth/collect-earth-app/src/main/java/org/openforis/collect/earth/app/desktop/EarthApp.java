@@ -218,7 +218,7 @@ public class EarthApp {
 
 	private void copyContentsToGeneratedFolder(String folderToInclude) throws IOException {
 		File sourceDir = new File( folderToInclude );
-		File targetDir = new File( GENERATED_FOLDER );
+		File targetDir = new File( GENERATED_FOLDER + File.separator + sourceDir.getName() );
 		FileUtils.copyDirectory(sourceDir, targetDir );
 	}
 

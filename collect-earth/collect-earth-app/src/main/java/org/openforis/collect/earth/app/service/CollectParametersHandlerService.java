@@ -67,10 +67,14 @@ public class CollectParametersHandlerService {
 
 							int index = StringUtils.countMatches(parameters.get(collectParamName), PARAMETER_SEPARATOR) + 1;
 
-							parameters.put(
-									collectParamName,
-									parameters.get(collectParamName) + PARAMETER_SEPARATOR
-									+ handler.getAttributeFromParameter(paramName, plotEntity, index));
+							try {
+								parameters.put(
+										collectParamName,
+										parameters.get(collectParamName) + PARAMETER_SEPARATOR
+										+ handler.getAttributeFromParameter(paramName, plotEntity, index));
+							} catch (Exception e) {
+								logger.error("Exception when getting parameters for entity ", e);
+							}
 
 						} else {
 							parameters.put(collectParamName, handler.getAttributeFromParameter(paramName, plotEntity));
