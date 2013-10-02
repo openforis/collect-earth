@@ -82,11 +82,11 @@ classpath:/WEB-INF/conf/applicationContext.xml
 		<url-pattern>/</url-pattern>
 	</servlet-mapping>
 
-	<servlet-mapping>
-		<servlet-name>default</servlet-name>
-		<url-pattern>/earthFiles/*</url-pattern>
+	<servlet-mapping >
+		<servlet-name >default</servlet-name>
+		<url-pattern >/generated/*</url-pattern>
 	</servlet-mapping>
-
+	
 	<session-config>
 		<session-timeout>2</session-timeout>
 	</session-config>

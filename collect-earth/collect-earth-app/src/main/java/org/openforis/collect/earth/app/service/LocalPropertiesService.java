@@ -38,6 +38,8 @@ public class LocalPropertiesService {
 	public static final String ELEVATION_GEOTIF_DIRECTORY = "elevation_geotif_directory";
 	public static final String METADATA_FILE = "metadata_file";
 	public static final String FIREFOX_BINARY_PATH = "firefox_exe_path";
+	public static final String CHROME_BINARY_PATH = "chrome_exe_path";
+	public static final String BROWSER_TO_USE = "use_browser";
 	
 
 	public LocalPropertiesService() {

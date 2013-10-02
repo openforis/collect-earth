@@ -39,7 +39,7 @@ import freemarker.template.TemplateException;
 public class EarthApp {
 
 	private static final String SURVEY_NAME = "survey_name";
-	private static final String GENERATED_FOLDER = "earthFiles";
+	private static final String GENERATED_FOLDER = "generated";
 	private static final String KML_RESULTING_TEMP_FILE = GENERATED_FOLDER + "/plots.kml";
 	private final static Logger LOGGER = LoggerFactory.getLogger(EarthApp.class);
 	private static ServerController serverController;
