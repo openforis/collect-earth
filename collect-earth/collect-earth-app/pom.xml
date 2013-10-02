@@ -2,8 +2,12 @@
 <project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
 	xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/maven-v4_0_0.xsd">
 	<modelVersion>4.0.0</modelVersion>
-	<groupId>org.openforis.collect.earth</groupId>
-	<version>1.0</version>
+	 <parent>
+        <groupId>org.openforis.collect.earth</groupId>
+        <artifactId>collect-earth</artifactId>
+        <version>1.0</version>
+    </parent>
+	
 	<name>Earth App</name>
 	<artifactId>collect-earth-app</artifactId>
 	<packaging>jar</packaging>
@@ -31,12 +35,10 @@
 	</repositories>
 
 	<dependencies>
-	    	
-	    	
 		<dependency>
 			<groupId>org.openforis.collect.earth</groupId>
 			<artifactId>collect-earth-sampler</artifactId>
-			<version>0.0.1-SNAPSHOT</version>
+			<version>1.0</version>
 		</dependency>
 		
 		<!-- Jetty -->
@@ -116,26 +118,6 @@
 			<version>3.7.2</version>
 		</dependency>
 
-		<dependency>
-			<groupId>log4j</groupId>
-			<artifactId>log4j</artifactId>
-			<version>1.2.17</version>
-		</dependency>
-		<dependency>
-			<groupId>org.slf4j</groupId>
-			<artifactId>slf4j-api</artifactId>
-			<version>1.7.5</version>
-		</dependency>
-		<dependency>
-			<groupId>org.slf4j</groupId>
-			<artifactId>slf4j-log4j12</artifactId>
-			<version>1.7.5</version>
-		</dependency>
-		<dependency>
-			<groupId>commons-io</groupId>
-			<artifactId>commons-io</artifactId>
-			<version>2.4</version>
-		</dependency>
  		<dependency>
 			<groupId>commons-fileupload</groupId>
 			<artifactId>commons-fileupload</artifactId>
@@ -147,11 +129,6 @@
 			<version>6.0.26</version>
 		</dependency>
 		<dependency>
-			<groupId>net.sf.kxml</groupId>
-			<artifactId>kxml2</artifactId>
-			<version>2.3.0</version>
-		</dependency>
-		<dependency>
         	<groupId>org.seleniumhq.selenium</groupId>
         	<artifactId>selenium-firefox-driver</artifactId>
         	<version>2.35.0</version>
@@ -161,14 +138,7 @@
 			<artifactId>selenium-chrome-driver</artifactId>
 			<version>2.35.0</version>
 		</dependency>
-            
-		
-		<dependency>
-			<groupId>org.mockito</groupId>
-			<artifactId>mockito-all</artifactId>
-			<version>1.9.5</version>
-		</dependency>
-            
+
 <!-- 		REMOVE LATER! -->
 		
 		<dependency>
@@ -176,11 +146,6 @@
 			<artifactId>commons-dbcp</artifactId>
 			<version>1.4</version>
 		</dependency>
-<!-- 		<dependency>
-			  <groupId>org.mockito</groupId>
-			  <artifactId>mockito-all</artifactId>  
-			  <version>1.9.0</version> 
-		</dependency> -->
 		
 		<dependency>
 			<groupId>org.apache.maven.plugins</groupId>
@@ -204,98 +169,7 @@
 		        </descriptorRefs>
 		      </configuration>
 		    </plugin>
-			<plugin>
-				<groupId>org.codehaus.mojo</groupId>
-				<artifactId>webstart-maven-plugin</artifactId>
-				<version>1.0-beta-3</version>
-				<executions>
-		          <execution>
-		            <goals>
-		              <goal>jnlp</goal> <!-- use jnlp, jnlp-inline or jnlp-single as appropriate -->
-		            </goals>
-		          </execution>
-		        </executions>
-		         <configuration>
-          <!--outputDirectory></outputDirectory--> <!-- not required?? -->
-
-          <!--
-          Set to true to exclude all transitive dependencies. Default is false.
-          -->
-          <excludeTransitive>false</excludeTransitive>
-
-          <!-- The path where the libraries are stored within the jnlp structure. not required. by default the libraries are within the working directory -->
-          <libPath>lib</libPath>
-
-          <!-- [optional] transitive dependencies filter - if omitted, all transitive dependencies are included
-          <dependencies> -->
-            <!-- Note that only groupId and artifactId must be specified here. because of a limitation of the Include/ExcludesArtifactFilter -->
-<!--             <includes> -->
-<!--               <include>commons-logging:commons-logging</include> -->
-<!--               <include>commons-cli:commons-cli</include> -->
-<!--             </includes> -->
-            <!-- excludes>
-              <exclude></exclude>
-            <excludes>
-          </dependencies-->
-
-          <!--resourcesDirectory>${project.basedir}/src/main/jnlp/resources</resourcesDirectory--> <!-- default value -->
-
-          <!-- SIGNING -->
-          <!-- defining this will automatically sign the jar and its dependencies, if necessary -->
-          <sign>
-            <keystore>C:\Program Files\Java\jdk1.6.0_26\jre\lib\security\cacerts</keystore>
-            <keypass>1234</keypass>  <!-- we need to override passwords easily from the command line. ${keypass} -->
-            <storepass>openforis</storepass> <!-- ${storepass} -->
-            <!--storetype>fillme</storetype-->
-            <alias>openforis</alias>
-
-            <!--validity>fillme</validity-->
-
-            <!-- only required for generating the keystore 
-            <CN=Susan Jones, OU=Purchasing, O=ExampleCompany, L=Cupertino, ST=CA, C=US> correct?
-            -->
-            <storetype>jks</storetype>
-            <validity>1000</validity>
-            <dnameCn>FAO</dnameCn>
-            <dnameOu>UN-REDD</dnameOu>
-            <dnameO>FAO FOM</dnameO>
-            <dnameL>Rome</dnameL>
-            <dnameSt>Lazio</dnameSt>
-            <dnameC>IT</dnameC>
-
-            <verify>true</verify> <!-- verify that the signing operation succeeded -->
-
-            <!-- KEYSTORE MANAGEMENT -->
-            <keystoreConfig>
-              <delete>true</delete> <!-- delete the keystore -->
-              <gen>true</gen>       <!-- optional shortcut to generate the store. -->
-            </keystoreConfig>
-          </sign>
-
-          <!-- BUILDING PROCESS -->
-
-          <pack200>true</pack200>
-          <gzip>true</gzip> <!-- default force when pack200 false, true when pack200 selected ?? -->
-
-          <!-- causes a version attribute to be output in each jar resource element, optional, default is false -->
-          <outputJarVersions>true</outputJarVersions>
-
-          <!--install>false</install--> <!-- not yet supported -->
-          <verbose>true</verbose>
-
-        </configuration>
-			</plugin>
-			<plugin>
-				<groupId>org.apache.maven.plugins</groupId>
-				<artifactId>maven-compiler-plugin</artifactId>
-				<version>2.3.2</version>
-				<configuration>
-					<source>${java.version}</source>
-					<target>${java.version}</target>
-				</configuration>
-				
-			</plugin>
-			
+		
 			<plugin>
 		        <groupId>org.apache.maven.plugins</groupId>
 		        <artifactId>maven-dependency-plugin</artifactId>
@@ -330,31 +204,6 @@
 						</manifest>
 					</archive>
 				</configuration>
-			</plugin>
-
-			<!-- The maven app assembler plugin will generate a script that sets up 
-				the classpath and runs your project -->
-			<plugin>
-				<groupId>org.codehaus.mojo</groupId>
-				<artifactId>appassembler-maven-plugin</artifactId>
-				<version>1.1.1</version>
-				<configuration>
-					<assembleDirectory>target</assembleDirectory>
-					<programs>
-						<program>
-							<mainClass>org.openforis.collect.earth.app.desktop.EarthApp</mainClass>
-							<name>webapp</name>
-						</program>
-					</programs>
-				</configuration>
-				<executions>
-					<execution>
-						<phase>package</phase>
-						<goals>
-							<goal>assemble</goal>
-						</goals>
-					</execution>
-				</executions>
 			</plugin>
 
 		</plugins>
