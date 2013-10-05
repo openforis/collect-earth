@@ -1,7 +1,13 @@
 package org.openforis.collect.earth.app.desktop;
 
+import java.io.BufferedWriter;
 import java.io.File;
+import java.io.IOException;
+import java.io.StringWriter;
+import java.io.Writer;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Properties;
 
 import org.openforis.collect.earth.app.service.LocalPropertiesService;
@@ -19,38 +25,65 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 
+import freemarker.template.Configuration;
+import freemarker.template.Template;
+import freemarker.template.TemplateException;
+
 public class BrowserService {
 
 	@Autowired
 	protected LocalPropertiesService localPropertiesService;
 
 	private final Logger logger = LoggerFactory.getLogger(BrowserService.class);
+	private static final String KML_FOR_GEE_JS = "resources/javascrip_gee.fmt";
+	private static final Configuration cfg = new Configuration();
+	private static Template template;
+	
+	private String getGEEJavascript(String[] latLong) {
 
+		Map<String, String> data = new HashMap<String, String>();
+		data.put( "latitude", latLong[0]);
+		data.put( "longitude", latLong[1]);
+		
+		data.put( LocalPropertiesService.GEE_FUNCTION_PICK, localPropertiesService.getValue(LocalPropertiesService.GEE_FUNCTION_PICK));
+		data.put( LocalPropertiesService.GEE_ZOOM_OBJECT, localPropertiesService.getValue(LocalPropertiesService.GEE_ZOOM_OBJECT));
+		data.put( LocalPropertiesService.GEE_ZOOM_METHOD, localPropertiesService.getValue(LocalPropertiesService.GEE_ZOOM_METHOD));
+		data.put( LocalPropertiesService.GEE_INITIAL_ZOOM, localPropertiesService.getValue(LocalPropertiesService.GEE_INITIAL_ZOOM));
+		
+		
+		StringWriter fw = null;
+		Writer out = null;
+		try{
+			if( template == null ){
+				// Load template from source folder
+				template = cfg.getTemplate(KML_FOR_GEE_JS);
+			}
+			// Console output
+			fw = new StringWriter();
+			out = new BufferedWriter(fw);
 
-	private String getExtraJavascript(String[] latLong) {
+			// Add date to avoid caching
+			template.process(data, out);
 
-		String jsonObject = ""
-				+ "var c=new google.maps.Map("
-				+ "	H(\"map\"),{center:new google.maps.LatLng(0,0),zoom:2,mapTypeId:google.maps.MapTypeId.SATELLITE,panControl:!1,streetViewControl:!1,scaleControl:!0,scrollwheel:!0,zoomControlOptions:{position:google.maps.ControlPosition.RIGHT_TOP,style:google.maps.ZoomControlStyle.LARGE}});"
-				+ ""
-				+ "var b=H(\"workspace-el\"); "
-				+ ""
-				+ "var jsonObject = { \"viewport\":{ "
-				+ "\"zoom\":17,"
-				+ "\"lat\":"
-				+ latLong[0]
-						+ ","
-						+ "\"lng\":"
-						+ latLong[1]
-								+ "},"
-								+ "\"name\":\"\",\"regionid\":\"\","
-								+ "\"classmodel\":[],"
-								+ "\"polylayers\":[],"
-								+ "\"datalayers\":[{\"title\":\"Landsat 5 Annual Greenest-Pixel TOA Reflectance Composite\",\"originaltitle\":null,\"overlayvisible\":true,\"vis\":{\"opacity\":0.8,\"bands\":[\"40\",\"30\",\"20\"],\"max\":0.425,\"gamma\":1.2000000000000002},\"layermode\":\"advisory-mode\",\"datatype\":\"temporalcollection\",\"periodstart\":1325376000000,\"periodend\":1356998400000,\"id\":\"LANDSAT/L5_L1T_ANNUAL_GREENEST_TOA\",\"assetid\":\"L5_L1T_ANNUAL_GREENEST_TOA/2012\"}],"
-								+ "\"drawnpoints\":[],\"drawnpolys\":[],\"analysis\":null};";
+		} catch (TemplateException e) {
+			logger.error("Error when generating the GEE javascript commands", e);
+		} catch (IOException e) {
+			logger.error("Error when reading/writing the template information", e);
+		}finally{
+			try {
+				if( out !=null ){
+					out.flush();
+				}
+				if( fw!=null){
+					fw.close();
+				}
+			} catch (IOException e) {
+				logger.error("Error when closing the output streams", e);
+			}
+		}
 
-		return (jsonObject + " var pa=new Mt(c,b); pa.I(jsonObject);");
-
+		return fw.toString();
+		
 	}
 
 	private RemoteWebDriver chooseDriver(){
@@ -175,7 +208,7 @@ public class BrowserService {
 						((JavascriptExecutor) driver).executeScript(executeJavascript);
 
 					} catch (Exception e) {
-						logger.debug("Error in the selenium driver", e);
+						logger.error("Error in the selenium driver", e);
 					}
 					Thread.sleep(1000);
 					List<WebElement> dataLayerVisibility = driver.findElementsByClassName("indicator");
@@ -217,7 +250,7 @@ public class BrowserService {
 				if (driver == null) {
 					driver = initBrowser();
 				}
-				loadLayers(getExtraJavascript(latLong), driver);
+				loadLayers(getGEEJavascript(latLong), driver);
 			} catch (InterruptedException e) {
 				logger.error("Error when opening browser window", e);
 			}

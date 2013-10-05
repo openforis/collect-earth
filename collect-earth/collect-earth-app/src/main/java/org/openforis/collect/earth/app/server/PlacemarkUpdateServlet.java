@@ -42,6 +42,9 @@ public class PlacemarkUpdateServlet {
 
 	@Autowired
 	private LocalPropertiesService localPropertiesService;
+	
+	private static final Configuration cfg = new Configuration();
+	private static Template template;
 
 	@RequestMapping("/placemarkUpdate")
 	public void getUpdatePlacemark(HttpServletResponse response,
@@ -86,11 +89,11 @@ public class PlacemarkUpdateServlet {
 	}
 
 	private String getKmlFromTemplate(Map data) throws IOException {
-		// Process the template file using the data in the "data" Map
-		Configuration cfg = new Configuration();
-		// Load template from source folder
-		Template template = cfg.getTemplate(KML_FOR_UPDATES);
 
+		if( template == null ){
+			// Load template from source folder
+			template = cfg.getTemplate(KML_FOR_UPDATES);
+		}
 		// Console output
 		StringWriter fw = new StringWriter();
 		Writer out = new BufferedWriter(fw);
@@ -100,9 +103,10 @@ public class PlacemarkUpdateServlet {
 
 		} catch (TemplateException e) {
 			logger.error("Error when producing starter KML from template", e);
+		}finally{
+			out.flush();
+			fw.close();
 		}
-		out.flush();
-		fw.close();
 
 		return fw.toString();
 

@@ -60,7 +60,7 @@
  		<dependency>
 			<groupId>org.openforis.collect</groupId>
 			<artifactId>collect-core</artifactId>
-			<version>3.0-CR1-SNAPSHOT</version>
+			<version>3.0-Alpha8-SNAPSHOT</version>
 			<exclusions>
               <exclusion>
                 <groupId>org.liquibase</groupId>
@@ -117,17 +117,6 @@
 			<artifactId>sqlite-jdbc</artifactId>
 			<version>3.7.2</version>
 		</dependency>
-
- 		<dependency>
-			<groupId>commons-fileupload</groupId>
-			<artifactId>commons-fileupload</artifactId>
-			<version>1.2.1</version>
-		</dependency>
-		<dependency>
-			<groupId>org.apache.tomcat</groupId>
-			<artifactId>juli</artifactId>
-			<version>6.0.26</version>
-		</dependency>
 		<dependency>
         	<groupId>org.seleniumhq.selenium</groupId>
         	<artifactId>selenium-firefox-driver</artifactId>
@@ -138,21 +127,11 @@
 			<artifactId>selenium-chrome-driver</artifactId>
 			<version>2.35.0</version>
 		</dependency>
-
-<!-- 		REMOVE LATER! -->
-		
 		<dependency>
 			<groupId>commons-dbcp</groupId>
 			<artifactId>commons-dbcp</artifactId>
 			<version>1.4</version>
 		</dependency>
-		
-		<dependency>
-			<groupId>org.apache.maven.plugins</groupId>
-			<artifactId>maven-dependency-plugin</artifactId>
-			<version>2.8</version>
-		</dependency>
-
 	</dependencies>
 	<build>
 		<plugins>

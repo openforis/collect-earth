@@ -5,7 +5,10 @@ import java.io.FileNotFoundException;
 import java.io.FileReader;
 import java.io.FileWriter;
 import java.io.IOException;
+import java.util.Collections;
+import java.util.Enumeration;
 import java.util.Properties;
+import java.util.TreeSet;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -40,6 +43,10 @@ public class LocalPropertiesService {
 	public static final String FIREFOX_BINARY_PATH = "firefox_exe_path";
 	public static final String CHROME_BINARY_PATH = "chrome_exe_path";
 	public static final String BROWSER_TO_USE = "use_browser";
+	public static final String GEE_FUNCTION_PICK = "gee_js_pickFunction";
+	public static final String GEE_ZOOM_OBJECT = "gee_js_zoom_object";
+	public static final String GEE_ZOOM_METHOD = "gee_js_zoom_method";
+	public static final String GEE_INITIAL_ZOOM = "gee_initial_zoom";
 	
 
 	public LocalPropertiesService() {
@@ -47,7 +54,13 @@ public class LocalPropertiesService {
 	}
 
 	public void init() throws IOException {
-		properties = new Properties();
+		properties = new Properties() {
+		    @Override
+		    public synchronized Enumeration<Object> keys() {
+		        return Collections.enumeration(new TreeSet<Object>(super.keySet()));
+		    }
+		};
+		
 		FileReader fr = null;
 		try {
 
