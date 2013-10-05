@@ -1,10 +1,13 @@
 package org.openforis.collect.earth.app.desktop;
 
+import java.io.BufferedReader;
 import java.io.BufferedWriter;
 import java.io.File;
 import java.io.IOException;
+import java.io.InputStreamReader;
 import java.io.StringWriter;
 import java.io.Writer;
+import java.net.URL;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -31,6 +34,18 @@ import freemarker.template.TemplateException;
 
 public class BrowserService {
 
+	private static final String NEW = "=new ";
+
+	private static final String PROTOTYPE = ".prototype";
+
+	private static final String ZOOM_10 = "zoom,10)";
+
+	private static final String WORKSPACE_EL = "(\"workspace-el\");";
+
+	private static final String LAYER_CONTAINER_BODY = "layer-container-body";
+
+	private static final String GEE_JS_URL = "http://earthengine.google.org/javascript/ee_js.js";
+
 	@Autowired
 	protected LocalPropertiesService localPropertiesService;
 
@@ -38,6 +53,25 @@ public class BrowserService {
 	private static final String KML_FOR_GEE_JS = "resources/javascrip_gee.fmt";
 	private static final Configuration cfg = new Configuration();
 	private static Template template;
+	private static boolean hasCheckValidity = false;
+	
+	
+	private boolean isGEEValidJS( String geeJs , RemoteWebDriver driver ){
+		
+		boolean stillValid = false;
+		
+		try {
+			
+			geeJs = geeJs.substring(0, geeJs.indexOf( "focusObject." ) );
+			((JavascriptExecutor) driver).executeScript(geeJs);
+		
+			stillValid = true;
+		} catch (Exception e) {
+			logger.error("Error in the selenium driver", e);
+		}
+		
+		return stillValid;
+	}
 	
 	private String getGEEJavascript(String[] latLong) {
 
@@ -136,7 +170,6 @@ public class BrowserService {
 				capabilities.setCapability("chrome.binary", chromeBinaryPath);
 				Properties props = System.getProperties();
 				if( props.getProperty("webdriver.chrome.driver") == null ){
-					
 					props.setProperty( "webdriver.chrome.driver", "resources/chromedriver.exe");
 				}
 				
@@ -182,8 +215,10 @@ public class BrowserService {
 
 		return found;
 	}
+	
+	
 
-	private void loadLayers(String executeJavascript, RemoteWebDriver driver) throws InterruptedException {
+	private void loadLayers( String[] latLong, RemoteWebDriver driver) throws InterruptedException {
 		if( driver != null ){
 			if (!isIdPresent("workspace-el", driver)) {
 
@@ -205,10 +240,30 @@ public class BrowserService {
 			if (waitFor("workspace-el", driver)) {
 				if (driver instanceof JavascriptExecutor) {
 					try {
-						((JavascriptExecutor) driver).executeScript(executeJavascript);
+						
+						
+
+						String geeJs = getGEEJavascript(latLong);
+						
+						if( !hasCheckValidity){
+							try {
+								if( !isGEEValidJS(geeJs, driver) ){
+									refreshJSValues(geeJs, driver);
+									geeJs = getGEEJavascript(latLong);
+								}
+							} catch (Exception e) {
+								logger.error("Error checking the validity of the GEE js code", e );
+							}finally{
+								hasCheckValidity = true;
+							}
+							
+						}
+						
+						
+						((JavascriptExecutor) driver).executeScript( geeJs );
 
 					} catch (Exception e) {
-						logger.error("Error in the selenium driver", e);
+						logger.warn("Error in the selenium driver", e);
 					}
 					Thread.sleep(1000);
 					List<WebElement> dataLayerVisibility = driver.findElementsByClassName("indicator");
@@ -222,6 +277,74 @@ public class BrowserService {
 				}
 			}
 		}
+	}
+
+	private void refreshJSValues(String geeJs, RemoteWebDriver driver) throws IOException {
+		String jsGee = getCompleteGeeJS();
+		if( jsGee != null ){
+			// 	try to find this pattern for the gee_js_pickFunction value  ("workspace-el");  " var b=H("workspace-el"); "
+			int indexWorkspaceEL = jsGee.indexOf( WORKSPACE_EL) ;
+			int startEquals = 0;
+			for( startEquals = indexWorkspaceEL; startEquals > indexWorkspaceEL - 20; startEquals --){
+				if( jsGee.charAt(startEquals) == '='){
+					break;
+				}		
+			}
+			String pickFunction = jsGee.substring( startEquals+1,indexWorkspaceEL ).trim();
+			
+			
+			
+			
+			// 	try to find this pattern for the gee_js_zoom_object value Mt  G(g,"layer-container-body");a.na=new Mt(c,b);f.V(a.na,
+			int indexLayer = jsGee.indexOf( LAYER_CONTAINER_BODY, startEquals );
+			int indexEqual = jsGee.indexOf( NEW, indexLayer );
+			int indexParenthesis = jsGee.indexOf('(', indexEqual );
+			
+			
+			String zoomObject = jsGee.substring( indexEqual+ NEW.length() ,indexParenthesis ).trim();
+			
+//		 	try to find this pattern for the gee_js_zoom_function value Mt  Mt.prototype.I=function(a){if(ja(a)){Qt(this);var b=a.viewport;if(b){var c=parseInt(b.zoom,10),d=parseFloat(b.lat),
+			
+			int indexZoom10 = jsGee.indexOf( ZOOM_10) ;
+	
+			int startPrototype = jsGee.indexOf( zoomObject + PROTOTYPE, indexZoom10 - 200 );
+			
+			String zoomFunction = jsGee.substring( startPrototype + zoomObject.length() + PROTOTYPE.length() +1, jsGee.indexOf('=', startPrototype) ).trim();
+			
+			
+			localPropertiesService.setValue(LocalPropertiesService.GEE_FUNCTION_PICK, pickFunction );
+			localPropertiesService.setValue(LocalPropertiesService.GEE_ZOOM_METHOD, zoomFunction );
+			localPropertiesService.setValue(LocalPropertiesService.GEE_ZOOM_OBJECT, zoomObject );
+			
+		}
+		
+	}
+
+	private String getCompleteGeeJS() throws IOException {
+		BufferedReader in = null;
+		StringBuffer jsResult = new StringBuffer();
+		try {
+			URL geeJsUrl = new URL( GEE_JS_URL );
+			in = new BufferedReader(
+					new InputStreamReader(geeJsUrl.openStream()));
+
+			String inputLine;
+			
+			while ((inputLine = in.readLine()) != null){
+				jsResult.append(inputLine);
+			}
+			in.close();
+
+		} catch (Exception e) {
+			logger.error("Not possible to read URI " + GEE_JS_URL );
+			return null;
+		}finally{
+			if( in != null){
+				in.close();
+			}
+		}
+		
+		return jsResult.toString();
 	}
 
 	public synchronized RemoteWebDriver navigateTo(String url, RemoteWebDriver driver) {
@@ -250,7 +373,7 @@ public class BrowserService {
 				if (driver == null) {
 					driver = initBrowser();
 				}
-				loadLayers(getGEEJavascript(latLong), driver);
+				loadLayers(latLong, driver);
 			} catch (InterruptedException e) {
 				logger.error("Error when opening browser window", e);
 			}

@@ -102,6 +102,11 @@ public class LocalPropertiesService {
 		storeProperties();
 	}
 
+	public void setValue(String key, String value){
+		properties.setProperty(key, value);
+		storeProperties();
+	}
+	
 	public String getTemplateFile() {
 		return getValue(KML_TEMPLATE_KEY);
 	}

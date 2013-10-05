@@ -198,6 +198,7 @@ public class CollectEarthWindow {
 						serverController.stopServer();
 						getFrame().setVisible(false);
 						getFrame().dispose();
+						System.exit(0);
 					}
 				} catch (Exception e1) {
 					logger.error("Error when trying to shutdown the server when window is closed", e);
