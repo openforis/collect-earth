@@ -12,8 +12,10 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Properties;
+import java.util.Vector;
 
 import org.openforis.collect.earth.app.service.LocalPropertiesService;
+import org.openforis.collect.earth.app.service.LocalPropertiesService.EarthProperty;
 import org.openqa.selenium.JavascriptExecutor;
 import org.openqa.selenium.WebDriverException;
 import org.openqa.selenium.WebElement;
@@ -48,43 +50,62 @@ public class BrowserService {
 
 	@Autowired
 	protected LocalPropertiesService localPropertiesService;
+	
+	private Vector<RemoteWebDriver> drivers = new Vector<RemoteWebDriver>();
 
 	private final Logger logger = LoggerFactory.getLogger(BrowserService.class);
 	private static final String KML_FOR_GEE_JS = "resources/javascrip_gee.fmt";
 	private static final Configuration cfg = new Configuration();
 	private static Template template;
 	private static boolean hasCheckValidity = false;
-	
-	
+
+
+	public BrowserService() {
+
+		attachShutDownHook();
+		logger.error("Broswer service started" );
+	}
+
+	public void attachShutDownHook(){
+		Runtime.getRuntime().addShutdownHook(new Thread() {
+			@Override
+			public void run() {
+				for (RemoteWebDriver driver : drivers) {
+					driver.quit();
+				}
+			}
+		});
+	}
+
 	private boolean isGEEValidJS( String geeJs , RemoteWebDriver driver ){
-		
+
 		boolean stillValid = false;
-		
+
 		try {
-			
+
 			geeJs = geeJs.substring(0, geeJs.indexOf( "focusObject." ) );
 			((JavascriptExecutor) driver).executeScript(geeJs);
-		
+
 			stillValid = true;
 		} catch (Exception e) {
 			logger.error("Error in the selenium driver", e);
 		}
-		
+
 		return stillValid;
 	}
-	
+
 	private String getGEEJavascript(String[] latLong) {
 
 		Map<String, String> data = new HashMap<String, String>();
 		data.put( "latitude", latLong[0]);
 		data.put( "longitude", latLong[1]);
-		
-		data.put( LocalPropertiesService.GEE_FUNCTION_PICK, localPropertiesService.getValue(LocalPropertiesService.GEE_FUNCTION_PICK));
-		data.put( LocalPropertiesService.GEE_ZOOM_OBJECT, localPropertiesService.getValue(LocalPropertiesService.GEE_ZOOM_OBJECT));
-		data.put( LocalPropertiesService.GEE_ZOOM_METHOD, localPropertiesService.getValue(LocalPropertiesService.GEE_ZOOM_METHOD));
-		data.put( LocalPropertiesService.GEE_INITIAL_ZOOM, localPropertiesService.getValue(LocalPropertiesService.GEE_INITIAL_ZOOM));
-		
-		
+
+		data.put( EarthProperty.GEE_FUNCTION_PICK.toString(), localPropertiesService.getValue(EarthProperty.GEE_FUNCTION_PICK));
+		data.put( EarthProperty.GEE_ZOOM_OBJECT.toString(), localPropertiesService.getValue(EarthProperty.GEE_ZOOM_OBJECT));
+		data.put( EarthProperty.GEE_ZOOM_METHOD.toString(), localPropertiesService.getValue(EarthProperty.GEE_ZOOM_METHOD));
+		data.put( EarthProperty.GEE_INITIAL_ZOOM.toString(), localPropertiesService.getValue(EarthProperty.GEE_INITIAL_ZOOM));
+
+
 		StringWriter fw = null;
 		Writer out = null;
 		try{
@@ -117,15 +138,15 @@ public class BrowserService {
 		}
 
 		return fw.toString();
-		
+
 	}
 
 	private RemoteWebDriver chooseDriver(){
 		RemoteWebDriver driver = null;
 
-		String chosenBrowser = localPropertiesService.getValue(LocalPropertiesService.BROWSER_TO_USE);
+		String chosenBrowser = localPropertiesService.getValue(EarthProperty.BROWSER_TO_USE);
 
-		if( chosenBrowser != null && chosenBrowser.trim().toLowerCase().equals("chrome")){
+		if( chosenBrowser != null && chosenBrowser.trim().toLowerCase().equals(LocalPropertiesService.CHROME_BROWSER)){
 
 			driver = startChromeBrowser(driver);
 		}else{
@@ -141,14 +162,14 @@ public class BrowserService {
 		FirefoxProfile ffprofile = new FirefoxProfile();
 		FirefoxBinary firefoxBinary = null;
 
-		String firefoxBinaryPath = localPropertiesService.getValue(LocalPropertiesService.FIREFOX_BINARY_PATH);
+		String firefoxBinaryPath = localPropertiesService.getValue(EarthProperty.FIREFOX_BINARY_PATH);
 
 		if( firefoxBinaryPath!= null && firefoxBinaryPath.trim().length() > 0  ){
 			try {
 				firefoxBinary = new FirefoxBinary(new File(firefoxBinaryPath));
 				driver = new FirefoxDriver(firefoxBinary, ffprofile);
 			} catch (WebDriverException e) {
-				logger.error( "The firefox executable firefox.exe cannot be found, please edit earth.properties and correct the firefox.exe location at " +LocalPropertiesService.FIREFOX_BINARY_PATH + " pointing to the full path to firefox.exe" , e );
+				logger.error( "The firefox executable firefox.exe cannot be found, please edit earth.properties and correct the firefox.exe location at " +EarthProperty.FIREFOX_BINARY_PATH + " pointing to the full path to firefox.exe" , e );
 			}
 		}else{
 			// Try with default Firefox executable
@@ -156,32 +177,33 @@ public class BrowserService {
 				firefoxBinary = new FirefoxBinary();
 				driver = new FirefoxDriver(firefoxBinary, ffprofile);
 			} catch (WebDriverException e) {
-				logger.error( "The firefox executable firefox.exe cannot be found, please edit earth.properties and add a line with the property " +LocalPropertiesService.FIREFOX_BINARY_PATH + " pointing to the full path to firefox.exe" , e );
+				logger.error( "The firefox executable firefox.exe cannot be found, please edit earth.properties and add a line with the property " +EarthProperty.FIREFOX_BINARY_PATH + " pointing to the full path to firefox.exe" , e );
 			}
 		}
 		return driver;
 	}
 
 	private RemoteWebDriver startChromeBrowser(RemoteWebDriver driver) {
-		String chromeBinaryPath = localPropertiesService.getValue(LocalPropertiesService.CHROME_BINARY_PATH);
+
+		Properties props = System.getProperties();
+		if( props.getProperty("webdriver.chrome.driver") == null ){
+			props.setProperty( "webdriver.chrome.driver", "resources/chromedriver.exe");
+		}
+
+		String chromeBinaryPath = localPropertiesService.getValue(EarthProperty.CHROME_BINARY_PATH);
 		if( chromeBinaryPath!=null && chromeBinaryPath.trim().length()>0 ){
 			try {
 				DesiredCapabilities capabilities = DesiredCapabilities.chrome();
 				capabilities.setCapability("chrome.binary", chromeBinaryPath);
-				Properties props = System.getProperties();
-				if( props.getProperty("webdriver.chrome.driver") == null ){
-					props.setProperty( "webdriver.chrome.driver", "resources/chromedriver.exe");
-				}
-				
 				driver = new ChromeDriver(capabilities);
 			} catch (WebDriverException e) {
-				logger.error( "The chrome executable chrome.exe cannot be found, please edit earth.properties and correct the chrome.exe location at " +LocalPropertiesService.FIREFOX_BINARY_PATH + " pointing to the full path to chrome.exe" , e );
+				logger.error( "The chrome executable chrome.exe cannot be found, please edit earth.properties and correct the chrome.exe location at " +EarthProperty.FIREFOX_BINARY_PATH + " pointing to the full path to chrome.exe" , e );
 			}
 		} else{
 			try {
 				driver = new ChromeDriver();
 			} catch (WebDriverException e) {
-				logger.error( "The chrome executable chrome.exe cannot be found, please edit earth.properties and add the chrome.exe location in " +LocalPropertiesService.FIREFOX_BINARY_PATH + " pointing to the full path to chrome.exe" , e );
+				logger.error( "The chrome executable chrome.exe cannot be found, please edit earth.properties and add the chrome.exe location in " +EarthProperty.FIREFOX_BINARY_PATH + " pointing to the full path to chrome.exe" , e );
 			}
 		}
 		return driver;
@@ -193,7 +215,8 @@ public class BrowserService {
 		try {
 
 			driver = chooseDriver();
-
+			drivers.add(driver);
+			logger.error("initBrowser called " );
 		} catch (Exception e) {
 			logger.error("Problems starting chosen browser", e);
 		}
@@ -215,8 +238,8 @@ public class BrowserService {
 
 		return found;
 	}
-	
-	
+
+
 
 	private void loadLayers( String[] latLong, RemoteWebDriver driver) throws InterruptedException {
 		if( driver != null ){
@@ -240,11 +263,11 @@ public class BrowserService {
 			if (waitFor("workspace-el", driver)) {
 				if (driver instanceof JavascriptExecutor) {
 					try {
-						
-						
+
+
 
 						String geeJs = getGEEJavascript(latLong);
-						
+
 						if( !hasCheckValidity){
 							try {
 								if( !isGEEValidJS(geeJs, driver) ){
@@ -256,10 +279,10 @@ public class BrowserService {
 							}finally{
 								hasCheckValidity = true;
 							}
-							
+
 						}
-						
-						
+
+
 						((JavascriptExecutor) driver).executeScript( geeJs );
 
 					} catch (Exception e) {
@@ -291,33 +314,33 @@ public class BrowserService {
 				}		
 			}
 			String pickFunction = jsGee.substring( startEquals+1,indexWorkspaceEL ).trim();
-			
-			
-			
-			
+
+
+
+
 			// 	try to find this pattern for the gee_js_zoom_object value Mt  G(g,"layer-container-body");a.na=new Mt(c,b);f.V(a.na,
 			int indexLayer = jsGee.indexOf( LAYER_CONTAINER_BODY, startEquals );
 			int indexEqual = jsGee.indexOf( NEW, indexLayer );
 			int indexParenthesis = jsGee.indexOf('(', indexEqual );
-			
-			
+
+
 			String zoomObject = jsGee.substring( indexEqual+ NEW.length() ,indexParenthesis ).trim();
-			
-//		 	try to find this pattern for the gee_js_zoom_function value Mt  Mt.prototype.I=function(a){if(ja(a)){Qt(this);var b=a.viewport;if(b){var c=parseInt(b.zoom,10),d=parseFloat(b.lat),
-			
+
+			//		 	try to find this pattern for the gee_js_zoom_function value Mt  Mt.prototype.I=function(a){if(ja(a)){Qt(this);var b=a.viewport;if(b){var c=parseInt(b.zoom,10),d=parseFloat(b.lat),
+
 			int indexZoom10 = jsGee.indexOf( ZOOM_10) ;
-	
+
 			int startPrototype = jsGee.indexOf( zoomObject + PROTOTYPE, indexZoom10 - 200 );
-			
+
 			String zoomFunction = jsGee.substring( startPrototype + zoomObject.length() + PROTOTYPE.length() +1, jsGee.indexOf('=', startPrototype) ).trim();
-			
-			
-			localPropertiesService.setValue(LocalPropertiesService.GEE_FUNCTION_PICK, pickFunction );
-			localPropertiesService.setValue(LocalPropertiesService.GEE_ZOOM_METHOD, zoomFunction );
-			localPropertiesService.setValue(LocalPropertiesService.GEE_ZOOM_OBJECT, zoomObject );
-			
+
+
+			localPropertiesService.setValue(EarthProperty.GEE_FUNCTION_PICK, pickFunction );
+			localPropertiesService.setValue(EarthProperty.GEE_ZOOM_METHOD, zoomFunction );
+			localPropertiesService.setValue(EarthProperty.GEE_ZOOM_OBJECT, zoomObject );
+
 		}
-		
+
 	}
 
 	private String getCompleteGeeJS() throws IOException {
@@ -327,14 +350,11 @@ public class BrowserService {
 			URL geeJsUrl = new URL( GEE_JS_URL );
 			in = new BufferedReader(
 					new InputStreamReader(geeJsUrl.openStream()));
-
 			String inputLine;
-			
 			while ((inputLine = in.readLine()) != null){
 				jsResult.append(inputLine);
 			}
 			in.close();
-
 		} catch (Exception e) {
 			logger.error("Not possible to read URI " + GEE_JS_URL );
 			return null;
@@ -343,7 +363,7 @@ public class BrowserService {
 				in.close();
 			}
 		}
-		
+
 		return jsResult.toString();
 	}
 
@@ -368,16 +388,24 @@ public class BrowserService {
 	public synchronized RemoteWebDriver openBrowser(String coordinates, RemoteWebDriver driver) {
 
 		if (localPropertiesService.isEarthEngineSupported() ) {
-			try {
-				String[] latLong = coordinates.split(",");
-				if (driver == null) {
-					driver = initBrowser();
-				}
-				loadLayers(latLong, driver);
-			} catch (InterruptedException e) {
-				logger.error("Error when opening browser window", e);
+
+			final String[] latLong = coordinates.split(",");
+			if (driver == null) {
+				driver = initBrowser();     
 			}
 
+			final RemoteWebDriver driverCopy = driver; 
+			Thread loadLayersThread = new Thread(){
+				public void run() {
+					try {
+						loadLayers(latLong, driverCopy);
+					} catch (InterruptedException e) {
+						logger.error("Error when opening browser window", e);
+					}
+				};
+			};
+
+			loadLayersThread.start();
 		}
 		return driver;
 	}
@@ -397,4 +425,5 @@ public class BrowserService {
 		}
 		return true;
 	}
+
 }

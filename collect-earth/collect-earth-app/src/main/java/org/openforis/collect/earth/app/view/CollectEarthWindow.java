@@ -84,10 +84,10 @@ public class CollectEarthWindow {
 		menu.add(menuItem);
 		menuBar.add(menu);
 
-//		menuItem = new JMenuItem("Set properties");
-//		menuItem.addActionListener(getPropertiesAction(frame));
-//		menu.add(menuItem);
-//		menuBar.add(menu);
+		menuItem = new JMenuItem("Set properties");
+		menuItem.addActionListener(getPropertiesAction(frame));
+		menu.add(menuItem);
+		menuBar.add(menu);
 
 		menu = new JMenu("Help");
 
@@ -101,10 +101,11 @@ public class CollectEarthWindow {
 	}
 
 	private ActionListener getPropertiesAction(JFrame owner) {
-		final JDialog dialog = new JDialog(owner, "FAO Disclaimer notices");
+		final JDialog dialog = new OptionWizard(owner, localPropertiesService);
 		dialog.setLocationRelativeTo(owner);
-		dialog.setSize(new Dimension(300, 400));
+		dialog.setSize(new Dimension(600, 400));
 		dialog.setModal(true);
+		dialog.setResizable(false);
 
 		return new ActionListener() {
 
@@ -195,13 +196,25 @@ public class CollectEarthWindow {
 									"<html>Are you sure that you want to close Collect Earth?<br>Closing the window will also close the Collect Earth server</html>",
 									"Confirmation needed", JOptionPane.YES_NO_OPTION);
 					if (confirmation == JOptionPane.YES_OPTION) {
-						serverController.stopServer();
+						Thread stopServer = new Thread(){
+							public void run() {
+								try {
+									serverController.stopServer();
+								} catch (Exception e) {
+									logger.error("Error when trying to closing the server", e);
+								}
+							};
+						};
+						
 						getFrame().setVisible(false);
 						getFrame().dispose();
+						stopServer.start();
+						 Thread.sleep( 2000 );
+						
 						System.exit(0);
 					}
 				} catch (Exception e1) {
-					logger.error("Error when trying to shutdown the server when window is closed", e);
+					logger.error("Error when trying to shutdown the server when window is closed", e1);
 				}
 
 			}

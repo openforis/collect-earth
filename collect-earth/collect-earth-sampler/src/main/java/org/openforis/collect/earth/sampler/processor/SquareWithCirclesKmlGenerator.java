@@ -11,7 +11,7 @@ public class SquareWithCirclesKmlGenerator extends SquareKmlGenerator {
 	private static final int NUMBER_OF_EXTERNAL_POINTS = 4;
 
 	public SquareWithCirclesKmlGenerator(String epsgCode, String host, String port, Integer innerPointSide) {
-		super(epsgCode, host, port, innerPointSide);
+		super(epsgCode, host, port, innerPointSide, 25);
 	}
 
 	@Override
@@ -19,20 +19,20 @@ public class SquareWithCirclesKmlGenerator extends SquareKmlGenerator {
 			SimplePlacemarkObject parentPlacemark) throws TransformException {
 
 		// Move to the top-left point
-		final double originalCoordGeneralOffsetX = (-1d * NUM_OF_COLS * distanceBetweenSamplePoints / 2d);
-		final double originalCoordGeneralOffsetY = (NUM_OF_ROWS * distanceBetweenSamplePoints / 2d);
+		final double originalCoordGeneralOffsetX = (-1d * getNumOfRows() * distanceBetweenSamplePoints / 2d);
+		final double originalCoordGeneralOffsetY = (getNumOfRows() * distanceBetweenSamplePoints / 2d);
 
 		double[] topLeftCoord = getPointWithOffset(centerCoordinate, originalCoordGeneralOffsetX, originalCoordGeneralOffsetY);
 
 		List<SimplePlacemarkObject> pointsInPlacemark = new ArrayList<SimplePlacemarkObject>();
 
-		// Get the inner bounbdaiures of the squares
+		// Get the inner boundaries of the squares
 		List<SimpleCoordinate> coords = new ArrayList<SimpleCoordinate>();
 
-		for (int col = 1; col < NUM_OF_COLS; col++) {
+		for (int col = 1; col < getNumOfRows(); col++) {
 			double offsetLong = col * distanceBetweenSamplePoints; // GO
 			// EAST
-			for (int row = 1; row < NUM_OF_ROWS; row++) {
+			for (int row = 1; row < getNumOfRows(); row++) {
 				double offsetLat = -(row * distanceBetweenSamplePoints); // GO
 				// SOUTH
 

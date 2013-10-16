@@ -10,26 +10,35 @@ import org.opengis.referencing.operation.TransformException;
 
 public class SquareKmlGenerator extends PolygonKmlGenerator {
 
-	public SquareKmlGenerator(String epsgCode, String host, String port, Integer innerPointSide) {
+	int numberOfPoints = 0;
+	
+	public SquareKmlGenerator(String epsgCode, String host, String port, Integer innerPointSide, int numberOfPoints) {
 		super(epsgCode, host, port, innerPointSide);
+		this.numberOfPoints = numberOfPoints;
 	}
 
 	protected void addMiniPlacemarks(int numberOfPlacemarks, double[] coordOriginal, SimplePlacemarkObject parentPlacemark) {
 
 	}
 
+	
+	@Override
+	protected int getNumOfRows() {
+		return (int) Math.sqrt( numberOfPoints ) + 1;
+	}
+	
 	@Override
 	protected void fillExternalLine(float distanceBetweenSamplePoints, float distancePlotBoundary, double[] coordOriginal,
 			SimplePlacemarkObject parentPlacemark) throws TransformException {
 		List<SimpleCoordinate> shapePoints = new ArrayList<SimpleCoordinate>();
 
-		double xSideLength = (distanceBetweenSamplePoints * (NUM_OF_COLS - 2)) + 2 * distancePlotBoundary;
-		double ySideLength = (distanceBetweenSamplePoints * (NUM_OF_ROWS - 2)) + 2 * distancePlotBoundary;
+		double xSideLength = (distanceBetweenSamplePoints * (getNumOfRows() - 2)) + 2 * distancePlotBoundary;
+		double ySideLength = (distanceBetweenSamplePoints * (getNumOfRows() - 2)) + 2 * distancePlotBoundary;
 
 		// Move to the top-left point
-		final double originalCoordGeneralOffsetX = (-1d * (NUM_OF_COLS - 2) * distanceBetweenSamplePoints / 2d)
+		final double originalCoordGeneralOffsetX = (-1d * (getNumOfRows() - 2) * distanceBetweenSamplePoints / 2d)
 				- distancePlotBoundary;
-		final double originalCoordGeneralOffsetY = ((NUM_OF_ROWS - 2) * distanceBetweenSamplePoints / 2d) + distancePlotBoundary;
+		final double originalCoordGeneralOffsetY = ((getNumOfRows() - 2) * distanceBetweenSamplePoints / 2d) + distancePlotBoundary;
 
 		double[] topLeftSquareCoord = getPointWithOffset(coordOriginal, originalCoordGeneralOffsetX, originalCoordGeneralOffsetY);
 
@@ -79,8 +88,8 @@ public class SquareKmlGenerator extends PolygonKmlGenerator {
 			throws TransformException {
 
 		// Move to the top-left point
-		final double originalCoordGeneralOffsetX = (-1d * NUM_OF_COLS * distanceBetweenSamplePoints / 2d) - getPointSide() / 2d;
-		final double originalCoordGeneralOffsetY = (NUM_OF_ROWS * distanceBetweenSamplePoints / 2d) - getPointSide() / 2d;
+		final double originalCoordGeneralOffsetX = (-1d * getNumOfRows() * distanceBetweenSamplePoints / 2d) - getPointSide() / 2d;
+		final double originalCoordGeneralOffsetY = (getNumOfRows() * distanceBetweenSamplePoints / 2d) - getPointSide() / 2d;
 
 		double[] topLeftCoord = getPointWithOffset(centerCoordinate, originalCoordGeneralOffsetX, originalCoordGeneralOffsetY);
 
@@ -88,10 +97,10 @@ public class SquareKmlGenerator extends PolygonKmlGenerator {
 
 		boolean addCentralPoints = getPointSide() > 20;
 
-		for (int col = 1; col < NUM_OF_COLS; col++) {
+		for (int col = 1; col < getNumOfRows(); col++) {
 			double offsetLong = col * distanceBetweenSamplePoints; // GO
 			// EAST
-			for (int row = 1; row < NUM_OF_ROWS; row++) {
+			for (int row = 1; row < getNumOfRows(); row++) {
 				double offsetLat = -(row * distanceBetweenSamplePoints); // GO
 				// SOUTH
 
@@ -115,12 +124,11 @@ public class SquareKmlGenerator extends PolygonKmlGenerator {
 
 		}
 
-		int totalNumberOfPoints = (NUM_OF_COLS - 1) * (NUM_OF_ROWS - 1);
-		if (totalNumberOfPoints % 2 == 1) {
+		if (numberOfPoints % 2 == 1) {
 			if (addCentralPoints) {
-				parentPlacemark.setSamplePointOutlined(totalNumberOfPoints - 1);
+				parentPlacemark.setSamplePointOutlined(numberOfPoints - 1);
 			} else {
-				parentPlacemark.setSamplePointOutlined((int) Math.ceil((double) totalNumberOfPoints / 2d) - 1);
+				parentPlacemark.setSamplePointOutlined((int) Math.ceil((double) numberOfPoints / 2d) - 1);
 			}
 		}
 

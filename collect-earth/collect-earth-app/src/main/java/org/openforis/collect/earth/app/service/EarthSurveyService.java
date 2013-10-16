@@ -11,6 +11,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Vector;
 
+import org.openforis.collect.earth.app.service.LocalPropertiesService.EarthProperty;
 import org.openforis.collect.manager.RecordManager;
 import org.openforis.collect.manager.SurveyManager;
 import org.openforis.collect.manager.exception.SurveyValidationException;
@@ -40,7 +41,7 @@ public class EarthSurveyService {
 	public static final String PLACEMARK_FOUND_PARAMETER = "placemark_found";
 	public static final int ROOT_ENTITY_ID = 1;
 	public static final String ROOT_ENTITY_NAME = "plot";
-	private static final String SKIP_FILLED_PLOT_PARAMETER = "earth_skip_filled";
+	private static final String SKIP_FILLED_PLOT_PARAMETER = "jump_to_next_plot";
 
 	@Autowired
 	private CollectParametersHandlerService collectParametersHandler;
@@ -59,7 +60,7 @@ public class EarthSurveyService {
 	private SurveyManager surveyManager;
 
 	private void addLocalProperties(Map<String, String> placemarkParameters) {
-		placemarkParameters.put(SKIP_FILLED_PLOT_PARAMETER, localPropertiesService.shouldSkipFilledPlots() + "");
+		placemarkParameters.put(SKIP_FILLED_PLOT_PARAMETER, localPropertiesService.shouldJumpToNextPlot() + "");
 	}
 
 	private void addResultParameter(Map<String, String> placemarkParameters, boolean found) {
@@ -123,7 +124,7 @@ public class EarthSurveyService {
 	}
 
 	private String getIdmFilePath() {
-		return localPropertiesService.getValue(LocalPropertiesService.METADATA_FILE);
+		return localPropertiesService.getValue(EarthProperty.METADATA_FILE);
 	}
 
 	public synchronized Map<String, String> getPlacemark(String placemarkId) {
@@ -206,7 +207,7 @@ public class EarthSurveyService {
 
 	private void saveLocalProperties(Map<String, String> parameters) {
 		// Save extra information
-		localPropertiesService.setSkipFilledPlots(parameters.get(SKIP_FILLED_PLOT_PARAMETER));
+		localPropertiesService.setJumpToNextPlot(parameters.get(SKIP_FILLED_PLOT_PARAMETER));
 	}
 
 	void setCollectSurvey(CollectSurvey collectSurvey) {

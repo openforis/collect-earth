@@ -151,4 +151,9 @@ public class CircleKmlGenerator extends PolygonKmlGenerator {
 		return insidePlacemark;
 	}
 
+	@Override
+	int getNumOfRows() {
+		return 25;
+	}
+
 }

@@ -25,8 +25,7 @@ public abstract class PolygonKmlGenerator extends KmlGenerator {
 
 	private static final Integer DEFAULT_INNER_POINT_SIDE = 2;
 	private Integer innerPointSide;
-	protected static final int NUM_OF_COLS = 6;
-	protected static final int NUM_OF_ROWS = 6;
+
 	private final String host;
 	private final String port;
 	private final Logger logger = LoggerFactory.getLogger(this.getClass());
@@ -164,5 +163,7 @@ public abstract class PolygonKmlGenerator extends KmlGenerator {
 		}
 		return innerPointSide;
 	}
+
+	abstract int getNumOfRows() ;
 
 }

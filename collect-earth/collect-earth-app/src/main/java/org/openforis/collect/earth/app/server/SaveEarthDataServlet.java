@@ -24,15 +24,15 @@ public class SaveEarthDataServlet extends JsonPocessorServlet {
 			collectedData.put("collect_text_id", "testPlacemark");
 		}
 
-		if (collectedData.get("collect_integer_elevation").equals("$[elevation]")) {
+		if (collectedData.get("collect_integer_elevation") != null && collectedData.get("collect_integer_elevation").equals("$[elevation]")) {
 			collectedData.put("collect_integer_elevation", "0");
 		}
 
-		if (collectedData.get("collect_real_slope").equals("$[slope]")) {
+		if (collectedData.get("collect_real_slope")!=null && collectedData.get("collect_real_slope").equals("$[slope]")) {
 			collectedData.put("collect_real_slope", "0");
 		}
 
-		if (collectedData.get("collect_real_aspect").equals("$[aspect]")) {
+		if (collectedData.get("collect_real_aspect")!=null && collectedData.get("collect_real_aspect").equals("$[aspect]")) {
 			collectedData.put("collect_real_aspect", "0");
 		}
 		

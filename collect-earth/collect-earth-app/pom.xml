@@ -176,15 +176,10 @@
 				<version>2.3.1</version>
 				<configuration>
 					<archive>
-						<manifest>
-							<addClasspath>true</addClasspath>
-							<classpathPrefix>earth-libs</classpathPrefix>
-							<mainClass>org.openforis.collect.earth.app.desktop.EarthApp</mainClass>
-						</manifest>
-					</archive>
-				</configuration>
+						<manifestFile>MANIFEST.MF</manifestFile>
+          			</archive>
+        		</configuration>
 			</plugin>
-
 		</plugins>
 	</build>
 </project>
