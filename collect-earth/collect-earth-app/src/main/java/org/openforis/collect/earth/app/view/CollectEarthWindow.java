@@ -112,6 +112,7 @@ public class CollectEarthWindow {
 			@Override
 			public void actionPerformed(ActionEvent e) {
 				dialog.setVisible(true);
+				dialog.pack();
 			}
 		};
 

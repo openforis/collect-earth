@@ -66,7 +66,7 @@ public abstract class KmlGenerator extends AbstractWgs84Transformer {
 		// separate the KML generation so it is easier to create different KMLs
 		String balloonContents = FileUtils.readFileToString(new File(balloonFile));
 		data.put("html_for_balloon", balloonContents);
-
+		
 		// Process the template file using the data in the "data" Map
 		Configuration cfg = new Configuration();
 

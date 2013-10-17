@@ -2,7 +2,6 @@ package org.openforis.collect.earth.app.view;
 
 import java.awt.BorderLayout;
 import java.awt.Component;
-import java.awt.FlowLayout;
 import java.awt.GridBagConstraints;
 import java.awt.GridBagLayout;
 import java.awt.Insets;
@@ -13,7 +12,6 @@ import java.util.HashMap;
 import java.util.Set;
 
 import javax.swing.AbstractButton;
-import javax.swing.BoxLayout;
 import javax.swing.ButtonGroup;
 import javax.swing.JButton;
 import javax.swing.JCheckBox;
@@ -25,10 +23,10 @@ import javax.swing.JLabel;
 import javax.swing.JList;
 import javax.swing.JOptionPane;
 import javax.swing.JPanel;
-import javax.swing.JPopupMenu;
 import javax.swing.JRadioButton;
 import javax.swing.JScrollPane;
 import javax.swing.JTabbedPane;
+import javax.swing.JTextField;
 import javax.swing.border.BevelBorder;
 import javax.swing.border.Border;
 import javax.swing.border.TitledBorder;
@@ -58,6 +56,35 @@ public class OptionWizard extends JDialog{
 		this.localPropertiesService = localPropertiesService;
 		initilizeInputs();
 		buildMainPane();
+	}
+	
+	
+	private class ComboBoxItem{
+		private Integer numberOfPoints;
+
+		private String label;
+		
+		public ComboBoxItem(int numberOfPoints, String label) {
+			super();
+			this.numberOfPoints = numberOfPoints;
+			this.label = label;
+		}
+
+		public int getNumberOfPoints() {
+			return numberOfPoints;
+		}
+
+		
+		@Override
+		public String toString() {
+			return label;
+		}
+		
+		@Override
+		public boolean equals(Object obj) {
+			return numberOfPoints.equals( ( (ComboBoxItem)obj).getNumberOfPoints() );
+		}
+		
 	}
 
 
@@ -104,7 +131,7 @@ public class OptionWizard extends JDialog{
 					}else if( component instanceof JCheckBox ){
 						localPropertiesService.setValue(earthProperty, ( (JCheckBox) component ).isSelected() + "" );
 					}else if( component instanceof JComboBox ){
-						localPropertiesService.setValue(earthProperty, ( (JComboBox) component ).getSelectedItem() + "" );
+						localPropertiesService.setValue(earthProperty, ( (ComboBoxItem) ( (JComboBox<ComboBoxItem>) component ).getSelectedItem() ).getNumberOfPoints() + "" );
 					}else if( component instanceof JList ){
 						localPropertiesService.setValue(earthProperty, ( (JList) component ).getSelectedValue() + "" );
 					}else if( component instanceof JRadioButton ){
@@ -155,19 +182,30 @@ public class OptionWizard extends JDialog{
 
 		JFilePicker csvWithPlotData = new JFilePicker("Path to ced/csv file with plot data",  localPropertiesService.getValue( EarthProperty.CSV_KEY), "Browse...");
 		csvWithPlotData.setMode(JFilePicker.MODE_OPEN);	
-		csvWithPlotData.addFileTypeFilter(".ced", "CSV file with extra elevation data");
-		csvWithPlotData.addFileTypeFilter(".csv", "CSV file with only coordinates");
+		csvWithPlotData.addFileTypeFilter(".ced", "CSV file with extra elevation data", true);
+		csvWithPlotData.addFileTypeFilter(".csv", "CSV file with only coordinates", false);
 		propertyToComponent.put(EarthProperty.CSV_KEY, new JComponent[]{ csvWithPlotData} );
 
-		JComboBox<String> comboNumberOfPoints = new JComboBox<String>( new String[]{ "1", "4", "9", "16", "25", "36", "49"});
-		comboNumberOfPoints.setSelectedItem( localPropertiesService.getValue( EarthProperty.NUMBER_OF_SAMPLING_POINTS_IN_PLOT) );
+		JComboBox<ComboBoxItem> comboNumberOfPoints = new JComboBox<ComboBoxItem>( 
+				new ComboBoxItem[]{
+						new ComboBoxItem( 1 , "Central point") ,  
+						new ComboBoxItem(4, "2x2"),
+						new ComboBoxItem(9, "3x3"),
+						new ComboBoxItem(16, "4x4"),
+						new ComboBoxItem(25, "5x5"),
+						new ComboBoxItem(36, "6x6"),
+						new ComboBoxItem(49, "7x7")
+				});
+		comboNumberOfPoints.setSelectedItem( 
+				new ComboBoxItem( Integer.parseInt( 
+						localPropertiesService.getValue( EarthProperty.NUMBER_OF_SAMPLING_POINTS_IN_PLOT) ) ,""
+				));
 		propertyToComponent.put( EarthProperty.NUMBER_OF_SAMPLING_POINTS_IN_PLOT, new JComponent[]{comboNumberOfPoints });
 
 		String[] listOfNumbers = new String[995];
 		int offset = 5;
 		for (int index = 0; index < listOfNumbers.length; index++) {
 			listOfNumbers[index] = ( index + offset ) + "";
-
 		}
 
 		//JTextField listOfDistanceBetweenPoints  = new JTextField( localPropertiesService.getValue( EarthProperty.DISTANCE_BETWEEN_SAMPLE_POINTS) );
@@ -186,7 +224,6 @@ public class OptionWizard extends JDialog{
 
 		propertyToComponent.put( EarthProperty.DISTANCE_TO_PLOT_BOUNDARIES, new JComponent[]{listOfDistanceToBorder} );
 
-
 		JRadioButton chromeChooser = new JRadioButton("Chrome");
 		chromeChooser.setSelected( localPropertiesService.getValue( EarthProperty.BROWSER_TO_USE ).trim().equals( LocalPropertiesService.CHROME_BROWSER) );
 		chromeChooser.setName(LocalPropertiesService.CHROME_BROWSER);
@@ -202,15 +239,39 @@ public class OptionWizard extends JDialog{
 
 		JFilePicker firefoxBinaryPath = new JFilePicker("Path to Firefox executable ",  localPropertiesService.getValue( EarthProperty.FIREFOX_BINARY_PATH), "Browse...");
 		firefoxBinaryPath.setMode(JFilePicker.MODE_OPEN);	
-		firefoxBinaryPath.addFileTypeFilter(".exe", "Executable files");
-		firefoxBinaryPath.addFileTypeFilter(".bin", "Binary files");
+		firefoxBinaryPath.addFileTypeFilter(".exe", "Executable files", true);
+		firefoxBinaryPath.addFileTypeFilter(".bin", "Binary files", false);
 		propertyToComponent.put(EarthProperty.FIREFOX_BINARY_PATH, new JComponent[]{ firefoxBinaryPath} );
 
 		JFilePicker chromeBinaryPath = new JFilePicker("Path to Chrome executable ",  localPropertiesService.getValue( EarthProperty.CHROME_BINARY_PATH), "Browse...");
 		chromeBinaryPath.setMode(JFilePicker.MODE_OPEN);	
-		chromeBinaryPath.addFileTypeFilter(".exe", "Executable files");
-		chromeBinaryPath.addFileTypeFilter(".bin", "Binary files");
+		chromeBinaryPath.addFileTypeFilter(".exe", "Executable files", true);
+		chromeBinaryPath.addFileTypeFilter(".bin", "Binary files", false);
 		propertyToComponent.put(EarthProperty.CHROME_BINARY_PATH, new JComponent[]{ chromeBinaryPath} );
+		
+		
+		JCheckBox openBallonInBrowserCheckbox = new JCheckBox( "Open form in its own browser");
+		openBallonInBrowserCheckbox.setSelected( Boolean.parseBoolean(localPropertiesService.getValue( EarthProperty.OPEN_BALLOON_IN_BROWSER) ) );
+		propertyToComponent.put( EarthProperty.OPEN_BALLOON_IN_BROWSER, new JComponent[]{openBallonInBrowserCheckbox });
+		
+		JFilePicker kmlTemplatePath = new JFilePicker("Path to KML Freemarker template ",  localPropertiesService.getValue( EarthProperty.KML_TEMPLATE_KEY), "Browse...");
+		kmlTemplatePath.setMode(JFilePicker.MODE_OPEN);	
+		kmlTemplatePath.addFileTypeFilter(".fmt", "Freemarker template", true);
+		propertyToComponent.put(EarthProperty.KML_TEMPLATE_KEY, new JComponent[]{ kmlTemplatePath} );
+		
+		JFilePicker htmlBalloonPath = new JFilePicker("Path to HTML Balloon form design ",  localPropertiesService.getValue( EarthProperty.BALLOON_TEMPLATE_KEY), "Browse...");
+		htmlBalloonPath.setMode(JFilePicker.MODE_OPEN);	
+		htmlBalloonPath.addFileTypeFilter(".html", "HTML webpage", true);
+		htmlBalloonPath.addFileTypeFilter(".htm", "HTML webpage", false);
+		propertyToComponent.put(EarthProperty.BALLOON_TEMPLATE_KEY, new JComponent[]{ htmlBalloonPath} );
+		
+		JFilePicker idmPath = new JFilePicker("Path to XML with IDM definition",  localPropertiesService.getValue( EarthProperty.METADATA_FILE), "Browse...");
+		idmPath.setMode(JFilePicker.MODE_OPEN);	
+		idmPath.addFileTypeFilter(".xml", "XML IDM definition", true);
+		propertyToComponent.put(EarthProperty.METADATA_FILE, new JComponent[]{ idmPath} );
+		
+		JTextField surveyNameTextField = new JTextField( localPropertiesService.getValue( EarthProperty.SURVEY_NAME) );
+		propertyToComponent.put( EarthProperty.SURVEY_NAME,new JComponent[]{  surveyNameTextField } );
 	}
 
 	private JTabbedPane getOptionTabs(){
@@ -237,7 +298,6 @@ public class OptionWizard extends JDialog{
 		constraints.gridy = 0;
 		constraints.anchor = GridBagConstraints.LINE_START;
 		constraints.insets = new Insets(5, 5, 5, 5);
-		constraints.gridwidth = GridBagConstraints.REMAINDER;
 		constraints.fill = GridBagConstraints.HORIZONTAL;
 
 		panel.add( propertyToComponent.get(EarthProperty.OPEN_EARTH_ENGINE )[0],constraints );
@@ -255,7 +315,6 @@ public class OptionWizard extends JDialog{
 		constraints.gridy++;
 		panel.add(browserChooserPanel, constraints );
 
-		constraints.gridwidth = GridBagConstraints.NONE;
 		constraints.gridy++;
 		constraints.gridx = 0;
 		panel.add( propertyToComponent.get(EarthProperty.FIREFOX_BINARY_PATH )[0] , constraints);
@@ -269,8 +328,38 @@ public class OptionWizard extends JDialog{
 	}
 
 	private JComponent getSurveyDefinitonPanel() {
-		// TODO Auto-generated method stub
-		return new JPanel();
+		JPanel panel = new JPanel( new GridBagLayout());
+		GridBagConstraints constraints = new GridBagConstraints();
+		constraints.gridx = 0;
+		constraints.gridy = 0;
+		constraints.anchor = GridBagConstraints.LINE_START;
+		constraints.insets = new Insets(5, 5, 5, 5);
+		constraints.fill = GridBagConstraints.HORIZONTAL;
+
+		panel.add( propertyToComponent.get(EarthProperty.OPEN_BALLOON_IN_BROWSER )[0],constraints );
+
+		constraints.gridy++;
+		constraints.gridwidth = GridBagConstraints.NONE;
+		JLabel label = new JLabel("Name of survey");
+		panel.add( label, constraints );
+		constraints.gridx =1;
+		panel.add( propertyToComponent.get( EarthProperty.SURVEY_NAME)[0], constraints );
+		
+		constraints.gridy++;
+		constraints.gridwidth = GridBagConstraints.REMAINDER;
+		constraints.gridx = 0;
+		panel.add( propertyToComponent.get(EarthProperty.KML_TEMPLATE_KEY )[0] , constraints);
+
+		constraints.gridy++;
+		constraints.gridx = 0;
+		panel.add( propertyToComponent.get(EarthProperty.BALLOON_TEMPLATE_KEY )[0], constraints );
+		
+		constraints.gridy++;
+		constraints.gridx = 0;
+		panel.add( propertyToComponent.get(EarthProperty.METADATA_FILE )[0], constraints );
+
+
+		return panel;
 	}
 
 	private JComponent getPlotOptionsPanel() {
@@ -280,6 +369,8 @@ public class OptionWizard extends JDialog{
 		constraints.gridy = 0;
 		constraints.anchor = GridBagConstraints.LINE_START;
 		constraints.insets = new Insets(5, 5, 5, 5);
+		constraints.fill = GridBagConstraints.HORIZONTAL;
+		
 		JLabel label = new JLabel("Number of sample points");
 		panel.add( label, constraints );
 
@@ -304,10 +395,15 @@ public class OptionWizard extends JDialog{
 	}
 
 	private JComponent getSampleDataPanel() {
-		JPanel panel = new JPanel();
-		JLabel label = new JLabel("CSV/CED file path");
-		panel.add( label );
-		panel.add( propertyToComponent.get( EarthProperty.CSV_KEY)[0] );
+		JPanel panel = new JPanel(new GridBagLayout());
+		GridBagConstraints constraints = new GridBagConstraints();
+		constraints.gridx = 0;
+		constraints.gridy = 0;
+		constraints.anchor = GridBagConstraints.LINE_START;
+		constraints.insets = new Insets(5, 5, 5, 5);
+		constraints.fill = GridBagConstraints.HORIZONTAL;
+
+		panel.add( propertyToComponent.get( EarthProperty.CSV_KEY)[0] , constraints);
 
 
 		return panel;

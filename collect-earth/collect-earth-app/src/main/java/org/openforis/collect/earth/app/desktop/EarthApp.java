@@ -15,7 +15,6 @@ import java.util.Map;
 import java.util.Observable;
 import java.util.Observer;
 
-import javax.management.RuntimeErrorException;
 import javax.swing.JOptionPane;
 
 import org.apache.commons.codec.digest.DigestUtils;
@@ -41,7 +40,7 @@ import freemarker.template.TemplateException;
 public class EarthApp {
 
 
-	private static final String GENERATED_FOLDER = "generated";
+	public static final String GENERATED_FOLDER = "generated";
 	private static final String KML_RESULTING_TEMP_FILE = GENERATED_FOLDER + "/plots.kml";
 	private final static Logger LOGGER = LoggerFactory.getLogger(EarthApp.class);
 	private static ServerController serverController;
@@ -163,7 +162,7 @@ public class EarthApp {
 			Boolean openBalloonInFirefox = new Boolean(
 					localProperties.getValue(EarthProperty.OPEN_BALLOON_IN_BROWSER));
 			if (openBalloonInFirefox) {
-				balloon = localProperties.getValue(EarthProperty.ALTERNATIVE_BALLOON_FOR_BROWSER);
+				balloon = localProperties.getValue(EarthProperty.ALTERNATIVE_BALLOON_FOR_BROWSER);				
 			}
 			
 			
