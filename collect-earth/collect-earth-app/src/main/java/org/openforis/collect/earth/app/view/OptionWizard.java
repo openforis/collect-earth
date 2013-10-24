@@ -131,7 +131,11 @@ public class OptionWizard extends JDialog{
 					}else if( component instanceof JCheckBox ){
 						localPropertiesService.setValue(earthProperty, ( (JCheckBox) component ).isSelected() + "" );
 					}else if( component instanceof JComboBox ){
-						localPropertiesService.setValue(earthProperty, ( (ComboBoxItem) ( (JComboBox<ComboBoxItem>) component ).getSelectedItem() ).getNumberOfPoints() + "" );
+						if( ((JComboBox) component).getItemAt(0) instanceof ComboBoxItem){
+							localPropertiesService.setValue(earthProperty, ( (ComboBoxItem) ( (JComboBox) component ).getSelectedItem() ).getNumberOfPoints() + "" );
+						}else{
+							localPropertiesService.setValue(earthProperty, (String) ( (JComboBox) component ).getSelectedItem()  );
+						}
 					}else if( component instanceof JList ){
 						localPropertiesService.setValue(earthProperty, ( (JList) component ).getSelectedValue() + "" );
 					}else if( component instanceof JRadioButton ){
@@ -172,11 +176,11 @@ public class OptionWizard extends JDialog{
 
 	private void initilizeInputs(){
 
-		JCheckBox openEarthEngineCheckbox = new JCheckBox( "Open Earth Engine in separate window");
+		JCheckBox openEarthEngineCheckbox = new JCheckBox( "Open Earth Engine zoomed into plot area");
 		openEarthEngineCheckbox.setSelected( Boolean.parseBoolean(localPropertiesService.getValue( EarthProperty.OPEN_EARTH_ENGINE) ) );
 		propertyToComponent.put( EarthProperty.OPEN_EARTH_ENGINE, new JComponent[]{openEarthEngineCheckbox });
 
-		JCheckBox openInSeparateWindowCheckbox = new JCheckBox("Open form on a browser instead of Google Earth");
+		JCheckBox openInSeparateWindowCheckbox = new JCheckBox("Open form on a browser instead of Google Earth ( recommended for LINUX )");
 		openInSeparateWindowCheckbox.setSelected( Boolean.parseBoolean(localPropertiesService.getValue( EarthProperty.OPEN_BALLOON_IN_BROWSER) ) );
 		propertyToComponent.put( EarthProperty.OPEN_BALLOON_IN_BROWSER, new JComponent[]{openInSeparateWindowCheckbox} );
 
@@ -186,7 +190,7 @@ public class OptionWizard extends JDialog{
 		csvWithPlotData.addFileTypeFilter(".csv", "CSV file with only coordinates", false);
 		propertyToComponent.put(EarthProperty.CSV_KEY, new JComponent[]{ csvWithPlotData} );
 
-		JComboBox<ComboBoxItem> comboNumberOfPoints = new JComboBox<ComboBoxItem>( 
+		JComboBox comboNumberOfPoints = new JComboBox( 
 				new ComboBoxItem[]{
 						new ComboBoxItem( 1 , "Central point") ,  
 						new ComboBoxItem(4, "2x2"),
@@ -209,18 +213,16 @@ public class OptionWizard extends JDialog{
 		}
 
 		//JTextField listOfDistanceBetweenPoints  = new JTextField( localPropertiesService.getValue( EarthProperty.DISTANCE_BETWEEN_SAMPLE_POINTS) );
-		JList<String> listOfDistanceBetweenPoints = new JList<String>( listOfNumbers );
-		listOfDistanceBetweenPoints.setSelectedValue( localPropertiesService.getValue( EarthProperty.DISTANCE_BETWEEN_SAMPLE_POINTS) , false);
+		JComboBox listOfDistanceBetweenPoints = new JComboBox( listOfNumbers );
+		listOfDistanceBetweenPoints.setSelectedItem( localPropertiesService.getValue( EarthProperty.DISTANCE_BETWEEN_SAMPLE_POINTS) );
 		listOfDistanceBetweenPoints.setAutoscrolls( true );
-		listOfDistanceBetweenPoints.setVisibleRowCount(1);
 
 		propertyToComponent.put( EarthProperty.DISTANCE_BETWEEN_SAMPLE_POINTS, new JComponent[]{listOfDistanceBetweenPoints} );
 
 		//		JTextField listOfDistanceToBorder = new JTextField(localPropertiesService.getValue( EarthProperty.DISTANCE_TO_PLOT_BOUNDARIES) );
-		JList<String> listOfDistanceToBorder = new JList<String>( listOfNumbers );
-		listOfDistanceToBorder.setSelectedValue( localPropertiesService.getValue( EarthProperty.DISTANCE_TO_PLOT_BOUNDARIES) , false);
+		JComboBox listOfDistanceToBorder = new JComboBox( listOfNumbers );
+		listOfDistanceToBorder.setSelectedItem( localPropertiesService.getValue( EarthProperty.DISTANCE_TO_PLOT_BOUNDARIES) );
 		listOfDistanceToBorder.setAutoscrolls( true );
-		listOfDistanceToBorder.setVisibleRowCount(1);
 
 		propertyToComponent.put( EarthProperty.DISTANCE_TO_PLOT_BOUNDARIES, new JComponent[]{listOfDistanceToBorder} );
 
@@ -233,9 +235,6 @@ public class OptionWizard extends JDialog{
 		firefoxChooser.setName(LocalPropertiesService.FIREFOX_BROWSER);
 		propertyToComponent.put( EarthProperty.BROWSER_TO_USE, new JComponent[]{ firefoxChooser, chromeChooser } );		
 
-		JCheckBox showPlotinGEE = new JCheckBox("Show plot in Google Earth Engine");
-		showPlotinGEE.setSelected( localPropertiesService.getValue(EarthProperty.OPEN_EARTH_ENGINE).trim().equals("true"));
-		propertyToComponent.put(EarthProperty.OPEN_EARTH_ENGINE, new JComponent[]{showPlotinGEE});
 
 		JFilePicker firefoxBinaryPath = new JFilePicker("Path to Firefox executable ",  localPropertiesService.getValue( EarthProperty.FIREFOX_BINARY_PATH), "Browse...");
 		firefoxBinaryPath.setMode(JFilePicker.MODE_OPEN);	
@@ -248,12 +247,7 @@ public class OptionWizard extends JDialog{
 		chromeBinaryPath.addFileTypeFilter(".exe", "Executable files", true);
 		chromeBinaryPath.addFileTypeFilter(".bin", "Binary files", false);
 		propertyToComponent.put(EarthProperty.CHROME_BINARY_PATH, new JComponent[]{ chromeBinaryPath} );
-		
-		
-		JCheckBox openBallonInBrowserCheckbox = new JCheckBox( "Open form in its own browser");
-		openBallonInBrowserCheckbox.setSelected( Boolean.parseBoolean(localPropertiesService.getValue( EarthProperty.OPEN_BALLOON_IN_BROWSER) ) );
-		propertyToComponent.put( EarthProperty.OPEN_BALLOON_IN_BROWSER, new JComponent[]{openBallonInBrowserCheckbox });
-		
+				
 		JFilePicker kmlTemplatePath = new JFilePicker("Path to KML Freemarker template ",  localPropertiesService.getValue( EarthProperty.KML_TEMPLATE_KEY), "Browse...");
 		kmlTemplatePath.setMode(JFilePicker.MODE_OPEN);	
 		kmlTemplatePath.addFileTypeFilter(".fmt", "Freemarker template", true);
@@ -335,11 +329,11 @@ public class OptionWizard extends JDialog{
 		constraints.anchor = GridBagConstraints.LINE_START;
 		constraints.insets = new Insets(5, 5, 5, 5);
 		constraints.fill = GridBagConstraints.HORIZONTAL;
-
+		constraints.gridwidth = 2;
 		panel.add( propertyToComponent.get(EarthProperty.OPEN_BALLOON_IN_BROWSER )[0],constraints );
 
 		constraints.gridy++;
-		constraints.gridwidth = GridBagConstraints.NONE;
+		constraints.gridwidth = 1;
 		JLabel label = new JLabel("Name of survey");
 		panel.add( label, constraints );
 		constraints.gridx =1;

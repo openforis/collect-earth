@@ -54,7 +54,9 @@ public class LocalPropertiesService {
 		GEE_ZOOM_METHOD ( "gee_js_zoom_method"),
 		GEE_INITIAL_ZOOM ( "gee_initial_zoom"),	
 		SURVEY_NAME("survey_name"),
-		NUMBER_OF_SAMPLING_POINTS_IN_PLOT ("number_of_sampling_points_in_plot");
+		AUTOMATIC_BACKUP("automatic_backup"),
+		NUMBER_OF_SAMPLING_POINTS_IN_PLOT ("number_of_sampling_points_in_plot"), 
+		GEE_JS_LIBRARY_URL("gee_js_library_url");
 
 		private String name;
 		private EarthProperty( String name) {

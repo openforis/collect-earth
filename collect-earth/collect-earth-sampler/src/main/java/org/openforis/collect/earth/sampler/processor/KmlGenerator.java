@@ -21,6 +21,7 @@ public abstract class KmlGenerator extends AbstractWgs84Transformer {
 	public static final String DEFAULT_HOST = "localhost";
 	public static final String DEFAULT_PORT = "80";
 	private final SimpleDateFormat httpHeaderDf = new SimpleDateFormat("EEE, dd MMM yyyy HH:mm:ss zzz");
+	private static final String pathSeparator = File.separator;
 
 	public static String getHostAddress(String host, String port) {
 		String hostAndPort = "";
@@ -44,7 +45,7 @@ public abstract class KmlGenerator extends AbstractWgs84Transformer {
 			String distanceBetweenSamplePoints, String distancePlotBoundary) throws IOException, TemplateException {
 
 		try {
-			File destinationFile = new File(destinationKmlFile);
+			File destinationFile = new File(convertToOSPath(destinationKmlFile));
 			destinationFile.getParentFile().mkdirs();
 			getKmlCode(csvFile, balloonFile, freemarkerKmlTemplateFile, destinationFile, distanceBetweenSamplePoints,
 					distancePlotBoundary);
@@ -59,28 +60,28 @@ public abstract class KmlGenerator extends AbstractWgs84Transformer {
 		Float fDistancePoints = Float.parseFloat(distanceBetweenSamplePoints);
 		Float fDistancePlotBoundary = Float.parseFloat(distancePlotBoundary);
 		// Build the data-model
-		Map<String, Object> data = getTemplateData(csvFile, fDistancePoints, fDistancePlotBoundary);
+		Map<String, Object> data = getTemplateData( convertToOSPath( csvFile ), fDistancePoints, fDistancePlotBoundary);
 		data.put("expiration", httpHeaderDf.format(new Date()));
 
 		// Get the HTML content of the balloon from a file, this way we can
 		// separate the KML generation so it is easier to create different KMLs
-		String balloonContents = FileUtils.readFileToString(new File(balloonFile));
+		String balloonContents = FileUtils.readFileToString(new File( convertToOSPath( balloonFile ) ));
 		data.put("html_for_balloon", balloonContents);
 		
 		// Process the template file using the data in the "data" Map
 		Configuration cfg = new Configuration();
+		File templateFile = new File( convertToOSPath ( freemarkerKmlTemplateFile) );
+		cfg.setDirectoryForTemplateLoading( templateFile.getParentFile() );
 
 		// Load template from source folder
-		Template template = cfg.getTemplate(freemarkerKmlTemplateFile);
+		Template template = cfg.getTemplate(templateFile.getName());
 
 		// Console output
 		BufferedWriter fw = null;
 		try {
-			fw = new BufferedWriter(new OutputStreamWriter(new FileOutputStream(destinationFile), Charset.forName("UTF-8")));
+			fw = new BufferedWriter(new OutputStreamWriter(new FileOutputStream( destinationFile ), Charset.forName("UTF-8")));
 
 			template.process(data, fw);
-		} catch (Exception e) {
-			getLogger().error("Error writing KML file", e);
 		} finally {
 			if (fw != null) {
 				fw.close();
@@ -90,6 +91,12 @@ public abstract class KmlGenerator extends AbstractWgs84Transformer {
 	}
 
 
+	private String convertToOSPath( String path ){
+		path =  path.replace("/" , pathSeparator );
+		path =  path.replace("\\" , pathSeparator );
+		return path;
+	}
+	
 	protected abstract Map<String, Object> getTemplateData(String csvFile, float distanceBetweenSamplePoints,
 			float distancePlotBoundary) throws IOException;
 

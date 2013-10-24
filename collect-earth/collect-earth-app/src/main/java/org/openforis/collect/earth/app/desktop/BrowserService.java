@@ -8,11 +8,19 @@ import java.io.InputStreamReader;
 import java.io.StringWriter;
 import java.io.Writer;
 import java.net.URL;
+import java.security.cert.CertificateException;
+import java.security.cert.X509Certificate;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Properties;
 import java.util.Vector;
+
+import javax.net.ssl.HttpsURLConnection;
+import javax.net.ssl.SSLContext;
+import javax.net.ssl.SSLSocketFactory;
+import javax.net.ssl.TrustManager;
+import javax.net.ssl.X509TrustManager;
 
 import org.openforis.collect.earth.app.service.LocalPropertiesService;
 import org.openforis.collect.earth.app.service.LocalPropertiesService.EarthProperty;
@@ -46,11 +54,9 @@ public class BrowserService {
 
 	private static final String LAYER_CONTAINER_BODY = "layer-container-body";
 
-	private static final String GEE_JS_URL = "http://earthengine.google.org/javascript/ee_js.js";
-
 	@Autowired
 	protected LocalPropertiesService localPropertiesService;
-	
+
 	private Vector<RemoteWebDriver> drivers = new Vector<RemoteWebDriver>();
 
 	private final Logger logger = LoggerFactory.getLogger(BrowserService.class);
@@ -63,7 +69,6 @@ public class BrowserService {
 	public BrowserService() {
 
 		attachShutDownHook();
-		logger.error("Broswer service started" );
 	}
 
 	public void attachShutDownHook(){
@@ -211,16 +216,12 @@ public class BrowserService {
 
 	private RemoteWebDriver initBrowser() {
 		RemoteWebDriver driver = null;
-
 		try {
-
 			driver = chooseDriver();
 			drivers.add(driver);
-			logger.error("initBrowser called " );
 		} catch (Exception e) {
 			logger.error("Problems starting chosen browser", e);
 		}
-
 		return driver;
 	}
 
@@ -244,7 +245,6 @@ public class BrowserService {
 	private void loadLayers( String[] latLong, RemoteWebDriver driver) throws InterruptedException {
 		if( driver != null ){
 			if (!isIdPresent("workspace-el", driver)) {
-
 				String[] layers = {
 						//"http://earthengine.google.org/#detail/LANDSAT%2FL7_L1T_ANNUAL_GREENEST_TOA"
 						//"http://earthengine.google.org/#detail/LANDSAT%2FL5_L1T_ANNUAL_GREENEST_TOA",  
@@ -257,17 +257,11 @@ public class BrowserService {
 						waitFor("workspace-el", driver);
 					}
 				}
-
-
 			}
 			if (waitFor("workspace-el", driver)) {
 				if (driver instanceof JavascriptExecutor) {
 					try {
-
-
-
 						String geeJs = getGEEJavascript(latLong);
-
 						if( !hasCheckValidity){
 							try {
 								if( !isGEEValidJS(geeJs, driver) ){
@@ -279,12 +273,8 @@ public class BrowserService {
 							}finally{
 								hasCheckValidity = true;
 							}
-
 						}
-
-
 						((JavascriptExecutor) driver).executeScript( geeJs );
-
 					} catch (Exception e) {
 						logger.warn("Error in the selenium driver", e);
 					}
@@ -304,7 +294,7 @@ public class BrowserService {
 
 	private void refreshJSValues(String geeJs, RemoteWebDriver driver) throws IOException {
 		String jsGee = getCompleteGeeJS();
-		if( jsGee != null ){
+		if( jsGee != null && jsGee.length() > 0 ){
 			// 	try to find this pattern for the gee_js_pickFunction value  ("workspace-el");  " var b=H("workspace-el"); "
 			int indexWorkspaceEL = jsGee.indexOf( WORKSPACE_EL) ;
 			int startEquals = 0;
@@ -315,30 +305,22 @@ public class BrowserService {
 			}
 			String pickFunction = jsGee.substring( startEquals+1,indexWorkspaceEL ).trim();
 
-
-
-
 			// 	try to find this pattern for the gee_js_zoom_object value Mt  G(g,"layer-container-body");a.na=new Mt(c,b);f.V(a.na,
 			int indexLayer = jsGee.indexOf( LAYER_CONTAINER_BODY, startEquals );
 			int indexEqual = jsGee.indexOf( NEW, indexLayer );
 			int indexParenthesis = jsGee.indexOf('(', indexEqual );
 
-
 			String zoomObject = jsGee.substring( indexEqual+ NEW.length() ,indexParenthesis ).trim();
 
-			//		 	try to find this pattern for the gee_js_zoom_function value Mt  Mt.prototype.I=function(a){if(ja(a)){Qt(this);var b=a.viewport;if(b){var c=parseInt(b.zoom,10),d=parseFloat(b.lat),
-
+			// try to find this pattern for the gee_js_zoom_function value Mt  Mt.prototype.I=function(a){if(ja(a)){Qt(this);var b=a.viewport;if(b){var c=parseInt(b.zoom,10),d=parseFloat(b.lat),
 			int indexZoom10 = jsGee.indexOf( ZOOM_10) ;
-
 			int startPrototype = jsGee.indexOf( zoomObject + PROTOTYPE, indexZoom10 - 200 );
 
 			String zoomFunction = jsGee.substring( startPrototype + zoomObject.length() + PROTOTYPE.length() +1, jsGee.indexOf('=', startPrototype) ).trim();
 
-
 			localPropertiesService.setValue(EarthProperty.GEE_FUNCTION_PICK, pickFunction );
 			localPropertiesService.setValue(EarthProperty.GEE_ZOOM_METHOD, zoomFunction );
 			localPropertiesService.setValue(EarthProperty.GEE_ZOOM_OBJECT, zoomObject );
-
 		}
 
 	}
@@ -347,16 +329,25 @@ public class BrowserService {
 		BufferedReader in = null;
 		StringBuffer jsResult = new StringBuffer();
 		try {
-			URL geeJsUrl = new URL( GEE_JS_URL );
+			URL geeJsUrl = new URL( localPropertiesService.getValue( EarthProperty.GEE_JS_LIBRARY_URL ) );
+
+			// Start Work-around so that we can connect to an HTTPS server without needing to include the certificate
+			SSLContext ssl = SSLContext.getInstance("TLSv1");
+			ssl.init(null, new TrustManager[]{new SimpleX509TrustManager()}, null);
+			SSLSocketFactory factory = ssl.getSocketFactory();
+			HttpsURLConnection connection = (HttpsURLConnection)geeJsUrl.openConnection();
+			connection.setSSLSocketFactory(factory);
+			// End or work-around
+
 			in = new BufferedReader(
-					new InputStreamReader(geeJsUrl.openStream()));
+					new InputStreamReader(connection.getInputStream()));
 			String inputLine;
 			while ((inputLine = in.readLine()) != null){
 				jsResult.append(inputLine);
 			}
 			in.close();
 		} catch (Exception e) {
-			logger.error("Not possible to read URI " + GEE_JS_URL );
+			logger.error("Not possible to read URI " + localPropertiesService.getValue( EarthProperty.GEE_JS_LIBRARY_URL ) , e );
 			return null;
 		}finally{
 			if( in != null){
@@ -372,7 +363,6 @@ public class BrowserService {
 		if (driver == null) {
 			driver = initBrowser();
 		}
-
 		if( driver != null ){
 			try {
 				driver.navigate().to(url);
@@ -426,4 +416,22 @@ public class BrowserService {
 		return true;
 	}
 
+	class SimpleX509TrustManager implements X509TrustManager {
+		public void checkClientTrusted(
+				X509Certificate[] cert, String s)
+						throws CertificateException {
+		}
+
+		public void checkServerTrusted(
+				X509Certificate[] cert, String s)
+						throws CertificateException {
+		}
+
+		@Override
+		public X509Certificate[] getAcceptedIssuers() {
+			// TODO Auto-generated method stub
+			return null;
+		}
+
+	}
 }
