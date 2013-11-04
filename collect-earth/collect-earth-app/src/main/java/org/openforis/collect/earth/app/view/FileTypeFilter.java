@@ -1,6 +1,7 @@
 package org.openforis.collect.earth.app.view;
 
 import java.io.File;
+
 import javax.swing.filechooser.FileFilter;
  
 public class FileTypeFilter extends FileFilter {

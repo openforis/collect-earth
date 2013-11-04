@@ -16,4 +16,7 @@ public abstract class EarthConstants {
 	public static final String LIST_FILLED_IMAGE = "/images/list_filled.png";
 
 	public static final String LIST_NON_FILLED_IMAGE = "/images/list_empty.png";
+	
+	public static final String LIST_NOT_FINISHED_IMAGE = "/images/list_not_finished.png";
+	
 }

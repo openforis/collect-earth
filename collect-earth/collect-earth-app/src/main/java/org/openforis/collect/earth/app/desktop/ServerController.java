@@ -26,14 +26,60 @@ import org.springframework.web.context.support.WebApplicationContextUtils;
  * 
  */
 public class ServerController extends Observable {
+
+
+
 	// Make sure that the default ports are the same for Server and Generator
 	private static final String DEFAULT_PORT = KmlGenerator.DEFAULT_PORT;
 	public static final String PLACEMARK_ID = "collect_text_id";
-
 	private Server server;
 	private final Logger logger = LoggerFactory.getLogger(ServerController.class);
-
 	private WebAppContext root;
+
+/*	@Autowired
+	BasicDataSource dataSource;
+	@Autowired
+	LocalPropertiesService localPropertiesService;
+	
+	public ServerController() {
+		attachShutDownHook();
+	}
+
+	private void attachShutDownHook(){
+		Runtime.getRuntime().addShutdownHook(new Thread() {
+			@Override
+			public void run() {
+				if( localPropertiesService.getValue(EarthProperty.AUTOMATIC_BACKUP)!= null && localPropertiesService.getValue(EarthProperty.AUTOMATIC_BACKUP).toLowerCase().trim().equals("true")){
+					backupDB();
+				}
+			}
+
+		});
+	}
+
+
+	private void backupDB() {
+		String pathToCollectDB = "";
+		String pathToBackup = "";
+		try {
+			pathToCollectDB = dataSource.getUrl();
+			int indexLastColon = pathToCollectDB.lastIndexOf(':');
+			// should look like jdbc:sqlite:collectEarthDatabase.db"
+			pathToCollectDB = pathToCollectDB.substring( indexLastColon );
+
+			long millis = System.currentTimeMillis();
+			String userHome = System.getProperty("user.home");
+			String backupFolder = userHome + "backupCollectEarth";
+			
+			File srcFile = new File(pathToCollectDB);
+			String destPath = backupFolder + File.separator + srcFile.getName() + "_bk_" + millis;
+
+			FileUtils.copyFile( new File(pathToCollectDB), new File(destPath));
+		} catch (IOException e) {
+			logger.error("Error when create backup of the Collect Earth Database from " + pathToCollectDB +" to " + pathToBackup );
+		}
+	}
+	*/
 
 	private int getPort() {
 
@@ -95,7 +141,7 @@ public class ServerController extends Observable {
 		// PropertyConfigurator.configure(this.getClass().getResource("/WEB-INF/conf/log4j.properties"));
 
 		server = new Server();
-//		// Use blocking-IO connector to improve throughput
+		//		// Use blocking-IO connector to improve throughput
 		Connector connector = new SocketConnector();
 		connector.setPort(getPort());
 		connector.setMaxIdleTime(10000);

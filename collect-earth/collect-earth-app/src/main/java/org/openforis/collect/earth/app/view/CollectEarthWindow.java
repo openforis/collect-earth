@@ -50,6 +50,7 @@ public class CollectEarthWindow {
 	private final DataExportService dataExportService;
 	private final Logger logger = LoggerFactory.getLogger(CollectEarthWindow.class);
 	private final ServerController serverController;
+	public static final Color ERROR_COLOR = new Color(225, 124, 124);
 
 	public CollectEarthWindow(LocalPropertiesService localPropertiesService, DataExportService dataExportService,
 			ServerController serverController) {
@@ -84,7 +85,12 @@ public class CollectEarthWindow {
 		menu.add(menuItem);
 		menuBar.add(menu);
 
-		menuItem = new JMenuItem("Set properties");
+//		menuItem = new JMenuItem("Export data to Fusion format CSV");
+//		menuItem.addActionListener(getExportFusionActionListener());
+//		menu.add(menuItem);
+//		menuBar.add(menu);
+
+		menuItem = new JMenuItem("Properties");
 		menuItem.addActionListener(getPropertiesAction(frame));
 		menu.add(menuItem);
 		menuBar.add(menu);
@@ -206,12 +212,12 @@ public class CollectEarthWindow {
 								}
 							};
 						};
-						
+
 						getFrame().setVisible(false);
 						getFrame().dispose();
 						stopServer.start();
-						 Thread.sleep( 2000 );
-						
+						Thread.sleep( 2000 );
+
 						System.exit(0);
 					}
 				} catch (Exception e1) {
@@ -298,7 +304,7 @@ public class CollectEarthWindow {
 		if (operatorTextField.getText().length() > 0) {
 			getFrame().setState(Frame.ICONIFIED);
 		} else {
-			operatorTextField.setBackground(new Color(225, 124, 124));
+			operatorTextField.setBackground(ERROR_COLOR);
 			JOptionPane.showMessageDialog(getFrame(),
 					"<html>OPERATOR NAME EMPTY!<br>Please fill the operator name and press the \"Update\" button.</hml>",
 					"Operator name cannot be empty", JOptionPane.ERROR_MESSAGE);
@@ -317,6 +323,19 @@ public class CollectEarthWindow {
 		};
 	}
 
+	private ActionListener getExportFusionActionListener() {
+		return new ActionListener() {
+
+			@Override
+			public void actionPerformed(ActionEvent e) {
+				exportDataToFusionCsv(e);
+
+			}
+
+
+		};
+	}
+
 	private ActionListener getCloseActionListener() {
 		return new ActionListener() {
 
@@ -327,9 +346,53 @@ public class CollectEarthWindow {
 		};
 	}
 
-	public void exportDataToCsv(ActionEvent e) {
-		JFileChooser fc = new JFileChooser();
+	private void exportDataToFusionCsv(ActionEvent e) {
+		File selectedFile = selectACsvFile();
+		if(selectedFile!=null ){
+			FileOutputStream fos = null;
+			try {
+				fos = new FileOutputStream(selectedFile);
+				dataExportService.exportSurveyAsFusionTable(fos);
+			} catch (Exception e1) {
+				JOptionPane.showMessageDialog(this.frame, "Error when attempting to export data to CSV file", "Export error", JOptionPane.ERROR_MESSAGE );
+				logger.error("Error exporting data to plain CSV format", e );
+			}finally{
+				if( fos!=null ){
+					try {
+						fos.close();
+					} catch (IOException e1) {
+						logger.error("Error closing output stream for fusion table", e );
+					}
+				}
+			}
+		}
+	}
 
+	private void exportDataToCsv(ActionEvent e) {
+		File selectedFile = selectACsvFile();
+		if(selectedFile!=null ){
+			FileOutputStream fos = null;
+			try {
+				fos = new FileOutputStream(selectedFile);
+				dataExportService.exportSurveyAsCsv(fos);
+			} catch (Exception e1) {
+				JOptionPane.showMessageDialog(this.frame, "Error when attempting to export data to CSV file", "Export error", JOptionPane.ERROR_MESSAGE );
+				logger.error("Error exporting data to plain CSV format", e );
+			}finally{
+				if( fos!=null ){
+					try {
+						fos.close();
+					} catch (IOException e1) {
+						logger.error("Error closing output stream for fusion table", e );
+					}
+				}
+			}
+		}
+	}
+
+	private File selectACsvFile() {
+		JFileChooser fc = new JFileChooser();
+		File selectedFile = null;
 		fc.addChoosableFileFilter(new FileFilter() {
 
 			@Override
@@ -350,28 +413,21 @@ public class CollectEarthWindow {
 		int returnVal = fc.showSaveDialog(getFrame());
 
 		if (returnVal == JFileChooser.APPROVE_OPTION) {
-			try {
-				File file = fc.getSelectedFile();
+			selectedFile = fc.getSelectedFile();
 
-				String file_name = file.getAbsolutePath();
-				if (!file_name.endsWith(".csv")) {
-					file_name += ".csv";
-					file = new File(file_name);
-				}
-
-				// This is where a real application would open the file.
-				logger.info("Saving CSV to file: " + file.getName() + ".");
-				
-				FileOutputStream fos = new FileOutputStream(file);
-				dataExportService.exportSurveyAsCsv(fos);
-
-			} catch (Exception e1) {
-				logger.error("Error exporting the survey as a CSV.", e1);
+			String file_name = selectedFile.getAbsolutePath();
+			if (!file_name.endsWith(".csv")) {
+				file_name += ".csv";
+				selectedFile = new File(file_name);
 			}
+
+			// This is where a real application would open the file.
+			logger.info("Saving CSV to file: " + selectedFile.getName() + ".");
+
 		} else {
 			logger.info("Open command cancelled by user.");
 		}
-
+		return selectedFile;
 	}
 
 	JFrame getFrame() {

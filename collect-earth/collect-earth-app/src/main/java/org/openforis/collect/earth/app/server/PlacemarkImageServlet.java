@@ -45,7 +45,13 @@ public class PlacemarkImageServlet extends DataAccessingServlet {
 			} else {
 				imageName = EarthConstants.FILLED_IMAGE;
 			}
-		} else {
+		} else if( earthSurveyService.isPlacemarEdited(placemarkParameters) ){
+			if (listView != null && listView) {
+				imageName = EarthConstants.LIST_NOT_FINISHED_IMAGE;
+			} else {
+				imageName = EarthConstants.NON_FILLED_IMAGE;
+			}
+		}else{
 			if (listView != null && listView) {
 				imageName = EarthConstants.LIST_NON_FILLED_IMAGE;
 			} else {
@@ -77,6 +83,8 @@ public class PlacemarkImageServlet extends DataAccessingServlet {
 			resultingImage = readFile(EarthConstants.LIST_NON_FILLED_IMAGE, request.getSession().getServletContext());
 		} else if (imageName.equals(EarthConstants.LIST_FILLED_IMAGE)) {
 			resultingImage = readFile(EarthConstants.LIST_FILLED_IMAGE, request.getSession().getServletContext());
+		} else if (imageName.equals(EarthConstants.LIST_NOT_FINISHED_IMAGE)) {
+			resultingImage = readFile(EarthConstants.LIST_NOT_FINISHED_IMAGE, request.getSession().getServletContext());
 		}
 		if (resultingImage != null) {
 			response.setHeader("Content-Length", resultingImage.length + "");

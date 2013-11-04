@@ -43,7 +43,6 @@ public class LocalPropertiesService {
 		SAMPLE_SHAPE ( "sample_shape"),
 		OPEN_BALLOON_IN_BROWSER ( "open_separate_browser_form"),
 		ALTERNATIVE_BALLOON_FOR_BROWSER ( "alternative_balloon_for_browser"),
-		FILES_TO_INCLUDE_IN_KMZ ( "include_files_kmz"),
 		ELEVATION_GEOTIF_DIRECTORY ( "elevation_geotif_directory"),
 		METADATA_FILE ( "metadata_file"),
 		FIREFOX_BINARY_PATH ( "firefox_exe_path"),

@@ -40,10 +40,12 @@ public class EntityHandler extends AbstractAttributeHandler<Entity> {
 			cah = new RealAttributeHandler();
 		} else if (parameterName.contains("text_")) {
 			cah = new TextAttributeHandler();
-		}
-
-		if (cah == null) {
-			int i = 0;
+		}else if( parameterName.contains("coord_") ){
+			cah = new CoordinateAttributeHandler();
+		}else if( parameterName.contains("date_") ){
+			cah = new DateAttributeHandler();
+		}else{
+			throw new IllegalArgumentException("Unknown type of parameter " + parameterName );
 		}
 
 		cah.addOrUpdate(entityAttribute, parameterValue, childEntity);

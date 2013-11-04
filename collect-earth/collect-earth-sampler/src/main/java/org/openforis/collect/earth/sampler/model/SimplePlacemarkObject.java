@@ -22,26 +22,21 @@ public class SimplePlacemarkObject {
 
 	private int elevation;
 
-	private double slope;
+	private int slope;
 
-	private double aspect;
+	private int aspect;
 
-	public int getElevation() {
-		return elevation;
-	}
+	private AspectCode aspectHumanReadable;
 
-	public void setElevation(int elevation) {
-		this.elevation = elevation;
-	}
-
-	public SimplePlacemarkObject(Coordinate coord, String placemarkId, Integer elevation, double slope, double aspect) {
+	public SimplePlacemarkObject(Coordinate coord, String placemarkId, Integer elevation, double slope, double aspect, AspectCode humanReadabaleAspect) {
 		super();
 		this.placemarkId = placemarkId;
 		this.coord = new SimpleCoordinate(coord);
 		this.nextPlacemarkId = "unknown";
 		this.elevation = elevation;
-		this.slope = slope;
-		this.aspect = aspect;
+		this.slope = (int) slope;
+		this.aspect = (int) aspect;
+		this.aspectHumanReadable = humanReadabaleAspect;
 	}
 
 	public SimplePlacemarkObject(double[] coord, String placemarkId) {
@@ -51,8 +46,20 @@ public class SimplePlacemarkObject {
 		this.nextPlacemarkId = "unknown";
 	}
 
+	public int getAspect() {
+		return aspect;
+	}
+
+	public AspectCode getAspectHumanReadable() {
+		return aspectHumanReadable;
+	}
+
 	public SimpleCoordinate getCoord() {
 		return coord;
+	}
+
+	public int getElevation() {
+		return elevation;
 	}
 
 	public String getNextPlacemarkId() {
@@ -71,12 +78,32 @@ public class SimplePlacemarkObject {
 		return region;
 	}
 
+	public Integer getSamplePointOutlined() {
+		return samplePointOutlined;
+	}
+
 	public List<SimpleCoordinate> getShape() {
 		return shape;
 	}
 
+	public int getSlope() {
+		return slope;
+	}
+
+	public void setAspect(double aspect) {
+		this.aspect = (int) aspect;
+	}
+
+	public void setAspectHumanReadable(AspectCode aspectHumanReadable) {
+		this.aspectHumanReadable = aspectHumanReadable;
+	}
+
 	public void setCoord(SimpleCoordinate coord) {
 		this.coord = coord;
+	}
+
+	public void setElevation(int elevation) {
+		this.elevation = elevation;
 	}
 
 	public void setNextPlacemarkId(String nextPlacemarkId) {
@@ -95,33 +122,17 @@ public class SimplePlacemarkObject {
 		this.region = region;
 	}
 
-	public void setShape(List<SimpleCoordinate> shape) {
-		this.shape = shape;
-	}
-
-	public Integer getSamplePointOutlined() {
-		return samplePointOutlined;
-	}
 
 	public void setSamplePointOutlined(Integer samplePointOutlined) {
 		this.samplePointOutlined = samplePointOutlined;
 	}
 
-
-	public double getSlope() {
-		return slope;
+	public void setShape(List<SimpleCoordinate> shape) {
+		this.shape = shape;
 	}
 
 	public void setSlope(double slope) {
-		this.slope = slope;
-	}
-
-	public double getAspect() {
-		return aspect;
-	}
-
-	public void setAspect(double aspect) {
-		this.aspect = aspect;
+		this.slope = (int) slope;
 	}
 
 }

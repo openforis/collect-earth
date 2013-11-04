@@ -268,14 +268,12 @@ public class PreprocessElevationData extends AbstractWgs84Transformer {
 
 	// values : ID,LONG,LAT,ELEV
 	private void writeLineToCsv(OutputStream csvOutputStream, String[] values) throws IOException {
-		String csvLine = "";
+		StringBuilder csvLine = new StringBuilder();
 		for (String csvColumn : values) {
-			csvLine += csvColumn + ",";
+			csvLine.append( csvColumn ).append(",");
 		}
-		csvLine = csvLine.substring(0, csvLine.length() - 1) + NEW_LINE;
-		csvOutputStream.write(csvLine.getBytes());
+		String csvLineStr = csvLine.substring(0, csvLine.length() - 1) + NEW_LINE;
+		csvOutputStream.write(csvLineStr.getBytes());
 	}
-
-	// ID< LONG, LAT , ELEVATION
 
 }

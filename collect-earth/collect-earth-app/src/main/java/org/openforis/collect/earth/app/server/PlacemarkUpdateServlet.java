@@ -84,7 +84,7 @@ public class PlacemarkUpdateServlet {
 				placemarIds[i] = ((TextAttribute) lastUpdatedRecord.get(i).getRootEntity().get("id", 0)).getValue().getValue();
 			}
 		}
-
+		
 		return placemarIds;
 	}
 

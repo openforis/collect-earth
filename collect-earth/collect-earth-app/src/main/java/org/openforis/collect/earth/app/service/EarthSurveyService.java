@@ -3,6 +3,7 @@ package org.openforis.collect.earth.app.service;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
+import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Date;
@@ -36,12 +37,14 @@ import org.springframework.beans.factory.annotation.Autowired;
 public class EarthSurveyService {
 
 	private static final String COLLECT_BOOLEAN_ACTIVELY_SAVED = "collect_boolean_actively_saved";
+	private static final String COLLECT_TEXT_ACTIVELY_SAVED_ON = "collect_text_actively_saved_on";
 	private static final String COLLECT_TEXT_OPERATOR = "collect_text_operator";
 	private static final String EARTH_SURVEY_NAME = "earth";
 	public static final String PLACEMARK_FOUND_PARAMETER = "placemark_found";
 	public static final int ROOT_ENTITY_ID = 1;
 	public static final String ROOT_ENTITY_NAME = "plot";
 	private static final String SKIP_FILLED_PLOT_PARAMETER = "jump_to_next_plot";
+	private final SimpleDateFormat dateFormat = new SimpleDateFormat( "yyyy-MM-dd HH:mm:ss");
 
 	@Autowired
 	private CollectParametersHandlerService collectParametersHandler;
@@ -70,14 +73,14 @@ public class EarthSurveyService {
 	private void addValidationMessages(Map<String, String> parameters, CollectRecord record) {
 		// Validation
 		recordManager.validate(record);
-		
-		RecordValidationReportGenerator reportGenerator = new RecordValidationReportGenerator(record);
-		List<RecordValidationReportItem> validationItems = reportGenerator.generateValidationItems();
-		
-		for (RecordValidationReportItem recordValidationReportItem : validationItems) {
+
+		final RecordValidationReportGenerator reportGenerator = new RecordValidationReportGenerator(record);
+		final List<RecordValidationReportItem> validationItems = reportGenerator.generateValidationItems();
+
+		for (final RecordValidationReportItem recordValidationReportItem : validationItems) {
 			String label = "";
 			if (recordValidationReportItem.getNodeId() != null) {
-				Node<?> node = record.getNodeByInternalId(recordValidationReportItem.getNodeId());
+				final Node<?> node = record.getNodeByInternalId(recordValidationReportItem.getNodeId());
 				label = node.getDefinition().getLabel(Type.INSTANCE, "en");
 
 				String message = recordValidationReportItem.getMessage();
@@ -101,18 +104,19 @@ public class EarthSurveyService {
 	}
 
 	private CollectRecord createRecord(String sessionId) throws RecordPersistenceException {
-		Schema schema = getCollectSurvey().getSchema();
-		CollectRecord record = recordManager.create(getCollectSurvey(), schema.getRootEntityDefinition(ROOT_ENTITY_NAME), null, null, sessionId);
+		final Schema schema = getCollectSurvey().getSchema();
+		final CollectRecord record = recordManager
+				.create(getCollectSurvey(), schema.getRootEntityDefinition(ROOT_ENTITY_NAME), null, null, sessionId);
 		return record;
 	}
 
 	public List<String> getAllFilledPlacemarkIds() {
-		List<CollectRecord> summaries = recordManager.loadSummaries(getCollectSurvey(), ROOT_ENTITY_NAME);
-		List<String> ids = new Vector<String>();
-		for (CollectRecord record : summaries) {
-			CollectRecord recordloaded = recordManager.load(getCollectSurvey(), record.getId(), Step.ENTRY);
-			List<String> keys = recordloaded.getRootEntityKeyValues();
-			for (String key : keys) {
+		final List<CollectRecord> summaries = recordManager.loadSummaries(getCollectSurvey(), ROOT_ENTITY_NAME);
+		final List<String> ids = new Vector<String>();
+		for (final CollectRecord record : summaries) {
+			final CollectRecord recordloaded = recordManager.load(getCollectSurvey(), record.getId(), Step.ENTRY);
+			final List<String> keys = recordloaded.getRootEntityKeyValues();
+			for (final String key : keys) {
 				ids.add(key);
 			}
 		}
@@ -128,7 +132,7 @@ public class EarthSurveyService {
 	}
 
 	public synchronized Map<String, String> getPlacemark(String placemarkId) {
-		List<CollectRecord> summaries = recordManager.loadSummaries(getCollectSurvey(), ROOT_ENTITY_NAME, placemarkId);
+		final List<CollectRecord> summaries = recordManager.loadSummaries(getCollectSurvey(), ROOT_ENTITY_NAME, placemarkId);
 		CollectRecord record = null;
 		Map<String, String> placemarkParameters = null;
 		if (summaries.size() > 0) {
@@ -136,8 +140,7 @@ public class EarthSurveyService {
 			record = recordManager.load(getCollectSurvey(), record.getId(), Step.ENTRY);
 			placemarkParameters = collectParametersHandler.getParameters(record.getRootEntity());
 
-			if (placemarkParameters.get("collect_code_crown_cover") != null
-					&& placemarkParameters.get("collect_code_crown_cover").equals("0")) {
+			if ((placemarkParameters.get("collect_code_crown_cover") != null) && placemarkParameters.get("collect_code_crown_cover").equals("0")) {
 				placemarkParameters.put("collect_code_crown_cover",
 						"0;collect_code_deforestation_reason=" + placemarkParameters.get("collect_code_deforestation_reason"));
 			}
@@ -154,19 +157,19 @@ public class EarthSurveyService {
 	}
 
 	public List<CollectRecord> getRecordsSavedSince(Date updatedSince) {
-		List<CollectRecord> summaries = recordManager.loadSummaries(getCollectSurvey(), ROOT_ENTITY_NAME, 0, 15,
+		final List<CollectRecord> summaries = recordManager.loadSummaries(getCollectSurvey(), ROOT_ENTITY_NAME, 0, 15,
 				Arrays.asList(new RecordSummarySortField(Sortable.DATE_MODIFIED, true)), (String[]) null);
-		if (updatedSince != null && summaries != null && !summaries.isEmpty()) {
-			List<CollectRecord> records = new ArrayList<CollectRecord>();
+		if ((updatedSince != null) && (summaries != null) && !summaries.isEmpty()) {
+			final List<CollectRecord> records = new ArrayList<CollectRecord>();
 			for (int i = 0; i < summaries.size(); i++) {
-				CollectRecord summary = summaries.get(i);
-				CollectRecord record = recordManager.load(getCollectSurvey(), summary.getId(), Step.ENTRY);
+				final CollectRecord summary = summaries.get(i);
+				final CollectRecord record = recordManager.load(getCollectSurvey(), summary.getId(), Step.ENTRY);
 
-				if (record.getModifiedDate() != null && record.getModifiedDate().after(updatedSince)) {
+				if ((record.getModifiedDate() != null) && record.getModifiedDate().after(updatedSince)) {
 					records.add(record);
 				}
 
-				if (record.getModifiedDate() != null && record.getModifiedDate().before(updatedSince)) {
+				if ((record.getModifiedDate() != null) && record.getModifiedDate().before(updatedSince)) {
 					break;
 				}
 			}
@@ -184,27 +187,37 @@ public class EarthSurveyService {
 		if (getCollectSurvey() == null) {
 			CollectSurvey survey;
 			try {
-				survey = surveyManager.unmarshalSurvey(new FileInputStream(new File(getIdmFilePath())));
+				File surveyFile = new File(getIdmFilePath());
+				if( surveyFile.exists() ){
+					survey = surveyManager.unmarshalSurvey(new FileInputStream(surveyFile));
 
-				survey.setName(EARTH_SURVEY_NAME);
-				if (surveyManager.get(EARTH_SURVEY_NAME) == null) { // NOT IN
-																	// THE DB
-					surveyManager.importModel(survey);
-				} else { // UPDATE ALREADY EXISTANT MODEL
-					surveyManager.updateModel(survey);
+					survey.setName(EARTH_SURVEY_NAME);
+					if (surveyManager.get(EARTH_SURVEY_NAME) == null) { // NOT IN
+						// THE DB
+						surveyManager.importModel(survey);
+					} else { // UPDATE ALREADY EXISTANT MODEL
+						surveyManager.updateModel(survey);
+					}
+					setCollectSurvey(survey);
+				}else{
+					logger.error("The survey definition file could not be found in " + surveyFile.getAbsolutePath()  );
 				}
-				setCollectSurvey(survey);
-			} catch (SurveyValidationException e) {
+			} catch (final SurveyValidationException e) {
 				logger.error("Unable to validate survey at " + getIdmFilePath(), e);
 			}
 		}
 	}
 
 	public boolean isPlacemarSavedActively(Map<String, String> parameters) {
-		return parameters != null && parameters.get(COLLECT_BOOLEAN_ACTIVELY_SAVED) != null
+		return (parameters != null) && (parameters.get(COLLECT_BOOLEAN_ACTIVELY_SAVED) != null)
 				&& parameters.get(COLLECT_BOOLEAN_ACTIVELY_SAVED).equals("true");
 	}
 
+	public boolean isPlacemarEdited(Map<String, String> parameters) {
+		return (parameters != null) && (parameters.get(COLLECT_BOOLEAN_ACTIVELY_SAVED) != null)
+				&& parameters.get(COLLECT_BOOLEAN_ACTIVELY_SAVED).equals("false");
+	}
+	
 	private void saveLocalProperties(Map<String, String> parameters) {
 		// Save extra information
 		localPropertiesService.setJumpToNextPlot(parameters.get(SKIP_FILLED_PLOT_PARAMETER));
@@ -214,14 +227,18 @@ public class EarthSurveyService {
 		this.collectSurvey = collectSurvey;
 	}
 
-	public void setPlacemarSavedActively(Map<String, String> parameters, boolean value) {
+	private void setPlacemarSavedActively(Map<String, String> parameters, boolean value) {
 		parameters.put(COLLECT_BOOLEAN_ACTIVELY_SAVED, value + "");
+		
+	}
+	
+	private void setPlacemarkSavedOn(Map<String, String> parameters ){
+		parameters.put( COLLECT_TEXT_ACTIVELY_SAVED_ON, dateFormat.format( new Date()) );
 	}
 
 	public boolean storePlacemark(Map<String, String> parameters, String sessionId) {
 
-		List<CollectRecord> summaries = recordManager.loadSummaries(getCollectSurvey(), ROOT_ENTITY_NAME,
-				parameters.get("collect_text_id"));
+		final List<CollectRecord> summaries = recordManager.loadSummaries(getCollectSurvey(), ROOT_ENTITY_NAME, parameters.get("collect_text_id"));
 
 		boolean success = false;
 
@@ -250,6 +267,10 @@ public class EarthSurveyService {
 				plotEntity = record.getRootEntity();
 				logger.warn("Creating a new plot entity with data " + parameters.toString());
 			}
+			
+			if (isPlacemarSavedActively(parameters)) {
+				setPlacemarkSavedOn(parameters);
+			}
 
 			// Populate the data of the record using the HTTP parameters
 			// received
@@ -263,7 +284,7 @@ public class EarthSurveyService {
 			}
 
 			// Do not save unless there is no validation errors
-			if (record.getErrors() == 0 && record.getSkipped() == 0) {
+			if ((record.getErrors() == 0) && (record.getSkipped() == 0)) {
 				record.setModifiedDate(new Date());
 				recordManager.save(record, sessionId);
 				success = true;
@@ -273,7 +294,7 @@ public class EarthSurveyService {
 				return storePlacemark(parameters, sessionId);
 
 			}
-		} catch (RecordPersistenceException e) {
+		} catch (final RecordPersistenceException e) {
 			logger.error("Error while storing the record " + e.getMessage(), e);
 		}
 

@@ -2,7 +2,6 @@ package org.openforis.collect.earth.app.view;
 import java.awt.FlowLayout;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
- 
 import java.io.File;
 
 import javax.swing.JButton;
@@ -10,6 +9,7 @@ import javax.swing.JFileChooser;
 import javax.swing.JLabel;
 import javax.swing.JPanel;
 import javax.swing.JTextField;
+import javax.swing.event.DocumentListener;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -30,6 +30,7 @@ public class JFilePicker extends JPanel {
     private int mode;
     public static final int MODE_OPEN = 1;
     public static final int MODE_SAVE = 2;
+    
      
     public JFilePicker(String textFieldLabel, String originalPathValue, String buttonLabel) {
        
@@ -51,6 +52,10 @@ public class JFilePicker extends JPanel {
          
         textField = new JTextField(originalPathValue, 20);
         button = new JButton(buttonLabel);
+        
+        if( originalPathValue!=null && originalPathValue.length()> 0 ){
+        	textField.setCaretPosition(originalPathValue.length()-1);
+        }
          
         button.addActionListener(new ActionListener() {
             @Override
@@ -64,15 +69,19 @@ public class JFilePicker extends JPanel {
         add(button);
          
     }
+    
+    public void addChangeListener(DocumentListener listener){
+    	textField.getDocument().addDocumentListener(listener);
+    }
      
     private void buttonActionPerformed(ActionEvent evt) {
         if (mode == MODE_OPEN) {
             if (fileChooser.showOpenDialog(this) == JFileChooser.APPROVE_OPTION) {
-                textField.setText(fileChooser.getSelectedFile().getAbsolutePath());
+                textField.setText(relativize( fileChooser.getSelectedFile() ) );
             }
         } else if (mode == MODE_SAVE) {
             if (fileChooser.showSaveDialog(this) == JFileChooser.APPROVE_OPTION) {
-                textField.setText(fileChooser.getSelectedFile().getAbsolutePath());
+                textField.setText(relativize( fileChooser.getSelectedFile() ) );
             }
         }
     }
@@ -95,5 +104,11 @@ public class JFilePicker extends JPanel {
      
     public JFileChooser getFileChooser() {
         return this.fileChooser;
+    }
+    
+    private String relativize(File selectedFile  ){
+    	File dummyFile = new File("dummy.txt");
+    	String pathParentDummy = dummyFile.getAbsolutePath().substring(0,  dummyFile.getAbsolutePath().length() - dummyFile.getName().length() );
+    	return new File(pathParentDummy).toURI().relativize(selectedFile.toURI()).getPath();
     }
 }

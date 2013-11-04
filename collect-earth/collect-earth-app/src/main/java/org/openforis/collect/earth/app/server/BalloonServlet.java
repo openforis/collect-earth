@@ -6,6 +6,7 @@ import java.net.URISyntaxException;
 import java.text.SimpleDateFormat;
 import java.util.Date;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Set;
 
 import javax.servlet.http.HttpServletRequest;
@@ -38,30 +39,22 @@ public class BalloonServlet extends DataAccessingServlet {
 	private static RemoteWebDriver webKitDriver = null;
 
 	private String buildGetParameters(Map<String, String[]> parameterMap) {
-		Set<String> keySet = parameterMap.keySet();
-		String getParameters = "";
-		for (String key : keySet) {
-			getParameters += key + "=" + parameterMap.get(key)[0] + "&";
+		StringBuilder getParameters = new StringBuilder();
+		Set<Entry<String, String[]>> entrySet = parameterMap.entrySet();
+		for (Entry<String, String[]> entry : entrySet) {
+			getParameters.append(entry.getKey()).append("=").append(entry.getValue()[0]).append("&");
 		}
-		return getParameters;
-	}
-	
-	private String replaceGoalsWithParameters(String htmlWithGoals, Map<String, String[]> parameterMap) {
-		Set<String> keySet = parameterMap.keySet();
-		for (String key : keySet) {
-			htmlWithGoals = htmlWithGoals.replaceAll("\\$\\[" + key + "\\]", parameterMap.get(key)[0]);
-		}
-		return htmlWithGoals;
+		return getParameters.toString();
 	}
 
 	@RequestMapping("/openInBrowser")
-	private void openInBrowser(HttpServletResponse response, HttpServletRequest request, String imageName) throws IOException,
-			URISyntaxException {
+	private void openInBrowser(HttpServletResponse response, HttpServletRequest request, String imageName) throws IOException, URISyntaxException {
 		String url = KmlGenerator.getHostAddress(localPropertiesService.getHost(), localPropertiesService.getPort());
 		url = url + "balloon?" + buildGetParameters(request.getParameterMap());
 		final String fUrl = url;
 		Thread openBrowser = new Thread() {
 
+			@Override
 			public void run() {
 				webKitDriver = browserService.navigateTo(fUrl, webKitDriver);
 			};
@@ -69,10 +62,17 @@ public class BalloonServlet extends DataAccessingServlet {
 		openBrowser.start();
 
 	}
-	
+
+	private String replaceGoalsWithParameters(String htmlWithGoals, Map<String, String[]> parameterMap) {
+		Set<Entry<String, String[]>> entrySet = parameterMap.entrySet();
+		for (Entry<String, String[]> entry : entrySet) {
+			htmlWithGoals = htmlWithGoals.replaceAll("\\$\\[" + entry.getKey() + "\\]", entry.getValue()[0]);
+		}
+		return htmlWithGoals;
+	}
+
 	@RequestMapping("/balloon")
-	private void returnBalloon(HttpServletResponse response, HttpServletRequest request, String imageName) throws IOException,
-			URISyntaxException {
+	private void returnBalloon(HttpServletResponse response, HttpServletRequest request, String imageName) throws IOException, URISyntaxException {
 		response.setHeader("Content-Type", "text/html");
 		response.setHeader("Content-Disposition", "inline; filename=\"" + imageName + "\"");
 		response.setHeader("Cache-Control", "max-age=30");
@@ -82,7 +82,8 @@ public class BalloonServlet extends DataAccessingServlet {
 
 		if (balloonContents != null) {
 
-			balloonContents = balloonContents.replaceAll( "earthFiles/", EarthApp.GENERATED_FOLDER + "/earthFiles/");
+			balloonContents = balloonContents.replaceAll(EarthApp.FOLDER_COPIED_TO_KMZ + "/", EarthApp.GENERATED_FOLDER + "/"
+					+ EarthApp.FOLDER_COPIED_TO_KMZ + "/");
 			balloonContents = replaceGoalsWithParameters(balloonContents, request.getParameterMap());
 
 			byte[] bytes = balloonContents.getBytes();

@@ -33,22 +33,16 @@ public class OnePointKmlGenerator extends KmlGenerator{
 		CSVReader reader = null;
 		List<SimplePlacemarkObject> placemarks = null;
 		try {
-			BufferedReader bufferedReader = new BufferedReader(new InputStreamReader(new FileInputStream(csvFile),
-					Charset.forName("UTF-8")));
-			reader = new CSVReader(bufferedReader, ',');
-
-			String[] nextRow;
+			reader = getCsvReader(csvFile);
+			String[] csvRow;
 			placemarks = new ArrayList<SimplePlacemarkObject>();
-			while ((nextRow = reader.readNext()) != null) {
-				// nextLine[] is an array of values from the line
-				Integer elevation = Integer.parseInt(nextRow[3]);
-				double aspect = Double.parseDouble(nextRow[4]);
-				double orientation = Double.parseDouble(nextRow[5]);
+			while ((csvRow = reader.readNext()) != null) {
+				PlotProperties plotProperties = getPlotProperties(csvRow);
 
 				try {
-					Point transformedPoint = transformToWGS84(Double.parseDouble(nextRow[1]), Double.parseDouble(nextRow[2]));
+					Point transformedPoint = transformToWGS84(plotProperties.xCoord, plotProperties.yCoord);
 					SimplePlacemarkObject parentPlacemark = new SimplePlacemarkObject(transformedPoint.getCoordinate(), "ge_"
-							+ nextRow[0], elevation, aspect, orientation);
+							+ plotProperties.id, plotProperties.elevation, plotProperties.slope, plotProperties.aspect, getHumanReadableAspect(plotProperties.aspect));
 					placemarks.add(parentPlacemark);
 				} catch (NumberFormatException e) {
 					getLogger().error("Error in the number formatting", e);

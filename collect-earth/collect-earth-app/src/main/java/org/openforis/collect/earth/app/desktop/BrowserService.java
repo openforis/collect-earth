@@ -16,8 +16,10 @@ import java.util.Map;
 import java.util.Properties;
 import java.util.Vector;
 
+import javax.net.ssl.HostnameVerifier;
 import javax.net.ssl.HttpsURLConnection;
 import javax.net.ssl.SSLContext;
+import javax.net.ssl.SSLSession;
 import javax.net.ssl.SSLSocketFactory;
 import javax.net.ssl.TrustManager;
 import javax.net.ssl.X509TrustManager;
@@ -142,7 +144,7 @@ public class BrowserService {
 			}
 		}
 
-		return fw.toString();
+		return fw!=null?fw.toString():null;
 
 	}
 
@@ -337,6 +339,13 @@ public class BrowserService {
 			SSLSocketFactory factory = ssl.getSocketFactory();
 			HttpsURLConnection connection = (HttpsURLConnection)geeJsUrl.openConnection();
 			connection.setSSLSocketFactory(factory);
+			
+			connection.setHostnameVerifier(new HostnameVerifier() {
+				@Override
+				public boolean verify(String hostname, SSLSession session) {
+					return true;
+				}
+			});
 			// End or work-around
 
 			in = new BufferedReader(
@@ -416,7 +425,7 @@ public class BrowserService {
 		return true;
 	}
 
-	class SimpleX509TrustManager implements X509TrustManager {
+	static class SimpleX509TrustManager implements X509TrustManager {
 		public void checkClientTrusted(
 				X509Certificate[] cert, String s)
 						throws CertificateException {

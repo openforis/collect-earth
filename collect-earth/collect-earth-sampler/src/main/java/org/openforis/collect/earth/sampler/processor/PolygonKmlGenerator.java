@@ -1,11 +1,7 @@
 package org.openforis.collect.earth.sampler.processor;
 
 import java.awt.geom.Rectangle2D;
-import java.io.BufferedReader;
-import java.io.FileInputStream;
 import java.io.IOException;
-import java.io.InputStreamReader;
-import java.nio.charset.Charset;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -37,6 +33,7 @@ public abstract class PolygonKmlGenerator extends KmlGenerator {
 		this.innerPointSide = innerPointSide;
 	}
 
+	
 	@Override
 	protected Map<String, Object> getTemplateData(String csvFile, float distanceBetweenSamplePoints, float distancePlotBoundary)
 			throws IOException {
@@ -44,35 +41,23 @@ public abstract class PolygonKmlGenerator extends KmlGenerator {
 
 		SimplePlacemarkObject previousPlacemark = null;
 
-		
 		Rectangle2D viewFrame = new Rectangle2D.Float();
 		boolean firstPoint = true;
 		// Read CSV file so that we can store the information in a Map that can
 		// be used by freemarker to do the "goal-replacement"
-		String[] nextRow;
+		String[] csvRow;
 
 		CSVReader reader = null;
 		List<SimplePlacemarkObject> placemarks = null;
 		try {
-			BufferedReader bufferedReader = new BufferedReader(new InputStreamReader(new FileInputStream(csvFile),
-					Charset.forName("UTF-8")));
-			reader = new CSVReader(bufferedReader, ',');
+			reader = getCsvReader(csvFile);
 			placemarks = new ArrayList<SimplePlacemarkObject>();
-			while ((nextRow = reader.readNext()) != null) {
+			while ((csvRow = reader.readNext()) != null) {
 				try {
 
-					double originalX = Double.parseDouble(nextRow[1]);
-					double originalY = Double.parseDouble(nextRow[2]);
-					Integer elevation = 0;
-					double slope = 0;
-					double aspect = 0;
-					if( nextRow.length > 3 ){
-						elevation = Integer.parseInt(nextRow[3]);
-						slope = Double.parseDouble(nextRow[4]);
-						aspect = Double.parseDouble(nextRow[5]);
-					}
+					PlotProperties plotProperties = getPlotProperties(csvRow);
 
-					Point transformedPoint = transformToWGS84(originalX, originalY); // TOP-LEFT
+					Point transformedPoint = transformToWGS84(plotProperties.xCoord, plotProperties.yCoord); // TOP-LEFT
 
 					if (firstPoint) {
 						viewFrame.setRect(transformedPoint.getX(), transformedPoint.getY(), 0, 0);
@@ -91,19 +76,19 @@ public abstract class PolygonKmlGenerator extends KmlGenerator {
 					// need to move the #original point@ to the top left so that
 					// the center ends up bein the expected original coord
 
-					String currentPlaceMarkId = nextRow[0];
+					
 					SimplePlacemarkObject parentPlacemark = new SimplePlacemarkObject(transformedPoint.getCoordinate(),
-							currentPlaceMarkId, elevation, slope, aspect);
+							plotProperties.id, plotProperties.elevation, plotProperties.slope, plotProperties.aspect, getHumanReadableAspect( plotProperties.aspect ));
 
 					if (previousPlacemark != null) {
 						// Give the current ID to the previous placemark so that
 						// we can move from placemark to placemark
-						previousPlacemark.setNextPlacemarkId(currentPlaceMarkId);
+						previousPlacemark.setNextPlacemarkId(plotProperties.id);
 					}
 
 					previousPlacemark = parentPlacemark;
 
-					fillSamplePoints(distanceBetweenSamplePoints, coordOriginalPoints, currentPlaceMarkId, parentPlacemark);
+					fillSamplePoints(distanceBetweenSamplePoints, coordOriginalPoints, plotProperties.id, parentPlacemark);
 
 					fillExternalLine(distanceBetweenSamplePoints, distancePlotBoundary, coordOriginalPoints, parentPlacemark);
 
