@@ -45,20 +45,19 @@ public abstract class AbstractAttributeHandler<C> {
 		 * EntityBuilder.addEntity(entity, "topography"); }
 		 */
 
-
 		/* } */
 
 	}
 
-	protected abstract C getAttributeValue(String parameterValue);
-
 	protected abstract void addToEntity(String parameterName, String parameterValue, Entity entity);
-
-	public abstract String getAttributeFromParameter(String parameterName, Entity entity, int index);
 
 	public String getAttributeFromParameter(String parameterName, Entity entity) {
 		return getAttributeFromParameter(parameterName, entity, 0);
 	}
+
+	public abstract String getAttributeFromParameter(String parameterName, Entity entity, int index);
+
+	protected abstract C getAttributeValue(String parameterValue);
 
 	public String getPrefix() {
 		return prefix;
@@ -67,19 +66,19 @@ public abstract class AbstractAttributeHandler<C> {
 	public boolean isParameterParseable(String parameterName) {
 		return parameterName.startsWith(getPrefix());
 	}
-	
+
 	public abstract boolean isParseable(Node value);
-	
-	public void setPrefix(String prefix) {
-		this.prefix = prefix;
-	}
 
 	protected String removePrefix(String parameterName) {
 		if (parameterName.startsWith(prefix)) {
 			return parameterName.substring(prefix.length());
-		}else{
+		} else {
 			return parameterName;
 		}
 
+	}
+
+	public void setPrefix(String prefix) {
+		this.prefix = prefix;
 	}
 }

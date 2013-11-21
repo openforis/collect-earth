@@ -12,7 +12,6 @@ public abstract class DataAccessingServlet {
 
 	public DataAccessingServlet() {
 		super();
-
 	}
 
 	public DataAccessor getDataAccessor() {

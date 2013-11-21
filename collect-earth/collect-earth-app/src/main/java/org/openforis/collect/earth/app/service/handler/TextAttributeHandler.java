@@ -16,23 +16,23 @@ public class TextAttributeHandler extends AbstractAttributeHandler<Value> {
 	}
 
 	@Override
-	public String getAttributeFromParameter(String parameterName, Entity entity, int index) {
-		return ((TextAttribute) entity.get(removePrefix(parameterName), index)).getValue().getValue();
-	}
-
-	@Override
 	public void addToEntity(String parameterName, String parameterValue, Entity entity) {
 		EntityBuilder.addValue(entity, removePrefix(parameterName), parameterValue);
 	}
 
 	@Override
-	public boolean isParseable(Node value) {
-		return value instanceof TextAttribute;
+	public String getAttributeFromParameter(String parameterName, Entity entity, int index) {
+		return ((TextAttribute) entity.get(removePrefix(parameterName), index)).getValue().getValue();
 	}
 
 	@Override
 	public Value getAttributeValue(String parameterValue) {
 		return new TextValue(parameterValue);
+	}
+
+	@Override
+	public boolean isParseable(Node value) {
+		return value instanceof TextAttribute;
 	}
 
 }

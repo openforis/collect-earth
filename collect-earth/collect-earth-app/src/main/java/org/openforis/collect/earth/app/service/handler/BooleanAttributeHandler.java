@@ -16,25 +16,23 @@ public class BooleanAttributeHandler extends AbstractAttributeHandler<Value> {
 	}
 
 	@Override
+	public void addToEntity(String parameterName, String parameterValue, Entity entity) {
+		EntityBuilder.addValue(entity, removePrefix(parameterName), Boolean.parseBoolean(parameterValue));
+	}
+
+	@Override
 	public String getAttributeFromParameter(String parameterName, Entity entity, int index) {
 		// Values true / false
 		return ((BooleanAttribute) entity.get(removePrefix(parameterName), index)).getValue().getValue().toString();
 	}
 
-
 	@Override
-	public void addToEntity(String parameterName, String parameterValue, Entity entity) {
-		EntityBuilder.addValue(entity, removePrefix(parameterName), Boolean.parseBoolean(parameterValue));
+	public Value getAttributeValue(String parameterValue) {
+		return new BooleanValue(parameterValue);
 	}
-
 
 	@Override
 	public boolean isParseable(Node value) {
 		return value instanceof BooleanAttribute;
-	}
-
-	@Override
-	public Value getAttributeValue(String parameterValue) {
-		return new BooleanValue(parameterValue);
 	}
 }

@@ -3,6 +3,7 @@ package org.openforis.collect.earth.app.service;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
+import java.io.IOException;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -12,6 +13,10 @@ import java.util.List;
 import java.util.Map;
 import java.util.Vector;
 
+import javax.annotation.PostConstruct;
+
+import org.apache.commons.dbcp.BasicDataSource;
+import org.apache.commons.io.FileUtils;
 import org.openforis.collect.earth.app.service.LocalPropertiesService.EarthProperty;
 import org.openforis.collect.manager.RecordManager;
 import org.openforis.collect.manager.SurveyManager;
@@ -33,7 +38,9 @@ import org.openforis.idm.model.Node;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Component;
 
+@Component
 public class EarthSurveyService {
 
 	private static final String COLLECT_BOOLEAN_ACTIVELY_SAVED = "collect_boolean_actively_saved";
@@ -44,7 +51,7 @@ public class EarthSurveyService {
 	public static final int ROOT_ENTITY_ID = 1;
 	public static final String ROOT_ENTITY_NAME = "plot";
 	private static final String SKIP_FILLED_PLOT_PARAMETER = "jump_to_next_plot";
-	private final SimpleDateFormat dateFormat = new SimpleDateFormat( "yyyy-MM-dd HH:mm:ss");
+	private final SimpleDateFormat dateFormat = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
 
 	@Autowired
 	private CollectParametersHandlerService collectParametersHandler;
@@ -61,6 +68,9 @@ public class EarthSurveyService {
 
 	@Autowired
 	private SurveyManager surveyManager;
+
+	@Autowired
+	BasicDataSource dataSource;
 
 	private void addLocalProperties(Map<String, String> placemarkParameters) {
 		placemarkParameters.put(SKIP_FILLED_PLOT_PARAMETER, localPropertiesService.shouldJumpToNextPlot() + "");
@@ -101,6 +111,41 @@ public class EarthSurveyService {
 			parameters.put("valid_data", "false");
 		}
 
+	}
+
+	private void attachShutDownHook() {
+		Runtime.getRuntime().addShutdownHook(new Thread() {
+			@Override
+			public void run() {
+				if (localPropertiesService.getValue(EarthProperty.AUTOMATIC_BACKUP) != null
+						&& localPropertiesService.getValue(EarthProperty.AUTOMATIC_BACKUP).toLowerCase().trim().equals("true")) {
+					backupDB();
+				}
+			}
+
+		});
+	}
+
+	private void backupDB() {
+		String pathToCollectDB = "";
+		String pathToBackup = "";
+		try {
+			pathToCollectDB = dataSource.getUrl();
+			int indexLastColon = pathToCollectDB.lastIndexOf(':');
+			// should look like jdbc:sqlite:collectEarthDatabase.db"
+			pathToCollectDB = pathToCollectDB.substring(indexLastColon);
+
+			long millis = System.currentTimeMillis();
+			String userHome = System.getProperty("user.home");
+			String backupFolder = userHome + "backupCollectEarth";
+
+			File srcFile = new File(pathToCollectDB);
+			String destPath = backupFolder + File.separator + srcFile.getName() + "_bk_" + millis;
+
+			FileUtils.copyFile(new File(pathToCollectDB), new File(destPath));
+		} catch (IOException e) {
+			logger.error("Error when create backup of the Collect Earth Database from " + pathToCollectDB + " to " + pathToBackup);
+		}
 	}
 
 	private CollectRecord createRecord(String sessionId) throws RecordPersistenceException {
@@ -179,6 +224,7 @@ public class EarthSurveyService {
 		}
 	}
 
+	@PostConstruct
 	public void init() throws FileNotFoundException, IdmlParseException, SurveyImportException {
 		// Initilize the Collect survey using the idm
 		// This is only done if the survey has not yet been created in the DB
@@ -188,7 +234,7 @@ public class EarthSurveyService {
 			CollectSurvey survey;
 			try {
 				File surveyFile = new File(getIdmFilePath());
-				if( surveyFile.exists() ){
+				if (surveyFile.exists()) {
 					survey = surveyManager.unmarshalSurvey(new FileInputStream(surveyFile));
 
 					survey.setName(EARTH_SURVEY_NAME);
@@ -199,13 +245,20 @@ public class EarthSurveyService {
 						surveyManager.updateModel(survey);
 					}
 					setCollectSurvey(survey);
-				}else{
-					logger.error("The survey definition file could not be found in " + surveyFile.getAbsolutePath()  );
+				} else {
+					logger.error("The survey definition file could not be found in " + surveyFile.getAbsolutePath());
 				}
 			} catch (final SurveyValidationException e) {
 				logger.error("Unable to validate survey at " + getIdmFilePath(), e);
 			}
 		}
+
+		attachShutDownHook();
+	}
+
+	public boolean isPlacemarEdited(Map<String, String> parameters) {
+		return (parameters != null) && (parameters.get(COLLECT_BOOLEAN_ACTIVELY_SAVED) != null)
+				&& parameters.get(COLLECT_BOOLEAN_ACTIVELY_SAVED).equals("false");
 	}
 
 	public boolean isPlacemarSavedActively(Map<String, String> parameters) {
@@ -213,11 +266,6 @@ public class EarthSurveyService {
 				&& parameters.get(COLLECT_BOOLEAN_ACTIVELY_SAVED).equals("true");
 	}
 
-	public boolean isPlacemarEdited(Map<String, String> parameters) {
-		return (parameters != null) && (parameters.get(COLLECT_BOOLEAN_ACTIVELY_SAVED) != null)
-				&& parameters.get(COLLECT_BOOLEAN_ACTIVELY_SAVED).equals("false");
-	}
-	
 	private void saveLocalProperties(Map<String, String> parameters) {
 		// Save extra information
 		localPropertiesService.setJumpToNextPlot(parameters.get(SKIP_FILLED_PLOT_PARAMETER));
@@ -227,13 +275,13 @@ public class EarthSurveyService {
 		this.collectSurvey = collectSurvey;
 	}
 
+	private void setPlacemarkSavedOn(Map<String, String> parameters) {
+		parameters.put(COLLECT_TEXT_ACTIVELY_SAVED_ON, dateFormat.format(new Date()));
+	}
+
 	private void setPlacemarSavedActively(Map<String, String> parameters, boolean value) {
 		parameters.put(COLLECT_BOOLEAN_ACTIVELY_SAVED, value + "");
-		
-	}
-	
-	private void setPlacemarkSavedOn(Map<String, String> parameters ){
-		parameters.put( COLLECT_TEXT_ACTIVELY_SAVED_ON, dateFormat.format( new Date()) );
+
 	}
 
 	public boolean storePlacemark(Map<String, String> parameters, String sessionId) {
@@ -267,7 +315,7 @@ public class EarthSurveyService {
 				plotEntity = record.getRootEntity();
 				logger.warn("Creating a new plot entity with data " + parameters.toString());
 			}
-			
+
 			if (isPlacemarSavedActively(parameters)) {
 				setPlacemarkSavedOn(parameters);
 			}

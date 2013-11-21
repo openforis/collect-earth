@@ -17,12 +17,6 @@ public class CoordinateAttributeHandler extends AbstractAttributeHandler<Value> 
 	}
 
 	@Override
-	public String getAttributeFromParameter(String parameterName, Entity entity, int index) {
-		return ((CoordinateAttribute) entity.get(removePrefix(parameterName), index)).getValue().getX() + ","
-				+ ((CoordinateAttribute) entity.get(removePrefix(parameterName), index)).getValue().getY();
-	}
-
-	@Override
 	public void addToEntity(String parameterName, String parameterValue, Entity entity) {
 		Coordinate coord = extractCoordinate(parameterValue);
 
@@ -49,14 +43,19 @@ public class CoordinateAttributeHandler extends AbstractAttributeHandler<Value> 
 		return coord;
 	}
 
-
 	@Override
-	public boolean isParseable(Node value) {
-		return value instanceof CoordinateAttribute;
+	public String getAttributeFromParameter(String parameterName, Entity entity, int index) {
+		return ((CoordinateAttribute) entity.get(removePrefix(parameterName), index)).getValue().getX() + ","
+				+ ((CoordinateAttribute) entity.get(removePrefix(parameterName), index)).getValue().getY();
 	}
 
 	@Override
 	public Value getAttributeValue(String parameterValue) {
 		return extractCoordinate(parameterValue);
+	}
+
+	@Override
+	public boolean isParseable(Node value) {
+		return value instanceof CoordinateAttribute;
 	}
 }

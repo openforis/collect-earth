@@ -27,8 +27,6 @@ import org.springframework.web.context.support.WebApplicationContextUtils;
  */
 public class ServerController extends Observable {
 
-
-
 	// Make sure that the default ports are the same for Server and Generator
 	private static final String DEFAULT_PORT = KmlGenerator.DEFAULT_PORT;
 	public static final String PLACEMARK_ID = "collect_text_id";
@@ -36,50 +34,9 @@ public class ServerController extends Observable {
 	private final Logger logger = LoggerFactory.getLogger(ServerController.class);
 	private WebAppContext root;
 
-/*	@Autowired
-	BasicDataSource dataSource;
-	@Autowired
-	LocalPropertiesService localPropertiesService;
-	
-	public ServerController() {
-		attachShutDownHook();
+	public WebApplicationContext getContext() {
+		return WebApplicationContextUtils.getRequiredWebApplicationContext(getRoot().getServletContext());
 	}
-
-	private void attachShutDownHook(){
-		Runtime.getRuntime().addShutdownHook(new Thread() {
-			@Override
-			public void run() {
-				if( localPropertiesService.getValue(EarthProperty.AUTOMATIC_BACKUP)!= null && localPropertiesService.getValue(EarthProperty.AUTOMATIC_BACKUP).toLowerCase().trim().equals("true")){
-					backupDB();
-				}
-			}
-
-		});
-	}
-
-
-	private void backupDB() {
-		String pathToCollectDB = "";
-		String pathToBackup = "";
-		try {
-			pathToCollectDB = dataSource.getUrl();
-			int indexLastColon = pathToCollectDB.lastIndexOf(':');
-			// should look like jdbc:sqlite:collectEarthDatabase.db"
-			pathToCollectDB = pathToCollectDB.substring( indexLastColon );
-
-			long millis = System.currentTimeMillis();
-			String userHome = System.getProperty("user.home");
-			String backupFolder = userHome + "backupCollectEarth";
-			
-			File srcFile = new File(pathToCollectDB);
-			String destPath = backupFolder + File.separator + srcFile.getName() + "_bk_" + millis;
-
-			FileUtils.copyFile( new File(pathToCollectDB), new File(destPath));
-		} catch (IOException e) {
-			logger.error("Error when create backup of the Collect Earth Database from " + pathToCollectDB +" to " + pathToBackup );
-		}
-	}
-	*/
 
 	private int getPort() {
 
@@ -121,11 +78,6 @@ public class ServerController extends Observable {
 		this.root = root;
 	}
 
-	public WebApplicationContext getContext() {
-		return WebApplicationContextUtils.getRequiredWebApplicationContext(getRoot().getServletContext());
-	}
-
-
 	/**
 	 * @param args
 	 */
@@ -135,13 +87,12 @@ public class ServerController extends Observable {
 
 		String webappDirLocation = "";
 
-		// The port that we should run on can be set into an environment
-		// variable
+		// The port that we should run on can be set into an environment  variable
 		// Look for that variable and default to 8080 if it isn't there.
 		// PropertyConfigurator.configure(this.getClass().getResource("/WEB-INF/conf/log4j.properties"));
 
 		server = new Server();
-		//		// Use blocking-IO connector to improve throughput
+		// // Use blocking-IO connector to improve throughput
 		Connector connector = new SocketConnector();
 		connector.setPort(getPort());
 		connector.setMaxIdleTime(10000);
@@ -158,10 +109,8 @@ public class ServerController extends Observable {
 
 		// Parent loader priority is a class loader setting that Jetty accepts.
 		// By default Jetty will behave like most web containers in that it will
-		// allow your application to replace non-server libraries that are part
-		// of the
-		// container. Setting parent loader priority to true changes this
-		// behavior.
+		// allow your application to replace non-server libraries that are part of the container. 
+		// Setting parent loader priority to true changes this behaviour.
 		// Read more here:
 		// http://wiki.eclipse.org/Jetty/Reference/Jetty_Classloading
 		getRoot().setParentLoaderPriority(true);

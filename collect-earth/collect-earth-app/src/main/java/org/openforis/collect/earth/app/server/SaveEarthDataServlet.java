@@ -12,34 +12,14 @@ import org.springframework.web.bind.annotation.RequestMapping;
 @Controller
 public class SaveEarthDataServlet extends JsonPocessorServlet {
 
-
 	@Override
 	@RequestMapping("/saveData")
 	protected void processRequest(HttpServletRequest request, HttpServletResponse response) throws IOException {
 
 		Map<String, String> collectedData = extractRequestData(request);
 
-		// REMOVE THIS!!!!
-		if (collectedData.get("collect_text_id").equals("$[id]")) {
-			collectedData.put("collect_text_id", "testPlacemark");
-		}
+		replaceTestVariables(collectedData);
 
-		if (collectedData.get("collect_integer_elevation") != null && collectedData.get("collect_integer_elevation").equals("$[elevation]")) {
-			collectedData.put("collect_integer_elevation", "0");
-		}
-
-		if (collectedData.get("collect_real_slope")!=null && collectedData.get("collect_real_slope").equals("$[slope]")) {
-			collectedData.put("collect_real_slope", "0");
-		}
-
-		if (collectedData.get("collect_real_aspect")!=null && collectedData.get("collect_real_aspect").equals("$[aspect]")) {
-			collectedData.put("collect_real_aspect", "0");
-		}
-		
-		if (collectedData.get("collect_coord_location").equals("$[latitude],$[longitude]")) {
-			collectedData.put("collect_coord_location", "0,0");
-		}
-		
 		if (collectedData.size() == 0) {
 			setResult(false, "Empty request", collectedData);
 			getLogger().info("The request was empty");
@@ -54,7 +34,37 @@ public class SaveEarthDataServlet extends JsonPocessorServlet {
 			}
 		}
 
-		getJsonService().setJsonResponse(response, collectedData);
+		setJsonResponse(response, collectedData);
+	}
+
+	/**
+	 * This method replaces the variable values that the form contains when it is not run
+	 * through Google Earth and the variable replacement of the ExtendedData of the KML does not kick in.
+	 * 
+	 * @param collectedData
+	 *            The data POSTed by the form that has already been processed.
+	 */
+	private void replaceTestVariables(Map<String, String> collectedData) {
+		// REMOVE THIS!!!!
+		if (collectedData.get("collect_text_id").equals("$[id]")) {
+			collectedData.put("collect_text_id", "testPlacemark");
+		}
+
+		if (collectedData.get("collect_integer_elevation") != null && collectedData.get("collect_integer_elevation").equals("$[elevation]")) {
+			collectedData.put("collect_integer_elevation", "0");
+		}
+
+		if (collectedData.get("collect_real_slope") != null && collectedData.get("collect_real_slope").equals("$[slope]")) {
+			collectedData.put("collect_real_slope", "0");
+		}
+
+		if (collectedData.get("collect_real_aspect") != null && collectedData.get("collect_real_aspect").equals("$[aspect]")) {
+			collectedData.put("collect_real_aspect", "0");
+		}
+
+		if (collectedData.get("collect_coord_location").equals("$[latitude],$[longitude]")) {
+			collectedData.put("collect_coord_location", "0,0");
+		}
 	}
 
 }

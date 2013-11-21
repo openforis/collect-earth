@@ -7,10 +7,11 @@ import java.util.Map;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 
-import org.openforis.collect.earth.app.desktop.BrowserService;
 import org.openforis.collect.earth.app.desktop.ServerController;
+import org.openforis.collect.earth.app.service.BrowserService;
 import org.openforis.collect.earth.app.service.EarthSurveyService;
 import org.openqa.selenium.remote.RemoteWebDriver;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -18,15 +19,14 @@ import org.springframework.web.bind.annotation.RequestMapping;
 @Controller
 public class PlacemarkInfoServlet extends JsonPocessorServlet {
 
+
 	@Autowired
 	private BrowserService browserService;
-
-	private static RemoteWebDriver webKitDriver = null;
-
 
 	private String getPlacemarkId(Map<String, String> collectedData) {
 		return collectedData.get(ServerController.PLACEMARK_ID);
 	}
+
 	@Override
 	@RequestMapping("/placemarkInfo")
 	protected void processRequest(HttpServletRequest request, HttpServletResponse response) throws IOException {
@@ -61,14 +61,14 @@ public class PlacemarkInfoServlet extends JsonPocessorServlet {
 
 		}
 
-		Thread browserStarter = new Thread() {
-			public void run() {
-				webKitDriver = browserService.openBrowser(originalCoordinates, webKitDriver);
-			};
-		};
-		browserStarter.start();
+		setJsonResponse(response, collectedData);
 
-		getJsonService().setJsonResponse(response, collectedData);
+		try {
+			browserService.openEarthEngine(originalCoordinates);
+			browserService.openTimelapse(originalCoordinates);
+		} catch (Exception e) {
+			LoggerFactory.getLogger(this.getClass()).error("Exception", e);
+		}
 
 	}
 

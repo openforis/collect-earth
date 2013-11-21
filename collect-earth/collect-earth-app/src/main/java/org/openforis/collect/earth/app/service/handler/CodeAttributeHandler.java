@@ -16,24 +16,23 @@ public class CodeAttributeHandler extends AbstractAttributeHandler<Value> {
 	}
 
 	@Override
+	public void addToEntity(String parameterName, String parameterValue, Entity entity) {
+		EntityBuilder.addValue(entity, removePrefix(parameterName), new Code(parameterValue));
+	}
+
+	@Override
 	public String getAttributeFromParameter(String parameterName, Entity entity, int index) {
 		return ((CodeAttribute) entity.get(removePrefix(parameterName), index)).getValue().getCode();
 	}
 
 	@Override
-	public void addToEntity(String parameterName, String parameterValue, Entity entity) {
-		EntityBuilder.addValue(entity, removePrefix(parameterName), new Code(parameterValue));
+	public Value getAttributeValue(String parameterValue) {
+		return new Code(parameterValue);
 	}
-
 
 	@Override
 	public boolean isParseable(Node value) {
 		return value instanceof CodeAttribute;
-	}
-
-	@Override
-	public Value getAttributeValue(String parameterValue) {
-		return new Code(parameterValue);
 	}
 
 }

@@ -54,13 +54,10 @@ import au.com.bytecode.opencsv.CSVReader;
 
 public class OptionWizard extends JDialog {
 
-	/**
-	 * 
-	 */
 	private static final long serialVersionUID = -6760020609229102842L;
-	HashMap<EarthProperty, JComponent[]> propertyToComponent = new HashMap<EarthProperty, JComponent[]>();
-
-	Logger logger = LoggerFactory.getLogger(this.getClass());
+	
+	private HashMap<EarthProperty, JComponent[]> propertyToComponent = new HashMap<EarthProperty, JComponent[]>();
+	private Logger logger = LoggerFactory.getLogger(this.getClass());
 
 	@Autowired
 	LocalPropertiesService localPropertiesService;
@@ -99,6 +96,9 @@ public class OptionWizard extends JDialog {
 		constraints.fill = GridBagConstraints.HORIZONTAL;
 
 		panel.add(propertyToComponent.get(EarthProperty.OPEN_EARTH_ENGINE)[0], constraints);
+
+		constraints.gridy++;
+		panel.add(propertyToComponent.get(EarthProperty.OPEN_TIMELAPSE)[0], constraints);
 
 		JPanel browserChooserPanel = new JPanel();
 		Border browserBorder = new TitledBorder(new BevelBorder(BevelBorder.LOWERED), "Choose Browser");
@@ -293,7 +293,7 @@ public class OptionWizard extends JDialog {
 					Vector<Vector<Object>> samplingPoints = getSamplingPoints(jFilePicker.getSelectedFilePath());
 					if (samplingPoints.size() == 0) {
 						errorLoading = true;
-					}else{ 
+					} else {
 						samplePlots.setModel(new DefaultTableModel(samplingPoints, getColumnNames()));
 					}
 				} else {
@@ -302,7 +302,7 @@ public class OptionWizard extends JDialog {
 
 				if (errorLoading) {
 					samplePlots.setBackground(CollectEarthWindow.ERROR_COLOR);
-					samplePlots.setModel( new DefaultTableModel());
+					samplePlots.setModel(new DefaultTableModel());
 				} else {
 					samplePlots.setBackground(Color.white);
 				}
@@ -359,12 +359,10 @@ public class OptionWizard extends JDialog {
 
 				}
 			} catch (Exception e) {
-				JOptionPane
-						.showMessageDialog(
-								this,
-								"<html>The CSV/CED file cannot be read correctly.<br/>The file is expected to have a comma separated lines like this :<br/><b>"
-								+ "ID,XCoordinate,YCoordinate,elevation,slope,aspect</b></html>",
-								"Error reading file contents", JOptionPane.ERROR_MESSAGE);
+				JOptionPane.showMessageDialog(this,
+						"<html>The CSV/CED file cannot be read correctly.<br/>The file is expected to have a comma separated lines like this :<br/><b>"
+								+ "ID,XCoordinate,YCoordinate,elevation,slope,aspect</b></html>", "Error reading file contents",
+						JOptionPane.ERROR_MESSAGE);
 			}
 		} catch (IOException e) {
 			logger.error("Error when extracting data from CSV file " + csvFilePath, e);
@@ -420,6 +418,10 @@ public class OptionWizard extends JDialog {
 		openEarthEngineCheckbox.setSelected(Boolean.parseBoolean(localPropertiesService.getValue(EarthProperty.OPEN_EARTH_ENGINE)));
 		propertyToComponent.put(EarthProperty.OPEN_EARTH_ENGINE, new JComponent[] { openEarthEngineCheckbox });
 
+		JCheckBox openTimelapseCheckbox = new JCheckBox("Open Earth Engine timelapse for the plot area");
+		openTimelapseCheckbox.setSelected(Boolean.parseBoolean(localPropertiesService.getValue(EarthProperty.OPEN_TIMELAPSE)));
+		propertyToComponent.put(EarthProperty.OPEN_TIMELAPSE, new JComponent[] { openTimelapseCheckbox });
+
 		JCheckBox openInSeparateWindowCheckbox = new JCheckBox("Open form on a browser instead of Google Earth ( recommended for LINUX )");
 		openInSeparateWindowCheckbox.setSelected(Boolean.parseBoolean(localPropertiesService.getValue(EarthProperty.OPEN_BALLOON_IN_BROWSER)));
 		propertyToComponent.put(EarthProperty.OPEN_BALLOON_IN_BROWSER, new JComponent[] { openInSeparateWindowCheckbox });
@@ -427,15 +429,15 @@ public class OptionWizard extends JDialog {
 		JFilePicker csvWithPlotData = new JFilePicker("Path to ced/csv file with plot data", localPropertiesService.getValue(EarthProperty.CSV_KEY),
 				"Browse...");
 		csvWithPlotData.setMode(JFilePicker.MODE_OPEN);
-		
+
 		csvWithPlotData.addFileTypeFilter(".csv", "CSV file with only coordinates", false);
 		csvWithPlotData.addFileTypeFilter(".ced", "CSV file with extra elevation data", true);
 		propertyToComponent.put(EarthProperty.CSV_KEY, new JComponent[] { csvWithPlotData });
 
-		JComboBox comboNumberOfPoints = new JComboBox(new ComboBoxItem[] { new ComboBoxItem( 1, "Central point"), new ComboBoxItem( 4, "2x2"),
-				new ComboBoxItem( 9, "3x3"), new ComboBoxItem( 16, "4x4"), new ComboBoxItem( 25, "5x5"), new ComboBoxItem( 36, "6x6"),
-				new ComboBoxItem( 49, "7x7") });
-		comboNumberOfPoints.setSelectedItem(new ComboBoxItem( Integer.parseInt(localPropertiesService
+		JComboBox comboNumberOfPoints = new JComboBox(new ComboBoxItem[] { new ComboBoxItem(1, "Central point"), new ComboBoxItem(4, "2x2"),
+				new ComboBoxItem(9, "3x3"), new ComboBoxItem(16, "4x4"), new ComboBoxItem(25, "5x5"), new ComboBoxItem(36, "6x6"),
+				new ComboBoxItem(49, "7x7") });
+		comboNumberOfPoints.setSelectedItem(new ComboBoxItem(Integer.parseInt(localPropertiesService
 				.getValue(EarthProperty.NUMBER_OF_SAMPLING_POINTS_IN_PLOT)), ""));
 		propertyToComponent.put(EarthProperty.NUMBER_OF_SAMPLING_POINTS_IN_PLOT, new JComponent[] { comboNumberOfPoints });
 

@@ -42,16 +42,53 @@ public class PlacemarkUpdateServlet {
 
 	@Autowired
 	private LocalPropertiesService localPropertiesService;
-	
+
 	private static final Configuration cfg = new Configuration();
 	private static Template template;
 
+	private String getKmlFromTemplate(Map data) throws IOException {
+
+		if (template == null) {
+			// Load template from source folder
+			template = cfg.getTemplate(KML_FOR_UPDATES);
+		}
+		// Console output
+		StringWriter fw = new StringWriter();
+		Writer out = new BufferedWriter(fw);
+		try {
+			// Add date to avoid caching
+			template.process(data, out);
+
+		} catch (TemplateException e) {
+			logger.error("Error when producing starter KML from template", e);
+		} finally {
+			out.flush();
+			fw.close();
+		}
+
+		return fw.toString();
+
+	}
+
+	private String[] getPlacemarksId(List<CollectRecord> lastUpdatedRecord) {
+		if (lastUpdatedRecord == null) {
+			return new String[0];
+		}
+		String[] placemarIds = new String[lastUpdatedRecord.size()];
+		for (int i = 0; i < lastUpdatedRecord.size(); i++) {
+			if (lastUpdatedRecord.get(i).getRootEntity().get("id", 0) != null) {
+				placemarIds[i] = ((TextAttribute) lastUpdatedRecord.get(i).getRootEntity().get("id", 0)).getValue().getValue();
+			}
+		}
+
+		return placemarIds;
+	}
+
 	@RequestMapping("/placemarkUpdate")
-	public void getUpdatePlacemark(HttpServletResponse response,
-			@RequestParam(value = "lastUpdate", required = false) String lastUpdate) {
+	public void getUpdatePlacemark(HttpServletResponse response, @RequestParam(value = "lastUpdate", required = false) String lastUpdate) {
 
 		try {
-			SimpleDateFormat dateFormat = new SimpleDateFormat( EarthConstants.DATE_FORMAT_HTTP);
+			SimpleDateFormat dateFormat = new SimpleDateFormat(EarthConstants.DATE_FORMAT_HTTP);
 			Date lastUpdateDate = null;
 			if (lastUpdate != null && lastUpdate.length() > 0) {
 				lastUpdateDate = dateFormat.parse(lastUpdate);
@@ -74,44 +111,6 @@ public class PlacemarkUpdateServlet {
 
 	}
 
-	private String[] getPlacemarksId(List<CollectRecord> lastUpdatedRecord) {
-		if (lastUpdatedRecord == null) {
-			return new String[0];
-		}
-		String[] placemarIds = new String[lastUpdatedRecord.size()];
-		for (int i = 0; i < lastUpdatedRecord.size(); i++) {
-			if (lastUpdatedRecord.get(i).getRootEntity().get("id", 0) != null) {
-				placemarIds[i] = ((TextAttribute) lastUpdatedRecord.get(i).getRootEntity().get("id", 0)).getValue().getValue();
-			}
-		}
-		
-		return placemarIds;
-	}
-
-	private String getKmlFromTemplate(Map data) throws IOException {
-
-		if( template == null ){
-			// Load template from source folder
-			template = cfg.getTemplate(KML_FOR_UPDATES);
-		}
-		// Console output
-		StringWriter fw = new StringWriter();
-		Writer out = new BufferedWriter(fw);
-		try {
-			// Add date to avoid caching
-			template.process(data, out);
-
-		} catch (TemplateException e) {
-			logger.error("Error when producing starter KML from template", e);
-		}finally{
-			out.flush();
-			fw.close();
-		}
-
-		return fw.toString();
-
-	}
-
 	private void setKmlResponse(HttpServletResponse response, String kmlCode, SimpleDateFormat dateFormat) throws IOException {
 		response.setHeader("Content-Type", "application/vnd.google-earth.kml+xml");
 		response.setHeader("Cache-Control", "max-age=30");
@@ -120,6 +119,5 @@ public class PlacemarkUpdateServlet {
 		response.getOutputStream().write(kmlCode.getBytes(Charset.forName("UTF-8")));
 		response.getOutputStream().close();
 	}
-
 
 }

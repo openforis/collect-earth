@@ -210,11 +210,11 @@ public class EarthApp {
 
 			try {
 				final KmzGenerator kmzGenerator = new KmzGenerator();
-				
+
 				String balloon = localProperties.getBalloonFile();
-				File balloonFile = new File( balloon );
-				String folderToInclude = balloonFile.getParent() + File.separator + FOLDER_COPIED_TO_KMZ; 
-				
+				File balloonFile = new File(balloon);
+				String folderToInclude = balloonFile.getParent() + File.separator + FOLDER_COPIED_TO_KMZ;
+
 				kmzGenerator.generateKmzFile(KMZ_FILE_PATH, KML_RESULTING_TEMP_FILE, folderToInclude);
 				logger.info("KMZ File generated : " + KMZ_FILE_PATH);
 
@@ -336,6 +336,7 @@ public class EarthApp {
 		data.put("host", KmlGenerator.getHostAddress(localProperties.getHost(), localProperties.getPort()));
 		data.put("kmlGeneratedOn", localProperties.getGeneratedOn());
 		data.put("surveyName", localProperties.getValue(EarthProperty.SURVEY_NAME));
+		data.put("plotFileName", KmlGenerator.getCsvFileName(localProperties.getValue(EarthProperty.CSV_KEY)));
 
 		// Console output
 		final FileWriter fw = new FileWriter(KML_NETWORK_LINK_STARTER);

@@ -52,76 +52,67 @@ public class CollectEarthWindow {
 	private final ServerController serverController;
 	public static final Color ERROR_COLOR = new Color(225, 124, 124);
 
-	public CollectEarthWindow(LocalPropertiesService localPropertiesService, DataExportService dataExportService,
-			ServerController serverController) {
+	public CollectEarthWindow(LocalPropertiesService localPropertiesService, DataExportService dataExportService, ServerController serverController) {
 		super();
 		this.localPropertiesService = localPropertiesService;
 		this.dataExportService = dataExportService;
 		this.serverController = serverController;
 	}
 
-	public JMenuBar getMenu(JFrame frame) {
-		//Where the GUI is created:
-		JMenuBar menuBar;
-		JMenu menu;
-		JMenuItem menuItem;
-
-		//Create the menu bar.
-		menuBar = new JMenuBar();
-
-		//Build second menu in the menu bar.
-		menu = new JMenu("File");
-
-		menuItem = new JMenuItem("Exit");
-		menuItem.addActionListener(getCloseActionListener());
-		menu.add(menuItem);
-		menuBar.add(menu);
-
-		//Build second menu in the menu bar.
-		menu = new JMenu("Tools");
-
-		menuItem = new JMenuItem("Export data to CSV");
-		menuItem.addActionListener(getExportActionListener());
-		menu.add(menuItem);
-		menuBar.add(menu);
-
-//		menuItem = new JMenuItem("Export data to Fusion format CSV");
-//		menuItem.addActionListener(getExportFusionActionListener());
-//		menu.add(menuItem);
-//		menuBar.add(menu);
-
-		menuItem = new JMenuItem("Properties");
-		menuItem.addActionListener(getPropertiesAction(frame));
-		menu.add(menuItem);
-		menuBar.add(menu);
-
-		menu = new JMenu("Help");
-
-		menuItem = new JMenuItem("Disclaimer");
-		menuItem.addActionListener(getDisclaimerAction(frame));
-		menu.add(menuItem);
-		menuBar.add(menu);
-
-
-		return menuBar;
+	private void exportDataToCsv(ActionEvent e) {
+		File selectedFile = selectACsvFile();
+		if (selectedFile != null) {
+			FileOutputStream fos = null;
+			try {
+				fos = new FileOutputStream(selectedFile);
+				dataExportService.exportSurveyAsCsv(fos);
+			} catch (Exception e1) {
+				JOptionPane.showMessageDialog(this.frame, "Error when attempting to export data to CSV file", "Export error",
+						JOptionPane.ERROR_MESSAGE);
+				logger.error("Error exporting data to plain CSV format", e1);
+			} finally {
+				if (fos != null) {
+					try {
+						fos.close();
+					} catch (IOException e1) {
+						logger.error("Error closing output stream for fusion table", e);
+					}
+				}
+			}
+		}
 	}
 
-	private ActionListener getPropertiesAction(JFrame owner) {
-		final JDialog dialog = new OptionWizard(owner, localPropertiesService);
-		dialog.setLocationRelativeTo(owner);
-		dialog.setSize(new Dimension(600, 400));
-		dialog.setModal(true);
-		dialog.setResizable(false);
+	private void exportDataToFusionCsv(ActionEvent e) {
+		File selectedFile = selectACsvFile();
+		if (selectedFile != null) {
+			FileOutputStream fos = null;
+			try {
+				fos = new FileOutputStream(selectedFile);
+				dataExportService.exportSurveyAsFusionTable(fos);
+			} catch (Exception e1) {
+				JOptionPane.showMessageDialog(this.frame, "Error when attempting to export data to CSV file", "Export error",
+						JOptionPane.ERROR_MESSAGE);
+				logger.error("Error exporting data to plain CSV format", e1);
+			} finally {
+				if (fos != null) {
+					try {
+						fos.close();
+					} catch (IOException e1) {
+						logger.error("Error closing output stream for fusion table", e);
+					}
+				}
+			}
+		}
+	}
 
+	private ActionListener getCloseActionListener() {
 		return new ActionListener() {
 
 			@Override
 			public void actionPerformed(ActionEvent e) {
-				dialog.setVisible(true);
-				dialog.pack();
+				frame.dispatchEvent(new WindowEvent(frame, WindowEvent.WINDOW_CLOSING));
 			}
 		};
-
 	}
 
 	private ActionListener getDisclaimerAction(JFrame owner) {
@@ -135,7 +126,7 @@ public class CollectEarthWindow {
 
 		JPanel panel = new JPanel(layoutManager);
 
-		dialog.add( panel );
+		dialog.add(panel);
 
 		JTextArea textArea = new JTextArea(getDisclaimerText());
 		textArea.setEditable(false);
@@ -173,6 +164,96 @@ public class CollectEarthWindow {
 		}
 	}
 
+	private ActionListener getExportActionListener() {
+		return new ActionListener() {
+
+			@Override
+			public void actionPerformed(ActionEvent e) {
+				exportDataToCsv(e);
+
+			}
+		};
+	}
+
+	private ActionListener getExportFusionActionListener() {
+		return new ActionListener() {
+
+			@Override
+			public void actionPerformed(ActionEvent e) {
+				exportDataToFusionCsv(e);
+
+			}
+
+		};
+	}
+
+	JFrame getFrame() {
+		return frame;
+	}
+
+	public JMenuBar getMenu(JFrame frame) {
+		// Where the GUI is created:
+		JMenuBar menuBar;
+		JMenu menu;
+		JMenuItem menuItem;
+
+		// Create the menu bar.
+		menuBar = new JMenuBar();
+
+		// Build second menu in the menu bar.
+		menu = new JMenu("File");
+
+		menuItem = new JMenuItem("Exit");
+		menuItem.addActionListener(getCloseActionListener());
+		menu.add(menuItem);
+		menuBar.add(menu);
+
+		// Build second menu in the menu bar.
+		menu = new JMenu("Tools");
+
+		menuItem = new JMenuItem("Export data to CSV");
+		menuItem.addActionListener(getExportActionListener());
+		menu.add(menuItem);
+		menuBar.add(menu);
+
+		// menuItem = new JMenuItem("Export data to Fusion format CSV");
+		// menuItem.addActionListener(getExportFusionActionListener());
+		// menu.add(menuItem);
+		// menuBar.add(menu);
+
+		menuItem = new JMenuItem("Properties");
+		menuItem.addActionListener(getPropertiesAction(frame));
+		menu.add(menuItem);
+		menuBar.add(menu);
+
+		menu = new JMenu("Help");
+
+		menuItem = new JMenuItem("Disclaimer");
+		menuItem.addActionListener(getDisclaimerAction(frame));
+		menu.add(menuItem);
+		menuBar.add(menu);
+
+		return menuBar;
+	}
+
+	private ActionListener getPropertiesAction(JFrame owner) {
+		final JDialog dialog = new OptionWizard(owner, localPropertiesService);
+		dialog.setLocationRelativeTo(owner);
+		dialog.setSize(new Dimension(600, 400));
+		dialog.setModal(true);
+		dialog.setResizable(false);
+
+		return new ActionListener() {
+
+			@Override
+			public void actionPerformed(ActionEvent e) {
+				dialog.setVisible(true);
+				dialog.pack();
+			}
+		};
+
+	}
+
 	public void openWindow() {
 
 		try {
@@ -203,7 +284,8 @@ public class CollectEarthWindow {
 									"<html>Are you sure that you want to close Collect Earth?<br>Closing the window will also close the Collect Earth server</html>",
 									"Confirmation needed", JOptionPane.YES_NO_OPTION);
 					if (confirmation == JOptionPane.YES_OPTION) {
-						Thread stopServer = new Thread(){
+						Thread stopServer = new Thread() {
+							@Override
 							public void run() {
 								try {
 									serverController.stopServer();
@@ -216,7 +298,7 @@ public class CollectEarthWindow {
 						getFrame().setVisible(false);
 						getFrame().dispose();
 						stopServer.start();
-						Thread.sleep( 2000 );
+						Thread.sleep(2000);
 
 						System.exit(0);
 					}
@@ -257,15 +339,15 @@ public class CollectEarthWindow {
 		c.gridx = 0;
 		c.gridy = 1;
 		c.gridwidth = GridBagConstraints.REMAINDER;
-		pane.add(new JLabel("<html><b>Open Foris Collect Earth server should be running while the operator interprets data.</b>"
-				+ "<br>" + "Please maintain this window open while you are using Google Earth.</hmtl>"), c);
+		pane.add(new JLabel("<html><b>Open Foris Collect Earth server should be running while the operator interprets data.</b>" + "<br>"
+				+ "Please maintain this window open while you are using Google Earth.</hmtl>"), c);
 
 		c.gridx = 0;
 		c.gridy = 2;
 		c.gridwidth = GridBagConstraints.REMAINDER;
 		JButton exportButton = new JButton("Export collected data to CSV file");
 		exportButton.addActionListener(getExportActionListener());
-		pane.add(exportButton , c);
+		pane.add(exportButton, c);
 
 		c.gridx = 0;
 		c.gridy = 3;
@@ -286,9 +368,8 @@ public class CollectEarthWindow {
 					localPropertiesService.saveOperator(operatorName);
 					operatorTextField.setBackground(Color.white);
 				} else {
-					JOptionPane.showMessageDialog(getFrame(),
-							"The operator name has to be longer than 5 characters and shorter than 50", "Validation error",
-							JOptionPane.ERROR_MESSAGE);
+					JOptionPane.showMessageDialog(getFrame(), "The operator name has to be longer than 5 characters and shorter than 50",
+							"Validation error", JOptionPane.ERROR_MESSAGE);
 					operatorTextField.setText(localPropertiesService.getOperator());
 				}
 
@@ -312,97 +393,19 @@ public class CollectEarthWindow {
 
 	}
 
-	private ActionListener getExportActionListener() {
-		return new ActionListener() {
-
-			@Override
-			public void actionPerformed(ActionEvent e) {
-				exportDataToCsv(e);
-
-			}
-		};
-	}
-
-	private ActionListener getExportFusionActionListener() {
-		return new ActionListener() {
-
-			@Override
-			public void actionPerformed(ActionEvent e) {
-				exportDataToFusionCsv(e);
-
-			}
-
-
-		};
-	}
-
-	private ActionListener getCloseActionListener() {
-		return new ActionListener() {
-
-			@Override
-			public void actionPerformed(ActionEvent e) {
-				frame.dispatchEvent(new WindowEvent(frame, WindowEvent.WINDOW_CLOSING));
-			}
-		};
-	}
-
-	private void exportDataToFusionCsv(ActionEvent e) {
-		File selectedFile = selectACsvFile();
-		if(selectedFile!=null ){
-			FileOutputStream fos = null;
-			try {
-				fos = new FileOutputStream(selectedFile);
-				dataExportService.exportSurveyAsFusionTable(fos);
-			} catch (Exception e1) {
-				JOptionPane.showMessageDialog(this.frame, "Error when attempting to export data to CSV file", "Export error", JOptionPane.ERROR_MESSAGE );
-				logger.error("Error exporting data to plain CSV format", e );
-			}finally{
-				if( fos!=null ){
-					try {
-						fos.close();
-					} catch (IOException e1) {
-						logger.error("Error closing output stream for fusion table", e );
-					}
-				}
-			}
-		}
-	}
-
-	private void exportDataToCsv(ActionEvent e) {
-		File selectedFile = selectACsvFile();
-		if(selectedFile!=null ){
-			FileOutputStream fos = null;
-			try {
-				fos = new FileOutputStream(selectedFile);
-				dataExportService.exportSurveyAsCsv(fos);
-			} catch (Exception e1) {
-				JOptionPane.showMessageDialog(this.frame, "Error when attempting to export data to CSV file", "Export error", JOptionPane.ERROR_MESSAGE );
-				logger.error("Error exporting data to plain CSV format", e );
-			}finally{
-				if( fos!=null ){
-					try {
-						fos.close();
-					} catch (IOException e1) {
-						logger.error("Error closing output stream for fusion table", e );
-					}
-				}
-			}
-		}
-	}
-
 	private File selectACsvFile() {
 		JFileChooser fc = new JFileChooser();
 		File selectedFile = null;
 		fc.addChoosableFileFilter(new FileFilter() {
 
 			@Override
-			public String getDescription() {
-				return "CSV files";
+			public boolean accept(File f) {
+				return f.isDirectory() || f.getName().endsWith(".csv");
 			}
 
 			@Override
-			public boolean accept(File f) {
-				return f.isDirectory() || f.getName().endsWith(".csv");
+			public String getDescription() {
+				return "CSV files";
 			}
 		});
 
@@ -428,10 +431,6 @@ public class CollectEarthWindow {
 			logger.info("Open command cancelled by user.");
 		}
 		return selectedFile;
-	}
-
-	JFrame getFrame() {
-		return frame;
 	}
 
 	void setFrame(JFrame frame) {

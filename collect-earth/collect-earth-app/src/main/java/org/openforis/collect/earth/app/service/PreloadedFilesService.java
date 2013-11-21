@@ -8,7 +8,9 @@ import java.util.concurrent.ConcurrentHashMap;
 import org.apache.commons.io.FileUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.stereotype.Component;
 
+@Component
 public class PreloadedFilesService {
 
 	private final Logger logger = LoggerFactory.getLogger(PreloadedFilesService.class);

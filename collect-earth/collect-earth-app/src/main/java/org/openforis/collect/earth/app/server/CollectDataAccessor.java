@@ -10,13 +10,9 @@ public class CollectDataAccessor implements DataAccessor {
 	@Autowired
 	private EarthSurveyService earthSurveyService;
 
-	// private final Logger logger =
-	// LoggerFactory.getLogger(CollectDataAccessor.class);
-
 	@Override
 	public Map<String, String> getData(String placemarkId) {
 		return earthSurveyService.getPlacemark(placemarkId);
-
 	}
 
 	@Override

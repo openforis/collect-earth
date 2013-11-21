@@ -23,20 +23,25 @@ public class DateAttributeHandler extends AbstractAttributeHandler<Value> {
 	}
 
 	@Override
+	public void addToEntity(String parameterName, String parameterValue, Entity entity) {
+		EntityBuilder.addValue(entity, removePrefix(parameterName), getDate(parameterValue));
+	}
+
+	@Override
 	public String getAttributeFromParameter(String parameterName, Entity entity, int index) {
 		String attribute = "";
 
 		try {
 			attribute = sdf.format(((DateAttribute) entity.get(removePrefix(parameterName), index)).getValue().toJavaDate());
 		} catch (Exception e) {
-			Logger.getLogger(this.getClass()).error("Not able to parse date", e);
+			Logger.getLogger(this.getClass()).error("Not able to parse date for paramaeter " + parameterName, e);
 		}
 		return attribute;
 	}
 
 	@Override
-	public void addToEntity(String parameterName, String parameterValue, Entity entity) {
-		EntityBuilder.addValue(entity, removePrefix(parameterName), getDate(parameterValue));
+	public Value getAttributeValue(String parameterValue) {
+		return getDate(parameterValue);
 	}
 
 	private Date getDate(String parameterValue) {
@@ -61,10 +66,5 @@ public class DateAttributeHandler extends AbstractAttributeHandler<Value> {
 	@Override
 	public boolean isParseable(Node value) {
 		return value instanceof DateAttribute;
-	}
-
-	@Override
-	public Value getAttributeValue(String parameterValue) {
-		return getDate(parameterValue);
 	}
 }

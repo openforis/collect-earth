@@ -42,6 +42,17 @@ public abstract class KmlGenerator extends AbstractWgs84Transformer {
 		return hostAndPort;
 
 	}
+	
+
+	public static String getCsvFileName( String csvFilePath) {
+		File csvFile = new File(csvFilePath);
+		if( csvFile != null && csvFile.exists() ){
+			return csvFile.getName();
+		}else{
+			return "No CSV file found";
+		}
+		
+	}
 
 	public KmlGenerator(String epsgCode) {
 		super(epsgCode);

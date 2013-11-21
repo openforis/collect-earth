@@ -168,29 +168,5 @@
 		<constructor-arg ref="validator" />
 		<property name="externalCodeListProvider" ref="externalCodeListProvider" />
 		<property name="codeListService" ref="codeListService" />
-	</bean>
-	
-	<!-- ===================================== -->
-	<!-- Collect Earth Specific Beans -->
-	<!-- ===================================== -->
-	
-	<bean id="earthSurveyService" class="org.openforis.collect.earth.app.service.EarthSurveyService"
-		init-method="init" lazy-init="false">
-	</bean>
-	
-	<bean id="browserService" class="org.openforis.collect.earth.app.desktop.BrowserService" />
-	
-	<bean id="dataExportService" class="org.openforis.collect.earth.app.service.DataExportService" />
-	
-	<bean id="jsonService" class="org.openforis.collect.earth.app.service.JsonService" />
-	
-	<bean id="collectParametersHandler" class="org.openforis.collect.earth.app.service.CollectParametersHandlerService"/>
-	
-	<bean id="preloadedFilesService" class="org.openforis.collect.earth.app.service.PreloadedFilesService"/>
-	
-	<bean id="localPropertiesService" class="org.openforis.collect.earth.app.service.LocalPropertiesService"
-		init-method="init" lazy-init="false">
-	</bean>
-	
-	
+	</bean>	
 </beans>

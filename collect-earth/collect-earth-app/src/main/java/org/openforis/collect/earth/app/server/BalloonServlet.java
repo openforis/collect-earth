@@ -14,8 +14,8 @@ import javax.servlet.http.HttpServletResponse;
 
 import org.apache.commons.io.FileUtils;
 import org.openforis.collect.earth.app.EarthConstants;
-import org.openforis.collect.earth.app.desktop.BrowserService;
 import org.openforis.collect.earth.app.desktop.EarthApp;
+import org.openforis.collect.earth.app.service.BrowserService;
 import org.openforis.collect.earth.app.service.LocalPropertiesService;
 import org.openforis.collect.earth.app.service.PreloadedFilesService;
 import org.openforis.collect.earth.sampler.processor.KmlGenerator;

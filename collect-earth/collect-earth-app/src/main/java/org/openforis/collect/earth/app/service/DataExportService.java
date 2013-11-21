@@ -28,7 +28,9 @@ import org.openforis.idm.metamodel.NodeDefinition;
 import org.openforis.idm.metamodel.Schema;
 import org.openforis.idm.model.expression.InvalidExpressionException;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Component;
 
+@Component
 public class DataExportService {
 
 	@Autowired
@@ -108,8 +110,29 @@ public class DataExportService {
 		ModelCsvWriter modelWriter = new ModelCsvWriter(outputWriter, transform);
 		modelWriter.printColumnHeadings();
 
-		List<CollectRecord> summaries = recordManager.loadSummaries(earthSurveyService.getCollectSurvey(),
-				EarthSurveyService.ROOT_ENTITY_NAME, 0, Integer.MAX_VALUE, (List<RecordSummarySortField>) null, (String) null);
+		List<CollectRecord> summaries = recordManager.loadSummaries(earthSurveyService.getCollectSurvey(), EarthSurveyService.ROOT_ENTITY_NAME, 0,
+				Integer.MAX_VALUE, (List<RecordSummarySortField>) null, (String) null);
+
+		int stepNumber = Step.ENTRY.getStepNumber();
+		for (CollectRecord s : summaries) {
+
+			if (stepNumber == s.getStep().getStepNumber()) {
+				CollectRecord record = recordManager.load(earthSurveyService.getCollectSurvey(), s.getId(), stepNumber);
+				modelWriter.printData(record);
+
+			}
+		}
+	}
+
+	public void exportSurveyAsFusionTable(OutputStream exportToStream) throws InvalidExpressionException, IOException {
+		Writer outputWriter = new OutputStreamWriter(exportToStream, Charset.forName("UTF-8"));
+		DataTransformation transform = getTransform();
+
+		ModelCsvWriter modelWriter = new ModelCsvWriter(outputWriter, transform);
+		modelWriter.printColumnHeadings();
+
+		List<CollectRecord> summaries = recordManager.loadSummaries(earthSurveyService.getCollectSurvey(), EarthSurveyService.ROOT_ENTITY_NAME, 0,
+				Integer.MAX_VALUE, (List<RecordSummarySortField>) null, (String) null);
 
 		int stepNumber = Step.ENTRY.getStepNumber();
 		for (CollectRecord s : summaries) {
@@ -130,28 +153,6 @@ public class DataExportService {
 		ColumnProvider provider = new ColumnProviderChain(columnProviders);
 		String axisPath = entityDefn.getPath();
 		return new DataTransformation(axisPath, provider);
-	}
-
-	public void exportSurveyAsFusionTable(OutputStream exportToStream ) throws InvalidExpressionException, IOException {
-		Writer outputWriter = new OutputStreamWriter(exportToStream, Charset.forName("UTF-8"));
-		DataTransformation transform = getTransform();
-
-		ModelCsvWriter modelWriter = new ModelCsvWriter(outputWriter, transform);
-		modelWriter.printColumnHeadings();
-
-		List<CollectRecord> summaries = recordManager.loadSummaries(earthSurveyService.getCollectSurvey(),
-				EarthSurveyService.ROOT_ENTITY_NAME, 0, Integer.MAX_VALUE, (List<RecordSummarySortField>) null, (String) null);
-
-		int stepNumber = Step.ENTRY.getStepNumber();
-		for (CollectRecord s : summaries) {
-
-			if (stepNumber == s.getStep().getStepNumber()) {
-				CollectRecord record = recordManager.load(earthSurveyService.getCollectSurvey(), s.getId(), stepNumber);
-				modelWriter.printData(record);
-				
-
-			}
-		}
 	}
 
 }

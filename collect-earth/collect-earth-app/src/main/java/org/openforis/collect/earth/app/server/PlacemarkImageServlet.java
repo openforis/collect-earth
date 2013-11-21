@@ -30,11 +30,8 @@ public class PlacemarkImageServlet extends DataAccessingServlet {
 	private PreloadedFilesService preloadedFilesService;
 
 	@RequestMapping("/placemarkIcon")
-	public void getImage(HttpServletResponse response, HttpServletRequest request,
-			@RequestParam("collect_text_id") String placemarkId,
-			@RequestParam(value = "listView", required = false) Boolean listView)
-			throws IOException, URISyntaxException {
-
+	public void getImage(HttpServletResponse response, HttpServletRequest request, @RequestParam("collect_text_id") String placemarkId,
+			@RequestParam(value = "listView", required = false) Boolean listView) throws IOException, URISyntaxException {
 
 		Map<String, String> placemarkParameters = earthSurveyService.getPlacemark(placemarkId);
 		String imageName = "";
@@ -45,13 +42,13 @@ public class PlacemarkImageServlet extends DataAccessingServlet {
 			} else {
 				imageName = EarthConstants.FILLED_IMAGE;
 			}
-		} else if( earthSurveyService.isPlacemarEdited(placemarkParameters) ){
+		} else if (earthSurveyService.isPlacemarEdited(placemarkParameters)) {
 			if (listView != null && listView) {
 				imageName = EarthConstants.LIST_NOT_FINISHED_IMAGE;
 			} else {
 				imageName = EarthConstants.NON_FILLED_IMAGE;
 			}
-		}else{
+		} else {
 			if (listView != null && listView) {
 				imageName = EarthConstants.LIST_NON_FILLED_IMAGE;
 			} else {
@@ -62,13 +59,11 @@ public class PlacemarkImageServlet extends DataAccessingServlet {
 	}
 
 	private byte[] readFile(String filePath, ServletContext servletContext) throws MalformedURLException, URISyntaxException {
-
 		File imageFile = new File(servletContext.getResource(filePath).toURI());
 		return preloadedFilesService.getFileContent(imageFile);
 	}
 
-	private void returnImage(HttpServletResponse response, HttpServletRequest request, String imageName) throws IOException,
-			URISyntaxException {
+	private void returnImage(HttpServletResponse response, HttpServletRequest request, String imageName) throws IOException, URISyntaxException {
 		response.setHeader("Content-Type", "image/png");
 		response.setHeader("Content-Disposition", "inline; filename=\"" + imageName + "\"");
 		response.setHeader("Cache-Control", "max-age=30");

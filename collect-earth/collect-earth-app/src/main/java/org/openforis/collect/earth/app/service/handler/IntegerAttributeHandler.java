@@ -9,7 +9,7 @@ import org.openforis.idm.model.Value;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-public class IntegerAttributeHandler extends AbstractAttributeHandler< Value> {
+public class IntegerAttributeHandler extends AbstractAttributeHandler<Value> {
 
 	private static final String PREFIX = "integer_";
 	private Logger logger = LoggerFactory.getLogger(IntegerAttributeHandler.class);
@@ -19,13 +19,8 @@ public class IntegerAttributeHandler extends AbstractAttributeHandler< Value> {
 	}
 
 	@Override
-	public String getAttributeFromParameter(String parameterName, Entity entity, int index) {
-		return ((IntegerAttribute) entity.get(removePrefix(parameterName), index)).getValue().getValue().toString();
-	}
-
-	@Override
 	public void addToEntity(String parameterName, String parameterValue, Entity entity) {
-		
+
 		try {
 			EntityBuilder.addValue(entity, removePrefix(parameterName), Integer.parseInt(parameterValue));
 		} catch (NumberFormatException e) {
@@ -34,13 +29,18 @@ public class IntegerAttributeHandler extends AbstractAttributeHandler< Value> {
 	}
 
 	@Override
-	public boolean isParseable(Node value) {
-		return value instanceof IntegerAttribute;
+	public String getAttributeFromParameter(String parameterName, Entity entity, int index) {
+		return ((IntegerAttribute) entity.get(removePrefix(parameterName), index)).getValue().getValue().toString();
 	}
 
 	@Override
 	public Value getAttributeValue(String parameterValue) {
 		return new IntegerValue(Integer.parseInt(parameterValue), null);
+	}
+
+	@Override
+	public boolean isParseable(Node value) {
+		return value instanceof IntegerAttribute;
 	}
 
 }

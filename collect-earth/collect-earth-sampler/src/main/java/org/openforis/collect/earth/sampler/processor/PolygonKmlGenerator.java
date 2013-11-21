@@ -116,7 +116,7 @@ public abstract class PolygonKmlGenerator extends KmlGenerator {
 		data.put("region_center_X", viewFrame.getCenterX() + "");
 		data.put("region_center_Y", viewFrame.getCenterY() + "");
 		data.put("host", KmlGenerator.getHostAddress(host, port));
-
+		data.put("plotFileName", KmlGenerator.getCsvFileName(csvFile) );
 		return data;
 	}
 

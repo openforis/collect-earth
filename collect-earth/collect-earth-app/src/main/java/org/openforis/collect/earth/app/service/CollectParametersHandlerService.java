@@ -29,7 +29,9 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.config.BeanDefinition;
 import org.springframework.context.annotation.ClassPathScanningCandidateComponentProvider;
 import org.springframework.core.type.filter.AssignableTypeFilter;
+import org.springframework.stereotype.Component;
 
+@Component
 public class CollectParametersHandlerService {
 
 	private static final String PARAMETER_SEPARATOR = "===";
@@ -47,6 +49,12 @@ public class CollectParametersHandlerService {
 		initiliaze();
 	}
 
+	private String cleanUpParameterName(String parameterName) {
+		String cleanParameter = removeArraySuffix(parameterName);
+		cleanParameter = removePrefix(cleanParameter);
+		return cleanParameter;
+	}
+
 	public Map<String, String> getParameters(Entity plotEntity) {
 		Map<String, String> parameters = new HashMap<String, String>();
 
@@ -56,7 +64,7 @@ public class CollectParametersHandlerService {
 
 			for (AbstractAttributeHandler handler : attributeHandlers) {
 				if (handler.isParseable(node)) {
-				
+
 					// builds ie. "text_parameter"
 					String paramName = handler.getPrefix() + node.getName();
 
@@ -71,7 +79,7 @@ public class CollectParametersHandlerService {
 								parameters.put(
 										collectParamName,
 										parameters.get(collectParamName) + PARAMETER_SEPARATOR
-										+ handler.getAttributeFromParameter(paramName, plotEntity, index));
+												+ handler.getAttributeFromParameter(paramName, plotEntity, index));
 							} catch (Exception e) {
 								logger.error("Exception when getting parameters for entity ", e);
 							}
@@ -87,29 +95,24 @@ public class CollectParametersHandlerService {
 						String entityKey = ((EntityHandler) handler).getEntityKey(entity);
 						collectParamName += "[" + entityKey + "]";
 
-
 						List<Node<? extends NodeDefinition>> entityChildren = entity.getChildren();
 						for (Node<? extends NodeDefinition> child : entityChildren) {
-							
+
 							if (child instanceof CodeAttribute) {
 								CodeAttributeHandler cah = new CodeAttributeHandler();
-								parameters.put(collectParamName + ".code_" + child.getName(),
-										cah.getAttributeFromParameter(child.getName(), entity));
+								parameters.put(collectParamName + ".code_" + child.getName(), cah.getAttributeFromParameter(child.getName(), entity));
 							} else if (child instanceof IntegerAttribute) {
 								IntegerAttributeHandler iah = new IntegerAttributeHandler();
 								parameters.put(collectParamName + ".integer_" + child.getName(),
 										iah.getAttributeFromParameter(child.getName(), entity));
 							} else if (child instanceof RealAttribute) {
 								RealAttributeHandler iah = new RealAttributeHandler();
-								parameters.put(collectParamName + ".real_" + child.getName(),
-										iah.getAttributeFromParameter(child.getName(), entity));
+								parameters.put(collectParamName + ".real_" + child.getName(), iah.getAttributeFromParameter(child.getName(), entity));
 							} else if (child instanceof TextAttribute) {
 								TextAttributeHandler tah = new TextAttributeHandler();
-								parameters.put(collectParamName + ".text_" + child.getName(),
-										tah.getAttributeFromParameter(child.getName(), entity));
+								parameters.put(collectParamName + ".text_" + child.getName(), tah.getAttributeFromParameter(child.getName(), entity));
 							}
 						}
-
 
 					}
 
@@ -125,7 +128,7 @@ public class CollectParametersHandlerService {
 
 		logger.info("Scanning for classes that can interpret collect attributes");
 		// scan in org.example.package
-		Set<BeanDefinition> components = provider.findCandidateComponents("org/openforis/collect/earth");
+		Set<BeanDefinition> components = provider.findCandidateComponents("org/openforis/collect/earth/app/service/handler");
 		for (BeanDefinition component : components) {
 			try {
 				Class cls = Class.forName(component.getBeanClassName());
@@ -138,10 +141,6 @@ public class CollectParametersHandlerService {
 		if (attributeHandlers.size() == 0) {
 			logger.error("No attribute handlers defined. It is not possible to use the Collect parameter handler without implementations of AbstractAttributeHandler");
 		}
-	}
-
-	private String removePrefix(String parameterName) {
-		return parameterName.substring(COLLECT_PREFIX.length());
 	}
 
 	private String removeArraySuffix(String parameterName) {
@@ -162,6 +161,9 @@ public class CollectParametersHandlerService {
 		return cleanParamater;
 	}
 
+	private String removePrefix(String parameterName) {
+		return parameterName.substring(COLLECT_PREFIX.length());
+	}
 
 	public void saveToEntity(Map<String, String> parameters, Entity entity) {
 		Set<Entry<String, String>> parameterEntries = parameters.entrySet();
@@ -179,12 +181,6 @@ public class CollectParametersHandlerService {
 				}
 			}
 		}
-	}
-
-	private String cleanUpParameterName(String parameterName) {
-		String cleanParameter = removeArraySuffix(parameterName);
-		cleanParameter = removePrefix(cleanParameter);
-		return cleanParameter;
 	}
 
 }

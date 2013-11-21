@@ -19,11 +19,6 @@ public class RealAttributeHandler extends AbstractAttributeHandler<Value> {
 	}
 
 	@Override
-	public String getAttributeFromParameter(String parameterName, Entity entity, int index) {
-		return ((RealAttribute) entity.get(removePrefix(parameterName), index)).getValue().getValue().toString();
-	}
-
-	@Override
 	public void addToEntity(String parameterName, String parameterValue, Entity entity) {
 
 		try {
@@ -34,13 +29,18 @@ public class RealAttributeHandler extends AbstractAttributeHandler<Value> {
 	}
 
 	@Override
-	public boolean isParseable(Node value) {
-		return value instanceof RealAttribute;
+	public String getAttributeFromParameter(String parameterName, Entity entity, int index) {
+		return ((RealAttribute) entity.get(removePrefix(parameterName), index)).getValue().getValue().toString();
 	}
 
 	@Override
 	public Value getAttributeValue(String parameterValue) {
 		return new RealValue(Double.parseDouble(parameterValue), null);
+	}
+
+	@Override
+	public boolean isParseable(Node value) {
+		return value instanceof RealAttribute;
 	}
 
 }

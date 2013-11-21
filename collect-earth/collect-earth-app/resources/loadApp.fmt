@@ -4,6 +4,7 @@
 	<name>Collect Earth Data</name>
 	<NetworkLink>
 	  <name>${surveyName}</name>
+	  	<description>${plotFileName}</description>
 	  <open>1</open>
 	  <Link>
 	    <!-- add date to avoid Google Earth from caching -->

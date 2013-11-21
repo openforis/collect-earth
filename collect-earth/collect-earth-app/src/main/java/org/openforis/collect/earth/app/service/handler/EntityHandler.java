@@ -40,16 +40,20 @@ public class EntityHandler extends AbstractAttributeHandler<Entity> {
 			cah = new RealAttributeHandler();
 		} else if (parameterName.contains("text_")) {
 			cah = new TextAttributeHandler();
-		}else if( parameterName.contains("coord_") ){
+		} else if (parameterName.contains("coord_")) {
 			cah = new CoordinateAttributeHandler();
-		}else if( parameterName.contains("date_") ){
+		} else if (parameterName.contains("date_")) {
 			cah = new DateAttributeHandler();
-		}else{
-			throw new IllegalArgumentException("Unknown type of parameter " + parameterName );
+		} else {
+			throw new IllegalArgumentException("Unknown type of parameter " + parameterName);
 		}
 
 		cah.addOrUpdate(entityAttribute, parameterValue, childEntity);
 
+	}
+
+	@Override
+	protected void addToEntity(String parameterName, String parameterValue, Entity entity) {
 	}
 
 	private Entity geChildEntity(Entity parentEntity, String entityName, String entityKey) {
@@ -62,20 +66,35 @@ public class EntityHandler extends AbstractAttributeHandler<Entity> {
 					foundEntity = (Entity) entity;
 					break;
 				}
-				
+
 			}
 		}
 		return foundEntity;
+	}
+
+	@Override
+	public String getAttributeFromParameter(String parameterName, Entity entity, int index) {
+		return "";
+	}
+
+	@Override
+	protected Entity getAttributeValue(String parameterValue) {
+		return EntityBuilder.createEntity(null, parameterValue);
+	}
+
+	private String getEntityAttribute(String parameterName) {
+		int indexOfDot = parameterName.indexOf('.');
+		return parameterName.substring(indexOfDot + 1);
 	}
 
 	public String getEntityKey(Entity entity) {
 		String key = null;
 		CodeAttributeDefinition enumeratingKeyCodeAttribute = entity.getDefinition().getEnumeratingKeyCodeAttribute();
 		CodeAttribute keyAttribute = null;
-		
+
 		List<Node<? extends NodeDefinition>> children = entity.getChildren();
 		for (Node<? extends NodeDefinition> child : children) {
-			if( child.getName().equals(enumeratingKeyCodeAttribute.getName() )){
+			if (child.getName().equals(enumeratingKeyCodeAttribute.getName())) {
 				keyAttribute = (CodeAttribute) child;
 			}
 		}
@@ -85,11 +104,6 @@ public class EntityHandler extends AbstractAttributeHandler<Entity> {
 		}
 
 		return key;
-	}
-
-	private String getEntityAttribute(String parameterName) {
-		int indexOfDot = parameterName.indexOf('.');
-		return parameterName.substring(indexOfDot + 1);
 	}
 
 	private String getEntityKey(String parameterName) {
@@ -102,21 +116,7 @@ public class EntityHandler extends AbstractAttributeHandler<Entity> {
 	private String getEntityName(String parameterName) {
 		int indexOfKey = parameterName.indexOf("[");
 		return parameterName.substring(0, indexOfKey);
-		
-	}
 
-	@Override
-	protected Entity getAttributeValue(String parameterValue) {
-		return EntityBuilder.createEntity(null, parameterValue);
-	}
-
-	@Override
-	protected void addToEntity(String parameterName, String parameterValue, Entity entity) {
-	}
-
-	@Override
-	public String getAttributeFromParameter(String parameterName, Entity entity, int index) {
-		return "";
 	}
 
 	@Override
