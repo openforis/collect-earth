@@ -41,6 +41,7 @@ import javax.swing.event.DocumentListener;
 import javax.swing.table.DefaultTableModel;
 import javax.swing.text.JTextComponent;
 
+import org.openforis.collect.earth.app.EarthConstants;
 import org.openforis.collect.earth.app.desktop.EarthApp;
 import org.openforis.collect.earth.app.service.LocalPropertiesService;
 import org.openforis.collect.earth.app.service.LocalPropertiesService.EarthProperty;
@@ -99,6 +100,9 @@ public class OptionWizard extends JDialog {
 
 		constraints.gridy++;
 		panel.add(propertyToComponent.get(EarthProperty.OPEN_TIMELAPSE)[0], constraints);
+		
+		constraints.gridy++;
+		panel.add(propertyToComponent.get(EarthProperty.OPEN_BING_MAPS)[0], constraints);
 
 		JPanel browserChooserPanel = new JPanel();
 		Border browserBorder = new TitledBorder(new BevelBorder(BevelBorder.LOWERED), "Choose Browser");
@@ -422,6 +426,10 @@ public class OptionWizard extends JDialog {
 		openTimelapseCheckbox.setSelected(Boolean.parseBoolean(localPropertiesService.getValue(EarthProperty.OPEN_TIMELAPSE)));
 		propertyToComponent.put(EarthProperty.OPEN_TIMELAPSE, new JComponent[] { openTimelapseCheckbox });
 
+		JCheckBox openBingCheckbox = new JCheckBox("Open Bing Maps for the plot area");
+		openBingCheckbox.setSelected(Boolean.parseBoolean(localPropertiesService.getValue(EarthProperty.OPEN_BING_MAPS)));
+		propertyToComponent.put(EarthProperty.OPEN_BING_MAPS, new JComponent[] { openBingCheckbox });
+		
 		JCheckBox openInSeparateWindowCheckbox = new JCheckBox("Open form on a browser instead of Google Earth ( recommended for LINUX )");
 		openInSeparateWindowCheckbox.setSelected(Boolean.parseBoolean(localPropertiesService.getValue(EarthProperty.OPEN_BALLOON_IN_BROWSER)));
 		propertyToComponent.put(EarthProperty.OPEN_BALLOON_IN_BROWSER, new JComponent[] { openInSeparateWindowCheckbox });
@@ -462,13 +470,13 @@ public class OptionWizard extends JDialog {
 		propertyToComponent.put(EarthProperty.DISTANCE_TO_PLOT_BOUNDARIES, new JComponent[] { listOfDistanceToBorder });
 
 		JRadioButton chromeChooser = new JRadioButton("Chrome");
-		chromeChooser.setSelected(localPropertiesService.getValue(EarthProperty.BROWSER_TO_USE).trim().equals(LocalPropertiesService.CHROME_BROWSER));
-		chromeChooser.setName(LocalPropertiesService.CHROME_BROWSER);
+		chromeChooser.setSelected(localPropertiesService.getValue(EarthProperty.BROWSER_TO_USE).trim().equals(EarthConstants.CHROME_BROWSER));
+		chromeChooser.setName(EarthConstants.CHROME_BROWSER);
 
 		JRadioButton firefoxChooser = new JRadioButton("Firefox");
 		firefoxChooser.setSelected(localPropertiesService.getValue(EarthProperty.BROWSER_TO_USE).trim()
-				.equals(LocalPropertiesService.FIREFOX_BROWSER));
-		firefoxChooser.setName(LocalPropertiesService.FIREFOX_BROWSER);
+				.equals(EarthConstants.FIREFOX_BROWSER));
+		firefoxChooser.setName(EarthConstants.FIREFOX_BROWSER);
 		propertyToComponent.put(EarthProperty.BROWSER_TO_USE, new JComponent[] { firefoxChooser, chromeChooser });
 
 		JFilePicker firefoxBinaryPath = new JFilePicker("Path to Firefox executable ",

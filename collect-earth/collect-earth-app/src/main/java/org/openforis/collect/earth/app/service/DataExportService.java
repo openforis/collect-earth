@@ -17,6 +17,7 @@ import org.openforis.collect.csv.ModelCsvWriter;
 import org.openforis.collect.csv.NodePositionColumnProvider;
 import org.openforis.collect.csv.PivotExpressionColumnProvider;
 import org.openforis.collect.csv.SingleAttributeColumnProvider;
+import org.openforis.collect.earth.app.EarthConstants;
 import org.openforis.collect.manager.CodeListManager;
 import org.openforis.collect.manager.RecordManager;
 import org.openforis.collect.model.CollectRecord;
@@ -41,6 +42,8 @@ public class DataExportService {
 
 	@Autowired
 	private CodeListManager codeListManager;
+
+	private static final int ROOT_ENTITY_ID = 1;
 
 	private ColumnProvider createAncestorColumnProvider(EntityDefinition entityDefn, int depth) {
 		List<AttributeDefinition> keyAttrDefns = entityDefn.getKeyAttributeDefinitions();
@@ -110,7 +113,7 @@ public class DataExportService {
 		ModelCsvWriter modelWriter = new ModelCsvWriter(outputWriter, transform);
 		modelWriter.printColumnHeadings();
 
-		List<CollectRecord> summaries = recordManager.loadSummaries(earthSurveyService.getCollectSurvey(), EarthSurveyService.ROOT_ENTITY_NAME, 0,
+		List<CollectRecord> summaries = recordManager.loadSummaries(earthSurveyService.getCollectSurvey(), EarthConstants.ROOT_ENTITY_NAME, 0,
 				Integer.MAX_VALUE, (List<RecordSummarySortField>) null, (String) null);
 
 		int stepNumber = Step.ENTRY.getStepNumber();
@@ -131,7 +134,7 @@ public class DataExportService {
 		ModelCsvWriter modelWriter = new ModelCsvWriter(outputWriter, transform);
 		modelWriter.printColumnHeadings();
 
-		List<CollectRecord> summaries = recordManager.loadSummaries(earthSurveyService.getCollectSurvey(), EarthSurveyService.ROOT_ENTITY_NAME, 0,
+		List<CollectRecord> summaries = recordManager.loadSummaries(earthSurveyService.getCollectSurvey(), EarthConstants.ROOT_ENTITY_NAME, 0,
 				Integer.MAX_VALUE, (List<RecordSummarySortField>) null, (String) null);
 
 		int stepNumber = Step.ENTRY.getStepNumber();
@@ -147,7 +150,7 @@ public class DataExportService {
 
 	private DataTransformation getTransform() throws InvalidExpressionException {
 		Schema schema = earthSurveyService.getCollectSurvey().getSchema();
-		EntityDefinition entityDefn = (EntityDefinition) schema.getDefinitionById(EarthSurveyService.ROOT_ENTITY_ID);
+		EntityDefinition entityDefn = (EntityDefinition) schema.getDefinitionById(DataExportService.ROOT_ENTITY_ID);
 		List<ColumnProvider> columnProviders = createAncestorsColumnsProvider(entityDefn);
 		columnProviders.add(new AutomaticColumnProvider(codeListManager, entityDefn));
 		ColumnProvider provider = new ColumnProviderChain(columnProviders);

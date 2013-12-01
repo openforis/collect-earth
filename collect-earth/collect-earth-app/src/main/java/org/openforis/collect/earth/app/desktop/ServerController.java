@@ -12,7 +12,6 @@ import org.eclipse.jetty.server.bio.SocketConnector;
 import org.eclipse.jetty.util.thread.ExecutorThreadPool;
 import org.eclipse.jetty.webapp.WebAppContext;
 import org.openforis.collect.earth.app.service.LocalPropertiesService;
-import org.openforis.collect.earth.sampler.processor.KmlGenerator;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.web.context.WebApplicationContext;
@@ -28,8 +27,7 @@ import org.springframework.web.context.support.WebApplicationContextUtils;
 public class ServerController extends Observable {
 
 	// Make sure that the default ports are the same for Server and Generator
-	private static final String DEFAULT_PORT = KmlGenerator.DEFAULT_PORT;
-	public static final String PLACEMARK_ID = "collect_text_id";
+	private static final String DEFAULT_PORT = "80";
 	private Server server;
 	private final Logger logger = LoggerFactory.getLogger(ServerController.class);
 	private WebAppContext root;

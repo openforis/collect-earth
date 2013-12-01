@@ -17,6 +17,7 @@ import javax.annotation.PostConstruct;
 
 import org.apache.commons.dbcp.BasicDataSource;
 import org.apache.commons.io.FileUtils;
+import org.openforis.collect.earth.app.EarthConstants;
 import org.openforis.collect.earth.app.service.LocalPropertiesService.EarthProperty;
 import org.openforis.collect.manager.RecordManager;
 import org.openforis.collect.manager.SurveyManager;
@@ -47,9 +48,6 @@ public class EarthSurveyService {
 	private static final String COLLECT_TEXT_ACTIVELY_SAVED_ON = "collect_text_actively_saved_on";
 	private static final String COLLECT_TEXT_OPERATOR = "collect_text_operator";
 	private static final String EARTH_SURVEY_NAME = "earth";
-	public static final String PLACEMARK_FOUND_PARAMETER = "placemark_found";
-	public static final int ROOT_ENTITY_ID = 1;
-	public static final String ROOT_ENTITY_NAME = "plot";
 	private static final String SKIP_FILLED_PLOT_PARAMETER = "jump_to_next_plot";
 	private final SimpleDateFormat dateFormat = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
 
@@ -77,7 +75,7 @@ public class EarthSurveyService {
 	}
 
 	private void addResultParameter(Map<String, String> placemarkParameters, boolean found) {
-		placemarkParameters.put(PLACEMARK_FOUND_PARAMETER, found + "");
+		placemarkParameters.put(EarthConstants.PLACEMARK_FOUND_PARAMETER, found + "");
 	}
 
 	private void addValidationMessages(Map<String, String> parameters, CollectRecord record) {
@@ -151,12 +149,12 @@ public class EarthSurveyService {
 	private CollectRecord createRecord(String sessionId) throws RecordPersistenceException {
 		final Schema schema = getCollectSurvey().getSchema();
 		final CollectRecord record = recordManager
-				.create(getCollectSurvey(), schema.getRootEntityDefinition(ROOT_ENTITY_NAME), null, null, sessionId);
+				.create(getCollectSurvey(), schema.getRootEntityDefinition(EarthConstants.ROOT_ENTITY_NAME), null, null, sessionId);
 		return record;
 	}
 
 	public List<String> getAllFilledPlacemarkIds() {
-		final List<CollectRecord> summaries = recordManager.loadSummaries(getCollectSurvey(), ROOT_ENTITY_NAME);
+		final List<CollectRecord> summaries = recordManager.loadSummaries(getCollectSurvey(), EarthConstants.ROOT_ENTITY_NAME);
 		final List<String> ids = new Vector<String>();
 		for (final CollectRecord record : summaries) {
 			final CollectRecord recordloaded = recordManager.load(getCollectSurvey(), record.getId(), Step.ENTRY);
@@ -177,7 +175,7 @@ public class EarthSurveyService {
 	}
 
 	public synchronized Map<String, String> getPlacemark(String placemarkId) {
-		final List<CollectRecord> summaries = recordManager.loadSummaries(getCollectSurvey(), ROOT_ENTITY_NAME, placemarkId);
+		final List<CollectRecord> summaries = recordManager.loadSummaries(getCollectSurvey(), EarthConstants.ROOT_ENTITY_NAME, placemarkId);
 		CollectRecord record = null;
 		Map<String, String> placemarkParameters = null;
 		if (summaries.size() > 0) {
@@ -202,7 +200,7 @@ public class EarthSurveyService {
 	}
 
 	public List<CollectRecord> getRecordsSavedSince(Date updatedSince) {
-		final List<CollectRecord> summaries = recordManager.loadSummaries(getCollectSurvey(), ROOT_ENTITY_NAME, 0, 15,
+		final List<CollectRecord> summaries = recordManager.loadSummaries(getCollectSurvey(), EarthConstants.ROOT_ENTITY_NAME, 0, 15,
 				Arrays.asList(new RecordSummarySortField(Sortable.DATE_MODIFIED, true)), (String[]) null);
 		if ((updatedSince != null) && (summaries != null) && !summaries.isEmpty()) {
 			final List<CollectRecord> records = new ArrayList<CollectRecord>();
@@ -286,7 +284,7 @@ public class EarthSurveyService {
 
 	public boolean storePlacemark(Map<String, String> parameters, String sessionId) {
 
-		final List<CollectRecord> summaries = recordManager.loadSummaries(getCollectSurvey(), ROOT_ENTITY_NAME, parameters.get("collect_text_id"));
+		final List<CollectRecord> summaries = recordManager.loadSummaries(getCollectSurvey(), EarthConstants.ROOT_ENTITY_NAME, parameters.get("collect_text_id"));
 
 		boolean success = false;
 

@@ -1,0 +1,58 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html>
+   <head>
+      <title></title>
+      <meta http-equiv="Content-Type" content="text/html; charset=utf-8"/>
+
+      <script type="text/javascript" src="http://ecn.dev.virtualearth.net/mapcontrol/mapcontrol.ashx?v=7.0"></script>
+
+      <script type="text/javascript">
+
+      var map = null;
+
+      function GetMap()
+      {  
+
+         map = new Microsoft.Maps.Map(document.getElementById("mapDiv"), { mapTypeId: Microsoft.Maps.MapTypeId.aerial, credentials: "AjVg2KjkXqNtIcnLTZfIwahJATb-LGJigDTj1eCHBah5BTTgWU8rBQD0cTC8-6IA", center: new Microsoft.Maps.Location(${placemark.coord.longitude}, ${placemark.coord.latitude}), zoom: 17 });
+
+         Microsoft.Maps.loadModule('Microsoft.Maps.AdvancedShapes', { callback: shapesModuleLoaded });
+
+      }
+
+
+      function shapesModuleLoaded()
+      {
+        //Create mock data   		
+        var rings = [
+            [
+            
+            <#list placemark.shape as coord>
+			new Microsoft.Maps.Location(${coord.latitude}, ${coord.longitude}),
+			</#list>  
+			],
+           <#list placemark.points as square>
+ 				[ 
+			     <#list square.shape as squareCorners>
+			           new Microsoft.Maps.Location(${squareCorners.latitude},${squareCorners.longitude}),
+			     </#list>
+		     	],
+		    </#list>
+        ];
+
+        //Create a complex polygon
+        var polygon = new Microsoft.Maps.Polygon(rings, {
+            fillColor: new Microsoft.Maps.Color(0, 0, 0, 0),
+            strokeColor: new Microsoft.Maps.Color(150, 255, 255, 255)
+        });
+		
+		 //Add the polyon to the map.
+        map.entities.push(polygon);
+      }
+     
+      
+      </script>
+   </head>
+   <body onload="GetMap();">
+      <div id='mapDiv' style="width:100%;height:100%"></div> 
+   </body>
+</html>

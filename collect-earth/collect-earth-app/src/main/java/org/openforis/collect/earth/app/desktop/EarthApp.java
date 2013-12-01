@@ -19,6 +19,7 @@ import javax.swing.JOptionPane;
 
 import org.apache.commons.codec.digest.DigestUtils;
 import org.apache.commons.io.FileUtils;
+import org.openforis.collect.earth.app.EarthConstants;
 import org.openforis.collect.earth.app.service.DataExportService;
 import org.openforis.collect.earth.app.service.LocalPropertiesService;
 import org.openforis.collect.earth.app.service.LocalPropertiesService.EarthProperty;
@@ -37,18 +38,21 @@ import freemarker.template.Configuration;
 import freemarker.template.Template;
 import freemarker.template.TemplateException;
 
+/**
+ * Contains the main class that starts Collect Earth and opens Google Earth.
+ * @author Alfonso Sanchez-Paus Diaz
+ *
+ */
 public class EarthApp {
 
-	public static final String GENERATED_FOLDER = "generated";
-	public static final String FOLDER_COPIED_TO_KMZ = "earthFiles";
-	private static final String KML_RESULTING_TEMP_FILE = GENERATED_FOLDER + "/plots.kml";
+	private static final String KML_RESULTING_TEMP_FILE = EarthConstants.GENERATED_FOLDER + "/plots.kml";
 	private static Logger logger = LoggerFactory.getLogger(EarthApp.class);
 	private static ServerController serverController;
-	private static final String KMZ_FILE_PATH = GENERATED_FOLDER + "/gePlugin.kmz";
+	private static final String KMZ_FILE_PATH = EarthConstants.GENERATED_FOLDER + "/gePlugin.kmz";
 	private LocalPropertiesService localProperties = new LocalPropertiesService();
 
 	private static final String KML_NETWORK_LINK_TEMPLATE = "resources/loadApp.fmt";
-	private static final String KML_NETWORK_LINK_STARTER = GENERATED_FOLDER + "/loadApp.kml";
+	private static final String KML_NETWORK_LINK_STARTER = EarthConstants.GENERATED_FOLDER + "/loadApp.kml";
 
 	private static void closeSplash() {
 		try {
@@ -63,8 +67,10 @@ public class EarthApp {
 		}
 	}
 
+
 	/**
-	 * @param args
+	 * Start the application, opening Google Earth and starting the Jetty server.
+	 * @param args No arguments are used by this method.
 	 */
 	public static void main(String[] args) {
 
@@ -95,7 +101,7 @@ public class EarthApp {
 		final String csvFile = localProperties.getCsvFile();
 		final String epsgCode = localProperties.getCrs();
 
-		if (!csvFile.endsWith(PreprocessElevationData.CSV_ELEV_EXTENSIOM)) {
+		if (!csvFile.endsWith(PreprocessElevationData.CSV_ELEV_EXTENSION)) {
 			final PreprocessElevationData fillElevation = new PreprocessElevationData(epsgCode);
 			final List<File> foundGeoTifs = getGeoTifFiles();
 			if ((foundGeoTifs != null) && (foundGeoTifs.size() > 0)) {
@@ -105,7 +111,7 @@ public class EarthApp {
 				// We change the name of the CSV file and CRS. The new file
 				// contains the elevation data in the last column. The
 				// coordinates were also changhed to WGS84
-				localProperties.saveCsvFile(csvFile + PreprocessElevationData.CSV_ELEV_EXTENSIOM);
+				localProperties.saveCsvFile(csvFile + PreprocessElevationData.CSV_ELEV_EXTENSION);
 				localProperties.saveCrs(AbstractWgs84Transformer.WGS84);
 			}
 		}
@@ -144,7 +150,7 @@ public class EarthApp {
 
 	private void copyContentsToGeneratedFolder(String folderToInclude) throws IOException {
 		final File sourceDir = new File(folderToInclude);
-		final File targetDir = new File(GENERATED_FOLDER + File.separator + sourceDir.getName());
+		final File targetDir = new File(EarthConstants.GENERATED_FOLDER + File.separator + sourceDir.getName());
 		FileUtils.copyDirectory(sourceDir, targetDir);
 	}
 
@@ -213,7 +219,7 @@ public class EarthApp {
 
 				String balloon = localProperties.getBalloonFile();
 				File balloonFile = new File(balloon);
-				String folderToInclude = balloonFile.getParent() + File.separator + FOLDER_COPIED_TO_KMZ;
+				String folderToInclude = balloonFile.getParent() + File.separator + EarthConstants.FOLDER_COPIED_TO_KMZ;
 
 				kmzGenerator.generateKmzFile(KMZ_FILE_PATH, KML_RESULTING_TEMP_FILE, folderToInclude);
 				logger.info("KMZ File generated : " + KMZ_FILE_PATH);

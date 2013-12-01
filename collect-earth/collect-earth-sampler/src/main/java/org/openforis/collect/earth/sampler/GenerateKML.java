@@ -13,26 +13,25 @@ import freemarker.template.TemplateException;
 
 public final class GenerateKML {
 
-	private GenerateKML() {
-	}
-
 	public static void main(String[] args) {
-		KmlGenerator generateKml = new SquareKmlGenerator("EPSG:3576", "localhost", "8020", null, 25);
+		final KmlGenerator generateKml = new SquareKmlGenerator("EPSG:3576", "localhost", "8020", null, 25);
 		PropertyConfigurator.configure("./log4j.properties");
 
-		Logger logger = LoggerFactory.getLogger(GenerateKML.class);
+		final Logger logger = LoggerFactory.getLogger(GenerateKML.class);
 
 		try {
-			String kmlResult = "resultAnssi.kml";
-			generateKml.generateFromCsv("grid-EPSG_3576-mongolia.csv", "balloonWithButtons.html", "anssi_template.fmt",
-					kmlResult, "25", "10" );
-			KmzGenerator kmzGenerator = new KmzGenerator();
+			final String kmlResult = "resultAnssi.kml";
+			generateKml.generateFromCsv("grid-EPSG_3576-mongolia.csv", "balloonWithButtons.html", "anssi_template.fmt", kmlResult, "25", "10");
+			final KmzGenerator kmzGenerator = new KmzGenerator();
 			kmzGenerator.generateKmzFile("gePlugin.kmz", kmlResult, "files");
-		} catch (IOException e) {
+		} catch (final IOException e) {
 			logger.error("Could not generate KML file", e);
-		} catch (TemplateException e) {
+		} catch (final TemplateException e) {
 			logger.error("Problems in the Freemarker template file." + e.getFTLInstructionStack(), e);
 		}
 		System.exit(0);
+	}
+
+	private GenerateKML() {
 	}
 }

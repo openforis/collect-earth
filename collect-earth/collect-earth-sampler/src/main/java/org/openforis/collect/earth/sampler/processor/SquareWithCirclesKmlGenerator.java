@@ -15,52 +15,51 @@ public class SquareWithCirclesKmlGenerator extends SquareKmlGenerator {
 	}
 
 	@Override
-	protected void fillSamplePoints(float distanceBetweenSamplePoints, double[] centerCoordinate, String currentPlaceMarkId,
+	public void fillSamplePoints(float distanceBetweenSamplePoints, double[] centerCoordinate, String currentPlaceMarkId,
 			SimplePlacemarkObject parentPlacemark) throws TransformException {
 
 		// Move to the top-left point
 		final double originalCoordGeneralOffsetX = (-1d * getNumOfRows() * distanceBetweenSamplePoints / 2d);
 		final double originalCoordGeneralOffsetY = (getNumOfRows() * distanceBetweenSamplePoints / 2d);
 
-		double[] topLeftCoord = getPointWithOffset(centerCoordinate, originalCoordGeneralOffsetX, originalCoordGeneralOffsetY);
+		final double[] topLeftCoord = getPointWithOffset(centerCoordinate, originalCoordGeneralOffsetX, originalCoordGeneralOffsetY);
 
-		List<SimplePlacemarkObject> pointsInPlacemark = new ArrayList<SimplePlacemarkObject>();
+		final List<SimplePlacemarkObject> pointsInPlacemark = new ArrayList<SimplePlacemarkObject>();
 
 		// Get the inner boundaries of the squares
-		List<SimpleCoordinate> coords = new ArrayList<SimpleCoordinate>();
+		final List<SimpleCoordinate> coords = new ArrayList<SimpleCoordinate>();
 
 		for (int col = 1; col < getNumOfRows(); col++) {
-			double offsetLong = col * distanceBetweenSamplePoints; // GO
+			final double offsetLong = col * distanceBetweenSamplePoints; // GO
 			// EAST
 			for (int row = 1; row < getNumOfRows(); row++) {
-				double offsetLat = -(row * distanceBetweenSamplePoints); // GO
+				final double offsetLat = -(row * distanceBetweenSamplePoints); // GO
 				// SOUTH
 
-				double[] centerCircle = getPointWithOffset(topLeftCoord, offsetLong, offsetLat);
+				final double[] centerCircle = getPointWithOffset(topLeftCoord, offsetLong, offsetLat);
 
-				float arc = 360 / NUMBER_OF_EXTERNAL_POINTS;
+				final float arc = 360 / NUMBER_OF_EXTERNAL_POINTS;
 
 				for (int i = 0; i < NUMBER_OF_EXTERNAL_POINTS; i++) {
-					double t = i * arc;
-					double cosLength = Math.round(getPointSide() * Math.cos(Math.toRadians(t)));
-					double sinLength = Math.round(getPointSide() * Math.sin(Math.toRadians(t)));
+					final double t = i * arc;
+					final double cosLength = Math.round(getPointSide() * Math.cos(Math.toRadians(t)));
+					final double sinLength = Math.round(getPointSide() * Math.sin(Math.toRadians(t)));
 
-					double[] circunferencePosition = getPointWithOffset(centerCircle, cosLength, sinLength);
+					final double[] circunferencePosition = getPointWithOffset(centerCircle, cosLength, sinLength);
 					coords.add(new SimpleCoordinate(circunferencePosition));
 				}
 
 				// CLOSE
-				double cosLength = Math.round(getPointSide() * Math.cos(0));
-				double sinLength = Math.round(getPointSide() * Math.sin(0));
-				double[] circunferencePosition = getPointWithOffset(centerCoordinate, cosLength, sinLength);
+				final double cosLength = Math.round(getPointSide() * Math.cos(0));
+				final double sinLength = Math.round(getPointSide() * Math.sin(0));
+				final double[] circunferencePosition = getPointWithOffset(centerCoordinate, cosLength, sinLength);
 				coords.add(new SimpleCoordinate(circunferencePosition));
 
-				SimplePlacemarkObject insidePlacemark = new SimplePlacemarkObject(centerCircle, currentPlaceMarkId);
+				final SimplePlacemarkObject insidePlacemark = new SimplePlacemarkObject(centerCircle, currentPlaceMarkId);
 
 				insidePlacemark.setShape(coords);
 
 				pointsInPlacemark.add(insidePlacemark);
-
 
 			}
 
@@ -68,6 +67,5 @@ public class SquareWithCirclesKmlGenerator extends SquareKmlGenerator {
 
 		parentPlacemark.setPoints(pointsInPlacemark);
 	}
-
 
 }

@@ -21,7 +21,8 @@ public class LocalPropertiesService {
 
 	public enum EarthProperty {
 		OPERATOR_KEY("operator"), JUMP_TO_NEXT("jump_to_next_plot"), HOST_KEY("host"), PORT_KEY("port"), CSV_KEY("csv"), KML_TEMPLATE_KEY("template"), BALLOON_TEMPLATE_KEY(
-				"balloon"), CRS_KEY("coordinates_reference_system"), GENERATED_KEY("generated_on"), OPEN_EARTH_ENGINE("open_earth_engine"), OPEN_TIMELAPSE(
+				"balloon"), CRS_KEY("coordinates_reference_system"), GENERATED_KEY("generated_on"), OPEN_BING_MAPS("open_bing_maps"),
+				OPEN_EARTH_ENGINE("open_earth_engine"), OPEN_TIMELAPSE(
 				"open_timelapse"), KML_TEMPLATE_KEY_CHECKSUM("template_checksum"), BALLOON_TEMPLATE_KEY_CHECKSUM("balloon_checksum"), CSV_KEY_CHECKSUM(
 				"csv_checksum"), DISTANCE_BETWEEN_SAMPLE_POINTS("distance_between_sample_points"), DISTANCE_TO_PLOT_BOUNDARIES(
 				"distance_to_plot_boundaries"), INNER_SUBPLOT_SIDE("inner_point_side"), SAMPLE_SHAPE("sample_shape"), OPEN_BALLOON_IN_BROWSER(
@@ -46,12 +47,7 @@ public class LocalPropertiesService {
 
 	private final Logger logger = LoggerFactory.getLogger(LocalPropertiesService.class);
 	private Properties properties;
-
 	private static final String PROPERTIES_FILE_PATH = "earth.properties";
-	public static final String CHROME_BROWSER = "chrome";
-
-	public static final String FIREFOX_BROWSER = "firefox";
-
 	public LocalPropertiesService() {
 
 	}
@@ -147,6 +143,14 @@ public class LocalPropertiesService {
 		}
 	}
 
+	public boolean isBingMapsSupported() {
+		boolean bingMaps = false;
+		if (getValue(EarthProperty.OPEN_BING_MAPS) != null && getValue(EarthProperty.OPEN_BING_MAPS).length() > 0) {
+			bingMaps = Boolean.parseBoolean(getValue(EarthProperty.OPEN_BING_MAPS));
+		}
+		return bingMaps;
+	}
+	
 	public boolean isEarthEngineSupported() {
 		boolean earthEngine = false;
 		if (getValue(EarthProperty.OPEN_EARTH_ENGINE) != null && getValue(EarthProperty.OPEN_EARTH_ENGINE).length() > 0) {

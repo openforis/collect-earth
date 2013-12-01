@@ -14,7 +14,6 @@ import javax.servlet.http.HttpServletResponse;
 
 import org.apache.commons.io.FileUtils;
 import org.openforis.collect.earth.app.EarthConstants;
-import org.openforis.collect.earth.app.desktop.EarthApp;
 import org.openforis.collect.earth.app.service.BrowserService;
 import org.openforis.collect.earth.app.service.LocalPropertiesService;
 import org.openforis.collect.earth.app.service.PreloadedFilesService;
@@ -82,8 +81,8 @@ public class BalloonServlet extends DataAccessingServlet {
 
 		if (balloonContents != null) {
 
-			balloonContents = balloonContents.replaceAll(EarthApp.FOLDER_COPIED_TO_KMZ + "/", EarthApp.GENERATED_FOLDER + "/"
-					+ EarthApp.FOLDER_COPIED_TO_KMZ + "/");
+			balloonContents = balloonContents.replaceAll(EarthConstants.FOLDER_COPIED_TO_KMZ + "/", EarthConstants.GENERATED_FOLDER + "/"
+					+ EarthConstants.FOLDER_COPIED_TO_KMZ + "/");
 			balloonContents = replaceGoalsWithParameters(balloonContents, request.getParameterMap());
 
 			byte[] bytes = balloonContents.getBytes();

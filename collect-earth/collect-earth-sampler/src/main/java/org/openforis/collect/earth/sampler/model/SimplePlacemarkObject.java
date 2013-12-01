@@ -45,6 +45,12 @@ public class SimplePlacemarkObject {
 		this.coord = new SimpleCoordinate(new Coordinate(coord[0], coord[1]));
 		this.nextPlacemarkId = "unknown";
 	}
+	
+	public SimplePlacemarkObject(String[] coordinates) {
+		super();
+		this.coord = new SimpleCoordinate(coordinates[0], coordinates[1]);
+		this.nextPlacemarkId = "unknown";
+	}
 
 	public int getAspect() {
 		return aspect;
@@ -121,7 +127,6 @@ public class SimplePlacemarkObject {
 	public void setRegion(SimpleRegion region) {
 		this.region = region;
 	}
-
 
 	public void setSamplePointOutlined(Integer samplePointOutlined) {
 		this.samplePointOutlined = samplePointOutlined;

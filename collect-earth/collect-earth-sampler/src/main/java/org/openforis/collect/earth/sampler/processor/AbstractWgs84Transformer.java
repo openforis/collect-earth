@@ -27,36 +27,27 @@ public abstract class AbstractWgs84Transformer {
 
 	private final Logger logger = LoggerFactory.getLogger(this.getClass());
 
+	private final GeodeticCalculator calc = new GeodeticCalculator(DefaultGeographicCRS.WGS84);
+
 	public AbstractWgs84Transformer(String sourceEpsgCode) {
 		this.sourceEpsgCode = sourceEpsgCode;
 	}
-
-	private final GeodeticCalculator calc = new GeodeticCalculator(DefaultGeographicCRS.WGS84);
 
 	protected Logger getLogger() {
 		return logger;
 	}
 
-	protected Point transformToWGS84(double longitude, double latitude) throws TransformException, FactoryException {
-	
-		GeometryFactory gf = new GeometryFactory();
-		Coordinate c = new Coordinate(longitude, latitude);
-	
-		Point p = gf.createPoint(c);
-		if (sourceEpsgCode.trim().length() > 0 && !sourceEpsgCode.equals(LATLONG) && !sourceEpsgCode.equals(WGS84)
-				&& !sourceEpsgCode.equals(EPSG4326)) {
-			CoordinateReferenceSystem utmCrs = CRS.decode(sourceEpsgCode);
-			MathTransform mathTransform = CRS.findMathTransform(utmCrs, DefaultGeographicCRS.WGS84, false);
-			p = (Point) JTS.transform(p, mathTransform);
-		}
-		return p;
-	}
-
 	/**
 	 * Returns the GWS84 coordinated as an array containing [longitude,latitude] after having traslocated the point using the offset.
-	 * @param originalPoint The original point as a WGS84 coordinate duple.
-	 * @param offsetLongitudeMeters The amount of meters to displace the original point in the X axis. 0 does nothing, negative values move it WEST and positive values move it EAST
-	 * @param offsetLatitudeMeters The amount of meters to displace the original point in the Y axis. 0 does nothing, negative values move it SOUTH and positive values move it NORTH
+	 * 
+	 * @param originalPoint
+	 *            The original point as a WGS84 coordinate duple.
+	 * @param offsetLongitudeMeters
+	 *            The amount of meters to displace the original point in the X axis. 0 does nothing, negative values move it WEST and positive values
+	 *            move it EAST
+	 * @param offsetLatitudeMeters
+	 *            The amount of meters to displace the original point in the Y axis. 0 does nothing, negative values move it SOUTH and positive values
+	 *            move it NORTH
 	 * @return The coordinates of the original point after being displaced usingth eprovided offsets.
 	 * @throws TransformException
 	 */
@@ -89,7 +80,7 @@ public abstract class AbstractWgs84Transformer {
 
 				if (offsetLatitudeMeters != 0) {
 					if (longitudeChanged) {
-						double[] firstMove = calc.getDestinationPosition().getCoordinate();
+						final double[] firstMove = calc.getDestinationPosition().getCoordinate();
 						calc.setStartingGeographicPoint(firstMove[0], firstMove[1]);
 					}
 					calc.setDirection(latitudeDirection, Math.abs(offsetLatitudeMeters));
@@ -97,12 +88,27 @@ public abstract class AbstractWgs84Transformer {
 
 				movedPoint = calc.getDestinationPosition().getCoordinate();
 			}
-		} catch (Exception e) {
+		} catch (final Exception e) {
 			getLogger().error(
-					"Exception when moving point " + Arrays.toString(originalPoint) + " with offset longitude "
-							+ offsetLongitudeMeters + " and latitude " + offsetLatitudeMeters, e);
+					"Exception when moving point " + Arrays.toString(originalPoint) + " with offset longitude " + offsetLongitudeMeters
+							+ " and latitude " + offsetLatitudeMeters, e);
 		}
 		return movedPoint;
 
+	}
+
+	protected Point transformToWGS84(double longitude, double latitude) throws TransformException, FactoryException {
+
+		final GeometryFactory gf = new GeometryFactory();
+		final Coordinate c = new Coordinate(longitude, latitude);
+
+		Point p = gf.createPoint(c);
+		if (sourceEpsgCode.trim().length() > 0 && !sourceEpsgCode.equals(LATLONG) && !sourceEpsgCode.equals(WGS84)
+				&& !sourceEpsgCode.equals(EPSG4326)) {
+			final CoordinateReferenceSystem utmCrs = CRS.decode(sourceEpsgCode);
+			final MathTransform mathTransform = CRS.findMathTransform(utmCrs, DefaultGeographicCRS.WGS84, false);
+			p = (Point) JTS.transform(p, mathTransform);
+		}
+		return p;
 	}
 }

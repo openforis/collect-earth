@@ -36,7 +36,7 @@ public class CollectParametersHandlerService {
 
 	private static final String PARAMETER_SEPARATOR = "===";
 
-	public static final String COLLECT_PREFIX = "collect_";
+	private static final String COLLECT_PREFIX = "collect_";
 
 	private final List<AbstractAttributeHandler> attributeHandlers = new ArrayList<AbstractAttributeHandler>();
 

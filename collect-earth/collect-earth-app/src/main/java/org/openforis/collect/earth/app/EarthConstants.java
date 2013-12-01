@@ -14,6 +14,18 @@ public abstract class EarthConstants {
 
 	public static final String LIST_NOT_FINISHED_IMAGE = "/images/list_not_finished.png";
 
+	public static final String GENERATED_FOLDER = "generated";
+
+	public static final String FOLDER_COPIED_TO_KMZ = "earthFiles";
+
+	public static final String PLACEMARK_FOUND_PARAMETER = "placemark_found";
+
+	public static final String ROOT_ENTITY_NAME = "plot";
+
+	public static final String CHROME_BROWSER = "chrome";
+
+	public static final String FIREFOX_BROWSER = "firefox";
+
 	private EarthConstants() {
 	}
 

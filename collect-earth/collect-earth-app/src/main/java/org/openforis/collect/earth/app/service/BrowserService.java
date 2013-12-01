@@ -24,6 +24,7 @@ import javax.net.ssl.SSLSocketFactory;
 import javax.net.ssl.TrustManager;
 import javax.net.ssl.X509TrustManager;
 
+import org.openforis.collect.earth.app.EarthConstants;
 import org.openforis.collect.earth.app.service.LocalPropertiesService.EarthProperty;
 import org.openqa.selenium.JavascriptExecutor;
 import org.openqa.selenium.WebDriverException;
@@ -72,6 +73,9 @@ public class BrowserService {
 
 	@Autowired
 	protected LocalPropertiesService localPropertiesService;
+	
+	@Autowired
+	BingMapService bingMapService;		
 
 	private Vector<RemoteWebDriver> drivers = new Vector<RemoteWebDriver>();
 	private final Logger logger = LoggerFactory.getLogger(BrowserService.class);
@@ -79,8 +83,7 @@ public class BrowserService {
 	private static final Configuration cfg = new Configuration();
 	private static Template template;
 	
-	private RemoteWebDriver webDriverEE;
-	private RemoteWebDriver webDriverTimelapse;
+	private RemoteWebDriver webDriverEE, webDriverBing, webDriverTimelapse;
 
 	private static boolean hasCheckValidity = false;
 
@@ -94,7 +97,11 @@ public class BrowserService {
 			@Override
 			public void run() {
 				for (RemoteWebDriver driver : drivers) {
-					driver.quit();
+					try {
+						driver.quit();
+					} catch (Exception e) {
+						logger.error("Error quitting the browser", e);
+					}
 				}
 			}
 		});
@@ -105,7 +112,7 @@ public class BrowserService {
 
 		String chosenBrowser = localPropertiesService.getValue(EarthProperty.BROWSER_TO_USE);
 
-		if (chosenBrowser != null && chosenBrowser.trim().toLowerCase().equals(LocalPropertiesService.CHROME_BROWSER)) {
+		if (chosenBrowser != null && chosenBrowser.trim().toLowerCase().equals(EarthConstants.CHROME_BROWSER)) {
 
 			driver = startChromeBrowser(driver);
 		} else {
@@ -252,7 +259,7 @@ public class BrowserService {
 				String[] layers = {
 				// "http://earthengine.google.org/#detail/LANDSAT%2FL7_L1T_ANNUAL_GREENEST_TOA"
 				// "http://earthengine.google.org/#detail/LANDSAT%2FL5_L1T_ANNUAL_GREENEST_TOA",
-				"http://earthengine.google.org/#detail/LANDSAT%2FLC8_L1T_ANNUAL_GREENEST_TOA" };
+				"https://earthengine.google.org/#detail/LANDSAT%2FLC8_L1T_ANNUAL_GREENEST_TOA" };
 				for (String urlForLayer : layers) {
 					driver = navigateTo(urlForLayer, driver);
 					if (waitFor("d_open_button", driver)) {
@@ -314,6 +321,33 @@ public class BrowserService {
 		return driver;
 	}
 
+	public synchronized void openBingMaps(String coordinates) {
+
+		if (webDriverBing == null) {
+			webDriverBing = initBrowser();
+		}
+
+		if (localPropertiesService.isBingMapsSupported()) {
+
+			final RemoteWebDriver driverCopy = webDriverBing;
+			final String[] latLong = coordinates.split(",");
+			Thread loadBingThread = new Thread() {
+				@Override
+				public void run() {
+
+					try {
+						webDriverBing = navigateTo(bingMapService.getTemporaryUrl(latLong) , driverCopy);
+					} catch (Exception e) {
+						logger.error("Problems loading Bing", e);
+					}
+
+				};
+			};
+
+			loadBingThread.start();
+		}
+	}
+	
 	public synchronized void openEarthEngine(String coordinates) {
 
 		if (webDriverEE == null) {
@@ -325,17 +359,17 @@ public class BrowserService {
 			final String[] latLong = coordinates.split(",");
 
 			final RemoteWebDriver driverCopy = webDriverEE;
-			Thread loadLayersThread = new Thread() {
+			Thread loadEEThread = new Thread() {
 				@Override
 				public void run() {
 					try {
 						webDriverEE = loadLayers(latLong, driverCopy);
-					} catch (InterruptedException e) {
-						logger.error("Error when opening browser window", e);
+					} catch (Exception e) {
+						logger.error("Error when opening Earth Engine browser window", e);
 					}
 				};
 			};
-			loadLayersThread.start();
+			loadEEThread.start();
 		}
 	}
 
@@ -348,20 +382,19 @@ public class BrowserService {
 		if (localPropertiesService.isTimelapseSupported()) {
 
 			final RemoteWebDriver driverCopy = webDriverTimelapse;
-			Thread loadLayersThread = new Thread() {
+			Thread loadTimelapseThread = new Thread() {
 				@Override
 				public void run() {
 
 					try {
 						webDriverTimelapse = navigateTo("https://earthengine.google.org/#timelapse/v=" + coordinates +",10.812,latLng&t=0.08", driverCopy);
 					} catch (Exception e) {
-						logger.error("Problems loading", e);
+						logger.error("Problems loading Timelapse", e);
 					}
 
 				};
 			};
-
-			loadLayersThread.start();
+			loadTimelapseThread.start();
 		}
 	};
 

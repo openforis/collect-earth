@@ -17,11 +17,11 @@ public class KmzGenerator {
 
 	private void addFileToZip(String path, String srcFile, ZipOutputStream zip) throws IOException {
 
-		File file = new File(srcFile);
+		final File file = new File(srcFile);
 		if (file.isDirectory()) {
 			addFolderToZip(path, srcFile, zip);
 		} else {
-			byte[] buf = new byte[1024];
+			final byte[] buf = new byte[1024];
 			int len;
 			FileInputStream in = null;
 			try {
@@ -35,7 +35,7 @@ public class KmzGenerator {
 				while ((len = in.read(buf)) > 0) {
 					zip.write(buf, 0, len);
 				}
-			} catch (IOException e) {
+			} catch (final IOException e) {
 				logger.error("Error while writing to " + srcFile, e);
 			} finally {
 				if (in != null) {
@@ -47,9 +47,9 @@ public class KmzGenerator {
 	}
 
 	private void addFolderToZip(String path, String srcFolder, ZipOutputStream zip) throws IOException {
-		File folder = new File(srcFolder);
+		final File folder = new File(srcFolder);
 
-		for (String fileName : folder.list()) {
+		for (final String fileName : folder.list()) {
 			if (path.equals("")) {
 				addFileToZip(folder.getName(), srcFolder + "/" + fileName, zip);
 			} else {
@@ -73,11 +73,11 @@ public class KmzGenerator {
 			if (dependantFolder != null) {
 				addFolderToZip("", dependantFolder, zip);
 			}
-		} catch (FileNotFoundException e) {
-			logger.error( "Could not find file " + e.getMessage() , e );
-		} catch (IOException e) {
+		} catch (final FileNotFoundException e) {
+			logger.error("Could not find file " + e.getMessage(), e);
+		} catch (final IOException e) {
 			logger.error(e.getMessage(), e);
-		} catch (Exception e) {
+		} catch (final Exception e) {
 			logger.error(e.getMessage(), e);
 		} finally {
 			if (zip != null) {

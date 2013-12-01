@@ -7,10 +7,8 @@ import java.util.Map;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 
-import org.openforis.collect.earth.app.desktop.ServerController;
+import org.openforis.collect.earth.app.EarthConstants;
 import org.openforis.collect.earth.app.service.BrowserService;
-import org.openforis.collect.earth.app.service.EarthSurveyService;
-import org.openqa.selenium.remote.RemoteWebDriver;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Controller;
@@ -22,9 +20,10 @@ public class PlacemarkInfoServlet extends JsonPocessorServlet {
 
 	@Autowired
 	private BrowserService browserService;
+	private static final String PLACEMARK_ID = "collect_text_id";
 
 	private String getPlacemarkId(Map<String, String> collectedData) {
-		return collectedData.get(ServerController.PLACEMARK_ID);
+		return collectedData.get(PlacemarkInfoServlet.PLACEMARK_ID);
 	}
 
 	@Override
@@ -45,8 +44,8 @@ public class PlacemarkInfoServlet extends JsonPocessorServlet {
 				placemarkId = "testPlacemark";
 			}
 			collectedData = getDataAccessor().getData(placemarkId);
-			if (collectedData != null && collectedData.get(EarthSurveyService.PLACEMARK_FOUND_PARAMETER) != null
-					&& collectedData.get(EarthSurveyService.PLACEMARK_FOUND_PARAMETER).equals("true")) {
+			if (collectedData != null && collectedData.get(EarthConstants.PLACEMARK_FOUND_PARAMETER) != null
+					&& collectedData.get(EarthConstants.PLACEMARK_FOUND_PARAMETER).equals("true")) {
 
 				setResult(true, "The placemark was found", collectedData);
 				getLogger().info("A placemark was found with these properties" + collectedData.toString());
@@ -66,6 +65,7 @@ public class PlacemarkInfoServlet extends JsonPocessorServlet {
 		try {
 			browserService.openEarthEngine(originalCoordinates);
 			browserService.openTimelapse(originalCoordinates);
+			browserService.openBingMaps(originalCoordinates);
 		} catch (Exception e) {
 			LoggerFactory.getLogger(this.getClass()).error("Exception", e);
 		}
