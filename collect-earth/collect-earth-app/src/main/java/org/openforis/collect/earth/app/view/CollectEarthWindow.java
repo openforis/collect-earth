@@ -38,6 +38,7 @@ import javax.swing.filechooser.FileFilter;
 
 import org.apache.commons.io.FileUtils;
 import org.openforis.collect.earth.app.desktop.ServerController;
+import org.openforis.collect.earth.app.service.BackupService;
 import org.openforis.collect.earth.app.service.DataExportService;
 import org.openforis.collect.earth.app.service.LocalPropertiesService;
 import org.slf4j.Logger;
@@ -51,12 +52,15 @@ public class CollectEarthWindow {
 	private final Logger logger = LoggerFactory.getLogger(CollectEarthWindow.class);
 	private final ServerController serverController;
 	public static final Color ERROR_COLOR = new Color(225, 124, 124);
+	private String backupFolder;
 
-	public CollectEarthWindow(LocalPropertiesService localPropertiesService, DataExportService dataExportService, ServerController serverController) {
-		super();
-		this.localPropertiesService = localPropertiesService;
-		this.dataExportService = dataExportService;
+	public CollectEarthWindow(ServerController serverController) {
 		this.serverController = serverController;
+		
+		this.localPropertiesService = serverController.getContext().getBean(LocalPropertiesService.class);
+		this.dataExportService = serverController.getContext().getBean(DataExportService.class);
+		final BackupService backupService = serverController.getContext().getBean(BackupService.class);
+		this.backupFolder = backupService.getBackUpFolder().getAbsolutePath();
 	}
 
 	private void exportDataToCsv(ActionEvent e) {
@@ -237,7 +241,7 @@ public class CollectEarthWindow {
 	}
 
 	private ActionListener getPropertiesAction(JFrame owner) {
-		final JDialog dialog = new OptionWizard(owner, localPropertiesService);
+		final JDialog dialog = new OptionWizard(owner, localPropertiesService, backupFolder);
 		dialog.setLocationRelativeTo(owner);
 		dialog.setSize(new Dimension(600, 400));
 		dialog.setModal(true);

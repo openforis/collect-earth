@@ -13,7 +13,7 @@
       function GetMap()
       {  
 
-         map = new Microsoft.Maps.Map(document.getElementById("mapDiv"), { mapTypeId: Microsoft.Maps.MapTypeId.aerial, credentials: "AjVg2KjkXqNtIcnLTZfIwahJATb-LGJigDTj1eCHBah5BTTgWU8rBQD0cTC8-6IA", center: new Microsoft.Maps.Location(${placemark.coord.longitude}, ${placemark.coord.latitude}), zoom: 17 });
+         map = new Microsoft.Maps.Map(document.getElementById("mapDiv"), { mapTypeId: Microsoft.Maps.MapTypeId.aerial, credentials: "AjVg2KjkXqNtIcnLTZfIwahJATb-LGJigDTj1eCHBah5BTTgWU8rBQD0cTC8-6IA", center: new Microsoft.Maps.Location(${placemark.coord.longitude}, ${placemark.coord.latitude}), zoom: 19 });
 
          Microsoft.Maps.loadModule('Microsoft.Maps.AdvancedShapes', { callback: shapesModuleLoaded });
 
@@ -42,7 +42,7 @@
         //Create a complex polygon
         var polygon = new Microsoft.Maps.Polygon(rings, {
             fillColor: new Microsoft.Maps.Color(0, 0, 0, 0),
-            strokeColor: new Microsoft.Maps.Color(150, 255, 255, 255)
+            strokeColor: new Microsoft.Maps.Color(200, 255, 255, 255)
         });
 		
 		 //Add the polyon to the map.

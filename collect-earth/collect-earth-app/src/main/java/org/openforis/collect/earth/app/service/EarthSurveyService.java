@@ -3,7 +3,6 @@ package org.openforis.collect.earth.app.service;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
-import java.io.IOException;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -15,8 +14,6 @@ import java.util.Vector;
 
 import javax.annotation.PostConstruct;
 
-import org.apache.commons.dbcp.BasicDataSource;
-import org.apache.commons.io.FileUtils;
 import org.openforis.collect.earth.app.EarthConstants;
 import org.openforis.collect.earth.app.service.LocalPropertiesService.EarthProperty;
 import org.openforis.collect.manager.RecordManager;
@@ -67,9 +64,6 @@ public class EarthSurveyService {
 	@Autowired
 	private SurveyManager surveyManager;
 
-	@Autowired
-	BasicDataSource dataSource;
-
 	private void addLocalProperties(Map<String, String> placemarkParameters) {
 		placemarkParameters.put(SKIP_FILLED_PLOT_PARAMETER, localPropertiesService.shouldJumpToNextPlot() + "");
 	}
@@ -109,41 +103,6 @@ public class EarthSurveyService {
 			parameters.put("valid_data", "false");
 		}
 
-	}
-
-	private void attachShutDownHook() {
-		Runtime.getRuntime().addShutdownHook(new Thread() {
-			@Override
-			public void run() {
-				if (localPropertiesService.getValue(EarthProperty.AUTOMATIC_BACKUP) != null
-						&& localPropertiesService.getValue(EarthProperty.AUTOMATIC_BACKUP).toLowerCase().trim().equals("true")) {
-					backupDB();
-				}
-			}
-
-		});
-	}
-
-	private void backupDB() {
-		String pathToCollectDB = "";
-		String pathToBackup = "";
-		try {
-			pathToCollectDB = dataSource.getUrl();
-			int indexLastColon = pathToCollectDB.lastIndexOf(':');
-			// should look like jdbc:sqlite:collectEarthDatabase.db"
-			pathToCollectDB = pathToCollectDB.substring(indexLastColon);
-
-			long millis = System.currentTimeMillis();
-			String userHome = System.getProperty("user.home");
-			String backupFolder = userHome + "backupCollectEarth";
-
-			File srcFile = new File(pathToCollectDB);
-			String destPath = backupFolder + File.separator + srcFile.getName() + "_bk_" + millis;
-
-			FileUtils.copyFile(new File(pathToCollectDB), new File(destPath));
-		} catch (IOException e) {
-			logger.error("Error when create backup of the Collect Earth Database from " + pathToCollectDB + " to " + pathToBackup);
-		}
 	}
 
 	private CollectRecord createRecord(String sessionId) throws RecordPersistenceException {
@@ -251,7 +210,6 @@ public class EarthSurveyService {
 			}
 		}
 
-		attachShutDownHook();
 	}
 
 	public boolean isPlacemarEdited(Map<String, String> parameters) {

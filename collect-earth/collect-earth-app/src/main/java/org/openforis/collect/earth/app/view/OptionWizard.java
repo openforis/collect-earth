@@ -43,6 +43,7 @@ import javax.swing.text.JTextComponent;
 
 import org.openforis.collect.earth.app.EarthConstants;
 import org.openforis.collect.earth.app.desktop.EarthApp;
+import org.openforis.collect.earth.app.service.BackupService;
 import org.openforis.collect.earth.app.service.LocalPropertiesService;
 import org.openforis.collect.earth.app.service.LocalPropertiesService.EarthProperty;
 import org.openforis.collect.earth.sampler.processor.KmlGenerator;
@@ -60,12 +61,14 @@ public class OptionWizard extends JDialog {
 	private HashMap<EarthProperty, JComponent[]> propertyToComponent = new HashMap<EarthProperty, JComponent[]>();
 	private Logger logger = LoggerFactory.getLogger(this.getClass());
 
-	@Autowired
 	LocalPropertiesService localPropertiesService;
-
-	public OptionWizard(JFrame frame, LocalPropertiesService localPropertiesService) {
+	
+	String backupFolder;
+	
+	public OptionWizard(JFrame frame, LocalPropertiesService localPropertiesService, String backupFolder) {
 		super(frame, "Collect Earth options");
 		this.localPropertiesService = localPropertiesService;
+		this.backupFolder = backupFolder;
 		initilizeInputs();
 		buildMainPane();
 	}
@@ -96,6 +99,10 @@ public class OptionWizard extends JDialog {
 		constraints.weightx = 1.0;
 		constraints.fill = GridBagConstraints.HORIZONTAL;
 
+		
+		panel.add(propertyToComponent.get(EarthProperty.AUTOMATIC_BACKUP)[0], constraints);
+		
+		constraints.gridy++;
 		panel.add(propertyToComponent.get(EarthProperty.OPEN_EARTH_ENGINE)[0], constraints);
 
 		constraints.gridy++;
@@ -103,7 +110,9 @@ public class OptionWizard extends JDialog {
 		
 		constraints.gridy++;
 		panel.add(propertyToComponent.get(EarthProperty.OPEN_BING_MAPS)[0], constraints);
-
+		
+		
+		
 		JPanel browserChooserPanel = new JPanel();
 		Border browserBorder = new TitledBorder(new BevelBorder(BevelBorder.LOWERED), "Choose Browser");
 		browserChooserPanel.setBorder(browserBorder);
@@ -418,6 +427,11 @@ public class OptionWizard extends JDialog {
 
 	private void initilizeInputs() {
 
+		
+		JCheckBox backupCheckbox = new JCheckBox("Automatically back-up database at " + backupFolder );
+		backupCheckbox.setSelected(Boolean.parseBoolean(localPropertiesService.getValue(EarthProperty.AUTOMATIC_BACKUP)));
+		propertyToComponent.put(EarthProperty.AUTOMATIC_BACKUP, new JComponent[] { backupCheckbox });
+		
 		JCheckBox openEarthEngineCheckbox = new JCheckBox("Open Earth Engine zoomed into plot area");
 		openEarthEngineCheckbox.setSelected(Boolean.parseBoolean(localPropertiesService.getValue(EarthProperty.OPEN_EARTH_ENGINE)));
 		propertyToComponent.put(EarthProperty.OPEN_EARTH_ENGINE, new JComponent[] { openEarthEngineCheckbox });

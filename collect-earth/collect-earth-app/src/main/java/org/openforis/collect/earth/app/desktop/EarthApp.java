@@ -20,6 +20,7 @@ import javax.swing.JOptionPane;
 import org.apache.commons.codec.digest.DigestUtils;
 import org.apache.commons.io.FileUtils;
 import org.openforis.collect.earth.app.EarthConstants;
+import org.openforis.collect.earth.app.service.BackupService;
 import org.openforis.collect.earth.app.service.DataExportService;
 import org.openforis.collect.earth.app.service.LocalPropertiesService;
 import org.openforis.collect.earth.app.service.LocalPropertiesService.EarthProperty;
@@ -277,14 +278,11 @@ public class EarthApp {
 			serverController.startServer(new Observer() {
 
 				private void openMainWindow() {
-					final LocalPropertiesService localPropertiesService = serverController.getContext().getBean(LocalPropertiesService.class);
-					final DataExportService dataExportService = serverController.getContext().getBean(DataExportService.class);
 
 					javax.swing.SwingUtilities.invokeLater(new Runnable() {
 						@Override
 						public void run() {
-							final CollectEarthWindow mainEarthWindow = new CollectEarthWindow(localPropertiesService, dataExportService,
-									serverController);
+							final CollectEarthWindow mainEarthWindow = new CollectEarthWindow(serverController);
 							mainEarthWindow.openWindow();
 						}
 					});
