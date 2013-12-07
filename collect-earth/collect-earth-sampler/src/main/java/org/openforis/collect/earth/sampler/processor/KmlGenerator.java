@@ -34,8 +34,8 @@ public abstract class KmlGenerator extends AbstractWgs84Transformer {
 	public static PlotProperties getPlotProperties(String[] csvValuesInLine) {
 		final PlotProperties plotProperties = new PlotProperties();
 		plotProperties.id = csvValuesInLine[0];
-		plotProperties.xCoord = Double.parseDouble(csvValuesInLine[1]);
-		plotProperties.yCoord = Double.parseDouble(csvValuesInLine[2]);
+		plotProperties.xCoord = Double.parseDouble(csvValuesInLine[2]);
+		plotProperties.yCoord = Double.parseDouble(csvValuesInLine[1]);
 		plotProperties.elevation = 0;
 		plotProperties.slope = 0d;
 		plotProperties.aspect = 0d;

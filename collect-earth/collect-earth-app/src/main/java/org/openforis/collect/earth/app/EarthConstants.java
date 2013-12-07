@@ -26,6 +26,8 @@ public abstract class EarthConstants {
 
 	public static final String FIREFOX_BROWSER = "firefox";
 
+	public static final String EARTH_SURVEY_NAME = "earth";
+
 	private EarthConstants() {
 	}
 

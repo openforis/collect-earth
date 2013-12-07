@@ -38,6 +38,7 @@ import javax.swing.filechooser.FileFilter;
 
 import org.apache.commons.io.FileUtils;
 import org.openforis.collect.earth.app.desktop.ServerController;
+import org.openforis.collect.earth.app.service.AnalysisSaikuService;
 import org.openforis.collect.earth.app.service.BackupService;
 import org.openforis.collect.earth.app.service.DataExportService;
 import org.openforis.collect.earth.app.service.LocalPropertiesService;
@@ -52,6 +53,7 @@ public class CollectEarthWindow {
 	private final Logger logger = LoggerFactory.getLogger(CollectEarthWindow.class);
 	private final ServerController serverController;
 	public static final Color ERROR_COLOR = new Color(225, 124, 124);
+	private final AnalysisSaikuService analysisSaikuService;
 	private String backupFolder;
 
 	public CollectEarthWindow(ServerController serverController) {
@@ -61,6 +63,7 @@ public class CollectEarthWindow {
 		this.dataExportService = serverController.getContext().getBean(DataExportService.class);
 		final BackupService backupService = serverController.getContext().getBean(BackupService.class);
 		this.backupFolder = backupService.getBackUpFolder().getAbsolutePath();
+		this.analysisSaikuService = serverController.getContext().getBean( AnalysisSaikuService.class );
 	}
 
 	private void exportDataToCsv(ActionEvent e) {
@@ -107,6 +110,10 @@ public class CollectEarthWindow {
 				}
 			}
 		}
+	}
+	
+	private void exportDataToRDB(ActionEvent e) {
+		analysisSaikuService.prepareAnalysis();
 	}
 
 	private ActionListener getCloseActionListener() {
@@ -178,6 +185,16 @@ public class CollectEarthWindow {
 			}
 		};
 	}
+	
+	private ActionListener getExportRDBActionListener() {
+		return new ActionListener() {
+
+			@Override
+			public void actionPerformed(ActionEvent e) {
+				exportDataToRDB(e);
+			}
+		};
+	}
 
 	private ActionListener getExportFusionActionListener() {
 		return new ActionListener() {
@@ -217,6 +234,11 @@ public class CollectEarthWindow {
 
 		menuItem = new JMenuItem("Export data to CSV");
 		menuItem.addActionListener(getExportActionListener());
+		menu.add(menuItem);
+		menuBar.add(menu);
+		
+		menuItem = new JMenuItem("Export to RDB");
+		menuItem.addActionListener(getExportRDBActionListener());
 		menu.add(menuItem);
 		menuBar.add(menu);
 

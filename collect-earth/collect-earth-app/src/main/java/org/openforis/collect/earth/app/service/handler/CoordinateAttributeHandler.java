@@ -39,7 +39,7 @@ public class CoordinateAttributeHandler extends AbstractAttributeHandler<Value> 
 		}
 		// -----------------------
 
-		Coordinate coord = new Coordinate(Double.parseDouble(coordinatesCSV[0]), Double.parseDouble(coordinatesCSV[1]), srs);
+		Coordinate coord = new Coordinate(Double.parseDouble(coordinatesCSV[1]), Double.parseDouble(coordinatesCSV[0]), srs);
 		return coord;
 	}
 

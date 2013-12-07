@@ -34,9 +34,9 @@ public class BingMapService {
 
 	private final Logger logger = LoggerFactory.getLogger(this.getClass());
 
-	private Map<String, Object> getPlacemarkData(String[] centerCoordinates){
+	private Map<String, Object> getPlacemarkData(String[] centerLatLong){
 		final Map<String, Object> data = new HashMap<String, Object>();
-		final SimplePlacemarkObject placemark = new SimplePlacemarkObject( centerCoordinates );
+		final SimplePlacemarkObject placemark = new SimplePlacemarkObject( centerLatLong );
 
 		Integer numberOfPoints = Integer.parseInt( localPropertiesService.getValue( EarthProperty.NUMBER_OF_SAMPLING_POINTS_IN_PLOT) );
 		Integer innerPointSide = Integer.parseInt( localPropertiesService.getValue( EarthProperty.INNER_SUBPLOT_SIDE) );
@@ -44,14 +44,14 @@ public class BingMapService {
 		Float distancePlotBoundary = Float.parseFloat( localPropertiesService.getValue( EarthProperty.DISTANCE_TO_PLOT_BOUNDARIES) );
 
 		SquareKmlGenerator squareKmlGenerator = new SquareKmlGenerator( AbstractWgs84Transformer.WGS84, "", "", innerPointSide, numberOfPoints);
-		double[] coords = new double[]{ 
-				Double.parseDouble(centerCoordinates[1]),
-				Double.parseDouble(centerCoordinates[0]) 
+		double[] centerLatLongD = new double[]{ 
+				Double.parseDouble(centerLatLong[0]),
+				Double.parseDouble(centerLatLong[1]) 
 				
 		};
 		try {
-			squareKmlGenerator.fillSamplePoints(distanceBetweenSamplingPoints, coords,"", placemark);
-			squareKmlGenerator.fillExternalLine(distanceBetweenSamplingPoints.floatValue(), distancePlotBoundary.floatValue(), coords, placemark);
+			squareKmlGenerator.fillSamplePoints(distanceBetweenSamplingPoints, centerLatLongD,"", placemark);
+			squareKmlGenerator.fillExternalLine(distanceBetweenSamplingPoints.floatValue(), distancePlotBoundary.floatValue(), centerLatLongD, placemark);
 
 			data.put("placemark", placemark);
 		} catch (TransformException e) {

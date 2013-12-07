@@ -13,25 +13,36 @@ import au.com.bytecode.opencsv.CSVWriter;
 
 public class GetFusionCsv {
 
-	HashMap<String, Integer> classesById = new HashMap<String, Integer>();
 	/**
 	 * @param args
 	 */
 	public static void main(String[] args) {
-		GetFusionCsv fusionCsv = new GetFusionCsv();
+		final GetFusionCsv fusionCsv = new GetFusionCsv();
 		try {
 			fusionCsv.processFile();
-		} catch (IOException e) {
+		} catch (final IOException e) {
 			Logger.getLogger(GetFusionCsv.class);
 		}
 
 	}
 
+	HashMap<String, Integer> classesById = new HashMap<String, Integer>();
+
+	private int getId(String landUse) {
+		if (classesById.get(landUse) != null) {
+			return classesById.get(landUse);
+		} else {
+			final int key = classesById.size() + 1;
+			classesById.put(landUse, key);
+			return key;
+		}
+	}
+
 	private void processFile() throws IOException {
-		CSVReader csvReader = new CSVReader(new FileReader(new File("ullaan.csv")), ';');
-		CSVWriter csvWriter = new CSVWriter(new FileWriter(new File("resultFusion.csv")), ';');
+		final CSVReader csvReader = new CSVReader(new FileReader(new File("ullaan.csv")), ';');
+		final CSVWriter csvWriter = new CSVWriter(new FileWriter(new File("resultFusion.csv")), ';');
 		String[] nextRow;
-		String[] writeRow = new String[4];
+		final String[] writeRow = new String[4];
 		writeRow[0] = "Coordinates";
 		writeRow[1] = "Land Use ID";
 		writeRow[2] = "Land Use name";
@@ -39,10 +50,9 @@ public class GetFusionCsv {
 		csvWriter.writeNext(writeRow);
 		while ((nextRow = csvReader.readNext()) != null) {
 
-			writeRow[0] = "<Point><coordinates>" + replaceComma(nextRow[2]) + "," + replaceComma(nextRow[3])
-					+ ",0.0</coordinates></Point>";
-			String landUse = nextRow[5];
-			int classId = getId(landUse);
+			writeRow[0] = "<Point><coordinates>" + replaceComma(nextRow[2]) + "," + replaceComma(nextRow[3]) + ",0.0</coordinates></Point>";
+			final String landUse = nextRow[5];
+			final int classId = getId(landUse);
 			writeRow[1] = classId + "";
 			writeRow[2] = landUse;
 			writeRow[3] = nextRow[0];
@@ -54,16 +64,6 @@ public class GetFusionCsv {
 
 	private String replaceComma(String location) {
 		return location.replace(',', '.');
-	}
-
-	private int getId(String landUse) {
-		if (classesById.get(landUse) != null) {
-			return classesById.get(landUse);
-		} else {
-			int key = classesById.size() + 1;
-			classesById.put(landUse, key);
-			return key;
-		}
 	}
 
 }

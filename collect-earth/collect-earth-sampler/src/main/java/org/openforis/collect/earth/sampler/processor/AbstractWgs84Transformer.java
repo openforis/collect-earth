@@ -38,9 +38,9 @@ public abstract class AbstractWgs84Transformer {
 	}
 
 	/**
-	 * Returns the GWS84 coordinated as an array containing [longitude,latitude] after having traslocated the point using the offset.
+	 * Returns the GWS84 coordinated as an array containing [latitude, longitude] after having translocated the point using the offset.
 	 * 
-	 * @param originalPoint
+	 * @param originalLatLong
 	 *            The original point as a WGS84 coordinate duple.
 	 * @param offsetLongitudeMeters
 	 *            The amount of meters to displace the original point in the X axis. 0 does nothing, negative values move it WEST and positive values
@@ -51,13 +51,13 @@ public abstract class AbstractWgs84Transformer {
 	 * @return The coordinates of the original point after being displaced usingth eprovided offsets.
 	 * @throws TransformException
 	 */
-	protected double[] getPointWithOffset(double[] originalPoint, double offsetLongitudeMeters, double offsetLatitudeMeters)
+	protected double[] getPointWithOffset(double[] originalLatLong, double offsetLongitudeMeters, double offsetLatitudeMeters)
 			throws TransformException {
-		double[] movedPoint = null;
+		double[] movedPointXY = null;
 		try {
 
 			if (offsetLatitudeMeters == 0 && offsetLongitudeMeters == 0) {
-				movedPoint = originalPoint;
+				movedPointXY = originalLatLong;
 			} else {
 
 				double longitudeDirection = 90; // EAST
@@ -70,7 +70,7 @@ public abstract class AbstractWgs84Transformer {
 					latitudeDirection = 180; // SOUTH
 				}
 
-				calc.setStartingGeographicPoint(originalPoint[0], originalPoint[1]);
+				calc.setStartingGeographicPoint(originalLatLong[1], originalLatLong[0]);
 
 				boolean longitudeChanged = false;
 				if (offsetLongitudeMeters != 0) {
@@ -86,14 +86,19 @@ public abstract class AbstractWgs84Transformer {
 					calc.setDirection(latitudeDirection, Math.abs(offsetLatitudeMeters));
 				}
 
-				movedPoint = calc.getDestinationPosition().getCoordinate();
+				movedPointXY = calc.getDestinationPosition().getCoordinate();
 			}
 		} catch (final Exception e) {
 			getLogger().error(
-					"Exception when moving point " + Arrays.toString(originalPoint) + " with offset longitude " + offsetLongitudeMeters
+					"Exception when moving point " + Arrays.toString(originalLatLong) + " with offset longitude " + offsetLongitudeMeters
 							+ " and latitude " + offsetLatitudeMeters, e);
 		}
-		return movedPoint;
+		if( movedPointXY!= null ){
+			double[] latLongPoint = new double[]{ movedPointXY[1], movedPointXY[0]};
+			return latLongPoint ;
+		}else{
+			return null;
+		}
 
 	}
 

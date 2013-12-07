@@ -22,7 +22,7 @@ public class SquareKmlGenerator extends PolygonKmlGenerator {
 	}
 
 	@Override
-	public void fillExternalLine(float distanceBetweenSamplePoints, float distancePlotBoundary, double[] coordOriginal,
+	public void fillExternalLine(float distanceBetweenSamplePoints, float distancePlotBoundary, double[] coordOriginalLatLong,
 			SimplePlacemarkObject parentPlacemark) throws TransformException {
 		final List<SimpleCoordinate> shapePoints = new ArrayList<SimpleCoordinate>();
 
@@ -33,7 +33,7 @@ public class SquareKmlGenerator extends PolygonKmlGenerator {
 		final double originalCoordGeneralOffsetX = (-1d * (getNumOfRows() - 2) * distanceBetweenSamplePoints / 2d) - distancePlotBoundary;
 		final double originalCoordGeneralOffsetY = ((getNumOfRows() - 2) * distanceBetweenSamplePoints / 2d) + distancePlotBoundary;
 
-		final double[] topLeftSquareCoord = getPointWithOffset(coordOriginal, originalCoordGeneralOffsetX, originalCoordGeneralOffsetY);
+		final double[] topLeftSquareCoord = getPointWithOffset(coordOriginalLatLong, originalCoordGeneralOffsetX, originalCoordGeneralOffsetY);
 
 		String south, north, west, east;
 

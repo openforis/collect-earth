@@ -18,7 +18,7 @@ public class SimpleCoordinate {
 		this.latitude = coord[1] + "";
 	}
 
-	public SimpleCoordinate(String longitude, String latitude) {
+	public SimpleCoordinate( String latitude, String longitude) {
 		super();
 		this.longitude = longitude;
 		this.latitude = latitude;

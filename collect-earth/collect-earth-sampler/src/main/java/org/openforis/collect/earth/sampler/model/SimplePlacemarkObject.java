@@ -46,9 +46,9 @@ public class SimplePlacemarkObject {
 		this.nextPlacemarkId = "unknown";
 	}
 	
-	public SimplePlacemarkObject(String[] coordinates) {
+	public SimplePlacemarkObject(String[] coordinatesLatLong) {
 		super();
-		this.coord = new SimpleCoordinate(coordinates[0], coordinates[1]);
+		this.coord = new SimpleCoordinate(coordinatesLatLong[0], coordinatesLatLong[1]);
 		this.nextPlacemarkId = "unknown";
 	}
 

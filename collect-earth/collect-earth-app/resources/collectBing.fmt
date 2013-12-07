@@ -13,7 +13,7 @@
       function GetMap()
       {  
 
-         map = new Microsoft.Maps.Map(document.getElementById("mapDiv"), { mapTypeId: Microsoft.Maps.MapTypeId.aerial, credentials: "AjVg2KjkXqNtIcnLTZfIwahJATb-LGJigDTj1eCHBah5BTTgWU8rBQD0cTC8-6IA", center: new Microsoft.Maps.Location(${placemark.coord.longitude}, ${placemark.coord.latitude}), zoom: 19 });
+         map = new Microsoft.Maps.Map(document.getElementById("mapDiv"), { mapTypeId: Microsoft.Maps.MapTypeId.aerial, credentials: "AjVg2KjkXqNtIcnLTZfIwahJATb-LGJigDTj1eCHBah5BTTgWU8rBQD0cTC8-6IA", center: new Microsoft.Maps.Location(${placemark.coord.latitude}, ${placemark.coord.longitude}), zoom: 19 });
 
          Microsoft.Maps.loadModule('Microsoft.Maps.AdvancedShapes', { callback: shapesModuleLoaded });
 
@@ -27,13 +27,13 @@
             [
             
             <#list placemark.shape as coord>
-			new Microsoft.Maps.Location(${coord.latitude}, ${coord.longitude}),
+			new Microsoft.Maps.Location(${coord.longitude}, ${coord.latitude}),
 			</#list>  
 			],
            <#list placemark.points as square>
  				[ 
 			     <#list square.shape as squareCorners>
-			           new Microsoft.Maps.Location(${squareCorners.latitude},${squareCorners.longitude}),
+			           new Microsoft.Maps.Location(${squareCorners.longitude},${squareCorners.latitude}),
 			     </#list>
 		     	],
 		    </#list>

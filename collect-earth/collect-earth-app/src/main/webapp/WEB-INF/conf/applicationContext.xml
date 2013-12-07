@@ -46,6 +46,12 @@
 		<property name="url" value="jdbc:sqlite:collectEarthDatabase.db"/>
 	</bean>
 	
+		<!-- RDB DataSource -->
+	<bean id="rdbDataSource" class="org.apache.commons.dbcp.BasicDataSource" destroy-method="close" lazy-init="false">
+		<property name="driverClassName" value="org.sqlite.JDBC" />
+		<property name="url" value="jdbc:sqlite:collectEarthDatabaseRDB.db"/>
+	</bean>
+	
 	<bean id="transactionManager"
 		class="org.springframework.jdbc.datasource.DataSourceTransactionManager">
 		<property name="dataSource" ref="dataSource" />
@@ -55,6 +61,9 @@
 		proxy-target-class="true" />
 
 	<bean class="org.openforis.collect.earth.app.server.CollectDataAccessor" id="dataAccessor" />
+	
+	<!-- RDB -->
+	<bean id="rdbPublisher" class="org.openforis.collect.relational.CollectRDBPublisher" />
 	
 	<!-- ===================================== -->
 	<!-- DAO -->
@@ -154,6 +163,9 @@
 	<!-- Expression Factory -->
 	<bean id="expressionFactory" class="org.openforis.idm.model.expression.ExpressionFactory">
 		<property name="lookupProvider" ref="lookupProvider" />
+	</bean>
+	<bean id="expressionValidator" class="org.openforis.idm.metamodel.expression.ExpressionValidator">
+		<constructor-arg ref="expressionFactory" />
 	</bean>
 	
 	<!--  Survey Context -->

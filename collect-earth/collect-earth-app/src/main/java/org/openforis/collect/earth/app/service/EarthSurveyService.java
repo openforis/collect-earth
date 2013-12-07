@@ -44,7 +44,6 @@ public class EarthSurveyService {
 	private static final String COLLECT_BOOLEAN_ACTIVELY_SAVED = "collect_boolean_actively_saved";
 	private static final String COLLECT_TEXT_ACTIVELY_SAVED_ON = "collect_text_actively_saved_on";
 	private static final String COLLECT_TEXT_OPERATOR = "collect_text_operator";
-	private static final String EARTH_SURVEY_NAME = "earth";
 	private static final String SKIP_FILLED_PLOT_PARAMETER = "jump_to_next_plot";
 	private final SimpleDateFormat dateFormat = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
 
@@ -186,16 +185,15 @@ public class EarthSurveyService {
 		// Initilize the Collect survey using the idm
 		// This is only done if the survey has not yet been created in the DB
 
-		// setCollectSurvey(surveyManager.get(EARTH_SURVEY_NAME));
 		if (getCollectSurvey() == null) {
 			CollectSurvey survey;
 			try {
-				File surveyFile = new File(getIdmFilePath());
-				if (surveyFile.exists()) {
-					survey = surveyManager.unmarshalSurvey(new FileInputStream(surveyFile));
+				File idmSurveyModel = new File(getIdmFilePath());
+				if (idmSurveyModel.exists()) {
+					survey = surveyManager.unmarshalSurvey(new FileInputStream(idmSurveyModel));
 
-					survey.setName(EARTH_SURVEY_NAME);
-					if (surveyManager.get(EARTH_SURVEY_NAME) == null) { // NOT IN
+					survey.setName(EarthConstants.EARTH_SURVEY_NAME);
+					if (surveyManager.get(EarthConstants.EARTH_SURVEY_NAME) == null) { // NOT IN
 						// THE DB
 						surveyManager.importModel(survey);
 					} else { // UPDATE ALREADY EXISTANT MODEL
@@ -203,7 +201,7 @@ public class EarthSurveyService {
 					}
 					setCollectSurvey(survey);
 				} else {
-					logger.error("The survey definition file could not be found in " + surveyFile.getAbsolutePath());
+					logger.error("The survey definition file could not be found in " + idmSurveyModel.getAbsolutePath());
 				}
 			} catch (final SurveyValidationException e) {
 				logger.error("Unable to validate survey at " + getIdmFilePath(), e);

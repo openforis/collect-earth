@@ -33,7 +33,7 @@ public class PlacemarkInfoServlet extends JsonPocessorServlet {
 
 		String placemarkId = getPlacemarkId(collectedData);
 
-		final String originalCoordinates = collectedData.get("collect_coord_location");
+		final String originalLatLong = collectedData.get("collect_coord_location");
 
 		if (placemarkId == null) {
 			setResult(false, "No placemark ID found in the request", collectedData);
@@ -63,9 +63,9 @@ public class PlacemarkInfoServlet extends JsonPocessorServlet {
 		setJsonResponse(response, collectedData);
 
 		try {
-			browserService.openEarthEngine(originalCoordinates);
-			browserService.openTimelapse(originalCoordinates);
-			browserService.openBingMaps(originalCoordinates);
+			browserService.openEarthEngine(originalLatLong);
+			browserService.openTimelapse(originalLatLong);
+			browserService.openBingMaps(originalLatLong);
 		} catch (Exception e) {
 			LoggerFactory.getLogger(this.getClass()).error("Exception", e);
 		}

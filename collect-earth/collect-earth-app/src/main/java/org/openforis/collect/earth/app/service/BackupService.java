@@ -114,14 +114,27 @@ public class BackupService {
 	}
 
 	public File getBackUpFolder() {
-		String userHome = System.getProperty("user.home");
-		StringBuilder folderPath = new StringBuilder();
-		folderPath.append(userHome);
-		folderPath.append(File.separatorChar);
-		folderPath.append(BACKUP_COLLECT_EARTH);
-		String backupFolderPath = folderPath.toString();
-		File backupFolder = new File(backupFolderPath);
-		backupFolder.mkdirs();
+		
+		File backupFolder = null;
+		try {
+			String userHome = "" ; 
+			
+			String OS = System.getProperty("os.name").toUpperCase();
+			if (OS.contains("WIN")){
+				userHome = System.getenv("APPDATA") + File.separatorChar;
+			}else if (OS.contains("MAC")){
+				userHome = System.getProperty("user.home") + "/Library/Application Support/";
+			}else if (OS.contains("NUX") || OS.contains("NIX")){
+				userHome = System.getProperty("user.home") + ".";
+				    
+			}
+
+			String backupFolderPath = userHome + BACKUP_COLLECT_EARTH;
+			backupFolder = new File(backupFolderPath);
+			backupFolder.mkdirs();
+		} catch (Exception e) {
+			logger.error("Error getting backup folder location", e);
+		}
 		return backupFolder;
 	}
 

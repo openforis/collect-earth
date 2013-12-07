@@ -93,7 +93,7 @@ public abstract class PolygonKmlGenerator extends KmlGenerator {
 					}
 
 					// This should be the position at the center of the plot
-					final double[] coordOriginalPoints = new double[] { transformedPoint.getX(), transformedPoint.getY() };
+					final double[] originalLatLong = new double[] { transformedPoint.getY(), transformedPoint.getX() };
 					// Since we use the coordinates with TOP-LEFT anchoring then
 					// we
 					// need to move the #original point@ to the top left so that
@@ -110,9 +110,9 @@ public abstract class PolygonKmlGenerator extends KmlGenerator {
 
 					previousPlacemark = parentPlacemark;
 
-					fillSamplePoints(distanceBetweenSamplePoints, coordOriginalPoints, plotProperties.id, parentPlacemark);
+					fillSamplePoints(distanceBetweenSamplePoints, originalLatLong, plotProperties.id, parentPlacemark);
 
-					fillExternalLine(distanceBetweenSamplePoints, distancePlotBoundary, coordOriginalPoints, parentPlacemark);
+					fillExternalLine(distanceBetweenSamplePoints, distancePlotBoundary, originalLatLong, parentPlacemark);
 
 					placemarks.add(parentPlacemark);
 
