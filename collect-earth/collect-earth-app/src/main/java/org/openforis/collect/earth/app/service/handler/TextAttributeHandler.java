@@ -7,6 +7,10 @@ import org.openforis.idm.model.TextAttribute;
 import org.openforis.idm.model.TextValue;
 import org.openforis.idm.model.Value;
 
+/**
+ * @author Alfonso Sanchez-Paus Diaz
+ *
+ */
 public class TextAttributeHandler extends AbstractAttributeHandler<Value> {
 
 	private static final String PREFIX = "text_";

@@ -15,6 +15,10 @@ import javax.swing.event.DocumentListener;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+/**
+ * @author Alfonso Sanchez-Paus Diaz
+ *
+ */
 public class JFilePicker extends JPanel {
 	
 	private static final long serialVersionUID = 9057893034177011651L;

@@ -26,6 +26,8 @@ public class SimplePlacemarkObject {
 
 	private int aspect;
 
+	private int plotId;
+
 	private AspectCode aspectHumanReadable;
 
 	public SimplePlacemarkObject(Coordinate coord, String placemarkId, Integer elevation, double slope, double aspect, AspectCode humanReadabaleAspect) {
@@ -45,7 +47,17 @@ public class SimplePlacemarkObject {
 		this.coord = new SimpleCoordinate(new Coordinate(coord[0], coord[1]));
 		this.nextPlacemarkId = "unknown";
 	}
-	
+
+	public SimplePlacemarkObject(int plotId, Integer elevation, double slope, double aspect, AspectCode humanReadabaleAspect) {
+		super();
+		this.plotId = plotId;
+		this.nextPlacemarkId = "unknown";
+		this.elevation = elevation;
+		this.slope = (int) slope;
+		this.aspect = (int) aspect;
+		this.aspectHumanReadable = humanReadabaleAspect;
+	}
+
 	public SimplePlacemarkObject(String[] coordinatesLatLong) {
 		super();
 		this.coord = new SimpleCoordinate(coordinatesLatLong[0], coordinatesLatLong[1]);
@@ -76,6 +88,10 @@ public class SimplePlacemarkObject {
 		return placemarkId;
 	}
 
+	public int getPlotId() {
+		return plotId;
+	}
+
 	public List<SimplePlacemarkObject> getPoints() {
 		return points;
 	}
@@ -100,6 +116,10 @@ public class SimplePlacemarkObject {
 		this.aspect = (int) aspect;
 	}
 
+	public void setAspect(int aspect) {
+		this.aspect = aspect;
+	}
+
 	public void setAspectHumanReadable(AspectCode aspectHumanReadable) {
 		this.aspectHumanReadable = aspectHumanReadable;
 	}
@@ -120,6 +140,10 @@ public class SimplePlacemarkObject {
 		this.placemarkId = placemarkId;
 	}
 
+	public void setPlotId(int plotId) {
+		this.plotId = plotId;
+	}
+
 	public void setPoints(List<SimplePlacemarkObject> points) {
 		this.points = points;
 	}
@@ -138,6 +162,10 @@ public class SimplePlacemarkObject {
 
 	public void setSlope(double slope) {
 		this.slope = (int) slope;
+	}
+
+	public void setSlope(int slope) {
+		this.slope = slope;
 	}
 
 }

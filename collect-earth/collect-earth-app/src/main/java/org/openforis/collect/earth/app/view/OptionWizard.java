@@ -43,17 +43,19 @@ import javax.swing.text.JTextComponent;
 
 import org.openforis.collect.earth.app.EarthConstants;
 import org.openforis.collect.earth.app.desktop.EarthApp;
-import org.openforis.collect.earth.app.service.BackupService;
 import org.openforis.collect.earth.app.service.LocalPropertiesService;
 import org.openforis.collect.earth.app.service.LocalPropertiesService.EarthProperty;
 import org.openforis.collect.earth.sampler.processor.KmlGenerator;
 import org.openforis.collect.earth.sampler.processor.PlotProperties;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Autowired;
 
 import au.com.bytecode.opencsv.CSVReader;
 
+/**
+ * @author Alfonso Sanchez-Paus Diaz
+ *
+ */
 public class OptionWizard extends JDialog {
 
 	private static final long serialVersionUID = -6760020609229102842L;
@@ -456,7 +458,7 @@ public class OptionWizard extends JDialog {
 		csvWithPlotData.addFileTypeFilter(".ced", "CSV file with extra elevation data", true);
 		propertyToComponent.put(EarthProperty.CSV_KEY, new JComponent[] { csvWithPlotData });
 
-		JComboBox comboNumberOfPoints = new JComboBox(new ComboBoxItem[] { new ComboBoxItem(1, "Central point"), new ComboBoxItem(4, "2x2"),
+		JComboBox comboNumberOfPoints = new JComboBox(new ComboBoxItem[] { new ComboBoxItem(0, "Square"), new ComboBoxItem(1, "Central point"), new ComboBoxItem(4, "2x2"),
 				new ComboBoxItem(9, "3x3"), new ComboBoxItem(16, "4x4"), new ComboBoxItem(25, "5x5"), new ComboBoxItem(36, "6x6"),
 				new ComboBoxItem(49, "7x7") });
 		comboNumberOfPoints.setSelectedItem(new ComboBoxItem(Integer.parseInt(localPropertiesService

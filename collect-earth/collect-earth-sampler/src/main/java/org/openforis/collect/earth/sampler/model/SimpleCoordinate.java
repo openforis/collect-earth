@@ -12,10 +12,10 @@ public class SimpleCoordinate {
 		this.latitude = coord.y + "";
 	}
 
-	public SimpleCoordinate(double[] coord) {
+	public SimpleCoordinate(double[] coordLatLong) {
 		super();
-		this.longitude = coord[0] + "";
-		this.latitude = coord[1] + "";
+		this.longitude = coordLatLong[0] + "";
+		this.latitude = coordLatLong[1] + "";
 	}
 
 	public SimpleCoordinate( String latitude, String longitude) {

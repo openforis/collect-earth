@@ -6,6 +6,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+import org.openforis.collect.earth.sampler.model.AspectCode;
 import org.openforis.collect.earth.sampler.model.SimplePlacemarkObject;
 
 import au.com.bytecode.opencsv.CSVReader;
@@ -37,7 +38,7 @@ public class OnePointKmlGenerator extends KmlGenerator {
 					final Point transformedPoint = transformToWGS84(plotProperties.xCoord, plotProperties.yCoord);
 					final SimplePlacemarkObject parentPlacemark = new SimplePlacemarkObject(transformedPoint.getCoordinate(), "ge_"
 							+ plotProperties.id, plotProperties.elevation, plotProperties.slope, plotProperties.aspect,
-							getHumanReadableAspect(plotProperties.aspect));
+							AspectCode.getHumanReadableAspect(plotProperties.aspect));
 					placemarks.add(parentPlacemark);
 				} catch (final NumberFormatException e) {
 					getLogger().error("Error in the number formatting", e);

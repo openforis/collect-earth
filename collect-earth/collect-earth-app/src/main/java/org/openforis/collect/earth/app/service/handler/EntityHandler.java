@@ -9,6 +9,10 @@ import org.openforis.idm.model.Entity;
 import org.openforis.idm.model.EntityBuilder;
 import org.openforis.idm.model.Node;
 
+/**
+ * @author Alfonso Sanchez-Paus Diaz
+ *
+ */
 public class EntityHandler extends AbstractAttributeHandler<Entity> {
 
 	// Expected : colllect_entity_topography[house].code_coverage=XX

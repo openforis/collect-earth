@@ -21,6 +21,13 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Lazy;
 import org.springframework.stereotype.Component;
 
+/**
+ * Spring managed bean that handles the creation of backups of the Collect database.
+ * The SQLite database file will be saved everytime the application closes.
+ * A maximum of 10 copies (the last ten times the application was used) will be saved on the backupCollectEarth folder on the users application data folder (OS dependant).
+ * @author Alfonso Sanchez-Paus Diaz
+ *
+ */
 @Component
 @Lazy(false)
 public class BackupService {
@@ -113,6 +120,10 @@ public class BackupService {
 		
 	}
 
+	/**
+	 * Returns the folder where the backup copies should be placed.
+	 * @return The OS dependent folder where the application should saved the backed up copies. 
+	 */
 	public File getBackUpFolder() {
 		
 		File backupFolder = null;

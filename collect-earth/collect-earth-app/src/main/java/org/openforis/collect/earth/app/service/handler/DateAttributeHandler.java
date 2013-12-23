@@ -12,6 +12,10 @@ import org.openforis.idm.model.EntityBuilder;
 import org.openforis.idm.model.Node;
 import org.openforis.idm.model.Value;
 
+/**
+ * @author Alfonso Sanchez-Paus Diaz
+ *
+ */
 public class DateAttributeHandler extends AbstractAttributeHandler<Value> {
 
 	private static final String PREFIX = "date_";

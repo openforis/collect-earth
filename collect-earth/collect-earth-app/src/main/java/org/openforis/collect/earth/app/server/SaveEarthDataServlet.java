@@ -9,6 +9,11 @@ import javax.servlet.http.HttpServletResponse;
 import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.RequestMapping;
 
+/**
+ * Servlet called for updating/saving the information about a placemark. Called from the form in Google Earth when the user interacts with it or clicks the save button.
+ * @author Alfonso Sanchez-Paus Diaz
+ *
+ */
 @Controller
 public class SaveEarthDataServlet extends JsonPocessorServlet {
 
@@ -16,7 +21,7 @@ public class SaveEarthDataServlet extends JsonPocessorServlet {
 	@RequestMapping("/saveData")
 	protected void processRequest(HttpServletRequest request, HttpServletResponse response) throws IOException {
 
-		Map<String, String> collectedData = extractRequestData(request);
+		final Map<String, String> collectedData = extractRequestData(request);
 
 		replaceTestVariables(collectedData);
 

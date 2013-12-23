@@ -5,6 +5,11 @@ import java.util.Map;
 import org.openforis.collect.earth.app.service.EarthSurveyService;
 import org.springframework.beans.factory.annotation.Autowired;
 
+/**
+ * Class to get/set data for the given placemark using Collect API.
+ * @author Alfonso Sanchez-Paus Diaz
+ *
+ */
 public class CollectDataAccessor implements DataAccessor {
 
 	@Autowired

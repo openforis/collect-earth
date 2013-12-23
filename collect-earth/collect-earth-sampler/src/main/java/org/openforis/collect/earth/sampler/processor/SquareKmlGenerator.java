@@ -33,41 +33,41 @@ public class SquareKmlGenerator extends PolygonKmlGenerator {
 		final double originalCoordGeneralOffsetX = (-1d * (getNumOfRows() - 2) * distanceBetweenSamplePoints / 2d) - distancePlotBoundary;
 		final double originalCoordGeneralOffsetY = ((getNumOfRows() - 2) * distanceBetweenSamplePoints / 2d) + distancePlotBoundary;
 
-		final double[] topLeftSquareCoord = getPointWithOffset(coordOriginalLatLong, originalCoordGeneralOffsetX, originalCoordGeneralOffsetY);
+		final double[] topLeftSquareCoordLatLong = getPointWithOffset(coordOriginalLatLong, originalCoordGeneralOffsetX, originalCoordGeneralOffsetY);
 
 		String south, north, west, east;
 
 		// TOP LEFT
-		shapePoints.add(new SimpleCoordinate(topLeftSquareCoord));
+		shapePoints.add(new SimpleCoordinate(topLeftSquareCoordLatLong));
 
-		north = topLeftSquareCoord[1] + "";
-		west = topLeftSquareCoord[0] + "";
+		north = topLeftSquareCoordLatLong[0] + "";
+		west = topLeftSquareCoordLatLong[1] + "";
 
 		// TOP RIGHT
 		double offsetLong = xSideLength;
 		double offsetLat = 0;
 
-		double[] squareCorner = getPointWithOffset(topLeftSquareCoord, offsetLong, offsetLat);
+		double[] squareCorner = getPointWithOffset(topLeftSquareCoordLatLong, offsetLong, offsetLat);
 		shapePoints.add(new SimpleCoordinate(squareCorner));
 
-		east = squareCorner[0] + "";
+		east = squareCorner[1] + "";
 
 		// BOTTOM RIGHT
 		offsetLong = xSideLength;
 		offsetLat = -ySideLength;
-		squareCorner = getPointWithOffset(topLeftSquareCoord, offsetLong, offsetLat);
+		squareCorner = getPointWithOffset(topLeftSquareCoordLatLong, offsetLong, offsetLat);
 		shapePoints.add(new SimpleCoordinate(squareCorner));
 
-		south = squareCorner[1] + "";
+		south = squareCorner[0] + "";
 
 		// BOTTOM LEFT
 		offsetLong = 0;
 		offsetLat = -ySideLength;
-		squareCorner = getPointWithOffset(topLeftSquareCoord, offsetLong, offsetLat);
+		squareCorner = getPointWithOffset(topLeftSquareCoordLatLong, offsetLong, offsetLat);
 		shapePoints.add(new SimpleCoordinate(squareCorner));
 
 		// TOP LEFT -- CLOSE RECTANGLE
-		shapePoints.add(new SimpleCoordinate(topLeftSquareCoord));
+		shapePoints.add(new SimpleCoordinate(topLeftSquareCoordLatLong));
 
 		parentPlacemark.setShape(shapePoints);
 

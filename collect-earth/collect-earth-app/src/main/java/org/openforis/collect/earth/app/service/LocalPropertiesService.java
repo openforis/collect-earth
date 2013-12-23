@@ -16,9 +16,19 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 
+/**
+ * Class to access Collect Earth configuration. This class is used all over the code in order to fetch the values of the properties that can be configured by the user, by directly editing the earth.properties file or by using the Tools->Properties menu option in the Collect Earth Window.  
+ * @author Alfonso Sanchez-Paus Diaz
+ *
+ */
 @Component
 public class LocalPropertiesService {
 
+	/**
+	 * Enumeration containing the names of all the possible values that can be configured in Collect Earth.
+	 * @author Alfonso Sanchez-Paus Diaz
+	 *
+	 */
 	public enum EarthProperty {
 		OPERATOR_KEY("operator"), JUMP_TO_NEXT("jump_to_next_plot"), HOST_KEY("host"), PORT_KEY("port"), CSV_KEY("csv"), KML_TEMPLATE_KEY("template"), BALLOON_TEMPLATE_KEY(
 				"balloon"), CRS_KEY("coordinates_reference_system"), GENERATED_KEY("generated_on"), OPEN_BING_MAPS("open_bing_maps"),

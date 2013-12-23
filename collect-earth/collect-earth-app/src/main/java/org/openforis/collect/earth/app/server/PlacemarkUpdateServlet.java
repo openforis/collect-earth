@@ -31,6 +31,12 @@ import freemarker.template.Configuration;
 import freemarker.template.Template;
 import freemarker.template.TemplateException;
 
+/**
+ * Servlet called by the NetworkLink which tries to update the status of the placemark icons every few seconds.
+ * 
+ * @author Alfonso Sanchez-Paus Diaz
+ * 
+ */
 @Controller
 public class PlacemarkUpdateServlet {
 
@@ -53,13 +59,13 @@ public class PlacemarkUpdateServlet {
 			template = cfg.getTemplate(KML_FOR_UPDATES);
 		}
 		// Console output
-		StringWriter fw = new StringWriter();
-		Writer out = new BufferedWriter(fw);
+		final StringWriter fw = new StringWriter();
+		final Writer out = new BufferedWriter(fw);
 		try {
 			// Add date to avoid caching
 			template.process(data, out);
 
-		} catch (TemplateException e) {
+		} catch (final TemplateException e) {
 			logger.error("Error when producing starter KML from template", e);
 		} finally {
 			out.flush();
@@ -74,7 +80,7 @@ public class PlacemarkUpdateServlet {
 		if (lastUpdatedRecord == null) {
 			return new String[0];
 		}
-		String[] placemarIds = new String[lastUpdatedRecord.size()];
+		final String[] placemarIds = new String[lastUpdatedRecord.size()];
 		for (int i = 0; i < lastUpdatedRecord.size(); i++) {
 			if (lastUpdatedRecord.get(i).getRootEntity().get("id", 0) != null) {
 				placemarIds[i] = ((TextAttribute) lastUpdatedRecord.get(i).getRootEntity().get("id", 0)).getValue().getValue();
@@ -84,28 +90,36 @@ public class PlacemarkUpdateServlet {
 		return placemarIds;
 	}
 
+	/**
+	 * Responds with KML code that causes the Google Earth placemark icon and overlay image to update is status ( filled/not-filled/partially-filled)
+	 * 
+	 * @param response
+	 * @param lastUpdate
+	 *            The date that this request was last sent. This way we get the placemarks that have changed status since the last time this was
+	 *            checked.
+	 */
 	@RequestMapping("/placemarkUpdate")
 	public void getUpdatePlacemark(HttpServletResponse response, @RequestParam(value = "lastUpdate", required = false) String lastUpdate) {
 
 		try {
-			SimpleDateFormat dateFormat = new SimpleDateFormat(EarthConstants.DATE_FORMAT_HTTP);
+			final SimpleDateFormat dateFormat = new SimpleDateFormat(EarthConstants.DATE_FORMAT_HTTP);
 			Date lastUpdateDate = null;
 			if (lastUpdate != null && lastUpdate.length() > 0) {
 				lastUpdateDate = dateFormat.parse(lastUpdate);
 			}
 
-			List<CollectRecord> lastUpdatedRecord = earthSurveyService.getRecordsSavedSince(lastUpdateDate);
+			final List<CollectRecord> lastUpdatedRecord = earthSurveyService.getRecordsSavedSince(lastUpdateDate);
 
-			Map<String, Object> data = new HashMap<String, Object>();
+			final Map<String, Object> data = new HashMap<String, Object>();
 			data.put("host", KmlGenerator.getHostAddress(localPropertiesService.getHost(), localPropertiesService.getPort()));
 			data.put("date", dateFormat.format(new Date()));
 			data.put("kmlGeneratedOn", localPropertiesService.getGeneratedOn());
 			data.put("placemark_ids", getPlacemarksId(lastUpdatedRecord));
 
 			setKmlResponse(response, getKmlFromTemplate(data), dateFormat);
-		} catch (ParseException e) {
+		} catch (final ParseException e) {
 			logger.error("Error in the lastUpdate date format : " + lastUpdate, e);
-		} catch (IOException e) {
+		} catch (final IOException e) {
 			logger.error("Error generating the update KML.", e);
 		}
 

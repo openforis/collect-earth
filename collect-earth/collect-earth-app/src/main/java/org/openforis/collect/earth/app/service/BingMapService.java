@@ -24,9 +24,19 @@ import freemarker.template.Configuration;
 import freemarker.template.Template;
 import freemarker.template.TemplateException;
 
+/**
+ * Customizes a Bing Map page to open zoomed into a coordinate. The HTML page is created in a temporary file and its URL is returned so that it can be opened in a browser.
+ * A freemarker template that contains the javascript code to customize the Bing Map is used and the parameters for the specific coordinates are applied to it.
+ * This service uses the same code than the KML generator to get the plot sample deign as chosen through the configuration by the user.
+ * @author Alfonso Sanchez-Paus Diaz
+ * 
+ */
 @Component
 public class BingMapService {
 
+	/**
+	 * The file that contains the freemarker template used to produce the Bing Maps code.
+	 */
 	private static final String FREEMARKER_HTML_TEMPLATE = "resources/collectBing.fmt";
 
 	@Autowired
@@ -34,51 +44,7 @@ public class BingMapService {
 
 	private final Logger logger = LoggerFactory.getLogger(this.getClass());
 
-	private Map<String, Object> getPlacemarkData(String[] centerLatLong){
-		final Map<String, Object> data = new HashMap<String, Object>();
-		final SimplePlacemarkObject placemark = new SimplePlacemarkObject( centerLatLong );
-
-		Integer numberOfPoints = Integer.parseInt( localPropertiesService.getValue( EarthProperty.NUMBER_OF_SAMPLING_POINTS_IN_PLOT) );
-		Integer innerPointSide = Integer.parseInt( localPropertiesService.getValue( EarthProperty.INNER_SUBPLOT_SIDE) );
-		Float distanceBetweenSamplingPoints = Float.parseFloat( localPropertiesService.getValue( EarthProperty.DISTANCE_BETWEEN_SAMPLE_POINTS) );
-		Float distancePlotBoundary = Float.parseFloat( localPropertiesService.getValue( EarthProperty.DISTANCE_TO_PLOT_BOUNDARIES) );
-
-		SquareKmlGenerator squareKmlGenerator = new SquareKmlGenerator( AbstractWgs84Transformer.WGS84, "", "", innerPointSide, numberOfPoints);
-		double[] centerLatLongD = new double[]{ 
-				Double.parseDouble(centerLatLong[0]),
-				Double.parseDouble(centerLatLong[1]) 
-				
-		};
-		try {
-			squareKmlGenerator.fillSamplePoints(distanceBetweenSamplingPoints, centerLatLongD,"", placemark);
-			squareKmlGenerator.fillExternalLine(distanceBetweenSamplingPoints.floatValue(), distancePlotBoundary.floatValue(), centerLatLongD, placemark);
-
-			data.put("placemark", placemark);
-		} catch (TransformException e) {
-			logger.error( "Exception producing Bing map data for html ", e );
-		}
-		return data;
-	}
-
-
-	public String getTemporaryUrl(String[] centerCoordinates){
-
-		Map data = getPlacemarkData(centerCoordinates);
-		File transformedHtml = null;
-		try {
-			transformedHtml = applyData(data);
-		} catch (Exception e) {
-			logger.error( "Exception when applying template for Bing map", e );
-		}
-		if( transformedHtml!= null ){
-			return transformedHtml.getAbsolutePath();
-		}else 
-			return null;
-		
-	}
-
-
-	private File applyData(Map data) throws IOException, TemplateException{
+	private File applyData(Map data) throws IOException, TemplateException {
 
 		// Process the template file using the data in the "data" Map
 		final Configuration cfg = new Configuration();
@@ -88,13 +54,12 @@ public class BingMapService {
 		// Load template from source folder
 		final Template template = cfg.getTemplate(templateFile.getName());
 
-		File tempFile = File.createTempFile("bing", "html");
+		final File tempFile = File.createTempFile("bing", "html");
 		tempFile.deleteOnExit();
 		// Console output
 		BufferedWriter fw = null;
 		try {
 			fw = new BufferedWriter(new OutputStreamWriter(new FileOutputStream(tempFile), Charset.forName("UTF-8")));
-
 			template.process(data, fw);
 		} finally {
 			if (fw != null) {
@@ -103,6 +68,53 @@ public class BingMapService {
 		}
 
 		return tempFile;
+
+	}
+
+	private Map<String, Object> getPlacemarkData(String[] centerLatLong) {
+		final Map<String, Object> data = new HashMap<String, Object>();
+		final SimplePlacemarkObject placemark = new SimplePlacemarkObject(centerLatLong);
+
+		final Integer numberOfPoints = Integer.parseInt(localPropertiesService.getValue(EarthProperty.NUMBER_OF_SAMPLING_POINTS_IN_PLOT));
+		final Integer innerPointSide = Integer.parseInt(localPropertiesService.getValue(EarthProperty.INNER_SUBPLOT_SIDE));
+		final Float distanceBetweenSamplingPoints = Float.parseFloat(localPropertiesService.getValue(EarthProperty.DISTANCE_BETWEEN_SAMPLE_POINTS));
+		final Float distancePlotBoundary = Float.parseFloat(localPropertiesService.getValue(EarthProperty.DISTANCE_TO_PLOT_BOUNDARIES));
+
+		final SquareKmlGenerator squareKmlGenerator = new SquareKmlGenerator(AbstractWgs84Transformer.WGS84, "", "", innerPointSide, numberOfPoints);
+		final double[] centerLatLongD = new double[] { Double.parseDouble(centerLatLong[0]), Double.parseDouble(centerLatLong[1])
+
+		};
+		try {
+			squareKmlGenerator.fillSamplePoints(distanceBetweenSamplingPoints, centerLatLongD, "", placemark);
+			squareKmlGenerator.fillExternalLine(distanceBetweenSamplingPoints.floatValue(), distancePlotBoundary.floatValue(), centerLatLongD,
+					placemark);
+
+			data.put("placemark", placemark);
+		} catch (final TransformException e) {
+			logger.error("Exception producing Bing map data for html ", e);
+		}
+		return data;
+	}
+
+	/**
+	 * Produces a temporary file with the necessary HTML code to show the plot in Bing Maps
+	 * @param centerCoordinates The coordinates of the center of the plot.
+	 * @return The URL to the temporary file that can be used to load it in a browser.
+	 */
+	public String getTemporaryUrl(String[] centerCoordinates) {
+
+		final Map data = getPlacemarkData(centerCoordinates);
+		File transformedHtml = null;
+		try {
+			transformedHtml = applyData(data);
+		} catch (final Exception e) {
+			logger.error("Exception when applying template for Bing map", e);
+		}
+		if (transformedHtml != null) {
+			return transformedHtml.getAbsolutePath();
+		} else {
+			return null;
+		}
 
 	}
 

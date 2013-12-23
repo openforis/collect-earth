@@ -31,6 +31,10 @@ import org.openforis.idm.model.expression.InvalidExpressionException;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
+/**
+ * @author Alfonso Sanchez-Paus Diaz
+ *
+ */
 @Component
 public class DataExportService {
 

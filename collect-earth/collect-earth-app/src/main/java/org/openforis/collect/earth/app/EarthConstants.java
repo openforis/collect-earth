@@ -1,6 +1,11 @@
 package org.openforis.collect.earth.app;
 
-public abstract class EarthConstants {
+/**
+ * Constant container with constants used widely in the application.
+ * @author Alfonso Sanchez-Paus Diaz
+ *
+ */
+public class EarthConstants {
 
 	public static final String DATE_FORMAT_HTTP = "EEE, dd MMM yyyy HH:mm:ss zzz";
 
@@ -29,6 +34,6 @@ public abstract class EarthConstants {
 	public static final String EARTH_SURVEY_NAME = "earth";
 
 	private EarthConstants() {
+		 throw new AssertionError();
 	}
-
 }

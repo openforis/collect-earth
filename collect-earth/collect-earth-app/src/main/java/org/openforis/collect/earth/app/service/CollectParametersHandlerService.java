@@ -31,6 +31,11 @@ import org.springframework.context.annotation.ClassPathScanningCandidateComponen
 import org.springframework.core.type.filter.AssignableTypeFilter;
 import org.springframework.stereotype.Component;
 
+/**
+ * 
+ * @author Alfonso Sanchez-Paus Diaz
+ *
+ */
 @Component
 public class CollectParametersHandlerService {
 

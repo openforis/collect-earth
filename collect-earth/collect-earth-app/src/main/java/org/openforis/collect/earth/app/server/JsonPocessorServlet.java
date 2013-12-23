@@ -16,6 +16,11 @@ import org.openforis.collect.earth.app.EarthConstants;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 
+/**
+ * Abstract class containing common methods for servlets using JSon communication.  
+ * @author Alfonso Sanchez-Paus Diaz
+ *
+ */
 public abstract class JsonPocessorServlet extends DataAccessingServlet {
 	Gson gson = new GsonBuilder().create();
 
@@ -50,9 +55,7 @@ public abstract class JsonPocessorServlet extends DataAccessingServlet {
 
 			setResponseHeaders(response);
 			PrintWriter out = response.getWriter();
-
 			out.println(json);
-
 			out.close();
 		}
 	}

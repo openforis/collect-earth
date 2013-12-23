@@ -9,6 +9,10 @@ import org.openforis.idm.model.Value;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+/**
+ * @author Alfonso Sanchez-Paus Diaz
+ *
+ */
 public class IntegerAttributeHandler extends AbstractAttributeHandler<Value> {
 
 	private static final String PREFIX = "integer_";

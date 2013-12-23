@@ -15,7 +15,6 @@ import java.util.Date;
 import java.util.Map;
 
 import org.apache.commons.io.FileUtils;
-import org.openforis.collect.earth.sampler.model.AspectCode;
 
 import au.com.bytecode.opencsv.CSVReader;
 import freemarker.template.Configuration;
@@ -95,15 +94,6 @@ public abstract class KmlGenerator extends AbstractWgs84Transformer {
 		} catch (final IOException e) {
 			getLogger().error("Could not generate KML file", e);
 		}
-	}
-
-	protected AspectCode getHumanReadableAspect(Double aspect) {
-		double aspectProc = aspect + 22.5;
-		if (aspectProc >= 360d) {
-			aspectProc = aspectProc - 360;
-		}
-		final int modulo = (int) Math.floor(aspectProc / 45d);
-		return AspectCode.values()[modulo];
 	}
 
 	private void getKmlCode(String csvFile, String balloonFile, String freemarkerKmlTemplateFile, File destinationFile,

@@ -10,7 +10,6 @@ import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Vector;
 
 import javax.annotation.PostConstruct;
 
@@ -111,20 +110,7 @@ public class EarthSurveyService {
 		return record;
 	}
 
-	public List<String> getAllFilledPlacemarkIds() {
-		final List<CollectRecord> summaries = recordManager.loadSummaries(getCollectSurvey(), EarthConstants.ROOT_ENTITY_NAME);
-		final List<String> ids = new Vector<String>();
-		for (final CollectRecord record : summaries) {
-			final CollectRecord recordloaded = recordManager.load(getCollectSurvey(), record.getId(), Step.ENTRY);
-			final List<String> keys = recordloaded.getRootEntityKeyValues();
-			for (final String key : keys) {
-				ids.add(key);
-			}
-		}
-		return ids;
-	}
-
-	CollectSurvey getCollectSurvey() {
+	public CollectSurvey getCollectSurvey() {
 		return collectSurvey;
 	}
 
@@ -157,6 +143,12 @@ public class EarthSurveyService {
 		return placemarkParameters;
 	}
 
+	/**
+	 * Return a list of the Collect records that have been updated since the time passed as an argument.
+	 * This method is useful to update the status of the placemarks ( updating the icon on the KML using a NetworkLink )
+	 * @param updatedSince  
+	 * @return The list of record that have been updated since the time stated in updatedSince
+	 */
 	public List<CollectRecord> getRecordsSavedSince(Date updatedSince) {
 		final List<CollectRecord> summaries = recordManager.loadSummaries(getCollectSurvey(), EarthConstants.ROOT_ENTITY_NAME, 0, 15,
 				Arrays.asList(new RecordSummarySortField(Sortable.DATE_MODIFIED, true)), (String[]) null);
@@ -181,8 +173,8 @@ public class EarthSurveyService {
 	}
 
 	@PostConstruct
-	public void init() throws FileNotFoundException, IdmlParseException, SurveyImportException {
-		// Initilize the Collect survey using the idm
+	private void init() throws FileNotFoundException, IdmlParseException, SurveyImportException {
+		// Initialize the Collect survey using the idm
 		// This is only done if the survey has not yet been created in the DB
 
 		if (getCollectSurvey() == null) {
@@ -225,7 +217,7 @@ public class EarthSurveyService {
 		localPropertiesService.setJumpToNextPlot(parameters.get(SKIP_FILLED_PLOT_PARAMETER));
 	}
 
-	void setCollectSurvey(CollectSurvey collectSurvey) {
+	private void setCollectSurvey(CollectSurvey collectSurvey) {
 		this.collectSurvey = collectSurvey;
 	}
 
@@ -254,12 +246,6 @@ public class EarthSurveyService {
 			if (summaries.size() > 0) { // DELETE IF ALREADY PRESENT
 				record = summaries.get(0);
 				recordManager.delete(record.getId());
-				// plotEntity = record.createRootEntity(ROOT_ENTITY_NAME);
-				// logger.warn("Update a plot entity with data " +
-				// parameters.toString());
-
-				// STILL NOT WORKING VERY WELL TO UPDATE SO LETS REMO=VE AND
-				// CREATER A NEW ENTITY
 				record = createRecord(sessionId);
 				plotEntity = record.getRootEntity();
 
@@ -274,8 +260,7 @@ public class EarthSurveyService {
 				setPlacemarkSavedOn(parameters);
 			}
 
-			// Populate the data of the record using the HTTP parameters
-			// received
+			// Populate the data of the record using the HTTP parameters received
 			collectParametersHandler.saveToEntity(parameters, plotEntity);
 
 			saveLocalProperties(parameters);

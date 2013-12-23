@@ -2,11 +2,13 @@ package org.openforis.collect.earth.sampler.processor;
 
 import java.awt.geom.Rectangle2D;
 import java.io.IOException;
+import java.text.DecimalFormat;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+import org.openforis.collect.earth.sampler.model.AspectCode;
 import org.openforis.collect.earth.sampler.model.SimpleCoordinate;
 import org.openforis.collect.earth.sampler.model.SimplePlacemarkObject;
 import org.opengis.referencing.operation.TransformException;
@@ -47,15 +49,15 @@ public abstract class PolygonKmlGenerator extends KmlGenerator {
 		return innerPointSide;
 	}
 
-	protected List<SimpleCoordinate> getSamplePointPolygon(double[] topLeftPosition, int samplePointSide) throws TransformException {
+	protected List<SimpleCoordinate> getSamplePointPolygon(double[] topLeftPositionLatLong, int samplePointSide) throws TransformException {
 		final List<SimpleCoordinate> coords = new ArrayList<SimpleCoordinate>();
-		coords.add(new SimpleCoordinate(topLeftPosition)); // TOP-LEFT
-		coords.add(new SimpleCoordinate(getPointWithOffset(topLeftPosition, samplePointSide, 0))); // TOP-RIGHT
-		coords.add(new SimpleCoordinate(getPointWithOffset(topLeftPosition, samplePointSide, samplePointSide))); // BOTTOM-RIGHT
-		coords.add(new SimpleCoordinate(getPointWithOffset(topLeftPosition, 0, samplePointSide))); // BOTTOM-LEFT
+		coords.add(new SimpleCoordinate(topLeftPositionLatLong)); // TOP-LEFT
+		coords.add(new SimpleCoordinate(getPointWithOffset(topLeftPositionLatLong, samplePointSide, 0))); // TOP-RIGHT
+		coords.add(new SimpleCoordinate(getPointWithOffset(topLeftPositionLatLong, samplePointSide, samplePointSide))); // BOTTOM-RIGHT
+		coords.add(new SimpleCoordinate(getPointWithOffset(topLeftPositionLatLong, 0, samplePointSide))); // BOTTOM-LEFT
 
 		// close the square
-		coords.add(new SimpleCoordinate(topLeftPosition)); // TOP-LEFT
+		coords.add(new SimpleCoordinate(topLeftPositionLatLong)); // TOP-LEFT
 		return coords;
 	}
 
@@ -100,7 +102,8 @@ public abstract class PolygonKmlGenerator extends KmlGenerator {
 					// the center ends up being the expected original coord
 
 					final SimplePlacemarkObject parentPlacemark = new SimplePlacemarkObject(transformedPoint.getCoordinate(), plotProperties.id,
-							plotProperties.elevation, plotProperties.slope, plotProperties.aspect, getHumanReadableAspect(plotProperties.aspect));
+							plotProperties.elevation, plotProperties.slope, plotProperties.aspect,
+							AspectCode.getHumanReadableAspect(plotProperties.aspect));
 
 					if (previousPlacemark != null) {
 						// Give the current ID to the previous placemark so that
@@ -130,13 +133,15 @@ public abstract class PolygonKmlGenerator extends KmlGenerator {
 			}
 		}
 
+		final DecimalFormat df = new DecimalFormat("#.###");
+
 		data.put("placemarks", placemarks);
 		data.put("region_north", viewFrame.getMaxY() + "");
 		data.put("region_south", viewFrame.getMinY() + "");
 		data.put("region_west", viewFrame.getMinX() + "");
 		data.put("region_east", viewFrame.getMaxX() + "");
-		data.put("region_center_X", viewFrame.getCenterX() + "");
-		data.put("region_center_Y", viewFrame.getCenterY() + "");
+		data.put("region_center_X", df.format(viewFrame.getCenterX()));
+		data.put("region_center_Y", df.format(viewFrame.getCenterY()));
 		data.put("host", KmlGenerator.getHostAddress(host, port));
 		data.put("plotFileName", KmlGenerator.getCsvFileName(csvFile));
 		return data;

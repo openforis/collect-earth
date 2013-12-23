@@ -4,6 +4,11 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 
+/**
+ * Abstract class with common methonds for servlets that access the collected data.
+ * @author Alfonso Sanchez-Paus Diaz
+ *
+ */
 public abstract class DataAccessingServlet {
 
 	@Autowired

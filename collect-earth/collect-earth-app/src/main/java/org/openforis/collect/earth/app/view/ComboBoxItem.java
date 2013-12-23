@@ -1,5 +1,9 @@
 package org.openforis.collect.earth.app.view;
 
+/**
+ * @author Alfonso Sanchez-Paus Diaz
+ *
+ */
 class ComboBoxItem {
 
 	private Integer numberOfPoints;

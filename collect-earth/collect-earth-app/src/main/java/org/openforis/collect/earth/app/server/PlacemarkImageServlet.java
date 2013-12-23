@@ -20,6 +20,14 @@ import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 
+/**
+ * Servlet used to obtain the right icon/ground-overlay for each placemark.
+ * These icons symbolize the status of a placemark ( a red exclamation if the placemark has not been filled, a yellow warning sign if the placemark is
+ * partially filled or a green tick if the placemark information has been successfully filled)
+ * 
+ * @author Alfonso Sanchez-Paus Diaz
+ * 
+ */
 @Controller
 public class PlacemarkImageServlet extends DataAccessingServlet {
 
@@ -29,11 +37,20 @@ public class PlacemarkImageServlet extends DataAccessingServlet {
 	@Autowired
 	private PreloadedFilesService preloadedFilesService;
 
+	/**
+	 * Returns an icon/overlay image that represents the state of the placemark not-filled/filling/filled
+	 * @param response
+	 * @param request
+	 * @param placemarkId The ID of the placemark for which we want to get the icon/overlay
+	 * @param listView True if want to get the icon for the placemark list, false to get the overlay image (transparent or see-through red for filled placemarks)
+	 * @throws IOException
+	 * @throws URISyntaxException
+	 */
 	@RequestMapping("/placemarkIcon")
 	public void getImage(HttpServletResponse response, HttpServletRequest request, @RequestParam("collect_text_id") String placemarkId,
 			@RequestParam(value = "listView", required = false) Boolean listView) throws IOException, URISyntaxException {
 
-		Map<String, String> placemarkParameters = earthSurveyService.getPlacemark(placemarkId);
+		final Map<String, String> placemarkParameters = earthSurveyService.getPlacemark(placemarkId);
 		String imageName = "";
 
 		if (earthSurveyService.isPlacemarSavedActively(placemarkParameters)) {
@@ -59,7 +76,7 @@ public class PlacemarkImageServlet extends DataAccessingServlet {
 	}
 
 	private byte[] readFile(String filePath, ServletContext servletContext) throws MalformedURLException, URISyntaxException {
-		File imageFile = new File(servletContext.getResource(filePath).toURI());
+		final File imageFile = new File(servletContext.getResource(filePath).toURI());
 		return preloadedFilesService.getFileContent(imageFile);
 	}
 
@@ -92,7 +109,7 @@ public class PlacemarkImageServlet extends DataAccessingServlet {
 	private void writeToResponse(HttpServletResponse response, byte[] fileContents) throws IOException {
 		try {
 			response.getOutputStream().write(fileContents);
-		} catch (Exception e) {
+		} catch (final Exception e) {
 			getLogger().error("Error writing reponse body to output stream ", e);
 		} finally {
 			response.getOutputStream().close();

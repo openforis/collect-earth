@@ -45,6 +45,10 @@ import org.openforis.collect.earth.app.service.LocalPropertiesService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+/**
+ * @author Alfonso Sanchez-Paus Diaz
+ *
+ */
 public class CollectEarthWindow {
 
 	private JFrame frame;
@@ -237,10 +241,10 @@ public class CollectEarthWindow {
 		menu.add(menuItem);
 		menuBar.add(menu);
 		
-		menuItem = new JMenuItem("Export to RDB");
+/*		menuItem = new JMenuItem("Export to RDB");
 		menuItem.addActionListener(getExportRDBActionListener());
 		menu.add(menuItem);
-		menuBar.add(menu);
+		menuBar.add(menu);*/
 
 		// menuItem = new JMenuItem("Export data to Fusion format CSV");
 		// menuItem.addActionListener(getExportFusionActionListener());

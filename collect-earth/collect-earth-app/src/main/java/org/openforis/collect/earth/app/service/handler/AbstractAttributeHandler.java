@@ -6,6 +6,11 @@ import org.openforis.idm.model.Entity;
 import org.openforis.idm.model.Node;
 import org.openforis.idm.model.Value;
 
+/**
+ * @author Alfonso Sanchez-Paus Diaz
+ *
+ * @param <C>
+ */
 public abstract class AbstractAttributeHandler<C> {
 
 	private String prefix;
