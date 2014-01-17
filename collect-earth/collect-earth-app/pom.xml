@@ -5,7 +5,7 @@
 	<parent>
 		<groupId>org.openforis.collect.earth</groupId>
 		<artifactId>collect-earth</artifactId>
-		<version>1.0</version>
+		<version>${collectEarth.version}</version>
 	</parent>
 
 	<name>Earth App</name>
@@ -17,6 +17,7 @@
 		<spring.version>3.1.0.RELEASE</spring.version>
 		<selenium.version>2.37.1</selenium.version>
 		<sonar.language>java</sonar.language>
+		<classpath.prefix>earth-libs</classpath.prefix>
 	</properties>
 
 	<repositories>
@@ -36,7 +37,7 @@
 		<dependency>
 			<groupId>org.openforis.collect.earth</groupId>
 			<artifactId>collect-earth-sampler</artifactId>
-			<version>1.0</version>
+			<version>${collectEarth.version}</version>
 		</dependency>
 
 		<!-- Jetty -->
@@ -139,20 +140,6 @@
 	<build>
 		<plugins>
 			<plugin>
-				<artifactId>maven-assembly-plugin</artifactId>
-				<configuration>
-					<archive>
-						<manifest>
-							<mainClass>org.openforis.collect.earth.app.desktop.EarthApp</mainClass>
-						</manifest>
-					</archive>
-					<descriptorRefs>
-						<descriptorRef>jar-with-dependencies</descriptorRef>
-					</descriptorRefs>
-				</configuration>
-			</plugin>
-
-			<plugin>
 				<groupId>org.apache.maven.plugins</groupId>
 				<artifactId>maven-dependency-plugin</artifactId>
 				<version>2.8</version>
@@ -165,9 +152,7 @@
 							<goal>copy-dependencies</goal>
 						</goals>
 						<configuration>
-							<outputDirectory>${project.build.directory}/earth-libs</outputDirectory>
-							<overWriteReleases>false</overWriteReleases>
-							<overWriteSnapshots>false</overWriteSnapshots>
+							<outputDirectory>${project.build.directory}/${classpath.prefix}</outputDirectory>
 							<overWriteIfNewer>true</overWriteIfNewer>
 						</configuration>
 					</execution>
@@ -176,10 +161,26 @@
 			<plugin>
 				<groupId>org.apache.maven.plugins</groupId>
 				<artifactId>maven-jar-plugin</artifactId>
-				<version>2.3.1</version>
+				<version>2.4</version>
+				
 				<configuration>
-					<archive>
+					<!-- <archive>
 						<manifestFile>MANIFEST.MF</manifestFile>
+					</archive> -->
+					<addMavenDescriptor>false</addMavenDescriptor>
+					<finalName>CollectEarth</finalName>
+					
+					<archive>
+						<manifestEntries>
+							<SplashScreen-Image>images/joint_logo.gif</SplashScreen-Image>
+						</manifestEntries>
+						<manifest>
+							<mainClass>org.openforis.collect.earth.app.desktop.EarthApp</mainClass>
+							<addClasspath>true</addClasspath>
+							<addDefaultSpecificationEntries>true</addDefaultSpecificationEntries>
+							<classpathPrefix>${classpath.prefix}/</classpathPrefix>
+							<useUniqueVersions>false</useUniqueVersions>
+						</manifest>
 					</archive>
 				</configuration>
 			</plugin>
