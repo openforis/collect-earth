@@ -47,6 +47,7 @@ import org.openforis.collect.earth.app.service.LocalPropertiesService;
 import org.openforis.collect.earth.app.service.LocalPropertiesService.EarthProperty;
 import org.openforis.collect.earth.sampler.processor.KmlGenerator;
 import org.openforis.collect.earth.sampler.processor.PlotProperties;
+import org.openforis.collect.earth.sampler.processor.PreprocessElevationData;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -67,6 +68,13 @@ public class OptionWizard extends JDialog {
 	
 	String backupFolder;
 	
+	private void endWaiting(){
+		this.setCursor(java.awt.Cursor.getPredefinedCursor(java.awt.Cursor.DEFAULT_CURSOR));
+	}
+	private void startWaiting(){
+		this.setCursor(java.awt.Cursor.getPredefinedCursor(java.awt.Cursor.WAIT_CURSOR));
+	}
+	
 	public OptionWizard(JFrame frame, LocalPropertiesService localPropertiesService, String backupFolder) {
 		super(frame, "Collect Earth options");
 		this.localPropertiesService = localPropertiesService;
@@ -86,7 +94,7 @@ public class OptionWizard extends JDialog {
 		buttonPanel.add(getCancelButton());
 
 		panel.add(buttonPanel, BorderLayout.PAGE_END);
-
+		
 		this.add(panel);
 
 	}
@@ -113,8 +121,6 @@ public class OptionWizard extends JDialog {
 		constraints.gridy++;
 		panel.add(propertyToComponent.get(EarthProperty.OPEN_BING_MAPS)[0], constraints);
 		
-		
-		
 		JPanel browserChooserPanel = new JPanel();
 		Border browserBorder = new TitledBorder(new BevelBorder(BevelBorder.LOWERED), "Choose Browser");
 		browserChooserPanel.setBorder(browserBorder);
@@ -135,6 +141,10 @@ public class OptionWizard extends JDialog {
 		constraints.gridy++;
 		constraints.gridx = 0;
 		panel.add(propertyToComponent.get(EarthProperty.CHROME_BINARY_PATH)[0], constraints);
+		
+		constraints.gridy++;
+		constraints.gridx = 0;
+		panel.add(propertyToComponent.get(EarthProperty.SAIKU_SERVER_FOLDER)[0], constraints);
 
 		return panel;
 	}
@@ -145,7 +155,18 @@ public class OptionWizard extends JDialog {
 
 			@Override
 			public void actionPerformed(ActionEvent arg0) {
+				try{
+					startWaiting();
+					applyProperties();
+				}catch(Exception e ){
+					logger.error("Error applying the new properties", e );
+				} finally{
+					endWaiting();
+				}
 
+			}
+
+			private void applyProperties() {
 				Set<EarthProperty> keySet = propertyToComponent.keySet();
 				for (EarthProperty earthProperty : keySet) {
 					JComponent component = propertyToComponent.get(earthProperty)[0];
@@ -195,7 +216,6 @@ public class OptionWizard extends JDialog {
 					JOptionPane.showMessageDialog(OptionWizard.this, null, "There was an error when re-opening the Google Earth data",
 							JOptionPane.WARNING_MESSAGE);
 				}
-
 			}
 		});
 
@@ -455,7 +475,7 @@ public class OptionWizard extends JDialog {
 		csvWithPlotData.setMode(JFilePicker.MODE_OPEN);
 
 		csvWithPlotData.addFileTypeFilter(".csv", "CSV file with only coordinates", false);
-		csvWithPlotData.addFileTypeFilter(".ced", "CSV file with extra elevation data", true);
+		csvWithPlotData.addFileTypeFilter( PreprocessElevationData.CSV_ELEV_EXTENSION, "CSV file with extra elevation data", true);
 		propertyToComponent.put(EarthProperty.CSV_KEY, new JComponent[] { csvWithPlotData });
 
 		JComboBox comboNumberOfPoints = new JComboBox(new ComboBoxItem[] { new ComboBoxItem(0, "Square"), new ComboBoxItem(1, "Central point"), new ComboBoxItem(4, "2x2"),
@@ -495,6 +515,12 @@ public class OptionWizard extends JDialog {
 		firefoxChooser.setName(EarthConstants.FIREFOX_BROWSER);
 		propertyToComponent.put(EarthProperty.BROWSER_TO_USE, new JComponent[] { firefoxChooser, chromeChooser });
 
+		JFilePicker saikuPath = new JFilePicker("Path to Saiku folder ",
+				localPropertiesService.getValue(EarthProperty.SAIKU_SERVER_FOLDER), "Browse...");
+		saikuPath.setMode(JFilePicker.MODE_OPEN);
+		saikuPath.setFolderChooser();
+		propertyToComponent.put(EarthProperty.SAIKU_SERVER_FOLDER, new JComponent[] { saikuPath });
+		
 		JFilePicker firefoxBinaryPath = new JFilePicker("Path to Firefox executable ",
 				localPropertiesService.getValue(EarthProperty.FIREFOX_BINARY_PATH), "Browse...");
 		firefoxBinaryPath.setMode(JFilePicker.MODE_OPEN);
@@ -508,6 +534,9 @@ public class OptionWizard extends JDialog {
 		chromeBinaryPath.addFileTypeFilter(".exe", "Executable files", true);
 		chromeBinaryPath.addFileTypeFilter(".bin", "Binary files", false);
 		propertyToComponent.put(EarthProperty.CHROME_BINARY_PATH, new JComponent[] { chromeBinaryPath });
+		
+	
+		
 
 		JFilePicker kmlTemplatePath = new JFilePicker("Path to KML Freemarker template ",
 				localPropertiesService.getValue(EarthProperty.KML_TEMPLATE_KEY), "Browse...");

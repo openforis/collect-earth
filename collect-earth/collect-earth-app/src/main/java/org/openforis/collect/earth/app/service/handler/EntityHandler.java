@@ -2,6 +2,7 @@ package org.openforis.collect.earth.app.service.handler;
 
 import java.util.List;
 
+import org.openforis.collect.earth.app.service.CollectParametersHandlerService;
 import org.openforis.idm.metamodel.CodeAttributeDefinition;
 import org.openforis.idm.metamodel.NodeDefinition;
 import org.openforis.idm.model.CodeAttribute;
@@ -23,36 +24,45 @@ public class EntityHandler extends AbstractAttributeHandler<Entity> {
 	}
 
 	@Override
-	public void addOrUpdate(String parameterName, String parameterValue, Entity parentEntity) {
-		// Expected parameter name:
-		// colllect_entity_topography[house].code_coverage=XX
-		parameterName = removePrefix(parameterName);
-		String childEntityName = getEntityName(parameterName);
-		String keyValue = getEntityKey(parameterName);
-		String entityAttribute = getEntityAttribute(parameterName);
-
-		Entity childEntity = geChildEntity(parentEntity, childEntityName, keyValue);
-		if (childEntity == null) {
-			childEntity = EntityBuilder.addEntity(parentEntity, childEntityName);
+	public void addOrUpdate(String parameterName, String parameterValue, Entity parentEntity, int childParameterIndex) {
+		
+		String[] parameterValues = parameterValue.split(CollectParametersHandlerService.PARAMETER_SEPARATOR);
+		
+		int index = 0; 
+		for (String parameterVal : parameterValues) {
+			
+			// Expected parameter name:
+			// colllect_entity_topography[house].code_coverage=XX
+			parameterName = removePrefix(parameterName);
+			String childEntityName = getEntityName(parameterName);
+			String keyValue = getEntityKey(parameterName);
+			String entityAttribute = getEntityAttribute(parameterName);
+	
+			Entity childEntity = geChildEntity(parentEntity, childEntityName, keyValue);
+			if (childEntity == null) {
+				childEntity = EntityBuilder.addEntity(parentEntity, childEntityName);
+			}
+			AbstractAttributeHandler cah = null;
+			if (parameterName.contains("code_")) {
+				cah = new CodeAttributeHandler();
+			} else if (parameterName.contains("integer_")) {
+				cah = new IntegerAttributeHandler();
+			} else if (parameterName.contains("real_")) {
+				cah = new RealAttributeHandler();
+			} else if (parameterName.contains("text_")) {
+				cah = new TextAttributeHandler();
+			} else if (parameterName.contains("coord_")) {
+				cah = new CoordinateAttributeHandler();
+			} else if (parameterName.contains("date_")) {
+				cah = new DateAttributeHandler();
+			} else {
+				throw new IllegalArgumentException("Unknown type of parameter " + parameterName);
+			}
+	
+			cah.addOrUpdate(entityAttribute, parameterVal, childEntity, index);
+			index++;
 		}
-		AbstractAttributeHandler cah = null;
-		if (parameterName.contains("code_")) {
-			cah = new CodeAttributeHandler();
-		} else if (parameterName.contains("integer_")) {
-			cah = new IntegerAttributeHandler();
-		} else if (parameterName.contains("real_")) {
-			cah = new RealAttributeHandler();
-		} else if (parameterName.contains("text_")) {
-			cah = new TextAttributeHandler();
-		} else if (parameterName.contains("coord_")) {
-			cah = new CoordinateAttributeHandler();
-		} else if (parameterName.contains("date_")) {
-			cah = new DateAttributeHandler();
-		} else {
-			throw new IllegalArgumentException("Unknown type of parameter " + parameterName);
-		}
-
-		cah.addOrUpdate(entityAttribute, parameterValue, childEntity);
+		
 
 	}
 

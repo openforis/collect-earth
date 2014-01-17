@@ -38,7 +38,7 @@ public class OnePointKmlGenerator extends KmlGenerator {
 					final Point transformedPoint = transformToWGS84(plotProperties.xCoord, plotProperties.yCoord);
 					final SimplePlacemarkObject parentPlacemark = new SimplePlacemarkObject(transformedPoint.getCoordinate(), "ge_"
 							+ plotProperties.id, plotProperties.elevation, plotProperties.slope, plotProperties.aspect,
-							AspectCode.getHumanReadableAspect(plotProperties.aspect));
+							AspectCode.getAspectCode(plotProperties.aspect));
 					placemarks.add(parentPlacemark);
 				} catch (final NumberFormatException e) {
 					getLogger().error("Error in the number formatting", e);

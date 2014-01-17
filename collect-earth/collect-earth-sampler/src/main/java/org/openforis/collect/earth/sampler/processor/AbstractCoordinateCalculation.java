@@ -17,19 +17,26 @@ import com.vividsolutions.jts.geom.Coordinate;
 import com.vividsolutions.jts.geom.GeometryFactory;
 import com.vividsolutions.jts.geom.Point;
 
-public abstract class AbstractWgs84Transformer {
+/**
+ * @author Alfonso Sanchez-Paus Diaz
+ *
+ */
+public abstract class AbstractCoordinateCalculation {
 
 	private static final String LATLONG = "LATLONG";
 	public static final String WGS84 = "WGS84";
 	public static final String EPSG4326 = "EPSG:4326";
 
+	/**
+	 * The initial EPSG code for the plot coordinates ( which will be changed to WGS84 - used by Google Earth )
+	 */
 	final String sourceEpsgCode;
 
 	private final Logger logger = LoggerFactory.getLogger(this.getClass());
 
 	private final GeodeticCalculator calc = new GeodeticCalculator(DefaultGeographicCRS.WGS84);
 
-	public AbstractWgs84Transformer(String sourceEpsgCode) {
+	public AbstractCoordinateCalculation(String sourceEpsgCode) {
 		this.sourceEpsgCode = sourceEpsgCode;
 	}
 

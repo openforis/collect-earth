@@ -30,7 +30,7 @@ import au.com.bytecode.opencsv.CSVReader;
 
 import com.vividsolutions.jts.geom.Point;
 
-public class PreprocessElevationData extends AbstractWgs84Transformer {
+public class PreprocessElevationData extends AbstractCoordinateCalculation {
 
 	public static final String CSV_ELEV_EXTENSION = ".ced";
 	private static final Logger logger = LoggerFactory.getLogger(PreprocessElevationData.class);

@@ -18,10 +18,7 @@ import org.springframework.web.context.WebApplicationContext;
 import org.springframework.web.context.support.WebApplicationContextUtils;
 
 /**
- * 
- * This class launches the web application in an embedded Jetty container. This
- * is the entry point to your application. The Java command that is used for
- * launching should fire this main method.
+ * Controls the Jetty server, starting and stopping it as well as reporting its staus. 
  * @author Alfonso Sanchez-Paus Diaz
  *
  */
@@ -103,6 +100,7 @@ public class ServerController extends Observable {
 		setRoot(new WebAppContext());
 
 		getRoot().setContextPath("/earth");
+		
 		getRoot().setDescriptor(this.getClass().getResource("/WEB-INF/web.xml").toURI().toString());
 		getRoot().setResourceBase(webappDirLocation);
 

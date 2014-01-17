@@ -4,6 +4,11 @@ import java.util.List;
 
 import com.vividsolutions.jts.geom.Coordinate;
 
+/**
+ * Data defining a plot and used in the generation of the KML through a freemarker template. 
+ * @author Alfonso Sanchez-Paus Diaz
+ *
+ */
 public class SimplePlacemarkObject {
 
 	private SimpleCoordinate coord;

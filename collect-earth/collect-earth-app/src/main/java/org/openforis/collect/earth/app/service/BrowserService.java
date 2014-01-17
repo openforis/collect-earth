@@ -10,6 +10,7 @@ import java.io.Writer;
 import java.net.URL;
 import java.security.cert.CertificateException;
 import java.security.cert.X509Certificate;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -126,14 +127,11 @@ public class BrowserService {
 
 	private RemoteWebDriver chooseDriver() {
 		RemoteWebDriver driver = null;
-
 		final String chosenBrowser = localPropertiesService.getValue(EarthProperty.BROWSER_TO_USE);
 
 		if (chosenBrowser != null && chosenBrowser.trim().toLowerCase().equals(EarthConstants.CHROME_BROWSER)) {
-
 			driver = startChromeBrowser(driver);
 		} else {
-
 			driver = startFirefoxBrowser(driver);
 		}
 
@@ -319,14 +317,18 @@ public class BrowserService {
 		}
 		return driver;
 	}
+	
+	public synchronized RemoteWebDriver navigateTo(String url, RemoteWebDriver driver ) {
+		return navigateTo(url, driver, true);
+	}
 
 	/**
 	 * Loads the given URL into the browser. If the browser is null then a new browser window is open.
 	 * @param url The URL to load.
-	 * @param driver The browser window to use. If this value is null a new broser window is open.
+	 * @param driver The browser window to use. If this value is null a new browser window is open.
 	 * @return THe browser window (firefox or chrome depending on the configuration) used to open the URL.
 	 */
-	public synchronized RemoteWebDriver navigateTo(String url, RemoteWebDriver driver) {
+	public synchronized RemoteWebDriver navigateTo(String url, RemoteWebDriver driver, boolean retry ) {
 
 		if (driver == null) {
 			driver = initBrowser();
@@ -334,11 +336,13 @@ public class BrowserService {
 		if (driver != null) {
 			try {
 				driver.navigate().to(url);
-			} catch (final UnreachableBrowserException e) {
-				// Browser closed, restart it!
-				logger.error("Browser was closed, restaring it...");
-				driver = initBrowser();
-				navigateTo(url, driver);
+			} catch (final Exception e) {
+				if( retry && ( e.getCause().getMessage().contains("Session not found") || e instanceof UnreachableBrowserException ) ){
+					// Browser closed, restart it!
+					logger.error("Browser was closed, restaring it...", e);
+					driver = initBrowser();
+					navigateTo(url, driver, false ); // only try to re-open one
+				}
 			}
 		}
 		return driver;
@@ -383,6 +387,7 @@ public class BrowserService {
 	 */
 	public synchronized void openEarthEngine(String coordinates) {
 
+		logger.warn("Starting to open EE - supported : " + localPropertiesService.isEarthEngineSupported()   );
 		if (localPropertiesService.isEarthEngineSupported()) {
 
 			if (webDriverEE == null) {
@@ -396,6 +401,7 @@ public class BrowserService {
 				@Override
 				public void run() {
 					try {
+						logger.warn("Loading layers - " + Arrays.toString(latLong)   );
 						webDriverEE = loadLayers(latLong, driverCopy);
 					} catch (final Exception e) {
 						logger.error("Error when opening Earth Engine browser window", e);
@@ -487,14 +493,14 @@ public class BrowserService {
 				driver = new ChromeDriver(capabilities);
 			} catch (final WebDriverException e) {
 				logger.error("The chrome executable chrome.exe cannot be found, please edit earth.properties and correct the chrome.exe location at "
-						+ EarthProperty.FIREFOX_BINARY_PATH + " pointing to the full path to chrome.exe", e);
+						+ EarthProperty.CHROME_BINARY_PATH + " pointing to the full path to chrome.exe", e);
 			}
 		} else {
 			try {
 				driver = new ChromeDriver();
 			} catch (final WebDriverException e) {
 				logger.error("The chrome executable chrome.exe cannot be found, please edit earth.properties and add the chrome.exe location in "
-						+ EarthProperty.FIREFOX_BINARY_PATH + " pointing to the full path to chrome.exe", e);
+						+ EarthProperty.CHROME_BINARY_PATH + " pointing to the full path to chrome.exe", e);
 			}
 		}
 		return driver;

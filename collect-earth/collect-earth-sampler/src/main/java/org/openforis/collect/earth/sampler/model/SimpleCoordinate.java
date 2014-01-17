@@ -2,6 +2,11 @@ package org.openforis.collect.earth.sampler.model;
 
 import com.vividsolutions.jts.geom.Coordinate;
 
+/**
+ * Sstores the coordinates as latitude and longitude strings.
+ * @author Alfonso Sanchez-Paus Diaz
+ *
+ */
 public class SimpleCoordinate {
 	private String latitude;
 	private String longitude;

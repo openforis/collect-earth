@@ -111,4 +111,9 @@ public class JFilePicker extends JPanel {
 	public void setMode(int mode) {
 		this.mode = mode;
 	}
+	
+	public void setFolderChooser() {
+		fileChooser.setFileSelectionMode(JFileChooser.DIRECTORIES_ONLY);
+	}
+	
 }

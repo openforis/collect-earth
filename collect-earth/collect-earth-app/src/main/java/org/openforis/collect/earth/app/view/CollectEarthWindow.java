@@ -93,29 +93,6 @@ public class CollectEarthWindow {
 		}
 	}
 
-	private void exportDataToFusionCsv(ActionEvent e) {
-		File selectedFile = selectACsvFile();
-		if (selectedFile != null) {
-			FileOutputStream fos = null;
-			try {
-				fos = new FileOutputStream(selectedFile);
-				dataExportService.exportSurveyAsFusionTable(fos);
-			} catch (Exception e1) {
-				JOptionPane.showMessageDialog(this.frame, "Error when attempting to export data to CSV file", "Export error",
-						JOptionPane.ERROR_MESSAGE);
-				logger.error("Error exporting data to plain CSV format", e1);
-			} finally {
-				if (fos != null) {
-					try {
-						fos.close();
-					} catch (IOException e1) {
-						logger.error("Error closing output stream for fusion table", e);
-					}
-				}
-			}
-		}
-	}
-	
 	private void exportDataToRDB(ActionEvent e) {
 		analysisSaikuService.prepareAnalysis();
 	}
@@ -195,27 +172,29 @@ public class CollectEarthWindow {
 
 			@Override
 			public void actionPerformed(ActionEvent e) {
-				exportDataToRDB(e);
+				try {
+					startWaiting();
+					exportDataToRDB(e);
+				} catch (Exception e1) {
+					logger.error("Error starting Saiku server", e1);
+				} finally{
+					endWaiting();
+				}
 			}
 		};
 	}
 
-	private ActionListener getExportFusionActionListener() {
-		return new ActionListener() {
-
-			@Override
-			public void actionPerformed(ActionEvent e) {
-				exportDataToFusionCsv(e);
-
-			}
-
-		};
-	}
-
-	JFrame getFrame() {
+	private JFrame getFrame() {
 		return frame;
 	}
 
+	private void endWaiting(){
+		getFrame().setCursor(java.awt.Cursor.getPredefinedCursor(java.awt.Cursor.DEFAULT_CURSOR));
+	}
+	private void startWaiting(){
+		getFrame().setCursor(java.awt.Cursor.getPredefinedCursor(java.awt.Cursor.WAIT_CURSOR));
+	}
+	
 	public JMenuBar getMenu(JFrame frame) {
 		// Where the GUI is created:
 		JMenuBar menuBar;
@@ -241,10 +220,10 @@ public class CollectEarthWindow {
 		menu.add(menuItem);
 		menuBar.add(menu);
 		
-/*		menuItem = new JMenuItem("Export to RDB");
+		menuItem = new JMenuItem("Start SAIKU Analysis");
 		menuItem.addActionListener(getExportRDBActionListener());
 		menu.add(menuItem);
-		menuBar.add(menu);*/
+		menuBar.add(menu);
 
 		// menuItem = new JMenuItem("Export data to Fusion format CSV");
 		// menuItem.addActionListener(getExportFusionActionListener());
@@ -269,7 +248,7 @@ public class CollectEarthWindow {
 	private ActionListener getPropertiesAction(JFrame owner) {
 		final JDialog dialog = new OptionWizard(owner, localPropertiesService, backupFolder);
 		dialog.setLocationRelativeTo(owner);
-		dialog.setSize(new Dimension(600, 400));
+		dialog.setSize(new Dimension(600, 420));
 		dialog.setModal(true);
 		dialog.setResizable(false);
 

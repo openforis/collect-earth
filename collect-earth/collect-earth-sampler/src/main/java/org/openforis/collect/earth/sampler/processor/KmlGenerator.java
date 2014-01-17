@@ -21,7 +21,7 @@ import freemarker.template.Configuration;
 import freemarker.template.Template;
 import freemarker.template.TemplateException;
 
-public abstract class KmlGenerator extends AbstractWgs84Transformer {
+public abstract class KmlGenerator extends AbstractCoordinateCalculation {
 
 	public static CSVReader getCsvReader(String csvFile) throws FileNotFoundException {
 		CSVReader reader;

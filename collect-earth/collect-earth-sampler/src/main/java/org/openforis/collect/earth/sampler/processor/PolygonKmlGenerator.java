@@ -103,7 +103,7 @@ public abstract class PolygonKmlGenerator extends KmlGenerator {
 
 					final SimplePlacemarkObject parentPlacemark = new SimplePlacemarkObject(transformedPoint.getCoordinate(), plotProperties.id,
 							plotProperties.elevation, plotProperties.slope, plotProperties.aspect,
-							AspectCode.getHumanReadableAspect(plotProperties.aspect));
+							AspectCode.getAspectCode(plotProperties.aspect));
 
 					if (previousPlacemark != null) {
 						// Give the current ID to the previous placemark so that

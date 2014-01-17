@@ -11,7 +11,7 @@ import java.util.Map;
 
 import org.openforis.collect.earth.app.service.LocalPropertiesService.EarthProperty;
 import org.openforis.collect.earth.sampler.model.SimplePlacemarkObject;
-import org.openforis.collect.earth.sampler.processor.AbstractWgs84Transformer;
+import org.openforis.collect.earth.sampler.processor.AbstractCoordinateCalculation;
 import org.openforis.collect.earth.sampler.processor.KmlGenerator;
 import org.openforis.collect.earth.sampler.processor.SquareKmlGenerator;
 import org.opengis.referencing.operation.TransformException;
@@ -80,7 +80,7 @@ public class BingMapService {
 		final Float distanceBetweenSamplingPoints = Float.parseFloat(localPropertiesService.getValue(EarthProperty.DISTANCE_BETWEEN_SAMPLE_POINTS));
 		final Float distancePlotBoundary = Float.parseFloat(localPropertiesService.getValue(EarthProperty.DISTANCE_TO_PLOT_BOUNDARIES));
 
-		final SquareKmlGenerator squareKmlGenerator = new SquareKmlGenerator(AbstractWgs84Transformer.WGS84, "", "", innerPointSide, numberOfPoints);
+		final SquareKmlGenerator squareKmlGenerator = new SquareKmlGenerator(AbstractCoordinateCalculation.WGS84, "", "", innerPointSide, numberOfPoints);
 		final double[] centerLatLongD = new double[] { Double.parseDouble(centerLatLong[0]), Double.parseDouble(centerLatLong[1])
 
 		};

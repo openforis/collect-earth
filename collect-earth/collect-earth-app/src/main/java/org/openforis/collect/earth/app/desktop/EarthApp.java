@@ -23,7 +23,7 @@ import org.openforis.collect.earth.app.EarthConstants;
 import org.openforis.collect.earth.app.service.LocalPropertiesService;
 import org.openforis.collect.earth.app.service.LocalPropertiesService.EarthProperty;
 import org.openforis.collect.earth.app.view.CollectEarthWindow;
-import org.openforis.collect.earth.sampler.processor.AbstractWgs84Transformer;
+import org.openforis.collect.earth.sampler.processor.AbstractCoordinateCalculation;
 import org.openforis.collect.earth.sampler.processor.CircleKmlGenerator;
 import org.openforis.collect.earth.sampler.processor.KmlGenerator;
 import org.openforis.collect.earth.sampler.processor.KmzGenerator;
@@ -55,14 +55,12 @@ public class EarthApp {
 
 	private static void closeSplash() {
 		try {
-			logger.info("Close splash if shown");
 			final SplashScreen splash = SplashScreen.getSplashScreen();
 			if (splash != null) {
 				splash.close();
-				logger.info("Splash closed");
 			}
 		} catch (final IllegalStateException e) {
-			logger.error("Error closing splash window", e);
+			e.printStackTrace();
 		}
 	}
 
@@ -81,7 +79,9 @@ public class EarthApp {
 			}
 			earthApp.initializeServer();
 		} catch (final Exception e) {
-			logger.error("The server could not start", e);
+			// The logger factory has not been initialized, this will not work, just output to console
+			//logger.error("The server could not start", e); 
+			e.printStackTrace();
 			System.exit(1);
 		} finally {
 			closeSplash();
@@ -109,9 +109,9 @@ public class EarthApp {
 
 				// We change the name of the CSV file and CRS. The new file
 				// contains the elevation data in the last column. The
-				// coordinates were also changhed to WGS84
+				// coordinates were also changed to WGS84
 				localProperties.saveCsvFile(csvFile + PreprocessElevationData.CSV_ELEV_EXTENSION);
-				localProperties.saveCrs(AbstractWgs84Transformer.WGS84);
+				localProperties.saveCrs(AbstractCoordinateCalculation.WGS84);
 			}
 		}
 	}

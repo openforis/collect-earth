@@ -2,7 +2,6 @@ package org.openforis.collect.earth.app.service;
 
 import java.io.File;
 import java.io.IOException;
-import java.lang.ProcessBuilder.Redirect;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.List;
@@ -68,8 +67,8 @@ public class AnalysisSaikuService {
 				final Object[] updateValues = new Object[4];
 
 				Integer aspect = AspectCode.NA.getId();
-				if( AspectCode.getHumanReadableAspect(rs.getDouble("aspect")) != null  ){
-					aspect = AspectCode.getHumanReadableAspect(rs.getDouble("aspect")).getId();
+				if( AspectCode.getAspectCode(rs.getDouble("aspect")) != null  ){
+					aspect = AspectCode.getAspectCode(rs.getDouble("aspect")).getId();
 				}
 				
 				Integer slope = SlopeCode.NA.getId();
@@ -179,14 +178,13 @@ public class AnalysisSaikuService {
 	}
 
 	private void startSaiku() throws IOException {
+		logger.warn("Starting the Saiku server"+ getSaikuFolder() + File.separator + "start-saiku.bat" );
 		final String openSaikuCmd = getSaikuFolder() + File.separator + "start-saiku.bat";
 		final ProcessBuilder builder = new ProcessBuilder(openSaikuCmd);
 		builder.directory(new File(getSaikuFolder()));
 		builder.redirectErrorStream(true);
-		builder.redirectOutput(Redirect.INHERIT);
-		builder.redirectError(Redirect.INHERIT);
 		builder.start();
-
+		logger.warn("Finisged starting the Saiku server");
 	}
 
 	private void stopSaikuOnExit() {
@@ -197,9 +195,7 @@ public class AnalysisSaikuService {
 				try {
 					final ProcessBuilder builder = new ProcessBuilder(endSaikuCmd);
 					builder.directory(new File(getSaikuFolder()));
-					builder.redirectErrorStream(true);
-					builder.redirectOutput(Redirect.INHERIT);
-					builder.redirectError(Redirect.INHERIT);
+					builder.redirectErrorStream(true);					
 					builder.start();
 				} catch (final IOException e) {
 					logger.error("Error stopping Saiku", e);

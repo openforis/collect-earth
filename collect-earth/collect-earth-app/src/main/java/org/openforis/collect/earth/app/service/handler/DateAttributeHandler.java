@@ -36,7 +36,9 @@ public class DateAttributeHandler extends AbstractAttributeHandler<Value> {
 		String attribute = "";
 
 		try {
-			attribute = sdf.format(((DateAttribute) entity.get(removePrefix(parameterName), index)).getValue().toJavaDate());
+			if(  entity.get(removePrefix(parameterName), index).hasData() ){
+				attribute = sdf.format(((DateAttribute) entity.get(removePrefix(parameterName), index)).getValue().toJavaDate());
+			}
 		} catch (Exception e) {
 			Logger.getLogger(this.getClass()).error("Not able to parse date for paramaeter " + parameterName, e);
 		}

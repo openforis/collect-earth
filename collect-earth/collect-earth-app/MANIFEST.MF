@@ -37,18 +37,18 @@ Class-Path: earth-libs/xmlpull-1.1.3.4a.jar earth-libs/collect-earth-sampler-1.0
  earth-libs/android-liquibase-core-2.0.6-SNAPSHOT.jar
   earth-libs/spring-webmvc-3.1.0.RELEASE.jar earth-libs/spring-asm-3.1.0.RELEASE.jar 
   earth-libs/spring-beans-3.1.0.RELEASE.jar earth-libs/spring-context-support-3
- .1.0.RELEASE.jar earth-libs/spring-core-3.1.0.RELEASE.jar earth-libs/
- spring-expression-3.1.0.RELEASE.jar earth-libs/spring-web-3.1.0.RELEA
+ .1.0.RELEASE.jar earth-libs/spring-core-3.1.0.RELEASE.jar earth-libs/collect-rdb-3.0-Alpha8-SNAPSHOT.jar 
+ earth-libs/spring-expression-3.1.0.RELEASE.jar earth-libs/spring-web-3.1.0.RELEA
  SE.jar earth-libs/spring-context-3.1.0.RELEASE.jar earth-libs/spring-
  aop-3.1.0.RELEASE.jar earth-libs/spring-tx-3.1.0.RELEASE.jar earth-li
  bs/aopalliance-1.0.jar earth-libs/spring-jdbc-3.1.0.RELEASE.jar earth
  -libs/gson-2.2.3.jar earth-libs/sqlite-jdbc-3.7.2.jar earth-libs/sele
- nium-firefox-driver-2.35.0.jar earth-libs/selenium-remote-driver-2.35
- .0.jar earth-libs/cglib-nodep-2.1_3.jar earth-libs/json-20080701.jar 
- earth-libs/selenium-api-2.35.0.jar earth-libs/httpclient-4.2.1.jar ea
- rth-libs/httpcore-4.2.1.jar earth-libs/guava-14.0.jar earth-libs/jna-
+ nium-firefox-driver-2.37.1.jar earth-libs/selenium-remote-driver-2.37
+ .1.jar earth-libs/cglib-nodep-2.1_3.jar earth-libs/json-20080701.jar 
+ earth-libs/selenium-api-2.37.1.jar earth-libs/httpclient-4.3.jar ea
+ rth-libs/httpcore-4.3.jar earth-libs/guava-15.0.jar earth-libs/jna-
  3.4.0.jar earth-libs/platform-3.4.0.jar earth-libs/commons-exec-1.1.j
- ar earth-libs/selenium-chrome-driver-2.35.0.jar earth-libs/commons-db
+ ar earth-libs/selenium-chrome-driver-2.37.1.jar earth-libs/commons-db
  cp-1.4.jar earth-libs/commons-pool-1.5.4.jar earth-libs/log4j-1.2.17.
  jar earth-libs/slf4j-api-1.7.5.jar earth-libs/slf4j-log4j12-1.7.5.jar
   earth-libs/commons-io-2.4.jar earth-libs/mockito-all-1.9.5.jar earth-libs/kxml2-2.3.0.jar

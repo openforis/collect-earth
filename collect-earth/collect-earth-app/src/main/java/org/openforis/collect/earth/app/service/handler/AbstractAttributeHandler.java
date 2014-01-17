@@ -20,38 +20,20 @@ public abstract class AbstractAttributeHandler<C> {
 		this.prefix = prefix;
 	}
 
-	public void addOrUpdate(String parameterName, String parameterValue, Entity entity) {
+	public void addOrUpdate(String parameterName, String parameterValue, Entity entity, int parameterChildIndex) {
 
-		String idmName = removePrefix(parameterName);
-		Node<? extends NodeDefinition> node = entity.get(idmName, 0);
-		/*
-		 * if (parameterValue.trim().length() == 0) { if (entity.get(idmName, 0)
-		 * != null) { entity.remove(idmName, 0); } } else {
-		 */
-
+		String cleanParameterName = removePrefix(parameterName);
+		Node<? extends NodeDefinition> node = entity.get(cleanParameterName, parameterChildIndex);
+		
 		// if (node instanceof Attribute) {
+		if (parameterValue.trim().length() > 0) {
 		if (node == null) {
-			if (parameterValue.trim().length() > 0) {
 				addToEntity(parameterName, parameterValue, entity);
-			}
-		} else if (node instanceof Attribute) {
-			if (parameterValue.trim().length() == 0) {
-				// entity.remove(removePrefix(parameterName), 0);
-			} else {
-				Attribute attribute = (Attribute) entity.get(idmName, 0);
+			} else if (node instanceof Attribute) {
+				Attribute attribute = (Attribute) entity.get(cleanParameterName, parameterChildIndex);
 				attribute.setValue((Value) getAttributeValue(parameterValue));
 			}
 		}
-		/*
-		 * } else if (node instanceof Entity) { int count =
-		 * entity.getCount("topography"); for (int i = 0; i < count; i++) {
-		 * entity.remove("topography", 0); }
-		 * 
-		 * EntityBuilder.addEntity(entity, "topography"); }
-		 */
-
-		/* } */
-
 	}
 
 	protected abstract void addToEntity(String parameterName, String parameterValue, Entity entity);

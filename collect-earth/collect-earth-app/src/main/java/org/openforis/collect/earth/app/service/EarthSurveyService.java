@@ -248,7 +248,6 @@ public class EarthSurveyService {
 				recordManager.delete(record.getId());
 				record = createRecord(sessionId);
 				plotEntity = record.getRootEntity();
-
 			} else {
 				// Create new record
 				record = createRecord(sessionId);

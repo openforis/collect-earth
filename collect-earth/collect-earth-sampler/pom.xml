@@ -4,21 +4,17 @@
 	<modelVersion>4.0.0</modelVersion>
 
 	<parent>
-        <groupId>org.openforis.collect.earth</groupId>
-        <artifactId>collect-earth</artifactId>
-        <version>1.0</version>
-    </parent>
-	
+		<groupId>org.openforis.collect.earth</groupId>
+		<artifactId>collect-earth</artifactId>
+		<version>1.0</version>
+	</parent>
+
 	<artifactId>collect-earth-sampler</artifactId>
 	<packaging>jar</packaging>
 	<name>Earth Sampler</name>
 
 	<properties>
-		<project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
 		<geotools.version>9.4</geotools.version>
-		<graniteds.version>2.3.0.GA</graniteds.version>
-		<zk.version>6.5.1.1</zk.version>
-		<zk.spring.version>3.1.1</zk.spring.version>
 	</properties>
 
 	<dependencies>
@@ -60,7 +56,7 @@
 			<artifactId>gt-epsg-hsql</artifactId>
 			<version>${geotools.version}</version>
 		</dependency>
-		
+
 		<dependency>
 			<groupId>org.geotools</groupId>
 			<artifactId>gt-geotiff</artifactId>
@@ -75,7 +71,7 @@
 			<groupId>org.geotools</groupId>
 			<artifactId>gt-coverage</artifactId>
 			<version>${geotools.version}</version>
-		</dependency> 
+		</dependency>
 
 	</dependencies>
 	<repositories>

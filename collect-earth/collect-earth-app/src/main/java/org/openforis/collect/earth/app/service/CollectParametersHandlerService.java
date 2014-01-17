@@ -39,7 +39,7 @@ import org.springframework.stereotype.Component;
 @Component
 public class CollectParametersHandlerService {
 
-	private static final String PARAMETER_SEPARATOR = "===";
+	public static final String PARAMETER_SEPARATOR = "===";
 
 	private static final String COLLECT_PREFIX = "collect_";
 
@@ -179,7 +179,7 @@ public class CollectParametersHandlerService {
 			for (AbstractAttributeHandler<?> handler : attributeHandlers) {
 				try {
 					if (handler.isParameterParseable(cleanName)) {
-						handler.addOrUpdate(cleanName, parameterValue, entity);
+						handler.addOrUpdate(cleanName, parameterValue, entity, 0);
 					}
 				} catch (Exception e) {
 					logger.error("Error while parsing parameter " + cleanName + " with value " + parameterValue, e);

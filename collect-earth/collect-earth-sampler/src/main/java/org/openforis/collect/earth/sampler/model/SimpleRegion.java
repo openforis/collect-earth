@@ -1,5 +1,10 @@
 package org.openforis.collect.earth.sampler.model;
 
+/**
+ * Define a square region using the north-west and south-east points.
+ * @author Alfonso Sanchez-Paus Diaz
+ *
+ */
 public class SimpleRegion {
 
 	private String east;
