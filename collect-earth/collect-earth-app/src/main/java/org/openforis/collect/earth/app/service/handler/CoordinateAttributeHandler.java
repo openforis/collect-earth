@@ -47,8 +47,8 @@ public class CoordinateAttributeHandler extends AbstractAttributeHandler<Value> 
 		// THE ORDER OF THE COORDINATES IS CHANGED HERE SO THAT THE PNG BUG IS CONSISTENT THROUGHOUT THEIR ASSESSMENT!!
 		// CHANGE BACK WHEN THEY ARE FINIHSED!!!!!!
 		
-		//Coordinate coord = new Coordinate(Double.parseDouble(coordinatesCSV[1]), Double.parseDouble(coordinatesCSV[0]), srs);
-		Coordinate coord = new Coordinate(Double.parseDouble(coordinatesCSV[0]), Double.parseDouble(coordinatesCSV[1]), srs);
+		Coordinate coord = new Coordinate(Double.parseDouble(coordinatesCSV[1]), Double.parseDouble(coordinatesCSV[0]), srs);
+		//Coordinate coord = new Coordinate(Double.parseDouble(coordinatesCSV[0]), Double.parseDouble(coordinatesCSV[1]), srs); PNG BUG IN THIS LINE!!
 		return coord;
 	}
 
