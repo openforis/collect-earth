@@ -6,11 +6,13 @@ import org.openforis.idm.model.Node;
 import org.openforis.idm.model.TextAttribute;
 import org.openforis.idm.model.TextValue;
 import org.openforis.idm.model.Value;
+import org.springframework.stereotype.Component;
 
 /**
  * @author Alfonso Sanchez-Paus Diaz
  *
  */
+@Component
 public class TextAttributeHandler extends AbstractAttributeHandler<Value> {
 
 	private static final String PREFIX = "text_";

@@ -11,11 +11,13 @@ import org.openforis.idm.model.Entity;
 import org.openforis.idm.model.EntityBuilder;
 import org.openforis.idm.model.Node;
 import org.openforis.idm.model.Value;
+import org.springframework.stereotype.Component;
 
 /**
  * @author Alfonso Sanchez-Paus Diaz
  *
  */
+@Component
 public class DateAttributeHandler extends AbstractAttributeHandler<Value> {
 
 	private static final String PREFIX = "date_";

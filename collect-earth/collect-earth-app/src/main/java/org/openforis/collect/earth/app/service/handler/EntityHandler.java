@@ -1,6 +1,8 @@
 package org.openforis.collect.earth.app.service.handler;
 
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 import org.openforis.collect.earth.app.service.CollectParametersHandlerService;
 import org.openforis.idm.metamodel.CodeAttributeDefinition;
@@ -9,13 +11,19 @@ import org.openforis.idm.model.CodeAttribute;
 import org.openforis.idm.model.Entity;
 import org.openforis.idm.model.EntityBuilder;
 import org.openforis.idm.model.Node;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Component;
 
 /**
  * @author Alfonso Sanchez-Paus Diaz
  *
  */
+@Component
 public class EntityHandler extends AbstractAttributeHandler<Entity> {
 
+	@Autowired
+	CollectParametersHandlerService collectParametersHandlerService;
+	
 	// Expected : colllect_entity_topography[house].code_coverage=XX
 	private static final String PREFIX = "entity_";
 
@@ -25,11 +33,6 @@ public class EntityHandler extends AbstractAttributeHandler<Entity> {
 
 	@Override
 	public void addOrUpdate(String parameterName, String parameterValue, Entity parentEntity, int childParameterIndex) {
-		
-		String[] parameterValues = parameterValue.split(CollectParametersHandlerService.PARAMETER_SEPARATOR);
-		
-		int index = 0; 
-		for (String parameterVal : parameterValues) {
 			
 			// Expected parameter name:
 			// colllect_entity_topography[house].code_coverage=XX
@@ -42,28 +45,11 @@ public class EntityHandler extends AbstractAttributeHandler<Entity> {
 			if (childEntity == null) {
 				childEntity = EntityBuilder.addEntity(parentEntity, childEntityName);
 			}
-			AbstractAttributeHandler cah = null;
-			if (parameterName.contains("code_")) {
-				cah = new CodeAttributeHandler();
-			} else if (parameterName.contains("integer_")) {
-				cah = new IntegerAttributeHandler();
-			} else if (parameterName.contains("real_")) {
-				cah = new RealAttributeHandler();
-			} else if (parameterName.contains("text_")) {
-				cah = new TextAttributeHandler();
-			} else if (parameterName.contains("coord_")) {
-				cah = new CoordinateAttributeHandler();
-			} else if (parameterName.contains("date_")) {
-				cah = new DateAttributeHandler();
-			} else {
-				throw new IllegalArgumentException("Unknown type of parameter " + parameterName);
-			}
+			
+			Map<String,String> parameters = new HashMap<String, String>();
+			parameters.put(entityAttribute, parameterValue);
 	
-			cah.addOrUpdate(entityAttribute, parameterVal, childEntity, index);
-			index++;
-		}
-		
-
+			collectParametersHandlerService.saveToEntity(parameters, childEntity);
 	}
 
 	@Override
@@ -138,4 +124,8 @@ public class EntityHandler extends AbstractAttributeHandler<Entity> {
 		return value instanceof Entity;
 	}
 
+	@Override
+	public boolean isMultiValueAware() {
+		return true;
+	}
 }

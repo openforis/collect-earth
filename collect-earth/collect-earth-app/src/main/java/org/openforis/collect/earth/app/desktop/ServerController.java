@@ -50,7 +50,7 @@ public class ServerController extends Observable {
 		return Integer.parseInt(webPort);
 	}
 
-	public WebAppContext getRoot() {
+	private WebAppContext getRoot() {
 		return root;
 	}
 
@@ -70,7 +70,7 @@ public class ServerController extends Observable {
 		return alreadyRunning;
 	}
 
-	public void setRoot(WebAppContext root) {
+	private void setRoot(WebAppContext root) {
 		this.root = root;
 	}
 

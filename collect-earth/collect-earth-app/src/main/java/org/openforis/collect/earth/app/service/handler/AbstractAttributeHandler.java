@@ -5,12 +5,14 @@ import org.openforis.idm.model.Attribute;
 import org.openforis.idm.model.Entity;
 import org.openforis.idm.model.Node;
 import org.openforis.idm.model.Value;
+import org.springframework.stereotype.Component;
 
 /**
  * @author Alfonso Sanchez-Paus Diaz
  *
  * @param <C>
  */
+@Component
 public abstract class AbstractAttributeHandler<C> {
 
 	private String prefix;
@@ -67,5 +69,9 @@ public abstract class AbstractAttributeHandler<C> {
 
 	public void setPrefix(String prefix) {
 		this.prefix = prefix;
+	}
+	
+	public boolean isMultiValueAware(){
+		return false;
 	}
 }

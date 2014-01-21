@@ -8,11 +8,13 @@ import org.openforis.idm.model.RealValue;
 import org.openforis.idm.model.Value;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.stereotype.Component;
 
 /**
  * @author Alfonso Sanchez-Paus Diaz
  *
  */
+@Component
 public class RealAttributeHandler extends AbstractAttributeHandler<Value> {
 
 	private static final String PREFIX = "real_";

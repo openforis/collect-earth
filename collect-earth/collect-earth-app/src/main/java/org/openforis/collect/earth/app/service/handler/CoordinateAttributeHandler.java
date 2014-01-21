@@ -6,11 +6,13 @@ import org.openforis.idm.model.Entity;
 import org.openforis.idm.model.EntityBuilder;
 import org.openforis.idm.model.Node;
 import org.openforis.idm.model.Value;
+import org.springframework.stereotype.Component;
 
 /**
  * @author Alfonso Sanchez-Paus Diaz
  *
  */
+@Component
 public class CoordinateAttributeHandler extends AbstractAttributeHandler<Value> {
 
 	private static final String GOOGLE_EARTH_SRS = "EPSG:4326";
@@ -23,7 +25,6 @@ public class CoordinateAttributeHandler extends AbstractAttributeHandler<Value> 
 	@Override
 	public void addToEntity(String parameterName, String parameterValue, Entity entity) {
 		Coordinate coord = extractCoordinate(parameterValue);
-
 		EntityBuilder.addValue(entity, removePrefix(parameterName), coord);
 	}
 
