@@ -9,11 +9,16 @@ import java.nio.charset.Charset;
 import java.util.HashMap;
 import java.util.Map;
 
+import org.openforis.collect.earth.app.EarthConstants.SAMPLE_SHAPE;
+import org.openforis.collect.earth.app.desktop.EarthApp;
 import org.openforis.collect.earth.app.service.LocalPropertiesService.EarthProperty;
 import org.openforis.collect.earth.sampler.model.SimplePlacemarkObject;
 import org.openforis.collect.earth.sampler.processor.AbstractCoordinateCalculation;
+import org.openforis.collect.earth.sampler.processor.CircleKmlGenerator;
 import org.openforis.collect.earth.sampler.processor.KmlGenerator;
+import org.openforis.collect.earth.sampler.processor.OctagonKmlGenerator;
 import org.openforis.collect.earth.sampler.processor.SquareKmlGenerator;
+import org.openforis.collect.earth.sampler.processor.SquareWithCirclesKmlGenerator;
 import org.opengis.referencing.operation.TransformException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -54,7 +59,7 @@ public class BingMapService {
 		// Load template from source folder
 		final Template template = cfg.getTemplate(templateFile.getName());
 
-		final File tempFile = File.createTempFile("bing", "html");
+		final File tempFile = File.createTempFile("bing", ".html");
 		tempFile.deleteOnExit();
 		// Console output
 		BufferedWriter fw = null;
@@ -80,13 +85,13 @@ public class BingMapService {
 		final Float distanceBetweenSamplingPoints = Float.parseFloat(localPropertiesService.getValue(EarthProperty.DISTANCE_BETWEEN_SAMPLE_POINTS));
 		final Float distancePlotBoundary = Float.parseFloat(localPropertiesService.getValue(EarthProperty.DISTANCE_TO_PLOT_BOUNDARIES));
 
-		final SquareKmlGenerator squareKmlGenerator = new SquareKmlGenerator(AbstractCoordinateCalculation.WGS84, "", "", innerPointSide, numberOfPoints);
-		final double[] centerLatLongD = new double[] { Double.parseDouble(centerLatLong[0]), Double.parseDouble(centerLatLong[1])
-
-		};
+		KmlGenerator kmlGenerator = EarthApp.getKmlGenerator(localPropertiesService);
+		
+		final double[] centerLatLongD = new double[] { Double.parseDouble(centerLatLong[0]), Double.parseDouble(centerLatLong[1])};
+		
 		try {
-			squareKmlGenerator.fillSamplePoints(distanceBetweenSamplingPoints, centerLatLongD, "", placemark);
-			squareKmlGenerator.fillExternalLine(distanceBetweenSamplingPoints.floatValue(), distancePlotBoundary.floatValue(), centerLatLongD,
+			kmlGenerator.fillSamplePoints(distanceBetweenSamplingPoints, centerLatLongD, "", placemark);
+			kmlGenerator.fillExternalLine(distanceBetweenSamplingPoints.floatValue(), distancePlotBoundary.floatValue(), centerLatLongD,
 					placemark);
 
 			data.put("placemark", placemark);

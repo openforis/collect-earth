@@ -8,6 +8,7 @@ import java.util.Map;
 
 import org.openforis.collect.earth.sampler.model.AspectCode;
 import org.openforis.collect.earth.sampler.model.SimplePlacemarkObject;
+import org.opengis.referencing.operation.TransformException;
 
 import au.com.bytecode.opencsv.CSVReader;
 
@@ -36,9 +37,7 @@ public class OnePointKmlGenerator extends KmlGenerator {
 
 				try {
 					final Point transformedPoint = transformToWGS84(plotProperties.xCoord, plotProperties.yCoord);
-					final SimplePlacemarkObject parentPlacemark = new SimplePlacemarkObject(transformedPoint.getCoordinate(), "ge_"
-							+ plotProperties.id, plotProperties.elevation, plotProperties.slope, plotProperties.aspect,
-							AspectCode.getAspectCode(plotProperties.aspect));
+					final SimplePlacemarkObject parentPlacemark = new SimplePlacemarkObject(transformedPoint.getCoordinate(), plotProperties);
 					placemarks.add(parentPlacemark);
 				} catch (final NumberFormatException e) {
 					getLogger().error("Error in the number formatting", e);
@@ -57,6 +56,22 @@ public class OnePointKmlGenerator extends KmlGenerator {
 
 		data.put("placemarks", placemarks);
 		return data;
+	}
+
+	@Override
+	public void fillExternalLine(float distanceBetweenSamplePoints,
+			float distancePlotBoundary, double[] coordOriginalPoints,
+			SimplePlacemarkObject parentPlacemark) throws TransformException {
+		// TODO Auto-generated method stub
+		
+	}
+
+	@Override
+	public void fillSamplePoints(float distanceBetweenSamplePoints,
+			double[] coordOriginalPoints, String currentPlaceMarkId,
+			SimplePlacemarkObject parentPlacemark) throws TransformException {
+		// TODO Auto-generated method stub
+		
 	}
 
 }

@@ -12,6 +12,9 @@ import java.util.TreeSet;
 
 import javax.annotation.PostConstruct;
 
+import org.apache.commons.lang3.StringUtils;
+import org.openforis.collect.earth.app.EarthConstants.SAMPLE_SHAPE;
+import org.openforis.collect.earth.app.EarthConstants.UI_LANGUAGE;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
@@ -40,7 +43,8 @@ public class LocalPropertiesService {
 				"elevation_geotif_directory"), METADATA_FILE("metadata_file"), FIREFOX_BINARY_PATH("firefox_exe_path"), CHROME_BINARY_PATH(
 				"chrome_exe_path"), BROWSER_TO_USE("use_browser"), GEE_FUNCTION_PICK("gee_js_pickFunction"), GEE_ZOOM_OBJECT("gee_js_zoom_object"), GEE_ZOOM_METHOD(
 				"gee_js_zoom_method"), GEE_INITIAL_ZOOM("gee_initial_zoom"), SURVEY_NAME("survey_name"), AUTOMATIC_BACKUP("automatic_backup"), NUMBER_OF_SAMPLING_POINTS_IN_PLOT(
-				"number_of_sampling_points_in_plot"), GEE_JS_LIBRARY_URL("gee_js_library_url"), SAIKU_SERVER_FOLDER("saiku_server_folder");
+				"number_of_sampling_points_in_plot"), GEE_JS_LIBRARY_URL("gee_js_library_url"), SAIKU_SERVER_FOLDER("saiku_server_folder"), INSTANCE_TYPE("instance_type"), 
+				DB_DRIVER("db_driver"),DB_USERNAME("db_username"), DB_PASSWORD("db_password"), DB_NAME("db_name"), UI_LANGUAGE("ui_language");
 
 		private String name;
 
@@ -277,4 +281,30 @@ public class LocalPropertiesService {
 		}
 	}
 
+	public UI_LANGUAGE getUiLanguage(){
+		String value = getValue(EarthProperty.UI_LANGUAGE);
+		if( StringUtils.isBlank( value ) ){
+			return UI_LANGUAGE.EN;
+		}else{
+			return UI_LANGUAGE.valueOf( value );
+		}
+	}
+
+	public void setUiLanguage(UI_LANGUAGE language) {
+		setValue( EarthProperty.UI_LANGUAGE, language.name() );
+	}
+	
+	public SAMPLE_SHAPE getSampleShape(){
+		String value = getValue(EarthProperty.SAMPLE_SHAPE);
+		if( StringUtils.isBlank( value ) ){
+			return SAMPLE_SHAPE.SQUARE;
+		}else{
+			return SAMPLE_SHAPE.valueOf( value );
+		}
+	}
+
+	public void setSampleShape(SAMPLE_SHAPE shape) {
+		setValue( EarthProperty.SAMPLE_SHAPE, shape.name() );
+	}
+	
 }

@@ -6,6 +6,7 @@ import java.net.MalformedURLException;
 import java.net.URISyntaxException;
 import java.text.SimpleDateFormat;
 import java.util.Date;
+import java.util.Locale;
 import java.util.Map;
 
 import javax.servlet.ServletContext;
@@ -84,7 +85,7 @@ public class PlacemarkImageServlet extends DataAccessingServlet {
 		response.setHeader("Content-Type", "image/png");
 		response.setHeader("Content-Disposition", "inline; filename=\"" + imageName + "\"");
 		response.setHeader("Cache-Control", "max-age=30");
-		response.setHeader("Date", new SimpleDateFormat(EarthConstants.DATE_FORMAT_HTTP).format(new Date()));
+		response.setHeader("Date", new SimpleDateFormat(EarthConstants.DATE_FORMAT_HTTP, Locale.ENGLISH).format(new Date()));
 
 		byte[] resultingImage = null;
 		if (imageName.equals(EarthConstants.FILLED_IMAGE)) {

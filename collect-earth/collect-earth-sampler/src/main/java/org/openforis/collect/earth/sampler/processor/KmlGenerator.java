@@ -15,6 +15,8 @@ import java.util.Date;
 import java.util.Map;
 
 import org.apache.commons.io.FileUtils;
+import org.openforis.collect.earth.sampler.model.SimplePlacemarkObject;
+import org.opengis.referencing.operation.TransformException;
 
 import au.com.bytecode.opencsv.CSVReader;
 import freemarker.template.Configuration;
@@ -42,6 +44,7 @@ public abstract class KmlGenerator extends AbstractCoordinateCalculation {
 			plotProperties.elevation = Integer.parseInt(csvValuesInLine[3]);
 			plotProperties.slope = Double.parseDouble(csvValuesInLine[4]);
 			plotProperties.aspect = Double.parseDouble(csvValuesInLine[5]);
+			plotProperties.extraInfo = csvValuesInLine[6];
 		}
 		return plotProperties;
 	}
@@ -96,6 +99,12 @@ public abstract class KmlGenerator extends AbstractCoordinateCalculation {
 		}
 	}
 
+	public abstract void fillExternalLine(float distanceBetweenSamplePoints, float distancePlotBoundary, double[] coordOriginalPoints,
+			SimplePlacemarkObject parentPlacemark) throws TransformException;
+
+	public abstract void fillSamplePoints(float distanceBetweenSamplePoints, double[] coordOriginalPoints, String currentPlaceMarkId,
+			SimplePlacemarkObject parentPlacemark) throws TransformException;
+	
 	private void getKmlCode(String csvFile, String balloonFile, String freemarkerKmlTemplateFile, File destinationFile,
 			String distanceBetweenSamplePoints, String distancePlotBoundary) throws IOException, TemplateException {
 
@@ -135,4 +144,6 @@ public abstract class KmlGenerator extends AbstractCoordinateCalculation {
 	protected abstract Map<String, Object> getTemplateData(String csvFile, float distanceBetweenSamplePoints, float distancePlotBoundary)
 			throws IOException;
 
+	
+	
 }

@@ -15,6 +15,7 @@ import javax.annotation.PostConstruct;
 
 import org.openforis.collect.earth.app.EarthConstants;
 import org.openforis.collect.earth.app.service.LocalPropertiesService.EarthProperty;
+import org.openforis.collect.earth.app.view.Messages;
 import org.openforis.collect.manager.RecordManager;
 import org.openforis.collect.manager.SurveyManager;
 import org.openforis.collect.manager.exception.SurveyValidationException;
@@ -40,11 +41,11 @@ import org.springframework.stereotype.Component;
 @Component
 public class EarthSurveyService {
 
-	private static final String COLLECT_BOOLEAN_ACTIVELY_SAVED = "collect_boolean_actively_saved";
-	private static final String COLLECT_TEXT_ACTIVELY_SAVED_ON = "collect_text_actively_saved_on";
-	private static final String COLLECT_TEXT_OPERATOR = "collect_text_operator";
-	private static final String SKIP_FILLED_PLOT_PARAMETER = "jump_to_next_plot";
-	private final SimpleDateFormat dateFormat = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
+	private static final String COLLECT_BOOLEAN_ACTIVELY_SAVED = "collect_boolean_actively_saved"; //$NON-NLS-1$
+	private static final String COLLECT_TEXT_ACTIVELY_SAVED_ON = "collect_text_actively_saved_on"; //$NON-NLS-1$
+	private static final String COLLECT_TEXT_OPERATOR = "collect_text_operator"; //$NON-NLS-1$
+	private static final String SKIP_FILLED_PLOT_PARAMETER = "jump_to_next_plot"; //$NON-NLS-1$
+	private final SimpleDateFormat dateFormat = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss"); //$NON-NLS-1$
 
 	@Autowired
 	private CollectParametersHandlerService collectParametersHandler;
@@ -63,11 +64,11 @@ public class EarthSurveyService {
 	private SurveyManager surveyManager;
 
 	private void addLocalProperties(Map<String, String> placemarkParameters) {
-		placemarkParameters.put(SKIP_FILLED_PLOT_PARAMETER, localPropertiesService.shouldJumpToNextPlot() + "");
+		placemarkParameters.put(SKIP_FILLED_PLOT_PARAMETER, localPropertiesService.shouldJumpToNextPlot() + ""); //$NON-NLS-1$
 	}
 
 	private void addResultParameter(Map<String, String> placemarkParameters, boolean found) {
-		placemarkParameters.put(EarthConstants.PLACEMARK_FOUND_PARAMETER, found + "");
+		placemarkParameters.put(EarthConstants.PLACEMARK_FOUND_PARAMETER, found + ""); //$NON-NLS-1$
 	}
 
 	private void addValidationMessages(Map<String, String> parameters, CollectRecord record) {
@@ -78,27 +79,27 @@ public class EarthSurveyService {
 		final List<RecordValidationReportItem> validationItems = reportGenerator.generateValidationItems();
 
 		for (final RecordValidationReportItem recordValidationReportItem : validationItems) {
-			String label = "";
+			String label = ""; //$NON-NLS-1$
 			if (recordValidationReportItem.getNodeId() != null) {
 				final Node<?> node = record.getNodeByInternalId(recordValidationReportItem.getNodeId());
-				label = node.getDefinition().getLabel(Type.INSTANCE, "en");
+				label = node.getDefinition().getLabel(Type.INSTANCE, localPropertiesService.getUiLanguage().name().toLowerCase() );
 
 				String message = recordValidationReportItem.getMessage();
-				if (message.equals("Reason blank not specified")) {
-					message = "Field required";
+				if (message.equals("Reason blank not specified")) { //$NON-NLS-1$
+					message = Messages.getString("EarthSurveyService.9"); //$NON-NLS-1$
 				}
 
-				parameters.put("validation_" + node.getDefinition().getName(), label + " - " + message);
+				parameters.put("validation_" + node.getDefinition().getName(), label + " - " + message); //$NON-NLS-1$ //$NON-NLS-2$
 
 			} else {
 				label = recordValidationReportItem.getPath();
-				parameters.put("validation_" + label, label + " - " + recordValidationReportItem.getMessage());
+				parameters.put("validation_" + label, label + " - " + recordValidationReportItem.getMessage()); //$NON-NLS-1$ //$NON-NLS-2$
 			}
 
 		}
 
 		if (validationItems.size() > 0) {
-			parameters.put("valid_data", "false");
+			parameters.put("valid_data", "false"); //$NON-NLS-1$ //$NON-NLS-2$
 		}
 
 	}
@@ -127,9 +128,9 @@ public class EarthSurveyService {
 			record = recordManager.load(getCollectSurvey(), record.getId(), Step.ENTRY);
 			placemarkParameters = collectParametersHandler.getParameters(record.getRootEntity());
 
-			if ((placemarkParameters.get("collect_code_crown_cover") != null) && placemarkParameters.get("collect_code_crown_cover").equals("0")) {
-				placemarkParameters.put("collect_code_crown_cover",
-						"0;collect_code_deforestation_reason=" + placemarkParameters.get("collect_code_deforestation_reason"));
+			if ((placemarkParameters.get("collect_code_crown_cover") != null) && placemarkParameters.get("collect_code_crown_cover").equals("0")) { //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$
+				placemarkParameters.put("collect_code_crown_cover", //$NON-NLS-1$
+						"0;collect_code_deforestation_reason=" + placemarkParameters.get("collect_code_deforestation_reason")); //$NON-NLS-1$ //$NON-NLS-2$
 			}
 
 			addResultParameter(placemarkParameters, true);
@@ -193,10 +194,10 @@ public class EarthSurveyService {
 					}
 					setCollectSurvey(survey);
 				} else {
-					logger.error("The survey definition file could not be found in " + idmSurveyModel.getAbsolutePath());
+					logger.error("The survey definition file could not be found in " + idmSurveyModel.getAbsolutePath()); //$NON-NLS-1$
 				}
 			} catch (final SurveyValidationException e) {
-				logger.error("Unable to validate survey at " + getIdmFilePath(), e);
+				logger.error("Unable to validate survey at " + getIdmFilePath(), e); //$NON-NLS-1$
 			}
 		}
 
@@ -204,12 +205,12 @@ public class EarthSurveyService {
 
 	public boolean isPlacemarEdited(Map<String, String> parameters) {
 		return (parameters != null) && (parameters.get(COLLECT_BOOLEAN_ACTIVELY_SAVED) != null)
-				&& parameters.get(COLLECT_BOOLEAN_ACTIVELY_SAVED).equals("false");
+				&& parameters.get(COLLECT_BOOLEAN_ACTIVELY_SAVED).equals("false"); //$NON-NLS-1$
 	}
 
 	public boolean isPlacemarSavedActively(Map<String, String> parameters) {
 		return (parameters != null) && (parameters.get(COLLECT_BOOLEAN_ACTIVELY_SAVED) != null)
-				&& parameters.get(COLLECT_BOOLEAN_ACTIVELY_SAVED).equals("true");
+				&& parameters.get(COLLECT_BOOLEAN_ACTIVELY_SAVED).equals("true"); //$NON-NLS-1$
 	}
 
 	private void saveLocalProperties(Map<String, String> parameters) {
@@ -226,13 +227,13 @@ public class EarthSurveyService {
 	}
 
 	private void setPlacemarSavedActively(Map<String, String> parameters, boolean value) {
-		parameters.put(COLLECT_BOOLEAN_ACTIVELY_SAVED, value + "");
+		parameters.put(COLLECT_BOOLEAN_ACTIVELY_SAVED, value + ""); //$NON-NLS-1$
 
 	}
 
 	public boolean storePlacemark(Map<String, String> parameters, String sessionId) {
 
-		final List<CollectRecord> summaries = recordManager.loadSummaries(getCollectSurvey(), EarthConstants.ROOT_ENTITY_NAME, parameters.get("collect_text_id"));
+		final List<CollectRecord> summaries = recordManager.loadSummaries(getCollectSurvey(), EarthConstants.ROOT_ENTITY_NAME, parameters.get("collect_text_id")); //$NON-NLS-1$
 
 		boolean success = false;
 
@@ -252,7 +253,7 @@ public class EarthSurveyService {
 				// Create new record
 				record = createRecord(sessionId);
 				plotEntity = record.getRootEntity();
-				logger.warn("Creating a new plot entity with data " + parameters.toString());
+				logger.warn("Creating a new plot entity with data " + parameters.toString()); //$NON-NLS-1$
 			}
 
 			if (isPlacemarSavedActively(parameters)) {
@@ -281,7 +282,7 @@ public class EarthSurveyService {
 
 			}
 		} catch (final RecordPersistenceException e) {
-			logger.error("Error while storing the record " + e.getMessage(), e);
+			logger.error("Error while storing the record " + e.getMessage(), e); //$NON-NLS-1$
 		}
 
 		return success;

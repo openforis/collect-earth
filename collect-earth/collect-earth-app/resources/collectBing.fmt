@@ -27,13 +27,13 @@
             [
             
             <#list placemark.shape as coord>
-			new Microsoft.Maps.Location(${coord.longitude}, ${coord.latitude}),
+			new Microsoft.Maps.Location(${coord.latitude}, ${coord.longitude}),
 			</#list>  
 			],
            <#list placemark.points as square>
  				[ 
 			     <#list square.shape as squareCorners>
-			           new Microsoft.Maps.Location(${squareCorners.longitude},${squareCorners.latitude}),
+			           new Microsoft.Maps.Location(${squareCorners.latitude},${squareCorners.longitude}),
 			     </#list>
 		     	],
 		    </#list>

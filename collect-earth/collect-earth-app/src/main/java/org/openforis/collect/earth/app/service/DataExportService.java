@@ -1,5 +1,6 @@
 package org.openforis.collect.earth.app.service;
 
+import java.io.File;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.io.OutputStreamWriter;
@@ -19,10 +20,14 @@ import org.openforis.collect.csv.PivotExpressionColumnProvider;
 import org.openforis.collect.csv.SingleAttributeColumnProvider;
 import org.openforis.collect.earth.app.EarthConstants;
 import org.openforis.collect.manager.CodeListManager;
+import org.openforis.collect.manager.RecordFileManager;
 import org.openforis.collect.manager.RecordManager;
+import org.openforis.collect.manager.SurveyManager;
+import org.openforis.collect.manager.dataexport.BackupProcess;
 import org.openforis.collect.model.CollectRecord;
 import org.openforis.collect.model.CollectRecord.Step;
 import org.openforis.collect.model.RecordSummarySortField;
+import org.openforis.collect.persistence.xml.DataMarshaller;
 import org.openforis.idm.metamodel.AttributeDefinition;
 import org.openforis.idm.metamodel.EntityDefinition;
 import org.openforis.idm.metamodel.NodeDefinition;
@@ -46,7 +51,13 @@ public class DataExportService {
 
 	@Autowired
 	private CodeListManager codeListManager;
+	
+	@Autowired
+	private SurveyManager surveyManager;
 
+	@Autowired
+	private DataMarshaller dataMarshaller;
+	
 	private static final int ROOT_ENTITY_ID = 1;
 
 	private ColumnProvider createAncestorColumnProvider(EntityDefinition entityDefn, int depth) {
@@ -160,6 +171,13 @@ public class DataExportService {
 		ColumnProvider provider = new ColumnProviderChain(columnProviders);
 		String axisPath = entityDefn.getPath();
 		return new DataTransformation(axisPath, provider);
+	}
+
+	public void exportSurveyAsXml(File destinationFolder) throws Exception {
+		RecordFileManager recordFileManager = new RecordFileManager();
+		recordFileManager.init();
+		BackupProcess process = new BackupProcess(surveyManager, recordManager, recordFileManager, dataMarshaller, destinationFolder, earthSurveyService.getCollectSurvey(), EarthConstants.ROOT_ENTITY_NAME);
+		process.startProcessing();
 	}
 
 }

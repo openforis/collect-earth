@@ -155,7 +155,7 @@ public class CollectParametersHandlerService {
 			try {
 				Class cls = Class.forName(component.getBeanClassName());
 				// AbstractAttributeHandler attHandler = (AbstractAttributeHandler) cls.getConstructor().newInstance();
-				AbstractAttributeHandler attHandler = applicationContext.getBean(cls);
+				AbstractAttributeHandler attHandler = (AbstractAttributeHandler) applicationContext.getBean(cls);
 				attributeHandlers.add(attHandler);
 			} catch (Exception e) {
 				logger.error("Error when trying to initlize AttributeHandler" + component.getBeanClassName(), e);

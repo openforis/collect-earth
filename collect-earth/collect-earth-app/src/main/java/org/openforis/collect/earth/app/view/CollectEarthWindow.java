@@ -17,6 +17,7 @@ import java.io.IOException;
 import java.net.MalformedURLException;
 
 import javax.swing.BorderFactory;
+import javax.swing.ButtonGroup;
 import javax.swing.ImageIcon;
 import javax.swing.JButton;
 import javax.swing.JDialog;
@@ -28,6 +29,7 @@ import javax.swing.JMenuBar;
 import javax.swing.JMenuItem;
 import javax.swing.JOptionPane;
 import javax.swing.JPanel;
+import javax.swing.JRadioButtonMenuItem;
 import javax.swing.JScrollPane;
 import javax.swing.JTextArea;
 import javax.swing.JTextField;
@@ -37,11 +39,13 @@ import javax.swing.border.Border;
 import javax.swing.filechooser.FileFilter;
 
 import org.apache.commons.io.FileUtils;
+import org.openforis.collect.earth.app.EarthConstants.UI_LANGUAGE;
 import org.openforis.collect.earth.app.desktop.ServerController;
 import org.openforis.collect.earth.app.service.AnalysisSaikuService;
 import org.openforis.collect.earth.app.service.BackupService;
 import org.openforis.collect.earth.app.service.DataExportService;
 import org.openforis.collect.earth.app.service.LocalPropertiesService;
+import org.openforis.collect.manager.dataexport.BackupProcess;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -57,8 +61,11 @@ public class CollectEarthWindow {
 	private final Logger logger = LoggerFactory.getLogger(CollectEarthWindow.class);
 	private final ServerController serverController;
 	public static final Color ERROR_COLOR = new Color(225, 124, 124);
-	private final AnalysisSaikuService analysisSaikuService;
+	private AnalysisSaikuService analysisSaikuService;
 	private String backupFolder;
+	
+	
+	
 
 	public CollectEarthWindow(ServerController serverController) {
 		this.serverController = serverController;
@@ -78,19 +85,32 @@ public class CollectEarthWindow {
 				fos = new FileOutputStream(selectedFile);
 				dataExportService.exportSurveyAsCsv(fos);
 			} catch (Exception e1) {
-				JOptionPane.showMessageDialog(this.frame, "Error when attempting to export data to CSV file", "Export error",
+				JOptionPane.showMessageDialog(this.frame, Messages.getString("CollectEarthWindow.0"), Messages.getString("CollectEarthWindow.1"), //$NON-NLS-1$ //$NON-NLS-2$
 						JOptionPane.ERROR_MESSAGE);
-				logger.error("Error exporting data to plain CSV format", e1);
+				logger.error("Error exporting data to plain CSV format", e1); //$NON-NLS-1$
 			} finally {
 				if (fos != null) {
 					try {
 						fos.close();
 					} catch (IOException e1) {
-						logger.error("Error closing output stream for fusion table", e);
+						logger.error("Error closing output stream for fusion table", e); //$NON-NLS-1$
 					}
 				}
 			}
 		}
+	}
+	
+	private void exportDataToXml(ActionEvent e) {
+		File selectedFile = selectXmlFolder();
+		if (selectedFile != null) {
+			
+			try {
+				dataExportService.exportSurveyAsXml(selectedFile);
+			} catch (Exception e1) {
+				JOptionPane.showMessageDialog(this.frame, "Error while exporting data into XML format", "The data could not be exported",
+						JOptionPane.ERROR_MESSAGE);
+				logger.error("Error exporting data to plain CSV format", e1); //$NON-NLS-1$
+			}		}
 	}
 
 	private void exportDataToRDB(ActionEvent e) {
@@ -109,7 +129,7 @@ public class CollectEarthWindow {
 
 	private ActionListener getDisclaimerAction(JFrame owner) {
 
-		final JDialog dialog = new JDialog(owner, "FAO Disclaimer notices");
+		final JDialog dialog = new JDialog(owner, Messages.getString("CollectEarthWindow.4")); //$NON-NLS-1$
 		dialog.setLocationRelativeTo(owner);
 		dialog.setSize(new Dimension(300, 400));
 		dialog.setModal(true);
@@ -128,7 +148,7 @@ public class CollectEarthWindow {
 		panel.add(scrollPane, BorderLayout.CENTER);
 		scrollPane.setPreferredSize(new Dimension(250, 250));
 
-		JButton close = new JButton("Close");
+		JButton close = new JButton(Messages.getString("CollectEarthWindow.5")); //$NON-NLS-1$
 		close.addActionListener(new ActionListener() {
 
 			@Override
@@ -149,10 +169,10 @@ public class CollectEarthWindow {
 
 	private String getDisclaimerText() {
 		try {
-			return FileUtils.readFileToString(new File("resources/disclaimer.txt"));
+			return FileUtils.readFileToString(new File("resources/disclaimer.txt")); //$NON-NLS-1$
 		} catch (IOException e) {
-			logger.error("Disclaimer text not found", e);
-			return "Disclaimer text could not be found";
+			logger.error("Disclaimer text not found", e); //$NON-NLS-1$
+			return Messages.getString("CollectEarthWindow.8"); //$NON-NLS-1$
 		}
 	}
 
@@ -176,7 +196,7 @@ public class CollectEarthWindow {
 					startWaiting();
 					exportDataToRDB(e);
 				} catch (Exception e1) {
-					logger.error("Error starting Saiku server", e1);
+					logger.error("Error starting Saiku server", e1); //$NON-NLS-1$
 				} finally{
 					endWaiting();
 				}
@@ -205,22 +225,22 @@ public class CollectEarthWindow {
 		menuBar = new JMenuBar();
 
 		// Build second menu in the menu bar.
-		menu = new JMenu("File");
+		menu = new JMenu(Messages.getString("CollectEarthWindow.10")); //$NON-NLS-1$
 
-		menuItem = new JMenuItem("Exit");
+		menuItem = new JMenuItem(Messages.getString("CollectEarthWindow.11")); //$NON-NLS-1$
 		menuItem.addActionListener(getCloseActionListener());
 		menu.add(menuItem);
 		menuBar.add(menu);
 
 		// Build second menu in the menu bar.
-		menu = new JMenu("Tools");
+		menu = new JMenu(Messages.getString("CollectEarthWindow.12")); //$NON-NLS-1$
 
-		menuItem = new JMenuItem("Export data to CSV");
+		menuItem = new JMenuItem(Messages.getString("CollectEarthWindow.13")); //$NON-NLS-1$
 		menuItem.addActionListener(getExportActionListener());
 		menu.add(menuItem);
 		menuBar.add(menu);
 		
-		menuItem = new JMenuItem("Start SAIKU Analysis");
+		menuItem = new JMenuItem(Messages.getString("CollectEarthWindow.14")); //$NON-NLS-1$
 		menuItem.addActionListener(getExportRDBActionListener());
 		menu.add(menuItem);
 		menuBar.add(menu);
@@ -230,25 +250,65 @@ public class CollectEarthWindow {
 		// menu.add(menuItem);
 		// menuBar.add(menu);
 
-		menuItem = new JMenuItem("Properties");
+		menuItem = new JMenuItem(Messages.getString("CollectEarthWindow.15")); //$NON-NLS-1$
 		menuItem.addActionListener(getPropertiesAction(frame));
 		menu.add(menuItem);
 		menuBar.add(menu);
 
-		menu = new JMenu("Help");
+		JMenu languageMenu = getLanguageMenu();
+		menu.add( languageMenu );
+		
+		
+		JMenu menuHelp = new JMenu(Messages.getString("CollectEarthWindow.16")); //$NON-NLS-1$
 
-		menuItem = new JMenuItem("Disclaimer");
+		menuItem = new JMenuItem(Messages.getString("CollectEarthWindow.17")); //$NON-NLS-1$
 		menuItem.addActionListener(getDisclaimerAction(frame));
-		menu.add(menuItem);
-		menuBar.add(menu);
+		menuHelp.add(menuItem);
+		menuBar.add(menuHelp);
 
 		return menuBar;
+	}
+
+	private JMenu getLanguageMenu() {
+		
+		 ActionListener actionLanguage = new ActionListener() {
+		      public void actionPerformed(ActionEvent e) {
+		        try {
+		        	String langName = ( (JRadioButtonMenuItem)e.getSource() ).getName();
+		        	UI_LANGUAGE language = UI_LANGUAGE.valueOf( langName );
+					localPropertiesService.setUiLanguage( language);
+		        	frame.dispose();
+		        	openWindow();
+		        } catch (Exception ex) {
+		          ex.printStackTrace();
+		        }
+		      }
+		    };
+		    
+		JMenu menuLanguage = new JMenu(Messages.getString("CollectEarthWindow.2")); //$NON-NLS-1$
+		
+		ButtonGroup group = new ButtonGroup();
+		UI_LANGUAGE[] languages = UI_LANGUAGE.values();
+		JRadioButtonMenuItem selected = null;
+		for (UI_LANGUAGE language : languages) {
+			JRadioButtonMenuItem langItem = new JRadioButtonMenuItem( language.getLabel() ); //$NON-NLS-1$
+			langItem.setName( language.name() );
+			langItem.addActionListener(actionLanguage);
+			menuLanguage.add(langItem);
+			group.add(menuLanguage);
+			if( localPropertiesService.getUiLanguage().equals( language ) ){
+				langItem.setSelected(true);
+			}
+			
+		}
+		
+		return menuLanguage;
 	}
 
 	private ActionListener getPropertiesAction(JFrame owner) {
 		final JDialog dialog = new OptionWizard(owner, localPropertiesService, backupFolder);
 		dialog.setLocationRelativeTo(owner);
-		dialog.setSize(new Dimension(600, 420));
+		dialog.setSize(new Dimension(600, 720));
 		dialog.setModal(true);
 		dialog.setResizable(false);
 
@@ -268,18 +328,21 @@ public class CollectEarthWindow {
 		try {
 			localPropertiesService.init();
 		} catch (IOException e3) {
-			logger.error("Error initializing local properties", e3);
+			logger.error("Error initializing local properties", e3); //$NON-NLS-1$
 		}
 
+		// Initialize the translations
+		Messages.setLocale(localPropertiesService.getUiLanguage().getLocale());
+		
 		// Create and set up the window.
-		setFrame(new JFrame("Collect Earth"));
+		setFrame(new JFrame(Messages.getString("CollectEarthWindow.19"))); //$NON-NLS-1$
 		// frame.setSize(400, 300);
 		getFrame().setDefaultCloseOperation(WindowConstants.DO_NOTHING_ON_CLOSE);
 		getFrame().setResizable(false);
 		try {
-			getFrame().setIconImage(new ImageIcon(new File("images/smallOpenForisBanner.png").toURI().toURL()).getImage());
+			getFrame().setIconImage(new ImageIcon(new File("images/smallOpenForisBanner.png").toURI().toURL()).getImage()); //$NON-NLS-1$
 		} catch (MalformedURLException e2) {
-			logger.error("Could not find icon for main frame", e2);
+			logger.error(Messages.getString("CollectEarthWindow.21"), e2); //$NON-NLS-1$
 		}
 		getFrame().addWindowListener(new WindowAdapter() {
 
@@ -290,8 +353,8 @@ public class CollectEarthWindow {
 					int confirmation = JOptionPane
 							.showConfirmDialog(
 									getFrame(),
-									"<html>Are you sure that you want to close Collect Earth?<br>Closing the window will also close the Collect Earth server</html>",
-									"Confirmation needed", JOptionPane.YES_NO_OPTION);
+									Messages.getString("CollectEarthWindow.22"), //$NON-NLS-1$
+									Messages.getString("CollectEarthWindow.23"), JOptionPane.YES_NO_OPTION); //$NON-NLS-1$
 					if (confirmation == JOptionPane.YES_OPTION) {
 						Thread stopServer = new Thread() {
 							@Override
@@ -299,7 +362,7 @@ public class CollectEarthWindow {
 								try {
 									serverController.stopServer();
 								} catch (Exception e) {
-									logger.error("Error when trying to closing the server", e);
+									logger.error("Error when trying to closing the server", e); //$NON-NLS-1$
 								}
 							};
 						};
@@ -312,7 +375,7 @@ public class CollectEarthWindow {
 						System.exit(0);
 					}
 				} catch (Exception e1) {
-					logger.error("Error when trying to shutdown the server when window is closed", e1);
+					logger.error("Error when trying to shutdown the server when window is closed", e1); //$NON-NLS-1$
 				}
 
 			}
@@ -326,10 +389,10 @@ public class CollectEarthWindow {
 
 		final JTextField operatorTextField = new JTextField(localPropertiesService.getOperator(), 30);
 
-		JLabel operatorTextLabel = new JLabel("Operator", SwingConstants.CENTER);
+		JLabel operatorTextLabel = new JLabel(Messages.getString("CollectEarthWindow.26"), SwingConstants.CENTER); //$NON-NLS-1$
 		operatorTextLabel.setSize(100, 20);
 
-		JButton updateOperator = new JButton("Update");
+		JButton updateOperator = new JButton(Messages.getString("CollectEarthWindow.27")); //$NON-NLS-1$
 		c.insets = new Insets(3, 3, 3, 3);
 		c.fill = GridBagConstraints.HORIZONTAL;
 		c.gridx = 0;
@@ -348,13 +411,13 @@ public class CollectEarthWindow {
 		c.gridx = 0;
 		c.gridy = 1;
 		c.gridwidth = GridBagConstraints.REMAINDER;
-		pane.add(new JLabel("<html><b>Open Foris Collect Earth server should be running while the operator interprets data.</b>" + "<br>"
-				+ "Please maintain this window open while you are using Google Earth.</hmtl>"), c);
+		pane.add(new JLabel(Messages.getString("CollectEarthWindow.28") + "<br>" //$NON-NLS-1$ //$NON-NLS-2$
+				+ Messages.getString("CollectEarthWindow.30")), c); //$NON-NLS-1$
 
 		c.gridx = 0;
 		c.gridy = 2;
 		c.gridwidth = GridBagConstraints.REMAINDER;
-		JButton exportButton = new JButton("Export collected data to CSV file");
+		JButton exportButton = new JButton(Messages.getString("CollectEarthWindow.31")); //$NON-NLS-1$
 		exportButton.addActionListener(getExportActionListener());
 		pane.add(exportButton, c);
 
@@ -362,7 +425,7 @@ public class CollectEarthWindow {
 		c.gridy = 3;
 		c.gridwidth = GridBagConstraints.REMAINDER;
 		c.fill = GridBagConstraints.NONE;
-		JButton closeButton = new JButton("Close");
+		JButton closeButton = new JButton(Messages.getString("CollectEarthWindow.32")); //$NON-NLS-1$
 		closeButton.addActionListener(getCloseActionListener());
 		pane.add(closeButton, c);
 
@@ -377,8 +440,8 @@ public class CollectEarthWindow {
 					localPropertiesService.saveOperator(operatorName);
 					operatorTextField.setBackground(Color.white);
 				} else {
-					JOptionPane.showMessageDialog(getFrame(), "The operator name has to be longer than 5 characters and shorter than 50",
-							"Validation error", JOptionPane.ERROR_MESSAGE);
+					JOptionPane.showMessageDialog(getFrame(), Messages.getString("CollectEarthWindow.33"), //$NON-NLS-1$
+							Messages.getString("CollectEarthWindow.34"), JOptionPane.ERROR_MESSAGE); //$NON-NLS-1$
 					operatorTextField.setText(localPropertiesService.getOperator());
 				}
 
@@ -396,8 +459,8 @@ public class CollectEarthWindow {
 		} else {
 			operatorTextField.setBackground(ERROR_COLOR);
 			JOptionPane.showMessageDialog(getFrame(),
-					"<html>OPERATOR NAME EMPTY!<br>Please fill the operator name and press the \"Update\" button.</hml>",
-					"Operator name cannot be empty", JOptionPane.ERROR_MESSAGE);
+					Messages.getString("CollectEarthWindow.35"), //$NON-NLS-1$
+					Messages.getString("CollectEarthWindow.36"), JOptionPane.ERROR_MESSAGE); //$NON-NLS-1$
 		}
 
 	}
@@ -409,12 +472,12 @@ public class CollectEarthWindow {
 
 			@Override
 			public boolean accept(File f) {
-				return f.isDirectory() || f.getName().endsWith(".csv");
+				return f.isDirectory() || f.getName().endsWith(".csv"); //$NON-NLS-1$
 			}
 
 			@Override
 			public String getDescription() {
-				return "CSV files";
+				return Messages.getString("CollectEarthWindow.38"); //$NON-NLS-1$
 			}
 		});
 
@@ -428,16 +491,38 @@ public class CollectEarthWindow {
 			selectedFile = fc.getSelectedFile();
 
 			String file_name = selectedFile.getAbsolutePath();
-			if (!file_name.endsWith(".csv")) {
-				file_name += ".csv";
+			if (!file_name.endsWith(".csv")) { //$NON-NLS-1$
+				file_name += ".csv"; //$NON-NLS-1$
 				selectedFile = new File(file_name);
 			}
 
 			// This is where a real application would open the file.
-			logger.info("Saving CSV to file: " + selectedFile.getName() + ".");
+			logger.info(Messages.getString("CollectEarthWindow.41") + selectedFile.getName() + "."); //$NON-NLS-1$ //$NON-NLS-2$
 
 		} else {
-			logger.info("Open command cancelled by user.");
+			logger.info("Open command cancelled by user."); //$NON-NLS-1$
+		}
+		return selectedFile;
+	}
+	
+	private File selectXmlFolder() {
+		JFileChooser fc = new JFileChooser();
+		File selectedFile = null;
+		
+		fc.setAcceptAllFileFilterUsed(false);
+		fc.setFileSelectionMode(JFileChooser.DIRECTORIES_ONLY);
+		// Handle open button action.
+
+		int returnVal = fc.showSaveDialog(getFrame());
+
+		if (returnVal == JFileChooser.APPROVE_OPTION) {
+			selectedFile = fc.getSelectedFile();
+
+			// This is where a real application would open the file.
+			logger.info("Selected folder " + selectedFile.getName() + "."); //$NON-NLS-1$ //$NON-NLS-2$
+
+		} else {
+			logger.info("Open command cancelled by user."); //$NON-NLS-1$
 		}
 		return selectedFile;
 	}

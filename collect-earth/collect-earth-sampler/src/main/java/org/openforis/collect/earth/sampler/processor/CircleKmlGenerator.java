@@ -13,14 +13,15 @@ public class CircleKmlGenerator extends PolygonKmlGenerator {
 
 	private static final int NUMBER_OF_NON_CENTRAL_SAMPLING_POINTS = 24;
 
-	private static final int RADIUS_OF_CIRCLE = 40;
+	private float radiusOfCircle;
 
 	private static final int NUMBER_OF_EXTERNAL_POINTS = 70;
 
 	private static final int MARGIN_CIRCLE = 5;
 
-	public CircleKmlGenerator(String epsgCode, String host, String port, Integer innerPointSide) {
+	public CircleKmlGenerator(String epsgCode, String host, String port, Integer innerPointSide, float radius) {
 		super(epsgCode, host, port, innerPointSide);
+		setRadiusOfCircle(radius);
 	}
 
 	private boolean checkPlacemarkOverlaps(SimplePlacemarkObject newPlacemark, List<SimplePlacemarkObject> readyPlacemarks) {
@@ -58,15 +59,15 @@ public class CircleKmlGenerator extends PolygonKmlGenerator {
 	}
 
 	@Override
-	protected void fillExternalLine(float radiusOfSamplingCircle, float distanceToBoundary, double[] centerCircleCoord,
+	public void fillExternalLine(float radiusOfSamplingCircle, float distanceToBoundary, double[] centerCircleCoord,
 			SimplePlacemarkObject parentPlacemark) throws TransformException {
 		final List<SimpleCoordinate> shapePoints = new ArrayList<SimpleCoordinate>();
 
-		final float arc = 360 / NUMBER_OF_EXTERNAL_POINTS;
+		final float arc = 360 / getNumberOfExternalPoints();
 
-		final float radius = radiusOfSamplingCircle + MARGIN_CIRCLE;
+		final float radius = radiusOfSamplingCircle + getMarginCircle();
 
-		for (int i = 0; i < NUMBER_OF_EXTERNAL_POINTS; i++) {
+		for (int i = 0; i < getNumberOfExternalPoints(); i++) {
 			final double t = i * arc;
 			final double offsetLong = Math.round(radius * Math.cos(Math.toRadians(t)));
 			final double offsetLat = Math.round(radius * Math.sin(Math.toRadians(t)));
@@ -93,7 +94,7 @@ public class CircleKmlGenerator extends PolygonKmlGenerator {
 	}
 
 	@Override
-	protected void fillSamplePoints(float distanceBetweenSamplePoints, double[] coordOriginalPoints, String currentPlaceMarkId,
+	public void fillSamplePoints(float radiusOfSamplingCircle, double[] coordOriginalPoints, String currentPlaceMarkId,
 			SimplePlacemarkObject parentPlacemark) throws TransformException {
 
 		final List<SimplePlacemarkObject> pointsInPlacemark = new ArrayList<SimplePlacemarkObject>();
@@ -106,9 +107,9 @@ public class CircleKmlGenerator extends PolygonKmlGenerator {
 		pointsInPlacemark.add(insidePlacemark);
 
 		int numPoints = 0;
-		while (numPoints < NUMBER_OF_NON_CENTRAL_SAMPLING_POINTS) {
+		while (numPoints < getNumberOfNonCentralSamplingPoints()) {
 
-			final SimplePlacemarkObject randomSamplingPoint = getRandomPosition(RADIUS_OF_CIRCLE, coordOriginalPoints, currentPlaceMarkId);
+			final SimplePlacemarkObject randomSamplingPoint = getRandomPosition( getRadiusOfCircle(), coordOriginalPoints, currentPlaceMarkId);
 			if (!checkPlacemarkOverlaps(randomSamplingPoint, pointsInPlacemark)) {
 				pointsInPlacemark.add(randomSamplingPoint);
 				numPoints++;
@@ -150,6 +151,26 @@ public class CircleKmlGenerator extends PolygonKmlGenerator {
 		final Rectangle2D r1 = createRectangle(newPlacemark.getShape());
 		final Rectangle2D r2 = createRectangle(oldPlacemark.getShape());
 		return r1.intersects(r2) ? true : false;
+	}
+
+	protected int getNumberOfExternalPoints() {
+		return NUMBER_OF_EXTERNAL_POINTS;
+	}
+
+	private static int getMarginCircle() {
+		return MARGIN_CIRCLE;
+	}
+
+	protected int getNumberOfNonCentralSamplingPoints() {
+		return NUMBER_OF_NON_CENTRAL_SAMPLING_POINTS;
+	}
+
+	protected float getRadiusOfCircle() {
+		return radiusOfCircle;
+	}
+
+	private void setRadiusOfCircle(float radiusOfCircle) {
+		this.radiusOfCircle = radiusOfCircle;
 	}
 
 }

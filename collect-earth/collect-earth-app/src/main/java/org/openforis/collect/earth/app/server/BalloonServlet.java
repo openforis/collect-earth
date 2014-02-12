@@ -5,6 +5,7 @@ import java.io.IOException;
 import java.net.URISyntaxException;
 import java.text.SimpleDateFormat;
 import java.util.Date;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Set;
@@ -91,7 +92,7 @@ public class BalloonServlet extends DataAccessingServlet {
 		response.setHeader("Content-Type", "text/html");
 		response.setHeader("Content-Disposition", "inline; filename=\"" + imageName + "\"");
 		response.setHeader("Cache-Control", "max-age=30");
-		response.setHeader("Date", new SimpleDateFormat(EarthConstants.DATE_FORMAT_HTTP).format(new Date()));
+		response.setHeader("Date", new SimpleDateFormat(EarthConstants.DATE_FORMAT_HTTP, Locale.ENGLISH).format(new Date()));
 
 		String balloonContents = FileUtils.readFileToString(new File(localPropertiesService.getBalloonFile()));
 

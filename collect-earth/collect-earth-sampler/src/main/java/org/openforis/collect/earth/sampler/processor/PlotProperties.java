@@ -8,5 +8,6 @@ public class PlotProperties {
 	public Integer elevation;
 	public Double slope;
 	public Double aspect;
+	public String extraInfo;
 
 }

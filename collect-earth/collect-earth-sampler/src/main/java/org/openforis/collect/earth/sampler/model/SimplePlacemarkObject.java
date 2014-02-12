@@ -2,6 +2,8 @@ package org.openforis.collect.earth.sampler.model;
 
 import java.util.List;
 
+import org.openforis.collect.earth.sampler.processor.PlotProperties;
+
 import com.vividsolutions.jts.geom.Coordinate;
 
 /**
@@ -13,7 +15,7 @@ public class SimplePlacemarkObject {
 
 	private SimpleCoordinate coord;
 
-	private String nextPlacemarkId;
+	private String nextPlacemarkId = "unknown";
 
 	private String placemarkId;
 
@@ -32,43 +34,43 @@ public class SimplePlacemarkObject {
 	private int aspect;
 
 	private int plotId;
+	
+	private String extraInfo;
+
+	public String getExtraInfo() {
+		return extraInfo;
+	}
+
+	public void setExtraInfo(String extraInfo) {
+		this.extraInfo = extraInfo;
+	}
 
 	private AspectCode aspectHumanReadable;
-
-	public SimplePlacemarkObject(Coordinate coord, String placemarkId, Integer elevation, double slope, double aspect, AspectCode humanReadabaleAspect) {
-		super();
-		this.placemarkId = placemarkId;
-		this.coord = new SimpleCoordinate(coord);
-		this.nextPlacemarkId = "unknown";
-		this.elevation = elevation;
-		this.slope = (int) slope;
-		this.aspect = (int) aspect;
-		this.aspectHumanReadable = humanReadabaleAspect;
-	}
 
 	public SimplePlacemarkObject(double[] coord, String placemarkId) {
 		super();
 		this.placemarkId = placemarkId;
 		this.coord = new SimpleCoordinate(new Coordinate(coord[0], coord[1]));
-		this.nextPlacemarkId = "unknown";
-	}
-
-	public SimplePlacemarkObject(int plotId, Integer elevation, double slope, double aspect, AspectCode humanReadabaleAspect) {
-		super();
-		this.plotId = plotId;
-		this.nextPlacemarkId = "unknown";
-		this.elevation = elevation;
-		this.slope = (int) slope;
-		this.aspect = (int) aspect;
-		this.aspectHumanReadable = humanReadabaleAspect;
 	}
 
 	public SimplePlacemarkObject(String[] coordinatesLatLong) {
 		super();
 		this.coord = new SimpleCoordinate(coordinatesLatLong[0], coordinatesLatLong[1]);
-		this.nextPlacemarkId = "unknown";
 	}
 
+	public SimplePlacemarkObject(Coordinate coordinate,
+			PlotProperties plotProperties) {
+		this.aspect = (int) Math.round( plotProperties.aspect );
+		this.aspectHumanReadable = 	AspectCode.getAspectCode(plotProperties.aspect);
+		this.coord = new SimpleCoordinate(coordinate);
+		this.elevation = plotProperties.elevation;
+		this.placemarkId = plotProperties.id;
+		this.extraInfo = plotProperties.extraInfo;
+		this.slope = (int) Math.round( plotProperties.slope );
+			
+	}
+	
+	
 	public int getAspect() {
 		return aspect;
 	}

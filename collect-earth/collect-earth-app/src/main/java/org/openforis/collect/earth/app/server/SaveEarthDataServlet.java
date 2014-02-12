@@ -6,6 +6,9 @@ import java.util.Map;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 
+import org.openforis.collect.earth.app.service.LocalPropertiesService;
+import org.openforis.collect.earth.app.view.Messages;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.RequestMapping;
 
@@ -17,6 +20,9 @@ import org.springframework.web.bind.annotation.RequestMapping;
 @Controller
 public class SaveEarthDataServlet extends JsonPocessorServlet {
 
+	@Autowired
+	LocalPropertiesService localPropertiesService;
+	
 	@Override
 	@RequestMapping("/saveData")
 	protected void processRequest(HttpServletRequest request, HttpServletResponse response) throws IOException {
@@ -26,16 +32,16 @@ public class SaveEarthDataServlet extends JsonPocessorServlet {
 		replaceTestVariables(collectedData);
 
 		if (collectedData.size() == 0) {
-			setResult(false, "Empty request", collectedData);
-			getLogger().info("The request was empty");
+			setResult(false, Messages.getString("SaveEarthDataServlet.0"), collectedData); //$NON-NLS-1$
+			getLogger().info("The request was empty"); //$NON-NLS-1$
 		} else {
 			if (getDataAccessor().saveData(collectedData)) {
-				setResult(true, "The data was saved", collectedData);
-				getLogger().info("The data was saved for " + collectedData.toString());
+				setResult(true, Messages.getString("SaveEarthDataServlet.2"), collectedData); //$NON-NLS-1$
+				getLogger().info("The data was saved for " + collectedData.toString()); //$NON-NLS-1$
 
 			} else {
-				setResult(false, "Problem occurred while saving data to the database", collectedData);
-				getLogger().error("The data could not be saved for " + collectedData.toString());
+				setResult(false, Messages.getString("SaveEarthDataServlet.1"), collectedData); //$NON-NLS-1$
+				getLogger().error("The data could not be saved for " + collectedData.toString()); //$NON-NLS-1$
 			}
 		}
 
@@ -51,24 +57,24 @@ public class SaveEarthDataServlet extends JsonPocessorServlet {
 	 */
 	private void replaceTestVariables(Map<String, String> collectedData) {
 		// REMOVE THIS!!!!
-		if (collectedData.get("collect_text_id").equals("$[id]")) {
-			collectedData.put("collect_text_id", "testPlacemark");
+		if (collectedData.get("collect_text_id").equals("$[id]")) { //$NON-NLS-1$ //$NON-NLS-2$
+			collectedData.put("collect_text_id", "testPlacemark"); //$NON-NLS-1$ //$NON-NLS-2$
 		}
 
-		if (collectedData.get("collect_integer_elevation") != null && collectedData.get("collect_integer_elevation").equals("$[elevation]")) {
-			collectedData.put("collect_integer_elevation", "0");
+		if (collectedData.get("collect_integer_elevation") != null && collectedData.get("collect_integer_elevation").equals("$[elevation]")) { //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$
+			collectedData.put("collect_integer_elevation", "0"); //$NON-NLS-1$ //$NON-NLS-2$
 		}
 
-		if (collectedData.get("collect_real_slope") != null && collectedData.get("collect_real_slope").equals("$[slope]")) {
-			collectedData.put("collect_real_slope", "0");
+		if (collectedData.get("collect_real_slope") != null && collectedData.get("collect_real_slope").equals("$[slope]")) { //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$
+			collectedData.put("collect_real_slope", "0"); //$NON-NLS-1$ //$NON-NLS-2$
 		}
 
-		if (collectedData.get("collect_real_aspect") != null && collectedData.get("collect_real_aspect").equals("$[aspect]")) {
-			collectedData.put("collect_real_aspect", "0");
+		if (collectedData.get("collect_real_aspect") != null && collectedData.get("collect_real_aspect").equals("$[aspect]")) { //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$
+			collectedData.put("collect_real_aspect", "0"); //$NON-NLS-1$ //$NON-NLS-2$
 		}
 
-		if (collectedData.get("collect_coord_location").equals("$[latitude],$[longitude]")) {
-			collectedData.put("collect_coord_location", "0,0");
+		if (collectedData.get("collect_coord_location").equals("$[latitude],$[longitude]")) { //$NON-NLS-1$ //$NON-NLS-2$
+			collectedData.put("collect_coord_location", "0,0"); //$NON-NLS-1$ //$NON-NLS-2$
 		}
 	}
 

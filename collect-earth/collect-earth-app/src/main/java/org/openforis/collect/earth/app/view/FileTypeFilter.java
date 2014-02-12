@@ -23,11 +23,17 @@ public class FileTypeFilter extends FileFilter {
 		if (file.isDirectory()) {
 			return true;
 		}
-		return file.getName().toLowerCase().endsWith(extension);
+		boolean accepted = false;
+		String[] extensions = extension.split(","); //$NON-NLS-1$
+		for (String item : extensions) {
+			accepted = accepted || file.getName().toLowerCase().endsWith(item);
+		}
+		return accepted;
+		 
 	}
 
 	@Override
 	public String getDescription() {
-		return description + String.format(" (*%s)", extension);
+		return description + String.format(" (*%s)", extension); //$NON-NLS-1$
 	}
 }

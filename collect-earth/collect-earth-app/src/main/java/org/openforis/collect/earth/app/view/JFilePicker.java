@@ -41,7 +41,7 @@ public class JFilePicker extends JPanel {
 				File originalFile = new File(originalPathValue);
 				fileChooser.setCurrentDirectory(originalFile.getParentFile());
 			} catch (Exception e) {
-				logger.error("Unable to find parent folder for " + originalPathValue, e);
+				logger.error("Unable to find parent folder for " + originalPathValue, e); //$NON-NLS-1$
 			}
 		}
 
@@ -103,7 +103,7 @@ public class JFilePicker extends JPanel {
 	}
 
 	private String relativize(File selectedFile) {
-		File dummyFile = new File("dummy.txt");
+		File dummyFile = new File("dummy.txt"); //$NON-NLS-1$
 		String pathParentDummy = dummyFile.getAbsolutePath().substring(0, dummyFile.getAbsolutePath().length() - dummyFile.getName().length());
 		return new File(pathParentDummy).toURI().relativize(selectedFile.toURI()).getPath();
 	}

@@ -252,11 +252,11 @@ public class BrowserService {
 		return stillValid;
 	}
 
-	private boolean isIdPresent(String elementId, RemoteWebDriver driver) {
+	private boolean isIdOrNamePresent(String elementId, RemoteWebDriver driver) {
 		boolean found = false;
 
 		try {
-			if (driver.findElementById(elementId).isDisplayed()) {
+			if (driver.findElementById(elementId).isDisplayed() || driver.findElementByName(elementId).isDisplayed()) {
 				found = true;
 			}
 			logger.debug("Found " + elementId);
@@ -270,7 +270,7 @@ public class BrowserService {
 	private RemoteWebDriver loadLayers(String[] latLong, RemoteWebDriver driver) throws InterruptedException {
 
 		if (driver != null) {
-			if (!isIdPresent("workspace-el", driver)) {
+			if (!isIdOrNamePresent("workspace-el", driver)) {
 				final String[] layers = {
 				// "http://earthengine.google.org/#detail/LANDSAT%2FL7_L1T_ANNUAL_GREENEST_TOA"
 				// "http://earthengine.google.org/#detail/LANDSAT%2FL5_L1T_ANNUAL_GREENEST_TOA",
@@ -534,9 +534,9 @@ public class BrowserService {
 		return driver;
 	}
 
-	private boolean waitFor(String elementId, RemoteWebDriver driver) {
+	public boolean waitFor(String elementId, RemoteWebDriver driver) {
 		int i = 0;
-		while (!isIdPresent(elementId, driver)) {
+		while (!isIdOrNamePresent(elementId, driver)) {
 			try {
 				Thread.sleep(1000);
 			} catch (final InterruptedException e) {

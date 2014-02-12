@@ -42,12 +42,15 @@
 <!-- 		<property name="resourceRef" value="true" /> -->
 <!-- 	</bean> -->
 	<bean id="dataSource" class="org.apache.commons.dbcp.BasicDataSource" destroy-method="close">
-		<property name="driverClassName" value="org.sqlite.JDBC" />
-		<property name="url" value="jdbc:sqlite:collectEarthDatabase.db"/>
+		<property name="driverClassName" value="org.postgresql.Driver" />
+		<property name="url" value="jdbc:postgresql://localhost:5432/collectEarth"/>
+		<property name="username" value="collect"/>
+		<property name="password" value="collect"/>
+		
 	</bean>
 	
 		<!-- RDB DataSource -->
-	<bean id="rdbDataSource" class="org.apache.commons.dbcp.BasicDataSource" destroy-method="close" lazy-init="false" >
+	<bean id="rdbDataSource" class="org.apache.commons.dbcp.BasicDataSource" destroy-method="close" lazy-init="false" scope="prototype">
 		<property name="driverClassName" value="org.sqlite.JDBC" />
 		<property name="url" value="jdbc:sqlite:collectEarthDatabaseRDB.db"/>
 	</bean>
@@ -63,7 +66,7 @@
 	<bean class="org.openforis.collect.earth.app.server.CollectDataAccessor" id="dataAccessor" />
 	
 	<!-- RDB -->
-	<bean id="rdbPublisher" class="org.openforis.collect.relational.CollectRDBPublisher"/>
+	<bean id="rdbPublisher" class="org.openforis.collect.relational.CollectRDBPublisher" />
 	
 	<!-- ===================================== -->
 	<!-- DAO -->

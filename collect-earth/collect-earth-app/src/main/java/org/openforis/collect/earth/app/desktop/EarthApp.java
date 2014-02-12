@@ -20,6 +20,7 @@ import javax.swing.JOptionPane;
 import org.apache.commons.codec.digest.DigestUtils;
 import org.apache.commons.io.FileUtils;
 import org.openforis.collect.earth.app.EarthConstants;
+import org.openforis.collect.earth.app.EarthConstants.SAMPLE_SHAPE;
 import org.openforis.collect.earth.app.service.LocalPropertiesService;
 import org.openforis.collect.earth.app.service.LocalPropertiesService.EarthProperty;
 import org.openforis.collect.earth.app.view.CollectEarthWindow;
@@ -27,6 +28,7 @@ import org.openforis.collect.earth.sampler.processor.AbstractCoordinateCalculati
 import org.openforis.collect.earth.sampler.processor.CircleKmlGenerator;
 import org.openforis.collect.earth.sampler.processor.KmlGenerator;
 import org.openforis.collect.earth.sampler.processor.KmzGenerator;
+import org.openforis.collect.earth.sampler.processor.OctagonKmlGenerator;
 import org.openforis.collect.earth.sampler.processor.PreprocessElevationData;
 import org.openforis.collect.earth.sampler.processor.SquareKmlGenerator;
 import org.openforis.collect.earth.sampler.processor.SquareWithCirclesKmlGenerator;
@@ -77,7 +79,13 @@ public class EarthApp {
 				earthApp.addElevationColumn();
 				earthApp.generateKmzFile();
 			}
-			earthApp.initializeServer();
+			
+			if( earthApp.localProperties.getValue( EarthProperty.INSTANCE_TYPE ).equals( EarthConstants.INSTANCE_TYPE.CLIENT_INSTANCE.name() )){ // Start Collect Earth Client
+				earthApp.startGui();
+			}else{ // Start Collect Earth as Server
+				// Start the server and then open GUI
+				earthApp.initializeServer();
+			}
 		} catch (final Exception e) {
 			// The logger factory has not been initialized, this will not work, just output to console
 			//logger.error("The server could not start", e); 
@@ -93,7 +101,7 @@ public class EarthApp {
 	}
 
 	public EarthApp(LocalPropertiesService localPropertiesService) throws IOException {
-		this.localProperties = localPropertiesService;
+		localProperties = localPropertiesService;
 	}
 
 	private void addElevationColumn() {
@@ -157,25 +165,7 @@ public class EarthApp {
 
 		logger.info("START - Generate KML file");
 		KmlGenerator generateKml = null;
-
-		final String plotShape = localProperties.getValue(EarthProperty.SAMPLE_SHAPE);
-		final String crsSystem = localProperties.getCrs();
-		final int innerPointSide = Integer.parseInt(localProperties.getValue(EarthProperty.INNER_SUBPLOT_SIDE));
-
-		if (plotShape.equals("CIRCLE")) {
-			generateKml = new CircleKmlGenerator(crsSystem, localProperties.getHost(), localProperties.getPort(), innerPointSide);
-		} else if (plotShape.equals("SQUARE_CIRCLE")) {
-			generateKml = new SquareWithCirclesKmlGenerator(crsSystem, localProperties.getHost(), localProperties.getPort(), innerPointSide);
-		} else {
-
-			final String numberOfSamplingPlots = localProperties.getValue(EarthProperty.NUMBER_OF_SAMPLING_POINTS_IN_PLOT);
-			int numberOfSamplingPlotsI = 25;
-			if ((numberOfSamplingPlots != null) && (numberOfSamplingPlots.trim().length() > 0)) {
-				numberOfSamplingPlotsI = Integer.parseInt(numberOfSamplingPlots.trim());
-			}
-			generateKml = new SquareKmlGenerator(crsSystem, localProperties.getHost(), localProperties.getPort(), innerPointSide,
-					numberOfSamplingPlotsI);
-		}
+		generateKml = EarthApp.getKmlGenerator(localProperties);
 
 		try {
 			final String csvFile = localProperties.getCsvFile();
@@ -204,6 +194,31 @@ public class EarthApp {
 
 		logger.info("END - Generate KML file");
 
+	}
+
+
+	public static KmlGenerator getKmlGenerator(LocalPropertiesService localProperties) {
+		KmlGenerator generateKml;
+		String crsSystem = localProperties.getCrs();
+		Integer innerPointSide = Integer.parseInt(localProperties.getValue(EarthProperty.INNER_SUBPLOT_SIDE));
+		final SAMPLE_SHAPE plotShape = localProperties.getSampleShape();
+		if (plotShape.equals( SAMPLE_SHAPE.CIRCLE )) {
+			generateKml = new CircleKmlGenerator(crsSystem, localProperties.getHost(), localProperties.getPort(), innerPointSide, Float.parseFloat( localProperties.getValue(EarthProperty.DISTANCE_BETWEEN_SAMPLE_POINTS) ));
+		}else if (plotShape.equals( SAMPLE_SHAPE.OCTAGON )) {
+			generateKml = new OctagonKmlGenerator(crsSystem, localProperties.getHost(), localProperties.getPort(), innerPointSide, Float.parseFloat( localProperties.getValue(EarthProperty.DISTANCE_BETWEEN_SAMPLE_POINTS) ) );
+		} else if (plotShape.equals( SAMPLE_SHAPE.SQUARE_CIRCLE )) {
+			generateKml = new SquareWithCirclesKmlGenerator(crsSystem, localProperties.getHost(), localProperties.getPort(), innerPointSide);
+		} else {
+
+			final String numberOfSamplingPlots = localProperties.getValue(EarthProperty.NUMBER_OF_SAMPLING_POINTS_IN_PLOT);
+			int numberOfSamplingPlotsI = 25;
+			if ((numberOfSamplingPlots != null) && (numberOfSamplingPlots.trim().length() > 0)) {
+				numberOfSamplingPlotsI = Integer.parseInt(numberOfSamplingPlots.trim());
+			}
+			generateKml = new SquareKmlGenerator(crsSystem, localProperties.getHost(), localProperties.getPort(), innerPointSide,
+					numberOfSamplingPlotsI);
+		}
+		return generateKml;
 	}
 
 	public void generateKmzFile() throws IOException {
@@ -275,33 +290,45 @@ public class EarthApp {
 
 			serverController.startServer(new Observer() {
 
-				private void openMainWindow() {
-
-					javax.swing.SwingUtilities.invokeLater(new Runnable() {
-						@Override
-						public void run() {
-							final CollectEarthWindow mainEarthWindow = new CollectEarthWindow(serverController);
-							mainEarthWindow.openWindow();
-						}
-					});
-
-				}
+			
 
 				@Override
 				public void update(Observable o, Object arg) {
-					logger.info("END - Server Initilization");
-					closeSplash();
-					logger.info("Force opening of KMZ file in Google Earth");
-					simulateClickKmz();
-					logger.info("Open Collect Earth swing interface");
-					openMainWindow();
+					startGui();
 				}
+
+				
 
 			});
 
 		}
 	}
+	
+	private void openMainWindow() {
 
+		javax.swing.SwingUtilities.invokeLater(new Runnable() {
+			@Override
+			public void run() {
+				try{
+					final CollectEarthWindow mainEarthWindow = new CollectEarthWindow(serverController);
+					mainEarthWindow.openWindow();
+				}catch(Exception e){
+					logger.error("Cannot start Earth App", e);
+					System.exit(0);
+				}
+			}
+		});
+
+	}
+	private void startGui() {
+		logger.info("END - Server Initilization");
+		closeSplash();
+		logger.info("Force opening of KMZ file in Google Earth");
+		simulateClickKmz();
+		logger.info("Open Collect Earth swing interface");
+		openMainWindow();
+	}
+	
 	private boolean isKmlUpToDate() throws IOException {
 
 		final String csvFile = localProperties.getCsvFile();

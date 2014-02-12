@@ -34,12 +34,6 @@ public abstract class PolygonKmlGenerator extends KmlGenerator {
 		this.innerPointSide = innerPointSide;
 	}
 
-	protected abstract void fillExternalLine(float distanceBetweenSamplePoints, float distancePlotBoundary, double[] coordOriginalPoints,
-			SimplePlacemarkObject parentPlacemark) throws TransformException;
-
-	protected abstract void fillSamplePoints(float distanceBetweenSamplePoints, double[] coordOriginalPoints, String currentPlaceMarkId,
-			SimplePlacemarkObject parentPlacemark) throws TransformException;
-
 	abstract int getNumOfRows();
 
 	protected int getPointSide() {
@@ -101,9 +95,7 @@ public abstract class PolygonKmlGenerator extends KmlGenerator {
 					// need to move the #original point@ to the top left so that
 					// the center ends up being the expected original coord
 
-					final SimplePlacemarkObject parentPlacemark = new SimplePlacemarkObject(transformedPoint.getCoordinate(), plotProperties.id,
-							plotProperties.elevation, plotProperties.slope, plotProperties.aspect,
-							AspectCode.getAspectCode(plotProperties.aspect));
+					final SimplePlacemarkObject parentPlacemark = new SimplePlacemarkObject(transformedPoint.getCoordinate(), plotProperties);
 
 					if (previousPlacemark != null) {
 						// Give the current ID to the previous placemark so that
