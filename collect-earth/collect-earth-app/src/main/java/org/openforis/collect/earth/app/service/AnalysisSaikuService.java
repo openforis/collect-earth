@@ -5,7 +5,6 @@ import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.OutputStreamWriter;
-import java.net.URL;
 import java.nio.charset.Charset;
 import java.sql.ResultSet;
 import java.sql.SQLException;
@@ -15,10 +14,8 @@ import java.util.List;
 import java.util.Map;
 
 import javax.annotation.PostConstruct;
-import javax.annotation.PreDestroy;
 
 import org.apache.commons.dbcp.BasicDataSource;
-import org.apache.commons.io.FileUtils;
 import org.openforis.collect.earth.app.EarthConstants;
 import org.openforis.collect.earth.app.service.LocalPropertiesService.EarthProperty;
 import org.openforis.collect.earth.sampler.model.AspectCode;
@@ -225,7 +222,16 @@ public class AnalysisSaikuService {
 				
 				processQuantityData();
 				startSaiku();
-				openSaiku();
+				new Thread(){
+					public void run() {
+						try {
+							AnalysisSaikuService.this.openSaiku();
+						} catch (IOException e) {
+							logger.error("Error opening the Saiku interface", e);
+						}
+					};
+				}.start();
+				
 				stopSaikuOnExit();
 			} catch (final IOException e) {
 				logger.error("Error while producing Relational DB from Collect format", e);
@@ -272,29 +278,34 @@ public class AnalysisSaikuService {
 		
 	}
 
-	private void startSaiku() throws IOException {
+	private void startSaiku() {
 		logger.warn("Starting the Saiku server"+ getSaikuFolder() + File.separator + "start-saiku.bat" );
 		
-		String openSaikuCmd = getSaikuFolder() + File.separator + "start-saiku.bat";
-		openSaikuCmd = "\""+ openSaikuCmd + "\"";
-		final ProcessBuilder builder = new ProcessBuilder(openSaikuCmd);
-		builder.directory(new File(getSaikuFolder()));
-		builder.redirectErrorStream(true);
-		builder.start();
+		runSaikuBat("start-saiku.bat");	
+	    
 		logger.warn("Finished starting the Saiku server");
 	}
 
 	public void stopSaiku() {
-		final String endSaikuCmd = getSaikuFolder() + File.separator + "stop-saiku.bat";
+		logger.warn("Stoping the Saiku server"+ getSaikuFolder() + File.separator + "start-saiku.bat" );
+		
+		runSaikuBat("stop-saiku.bat");	
+	    
+		logger.warn("Finished stoping the Saiku server");
+	}
+	
+	private void runSaikuBat( String batName ){
+		String saikuCmd = "\"" + getSaikuFolder() +  File.separator + batName + "\"";
 		try {
-			final ProcessBuilder builder = new ProcessBuilder(endSaikuCmd);
-			builder.directory(new File(getSaikuFolder()));
-			builder.redirectErrorStream(true);					
+			ProcessBuilder builder = new ProcessBuilder( new String[]{ saikuCmd });
+			builder.directory(new File( getSaikuFolder() ));
+			builder.redirectErrorStream(true);
 			builder.start();
-		} catch (final IOException e) {
-			logger.error("Error stopping Saiku", e);
+		} catch (IOException e) {
+			logger.error("Error when running Saiku start/stop command", saikuCmd);
 		}
 	}
+	
 	
 	private void stopSaikuOnExit() {
 		Runtime.getRuntime().addShutdownHook(new Thread() {

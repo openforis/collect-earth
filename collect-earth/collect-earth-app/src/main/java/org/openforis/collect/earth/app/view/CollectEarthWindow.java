@@ -255,9 +255,12 @@ public class CollectEarthWindow {
 		menu.add(menuItem);
 		menuBar.add(menu);
 
+		/*
+		 * 
+		TODO IMPROVE LOCALIZATION 
 		JMenu languageMenu = getLanguageMenu();
 		menu.add( languageMenu );
-		
+		*/
 		
 		JMenu menuHelp = new JMenu(Messages.getString("CollectEarthWindow.16")); //$NON-NLS-1$
 
@@ -307,11 +310,7 @@ public class CollectEarthWindow {
 
 	private ActionListener getPropertiesAction(JFrame owner) {
 		final JDialog dialog = new OptionWizard(owner, localPropertiesService, backupFolder);
-		dialog.setLocationRelativeTo(owner);
-		dialog.setSize(new Dimension(600, 720));
-		dialog.setModal(true);
-		dialog.setResizable(false);
-
+		
 		return new ActionListener() {
 
 			@Override

@@ -10,6 +10,7 @@ import java.awt.GridBagLayout;
 import java.awt.Insets;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
+import java.beans.PropertyChangeListener;
 import java.io.File;
 import java.io.IOException;
 import java.net.InetAddress;
@@ -18,7 +19,9 @@ import java.util.HashMap;
 import java.util.Set;
 import java.util.Vector;
 
+import javax.swing.AbstractAction;
 import javax.swing.AbstractButton;
+import javax.swing.Action;
 import javax.swing.ButtonGroup;
 import javax.swing.JButton;
 import javax.swing.JCheckBox;
@@ -81,6 +84,10 @@ public class OptionWizard extends JDialog {
 		super(frame, Messages.getString("OptionWizard.0")); //$NON-NLS-1$
 		this.localPropertiesService = localPropertiesService;
 		this.backupFolder = backupFolder;
+		this.setLocationRelativeTo(frame);
+		this.setSize(new Dimension(600, 420));
+		this.setModal(true);
+		this.setResizable(false);
 		initilizeInputs();
 		buildMainPane();
 	}
@@ -112,7 +119,24 @@ public class OptionWizard extends JDialog {
 		constraints.fill = GridBagConstraints.HORIZONTAL;
 
 		panel.add(propertyToComponent.get(EarthProperty.AUTOMATIC_BACKUP)[0], constraints);
+		constraints.gridx++;
+		panel.add( new JButton( new AbstractAction("Show backup folder") {
+			
+			@Override
+			public void actionPerformed(ActionEvent e) {
+
+				try {
+					Process p = new ProcessBuilder("explorer.exe", "/select," + backupFolder).start();
+				} catch (IOException e1) {
+					logger.error("Error when opening the explorer window to visualize backups", e);
+				}
+				
+			}
+		} ), constraints);
 		
+		
+		constraints.gridx = 0;
+		constraints.gridwidth =2;
 		constraints.gridy++;
 		panel.add(propertyToComponent.get(EarthProperty.OPEN_EARTH_ENGINE)[0], constraints);
 
@@ -656,7 +680,7 @@ public class OptionWizard extends JDialog {
 	private void initilizeInputs() {
 
 		
-		JCheckBox backupCheckbox = new JCheckBox(Messages.getString("OptionWizard.44") + backupFolder ); //$NON-NLS-1$
+		JCheckBox backupCheckbox = new JCheckBox(Messages.getString("OptionWizard.44") ); //$NON-NLS-1$
 		backupCheckbox.setSelected(Boolean.parseBoolean(localPropertiesService.getValue(EarthProperty.AUTOMATIC_BACKUP)));
 		propertyToComponent.put(EarthProperty.AUTOMATIC_BACKUP, new JComponent[] { backupCheckbox });
 		

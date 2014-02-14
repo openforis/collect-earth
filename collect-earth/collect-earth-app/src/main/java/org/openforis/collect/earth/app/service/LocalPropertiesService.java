@@ -11,6 +11,7 @@ import java.util.Properties;
 import java.util.TreeSet;
 
 import javax.annotation.PostConstruct;
+import javax.annotation.PreDestroy;
 
 import org.apache.commons.lang3.StringUtils;
 import org.openforis.collect.earth.app.EarthConstants.SAMPLE_SHAPE;
@@ -156,6 +157,17 @@ public class LocalPropertiesService {
 			}
 		}
 	}
+	
+	/**
+	 * Removes the GEE obfusted method/parameter names so that they are regenerated when GEE is accessed for the fist time.
+	 * This way we avoid the bug when the reobfuscation of GEE JS code changes the zooming methid but does not provoke an error.
+	 */
+	@PreDestroy
+	public void removeGeeProperties(){
+		this.setValue(EarthProperty.GEE_ZOOM_METHOD, "", false);
+		this.setValue(EarthProperty.GEE_ZOOM_OBJECT, "", false);
+		this.setValue(EarthProperty.GEE_FUNCTION_PICK, "", true);
+	}
 
 	public boolean isBingMapsSupported() {
 		boolean bingMaps = false;
@@ -248,10 +260,16 @@ public class LocalPropertiesService {
 		setValue(EarthProperty.JUMP_TO_NEXT, booleanSkip);
 
 	}
-
+	
 	public void setValue(EarthProperty key, String value) {
+		setValue(key, value, true);
+	}
+
+	public void setValue(EarthProperty key, String value, boolean forceWrite) {
 		properties.setProperty(key.toString(), value);
-		storeProperties();
+		if( forceWrite ){
+			storeProperties();
+		}
 	}
 
 	public boolean shouldJumpToNextPlot() {
