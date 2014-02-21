@@ -128,6 +128,11 @@
 		<property name="lockTimeoutMillis" value="60000" />
 		<property name="lockingEnabled" value="false" />
 	</bean>
+	
+	<bean id="recordFileManager" class="org.openforis.collect.manager.RecordFileManager"
+		init-method="init">
+	</bean>
+	
 	<bean id="persistedRecordIndexManager" class="org.openforis.collect.manager.RecordIndexManager"
 		init-method="init" lazy-init="false" autowire="byName" />
 	
@@ -144,6 +149,12 @@
 	<!-- XML DataMarshaller -->
 	<bean id="dataMarshaller" class="org.openforis.collect.persistence.xml.DataMarshaller"
 		lazy-init="false" autowire-candidate="true" autowire="byName" />
+		
+	<bean id="csvDataExportProcess" class="org.openforis.collect.io.data.CSVDataExportProcess" scope="prototype"/>
+	<bean id="xmlDataExportProcess" class="org.openforis.collect.io.data.XMLDataExportProcess"  scope="prototype"/>
+	<bean id="xmlDataImportProcess" class="org.openforis.collect.io.data.XMLDataImportProcess"  scope="prototype"/>
+		
+		
 	
 	<!-- ===================================== -->
 	<!-- Liquibase -->
@@ -159,6 +170,8 @@
 	<!-- Services -->
 	<!-- ===================================== -->
 	<bean id="codeListService"	 		class="org.openforis.collect.service.CollectCodeListService" />
+	
+	
 	
 	<!-- Expression Factory -->
 	<bean id="expressionFactory" class="org.openforis.idm.model.expression.ExpressionFactory">

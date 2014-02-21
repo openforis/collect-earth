@@ -45,7 +45,7 @@ public class LocalPropertiesService {
 				"chrome_exe_path"), BROWSER_TO_USE("use_browser"), GEE_FUNCTION_PICK("gee_js_pickFunction"), GEE_ZOOM_OBJECT("gee_js_zoom_object"), GEE_ZOOM_METHOD(
 				"gee_js_zoom_method"), GEE_INITIAL_ZOOM("gee_initial_zoom"), SURVEY_NAME("survey_name"), AUTOMATIC_BACKUP("automatic_backup"), NUMBER_OF_SAMPLING_POINTS_IN_PLOT(
 				"number_of_sampling_points_in_plot"), GEE_JS_LIBRARY_URL("gee_js_library_url"), SAIKU_SERVER_FOLDER("saiku_server_folder"), INSTANCE_TYPE("instance_type"), 
-				DB_DRIVER("db_driver"),DB_USERNAME("db_username"), DB_PASSWORD("db_password"), DB_NAME("db_name"), UI_LANGUAGE("ui_language");
+				DB_DRIVER("db_driver"),DB_USERNAME("db_username"), DB_PASSWORD("db_password"), DB_NAME("db_name"), UI_LANGUAGE("ui_language"), LAST_USED_FOLDER("last_used_folder");
 
 		private String name;
 

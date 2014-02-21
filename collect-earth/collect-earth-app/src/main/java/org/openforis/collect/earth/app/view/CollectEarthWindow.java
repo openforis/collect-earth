@@ -12,9 +12,9 @@ import java.awt.event.ActionListener;
 import java.awt.event.WindowAdapter;
 import java.awt.event.WindowEvent;
 import java.io.File;
-import java.io.FileOutputStream;
 import java.io.IOException;
 import java.net.MalformedURLException;
+import java.util.List;
 
 import javax.swing.BorderFactory;
 import javax.swing.ButtonGroup;
@@ -39,13 +39,16 @@ import javax.swing.border.Border;
 import javax.swing.filechooser.FileFilter;
 
 import org.apache.commons.io.FileUtils;
+import org.apache.commons.lang3.StringUtils;
 import org.openforis.collect.earth.app.EarthConstants.UI_LANGUAGE;
 import org.openforis.collect.earth.app.desktop.ServerController;
 import org.openforis.collect.earth.app.service.AnalysisSaikuService;
 import org.openforis.collect.earth.app.service.BackupService;
-import org.openforis.collect.earth.app.service.DataExportService;
+import org.openforis.collect.earth.app.service.DataImportExportService;
 import org.openforis.collect.earth.app.service.LocalPropertiesService;
-import org.openforis.collect.manager.dataexport.BackupProcess;
+import org.openforis.collect.earth.app.service.LocalPropertiesService.EarthProperty;
+import org.openforis.collect.io.data.DataImportSummaryItem;
+import org.openforis.collect.io.data.XMLDataImportProcess;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -57,13 +60,13 @@ public class CollectEarthWindow {
 
 	private JFrame frame;
 	private final LocalPropertiesService localPropertiesService;
-	private final DataExportService dataExportService;
+	private final DataImportExportService dataExportService;
 	private final Logger logger = LoggerFactory.getLogger(CollectEarthWindow.class);
 	private final ServerController serverController;
 	public static final Color ERROR_COLOR = new Color(225, 124, 124);
 	private AnalysisSaikuService analysisSaikuService;
 	private String backupFolder;
-	
+	private enum DataFormat{ZIP_WITH_XML,CSV,FUSION};
 	
 	
 
@@ -71,46 +74,87 @@ public class CollectEarthWindow {
 		this.serverController = serverController;
 		
 		this.localPropertiesService = serverController.getContext().getBean(LocalPropertiesService.class);
-		this.dataExportService = serverController.getContext().getBean(DataExportService.class);
+		this.dataExportService = serverController.getContext().getBean(DataImportExportService.class);
 		final BackupService backupService = serverController.getContext().getBean(BackupService.class);
 		this.backupFolder = backupService.getBackUpFolder().getAbsolutePath();
 		this.analysisSaikuService = serverController.getContext().getBean( AnalysisSaikuService.class );
 	}
 
-	private void exportDataToCsv(ActionEvent e) {
-		File selectedFile = selectACsvFile();
-		if (selectedFile != null) {
-			FileOutputStream fos = null;
+	private void exportDataTo(ActionEvent e, DataFormat exportType) {
+		File[] exportToFile = getFileChooserResults( exportType, true, false);
+		if (exportToFile != null && exportToFile.length > 0) {
+			
 			try {
-				fos = new FileOutputStream(selectedFile);
-				dataExportService.exportSurveyAsCsv(fos);
+				switch (exportType) {
+					case CSV:
+						dataExportService.exportSurveyAsCsv(exportToFile[0]);
+						break;
+					case ZIP_WITH_XML:
+						dataExportService.exportSurveyAsZipWithXml(exportToFile[0]);
+						break;
+					case FUSION:
+						dataExportService.exportSurveyAsFusionTable(exportToFile[0]);
+						break;
+				}
+				
 			} catch (Exception e1) {
 				JOptionPane.showMessageDialog(this.frame, Messages.getString("CollectEarthWindow.0"), Messages.getString("CollectEarthWindow.1"), //$NON-NLS-1$ //$NON-NLS-2$
 						JOptionPane.ERROR_MESSAGE);
-				logger.error("Error exporting data to plain CSV format", e1); //$NON-NLS-1$
-			} finally {
-				if (fos != null) {
-					try {
-						fos.close();
-					} catch (IOException e1) {
-						logger.error("Error closing output stream for fusion table", e); //$NON-NLS-1$
+				logger.error("Error exporting data to " + exportToFile[0].getAbsolutePath() + " in format " + exportType.name() , e1); //$NON-NLS-1$ //$NON-NLS-2$
+			} 
+		}
+	}
+	
+	private void importDataFrom(ActionEvent e, DataFormat importType) {
+		File[] filesToImport = getFileChooserResults( importType, false, true );
+		if (filesToImport != null) {
+			
+			switch (importType) {
+				case ZIP_WITH_XML:
+					for (File importedFile : filesToImport) {
+						try{
+							XMLDataImportProcess dataImportProcess = dataExportService.getImportSummary(importedFile);
+							boolean addConflictingRecords = false;
+							if( dataImportProcess.getSummary().getConflictingRecords() != null && dataImportProcess.getSummary().getConflictingRecords().size() > 0 ){
+								addConflictingRecords = promptAddConflictingRecords(dataImportProcess.getSummary().getConflictingRecords(), importedFile.getName());
+							}
+							dataExportService.importRecordsFrom(importedFile, dataImportProcess, addConflictingRecords);
+						} catch (Exception e1) {
+							JOptionPane.showMessageDialog(this.frame,  Messages.getString("CollectEarthWindow.3"), importedFile.getName() + " - " + Messages.getString("CollectEarthWindow.7"), //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$
+									JOptionPane.ERROR_MESSAGE);
+							logger.error("Error importing data from " + importedFile.getAbsolutePath() + " in format " + importType.name() , e1); //$NON-NLS-1$ //$NON-NLS-2$
+						} 
 					}
-				}
+					
+					break;
+				default:
+					JOptionPane.showMessageDialog(getFrame(), Messages.getString("CollectEarthWindow.33"), //$NON-NLS-1$
+							Messages.getString("CollectEarthWindow.34"), JOptionPane.ERROR_MESSAGE); //$NON-NLS-1$
+					break;
 			}
 		}
 	}
 	
-	private void exportDataToXml(ActionEvent e) {
-		File selectedFile = selectXmlFolder();
-		if (selectedFile != null) {
-			
-			try {
-				dataExportService.exportSurveyAsXml(selectedFile);
-			} catch (Exception e1) {
-				JOptionPane.showMessageDialog(this.frame, "Error while exporting data into XML format", "The data could not be exported",
-						JOptionPane.ERROR_MESSAGE);
-				logger.error("Error exporting data to plain CSV format", e1); //$NON-NLS-1$
-			}		}
+	private boolean promptAddConflictingRecords(List<DataImportSummaryItem> list, String importedFileName) {
+		int selectedOption = JOptionPane.showConfirmDialog(null, 
+                 
+                "<html>" //$NON-NLS-1$
+				+ "<b>" + importedFileName + " : </b></br>" //$NON-NLS-1$ //$NON-NLS-2$
+                + Messages.getString("CollectEarthWindow.9") //$NON-NLS-1$
+                + "<br>" //$NON-NLS-1$
+                + Messages.getString("CollectEarthWindow.20") + list.size()  //$NON-NLS-1$
+                + "<br>" //$NON-NLS-1$
+                + Messages.getString("CollectEarthWindow.25") //$NON-NLS-1$
+                + "<br>" //$NON-NLS-1$
+                + "<i>" //$NON-NLS-1$
+                + Messages.getString("CollectEarthWindow.39") //$NON-NLS-1$
+                + "</i>" //$NON-NLS-1$
+                + "</html>",  //$NON-NLS-1$
+                
+                Messages.getString("CollectEarthWindow.43"), //$NON-NLS-1$
+                
+                JOptionPane.YES_NO_OPTION); 
+			return (selectedOption == JOptionPane.YES_OPTION);
 	}
 
 	private void exportDataToRDB(ActionEvent e) {
@@ -169,25 +213,50 @@ public class CollectEarthWindow {
 
 	private String getDisclaimerText() {
 		try {
-			return FileUtils.readFileToString(new File("resources/disclaimer.txt")); //$NON-NLS-1$
+			
+			String suffix_lang = localPropertiesService.getUiLanguage().getLocale().getLanguage();
+			
+			
+			return FileUtils.readFileToString(new File("resources/disclaimer_" + suffix_lang + ".txt")); //$NON-NLS-1$
 		} catch (IOException e) {
 			logger.error("Disclaimer text not found", e); //$NON-NLS-1$
 			return Messages.getString("CollectEarthWindow.8"); //$NON-NLS-1$
 		}
 	}
 
-	private ActionListener getExportActionListener() {
+	private ActionListener getExportActionListener( final DataFormat exportFormat ) {
 		return new ActionListener() {
 
 			@Override
 			public void actionPerformed(ActionEvent e) {
-				exportDataToCsv(e);
+				try{
+					startWaiting();
+					exportDataTo(e, exportFormat );
+				}finally{
+					endWaiting();
+				}
 
 			}
 		};
 	}
 	
-	private ActionListener getExportRDBActionListener() {
+	private ActionListener getImportActionListener( final DataFormat importFormat ) {
+		return new ActionListener() {
+
+			@Override
+			public void actionPerformed(ActionEvent e) {
+				try{
+					startWaiting();
+					importDataFrom(e, importFormat );
+				}finally{
+					endWaiting();
+				}
+
+			}
+		};
+	}
+	
+	private ActionListener getSaikuAnalysisActionListener() {
 		return new ActionListener() {
 
 			@Override
@@ -218,58 +287,76 @@ public class CollectEarthWindow {
 	public JMenuBar getMenu(JFrame frame) {
 		// Where the GUI is created:
 		JMenuBar menuBar;
-		JMenu menu;
+		
 		JMenuItem menuItem;
 
 		// Create the menu bar.
 		menuBar = new JMenuBar();
 
-		// Build second menu in the menu bar.
-		menu = new JMenu(Messages.getString("CollectEarthWindow.10")); //$NON-NLS-1$
+		// Build file menu in the menu bar.
+		JMenu fileMenu = new JMenu(Messages.getString("CollectEarthWindow.10")); //$NON-NLS-1$
 
 		menuItem = new JMenuItem(Messages.getString("CollectEarthWindow.11")); //$NON-NLS-1$
 		menuItem.addActionListener(getCloseActionListener());
-		menu.add(menuItem);
-		menuBar.add(menu);
+		fileMenu.add(menuItem);
+		menuBar.add(fileMenu);
 
-		// Build second menu in the menu bar.
-		menu = new JMenu(Messages.getString("CollectEarthWindow.12")); //$NON-NLS-1$
+		// Build tools menu in the menu bar.
+		JMenu toolsMenu = new JMenu(Messages.getString("CollectEarthWindow.12")); //$NON-NLS-1$
 
-		menuItem = new JMenuItem(Messages.getString("CollectEarthWindow.13")); //$NON-NLS-1$
-		menuItem.addActionListener(getExportActionListener());
-		menu.add(menuItem);
-		menuBar.add(menu);
+		addImportExportMenu(toolsMenu);
 		
 		menuItem = new JMenuItem(Messages.getString("CollectEarthWindow.14")); //$NON-NLS-1$
-		menuItem.addActionListener(getExportRDBActionListener());
-		menu.add(menuItem);
-		menuBar.add(menu);
-
-		// menuItem = new JMenuItem("Export data to Fusion format CSV");
-		// menuItem.addActionListener(getExportFusionActionListener());
-		// menu.add(menuItem);
-		// menuBar.add(menu);
-
+		menuItem.addActionListener(getSaikuAnalysisActionListener());
+		toolsMenu.add(menuItem);
+		
+		toolsMenu.addSeparator();
+		
 		menuItem = new JMenuItem(Messages.getString("CollectEarthWindow.15")); //$NON-NLS-1$
 		menuItem.addActionListener(getPropertiesAction(frame));
-		menu.add(menuItem);
-		menuBar.add(menu);
-
-		/*
-		 * 
-		TODO IMPROVE LOCALIZATION 
-		JMenu languageMenu = getLanguageMenu();
-		menu.add( languageMenu );
-		*/
+		toolsMenu.add(menuItem);
 		
+		JMenu languageMenu = getLanguageMenu();
+		toolsMenu.add( languageMenu );
+				
+		menuBar.add(toolsMenu);
+		
+		// Build help menu in the menu bar.
 		JMenu menuHelp = new JMenu(Messages.getString("CollectEarthWindow.16")); //$NON-NLS-1$
 
 		menuItem = new JMenuItem(Messages.getString("CollectEarthWindow.17")); //$NON-NLS-1$
 		menuItem.addActionListener(getDisclaimerAction(frame));
 		menuHelp.add(menuItem);
 		menuBar.add(menuHelp);
+		
+
 
 		return menuBar;
+	}
+
+	private void addImportExportMenu(JMenu menu) {
+		
+		JMenu ieSubmenu = new JMenu(Messages.getString("CollectEarthWindow.44")); //$NON-NLS-1$
+		JMenuItem menuItem;
+		menuItem = new JMenuItem(Messages.getString("CollectEarthWindow.13")); //$NON-NLS-1$
+		menuItem.addActionListener(getExportActionListener(DataFormat.CSV));
+		ieSubmenu.add(menuItem);
+		
+		menuItem = new JMenuItem(Messages.getString("CollectEarthWindow.45")); //$NON-NLS-1$
+		menuItem.addActionListener(getExportActionListener(DataFormat.ZIP_WITH_XML));
+		ieSubmenu.add(menuItem);
+						
+		menuItem = new JMenuItem(Messages.getString("CollectEarthWindow.6")); //$NON-NLS-1$
+		menuItem.addActionListener(getExportActionListener(DataFormat.FUSION));
+		ieSubmenu.add(menuItem);
+		
+		ieSubmenu.addSeparator();
+		
+		menuItem = new JMenuItem(Messages.getString("CollectEarthWindow.46")); //$NON-NLS-1$
+		menuItem.addActionListener(getImportActionListener(DataFormat.ZIP_WITH_XML));
+		ieSubmenu.add(menuItem);
+		
+		menu.add( ieSubmenu );
 	}
 
 	private JMenu getLanguageMenu() {
@@ -292,7 +379,7 @@ public class CollectEarthWindow {
 		
 		ButtonGroup group = new ButtonGroup();
 		UI_LANGUAGE[] languages = UI_LANGUAGE.values();
-		JRadioButtonMenuItem selected = null;
+		
 		for (UI_LANGUAGE language : languages) {
 			JRadioButtonMenuItem langItem = new JRadioButtonMenuItem( language.getLabel() ); //$NON-NLS-1$
 			langItem.setName( language.name() );
@@ -308,13 +395,13 @@ public class CollectEarthWindow {
 		return menuLanguage;
 	}
 
-	private ActionListener getPropertiesAction(JFrame owner) {
-		final JDialog dialog = new OptionWizard(owner, localPropertiesService, backupFolder);
+	private ActionListener getPropertiesAction(final JFrame owner) {
 		
 		return new ActionListener() {
 
 			@Override
 			public void actionPerformed(ActionEvent e) {
+				final JDialog dialog = new OptionWizard(owner, localPropertiesService, backupFolder);
 				dialog.setVisible(true);
 				dialog.pack();
 			}
@@ -417,7 +504,7 @@ public class CollectEarthWindow {
 		c.gridy = 2;
 		c.gridwidth = GridBagConstraints.REMAINDER;
 		JButton exportButton = new JButton(Messages.getString("CollectEarthWindow.31")); //$NON-NLS-1$
-		exportButton.addActionListener(getExportActionListener());
+		exportButton.addActionListener(getExportActionListener(DataFormat.CSV));
 		pane.add(exportButton, c);
 
 		c.gridx = 0;
@@ -464,68 +551,91 @@ public class CollectEarthWindow {
 
 	}
 
-	private File selectACsvFile() {
-		JFileChooser fc = new JFileChooser();
-		File selectedFile = null;
+	private File[] getFileChooserResults(final DataFormat dataFormat, boolean isSaveDlg, boolean multipleSelect) {
+		
+		JFileChooser fc ;
+		
+		
+		
+		String lastUsedFolder = localPropertiesService.getValue( EarthProperty.LAST_USED_FOLDER );
+		if( !StringUtils.isBlank( lastUsedFolder ) ){
+			File lastFolder = new File( lastUsedFolder );
+			if(lastFolder.exists() ){
+				fc= new JFileChooser( lastFolder );
+			}else{
+				fc= new JFileChooser( );
+			}
+			
+		}else{
+			fc = new JFileChooser();
+		}
+		
+		fc.setMultiSelectionEnabled( multipleSelect );
+		
+		File[] selectedFiles = null;
 		fc.addChoosableFileFilter(new FileFilter() {
 
 			@Override
 			public boolean accept(File f) {
-				return f.isDirectory() || f.getName().endsWith(".csv"); //$NON-NLS-1$
+				if( dataFormat.equals( DataFormat.CSV ) || dataFormat.equals( DataFormat.FUSION )){
+					return f.isDirectory() || f.getName().endsWith(".csv"); //$NON-NLS-1$
+				}else {
+					return f.isDirectory() || f.getName().endsWith(".zip"); //$NON-NLS-1$
+				}
 			}
 
 			@Override
 			public String getDescription() {
-				return Messages.getString("CollectEarthWindow.38"); //$NON-NLS-1$
+				String description = ""; //$NON-NLS-1$
+				if( dataFormat.equals( DataFormat.CSV ) ){
+					description = Messages.getString("CollectEarthWindow.38"); //$NON-NLS-1$
+				}else if( dataFormat.equals( DataFormat.ZIP_WITH_XML ) ){
+					description = Messages.getString("CollectEarthWindow.48"); //$NON-NLS-1$
+				}else if( dataFormat.equals( DataFormat.FUSION ) ){
+					description = Messages.getString("CollectEarthWindow.49"); //$NON-NLS-1$
+				}
+				return description;
 			}
 		});
 
-		fc.setAcceptAllFileFilterUsed(false);
+		fc.setAcceptAllFileFilterUsed(true);
 
 		// Handle open button action.
 
-		int returnVal = fc.showSaveDialog(getFrame());
+		int returnVal ;
+		if( isSaveDlg ){
+			returnVal = fc.showSaveDialog(getFrame());
+		}else{
+			returnVal = fc.showOpenDialog(getFrame());
+		}
+		
+		
 
-		if (returnVal == JFileChooser.APPROVE_OPTION) {
-			selectedFile = fc.getSelectedFile();
-
-			String file_name = selectedFile.getAbsolutePath();
-			if (!file_name.endsWith(".csv")) { //$NON-NLS-1$
-				file_name += ".csv"; //$NON-NLS-1$
-				selectedFile = new File(file_name);
+		if ( returnVal == JFileChooser.APPROVE_OPTION) {
+			
+			if( isSaveDlg ){
+				selectedFiles = new File[]{ fc.getSelectedFile() };
+				String file_name = selectedFiles[0].getAbsolutePath();
+				if ( ( dataFormat.equals(DataFormat.CSV) || dataFormat.equals(DataFormat.FUSION ) ) &&!file_name.toLowerCase().endsWith(".csv")) { //$NON-NLS-1$
+					file_name += ".csv"; //$NON-NLS-1$
+					selectedFiles[0] = new File(file_name);
+				}else if ( dataFormat.equals(DataFormat.ZIP_WITH_XML) &&!file_name.toLowerCase().endsWith(".zip")) { //$NON-NLS-1$
+					file_name += ".zip"; //$NON-NLS-1$
+					selectedFiles[0] = new File(file_name);
+				}
+			}else{
+				selectedFiles = fc.getSelectedFiles();
 			}
+			
+			localPropertiesService.setValue(EarthProperty.LAST_USED_FOLDER, selectedFiles[0].getParent());
 
-			// This is where a real application would open the file.
-			logger.info(Messages.getString("CollectEarthWindow.41") + selectedFile.getName() + "."); //$NON-NLS-1$ //$NON-NLS-2$
 
 		} else {
-			logger.info("Open command cancelled by user."); //$NON-NLS-1$
+			logger.info("Save command cancelled by user."); //$NON-NLS-1$
 		}
-		return selectedFile;
+		return selectedFiles;
 	}
 	
-	private File selectXmlFolder() {
-		JFileChooser fc = new JFileChooser();
-		File selectedFile = null;
-		
-		fc.setAcceptAllFileFilterUsed(false);
-		fc.setFileSelectionMode(JFileChooser.DIRECTORIES_ONLY);
-		// Handle open button action.
-
-		int returnVal = fc.showSaveDialog(getFrame());
-
-		if (returnVal == JFileChooser.APPROVE_OPTION) {
-			selectedFile = fc.getSelectedFile();
-
-			// This is where a real application would open the file.
-			logger.info("Selected folder " + selectedFile.getName() + "."); //$NON-NLS-1$ //$NON-NLS-2$
-
-		} else {
-			logger.info("Open command cancelled by user."); //$NON-NLS-1$
-		}
-		return selectedFile;
-	}
-
 	void setFrame(JFrame frame) {
 		this.frame = frame;
 	}

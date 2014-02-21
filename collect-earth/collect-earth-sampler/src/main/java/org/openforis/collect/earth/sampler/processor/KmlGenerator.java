@@ -44,7 +44,9 @@ public abstract class KmlGenerator extends AbstractCoordinateCalculation {
 			plotProperties.elevation = Integer.parseInt(csvValuesInLine[3]);
 			plotProperties.slope = Double.parseDouble(csvValuesInLine[4]);
 			plotProperties.aspect = Double.parseDouble(csvValuesInLine[5]);
-			plotProperties.extraInfo = csvValuesInLine[6];
+			if( csvValuesInLine.length > 6 ){
+				plotProperties.extraInfo = csvValuesInLine[6];
+			}
 		}
 		return plotProperties;
 	}

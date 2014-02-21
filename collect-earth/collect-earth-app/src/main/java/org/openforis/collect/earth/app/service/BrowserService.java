@@ -246,7 +246,7 @@ public class BrowserService {
 
 			stillValid = true;
 		} catch (final Exception e) {
-			logger.error("Error in the selenium driver", e);
+			processSeleniumError(e);
 		}
 
 		return stillValid;
@@ -301,7 +301,7 @@ public class BrowserService {
 						}
 						((JavascriptExecutor) driver).executeScript(geeJs);
 					} catch (final Exception e) {
-						logger.warn("Error in the selenium driver", e);
+						processSeleniumError(e);
 					}
 					Thread.sleep(1000);
 					final List<WebElement> dataLayerVisibility = driver.findElementsByClassName("indicator");
@@ -316,6 +316,14 @@ public class BrowserService {
 			}
 		}
 		return driver;
+	}
+
+	private void processSeleniumError(final Exception e) {
+		if(! e.getCause().getMessage().contains("latitude") ){
+			logger.error("Error in the selenium driver", e);
+		}else{
+			logger.info("Error in the selenium driver provoked by known bug", e);
+		}
 	}
 	
 	public synchronized RemoteWebDriver navigateTo(String url, RemoteWebDriver driver ) {

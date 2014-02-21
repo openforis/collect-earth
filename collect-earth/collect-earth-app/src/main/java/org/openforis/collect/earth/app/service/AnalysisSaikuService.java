@@ -58,24 +58,17 @@ public class AnalysisSaikuService {
 	@Autowired
 	private BasicDataSource rdbDataSource;
 	  
-	private static final int ELEVATION_BUCKET_RANGE = 100;
-	
 	private JdbcTemplate jdbcTemplate;
 
 	private final Logger logger = LoggerFactory.getLogger(AnalysisSaikuService.class);
+	
+	private static final int ELEVATION_RANGE = 100;
 
 	private RemoteWebDriver saikuWebDriver;
 	
 	@PostConstruct
 	public void initialize() {
 		jdbcTemplate = new JdbcTemplate(rdbDataSource);
-	}
-	
-	class ElevationBuket{
-		private int id;
-		private String caption;
-		private int lowerLimit;
-		private int upperLimit;
 	}
 	
 	
@@ -85,16 +78,34 @@ public class AnalysisSaikuService {
 	private void refreshDataSourceForSaiku() throws IOException {
 
 		HashMap<String, String> data = new HashMap<String, String>();
-		data.put( "rdbFilePath", ( new File(COLLECT_EARTH_DATABASE_RDB_DB) ).getAbsolutePath().replace('\\', '/') );
-		data.put( "cubeFilePath", ( new File( getIdmFolder() + File.separatorChar + MDX_XML) ).getAbsolutePath().replace('\\', '/')  );
+		
+		File rdbDb =  new File(COLLECT_EARTH_DATABASE_RDB_DB) ;
+		File cubeDefinition =  new File( getIdmFolder() + File.separatorChar + MDX_XML) ;
+		File dataSourceTemplate = new File(KmlGenerator.convertToOSPath(FREEMARKER_HTML_TEMPLATE ) );
+		
+		
+		if( !rdbDb.exists()) {
+			throw new IOException("The file contianing the Relational SQLite Database does not exist in expected location " + rdbDb.getAbsolutePath());
+		}
+		
+		if( !cubeDefinition.exists()) {
+			throw new IOException("The file contianing the MDX Cube definition does not exist in expected location " + cubeDefinition.getAbsolutePath() );
+		}
+		
+		if( !dataSourceTemplate.exists()) {
+			throw new IOException("The file contianing the Saiku Data Source template does not exist in expected location " + dataSourceTemplate.getAbsolutePath() );
+		}
+		
+		data.put( "rdbFilePath", rdbDb.getAbsolutePath().replace('\\', '/') );
+		data.put( "cubeFilePath", cubeDefinition.getAbsolutePath().replace('\\', '/')  );
 		
 		// Process the template file using the data in the "data" Map
 		final Configuration cfg = new Configuration();
-		final File templateFile = new File(KmlGenerator.convertToOSPath(FREEMARKER_HTML_TEMPLATE));
-		cfg.setDirectoryForTemplateLoading(templateFile.getParentFile());
+		
+		cfg.setDirectoryForTemplateLoading(dataSourceTemplate.getParentFile());
 
 		// Load template from source folder
-		final Template template = cfg.getTemplate(templateFile.getName());
+		final Template template = cfg.getTemplate(dataSourceTemplate.getName());
 
 		final File saikuConfigFile = new File( getSaikuConfigurationFilePath() );
 		
@@ -148,14 +159,14 @@ public class AnalysisSaikuService {
 				Integer elevationBucket = 0;
 				updateValues[0] = aspect;
 				updateValues[1] = slope;
-				updateValues[2] = elevationBucket;
+				updateValues[2] = Math.floor(  (int)rs.getFloat("elevation") / ELEVATION_RANGE ) + 1; // 0meters is bucket 1 ( id);
 				updateValues[3] = rs.getInt("_plot_id");
 				return updateValues;
 			}
 
 		});
 
-		jdbcTemplate.batchUpdate("UPDATE plot SET aspect_id=?,slope_id=?,elevation_bucket_id=? WHERE _plot_id=?", sqlUpdateValues);
+		jdbcTemplate.batchUpdate("UPDATE plot SET aspect_id=?,slope_id=?,elevation_id=? WHERE _plot_id=?", sqlUpdateValues);
 	}
 
 	
@@ -168,7 +179,12 @@ public class AnalysisSaikuService {
 	}
 
 	private void createElevationtAuxTable() {
-		// TODO Auto-generated method stub
+		
+		jdbcTemplate.execute("CREATE TABLE elevation_category (elevation_id INTEGER PRIMARY KEY, elevation_caption TEXT);");
+		int slots = (int) Math.ceil( 9000 / ELEVATION_RANGE  ); // Highest mountain in the world, mount everest is 8820m high
+		for( int i=1; i<=slots; i++ ){
+			jdbcTemplate.execute("INSERT INTO elevation_category values (" + i + ", '" + ( (i-1)*ELEVATION_RANGE) + "-" + i*ELEVATION_RANGE+ "')");
+		}
 
 	}
 
@@ -176,7 +192,7 @@ public class AnalysisSaikuService {
 		// Add aspect_id column to plot
 		jdbcTemplate.execute("ALTER TABLE plot ADD aspect_id INTEGER");
 		jdbcTemplate.execute("ALTER TABLE plot ADD slope_id INTEGER");
-		jdbcTemplate.execute("ALTER TABLE plot ADD elevation_bucket_id INTEGER");
+		jdbcTemplate.execute("ALTER TABLE plot ADD elevation_id INTEGER");
 	}
 
 	private void createSlopeAuxTable() {
@@ -186,11 +202,6 @@ public class AnalysisSaikuService {
 		for (final SlopeCode slopeCode : slopeCodes) {
 			jdbcTemplate.execute("INSERT INTO slope_category values (" + slopeCode.getId() + ", '" + slopeCode.getLabel() + "')");
 		}
-	}
-
-	private List<Integer> addELevationBuckets() {
-		// TODO Auto-generated method stub
-		return null;
 	}
 
 	private String getSaikuFolder() {

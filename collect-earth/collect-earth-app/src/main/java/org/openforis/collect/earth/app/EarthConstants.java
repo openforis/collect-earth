@@ -40,7 +40,7 @@ public class EarthConstants {
 	public enum SAMPLE_SHAPE{ SQUARE_CIRCLE, SQUARE, CIRCLE, OCTAGON};
 	
 	public enum UI_LANGUAGE{ 
-		FR( "Francaise", new Locale("fr", "FR") ) , EN( "English", new Locale("en", "EN") ), ES( "Español", new Locale("es", "ES") );
+		FR( "Français", new Locale("fr", "FR") ) , EN( "English", new Locale("en", "EN") ), ES( "Español", new Locale("es", "ES") );
 		
 		private Locale locale;
 		private String label;

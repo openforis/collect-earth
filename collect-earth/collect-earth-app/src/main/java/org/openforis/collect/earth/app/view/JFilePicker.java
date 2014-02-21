@@ -1,6 +1,9 @@
 package org.openforis.collect.earth.app.view;
 
 import java.awt.FlowLayout;
+import java.awt.GridBagConstraints;
+import java.awt.GridBagLayout;
+import java.awt.Insets;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 import java.io.File;
@@ -10,6 +13,7 @@ import javax.swing.JFileChooser;
 import javax.swing.JLabel;
 import javax.swing.JPanel;
 import javax.swing.JTextField;
+import javax.swing.border.BevelBorder;
 import javax.swing.event.DocumentListener;
 
 import org.slf4j.Logger;
@@ -35,21 +39,21 @@ public class JFilePicker extends JPanel {
 	public JFilePicker(String textFieldLabel, String originalPathValue, String buttonLabel) {
 
 		fileChooser = new JFileChooser();
-
+		setBorder( new BevelBorder( BevelBorder.RAISED ));
 		if (originalPathValue != null && originalPathValue.length() > 0) {
 			try {
 				File originalFile = new File(originalPathValue);
-				fileChooser.setCurrentDirectory(originalFile.getParentFile());
+				if( originalFile.exists() ){
+					fileChooser.setCurrentDirectory(originalFile.getParentFile());
+				}
 			} catch (Exception e) {
 				logger.error("Unable to find parent folder for " + originalPathValue, e); //$NON-NLS-1$
 			}
 		}
 
-		setLayout(new FlowLayout(FlowLayout.CENTER, 5, 5));
-
+		
 		// creates the GUI
 		label = new JLabel(textFieldLabel);
-
 		textField = new JTextField(originalPathValue, 20);
 		button = new JButton(buttonLabel);
 
@@ -64,9 +68,24 @@ public class JFilePicker extends JPanel {
 			}
 		});
 
-		add(label);
-		add(textField);
-		add(button);
+		
+		setLayout(new GridBagLayout());
+		
+		final GridBagConstraints constraints = new GridBagConstraints();
+		constraints.gridx = 0;
+		constraints.gridy = 0;
+		constraints.anchor = GridBagConstraints.WEST;
+		constraints.insets = new Insets(2, 2, 2, 2);
+		constraints.fill = GridBagConstraints.BOTH;
+
+		add(label, constraints);
+		
+		constraints.gridy = 1;
+		constraints.weightx =1;
+		add(textField, constraints);
+		constraints.gridx = 1;
+		constraints.weightx = 0;
+		add(button, constraints);
 
 	}
 
