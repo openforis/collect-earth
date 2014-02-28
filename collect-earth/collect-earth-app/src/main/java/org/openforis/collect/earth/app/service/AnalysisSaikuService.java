@@ -16,12 +16,12 @@ import java.util.Map;
 import javax.annotation.PostConstruct;
 
 import org.apache.commons.dbcp.BasicDataSource;
+import org.apache.commons.lang3.StringUtils;
 import org.openforis.collect.earth.app.EarthConstants;
 import org.openforis.collect.earth.app.service.LocalPropertiesService.EarthProperty;
 import org.openforis.collect.earth.sampler.model.AspectCode;
 import org.openforis.collect.earth.sampler.model.SlopeCode;
 import org.openforis.collect.earth.sampler.processor.KmlGenerator;
-import org.openforis.collect.manager.SurveyManager;
 import org.openforis.collect.model.CollectRecord.Step;
 import org.openforis.collect.relational.CollectRDBPublisher;
 import org.openforis.collect.relational.CollectRdbException;
@@ -41,13 +41,17 @@ import freemarker.template.TemplateException;
 @Component
 public class AnalysisSaikuService {
 
+	private static final String START_SAIKU_BAT = "start-saiku.bat";
+
+	private static final String STOP_SAIKU_BAT = "stop-saiku.bat";
+
 	private static final String COLLECT_EARTH_DATABASE_RDB_DB = "collectEarthDatabaseRDB.db";
 
 	@Autowired
 	CollectRDBPublisher collectRDBPublisher;
 
 	@Autowired
-	SurveyManager surveyManager;
+	EarthSurveyService earthSurveyService;
 
 	@Autowired
 	LocalPropertiesService localPropertiesService;
@@ -57,58 +61,73 @@ public class AnalysisSaikuService {
 
 	@Autowired
 	private BasicDataSource rdbDataSource;
-	  
+
 	private JdbcTemplate jdbcTemplate;
 
 	private final Logger logger = LoggerFactory.getLogger(AnalysisSaikuService.class);
-	
+
 	private static final int ELEVATION_RANGE = 100;
 
 	private RemoteWebDriver saikuWebDriver;
-	
+
 	@PostConstruct
 	public void initialize() {
 		jdbcTemplate = new JdbcTemplate(rdbDataSource);
+	}	
+
+	public boolean isSaikuConfigured(){
+		return getSaikuFolder()!=null && isSaikuFolder( new File(getSaikuFolder()));
 	}
-	
-	
+
+	public boolean isSaikuFolder(File saikuFolder){
+		boolean isSaikuFolder = false;
+		if( saikuFolder.listFiles() != null ){
+			for (File file : saikuFolder.listFiles()) {
+				if( file.getName().equals(START_SAIKU_BAT ) ){
+					isSaikuFolder = true;
+				}
+			}		
+		}
+		return isSaikuFolder;
+	}
+
 	private static final String FREEMARKER_HTML_TEMPLATE = "resources/collectEarthDS.fmt";
 	private static final String MDX_XML = "collectEarthCubes.xml";
 
 	private void refreshDataSourceForSaiku() throws IOException {
 
 		HashMap<String, String> data = new HashMap<String, String>();
-		
+
 		File rdbDb =  new File(COLLECT_EARTH_DATABASE_RDB_DB) ;
 		File cubeDefinition =  new File( getIdmFolder() + File.separatorChar + MDX_XML) ;
 		File dataSourceTemplate = new File(KmlGenerator.convertToOSPath(FREEMARKER_HTML_TEMPLATE ) );
-		
-		
+
+
 		if( !rdbDb.exists()) {
 			throw new IOException("The file contianing the Relational SQLite Database does not exist in expected location " + rdbDb.getAbsolutePath());
 		}
-		
+
 		if( !cubeDefinition.exists()) {
 			throw new IOException("The file contianing the MDX Cube definition does not exist in expected location " + cubeDefinition.getAbsolutePath() );
 		}
-		
+
 		if( !dataSourceTemplate.exists()) {
 			throw new IOException("The file contianing the Saiku Data Source template does not exist in expected location " + dataSourceTemplate.getAbsolutePath() );
 		}
-		
+
 		data.put( "rdbFilePath", rdbDb.getAbsolutePath().replace('\\', '/') );
 		data.put( "cubeFilePath", cubeDefinition.getAbsolutePath().replace('\\', '/')  );
-		
+
 		// Process the template file using the data in the "data" Map
 		final Configuration cfg = new Configuration();
-		
+
 		cfg.setDirectoryForTemplateLoading(dataSourceTemplate.getParentFile());
 
 		// Load template from source folder
 		final Template template = cfg.getTemplate(dataSourceTemplate.getName());
 
 		final File saikuConfigFile = new File( getSaikuConfigurationFilePath() );
-		
+
 		// Console output
 		BufferedWriter fw = null;
 		try {
@@ -123,7 +142,7 @@ public class AnalysisSaikuService {
 		}
 
 	}
-	
+
 	private String getIdmFolder() {
 		File metadataFile = new File( localPropertiesService.getValue( EarthProperty.METADATA_FILE ) );
 		return metadataFile.getParent();
@@ -149,14 +168,13 @@ public class AnalysisSaikuService {
 				if( AspectCode.getAspectCode(rs.getDouble("aspect")) != null  ){
 					aspect = AspectCode.getAspectCode(rs.getDouble("aspect")).getId();
 				}
-				
+
 				Integer slope = SlopeCode.NA.getId();
-				
+
 				if( SlopeCode.getSlopeCode( (int) rs.getFloat("slope")) != null ){
 					slope = SlopeCode.getSlopeCode( (int)rs.getFloat("slope") ).getId();
 				}
-				
-				Integer elevationBucket = 0;
+
 				updateValues[0] = aspect;
 				updateValues[1] = slope;
 				updateValues[2] = Math.floor(  (int)rs.getFloat("elevation") / ELEVATION_RANGE ) + 1; // 0meters is bucket 1 ( id);
@@ -169,7 +187,7 @@ public class AnalysisSaikuService {
 		jdbcTemplate.batchUpdate("UPDATE plot SET aspect_id=?,slope_id=?,elevation_id=? WHERE _plot_id=?", sqlUpdateValues);
 	}
 
-	
+
 	private void createAspectAuxTable() {
 		jdbcTemplate.execute("CREATE TABLE aspect_category (aspect_id INTEGER PRIMARY KEY, aspect_caption TEXT);");
 		final AspectCode[] aspects = AspectCode.values();
@@ -179,7 +197,7 @@ public class AnalysisSaikuService {
 	}
 
 	private void createElevationtAuxTable() {
-		
+
 		jdbcTemplate.execute("CREATE TABLE elevation_category (elevation_id INTEGER PRIMARY KEY, elevation_caption TEXT);");
 		int slots = (int) Math.ceil( 9000 / ELEVATION_RANGE  ); // Highest mountain in the world, mount everest is 8820m high
 		for( int i=1; i<=slots; i++ ){
@@ -205,32 +223,37 @@ public class AnalysisSaikuService {
 	}
 
 	private String getSaikuFolder() {
-		File saikuFolder  = new File( localPropertiesService.getValue(EarthProperty.SAIKU_SERVER_FOLDER) ); 
-		return saikuFolder.getAbsolutePath();
+		String configuredSaikuFolder = localPropertiesService.getValue(EarthProperty.SAIKU_SERVER_FOLDER);
+		if( StringUtils.isBlank( configuredSaikuFolder ) ){
+			return "";
+		}else{
+			File saikuFolder  = new File( configuredSaikuFolder ); 
+			return saikuFolder.getAbsolutePath();
+		}
 	}
 
 	private void openSaiku() throws IOException {
-		
+
 		saikuWebDriver = browserService.navigateTo("http://localhost:8181", saikuWebDriver);
 		browserService.waitFor("username", saikuWebDriver);
 		saikuWebDriver.findElementByName("username").sendKeys("admin");
 		saikuWebDriver.findElementByName("password").sendKeys("admin");
 		saikuWebDriver.findElementByClassName("form_button").click();
-		
+
 	}
 
-	public void prepareAnalysis() {
+	public void prepareAnalysis() throws SaikuExecutionException {
 
 		try {
 			stopSaiku();
-				
+
 			removeOldRdb();
-			
-			collectRDBPublisher.export(EarthConstants.EARTH_SURVEY_NAME, EarthConstants.ROOT_ENTITY_NAME, Step.ENTRY, null);
+
+			collectRDBPublisher.export(earthSurveyService.getCollectSurvey().getName(), EarthConstants.ROOT_ENTITY_NAME, Step.ENTRY, null);
 
 			try {
 				refreshDataSourceForSaiku();
-				
+
 				processQuantityData();
 				startSaiku();
 				new Thread(){
@@ -242,7 +265,7 @@ public class AnalysisSaikuService {
 						}
 					};
 				}.start();
-				
+
 				stopSaikuOnExit();
 			} catch (final IOException e) {
 				logger.error("Error while producing Relational DB from Collect format", e);
@@ -256,73 +279,81 @@ public class AnalysisSaikuService {
 	}
 
 	private void processQuantityData() throws SQLException {
-		
+
 		createAspectAuxTable();
 		createSlopeAuxTable();
 		createElevationtAuxTable();
 		createPlotForeignKeys();
 		assignDimensionValues();
 	}
-	
+
 	private void removeOldRdb() {
-			
-		
+
+
 		List<String> tables = new ArrayList<String>();
 		List<Map<String, Object>> listOfTables = jdbcTemplate.queryForList("SELECT name FROM sqlite_master WHERE type='table';");
 		for (Map<String, Object> entry : listOfTables) {
 			String tableName = (String) entry.get("name");
-		    if ( !tableName.equals("sqlite_sequence"))
-		        tables.add(tableName);
-		  
+			if ( !tableName.equals("sqlite_sequence"))
+				tables.add(tableName);
+
 		}
-	
+
 		for(String tableName:tables) {
 			jdbcTemplate.execute("DROP TABLE IF EXISTS " + tableName);
 		}
-		
+
 		final File oldRdbFile = new File(COLLECT_EARTH_DATABASE_RDB_DB);
 		oldRdbFile.delete();
-		
+
 		final File oldRdbFileSaiku =new File(getSaikuFolder() + File.separatorChar + COLLECT_EARTH_DATABASE_RDB_DB);
 		oldRdbFileSaiku.delete();
 
-		
+
 	}
 
-	private void startSaiku() {
-		logger.warn("Starting the Saiku server"+ getSaikuFolder() + File.separator + "start-saiku.bat" );
-		
-		runSaikuBat("start-saiku.bat");	
-	    
+	private void startSaiku() throws SaikuExecutionException {
+		logger.warn("Starting the Saiku server"+ getSaikuFolder() + File.separator + START_SAIKU_BAT );
+
+		runSaikuBat(START_SAIKU_BAT);	
+
 		logger.warn("Finished starting the Saiku server");
 	}
 
-	public void stopSaiku() {
-		logger.warn("Stoping the Saiku server"+ getSaikuFolder() + File.separator + "start-saiku.bat" );
-		
-		runSaikuBat("stop-saiku.bat");	
-	    
+	private void stopSaiku() throws SaikuExecutionException {
+		logger.warn("Stoping the Saiku server"+ getSaikuFolder() + File.separator + STOP_SAIKU_BAT );
+
+		runSaikuBat(STOP_SAIKU_BAT);	
+
 		logger.warn("Finished stoping the Saiku server");
 	}
-	
-	private void runSaikuBat( String batName ){
-		String saikuCmd = "\"" + getSaikuFolder() +  File.separator + batName + "\"";
-		try {
-			ProcessBuilder builder = new ProcessBuilder( new String[]{ saikuCmd });
-			builder.directory(new File( getSaikuFolder() ));
-			builder.redirectErrorStream(true);
-			builder.start();
-		} catch (IOException e) {
-			logger.error("Error when running Saiku start/stop command", saikuCmd);
+
+	private void runSaikuBat( String batName ) throws SaikuExecutionException{
+		if( !isSaikuConfigured() ){
+			throw new SaikuExecutionException( "The Saiku server is not configured.");
+		}else{
+			String saikuCmd = "\"" + getSaikuFolder() +  File.separator + batName + "\"";
+			try {
+				ProcessBuilder builder = new ProcessBuilder( new String[]{ saikuCmd });
+				builder.directory(new File( getSaikuFolder() ));
+				builder.redirectErrorStream(true);
+				builder.start();
+			} catch (IOException e) {
+				logger.error("Error when running Saiku start/stop command", saikuCmd);
+			}
 		}
 	}
-	
-	
+
+
 	private void stopSaikuOnExit() {
 		Runtime.getRuntime().addShutdownHook(new Thread() {
 			@Override
 			public void run() {
-				stopSaiku();
+				try {
+					stopSaiku();
+				} catch (SaikuExecutionException e) {
+					logger.error("The Saiku server has been de-configured after it was started", e);
+				}
 			}
 
 		});

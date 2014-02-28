@@ -319,7 +319,7 @@ public class BrowserService {
 	}
 
 	private void processSeleniumError(final Exception e) {
-		if(! e.getCause().getMessage().contains("latitude") ){
+		if( e.getCause()!=null && e.getCause().getMessage()!=null && !e.getCause().getMessage().contains("latitude") ){
 			logger.error("Error in the selenium driver", e);
 		}else{
 			logger.info("Error in the selenium driver provoked by known bug", e);

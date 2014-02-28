@@ -47,6 +47,7 @@ import javax.swing.text.JTextComponent;
 
 import org.openforis.collect.earth.app.EarthConstants;
 import org.openforis.collect.earth.app.desktop.EarthApp;
+import org.openforis.collect.earth.app.service.AnalysisSaikuService;
 import org.openforis.collect.earth.app.service.LocalPropertiesService;
 import org.openforis.collect.earth.app.service.LocalPropertiesService.EarthProperty;
 import org.openforis.collect.earth.sampler.processor.KmlGenerator;
@@ -71,10 +72,13 @@ public class OptionWizard extends JDialog {
 
 	String backupFolder;
 
-	public OptionWizard(JFrame frame, LocalPropertiesService localPropertiesService, String backupFolder) {
+	private AnalysisSaikuService saikuService;
+
+	public OptionWizard(JFrame frame, LocalPropertiesService localPropertiesService, String backupFolder, AnalysisSaikuService saikuService) {
 		super(frame, Messages.getString("OptionWizard.0")); //$NON-NLS-1$
 		this.localPropertiesService = localPropertiesService;
 		this.backupFolder = backupFolder;
+		this.saikuService = saikuService;
 		this.setLocationRelativeTo(frame);
 		this.setSize(new Dimension(600, 620));
 		this.setModal(true);
@@ -126,15 +130,18 @@ public class OptionWizard extends JDialog {
 		panel.add(propertyToComponent.get(EarthProperty.AUTOMATIC_BACKUP)[0], constraints);
 		constraints.gridx++;
 		panel.add(new JButton(new AbstractAction(Messages.getString("OptionWizard.10")) { //$NON-NLS-1$
-					@Override
-					public void actionPerformed(ActionEvent e) {
-						try {
-							new ProcessBuilder("explorer.exe", "/select," + backupFolder).start();
-						} catch (final IOException e1) {
-							logger.error("Error when opening the explorer window to visualize backups", e); //$NON-NLS-1$
-						}
-					}
-				}), constraints);
+		
+			private static final long serialVersionUID = 1L;
+
+			@Override
+			public void actionPerformed(ActionEvent e) {
+				try {
+					new ProcessBuilder("explorer.exe", "/select," + backupFolder).start(); //$NON-NLS-1$ //$NON-NLS-2$
+				} catch (final IOException e1) {
+					logger.error("Error when opening the explorer window to visualize backups", e); //$NON-NLS-1$
+				}
+			}
+		}), constraints);
 
 		constraints.gridx = 0;
 		constraints.gridwidth = 2;
@@ -235,7 +242,7 @@ public class OptionWizard extends JDialog {
 
 				} catch (final IOException e) {
 					logger.error("Error when re-generating the KML code to open in GE ", e); //$NON-NLS-1$
-					JOptionPane.showMessageDialog(OptionWizard.this, null, Messages.getString("OptionWizard.23"), //$NON-NLS-1$
+					JOptionPane.showMessageDialog(OptionWizard.this, e.getMessage(), Messages.getString("OptionWizard.23"), //$NON-NLS-1$
 							JOptionPane.WARNING_MESSAGE);
 				}
 			}
@@ -469,11 +476,11 @@ public class OptionWizard extends JDialog {
 		constraints.fill = GridBagConstraints.BOTH;
 		constraints.insets = new Insets(5, 5, 5, 5);
 		constraints.weightx = 1.0;
-				
+
 		final JFilePicker refreshTableOnFileChange = getFilePickerSamplePlots(samplePlots);
 
 		panel.add(refreshTableOnFileChange, constraints);
-		
+
 		samplePlots.setFillsViewportHeight(true);
 		constraints.gridy = 1;
 
@@ -481,7 +488,7 @@ public class OptionWizard extends JDialog {
 		constraints.weighty = 1.0;
 		constraints.gridwidth = GridBagConstraints.REMAINDER;
 		constraints.gridheight = GridBagConstraints.REMAINDER;
-		
+
 		samplePlots.setPreferredScrollableViewportSize(samplePlots.getPreferredSize());
 
 		panel.add(new JScrollPane(samplePlots, ScrollPaneConstants.VERTICAL_SCROLLBAR_AS_NEEDED, ScrollPaneConstants.HORIZONTAL_SCROLLBAR_AS_NEEDED),
@@ -539,42 +546,45 @@ public class OptionWizard extends JDialog {
 		String[] csvRow;
 		CSVReader reader = null;
 		final Vector<Vector<Object>> plots = new Vector<Vector<Object>>();
-		try {
-			boolean skip = true;
-			reader = KmlGenerator.getCsvReader(csvFilePath);
+		File csvFile = new File(csvFilePath);
+		if( csvFile.exists() ){
 			try {
-				while ((csvRow = reader.readNext()) != null && plots.size() < 50) {
-					if (skip) {
-						// Skip first row, it might contain column names
-						skip = false;
-						continue;
-					}
-
-					final PlotProperties plotProperties = KmlGenerator.getPlotProperties(csvRow);
-					final Vector<Object> props = new Vector<Object>();
-					props.add(plotProperties.id);
-					props.add(plotProperties.xCoord);
-					props.add(plotProperties.yCoord);
-					props.add(plotProperties.elevation);
-					props.add(plotProperties.slope);
-					props.add(plotProperties.aspect);
-
-					plots.add(props);
-
-				}
-			} catch (final Exception e) {
-				JOptionPane.showMessageDialog(this, Messages.getString("OptionWizard.38") //$NON-NLS-1$
-						+ Messages.getString("OptionWizard.39"), "Error reading file contents", //$NON-NLS-1$ //$NON-NLS-2$
-						JOptionPane.ERROR_MESSAGE);
-			}
-		} catch (final IOException e) {
-			logger.error("Error when extracting data from CSV file " + csvFilePath, e); //$NON-NLS-1$
-		} finally {
-			if (reader != null) {
+				boolean skip = true;
+				reader = KmlGenerator.getCsvReader(csvFilePath);
 				try {
-					reader.close();
-				} catch (final IOException e) {
-					logger.error(Messages.getString("OptionWizard.42"), e); //$NON-NLS-1$
+					while ((csvRow = reader.readNext()) != null && plots.size() < 50) {
+						if (skip) {
+							// Skip first row, it might contain column names
+							skip = false;
+							continue;
+						}
+
+						final PlotProperties plotProperties = KmlGenerator.getPlotProperties(csvRow);
+						final Vector<Object> props = new Vector<Object>();
+						props.add(plotProperties.id);
+						props.add(plotProperties.xCoord);
+						props.add(plotProperties.yCoord);
+						props.add(plotProperties.elevation);
+						props.add(plotProperties.slope);
+						props.add(plotProperties.aspect);
+
+						plots.add(props);
+
+					}
+				} catch (final Exception e) {
+					JOptionPane.showMessageDialog(this, Messages.getString("OptionWizard.38") //$NON-NLS-1$
+							+ Messages.getString("OptionWizard.39"), "Error reading file contents", //$NON-NLS-1$ //$NON-NLS-2$
+							JOptionPane.ERROR_MESSAGE);
+				}
+			} catch (final IOException e) {
+				logger.error("Error when extracting data from CSV file " + csvFilePath, e); //$NON-NLS-1$
+			} finally {
+				if (reader != null) {
+					try {
+						reader.close();
+					} catch (final IOException e) {
+						logger.error(Messages.getString("OptionWizard.42"), e); //$NON-NLS-1$
+					}
 				}
 			}
 		}
@@ -659,7 +669,7 @@ public class OptionWizard extends JDialog {
 
 		constraints.gridy++;
 		constraints.gridx = 0;
-	
+
 		panel.add(propertyToComponent.get(EarthProperty.METADATA_FILE)[0], constraints);
 
 		return panel;
@@ -737,6 +747,33 @@ public class OptionWizard extends JDialog {
 				localPropertiesService.getValue(EarthProperty.SAIKU_SERVER_FOLDER), Messages.getString("OptionWizard.66")); //$NON-NLS-1$
 		saikuPath.setMode(JFilePicker.MODE_OPEN);
 		saikuPath.setFolderChooser();
+		saikuPath.addChangeListener(new DocumentListener() {
+			
+			private void showSaikuWarning(){
+				final File saikuFolder = new File(saikuPath.getSelectedFilePath());
+				if( saikuFolder!=null && !saikuService.isSaikuFolder( saikuFolder )){
+					JOptionPane.showMessageDialog( OptionWizard.this, Messages.getString("OptionWizard.27"), Messages.getString("OptionWizard.28"), JOptionPane.INFORMATION_MESSAGE ); //$NON-NLS-1$ //$NON-NLS-2$
+					saikuPath.getTextField().setBackground(CollectEarthWindow.ERROR_COLOR);
+				}else{
+					saikuPath.getTextField().setBackground(Color.white);
+				}
+			}
+			
+			@Override
+			public void removeUpdate(DocumentEvent e) {
+				
+			}
+			
+			@Override
+			public void insertUpdate(DocumentEvent e) {
+				showSaikuWarning();
+			}
+			
+			@Override
+			public void changedUpdate(DocumentEvent e) {
+				
+			}
+		});
 		propertyToComponent.put(EarthProperty.SAIKU_SERVER_FOLDER, new JComponent[] { saikuPath });
 
 		final JFilePicker firefoxBinaryPath = new JFilePicker(Messages.getString("OptionWizard.67"), //$NON-NLS-1$

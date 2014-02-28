@@ -36,11 +36,13 @@ public class CoordinateAttributeHandler extends AbstractAttributeHandler<Value> 
 		}
 		// REMOVE THIS!!
 		// -----------------------
-		if (coordinatesCSV[0].equals("$[latitude]")) {
-			coordinatesCSV[0] = "0";
+		String latitude = coordinatesCSV[0];
+		if (latitude.equals("$[latitude]")) {
+			latitude = "0";
 		}
-		if (coordinatesCSV[1].equals("$[longitude]")) {
-			coordinatesCSV[1] = "0";
+		String longitude = coordinatesCSV[1];
+		if (longitude.equals("$[longitude]")) {
+			longitude = "0";
 		}
 		// -----------------------
 
@@ -48,7 +50,7 @@ public class CoordinateAttributeHandler extends AbstractAttributeHandler<Value> 
 		// THE ORDER OF THE COORDINATES IS CHANGED HERE SO THAT THE PNG BUG IS CONSISTENT THROUGHOUT THEIR ASSESSMENT!!
 		// CHANGE BACK WHEN THEY ARE FINIHSED!!!!!!
 		
-		Coordinate coord = new Coordinate(Double.parseDouble(coordinatesCSV[1]), Double.parseDouble(coordinatesCSV[0]), srs);
+		Coordinate coord = new Coordinate(Double.parseDouble(longitude), Double.parseDouble(latitude), srs);
 		//Coordinate coord = new Coordinate(Double.parseDouble(coordinatesCSV[0]), Double.parseDouble(coordinatesCSV[1]), srs); PNG BUG IN THIS LINE!!
 		return coord;
 	}

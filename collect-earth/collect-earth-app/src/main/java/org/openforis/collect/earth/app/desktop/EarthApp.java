@@ -130,20 +130,27 @@ public class EarthApp {
 		final String templatePath = localProperties.getTemplateFile();
 		boolean filesExist = true;
 		String errorMessage = "<html>Error generating the KML file for Google Earth.<br/>";
-		final File csvFile = new File(csvFilePath);
-		final File balloon = new File(balloonPath);
-		final File template = new File(templatePath);
-		if (!csvFile.exists()) {
+		File csvFile = null;
+		File balloon = null;
+		File template = null;
+		try {
+			csvFile = new File(csvFilePath);
+			balloon = new File(balloonPath);
+			template = new File(templatePath);
+		} catch (Exception e) {
+			logger.error( "One of the definition files is not defined", e);
+		}
+		if (csvFile == null || !csvFile.exists()) {
 			errorMessage += "The file containing the grid of plots as a CSV/CED is not found in the selected path :<br/><i>"
 					+ csvFile.getAbsolutePath() + "</i><br/><br/>";
 			filesExist = false;
 		}
-		if (!template.exists()) {
+		if (template ==null || !template.exists()) {
 			errorMessage += "The file containing the Freemarker template with the KML definition is not found in the selected path :<br/><i>"
 					+ template.getAbsolutePath() + "</i><br/><br/>";
 			filesExist = false;
 		}
-		if (!balloon.exists()) {
+		if (balloon ==null || !balloon.exists()) {
 			errorMessage += "The file containing the HTML balloon form is not found in the selected path :<br/><i>" + balloon.getAbsolutePath()
 					+ "</i><br/><br/>";
 			filesExist = false;

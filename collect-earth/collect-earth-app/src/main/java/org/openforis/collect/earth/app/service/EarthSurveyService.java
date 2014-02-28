@@ -128,6 +128,11 @@ public class EarthSurveyService {
 			record = recordManager.load(getCollectSurvey(), record.getId(), Step.ENTRY);
 			placemarkParameters = collectParametersHandler.getParameters(record.getRootEntity());
 
+			if ((placemarkParameters.get("collect_code_canopy_cover") != null) && placemarkParameters.get("collect_code_canopy_cover").equals("0")) { //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$
+				placemarkParameters.put("collect_code_canopy_cover", //$NON-NLS-1$
+						"0;collect_code_deforestation_reason=" + placemarkParameters.get("collect_code_deforestation_reason")); //$NON-NLS-1$ //$NON-NLS-2$
+			}
+			// For the PNG version with the old name
 			if ((placemarkParameters.get("collect_code_crown_cover") != null) && placemarkParameters.get("collect_code_crown_cover").equals("0")) { //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$
 				placemarkParameters.put("collect_code_crown_cover", //$NON-NLS-1$
 						"0;collect_code_deforestation_reason=" + placemarkParameters.get("collect_code_deforestation_reason")); //$NON-NLS-1$ //$NON-NLS-2$
@@ -183,14 +188,13 @@ public class EarthSurveyService {
 			try {
 				File idmSurveyModel = new File(getIdmFilePath());
 				if (idmSurveyModel.exists()) {
-					survey = surveyManager.unmarshalSurvey(new FileInputStream(idmSurveyModel));
-
-					survey.setName(EarthConstants.EARTH_SURVEY_NAME);
-					if (surveyManager.get(EarthConstants.EARTH_SURVEY_NAME) == null) { // NOT IN
+					survey = surveyManager.unmarshalSurvey(new FileInputStream(idmSurveyModel),true,true);
+					if (surveyManager.getByUri( survey.getUri() ) == null) { // NOT IN
 						// THE DB
-						surveyManager.importModel(survey);
+						String surveyName = EarthConstants.EARTH_SURVEY_NAME + localPropertiesService.getValue( EarthProperty.SURVEY_NAME );
+						survey = surveyManager.importModel(idmSurveyModel, surveyName, false );
 					} else { // UPDATE ALREADY EXISTANT MODEL
-						surveyManager.updateModel(survey);
+						survey = surveyManager.updateModel(idmSurveyModel, false );
 					}
 					setCollectSurvey(survey);
 				} else {

@@ -9,16 +9,10 @@ import java.nio.charset.Charset;
 import java.util.HashMap;
 import java.util.Map;
 
-import org.openforis.collect.earth.app.EarthConstants.SAMPLE_SHAPE;
 import org.openforis.collect.earth.app.desktop.EarthApp;
 import org.openforis.collect.earth.app.service.LocalPropertiesService.EarthProperty;
 import org.openforis.collect.earth.sampler.model.SimplePlacemarkObject;
-import org.openforis.collect.earth.sampler.processor.AbstractCoordinateCalculation;
-import org.openforis.collect.earth.sampler.processor.CircleKmlGenerator;
 import org.openforis.collect.earth.sampler.processor.KmlGenerator;
-import org.openforis.collect.earth.sampler.processor.OctagonKmlGenerator;
-import org.openforis.collect.earth.sampler.processor.SquareKmlGenerator;
-import org.openforis.collect.earth.sampler.processor.SquareWithCirclesKmlGenerator;
 import org.opengis.referencing.operation.TransformException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -49,7 +43,7 @@ public class BingMapService {
 
 	private final Logger logger = LoggerFactory.getLogger(this.getClass());
 
-	private File applyData(Map data) throws IOException, TemplateException {
+	private File applyData(Map<String,Object>  data) throws IOException, TemplateException {
 
 		// Process the template file using the data in the "data" Map
 		final Configuration cfg = new Configuration();
@@ -80,8 +74,6 @@ public class BingMapService {
 		final Map<String, Object> data = new HashMap<String, Object>();
 		final SimplePlacemarkObject placemark = new SimplePlacemarkObject(centerLatLong);
 
-		final Integer numberOfPoints = Integer.parseInt(localPropertiesService.getValue(EarthProperty.NUMBER_OF_SAMPLING_POINTS_IN_PLOT));
-		final Integer innerPointSide = Integer.parseInt(localPropertiesService.getValue(EarthProperty.INNER_SUBPLOT_SIDE));
 		final Float distanceBetweenSamplingPoints = Float.parseFloat(localPropertiesService.getValue(EarthProperty.DISTANCE_BETWEEN_SAMPLE_POINTS));
 		final Float distancePlotBoundary = Float.parseFloat(localPropertiesService.getValue(EarthProperty.DISTANCE_TO_PLOT_BOUNDARIES));
 
@@ -108,7 +100,7 @@ public class BingMapService {
 	 */
 	public String getTemporaryUrl(String[] centerCoordinates) {
 
-		final Map data = getPlacemarkData(centerCoordinates);
+		final Map<String,Object> data = getPlacemarkData(centerCoordinates);
 		File transformedHtml = null;
 		try {
 			transformedHtml = applyData(data);

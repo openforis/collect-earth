@@ -53,7 +53,7 @@ public class PlacemarkUpdateServlet {
 	private static final Configuration cfg = new Configuration();
 	private static Template template;
 
-	private String getKmlFromTemplate(Map data) throws IOException {
+	private String getKmlFromTemplate( Map<String, Object> data) throws IOException {
 
 		if (template == null) {
 			// Load template from source folder

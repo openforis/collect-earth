@@ -7,9 +7,11 @@ import org.openforis.collect.earth.sampler.processor.PlotProperties;
 import com.vividsolutions.jts.geom.Coordinate;
 
 /**
- * Data defining a plot and used in the generation of the KML through a freemarker template. 
+ * Data defining a plot and used in the generation of the KML through a
+ * freemarker template.
+ * 
  * @author Alfonso Sanchez-Paus Diaz
- *
+ * 
  */
 public class SimplePlacemarkObject {
 
@@ -34,18 +36,26 @@ public class SimplePlacemarkObject {
 	private int aspect;
 
 	private int plotId;
-	
+
 	private String extraInfo;
 
-	public String getExtraInfo() {
-		return extraInfo;
-	}
-
-	public void setExtraInfo(String extraInfo) {
-		this.extraInfo = extraInfo;
-	}
-
 	private AspectCode aspectHumanReadable;
+
+	private String extraInfo2;
+
+	public SimplePlacemarkObject(Coordinate coordinate,
+			PlotProperties plotProperties) {
+		this.aspect = (int) Math.round(plotProperties.aspect);
+		this.aspectHumanReadable = AspectCode
+				.getAspectCode(plotProperties.aspect);
+		this.coord = new SimpleCoordinate(coordinate);
+		this.elevation = plotProperties.elevation;
+		this.placemarkId = plotProperties.id;
+		this.extraInfo = plotProperties.extraInfo;
+		this.extraInfo2 = plotProperties.extraInfo2;
+		this.slope = (int) Math.round(plotProperties.slope);
+
+	}
 
 	public SimplePlacemarkObject(double[] coord, String placemarkId) {
 		super();
@@ -55,22 +65,10 @@ public class SimplePlacemarkObject {
 
 	public SimplePlacemarkObject(String[] coordinatesLatLong) {
 		super();
-		this.coord = new SimpleCoordinate(coordinatesLatLong[0], coordinatesLatLong[1]);
+		this.coord = new SimpleCoordinate(coordinatesLatLong[0],
+				coordinatesLatLong[1]);
 	}
 
-	public SimplePlacemarkObject(Coordinate coordinate,
-			PlotProperties plotProperties) {
-		this.aspect = (int) Math.round( plotProperties.aspect );
-		this.aspectHumanReadable = 	AspectCode.getAspectCode(plotProperties.aspect);
-		this.coord = new SimpleCoordinate(coordinate);
-		this.elevation = plotProperties.elevation;
-		this.placemarkId = plotProperties.id;
-		this.extraInfo = plotProperties.extraInfo;
-		this.slope = (int) Math.round( plotProperties.slope );
-			
-	}
-	
-	
 	public int getAspect() {
 		return aspect;
 	}
@@ -85,6 +83,14 @@ public class SimplePlacemarkObject {
 
 	public int getElevation() {
 		return elevation;
+	}
+
+	public String getExtraInfo() {
+		return extraInfo;
+	}
+
+	public String getExtraInfo2() {
+		return extraInfo2;
 	}
 
 	public String getNextPlacemarkId() {
@@ -137,6 +143,14 @@ public class SimplePlacemarkObject {
 
 	public void setElevation(int elevation) {
 		this.elevation = elevation;
+	}
+
+	public void setExtraInfo(String extraInfo) {
+		this.extraInfo = extraInfo;
+	}
+
+	public void setExtraInfo2(String extraInfo2) {
+		this.extraInfo2 = extraInfo2;
 	}
 
 	public void setNextPlacemarkId(String nextPlacemarkId) {

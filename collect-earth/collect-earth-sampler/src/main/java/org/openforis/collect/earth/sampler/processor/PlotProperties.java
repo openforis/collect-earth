@@ -9,5 +9,6 @@ public class PlotProperties {
 	public Double slope;
 	public Double aspect;
 	public String extraInfo;
+	public String extraInfo2;
 
 }

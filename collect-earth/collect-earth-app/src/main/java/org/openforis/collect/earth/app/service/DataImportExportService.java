@@ -9,7 +9,12 @@ import org.openforis.collect.io.data.CSVDataExportProcess;
 import org.openforis.collect.io.data.DataImportSummaryItem;
 import org.openforis.collect.io.data.XMLDataExportProcess;
 import org.openforis.collect.io.data.XMLDataImportProcess;
+import org.openforis.collect.manager.RecordManager;
+import org.openforis.collect.manager.SurveyManager;
+import org.openforis.collect.model.CollectRecord;
 import org.openforis.collect.model.CollectRecord.Step;
+import org.openforis.collect.model.CollectSurvey;
+import org.openforis.idm.model.BooleanAttribute;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -25,6 +30,12 @@ public class DataImportExportService {
 
 	@Autowired
 	private EarthSurveyService earthSurveyService;
+	
+	@Autowired
+	private SurveyManager surveyManager;
+	
+	@Autowired
+	private RecordManager recordManager;
 
 	private Logger logger = LoggerFactory.getLogger( DataImportExportService.class );
 	/**
@@ -79,25 +90,44 @@ public class DataImportExportService {
 		return dataImportProcess;
 	}
 	
-	public void importRecordsFrom( File zipWithXml , XMLDataImportProcess dataImportProcess, boolean addConflictingRecords ) throws Exception{
+	public void importRecordsFrom( File zipWithXml , XMLDataImportProcess dataImportProcess, List<DataImportSummaryItem> listConflictingRecords ) throws Exception{
 		List<Integer> entryIdsToImport = new ArrayList<Integer>();
 		
-		if( addConflictingRecords && dataImportProcess.getSummary().getRecordsToImport()!=null ){
-			for (DataImportSummaryItem record : dataImportProcess.getSummary().getRecordsToImport()) {
-				entryIdsToImport.add( record.getEntryId() );
+		if( listConflictingRecords != null ){
+			for (DataImportSummaryItem conflictingRecord : listConflictingRecords) {
+				entryIdsToImport.add( conflictingRecord.getEntryId() );
 			}
 		}
-
+		
 		if( dataImportProcess.getSummary().getRecordsToImport() != null ){
-			for (DataImportSummaryItem record : dataImportProcess.getSummary().getRecordsToImport()) {
-				entryIdsToImport.add( record.getEntryId() );
+			for (DataImportSummaryItem newImportedRecord : dataImportProcess.getSummary().getRecordsToImport()) {
+				entryIdsToImport.add( newImportedRecord.getEntryId() );
 			}
 		}
 		
 		dataImportProcess.setEntryIdsToImport(entryIdsToImport);
 		dataImportProcess.prepareToStartImport();
 		dataImportProcess.call();
-		logger.warn("Data imported into db. Number of Records imported : " + entryIdsToImport.size() + " Conflicting records added : " + addConflictingRecords );
+		
+		
+		int conflictingRecordsAdded = 0;
+		if( listConflictingRecords != null ){
+			conflictingRecordsAdded = listConflictingRecords.size();
+		}
+		logger.warn("Data imported into db. Number of Records imported : " + entryIdsToImport.size() + " Conflicting records added : " + conflictingRecordsAdded );
+	}
+
+	public void cleanClonflictingRecords(XMLDataImportProcess dataImportProcess, List<DataImportSummaryItem> cleanConflictingRecords) {
+		List<DataImportSummaryItem> conflicting = dataImportProcess.getSummary().getConflictingRecords();
+	
+		CollectSurvey survey = dataImportProcess.getExistingSurvey();
+		for (DataImportSummaryItem dataImportSummaryItem : conflicting) {
+			CollectRecord record = recordManager.load(survey, dataImportSummaryItem.getConflictingRecord().getId(), Step.ENTRY );
+			BooleanAttribute node = (BooleanAttribute) record.getNodeByPath("/plot/actively_saved");
+			if( node== null || ( node != null && !node.isEmpty() && node.getValue().getValue() ) ){
+				cleanConflictingRecords.add( dataImportSummaryItem);
+			}
+		}
 	}
 
 }

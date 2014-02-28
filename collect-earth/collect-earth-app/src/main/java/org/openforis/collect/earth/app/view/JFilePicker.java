@@ -1,6 +1,5 @@
 package org.openforis.collect.earth.app.view;
 
-import java.awt.FlowLayout;
 import java.awt.GridBagConstraints;
 import java.awt.GridBagLayout;
 import java.awt.Insets;
@@ -54,11 +53,11 @@ public class JFilePicker extends JPanel {
 		
 		// creates the GUI
 		label = new JLabel(textFieldLabel);
-		textField = new JTextField(originalPathValue, 20);
+		setTextField(new JTextField(originalPathValue, 20));
 		button = new JButton(buttonLabel);
 
 		if (originalPathValue != null && originalPathValue.length() > 0) {
-			textField.setCaretPosition(originalPathValue.length() - 1);
+			getTextField().setCaretPosition(originalPathValue.length() - 1);
 		}
 
 		button.addActionListener(new ActionListener() {
@@ -82,7 +81,7 @@ public class JFilePicker extends JPanel {
 		
 		constraints.gridy = 1;
 		constraints.weightx =1;
-		add(textField, constraints);
+		add(getTextField(), constraints);
 		constraints.gridx = 1;
 		constraints.weightx = 0;
 		add(button, constraints);
@@ -90,7 +89,7 @@ public class JFilePicker extends JPanel {
 	}
 
 	public void addChangeListener(DocumentListener listener) {
-		textField.getDocument().addDocumentListener(listener);
+		getTextField().getDocument().addDocumentListener(listener);
 	}
 
 	public void addFileTypeFilter(String extension, String description, boolean setSelected) {
@@ -104,11 +103,11 @@ public class JFilePicker extends JPanel {
 	private void buttonActionPerformed(ActionEvent evt) {
 		if (mode == MODE_OPEN) {
 			if (fileChooser.showOpenDialog(this) == JFileChooser.APPROVE_OPTION) {
-				textField.setText(relativize(fileChooser.getSelectedFile()));
+				getTextField().setText(relativize(fileChooser.getSelectedFile()));
 			}
 		} else if (mode == MODE_SAVE) {
 			if (fileChooser.showSaveDialog(this) == JFileChooser.APPROVE_OPTION) {
-				textField.setText(relativize(fileChooser.getSelectedFile()));
+				getTextField().setText(relativize(fileChooser.getSelectedFile()));
 			}
 		}
 	}
@@ -118,7 +117,7 @@ public class JFilePicker extends JPanel {
 	}
 
 	public String getSelectedFilePath() {
-		return textField.getText();
+		return getTextField().getText();
 	}
 
 	private String relativize(File selectedFile) {
@@ -133,6 +132,14 @@ public class JFilePicker extends JPanel {
 	
 	public void setFolderChooser() {
 		fileChooser.setFileSelectionMode(JFileChooser.DIRECTORIES_ONLY);
+	}
+
+	public JTextField getTextField() {
+		return textField;
+	}
+
+	private void setTextField(JTextField textField) {
+		this.textField = textField;
 	}
 	
 }

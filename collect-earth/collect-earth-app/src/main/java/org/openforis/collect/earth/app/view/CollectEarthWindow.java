@@ -14,6 +14,7 @@ import java.awt.event.WindowEvent;
 import java.io.File;
 import java.io.IOException;
 import java.net.MalformedURLException;
+import java.util.ArrayList;
 import java.util.List;
 
 import javax.swing.BorderFactory;
@@ -47,6 +48,7 @@ import org.openforis.collect.earth.app.service.BackupService;
 import org.openforis.collect.earth.app.service.DataImportExportService;
 import org.openforis.collect.earth.app.service.LocalPropertiesService;
 import org.openforis.collect.earth.app.service.LocalPropertiesService.EarthProperty;
+import org.openforis.collect.earth.app.service.SaikuExecutionException;
 import org.openforis.collect.io.data.DataImportSummaryItem;
 import org.openforis.collect.io.data.XMLDataImportProcess;
 import org.slf4j.Logger;
@@ -64,39 +66,39 @@ public class CollectEarthWindow {
 	private final Logger logger = LoggerFactory.getLogger(CollectEarthWindow.class);
 	private final ServerController serverController;
 	public static final Color ERROR_COLOR = new Color(225, 124, 124);
-	private AnalysisSaikuService analysisSaikuService;
+	private AnalysisSaikuService saikuService;
 	private String backupFolder;
 	private enum DataFormat{ZIP_WITH_XML,CSV,FUSION};
-	
-	
+
+
 
 	public CollectEarthWindow(ServerController serverController) {
 		this.serverController = serverController;
-		
+
 		this.localPropertiesService = serverController.getContext().getBean(LocalPropertiesService.class);
 		this.dataExportService = serverController.getContext().getBean(DataImportExportService.class);
 		final BackupService backupService = serverController.getContext().getBean(BackupService.class);
 		this.backupFolder = backupService.getBackUpFolder().getAbsolutePath();
-		this.analysisSaikuService = serverController.getContext().getBean( AnalysisSaikuService.class );
+		this.saikuService = serverController.getContext().getBean( AnalysisSaikuService.class );
 	}
 
 	private void exportDataTo(ActionEvent e, DataFormat exportType) {
 		File[] exportToFile = getFileChooserResults( exportType, true, false);
 		if (exportToFile != null && exportToFile.length > 0) {
-			
+
 			try {
 				switch (exportType) {
-					case CSV:
-						dataExportService.exportSurveyAsCsv(exportToFile[0]);
-						break;
-					case ZIP_WITH_XML:
-						dataExportService.exportSurveyAsZipWithXml(exportToFile[0]);
-						break;
-					case FUSION:
-						dataExportService.exportSurveyAsFusionTable(exportToFile[0]);
-						break;
+				case CSV:
+					dataExportService.exportSurveyAsCsv(exportToFile[0]);
+					break;
+				case ZIP_WITH_XML:
+					dataExportService.exportSurveyAsZipWithXml(exportToFile[0]);
+					break;
+				case FUSION:
+					dataExportService.exportSurveyAsFusionTable(exportToFile[0]);
+					break;
 				}
-				
+
 			} catch (Exception e1) {
 				JOptionPane.showMessageDialog(this.frame, Messages.getString("CollectEarthWindow.0"), Messages.getString("CollectEarthWindow.1"), //$NON-NLS-1$ //$NON-NLS-2$
 						JOptionPane.ERROR_MESSAGE);
@@ -104,61 +106,73 @@ public class CollectEarthWindow {
 			} 
 		}
 	}
-	
+
 	private void importDataFrom(ActionEvent e, DataFormat importType) {
 		File[] filesToImport = getFileChooserResults( importType, false, true );
 		if (filesToImport != null) {
-			
+
 			switch (importType) {
-				case ZIP_WITH_XML:
-					for (File importedFile : filesToImport) {
-						try{
-							XMLDataImportProcess dataImportProcess = dataExportService.getImportSummary(importedFile);
-							boolean addConflictingRecords = false;
-							if( dataImportProcess.getSummary().getConflictingRecords() != null && dataImportProcess.getSummary().getConflictingRecords().size() > 0 ){
-								addConflictingRecords = promptAddConflictingRecords(dataImportProcess.getSummary().getConflictingRecords(), importedFile.getName());
+			case ZIP_WITH_XML:
+				for (File importedFile : filesToImport) {
+					try{
+						XMLDataImportProcess dataImportProcess = dataExportService.getImportSummary(importedFile);
+						boolean addConflictingRecords = false;
+						List<DataImportSummaryItem> cleanConflictingRecords = new ArrayList<DataImportSummaryItem>();
+						if( dataImportProcess.getSummary().getConflictingRecords() != null && dataImportProcess.getSummary().getConflictingRecords().size() > 0 ){
+
+
+							dataExportService.cleanClonflictingRecords(dataImportProcess, cleanConflictingRecords);
+
+							addConflictingRecords = promptAddConflictingRecords(cleanConflictingRecords, importedFile.getName());
+
+							if( !addConflictingRecords ){
+								cleanConflictingRecords = null;
 							}
-							dataExportService.importRecordsFrom(importedFile, dataImportProcess, addConflictingRecords);
-						} catch (Exception e1) {
-							JOptionPane.showMessageDialog(this.frame,  Messages.getString("CollectEarthWindow.3"), importedFile.getName() + " - " + Messages.getString("CollectEarthWindow.7"), //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$
-									JOptionPane.ERROR_MESSAGE);
-							logger.error("Error importing data from " + importedFile.getAbsolutePath() + " in format " + importType.name() , e1); //$NON-NLS-1$ //$NON-NLS-2$
-						} 
-					}
-					
-					break;
-				default:
-					JOptionPane.showMessageDialog(getFrame(), Messages.getString("CollectEarthWindow.33"), //$NON-NLS-1$
-							Messages.getString("CollectEarthWindow.34"), JOptionPane.ERROR_MESSAGE); //$NON-NLS-1$
-					break;
+
+						}
+						dataExportService.importRecordsFrom(importedFile, dataImportProcess, cleanConflictingRecords );
+					} catch (Exception e1) {
+						JOptionPane.showMessageDialog(this.frame,  importedFile.getName() + " - " + Messages.getString("CollectEarthWindow.3"), importedFile.getName() + " - " + Messages.getString("CollectEarthWindow.7"), //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$
+								JOptionPane.ERROR_MESSAGE);
+						logger.error("Error importing data from " + importedFile.getAbsolutePath() + " in format " + importType.name() , e1); //$NON-NLS-1$ //$NON-NLS-2$
+					} 
+				}
+
+				break;
+			case CSV:
+				break;
+			case FUSION:
+				break;
+			default:
+				break;
 			}
 		}
 	}
-	
-	private boolean promptAddConflictingRecords(List<DataImportSummaryItem> list, String importedFileName) {
+
+	private boolean promptAddConflictingRecords(List<DataImportSummaryItem> listConflictingRecords, String importedFileName) {
 		int selectedOption = JOptionPane.showConfirmDialog(null, 
-                 
-                "<html>" //$NON-NLS-1$
+
+				"<html>" //$NON-NLS-1$
 				+ "<b>" + importedFileName + " : </b></br>" //$NON-NLS-1$ //$NON-NLS-2$
-                + Messages.getString("CollectEarthWindow.9") //$NON-NLS-1$
-                + "<br>" //$NON-NLS-1$
-                + Messages.getString("CollectEarthWindow.20") + list.size()  //$NON-NLS-1$
-                + "<br>" //$NON-NLS-1$
-                + Messages.getString("CollectEarthWindow.25") //$NON-NLS-1$
-                + "<br>" //$NON-NLS-1$
-                + "<i>" //$NON-NLS-1$
-                + Messages.getString("CollectEarthWindow.39") //$NON-NLS-1$
-                + "</i>" //$NON-NLS-1$
-                + "</html>",  //$NON-NLS-1$
-                
-                Messages.getString("CollectEarthWindow.43"), //$NON-NLS-1$
-                
-                JOptionPane.YES_NO_OPTION); 
-			return (selectedOption == JOptionPane.YES_OPTION);
+				+ Messages.getString("CollectEarthWindow.9") //$NON-NLS-1$
+				+ "<br>" //$NON-NLS-1$
+				+ Messages.getString("CollectEarthWindow.20") + listConflictingRecords.size()  //$NON-NLS-1$
+				+ "<br>" //$NON-NLS-1$
+				+ Messages.getString("CollectEarthWindow.25") //$NON-NLS-1$
+				+ "<br>" //$NON-NLS-1$
+				+ "<i>" //$NON-NLS-1$
+				+ Messages.getString("CollectEarthWindow.39") //$NON-NLS-1$
+				+ "</i>" //$NON-NLS-1$
+				+ "</html>",  //$NON-NLS-1$
+
+				Messages.getString("CollectEarthWindow.43"), //$NON-NLS-1$
+
+				JOptionPane.YES_NO_OPTION); 
+		return (selectedOption == JOptionPane.YES_OPTION);
 	}
 
-	private void exportDataToRDB(ActionEvent e) {
-		analysisSaikuService.prepareAnalysis();
+	private void exportDataToRDB(ActionEvent e) throws SaikuExecutionException {
+		saikuService.prepareAnalysis();
 	}
 
 	private ActionListener getCloseActionListener() {
@@ -213,11 +227,11 @@ public class CollectEarthWindow {
 
 	private String getDisclaimerText() {
 		try {
-			
+
 			String suffix_lang = localPropertiesService.getUiLanguage().getLocale().getLanguage();
-			
-			
-			return FileUtils.readFileToString(new File("resources/disclaimer_" + suffix_lang + ".txt")); //$NON-NLS-1$
+
+
+			return FileUtils.readFileToString(new File("resources/disclaimer_" + suffix_lang + ".txt")); //$NON-NLS-1$ //$NON-NLS-2$
 		} catch (IOException e) {
 			logger.error("Disclaimer text not found", e); //$NON-NLS-1$
 			return Messages.getString("CollectEarthWindow.8"); //$NON-NLS-1$
@@ -239,7 +253,7 @@ public class CollectEarthWindow {
 			}
 		};
 	}
-	
+
 	private ActionListener getImportActionListener( final DataFormat importFormat ) {
 		return new ActionListener() {
 
@@ -255,15 +269,21 @@ public class CollectEarthWindow {
 			}
 		};
 	}
-	
+
 	private ActionListener getSaikuAnalysisActionListener() {
 		return new ActionListener() {
 
 			@Override
 			public void actionPerformed(ActionEvent e) {
 				try {
+
 					startWaiting();
 					exportDataToRDB(e);
+				}catch ( SaikuExecutionException e1) {
+
+					JOptionPane.showMessageDialog(  CollectEarthWindow.this.frame , "<html>" + Messages.getString("CollectEarthWindow.29") + "<br>" +Messages.getString("CollectEarthWindow.40") + "</html>", Messages.getString("CollectEarthWindow.47"), JOptionPane.INFORMATION_MESSAGE); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$ //$NON-NLS-4$ //$NON-NLS-5$ //$NON-NLS-6$
+
+					logger.warn("The saiku server is not configures", e1); //$NON-NLS-1$ 
 				} catch (Exception e1) {
 					logger.error("Error starting Saiku server", e1); //$NON-NLS-1$
 				} finally{
@@ -283,11 +303,11 @@ public class CollectEarthWindow {
 	private void startWaiting(){
 		getFrame().setCursor(java.awt.Cursor.getPredefinedCursor(java.awt.Cursor.WAIT_CURSOR));
 	}
-	
+
 	public JMenuBar getMenu(JFrame frame) {
 		// Where the GUI is created:
 		JMenuBar menuBar;
-		
+
 		JMenuItem menuItem;
 
 		// Create the menu bar.
@@ -305,22 +325,22 @@ public class CollectEarthWindow {
 		JMenu toolsMenu = new JMenu(Messages.getString("CollectEarthWindow.12")); //$NON-NLS-1$
 
 		addImportExportMenu(toolsMenu);
-		
+
 		menuItem = new JMenuItem(Messages.getString("CollectEarthWindow.14")); //$NON-NLS-1$
 		menuItem.addActionListener(getSaikuAnalysisActionListener());
 		toolsMenu.add(menuItem);
-		
+
 		toolsMenu.addSeparator();
-		
+
 		menuItem = new JMenuItem(Messages.getString("CollectEarthWindow.15")); //$NON-NLS-1$
 		menuItem.addActionListener(getPropertiesAction(frame));
 		toolsMenu.add(menuItem);
-		
+
 		JMenu languageMenu = getLanguageMenu();
 		toolsMenu.add( languageMenu );
-				
+
 		menuBar.add(toolsMenu);
-		
+
 		// Build help menu in the menu bar.
 		JMenu menuHelp = new JMenu(Messages.getString("CollectEarthWindow.16")); //$NON-NLS-1$
 
@@ -328,58 +348,58 @@ public class CollectEarthWindow {
 		menuItem.addActionListener(getDisclaimerAction(frame));
 		menuHelp.add(menuItem);
 		menuBar.add(menuHelp);
-		
+
 
 
 		return menuBar;
 	}
 
 	private void addImportExportMenu(JMenu menu) {
-		
+
 		JMenu ieSubmenu = new JMenu(Messages.getString("CollectEarthWindow.44")); //$NON-NLS-1$
 		JMenuItem menuItem;
 		menuItem = new JMenuItem(Messages.getString("CollectEarthWindow.13")); //$NON-NLS-1$
 		menuItem.addActionListener(getExportActionListener(DataFormat.CSV));
 		ieSubmenu.add(menuItem);
-		
+
 		menuItem = new JMenuItem(Messages.getString("CollectEarthWindow.45")); //$NON-NLS-1$
 		menuItem.addActionListener(getExportActionListener(DataFormat.ZIP_WITH_XML));
 		ieSubmenu.add(menuItem);
-						
+
 		menuItem = new JMenuItem(Messages.getString("CollectEarthWindow.6")); //$NON-NLS-1$
 		menuItem.addActionListener(getExportActionListener(DataFormat.FUSION));
 		ieSubmenu.add(menuItem);
-		
+
 		ieSubmenu.addSeparator();
-		
+
 		menuItem = new JMenuItem(Messages.getString("CollectEarthWindow.46")); //$NON-NLS-1$
 		menuItem.addActionListener(getImportActionListener(DataFormat.ZIP_WITH_XML));
 		ieSubmenu.add(menuItem);
-		
+
 		menu.add( ieSubmenu );
 	}
 
 	private JMenu getLanguageMenu() {
-		
-		 ActionListener actionLanguage = new ActionListener() {
-		      public void actionPerformed(ActionEvent e) {
-		        try {
-		        	String langName = ( (JRadioButtonMenuItem)e.getSource() ).getName();
-		        	UI_LANGUAGE language = UI_LANGUAGE.valueOf( langName );
+
+		ActionListener actionLanguage = new ActionListener() {
+			public void actionPerformed(ActionEvent e) {
+				try {
+					String langName = ( (JRadioButtonMenuItem)e.getSource() ).getName();
+					UI_LANGUAGE language = UI_LANGUAGE.valueOf( langName );
 					localPropertiesService.setUiLanguage( language);
-		        	frame.dispose();
-		        	openWindow();
-		        } catch (Exception ex) {
-		          ex.printStackTrace();
-		        }
-		      }
-		    };
-		    
+					frame.dispose();
+					openWindow();
+				} catch (Exception ex) {
+					ex.printStackTrace();
+				}
+			}
+		};
+
 		JMenu menuLanguage = new JMenu(Messages.getString("CollectEarthWindow.2")); //$NON-NLS-1$
-		
+
 		ButtonGroup group = new ButtonGroup();
 		UI_LANGUAGE[] languages = UI_LANGUAGE.values();
-		
+
 		for (UI_LANGUAGE language : languages) {
 			JRadioButtonMenuItem langItem = new JRadioButtonMenuItem( language.getLabel() ); //$NON-NLS-1$
 			langItem.setName( language.name() );
@@ -389,19 +409,19 @@ public class CollectEarthWindow {
 			if( localPropertiesService.getUiLanguage().equals( language ) ){
 				langItem.setSelected(true);
 			}
-			
+
 		}
-		
+
 		return menuLanguage;
 	}
 
 	private ActionListener getPropertiesAction(final JFrame owner) {
-		
+
 		return new ActionListener() {
 
 			@Override
 			public void actionPerformed(ActionEvent e) {
-				final JDialog dialog = new OptionWizard(owner, localPropertiesService, backupFolder);
+				final JDialog dialog = new OptionWizard(owner, localPropertiesService, backupFolder, saikuService);
 				dialog.setVisible(true);
 				dialog.pack();
 			}
@@ -419,7 +439,7 @@ public class CollectEarthWindow {
 
 		// Initialize the translations
 		Messages.setLocale(localPropertiesService.getUiLanguage().getLocale());
-		
+
 		// Create and set up the window.
 		setFrame(new JFrame(Messages.getString("CollectEarthWindow.19"))); //$NON-NLS-1$
 		// frame.setSize(400, 300);
@@ -552,11 +572,11 @@ public class CollectEarthWindow {
 	}
 
 	private File[] getFileChooserResults(final DataFormat dataFormat, boolean isSaveDlg, boolean multipleSelect) {
-		
+
 		JFileChooser fc ;
-		
-		
-		
+
+
+
 		String lastUsedFolder = localPropertiesService.getValue( EarthProperty.LAST_USED_FOLDER );
 		if( !StringUtils.isBlank( lastUsedFolder ) ){
 			File lastFolder = new File( lastUsedFolder );
@@ -565,13 +585,13 @@ public class CollectEarthWindow {
 			}else{
 				fc= new JFileChooser( );
 			}
-			
+
 		}else{
 			fc = new JFileChooser();
 		}
-		
+
 		fc.setMultiSelectionEnabled( multipleSelect );
-		
+
 		File[] selectedFiles = null;
 		fc.addChoosableFileFilter(new FileFilter() {
 
@@ -608,11 +628,11 @@ public class CollectEarthWindow {
 		}else{
 			returnVal = fc.showOpenDialog(getFrame());
 		}
-		
-		
+
+
 
 		if ( returnVal == JFileChooser.APPROVE_OPTION) {
-			
+
 			if( isSaveDlg ){
 				selectedFiles = new File[]{ fc.getSelectedFile() };
 				String file_name = selectedFiles[0].getAbsolutePath();
@@ -626,7 +646,7 @@ public class CollectEarthWindow {
 			}else{
 				selectedFiles = fc.getSelectedFiles();
 			}
-			
+
 			localPropertiesService.setValue(EarthProperty.LAST_USED_FOLDER, selectedFiles[0].getParent());
 
 
@@ -635,7 +655,7 @@ public class CollectEarthWindow {
 		}
 		return selectedFiles;
 	}
-	
+
 	void setFrame(JFrame frame) {
 		this.frame = frame;
 	}

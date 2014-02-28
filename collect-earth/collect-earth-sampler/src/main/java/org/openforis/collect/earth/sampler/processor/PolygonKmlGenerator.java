@@ -8,7 +8,6 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-import org.openforis.collect.earth.sampler.model.AspectCode;
 import org.openforis.collect.earth.sampler.model.SimpleCoordinate;
 import org.openforis.collect.earth.sampler.model.SimplePlacemarkObject;
 import org.opengis.referencing.operation.TransformException;
@@ -68,10 +67,10 @@ public abstract class PolygonKmlGenerator extends KmlGenerator {
 		String[] csvRow;
 
 		CSVReader reader = null;
-		List<SimplePlacemarkObject> placemarks = null;
+		List<SimplePlacemarkObject> placemarks = new ArrayList<SimplePlacemarkObject>();
 		try {
 			reader = getCsvReader(csvFile);
-			placemarks = new ArrayList<SimplePlacemarkObject>();
+			
 			while ((csvRow = reader.readNext()) != null) {
 				try {
 
