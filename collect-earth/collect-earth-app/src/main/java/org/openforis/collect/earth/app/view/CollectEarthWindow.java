@@ -14,7 +14,10 @@ import java.awt.event.WindowEvent;
 import java.io.File;
 import java.io.IOException;
 import java.net.MalformedURLException;
+import java.text.DateFormat;
+import java.text.SimpleDateFormat;
 import java.util.ArrayList;
+import java.util.Date;
 import java.util.List;
 
 import javax.swing.BorderFactory;
@@ -46,6 +49,7 @@ import org.openforis.collect.earth.app.desktop.ServerController;
 import org.openforis.collect.earth.app.service.AnalysisSaikuService;
 import org.openforis.collect.earth.app.service.BackupService;
 import org.openforis.collect.earth.app.service.DataImportExportService;
+import org.openforis.collect.earth.app.service.EarthSurveyService;
 import org.openforis.collect.earth.app.service.LocalPropertiesService;
 import org.openforis.collect.earth.app.service.LocalPropertiesService.EarthProperty;
 import org.openforis.collect.earth.app.service.SaikuExecutionException;
@@ -67,8 +71,11 @@ public class CollectEarthWindow {
 	private final ServerController serverController;
 	public static final Color ERROR_COLOR = new Color(225, 124, 124);
 	private AnalysisSaikuService saikuService;
+	private EarthSurveyService earthSurveyService;
 	private String backupFolder;
+	private JMenuItem exportModifiedRecords;
 	private enum DataFormat{ZIP_WITH_XML,CSV,FUSION};
+	 
 
 
 
@@ -80,10 +87,25 @@ public class CollectEarthWindow {
 		final BackupService backupService = serverController.getContext().getBean(BackupService.class);
 		this.backupFolder = backupService.getBackUpFolder().getAbsolutePath();
 		this.saikuService = serverController.getContext().getBean( AnalysisSaikuService.class );
+		this.earthSurveyService = serverController.getContext().getBean( EarthSurveyService.class );
 	}
 
-	private void exportDataTo(ActionEvent e, DataFormat exportType) {
-		File[] exportToFile = getFileChooserResults( exportType, true, false);
+	private void exportDataTo(ActionEvent e, DataFormat exportType, boolean onlyLastModifiedRecords) {
+		
+		
+		Date recordsModifiedSince = null;
+		if( onlyLastModifiedRecords ){
+			String surveyName = "";
+			if( earthSurveyService.getCollectSurvey()!= null ){
+				surveyName = earthSurveyService.getCollectSurvey().getName();
+			}
+			recordsModifiedSince = localPropertiesService.getLastExportedDate( surveyName );
+		}
+			
+		String preselectedName = getPreselectedName(exportType, recordsModifiedSince);
+		
+		File[] exportToFile = getFileChooserResults( exportType, true, false, preselectedName);
+		
 		if (exportToFile != null && exportToFile.length > 0) {
 
 			try {
@@ -92,11 +114,19 @@ public class CollectEarthWindow {
 					dataExportService.exportSurveyAsCsv(exportToFile[0]);
 					break;
 				case ZIP_WITH_XML:
-					dataExportService.exportSurveyAsZipWithXml(exportToFile[0]);
+					dataExportService.exportSurveyAsZipWithXml(exportToFile[0], recordsModifiedSince);
 					break;
 				case FUSION:
 					dataExportService.exportSurveyAsFusionTable(exportToFile[0]);
 					break;
+				}
+				
+				if( exportType.equals( DataFormat.ZIP_WITH_XML ) && onlyLastModifiedRecords ){
+					String surveyName = "";
+					if( earthSurveyService.getCollectSurvey()!= null ){
+						surveyName = earthSurveyService.getCollectSurvey().getName();
+					}
+					localPropertiesService.setLastExportedDate( surveyName );
 				}
 
 			} catch (Exception e1) {
@@ -107,8 +137,31 @@ public class CollectEarthWindow {
 		}
 	}
 
+	private String getPreselectedName(DataFormat exportType, Date modifiedSince) {
+		String preselectName = "collectDataExport";
+		if( modifiedSince == null ){
+			preselectName += "_FULL";
+		}else{
+			DateFormat dateFormat = new SimpleDateFormat("dd_MM_yyyy_HHmmss");
+			preselectName += "_" + dateFormat.format(modifiedSince);
+		}
+		
+		switch (exportType) {
+			case CSV:
+				preselectName += ".csv";
+				break;
+			case ZIP_WITH_XML:
+				preselectName += ".zip";
+				break;
+			case FUSION:
+				preselectName += ".csv";
+				break;
+		}
+		return preselectName;
+	}
+
 	private void importDataFrom(ActionEvent e, DataFormat importType) {
-		File[] filesToImport = getFileChooserResults( importType, false, true );
+		File[] filesToImport = getFileChooserResults( importType, false, true, null );
 		if (filesToImport != null) {
 
 			switch (importType) {
@@ -238,14 +291,17 @@ public class CollectEarthWindow {
 		}
 	}
 
-	private ActionListener getExportActionListener( final DataFormat exportFormat ) {
+	private ActionListener getExportActionListener( final DataFormat exportFormat, final boolean onlyLastModifiedRecords ) {
 		return new ActionListener() {
 
 			@Override
 			public void actionPerformed(ActionEvent e) {
+				
+				
 				try{
 					startWaiting();
-					exportDataTo(e, exportFormat );
+					
+					exportDataTo(e, exportFormat, onlyLastModifiedRecords  );
 				}finally{
 					endWaiting();
 				}
@@ -359,15 +415,19 @@ public class CollectEarthWindow {
 		JMenu ieSubmenu = new JMenu(Messages.getString("CollectEarthWindow.44")); //$NON-NLS-1$
 		JMenuItem menuItem;
 		menuItem = new JMenuItem(Messages.getString("CollectEarthWindow.13")); //$NON-NLS-1$
-		menuItem.addActionListener(getExportActionListener(DataFormat.CSV));
+		menuItem.addActionListener(getExportActionListener(DataFormat.CSV, false));
 		ieSubmenu.add(menuItem);
 
 		menuItem = new JMenuItem(Messages.getString("CollectEarthWindow.45")); //$NON-NLS-1$
-		menuItem.addActionListener(getExportActionListener(DataFormat.ZIP_WITH_XML));
+		menuItem.addActionListener(getExportActionListener(DataFormat.ZIP_WITH_XML, false));
 		ieSubmenu.add(menuItem);
+		
+		exportModifiedRecords = menuItem = new JMenuItem("Export to XML (only added/modified files)");
+		exportModifiedRecords.addActionListener(getExportActionListener(DataFormat.ZIP_WITH_XML, true ) );
+		ieSubmenu.add(exportModifiedRecords);
 
 		menuItem = new JMenuItem(Messages.getString("CollectEarthWindow.6")); //$NON-NLS-1$
-		menuItem.addActionListener(getExportActionListener(DataFormat.FUSION));
+		menuItem.addActionListener(getExportActionListener(DataFormat.FUSION, false));
 		ieSubmenu.add(menuItem);
 
 		ieSubmenu.addSeparator();
@@ -378,6 +438,7 @@ public class CollectEarthWindow {
 
 		menu.add( ieSubmenu );
 	}
+
 
 	private JMenu getLanguageMenu() {
 
@@ -515,20 +576,14 @@ public class CollectEarthWindow {
 		pane.add(updateOperator, c);
 
 		c.gridx = 0;
-		c.gridy = 1;
+		c.gridy++;
 		c.gridwidth = GridBagConstraints.REMAINDER;
 		pane.add(new JLabel(Messages.getString("CollectEarthWindow.28") + "<br>" //$NON-NLS-1$ //$NON-NLS-2$
 				+ Messages.getString("CollectEarthWindow.30")), c); //$NON-NLS-1$
 
-		c.gridx = 0;
-		c.gridy = 2;
-		c.gridwidth = GridBagConstraints.REMAINDER;
-		JButton exportButton = new JButton(Messages.getString("CollectEarthWindow.31")); //$NON-NLS-1$
-		exportButton.addActionListener(getExportActionListener(DataFormat.CSV));
-		pane.add(exportButton, c);
 
 		c.gridx = 0;
-		c.gridy = 3;
+		c.gridy++;
 		c.gridwidth = GridBagConstraints.REMAINDER;
 		c.fill = GridBagConstraints.NONE;
 		JButton closeButton = new JButton(Messages.getString("CollectEarthWindow.32")); //$NON-NLS-1$
@@ -571,25 +626,28 @@ public class CollectEarthWindow {
 
 	}
 
-	private File[] getFileChooserResults(final DataFormat dataFormat, boolean isSaveDlg, boolean multipleSelect) {
+	private File[] getFileChooserResults(final DataFormat dataFormat, boolean isSaveDlg, boolean multipleSelect, String preselectedName) {
 
 		JFileChooser fc ;
-
-
 
 		String lastUsedFolder = localPropertiesService.getValue( EarthProperty.LAST_USED_FOLDER );
 		if( !StringUtils.isBlank( lastUsedFolder ) ){
 			File lastFolder = new File( lastUsedFolder );
 			if(lastFolder.exists() ){
-				fc= new JFileChooser( lastFolder );
+				fc= new JFileChooserExistsAware( lastFolder );
 			}else{
-				fc= new JFileChooser( );
+				fc= new JFileChooserExistsAware( );
 			}
 
 		}else{
-			fc = new JFileChooser();
+			fc = new JFileChooserExistsAware();
 		}
 
+		if( preselectedName != null ){
+			File selectedFile = new File( fc.getCurrentDirectory().getAbsolutePath() + File.separatorChar + preselectedName );
+			fc.setSelectedFile( selectedFile );
+		}
+		
 		fc.setMultiSelectionEnabled( multipleSelect );
 
 		File[] selectedFiles = null;
@@ -621,15 +679,12 @@ public class CollectEarthWindow {
 		fc.setAcceptAllFileFilterUsed(true);
 
 		// Handle open button action.
-
 		int returnVal ;
 		if( isSaveDlg ){
 			returnVal = fc.showSaveDialog(getFrame());
 		}else{
 			returnVal = fc.showOpenDialog(getFrame());
 		}
-
-
 
 		if ( returnVal == JFileChooser.APPROVE_OPTION) {
 

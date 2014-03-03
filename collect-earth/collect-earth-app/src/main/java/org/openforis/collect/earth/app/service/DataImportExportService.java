@@ -2,6 +2,7 @@ package org.openforis.collect.earth.app.service;
 
 import java.io.File;
 import java.util.ArrayList;
+import java.util.Date;
 import java.util.List;
 
 import org.openforis.collect.earth.app.EarthConstants;
@@ -45,11 +46,12 @@ public class DataImportExportService {
 	private ApplicationContext applicationContext;
 	
 
-	public void exportSurveyAsZipWithXml(File exportToFile) throws  Exception {	
+	public void exportSurveyAsZipWithXml(File exportToFile, Date modifiedSince) throws  Exception {	
 		XMLDataExportProcess xmlDataExportProcess = applicationContext.getBean( XMLDataExportProcess.class );
 		xmlDataExportProcess.setOutputFile(exportToFile);
 		xmlDataExportProcess.setRootEntityName(EarthConstants.ROOT_ENTITY_NAME);
 		xmlDataExportProcess.setSurvey(earthSurveyService.getCollectSurvey());
+		xmlDataExportProcess.setModifiedSince(modifiedSince);
 		xmlDataExportProcess.setIncludeIdm(true);
 		xmlDataExportProcess.setSteps(new Step[]{Step.ENTRY});
 		xmlDataExportProcess.startProcessing();
