@@ -35,7 +35,7 @@ import org.slf4j.LoggerFactory;
 
 import au.com.bytecode.opencsv.CSVReader;
 
-public final class UnfilledPlotsListener implements ActionListener {
+public final class MissingPlotsListener implements ActionListener {
 
 	private LocalPropertiesService localPropertiesService;
 
@@ -50,7 +50,7 @@ public final class UnfilledPlotsListener implements ActionListener {
 	private boolean stopFix = false;
 	
 	
-	public UnfilledPlotsListener(RecordManager recordManager, EarthSurveyService earthSurveyService, JFrame frame, LocalPropertiesService localPropertiesService ) {
+	public MissingPlotsListener(RecordManager recordManager, EarthSurveyService earthSurveyService, JFrame frame, LocalPropertiesService localPropertiesService ) {
 		this.recordManager = recordManager;
 		this.earthSurveyService = earthSurveyService;
 		this.frame = frame;
@@ -62,41 +62,7 @@ public final class UnfilledPlotsListener implements ActionListener {
 		
 		try {
 			CollectEarthWindow.startWaiting(frame);
-			final File[] selectedPlotFiles = JFileChooserExistsAware.getFileChooserResults(DataFormat.COLLECT_COORDS, false, true, null,
-					localPropertiesService, frame);
-			final Map<String, List<String>> plotIdsByFile = getPlotIdsByFile(selectedPlotFiles);
-			Map<String, List<String>> missingPlotIds = getMissingPlotIds(plotIdsByFile);
-
-			String missingPlotsText = getTextMissingPlots( missingPlotIds );
-
-			final JDialog dialog = new JDialog(frame, "Unfilled plots");
-			dialog.setLocationRelativeTo(frame);
-			dialog.setSize(new Dimension(300, 400));
-			dialog.setModal(false);
-
-			final BorderLayout layoutManager = new BorderLayout();
-
-			final JPanel panel = new JPanel(layoutManager);
-
-			dialog.add(panel);
-
-			JTextArea disclaimerTextArea = new JTextArea( missingPlotsText );
-			disclaimerTextArea.setEditable(false);
-			disclaimerTextArea.setLineWrap(true);
-			disclaimerTextArea.setWrapStyleWord(true);
-			final JScrollPane scrollPane = new JScrollPane(disclaimerTextArea);
-			panel.add(scrollPane, BorderLayout.CENTER);
-			scrollPane.setPreferredSize(new Dimension(250, 250));
-
-			final JButton close = new JButton(Messages.getString("CollectEarthWindow.5")); //$NON-NLS-1$
-			close.addActionListener(new ActionListener() {
-
-				@Override
-				public void actionPerformed(ActionEvent e) {
-					dialog.setVisible(false);
-				}
-			});
-			panel.add(close, BorderLayout.SOUTH);
+			final JDialog dialog = findMissingPlots();
 			
 			dialog.setVisible(true);
 		} catch (Exception e1) {
@@ -106,6 +72,45 @@ public final class UnfilledPlotsListener implements ActionListener {
 		}
 		
 
+	}
+
+	private JDialog findMissingPlots() {
+		final File[] selectedPlotFiles = JFileChooserExistsAware.getFileChooserResults(DataFormat.COLLECT_COORDS, false, true, null,
+				localPropertiesService, frame);
+		final Map<String, List<String>> plotIdsByFile = getPlotIdsByFile(selectedPlotFiles);
+		Map<String, List<String>> missingPlotIds = getMissingPlotIds(plotIdsByFile);
+
+		String missingPlotsText = getTextMissingPlots( missingPlotIds );
+
+		final JDialog dialog = new JDialog(frame, "Unfilled plots");
+		dialog.setLocationRelativeTo(frame);
+		dialog.setSize(new Dimension(300, 400));
+		dialog.setModal(false);
+
+		final BorderLayout layoutManager = new BorderLayout();
+
+		final JPanel panel = new JPanel(layoutManager);
+
+		dialog.add(panel);
+
+		JTextArea disclaimerTextArea = new JTextArea( missingPlotsText );
+		disclaimerTextArea.setEditable(false);
+		disclaimerTextArea.setLineWrap(true);
+		disclaimerTextArea.setWrapStyleWord(true);
+		final JScrollPane scrollPane = new JScrollPane(disclaimerTextArea);
+		panel.add(scrollPane, BorderLayout.CENTER);
+		scrollPane.setPreferredSize(new Dimension(250, 250));
+
+		final JButton close = new JButton(Messages.getString("CollectEarthWindow.5")); //$NON-NLS-1$
+		close.addActionListener(new ActionListener() {
+
+			@Override
+			public void actionPerformed(ActionEvent e) {
+				dialog.setVisible(false);
+			}
+		});
+		panel.add(close, BorderLayout.SOUTH);
+		return dialog;
 	}
 
 	private String getTextMissingPlots(Map<String, List<String>> missingPlotIds) {

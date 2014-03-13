@@ -288,7 +288,7 @@ public class CollectEarthWindow {
 		toolsMenu.add(menuItem);
 
 		menuItem = new JMenuItem("Find Unfilled Plot IDs"); //$NON-NLS-1$
-		menuItem.addActionListener(new UnfilledPlotsListener(recordManager, earthSurveyService, frame, localPropertiesService));
+		menuItem.addActionListener(new MissingPlotsListener(recordManager, earthSurveyService, frame, localPropertiesService));
 		toolsMenu.add(menuItem);
 
 
