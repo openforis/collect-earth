@@ -10,7 +10,6 @@ import org.openforis.idm.model.DateAttribute;
 import org.openforis.idm.model.Entity;
 import org.openforis.idm.model.EntityBuilder;
 import org.openforis.idm.model.Node;
-import org.openforis.idm.model.Value;
 import org.springframework.stereotype.Component;
 
 /**
@@ -18,7 +17,7 @@ import org.springframework.stereotype.Component;
  *
  */
 @Component
-public class DateAttributeHandler extends AbstractAttributeHandler<Value> {
+public class DateAttributeHandler extends AbstractAttributeHandler<Date> {
 
 	private static final String PREFIX = "date_";
 
@@ -48,7 +47,7 @@ public class DateAttributeHandler extends AbstractAttributeHandler<Value> {
 	}
 
 	@Override
-	public Value getAttributeValue(String parameterValue) {
+	public Date getAttributeValue(String parameterValue) {
 		return getDate(parameterValue);
 	}
 

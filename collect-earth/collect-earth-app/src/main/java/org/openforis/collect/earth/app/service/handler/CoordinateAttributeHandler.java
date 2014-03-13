@@ -5,7 +5,6 @@ import org.openforis.idm.model.CoordinateAttribute;
 import org.openforis.idm.model.Entity;
 import org.openforis.idm.model.EntityBuilder;
 import org.openforis.idm.model.Node;
-import org.openforis.idm.model.Value;
 import org.springframework.stereotype.Component;
 
 /**
@@ -13,7 +12,7 @@ import org.springframework.stereotype.Component;
  *
  */
 @Component
-public class CoordinateAttributeHandler extends AbstractAttributeHandler<Value> {
+public class CoordinateAttributeHandler extends AbstractAttributeHandler<Coordinate> {
 
 	private static final String GOOGLE_EARTH_SRS = "EPSG:4326";
 	private static final String PREFIX = "coord_";
@@ -28,6 +27,11 @@ public class CoordinateAttributeHandler extends AbstractAttributeHandler<Value> 
 		EntityBuilder.addValue(entity, removePrefix(parameterName), coord);
 	}
 
+	/**
+	 * Expects the coordinate as a String "latitude,longitude" 
+	 * @param parameterValue
+	 * @return
+	 */
 	private Coordinate extractCoordinate(String parameterValue) {
 		String[] coordinatesCSV = parameterValue.split(",");
 		String srs = GOOGLE_EARTH_SRS;
@@ -55,14 +59,27 @@ public class CoordinateAttributeHandler extends AbstractAttributeHandler<Value> 
 		return coord;
 	}
 
+	/*
+	 * Returns the  coordinate as a latitude,longitude String
+	 *  (non-Javadoc)
+	 * @see org.openforis.collect.earth.app.service.handler.AbstractAttributeHandler#getAttributeFromParameter(java.lang.String, org.openforis.idm.model.Entity, int)
+	 */
 	@Override
 	public String getAttributeFromParameter(String parameterName, Entity entity, int index) {
-		return ((CoordinateAttribute) entity.get(removePrefix(parameterName), index)).getValue().getX() + ","
-				+ ((CoordinateAttribute) entity.get(removePrefix(parameterName), index)).getValue().getY();
+		StringBuilder stringBuilder = new StringBuilder();
+		Coordinate value = ((CoordinateAttribute) entity.get(removePrefix(parameterName), index)).getValue();
+		Double longitude = value.getX();
+		Double latitude = value.getY();
+		
+		stringBuilder.append(latitude);
+		stringBuilder.append(",");
+		stringBuilder.append(longitude);
+		
+		return stringBuilder.toString();
 	}
 
 	@Override
-	public Value getAttributeValue(String parameterValue) {
+	public Coordinate getAttributeValue(String parameterValue) {
 		return extractCoordinate(parameterValue);
 	}
 

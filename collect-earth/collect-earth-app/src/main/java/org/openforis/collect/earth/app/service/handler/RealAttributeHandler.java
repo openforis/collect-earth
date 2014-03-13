@@ -5,7 +5,6 @@ import org.openforis.idm.model.EntityBuilder;
 import org.openforis.idm.model.Node;
 import org.openforis.idm.model.RealAttribute;
 import org.openforis.idm.model.RealValue;
-import org.openforis.idm.model.Value;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
@@ -15,7 +14,7 @@ import org.springframework.stereotype.Component;
  *
  */
 @Component
-public class RealAttributeHandler extends AbstractAttributeHandler<Value> {
+public class RealAttributeHandler extends AbstractAttributeHandler<RealValue> {
 
 	private static final String PREFIX = "real_";
 	private Logger logger = LoggerFactory.getLogger(IntegerAttributeHandler.class);
@@ -40,7 +39,7 @@ public class RealAttributeHandler extends AbstractAttributeHandler<Value> {
 	}
 
 	@Override
-	public Value getAttributeValue(String parameterValue) {
+	public RealValue getAttributeValue(String parameterValue) {
 		return new RealValue(Double.parseDouble(parameterValue), null);
 	}
 

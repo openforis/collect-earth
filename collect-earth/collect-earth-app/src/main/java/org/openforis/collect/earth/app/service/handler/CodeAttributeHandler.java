@@ -5,7 +5,6 @@ import org.openforis.idm.model.CodeAttribute;
 import org.openforis.idm.model.Entity;
 import org.openforis.idm.model.EntityBuilder;
 import org.openforis.idm.model.Node;
-import org.openforis.idm.model.Value;
 import org.springframework.stereotype.Component;
 
 /**
@@ -13,7 +12,7 @@ import org.springframework.stereotype.Component;
  *
  */
 @Component
-public class CodeAttributeHandler extends AbstractAttributeHandler<Value> {
+public class CodeAttributeHandler extends AbstractAttributeHandler<Code> {
 
 	private static final String PREFIX = "code_";
 
@@ -32,7 +31,7 @@ public class CodeAttributeHandler extends AbstractAttributeHandler<Value> {
 	}
 
 	@Override
-	public Value getAttributeValue(String parameterValue) {
+	public Code getAttributeValue(String parameterValue) {
 		return new Code(parameterValue);
 	}
 

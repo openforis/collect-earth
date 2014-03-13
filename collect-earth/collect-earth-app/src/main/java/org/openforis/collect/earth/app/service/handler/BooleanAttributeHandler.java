@@ -5,7 +5,6 @@ import org.openforis.idm.model.BooleanValue;
 import org.openforis.idm.model.Entity;
 import org.openforis.idm.model.EntityBuilder;
 import org.openforis.idm.model.Node;
-import org.openforis.idm.model.Value;
 import org.springframework.stereotype.Component;
 
 /**
@@ -13,7 +12,7 @@ import org.springframework.stereotype.Component;
  *
  */
 @Component
-public class BooleanAttributeHandler extends AbstractAttributeHandler<Value> {
+public class BooleanAttributeHandler extends AbstractAttributeHandler<BooleanValue> {
 
 	private static final String PREFIX = "boolean_";
 
@@ -33,7 +32,7 @@ public class BooleanAttributeHandler extends AbstractAttributeHandler<Value> {
 	}
 
 	@Override
-	public Value getAttributeValue(String parameterValue) {
+	public BooleanValue getAttributeValue(String parameterValue) {
 		return new BooleanValue(parameterValue);
 	}
 

@@ -5,7 +5,6 @@ import org.openforis.idm.model.EntityBuilder;
 import org.openforis.idm.model.Node;
 import org.openforis.idm.model.TextAttribute;
 import org.openforis.idm.model.TextValue;
-import org.openforis.idm.model.Value;
 import org.springframework.stereotype.Component;
 
 /**
@@ -13,7 +12,7 @@ import org.springframework.stereotype.Component;
  *
  */
 @Component
-public class TextAttributeHandler extends AbstractAttributeHandler<Value> {
+public class TextAttributeHandler extends AbstractAttributeHandler<TextValue> {
 
 	private static final String PREFIX = "text_";
 
@@ -32,7 +31,7 @@ public class TextAttributeHandler extends AbstractAttributeHandler<Value> {
 	}
 
 	@Override
-	public Value getAttributeValue(String parameterValue) {
+	public TextValue getAttributeValue(String parameterValue) {
 		return new TextValue(parameterValue);
 	}
 

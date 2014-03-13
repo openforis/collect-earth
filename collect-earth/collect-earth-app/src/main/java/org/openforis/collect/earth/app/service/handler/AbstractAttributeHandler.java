@@ -26,10 +26,9 @@ public abstract class AbstractAttributeHandler<C> {
 
 		String cleanParameterName = removePrefix(parameterName);
 		Node<? extends NodeDefinition> node = entity.get(cleanParameterName, parameterChildIndex);
-		
-		// if (node instanceof Attribute) {
+
 		if (parameterValue.trim().length() > 0) {
-		if (node == null) {
+			if (node == null) {
 				addToEntity(parameterName, parameterValue, entity);
 			} else if (node instanceof Attribute) {
 				Attribute attribute = (Attribute) entity.get(cleanParameterName, parameterChildIndex);
@@ -70,7 +69,7 @@ public abstract class AbstractAttributeHandler<C> {
 	public void setPrefix(String prefix) {
 		this.prefix = prefix;
 	}
-	
+
 	public boolean isMultiValueAware(){
 		return false;
 	}
