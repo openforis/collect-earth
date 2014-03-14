@@ -2,8 +2,13 @@ package org.openforis.collect.earth.app.view;
 
 import java.awt.BorderLayout;
 import java.awt.Dimension;
+import java.awt.Toolkit;
+import java.awt.datatransfer.Clipboard;
+import java.awt.datatransfer.StringSelection;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
+import java.awt.event.MouseAdapter;
+import java.awt.event.MouseEvent;
 import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileInputStream;
@@ -17,10 +22,13 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
+import javax.swing.AbstractAction;
+import javax.swing.Action;
 import javax.swing.JButton;
 import javax.swing.JDialog;
 import javax.swing.JFrame;
 import javax.swing.JPanel;
+import javax.swing.JPopupMenu;
 import javax.swing.JScrollPane;
 import javax.swing.JTextArea;
 
@@ -40,7 +48,7 @@ public final class MissingPlotsListener implements ActionListener {
 	private LocalPropertiesService localPropertiesService;
 
 	private JFrame frame;
-	
+
 	private RecordManager recordManager;
 
 	private EarthSurveyService earthSurveyService;
@@ -48,8 +56,10 @@ public final class MissingPlotsListener implements ActionListener {
 	private final Logger logger = LoggerFactory.getLogger(FixCoordinates.class);
 
 	private boolean stopFix = false;
-	
-	
+
+	private JTextArea disclaimerTextArea;
+
+
 	public MissingPlotsListener(RecordManager recordManager, EarthSurveyService earthSurveyService, JFrame frame, LocalPropertiesService localPropertiesService ) {
 		this.recordManager = recordManager;
 		this.earthSurveyService = earthSurveyService;
@@ -59,18 +69,18 @@ public final class MissingPlotsListener implements ActionListener {
 
 	@Override
 	public void actionPerformed(ActionEvent e) {
-		
+
 		try {
 			CollectEarthWindow.startWaiting(frame);
 			final JDialog dialog = findMissingPlots();
-			
+
 			dialog.setVisible(true);
 		} catch (Exception e1) {
 			logger.error("Error while getting information about unfilled plot IDs");
 		} finally{
 			CollectEarthWindow.endWaiting(frame);
 		}
-		
+
 
 	}
 
@@ -93,7 +103,7 @@ public final class MissingPlotsListener implements ActionListener {
 
 		dialog.add(panel);
 
-		JTextArea disclaimerTextArea = new JTextArea( missingPlotsText );
+		disclaimerTextArea = new JTextArea( missingPlotsText );
 		disclaimerTextArea.setEditable(false);
 		disclaimerTextArea.setLineWrap(true);
 		disclaimerTextArea.setWrapStyleWord(true);
@@ -110,7 +120,40 @@ public final class MissingPlotsListener implements ActionListener {
 			}
 		});
 		panel.add(close, BorderLayout.SOUTH);
+
+		disclaimerTextArea.addMouseListener( new MouseAdapter() {
+			public void mousePressed(MouseEvent e)  {check(e);}
+			public void mouseReleased(MouseEvent e) {check(e);}
+
+			public void check(MouseEvent e) {
+				if (e.isPopupTrigger()) { //if the event shows the menu
+					getPopupMenu().show(disclaimerTextArea, e.getPoint().x, e.getPoint().y);
+				}
+			}
+		});
+
 		return dialog;
+	}
+
+	private JPopupMenu getPopupMenu(){
+		Action copyAction = new AbstractAction("Copy contents to clipboard") {
+
+			@Override
+			public void actionPerformed(ActionEvent e) {
+				disclaimerTextArea.selectAll();
+				String selection =disclaimerTextArea.getSelectedText();
+				Clipboard clipboard = Toolkit.getDefaultToolkit().getSystemClipboard();
+				if(selection==null){
+					return;
+				}
+				StringSelection clipString=new StringSelection(selection);
+				clipboard.setContents(clipString, clipString);
+			}
+		};
+
+		JPopupMenu popup = new JPopupMenu();
+		popup.add (copyAction);
+		return popup;
 	}
 
 	private String getTextMissingPlots(Map<String, List<String>> missingPlotIds) {
@@ -125,7 +168,7 @@ public final class MissingPlotsListener implements ActionListener {
 				missingPlots += plotId + ",";
 			}
 			missingPlots = missingPlots.substring(0, missingPlots.length() - 1 );
-			
+
 		}
 
 		return missingPlots;

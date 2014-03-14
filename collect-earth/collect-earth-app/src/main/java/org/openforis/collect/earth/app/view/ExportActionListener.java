@@ -112,7 +112,7 @@ public final class ExportActionListener implements ActionListener {
 			preselectName += "_" + dateFormat.format(modifiedSince) + "_to_" + dateFormat.format( new Date() ); //$NON-NLS-1$ //$NON-NLS-2$
 		}
 
-		preselectName += "." + exportType.getFileExtension(); //$NON-NLS-1$
+		preselectName += "." + exportType.getFileExtension()[0]; //$NON-NLS-1$
 
 		return preselectName;
 	}
