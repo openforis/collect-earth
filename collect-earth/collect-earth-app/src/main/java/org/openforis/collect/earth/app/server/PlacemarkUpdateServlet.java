@@ -55,10 +55,7 @@ public class PlacemarkUpdateServlet {
 
 	private String getKmlFromTemplate( Map<String, Object> data) throws IOException {
 
-		if (template == null) {
-			// Load template from source folder
-			template = cfg.getTemplate(KML_FOR_UPDATES);
-		}
+		intializeTemplate();
 		// Console output
 		final StringWriter fw = new StringWriter();
 		final Writer out = new BufferedWriter(fw);
@@ -75,6 +72,13 @@ public class PlacemarkUpdateServlet {
 
 		return fw.toString();
 
+	}
+
+	private void intializeTemplate() throws IOException {
+		if (template == null) {
+			// Load template from source folder
+			template = cfg.getTemplate(KML_FOR_UPDATES);
+		}
 	}
 
 	private String[] getPlacemarksId(List<CollectRecord> lastUpdatedRecord) {
@@ -103,21 +107,23 @@ public class PlacemarkUpdateServlet {
 	public void getUpdatePlacemark(HttpServletResponse response, @RequestParam(value = "lastUpdate", required = false) String lastUpdate) {
 
 		try {
+			
 			final SimpleDateFormat dateFormat = new SimpleDateFormat(EarthConstants.DATE_FORMAT_HTTP, Locale.ENGLISH );
 			Date lastUpdateDate = null;
 			if (lastUpdate != null && lastUpdate.length() > 0) {
 				lastUpdateDate = dateFormat.parse(lastUpdate);
 			}
-
+		
 			final List<CollectRecord> lastUpdatedRecord = earthSurveyService.getRecordsSavedSince(lastUpdateDate);
-
+			
 			final Map<String, Object> data = new HashMap<String, Object>();
-			data.put("host", KmlGenerator.getHostAddress(localPropertiesService.getHost(), localPropertiesService.getPort()));
+			data.put("host", KmlGenerator.getHostAddress(localPropertiesService.getHost(), localPropertiesService.getLocalPort()));
 			data.put("date", dateFormat.format(new Date()));
 			data.put("kmlGeneratedOn", localPropertiesService.getGeneratedOn());
 			data.put("placemark_ids", getPlacemarksId(lastUpdatedRecord));
-
+	
 			setKmlResponse(response, getKmlFromTemplate(data), dateFormat);
+			
 		} catch (final ParseException e) {
 			logger.error("Error in the lastUpdate date format : " + lastUpdate, e);
 		} catch (final IOException e) {

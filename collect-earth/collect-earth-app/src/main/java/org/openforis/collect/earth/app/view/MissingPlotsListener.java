@@ -27,6 +27,7 @@ import javax.swing.Action;
 import javax.swing.JButton;
 import javax.swing.JDialog;
 import javax.swing.JFrame;
+import javax.swing.JOptionPane;
 import javax.swing.JPanel;
 import javax.swing.JPopupMenu;
 import javax.swing.JScrollPane;
@@ -38,6 +39,8 @@ import org.openforis.collect.earth.app.service.EarthSurveyService;
 import org.openforis.collect.earth.app.service.LocalPropertiesService;
 import org.openforis.collect.manager.RecordManager;
 import org.openforis.collect.model.CollectRecord;
+import org.openforis.collect.model.CollectRecord.Step;
+import org.openforis.idm.model.BooleanAttribute;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -76,7 +79,7 @@ public final class MissingPlotsListener implements ActionListener {
 
 			dialog.setVisible(true);
 		} catch (Exception e1) {
-			logger.error("Error while getting information about unfilled plot IDs");
+			logger.error(Messages.getString("MissingPlotsListener.0")); //$NON-NLS-1$
 		} finally{
 			CollectEarthWindow.endWaiting(frame);
 		}
@@ -85,14 +88,28 @@ public final class MissingPlotsListener implements ActionListener {
 	}
 
 	private JDialog findMissingPlots() {
+
+		JOptionPane.showMessageDialog( frame,
+				Messages.getString("MissingPlotsListener.3"),  //$NON-NLS-1$
+				Messages.getString("MissingPlotsListener.4"),  //$NON-NLS-1$
+				JOptionPane.INFORMATION_MESSAGE
+				);
+
 		final File[] selectedPlotFiles = JFileChooserExistsAware.getFileChooserResults(DataFormat.COLLECT_COORDS, false, true, null,
 				localPropertiesService, frame);
+		long start = System.currentTimeMillis();
 		final Map<String, List<String>> plotIdsByFile = getPlotIdsByFile(selectedPlotFiles);
+		System.out.println("Finised getting all IDs " + ( start - System.currentTimeMillis() ) );
+		start = System.currentTimeMillis();
+
 		Map<String, List<String>> missingPlotIds = getMissingPlotIds(plotIdsByFile);
+
+		System.out.println("Finised getting missing IDs " + ( start - System.currentTimeMillis() ) );
+		start = System.currentTimeMillis();
 
 		String missingPlotsText = getTextMissingPlots( missingPlotIds );
 
-		final JDialog dialog = new JDialog(frame, "Unfilled plots");
+		final JDialog dialog = new JDialog(frame, Messages.getString("MissingPlotsListener.1")); //$NON-NLS-1$
 		dialog.setLocationRelativeTo(frame);
 		dialog.setSize(new Dimension(300, 400));
 		dialog.setModal(false);
@@ -136,7 +153,9 @@ public final class MissingPlotsListener implements ActionListener {
 	}
 
 	private JPopupMenu getPopupMenu(){
-		Action copyAction = new AbstractAction("Copy contents to clipboard") {
+		Action copyAction = new AbstractAction(Messages.getString("MissingPlotsListener.2")) { //$NON-NLS-1$
+
+			private static final long serialVersionUID = 1L;
 
 			@Override
 			public void actionPerformed(ActionEvent e) {
@@ -157,16 +176,21 @@ public final class MissingPlotsListener implements ActionListener {
 	}
 
 	private String getTextMissingPlots(Map<String, List<String>> missingPlotIds) {
-		String missingPlots = "";
+		String missingPlots = ""; //$NON-NLS-1$
 
 		Set<String> files = missingPlotIds.keySet();
 		for (String file : files) {
 
-			missingPlots += "\n" + "From file : " + file + " : \n";
+			missingPlots += "\n" + Messages.getString("MissingPlotsListener.5") + file + " : \n"; //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$
 			List<String> plotIds = missingPlotIds.get(file);
-			for (String plotId : plotIds) {
-				missingPlots += plotId + ",";
+			if( plotIds.size() == 0 ){
+				missingPlots += "COMPLETE";
 			}
+			
+			for (String plotId : plotIds) {
+				missingPlots += plotId + ","; //$NON-NLS-1$
+			}
+			
 			missingPlots = missingPlots.substring(0, missingPlots.length() - 1 );
 
 		}
@@ -177,7 +201,7 @@ public final class MissingPlotsListener implements ActionListener {
 
 	private CSVReader getCsvReader(String csvFile) throws FileNotFoundException {
 		CSVReader reader;
-		final BufferedReader bufferedReader = new BufferedReader(new InputStreamReader(new FileInputStream(csvFile), Charset.forName("UTF-8")));
+		final BufferedReader bufferedReader = new BufferedReader(new InputStreamReader(new FileInputStream(csvFile), Charset.forName("UTF-8"))); //$NON-NLS-1$
 		reader = new CSVReader(bufferedReader, ',');
 		return reader;
 	}
@@ -191,9 +215,9 @@ public final class MissingPlotsListener implements ActionListener {
 				plotIds.add(csvRow[0]);
 			}
 		} catch (final FileNotFoundException e) {
-			logger.error("Error reading coordinate file " + plotCoordinateFile, e);
+			logger.error("Error reading coordinate file " + plotCoordinateFile, e); //$NON-NLS-1$
 		} catch (final IOException e) {
-			logger.error("Error reading CSV line", e);
+			logger.error("Error reading CSV line", e); //$NON-NLS-1$
 		}
 
 		return plotIds;
@@ -211,7 +235,7 @@ public final class MissingPlotsListener implements ActionListener {
 				if (shouldStopFixing()) {
 					break;
 				}
-				if (!isIdInDB(plotId)) {
+				if (!isIdActivelySavedInDB(plotId)) {
 					if (!missingPlotIdsByFile.containsKey(plotFile)) {
 						missingPlotIdsByFile.put(plotFile, new ArrayList<String>());
 					}
@@ -238,10 +262,25 @@ public final class MissingPlotsListener implements ActionListener {
 		return plotIdsByFile;
 	}
 
-	private boolean isIdInDB(String plotId) {
-		final List<CollectRecord> summaries = recordManager.loadSummaries(earthSurveyService.getCollectSurvey(), EarthConstants.ROOT_ENTITY_NAME,
-				plotId);
-		return (summaries != null && summaries.size() == 1);
+	private boolean isIdActivelySavedInDB(String plotId) {
+		final List<CollectRecord> summaries = recordManager.loadSummaries(
+				earthSurveyService.getCollectSurvey(), 
+				EarthConstants.ROOT_ENTITY_NAME,
+				plotId
+			);
+
+		if( summaries != null && summaries.size() == 1 ){
+			CollectRecord record = recordManager.load(earthSurveyService.getCollectSurvey(), summaries.get(0).getId(), Step.ENTRY);
+			BooleanAttribute node = null;
+			try {
+				node = (BooleanAttribute) record.getNodeByPath("/plot/actively_saved");
+			} catch (Exception e) {
+				logger.error("No actively_saved information found", e);
+			}
+			return (node != null && !node.isEmpty() && node.getValue().getValue() );
+		}else{
+			return false;
+		}
 	}
 
 	private boolean shouldStopFixing() {

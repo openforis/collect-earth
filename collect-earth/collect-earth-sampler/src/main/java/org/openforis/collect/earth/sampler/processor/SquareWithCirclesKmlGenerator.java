@@ -10,8 +10,8 @@ import org.opengis.referencing.operation.TransformException;
 public class SquareWithCirclesKmlGenerator extends SquareKmlGenerator {
 	private static final int NUMBER_OF_EXTERNAL_POINTS = 4;
 
-	public SquareWithCirclesKmlGenerator(String epsgCode, String host, String port, Integer innerPointSide) {
-		super(epsgCode, host, port, innerPointSide, 25);
+	public SquareWithCirclesKmlGenerator(String epsgCode, String host, String port, String localPort, Integer innerPointSide) {
+		super(epsgCode, host, port, localPort, innerPointSide, 25);
 	}
 
 	@Override

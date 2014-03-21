@@ -12,8 +12,8 @@ public class SquareKmlGenerator extends PolygonKmlGenerator {
 
 	int numberOfPoints = 0;
 
-	public SquareKmlGenerator(String epsgCode, String host, String port, Integer innerPointSide, int numberOfPoints) {
-		super(epsgCode, host, port, innerPointSide);
+	public SquareKmlGenerator(String epsgCode, String host, String port, String localPort, Integer innerPointSide, int numberOfPoints) {
+		super(epsgCode, host, port, localPort, innerPointSide);
 		this.numberOfPoints = numberOfPoints;
 	}
 

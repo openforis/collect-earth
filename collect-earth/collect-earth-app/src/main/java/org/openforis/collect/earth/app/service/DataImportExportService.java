@@ -91,27 +91,30 @@ public class DataImportExportService {
 		return xmlDataExportProcess;
 	}
 
-	public XMLDataImportProcess getImportSummary(File zipWithXml) throws Exception {
+	public XMLDataImportProcess getImportSummary(File zipWithXml, boolean importNonFinishedPlots) throws Exception {
 		final XMLDataImportProcess dataImportProcess = applicationContext.getBean(XMLDataImportProcess.class);
 		dataImportProcess.setFile(zipWithXml);
 		dataImportProcess.prepareToStartSummaryCreation();
-		dataImportProcess.setIncludeRecordPredicate( new Predicate<CollectRecord>() {
-			
-			@Override
-			public boolean evaluate(CollectRecord record) {
-				boolean include = true;
-				
-				try {
-					final BooleanAttribute node = (BooleanAttribute) record.getNodeByPath("/plot/actively_saved");
-					
-					include = (node == null || (node != null && !node.isEmpty() && node.getValue().getValue()) );
-				} catch (Exception e) {
-					logger.error("No \"/plot/actively_saved\" node found ", e );
+		
+		if( !importNonFinishedPlots ){ // Import only plots whose actively_saved state is set to true
+			dataImportProcess.setIncludeRecordPredicate( new Predicate<CollectRecord>() {
+
+				@Override
+				public boolean evaluate(CollectRecord record) {
+					boolean include = true;
+
+					try {
+						final BooleanAttribute node = (BooleanAttribute) record.getNodeByPath("/plot/actively_saved");
+
+						include = (node == null || (node != null && !node.isEmpty() && node.getValue().getValue()) );
+					} catch (Exception e) {
+						logger.error("No \"/plot/actively_saved\" node found ", e );
+					}
+
+					return include;
 				}
-				
-				return include;
-			}
-		});
+			});
+		}
 		return dataImportProcess;
 	}
 

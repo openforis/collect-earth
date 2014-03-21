@@ -46,6 +46,8 @@ import javax.swing.table.DefaultTableModel;
 import javax.swing.text.JTextComponent;
 
 import org.openforis.collect.earth.app.EarthConstants;
+import org.openforis.collect.earth.app.EarthConstants.CollectDBDriver;
+import org.openforis.collect.earth.app.EarthConstants.OperationMode;
 import org.openforis.collect.earth.app.desktop.EarthApp;
 import org.openforis.collect.earth.app.service.AnalysisSaikuService;
 import org.openforis.collect.earth.app.service.LocalPropertiesService;
@@ -68,6 +70,11 @@ public class OptionWizard extends JDialog {
 	private final HashMap<EarthProperty, JComponent[]> propertyToComponent = new HashMap<EarthProperty, JComponent[]>();
 	private final Logger logger = LoggerFactory.getLogger(this.getClass());
 
+	JPanel clientPanel;
+	JPanel serverPanel;
+	JPanel postgresPanel;
+	JRadioButton postgresRadioButton;
+	
 	LocalPropertiesService localPropertiesService;
 
 	String backupFolder;
@@ -90,25 +97,21 @@ public class OptionWizard extends JDialog {
 	private void buildMainPane() {
 
 		final JPanel panel = new JPanel(new BorderLayout());
-
 		panel.add(getOptionTabs(), BorderLayout.CENTER);
-
 		final JPanel buttonPanel = new JPanel();
 		buttonPanel.add(getApplyChangesButton());
 		buttonPanel.add(getCancelButton());
-
 		panel.add(buttonPanel, BorderLayout.PAGE_END);
-
 		this.add(panel);
 
 	}
 
-	public void enableComponents(Container container, boolean enable) {
+	public void enableContainer(Container container, boolean enable) {
 		final Component[] components = container.getComponents();
 		for (final Component component : components) {
 			component.setEnabled(enable);
 			if (component instanceof Container) {
-				enableComponents((Container) component, enable);
+				enableContainer((Container) component, enable);
 			}
 		}
 	}
@@ -262,15 +265,23 @@ public class OptionWizard extends JDialog {
 		return cancelButton;
 	}
 
-	private ActionListener getClientInstanceListener(final JPanel clientPanel, final JPanel serverPanel) {
+	private void enableModePanels(boolean isClientMode) {
+		enableContainer(clientPanel, isClientMode );
+		enableContainer(serverPanel, !isClientMode);
+		enableContainer(postgresPanel, !isClientMode && postgresRadioButton.isSelected() );
+	}
+
+	
+	private ActionListener getClientModeListener() {
 		return new ActionListener() {
 
 			@Override
-			public void actionPerformed(ActionEvent e) {
+			public void actionPerformed(ActionEvent e ) {
 				final JRadioButton theJRB = (JRadioButton) e.getSource();
-				enableComponents(clientPanel, theJRB.getName().equals(EarthConstants.INSTANCE_TYPE.CLIENT_INSTANCE.name()));
-				enableComponents(serverPanel, !theJRB.getName().equals(EarthConstants.INSTANCE_TYPE.CLIENT_INSTANCE.name()));
+				boolean isClientMode = theJRB.getName().equals( OperationMode.CLIENT_MODE.name() );				
+				enableModePanels( isClientMode);
 			}
+
 		};
 	}
 
@@ -299,7 +310,7 @@ public class OptionWizard extends JDialog {
 		panel.add(label, constraints);
 
 		constraints.gridx = 1;
-		panel.add(propertyToComponent.get(EarthProperty.PORT_KEY)[1], constraints);
+		panel.add(propertyToComponent.get(EarthProperty.HOST_PORT_KEY)[1], constraints);
 
 		return panel;
 	}
@@ -324,7 +335,7 @@ public class OptionWizard extends JDialog {
 		}
 	}
 
-	private JComponent getDatabaseServerPanel() {
+	private JComponent getOperationModePanel() {
 		final GridBagConstraints constraints = new GridBagConstraints();
 		constraints.gridx = 0;
 		constraints.gridy = 0;
@@ -338,37 +349,44 @@ public class OptionWizard extends JDialog {
 		typeOfUsePanel.setBorder(border);
 
 		final ButtonGroup typeChooser = new ButtonGroup();
-		final JComponent[] browsers = propertyToComponent.get(EarthProperty.INSTANCE_TYPE);
-		final JPanel clientPanel = getClientPanel();
-		final JPanel serverPanel = getServerPanel();
-		for (final JComponent typeRadioButton : browsers) {
+		final JComponent[] operationModes = propertyToComponent.get(EarthProperty.OPERATION_MODE);
+		clientPanel = getClientPanel();
+		serverPanel = getServerPanel();
+		
+		
+		for (final JComponent typeRadioButton : operationModes) {
 			final JRadioButton intanceButton = (JRadioButton) typeRadioButton;
 			typeChooser.add(intanceButton);
 			typeOfUsePanel.add(intanceButton, constraints);
 			constraints.gridy++;
 
-			intanceButton.addActionListener(getClientInstanceListener(clientPanel, serverPanel));
-
-			if (intanceButton.getName().equals(EarthConstants.INSTANCE_TYPE.CLIENT_INSTANCE.name())) {
+			ActionListener clientModeListener = getClientModeListener();
+			intanceButton.addActionListener(clientModeListener);
+			
+			if (intanceButton.getName().equals( OperationMode.CLIENT_MODE.name())) {
 				typeOfUsePanel.add(clientPanel, constraints);
 			} else {
-				intanceButton.setSelected(true);
 				typeOfUsePanel.add(serverPanel, constraints);
 			}
 			constraints.gridy++;
 
 		}
+		
+		boolean isClientMode = localPropertiesService.getOperationMode().equals( OperationMode.CLIENT_MODE );
+		enableModePanels(isClientMode );
 
 		return typeOfUsePanel;
 	}
 
-	private ActionListener getDbTypeListener(final JPanel postgresqlPanel) {
+	private ActionListener getDbTypeListener() {
 		return new ActionListener() {
 
 			@Override
 			public void actionPerformed(ActionEvent e) {
 				final JRadioButton theJRB = (JRadioButton) e.getSource();
-				enableComponents(postgresqlPanel, theJRB.getName().equals(EarthConstants.DB_DRIVER.POSTGRESQL.getDriverClass()));
+				
+				boolean isPostgreDb = theJRB.getName().equals(CollectDBDriver.POSTGRESQL.name() );
+				enableContainer(postgresPanel, isPostgreDb);
 			}
 		};
 	}
@@ -387,11 +405,10 @@ public class OptionWizard extends JDialog {
 
 		final JComponent panel4 = getAdvancedOptionsPanel();
 		tabbedPane.addTab(Messages.getString("OptionWizard.34"), panel4); //$NON-NLS-1$
-
-		/*
-		 * JComponent panel5 = getDatabaseServerPanel();
-		 * tabbedPane.addTab("Database ( Server/Client )", panel5);
-		 */
+		
+		final JComponent panel5 = getOperationModePanel();
+		tabbedPane.addTab("Operation Mode", panel5);
+		
 		return tabbedPane;
 	}
 
@@ -462,6 +479,23 @@ public class OptionWizard extends JDialog {
 
 		constraints.gridx = 1;
 		panel.add(propertyToComponent.get(EarthProperty.DB_NAME)[0], constraints);
+		
+
+		constraints.gridy++;
+		label = new JLabel("DB host");
+		constraints.gridx = 0;
+		panel.add(label, constraints);
+
+		constraints.gridx = 1;
+		panel.add(propertyToComponent.get(EarthProperty.DB_HOST)[0], constraints);
+		
+		constraints.gridy++;
+		label = new JLabel("DB port");
+		constraints.gridx = 0;
+		panel.add(label, constraints);
+
+		constraints.gridx = 1;
+		panel.add(propertyToComponent.get(EarthProperty.DB_PORT)[0], constraints);
 
 		return panel;
 	}
@@ -614,29 +648,33 @@ public class OptionWizard extends JDialog {
 		typeOfDbPanel.add(label, constraints);
 
 		constraints.gridx = 1;
-		typeOfDbPanel.add(propertyToComponent.get(EarthProperty.PORT_KEY)[0], constraints);
+		typeOfDbPanel.add(propertyToComponent.get(EarthProperty.HOST_PORT_KEY)[0], constraints);
 
+		constraints.gridwidth = GridBagConstraints.REMAINDER;
 		constraints.gridy++;
 		constraints.gridx = 0;
 
 		final ButtonGroup bg = new ButtonGroup();
 		final JComponent[] dbTypes = propertyToComponent.get(EarthProperty.DB_DRIVER);
 
-		final JPanel postgresqlPanel = getPostgreSqlPanel();
+		postgresPanel = getPostgreSqlPanel();
 		for (final JComponent typeRadioButton : dbTypes) {
 			final JRadioButton dbTypeButton = (JRadioButton) typeRadioButton;
 			bg.add(dbTypeButton);
 			typeOfDbPanel.add(dbTypeButton, constraints);
 			constraints.gridy++;
 
-			dbTypeButton.addActionListener(getDbTypeListener(postgresqlPanel));
+			dbTypeButton.addActionListener(getDbTypeListener());
 
-			if (dbTypeButton.getName().equals(EarthConstants.DB_DRIVER.POSTGRESQL.getDriverClass())) {
-				typeOfDbPanel.add(postgresqlPanel, constraints);
+			if (dbTypeButton.getName().equals(EarthConstants.CollectDBDriver.POSTGRESQL.name() ) ) {
+				postgresRadioButton = dbTypeButton;
+				typeOfDbPanel.add(postgresPanel, constraints);
 				constraints.gridy++;
 			}
+			
+			
 		}
-
+		
 		return typeOfDbPanel;
 	}
 
@@ -814,33 +852,29 @@ public class OptionWizard extends JDialog {
 
 		// Database options
 
-		final JRadioButton instanceTypeServer = new JRadioButton(Messages.getString("OptionWizard.91")); //$NON-NLS-1$
-		instanceTypeServer.setSelected(localPropertiesService.getValue(EarthProperty.INSTANCE_TYPE).trim()
-				.equals(EarthConstants.INSTANCE_TYPE.SERVER_INSTANCE.name()));
-		instanceTypeServer.setName(EarthConstants.INSTANCE_TYPE.SERVER_INSTANCE.name());
+		final JRadioButton instanceTypeServer = new JRadioButton(Messages.getString("OptionWizard.91")); //$NON-NLS-1$ 
+		instanceTypeServer.setSelected(localPropertiesService.getOperationMode().equals( OperationMode.SERVER_MODE ) );
+		instanceTypeServer.setName(EarthConstants.OperationMode.SERVER_MODE.name());
 
 		final JRadioButton instanceTypeClient = new JRadioButton(Messages.getString("OptionWizard.92")); //$NON-NLS-1$
-		instanceTypeClient.setSelected(localPropertiesService.getValue(EarthProperty.INSTANCE_TYPE).trim()
-				.equals(EarthConstants.INSTANCE_TYPE.CLIENT_INSTANCE.name()));
-		instanceTypeClient.setName(EarthConstants.INSTANCE_TYPE.CLIENT_INSTANCE.name());
-		propertyToComponent.put(EarthProperty.INSTANCE_TYPE, new JComponent[] { instanceTypeServer, instanceTypeClient });
+		instanceTypeClient.setSelected( localPropertiesService.getOperationMode().equals( OperationMode.CLIENT_MODE )  );
+		instanceTypeClient.setName(EarthConstants.OperationMode.CLIENT_MODE.name());
+		propertyToComponent.put(EarthProperty.OPERATION_MODE, new JComponent[] { instanceTypeServer, instanceTypeClient });
 
 		final JTextField collectEarthServerIp = new JTextField(localPropertiesService.getValue(EarthProperty.HOST_KEY));
 		propertyToComponent.put(EarthProperty.HOST_KEY, new JComponent[] { collectEarthServerIp });
 
-		final JTextField collectEarthServerIpPort = new JTextField(localPropertiesService.getValue(EarthProperty.PORT_KEY));
-		final JTextField collectEarthServerLocalPort = new JTextField(localPropertiesService.getValue(EarthProperty.PORT_KEY));
-		propertyToComponent.put(EarthProperty.PORT_KEY, new JComponent[] { collectEarthServerIpPort, collectEarthServerLocalPort });
+		final JTextField collectEarthServerIpPort = new JTextField( localPropertiesService.getPort() );
+		final JTextField collectEarthServerLocalPort = new JTextField(localPropertiesService.getValue(EarthProperty.HOST_PORT_KEY));
+		propertyToComponent.put(EarthProperty.HOST_PORT_KEY, new JComponent[] { collectEarthServerIpPort, collectEarthServerLocalPort });
 
 		final JRadioButton sqliteDbType = new JRadioButton(Messages.getString("OptionWizard.93")); //$NON-NLS-1$
-		sqliteDbType.setSelected(localPropertiesService.getValue(EarthProperty.DB_DRIVER).trim()
-				.equals(EarthConstants.DB_DRIVER.SQLITE.getDriverClass()));
-		sqliteDbType.setName(EarthConstants.DB_DRIVER.SQLITE.getDriverClass());
+		sqliteDbType.setSelected(localPropertiesService.getCollectDBDriver().equals(CollectDBDriver.SQLITE));
+		sqliteDbType.setName(CollectDBDriver.SQLITE.name());
 
 		final JRadioButton postgresDbType = new JRadioButton(Messages.getString("OptionWizard.94")); //$NON-NLS-1$
-		postgresDbType.setSelected(localPropertiesService.getValue(EarthProperty.DB_DRIVER).trim()
-				.equals(EarthConstants.DB_DRIVER.POSTGRESQL.getDriverClass()));
-		postgresDbType.setName(EarthConstants.DB_DRIVER.POSTGRESQL.getDriverClass());
+		postgresDbType.setSelected(localPropertiesService.getCollectDBDriver().equals(CollectDBDriver.POSTGRESQL));
+		postgresDbType.setName(CollectDBDriver.POSTGRESQL.name());
 		propertyToComponent.put(EarthProperty.DB_DRIVER, new JComponent[] { sqliteDbType, postgresDbType });
 
 		final JTextField dbUserName = new JTextField(localPropertiesService.getValue(EarthProperty.DB_USERNAME));
@@ -851,6 +885,12 @@ public class OptionWizard extends JDialog {
 
 		final JTextField dbName = new JTextField(localPropertiesService.getValue(EarthProperty.DB_NAME));
 		propertyToComponent.put(EarthProperty.DB_NAME, new JComponent[] { dbName });
+		
+		final JTextField dbHost = new JTextField(localPropertiesService.getValue(EarthProperty.DB_HOST));
+		propertyToComponent.put(EarthProperty.DB_HOST, new JComponent[] { dbHost });
+		
+		final JTextField dbPort = new JTextField(localPropertiesService.getValue(EarthProperty.DB_PORT));
+		propertyToComponent.put(EarthProperty.DB_PORT, new JComponent[] { dbPort });
 
 	}
 

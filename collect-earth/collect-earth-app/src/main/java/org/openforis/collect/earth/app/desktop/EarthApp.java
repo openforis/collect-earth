@@ -20,10 +20,12 @@ import javax.swing.JOptionPane;
 import org.apache.commons.codec.digest.DigestUtils;
 import org.apache.commons.io.FileUtils;
 import org.openforis.collect.earth.app.EarthConstants;
+import org.openforis.collect.earth.app.EarthConstants.OperationMode;
 import org.openforis.collect.earth.app.EarthConstants.SAMPLE_SHAPE;
 import org.openforis.collect.earth.app.service.LocalPropertiesService;
 import org.openforis.collect.earth.app.service.LocalPropertiesService.EarthProperty;
 import org.openforis.collect.earth.app.view.CollectEarthWindow;
+import org.openforis.collect.earth.app.view.Messages;
 import org.openforis.collect.earth.sampler.processor.AbstractCoordinateCalculation;
 import org.openforis.collect.earth.sampler.processor.CircleKmlGenerator;
 import org.openforis.collect.earth.sampler.processor.KmlGenerator;
@@ -80,12 +82,8 @@ public class EarthApp {
 				earthApp.generateKmzFile();
 			}
 			
-			if( earthApp.localProperties.getValue( EarthProperty.INSTANCE_TYPE ).equals( EarthConstants.INSTANCE_TYPE.CLIENT_INSTANCE.name() )){ // Start Collect Earth Client
-				earthApp.startGui();
-			}else{ // Start Collect Earth as Server
-				// Start the server and then open GUI
-				earthApp.initializeServer();
-			}
+			earthApp.initializeServer();
+		
 		} catch (final Exception e) {
 			// The logger factory has not been initialized, this will not work, just output to console
 			//logger.error("The server could not start", e); 
@@ -210,11 +208,11 @@ public class EarthApp {
 		Integer innerPointSide = Integer.parseInt(localProperties.getValue(EarthProperty.INNER_SUBPLOT_SIDE));
 		final SAMPLE_SHAPE plotShape = localProperties.getSampleShape();
 		if (plotShape.equals( SAMPLE_SHAPE.CIRCLE )) {
-			generateKml = new CircleKmlGenerator(crsSystem, localProperties.getHost(), localProperties.getPort(), innerPointSide, Float.parseFloat( localProperties.getValue(EarthProperty.DISTANCE_BETWEEN_SAMPLE_POINTS) ));
+			generateKml = new CircleKmlGenerator(crsSystem, localProperties.getHost(), localProperties.getPort(), localProperties.getLocalPort() , innerPointSide, Float.parseFloat( localProperties.getValue(EarthProperty.DISTANCE_BETWEEN_SAMPLE_POINTS) ));
 		}else if (plotShape.equals( SAMPLE_SHAPE.OCTAGON )) {
-			generateKml = new OctagonKmlGenerator(crsSystem, localProperties.getHost(), localProperties.getPort(), innerPointSide, Float.parseFloat( localProperties.getValue(EarthProperty.DISTANCE_BETWEEN_SAMPLE_POINTS) ) );
+			generateKml = new OctagonKmlGenerator(crsSystem, localProperties.getHost(), localProperties.getPort(), localProperties.getLocalPort() , innerPointSide, Float.parseFloat( localProperties.getValue(EarthProperty.DISTANCE_BETWEEN_SAMPLE_POINTS) ) );
 		} else if (plotShape.equals( SAMPLE_SHAPE.SQUARE_CIRCLE )) {
-			generateKml = new SquareWithCirclesKmlGenerator(crsSystem, localProperties.getHost(), localProperties.getPort(), innerPointSide);
+			generateKml = new SquareWithCirclesKmlGenerator(crsSystem, localProperties.getHost(), localProperties.getPort(), localProperties.getLocalPort(), innerPointSide);
 		} else {
 
 			final String numberOfSamplingPlots = localProperties.getValue(EarthProperty.NUMBER_OF_SAMPLING_POINTS_IN_PLOT);
@@ -222,7 +220,7 @@ public class EarthApp {
 			if ((numberOfSamplingPlots != null) && (numberOfSamplingPlots.trim().length() > 0)) {
 				numberOfSamplingPlotsI = Integer.parseInt(numberOfSamplingPlots.trim());
 			}
-			generateKml = new SquareKmlGenerator(crsSystem, localProperties.getHost(), localProperties.getPort(), innerPointSide,
+			generateKml = new SquareKmlGenerator(crsSystem, localProperties.getHost(), localProperties.getPort(), localProperties.getLocalPort(),  innerPointSide,
 					numberOfSamplingPlotsI);
 		}
 		return generateKml;
@@ -294,17 +292,13 @@ public class EarthApp {
 			showMessage("The server is already running");
 			simulateClickKmz();
 		} else {
-
-			serverController.startServer(new Observer() {
-
-			
+			boolean highDemandServer = localProperties.getOperationMode().equals( OperationMode.SERVER_MODE );
+			serverController.startServer( highDemandServer, new Observer() {
 
 				@Override
 				public void update(Observable o, Object arg) {
 					startGui();
 				}
-
-				
 
 			});
 
@@ -312,7 +306,10 @@ public class EarthApp {
 	}
 	
 	private void openMainWindow() {
-
+		
+		// Initialize the translations
+		Messages.setLocale(localProperties.getUiLanguage().getLocale());
+		
 		javax.swing.SwingUtilities.invokeLater(new Runnable() {
 			@Override
 			public void run() {
@@ -369,7 +366,7 @@ public class EarthApp {
 		localProperties.saveGeneratedOn(System.currentTimeMillis() + "");
 
 		final Map<String, Object> data = new HashMap<String, Object>();
-		data.put("host", KmlGenerator.getHostAddress(localProperties.getHost(), localProperties.getPort()));
+		data.put("host", KmlGenerator.getHostAddress(localProperties.getHost(), localProperties.getLocalPort()));
 		data.put("kmlGeneratedOn", localProperties.getGeneratedOn());
 		data.put("surveyName", localProperties.getValue(EarthProperty.SURVEY_NAME));
 		data.put("plotFileName", KmlGenerator.getCsvFileName(localProperties.getValue(EarthProperty.CSV_KEY)));

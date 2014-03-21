@@ -4,6 +4,8 @@ import java.util.Locale;
 import java.util.MissingResourceException;
 import java.util.ResourceBundle;
 
+import javax.swing.JComponent;
+
 public class Messages {
 	private static final String BUNDLE_NAME = "org.openforis.collect.earth.app.view.messages"; //$NON-NLS-1$
 
@@ -14,6 +16,7 @@ public class Messages {
 	
 	public static void setLocale(Locale localeUI){
 		Locale.setDefault( localeUI );
+		JComponent.setDefaultLocale( localeUI );
 		RESOURCE_BUNDLE = ResourceBundle.getBundle(BUNDLE_NAME);		
 	}
 

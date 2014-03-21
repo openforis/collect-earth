@@ -71,10 +71,9 @@ classpath:/WEB-INF/conf/applicationContext.xml
 		<servlet-name>default</servlet-name>
 		<servlet-class>org.eclipse.jetty.servlet.DefaultServlet</servlet-class>
 		<init-param>
-			<param-name>cacheControl</param-name>
-			<param-value>max-age=3600,public</param-value>
-		</init-param>
-
+	      <param-name>useFileMappedBuffer</param-name>
+	      <param-value>false</param-value>
+	    </init-param>
 	</servlet>
 
 	<servlet-mapping>

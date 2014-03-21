@@ -35,9 +35,11 @@ public class KmzGenerator {
 				while ((len = in.read(buf)) > 0) {
 					zip.write(buf, 0, len);
 				}
+				
 			} catch (final IOException e) {
 				logger.error("Error while writing to " + srcFile, e);
 			} finally {
+				zip.closeEntry();
 				if (in != null) {
 					in.close();
 				}
@@ -83,8 +85,8 @@ public class KmzGenerator {
 			if (zip != null) {
 				zip.flush();
 				zip.close();
+				fileWriter.close();
 			}
-
 		}
 	}
 }

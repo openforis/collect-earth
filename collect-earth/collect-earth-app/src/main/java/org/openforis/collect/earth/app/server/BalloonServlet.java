@@ -64,7 +64,7 @@ public class BalloonServlet extends DataAccessingServlet {
 	@SuppressWarnings("unchecked")
 	@RequestMapping("/openInBrowser")
 	private void openInBrowser(HttpServletResponse response, HttpServletRequest request, String imageName) throws IOException, URISyntaxException {
-		String url = KmlGenerator.getHostAddress(localPropertiesService.getHost(), localPropertiesService.getPort());
+		String url = KmlGenerator.getHostAddress(localPropertiesService.getHost(), localPropertiesService.getLocalPort());
 		url = url + BALLOON_EXTERNAL_URL + "?" + buildGetParameters(request.getParameterMap());
 		final String fUrl = url;
 		final Thread openBrowser = new Thread() {

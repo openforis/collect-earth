@@ -1,6 +1,7 @@
 package org.openforis.collect.earth.app.view;
 
 import java.io.File;
+import java.util.Arrays;
 
 import javax.swing.JFileChooser;
 import javax.swing.JFrame;
@@ -15,11 +16,11 @@ public class JFileChooserExistsAware extends JFileChooser {
 
 	private static final long serialVersionUID = 1L;
 
-	public JFileChooserExistsAware(File lastFolder) {
-		super(lastFolder);
+	private JFileChooserExistsAware(File lastFolder) {
+		super(lastFolder);		
 	}
 
-	public JFileChooserExistsAware() {
+	private JFileChooserExistsAware() {
 		super();
 	}
 
@@ -60,7 +61,7 @@ public class JFileChooserExistsAware extends JFileChooser {
 		}else{
 			fc = new JFileChooserExistsAware();
 		}
-
+		
 		if( preselectedName != null ){
 			File selectedFile = new File( fc.getCurrentDirectory().getAbsolutePath() + File.separatorChar + preselectedName );
 			fc.setSelectedFile( selectedFile );
@@ -74,7 +75,7 @@ public class JFileChooserExistsAware extends JFileChooser {
 			@Override
 			public boolean accept(File f) {
 				
-				String[] extensions = dataFormat.getFileExtension();
+				String[] extensions = dataFormat.getPossibleFileExtensions();
 				boolean acceptedFile = false;
 				boolean isFolder = f.isDirectory();
 				if( isFolder ){
@@ -82,7 +83,7 @@ public class JFileChooserExistsAware extends JFileChooser {
 				}else{
 					
 					for (String fileExtension : extensions) {
-						if( f.getName().toLowerCase().endsWith("." + fileExtension ) ){
+						if( f.getName().toLowerCase().endsWith("." + fileExtension ) ){ //$NON-NLS-1$
 							acceptedFile = true;
 							break;
 						}
@@ -121,8 +122,16 @@ public class JFileChooserExistsAware extends JFileChooser {
 			if( isSaveDlg ){
 				selectedFiles = new File[]{ fc.getSelectedFile() };
 				String file_name = selectedFiles[0].getAbsolutePath();
-				if ( !file_name.toLowerCase().endsWith("." + dataFormat.getFileExtension() ) ) { //$NON-NLS-1$
-					file_name += "." + dataFormat.getFileExtension(); //$NON-NLS-1$
+				
+				String fileExtension = null;
+				
+				if( file_name.lastIndexOf('.') != -1){
+					fileExtension = file_name.substring( file_name.lastIndexOf('.') + 1 ).toLowerCase();
+				}
+				
+				// If the chose file has no extension or the extension is not one of the default extensions for the dataformat
+				if ( fileExtension == null || Arrays.binarySearch( dataFormat.getPossibleFileExtensions(), fileExtension ) < 0 ) { //$NON-NLS-1$
+					file_name += "." + dataFormat.getDefaultExtension(); //$NON-NLS-1$
 					selectedFiles[0] = new File(file_name);
 				}
 			}else{

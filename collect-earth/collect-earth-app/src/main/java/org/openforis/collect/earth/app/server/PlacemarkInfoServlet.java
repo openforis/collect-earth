@@ -8,9 +8,6 @@ import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 
 import org.openforis.collect.earth.app.EarthConstants;
-import org.openforis.collect.earth.app.service.BrowserService;
-import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.RequestMapping;
 
@@ -23,8 +20,6 @@ import org.springframework.web.bind.annotation.RequestMapping;
 @Controller
 public class PlacemarkInfoServlet extends JsonPocessorServlet {
 
-	@Autowired
-	private BrowserService browserService;
 	private static final String PLACEMARK_ID = "collect_text_id";
 
 	private String getPlacemarkId(Map<String, String> collectedData) {
@@ -42,8 +37,7 @@ public class PlacemarkInfoServlet extends JsonPocessorServlet {
 	protected void processRequest(HttpServletRequest request, HttpServletResponse response) throws IOException {
 		Map<String, String> collectedData = extractRequestData(request);
 		String placemarkId = getPlacemarkId(collectedData);
-		final String originalLatLong = collectedData.get("collect_coord_location");
-
+		
 		if (placemarkId == null) {
 			setResult(false, "No placemark ID found in the request", collectedData);
 			getLogger().error("No placemark ID found in the received request");
@@ -66,14 +60,6 @@ public class PlacemarkInfoServlet extends JsonPocessorServlet {
 		}
 
 		setJsonResponse(response, collectedData);
-
-		try {
-			browserService.openEarthEngine(originalLatLong);
-			browserService.openTimelapse(originalLatLong);
-			browserService.openBingMaps(originalLatLong);
-		} catch (final Exception e) {
-			LoggerFactory.getLogger(this.getClass()).error("Exception", e);
-		}
 
 	}
 

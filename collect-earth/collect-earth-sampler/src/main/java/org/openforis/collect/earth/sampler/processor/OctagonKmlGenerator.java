@@ -13,9 +13,9 @@ public class OctagonKmlGenerator extends CircleKmlGenerator{
 	private static final int NUMBER_OF_NON_CENTRAL_SAMPLING_POINTS = 20;
 
 
-	public OctagonKmlGenerator(String epsgCode, String host, String port,
+	public OctagonKmlGenerator(String epsgCode, String host, String port, String localPort,
 			Integer innerPointSide, float radius) {
-		super(epsgCode, host, port, innerPointSide, radius);
+		super(epsgCode, host, port, localPort, innerPointSide, radius);
 	}
 	
 	

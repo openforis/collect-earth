@@ -50,15 +50,13 @@ public abstract class JsonPocessorServlet extends DataAccessingServlet {
 	protected abstract void processRequest(HttpServletRequest request, HttpServletResponse response) throws IOException;
 
 	protected void setJsonResponse(HttpServletResponse response, Map<String, String> collectedData) throws IOException {
+		setResponseHeaders(response);
+		PrintWriter out = response.getWriter();
 		if (collectedData != null && collectedData.size() > 0) {
-
 			String json = gson.toJson(collectedData);
-
-			setResponseHeaders(response);
-			PrintWriter out = response.getWriter();
 			out.println(json);
-			out.close();
 		}
+		out.close();
 	}
 
 	private void setResponseHeaders(HttpServletResponse response) {

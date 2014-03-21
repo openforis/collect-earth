@@ -29,7 +29,7 @@ public class InfiniteProgressMonitor {
 
 		final Object[] dialogItems = { label, infiniteProgress };
 
-		cancelOption = "Cancel operation"; //$NON-NLS-1$
+		cancelOption = Messages.getString("InfiniteProgressMonitor.0"); //$NON-NLS-1$
 		final Object[] options = { cancelOption };
 		setPane(new JOptionPane(dialogItems, JOptionPane.PLAIN_MESSAGE, JOptionPane.YES_NO_CANCEL_OPTION, null, options));
 		setDialog(getPane().createDialog(parentFrame, title));

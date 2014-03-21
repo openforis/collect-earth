@@ -119,8 +119,11 @@ public class EarthSurveyService {
 		return localPropertiesService.getValue(EarthProperty.METADATA_FILE);
 	}
 
-	public synchronized Map<String, String> getPlacemark(String placemarkId) {
+	public Map<String, String> getPlacemark(String placemarkId) {
+		
 		final List<CollectRecord> summaries = recordManager.loadSummaries(getCollectSurvey(), EarthConstants.ROOT_ENTITY_NAME, placemarkId);
+		
+		
 		CollectRecord record = null;
 		Map<String, String> placemarkParameters = null;
 		if (summaries.size() > 0) {
@@ -138,14 +141,16 @@ public class EarthSurveyService {
 						"0;collect_code_deforestation_reason=" + placemarkParameters.get("collect_code_deforestation_reason")); //$NON-NLS-1$ //$NON-NLS-2$
 			}
 
+		
 			addResultParameter(placemarkParameters, true);
+					
 		} else {
 			placemarkParameters = new HashMap<String, String>();
 			addResultParameter(placemarkParameters, false);
 		}
 
 		addLocalProperties(placemarkParameters);
-
+		
 		return placemarkParameters;
 	}
 

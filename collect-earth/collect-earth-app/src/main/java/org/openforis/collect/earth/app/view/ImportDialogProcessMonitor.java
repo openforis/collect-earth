@@ -11,9 +11,6 @@ import javax.swing.SwingUtilities;
 import org.openforis.collect.earth.app.service.DataImportExportService;
 import org.openforis.collect.io.data.DataImportSummaryItem;
 import org.openforis.collect.io.data.XMLDataImportProcess;
-import org.openforis.collect.model.CollectRecord;
-import org.openforis.commons.collection.Predicate;
-import org.openforis.idm.model.BooleanAttribute;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -58,7 +55,7 @@ public class ImportDialogProcessMonitor {
 	}
 
 	public synchronized void startImport(final XMLDataImportProcess importProcess, final JFrame parentFrame,
-			final DataImportExportService dataImportService, final File importedFile) {
+			final DataImportExportService dataImportService, final File importedFile ) {
 
 		try {
 			
@@ -67,7 +64,7 @@ public class ImportDialogProcessMonitor {
 				public void run() {
 
 					progressMonitor = new InfiniteProgressMonitor(parentFrame, Messages.getString("ImportDialogProcessMonitor.8") + "(" //$NON-NLS-1$ //$NON-NLS-2$
-							+ importedFile.getName() + ")", Messages.getString("ImportDialogProcessMonitor.11") + " CALCULATING "); //$NON-NLS-1$ //$NON-NLS-2$
+							+ importedFile.getName() + ")", Messages.getString("ImportDialogProcessMonitor.11") + Messages.getString("ImportDialogProcessMonitor.0")); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$
 					progressMonitor.show();
 
 					if (progressMonitor != null && progressMonitor.isUserCancelled()) {
@@ -93,12 +90,12 @@ public class ImportDialogProcessMonitor {
 					}
 				}
 				int totalRecords = ( conflictingRecords==null?0:conflictingRecords.size() ) + importProcess.getSummary().getRecordsToImport().size();
-				progressMonitor.setMessage( Messages.getString("ImportDialogProcessMonitor.11") + totalRecords );
+				progressMonitor.setMessage( Messages.getString("ImportDialogProcessMonitor.11") + totalRecords ); //$NON-NLS-1$
 				
 				dataImportService.importRecordsFrom(importedFile, importProcess, conflictingRecords );
 			}
 		} catch (final Exception e1) {
-			logger.error("", e1);
+			logger.error("", e1); //$NON-NLS-1$
 		} finally {
 			closeProgressmonitor();
 		}

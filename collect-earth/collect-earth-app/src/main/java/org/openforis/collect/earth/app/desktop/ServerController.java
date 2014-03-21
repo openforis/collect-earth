@@ -8,7 +8,7 @@ import java.util.concurrent.TimeUnit;
 
 import org.eclipse.jetty.server.Connector;
 import org.eclipse.jetty.server.Server;
-import org.eclipse.jetty.server.bio.SocketConnector;
+import org.eclipse.jetty.server.nio.SelectChannelConnector;
 import org.eclipse.jetty.util.thread.ExecutorThreadPool;
 import org.eclipse.jetty.webapp.WebAppContext;
 import org.openforis.collect.earth.app.service.LocalPropertiesService;
@@ -43,7 +43,7 @@ public class ServerController extends Observable {
 			logger.error("Error initializing local properties", e);
 		}
 
-		String webPort = localPropertiesService.getPort();
+		String webPort = localPropertiesService.getLocalPort();
 		if (webPort == null || webPort.isEmpty()) {
 			webPort = DEFAULT_PORT;
 		}
@@ -75,9 +75,10 @@ public class ServerController extends Observable {
 	}
 
 	/**
+	 * @param highDemandServer 
 	 * @param args
 	 */
-	public void startServer(Observer observeInitialition) throws Exception {
+	public void startServer(boolean highDemandServer, Observer observeInitialition) throws Exception {
 
 		this.addObserver(observeInitialition);
 
@@ -89,13 +90,26 @@ public class ServerController extends Observable {
 
 		server = new Server();
 		// // Use blocking-IO connector to improve throughput
-		Connector connector = new SocketConnector();
+		SelectChannelConnector connector = new SelectChannelConnector();
 		connector.setPort(getPort());
-		connector.setMaxIdleTime(10000);
-		((SocketConnector) connector).setAcceptQueueSize(30000);
+		connector.setHost("0.0.0.0");
+		connector.setMaxIdleTime(600000);
+		connector.setRequestBufferSize(10000);
+		//connector.setThreadPool(new QueuedThreadPool(220));
+		
+		ExecutorThreadPool executorThreadPool = null;
+		
+		if( highDemandServer ){
+			executorThreadPool = new ExecutorThreadPool(100, 300, 5, TimeUnit.SECONDS);
+		}else{
+			executorThreadPool = new ExecutorThreadPool(10, 50, 5, TimeUnit.SECONDS);	
+		}
+		
+		connector.setThreadPool( executorThreadPool );
+		
 		server.setConnectors(new Connector[] { connector });
-
-		server.setThreadPool(new ExecutorThreadPool(10, 50, 5, TimeUnit.SECONDS));
+		server.setThreadPool( executorThreadPool );
+		
 
 		setRoot(new WebAppContext());
 

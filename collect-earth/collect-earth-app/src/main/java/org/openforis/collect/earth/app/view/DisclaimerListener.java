@@ -65,7 +65,7 @@ public class DisclaimerListener implements ActionListener {
 	}
 
 	private String getDisclaimerFilePath(String suffix_lang) {
-		return "resources/disclaimer_" + suffix_lang + ".txt";
+		return "resources/disclaimer_" + suffix_lang + ".txt"; //$NON-NLS-1$ //$NON-NLS-2$
 	}
 
 	private String getDisclaimerText() {

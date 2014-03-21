@@ -50,7 +50,7 @@ public class PlacemarkImageServlet extends DataAccessingServlet {
 	@RequestMapping("/placemarkIcon")
 	public void getImage(HttpServletResponse response, HttpServletRequest request, @RequestParam("collect_text_id") String placemarkId,
 			@RequestParam(value = "listView", required = false) Boolean listView) throws IOException, URISyntaxException {
-
+			
 		final Map<String, String> placemarkParameters = earthSurveyService.getPlacemark(placemarkId);
 		String imageName = "";
 
@@ -82,6 +82,7 @@ public class PlacemarkImageServlet extends DataAccessingServlet {
 	}
 
 	private void returnImage(HttpServletResponse response, HttpServletRequest request, String imageName) throws IOException, URISyntaxException {
+		
 		response.setHeader("Content-Type", "image/png");
 		response.setHeader("Content-Disposition", "inline; filename=\"" + imageName + "\"");
 		response.setHeader("Cache-Control", "max-age=30");
@@ -99,12 +100,14 @@ public class PlacemarkImageServlet extends DataAccessingServlet {
 		} else if (imageName.equals(EarthConstants.LIST_NOT_FINISHED_IMAGE)) {
 			resultingImage = readFile(EarthConstants.LIST_NOT_FINISHED_IMAGE, request.getSession().getServletContext());
 		}
+		
 		if (resultingImage != null) {
 			response.setHeader("Content-Length", resultingImage.length + "");
 			writeToResponse(response, resultingImage);
 		} else {
 			getLogger().error("There was a problem fetching the image, please check the name!");
 		}
+		
 	}
 
 	private void writeToResponse(HttpServletResponse response, byte[] fileContents) throws IOException {

@@ -35,7 +35,7 @@ public class EarthConstants {
 
 	public static final String EARTH_SURVEY_NAME = "earth";
 	
-	public enum INSTANCE_TYPE{ SERVER_INSTANCE, CLIENT_INSTANCE};
+	public enum OperationMode{ SERVER_MODE, CLIENT_MODE};
 	
 	public enum SAMPLE_SHAPE{ SQUARE_CIRCLE, SQUARE, CIRCLE, OCTAGON};
 	
@@ -59,14 +59,14 @@ public class EarthConstants {
 		}
 	};
 	
-	public enum DB_DRIVER{ 
+	public enum CollectDBDriver{ 
 		SQLITE("org.sqlite.JDBC", "jdbc:sqlite:collectEarthDatabase.db" ), 
 		POSTGRESQL("org.postgresql.Driver", "jdbc:postgresql://hostname:port/dbname");
 		
 		private String driverClass;
 		private String url;
 
-		private DB_DRIVER(String driverClass, String url) {
+		private CollectDBDriver(String driverClass, String url) {
 			this.driverClass = driverClass;
 			this.url = url;
 		}

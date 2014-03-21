@@ -9,7 +9,10 @@ import java.awt.event.ActionListener;
 import java.awt.event.WindowAdapter;
 import java.awt.event.WindowEvent;
 import java.io.File;
+import java.io.IOException;
 import java.net.MalformedURLException;
+import java.util.ArrayList;
+import java.util.List;
 
 import javax.swing.BorderFactory;
 import javax.swing.ButtonGroup;
@@ -26,11 +29,11 @@ import javax.swing.JPanel;
 import javax.swing.JRadioButtonMenuItem;
 import javax.swing.JTextField;
 import javax.swing.SwingConstants;
-import javax.swing.SwingUtilities;
 import javax.swing.WindowConstants;
 import javax.swing.border.Border;
 
 import org.apache.commons.lang3.StringUtils;
+import org.openforis.collect.earth.app.EarthConstants.OperationMode;
 import org.openforis.collect.earth.app.EarthConstants.UI_LANGUAGE;
 import org.openforis.collect.earth.app.ad_hoc.FixCoordinates;
 import org.openforis.collect.earth.app.ad_hoc.FixCoordinatesPNG;
@@ -72,17 +75,33 @@ public class CollectEarthWindow {
 	private final SaikuStarter saikuStarter;
 	private final FixCoordinates fixCoordinates;
 
-	public CollectEarthWindow(ServerController serverController) {
-		this.serverController = serverController;
-		this.localPropertiesService = serverController.getContext().getBean(LocalPropertiesService.class);
-		this.dataExportService = serverController.getContext().getBean(DataImportExportService.class);
-		final BackupService backupService = serverController.getContext().getBean(BackupService.class);
-		this.backupFolder = backupService.getBackUpFolder().getAbsolutePath();
-		this.saikuService = serverController.getContext().getBean(AnalysisSaikuService.class);
-		this.earthSurveyService = serverController.getContext().getBean(EarthSurveyService.class);
-		this.recordManager = serverController.getContext().getBean(RecordManager.class);
-		this.saikuStarter = new SaikuStarter(saikuService, frame);
-		this.fixCoordinates = serverController.getContext().getBean(FixCoordinatesPNG.class);
+	private List<JMenuItem> serverMenuItems = new ArrayList<JMenuItem>();
+
+	public CollectEarthWindow(ServerController serverController) throws IOException {
+
+		if( serverController != null ){
+			this.serverController = serverController;
+			this.localPropertiesService = serverController.getContext().getBean(LocalPropertiesService.class);
+			this.dataExportService = serverController.getContext().getBean(DataImportExportService.class);
+			final BackupService backupService = serverController.getContext().getBean(BackupService.class);
+			this.backupFolder = backupService.getBackUpFolder().getAbsolutePath();
+			this.saikuService = serverController.getContext().getBean(AnalysisSaikuService.class);
+			this.earthSurveyService = serverController.getContext().getBean(EarthSurveyService.class);
+			this.recordManager = serverController.getContext().getBean(RecordManager.class);
+			this.saikuStarter = new SaikuStarter(saikuService, frame);
+			this.fixCoordinates = serverController.getContext().getBean(FixCoordinatesPNG.class);
+		}else{
+			this.serverController = null;
+			this.localPropertiesService = new LocalPropertiesService();
+			this.localPropertiesService.init();
+			this.dataExportService = null;
+			this.backupFolder = null;
+			this.saikuService = null;
+			this.earthSurveyService = null;
+			this.recordManager = null;
+			this.saikuStarter = null;
+			this.fixCoordinates = null;
+		}
 	}
 
 	private void addImportExportMenu(JMenu menu) {
@@ -112,6 +131,8 @@ public class CollectEarthWindow {
 		ieSubmenu.add(menuItem);
 
 		menu.add(ieSubmenu);
+
+		serverMenuItems.add(ieSubmenu); // This menu should only be shown if the DB is local ( not if Collect Earth is acting as a client )
 	}
 
 	private void addWindowClosingListener() {
@@ -168,7 +189,7 @@ public class CollectEarthWindow {
 		return new ExportActionListener(exportFormat, onlyLastModifiedRecords, frame, localPropertiesService, dataExportService, earthSurveyService);
 	}
 
-	private ActionListener getFixCoordinatesAction() {
+	/*	private ActionListener getFixCoordinatesAction() {
 		return new ActionListener() {
 
 			@Override
@@ -176,8 +197,8 @@ public class CollectEarthWindow {
 				try {
 					startWaiting(frame);
 
-					final InfiniteProgressMonitor infiniteProgressMonitor = new InfiniteProgressMonitor(frame, "Fixing coordinates",
-							"This process can take a few minutes, be patient.");
+					final InfiniteProgressMonitor infiniteProgressMonitor = new InfiniteProgressMonitor(frame, "Fixing coordinates", //$NON-NLS-1$
+							"This process can take a few minutes, be patient."); //$NON-NLS-1$
 
 					new Thread() {
 						@Override
@@ -205,7 +226,7 @@ public class CollectEarthWindow {
 				}
 			}
 		};
-	}
+	}*/
 
 	private JFrame getFrame() {
 		return frame;
@@ -275,7 +296,9 @@ public class CollectEarthWindow {
 
 		menuItem = new JMenuItem(Messages.getString("CollectEarthWindow.14")); //$NON-NLS-1$
 		menuItem.addActionListener(getSaikuAnalysisActionListener());
+		serverMenuItems.add(menuItem); // This menu should only be shown if the DB is local ( not if Collect Earth is acting as a client )
 		toolsMenu.add(menuItem);
+
 
 		toolsMenu.addSeparator();
 
@@ -283,15 +306,17 @@ public class CollectEarthWindow {
 		menuItem.addActionListener(getPropertiesAction(frame));
 		toolsMenu.add(menuItem);
 
-		menuItem = new JMenuItem("Ad-hoc Tool - Fix switched PNG coordinates"); //$NON-NLS-1$
+		/*		menuItem = new JMenuItem("Ad-hoc Tool - Fix switched PNG coordinates"); //$NON-NLS-1$
 		menuItem.addActionListener(getFixCoordinatesAction());
 		toolsMenu.add(menuItem);
 
-		menuItem = new JMenuItem("Find Unfilled Plot IDs"); //$NON-NLS-1$
+		 */		
+		menuItem = new JMenuItem(Messages.getString("CollectEarthWindow.18")); //$NON-NLS-1$
 		menuItem.addActionListener(new MissingPlotsListener(recordManager, earthSurveyService, frame, localPropertiesService));
+		serverMenuItems.add(menuItem); // This menu should only be shown if the DB is local ( not if Collect Earth is acting as a client )
 		toolsMenu.add(menuItem);
 
-
+		toolsMenu.addSeparator();
 		final JMenu languageMenu = getLanguageMenu();
 		toolsMenu.add(languageMenu);
 
@@ -332,6 +357,16 @@ public class CollectEarthWindow {
 
 	private void initializeMenu() {
 		getFrame().setJMenuBar(getMenu(getFrame()));
+
+		disableMenuItems();
+	}
+
+	private void disableMenuItems() {
+		if( localPropertiesService.getOperationMode().equals( OperationMode.CLIENT_MODE ) ){
+			for (JMenuItem menuItem : serverMenuItems) {
+				menuItem.setEnabled( false );
+			}
+		}
 	}
 
 	private void initializePanel() {
@@ -401,6 +436,10 @@ public class CollectEarthWindow {
 	}
 
 	private void initializeWindow() {
+
+		// Initialize the translations
+		Messages.setLocale(localPropertiesService.getUiLanguage().getLocale());
+
 		// Create and set up the window.
 		setFrame(new JFrame(Messages.getString("CollectEarthWindow.19"))); //$NON-NLS-1$
 		// frame.setSize(400, 300);
@@ -416,9 +455,6 @@ public class CollectEarthWindow {
 	}
 
 	public void openWindow() {
-
-		// Initialize the translations
-		Messages.setLocale(localPropertiesService.getUiLanguage().getLocale());
 
 		initializeWindow();
 		initializePanel();

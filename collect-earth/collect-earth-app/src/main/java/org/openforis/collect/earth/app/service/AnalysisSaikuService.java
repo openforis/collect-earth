@@ -94,6 +94,7 @@ public class AnalysisSaikuService {
 
 			try {
 				if (!getRdbFile().exists() || isRefreshDatabase()) {
+					
 					long time = System.currentTimeMillis();
 					removeOldRdb();
 					/*
@@ -117,6 +118,7 @@ public class AnalysisSaikuService {
 							logger.error("Error processing quantity data", e );
 						}
 					}
+					
 				}
 
 				if( !isUserCancelledOperation() ){
@@ -165,8 +167,8 @@ public class AnalysisSaikuService {
 
 				updateValues[0] = aspect;
 				updateValues[1] = slope;
-				updateValues[2] = Math.floor((int) rs.getFloat("elevation") / ELEVATION_RANGE) + 1; // 0meters is bucket 1 ( id);
-				updateValues[3] = rs.getInt("_plot_id");
+				updateValues[2] = Math.floor((int) rs.getFloat("elevation") / ELEVATION_RANGE) + 1; // 0 meters is bucket 1 ( id);
+				updateValues[3] = rs.getLong("_plot_id");
 				return updateValues;
 			}
 

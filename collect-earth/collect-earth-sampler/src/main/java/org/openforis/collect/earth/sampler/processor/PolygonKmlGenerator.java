@@ -24,12 +24,14 @@ public abstract class PolygonKmlGenerator extends KmlGenerator {
 	private Integer innerPointSide;
 	private final String host;
 	private final String port;
+	private final String localPort;
 	private final Logger logger = LoggerFactory.getLogger(this.getClass());
 
-	public PolygonKmlGenerator(String epsgCode, String host, String port, Integer innerPointSide) {
+	public PolygonKmlGenerator(String epsgCode, String host, String port, String localPort, Integer innerPointSide) {
 		super(epsgCode);
 		this.host = host;
 		this.port = port;
+		this.localPort = localPort;
 		this.innerPointSide = innerPointSide;
 	}
 
@@ -134,6 +136,7 @@ public abstract class PolygonKmlGenerator extends KmlGenerator {
 		data.put("region_center_X", df.format(viewFrame.getCenterX()));
 		data.put("region_center_Y", df.format(viewFrame.getCenterY()));
 		data.put("host", KmlGenerator.getHostAddress(host, port));
+		data.put("local_port", localPort );
 		data.put("plotFileName", KmlGenerator.getCsvFileName(csvFile));
 		return data;
 	}
