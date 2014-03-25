@@ -12,6 +12,7 @@ import javax.annotation.PostConstruct;
 
 import org.apache.commons.dbcp.BasicDataSource;
 import org.apache.commons.io.FileUtils;
+import org.openforis.collect.earth.app.EarthConstants.CollectDBDriver;
 import org.openforis.collect.earth.app.service.LocalPropertiesService.EarthProperty;
 import org.openforis.collect.persistence.SurveyImportException;
 import org.openforis.idm.metamodel.xml.IdmlParseException;
@@ -30,25 +31,25 @@ import org.springframework.stereotype.Component;
  */
 @Component
 @Lazy(false)
-public class BackupService {
+public class BackupSqlLiteService {
 
 	private static final String BACKUP_COLLECT_EARTH = "backupCollectEarth";
 
 	private static final int MAXIMUM_NUMBER_OF_BACKUPS = 10; 
-	
+
 	@Autowired
 	BasicDataSource dataSource;
 
 	@Autowired
 	private LocalPropertiesService localPropertiesService;
-	
-	private Logger logger = LoggerFactory.getLogger( BackupService.class );
-	
+
+	private Logger logger = LoggerFactory.getLogger( BackupSqlLiteService.class );
+
 	@PostConstruct
 	public void init() throws FileNotFoundException, IdmlParseException, SurveyImportException {
 		attachShutDownHook();
 	}
-	
+
 	private void attachShutDownHook() {
 		Runtime.getRuntime().addShutdownHook(new Thread() {
 			@Override
@@ -61,44 +62,46 @@ public class BackupService {
 
 		});
 	}
-	
+
 	private void backupDB() {
-		String nameCollectDB = "";
-		String pathToBackup = "";
-		SimpleDateFormat sdf = new SimpleDateFormat("yyyy_MM_dd_HHmmss");
-		
-		try {
-			nameCollectDB = getCollectDBName();
-			
-			File backupFolder = getBackUpFolder();
-			
-			File srcFile = new File(nameCollectDB);
-			StringBuilder destPathStr = new StringBuilder();
-			destPathStr.append(backupFolder.getCanonicalPath());
-			destPathStr.append(File.separatorChar);
-			destPathStr.append(nameCollectDB);
-			destPathStr.append(sdf.format( new Date() ));
-			
-			File destFile  = new File(destPathStr.toString() );			
-			
-			FileUtils.copyFile(srcFile, destFile );
-			
-			removeExtraBackups();
-			
-		} catch (IOException e) {
-			logger.error("Error when create backup of the Collect Earth Database from " + nameCollectDB + " to " + pathToBackup);
+		if( localPropertiesService.getCollectDBDriver().equals( CollectDBDriver.SQLITE ) ){
+			String nameCollectDB = "";
+			String pathToBackup = "";
+			SimpleDateFormat sdf = new SimpleDateFormat("yyyy_MM_dd_HHmmss");
+
+			try {
+				nameCollectDB = getCollectDBName();
+
+				File backupFolder = getBackUpFolder();
+
+				File srcFile = new File(nameCollectDB);
+				StringBuilder destPathStr = new StringBuilder();
+				destPathStr.append(backupFolder.getCanonicalPath());
+				destPathStr.append(File.separatorChar);
+				destPathStr.append(nameCollectDB);
+				destPathStr.append(sdf.format( new Date() ));
+
+				File destFile  = new File(destPathStr.toString() );			
+
+				FileUtils.copyFile(srcFile, destFile );
+
+				removeExtraBackups();
+
+			} catch (IOException e) {
+				logger.error("Error when create backup of the Collect Earth Database from " + nameCollectDB + " to " + pathToBackup);
+			}
 		}
 	}
 
 	private void removeExtraBackups() {
-		
+
 		File backupFolder = getBackUpFolder();
-		
+
 		File[] files = backupFolder.listFiles();
 		if( files.length > MAXIMUM_NUMBER_OF_BACKUPS ){
-		
+
 			Arrays.sort(files, new Comparator<File>() {
-				
+
 				@Override
 				public int compare(File o1, File o2) {
 					if( o1.lastModified() < o2.lastModified() ){
@@ -108,16 +111,16 @@ public class BackupService {
 					}else{
 						return -1;
 					}
-				
+
 				}
 			});
-			
+
 			for( int i = MAXIMUM_NUMBER_OF_BACKUPS; i< files.length ; i++ ){
 				files[i].delete();
 			}
-		
+
 		}
-		
+
 	}
 
 	/**
@@ -125,11 +128,11 @@ public class BackupService {
 	 * @return The OS dependent folder where the application should saved the backed up copies. 
 	 */
 	public File getBackUpFolder() {
-		
+
 		File backupFolder = null;
 		try {
 			String userHome = "" ; 
-			
+
 			String OS = System.getProperty("os.name").toUpperCase();
 			if (OS.contains("WIN")){
 				userHome = System.getenv("APPDATA") + File.separatorChar;
@@ -137,7 +140,7 @@ public class BackupService {
 				userHome = System.getProperty("user.home") + "/Library/Application Support/";
 			}else if (OS.contains("NUX") || OS.contains("NIX")){
 				userHome = System.getProperty("user.home") + ".";
-				    
+
 			}
 
 			String backupFolderPath = userHome + BACKUP_COLLECT_EARTH;

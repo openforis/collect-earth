@@ -1,7 +1,14 @@
 package org.openforis.collect.earth.app.desktop;
 
+import java.io.BufferedWriter;
+import java.io.File;
+import java.io.FileNotFoundException;
+import java.io.FileOutputStream;
 import java.io.IOException;
+import java.io.OutputStreamWriter;
 import java.net.Socket;
+import java.nio.charset.Charset;
+import java.util.Map;
 import java.util.Observable;
 import java.util.Observer;
 import java.util.concurrent.TimeUnit;
@@ -11,11 +18,18 @@ import org.eclipse.jetty.server.Server;
 import org.eclipse.jetty.server.nio.SelectChannelConnector;
 import org.eclipse.jetty.util.thread.ExecutorThreadPool;
 import org.eclipse.jetty.webapp.WebAppContext;
+import org.openforis.collect.earth.app.EarthConstants;
+import org.openforis.collect.earth.app.EarthConstants.CollectDBDriver;
 import org.openforis.collect.earth.app.service.LocalPropertiesService;
+import org.openforis.collect.earth.app.service.LocalPropertiesService.EarthProperty;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.web.context.WebApplicationContext;
 import org.springframework.web.context.support.WebApplicationContextUtils;
+
+import freemarker.template.Configuration;
+import freemarker.template.Template;
+import freemarker.template.TemplateException;
 
 /**
  * Controls the Jetty server, starting and stopping it as well as reporting its staus. 
@@ -29,14 +43,14 @@ public class ServerController extends Observable {
 	private Server server;
 	private final Logger logger = LoggerFactory.getLogger(ServerController.class);
 	private WebAppContext root;
-
+	LocalPropertiesService localPropertiesService = new LocalPropertiesService();
 	public WebApplicationContext getContext() {
 		return WebApplicationContextUtils.getRequiredWebApplicationContext(getRoot().getServletContext());
 	}
 
 	private int getPort() {
 
-		LocalPropertiesService localPropertiesService = new LocalPropertiesService();
+
 		try {
 			localPropertiesService.init();
 		} catch (IOException e) {
@@ -82,6 +96,8 @@ public class ServerController extends Observable {
 
 		this.addObserver(observeInitialition);
 
+		setUpDataSource();
+
 		String webappDirLocation = "";
 
 		// The port that we should run on can be set into an environment  variable
@@ -96,25 +112,25 @@ public class ServerController extends Observable {
 		connector.setMaxIdleTime(600000);
 		connector.setRequestBufferSize(10000);
 		//connector.setThreadPool(new QueuedThreadPool(220));
-		
+
 		ExecutorThreadPool executorThreadPool = null;
-		
+
 		if( highDemandServer ){
 			executorThreadPool = new ExecutorThreadPool(100, 300, 5, TimeUnit.SECONDS);
 		}else{
 			executorThreadPool = new ExecutorThreadPool(10, 50, 5, TimeUnit.SECONDS);	
 		}
-		
+
 		connector.setThreadPool( executorThreadPool );
-		
+
 		server.setConnectors(new Connector[] { connector });
 		server.setThreadPool( executorThreadPool );
-		
+
 
 		setRoot(new WebAppContext());
 
 		getRoot().setContextPath("/earth");
-		
+
 		getRoot().setDescriptor(this.getClass().getResource("/WEB-INF/web.xml").toURI().toString());
 		getRoot().setResourceBase(webappDirLocation);
 
@@ -136,6 +152,57 @@ public class ServerController extends Observable {
 		notifyObservers();
 
 		server.join();
+	}
+
+	private void setUpDataSource() {
+		final File jettyAppCtxTemplate = new File("resources/applicationContext.fmt");
+		// Process the template file using the data in the "data" Map
+		final Configuration cfg = new Configuration();
+
+		try {
+			cfg.setDirectoryForTemplateLoading(jettyAppCtxTemplate.getParentFile());
+
+			// Load template from source folder
+			final Template template = cfg.getTemplate(jettyAppCtxTemplate.getName());
+
+			final File jettyAppCtx = new File(EarthConstants.GENERATED_FOLDER + "/applicationContext.xml" );
+
+			Map<String,String> data = new java.util.HashMap<String, String>();
+			
+			data.put("driver", localPropertiesService.getCollectDBDriver().getDriverClass() );
+			data.put("url", getDbURL() );
+			data.put("username", localPropertiesService.getValue( EarthProperty.DB_USERNAME ) );
+			data.put("password", localPropertiesService.getValue( EarthProperty.DB_PASSWORD ) );
+			
+			// Console output
+			BufferedWriter fw = null;
+			try {
+				fw = new BufferedWriter(new OutputStreamWriter(new FileOutputStream(jettyAppCtx), Charset.forName("UTF-8")));
+				template.process(data, fw);
+			} catch (final TemplateException e) {
+				logger.error("Problemsa when processing the template for the Saiku data source", e);
+			} finally {
+				if (fw != null) {
+					fw.close();
+				}
+			}
+		} catch (FileNotFoundException e) {
+			logger.error("File not found", e);
+		} catch (IOException e) {
+			logger.error("IO Exception", e);
+		}
+	}
+
+	private String getDbURL() {
+		// jdbc:postgresql://hostname:port/dbname		
+		CollectDBDriver collectDBDriver = localPropertiesService.getCollectDBDriver();
+
+		String url = collectDBDriver.getUrl();
+		url = url.replace("hostname", localPropertiesService.getValue(EarthProperty.DB_HOST));
+		url = url.replace("port", localPropertiesService.getValue(EarthProperty.DB_PORT));
+		url = url.replace("dbname", localPropertiesService.getValue(EarthProperty.DB_NAME));
+
+		return url;
 	}
 
 	public void stopServer() throws Exception {

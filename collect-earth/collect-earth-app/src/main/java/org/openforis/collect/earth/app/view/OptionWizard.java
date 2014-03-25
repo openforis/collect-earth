@@ -73,8 +73,11 @@ public class OptionWizard extends JDialog {
 	JPanel clientPanel;
 	JPanel serverPanel;
 	JPanel postgresPanel;
+	JPanel sqlitePanel;
 	JRadioButton postgresRadioButton;
-	
+	JRadioButton sqliteRadioButton;
+	JRadioButton clientModeRadioButton;
+
 	LocalPropertiesService localPropertiesService;
 
 	String backupFolder;
@@ -130,25 +133,8 @@ public class OptionWizard extends JDialog {
 		constraints.weightx = 1.0;
 		constraints.fill = GridBagConstraints.HORIZONTAL;
 
-		panel.add(propertyToComponent.get(EarthProperty.AUTOMATIC_BACKUP)[0], constraints);
-		constraints.gridx++;
-		panel.add(new JButton(new AbstractAction(Messages.getString("OptionWizard.10")) { //$NON-NLS-1$
-		
-			private static final long serialVersionUID = 1L;
-
-			@Override
-			public void actionPerformed(ActionEvent e) {
-				try {
-					new ProcessBuilder("explorer.exe", "/select," + backupFolder).start(); //$NON-NLS-1$ //$NON-NLS-2$
-				} catch (final IOException e1) {
-					logger.error("Error when opening the explorer window to visualize backups", e); //$NON-NLS-1$
-				}
-			}
-		}), constraints);
-
 		constraints.gridx = 0;
 		constraints.gridwidth = 2;
-		constraints.gridy++;
 		panel.add(propertyToComponent.get(EarthProperty.OPEN_EARTH_ENGINE)[0], constraints);
 
 		constraints.gridy++;
@@ -269,16 +255,16 @@ public class OptionWizard extends JDialog {
 		enableContainer(clientPanel, isClientMode );
 		enableContainer(serverPanel, !isClientMode);
 		enableContainer(postgresPanel, !isClientMode && postgresRadioButton.isSelected() );
+		enableContainer(sqlitePanel, !isClientMode && sqliteRadioButton.isSelected() );
 	}
 
-	
-	private ActionListener getClientModeListener() {
+
+	private ActionListener getPanelUpdaterListener() {
 		return new ActionListener() {
 
 			@Override
 			public void actionPerformed(ActionEvent e ) {
-				final JRadioButton theJRB = (JRadioButton) e.getSource();
-				boolean isClientMode = theJRB.getName().equals( OperationMode.CLIENT_MODE.name() );				
+				boolean isClientMode = clientModeRadioButton.isSelected();				
 				enableModePanels( isClientMode);
 			}
 
@@ -352,18 +338,19 @@ public class OptionWizard extends JDialog {
 		final JComponent[] operationModes = propertyToComponent.get(EarthProperty.OPERATION_MODE);
 		clientPanel = getClientPanel();
 		serverPanel = getServerPanel();
-		
-		
+
+
 		for (final JComponent typeRadioButton : operationModes) {
-			final JRadioButton intanceButton = (JRadioButton) typeRadioButton;
-			typeChooser.add(intanceButton);
-			typeOfUsePanel.add(intanceButton, constraints);
+			final JRadioButton operationModeButton = (JRadioButton) typeRadioButton;
+			typeChooser.add(operationModeButton);
+			typeOfUsePanel.add(operationModeButton, constraints);
 			constraints.gridy++;
 
-			ActionListener clientModeListener = getClientModeListener();
-			intanceButton.addActionListener(clientModeListener);
-			
-			if (intanceButton.getName().equals( OperationMode.CLIENT_MODE.name())) {
+			ActionListener clientModeListener = getPanelUpdaterListener();
+			operationModeButton.addActionListener(clientModeListener);
+
+			if (operationModeButton.getName().equals( OperationMode.CLIENT_MODE.name())) {
+				clientModeRadioButton = operationModeButton;
 				typeOfUsePanel.add(clientPanel, constraints);
 			} else {
 				typeOfUsePanel.add(serverPanel, constraints);
@@ -371,7 +358,7 @@ public class OptionWizard extends JDialog {
 			constraints.gridy++;
 
 		}
-		
+
 		boolean isClientMode = localPropertiesService.getOperationMode().equals( OperationMode.CLIENT_MODE );
 		enableModePanels(isClientMode );
 
@@ -384,7 +371,7 @@ public class OptionWizard extends JDialog {
 			@Override
 			public void actionPerformed(ActionEvent e) {
 				final JRadioButton theJRB = (JRadioButton) e.getSource();
-				
+
 				boolean isPostgreDb = theJRB.getName().equals(CollectDBDriver.POSTGRESQL.name() );
 				enableContainer(postgresPanel, isPostgreDb);
 			}
@@ -405,7 +392,7 @@ public class OptionWizard extends JDialog {
 
 		final JComponent panel4 = getAdvancedOptionsPanel();
 		tabbedPane.addTab(Messages.getString("OptionWizard.34"), panel4); //$NON-NLS-1$
-		
+
 		final JComponent panel5 = getOperationModePanel();
 		tabbedPane.addTab("Operation Mode", panel5);
 		
@@ -479,7 +466,7 @@ public class OptionWizard extends JDialog {
 
 		constraints.gridx = 1;
 		panel.add(propertyToComponent.get(EarthProperty.DB_NAME)[0], constraints);
-		
+
 
 		constraints.gridy++;
 		label = new JLabel("DB host");
@@ -488,7 +475,7 @@ public class OptionWizard extends JDialog {
 
 		constraints.gridx = 1;
 		panel.add(propertyToComponent.get(EarthProperty.DB_HOST)[0], constraints);
-		
+
 		constraints.gridy++;
 		label = new JLabel("DB port");
 		constraints.gridx = 0;
@@ -500,6 +487,25 @@ public class OptionWizard extends JDialog {
 		return panel;
 	}
 
+	private JPanel getSqlLitePanel() {
+		final JPanel panel = new JPanel(new GridBagLayout());
+		final GridBagConstraints constraints = new GridBagConstraints();
+		constraints.gridx = 0;
+		constraints.gridy = 0;
+		constraints.anchor = GridBagConstraints.LINE_START;
+		constraints.insets = new Insets(5, 5, 5, 5);
+		constraints.weightx = 1.0;
+		constraints.fill = GridBagConstraints.HORIZONTAL;
+
+		final Border border = new TitledBorder(new BevelBorder(BevelBorder.RAISED), "SQLite options");
+		panel.setBorder(border);
+
+		panel.add(propertyToComponent.get(EarthProperty.AUTOMATIC_BACKUP)[0], constraints);
+		constraints.gridx++;
+		panel.add(getOpenBackupFolderButton() );
+		return panel;
+	}
+	
 	private JComponent getSampleDataPanel() {
 		final JTable samplePlots = new JTable(getSamplingPoints(localPropertiesService.getValue(EarthProperty.CSV_KEY)), getColumnNames());
 
@@ -658,11 +664,17 @@ public class OptionWizard extends JDialog {
 		final JComponent[] dbTypes = propertyToComponent.get(EarthProperty.DB_DRIVER);
 
 		postgresPanel = getPostgreSqlPanel();
+		sqlitePanel = getSqlLitePanel();
+		
 		for (final JComponent typeRadioButton : dbTypes) {
 			final JRadioButton dbTypeButton = (JRadioButton) typeRadioButton;
 			bg.add(dbTypeButton);
 			typeOfDbPanel.add(dbTypeButton, constraints);
 			constraints.gridy++;
+			
+			
+			dbTypeButton.addActionListener( getPanelUpdaterListener() );
+
 
 			dbTypeButton.addActionListener(getDbTypeListener());
 
@@ -670,12 +682,33 @@ public class OptionWizard extends JDialog {
 				postgresRadioButton = dbTypeButton;
 				typeOfDbPanel.add(postgresPanel, constraints);
 				constraints.gridy++;
+			}else{
+				sqliteRadioButton = dbTypeButton;
+				typeOfDbPanel.add(sqlitePanel, constraints);
+				constraints.gridy++;
 			}
-			
-			
 		}
-		
 		return typeOfDbPanel;
+	}
+
+	private Component getOpenBackupFolderButton() {
+
+		AbstractAction backupAction = new AbstractAction(Messages.getString("OptionWizard.10") ){ //$NON-NLS-1$
+
+			private static final long serialVersionUID = 1L;
+
+			@Override
+			public void actionPerformed(ActionEvent e) {
+				try {
+					new ProcessBuilder("explorer.exe", "/select," + backupFolder).start(); //$NON-NLS-1$ //$NON-NLS-2$
+				} catch (final IOException e1) {
+					logger.error("Error when opening the explorer window to visualize backups", e); //$NON-NLS-1$
+				}
+			}
+		};
+		
+		return new JButton( backupAction );
+								
 	}
 
 	private JComponent getSurveyDefinitonPanel() {
@@ -786,7 +819,7 @@ public class OptionWizard extends JDialog {
 		saikuPath.setMode(JFilePicker.MODE_OPEN);
 		saikuPath.setFolderChooser();
 		saikuPath.addChangeListener(new DocumentListener() {
-			
+
 			private void showSaikuWarning(){
 				final File saikuFolder = new File(saikuPath.getSelectedFilePath());
 				if( saikuFolder!=null && !saikuService.isSaikuFolder( saikuFolder )){
@@ -796,20 +829,20 @@ public class OptionWizard extends JDialog {
 					saikuPath.getTextField().setBackground(Color.white);
 				}
 			}
-			
+
 			@Override
 			public void removeUpdate(DocumentEvent e) {
-				
+
 			}
-			
+
 			@Override
 			public void insertUpdate(DocumentEvent e) {
 				showSaikuWarning();
 			}
-			
+
 			@Override
 			public void changedUpdate(DocumentEvent e) {
-				
+
 			}
 		});
 		propertyToComponent.put(EarthProperty.SAIKU_SERVER_FOLDER, new JComponent[] { saikuPath });
@@ -885,10 +918,10 @@ public class OptionWizard extends JDialog {
 
 		final JTextField dbName = new JTextField(localPropertiesService.getValue(EarthProperty.DB_NAME));
 		propertyToComponent.put(EarthProperty.DB_NAME, new JComponent[] { dbName });
-		
+
 		final JTextField dbHost = new JTextField(localPropertiesService.getValue(EarthProperty.DB_HOST));
 		propertyToComponent.put(EarthProperty.DB_HOST, new JComponent[] { dbHost });
-		
+
 		final JTextField dbPort = new JTextField(localPropertiesService.getValue(EarthProperty.DB_PORT));
 		propertyToComponent.put(EarthProperty.DB_PORT, new JComponent[] { dbPort });
 

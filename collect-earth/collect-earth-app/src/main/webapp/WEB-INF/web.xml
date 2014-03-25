@@ -9,7 +9,8 @@
 		<param-name>contextConfigLocation</param-name>
 		<param-value>
 <!--             ../conf/applicationContext.xml -->
-classpath:/WEB-INF/conf/applicationContext.xml
+<!--             classpath:/WEB-INF/conf/applicationContext.xml -->
+generated/applicationContext.xml
         </param-value>
 	</context-param>
 	<context-param>

@@ -29,6 +29,7 @@ import javax.swing.JPanel;
 import javax.swing.JRadioButtonMenuItem;
 import javax.swing.JTextField;
 import javax.swing.SwingConstants;
+import javax.swing.SwingUtilities;
 import javax.swing.WindowConstants;
 import javax.swing.border.Border;
 
@@ -37,9 +38,11 @@ import org.openforis.collect.earth.app.EarthConstants.OperationMode;
 import org.openforis.collect.earth.app.EarthConstants.UI_LANGUAGE;
 import org.openforis.collect.earth.app.ad_hoc.FixCoordinates;
 import org.openforis.collect.earth.app.ad_hoc.FixCoordinatesPNG;
+import org.openforis.collect.earth.app.ad_hoc.FixDuplicatePlots;
+import org.openforis.collect.earth.app.ad_hoc.FixMissingPlotsFileInfo;
 import org.openforis.collect.earth.app.desktop.ServerController;
 import org.openforis.collect.earth.app.service.AnalysisSaikuService;
-import org.openforis.collect.earth.app.service.BackupService;
+import org.openforis.collect.earth.app.service.BackupSqlLiteService;
 import org.openforis.collect.earth.app.service.DataImportExportService;
 import org.openforis.collect.earth.app.service.EarthSurveyService;
 import org.openforis.collect.earth.app.service.LocalPropertiesService;
@@ -73,7 +76,6 @@ public class CollectEarthWindow {
 	private final String backupFolder;
 	private JMenuItem exportModifiedRecords;
 	private final SaikuStarter saikuStarter;
-	private final FixCoordinates fixCoordinates;
 
 	private List<JMenuItem> serverMenuItems = new ArrayList<JMenuItem>();
 
@@ -83,13 +85,12 @@ public class CollectEarthWindow {
 			this.serverController = serverController;
 			this.localPropertiesService = serverController.getContext().getBean(LocalPropertiesService.class);
 			this.dataExportService = serverController.getContext().getBean(DataImportExportService.class);
-			final BackupService backupService = serverController.getContext().getBean(BackupService.class);
+			final BackupSqlLiteService backupService = serverController.getContext().getBean(BackupSqlLiteService.class);
 			this.backupFolder = backupService.getBackUpFolder().getAbsolutePath();
 			this.saikuService = serverController.getContext().getBean(AnalysisSaikuService.class);
 			this.earthSurveyService = serverController.getContext().getBean(EarthSurveyService.class);
 			this.recordManager = serverController.getContext().getBean(RecordManager.class);
-			this.saikuStarter = new SaikuStarter(saikuService, frame);
-			this.fixCoordinates = serverController.getContext().getBean(FixCoordinatesPNG.class);
+			this.saikuStarter = new SaikuStarter(saikuService, frame);			
 		}else{
 			this.serverController = null;
 			this.localPropertiesService = new LocalPropertiesService();
@@ -100,7 +101,6 @@ public class CollectEarthWindow {
 			this.earthSurveyService = null;
 			this.recordManager = null;
 			this.saikuStarter = null;
-			this.fixCoordinates = null;
 		}
 	}
 
@@ -189,7 +189,9 @@ public class CollectEarthWindow {
 		return new ExportActionListener(exportFormat, onlyLastModifiedRecords, frame, localPropertiesService, dataExportService, earthSurveyService);
 	}
 
-	/*	private ActionListener getFixCoordinatesAction() {
+
+	
+/*	private ActionListener getFixMissingPlotFileInfoAction() {
 		return new ActionListener() {
 
 			@Override
@@ -197,13 +199,13 @@ public class CollectEarthWindow {
 				try {
 					startWaiting(frame);
 
-					final InfiniteProgressMonitor infiniteProgressMonitor = new InfiniteProgressMonitor(frame, "Fixing coordinates", //$NON-NLS-1$
+					final InfiniteProgressMonitor infiniteProgressMonitor = new InfiniteProgressMonitor(frame, "Fixing missing plot_file info", //$NON-NLS-1$
 							"This process can take a few minutes, be patient."); //$NON-NLS-1$
 
 					new Thread() {
 						@Override
 						public void run() {
-							fixCoordinates.fixCoordinates();
+							fixMissingPlotsFileInfo.findMissingPlots(frame);
 							infiniteProgressMonitor.close();
 						};
 					}.start();
@@ -214,19 +216,20 @@ public class CollectEarthWindow {
 
 							infiniteProgressMonitor.show();
 							if (infiniteProgressMonitor.isUserCancelled()) {
-								fixCoordinates.stopFixing();
+								fixMissingPlotsFileInfo.stopFixing();
 							}
 						}
 					});
 
 				} catch (final Exception e1) {
-					logger.error("Error fixing the switched coordinates.", e1); //$NON-NLS-1$
+					logger.error("Error fixing the missing plot_file info.", e1); //$NON-NLS-1$
 				} finally {
 					endWaiting(frame);
 				}
 			}
 		};
-	}*/
+	}
+*/
 
 	private JFrame getFrame() {
 		return frame;
@@ -306,11 +309,6 @@ public class CollectEarthWindow {
 		menuItem.addActionListener(getPropertiesAction(frame));
 		toolsMenu.add(menuItem);
 
-		/*		menuItem = new JMenuItem("Ad-hoc Tool - Fix switched PNG coordinates"); //$NON-NLS-1$
-		menuItem.addActionListener(getFixCoordinatesAction());
-		toolsMenu.add(menuItem);
-
-		 */		
 		menuItem = new JMenuItem(Messages.getString("CollectEarthWindow.18")); //$NON-NLS-1$
 		menuItem.addActionListener(new MissingPlotsListener(recordManager, earthSurveyService, frame, localPropertiesService));
 		serverMenuItems.add(menuItem); // This menu should only be shown if the DB is local ( not if Collect Earth is acting as a client )

@@ -132,15 +132,13 @@ public class LocalPropertiesService {
 	}
 
 	public OperationMode getOperationMode() {
-
 		final String instanceType = getValue(EarthProperty.OPERATION_MODE);
 		if (instanceType.length() == 0) {
 			return OperationMode.SERVER_MODE;
 		}
 		return OperationMode.valueOf(instanceType);
-
 	}
-
+	
 	public String getOperator() {
 		return getValue(EarthProperty.OPERATOR_KEY);
 	}
