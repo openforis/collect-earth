@@ -15,7 +15,7 @@
 	<properties>
 		<jetty.version>7.6.10.v20130312</jetty.version>
 		<spring.version>3.1.0.RELEASE</spring.version>
-		<selenium.version>2.37.1</selenium.version>
+		<selenium.version>2.40.0</selenium.version>
 		<sonar.language>java</sonar.language>
 		<classpath.prefix>earth-libs</classpath.prefix>
 	</properties>

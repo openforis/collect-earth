@@ -12,7 +12,7 @@ import javax.annotation.PostConstruct;
 
 import org.apache.commons.dbcp.BasicDataSource;
 import org.apache.commons.io.FileUtils;
-import org.openforis.collect.earth.app.EarthConstants.CollectDBDriver;
+import org.apache.commons.lang3.SystemUtils;
 import org.openforis.collect.earth.app.service.LocalPropertiesService.EarthProperty;
 import org.openforis.collect.persistence.SurveyImportException;
 import org.openforis.idm.metamodel.xml.IdmlParseException;
@@ -64,7 +64,7 @@ public class BackupSqlLiteService {
 	}
 
 	private void backupDB() {
-		if( localPropertiesService.getCollectDBDriver().equals( CollectDBDriver.SQLITE ) ){
+		if( localPropertiesService.isUsingSqliteDB() ){
 			String nameCollectDB = "";
 			String pathToBackup = "";
 			SimpleDateFormat sdf = new SimpleDateFormat("yyyy_MM_dd_HHmmss");
@@ -133,12 +133,12 @@ public class BackupSqlLiteService {
 		try {
 			String userHome = "" ; 
 
-			String OS = System.getProperty("os.name").toUpperCase();
-			if (OS.contains("WIN")){
+			
+			if (SystemUtils.IS_OS_WINDOWS){
 				userHome = System.getenv("APPDATA") + File.separatorChar;
-			}else if (OS.contains("MAC")){
+			}else if (SystemUtils.IS_OS_MAC){
 				userHome = System.getProperty("user.home") + "/Library/Application Support/";
-			}else if (OS.contains("NUX") || OS.contains("NIX")){
+			}else if ( SystemUtils.IS_OS_UNIX){
 				userHome = System.getProperty("user.home") + ".";
 
 			}

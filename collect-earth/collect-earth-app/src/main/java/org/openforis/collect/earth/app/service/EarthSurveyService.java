@@ -5,7 +5,6 @@ import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
@@ -22,8 +21,6 @@ import org.openforis.collect.manager.exception.SurveyValidationException;
 import org.openforis.collect.model.CollectRecord;
 import org.openforis.collect.model.CollectRecord.Step;
 import org.openforis.collect.model.CollectSurvey;
-import org.openforis.collect.model.RecordSummarySortField;
-import org.openforis.collect.model.RecordSummarySortField.Sortable;
 import org.openforis.collect.model.RecordValidationReportGenerator;
 import org.openforis.collect.model.RecordValidationReportItem;
 import org.openforis.collect.persistence.RecordPersistenceException;
@@ -161,21 +158,14 @@ public class EarthSurveyService {
 	 * @return The list of record that have been updated since the time stated in updatedSince
 	 */
 	public List<CollectRecord> getRecordsSavedSince(Date updatedSince) {
-		final List<CollectRecord> summaries = recordManager.loadSummaries(getCollectSurvey(), EarthConstants.ROOT_ENTITY_NAME, 0, 15,
-				Arrays.asList(new RecordSummarySortField(Sortable.DATE_MODIFIED, true)), (String[]) null);
+
+		final List<CollectRecord> summaries = recordManager.loadSummaries(getCollectSurvey(), EarthConstants.ROOT_ENTITY_NAME, updatedSince );
+		
 		if ((updatedSince != null) && (summaries != null) && !summaries.isEmpty()) {
 			final List<CollectRecord> records = new ArrayList<CollectRecord>();
-			for (int i = 0; i < summaries.size(); i++) {
-				final CollectRecord summary = summaries.get(i);
-				final CollectRecord record = recordManager.load(getCollectSurvey(), summary.getId(), Step.ENTRY);
-
-				if ((record.getModifiedDate() != null) && record.getModifiedDate().after(updatedSince)) {
-					records.add(record);
-				}
-
-				if ((record.getModifiedDate() != null) && record.getModifiedDate().before(updatedSince)) {
-					break;
-				}
+			for (CollectRecord collectRecord : summaries) {
+				final CollectRecord record = recordManager.load(getCollectSurvey(), collectRecord.getId(), Step.ENTRY);
+				records.add(record);
 			}
 			return records;
 		} else {

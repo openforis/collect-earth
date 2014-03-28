@@ -1,0 +1,6 @@
+type=OLAP
+name=collectEarth
+driver=mondrian.olap4j.MondrianOlap4jDriver
+location=jdbc:mondrian:Jdbc=${dbUrl};Catalog=${cubeFilePath};JdbcDrivers=org.postgresql.Driver;
+username=${username}
+password=${password}

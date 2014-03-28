@@ -30,16 +30,20 @@ public class PlacemarkBrowserServlet{
 	 * @see org.openforis.collect.earth.app.server.JsonPocessorServlet#processRequest(javax.servlet.http.HttpServletRequest, javax.servlet.http.HttpServletResponse)
 	 */
 	@RequestMapping("/openAuxiliaryWindows")
-	protected void openAuxiliaryWindows(HttpServletResponse response, @RequestParam(value = "latLongCoordinates", required = false) String latLongCoordinates) throws IOException {
-		
-		try {
-			browserService.openEarthEngine(latLongCoordinates);
-			browserService.openTimelapse(latLongCoordinates);
-			browserService.openBingMaps(latLongCoordinates);
-		} catch (final Exception e) {
-			LoggerFactory.getLogger(this.getClass()).error("Exception", e);
-		}
+	protected void openAuxiliaryWindows(HttpServletResponse response, @RequestParam(value = "latLongCoordinates", required = false) final String latLongCoordinates) throws IOException {
+		new Thread(){
+			@Override
+			public void run() {
+				try {
+					browserService.openEarthEngine(latLongCoordinates);
+					browserService.openTimelapse(latLongCoordinates);
+					browserService.openBingMaps(latLongCoordinates);
+				} catch (final Exception e) {
+					LoggerFactory.getLogger(this.getClass()).error("Exception", e);
+				}
+			}
 
+		}.start();;
 	}
 
 }

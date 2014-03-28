@@ -33,6 +33,8 @@ import org.springframework.stereotype.Component;
 @Component
 public class LocalPropertiesService {
 
+	private static final String LOCAL_HOST = "127.0.0.1";
+
 	/**
 	 * Enumeration containing the names of all the possible values that can be configured in Collect Earth.
 	 * 
@@ -114,7 +116,11 @@ public class LocalPropertiesService {
 	}
 
 	public String getHost() {
-		return getValue(EarthProperty.HOST_KEY);
+		if( getOperationMode().equals(OperationMode.CLIENT_MODE ) ){
+			return getValue(EarthProperty.HOST_KEY);
+		}else{
+			return LOCAL_HOST;
+		}
 	}
 
 	public Date getLastExportedDate(String surveyName) {
@@ -385,4 +391,13 @@ public class LocalPropertiesService {
 		}
 	}
 
+	public boolean isUsingPostgreSqlDB() {
+		return getCollectDBDriver().equals(CollectDBDriver.POSTGRESQL);
+	}
+	
+	public boolean isUsingSqliteDB() {
+		return getCollectDBDriver().equals(CollectDBDriver.SQLITE);
+	}
+
+	
 }

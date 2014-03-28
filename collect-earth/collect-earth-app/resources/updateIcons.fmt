@@ -13,13 +13,6 @@
 							<href>${host}placemarkIcon?collect_text_id=${placemark}&amp;listView=true&amp;date=${date}</href>
 						</ItemIcon>
 					</Change>
-					<!-- 
-						<Change>
-							<Placemark targetId="overlay_${placemark}">
-								<styleUrl>#line-style</styleUrl>	
-							</Placemark>
-						</Change>
-					-->
 				</#list>
 			</Update>
 		</#if>

@@ -18,6 +18,7 @@ import javax.annotation.PostConstruct;
 import org.apache.commons.dbcp.BasicDataSource;
 import org.apache.commons.lang3.StringUtils;
 import org.openforis.collect.earth.app.EarthConstants;
+import org.openforis.collect.earth.app.desktop.ServerController;
 import org.openforis.collect.earth.app.service.LocalPropertiesService.EarthProperty;
 import org.openforis.collect.earth.sampler.model.AspectCode;
 import org.openforis.collect.earth.sampler.model.SlopeCode;
@@ -40,6 +41,8 @@ import freemarker.template.TemplateException;
 
 @Component
 public class AnalysisSaikuService {
+
+	private static final String POSTGRES_RDB_SCHEMA = "rdbcollectsaiku";
 
 	private static final String START_SAIKU_BAT = "start-saiku.bat";
 
@@ -72,143 +75,104 @@ public class AnalysisSaikuService {
 
 	private boolean refreshDatabase;
 
-	private static final String FREEMARKER_HTML_TEMPLATE = "resources/collectEarthDS.fmt";
+	private static final String SQLITE_FREEMARKER_HTML_TEMPLATE = "resources/collectEarthSqliteDS.fmt";
+	private static final String POSTGRESQL_FREEMARKER_HTML_TEMPLATE = "resources/collectEarthPostgreSqlDS.fmt";
 
 	private static final String MDX_XML = "collectEarthCubes.xml";
 
 	private boolean userCancelledOperation = false;
 
-	public boolean isUserCancelledOperation() {
-		return userCancelledOperation;
-	}
-
-	public void setUserCancelledOperation(boolean userCancelledOperation) {
-		this.userCancelledOperation = userCancelledOperation;
-	}
-
-
-	public void prepareDataForAnalysis() throws SaikuExecutionException {
-
-		try {
-			stopSaiku();
-
-			try {
-				if (!getRdbFile().exists() || isRefreshDatabase()) {
-					
-					long time = System.currentTimeMillis();
-					removeOldRdb();
-					/*
-					 * The SQLite DB has no limit on the length of the varchar.
-					 * By default, if no RelationalSchemaConfig is passed to the export command text fields will be truncated to 255 characters
-					 */
-					RelationalSchemaConfig rdbConfig = RelationalSchemaConfig.createDefault();
-					rdbConfig.setTextMaxLength(4096);
-					rdbConfig.setMemoMaxLength(4096);
-					collectRDBPublisher.export(earthSurveyService.getCollectSurvey().getName(), EarthConstants.ROOT_ENTITY_NAME, Step.ENTRY, null, rdbConfig );
-					System.out.println( "Export takes " + ( System.currentTimeMillis() - time  ) );
-					time = System.currentTimeMillis();
-					refreshDataSourceForSaiku();
-					System.out.println( "Refresh takes " + ( System.currentTimeMillis() - time  ) );
-					if( !isUserCancelledOperation() ){
-						time = System.currentTimeMillis();
-						try {
-							processQuantityData();
-							System.out.println( "Prcoessing takes " + ( System.currentTimeMillis() - time  ) );
-						} catch (Exception e) {
-							logger.error("Error processing quantity data", e );
-						}
-					}
-					
-				}
-
-				if( !isUserCancelledOperation() ){
-					startSaiku();
-					new Thread() {
-						@Override
-						public void run() {
-							try {
-								AnalysisSaikuService.this.openSaiku();
-							} catch (final IOException e) {
-								logger.error("Error opening the Saiku interface", e);
-							}
-						};
-					}.start();
-
-					stopSaikuOnExit();
-				}
-			} catch (final IOException e) {
-				logger.error("Error while producing Relational DB from Collect format", e);
-			} 
-
-		} catch (final CollectRdbException e) {
-			logger.error("Error while producing Relational DB from Collect format", e);
-		}
-	}
-
 	private void assignDimensionValues() {
-
+		final String schemaName = getSchemaPrefix();
 		// Objet[] --> aspect_id, sloped_id, elevation_bucket_id, _plot_id
-		final List<Object[]> sqlUpdateValues = jdbcTemplate.query("SELECT _plot_id, elevation, slope, aspect FROM plot", new RowMapper<Object[]>() {
-			@Override
-			public Object[] mapRow(ResultSet rs, int rowNum) throws SQLException {
+		final List<Object[]> sqlUpdateValues = jdbcTemplate.query("SELECT _plot_id, elevation, slope, aspect FROM " + schemaName + "plot",
+				new RowMapper<Object[]>() {
+					@Override
+					public Object[] mapRow(ResultSet rs, int rowNum) throws SQLException {
 
-				final Object[] updateValues = new Object[4];
+						final Object[] updateValues = new Object[4];
 
-				Integer aspect = AspectCode.NA.getId();
-				if (AspectCode.getAspectCode(rs.getDouble("aspect")) != null) {
-					aspect = AspectCode.getAspectCode(rs.getDouble("aspect")).getId();
-				}
+						Integer aspect = AspectCode.NA.getId();
+						if (AspectCode.getAspectCode(rs.getDouble("aspect")) != null) {
+							aspect = AspectCode.getAspectCode(rs.getDouble("aspect")).getId();
+						}
 
-				Integer slope = SlopeCode.NA.getId();
+						Integer slope = SlopeCode.NA.getId();
 
-				if (SlopeCode.getSlopeCode((int) rs.getFloat("slope")) != null) {
-					slope = SlopeCode.getSlopeCode((int) rs.getFloat("slope")).getId();
-				}
+						if (SlopeCode.getSlopeCode((int) rs.getFloat("slope")) != null) {
+							slope = SlopeCode.getSlopeCode((int) rs.getFloat("slope")).getId();
+						}
 
-				updateValues[0] = aspect;
-				updateValues[1] = slope;
-				updateValues[2] = Math.floor((int) rs.getFloat("elevation") / ELEVATION_RANGE) + 1; // 0 meters is bucket 1 ( id);
-				updateValues[3] = rs.getLong("_plot_id");
-				return updateValues;
+						updateValues[0] = aspect;
+						updateValues[1] = slope;
+						updateValues[2] = Math.floor((int) rs.getFloat("elevation") / ELEVATION_RANGE) + 1; // 0 meters is bucket 1 ( id);
+						updateValues[3] = rs.getLong("_plot_id");
+						return updateValues;
+					}
+
+				});
+
+		jdbcTemplate.batchUpdate("UPDATE " + schemaName + "plot SET aspect_id=?,slope_id=?,elevation_id=? WHERE _plot_id=?", sqlUpdateValues);
+	}
+
+	private void cleanPostgresDb() {
+		jdbcTemplate.execute("DROP SCHEMA IF EXISTS " + POSTGRES_RDB_SCHEMA + " CASCADE");
+		jdbcTemplate.execute("CREATE SCHEMA IF NOT EXISTS " + POSTGRES_RDB_SCHEMA);
+	}
+
+	private void cleanSqlLiteDb(final List<String> tables) {
+		final List<Map<String, Object>> listOfTables = jdbcTemplate.queryForList("SELECT name FROM sqlite_master WHERE type='table';");
+		for (final Map<String, Object> entry : listOfTables) {
+			final String tableName = (String) entry.get("name");
+			if (!tableName.equals("sqlite_sequence")) {
+				tables.add(tableName);
 			}
+		}
 
-		});
+		for (final String tableName : tables) {
+			jdbcTemplate.execute("DROP TABLE IF EXISTS " + tableName);
+		}
 
-		jdbcTemplate.batchUpdate("UPDATE plot SET aspect_id=?,slope_id=?,elevation_id=? WHERE _plot_id=?", sqlUpdateValues);
+		final File oldRdbFile = getRdbFile();
+		oldRdbFile.delete();
 	}
 
 	private void createAspectAuxTable() {
-		jdbcTemplate.execute("CREATE TABLE aspect_category (aspect_id INTEGER PRIMARY KEY, aspect_caption TEXT);");
+		final String schemaName = getSchemaPrefix();
+		jdbcTemplate.execute("CREATE TABLE " + schemaName + "aspect_category (aspect_id INTEGER PRIMARY KEY, aspect_caption TEXT);");
 		final AspectCode[] aspects = AspectCode.values();
 		for (final AspectCode aspectCode : aspects) {
-			jdbcTemplate.execute("INSERT INTO aspect_category values (" + aspectCode.getId() + ", '" + aspectCode.getLabel() + "')");
+			jdbcTemplate
+			.execute("INSERT INTO " + schemaName + "aspect_category values (" + aspectCode.getId() + ", '" + aspectCode.getLabel() + "')");
 		}
 	}
 
 	private void createElevationtAuxTable() {
-
-		jdbcTemplate.execute("CREATE TABLE elevation_category (elevation_id INTEGER PRIMARY KEY, elevation_caption TEXT);");
+		final String schemaName = getSchemaPrefix();
+		jdbcTemplate.execute("CREATE TABLE " + schemaName + "elevation_category (elevation_id INTEGER PRIMARY KEY, elevation_caption TEXT);");
 		final int slots = (int) Math.ceil(9000 / ELEVATION_RANGE); // Highest mountain in the world, mount everest is 8820m high
 		for (int i = 1; i <= slots; i++) {
-			jdbcTemplate.execute("INSERT INTO elevation_category values (" + i + ", '" + ((i - 1) * ELEVATION_RANGE) + "-" + i * ELEVATION_RANGE
-					+ "')");
+			jdbcTemplate.execute("INSERT INTO " + schemaName + "elevation_category values (" + i + ", '" + ((i - 1) * ELEVATION_RANGE) + "-" + i
+					* ELEVATION_RANGE + "')");
 		}
 
 	}
 
 	private void createPlotForeignKeys() {
 		// Add aspect_id column to plot
-		jdbcTemplate.execute("ALTER TABLE plot ADD aspect_id INTEGER");
-		jdbcTemplate.execute("ALTER TABLE plot ADD slope_id INTEGER");
-		jdbcTemplate.execute("ALTER TABLE plot ADD elevation_id INTEGER");
+		final String schemaName = getSchemaPrefix();
+		jdbcTemplate.execute("ALTER TABLE " + schemaName + "plot ADD aspect_id INTEGER");
+		jdbcTemplate.execute("ALTER TABLE " + schemaName + "plot ADD slope_id INTEGER");
+		jdbcTemplate.execute("ALTER TABLE " + schemaName + "plot ADD elevation_id INTEGER");
 	}
 
 	private void createSlopeAuxTable() {
+		final String schemaName = getSchemaPrefix();
 		// Slope can be from 0 to 90
-		jdbcTemplate.execute("CREATE TABLE slope_category (slope_id INTEGER PRIMARY KEY, slope_caption TEXT);");
+		jdbcTemplate.execute("CREATE TABLE " + schemaName + "slope_category (slope_id INTEGER PRIMARY KEY, slope_caption TEXT);");
 		final SlopeCode[] slopeCodes = SlopeCode.values();
 		for (final SlopeCode slopeCode : slopeCodes) {
-			jdbcTemplate.execute("INSERT INTO slope_category values (" + slopeCode.getId() + ", '" + slopeCode.getLabel() + "')");
+			jdbcTemplate.execute("INSERT INTO " + schemaName + "slope_category values (" + slopeCode.getId() + ", '" + slopeCode.getLabel() + "')");
 		}
 	}
 
@@ -238,16 +202,35 @@ public class AnalysisSaikuService {
 		}
 	}
 
+	private String getSchemaName() {
+		String schemaName = null;
+		if (localPropertiesService.isUsingPostgreSqlDB()) {
+			schemaName = POSTGRES_RDB_SCHEMA;
+		}
+		return schemaName;
+	}
+
+	private String getSchemaPrefix() {
+		String schemaName = getSchemaName();
+		if (schemaName != null) {
+			schemaName += ".";
+		} else {
+			schemaName = "";
+		}
+		return schemaName;
+	}
+
 	@PostConstruct
 	public void initialize() {
 		jdbcTemplate = new JdbcTemplate(rdbDataSource);
 	}
 
-	public boolean isRefreshDatabase() {
+
+	private boolean isRefreshDatabase() {
 		return refreshDatabase;
 	}
 
-	public boolean isSaikuConfigured() {
+	private boolean isSaikuConfigured() {
 		return getSaikuFolder() != null && isSaikuFolder(new File(getSaikuFolder()));
 	}
 
@@ -263,33 +246,101 @@ public class AnalysisSaikuService {
 		return isSaikuFolder;
 	}
 
-	private void openSaiku() throws IOException {
+	private boolean isUserCancelledOperation() {
+		return userCancelledOperation;
+	}
 
+	private void openSaiku() throws IOException {
 		saikuWebDriver = browserService.navigateTo("http://localhost:8181", saikuWebDriver);
 		browserService.waitFor("username", saikuWebDriver);
-
 		saikuWebDriver.findElementByName("username").sendKeys("admin");
 		saikuWebDriver.findElementByName("password").sendKeys("admin");
 		saikuWebDriver.findElementByClassName("form_button").click();
+	}
 
+	public void prepareDataForAnalysis() throws SaikuExecutionException {
+
+		try {
+			stopSaiku();
+
+			try {
+				if (!getRdbFile().exists() || isRefreshDatabase()) {
+
+					System.currentTimeMillis();
+					removeOldRdb();
+					/*
+					 * The SQLite DB has no limit on the length of the varchar.
+					 * By default, if no RelationalSchemaConfig is passed to the export command text fields will be truncated to 255 characters
+					 */
+					final RelationalSchemaConfig rdbConfig = RelationalSchemaConfig.createDefault();
+					rdbConfig.setTextMaxLength(4096);
+					rdbConfig.setMemoMaxLength(4096);
+
+					final String rdbSaikuSchema = getSchemaName();
+
+					collectRDBPublisher.export(earthSurveyService.getCollectSurvey().getName(), EarthConstants.ROOT_ENTITY_NAME, Step.ENTRY,
+							rdbSaikuSchema, rdbConfig);
+
+					refreshDataSourceForSaiku();
+
+					if (!isUserCancelledOperation()) {
+						System.currentTimeMillis();
+						try {
+							processQuantityData();
+							
+							setSaikuAsDefaultSchema();
+						} catch (final Exception e) {
+							logger.error("Error processing quantity data", e);
+						}
+					}
+				}
+
+				if (!isUserCancelledOperation()) {
+					startSaiku();
+					new Thread() {
+						@Override
+						public void run() {
+							try {
+								AnalysisSaikuService.this.openSaiku();
+							} catch (final IOException e) {
+								logger.error("Error opening the Saiku interface", e);
+							}
+						};
+					}.start();
+
+					stopSaikuOnExit();
+				}
+			} catch (final IOException e) {
+				logger.error("Error while producing Relational DB from Collect format", e);
+			}
+
+		} catch (final CollectRdbException e) {
+			logger.error("Error while producing Relational DB from Collect format", e);
+		}
+	}
+
+	private void setSaikuAsDefaultSchema() {
+		if( localPropertiesService.isUsingPostgreSqlDB() ){
+			jdbcTemplate.execute("SET search_path TO " + getSchemaName() );
+		}
 	}
 
 	private void processQuantityData() throws SQLException {
 		long time = System.currentTimeMillis();
 		createAspectAuxTable();
-		System.out.println( "Process 1 " + ( System.currentTimeMillis() - time  ) );
+		System.out.println("Process 1 " + (System.currentTimeMillis() - time));
 		time = System.currentTimeMillis();
 		createSlopeAuxTable();
-		System.out.println( "Process 2 " + ( System.currentTimeMillis() - time  ) );
+		System.out.println("Process 2 " + (System.currentTimeMillis() - time));
 		time = System.currentTimeMillis();
 		createElevationtAuxTable();
-		System.out.println( "Process 3 " + ( System.currentTimeMillis() - time  ) );
+		System.out.println("Process 3 " + (System.currentTimeMillis() - time));
 		time = System.currentTimeMillis();
 		createPlotForeignKeys();
-		System.out.println( "Process 4 " + ( System.currentTimeMillis() - time  ) );
+		System.out.println("Process 4 " + (System.currentTimeMillis() - time));
 		time = System.currentTimeMillis();
 		assignDimensionValues();
-		System.out.println( " Process  5 " + ( System.currentTimeMillis() - time  ) );
+		System.out.println(" Process  5 " + (System.currentTimeMillis() - time));
 		time = System.currentTimeMillis();
 	}
 
@@ -297,12 +348,23 @@ public class AnalysisSaikuService {
 
 		final HashMap<String, String> data = new HashMap<String, String>();
 
-		final File rdbDb = getRdbFile();
-		final File cubeDefinition = new File(getIdmFolder() + File.separatorChar + MDX_XML);
-		final File dataSourceTemplate = new File(KmlGenerator.convertToOSPath(FREEMARKER_HTML_TEMPLATE));
 
-		if (!rdbDb.exists()) {
-			throw new IOException("The file contianing the Relational SQLite Database does not exist in expected location " + rdbDb.getAbsolutePath());
+		final File cubeDefinition = new File(getIdmFolder() + File.separatorChar + MDX_XML);
+		File dataSourceTemplate = null;
+
+		if( localPropertiesService.isUsingSqliteDB() ){
+			dataSourceTemplate = new File(KmlGenerator.convertToOSPath(SQLITE_FREEMARKER_HTML_TEMPLATE));
+			final File rdbDb = getRdbFile();
+			if (!rdbDb.exists()) {
+				throw new IOException("The file contianing the Relational SQLite Database does not exist in expected location " + rdbDb.getAbsolutePath());
+			}
+			data.put("rdbFilePath", rdbDb.getAbsolutePath().replace('\\', '/'));
+		}else{
+			dataSourceTemplate = new File(KmlGenerator.convertToOSPath(POSTGRESQL_FREEMARKER_HTML_TEMPLATE));
+			data.put("dbUrl", ServerController.getSaikuDbURL() );
+			data.put("username", localPropertiesService.getValue(EarthProperty.DB_USERNAME ));
+			data.put("password", localPropertiesService.getValue(EarthProperty.DB_PASSWORD ));
+			
 		}
 
 		if (!cubeDefinition.exists()) {
@@ -315,12 +377,11 @@ public class AnalysisSaikuService {
 					+ dataSourceTemplate.getAbsolutePath());
 		}
 
-		data.put("rdbFilePath", rdbDb.getAbsolutePath().replace('\\', '/'));
+
 		data.put("cubeFilePath", cubeDefinition.getAbsolutePath().replace('\\', '/'));
 
 		// Process the template file using the data in the "data" Map
 		final Configuration cfg = new Configuration();
-
 		cfg.setDirectoryForTemplateLoading(dataSourceTemplate.getParentFile());
 
 		// Load template from source folder
@@ -346,21 +407,15 @@ public class AnalysisSaikuService {
 	private void removeOldRdb() {
 
 		final List<String> tables = new ArrayList<String>();
-		final List<Map<String, Object>> listOfTables = jdbcTemplate.queryForList("SELECT name FROM sqlite_master WHERE type='table';");
-		for (final Map<String, Object> entry : listOfTables) {
-			final String tableName = (String) entry.get("name");
-			if (!tableName.equals("sqlite_sequence")) {
-				tables.add(tableName);
-			}
+
+		if (localPropertiesService.isUsingSqliteDB()) {
+
+			cleanSqlLiteDb(tables);
+
+		} else if (localPropertiesService.isUsingPostgreSqlDB()) {
+			cleanPostgresDb();
 
 		}
-
-		for (final String tableName : tables) {
-			jdbcTemplate.execute("DROP TABLE IF EXISTS " + tableName);
-		}
-
-		final File oldRdbFile = getRdbFile();
-		oldRdbFile.delete();
 
 	}
 
@@ -382,6 +437,10 @@ public class AnalysisSaikuService {
 
 	public void setRefreshDatabase(boolean refreshDatabase) {
 		this.refreshDatabase = refreshDatabase;
+	}
+
+	public void setUserCancelledOperation(boolean userCancelledOperation) {
+		this.userCancelledOperation = userCancelledOperation;
 	}
 
 	private void startSaiku() throws SaikuExecutionException {

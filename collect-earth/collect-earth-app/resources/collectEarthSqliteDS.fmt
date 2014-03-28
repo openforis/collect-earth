@@ -1,0 +1,6 @@
+type=OLAP
+name=collectEarth
+driver=mondrian.olap4j.MondrianOlap4jDriver
+location=jdbc:mondrian:Jdbc=jdbc:sqlite:${rdbFilePath};Catalog=${cubeFilePath};JdbcDrivers=org.sqlite.JDBC
+username=dbuser 
+password=password

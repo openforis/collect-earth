@@ -25,6 +25,8 @@ import javax.net.ssl.SSLSocketFactory;
 import javax.net.ssl.TrustManager;
 import javax.net.ssl.X509TrustManager;
 
+import liquibase.util.SystemUtils;
+
 import org.openforis.collect.earth.app.EarthConstants;
 import org.openforis.collect.earth.app.service.LocalPropertiesService.EarthProperty;
 import org.openqa.selenium.JavascriptExecutor;
@@ -490,7 +492,13 @@ public class BrowserService {
 
 		final Properties props = System.getProperties();
 		if (props.getProperty("webdriver.chrome.driver") == null) {
-			props.setProperty("webdriver.chrome.driver", "resources/chromedriver.exe");
+			if( SystemUtils.IS_OS_UNIX ){
+				props.setProperty("webdriver.chrome.driver", "resources/chromedriver");
+			}else if( SystemUtils.IS_OS_WINDOWS ){
+				props.setProperty("webdriver.chrome.driver", "resources/chromedriver.exe");
+			}else{
+				throw new RuntimeException("Chromedriver is not supported in the current OS" );
+			}
 		}
 
 		final String chromeBinaryPath = localPropertiesService.getValue(EarthProperty.CHROME_BINARY_PATH);
