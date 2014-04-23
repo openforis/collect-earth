@@ -221,9 +221,12 @@ public class OptionWizard extends JDialog {
 				try {
 					final EarthApp earthApp = new EarthApp(localPropertiesService);
 					// Re-generate KMZ
-					earthApp.generateKmzFile();
-					// Re-open the KMZ file in Google Earth
-					earthApp.simulateClickKmz();
+					new Thread(){
+						public void run() {
+							earthApp.restart();
+						};
+					}.start();
+					
 
 					JOptionPane.showMessageDialog(OptionWizard.this, Messages.getString("OptionWizard.20"), //$NON-NLS-1$
 							Messages.getString("OptionWizard.21"), JOptionPane.INFORMATION_MESSAGE); //$NON-NLS-1$
@@ -393,10 +396,16 @@ public class OptionWizard extends JDialog {
 		final JComponent panel4 = getAdvancedOptionsPanel();
 		tabbedPane.addTab(Messages.getString("OptionWizard.34"), panel4); //$NON-NLS-1$
 
-		final JComponent panel5 = getOperationModePanel();
-		tabbedPane.addTab("Operation Mode", panel5);
+		final JComponent panel5 = getOperationModePanelScroll();
+		tabbedPane.addTab(Messages.getString("OptionWizard.25"), panel5); //$NON-NLS-1$
 		
 		return tabbedPane;
+	}
+
+	private JScrollPane getOperationModePanelScroll() {
+		final JComponent operationModePanel = getOperationModePanel();
+		JScrollPane scroll = new JScrollPane(operationModePanel, JScrollPane.VERTICAL_SCROLLBAR_AS_NEEDED, JScrollPane.HORIZONTAL_SCROLLBAR_NEVER);
+		return scroll;
 	}
 
 	private JComponent getPlotOptionsPanel() {
@@ -469,7 +478,7 @@ public class OptionWizard extends JDialog {
 
 
 		constraints.gridy++;
-		label = new JLabel("DB host");
+		label = new JLabel(Messages.getString("OptionWizard.26")); //$NON-NLS-1$
 		constraints.gridx = 0;
 		panel.add(label, constraints);
 
@@ -477,7 +486,7 @@ public class OptionWizard extends JDialog {
 		panel.add(propertyToComponent.get(EarthProperty.DB_HOST)[0], constraints);
 
 		constraints.gridy++;
-		label = new JLabel("DB port");
+		label = new JLabel(Messages.getString("OptionWizard.29")); //$NON-NLS-1$
 		constraints.gridx = 0;
 		panel.add(label, constraints);
 
@@ -497,7 +506,7 @@ public class OptionWizard extends JDialog {
 		constraints.weightx = 1.0;
 		constraints.fill = GridBagConstraints.HORIZONTAL;
 
-		final Border border = new TitledBorder(new BevelBorder(BevelBorder.RAISED), "SQLite options");
+		final Border border = new TitledBorder(new BevelBorder(BevelBorder.RAISED), Messages.getString("OptionWizard.30")); //$NON-NLS-1$
 		panel.setBorder(border);
 
 		panel.add(propertyToComponent.get(EarthProperty.AUTOMATIC_BACKUP)[0], constraints);

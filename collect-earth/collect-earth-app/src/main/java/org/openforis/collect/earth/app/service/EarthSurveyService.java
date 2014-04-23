@@ -230,7 +230,7 @@ public class EarthSurveyService {
 
 	}
 
-	public boolean storePlacemark(Map<String, String> parameters, String sessionId) {
+	public synchronized boolean storePlacemark(Map<String, String> parameters, String sessionId) {
 
 		final List<CollectRecord> summaries = recordManager.loadSummaries(getCollectSurvey(), EarthConstants.ROOT_ENTITY_NAME, parameters.get("collect_text_id")); //$NON-NLS-1$
 

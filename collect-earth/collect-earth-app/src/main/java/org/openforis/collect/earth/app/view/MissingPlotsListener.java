@@ -229,6 +229,8 @@ public final class MissingPlotsListener implements ActionListener {
 		final Set<String> plotFiles = plotIdsByFile.keySet();
 		for (final String plotFile : plotFiles) {
 
+			missingPlotIdsByFile.put(plotFile, new ArrayList<String>());
+			
 			final List<String> plotIdsInFile = plotIdsByFile.get(plotFile);
 			for (final String plotId : plotIdsInFile) {
 
@@ -236,11 +238,7 @@ public final class MissingPlotsListener implements ActionListener {
 					break;
 				}
 				if (!isIdActivelySavedInDB(plotId)) {
-					if (!missingPlotIdsByFile.containsKey(plotFile)) {
-						missingPlotIdsByFile.put(plotFile, new ArrayList<String>());
-					}
-
-					missingPlotIdsByFile.get(plotFile).add(plotId);
+						missingPlotIdsByFile.get(plotFile).add(plotId);
 				}
 			}
 

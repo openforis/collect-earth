@@ -1,11 +1,7 @@
 package org.openforis.collect.earth.app.service;
 
-import java.io.BufferedWriter;
 import java.io.File;
-import java.io.FileOutputStream;
 import java.io.IOException;
-import java.io.OutputStreamWriter;
-import java.nio.charset.Charset;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -13,14 +9,13 @@ import org.openforis.collect.earth.app.desktop.EarthApp;
 import org.openforis.collect.earth.app.service.LocalPropertiesService.EarthProperty;
 import org.openforis.collect.earth.sampler.model.SimplePlacemarkObject;
 import org.openforis.collect.earth.sampler.processor.KmlGenerator;
+import org.openforis.collect.earth.sampler.utils.FreemarkerTemplateUtils;
 import org.opengis.referencing.operation.TransformException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
-import freemarker.template.Configuration;
-import freemarker.template.Template;
 import freemarker.template.TemplateException;
 
 /**
@@ -45,28 +40,15 @@ public class BingMapService {
 
 	private File applyData(Map<String,Object>  data) throws IOException, TemplateException {
 
-		// Process the template file using the data in the "data" Map
-		final Configuration cfg = new Configuration();
-		final File templateFile = new File(KmlGenerator.convertToOSPath(FREEMARKER_HTML_TEMPLATE));
-		cfg.setDirectoryForTemplateLoading(templateFile.getParentFile());
+		
+		final File templateFileSrc = new File(KmlGenerator.convertToOSPath(FREEMARKER_HTML_TEMPLATE));
+		
+		final File tempFileDst = File.createTempFile("bing", ".html");
+		tempFileDst.deleteOnExit();
 
-		// Load template from source folder
-		final Template template = cfg.getTemplate(templateFile.getName());
+		FreemarkerTemplateUtils.applyTemplate(templateFileSrc, tempFileDst, data);
 
-		final File tempFile = File.createTempFile("bing", ".html");
-		tempFile.deleteOnExit();
-		// Console output
-		BufferedWriter fw = null;
-		try {
-			fw = new BufferedWriter(new OutputStreamWriter(new FileOutputStream(tempFile), Charset.forName("UTF-8")));
-			template.process(data, fw);
-		} finally {
-			if (fw != null) {
-				fw.close();
-			}
-		}
-
-		return tempFile;
+		return tempFileDst;
 
 	}
 

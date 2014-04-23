@@ -185,12 +185,11 @@ public class BrowserService {
 		final Map<String, String> data = new HashMap<String, String>();
 		data.put("latitude", latLong[0]);
 		data.put("longitude", latLong[1]);
-
 		data.put(EarthProperty.GEE_FUNCTION_PICK.toString(), localPropertiesService.getValue(EarthProperty.GEE_FUNCTION_PICK));
 		data.put(EarthProperty.GEE_ZOOM_OBJECT.toString(), localPropertiesService.getValue(EarthProperty.GEE_ZOOM_OBJECT));
 		data.put(EarthProperty.GEE_ZOOM_METHOD.toString(), localPropertiesService.getValue(EarthProperty.GEE_ZOOM_METHOD));
 		data.put(EarthProperty.GEE_INITIAL_ZOOM.toString(), localPropertiesService.getValue(EarthProperty.GEE_INITIAL_ZOOM));
-
+		
 		StringWriter fw = null;
 		Writer out = null;
 		try {

@@ -1,11 +1,7 @@
 package org.openforis.collect.earth.app.service;
 
-import java.io.BufferedWriter;
 import java.io.File;
-import java.io.FileOutputStream;
 import java.io.IOException;
-import java.io.OutputStreamWriter;
-import java.nio.charset.Charset;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.ArrayList;
@@ -23,6 +19,7 @@ import org.openforis.collect.earth.app.service.LocalPropertiesService.EarthPrope
 import org.openforis.collect.earth.sampler.model.AspectCode;
 import org.openforis.collect.earth.sampler.model.SlopeCode;
 import org.openforis.collect.earth.sampler.processor.KmlGenerator;
+import org.openforis.collect.earth.sampler.utils.FreemarkerTemplateUtils;
 import org.openforis.collect.model.CollectRecord.Step;
 import org.openforis.collect.relational.CollectRDBPublisher;
 import org.openforis.collect.relational.CollectRdbException;
@@ -35,10 +32,6 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.core.RowMapper;
 import org.springframework.stereotype.Component;
 
-import freemarker.template.Configuration;
-import freemarker.template.Template;
-import freemarker.template.TemplateException;
-
 @Component
 public class AnalysisSaikuService {
 
@@ -48,7 +41,7 @@ public class AnalysisSaikuService {
 
 	private static final String STOP_SAIKU_BAT = "stop-saiku.bat";
 
-	private static final String COLLECT_EARTH_DATABASE_RDB_DB = "collectEarthDatabaseRDB.db";
+	private static final String COLLECT_EARTH_DATABASE_RDB_DB = "collectEarthDatabase.db" + ServerController.SAIKU_RDB_SUFFIX;
 
 	@Autowired
 	CollectRDBPublisher collectRDBPublisher;
@@ -79,6 +72,7 @@ public class AnalysisSaikuService {
 	private static final String POSTGRESQL_FREEMARKER_HTML_TEMPLATE = "resources/collectEarthPostgreSqlDS.fmt";
 
 	private static final String MDX_XML = "collectEarthCubes.xml";
+	private static final String MDX_TEMPLATE = MDX_XML + ".fmt";
 
 	private boolean userCancelledOperation = false;
 
@@ -287,7 +281,6 @@ public class AnalysisSaikuService {
 						System.currentTimeMillis();
 						try {
 							processQuantityData();
-							
 							setSaikuAsDefaultSchema();
 						} catch (final Exception e) {
 							logger.error("Error processing quantity data", e);
@@ -345,11 +338,29 @@ public class AnalysisSaikuService {
 	}
 
 	private void refreshDataSourceForSaiku() throws IOException {
+		final File mdxFile = new File(getIdmFolder() + File.separatorChar + MDX_XML);
 
-		final HashMap<String, String> data = new HashMap<String, String>();
+		Map<String, String> data = new HashMap<String, String>();
+		data.put("cubeFilePath", mdxFile.getAbsolutePath().replace('\\', '/'));
+		
+		final File mdxTemplate = getMdxTemplate();
+		final File dataSourceTemplate = getDataSourceTemplate(data);
 
+		final File dataSourceFile = new File(getSaikuConfigurationFilePath());
+		FreemarkerTemplateUtils.applyTemplate(dataSourceTemplate, dataSourceFile, data);
+		
+		setMdxSaikuSchema(mdxTemplate, mdxFile);
+	}
 
-		final File cubeDefinition = new File(getIdmFolder() + File.separatorChar + MDX_XML);
+	private File getMdxTemplate() throws IOException {
+		final File mdxFileTemplate = new File(getIdmFolder() + File.separatorChar + MDX_TEMPLATE);
+		if (!mdxFileTemplate.exists()) {
+			throw new IOException("The file containing the MDX Cube definition Template does not exist in expected location " + mdxFileTemplate.getAbsolutePath());
+		}
+		return mdxFileTemplate;
+	}
+
+	private File getDataSourceTemplate(Map<String, String> data) throws IOException {
 		File dataSourceTemplate = null;
 
 		if( localPropertiesService.isUsingSqliteDB() ){
@@ -364,44 +375,23 @@ public class AnalysisSaikuService {
 			data.put("dbUrl", ServerController.getSaikuDbURL() );
 			data.put("username", localPropertiesService.getValue(EarthProperty.DB_USERNAME ));
 			data.put("password", localPropertiesService.getValue(EarthProperty.DB_PASSWORD ));
-			
 		}
-
-		if (!cubeDefinition.exists()) {
-			throw new IOException("The file contianing the MDX Cube definition does not exist in expected location "
-					+ cubeDefinition.getAbsolutePath());
-		}
-
+		
 		if (!dataSourceTemplate.exists()) {
-			throw new IOException("The file contianing the Saiku Data Source template does not exist in expected location "
-					+ dataSourceTemplate.getAbsolutePath());
+			throw new IOException("The file containing the Saiku Data Source template does not exist in expected location " + dataSourceTemplate.getAbsolutePath());
 		}
+		
+		return dataSourceTemplate;
+	}
 
-
-		data.put("cubeFilePath", cubeDefinition.getAbsolutePath().replace('\\', '/'));
-
-		// Process the template file using the data in the "data" Map
-		final Configuration cfg = new Configuration();
-		cfg.setDirectoryForTemplateLoading(dataSourceTemplate.getParentFile());
-
-		// Load template from source folder
-		final Template template = cfg.getTemplate(dataSourceTemplate.getName());
-
-		final File saikuConfigFile = new File(getSaikuConfigurationFilePath());
-
-		// Console output
-		BufferedWriter fw = null;
-		try {
-			fw = new BufferedWriter(new OutputStreamWriter(new FileOutputStream(saikuConfigFile), Charset.forName("UTF-8")));
-			template.process(data, fw);
-		} catch (final TemplateException e) {
-			logger.error("Problemsa when processing the template for the Saiku data source", e);
-		} finally {
-			if (fw != null) {
-				fw.close();
-			}
+	private void setMdxSaikuSchema(final File mdxFileTemplate, final File mdxFile ) throws IOException {
+		Map<String, String> saikuData = new HashMap<String, String>();
+		String saikuSchemaName = getSchemaName();
+		if( saikuSchemaName==null){
+			saikuSchemaName = "" ;
 		}
-
+		saikuData.put("saikuDbSchema", saikuSchemaName );
+		FreemarkerTemplateUtils.applyTemplate(mdxFileTemplate, mdxFile, saikuData);
 	}
 
 	private void removeOldRdb() {

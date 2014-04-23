@@ -56,7 +56,11 @@ public class FixMissingSaxaulStrataInfo {
 	public void setSaxaulStrata(){
 		List<String> allSaxaulIds = getAllSaxaulIds();
 		for (String plotId : allSaxaulIds) {
-			setPlotValue(plotId,"collect_text_strata","Saxaul");
+			if( plotId.startsWith("sax") ){
+				setPlotValue(plotId,"collect_text_strata","Pure Saxaul");
+			}else{
+				setPlotValue(plotId,"collect_text_strata","Saxaul & Systematic");
+			}
 		}
 	}
 

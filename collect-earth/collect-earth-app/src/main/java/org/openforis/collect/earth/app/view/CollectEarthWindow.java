@@ -29,17 +29,12 @@ import javax.swing.JPanel;
 import javax.swing.JRadioButtonMenuItem;
 import javax.swing.JTextField;
 import javax.swing.SwingConstants;
-import javax.swing.SwingUtilities;
 import javax.swing.WindowConstants;
 import javax.swing.border.Border;
 
 import org.apache.commons.lang3.StringUtils;
 import org.openforis.collect.earth.app.EarthConstants.OperationMode;
 import org.openforis.collect.earth.app.EarthConstants.UI_LANGUAGE;
-import org.openforis.collect.earth.app.ad_hoc.FixCoordinates;
-import org.openforis.collect.earth.app.ad_hoc.FixCoordinatesPNG;
-import org.openforis.collect.earth.app.ad_hoc.FixDuplicatePlots;
-import org.openforis.collect.earth.app.ad_hoc.FixMissingPlotsFileInfo;
 import org.openforis.collect.earth.app.desktop.ServerController;
 import org.openforis.collect.earth.app.service.AnalysisSaikuService;
 import org.openforis.collect.earth.app.service.BackupSqlLiteService;
@@ -76,6 +71,7 @@ public class CollectEarthWindow {
 	private final String backupFolder;
 	private JMenuItem exportModifiedRecords;
 	private final SaikuStarter saikuStarter;
+	//private final FixMissingSaxaulStrataInfo missingSaxaulFixer;
 
 	private List<JMenuItem> serverMenuItems = new ArrayList<JMenuItem>();
 
@@ -90,7 +86,8 @@ public class CollectEarthWindow {
 			this.saikuService = serverController.getContext().getBean(AnalysisSaikuService.class);
 			this.earthSurveyService = serverController.getContext().getBean(EarthSurveyService.class);
 			this.recordManager = serverController.getContext().getBean(RecordManager.class);
-			this.saikuStarter = new SaikuStarter(saikuService, frame);			
+			this.saikuStarter = new SaikuStarter(saikuService, frame);
+			//this.missingSaxaulFixer = serverController.getContext().getBean(FixMissingSaxaulStrataInfo.class);
 		}else{
 			this.serverController = null;
 			this.localPropertiesService = new LocalPropertiesService();
@@ -101,6 +98,7 @@ public class CollectEarthWindow {
 			this.earthSurveyService = null;
 			this.recordManager = null;
 			this.saikuStarter = null;
+			//this.missingSaxaulFixer = null;
 		}
 	}
 
@@ -158,7 +156,7 @@ public class CollectEarthWindow {
 						getFrame().setVisible(false);
 						getFrame().dispose();
 						stopServer.start();
-						Thread.sleep(2000);
+						Thread.sleep(5000);
 
 						System.exit(0);
 					}
@@ -189,9 +187,9 @@ public class CollectEarthWindow {
 		return new ExportActionListener(exportFormat, onlyLastModifiedRecords, frame, localPropertiesService, dataExportService, earthSurveyService);
 	}
 
-
+/*
 	
-/*	private ActionListener getFixMissingPlotFileInfoAction() {
+	private ActionListener getFixMissingSaxaul() {
 		return new ActionListener() {
 
 			@Override
@@ -205,7 +203,7 @@ public class CollectEarthWindow {
 					new Thread() {
 						@Override
 						public void run() {
-							fixMissingPlotsFileInfo.findMissingPlots(frame);
+							missingSaxaulFixer.setSaxaulStrata();
 							infiniteProgressMonitor.close();
 						};
 					}.start();
@@ -215,9 +213,6 @@ public class CollectEarthWindow {
 						public void run() {
 
 							infiniteProgressMonitor.show();
-							if (infiniteProgressMonitor.isUserCancelled()) {
-								fixMissingPlotsFileInfo.stopFixing();
-							}
 						}
 					});
 
@@ -229,8 +224,8 @@ public class CollectEarthWindow {
 			}
 		};
 	}
-*/
 
+*/
 	private JFrame getFrame() {
 		return frame;
 	}

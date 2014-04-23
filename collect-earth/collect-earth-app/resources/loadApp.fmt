@@ -11,10 +11,8 @@
 	    <href>${host}generated/gePlugin.kmz?generatedOn=${kmlGeneratedOn}</href>
 	   	<refreshMode>onExpire</refreshMode>
 	  </Link>
-	  
 	  <refreshVisibility>1</refreshVisibility>
 	</NetworkLink>
-	
 	<NetworkLink>
 	  <name>Reload placemarks</name>
 	  <Link>
@@ -23,6 +21,5 @@
     	<refreshInterval>5</refreshInterval>
 	  </Link>
 	</NetworkLink>
-	
 	</Document>
 </kml>

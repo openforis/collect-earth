@@ -3,16 +3,20 @@ package org.openforis.collect.earth.app.server;
 import java.io.BufferedWriter;
 import java.io.IOException;
 import java.io.StringWriter;
+import java.io.UnsupportedEncodingException;
 import java.io.Writer;
+import java.net.URLEncoder;
 import java.nio.charset.Charset;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
+import java.util.Calendar;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 
+import javax.annotation.PostConstruct;
 import javax.servlet.http.HttpServletResponse;
 
 import org.openforis.collect.earth.app.EarthConstants;
@@ -52,6 +56,17 @@ public class PlacemarkUpdateServlet {
 
 	private static final Configuration cfg = new Configuration();
 	private static Template template;
+	
+	@PostConstruct
+	private void init(){
+		try {
+			// Force the local properties to be updated so we get the right generatedOn info
+			localPropertiesService.init();
+			
+		} catch (IOException e) {
+			logger.error("Error refreshing the local porperties");
+		}
+	}
 
 	private String getKmlFromTemplate( Map<String, Object> data) throws IOException {
 
@@ -62,7 +77,6 @@ public class PlacemarkUpdateServlet {
 		try {
 			// Add date to avoid caching
 			template.process(data, out);
-
 		} catch (final TemplateException e) {
 			logger.error("Error when producing starter KML from template", e);
 		} finally {
@@ -107,6 +121,7 @@ public class PlacemarkUpdateServlet {
 	public void getUpdatePlacemark(HttpServletResponse response, @RequestParam(value = "lastUpdate", required = false) String lastUpdate) {
 
 		try {
+			//long time = System.currentTimeMillis();
 			
 			final SimpleDateFormat dateFormat = new SimpleDateFormat(EarthConstants.DATE_FORMAT_HTTP, Locale.ENGLISH );
 			Date lastUpdateDate = null;
@@ -118,18 +133,25 @@ public class PlacemarkUpdateServlet {
 			
 			final Map<String, Object> data = new HashMap<String, Object>();
 			data.put("host", KmlGenerator.getHostAddress(localPropertiesService.getHost(), localPropertiesService.getLocalPort()));
-			data.put("date", dateFormat.format(new Date()));
+			data.put("date", getUpdateFromDate(dateFormat) );
 			data.put("kmlGeneratedOn", localPropertiesService.getGeneratedOn());
 			data.put("placemark_ids", getPlacemarksId(lastUpdatedRecord));
 	
 			setKmlResponse(response, getKmlFromTemplate(data), dateFormat);
 			
+			//System.out.println("Placemark update takes " + ( System.currentTimeMillis() - time ) );
 		} catch (final ParseException e) {
 			logger.error("Error in the lastUpdate date format : " + lastUpdate, e);
 		} catch (final IOException e) {
 			logger.error("Error generating the update KML.", e);
 		}
 
+	}
+
+	private String getUpdateFromDate(final SimpleDateFormat dateFormat) throws UnsupportedEncodingException {
+		Calendar cal = Calendar.getInstance();
+		cal.add(Calendar.MINUTE, -1);
+		return URLEncoder.encode(dateFormat.format(cal.getTime()), "UTF-8" );
 	}
 
 	private void setKmlResponse(HttpServletResponse response, String kmlCode, SimpleDateFormat dateFormat) throws IOException {
