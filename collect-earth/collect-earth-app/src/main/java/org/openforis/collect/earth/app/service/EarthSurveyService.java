@@ -12,6 +12,7 @@ import java.util.Map;
 
 import javax.annotation.PostConstruct;
 
+import org.apache.commons.dbcp.BasicDataSource;
 import org.openforis.collect.earth.app.EarthConstants;
 import org.openforis.collect.earth.app.service.LocalPropertiesService.EarthProperty;
 import org.openforis.collect.earth.app.view.Messages;
@@ -59,6 +60,9 @@ public class EarthSurveyService {
 
 	@Autowired
 	private SurveyManager surveyManager;
+	
+	@Autowired
+	private BasicDataSource dataSource;
 
 	private void addLocalProperties(Map<String, String> placemarkParameters) {
 		placemarkParameters.put(SKIP_FILLED_PLOT_PARAMETER, localPropertiesService.shouldJumpToNextPlot() + ""); //$NON-NLS-1$
@@ -283,7 +287,6 @@ public class EarthSurveyService {
 		} catch (final RecordPersistenceException e) {
 			logger.error("Error while storing the record " + e.getMessage(), e); //$NON-NLS-1$
 		}
-
 		return success;
 	}
 

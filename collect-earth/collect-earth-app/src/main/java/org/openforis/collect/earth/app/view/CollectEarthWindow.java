@@ -41,6 +41,7 @@ import org.openforis.collect.earth.app.service.BackupSqlLiteService;
 import org.openforis.collect.earth.app.service.DataImportExportService;
 import org.openforis.collect.earth.app.service.EarthSurveyService;
 import org.openforis.collect.earth.app.service.LocalPropertiesService;
+import org.openforis.collect.earth.app.view.ExportActionListener.RecordsToExport;
 import org.openforis.collect.manager.RecordManager;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -69,7 +70,6 @@ public class CollectEarthWindow {
 	private final EarthSurveyService earthSurveyService;
 	private final RecordManager recordManager;
 	private final String backupFolder;
-	private JMenuItem exportModifiedRecords;
 	private final SaikuStarter saikuStarter;
 	//private final FixMissingSaxaulStrataInfo missingSaxaulFixer;
 
@@ -107,19 +107,28 @@ public class CollectEarthWindow {
 		final JMenu ieSubmenu = new JMenu(Messages.getString("CollectEarthWindow.44")); //$NON-NLS-1$
 		JMenuItem menuItem;
 		menuItem = new JMenuItem(Messages.getString("CollectEarthWindow.13")); //$NON-NLS-1$
-		menuItem.addActionListener(getExportActionListener(DataFormat.CSV, false));
+		menuItem.addActionListener(getExportActionListener(DataFormat.CSV, RecordsToExport.ALL));
 		ieSubmenu.add(menuItem);
 
+		JMenu xmlExportSubmenu = new JMenu("XML Export");
+		
 		menuItem = new JMenuItem(Messages.getString("CollectEarthWindow.45")); //$NON-NLS-1$
-		menuItem.addActionListener(getExportActionListener(DataFormat.ZIP_WITH_XML, false));
-		ieSubmenu.add(menuItem);
+		menuItem.addActionListener(getExportActionListener(DataFormat.ZIP_WITH_XML, RecordsToExport.ALL));
+		xmlExportSubmenu.add(menuItem);
 
-		exportModifiedRecords = menuItem = new JMenuItem(Messages.getString("CollectEarthWindow.61")); //$NON-NLS-1$
-		exportModifiedRecords.addActionListener(getExportActionListener(DataFormat.ZIP_WITH_XML, true));
-		ieSubmenu.add(exportModifiedRecords);
+		JMenuItem exportModifiedRecords = new JMenuItem(Messages.getString("CollectEarthWindow.61")); //$NON-NLS-1$
+		exportModifiedRecords.addActionListener(getExportActionListener(DataFormat.ZIP_WITH_XML, RecordsToExport.MODIFIED_SINCE_LAST_EXPORT));
+		xmlExportSubmenu.add(exportModifiedRecords);
 
+		JMenuItem exportDataRangeRecords = new JMenuItem("Export data to XML (from specific date)"); //$NON-NLS-1$
+		exportDataRangeRecords.addActionListener(getExportActionListener(DataFormat.ZIP_WITH_XML, RecordsToExport.PICK_FROM_DATE));
+		xmlExportSubmenu.add(exportDataRangeRecords);
+
+
+		ieSubmenu.add(xmlExportSubmenu);
+		
 		menuItem = new JMenuItem(Messages.getString("CollectEarthWindow.6")); //$NON-NLS-1$
-		menuItem.addActionListener(getExportActionListener(DataFormat.FUSION, false));
+		menuItem.addActionListener(getExportActionListener(DataFormat.FUSION, RecordsToExport.ALL));
 		ieSubmenu.add(menuItem);
 
 		ieSubmenu.addSeparator();
@@ -183,8 +192,8 @@ public class CollectEarthWindow {
 		};
 	}
 
-	private ActionListener getExportActionListener(final DataFormat exportFormat, final boolean onlyLastModifiedRecords) {
-		return new ExportActionListener(exportFormat, onlyLastModifiedRecords, frame, localPropertiesService, dataExportService, earthSurveyService);
+	private ActionListener getExportActionListener(final DataFormat exportFormat, final RecordsToExport xmlExportType) {
+		return new ExportActionListener(exportFormat, xmlExportType, frame, localPropertiesService, dataExportService, earthSurveyService);
 	}
 
 /*

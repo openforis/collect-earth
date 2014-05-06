@@ -11,11 +11,12 @@ import java.util.concurrent.TimeUnit;
 
 import org.eclipse.jetty.server.Connector;
 import org.eclipse.jetty.server.Server;
-import org.eclipse.jetty.server.bio.SocketConnector;
+import org.eclipse.jetty.server.ServerConnector;
 import org.eclipse.jetty.util.thread.ExecutorThreadPool;
 import org.eclipse.jetty.webapp.WebAppContext;
 import org.openforis.collect.earth.app.EarthConstants;
 import org.openforis.collect.earth.app.EarthConstants.CollectDBDriver;
+import org.openforis.collect.earth.app.service.BrowserService;
 import org.openforis.collect.earth.app.service.LocalPropertiesService;
 import org.openforis.collect.earth.app.service.LocalPropertiesService.EarthProperty;
 import org.openforis.collect.earth.sampler.utils.FreemarkerTemplateUtils;
@@ -35,6 +36,8 @@ public class ServerController extends Observable {
 	public static final String SAIKU_RDB_SUFFIX = "SaikuRDB";
 	// Make sure that the default ports are the same for Server and Generator
 	private static final String DEFAULT_PORT = "80";
+	public static final String SERVER_STOPPED_EVENT = "server_has_stopped";
+	public static final String SERVER_STARTED_EVENT = "server_has_started";
 	private Server server;
 	private final Logger logger = LoggerFactory.getLogger(ServerController.class);
 	private WebAppContext root;
@@ -125,10 +128,9 @@ public class ServerController extends Observable {
 	}
 
 	/**
-	 * @param highDemandServer
 	 * @param args
 	 */
-	public void startServer(boolean highDemandServer, Observer observeInitialization) throws Exception {
+	public void startServer(Observer observeInitialization) throws Exception {
 
 		this.addObserver(observeInitialization);
 
@@ -140,16 +142,18 @@ public class ServerController extends Observable {
 		// Look for that variable and default to 8080 if it isn't there.
 		// PropertyConfigurator.configure(this.getClass().getResource("/WEB-INF/conf/log4j.properties"));
 
-		server = new Server();
-		// // Use blocking-IO connector to improve throughput
-		final Connector connector = new SocketConnector();
-		connector.setPort(getPort());
-		connector.setHost("0.0.0.0"); // Accept request from all IP addresses
-		connector.setMaxIdleTime(600000);
-		connector.setRequestBufferSize(10000);
+		server = new Server(new ExecutorThreadPool(10, 50, 5, TimeUnit.SECONDS));
 
+		// // Use blocking-IO connector to improve throughput
+		final ServerConnector connector = new ServerConnector(server);
+		
+		connector.setHost("0.0.0.0");
+		connector.setPort( getPort() );
+
+		connector.setStopTimeout( 1000 );
+		
 		server.setConnectors(new Connector[] { connector });
-		server.setThreadPool(new ExecutorThreadPool(10, 50, 5, TimeUnit.SECONDS));
+		
 
 		setRoot(new WebAppContext());
 
@@ -168,19 +172,22 @@ public class ServerController extends Observable {
 
 		server.setHandler(getRoot());
 
-		server.setGracefulShutdown(1000);
+		server.setStopTimeout(1000);
 		server.setStopAtShutdown(true);
 		server.start();
 
 		setChanged();
-		notifyObservers();
-
+		notifyObservers( SERVER_STARTED_EVENT );
+		this.addObserver( getContext().getBean( BrowserService.class ) );
+		
 		server.join();
 	}
 
 	public void stopServer() throws Exception {
 		if (server != null && server.isRunning()) {
 			server.stop();
+			setChanged();
+			notifyObservers( SERVER_STOPPED_EVENT );
 		}
 	}
 

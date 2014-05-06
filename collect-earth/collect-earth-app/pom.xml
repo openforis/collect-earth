@@ -13,7 +13,7 @@
 	<packaging>jar</packaging>
 
 	<properties>
-		<jetty.version>7.6.10.v20130312</jetty.version>
+		<jetty.version>9.2.0.M0</jetty.version>
 		<spring.version>3.1.0.RELEASE</spring.version>
 		<selenium.version>2.40.0</selenium.version>
 		<sonar.language>java</sonar.language>
@@ -61,11 +61,11 @@
 			<artifactId>collect-core</artifactId>
 			<version>${collect.version}</version>
 			<exclusions>
-              <exclusion>
-                <groupId>org.liquibase</groupId>
-                <artifactId>liquibase-core</artifactId>
-              </exclusion>
-            </exclusions>
+				<exclusion>
+					<groupId>org.liquibase</groupId>
+					<artifactId>liquibase-core</artifactId>
+				</exclusion>
+			</exclusions>
 		</dependency>
 		<dependency>
 			<groupId>org.openforis.collect</groupId>
@@ -135,11 +135,16 @@
 			<groupId>org.seleniumhq.selenium</groupId>
 			<artifactId>selenium-chrome-driver</artifactId>
 			<version>${selenium.version}</version>
-		</dependency> 
+		</dependency>
 		<dependency>
 			<groupId>commons-dbcp</groupId>
 			<artifactId>commons-dbcp</artifactId>
 			<version>1.4</version>
+		</dependency>
+		<dependency>
+			<groupId>org.swinglabs</groupId>
+			<artifactId>swingx</artifactId>
+			<version>0.9.2</version>
 		</dependency>
 	</dependencies>
 	<build>
@@ -167,14 +172,12 @@
 				<groupId>org.apache.maven.plugins</groupId>
 				<artifactId>maven-jar-plugin</artifactId>
 				<version>2.4</version>
-				
+
 				<configuration>
-					<!-- <archive>
-						<manifestFile>MANIFEST.MF</manifestFile>
-					</archive> -->
+					<!-- <archive> <manifestFile>MANIFEST.MF</manifestFile> </archive> -->
 					<addMavenDescriptor>false</addMavenDescriptor>
 					<finalName>CollectEarth</finalName>
-					
+
 					<archive>
 						<manifestEntries>
 							<SplashScreen-Image>images/joint_logo.gif</SplashScreen-Image>
@@ -189,7 +192,7 @@
 					</archive>
 				</configuration>
 			</plugin>
- 
+
 		</plugins>
 	</build>
 </project>

@@ -17,8 +17,8 @@ import javax.swing.JOptionPane;
 import org.apache.commons.codec.digest.DigestUtils;
 import org.apache.commons.io.FileUtils;
 import org.openforis.collect.earth.app.EarthConstants;
-import org.openforis.collect.earth.app.EarthConstants.OperationMode;
 import org.openforis.collect.earth.app.EarthConstants.SAMPLE_SHAPE;
+import org.openforis.collect.earth.app.service.BrowserService;
 import org.openforis.collect.earth.app.service.LocalPropertiesService;
 import org.openforis.collect.earth.app.service.LocalPropertiesService.EarthProperty;
 import org.openforis.collect.earth.app.view.CollectEarthWindow;
@@ -309,11 +309,13 @@ public class EarthApp {
 
 				@Override
 				public void update(Observable o, Object arg) {
-					closeSplash();
-					
-					simulateClickKmz();
-					 
-					openMainWindow();
+					if( arg.equals( ServerController.SERVER_STARTED_EVENT ) ){
+						closeSplash();
+
+						simulateClickKmz();
+
+						openMainWindow();
+					}
 				}
 			};
 			serverStartAndOpenGe(observeInitialization);
@@ -373,7 +375,7 @@ public class EarthApp {
 		try {
 			serverController.stopServer();
 
-			Observer observeInitialization = new Observer() {
+			Observer observeInitializationAfterRestart = new Observer() {
 
 				@Override
 				public void update(Observable o, Object arg) {
@@ -386,8 +388,8 @@ public class EarthApp {
 				}
 
 			};
-			
-			serverStartAndOpenGe(observeInitialization);
+
+			serverStartAndOpenGe(observeInitializationAfterRestart);
 
 		} catch (final Exception e) {
 			logger.error("Error while stopping server", e);
@@ -396,11 +398,11 @@ public class EarthApp {
 
 	private void serverStartAndOpenGe( Observer observeInitialization ) throws IOException, Exception {
 		generateLoaderKmlFile();
-		
-		final boolean highDemandServer = localProperties.getOperationMode().equals(OperationMode.SERVER_MODE);
-		
+
+		//final boolean highDemandServer = localProperties.getOperationMode().equals(OperationMode.SERVER_MODE);
+
 		serverController.deleteObservers();
-		serverController.startServer(highDemandServer, observeInitialization);
+		serverController.startServer(observeInitialization);
 	}
 
 	private void showMessage(String message) {
@@ -409,9 +411,9 @@ public class EarthApp {
 
 	private void simulateClickKmz() {
 		try {
-			
+
 			openGoogleEarth();
-			
+
 		} catch (final Exception e) {
 			showMessage("<html>The Collect Earth file could not be open.<br/>Please make sure that Google Earth is installed.</html>");
 			logger.error("The KMZ file could not be found", e);

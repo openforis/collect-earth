@@ -64,7 +64,7 @@ public class PlacemarkUpdateServlet {
 			localPropertiesService.init();
 			
 		} catch (IOException e) {
-			logger.error("Error refreshing the local porperties");
+			logger.error("Error refreshing the local properties");
 		}
 	}
 
@@ -129,15 +129,29 @@ public class PlacemarkUpdateServlet {
 				lastUpdateDate = dateFormat.parse(lastUpdate);
 			}
 		
-			final List<CollectRecord> lastUpdatedRecord = earthSurveyService.getRecordsSavedSince(lastUpdateDate);
+			final List<CollectRecord> lastUpdatedRecords = earthSurveyService.getRecordsSavedSince(lastUpdateDate);
 			
 			final Map<String, Object> data = new HashMap<String, Object>();
 			data.put("host", KmlGenerator.getHostAddress(localPropertiesService.getHost(), localPropertiesService.getLocalPort()));
 			data.put("date", getUpdateFromDate(dateFormat) );
 			data.put("kmlGeneratedOn", localPropertiesService.getGeneratedOn());
-			data.put("placemark_ids", getPlacemarksId(lastUpdatedRecord));
+			data.put("placemark_ids", getPlacemarksId(lastUpdatedRecords));
 	
 			setKmlResponse(response, getKmlFromTemplate(data), dateFormat);
+			
+			/*// TODO Remove!!!
+			if( lastUpdatedRecords == null ){
+				logger.error("Nothing updated from operator" + localPropertiesService.getOperator()   + " - last update requested " +   lastUpdate ); //$NON-NLS-1$
+			}else{
+				String ids = "";
+				for (CollectRecord collectRecord : lastUpdatedRecords) {
+					ids += collectRecord.getId();
+				}
+				
+				logger.error("Placemark update response " + lastUpdatedRecords.size() + "  " + ids + " from operator" + localPropertiesService.getOperator()); //$NON-NLS-1$
+				
+			}*/
+			
 			
 			//System.out.println("Placemark update takes " + ( System.currentTimeMillis() - time ) );
 		} catch (final ParseException e) {

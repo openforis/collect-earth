@@ -14,6 +14,8 @@ import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Observable;
+import java.util.Observer;
 import java.util.Properties;
 import java.util.Vector;
 
@@ -28,6 +30,7 @@ import javax.net.ssl.X509TrustManager;
 import liquibase.util.SystemUtils;
 
 import org.openforis.collect.earth.app.EarthConstants;
+import org.openforis.collect.earth.app.desktop.ServerController;
 import org.openforis.collect.earth.app.service.LocalPropertiesService.EarthProperty;
 import org.openqa.selenium.JavascriptExecutor;
 import org.openqa.selenium.WebDriverException;
@@ -59,7 +62,7 @@ import freemarker.template.TemplateException;
  * 
  */
 @Component
-public class BrowserService {
+public class BrowserService implements Observer{
 
 	/**
 	 * To avoid needing to addd the SSL certificate of Google to the certificate repository we ause a Trust Manager that basically trust all
@@ -107,24 +110,21 @@ public class BrowserService {
 
 	private static boolean hasCheckValidity = false;
 
-	public BrowserService() {
-
-		attachShutDownHook();
+	
+	@Override
+	protected void finalize() throws Throwable {
+		super.finalize();
+		closeBrowsers();
 	}
 
+	public void closeBrowsers() {
+		getClosingBrowsersThread().start();
+	}
+	
 	public void attachShutDownHook() {
-		Runtime.getRuntime().addShutdownHook(new Thread() {
-			@Override
-			public void run() {
-				for (final RemoteWebDriver driver : drivers) {
-					try {
-						driver.quit();
-					} catch (final Exception e) {
-						logger.error("Error quitting the browser", e);
-					}
-				}
-			}
-		});
+		Runtime.getRuntime().addShutdownHook(
+				getClosingBrowsersThread()
+		);
 	}
 
 	private RemoteWebDriver chooseDriver() {
@@ -563,5 +563,27 @@ public class BrowserService {
 			}
 		}
 		return true;
+	}
+
+	private Thread getClosingBrowsersThread() {
+		return new Thread() {
+			@Override
+			public void run() {
+				for (final RemoteWebDriver driver : drivers) {
+					try {
+						driver.quit();
+					} catch (final Exception e) {
+						logger.error("Error quitting the browser", e);
+					}
+				}
+			}
+		};
+	}
+
+	@Override
+	public void update(Observable o, Object arg) {
+		if( arg == ServerController.SERVER_STOPPED_EVENT ){
+			this.closeBrowsers();
+		}
 	}
 }
