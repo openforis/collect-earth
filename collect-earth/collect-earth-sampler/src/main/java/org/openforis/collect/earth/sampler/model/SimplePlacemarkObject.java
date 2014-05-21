@@ -37,22 +37,15 @@ public class SimplePlacemarkObject {
 
 	private int plotId;
 
-	private String extraInfo;
-
-	private AspectCode aspectHumanReadable;
-
-	private String extraInfo2;
+	private String[] extraInfo;
 
 	public SimplePlacemarkObject(Coordinate coordinate,
 			PlotProperties plotProperties) {
 		this.aspect = (int) Math.round(plotProperties.aspect);
-		this.aspectHumanReadable = AspectCode
-				.getAspectCode(plotProperties.aspect);
 		this.coord = new SimpleCoordinate(coordinate);
 		this.elevation = plotProperties.elevation;
 		this.placemarkId = plotProperties.id;
 		this.extraInfo = plotProperties.extraInfo;
-		this.extraInfo2 = plotProperties.extraInfo2;
 		this.slope = (int) Math.round(plotProperties.slope);
 
 	}
@@ -73,9 +66,7 @@ public class SimplePlacemarkObject {
 		return aspect;
 	}
 
-	public AspectCode getAspectHumanReadable() {
-		return aspectHumanReadable;
-	}
+
 
 	public SimpleCoordinate getCoord() {
 		return coord;
@@ -85,13 +76,11 @@ public class SimplePlacemarkObject {
 		return elevation;
 	}
 
-	public String getExtraInfo() {
+	public String[] getExtraInfo() {
 		return extraInfo;
 	}
 
-	public String getExtraInfo2() {
-		return extraInfo2;
-	}
+	
 
 	public String getNextPlacemarkId() {
 		return nextPlacemarkId;
@@ -133,9 +122,6 @@ public class SimplePlacemarkObject {
 		this.aspect = aspect;
 	}
 
-	public void setAspectHumanReadable(AspectCode aspectHumanReadable) {
-		this.aspectHumanReadable = aspectHumanReadable;
-	}
 
 	public void setCoord(SimpleCoordinate coord) {
 		this.coord = coord;
@@ -145,13 +131,10 @@ public class SimplePlacemarkObject {
 		this.elevation = elevation;
 	}
 
-	public void setExtraInfo(String extraInfo) {
+	public void setExtraInfo(String[] extraInfo) {
 		this.extraInfo = extraInfo;
 	}
 
-	public void setExtraInfo2(String extraInfo2) {
-		this.extraInfo2 = extraInfo2;
-	}
 
 	public void setNextPlacemarkId(String nextPlacemarkId) {
 		this.nextPlacemarkId = nextPlacemarkId;

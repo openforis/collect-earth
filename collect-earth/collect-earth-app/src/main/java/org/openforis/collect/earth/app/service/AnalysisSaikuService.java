@@ -15,9 +15,10 @@ import org.apache.commons.dbcp.BasicDataSource;
 import org.apache.commons.lang3.StringUtils;
 import org.openforis.collect.earth.app.EarthConstants;
 import org.openforis.collect.earth.app.desktop.ServerController;
+import org.openforis.collect.earth.app.model.AspectCode;
+import org.openforis.collect.earth.app.model.DynamicsCode;
+import org.openforis.collect.earth.app.model.SlopeCode;
 import org.openforis.collect.earth.app.service.LocalPropertiesService.EarthProperty;
-import org.openforis.collect.earth.sampler.model.AspectCode;
-import org.openforis.collect.earth.sampler.model.SlopeCode;
 import org.openforis.collect.earth.sampler.processor.KmlGenerator;
 import org.openforis.collect.earth.sampler.utils.FreemarkerTemplateUtils;
 import org.openforis.collect.model.CollectRecord.Step;
@@ -96,7 +97,7 @@ public class AnalysisSaikuService {
 						if (SlopeCode.getSlopeCode((int) rs.getFloat("slope")) != null) {
 							slope = SlopeCode.getSlopeCode((int) rs.getFloat("slope")).getId();
 						}
-
+						
 						updateValues[0] = aspect;
 						updateValues[1] = slope;
 						updateValues[2] = Math.floor((int) rs.getFloat("elevation") / ELEVATION_RANGE) + 1; // 0 meters is bucket 1 ( id);
@@ -107,6 +108,30 @@ public class AnalysisSaikuService {
 				});
 
 		jdbcTemplate.batchUpdate("UPDATE " + schemaName + "plot SET aspect_id=?,slope_id=?,elevation_id=? WHERE _plot_id=?", sqlUpdateValues);
+	}
+	
+	private void assignLUCDimensionValues() {
+		final String schemaName = getSchemaPrefix();
+		// Objet[] --> aspect_id, sloped_id, elevation_bucket_id, _plot_id
+		final List<Object[]> sqlUpdateValues = jdbcTemplate.query("SELECT _plot_id, land_use_subcategory FROM " + schemaName + "plot",
+				new RowMapper<Object[]>() {
+					@Override
+					public Object[] mapRow(ResultSet rs, int rowNum) throws SQLException {
+
+						final Object[] updateValues = new Object[2];
+
+												
+						Integer dynamics = DynamicsCode.getDynamicsCode( rs.getString("land_use_subcategory"));
+
+						
+						updateValues[0] = dynamics;
+						updateValues[1] = rs.getLong("_plot_id");
+						return updateValues;
+					}
+
+				});
+
+		jdbcTemplate.batchUpdate("UPDATE " + schemaName + "plot SET dynamics_id=? WHERE _plot_id=?", sqlUpdateValues);
 	}
 
 	private void cleanPostgresDb() {
@@ -151,6 +176,16 @@ public class AnalysisSaikuService {
 		}
 
 	}
+	
+	private void createDynamicsAuxTable() {
+		final String schemaName = getSchemaPrefix();
+		jdbcTemplate.execute("CREATE TABLE " + schemaName + "dynamics_category (dynamics_id INTEGER PRIMARY KEY, dynamics_caption TEXT);");
+		final DynamicsCode[] dynamicsCodes = DynamicsCode.values();
+		for (final DynamicsCode dynamicsCode : dynamicsCodes) {
+			jdbcTemplate
+			.execute("INSERT INTO " + schemaName + "dynamics_category values (" + dynamicsCode.getId() + ", '" + dynamicsCode.getLabel() + "')");
+		}
+	}
 
 	private void createPlotForeignKeys() {
 		// Add aspect_id column to plot
@@ -158,6 +193,7 @@ public class AnalysisSaikuService {
 		jdbcTemplate.execute("ALTER TABLE " + schemaName + "plot ADD aspect_id INTEGER");
 		jdbcTemplate.execute("ALTER TABLE " + schemaName + "plot ADD slope_id INTEGER");
 		jdbcTemplate.execute("ALTER TABLE " + schemaName + "plot ADD elevation_id INTEGER");
+		jdbcTemplate.execute("ALTER TABLE " + schemaName + "plot ADD dynamics_id INTEGER");
 	}
 
 	private void createSlopeAuxTable() {
@@ -319,22 +355,21 @@ public class AnalysisSaikuService {
 	}
 
 	private void processQuantityData() throws SQLException {
-		long time = System.currentTimeMillis();
+		
 		createAspectAuxTable();
-		System.out.println("Process 1 " + (System.currentTimeMillis() - time));
-		time = System.currentTimeMillis();
+	
 		createSlopeAuxTable();
-		System.out.println("Process 2 " + (System.currentTimeMillis() - time));
-		time = System.currentTimeMillis();
+		
 		createElevationtAuxTable();
-		System.out.println("Process 3 " + (System.currentTimeMillis() - time));
-		time = System.currentTimeMillis();
+		
+		createDynamicsAuxTable();
+		
 		createPlotForeignKeys();
-		System.out.println("Process 4 " + (System.currentTimeMillis() - time));
-		time = System.currentTimeMillis();
+		
 		assignDimensionValues();
-		System.out.println(" Process  5 " + (System.currentTimeMillis() - time));
-		time = System.currentTimeMillis();
+		
+		assignLUCDimensionValues();
+		
 	}
 
 	private void refreshDataSourceForSaiku() throws IOException {
