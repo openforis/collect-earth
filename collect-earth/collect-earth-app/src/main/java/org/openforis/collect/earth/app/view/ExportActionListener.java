@@ -18,6 +18,7 @@ import org.openforis.collect.earth.app.service.EarthSurveyService;
 import org.openforis.collect.earth.app.service.LocalPropertiesService;
 import org.openforis.collect.io.data.DataExportStatus;
 import org.openforis.collect.manager.process.AbstractProcess;
+import org.openforis.collect.manager.process.ProcessStatus;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -107,7 +108,7 @@ public final class ExportActionListener implements ActionListener {
 		try {
 			exportProcess = getExportProcess(exportType, recordsModifiedSince, exportToFile);
 			if( exportProcess != null ){
-				ExportDialogProcessMonitor exportProcessWorker = new ExportDialogProcessMonitor(exportProcess, frame, recordsToExport, exportType, earthSurveyService, localPropertiesService );
+				ExportProcessMonitorDialog exportProcessWorker = new ExportProcessMonitorDialog(exportProcess, frame, recordsToExport, exportType, earthSurveyService, localPropertiesService );
 				exportProcessWorker.start();
 			}
 		} catch (Exception e1) {

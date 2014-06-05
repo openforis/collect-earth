@@ -9,7 +9,9 @@ import javax.swing.JOptionPane;
 
 import org.openforis.collect.earth.app.service.DataImportExportService;
 import org.openforis.collect.earth.app.service.LocalPropertiesService;
+import org.openforis.collect.io.data.CSVDataImportProcess;
 import org.openforis.collect.io.data.XMLDataImportProcess;
+import org.openforis.collect.manager.process.ProcessStatus;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -54,14 +56,14 @@ public final class ImportActionListener implements ActionListener {
 
 	private void importDataFrom(final ActionEvent e, final DataFormat importType) {
 		File[] filesToImport = JFileChooserExistsAware.getFileChooserResults( importType, false, true, null, localPropertiesService, frame );
-		final ImportDialogProcessMonitor importDialogProcessMonitor = new ImportDialogProcessMonitor();
+		final ImportXMLDialogProcessMonitor importDialogProcessMonitor = new ImportXMLDialogProcessMonitor();
 		if (filesToImport != null) {
 
 			final boolean importNonFinishedPlots = shouldImportNonFinishedRecords();
 			switch (importType) {
 			case ZIP_WITH_XML:
 				for (final File importedFile : filesToImport) {
-					new Thread("Import Thread " + importedFile.getName() ){ //$NON-NLS-1$
+					new Thread("XML Import Thread " + importedFile.getName() ){ //$NON-NLS-1$
 						public void run() {
 							try{
 
@@ -79,6 +81,26 @@ public final class ImportActionListener implements ActionListener {
 
 				break;
 			case CSV:
+				for (final File importedFile : filesToImport) {
+
+					CSVDataImportProcess imortSurveyAsCsv = null;
+					try {
+						imortSurveyAsCsv = dataImportService.getCsvImporterProcess(importedFile);
+
+						if( imortSurveyAsCsv != null ){
+							imortSurveyAsCsv.init();
+							ProcessStatus status = imortSurveyAsCsv.getStatus();
+							if ( status != null && ! imortSurveyAsCsv.getStatus().isError() ) {
+								ImportProcessMonitorDialog importProcessWorker = new ImportProcessMonitorDialog(imortSurveyAsCsv, frame );
+								importProcessWorker.start();
+							}
+						}
+					} catch (Exception e1) {
+						JOptionPane.showMessageDialog(this.frame, Messages.getString("CollectEarthWindow.0"), Messages.getString("CollectEarthWindow.1"), //$NON-NLS-1$ //$NON-NLS-2$
+								JOptionPane.ERROR_MESSAGE);
+						logger.error("Error exporting data to " + importedFile.getAbsolutePath() + " in format " + importType , e1); //$NON-NLS-1$ //$NON-NLS-2$
+					}
+				}
 				break;
 			case FUSION:
 				break;

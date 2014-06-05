@@ -1,7 +1,12 @@
 package org.openforis.collect.earth.app.service;
 
+import java.io.BufferedReader;
 import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileNotFoundException;
 import java.io.IOException;
+import java.io.InputStreamReader;
+import java.nio.charset.Charset;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.ArrayList;
@@ -29,9 +34,14 @@ import org.openqa.selenium.remote.RemoteWebDriver;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.dao.DataAccessException;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.core.RowMapper;
 import org.springframework.stereotype.Component;
+
+import com.vividsolutions.jtsexample.io.gml2.KMLReaderExample;
+
+import au.com.bytecode.opencsv.CSVReader;
 
 @Component
 public class AnalysisSaikuService {
@@ -74,6 +84,8 @@ public class AnalysisSaikuService {
 
 	private static final String MDX_XML = "collectEarthCubes.xml";
 	private static final String MDX_TEMPLATE = MDX_XML + ".fmt";
+	
+	private static final String REGION_AREAS_CSV = "region_areas.csv";
 
 	private boolean userCancelledOperation = false;
 
@@ -195,6 +207,12 @@ public class AnalysisSaikuService {
 		jdbcTemplate.execute("ALTER TABLE " + schemaName + "plot ADD elevation_id INTEGER");
 		jdbcTemplate.execute("ALTER TABLE " + schemaName + "plot ADD dynamics_id INTEGER");
 	}
+	
+	private void createWeightFactors(){
+		final String schemaName = getSchemaPrefix();
+		jdbcTemplate.execute("ALTER TABLE " + schemaName + "plot ADD expansion_factor FLOAT");
+		jdbcTemplate.execute("ALTER TABLE " + schemaName + "plot ADD plot_weight FLOAT");
+	}
 
 	private void createSlopeAuxTable() {
 		final String schemaName = getSchemaPrefix();
@@ -310,9 +328,7 @@ public class AnalysisSaikuService {
 
 					collectRDBPublisher.export(earthSurveyService.getCollectSurvey().getName(), EarthConstants.ROOT_ENTITY_NAME, Step.ENTRY,
 							rdbSaikuSchema, rdbConfig);
-
-					refreshDataSourceForSaiku();
-
+					
 					if (!isUserCancelledOperation()) {
 						System.currentTimeMillis();
 						try {
@@ -324,6 +340,8 @@ public class AnalysisSaikuService {
 					}
 				}
 
+				refreshDataSourceForSaiku();
+				
 				if (!isUserCancelledOperation()) {
 					startSaiku();
 					new Thread() {
@@ -364,11 +382,117 @@ public class AnalysisSaikuService {
 		
 		createDynamicsAuxTable();
 		
+		createWeightFactors();
+				
 		createPlotForeignKeys();
 		
 		assignDimensionValues();
 		
 		assignLUCDimensionValues();
+		
+		assignWeightFactors();
+		
+		addAreasPerRegion();
+		
+	}
+
+	public static CSVReader getCsvReader(String csvFile) throws FileNotFoundException {
+		CSVReader reader;
+		final BufferedReader bufferedReader = new BufferedReader(new InputStreamReader(new FileInputStream(csvFile), Charset.forName("UTF-8")));
+		reader = new CSVReader(bufferedReader, ',');
+		return reader;
+	}
+
+	
+	private void addAreasPerRegion() throws SQLException {
+		
+		final File regionAreas = new File(getIdmFolder() + File.separatorChar + REGION_AREAS_CSV);
+		if (regionAreas.exists()) {
+			
+			try {
+				CSVReader csvReader = KmlGenerator.getCsvReader(regionAreas.getAbsolutePath());
+				String[] csvLine = null;
+		
+				while( ( csvLine = csvReader.readNext() ) != null ){
+					try {
+						String region = csvLine[0];
+						String plot_file = csvLine[1];
+						long area_sq_meters = Long.parseLong( csvLine[2] );
+						int area_sq_km =  Integer.parseInt( csvLine[3] );
+						int area_hectars =  Integer.parseInt( csvLine[4] );
+						
+						String[] parameters = new String[]{region,plot_file};
+						
+						String schemaName = getSchemaPrefix();
+						int plots_per_region = jdbcTemplate.queryForInt( "SELECT count(_plot_id)FROM " + schemaName  + "plot  WHERE region=? OR plot_file=? ", parameters);
+						
+						Float expansion_factor_hectars_calc = 0f;
+						if( plots_per_region != 0 ){
+							expansion_factor_hectars_calc = (float)area_hectars / plots_per_region;
+						}
+						
+						final Float expansion_factor_hectars = expansion_factor_hectars_calc;
+						
+						final List<Object[]> sqlUpdateValues = jdbcTemplate.query("SELECT _plot_id FROM " + schemaName + "plot WHERE region=? OR plot_file=? ",parameters,
+								new RowMapper<Object[]>() {
+									@Override
+									public Object[] mapRow(ResultSet rs, int rowNum) throws SQLException {
+
+										final Object[] updateValues = new Object[2];
+
+										
+										updateValues[0] = expansion_factor_hectars;
+										updateValues[1] = rs.getLong("_plot_id");
+										
+										return updateValues;
+									}
+
+								});
+
+						jdbcTemplate.batchUpdate("UPDATE " + schemaName + "plot SET expansion_factor=? WHERE _plot_id=?", sqlUpdateValues);
+					} catch (NumberFormatException e) {
+						logger.error("Possibly the header", e);
+					} 
+					
+				}
+			} catch (FileNotFoundException e) {
+				logger.error("File not found?", e);
+			} catch (IOException e) {
+				logger.error("Error reading the CSV file", e);
+			}
+			
+		}else{
+			logger.warn("No CSV region_areas.csv present, calculating areas will not be possible");
+		}
+		
+	}
+	
+	private void assignWeightFactors() {
+		// Add aspect_id column to plot
+		final String schemaName = getSchemaPrefix();
+		
+		final List<Object[]> sqlUpdateValues = jdbcTemplate.query("SELECT _plot_id, plot_file FROM " + schemaName + "plot",
+				new RowMapper<Object[]>() {
+					@Override
+					public Object[] mapRow(ResultSet rs, int rowNum) throws SQLException {
+
+						final Object[] updateValues = new Object[2];
+
+						String plotFile = rs.getString("plot_file");
+
+						
+						float weight = 1f;
+						if( plotFile.equals("jiwaka_2x2.ced") ||  plotFile.equals("westernHighlands_2x2.ced") ||  plotFile.equals("manus.ced")){
+							weight = 0.25f;
+						}
+						updateValues[0] = weight ;
+						updateValues[1] = rs.getLong("_plot_id");
+						return updateValues;
+					}
+
+				});
+
+		jdbcTemplate.batchUpdate("UPDATE " + schemaName + "plot SET plot_weight=? WHERE _plot_id=?", sqlUpdateValues);
 		
 	}
 

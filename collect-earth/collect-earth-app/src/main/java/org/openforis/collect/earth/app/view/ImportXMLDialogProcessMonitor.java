@@ -14,9 +14,9 @@ import org.openforis.collect.io.data.XMLDataImportProcess;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-public class ImportDialogProcessMonitor {
+public class ImportXMLDialogProcessMonitor {
 
-	Logger logger = LoggerFactory.getLogger(ImportDialogProcessMonitor.class);
+	Logger logger = LoggerFactory.getLogger(ImportXMLDialogProcessMonitor.class);
 	private InfiniteProgressMonitor progressMonitor;
 
 	public void closeProgressmonitor() {

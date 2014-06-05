@@ -3,7 +3,6 @@ package org.openforis.collect.earth.app.service;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
-import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.HashMap;
@@ -15,6 +14,7 @@ import javax.annotation.PostConstruct;
 import org.apache.commons.dbcp.BasicDataSource;
 import org.openforis.collect.earth.app.EarthConstants;
 import org.openforis.collect.earth.app.service.LocalPropertiesService.EarthProperty;
+import org.openforis.collect.earth.app.service.handler.DateAttributeHandler;
 import org.openforis.collect.earth.app.view.Messages;
 import org.openforis.collect.manager.RecordManager;
 import org.openforis.collect.manager.SurveyManager;
@@ -40,11 +40,10 @@ import org.springframework.stereotype.Component;
 public class EarthSurveyService {
 
 	private static final String COLLECT_BOOLEAN_ACTIVELY_SAVED = "collect_boolean_actively_saved"; //$NON-NLS-1$
-	private static final String COLLECT_TEXT_ACTIVELY_SAVED_ON = "collect_text_actively_saved_on"; //$NON-NLS-1$
+	private static final String COLLECT_DATE_ACTIVELY_SAVED_ON = "collect_date_actively_saved_on"; //$NON-NLS-1$
 	private static final String COLLECT_TEXT_OPERATOR = "collect_text_operator"; //$NON-NLS-1$
 	private static final String SKIP_FILLED_PLOT_PARAMETER = "jump_to_next_plot"; //$NON-NLS-1$
-	private final SimpleDateFormat dateFormat = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss"); //$NON-NLS-1$
-
+	
 	@Autowired
 	private CollectParametersHandlerService collectParametersHandler;
 
@@ -226,7 +225,7 @@ public class EarthSurveyService {
 	}
 
 	private void setPlacemarkSavedOn(Map<String, String> parameters) {
-		parameters.put(COLLECT_TEXT_ACTIVELY_SAVED_ON, dateFormat.format(new Date()));
+		parameters.put(COLLECT_DATE_ACTIVELY_SAVED_ON, DateAttributeHandler.DATE_ATTRIBUTE_FORMAT.format(new Date()));
 	}
 
 	private void setPlacemarSavedActively(Map<String, String> parameters, boolean value) {

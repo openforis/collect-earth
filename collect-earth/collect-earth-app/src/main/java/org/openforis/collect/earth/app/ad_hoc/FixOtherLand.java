@@ -2,11 +2,13 @@ package org.openforis.collect.earth.app.ad_hoc;
 
 import java.util.List;
 
+
 import org.openforis.collect.earth.app.EarthConstants;
 import org.openforis.collect.earth.app.service.EarthSurveyService;
 import org.openforis.collect.manager.RecordManager;
 import org.openforis.collect.model.CollectRecord;
 import org.openforis.collect.model.CollectRecord.Step;
+import org.openforis.collect.persistence.RecordPersistenceException;
 import org.openforis.idm.model.Coordinate;
 import org.openforis.idm.model.CoordinateAttribute;
 import org.slf4j.Logger;
@@ -15,7 +17,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
 @Component
-public abstract class FixCoordinates {
+public abstract class FixOtherLand {
 
 	@Autowired
 	private RecordManager recordManager;
@@ -23,7 +25,7 @@ public abstract class FixCoordinates {
 	@Autowired
 	private EarthSurveyService earthSurveyService;
 
-	private Logger logger = LoggerFactory.getLogger( FixCoordinates.class);
+	private Logger logger = LoggerFactory.getLogger( FixOtherLand.class);
 
 	private boolean stopFix = false;
 
@@ -51,7 +53,8 @@ public abstract class FixCoordinates {
 						Coordinate coordinate = new Coordinate(plotCoord.getValue().getY(), plotCoord.getValue().getX(), plotCoord.getValue().getSrsId() );
 						plotCoord.setValue( coordinate );
 						recordManager.save( collectRecord );
-				}
+						
+					}
 
 
 				}

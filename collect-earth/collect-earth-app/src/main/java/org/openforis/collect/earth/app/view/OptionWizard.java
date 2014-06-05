@@ -890,6 +890,7 @@ public class OptionWizard extends JDialog {
 		propertyToComponent.put(EarthProperty.METADATA_FILE, new JComponent[] { idmPath });
 
 		final JTextField surveyNameTextField = new JTextField(localPropertiesService.getValue(EarthProperty.SURVEY_NAME));
+		surveyNameTextField.setEnabled(false);
 		propertyToComponent.put(EarthProperty.SURVEY_NAME, new JComponent[] { surveyNameTextField });
 
 		// Database options

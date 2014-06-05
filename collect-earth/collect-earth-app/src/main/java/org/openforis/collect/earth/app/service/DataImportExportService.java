@@ -7,6 +7,7 @@ import java.util.List;
 
 import org.openforis.collect.earth.app.EarthConstants;
 import org.openforis.collect.io.data.CSVDataExportProcess;
+import org.openforis.collect.io.data.CSVDataImportProcess;
 import org.openforis.collect.io.data.DataImportSummaryItem;
 import org.openforis.collect.io.data.XMLDataExportProcess;
 import org.openforis.collect.io.data.XMLDataImportProcess;
@@ -15,6 +16,7 @@ import org.openforis.collect.manager.SurveyManager;
 import org.openforis.collect.model.CollectRecord;
 import org.openforis.collect.model.CollectRecord.Step;
 import org.openforis.collect.model.CollectSurvey;
+import org.openforis.collect.model.RecordFilter;
 import org.openforis.commons.collection.Predicate;
 import org.openforis.idm.model.BooleanAttribute;
 import org.slf4j.Logger;
@@ -58,25 +60,32 @@ public class DataImportExportService {
 	public CSVDataExportProcess exportSurveyAsCsv(File exportToFile) throws Exception {
 		final CSVDataExportProcess csvDataExportProcess = applicationContext.getBean(CSVDataExportProcess.class);
 		csvDataExportProcess.setOutputFile(exportToFile);
-		csvDataExportProcess.setRootEntityName(EarthConstants.ROOT_ENTITY_NAME);
+
 		csvDataExportProcess.setEntityId(earthSurveyService.getCollectSurvey().getSchema().getRootEntityDefinition(EarthConstants.ROOT_ENTITY_NAME).getId());
-		csvDataExportProcess.setSurvey(earthSurveyService.getCollectSurvey());
-		csvDataExportProcess.setStep(Step.ENTRY);
+
 		csvDataExportProcess.setIncludeAllAncestorAttributes(true);
+
+		csvDataExportProcess.setRecordFilter( getRecordFilter() ) ;
+
+
 		return csvDataExportProcess;
+	}
+
+	private RecordFilter getRecordFilter( ) {
+		RecordFilter recordFilter = new RecordFilter(earthSurveyService.getCollectSurvey(), earthSurveyService.getCollectSurvey().getSchema().getRootEntityDefinition(EarthConstants.ROOT_ENTITY_NAME).getId());
+		recordFilter.setStepGreaterOrEqual(Step.ENTRY);
+		return recordFilter;
 	}
 
 	public CSVDataExportProcess exportSurveyAsFusionTable(File exportToFile) throws Exception {
 
 		final CSVDataExportProcess csvDataExportProcess = applicationContext.getBean(CSVDataExportProcess.class);
 		csvDataExportProcess.setOutputFile(exportToFile);
-		csvDataExportProcess.setRootEntityName(EarthConstants.ROOT_ENTITY_NAME);
 		csvDataExportProcess.setEntityId(earthSurveyService.getCollectSurvey().getSchema().getRootEntityDefinition(EarthConstants.ROOT_ENTITY_NAME).getId());
-		csvDataExportProcess.setSurvey(earthSurveyService.getCollectSurvey());
-		csvDataExportProcess.setStep(Step.ENTRY);
 		csvDataExportProcess.setIncludeAllAncestorAttributes(true);
 		csvDataExportProcess.setIncludeCodeItemPositionColumn(true);
 		csvDataExportProcess.setIncludeKMLColumnForCoordinates(true);
+		csvDataExportProcess.setRecordFilter( getRecordFilter() ) ;
 		return csvDataExportProcess;
 	}
 
@@ -91,11 +100,25 @@ public class DataImportExportService {
 		return xmlDataExportProcess;
 	}
 
+
+	public CSVDataImportProcess getCsvImporterProcess(File importFromFile) throws Exception {
+		final CSVDataImportProcess importProcess = applicationContext.getBean(CSVDataImportProcess.class);
+
+		importProcess.setFile(importFromFile);
+		importProcess.setSurvey(earthSurveyService.getCollectSurvey());
+		importProcess.setParentEntityDefinitionId(earthSurveyService.getCollectSurvey().getSchema().getRootEntityDefinition(EarthConstants.ROOT_ENTITY_NAME).getId());
+		importProcess.setStep(Step.ENTRY );
+		importProcess.setRecordValidationEnabled(false);
+		importProcess.setInsertNewRecords(false);
+		importProcess.setNewRecordVersionName(null);
+		return importProcess;
+	}
+
 	public XMLDataImportProcess getImportSummary(File zipWithXml, boolean importNonFinishedPlots) throws Exception {
 		final XMLDataImportProcess dataImportProcess = applicationContext.getBean(XMLDataImportProcess.class);
 		dataImportProcess.setFile(zipWithXml);
 		dataImportProcess.prepareToStartSummaryCreation();
-		
+
 		if( !importNonFinishedPlots ){ // Import only plots whose actively_saved state is set to true
 			dataImportProcess.setIncludeRecordPredicate( new Predicate<CollectRecord>() {
 

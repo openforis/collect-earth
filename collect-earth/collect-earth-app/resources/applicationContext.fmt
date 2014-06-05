@@ -166,6 +166,7 @@
 	<bean id="csvDataExportProcess" class="org.openforis.collect.io.data.CSVDataExportProcess" scope="prototype"/>
 	<bean id="xmlDataExportProcess" class="org.openforis.collect.io.data.XMLDataExportProcess"  scope="prototype"/>
 	<bean id="xmlDataImportProcess" class="org.openforis.collect.io.data.XMLDataImportProcess"  scope="prototype"/>
+	<bean id="csvDataImportProcess" class="org.openforis.collect.io.data.CSVDataImportProcess"  scope="prototype"/>
 		
 		
 	

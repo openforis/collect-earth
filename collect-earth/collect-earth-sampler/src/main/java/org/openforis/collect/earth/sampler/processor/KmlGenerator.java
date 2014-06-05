@@ -13,6 +13,7 @@ import java.util.Map;
 import java.util.Vector;
 
 import org.apache.commons.io.FileUtils;
+import org.apache.commons.lang.StringEscapeUtils;
 import org.openforis.collect.earth.sampler.model.SimplePlacemarkObject;
 import org.openforis.collect.earth.sampler.utils.FreemarkerTemplateUtils;
 import org.opengis.referencing.operation.TransformException;
@@ -45,7 +46,7 @@ public abstract class KmlGenerator extends AbstractCoordinateCalculation {
 			if( csvValuesInLine.length > 6 ){
 			
 				for ( int extraIndex = 6; extraIndex<csvValuesInLine.length; extraIndex++) {
-					extraInfoVector.add( csvValuesInLine[extraIndex]);
+					extraInfoVector.add( StringEscapeUtils.escapeXml( csvValuesInLine[extraIndex]) );
 				}
 			}
 		}

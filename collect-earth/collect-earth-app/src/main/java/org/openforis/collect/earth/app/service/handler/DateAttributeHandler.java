@@ -21,7 +21,7 @@ public class DateAttributeHandler extends AbstractAttributeHandler<Date> {
 
 	private static final String PREFIX = "date_";
 
-	private final SimpleDateFormat sdf = new SimpleDateFormat("MM/dd/yyyy");
+	public static final SimpleDateFormat DATE_ATTRIBUTE_FORMAT = new SimpleDateFormat("MM/dd/yyyy");
 
 	public DateAttributeHandler() {
 		super(PREFIX);
@@ -38,10 +38,14 @@ public class DateAttributeHandler extends AbstractAttributeHandler<Date> {
 
 		try {
 			if(  entity.get(removePrefix(parameterName), index).hasData() ){
-				attribute = sdf.format(((DateAttribute) entity.get(removePrefix(parameterName), index)).getValue().toJavaDate());
+
+				java.util.Date javaDate = ((DateAttribute) entity.get(removePrefix(parameterName), index)).getValue().toJavaDate();
+				
+				attribute = DATE_ATTRIBUTE_FORMAT.format(javaDate);
 			}
 		} catch (Exception e) {
 			Logger.getLogger(this.getClass()).error("Not able to parse date for paramaeter " + parameterName, e);
+			throw new IllegalArgumentException("Error in the date specified for parameter " + parameterName );
 		}
 		return attribute;
 	}
@@ -55,14 +59,16 @@ public class DateAttributeHandler extends AbstractAttributeHandler<Date> {
 		// month/day/year
 		Date date;
 		try {
-			java.util.Date dateParam = sdf.parse(parameterValue);
+			java.util.Date dateParam = DATE_ATTRIBUTE_FORMAT.parse(parameterValue);
 			Calendar cal = Calendar.getInstance();
 			cal.setTime(dateParam);
 			int year = cal.get(Calendar.YEAR);
 			int month = cal.get(Calendar.MONTH) + 1; // Months starts with 0 in
 			// the calendar
 			int day = cal.get(Calendar.DAY_OF_MONTH);
-
+			if( year > 2200 ){
+				throw new IllegalArgumentException("Error in the year specified " + year );
+			}
 			date = new Date(year, month, day);
 		} catch (ParseException e) {
 			date = new Date(-1, -1, -1); // Force Collect validation to respond

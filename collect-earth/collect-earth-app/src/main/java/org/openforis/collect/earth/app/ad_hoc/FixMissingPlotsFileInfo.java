@@ -89,12 +89,10 @@ public final class FixMissingPlotsFileInfo {
 		
 		TextValue textValue = new TextValue( plotFile );
 		recordManager.addAttribute(record.getRootEntity(), "plot_file", textValue, null, null);
-		try {
+		
 			recordManager.save( record );
 			System.out.println("Setting record to plot_file : " + plotFile );
-		} catch (RecordPersistenceException e) {
-			logger.error("Error Saving the record", e);
-		}
+		
 	}
 
 	private String getFileNameForId(Map<String, List<String>> plotIdsByFile, CollectRecord record) {

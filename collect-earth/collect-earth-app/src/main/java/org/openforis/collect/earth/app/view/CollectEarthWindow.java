@@ -29,12 +29,14 @@ import javax.swing.JPanel;
 import javax.swing.JRadioButtonMenuItem;
 import javax.swing.JTextField;
 import javax.swing.SwingConstants;
+import javax.swing.SwingUtilities;
 import javax.swing.WindowConstants;
 import javax.swing.border.Border;
 
 import org.apache.commons.lang3.StringUtils;
 import org.openforis.collect.earth.app.EarthConstants.OperationMode;
 import org.openforis.collect.earth.app.EarthConstants.UI_LANGUAGE;
+import org.openforis.collect.earth.app.ad_hoc.FixCoordinatesPNG;
 import org.openforis.collect.earth.app.desktop.ServerController;
 import org.openforis.collect.earth.app.service.AnalysisSaikuService;
 import org.openforis.collect.earth.app.service.BackupSqlLiteService;
@@ -71,7 +73,7 @@ public class CollectEarthWindow {
 	private final RecordManager recordManager;
 	private final String backupFolder;
 	private final SaikuStarter saikuStarter;
-	//private final FixMissingSaxaulStrataInfo missingSaxaulFixer;
+	private final FixCoordinatesPNG fixCoordinates;
 
 	private List<JMenuItem> serverMenuItems = new ArrayList<JMenuItem>();
 
@@ -87,7 +89,7 @@ public class CollectEarthWindow {
 			this.earthSurveyService = serverController.getContext().getBean(EarthSurveyService.class);
 			this.recordManager = serverController.getContext().getBean(RecordManager.class);
 			this.saikuStarter = new SaikuStarter(saikuService, frame);
-			//this.missingSaxaulFixer = serverController.getContext().getBean(FixMissingSaxaulStrataInfo.class);
+			this.fixCoordinates = serverController.getContext().getBean(FixCoordinatesPNG.class);
 		}else{
 			this.serverController = null;
 			this.localPropertiesService = new LocalPropertiesService();
@@ -98,7 +100,7 @@ public class CollectEarthWindow {
 			this.earthSurveyService = null;
 			this.recordManager = null;
 			this.saikuStarter = null;
-			//this.missingSaxaulFixer = null;
+			this.fixCoordinates =  null;
 		}
 	}
 
@@ -137,6 +139,11 @@ public class CollectEarthWindow {
 		menuItem.addActionListener(getImportActionListener(DataFormat.ZIP_WITH_XML));
 		ieSubmenu.add(menuItem);
 
+		menuItem = new JMenuItem(Messages.getString("CollectEarthWindow.55")); //$NON-NLS-1$
+		menuItem.addActionListener(getImportActionListener(DataFormat.CSV));
+		ieSubmenu.add(menuItem);
+
+		
 		menu.add(ieSubmenu);
 
 		serverMenuItems.add(ieSubmenu); // This menu should only be shown if the DB is local ( not if Collect Earth is acting as a client )
@@ -196,9 +203,9 @@ public class CollectEarthWindow {
 		return new ExportActionListener(exportFormat, xmlExportType, frame, localPropertiesService, dataExportService, earthSurveyService);
 	}
 
-/*
+
 	
-	private ActionListener getFixMissingSaxaul() {
+	private ActionListener getFixCoordinates() {
 		return new ActionListener() {
 
 			@Override
@@ -212,7 +219,7 @@ public class CollectEarthWindow {
 					new Thread() {
 						@Override
 						public void run() {
-							missingSaxaulFixer.setSaxaulStrata();
+							fixCoordinates.fixCoordinates();
 							infiniteProgressMonitor.close();
 						};
 					}.start();
@@ -234,7 +241,7 @@ public class CollectEarthWindow {
 		};
 	}
 
-*/
+
 	private JFrame getFrame() {
 		return frame;
 	}
@@ -303,9 +310,13 @@ public class CollectEarthWindow {
 
 		menuItem = new JMenuItem(Messages.getString("CollectEarthWindow.14")); //$NON-NLS-1$
 		menuItem.addActionListener(getSaikuAnalysisActionListener());
-		serverMenuItems.add(menuItem); // This menu should only be shown if the DB is local ( not if Collect Earth is acting as a client )
 		toolsMenu.add(menuItem);
 
+/*		menuItem = new JMenuItem("Fix PNG coordinates"); //$NON-NLS-1$
+		menuItem.addActionListener(getFixCoordinates());
+		serverMenuItems.add(menuItem); // This menu should only be shown if the DB is local ( not if Collect Earth is acting as a client )
+		toolsMenu.add(menuItem);
+*/
 
 		toolsMenu.addSeparator();
 
