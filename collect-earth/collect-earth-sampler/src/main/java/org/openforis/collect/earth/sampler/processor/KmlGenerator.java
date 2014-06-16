@@ -86,18 +86,13 @@ public abstract class KmlGenerator extends AbstractCoordinateCalculation {
 		super(epsgCode);
 	}
 
-	public static String convertToOSPath(String path) {
-		String pathSeparator = File.separator;
-		path = path.replace("/", pathSeparator);
-		path = path.replace("\\", pathSeparator);
-		return path;
-	}
+	
 
 	public void generateFromCsv(String csvFile, String balloonFile, String freemarkerKmlTemplateFile, String destinationKmlFile,
 			String distanceBetweenSamplePoints, String distancePlotBoundary) throws IOException, TemplateException {
 
 		try {
-			final File destinationFile = new File(convertToOSPath(destinationKmlFile));
+			final File destinationFile = new File(destinationKmlFile);
 			destinationFile.getParentFile().mkdirs();
 			getKmlCode(csvFile, balloonFile, freemarkerKmlTemplateFile, destinationFile, distanceBetweenSamplePoints, distancePlotBoundary);
 		} catch (final IOException e) {
@@ -118,16 +113,16 @@ public abstract class KmlGenerator extends AbstractCoordinateCalculation {
 		final Float fDistancePlotBoundary = Float.parseFloat(distancePlotBoundary);
 		
 		// Build the data-model
-		final Map<String, Object> data = getTemplateData(convertToOSPath(csvFile), fDistancePoints, fDistancePlotBoundary);
+		final Map<String, Object> data = getTemplateData(csvFile, fDistancePoints, fDistancePlotBoundary);
 		data.put("expiration", httpHeaderDf.format(new Date()));
 
 		// Get the HTML content of the balloon from a file, this way we can
 		// separate the KML generation so it is easier to create different KMLs
-		final String balloonContents = FileUtils.readFileToString(new File(convertToOSPath(balloonFile)));
+		final String balloonContents = FileUtils.readFileToString(new File(balloonFile));
 		data.put("html_for_balloon", balloonContents);
 
 		// Process the template file using the data in the "data" Map
-		final File templateFile = new File(convertToOSPath(freemarkerKmlTemplateFile));
+		final File templateFile = new File(freemarkerKmlTemplateFile);
 		
 		FreemarkerTemplateUtils.applyTemplate(templateFile, destinationFile, data);
 	}

@@ -35,6 +35,10 @@ final class SaikuStarter {
 		this.frame = frame;
 		
 	}
+	
+	public boolean shouldShowRdbGenerationOption(){
+		return saikuService.isRdbFilePresent();
+	}
 
 	public boolean isStarting() {
 		return starting;
@@ -50,7 +54,7 @@ final class SaikuStarter {
 					saikuService.prepareDataForAnalysis();
 				}catch ( SaikuExecutionException e1) {
 					JOptionPane.showMessageDialog(  frame , "<html>" + Messages.getString("CollectEarthWindow.29") + "<br>" +Messages.getString("CollectEarthWindow.40") + "</html>", Messages.getString("CollectEarthWindow.47"), JOptionPane.INFORMATION_MESSAGE); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$ //$NON-NLS-4$ //$NON-NLS-5$ //$NON-NLS-6$
-					logger.warn("The saiku server is not configures", e1); //$NON-NLS-1$ 
+					logger.warn("The saiku server is not configured", e1); //$NON-NLS-1$ 
 				} finally{
 					starting = false;
 					if( progressStartSaiku != null ){

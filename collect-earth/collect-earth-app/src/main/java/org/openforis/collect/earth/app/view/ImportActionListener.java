@@ -2,7 +2,12 @@ package org.openforis.collect.earth.app.view;
 
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
+import java.io.BufferedReader;
 import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileNotFoundException;
+import java.io.IOException;
+import java.io.InputStreamReader;
 
 import javax.swing.JFrame;
 import javax.swing.JOptionPane;
@@ -90,6 +95,7 @@ public final class ImportActionListener implements ActionListener {
 						if( imortSurveyAsCsv != null ){
 							imortSurveyAsCsv.init();
 							ProcessStatus status = imortSurveyAsCsv.getStatus();
+							status.setTotal( getTotalNumberOfLines( importedFile ) );
 							if ( status != null && ! imortSurveyAsCsv.getStatus().isError() ) {
 								ImportProcessMonitorDialog importProcessWorker = new ImportProcessMonitorDialog(imortSurveyAsCsv, frame );
 								importProcessWorker.start();
@@ -108,5 +114,23 @@ public final class ImportActionListener implements ActionListener {
 				break;
 			}
 		}
+	}
+
+	private long getTotalNumberOfLines(File importedFile) {
+		long count = 0;
+		try {
+			FileInputStream fstream = new FileInputStream(importedFile);
+			BufferedReader br = new BufferedReader(new InputStreamReader(fstream));
+			String strLine;
+			
+			while ( br.readLine() != null)   {
+			  count++;
+			}
+		} catch (FileNotFoundException e) {
+			logger.error("Error counting the number of lines in file " + importedFile.getAbsolutePath() , e) ;
+		} catch (IOException e) {
+			logger.error("Error counting the number of lines in file " + importedFile.getAbsolutePath() , e) ;
+		}
+		return count;
 	}
 }

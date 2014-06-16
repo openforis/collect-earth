@@ -18,7 +18,6 @@ import org.apache.commons.codec.digest.DigestUtils;
 import org.apache.commons.io.FileUtils;
 import org.openforis.collect.earth.app.EarthConstants;
 import org.openforis.collect.earth.app.EarthConstants.SAMPLE_SHAPE;
-import org.openforis.collect.earth.app.service.BrowserService;
 import org.openforis.collect.earth.app.service.LocalPropertiesService;
 import org.openforis.collect.earth.app.service.LocalPropertiesService.EarthProperty;
 import org.openforis.collect.earth.app.view.CollectEarthWindow;
@@ -45,10 +44,10 @@ import freemarker.template.TemplateException;
  */
 public class EarthApp {
 
-	private static final String KML_RESULTING_TEMP_FILE = EarthConstants.GENERATED_FOLDER + "/plots.kml";
+	private static final String KML_RESULTING_TEMP_FILE = EarthConstants.GENERATED_FOLDER + File.separator + "plots.kml";
 	private static Logger logger = LoggerFactory.getLogger(EarthApp.class);
 	private static ServerController serverController;
-	private static final String KMZ_FILE_PATH = EarthConstants.GENERATED_FOLDER + "/gePlugin.kmz";
+	private static final String KMZ_FILE_PATH = EarthConstants.GENERATED_FOLDER + File.separator + "gePlugin.kmz";
 
 	public static KmlGenerator getKmlGenerator(LocalPropertiesService localProperties) {
 		KmlGenerator generateKml;
@@ -380,8 +379,10 @@ public class EarthApp {
 				@Override
 				public void update(Observable o, Object arg) {
 					try {
-						generatePlacemarksKmzFile();
-						simulateClickKmz();
+						if( arg.equals( ServerController.SERVER_STARTED_EVENT ) ){
+							generatePlacemarksKmzFile();
+							simulateClickKmz();
+						}
 					} catch (IOException e) {
 						logger.error("Error generating KMZ file", e);
 					}

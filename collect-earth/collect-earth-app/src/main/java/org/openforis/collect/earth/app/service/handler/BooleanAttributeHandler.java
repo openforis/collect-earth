@@ -22,6 +22,12 @@ public class BooleanAttributeHandler extends AbstractAttributeHandler<BooleanVal
 
 	@Override
 	public void addToEntity(String parameterName, String parameterValue, Entity entity) {
+		if( parameterValue.equals("1")){
+			parameterValue = "true";
+		}else if( parameterValue.equals("0")){
+			parameterValue = "false";
+		}
+		
 		EntityBuilder.addValue(entity, removePrefix(parameterName), Boolean.parseBoolean(parameterValue));
 	}
 

@@ -1,0 +1,82 @@
+var mapDefinition =new google.maps.Map(${gee_js_pickFunction}("map"),{center:new google.maps.LatLng(0,0),zoom:2,mapTypeId:google.maps.MapTypeId.SATELLITE,panControl:!1,streetViewControl:!1,scaleControl:!0,scrollwheel:!0,zoomControlOptions:{position:google.maps.ControlPosition.RIGHT_TOP,style:google.maps.ZoomControlStyle.LARGE}});
+var workspaceObject =${gee_js_pickFunction}("workspace-el");
+var jsonObject = { 	"viewport":{ 
+				   		"zoom": ${gee_initial_zoom},
+				   		"lat": ${latitude} , 
+						"lng": ${longitude}
+					},
+					"name":"",
+					"regionid":"",
+					"classmodel":[],
+					"polylayers":[],
+					 "datalayers": [
+    {
+      "title": "2000 - Landsat 7 Annual Greenest-Pixel TOA Reflectance Composite",
+      "originaltitle": "Landsat 7 Annual Greenest-Pixel TOA Reflectance Composite",
+      "overlayvisible": true,
+      "vis": {
+        "opacity": 1,
+        "bands": [
+          "B4",
+          "B5",
+          "B3"
+        ],
+        "max": 0.425,
+        "gamma": 1.2000000000000002
+      },
+      "layermode": "advisory-mode",
+      "datatype": "temporalcollection",
+      "periodstart": 946684800000,
+      "periodend": 978307200000,
+      "id": "LANDSAT/LE7_L1T_ANNUAL_GREENEST_TOA",
+      "assetid": "LE7_L1T_ANNUAL_GREENEST_TOA/2000"
+    },
+    {
+      "title": "2006 - Landsat 7 Annual Greenest-Pixel TOA Reflectance Composite",
+      "originaltitle": "Landsat 7 Annual Greenest-Pixel TOA Reflectance Composite",
+      "overlayvisible": true,
+      "vis": {
+        "opacity": 1,
+        "bands": [
+          "B4",
+          "B5",
+          "B3"
+        ],
+        "max": 0.425,
+        "gamma": 1.2000000000000002
+      },
+      "layermode": "advisory-mode",
+      "datatype": "temporalcollection",
+      "periodstart": 1136073600000,
+      "periodend": 1167609600000,
+      "id": "LANDSAT/LE7_L1T_ANNUAL_GREENEST_TOA",
+      "assetid": "LE7_L1T_ANNUAL_GREENEST_TOA/2006"
+    },
+    {
+      "title": "2013 - Landsat 8 Annual Greenest-Pixel TOA Reflectance Composite",
+      "originaltitle": "Landsat 8 Annual Greenest-Pixel TOA Reflectance Composite",
+      "overlayvisible": true,
+      "vis": {
+        "opacity": 1,
+        "bands": [
+          "B5",
+          "B6",
+          "B4"
+        ],
+        "max": 0.51,
+        "gamma": 1
+      },
+      "layermode": "advisory-mode",
+      "datatype": "temporalcollection",
+      "periodstart": 1356998400000,
+      "periodend": 1388534400000,
+      "id": "LANDSAT/LC8_L1T_ANNUAL_GREENEST_TOA",
+      "assetid": "LC8_L1T_ANNUAL_GREENEST_TOA/2013"
+    }
+  ],
+					"drawnpoints":[],
+					"drawnpolys":[],
+					"analysis":null
+				};
+var focusObject = new ${gee_js_zoom_object}(mapDefinition ,workspaceObject ); 
+focusObject.${gee_js_zoom_method}(jsonObject);

@@ -116,7 +116,7 @@ public class EarthSurveyService {
 	}
 
 	private String getIdmFilePath() {
-		return localPropertiesService.getValue(EarthProperty.METADATA_FILE);
+		return localPropertiesService.getImdFile();
 	}
 
 	public Map<String, String> getPlacemark(String placemarkId) {

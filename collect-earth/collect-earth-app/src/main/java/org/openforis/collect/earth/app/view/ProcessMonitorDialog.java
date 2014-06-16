@@ -47,7 +47,7 @@ public abstract class ProcessMonitorDialog<V,S extends ProcessStatus> extends Th
 								public void run(){
 									progressMonitor.close();
 									if( process.getStatus().isError() ){
-										JOptionPane.showMessageDialog(null, "Error : " +process.getStatus().getErrorMessage() );
+										JOptionPane.showMessageDialog(null, "Error : " +process.getStatus().getErrorMessage() ); //$NON-NLS-1$
 									}
 								}
 							});

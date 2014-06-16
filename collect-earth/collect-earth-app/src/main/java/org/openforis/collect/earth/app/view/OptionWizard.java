@@ -65,6 +65,72 @@ import au.com.bytecode.opencsv.CSVReader;
  */
 public class OptionWizard extends JDialog {
 
+	private final class ApplyChangesListener implements ActionListener {
+		@Override
+		public void actionPerformed(ActionEvent arg0) {
+			try {
+				startWaiting();
+				applyProperties();
+			} catch (final Exception e) {
+				logger.error("Error applying the new properties", e); //$NON-NLS-1$
+			} finally {
+				endWaiting();
+			}
+		}
+
+		private void applyProperties() {
+			final Set<EarthProperty> keySet = propertyToComponent.keySet();
+			for (final EarthProperty earthProperty : keySet) {
+				final JComponent component = propertyToComponent.get(earthProperty)[0];
+				if (component instanceof JTextComponent) {
+					localPropertiesService.setValue(earthProperty, ((JTextComponent) component).getText());
+				} else if (component instanceof JCheckBox) {
+					localPropertiesService.setValue(earthProperty, ((JCheckBox) component).isSelected() + ""); //$NON-NLS-1$
+				} else if (component instanceof JComboBox) {
+					if (((JComboBox) component).getItemAt(0) instanceof ComboBoxItem) {
+						localPropertiesService.setValue(earthProperty,
+								((ComboBoxItem) ((JComboBox) component).getSelectedItem()).getNumberOfPoints() + ""); //$NON-NLS-1$
+					} else {
+						localPropertiesService.setValue(earthProperty, (String) ((JComboBox) component).getSelectedItem());
+					}
+				} else if (component instanceof JList) {
+					localPropertiesService.setValue(earthProperty, ((JList) component).getSelectedValue() + ""); //$NON-NLS-1$
+				} else if (component instanceof JRadioButton) {
+					final JComponent[] jComponents = propertyToComponent.get(earthProperty);
+					for (final JComponent jComponent : jComponents) {
+						if (((JRadioButton) jComponent).isSelected()) {
+							localPropertiesService.setValue(earthProperty, ((JRadioButton) jComponent).getName());
+						}
+					}
+				} else if (component instanceof JFilePicker) {
+					localPropertiesService.setValue(earthProperty, ((JFilePicker) component).getSelectedFilePath());
+				}
+			}
+
+			localPropertiesService.nullifyChecksumValues();
+
+			try {
+				final EarthApp earthApp = new EarthApp(localPropertiesService);
+				// Re-generate KMZ
+				new Thread(){
+					public void run() {
+						earthApp.restart();
+					};
+				}.start();
+				
+
+				JOptionPane.showMessageDialog(OptionWizard.this, Messages.getString("OptionWizard.20"), //$NON-NLS-1$
+						Messages.getString("OptionWizard.21"), JOptionPane.INFORMATION_MESSAGE); //$NON-NLS-1$
+				OptionWizard.this.dispose();
+
+			} catch (final IOException e) {
+				logger.error("Error when re-generating the KML code to open in GE ", e); //$NON-NLS-1$
+				JOptionPane.showMessageDialog(OptionWizard.this, e.getMessage(), Messages.getString("OptionWizard.23"), //$NON-NLS-1$
+						JOptionPane.WARNING_MESSAGE);
+			}
+		}
+	}
+
 	private static final long serialVersionUID = -6760020609229102842L;
 
 	private final HashMap<EarthProperty, JComponent[]> propertyToComponent = new HashMap<EarthProperty, JComponent[]>();
@@ -173,72 +239,7 @@ public class OptionWizard extends JDialog {
 
 	private Component getApplyChangesButton() {
 		final JButton applyChanges = new JButton(Messages.getString("OptionWizard.15")); //$NON-NLS-1$
-		applyChanges.addActionListener(new ActionListener() {
-
-			@Override
-			public void actionPerformed(ActionEvent arg0) {
-				try {
-					startWaiting();
-					applyProperties();
-				} catch (final Exception e) {
-					logger.error("Error applying the new properties", e); //$NON-NLS-1$
-				} finally {
-					endWaiting();
-				}
-			}
-
-			private void applyProperties() {
-				final Set<EarthProperty> keySet = propertyToComponent.keySet();
-				for (final EarthProperty earthProperty : keySet) {
-					final JComponent component = propertyToComponent.get(earthProperty)[0];
-					if (component instanceof JTextComponent) {
-						localPropertiesService.setValue(earthProperty, ((JTextComponent) component).getText());
-					} else if (component instanceof JCheckBox) {
-						localPropertiesService.setValue(earthProperty, ((JCheckBox) component).isSelected() + ""); //$NON-NLS-1$
-					} else if (component instanceof JComboBox) {
-						if (((JComboBox) component).getItemAt(0) instanceof ComboBoxItem) {
-							localPropertiesService.setValue(earthProperty,
-									((ComboBoxItem) ((JComboBox) component).getSelectedItem()).getNumberOfPoints() + ""); //$NON-NLS-1$
-						} else {
-							localPropertiesService.setValue(earthProperty, (String) ((JComboBox) component).getSelectedItem());
-						}
-					} else if (component instanceof JList) {
-						localPropertiesService.setValue(earthProperty, ((JList) component).getSelectedValue() + ""); //$NON-NLS-1$
-					} else if (component instanceof JRadioButton) {
-						final JComponent[] jComponents = propertyToComponent.get(earthProperty);
-						for (final JComponent jComponent : jComponents) {
-							if (((JRadioButton) jComponent).isSelected()) {
-								localPropertiesService.setValue(earthProperty, ((JRadioButton) jComponent).getName());
-							}
-						}
-					} else if (component instanceof JFilePicker) {
-						localPropertiesService.setValue(earthProperty, ((JFilePicker) component).getSelectedFilePath());
-					}
-				}
-
-				localPropertiesService.nullifyChecksumValues();
-
-				try {
-					final EarthApp earthApp = new EarthApp(localPropertiesService);
-					// Re-generate KMZ
-					new Thread(){
-						public void run() {
-							earthApp.restart();
-						};
-					}.start();
-					
-
-					JOptionPane.showMessageDialog(OptionWizard.this, Messages.getString("OptionWizard.20"), //$NON-NLS-1$
-							Messages.getString("OptionWizard.21"), JOptionPane.INFORMATION_MESSAGE); //$NON-NLS-1$
-					OptionWizard.this.dispose();
-
-				} catch (final IOException e) {
-					logger.error("Error when re-generating the KML code to open in GE ", e); //$NON-NLS-1$
-					JOptionPane.showMessageDialog(OptionWizard.this, e.getMessage(), Messages.getString("OptionWizard.23"), //$NON-NLS-1$
-							JOptionPane.WARNING_MESSAGE);
-				}
-			}
-		});
+		applyChanges.addActionListener(new ApplyChangesListener());
 
 		return applyChanges;
 	}
@@ -883,7 +884,7 @@ public class OptionWizard extends JDialog {
 		propertyToComponent.put(EarthProperty.BALLOON_TEMPLATE_KEY, new JComponent[] { htmlBalloonPath });
 
 		final JFilePicker idmPath = new JFilePicker(
-				Messages.getString("OptionWizard.87"), localPropertiesService.getValue(EarthProperty.METADATA_FILE), //$NON-NLS-1$
+				Messages.getString("OptionWizard.87"), localPropertiesService.getImdFile(), //$NON-NLS-1$
 				Messages.getString("OptionWizard.88")); //$NON-NLS-1$
 		idmPath.setMode(JFilePicker.MODE_OPEN);
 		idmPath.addFileTypeFilter(".xml", Messages.getString("OptionWizard.90"), true); //$NON-NLS-1$ //$NON-NLS-2$

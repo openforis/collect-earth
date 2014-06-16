@@ -31,7 +31,7 @@ public class BingMapService {
 	/**
 	 * The file that contains the freemarker template used to produce the Bing Maps code.
 	 */
-	private static final String FREEMARKER_HTML_TEMPLATE = "resources/collectBing.fmt";
+	private static final String FREEMARKER_HTML_TEMPLATE = "resources" + File.separator + "collectBing.fmt";
 
 	@Autowired
 	LocalPropertiesService localPropertiesService;
@@ -41,7 +41,7 @@ public class BingMapService {
 	private File applyData(Map<String,Object>  data) throws IOException, TemplateException {
 
 		
-		final File templateFileSrc = new File(KmlGenerator.convertToOSPath(FREEMARKER_HTML_TEMPLATE));
+		final File templateFileSrc = new File(FREEMARKER_HTML_TEMPLATE);
 		
 		final File tempFileDst = File.createTempFile("bing", ".html");
 		tempFileDst.deleteOnExit();

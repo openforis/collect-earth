@@ -99,12 +99,12 @@ public final class MissingPlotsListener implements ActionListener {
 				localPropertiesService, frame);
 		long start = System.currentTimeMillis();
 		final Map<String, List<String>> plotIdsByFile = getPlotIdsByFile(selectedPlotFiles);
-		System.out.println("Finised getting all IDs " + ( start - System.currentTimeMillis() ) );
+		System.out.println("Finised getting all IDs " + ( start - System.currentTimeMillis() ) ); //$NON-NLS-1$
 		start = System.currentTimeMillis();
 
 		Map<String, List<String>> missingPlotIds = getMissingPlotIds(plotIdsByFile);
 
-		System.out.println("Finised getting missing IDs " + ( start - System.currentTimeMillis() ) );
+		System.out.println("Finised getting missing IDs " + ( start - System.currentTimeMillis() ) ); //$NON-NLS-1$
 		start = System.currentTimeMillis();
 
 		String missingPlotsText = getTextMissingPlots( missingPlotIds );
@@ -184,7 +184,7 @@ public final class MissingPlotsListener implements ActionListener {
 			missingPlots += "\n" + Messages.getString("MissingPlotsListener.5") + file + " : \n"; //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$
 			List<String> plotIds = missingPlotIds.get(file);
 			if( plotIds.size() == 0 ){
-				missingPlots += "COMPLETE";
+				missingPlots += "COMPLETE"; //$NON-NLS-1$
 			}
 			
 			for (String plotId : plotIds) {
@@ -271,9 +271,9 @@ public final class MissingPlotsListener implements ActionListener {
 			CollectRecord record = recordManager.load(earthSurveyService.getCollectSurvey(), summaries.get(0).getId(), Step.ENTRY);
 			BooleanAttribute node = null;
 			try {
-				node = (BooleanAttribute) record.getNodeByPath("/plot/actively_saved");
+				node = (BooleanAttribute) record.getNodeByPath("/plot/actively_saved"); //$NON-NLS-1$
 			} catch (Exception e) {
-				logger.error("No actively_saved information found", e);
+				logger.error("No actively_saved information found", e); //$NON-NLS-1$
 			}
 			return (node != null && !node.isEmpty() && node.getValue().getValue() );
 		}else{

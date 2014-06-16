@@ -34,12 +34,9 @@ import org.openqa.selenium.remote.RemoteWebDriver;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.dao.DataAccessException;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.core.RowMapper;
 import org.springframework.stereotype.Component;
-
-import com.vividsolutions.jtsexample.io.gml2.KMLReaderExample;
 
 import au.com.bytecode.opencsv.CSVReader;
 
@@ -79,8 +76,8 @@ public class AnalysisSaikuService {
 
 	private boolean refreshDatabase;
 
-	private static final String SQLITE_FREEMARKER_HTML_TEMPLATE = "resources/collectEarthSqliteDS.fmt";
-	private static final String POSTGRESQL_FREEMARKER_HTML_TEMPLATE = "resources/collectEarthPostgreSqlDS.fmt";
+	private static final String SQLITE_FREEMARKER_HTML_TEMPLATE = "resources" + File.separator + "collectEarthSqliteDS.fmt";
+	private static final String POSTGRESQL_FREEMARKER_HTML_TEMPLATE = "resources" + File.separator + "collectEarthPostgreSqlDS.fmt";
 
 	private static final String MDX_XML = "collectEarthCubes.xml";
 	private static final String MDX_TEMPLATE = MDX_XML + ".fmt";
@@ -225,12 +222,18 @@ public class AnalysisSaikuService {
 	}
 
 	private String getIdmFolder() {
-		final File metadataFile = new File(localPropertiesService.getValue(EarthProperty.METADATA_FILE));
+		final File metadataFile = new File(localPropertiesService.getImdFile() );
 		return metadataFile.getParent();
 	}
 
 	private File getRdbFile() {
 		return new File(COLLECT_EARTH_DATABASE_RDB_DB);
+	}
+	
+	public boolean isRdbFilePresent(){
+		File rdbFile = getRdbFile();
+		
+		return ( rdbFile!=null && rdbFile.exists() );
 	}
 
 	private String getSaikuConfigurationFilePath() {
@@ -390,8 +393,6 @@ public class AnalysisSaikuService {
 		
 		assignLUCDimensionValues();
 		
-		assignWeightFactors();
-		
 		addAreasPerRegion();
 		
 	}
@@ -417,9 +418,8 @@ public class AnalysisSaikuService {
 					try {
 						String region = csvLine[0];
 						String plot_file = csvLine[1];
-						long area_sq_meters = Long.parseLong( csvLine[2] );
-						int area_sq_km =  Integer.parseInt( csvLine[3] );
-						int area_hectars =  Integer.parseInt( csvLine[4] );
+						int area_hectars =  Integer.parseInt( csvLine[2] );
+						final Float plot_weight =  Float.parseFloat( csvLine[3] );
 						
 						String[] parameters = new String[]{region,plot_file};
 						
@@ -428,7 +428,7 @@ public class AnalysisSaikuService {
 						
 						Float expansion_factor_hectars_calc = 0f;
 						if( plots_per_region != 0 ){
-							expansion_factor_hectars_calc = (float)area_hectars / plots_per_region;
+							expansion_factor_hectars_calc = (float)area_hectars / (float) plots_per_region;
 						}
 						
 						final Float expansion_factor_hectars = expansion_factor_hectars_calc;
@@ -437,19 +437,15 @@ public class AnalysisSaikuService {
 								new RowMapper<Object[]>() {
 									@Override
 									public Object[] mapRow(ResultSet rs, int rowNum) throws SQLException {
-
-										final Object[] updateValues = new Object[2];
-
-										
+										final Object[] updateValues = new Object[3];
 										updateValues[0] = expansion_factor_hectars;
-										updateValues[1] = rs.getLong("_plot_id");
-										
+										updateValues[1] = plot_weight;
+										updateValues[2] = rs.getLong("_plot_id");										
 										return updateValues;
 									}
-
 								});
 
-						jdbcTemplate.batchUpdate("UPDATE " + schemaName + "plot SET expansion_factor=? WHERE _plot_id=?", sqlUpdateValues);
+						jdbcTemplate.batchUpdate("UPDATE " + schemaName + "plot SET expansion_factor=?, plot_weight=? WHERE _plot_id=?", sqlUpdateValues);
 					} catch (NumberFormatException e) {
 						logger.error("Possibly the header", e);
 					} 
@@ -464,35 +460,6 @@ public class AnalysisSaikuService {
 		}else{
 			logger.warn("No CSV region_areas.csv present, calculating areas will not be possible");
 		}
-		
-	}
-	
-	private void assignWeightFactors() {
-		// Add aspect_id column to plot
-		final String schemaName = getSchemaPrefix();
-		
-		final List<Object[]> sqlUpdateValues = jdbcTemplate.query("SELECT _plot_id, plot_file FROM " + schemaName + "plot",
-				new RowMapper<Object[]>() {
-					@Override
-					public Object[] mapRow(ResultSet rs, int rowNum) throws SQLException {
-
-						final Object[] updateValues = new Object[2];
-
-						String plotFile = rs.getString("plot_file");
-
-						
-						float weight = 1f;
-						if( plotFile.equals("jiwaka_2x2.ced") ||  plotFile.equals("westernHighlands_2x2.ced") ||  plotFile.equals("manus.ced")){
-							weight = 0.25f;
-						}
-						updateValues[0] = weight ;
-						updateValues[1] = rs.getLong("_plot_id");
-						return updateValues;
-					}
-
-				});
-
-		jdbcTemplate.batchUpdate("UPDATE " + schemaName + "plot SET plot_weight=? WHERE _plot_id=?", sqlUpdateValues);
 		
 	}
 
@@ -523,14 +490,14 @@ public class AnalysisSaikuService {
 		File dataSourceTemplate = null;
 
 		if( localPropertiesService.isUsingSqliteDB() ){
-			dataSourceTemplate = new File(KmlGenerator.convertToOSPath(SQLITE_FREEMARKER_HTML_TEMPLATE));
+			dataSourceTemplate = new File(SQLITE_FREEMARKER_HTML_TEMPLATE);
 			final File rdbDb = getRdbFile();
 			if (!rdbDb.exists()) {
 				throw new IOException("The file contianing the Relational SQLite Database does not exist in expected location " + rdbDb.getAbsolutePath());
 			}
 			data.put("rdbFilePath", rdbDb.getAbsolutePath().replace('\\', '/'));
 		}else{
-			dataSourceTemplate = new File(KmlGenerator.convertToOSPath(POSTGRESQL_FREEMARKER_HTML_TEMPLATE));
+			dataSourceTemplate = new File(POSTGRESQL_FREEMARKER_HTML_TEMPLATE);
 			data.put("dbUrl", ServerController.getSaikuDbURL() );
 			data.put("username", localPropertiesService.getValue(EarthProperty.DB_USERNAME ));
 			data.put("password", localPropertiesService.getValue(EarthProperty.DB_PASSWORD ));

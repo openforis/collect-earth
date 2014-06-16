@@ -112,7 +112,7 @@ public class CollectEarthWindow {
 		menuItem.addActionListener(getExportActionListener(DataFormat.CSV, RecordsToExport.ALL));
 		ieSubmenu.add(menuItem);
 
-		JMenu xmlExportSubmenu = new JMenu("XML Export");
+		JMenu xmlExportSubmenu = new JMenu(Messages.getString("CollectEarthWindow.24")); //$NON-NLS-1$
 		
 		menuItem = new JMenuItem(Messages.getString("CollectEarthWindow.45")); //$NON-NLS-1$
 		menuItem.addActionListener(getExportActionListener(DataFormat.ZIP_WITH_XML, RecordsToExport.ALL));
@@ -155,8 +155,15 @@ public class CollectEarthWindow {
 			@Override
 			public void windowClosing(WindowEvent e) {
 				try {
-					final int confirmation = JOptionPane.showConfirmDialog(getFrame(), Messages.getString("CollectEarthWindow.22"), //$NON-NLS-1$
-							Messages.getString("CollectEarthWindow.23"), JOptionPane.YES_NO_OPTION); //$NON-NLS-1$
+					String keepOpen = Messages.getString("CollectEarthWindow.37"); //$NON-NLS-1$
+					String close = Messages.getString("CollectEarthWindow.42"); //$NON-NLS-1$
+					String[] options = new String[]{ close, keepOpen}; 
+					
+					final int confirmation = JOptionPane.showOptionDialog(
+								getFrame(), Messages.getString("CollectEarthWindow.22"), //$NON-NLS-1$
+								Messages.getString("CollectEarthWindow.23"),  //$NON-NLS-1$ 
+								JOptionPane.YES_NO_OPTION, JOptionPane.QUESTION_MESSAGE, null, options , keepOpen );
+					
 					if (confirmation == JOptionPane.YES_OPTION) {
 						final Thread stopServer = new Thread() {
 							@Override

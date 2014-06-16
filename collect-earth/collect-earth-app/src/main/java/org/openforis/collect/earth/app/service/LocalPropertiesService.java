@@ -78,7 +78,7 @@ public class LocalPropertiesService {
 	}
 
 	public String getBalloonFile() {
-		return getValue(EarthProperty.BALLOON_TEMPLATE_KEY);
+		return convertToOSPath( getValue(EarthProperty.BALLOON_TEMPLATE_KEY) );
 	}
 
 	public String getBalloonFileChecksum() {
@@ -94,13 +94,23 @@ public class LocalPropertiesService {
 		return CollectDBDriver.valueOf(collectDbDriver);
 
 	}
+	
+	public String getImdFile(){
+		return convertToOSPath( getValue(EarthProperty.METADATA_FILE ) );
+	}
 
+	private String convertToOSPath(String path) {
+		String pathSeparator = File.separator;
+		path = path.replace("/", pathSeparator);
+		path = path.replace("\\", pathSeparator);
+		return path;
+	}
 	public String getCrs() {
 		return getValue(EarthProperty.CRS_KEY);
 	}
 
 	public String getCsvFile() {
-		return getValue(EarthProperty.CSV_KEY);
+		return convertToOSPath( getValue(EarthProperty.CSV_KEY) );
 	}
 
 	public String getCsvFileChecksum() {
@@ -171,7 +181,7 @@ public class LocalPropertiesService {
 	}
 
 	public String getTemplateFile() {
-		return getValue(EarthProperty.KML_TEMPLATE_KEY);
+		return convertToOSPath( getValue(EarthProperty.KML_TEMPLATE_KEY) );
 	}
 
 	public String getTemplateFileChecksum() {

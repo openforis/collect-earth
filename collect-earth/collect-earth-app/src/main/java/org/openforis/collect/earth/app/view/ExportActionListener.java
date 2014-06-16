@@ -77,13 +77,13 @@ public final class ExportActionListener implements ActionListener {
 
 		JXDatePicker picker = new JXDatePicker();
 		picker.setDate(Calendar.getInstance().getTime());
-		picker.setFormats(new SimpleDateFormat("dd.MM.yyyy"));
+		picker.setFormats(new SimpleDateFormat("dd.MM.yyyy")); //$NON-NLS-1$
 
 		panel.add(picker);
 		
 		int result = JOptionPane.showConfirmDialog(frame,
                 panel,
-                "Pick Date to Export Records From",
+                Messages.getString("ExportActionListener.1"), //$NON-NLS-1$
                 JOptionPane.OK_CANCEL_OPTION,
                 JOptionPane.PLAIN_MESSAGE);		
 		if( result ==  JOptionPane.OK_OPTION ){ 
@@ -145,7 +145,7 @@ public final class ExportActionListener implements ActionListener {
 			preselectName += "_" + dateFormat.format(modifiedSince) + "_to_" + dateFormat.format( new Date() ); //$NON-NLS-1$ //$NON-NLS-2$
 		}
 
-		preselectName += "_" + exportType.name() +  "." + exportType.getDefaultExtension(); //$NON-NLS-1$
+		preselectName += "_" + exportType.name() +  "." + exportType.getDefaultExtension(); //$NON-NLS-1$ //$NON-NLS-2$
 
 		return preselectName;
 	}

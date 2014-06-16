@@ -102,7 +102,7 @@ public class BrowserService implements Observer{
 
 	private final Vector<RemoteWebDriver> drivers = new Vector<RemoteWebDriver>();
 	private final Logger logger = LoggerFactory.getLogger(BrowserService.class);
-	private static final String KML_FOR_GEE_JS = "resources/javascrip_gee.fmt";
+	private static final String KML_FOR_GEE_JS = "resources/javascript_gee.fmt";
 	private static final Configuration cfg = new Configuration();
 	private static Template template;
 
@@ -346,7 +346,7 @@ public class BrowserService implements Observer{
 			try {
 				driver.navigate().to(url);
 			} catch (final Exception e) {
-				if( retry && ( e.getCause().getMessage().contains("Session not found") || e instanceof UnreachableBrowserException ) ){
+				if( retry && ( e.getCause()!=null &&  e.getCause().getMessage()!=null && e.getCause().getMessage().contains("Session not found") || e instanceof UnreachableBrowserException ) ){
 					// Browser closed, restart it!
 					logger.error("Browser was closed, restaring it...", e);
 					driver = initBrowser();
