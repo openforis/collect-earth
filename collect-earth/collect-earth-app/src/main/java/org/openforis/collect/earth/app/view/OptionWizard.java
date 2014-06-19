@@ -4,6 +4,7 @@ import java.awt.BorderLayout;
 import java.awt.Color;
 import java.awt.Component;
 import java.awt.Container;
+import java.awt.Desktop;
 import java.awt.Dimension;
 import java.awt.GridBagConstraints;
 import java.awt.GridBagLayout;
@@ -45,6 +46,7 @@ import javax.swing.event.DocumentListener;
 import javax.swing.table.DefaultTableModel;
 import javax.swing.text.JTextComponent;
 
+import org.apache.commons.lang3.SystemUtils;
 import org.openforis.collect.earth.app.EarthConstants;
 import org.openforis.collect.earth.app.EarthConstants.CollectDBDriver;
 import org.openforis.collect.earth.app.EarthConstants.OperationMode;
@@ -710,9 +712,31 @@ public class OptionWizard extends JDialog {
 			@Override
 			public void actionPerformed(ActionEvent e) {
 				try {
-					new ProcessBuilder("explorer.exe", "/select," + backupFolder).start(); //$NON-NLS-1$ //$NON-NLS-2$
+					
+					if (SystemUtils.IS_OS_WINDOWS){
+						new ProcessBuilder("explorer.exe", "/select," + backupFolder).start(); //$NON-NLS-1$ //$NON-NLS-2$
+					}else if (SystemUtils.IS_OS_MAC){
+						new ProcessBuilder("usr/bin/open", backupFolder).start(); //$NON-NLS-1$ //$NON-NLS-2$
+					}else if ( SystemUtils.IS_OS_UNIX){
+						
+						try {
+							new ProcessBuilder("nautilus", backupFolder).start(); //$NON-NLS-1$ //$NON-NLS-2$
+						} catch (Exception e1) {
+							try {
+								new ProcessBuilder("gnome-open", backupFolder).start(); //$NON-NLS-1$ //$NON-NLS-2$
+							} catch (Exception e2) {
+								try {
+									new ProcessBuilder("kde-open", backupFolder).start(); //$NON-NLS-1$ //$NON-NLS-2$
+								} catch (Exception e3) {
+									new ProcessBuilder("caja", backupFolder).start(); //$NON-NLS-1$ //$NON-NLS-2$
+								}
+							}
+						}
+
+					}
+					
 				} catch (final IOException e1) {
-					logger.error("Error when opening the explorer window to visualize backups", e); //$NON-NLS-1$
+					logger.error("Error when opening the explorer window to visualize backups", e1); //$NON-NLS-1$
 				}
 			}
 		};

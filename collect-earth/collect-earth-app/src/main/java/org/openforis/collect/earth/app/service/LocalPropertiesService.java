@@ -99,7 +99,7 @@ public class LocalPropertiesService {
 		return convertToOSPath( getValue(EarthProperty.METADATA_FILE ) );
 	}
 
-	private String convertToOSPath(String path) {
+	public String convertToOSPath(String path) {
 		String pathSeparator = File.separator;
 		path = path.replace("/", pathSeparator);
 		path = path.replace("\\", pathSeparator);

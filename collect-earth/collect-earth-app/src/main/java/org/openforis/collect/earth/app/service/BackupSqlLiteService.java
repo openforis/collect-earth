@@ -139,8 +139,7 @@ public class BackupSqlLiteService {
 			}else if (SystemUtils.IS_OS_MAC){
 				userHome = System.getProperty("user.home") + "/Library/Application Support/";
 			}else if ( SystemUtils.IS_OS_UNIX){
-				userHome = System.getProperty("user.home") + ".";
-
+				userHome = System.getProperty("user.home") + "/.";
 			}
 
 			String backupFolderPath = userHome + BACKUP_COLLECT_EARTH;

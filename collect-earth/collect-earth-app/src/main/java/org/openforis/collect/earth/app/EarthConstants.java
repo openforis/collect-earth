@@ -37,6 +37,8 @@ public class EarthConstants {
 	
 	public enum OperationMode{ SERVER_MODE, CLIENT_MODE};
 	
+	public static final String COLLECT_EARTH_DATABASE_SQLITE_DB = "collectEarthDatabase.db";
+	
 	public enum SAMPLE_SHAPE{ SQUARE_CIRCLE, SQUARE, CIRCLE, OCTAGON};
 	
 	public enum UI_LANGUAGE{ 
@@ -60,7 +62,7 @@ public class EarthConstants {
 	};
 	
 	public enum CollectDBDriver{ 
-		SQLITE("org.sqlite.JDBC", "jdbc:sqlite:collectEarthDatabase.db" ), 
+		SQLITE("org.sqlite.JDBC", "jdbc:sqlite:" + COLLECT_EARTH_DATABASE_SQLITE_DB ), 
 		POSTGRESQL("org.postgresql.Driver", "jdbc:postgresql://hostname:port/dbname");
 		
 		private String driverClass;

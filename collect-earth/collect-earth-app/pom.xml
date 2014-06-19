@@ -181,7 +181,8 @@
 
 					<archive>
 						<manifestEntries>
-							<SplashScreen-Image>images/joint_logo.gif</SplashScreen-Image>
+							<SplashScreen-Image>images/CollectEarth.png</SplashScreen-Image>
+							
 						</manifestEntries>
 						<manifest>
 							<mainClass>org.openforis.collect.earth.app.desktop.EarthApp</mainClass>

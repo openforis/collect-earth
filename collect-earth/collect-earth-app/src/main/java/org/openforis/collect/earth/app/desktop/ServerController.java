@@ -33,7 +33,7 @@ import org.springframework.web.context.support.WebApplicationContextUtils;
  */
 public class ServerController extends Observable {
 
-	public static final String SAIKU_RDB_SUFFIX = "SaikuRDB";
+	public static final String SAIKU_RDB_SUFFIX = "S";
 	// Make sure that the default ports are the same for Server and Generator
 	private static final String DEFAULT_PORT = "80";
 	public static final String SERVER_STOPPED_EVENT = "server_has_stopped";
