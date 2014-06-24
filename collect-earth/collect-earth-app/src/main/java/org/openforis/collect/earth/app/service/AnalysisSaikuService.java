@@ -268,8 +268,8 @@ public class AnalysisSaikuService {
 	}
 
 	private String getSaikuConfigurationFilePath() {
-		final String saikuFolder = localPropertiesService.getValue(EarthProperty.SAIKU_SERVER_FOLDER);
-		String configFile = saikuFolder + "/" + "tomcat/webapps/saiku/WEB-INF/classes/saiku-datasources/collectEarthDS";
+		
+		String configFile = getSaikuFolder() + "/" + "tomcat/webapps/saiku/WEB-INF/classes/saiku-datasources/collectEarthDS";
 		configFile = configFile.replace('/', File.separatorChar);
 		return configFile;
 	}
@@ -578,7 +578,7 @@ public class AnalysisSaikuService {
 			
 			try {
 				final ProcessBuilder builder = new ProcessBuilder(new String[] { saikuCmd });
-				builder.directory(new File(getSaikuFolder()));
+				builder.directory(new File(getSaikuFolder()).getAbsoluteFile());
 				builder.redirectErrorStream(true);
 				builder.start();
 			} catch (final IOException e) {

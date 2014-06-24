@@ -1,0 +1,19 @@
+<installerInformation>
+<!-- 
+     This file should be modified to fit your application and
+     placed at the URL specified in the update.ini file 
+-->
+    <versionId>101</versionId>
+    <version>1.0.1</version>
+    <platformFileList>
+        <platformFile>
+            <filename>CollectEarthUpdater.exe?dl=1</filename>
+            <platform>windows</platform>
+        </platformFile>
+    </platformFileList>
+    <downloadLocationList>
+        <downloadLocation>
+            <url>https://www.dropbox.com/s/c2qs5btnld4ojg0/</url>
+        </downloadLocation>
+    </downloadLocationList>
+</installerInformation>

@@ -1,6 +1,7 @@
 package org.openforis.collect.earth.app.view;
 
 import java.awt.Color;
+import java.awt.Desktop;
 import java.awt.GridBagConstraints;
 import java.awt.GridBagLayout;
 import java.awt.Insets;
@@ -348,6 +349,11 @@ public class CollectEarthWindow {
 		menuItem = new JMenuItem(Messages.getString("CollectEarthWindow.17")); //$NON-NLS-1$
 		menuItem.addActionListener(new DisclaimerListener(frame, localPropertiesService));
 		menuHelp.add(menuItem);
+		
+		menuItem = new JMenuItem("Open User Manual");
+		menuItem.addActionListener(new OpenUserManualListener());
+		menuHelp.add(menuItem);
+		
 		menuBar.add(menuHelp);
 
 		return menuBar;

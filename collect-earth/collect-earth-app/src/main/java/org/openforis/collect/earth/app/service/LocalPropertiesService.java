@@ -193,7 +193,18 @@ public class LocalPropertiesService {
 		if (StringUtils.isBlank(value)) {
 			return UI_LANGUAGE.EN;
 		} else {
-			return UI_LANGUAGE.valueOf(value);
+			UI_LANGUAGE selected = null;
+			try {
+				selected = UI_LANGUAGE.valueOf(value.toUpperCase());
+			} catch (Exception e) {
+				logger.error("Unknown UI Language "+ value );
+			}
+			
+			if( selected!=null){
+				return selected;
+			}else{
+				return UI_LANGUAGE.EN;
+			}
 		}
 	}
 
