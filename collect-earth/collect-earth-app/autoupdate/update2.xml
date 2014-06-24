@@ -1,0 +1,19 @@
+<installerInformation>
+<!-- 
+     This file should be modified to fit your application and
+     placed at the URL specified in the update.ini file 
+-->
+    <versionId>101</versionId>
+    <version>1.0.1</version>
+    <platformFileList>
+        <platformFile>
+            <filename>CollectEarthUpdater.exe</filename>
+            <platform>windows</platform>
+        </platformFile>
+    </platformFileList>
+    <downloadLocationList>
+        <downloadLocation>
+            <url>https://raw.githubusercontent.com/openforis/collect-earth/master/collect-earth/collect-earth-app/autoupdate/</url>
+        </downloadLocation>
+    </downloadLocationList>
+</installerInformation>
