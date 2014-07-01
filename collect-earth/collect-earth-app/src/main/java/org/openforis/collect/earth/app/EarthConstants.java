@@ -1,6 +1,9 @@
 package org.openforis.collect.earth.app;
 
+import java.io.File;
 import java.util.Locale;
+
+import org.openforis.collect.earth.app.service.FolderFinder;
 
 /**
  * Constant container with constants used widely in the application.
@@ -8,20 +11,19 @@ import java.util.Locale;
  *
  */
 public class EarthConstants {
+	
+	public static final String COLLECT_EARTH_APPDATA_FOLDER = "CollectEarth";
 
 	public static final String DATE_FORMAT_HTTP = "EEE, dd MMM yyyy HH:mm:ss zzz";
 
-	public static final String FILLED_IMAGE = "/images/redTransparent.png";
 
-	public static final String NON_FILLED_IMAGE = "/images/transparent.png";
+	public static final String LIST_FILLED_IMAGE = "images/list_filled.png";
 
-	public static final String LIST_FILLED_IMAGE = "/images/list_filled.png";
+	public static final String LIST_NON_FILLED_IMAGE = "images/list_empty.png";
 
-	public static final String LIST_NON_FILLED_IMAGE = "/images/list_empty.png";
+	public static final String LIST_NOT_FINISHED_IMAGE = "images/list_not_finished.png";
 
-	public static final String LIST_NOT_FINISHED_IMAGE = "/images/list_not_finished.png";
-
-	public static final String GENERATED_FOLDER = "generated";
+	public static final String GENERATED_FOLDER = FolderFinder.getLocalFolder().getAbsolutePath() + File.separator + "generated";
 
 	public static final String FOLDER_COPIED_TO_KMZ = "earthFiles";
 
@@ -37,7 +39,7 @@ public class EarthConstants {
 	
 	public enum OperationMode{ SERVER_MODE, CLIENT_MODE};
 	
-	public static final String COLLECT_EARTH_DATABASE_SQLITE_DB = "collectEarthDatabase.db";
+	public static final String COLLECT_EARTH_DATABASE_SQLITE_DB = FolderFinder.getLocalFolder() + File.separator + "collectEarthDatabase.db";
 	
 	public enum SAMPLE_SHAPE{ SQUARE_CIRCLE, SQUARE, CIRCLE, OCTAGON};
 	
@@ -63,7 +65,7 @@ public class EarthConstants {
 	
 	public enum CollectDBDriver{ 
 		SQLITE("org.sqlite.JDBC", "jdbc:sqlite:" + COLLECT_EARTH_DATABASE_SQLITE_DB ), 
-		POSTGRESQL("org.postgresql.Driver", "jdbc:postgresql://hostname:port/dbname");
+		POSTGRESQL("org.postgresql.Driver", "jdbc:postgresql://REPLACE_HOSTNAME:REPLACE_PORT/REPLACE_DBNAME");
 		
 		private String driverClass;
 		private String url;

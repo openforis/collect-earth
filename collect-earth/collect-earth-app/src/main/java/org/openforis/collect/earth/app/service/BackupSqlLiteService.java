@@ -12,7 +12,6 @@ import javax.annotation.PostConstruct;
 
 import org.apache.commons.dbcp.BasicDataSource;
 import org.apache.commons.io.FileUtils;
-import org.apache.commons.lang3.SystemUtils;
 import org.openforis.collect.earth.app.service.LocalPropertiesService.EarthProperty;
 import org.openforis.collect.persistence.SurveyImportException;
 import org.openforis.idm.metamodel.xml.IdmlParseException;
@@ -33,7 +32,7 @@ import org.springframework.stereotype.Component;
 @Lazy(false)
 public class BackupSqlLiteService {
 
-	private static final String BACKUP_COLLECT_EARTH = "backupCollectEarth";
+	private static final String BACKUP_COLLECT_EARTH = "backupSqlite";
 
 	private static final int MAXIMUM_NUMBER_OF_BACKUPS = 10; 
 
@@ -128,26 +127,9 @@ public class BackupSqlLiteService {
 	 * @return The OS dependent folder where the application should saved the backed up copies. 
 	 */
 	public File getBackUpFolder() {
-
-		File backupFolder = null;
-		try {
-			String userHome = "" ; 
-
-			
-			if (SystemUtils.IS_OS_WINDOWS){
-				userHome = System.getenv("APPDATA") + File.separatorChar;
-			}else if (SystemUtils.IS_OS_MAC){
-				userHome = System.getProperty("user.home") + "/Library/Application Support/";
-			}else if ( SystemUtils.IS_OS_UNIX){
-				userHome = System.getProperty("user.home") + "/.";
-			}
-
-			String backupFolderPath = userHome + BACKUP_COLLECT_EARTH;
-			backupFolder = new File(backupFolderPath);
-			backupFolder.mkdirs();
-		} catch (Exception e) {
-			logger.error("Error getting backup folder location", e);
-		}
+		String backupFolderPath = FolderFinder.getLocalFolder().getAbsolutePath() + File.separatorChar + BACKUP_COLLECT_EARTH;
+		File backupFolder = new File(backupFolderPath);
+		backupFolder.mkdirs();
 		return backupFolder;
 	}
 

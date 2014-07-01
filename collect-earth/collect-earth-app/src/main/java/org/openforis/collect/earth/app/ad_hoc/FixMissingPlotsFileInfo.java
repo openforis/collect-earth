@@ -68,8 +68,7 @@ public final class FixMissingPlotsFileInfo {
 				try {
 					recordManager.delete( record.getId() );
 				} catch (RecordPersistenceException e) {
-					// TODO Auto-generated catch block
-					e.printStackTrace();
+					logger.error("Not able to remove plot with ID " + record.getId(), e ) ;
 				}
 			}
 		}

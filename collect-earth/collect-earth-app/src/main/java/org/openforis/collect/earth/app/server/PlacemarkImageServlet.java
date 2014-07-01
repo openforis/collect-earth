@@ -57,27 +57,21 @@ public class PlacemarkImageServlet extends DataAccessingServlet {
 		if (earthSurveyService.isPlacemarSavedActively(placemarkParameters)) {
 			if (listView != null && listView) {
 				imageName = EarthConstants.LIST_FILLED_IMAGE;
-			} else {
-				imageName = EarthConstants.FILLED_IMAGE;
-			}
+			} 
 		} else if (earthSurveyService.isPlacemarEdited(placemarkParameters)) {
 			if (listView != null && listView) {
 				imageName = EarthConstants.LIST_NOT_FINISHED_IMAGE;
-			} else {
-				imageName = EarthConstants.NON_FILLED_IMAGE;
-			}
+			} 
 		} else {
 			if (listView != null && listView) {
 				imageName = EarthConstants.LIST_NON_FILLED_IMAGE;
-			} else {
-				imageName = EarthConstants.NON_FILLED_IMAGE;
-			}
+			} 
 		}
 		returnImage(response, request, imageName);
 	}
 
 	private byte[] readFile(String filePath, ServletContext servletContext) throws MalformedURLException, URISyntaxException {
-		final File imageFile = new File(servletContext.getResource(filePath).toURI());
+		final File imageFile = new File(filePath);
 		return preloadedFilesService.getFileContent(imageFile);
 	}
 
@@ -89,11 +83,7 @@ public class PlacemarkImageServlet extends DataAccessingServlet {
 		response.setHeader("Date", new SimpleDateFormat(EarthConstants.DATE_FORMAT_HTTP, Locale.ENGLISH).format(new Date()));
 
 		byte[] resultingImage = null;
-		if (imageName.equals(EarthConstants.FILLED_IMAGE)) {
-			resultingImage = readFile(EarthConstants.FILLED_IMAGE, request.getSession().getServletContext());
-		} else if (imageName.equals(EarthConstants.NON_FILLED_IMAGE)) {
-			resultingImage = readFile(EarthConstants.NON_FILLED_IMAGE, request.getSession().getServletContext());
-		} else if (imageName.equals(EarthConstants.LIST_NON_FILLED_IMAGE)) {
+		if (imageName.equals(EarthConstants.LIST_NON_FILLED_IMAGE)) {
 			resultingImage = readFile(EarthConstants.LIST_NON_FILLED_IMAGE, request.getSession().getServletContext());
 		} else if (imageName.equals(EarthConstants.LIST_FILLED_IMAGE)) {
 			resultingImage = readFile(EarthConstants.LIST_FILLED_IMAGE, request.getSession().getServletContext());

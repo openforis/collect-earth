@@ -79,6 +79,9 @@ public class CollectEarthWindow {
 	private List<JMenuItem> serverMenuItems = new ArrayList<JMenuItem>();
 
 	public CollectEarthWindow(ServerController serverController) throws IOException {
+		
+		// Create and set up the window.
+		setFrame(new JFrame(Messages.getString("CollectEarthWindow.19"))); //$NON-NLS-1$
 
 		if( serverController != null ){
 			this.serverController = serverController;
@@ -354,6 +357,13 @@ public class CollectEarthWindow {
 		menuItem.addActionListener(new OpenUserManualListener());
 		menuHelp.add(menuItem);
 		
+		menuHelp.addSeparator();
+		
+		menuItem = new JMenuItem("Check for updates of Collect Earth");
+		menuItem.addActionListener(new CheckForUpdatesListener());
+		menuHelp.add(menuItem);
+		
+		
 		menuBar.add(menuHelp);
 
 		return menuBar;
@@ -466,8 +476,7 @@ public class CollectEarthWindow {
 		// Initialize the translations
 		Messages.setLocale(localPropertiesService.getUiLanguage().getLocale());
 
-		// Create and set up the window.
-		setFrame(new JFrame(Messages.getString("CollectEarthWindow.19"))); //$NON-NLS-1$
+		
 		// frame.setSize(400, 300);
 		getFrame().setDefaultCloseOperation(WindowConstants.DO_NOTHING_ON_CLOSE);
 		getFrame().setResizable(false);

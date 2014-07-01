@@ -71,7 +71,8 @@ public class LocalPropertiesService {
 
 	private final Logger logger = LoggerFactory.getLogger(LocalPropertiesService.class);
 	private Properties properties;
-	private static final String PROPERTIES_FILE_PATH = "earth.properties";
+	private static final String PROPERTIES_FILE_PATH_INITIAL = "earth.properties_initial";
+	private static final String PROPERTIES_FILE_PATH = FolderFinder.getLocalFolder().getAbsolutePath() + File.separator + "earth.properties";
 
 	public LocalPropertiesService() {
 
@@ -233,17 +234,29 @@ public class LocalPropertiesService {
 		};
 
 		FileReader fr = null;
+		boolean removeInitialFile =false;
+		File propertiesFileInitial = null;
 		try {
-
-			final File propertiesFile = new File(PROPERTIES_FILE_PATH);
+			
+			File propertiesFile = new File(PROPERTIES_FILE_PATH);						
 			if (!propertiesFile.exists()) {
+				
 				final boolean success = propertiesFile.createNewFile();
 				if (!success) {
 					throw new IOException("Could not create file " + propertiesFile.getAbsolutePath());
 				}
+				
+				propertiesFileInitial = new File(PROPERTIES_FILE_PATH_INITIAL);
+				if( propertiesFileInitial.exists() ){
+					removeInitialFile = true;
+					propertiesFile = propertiesFileInitial;
+				}
+				
 			}
+			
 			fr = new FileReader(propertiesFile);
-			properties.load(fr);
+			properties.load(fr);			
+			
 		} catch (final FileNotFoundException e) {
 			logger.error("Could not find properties file", e);
 		} catch (final IOException e) {
@@ -252,6 +265,9 @@ public class LocalPropertiesService {
 			if (fr != null) {
 				fr.close();
 			}
+			/*if( removeInitialFile ){
+				propertiesFileInitial.deleteOnExit();
+			}*/
 		}
 	}
 

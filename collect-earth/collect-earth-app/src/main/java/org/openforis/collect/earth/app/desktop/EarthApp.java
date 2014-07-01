@@ -18,6 +18,7 @@ import org.apache.commons.codec.digest.DigestUtils;
 import org.apache.commons.io.FileUtils;
 import org.openforis.collect.earth.app.EarthConstants;
 import org.openforis.collect.earth.app.EarthConstants.SAMPLE_SHAPE;
+import org.openforis.collect.earth.app.service.FolderFinder;
 import org.openforis.collect.earth.app.service.LocalPropertiesService;
 import org.openforis.collect.earth.app.service.LocalPropertiesService.EarthProperty;
 import org.openforis.collect.earth.app.view.CollectEarthWindow;
@@ -45,7 +46,7 @@ import freemarker.template.TemplateException;
 public class EarthApp {
 
 	private static final String KML_RESULTING_TEMP_FILE = EarthConstants.GENERATED_FOLDER + File.separator + "plots.kml";
-	private static Logger logger = LoggerFactory.getLogger(EarthApp.class);
+	private static Logger logger ;
 	private static ServerController serverController;
 	private static final String KMZ_FILE_PATH = EarthConstants.GENERATED_FOLDER + File.separator + "gePlugin.kmz";
 
@@ -101,6 +102,10 @@ public class EarthApp {
 	public static void main(String[] args) {
 
 		try {
+			// System property used in the log4j.properties configuration
+			System.setProperty("collectEarth.userFolder", FolderFinder.getLocalFolder().getAbsolutePath() );
+			logger = LoggerFactory.getLogger(EarthApp.class);
+					 
 			final EarthApp earthApp = new EarthApp();
 			if (earthApp.checkFilesExist()) {
 				earthApp.addElevationColumn();
@@ -148,6 +153,9 @@ public class EarthApp {
 	}
 
 	private boolean checkFilesExist() {
+		
+		fixUserDirectory();
+		
 		final String csvFilePath = localProperties.getCsvFile();
 		final String balloonPath = localProperties.getBalloonFile();
 		final String templatePath = localProperties.getTemplateFile();
@@ -163,26 +171,90 @@ public class EarthApp {
 		} catch (final Exception e) {
 			logger.error("One of the definition files is not defined", e);
 		}
-		if (csvFile == null || !csvFile.exists()) {
+		if (csvFile != null && !csvFile.exists()) {
 			errorMessage += "The file containing the grid of plots as a CSV/CED is not found in the selected path :<br/><i>"
 					+ csvFile.getAbsolutePath() + "</i><br/><br/>";
 			filesExist = false;
+		}else if(csvFile == null){
+			errorMessage += "No CSV/CED file has been set-up :<br/><br/>";
+			filesExist = false;
 		}
-		if (template == null || !template.exists()) {
+		
+		if (template != null && !template.exists()) {
 			errorMessage += "The file containing the Freemarker template with the KML definition is not found in the selected path :<br/><i>"
 					+ template.getAbsolutePath() + "</i><br/><br/>";
 			filesExist = false;
+		}else if(template == null){
+			errorMessage += "No KML definition file has been set-up :<br/><br/>";
+			filesExist = false;
 		}
-		if (balloon == null || !balloon.exists()) {
+		
+		if (balloon != null && !balloon.exists()) {
 			errorMessage += "The file containing the HTML balloon form is not found in the selected path :<br/><i>" + balloon.getAbsolutePath()
 					+ "</i><br/><br/>";
 			filesExist = false;
+		}else if(balloon == null){
+			errorMessage += "No HTML balloon file has been set-up :<br/><br/>";
+			filesExist = false;
 		}
+		
 		errorMessage += "Please correct the file location in the Tools->Properties menu.</html>";
 		if (!filesExist) {
 			showMessage(errorMessage);
 		}
 		return filesExist;
+	}
+
+	private void fixUserDirectory() {
+		final String csvFilePath = localProperties.getCsvFile();
+		final String balloonPath = localProperties.getBalloonFile();
+		final String templatePath = localProperties.getTemplateFile();
+		final String metadataPath = localProperties.getImdFile();
+		
+		File csvFile = null;
+		File balloon = null;
+		File template = null;
+		File idmFile = null;
+		try {
+			csvFile = new File(csvFilePath);
+			balloon = new File(balloonPath);
+			template = new File(templatePath);
+			idmFile = new File(metadataPath);
+			
+			String prefixUserFolder = FolderFinder.getLocalFolder().getAbsolutePath() + File.separator;
+			
+			if( !csvFile.exists() ){
+				File otherFile = new File( prefixUserFolder + localProperties.getCsvFile());
+				if( otherFile.exists() ){
+					localProperties.setValue(EarthProperty.CSV_KEY, otherFile.getAbsolutePath());
+				}
+			}
+			
+			if( !balloon.exists() ){
+				File otherFile = new File( prefixUserFolder + localProperties.getBalloonFile());
+				if( otherFile.exists() ){
+					localProperties.setValue(EarthProperty.BALLOON_TEMPLATE_KEY, otherFile.getAbsolutePath());
+				}
+			}
+			
+			if( !template.exists() ){
+				File otherFile = new File( prefixUserFolder + localProperties.getTemplateFile());
+				if( otherFile.exists() ){
+					localProperties.setValue(EarthProperty.KML_TEMPLATE_KEY, otherFile.getAbsolutePath());
+				}
+			}
+			
+			if( !idmFile.exists() ){
+				File otherFile = new File( prefixUserFolder + localProperties.getImdFile());
+				if( otherFile.exists() ){
+					localProperties.setValue(EarthProperty.METADATA_FILE, otherFile.getAbsolutePath());
+				}
+			}
+			
+		} catch (final Exception e) {
+			logger.error("One of the definition files is not defined", e);
+		}
+		
 	}
 
 	private void copyContentsToGeneratedFolder(String folderToInclude) throws IOException {

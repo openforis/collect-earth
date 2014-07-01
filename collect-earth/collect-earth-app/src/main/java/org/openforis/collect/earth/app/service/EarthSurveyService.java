@@ -215,11 +215,6 @@ public class EarthSurveyService {
 				&& parameters.get(COLLECT_BOOLEAN_ACTIVELY_SAVED).equals("true"); //$NON-NLS-1$
 	}
 
-	private void saveLocalProperties(Map<String, String> parameters) {
-		// Save extra information
-		localPropertiesService.setJumpToNextPlot(parameters.get(SKIP_FILLED_PLOT_PARAMETER));
-	}
-
 	private void setCollectSurvey(CollectSurvey collectSurvey) {
 		this.collectSurvey = collectSurvey;
 	}
@@ -264,8 +259,6 @@ public class EarthSurveyService {
 
 			// Populate the data of the record using the HTTP parameters received
 			collectParametersHandler.saveToEntity(parameters, plotEntity);
-
-			saveLocalProperties(parameters);
 
 			// Do not validate unless actively saved
 			if (isPlacemarSavedActively(parameters)) {

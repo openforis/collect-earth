@@ -17,6 +17,7 @@ import org.eclipse.jetty.webapp.WebAppContext;
 import org.openforis.collect.earth.app.EarthConstants;
 import org.openforis.collect.earth.app.EarthConstants.CollectDBDriver;
 import org.openforis.collect.earth.app.service.BrowserService;
+import org.openforis.collect.earth.app.service.FolderFinder;
 import org.openforis.collect.earth.app.service.LocalPropertiesService;
 import org.openforis.collect.earth.app.service.LocalPropertiesService.EarthProperty;
 import org.openforis.collect.earth.sampler.utils.FreemarkerTemplateUtils;
@@ -33,7 +34,7 @@ import org.springframework.web.context.support.WebApplicationContextUtils;
  */
 public class ServerController extends Observable {
 
-	public static final String SAIKU_RDB_SUFFIX = "S";
+	public static final String SAIKU_RDB_SUFFIX = "Saiku";
 	// Make sure that the default ports are the same for Server and Generator
 	private static final String DEFAULT_PORT = "80";
 	public static final String SERVER_STOPPED_EVENT = "server_has_stopped";
@@ -51,9 +52,9 @@ public class ServerController extends Observable {
 		// jdbc:postgresql://hostname:port/dbname
 		final CollectDBDriver collectDBDriver = localPropertiesService.getCollectDBDriver();
 		String url = collectDBDriver.getUrl();
-		url = url.replace("hostname", localPropertiesService.getValue(EarthProperty.DB_HOST));
-		url = url.replace("port", localPropertiesService.getValue(EarthProperty.DB_PORT));
-		url = url.replace("dbname", localPropertiesService.getValue(EarthProperty.DB_NAME));
+		url = url.replace("REPLACE_HOSTNAME", localPropertiesService.getValue(EarthProperty.DB_HOST));
+		url = url.replace("REPLACE_PORT", localPropertiesService.getValue(EarthProperty.DB_PORT));
+		url = url.replace("REPLACE_DBNAME", localPropertiesService.getValue(EarthProperty.DB_NAME));
 		return url;
 	}
 
@@ -108,6 +109,7 @@ public class ServerController extends Observable {
 			data.put("urlSaiku", getSaikuDbURL());
 			data.put("username", localPropertiesService.getValue(EarthProperty.DB_USERNAME));
 			data.put("password", localPropertiesService.getValue(EarthProperty.DB_PASSWORD));
+			data.put("collectEarthExecutionFolder", System.getProperty("user.dir")+ File.separator);
 
 			FreemarkerTemplateUtils.applyTemplate(jettyAppCtxTemplateSrc, jettyAppCtxDst, data);
 		
@@ -136,7 +138,7 @@ public class ServerController extends Observable {
 
 		initilizeDataSources();
 
-		final String webappDirLocation = "";
+		final String webappDirLocation = FolderFinder.getLocalFolder().getAbsolutePath();
 
 		// The port that we should run on can be set into an environment variable
 		// Look for that variable and default to 8080 if it isn't there.

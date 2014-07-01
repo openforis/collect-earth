@@ -1,0 +1,59 @@
+package org.openforis.collect.earth.app.view;
+
+import java.awt.Desktop;
+import java.awt.event.ActionEvent;
+import java.awt.event.ActionListener;
+import java.io.File;
+import java.io.IOException;
+
+import org.apache.commons.lang3.SystemUtils;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+public class CheckForUpdatesListener implements ActionListener {
+
+	Logger logger = LoggerFactory.getLogger( CheckForUpdatesListener.class );
+	@Override
+	public void actionPerformed(ActionEvent e) {
+		// Start the auto_updater
+		try {
+			String autoUpdateExecutable = getAutoUpdateExecutable();
+			
+			if( SystemUtils.IS_OS_LINUX ){
+				try {
+					final ProcessBuilder builder = new ProcessBuilder(new String[] { new File(autoUpdateExecutable).getAbsolutePath() });
+					
+					builder.redirectErrorStream(true);
+					builder.start();
+				} catch (final IOException e2) {
+					logger.error("Error when starting the Autoupdate executable", e2);
+				}
+			}else{
+				
+				Desktop.getDesktop().open(new File( autoUpdateExecutable));
+			}
+		} catch (IOException e1) {
+			logger.error("Error when opening the Autoupdate executable", e1);
+		}
+	}
+
+	private String getAutoUpdateExecutable() {
+		String autoUpdateExecutable = "autoupdate" ; 
+		try {
+			
+			
+			if (SystemUtils.IS_OS_WINDOWS){
+				autoUpdateExecutable += ".exe";
+			}else if (SystemUtils.IS_OS_MAC){
+				autoUpdateExecutable += ".app";
+			}else if ( SystemUtils.IS_OS_UNIX){
+				autoUpdateExecutable += ".run";
+			}
+
+		} catch (Exception e) {
+			e.printStackTrace(); // ATTENTION do not use a logger here!
+		}
+		return autoUpdateExecutable;
+	}
+
+}

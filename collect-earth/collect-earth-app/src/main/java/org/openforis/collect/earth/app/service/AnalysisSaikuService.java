@@ -315,6 +315,11 @@ public class AnalysisSaikuService {
 	private boolean isSaikuConfigured() {
 		return getSaikuFolder() != null && isSaikuFolder(new File(getSaikuFolder()));
 	}
+	
+	private boolean isJavaHomeConfigured() {
+		return !StringUtils.isBlank( System.getenv("JAVA_HOME") );
+	}
+
 
 	public boolean isSaikuFolder(File saikuFolder) {
 		boolean isSaikuFolder = false;
@@ -569,6 +574,8 @@ public class AnalysisSaikuService {
 	private void runSaikuBat(String commandName) throws SaikuExecutionException {
 		if (!isSaikuConfigured()) {
 			throw new SaikuExecutionException("The Saiku server is not configured.");
+		} else if (!isJavaHomeConfigured()) {
+			throw new SaikuExecutionException("The JAVA_HOME environment variable is not configured. JAVA_HOME must point to the root folder of a valid JDK.");
 		} else {
 			String saikuCmd = getSaikuFolder() + File.separator + commandName + getCommandSuffix() ;
 			
