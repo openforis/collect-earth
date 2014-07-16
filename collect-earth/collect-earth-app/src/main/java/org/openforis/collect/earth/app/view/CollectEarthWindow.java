@@ -353,13 +353,13 @@ public class CollectEarthWindow {
 		menuItem.addActionListener(new DisclaimerListener(frame, localPropertiesService));
 		menuHelp.add(menuItem);
 		
-		menuItem = new JMenuItem("Open User Manual");
+		menuItem = new JMenuItem(Messages.getString("CollectEarthWindow.50")); //$NON-NLS-1$
 		menuItem.addActionListener(new OpenUserManualListener());
 		menuHelp.add(menuItem);
 		
 		menuHelp.addSeparator();
 		
-		menuItem = new JMenuItem("Check for updates of Collect Earth");
+		menuItem = new JMenuItem(Messages.getString("CollectEarthWindow.51")); //$NON-NLS-1$
 		menuItem.addActionListener(new CheckForUpdatesListener());
 		menuHelp.add(menuItem);
 		
@@ -379,7 +379,7 @@ public class CollectEarthWindow {
 
 			@Override
 			public void actionPerformed(ActionEvent e) {
-				final JDialog dialog = new OptionWizard(owner, localPropertiesService, backupFolder, saikuService);
+				final JDialog dialog = new OptionWizard(owner, localPropertiesService, projectPropertiesService, backupFolder, saikuService);
 				dialog.setVisible(true);
 				dialog.pack();
 			}

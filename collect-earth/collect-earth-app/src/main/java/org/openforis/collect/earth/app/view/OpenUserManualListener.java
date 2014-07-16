@@ -17,10 +17,10 @@ public class OpenUserManualListener implements ActionListener {
 	public void actionPerformed(ActionEvent e) {
 		if (Desktop.isDesktopSupported()) {
 		    try {
-		        File myFile = new File("UserManual.pdf");
+		        File myFile = new File("UserManual.pdf"); //$NON-NLS-1$
 		        Desktop.getDesktop().open(myFile);
 		    } catch (IOException ex) {
-		        logger.error("No application registered to open PDF",e);
+		        logger.error("No application registered to open PDF",e); //$NON-NLS-1$
 		    }
 		}
 		

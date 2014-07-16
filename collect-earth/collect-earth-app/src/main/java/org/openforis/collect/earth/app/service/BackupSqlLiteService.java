@@ -127,7 +127,7 @@ public class BackupSqlLiteService {
 	 * @return The OS dependent folder where the application should saved the backed up copies. 
 	 */
 	public File getBackUpFolder() {
-		String backupFolderPath = FolderFinder.getLocalFolder().getAbsolutePath() + File.separatorChar + BACKUP_COLLECT_EARTH;
+		String backupFolderPath = FolderFinder.getAppDataFolder() + File.separatorChar + BACKUP_COLLECT_EARTH;
 		File backupFolder = new File(backupFolderPath);
 		backupFolder.mkdirs();
 		return backupFolder;

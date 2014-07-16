@@ -26,28 +26,28 @@ public class CheckForUpdatesListener implements ActionListener {
 					builder.redirectErrorStream(true);
 					builder.start();
 				} catch (final IOException e2) {
-					logger.error("Error when starting the Autoupdate executable", e2);
+					logger.error("Error when starting the Autoupdate executable", e2); //$NON-NLS-1$
 				}
 			}else{
 				
 				Desktop.getDesktop().open(new File( autoUpdateExecutable));
 			}
 		} catch (IOException e1) {
-			logger.error("Error when opening the Autoupdate executable", e1);
+			logger.error("Error when opening the Autoupdate executable", e1); //$NON-NLS-1$
 		}
 	}
 
 	private String getAutoUpdateExecutable() {
-		String autoUpdateExecutable = "autoupdate" ; 
+		String autoUpdateExecutable = "autoupdate" ;  //$NON-NLS-1$
 		try {
 			
 			
 			if (SystemUtils.IS_OS_WINDOWS){
-				autoUpdateExecutable += ".exe";
+				autoUpdateExecutable += ".exe"; //$NON-NLS-1$
 			}else if (SystemUtils.IS_OS_MAC){
-				autoUpdateExecutable += ".app";
+				autoUpdateExecutable += ".app"; //$NON-NLS-1$
 			}else if ( SystemUtils.IS_OS_UNIX){
-				autoUpdateExecutable += ".run";
+				autoUpdateExecutable += ".run"; //$NON-NLS-1$
 			}
 
 		} catch (Exception e) {

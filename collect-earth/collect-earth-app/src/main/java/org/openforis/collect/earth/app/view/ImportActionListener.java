@@ -127,9 +127,9 @@ public final class ImportActionListener implements ActionListener {
 			  count++;
 			}
 		} catch (FileNotFoundException e) {
-			logger.error("Error counting the number of lines in file " + importedFile.getAbsolutePath() , e) ;
+			logger.error("Error counting the number of lines in file " + importedFile.getAbsolutePath() , e) ; //$NON-NLS-1$
 		} catch (IOException e) {
-			logger.error("Error counting the number of lines in file " + importedFile.getAbsolutePath() , e) ;
+			logger.error("Error counting the number of lines in file " + importedFile.getAbsolutePath() , e) ; //$NON-NLS-1$
 		}
 		return count;
 	}

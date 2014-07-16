@@ -103,7 +103,7 @@ public class EarthApp {
 
 		try {
 			// System property used in the log4j.properties configuration
-			System.setProperty("collectEarth.userFolder", FolderFinder.getLocalFolder().getAbsolutePath() );
+			System.setProperty("collectEarth.userFolder", FolderFinder.getLocalFolder() );
 			logger = LoggerFactory.getLogger(EarthApp.class);
 					 
 			final EarthApp earthApp = new EarthApp();
@@ -221,7 +221,7 @@ public class EarthApp {
 			template = new File(templatePath);
 			idmFile = new File(metadataPath);
 			
-			String prefixUserFolder = FolderFinder.getLocalFolder().getAbsolutePath() + File.separator;
+			String prefixUserFolder = FolderFinder.getLocalFolder() + File.separator;
 			
 			if( !csvFile.exists() ){
 				File otherFile = new File( prefixUserFolder + localProperties.getCsvFile());

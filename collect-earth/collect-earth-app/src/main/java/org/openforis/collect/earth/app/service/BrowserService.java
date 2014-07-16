@@ -98,6 +98,9 @@ public class BrowserService implements Observer{
 	private LocalPropertiesService localPropertiesService;
 
 	@Autowired
+	private ProjectPropertiesService projectPropertiesService;
+	
+	@Autowired
 	private BingMapService bingMapService;
 
 	private final Vector<RemoteWebDriver> drivers = new Vector<RemoteWebDriver>();
@@ -267,6 +270,21 @@ public class BrowserService implements Observer{
 
 		return found;
 	}
+	
+	private boolean isXPathPresent(String xpath, RemoteWebDriver driver) {
+		boolean found = false;
+
+		try {
+			if (driver.findElementByXPath(xpath).isDisplayed() ) {
+				found = true;
+			}
+			logger.debug("Found " + xpath);
+		} catch (final Exception e) {
+			logger.debug("Not Found " + xpath);
+		}
+
+		return found;
+	}
 
 	private RemoteWebDriver loadLayers(String[] latLong, RemoteWebDriver driver) throws InterruptedException {
 
@@ -278,8 +296,8 @@ public class BrowserService implements Observer{
 				"https://earthengine.google.org/#detail/LANDSAT%2FLC8_L1T_ANNUAL_GREENEST_TOA" };
 				for (final String urlForLayer : layers) {
 					driver = navigateTo(urlForLayer, driver);
-					if (waitFor("d_open_button", driver)) {
-						driver.findElementById("d_open_button").click();
+					if (waitForXPath("//*[@id=\"detail-el\"]/div[2]/div[1]", driver)) {
+						driver.findElementByXPath("//*[@id=\"detail-el\"]/div[2]/div[1]").click();
 						waitFor("workspace-el", driver);
 					}
 				}
@@ -364,7 +382,7 @@ public class BrowserService implements Observer{
 	 */
 	public synchronized void openBingMaps(String coordinates) {
 
-		if (localPropertiesService.isBingMapsSupported()) {
+		if (projectPropertiesService.isBingMapsSupported()) {
 
 			if (webDriverBing == null) {
 				webDriverBing = initBrowser();
@@ -396,8 +414,8 @@ public class BrowserService implements Observer{
 	 */
 	public synchronized void openEarthEngine(String coordinates) {
 
-		logger.warn("Starting to open EE - supported : " + localPropertiesService.isEarthEngineSupported()   );
-		if (localPropertiesService.isEarthEngineSupported()) {
+		logger.warn("Starting to open EE - supported : " + projectPropertiesService.isEarthEngineSupported()   );
+		if (projectPropertiesService.isEarthEngineSupported()) {
 
 			if (webDriverEE == null) {
 				webDriverEE = initBrowser();
@@ -428,7 +446,7 @@ public class BrowserService implements Observer{
 	 */
 	public synchronized void openTimelapse(final String coordinates) {
 
-		if (localPropertiesService.isTimelapseSupported()) {
+		if (projectPropertiesService.isTimelapseSupported()) {
 
 			if (webDriverTimelapse == null) {
 				webDriverTimelapse = initBrowser();
@@ -552,6 +570,22 @@ public class BrowserService implements Observer{
 	public boolean waitFor(String elementId, RemoteWebDriver driver) {
 		int i = 0;
 		while (!isIdOrNamePresent(elementId, driver)) {
+			try {
+				Thread.sleep(1000);
+			} catch (final InterruptedException e) {
+				return false;
+			}
+			i++;
+			if (i > 30) {
+				return false;
+			}
+		}
+		return true;
+	}
+	
+	public boolean waitForXPath(String xpath, RemoteWebDriver driver) {
+		int i = 0;
+		while (!isXPathPresent(xpath, driver)) {
 			try {
 				Thread.sleep(1000);
 			} catch (final InterruptedException e) {

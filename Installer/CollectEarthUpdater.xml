@@ -1,0 +1,55 @@
+<project>
+    <shortName>CollectEarthUpdater</shortName>
+    <fullName>Collect Earth</fullName>
+    <version>1.0.1</version>
+    <leftImage>C:/opt/installers/openforisleftsidepanel.png</leftImage>
+    <logoImage>C:/opt/installers/of-logo-small.png</logoImage>
+    <splashImage>C:/opt/installers/openforisbanner.png</splashImage>
+    <componentList>
+        <component>
+            <name>default</name>
+            <description>Default Component</description>
+            <canBeEdited>1</canBeEdited>
+            <selected>1</selected>
+            <show>1</show>
+            <folderList>
+                <folder>
+                    <description>Program Files</description>
+                    <destination>${installdir}</destination>
+                    <name>programfiles</name>
+                    <platforms>all</platforms>
+                    <distributionFileList>
+                        <distributionFile>
+                            <origin>C:/opt/git/collect-earth/collect-earth/collect-earth-app/target/CollectEarth.jar</origin>
+                        </distributionFile>
+                        <distributionDirectory>
+                            <origin>C:/opt/git/collect-earth/collect-earth/collect-earth-app/target/earth-libs</origin>
+                            <onPackingFilterList>
+                                <fileNameFilter logic="matches" pattern="collect*" patternType="glob"/>
+                            </onPackingFilterList>
+                        </distributionDirectory>
+                        <distributionFile>
+                            <origin>C:/opt/git/collect-earth/collect-earth/collect-earth-app/autoupdate/update.ini</origin>
+                        </distributionFile>
+                    </distributionFileList>
+                </folder>
+            </folderList>
+        </component>
+    </componentList>
+    <initializationActionList>
+        <registryGet>
+            <key>HKEY_LOCAL_MACHINE\SOFTWARE\${project.vendor}\${project.fullName}</key>
+            <name>InstallationPath</name>
+            <variable>installdir</variable>
+        </registryGet>
+    </initializationActionList>
+    <compressionAlgorithm>lzma</compressionAlgorithm>
+    <defaultUnixDirectoryPermissions>777</defaultUnixDirectoryPermissions>
+    <defaultUnixFilePermissions>777</defaultUnixFilePermissions>
+    <enableRollback>1</enableRollback>
+    <enableTimestamp>1</enableTimestamp>
+    <installationType>upgrade</installationType>
+    <overwritePolicy>onlyIfNewer</overwritePolicy>
+    <vendor>Open Foris Initiative</vendor>
+</project>
+

@@ -14,6 +14,7 @@ import javax.annotation.PostConstruct;
 import org.apache.commons.dbcp.BasicDataSource;
 import org.openforis.collect.earth.app.EarthConstants;
 import org.openforis.collect.earth.app.service.LocalPropertiesService.EarthProperty;
+import org.openforis.collect.earth.app.service.ProjectPropertiesService.ProjectProperty;
 import org.openforis.collect.earth.app.service.handler.DateAttributeHandler;
 import org.openforis.collect.earth.app.view.Messages;
 import org.openforis.collect.manager.RecordManager;
@@ -51,6 +52,9 @@ public class EarthSurveyService {
 
 	@Autowired
 	private LocalPropertiesService localPropertiesService;
+
+	@Autowired
+	private ProjectPropertiesService projectPropertiesService;
 
 	private final Logger logger = LoggerFactory.getLogger(this.getClass());
 
@@ -189,7 +193,7 @@ public class EarthSurveyService {
 					survey = surveyManager.unmarshalSurvey(new FileInputStream(idmSurveyModel),true,true);
 					if (surveyManager.getByUri( survey.getUri() ) == null) { // NOT IN
 						// THE DB
-						String surveyName = EarthConstants.EARTH_SURVEY_NAME + localPropertiesService.getValue( EarthProperty.SURVEY_NAME );
+						String surveyName = EarthConstants.EARTH_SURVEY_NAME + projectPropertiesService.getValue( ProjectProperty.SURVEY_NAME );
 						survey = surveyManager.importModel(idmSurveyModel, surveyName, false );
 					} else { // UPDATE ALREADY EXISTANT MODEL
 						survey = surveyManager.updateModel(idmSurveyModel, false );

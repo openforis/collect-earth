@@ -14,7 +14,7 @@ public class FolderFinder {
 	 * Returns the folder where the backup copies should be placed.
 	 * @return The OS dependent folder where the application should saved the backed up copies. 
 	 */
-	public static File getLocalFolder() {
+	public static String getAppDataFolder() {
 
 		File localFolder = null;
 		try {
@@ -25,7 +25,7 @@ public class FolderFinder {
 			}else if (SystemUtils.IS_OS_MAC){
 				userHome = System.getProperty("user.home") + "/Library/Application Support/";
 			}else if ( SystemUtils.IS_OS_UNIX){
-				userHome = System.getProperty("user.home") + "/.";
+				userHome = System.getProperty("user.home") + "/";
 			}
 
 			userHome += EarthConstants.COLLECT_EARTH_APPDATA_FOLDER;
@@ -34,6 +34,12 @@ public class FolderFinder {
 		} catch (Exception e) {
 			e.printStackTrace(); // ATTENTION do not use a logger here!
 		}
-		return localFolder;
+		return localFolder.getAbsolutePath();
+	}
+	
+	public static String getLocalFolder() {
+		return getAppDataFolder();
+		//File thisFolder = new File(".");
+		//return thisFolder.getAbsolutePath();
 	}
 }

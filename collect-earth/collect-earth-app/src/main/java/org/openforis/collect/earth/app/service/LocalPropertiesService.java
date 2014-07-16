@@ -17,7 +17,6 @@ import javax.annotation.PreDestroy;
 import org.apache.commons.lang3.StringUtils;
 import org.openforis.collect.earth.app.EarthConstants.CollectDBDriver;
 import org.openforis.collect.earth.app.EarthConstants.OperationMode;
-import org.openforis.collect.earth.app.EarthConstants.SAMPLE_SHAPE;
 import org.openforis.collect.earth.app.EarthConstants.UI_LANGUAGE;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -43,15 +42,12 @@ public class LocalPropertiesService {
 	 */
 	public enum EarthProperty {
 		OPERATOR_KEY("operator"), JUMP_TO_NEXT("jump_to_next_plot"), HOST_KEY("host"), HOST_PORT_KEY("port"), LOCAL_PORT_KEY("local_port"), CSV_KEY("csv"), KML_TEMPLATE_KEY("template"), BALLOON_TEMPLATE_KEY(
-				"balloon"), CRS_KEY("coordinates_reference_system"), GENERATED_KEY("generated_on"), OPEN_BING_MAPS("open_bing_maps"), OPEN_EARTH_ENGINE(
-				"open_earth_engine"), OPEN_TIMELAPSE("open_timelapse"), KML_TEMPLATE_KEY_CHECKSUM("template_checksum"), BALLOON_TEMPLATE_KEY_CHECKSUM(
-				"balloon_checksum"), CSV_KEY_CHECKSUM("csv_checksum"), DISTANCE_BETWEEN_SAMPLE_POINTS("distance_between_sample_points"), DISTANCE_TO_PLOT_BOUNDARIES(
-				"distance_to_plot_boundaries"), INNER_SUBPLOT_SIDE("inner_point_side"), SAMPLE_SHAPE("sample_shape"), OPEN_BALLOON_IN_BROWSER(
+				"balloon"), CRS_KEY("coordinates_reference_system"), GENERATED_KEY("generated_on"), KML_TEMPLATE_KEY_CHECKSUM("template_checksum"), BALLOON_TEMPLATE_KEY_CHECKSUM(
+				"balloon_checksum"), CSV_KEY_CHECKSUM("csv_checksum"), OPEN_BALLOON_IN_BROWSER(
 				"open_separate_browser_form"), ALTERNATIVE_BALLOON_FOR_BROWSER("alternative_balloon_for_browser"), ELEVATION_GEOTIF_DIRECTORY(
 				"elevation_geotif_directory"), METADATA_FILE("metadata_file"), FIREFOX_BINARY_PATH("firefox_exe_path"), CHROME_BINARY_PATH(
 				"chrome_exe_path"), BROWSER_TO_USE("use_browser"), GEE_FUNCTION_PICK("gee_js_pickFunction"), GEE_ZOOM_OBJECT("gee_js_zoom_object"), GEE_ZOOM_METHOD(
-				"gee_js_zoom_method"), GEE_INITIAL_ZOOM("gee_initial_zoom"), SURVEY_NAME("survey_name"), AUTOMATIC_BACKUP("automatic_backup"), NUMBER_OF_SAMPLING_POINTS_IN_PLOT(
-				"number_of_sampling_points_in_plot"), GEE_JS_LIBRARY_URL("gee_js_library_url"), SAIKU_SERVER_FOLDER("saiku_server_folder"), OPERATION_MODE(
+				"gee_js_zoom_method"), GEE_INITIAL_ZOOM("gee_initial_zoom"), AUTOMATIC_BACKUP("automatic_backup"), GEE_JS_LIBRARY_URL("gee_js_library_url"), SAIKU_SERVER_FOLDER("saiku_server_folder"), OPERATION_MODE(
 				"operation_mode"), DB_DRIVER("db_driver"), DB_USERNAME("db_username"), DB_PASSWORD("db_password"), DB_NAME("db_name"), DB_HOST(
 				"db_host"), DB_PORT("db_port"), UI_LANGUAGE("ui_language"), LAST_USED_FOLDER("last_used_folder"), LAST_EXPORTED_DATE(
 				"last_exported_survey_date");
@@ -72,7 +68,7 @@ public class LocalPropertiesService {
 	private final Logger logger = LoggerFactory.getLogger(LocalPropertiesService.class);
 	private Properties properties;
 	private static final String PROPERTIES_FILE_PATH_INITIAL = "earth.properties_initial";
-	private static final String PROPERTIES_FILE_PATH = FolderFinder.getLocalFolder().getAbsolutePath() + File.separator + "earth.properties";
+	private static final String PROPERTIES_FILE_PATH = FolderFinder.getLocalFolder() + File.separator + "earth.properties";
 
 	public LocalPropertiesService() {
 
@@ -172,14 +168,7 @@ public class LocalPropertiesService {
 		}
 	}
 
-	public SAMPLE_SHAPE getSampleShape() {
-		final String value = getValue(EarthProperty.SAMPLE_SHAPE);
-		if (StringUtils.isBlank(value)) {
-			return SAMPLE_SHAPE.SQUARE;
-		} else {
-			return SAMPLE_SHAPE.valueOf(value);
-		}
-	}
+
 
 	public String getTemplateFile() {
 		return convertToOSPath( getValue(EarthProperty.KML_TEMPLATE_KEY) );
@@ -239,11 +228,13 @@ public class LocalPropertiesService {
 		try {
 			
 			File propertiesFile = new File(PROPERTIES_FILE_PATH);						
-			if (!propertiesFile.exists()) {
+			if (!propertiesFile.exists() || propertiesFile.length() < 300 ) {
 				
-				final boolean success = propertiesFile.createNewFile();
-				if (!success) {
-					throw new IOException("Could not create file " + propertiesFile.getAbsolutePath());
+				if(!propertiesFile.exists()  ){
+					final boolean success = propertiesFile.createNewFile();
+					if (!success) {
+						throw new IOException("Could not create file " + propertiesFile.getAbsolutePath());
+					}
 				}
 				
 				propertiesFileInitial = new File(PROPERTIES_FILE_PATH_INITIAL);
@@ -271,31 +262,6 @@ public class LocalPropertiesService {
 		}
 	}
 
-	public boolean isBingMapsSupported() {
-		boolean bingMaps = false;
-		if (getValue(EarthProperty.OPEN_BING_MAPS) != null && getValue(EarthProperty.OPEN_BING_MAPS).length() > 0) {
-			bingMaps = Boolean.parseBoolean(getValue(EarthProperty.OPEN_BING_MAPS));
-		}
-		return bingMaps;
-	}
-
-	public boolean isEarthEngineSupported() {
-		boolean earthEngine = false;
-		if (getValue(EarthProperty.OPEN_EARTH_ENGINE) != null && getValue(EarthProperty.OPEN_EARTH_ENGINE).length() > 0) {
-			earthEngine = Boolean.parseBoolean(getValue(EarthProperty.OPEN_EARTH_ENGINE));
-		}
-
-		return earthEngine;
-	}
-
-	public boolean isTimelapseSupported() {
-		boolean timelapseSupported = false;
-		if (getValue(EarthProperty.OPEN_TIMELAPSE) != null && getValue(EarthProperty.OPEN_TIMELAPSE).length() > 0) {
-			timelapseSupported = Boolean.parseBoolean(getValue(EarthProperty.OPEN_TIMELAPSE));
-		}
-
-		return timelapseSupported;
-	}
 
 	public void nullifyChecksumValues() {
 		saveBalloonFileChecksum("");
@@ -376,10 +342,6 @@ public class LocalPropertiesService {
 
 	public void setLastExportedDate(String surveyName) {
 		setValue(getExportedSurveyName(surveyName), System.currentTimeMillis() + "", true);
-	}
-
-	public void setSampleShape(SAMPLE_SHAPE shape) {
-		setValue(EarthProperty.SAMPLE_SHAPE, shape.name());
 	}
 
 	public void setUiLanguage(UI_LANGUAGE language) {

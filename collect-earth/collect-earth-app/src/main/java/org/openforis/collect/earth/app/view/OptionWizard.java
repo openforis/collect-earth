@@ -4,7 +4,6 @@ import java.awt.BorderLayout;
 import java.awt.Color;
 import java.awt.Component;
 import java.awt.Container;
-import java.awt.Desktop;
 import java.awt.Dimension;
 import java.awt.GridBagConstraints;
 import java.awt.GridBagLayout;
@@ -54,6 +53,8 @@ import org.openforis.collect.earth.app.desktop.EarthApp;
 import org.openforis.collect.earth.app.service.AnalysisSaikuService;
 import org.openforis.collect.earth.app.service.LocalPropertiesService;
 import org.openforis.collect.earth.app.service.LocalPropertiesService.EarthProperty;
+import org.openforis.collect.earth.app.service.ProjectPropertiesService;
+import org.openforis.collect.earth.app.service.ProjectPropertiesService.ProjectProperty;
 import org.openforis.collect.earth.sampler.processor.KmlGenerator;
 import org.openforis.collect.earth.sampler.processor.PlotProperties;
 import org.slf4j.Logger;
@@ -80,32 +81,40 @@ public class OptionWizard extends JDialog {
 			}
 		}
 
+		private void setPropertyValue( Enum<?> enumKey, String value ){
+			if( enumKey instanceof EarthProperty ){
+				localPropertiesService.setValue((EarthProperty) enumKey, value);
+			}else{
+				projectPropertiesService.setValue((ProjectProperty) enumKey, value);
+			}
+		}
+		
 		private void applyProperties() {
-			final Set<EarthProperty> keySet = propertyToComponent.keySet();
-			for (final EarthProperty earthProperty : keySet) {
-				final JComponent component = propertyToComponent.get(earthProperty)[0];
+			final Set<Enum<?>> keySet = propertyToComponent.keySet();
+			for (final Enum<?> propertyKey : keySet) {
+				final JComponent component = propertyToComponent.get(propertyKey)[0];
 				if (component instanceof JTextComponent) {
-					localPropertiesService.setValue(earthProperty, ((JTextComponent) component).getText());
+					setPropertyValue(propertyKey, ((JTextComponent) component).getText());
 				} else if (component instanceof JCheckBox) {
-					localPropertiesService.setValue(earthProperty, ((JCheckBox) component).isSelected() + ""); //$NON-NLS-1$
+					setPropertyValue(propertyKey, ((JCheckBox) component).isSelected() + ""); //$NON-NLS-1$
 				} else if (component instanceof JComboBox) {
 					if (((JComboBox) component).getItemAt(0) instanceof ComboBoxItem) {
-						localPropertiesService.setValue(earthProperty,
+						setPropertyValue(propertyKey,
 								((ComboBoxItem) ((JComboBox) component).getSelectedItem()).getNumberOfPoints() + ""); //$NON-NLS-1$
 					} else {
-						localPropertiesService.setValue(earthProperty, (String) ((JComboBox) component).getSelectedItem());
+						setPropertyValue(propertyKey, (String) ((JComboBox) component).getSelectedItem());
 					}
 				} else if (component instanceof JList) {
-					localPropertiesService.setValue(earthProperty, ((JList) component).getSelectedValue() + ""); //$NON-NLS-1$
+					setPropertyValue(propertyKey, ((JList) component).getSelectedValue() + ""); //$NON-NLS-1$
 				} else if (component instanceof JRadioButton) {
-					final JComponent[] jComponents = propertyToComponent.get(earthProperty);
+					final JComponent[] jComponents = propertyToComponent.get(propertyKey);
 					for (final JComponent jComponent : jComponents) {
 						if (((JRadioButton) jComponent).isSelected()) {
-							localPropertiesService.setValue(earthProperty, ((JRadioButton) jComponent).getName());
+							setPropertyValue(propertyKey, ((JRadioButton) jComponent).getName());
 						}
 					}
 				} else if (component instanceof JFilePicker) {
-					localPropertiesService.setValue(earthProperty, ((JFilePicker) component).getSelectedFilePath());
+					setPropertyValue(propertyKey, ((JFilePicker) component).getSelectedFilePath());
 				}
 			}
 
@@ -135,7 +144,7 @@ public class OptionWizard extends JDialog {
 
 	private static final long serialVersionUID = -6760020609229102842L;
 
-	private final HashMap<EarthProperty, JComponent[]> propertyToComponent = new HashMap<EarthProperty, JComponent[]>();
+	private final HashMap<Enum<?>, JComponent[]> propertyToComponent = new HashMap<Enum<?>, JComponent[]>();
 	private final Logger logger = LoggerFactory.getLogger(this.getClass());
 
 	JPanel clientPanel;
@@ -147,14 +156,17 @@ public class OptionWizard extends JDialog {
 	JRadioButton clientModeRadioButton;
 
 	LocalPropertiesService localPropertiesService;
+	
+	ProjectPropertiesService projectPropertiesService;
 
 	String backupFolder;
 
 	private AnalysisSaikuService saikuService;
 
-	public OptionWizard(JFrame frame, LocalPropertiesService localPropertiesService, String backupFolder, AnalysisSaikuService saikuService) {
+	public OptionWizard(JFrame frame, LocalPropertiesService localPropertiesService,ProjectPropertiesService projectPropertiesService, String backupFolder, AnalysisSaikuService saikuService) {
 		super(frame, Messages.getString("OptionWizard.0")); //$NON-NLS-1$
 		this.localPropertiesService = localPropertiesService;
+		this.projectPropertiesService = projectPropertiesService;
 		this.backupFolder = backupFolder;
 		this.saikuService = saikuService;
 		this.setLocationRelativeTo(frame);
@@ -203,13 +215,13 @@ public class OptionWizard extends JDialog {
 
 		constraints.gridx = 0;
 		constraints.gridwidth = 2;
-		panel.add(propertyToComponent.get(EarthProperty.OPEN_EARTH_ENGINE)[0], constraints);
+		panel.add(propertyToComponent.get(ProjectProperty.OPEN_EARTH_ENGINE)[0], constraints);
 
 		constraints.gridy++;
-		panel.add(propertyToComponent.get(EarthProperty.OPEN_TIMELAPSE)[0], constraints);
+		panel.add(propertyToComponent.get(ProjectProperty.OPEN_TIMELAPSE)[0], constraints);
 
 		constraints.gridy++;
-		panel.add(propertyToComponent.get(EarthProperty.OPEN_BING_MAPS)[0], constraints);
+		panel.add(propertyToComponent.get(ProjectProperty.OPEN_BING_MAPS)[0], constraints);
 
 		final JPanel browserChooserPanel = new JPanel();
 		final Border browserBorder = new TitledBorder(new BevelBorder(BevelBorder.LOWERED), Messages.getString("OptionWizard.1")); //$NON-NLS-1$
@@ -424,7 +436,7 @@ public class OptionWizard extends JDialog {
 		panel.add(label, constraints);
 
 		constraints.gridx = 1;
-		panel.add(propertyToComponent.get(EarthProperty.NUMBER_OF_SAMPLING_POINTS_IN_PLOT)[0], constraints);
+		panel.add(propertyToComponent.get(ProjectProperty.NUMBER_OF_SAMPLING_POINTS_IN_PLOT)[0], constraints);
 
 		constraints.gridx = 0;
 		constraints.gridy = 1;
@@ -432,14 +444,14 @@ public class OptionWizard extends JDialog {
 		panel.add(label, constraints);
 
 		constraints.gridx = 1;
-		panel.add(new JScrollPane(propertyToComponent.get(EarthProperty.DISTANCE_BETWEEN_SAMPLE_POINTS)[0]), constraints);
+		panel.add(new JScrollPane(propertyToComponent.get(ProjectProperty.DISTANCE_BETWEEN_SAMPLE_POINTS)[0]), constraints);
 
 		constraints.gridx = 0;
 		constraints.gridy = 2;
 		label = new JLabel(Messages.getString("OptionWizard.37")); //$NON-NLS-1$
 		panel.add(label, constraints);
 		constraints.gridx = 1;
-		panel.add(new JScrollPane(propertyToComponent.get(EarthProperty.DISTANCE_TO_PLOT_BOUNDARIES)[0]), constraints);
+		panel.add(new JScrollPane(propertyToComponent.get(ProjectProperty.DISTANCE_TO_PLOT_BOUNDARIES)[0]), constraints);
 		return panel;
 	}
 
@@ -761,7 +773,7 @@ public class OptionWizard extends JDialog {
 		final JLabel label = new JLabel(Messages.getString("OptionWizard.43")); //$NON-NLS-1$
 		panel.add(label, constraints);
 		constraints.gridx = 1;
-		panel.add(propertyToComponent.get(EarthProperty.SURVEY_NAME)[0], constraints);
+		panel.add(propertyToComponent.get(ProjectProperty.SURVEY_NAME)[0], constraints);
 
 		constraints.gridy++;
 		constraints.gridwidth = GridBagConstraints.REMAINDER;
@@ -787,16 +799,16 @@ public class OptionWizard extends JDialog {
 		propertyToComponent.put(EarthProperty.AUTOMATIC_BACKUP, new JComponent[] { backupCheckbox });
 
 		final JCheckBox openEarthEngineCheckbox = new JCheckBox(Messages.getString("OptionWizard.45")); //$NON-NLS-1$
-		openEarthEngineCheckbox.setSelected(Boolean.parseBoolean(localPropertiesService.getValue(EarthProperty.OPEN_EARTH_ENGINE)));
-		propertyToComponent.put(EarthProperty.OPEN_EARTH_ENGINE, new JComponent[] { openEarthEngineCheckbox });
+		openEarthEngineCheckbox.setSelected(Boolean.parseBoolean(projectPropertiesService.getValue(ProjectProperty.OPEN_EARTH_ENGINE)));
+		propertyToComponent.put(ProjectProperty.OPEN_EARTH_ENGINE, new JComponent[] { openEarthEngineCheckbox });
 
 		final JCheckBox openTimelapseCheckbox = new JCheckBox(Messages.getString("OptionWizard.46")); //$NON-NLS-1$
-		openTimelapseCheckbox.setSelected(Boolean.parseBoolean(localPropertiesService.getValue(EarthProperty.OPEN_TIMELAPSE)));
-		propertyToComponent.put(EarthProperty.OPEN_TIMELAPSE, new JComponent[] { openTimelapseCheckbox });
+		openTimelapseCheckbox.setSelected(Boolean.parseBoolean(projectPropertiesService.getValue(ProjectProperty.OPEN_TIMELAPSE)));
+		propertyToComponent.put(ProjectProperty.OPEN_TIMELAPSE, new JComponent[] { openTimelapseCheckbox });
 
 		final JCheckBox openBingCheckbox = new JCheckBox(Messages.getString("OptionWizard.47")); //$NON-NLS-1$
-		openBingCheckbox.setSelected(Boolean.parseBoolean(localPropertiesService.getValue(EarthProperty.OPEN_BING_MAPS)));
-		propertyToComponent.put(EarthProperty.OPEN_BING_MAPS, new JComponent[] { openBingCheckbox });
+		openBingCheckbox.setSelected(Boolean.parseBoolean(projectPropertiesService.getValue(ProjectProperty.OPEN_BING_MAPS)));
+		propertyToComponent.put(ProjectProperty.OPEN_BING_MAPS, new JComponent[] { openBingCheckbox });
 
 		final JCheckBox openInSeparateWindowCheckbox = new JCheckBox(Messages.getString("OptionWizard.48")); //$NON-NLS-1$
 		openInSeparateWindowCheckbox.setSelected(Boolean.parseBoolean(localPropertiesService.getValue(EarthProperty.OPEN_BALLOON_IN_BROWSER)));
@@ -815,9 +827,9 @@ public class OptionWizard extends JDialog {
 						new ComboBoxItem(0, Messages.getString("OptionWizard.53")), new ComboBoxItem(1, Messages.getString("OptionWizard.54")), new ComboBoxItem(4, "2x2"), //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$
 						new ComboBoxItem(9, "3x3"), new ComboBoxItem(16, "4x4"), new ComboBoxItem(25, "5x5"), new ComboBoxItem(36, "6x6"), //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$ //$NON-NLS-4$
 						new ComboBoxItem(49, "7x7") }); //$NON-NLS-1$
-		comboNumberOfPoints.setSelectedItem(new ComboBoxItem(Integer.parseInt(localPropertiesService
-				.getValue(EarthProperty.NUMBER_OF_SAMPLING_POINTS_IN_PLOT)), "")); //$NON-NLS-1$
-		propertyToComponent.put(EarthProperty.NUMBER_OF_SAMPLING_POINTS_IN_PLOT, new JComponent[] { comboNumberOfPoints });
+		comboNumberOfPoints.setSelectedItem(new ComboBoxItem(Integer.parseInt(projectPropertiesService
+				.getValue(ProjectProperty.NUMBER_OF_SAMPLING_POINTS_IN_PLOT)), "")); //$NON-NLS-1$
+		propertyToComponent.put(ProjectProperty.NUMBER_OF_SAMPLING_POINTS_IN_PLOT, new JComponent[] { comboNumberOfPoints });
 
 		final String[] listOfNumbers = new String[995];
 		final int offset = 5;
@@ -825,19 +837,19 @@ public class OptionWizard extends JDialog {
 			listOfNumbers[index] = (index + offset) + ""; //$NON-NLS-1$
 		}
 
-		// JTextField listOfDistanceBetweenPoints = new JTextField( localPropertiesService.getValue( EarthProperty.DISTANCE_BETWEEN_SAMPLE_POINTS) );
+		// JTextField listOfDistanceBetweenPoints = new JTextField( localPropertiesService.getValue( ProjectProperty.DISTANCE_BETWEEN_SAMPLE_POINTS) );
 		final JComboBox listOfDistanceBetweenPoints = new JComboBox(listOfNumbers);
-		listOfDistanceBetweenPoints.setSelectedItem(localPropertiesService.getValue(EarthProperty.DISTANCE_BETWEEN_SAMPLE_POINTS));
+		listOfDistanceBetweenPoints.setSelectedItem(projectPropertiesService.getValue(ProjectProperty.DISTANCE_BETWEEN_SAMPLE_POINTS));
 		listOfDistanceBetweenPoints.setAutoscrolls(true);
 
-		propertyToComponent.put(EarthProperty.DISTANCE_BETWEEN_SAMPLE_POINTS, new JComponent[] { listOfDistanceBetweenPoints });
+		propertyToComponent.put(ProjectProperty.DISTANCE_BETWEEN_SAMPLE_POINTS, new JComponent[] { listOfDistanceBetweenPoints });
 
-		// JTextField listOfDistanceToBorder = new JTextField(localPropertiesService.getValue( EarthProperty.DISTANCE_TO_PLOT_BOUNDARIES) );
+		// JTextField listOfDistanceToBorder = new JTextField(localPropertiesService.getValue( ProjectProperty.DISTANCE_TO_PLOT_BOUNDARIES) );
 		final JComboBox listOfDistanceToBorder = new JComboBox(listOfNumbers);
-		listOfDistanceToBorder.setSelectedItem(localPropertiesService.getValue(EarthProperty.DISTANCE_TO_PLOT_BOUNDARIES));
+		listOfDistanceToBorder.setSelectedItem(projectPropertiesService.getValue(ProjectProperty.DISTANCE_TO_PLOT_BOUNDARIES));
 		listOfDistanceToBorder.setAutoscrolls(true);
 
-		propertyToComponent.put(EarthProperty.DISTANCE_TO_PLOT_BOUNDARIES, new JComponent[] { listOfDistanceToBorder });
+		propertyToComponent.put(ProjectProperty.DISTANCE_TO_PLOT_BOUNDARIES, new JComponent[] { listOfDistanceToBorder });
 
 		final JRadioButton chromeChooser = new JRadioButton("Chrome"); //$NON-NLS-1$
 		chromeChooser.setSelected(localPropertiesService.getValue(EarthProperty.BROWSER_TO_USE).trim().equals(EarthConstants.CHROME_BROWSER));
@@ -914,9 +926,9 @@ public class OptionWizard extends JDialog {
 		idmPath.addFileTypeFilter(".xml", Messages.getString("OptionWizard.90"), true); //$NON-NLS-1$ //$NON-NLS-2$
 		propertyToComponent.put(EarthProperty.METADATA_FILE, new JComponent[] { idmPath });
 
-		final JTextField surveyNameTextField = new JTextField(localPropertiesService.getValue(EarthProperty.SURVEY_NAME));
+		final JTextField surveyNameTextField = new JTextField(projectPropertiesService.getValue(ProjectProperty.SURVEY_NAME));
 		surveyNameTextField.setEnabled(false);
-		propertyToComponent.put(EarthProperty.SURVEY_NAME, new JComponent[] { surveyNameTextField });
+		propertyToComponent.put(ProjectProperty.SURVEY_NAME, new JComponent[] { surveyNameTextField });
 
 		// Database options
 

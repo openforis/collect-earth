@@ -138,7 +138,7 @@ public class ServerController extends Observable {
 
 		initilizeDataSources();
 
-		final String webappDirLocation = FolderFinder.getLocalFolder().getAbsolutePath();
+		final String webappDirLocation = FolderFinder.getLocalFolder();
 
 		// The port that we should run on can be set into an environment variable
 		// Look for that variable and default to 8080 if it isn't there.

@@ -98,7 +98,7 @@ public class BalloonServlet extends DataAccessingServlet {
 
 		if (balloonContents != null) {
 
-			balloonContents = balloonContents.replaceAll(EarthConstants.FOLDER_COPIED_TO_KMZ + "/", EarthConstants.GENERATED_FOLDER + "/"
+			balloonContents = balloonContents.replaceAll(EarthConstants.FOLDER_COPIED_TO_KMZ + "/", EarthConstants.GENERATED_FOLDER_SUFFIX + "/"
 					+ EarthConstants.FOLDER_COPIED_TO_KMZ + "/");
 			balloonContents = replaceGoalsWithParameters(balloonContents, request.getParameterMap());
 

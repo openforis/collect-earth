@@ -19,6 +19,7 @@ import javax.annotation.PostConstruct;
 import org.apache.commons.dbcp.BasicDataSource;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.SystemUtils;
+import org.apache.log4j.lf5.util.StreamUtils;
 import org.openforis.collect.earth.app.EarthConstants;
 import org.openforis.collect.earth.app.desktop.ServerController;
 import org.openforis.collect.earth.app.model.AspectCode;
@@ -317,7 +318,15 @@ public class AnalysisSaikuService {
 	}
 	
 	private boolean isJavaHomeConfigured() {
-		return !StringUtils.isBlank( System.getenv("JAVA_HOME") );
+	
+		if (SystemUtils.IS_OS_MAC){
+			return true;
+		}
+		return ! ( 
+				StringUtils.isBlank( System.getenv("JAVA_HOME") ) 
+				&& 
+				StringUtils.isBlank( System.getenv("JRE_HOME") ) 
+		);
 	}
 
 
@@ -587,8 +596,22 @@ public class AnalysisSaikuService {
 				final ProcessBuilder builder = new ProcessBuilder(new String[] { saikuCmd });
 				builder.directory(new File(getSaikuFolder()).getAbsoluteFile());
 				builder.redirectErrorStream(true);
-				builder.start();
+				Process p = builder.start();
+				(new ProcessLoggerThread(p.getInputStream()) ).start();
+				(new ProcessLoggerThread(p.getErrorStream()) ).start();
+
+				 if( commandName.equals( STOP_SAIKU )){
+					 int result = p.waitFor();
+					 logger.warn("Script ended with result " + result);
+				 }else if ( commandName.equals( START_SAIKU ) ){
+					 Thread.sleep(6000);
+				 }
+				
+				 
+				    
 			} catch (final IOException e) {
+				logger.error("Error when running Saiku start/stop command", e);
+			} catch (InterruptedException e) {
 				logger.error("Error when running Saiku start/stop command", e);
 			}
 		}

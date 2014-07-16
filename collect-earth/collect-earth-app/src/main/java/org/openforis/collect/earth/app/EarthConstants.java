@@ -22,8 +22,8 @@ public class EarthConstants {
 	public static final String LIST_NON_FILLED_IMAGE = "images/list_empty.png";
 
 	public static final String LIST_NOT_FINISHED_IMAGE = "images/list_not_finished.png";
-
-	public static final String GENERATED_FOLDER = FolderFinder.getLocalFolder().getAbsolutePath() + File.separator + "generated";
+	public static final String GENERATED_FOLDER_SUFFIX =  "generated";
+	public static final String GENERATED_FOLDER = FolderFinder.getLocalFolder() + File.separator + GENERATED_FOLDER_SUFFIX;
 
 	public static final String FOLDER_COPIED_TO_KMZ = "earthFiles";
 
