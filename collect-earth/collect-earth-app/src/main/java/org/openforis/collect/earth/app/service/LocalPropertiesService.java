@@ -17,6 +17,7 @@ import javax.annotation.PreDestroy;
 import org.apache.commons.lang3.StringUtils;
 import org.openforis.collect.earth.app.EarthConstants.CollectDBDriver;
 import org.openforis.collect.earth.app.EarthConstants.OperationMode;
+import org.openforis.collect.earth.app.EarthConstants.SAMPLE_SHAPE;
 import org.openforis.collect.earth.app.EarthConstants.UI_LANGUAGE;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -49,8 +50,11 @@ public class LocalPropertiesService {
 				"chrome_exe_path"), BROWSER_TO_USE("use_browser"), GEE_FUNCTION_PICK("gee_js_pickFunction"), GEE_ZOOM_OBJECT("gee_js_zoom_object"), GEE_ZOOM_METHOD(
 				"gee_js_zoom_method"), GEE_INITIAL_ZOOM("gee_initial_zoom"), AUTOMATIC_BACKUP("automatic_backup"), GEE_JS_LIBRARY_URL("gee_js_library_url"), SAIKU_SERVER_FOLDER("saiku_server_folder"), OPERATION_MODE(
 				"operation_mode"), DB_DRIVER("db_driver"), DB_USERNAME("db_username"), DB_PASSWORD("db_password"), DB_NAME("db_name"), DB_HOST(
-				"db_host"), DB_PORT("db_port"), UI_LANGUAGE("ui_language"), LAST_USED_FOLDER("last_used_folder"), LAST_EXPORTED_DATE(
-				"last_exported_survey_date");
+				"db_host"), DB_PORT("db_port"), UI_LANGUAGE("ui_language"), LAST_USED_FOLDER("last_used_folder"), LAST_EXPORTED_DATE("last_exported_survey_date"), OPEN_BING_MAPS("open_bing_maps"), OPEN_EARTH_ENGINE(
+						"open_earth_engine"), OPEN_TIMELAPSE("open_timelapse"),DISTANCE_BETWEEN_SAMPLE_POINTS("distance_between_sample_points"), DISTANCE_TO_PLOT_BOUNDARIES(
+								"distance_to_plot_boundaries"), INNER_SUBPLOT_SIDE("inner_point_side"), SAMPLE_SHAPE("sample_shape"),  SURVEY_NAME("survey_name"), NUMBER_OF_SAMPLING_POINTS_IN_PLOT(
+								"number_of_sampling_points_in_plot"), LOADED_PROJECTS("loaded_projects");
+
 
 		private String name;
 
@@ -78,6 +82,17 @@ public class LocalPropertiesService {
 		return convertToOSPath( getValue(EarthProperty.BALLOON_TEMPLATE_KEY) );
 	}
 
+	public SAMPLE_SHAPE getSampleShape() {
+		final String value = getValue(EarthProperty.SAMPLE_SHAPE);
+		if (StringUtils.isBlank(value)) {
+			return SAMPLE_SHAPE.SQUARE;
+		} else {
+			return SAMPLE_SHAPE.valueOf(value);
+		}
+	}
+
+	
+	
 	public String getBalloonFileChecksum() {
 		return getValue(EarthProperty.BALLOON_TEMPLATE_KEY_CHECKSUM);
 	}
@@ -396,6 +411,37 @@ public class LocalPropertiesService {
 	
 	public boolean isUsingSqliteDB() {
 		return getCollectDBDriver().equals(CollectDBDriver.SQLITE);
+	}
+
+	public boolean isBingMapsSupported() {
+		boolean bingMaps = false;
+		if (getValue(EarthProperty.OPEN_BING_MAPS) != null && getValue(EarthProperty.OPEN_BING_MAPS).length() > 0) {
+			bingMaps = Boolean.parseBoolean(getValue(EarthProperty.OPEN_BING_MAPS));
+		}
+		return bingMaps;
+	}
+
+	public boolean isEarthEngineSupported() {
+		boolean earthEngine = false;
+		if (getValue(EarthProperty.OPEN_EARTH_ENGINE) != null && getValue(EarthProperty.OPEN_EARTH_ENGINE).length() > 0) {
+			earthEngine = Boolean.parseBoolean(getValue(EarthProperty.OPEN_EARTH_ENGINE));
+		}
+
+		return earthEngine;
+	}
+
+	public boolean isTimelapseSupported() {
+		boolean timelapseSupported = false;
+		if (getValue(EarthProperty.OPEN_TIMELAPSE) != null && getValue(EarthProperty.OPEN_TIMELAPSE).length() > 0) {
+			timelapseSupported = Boolean.parseBoolean(getValue(EarthProperty.OPEN_TIMELAPSE));
+		}
+
+		return timelapseSupported;
+	}
+
+	
+	public void setSampleShape(SAMPLE_SHAPE shape) {
+		setValue(EarthProperty.SAMPLE_SHAPE, shape.name());
 	}
 
 	

@@ -1,7 +1,6 @@
 package org.openforis.collect.earth.app.view;
 
 import java.awt.Color;
-import java.awt.Desktop;
 import java.awt.GridBagConstraints;
 import java.awt.GridBagLayout;
 import java.awt.Insets;
@@ -42,6 +41,7 @@ import org.openforis.collect.earth.app.desktop.ServerController;
 import org.openforis.collect.earth.app.service.AnalysisSaikuService;
 import org.openforis.collect.earth.app.service.BackupSqlLiteService;
 import org.openforis.collect.earth.app.service.DataImportExportService;
+import org.openforis.collect.earth.app.service.EarthProjectsService;
 import org.openforis.collect.earth.app.service.EarthSurveyService;
 import org.openforis.collect.earth.app.service.LocalPropertiesService;
 import org.openforis.collect.earth.app.view.ExportActionListener.RecordsToExport;
@@ -65,6 +65,7 @@ public class CollectEarthWindow {
 
 	private JFrame frame;
 	private final LocalPropertiesService localPropertiesService;
+	private final EarthProjectsService projectsService;
 	private final DataImportExportService dataExportService;
 	private final Logger logger = LoggerFactory.getLogger(CollectEarthWindow.class);
 	private final ServerController serverController;
@@ -86,6 +87,7 @@ public class CollectEarthWindow {
 		if( serverController != null ){
 			this.serverController = serverController;
 			this.localPropertiesService = serverController.getContext().getBean(LocalPropertiesService.class);
+			this.projectsService = serverController.getContext().getBean(EarthProjectsService.class);
 			this.dataExportService = serverController.getContext().getBean(DataImportExportService.class);
 			final BackupSqlLiteService backupService = serverController.getContext().getBean(BackupSqlLiteService.class);
 			this.backupFolder = backupService.getBackUpFolder().getAbsolutePath();
@@ -98,6 +100,10 @@ public class CollectEarthWindow {
 			this.serverController = null;
 			this.localPropertiesService = new LocalPropertiesService();
 			this.localPropertiesService.init();
+			
+			this.projectsService = new EarthProjectsService();
+			projectsService.init(localPropertiesService);
+			
 			this.dataExportService = null;
 			this.backupFolder = null;
 			this.saikuService = null;
@@ -379,7 +385,7 @@ public class CollectEarthWindow {
 
 			@Override
 			public void actionPerformed(ActionEvent e) {
-				final JDialog dialog = new OptionWizard(owner, localPropertiesService, projectPropertiesService, backupFolder, saikuService);
+				final JDialog dialog = new OptionWizard(owner, localPropertiesService, projectsService ,backupFolder, saikuService);
 				dialog.setVisible(true);
 				dialog.pack();
 			}

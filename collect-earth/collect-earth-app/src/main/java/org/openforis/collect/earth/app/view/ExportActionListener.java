@@ -18,7 +18,6 @@ import org.openforis.collect.earth.app.service.EarthSurveyService;
 import org.openforis.collect.earth.app.service.LocalPropertiesService;
 import org.openforis.collect.io.data.DataExportStatus;
 import org.openforis.collect.manager.process.AbstractProcess;
-import org.openforis.collect.manager.process.ProcessStatus;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 

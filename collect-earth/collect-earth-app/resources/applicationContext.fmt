@@ -173,10 +173,12 @@
 	<!-- ===================================== -->
 	<!-- Liquibase -->
 	<!-- ===================================== -->
+	<!-- value="file:${collectEarthExecutionFolder}resources/org/openforis/collect/db/changelog/db.changelog-master.xml" -->
 	<bean id="liquibase" class="org.openforis.collect.persistence.liquibase.DatabaseAwareSpringLiquibase">
 		<property name="dataSource" ref="dataSource" />
 		<property name="changeLog"
-			value="file:${collectEarthExecutionFolder}resources/org/openforis/collect/db/changelog/db.changelog-master.xml" />
+			
+			value="classpath:org/openforis/collect/db/changelog/db.changelog-master.xml"/>
 		<property name="defaultSchema" value="collect" />
 	</bean>
 

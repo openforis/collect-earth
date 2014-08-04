@@ -2,13 +2,11 @@ package org.openforis.collect.earth.app.ad_hoc;
 
 import java.util.List;
 
-
 import org.openforis.collect.earth.app.EarthConstants;
 import org.openforis.collect.earth.app.service.EarthSurveyService;
 import org.openforis.collect.manager.RecordManager;
 import org.openforis.collect.model.CollectRecord;
 import org.openforis.collect.model.CollectRecord.Step;
-import org.openforis.collect.persistence.RecordPersistenceException;
 import org.openforis.idm.model.Coordinate;
 import org.openforis.idm.model.CoordinateAttribute;
 import org.slf4j.Logger;

@@ -98,9 +98,6 @@ public class BrowserService implements Observer{
 	private LocalPropertiesService localPropertiesService;
 
 	@Autowired
-	private ProjectPropertiesService projectPropertiesService;
-	
-	@Autowired
 	private BingMapService bingMapService;
 
 	private final Vector<RemoteWebDriver> drivers = new Vector<RemoteWebDriver>();
@@ -382,7 +379,7 @@ public class BrowserService implements Observer{
 	 */
 	public synchronized void openBingMaps(String coordinates) {
 
-		if (projectPropertiesService.isBingMapsSupported()) {
+		if (localPropertiesService.isBingMapsSupported()) {
 
 			if (webDriverBing == null) {
 				webDriverBing = initBrowser();
@@ -414,8 +411,8 @@ public class BrowserService implements Observer{
 	 */
 	public synchronized void openEarthEngine(String coordinates) {
 
-		logger.warn("Starting to open EE - supported : " + projectPropertiesService.isEarthEngineSupported()   );
-		if (projectPropertiesService.isEarthEngineSupported()) {
+		logger.warn("Starting to open EE - supported : " + localPropertiesService.isEarthEngineSupported()   );
+		if (localPropertiesService.isEarthEngineSupported()) {
 
 			if (webDriverEE == null) {
 				webDriverEE = initBrowser();
@@ -446,7 +443,7 @@ public class BrowserService implements Observer{
 	 */
 	public synchronized void openTimelapse(final String coordinates) {
 
-		if (projectPropertiesService.isTimelapseSupported()) {
+		if (localPropertiesService.isTimelapseSupported()) {
 
 			if (webDriverTimelapse == null) {
 				webDriverTimelapse = initBrowser();

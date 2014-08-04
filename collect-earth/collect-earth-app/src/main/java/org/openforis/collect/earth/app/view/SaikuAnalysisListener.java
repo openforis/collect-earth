@@ -6,7 +6,6 @@ import java.awt.event.ActionListener;
 import javax.swing.JFrame;
 import javax.swing.JOptionPane;
 
-import org.jdesktop.swingx.JXTipOfTheDay.ShowOnStartupChoice;
 import org.openforis.collect.earth.app.service.SaikuExecutionException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;

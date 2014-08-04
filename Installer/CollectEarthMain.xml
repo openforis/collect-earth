@@ -52,7 +52,7 @@
                     <origin>../collect-earth/collect-earth-app/UserManual.pdf</origin>
                 </distributionFile>
                 <distributionDirectory>
-                    <origin>../../../../Users/SanchezPausDiaz/Dropbox/SHARED_COLLECT_EARTH/customizations_per_country/Zagros</origin>
+                    <origin>../../../../Users/SanchezPausDiaz/Dropbox/SHARED_COLLECT_EARTH/customizations_per_country/lucas_demo</origin>
                 </distributionDirectory>
                 <distributionFile>
                     <origin>earth.properties_initial</origin>
@@ -162,7 +162,7 @@
         <!-- Change installer icon on OS X, during build time -->
         <copyFile>
             <destination>${installbuilder_output_filename}/Contents/Resources/installbuilder.icns</destination>
-            <origin>openforis.icns</origin>
+            <origin>C:/opt/git/collect-earth/Installer/openforis.icns</origin>
             <ruleList>
                 <compareText logic="equals" text="${platform_name}" value="osx"/>
             </ruleList>

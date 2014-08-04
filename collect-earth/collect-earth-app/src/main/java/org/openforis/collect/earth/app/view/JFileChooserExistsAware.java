@@ -98,7 +98,7 @@ public class JFileChooserExistsAware extends JFileChooser {
 				String description = ""; //$NON-NLS-1$
 				if( dataFormat.equals( DataFormat.CSV ) ){
 					description = Messages.getString("CollectEarthWindow.38"); //$NON-NLS-1$
-				}else if( dataFormat.equals( DataFormat.ZIP_WITH_XML ) ){
+				}else if( dataFormat.equals( DataFormat.ZIP_WITH_XML ) || dataFormat.equals( DataFormat.PROJECT_DEFINITION_FILE )){
 					description = Messages.getString("CollectEarthWindow.48"); //$NON-NLS-1$
 				}else if( dataFormat.equals( DataFormat.FUSION ) ){
 					description = Messages.getString("CollectEarthWindow.49"); //$NON-NLS-1$
@@ -135,7 +135,11 @@ public class JFileChooserExistsAware extends JFileChooser {
 					selectedFiles[0] = new File(file_name);
 				}
 			}else{
-				selectedFiles = fc.getSelectedFiles();
+				if( multipleSelect ){
+					selectedFiles = fc.getSelectedFiles();
+				}else{
+					selectedFiles = new File[]{fc.getSelectedFile()};
+				}
 			}
 
 			localPropertiesService.setValue(EarthProperty.LAST_USED_FOLDER, selectedFiles[0].getParent());

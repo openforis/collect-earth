@@ -6,7 +6,7 @@ import java.util.HashMap;
 import java.util.Map;
 
 import org.openforis.collect.earth.app.desktop.EarthApp;
-import org.openforis.collect.earth.app.service.ProjectPropertiesService.ProjectProperty;
+import org.openforis.collect.earth.app.service.LocalPropertiesService.EarthProperty;
 import org.openforis.collect.earth.sampler.model.SimplePlacemarkObject;
 import org.openforis.collect.earth.sampler.processor.KmlGenerator;
 import org.openforis.collect.earth.sampler.utils.FreemarkerTemplateUtils;
@@ -35,9 +35,6 @@ public class BingMapService {
 
 	@Autowired
 	LocalPropertiesService localPropertiesService;
-	
-	@Autowired
-	ProjectPropertiesService projectPropertiesService;
 
 	private final Logger logger = LoggerFactory.getLogger(this.getClass());
 
@@ -59,8 +56,8 @@ public class BingMapService {
 		final Map<String, Object> data = new HashMap<String, Object>();
 		final SimplePlacemarkObject placemark = new SimplePlacemarkObject(centerLatLong);
 
-		final Float distanceBetweenSamplingPoints = Float.parseFloat(projectPropertiesService.getValue(ProjectProperty.DISTANCE_BETWEEN_SAMPLE_POINTS));
-		final Float distancePlotBoundary = Float.parseFloat(projectPropertiesService.getValue(ProjectProperty.DISTANCE_TO_PLOT_BOUNDARIES));
+		final Float distanceBetweenSamplingPoints = Float.parseFloat( localPropertiesService.getValue(EarthProperty.DISTANCE_BETWEEN_SAMPLE_POINTS));
+		final Float distancePlotBoundary = Float.parseFloat(localPropertiesService.getValue(EarthProperty.DISTANCE_TO_PLOT_BOUNDARIES));
 
 		KmlGenerator kmlGenerator = EarthApp.getKmlGenerator(localPropertiesService);
 		

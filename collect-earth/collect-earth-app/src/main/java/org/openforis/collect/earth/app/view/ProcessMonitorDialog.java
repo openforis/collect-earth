@@ -6,10 +6,6 @@ import javax.swing.JOptionPane;
 import javax.swing.ProgressMonitor;
 import javax.swing.SwingUtilities;
 
-import org.apache.commons.lang.ArrayUtils;
-import org.apache.commons.lang3.StringUtils;
-import org.openforis.collect.io.ReferenceDataImportStatus;
-import org.openforis.collect.io.metadata.parsing.ParsingError;
 import org.openforis.collect.manager.process.AbstractProcess;
 import org.openforis.collect.manager.process.ProcessStatus;
 import org.slf4j.Logger;
