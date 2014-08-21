@@ -52,7 +52,7 @@
                     <origin>../collect-earth/collect-earth-app/UserManual.pdf</origin>
                 </distributionFile>
                 <distributionDirectory>
-                    <origin>../../../../Users/SanchezPausDiaz/Dropbox/SHARED_COLLECT_EARTH/customizations_per_country/lucas_demo</origin>
+                    <origin>../../../../Users/SanchezPausDiaz/git/customizations/Customizations/lucas_demo</origin>
                 </distributionDirectory>
                 <distributionFile>
                     <origin>earth.properties_initial</origin>
