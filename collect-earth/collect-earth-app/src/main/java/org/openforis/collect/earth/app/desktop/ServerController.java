@@ -145,6 +145,7 @@ public class ServerController extends Observable {
 		// PropertyConfigurator.configure(this.getClass().getResource("/WEB-INF/conf/log4j.properties"));
 
 		server = new Server(new ExecutorThreadPool(10, 50, 5, TimeUnit.SECONDS));
+		
 
 		// // Use blocking-IO connector to improve throughput
 		final ServerConnector connector = new ServerConnector(server);
@@ -157,11 +158,16 @@ public class ServerController extends Observable {
 		server.setConnectors(new Connector[] { connector });
 		
 
-		setRoot(new WebAppContext());
+		WebAppContext wweAppContext = new WebAppContext();
+				
+		setRoot(wweAppContext);
+		
+		
 
 		getRoot().setContextPath("/earth");
 
 		getRoot().setDescriptor(this.getClass().getResource("/WEB-INF/web.xml").toURI().toString());
+		
 		getRoot().setResourceBase(webappDirLocation);
 
 		// Parent loader priority is a class loader setting that Jetty accepts.
@@ -173,8 +179,6 @@ public class ServerController extends Observable {
 		getRoot().setParentLoaderPriority(true);
 
 		server.setHandler(getRoot());
-
-		server.setStopTimeout(1000);
 		server.setStopAtShutdown(true);
 		server.start();
 

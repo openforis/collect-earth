@@ -5,10 +5,10 @@
     <installerFilename>${product_shortname}-${product_version}-${platform_name}-No-Saiku-installer.${platform_exec_suffix}</installerFilename>
     <readmeFile>../collect-earth/collect-earth-app/README.txt</readmeFile>
     <licenseFile>../collect-earth/collect-earth-app/License.txt</licenseFile>
-    <leftImage>openforisleftsidepanel.png</leftImage>
-    <logoImage>of-logo-small.png</logoImage>
-    <splashImage>openforisbanner.png</splashImage>
-    <wmImage>of-logo-small.png</wmImage>
+    <leftImage>installer_left_panel.png</leftImage>
+    <logoImage>installer_logo.png</logoImage>
+    <splashImage>installer_splash.png</splashImage>
+    <wmImage>installer_logo.png</wmImage>
     <defaultLanguage>auto</defaultLanguage>
     <allowLanguageSelection>1</allowLanguageSelection>
     <languageSelectionStyle>onlyNativeNames</languageSelectionStyle>
@@ -29,6 +29,6 @@
     <saveRelativePaths>1</saveRelativePaths>
     <splashScreenDelay>1000</splashScreenDelay>
     <vendor>Open Foris Initiative</vendor>
-    <windowsExecutableIcon>of-logo.ico</windowsExecutableIcon>
+    <windowsExecutableIcon>installer_icon.ico</windowsExecutableIcon>
 </project>
 

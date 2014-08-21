@@ -8,7 +8,7 @@
         <shortcut>
             <comment>Start Collect Earth</comment>
             <exec>${installdir}/CollectEarth-launcher.run</exec>
-            <icon>${installdir}/of-logo-small.png</icon>
+            <icon>${installdir}/launcher_logo.png</icon>
             <name>Collect Earth</name>
             <path></path>
             <platforms>all</platforms>
@@ -16,7 +16,7 @@
             <runInTerminal>0</runInTerminal>
             <windowsExec>${installdir}/CollectEarth-launcher.exe</windowsExec>
             <windowsExecArgs></windowsExecArgs>
-            <windowsIcon>${installdir}/of-logo.ico</windowsIcon>
+            <windowsIcon>${installdir}/launcher_logo.ico</windowsIcon>
             <windowsPath></windowsPath>
         </shortcut>
     </desktopShortcutList>
@@ -100,7 +100,7 @@
             <platforms>linux</platforms>
             <distributionFileList>
                 <distributionFile>
-                    <origin>of-logo-small.png</origin>
+                    <origin>launcher_logo.png</origin>
                 </distributionFile>
                 <distributionFile>
                     <origin>../collect-earth/collect-earth-app/autoupdate/autoupdate.run</origin>
@@ -114,7 +114,7 @@
             <platforms>windows</platforms>
             <distributionFileList>
                 <distributionFile>
-                    <origin>of-logo.ico</origin>
+                    <origin>launcher_icon.ico</origin>
                 </distributionFile>
                 <distributionFile>
                     <origin>../collect-earth/collect-earth-app/autoupdate/autoupdate.exe</origin>
@@ -128,7 +128,7 @@
             <platforms>osx</platforms>
             <distributionFileList>
                 <distributionFile>
-                    <origin>openforis.icns</origin>
+                    <origin>launcher_mac_icon.icns</origin>
                 </distributionFile>
                 <distributionDirectory>
                     <origin>../collect-earth/collect-earth-app/autoupdate/autoupdate.app</origin>
@@ -162,7 +162,7 @@
         <!-- Change installer icon on OS X, during build time -->
         <copyFile>
             <destination>${installbuilder_output_filename}/Contents/Resources/installbuilder.icns</destination>
-            <origin>C:/opt/git/collect-earth/Installer/openforis.icns</origin>
+            <origin>C:/opt/git/collect-earth/Installer/installer_mac_icon.icns</origin>
             <ruleList>
                 <compareText logic="equals" text="${platform_name}" value="osx"/>
             </ruleList>
@@ -235,7 +235,7 @@
         <copyFile>
             <abortOnError>0</abortOnError>
             <destination>${installdir}/${java_launcher_binary_name}/Contents/Resources/installbuilder.icns</destination>
-            <origin>${installdir}/openforis.icns</origin>
+            <origin>${installdir}/launcher_mac_icon.icns</origin>
             <ruleList>
                 <compareText logic="equals" text="${platform_name}" value="osx"/>
             </ruleList>
