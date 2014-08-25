@@ -347,7 +347,7 @@ public class OptionWizard extends JDialog {
 		tabbedPane.addTab(Messages.getString("OptionWizard.25"), panel5); //$NON-NLS-1$
 
 		final JComponent panel6 = getProjectsPanelScroll();
-		tabbedPane.addTab("Projects", panel6);
+		tabbedPane.addTab(Messages.getString("OptionWizard.40"), panel6); //$NON-NLS-1$
 
 		return tabbedPane;
 	}
@@ -367,7 +367,7 @@ public class OptionWizard extends JDialog {
 		constraints.insets = new Insets(5, 5, 5, 5);
 		constraints.fill = GridBagConstraints.BOTH;
 
-		JButton importNewButton = new JButton( "Load a new project file ( project.zip)" );
+		JButton importNewButton = new JButton( Messages.getString("OptionWizard.41") ); //$NON-NLS-1$
 		importNewButton.addActionListener( new ApplyOptionChangesListener(this, localPropertiesService) {
 
 			@Override
@@ -383,8 +383,8 @@ public class OptionWizard extends JDialog {
 
 						restartEarth();						
 					} catch (Exception e1) {
-						JOptionPane.showMessageDialog( OptionWizard.this, e1.getMessage(), "Error importing project file", JOptionPane.ERROR_MESSAGE);
-						logger.error("Error importing project file " + selectedProjectFile[0].getAbsolutePath(), e1);
+						JOptionPane.showMessageDialog( OptionWizard.this, e1.getMessage(), Messages.getString("OptionWizard.51"), JOptionPane.ERROR_MESSAGE); //$NON-NLS-1$
+						logger.error("Error importing project file " + selectedProjectFile[0].getAbsolutePath(), e1); //$NON-NLS-1$
 					}
 
 				}
@@ -417,7 +417,7 @@ public class OptionWizard extends JDialog {
 		constraints.gridx = GridBagConstraints.RELATIVE;
 		typeOfDbPanel.add(listScroller, constraints);
 		
-		final JButton openProject = new JButton("Load project");
+		final JButton openProject = new JButton(Messages.getString("OptionWizard.56")); //$NON-NLS-1$
 		openProject.setEnabled(false);
 		openProject.addActionListener( new ApplyOptionChangesListener(this, localPropertiesService) {
 
@@ -430,8 +430,8 @@ public class OptionWizard extends JDialog {
 					projectsService.loadProject( projectFolder );
 					restartEarth();						
 				} catch (Exception e1) {
-					JOptionPane.showMessageDialog( OptionWizard.this, e1.getMessage(), "Error importing project folder", JOptionPane.ERROR_MESSAGE);
-					logger.error("Error importing project folder " + projectFolder.getAbsolutePath(), e1);
+					JOptionPane.showMessageDialog( OptionWizard.this, e1.getMessage(), Messages.getString("OptionWizard.55"), JOptionPane.ERROR_MESSAGE); //$NON-NLS-1$
+					logger.error("Error importing project folder " + projectFolder.getAbsolutePath(), e1); //$NON-NLS-1$
 				}
 
 			}
