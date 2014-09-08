@@ -3,8 +3,7 @@
      This file should be modified to fit your application and
      placed at the URL specified in the update.ini file 
 -->
-	<installationType>upgrade</installationType>
-    <versionId>101</versionId>
+    <versionId>102</versionId>
     <version>1.0.1</version>
     <platformFileList>
         <platformFile>
