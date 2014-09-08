@@ -7,13 +7,13 @@
     <version>1.0.1</version>
     <platformFileList>
         <platformFile>
-            <filename>CollectEarthUpdater.exe</filename>
+            <filename>CollectEarthUpdater.exe?dl=1</filename>
             <platform>windows</platform>
         </platformFile>
     </platformFileList>
     <downloadLocationList>
         <downloadLocation>
-            <url>https://raw.githubusercontent.com/openforis/collect-earth/master/collect-earth/collect-earth-app/autoupdate/</url>
+            <url>https://www.dropbox.com/s/23prp45pfwszix4/</url>
         </downloadLocation>
     </downloadLocationList>
 </installerInformation>
