@@ -111,6 +111,7 @@ public final class ExportActionListener implements ActionListener {
 				exportProcessWorker.start();
 			}
 		} catch (Exception e1) {
+			logger.error("What happened?" , e1); //$NON-NLS-1$ //$NON-NLS-2$
 			JOptionPane.showMessageDialog(this.frame, Messages.getString("CollectEarthWindow.0"), Messages.getString("CollectEarthWindow.1"), //$NON-NLS-1$ //$NON-NLS-2$
 					JOptionPane.ERROR_MESSAGE);
 			logger.error("Error exporting data to " + exportToFile[0].getAbsolutePath() + " in format " + exportType.name() , e1); //$NON-NLS-1$ //$NON-NLS-2$

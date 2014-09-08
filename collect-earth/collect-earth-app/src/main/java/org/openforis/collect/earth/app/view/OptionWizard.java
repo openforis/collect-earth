@@ -397,7 +397,7 @@ public class OptionWizard extends JDialog {
 
 		
 		final JPanel typeOfDbPanel = new JPanel(new GridBagLayout());
-		final Border border = new TitledBorder(new BevelBorder(BevelBorder.RAISED), "Previously loaded projects"); //$NON-NLS-1$
+		final Border border = new TitledBorder(new BevelBorder(BevelBorder.RAISED), Messages.getString("OptionWizard.57")); //$NON-NLS-1$
 		typeOfDbPanel.setBorder(border);
 		
 		constraints.gridx = 0;

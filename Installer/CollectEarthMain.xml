@@ -16,7 +16,7 @@
             <runInTerminal>0</runInTerminal>
             <windowsExec>${installdir}/CollectEarth-launcher.exe</windowsExec>
             <windowsExecArgs></windowsExecArgs>
-            <windowsIcon>${installdir}/launcher_logo.ico</windowsIcon>
+            <windowsIcon>${installdir}/launcher_icon.ico</windowsIcon>
             <windowsPath></windowsPath>
         </shortcut>
     </desktopShortcutList>

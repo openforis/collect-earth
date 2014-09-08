@@ -2,9 +2,9 @@
     <shortName>CollectEarthUpdater</shortName>
     <fullName>Collect Earth</fullName>
     <version>1.0.1</version>
-    <leftImage>C:/opt/installers/openforisleftsidepanel.png</leftImage>
-    <logoImage>C:/opt/installers/of-logo-small.png</logoImage>
-    <splashImage>C:/opt/installers/openforisbanner.png</splashImage>
+    <leftImage>C:\opt\git\collect-earth\Installer/installer_left_panel.png</leftImage>
+    <logoImage>C:\opt\git\collect-earth\Installer\installer_logo.png</logoImage>
+    <splashImage>C:\opt\git\collect-earth\Installer/installer_splash.png</splashImage>
     <componentList>
         <component>
             <name>default</name>
@@ -24,18 +24,21 @@
                         </distributionFile>
                         <distributionDirectory>
                             <origin>C:/opt/git/collect-earth/collect-earth/collect-earth-app/target/earth-libs</origin>
-                            <onPackingFilterList>
-                                <fileNameFilter logic="matches" pattern="collect*" patternType="glob"/>
-                            </onPackingFilterList>
                         </distributionDirectory>
                         <distributionFile>
-                            <origin>C:/opt/git/collect-earth/collect-earth/collect-earth-app/autoupdate/update.ini</origin>
+                            <origin>C:\opt\git\collect-earth\collect-earth\collect-earth-app\autoupdate\update.ini</origin>
                         </distributionFile>
                     </distributionFileList>
                 </folder>
             </folderList>
         </component>
     </componentList>
+    <postBuildActionList>
+        <copyFile>
+            <destination>C:\opt\git\collect-earth\collect-earth\collect-earth-app\autoupdate\CollectEarthUpdater.exe</destination>
+            <origin>${installbuilder_output_filename}</origin>
+        </copyFile>
+    </postBuildActionList>
     <initializationActionList>
         <registryGet>
             <key>HKEY_LOCAL_MACHINE\SOFTWARE\${project.vendor}\${project.fullName}</key>
