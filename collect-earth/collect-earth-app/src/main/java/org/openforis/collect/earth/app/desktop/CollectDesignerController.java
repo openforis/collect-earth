@@ -50,7 +50,7 @@ public class CollectDesignerController {
 	public boolean isServerAlreadyRunning() {
 		boolean alreadyRunning = false;
 		try {
-			new Socket("localhost", getPort()).close();
+			new Socket("127.0.0.1", getPort()).close();
 			// If here there is something is serving on port 8888
 			// So stop it
 			logger.warn("There is a server already running " + getPort());

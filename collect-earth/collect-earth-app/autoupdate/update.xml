@@ -3,7 +3,7 @@
      This file should be modified to fit your application and
      placed at the URL specified in the update.ini file 
 -->
-    <versionId>103</versionId> <!-- When changing this version make sure to have the same one in update.ini and rebuild the autoupdater ! -->
+    <versionId>104</versionId> <!-- When changing this version make sure to have the same one in update.ini and rebuild the autoupdater ! -->
     <version>1.0.1</version>
     <platformFileList>
         <platformFile>

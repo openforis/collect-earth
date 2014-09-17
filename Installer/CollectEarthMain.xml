@@ -162,7 +162,7 @@
         <!-- Change installer icon on OS X, during build time -->
         <copyFile>
             <destination>${installbuilder_output_filename}/Contents/Resources/installbuilder.icns</destination>
-            <origin>C:/opt/git/collect-earth/Installer/installer_mac_icon.icns</origin>
+            <origin>${installdir}/installer_mac_icon.icns</origin>
             <ruleList>
                 <compareText logic="equals" text="${platform_name}" value="osx"/>
             </ruleList>
@@ -213,6 +213,7 @@
             <files>${installdir}/${java_launcher_binary_name};${installdir}/*.log;${installdir}/*.properties;${installdir}/generated;${installdir}/*.db;${installdir}/*.dbSaiku</files>
             <permissions>0777</permissions>
         </changePermissions>
+		<!--
         <runProgram>
             <program>chown</program>
             <programArguments>-fR ${system_username}  "${installdir}/${java_launcher_binary_name}" "${installdir}/earth_error.log" "${installdir}/earth.properties" "${installdir}/generated" "${installdir}/collectEarthDatabase.db" "${installdir}/collectEarthDatabase.dbSaiku"</programArguments>
@@ -232,6 +233,7 @@
                 </platformTest>
             </ruleList>
         </runProgram>
+		-->
         <copyFile>
             <abortOnError>0</abortOnError>
             <destination>${installdir}/${java_launcher_binary_name}/Contents/Resources/installbuilder.icns</destination>

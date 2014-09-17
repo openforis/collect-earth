@@ -20,6 +20,7 @@ import org.apache.commons.dbcp.BasicDataSource;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.SystemUtils;
 import org.openforis.collect.earth.app.EarthConstants;
+import org.openforis.collect.earth.app.ad_hoc.PngAluToolUtils;
 import org.openforis.collect.earth.app.desktop.ServerController;
 import org.openforis.collect.earth.app.model.AspectCode;
 import org.openforis.collect.earth.app.model.DynamicsCode;
@@ -44,6 +45,28 @@ import au.com.bytecode.opencsv.CSVReader;
 
 @Component
 public class AnalysisSaikuService {
+
+	private static final String NO_DATA_LAND_USE = "noData";
+
+	private static final String ALU_CLIMATE_ZONE_CODE = "alu_climate_zone_code";
+
+	private static final String ALU_SOIL_TYPE_CODE = "alu_soil_type_code";
+
+	private static final String ALU_SUBCLASS_CODE = "alu_subclass_code";
+
+	private static final String PLOT_WEIGHT = "plot_weight";
+
+	private static final String EXPANSION_FACTOR = "expansion_factor";
+
+	private static final String DYNAMICS_ID = "dynamics_id";
+
+	private static final String ELEVATION_ID = "elevation_id";
+
+	private static final String SLOPE_ID = "slope_id";
+
+	private static final String ASPECT_ID = "aspect_id";
+	
+	protected static final String PLOT_ID = "_plot_id";
 
 	private static final String POSTGRES_RDB_SCHEMA = "rdbcollectsaiku";
 
@@ -89,13 +112,15 @@ public class AnalysisSaikuService {
 
 	private static final String REGION_AREAS_CSV = "region_areas.csv";
 
+	
+
 	private boolean userCancelledOperation = false;
 
 	private void assignDimensionValues() {
 		try {
 			final String schemaName = getSchemaPrefix();
 			// Objet[] --> aspect_id, sloped_id, elevation_bucket_id, _plot_id
-			final List<Object[]> sqlUpdateValues = jdbcTemplate.query("SELECT _plot_id, elevation, slope, aspect FROM " + schemaName + "plot",
+			final List<Object[]> sqlUpdateValues = jdbcTemplate.query("SELECT "+PLOT_ID+", elevation, slope, aspect FROM " + schemaName + "plot",
 					new RowMapper<Object[]>() {
 						@Override
 						public Object[] mapRow(ResultSet rs, int rowNum) throws SQLException {
@@ -116,13 +141,74 @@ public class AnalysisSaikuService {
 							updateValues[0] = aspect;
 							updateValues[1] = slope;
 							updateValues[2] = Math.floor((int) rs.getFloat("elevation") / ELEVATION_RANGE) + 1; // 0 meters is bucket 1 ( id);
-							updateValues[3] = rs.getLong("_plot_id");
+							updateValues[3] = rs.getLong(PLOT_ID);
 							return updateValues;
 						}
 
 					});
 
-			jdbcTemplate.batchUpdate("UPDATE " + schemaName + "plot SET aspect_id=?,slope_id=?,elevation_id=? WHERE _plot_id=?", sqlUpdateValues);
+			jdbcTemplate.batchUpdate("UPDATE " + schemaName + "plot SET " + ASPECT_ID +"=?," + SLOPE_ID + "=?,"+ ELEVATION_ID+"=? WHERE "+PLOT_ID+"=?", sqlUpdateValues);
+		} catch (DataAccessException e) {
+			logger.error("No DEM information", e);
+		}
+	}
+	
+	private void assignPngAluToolDimensionValues() {
+		try {
+			if (earthSurveyService.getCollectSurvey().getName().toLowerCase().contains("png") ){ 
+				final String schemaName = getSchemaPrefix();
+				// Objet[] --> aspect_id, sloped_id, elevation_bucket_id, _plot_id
+				final List<Object[]> sqlUpdateValues = jdbcTemplate.query("SELECT "+PLOT_ID+", elevation, soil_fundamental, land_use_subcategory, precipitation_ranges FROM " + schemaName + "plot LEFT JOIN " + schemaName + "precipitation_ranges_code where "
+						+ "plot.annual_precipitation_code_id=precipitation_ranges_code.precipitation_ranges_code_id",
+						new RowMapper<Object[]>() {
+							@Override
+							public Object[] mapRow(ResultSet rs, int rowNum) throws SQLException {
+	
+								final Object[] updateValues = new Object[4];
+	
+								try {
+									PngAluToolUtils aluToolUtils = new PngAluToolUtils();
+									
+									Integer elevation = rs.getInt("elevation");
+									String soilFundamental = rs.getString("soil_fundamental");
+									String precipitationRange = rs.getString("precipitation_ranges");
+									String collectEarthSubcategory = rs.getString("land_use_subcategory");
+									
+									int precipitation = -1;
+									String climate_zone = "Unknown";
+									if( precipitationRange != null ){
+										precipitation = aluToolUtils.getPrecipitationFromRange(precipitationRange);
+										boolean shortDrySeason = true; // According to information from Abe PNG has less than 5 months of dry season
+										climate_zone = aluToolUtils.getClimateZone(elevation, precipitation, shortDrySeason );
+									}								
+									
+									String soil_type = "Unknown";
+									if( soilFundamental!=null){
+										soil_type = aluToolUtils.getSoilType( soilFundamental );
+									}
+									String sub_class = "Unknown";
+									if( collectEarthSubcategory != null ){
+										sub_class = aluToolUtils.getAluSubclass(collectEarthSubcategory);
+									}
+									
+									updateValues[0] = climate_zone;
+									updateValues[1] = soil_type;
+									updateValues[2] = sub_class;
+									updateValues[3] = rs.getLong(PLOT_ID);
+								} catch (Exception e) {
+									logger.error("Error while processing the data", e);
+									updateValues[0] = "Unknown";
+									updateValues[1] = "Unknown";
+									updateValues[2] = "Unknown";
+									updateValues[0] = rs.getLong(PLOT_ID);
+								}
+								return updateValues;
+							}
+	
+						});
+	
+				jdbcTemplate.batchUpdate("UPDATE " + schemaName + "plot SET " + ALU_CLIMATE_ZONE_CODE +"=?," + ALU_SOIL_TYPE_CODE + "=?,"+ ALU_SUBCLASS_CODE+"=? WHERE "+PLOT_ID+"=?", sqlUpdateValues);
+			}
 		} catch (DataAccessException e) {
 			logger.error("No DEM information", e);
 		}
@@ -132,7 +218,7 @@ public class AnalysisSaikuService {
 		try {
 			final String schemaName = getSchemaPrefix();
 			// Objet[] --> aspect_id, sloped_id, elevation_bucket_id, _plot_id
-			final List<Object[]> sqlUpdateValues = jdbcTemplate.query("SELECT _plot_id, land_use_subcategory FROM " + schemaName + "plot",
+			final List<Object[]> sqlUpdateValues = jdbcTemplate.query("SELECT "+PLOT_ID+", land_use_subcategory FROM " + schemaName + "plot",
 					new RowMapper<Object[]>() {
 						@Override
 						public Object[] mapRow(ResultSet rs, int rowNum) throws SQLException {
@@ -144,15 +230,15 @@ public class AnalysisSaikuService {
 
 
 							updateValues[0] = dynamics;
-							updateValues[1] = rs.getLong("_plot_id");
+							updateValues[1] = rs.getLong(PLOT_ID);
 							return updateValues;
 						}
 
 					});
 
-			jdbcTemplate.batchUpdate("UPDATE " + schemaName + "plot SET dynamics_id=? WHERE _plot_id=?", sqlUpdateValues);
+			jdbcTemplate.batchUpdate("UPDATE " + schemaName + "plot SET " + DYNAMICS_ID +"=? WHERE "+PLOT_ID+"=?", sqlUpdateValues);
 		} catch (DataAccessException e) {
-			logger.error("No Land Use subcategory information", e);
+			logger.error("No PNG Alu information available", e);
 		}
 	}
 
@@ -198,7 +284,7 @@ public class AnalysisSaikuService {
 
 	private void createAspectAuxTable() {
 		final String schemaName = getSchemaPrefix();
-		jdbcTemplate.execute("CREATE TABLE " + schemaName + "aspect_category (aspect_id INTEGER PRIMARY KEY, aspect_caption TEXT);");
+		jdbcTemplate.execute("CREATE TABLE " + schemaName + "aspect_category (" + ASPECT_ID + " INTEGER PRIMARY KEY, aspect_caption TEXT);");
 		final AspectCode[] aspects = AspectCode.values();
 		for (final AspectCode aspectCode : aspects) {
 			jdbcTemplate
@@ -208,7 +294,7 @@ public class AnalysisSaikuService {
 
 	private void createElevationtAuxTable() {
 		final String schemaName = getSchemaPrefix();
-		jdbcTemplate.execute("CREATE TABLE " + schemaName + "elevation_category (elevation_id INTEGER PRIMARY KEY, elevation_caption TEXT);");
+		jdbcTemplate.execute("CREATE TABLE " + schemaName + "elevation_category ( " + ELEVATION_ID + " INTEGER PRIMARY KEY, elevation_caption TEXT);");
 		final int slots = (int) Math.ceil(9000 / ELEVATION_RANGE); // Highest mountain in the world, mount everest is 8820m high
 		for (int i = 1; i <= slots; i++) {
 			jdbcTemplate.execute("INSERT INTO " + schemaName + "elevation_category values (" + i + ", '" + ((i - 1) * ELEVATION_RANGE) + "-" + i
@@ -219,7 +305,7 @@ public class AnalysisSaikuService {
 
 	private void createDynamicsAuxTable() {
 		final String schemaName = getSchemaPrefix();
-		jdbcTemplate.execute("CREATE TABLE " + schemaName + "dynamics_category (dynamics_id INTEGER PRIMARY KEY, dynamics_caption TEXT);");
+		jdbcTemplate.execute("CREATE TABLE " + schemaName + "dynamics_category (" + DYNAMICS_ID + " INTEGER PRIMARY KEY, dynamics_caption TEXT);");
 		final DynamicsCode[] dynamicsCodes = DynamicsCode.values();
 		for (final DynamicsCode dynamicsCode : dynamicsCodes) {
 			jdbcTemplate
@@ -230,18 +316,29 @@ public class AnalysisSaikuService {
 	private void createPlotForeignKeys() {
 		// Add aspect_id column to plot
 		final String schemaName = getSchemaPrefix();
-		jdbcTemplate.execute("ALTER TABLE " + schemaName + "plot ADD aspect_id INTEGER");
-		jdbcTemplate.execute("ALTER TABLE " + schemaName + "plot ADD slope_id INTEGER");
-		jdbcTemplate.execute("ALTER TABLE " + schemaName + "plot ADD elevation_id INTEGER");
-		jdbcTemplate.execute("ALTER TABLE " + schemaName + "plot ADD dynamics_id INTEGER");
+		jdbcTemplate.execute("ALTER TABLE " + schemaName + "plot ADD " + ASPECT_ID + " INTEGER");
+		jdbcTemplate.execute("ALTER TABLE " + schemaName + "plot ADD " + SLOPE_ID + " INTEGER");
+		jdbcTemplate.execute("ALTER TABLE " + schemaName + "plot ADD " + ELEVATION_ID + " INTEGER");
+		jdbcTemplate.execute("ALTER TABLE " + schemaName + "plot ADD " + DYNAMICS_ID + " INTEGER");
 	}
 
 	private void createWeightFactors(){
 		final String schemaName = getSchemaPrefix();
-		jdbcTemplate.execute("ALTER TABLE " + schemaName + "plot ADD expansion_factor FLOAT");
-		jdbcTemplate.execute("ALTER TABLE " + schemaName + "plot ADD plot_weight FLOAT");
+		jdbcTemplate.execute("ALTER TABLE " + schemaName + "plot ADD " + EXPANSION_FACTOR + " FLOAT");
+		jdbcTemplate.execute("ALTER TABLE " + schemaName + "plot ADD " + PLOT_WEIGHT + " FLOAT");
 	}
 
+	
+	private void createPngAluVariables(){
+		if (earthSurveyService.getCollectSurvey().getName().toLowerCase().contains("png") ){ 
+			final String schemaName = getSchemaPrefix();
+			jdbcTemplate.execute("ALTER TABLE " + schemaName + "plot ADD "+ALU_SUBCLASS_CODE+" VARCHAR(5)");
+			jdbcTemplate.execute("ALTER TABLE " + schemaName + "plot ADD "+ALU_SOIL_TYPE_CODE+" VARCHAR(5)");
+			jdbcTemplate.execute("ALTER TABLE " + schemaName + "plot ADD "+ALU_CLIMATE_ZONE_CODE+" VARCHAR(5)");
+		}
+	}
+	
+	
 	private void createSlopeAuxTable() {
 		final String schemaName = getSchemaPrefix();
 		// Slope can be from 0 to 90
@@ -346,7 +443,7 @@ public class AnalysisSaikuService {
 	}
 
 	private void openSaiku() throws IOException {
-		saikuWebDriver = browserService.navigateTo("http://localhost:8181", saikuWebDriver);
+		saikuWebDriver = browserService.navigateTo("http://127.0.0.1:8181", saikuWebDriver);
 		browserService.waitFor("username", saikuWebDriver);
 		saikuWebDriver.findElementByName("username").sendKeys("admin");
 		saikuWebDriver.findElementByName("password").sendKeys("admin");
@@ -428,18 +525,26 @@ public class AnalysisSaikuService {
 		createElevationtAuxTable();
 
 		createDynamicsAuxTable();
+		
+		createPngAluVariables();
 
 		createWeightFactors();
 
 		createPlotForeignKeys();
 
+		assignPngAluToolDimensionValues();
+		
 		assignDimensionValues();
 
 		assignLUCDimensionValues();
+		
+		
 
 		addAreasPerRegion();
 
 	}
+
+
 
 	public static CSVReader getCsvReader(String csvFile) throws FileNotFoundException {
 		CSVReader reader;
@@ -452,6 +557,8 @@ public class AnalysisSaikuService {
 	private void addAreasPerRegion() throws SQLException {
 
 		final File regionAreas = new File(getIdmFolder() + File.separatorChar + REGION_AREAS_CSV);
+		String schemaName = getSchemaPrefix();
+		
 		if (regionAreas.exists()) {
 
 			try {
@@ -465,36 +572,38 @@ public class AnalysisSaikuService {
 						int area_hectars =  Integer.parseInt( csvLine[2] );
 						final Float plot_weight =  Float.parseFloat( csvLine[3] );
 
-						String[] parameters = new String[]{region,plot_file};
+						Object[] parameters = new String[]{region,plot_file};
 
-						String schemaName = getSchemaPrefix();
-						int plots_per_region = jdbcTemplate.queryForInt( "SELECT count(_plot_id)FROM " + schemaName  + "plot  WHERE region=? OR plot_file=? ", parameters);
+						int plots_per_region = jdbcTemplate.queryForInt( 
+								"SELECT count("+PLOT_ID+")FROM " + schemaName  + "plot  WHERE ( region=? OR plot_file=? ) AND land_use_category != '"+NO_DATA_LAND_USE+"' ", parameters);
 
 						Float expansion_factor_hectars_calc = 0f;
 						if( plots_per_region != 0 ){
 							expansion_factor_hectars_calc = (float)area_hectars / (float) plots_per_region;
 						}
-
-						final Float expansion_factor_hectars = expansion_factor_hectars_calc;
-
-						final List<Object[]> sqlUpdateValues = jdbcTemplate.query("SELECT _plot_id FROM " + schemaName + "plot WHERE region=? OR plot_file=? ",parameters,
-								new RowMapper<Object[]>() {
-									@Override
-									public Object[] mapRow(ResultSet rs, int rowNum) throws SQLException {
-										final Object[] updateValues = new Object[3];
-										updateValues[0] = expansion_factor_hectars;
-										updateValues[1] = plot_weight;
-										updateValues[2] = rs.getLong("_plot_id");										
-										return updateValues;
-									}
-								});
-
-						jdbcTemplate.batchUpdate("UPDATE " + schemaName + "plot SET expansion_factor=?, plot_weight=? WHERE _plot_id=?", sqlUpdateValues);
+					
+						final Object[] updateValues = new Object[4];
+						updateValues[0] = expansion_factor_hectars_calc;
+						updateValues[1] = plot_weight;
+						updateValues[2] = region;
+						updateValues[3] = plot_file;
+						jdbcTemplate.update("UPDATE " + schemaName + "plot SET "+EXPANSION_FACTOR+"=?, "+PLOT_WEIGHT+"=? WHERE region=? OR plot_file=?", updateValues);
+						
 					} catch (NumberFormatException e) {
 						logger.error("Possibly the header", e);
 					} 
 
 				}
+				
+				// FINALLY ASSIGN A WEIGHT OF CERO AND AN EXPANSION FACTOR OF 0 FOR THE PLOTS WITH NO_DATA
+				
+				final Object[] updateNoDataValues = new Object[3];
+				updateNoDataValues[0] = 0;
+				updateNoDataValues[1] = 0;
+				updateNoDataValues[2] = NO_DATA_LAND_USE;
+				
+				jdbcTemplate.update("UPDATE " + schemaName + "plot SET "+EXPANSION_FACTOR+"=?, "+PLOT_WEIGHT+"=? WHERE land_use_category=?", updateNoDataValues);
+				
 			} catch (FileNotFoundException e) {
 				logger.error("File not found?", e);
 			} catch (IOException e) {

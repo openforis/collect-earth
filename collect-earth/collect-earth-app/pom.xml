@@ -15,7 +15,7 @@
 	<properties>
 		<jetty.version>9.2.0.M0</jetty.version>
 		<spring.version>3.1.0.RELEASE</spring.version>
-		<selenium.version>2.42.2</selenium.version>
+		<selenium.version>2.43.1</selenium.version>
 		<sonar.language>java</sonar.language>
 		<classpath.prefix>earth-libs</classpath.prefix>
 	</properties>
@@ -136,6 +136,7 @@
 			<artifactId>selenium-chrome-driver</artifactId>
 			<version>${selenium.version}</version>
 		</dependency>
+
 		<dependency>
 			<groupId>commons-dbcp</groupId>
 			<artifactId>commons-dbcp</artifactId>
