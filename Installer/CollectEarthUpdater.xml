@@ -2,9 +2,9 @@
     <shortName>CollectEarthUpdater</shortName>
     <fullName>Collect Earth</fullName>
     <version>1.0.1</version>
-    <leftImage>C:\opt\git\collect-earth\Installer/installer_left_panel.png</leftImage>
-    <logoImage>C:\opt\git\collect-earth\Installer\installer_logo.png</logoImage>
-    <splashImage>C:\opt\git\collect-earth\Installer/installer_splash.png</splashImage>
+    <leftImage>C:/opt/git/collect-earth/Installer/installer_left_panel.png</leftImage>
+    <logoImage>C:/opt/git/collect-earth/Installer/installer_logo.png</logoImage>
+    <splashImage>C:/opt/git/collect-earth/Installer/installer_splash.png</splashImage>
     <componentList>
         <component>
             <name>default</name>
@@ -26,8 +26,11 @@
                             <origin>C:/opt/git/collect-earth/collect-earth/collect-earth-app/target/earth-libs</origin>
                         </distributionDirectory>
                         <distributionFile>
-                            <origin>C:\opt\git\collect-earth\collect-earth\collect-earth-app\autoupdate\update.ini</origin>
+                            <origin>C:/opt/git/collect-earth/collect-earth/collect-earth-app/autoupdate/update.ini</origin>
                         </distributionFile>
+                        <distributionDirectory>
+                            <origin>C:/opt/git/collect-earth/collect-earth/collect-earth-app/resources</origin>
+                        </distributionDirectory>
                     </distributionFileList>
                 </folder>
             </folderList>
