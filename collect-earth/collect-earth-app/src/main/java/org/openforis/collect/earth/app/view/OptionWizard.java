@@ -94,7 +94,7 @@ public class OptionWizard extends JDialog {
 		this.projectsService = projectsService;
 		this.backupFolder = backupFolder;
 		this.saikuService = saikuService;
-		this.setLocationRelativeTo(frame);
+		this.setLocationRelativeTo(null);
 		this.setSize(new Dimension(600, 620));
 		this.setModal(true);
 		this.setResizable(false);

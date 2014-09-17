@@ -70,44 +70,12 @@ public class JFileChooserExistsAware extends JFileChooser {
 		fc.setMultiSelectionEnabled( multipleSelect );
 
 		File[] selectedFiles = null;
-		fc.addChoosableFileFilter(new FileFilter() {
-
-			@Override
-			public boolean accept(File f) {
-				
-				String[] extensions = dataFormat.getPossibleFileExtensions();
-				boolean acceptedFile = false;
-				boolean isFolder = f.isDirectory();
-				if( isFolder ){
-					acceptedFile = true;
-				}else{
-					
-					for (String fileExtension : extensions) {
-						if( f.getName().toLowerCase().endsWith("." + fileExtension ) ){ //$NON-NLS-1$
-							acceptedFile = true;
-							break;
-						}
-					}
-				}
-				
-				return acceptedFile;
-			}
-
-			@Override
-			public String getDescription() {
-				String description = ""; //$NON-NLS-1$
-				if( dataFormat.equals( DataFormat.CSV ) ){
-					description = Messages.getString("CollectEarthWindow.38"); //$NON-NLS-1$
-				}else if( dataFormat.equals( DataFormat.ZIP_WITH_XML ) || dataFormat.equals( DataFormat.PROJECT_DEFINITION_FILE )){
-					description = Messages.getString("CollectEarthWindow.48"); //$NON-NLS-1$
-				}else if( dataFormat.equals( DataFormat.FUSION ) ){
-					description = Messages.getString("CollectEarthWindow.49"); //$NON-NLS-1$
-				}
-				return description;
-			}
-		});
+		FileFilter addedFilter = getFileFilter(dataFormat);
+		fc.addChoosableFileFilter(addedFilter);
 
 		fc.setAcceptAllFileFilterUsed(true);
+		// Set the added file filter as the default chose filter
+		fc.setFileFilter(addedFilter);
 
 		// Handle open button action.
 		int returnVal ;
@@ -147,6 +115,45 @@ public class JFileChooserExistsAware extends JFileChooser {
 
 		}
 		return selectedFiles;
+	}
+
+	private static FileFilter getFileFilter(final DataFormat dataFormat) {
+		return new FileFilter() {
+
+			@Override
+			public boolean accept(File f) {
+				
+				String[] extensions = dataFormat.getPossibleFileExtensions();
+				boolean acceptedFile = false;
+				boolean isFolder = f.isDirectory();
+				if( isFolder ){
+					acceptedFile = true;
+				}else{
+					
+					for (String fileExtension : extensions) {
+						if( f.getName().toLowerCase().endsWith("." + fileExtension ) ){ //$NON-NLS-1$
+							acceptedFile = true;
+							break;
+						}
+					}
+				}
+				
+				return acceptedFile;
+			}
+
+			@Override
+			public String getDescription() {
+				String description = ""; //$NON-NLS-1$
+				if( dataFormat.equals( DataFormat.CSV ) ){
+					description = Messages.getString("CollectEarthWindow.38"); //$NON-NLS-1$
+				}else if( dataFormat.equals( DataFormat.ZIP_WITH_XML ) || dataFormat.equals( DataFormat.PROJECT_DEFINITION_FILE )){
+					description = Messages.getString("CollectEarthWindow.48"); //$NON-NLS-1$
+				}else if( dataFormat.equals( DataFormat.FUSION ) ){
+					description = Messages.getString("CollectEarthWindow.49"); //$NON-NLS-1$
+				}
+				return description;
+			}
+		};
 	}
 
 }
