@@ -60,21 +60,6 @@
                 <distributionFile>
                     <origin>../collect-earth/collect-earth-app/autoupdate/update.ini</origin>
                 </distributionFile>
-                <distributionFile>
-                    <origin>empty_files/collectEarthDatabase.db</origin>
-                </distributionFile>
-                <distributionFile>
-                    <origin>empty_files/collectEarthDatabase.dbSaiku</origin>
-                </distributionFile>
-                <distributionFile>
-                    <origin>empty_files/earth.properties</origin>
-                </distributionFile>
-                <distributionFile>
-                    <origin>empty_files/earth_error.log</origin>
-                </distributionFile>
-                <distributionDirectory>
-                    <origin>empty_files/generated</origin>
-                </distributionDirectory>
             </distributionFileList>
             <shortcutList>
                 <shortcut>
@@ -128,7 +113,7 @@
             <platforms>osx</platforms>
             <distributionFileList>
                 <distributionFile>
-                    <origin>launcher_mac_icon.icns</origin>
+                    <origin>launcher_icon.icns</origin>
                 </distributionFile>
                 <distributionDirectory>
                     <origin>../collect-earth/collect-earth-app/autoupdate/autoupdate.app</origin>
@@ -158,16 +143,18 @@
             <width>40</width>
         </directoryParameter>
     </parameterList>
+    
     <postBuildActionList>
-        <!-- Change installer icon on OS X, during build time -->
+       <!-- Change installer icon on OS X, during build time --> 
         <copyFile>
             <destination>${installbuilder_output_filename}/Contents/Resources/installbuilder.icns</destination>
-            <origin>${installdir}/installer_mac_icon.icns</origin>
+            <origin>${installdir}/installer_icon.icns</origin>
             <ruleList>
                 <compareText logic="equals" text="${platform_name}" value="osx"/>
             </ruleList>
         </copyFile>
     </postBuildActionList>
+    
     <postInstallationActionList>
         <substitute>
             <files>${installdir}/earth.properties_initial</files>
@@ -237,11 +224,12 @@
         <copyFile>
             <abortOnError>0</abortOnError>
             <destination>${installdir}/${java_launcher_binary_name}/Contents/Resources/installbuilder.icns</destination>
-            <origin>${installdir}/launcher_mac_icon.icns</origin>
+            <origin>${installdir}/launcher_icon.icns</origin>
             <ruleList>
                 <compareText logic="equals" text="${platform_name}" value="osx"/>
             </ruleList>
         </copyFile>
+        
         <createSymLink>
             <linkName>~/Desktop/Collect Earth.app</linkName>
             <target>${installdir}/${java_launcher_binary_name}</target>
