@@ -67,6 +67,7 @@ public abstract class PolygonKmlGenerator extends KmlGenerator {
 		// Read CSV file so that we can store the information in a Map that can
 		// be used by freemarker to do the "goal-replacement"
 		String[] csvRow;
+		String[] headerRow =null;
 
 		CSVReader reader = null;
 		List<SimplePlacemarkObject> placemarks = new ArrayList<SimplePlacemarkObject>();
@@ -75,8 +76,10 @@ public abstract class PolygonKmlGenerator extends KmlGenerator {
 			
 			while ((csvRow = reader.readNext()) != null) {
 				try {
-
-					final PlotProperties plotProperties = getPlotProperties(csvRow);
+					if( headerRow == null ){
+						headerRow = csvRow;
+					}
+					final PlotProperties plotProperties = getPlotProperties(csvRow, headerRow);
 
 					final Point transformedPoint = transformToWGS84(plotProperties.xCoord, plotProperties.yCoord); // TOP-LEFT
 

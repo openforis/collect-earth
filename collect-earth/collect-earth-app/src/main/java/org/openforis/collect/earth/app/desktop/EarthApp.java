@@ -49,6 +49,7 @@ public class EarthApp {
 	private static Logger logger ;
 	private static ServerController serverController;
 	private static final String KMZ_FILE_PATH = EarthConstants.GENERATED_FOLDER + File.separator + "gePlugin.kmz";
+	private CollectEarthWindow mainEarthWindow;
 
 	public static KmlGenerator getKmlGenerator(LocalPropertiesService localProperties) {
 		KmlGenerator generateKml;
@@ -431,7 +432,8 @@ public class EarthApp {
 			@Override
 			public void run() {
 				try {
-					final CollectEarthWindow mainEarthWindow = new CollectEarthWindow(serverController);
+					mainEarthWindow = new CollectEarthWindow();
+					mainEarthWindow.setServerController(serverController);
 					mainEarthWindow.openWindow();
 				} catch (final Exception e) {
 					logger.error("Cannot start Earth App", e);
@@ -454,6 +456,7 @@ public class EarthApp {
 						if( arg.equals( ServerController.SERVER_STARTED_EVENT ) ){
 							generatePlacemarksKmzFile();
 							simulateClickKmz();
+							mainEarthWindow.setServerController(serverController);
 						}
 					} catch (IOException e) {
 						logger.error("Error generating KMZ file", e);

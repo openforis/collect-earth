@@ -15,11 +15,14 @@ import javax.servlet.http.HttpServletResponse;
 
 import org.apache.commons.io.FileUtils;
 import org.openforis.collect.earth.app.EarthConstants;
+import org.openforis.collect.earth.app.service.BrowserNotFoundException;
 import org.openforis.collect.earth.app.service.BrowserService;
 import org.openforis.collect.earth.app.service.LocalPropertiesService;
 import org.openforis.collect.earth.app.service.PreloadedFilesService;
 import org.openforis.collect.earth.sampler.processor.KmlGenerator;
 import org.openqa.selenium.remote.RemoteWebDriver;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -51,6 +54,8 @@ public class BalloonServlet extends DataAccessingServlet {
 	private static RemoteWebDriver webKitDriver = null;
 	
 	private static final String BALLOON_EXTERNAL_URL = "balloon";
+	
+	private Logger logger = LoggerFactory.getLogger(BalloonServlet.class);
 
 	private String buildGetParameters(Map<String, String[]> parameterMap) {
 		final StringBuilder getParameters = new StringBuilder();
@@ -71,7 +76,11 @@ public class BalloonServlet extends DataAccessingServlet {
 
 			@Override
 			public void run() {
-				webKitDriver = browserService.navigateTo(fUrl, webKitDriver);
+				try {
+					webKitDriver = browserService.navigateTo(fUrl, webKitDriver);
+				} catch (BrowserNotFoundException e) {
+					logger.error("No browser found", e);
+				}
 			};
 		};
 		openBrowser.start();

@@ -55,6 +55,8 @@ final class SaikuStarter {
 				}catch ( SaikuExecutionException e1) {
 					JOptionPane.showMessageDialog(  frame , "<html>" + Messages.getString("CollectEarthWindow.29") + "<br>" +Messages.getString("CollectEarthWindow.40") + "<br/>" + e1.getMessage() + "</html>", Messages.getString("CollectEarthWindow.47"), JOptionPane.INFORMATION_MESSAGE); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$ //$NON-NLS-4$ //$NON-NLS-5$ //$NON-NLS-6$ //$NON-NLS-7$
 					logger.warn("The saiku server is not configured", e1); //$NON-NLS-1$ 
+				} catch ( RuntimeException e) {
+					logger.error("Error starting Saiku", e); //$NON-NLS-1$ 
 				} finally{
 					starting = false;
 					if( progressStartSaiku != null ){

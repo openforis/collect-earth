@@ -19,9 +19,19 @@ public class CheckForUpdatesListener implements ActionListener {
 		try {
 			String autoUpdateExecutable = getAutoUpdateExecutable();
 			
+			File autoupdateFile = new File( autoUpdateExecutable);
+			
+			if( !autoupdateFile.exists() ){
+				autoupdateFile = new File( "autoupdate/"+autoUpdateExecutable);
+			}
+			
+			if( !autoupdateFile.exists() ){
+				logger.error("No "+ autoUpdateExecutable + " found ");
+				return;
+			}
 			if( SystemUtils.IS_OS_LINUX ){
 				try {
-					final ProcessBuilder builder = new ProcessBuilder(new String[] { new File(autoUpdateExecutable).getAbsolutePath() });
+					final ProcessBuilder builder = new ProcessBuilder(new String[] { autoupdateFile.getAbsolutePath() });
 					
 					builder.redirectErrorStream(true);
 					builder.start();
@@ -30,7 +40,7 @@ public class CheckForUpdatesListener implements ActionListener {
 				}
 			}else{
 				
-				Desktop.getDesktop().open(new File( autoUpdateExecutable));
+				Desktop.getDesktop().open(autoupdateFile);
 			}
 		} catch (IOException e1) {
 			logger.error("Error when opening the Autoupdate executable", e1); //$NON-NLS-1$

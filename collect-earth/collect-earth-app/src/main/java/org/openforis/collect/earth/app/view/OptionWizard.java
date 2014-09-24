@@ -643,6 +643,7 @@ public class OptionWizard extends JDialog {
 
 	private Vector<Vector<Object>> getSamplingPoints(String csvFilePath) {
 		String[] csvRow;
+		String[] headerRow =null;
 		CSVReader reader = null;
 		final Vector<Vector<Object>> plots = new Vector<Vector<Object>>();
 		File csvFile = new File(csvFilePath);
@@ -652,13 +653,18 @@ public class OptionWizard extends JDialog {
 				reader = KmlGenerator.getCsvReader(csvFilePath);
 				try {
 					while ((csvRow = reader.readNext()) != null && plots.size() < 50) {
+						
+						if( headerRow == null ){
+							headerRow = csvRow;
+						}
+						
 						if (skip) {
 							// Skip first row, it might contain column names
 							skip = false;
 							continue;
 						}
 
-						final PlotProperties plotProperties = KmlGenerator.getPlotProperties(csvRow);
+						final PlotProperties plotProperties = KmlGenerator.getPlotProperties(csvRow, headerRow);
 						final Vector<Object> props = new Vector<Object>();
 						props.add(plotProperties.id);
 						props.add(plotProperties.xCoord);

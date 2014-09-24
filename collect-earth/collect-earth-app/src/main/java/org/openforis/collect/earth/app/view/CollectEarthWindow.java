@@ -43,11 +43,13 @@ import org.openforis.collect.earth.app.service.BackupSqlLiteService;
 import org.openforis.collect.earth.app.service.DataImportExportService;
 import org.openforis.collect.earth.app.service.EarthProjectsService;
 import org.openforis.collect.earth.app.service.EarthSurveyService;
+import org.openforis.collect.earth.app.service.FolderFinder;
 import org.openforis.collect.earth.app.service.LocalPropertiesService;
 import org.openforis.collect.earth.app.view.ExportActionListener.RecordsToExport;
 import org.openforis.collect.manager.RecordManager;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.BeansException;
 
 /**
  * @author Alfonso Sanchez-Paus Diaz
@@ -64,53 +66,63 @@ public class CollectEarthWindow {
 	}
 
 	private JFrame frame;
-	private final LocalPropertiesService localPropertiesService;
-	private final EarthProjectsService projectsService;
-	private final DataImportExportService dataExportService;
-	private final Logger logger = LoggerFactory.getLogger(CollectEarthWindow.class);
-	private final ServerController serverController;
+	private  LocalPropertiesService localPropertiesService;
+	private  EarthProjectsService projectsService;
+	private  DataImportExportService dataExportService;
+	private  Logger logger = LoggerFactory.getLogger(CollectEarthWindow.class);
+	private  ServerController serverController;
 	public static final Color ERROR_COLOR = new Color(225, 124, 124);
 	private AnalysisSaikuService saikuService;
-	private final EarthSurveyService earthSurveyService;
-	private final RecordManager recordManager;
-	private final String backupFolder;
-	private final SaikuStarter saikuStarter;
-	private final FixCoordinatesPNG fixCoordinates;
+	private  EarthSurveyService earthSurveyService;
+	private  RecordManager recordManager;
+	private  String backupFolder;
+	private  SaikuStarter saikuStarter;
+	private  FixCoordinatesPNG fixCoordinates;
 
 	private List<JMenuItem> serverMenuItems = new ArrayList<JMenuItem>();
 
-	public CollectEarthWindow(ServerController serverController) throws IOException {
+	public CollectEarthWindow() throws IOException {
 		
 		// Create and set up the window.
 		setFrame(new JFrame(Messages.getString("CollectEarthWindow.19"))); //$NON-NLS-1$
 
-		if( serverController != null ){
-			this.serverController = serverController;
-			this.localPropertiesService = serverController.getContext().getBean(LocalPropertiesService.class);
-			this.projectsService = serverController.getContext().getBean(EarthProjectsService.class);
-			this.dataExportService = serverController.getContext().getBean(DataImportExportService.class);
-			final BackupSqlLiteService backupService = serverController.getContext().getBean(BackupSqlLiteService.class);
-			this.backupFolder = backupService.getBackUpFolder().getAbsolutePath();
-			this.saikuService = serverController.getContext().getBean(AnalysisSaikuService.class);
-			this.earthSurveyService = serverController.getContext().getBean(EarthSurveyService.class);
-			this.recordManager = serverController.getContext().getBean(RecordManager.class);
-			this.saikuStarter = new SaikuStarter(saikuService, frame);
-			this.fixCoordinates = serverController.getContext().getBean(FixCoordinatesPNG.class);
-		}else{
-			this.serverController = null;
-			this.localPropertiesService = new LocalPropertiesService();
-			this.localPropertiesService.init();
-			
-			this.projectsService = new EarthProjectsService();
-			projectsService.init(localPropertiesService);
-			
-			this.dataExportService = null;
-			this.backupFolder = null;
-			this.saikuService = null;
-			this.earthSurveyService = null;
-			this.recordManager = null;
-			this.saikuStarter = null;
-			this.fixCoordinates =  null;
+	}
+	
+	public void setServerController(ServerController serverControllerParam){
+
+		try {
+			if( serverControllerParam != null ){
+				this.serverController = serverControllerParam;
+				this.localPropertiesService = serverControllerParam.getContext().getBean(LocalPropertiesService.class);
+				this.projectsService = serverControllerParam.getContext().getBean(EarthProjectsService.class);
+				this.dataExportService = serverControllerParam.getContext().getBean(DataImportExportService.class);
+				final BackupSqlLiteService backupService = serverControllerParam.getContext().getBean(BackupSqlLiteService.class);
+				this.backupFolder = backupService.getBackUpFolder().getAbsolutePath();
+				this.saikuService = serverControllerParam.getContext().getBean(AnalysisSaikuService.class);
+				this.earthSurveyService = serverControllerParam.getContext().getBean(EarthSurveyService.class);
+				this.recordManager = serverControllerParam.getContext().getBean(RecordManager.class);
+				this.saikuStarter = new SaikuStarter(saikuService, frame);
+				this.fixCoordinates = serverControllerParam.getContext().getBean(FixCoordinatesPNG.class);
+			}else{
+				this.serverController = null;
+				this.localPropertiesService = new LocalPropertiesService();
+				this.localPropertiesService.init();
+				
+				this.projectsService = new EarthProjectsService();
+				projectsService.init(localPropertiesService);
+				
+				this.dataExportService = null;
+				this.backupFolder = null;
+				this.saikuService = null;
+				this.earthSurveyService = null;
+				this.recordManager = null;
+				this.saikuStarter = null;
+				this.fixCoordinates =  null;
+			}
+		} catch (BeansException e) {
+			logger.error("Error while setting the ServerController", e);
+		} catch (IOException e) {
+			logger.error("Error while setting the ServerController", e);
 		}
 	}
 
@@ -356,11 +368,17 @@ public class CollectEarthWindow {
 		final JMenu menuHelp = new JMenu(Messages.getString("CollectEarthWindow.16")); //$NON-NLS-1$
 
 		menuItem = new JMenuItem(Messages.getString("CollectEarthWindow.17")); //$NON-NLS-1$
-		menuItem.addActionListener(new DisclaimerListener(frame, localPropertiesService));
+		menuItem.addActionListener(new OpenTextFileListener(frame, getDisclaimerFilePath(), Messages.getString("CollectEarthWindow.4") ));//$NON-NLS-1$
 		menuHelp.add(menuItem);
 		
 		menuItem = new JMenuItem(Messages.getString("CollectEarthWindow.50")); //$NON-NLS-1$
 		menuItem.addActionListener(new OpenUserManualListener());
+		menuHelp.add(menuItem);
+		
+		menuHelp.addSeparator();
+		
+		menuItem = new JMenuItem("Open Application Log File");
+		menuItem.addActionListener(new OpenTextFileListener(frame, getLogFilePath(), Messages.getString("CollectEarthWindow.4") ));//$NON-NLS-1$
 		menuHelp.add(menuItem);
 		
 		menuHelp.addSeparator();
@@ -374,7 +392,16 @@ public class CollectEarthWindow {
 
 		return menuBar;
 	}
+	
+	private String getDisclaimerFilePath() {
+		final String suffix_lang = localPropertiesService.getUiLanguage().getLocale().getLanguage();
+		return "resources/disclaimer_" + suffix_lang + ".txt"; //$NON-NLS-1$ //$NON-NLS-2$
+	}
 
+	private String getLogFilePath() {
+		return FolderFinder.getAppDataFolder() + "/earth_error.log"; //$NON-NLS-1$ //$NON-NLS-2$
+	}
+	
 	private String getOperator() {
 		return localPropertiesService.getOperator();
 	}

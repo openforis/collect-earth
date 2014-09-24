@@ -9,11 +9,13 @@ import java.io.InputStreamReader;
 import java.nio.charset.Charset;
 import java.text.SimpleDateFormat;
 import java.util.Date;
+import java.util.HashMap;
 import java.util.Map;
 import java.util.Vector;
 
 import org.apache.commons.io.FileUtils;
 import org.apache.commons.lang.StringEscapeUtils;
+import org.ietf.jgss.Oid;
 import org.openforis.collect.earth.sampler.model.SimplePlacemarkObject;
 import org.openforis.collect.earth.sampler.utils.FreemarkerTemplateUtils;
 import org.opengis.referencing.operation.TransformException;
@@ -30,7 +32,7 @@ public abstract class KmlGenerator extends AbstractCoordinateCalculation {
 		return reader;
 	}
 
-	public static PlotProperties getPlotProperties(String[] csvValuesInLine) {
+	public static PlotProperties getPlotProperties(String[] csvValuesInLine, String[] possibleColumnNames )  {
 		final PlotProperties plotProperties = new PlotProperties();
 		plotProperties.id = csvValuesInLine[0];
 		plotProperties.xCoord = Double.parseDouble(csvValuesInLine[2]);
@@ -38,6 +40,9 @@ public abstract class KmlGenerator extends AbstractCoordinateCalculation {
 		plotProperties.elevation = 0;
 		plotProperties.slope = 0d;
 		plotProperties.aspect = 0d;
+		
+		
+		
 		Vector<String> extraInfoVector = new Vector<String>();
 		if (csvValuesInLine.length > 3) {
 			plotProperties.elevation = Integer.parseInt(csvValuesInLine[3]);
@@ -52,6 +57,15 @@ public abstract class KmlGenerator extends AbstractCoordinateCalculation {
 		}
 		String[] extraInfoArray = new String[extraInfoVector.size()];
 		plotProperties.extraInfo = extraInfoVector.toArray(extraInfoArray);
+		
+		
+		// Adds a map ( coulmnName,cellValue) so that the valeus can also be added to the KML by column name (for the newer versions)
+		HashMap<String, String> valuesByColumn = new HashMap<String, String>();
+		for (int i = 0; i < possibleColumnNames.length; i++) {
+			valuesByColumn.put( possibleColumnNames[i], csvValuesInLine[i]);
+		}
+		plotProperties.valuesByColumn = valuesByColumn;
+		
 		return plotProperties;
 	}
 

@@ -5,7 +5,8 @@ Google Earth must be intalled in your computer, if you do not have it please dow
 
 https://www.google.com/earth/
 
-DOUMENTATION AND MANUALS
+Also, keep in mind that for the Bing Maps, Google Earth Engine and Saiku integrations you will need to have Mozilla Firefox or Google Chrome installed in your computer.
 
-More information can be found in the documents and the Documentation folder
-You can also visit : http://km.fao.org/OFwiki/index.php/Open_Foris_Collect
+OPEN FORIS WEBSITE
+
+For documentation and downloads you can visit http://www.openforis.org

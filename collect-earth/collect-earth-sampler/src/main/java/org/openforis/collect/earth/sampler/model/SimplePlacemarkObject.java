@@ -1,6 +1,7 @@
 package org.openforis.collect.earth.sampler.model;
 
 import java.util.List;
+import java.util.Map;
 
 import org.openforis.collect.earth.sampler.processor.PlotProperties;
 
@@ -38,6 +39,9 @@ public class SimplePlacemarkObject {
 	private int plotId;
 
 	private String[] extraInfo;
+	
+	private Map<String, String> valuesByColumn;
+
 
 	public SimplePlacemarkObject(Coordinate coordinate,
 			PlotProperties plotProperties) {
@@ -46,6 +50,7 @@ public class SimplePlacemarkObject {
 		this.elevation = plotProperties.elevation;
 		this.placemarkId = plotProperties.id;
 		this.extraInfo = plotProperties.extraInfo;
+		this.valuesByColumn = plotProperties.valuesByColumn;
 		this.slope = (int) Math.round(plotProperties.slope);
 
 	}
@@ -170,6 +175,14 @@ public class SimplePlacemarkObject {
 
 	public void setSlope(int slope) {
 		this.slope = slope;
+	}
+	
+	public Map<String, String> getValuesByColumn() {
+		return valuesByColumn;
+	}
+
+	public void setValuesByColumn(Map<String, String> valuesByColumn) {
+		this.valuesByColumn = valuesByColumn;
 	}
 
 }

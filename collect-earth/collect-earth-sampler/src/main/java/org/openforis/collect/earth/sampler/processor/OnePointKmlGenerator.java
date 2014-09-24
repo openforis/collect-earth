@@ -26,13 +26,17 @@ public class OnePointKmlGenerator extends KmlGenerator {
 		// Read CSV file so that we can store the information in a Map that can
 		// be used by freemarker to do the "goal-replacement"
 		CSVReader reader = null;
+		String[] headerRow =null;
 		List<SimplePlacemarkObject> placemarks = null;
 		try {
 			reader = getCsvReader(csvFile);
 			String[] csvRow;
 			placemarks = new ArrayList<SimplePlacemarkObject>();
 			while ((csvRow = reader.readNext()) != null) {
-				final PlotProperties plotProperties = getPlotProperties(csvRow);
+				if( headerRow == null ){
+					headerRow = csvRow;
+				}
+				final PlotProperties plotProperties = getPlotProperties(csvRow, headerRow);
 
 				try {
 					final Point transformedPoint = transformToWGS84(plotProperties.xCoord, plotProperties.yCoord);

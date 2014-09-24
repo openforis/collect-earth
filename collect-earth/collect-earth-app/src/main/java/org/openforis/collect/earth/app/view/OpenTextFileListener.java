@@ -15,20 +15,20 @@ import javax.swing.JScrollPane;
 import javax.swing.JTextArea;
 
 import org.apache.commons.io.FileUtils;
-import org.openforis.collect.earth.app.service.LocalPropertiesService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-public class DisclaimerListener implements ActionListener {
+public class OpenTextFileListener implements ActionListener {
 
 	JDialog dialog;
-	private final LocalPropertiesService localPropertiesService;
-	private final Logger logger = LoggerFactory.getLogger(DisclaimerListener.class);
+	private final Logger logger = LoggerFactory.getLogger(OpenTextFileListener.class);
 	JTextArea disclaimerTextArea;
+	private String filePath;
 
-	public DisclaimerListener(Frame owner, LocalPropertiesService localPropertiesService) {
-		this.localPropertiesService = localPropertiesService;
-		dialog = new JDialog(owner, Messages.getString("CollectEarthWindow.4")); //$NON-NLS-1$
+	public OpenTextFileListener(Frame owner, String filePath, String title) {
+		
+		this.filePath = filePath;
+		dialog = new JDialog(owner, title);
 		dialog.setLocationRelativeTo(owner);
 		dialog.setSize(new Dimension(300, 400));
 		dialog.setModal(true);
@@ -64,14 +64,10 @@ public class DisclaimerListener implements ActionListener {
 		dialog.setVisible(true);
 	}
 
-	private String getDisclaimerFilePath(String suffix_lang) {
-		return "resources/disclaimer_" + suffix_lang + ".txt"; //$NON-NLS-1$ //$NON-NLS-2$
-	}
-
 	private String getDisclaimerText() {
 		try {
-			final String suffix_lang = localPropertiesService.getUiLanguage().getLocale().getLanguage();
-			return FileUtils.readFileToString(new File(getDisclaimerFilePath(suffix_lang)));
+			
+			return FileUtils.readFileToString(new File( filePath ));
 		} catch (final IOException e) {
 			logger.error("Disclaimer text not found", e); //$NON-NLS-1$
 			return Messages.getString("CollectEarthWindow.8"); //$NON-NLS-1$

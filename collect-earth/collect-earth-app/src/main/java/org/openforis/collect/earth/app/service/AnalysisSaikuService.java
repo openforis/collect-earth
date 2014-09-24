@@ -15,6 +15,7 @@ import java.util.List;
 import java.util.Map;
 
 import javax.annotation.PostConstruct;
+import javax.annotation.PreDestroy;
 
 import org.apache.commons.dbcp.BasicDataSource;
 import org.apache.commons.lang3.StringUtils;
@@ -209,8 +210,8 @@ public class AnalysisSaikuService {
 	
 				jdbcTemplate.batchUpdate("UPDATE " + schemaName + "plot SET " + ALU_CLIMATE_ZONE_CODE +"=?," + ALU_SOIL_TYPE_CODE + "=?,"+ ALU_SUBCLASS_CODE+"=? WHERE "+PLOT_ID+"=?", sqlUpdateValues);
 			}
-		} catch (DataAccessException e) {
-			logger.error("No DEM information", e);
+		} catch (Exception e) {
+			logger.error("No PNG ALU information", e);
 		}
 	}
 
@@ -237,7 +238,7 @@ public class AnalysisSaikuService {
 					});
 
 			jdbcTemplate.batchUpdate("UPDATE " + schemaName + "plot SET " + DYNAMICS_ID +"=? WHERE "+PLOT_ID+"=?", sqlUpdateValues);
-		} catch (DataAccessException e) {
+		} catch (Exception e) {
 			logger.error("No PNG Alu information available", e);
 		}
 	}
@@ -404,6 +405,14 @@ public class AnalysisSaikuService {
 		jdbcTemplate = new JdbcTemplate(rdbDataSource);
 	}
 
+	@PreDestroy
+	public void destroy(){
+		try {
+			stopSaiku();
+		} catch (SaikuExecutionException e) {
+			logger.error("Error while trying to quite Saiku before destroying the bean", e);
+		}
+	}
 
 	private boolean isRefreshDatabase() {
 		return refreshDatabase;
@@ -442,7 +451,7 @@ public class AnalysisSaikuService {
 		return userCancelledOperation;
 	}
 
-	private void openSaiku() throws IOException {
+	private void openSaiku() throws IOException, BrowserNotFoundException {
 		saikuWebDriver = browserService.navigateTo("http://127.0.0.1:8181", saikuWebDriver);
 		browserService.waitFor("username", saikuWebDriver);
 		saikuWebDriver.findElementByName("username").sendKeys("admin");
@@ -495,6 +504,8 @@ public class AnalysisSaikuService {
 								AnalysisSaikuService.this.openSaiku();
 							} catch (final IOException e) {
 								logger.error("Error opening the Saiku interface", e);
+							} catch (BrowserNotFoundException e) {
+								logger.error("No browser has been set up", e);
 							}
 						};
 					}.start();

@@ -29,17 +29,21 @@ import javax.net.ssl.X509TrustManager;
 
 import liquibase.util.SystemUtils;
 
+import org.apache.commons.lang3.StringUtils;
 import org.openforis.collect.earth.app.EarthConstants;
 import org.openforis.collect.earth.app.desktop.ServerController;
 import org.openforis.collect.earth.app.service.LocalPropertiesService.EarthProperty;
+import org.openqa.selenium.By;
 import org.openqa.selenium.JavascriptExecutor;
 import org.openqa.selenium.WebDriverException;
 import org.openqa.selenium.WebElement;
+import org.openqa.selenium.browserlaunchers.locators.CombinedFirefoxLocator;
 import org.openqa.selenium.chrome.ChromeDriver;
 import org.openqa.selenium.firefox.FirefoxBinary;
 import org.openqa.selenium.firefox.FirefoxDriver;
 import org.openqa.selenium.firefox.FirefoxProfile;
 import org.openqa.selenium.remote.DesiredCapabilities;
+import org.openqa.selenium.remote.RemoteStatus;
 import org.openqa.selenium.remote.RemoteWebDriver;
 import org.openqa.selenium.remote.UnreachableBrowserException;
 import org.slf4j.Logger;
@@ -127,18 +131,45 @@ public class BrowserService implements Observer{
 		);
 	}
 
-	private RemoteWebDriver chooseDriver() {
+	private RemoteWebDriver chooseDriver() throws BrowserNotFoundException{
 		RemoteWebDriver driver = null;
-		final String chosenBrowser = localPropertiesService.getValue(EarthProperty.BROWSER_TO_USE);
+		final String browserSetInProperties = localPropertiesService.getValue(EarthProperty.BROWSER_TO_USE);
+		final String browserThatExists = checkIfBrowserIsInstalled(browserSetInProperties);
 
-		if (chosenBrowser != null && chosenBrowser.trim().toLowerCase().equals(EarthConstants.CHROME_BROWSER)) {
-			driver = startChromeBrowser(driver);
-		} else {
-			driver = startFirefoxBrowser(driver);
+		try {
+			if (browserThatExists != null && browserThatExists.trim().toLowerCase().equals(EarthConstants.CHROME_BROWSER.toLowerCase())) {
+					driver = startChromeBrowser(driver);
+			} else {
+				driver = startFirefoxBrowser(driver);
+			}
+		} catch (final WebDriverException e) {
+			logger.warn("The chrome executable chrome.exe cannot be found, please edit earth.properties and add the chrome.exe location in "
+					+ EarthProperty.CHROME_BINARY_PATH + " pointing to the full path to chrome.exe", e);
+			// The user chose Chrome, but Chrome could not be found
+			if( browserSetInProperties.equals(browserThatExists ) ){
+				throw new BrowserNotFoundException("Chrome could not be found");
+			}else{ // THe user chose Firefox, it was not found then it tried Chrome and it was not found either, no browser has been installed 
+				throw new BrowserNotFoundException("Neither Chrome nor Firefox is installed. You need to have one of them installed in order to use GEE, Bing Maps or Saiku.", e);
+			}
+			
 		}
 
 		return driver;
+	}
 
+	private String checkIfBrowserIsInstalled(String chosenBrowser) {
+		if( chosenBrowser.equals( EarthConstants.FIREFOX_BROWSER ) ){
+			if( StringUtils.isBlank( localPropertiesService.getValue(EarthProperty.FIREFOX_BINARY_PATH) ) ){
+				CombinedFirefoxLocator firefoxLocator = new CombinedFirefoxLocator();
+				try {
+					firefoxLocator.findBrowserLocationOrFail();
+				} catch (Exception e) {
+					logger.warn("Could not find firefox browser, switching to Chrome ", e);
+					chosenBrowser = EarthConstants.CHROME_BROWSER;
+				}
+			}			
+		}
+		return chosenBrowser;
 	}
 
 	private String getCompleteGeeJS() throws IOException {
@@ -225,14 +256,10 @@ public class BrowserService implements Observer{
 
 	}
 
-	private RemoteWebDriver initBrowser() {
+	private RemoteWebDriver initBrowser() throws BrowserNotFoundException  {
 		RemoteWebDriver driver = null;
-		try {
-			driver = chooseDriver();
-			drivers.add(driver);
-		} catch (final Exception e) {
-			logger.error("Problems starting chosen browser", e);
-		}
+		driver = chooseDriver();
+		drivers.add(driver);
 		return driver;
 	}
 
@@ -283,7 +310,7 @@ public class BrowserService implements Observer{
 		return found;
 	}
 
-	private RemoteWebDriver loadLayers(String[] latLong, RemoteWebDriver driver) throws InterruptedException {
+	private RemoteWebDriver loadLayers(String[] latLong, RemoteWebDriver driver) throws InterruptedException, BrowserNotFoundException {
 
 		if (driver != null) {
 			if (!isIdOrNamePresent("workspace-el", driver)) {
@@ -342,7 +369,7 @@ public class BrowserService implements Observer{
 		}
 	}
 	
-	public synchronized RemoteWebDriver navigateTo(String url, RemoteWebDriver driver ) {
+	public synchronized RemoteWebDriver navigateTo(String url, RemoteWebDriver driver ) throws BrowserNotFoundException {
 		return navigateTo(url, driver, true);
 	}
 
@@ -351,12 +378,15 @@ public class BrowserService implements Observer{
 	 * @param url The URL to load.
 	 * @param driver The browser window to use. If this value is null a new browser window is open.
 	 * @return THe browser window (firefox or chrome depending on the configuration) used to open the URL.
+	 * @throws BrowserNotFoundException 
 	 */
-	public synchronized RemoteWebDriver navigateTo(String url, RemoteWebDriver driver, boolean retry ) {
+	public synchronized RemoteWebDriver navigateTo(String url, RemoteWebDriver driver, boolean retry ) throws BrowserNotFoundException {
 
-		if (driver == null) {
+		if (driver == null || !isDriverWorking(driver) ) {
 			driver = initBrowser();
 		}
+		
+		
 		if (driver != null) {
 			try {
 				driver.navigate().to(url);
@@ -372,12 +402,23 @@ public class BrowserService implements Observer{
 		return driver;
 	}
 
+	private boolean isDriverWorking(RemoteWebDriver driver) {
+		boolean stillWorking = true;
+		try {
+			driver.findElement(By.xpath("//body"));
+		} catch (Exception e) {
+			stillWorking = false;
+		}
+		return stillWorking;
+	}
+
 	/**
 	 * Opens a browser window with the Bing Maps representation of th eplot.
 	 * @param coordinates The center point of the plot.
+	 * @throws BrowserNotFoundException 
 	 * 
 	 */
-	public synchronized void openBingMaps(String coordinates) {
+	public synchronized void openBingMaps(String coordinates) throws BrowserNotFoundException {
 
 		if (localPropertiesService.isBingMapsSupported()) {
 
@@ -407,9 +448,10 @@ public class BrowserService implements Observer{
 	/**
 	 * Opens a browser window with the Google Earth Engine representation of the plot. The Landsat 8 Annual Greenest pixel TOA for 2013 is loaded automatically. 
 	 * @param coordinates The center point of the plot.
+	 * @throws BrowserNotFoundException 
 	 * 
 	 */
-	public synchronized void openEarthEngine(String coordinates) {
+	public synchronized void openEarthEngine(String coordinates) throws BrowserNotFoundException {
 
 		logger.warn("Starting to open EE - supported : " + localPropertiesService.isEarthEngineSupported()   );
 		if (localPropertiesService.isEarthEngineSupported()) {
@@ -439,9 +481,10 @@ public class BrowserService implements Observer{
 	/**
 	 * Opens a browser window with the Google Earth Engine Timelapse representation of the plot. 
 	 * @param coordinates The center point of the plot.
+	 * @throws BrowserNotFoundException 
 	 * 
 	 */
-	public synchronized void openTimelapse(final String coordinates) {
+	public synchronized void openTimelapse(final String coordinates) throws BrowserNotFoundException {
 
 		if (localPropertiesService.isTimelapseSupported()) {
 
@@ -526,12 +569,7 @@ public class BrowserService implements Observer{
 						+ EarthProperty.CHROME_BINARY_PATH + " pointing to the full path to chrome.exe", e);
 			}
 		} else {
-			try {
-				driver = new ChromeDriver();
-			} catch (final WebDriverException e) {
-				logger.error("The chrome executable chrome.exe cannot be found, please edit earth.properties and add the chrome.exe location in "
-						+ EarthProperty.CHROME_BINARY_PATH + " pointing to the full path to chrome.exe", e);
-			}
+			driver = new ChromeDriver();			
 		}
 		return driver;
 	}
