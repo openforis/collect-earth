@@ -127,6 +127,13 @@
             <progressText>Creating Launcher</progressText>
             <value>CollectEarth.jar</value>
         </setInstallerVariable>
+        <setInstallerVariable>
+            <name>java_launcher_vm_parameters</name>
+            <progressText>Creating Launcher</progressText>
+            <value> -Xdock:name="Collect Earth" -Xdock:icon=launcher_icon.icns</value>
+        </setInstallerVariable>
+         -Xdock:name="WikiTeX" \
+     -Xdock:icon=wikitex-icon.jpg
     </initializationActionList>
     <parameterList>
         <directoryParameter>
@@ -143,18 +150,16 @@
             <width>40</width>
         </directoryParameter>
     </parameterList>
-    
     <postBuildActionList>
-       <!-- Change installer icon on OS X, during build time --> 
+        <!-- Change installer icon on OS X, during build time -->
         <copyFile>
             <destination>${installbuilder_output_filename}/Contents/Resources/installbuilder.icns</destination>
-            <origin>${installdir}/installer_icon.icns</origin>
+            <origin>C:\opt\git\collect-earth\Installer\installer_icon.icns</origin>
             <ruleList>
                 <compareText logic="equals" text="${platform_name}" value="osx"/>
             </ruleList>
         </copyFile>
     </postBuildActionList>
-    
     <postInstallationActionList>
         <substitute>
             <files>${installdir}/earth.properties_initial</files>
@@ -200,7 +205,8 @@
             <files>${installdir}/${java_launcher_binary_name};${installdir}/*.log;${installdir}/*.properties;${installdir}/generated;${installdir}/*.db;${installdir}/*.dbSaiku</files>
             <permissions>0777</permissions>
         </changePermissions>
-		<!--
+
+        <!--
         <runProgram>
             <program>chown</program>
             <programArguments>-fR ${system_username}  "${installdir}/${java_launcher_binary_name}" "${installdir}/earth_error.log" "${installdir}/earth.properties" "${installdir}/generated" "${installdir}/collectEarthDatabase.db" "${installdir}/collectEarthDatabase.dbSaiku"</programArguments>
@@ -229,7 +235,6 @@
                 <compareText logic="equals" text="${platform_name}" value="osx"/>
             </ruleList>
         </copyFile>
-        
         <createSymLink>
             <linkName>~/Desktop/Collect Earth.app</linkName>
             <target>${installdir}/${java_launcher_binary_name}</target>
