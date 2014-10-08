@@ -2,7 +2,6 @@ package org.openforis.collect.earth.app.view;
 
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
-import java.io.IOException;
 import java.util.HashMap;
 import java.util.Set;
 
@@ -95,11 +94,10 @@ public abstract class ApplyOptionChangesListener implements ActionListener {
 		localPropertiesService.nullifyChecksumValues();
 
 		try {
-			final EarthApp earthApp = new EarthApp(localPropertiesService);
 			// Re-generate KMZ
 			new Thread(){
 				public void run() {
-					earthApp.restart();
+					EarthApp.restart();
 				};
 			}.start();
 			
@@ -108,7 +106,7 @@ public abstract class ApplyOptionChangesListener implements ActionListener {
 					Messages.getString("OptionWizard.21"), JOptionPane.INFORMATION_MESSAGE); //$NON-NLS-1$
 			callingDialog.dispose();
 
-		} catch (final IOException e) {
+		} catch (final Exception e) {
 			logger.error("Error when re-generating the KML code to open in GE ", e); //$NON-NLS-1$
 			JOptionPane.showMessageDialog(callingDialog, e.getMessage(), Messages.getString("OptionWizard.23"), //$NON-NLS-1$
 					JOptionPane.WARNING_MESSAGE);

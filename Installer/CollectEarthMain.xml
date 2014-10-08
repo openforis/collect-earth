@@ -127,13 +127,6 @@
             <progressText>Creating Launcher</progressText>
             <value>CollectEarth.jar</value>
         </setInstallerVariable>
-        <setInstallerVariable>
-            <name>java_launcher_vm_parameters</name>
-            <progressText>Creating Launcher</progressText>
-            <value> -Xdock:name="Collect Earth" -Xdock:icon=launcher_icon.icns</value>
-        </setInstallerVariable>
-         -Xdock:name="WikiTeX" \
-     -Xdock:icon=wikitex-icon.jpg
     </initializationActionList>
     <parameterList>
         <directoryParameter>

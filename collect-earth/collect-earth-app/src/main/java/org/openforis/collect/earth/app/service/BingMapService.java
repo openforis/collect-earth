@@ -2,6 +2,8 @@ package org.openforis.collect.earth.app.service;
 
 import java.io.File;
 import java.io.IOException;
+import java.net.MalformedURLException;
+import java.net.URL;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -59,7 +61,7 @@ public class BingMapService {
 		final Float distanceBetweenSamplingPoints = Float.parseFloat( localPropertiesService.getValue(EarthProperty.DISTANCE_BETWEEN_SAMPLE_POINTS));
 		final Float distancePlotBoundary = Float.parseFloat(localPropertiesService.getValue(EarthProperty.DISTANCE_TO_PLOT_BOUNDARIES));
 
-		KmlGenerator kmlGenerator = EarthApp.getKmlGenerator(localPropertiesService);
+		KmlGenerator kmlGenerator = EarthApp.getKmlGenerator();
 		
 		final double[] centerLatLongD = new double[] { Double.parseDouble(centerLatLong[0]), Double.parseDouble(centerLatLong[1])};
 		
@@ -80,7 +82,7 @@ public class BingMapService {
 	 * @param centerCoordinates The coordinates of the center of the plot.
 	 * @return The URL to the temporary file that can be used to load it in a browser.
 	 */
-	public String getTemporaryUrl(String[] centerCoordinates) {
+	public URL getTemporaryUrl(String[] centerCoordinates) {
 
 		final Map<String,Object> data = getPlacemarkData(centerCoordinates);
 		File transformedHtml = null;
@@ -90,8 +92,14 @@ public class BingMapService {
 			logger.error("Exception when applying template for Bing map", e);
 		}
 		if (transformedHtml != null) {
-			return transformedHtml.getAbsolutePath();
+			try {
+				return transformedHtml.toURI().toURL();
+			} catch (MalformedURLException e) {
+				logger.error("Error generating URL for File " + transformedHtml.getAbsolutePath());
+				return null;
+			}
 		} else {
+			logger.error("No Bing map HTML generated.");
 			return null;
 		}
 

@@ -14,7 +14,10 @@ import java.io.File;
 import java.io.IOException;
 import java.net.InetAddress;
 import java.net.UnknownHostException;
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Vector;
 
 import javax.swing.AbstractAction;
@@ -218,7 +221,7 @@ public class OptionWizard extends JDialog {
 
 		};
 	}
-
+/*
 	private JPanel getClientPanel() {
 		final JPanel panel = new JPanel(new GridBagLayout());
 		final GridBagConstraints constraints = new GridBagConstraints();
@@ -247,7 +250,7 @@ public class OptionWizard extends JDialog {
 		panel.add(propertyToComponent.get(EarthProperty.HOST_PORT_KEY)[1], constraints);
 
 		return panel;
-	}
+	}*/
 
 	private Vector<String> getColumnNames() {
 		final Vector<String> columns = new Vector<String>();
@@ -282,8 +285,8 @@ public class OptionWizard extends JDialog {
 		final Border border = new TitledBorder(new BevelBorder(BevelBorder.LOWERED), Messages.getString("OptionWizard.2")); //$NON-NLS-1$
 		typeOfUsePanel.setBorder(border);
 
-		final ButtonGroup typeChooser = new ButtonGroup();
-		final JComponent[] operationModes = propertyToComponent.get(EarthProperty.OPERATION_MODE);
+//		final ButtonGroup typeChooser = new ButtonGroup();
+//		final JComponent[] operationModes = propertyToComponent.get(EarthProperty.OPERATION_MODE);
 		//clientPanel = getClientPanel();
 		serverPanel = getServerPanel();
 
@@ -404,8 +407,10 @@ public class OptionWizard extends JDialog {
 		constraints.gridy = 1;
 		panel.add(typeOfDbPanel, constraints);
 
-		String[] projectNames = projectsService.getProjectList().keySet().toArray(new String[]{});
-		final JList<String> listOfProjects = new JList<String>(projectNames); //data has type Object[]
+		List<String> listOfProjectsByName = new ArrayList<String>();
+		listOfProjectsByName.addAll(projectsService.getProjectList().keySet());
+		Collections.sort(listOfProjectsByName);
+		final JList<String> listOfProjects = new JList<String>( listOfProjectsByName.toArray(new String[0]) ); //data has type Object[]
 		listOfProjects.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
 		listOfProjects.setLayoutOrientation(JList.VERTICAL);
 		listOfProjects.setVisibleRowCount(-1);
@@ -863,7 +868,7 @@ public class OptionWizard extends JDialog {
 		csvWithPlotData.addFileTypeFilter(".csv,.ced", Messages.getString("OptionWizard.52"), true); //$NON-NLS-1$ //$NON-NLS-2$
 		propertyToComponent.put(EarthProperty.CSV_KEY, new JComponent[] { csvWithPlotData });
 
-		final JComboBox comboNumberOfPoints = new JComboBox(
+		final JComboBox<ComboBoxItem> comboNumberOfPoints = new JComboBox<ComboBoxItem>(
 				new ComboBoxItem[] {
 						new ComboBoxItem(0, Messages.getString("OptionWizard.53")), new ComboBoxItem(1, Messages.getString("OptionWizard.54")), new ComboBoxItem(4, "2x2"), //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$
 						new ComboBoxItem(9, "3x3"), new ComboBoxItem(16, "4x4"), new ComboBoxItem(25, "5x5"), new ComboBoxItem(36, "6x6"), //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$ //$NON-NLS-4$
@@ -879,14 +884,14 @@ public class OptionWizard extends JDialog {
 		}
 
 		// JTextField listOfDistanceBetweenPoints = new JTextField( localPropertiesService.getValue( EarthProperty.DISTANCE_BETWEEN_SAMPLE_POINTS) );
-		final JComboBox listOfDistanceBetweenPoints = new JComboBox(listOfNumbers);
+		final JComboBox<String> listOfDistanceBetweenPoints = new JComboBox<String>(listOfNumbers);
 		listOfDistanceBetweenPoints.setSelectedItem(localPropertiesService.getValue(EarthProperty.DISTANCE_BETWEEN_SAMPLE_POINTS));
 		listOfDistanceBetweenPoints.setAutoscrolls(true);
 
 		propertyToComponent.put(EarthProperty.DISTANCE_BETWEEN_SAMPLE_POINTS, new JComponent[] { listOfDistanceBetweenPoints });
 
 		// JTextField listOfDistanceToBorder = new JTextField(localPropertiesService.getValue( EarthProperty.DISTANCE_TO_PLOT_BOUNDARIES) );
-		final JComboBox listOfDistanceToBorder = new JComboBox(listOfNumbers);
+		final JComboBox<String> listOfDistanceToBorder = new JComboBox<String>(listOfNumbers);
 		listOfDistanceToBorder.setSelectedItem(localPropertiesService.getValue(EarthProperty.DISTANCE_TO_PLOT_BOUNDARIES));
 		listOfDistanceToBorder.setAutoscrolls(true);
 

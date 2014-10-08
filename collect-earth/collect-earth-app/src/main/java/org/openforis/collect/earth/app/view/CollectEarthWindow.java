@@ -29,14 +29,12 @@ import javax.swing.JPanel;
 import javax.swing.JRadioButtonMenuItem;
 import javax.swing.JTextField;
 import javax.swing.SwingConstants;
-import javax.swing.SwingUtilities;
 import javax.swing.WindowConstants;
 import javax.swing.border.Border;
 
 import org.apache.commons.lang3.StringUtils;
 import org.openforis.collect.earth.app.EarthConstants.OperationMode;
 import org.openforis.collect.earth.app.EarthConstants.UI_LANGUAGE;
-import org.openforis.collect.earth.app.ad_hoc.FixCoordinatesPNG;
 import org.openforis.collect.earth.app.desktop.ServerController;
 import org.openforis.collect.earth.app.service.AnalysisSaikuService;
 import org.openforis.collect.earth.app.service.BackupSqlLiteService;
@@ -66,64 +64,19 @@ public class CollectEarthWindow {
 	}
 
 	private JFrame frame;
-	private  LocalPropertiesService localPropertiesService;
-	private  EarthProjectsService projectsService;
-	private  DataImportExportService dataExportService;
-	private  Logger logger = LoggerFactory.getLogger(CollectEarthWindow.class);
-	private  ServerController serverController;
+	private final Logger logger = LoggerFactory.getLogger(CollectEarthWindow.class);
+	private ServerController serverController;
 	public static final Color ERROR_COLOR = new Color(225, 124, 124);
-	private AnalysisSaikuService saikuService;
-	private  EarthSurveyService earthSurveyService;
-	private  RecordManager recordManager;
-	private  String backupFolder;
-	private  SaikuStarter saikuStarter;
-	private  FixCoordinatesPNG fixCoordinates;
+	private RecordManager recordManager;
+	private String backupFolder;
 
-	private List<JMenuItem> serverMenuItems = new ArrayList<JMenuItem>();
+	private final List<JMenuItem> serverMenuItems = new ArrayList<JMenuItem>();
 
 	public CollectEarthWindow() throws IOException {
-		
+
 		// Create and set up the window.
 		setFrame(new JFrame(Messages.getString("CollectEarthWindow.19"))); //$NON-NLS-1$
 
-	}
-	
-	public void setServerController(ServerController serverControllerParam){
-
-		try {
-			if( serverControllerParam != null ){
-				this.serverController = serverControllerParam;
-				this.localPropertiesService = serverControllerParam.getContext().getBean(LocalPropertiesService.class);
-				this.projectsService = serverControllerParam.getContext().getBean(EarthProjectsService.class);
-				this.dataExportService = serverControllerParam.getContext().getBean(DataImportExportService.class);
-				final BackupSqlLiteService backupService = serverControllerParam.getContext().getBean(BackupSqlLiteService.class);
-				this.backupFolder = backupService.getBackUpFolder().getAbsolutePath();
-				this.saikuService = serverControllerParam.getContext().getBean(AnalysisSaikuService.class);
-				this.earthSurveyService = serverControllerParam.getContext().getBean(EarthSurveyService.class);
-				this.recordManager = serverControllerParam.getContext().getBean(RecordManager.class);
-				this.saikuStarter = new SaikuStarter(saikuService, frame);
-				this.fixCoordinates = serverControllerParam.getContext().getBean(FixCoordinatesPNG.class);
-			}else{
-				this.serverController = null;
-				this.localPropertiesService = new LocalPropertiesService();
-				this.localPropertiesService.init();
-				
-				this.projectsService = new EarthProjectsService();
-				projectsService.init(localPropertiesService);
-				
-				this.dataExportService = null;
-				this.backupFolder = null;
-				this.saikuService = null;
-				this.earthSurveyService = null;
-				this.recordManager = null;
-				this.saikuStarter = null;
-				this.fixCoordinates =  null;
-			}
-		} catch (BeansException e) {
-			logger.error("Error while setting the ServerController", e);
-		} catch (IOException e) {
-			logger.error("Error while setting the ServerController", e);
-		}
 	}
 
 	private void addImportExportMenu(JMenu menu) {
@@ -134,23 +87,22 @@ public class CollectEarthWindow {
 		menuItem.addActionListener(getExportActionListener(DataFormat.CSV, RecordsToExport.ALL));
 		ieSubmenu.add(menuItem);
 
-		JMenu xmlExportSubmenu = new JMenu(Messages.getString("CollectEarthWindow.24")); //$NON-NLS-1$
-		
+		final JMenu xmlExportSubmenu = new JMenu(Messages.getString("CollectEarthWindow.24")); //$NON-NLS-1$
+
 		menuItem = new JMenuItem(Messages.getString("CollectEarthWindow.45")); //$NON-NLS-1$
 		menuItem.addActionListener(getExportActionListener(DataFormat.ZIP_WITH_XML, RecordsToExport.ALL));
 		xmlExportSubmenu.add(menuItem);
 
-		JMenuItem exportModifiedRecords = new JMenuItem(Messages.getString("CollectEarthWindow.61")); //$NON-NLS-1$
+		final JMenuItem exportModifiedRecords = new JMenuItem(Messages.getString("CollectEarthWindow.61")); //$NON-NLS-1$
 		exportModifiedRecords.addActionListener(getExportActionListener(DataFormat.ZIP_WITH_XML, RecordsToExport.MODIFIED_SINCE_LAST_EXPORT));
 		xmlExportSubmenu.add(exportModifiedRecords);
 
-		JMenuItem exportDataRangeRecords = new JMenuItem("Export data to XML (from specific date)"); //$NON-NLS-1$
+		final JMenuItem exportDataRangeRecords = new JMenuItem("Export data to XML (from specific date)"); //$NON-NLS-1$
 		exportDataRangeRecords.addActionListener(getExportActionListener(DataFormat.ZIP_WITH_XML, RecordsToExport.PICK_FROM_DATE));
 		xmlExportSubmenu.add(exportDataRangeRecords);
 
-
 		ieSubmenu.add(xmlExportSubmenu);
-		
+
 		menuItem = new JMenuItem(Messages.getString("CollectEarthWindow.6")); //$NON-NLS-1$
 		menuItem.addActionListener(getExportActionListener(DataFormat.FUSION, RecordsToExport.ALL));
 		ieSubmenu.add(menuItem);
@@ -165,7 +117,6 @@ public class CollectEarthWindow {
 		menuItem.addActionListener(getImportActionListener(DataFormat.CSV));
 		ieSubmenu.add(menuItem);
 
-		
 		menu.add(ieSubmenu);
 
 		serverMenuItems.add(ieSubmenu); // This menu should only be shown if the DB is local ( not if Collect Earth is acting as a client )
@@ -177,21 +128,20 @@ public class CollectEarthWindow {
 			@Override
 			public void windowClosing(WindowEvent e) {
 				try {
-					String keepOpen = Messages.getString("CollectEarthWindow.37"); //$NON-NLS-1$
-					String close = Messages.getString("CollectEarthWindow.42"); //$NON-NLS-1$
-					String[] options = new String[]{ close, keepOpen}; 
-					
-					final int confirmation = JOptionPane.showOptionDialog(
-								getFrame(), Messages.getString("CollectEarthWindow.22"), //$NON-NLS-1$
-								Messages.getString("CollectEarthWindow.23"),  //$NON-NLS-1$ 
-								JOptionPane.YES_NO_OPTION, JOptionPane.QUESTION_MESSAGE, null, options , keepOpen );
-					
+					final String keepOpen = Messages.getString("CollectEarthWindow.37"); //$NON-NLS-1$
+					final String close = Messages.getString("CollectEarthWindow.42"); //$NON-NLS-1$
+					final String[] options = new String[] { close, keepOpen };
+
+					final int confirmation = JOptionPane.showOptionDialog(getFrame(), Messages.getString("CollectEarthWindow.22"), //$NON-NLS-1$
+							Messages.getString("CollectEarthWindow.23"),  //$NON-NLS-1$ 
+							JOptionPane.YES_NO_OPTION, JOptionPane.QUESTION_MESSAGE, null, options, keepOpen);
+
 					if (confirmation == JOptionPane.YES_OPTION) {
 						final Thread stopServer = new Thread() {
 							@Override
 							public void run() {
 								try {
-									serverController.stopServer();
+									getServerController().stopServer();
 								} catch (final Exception e) {
 									logger.error("Error when trying to closing the server", e); //$NON-NLS-1$
 								}
@@ -213,6 +163,14 @@ public class CollectEarthWindow {
 		});
 	}
 
+	private void disableMenuItems() {
+		if (getLocalPropertiesService().getOperationMode().equals(OperationMode.CLIENT_MODE)) {
+			for (final JMenuItem menuItem : serverMenuItems) {
+				menuItem.setEnabled(false);
+			}
+		}
+	}
+
 	private void displayWindow() {
 		getFrame().setLocationRelativeTo(null);
 		getFrame().pack();
@@ -228,55 +186,38 @@ public class CollectEarthWindow {
 		};
 	}
 
+	private DataImportExportService getDataExportService() {
+		if (getServerController() != null) {
+			return getServerController().getContext().getBean(DataImportExportService.class);
+		} else {
+			return null;
+		}
+	}
+
+	private String getDisclaimerFilePath() {
+		final String suffix_lang = getLocalPropertiesService().getUiLanguage().getLocale().getLanguage();
+		return "resources/disclaimer_" + suffix_lang + ".txt"; //$NON-NLS-1$ //$NON-NLS-2$
+	}
+
+	private EarthSurveyService getEarthSurveyService() {
+		if (getServerController() != null) {
+			return getServerController().getContext().getBean(EarthSurveyService.class);
+		} else {
+			return null;
+		}
+	}
+
 	private ActionListener getExportActionListener(final DataFormat exportFormat, final RecordsToExport xmlExportType) {
-		return new ExportActionListener(exportFormat, xmlExportType, frame, localPropertiesService, dataExportService, earthSurveyService);
+		return new ExportActionListener(exportFormat, xmlExportType, frame, getLocalPropertiesService(), getDataExportService(),
+				getEarthSurveyService());
 	}
-
-
-	
-	private ActionListener getFixCoordinates() {
-		return new ActionListener() {
-
-			@Override
-			public void actionPerformed(ActionEvent e) {
-				try {
-					startWaiting(frame);
-
-					final InfiniteProgressMonitor infiniteProgressMonitor = new InfiniteProgressMonitor(frame, "Fixing missing plot_file info", //$NON-NLS-1$
-							"This process can take a few minutes, be patient."); //$NON-NLS-1$
-
-					new Thread() {
-						@Override
-						public void run() {
-							fixCoordinates.fixCoordinates();
-							infiniteProgressMonitor.close();
-						};
-					}.start();
-
-					SwingUtilities.invokeLater(new Runnable() {
-						@Override
-						public void run() {
-
-							infiniteProgressMonitor.show();
-						}
-					});
-
-				} catch (final Exception e1) {
-					logger.error("Error fixing the missing plot_file info.", e1); //$NON-NLS-1$
-				} finally {
-					endWaiting(frame);
-				}
-			}
-		};
-	}
-
 
 	private JFrame getFrame() {
 		return frame;
 	}
 
 	private ActionListener getImportActionListener(final DataFormat importFormat) {
-		return new ImportActionListener(importFormat, frame, localPropertiesService, dataExportService);
+		return new ImportActionListener(importFormat, frame, getLocalPropertiesService(), getDataExportService());
 	}
 
 	private JMenu getLanguageMenu() {
@@ -287,7 +228,7 @@ public class CollectEarthWindow {
 				try {
 					final String langName = ((JRadioButtonMenuItem) e.getSource()).getName();
 					final UI_LANGUAGE language = UI_LANGUAGE.valueOf(langName);
-					localPropertiesService.setUiLanguage(language);
+					getLocalPropertiesService().setUiLanguage(language);
 					frame.dispose();
 					openWindow();
 				} catch (final Exception ex) {
@@ -307,13 +248,25 @@ public class CollectEarthWindow {
 			langItem.addActionListener(actionLanguage);
 			menuLanguage.add(langItem);
 			group.add(menuLanguage);
-			if (localPropertiesService.getUiLanguage().equals(language)) {
+			if (getLocalPropertiesService().getUiLanguage().equals(language)) {
 				langItem.setSelected(true);
 			}
 
 		}
 
 		return menuLanguage;
+	}
+
+	private LocalPropertiesService getLocalPropertiesService() {
+		if (getServerController() != null) {
+			return getServerController().getContext().getBean(LocalPropertiesService.class);
+		} else {
+			return new LocalPropertiesService();
+		}
+	}
+
+	private String getLogFilePath() {
+		return FolderFinder.getAppDataFolder() + "/earth_error.log"; //$NON-NLS-1$ 
 	}
 
 	public JMenuBar getMenu(JFrame frame) {
@@ -341,11 +294,12 @@ public class CollectEarthWindow {
 		menuItem.addActionListener(getSaikuAnalysisActionListener());
 		toolsMenu.add(menuItem);
 
-/*		menuItem = new JMenuItem("Fix PNG coordinates"); //$NON-NLS-1$
-		menuItem.addActionListener(getFixCoordinates());
-		serverMenuItems.add(menuItem); // This menu should only be shown if the DB is local ( not if Collect Earth is acting as a client )
-		toolsMenu.add(menuItem);
-*/
+		/*
+		 * menuItem = new JMenuItem("Fix PNG coordinates"); //$NON-NLS-1$
+		 * menuItem.addActionListener(getFixCoordinates());
+		 * serverMenuItems.add(menuItem); // This menu should only be shown if the DB is local ( not if Collect Earth is acting as a client )
+		 * toolsMenu.add(menuItem);
+		 */
 
 		toolsMenu.addSeparator();
 
@@ -354,7 +308,7 @@ public class CollectEarthWindow {
 		toolsMenu.add(menuItem);
 
 		menuItem = new JMenuItem(Messages.getString("CollectEarthWindow.18")); //$NON-NLS-1$
-		menuItem.addActionListener(new MissingPlotsListener(recordManager, earthSurveyService, frame, localPropertiesService));
+		menuItem.addActionListener(new MissingPlotsListener(getRecordManager(), getEarthSurveyService(), frame, getLocalPropertiesService()));
 		serverMenuItems.add(menuItem); // This menu should only be shown if the DB is local ( not if Collect Earth is acting as a client )
 		toolsMenu.add(menuItem);
 
@@ -368,42 +322,42 @@ public class CollectEarthWindow {
 		final JMenu menuHelp = new JMenu(Messages.getString("CollectEarthWindow.16")); //$NON-NLS-1$
 
 		menuItem = new JMenuItem(Messages.getString("CollectEarthWindow.17")); //$NON-NLS-1$
-		menuItem.addActionListener(new OpenTextFileListener(frame, getDisclaimerFilePath(), Messages.getString("CollectEarthWindow.4") ));//$NON-NLS-1$
+		menuItem.addActionListener(new OpenTextFileListener(frame, getDisclaimerFilePath(), Messages.getString("CollectEarthWindow.4")));//$NON-NLS-1$
 		menuHelp.add(menuItem);
-		
+
 		menuItem = new JMenuItem(Messages.getString("CollectEarthWindow.50")); //$NON-NLS-1$
 		menuItem.addActionListener(new OpenUserManualListener());
 		menuHelp.add(menuItem);
-		
+
 		menuHelp.addSeparator();
-		
+
 		menuItem = new JMenuItem("Open Application Log File");
-		menuItem.addActionListener(new OpenTextFileListener(frame, getLogFilePath(), Messages.getString("CollectEarthWindow.4") ));//$NON-NLS-1$
+		menuItem.addActionListener(new OpenTextFileListener(frame, getLogFilePath(), Messages.getString("CollectEarthWindow.4")));//$NON-NLS-1$
 		menuHelp.add(menuItem);
-		
+
 		menuHelp.addSeparator();
-		
+
 		menuItem = new JMenuItem(Messages.getString("CollectEarthWindow.51")); //$NON-NLS-1$
 		menuItem.addActionListener(new CheckForUpdatesListener());
 		menuHelp.add(menuItem);
-		
-		
+
 		menuBar.add(menuHelp);
 
 		return menuBar;
 	}
-	
-	private String getDisclaimerFilePath() {
-		final String suffix_lang = localPropertiesService.getUiLanguage().getLocale().getLanguage();
-		return "resources/disclaimer_" + suffix_lang + ".txt"; //$NON-NLS-1$ //$NON-NLS-2$
+
+	private String getOperator() {
+		return getLocalPropertiesService().getOperator();
 	}
 
-	private String getLogFilePath() {
-		return FolderFinder.getAppDataFolder() + "/earth_error.log"; //$NON-NLS-1$ //$NON-NLS-2$
-	}
-	
-	private String getOperator() {
-		return localPropertiesService.getOperator();
+	private EarthProjectsService getProjectsService() {
+		if (getServerController() != null) {
+			return getServerController().getContext().getBean(EarthProjectsService.class);
+		} else {
+			EarthProjectsService earthProjectsService = new EarthProjectsService();
+			earthProjectsService.init(getLocalPropertiesService());
+			return earthProjectsService;
+		}
 	}
 
 	private ActionListener getPropertiesAction(final JFrame owner) {
@@ -412,7 +366,7 @@ public class CollectEarthWindow {
 
 			@Override
 			public void actionPerformed(ActionEvent e) {
-				final JDialog dialog = new OptionWizard(owner, localPropertiesService, projectsService ,backupFolder, saikuService);
+				final JDialog dialog = new OptionWizard(owner, getLocalPropertiesService(), getProjectsService(), backupFolder, getSaikuService());
 				dialog.setVisible(true);
 				dialog.pack();
 			}
@@ -420,22 +374,30 @@ public class CollectEarthWindow {
 
 	}
 
+	private RecordManager getRecordManager() {
+		if (getServerController() != null) {
+			return getServerController().getContext().getBean(RecordManager.class);
+		} else {
+			return null;
+		}
+	}
+
 	private ActionListener getSaikuAnalysisActionListener() {
-		return new SaikuAnalysisListener(frame, saikuStarter);
+		return new SaikuAnalysisListener(frame, getSaikuStarter());
+	}
+
+	private AnalysisSaikuService getSaikuService() {
+		if (getServerController() != null) {
+			return getServerController().getContext().getBean(AnalysisSaikuService.class);
+		} else {
+			return null;
+		}
 	}
 
 	private void initializeMenu() {
 		getFrame().setJMenuBar(getMenu(getFrame()));
 
 		disableMenuItems();
-	}
-
-	private void disableMenuItems() {
-		if( localPropertiesService.getOperationMode().equals( OperationMode.CLIENT_MODE ) ){
-			for (JMenuItem menuItem : serverMenuItems) {
-				menuItem.setEnabled( false );
-			}
-		}
 	}
 
 	private void initializePanel() {
@@ -491,7 +453,7 @@ public class CollectEarthWindow {
 			public void actionPerformed(ActionEvent e) {
 				final String operatorName = operatorTextField.getText().trim();
 				if (operatorName.length() > 5 && operatorName.length() < 50) {
-					localPropertiesService.saveOperator(operatorName);
+					getLocalPropertiesService().saveOperator(operatorName);
 					operatorTextField.setBackground(Color.white);
 				} else {
 					JOptionPane.showMessageDialog(getFrame(), Messages.getString("CollectEarthWindow.33"), //$NON-NLS-1$
@@ -507,9 +469,8 @@ public class CollectEarthWindow {
 	private void initializeWindow() {
 
 		// Initialize the translations
-		Messages.setLocale(localPropertiesService.getUiLanguage().getLocale());
+		Messages.setLocale(getLocalPropertiesService().getUiLanguage().getLocale());
 
-		
 		// frame.setSize(400, 300);
 		getFrame().setDefaultCloseOperation(WindowConstants.DO_NOTHING_ON_CLOSE);
 		getFrame().setResizable(false);
@@ -539,5 +500,39 @@ public class CollectEarthWindow {
 	void setFrame(JFrame frame) {
 		this.frame = frame;
 	}
+
+
+
+	public void setServerController(ServerController serverControllerParam) {
+
+		try {
+			if (serverControllerParam != null) {
+				this.serverController = serverControllerParam;
+				final BackupSqlLiteService backupService = serverControllerParam.getContext().getBean(BackupSqlLiteService.class);
+				this.backupFolder = backupService.getBackUpFolder().getAbsolutePath();
+				
+			} else {
+				this.serverController = null;
+				this.getLocalPropertiesService().init();
+				this.backupFolder = null;				
+			}
+		} catch (final BeansException e) {
+			logger.error("Error while setting the ServerController", e);
+		} catch (final IOException e) {
+			logger.error("Error while setting the ServerController", e);
+		}
+	}
+
+	private SaikuStarter getSaikuStarter() {
+		if(getServerController()!=null )
+			return new SaikuStarter(getSaikuService(), frame);
+		else
+			return null;
+	}
+
+	private ServerController getServerController() {
+		return serverController;
+	}
+
 
 }

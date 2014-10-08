@@ -282,6 +282,7 @@ public class LocalPropertiesService {
 		saveBalloonFileChecksum("");
 		saveCsvFileCehcksum("");
 		saveTemplateFileChecksum("");
+		storeProperties();
 	}
 
 	/**

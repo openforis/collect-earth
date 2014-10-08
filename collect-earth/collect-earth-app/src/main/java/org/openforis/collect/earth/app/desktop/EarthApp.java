@@ -46,43 +46,12 @@ import freemarker.template.TemplateException;
 public class EarthApp {
 
 	private static final String KML_RESULTING_TEMP_FILE = EarthConstants.GENERATED_FOLDER + File.separator + "plots.kml";
-	private static Logger logger ;
+	private static Logger logger;
 	private static ServerController serverController;
 	private static final String KMZ_FILE_PATH = EarthConstants.GENERATED_FOLDER + File.separator + "gePlugin.kmz";
-	private CollectEarthWindow mainEarthWindow;
-
-	public static KmlGenerator getKmlGenerator(LocalPropertiesService localProperties) {
-		KmlGenerator generateKml;
-		final String crsSystem = localProperties.getCrs();
-		final Integer innerPointSide = Integer.parseInt(localProperties.getValue(EarthProperty.INNER_SUBPLOT_SIDE));
-		final SAMPLE_SHAPE plotShape = localProperties.getSampleShape();
-		if (plotShape.equals(SAMPLE_SHAPE.CIRCLE)) {
-			generateKml = new CircleKmlGenerator(crsSystem, localProperties.getHost(), localProperties.getPort(), localProperties.getLocalPort(),
-					innerPointSide, Float.parseFloat(localProperties.getValue(EarthProperty.DISTANCE_BETWEEN_SAMPLE_POINTS)));
-		} else if (plotShape.equals(SAMPLE_SHAPE.OCTAGON)) {
-			generateKml = new OctagonKmlGenerator(crsSystem, localProperties.getHost(), localProperties.getPort(), localProperties.getLocalPort(),
-					innerPointSide, Float.parseFloat(localProperties.getValue(EarthProperty.DISTANCE_BETWEEN_SAMPLE_POINTS)));
-		} else if (plotShape.equals(SAMPLE_SHAPE.SQUARE_CIRCLE)) {
-			generateKml = new SquareWithCirclesKmlGenerator(crsSystem, localProperties.getHost(), localProperties.getPort(),
-					localProperties.getLocalPort(), innerPointSide);
-		} else {
-
-			final String numberOfSamplingPlots = localProperties.getValue(EarthProperty.NUMBER_OF_SAMPLING_POINTS_IN_PLOT);
-			int numberOfSamplingPlotsI = 25;
-			if ((numberOfSamplingPlots != null) && (numberOfSamplingPlots.trim().length() > 0)) {
-				numberOfSamplingPlotsI = Integer.parseInt(numberOfSamplingPlots.trim());
-			}
-			generateKml = new SquareKmlGenerator(crsSystem, localProperties.getHost(), localProperties.getPort(), localProperties.getLocalPort(),
-					innerPointSide, numberOfSamplingPlotsI);
-		}
-		return generateKml;
-	}
-
-	private LocalPropertiesService localProperties = new LocalPropertiesService();
-	private static final String KML_NETWORK_LINK_TEMPLATE = "resources/loadApp.fmt";
-
-	private static final String KML_NETWORK_LINK_STARTER = EarthConstants.GENERATED_FOLDER + "/loadApp.kml";
-
+	private static EarthApp earthApp;
+	private LocalPropertiesService nonManagedPropertiesService;
+	
 	private static void closeSplash() {
 		try {
 			final SplashScreen splash = SplashScreen.getSplashScreen();
@@ -92,6 +61,33 @@ public class EarthApp {
 		} catch (final IllegalStateException e) {
 			logger.error("Error closing the splash window", e);
 		}
+	}
+
+	public static KmlGenerator getKmlGenerator() {
+		KmlGenerator generateKml;
+		final String crsSystem = earthApp.getLocalProperties().getCrs();
+		final Integer innerPointSide = Integer.parseInt(earthApp.getLocalProperties().getValue(EarthProperty.INNER_SUBPLOT_SIDE));
+		final SAMPLE_SHAPE plotShape = earthApp.getLocalProperties().getSampleShape();
+		if (plotShape.equals(SAMPLE_SHAPE.CIRCLE)) {
+			generateKml = new CircleKmlGenerator(crsSystem, earthApp.getLocalProperties().getHost(), earthApp.getLocalProperties().getPort(), earthApp.getLocalProperties().getLocalPort(),
+					innerPointSide, Float.parseFloat(earthApp.getLocalProperties().getValue(EarthProperty.DISTANCE_BETWEEN_SAMPLE_POINTS)));
+		} else if (plotShape.equals(SAMPLE_SHAPE.OCTAGON)) {
+			generateKml = new OctagonKmlGenerator(crsSystem, earthApp.getLocalProperties().getHost(), earthApp.getLocalProperties().getPort(), earthApp.getLocalProperties().getLocalPort(),
+					innerPointSide, Float.parseFloat(earthApp.getLocalProperties().getValue(EarthProperty.DISTANCE_BETWEEN_SAMPLE_POINTS)));
+		} else if (plotShape.equals(SAMPLE_SHAPE.SQUARE_CIRCLE)) {
+			generateKml = new SquareWithCirclesKmlGenerator(crsSystem, earthApp.getLocalProperties().getHost(), earthApp.getLocalProperties().getPort(),
+					earthApp.getLocalProperties().getLocalPort(), innerPointSide);
+		} else {
+
+			final String numberOfSamplingPlots = earthApp.getLocalProperties().getValue(EarthProperty.NUMBER_OF_SAMPLING_POINTS_IN_PLOT);
+			int numberOfSamplingPlotsI = 25;
+			if ((numberOfSamplingPlots != null) && (numberOfSamplingPlots.trim().length() > 0)) {
+				numberOfSamplingPlotsI = Integer.parseInt(numberOfSamplingPlots.trim());
+			}
+			generateKml = new SquareKmlGenerator(crsSystem, earthApp.getLocalProperties().getHost(), earthApp.getLocalProperties().getPort(), earthApp.getLocalProperties().getLocalPort(),
+					innerPointSide, numberOfSamplingPlotsI);
+		}
+		return generateKml;
 	}
 
 	/**
@@ -104,10 +100,10 @@ public class EarthApp {
 
 		try {
 			// System property used in the log4j.properties configuration
-			System.setProperty("collectEarth.userFolder", FolderFinder.getLocalFolder() );
+			System.setProperty("collectEarth.userFolder", FolderFinder.getLocalFolder());
 			logger = LoggerFactory.getLogger(EarthApp.class);
-					 
-			final EarthApp earthApp = new EarthApp();
+
+			earthApp = new EarthApp();
 			if (earthApp.checkFilesExist()) {
 				earthApp.addElevationColumn();
 				earthApp.generatePlacemarksKmzFile();
@@ -125,17 +121,52 @@ public class EarthApp {
 		}
 	}
 
-	private EarthApp() throws IOException {
-		localProperties.init();
+	private CollectEarthWindow mainEarthWindow;
+		private static final String KML_NETWORK_LINK_TEMPLATE = "resources/loadApp.fmt";
+
+	private static final String KML_NETWORK_LINK_STARTER = EarthConstants.GENERATED_FOLDER + "/loadApp.kml";
+
+	public static void restart() {
+		try {
+
+			serverController.stopServer();
+
+			final Observer observeInitializationAfterRestart = new Observer() {
+
+				@Override
+				public void update(Observable o, Object arg) {
+					try {
+						if (arg.equals(ServerController.SERVER_STARTED_EVENT)) {
+							earthApp.generatePlacemarksKmzFile();
+							earthApp.simulateClickKmz();
+							earthApp.mainEarthWindow.setServerController(serverController);
+							earthApp.mainEarthWindow.openWindow();
+						}
+					} catch (final IOException e) {
+						logger.error("Error generating KMZ file", e);
+					} catch (final Exception e) {
+						logger.error("Error starting server", e);
+						e.printStackTrace();
+					}
+
+				}
+
+			};
+
+			earthApp.serverStartAndOpenGe(observeInitializationAfterRestart);
+
+		} catch (final Exception e) {
+			logger.error("Error while stopping server", e);
+		}
 	}
 
-	public EarthApp(LocalPropertiesService localPropertiesService) throws IOException {
-		localProperties = localPropertiesService;
+	private EarthApp() throws IOException {
+		getLocalProperties().init();
 	}
 
 	private void addElevationColumn() {
-		final String csvFile = localProperties.getCsvFile();
-		final String epsgCode = localProperties.getCrs();
+		final String csvFile = getLocalProperties().getCsvFile();
+		final String epsgCode = getLocalProperties().getCrs();
 
 		if (!csvFile.endsWith(PreprocessElevationData.CSV_ELEV_EXTENSION)) {
 			final PreprocessElevationData fillElevation = new PreprocessElevationData(epsgCode);
@@ -147,19 +178,19 @@ public class EarthApp {
 				// We change the name of the CSV file and CRS. The new file
 				// contains the elevation data in the last column. The
 				// coordinates were also changed to WGS84
-				localProperties.saveCsvFile(csvFile + PreprocessElevationData.CSV_ELEV_EXTENSION);
-				localProperties.saveCrs(AbstractCoordinateCalculation.WGS84);
+				getLocalProperties().saveCsvFile(csvFile + PreprocessElevationData.CSV_ELEV_EXTENSION);
+				getLocalProperties().saveCrs(AbstractCoordinateCalculation.WGS84);
 			}
 		}
 	}
 
 	private boolean checkFilesExist() {
-		
+
 		fixUserDirectory();
-		
-		final String csvFilePath = localProperties.getCsvFile();
-		final String balloonPath = localProperties.getBalloonFile();
-		final String templatePath = localProperties.getTemplateFile();
+
+		final String csvFilePath = getLocalProperties().getCsvFile();
+		final String balloonPath = getLocalProperties().getBalloonFile();
+		final String templatePath = getLocalProperties().getTemplateFile();
 		boolean filesExist = true;
 		String errorMessage = "<html>Error generating the KML file for Google Earth.<br/>";
 		File csvFile = null;
@@ -176,29 +207,29 @@ public class EarthApp {
 			errorMessage += "The file containing the grid of plots as a CSV/CED is not found in the selected path :<br/><i>"
 					+ csvFile.getAbsolutePath() + "</i><br/><br/>";
 			filesExist = false;
-		}else if(csvFile == null){
+		} else if (csvFile == null) {
 			errorMessage += "No CSV/CED file has been set-up :<br/><br/>";
 			filesExist = false;
 		}
-		
+
 		if (template != null && !template.exists()) {
 			errorMessage += "The file containing the Freemarker template with the KML definition is not found in the selected path :<br/><i>"
 					+ template.getAbsolutePath() + "</i><br/><br/>";
 			filesExist = false;
-		}else if(template == null){
+		} else if (template == null) {
 			errorMessage += "No KML definition file has been set-up :<br/><br/>";
 			filesExist = false;
 		}
-		
+
 		if (balloon != null && !balloon.exists()) {
 			errorMessage += "The file containing the HTML balloon form is not found in the selected path :<br/><i>" + balloon.getAbsolutePath()
 					+ "</i><br/><br/>";
 			filesExist = false;
-		}else if(balloon == null){
+		} else if (balloon == null) {
 			errorMessage += "No HTML balloon file has been set-up :<br/><br/>";
 			filesExist = false;
 		}
-		
+
 		errorMessage += "Please correct the file location in the Tools->Properties menu.</html>";
 		if (!filesExist) {
 			showMessage(errorMessage);
@@ -206,12 +237,18 @@ public class EarthApp {
 		return filesExist;
 	}
 
+	private void copyContentsToGeneratedFolder(String folderToInclude) throws IOException {
+		final File sourceDir = new File(folderToInclude);
+		final File targetDir = new File(EarthConstants.GENERATED_FOLDER + File.separator + sourceDir.getName());
+		FileUtils.copyDirectory(sourceDir, targetDir);
+	}
+
 	private void fixUserDirectory() {
-		final String csvFilePath = localProperties.getCsvFile();
-		final String balloonPath = localProperties.getBalloonFile();
-		final String templatePath = localProperties.getTemplateFile();
-		final String metadataPath = localProperties.getImdFile();
-		
+		final String csvFilePath = getLocalProperties().getCsvFile();
+		final String balloonPath = getLocalProperties().getBalloonFile();
+		final String templatePath = getLocalProperties().getTemplateFile();
+		final String metadataPath = getLocalProperties().getImdFile();
+
 		File csvFile = null;
 		File balloon = null;
 		File template = null;
@@ -221,69 +258,63 @@ public class EarthApp {
 			balloon = new File(balloonPath);
 			template = new File(templatePath);
 			idmFile = new File(metadataPath);
-			
-			String prefixUserFolder = FolderFinder.getLocalFolder() + File.separator;
-			
-			if( !csvFile.exists() ){
-				File otherFile = new File( prefixUserFolder + localProperties.getCsvFile());
-				if( otherFile.exists() ){
-					localProperties.setValue(EarthProperty.CSV_KEY, otherFile.getAbsolutePath());
+
+			final String prefixUserFolder = FolderFinder.getLocalFolder() + File.separator;
+
+			if (!csvFile.exists()) {
+				final File otherFile = new File(prefixUserFolder + getLocalProperties().getCsvFile());
+				if (otherFile.exists()) {
+					getLocalProperties().setValue(EarthProperty.CSV_KEY, otherFile.getAbsolutePath());
 				}
 			}
-			
-			if( !balloon.exists() ){
-				File otherFile = new File( prefixUserFolder + localProperties.getBalloonFile());
-				if( otherFile.exists() ){
-					localProperties.setValue(EarthProperty.BALLOON_TEMPLATE_KEY, otherFile.getAbsolutePath());
+
+			if (!balloon.exists()) {
+				final File otherFile = new File(prefixUserFolder + getLocalProperties().getBalloonFile());
+				if (otherFile.exists()) {
+					getLocalProperties().setValue(EarthProperty.BALLOON_TEMPLATE_KEY, otherFile.getAbsolutePath());
 				}
 			}
-			
-			if( !template.exists() ){
-				File otherFile = new File( prefixUserFolder + localProperties.getTemplateFile());
-				if( otherFile.exists() ){
-					localProperties.setValue(EarthProperty.KML_TEMPLATE_KEY, otherFile.getAbsolutePath());
+
+			if (!template.exists()) {
+				final File otherFile = new File(prefixUserFolder + getLocalProperties().getTemplateFile());
+				if (otherFile.exists()) {
+					getLocalProperties().setValue(EarthProperty.KML_TEMPLATE_KEY, otherFile.getAbsolutePath());
 				}
 			}
-			
-			if( !idmFile.exists() ){
-				File otherFile = new File( prefixUserFolder + localProperties.getImdFile());
-				if( otherFile.exists() ){
-					localProperties.setValue(EarthProperty.METADATA_FILE, otherFile.getAbsolutePath());
+
+			if (!idmFile.exists()) {
+				final File otherFile = new File(prefixUserFolder + getLocalProperties().getImdFile());
+				if (otherFile.exists()) {
+					getLocalProperties().setValue(EarthProperty.METADATA_FILE, otherFile.getAbsolutePath());
 				}
 			}
-			
+
 		} catch (final Exception e) {
 			logger.error("One of the definition files is not defined", e);
 		}
-		
-	}
 
-	private void copyContentsToGeneratedFolder(String folderToInclude) throws IOException {
-		final File sourceDir = new File(folderToInclude);
-		final File targetDir = new File(EarthConstants.GENERATED_FOLDER + File.separator + sourceDir.getName());
-		FileUtils.copyDirectory(sourceDir, targetDir);
 	}
 
 	private void generateKml() {
 
 		logger.info("START - Generate KML file");
 		KmlGenerator generateKml = null;
-		generateKml = EarthApp.getKmlGenerator(localProperties);
+		generateKml = getKmlGenerator();
 
 		try {
-			final String csvFile = localProperties.getCsvFile();
-			String balloon = localProperties.getBalloonFile();
-			final String template = localProperties.getTemplateFile();
-			final String distanceBetweenSamplePoints = localProperties.getValue(EarthProperty.DISTANCE_BETWEEN_SAMPLE_POINTS);
-			final String distancePlotBoundaries = localProperties.getValue(EarthProperty.DISTANCE_TO_PLOT_BOUNDARIES);
+			final String csvFile = getLocalProperties().getCsvFile();
+			String balloon = getLocalProperties().getBalloonFile();
+			final String template = getLocalProperties().getTemplateFile();
+			final String distanceBetweenSamplePoints = getLocalProperties().getValue(EarthProperty.DISTANCE_BETWEEN_SAMPLE_POINTS);
+			final String distancePlotBoundaries = getLocalProperties().getValue(EarthProperty.DISTANCE_TO_PLOT_BOUNDARIES);
 
 			// In case the user sets up the OPEN_BALLOON_IN_FIREFOX flag to
 			// true. Meaning that a small ballon opens in the placemark which in
 			// its turn
 			// opens a firefox browser with the real form
-			final Boolean openBalloonInFirefox = Boolean.valueOf(localProperties.getValue(EarthProperty.OPEN_BALLOON_IN_BROWSER));
+			final Boolean openBalloonInFirefox = Boolean.valueOf(getLocalProperties().getValue(EarthProperty.OPEN_BALLOON_IN_BROWSER));
 			if (openBalloonInFirefox) {
-				balloon = localProperties.getValue(EarthProperty.ALTERNATIVE_BALLOON_FOR_BROWSER);
+				balloon = getLocalProperties().getValue(EarthProperty.ALTERNATIVE_BALLOON_FOR_BROWSER);
 			}
 
 			generateKml.generateFromCsv(csvFile, balloon, template, KML_RESULTING_TEMP_FILE, distanceBetweenSamplePoints, distancePlotBoundaries);
@@ -301,13 +332,13 @@ public class EarthApp {
 
 	private void generateLoaderKmlFile() throws IOException {
 
-		localProperties.saveGeneratedOn(System.currentTimeMillis() + "");
+		getLocalProperties().saveGeneratedOn(System.currentTimeMillis() + "");
 
 		final Map<String, Object> data = new HashMap<String, Object>();
-		data.put("host", KmlGenerator.getHostAddress(localProperties.getHost(), localProperties.getLocalPort()));
-		data.put("kmlGeneratedOn", localProperties.getGeneratedOn());
-		data.put("surveyName", localProperties.getValue(EarthProperty.SURVEY_NAME));
-		data.put("plotFileName", KmlGenerator.getCsvFileName(localProperties.getValue(EarthProperty.CSV_KEY)));
+		data.put("host", KmlGenerator.getHostAddress(getLocalProperties().getHost(), getLocalProperties().getLocalPort()));
+		data.put("kmlGeneratedOn", getLocalProperties().getGeneratedOn());
+		data.put("surveyName", getLocalProperties().getValue(EarthProperty.SURVEY_NAME));
+		data.put("plotFileName", KmlGenerator.getCsvFileName(getLocalProperties().getValue(EarthProperty.CSV_KEY)));
 
 		FreemarkerTemplateUtils.applyTemplate(new File(KML_NETWORK_LINK_TEMPLATE), new File(KML_NETWORK_LINK_STARTER), data);
 	}
@@ -322,7 +353,7 @@ public class EarthApp {
 			try {
 				final KmzGenerator kmzGenerator = new KmzGenerator();
 
-				final String balloon = localProperties.getBalloonFile();
+				final String balloon = getLocalProperties().getBalloonFile();
 				final File balloonFile = new File(balloon);
 				final String folderToInclude = balloonFile.getParent() + File.separator + EarthConstants.FOLDER_COPIED_TO_KMZ;
 
@@ -350,7 +381,7 @@ public class EarthApp {
 	}
 
 	private List<File> getGeoTifFiles() {
-		final String geoTiffDirectory = localProperties.getValue(EarthProperty.ELEVATION_GEOTIF_DIRECTORY);
+		final String geoTiffDirectory = getLocalProperties().getValue(EarthProperty.ELEVATION_GEOTIF_DIRECTORY);
 		final File geoTifDir = new File(geoTiffDirectory);
 		final File[] listFiles = geoTifDir.listFiles();
 		List<File> foundGeoTifs = null;
@@ -365,6 +396,23 @@ public class EarthApp {
 		return foundGeoTifs;
 	}
 
+	private LocalPropertiesService getLocalProperties() {
+		if( serverController == null || serverController.getContext()== null){
+			if( nonManagedPropertiesService == null ){
+				nonManagedPropertiesService = new LocalPropertiesService();
+				try {
+					nonManagedPropertiesService.init();
+				} catch (IOException e) {
+					// TODO Auto-generated catch block
+					e.printStackTrace();
+				}
+			}
+			return nonManagedPropertiesService; 
+		}else{
+			return serverController.getContext().getBean( LocalPropertiesService.class );
+		}
+	}
+
 	private String getMd5FromFile(String filePath) throws IOException {
 		return DigestUtils.md5Hex(new FileInputStream(new File(filePath)));
 	}
@@ -377,17 +425,26 @@ public class EarthApp {
 			showMessage("The server is already running");
 			simulateClickKmz();
 		} else {
-			Observer observeInitialization = new Observer() {
+			final Observer observeInitialization = new Observer() {
 
 				@Override
 				public void update(Observable o, Object arg) {
-					if( arg.equals( ServerController.SERVER_STARTED_EVENT ) ){
+					if (arg.equals(ServerController.SERVER_STARTED_WITH_EXCEPTION_EVENT )) {
+						serverController = null;
+					}
+						
+					
+					try {
+													
+						simulateClickKmz();
+						
 						closeSplash();
 
-						simulateClickKmz();
-
 						openMainWindow();
+					} catch (Exception e) {
+						logger.error("Error generating KML file", e);
 					}
+						
 				}
 			};
 			serverStartAndOpenGe(observeInitialization);
@@ -396,14 +453,14 @@ public class EarthApp {
 
 	private boolean isKmlUpToDate() throws IOException {
 
-		final String csvFile = localProperties.getCsvFile();
-		final String balloon = localProperties.getBalloonFile();
-		final String template = localProperties.getTemplateFile();
+		final String csvFile = getLocalProperties().getCsvFile();
+		final String balloon = getLocalProperties().getBalloonFile();
+		final String template = getLocalProperties().getTemplateFile();
 
 		boolean upToDate = true;
-		if (!localProperties.getBalloonFileChecksum().trim().equals(getMd5FromFile(balloon))
-				|| !localProperties.getTemplateFileChecksum().trim().equals(getMd5FromFile(template))
-				|| !localProperties.getCsvFileChecksum().trim().equals(getMd5FromFile(csvFile))) {
+		if (!getLocalProperties().getBalloonFileChecksum().trim().equals(getMd5FromFile(balloon))
+				|| !getLocalProperties().getTemplateFileChecksum().trim().equals(getMd5FromFile(template))
+				|| !getLocalProperties().getCsvFileChecksum().trim().equals(getMd5FromFile(csvFile))) {
 			upToDate = false;
 		}
 
@@ -426,7 +483,7 @@ public class EarthApp {
 
 	private void openMainWindow() {
 		// Initialize the translations
-		Messages.setLocale(localProperties.getUiLanguage().getLocale());
+		Messages.setLocale(getLocalProperties().getUiLanguage().getLocale());
 
 		javax.swing.SwingUtilities.invokeLater(new Runnable() {
 			@Override
@@ -444,41 +501,13 @@ public class EarthApp {
 
 	}
 
-	public void restart() {
-		try {
-			serverController.stopServer();
-
-			Observer observeInitializationAfterRestart = new Observer() {
-
-				@Override
-				public void update(Observable o, Object arg) {
-					try {
-						if( arg.equals( ServerController.SERVER_STARTED_EVENT ) ){
-							generatePlacemarksKmzFile();
-							simulateClickKmz();
-							mainEarthWindow.setServerController(serverController);
-						}
-					} catch (IOException e) {
-						logger.error("Error generating KMZ file", e);
-					}
-				}
-
-			};
-
-			serverStartAndOpenGe(observeInitializationAfterRestart);
-
-		} catch (final Exception e) {
-			logger.error("Error while stopping server", e);
-		}
-	}
-
-	private void serverStartAndOpenGe( Observer observeInitialization ) throws IOException, Exception {
-		generateLoaderKmlFile();
-
-		//final boolean highDemandServer = localProperties.getOperationMode().equals(OperationMode.SERVER_MODE);
-
+	private void serverStartAndOpenGe(Observer observeInitialization) throws IOException, Exception {
+		
 		serverController.deleteObservers();
 		serverController.startServer(observeInitialization);
+		
+		
+		
 	}
 
 	private void showMessage(String message) {
@@ -487,7 +516,7 @@ public class EarthApp {
 
 	private void simulateClickKmz() {
 		try {
-
+			generateLoaderKmlFile();
 			openGoogleEarth();
 
 		} catch (final Exception e) {
@@ -496,15 +525,14 @@ public class EarthApp {
 		}
 	}
 
-
 	private void updateFilesUsedChecksum() throws IOException {
-		final String csvFile = localProperties.getCsvFile();
-		final String balloon = localProperties.getBalloonFile();
-		final String template = localProperties.getTemplateFile();
+		final String csvFile = getLocalProperties().getCsvFile();
+		final String balloon = getLocalProperties().getBalloonFile();
+		final String template = getLocalProperties().getTemplateFile();
 
-		localProperties.saveBalloonFileChecksum(getMd5FromFile(balloon));
-		localProperties.saveCsvFileCehcksum(getMd5FromFile(csvFile));
-		localProperties.saveTemplateFileChecksum(getMd5FromFile(template));
+		getLocalProperties().saveBalloonFileChecksum(getMd5FromFile(balloon));
+		getLocalProperties().saveCsvFileCehcksum(getMd5FromFile(csvFile));
+		getLocalProperties().saveTemplateFileChecksum(getMd5FromFile(template));
 	}
 
 }

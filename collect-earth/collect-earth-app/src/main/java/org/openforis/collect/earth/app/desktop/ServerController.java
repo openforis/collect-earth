@@ -23,6 +23,7 @@ import org.openforis.collect.earth.app.service.LocalPropertiesService.EarthPrope
 import org.openforis.collect.earth.sampler.utils.FreemarkerTemplateUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.BeanCreationException;
 import org.springframework.web.context.WebApplicationContext;
 import org.springframework.web.context.support.WebApplicationContextUtils;
 
@@ -39,6 +40,7 @@ public class ServerController extends Observable {
 	private static final String DEFAULT_PORT = "80";
 	public static final String SERVER_STOPPED_EVENT = "server_has_stopped";
 	public static final String SERVER_STARTED_EVENT = "server_has_started";
+	public static final String SERVER_STARTED_WITH_EXCEPTION_EVENT = "server_has_started_with_exceptions";
 	private Server server;
 	private final Logger logger = LoggerFactory.getLogger(ServerController.class);
 	private WebAppContext root;
@@ -112,7 +114,7 @@ public class ServerController extends Observable {
 			data.put("collectEarthExecutionFolder", System.getProperty("user.dir")+ File.separator);
 
 			FreemarkerTemplateUtils.applyTemplate(jettyAppCtxTemplateSrc, jettyAppCtxDst, data);
-		
+
 		} catch (final FileNotFoundException e) {
 			logger.error("File not found", e);
 		} catch (final IOException e) {
@@ -122,7 +124,7 @@ public class ServerController extends Observable {
 
 	public static String getSaikuDbURL() {
 		String urlSaikuDB = getDbURL();
-		
+
 		if( localPropertiesService.isUsingSqliteDB() ){
 			urlSaikuDB += SAIKU_RDB_SUFFIX;
 		}
@@ -137,55 +139,68 @@ public class ServerController extends Observable {
 		this.addObserver(observeInitialization);
 
 		initilizeDataSources();
+		try {
+			final String webappDirLocation = FolderFinder.getLocalFolder();
 
-		final String webappDirLocation = FolderFinder.getLocalFolder();
+			// The port that we should run on can be set into an environment variable
+			// Look for that variable and default to 8080 if it isn't there.
+			// PropertyConfigurator.configure(this.getClass().getResource("/WEB-INF/conf/log4j.properties"));
 
-		// The port that we should run on can be set into an environment variable
-		// Look for that variable and default to 8080 if it isn't there.
-		// PropertyConfigurator.configure(this.getClass().getResource("/WEB-INF/conf/log4j.properties"));
+			server = new Server(new ExecutorThreadPool(10, 50, 5, TimeUnit.SECONDS));
 
-		server = new Server(new ExecutorThreadPool(10, 50, 5, TimeUnit.SECONDS));
-		
 
-		// // Use blocking-IO connector to improve throughput
-		final ServerConnector connector = new ServerConnector(server);
-		
-		connector.setHost("0.0.0.0");
-		connector.setPort( getPort() );
+			// // Use blocking-IO connector to improve throughput
+			final ServerConnector connector = new ServerConnector(server);
 
-		connector.setStopTimeout( 1000 );
-		
-		server.setConnectors(new Connector[] { connector });
-		
+			connector.setHost("0.0.0.0");
+			connector.setPort( getPort() );
 
-		WebAppContext wweAppContext = new WebAppContext();
-				
-		setRoot(wweAppContext);
-		
-		
+			connector.setStopTimeout( 1000 );
 
-		getRoot().setContextPath("/earth");
+			server.setConnectors(new Connector[] { connector });
 
-		getRoot().setDescriptor(this.getClass().getResource("/WEB-INF/web.xml").toURI().toString());
-		
-		getRoot().setResourceBase(webappDirLocation);
 
-		// Parent loader priority is a class loader setting that Jetty accepts.
-		// By default Jetty will behave like most web containers in that it will
-		// allow your application to replace non-server libraries that are part of the container.
-		// Setting parent loader priority to true changes this behaviour.
-		// Read more here:
-		// http://wiki.eclipse.org/Jetty/Reference/Jetty_Classloading
-		getRoot().setParentLoaderPriority(true);
+			WebAppContext wweAppContext = new WebAppContext();
 
-		server.setHandler(getRoot());
-		server.setStopAtShutdown(true);
-		server.start();
+			setRoot(wweAppContext);
 
-		setChanged();
-		notifyObservers( SERVER_STARTED_EVENT );
+
+
+			getRoot().setContextPath("/earth");
+
+			getRoot().setDescriptor(this.getClass().getResource("/WEB-INF/web.xml").toURI().toString());
+
+			getRoot().setResourceBase(webappDirLocation);
+
+			// Parent loader priority is a class loader setting that Jetty accepts.
+			// By default Jetty will behave like most web containers in that it will
+			// allow your application to replace non-server libraries that are part of the container.
+			// Setting parent loader priority to true changes this behaviour.
+			// Read more here:
+			// http://wiki.eclipse.org/Jetty/Reference/Jetty_Classloading
+			getRoot().setParentLoaderPriority(true);
+
+			server.setHandler(getRoot());
+			server.setStopAtShutdown(true);
+
+			server.start();
+
+			setChanged();
+
+			Object attribute = getRoot().getServletContext().getAttribute(WebApplicationContext.ROOT_WEB_APPLICATION_CONTEXT_ATTRIBUTE );
+			if( attribute instanceof BeanCreationException ){
+				logger.error("Error creating the database connection", attribute);
+				notifyObservers( SERVER_STARTED_WITH_EXCEPTION_EVENT );
+			}else{
+
+				notifyObservers( SERVER_STARTED_EVENT );
+			}
+		} catch (Exception e) {
+			logger.error("Error staring the server", e );
+		}
+
 		this.addObserver( getContext().getBean( BrowserService.class ) );
-		
+
 		server.join();
 	}
 

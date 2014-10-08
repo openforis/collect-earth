@@ -398,6 +398,8 @@ public class BrowserService implements Observer{
 					navigateTo(url, driver, false ); // only try to re-open one
 				}
 			}
+		}else{
+			logger.error("No Selenium driver available, Is Firefox or Chrome installed?");
 		}
 		return driver;
 	}
@@ -433,7 +435,7 @@ public class BrowserService implements Observer{
 				public void run() {
 
 					try {
-						webDriverBing = navigateTo(bingMapService.getTemporaryUrl(latLong), driverCopy);
+						webDriverBing = navigateTo(bingMapService.getTemporaryUrl(latLong).toString(), driverCopy);
 					} catch (final Exception e) {
 						logger.error("Problems loading Bing", e);
 					}

@@ -69,8 +69,13 @@ public class BackupSqlLiteService {
 			SimpleDateFormat sdf = new SimpleDateFormat("yyyy_MM_dd_HHmmss");
 
 			try {
-				nameCollectDB = getCollectDBName();
+				// DON"T USE THIS
+				// This generates a file with name "\Users\USERNAME\AppData\Roaming\CollectEarth\collectEarthDatabase.db"
+				// which generates a folder within the backup folder
+				//nameCollectDB = getCollectDBName(); 
 
+				nameCollectDB = "collectEarthDatabase.db";
+				
 				File backupFolder = getBackUpFolder();
 
 				File srcFile = new File(nameCollectDB);
@@ -132,13 +137,13 @@ public class BackupSqlLiteService {
 		backupFolder.mkdirs();
 		return backupFolder;
 	}
-
-	private String getCollectDBName() {
-		String nameCollectDB;
-		nameCollectDB = dataSource.getUrl();
-		int indexLastColon = nameCollectDB.lastIndexOf(':');
-		// should look like jdbc:sqlite:collectEarthDatabase.db"
-		nameCollectDB = nameCollectDB.substring(indexLastColon+1);
-		return nameCollectDB;
-	}
+//
+//	private String getCollectDBName() {
+//		String nameCollectDB;
+//		nameCollectDB = dataSource.getUrl();
+//		int indexLastColon = nameCollectDB.lastIndexOf(':');
+//		// should look like jdbc:sqlite:collectEarthDatabase.db"
+//		nameCollectDB = nameCollectDB.substring(indexLastColon+1);
+//		return nameCollectDB;
+//	}
 }

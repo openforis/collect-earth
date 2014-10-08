@@ -117,6 +117,8 @@ public class AnalysisSaikuService {
 
 	private boolean userCancelledOperation = false;
 
+	private boolean saikuStarted;
+
 	private void assignDimensionValues() {
 		try {
 			final String schemaName = getSchemaPrefix();
@@ -758,14 +760,15 @@ public class AnalysisSaikuService {
 
 		runSaikuBat(START_SAIKU);
 
+		this.setSaikuStarted(true);
+		
 		logger.warn("Finished starting the Saiku server");
 	}
 
 	private void stopSaiku() throws SaikuExecutionException {
 		logger.warn("Stoping the Saiku server" + getSaikuFolder() + File.separator + STOP_SAIKU);
-
 		runSaikuBat(STOP_SAIKU);
-
+		this.setSaikuStarted(true);
 		logger.warn("Finished stoping the Saiku server");
 	}
 
@@ -774,13 +777,23 @@ public class AnalysisSaikuService {
 			@Override
 			public void run() {
 				try {
-					stopSaiku();
+					if( isSaikuStarted() ){
+						stopSaiku();
+					}
 				} catch (final SaikuExecutionException e) {
 					logger.error("The Saiku server has been de-configured after it was started", e);
 				}
 			}
 
 		});
+	}
+
+	private boolean isSaikuStarted() {
+		return saikuStarted;
+	}
+
+	private void setSaikuStarted(boolean saikuStarted) {
+		this.saikuStarted = saikuStarted;
 	}
 
 }
