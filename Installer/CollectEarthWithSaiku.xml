@@ -1,7 +1,7 @@
 <project>
     <shortName>CollectEarth</shortName>
     <fullName>Collect Earth</fullName>
-    <version>1.0</version>
+    <version>1.0.1</version>
     <installerFilename>${product_shortname}-${product_version}-${platform_name}-With-Saiku-installer.${platform_exec_suffix}</installerFilename>
     <readmeFile>../collect-earth/collect-earth-app/README.txt</readmeFile>
     <licenseFile>../collect-earth/collect-earth-app/License.txt</licenseFile>
@@ -67,7 +67,7 @@
             </postInstallationActionList>
         </component>
     </componentList>
-    <allowedLanguages>en es fr</allowedLanguages>
+    <allowedLanguages>en es fr pt</allowedLanguages>
     <compressionAlgorithm>lzma</compressionAlgorithm>
     <defaultUnixDirectoryPermissions>777</defaultUnixDirectoryPermissions>
     <defaultUnixFilePermissions>777</defaultUnixFilePermissions>
