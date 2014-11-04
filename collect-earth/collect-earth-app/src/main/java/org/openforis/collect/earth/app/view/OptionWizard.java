@@ -382,7 +382,7 @@ public class OptionWizard extends JDialog {
 
 				if( selectedProjectFile.length == 1 ){
 					try {
-						projectsService.loadProjectContents( selectedProjectFile[0]);
+						projectsService.loadCompressedProjectFile( selectedProjectFile[0]);
 
 						restartEarth();						
 					} catch (Exception e1) {
@@ -432,7 +432,7 @@ public class OptionWizard extends JDialog {
 				File projectFolder = projectsService.getProjectList().get( listOfProjects.getSelectedValue());
 
 				try {
-					projectsService.loadProject( projectFolder );
+					projectsService.loadProjectInFolder( projectFolder );
 					restartEarth();						
 				} catch (Exception e1) {
 					JOptionPane.showMessageDialog( OptionWizard.this, e1.getMessage(), Messages.getString("OptionWizard.55"), JOptionPane.ERROR_MESSAGE); //$NON-NLS-1$

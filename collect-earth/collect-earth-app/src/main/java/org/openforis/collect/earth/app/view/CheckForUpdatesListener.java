@@ -22,11 +22,11 @@ public class CheckForUpdatesListener implements ActionListener {
 			File autoupdateFile = new File( autoUpdateExecutable);
 			
 			if( !autoupdateFile.exists() ){
-				autoupdateFile = new File( "autoupdate/"+autoUpdateExecutable);
+				autoupdateFile = new File( "autoupdate/"+autoUpdateExecutable); //$NON-NLS-1$
 			}
 			
 			if( !autoupdateFile.exists() ){
-				logger.error("No "+ autoUpdateExecutable + " found ");
+				logger.error("No "+ autoUpdateExecutable + " found "); //$NON-NLS-1$ //$NON-NLS-2$
 				return;
 			}
 			if( SystemUtils.IS_OS_LINUX ){

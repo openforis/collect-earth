@@ -15,8 +15,7 @@ public class EarthConstants {
 	public static final String COLLECT_EARTH_APPDATA_FOLDER = "CollectEarth";
 
 	public static final String DATE_FORMAT_HTTP = "EEE, dd MMM yyyy HH:mm:ss zzz";
-
-
+	
 	public static final String LIST_FILLED_IMAGE = "images/list_filled.png";
 
 	public static final String LIST_NON_FILLED_IMAGE = "images/list_empty.png";
@@ -44,7 +43,7 @@ public class EarthConstants {
 	public enum SAMPLE_SHAPE{ SQUARE_CIRCLE, SQUARE, CIRCLE, OCTAGON};
 	
 	public enum UI_LANGUAGE{ 
-		FR( "Français", new Locale("fr", "FR") ) , EN( "English", new Locale("en", "EN") ), ES( "Español", new Locale("es", "ES") );
+		FR( "Français", new Locale("fr", "FR") ) , EN( "English", new Locale("en", "EN") ), ES( "Español", new Locale("es", "ES")), PT("Português", new Locale("pt","PT") );
 		
 		private Locale locale;
 		private String label;

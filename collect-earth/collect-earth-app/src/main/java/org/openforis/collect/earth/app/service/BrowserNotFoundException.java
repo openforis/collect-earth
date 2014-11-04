@@ -2,6 +2,11 @@ package org.openforis.collect.earth.app.service;
 
 public class BrowserNotFoundException extends Exception{
 
+	/**
+	 * 
+	 */
+	private static final long serialVersionUID = -404938492481063378L;
+
 	public BrowserNotFoundException() {
 		super();
 		// TODO Auto-generated constructor stub

@@ -116,7 +116,7 @@ public class EarthProjectsService {
 	 * @throws IllegalArgumentException
 	 * @throws IOException
 	 */
-	public boolean loadProject(File projectFolder ) throws IllegalArgumentException, IOException{
+	public boolean loadProjectInFolder(File projectFolder ) throws IllegalArgumentException, IOException{
 		
 		File projectPropertiesFile = getProjectPropertiesFile( projectFolder );
 		
@@ -210,9 +210,9 @@ public class EarthProjectsService {
 	}
 	
 	
-	public boolean loadProjectContents( File projectZipFile ) throws IllegalArgumentException, IOException, ZipException{
+	public boolean loadCompressedProjectFile( File projectZipFile ) throws IllegalArgumentException, IOException, ZipException{
 		File unzippedFolder = unzipContents(projectZipFile);
-		return loadProject(unzippedFolder);
+		return loadProjectInFolder(unzippedFolder);
 	}
 
 

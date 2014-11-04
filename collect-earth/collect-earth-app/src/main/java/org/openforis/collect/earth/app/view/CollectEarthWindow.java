@@ -29,6 +29,7 @@ import javax.swing.JPanel;
 import javax.swing.JRadioButtonMenuItem;
 import javax.swing.JTextField;
 import javax.swing.SwingConstants;
+import javax.swing.SwingUtilities;
 import javax.swing.WindowConstants;
 import javax.swing.border.Border;
 
@@ -67,7 +68,7 @@ public class CollectEarthWindow {
 	private final Logger logger = LoggerFactory.getLogger(CollectEarthWindow.class);
 	private ServerController serverController;
 	public static final Color ERROR_COLOR = new Color(225, 124, 124);
-	private RecordManager recordManager;
+	
 	private String backupFolder;
 
 	private final List<JMenuItem> serverMenuItems = new ArrayList<JMenuItem>();
@@ -229,10 +230,20 @@ public class CollectEarthWindow {
 					final String langName = ((JRadioButtonMenuItem) e.getSource()).getName();
 					final UI_LANGUAGE language = UI_LANGUAGE.valueOf(langName);
 					getLocalPropertiesService().setUiLanguage(language);
-					frame.dispose();
-					openWindow();
+					
+					SwingUtilities.invokeLater( new Thread(){
+						public void run() {
+							
+							frame.getContentPane().removeAll();
+							frame.dispose();
+							
+							openWindow();
+						};
+					});
+					
 				} catch (final Exception ex) {
 					ex.printStackTrace();
+					logger.error("Error while changing language", ex);
 				}
 			}
 		};
@@ -258,7 +269,7 @@ public class CollectEarthWindow {
 	}
 
 	private LocalPropertiesService getLocalPropertiesService() {
-		if (getServerController() != null) {
+		if (getServerController() != null && getServerController().getContext()!=null ) {
 			return getServerController().getContext().getBean(LocalPropertiesService.class);
 		} else {
 			return new LocalPropertiesService();
@@ -331,8 +342,8 @@ public class CollectEarthWindow {
 
 		menuHelp.addSeparator();
 
-		menuItem = new JMenuItem("Open Application Log File");
-		menuItem.addActionListener(new OpenTextFileListener(frame, getLogFilePath(), Messages.getString("CollectEarthWindow.4")));//$NON-NLS-1$
+		menuItem = new JMenuItem(Messages.getString("CollectEarthWindow.52")); //$NON-NLS-1$
+		menuItem.addActionListener(new OpenTextFileListener(frame, getLogFilePath(), Messages.getString("CollectEarthWindow.53"))); //$NON-NLS-1$
 		menuHelp.add(menuItem);
 
 		menuHelp.addSeparator();
@@ -354,7 +365,7 @@ public class CollectEarthWindow {
 		if (getServerController() != null) {
 			return getServerController().getContext().getBean(EarthProjectsService.class);
 		} else {
-			EarthProjectsService earthProjectsService = new EarthProjectsService();
+			final EarthProjectsService earthProjectsService = new EarthProjectsService();
 			earthProjectsService.init(getLocalPropertiesService());
 			return earthProjectsService;
 		}
@@ -392,6 +403,18 @@ public class CollectEarthWindow {
 		} else {
 			return null;
 		}
+	}
+
+	private SaikuStarter getSaikuStarter() {
+		if (getServerController() != null) {
+			return new SaikuStarter(getSaikuService(), frame);
+		} else {
+			return null;
+		}
+	}
+
+	private ServerController getServerController() {
+		return serverController;
 	}
 
 	private void initializeMenu() {
@@ -501,8 +524,6 @@ public class CollectEarthWindow {
 		this.frame = frame;
 	}
 
-
-
 	public void setServerController(ServerController serverControllerParam) {
 
 		try {
@@ -510,29 +531,17 @@ public class CollectEarthWindow {
 				this.serverController = serverControllerParam;
 				final BackupSqlLiteService backupService = serverControllerParam.getContext().getBean(BackupSqlLiteService.class);
 				this.backupFolder = backupService.getBackUpFolder().getAbsolutePath();
-				
+
 			} else {
 				this.serverController = null;
 				this.getLocalPropertiesService().init();
-				this.backupFolder = null;				
+				this.backupFolder = null;
 			}
 		} catch (final BeansException e) {
-			logger.error("Error while setting the ServerController", e);
+			logger.error("Error while setting the ServerController", e); //$NON-NLS-1$
 		} catch (final IOException e) {
-			logger.error("Error while setting the ServerController", e);
+			logger.error("Error while setting the ServerController", e); //$NON-NLS-1$
 		}
 	}
-
-	private SaikuStarter getSaikuStarter() {
-		if(getServerController()!=null )
-			return new SaikuStarter(getSaikuService(), frame);
-		else
-			return null;
-	}
-
-	private ServerController getServerController() {
-		return serverController;
-	}
-
 
 }

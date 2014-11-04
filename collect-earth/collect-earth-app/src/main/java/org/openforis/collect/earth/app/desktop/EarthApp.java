@@ -18,6 +18,7 @@ import org.apache.commons.codec.digest.DigestUtils;
 import org.apache.commons.io.FileUtils;
 import org.openforis.collect.earth.app.EarthConstants;
 import org.openforis.collect.earth.app.EarthConstants.SAMPLE_SHAPE;
+import org.openforis.collect.earth.app.service.EarthProjectsService;
 import org.openforis.collect.earth.app.service.FolderFinder;
 import org.openforis.collect.earth.app.service.LocalPropertiesService;
 import org.openforis.collect.earth.app.service.LocalPropertiesService.EarthProperty;
@@ -32,6 +33,7 @@ import org.openforis.collect.earth.sampler.processor.PreprocessElevationData;
 import org.openforis.collect.earth.sampler.processor.SquareKmlGenerator;
 import org.openforis.collect.earth.sampler.processor.SquareWithCirclesKmlGenerator;
 import org.openforis.collect.earth.sampler.utils.FreemarkerTemplateUtils;
+import org.openforis.collect.earth.sampler.utils.KmlGenerationException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -50,8 +52,10 @@ public class EarthApp {
 	private static ServerController serverController;
 	private static final String KMZ_FILE_PATH = EarthConstants.GENERATED_FOLDER + File.separator + "gePlugin.kmz";
 	private static EarthApp earthApp;
-	private LocalPropertiesService nonManagedPropertiesService;
-	
+	private static final String KML_NETWORK_LINK_TEMPLATE = "resources/loadApp.fmt";
+
+	private static final String KML_NETWORK_LINK_STARTER = EarthConstants.GENERATED_FOLDER + "/loadApp.kml";
+
 	private static void closeSplash() {
 		try {
 			final SplashScreen splash = SplashScreen.getSplashScreen();
@@ -69,14 +73,16 @@ public class EarthApp {
 		final Integer innerPointSide = Integer.parseInt(earthApp.getLocalProperties().getValue(EarthProperty.INNER_SUBPLOT_SIDE));
 		final SAMPLE_SHAPE plotShape = earthApp.getLocalProperties().getSampleShape();
 		if (plotShape.equals(SAMPLE_SHAPE.CIRCLE)) {
-			generateKml = new CircleKmlGenerator(crsSystem, earthApp.getLocalProperties().getHost(), earthApp.getLocalProperties().getPort(), earthApp.getLocalProperties().getLocalPort(),
-					innerPointSide, Float.parseFloat(earthApp.getLocalProperties().getValue(EarthProperty.DISTANCE_BETWEEN_SAMPLE_POINTS)));
+			generateKml = new CircleKmlGenerator(crsSystem, earthApp.getLocalProperties().getHost(), earthApp.getLocalProperties().getPort(),
+					earthApp.getLocalProperties().getLocalPort(), innerPointSide, Float.parseFloat(earthApp.getLocalProperties().getValue(
+							EarthProperty.DISTANCE_BETWEEN_SAMPLE_POINTS)));
 		} else if (plotShape.equals(SAMPLE_SHAPE.OCTAGON)) {
-			generateKml = new OctagonKmlGenerator(crsSystem, earthApp.getLocalProperties().getHost(), earthApp.getLocalProperties().getPort(), earthApp.getLocalProperties().getLocalPort(),
-					innerPointSide, Float.parseFloat(earthApp.getLocalProperties().getValue(EarthProperty.DISTANCE_BETWEEN_SAMPLE_POINTS)));
+			generateKml = new OctagonKmlGenerator(crsSystem, earthApp.getLocalProperties().getHost(), earthApp.getLocalProperties().getPort(),
+					earthApp.getLocalProperties().getLocalPort(), innerPointSide, Float.parseFloat(earthApp.getLocalProperties().getValue(
+							EarthProperty.DISTANCE_BETWEEN_SAMPLE_POINTS)));
 		} else if (plotShape.equals(SAMPLE_SHAPE.SQUARE_CIRCLE)) {
-			generateKml = new SquareWithCirclesKmlGenerator(crsSystem, earthApp.getLocalProperties().getHost(), earthApp.getLocalProperties().getPort(),
-					earthApp.getLocalProperties().getLocalPort(), innerPointSide);
+			generateKml = new SquareWithCirclesKmlGenerator(crsSystem, earthApp.getLocalProperties().getHost(), earthApp.getLocalProperties()
+					.getPort(), earthApp.getLocalProperties().getLocalPort(), innerPointSide);
 		} else {
 
 			final String numberOfSamplingPlots = earthApp.getLocalProperties().getValue(EarthProperty.NUMBER_OF_SAMPLING_POINTS_IN_PLOT);
@@ -84,8 +90,8 @@ public class EarthApp {
 			if ((numberOfSamplingPlots != null) && (numberOfSamplingPlots.trim().length() > 0)) {
 				numberOfSamplingPlotsI = Integer.parseInt(numberOfSamplingPlots.trim());
 			}
-			generateKml = new SquareKmlGenerator(crsSystem, earthApp.getLocalProperties().getHost(), earthApp.getLocalProperties().getPort(), earthApp.getLocalProperties().getLocalPort(),
-					innerPointSide, numberOfSamplingPlotsI);
+			generateKml = new SquareKmlGenerator(crsSystem, earthApp.getLocalProperties().getHost(), earthApp.getLocalProperties().getPort(),
+					earthApp.getLocalProperties().getLocalPort(), innerPointSide, numberOfSamplingPlotsI);
 		}
 		return generateKml;
 	}
@@ -104,6 +110,9 @@ public class EarthApp {
 			logger = LoggerFactory.getLogger(EarthApp.class);
 
 			earthApp = new EarthApp();
+
+			earthApp.preloadProjectFile(args);
+
 			if (earthApp.checkFilesExist()) {
 				earthApp.addElevationColumn();
 				earthApp.generatePlacemarksKmzFile();
@@ -113,18 +122,15 @@ public class EarthApp {
 
 		} catch (final Exception e) {
 			// The logger factory has not been initialized, this will not work, just output to console
-			// logger.error("The server could not start", e);
+			if( logger!=null ){
+				logger.error("The server could not start", e);
+			}
 			e.printStackTrace();
 			System.exit(1);
 		} finally {
 			closeSplash();
 		}
 	}
-
-	private CollectEarthWindow mainEarthWindow;
-		private static final String KML_NETWORK_LINK_TEMPLATE = "resources/loadApp.fmt";
-
-	private static final String KML_NETWORK_LINK_STARTER = EarthConstants.GENERATED_FOLDER + "/loadApp.kml";
 
 	public static void restart() {
 		try {
@@ -159,6 +165,9 @@ public class EarthApp {
 			logger.error("Error while stopping server", e);
 		}
 	}
+
+	private LocalPropertiesService nonManagedPropertiesService;
+	private CollectEarthWindow mainEarthWindow;
 
 	private EarthApp() throws IOException {
 		getLocalProperties().init();
@@ -322,15 +331,17 @@ public class EarthApp {
 
 		} catch (final IOException e) {
 			logger.error("Could not generate KML file", e);
-		} catch (final TemplateException e) {
-			logger.error("Problems using the Freemarker template file." + e.getFTLInstructionStack(), e);
+			showMessage("Error generating KML file : <br/> "+ e.getMessage() );
+		} catch (final KmlGenerationException e) {
+			logger.error("Problems while generating the KML file " , e);
+			showMessage("Problems while generating the KML file: \r\n "+ e.getMessage() );
 		}
 
 		logger.info("END - Generate KML file");
 
 	}
 
-	private void generateLoaderKmlFile() throws IOException {
+	private void generateLoaderKmlFile() throws IOException, TemplateException {
 
 		getLocalProperties().saveGeneratedOn(System.currentTimeMillis() + "");
 
@@ -397,24 +408,34 @@ public class EarthApp {
 	}
 
 	private LocalPropertiesService getLocalProperties() {
-		if( serverController == null || serverController.getContext()== null){
-			if( nonManagedPropertiesService == null ){
+		if (serverController == null || serverController.getContext() == null) {
+			if (nonManagedPropertiesService == null) {
 				nonManagedPropertiesService = new LocalPropertiesService();
 				try {
 					nonManagedPropertiesService.init();
-				} catch (IOException e) {
+				} catch (final IOException e) {
 					// TODO Auto-generated catch block
 					e.printStackTrace();
 				}
 			}
-			return nonManagedPropertiesService; 
-		}else{
-			return serverController.getContext().getBean( LocalPropertiesService.class );
+			return nonManagedPropertiesService;
+		} else {
+			return serverController.getContext().getBean(LocalPropertiesService.class);
 		}
 	}
 
 	private String getMd5FromFile(String filePath) throws IOException {
 		return DigestUtils.md5Hex(new FileInputStream(new File(filePath)));
+	}
+
+	private EarthProjectsService getProjectsService() {
+		if (serverController != null) {
+			return serverController.getContext().getBean(EarthProjectsService.class);
+		} else {
+			final EarthProjectsService earthProjectsService = new EarthProjectsService();
+			earthProjectsService.init(getLocalProperties());
+			return earthProjectsService;
+		}
 	}
 
 	private void initializeServer() throws Exception {
@@ -429,22 +450,22 @@ public class EarthApp {
 
 				@Override
 				public void update(Observable o, Object arg) {
-					if (arg.equals(ServerController.SERVER_STARTED_WITH_EXCEPTION_EVENT )) {
+					if (arg.equals(ServerController.SERVER_STARTED_WITH_EXCEPTION_EVENT)) {
 						serverController = null;
 					}
-						
-					
-					try {
-													
-						simulateClickKmz();
-						
-						closeSplash();
+					if(! arg.equals(ServerController.SERVER_STOPPED_EVENT) ){
+						try {
 
-						openMainWindow();
-					} catch (Exception e) {
-						logger.error("Error generating KML file", e);
+							simulateClickKmz();
+
+							closeSplash();
+
+							openMainWindow();
+						} catch (final Exception e) {
+							logger.error("Error generating KML file", e);
+							e.printStackTrace();
+						}
 					}
-						
 				}
 			};
 			serverStartAndOpenGe(observeInitialization);
@@ -501,13 +522,35 @@ public class EarthApp {
 
 	}
 
+	/**
+	 * If Collect Earth is started by double clicking on a ".cep" file ( Collect Earth Project file )
+	 * Then it should open directly with that project in focus
+	 * 
+	 * @param args
+	 * 
+	 */
+	private void preloadProjectFile(String[] args) {
+		try {
+			if (args != null && args.length == 1) {
+
+				final String projectFilePath = args[0];
+				final File projectFile = new File(projectFilePath);
+				if (projectFile.exists()) {
+					getProjectsService().loadCompressedProjectFile(projectFile);
+
+				}
+			}
+		} catch (final Exception e) {
+			e.printStackTrace();
+			showMessage("Error when importing project file");
+		}
+	}
+
 	private void serverStartAndOpenGe(Observer observeInitialization) throws IOException, Exception {
-		
+
 		serverController.deleteObservers();
 		serverController.startServer(observeInitialization);
-		
-		
-		
+
 	}
 
 	private void showMessage(String message) {
@@ -520,6 +563,7 @@ public class EarthApp {
 			openGoogleEarth();
 
 		} catch (final Exception e) {
+			e.printStackTrace();
 			showMessage("<html>The Collect Earth file could not be open.<br/>Please make sure that Google Earth is installed.</html>");
 			logger.error("The KMZ file could not be found", e);
 		}

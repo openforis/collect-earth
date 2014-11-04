@@ -4,12 +4,14 @@ import java.awt.geom.Rectangle2D;
 import java.io.IOException;
 import java.text.DecimalFormat;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
 import org.openforis.collect.earth.sampler.model.SimpleCoordinate;
 import org.openforis.collect.earth.sampler.model.SimplePlacemarkObject;
+import org.openforis.collect.earth.sampler.utils.KmlGenerationException;
 import org.opengis.referencing.operation.TransformException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -57,7 +59,7 @@ public abstract class PolygonKmlGenerator extends KmlGenerator {
 	}
 
 	@Override
-	protected Map<String, Object> getTemplateData(String csvFile, float distanceBetweenSamplePoints, float distancePlotBoundary) throws IOException {
+	protected Map<String, Object> getTemplateData(String csvFile, float distanceBetweenSamplePoints, float distancePlotBoundary) throws KmlGenerationException {
 		final Map<String, Object> data = new HashMap<String, Object>();
 
 		SimplePlacemarkObject previousPlacemark = null;
@@ -68,6 +70,7 @@ public abstract class PolygonKmlGenerator extends KmlGenerator {
 		// be used by freemarker to do the "goal-replacement"
 		String[] csvRow;
 		String[] headerRow =null;
+		int rowNumber = 0 ;
 
 		CSVReader reader = null;
 		List<SimplePlacemarkObject> placemarks = new ArrayList<SimplePlacemarkObject>();
@@ -115,17 +118,25 @@ public abstract class PolygonKmlGenerator extends KmlGenerator {
 
 					placemarks.add(parentPlacemark);
 
-				} catch (final NumberFormatException e) {
-					logger.error("Error in the number formatting", e);
 				} catch (final Exception e) {
-					logger.error("Error in the number formatting", e);
+					if(rowNumber > 0 ){
+						throw new KmlGenerationException("Error in the CSV " + csvFile + " \r\n for row " + rowNumber + " = " + Arrays.toString( csvRow ), e);
+					}else{
+						logger.warn("Error while reading the first line of the CSV fle, probably cause by the column header names");
+					}
+				}finally{
+					rowNumber++;
 				}
 			}
-		} catch (final Exception e) {
-			logger.error("Error reading CSV", e);
+		} catch (final IOException e) {
+			throw new KmlGenerationException("Error reading CSV " + csvFile , e);
 		} finally {
 			if (reader != null) {
-				reader.close();
+				try {
+					reader.close();
+				} catch (IOException e) {
+					logger.error("error closing the CSV reader", e);
+				}
 			}
 		}
 

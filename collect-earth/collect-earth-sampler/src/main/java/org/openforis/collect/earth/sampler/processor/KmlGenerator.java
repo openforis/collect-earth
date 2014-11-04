@@ -8,6 +8,7 @@ import java.io.IOException;
 import java.io.InputStreamReader;
 import java.nio.charset.Charset;
 import java.text.SimpleDateFormat;
+import java.util.Arrays;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.Map;
@@ -15,13 +16,13 @@ import java.util.Vector;
 
 import org.apache.commons.io.FileUtils;
 import org.apache.commons.lang.StringEscapeUtils;
-import org.ietf.jgss.Oid;
+import org.apache.commons.lang.StringUtils;
 import org.openforis.collect.earth.sampler.model.SimplePlacemarkObject;
 import org.openforis.collect.earth.sampler.utils.FreemarkerTemplateUtils;
+import org.openforis.collect.earth.sampler.utils.KmlGenerationException;
 import org.opengis.referencing.operation.TransformException;
 
 import au.com.bytecode.opencsv.CSVReader;
-import freemarker.template.TemplateException;
 
 public abstract class KmlGenerator extends AbstractCoordinateCalculation {
 
@@ -32,7 +33,7 @@ public abstract class KmlGenerator extends AbstractCoordinateCalculation {
 		return reader;
 	}
 
-	public static PlotProperties getPlotProperties(String[] csvValuesInLine, String[] possibleColumnNames )  {
+	public static PlotProperties getPlotProperties(String[] csvValuesInLine, String[] possibleColumnNames )   {
 		final PlotProperties plotProperties = new PlotProperties();
 		plotProperties.id = csvValuesInLine[0];
 		plotProperties.xCoord = Double.parseDouble(csvValuesInLine[2]);
@@ -103,15 +104,11 @@ public abstract class KmlGenerator extends AbstractCoordinateCalculation {
 	
 
 	public void generateFromCsv(String csvFile, String balloonFile, String freemarkerKmlTemplateFile, String destinationKmlFile,
-			String distanceBetweenSamplePoints, String distancePlotBoundary) throws IOException, TemplateException {
+			String distanceBetweenSamplePoints, String distancePlotBoundary) throws KmlGenerationException {
 
-		try {
-			final File destinationFile = new File(destinationKmlFile);
-			destinationFile.getParentFile().mkdirs();
-			getKmlCode(csvFile, balloonFile, freemarkerKmlTemplateFile, destinationFile, distanceBetweenSamplePoints, distancePlotBoundary);
-		} catch (final IOException e) {
-			getLogger().error("Could not generate KML file", e);
-		}
+		final File destinationFile = new File(destinationKmlFile);
+		destinationFile.getParentFile().mkdirs();
+		getKmlCode(csvFile, balloonFile, freemarkerKmlTemplateFile, destinationFile, distanceBetweenSamplePoints, distancePlotBoundary);
 	}
 
 	public abstract void fillExternalLine(float distanceBetweenSamplePoints, float distancePlotBoundary, double[] coordOriginalPoints,
@@ -121,7 +118,19 @@ public abstract class KmlGenerator extends AbstractCoordinateCalculation {
 			SimplePlacemarkObject parentPlacemark) throws TransformException;
 	
 	private void getKmlCode(String csvFile, String balloonFile, String freemarkerKmlTemplateFile, File destinationFile,
-			String distanceBetweenSamplePoints, String distancePlotBoundary) throws IOException, TemplateException {
+			String distanceBetweenSamplePoints, String distancePlotBoundary) throws KmlGenerationException {
+		
+		if( StringUtils.isBlank(csvFile) ){
+			throw new IllegalArgumentException("THe CSV file location cannot be null");
+		}
+		
+		if( StringUtils.isBlank(balloonFile) ){
+			throw new IllegalArgumentException("The balloon (Google Earth popup) file location cannot be null");
+		}
+		
+		if( StringUtils.isBlank(freemarkerKmlTemplateFile) ){
+			throw new IllegalArgumentException("The KML freemarker Template file location cannot be null");
+		}
 
 		final Float fDistancePoints = Float.parseFloat(distanceBetweenSamplePoints);
 		final Float fDistancePlotBoundary = Float.parseFloat(distancePlotBoundary);
@@ -132,17 +141,26 @@ public abstract class KmlGenerator extends AbstractCoordinateCalculation {
 
 		// Get the HTML content of the balloon from a file, this way we can
 		// separate the KML generation so it is easier to create different KMLs
-		final String balloonContents = FileUtils.readFileToString(new File(balloonFile));
-		data.put("html_for_balloon", balloonContents);
+		String balloonContents;
+		try {
+			balloonContents = FileUtils.readFileToString(new File(balloonFile));
+		} catch (IOException e) {
+			throw new KmlGenerationException("Error reading the balloon file " + balloonFile,  e);
+		}
+		try {
+			data.put("html_for_balloon", balloonContents);
 
-		// Process the template file using the data in the "data" Map
-		final File templateFile = new File(freemarkerKmlTemplateFile);
-		
-		FreemarkerTemplateUtils.applyTemplate(templateFile, destinationFile, data);
+			// Process the template file using the data in the "data" Map
+			final File templateFile = new File(freemarkerKmlTemplateFile);
+			
+			FreemarkerTemplateUtils.applyTemplate(templateFile, destinationFile, data);
+		} catch (Exception e) {
+			throw new KmlGenerationException("Error generating the KML file to open in Google Earth " + freemarkerKmlTemplateFile + " with data " +  Arrays.toString(data.values().toArray()) ,  e);
+		}
 	}
 
 	protected abstract Map<String, Object> getTemplateData(String csvFile, float distanceBetweenSamplePoints, float distancePlotBoundary)
-			throws IOException;
+			throws  KmlGenerationException;
 
 	
 	

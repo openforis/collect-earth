@@ -43,7 +43,6 @@ import org.openqa.selenium.firefox.FirefoxBinary;
 import org.openqa.selenium.firefox.FirefoxDriver;
 import org.openqa.selenium.firefox.FirefoxProfile;
 import org.openqa.selenium.remote.DesiredCapabilities;
-import org.openqa.selenium.remote.RemoteStatus;
 import org.openqa.selenium.remote.RemoteWebDriver;
 import org.openqa.selenium.remote.UnreachableBrowserException;
 import org.slf4j.Logger;
@@ -112,7 +111,7 @@ public class BrowserService implements Observer{
 
 	private RemoteWebDriver webDriverEE, webDriverBing, webDriverTimelapse;
 
-	private static boolean hasCheckValidity = false;
+	private static boolean geeMethodUpdated = false;
 
 	
 	@Override
@@ -313,7 +312,7 @@ public class BrowserService implements Observer{
 	private RemoteWebDriver loadLayers(String[] latLong, RemoteWebDriver driver) throws InterruptedException, BrowserNotFoundException {
 
 		if (driver != null) {
-			if (!isIdOrNamePresent("workspace-el", driver)) {
+/*			if (!isIdOrNamePresent("workspace-el", driver)) {
 				final String[] layers = {
 				// "http://earthengine.google.org/#detail/LANDSAT%2FL7_L1T_ANNUAL_GREENEST_TOA"
 				// "http://earthengine.google.org/#detail/LANDSAT%2FL5_L1T_ANNUAL_GREENEST_TOA",
@@ -325,12 +324,17 @@ public class BrowserService implements Observer{
 						waitFor("workspace-el", driver);
 					}
 				}
+			} */
+			
+			if (!isIdOrNamePresent("workspace-el", driver)) {
+				driver = navigateTo("https://earthengine.google.org/#workspace", driver);
 			}
+			
 			if (waitFor("workspace-el", driver)) {
 				if (driver instanceof JavascriptExecutor) {
 					try {
 						String geeJs = getGEEJavascript(latLong);
-						if (!hasCheckValidity) {
+						if (!isGeeMethodUpdated()) {
 							try {
 								if (!isGEEValidJS(geeJs, driver)) {
 									refreshJSValues(geeJs, driver);
@@ -339,7 +343,7 @@ public class BrowserService implements Observer{
 							} catch (final Exception e) {
 								logger.error("Error checking the validity of the GEE js code", e);
 							} finally {
-								hasCheckValidity = true;
+								setGeeMethodUpdated(true);
 							}
 						}
 						((JavascriptExecutor) driver).executeScript(geeJs);
@@ -359,6 +363,14 @@ public class BrowserService implements Observer{
 			}
 		}
 		return driver;
+	}
+
+	public static boolean isGeeMethodUpdated() {
+		return geeMethodUpdated;
+	}
+
+	public static void setGeeMethodUpdated(boolean geeMethosUpdated) {
+		BrowserService.geeMethodUpdated = geeMethosUpdated;
 	}
 
 	private void processSeleniumError(final Exception e) {
@@ -459,6 +471,7 @@ public class BrowserService implements Observer{
 		if (localPropertiesService.isEarthEngineSupported()) {
 
 			if (webDriverEE == null) {
+				setGeeMethodUpdated(false); // Force the method to find the GEE specific methods again
 				webDriverEE = initBrowser();
 			}
 

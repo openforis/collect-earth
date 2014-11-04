@@ -237,6 +237,22 @@
                 </platformTest>
             </ruleList>
         </createSymLink>
+        <associateWindowsFileExtension>
+            <extensions>.cep</extensions>
+            <friendlyName></friendlyName>
+            <icon>${installdir}\launcher_icon.ico</icon>
+            <mimeType>application/vnd.openforis.collectearth</mimeType>
+            <progID>openforis.collectearth.1</progID>
+            <commandList>
+                <!-- Defining the 'Open' command -->
+                <command>
+                    <makeDefault>0</makeDefault>
+                    <runProgram>${installdir}\${java_launcher_binary_name}</runProgram>
+                    <runProgramArguments>"%1"</runProgramArguments>
+                    <verb>Open</verb>
+                </command>
+            </commandList>
+        </associateWindowsFileExtension>
     </postInstallationActionList>
     <startMenuShortcutList>
         <startMenuShortcut>

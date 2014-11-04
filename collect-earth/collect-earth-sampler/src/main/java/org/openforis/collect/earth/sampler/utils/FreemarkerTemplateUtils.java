@@ -8,9 +8,6 @@ import java.io.OutputStreamWriter;
 import java.nio.charset.Charset;
 import java.util.Map;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
 import freemarker.template.Configuration;
 import freemarker.template.Template;
 import freemarker.template.TemplateException;
@@ -18,9 +15,7 @@ import freemarker.template.TemplateException;
 
 public class FreemarkerTemplateUtils {
 
-	private static Logger logger = LoggerFactory.getLogger( FreemarkerTemplateUtils.class );
-
-	public static boolean applyTemplate(File sourceTemplate, File destinationFile, Map<?, ?> data) throws IOException{
+	public static boolean applyTemplate(File sourceTemplate, File destinationFile, Map<?, ?> data) throws IOException, TemplateException{
 
 		boolean success = true;
 		
@@ -36,10 +31,7 @@ public class FreemarkerTemplateUtils {
 		try {
 			fw = new BufferedWriter(new OutputStreamWriter(new FileOutputStream(destinationFile), Charset.forName("UTF-8")));
 			template.process(data, fw);
-		} catch (final TemplateException e) {
-			logger .error("Problems when processing the template for the Saiku data source", e);
-			success = false;
-		} finally {
+		}finally {
 			if (fw != null) {
 				fw.close();
 			}

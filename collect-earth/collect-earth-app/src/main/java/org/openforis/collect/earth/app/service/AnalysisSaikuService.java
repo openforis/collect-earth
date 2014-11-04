@@ -42,6 +42,7 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.core.RowMapper;
 import org.springframework.stereotype.Component;
 
+import freemarker.template.TemplateException;
 import au.com.bytecode.opencsv.CSVReader;
 
 @Component
@@ -516,6 +517,8 @@ public class AnalysisSaikuService {
 				}
 			} catch (final IOException e) {
 				logger.error("Error while producing Relational DB from Collect format", e);
+			} catch (TemplateException e1) {
+				logger.error("Error while applying the freemarker template tothe Saiku data source", e1);
 			}
 
 		} catch (final CollectRdbException e) {
@@ -588,7 +591,7 @@ public class AnalysisSaikuService {
 						Object[] parameters = new String[]{region,plot_file};
 
 						int plots_per_region = jdbcTemplate.queryForInt( 
-								"SELECT count("+PLOT_ID+")FROM " + schemaName  + "plot  WHERE ( region=? OR plot_file=? ) AND land_use_category != '"+NO_DATA_LAND_USE+"' ", parameters);
+								"SELECT count("+PLOT_ID+") FROM " + schemaName  + "plot  WHERE ( region=? OR plot_file=? ) AND land_use_category != '"+NO_DATA_LAND_USE+"' ", parameters);
 
 						Float expansion_factor_hectars_calc = 0f;
 						if( plots_per_region != 0 ){
@@ -629,7 +632,7 @@ public class AnalysisSaikuService {
 
 	}
 
-	private void refreshDataSourceForSaiku() throws IOException {
+	private void refreshDataSourceForSaiku() throws IOException, TemplateException {
 		final File mdxFile = new File(getIdmFolder() + File.separatorChar + MDX_XML);
 
 		Map<String, String> data = new HashMap<String, String>();
@@ -676,7 +679,7 @@ public class AnalysisSaikuService {
 		return dataSourceTemplate;
 	}
 
-	private void setMdxSaikuSchema(final File mdxFileTemplate, final File mdxFile ) throws IOException {
+	private void setMdxSaikuSchema(final File mdxFileTemplate, final File mdxFile ) throws IOException, TemplateException {
 		Map<String, String> saikuData = new HashMap<String, String>();
 		String saikuSchemaName = getSchemaName();
 		if( saikuSchemaName==null){
@@ -767,8 +770,10 @@ public class AnalysisSaikuService {
 
 	private void stopSaiku() throws SaikuExecutionException {
 		logger.warn("Stoping the Saiku server" + getSaikuFolder() + File.separator + STOP_SAIKU);
-		runSaikuBat(STOP_SAIKU);
-		this.setSaikuStarted(true);
+		if( isSaikuStarted() ){
+			runSaikuBat(STOP_SAIKU);
+			this.setSaikuStarted(true);
+		}
 		logger.warn("Finished stoping the Saiku server");
 	}
 

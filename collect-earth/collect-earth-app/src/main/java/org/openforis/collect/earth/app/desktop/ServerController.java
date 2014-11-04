@@ -21,11 +21,14 @@ import org.openforis.collect.earth.app.service.FolderFinder;
 import org.openforis.collect.earth.app.service.LocalPropertiesService;
 import org.openforis.collect.earth.app.service.LocalPropertiesService.EarthProperty;
 import org.openforis.collect.earth.sampler.utils.FreemarkerTemplateUtils;
+import org.openforis.collect.earth.sampler.utils.KmlGenerationException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.BeanCreationException;
 import org.springframework.web.context.WebApplicationContext;
 import org.springframework.web.context.support.WebApplicationContextUtils;
+
+import freemarker.template.TemplateException;
 
 /**
  * Controls the Jetty server, starting and stopping it as well as reporting its staus.
@@ -47,7 +50,13 @@ public class ServerController extends Observable {
 	static LocalPropertiesService localPropertiesService = new LocalPropertiesService();
 
 	public WebApplicationContext getContext() {
-		return WebApplicationContextUtils.getRequiredWebApplicationContext(getRoot().getServletContext());
+		WebApplicationContext webApplicationContext = null;
+		try {
+			webApplicationContext =  WebApplicationContextUtils.getRequiredWebApplicationContext(getRoot().getServletContext());
+		} catch (IllegalStateException e) {
+			logger.error("Error getting web application context", e);
+		}
+		return webApplicationContext;
 	}
 
 	private static String getDbURL() {
@@ -113,13 +122,12 @@ public class ServerController extends Observable {
 			data.put("password", localPropertiesService.getValue(EarthProperty.DB_PASSWORD));
 			data.put("collectEarthExecutionFolder", System.getProperty("user.dir")+ File.separator);
 
-			FreemarkerTemplateUtils.applyTemplate(jettyAppCtxTemplateSrc, jettyAppCtxDst, data);
 
-		} catch (final FileNotFoundException e) {
-			logger.error("File not found", e);
-		} catch (final IOException e) {
-			logger.error("IO Exception", e);
-		}
+			FreemarkerTemplateUtils.applyTemplate(jettyAppCtxTemplateSrc, jettyAppCtxDst, data);
+		} catch (IOException | TemplateException e) {
+			logger.error("Error refreshing teh Jetty application context to add the data sources for Collect Earth", e);
+		} 
+
 	}
 
 	public static String getSaikuDbURL() {

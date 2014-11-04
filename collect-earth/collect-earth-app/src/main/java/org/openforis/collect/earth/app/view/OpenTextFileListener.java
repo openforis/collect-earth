@@ -28,7 +28,7 @@ public class OpenTextFileListener implements ActionListener {
 	public OpenTextFileListener(Frame owner, String filePath, String title) {
 		
 		this.filePath = filePath;
-		dialog = new JDialog(owner, title);
+		dialog = new JDialog(owner, title + " " + filePath); //$NON-NLS-1$
 		dialog.setLocationRelativeTo(owner);
 		dialog.setSize(new Dimension(300, 400));
 		dialog.setModal(true);

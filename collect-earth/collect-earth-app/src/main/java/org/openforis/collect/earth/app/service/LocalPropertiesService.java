@@ -361,7 +361,7 @@ public class LocalPropertiesService {
 	}
 
 	public void setUiLanguage(UI_LANGUAGE language) {
-		setValue(EarthProperty.UI_LANGUAGE, language.name());
+		setValue(EarthProperty.UI_LANGUAGE, language.name(), true);
 	}
 
 	public void setValue(EarthProperty key, String value) {
