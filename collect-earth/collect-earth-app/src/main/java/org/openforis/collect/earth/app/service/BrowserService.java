@@ -1,5 +1,8 @@
 package org.openforis.collect.earth.app.service;
 
+import java.awt.Toolkit;
+import java.awt.datatransfer.Clipboard;
+import java.awt.datatransfer.StringSelection;
 import java.io.BufferedReader;
 import java.io.BufferedWriter;
 import java.io.File;
@@ -11,7 +14,6 @@ import java.net.URL;
 import java.security.cert.CertificateException;
 import java.security.cert.X509Certificate;
 import java.util.Arrays;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Observable;
@@ -29,12 +31,14 @@ import javax.net.ssl.X509TrustManager;
 
 import liquibase.util.SystemUtils;
 
+import org.apache.commons.io.FileUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.openforis.collect.earth.app.EarthConstants;
 import org.openforis.collect.earth.app.desktop.ServerController;
 import org.openforis.collect.earth.app.service.LocalPropertiesService.EarthProperty;
 import org.openqa.selenium.By;
 import org.openqa.selenium.JavascriptExecutor;
+import org.openqa.selenium.Keys;
 import org.openqa.selenium.WebDriverException;
 import org.openqa.selenium.WebElement;
 import org.openqa.selenium.browserlaunchers.locators.CombinedFirefoxLocator;
@@ -101,7 +105,7 @@ public class BrowserService implements Observer{
 	private LocalPropertiesService localPropertiesService;
 
 	@Autowired
-	private BingMapService bingMapService;
+	private GeolocalizeMapService geoLocalizeTemplateService;
 
 	private final Vector<RemoteWebDriver> drivers = new Vector<RemoteWebDriver>();
 	private final Logger logger = LoggerFactory.getLogger(BrowserService.class);
@@ -109,7 +113,7 @@ public class BrowserService implements Observer{
 	private static final Configuration cfg = new Configuration();
 	private static Template template;
 
-	private RemoteWebDriver webDriverEE, webDriverBing, webDriverTimelapse;
+	private RemoteWebDriver webDriverEE, webDriverBing, webDriverTimelapse, webDriverGeePlayground;
 
 	private static boolean geeMethodUpdated = false;
 
@@ -212,7 +216,8 @@ public class BrowserService implements Observer{
 
 	private String getGEEJavascript(String[] latLong) {
 
-		final Map<String, String> data = new HashMap<String, String>();
+		//final Map<String, String> data = new HashMap<String, String>();
+		final Map<String,Object> data = geoLocalizeTemplateService.getPlacemarkData(latLong);
 		data.put("latitude", latLong[0]);
 		data.put("longitude", latLong[1]);
 		data.put(EarthProperty.GEE_FUNCTION_PICK.toString(), localPropertiesService.getValue(EarthProperty.GEE_FUNCTION_PICK));
@@ -375,7 +380,7 @@ public class BrowserService implements Observer{
 
 	private void processSeleniumError(final Exception e) {
 		if( e.getCause()!=null && e.getCause().getMessage()!=null && !e.getCause().getMessage().contains("latitude") ){
-			logger.error("Error in the selenium driver", e);
+			logger.warn("Error in the selenium driver", e);
 		}else{
 			logger.info("Error in the selenium driver provoked by known bug", e);
 		}
@@ -447,7 +452,7 @@ public class BrowserService implements Observer{
 				public void run() {
 
 					try {
-						webDriverBing = navigateTo(bingMapService.getTemporaryUrl(latLong).toString(), driverCopy);
+						webDriverBing = navigateTo(geoLocalizeTemplateService.getTemporaryUrl(latLong, GeolocalizeMapService.FREEMARKER_BING_HTML_TEMPLATE).toString(), driverCopy);
 					} catch (final Exception e) {
 						logger.error("Problems loading Bing", e);
 					}
@@ -459,6 +464,57 @@ public class BrowserService implements Observer{
 		}
 	}
 
+	/**
+	 * Opens a browser window with the Google Earth Engine Playground and runs the freemarker template found in resources/eePlaygroundScript.fmt on the main editor of GEE. 
+	 * @param coordinates The center point of the plot.
+	 * @throws BrowserNotFoundException 
+	 * 
+	 */
+	public synchronized void openGeePlayground(String coordinates) throws BrowserNotFoundException {
+
+		if (localPropertiesService.isGeePlaygroundSupported()) {
+
+			if (webDriverGeePlayground == null) {
+				webDriverGeePlayground = initBrowser();
+			}
+
+			final String[] latLong = coordinates.split(",");
+
+			final Thread loadEEThread = new Thread() {
+				@Override
+				public void run() {
+					try {
+						URL fileWithScript = geoLocalizeTemplateService.getTemporaryUrl(latLong, GeolocalizeMapService.FREEMARKER_GEE_PLAYGROUND_TEMPLATE);
+						
+						if (!isIdOrNamePresent("main", webDriverGeePlayground)) {
+							webDriverGeePlayground = navigateTo( localPropertiesService.getGeePlaygoundUrl(), webDriverGeePlayground);
+						}
+						
+						webDriverGeePlayground.findElementByCssSelector("button.goog-button:nth-child(5)").click();
+						
+						WebElement textArea = webDriverGeePlayground.findElement(By.className("ace_text-input"));
+						
+						Clipboard clipboard = Toolkit.getDefaultToolkit().getSystemClipboard();
+						StringSelection clipboardtext = new StringSelection( FileUtils.readFileToString( new File(fileWithScript.toURI())) );
+						clipboard.setContents(clipboardtext, null);
+						
+						textArea.sendKeys(Keys.chord(Keys.CONTROL,"a"));
+						textArea.sendKeys(Keys.chord(Keys.CONTROL,"v"));
+						
+						//textArea.sendKeys( FileUtils.readFileToString( new File(fileWithScript.toURI())) );
+						//((JavascriptExecutor)webDriverGeePlayground).executeScript("arguments[0].value = arguments[1];", textArea,);
+						Thread.sleep(1000);
+						webDriverGeePlayground.findElementByCssSelector("button.goog-button:nth-child(4)").click();
+						
+					} catch (final Exception e) {
+						logger.error("Error when opening Earth Engine browser window", e);
+					}
+				};
+			};
+			loadEEThread.start();
+		}
+	}
+	
 	/**
 	 * Opens a browser window with the Google Earth Engine representation of the plot. The Landsat 8 Annual Greenest pixel TOA for 2013 is loaded automatically. 
 	 * @param coordinates The center point of the plot.

@@ -147,6 +147,9 @@ public class OptionWizard extends JDialog {
 
 		constraints.gridy++;
 		panel.add(propertyToComponent.get(EarthProperty.OPEN_BING_MAPS)[0], constraints);
+		
+		constraints.gridy++;
+		panel.add(propertyToComponent.get(EarthProperty.OPEN_GEE_PLAYGROUND)[0], constraints);
 
 		final JPanel browserChooserPanel = new JPanel();
 		final Border browserBorder = new TitledBorder(new BevelBorder(BevelBorder.LOWERED), Messages.getString("OptionWizard.1")); //$NON-NLS-1$
@@ -855,6 +858,11 @@ public class OptionWizard extends JDialog {
 		final JCheckBox openBingCheckbox = new JCheckBox(Messages.getString("OptionWizard.47")); //$NON-NLS-1$
 		openBingCheckbox.setSelected(Boolean.parseBoolean(localPropertiesService.getValue(EarthProperty.OPEN_BING_MAPS)));
 		propertyToComponent.put(EarthProperty.OPEN_BING_MAPS, new JComponent[] { openBingCheckbox });
+		
+		final JCheckBox openGeePlaygroundCheckbox = new JCheckBox("Open GEE Playground (requires Trusted Tester access)");
+		openGeePlaygroundCheckbox.setSelected(Boolean.parseBoolean(localPropertiesService.getValue(EarthProperty.OPEN_GEE_PLAYGROUND)));
+		propertyToComponent.put(EarthProperty.OPEN_GEE_PLAYGROUND, new JComponent[] { openGeePlaygroundCheckbox });
+
 
 		final JCheckBox openInSeparateWindowCheckbox = new JCheckBox(Messages.getString("OptionWizard.48")); //$NON-NLS-1$
 		openInSeparateWindowCheckbox.setSelected(Boolean.parseBoolean(localPropertiesService.getValue(EarthProperty.OPEN_BALLOON_IN_BROWSER)));

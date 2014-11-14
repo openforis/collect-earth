@@ -1,0 +1,133 @@
+// Plot Landsat 8 NDVI band value means Collect Earth plot.
+
+
+var startTime = '2013-05-1';
+var endTime = '2014-05-14';
+
+var plot = ee.Geometry.Polygon(
+            [
+			<#list placemark.shape as coord>
+			[${coord.longitude}, ${coord.latitude}],
+			</#list>  
+			]);
+var landsat8Ndvi32Day = ee.ImageCollection('LANDSAT/LC8_L1T_32DAY_NDVI')
+    .filterDate(startTime, endTime)
+    .select('NDVI');
+
+var ndviTimeSeries =
+    Chart.image.series(landsat8Ndvi32Day, plot, ee.Reducer.mean(), 30);
+
+ndviTimeSeries = ndviTimeSeries.setOptions({
+  title: 'Landsat 8 32 days NDVI',
+  hAxis: {
+    title: 'Date'
+  },
+  vAxis: {
+    title: 'NDVI'
+  }
+});
+
+print(ndviTimeSeries);
+
+
+var landsat8Ndwi32Day = ee.ImageCollection('LANDSAT/LC8_L1T_32DAY_NDWI')
+    .filterDate(startTime, endTime)
+    .select('NDWI');
+    
+var ndwiTimeSeries =
+    Chart.image.series(landsat8Ndwi32Day, plot, ee.Reducer.mean(), 30);
+
+ndwiTimeSeries = ndwiTimeSeries.setOptions({
+  title: 'Landsat 8 32 days NDWI',
+  hAxis: {
+    title: 'Date'
+  },
+  vAxis: {
+    title: 'NDWI'
+  }
+});
+
+print(ndwiTimeSeries);
+
+var landsat8Evi32Day = ee.ImageCollection('LANDSAT/LC8_L1T_32DAY_EVI')
+    .filterDate(startTime, endTime)
+    .select('EVI');
+    
+var eviTimeSeries =
+    Chart.image.series(landsat8Evi32Day, plot, ee.Reducer.mean(), 30);
+
+eviTimeSeries = eviTimeSeries.setOptions({
+  title: 'Landsat 8 32 days EVI',
+  hAxis: {
+    title: 'Date'
+  },
+  vAxis: {
+    title: 'EVI'
+  }
+});
+
+print(eviTimeSeries);
+
+
+var modisNoaaNdvi = ee.ImageCollection('MODIS/MOD13Q1')
+    .filterDate(startTime, endTime)
+    .select('NDVI');
+    
+var modisNoaaTimeSeries =
+    Chart.image.series(modisNoaaNdvi, plot, ee.Reducer.mean(), 30);
+
+modisNoaaTimeSeries = modisNoaaTimeSeries.setOptions({
+  title: 'MOD13Q1 Vegetation Indices 16-Day Global 250m',
+  hAxis: {
+    title: 'Date'
+  },
+  vAxis: {
+    title: 'NDVI'
+  }
+});
+
+print(modisNoaaTimeSeries);
+
+var modisGoogleNdvi = ee.ImageCollection('MODIS/MCD43A4_NDVI')
+    .filterDate(startTime, endTime)
+    .select('NDVI');
+    
+var modisGoogleTimeSeries =
+    Chart.image.series(modisGoogleNdvi, plot, ee.Reducer.mean(), 30);
+
+modisGoogleTimeSeries = modisGoogleTimeSeries.setOptions({
+  title: 'MODIS 16-Day NDVI (Google)',
+  hAxis: {
+    title: 'Date'
+  },
+  vAxis: {
+    title: 'NDVI'
+  }
+});
+
+print(modisGoogleTimeSeries);
+
+
+
+
+var landsat7AnnualNdvi = ee.ImageCollection('LANDSAT/LE7_L1T_ANNUAL_NDVI')
+    .filterDate("200-01-01", "2015-01-01")
+    .select('NDVI');
+    
+var landsat7AnnuaTimeSeries =
+    Chart.image.series(landsat7AnnualNdvi, plot, ee.Reducer.mean(), 30);
+
+landsat7AnnuaTimeSeries = landsat7AnnuaTimeSeries.setOptions({
+  title: 'Landsat 7 Annual NDVI Composite',
+  hAxis: {
+    title: 'Year'
+  },
+  vAxis: {
+    title: 'NDVI'
+  }
+});
+
+print(landsat7AnnuaTimeSeries);
+
+Map.addLayer(plot);
+Map.setCenter(${placemark.shape[0].longitude}, ${placemark.shape[0].latitude}, 15);

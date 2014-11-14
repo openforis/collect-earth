@@ -28,24 +28,29 @@ import freemarker.template.TemplateException;
  * 
  */
 @Component
-public class BingMapService {
+public class GeolocalizeMapService {
 
 	/**
 	 * The file that contains the freemarker template used to produce the Bing Maps code.
 	 */
-	private static final String FREEMARKER_HTML_TEMPLATE = "resources" + File.separator + "collectBing.fmt";
+	public static final String FREEMARKER_BING_HTML_TEMPLATE = "resources" + File.separator + "collectBing.fmt";
+	
+	
+	/**
+	 * The file that contains the freemarker template used to produce script that is run in GEE Playground.
+	 */
+	public static final String FREEMARKER_GEE_PLAYGROUND_TEMPLATE = "resources" + File.separator + "eePlaygroundScript.fmt";
 
 	@Autowired
 	LocalPropertiesService localPropertiesService;
 
 	private final Logger logger = LoggerFactory.getLogger(this.getClass());
 
-	private File applyData(Map<String,Object>  data) throws IOException, TemplateException {
+	private File applyData(Map<String,Object>  data, String freemarkerTemplateFile) throws IOException, TemplateException {
 
+		final File templateFileSrc = new File(freemarkerTemplateFile);
 		
-		final File templateFileSrc = new File(FREEMARKER_HTML_TEMPLATE);
-		
-		final File tempFileDst = File.createTempFile("bing", ".html");
+		final File tempFileDst = File.createTempFile("selenium", ".html");
 		tempFileDst.deleteOnExit();
 
 		FreemarkerTemplateUtils.applyTemplate(templateFileSrc, tempFileDst, data);
@@ -54,7 +59,7 @@ public class BingMapService {
 
 	}
 
-	private Map<String, Object> getPlacemarkData(String[] centerLatLong) {
+	public Map<String, Object> getPlacemarkData(String[] centerLatLong) {
 		final Map<String, Object> data = new HashMap<String, Object>();
 		final SimplePlacemarkObject placemark = new SimplePlacemarkObject(centerLatLong);
 
@@ -82,12 +87,12 @@ public class BingMapService {
 	 * @param centerCoordinates The coordinates of the center of the plot.
 	 * @return The URL to the temporary file that can be used to load it in a browser.
 	 */
-	public URL getTemporaryUrl(String[] centerCoordinates) {
+	public URL getTemporaryUrl(String[] centerCoordinates, String freemarkerTemplate) {
 
 		final Map<String,Object> data = getPlacemarkData(centerCoordinates);
 		File transformedHtml = null;
 		try {
-			transformedHtml = applyData(data);
+			transformedHtml = applyData(data, freemarkerTemplate);
 		} catch (final Exception e) {
 			logger.error("Exception when applying template for Bing map", e);
 		}

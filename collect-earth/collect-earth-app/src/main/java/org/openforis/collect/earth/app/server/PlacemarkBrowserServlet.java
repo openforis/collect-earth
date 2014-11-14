@@ -38,12 +38,13 @@ public class PlacemarkBrowserServlet{
 					browserService.openEarthEngine(latLongCoordinates);
 					browserService.openTimelapse(latLongCoordinates);
 					browserService.openBingMaps(latLongCoordinates);
+					browserService.openGeePlayground(latLongCoordinates);
 				} catch (final Exception e) {
 					LoggerFactory.getLogger(this.getClass()).error("Exception", e);
 				}
 			}
 
-		}.start();;
+		}.start();
 	}
 
 }
