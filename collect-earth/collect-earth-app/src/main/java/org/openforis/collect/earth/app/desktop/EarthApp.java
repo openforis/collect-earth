@@ -2,9 +2,13 @@ package org.openforis.collect.earth.app.desktop;
 
 import java.awt.Desktop;
 import java.awt.SplashScreen;
+import java.io.BufferedReader;
 import java.io.File;
-import java.io.FileInputStream;
 import java.io.IOException;
+import java.io.InputStreamReader;
+import java.net.Socket;
+import java.net.URL;
+import java.net.URLConnection;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -14,10 +18,11 @@ import java.util.Observer;
 
 import javax.swing.JOptionPane;
 
-import org.apache.commons.codec.digest.DigestUtils;
 import org.apache.commons.io.FileUtils;
+import org.openforis.collect.earth.app.CollectEarthUtils;
 import org.openforis.collect.earth.app.EarthConstants;
 import org.openforis.collect.earth.app.EarthConstants.SAMPLE_SHAPE;
+import org.openforis.collect.earth.app.server.LoadProjectFileServlet;
 import org.openforis.collect.earth.app.service.EarthProjectsService;
 import org.openforis.collect.earth.app.service.FolderFinder;
 import org.openforis.collect.earth.app.service.LocalPropertiesService;
@@ -105,20 +110,61 @@ public class EarthApp {
 	public static void main(String[] args) {
 
 		try {
+			earthApp = new EarthApp();
+
 			// System property used in the log4j.properties configuration
 			System.setProperty("collectEarth.userFolder", FolderFinder.getLocalFolder());
 			logger = LoggerFactory.getLogger(EarthApp.class);
 
-			earthApp = new EarthApp();
 
-			earthApp.preloadProjectFile(args);
+			if ( earthApp.isServerAlreadyRunning()) {
+				closeSplash();
+				// If the user double clicked on a project file while Collect Earth is running then load the project in the running Collect Earth		
+				if (args != null && args.length == 1) {
 
-			if (earthApp.checkFilesExist()) {
-				earthApp.addElevationColumn();
-				earthApp.generatePlacemarksKmzFile();
+					final String projectFilePath = args[0];
+					final File projectFile = new File(projectFilePath);
+
+					if (projectFile.exists()) {
+
+						URL loadPfojectFileInRunningCE = new URL(
+								"http://"+ 
+										earthApp.getLocalProperties().getHost() + 
+										":"+ 
+										earthApp.getLocalProperties().getPort() +
+										"/earth/"+ LoadProjectFileServlet.SERVLET_NAME+ 
+										"?"+ LoadProjectFileServlet.PROJECT_FILE_PARAMETER + "="+
+										projectFilePath
+								);
+						URLConnection urlConn =loadPfojectFileInRunningCE.openConnection();
+
+						BufferedReader in = new BufferedReader(
+								new InputStreamReader(
+										urlConn.getInputStream()));
+						String inputLine;
+
+						while ((inputLine = in.readLine()) != null) 
+							System.out.println(inputLine);
+						in.close();
+
+					}
+				}else{
+					earthApp.showMessage("Collect Earth is already running");
+				}
+
+			} else {
+
+
+				earthApp.preloadProjectFile(args);
+
+				if (earthApp.checkFilesExist()) {
+					earthApp.addElevationColumn();
+					earthApp.generatePlacemarksKmzFile();
+				}
+
+				earthApp.initializeServer();
 			}
 
-			earthApp.initializeServer();
 
 		} catch (final Exception e) {
 			// The logger factory has not been initialized, this will not work, just output to console
@@ -132,6 +178,23 @@ public class EarthApp {
 		}
 	}
 
+	
+	public boolean isServerAlreadyRunning() {
+		boolean alreadyRunning = false;
+		try {
+			new Socket("127.0.0.1", Integer.parseInt( getLocalProperties().getPort()) ).close();
+			// If here there is something is serving on port 8888
+			// So stop it
+			logger.warn("There is a server already running " + getLocalProperties().getPort());
+			alreadyRunning = true;
+		} catch (final IOException e) {
+			// Nothing there, so OK to proceed
+			logger.info("There is no server running in port " + getLocalProperties().getPort());
+			alreadyRunning = false;
+		}
+		return alreadyRunning;
+	}
+	
 	public static void restart() {
 		try {
 
@@ -424,9 +487,6 @@ public class EarthApp {
 		}
 	}
 
-	private String getMd5FromFile(String filePath) throws IOException {
-		return DigestUtils.md5Hex(new FileInputStream(new File(filePath)));
-	}
 
 	private EarthProjectsService getProjectsService() {
 		if (serverController != null) {
@@ -440,36 +500,33 @@ public class EarthApp {
 
 	private void initializeServer() throws Exception {
 		logger.info("START - Server Initilization");
+
 		serverController = new ServerController();
-		if (serverController.isServerAlreadyRunning()) {
-			closeSplash();
-			showMessage("The server is already running");
-			simulateClickKmz();
-		} else {
-			final Observer observeInitialization = new Observer() {
+		
+		final Observer observeInitialization = new Observer() {
 
-				@Override
-				public void update(Observable o, Object arg) {
-					if (arg.equals(ServerController.SERVER_STARTED_WITH_EXCEPTION_EVENT)) {
-						serverController = null;
-					}
-					if(! arg.equals(ServerController.SERVER_STOPPED_EVENT) ){
-						try {
+			@Override
+			public void update(Observable o, Object arg) {
+				if (arg.equals(ServerController.SERVER_STARTED_WITH_EXCEPTION_EVENT)) {
+					serverController = null;
+				}
+				if(! arg.equals(ServerController.SERVER_STOPPED_EVENT) ){
+					try {
 
-							simulateClickKmz();
+						simulateClickKmz();
 
-							closeSplash();
+						closeSplash();
 
-							openMainWindow();
-						} catch (final Exception e) {
-							logger.error("Error generating KML file", e);
-							e.printStackTrace();
-						}
+						openMainWindow();
+					} catch (final Exception e) {
+						logger.error("Error generating KML file", e);
+						e.printStackTrace();
 					}
 				}
-			};
-			serverStartAndOpenGe(observeInitialization);
-		}
+			}
+		};
+		serverStartAndOpenGe(observeInitialization);
+
 	}
 
 	private boolean isKmlUpToDate() throws IOException {
@@ -479,9 +536,9 @@ public class EarthApp {
 		final String template = getLocalProperties().getTemplateFile();
 
 		boolean upToDate = true;
-		if (!getLocalProperties().getBalloonFileChecksum().trim().equals(getMd5FromFile(balloon))
-				|| !getLocalProperties().getTemplateFileChecksum().trim().equals(getMd5FromFile(template))
-				|| !getLocalProperties().getCsvFileChecksum().trim().equals(getMd5FromFile(csvFile))) {
+		if (!getLocalProperties().getBalloonFileChecksum().trim().equals(CollectEarthUtils.getMd5FromFile(balloon))
+				|| !getLocalProperties().getTemplateFileChecksum().trim().equals(CollectEarthUtils.getMd5FromFile(template))
+				|| !getLocalProperties().getCsvFileChecksum().trim().equals(CollectEarthUtils.getMd5FromFile(csvFile))) {
 			upToDate = false;
 		}
 
@@ -535,9 +592,9 @@ public class EarthApp {
 
 				final String projectFilePath = args[0];
 				final File projectFile = new File(projectFilePath);
+
 				if (projectFile.exists()) {
 					getProjectsService().loadCompressedProjectFile(projectFile);
-
 				}
 			}
 		} catch (final Exception e) {
@@ -574,9 +631,9 @@ public class EarthApp {
 		final String balloon = getLocalProperties().getBalloonFile();
 		final String template = getLocalProperties().getTemplateFile();
 
-		getLocalProperties().saveBalloonFileChecksum(getMd5FromFile(balloon));
-		getLocalProperties().saveCsvFileCehcksum(getMd5FromFile(csvFile));
-		getLocalProperties().saveTemplateFileChecksum(getMd5FromFile(template));
+		getLocalProperties().saveBalloonFileChecksum(CollectEarthUtils.getMd5FromFile(balloon));
+		getLocalProperties().saveCsvFileCehcksum(CollectEarthUtils.getMd5FromFile(csvFile));
+		getLocalProperties().saveTemplateFileChecksum(CollectEarthUtils.getMd5FromFile(template));
 	}
 
 }

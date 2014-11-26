@@ -53,7 +53,7 @@ public class LocalPropertiesService {
 				"db_host"), DB_PORT("db_port"), UI_LANGUAGE("ui_language"), LAST_USED_FOLDER("last_used_folder"), LAST_EXPORTED_DATE("last_exported_survey_date"), OPEN_GEE_PLAYGROUND("open_gee_playground"), OPEN_BING_MAPS("open_bing_maps"), OPEN_EARTH_ENGINE(
 						"open_earth_engine"), OPEN_TIMELAPSE("open_timelapse"),DISTANCE_BETWEEN_SAMPLE_POINTS("distance_between_sample_points"), DISTANCE_TO_PLOT_BOUNDARIES(
 								"distance_to_plot_boundaries"), INNER_SUBPLOT_SIDE("inner_point_side"), SAMPLE_SHAPE("sample_shape"),  SURVEY_NAME("survey_name"), GEE_PLAYGROUND_URL("gee_playground_url"), NUMBER_OF_SAMPLING_POINTS_IN_PLOT(
-								"number_of_sampling_points_in_plot"), LOADED_PROJECTS("loaded_projects");
+								"number_of_sampling_points_in_plot"), LOADED_PROJECTS("loaded_projects"), ACTIVE_PROJECT_DEFINITION("active_project_definition");
 
 
 		private String name;
@@ -69,7 +69,7 @@ public class LocalPropertiesService {
 
 	}
 
-	private final Logger logger = LoggerFactory.getLogger(LocalPropertiesService.class);
+	private Logger logger =null;
 	private Properties properties;
 	private static final String PROPERTIES_FILE_PATH_INITIAL = "earth.properties_initial";
 	private static final String PROPERTIES_FILE_PATH = FolderFinder.getLocalFolder() + File.separator + "earth.properties";
@@ -240,6 +240,7 @@ public class LocalPropertiesService {
 		FileReader fr = null;
 		boolean removeInitialFile =false;
 		File propertiesFileInitial = null;
+		logger = LoggerFactory.getLogger(LocalPropertiesService.class);
 		try {
 			
 			File propertiesFile = new File(PROPERTIES_FILE_PATH);						

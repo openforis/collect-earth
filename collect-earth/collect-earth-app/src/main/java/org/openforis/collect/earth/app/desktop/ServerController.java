@@ -71,12 +71,6 @@ public class ServerController extends Observable {
 
 	private int getPort() {
 
-		try {
-			localPropertiesService.init();
-		} catch (final IOException e) {
-			logger.error("Error initializing local properties", e);
-		}
-
 		String webPort = localPropertiesService.getLocalPort();
 		if (webPort == null || webPort.isEmpty()) {
 			webPort = DEFAULT_PORT;
@@ -86,22 +80,6 @@ public class ServerController extends Observable {
 
 	private WebAppContext getRoot() {
 		return root;
-	}
-
-	public boolean isServerAlreadyRunning() {
-		boolean alreadyRunning = false;
-		try {
-			new Socket("127.0.0.1", getPort()).close();
-			// If here there is something is serving on port 8888
-			// So stop it
-			logger.warn("There is a server already running " + getPort());
-			alreadyRunning = true;
-		} catch (final IOException e) {
-			// Nothing there, so OK to proceed
-			logger.info("There is no server running in port " + getPort());
-			alreadyRunning = false;
-		}
-		return alreadyRunning;
 	}
 
 	private void setRoot(WebAppContext root) {
@@ -144,10 +122,16 @@ public class ServerController extends Observable {
 	 */
 	public void startServer(Observer observeInitialization) throws Exception {
 
+		
+		
 		this.addObserver(observeInitialization);
 
+		localPropertiesService.init();
+		
 		initilizeDataSources();
 		try {
+			
+			
 			final String webappDirLocation = FolderFinder.getLocalFolder();
 
 			// The port that we should run on can be set into an environment variable
@@ -155,21 +139,19 @@ public class ServerController extends Observable {
 			// PropertyConfigurator.configure(this.getClass().getResource("/WEB-INF/conf/log4j.properties"));
 
 			server = new Server(new ExecutorThreadPool(10, 50, 5, TimeUnit.SECONDS));
-
-
+	
 			// // Use blocking-IO connector to improve throughput
 			final ServerConnector connector = new ServerConnector(server);
-
+			connector.setName("127.0.0.1:"+getPort());
 			connector.setHost("0.0.0.0");
 			connector.setPort( getPort() );
-
+		
 			connector.setStopTimeout( 1000 );
 
 			server.setConnectors(new Connector[] { connector });
 
 
 			WebAppContext wweAppContext = new WebAppContext();
-
 			setRoot(wweAppContext);
 
 
@@ -203,7 +185,10 @@ public class ServerController extends Observable {
 
 				notifyObservers( SERVER_STARTED_EVENT );
 			}
-		} catch (Exception e) {
+		} catch (final IOException e) {
+			logger.error("Error initializing local properties", e);
+		}
+		catch (Exception e) {
 			logger.error("Error staring the server", e );
 		}
 
