@@ -12,7 +12,7 @@
 	<packaging>jar</packaging>
 
 	<properties>
-		<jetty.version>9.2.0.M0</jetty.version>
+		<jetty.version>9.2.5.v20141112</jetty.version>
 		<spring.version>3.1.0.RELEASE</spring.version>
 		<selenium.version>2.43.1</selenium.version>
 		<sonar.language>java</sonar.language>
