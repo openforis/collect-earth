@@ -484,7 +484,7 @@ public class BrowserService implements Observer{
 				@Override
 				public void run() {
 					try {
-						URL fileWithScript = geoLocalizeTemplateService.getTemporaryUrl(latLong, GeolocalizeMapService.FREEMARKER_GEE_PLAYGROUND_TEMPLATE);
+						URL fileWithScript = geoLocalizeTemplateService.getTemporaryUrl(latLong, getGeePlaygroundTemplate());
 						
 						if (!isIdOrNamePresent("main", webDriverGeePlayground)) {
 							webDriverGeePlayground = navigateTo( localPropertiesService.getGeePlaygoundUrl(), webDriverGeePlayground);
@@ -509,10 +509,46 @@ public class BrowserService implements Observer{
 					} catch (final Exception e) {
 						logger.error("Error when opening Earth Engine browser window", e);
 					}
+				}
+
+				/**
+				 * Get the GEE Playground script that should be used.
+				 * There is an standard one that resides in resources/eePlaygroundScript.fmt but a project might have its own script.
+				 * 
+				 * @return The generic script in the resources folder or the file called eePlaygroundScript.fmt in hte same folder where the current project file resides
+				 */
+				private String getGeePlaygroundTemplate() {
+					String genericPlaygroundScript = GeolocalizeMapService.FREEMARKER_GEE_PLAYGROUND_TEMPLATE;
+					
+					String projectPlaygroundScript = getProjectGeeScript();
+					if( getProjectGeeScript() != null  ){
+						return projectPlaygroundScript;
+					}
+					
+					return genericPlaygroundScript;
 				};
 			};
 			loadEEThread.start();
 		}
+	}
+	
+	/**
+	 * Find the GEE playground script that should be used for the project that is currently loaded in Collect Earth
+	 * @return The path to the GEE playground generic script or the one that is specified in the project folder if it exists. 
+	 */
+	private String getProjectGeeScript() {
+		// Where the metatadata file (usually placemark.idm.xml ) is located
+		final File metadataFile = new File(localPropertiesService.getImdFile() );
+		String metadataPath = metadataFile.getParent();
+		
+		// Is there a "eePlaygroundScript.fmt" file in the same folder than in the metadata file folder?
+		File projectGeePlayground = new File(metadataPath+ File.separatorChar + GeolocalizeMapService.FREEMARKER_GEE_PLAYGROUND_TEMPLATE);
+		
+		String geePlaygroundFilePath = null;
+		if( projectGeePlayground.exists() ){
+			geePlaygroundFilePath = projectGeePlayground.getAbsolutePath();
+		}
+		return geePlaygroundFilePath;
 	}
 	
 	/**

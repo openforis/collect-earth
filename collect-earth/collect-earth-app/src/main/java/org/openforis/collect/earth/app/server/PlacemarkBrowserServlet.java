@@ -20,6 +20,8 @@ import org.springframework.web.bind.annotation.RequestParam;
 @Controller
 public class PlacemarkBrowserServlet{
 
+	private String lastCoordinates = null;
+
 	@Autowired
 	private BrowserService browserService;
 
@@ -34,14 +36,24 @@ public class PlacemarkBrowserServlet{
 		new Thread(){
 			@Override
 			public void run() {
-				try {
-					browserService.openEarthEngine(latLongCoordinates);
-					browserService.openTimelapse(latLongCoordinates);
-					browserService.openBingMaps(latLongCoordinates);
-					browserService.openGeePlayground(latLongCoordinates);
-				} catch (final Exception e) {
-					LoggerFactory.getLogger(this.getClass()).error("Exception", e);
+				// If this is the first plot or the plot is the last one that was opened
+				if( lastCoordinates == null || !lastCoordinates.equals( latLongCoordinates )){
+					try {
+						browserService.openEarthEngine(latLongCoordinates);
+						browserService.openTimelapse(latLongCoordinates);
+						browserService.openBingMaps(latLongCoordinates);
+						browserService.openGeePlayground(latLongCoordinates);
+						
+						System.out.println("These coordinates are already loaded  : " + latLongCoordinates );
+						
+					} catch (final Exception e) {
+						LoggerFactory.getLogger(this.getClass()).error("Exception", e);
+						
+					}
 				}
+				
+				lastCoordinates = latLongCoordinates;
+				
 			}
 
 		}.start();

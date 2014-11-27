@@ -36,11 +36,15 @@ public class GeolocalizeMapService {
 	public static final String FREEMARKER_BING_HTML_TEMPLATE = "resources" + File.separator + "collectBing.fmt";
 	
 	
+
+	public static final String FREEMARKER_GEE_PLAYGROUND_TEMPLATE_FILE_NAME = "eePlaygroundScript.fmt";
+	
 	/**
 	 * The file that contains the freemarker template used to produce script that is run in GEE Playground.
 	 */
-	public static final String FREEMARKER_GEE_PLAYGROUND_TEMPLATE = "resources" + File.separator + "eePlaygroundScript.fmt";
+	public static final String FREEMARKER_GEE_PLAYGROUND_TEMPLATE = "resources" + File.separator + FREEMARKER_GEE_PLAYGROUND_TEMPLATE_FILE_NAME;
 
+	
 	@Autowired
 	LocalPropertiesService localPropertiesService;
 
