@@ -77,6 +77,7 @@ public class AnalysisSaikuService {
 	private static final String STOP_SAIKU = "stop-saiku";
 	
 	private static final String COMMAND_SUFFIX_BAT = ".bat";
+	
 	private static final String COMMAND_SUFFIX_SH = ".sh";
 
 	private static final String COLLECT_EARTH_DATABASE_RDB_DB = EarthConstants.COLLECT_EARTH_DATABASE_SQLITE_DB + ServerController.SAIKU_RDB_SUFFIX;
@@ -108,16 +109,10 @@ public class AnalysisSaikuService {
 
 	private static final String SQLITE_FREEMARKER_HTML_TEMPLATE = "resources" + File.separator + "collectEarthSqliteDS.fmt";
 	private static final String POSTGRESQL_FREEMARKER_HTML_TEMPLATE = "resources" + File.separator + "collectEarthPostgreSqlDS.fmt";
-
 	private static final String MDX_XML = "collectEarthCubes.xml";
 	private static final String MDX_TEMPLATE = MDX_XML + ".fmt";
-
 	private static final String REGION_AREAS_CSV = "region_areas.csv";
-
-	
-
 	private boolean userCancelledOperation = false;
-
 	private boolean saikuStarted;
 
 	private void assignDimensionValues() {
@@ -374,6 +369,13 @@ public class AnalysisSaikuService {
 		configFile = configFile.replace('/', File.separatorChar);
 		return configFile;
 	}
+	
+	private String getSaikuThreeConfigurationFilePath() {
+		
+		String configFile = getSaikuFolder() + "/" + "tomcat/webapps/saiku/WEB-INF/classes/legacy-datasources/collectEarthDS";
+		configFile = configFile.replace('/', File.separatorChar);
+		return configFile;
+	}
 
 	private String getSaikuFolder() {
 		final String configuredSaikuFolder = localPropertiesService.convertToOSPath( localPropertiesService.getValue(EarthProperty.SAIKU_SERVER_FOLDER) );
@@ -553,8 +555,6 @@ public class AnalysisSaikuService {
 		assignDimensionValues();
 
 		assignLUCDimensionValues();
-		
-		
 
 		addAreasPerRegion();
 
@@ -641,8 +641,17 @@ public class AnalysisSaikuService {
 		final File mdxTemplate = getMdxTemplate();
 		final File dataSourceTemplate = getDataSourceTemplate(data);
 
-		final File dataSourceFile = new File(getSaikuConfigurationFilePath());
-		FreemarkerTemplateUtils.applyTemplate(dataSourceTemplate, dataSourceFile, data);
+		// First try Saiku 2.5/2.6
+		File dataSourceFile;
+		try {
+			dataSourceFile = new File(getSaikuConfigurationFilePath());
+			FreemarkerTemplateUtils.applyTemplate(dataSourceTemplate, dataSourceFile, data);
+		} catch (Exception e) {
+			System.out.println("Saiku datasources file not found, testing witht the directory for the 3.0 datasources ");
+			dataSourceFile = new File(getSaikuThreeConfigurationFilePath());
+			FreemarkerTemplateUtils.applyTemplate(dataSourceTemplate, dataSourceFile, data);
+		}
+		
 
 		setMdxSaikuSchema(mdxTemplate, mdxFile);
 	}

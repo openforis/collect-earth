@@ -332,6 +332,11 @@ public class CollectEarthWindow {
 		// Build help menu in the menu bar.
 		final JMenu menuHelp = new JMenu(Messages.getString("CollectEarthWindow.16")); //$NON-NLS-1$
 
+		menuItem = new JMenuItem("About...");
+		menuItem.addActionListener( new OpenAboutDialogListener(frame, "About...") );
+		menuHelp.add(menuItem);
+
+		
 		menuItem = new JMenuItem(Messages.getString("CollectEarthWindow.17")); //$NON-NLS-1$
 		menuItem.addActionListener(new OpenTextFileListener(frame, getDisclaimerFilePath(), Messages.getString("CollectEarthWindow.4")));//$NON-NLS-1$
 		menuHelp.add(menuItem);
