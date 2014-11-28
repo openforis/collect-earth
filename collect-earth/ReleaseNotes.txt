@@ -1,0 +1,24 @@
+Version (1.01) 105 :
+
+	Added 
+	- Support for Google Earth Engine Playground
+	- Plot layout visible in the Google Earth Engine window 
+	
+	Improved
+	- Support for opening Collect Earth Project files while CE is running
+	- The browser windows do not reload if the user clicks on a plot that is already open
+	
+	Fixed
+	- Import CSV file NullPointer exception
+	
+	Libraries
+	- Jetty server libraries updated to 9.2.5
+	- JRE changed to Java 8!
+	
+	
+
+
+
+
+
+
