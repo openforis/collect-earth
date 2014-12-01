@@ -18,3 +18,4 @@ earthFiles
 generated
 *_files
 *.db
+/pom.xml.releaseBackup
