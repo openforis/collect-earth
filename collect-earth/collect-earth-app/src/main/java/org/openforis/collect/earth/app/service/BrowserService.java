@@ -41,7 +41,7 @@ import org.openqa.selenium.JavascriptExecutor;
 import org.openqa.selenium.Keys;
 import org.openqa.selenium.WebDriverException;
 import org.openqa.selenium.WebElement;
-import org.openqa.selenium.browserlaunchers.locators.CombinedFirefoxLocator;
+import org.openqa.selenium.browserlaunchers.locators.FirefoxLocator;
 import org.openqa.selenium.chrome.ChromeDriver;
 import org.openqa.selenium.firefox.FirefoxBinary;
 import org.openqa.selenium.firefox.FirefoxDriver;
@@ -163,7 +163,7 @@ public class BrowserService implements Observer{
 	private String checkIfBrowserIsInstalled(String chosenBrowser) {
 		if( chosenBrowser.equals( EarthConstants.FIREFOX_BROWSER ) ){
 			if( StringUtils.isBlank( localPropertiesService.getValue(EarthProperty.FIREFOX_BINARY_PATH) ) ){
-				CombinedFirefoxLocator firefoxLocator = new CombinedFirefoxLocator();
+				FirefoxLocator firefoxLocator = new FirefoxLocator();
 				try {
 					firefoxLocator.findBrowserLocationOrFail();
 				} catch (Exception e) {

@@ -1,10 +1,10 @@
 <project>
     <shortName>CollectEarth</shortName>
     <fullName>Collect Earth</fullName>
-    <version>1.0.1</version>
-    <installerFilename>${product_shortname}-${product_version}-${platform_name}-With-Saiku-installer.${platform_exec_suffix}</installerFilename>
-    <readmeFile>../collect-earth/collect-earth-app/README.txt</readmeFile>
-    <licenseFile>../collect-earth/collect-earth-app/License.txt</licenseFile>
+    <version>PROJECT_VERSION</version>
+    <installerFilename>${product_shortname}-${product_version}-${platform_name}-installer.${platform_exec_suffix}</installerFilename>
+    <readmeFile>COLLECT_EARTH_MAIN_FOLDER/collect-earth-app/README.txt</readmeFile>
+    <licenseFile>COLLECT_EARTH_MAIN_FOLDER/collect-earth-app/License.txt</licenseFile>
     <leftImage>installer_left_panel.png</leftImage>
     <logoImage>installer_logo.png</logoImage>
     <splashImage>installer_splash.png</splashImage>
@@ -15,7 +15,7 @@
     <createOsxBundleZip>1</createOsxBundleZip>
     <componentList>
         <include>
-            <file>jre_8_files/java.xml</file>
+            <file>java.xml</file>
         </include>
         <include>
             <file>CollectEarthMain.xml</file>
@@ -34,7 +34,7 @@
                     <platforms>all</platforms>
                     <distributionFileList>
                         <distributionDirectory>
-                            <origin>../../../apps/saiku-server_2.6</origin>
+                            <origin>C:/opt/apps/saiku-server_2.6</origin>
                         </distributionDirectory>
                     </distributionFileList>
                 </folder>
