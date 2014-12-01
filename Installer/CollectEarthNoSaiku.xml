@@ -14,7 +14,7 @@
     <languageSelectionStyle>onlyNativeNames</languageSelectionStyle>
     <componentList>
         <include>
-            <file>jre_files/java.xml</file>
+            <file>jre_8_files/java.xml</file>
         </include>
         <include>
             <file>CollectEarthMain.xml</file>
