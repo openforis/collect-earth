@@ -458,4 +458,9 @@ public class LocalPropertiesService {
 		}
 	}
 	
+	public String getProjectFolder() {
+		final File metadataFile = new File(getImdFile() );
+		return metadataFile.getParent();
+	}
+
 }

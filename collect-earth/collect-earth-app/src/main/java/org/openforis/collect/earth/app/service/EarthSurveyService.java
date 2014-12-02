@@ -31,6 +31,7 @@ import org.openforis.idm.metamodel.Schema;
 import org.openforis.idm.metamodel.xml.IdmlParseException;
 import org.openforis.idm.model.Entity;
 import org.openforis.idm.model.Node;
+import org.openforis.idm.model.TextAttribute;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -172,6 +173,36 @@ public class EarthSurveyService {
 				records.add(record);
 			}
 			return records;
+		} else {
+			return null;
+		}
+	}
+	
+	
+	public String[] getPlacemarksId(List<CollectRecord> listOfRecords) {
+		if (listOfRecords == null) {
+			return new String[0];
+		}
+		final String[] placemarIds = new String[listOfRecords.size()];
+		for (int i = 0; i < listOfRecords.size(); i++) {
+			if (listOfRecords.get(i).getRootEntity().get("id", 0) != null) {
+				placemarIds[i] = ((TextAttribute) listOfRecords.get(i).getRootEntity().get("id", 0)).getValue().getValue();
+			}
+		}
+
+		return placemarIds;
+	}
+	
+	
+	/**
+	 * Return the list of the IDs of records that are already saved (completely or partially) in the database.
+	 * @return The list of the IDs of the records for the survey in the DB
+	 */
+	public String[] getRecordsSavedIDs() {
+		final List<CollectRecord> recordsSavedForSurvey = recordManager.loadSummaries(getCollectSurvey(), EarthConstants.ROOT_ENTITY_NAME );
+		
+		if ((recordsSavedForSurvey !=null) && !recordsSavedForSurvey.isEmpty()) {
+			return getPlacemarksId( recordsSavedForSurvey );
 		} else {
 			return null;
 		}

@@ -538,11 +538,9 @@ public class BrowserService implements Observer{
 	 */
 	private String getProjectGeeScript() {
 		// Where the metatadata file (usually placemark.idm.xml ) is located
-		final File metadataFile = new File(localPropertiesService.getImdFile() );
-		String metadataPath = metadataFile.getParent();
 		
 		// Is there a "eePlaygroundScript.fmt" file in the same folder than in the metadata file folder?
-		File projectGeePlayground = new File(metadataPath+ File.separatorChar + GeolocalizeMapService.FREEMARKER_GEE_PLAYGROUND_TEMPLATE);
+		File projectGeePlayground = new File( localPropertiesService.getProjectFolder() + File.separatorChar + GeolocalizeMapService.FREEMARKER_GEE_PLAYGROUND_TEMPLATE);
 		
 		String geePlaygroundFilePath = null;
 		if( projectGeePlayground.exists() ){

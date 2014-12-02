@@ -348,10 +348,6 @@ public class AnalysisSaikuService {
 		}
 	}
 
-	private String getIdmFolder() {
-		final File metadataFile = new File(localPropertiesService.getImdFile() );
-		return metadataFile.getParent();
-	}
 
 	private File getRdbFile() {
 		return new File(COLLECT_EARTH_DATABASE_RDB_DB);
@@ -572,7 +568,7 @@ public class AnalysisSaikuService {
 
 	private void addAreasPerRegion() throws SQLException {
 
-		final File regionAreas = new File(getIdmFolder() + File.separatorChar + REGION_AREAS_CSV);
+		final File regionAreas = new File( localPropertiesService.getProjectFolder() + File.separatorChar + REGION_AREAS_CSV);
 		String schemaName = getSchemaPrefix();
 		
 		if (regionAreas.exists()) {
@@ -633,7 +629,7 @@ public class AnalysisSaikuService {
 	}
 
 	private void refreshDataSourceForSaiku() throws IOException, TemplateException {
-		final File mdxFile = new File(getIdmFolder() + File.separatorChar + MDX_XML);
+		final File mdxFile = new File( localPropertiesService.getProjectFolder() + File.separatorChar + MDX_XML);
 
 		Map<String, String> data = new HashMap<String, String>();
 		data.put("cubeFilePath", mdxFile.getAbsolutePath().replace('\\', '/'));
@@ -657,7 +653,7 @@ public class AnalysisSaikuService {
 	}
 
 	private File getMdxTemplate() throws IOException {
-		final File mdxFileTemplate = new File(getIdmFolder() + File.separatorChar + MDX_TEMPLATE);
+		final File mdxFileTemplate = new File( localPropertiesService.getProjectFolder() + File.separatorChar + MDX_TEMPLATE);
 		if (!mdxFileTemplate.exists()) {
 			throw new IOException("The file containing the MDX Cube definition Template does not exist in expected location " + mdxFileTemplate.getAbsolutePath());
 		}
