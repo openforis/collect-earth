@@ -52,7 +52,7 @@
                     <origin>COLLECT_EARTH_MAIN_FOLDER/collect-earth-app/UserManual.pdf</origin>
                 </distributionFile>
                 <distributionDirectory>
-                    <origin>C:/Users/SanchezPausDiaz/git/customizations/Customizations/lucas_demo</origin>
+                    <origin>COLLECT_EARTH_MAIN_FOLDER/collect-earth-app/resources/lucas_demo</origin>
                 </distributionDirectory>
                 <distributionFile>
                     <origin>earth.properties_initial</origin>
@@ -147,7 +147,7 @@
         <!-- Change installer icon on OS X, during build time -->
         <copyFile>
             <destination>${installbuilder_output_filename}/Contents/Resources/installbuilder.icns</destination>
-            <origin>C:\opt\git\collect-earth\Installer\installer_icon.icns</origin>
+            <origin>COLLECT_EARTH_MAIN_FOLDER/collect-earth-installer/installer_icon.icns</origin>
             <ruleList>
                 <compareText logic="equals" text="${platform_name}" value="osx"/>
             </ruleList>
