@@ -37,7 +37,7 @@
 	</distributionManagement>
 
 	<scm>
-		<developerConnection>scm:git:ssh://git@github.com/openforis/collect-earth.git</developerConnection>
+		<developerConnection>scm:git:https://github.com/openforis/collect-earth.git</developerConnection>
 		<tag>collect-earth-1.0.0</tag>
 	</scm>
 
