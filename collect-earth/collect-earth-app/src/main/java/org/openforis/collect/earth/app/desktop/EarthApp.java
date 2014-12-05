@@ -110,10 +110,13 @@ public class EarthApp {
 	public static void main(String[] args) {
 
 		try {
-			earthApp = new EarthApp();
-
+			
 			// System property used in the log4j.properties configuration
 			System.setProperty("collectEarth.userFolder", FolderFinder.getLocalFolder());
+			
+			earthApp = new EarthApp();
+
+		
 			logger = LoggerFactory.getLogger(EarthApp.class);
 
 
