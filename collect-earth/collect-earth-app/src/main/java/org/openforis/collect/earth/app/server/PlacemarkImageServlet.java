@@ -16,6 +16,8 @@ import javax.servlet.http.HttpServletResponse;
 import org.openforis.collect.earth.app.EarthConstants;
 import org.openforis.collect.earth.app.service.EarthSurveyService;
 import org.openforis.collect.earth.app.service.PreloadedFilesService;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -37,6 +39,8 @@ public class PlacemarkImageServlet extends DataAccessingServlet {
 
 	@Autowired
 	private PreloadedFilesService preloadedFilesService;
+	
+	private Logger logger = LoggerFactory.getLogger( PlacemarkImageServlet.class );
 
 	/**
 	 * Returns an icon/overlay image that represents the state of the placemark not-filled/filling/filled
@@ -50,24 +54,41 @@ public class PlacemarkImageServlet extends DataAccessingServlet {
 	@RequestMapping("/placemarkIcon")
 	public void getImage(HttpServletResponse response, HttpServletRequest request, @RequestParam("collect_text_id") String placemarkId,
 			@RequestParam(value = "listView", required = false) Boolean listView) throws IOException, URISyntaxException {
-			
-		final Map<String, String> placemarkParameters = earthSurveyService.getPlacemark(placemarkId);
-		String imageName = "";
 
-		if (earthSurveyService.isPlacemarSavedActively(placemarkParameters)) {
-			if (listView != null && listView) {
-				imageName = EarthConstants.LIST_FILLED_IMAGE;
-			} 
-		} else if (earthSurveyService.isPlacemarEdited(placemarkParameters)) {
-			if (listView != null && listView) {
-				imageName = EarthConstants.LIST_NOT_FINISHED_IMAGE;
-			} 
-		} else {
-			if (listView != null && listView) {
-				imageName = EarthConstants.LIST_NON_FILLED_IMAGE;
-			} 
+		if( listView == null ){
+			throw new IllegalArgumentException("This servlet only responds to listView type of requests where the status icons for the placemarks are the expected result");
 		}
-		returnImage(response, request, imageName);
+		
+		// If there is an exception while we get the record info (problem that might happen when using SQLite due to concurrency) return the yellow icon.
+		String imageName = null;
+		try {
+			
+			final Map<String, String> placemarkParameters = earthSurveyService.getPlacemark(placemarkId);
+
+			if (earthSurveyService.isPlacemarSavedActively(placemarkParameters)) {
+				if (listView != null && listView) {
+					imageName = EarthConstants.LIST_FILLED_IMAGE;
+				} 
+			} else if (earthSurveyService.isPlacemarEdited(placemarkParameters)) {
+				if (listView != null && listView) {
+					imageName = EarthConstants.LIST_NOT_FINISHED_IMAGE;
+				} 
+			} else {
+				if (listView != null && listView) {
+					imageName = EarthConstants.LIST_NON_FILLED_IMAGE;
+				} 
+			}
+			
+		} catch (Exception e) {
+			logger.error("Error loading image for placemark with ID " + placemarkId , e);
+			
+			// If there is an exception while we get the record info (problem that might happen when using SQLite due to concurrency) return the yellow icon.
+			imageName = EarthConstants.LIST_NOT_FINISHED_IMAGE;
+		}finally{
+			returnImage(response, request, imageName);
+		}
+		
+		
 	}
 
 	private byte[] readFile(String filePath, ServletContext servletContext) throws MalformedURLException, URISyntaxException {

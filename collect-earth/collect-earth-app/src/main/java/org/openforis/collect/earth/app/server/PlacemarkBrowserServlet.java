@@ -43,9 +43,6 @@ public class PlacemarkBrowserServlet{
 						browserService.openTimelapse(latLongCoordinates);
 						browserService.openBingMaps(latLongCoordinates);
 						browserService.openGeePlayground(latLongCoordinates);
-						
-						System.out.println("These coordinates are already loaded  : " + latLongCoordinates );
-						
 					} catch (final Exception e) {
 						LoggerFactory.getLogger(this.getClass()).error("Exception", e);
 						

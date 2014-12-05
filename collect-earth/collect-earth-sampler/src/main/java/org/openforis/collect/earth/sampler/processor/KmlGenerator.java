@@ -149,6 +149,7 @@ public abstract class KmlGenerator extends AbstractCoordinateCalculation {
 		}
 		try {
 			data.put("html_for_balloon", balloonContents);
+			data.put("randomNumber", FreemarkerTemplateUtils.randInt(10000, 5000000));
 
 			// Process the template file using the data in the "data" Map
 			final File templateFile = new File(freemarkerKmlTemplateFile);

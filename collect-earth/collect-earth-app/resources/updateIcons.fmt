@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <kml xmlns="http://earth.google.com/kml/2.1">
 	<NetworkLinkControl>
-		<cookie>lastUpdate=${date}</cookie>
+		<cookie>lastUpdate=${lastUpdateDateTime}</cookie>
 		<#if placemark_ids?has_content >
 			<Update>
 				<targetHref>${host}generated/gePlugin.kmz?generatedOn=${kmlGeneratedOn}</targetHref>
@@ -10,7 +10,8 @@
 					<Change>
 						<ItemIcon targetId="icon_${placemark}">
 							<state>open</state>
-							<href>${host}placemarkIcon?collect_text_id=${placemark}&amp;listView=true&amp;date=${date}</href>
+							<#-- The unique Id forces Google Earth to reload the icon -->[
+							<href>${host}placemarkIcon?collect_text_id=${placemark}&amp;listView=true&amp;umiqueId=${uniqueId}</href>
 						</ItemIcon>
 					</Change>
 				</#list>

@@ -10,6 +10,7 @@ import java.net.URLEncoder;
 import java.nio.charset.Charset;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
+import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.Date;
 import java.util.HashMap;
@@ -24,6 +25,7 @@ import org.openforis.collect.earth.app.EarthConstants;
 import org.openforis.collect.earth.app.service.EarthSurveyService;
 import org.openforis.collect.earth.app.service.LocalPropertiesService;
 import org.openforis.collect.earth.sampler.processor.KmlGenerator;
+import org.openforis.collect.earth.sampler.utils.FreemarkerTemplateUtils;
 import org.openforis.collect.model.CollectRecord;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -58,7 +60,7 @@ public class PlacemarkUpdateServlet {
 
 	private static final Configuration cfg = new Configuration();
 	private static Template template;
-	
+  
 	@PostConstruct
 	private void init(){
 		try {
@@ -137,34 +139,28 @@ public class PlacemarkUpdateServlet {
 				lastUpdateDate = dateFormat.parse(lastUpdate);
 			}
 		
-			final List<CollectRecord> lastUpdatedRecords = earthSurveyService.getRecordsSavedSince(lastUpdateDate);
+			List<CollectRecord> lastUpdatedRecords = null;
+			try {
+				lastUpdatedRecords = earthSurveyService.getRecordsSavedSince(lastUpdateDate);
+			} catch (Exception e) {
+				lastUpdatedRecords = new ArrayList<CollectRecord>();
+				logger.error("Error fetching information about the records updated after : " + lastUpdatedRecords , e);
+			}
 			
 			final Map<String, Object> data = new HashMap<String, Object>();
 			data.put("host", KmlGenerator.getHostAddress(localPropertiesService.getHost(), localPropertiesService.getLocalPort()));
-			data.put("date", getUpdateFromDate(dateFormat) );
+			data.put("lastUpdateDateTime", getUpdateFromDate(dateFormat) );
+			data.put("uniqueId", FreemarkerTemplateUtils.randInt(10000, 5000000) );
 			data.put("kmlGeneratedOn", localPropertiesService.getGeneratedOn());
 			data.put("placemark_ids", earthSurveyService.getPlacemarksId(lastUpdatedRecords));
 	
 			setKmlResponse(response, getKmlFromTemplate(data), dateFormat);
 			
-			/*// TODO Remove!!!
-			if( lastUpdatedRecords == null ){
-				logger.error("Nothing updated from operator" + localPropertiesService.getOperator()   + " - last update requested " +   lastUpdate ); //$NON-NLS-1$
-			}else{
-				String ids = "";
-				for (CollectRecord collectRecord : lastUpdatedRecords) {
-					ids += collectRecord.getId();
-				}
-				
-				logger.error("Placemark update response " + lastUpdatedRecords.size() + "  " + ids + " from operator" + localPropertiesService.getOperator()); //$NON-NLS-1$
-				
-			}*/
-			
-			
-			//System.out.println("Placemark update takes " + ( System.currentTimeMillis() - time ) );
 		} catch (final ParseException e) {
 			logger.error("Error in the lastUpdate date format : " + lastUpdate, e);
 		} catch (final IOException e) {
+			logger.error("Error generating the update KML.", e);
+		}catch (final Exception e) {
 			logger.error("Error generating the update KML.", e);
 		}
 
@@ -184,7 +180,6 @@ public class PlacemarkUpdateServlet {
 		response.getOutputStream().write(kmlCode.getBytes(Charset.forName("UTF-8")));
 		response.getOutputStream().close();
 	}
-
 	
 	
 	
