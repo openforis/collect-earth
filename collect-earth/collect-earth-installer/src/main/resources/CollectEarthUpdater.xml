@@ -37,12 +37,7 @@
             </folderList>
         </component>
     </componentList>
-    <postBuildActionList>
-        <copyFile>
-            <destination>COLLECT_EARTH_MAIN_FOLDER\collect-earth-app\autoupdate\CollectEarthUpdater.exe</destination>
-            <origin>${installbuilder_output_filename}</origin>
-        </copyFile>
-    </postBuildActionList>
+
     <initializationActionList>
         <registryGet>
             <key>HKEY_LOCAL_MACHINE\SOFTWARE\${project.vendor}\${project.fullName}</key>
