@@ -21,10 +21,10 @@
 		<windows-installer-file-name>CollectEarth-${project.version}-windows-installer.exe</windows-installer-file-name>
 		<linux-installer-file-name>CollectEarth-${project.version}-linux-installer.run</linux-installer-file-name>
 		<osx-installer-file-name>CollectEarth-${project.version}-osx-installer.app.zip</osx-installer-file-name>
-		<!-- autoupdate file names -->
+		<!-- autoupdater file names -->
 		<windows-autoupdater-file-name>autoupdate-windows.exe</windows-autoupdater-file-name>
 		<linux-autoupdater-file-name>autoupdate-linux.run</linux-autoupdater-file-name>
-		<osx-autoupdater-file-name>autoupdate-osx.run</osx-autoupdater-file-name>
+		<osx-autoupdater-file-name>autoupdate-osx.app.zip</osx-autoupdater-file-name>
 	</properties>
 
 	<profiles>
@@ -309,9 +309,9 @@
 										<move file="${installbuilder-output-directory}/${linux-installer-file-name}" tofile="${project.build.directory}/${linux-installer-file-name}" failonerror="true" />
 										<move file="${installbuilder-output-directory}/${osx-installer-file-name}" tofile="${project.build.directory}/${osx-installer-file-name}" failonerror="true" />
 										
-										<move file="${installbuilder-output-directory}/${windows-updater-file-name}" tofile="${project.build.directory}/${windows-updater-file-name}" failonerror="true" />
-										<move file="${installbuilder-output-directory}/${linux-updater-file-name}" tofile="${project.build.directory}/${linux-updater-file-name}" failonerror="true" />
-										<move file="${installbuilder-output-directory}/${osx-updater-file-name}" tofile="${project.build.directory}/${osx-updater-file-name}" failonerror="true" />
+										<move file="${installbuilder-output-directory}/${windows-autoupdater-file-name}" tofile="${project.build.directory}/${windows-autoupdater-file-name}" failonerror="true" />
+										<move file="${installbuilder-output-directory}/${linux-autoupdater-file-name}" tofile="${project.build.directory}/${linux-autoupdater-file-name}" failonerror="true" />
+										<move file="${installbuilder-output-directory}/${osx-autoupdater-file-name}" tofile="${project.build.directory}/${osx-autoupdater-file-name}" failonerror="true" />
 									</tasks>
 								</configuration>
 							</execution>
