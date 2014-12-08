@@ -38,7 +38,7 @@
 
 	<scm>
 		<developerConnection>scm:git:https://github.com/openforis/collect-earth.git</developerConnection>
-		<tag>collect-earth-1.0.0</tag>
+		<tag>collect-earth-1.0.2</tag>
 	</scm>
 
 	<build>
