@@ -49,7 +49,7 @@ public class ServerController extends Observable {
 	public WebApplicationContext getContext() {
 		WebApplicationContext webApplicationContext = null;
 		try {
-			webApplicationContext =  WebApplicationContextUtils.getRequiredWebApplicationContext(getRoot().getServletContext());
+			webApplicationContext = WebApplicationContextUtils.getRequiredWebApplicationContext(getRoot().getServletContext());
 		} catch (IllegalStateException e) {
 			logger.error("Error getting web application context", e);
 		}
@@ -95,20 +95,19 @@ public class ServerController extends Observable {
 			data.put("urlSaiku", getSaikuDbURL());
 			data.put("username", localPropertiesService.getValue(EarthProperty.DB_USERNAME));
 			data.put("password", localPropertiesService.getValue(EarthProperty.DB_PASSWORD));
-			data.put("collectEarthExecutionFolder", System.getProperty("user.dir")+ File.separator);
-
+			data.put("collectEarthExecutionFolder", System.getProperty("user.dir") + File.separator);
 
 			FreemarkerTemplateUtils.applyTemplate(jettyAppCtxTemplateSrc, jettyAppCtxDst, data);
 		} catch (IOException | TemplateException e) {
 			logger.error("Error refreshing teh Jetty application context to add the data sources for Collect Earth", e);
-		} 
+		}
 
 	}
 
 	public static String getSaikuDbURL() {
 		String urlSaikuDB = getDbURL();
 
-		if( localPropertiesService.isUsingSqliteDB() ){
+		if (localPropertiesService.isUsingSqliteDB()) {
 			urlSaikuDB += SAIKU_RDB_SUFFIX;
 		}
 		return urlSaikuDB;
@@ -119,16 +118,13 @@ public class ServerController extends Observable {
 	 */
 	public void startServer(Observer observeInitialization) throws Exception {
 
-		
-		
 		this.addObserver(observeInitialization);
 
 		localPropertiesService.init();
-		
+
 		initilizeDataSources();
 		try {
-			
-			
+
 			final String webappDirLocation = FolderFinder.getLocalFolder();
 
 			// The port that we should run on can be set into an environment variable
@@ -136,22 +132,19 @@ public class ServerController extends Observable {
 			// PropertyConfigurator.configure(this.getClass().getResource("/WEB-INF/conf/log4j.properties"));
 
 			server = new Server(new ExecutorThreadPool(10, 50, 5, TimeUnit.SECONDS));
-	
+
 			// // Use blocking-IO connector to improve throughput
 			final ServerConnector connector = new ServerConnector(server);
-			connector.setName("127.0.0.1:"+getPort());
+			connector.setName("127.0.0.1:" + getPort());
 			connector.setHost("0.0.0.0");
-			connector.setPort( getPort() );
-		
-			connector.setStopTimeout( 1000 );
+			connector.setPort(getPort());
+
+			connector.setStopTimeout(1000);
 
 			server.setConnectors(new Connector[] { connector });
 
-
 			WebAppContext wweAppContext = new WebAppContext();
 			setRoot(wweAppContext);
-
-
 
 			getRoot().setContextPath("/earth");
 
@@ -169,27 +162,24 @@ public class ServerController extends Observable {
 
 			server.setHandler(getRoot());
 			server.setStopAtShutdown(true);
-
 			server.start();
-
 			setChanged();
 
-			Object attribute = getRoot().getServletContext().getAttribute(WebApplicationContext.ROOT_WEB_APPLICATION_CONTEXT_ATTRIBUTE );
-			if( attribute instanceof BeanCreationException ){
+			Object attribute = getRoot().getServletContext().getAttribute(WebApplicationContext.ROOT_WEB_APPLICATION_CONTEXT_ATTRIBUTE);
+			if (attribute instanceof BeanCreationException) {
 				logger.error("Error creating the database connection", attribute);
-				notifyObservers( SERVER_STARTED_WITH_EXCEPTION_EVENT );
-			}else{
+				notifyObservers(SERVER_STARTED_WITH_EXCEPTION_EVENT);
+			} else {
 
-				notifyObservers( SERVER_STARTED_EVENT );
+				notifyObservers(SERVER_STARTED_EVENT);
 			}
 		} catch (final IOException e) {
 			logger.error("Error initializing local properties", e);
-		}
-		catch (Exception e) {
-			logger.error("Error staring the server", e );
+		} catch (Exception e) {
+			logger.error("Error staring the server", e);
 		}
 
-		this.addObserver( getContext().getBean( BrowserService.class ) );
+		this.addObserver(getContext().getBean(BrowserService.class));
 
 		server.join();
 	}
@@ -198,7 +188,7 @@ public class ServerController extends Observable {
 		if (server != null && server.isRunning()) {
 			server.stop();
 			setChanged();
-			notifyObservers( SERVER_STOPPED_EVENT );
+			notifyObservers(SERVER_STOPPED_EVENT);
 		}
 	}
 

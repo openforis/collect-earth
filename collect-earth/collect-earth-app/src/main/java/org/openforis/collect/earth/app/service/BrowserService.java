@@ -450,17 +450,16 @@ public class BrowserService implements Observer{
 			final Thread loadBingThread = new Thread() {
 				@Override
 				public void run() {
-
 					try {
 						webDriverBing = navigateTo(geoLocalizeTemplateService.getTemporaryUrl(latLong, GeolocalizeMapService.FREEMARKER_BING_HTML_TEMPLATE).toString(), driverCopy);
 					} catch (final Exception e) {
 						logger.error("Problems loading Bing", e);
 					}
-
 				};
 			};
-
+			
 			loadBingThread.start();
+			
 		}
 	}
 

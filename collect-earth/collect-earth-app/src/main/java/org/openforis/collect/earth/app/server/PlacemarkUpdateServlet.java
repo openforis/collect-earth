@@ -149,6 +149,7 @@ public class PlacemarkUpdateServlet {
 			
 			final Map<String, Object> data = new HashMap<String, Object>();
 			data.put("host", KmlGenerator.getHostAddress(localPropertiesService.getHost(), localPropertiesService.getLocalPort()));
+			data.put("date", getUpdateFromDate(dateFormat) ); // Keep for historical reasons
 			data.put("lastUpdateDateTime", getUpdateFromDate(dateFormat) );
 			data.put("uniqueId", FreemarkerTemplateUtils.randInt(10000, 5000000) );
 			data.put("kmlGeneratedOn", localPropertiesService.getGeneratedOn());
