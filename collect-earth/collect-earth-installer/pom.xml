@@ -22,9 +22,9 @@
 		<linux-installer-file-name>CollectEarth-${project.version}-linux-installer.run</linux-installer-file-name>
 		<osx-installer-file-name>CollectEarth-${project.version}-osx-installer.app.zip</osx-installer-file-name>
 		<!-- autoupdater file names -->
-		<windows-autoupdater-file-name>autoupdate-windows.exe</windows-autoupdater-file-name>
-		<linux-autoupdater-file-name>autoupdate-linux.run</linux-autoupdater-file-name>
-		<osx-autoupdater-file-name>autoupdate-osx.app.zip</osx-autoupdater-file-name>
+		<windows-autoupdater-file-name>CollectEarthUpdater-${project.version}-windows-installer.exe</windows-autoupdater-file-name>
+		<linux-autoupdater-file-name>CollectEarthUpdater-${project.version}-linux-installer.run</linux-autoupdater-file-name>
+		<osx-autoupdater-file-name>CollectEarthUpdater-${project.version}-linux-installer.app.zip</osx-autoupdater-file-name>
 	</properties>
 
 	<profiles>
