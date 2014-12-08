@@ -24,7 +24,7 @@
 		<!-- autoupdater file names -->
 		<windows-autoupdater-file-name>CollectEarthUpdater-${project.version}-windows-installer.exe</windows-autoupdater-file-name>
 		<linux-autoupdater-file-name>CollectEarthUpdater-${project.version}-linux-installer.run</linux-autoupdater-file-name>
-		<osx-autoupdater-file-name>CollectEarthUpdater-${project.version}-linux-installer.app.zip</osx-autoupdater-file-name>
+		<osx-autoupdater-file-name>CollectEarthUpdater-${project.version}-osx-installer.app.zip</osx-autoupdater-file-name>
 	</properties>
 
 	<profiles>
