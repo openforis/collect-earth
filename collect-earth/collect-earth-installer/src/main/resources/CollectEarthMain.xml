@@ -58,7 +58,7 @@
                     <origin>earth.properties_initial</origin>
                 </distributionFile>
                 <distributionFile>
-                    <origin>COLLECT_EARTH_MAIN_FOLDER/collect-earth-app/autoupdate/update.ini</origin>
+                    <origin>update.ini</origin>
                 </distributionFile>
             </distributionFileList>
             <shortcutList>

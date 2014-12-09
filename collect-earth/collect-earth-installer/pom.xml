@@ -25,14 +25,17 @@
 		<windows-autoupdater-file-name>CollectEarthUpdater-${project.version}-windows-installer.exe</windows-autoupdater-file-name>
 		<linux-autoupdater-file-name>CollectEarthUpdater-${project.version}-linux-installer.run</linux-autoupdater-file-name>
 		<osx-autoupdater-file-name>CollectEarthUpdater-${project.version}-osx-installer.app.zip</osx-autoupdater-file-name>
+		
+		<autoupdater-xml-file-name>collectEarthUpdate.xml</autoupdater-xml-file-name>
 	</properties>
 
 	<profiles>
 		<profile>
 			<id>assembly</id>
 			<build>
+				
 				<plugins>
-					<!-- 1. extract jre and collect-assembly into build folder  -->
+					<!--  1. extract jre and collect-assembly into build folder --> 
 					<plugin>
 						<groupId>org.apache.maven.plugins</groupId>
 						<artifactId>maven-dependency-plugin</artifactId>
@@ -144,8 +147,8 @@
 						</executions>
 					</plugin>
 
-					<!-- 3. replace application version into the xml installbuilder source 
-						file -->
+					<!-- 3. replace application version into the xml installbuilder source file--> 
+						
 					<plugin>
 						<groupId>com.google.code.maven-replacer-plugin</groupId>
 						<artifactId>maven-replacer-plugin</artifactId>
@@ -164,8 +167,8 @@
 								<include>${installbuilder-file-name}</include>
 								<include>CollectEarthMain.xml</include>
 								<include>${installbuilder-file-name-updater}</include>
-								<include>../collect-earth-app/autoupdate/update.ini</include>
-								<include>../collect-earth-app/autoupdate/collectEarthUpdate.xml</include>
+								<include>update.ini</include>
+								<include>${autoupdater-xml-file-name}</include>
 							</includes>
 							<regex>false</regex>
 							<replacements>
@@ -367,7 +370,25 @@
 							</execution>
 						</executions>
 					</plugin>
-
+					
+					
+					<!-- 7 Upload the XML file that defines the presence of updates to the FTP directory -->
+					 <plugin>
+					   <groupId>org.apache.maven.plugins</groupId>
+					   <artifactId>maven-antrun-plugin</artifactId>
+					   <version>1.7</version>
+					   <configuration>
+					     <target >
+					        <property name="upload_file_name" value="${autoupdater-xml-file-name}" />
+					        <property name="upload_file_folder" value="${installer-build-path}" />
+					        <property name="username" value="${ftp_username}" />
+					        <property name="password" value="${ftp_password}" />
+					        <ant antfile="${project.build.directory}/antXmlFtpUpload.xml">
+					           <target name="Update XML upload to openforis.org" />
+					        </ant>
+					     </target>
+					   </configuration>
+					 </plugin>
 				</plugins>
 			</build>
 		</profile>
