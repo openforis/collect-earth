@@ -27,7 +27,7 @@
                             <origin>COLLECT_EARTH_MAIN_FOLDER/collect-earth-app/target/earth-libs</origin>
                         </distributionDirectory>
                         <distributionFile>
-                            <origin>COLLECT_EARTH_MAIN_FOLDER/collect-earth-app/autoupdate/update.ini</origin>
+                            <origin>COLLECT_EARTH_MAIN_FOLDER/collect-earth-installer/target/installer/update.ini</origin>
                         </distributionFile>
                         <distributionDirectory>
                             <origin>COLLECT_EARTH_MAIN_FOLDER/collect-earth-app/resources</origin>
