@@ -373,22 +373,38 @@
 					
 					
 					<!-- 7 Upload the XML file that defines the presence of updates to the FTP directory -->
-					 <plugin>
-					   <groupId>org.apache.maven.plugins</groupId>
-					   <artifactId>maven-antrun-plugin</artifactId>
-					   <version>1.7</version>
-					   <configuration>
-					     <target >
-					        <property name="upload_file_name" value="${autoupdater-xml-file-name}" />
-					        <property name="upload_file_folder" value="${installer-build-path}" />
-					        <property name="username" value="${ftp_username}" />
-					        <property name="password" value="${ftp_password}" />
-					        <ant antfile="${project.build.directory}/antXmlFtpUpload.xml">
-					           <target name="Update XML upload to openforis.org" />
-					        </ant>
-					     </target>
-					   </configuration>
-					 </plugin>
+					<plugin>
+						<groupId>org.apache.maven.plugins</groupId>
+						<artifactId>maven-antrun-plugin</artifactId>
+						<version>1.7</version>
+						<executions>
+							<execution>
+								<phase>package</phase>
+								<configuration>
+									<target>
+										<property name="upload_file_name" value="${autoupdater-xml-file-name}" />
+										<property name="upload_file_folder" value="${installer-build-path}" />
+										<property name="username" value="${ftp_username}" />
+										<property name="password" value="${ftp_password}" />
+										<ant antfile="${project.build.directory}/antXmlFtpUpload.xml">
+											<target name="Update XML upload to openforis.org" />
+										</ant>
+									</target>
+								</configuration>
+								<goals>
+									<goal>default</goal>
+								</goals>
+							</execution>
+						</executions>
+						<dependencies>
+							<dependency>
+								<groupId>com.jcraft</groupId>
+								<artifactId>jsch</artifactId>
+								<version>0.1.51</version>
+							</dependency>
+						</dependencies>
+					
+					</plugin>
 				</plugins>
 			</build>
 		</profile>
