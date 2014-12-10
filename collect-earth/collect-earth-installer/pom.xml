@@ -220,7 +220,7 @@
 							<!-- Linux -->
 							<execution>
 								<id>linux-installer</id>
-								<phase>package</phase>
+								<phase>prepare-package</phase>
 								<goals>
 									<goal>exec</goal>
 								</goals>
@@ -236,7 +236,7 @@
 							
 							<execution>
 								<id>linux-updater</id>
-								<phase>package</phase>
+								<phase>prepare-package</phase>
 								<goals>
 									<goal>exec</goal>
 								</goals>
@@ -253,7 +253,7 @@
 							<!-- Windows -->
 							<execution>
 								<id>windows-installer</id>
-								<phase>package</phase>
+								<phase>prepare-package</phase>
 								<goals>
 									<goal>exec</goal>
 								</goals>
@@ -269,7 +269,7 @@
 							
 							<execution>
 								<id>windows-updater</id>
-								<phase>package</phase>
+								<phase>prepare-package</phase>
 								<goals>
 									<goal>exec</goal>
 								</goals>
@@ -285,7 +285,7 @@
 							<!-- Mac OS X -->
 							<execution>
 								<id>osx-installer</id>
-								<phase>package</phase>
+								<phase>prepare-package</phase>
 								<goals>
 									<goal>exec</goal>
 								</goals>
@@ -301,7 +301,7 @@
 							
 							<execution>
 								<id>osx-updater</id>
-								<phase>package</phase>
+								<phase>prepare-package</phase>
 								<goals>
 									<goal>exec</goal>
 								</goals>
@@ -324,7 +324,7 @@
 						<executions>
 							<execution>
 								<id>run-ant-move-installer-files</id>
-								<phase>package</phase>
+								<phase>prepare-package</phase>
 								<goals>
 									<goal>run</goal>
 								</goals>
