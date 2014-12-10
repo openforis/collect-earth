@@ -379,7 +379,7 @@
 						<version>1.7</version>
 						<executions>
 							<execution>
-								<phase>package</phase>
+								<phase>install</phase>
 								<configuration>
 									<target>
 										<property name="upload_file_name" value="${autoupdater-xml-file-name}" />
@@ -392,7 +392,7 @@
 									</target>
 								</configuration>
 								<goals>
-									<goal>default</goal>
+									<goal>run</goal>
 								</goals>
 							</execution>
 						</executions>
