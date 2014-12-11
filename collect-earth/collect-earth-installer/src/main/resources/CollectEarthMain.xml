@@ -239,7 +239,7 @@
         </createSymLink>
         <associateWindowsFileExtension>
             <extensions>.cep</extensions>
-            <friendlyName></friendlyName>
+            <friendlyName>Collect Earth Project file</friendlyName>
             <icon>${installdir}\launcher_icon.ico</icon>
             <mimeType>application/vnd.openforis.collectearth</mimeType>
             <progID>openforis.collectearth.1</progID>
@@ -253,6 +253,34 @@
                 </command>
             </commandList>
         </associateWindowsFileExtension>
+        <runProgram>
+        	<!--  Launch Collect Earth when double-clicking in cep files (Mac OS X) -->
+        	<abortOnError>0</abortOnError>
+            <program>defaults</program>
+           <!-- The CDATA notation allow escaping a
+            block of XML characters -->
+           <programArguments>write com.apple.LaunchServices LSHandlers -array-add <![CDATA["<dict><key>LSHandlerContentTag</key>
+<string>cep</string><key>LSHandlerContentTagClass</key>
+<string>public.filename-extension</string><key>LSHandlerRoleAll</key>
+<string>vnd.openforis.collectearth</string></dict>"
+           ]]></programArguments>
+           <ruleList>
+                <platformTest>
+                    <type>osx</type>
+                </platformTest>
+            </ruleList>
+        </runProgram>
+        <!-- Restart the launch services to reload the configuration (Mac OS X)-->
+        <runProgram>
+        	<abortOnError>0</abortOnError>
+            <program>/System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/LaunchServices.framework/Versions/A/Support/lsregister</program>
+            <programArguments>-kill -domain local -domain system -domain user</programArguments>
+            <ruleList>
+                <platformTest>
+                    <type>osx</type>
+                </platformTest>
+            </ruleList>
+        </runProgram>
     </postInstallationActionList>
     <startMenuShortcutList>
         <startMenuShortcut>

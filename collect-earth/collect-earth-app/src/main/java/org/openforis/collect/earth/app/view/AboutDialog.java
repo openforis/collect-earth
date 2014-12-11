@@ -34,8 +34,9 @@ public class AboutDialog extends JDialog {
 		super(parent, title, true);
 
 	    Box b = Box.createVerticalBox();
+	    b.setAlignmentX(CENTER_ALIGNMENT);
 	    b.add(Box.createGlue());
-	    b.add(new JLabel("Collect Earth ( build " + getVersion() + " )"));
+	    b.add(new JLabel("Collect Earth v. " + getVersion() + " ( built " + getBuild() + ") "));
 	    b.add(new JLabel("By Open Foris Initiative"));
 	    JLabel comp = new JLabel("<html>" + "For more information visit <a href='http://www.openforis.org'>our website</a>" + "</html>");
 	    if (isBrowsingSupported()) {
@@ -60,25 +61,34 @@ public class AboutDialog extends JDialog {
 			}
 	    });
 
-	    setSize(250, 150);
+	    setSize(380, 150);
 	}
 
-	private String getVersion() {
-		
+	private String getBuild() {
+		String key = "version_id";
+		String version = getValueFromUpdateIni(key);
+		return version;
+	}
+
+	public String getValueFromUpdateIni(String key) {
 		Properties properties = new Properties();
-		String version = "unknwown";
+		String value = "unknwown";
 		try {
 			properties.load( new FileInputStream("update.ini"));
-			version = properties.getProperty("version_id");
+			
+			value = properties.getProperty(key);
 		} catch (FileNotFoundException e) {
 			logger.error("The update.,ini file could not be found", e);
 		} catch (IOException e) {
 			logger.error("Error opening the update.ini file", e);
 		}
-		
-		
-		return version;
-		
+		return value;
+	}
+	
+	private String getVersion() {
+		String key = "version";
+		String version = getValueFromUpdateIni(key);
+		return version;		
 	}
 	
 	private static void makeLinkable(JLabel c, MouseListener ml) {

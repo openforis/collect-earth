@@ -50,7 +50,7 @@ public class ServerController extends Observable {
 		WebApplicationContext webApplicationContext = null;
 		try {
 			webApplicationContext = WebApplicationContextUtils.getRequiredWebApplicationContext(getRoot().getServletContext());
-		} catch (IllegalStateException e) {
+		} catch (Exception e) {
 			logger.error("Error getting web application context", e);
 		}
 		return webApplicationContext;

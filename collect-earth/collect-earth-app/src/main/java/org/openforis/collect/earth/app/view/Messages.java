@@ -7,7 +7,7 @@ import java.util.ResourceBundle;
 import javax.swing.JComponent;
 
 public class Messages {
-	private static final String BUNDLE_NAME = "org.openforis.collect.earth.app.view.messages"; //$NON-NLS-1$
+	private static final String BUNDLE_NAME = "org.openforis.collect.earth.app.view.Messages"; //$NON-NLS-1$
 
 	private static ResourceBundle RESOURCE_BUNDLE = ResourceBundle.getBundle(BUNDLE_NAME);
 

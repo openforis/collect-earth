@@ -81,7 +81,7 @@ public class PlacemarkImageServlet extends DataAccessingServlet {
 			
 		} catch (Exception e) {
 			logger.error("Error loading image for placemark with ID " + placemarkId , e);
-			
+			System.out.println( e );
 			// If there is an exception while we get the record info (problem that might happen when using SQLite due to concurrency) return the yellow icon.
 			imageName = EarthConstants.LIST_NOT_FINISHED_IMAGE;
 		}finally{
