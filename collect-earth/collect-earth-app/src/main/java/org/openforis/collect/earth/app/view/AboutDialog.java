@@ -36,20 +36,20 @@ public class AboutDialog extends JDialog {
 	    Box b = Box.createVerticalBox();
 	    b.setAlignmentX(CENTER_ALIGNMENT);
 	    b.add(Box.createGlue());
-	    b.add(new JLabel("Collect Earth v. " + getVersion() + " ( built " + getBuild() + ") "));
-	    b.add(new JLabel("By Open Foris Initiative"));
-	    JLabel comp = new JLabel("<html>" + "For more information visit <a href='http://www.openforis.org'>our website</a>" + "</html>");
+	    b.add(new JLabel("Collect Earth v. " + getVersion() + " ( built " + getBuild() + ") ")); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$
+	    b.add(new JLabel("By Open Foris Initiative")); //$NON-NLS-1$
+	    JLabel comp = new JLabel("<html>" + Messages.getString("AboutDialog.5") + "</html>"); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$
 	    if (isBrowsingSupported()) {
 	        makeLinkable(comp, new LinkMouseListener());
 	    }
 		b.add(comp);
 	    b.add(Box.createGlue());
-	    getContentPane().add(b, "Center");
+	    getContentPane().add(b, "Center"); //$NON-NLS-1$
 
 	    JPanel p2 = new JPanel();
-	    JButton ok = new JButton("Ok");
+	    JButton ok = new JButton(Messages.getString("AboutDialog.8")); //$NON-NLS-1$
 	    p2.add(ok);
-	    getContentPane().add(p2, "South");
+	    getContentPane().add(p2, "South"); //$NON-NLS-1$
 
 	    ok.addActionListener(new ActionListener() {
 			
@@ -65,28 +65,28 @@ public class AboutDialog extends JDialog {
 	}
 
 	private String getBuild() {
-		String key = "version_id";
+		String key = "version_id"; //$NON-NLS-1$
 		String version = getValueFromUpdateIni(key);
 		return version;
 	}
 
 	public String getValueFromUpdateIni(String key) {
 		Properties properties = new Properties();
-		String value = "unknwown";
+		String value = "unknwown"; //$NON-NLS-1$
 		try {
-			properties.load( new FileInputStream("update.ini"));
+			properties.load( new FileInputStream("update.ini")); //$NON-NLS-1$
 			
 			value = properties.getProperty(key);
 		} catch (FileNotFoundException e) {
-			logger.error("The update.,ini file could not be found", e);
+			logger.error("The update.,ini file could not be found", e); //$NON-NLS-1$
 		} catch (IOException e) {
-			logger.error("Error opening the update.ini file", e);
+			logger.error("Error opening the update.ini file", e); //$NON-NLS-1$
 		}
 		return value;
 	}
 	
 	private String getVersion() {
-		String key = "version";
+		String key = "version"; //$NON-NLS-1$
 		String version = getValueFromUpdateIni(key);
 		return version;		
 	}
@@ -117,10 +117,10 @@ public class AboutDialog extends JDialog {
 	    public void mouseClicked(java.awt.event.MouseEvent evt) {
 	        JLabel l = (JLabel) evt.getSource();
 	        try {
-	            URI uri = new java.net.URI("http://www.openforis.org");
+	            URI uri = new java.net.URI("http://www.openforis.org"); //$NON-NLS-1$
 	            (new LinkRunner(uri)).execute();
 	        } catch (URISyntaxException use) {
-	            throw new AssertionError(use + ": " + l.getText()); //NOI18N
+	            throw new AssertionError(use + ": " + l.getText()); //NOI18N //$NON-NLS-1$
 	        }
 	    }
 	}
@@ -155,7 +155,7 @@ public class AboutDialog extends JDialog {
 	    }
 
 	    private static void handleException(URI u, Exception e) {
-	        JOptionPane.showMessageDialog(null, "Sorry, a problem occurred while trying to open this link in your system's standard browser.", "A problem occured", JOptionPane.ERROR_MESSAGE);
+	        JOptionPane.showMessageDialog(null, Messages.getString("AboutDialog.6"), Messages.getString("AboutDialog.19"), JOptionPane.ERROR_MESSAGE); //$NON-NLS-1$ //$NON-NLS-2$
 	    }
 	}
 

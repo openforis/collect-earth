@@ -859,7 +859,7 @@ public class OptionWizard extends JDialog {
 		openBingCheckbox.setSelected(Boolean.parseBoolean(localPropertiesService.getValue(EarthProperty.OPEN_BING_MAPS)));
 		propertyToComponent.put(EarthProperty.OPEN_BING_MAPS, new JComponent[] { openBingCheckbox });
 		
-		final JCheckBox openGeePlaygroundCheckbox = new JCheckBox("Open GEE Playground (requires Trusted Tester access)");
+		final JCheckBox openGeePlaygroundCheckbox = new JCheckBox(Messages.getString("OptionWizard.58")); //$NON-NLS-1$
 		openGeePlaygroundCheckbox.setSelected(Boolean.parseBoolean(localPropertiesService.getValue(EarthProperty.OPEN_GEE_PLAYGROUND)));
 		propertyToComponent.put(EarthProperty.OPEN_GEE_PLAYGROUND, new JComponent[] { openGeePlaygroundCheckbox });
 

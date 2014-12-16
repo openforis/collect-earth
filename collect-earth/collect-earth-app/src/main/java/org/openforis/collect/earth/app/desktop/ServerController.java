@@ -35,12 +35,12 @@ import freemarker.template.TemplateException;
  */
 public class ServerController extends Observable {
 
-	public static final String SAIKU_RDB_SUFFIX = "Saiku";
+	public static final String SAIKU_RDB_SUFFIX = "Saiku"; //$NON-NLS-1$
 	// Make sure that the default ports are the same for Server and Generator
-	private static final String DEFAULT_PORT = "80";
-	public static final String SERVER_STOPPED_EVENT = "server_has_stopped";
-	public static final String SERVER_STARTED_EVENT = "server_has_started";
-	public static final String SERVER_STARTED_WITH_EXCEPTION_EVENT = "server_has_started_with_exceptions";
+	private static final String DEFAULT_PORT = "80"; //$NON-NLS-1$
+	public static final String SERVER_STOPPED_EVENT = "server_has_stopped"; //$NON-NLS-1$
+	public static final String SERVER_STARTED_EVENT = "server_has_started"; //$NON-NLS-1$
+	public static final String SERVER_STARTED_WITH_EXCEPTION_EVENT = "server_has_started_with_exceptions"; //$NON-NLS-1$
 	private Server server;
 	private final Logger logger = LoggerFactory.getLogger(ServerController.class);
 	private WebAppContext root;
@@ -51,7 +51,7 @@ public class ServerController extends Observable {
 		try {
 			webApplicationContext = WebApplicationContextUtils.getRequiredWebApplicationContext(getRoot().getServletContext());
 		} catch (Exception e) {
-			logger.error("Error getting web application context", e);
+			logger.error("Error getting web application context", e); //$NON-NLS-1$
 		}
 		return webApplicationContext;
 	}
@@ -60,9 +60,9 @@ public class ServerController extends Observable {
 		// jdbc:postgresql://hostname:port/dbname
 		final CollectDBDriver collectDBDriver = localPropertiesService.getCollectDBDriver();
 		String url = collectDBDriver.getUrl();
-		url = url.replace("REPLACE_HOSTNAME", localPropertiesService.getValue(EarthProperty.DB_HOST));
-		url = url.replace("REPLACE_PORT", localPropertiesService.getValue(EarthProperty.DB_PORT));
-		url = url.replace("REPLACE_DBNAME", localPropertiesService.getValue(EarthProperty.DB_NAME));
+		url = url.replace("REPLACE_HOSTNAME", localPropertiesService.getValue(EarthProperty.DB_HOST)); //$NON-NLS-1$
+		url = url.replace("REPLACE_PORT", localPropertiesService.getValue(EarthProperty.DB_PORT)); //$NON-NLS-1$
+		url = url.replace("REPLACE_DBNAME", localPropertiesService.getValue(EarthProperty.DB_NAME)); //$NON-NLS-1$
 		return url;
 	}
 
@@ -86,20 +86,20 @@ public class ServerController extends Observable {
 	private void initilizeDataSources() {
 
 		try {
-			final File jettyAppCtxTemplateSrc = new File("resources/applicationContext.fmt");
-			final File jettyAppCtxDst = new File(EarthConstants.GENERATED_FOLDER + "/applicationContext.xml");
+			final File jettyAppCtxTemplateSrc = new File("resources/applicationContext.fmt"); //$NON-NLS-1$
+			final File jettyAppCtxDst = new File(EarthConstants.GENERATED_FOLDER + "/applicationContext.xml"); //$NON-NLS-1$
 			final Map<String, String> data = new java.util.HashMap<String, String>();
 
-			data.put("driver", localPropertiesService.getCollectDBDriver().getDriverClass());
-			data.put("url", getDbURL());
-			data.put("urlSaiku", getSaikuDbURL());
-			data.put("username", localPropertiesService.getValue(EarthProperty.DB_USERNAME));
-			data.put("password", localPropertiesService.getValue(EarthProperty.DB_PASSWORD));
-			data.put("collectEarthExecutionFolder", System.getProperty("user.dir") + File.separator);
+			data.put("driver", localPropertiesService.getCollectDBDriver().getDriverClass()); //$NON-NLS-1$
+			data.put("url", getDbURL()); //$NON-NLS-1$
+			data.put("urlSaiku", getSaikuDbURL()); //$NON-NLS-1$
+			data.put("username", localPropertiesService.getValue(EarthProperty.DB_USERNAME)); //$NON-NLS-1$
+			data.put("password", localPropertiesService.getValue(EarthProperty.DB_PASSWORD)); //$NON-NLS-1$
+			data.put("collectEarthExecutionFolder", System.getProperty("user.dir") + File.separator); //$NON-NLS-1$ //$NON-NLS-2$
 
 			FreemarkerTemplateUtils.applyTemplate(jettyAppCtxTemplateSrc, jettyAppCtxDst, data);
 		} catch (IOException | TemplateException e) {
-			logger.error("Error refreshing teh Jetty application context to add the data sources for Collect Earth", e);
+			logger.error("Error refreshing teh Jetty application context to add the data sources for Collect Earth", e); //$NON-NLS-1$
 		}
 
 	}
@@ -133,8 +133,8 @@ public class ServerController extends Observable {
 
 			// // Use blocking-IO connector to improve throughput
 			final ServerConnector connector = new ServerConnector(server);
-			connector.setName("127.0.0.1:" + getPort());
-			connector.setHost("0.0.0.0");
+			connector.setName("127.0.0.1:" + getPort()); //$NON-NLS-1$
+			connector.setHost("0.0.0.0"); //$NON-NLS-1$
 			connector.setPort(getPort());
 
 			connector.setStopTimeout(1000);
@@ -144,9 +144,9 @@ public class ServerController extends Observable {
 			WebAppContext wweAppContext = new WebAppContext();
 			setRoot(wweAppContext);
 
-			getRoot().setContextPath("/earth");
+			getRoot().setContextPath("/earth"); //$NON-NLS-1$
 
-			getRoot().setDescriptor(this.getClass().getResource("/WEB-INF/web.xml").toURI().toString());
+			getRoot().setDescriptor(this.getClass().getResource("/WEB-INF/web.xml").toURI().toString()); //$NON-NLS-1$
 
 			getRoot().setResourceBase(webappDirLocation);
 
@@ -165,16 +165,16 @@ public class ServerController extends Observable {
 
 			Object attribute = getRoot().getServletContext().getAttribute(WebApplicationContext.ROOT_WEB_APPLICATION_CONTEXT_ATTRIBUTE);
 			if (attribute instanceof BeanCreationException) {
-				logger.error("Error creating the database connection", attribute);
+				logger.error("Error creating the database connection", attribute); //$NON-NLS-1$
 				notifyObservers(SERVER_STARTED_WITH_EXCEPTION_EVENT);
 			} else {
 
 				notifyObservers(SERVER_STARTED_EVENT);
 			}
 		} catch (final IOException e) {
-			logger.error("Error initializing local properties", e);
+			logger.error("Error initializing local properties", e); //$NON-NLS-1$
 		} catch (Exception e) {
-			logger.error("Error staring the server", e);
+			logger.error("Error staring the server", e); //$NON-NLS-1$
 		}
 
 		this.addObserver(getContext().getBean(BrowserService.class));

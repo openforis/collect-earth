@@ -243,7 +243,7 @@ public class CollectEarthWindow {
 					
 				} catch (final Exception ex) {
 					ex.printStackTrace();
-					logger.error("Error while changing language", ex);
+					logger.error("Error while changing language", ex); //$NON-NLS-1$
 				}
 			}
 		};
@@ -332,8 +332,8 @@ public class CollectEarthWindow {
 		// Build help menu in the menu bar.
 		final JMenu menuHelp = new JMenu(Messages.getString("CollectEarthWindow.16")); //$NON-NLS-1$
 
-		menuItem = new JMenuItem("About...");
-		menuItem.addActionListener( new OpenAboutDialogListener(frame, "About...") );
+		menuItem = new JMenuItem(Messages.getString("CollectEarthWindow.56")); //$NON-NLS-1$
+		menuItem.addActionListener( new OpenAboutDialogListener(frame, Messages.getString("CollectEarthWindow.62")) ); //$NON-NLS-1$
 		menuHelp.add(menuItem);
 
 		

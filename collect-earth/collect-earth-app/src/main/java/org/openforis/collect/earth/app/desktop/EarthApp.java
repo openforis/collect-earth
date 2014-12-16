@@ -53,14 +53,14 @@ import freemarker.template.TemplateException;
  */
 public class EarthApp {
 
-	private static final String KML_RESULTING_TEMP_FILE = EarthConstants.GENERATED_FOLDER + File.separator + "plots.kml";
+	private static final String KML_RESULTING_TEMP_FILE = EarthConstants.GENERATED_FOLDER + File.separator + "plots.kml"; //$NON-NLS-1$
 	private static Logger logger;
 	private static ServerController serverController;
-	private static final String KMZ_FILE_PATH = EarthConstants.GENERATED_FOLDER + File.separator + "gePlugin.kmz";
+	private static final String KMZ_FILE_PATH = EarthConstants.GENERATED_FOLDER + File.separator + "gePlugin.kmz"; //$NON-NLS-1$
 	private static EarthApp earthApp;
-	private static final String KML_NETWORK_LINK_TEMPLATE = "resources/loadApp.fmt";
+	private static final String KML_NETWORK_LINK_TEMPLATE = "resources/loadApp.fmt"; //$NON-NLS-1$
 
-	private static final String KML_NETWORK_LINK_STARTER = EarthConstants.GENERATED_FOLDER + "/loadApp.kml";
+	private static final String KML_NETWORK_LINK_STARTER = EarthConstants.GENERATED_FOLDER + "/loadApp.kml"; //$NON-NLS-1$
 
 	private static void closeSplash() {
 		try {
@@ -69,7 +69,7 @@ public class EarthApp {
 				splash.close();
 			}
 		} catch (final IllegalStateException e) {
-			logger.error("Error closing the splash window", e);
+			logger.error("Error closing the splash window", e); //$NON-NLS-1$
 		}
 	}
 
@@ -113,7 +113,7 @@ public class EarthApp {
 		try {
 			
 			// System property used in the log4j.properties configuration
-			System.setProperty("collectEarth.userFolder", FolderFinder.getLocalFolder());
+			System.setProperty("collectEarth.userFolder", FolderFinder.getLocalFolder()); //$NON-NLS-1$
 			
 			earthApp = new EarthApp();
 
@@ -132,12 +132,12 @@ public class EarthApp {
 					if (projectFile.exists()) {
 
 						URL loadPfojectFileInRunningCE = new URL(
-								"http://"+ 
+								"http://"+  //$NON-NLS-1$
 										earthApp.getLocalProperties().getHost() + 
-										":"+ 
+										":"+  //$NON-NLS-1$
 										earthApp.getLocalProperties().getPort() +
-										"/earth/"+ LoadProjectFileServlet.SERVLET_NAME+ 
-										"?"+ LoadProjectFileServlet.PROJECT_FILE_PARAMETER + "="+
+										"/earth/"+ LoadProjectFileServlet.SERVLET_NAME+  //$NON-NLS-1$
+										"?"+ LoadProjectFileServlet.PROJECT_FILE_PARAMETER + "="+ //$NON-NLS-1$ //$NON-NLS-2$
 										projectFilePath
 								);
 						URLConnection urlConn =loadPfojectFileInRunningCE.openConnection();
@@ -153,7 +153,7 @@ public class EarthApp {
 
 					}
 				}else{
-					earthApp.showMessage("Collect Earth is already running");
+					earthApp.showMessage(Messages.getString("EarthApp.11")); //$NON-NLS-1$
 				}
 
 			} else {
@@ -175,7 +175,7 @@ public class EarthApp {
 		} catch (final Exception e) {
 			// The logger factory has not been initialized, this will not work, just output to console
 			if( logger!=null ){
-				logger.error("The server could not start", e);
+				logger.error("The server could not start", e); //$NON-NLS-1$
 			}
 			e.printStackTrace();
 			System.exit(1);
@@ -188,14 +188,14 @@ public class EarthApp {
 	public boolean isServerAlreadyRunning() {
 		boolean alreadyRunning = false;
 		try {
-			new Socket("127.0.0.1", Integer.parseInt( getLocalProperties().getPort()) ).close();
+			new Socket("127.0.0.1", Integer.parseInt( getLocalProperties().getPort()) ).close(); //$NON-NLS-1$
 			// If here there is something is serving on port 8888
 			// So stop it
-			logger.warn("There is a server already running " + getLocalProperties().getPort());
+			logger.warn("There is a server already running " + getLocalProperties().getPort()); //$NON-NLS-1$
 			alreadyRunning = true;
 		} catch (final IOException e) {
 			// Nothing there, so OK to proceed
-			logger.info("There is no server running in port " + getLocalProperties().getPort());
+			logger.info("There is no server running in port " + getLocalProperties().getPort()); //$NON-NLS-1$
 			alreadyRunning = false;
 		}
 		return alreadyRunning;
@@ -218,9 +218,9 @@ public class EarthApp {
 							earthApp.mainEarthWindow.openWindow();
 						}
 					} catch (final IOException e) {
-						logger.error("Error generating KMZ file", e);
+						logger.error("Error generating KMZ file", e); //$NON-NLS-1$
 					} catch (final Exception e) {
-						logger.error("Error starting server", e);
+						logger.error("Error starting server", e); //$NON-NLS-1$
 						e.printStackTrace();
 					}
 
@@ -231,7 +231,7 @@ public class EarthApp {
 			earthApp.serverStartAndOpenGe(observeInitializationAfterRestart);
 
 		} catch (final Exception e) {
-			logger.error("Error while stopping server", e);
+			logger.error("Error while stopping server", e); //$NON-NLS-1$
 		}
 	}
 
@@ -270,7 +270,7 @@ public class EarthApp {
 		final String balloonPath = getLocalProperties().getBalloonFile();
 		final String templatePath = getLocalProperties().getTemplateFile();
 		boolean filesExist = true;
-		String errorMessage = "<html>Error generating the KML file for Google Earth.<br/>";
+		String errorMessage = "<html>Error generating the KML file for Google Earth.<br/>"; //$NON-NLS-1$
 		File csvFile = null;
 		File balloon = null;
 		File template = null;
@@ -279,36 +279,36 @@ public class EarthApp {
 			balloon = new File(balloonPath);
 			template = new File(templatePath);
 		} catch (final Exception e) {
-			logger.error("One of the definition files is not defined", e);
+			logger.error("One of the definition files is not defined", e); //$NON-NLS-1$
 		}
 		if (csvFile != null && !csvFile.exists()) {
-			errorMessage += "The file containing the grid of plots as a CSV/CED is not found in the selected path :<br/><i>"
-					+ csvFile.getAbsolutePath() + "</i><br/><br/>";
+			errorMessage += Messages.getString("EarthApp.21") //$NON-NLS-1$
+					+ csvFile.getAbsolutePath() + "</i><br/><br/>"; //$NON-NLS-1$
 			filesExist = false;
 		} else if (csvFile == null) {
-			errorMessage += "No CSV/CED file has been set-up :<br/><br/>";
+			errorMessage += Messages.getString("EarthApp.23"); //$NON-NLS-1$
 			filesExist = false;
 		}
 
 		if (template != null && !template.exists()) {
-			errorMessage += "The file containing the Freemarker template with the KML definition is not found in the selected path :<br/><i>"
-					+ template.getAbsolutePath() + "</i><br/><br/>";
+			errorMessage += Messages.getString("EarthApp.24") //$NON-NLS-1$
+					+ template.getAbsolutePath() + "</i><br/><br/>"; //$NON-NLS-1$
 			filesExist = false;
 		} else if (template == null) {
-			errorMessage += "No KML definition file has been set-up :<br/><br/>";
+			errorMessage += Messages.getString("EarthApp.26"); //$NON-NLS-1$
 			filesExist = false;
 		}
 
 		if (balloon != null && !balloon.exists()) {
-			errorMessage += "The file containing the HTML balloon form is not found in the selected path :<br/><i>" + balloon.getAbsolutePath()
-					+ "</i><br/><br/>";
+			errorMessage += Messages.getString("EarthApp.27") + balloon.getAbsolutePath() //$NON-NLS-1$
+					+ "</i><br/><br/>"; //$NON-NLS-1$
 			filesExist = false;
 		} else if (balloon == null) {
-			errorMessage += "No HTML balloon file has been set-up :<br/><br/>";
+			errorMessage += Messages.getString("EarthApp.29"); //$NON-NLS-1$
 			filesExist = false;
 		}
 
-		errorMessage += "Please correct the file location in the Tools->Properties menu.</html>";
+		errorMessage += Messages.getString("EarthApp.30"); //$NON-NLS-1$
 		if (!filesExist) {
 			showMessage(errorMessage);
 		}
@@ -368,14 +368,14 @@ public class EarthApp {
 			}
 
 		} catch (final Exception e) {
-			logger.error("One of the definition files is not defined", e);
+			logger.error("One of the definition files is not defined", e); //$NON-NLS-1$
 		}
 
 	}
 
 	private void generateKml() {
 
-		logger.info("START - Generate KML file");
+		logger.info("START - Generate KML file"); //$NON-NLS-1$
 		KmlGenerator generateKml = null;
 		generateKml = getKmlGenerator();
 
@@ -399,33 +399,33 @@ public class EarthApp {
 			updateFilesUsedChecksum();
 
 		} catch (final IOException e) {
-			logger.error("Could not generate KML file", e);
-			showMessage("Error generating KML file : <br/> "+ e.getMessage() );
+			logger.error("Could not generate KML file", e); //$NON-NLS-1$
+			showMessage("Error generating KML file : <br/> "+ e.getMessage() ); //$NON-NLS-1$
 		} catch (final KmlGenerationException e) {
-			logger.error("Problems while generating the KML file " , e);
-			showMessage("Problems while generating the KML file: \r\n "+ e.getMessage() );
+			logger.error("Problems while generating the KML file " , e); //$NON-NLS-1$
+			showMessage("Problems while generating the KML file: \r\n "+ e.getMessage() ); //$NON-NLS-1$
 		}
 
-		logger.info("END - Generate KML file");
+		logger.info("END - Generate KML file"); //$NON-NLS-1$
 
 	}
 
 	private void generateLoaderKmlFile() throws IOException, TemplateException {
 
-		getLocalProperties().saveGeneratedOn(System.currentTimeMillis() + "");
+		getLocalProperties().saveGeneratedOn(System.currentTimeMillis() + ""); //$NON-NLS-1$
 
 		final Map<String, Object> data = new HashMap<String, Object>();
-		data.put("host", KmlGenerator.getHostAddress(getLocalProperties().getHost(), getLocalProperties().getLocalPort()));
-		data.put("kmlGeneratedOn", getLocalProperties().getGeneratedOn());
-		data.put("surveyName", getLocalProperties().getValue(EarthProperty.SURVEY_NAME));
-		data.put("plotFileName", KmlGenerator.getCsvFileName(getLocalProperties().getValue(EarthProperty.CSV_KEY)));
+		data.put("host", KmlGenerator.getHostAddress(getLocalProperties().getHost(), getLocalProperties().getLocalPort())); //$NON-NLS-1$
+		data.put("kmlGeneratedOn", getLocalProperties().getGeneratedOn()); //$NON-NLS-1$
+		data.put("surveyName", getLocalProperties().getValue(EarthProperty.SURVEY_NAME)); //$NON-NLS-1$
+		data.put("plotFileName", KmlGenerator.getCsvFileName(getLocalProperties().getValue(EarthProperty.CSV_KEY))); //$NON-NLS-1$
 
 		FreemarkerTemplateUtils.applyTemplate(new File(KML_NETWORK_LINK_TEMPLATE), new File(KML_NETWORK_LINK_STARTER), data);
 	}
 
 	private void generatePlacemarksKmzFile() throws IOException {
 
-		logger.info("START - Generate KMZ file");
+		logger.info("START - Generate KMZ file"); //$NON-NLS-1$
 
 		if (!isKmlUpToDate()) {
 			generateKml();
@@ -438,7 +438,7 @@ public class EarthApp {
 				final String folderToInclude = balloonFile.getParent() + File.separator + EarthConstants.FOLDER_COPIED_TO_KMZ;
 
 				kmzGenerator.generateKmzFile(KMZ_FILE_PATH, KML_RESULTING_TEMP_FILE, folderToInclude);
-				logger.info("KMZ File generated : " + KMZ_FILE_PATH);
+				logger.info("KMZ File generated : " + KMZ_FILE_PATH); //$NON-NLS-1$
 
 				copyContentsToGeneratedFolder(folderToInclude);
 
@@ -446,18 +446,18 @@ public class EarthApp {
 				if (kmlFile.exists()) {
 					final boolean deleted = kmlFile.delete();
 					if (deleted) {
-						logger.info("KML File deleted : " + KML_RESULTING_TEMP_FILE);
+						logger.info("KML File deleted : " + KML_RESULTING_TEMP_FILE); //$NON-NLS-1$
 					} else {
-						throw new IOException("The KML file could not be deleted at " + kmlFile.getPath());
+						throw new IOException("The KML file could not be deleted at " + kmlFile.getPath()); //$NON-NLS-1$
 					}
 				}
 
 			} catch (final IOException e) {
-				logger.error("Error while generating KMZ file", e);
+				logger.error("Error while generating KMZ file", e); //$NON-NLS-1$
 			}
 
 		}
-		logger.info("END - Generate KMZ file");
+		logger.info("END - Generate KMZ file"); //$NON-NLS-1$
 	}
 
 	private List<File> getGeoTifFiles() {
@@ -468,7 +468,7 @@ public class EarthApp {
 		if ((listFiles != null) && (listFiles.length > 0)) {
 			foundGeoTifs = new ArrayList<File>();
 			for (final File file : listFiles) {
-				if (file.getName().toLowerCase().endsWith("tif") || file.getName().toLowerCase().endsWith("tiff")) {
+				if (file.getName().toLowerCase().endsWith("tif") || file.getName().toLowerCase().endsWith("tiff")) { //$NON-NLS-1$ //$NON-NLS-2$
 					foundGeoTifs.add(file);
 				}
 			}
@@ -505,7 +505,7 @@ public class EarthApp {
 	}
 
 	private void initializeServer() throws Exception {
-		logger.info("START - Server Initilization");
+		logger.info("START - Server Initilization"); //$NON-NLS-1$
 
 		serverController = new ServerController();
 		
@@ -525,7 +525,7 @@ public class EarthApp {
 
 						openMainWindow();
 					} catch (final Exception e) {
-						logger.error("Error generating KML file", e);
+						logger.error("Error generating KML file", e); //$NON-NLS-1$
 						e.printStackTrace();
 					}
 				}
@@ -561,7 +561,7 @@ public class EarthApp {
 		if (Desktop.isDesktopSupported()) {
 			Desktop.getDesktop().open(new File(KML_NETWORK_LINK_STARTER));
 		} else {
-			showMessage("The KMZ file cannot be open");
+			showMessage("The KMZ file cannot be open"); //$NON-NLS-1$
 		}
 	}
 
@@ -577,7 +577,7 @@ public class EarthApp {
 					mainEarthWindow.setServerController(serverController);
 					mainEarthWindow.openWindow();
 				} catch (final Exception e) {
-					logger.error("Cannot start Earth App", e);
+					logger.error("Cannot start Earth App", e); //$NON-NLS-1$
 					System.exit(0);
 				}
 			}
@@ -593,16 +593,16 @@ public class EarthApp {
 				try {
 					Thread.sleep(10000);
 				} catch (InterruptedException e1) {
-					logger.error("Error while waiting", e1);
+					logger.error("Error while waiting", e1); //$NON-NLS-1$
 				}
 				
 				UpdateIniUtils updateIniUtils = new UpdateIniUtils();
-				if( updateIniUtils.isNewVersionAvailable("update.ini") ){
+				if( updateIniUtils.isNewVersionAvailable("update.ini") ){ //$NON-NLS-1$
 					javax.swing.SwingUtilities.invokeLater(new Runnable() {
 						@Override
 						public void run() {
 							
-							JOptionPane.showMessageDialog(mainEarthWindow.getFrame(), "There is a new version of Collect Earth available! Use the menu ", "Update alert", JOptionPane.INFORMATION_MESSAGE);
+							JOptionPane.showMessageDialog(mainEarthWindow.getFrame(), Messages.getString("EarthApp.57"), Messages.getString("EarthApp.58"), JOptionPane.INFORMATION_MESSAGE); //$NON-NLS-1$ //$NON-NLS-2$
 							
 						}
 					});
@@ -634,7 +634,7 @@ public class EarthApp {
 			}
 		} catch (final Exception e) {
 			e.printStackTrace();
-			showMessage("Error when importing project file");
+			showMessage(Messages.getString("EarthApp.59")); //$NON-NLS-1$
 		}
 	}
 
@@ -646,7 +646,7 @@ public class EarthApp {
 	}
 
 	private void showMessage(String message) {
-		JOptionPane.showMessageDialog(null, message, "Collect Earth", JOptionPane.WARNING_MESSAGE);
+		JOptionPane.showMessageDialog(null, message, "Collect Earth", JOptionPane.WARNING_MESSAGE); //$NON-NLS-1$
 	}
 
 	private void simulateClickKmz() {
@@ -656,8 +656,8 @@ public class EarthApp {
 
 		} catch (final Exception e) {
 			e.printStackTrace();
-			showMessage("<html>The Collect Earth file could not be open.<br/>Please make sure that Google Earth is installed.</html>");
-			logger.error("The KMZ file could not be found", e);
+			showMessage(Messages.getString("EarthApp.61")); //$NON-NLS-1$
+			logger.error("The KMZ file could not be found", e); //$NON-NLS-1$
 		}
 	}
 

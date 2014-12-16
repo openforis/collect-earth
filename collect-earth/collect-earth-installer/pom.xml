@@ -405,7 +405,7 @@
 										<property name="folder" value="${ftp_folder}" />
 										
 										<ant antfile="${project.build.directory}/installer/antXmlFtpUpload.xml">
-											<target name="Update XML upload to openforis.org" />
+											<target name="default" />
 										</ant>
 									</target>
 								</configuration>

@@ -50,14 +50,14 @@ public class CollectDesignerController {
 	public boolean isServerAlreadyRunning() {
 		boolean alreadyRunning = false;
 		try {
-			new Socket("127.0.0.1", getPort()).close();
+			new Socket("127.0.0.1", getPort()).close(); //$NON-NLS-1$
 			// If here there is something is serving on port 8888
 			// So stop it
-			logger.warn("There is a server already running " + getPort());
+			logger.warn("There is a server already running " + getPort()); //$NON-NLS-1$
 			alreadyRunning = true;
 		} catch (final IOException e) {
 			// Nothing there, so OK to proceed
-			logger.info("There is no server running in port " + getPort());
+			logger.info("There is no server running in port " + getPort()); //$NON-NLS-1$
 			alreadyRunning = false;
 		}
 		return alreadyRunning;
@@ -79,7 +79,7 @@ public class CollectDesignerController {
 			// // Use blocking-IO connector to improve throughput
 			final ServerConnector connector = new ServerConnector(designerServer);
 			
-			connector.setHost("0.0.0.0");
+			connector.setHost("0.0.0.0"); //$NON-NLS-1$
 			connector.setPort( getPort() );
 
 			connector.setStopTimeout( 1000 );
@@ -87,8 +87,8 @@ public class CollectDesignerController {
 			designerServer.setConnectors(new Connector[] { connector });
 	 
 	        WebAppContext webapp = new WebAppContext();
-	        webapp.setContextPath("/designer");
-	        File war = new File("./resources/collectweb.war");
+	        webapp.setContextPath("/designer"); //$NON-NLS-1$
+	        File war = new File("./resources/collectweb.war"); //$NON-NLS-1$
 	        webapp.setWar( war.getAbsolutePath() );
 	        designerServer.setHandler(webapp);
 	 
