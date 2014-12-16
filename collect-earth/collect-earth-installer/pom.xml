@@ -401,7 +401,10 @@
 										<property name="upload_file_folder" value="${installer-build-path}" />
 										<property name="username" value="${ftp_username}" />
 										<property name="password" value="${ftp_password}" />
-										<ant antfile="${project.build.directory}/antXmlFtpUpload.xml">
+										<property name="server" value="${ftp_server}" />
+										<property name="folder" value="${ftp_folder}" />
+										
+										<ant antfile="${project.build.directory}/installer/antXmlFtpUpload.xml">
 											<target name="Update XML upload to openforis.org" />
 										</ant>
 									</target>

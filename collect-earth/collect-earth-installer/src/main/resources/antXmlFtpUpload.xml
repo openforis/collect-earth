@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <project name="upload-to-ftp" basedir="." default="default">
 	<target name="default" >
-		<scp todir="${username}:${password}@exlpropforis1.ext.fao.org:/work/newwebsite/fileadmin/installer" verbose="true" trust="yes">
+		<scp todir="${username}:${password}@${server}:${folder}" verbose="true" trust="yes">
 		    <fileset dir="${upload_file_folder}">
 		      <include name="${upload_file_name}"/>
 		    </fileset>
