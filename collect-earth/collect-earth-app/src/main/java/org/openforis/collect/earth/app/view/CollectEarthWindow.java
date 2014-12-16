@@ -213,7 +213,7 @@ public class CollectEarthWindow {
 				getEarthSurveyService());
 	}
 
-	private JFrame getFrame() {
+	public JFrame getFrame() {
 		return frame;
 	}
 

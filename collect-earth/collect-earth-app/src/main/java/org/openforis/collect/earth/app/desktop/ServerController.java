@@ -179,7 +179,7 @@ public class ServerController extends Observable {
 
 		this.addObserver(getContext().getBean(BrowserService.class));
 
-		server.join();
+		//server.join();
 	}
 
 	public void stopServer() throws Exception {

@@ -26,6 +26,7 @@ import org.openforis.collect.earth.app.server.LoadProjectFileServlet;
 import org.openforis.collect.earth.app.service.EarthProjectsService;
 import org.openforis.collect.earth.app.service.FolderFinder;
 import org.openforis.collect.earth.app.service.LocalPropertiesService;
+import org.openforis.collect.earth.app.service.UpdateIniUtils;
 import org.openforis.collect.earth.app.service.LocalPropertiesService.EarthProperty;
 import org.openforis.collect.earth.app.view.CollectEarthWindow;
 import org.openforis.collect.earth.app.view.Messages;
@@ -166,6 +167,8 @@ public class EarthApp {
 				}
 
 				earthApp.initializeServer();
+				
+				earthApp.checkForUpdates();
 			}
 
 
@@ -580,6 +583,35 @@ public class EarthApp {
 			}
 		});
 
+	}
+	
+	private void checkForUpdates(){
+		new Thread(){
+			public void run() {
+				
+				//Wait a few seconds before checking for uodates
+				try {
+					Thread.sleep(10000);
+				} catch (InterruptedException e1) {
+					logger.error("Error while waiting", e1);
+				}
+				
+				UpdateIniUtils updateIniUtils = new UpdateIniUtils();
+				if( updateIniUtils.isNewVersionAvailable("update.ini") ){
+					javax.swing.SwingUtilities.invokeLater(new Runnable() {
+						@Override
+						public void run() {
+							
+							JOptionPane.showMessageDialog(mainEarthWindow.getFrame(), "There is a new version of Collect Earth available! Use the menu ", "Update alert", JOptionPane.INFORMATION_MESSAGE);
+							
+						}
+					});
+				}
+			};
+		}.start();
+		
+		
+		
 	}
 
 	/**
