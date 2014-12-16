@@ -13,10 +13,10 @@ public class PngAluToolUtils {
 	
 	/**
 	 * Returns the climate zone code according to the ALU tool rules
-	 * @param plotElevation The elevation at the plot center point in meters
+	 * @param elevation The elevation at the plot center point in meters
 	 * @param precipitation  The precipitation in mm per year 
 	 * @param shortDrySeason If the dry season is shorter or equal to 5 months (true) or not
-	 * @return
+	 * @return The climate zone according to the ALU tool documentation
 	 */
 	public String getClimateZone( int elevation, int precipitation, boolean shortDrySeason ){
 		

@@ -122,8 +122,8 @@ public class PlacemarkUpdateServlet {
 	/**
 	 * Responds with KML code that causes the Google Earth placemark icon and overlay image to update is status ( filled/not-filled/partially-filled)
 	 * 
-	 * @param response
-	 * @param lastUpdate
+	 * @param response The HTTP response object
+	 * @param lastUpdate The datetime when this servlet was last called by the Google Earth network link.
 	 *            The date that this request was last sent. This way we get the placemarks that have changed status since the last time this was
 	 *            checked.
 	 */

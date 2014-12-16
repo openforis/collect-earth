@@ -394,6 +394,7 @@ public class BrowserService implements Observer{
 	 * Loads the given URL into the browser. If the browser is null then a new browser window is open.
 	 * @param url The URL to load.
 	 * @param driver The browser window to use. If this value is null a new browser window is open.
+	 * @param retry Specify if there should be a second try to open a browser window if the first time fails (useful if the browser could not be found)
 	 * @return THe browser window (firefox or chrome depending on the configuration) used to open the URL.
 	 * @throws BrowserNotFoundException 
 	 */
@@ -434,7 +435,7 @@ public class BrowserService implements Observer{
 	/**
 	 * Opens a browser window with the Bing Maps representation of th eplot.
 	 * @param coordinates The center point of the plot.
-	 * @throws BrowserNotFoundException 
+	 * @throws BrowserNotFoundException In case the browser could not be found
 	 * 
 	 */
 	public synchronized void openBingMaps(String coordinates) throws BrowserNotFoundException {
@@ -466,7 +467,7 @@ public class BrowserService implements Observer{
 	/**
 	 * Opens a browser window with the Google Earth Engine Playground and runs the freemarker template found in resources/eePlaygroundScript.fmt on the main editor of GEE. 
 	 * @param coordinates The center point of the plot.
-	 * @throws BrowserNotFoundException 
+	 * @throws BrowserNotFoundException If the browser cannot be found
 	 * 
 	 */
 	public synchronized void openGeePlayground(String coordinates) throws BrowserNotFoundException {
@@ -551,7 +552,7 @@ public class BrowserService implements Observer{
 	/**
 	 * Opens a browser window with the Google Earth Engine representation of the plot. The Landsat 8 Annual Greenest pixel TOA for 2013 is loaded automatically. 
 	 * @param coordinates The center point of the plot.
-	 * @throws BrowserNotFoundException 
+	 * @throws BrowserNotFoundException If the browser cannot be found
 	 * 
 	 */
 	public synchronized void openEarthEngine(String coordinates) throws BrowserNotFoundException {
@@ -585,7 +586,7 @@ public class BrowserService implements Observer{
 	/**
 	 * Opens a browser window with the Google Earth Engine Timelapse representation of the plot. 
 	 * @param coordinates The center point of the plot.
-	 * @throws BrowserNotFoundException 
+	 * @throws BrowserNotFoundException If the browser cannot be found
 	 * 
 	 */
 	public synchronized void openTimelapse(final String coordinates) throws BrowserNotFoundException {

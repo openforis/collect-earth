@@ -159,7 +159,7 @@ public class EarthSurveyService {
 	/**
 	 * Return a list of the Collect records that have been updated since the time passed as an argument.
 	 * This method is useful to update the status of the placemarks ( updating the icon on the KML using a NetworkLink )
-	 * @param updatedSince  
+	 * @param updatedSince  The date from which we want to find out if there were any records that were updates/added
 	 * @return The list of record that have been updated since the time stated in updatedSince
 	 */
 	public List<CollectRecord> getRecordsSavedSince(Date updatedSince) {

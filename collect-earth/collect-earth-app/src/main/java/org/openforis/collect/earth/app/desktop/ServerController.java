@@ -113,9 +113,7 @@ public class ServerController extends Observable {
 		return urlSaikuDB;
 	}
 
-	/**
-	 * @param args
-	 */
+
 	public void startServer(Observer observeInitialization) throws Exception {
 
 		this.addObserver(observeInitialization);

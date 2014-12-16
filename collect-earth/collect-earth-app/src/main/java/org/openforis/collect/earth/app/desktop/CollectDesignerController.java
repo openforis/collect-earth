@@ -69,9 +69,7 @@ public class CollectDesignerController {
 	}
 
 	
-	/**
-	 * @param args
-	 */
+
 	@PostConstruct
 	public void startServer() throws Exception {
 	 

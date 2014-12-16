@@ -10,7 +10,6 @@ import org.springframework.stereotype.Component;
 /**
  * @author Alfonso Sanchez-Paus Diaz
  *
- * @param <C>
  */
 @Component
 public abstract class AbstractAttributeHandler<C> {

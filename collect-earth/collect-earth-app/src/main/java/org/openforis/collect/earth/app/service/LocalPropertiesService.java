@@ -25,7 +25,7 @@ import org.springframework.stereotype.Component;
 
 /**
  * Class to access Collect Earth configuration. This class is used all over the code in order to fetch the values of the properties that can be
- * configured by the user, by directly editing the earth.properties file or by using the Tools->Properties menu option in the Collect Earth Window.
+ * configured by the user, by directly editing the earth.properties file or by using the Tools--Properties menu option in the Collect Earth Window.
  * 
  * @author Alfonso Sanchez-Paus Diaz
  * 

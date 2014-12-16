@@ -89,6 +89,7 @@ public class GeolocalizeMapService {
 	/**
 	 * Produces a temporary file with the necessary HTML code to show the plot in Bing Maps
 	 * @param centerCoordinates The coordinates of the center of the plot.
+	 * @param freemarkerTemplate The path to the freemarker template that is used to produce the file.
 	 * @return The URL to the temporary file that can be used to load it in a browser.
 	 */
 	public URL getTemporaryUrl(String[] centerCoordinates, String freemarkerTemplate) {

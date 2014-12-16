@@ -44,12 +44,12 @@ public class PlacemarkImageServlet extends DataAccessingServlet {
 
 	/**
 	 * Returns an icon/overlay image that represents the state of the placemark not-filled/filling/filled
-	 * @param response
-	 * @param request
+	 * @param response The HTTP response object
+	 * @param request The HTTP request object
 	 * @param placemarkId The ID of the placemark for which we want to get the icon/overlay
 	 * @param listView True if want to get the icon for the placemark list, false to get the overlay image (transparent or see-through red for filled placemarks)
-	 * @throws IOException
-	 * @throws URISyntaxException
+	 * @throws IOException In case the image icon cannot be open
+	 * @throws URISyntaxException In case the image icon URL contains an error
 	 */
 	@RequestMapping("/placemarkIcon")
 	public void getImage(HttpServletResponse response, HttpServletRequest request, @RequestParam("collect_text_id") String placemarkId,
