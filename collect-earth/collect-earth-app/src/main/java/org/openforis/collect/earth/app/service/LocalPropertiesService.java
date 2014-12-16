@@ -420,8 +420,9 @@ public class LocalPropertiesService {
 
 	private boolean isPropertySupported( EarthProperty earthProperty ) {
 		boolean supported = false;
-		if (getValue(earthProperty) != null && getValue(earthProperty).length() > 0) {
-			supported = Boolean.parseBoolean(getValue(earthProperty));
+		String value = getValue(earthProperty);
+		if (value != null && value.length() > 0) {
+			supported = Boolean.parseBoolean(value);
 		}
 		return supported;
 	}

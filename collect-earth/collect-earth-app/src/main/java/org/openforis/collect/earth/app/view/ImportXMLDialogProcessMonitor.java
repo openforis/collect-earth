@@ -20,9 +20,14 @@ public class ImportXMLDialogProcessMonitor {
 	private InfiniteProgressMonitor progressMonitor;
 
 	public void closeProgressmonitor() {
-		if (progressMonitor != null) {
-			progressMonitor.close();
-		}
+
+		SwingUtilities.invokeLater(new Runnable() {
+			@Override
+			public void run() {
+				if (progressMonitor != null) {
+					progressMonitor.close();
+				}}
+		});
 	}
 
 	private boolean shouldAddConflictingRecords(List<DataImportSummaryItem> listConflictingRecords, String importedFileName) {
@@ -31,7 +36,7 @@ public class ImportXMLDialogProcessMonitor {
 
 			final int selectedOption = JOptionPane.showConfirmDialog(null,
 
-			"<html>" //$NON-NLS-1$
+					"<html>" //$NON-NLS-1$
 					+ "<b>" + importedFileName + " : </b></br>" //$NON-NLS-1$ //$NON-NLS-2$
 					+ Messages.getString("CollectEarthWindow.9") //$NON-NLS-1$
 					+ "<br>" //$NON-NLS-1$
@@ -58,7 +63,7 @@ public class ImportXMLDialogProcessMonitor {
 			final DataImportExportService dataImportService, final File importedFile ) {
 
 		try {
-			
+
 			SwingUtilities.invokeLater(new Runnable() {
 				@Override
 				public void run() {
@@ -78,7 +83,7 @@ public class ImportXMLDialogProcessMonitor {
 			});
 
 			importProcess.call();
-			
+
 			if (importProcess.getSummary() != null && !importProcess.getState().isCancelled()) {
 
 				final List<DataImportSummaryItem> conflictingRecords = importProcess.getSummary().getConflictingRecords();
@@ -89,9 +94,13 @@ public class ImportXMLDialogProcessMonitor {
 						conflictingRecords.clear();
 					}
 				}
-				int totalRecords = ( conflictingRecords==null?0:conflictingRecords.size() ) + importProcess.getSummary().getRecordsToImport().size();
-				progressMonitor.setMessage( Messages.getString("ImportDialogProcessMonitor.11") + totalRecords ); //$NON-NLS-1$
-				
+				final int totalRecords = ( conflictingRecords==null?0:conflictingRecords.size() ) + importProcess.getSummary().getRecordsToImport().size();
+				SwingUtilities.invokeLater(new Runnable() {
+					@Override
+					public void run() {
+						progressMonitor.setMessage( Messages.getString("ImportDialogProcessMonitor.11") + totalRecords ); //$NON-NLS-1$
+					}	});
+
 				dataImportService.importRecordsFrom(importedFile, importProcess, conflictingRecords );
 			}
 		} catch (final Exception e1) {
