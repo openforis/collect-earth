@@ -393,7 +393,7 @@
 									</tasks>
 								</configuration>
 							</execution>
-							<execution>
+							<!-- <execution>
 								<phase>install</phase>
 								<configuration>
 									<target>
@@ -412,7 +412,7 @@
 								<goals>
 									<goal>run</goal>
 								</goals>
-							</execution>
+							</execution> -->
 						</executions>
 						<dependencies>
 							<dependency>
