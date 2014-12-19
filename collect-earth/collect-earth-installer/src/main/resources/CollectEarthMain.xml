@@ -28,7 +28,7 @@
             <platforms>all</platforms>
             <distributionFileList>
                 <distributionDirectory>
-                    <origin>COLLECT_EARTH_MAIN_FOLDER/collect-earth-app/images</origin>
+                    <origin>COLLECT_EARTH_MAIN_FOLDER/collect-earth-app/src/main/resources/images</origin>
                 </distributionDirectory>
                 <distributionDirectory>
                     <origin>COLLECT_EARTH_MAIN_FOLDER/collect-earth-app/resources</origin>
