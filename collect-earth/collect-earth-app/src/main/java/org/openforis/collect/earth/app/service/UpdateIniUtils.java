@@ -36,7 +36,7 @@ public class UpdateIniUtils {
 			Long installedBuild = new Long(installedVersionBuild);
 			Long onlineBuild = new Long(onlineVersionBuild);
 			
-			newVersionAvailable = onlineBuild.intValue() > installedBuild.intValue();
+			newVersionAvailable = onlineBuild.longValue() > installedBuild.longValue();
 		} catch (NumberFormatException e) {
 			logger.error("Error parsing the buildNumber ", e);
 		}
@@ -46,7 +46,7 @@ public class UpdateIniUtils {
 	
 	private String getVersionBuild(String urlXmlUpdate) {
 		
-		String onlineVersion = "0"; 
+		String onlineVersion = "1"; 
 		try {
 			DocumentBuilderFactory factory = DocumentBuilderFactory.newInstance();
 			factory.setNamespaceAware(true);
