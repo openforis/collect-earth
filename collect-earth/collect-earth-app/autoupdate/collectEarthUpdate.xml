@@ -5,15 +5,23 @@
 -->
     <versionId>BUILD_NUMBER</versionId> <!-- When changing this version make sure to have the same one in update.ini and rebuild the autoupdater ! -->
     <version>PROJECT_VERSION</version>
-    <platformFileList>
+	<platformFileList>
         <platformFile>
-            <filename>CollectEarthUpdater.exe</filename>
+            <filename>collect-earth-installer-PROJECT_VERSION-windows-updater.exe</filename>
             <platform>windows</platform>
+        </platformFile>
+         <platformFile>
+            <filename>collect-earth-installer-PROJECT_VERSION-linux-updater.run</filename>
+            <platform>linux</platform>
+        </platformFile>
+        <platformFile>
+            <filename>collect-earth-installer-PROJECT_VERSION-osx-updater.app</filename>
+            <platform>osx</platform>
         </platformFile>
     </platformFileList>
     <downloadLocationList>
         <downloadLocation>
-            <url>http://www.openforis.org/newwebsite/fileadmin/installer/</url>
+            <url>http://www.openforis.org/nexus/service/local/repositories/releases/content/org/openforis/collect/earth/collect-earth-installer/PROJECT_VERSION/</url>
         </downloadLocation>
     </downloadLocationList>
 </installerInformation>

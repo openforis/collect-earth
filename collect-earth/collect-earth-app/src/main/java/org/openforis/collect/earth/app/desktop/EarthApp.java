@@ -28,6 +28,7 @@ import org.openforis.collect.earth.app.service.FolderFinder;
 import org.openforis.collect.earth.app.service.LocalPropertiesService;
 import org.openforis.collect.earth.app.service.UpdateIniUtils;
 import org.openforis.collect.earth.app.service.LocalPropertiesService.EarthProperty;
+import org.openforis.collect.earth.app.view.CheckForUpdatesListener;
 import org.openforis.collect.earth.app.view.CollectEarthWindow;
 import org.openforis.collect.earth.app.view.Messages;
 import org.openforis.collect.earth.sampler.processor.AbstractCoordinateCalculation;
@@ -597,13 +598,27 @@ public class EarthApp {
 				}
 				
 				UpdateIniUtils updateIniUtils = new UpdateIniUtils();
-				if( updateIniUtils.isNewVersionAvailable("update.ini") ){ //$NON-NLS-1$
+				final String newVersionAvailable = updateIniUtils.getNewVersionAvailable("update.ini");
+				if( updateIniUtils.shouldWarnUser(newVersionAvailable, earthApp.getLocalProperties() ) ) {
+					
 					javax.swing.SwingUtilities.invokeLater(new Runnable() {
 						@Override
 						public void run() {
 							
-							JOptionPane.showMessageDialog(mainEarthWindow.getFrame(), Messages.getString("EarthApp.57"), Messages.getString("EarthApp.58"), JOptionPane.INFORMATION_MESSAGE); //$NON-NLS-1$ //$NON-NLS-2$
-							
+							String remindLater = "Remind me later";
+							String doItNow = "Update Now";
+							String doNotBother = "Do not remind me again";
+							Object[] possibleValues = {remindLater, doItNow, doNotBother};
+							int chosenOption = JOptionPane.showOptionDialog(
+									mainEarthWindow.getFrame(), 
+									Messages.getString("EarthApp.57"), Messages.getString("EarthApp.58") + " - Version " + newVersionAvailable ,  //$NON-NLS-1$ //$NON-NLS-2$
+									JOptionPane.DEFAULT_OPTION, JOptionPane.INFORMATION_MESSAGE, null, possibleValues , possibleValues[0] );
+							if( possibleValues[chosenOption].equals( doItNow ) ){
+								CheckForUpdatesListener checkForUpdatesListener = new CheckForUpdatesListener();
+								checkForUpdatesListener.actionPerformed(null);
+							}else if( possibleValues[chosenOption].equals( doNotBother ) ){
+								earthApp.getLocalProperties().setValue( EarthProperty.LAST_IGNORED_UPDATE, newVersionAvailable );
+							}
 						}
 					});
 				}
