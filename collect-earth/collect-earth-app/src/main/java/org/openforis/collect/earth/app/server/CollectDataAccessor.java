@@ -16,8 +16,8 @@ public class CollectDataAccessor implements DataAccessor {
 	private EarthSurveyService earthSurveyService;
 
 	@Override
-	public Map<String, String> getData(String placemarkId) {
-		return earthSurveyService.getPlacemark(placemarkId);
+	public Map<String, String> getData(Map<String, String> parameters) {
+		return earthSurveyService.getPlacemark(parameters);
 	}
 
 	@Override

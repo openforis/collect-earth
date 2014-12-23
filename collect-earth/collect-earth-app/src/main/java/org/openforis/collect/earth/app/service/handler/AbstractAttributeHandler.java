@@ -32,6 +32,7 @@ public abstract class AbstractAttributeHandler<C> {
 			} else if (node instanceof Attribute) {
 				Attribute attribute = (Attribute) entity.get(cleanParameterName, parameterChildIndex);
 				attribute.setValue((Value) getAttributeValue(parameterValue));
+				attribute.updateSummaryInfo();
 			}
 		}
 	}

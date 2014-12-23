@@ -75,7 +75,7 @@ public final class FixMissingPlotsFileInfo {
 	}
 
 	private String getPlotId(CollectRecord record) {
-		TextAttribute plot_id = (TextAttribute) record.getNodeByPath("/plot/id");
+		TextAttribute plot_id = (TextAttribute) record.findNodeByPath("/plot/id");
 		return plot_id.getValue().getValue();
 	}
 
@@ -115,7 +115,7 @@ public final class FixMissingPlotsFileInfo {
 		List<CollectRecord> allRecords = getAllRecords();
 		for (CollectRecord summary : allRecords) {
 			CollectRecord record = recordManager.load( earthSurveyService.getCollectSurvey(), summary.getId(), Step.ENTRY);
-			TextAttribute plot_file = (TextAttribute) record.getNodeByPath("/plot/plot_file");
+			TextAttribute plot_file = (TextAttribute) record.findNodeByPath("/plot/plot_file");
 			if( plot_file ==null || plot_file.getValue() == null || plot_file.getValue().getValue() == null  ){
 				plotsWithNoRegionInfo.add( record );
 			}

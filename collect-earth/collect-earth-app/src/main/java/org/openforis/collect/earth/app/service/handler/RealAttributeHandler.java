@@ -35,7 +35,11 @@ public class RealAttributeHandler extends AbstractAttributeHandler<RealValue> {
 
 	@Override
 	public String getAttributeFromParameter(String parameterName, Entity entity, int index) {
-		return ((RealAttribute) entity.get(removePrefix(parameterName), index)).getValue().getValue().toString();
+		String cleanName = removePrefix(parameterName);
+		Double value = ((RealAttribute) entity.get(cleanName
+				, index)).getValue().getValue();
+		
+		return value==null?null:value.toString();
 	}
 
 	@Override

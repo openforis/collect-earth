@@ -69,7 +69,7 @@ public class FixDuplicatePlots {
 		for (CollectRecord record : allRecords) {
 			if( record!= null ){
 				CollectRecord collectRecord = recordManager.load( earthSurveyService.getCollectSurvey(), record.getId(), Step.ENTRY);
-				TextAttribute plot_file = (TextAttribute) collectRecord.getNodeByPath("/plot/plot_file");
+				TextAttribute plot_file = (TextAttribute) collectRecord.findNodeByPath("/plot/plot_file");
 				if( plot_file !=null && plot_file.getValue().getValue().equals("southernHighlands.ced") ){
 					southernHighlandsPlots.add( collectRecord );
 				}
@@ -81,7 +81,7 @@ public class FixDuplicatePlots {
 	private CollectRecord findMathingCoordinatePlotInSouthern(List<CollectRecord> southernHighlandRecords, CoordinateAttribute plotCoord) {
 		for (CollectRecord southernPlot : southernHighlandRecords) {
 			
-			CoordinateAttribute sothernCoord = (CoordinateAttribute) southernPlot.getNodeByPath("/plot/location");
+			CoordinateAttribute sothernCoord = (CoordinateAttribute) southernPlot.findNodeByPath("/plot/location");
 			if( sothernCoord.getValue().equals(plotCoord.getValue() ) ){
 				return southernPlot;
 			}
@@ -91,7 +91,7 @@ public class FixDuplicatePlots {
 
 	private boolean isSouthernPlot(CollectRecord record) {
 		
-		TextAttribute plot_file = (TextAttribute) record.getNodeByPath("/plot/plot_file");
+		TextAttribute plot_file = (TextAttribute) record.findNodeByPath("/plot/plot_file");
 		return( plot_file!=null && plot_file.getValue().getValue().equals("southernHighlands.ced") );
 	}
 

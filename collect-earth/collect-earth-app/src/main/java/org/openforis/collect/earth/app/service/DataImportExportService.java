@@ -127,7 +127,7 @@ public class DataImportExportService {
 					boolean include = true;
 
 					try {
-						final BooleanAttribute node = (BooleanAttribute) record.getNodeByPath("/plot/actively_saved");
+						final BooleanAttribute node = (BooleanAttribute) record.findNodeByPath("/plot/actively_saved");
 
 						include = (node == null || (node != null && !node.isEmpty() && node.getValue().getValue()) );
 					} catch (Exception e) {

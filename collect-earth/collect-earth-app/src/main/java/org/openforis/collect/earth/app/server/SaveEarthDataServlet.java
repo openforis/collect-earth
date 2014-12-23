@@ -23,11 +23,7 @@ public class SaveEarthDataServlet extends JsonPocessorServlet {
 	@Autowired
 	LocalPropertiesService localPropertiesService;
 	
-	//@Autowired
-	//CollectDesignerController collectDesignerController;
 	
-	
-	@Override
 	@RequestMapping("/saveData")
 	protected void processRequest(HttpServletRequest request, HttpServletResponse response) throws IOException {
 

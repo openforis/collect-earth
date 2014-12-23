@@ -66,8 +66,13 @@ public class CoordinateAttributeHandler extends AbstractAttributeHandler<Coordin
 	 */
 	@Override
 	public String getAttributeFromParameter(String parameterName, Entity entity, int index) {
+		String cleanName = removePrefix(parameterName);
+		if( entity.get(cleanName, index) == null){
+			return "";
+		}
+		
 		StringBuilder stringBuilder = new StringBuilder();
-		Coordinate value = ((CoordinateAttribute) entity.get(removePrefix(parameterName), index)).getValue();
+		Coordinate value = ((CoordinateAttribute) entity.get(cleanName, index)).getValue();
 		Double longitude = value.getX();
 		Double latitude = value.getY();
 		

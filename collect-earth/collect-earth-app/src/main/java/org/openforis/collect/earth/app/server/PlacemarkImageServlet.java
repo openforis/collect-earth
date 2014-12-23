@@ -4,6 +4,7 @@ import java.io.File;
 import java.io.IOException;
 import java.net.MalformedURLException;
 import java.net.URISyntaxException;
+import java.security.Policy.Parameters;
 import java.text.SimpleDateFormat;
 import java.util.Date;
 import java.util.Locale;
@@ -32,7 +33,7 @@ import org.springframework.web.bind.annotation.RequestParam;
  * 
  */
 @Controller
-public class PlacemarkImageServlet extends DataAccessingServlet {
+public class PlacemarkImageServlet extends JsonPocessorServlet {
 
 	@Autowired
 	private EarthSurveyService earthSurveyService;
@@ -46,13 +47,12 @@ public class PlacemarkImageServlet extends DataAccessingServlet {
 	 * Returns an icon/overlay image that represents the state of the placemark not-filled/filling/filled
 	 * @param response The HTTP response object
 	 * @param request The HTTP request object
-	 * @param placemarkId The ID of the placemark for which we want to get the icon/overlay
 	 * @param listView True if want to get the icon for the placemark list, false to get the overlay image (transparent or see-through red for filled placemarks)
 	 * @throws IOException In case the image icon cannot be open
 	 * @throws URISyntaxException In case the image icon URL contains an error
 	 */
 	@RequestMapping("/placemarkIcon")
-	public void getImage(HttpServletResponse response, HttpServletRequest request, @RequestParam("collect_text_id") String placemarkId,
+	public void getImage(HttpServletResponse response, HttpServletRequest request, 
 			@RequestParam(value = "listView", required = false) Boolean listView) throws IOException, URISyntaxException {
 
 		if( listView == null ){
@@ -61,9 +61,10 @@ public class PlacemarkImageServlet extends DataAccessingServlet {
 		
 		// If there is an exception while we get the record info (problem that might happen when using SQLite due to concurrency) return the yellow icon.
 		String imageName = null;
+		final Map<String, String> parameters = extractRequestData(request);
 		try {
 			
-			final Map<String, String> placemarkParameters = earthSurveyService.getPlacemark(placemarkId);
+			final Map<String, String> placemarkParameters = earthSurveyService.getPlacemark(parameters);
 
 			if (earthSurveyService.isPlacemarSavedActively(placemarkParameters)) {
 				if (listView != null && listView) {
@@ -80,7 +81,7 @@ public class PlacemarkImageServlet extends DataAccessingServlet {
 			}
 			
 		} catch (Exception e) {
-			logger.error("Error loading image for placemark with ID " + placemarkId , e);
+			logger.error("Error loading image for placemark with data " + parameters.toString() , e);
 			System.out.println( e );
 			// If there is an exception while we get the record info (problem that might happen when using SQLite due to concurrency) return the yellow icon.
 			imageName = EarthConstants.LIST_NOT_FINISHED_IMAGE;

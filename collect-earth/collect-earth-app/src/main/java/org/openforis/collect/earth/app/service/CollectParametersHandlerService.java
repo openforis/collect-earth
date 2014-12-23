@@ -226,4 +226,25 @@ public class CollectParametersHandlerService {
 		}
 	}
 
+	public String findValueForParameter(Map<String, String> parameters, String keyName) {
+				
+		if( parameters.containsKey( keyName ) ){ // In case the parameter contains the name of the key without the usuarl prefix i.e. collect_text_
+			return parameters.get(keyName);
+		}
+		
+		for (AbstractAttributeHandler<?> handler : attributeHandlers) {
+			try {
+				String possibleKey = COLLECT_PREFIX + handler.getPrefix() + keyName;
+				if( parameters.containsKey( possibleKey )){
+					return parameters.get(possibleKey);
+				}
+				
+			} catch (Exception e) {
+				logger.error("Error while finding value for parameter " + keyName , e);
+			}
+		}
+		return null;
+		
+	}
+
 }

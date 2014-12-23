@@ -45,7 +45,7 @@ public abstract class FixCoordinates {
 			}
 			try {
 				CollectRecord collectRecord = recordManager.load( earthSurveyService.getCollectSurvey(), summaryCollectRecord.getId(), Step.ENTRY);
-				CoordinateAttribute plotCoord = (CoordinateAttribute) collectRecord.getNodeByPath("/plot/location");
+				CoordinateAttribute plotCoord = (CoordinateAttribute) collectRecord.findNodeByPath("/plot/location");
 				if( plotCoord != null && plotCoord.getValue() != null ){
 					if( plotCoord.getValue().getX() < getLongitudeLimit() ){
 						Coordinate coordinate = new Coordinate(plotCoord.getValue().getY(), plotCoord.getValue().getX(), plotCoord.getValue().getSrsId() );

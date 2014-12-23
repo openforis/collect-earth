@@ -271,7 +271,7 @@ public final class MissingPlotsListener implements ActionListener {
 			CollectRecord record = recordManager.load(earthSurveyService.getCollectSurvey(), summaries.get(0).getId(), Step.ENTRY);
 			BooleanAttribute node = null;
 			try {
-				node = (BooleanAttribute) record.getNodeByPath("/plot/actively_saved"); //$NON-NLS-1$
+				node = (BooleanAttribute) record.findNodeByPath("/plot/actively_saved"); //$NON-NLS-1$
 			} catch (Exception e) {
 				logger.error("No actively_saved information found", e); //$NON-NLS-1$
 			}

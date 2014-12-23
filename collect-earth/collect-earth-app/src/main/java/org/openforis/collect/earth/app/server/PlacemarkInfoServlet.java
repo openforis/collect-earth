@@ -8,6 +8,9 @@ import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 
 import org.openforis.collect.earth.app.EarthConstants;
+import org.openforis.collect.earth.app.service.CollectParametersHandlerService;
+import org.openforis.collect.earth.app.service.EarthSurveyService;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.RequestMapping;
 
@@ -22,9 +25,8 @@ public class PlacemarkInfoServlet extends JsonPocessorServlet {
 
 	private static final String PLACEMARK_ID = "collect_text_id";
 
-	private String getPlacemarkId(Map<String, String> collectedData) {
-		return collectedData.get(PlacemarkInfoServlet.PLACEMARK_ID);
-	}
+	@Autowired
+	EarthSurveyService earthSurveyService;
 
 	/* 
 	 * Returns a JSON object with the data colleted for a placemark in the collect-earth format.
@@ -32,34 +34,40 @@ public class PlacemarkInfoServlet extends JsonPocessorServlet {
 	 * (non-Javadoc)
 	 * @see org.openforis.collect.earth.app.server.JsonPocessorServlet#processRequest(javax.servlet.http.HttpServletRequest, javax.servlet.http.HttpServletResponse)
 	 */
-	@Override
 	@RequestMapping("/placemarkInfo")
 	protected void processRequest(HttpServletRequest request, HttpServletResponse response) throws IOException {
-		Map<String, String> collectedData = extractRequestData(request);
-		String placemarkId = getPlacemarkId(collectedData);
-		
-		if (placemarkId == null) {
-			setResult(false, "No placemark ID found in the request", collectedData);
-			getLogger().error("No placemark ID found in the received request");
-		} else {
-			if (placemarkId.equals("$[id]")) {
-				placemarkId = "testPlacemark";
-			}
-			collectedData = getDataAccessor().getData(placemarkId);
-			if (collectedData != null && collectedData.get(EarthConstants.PLACEMARK_FOUND_PARAMETER) != null
-					&& collectedData.get(EarthConstants.PLACEMARK_FOUND_PARAMETER).equals("true")) {
-				setResult(true, "The placemark was found", collectedData);
-				getLogger().info("A placemark was found with these properties" + collectedData.toString());
+		Map<String, String> parameters = extractRequestData(request);
+		Map<String, String> dataInDB = null;
+		String[] placemarkIdValues;
+		try {
+			
+			placemarkIdValues = earthSurveyService.extractKeyValues(parameters);
+			dataInDB = getDataAccessor().getData(parameters);
+			
+			if (dataInDB != null && dataInDB.get(EarthConstants.PLACEMARK_FOUND_PARAMETER) != null
+					&& dataInDB.get(EarthConstants.PLACEMARK_FOUND_PARAMETER).equals("true")) {
+				
+				setResult(true, "The placemark was found", dataInDB);
+				getLogger().info("A placemark was found with these properties" + dataInDB.toString());
+				
 			} else {
-				if (collectedData == null) {
-					collectedData = new HashMap<String, String>();
+				
+				if (dataInDB == null) {
+					dataInDB = new HashMap<String, String>();
 				}
-				setResult(false, "No placemark found", collectedData);
-				getLogger().info("No placemark found " + collectedData.toString());
+				setResult(false, "No placemark found", parameters);
+				getLogger().info("No placemark found " + parameters.toString());
+				
 			}
-		}
+			
+		} catch (Exception e) {
 
-		setJsonResponse(response, collectedData);
+			setResult(false, "No placemark ID found in the request", parameters);
+			getLogger().error("No placemark ID found in the received request");
+		}
+		
+
+		setJsonResponse(response, dataInDB);
 
 	}
 
