@@ -41,14 +41,12 @@ import org.openqa.selenium.JavascriptExecutor;
 import org.openqa.selenium.Keys;
 import org.openqa.selenium.WebDriverException;
 import org.openqa.selenium.WebElement;
-import org.openqa.selenium.browserlaunchers.locators.FirefoxLocator;
 import org.openqa.selenium.chrome.ChromeDriver;
 import org.openqa.selenium.firefox.FirefoxBinary;
 import org.openqa.selenium.firefox.FirefoxDriver;
 import org.openqa.selenium.firefox.FirefoxProfile;
 import org.openqa.selenium.remote.DesiredCapabilities;
 import org.openqa.selenium.remote.RemoteWebDriver;
-import org.openqa.selenium.remote.UnreachableBrowserException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -89,7 +87,6 @@ public class BrowserService implements Observer{
 
 		@Override
 		public X509Certificate[] getAcceptedIssuers() {
-			// TODO Auto-generated method stub
 			return null;
 		}
 
@@ -163,7 +160,7 @@ public class BrowserService implements Observer{
 	private String checkIfBrowserIsInstalled(String chosenBrowser) {
 		if( chosenBrowser.equals( EarthConstants.FIREFOX_BROWSER ) ){
 			if( StringUtils.isBlank( localPropertiesService.getValue(EarthProperty.FIREFOX_BINARY_PATH) ) ){
-				FirefoxLocator firefoxLocator = new FirefoxLocator();
+				FirefoxLocatorFixed firefoxLocator = new FirefoxLocatorFixed();
 				try {
 					firefoxLocator.findBrowserLocationOrFail();
 				} catch (Exception e) {
@@ -409,7 +406,7 @@ public class BrowserService implements Observer{
 			try {
 				driver.navigate().to(url);
 			} catch (final Exception e) {
-				if( retry && ( e.getCause()!=null &&  e.getCause().getMessage()!=null && e.getCause().getMessage().contains("Session not found") || e instanceof UnreachableBrowserException ) ){
+				if( retry && ( e.getCause()!=null &&  e.getCause().getMessage()!=null && e.getCause().getMessage().contains("Session not found") ) ){
 					// Browser closed, restart it!
 					logger.error("Browser was closed, restaring it...", e);
 					driver = initBrowser();
@@ -697,7 +694,9 @@ public class BrowserService implements Observer{
 		} else {
 			// Try with default Firefox executable
 			try {
-				firefoxBinary = new FirefoxBinary();
+				FirefoxLocatorFixed flf = new FirefoxLocatorFixed();
+				String launcherFilePath = flf.findBrowserLocationFix().launcherFilePath();
+				firefoxBinary = new FirefoxBinary( new File( launcherFilePath ) );
 				driver = new FirefoxDriver(firefoxBinary, ffprofile);
 			} catch (final WebDriverException e) {
 				logger.error("The firefox executable firefox.exe cannot be found, please edit earth.properties and add a line with the property "
