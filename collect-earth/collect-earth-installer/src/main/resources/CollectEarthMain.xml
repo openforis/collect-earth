@@ -199,8 +199,9 @@
             <permissions>0777</permissions>
         </changePermissions>
 
-        <!--
+       
         <runProgram>
+        	<abortOnError>0</abortOnError>
             <program>chown</program>
             <programArguments>-fR ${system_username}  "${installdir}/${java_launcher_binary_name}" "${installdir}/earth_error.log" "${installdir}/earth.properties" "${installdir}/generated" "${installdir}/collectEarthDatabase.db" "${installdir}/collectEarthDatabase.dbSaiku"</programArguments>
             <ruleList>
@@ -211,6 +212,7 @@
             </ruleList>
         </runProgram>
         <runProgram program="chmod">
+        	<abortOnError>0</abortOnError>
             <programArguments>-R ugo+rwX "${installdir}/${java_launcher_binary_name}" "${installdir}/earth_error.log" "${installdir}/earth.properties" "${installdir}/generated" "${installdir}/collectEarthDatabase.db" "${installdir}/collectEarthDatabase.dbSaiku"</programArguments>
             <ruleList>
                 <platformTest>
@@ -219,16 +221,10 @@
                 </platformTest>
             </ruleList>
         </runProgram>
-		-->
-        <copyFile>
-            <abortOnError>0</abortOnError>
-            <destination>${installdir}/${java_launcher_binary_name}/Contents/Resources/installbuilder.icns</destination>
-            <origin>${installdir}/launcher_icon.icns</origin>
-            <ruleList>
-                <compareText logic="equals" text="${platform_name}" value="osx"/>
-            </ruleList>
-        </copyFile>
+		
+        
         <createSymLink>
+        	<abortOnError>0</abortOnError>
             <linkName>~/Desktop/Collect Earth.app</linkName>
             <target>${installdir}/${java_launcher_binary_name}</target>
             <ruleList>
@@ -238,6 +234,7 @@
             </ruleList>
         </createSymLink>
         <associateWindowsFileExtension>
+        	<abortOnError>0</abortOnError>
             <extensions>.cep</extensions>
             <friendlyName>Collect Earth Project file</friendlyName>
             <icon>${installdir}\launcher_icon.ico</icon>
@@ -253,8 +250,32 @@
                 </command>
             </commandList>
         </associateWindowsFileExtension>
+        
+        <!--  Launch Collect Earth when double-clicking in cep files (Mac OS X) -->
+        <!--  register the mime-type launcher -->
         <runProgram>
-        	<!--  Launch Collect Earth when double-clicking in cep files (Mac OS X) -->
+        	<abortOnError>0</abortOnError>
+		    <program>defaults</program>
+		    <programArguments>write "${installdir}/${java_launcher_binary_name}/Contents/Info" CFBundleIdentifier vnd.openforis.collectearth</programArguments>
+		    <ruleList>
+                <platformTest>
+                    <type>osx</type>
+                </platformTest>
+            </ruleList>
+		</runProgram>
+		<runProgram>
+			<abortOnError>0</abortOnError>
+		    <program>plutil</program>
+		    <programArguments>-convert xml1 "${installdir}/${java_launcher_binary_name}/Contents/Info.plist" </programArguments>
+		    <ruleList>
+                <platformTest>
+                    <type>osx</type>
+                </platformTest>
+            </ruleList>
+		</runProgram>
+
+        <runProgram>
+        	
         	<abortOnError>0</abortOnError>
             <program>defaults</program>
            <!-- The CDATA notation allow escaping a
