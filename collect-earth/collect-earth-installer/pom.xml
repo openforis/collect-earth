@@ -343,7 +343,7 @@
 										<artifact>
 											<file>${project.build.directory}/${osx-installer-file-name}</file>
 											<classifier>osx</classifier>
-											<type>app</type>
+											<type>zip</type>
 										</artifact>
 										
 										<artifact>
@@ -359,7 +359,7 @@
 										<artifact>
 											<file>${project.build.directory}/${osx-autoupdater-file-name}</file>
 											<classifier>osx-updater</classifier>
-											<type>app</type>
+											<type>zip</type>
 										</artifact>
 									</artifacts>
 								</configuration>

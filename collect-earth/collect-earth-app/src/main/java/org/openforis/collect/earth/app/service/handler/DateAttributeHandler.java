@@ -34,12 +34,18 @@ public class DateAttributeHandler extends AbstractAttributeHandler<Date> {
 
 	@Override
 	public String getAttributeFromParameter(String parameterName, Entity entity, int index) {
+		
+		String cleanName = removePrefix(parameterName);
+		if( entity.get(cleanName, index) == null){
+			return "";
+		}
+		
 		String attribute = "";
 
 		try {
-			if(  entity.get(removePrefix(parameterName), index).hasData() ){
+			if(  entity.get(cleanName, index).hasData() ){
 
-				java.util.Date javaDate = ((DateAttribute) entity.get(removePrefix(parameterName), index)).getValue().toJavaDate();
+				java.util.Date javaDate = ((DateAttribute) entity.get(cleanName, index)).getValue().toJavaDate();
 				
 				attribute = DATE_ATTRIBUTE_FORMAT.format(javaDate);
 			}

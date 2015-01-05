@@ -35,7 +35,9 @@ public class IntegerAttributeHandler extends AbstractAttributeHandler<IntegerVal
 
 	@Override
 	public String getAttributeFromParameter(String parameterName, Entity entity, int index) {
-		return ((IntegerAttribute) entity.get(removePrefix(parameterName), index)).getValue().getValue().toString();
+		String cleanName = removePrefix(parameterName);
+		Integer value = ((IntegerAttribute) entity.get(cleanName, index)).getValue().getValue();
+		return value==null?null:value.toString();
 	}
 
 	@Override

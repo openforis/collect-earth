@@ -184,14 +184,14 @@ public final class MissingPlotsListener implements ActionListener {
 			missingPlots += "\n" + Messages.getString("MissingPlotsListener.5") + file + " : \n"; //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$
 			List<String> plotIds = missingPlotIds.get(file);
 			if( plotIds.size() == 0 ){
-				missingPlots += "COMPLETE"; //$NON-NLS-1$
+				missingPlots += "COMPLETE "; //$NON-NLS-1$
 			}
 			
 			for (String plotId : plotIds) {
 				missingPlots += plotId + ","; //$NON-NLS-1$
 			}
 			
-			missingPlots = missingPlots.substring(0, missingPlots.length() - 1 );
+			missingPlots = missingPlots.substring(0, missingPlots.length() - 1 ) + "\n";
 
 		}
 
