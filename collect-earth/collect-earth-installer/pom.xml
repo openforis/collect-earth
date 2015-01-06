@@ -116,6 +116,8 @@
 											<overWrite>false</overWrite>
 											<outputDirectory>${installer-build-path}/jre_files</outputDirectory>
 										</artifactItem>
+<!-- 									
+No Solaris installer necessary	
 										<artifactItem>
 											<groupId>com.oracle.java</groupId>
 											<artifactId>jre</artifactId>
@@ -133,7 +135,8 @@
 											<type>zip</type>
 											<overWrite>false</overWrite>
 											<outputDirectory>${installer-build-path}/jre_files</outputDirectory>
-										</artifactItem>
+										</artifactItem> 
+-->
 	
 									</artifactItems>
 								</configuration>
@@ -217,7 +220,7 @@
 						<artifactId>exec-maven-plugin</artifactId>
 						<version>1.1</version>
 						<executions>
-							<!-- Linux -->
+							<!-- Linux 
 							<execution>
 								<id>linux-installer</id>
 								<phase>prepare-package</phase>
@@ -249,7 +252,7 @@
 									</arguments>
 								</configuration>
 							</execution>
-							
+							-->
 							<!-- Windows -->
 							<execution>
 								<id>windows-installer</id>
@@ -282,7 +285,7 @@
 									</arguments>
 								</configuration>
 							</execution>
-							<!-- Mac OS X -->
+							<!-- Mac OS X 
 							<execution>
 								<id>osx-installer</id>
 								<phase>prepare-package</phase>
@@ -314,6 +317,7 @@
 									</arguments>
 								</configuration>
 							</execution>
+							-->
 						</executions>
 					</plugin>
 
@@ -384,12 +388,16 @@
 								<configuration>
 									<tasks>
 										<move file="${installbuilder-output-directory}/${windows-installer-file-name}" tofile="${project.build.directory}/${windows-installer-file-name}" failonerror="true" />
-										<move file="${installbuilder-output-directory}/${linux-installer-file-name}" tofile="${project.build.directory}/${linux-installer-file-name}" failonerror="true" />
-										<move file="${installbuilder-output-directory}/${osx-installer-file-name}" tofile="${project.build.directory}/${osx-installer-file-name}" failonerror="true" />
-										
 										<move file="${installbuilder-output-directory}/${windows-autoupdater-file-name}" tofile="${project.build.directory}/${windows-autoupdater-file-name}" failonerror="true" />
+										
+										<!-- 
+										Remove the OSX/Linux installers until problems fixed
+										<move file="${installbuilder-output-directory}/${linux-installer-file-name}" tofile="${project.build.directory}/${linux-installer-file-name}" failonerror="true" />
 										<move file="${installbuilder-output-directory}/${linux-autoupdater-file-name}" tofile="${project.build.directory}/${linux-autoupdater-file-name}" failonerror="true" />
-										<move file="${installbuilder-output-directory}/${osx-autoupdater-file-name}" tofile="${project.build.directory}/${osx-autoupdater-file-name}" failonerror="true" />
+										
+										<move file="${installbuilder-output-directory}/${osx-installer-file-name}" tofile="${project.build.directory}/${osx-installer-file-name}" failonerror="true" />
+										<move file="${installbuilder-output-directory}/${osx-autoupdater-file-name}" tofile="${project.build.directory}/${osx-autoupdater-file-name}" failonerror="true" /> 
+										-->
 									</tasks>
 								</configuration>
 							</execution>
