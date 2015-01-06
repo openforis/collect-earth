@@ -7,21 +7,21 @@
     <version>PROJECT_VERSION</version>
     <platformFileList>
         <platformFile>
-            <filename>redirect?r=releases&amp;g=org.openforis.collect.earth&amp;a=collect-earth-installer&amp;v=LATEST&amp;c=windows-updater&amp;e=exe</filename>
+            <filename>collect-earth-installer-PROJECT_VERSION-windows-updater.exe</filename>
             <platform>windows</platform>
         </platformFile>
          <platformFile>
-            <filename>redirect?r=releases&amp;g=org.openforis.collect.earth&amp;a=collect-earth-installer&amp;v=LATEST&amp;c=linux-updater&amp;e=run</filename>
+            <filename>collect-earth-installer-PROJECT_VERSION-linux-updater.run</filename>
             <platform>linux</platform>
         </platformFile>
         <platformFile>
-            <filename>redirect?r=releases&amp;g=org.openforis.collect.earth&amp;a=collect-earth-installer&amp;v=LATEST&amp;c=osx-updater&amp;e=app</filename>
+            <filename>collect-earth-installer-PROJECT_VERSION-osx-updater.app</filename>
             <platform>osx</platform>
         </platformFile>
     </platformFileList>
     <downloadLocationList>
         <downloadLocation>
-            <url>http://www.openforis.org/nexus/service/local/artifact/maven/</url>
+            <url>http://www.openforis.org/nexus/service/local/repositories/releases/content/org/openforis/collect/earth/collect-earth-installer/PROJECT_VERSION/</url>
         </downloadLocation>
     </downloadLocationList>
 </installerInformation>
