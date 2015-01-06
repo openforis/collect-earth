@@ -18,6 +18,11 @@ public class ImportProcessMonitorDialog extends ProcessMonitorDialog<Void, Refer
 		progressMonitor.setMillisToPopup(1000);
 	}
 
+	protected String getProcessActionMessage() {
+		return Messages.getString("ImportProcessMonitorDialog.0"); //$NON-NLS-1$
+	}
+	
+	
 	@Override
 	public void run() {
 

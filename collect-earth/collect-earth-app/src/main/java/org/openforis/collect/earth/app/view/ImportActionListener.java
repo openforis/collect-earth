@@ -64,14 +64,14 @@ public final class ImportActionListener implements ActionListener {
 		final ImportXMLDialogProcessMonitor importDialogProcessMonitor = new ImportXMLDialogProcessMonitor();
 		if (filesToImport != null) {
 
-			final boolean importNonFinishedPlots = shouldImportNonFinishedRecords();
+			
 			switch (importType) {
 			case ZIP_WITH_XML:
 				for (final File importedFile : filesToImport) {
 					new Thread("XML Import Thread " + importedFile.getName() ){ //$NON-NLS-1$
 						public void run() {
 							try{
-
+								final boolean importNonFinishedPlots = shouldImportNonFinishedRecords();
 								XMLDataImportProcess dataImportProcess = dataImportService.getImportSummary(importedFile, importNonFinishedPlots);
 								importDialogProcessMonitor.startImport(dataImportProcess, frame, dataImportService, importedFile );
 
@@ -91,21 +91,23 @@ public final class ImportActionListener implements ActionListener {
 			case CSV:
 				for (final File importedFile : filesToImport) {
 
-					CSVDataImportProcess imortSurveyAsCsv = null;
+					logger.error("Should come in the log" ); //$NON-NLS-1$
+					
+					CSVDataImportProcess importSurveyAsCsv = null;
 					try {
-						imortSurveyAsCsv = dataImportService.getCsvImporterProcess(importedFile);
+						importSurveyAsCsv = dataImportService.getCsvImporterProcess(importedFile);
 
-						if( imortSurveyAsCsv != null ){
-							imortSurveyAsCsv.init();
-							ProcessStatus status = imortSurveyAsCsv.getStatus();
+						if( importSurveyAsCsv != null ){
+							importSurveyAsCsv.init();
+							ProcessStatus status = importSurveyAsCsv.getStatus();
 							status.setTotal( getTotalNumberOfLines( importedFile ) );
-							if ( status != null && ! imortSurveyAsCsv.getStatus().isError() ) {
-								ImportProcessMonitorDialog importProcessWorker = new ImportProcessMonitorDialog(imortSurveyAsCsv, frame );
+							if ( status != null && ! importSurveyAsCsv.getStatus().isError() ) {
+								ImportProcessMonitorDialog importProcessWorker = new ImportProcessMonitorDialog(importSurveyAsCsv, frame );
 								importProcessWorker.start();
 							}
 						}
 					} catch (Exception e1) {
-						JOptionPane.showMessageDialog(this.frame, Messages.getString("CollectEarthWindow.0"), Messages.getString("CollectEarthWindow.1"), //$NON-NLS-1$ //$NON-NLS-2$
+						JOptionPane.showMessageDialog(this.frame, Messages.getString("CollectEarthWindow.7") + "\n" + e1.getMessage(), importedFile.getName() + " - " + Messages.getString("CollectEarthWindow.3"), //$NON-NLS-1$ //$NON-NLS-2$
 								JOptionPane.ERROR_MESSAGE);
 						logger.error("Error importing data from " + importedFile.getAbsolutePath() + " in format " + importType , e1); //$NON-NLS-1$ //$NON-NLS-2$
 					}

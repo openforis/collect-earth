@@ -28,6 +28,10 @@ public class ExportProcessMonitorDialog extends ProcessMonitorDialog<Void, DataE
 		progressMonitor.setMillisToPopup(1000);
 	}
 
+	protected String getProcessActionMessage() {
+		return Messages.getString("ExportDialogProcessMonitor.4"); //$NON-NLS-1$
+	}
+	
 	@Override
 	public void run() {
 
