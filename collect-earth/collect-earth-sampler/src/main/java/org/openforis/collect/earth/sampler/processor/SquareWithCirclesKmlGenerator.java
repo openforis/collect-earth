@@ -10,12 +10,12 @@ import org.opengis.referencing.operation.TransformException;
 public class SquareWithCirclesKmlGenerator extends SquareKmlGenerator {
 	private static final int NUMBER_OF_EXTERNAL_POINTS = 4;
 
-	public SquareWithCirclesKmlGenerator(String epsgCode, String host, String port, String localPort, Integer innerPointSide) {
-		super(epsgCode, host, port, localPort, innerPointSide, 25);
+	public SquareWithCirclesKmlGenerator(String epsgCode, String hostAddress, String localPort, Integer innerPointSide) {
+		super(epsgCode, hostAddress, localPort, innerPointSide, 25);
 	}
 
 	@Override
-	public void fillSamplePoints(float distanceBetweenSamplePoints, double[] centerCoordinate, String currentPlaceMarkId,
+	public void fillSamplePoints(double distanceBetweenSamplePoints, double[] centerCoordinate, String currentPlaceMarkId,
 			SimplePlacemarkObject parentPlacemark) throws TransformException {
 
 		// Move to the top-left point

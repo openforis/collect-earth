@@ -5,6 +5,10 @@ public class KmlGenerationException extends Exception {
 	public KmlGenerationException(String message, Exception exception) {
 		super(message, exception);
 	}
+	
+	public KmlGenerationException(String message) {
+		super(message);
+	}
 
 	/**
 	 * 

@@ -12,8 +12,8 @@ public class SquareKmlGenerator extends PolygonKmlGenerator {
 
 	int numberOfPoints = 0;
 
-	public SquareKmlGenerator(String epsgCode, String host, String port, String localPort, Integer innerPointSide, int numberOfPoints) {
-		super(epsgCode, host, port, localPort, innerPointSide);
+	public SquareKmlGenerator(String epsgCode, String hostAddress, String localPort, Integer innerPointSide, int numberOfPoints) {
+		super(epsgCode, hostAddress, localPort, innerPointSide);
 		this.numberOfPoints = numberOfPoints;
 	}
 
@@ -22,7 +22,7 @@ public class SquareKmlGenerator extends PolygonKmlGenerator {
 	}
 
 	@Override
-	public void fillExternalLine(float distanceBetweenSamplePoints, float distancePlotBoundary, double[] coordOriginalLatLong,
+	public void fillExternalLine(double distanceBetweenSamplePoints, double distancePlotBoundary, double[] coordOriginalLatLong,
 			SimplePlacemarkObject parentPlacemark) throws TransformException {
 		final List<SimpleCoordinate> shapePoints = new ArrayList<SimpleCoordinate>();
 
@@ -75,7 +75,7 @@ public class SquareKmlGenerator extends PolygonKmlGenerator {
 	}
 
 	@Override
-	public void fillSamplePoints(float distanceBetweenSamplePoints, double[] centerCoordinate, String currentPlaceMarkId,
+	public void fillSamplePoints(double distanceBetweenSamplePoints, double[] centerCoordinate, String currentPlaceMarkId,
 			SimplePlacemarkObject parentPlacemark) throws TransformException {
 
 		// Move to the top-left point

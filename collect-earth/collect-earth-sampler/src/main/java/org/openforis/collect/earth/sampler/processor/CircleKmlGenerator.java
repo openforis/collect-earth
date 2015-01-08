@@ -19,8 +19,8 @@ public class CircleKmlGenerator extends PolygonKmlGenerator {
 
 	private static final int MARGIN_CIRCLE = 5;
 
-	public CircleKmlGenerator(String epsgCode, String host, String port, String localPort, Integer innerPointSide, float radius) {
-		super(epsgCode, host, port, localPort, innerPointSide);
+	public CircleKmlGenerator(String epsgCode, String hostAddress, String localPort, Integer innerPointSide, float radius) {
+		super(epsgCode, hostAddress, localPort, innerPointSide);
 		setRadiusOfCircle(radius);
 	}
 
@@ -59,13 +59,13 @@ public class CircleKmlGenerator extends PolygonKmlGenerator {
 	}
 
 	@Override
-	public void fillExternalLine(float radiusOfSamplingCircle, float distanceToBoundary, double[] centerCircleCoord,
+	public void fillExternalLine(double radiusOfSamplingCircle, double distanceToBoundary, double[] centerCircleCoord,
 			SimplePlacemarkObject parentPlacemark) throws TransformException {
 		final List<SimpleCoordinate> shapePoints = new ArrayList<SimpleCoordinate>();
 
-		final float arc = 360 / getNumberOfExternalPoints();
+		final double arc = 360 / getNumberOfExternalPoints();
 
-		final float radius = radiusOfSamplingCircle + getMarginCircle();
+		final double radius = radiusOfSamplingCircle + getMarginCircle();
 
 		for (int i = 0; i < getNumberOfExternalPoints(); i++) {
 			final double t = i * arc;
@@ -94,7 +94,7 @@ public class CircleKmlGenerator extends PolygonKmlGenerator {
 	}
 
 	@Override
-	public void fillSamplePoints(float radiusOfSamplingCircle, double[] coordOriginalPoints, String currentPlaceMarkId,
+	public void fillSamplePoints(double radiusOfSamplingCircle, double[] coordOriginalPoints, String currentPlaceMarkId,
 			SimplePlacemarkObject parentPlacemark) throws TransformException {
 
 		final List<SimplePlacemarkObject> pointsInPlacemark = new ArrayList<SimplePlacemarkObject>();

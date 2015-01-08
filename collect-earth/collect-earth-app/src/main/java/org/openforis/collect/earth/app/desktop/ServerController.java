@@ -35,6 +35,8 @@ import freemarker.template.TemplateException;
  */
 public class ServerController extends Observable {
 
+	private static final String EARTH_SUBDOMAIN = "earth";
+	
 	public static final String SAIKU_RDB_SUFFIX = "Saiku"; //$NON-NLS-1$
 	// Make sure that the default ports are the same for Server and Generator
 	private static final String DEFAULT_PORT = "80"; //$NON-NLS-1$
@@ -144,7 +146,7 @@ public class ServerController extends Observable {
 			WebAppContext wweAppContext = new WebAppContext();
 			setRoot(wweAppContext);
 
-			getRoot().setContextPath("/earth"); //$NON-NLS-1$
+			getRoot().setContextPath("/" + EARTH_SUBDOMAIN); //$NON-NLS-1$
 
 			getRoot().setDescriptor(this.getClass().getResource("/WEB-INF/web.xml").toURI().toString()); //$NON-NLS-1$
 
@@ -190,4 +192,18 @@ public class ServerController extends Observable {
 		}
 	}
 
+	
+	public static String getHostAddress(String host, String port) {
+		String hostAndPort = "";
+		if (host != null && host.length() > 0) {
+			hostAndPort = host;
+			if (port != null && port.length() > 0) {
+				hostAndPort += ":" + port;
+			}
+
+			hostAndPort = "http://" + hostAndPort + "/" + EARTH_SUBDOMAIN + "/";
+		}
+		return hostAndPort;
+
+	}
 }

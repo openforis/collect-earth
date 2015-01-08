@@ -24,15 +24,14 @@ public abstract class PolygonKmlGenerator extends KmlGenerator {
 
 	private static final Integer DEFAULT_INNER_POINT_SIDE = 2;
 	private Integer innerPointSide;
-	private final String host;
-	private final String port;
+
 	private final String localPort;
 	private final Logger logger = LoggerFactory.getLogger(this.getClass());
 
-	public PolygonKmlGenerator(String epsgCode, String host, String port, String localPort, Integer innerPointSide) {
+	public PolygonKmlGenerator(String epsgCode, String hostAddress, String localPort, Integer innerPointSide) {
 		super(epsgCode);
-		this.host = host;
-		this.port = port;
+		this.hostAddress = hostAddress;
+		
 		this.localPort = localPort;
 		this.innerPointSide = innerPointSide;
 	}
@@ -59,7 +58,7 @@ public abstract class PolygonKmlGenerator extends KmlGenerator {
 	}
 
 	@Override
-	protected Map<String, Object> getTemplateData(String csvFile, float distanceBetweenSamplePoints, float distancePlotBoundary) throws KmlGenerationException {
+	protected Map<String, Object> getTemplateData(String csvFile, double distanceBetweenSamplePoints, double distancePlotBoundary) throws KmlGenerationException {
 		final Map<String, Object> data = new HashMap<String, Object>();
 
 		SimplePlacemarkObject previousPlacemark = null;
@@ -149,7 +148,7 @@ public abstract class PolygonKmlGenerator extends KmlGenerator {
 		data.put("region_east", viewFrame.getMaxX() + "");
 		data.put("region_center_X", df.format(viewFrame.getCenterX()));
 		data.put("region_center_Y", df.format(viewFrame.getCenterY()));
-		data.put("host", KmlGenerator.getHostAddress(host, port));
+		data.put("host", hostAddress);
 		data.put("local_port", localPort );
 		data.put("plotFileName", KmlGenerator.getCsvFileName(csvFile));
 		return data;

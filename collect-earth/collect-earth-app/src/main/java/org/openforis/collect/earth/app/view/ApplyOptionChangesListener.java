@@ -1,5 +1,6 @@
 package org.openforis.collect.earth.app.view;
 
+import java.awt.Window;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 import java.util.HashMap;
@@ -24,17 +25,17 @@ public abstract class ApplyOptionChangesListener implements ActionListener {
 	private LocalPropertiesService localPropertiesService;
 	private HashMap<Enum<?>, JComponent[]> propertyToComponent;
 	private final Logger logger = LoggerFactory.getLogger(this.getClass());
-	private JDialog callingDialog;
+	protected Window callingDialog;
 
 
-	public ApplyOptionChangesListener(JDialog callingDialog, LocalPropertiesService localPropertiesService, HashMap<Enum<?>, JComponent[]> propertyToComponent) {
+	public ApplyOptionChangesListener(Window callingDialog, LocalPropertiesService localPropertiesService, HashMap<Enum<?>, JComponent[]> propertyToComponent) {
 		this.callingDialog = callingDialog;
 		this.localPropertiesService = localPropertiesService;
 		this.propertyToComponent = propertyToComponent;
 	
 	}
 	
-	public ApplyOptionChangesListener(JDialog callingDialog, LocalPropertiesService localPropertiesService) {
+	public ApplyOptionChangesListener(Window callingDialog, LocalPropertiesService localPropertiesService) {
 		this.callingDialog = callingDialog;
 		this.localPropertiesService = localPropertiesService;
 		

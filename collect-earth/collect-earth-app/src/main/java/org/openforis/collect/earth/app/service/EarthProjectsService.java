@@ -257,9 +257,12 @@ public class EarthProjectsService {
 	
 	}
 
+	public String getProjectsFolder(){
+		return FolderFinder.getLocalFolder() + File.separator + PROJECTS;
+	}
 
 	private File unzipContents(File projectZipFile, String projectName) throws ZipException {
-		File projectFolder = new File( FolderFinder.getLocalFolder() + File.separator + PROJECTS + File.separator  + projectName );
+		File projectFolder = new File( getProjectsFolder() + File.separator  + projectName );
 		if( projectFolder.exists() || projectFolder.mkdirs() ){		
 			ZipFile zipFile = new ZipFile(projectZipFile);
 			zipFile.extractAll( projectFolder.getAbsolutePath() );

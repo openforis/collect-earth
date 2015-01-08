@@ -1,11 +1,20 @@
 package org.openforis.collect.earth.app.view;
 
 public enum DataFormat{
-	PROJECT_DEFINITION_FILE(new String[]{"cep", "zip"}), ZIP_WITH_XML(new String[]{"zip"}),CSV(new String[]{"csv"}),FUSION(new String[]{"csv"}),COLLECT_COORDS(new String[]{"ced", "csv"}); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$ //$NON-NLS-4$ //$NON-NLS-5$ //$NON-NLS-6$ //$NON-NLS-7$
+	PROJECT_DEFINITION_FILE(
+			new String[]{"cep", "zip"}, Messages.getString("JFileChooserExistsAware.0")), //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$
+			ZIP_WITH_XML(new String[]{"zip"},Messages.getString("CollectEarthWindow.48")), //$NON-NLS-1$ //$NON-NLS-2$
+			CSV(new String[]{"csv"}, Messages.getString("CollectEarthWindow.38")), //$NON-NLS-1$ //$NON-NLS-2$
+			FUSION(new String[]{"csv"}, Messages.getString("CollectEarthWindow.49")), //$NON-NLS-1$ //$NON-NLS-2$
+			COLLECT_COORDS(new String[]{"ced", "csv"}, "Collect Earth plots"),//$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$
+			KML_FILE(new String[]{"kml"}, "Google Earth Kml File"); //$NON-NLS-1$ //$NON-NLS-2$
 
 	private String[] fileExtension;
-	private DataFormat(String[] fileExtension) {
+	private String description;
+	
+	private DataFormat(String[] fileExtension, String description) {
 		this.fileExtension = fileExtension;
+		this.description = description;
 	}
 
 	public String[] getPossibleFileExtensions() {
@@ -15,4 +24,10 @@ public enum DataFormat{
 	public String getDefaultExtension() {
 		return fileExtension[0];
 	}
+	
+	
+	public String getDescription() {
+		return description;
+	}
+
 }

@@ -22,6 +22,7 @@ import javax.annotation.PostConstruct;
 import javax.servlet.http.HttpServletResponse;
 
 import org.openforis.collect.earth.app.EarthConstants;
+import org.openforis.collect.earth.app.desktop.ServerController;
 import org.openforis.collect.earth.app.service.EarthSurveyService;
 import org.openforis.collect.earth.app.service.LocalPropertiesService;
 import org.openforis.collect.earth.sampler.processor.KmlGenerator;
@@ -148,7 +149,7 @@ public class PlacemarkUpdateServlet {
 			}
 			
 			final Map<String, Object> data = new HashMap<String, Object>();
-			data.put("host", KmlGenerator.getHostAddress(localPropertiesService.getHost(), localPropertiesService.getLocalPort()));
+			data.put("host", ServerController.getHostAddress(localPropertiesService.getHost(), localPropertiesService.getLocalPort()));
 			data.put("date", getUpdateFromDate(dateFormat) ); // Keep for historical reasons
 			data.put("lastUpdateDateTime", getUpdateFromDate(dateFormat) );
 			data.put("uniqueId", FreemarkerTemplateUtils.randInt(10000, 5000000) );

@@ -43,6 +43,7 @@ import org.openforis.collect.earth.app.service.DataImportExportService;
 import org.openforis.collect.earth.app.service.EarthProjectsService;
 import org.openforis.collect.earth.app.service.EarthSurveyService;
 import org.openforis.collect.earth.app.service.FolderFinder;
+import org.openforis.collect.earth.app.service.KmlImportService;
 import org.openforis.collect.earth.app.service.LocalPropertiesService;
 import org.openforis.collect.earth.app.view.ExportActionListener.RecordsToExport;
 import org.openforis.collect.manager.RecordManager;
@@ -305,12 +306,27 @@ public class CollectEarthWindow {
 		menuItem.addActionListener(getSaikuAnalysisActionListener());
 		toolsMenu.add(menuItem);
 
-		/*
-		 * menuItem = new JMenuItem("Fix PNG coordinates"); //$NON-NLS-1$
-		 * menuItem.addActionListener(getFixCoordinates());
-		 * serverMenuItems.add(menuItem); // This menu should only be shown if the DB is local ( not if Collect Earth is acting as a client )
-		 * toolsMenu.add(menuItem);
-		 */
+		
+		 menuItem = new JMenuItem("Import points from KML");
+		 menuItem.addActionListener( new ApplyOptionChangesListener(this.frame, getLocalPropertiesService()) {
+
+				@Override
+				protected void applyProperties() {
+					
+					try {
+						getKmlImportService().loadFromKml( CollectEarthWindow.this.frame);
+						restartEarth();						
+					} catch (Exception e1) {
+						JOptionPane.showMessageDialog( CollectEarthWindow.this.frame, e1.getMessage(), "Error getting the points from KML", JOptionPane.ERROR_MESSAGE);
+						logger.error("Error importing KML file", e1); //$NON-NLS-1$
+					}
+
+				}
+
+			});
+		 serverMenuItems.add(menuItem); // This menu should only be shown if the DB is local ( not if Collect Earth is acting as a client )
+		 toolsMenu.add(menuItem);
+		
 
 		toolsMenu.addSeparator();
 
@@ -393,6 +409,14 @@ public class CollectEarthWindow {
 	private RecordManager getRecordManager() {
 		if (getServerController() != null) {
 			return getServerController().getContext().getBean(RecordManager.class);
+		} else {
+			return null;
+		}
+	}
+	
+	private KmlImportService getKmlImportService() {
+		if (getServerController() != null) {
+			return getServerController().getContext().getBean(KmlImportService.class);
 		} else {
 			return null;
 		}

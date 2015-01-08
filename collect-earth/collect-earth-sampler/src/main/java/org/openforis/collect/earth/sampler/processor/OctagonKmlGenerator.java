@@ -13,9 +13,9 @@ public class OctagonKmlGenerator extends CircleKmlGenerator{
 	private static final int NUMBER_OF_NON_CENTRAL_SAMPLING_POINTS = 20;
 
 
-	public OctagonKmlGenerator(String epsgCode, String host, String port, String localPort,
+	public OctagonKmlGenerator(String epsgCode, String hostAddress, String localPort,
 			Integer innerPointSide, float radius) {
-		super(epsgCode, host, port, localPort, innerPointSide, radius);
+		super(epsgCode, hostAddress, localPort, innerPointSide, radius);
 	}
 	
 	
@@ -28,7 +28,7 @@ public class OctagonKmlGenerator extends CircleKmlGenerator{
 	}
 	
 	@Override
-	public void fillSamplePoints(float distanceBetweenSamplePoints, double[] centerCoordinate, String currentPlaceMarkId,
+	public void fillSamplePoints(double distanceBetweenSamplePoints, double[] centerCoordinate, String currentPlaceMarkId,
 			SimplePlacemarkObject parentPlacemark) throws TransformException {
 
 		// Move to the top-left point

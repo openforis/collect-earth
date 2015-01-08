@@ -42,8 +42,6 @@ public abstract class KmlGenerator extends AbstractCoordinateCalculation {
 		plotProperties.slope = 0d;
 		plotProperties.aspect = 0d;
 		
-		
-		
 		Vector<String> extraInfoVector = new Vector<String>();
 		if (csvValuesInLine.length > 3) {
 			plotProperties.elevation = Integer.parseInt(csvValuesInLine[3]);
@@ -59,8 +57,7 @@ public abstract class KmlGenerator extends AbstractCoordinateCalculation {
 		String[] extraInfoArray = new String[extraInfoVector.size()];
 		plotProperties.extraInfo = extraInfoVector.toArray(extraInfoArray);
 		
-		
-		// Adds a map ( coulmnName,cellValue) so that the valeus can also be added to the KML by column name (for the newer versions)
+		// Adds a map ( coulmnName,cellValue) so that the values can also be added to the KML by column name (for the newer versions)
 		HashMap<String, String> valuesByColumn = new HashMap<String, String>();
 		for (int i = 0; i < possibleColumnNames.length; i++) {
 			valuesByColumn.put( possibleColumnNames[i], csvValuesInLine[i]);
@@ -71,6 +68,7 @@ public abstract class KmlGenerator extends AbstractCoordinateCalculation {
 	}
 
 	private final SimpleDateFormat httpHeaderDf = new SimpleDateFormat("EEE, dd MMM yyyy HH:mm:ss zzz");
+	protected String hostAddress;
 
 	
 	public static String getCsvFileName(String csvFilePath) {
@@ -80,21 +78,6 @@ public abstract class KmlGenerator extends AbstractCoordinateCalculation {
 		} else {
 			return "No CSV file found";
 		}
-
-	}
-
-	public static String getHostAddress(String host, String port) {
-		String hostAndPort = "";
-		if (host != null && host.length() > 0) {
-			hostAndPort = host;
-			if (port != null && port.length() > 0) {
-				hostAndPort += ":" + port;
-			}
-
-			hostAndPort = "http://" + hostAndPort + "/earth/";
-		}
-		return hostAndPort;
-
 	}
 
 	public KmlGenerator(String epsgCode) {
@@ -111,14 +94,16 @@ public abstract class KmlGenerator extends AbstractCoordinateCalculation {
 		getKmlCode(csvFile, balloonFile, freemarkerKmlTemplateFile, destinationFile, distanceBetweenSamplePoints, distancePlotBoundary);
 	}
 
-	public abstract void fillExternalLine(float distanceBetweenSamplePoints, float distancePlotBoundary, double[] coordOriginalPoints,
+	public abstract void fillExternalLine(double distanceBetweenSamplePoints, double distancePlotBoundary, double[] coordOriginalPoints,
 			SimplePlacemarkObject parentPlacemark) throws TransformException;
 
-	public abstract void fillSamplePoints(float distanceBetweenSamplePoints, double[] coordOriginalPoints, String currentPlaceMarkId,
+	public abstract void fillSamplePoints(double distanceBetweenSamplePoints, double[] coordOriginalPoints, String currentPlaceMarkId,
 			SimplePlacemarkObject parentPlacemark) throws TransformException;
 	
 	private void getKmlCode(String csvFile, String balloonFile, String freemarkerKmlTemplateFile, File destinationFile,
 			String distanceBetweenSamplePoints, String distancePlotBoundary) throws KmlGenerationException {
+		
+		
 		
 		if( StringUtils.isBlank(csvFile) ){
 			throw new IllegalArgumentException("THe CSV file location cannot be null");
@@ -160,7 +145,7 @@ public abstract class KmlGenerator extends AbstractCoordinateCalculation {
 		}
 	}
 
-	protected abstract Map<String, Object> getTemplateData(String csvFile, float distanceBetweenSamplePoints, float distancePlotBoundary)
+	protected abstract Map<String, Object> getTemplateData(String csvFile, double distanceBetweenSamplePoints, double distancePlotBoundary)
 			throws  KmlGenerationException;
 
 	

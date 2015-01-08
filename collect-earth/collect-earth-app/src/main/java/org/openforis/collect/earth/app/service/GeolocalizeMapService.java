@@ -7,7 +7,6 @@ import java.net.URL;
 import java.util.HashMap;
 import java.util.Map;
 
-import org.openforis.collect.earth.app.desktop.EarthApp;
 import org.openforis.collect.earth.app.service.LocalPropertiesService.EarthProperty;
 import org.openforis.collect.earth.sampler.model.SimplePlacemarkObject;
 import org.openforis.collect.earth.sampler.processor.KmlGenerator;
@@ -50,6 +49,10 @@ public class GeolocalizeMapService {
 
 	private final Logger logger = LoggerFactory.getLogger(this.getClass());
 
+
+	@Autowired
+	KmlGeneratorService kmlGeneratorService;
+
 	private File applyData(Map<String,Object>  data, String freemarkerTemplateFile) throws IOException, TemplateException {
 
 		final File templateFileSrc = new File(freemarkerTemplateFile);
@@ -70,7 +73,7 @@ public class GeolocalizeMapService {
 		final Float distanceBetweenSamplingPoints = Float.parseFloat( localPropertiesService.getValue(EarthProperty.DISTANCE_BETWEEN_SAMPLE_POINTS));
 		final Float distancePlotBoundary = Float.parseFloat(localPropertiesService.getValue(EarthProperty.DISTANCE_TO_PLOT_BOUNDARIES));
 
-		KmlGenerator kmlGenerator = EarthApp.getKmlGenerator();
+		KmlGenerator kmlGenerator = kmlGeneratorService.getKmlGenerator();
 		
 		final double[] centerLatLongD = new double[] { Double.parseDouble(centerLatLong[0]), Double.parseDouble(centerLatLong[1])};
 		

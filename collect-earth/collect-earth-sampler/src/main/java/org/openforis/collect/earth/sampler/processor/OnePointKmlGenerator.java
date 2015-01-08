@@ -26,7 +26,7 @@ public class OnePointKmlGenerator extends KmlGenerator {
 	}
 
 	@Override
-	protected Map<String, Object> getTemplateData(String csvFile, float distanceBetweenSamplePoints, float distancePlotBoundary) throws KmlGenerationException {
+	protected Map<String, Object> getTemplateData(String csvFile, double distanceBetweenSamplePoints, double distancePlotBoundary) throws KmlGenerationException {
 		final Map<String, Object> data = new HashMap<String, Object>();
 
 		// Read CSV file so that we can store the information in a Map that can
@@ -76,15 +76,15 @@ public class OnePointKmlGenerator extends KmlGenerator {
 	}
 
 	@Override
-	public void fillExternalLine(float distanceBetweenSamplePoints,
-			float distancePlotBoundary, double[] coordOriginalPoints,
+	public void fillExternalLine(double distanceBetweenSamplePoints,
+			double distancePlotBoundary, double[] coordOriginalPoints,
 			SimplePlacemarkObject parentPlacemark) throws TransformException {
 		// TODO Auto-generated method stub
 		
 	}
 
 	@Override
-	public void fillSamplePoints(float distanceBetweenSamplePoints,
+	public void fillSamplePoints(double distanceBetweenSamplePoints,
 			double[] coordOriginalPoints, String currentPlaceMarkId,
 			SimplePlacemarkObject parentPlacemark) throws TransformException {
 		// TODO Auto-generated method stub

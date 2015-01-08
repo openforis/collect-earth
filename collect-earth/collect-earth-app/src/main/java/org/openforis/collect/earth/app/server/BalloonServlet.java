@@ -15,6 +15,7 @@ import javax.servlet.http.HttpServletResponse;
 
 import org.apache.commons.io.FileUtils;
 import org.openforis.collect.earth.app.EarthConstants;
+import org.openforis.collect.earth.app.desktop.ServerController;
 import org.openforis.collect.earth.app.service.BrowserNotFoundException;
 import org.openforis.collect.earth.app.service.BrowserService;
 import org.openforis.collect.earth.app.service.LocalPropertiesService;
@@ -66,10 +67,9 @@ public class BalloonServlet extends DataAccessingServlet {
 		return getParameters.toString();
 	}
 
-	@SuppressWarnings("unchecked")
 	@RequestMapping("/openInBrowser")
 	private void openInBrowser(HttpServletResponse response, HttpServletRequest request, String imageName) throws IOException, URISyntaxException {
-		String url = KmlGenerator.getHostAddress(localPropertiesService.getHost(), localPropertiesService.getLocalPort());
+		String url = ServerController.getHostAddress(localPropertiesService.getHost(), localPropertiesService.getLocalPort());
 		url = url + BALLOON_EXTERNAL_URL + "?" + buildGetParameters(request.getParameterMap());
 		final String fUrl = url;
 		final Thread openBrowser = new Thread() {
