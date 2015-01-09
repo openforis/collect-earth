@@ -64,18 +64,18 @@ public final class FixMissingPlotsFileInfo {
 			if( plotFile != null ){
 				setPlotFile( record, plotFile );
 			}else{
-				System.out.println("No plot file found for plot with ID : " + getPlotId(record) );
+				System.out.println("No plot file found for plot with ID : " + getPlotId(record) ); //$NON-NLS-1$
 				try {
 					recordManager.delete( record.getId() );
 				} catch (RecordPersistenceException e) {
-					logger.error("Not able to remove plot with ID " + record.getId(), e ) ;
+					logger.error("Not able to remove plot with ID " + record.getId(), e ) ; //$NON-NLS-1$
 				}
 			}
 		}
 	}
 
 	private String getPlotId(CollectRecord record) {
-		TextAttribute plot_id = (TextAttribute) record.getNodeByPath("/plot/id");
+		TextAttribute plot_id = (TextAttribute) record.getNodeByPath("/plot/id"); //$NON-NLS-1$
 		return plot_id.getValue().getValue();
 	}
 
@@ -87,10 +87,10 @@ public final class FixMissingPlotsFileInfo {
 	private void setPlotFile(CollectRecord record, String plotFile) {
 		
 		TextValue textValue = new TextValue( plotFile );
-		recordManager.addAttribute(record.getRootEntity(), "plot_file", textValue, null, null);
+		recordManager.addAttribute(record.getRootEntity(), "plot_file", textValue, null, null); //$NON-NLS-1$
 		
 			recordManager.save( record );
-			System.out.println("Setting record to plot_file : " + plotFile );
+			System.out.println("Setting record to plot_file : " + plotFile ); //$NON-NLS-1$
 		
 	}
 
@@ -115,12 +115,12 @@ public final class FixMissingPlotsFileInfo {
 		List<CollectRecord> allRecords = getAllRecords();
 		for (CollectRecord summary : allRecords) {
 			CollectRecord record = recordManager.load( earthSurveyService.getCollectSurvey(), summary.getId(), Step.ENTRY);
-			TextAttribute plot_file = (TextAttribute) record.getNodeByPath("/plot/plot_file");
+			TextAttribute plot_file = (TextAttribute) record.getNodeByPath("/plot/plot_file"); //$NON-NLS-1$
 			if( plot_file ==null || plot_file.getValue() == null || plot_file.getValue().getValue() == null  ){
 				plotsWithNoRegionInfo.add( record );
 			}
 		}
-		System.out.println( "Number of plots with no plot_file info " + plotsWithNoRegionInfo.size() );
+		System.out.println( "Number of plots with no plot_file info " + plotsWithNoRegionInfo.size() ); //$NON-NLS-1$
 		return plotsWithNoRegionInfo;
 	}
 

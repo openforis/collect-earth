@@ -12,38 +12,38 @@ import org.openforis.collect.earth.app.service.FolderFinder;
  */
 public class EarthConstants {
 	
-	public static final String COLLECT_EARTH_APPDATA_FOLDER = "CollectEarth";
+	public static final String COLLECT_EARTH_APPDATA_FOLDER = "CollectEarth"; //$NON-NLS-1$
 
-	public static final String DATE_FORMAT_HTTP = "EEE, dd MMM yyyy HH:mm:ss zzz";
+	public static final String DATE_FORMAT_HTTP = "EEE, dd MMM yyyy HH:mm:ss zzz"; //$NON-NLS-1$
 	
-	public static final String LIST_FILLED_IMAGE = "images/list_filled.png";
+	public static final String LIST_FILLED_IMAGE = "images/list_filled.png"; //$NON-NLS-1$
 
-	public static final String LIST_NON_FILLED_IMAGE = "images/list_empty.png";
+	public static final String LIST_NON_FILLED_IMAGE = "images/list_empty.png"; //$NON-NLS-1$
 
-	public static final String LIST_NOT_FINISHED_IMAGE = "images/list_not_finished.png";
-	public static final String GENERATED_FOLDER_SUFFIX =  "generated";
+	public static final String LIST_NOT_FINISHED_IMAGE = "images/list_not_finished.png"; //$NON-NLS-1$
+	public static final String GENERATED_FOLDER_SUFFIX =  "generated"; //$NON-NLS-1$
 	public static final String GENERATED_FOLDER = FolderFinder.getLocalFolder() + File.separator + GENERATED_FOLDER_SUFFIX;
 
-	public static final String FOLDER_COPIED_TO_KMZ = "earthFiles";
+	public static final String FOLDER_COPIED_TO_KMZ = "earthFiles"; //$NON-NLS-1$
 
-	public static final String PLACEMARK_FOUND_PARAMETER = "placemark_found";
+	public static final String PLACEMARK_FOUND_PARAMETER = "placemark_found"; //$NON-NLS-1$
 
-	public static final String ROOT_ENTITY_NAME = "plot";
+	public static final String ROOT_ENTITY_NAME = "plot"; //$NON-NLS-1$
 
-	public static final String CHROME_BROWSER = "chrome";
+	public static final String CHROME_BROWSER = "chrome"; //$NON-NLS-1$
 
-	public static final String FIREFOX_BROWSER = "firefox";
+	public static final String FIREFOX_BROWSER = "firefox"; //$NON-NLS-1$
 
-	public static final String EARTH_SURVEY_NAME = "earth";
+	public static final String EARTH_SURVEY_NAME = "earth"; //$NON-NLS-1$
 	
 	public enum OperationMode{ SERVER_MODE, CLIENT_MODE};
 	
-	public static final String COLLECT_EARTH_DATABASE_SQLITE_DB = FolderFinder.getLocalFolder() + File.separator + "collectEarthDatabase.db";
+	public static final String COLLECT_EARTH_DATABASE_SQLITE_DB = FolderFinder.getLocalFolder() + File.separator + "collectEarthDatabase.db"; //$NON-NLS-1$
 	
 	public enum SAMPLE_SHAPE{ SQUARE_CIRCLE, SQUARE, CIRCLE, OCTAGON};
 	
 	public enum UI_LANGUAGE{ 
-		FR( "Français", new Locale("fr", "FR") ) , EN( "English", new Locale("en", "EN") ), ES( "Español", new Locale("es", "ES")), PT("Português", new Locale("pt","PT") );
+		FR( "Français", new Locale("fr", "FR") ) , EN( "English", new Locale("en", "EN") ), ES( "Español", new Locale("es", "ES")), PT("Português", new Locale("pt","PT") ); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$ //$NON-NLS-4$ //$NON-NLS-5$ //$NON-NLS-6$ //$NON-NLS-7$ //$NON-NLS-8$ //$NON-NLS-9$ //$NON-NLS-10$ //$NON-NLS-11$ //$NON-NLS-12$
 		
 		private Locale locale;
 		private String label;
@@ -63,8 +63,8 @@ public class EarthConstants {
 	};
 	
 	public enum CollectDBDriver{ 
-		SQLITE("org.sqlite.JDBC", "jdbc:sqlite:" + COLLECT_EARTH_DATABASE_SQLITE_DB ), 
-		POSTGRESQL("org.postgresql.Driver", "jdbc:postgresql://REPLACE_HOSTNAME:REPLACE_PORT/REPLACE_DBNAME");
+		SQLITE("org.sqlite.JDBC", "jdbc:sqlite:" + COLLECT_EARTH_DATABASE_SQLITE_DB ),  //$NON-NLS-1$ //$NON-NLS-2$
+		POSTGRESQL("org.postgresql.Driver", "jdbc:postgresql://REPLACE_HOSTNAME:REPLACE_PORT/REPLACE_DBNAME"); //$NON-NLS-1$ //$NON-NLS-2$
 		
 		private String driverClass;
 		private String url;

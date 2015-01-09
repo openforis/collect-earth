@@ -185,8 +185,8 @@ public class EarthSurveyService {
 		}
 		final String[] placemarIds = new String[listOfRecords.size()];
 		for (int i = 0; i < listOfRecords.size(); i++) {
-			if (listOfRecords.get(i).getRootEntity().get("id", 0) != null) {
-				placemarIds[i] = ((TextAttribute) listOfRecords.get(i).getRootEntity().get("id", 0)).getValue().getValue();
+			if (listOfRecords.get(i).getRootEntity().get("id", 0) != null) { //$NON-NLS-1$
+				placemarIds[i] = ((TextAttribute) listOfRecords.get(i).getRootEntity().get("id", 0)).getValue().getValue(); //$NON-NLS-1$
 			}
 		}
 

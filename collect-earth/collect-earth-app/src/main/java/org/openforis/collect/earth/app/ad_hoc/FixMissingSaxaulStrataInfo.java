@@ -22,7 +22,7 @@ import au.com.bytecode.opencsv.CSVReader;
 @Component
 public class FixMissingSaxaulStrataInfo {
 
-	String saxaulPlots= "SaxaulStrataPlots.csv";
+	String saxaulPlots= "SaxaulStrataPlots.csv"; //$NON-NLS-1$
 	Logger logger = LoggerFactory.getLogger(FixMissingSaxaulStrataInfo.class);
 	
 	@Autowired
@@ -30,7 +30,7 @@ public class FixMissingSaxaulStrataInfo {
 	
 	protected CSVReader getCsvReader(String csvFile) throws FileNotFoundException {
 		CSVReader reader;
-		final BufferedReader bufferedReader = new BufferedReader(new InputStreamReader(new FileInputStream(csvFile), Charset.forName("UTF-8")));
+		final BufferedReader bufferedReader = new BufferedReader(new InputStreamReader(new FileInputStream(csvFile), Charset.forName("UTF-8"))); //$NON-NLS-1$
 		reader = new CSVReader(bufferedReader, ',');
 		return reader;
 	}
@@ -44,9 +44,9 @@ public class FixMissingSaxaulStrataInfo {
 				saxaulIds.add( csvRow[0]);
 			}
 		} catch (FileNotFoundException e) {
-			logger.error("Error reading Saxaul file", e );
+			logger.error("Error reading Saxaul file", e ); //$NON-NLS-1$
 		} catch (IOException e) {
-			logger.error("Error reading CSV line", e );
+			logger.error("Error reading CSV line", e ); //$NON-NLS-1$
 		}
 		
 		
@@ -56,17 +56,17 @@ public class FixMissingSaxaulStrataInfo {
 	public void setSaxaulStrata(){
 		List<String> allSaxaulIds = getAllSaxaulIds();
 		for (String plotId : allSaxaulIds) {
-			if( plotId.startsWith("sax") ){
-				setPlotValue(plotId,"collect_text_strata","Pure Saxaul");
+			if( plotId.startsWith("sax") ){ //$NON-NLS-1$
+				setPlotValue(plotId,"collect_text_strata","Pure Saxaul"); //$NON-NLS-1$ //$NON-NLS-2$
 			}else{
-				setPlotValue(plotId,"collect_text_strata","Saxaul & Systematic");
+				setPlotValue(plotId,"collect_text_strata","Saxaul & Systematic"); //$NON-NLS-1$ //$NON-NLS-2$
 			}
 		}
 	}
 
 	private void setPlotValue(String plotId, String collectParameterName, String value) {
 		Map<String,String> plotInformation = earthSurveyService.getPlacemark(plotId);
-		if( plotInformation.get( EarthConstants.PLACEMARK_FOUND_PARAMETER ).trim().equals("true") ){
+		if( plotInformation.get( EarthConstants.PLACEMARK_FOUND_PARAMETER ).trim().equals("true") ){ //$NON-NLS-1$
 			plotInformation.put(collectParameterName, value);
 			earthSurveyService.storePlacemark(plotInformation, null );
 		}

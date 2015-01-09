@@ -307,7 +307,7 @@ public class CollectEarthWindow {
 		toolsMenu.add(menuItem);
 
 		
-		 menuItem = new JMenuItem("Import points from KML");
+		 menuItem = new JMenuItem(Messages.getString("CollectEarthWindow.54")); //$NON-NLS-1$
 		 menuItem.addActionListener( new ApplyOptionChangesListener(this.frame, getLocalPropertiesService()) {
 
 				@Override
@@ -317,7 +317,7 @@ public class CollectEarthWindow {
 						getKmlImportService().loadFromKml( CollectEarthWindow.this.frame);
 						restartEarth();						
 					} catch (Exception e1) {
-						JOptionPane.showMessageDialog( CollectEarthWindow.this.frame, e1.getMessage(), "Error getting the points from KML", JOptionPane.ERROR_MESSAGE);
+						JOptionPane.showMessageDialog( CollectEarthWindow.this.frame, e1.getMessage(), Messages.getString("CollectEarthWindow.63"), JOptionPane.ERROR_MESSAGE); //$NON-NLS-1$
 						logger.error("Error importing KML file", e1); //$NON-NLS-1$
 					}
 

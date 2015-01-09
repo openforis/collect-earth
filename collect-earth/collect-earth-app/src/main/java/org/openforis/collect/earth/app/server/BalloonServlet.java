@@ -20,7 +20,6 @@ import org.openforis.collect.earth.app.service.BrowserNotFoundException;
 import org.openforis.collect.earth.app.service.BrowserService;
 import org.openforis.collect.earth.app.service.LocalPropertiesService;
 import org.openforis.collect.earth.app.service.PreloadedFilesService;
-import org.openforis.collect.earth.sampler.processor.KmlGenerator;
 import org.openqa.selenium.remote.RemoteWebDriver;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -54,7 +53,7 @@ public class BalloonServlet extends DataAccessingServlet {
 
 	private static RemoteWebDriver webKitDriver = null;
 	
-	private static final String BALLOON_EXTERNAL_URL = "balloon";
+	private static final String BALLOON_EXTERNAL_URL = "balloon"; //$NON-NLS-1$
 	
 	private Logger logger = LoggerFactory.getLogger(BalloonServlet.class);
 
@@ -62,7 +61,7 @@ public class BalloonServlet extends DataAccessingServlet {
 		final StringBuilder getParameters = new StringBuilder();
 		final Set<Entry<String, String[]>> entrySet = parameterMap.entrySet();
 		for (final Entry<String, String[]> entry : entrySet) {
-			getParameters.append(entry.getKey()).append("=").append(entry.getValue()[0]).append("&");
+			getParameters.append(entry.getKey()).append("=").append(entry.getValue()[0]).append("&"); //$NON-NLS-1$ //$NON-NLS-2$
 		}
 		return getParameters.toString();
 	}
@@ -70,7 +69,7 @@ public class BalloonServlet extends DataAccessingServlet {
 	@RequestMapping("/openInBrowser")
 	private void openInBrowser(HttpServletResponse response, HttpServletRequest request, String imageName) throws IOException, URISyntaxException {
 		String url = ServerController.getHostAddress(localPropertiesService.getHost(), localPropertiesService.getLocalPort());
-		url = url + BALLOON_EXTERNAL_URL + "?" + buildGetParameters(request.getParameterMap());
+		url = url + BALLOON_EXTERNAL_URL + "?" + buildGetParameters(request.getParameterMap()); //$NON-NLS-1$
 		final String fUrl = url;
 		final Thread openBrowser = new Thread() {
 
@@ -79,7 +78,7 @@ public class BalloonServlet extends DataAccessingServlet {
 				try {
 					webKitDriver = browserService.navigateTo(fUrl, webKitDriver);
 				} catch (BrowserNotFoundException e) {
-					logger.error("No browser found", e);
+					logger.error("No browser found", e); //$NON-NLS-1$
 				}
 			};
 		};
@@ -90,7 +89,7 @@ public class BalloonServlet extends DataAccessingServlet {
 	private String replaceGoalsWithParameters(String htmlWithGoals, Map<String, String[]> parameterMap) {
 		final Set<Entry<String, String[]>> entrySet = parameterMap.entrySet();
 		for (final Entry<String, String[]> entry : entrySet) {
-			htmlWithGoals = htmlWithGoals.replaceAll("\\$\\[" + entry.getKey() + "\\]", entry.getValue()[0]);
+			htmlWithGoals = htmlWithGoals.replaceAll("\\$\\[" + entry.getKey() + "\\]", entry.getValue()[0]); //$NON-NLS-1$ //$NON-NLS-2$
 		}
 		return htmlWithGoals;
 	}
@@ -98,25 +97,25 @@ public class BalloonServlet extends DataAccessingServlet {
 	@SuppressWarnings("unchecked")
 	@RequestMapping("/"+BALLOON_EXTERNAL_URL)
 	private void returnBalloon(HttpServletResponse response, HttpServletRequest request, String imageName) throws IOException, URISyntaxException {
-		response.setHeader("Content-Type", "text/html");
-		response.setHeader("Content-Disposition", "inline; filename=\"" + imageName + "\"");
-		response.setHeader("Cache-Control", "max-age=30");
-		response.setHeader("Date", new SimpleDateFormat(EarthConstants.DATE_FORMAT_HTTP, Locale.ENGLISH).format(new Date()));
+		response.setHeader("Content-Type", "text/html"); //$NON-NLS-1$ //$NON-NLS-2$
+		response.setHeader("Content-Disposition", "inline; filename=\"" + imageName + "\""); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$
+		response.setHeader("Cache-Control", "max-age=30"); //$NON-NLS-1$ //$NON-NLS-2$
+		response.setHeader("Date", new SimpleDateFormat(EarthConstants.DATE_FORMAT_HTTP, Locale.ENGLISH).format(new Date())); //$NON-NLS-1$
 
 		String balloonContents = FileUtils.readFileToString(new File(localPropertiesService.getBalloonFile()));
 
 		if (balloonContents != null) {
 
-			balloonContents = balloonContents.replaceAll(EarthConstants.FOLDER_COPIED_TO_KMZ + "/", EarthConstants.GENERATED_FOLDER_SUFFIX + "/"
-					+ EarthConstants.FOLDER_COPIED_TO_KMZ + "/");
+			balloonContents = balloonContents.replaceAll(EarthConstants.FOLDER_COPIED_TO_KMZ + "/", EarthConstants.GENERATED_FOLDER_SUFFIX + "/" //$NON-NLS-1$ //$NON-NLS-2$
+					+ EarthConstants.FOLDER_COPIED_TO_KMZ + "/"); //$NON-NLS-1$
 			balloonContents = replaceGoalsWithParameters(balloonContents, request.getParameterMap());
 
 			final byte[] bytes = balloonContents.getBytes();
-			response.setHeader("Content-Length", bytes.length + "");
+			response.setHeader("Content-Length", bytes.length + ""); //$NON-NLS-1$ //$NON-NLS-2$
 			writeToResponse(response, bytes);
 
 		} else {
-			getLogger().error("There was a problem fetching the balloon html, please check the name!");
+			getLogger().error("There was a problem fetching the balloon html, please check the name!"); //$NON-NLS-1$
 		}
 	}
 
@@ -124,7 +123,7 @@ public class BalloonServlet extends DataAccessingServlet {
 		try {
 			response.getOutputStream().write(fileContents);
 		} catch (final Exception e) {
-			getLogger().error("Error writing reponse body to output stream ", e);
+			getLogger().error("Error writing reponse body to output stream ", e); //$NON-NLS-1$
 		} finally {
 			response.getOutputStream().close();
 		}

@@ -42,43 +42,43 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.core.RowMapper;
 import org.springframework.stereotype.Component;
 
-import freemarker.template.TemplateException;
 import au.com.bytecode.opencsv.CSVReader;
+import freemarker.template.TemplateException;
 
 @Component
 public class AnalysisSaikuService {
 
-	private static final String NO_DATA_LAND_USE = "noData";
+	private static final String NO_DATA_LAND_USE = "noData"; //$NON-NLS-1$
 
-	private static final String ALU_CLIMATE_ZONE_CODE = "alu_climate_zone_code";
+	private static final String ALU_CLIMATE_ZONE_CODE = "alu_climate_zone_code"; //$NON-NLS-1$
 
-	private static final String ALU_SOIL_TYPE_CODE = "alu_soil_type_code";
+	private static final String ALU_SOIL_TYPE_CODE = "alu_soil_type_code"; //$NON-NLS-1$
 
-	private static final String ALU_SUBCLASS_CODE = "alu_subclass_code";
+	private static final String ALU_SUBCLASS_CODE = "alu_subclass_code"; //$NON-NLS-1$
 
-	private static final String PLOT_WEIGHT = "plot_weight";
+	private static final String PLOT_WEIGHT = "plot_weight"; //$NON-NLS-1$
 
-	private static final String EXPANSION_FACTOR = "expansion_factor";
+	private static final String EXPANSION_FACTOR = "expansion_factor"; //$NON-NLS-1$
 
-	private static final String DYNAMICS_ID = "dynamics_id";
+	private static final String DYNAMICS_ID = "dynamics_id"; //$NON-NLS-1$
 
-	private static final String ELEVATION_ID = "elevation_id";
+	private static final String ELEVATION_ID = "elevation_id"; //$NON-NLS-1$
 
-	private static final String SLOPE_ID = "slope_id";
+	private static final String SLOPE_ID = "slope_id"; //$NON-NLS-1$
 
-	private static final String ASPECT_ID = "aspect_id";
+	private static final String ASPECT_ID = "aspect_id"; //$NON-NLS-1$
 	
-	protected static final String PLOT_ID = "_plot_id";
+	protected static final String PLOT_ID = "_plot_id"; //$NON-NLS-1$
 
-	private static final String POSTGRES_RDB_SCHEMA = "rdbcollectsaiku";
+	private static final String POSTGRES_RDB_SCHEMA = "rdbcollectsaiku"; //$NON-NLS-1$
 
-	private static final String START_SAIKU = "start-saiku";
+	private static final String START_SAIKU = "start-saiku"; //$NON-NLS-1$
 
-	private static final String STOP_SAIKU = "stop-saiku";
+	private static final String STOP_SAIKU = "stop-saiku"; //$NON-NLS-1$
 	
-	private static final String COMMAND_SUFFIX_BAT = ".bat";
+	private static final String COMMAND_SUFFIX_BAT = ".bat"; //$NON-NLS-1$
 	
-	private static final String COMMAND_SUFFIX_SH = ".sh";
+	private static final String COMMAND_SUFFIX_SH = ".sh"; //$NON-NLS-1$
 
 	private static final String COLLECT_EARTH_DATABASE_RDB_DB = EarthConstants.COLLECT_EARTH_DATABASE_SQLITE_DB + ServerController.SAIKU_RDB_SUFFIX;
 
@@ -107,11 +107,11 @@ public class AnalysisSaikuService {
 
 	private boolean refreshDatabase;
 
-	private static final String SQLITE_FREEMARKER_HTML_TEMPLATE = "resources" + File.separator + "collectEarthSqliteDS.fmt";
-	private static final String POSTGRESQL_FREEMARKER_HTML_TEMPLATE = "resources" + File.separator + "collectEarthPostgreSqlDS.fmt";
-	private static final String MDX_XML = "collectEarthCubes.xml";
-	private static final String MDX_TEMPLATE = MDX_XML + ".fmt";
-	private static final String REGION_AREAS_CSV = "region_areas.csv";
+	private static final String SQLITE_FREEMARKER_HTML_TEMPLATE = "resources" + File.separator + "collectEarthSqliteDS.fmt"; //$NON-NLS-1$ //$NON-NLS-2$
+	private static final String POSTGRESQL_FREEMARKER_HTML_TEMPLATE = "resources" + File.separator + "collectEarthPostgreSqlDS.fmt"; //$NON-NLS-1$ //$NON-NLS-2$
+	private static final String MDX_XML = "collectEarthCubes.xml"; //$NON-NLS-1$
+	private static final String MDX_TEMPLATE = MDX_XML + ".fmt"; //$NON-NLS-1$
+	private static final String REGION_AREAS_CSV = "region_areas.csv"; //$NON-NLS-1$
 	private boolean userCancelledOperation = false;
 	private boolean saikuStarted;
 
@@ -119,7 +119,7 @@ public class AnalysisSaikuService {
 		try {
 			final String schemaName = getSchemaPrefix();
 			// Objet[] --> aspect_id, sloped_id, elevation_bucket_id, _plot_id
-			final List<Object[]> sqlUpdateValues = jdbcTemplate.query("SELECT "+PLOT_ID+", elevation, slope, aspect FROM " + schemaName + "plot",
+			final List<Object[]> sqlUpdateValues = jdbcTemplate.query("SELECT "+PLOT_ID+", elevation, slope, aspect FROM " + schemaName + "plot", //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$
 					new RowMapper<Object[]>() {
 						@Override
 						public Object[] mapRow(ResultSet rs, int rowNum) throws SQLException {
@@ -127,38 +127,38 @@ public class AnalysisSaikuService {
 							final Object[] updateValues = new Object[4];
 
 							Integer aspect = AspectCode.NA.getId();
-							if (AspectCode.getAspectCode(rs.getDouble("aspect")) != null) {
-								aspect = AspectCode.getAspectCode(rs.getDouble("aspect")).getId();
+							if (AspectCode.getAspectCode(rs.getDouble("aspect")) != null) { //$NON-NLS-1$
+								aspect = AspectCode.getAspectCode(rs.getDouble("aspect")).getId(); //$NON-NLS-1$
 							}
 
 							Integer slope = SlopeCode.NA.getId();
 
-							if (SlopeCode.getSlopeCode((int) rs.getFloat("slope")) != null) {
-								slope = SlopeCode.getSlopeCode((int) rs.getFloat("slope")).getId();
+							if (SlopeCode.getSlopeCode((int) rs.getFloat("slope")) != null) { //$NON-NLS-1$
+								slope = SlopeCode.getSlopeCode((int) rs.getFloat("slope")).getId(); //$NON-NLS-1$
 							}
 
 							updateValues[0] = aspect;
 							updateValues[1] = slope;
-							updateValues[2] = Math.floor((int) rs.getFloat("elevation") / ELEVATION_RANGE) + 1; // 0 meters is bucket 1 ( id);
+							updateValues[2] = Math.floor((int) rs.getFloat("elevation") / ELEVATION_RANGE) + 1; // 0 meters is bucket 1 ( id); //$NON-NLS-1$
 							updateValues[3] = rs.getLong(PLOT_ID);
 							return updateValues;
 						}
 
 					});
 
-			jdbcTemplate.batchUpdate("UPDATE " + schemaName + "plot SET " + ASPECT_ID +"=?," + SLOPE_ID + "=?,"+ ELEVATION_ID+"=? WHERE "+PLOT_ID+"=?", sqlUpdateValues);
+			jdbcTemplate.batchUpdate("UPDATE " + schemaName + "plot SET " + ASPECT_ID +"=?," + SLOPE_ID + "=?,"+ ELEVATION_ID+"=? WHERE "+PLOT_ID+"=?", sqlUpdateValues); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$ //$NON-NLS-4$ //$NON-NLS-5$ //$NON-NLS-6$
 		} catch (DataAccessException e) {
-			logger.error("No DEM information", e);
+			logger.error("No DEM information", e); //$NON-NLS-1$
 		}
 	}
 	
 	private void assignPngAluToolDimensionValues() {
 		try {
-			if (earthSurveyService.getCollectSurvey().getName().toLowerCase().contains("png") ){ 
+			if (earthSurveyService.getCollectSurvey().getName().toLowerCase().contains("png") ){  //$NON-NLS-1$
 				final String schemaName = getSchemaPrefix();
 				// Objet[] --> aspect_id, sloped_id, elevation_bucket_id, _plot_id
-				final List<Object[]> sqlUpdateValues = jdbcTemplate.query("SELECT "+PLOT_ID+", elevation, soil_fundamental, land_use_subcategory, precipitation_ranges FROM " + schemaName + "plot LEFT JOIN " + schemaName + "precipitation_ranges_code where "
-						+ "plot.annual_precipitation_code_id=precipitation_ranges_code.precipitation_ranges_code_id",
+				final List<Object[]> sqlUpdateValues = jdbcTemplate.query("SELECT "+PLOT_ID+", elevation, soil_fundamental, land_use_subcategory, precipitation_ranges FROM " + schemaName + "plot LEFT JOIN " + schemaName + "precipitation_ranges_code where " //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$ //$NON-NLS-4$
+						+ "plot.annual_precipitation_code_id=precipitation_ranges_code.precipitation_ranges_code_id", //$NON-NLS-1$
 						new RowMapper<Object[]>() {
 							@Override
 							public Object[] mapRow(ResultSet rs, int rowNum) throws SQLException {
@@ -168,24 +168,24 @@ public class AnalysisSaikuService {
 								try {
 									PngAluToolUtils aluToolUtils = new PngAluToolUtils();
 									
-									Integer elevation = rs.getInt("elevation");
-									String soilFundamental = rs.getString("soil_fundamental");
-									String precipitationRange = rs.getString("precipitation_ranges");
-									String collectEarthSubcategory = rs.getString("land_use_subcategory");
+									Integer elevation = rs.getInt("elevation"); //$NON-NLS-1$
+									String soilFundamental = rs.getString("soil_fundamental"); //$NON-NLS-1$
+									String precipitationRange = rs.getString("precipitation_ranges"); //$NON-NLS-1$
+									String collectEarthSubcategory = rs.getString("land_use_subcategory"); //$NON-NLS-1$
 									
 									int precipitation = -1;
-									String climate_zone = "Unknown";
+									String climate_zone = "Unknown"; //$NON-NLS-1$
 									if( precipitationRange != null ){
 										precipitation = aluToolUtils.getPrecipitationFromRange(precipitationRange);
 										boolean shortDrySeason = true; // According to information from Abe PNG has less than 5 months of dry season
 										climate_zone = aluToolUtils.getClimateZone(elevation, precipitation, shortDrySeason );
 									}								
 									
-									String soil_type = "Unknown";
+									String soil_type = "Unknown"; //$NON-NLS-1$
 									if( soilFundamental!=null){
 										soil_type = aluToolUtils.getSoilType( soilFundamental );
 									}
-									String sub_class = "Unknown";
+									String sub_class = "Unknown"; //$NON-NLS-1$
 									if( collectEarthSubcategory != null ){
 										sub_class = aluToolUtils.getAluSubclass(collectEarthSubcategory);
 									}
@@ -195,10 +195,10 @@ public class AnalysisSaikuService {
 									updateValues[2] = sub_class;
 									updateValues[3] = rs.getLong(PLOT_ID);
 								} catch (Exception e) {
-									logger.error("Error while processing the data", e);
-									updateValues[0] = "Unknown";
-									updateValues[1] = "Unknown";
-									updateValues[2] = "Unknown";
+									logger.error("Error while processing the data", e); //$NON-NLS-1$
+									updateValues[0] = "Unknown"; //$NON-NLS-1$
+									updateValues[1] = "Unknown"; //$NON-NLS-1$
+									updateValues[2] = "Unknown"; //$NON-NLS-1$
 									updateValues[0] = rs.getLong(PLOT_ID);
 								}
 								return updateValues;
@@ -206,10 +206,10 @@ public class AnalysisSaikuService {
 	
 						});
 	
-				jdbcTemplate.batchUpdate("UPDATE " + schemaName + "plot SET " + ALU_CLIMATE_ZONE_CODE +"=?," + ALU_SOIL_TYPE_CODE + "=?,"+ ALU_SUBCLASS_CODE+"=? WHERE "+PLOT_ID+"=?", sqlUpdateValues);
+				jdbcTemplate.batchUpdate("UPDATE " + schemaName + "plot SET " + ALU_CLIMATE_ZONE_CODE +"=?," + ALU_SOIL_TYPE_CODE + "=?,"+ ALU_SUBCLASS_CODE+"=? WHERE "+PLOT_ID+"=?", sqlUpdateValues); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$ //$NON-NLS-4$ //$NON-NLS-5$ //$NON-NLS-6$
 			}
 		} catch (Exception e) {
-			logger.error("No PNG ALU information", e);
+			logger.error("No PNG ALU information", e); //$NON-NLS-1$
 		}
 	}
 
@@ -217,7 +217,7 @@ public class AnalysisSaikuService {
 		try {
 			final String schemaName = getSchemaPrefix();
 			// Objet[] --> aspect_id, sloped_id, elevation_bucket_id, _plot_id
-			final List<Object[]> sqlUpdateValues = jdbcTemplate.query("SELECT "+PLOT_ID+", land_use_subcategory FROM " + schemaName + "plot",
+			final List<Object[]> sqlUpdateValues = jdbcTemplate.query("SELECT "+PLOT_ID+", land_use_subcategory FROM " + schemaName + "plot", //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$
 					new RowMapper<Object[]>() {
 						@Override
 						public Object[] mapRow(ResultSet rs, int rowNum) throws SQLException {
@@ -225,7 +225,7 @@ public class AnalysisSaikuService {
 							final Object[] updateValues = new Object[2];
 
 
-							Integer dynamics = DynamicsCode.getDynamicsCode( rs.getString("land_use_subcategory"));
+							Integer dynamics = DynamicsCode.getDynamicsCode( rs.getString("land_use_subcategory")); //$NON-NLS-1$
 
 
 							updateValues[0] = dynamics;
@@ -235,31 +235,31 @@ public class AnalysisSaikuService {
 
 					});
 
-			jdbcTemplate.batchUpdate("UPDATE " + schemaName + "plot SET " + DYNAMICS_ID +"=? WHERE "+PLOT_ID+"=?", sqlUpdateValues);
+			jdbcTemplate.batchUpdate("UPDATE " + schemaName + "plot SET " + DYNAMICS_ID +"=? WHERE "+PLOT_ID+"=?", sqlUpdateValues); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$ //$NON-NLS-4$
 		} catch (Exception e) {
-			logger.error("No PNG Alu information available", e);
+			logger.error("No PNG Alu information available", e); //$NON-NLS-1$
 		}
 	}
 
 	private void cleanPostgresDb() {
-		jdbcTemplate.execute("DROP SCHEMA IF EXISTS " + POSTGRES_RDB_SCHEMA + " CASCADE");
-		jdbcTemplate.execute("CREATE SCHEMA IF NOT EXISTS " + POSTGRES_RDB_SCHEMA);
+		jdbcTemplate.execute("DROP SCHEMA IF EXISTS " + POSTGRES_RDB_SCHEMA + " CASCADE"); //$NON-NLS-1$ //$NON-NLS-2$
+		jdbcTemplate.execute("CREATE SCHEMA IF NOT EXISTS " + POSTGRES_RDB_SCHEMA); //$NON-NLS-1$
 	}
 
 	private void cleanSqlLiteDb(final List<String> tables) {
 		final File oldRdbFile = getRdbFile();
 		if(oldRdbFile.exists() ){
 			// We need to delete all tables before we can remove the file and drop the connection
-			final List<Map<String, Object>> listOfTables = jdbcTemplate.queryForList("SELECT name FROM sqlite_master WHERE type='table';");
+			final List<Map<String, Object>> listOfTables = jdbcTemplate.queryForList("SELECT name FROM sqlite_master WHERE type='table';"); //$NON-NLS-1$
 			for (final Map<String, Object> entry : listOfTables) {
-				final String tableName = (String) entry.get("name");
-				if (!tableName.equals("sqlite_sequence")) {
+				final String tableName = (String) entry.get("name"); //$NON-NLS-1$
+				if (!tableName.equals("sqlite_sequence")) { //$NON-NLS-1$
 					tables.add(tableName);
 				}
 			}
 
 			for (final String tableName : tables) {
-				jdbcTemplate.execute("DROP TABLE IF EXISTS " + tableName);
+				jdbcTemplate.execute("DROP TABLE IF EXISTS " + tableName); //$NON-NLS-1$
 			}
 			
 
@@ -276,64 +276,64 @@ public class AnalysisSaikuService {
 				}
 			}
 			
-			logger.warn("The sqlite database has been removed : " + oldRdbFile.getAbsolutePath() );
+			logger.warn("The sqlite database has been removed : " + oldRdbFile.getAbsolutePath() ); //$NON-NLS-1$
 		}
 
 	}
 
 	private void createAspectAuxTable() {
 		final String schemaName = getSchemaPrefix();
-		jdbcTemplate.execute("CREATE TABLE " + schemaName + "aspect_category (" + ASPECT_ID + " INTEGER PRIMARY KEY, aspect_caption TEXT);");
+		jdbcTemplate.execute("CREATE TABLE " + schemaName + "aspect_category (" + ASPECT_ID + " INTEGER PRIMARY KEY, aspect_caption TEXT);"); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$
 		final AspectCode[] aspects = AspectCode.values();
 		for (final AspectCode aspectCode : aspects) {
 			jdbcTemplate
-			.execute("INSERT INTO " + schemaName + "aspect_category values (" + aspectCode.getId() + ", '" + aspectCode.getLabel() + "')");
+			.execute("INSERT INTO " + schemaName + "aspect_category values (" + aspectCode.getId() + ", '" + aspectCode.getLabel() + "')"); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$ //$NON-NLS-4$
 		}
 	}
 
 	private void createElevationtAuxTable() {
 		final String schemaName = getSchemaPrefix();
-		jdbcTemplate.execute("CREATE TABLE " + schemaName + "elevation_category ( " + ELEVATION_ID + " INTEGER PRIMARY KEY, elevation_caption TEXT);");
+		jdbcTemplate.execute("CREATE TABLE " + schemaName + "elevation_category ( " + ELEVATION_ID + " INTEGER PRIMARY KEY, elevation_caption TEXT);"); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$
 		final int slots = (int) Math.ceil(9000 / ELEVATION_RANGE); // Highest mountain in the world, mount everest is 8820m high
 		for (int i = 1; i <= slots; i++) {
-			jdbcTemplate.execute("INSERT INTO " + schemaName + "elevation_category values (" + i + ", '" + ((i - 1) * ELEVATION_RANGE) + "-" + i
-					* ELEVATION_RANGE + "')");
+			jdbcTemplate.execute("INSERT INTO " + schemaName + "elevation_category values (" + i + ", '" + ((i - 1) * ELEVATION_RANGE) + "-" + i //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$ //$NON-NLS-4$
+					* ELEVATION_RANGE + "')"); //$NON-NLS-1$
 		}
 
 	}
 
 	private void createDynamicsAuxTable() {
 		final String schemaName = getSchemaPrefix();
-		jdbcTemplate.execute("CREATE TABLE " + schemaName + "dynamics_category (" + DYNAMICS_ID + " INTEGER PRIMARY KEY, dynamics_caption TEXT);");
+		jdbcTemplate.execute("CREATE TABLE " + schemaName + "dynamics_category (" + DYNAMICS_ID + " INTEGER PRIMARY KEY, dynamics_caption TEXT);"); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$
 		final DynamicsCode[] dynamicsCodes = DynamicsCode.values();
 		for (final DynamicsCode dynamicsCode : dynamicsCodes) {
 			jdbcTemplate
-			.execute("INSERT INTO " + schemaName + "dynamics_category values (" + dynamicsCode.getId() + ", '" + dynamicsCode.getLabel() + "')");
+			.execute("INSERT INTO " + schemaName + "dynamics_category values (" + dynamicsCode.getId() + ", '" + dynamicsCode.getLabel() + "')"); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$ //$NON-NLS-4$
 		}
 	}
 
 	private void createPlotForeignKeys() {
 		// Add aspect_id column to plot
 		final String schemaName = getSchemaPrefix();
-		jdbcTemplate.execute("ALTER TABLE " + schemaName + "plot ADD " + ASPECT_ID + " INTEGER");
-		jdbcTemplate.execute("ALTER TABLE " + schemaName + "plot ADD " + SLOPE_ID + " INTEGER");
-		jdbcTemplate.execute("ALTER TABLE " + schemaName + "plot ADD " + ELEVATION_ID + " INTEGER");
-		jdbcTemplate.execute("ALTER TABLE " + schemaName + "plot ADD " + DYNAMICS_ID + " INTEGER");
+		jdbcTemplate.execute("ALTER TABLE " + schemaName + "plot ADD " + ASPECT_ID + " INTEGER"); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$
+		jdbcTemplate.execute("ALTER TABLE " + schemaName + "plot ADD " + SLOPE_ID + " INTEGER"); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$
+		jdbcTemplate.execute("ALTER TABLE " + schemaName + "plot ADD " + ELEVATION_ID + " INTEGER"); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$
+		jdbcTemplate.execute("ALTER TABLE " + schemaName + "plot ADD " + DYNAMICS_ID + " INTEGER"); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$
 	}
 
 	private void createWeightFactors(){
 		final String schemaName = getSchemaPrefix();
-		jdbcTemplate.execute("ALTER TABLE " + schemaName + "plot ADD " + EXPANSION_FACTOR + " FLOAT");
-		jdbcTemplate.execute("ALTER TABLE " + schemaName + "plot ADD " + PLOT_WEIGHT + " FLOAT");
+		jdbcTemplate.execute("ALTER TABLE " + schemaName + "plot ADD " + EXPANSION_FACTOR + " FLOAT"); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$
+		jdbcTemplate.execute("ALTER TABLE " + schemaName + "plot ADD " + PLOT_WEIGHT + " FLOAT"); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$
 	}
 
 	
 	private void createPngAluVariables(){
-		if (earthSurveyService.getCollectSurvey().getName().toLowerCase().contains("png") ){ 
+		if (earthSurveyService.getCollectSurvey().getName().toLowerCase().contains("png") ){  //$NON-NLS-1$
 			final String schemaName = getSchemaPrefix();
-			jdbcTemplate.execute("ALTER TABLE " + schemaName + "plot ADD "+ALU_SUBCLASS_CODE+" VARCHAR(5)");
-			jdbcTemplate.execute("ALTER TABLE " + schemaName + "plot ADD "+ALU_SOIL_TYPE_CODE+" VARCHAR(5)");
-			jdbcTemplate.execute("ALTER TABLE " + schemaName + "plot ADD "+ALU_CLIMATE_ZONE_CODE+" VARCHAR(5)");
+			jdbcTemplate.execute("ALTER TABLE " + schemaName + "plot ADD "+ALU_SUBCLASS_CODE+" VARCHAR(5)"); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$
+			jdbcTemplate.execute("ALTER TABLE " + schemaName + "plot ADD "+ALU_SOIL_TYPE_CODE+" VARCHAR(5)"); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$
+			jdbcTemplate.execute("ALTER TABLE " + schemaName + "plot ADD "+ALU_CLIMATE_ZONE_CODE+" VARCHAR(5)"); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$
 		}
 	}
 	
@@ -341,10 +341,10 @@ public class AnalysisSaikuService {
 	private void createSlopeAuxTable() {
 		final String schemaName = getSchemaPrefix();
 		// Slope can be from 0 to 90
-		jdbcTemplate.execute("CREATE TABLE " + schemaName + "slope_category (slope_id INTEGER PRIMARY KEY, slope_caption TEXT);");
+		jdbcTemplate.execute("CREATE TABLE " + schemaName + "slope_category (slope_id INTEGER PRIMARY KEY, slope_caption TEXT);"); //$NON-NLS-1$ //$NON-NLS-2$
 		final SlopeCode[] slopeCodes = SlopeCode.values();
 		for (final SlopeCode slopeCode : slopeCodes) {
-			jdbcTemplate.execute("INSERT INTO " + schemaName + "slope_category values (" + slopeCode.getId() + ", '" + slopeCode.getLabel() + "')");
+			jdbcTemplate.execute("INSERT INTO " + schemaName + "slope_category values (" + slopeCode.getId() + ", '" + slopeCode.getLabel() + "')"); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$ //$NON-NLS-4$
 		}
 	}
 
@@ -361,14 +361,14 @@ public class AnalysisSaikuService {
 
 	private String getSaikuConfigurationFilePath() {
 		
-		String configFile = getSaikuFolder() + "/" + "tomcat/webapps/saiku/WEB-INF/classes/saiku-datasources/collectEarthDS";
+		String configFile = getSaikuFolder() + "/" + "tomcat/webapps/saiku/WEB-INF/classes/saiku-datasources/collectEarthDS"; //$NON-NLS-1$ //$NON-NLS-2$
 		configFile = configFile.replace('/', File.separatorChar);
 		return configFile;
 	}
 	
 	private String getSaikuThreeConfigurationFilePath() {
 		
-		String configFile = getSaikuFolder() + "/" + "tomcat/webapps/saiku/WEB-INF/classes/legacy-datasources/collectEarthDS";
+		String configFile = getSaikuFolder() + "/" + "tomcat/webapps/saiku/WEB-INF/classes/legacy-datasources/collectEarthDS"; //$NON-NLS-1$ //$NON-NLS-2$
 		configFile = configFile.replace('/', File.separatorChar);
 		return configFile;
 	}
@@ -376,7 +376,7 @@ public class AnalysisSaikuService {
 	private String getSaikuFolder() {
 		final String configuredSaikuFolder = localPropertiesService.convertToOSPath( localPropertiesService.getValue(EarthProperty.SAIKU_SERVER_FOLDER) );
 		if (StringUtils.isBlank(configuredSaikuFolder)) {
-			return "";
+			return ""; //$NON-NLS-1$
 		} else {
 			final File saikuFolder = new File(configuredSaikuFolder);
 			return saikuFolder.getAbsolutePath();
@@ -394,9 +394,9 @@ public class AnalysisSaikuService {
 	private String getSchemaPrefix() {
 		String schemaName = getSchemaName();
 		if (schemaName != null) {
-			schemaName += ".";
+			schemaName += "."; //$NON-NLS-1$
 		} else {
-			schemaName = "";
+			schemaName = ""; //$NON-NLS-1$
 		}
 		return schemaName;
 	}
@@ -411,7 +411,7 @@ public class AnalysisSaikuService {
 		try {
 			stopSaiku();
 		} catch (SaikuExecutionException e) {
-			logger.error("Error while trying to quite Saiku before destroying the bean", e);
+			logger.error("Error while trying to quite Saiku before destroying the bean", e); //$NON-NLS-1$
 		}
 	}
 
@@ -429,9 +429,9 @@ public class AnalysisSaikuService {
 			return true;
 		}
 		return ! ( 
-				StringUtils.isBlank( System.getenv("JAVA_HOME") ) 
+				StringUtils.isBlank( System.getenv("JAVA_HOME") )  //$NON-NLS-1$
 				&& 
-				StringUtils.isBlank( System.getenv("JRE_HOME") ) 
+				StringUtils.isBlank( System.getenv("JRE_HOME") )  //$NON-NLS-1$
 		);
 	}
 
@@ -453,11 +453,11 @@ public class AnalysisSaikuService {
 	}
 
 	private void openSaiku() throws IOException, BrowserNotFoundException {
-		saikuWebDriver = browserService.navigateTo("http://127.0.0.1:8181", saikuWebDriver);
-		browserService.waitFor("username", saikuWebDriver);
-		saikuWebDriver.findElementByName("username").sendKeys("admin");
-		saikuWebDriver.findElementByName("password").sendKeys("admin");
-		saikuWebDriver.findElementByClassName("form_button").click();
+		saikuWebDriver = browserService.navigateTo("http://127.0.0.1:8181", saikuWebDriver); //$NON-NLS-1$
+		browserService.waitFor("username", saikuWebDriver); //$NON-NLS-1$
+		saikuWebDriver.findElementByName("username").sendKeys("admin"); //$NON-NLS-1$ //$NON-NLS-2$
+		saikuWebDriver.findElementByName("password").sendKeys("admin"); //$NON-NLS-1$ //$NON-NLS-2$
+		saikuWebDriver.findElementByClassName("form_button").click(); //$NON-NLS-1$
 	}
 
 	public void prepareDataForAnalysis() throws SaikuExecutionException {
@@ -489,7 +489,7 @@ public class AnalysisSaikuService {
 							processQuantityData();
 							setSaikuAsDefaultSchema();
 						} catch (final Exception e) {
-							logger.error("Error processing quantity data", e);
+							logger.error("Error processing quantity data", e); //$NON-NLS-1$
 						}
 					}
 				}
@@ -504,9 +504,9 @@ public class AnalysisSaikuService {
 							try {
 								AnalysisSaikuService.this.openSaiku();
 							} catch (final IOException e) {
-								logger.error("Error opening the Saiku interface", e);
+								logger.error("Error opening the Saiku interface", e); //$NON-NLS-1$
 							} catch (BrowserNotFoundException e) {
-								logger.error("No browser has been set up", e);
+								logger.error("No browser has been set up", e); //$NON-NLS-1$
 							}
 						};
 					}.start();
@@ -514,19 +514,19 @@ public class AnalysisSaikuService {
 					stopSaikuOnExit();
 				}
 			} catch (final IOException e) {
-				logger.error("Error while producing Relational DB from Collect format", e);
+				logger.error("Error while producing Relational DB from Collect format", e); //$NON-NLS-1$
 			} catch (TemplateException e1) {
-				logger.error("Error while applying the freemarker template tothe Saiku data source", e1);
+				logger.error("Error while applying the freemarker template tothe Saiku data source", e1); //$NON-NLS-1$
 			}
 
 		} catch (final CollectRdbException e) {
-			logger.error("Error while producing Relational DB from Collect format", e);
+			logger.error("Error while producing Relational DB from Collect format", e); //$NON-NLS-1$
 		}
 	}
 
 	private void setSaikuAsDefaultSchema() {
 		if( localPropertiesService.isUsingPostgreSqlDB() ){
-			jdbcTemplate.execute("SET search_path TO " + getSchemaName() );
+			jdbcTemplate.execute("SET search_path TO " + getSchemaName() ); //$NON-NLS-1$
 		}
 	}
 
@@ -560,7 +560,7 @@ public class AnalysisSaikuService {
 
 	public static CSVReader getCsvReader(String csvFile) throws FileNotFoundException {
 		CSVReader reader;
-		final BufferedReader bufferedReader = new BufferedReader(new InputStreamReader(new FileInputStream(csvFile), Charset.forName("UTF-8")));
+		final BufferedReader bufferedReader = new BufferedReader(new InputStreamReader(new FileInputStream(csvFile), Charset.forName("UTF-8"))); //$NON-NLS-1$
 		reader = new CSVReader(bufferedReader, ',');
 		return reader;
 	}
@@ -587,7 +587,7 @@ public class AnalysisSaikuService {
 						Object[] parameters = new String[]{region,plot_file};
 
 						int plots_per_region = jdbcTemplate.queryForInt( 
-								"SELECT count("+PLOT_ID+") FROM " + schemaName  + "plot  WHERE ( region=? OR plot_file=? ) AND land_use_category != '"+NO_DATA_LAND_USE+"' ", parameters);
+								"SELECT count("+PLOT_ID+") FROM " + schemaName  + "plot  WHERE ( region=? OR plot_file=? ) AND land_use_category != '"+NO_DATA_LAND_USE+"' ", parameters); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$ //$NON-NLS-4$
 
 						Float expansion_factor_hectars_calc = 0f;
 						if( plots_per_region != 0 ){
@@ -599,10 +599,10 @@ public class AnalysisSaikuService {
 						updateValues[1] = plot_weight;
 						updateValues[2] = region;
 						updateValues[3] = plot_file;
-						jdbcTemplate.update("UPDATE " + schemaName + "plot SET "+EXPANSION_FACTOR+"=?, "+PLOT_WEIGHT+"=? WHERE region=? OR plot_file=?", updateValues);
+						jdbcTemplate.update("UPDATE " + schemaName + "plot SET "+EXPANSION_FACTOR+"=?, "+PLOT_WEIGHT+"=? WHERE region=? OR plot_file=?", updateValues); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$ //$NON-NLS-4$
 						
 					} catch (NumberFormatException e) {
-						logger.error("Possibly the header", e);
+						logger.error("Possibly the header", e); //$NON-NLS-1$
 					} 
 
 				}
@@ -614,16 +614,16 @@ public class AnalysisSaikuService {
 				updateNoDataValues[1] = 0;
 				updateNoDataValues[2] = NO_DATA_LAND_USE;
 				
-				jdbcTemplate.update("UPDATE " + schemaName + "plot SET "+EXPANSION_FACTOR+"=?, "+PLOT_WEIGHT+"=? WHERE land_use_category=?", updateNoDataValues);
+				jdbcTemplate.update("UPDATE " + schemaName + "plot SET "+EXPANSION_FACTOR+"=?, "+PLOT_WEIGHT+"=? WHERE land_use_category=?", updateNoDataValues); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$ //$NON-NLS-4$
 				
 			} catch (FileNotFoundException e) {
-				logger.error("File not found?", e);
+				logger.error("File not found?", e); //$NON-NLS-1$
 			} catch (IOException e) {
-				logger.error("Error reading the CSV file", e);
+				logger.error("Error reading the CSV file", e); //$NON-NLS-1$
 			}
 
 		}else{
-			logger.warn("No CSV region_areas.csv present, calculating areas will not be possible");
+			logger.warn("No CSV region_areas.csv present, calculating areas will not be possible"); //$NON-NLS-1$
 		}
 
 	}
@@ -632,7 +632,7 @@ public class AnalysisSaikuService {
 		final File mdxFile = new File( localPropertiesService.getProjectFolder() + File.separatorChar + MDX_XML);
 
 		Map<String, String> data = new HashMap<String, String>();
-		data.put("cubeFilePath", mdxFile.getAbsolutePath().replace('\\', '/'));
+		data.put("cubeFilePath", mdxFile.getAbsolutePath().replace('\\', '/')); //$NON-NLS-1$
 
 		final File mdxTemplate = getMdxTemplate();
 		final File dataSourceTemplate = getDataSourceTemplate(data);
@@ -643,7 +643,7 @@ public class AnalysisSaikuService {
 			dataSourceFile = new File(getSaikuConfigurationFilePath());
 			FreemarkerTemplateUtils.applyTemplate(dataSourceTemplate, dataSourceFile, data);
 		} catch (Exception e) {
-			System.out.println("Saiku datasources file not found, testing witht the directory for the 3.0 datasources ");
+			System.out.println("Saiku datasources file not found, testing witht the directory for the 3.0 datasources "); //$NON-NLS-1$
 			dataSourceFile = new File(getSaikuThreeConfigurationFilePath());
 			FreemarkerTemplateUtils.applyTemplate(dataSourceTemplate, dataSourceFile, data);
 		}
@@ -655,7 +655,7 @@ public class AnalysisSaikuService {
 	private File getMdxTemplate() throws IOException {
 		final File mdxFileTemplate = new File( localPropertiesService.getProjectFolder() + File.separatorChar + MDX_TEMPLATE);
 		if (!mdxFileTemplate.exists()) {
-			throw new IOException("The file containing the MDX Cube definition Template does not exist in expected location " + mdxFileTemplate.getAbsolutePath());
+			throw new IOException("The file containing the MDX Cube definition Template does not exist in expected location " + mdxFileTemplate.getAbsolutePath()); //$NON-NLS-1$
 		}
 		return mdxFileTemplate;
 	}
@@ -667,18 +667,18 @@ public class AnalysisSaikuService {
 			dataSourceTemplate = new File(SQLITE_FREEMARKER_HTML_TEMPLATE);
 			final File rdbDb = getRdbFile();
 			if (!rdbDb.exists()) {
-				throw new IOException("The file contianing the Relational SQLite Database does not exist in expected location " + rdbDb.getAbsolutePath());
+				throw new IOException("The file contianing the Relational SQLite Database does not exist in expected location " + rdbDb.getAbsolutePath()); //$NON-NLS-1$
 			}
-			data.put("rdbFilePath", rdbDb.getAbsolutePath().replace('\\', '/'));
+			data.put("rdbFilePath", rdbDb.getAbsolutePath().replace('\\', '/')); //$NON-NLS-1$
 		}else{
 			dataSourceTemplate = new File(POSTGRESQL_FREEMARKER_HTML_TEMPLATE);
-			data.put("dbUrl", ServerController.getSaikuDbURL() );
-			data.put("username", localPropertiesService.getValue(EarthProperty.DB_USERNAME ));
-			data.put("password", localPropertiesService.getValue(EarthProperty.DB_PASSWORD ));
+			data.put("dbUrl", ServerController.getSaikuDbURL() ); //$NON-NLS-1$
+			data.put("username", localPropertiesService.getValue(EarthProperty.DB_USERNAME )); //$NON-NLS-1$
+			data.put("password", localPropertiesService.getValue(EarthProperty.DB_PASSWORD )); //$NON-NLS-1$
 		}
 
 		if (!dataSourceTemplate.exists()) {
-			throw new IOException("The file containing the Saiku Data Source template does not exist in expected location " + dataSourceTemplate.getAbsolutePath());
+			throw new IOException("The file containing the Saiku Data Source template does not exist in expected location " + dataSourceTemplate.getAbsolutePath()); //$NON-NLS-1$
 		}
 
 		return dataSourceTemplate;
@@ -688,9 +688,9 @@ public class AnalysisSaikuService {
 		Map<String, String> saikuData = new HashMap<String, String>();
 		String saikuSchemaName = getSchemaName();
 		if( saikuSchemaName==null){
-			saikuSchemaName = "" ;
+			saikuSchemaName = "" ; //$NON-NLS-1$
 		}
-		saikuData.put("saikuDbSchema", saikuSchemaName );
+		saikuData.put("saikuDbSchema", saikuSchemaName ); //$NON-NLS-1$
 		FreemarkerTemplateUtils.applyTemplate(mdxFileTemplate, mdxFile, saikuData);
 	}
 
@@ -711,14 +711,14 @@ public class AnalysisSaikuService {
 
 	private void runSaikuBat(String commandName) throws SaikuExecutionException {
 		if (!isSaikuConfigured()) {
-			throw new SaikuExecutionException("The Saiku server is not configured.");
+			throw new SaikuExecutionException("The Saiku server is not configured."); //$NON-NLS-1$
 		} else if (!isJavaHomeConfigured()) {
-			throw new SaikuExecutionException("The JAVA_HOME environment variable is not configured. JAVA_HOME must point to the root folder of a valid JDK.");
+			throw new SaikuExecutionException("The JAVA_HOME environment variable is not configured. JAVA_HOME must point to the root folder of a valid JDK."); //$NON-NLS-1$
 		} else {
 			String saikuCmd = getSaikuFolder() + File.separator + commandName + getCommandSuffix() ;
 			
 			if (SystemUtils.IS_OS_WINDOWS){
-				saikuCmd = "\"" + saikuCmd  + "\"";
+				saikuCmd = "\"" + saikuCmd  + "\""; //$NON-NLS-1$ //$NON-NLS-2$
 			}
 			
 			try {
@@ -731,7 +731,7 @@ public class AnalysisSaikuService {
 
 				 if( commandName.equals( STOP_SAIKU )){
 					 int result = p.waitFor();
-					 logger.warn("Script ended with result " + result);
+					 logger.warn("Script ended with result " + result); //$NON-NLS-1$
 				 }else if ( commandName.equals( START_SAIKU ) ){
 					 Thread.sleep(6000);
 				 }
@@ -739,9 +739,9 @@ public class AnalysisSaikuService {
 				 
 				    
 			} catch (final IOException e) {
-				logger.error("Error when running Saiku start/stop command", e);
+				logger.error("Error when running Saiku start/stop command", e); //$NON-NLS-1$
 			} catch (InterruptedException e) {
-				logger.error("Error when running Saiku start/stop command", e);
+				logger.error("Error when running Saiku start/stop command", e); //$NON-NLS-1$
 			}
 		}
 	}
@@ -764,22 +764,22 @@ public class AnalysisSaikuService {
 	}
 
 	private void startSaiku() throws SaikuExecutionException {
-		logger.warn("Starting the Saiku server" + getSaikuFolder() + File.separator + START_SAIKU);
+		logger.warn("Starting the Saiku server" + getSaikuFolder() + File.separator + START_SAIKU); //$NON-NLS-1$
 
 		runSaikuBat(START_SAIKU);
 
 		this.setSaikuStarted(true);
 		
-		logger.warn("Finished starting the Saiku server");
+		logger.warn("Finished starting the Saiku server"); //$NON-NLS-1$
 	}
 
 	private void stopSaiku() throws SaikuExecutionException {
-		logger.warn("Stoping the Saiku server" + getSaikuFolder() + File.separator + STOP_SAIKU);
+		logger.warn("Stoping the Saiku server" + getSaikuFolder() + File.separator + STOP_SAIKU); //$NON-NLS-1$
 		if( isSaikuStarted() ){
 			runSaikuBat(STOP_SAIKU);
 			this.setSaikuStarted(true);
 		}
-		logger.warn("Finished stoping the Saiku server");
+		logger.warn("Finished stoping the Saiku server"); //$NON-NLS-1$
 	}
 
 	private void stopSaikuOnExit() {
@@ -791,7 +791,7 @@ public class AnalysisSaikuService {
 						stopSaiku();
 					}
 				} catch (final SaikuExecutionException e) {
-					logger.error("The Saiku server has been de-configured after it was started", e);
+					logger.error("The Saiku server has been de-configured after it was started", e); //$NON-NLS-1$
 				}
 			}
 

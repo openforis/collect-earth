@@ -25,8 +25,8 @@ public class UpdateIniUtils {
 	 */
 	public String getNewVersionAvailable(String pathToUpdateIni){
 		
-		String installedVersionBuild = getValueFromUpdateIni("version_id", pathToUpdateIni);
-		String urlXmlUpdaterOnline = getValueFromUpdateIni("url", pathToUpdateIni);
+		String installedVersionBuild = getValueFromUpdateIni("version_id", pathToUpdateIni); //$NON-NLS-1$
+		String urlXmlUpdaterOnline = getValueFromUpdateIni("url", pathToUpdateIni); //$NON-NLS-1$
 		String onlineVersionBuild = getVersionBuild(urlXmlUpdaterOnline);
 		
 		
@@ -35,11 +35,11 @@ public class UpdateIniUtils {
 			Long onlineBuild = new Long(onlineVersionBuild);
 			
 			if( onlineBuild.longValue() > installedBuild.longValue() ){
-				return onlineBuild+"";
+				return onlineBuild+""; //$NON-NLS-1$
 			}
 			
 		} catch (NumberFormatException e) {
-			logger.error("Error parsing the buildNumber ", e);
+			logger.error("Error parsing the buildNumber ", e); //$NON-NLS-1$
 		}
 		
 		return null;
@@ -71,13 +71,13 @@ public class UpdateIniUtils {
 
 
 	private String getVersionBuild(String urlXmlUpdate) {
-		String tagname = "versionId";
+		String tagname = "versionId"; //$NON-NLS-1$
 		return getXmlValueFromTag(urlXmlUpdate, tagname);		
 	}
 
 	public String getXmlValueFromTag(String urlXmlUpdate, String tagname) {
 		
-		String onlineVersion = "0"; 
+		String onlineVersion = "0";  //$NON-NLS-1$
 		try {
 			DocumentBuilderFactory factory = DocumentBuilderFactory.newInstance();
 			factory.setNamespaceAware(true);
@@ -85,7 +85,7 @@ public class UpdateIniUtils {
 			
 			onlineVersion = parse.getElementsByTagName(tagname).item(0).getChildNodes().item(0).getNodeValue();
 		} catch (Exception e) {
-			logger.error("Error while reading the remote XML where the updater version is defined", e);
+			logger.error("Error while reading the remote XML where the updater version is defined", e); //$NON-NLS-1$
 		}
 		
 		return onlineVersion;
@@ -93,14 +93,14 @@ public class UpdateIniUtils {
 
 	public static String getValueFromUpdateIni(String key, String pathToUpdateIni) {
 		Properties properties = new Properties();
-		String value = "unknwown";
+		String value = "unknown"; //$NON-NLS-1$
 		try {
 			properties.load( new FileInputStream(pathToUpdateIni));	
 			value = properties.getProperty(key);
 		} catch (FileNotFoundException e) {
-			logger.error("The update.,ini file could not be found", e);
+			logger.error("The update.ini file could not be found", e); //$NON-NLS-1$
 		} catch (IOException e) {
-			logger.error("Error opening the update.ini file", e);
+			logger.error("Error opening the update.ini file", e); //$NON-NLS-1$
 		}
 		return value;
 	}

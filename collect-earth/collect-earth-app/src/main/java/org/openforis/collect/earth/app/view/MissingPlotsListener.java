@@ -191,7 +191,7 @@ public final class MissingPlotsListener implements ActionListener {
 				missingPlots += plotId + ","; //$NON-NLS-1$
 			}
 			
-			missingPlots = missingPlots.substring(0, missingPlots.length() - 1 ) + "\n";
+			missingPlots = missingPlots.substring(0, missingPlots.length() - 1 ) + "\n"; //$NON-NLS-1$
 
 		}
 

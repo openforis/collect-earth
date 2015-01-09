@@ -107,7 +107,7 @@ public final class ImportActionListener implements ActionListener {
 							}
 						}
 					} catch (Exception e1) {
-						JOptionPane.showMessageDialog(this.frame, Messages.getString("CollectEarthWindow.7") + "\n" + e1.getMessage(), importedFile.getName() + " - " + Messages.getString("CollectEarthWindow.3"), //$NON-NLS-1$ //$NON-NLS-2$
+						JOptionPane.showMessageDialog(this.frame, Messages.getString("CollectEarthWindow.7") + "\n" + e1.getMessage(), importedFile.getName() + " - " + Messages.getString("CollectEarthWindow.3"), //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$ //$NON-NLS-4$
 								JOptionPane.ERROR_MESSAGE);
 						logger.error("Error importing data from " + importedFile.getAbsolutePath() + " in format " + importType , e1); //$NON-NLS-1$ //$NON-NLS-2$
 					}

@@ -127,11 +127,11 @@ public class DataImportExportService {
 					boolean include = true;
 
 					try {
-						final BooleanAttribute node = (BooleanAttribute) record.getNodeByPath("/plot/actively_saved");
+						final BooleanAttribute node = (BooleanAttribute) record.getNodeByPath("/plot/actively_saved"); //$NON-NLS-1$
 
 						include = (node == null || (node != null && !node.isEmpty() && node.getValue().getValue()) );
 					} catch (Exception e) {
-						logger.error("No \"/plot/actively_saved\" node found ", e );
+						logger.error("No \"/plot/actively_saved\" node found ", e ); //$NON-NLS-1$
 					}
 
 					return include;
@@ -156,7 +156,7 @@ public class DataImportExportService {
 			conflictingRecordsAdded = listConflictingRecords.size();
 		}
 
-		logger.warn("Data imported into db. Number of Records imported : " + entryIdsToImport.size() + " Conflicting records added : "
+		logger.warn("Data imported into db. Number of Records imported : " + entryIdsToImport.size() + " Conflicting records added : " //$NON-NLS-1$ //$NON-NLS-2$
 				+ conflictingRecordsAdded);
 	}
 

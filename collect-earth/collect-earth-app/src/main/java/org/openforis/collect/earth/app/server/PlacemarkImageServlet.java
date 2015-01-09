@@ -56,7 +56,7 @@ public class PlacemarkImageServlet extends DataAccessingServlet {
 			@RequestParam(value = "listView", required = false) Boolean listView) throws IOException, URISyntaxException {
 
 		if( listView == null ){
-			throw new IllegalArgumentException("This servlet only responds to listView type of requests where the status icons for the placemarks are the expected result");
+			throw new IllegalArgumentException("This servlet only responds to listView type of requests where the status icons for the placemarks are the expected result"); //$NON-NLS-1$
 		}
 		
 		// If there is an exception while we get the record info (problem that might happen when using SQLite due to concurrency) return the yellow icon.
@@ -80,7 +80,7 @@ public class PlacemarkImageServlet extends DataAccessingServlet {
 			}
 			
 		} catch (Exception e) {
-			logger.error("Error loading image for placemark with ID " + placemarkId , e);
+			logger.error("Error loading image for placemark with ID " + placemarkId , e); //$NON-NLS-1$
 			System.out.println( e );
 			// If there is an exception while we get the record info (problem that might happen when using SQLite due to concurrency) return the yellow icon.
 			imageName = EarthConstants.LIST_NOT_FINISHED_IMAGE;
@@ -98,10 +98,10 @@ public class PlacemarkImageServlet extends DataAccessingServlet {
 
 	private void returnImage(HttpServletResponse response, HttpServletRequest request, String imageName) throws IOException, URISyntaxException {
 		
-		response.setHeader("Content-Type", "image/png");
-		response.setHeader("Content-Disposition", "inline; filename=\"" + imageName + "\"");
-		response.setHeader("Cache-Control", "max-age=30");
-		response.setHeader("Date", new SimpleDateFormat(EarthConstants.DATE_FORMAT_HTTP, Locale.ENGLISH).format(new Date()));
+		response.setHeader("Content-Type", "image/png"); //$NON-NLS-1$ //$NON-NLS-2$
+		response.setHeader("Content-Disposition", "inline; filename=\"" + imageName + "\""); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$
+		response.setHeader("Cache-Control", "max-age=30"); //$NON-NLS-1$ //$NON-NLS-2$
+		response.setHeader("Date", new SimpleDateFormat(EarthConstants.DATE_FORMAT_HTTP, Locale.ENGLISH).format(new Date())); //$NON-NLS-1$
 
 		byte[] resultingImage = null;
 		if (imageName.equals(EarthConstants.LIST_NON_FILLED_IMAGE)) {
@@ -113,10 +113,10 @@ public class PlacemarkImageServlet extends DataAccessingServlet {
 		}
 		
 		if (resultingImage != null) {
-			response.setHeader("Content-Length", resultingImage.length + "");
+			response.setHeader("Content-Length", resultingImage.length + ""); //$NON-NLS-1$ //$NON-NLS-2$
 			writeToResponse(response, resultingImage);
 		} else {
-			getLogger().error("There was a problem fetching the image, please check the name!");
+			getLogger().error("There was a problem fetching the image, please check the name!"); //$NON-NLS-1$
 		}
 		
 	}
@@ -125,7 +125,7 @@ public class PlacemarkImageServlet extends DataAccessingServlet {
 		try {
 			response.getOutputStream().write(fileContents);
 		} catch (final Exception e) {
-			getLogger().error("Error writing reponse body to output stream ", e);
+			getLogger().error("Error writing reponse body to output stream ", e); //$NON-NLS-1$
 		} finally {
 			response.getOutputStream().close();
 		}

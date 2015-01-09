@@ -39,7 +39,7 @@ public abstract class JsonPocessorServlet extends DataAccessingServlet {
 			} else {
 				int i = 1;
 				for (String val : values) {
-					collectedData.put(paramName + "_" + i, val);
+					collectedData.put(paramName + "_" + i, val); //$NON-NLS-1$
 					i++;
 				}
 			}
@@ -60,21 +60,21 @@ public abstract class JsonPocessorServlet extends DataAccessingServlet {
 	}
 
 	private void setResponseHeaders(HttpServletResponse response) {
-		response.setContentType("application/json");
+		response.setContentType("application/json"); //$NON-NLS-1$
 		response.setStatus(HttpServletResponse.SC_OK);
-		response.setHeader("Cache-control", "no-cache, no-store");
-		response.setHeader("Pragma", "no-cache");
-		response.setHeader("Expires", "-1");
-		response.setHeader("Date", new SimpleDateFormat(EarthConstants.DATE_FORMAT_HTTP, Locale.ENGLISH).format(new Date()));
-		response.setHeader("Access-Control-Allow-Origin", "*");
-		response.setHeader("Access-Control-Allow-Methods", "POST");
-		response.setHeader("Access-Control-Allow-Headers", "Content-Type");
-		response.setHeader("Access-Control-Max-Age", "86400");
+		response.setHeader("Cache-control", "no-cache, no-store"); //$NON-NLS-1$ //$NON-NLS-2$
+		response.setHeader("Pragma", "no-cache"); //$NON-NLS-1$ //$NON-NLS-2$
+		response.setHeader("Expires", "-1"); //$NON-NLS-1$ //$NON-NLS-2$
+		response.setHeader("Date", new SimpleDateFormat(EarthConstants.DATE_FORMAT_HTTP, Locale.ENGLISH).format(new Date())); //$NON-NLS-1$
+		response.setHeader("Access-Control-Allow-Origin", "*"); //$NON-NLS-1$ //$NON-NLS-2$
+		response.setHeader("Access-Control-Allow-Methods", "POST"); //$NON-NLS-1$ //$NON-NLS-2$
+		response.setHeader("Access-Control-Allow-Headers", "Content-Type"); //$NON-NLS-1$ //$NON-NLS-2$
+		response.setHeader("Access-Control-Max-Age", "86400"); //$NON-NLS-1$ //$NON-NLS-2$
 	}
 
 	protected void setResult(boolean success, String message, Map<String, String> collectedData) {
-		collectedData.put("type", success ? "success" : "error"); // success,error,warning
-		collectedData.put("message", message);
+		collectedData.put("type", success ? "success" : "error"); // success,error,warning //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$
+		collectedData.put("message", message); //$NON-NLS-1$
 	}
 
 }

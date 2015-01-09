@@ -56,10 +56,10 @@ public class FixDuplicatePlots {
 				}
 
 			} catch (Exception e) {
-				logger.error("Error fixing Coordinates", e);
+				logger.error("Error fixing Coordinates", e); //$NON-NLS-1$
 			}
 		}
-		System.out.println("In total fixed plots " + i);
+		System.out.println("In total fixed plots " + i); //$NON-NLS-1$
 
 	}
 
@@ -69,8 +69,8 @@ public class FixDuplicatePlots {
 		for (CollectRecord record : allRecords) {
 			if( record!= null ){
 				CollectRecord collectRecord = recordManager.load( earthSurveyService.getCollectSurvey(), record.getId(), Step.ENTRY);
-				TextAttribute plot_file = (TextAttribute) collectRecord.getNodeByPath("/plot/plot_file");
-				if( plot_file !=null && plot_file.getValue().getValue().equals("southernHighlands.ced") ){
+				TextAttribute plot_file = (TextAttribute) collectRecord.getNodeByPath("/plot/plot_file"); //$NON-NLS-1$
+				if( plot_file !=null && plot_file.getValue().getValue().equals("southernHighlands.ced") ){ //$NON-NLS-1$
 					southernHighlandsPlots.add( collectRecord );
 				}
 			}
@@ -81,7 +81,7 @@ public class FixDuplicatePlots {
 	private CollectRecord findMathingCoordinatePlotInSouthern(List<CollectRecord> southernHighlandRecords, CoordinateAttribute plotCoord) {
 		for (CollectRecord southernPlot : southernHighlandRecords) {
 			
-			CoordinateAttribute sothernCoord = (CoordinateAttribute) southernPlot.getNodeByPath("/plot/location");
+			CoordinateAttribute sothernCoord = (CoordinateAttribute) southernPlot.getNodeByPath("/plot/location"); //$NON-NLS-1$
 			if( sothernCoord.getValue().equals(plotCoord.getValue() ) ){
 				return southernPlot;
 			}
@@ -91,8 +91,8 @@ public class FixDuplicatePlots {
 
 	private boolean isSouthernPlot(CollectRecord record) {
 		
-		TextAttribute plot_file = (TextAttribute) record.getNodeByPath("/plot/plot_file");
-		return( plot_file!=null && plot_file.getValue().getValue().equals("southernHighlands.ced") );
+		TextAttribute plot_file = (TextAttribute) record.getNodeByPath("/plot/plot_file"); //$NON-NLS-1$
+		return( plot_file!=null && plot_file.getValue().getValue().equals("southernHighlands.ced") ); //$NON-NLS-1$
 	}
 
 	private boolean shouldStopFixing() {

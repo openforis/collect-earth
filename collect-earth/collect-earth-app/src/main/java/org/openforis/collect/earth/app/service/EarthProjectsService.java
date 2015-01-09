@@ -29,9 +29,9 @@ public class EarthProjectsService {
 	
 	private static final int MAX_FOLDER_LENGTH = 20;
 
-	private static final String PROJECT_FILE_NAME = "project_definition.properties";
+	private static final String PROJECT_FILE_NAME = "project_definition.properties"; //$NON-NLS-1$
 
-	private static final String PROJECTS = "projects";
+	private static final String PROJECTS = "projects"; //$NON-NLS-1$
 	
 	@Autowired
 	LocalPropertiesService localPropertiesService;
@@ -55,7 +55,7 @@ public class EarthProjectsService {
 				
 				projectListByName.put( projectName , projectFolder);
 			} catch (IOException e) {
-				logger.error("The project definition file cannot be read.", e);
+				logger.error("The project definition file cannot be read.", e); //$NON-NLS-1$
 			}
 			
 		}
@@ -89,9 +89,9 @@ public class EarthProjectsService {
 				}
 				
 			} catch (IllegalArgumentException e) {
-				logger.error("The project definition file is not complete.", e);
+				logger.error("The project definition file is not complete.", e); //$NON-NLS-1$
 			} catch (IOException e) {
-				logger.error("The project definition file cannot be read.", e);
+				logger.error("The project definition file cannot be read.", e); //$NON-NLS-1$
 			}
 			
 		}
@@ -163,12 +163,12 @@ public class EarthProjectsService {
 
 		for (Object key : projectProperties.keySet()) {
 			String value = projectProperties.getProperty((String) key);
-			value = value.replace("${project_path}", projectFolder.getAbsolutePath());
+			value = value.replace("${project_path}", projectFolder.getAbsolutePath()); //$NON-NLS-1$
 			EarthProperty earthPropertyEnum = getEarthPropertyEnum(key);
 			if( earthPropertyEnum != null ){
 				localPropertiesService.setValue( earthPropertyEnum , value);
 			}else{
-				logger.warn("The property in the is unknown : " +  key) ;
+				logger.warn("The property in the is unknown : " +  key) ; //$NON-NLS-1$
 			}
 		}
 		
@@ -214,7 +214,7 @@ public class EarthProjectsService {
 			if( checkValidContent(projectDefinitionFile) ){
 				success = true;
 			}else{
-				throw new IllegalArgumentException("The project definition file does not contain the necessary property " + EarthProperty.SURVEY_NAME.toString()+ ".  File located at : " + projectDefinitionFile.getAbsolutePath() );
+				throw new IllegalArgumentException("The project definition file does not contain the necessary property " + EarthProperty.SURVEY_NAME.toString()+ ".  File located at : " + projectDefinitionFile.getAbsolutePath() ); //$NON-NLS-1$ //$NON-NLS-2$
 			}
 		}
 		return success;
@@ -247,7 +247,7 @@ public class EarthProjectsService {
 		zipFile.extractFile( PROJECT_FILE_NAME, definitionFolder.getAbsolutePath() );		
 		String projectName =  getProjectSurveyName(new File( definitionFolder + File.separator + PROJECT_FILE_NAME) );
 		
-		projectName = StringUtils.remove(projectName, " ");
+		projectName = StringUtils.remove(projectName, " "); //$NON-NLS-1$
 		
 		if( projectName.length() > MAX_FOLDER_LENGTH ){
 			projectName = projectName.substring(0, MAX_FOLDER_LENGTH);

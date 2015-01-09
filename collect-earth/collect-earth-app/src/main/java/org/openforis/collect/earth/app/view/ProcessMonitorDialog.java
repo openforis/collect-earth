@@ -52,17 +52,17 @@ public abstract class ProcessMonitorDialog<V,S extends ProcessStatus> extends Th
 								public void run(){
 									progressMonitor.close();
 									if( process.getStatus().isError() ){
-										StringBuilder parsisngErrorMsg = new StringBuilder("\r\n");
+										StringBuilder parsisngErrorMsg = new StringBuilder("\r\n"); //$NON-NLS-1$
 										if( process instanceof CSVDataImportProcess ){
 											List<ParsingError> errors = ((CSVDataImportProcess) process ).getStatus().getErrors();
 											
 											for (ParsingError parsingError : errors) {
-												parsisngErrorMsg.append("Parsing error on row number ").append( parsingError.getRow() ).append(" - ").append( parsingError.getMessage() ).append(", ").append( parsingError.getErrorType() ).append(", columns ").append( ArrayUtils.toString(parsingError.getColumns()) ).append(" -- values ").append( ArrayUtils.toString(parsingError.getMessageArgs()) ).append("\r\n");
+												parsisngErrorMsg.append(Messages.getString("ProcessMonitorDialog.1")).append( parsingError.getRow() ).append(" - ").append( parsingError.getMessage() ).append(", ").append( parsingError.getErrorType() ).append(Messages.getString("ProcessMonitorDialog.4")).append( ArrayUtils.toString(parsingError.getColumns()) ).append(Messages.getString("ProcessMonitorDialog.5")).append( ArrayUtils.toString(parsingError.getMessageArgs()) ).append("\r\n"); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$ //$NON-NLS-4$ //$NON-NLS-5$ //$NON-NLS-6$
 											}
 										}
 																				
 										String primaryErrorMsg = process.getStatus().getErrorMessage();
-										JOptionPane.showMessageDialog(null, "Attention : " + ( primaryErrorMsg!=null?primaryErrorMsg:"") + parsisngErrorMsg.toString() ); //$NON-NLS-1$
+										JOptionPane.showMessageDialog(null, "Attention : " + ( primaryErrorMsg!=null?primaryErrorMsg:"") + parsisngErrorMsg.toString() ); //$NON-NLS-1$ //$NON-NLS-2$
 									}
 								}
 							});

@@ -35,7 +35,7 @@ import freemarker.template.TemplateException;
  */
 public class ServerController extends Observable {
 
-	private static final String EARTH_SUBDOMAIN = "earth";
+	private static final String EARTH_SUBDOMAIN = "earth"; //$NON-NLS-1$
 	
 	public static final String SAIKU_RDB_SUFFIX = "Saiku"; //$NON-NLS-1$
 	// Make sure that the default ports are the same for Server and Generator
@@ -194,14 +194,14 @@ public class ServerController extends Observable {
 
 	
 	public static String getHostAddress(String host, String port) {
-		String hostAndPort = "";
+		String hostAndPort = ""; //$NON-NLS-1$
 		if (host != null && host.length() > 0) {
 			hostAndPort = host;
 			if (port != null && port.length() > 0) {
-				hostAndPort += ":" + port;
+				hostAndPort += ":" + port; //$NON-NLS-1$
 			}
 
-			hostAndPort = "http://" + hostAndPort + "/" + EARTH_SUBDOMAIN + "/";
+			hostAndPort = "http://" + hostAndPort + "/" + EARTH_SUBDOMAIN + "/"; //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$
 		}
 		return hostAndPort;
 

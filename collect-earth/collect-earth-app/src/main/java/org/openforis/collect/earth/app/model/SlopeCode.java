@@ -1,13 +1,15 @@
 package org.openforis.collect.earth.app.model;
 
+import org.openforis.collect.earth.app.view.Messages;
+
 /**
  * Slope codes by range associated to a slope in degrees ( 0-5 degrees flat, 6-15 slight, 15-30 steep and so on) 
  * @author Alfonso Sanchez-Paus Diaz
  *
  */
 public enum SlopeCode {
-	FLAT("Flat (0-5)", 1, 0, 5), SLIGHT("6-15", 2, 6, 15), STEEP("16-30", 3, 16, 30), VERY_STEEP("31-45", 4, 31, 45), EXTREME("46-60", 5, 46, 60), FALL(
-			"61-90", 6, 61, 90), NA("NA", 7, -1, -1);
+	FLAT(Messages.getString("SlopeCode.0"), 1, 0, 5), SLIGHT("6-15", 2, 6, 15), STEEP("16-30", 3, 16, 30), VERY_STEEP("31-45", 4, 31, 45), EXTREME("46-60", 5, 46, 60), FALL( //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$ //$NON-NLS-4$ //$NON-NLS-5$
+			"61-90", 6, 61, 90), NA("NA", 7, -1, -1); //$NON-NLS-1$ //$NON-NLS-2$
 
 	
 	/**

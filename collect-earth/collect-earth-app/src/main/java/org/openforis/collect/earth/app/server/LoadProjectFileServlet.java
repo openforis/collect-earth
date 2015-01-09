@@ -29,8 +29,8 @@ import org.springframework.web.bind.annotation.RequestMapping;
 @Controller
 public class LoadProjectFileServlet {
 
-	public static final String PROJECT_FILE_PARAMETER = "projectFilePath";
-	public static final String SERVLET_NAME = "loadProjectFile";
+	public static final String PROJECT_FILE_PARAMETER = "projectFilePath"; //$NON-NLS-1$
+	public static final String SERVLET_NAME = "loadProjectFile"; //$NON-NLS-1$
 	private Logger logger = LoggerFactory.getLogger(LoggerFactory.class);
 
 	@Autowired
@@ -40,7 +40,7 @@ public class LoadProjectFileServlet {
 	protected void processRequest(HttpServletRequest request, HttpServletResponse response) throws IOException {
 		String projectFilePath = request.getParameter( PROJECT_FILE_PARAMETER);
 		if( StringUtils.isBlank( projectFilePath ) ){
-			logger.error("The " + PROJECT_FILE_PARAMETER + " parameter cannot be empty");
+			logger.error("The " + PROJECT_FILE_PARAMETER + " parameter cannot be empty"); //$NON-NLS-1$ //$NON-NLS-2$
 		}else{
 			try {
 				if( earthProjectsService.loadCompressedProjectFile( new File(projectFilePath)) ) {
@@ -56,7 +56,7 @@ public class LoadProjectFileServlet {
 				}
 
 			} catch (IllegalArgumentException | ZipException e) {
-				logger.error("Error loading the projec file " + projectFilePath , e);
+				logger.error("Error loading the projec file " + projectFilePath , e); //$NON-NLS-1$
 				response.setStatus(500);
 			}
 		}

@@ -20,7 +20,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 @Controller
 public class PlacemarkInfoServlet extends JsonPocessorServlet {
 
-	private static final String PLACEMARK_ID = "collect_text_id";
+	private static final String PLACEMARK_ID = "collect_text_id"; //$NON-NLS-1$
 
 	private String getPlacemarkId(Map<String, String> collectedData) {
 		return collectedData.get(PlacemarkInfoServlet.PLACEMARK_ID);
@@ -39,23 +39,23 @@ public class PlacemarkInfoServlet extends JsonPocessorServlet {
 		String placemarkId = getPlacemarkId(collectedData);
 		
 		if (placemarkId == null) {
-			setResult(false, "No placemark ID found in the request", collectedData);
-			getLogger().error("No placemark ID found in the received request");
+			setResult(false, "No placemark ID found in the request", collectedData); //$NON-NLS-1$
+			getLogger().error("No placemark ID found in the received request"); //$NON-NLS-1$
 		} else {
-			if (placemarkId.equals("$[id]")) {
-				placemarkId = "testPlacemark";
+			if (placemarkId.equals("$[id]")) { //$NON-NLS-1$
+				placemarkId = "testPlacemark"; //$NON-NLS-1$
 			}
 			collectedData = getDataAccessor().getData(placemarkId);
 			if (collectedData != null && collectedData.get(EarthConstants.PLACEMARK_FOUND_PARAMETER) != null
-					&& collectedData.get(EarthConstants.PLACEMARK_FOUND_PARAMETER).equals("true")) {
-				setResult(true, "The placemark was found", collectedData);
-				getLogger().info("A placemark was found with these properties" + collectedData.toString());
+					&& collectedData.get(EarthConstants.PLACEMARK_FOUND_PARAMETER).equals("true")) { //$NON-NLS-1$
+				setResult(true, "The placemark was found", collectedData); //$NON-NLS-1$
+				getLogger().info("A placemark was found with these properties" + collectedData.toString()); //$NON-NLS-1$
 			} else {
 				if (collectedData == null) {
 					collectedData = new HashMap<String, String>();
 				}
-				setResult(false, "No placemark found", collectedData);
-				getLogger().info("No placemark found " + collectedData.toString());
+				setResult(false, "No placemark found", collectedData); //$NON-NLS-1$
+				getLogger().info("No placemark found " + collectedData.toString()); //$NON-NLS-1$
 			}
 		}
 

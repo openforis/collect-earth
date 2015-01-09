@@ -32,7 +32,7 @@ import org.springframework.stereotype.Component;
 @Lazy(false)
 public class BackupSqlLiteService {
 
-	private static final String BACKUP_COLLECT_EARTH = "backupSqlite";
+	private static final String BACKUP_COLLECT_EARTH = "backupSqlite"; //$NON-NLS-1$
 
 	private static final int MAXIMUM_NUMBER_OF_BACKUPS = 10; 
 
@@ -54,7 +54,7 @@ public class BackupSqlLiteService {
 			@Override
 			public void run() {
 				if (localPropertiesService.getValue(EarthProperty.AUTOMATIC_BACKUP) != null
-						&& localPropertiesService.getValue(EarthProperty.AUTOMATIC_BACKUP).toLowerCase().trim().equals("true")) {
+						&& localPropertiesService.getValue(EarthProperty.AUTOMATIC_BACKUP).toLowerCase().trim().equals("true")) { //$NON-NLS-1$
 					backupDB();
 				}
 			}
@@ -64,9 +64,9 @@ public class BackupSqlLiteService {
 
 	private void backupDB() {
 		if( localPropertiesService.isUsingSqliteDB() ){
-			String nameCollectDB = "";
-			String pathToBackup = "";
-			SimpleDateFormat sdf = new SimpleDateFormat("yyyy_MM_dd_HHmmss");
+			String nameCollectDB = ""; //$NON-NLS-1$
+			String pathToBackup = ""; //$NON-NLS-1$
+			SimpleDateFormat sdf = new SimpleDateFormat("yyyy_MM_dd_HHmmss"); //$NON-NLS-1$
 
 			try {
 				// DON"T USE THIS
@@ -74,7 +74,7 @@ public class BackupSqlLiteService {
 				// which generates a folder within the backup folder
 				//nameCollectDB = getCollectDBName(); 
 
-				nameCollectDB = "collectEarthDatabase.db";
+				nameCollectDB = "collectEarthDatabase.db"; //$NON-NLS-1$
 				
 				File backupFolder = getBackUpFolder();
 
@@ -92,7 +92,7 @@ public class BackupSqlLiteService {
 				removeExtraBackups();
 
 			} catch (IOException e) {
-				logger.error("Error when create backup of the Collect Earth Database from " + nameCollectDB + " to " + pathToBackup);
+				logger.error("Error when create backup of the Collect Earth Database from " + nameCollectDB + " to " + pathToBackup); //$NON-NLS-1$ //$NON-NLS-2$
 			}
 		}
 	}

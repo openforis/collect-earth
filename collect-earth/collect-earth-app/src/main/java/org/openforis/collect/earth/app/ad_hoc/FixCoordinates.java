@@ -45,7 +45,7 @@ public abstract class FixCoordinates {
 			}
 			try {
 				CollectRecord collectRecord = recordManager.load( earthSurveyService.getCollectSurvey(), summaryCollectRecord.getId(), Step.ENTRY);
-				CoordinateAttribute plotCoord = (CoordinateAttribute) collectRecord.getNodeByPath("/plot/location");
+				CoordinateAttribute plotCoord = (CoordinateAttribute) collectRecord.getNodeByPath("/plot/location"); //$NON-NLS-1$
 				if( plotCoord != null && plotCoord.getValue() != null ){
 					if( plotCoord.getValue().getX() < getLongitudeLimit() ){
 						Coordinate coordinate = new Coordinate(plotCoord.getValue().getY(), plotCoord.getValue().getX(), plotCoord.getValue().getSrsId() );
@@ -56,7 +56,7 @@ public abstract class FixCoordinates {
 
 				}
 			} catch (Exception e) {
-				logger.error("Error fixing Coordinates", e);
+				logger.error("Error fixing Coordinates", e); //$NON-NLS-1$
 			}
 		}
 

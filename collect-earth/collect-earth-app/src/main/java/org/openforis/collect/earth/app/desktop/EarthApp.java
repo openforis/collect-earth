@@ -190,7 +190,7 @@ public class EarthApp {
 				try {
 					nonManagedPropertiesService.init();
 				} catch (final IOException e) {
-					logger.error("Error accessing the local properties ", e);
+					logger.error("Error accessing the local properties ", e); //$NON-NLS-1$
 					e.printStackTrace();
 				}
 			}
@@ -215,7 +215,7 @@ public class EarthApp {
 		if (serverController != null) {
 			return serverController.getContext().getBean(KmlGeneratorService.class);
 		} else {
-			throw new IllegalStateException("The server must be initialized before this method is called");
+			throw new IllegalStateException("The server must be initialized before this method is called"); //$NON-NLS-1$
 		}
 	}
 
@@ -300,19 +300,19 @@ public class EarthApp {
 				}
 
 				UpdateIniUtils updateIniUtils = new UpdateIniUtils();
-				final String newVersionAvailable = updateIniUtils.getNewVersionAvailable("update.ini");
+				final String newVersionAvailable = updateIniUtils.getNewVersionAvailable("update.ini"); //$NON-NLS-1$
 				if (updateIniUtils.shouldWarnUser(newVersionAvailable, getLocalProperties())) {
 
 					javax.swing.SwingUtilities.invokeLater(new Runnable() {
 						@Override
 						public void run() {
 
-							String remindLater = "Remind me later";
-							String doItNow = "Update Now";
-							String doNotBother = "Do not remind me again";
+							String remindLater = Messages.getString("EarthApp.3"); //$NON-NLS-1$
+							String doItNow = Messages.getString("EarthApp.4"); //$NON-NLS-1$
+							String doNotBother = Messages.getString("EarthApp.5"); //$NON-NLS-1$
 							Object[] possibleValues = { remindLater, doItNow, doNotBother };
 							int chosenOption = JOptionPane.showOptionDialog(mainEarthWindow.getFrame(),
-									Messages.getString("EarthApp.57"), Messages.getString("EarthApp.58") + " - Version " + newVersionAvailable,  //$NON-NLS-1$ //$NON-NLS-2$
+									Messages.getString("EarthApp.57"), Messages.getString("EarthApp.58") + Messages.getString("EarthApp.6") + newVersionAvailable,  //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$
 									JOptionPane.DEFAULT_OPTION, JOptionPane.INFORMATION_MESSAGE, null, possibleValues, possibleValues[0]);
 							if (possibleValues[chosenOption].equals(doItNow)) {
 								CheckForUpdatesListener checkForUpdatesListener = new CheckForUpdatesListener();

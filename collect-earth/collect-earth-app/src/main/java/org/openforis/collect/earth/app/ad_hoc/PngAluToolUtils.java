@@ -23,42 +23,42 @@ public class PngAluToolUtils {
 		String climateName = null;
 		
 		if(  elevation < 1000 && precipitation < 1000 ){ // Tropical Dry
-			climateName = "TRD";
+			climateName = "TRD"; //$NON-NLS-1$
 		}else if(  elevation < 1000 && ( precipitation >= 1000 &&  precipitation < 2000) && !shortDrySeason   ){ // Tropical Moist, Long Dry Season
-			climateName = "TMLD";
+			climateName = "TMLD"; //$NON-NLS-1$
 		}else if(  elevation < 1000 && ( precipitation >= 1000 &&  precipitation < 2000) && shortDrySeason   ){ // Tropical Moist, Short Dry Season
-			climateName = "TMSD";
+			climateName = "TMSD"; //$NON-NLS-1$
 		}else if(  elevation >= 1000 && precipitation < 1000 ){ // Tropical Montane Dry
-			climateName = "TRMD";
+			climateName = "TRMD"; //$NON-NLS-1$
 		}else if(  elevation >= 1000 && precipitation >= 1000 ){ // Tropical Montane Moist
-			climateName = "TRMM";
+			climateName = "TRMM"; //$NON-NLS-1$
 		}else if(  elevation < 1000 && precipitation >= 2000 ){ // Tropical Wet
-			climateName = "TRW";
+			climateName = "TRW"; //$NON-NLS-1$
 		}
 		
 		return climateName;
 	}
 	
 	public String getSoilType( String initialSoilGroup ){
-		String soilType = "N/A";
+		String soilType = "N/A"; //$NON-NLS-1$
 		if( StringUtils.isBlank(initialSoilGroup) ){
-			return "N/A";
+			return "N/A"; //$NON-NLS-1$
 		}
 		
 		Map<String,String> fundamentalToSoilGroup = new HashMap<String,String>();
 		
-		fundamentalToSoilGroup.put("B", "HAC");
-		fundamentalToSoilGroup.put("L", "HAC");
-		fundamentalToSoilGroup.put("P", "VOL");
-		fundamentalToSoilGroup.put("V", "VOL");
-		fundamentalToSoilGroup.put("S", "SAN"); // SAN+POD
-		fundamentalToSoilGroup.put("Z", "LAC"); // LAc+HAC
-		fundamentalToSoilGroup.put("T", "SAN");
-		fundamentalToSoilGroup.put("A", "LAC"); // LAC+WET
-		fundamentalToSoilGroup.put("C", "LAC");
-		fundamentalToSoilGroup.put("G", "LAC"); // LAC+HAC
-		fundamentalToSoilGroup.put("W", "ORG"); // ORG+WET
-		fundamentalToSoilGroup.put("M", "WET");
+		fundamentalToSoilGroup.put("B", "HAC"); //$NON-NLS-1$ //$NON-NLS-2$
+		fundamentalToSoilGroup.put("L", "HAC"); //$NON-NLS-1$ //$NON-NLS-2$
+		fundamentalToSoilGroup.put("P", "VOL"); //$NON-NLS-1$ //$NON-NLS-2$
+		fundamentalToSoilGroup.put("V", "VOL"); //$NON-NLS-1$ //$NON-NLS-2$
+		fundamentalToSoilGroup.put("S", "SAN"); // SAN+POD //$NON-NLS-1$ //$NON-NLS-2$
+		fundamentalToSoilGroup.put("Z", "LAC"); // LAc+HAC //$NON-NLS-1$ //$NON-NLS-2$
+		fundamentalToSoilGroup.put("T", "SAN"); //$NON-NLS-1$ //$NON-NLS-2$
+		fundamentalToSoilGroup.put("A", "LAC"); // LAC+WET //$NON-NLS-1$ //$NON-NLS-2$
+		fundamentalToSoilGroup.put("C", "LAC"); //$NON-NLS-1$ //$NON-NLS-2$
+		fundamentalToSoilGroup.put("G", "LAC"); // LAC+HAC //$NON-NLS-1$ //$NON-NLS-2$
+		fundamentalToSoilGroup.put("W", "ORG"); // ORG+WET //$NON-NLS-1$ //$NON-NLS-2$
+		fundamentalToSoilGroup.put("M", "WET"); //$NON-NLS-1$ //$NON-NLS-2$
 		
 		soilType = fundamentalToSoilGroup.get(initialSoilGroup);
 		return soilType;
@@ -67,11 +67,11 @@ public class PngAluToolUtils {
 	
 	public String getAluSubclass( String collectEarthSubclass ){
 		if( StringUtils.isBlank(collectEarthSubclass) ){
-			return "N/A";
+			return "N/A"; //$NON-NLS-1$
 		}
-		String aluSubClass = collectEarthSubclass.replace("to", "");
-		aluSubClass = aluSubClass.replace("L", "");
-		aluSubClass = aluSubClass.replace("T", "");
+		String aluSubClass = collectEarthSubclass.replace("to", ""); //$NON-NLS-1$ //$NON-NLS-2$
+		aluSubClass = aluSubClass.replace("L", ""); //$NON-NLS-1$ //$NON-NLS-2$
+		aluSubClass = aluSubClass.replace("T", ""); //$NON-NLS-1$ //$NON-NLS-2$
 		return aluSubClass;
 	}
 	
