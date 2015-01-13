@@ -349,6 +349,7 @@ public class EarthApp {
 		} catch (final Exception e) {
 			e.printStackTrace();
 			showMessage(Messages.getString("EarthApp.59")); //$NON-NLS-1$
+			logger.error(Messages.getString("EarthApp.59"), e);//$NON-NLS-1$
 		}
 	}
 
