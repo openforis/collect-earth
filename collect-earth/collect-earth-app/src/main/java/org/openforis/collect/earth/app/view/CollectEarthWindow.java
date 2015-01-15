@@ -563,13 +563,12 @@ public class CollectEarthWindow {
 
 			} else {
 				this.serverController = null;
-				this.getLocalPropertiesService().init();
 				this.backupFolder = null;
 			}
 		} catch (final BeansException e) {
 			logger.error("Error while setting the ServerController", e); //$NON-NLS-1$
-		} catch (final IOException e) {
-			logger.error("Error while setting the ServerController", e); //$NON-NLS-1$
+		} catch (final Exception e) {
+			logger.error("Error while starting the ServerController", e); //$NON-NLS-1$
 		}
 	}
 

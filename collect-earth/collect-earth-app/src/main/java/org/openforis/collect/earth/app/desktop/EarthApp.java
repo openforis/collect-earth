@@ -141,6 +141,12 @@ public class EarthApp {
 		} catch (final IOException e) {
 			// Nothing there, so OK to proceed
 			logger.info("There is no server running in port " + localProperties.getPort()); //$NON-NLS-1$
+			e.printStackTrace();
+			alreadyRunning = false;
+		} catch (final NumberFormatException e) {
+			// Nothing there, so OK to proceed
+			logger.info("Error parsing integer value " + localProperties.getPort()); //$NON-NLS-1$
+			e.printStackTrace();
 			alreadyRunning = false;
 		}
 		return alreadyRunning;
@@ -187,12 +193,7 @@ public class EarthApp {
 		if (serverController == null || serverController.getContext() == null) {
 			if (nonManagedPropertiesService == null) {
 				nonManagedPropertiesService = new LocalPropertiesService();
-				try {
-					nonManagedPropertiesService.init();
-				} catch (final IOException e) {
-					logger.error("Error accessing the local properties ", e); //$NON-NLS-1$
-					e.printStackTrace();
-				}
+				
 			}
 			return nonManagedPropertiesService;
 		} else {

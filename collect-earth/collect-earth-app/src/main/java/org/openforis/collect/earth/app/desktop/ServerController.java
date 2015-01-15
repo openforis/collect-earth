@@ -14,6 +14,7 @@ import org.eclipse.jetty.util.thread.ExecutorThreadPool;
 import org.eclipse.jetty.webapp.WebAppContext;
 import org.openforis.collect.earth.app.EarthConstants;
 import org.openforis.collect.earth.app.EarthConstants.CollectDBDriver;
+import org.openforis.collect.earth.app.service.BackupSqlLiteService;
 import org.openforis.collect.earth.app.service.BrowserService;
 import org.openforis.collect.earth.app.service.FolderFinder;
 import org.openforis.collect.earth.app.service.LocalPropertiesService;
@@ -53,6 +54,7 @@ public class ServerController extends Observable {
 		try {
 			webApplicationContext = WebApplicationContextUtils.getRequiredWebApplicationContext(getRoot().getServletContext());
 		} catch (Exception e) {
+			e.printStackTrace();
 			logger.error("Error getting web application context", e); //$NON-NLS-1$
 		}
 		return webApplicationContext;
@@ -90,6 +92,9 @@ public class ServerController extends Observable {
 		try {
 			final File jettyAppCtxTemplateSrc = new File("resources/applicationContext.fmt"); //$NON-NLS-1$
 			final File jettyAppCtxDst = new File(EarthConstants.GENERATED_FOLDER + "/applicationContext.xml"); //$NON-NLS-1$
+			
+			jettyAppCtxDst.getParentFile().mkdirs();
+			
 			final Map<String, String> data = new java.util.HashMap<String, String>();
 
 			data.put("driver", localPropertiesService.getCollectDBDriver().getDriverClass()); //$NON-NLS-1$
@@ -101,6 +106,7 @@ public class ServerController extends Observable {
 
 			FreemarkerTemplateUtils.applyTemplate(jettyAppCtxTemplateSrc, jettyAppCtxDst, data);
 		} catch (IOException | TemplateException e) {
+			e.printStackTrace();
 			logger.error("Error refreshing teh Jetty application context to add the data sources for Collect Earth", e); //$NON-NLS-1$
 		}
 
@@ -119,8 +125,6 @@ public class ServerController extends Observable {
 	public void startServer(Observer observeInitialization) throws Exception {
 
 		this.addObserver(observeInitialization);
-
-		localPropertiesService.init();
 
 		initilizeDataSources();
 		try {
@@ -179,7 +183,11 @@ public class ServerController extends Observable {
 			logger.error("Error staring the server", e); //$NON-NLS-1$
 		}
 
+		// Force the local properties to be loaded before the browserservice is instantiated!! DO NOT REMOVE
+		//LocalPropertiesService localPropertiesService = getContext().getBean(LocalPropertiesService.class);
 		this.addObserver(getContext().getBean(BrowserService.class));
+		//Force the initialization of backup service
+		//getContext().getBean( BackupSqlLiteService.class);
 
 		//server.join();
 	}

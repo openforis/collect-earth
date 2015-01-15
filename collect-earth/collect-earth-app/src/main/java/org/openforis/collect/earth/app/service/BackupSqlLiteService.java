@@ -12,6 +12,7 @@ import javax.annotation.PostConstruct;
 
 import org.apache.commons.dbcp.BasicDataSource;
 import org.apache.commons.io.FileUtils;
+import org.openforis.collect.earth.app.EarthConstants;
 import org.openforis.collect.earth.app.service.LocalPropertiesService.EarthProperty;
 import org.openforis.collect.persistence.SurveyImportException;
 import org.openforis.idm.metamodel.xml.IdmlParseException;
@@ -74,7 +75,7 @@ public class BackupSqlLiteService {
 				// which generates a folder within the backup folder
 				//nameCollectDB = getCollectDBName(); 
 
-				nameCollectDB = "collectEarthDatabase.db"; //$NON-NLS-1$
+				nameCollectDB = EarthConstants.COLLECT_EARTH_DATABASE_SQLITE_DB;
 				
 				File backupFolder = getBackUpFolder();
 
@@ -82,17 +83,18 @@ public class BackupSqlLiteService {
 				StringBuilder destPathStr = new StringBuilder();
 				destPathStr.append(backupFolder.getCanonicalPath());
 				destPathStr.append(File.separatorChar);
-				destPathStr.append(nameCollectDB);
+				destPathStr.append( EarthConstants.COLLECT_EARTH_DATABASE_FILE_NAME);
 				destPathStr.append(sdf.format( new Date() ));
 
-				File destFile  = new File(destPathStr.toString() );			
+				pathToBackup = destPathStr.toString();
+				File destFile  = new File( pathToBackup );			
 
 				FileUtils.copyFile(srcFile, destFile );
 
 				removeExtraBackups();
 
 			} catch (IOException e) {
-				logger.error("Error when create backup of the Collect Earth Database from " + nameCollectDB + " to " + pathToBackup); //$NON-NLS-1$ //$NON-NLS-2$
+				logger.error("Error when create backup of the Collect Earth Database from " + nameCollectDB + " to " + pathToBackup, e); //$NON-NLS-1$ //$NON-NLS-2$
 			}
 		}
 	}

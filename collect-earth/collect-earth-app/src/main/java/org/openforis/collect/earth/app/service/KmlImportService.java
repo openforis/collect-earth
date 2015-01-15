@@ -5,6 +5,8 @@ import java.io.File;
 import java.io.FileReader;
 import java.io.FileWriter;
 import java.io.IOException;
+import java.util.HashMap;
+import java.util.Map;
 
 import javax.swing.JFrame;
 import javax.swing.JOptionPane;
@@ -27,6 +29,8 @@ import org.xml.sax.SAXException;
 
 @Component
 public class KmlImportService {
+	
+	Map<String,Integer> namesAndTimes = new HashMap<String,Integer>();
 
 	@Autowired
 	LocalPropertiesService localPropertiesService;
@@ -75,31 +79,43 @@ public class KmlImportService {
                    
             if (placemark.hasChildNodes()) {
             	NodeList childNodes = placemark.getChildNodes();
-            	String longitude = "",latitude = "",name = "";  //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$
+            	String longitude = "",latitude = "",name = "Placemark";  //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$
             	for (int j=0; j<childNodes.getLength(); j++){
             		
             		Node placemarkChild = childNodes.item(j);
             		
-            		if( placemarkChild.getNodeName().equals("name")){ //$NON-NLS-1$
+            		if( placemarkChild.getNodeName().equalsIgnoreCase("name")){ //$NON-NLS-1$
             			name = placemarkChild.getFirstChild().getTextContent();
             		}else if ( placemarkChild.getNodeName().equals("Point")){ //$NON-NLS-1$
-            			NodeList lookAtNodes  = placemarkChild.getChildNodes();
+            			String coordinates = processPoint(placemarkChild); 
                     	
-                    	for (int h=0; h<lookAtNodes.getLength(); h++){
-                    		Node lookAtChild = lookAtNodes.item(h);                  		
-		            		if( lookAtChild.getNodeName().equals("coordinates" ) ){ //$NON-NLS-1$
-		            			String coordinates = lookAtChild.getFirstChild().getTextContent();
-		            			
-		            			String[] splitCoords = coordinates.split(","); //$NON-NLS-1$
-		            			
-		            			longitude = splitCoords[0];
-		            			latitude = splitCoords[1];
-		            		}
-                    	}                    	
-            		}            		
+                    	String[] splitCoords = coordinates.split(","); //$NON-NLS-1$
+            			
+            			longitude = splitCoords[0];
+            			latitude = splitCoords[1];
+            		}else if ( placemarkChild.getNodeName().equalsIgnoreCase("Multigeometry")){ //$NON-NLS-1$ // Special case forQGis generatedKML
+            			
+            			NodeList childMultigemoetryNodes = placemarkChild.getChildNodes();
+                    	
+                    	for (int t=0; t<childMultigemoetryNodes.getLength(); t++){
+                    		
+                    		Node multigeometryChild = childMultigemoetryNodes.item(t);
+                    		 if ( multigeometryChild.getNodeName().equals("Point")){ //$NON-NLS-1$
+                     			String coordinates = processPoint(multigeometryChild); 
+                             	
+                             	String[] splitCoords = coordinates.split(","); //$NON-NLS-1$
+                     			
+                     			longitude = splitCoords[0];
+                     			latitude = splitCoords[1];
+                    		 }
+                    	}
+                    
+            		}              		
             	}
             	
-            	sb.append( name ).append( i ).append(",").append( latitude ).append(",").append( longitude ).append(",0,0,0,0,0,0,0,0\r\n"); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$
+            	String nameFinal = getNamePlacemark(name);
+            	
+            	sb.append( nameFinal ).append(",").append( latitude ).append(",").append( longitude ).append(",0,0,0,0,0,0,0,0\r\n"); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$
             }
         }
         
@@ -111,6 +127,29 @@ public class KmlImportService {
         
         return tempFile;
 
+	}
+
+	private String getNamePlacemark(String name) {
+		if( namesAndTimes.containsKey( name)){
+			Integer times = namesAndTimes.get(name);
+			namesAndTimes.put(name, ++times );
+			return name + times;
+		}else{
+			namesAndTimes.put(name, 1);
+			return name;
+		}
+	}
+
+	public String processPoint(Node placemarkChild) {
+		NodeList lookAtNodes  = placemarkChild.getChildNodes();
+		String coordinates = null;
+		for (int h=0; h<lookAtNodes.getLength(); h++){
+			Node lookAtChild = lookAtNodes.item(h);                  		
+			if( lookAtChild.getNodeName().equalsIgnoreCase("coordinates" ) ){ //$NON-NLS-1$
+				 coordinates = lookAtChild.getFirstChild().getTextContent();
+			}
+		}
+		return coordinates;
 	}
 
 	public void loadFromKml( JFrame frame) throws ParserConfigurationException, SAXException, IOException{

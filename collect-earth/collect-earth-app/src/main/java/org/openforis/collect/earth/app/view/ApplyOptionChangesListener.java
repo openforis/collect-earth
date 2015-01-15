@@ -31,13 +31,13 @@ public abstract class ApplyOptionChangesListener implements ActionListener {
 		this.callingDialog = callingDialog;
 		this.localPropertiesService = localPropertiesService;
 		this.propertyToComponent = propertyToComponent;
-	
+
 	}
-	
+
 	public ApplyOptionChangesListener(Window callingDialog, LocalPropertiesService localPropertiesService) {
 		this.callingDialog = callingDialog;
 		this.localPropertiesService = localPropertiesService;
-		
+
 	}
 
 	@Override
@@ -53,11 +53,11 @@ public abstract class ApplyOptionChangesListener implements ActionListener {
 	}
 
 	private void setPropertyValue( Enum<?> enumKey, String value ){
-		
-			localPropertiesService.setValue((EarthProperty) enumKey, value);
-		
+
+		localPropertiesService.setValue((EarthProperty) enumKey, value);
+
 	}
-	
+
 	protected abstract void applyProperties();
 
 	public void savePropertyValues() {
@@ -100,11 +100,13 @@ public abstract class ApplyOptionChangesListener implements ActionListener {
 					EarthApp.restart();
 				};
 			}.start();
-			
+
 
 			JOptionPane.showMessageDialog( callingDialog, Messages.getString("OptionWizard.20"), //$NON-NLS-1$
 					Messages.getString("OptionWizard.21"), JOptionPane.INFORMATION_MESSAGE); //$NON-NLS-1$
-			callingDialog.dispose();
+			if( callingDialog!= null && callingDialog instanceof OptionWizard){
+				callingDialog.dispose();
+			}
 
 		} catch (final Exception e) {
 			logger.error("Error when re-generating the KML code to open in GE ", e); //$NON-NLS-1$
@@ -112,13 +114,17 @@ public abstract class ApplyOptionChangesListener implements ActionListener {
 					JOptionPane.WARNING_MESSAGE);
 		}
 	}
-	
+
 	private void startWaiting() {
-		callingDialog.setCursor(java.awt.Cursor.getPredefinedCursor(java.awt.Cursor.WAIT_CURSOR));
+		if( callingDialog != null ){
+			callingDialog.setCursor(java.awt.Cursor.getPredefinedCursor(java.awt.Cursor.WAIT_CURSOR));
+		}
 	}
-	
+
 
 	private void endWaiting() {
-		callingDialog.setCursor(java.awt.Cursor.getPredefinedCursor(java.awt.Cursor.DEFAULT_CURSOR));
+		if( callingDialog != null ){
+			callingDialog.setCursor(java.awt.Cursor.getPredefinedCursor(java.awt.Cursor.DEFAULT_CURSOR));
+		}
 	}
 }

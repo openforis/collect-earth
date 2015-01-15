@@ -18,7 +18,6 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 
-import javax.annotation.PostConstruct;
 import javax.servlet.http.HttpServletResponse;
 
 import org.openforis.collect.earth.app.EarthConstants;
@@ -61,7 +60,7 @@ public class PlacemarkUpdateServlet {
 	private static final Configuration cfg = new Configuration();
 	private static Template template;
   
-	@PostConstruct
+/*	@PostConstruct
 	private void init(){
 		try {
 			// Force the local properties to be updated so we get the right generatedOn info
@@ -70,7 +69,7 @@ public class PlacemarkUpdateServlet {
 		} catch (IOException e) {
 			logger.error("Error refreshing the local properties"); //$NON-NLS-1$
 		}
-	}
+	}*/
 
 	private String getKmlFromTemplate( Map<String, Object> data) throws IOException {
 

@@ -38,7 +38,9 @@ public class EarthConstants {
 	
 	public enum OperationMode{ SERVER_MODE, CLIENT_MODE};
 	
-	public static final String COLLECT_EARTH_DATABASE_SQLITE_DB = FolderFinder.getLocalFolder() + File.separator + "collectEarthDatabase.db"; //$NON-NLS-1$
+	public static final String COLLECT_EARTH_DATABASE_FILE_NAME = "collectEarthDatabase.db";
+	
+	public static final String COLLECT_EARTH_DATABASE_SQLITE_DB = FolderFinder.getLocalFolder() + File.separator + COLLECT_EARTH_DATABASE_FILE_NAME;
 	
 	public enum SAMPLE_SHAPE{ SQUARE_CIRCLE, SQUARE, CIRCLE, OCTAGON};
 	

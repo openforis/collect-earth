@@ -11,7 +11,6 @@ import java.util.Enumeration;
 import java.util.Properties;
 import java.util.TreeSet;
 
-import javax.annotation.PostConstruct;
 import javax.annotation.PreDestroy;
 
 import org.apache.commons.lang3.StringUtils;
@@ -75,7 +74,11 @@ public class LocalPropertiesService {
 	private static final String PROPERTIES_FILE_PATH = FolderFinder.getLocalFolder() + File.separator + "earth.properties";
 
 	public LocalPropertiesService() {
-
+		try {
+			init();
+		} catch (IOException e) {
+			e.printStackTrace();
+		}
 	}
 
 	public String getBalloonFile() {
@@ -222,8 +225,9 @@ public class LocalPropertiesService {
 		return value;
 	}
 
-	@PostConstruct
-	public void init() throws IOException {
+	
+	
+	private void init() throws IOException {
 		properties = new Properties() {
 			/**
 			 * 
@@ -238,7 +242,7 @@ public class LocalPropertiesService {
 		};
 
 		FileReader fr = null;
-		boolean removeInitialFile =false;
+		
 		File propertiesFileInitial = null;
 		logger = LoggerFactory.getLogger(LocalPropertiesService.class);
 		try {
@@ -255,7 +259,6 @@ public class LocalPropertiesService {
 				
 				propertiesFileInitial = new File(PROPERTIES_FILE_PATH_INITIAL);
 				if( propertiesFileInitial.exists() ){
-					removeInitialFile = true;
 					propertiesFile = propertiesFileInitial;
 				}
 				
@@ -272,9 +275,6 @@ public class LocalPropertiesService {
 			if (fr != null) {
 				fr.close();
 			}
-			/*if( removeInitialFile ){
-				propertiesFileInitial.deleteOnExit();
-			}*/
 		}
 	}
 

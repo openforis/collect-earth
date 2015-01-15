@@ -125,6 +125,7 @@ public class BrowserService implements Observer{
 		getClosingBrowsersThread().start();
 	}
 	
+	
 	public void attachShutDownHook() {
 		Runtime.getRuntime().addShutdownHook(
 				getClosingBrowsersThread()
