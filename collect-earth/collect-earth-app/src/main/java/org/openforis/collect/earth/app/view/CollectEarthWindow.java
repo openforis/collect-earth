@@ -38,6 +38,7 @@ import javax.swing.border.Border;
 import org.apache.commons.lang3.StringUtils;
 import org.openforis.collect.earth.app.EarthConstants.OperationMode;
 import org.openforis.collect.earth.app.EarthConstants.UI_LANGUAGE;
+import org.openforis.collect.earth.app.desktop.EarthApp;
 import org.openforis.collect.earth.app.service.AnalysisSaikuService;
 import org.openforis.collect.earth.app.service.BackupSqlLiteService;
 import org.openforis.collect.earth.app.service.DataImportExportService;
@@ -193,6 +194,7 @@ public class CollectEarthWindow {
 							public void run() {
 								try {
 									//getServerController().stopServer();
+									EarthApp.quitServer();
 								} catch (final Exception e) {
 									logger.error("Error when trying to closing the server", e); //$NON-NLS-1$
 								}
