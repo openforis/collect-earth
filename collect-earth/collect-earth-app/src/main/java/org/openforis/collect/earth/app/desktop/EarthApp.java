@@ -149,6 +149,15 @@ public class EarthApp {
 		}
 		return alreadyRunning;
 	}
+	
+	public static void quitServer() {
+		try {
+			serverController.stopServer();
+		} catch (Exception e) {
+			logger.error("Error stoping server", e); //$NON-NLS-1$
+			e.printStackTrace();
+		}
+	}
 
 	public static void restart() {
 		try {

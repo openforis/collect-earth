@@ -14,7 +14,6 @@ import org.eclipse.jetty.util.thread.ExecutorThreadPool;
 import org.eclipse.jetty.webapp.WebAppContext;
 import org.openforis.collect.earth.app.EarthConstants;
 import org.openforis.collect.earth.app.EarthConstants.CollectDBDriver;
-import org.openforis.collect.earth.app.service.BackupSqlLiteService;
 import org.openforis.collect.earth.app.service.BrowserService;
 import org.openforis.collect.earth.app.service.FolderFinder;
 import org.openforis.collect.earth.app.service.LocalPropertiesService;
