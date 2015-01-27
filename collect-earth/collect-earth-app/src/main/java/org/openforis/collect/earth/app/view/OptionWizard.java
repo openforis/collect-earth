@@ -686,8 +686,9 @@ public class OptionWizard extends JDialog {
 					}
 				} catch (final Exception e) {
 					JOptionPane.showMessageDialog(this, Messages.getString("OptionWizard.38") //$NON-NLS-1$
-							+ Messages.getString("OptionWizard.39"), "Error reading file contents", //$NON-NLS-1$ //$NON-NLS-2$
+							+ Messages.getString("OptionWizard.39") + "\n" + e.getMessage(), "Error reading file contents", //$NON-NLS-1$ //$NON-NLS-2$
 							JOptionPane.ERROR_MESSAGE);
+					logger.error("Error reading the CSV with the plot locations", e);
 				}
 			} catch (final IOException e) {
 				logger.error("Error when extracting data from CSV file " + csvFilePath, e); //$NON-NLS-1$

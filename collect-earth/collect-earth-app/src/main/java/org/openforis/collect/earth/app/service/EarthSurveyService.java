@@ -232,6 +232,7 @@ public class EarthSurveyService {
 				}
 			} catch (final SurveyValidationException e) {
 				logger.error("Unable to validate survey at " + getIdmFilePath(), e); //$NON-NLS-1$
+				e.printStackTrace();
 			}
 		}
 

@@ -11,6 +11,7 @@ import java.io.InputStreamReader;
 import java.io.StringWriter;
 import java.io.Writer;
 import java.net.URL;
+import java.security.Security;
 import java.security.cert.CertificateException;
 import java.security.cert.X509Certificate;
 import java.util.Arrays;
@@ -20,6 +21,7 @@ import java.util.Observable;
 import java.util.Observer;
 import java.util.Properties;
 import java.util.Vector;
+import java.util.zip.GZIPInputStream;
 
 import javax.net.ssl.HostnameVerifier;
 import javax.net.ssl.HttpsURLConnection;
@@ -180,12 +182,13 @@ public class BrowserService implements Observer{
 			final URL geeJsUrl = new URL(localPropertiesService.getValue(EarthProperty.GEE_JS_LIBRARY_URL));
 
 			// Start Work-around so that we can connect to an HTTPS server without needing to include the certificate
+			Security.getProviders();
 			final SSLContext ssl = SSLContext.getInstance("TLSv1");
 			ssl.init(null, new TrustManager[] { new TrustAllCertificates() }, null);
 			final SSLSocketFactory factory = ssl.getSocketFactory();
 			final HttpsURLConnection connection = (HttpsURLConnection) geeJsUrl.openConnection();
 			connection.setSSLSocketFactory(factory);
-
+			
 			connection.setHostnameVerifier(new HostnameVerifier() {
 				@Override
 				public boolean verify(String hostname, SSLSession session) {
@@ -194,7 +197,11 @@ public class BrowserService implements Observer{
 			});
 			// End or work-around
 
-			in = new BufferedReader(new InputStreamReader(connection.getInputStream()));
+			if (connection.getHeaderField("Content-Encoding")!=null && connection.getHeaderField("Content-Encoding").equals("gzip")){
+	            in = new BufferedReader(new InputStreamReader(new GZIPInputStream(connection.getInputStream())));            
+	        } else {
+	            in = new BufferedReader(new InputStreamReader(connection.getInputStream()));            
+	        }     
 			String inputLine;
 			while ((inputLine = in.readLine()) != null) {
 				jsResult.append(inputLine);
@@ -538,7 +545,7 @@ public class BrowserService implements Observer{
 		// Where the metatadata file (usually placemark.idm.xml ) is located
 		
 		// Is there a "eePlaygroundScript.fmt" file in the same folder than in the metadata file folder?
-		File projectGeePlayground = new File( localPropertiesService.getProjectFolder() + File.separatorChar + GeolocalizeMapService.FREEMARKER_GEE_PLAYGROUND_TEMPLATE);
+		File projectGeePlayground = new File( localPropertiesService.getProjectFolder() + File.separatorChar + GeolocalizeMapService.FREEMARKER_GEE_PLAYGROUND_TEMPLATE_FILE_NAME);
 		
 		String geePlaygroundFilePath = null;
 		if( projectGeePlayground.exists() ){
@@ -617,6 +624,8 @@ public class BrowserService implements Observer{
 		final String jsGee = getCompleteGeeJS();
 		if (jsGee != null && jsGee.length() > 0) {
 			// try to find this pattern for the gee_js_pickFunction value ("workspace-el"); " var b=H("workspace-el"); "
+			// New one : var a=F("workspace-el");N(a,!0);N(F("savebox"),!0);if(!this.ya){var e=new google.maps.Map(F("map"),
+			
 			final int indexWorkspaceEL = jsGee.indexOf(WORKSPACE_EL);
 			int startEquals = 0;
 			for (startEquals = indexWorkspaceEL; startEquals > indexWorkspaceEL - 20; startEquals--) {

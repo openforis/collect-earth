@@ -23,7 +23,6 @@ import org.openforis.collect.earth.app.service.LocalPropertiesService;
 import org.openforis.collect.earth.app.service.LocalPropertiesService.EarthProperty;
 import org.openforis.collect.earth.app.service.UpdateIniUtils;
 import org.openforis.collect.earth.app.view.CheckForUpdatesListener;
-import org.openforis.collect.earth.app.view.CollectEarthWindow;
 import org.openforis.collect.earth.app.view.Messages;
 import org.openforis.collect.earth.sampler.utils.KmlGenerationException;
 import org.slf4j.Logger;
@@ -101,7 +100,7 @@ public class EarthApp {
 				showMessage("Error generating KML file : <br/> " + e.getMessage()); //$NON-NLS-1$
 			} catch (final KmlGenerationException e) {
 				logger.error("Problems while generating the KML file ", e); //$NON-NLS-1$
-				showMessage("Problems while generating the KML file: \r\n " + e.getMessage()); //$NON-NLS-1$
+				showMessage("Problems while generating the KML file: \r\n " + e.getCause()); //$NON-NLS-1$
 			}
 
 			earthApp.checkForUpdates();
@@ -141,7 +140,6 @@ public class EarthApp {
 		} catch (final IOException e) {
 			// Nothing there, so OK to proceed
 			logger.info("There is no server running in port " + localProperties.getPort()); //$NON-NLS-1$
-			e.printStackTrace();
 			alreadyRunning = false;
 		} catch (final NumberFormatException e) {
 			// Nothing there, so OK to proceed
@@ -165,8 +163,6 @@ public class EarthApp {
 						if (arg.equals(ServerController.SERVER_STARTED_EVENT)) {
 							earthApp.getKmlGeneratorService().generatePlacemarksKmzFile();
 							earthApp.simulateClickKmz();
-							earthApp.mainEarthWindow.setServerController(serverController);
-							earthApp.mainEarthWindow.openWindow();
 						}
 					} catch (final IOException e) {
 						logger.error("Error generating KMZ file", e); //$NON-NLS-1$
@@ -187,13 +183,12 @@ public class EarthApp {
 	}
 
 	private static LocalPropertiesService nonManagedPropertiesService;
-	private CollectEarthWindow mainEarthWindow;
+	
 
 	private static LocalPropertiesService getLocalProperties() {
 		if (serverController == null || serverController.getContext() == null) {
 			if (nonManagedPropertiesService == null) {
 				nonManagedPropertiesService = new LocalPropertiesService();
-				
 			}
 			return nonManagedPropertiesService;
 		} else {
@@ -247,8 +242,7 @@ public class EarthApp {
 												
 							earthApp.openProject(doubleClickedProjectFile);
 							earthApp.simulateClickKmz();
-							earthApp.openMainWindow();
-
+							
 							closeSplash();
 						} catch (final Exception e) {
 							logger.error("Error generating KML file", e); //$NON-NLS-1$
@@ -269,25 +263,6 @@ public class EarthApp {
 		}
 	}
 
-	private void openMainWindow() {
-		// Initialize the translations
-		Messages.setLocale(getLocalProperties().getUiLanguage().getLocale());
-		javax.swing.SwingUtilities.invokeLater(new Runnable() {
-			@Override
-			public void run() {
-				try {
-					mainEarthWindow = new CollectEarthWindow();
-					mainEarthWindow.setServerController(serverController);
-					mainEarthWindow.openWindow();
-				} catch (final Exception e) {
-					logger.error("Cannot start Earth App", e); //$NON-NLS-1$
-					System.exit(0);
-				}
-			}
-		});
-
-	}
-
 	private void checkForUpdates() {
 		new Thread() {
 			@Override
@@ -300,7 +275,7 @@ public class EarthApp {
 					logger.error("Error while waiting", e1); //$NON-NLS-1$
 				}
 
-				UpdateIniUtils updateIniUtils = new UpdateIniUtils();
+				final UpdateIniUtils updateIniUtils = new UpdateIniUtils();
 				final String newVersionAvailable = updateIniUtils.getNewVersionAvailable("update.ini"); //$NON-NLS-1$
 				if (updateIniUtils.shouldWarnUser(newVersionAvailable, getLocalProperties())) {
 
@@ -312,8 +287,8 @@ public class EarthApp {
 							String doItNow = Messages.getString("EarthApp.4"); //$NON-NLS-1$
 							String doNotBother = Messages.getString("EarthApp.5"); //$NON-NLS-1$
 							Object[] possibleValues = { remindLater, doItNow, doNotBother };
-							int chosenOption = JOptionPane.showOptionDialog(mainEarthWindow.getFrame(),
-									Messages.getString("EarthApp.57"), Messages.getString("EarthApp.58") + Messages.getString("EarthApp.6") + newVersionAvailable,  //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$
+							int chosenOption = JOptionPane.showOptionDialog(null,
+									Messages.getString("EarthApp.57"), Messages.getString("EarthApp.58") + Messages.getString("EarthApp.6") + updateIniUtils.convertToDate(newVersionAvailable),  //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$
 									JOptionPane.DEFAULT_OPTION, JOptionPane.INFORMATION_MESSAGE, null, possibleValues, possibleValues[0]);
 							if (possibleValues[chosenOption].equals(doItNow)) {
 								CheckForUpdatesListener checkForUpdatesListener = new CheckForUpdatesListener();

@@ -22,6 +22,7 @@ import javax.swing.JOptionPane;
 import javax.swing.JPanel;
 import javax.swing.SwingWorker;
 
+import org.openforis.collect.earth.app.service.UpdateIniUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -33,10 +34,13 @@ public class AboutDialog extends JDialog {
 	public AboutDialog(JFrame parent, String title) {
 		super(parent, title, true);
 
+		UpdateIniUtils updateIniUtils = new UpdateIniUtils();
+		String buildDate = updateIniUtils.convertToDate(getBuild());
+		
 	    Box b = Box.createVerticalBox();
 	    b.setAlignmentX(CENTER_ALIGNMENT);
 	    b.add(Box.createGlue());
-	    b.add(new JLabel("Collect Earth v. " + getVersion() + " ( built " + getBuild() + ") ")); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$
+	    b.add(new JLabel("Collect Earth v. " + getVersion() + " ( built " + buildDate + ") ")); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$
 	    b.add(new JLabel("By Open Foris Initiative")); //$NON-NLS-1$
 	    JLabel comp = new JLabel("<html>" + Messages.getString("AboutDialog.5") + "</html>"); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$
 	    if (isBrowsingSupported()) {
