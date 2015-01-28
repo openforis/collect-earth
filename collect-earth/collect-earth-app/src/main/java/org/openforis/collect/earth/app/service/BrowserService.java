@@ -23,6 +23,7 @@ import java.util.Properties;
 import java.util.Vector;
 import java.util.zip.GZIPInputStream;
 
+import javax.annotation.PostConstruct;
 import javax.net.ssl.HostnameVerifier;
 import javax.net.ssl.HttpsURLConnection;
 import javax.net.ssl.SSLContext;
@@ -116,18 +117,15 @@ public class BrowserService implements Observer{
 
 	private static boolean geeMethodUpdated = false;
 
-	
-	@Override
-	protected void finalize() throws Throwable {
-		super.finalize();
-		closeBrowsers();
-	}
 
 	public void closeBrowsers() {
-		getClosingBrowsersThread().start();
+		synchronized (this) {
+			getClosingBrowsersThread().start();
+		}
+		
 	}
 	
-	
+	@PostConstruct
 	public void attachShutDownHook() {
 		Runtime.getRuntime().addShutdownHook(
 				getClosingBrowsersThread()
@@ -752,6 +750,7 @@ public class BrowserService implements Observer{
 		return new Thread() {
 			@Override
 			public void run() {
+				
 				for (final RemoteWebDriver driver : drivers) {
 					try {
 						driver.quit();
