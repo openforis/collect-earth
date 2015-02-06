@@ -1,10 +1,12 @@
-package org.openforis.collect.earth.app.service.handler;
+package org.openforis.collect.earth.core.handlers;
 
+import org.openforis.idm.metamodel.NodeDefinition;
+import org.openforis.idm.metamodel.NumberAttributeDefinition;
+import org.openforis.idm.metamodel.NumericAttributeDefinition.Type;
 import org.openforis.idm.model.Entity;
 import org.openforis.idm.model.EntityBuilder;
 import org.openforis.idm.model.IntegerAttribute;
 import org.openforis.idm.model.IntegerValue;
-import org.openforis.idm.model.Node;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
@@ -46,8 +48,8 @@ public class IntegerAttributeHandler extends AbstractAttributeHandler<IntegerVal
 	}
 
 	@Override
-	public boolean isParseable(Node value) {
-		return value instanceof IntegerAttribute;
+	public boolean isParseable(NodeDefinition def) {
+		return def instanceof NumberAttributeDefinition && ((NumberAttributeDefinition) def).getType() == Type.INTEGER;
 	}
 
 }

@@ -1,17 +1,16 @@
-package org.openforis.collect.earth.app.service.handler;
+package org.openforis.collect.earth.core.handlers;
 
+import org.openforis.idm.metamodel.BooleanAttributeDefinition;
+import org.openforis.idm.metamodel.NodeDefinition;
 import org.openforis.idm.model.BooleanAttribute;
 import org.openforis.idm.model.BooleanValue;
 import org.openforis.idm.model.Entity;
 import org.openforis.idm.model.EntityBuilder;
-import org.openforis.idm.model.Node;
-import org.springframework.stereotype.Component;
 
 /**
  * @author Alfonso Sanchez-Paus Diaz
  *
  */
-@Component
 public class BooleanAttributeHandler extends AbstractAttributeHandler<BooleanValue> {
 
 	private static final String PREFIX = "boolean_";
@@ -45,7 +44,7 @@ public class BooleanAttributeHandler extends AbstractAttributeHandler<BooleanVal
 	}
 
 	@Override
-	public boolean isParseable(Node value) {
-		return value instanceof BooleanAttribute;
+	public boolean isParseable(NodeDefinition def) {
+		return def instanceof BooleanAttributeDefinition;
 	}
 }

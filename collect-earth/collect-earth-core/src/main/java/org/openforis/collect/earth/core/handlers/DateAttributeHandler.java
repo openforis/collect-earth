@@ -1,22 +1,21 @@
-package org.openforis.collect.earth.app.service.handler;
+package org.openforis.collect.earth.core.handlers;
 
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.Calendar;
 
 import org.apache.log4j.Logger;
+import org.openforis.idm.metamodel.DateAttributeDefinition;
+import org.openforis.idm.metamodel.NodeDefinition;
 import org.openforis.idm.model.Date;
 import org.openforis.idm.model.DateAttribute;
 import org.openforis.idm.model.Entity;
 import org.openforis.idm.model.EntityBuilder;
-import org.openforis.idm.model.Node;
-import org.springframework.stereotype.Component;
 
 /**
  * @author Alfonso Sanchez-Paus Diaz
  *
  */
-@Component
 public class DateAttributeHandler extends AbstractAttributeHandler<Date> {
 
 	private static final String PREFIX = "date_";
@@ -83,7 +82,7 @@ public class DateAttributeHandler extends AbstractAttributeHandler<Date> {
 	}
 
 	@Override
-	public boolean isParseable(Node value) {
-		return value instanceof DateAttribute;
+	public boolean isParseable(NodeDefinition def) {
+		return def instanceof DateAttributeDefinition;
 	}
 }

@@ -1,55 +1,52 @@
-package org.openforis.collect.earth.app.service.handler;
+package org.openforis.collect.earth.core.handlers;
 
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-import org.openforis.collect.earth.app.service.CollectParametersHandlerService;
 import org.openforis.idm.metamodel.CodeAttributeDefinition;
+import org.openforis.idm.metamodel.EntityDefinition;
 import org.openforis.idm.metamodel.NodeDefinition;
 import org.openforis.idm.model.CodeAttribute;
 import org.openforis.idm.model.Entity;
 import org.openforis.idm.model.EntityBuilder;
 import org.openforis.idm.model.Node;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.stereotype.Component;
 
 /**
  * @author Alfonso Sanchez-Paus Diaz
  *
  */
-@Component
 public class EntityHandler extends AbstractAttributeHandler<Entity> {
 
-	@Autowired
-	CollectParametersHandlerService collectParametersHandlerService;
-	
 	// Expected : colllect_entity_topography[house].code_coverage=XX
 	private static final String PREFIX = "entity_";
 
-	public EntityHandler() {
+	private BalloonInputFieldsUtils balloonInputFieldUtils;
+	
+	public EntityHandler(BalloonInputFieldsUtils balloonInputFieldUtils) {
 		super(PREFIX);
+		this.balloonInputFieldUtils = balloonInputFieldUtils;
 	}
 
 	@Override
 	public void addOrUpdate(String parameterName, String parameterValue, Entity parentEntity, int childParameterIndex) {
-			
-			// Expected parameter name:
-			// colllect_entity_topography[house].code_coverage=XX
-			parameterName = removePrefix(parameterName);
-			String childEntityName = getEntityName(parameterName);
-			String keyValue = getEntityKey(parameterName);
-			String entityAttribute = getEntityAttribute(parameterName);
-	
-			Entity childEntity = geChildEntity(parentEntity, childEntityName, keyValue);
-			if (childEntity == null) {
-				childEntity = EntityBuilder.addEntity(parentEntity, childEntityName);
-			}
-			
-			Map<String,String> parameters = new HashMap<String, String>();
-			parameters.put(entityAttribute, parameterValue);
-	
-			collectParametersHandlerService.saveToEntity(parameters, childEntity);
+		
+		// Expected parameter name:
+		// colllect_entity_topography[house].code_coverage=XX
+		parameterName = removePrefix(parameterName);
+		String childEntityName = getEntityName(parameterName);
+		String keyValue = getEntityKey(parameterName);
+		String entityAttribute = getEntityAttribute(parameterName);
+
+		Entity childEntity = geChildEntity(parentEntity, childEntityName, keyValue);
+		if (childEntity == null) {
+			childEntity = EntityBuilder.addEntity(parentEntity, childEntityName);
+		}
+		
+		Map<String,String> parameters = new HashMap<String, String>();
+		parameters.put(entityAttribute, parameterValue);
+
+		balloonInputFieldUtils.saveToEntity(parameters, childEntity);
 	}
 
 	@Override
@@ -57,7 +54,7 @@ public class EntityHandler extends AbstractAttributeHandler<Entity> {
 	}
 
 	private Entity geChildEntity(Entity parentEntity, String entityName, String entityKey) {
-		List<Node<? extends NodeDefinition>> entities = parentEntity.getAll(entityName);
+		List<Node<? extends NodeDefinition>> entities = parentEntity.getChildren(entityName);
 		Entity foundEntity = null;
 		if (entities != null) {
 			for (Node<? extends NodeDefinition> entity : entities) {
@@ -120,8 +117,8 @@ public class EntityHandler extends AbstractAttributeHandler<Entity> {
 	}
 
 	@Override
-	public boolean isParseable(Node value) {
-		return value instanceof Entity;
+	public boolean isParseable(NodeDefinition def) {
+		return def instanceof EntityDefinition;
 	}
 
 	@Override

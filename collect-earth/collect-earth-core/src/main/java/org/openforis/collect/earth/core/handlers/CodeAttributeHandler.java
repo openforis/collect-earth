@@ -1,17 +1,16 @@
-package org.openforis.collect.earth.app.service.handler;
+package org.openforis.collect.earth.core.handlers;
 
+import org.openforis.idm.metamodel.CodeAttributeDefinition;
+import org.openforis.idm.metamodel.NodeDefinition;
 import org.openforis.idm.model.Code;
 import org.openforis.idm.model.CodeAttribute;
 import org.openforis.idm.model.Entity;
 import org.openforis.idm.model.EntityBuilder;
-import org.openforis.idm.model.Node;
-import org.springframework.stereotype.Component;
 
 /**
  * @author Alfonso Sanchez-Paus Diaz
  *
  */
-@Component
 public class CodeAttributeHandler extends AbstractAttributeHandler<Code> {
 
 	private static final String PREFIX = "code_";
@@ -38,8 +37,8 @@ public class CodeAttributeHandler extends AbstractAttributeHandler<Code> {
 	}
 
 	@Override
-	public boolean isParseable(Node value) {
-		return value instanceof CodeAttribute;
+	public boolean isParseable(NodeDefinition def) {
+		return def instanceof CodeAttributeDefinition;
 	}
 
 }

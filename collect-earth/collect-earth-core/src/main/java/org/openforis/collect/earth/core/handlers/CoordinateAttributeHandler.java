@@ -1,17 +1,16 @@
-package org.openforis.collect.earth.app.service.handler;
+package org.openforis.collect.earth.core.handlers;
 
+import org.openforis.idm.metamodel.CoordinateAttributeDefinition;
+import org.openforis.idm.metamodel.NodeDefinition;
 import org.openforis.idm.model.Coordinate;
 import org.openforis.idm.model.CoordinateAttribute;
 import org.openforis.idm.model.Entity;
 import org.openforis.idm.model.EntityBuilder;
-import org.openforis.idm.model.Node;
-import org.springframework.stereotype.Component;
 
 /**
  * @author Alfonso Sanchez-Paus Diaz
  *
  */
-@Component
 public class CoordinateAttributeHandler extends AbstractAttributeHandler<Coordinate> {
 
 	private static final String GOOGLE_EARTH_SRS = "EPSG:4326";
@@ -89,7 +88,7 @@ public class CoordinateAttributeHandler extends AbstractAttributeHandler<Coordin
 	}
 
 	@Override
-	public boolean isParseable(Node value) {
-		return value instanceof CoordinateAttribute;
+	public boolean isParseable(NodeDefinition def) {
+		return def instanceof CoordinateAttributeDefinition;
 	}
 }

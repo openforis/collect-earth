@@ -1,8 +1,9 @@
-package org.openforis.collect.earth.app.service.handler;
+package org.openforis.collect.earth.core.handlers;
 
+import org.openforis.idm.metamodel.NodeDefinition;
+import org.openforis.idm.metamodel.TextAttributeDefinition;
 import org.openforis.idm.model.Entity;
 import org.openforis.idm.model.EntityBuilder;
-import org.openforis.idm.model.Node;
 import org.openforis.idm.model.TextAttribute;
 import org.openforis.idm.model.TextValue;
 import org.springframework.stereotype.Component;
@@ -38,8 +39,8 @@ public class TextAttributeHandler extends AbstractAttributeHandler<TextValue> {
 	}
 
 	@Override
-	public boolean isParseable(Node value) {
-		return value instanceof TextAttribute;
+	public boolean isParseable(NodeDefinition def) {
+		return def instanceof TextAttributeDefinition;
 	}
 
 }

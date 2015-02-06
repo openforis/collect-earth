@@ -14,8 +14,9 @@ import javax.annotation.PostConstruct;
 import org.apache.commons.dbcp.BasicDataSource;
 import org.openforis.collect.earth.app.EarthConstants;
 import org.openforis.collect.earth.app.service.LocalPropertiesService.EarthProperty;
-import org.openforis.collect.earth.app.service.handler.DateAttributeHandler;
 import org.openforis.collect.earth.app.view.Messages;
+import org.openforis.collect.earth.core.handlers.BalloonInputFieldsUtils;
+import org.openforis.collect.earth.core.handlers.DateAttributeHandler;
 import org.openforis.collect.manager.RecordManager;
 import org.openforis.collect.manager.SurveyManager;
 import org.openforis.collect.manager.exception.SurveyValidationException;
@@ -45,9 +46,6 @@ public class EarthSurveyService {
 	private static final String COLLECT_TEXT_OPERATOR = "collect_text_operator"; //$NON-NLS-1$
 	private static final String SKIP_FILLED_PLOT_PARAMETER = "jump_to_next_plot"; //$NON-NLS-1$
 	
-	@Autowired
-	private CollectParametersHandlerService collectParametersHandler;
-
 	private CollectSurvey collectSurvey;
 
 	@Autowired
@@ -65,6 +63,12 @@ public class EarthSurveyService {
 	@Autowired
 	private BasicDataSource dataSource;
 
+	private BalloonInputFieldsUtils collectParametersHandler;
+
+	public EarthSurveyService() {
+		collectParametersHandler = new BalloonInputFieldsUtils();
+	}
+	
 	private void addLocalProperties(Map<String, String> placemarkParameters) {
 		placemarkParameters.put(SKIP_FILLED_PLOT_PARAMETER, localPropertiesService.shouldJumpToNextPlot() + ""); //$NON-NLS-1$
 	}
@@ -131,7 +135,7 @@ public class EarthSurveyService {
 		if (summaries.size() > 0) {
 			record = summaries.get(0);
 			record = recordManager.load(getCollectSurvey(), record.getId(), Step.ENTRY);
-			placemarkParameters = collectParametersHandler.getParameters(record.getRootEntity());
+			placemarkParameters = collectParametersHandler.getValuesByHtmlParameters(record.getRootEntity());
 
 			if ((placemarkParameters.get("collect_code_canopy_cover") != null) && placemarkParameters.get("collect_code_canopy_cover").equals("0")) { //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$
 				placemarkParameters.put("collect_code_canopy_cover", //$NON-NLS-1$

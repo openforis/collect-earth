@@ -11,6 +11,7 @@ import org.openforis.collect.io.data.CSVDataImportProcess;
 import org.openforis.collect.io.data.DataImportSummaryItem;
 import org.openforis.collect.io.data.XMLDataExportProcess;
 import org.openforis.collect.io.data.XMLDataImportProcess;
+import org.openforis.collect.io.data.csv.CSVExportConfiguration;
 import org.openforis.collect.manager.RecordManager;
 import org.openforis.collect.manager.SurveyManager;
 import org.openforis.collect.model.CollectRecord;
@@ -62,11 +63,11 @@ public class DataImportExportService {
 		csvDataExportProcess.setOutputFile(exportToFile);
 
 		csvDataExportProcess.setEntityId(earthSurveyService.getCollectSurvey().getSchema().getRootEntityDefinition(EarthConstants.ROOT_ENTITY_NAME).getId());
-
-		csvDataExportProcess.setIncludeAllAncestorAttributes(true);
-
 		csvDataExportProcess.setRecordFilter( getRecordFilter() ) ;
-
+		
+		CSVExportConfiguration config = new CSVExportConfiguration();
+		config.setIncludeAllAncestorAttributes(true);
+		csvDataExportProcess.setConfiguration(config);
 
 		return csvDataExportProcess;
 	}
@@ -82,10 +83,14 @@ public class DataImportExportService {
 		final CSVDataExportProcess csvDataExportProcess = applicationContext.getBean(CSVDataExportProcess.class);
 		csvDataExportProcess.setOutputFile(exportToFile);
 		csvDataExportProcess.setEntityId(earthSurveyService.getCollectSurvey().getSchema().getRootEntityDefinition(EarthConstants.ROOT_ENTITY_NAME).getId());
-		csvDataExportProcess.setIncludeAllAncestorAttributes(true);
-		csvDataExportProcess.setIncludeCodeItemPositionColumn(true);
-		csvDataExportProcess.setIncludeKMLColumnForCoordinates(true);
 		csvDataExportProcess.setRecordFilter( getRecordFilter() ) ;
+		
+
+		CSVExportConfiguration config = new CSVExportConfiguration();
+		config.setIncludeAllAncestorAttributes(true);
+		config.setIncludeCodeItemPositionColumn(true);
+		config.setIncludeKMLColumnForCoordinates(true);
+		csvDataExportProcess.setConfiguration(config);
 		return csvDataExportProcess;
 	}
 

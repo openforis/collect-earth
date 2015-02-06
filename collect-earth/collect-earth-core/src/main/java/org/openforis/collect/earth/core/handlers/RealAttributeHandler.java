@@ -1,8 +1,10 @@
-package org.openforis.collect.earth.app.service.handler;
+package org.openforis.collect.earth.core.handlers;
 
+import org.openforis.idm.metamodel.NodeDefinition;
+import org.openforis.idm.metamodel.NumberAttributeDefinition;
+import org.openforis.idm.metamodel.NumericAttributeDefinition.Type;
 import org.openforis.idm.model.Entity;
 import org.openforis.idm.model.EntityBuilder;
-import org.openforis.idm.model.Node;
 import org.openforis.idm.model.RealAttribute;
 import org.openforis.idm.model.RealValue;
 import org.slf4j.Logger;
@@ -48,8 +50,8 @@ public class RealAttributeHandler extends AbstractAttributeHandler<RealValue> {
 	}
 
 	@Override
-	public boolean isParseable(Node value) {
-		return value instanceof RealAttribute;
+	public boolean isParseable(NodeDefinition def) {
+		return def instanceof NumberAttributeDefinition && ((NumberAttributeDefinition) def).getType() == Type.REAL;
 	}
 
 }

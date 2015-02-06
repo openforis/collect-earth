@@ -1,4 +1,4 @@
-package org.openforis.collect.earth.app.service.handler;
+package org.openforis.collect.earth.core.handlers;
 
 import org.openforis.idm.metamodel.NodeDefinition;
 import org.openforis.idm.model.Attribute;
@@ -54,8 +54,12 @@ public abstract class AbstractAttributeHandler<C> {
 		return parameterName.startsWith(getPrefix());
 	}
 
-	public abstract boolean isParseable(Node value);
+	public boolean isParseable(Node<?> value) {
+		return isParseable(value.getDefinition());
+	}
 
+	public abstract boolean isParseable(NodeDefinition def);
+	
 	protected String removePrefix(String parameterName) {
 		if (parameterName.startsWith(prefix)) {
 			return parameterName.substring(prefix.length());
