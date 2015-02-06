@@ -463,6 +463,7 @@ public class AnalysisSaikuService {
 	public void prepareDataForAnalysis() throws SaikuExecutionException {
 
 		try {
+					
 			stopSaiku();
 
 			try {

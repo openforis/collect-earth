@@ -97,10 +97,12 @@ public class EarthApp {
 
 			} catch (final IOException e) {
 				logger.error("Could not generate KML file", e); //$NON-NLS-1$
+				e.printStackTrace();
 				showMessage("Error generating KML file : <br/> " + e.getMessage()); //$NON-NLS-1$
 			} catch (final KmlGenerationException e) {
 				logger.error("Problems while generating the KML file ", e); //$NON-NLS-1$
-				showMessage("Problems while generating the KML file: \r\n " + e.getCause()); //$NON-NLS-1$
+				e.printStackTrace();
+				showMessage("<html>Problems while generating the KML file: <br/> " + (e.getCause()!=null?(e.getCause()+"<br/>"):"") + e.getMessage().substring(0,300) + "</html>"); //$NON-NLS-1$
 			}
 
 			earthApp.checkForUpdates();
