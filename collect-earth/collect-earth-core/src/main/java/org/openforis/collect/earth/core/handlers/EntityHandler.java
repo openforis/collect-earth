@@ -4,9 +4,12 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+import org.openforis.collect.model.NodeChangeMap;
+import org.openforis.collect.model.NodeChangeSet;
 import org.openforis.idm.metamodel.CodeAttributeDefinition;
 import org.openforis.idm.metamodel.EntityDefinition;
 import org.openforis.idm.metamodel.NodeDefinition;
+import org.openforis.idm.model.Code;
 import org.openforis.idm.model.CodeAttribute;
 import org.openforis.idm.model.Entity;
 import org.openforis.idm.model.EntityBuilder;
@@ -29,7 +32,8 @@ public class EntityHandler extends AbstractAttributeHandler<Entity> {
 	}
 
 	@Override
-	public void addOrUpdate(String parameterName, String parameterValue, Entity parentEntity, int childParameterIndex) {
+	public NodeChangeSet addOrUpdate(String parameterName, String parameterValue, Entity parentEntity, int childParameterIndex) {
+		NodeChangeMap result = new NodeChangeMap();
 		
 		// Expected parameter name:
 		// colllect_entity_topography[house].code_coverage=XX
@@ -40,17 +44,22 @@ public class EntityHandler extends AbstractAttributeHandler<Entity> {
 
 		Entity childEntity = geChildEntity(parentEntity, childEntityName, keyValue);
 		if (childEntity == null) {
-			childEntity = EntityBuilder.addEntity(parentEntity, childEntityName);
+//			childEntity = EntityBuilder.addEntity(parentEntity, childEntityName);
+			NodeChangeSet changeSet = recordUpdater.addEntity(parentEntity, childEntityName);
+			result.addMergeChanges(changeSet);
 		}
 		
 		Map<String,String> parameters = new HashMap<String, String>();
 		parameters.put(entityAttribute, parameterValue);
 
-		balloonInputFieldUtils.saveToEntity(parameters, childEntity);
+		NodeChangeSet otherChangeSet = balloonInputFieldUtils.saveToEntity(parameters, childEntity);
+		result.addMergeChanges(otherChangeSet);
+		return result;
 	}
 
 	@Override
-	protected void addToEntity(String parameterName, String parameterValue, Entity entity) {
+	protected NodeChangeSet addToEntity(String parameterName, String parameterValue, Entity entity) {
+		return new NodeChangeMap();
 	}
 
 	private Entity geChildEntity(Entity parentEntity, String entityName, String entityKey) {

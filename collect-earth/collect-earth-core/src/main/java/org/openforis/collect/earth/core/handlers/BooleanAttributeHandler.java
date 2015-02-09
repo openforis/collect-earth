@@ -1,11 +1,11 @@
 package org.openforis.collect.earth.core.handlers;
 
+import org.openforis.collect.model.NodeChangeSet;
 import org.openforis.idm.metamodel.BooleanAttributeDefinition;
 import org.openforis.idm.metamodel.NodeDefinition;
 import org.openforis.idm.model.BooleanAttribute;
 import org.openforis.idm.model.BooleanValue;
 import org.openforis.idm.model.Entity;
-import org.openforis.idm.model.EntityBuilder;
 
 /**
  * @author Alfonso Sanchez-Paus Diaz
@@ -20,14 +20,15 @@ public class BooleanAttributeHandler extends AbstractAttributeHandler<BooleanVal
 	}
 
 	@Override
-	public void addToEntity(String parameterName, String parameterValue, Entity entity) {
+	public NodeChangeSet addToEntity(String parameterName, String parameterValue, Entity entity) {
 		if( parameterValue.equals("1")){
 			parameterValue = "true";
 		}else if( parameterValue.equals("0")){
 			parameterValue = "false";
 		}
-		
-		EntityBuilder.addValue(entity, removePrefix(parameterName), Boolean.parseBoolean(parameterValue));
+		NodeChangeSet changeSet = recordUpdater.addAttribute(entity, removePrefix(parameterName), new BooleanValue(parameterValue));
+		return changeSet;
+//		EntityBuilder.addValue(entity, removePrefix(parameterName), Boolean.parseBoolean(parameterValue));
 	}
 
 	@Override

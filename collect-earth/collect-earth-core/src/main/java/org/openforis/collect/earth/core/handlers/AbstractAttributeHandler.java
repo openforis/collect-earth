@@ -1,42 +1,49 @@
 package org.openforis.collect.earth.core.handlers;
 
+import org.openforis.collect.model.NodeChangeSet;
+import org.openforis.collect.model.RecordUpdater;
 import org.openforis.idm.metamodel.NodeDefinition;
 import org.openforis.idm.model.Attribute;
 import org.openforis.idm.model.Entity;
 import org.openforis.idm.model.Node;
 import org.openforis.idm.model.Value;
-import org.springframework.stereotype.Component;
 
 /**
  * @author Alfonso Sanchez-Paus Diaz
  *
  */
-@Component
 public abstract class AbstractAttributeHandler<C> {
 
 	private String prefix;
+	
+	protected RecordUpdater recordUpdater;
 
 	public AbstractAttributeHandler(String prefix) {
 		super();
 		this.prefix = prefix;
+		this.recordUpdater = new RecordUpdater();
 	}
 
-	public void addOrUpdate(String parameterName, String parameterValue, Entity entity, int parameterChildIndex) {
-
+	@SuppressWarnings({ "unchecked", "rawtypes" })
+	public NodeChangeSet addOrUpdate(String parameterName, String parameterValue, Entity entity, int parameterChildIndex) {
+		NodeChangeSet changeSet = null;
 		String cleanParameterName = removePrefix(parameterName);
 		Node<? extends NodeDefinition> node = entity.get(cleanParameterName, parameterChildIndex);
 
 		if (parameterValue.trim().length() > 0) {
 			if (node == null) {
-				addToEntity(parameterName, parameterValue, entity);
+				changeSet = addToEntity(parameterName, parameterValue, entity);
 			} else if (node instanceof Attribute) {
 				Attribute attribute = (Attribute) entity.get(cleanParameterName, parameterChildIndex);
-				attribute.setValue((Value) getAttributeValue(parameterValue));
+				Value value = (Value) getAttributeValue(parameterValue);
+				changeSet = recordUpdater.updateAttribute(attribute, value);
+//				attribute.setValue(value);
 			}
 		}
+		return changeSet;
 	}
 
-	protected abstract void addToEntity(String parameterName, String parameterValue, Entity entity);
+	protected abstract NodeChangeSet addToEntity(String parameterName, String parameterValue, Entity entity);
 
 	public String getAttributeFromParameter(String parameterName, Entity entity) {
 		return getAttributeFromParameter(parameterName, entity, 0);

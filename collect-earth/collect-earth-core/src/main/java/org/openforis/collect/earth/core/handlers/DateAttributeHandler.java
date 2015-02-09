@@ -5,12 +5,12 @@ import java.text.SimpleDateFormat;
 import java.util.Calendar;
 
 import org.apache.log4j.Logger;
+import org.openforis.collect.model.NodeChangeSet;
 import org.openforis.idm.metamodel.DateAttributeDefinition;
 import org.openforis.idm.metamodel.NodeDefinition;
 import org.openforis.idm.model.Date;
 import org.openforis.idm.model.DateAttribute;
 import org.openforis.idm.model.Entity;
-import org.openforis.idm.model.EntityBuilder;
 
 /**
  * @author Alfonso Sanchez-Paus Diaz
@@ -27,8 +27,10 @@ public class DateAttributeHandler extends AbstractAttributeHandler<Date> {
 	}
 
 	@Override
-	public void addToEntity(String parameterName, String parameterValue, Entity entity) {
-		EntityBuilder.addValue(entity, removePrefix(parameterName), getDate(parameterValue));
+	public NodeChangeSet addToEntity(String parameterName, String parameterValue, Entity entity) {
+//		EntityBuilder.addValue(entity, removePrefix(parameterName), getDate(parameterValue));
+		NodeChangeSet changeSet = recordUpdater.addAttribute(entity, removePrefix(parameterName),  getDate(parameterValue));
+		return changeSet;
 	}
 
 	@Override

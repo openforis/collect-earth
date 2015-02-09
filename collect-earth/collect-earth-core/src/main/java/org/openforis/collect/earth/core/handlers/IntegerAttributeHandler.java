@@ -1,10 +1,11 @@
 package org.openforis.collect.earth.core.handlers;
 
+import org.openforis.collect.model.NodeChangeMap;
+import org.openforis.collect.model.NodeChangeSet;
 import org.openforis.idm.metamodel.NodeDefinition;
 import org.openforis.idm.metamodel.NumberAttributeDefinition;
 import org.openforis.idm.metamodel.NumericAttributeDefinition.Type;
 import org.openforis.idm.model.Entity;
-import org.openforis.idm.model.EntityBuilder;
 import org.openforis.idm.model.IntegerAttribute;
 import org.openforis.idm.model.IntegerValue;
 import org.slf4j.Logger;
@@ -26,13 +27,15 @@ public class IntegerAttributeHandler extends AbstractAttributeHandler<IntegerVal
 	}
 
 	@Override
-	public void addToEntity(String parameterName, String parameterValue, Entity entity) {
-
+	public NodeChangeSet addToEntity(String parameterName, String parameterValue, Entity entity) {
+		NodeChangeSet changeSet = new NodeChangeMap();
 		try {
-			EntityBuilder.addValue(entity, removePrefix(parameterName), Integer.parseInt(parameterValue));
+			changeSet = recordUpdater.addAttribute(entity, removePrefix(parameterName), getAttributeValue(parameterValue));
+//			EntityBuilder.addValue(entity, removePrefix(parameterName), Integer.parseInt(parameterValue));
 		} catch (NumberFormatException e) {
 			logger.error("The paramater " + parameterName + " was expecting an integer value but got this : " + parameterValue);
 		}
+		return changeSet;
 	}
 
 	@Override

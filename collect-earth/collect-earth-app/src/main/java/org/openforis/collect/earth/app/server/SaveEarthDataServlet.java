@@ -8,9 +8,14 @@ import javax.servlet.http.HttpServletResponse;
 
 import org.openforis.collect.earth.app.service.LocalPropertiesService;
 import org.openforis.collect.earth.app.view.Messages;
+import org.openforis.collect.manager.RecordManager;
+import org.openforis.collect.model.NodeChangeSet;
+import org.openforis.idm.model.Attribute;
+import org.openforis.idm.model.Value;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 
 /**
  * Servlet called for updating/saving the information about a placemark. Called from the form in Google Earth when the user interacts with it or clicks the save button.
@@ -31,7 +36,7 @@ public class SaveEarthDataServlet extends JsonPocessorServlet {
 	@RequestMapping("/saveData")
 	protected void processRequest(HttpServletRequest request, HttpServletResponse response) throws IOException {
 
-		final Map<String, String> collectedData = extractRequestData(request);
+		Map<String, String> collectedData = extractRequestData(request);
 
 		replaceTestVariables(collectedData);
 
@@ -52,6 +57,14 @@ public class SaveEarthDataServlet extends JsonPocessorServlet {
 		setJsonResponse(response, collectedData);
 	}
 
+	@RequestMapping("/updatevalue")
+	public void updateAttribute(HttpServletRequest request, HttpServletResponse response) {
+		Map<String, String> collectedData = extractRequestData(request);
+		
+		Attribute<?, Value> attribute = null;
+		Value value = null;
+	}
+	
 	/**
 	 * This method replaces the variable values that the form contains when it is not run
 	 * through Google Earth and the variable replacement of the ExtendedData of the KML does not kick in.

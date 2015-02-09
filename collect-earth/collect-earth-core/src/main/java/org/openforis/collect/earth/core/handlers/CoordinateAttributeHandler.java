@@ -1,11 +1,11 @@
 package org.openforis.collect.earth.core.handlers;
 
+import org.openforis.collect.model.NodeChangeSet;
 import org.openforis.idm.metamodel.CoordinateAttributeDefinition;
 import org.openforis.idm.metamodel.NodeDefinition;
 import org.openforis.idm.model.Coordinate;
 import org.openforis.idm.model.CoordinateAttribute;
 import org.openforis.idm.model.Entity;
-import org.openforis.idm.model.EntityBuilder;
 
 /**
  * @author Alfonso Sanchez-Paus Diaz
@@ -21,9 +21,12 @@ public class CoordinateAttributeHandler extends AbstractAttributeHandler<Coordin
 	}
 
 	@Override
-	public void addToEntity(String parameterName, String parameterValue, Entity entity) {
+	public NodeChangeSet addToEntity(String parameterName, String parameterValue, Entity entity) {
 		Coordinate coord = extractCoordinate(parameterValue);
-		EntityBuilder.addValue(entity, removePrefix(parameterName), coord);
+//		EntityBuilder.addValue(entity, removePrefix(parameterName), coord);
+		
+		NodeChangeSet changeSet = recordUpdater.addAttribute(entity, removePrefix(parameterName), coord);
+		return changeSet;
 	}
 
 	/**

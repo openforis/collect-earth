@@ -8,6 +8,8 @@ import java.util.Map.Entry;
 import java.util.Set;
 
 import org.apache.commons.lang3.StringUtils;
+import org.openforis.collect.model.NodeChangeMap;
+import org.openforis.collect.model.NodeChangeSet;
 import org.openforis.idm.metamodel.AttributeDefinition;
 import org.openforis.idm.metamodel.CodeAttributeDefinition;
 import org.openforis.idm.metamodel.CodeList;
@@ -232,7 +234,9 @@ public class BalloonInputFieldsUtils {
 		}
 	}
 
-	public void saveToEntity(Map<String, String> parameters, Entity entity) {
+	public NodeChangeSet saveToEntity(Map<String, String> parameters, Entity entity) {
+		NodeChangeMap result = new NodeChangeMap();
+		
 		Set<Entry<String, String>> parameterEntries = parameters.entrySet();
 
 		for (Entry<String, String> entry : parameterEntries) {
@@ -242,21 +246,23 @@ public class BalloonInputFieldsUtils {
 			AbstractAttributeHandler<?> handler = findHandler(cleanName);
 			try {
 				if( handler.isMultiValueAware() ){ // EntityHandler will use the original separated parameter values while the other will take single values
-					handler.addOrUpdate(cleanName, parameterValue, entity, 0);
+					NodeChangeSet partialChangeSet = handler.addOrUpdate(cleanName, parameterValue, entity, 0);
+					result.addMergeChanges(partialChangeSet);
 				}else{
 					String[] parameterValues = parameterValue.split(BalloonInputFieldsUtils.PARAMETER_SEPARATOR);
 					int index = 0; 
 					for (String parameterVal : parameterValues) {
-						handler.addOrUpdate(cleanName, parameterVal, entity, index);
+						NodeChangeSet partialChangeSet = handler.addOrUpdate(cleanName, parameterVal, entity, index);
+						result.addMergeChanges(partialChangeSet);
 						index++;
 					}
 				}
-
 				break;
 			} catch (Exception e) {
 				logger.error("Error while parsing parameter " + cleanName + " with value " + parameterValue, e);
 			}
 		}
+		return result;
 	}
 
 }
