@@ -23,20 +23,20 @@ public class TextAttributeHandler extends AbstractAttributeHandler<TextValue> {
 
 	@Override
 	public NodeChangeSet addToEntity(String parameterName, String parameterValue, Entity entity) {
-		NodeChangeSet changeSet = recordUpdater.addAttribute(entity, removePrefix(parameterName), getAttributeValue(parameterValue));
+		NodeChangeSet changeSet = recordUpdater.addAttribute(entity, removePrefix(parameterName), createValue(parameterValue));
 		return changeSet;
 //		EntityBuilder.addValue(entity, removePrefix(parameterName), parameterValue);
 	}
 
 	@Override
-	public String getAttributeFromParameter(String parameterName, Entity entity, int index) {
+	public String getValueFromParameter(String parameterName, Entity entity, int index) {
 		String cleanName = removePrefix(parameterName);
 		
 		return ((TextAttribute) entity.get(cleanName, index)).getValue().getValue();
 	}
 
 	@Override
-	public TextValue getAttributeValue(String parameterValue) {
+	public TextValue createValue(String parameterValue) {
 		return new TextValue(parameterValue);
 	}
 

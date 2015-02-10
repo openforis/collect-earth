@@ -27,14 +27,14 @@ public class CodeAttributeHandler extends AbstractAttributeHandler<Code> {
 	}
 
 	@Override
-	public String getAttributeFromParameter(String parameterName, Entity entity, int index) {
+	public String getValueFromParameter(String parameterName, Entity entity, int index) {
 		String cleanName = removePrefix(parameterName);
 	
 		return ((CodeAttribute) entity.get(cleanName, index)).getValue().getCode();
 	}
 
 	@Override
-	public Code getAttributeValue(String parameterValue) {
+	public Code createValue(String parameterValue) {
 		return new Code(parameterValue);
 	}
 

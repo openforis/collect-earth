@@ -30,7 +30,7 @@ public class IntegerAttributeHandler extends AbstractAttributeHandler<IntegerVal
 	public NodeChangeSet addToEntity(String parameterName, String parameterValue, Entity entity) {
 		NodeChangeSet changeSet = new NodeChangeMap();
 		try {
-			changeSet = recordUpdater.addAttribute(entity, removePrefix(parameterName), getAttributeValue(parameterValue));
+			changeSet = recordUpdater.addAttribute(entity, removePrefix(parameterName), createValue(parameterValue));
 //			EntityBuilder.addValue(entity, removePrefix(parameterName), Integer.parseInt(parameterValue));
 		} catch (NumberFormatException e) {
 			logger.error("The paramater " + parameterName + " was expecting an integer value but got this : " + parameterValue);
@@ -39,14 +39,14 @@ public class IntegerAttributeHandler extends AbstractAttributeHandler<IntegerVal
 	}
 
 	@Override
-	public String getAttributeFromParameter(String parameterName, Entity entity, int index) {
+	public String getValueFromParameter(String parameterName, Entity entity, int index) {
 		String cleanName = removePrefix(parameterName);
 		Integer value = ((IntegerAttribute) entity.get(cleanName, index)).getValue().getValue();
 		return value==null?null:value.toString();
 	}
 
 	@Override
-	public IntegerValue getAttributeValue(String parameterValue) {
+	public IntegerValue createValue(String parameterValue) {
 		return new IntegerValue(Integer.parseInt(parameterValue), null);
 	}
 

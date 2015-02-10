@@ -22,7 +22,11 @@ public class CollectDataAccessor implements DataAccessor {
 
 	@Override
 	public boolean saveData(Map<String, String> collectedData) {
-		return earthSurveyService.storePlacemark(collectedData, null);
+		return earthSurveyService.storePlacemarkOld(collectedData, null);
 	}
 
+	@Override
+	public PlacemarkSaveResult saveDataExpanded(Map<String, String> collectedData) {
+		return earthSurveyService.storePlacemark(collectedData, null);
+	}
 }

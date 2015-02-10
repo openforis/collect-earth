@@ -28,19 +28,16 @@ public class BooleanAttributeHandler extends AbstractAttributeHandler<BooleanVal
 		}
 		NodeChangeSet changeSet = recordUpdater.addAttribute(entity, removePrefix(parameterName), new BooleanValue(parameterValue));
 		return changeSet;
-//		EntityBuilder.addValue(entity, removePrefix(parameterName), Boolean.parseBoolean(parameterValue));
 	}
 
 	@Override
-	public String getAttributeFromParameter(String parameterName, Entity entity, int index) {
-		String cleanName = removePrefix(parameterName);
-		Boolean value = ((BooleanAttribute) entity.get(cleanName, index)).getValue().getValue();
-		
-		return value==null?null:value.toString();		
+	public String getValueFromParameter(String parameterName, Entity entity, int index) {
+		Boolean value = ((BooleanAttribute) getAttributeNodeFromParameter(parameterName, entity, index)).getValue().getValue();
+		return value == null ? null : value.toString();		
 	}
-
+	
 	@Override
-	public BooleanValue getAttributeValue(String parameterValue) {
+	public BooleanValue createValue(String parameterValue) {
 		return new BooleanValue(parameterValue);
 	}
 

@@ -26,32 +26,38 @@ public abstract class AbstractAttributeHandler<C> {
 
 	@SuppressWarnings({ "unchecked", "rawtypes" })
 	public NodeChangeSet addOrUpdate(String parameterName, String parameterValue, Entity entity, int parameterChildIndex) {
+		if (parameterValue.trim().isEmpty()) {
+			return null;
+		}
 		NodeChangeSet changeSet = null;
 		String cleanParameterName = removePrefix(parameterName);
-		Node<? extends NodeDefinition> node = entity.get(cleanParameterName, parameterChildIndex);
+		Node<?> node = entity.get(cleanParameterName, parameterChildIndex);
 
-		if (parameterValue.trim().length() > 0) {
-			if (node == null) {
-				changeSet = addToEntity(parameterName, parameterValue, entity);
-			} else if (node instanceof Attribute) {
-				Attribute attribute = (Attribute) entity.get(cleanParameterName, parameterChildIndex);
-				Value value = (Value) getAttributeValue(parameterValue);
-				changeSet = recordUpdater.updateAttribute(attribute, value);
-//				attribute.setValue(value);
-			}
+		if (node == null) {
+			changeSet = addToEntity(parameterName, parameterValue, entity);
+		} else if (node instanceof Attribute) {
+			Attribute attribute = (Attribute) entity.get(cleanParameterName, parameterChildIndex);
+			Value value = (Value) createValue(parameterValue);
+			changeSet = recordUpdater.updateAttribute(attribute, value);
 		}
 		return changeSet;
 	}
 
 	protected abstract NodeChangeSet addToEntity(String parameterName, String parameterValue, Entity entity);
 
-	public String getAttributeFromParameter(String parameterName, Entity entity) {
-		return getAttributeFromParameter(parameterName, entity, 0);
+	public Node<?> getAttributeNodeFromParameter(String parameterName, Entity entity, int index) {
+		String cleanName = removePrefix(parameterName);
+		Node<?> node = entity.get(cleanName, index);
+		return node;
 	}
 
-	public abstract String getAttributeFromParameter(String parameterName, Entity entity, int index);
+	public String getValueFromParameter(String parameterName, Entity entity) {
+		return getValueFromParameter(parameterName, entity, 0);
+	}
 
-	protected abstract C getAttributeValue(String parameterValue);
+	public abstract String getValueFromParameter(String parameterName, Entity entity, int index);
+
+	protected abstract C createValue(String parameterValue);
 
 	public String getPrefix() {
 		return prefix;

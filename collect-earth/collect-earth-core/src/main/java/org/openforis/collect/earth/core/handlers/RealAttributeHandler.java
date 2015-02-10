@@ -30,7 +30,7 @@ public class RealAttributeHandler extends AbstractAttributeHandler<RealValue> {
 	public NodeChangeSet addToEntity(String parameterName, String parameterValue, Entity entity) {
 		NodeChangeSet changeSet = new NodeChangeMap();
 		try {
-			changeSet = recordUpdater.addAttribute(entity, removePrefix(parameterName), getAttributeValue(parameterValue));
+			changeSet = recordUpdater.addAttribute(entity, removePrefix(parameterName), createValue(parameterValue));
 //			EntityBuilder.addValue(entity, removePrefix(parameterName), Double.parseDouble(parameterValue));
 		} catch (NumberFormatException e) {
 			logger.error("The paramater " + parameterName + " was expecting a real number value but got this : " + parameterValue);
@@ -39,7 +39,7 @@ public class RealAttributeHandler extends AbstractAttributeHandler<RealValue> {
 	}
 
 	@Override
-	public String getAttributeFromParameter(String parameterName, Entity entity, int index) {
+	public String getValueFromParameter(String parameterName, Entity entity, int index) {
 		String cleanName = removePrefix(parameterName);
 		Double value = ((RealAttribute) entity.get(cleanName
 				, index)).getValue().getValue();
@@ -48,7 +48,7 @@ public class RealAttributeHandler extends AbstractAttributeHandler<RealValue> {
 	}
 
 	@Override
-	public RealValue getAttributeValue(String parameterValue) {
+	public RealValue createValue(String parameterValue) {
 		return new RealValue(Double.parseDouble(parameterValue), null);
 	}
 

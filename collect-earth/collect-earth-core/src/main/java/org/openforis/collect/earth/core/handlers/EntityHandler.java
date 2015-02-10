@@ -79,12 +79,12 @@ public class EntityHandler extends AbstractAttributeHandler<Entity> {
 	}
 
 	@Override
-	public String getAttributeFromParameter(String parameterName, Entity entity, int index) {
+	public String getValueFromParameter(String parameterName, Entity entity, int index) {
 		return "";
 	}
 
 	@Override
-	protected Entity getAttributeValue(String parameterValue) {
+	protected Entity createValue(String parameterValue) {
 		return EntityBuilder.createEntity(null, parameterValue);
 	}
 

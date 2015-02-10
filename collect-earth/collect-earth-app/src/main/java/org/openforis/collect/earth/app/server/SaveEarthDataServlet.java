@@ -1,6 +1,7 @@
 package org.openforis.collect.earth.app.server;
 
 import java.io.IOException;
+import java.util.HashMap;
 import java.util.Map;
 
 import javax.servlet.http.HttpServletRequest;
@@ -8,14 +9,9 @@ import javax.servlet.http.HttpServletResponse;
 
 import org.openforis.collect.earth.app.service.LocalPropertiesService;
 import org.openforis.collect.earth.app.view.Messages;
-import org.openforis.collect.manager.RecordManager;
-import org.openforis.collect.model.NodeChangeSet;
-import org.openforis.idm.model.Attribute;
-import org.openforis.idm.model.Value;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RequestParam;
 
 /**
  * Servlet called for updating/saving the information about a placemark. Called from the form in Google Earth when the user interacts with it or clicks the save button.
@@ -32,9 +28,9 @@ public class SaveEarthDataServlet extends JsonPocessorServlet {
 	//CollectDesignerController collectDesignerController;
 	
 	
-	@Override
+	@Deprecated
 	@RequestMapping("/saveData")
-	protected void processRequest(HttpServletRequest request, HttpServletResponse response) throws IOException {
+	protected void saveData(HttpServletRequest request, HttpServletResponse response) throws IOException {
 
 		Map<String, String> collectedData = extractRequestData(request);
 
@@ -57,12 +53,11 @@ public class SaveEarthDataServlet extends JsonPocessorServlet {
 		setJsonResponse(response, collectedData);
 	}
 
-	@RequestMapping("/updatevalue")
-	public void updateAttribute(HttpServletRequest request, HttpServletResponse response) {
+	@RequestMapping("/saveDataExpanded")
+	public void saveDataExpanded(HttpServletRequest request, HttpServletResponse response) throws IOException {
 		Map<String, String> collectedData = extractRequestData(request);
-		
-		Attribute<?, Value> attribute = null;
-		Value value = null;
+		Map<String, PlacemarkInputFieldInfo> result = new HashMap<String, PlacemarkInputFieldInfo>();
+		setJsonResponse(response, result);
 	}
 	
 	/**
@@ -95,4 +90,10 @@ public class SaveEarthDataServlet extends JsonPocessorServlet {
 		}
 	}
 
+	@Override
+	protected void processRequest(HttpServletRequest request,
+			HttpServletResponse response) throws IOException {
+		// TODO Auto-generated method stub
+	}
+	
 }

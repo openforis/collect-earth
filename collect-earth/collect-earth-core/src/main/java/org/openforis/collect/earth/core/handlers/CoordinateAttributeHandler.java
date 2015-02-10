@@ -67,7 +67,7 @@ public class CoordinateAttributeHandler extends AbstractAttributeHandler<Coordin
 	 * @see org.openforis.collect.earth.app.service.handler.AbstractAttributeHandler#getAttributeFromParameter(java.lang.String, org.openforis.idm.model.Entity, int)
 	 */
 	@Override
-	public String getAttributeFromParameter(String parameterName, Entity entity, int index) {
+	public String getValueFromParameter(String parameterName, Entity entity, int index) {
 		String cleanName = removePrefix(parameterName);
 		if( entity.get(cleanName, index) == null){
 			return "";
@@ -86,7 +86,7 @@ public class CoordinateAttributeHandler extends AbstractAttributeHandler<Coordin
 	}
 
 	@Override
-	public Coordinate getAttributeValue(String parameterValue) {
+	public Coordinate createValue(String parameterValue) {
 		return extractCoordinate(parameterValue);
 	}
 

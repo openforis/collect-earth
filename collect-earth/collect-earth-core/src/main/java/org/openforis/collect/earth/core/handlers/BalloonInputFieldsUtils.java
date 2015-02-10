@@ -83,16 +83,15 @@ public class BalloonInputFieldsUtils {
 		List<Node<? extends NodeDefinition>> children = plotEntity.getChildren();
 
 		for (Node<? extends NodeDefinition> node : children) {
-			AbstractAttributeHandler<?> handler = findHandler(node);
-			getHTMLParameterName(plotEntity, valuesByHTMLParameterName,  node, handler);
+			getHTMLParameterName(plotEntity, valuesByHTMLParameterName,  node);
 		}
 		return valuesByHTMLParameterName;
 	}
 	
-	public Map<NodeDefinition, String> getHtmlParameterNameByNodeDef(final EntityDefinition rootEntity) {
+	public Map<String, String> getHtmlParameterNameByNodePath(final EntityDefinition rootEntity) {
 		final CodeListService codeListService = rootEntity.getSurvey().getContext().getCodeListService();
 
-		final Map<NodeDefinition, String> htmlParameterNameByNodeDef = new HashMap<NodeDefinition, String>();
+		final Map<String, String> result = new HashMap<String, String>();
 		
 		rootEntity.traverse(new NodeDefinitionVisitor() {
 			public void visit(NodeDefinition def) {
@@ -100,7 +99,7 @@ public class BalloonInputFieldsUtils {
 					EntityDefinition parentDef = def.getParentEntityDefinition();
 					if (parentDef == rootEntity) {
 						String collectParamName = getCollectParameterBaseName(def);
-						htmlParameterNameByNodeDef.put(def, collectParamName);
+						result.put(def.getPath(), collectParamName);
 					} else {
 						CodeAttributeDefinition keyCodeAttribute = parentDef.getEnumeratingKeyCodeAttribute();
 						if (keyCodeAttribute == null) {
@@ -108,21 +107,23 @@ public class BalloonInputFieldsUtils {
 						}
 						CodeList enumeratingList = keyCodeAttribute.getList();
 						List<CodeListItem> enumeratingItems = codeListService.loadRootItems(enumeratingList);
-						for (CodeListItem enumeratingItem : enumeratingItems) {
+						for (int i = 0; i < enumeratingItems.size(); i++) {
+							CodeListItem enumeratingItem = enumeratingItems.get(i);
 							String collectParameterBaseName = getCollectParameterBaseName(parentDef) + "[" + enumeratingItem.getCode() + "]";
 							
 							List<NodeDefinition> childDefs = parentDef.getChildDefinitions();
 							for (NodeDefinition childDef : childDefs) {
 								AbstractAttributeHandler<?> childHandler = findHandler(childDef);
 								String collectParameterName = collectParameterBaseName + childHandler.getPrefix() + childDef.getName();
-								htmlParameterNameByNodeDef.put(childDef, collectParameterName);
+								String enumeratingItemPath = parentDef.getPath() + "[" + i + "]/" + childDef.getName();
+								result.put(enumeratingItemPath, collectParameterName);
 							}
 						}
 					}
 				}
 			}
 		});
-		return htmlParameterNameByNodeDef;
+		return result;
 	}
 	
 	private String getCollectParameterBaseName(NodeDefinition def) {
@@ -136,8 +137,9 @@ public class BalloonInputFieldsUtils {
 	}
 
 	protected void getHTMLParameterName(Entity plotEntity, Map<String,String> valuesByHtmlParameterName,
-			Node<? extends NodeDefinition> node,
-			AbstractAttributeHandler<?> handler) {
+			Node<?> node) {
+		AbstractAttributeHandler<?> handler = findHandler(node);
+		
 		// builds ie. "text_parameter"
 		String paramName = handler.getPrefix() + node.getName();
 
@@ -152,13 +154,13 @@ public class BalloonInputFieldsUtils {
 					valuesByHtmlParameterName.put(
 							collectParamName,
 							valuesByHtmlParameterName.get(collectParamName) + PARAMETER_SEPARATOR
-							+ handler.getAttributeFromParameter(paramName, plotEntity, index));
+							+ handler.getValueFromParameter(paramName, plotEntity, index));
 				} catch (Exception e) {
 					logger.error("Exception when getting parameters for entity ", e);
 				}
 
 			} else {
-				valuesByHtmlParameterName.put(collectParamName, handler.getAttributeFromParameter(paramName, plotEntity));
+				valuesByHtmlParameterName.put(collectParamName, handler.getValueFromParameter(paramName, plotEntity));
 			}
 
 		} else if (node instanceof Entity) {
@@ -169,7 +171,7 @@ public class BalloonInputFieldsUtils {
 			collectParamName += "[" + entityKey + "]";
 
 			List<Node<? extends NodeDefinition>> entityChildren = entity.getChildren();
-			int index =0;
+			int index = 0;
 			Integer lastChildId = null;
 			for (Node<? extends NodeDefinition> child : entityChildren) {
 
@@ -184,11 +186,8 @@ public class BalloonInputFieldsUtils {
 				if(!StringUtils.isBlank( parameterValue ) ){
 					
 					String previousValue = valuesByHtmlParameterName.get(parameterName);
-					if( previousValue !=null ){
-						valuesByHtmlParameterName.put(parameterName, previousValue + PARAMETER_SEPARATOR + parameterValue );
-					}else{
-						valuesByHtmlParameterName.put(parameterName, parameterValue);
-					}
+					String newValue = previousValue == null ? null: previousValue + PARAMETER_SEPARATOR + parameterValue;
+					valuesByHtmlParameterName.put(parameterName, newValue);
 				}
 				
 				index++;
@@ -197,7 +196,7 @@ public class BalloonInputFieldsUtils {
 	}
 
 	private String getMultipleParameterValue(Node<?> child, AbstractAttributeHandler<?> cah, Entity entity, int index) {
-		return cah.getAttributeFromParameter(child.getName(), entity, index);
+		return cah.getValueFromParameter(child.getName(), entity, index);
 		
 	}
 

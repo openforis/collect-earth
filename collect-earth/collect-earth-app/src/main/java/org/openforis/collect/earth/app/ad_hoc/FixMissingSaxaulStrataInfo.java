@@ -68,7 +68,7 @@ public class FixMissingSaxaulStrataInfo {
 		Map<String,String> plotInformation = earthSurveyService.getPlacemark(plotId);
 		if( plotInformation.get( EarthConstants.PLACEMARK_FOUND_PARAMETER ).trim().equals("true") ){ //$NON-NLS-1$
 			plotInformation.put(collectParameterName, value);
-			earthSurveyService.storePlacemark(plotInformation, null );
+			earthSurveyService.storePlacemarkOld(plotInformation, null );
 		}
 	}
 }

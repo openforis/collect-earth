@@ -34,7 +34,7 @@ public class DateAttributeHandler extends AbstractAttributeHandler<Date> {
 	}
 
 	@Override
-	public String getAttributeFromParameter(String parameterName, Entity entity, int index) {
+	public String getValueFromParameter(String parameterName, Entity entity, int index) {
 		
 		String cleanName = removePrefix(parameterName);
 		if( entity.get(cleanName, index) == null){
@@ -58,7 +58,7 @@ public class DateAttributeHandler extends AbstractAttributeHandler<Date> {
 	}
 
 	@Override
-	public Date getAttributeValue(String parameterValue) {
+	public Date createValue(String parameterValue) {
 		return getDate(parameterValue);
 	}
 
