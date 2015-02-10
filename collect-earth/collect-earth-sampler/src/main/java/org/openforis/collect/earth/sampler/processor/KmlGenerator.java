@@ -59,8 +59,10 @@ public abstract class KmlGenerator extends AbstractCoordinateCalculation {
 		
 		// Adds a map ( coulmnName,cellValue) so that the values can also be added to the KML by column name (for the newer versions)
 		HashMap<String, String> valuesByColumn = new HashMap<String, String>();
-		for (int i = 0; i < possibleColumnNames.length; i++) {
-			valuesByColumn.put( possibleColumnNames[i], csvValuesInLine[i]);
+		if( possibleColumnNames != null ){
+			for (int i = 0; i < possibleColumnNames.length; i++) {
+				valuesByColumn.put( possibleColumnNames[i], csvValuesInLine[i]);
+			}
 		}
 		plotProperties.valuesByColumn = valuesByColumn;
 		

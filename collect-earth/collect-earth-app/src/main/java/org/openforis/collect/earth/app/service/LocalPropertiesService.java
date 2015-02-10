@@ -395,8 +395,11 @@ public class LocalPropertiesService {
 	private synchronized void storeProperties() {
 		FileWriter fw = null;
 		try {
-			fw = new FileWriter(new File(PROPERTIES_FILE_PATH));
+			
+			File propertiesFile = new File(PROPERTIES_FILE_PATH);
+			fw = new FileWriter(propertiesFile);
 			properties.store(fw, null);
+			
 		} catch (final IOException e) {
 			logger.error("The properties could not be saved", e);
 		} finally {
