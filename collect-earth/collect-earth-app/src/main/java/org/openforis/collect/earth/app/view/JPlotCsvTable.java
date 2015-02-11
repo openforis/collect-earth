@@ -44,7 +44,7 @@ public class JPlotCsvTable extends JTable{
 	
 	/**
 	 * Refreshes the data loaded in the table. Used when the user changes the file that contains the CSV file using the OptionWizard dialog. 
-	 * @param pathToCsvFile The path to the CSV file that contains the plot locations
+	 * @param csvFilePath The path to the CSV file that contains the plot locations
 	 */
 	public void refreshTable(String csvFilePath) {
 		

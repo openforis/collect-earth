@@ -399,7 +399,7 @@ public class BrowserService implements Observer{
 	 * @param driver The browser window to use. If this value is null a new browser window is open.
 	 * @param retry Specify if there should be a second try to open a browser window if the first time fails (useful if the browser could not be found)
 	 * @return THe browser window (firefox or chrome depending on the configuration) used to open the URL.
-	 * @throws BrowserNotFoundException 
+	 * @throws BrowserNotFoundException Exception thrown when there is no Firefox/Chrome installed
 	 */
 	public synchronized RemoteWebDriver navigateTo(String url, RemoteWebDriver driver, boolean retry ) throws BrowserNotFoundException {
 
