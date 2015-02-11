@@ -9,7 +9,7 @@ import org.openforis.collect.model.NodeChangeSet;
 import org.openforis.idm.metamodel.CodeAttributeDefinition;
 import org.openforis.idm.metamodel.EntityDefinition;
 import org.openforis.idm.metamodel.NodeDefinition;
-import org.openforis.idm.model.Code;
+import org.openforis.idm.model.Attribute;
 import org.openforis.idm.model.CodeAttribute;
 import org.openforis.idm.model.Entity;
 import org.openforis.idm.model.EntityBuilder;
@@ -40,9 +40,9 @@ public class EntityHandler extends AbstractAttributeHandler<Entity> {
 		parameterName = removePrefix(parameterName);
 		String childEntityName = getEntityName(parameterName);
 		String keyValue = getEntityKey(parameterName);
-		String entityAttribute = getEntityAttribute(parameterName);
+		String entityAttribute = getNestedAttributeParameterName(parameterName);
 
-		Entity childEntity = geChildEntity(parentEntity, childEntityName, keyValue);
+		Entity childEntity = getChildEntity(parentEntity, childEntityName, keyValue);
 		if (childEntity == null) {
 //			childEntity = EntityBuilder.addEntity(parentEntity, childEntityName);
 			NodeChangeSet changeSet = recordUpdater.addEntity(parentEntity, childEntityName);
@@ -56,31 +56,50 @@ public class EntityHandler extends AbstractAttributeHandler<Entity> {
 		result.addMergeChanges(otherChangeSet);
 		return result;
 	}
-
+	
 	@Override
 	protected NodeChangeSet addToEntity(String parameterName, String parameterValue, Entity entity) {
 		return new NodeChangeMap();
 	}
 
-	private Entity geChildEntity(Entity parentEntity, String entityName, String entityKey) {
-		List<Node<? extends NodeDefinition>> entities = parentEntity.getChildren(entityName);
-		Entity foundEntity = null;
-		if (entities != null) {
-			for (Node<? extends NodeDefinition> entity : entities) {
-				String key = getEntityKey((Entity) entity);
-				if (key != null && key.equals(entityKey)) {
-					foundEntity = (Entity) entity;
-					break;
-				}
-
-			}
+	@Override
+	public String getValueFromParameter(String parameterName, Entity entity, int index) {
+//		Attribute<?, ?> attribute = getAttributeNodeFromParameter(parameterName, entity, index);
+//		return attribute == null ? null : get;
+		return "";
+	}
+	
+	private Entity getChildEntity(Entity parentEntity, String entityName, String entityKey) {
+		List<Entity> entities = parentEntity.findChildEntitiesByKeys(entityName, entityKey);
+		if (entities.isEmpty()) {
+			return null;
+		} else {
+			return entities.get(0);
 		}
-		return foundEntity;
+//		List<Node<? extends NodeDefinition>> entities = parentEntity.getChildren(entityName);
+//		Entity foundEntity = null;
+//		if (entities != null) {
+//			for (Node<? extends NodeDefinition> entity : entities) {
+//				String key = getEntityKey((Entity) entity);
+//				if (key != null && key.equals(entityKey)) {
+//					foundEntity = (Entity) entity;
+//					break;
+//				}
+//
+//			}
+//		}
+//		return foundEntity;
 	}
 
 	@Override
-	public String getValueFromParameter(String parameterName, Entity entity, int index) {
-		return "";
+	public Attribute<?, ?> getAttributeNodeFromParameter(String parameterName,
+			Entity entity, int index) {
+		String cleanName = removePrefix(parameterName);
+		String childEntityName = getEntityName(cleanName);
+		String keyValue = getEntityKey(cleanName);
+		String nestedAttributeParameterName = getNestedAttributeParameterName(cleanName);
+		Entity childEntity = getChildEntity(entity, childEntityName, keyValue);
+		return balloonInputFieldUtils.getAttributeNodeFromParameter(childEntity, nestedAttributeParameterName, index);
 	}
 
 	@Override
@@ -88,7 +107,7 @@ public class EntityHandler extends AbstractAttributeHandler<Entity> {
 		return EntityBuilder.createEntity(null, parameterValue);
 	}
 
-	private String getEntityAttribute(String parameterName) {
+	private String getNestedAttributeParameterName(String parameterName) {
 		int indexOfDot = parameterName.indexOf('.');
 		return parameterName.substring(indexOfDot + 1);
 	}
@@ -122,7 +141,6 @@ public class EntityHandler extends AbstractAttributeHandler<Entity> {
 	private String getEntityName(String parameterName) {
 		int indexOfKey = parameterName.indexOf("[");
 		return parameterName.substring(0, indexOfKey);
-
 	}
 
 	@Override

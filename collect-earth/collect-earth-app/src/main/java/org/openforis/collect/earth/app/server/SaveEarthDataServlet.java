@@ -1,7 +1,6 @@
 package org.openforis.collect.earth.app.server;
 
 import java.io.IOException;
-import java.util.HashMap;
 import java.util.Map;
 
 import javax.servlet.http.HttpServletRequest;
@@ -9,6 +8,7 @@ import javax.servlet.http.HttpServletResponse;
 
 import org.openforis.collect.earth.app.service.LocalPropertiesService;
 import org.openforis.collect.earth.app.view.Messages;
+import org.openforis.collect.earth.core.model.PlacemarkUpdateResult;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -56,7 +56,17 @@ public class SaveEarthDataServlet extends JsonPocessorServlet {
 	@RequestMapping("/saveDataExpanded")
 	public void saveDataExpanded(HttpServletRequest request, HttpServletResponse response) throws IOException {
 		Map<String, String> collectedData = extractRequestData(request);
-		Map<String, PlacemarkInputFieldInfo> result = new HashMap<String, PlacemarkInputFieldInfo>();
+		replaceTestVariables(collectedData);
+
+		PlacemarkUpdateResult result;
+		if (collectedData.size() == 0) {
+			result = new PlacemarkUpdateResult();
+			result.setSuccess(false);
+			result.setErrorMessage(Messages.getString("SaveEarthDataServlet.0")); //$NON-NLS-1$
+			getLogger().info("The request was empty"); //$NON-NLS-1$
+		} else {
+			result = getDataAccessor().saveDataExpanded(collectedData);
+		}
 		setJsonResponse(response, result);
 	}
 	

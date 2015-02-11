@@ -1,5 +1,9 @@
 package org.openforis.collect.earth.core.handlers;
 
+import java.util.List;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
+
 import org.openforis.collect.model.NodeChangeSet;
 import org.openforis.collect.model.RecordUpdater;
 import org.openforis.idm.metamodel.NodeDefinition;
@@ -24,31 +28,46 @@ public abstract class AbstractAttributeHandler<C> {
 		this.recordUpdater = new RecordUpdater();
 	}
 
-	@SuppressWarnings({ "unchecked", "rawtypes" })
 	public NodeChangeSet addOrUpdate(String parameterName, String parameterValue, Entity entity, int parameterChildIndex) {
 		if (parameterValue.trim().isEmpty()) {
 			return null;
 		}
 		NodeChangeSet changeSet = null;
-		String cleanParameterName = removePrefix(parameterName);
-		Node<?> node = entity.get(cleanParameterName, parameterChildIndex);
+		@SuppressWarnings("unchecked")
+		Attribute<?, Value> attr = (Attribute<?, Value>) getAttributeNodeFromParameter(parameterName, entity, parameterChildIndex);
 
-		if (node == null) {
+		if (attr == null) {
 			changeSet = addToEntity(parameterName, parameterValue, entity);
-		} else if (node instanceof Attribute) {
-			Attribute attribute = (Attribute) entity.get(cleanParameterName, parameterChildIndex);
+		} else if (attr instanceof Attribute) {
 			Value value = (Value) createValue(parameterValue);
-			changeSet = recordUpdater.updateAttribute(attribute, value);
+			changeSet = recordUpdater.updateAttribute(attr, value);
 		}
 		return changeSet;
 	}
 
-	protected abstract NodeChangeSet addToEntity(String parameterName, String parameterValue, Entity entity);
+	protected NodeChangeSet addToEntity(String parameterName, String parameterValue, Entity entity) {
+		NodeChangeSet changeSet = recordUpdater.addAttribute(entity, removePrefix(parameterName), (Value) createValue(parameterValue));
+		return changeSet;
+	}
 
-	public Node<?> getAttributeNodeFromParameter(String parameterName, Entity entity, int index) {
+	public Attribute<?, ?> getAttributeNodeFromParameter(String parameterName, Entity entity, int index) {
 		String cleanName = removePrefix(parameterName);
-		Node<?> node = entity.get(cleanName, index);
-		return node;
+		Pattern attributeInsideMultipleEntityPattern = Pattern.compile("(\\w+)\\[(\\w+)\\]\\.(\\w*)");
+		Matcher matcher = attributeInsideMultipleEntityPattern.matcher(cleanName);
+		String attributeName;
+		Entity actualEntity;
+		if (matcher.matches()) {
+			String entityName = matcher.group(1);
+			String keyValue = matcher.group(2);
+			attributeName = matcher.group(3);
+			List<Entity> nestedEntities = entity.findChildEntitiesByKeys(entityName, keyValue);
+			actualEntity = nestedEntities.get(0);
+		} else {
+			attributeName = cleanName;
+			actualEntity = entity;
+		}
+		Node<?> node = actualEntity.get(attributeName, index);
+		return (Attribute<?, ?>) node;
 	}
 
 	public String getValueFromParameter(String parameterName, Entity entity) {

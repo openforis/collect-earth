@@ -2,6 +2,8 @@ package org.openforis.collect.earth.app.server;
 
 import java.util.Map;
 
+import org.openforis.collect.earth.core.model.PlacemarkUpdateResult;
+
 /**
  * Methods for setting/getting the data for the placemarks.
  * @author Alfonso Sanchez-Paus Diaz
@@ -18,5 +20,5 @@ public interface DataAccessor {
 
 	public boolean saveData(Map<String, String> collectedData);
 	
-	public PlacemarkSaveResult saveDataExpanded(Map<String, String> collectedData);
+	public PlacemarkUpdateResult saveDataExpanded(Map<String, String> collectedData);
 }

@@ -1,6 +1,5 @@
 package org.openforis.collect.earth.core.handlers;
 
-import org.openforis.collect.model.NodeChangeSet;
 import org.openforis.idm.metamodel.CoordinateAttributeDefinition;
 import org.openforis.idm.metamodel.NodeDefinition;
 import org.openforis.idm.model.Coordinate;
@@ -20,21 +19,13 @@ public class CoordinateAttributeHandler extends AbstractAttributeHandler<Coordin
 		super(PREFIX);
 	}
 
-	@Override
-	public NodeChangeSet addToEntity(String parameterName, String parameterValue, Entity entity) {
-		Coordinate coord = extractCoordinate(parameterValue);
-//		EntityBuilder.addValue(entity, removePrefix(parameterName), coord);
-		
-		NodeChangeSet changeSet = recordUpdater.addAttribute(entity, removePrefix(parameterName), coord);
-		return changeSet;
-	}
-
 	/**
 	 * Expects the coordinate as a String "latitude,longitude" 
 	 * @param parameterValue
 	 * @return
 	 */
-	private Coordinate extractCoordinate(String parameterValue) {
+	@Override
+	public Coordinate createValue(String parameterValue) {
 		String[] coordinatesCSV = parameterValue.split(",");
 		String srs = GOOGLE_EARTH_SRS;
 		if (coordinatesCSV.length > 2) {
@@ -83,11 +74,6 @@ public class CoordinateAttributeHandler extends AbstractAttributeHandler<Coordin
 		stringBuilder.append(longitude);
 		
 		return stringBuilder.toString();
-	}
-
-	@Override
-	public Coordinate createValue(String parameterValue) {
-		return extractCoordinate(parameterValue);
 	}
 
 	@Override

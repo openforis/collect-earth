@@ -1,6 +1,11 @@
-package org.openforis.collect.earth.app.server;
+package org.openforis.collect.earth.core.model;
 
-class PlacemarkCodedItem {
+/**
+ * 
+ * @author S. Ricci
+ *
+ */
+public class PlacemarkCodedItem {
 	
 	private String code;
 	private String label;

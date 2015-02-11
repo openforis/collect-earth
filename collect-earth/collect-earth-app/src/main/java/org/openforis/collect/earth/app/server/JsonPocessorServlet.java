@@ -58,6 +58,15 @@ public abstract class JsonPocessorServlet extends DataAccessingServlet {
 		}
 		out.close();
 	}
+	
+	protected void setJsonResponse(HttpServletResponse response, Object data) throws IOException {
+		PrintWriter out = response.getWriter();
+		if (data != null) {
+			String json = gson.toJson(data);
+			out.println(json);
+		}
+		out.close();
+	}
 
 	private void setResponseHeaders(HttpServletResponse response) {
 		response.setContentType("application/json"); //$NON-NLS-1$

@@ -1,6 +1,5 @@
 package org.openforis.collect.earth.core.handlers;
 
-import org.openforis.collect.model.NodeChangeSet;
 import org.openforis.idm.metamodel.CodeAttributeDefinition;
 import org.openforis.idm.metamodel.NodeDefinition;
 import org.openforis.idm.model.Code;
@@ -17,13 +16,6 @@ public class CodeAttributeHandler extends AbstractAttributeHandler<Code> {
 
 	public CodeAttributeHandler() {
 		super(PREFIX);
-	}
-
-	@Override
-	public NodeChangeSet addToEntity(String parameterName, String parameterValue, Entity entity) {
-		NodeChangeSet changeSet = recordUpdater.addAttribute(entity, removePrefix(parameterName), new Code(parameterValue));
-		return changeSet;
-//		EntityBuilder.addValue(entity, removePrefix(parameterName), new Code(parameterValue));
 	}
 
 	@Override

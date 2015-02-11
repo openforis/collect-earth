@@ -1,5 +1,6 @@
 package org.openforis.collect.earth.core.handlers;
 
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
@@ -8,8 +9,13 @@ import java.util.Map.Entry;
 import java.util.Set;
 
 import org.apache.commons.lang3.StringUtils;
+import org.openforis.collect.earth.core.model.PlacemarkCodedItem;
+import org.openforis.collect.earth.core.model.PlacemarkInputFieldInfo;
+import org.openforis.collect.model.CollectRecord;
 import org.openforis.collect.model.NodeChangeMap;
 import org.openforis.collect.model.NodeChangeSet;
+import org.openforis.collect.model.RecordValidationReportGenerator;
+import org.openforis.collect.model.RecordValidationReportItem;
 import org.openforis.idm.metamodel.AttributeDefinition;
 import org.openforis.idm.metamodel.CodeAttributeDefinition;
 import org.openforis.idm.metamodel.CodeList;
@@ -19,6 +25,7 @@ import org.openforis.idm.metamodel.EntityDefinition;
 import org.openforis.idm.metamodel.NodeDefinition;
 import org.openforis.idm.metamodel.NodeDefinitionVisitor;
 import org.openforis.idm.model.Attribute;
+import org.openforis.idm.model.CodeAttribute;
 import org.openforis.idm.model.Entity;
 import org.openforis.idm.model.Node;
 import org.slf4j.Logger;
@@ -49,13 +56,56 @@ public class BalloonInputFieldsUtils {
 			new TextAttributeHandler()
 		);
 	
-	private AbstractAttributeHandler<?> findHandler(String parameterName) {
+	public Map<String, PlacemarkInputFieldInfo> extractFieldInfoByParameterName(Set<String> parameterNames, CollectRecord record) {
+		RecordValidationReportGenerator validationReportGenerator = new RecordValidationReportGenerator(record);
+		List<RecordValidationReportItem> validationItems = validationReportGenerator.generateValidationItems();
+		Map<String, String> validationMessageByPath = new HashMap<String, String>(validationItems.size());
+		for (RecordValidationReportItem validationItem : validationItems) {
+			validationMessageByPath.put(validationItem.getPath(), validationItem.getMessage());
+		}
+		Entity rootEntity = record.getRootEntity();
+
+		Map<String, PlacemarkInputFieldInfo> result = new HashMap<String, PlacemarkInputFieldInfo>(parameterNames.size());
+		for (String parameterName : parameterNames) {
+			String cleanName = cleanUpParameterName(parameterName);
+			AbstractAttributeHandler<?> handler = findHandler(cleanName);
+			if (handler != null) {
+				Attribute<?, ?> attribute = handler.getAttributeNodeFromParameter(cleanName, rootEntity, 0);
+				
+				PlacemarkInputFieldInfo info = new PlacemarkInputFieldInfo();
+				info.setVisible(attribute.isRelevant());
+				
+				String errorMessage = validationMessageByPath.get(attribute.getPath());
+				if (errorMessage != null) {
+					info.setInError(true);
+					info.setErrorMessage(errorMessage);
+				}
+				if (attribute instanceof CodeAttribute) {
+					CodeAttributeDefinition attrDef = (CodeAttributeDefinition) attribute.getDefinition();
+					CodeListService codeListService = record.getSurveyContext().getCodeListService();
+					List<CodeListItem> validCodeListItems = codeListService.loadValidItems(attribute.getParent(), attrDef);
+					List<PlacemarkCodedItem> possibleCodedItems = new ArrayList<PlacemarkCodedItem>(validCodeListItems.size());
+					for (CodeListItem item : validCodeListItems) {
+						possibleCodedItems.add(new PlacemarkCodedItem(item.getCode(), item.getLabel()));
+					}
+					info.setPossibleCodedItems(possibleCodedItems);
+				}
+				result.put(parameterName, info);
+			} else {
+				logger.error("Cannot find halder for parameter: "+ parameterName);
+			}
+		}
+		return result;
+	}
+	
+	private AbstractAttributeHandler<?> findHandler(String cleanParameterName) {
 		for (AbstractAttributeHandler<?> handler : handlers) {
-			if (handler.isParameterParseable(parameterName)) {
+			if (handler.isParameterParseable(cleanParameterName)) {
 				return handler;
 			}
 		}
-		throw new IllegalArgumentException("Handler not found for the given parameter name: " + parameterName);
+//		throw new IllegalArgumentException("Handler not found for the given parameter name: " + parameterName);
+		return null;
 	}
 
 	private AbstractAttributeHandler<?> findHandler(Node<?> node) {
@@ -239,29 +289,41 @@ public class BalloonInputFieldsUtils {
 		Set<Entry<String, String>> parameterEntries = parameters.entrySet();
 
 		for (Entry<String, String> entry : parameterEntries) {
+			String parameterName = entry.getKey();
 			String parameterValue = entry.getValue();
-			String cleanName = cleanUpParameterName(entry.getKey());
+			String cleanName = cleanUpParameterName(parameterName);
 
 			AbstractAttributeHandler<?> handler = findHandler(cleanName);
-			try {
-				if( handler.isMultiValueAware() ){ // EntityHandler will use the original separated parameter values while the other will take single values
-					NodeChangeSet partialChangeSet = handler.addOrUpdate(cleanName, parameterValue, entity, 0);
-					result.addMergeChanges(partialChangeSet);
-				}else{
-					String[] parameterValues = parameterValue.split(BalloonInputFieldsUtils.PARAMETER_SEPARATOR);
-					int index = 0; 
-					for (String parameterVal : parameterValues) {
-						NodeChangeSet partialChangeSet = handler.addOrUpdate(cleanName, parameterVal, entity, index);
+			if (handler != null) {
+				try {
+					if( handler.isMultiValueAware() ){ // EntityHandler will use the original separated parameter values while the other will take single values
+						NodeChangeSet partialChangeSet = handler.addOrUpdate(cleanName, parameterValue, entity, 0);
 						result.addMergeChanges(partialChangeSet);
-						index++;
+					} else {
+						String[] parameterValues = parameterValue.split(BalloonInputFieldsUtils.PARAMETER_SEPARATOR);
+						for (int index = 0; index < parameterValues.length; index++) {
+							String parameterVal = parameterValues[index];
+							NodeChangeSet partialChangeSet = handler.addOrUpdate(cleanName, parameterVal, entity, index);
+							if (partialChangeSet != null) {
+								result.addMergeChanges(partialChangeSet);
+							}
+						}
 					}
+				} catch (Exception e) {
+					logger.error("Error while parsing parameter " + cleanName + " with value " + parameterValue, e);
 				}
-				break;
-			} catch (Exception e) {
-				logger.error("Error while parsing parameter " + cleanName + " with value " + parameterValue, e);
+			} else {
+				logger.error("Handler not found for parameter: " + cleanName);
 			}
 		}
 		return result;
 	}
 
+	public Attribute<?, ?> getAttributeNodeFromParameter(Entity entity,
+			String parameterName, int index) {
+		String cleanName = cleanUpParameterName(parameterName);
+		AbstractAttributeHandler<?> handler = findHandler(cleanName);
+		return handler.getAttributeNodeFromParameter(cleanName, entity, index);
+	}
+	
 }

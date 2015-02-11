@@ -65,7 +65,7 @@ public class PlacemarkImageServlet extends DataAccessingServlet {
 			
 			final Map<String, String> placemarkParameters = earthSurveyService.getPlacemark(placemarkId);
 
-			if (earthSurveyService.isPlacemarSavedActively(placemarkParameters)) {
+			if (earthSurveyService.isPlacemarkSavedActively(placemarkParameters)) {
 				if (listView != null && listView) {
 					imageName = EarthConstants.LIST_FILLED_IMAGE;
 				} 

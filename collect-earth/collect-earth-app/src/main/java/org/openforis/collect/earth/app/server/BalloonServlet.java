@@ -94,7 +94,6 @@ public class BalloonServlet extends DataAccessingServlet {
 		return htmlWithGoals;
 	}
 
-	@SuppressWarnings("unchecked")
 	@RequestMapping("/"+BALLOON_EXTERNAL_URL)
 	private void returnBalloon(HttpServletResponse response, HttpServletRequest request, String imageName) throws IOException, URISyntaxException {
 		response.setHeader("Content-Type", "text/html"); //$NON-NLS-1$ //$NON-NLS-2$

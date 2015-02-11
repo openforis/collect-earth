@@ -13,25 +13,23 @@ import java.util.Set;
 
 import javax.annotation.PostConstruct;
 
-import org.apache.commons.dbcp.BasicDataSource;
 import org.openforis.collect.earth.app.EarthConstants;
-import org.openforis.collect.earth.app.server.PlacemarkSaveResult;
 import org.openforis.collect.earth.app.service.LocalPropertiesService.EarthProperty;
 import org.openforis.collect.earth.app.view.Messages;
 import org.openforis.collect.earth.core.handlers.BalloonInputFieldsUtils;
 import org.openforis.collect.earth.core.handlers.DateAttributeHandler;
+import org.openforis.collect.earth.core.model.PlacemarkInputFieldInfo;
+import org.openforis.collect.earth.core.model.PlacemarkUpdateResult;
 import org.openforis.collect.manager.RecordManager;
 import org.openforis.collect.manager.SurveyManager;
 import org.openforis.collect.manager.exception.SurveyValidationException;
 import org.openforis.collect.model.CollectRecord;
 import org.openforis.collect.model.CollectRecord.Step;
 import org.openforis.collect.model.CollectSurvey;
-import org.openforis.collect.model.NodeChangeSet;
 import org.openforis.collect.model.RecordValidationReportGenerator;
 import org.openforis.collect.model.RecordValidationReportItem;
 import org.openforis.collect.persistence.RecordPersistenceException;
 import org.openforis.collect.persistence.SurveyImportException;
-import org.openforis.idm.metamodel.EntityDefinition;
 import org.openforis.idm.metamodel.NodeDefinition;
 import org.openforis.idm.metamodel.NodeLabel.Type;
 import org.openforis.idm.metamodel.Schema;
@@ -66,9 +64,6 @@ public class EarthSurveyService {
 	@Autowired
 	private SurveyManager surveyManager;
 	
-	@Autowired
-	private BasicDataSource dataSource;
-
 	private BalloonInputFieldsUtils collectParametersHandler;
 
 	public EarthSurveyService() {
@@ -296,7 +291,7 @@ public class EarthSurveyService {
 				&& parameters.get(COLLECT_BOOLEAN_ACTIVELY_SAVED).equals("false"); //$NON-NLS-1$
 	}
 
-	public boolean isPlacemarSavedActively(Map<String, String> parameters) {
+	public boolean isPlacemarkSavedActively(Map<String, String> parameters) {
 		return (parameters != null) && (parameters.get(COLLECT_BOOLEAN_ACTIVELY_SAVED) != null)
 				&& parameters.get(COLLECT_BOOLEAN_ACTIVELY_SAVED).equals("true"); //$NON-NLS-1$
 	}
@@ -317,7 +312,6 @@ public class EarthSurveyService {
 	public synchronized boolean storePlacemarkOld(Map<String, String> parameters, String sessionId) {
 
 		final List<CollectRecord> summaries = recordManager.loadSummaries(getCollectSurvey(), EarthConstants.ROOT_ENTITY_NAME, parameters.get("collect_text_id")); //$NON-NLS-1$
-
 		boolean success = false;
 
 		try {
@@ -339,7 +333,8 @@ public class EarthSurveyService {
 				logger.warn("Creating a new plot entity with data " + parameters.toString()); //$NON-NLS-1$
 			}
 
-			if (isPlacemarSavedActively(parameters)) {
+			boolean userClickOnSaveAndValidate = isPlacemarkSavedActively(parameters);
+			if (userClickOnSaveAndValidate) {
 				setPlacemarkSavedOn(parameters);
 			}
 
@@ -347,29 +342,26 @@ public class EarthSurveyService {
 			collectParametersHandler.saveToEntity(parameters, plotEntity);
 
 			// Do not validate unless actively saved
-			if (isPlacemarSavedActively(parameters)) {
+			if (userClickOnSaveAndValidate) {
 				addValidationMessages(parameters, record);
 			}
 
 			// Do not save unless there is no validation errors
-			if ((record.getErrors() == 0) && (record.getSkipped() == 0)) {
+			if (((record.getErrors() == 0) && (record.getSkipped() == 0) && userClickOnSaveAndValidate) || !userClickOnSaveAndValidate) {
 				record.setModifiedDate(new Date());
 				recordManager.save(record, sessionId);
-				success = true;
 			} else {
-				// Save the data anyway but set the Actively Saved flag to false
 				setPlacemarkSavedActively(parameters, false);
-				return storePlacemarkOld(parameters, sessionId);
-
 			}
+			success = true;
 		} catch (final RecordPersistenceException e) {
 			logger.error("Error while storing the record " + e.getMessage(), e); //$NON-NLS-1$
 		}
 		return success;
 	}
 
-	public synchronized PlacemarkSaveResult storePlacemark(Map<String, String> parameters, String sessionId) {
-		PlacemarkSaveResult result = new PlacemarkSaveResult();
+	public synchronized PlacemarkUpdateResult storePlacemark(Map<String, String> parameters, String sessionId) {
+		PlacemarkUpdateResult result = new PlacemarkUpdateResult();
 		
 		try {
 			// Add the operator to the collected data
@@ -378,32 +370,28 @@ public class EarthSurveyService {
 			CollectRecord record = loadOrCreateRecord(parameters, sessionId);
 			Entity plotEntity = record.getRootEntity();
 
-			Map<String, String> valuesByParametersName = collectParametersHandler.getValuesByHtmlParameters(record.getRootEntity());
-			
-			if (isPlacemarSavedActively(parameters)) {
+			if (isPlacemarkSavedActively(parameters)) {
 				setPlacemarkSavedOn(parameters);
 			}
 
 			// Populate the data of the record using the HTTP parameters received
-			collectParametersHandler.saveToEntity(valuesByParametersName, plotEntity);
+			collectParametersHandler.saveToEntity(parameters, plotEntity);
 
-			// Do not validate unless actively saved
-			if (isPlacemarSavedActively(parameters)) {
-				Map<String, String> validationMessagesByParameter = extractValidationMessagesByParameter(record);
-				
-			}
+			boolean userClickOnSaveAndValidate = isPlacemarkSavedActively(parameters);
 
-			// Do not save unless there is no validation errors
-			if ((record.getErrors() == 0) && (record.getSkipped() == 0)) {
+			if (((record.getErrors() == 0) && (record.getSkipped() == 0) && userClickOnSaveAndValidate) || !userClickOnSaveAndValidate) {
 				record.setModifiedDate(new Date());
 				result.setSuccess(true);
+				recordManager.save(record, sessionId);
 			} else {
-				// Save the data anyway but set the Actively Saved flag to false
 				setPlacemarkSavedActively(parameters, false);
 			}
-			recordManager.save(record, sessionId);
+			Set<String> parameterNames = parameters.keySet();
+			Map<String, PlacemarkInputFieldInfo> infoByParameterName = collectParametersHandler.extractFieldInfoByParameterName(parameterNames, record);
+			result.setInputFieldInfoByParameterName(infoByParameterName);
 		} catch (final RecordPersistenceException e) {
 			logger.error("Error while storing the record " + e.getMessage(), e); //$NON-NLS-1$
+			result.setSuccess(false);
 		}
 		return result;
 	}
