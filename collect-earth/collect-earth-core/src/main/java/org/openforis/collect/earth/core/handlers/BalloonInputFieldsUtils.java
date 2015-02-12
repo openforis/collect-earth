@@ -84,7 +84,8 @@ public class BalloonInputFieldsUtils {
 					CodeAttributeDefinition attrDef = (CodeAttributeDefinition) attribute.getDefinition();
 					CodeListService codeListService = record.getSurveyContext().getCodeListService();
 					List<CodeListItem> validCodeListItems = codeListService.loadValidItems(attribute.getParent(), attrDef);
-					List<PlacemarkCodedItem> possibleCodedItems = new ArrayList<PlacemarkCodedItem>(validCodeListItems.size());
+					List<PlacemarkCodedItem> possibleCodedItems = new ArrayList<PlacemarkCodedItem>(validCodeListItems.size() + 1);
+					possibleCodedItems.add(new PlacemarkCodedItem("-1", "N/A"));
 					for (CodeListItem item : validCodeListItems) {
 						possibleCodedItems.add(new PlacemarkCodedItem(item.getCode(), item.getLabel()));
 					}
@@ -92,7 +93,7 @@ public class BalloonInputFieldsUtils {
 				}
 				result.put(parameterName, info);
 			} else {
-				logger.error("Cannot find halder for parameter: "+ parameterName);
+				logger.error("Cannot find handler for parameter: " + parameterName);
 			}
 		}
 		return result;

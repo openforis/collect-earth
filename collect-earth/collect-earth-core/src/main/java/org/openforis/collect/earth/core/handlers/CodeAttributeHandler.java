@@ -15,14 +15,17 @@ public class CodeAttributeHandler extends AbstractAttributeHandler<Code> {
 	private static final String PREFIX = "code_";
 
 	public CodeAttributeHandler() {
-		super(PREFIX);
+		this(PREFIX);
+	}
+	
+	public CodeAttributeHandler(String prefix) {
+		super(prefix);
 	}
 
 	@Override
 	public String getValueFromParameter(String parameterName, Entity entity, int index) {
-		String cleanName = removePrefix(parameterName);
-	
-		return ((CodeAttribute) entity.get(cleanName, index)).getValue().getCode();
+		CodeAttribute attr = (CodeAttribute) getAttributeNodeFromParameter(parameterName, entity, index);
+		return attr.getValue().getCode();
 	}
 
 	@Override

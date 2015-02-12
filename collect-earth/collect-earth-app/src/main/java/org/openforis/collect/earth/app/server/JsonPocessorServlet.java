@@ -60,6 +60,7 @@ public abstract class JsonPocessorServlet extends DataAccessingServlet {
 	}
 	
 	protected void setJsonResponse(HttpServletResponse response, Object data) throws IOException {
+		setResponseHeaders(response);
 		PrintWriter out = response.getWriter();
 		if (data != null) {
 			String json = gson.toJson(data);
