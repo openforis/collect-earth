@@ -113,7 +113,7 @@ public class BrowserService implements Observer{
 	private static final Configuration cfg = new Configuration();
 	private static Template template;
 
-	private RemoteWebDriver webDriverEE, webDriverBing, webDriverTimelapse, webDriverGeePlayground;
+	private RemoteWebDriver webDriverEE, webDriverBing, webDriverTimelapse, webDriverGeePlayground, webDriverHere;
 
 	private static boolean geeMethodUpdated = false;
 
@@ -463,6 +463,38 @@ public class BrowserService implements Observer{
 			};
 			
 			loadBingThread.start();
+			
+		}
+	}
+	
+	/**
+	 * Opens a browser window with the Here Maps representation of the plot.
+	 * @param coordinates The center point of the plot.
+	 * @throws BrowserNotFoundException In case the browser could not be found
+	 * 
+	 */
+	public synchronized void openHereMaps(String coordinates) throws BrowserNotFoundException {
+
+		if (localPropertiesService.isHereMapsSupported()) {
+
+			if (webDriverHere == null) {
+				webDriverHere = initBrowser();
+			}
+
+			final RemoteWebDriver driverCopy = webDriverHere;
+			final String[] latLong = coordinates.split(",");
+			final Thread loadHereThread = new Thread() {
+				@Override
+				public void run() {
+					try {
+						webDriverHere = navigateTo(geoLocalizeTemplateService.getTemporaryUrl(latLong, GeolocalizeMapService.FREEMARKER_HERE_HTML_TEMPLATE).toString(), driverCopy);
+					} catch (final Exception e) {
+						logger.error("Problems loading Here Maps", e);
+					}
+				};
+			};
+			
+			loadHereThread.start();
 			
 		}
 	}

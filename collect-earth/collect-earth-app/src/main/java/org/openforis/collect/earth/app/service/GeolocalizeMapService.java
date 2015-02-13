@@ -29,10 +29,14 @@ import freemarker.template.TemplateException;
 @Component
 public class GeolocalizeMapService {
 
+	private static final String RESOURCES_FOLDER = "resources";
+
+
+
 	/**
 	 * The file that contains the freemarker template used to produce the Bing Maps code.
 	 */
-	public static final String FREEMARKER_BING_HTML_TEMPLATE = "resources" + File.separator + "collectBing.fmt";
+	public static final String FREEMARKER_BING_HTML_TEMPLATE = RESOURCES_FOLDER + File.separator + "collectBing.fmt";
 	
 	
 
@@ -41,7 +45,11 @@ public class GeolocalizeMapService {
 	/**
 	 * The file that contains the freemarker template used to produce script that is run in GEE Playground.
 	 */
-	public static final String FREEMARKER_GEE_PLAYGROUND_TEMPLATE = "resources" + File.separator + FREEMARKER_GEE_PLAYGROUND_TEMPLATE_FILE_NAME;
+	public static final String FREEMARKER_GEE_PLAYGROUND_TEMPLATE = RESOURCES_FOLDER + File.separator + FREEMARKER_GEE_PLAYGROUND_TEMPLATE_FILE_NAME;
+
+
+
+	public static final String FREEMARKER_HERE_HTML_TEMPLATE = RESOURCES_FOLDER + File.separator + "collectHereMaps.fmt";
 
 	
 	@Autowired
