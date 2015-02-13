@@ -350,7 +350,7 @@
                     <classpath>${java_launcher_classpath}</classpath>
                     <jarFile>${java_launcher_jar}</jarFile>
                     <mainClass>${java_launcher_mainClass}</mainClass>
-                    <osxApplicationBundleIcon>C:\opt\installers\openforis.icns</osxApplicationBundleIcon>
+                    <osxApplicationBundleIcon>COLLECT_EARTH_MAIN_FOLDER/collect-earth-installer/target/installes/openforis.icns</osxApplicationBundleIcon>
                     <preferredJavaBinary>${java_executable}</preferredJavaBinary>
                     <runInBackground>0</runInBackground>
                     <runInConsole>0</runInConsole>

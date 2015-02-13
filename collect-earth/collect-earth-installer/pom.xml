@@ -285,7 +285,7 @@ No Solaris installer necessary
 									</arguments>
 								</configuration>
 							</execution>
-							<!-- Mac OS X 
+							<!-- Mac OS X -->
 							<execution>
 								<id>osx-installer</id>
 								<phase>prepare-package</phase>
@@ -317,7 +317,7 @@ No Solaris installer necessary
 									</arguments>
 								</configuration>
 							</execution>
-							-->
+							
 						</executions>
 					</plugin>
 
