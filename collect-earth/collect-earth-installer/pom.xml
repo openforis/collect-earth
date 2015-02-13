@@ -191,6 +191,7 @@ No Solaris installer necessary
 							<includes>
 								<include>${installbuilder-file-name}</include>
 								<include>CollectEarthMain.xml</include>
+								<include>java.xml</include>
 								<include>${installbuilder-file-name-updater}</include>
 								<include>update.ini</include>
 								<include>${autoupdater-xml-file-name}</include>
