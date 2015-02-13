@@ -112,9 +112,11 @@
             <name>programfilesosx</name>
             <platforms>osx</platforms>
             <distributionFileList>
+                <!-- 
                 <distributionFile>
                     <origin>launcher_icon.icns</origin>
                 </distributionFile>
+                 -->
                 <distributionDirectory>
                     <origin>COLLECT_EARTH_MAIN_FOLDER/collect-earth-app/autoupdate/autoupdate.app</origin>
                 </distributionDirectory>
@@ -198,7 +200,15 @@
             <files>${installdir}/${java_launcher_binary_name};${installdir}/*.log;${installdir}/*.properties;${installdir}/generated;${installdir}/*.db;${installdir}/*.dbSaiku</files>
             <permissions>0777</permissions>
         </changePermissions>
-
+		<changePermissions> 
+			<files>${installdir}/*.app/Contents/MacOS/*</files>
+			<permissions>0755</permissions>
+			<ruleList>
+                <platformTest>
+                    <type>osx</type>
+                </platformTest>
+            </ruleList>
+		</changePermissions>
         <!--
         <runProgram>
             <program>chown</program>
@@ -219,7 +229,7 @@
                 </platformTest>
             </ruleList>
         </runProgram>
-		-->
+		
         <copyFile>
             <abortOnError>0</abortOnError>
             <destination>${installdir}/${java_launcher_binary_name}/Contents/Resources/installbuilder.icns</destination>
@@ -228,6 +238,10 @@
                 <compareText logic="equals" text="${platform_name}" value="osx"/>
             </ruleList>
         </copyFile>
+        
+        -->
+        
+        
         <createSymLink>
             <linkName>~/Desktop/Collect Earth.app</linkName>
             <target>${installdir}/${java_launcher_binary_name}</target>
