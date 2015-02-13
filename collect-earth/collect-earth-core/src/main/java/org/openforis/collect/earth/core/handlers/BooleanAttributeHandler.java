@@ -2,9 +2,7 @@ package org.openforis.collect.earth.core.handlers;
 
 import org.openforis.idm.metamodel.BooleanAttributeDefinition;
 import org.openforis.idm.metamodel.NodeDefinition;
-import org.openforis.idm.model.BooleanAttribute;
 import org.openforis.idm.model.BooleanValue;
-import org.openforis.idm.model.Entity;
 
 /**
  * @author Alfonso Sanchez-Paus Diaz
@@ -19,9 +17,8 @@ public class BooleanAttributeHandler extends AbstractAttributeHandler<BooleanVal
 	}
 
 	@Override
-	public String getValueFromParameter(String parameterName, Entity entity, int index) {
-		Boolean value = ((BooleanAttribute) getAttributeNodeFromParameter(parameterName, entity, index)).getValue().getValue();
-		return value == null ? null : value.toString();		
+	public String getParameterValue(BooleanValue value) {
+		return value == null ? null: value.toString();
 	}
 	
 	@Override

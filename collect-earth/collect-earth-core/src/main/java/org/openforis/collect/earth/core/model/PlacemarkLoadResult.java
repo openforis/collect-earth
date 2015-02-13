@@ -8,13 +8,13 @@ import java.util.Map;
  * @author S. Ricci
  *
  */
-public class PlacemarkUpdateResult {
+public class PlacemarkLoadResult {
 
 	private Map<String, PlacemarkInputFieldInfo> inputFieldInfoByParameterName;
 	private boolean success;
 	private String errorMessage;
 	
-	public PlacemarkUpdateResult() {
+	public PlacemarkLoadResult() {
 		this.success = false;
 		this.inputFieldInfoByParameterName = new HashMap<String, PlacemarkInputFieldInfo>();
 	}

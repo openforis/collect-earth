@@ -3,8 +3,6 @@ package org.openforis.collect.earth.core.handlers;
 import org.openforis.idm.metamodel.CodeAttributeDefinition;
 import org.openforis.idm.metamodel.NodeDefinition;
 import org.openforis.idm.model.Code;
-import org.openforis.idm.model.CodeAttribute;
-import org.openforis.idm.model.Entity;
 
 /**
  * @author Alfonso Sanchez-Paus Diaz
@@ -21,11 +19,10 @@ public class CodeAttributeHandler extends AbstractAttributeHandler<Code> {
 	public CodeAttributeHandler(String prefix) {
 		super(prefix);
 	}
-
+	
 	@Override
-	public String getValueFromParameter(String parameterName, Entity entity, int index) {
-		CodeAttribute attr = (CodeAttribute) getAttributeNodeFromParameter(parameterName, entity, index);
-		return attr.getValue().getCode();
+	public String getParameterValue(Code value) {
+		return value == null || value.getCode() == null ? null: value.getCode();
 	}
 
 	@Override

@@ -3,7 +3,7 @@ package org.openforis.collect.earth.app.server;
 import java.util.Map;
 
 import org.openforis.collect.earth.app.service.EarthSurveyService;
-import org.openforis.collect.earth.core.model.PlacemarkUpdateResult;
+import org.openforis.collect.earth.core.model.PlacemarkLoadResult;
 import org.springframework.beans.factory.annotation.Autowired;
 
 /**
@@ -22,12 +22,17 @@ public class CollectDataAccessor implements DataAccessor {
 	}
 
 	@Override
+	public PlacemarkLoadResult getDataExpanded(String placemarkId) {
+		return earthSurveyService.getPlacemarkExpanded(placemarkId);
+	}
+	
+	@Override
 	public boolean saveData(Map<String, String> collectedData) {
 		return earthSurveyService.storePlacemarkOld(collectedData, null);
 	}
 
 	@Override
-	public PlacemarkUpdateResult saveDataExpanded(Map<String, String> collectedData) {
+	public PlacemarkLoadResult saveDataExpanded(Map<String, String> collectedData) {
 		return earthSurveyService.storePlacemark(collectedData, null);
 	}
 }

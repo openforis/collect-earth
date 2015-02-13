@@ -6,14 +6,11 @@ import java.util.Map;
 
 import org.openforis.collect.model.NodeChangeMap;
 import org.openforis.collect.model.NodeChangeSet;
-import org.openforis.idm.metamodel.CodeAttributeDefinition;
 import org.openforis.idm.metamodel.EntityDefinition;
 import org.openforis.idm.metamodel.NodeDefinition;
 import org.openforis.idm.model.Attribute;
-import org.openforis.idm.model.CodeAttribute;
 import org.openforis.idm.model.Entity;
 import org.openforis.idm.model.EntityBuilder;
-import org.openforis.idm.model.Node;
 
 /**
  * @author Alfonso Sanchez-Paus Diaz
@@ -29,6 +26,11 @@ public class EntityHandler extends AbstractAttributeHandler<Entity> {
 	public EntityHandler(BalloonInputFieldsUtils balloonInputFieldUtils) {
 		super(PREFIX);
 		this.balloonInputFieldUtils = balloonInputFieldUtils;
+	}
+	
+	@Override
+	public String getParameterValue(Entity value) {
+		return null;
 	}
 
 	@Override
@@ -62,13 +64,6 @@ public class EntityHandler extends AbstractAttributeHandler<Entity> {
 		return new NodeChangeMap();
 	}
 
-	@Override
-	public String getValueFromParameter(String parameterName, Entity entity, int index) {
-//		Attribute<?, ?> attribute = getAttributeNodeFromParameter(parameterName, entity, index);
-//		return attribute == null ? null : get;
-		return "";
-	}
-	
 	private Entity getChildEntity(Entity parentEntity, String entityName, String entityKey) {
 		List<Entity> entities = parentEntity.findChildEntitiesByKeys(entityName, entityKey);
 		if (entities.isEmpty()) {
@@ -76,19 +71,6 @@ public class EntityHandler extends AbstractAttributeHandler<Entity> {
 		} else {
 			return entities.get(0);
 		}
-//		List<Node<? extends NodeDefinition>> entities = parentEntity.getChildren(entityName);
-//		Entity foundEntity = null;
-//		if (entities != null) {
-//			for (Node<? extends NodeDefinition> entity : entities) {
-//				String key = getEntityKey((Entity) entity);
-//				if (key != null && key.equals(entityKey)) {
-//					foundEntity = (Entity) entity;
-//					break;
-//				}
-//
-//			}
-//		}
-//		return foundEntity;
 	}
 
 	@Override
@@ -110,25 +92,6 @@ public class EntityHandler extends AbstractAttributeHandler<Entity> {
 	private String getNestedAttributeParameterName(String parameterName) {
 		int indexOfDot = parameterName.indexOf('.');
 		return parameterName.substring(indexOfDot + 1);
-	}
-
-	public String getEntityKey(Entity entity) {
-		String key = null;
-		CodeAttributeDefinition enumeratingKeyCodeAttribute = entity.getDefinition().getEnumeratingKeyCodeAttribute();
-		CodeAttribute keyAttribute = null;
-
-		List<Node<? extends NodeDefinition>> children = entity.getChildren();
-		for (Node<? extends NodeDefinition> child : children) {
-			if (child.getName().equals(enumeratingKeyCodeAttribute.getName())) {
-				keyAttribute = (CodeAttribute) child;
-			}
-		}
-
-		if (keyAttribute != null) {
-			key = keyAttribute.getValue().getCode();
-		}
-
-		return key;
 	}
 
 	private String getEntityKey(String parameterName) {

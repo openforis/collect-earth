@@ -40,6 +40,9 @@ import org.springframework.stereotype.Component;
 @Component
 public class BalloonInputFieldsUtils {
 
+	private static final String NOT_APPLICABLE_ITEM_CODE = "-1";
+	private static final String NOT_APPLICABLE_ITEM_LABEL = "N/A";
+
 	public static final String PARAMETER_SEPARATOR = "===";
 
 	private static final String COLLECT_PREFIX = "collect_";
@@ -53,8 +56,14 @@ public class BalloonInputFieldsUtils {
 			new EntityHandler(this),
 			new IntegerAttributeHandler(),
 			new RealAttributeHandler(),
-			new TextAttributeHandler()
+			new TextAttributeHandler(),
+			new TimeAttributeHandler()
 		);
+	
+	public Map<String, PlacemarkInputFieldInfo> extractFieldInfoByParameterName(CollectRecord record) {
+		Map<String, String> htmlParameterNameByNodePath = getHtmlParameterNameByNodePath(record);
+		return extractFieldInfoByParameterName(htmlParameterNameByNodePath.keySet(), record);
+	}
 	
 	public Map<String, PlacemarkInputFieldInfo> extractFieldInfoByParameterName(Set<String> parameterNames, CollectRecord record) {
 		RecordValidationReportGenerator validationReportGenerator = new RecordValidationReportGenerator(record);
@@ -85,7 +94,7 @@ public class BalloonInputFieldsUtils {
 					CodeListService codeListService = record.getSurveyContext().getCodeListService();
 					List<CodeListItem> validCodeListItems = codeListService.loadValidItems(attribute.getParent(), attrDef);
 					List<PlacemarkCodedItem> possibleCodedItems = new ArrayList<PlacemarkCodedItem>(validCodeListItems.size() + 1);
-					possibleCodedItems.add(new PlacemarkCodedItem("-1", "N/A"));
+					possibleCodedItems.add(new PlacemarkCodedItem(NOT_APPLICABLE_ITEM_CODE, NOT_APPLICABLE_ITEM_LABEL));
 					for (CodeListItem item : validCodeListItems) {
 						possibleCodedItems.add(new PlacemarkCodedItem(item.getCode(), item.getLabel()));
 					}
@@ -137,6 +146,10 @@ public class BalloonInputFieldsUtils {
 			getHTMLParameterName(plotEntity, valuesByHTMLParameterName,  node);
 		}
 		return valuesByHTMLParameterName;
+	}
+	
+	public Map<String, String> getHtmlParameterNameByNodePath(CollectRecord record) {
+		return getHtmlParameterNameByNodePath(record.getRootEntity().getDefinition());
 	}
 	
 	public Map<String, String> getHtmlParameterNameByNodePath(final EntityDefinition rootEntity) {
@@ -218,7 +231,7 @@ public class BalloonInputFieldsUtils {
 			Entity entity = (Entity) node;
 			// result should be
 			// collect_entity_NAME[KEY].code_attribute
-			String entityKey = ((EntityHandler) handler).getEntityKey(entity);
+			String entityKey = entity.getKeyValues()[0];
 			collectParamName += "[" + entityKey + "]";
 
 			List<Node<? extends NodeDefinition>> entityChildren = entity.getChildren();

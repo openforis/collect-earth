@@ -74,8 +74,14 @@ public abstract class AbstractAttributeHandler<C> {
 		return getValueFromParameter(parameterName, entity, 0);
 	}
 
-	public abstract String getValueFromParameter(String parameterName, Entity entity, int index);
+	public String getValueFromParameter(String parameterName, Entity entity, int index) {
+		@SuppressWarnings("unchecked")
+		C value = (C) getAttributeNodeFromParameter(parameterName, entity, index).getValue();
+		return getParameterValue(value);
+	}
 
+	public abstract String getParameterValue(C value);
+	
 	protected abstract C createValue(String parameterValue);
 
 	public String getPrefix() {

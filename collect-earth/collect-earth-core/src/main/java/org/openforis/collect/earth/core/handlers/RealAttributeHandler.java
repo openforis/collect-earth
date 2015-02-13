@@ -3,8 +3,6 @@ package org.openforis.collect.earth.core.handlers;
 import org.openforis.idm.metamodel.NodeDefinition;
 import org.openforis.idm.metamodel.NumberAttributeDefinition;
 import org.openforis.idm.metamodel.NumericAttributeDefinition.Type;
-import org.openforis.idm.model.Entity;
-import org.openforis.idm.model.RealAttribute;
 import org.openforis.idm.model.RealValue;
 import org.springframework.stereotype.Component;
 
@@ -22,12 +20,8 @@ public class RealAttributeHandler extends AbstractAttributeHandler<RealValue> {
 	}
 
 	@Override
-	public String getValueFromParameter(String parameterName, Entity entity, int index) {
-		String cleanName = removePrefix(parameterName);
-		Double value = ((RealAttribute) entity.get(cleanName
-				, index)).getValue().getValue();
-		
-		return value==null?null:value.toString();
+	public String getParameterValue(RealValue value) {
+		return value == null || value.getValue() == null ? null : value.getValue().toString();
 	}
 
 	@Override

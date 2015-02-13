@@ -8,7 +8,7 @@ import javax.servlet.http.HttpServletResponse;
 
 import org.openforis.collect.earth.app.service.LocalPropertiesService;
 import org.openforis.collect.earth.app.view.Messages;
-import org.openforis.collect.earth.core.model.PlacemarkUpdateResult;
+import org.openforis.collect.earth.core.model.PlacemarkLoadResult;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -58,9 +58,9 @@ public class SaveEarthDataServlet extends JsonPocessorServlet {
 		Map<String, String> collectedData = extractRequestData(request);
 		replaceTestVariables(collectedData);
 
-		PlacemarkUpdateResult result;
+		PlacemarkLoadResult result;
 		if (collectedData.size() == 0) {
-			result = new PlacemarkUpdateResult();
+			result = new PlacemarkLoadResult();
 			result.setSuccess(false);
 			result.setErrorMessage(Messages.getString("SaveEarthDataServlet.0")); //$NON-NLS-1$
 			getLogger().info("The request was empty"); //$NON-NLS-1$

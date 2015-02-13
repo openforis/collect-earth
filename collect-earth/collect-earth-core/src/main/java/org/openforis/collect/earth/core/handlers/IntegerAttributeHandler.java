@@ -3,8 +3,6 @@ package org.openforis.collect.earth.core.handlers;
 import org.openforis.idm.metamodel.NodeDefinition;
 import org.openforis.idm.metamodel.NumberAttributeDefinition;
 import org.openforis.idm.metamodel.NumericAttributeDefinition.Type;
-import org.openforis.idm.model.Entity;
-import org.openforis.idm.model.IntegerAttribute;
 import org.openforis.idm.model.IntegerValue;
 import org.springframework.stereotype.Component;
 
@@ -22,10 +20,8 @@ public class IntegerAttributeHandler extends AbstractAttributeHandler<IntegerVal
 	}
 
 	@Override
-	public String getValueFromParameter(String parameterName, Entity entity, int index) {
-		String cleanName = removePrefix(parameterName);
-		Integer value = ((IntegerAttribute) entity.get(cleanName, index)).getValue().getValue();
-		return value==null?null:value.toString();
+	public String getParameterValue(IntegerValue value) {
+		return value == null || value.getValue() == null ? null : value.getValue().toString();
 	}
 
 	@Override

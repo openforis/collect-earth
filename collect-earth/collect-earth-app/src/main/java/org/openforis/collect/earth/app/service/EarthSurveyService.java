@@ -19,7 +19,7 @@ import org.openforis.collect.earth.app.view.Messages;
 import org.openforis.collect.earth.core.handlers.BalloonInputFieldsUtils;
 import org.openforis.collect.earth.core.handlers.DateAttributeHandler;
 import org.openforis.collect.earth.core.model.PlacemarkInputFieldInfo;
-import org.openforis.collect.earth.core.model.PlacemarkUpdateResult;
+import org.openforis.collect.earth.core.model.PlacemarkLoadResult;
 import org.openforis.collect.manager.RecordManager;
 import org.openforis.collect.manager.SurveyManager;
 import org.openforis.collect.manager.exception.SurveyValidationException;
@@ -30,7 +30,6 @@ import org.openforis.collect.model.RecordValidationReportGenerator;
 import org.openforis.collect.model.RecordValidationReportItem;
 import org.openforis.collect.persistence.RecordPersistenceException;
 import org.openforis.collect.persistence.SurveyImportException;
-import org.openforis.idm.metamodel.NodeDefinition;
 import org.openforis.idm.metamodel.NodeLabel.Type;
 import org.openforis.idm.metamodel.Schema;
 import org.openforis.idm.metamodel.xml.IdmlParseException;
@@ -111,39 +110,6 @@ public class EarthSurveyService {
 
 	}
 	
-	private Map<String, String> extractValidationMessagesByParameter(CollectRecord record) {
-		Map<String, String> result = new HashMap<String, String>();
-		
-		// Validation
-		recordManager.validate(record);
-
-		final RecordValidationReportGenerator reportGenerator = new RecordValidationReportGenerator(record);
-		final List<RecordValidationReportItem> validationItems = reportGenerator.generateValidationItems();
-
-		Map<String, String> htmlParameterNameByNodePath = collectParametersHandler.getHtmlParameterNameByNodePath(record.getRootEntity().getDefinition());
-
-		for (final RecordValidationReportItem validationReportItem : validationItems) {
-			String nodePath = validationReportItem.getPath();
-			String parameterName = htmlParameterNameByNodePath.get(nodePath);
-			String label = ""; //$NON-NLS-1$
-
-			String validationReportItemMessage = validationReportItem.getMessage();
-			String message;
-			if (validationReportItem.getNodeId() != null) {
-				final Node<?> node = record.getNodeByInternalId(validationReportItem.getNodeId());
-				NodeDefinition nodeDef = node.getDefinition();
-				label = nodeDef.getLabel(Type.INSTANCE, localPropertiesService.getUiLanguage().name().toLowerCase() );
-				
-				message = getAdaptedValidationMessage(validationReportItemMessage);
-			} else {
-				label = validationReportItem.getPath();
-				message = label + " - " + validationReportItemMessage;
-			}
-			result.put(parameterName, message); //$NON-NLS-1$ //$NON-NLS-2$
-		}
-		return result;
-	}
-
 	protected String getAdaptedValidationMessage(String validationMessage) {
 		String message;
 		if (validationMessage.equals("Reason blank not specified")) { //$NON-NLS-1$
@@ -170,15 +136,12 @@ public class EarthSurveyService {
 	}
 
 	public Map<String, String> getPlacemark(String placemarkId) {
-		
-		final List<CollectRecord> summaries = recordManager.loadSummaries(getCollectSurvey(), EarthConstants.ROOT_ENTITY_NAME, placemarkId);
-		
-		
-		CollectRecord record = null;
+		CollectRecord record = loadRecord(placemarkId);
 		Map<String, String> placemarkParameters = null;
-		if (summaries.size() > 0) {
-			record = summaries.get(0);
-			record = recordManager.load(getCollectSurvey(), record.getId(), Step.ENTRY);
+		if (record == null) {
+			placemarkParameters = new HashMap<String, String>();
+			addResultParameter(placemarkParameters, false);
+		} else {
 			placemarkParameters = collectParametersHandler.getValuesByHtmlParameters(record.getRootEntity());
 
 			if ((placemarkParameters.get("collect_code_canopy_cover") != null) && placemarkParameters.get("collect_code_canopy_cover").equals("0")) { //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$
@@ -190,18 +153,29 @@ public class EarthSurveyService {
 				placemarkParameters.put("collect_code_crown_cover", //$NON-NLS-1$
 						"0;collect_code_deforestation_reason=" + placemarkParameters.get("collect_code_deforestation_reason")); //$NON-NLS-1$ //$NON-NLS-2$
 			}
-
-		
 			addResultParameter(placemarkParameters, true);
-					
-		} else {
-			placemarkParameters = new HashMap<String, String>();
-			addResultParameter(placemarkParameters, false);
 		}
-
 		addLocalProperties(placemarkParameters);
 		
 		return placemarkParameters;
+	}
+	
+	
+	public PlacemarkLoadResult getPlacemarkExpanded(String placemarkId) {
+		//TODO
+		return null;
+	}
+	
+	public CollectRecord loadRecord(String placemarkId) {
+		List<CollectRecord> summaries = recordManager.loadSummaries(getCollectSurvey(), EarthConstants.ROOT_ENTITY_NAME, placemarkId);
+		CollectRecord record = null;
+		if (summaries.isEmpty()) {
+			return null;
+		} else {
+			record = summaries.get(0);
+			record = recordManager.load(getCollectSurvey(), record.getId(), Step.ENTRY);
+			return record;
+		}
 	}
 
 	/**
@@ -360,8 +334,8 @@ public class EarthSurveyService {
 		return success;
 	}
 
-	public synchronized PlacemarkUpdateResult storePlacemark(Map<String, String> parameters, String sessionId) {
-		PlacemarkUpdateResult result = new PlacemarkUpdateResult();
+	public synchronized PlacemarkLoadResult storePlacemark(Map<String, String> parameters, String sessionId) {
+		PlacemarkLoadResult result = new PlacemarkLoadResult();
 		
 		try {
 			// Add the operator to the collected data
@@ -375,7 +349,9 @@ public class EarthSurveyService {
 			}
 
 			// Populate the data of the record using the HTTP parameters received
-			collectParametersHandler.saveToEntity(parameters, plotEntity);
+			Map<String, String> oldPlacemarkParameters = collectParametersHandler.getValuesByHtmlParameters(record.getRootEntity());
+			Map<String, String> changedParameters = calculateChanges(oldPlacemarkParameters, parameters);
+			collectParametersHandler.saveToEntity(changedParameters, plotEntity);
 
 			boolean userClickOnSaveAndValidate = isPlacemarkSavedActively(parameters);
 
@@ -386,7 +362,7 @@ public class EarthSurveyService {
 			} else {
 				setPlacemarkSavedActively(parameters, false);
 			}
-			Set<String> parameterNames = parameters.keySet();
+			Set<String> parameterNames = oldPlacemarkParameters.keySet();
 			Map<String, PlacemarkInputFieldInfo> infoByParameterName = collectParametersHandler.extractFieldInfoByParameterName(parameterNames, record);
 			result.setInputFieldInfoByParameterName(infoByParameterName);
 		} catch (final RecordPersistenceException e) {

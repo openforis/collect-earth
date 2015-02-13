@@ -19,6 +19,11 @@ public class CoordinateAttributeHandler extends AbstractAttributeHandler<Coordin
 		super(PREFIX);
 	}
 
+	@Override
+	public String getParameterValue(Coordinate value) {
+		return value == null ? null: value.toString();
+	}
+	
 	/**
 	 * Expects the coordinate as a String "latitude,longitude" 
 	 * @param parameterValue
