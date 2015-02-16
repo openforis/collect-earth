@@ -12,6 +12,7 @@
     <defaultLanguage>auto</defaultLanguage>
     <allowLanguageSelection>1</allowLanguageSelection>
     <languageSelectionStyle>onlyNativeNames</languageSelectionStyle>
+    <createOsxBundleZip>1</createOsxBundleZip>
     <componentList>
         <include>
             <file>java.xml</file>
@@ -81,8 +82,8 @@
     <windowsExecutableIcon>installer_icon.ico</windowsExecutableIcon>
     
     <requireInstallationByRootUser>0</requireInstallationByRootUser>
-	<createOsxBundleZip>0</createOsxBundleZip>
-	<osxPlatforms>osx-intel osx-ppc osx-10.2</osxPlatforms>
+    <createOsxBundleZip>0</createOsxBundleZip>
+	<!-- <osxPlatforms>osx-intel osx-ppc osx-10.2</osxPlatforms> -->
 	<!-- Configures the final destination of the installation log -->
    <installationLogFile>${installdir}/${project.shortName}-installLog.log</installationLogFile>
 </project>

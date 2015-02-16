@@ -10,7 +10,7 @@
 
       var map = null;
 
-	  var bingKey = "AjVg2KjkXqNtIcnLTZfIwahJATb-LGJigDTj1eCHBah5BTTgWU8rBQD0cTC8-6IA";
+	  var bingKey = "BING_MAPS_KEY";
 	  
       function GetMap()
       {  
