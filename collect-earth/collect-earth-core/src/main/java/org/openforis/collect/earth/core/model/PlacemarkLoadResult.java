@@ -2,6 +2,7 @@ package org.openforis.collect.earth.core.model;
 
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Map.Entry;
 
 /**
  * 
@@ -12,7 +13,9 @@ public class PlacemarkLoadResult {
 
 	private Map<String, PlacemarkInputFieldInfo> inputFieldInfoByParameterName;
 	private boolean success;
-	private String errorMessage;
+	private String message;
+	private boolean activelySaved;
+	private boolean validData;
 	
 	public PlacemarkLoadResult() {
 		this.success = false;
@@ -32,6 +35,33 @@ public class PlacemarkLoadResult {
 		return placemarkInputFieldInfo;
 	}
 	
+	public void updateCalculatedFields() {
+		PlacemarkInputFieldInfo activelySavedFieldInfo = inputFieldInfoByParameterName.get("collect_boolean_actively_saved");
+		activelySaved = activelySavedFieldInfo != null && Boolean.TRUE.toString().equals(activelySavedFieldInfo.getValue());
+		validData = calculateContainsValidData();
+	}
+
+	private boolean calculateContainsValidData() {
+		for (Entry<String, PlacemarkInputFieldInfo> entry : inputFieldInfoByParameterName.entrySet()) {
+			PlacemarkInputFieldInfo info = entry.getValue();
+			if (info.isInError()) {
+				return false;
+			}
+		}
+		return true;
+	}
+	
+	public boolean isValidData() {
+		return validData;
+	}
+	
+	/**
+	 * Calculated field based on inputFieldInfoByParameterName content
+	 */
+	public boolean isActivelySaved() {
+		return activelySaved;
+	}
+	
 	public boolean isSuccess() {
 		return success;
 	}
@@ -40,14 +70,14 @@ public class PlacemarkLoadResult {
 		this.success = success;
 	}
 	
-	public String getErrorMessage() {
-		return errorMessage;
+	public String getMessage() {
+		return message;
 	}
-
-	public void setErrorMessage(String errorMessage) {
-		this.errorMessage = errorMessage;
+	
+	public void setMessage(String message) {
+		this.message = message;
 	}
-
+	
 	public Map<String, PlacemarkInputFieldInfo> getInputFieldInfoByParameterName() {
 		return inputFieldInfoByParameterName;
 	}
@@ -56,7 +86,5 @@ public class PlacemarkLoadResult {
 			Map<String, PlacemarkInputFieldInfo> inputFieldInfoByParameterName) {
 		this.inputFieldInfoByParameterName = inputFieldInfoByParameterName;
 	}
-	
-	
-	
+
 }

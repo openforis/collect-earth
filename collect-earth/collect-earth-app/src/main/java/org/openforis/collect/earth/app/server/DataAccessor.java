@@ -18,7 +18,7 @@ public interface DataAccessor {
 	 */
 	public Map<String, String> getData(String placemarkId);
 	
-	public PlacemarkLoadResult getDataExpanded(String placemarkId);
+	public PlacemarkLoadResult loadDataExpanded(String placemarkId);
 
 	public boolean saveData(Map<String, String> collectedData);
 	

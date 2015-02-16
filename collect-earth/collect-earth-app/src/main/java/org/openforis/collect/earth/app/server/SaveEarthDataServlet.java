@@ -62,7 +62,7 @@ public class SaveEarthDataServlet extends JsonPocessorServlet {
 		if (collectedData.size() == 0) {
 			result = new PlacemarkLoadResult();
 			result.setSuccess(false);
-			result.setErrorMessage(Messages.getString("SaveEarthDataServlet.0")); //$NON-NLS-1$
+			result.setMessage(Messages.getString("SaveEarthDataServlet.0")); //$NON-NLS-1$
 			getLogger().info("The request was empty"); //$NON-NLS-1$
 		} else {
 			result = getDataAccessor().saveDataExpanded(collectedData);

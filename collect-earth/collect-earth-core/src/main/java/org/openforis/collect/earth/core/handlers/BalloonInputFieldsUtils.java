@@ -3,6 +3,7 @@ package org.openforis.collect.earth.core.handlers;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
@@ -62,7 +63,8 @@ public class BalloonInputFieldsUtils {
 	
 	public Map<String, PlacemarkInputFieldInfo> extractFieldInfoByParameterName(CollectRecord record) {
 		Map<String, String> htmlParameterNameByNodePath = getHtmlParameterNameByNodePath(record);
-		return extractFieldInfoByParameterName(htmlParameterNameByNodePath.keySet(), record);
+		Set<String> parameterNames = new HashSet<String>(htmlParameterNameByNodePath.values());
+		return extractFieldInfoByParameterName(parameterNames, record);
 	}
 	
 	public Map<String, PlacemarkInputFieldInfo> extractFieldInfoByParameterName(Set<String> parameterNames, CollectRecord record) {
@@ -79,9 +81,11 @@ public class BalloonInputFieldsUtils {
 			String cleanName = cleanUpParameterName(parameterName);
 			AbstractAttributeHandler<?> handler = findHandler(cleanName);
 			if (handler != null) {
-				Attribute<?, ?> attribute = handler.getAttributeNodeFromParameter(cleanName, rootEntity, 0);
-				
 				PlacemarkInputFieldInfo info = new PlacemarkInputFieldInfo();
+
+				Attribute<?, ?> attribute = handler.getAttributeNodeFromParameter(cleanName, rootEntity, 0);
+
+				info.setValue(handler.getValueFromParameter(cleanName, rootEntity));
 				info.setVisible(attribute.isRelevant());
 				
 				String errorMessage = validationMessageByPath.get(attribute.getPath());

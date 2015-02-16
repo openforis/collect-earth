@@ -77,6 +77,7 @@ public class EarthSurveyService {
 		placemarkParameters.put(EarthConstants.PLACEMARK_FOUND_PARAMETER, found + ""); //$NON-NLS-1$
 	}
 
+	@Deprecated
 	private void addValidationMessages(Map<String, String> parameters, CollectRecord record) {
 		// Validation
 		recordManager.validate(record);
@@ -160,10 +161,19 @@ public class EarthSurveyService {
 		return placemarkParameters;
 	}
 	
-	
-	public PlacemarkLoadResult getPlacemarkExpanded(String placemarkId) {
-		//TODO
-		return null;
+	public PlacemarkLoadResult loadPlacemarkExpanded(String placemarkId) {
+		PlacemarkLoadResult result = new PlacemarkLoadResult();
+		CollectRecord record = loadRecord(placemarkId);
+		if (record == null) {
+			result.setSuccess(false);
+			result.setMessage("No placemark found");
+		} else {
+			result.setSuccess(true);
+			Map<String, PlacemarkInputFieldInfo> inputFieldInfoByParameterName = collectParametersHandler.extractFieldInfoByParameterName(record);
+			result.setInputFieldInfoByParameterName(inputFieldInfoByParameterName);
+			result.updateCalculatedFields();
+		}
+		return result;
 	}
 	
 	public CollectRecord loadRecord(String placemarkId) {
@@ -283,6 +293,7 @@ public class EarthSurveyService {
 
 	}
 
+	@Deprecated
 	public synchronized boolean storePlacemarkOld(Map<String, String> parameters, String sessionId) {
 
 		final List<CollectRecord> summaries = recordManager.loadSummaries(getCollectSurvey(), EarthConstants.ROOT_ENTITY_NAME, parameters.get("collect_text_id")); //$NON-NLS-1$
@@ -355,16 +366,17 @@ public class EarthSurveyService {
 
 			boolean userClickOnSaveAndValidate = isPlacemarkSavedActively(parameters);
 
-			if (((record.getErrors() == 0) && (record.getSkipped() == 0) && userClickOnSaveAndValidate) || !userClickOnSaveAndValidate) {
+			if ( (userClickOnSaveAndValidate && record.getErrors() == 0 && record.getSkipped() == 0) || !userClickOnSaveAndValidate) {
 				record.setModifiedDate(new Date());
-				result.setSuccess(true);
 				recordManager.save(record, sessionId);
 			} else {
 				setPlacemarkSavedActively(parameters, false);
 			}
+			result.setSuccess(true);
 			Set<String> parameterNames = oldPlacemarkParameters.keySet();
 			Map<String, PlacemarkInputFieldInfo> infoByParameterName = collectParametersHandler.extractFieldInfoByParameterName(parameterNames, record);
 			result.setInputFieldInfoByParameterName(infoByParameterName);
+			result.updateCalculatedFields();
 		} catch (final RecordPersistenceException e) {
 			logger.error("Error while storing the record " + e.getMessage(), e); //$NON-NLS-1$
 			result.setSuccess(false);

@@ -42,7 +42,7 @@ public class PlacemarkInfoServlet extends JsonPocessorServlet {
 			setResult(false, "No placemark ID found in the request", collectedData); //$NON-NLS-1$
 			getLogger().error("No placemark ID found in the received request"); //$NON-NLS-1$
 		} else {
-			placemarkId = getAdaptedPlacemark(placemarkId);
+			placemarkId = replacePlacemarkIdTestValue(placemarkId);
 			collectedData = getDataAccessor().getData(placemarkId);
 			if (collectedData != null && collectedData.get(EarthConstants.PLACEMARK_FOUND_PARAMETER) != null
 					&& collectedData.get(EarthConstants.PLACEMARK_FOUND_PARAMETER).equals("true")) { //$NON-NLS-1$
@@ -61,36 +61,29 @@ public class PlacemarkInfoServlet extends JsonPocessorServlet {
 
 	}
 
-	@RequestMapping("/placemarkInfoExpanded")
+	@RequestMapping("/placemark-info-expanded")
 	protected void placemarkInfoExpanded(HttpServletRequest request, HttpServletResponse response) throws IOException {
-		PlacemarkLoadResult result = new PlacemarkLoadResult();
+		PlacemarkLoadResult result;
 		Map<String, String> collectedData = extractRequestData(request);
 		String placemarkId = getPlacemarkId(collectedData);
 		
 		if (placemarkId == null) {
+			result = new PlacemarkLoadResult();
 			result.setSuccess(false);
 			String errorMessage = "No placemark ID found in the received request";
-			result.setErrorMessage(errorMessage);
+			result.setMessage(errorMessage);
 			getLogger().error(errorMessage); //$NON-NLS-1$
 		} else {
-			placemarkId = getAdaptedPlacemark(placemarkId);
-			collectedData = getDataAccessor().getData(placemarkId);
-			String foundParameter = collectedData.get(EarthConstants.PLACEMARK_FOUND_PARAMETER);
-			if (Boolean.valueOf(foundParameter)) { //$NON-NLS-1$
-				result = getDataAccessor().getDataExpanded(placemarkId);
-//				setResult(true, "The placemark was found", collectedData); //$NON-NLS-1$
-//				getLogger().info("A placemark was found with these properties" + collectedData.toString()); //$NON-NLS-1$
-			} else {
-				result.setSuccess(false);
-				result.setErrorMessage("No placemark found");
+			placemarkId = replacePlacemarkIdTestValue(placemarkId);
+			result = getDataAccessor().loadDataExpanded(placemarkId);
+			if (! result.isSuccess()) {
 				getLogger().info("No placemark found for the given parameters: " + collectedData.toString());
 			}
 		}
-		setJsonResponse(response, collectedData);
-
+		setJsonResponse(response, result);
 	}
 
-	protected String getAdaptedPlacemark(String placemarkId) {
+	protected String replacePlacemarkIdTestValue(String placemarkId) {
 		if (placemarkId.equals("$[id]")) { //$NON-NLS-1$
 			placemarkId = "testPlacemark"; //$NON-NLS-1$
 		}

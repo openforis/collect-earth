@@ -22,8 +22,8 @@ public class CollectDataAccessor implements DataAccessor {
 	}
 
 	@Override
-	public PlacemarkLoadResult getDataExpanded(String placemarkId) {
-		return earthSurveyService.getPlacemarkExpanded(placemarkId);
+	public PlacemarkLoadResult loadDataExpanded(String placemarkId) {
+		return earthSurveyService.loadPlacemarkExpanded(placemarkId);
 	}
 	
 	@Override

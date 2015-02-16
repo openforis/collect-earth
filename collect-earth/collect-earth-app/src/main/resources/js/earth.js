@@ -64,10 +64,10 @@ $(document)
 
 var ajaxDataUpdate = function() {
 
-	var actively_saved = $("input[id=collect_boolean_actively_saved]").val();
+	var activelySaved = $("input[id=collect_boolean_actively_saved]").val() == 'true';
 	// Only update automatically when the data has not been correctly saved
 	// before
-	if (actively_saved == 'false') {
+	if (! activelySaved) {
 		// Set a two second timeout so that the data is only sent to the server
 		// if the user stops clicking for over one second
 		clearTimeout(ajaxTimeout);
@@ -81,7 +81,7 @@ var ajaxDataUpdate = function() {
 				dataType : 'json'
 			})
 			.done(function(json) {
-				interpretJsonSaveResponse(json, actively_saved);
+				interpretJsonSaveResponse(json, activelySaved);
 			});
 		}, 100);
 	}
@@ -110,10 +110,7 @@ var submitForm = function($form, submitCounter) {
 			if (submitCounter < 3) {
 				submitForm($form, submitCounter + 1);
 			} else {
-				$('#succ_mess')
-						.css("color", "red")
-						.html("Cannot save the data, the Collect Earth server is not running! ");
-				$("#dialogSuccess").dialog("open");
+				showErrorMessage("Cannot save the data, the Collect Earth server is not running!");
 			}
 		})
 		.always(function() {
@@ -122,35 +119,36 @@ var submitForm = function($form, submitCounter) {
 }
 
 var interpretJsonSaveResponse = function(json, activelySaved) {
-	if (activelySaved) {
-		if (json.type == 'warning') {
-			$('#succ_mess').css("color", "yellow").html(json.message);
-		} else if (json.type == 'success' && json.valid_data
-				&& json.valid_data == 'false') {
-			
-			var message = "";
-			
-			$.each(json, function(key, info) {
-				if (info.inError) {
-					message += info.errorMessage + "<br>";
-				}
-			});
-			showMessage(message, true);
-			
-			// Resest the "actively saved" parameter to false so that it is not sent
-			// aw true when the user fixes the validation
-			$("input[id=collect_boolean_actively_saved]").val('false');
-			
-		} else if (json.type == 'success') {
-			showMessage(json.message);
-			forceWindowCloseAfterDialogCloses($("#dialogSuccess"));
-		} else if (json.type == 'error') {
-			showMessage(json.message, true);
+	if (activelySaved) { //show feedback message
+		if (json.success) {
+			if (json.validData) {
+				showSuccessMessage(json.message);
+				forceWindowCloseAfterDialogCloses($("#dialogSuccess"));
+			} else {
+				var message = "";
+				$.each(json.inputFieldInfoByParameterName, function(key, info) {
+					if (info.inError) {
+						var inputField = $("#" + key);
+						var label = inputField.length > 0 ? OF.UI.Forms.getFieldLabel(inputField) : "";
+						message += label + " : " + info.errorMessage + "<br>";
+					}
+				});
+				showErrorMessage(message);
+				
+				// Resets the "actively saved" parameter to false so that it is not sent
+				// as true when the user fixes the validation
+				$("input[id=collect_boolean_actively_saved]").val('false');
+			}
+		} else {
+			showErrorMessage(json.message);
 		}
 	}
-	
+	updateInputFieldsState(json.inputFieldInfoByParameterName);
+};
+
+var updateInputFieldsState = function(inputFieldInfoByParameterName) {
 	//update possible values in SELECT elements
-	$.each(json.inputFieldInfoByParameterName, function(fieldName, info) {
+	$.each(inputFieldInfoByParameterName, function(fieldName, info) {
 		var el = $("#" + fieldName);
 		if (el && el.length == 1 && el[0].nodeName == "SELECT") {
 			var oldValue = el.val();
@@ -158,13 +156,13 @@ var interpretJsonSaveResponse = function(json, activelySaved) {
 			OF.UI.Forms.populateSelect(el, possibleItems, "code", "label");
 			el.val(oldValue);
 			if (el.val() == null) {
-				el.val("-1");
+				el.val("-1"); //set N/A option by default
 			}
 		}
 	});
 	//update errors feedback
 	var errors = [];
-	$.each(json.inputFieldInfoByParameterName, function(fieldName, info) {
+	$.each(inputFieldInfoByParameterName, function(fieldName, info) {
 		if (info.inError) {
 			errors.push({field: fieldName, defaultMessage: info.errorMessage});
 		}
@@ -172,7 +170,7 @@ var interpretJsonSaveResponse = function(json, activelySaved) {
 	OF.UI.Forms.Validation.updateErrors($("#formAll"), errors);
 	
 	//manage fields visibility
-	$.each(json.inputFieldInfoByParameterName, function(fieldName, info) {
+	$.each(inputFieldInfoByParameterName, function(fieldName, info) {
 		var field = $("#" + fieldName);
 		var formGroup = field.closest( '.form-group' );
 		formGroup.toggle(info.visible);
@@ -216,122 +214,134 @@ var checkIfPlacemarkAlreadyFilled = function(formName, chechCount) {
 	var data = $(formName + " :input[value]").serialize();
 	
 	$.ajax({
-			data : data,
-			type : "POST",
-			//url : "$[host]placemarkInfo",
-			 url: "http://127.0.0.1:8028/earth/placemarkInfo",
-			dataType : 'json',
-			timeout : 5000
-		})
-		.fail(
-			function(jqXHR, textStatus, errorThrown) {
-				if (chechCount < 3) {
-					chechCount = chechCount + 1;
-					checkIfPlacemarkAlreadyFilled(formName, chechCount);
-				} else {
-					showMessage("The Collect Earth server is not running!");
-					initializeChangeEventSaver();
-				}
-		})
-		.done(
-			function(json) {
-				if (json.collect_boolean_actively_saved == 'true'
-						&& json.collect_text_id != 'testPlacemark') { // 
-
-					showMessage("The data for this placemark has already been filled", true);
-
-					if (json.earth_skip_filled
-							&& json.earth_skip_filled == 'true') {
-						forceWindowCloseAfterDialogCloses($("#dialogSuccess"));
-					}
-				}
-				// Pre-fills the form and after that initilizes the
-				// change event listeners for the inputs
-				fillDataWithJson(json);
+		data : data,
+		type : "POST",
+		//url : "$[host]placemarkInfo",
+		 url: "http://127.0.0.1:8028/earth/placemark-info-expanded",
+		dataType : 'json',
+		timeout : 5000
+	})
+	.fail(
+		function(jqXHR, textStatus, errorThrown) {
+			if (chechCount < 3) {
+				chechCount = chechCount + 1;
+				checkIfPlacemarkAlreadyFilled(formName, chechCount);
+			} else {
+				showErrorMessage("The Collect Earth server is not running!");
 				initializeChangeEventSaver();
-		});
+			}
+	})
+	.done(
+		function(json) {
+			if (json.activelySaved
+					&& json.inputFieldInfoByParameterName.collect_text_id != 'testPlacemark') { // 
+
+				showErrorMessage("The data for this placemark has already been filled");
+
+				//TODO
+				if (json.earth_skip_filled
+						&& json.earth_skip_filled == 'true') {
+					forceWindowCloseAfterDialogCloses($("#dialogSuccess"));
+				}
+			}
+			// Pre-fills the form and after that initilizes the
+			// change event listeners for the inputs
+			updateInputFieldsState(json.inputFieldInfoByParameterName);
+			fillDataWithJson(json.inputFieldInfoByParameterName);
+			initializeChangeEventSaver();
+	});
 };
 
-var showMessage = function(message, error) {
-	var color = error ? "red": "green";
+var showSuccessMessage = function(message) {
+	showMessage(message, "success");
+};
+
+var showWarningMessage = function(message) {
+	showMessage(message, "warning");
+};
+
+var showErrorMessage = function(message) {
+	showMessage(message, "error");
+};
+
+var showMessage = function(message, type) {
+	var color;
+	switch(type) {
+	case "error":
+		color = "red";
+		break;
+	case "warning":
+		color = "yellow";
+		break;
+	case "success":
+	default:
+		color = "green";
+	}
 	$('#succ_mess')
 		.css("color", color)
-		.html(message);
+		.html(message ? message : "");
 	$("#dialogSuccess").dialog("open");	
 };
 
-var fillDataWithJson = function(json) {
-	$.each(
-		json,
-		function(key, value) {
-			// Do this for every key there might be different
-			// tryopes of elements with the same key than a hidden
-			// input
-			if ($("input[name=\'" + key + "\']").length == 1) {
-				var values = value.split(SEPARATOR_MULTIPLE_VALUES); // In
-																		// case
-																		// of
-																		// value
-																		// being
-																		// 0;collect_code_deforestation_reason=burnt
-				$("input[name=\'" + key + "\']").val(values[0]);
-			}
-
-			if ($("textarea[name=\'" + key + "\']").length == 1) {
-				$("textarea[name=\'" + key + "\']").val(value);
-			} else if ($("select[name=\'" + key + "\']").length == 1) {
-				var values = value
-						.split(SEPARATOR_MULTIPLE_PARAMETERS);
-			/* 	$("select[name=\'" + key + "\']").selectpicker(
-						'val', values); */
-				
-				$("select[name=\'" + key + "\']").val(value);
+var fillDataWithJson = function(inputFieldInfoByParameterName) {
+	$.each(inputFieldInfoByParameterName, function(key, info) {
+		var value = info.value;
+		// Do this for every key there might be different
+		// tryopes of elements with the same key than a hidden
+		// input
+		
+		if (key == "earth_skip_filled" && value == 'true') {
+			$('#earth_skip_filled').attr('checked', value);
+		} else {
+			var values = value == null ? []: value.split(SEPARATOR_MULTIPLE_VALUES);// In
+																					// case
+																					// of
+																					// value
+																					// being
+																					// 0;collect_code_deforestation_reason=burnt
 			
+			var inputField = $("*[name=\'" + key + "\']");
+			if (inputField.length == 1) {
+				var tagName = inputField.prop("tagName");
+				switch(tagName) {
+				case "INPUT":
+					if (inputField.prop("type") == "checkbox") {
+						inputField.prop("checked", value == "true");
+					} else {
+						inputField.val(values[0]);
+					}
+					break;
+				case "TEXTAREA":
+					inputField.val(value);
+					break;
+				case "SELECT":
+					inputField.val(value);
+					if (inputField.val() == null) {
+						inputField.val("-1");
+					}
+					break;
+				}
 			} else if ($('#' + key + '_group').length == 1) { // button
-																// group
-																// exists
-				var values = value
-						.split(SEPARATOR_MULTIPLE_PARAMETERS);
+															// group
+															// exists
 				for (var i = 0; i < values.length; i++) {
 					// $('#'+key+'_group
 					// .btn[value='+value+']').button('toggle'); //
 					// set the class to "active" on the chosen
 					// values
-					if ($('#' + key + '_group .btn[value=\''
-							+ value + '\']').length == 1) {
-						var toggleButton = $('#' + key
-								+ '_group .btn[value=\'' + value
-								+ '\']');
+					var toggleButton = $('#' + key
+							+ '_group .btn[value=\'' + value
+							+ '\']');
+					if (toggleButton.length == 1) {
 						toggleButton.button('toggle');
-						if (key == "collect_code_land_use_category") {
-							activateLandUseDivs(toggleButton.val());
-						}
+//						if (key == "collect_code_land_use_category") {
+//							activateLandUseDivs(toggleButton.val());
+//						}
 					}
 				}
-			} else if ($('.landUseTypeSelector .btn[value=\''
-					+ value + '\']').length == 1) {
-				var toggleButton = $('.landUseTypeSelector .btn[value=\''
-						+ value + '\']');
-				toggleButton.button('toggle');
-			} else if ($("select[name=\'hidden_" + key + "\']").length == 1) {
-				var values = value
-						.split(SEPARATOR_MULTIPLE_PARAMETERS);
-				/* $("select[name=\'hidden_" + key + "\']")
-						.selectpicker('val', values); */
-			/* 	$("select[name=\'hidden_" + key + "\'] option").filter(function() {
-				    //may want to use $.trim in here
-					var inArray = $.inArray( $(this).text(), values );
-				    return inArray>=0; 
-				}).prop('selected', true); */
-				$("select[name=\'hidden_" + key + "\']").val(values);
-				
 			}
-
-			if (key == "earth_skip_filled" && value == 'true') {
-				$('#earth_skip_filled').attr('checked', value);
-			}
-
-		});
+		}
+	});
 }
 
 var initializeChangeEventSaver = function() {
