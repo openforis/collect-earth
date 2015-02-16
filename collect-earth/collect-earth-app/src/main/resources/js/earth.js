@@ -11,7 +11,8 @@ var ajaxTimeout = null;
 $(document)
 	.ready(function() {
 		fillYears();
-		initializeDateTimePickers();
+		initCodeButtonGroups();
+		initDateTimePickers();
 
 		// Declares the Jquery Dialog ( The Bootstrap dialog does
 		// not work in Google Earth )
@@ -49,15 +50,17 @@ $(document)
 		
 		//http://jqueryui.com/tooltip/
 		$(document).tooltip({
-			 show: null,
-			 position: {
-				 my: "left top",
-				 at: "left bottom"
-			 },
-			 open: function( event, ui ) {
-				 ui.tooltip.animate({ top: ui.tooltip.position().top + 10 }, "fast" );
-			 }
-		 });
+			show : null,
+			position : {
+				my : "left top",
+				at : "left bottom"
+			},
+			open : function(event, ui) {
+				ui.tooltip.animate({
+					top : ui.tooltip.position().top + 10
+				}, "fast");
+			}
+		});
 		
 		checkIfPlacemarkAlreadyFilled('#formAll', 0);
 });
@@ -150,13 +153,27 @@ var updateInputFieldsState = function(inputFieldInfoByParameterName) {
 	//update possible values in SELECT elements
 	$.each(inputFieldInfoByParameterName, function(fieldName, info) {
 		var el = $("#" + fieldName);
-		if (el && el.length == 1 && el[0].nodeName == "SELECT") {
-			var oldValue = el.val();
-			var possibleItems = info.possibleCodedItems ? info.possibleCodedItems: [];
-			OF.UI.Forms.populateSelect(el, possibleItems, "code", "label");
-			el.val(oldValue);
-			if (el.val() == null) {
-				el.val("-1"); //set N/A option by default
+		if (el.length == 1 && el.data("fieldType") == "code") {
+			if (el.prop("tagName") == "SELECT") {
+				var oldValue = el.val();
+				var possibleItems = info.possibleCodedItems ? info.possibleCodedItems: [];
+				OF.UI.Forms.populateSelect(el, possibleItems, "code", "label");
+				el.val(oldValue);
+				if (el.val() == null) {
+					el.val("-1"); //set N/A option by default
+				}
+			} else {
+				var parentCodeFieldId = el.data("parentCodeField");
+				if (parentCodeFieldId) {
+					var parentCodeInfo = inputFieldInfoByParameterName[parentCodeFieldId];
+					var parentCodeValue = parentCodeInfo.value;
+					var groupContainer = el.closest(".code-items-group");
+					var itemsContainers = groupContainer.find(".code-items");
+					itemsContainers.hide();
+					
+					var validItemsContainer = groupContainer.find(".code-items[data-parent-code='" + parentCodeValue + "']");
+					validItemsContainer.show();
+				}
 			}
 		}
 	});
@@ -172,7 +189,7 @@ var updateInputFieldsState = function(inputFieldInfoByParameterName) {
 	//manage fields visibility
 	$.each(inputFieldInfoByParameterName, function(fieldName, info) {
 		var field = $("#" + fieldName);
-		var formGroup = field.closest( '.form-group' );
+		var formGroup = field.closest('.form-group');
 		formGroup.toggle(info.visible);
 	});
 };
@@ -190,7 +207,23 @@ var enableSelect = function(selectName, enable) { // #elementsCover
 	// $(selectName).selectpicker('refresh');
 };
 
-var initializeDateTimePickers = function() {
+var initCodeButtonGroups = function() {
+	var form = $("#formAll");
+	form.find("button.code-item").click(function() {
+		var btn = $(this);
+		var selected = btn.prop("selected");
+		var itemsContainer = btn.closest(".code-items");
+		var groupContainer = itemsContainer.closest(".code-items-group");
+		itemsContainer.find(".item").prop("checked", false);
+		btn.prop("checked", selected);
+		var inputField = groupContainer.find("input[type='hidden']");
+		inputField.val(btn.val());
+		
+		ajaxDataUpdate();
+	});
+};
+
+var initDateTimePickers = function() {
 	//http://eonasdan.github.io/bootstrap-datetimepicker/
 	$('.datepicker').datetimepicker({
 	   format: DATE_FORMAT
