@@ -482,12 +482,12 @@ public class BrowserService implements Observer{
 			}
 
 			final RemoteWebDriver driverCopy = webDriverHere;
-			final String[] latLong = coordinates.split(",");
+			final String[] centerPlotLocation = coordinates.split(",");
 			final Thread loadHereThread = new Thread() {
 				@Override
 				public void run() {
 					try {
-						webDriverHere = navigateTo(geoLocalizeTemplateService.getTemporaryUrl(latLong, GeolocalizeMapService.FREEMARKER_HERE_HTML_TEMPLATE).toString(), driverCopy);
+						webDriverHere = navigateTo(geoLocalizeTemplateService.getHereUrl(centerPlotLocation, localPropertiesService.getValue( EarthProperty.HERE_MAPS_APP_ID), localPropertiesService.getValue( EarthProperty.HERE_MAPS_APP_CODE), GeolocalizeMapService.FREEMARKER_HERE_HTML_TEMPLATE).toString(), driverCopy);
 					} catch (final Exception e) {
 						logger.error("Problems loading Here Maps", e);
 					}

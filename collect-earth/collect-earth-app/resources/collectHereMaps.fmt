@@ -44,8 +44,8 @@
 	
                 // Initialize the platform object:
                 var platform = new H.service.Platform({
-                  'app_id': 'HERE_APP_ID',
-                  'app_code': 'HERE_APP_CODE'
+                  'app_id': '${hereAppId}',
+                  'app_code': '${hereAppCode}'
                 });
           
                 // Obtain the default map types from the platform object
