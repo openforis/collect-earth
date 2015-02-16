@@ -40,7 +40,7 @@ public abstract class AbstractAttributeHandler<C> {
 			changeSet = addToEntity(parameterName, parameterValue, entity);
 		} else if (attr instanceof Attribute) {
 			Value value = (Value) createValue(parameterValue);
-			changeSet = recordUpdater.updateAttribute(attr, value);
+			changeSet = recordUpdater.updateAttribute(attr, value, true);
 		}
 		return changeSet;
 	}

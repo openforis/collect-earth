@@ -60,7 +60,7 @@ hr {
 }
 
 .ui-dialog-titlebar-close {
-	background-image: url(earthFiles/img/close.png) !important;
+	background-image: url(img/close.png) !important;
 	background-position: left top !important;
 }
 
@@ -148,7 +148,7 @@ table.independentToggle button, .independentToggle button {
 	.col-xs-10, .col-sm-10, .col-md-10, .col-lg-10, .col-xs-11, .col-sm-11,
 	.col-md-11, .col-lg-11, .col-xs-12, .col-sm-12, .col-md-12, .col-lg-12
 	{
-	padding: 0;
+	padding: 0px 4px 0px 4px;
 }
 
 /** Error Tooltip */
@@ -158,4 +158,29 @@ table.independentToggle button, .independentToggle button {
 
 .tooltip.top.error .tooltip-arrow {
 	border-top-color: #e74c3c;
+}
+
+/** Form elements */
+.form-horizontal .control-label {
+	padding-top: 4px;
+}
+
+.form-group {
+	margin-bottom: 2px;
+}
+
+form input[type='text'] {
+	width: 200px;
+}
+
+form input[type='checkbox'] {
+	width: 35px;
+}
+
+form input[type='text'].numeric {
+	width: 100px;
+}
+
+form textarea {
+	width: 250px;
 }

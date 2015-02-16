@@ -66,6 +66,9 @@ public class SaveEarthDataServlet extends JsonPocessorServlet {
 			getLogger().info("The request was empty"); //$NON-NLS-1$
 		} else {
 			result = getDataAccessor().saveDataExpanded(collectedData);
+			if (result.isSuccess()) {
+				result.setMessage(Messages.getString("SaveEarthDataServlet.2"));
+			}
 		}
 		setJsonResponse(response, result);
 	}
