@@ -28,6 +28,7 @@ OF.UI.Forms.Validation.updateErrors = function (form, errors) {
 				formGroup.addClass('has-error');
 	
 				OF.UI.Forms.Validation.createErrorTooltip(field, error);
+				OF.UI.Forms.Validation.createErrorTooltip(formGroup.find(".control-label"), error);
 			}
 		}
 	});

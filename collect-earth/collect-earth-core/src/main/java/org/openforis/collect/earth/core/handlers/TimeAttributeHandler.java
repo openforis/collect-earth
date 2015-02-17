@@ -18,7 +18,7 @@ public class TimeAttributeHandler extends AbstractAttributeHandler<Time> {
 
 	private static final String PREFIX = "time_";
 
-	public static final SimpleDateFormat TIME_ATTRIBUTE_FORMAT = new SimpleDateFormat("HH:ss");
+	public static final SimpleDateFormat TIME_ATTRIBUTE_FORMAT = new SimpleDateFormat("HH:mm");
 
 	public TimeAttributeHandler() {
 		super(PREFIX);
@@ -29,9 +29,13 @@ public class TimeAttributeHandler extends AbstractAttributeHandler<Time> {
 		if (value == null) {
 			return null;
 		}
-		Calendar calendar = value.toCalendar();
-		Date javaDate = calendar.getTime();
-		return calendar == null ? null : TIME_ATTRIBUTE_FORMAT.format(javaDate);
+		try {
+			Calendar calendar = value.toCalendar();
+			Date javaDate = calendar.getTime();
+			return calendar == null ? null : TIME_ATTRIBUTE_FORMAT.format(javaDate);
+		} catch(Exception e) {
+			return null;
+		}
 	}
 	
 	@Override

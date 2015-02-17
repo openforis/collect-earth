@@ -59,11 +59,6 @@ public class EntityHandler extends AbstractAttributeHandler<Entity> {
 		return result;
 	}
 	
-	@Override
-	protected NodeChangeSet addToEntity(String parameterName, String parameterValue, Entity entity) {
-		return new NodeChangeMap();
-	}
-
 	private Entity getChildEntity(Entity parentEntity, String entityName, String entityKey) {
 		List<Entity> entities = parentEntity.findChildEntitiesByKeys(entityName, entityKey);
 		if (entities.isEmpty()) {

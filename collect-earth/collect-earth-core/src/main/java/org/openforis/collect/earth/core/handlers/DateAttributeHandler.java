@@ -27,8 +27,12 @@ public class DateAttributeHandler extends AbstractAttributeHandler<Date> {
 		if (value == null) {
 			return null;
 		}
-		java.util.Date javaDate = value.toJavaDate();
-		return javaDate == null ? null : DATE_ATTRIBUTE_FORMAT.format(javaDate);
+		try {
+			java.util.Date javaDate = value.toJavaDate();
+			return javaDate == null ? null : DATE_ATTRIBUTE_FORMAT.format(javaDate);
+		} catch(Exception e) {
+			return null;
+		}
 	}
 	
 	@Override

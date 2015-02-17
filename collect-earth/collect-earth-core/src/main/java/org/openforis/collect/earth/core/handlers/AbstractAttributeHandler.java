@@ -29,24 +29,17 @@ public abstract class AbstractAttributeHandler<C> {
 	}
 
 	public NodeChangeSet addOrUpdate(String parameterName, String parameterValue, Entity entity, int parameterChildIndex) {
-		if (parameterValue.trim().isEmpty()) {
-			return null;
-		}
-		NodeChangeSet changeSet = null;
+		Value value = (Value) (parameterValue == null ? null: createValue(parameterValue));
+		
 		@SuppressWarnings("unchecked")
 		Attribute<?, Value> attr = (Attribute<?, Value>) getAttributeNodeFromParameter(parameterName, entity, parameterChildIndex);
 
+		NodeChangeSet changeSet = null;
 		if (attr == null) {
-			changeSet = addToEntity(parameterName, parameterValue, entity);
+			changeSet = recordUpdater.addAttribute(entity, removePrefix(parameterName), value);
 		} else if (attr instanceof Attribute) {
-			Value value = (Value) createValue(parameterValue);
-			changeSet = recordUpdater.updateAttribute(attr, value, true);
+			changeSet = recordUpdater.updateAttribute(attr, (Value) value, true);
 		}
-		return changeSet;
-	}
-
-	protected NodeChangeSet addToEntity(String parameterName, String parameterValue, Entity entity) {
-		NodeChangeSet changeSet = recordUpdater.addAttribute(entity, removePrefix(parameterName), (Value) createValue(parameterValue));
 		return changeSet;
 	}
 

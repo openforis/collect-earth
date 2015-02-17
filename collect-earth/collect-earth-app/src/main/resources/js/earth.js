@@ -147,14 +147,16 @@ var interpretJsonSaveResponse = function(json, activelySaved) {
 		}
 	}
 	updateInputFieldsState(json.inputFieldInfoByParameterName);
+	fillDataWithJson(json.inputFieldInfoByParameterName);
 };
 
 var updateInputFieldsState = function(inputFieldInfoByParameterName) {
 	//update possible values in SELECT elements
 	$.each(inputFieldInfoByParameterName, function(fieldName, info) {
 		var el = $("#" + fieldName);
-		if (el.length == 1 && el.data("fieldType") == "code") {
-			if (el.prop("tagName") == "SELECT") {
+		if (el.length == 1) {
+			switch(el.data("fieldType")) {
+			case "CODE_SELECT":
 				var oldValue = el.val();
 				var possibleItems = info.possibleCodedItems ? info.possibleCodedItems: [];
 				OF.UI.Forms.populateSelect(el, possibleItems, "code", "label");
@@ -162,8 +164,9 @@ var updateInputFieldsState = function(inputFieldInfoByParameterName) {
 				if (el.val() == null) {
 					el.val("-1"); //set N/A option by default
 				}
-			} else {
-				var parentCodeFieldId = el.data("parentCodeField");
+				break;
+			case "CODE_BUTTON_GROUP":
+				var parentCodeFieldId = el.data("parentCodeFieldId");
 				if (parentCodeFieldId) {
 					var parentCodeInfo = inputFieldInfoByParameterName[parentCodeFieldId];
 					var parentCodeValue = parentCodeInfo.value;
@@ -174,6 +177,7 @@ var updateInputFieldsState = function(inputFieldInfoByParameterName) {
 					var validItemsContainer = groupContainer.find(".code-items[data-parent-code='" + parentCodeValue + "']");
 					validItemsContainer.show();
 				}
+				break;
 			}
 		}
 	});
@@ -195,27 +199,26 @@ var updateInputFieldsState = function(inputFieldInfoByParameterName) {
 };
 
 var serializeForm = function(formId) {
-	return $("#" + formId).serialize();
+	var form = $("#" + formId);
+	var result = form.serialize();
+	form.find('input[type=checkbox]:not(:checked)').each(function() {
+        result += "&" + this.name + "=" + this.checked;
+	});
+	return result;
 };
 
 var enableSelect = function(selectName, enable) { // #elementsCover
-	if (enable == true) {
-		$(selectName).prop('disabled', false);
-	} else {
-		$(selectName).prop('disabled', true);
-	}
+	$(selectName).prop('disabled', ! enable);
 	// $(selectName).selectpicker('refresh');
 };
 
 var initCodeButtonGroups = function() {
 	var form = $("#formAll");
 	form.find("button.code-item").click(function() {
+		//update hidden input field
 		var btn = $(this);
-		var selected = btn.prop("selected");
 		var itemsContainer = btn.closest(".code-items");
 		var groupContainer = itemsContainer.closest(".code-items-group");
-		itemsContainer.find(".item").prop("checked", false);
-		btn.prop("checked", selected);
 		var inputField = groupContainer.find("input[type='hidden']");
 		inputField.val(btn.val());
 		
@@ -320,13 +323,13 @@ var fillDataWithJson = function(inputFieldInfoByParameterName) {
 	$.each(inputFieldInfoByParameterName, function(key, info) {
 		var value = info.value;
 		// Do this for every key there might be different
-		// tryopes of elements with the same key than a hidden
+		// type of elements with the same key than a hidden
 		// input
 		
 		if (key == "earth_skip_filled" && value == 'true') {
 			$('#earth_skip_filled').attr('checked', value);
 		} else {
-			var values = value == null ? []: value.split(SEPARATOR_MULTIPLE_VALUES);// In
+//			var values = value == null ? []: value.split(SEPARATOR_MULTIPLE_VALUES);// In
 																					// case
 																					// of
 																					// value
@@ -335,47 +338,44 @@ var fillDataWithJson = function(inputFieldInfoByParameterName) {
 			
 			var inputField = $("*[name=\'" + key + "\']");
 			if (inputField.length == 1) {
-				var tagName = inputField.prop("tagName");
-				switch(tagName) {
-				case "INPUT":
-					if (inputField.prop("type") == "checkbox") {
-						inputField.prop("checked", value == "true");
-					} else {
-						inputField.val(values[0]);
-					}
-					break;
-				case "TEXTAREA":
-					inputField.val(value);
-					break;
-				case "SELECT":
-					inputField.val(value);
-					if (inputField.val() == null) {
-						inputField.val("-1");
-					}
-					break;
-				}
-			} else if ($('#' + key + '_group').length == 1) { // button
-															// group
-															// exists
-				for (var i = 0; i < values.length; i++) {
-					// $('#'+key+'_group
-					// .btn[value='+value+']').button('toggle'); //
-					// set the class to "active" on the chosen
-					// values
-					var toggleButton = $('#' + key
-							+ '_group .btn[value=\'' + value
-							+ '\']');
-					if (toggleButton.length == 1) {
-						toggleButton.button('toggle');
-//						if (key == "collect_code_land_use_category") {
-//							activateLandUseDivs(toggleButton.val());
-//						}
-					}
-				}
+				setValueInInputField(inputField, value);
 			}
 		}
 	});
 }
+
+var setValueInInputField = function(inputField, value) {
+	var tagName = inputField.prop("tagName");
+	switch(tagName) {
+	case "INPUT":
+		if (inputField.prop("type") == "checkbox") {
+			inputField.prop("checked", value == "true");
+		} else {
+			if (inputField.val() != value) {
+				inputField.val(value);
+			}
+		}
+		if ("CODE_BUTTON_GROUP" == inputField.data("fieldType")) {
+			var itemsGroup = inputField.closest(".code-items-group");
+			itemsGroup.find(".code-item").removeClass('active');
+			if (value != null && value != "") {
+				var code = value;
+				var activeCodeItemsContainer = itemsGroup.find(".code-items:visible");
+				activeCodeItemsContainer.find(".code-item[value=" + code + "]").button('toggle');
+			}
+		}
+		break;
+	case "TEXTAREA":
+		inputField.val(value);
+		break;
+	case "SELECT":
+		inputField.val(value);
+		if (inputField.val() == null) {
+			inputField.val("-1");
+		}
+		break;
+	}
+};
 
 var initializeChangeEventSaver = function() {
 	$(".btn").click(function() {
