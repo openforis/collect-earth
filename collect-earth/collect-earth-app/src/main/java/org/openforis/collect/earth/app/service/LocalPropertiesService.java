@@ -243,8 +243,9 @@ public class LocalPropertiesService {
 		};
 
 		FileReader fr = null;
+		boolean newInstallation = false;
 		
-		File propertiesFileInitial = null;
+		File propertiesFileInitial = new File(PROPERTIES_FILE_PATH_INITIAL);
 		logger = LoggerFactory.getLogger(LocalPropertiesService.class);
 		try {
 			
@@ -256,17 +257,37 @@ public class LocalPropertiesService {
 					if (!success) {
 						throw new IOException("Could not create file " + propertiesFile.getAbsolutePath());
 					}
-				}
+				}				
 				
-				propertiesFileInitial = new File(PROPERTIES_FILE_PATH_INITIAL);
-				if( propertiesFileInitial.exists() ){
-					propertiesFile = propertiesFileInitial;
-				}
-				
+				propertiesFile = propertiesFileInitial;
+				newInstallation = true;
+								
 			}
 			
 			fr = new FileReader(propertiesFile);
-			properties.load(fr);			
+			properties.load(fr);		
+			
+			
+			if( !newInstallation ){
+				
+				// Add properties in initial_properties that are not present in earth.properites so that adding new properties in coming version does not generate issues with older versions
+				if( propertiesFileInitial.exists() ){
+					Properties initialProperties = new Properties();
+					initialProperties.load( new FileReader( propertiesFileInitial ) );
+					
+					Enumeration<String> initialPropertyNames = (Enumeration<String>) initialProperties.propertyNames();
+					while( initialPropertyNames.hasMoreElements()){
+						String nextElement = initialPropertyNames.nextElement();
+						if( properties.get( nextElement ) == null  ){
+							properties.put( nextElement, initialProperties.getProperty(nextElement));
+						}
+					}
+				
+					
+				}
+				
+				
+			}
 			
 		} catch (final FileNotFoundException e) {
 			logger.error("Could not find properties file", e);
