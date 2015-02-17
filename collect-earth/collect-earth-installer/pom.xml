@@ -368,6 +368,7 @@ No Solaris installer necessary
 											<classifier>linux-updater</classifier>
 											<type>run</type>
 										</artifact>
+									-->
 										<artifact>
 											<file>${project.build.directory}/${osx-installer-file-name}</file>
 											<classifier>osx</classifier>
@@ -378,7 +379,7 @@ No Solaris installer necessary
 											<classifier>osx-updater</classifier>
 											<type>zip</type>
 										</artifact> 
-									-->
+									
 									</artifacts>
 								</configuration>
 							</execution>
@@ -407,10 +408,10 @@ No Solaris installer necessary
 										<!-- Remove the OSX/Linux installers until problems fixed 
 										<move file="${installbuilder-output-directory}/${linux-installer-file-name}" tofile="${project.build.directory}/${linux-installer-file-name}" failonerror="true" />
 										<move file="${installbuilder-output-directory}/${linux-autoupdater-file-name}" tofile="${project.build.directory}/${linux-autoupdater-file-name}" failonerror="true" />
-										
+										-->
 										<move file="${installbuilder-output-directory}/${osx-installer-file-name}" tofile="${project.build.directory}/${osx-installer-file-name}" failonerror="true" />
 										<move file="${installbuilder-output-directory}/${osx-autoupdater-file-name}" tofile="${project.build.directory}/${osx-autoupdater-file-name}" failonerror="true" /> 
-										-->
+										
 									</tasks>
 								</configuration>
 							</execution>

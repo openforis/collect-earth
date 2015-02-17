@@ -82,7 +82,6 @@
     <windowsExecutableIcon>installer_icon.ico</windowsExecutableIcon>
     
     <requireInstallationByRootUser>0</requireInstallationByRootUser>
-    <createOsxBundleZip>0</createOsxBundleZip>
 	<!-- <osxPlatforms>osx-intel osx-ppc osx-10.2</osxPlatforms> -->
 	<!-- Configures the final destination of the installation log -->
    <installationLogFile>${installdir}/${project.shortName}-installLog.log</installationLogFile>
