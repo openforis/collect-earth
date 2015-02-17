@@ -3,7 +3,7 @@
 	<parent>
 		<groupId>org.openforis.collect.earth</groupId>
 		<artifactId>collect-earth</artifactId>
-		<version>1.0.31-SNAPSHOT</version>
+		<version>1.0.31</version>
 	</parent>
 	<artifactId>collect-earth-installer</artifactId>
 	<packaging>pom</packaging>
@@ -386,13 +386,22 @@ No Solaris installer necessary
 					</plugin>
 					
 					
-					<!-- 7 Upload the XML file that defines the presence of updates to the FTP directory -->
+					
+				</plugins>
+			</build>
+		</profile>
+		<!-- <profile>
+	      <id>uploadToFTP</id>
+	
+	      <build>
+	        <plugins>
+			7 Upload the XML file that defines the presence of updates to the FTP directory
 					<plugin>
 						<groupId>org.apache.maven.plugins</groupId>
 						<artifactId>maven-antrun-plugin</artifactId>
 						<version>1.7</version>
 						<executions>
-							<!-- 5. move generated installers into the target folder -->
+							5. move generated installers into the target folder
 							<execution>
 								<id>run-ant-move-installer-files</id>
 								<phase>prepare-package</phase>
@@ -404,18 +413,18 @@ No Solaris installer necessary
 										<move file="${installbuilder-output-directory}/${windows-installer-file-name}" tofile="${project.build.directory}/${windows-installer-file-name}" failonerror="true" />
 										<move file="${installbuilder-output-directory}/${windows-autoupdater-file-name}" tofile="${project.build.directory}/${windows-autoupdater-file-name}" failonerror="true" />
 										
-										<!-- 
+										
 										Remove the OSX/Linux installers until problems fixed
 										<move file="${installbuilder-output-directory}/${linux-installer-file-name}" tofile="${project.build.directory}/${linux-installer-file-name}" failonerror="true" />
 										<move file="${installbuilder-output-directory}/${linux-autoupdater-file-name}" tofile="${project.build.directory}/${linux-autoupdater-file-name}" failonerror="true" />
 										
 										<move file="${installbuilder-output-directory}/${osx-installer-file-name}" tofile="${project.build.directory}/${osx-installer-file-name}" failonerror="true" />
 										<move file="${installbuilder-output-directory}/${osx-autoupdater-file-name}" tofile="${project.build.directory}/${osx-autoupdater-file-name}" failonerror="true" /> 
-										-->
+										
 									</tasks>
 								</configuration>
 							</execution>
-							<!-- <execution>
+							<execution>
 								<phase>install</phase>
 								<configuration>
 									<target>
@@ -434,7 +443,7 @@ No Solaris installer necessary
 								<goals>
 									<goal>run</goal>
 								</goals>
-							</execution> -->
+							</execution>
 						</executions>
 						<dependencies>
 							<dependency>
@@ -445,9 +454,10 @@ No Solaris installer necessary
 						</dependencies>
 					
 					</plugin>
-				</plugins>
-			</build>
-		</profile>
+	
+	        </plugins>
+	      </build>
+	    </profile> -->
 	</profiles>
 
 </project>
