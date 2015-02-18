@@ -8,7 +8,6 @@ import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 
 import org.openforis.collect.earth.app.EarthConstants;
-import org.openforis.collect.earth.core.model.PlacemarkLoadResult;
 import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.RequestMapping;
 
@@ -17,17 +16,15 @@ import org.springframework.web.bind.annotation.RequestMapping;
  * 
  * @author Alfonso Sanchez-Paus Diaz
  * 
+ * @deprecated Replaced by {@link PlacemarkDataController}
  */
+@Deprecated
 @Controller
 public class PlacemarkInfoServlet extends JsonPocessorServlet {
 
-	private static final String PLACEMARK_ID = "collect_text_id"; //$NON-NLS-1$
+	public static final String PLACEMARK_ID_PARAMETER = "collect_text_id"; //$NON-NLS-1$
 
-	private String getPlacemarkId(Map<String, String> collectedData) {
-		return collectedData.get(PlacemarkInfoServlet.PLACEMARK_ID);
-	}
-
-	/* 
+	/** 
 	 * Returns a JSON object with the data colleted for a placemark in the collect-earth format.
 	 * It also opens the extra browser windows for Earth Engine, Timelapse and Bing. 
 	 * (non-Javadoc)
@@ -61,39 +58,15 @@ public class PlacemarkInfoServlet extends JsonPocessorServlet {
 
 	}
 
-	@RequestMapping("/placemark-info-expanded")
-	protected void placemarkInfoExpanded(HttpServletRequest request, HttpServletResponse response) throws IOException {
-		PlacemarkLoadResult result;
-		Map<String, String> collectedData = extractRequestData(request);
-		String placemarkId = getPlacemarkId(collectedData);
-		
-		if (placemarkId == null) {
-			result = new PlacemarkLoadResult();
-			result.setSuccess(false);
-			String errorMessage = "No placemark ID found in the received request";
-			result.setMessage(errorMessage);
-			getLogger().error(errorMessage); //$NON-NLS-1$
-		} else {
-			placemarkId = replacePlacemarkIdTestValue(placemarkId);
-			result = getDataAccessor().loadDataExpanded(placemarkId);
-			if (! result.isSuccess()) {
-				getLogger().info("No placemark found for the given parameters: " + collectedData.toString());
-			}
-		}
-		setJsonResponse(response, result);
+	private String getPlacemarkId(Map<String, String> collectedData) {
+		return collectedData.get(PlacemarkInfoServlet.PLACEMARK_ID_PARAMETER);
 	}
 
-	protected String replacePlacemarkIdTestValue(String placemarkId) {
+	private String replacePlacemarkIdTestValue(String placemarkId) {
 		if (placemarkId.equals("$[id]")) { //$NON-NLS-1$
 			placemarkId = "testPlacemark"; //$NON-NLS-1$
 		}
 		return placemarkId;
 	}
 	
-	@Override
-	protected void processRequest(HttpServletRequest request,
-			HttpServletResponse response) throws IOException {
-		// TODO Auto-generated method stub
-	}
-
 }

@@ -69,7 +69,7 @@ public class PlacemarkImageServlet extends DataAccessingServlet {
 				if (listView != null && listView) {
 					imageName = EarthConstants.LIST_FILLED_IMAGE;
 				} 
-			} else if (earthSurveyService.isPlacemarEdited(placemarkParameters)) {
+			} else if (earthSurveyService.isPlacemarkEdited(placemarkParameters)) {
 				if (listView != null && listView) {
 					imageName = EarthConstants.LIST_NOT_FINISHED_IMAGE;
 				} 

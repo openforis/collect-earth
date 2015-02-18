@@ -4,6 +4,8 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.Map.Entry;
 
+import org.openforis.collect.model.CollectRecord;
+
 /**
  * 
  * @author S. Ricci
@@ -16,6 +18,9 @@ public class PlacemarkLoadResult {
 	private String message;
 	private boolean activelySaved;
 	private boolean validData;
+	private boolean skipFilled;
+	
+	private transient CollectRecord collectRecord;
 	
 	public PlacemarkLoadResult() {
 		this.success = false;
@@ -35,7 +40,7 @@ public class PlacemarkLoadResult {
 		return placemarkInputFieldInfo;
 	}
 	
-	public void updateCalculatedFields() {
+	private void updateCalculatedFields() {
 		PlacemarkInputFieldInfo activelySavedFieldInfo = inputFieldInfoByParameterName.get("collect_boolean_actively_saved");
 		activelySaved = activelySavedFieldInfo != null && Boolean.TRUE.toString().equals(activelySavedFieldInfo.getValue());
 		validData = calculateContainsValidData();
@@ -85,6 +90,23 @@ public class PlacemarkLoadResult {
 	public void setInputFieldInfoByParameterName(
 			Map<String, PlacemarkInputFieldInfo> inputFieldInfoByParameterName) {
 		this.inputFieldInfoByParameterName = inputFieldInfoByParameterName;
+		updateCalculatedFields();
+	}
+	
+	public CollectRecord getCollectRecord() {
+		return collectRecord;
+	}
+	
+	public void setCollectRecord(CollectRecord collectRecord) {
+		this.collectRecord = collectRecord;
 	}
 
+	public boolean isSkipFilled() {
+		return skipFilled;
+	}
+	
+	public void setSkipFilled(boolean skipFilled) {
+		this.skipFilled = skipFilled;
+	}
+	
 }

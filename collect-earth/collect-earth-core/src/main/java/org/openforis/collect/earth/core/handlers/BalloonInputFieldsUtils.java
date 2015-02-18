@@ -64,10 +64,6 @@ public class BalloonInputFieldsUtils {
 	public Map<String, PlacemarkInputFieldInfo> extractFieldInfoByParameterName(CollectRecord record) {
 		Map<String, String> htmlParameterNameByNodePath = getHtmlParameterNameByNodePath(record);
 		Set<String> parameterNames = new HashSet<String>(htmlParameterNameByNodePath.values());
-		return extractFieldInfoByParameterName(parameterNames, record);
-	}
-	
-	public Map<String, PlacemarkInputFieldInfo> extractFieldInfoByParameterName(Set<String> parameterNames, CollectRecord record) {
 		RecordValidationReportGenerator validationReportGenerator = new RecordValidationReportGenerator(record);
 		List<RecordValidationReportItem> validationItems = validationReportGenerator.generateValidationItems();
 		Map<String, String> validationMessageByPath = new HashMap<String, String>(validationItems.size());

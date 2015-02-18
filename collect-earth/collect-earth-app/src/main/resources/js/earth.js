@@ -3,100 +3,123 @@ var SEPARATOR_MULTIPLE_VALUES = ";";
 var DATE_FORMAT = 'MM/DD/YYYY';
 var TIME_FORMAT = 'HH:ss';
 
+var $form = null; //to be initialized 
+var lastUpdateRequest = null; //last update request sent to the server
+
 //To be used by the method that saves the data automatically when the user
 //interacts with the form
 //DO NOT REMOVE
 var ajaxTimeout = null;
 
-$(document)
-	.ready(function() {
-		fillYears();
-		initCodeButtonGroups();
-		initDateTimePickers();
+$(document).ready(function() {
+	$form = $("#formAll");
+	
+	fillYears();
+	initCodeButtonGroups();
+	initDateTimePickers();
 
-		// Declares the Jquery Dialog ( The Bootstrap dialog does
-		// not work in Google Earth )
-		$("#dialogSuccess").dialog({
-			modal : true,
-			autoOpen : false,
-			buttons : {
-				Ok : function() {
-					$(this).dialog("close");
-				}
+	// Declares the Jquery Dialog ( The Bootstrap dialog does
+	// not work in Google Earth )
+	$("#dialogSuccess").dialog({
+		modal : true,
+		autoOpen : false,
+		buttons : {
+			Ok : function() {
+				$(this).dialog("close");
 			}
+		}
+	});
+	// SAVING DATA WHEN USER SUBMITS
+	$form.submit(
+		function(e) {
+			e.preventDefault();
+			
+			clearTimeout(ajaxTimeout); // So that the form
+			// is not saved twice
+			// if the user
+			// clicks the submit
+			// button before the
+			// auto-save timeout
+			// has started
+			
+			// Mark this as the "real submit" (as opposed
+			// when saving data just because the user closes
+			// the window) so we can show the placemark as
+			// interpreted
+			$("input[id=collect_boolean_actively_saved]")
+				.val("true");
+			
+			submitForm($(this), 0);
 		});
-		// SAVING DATA WHEN USER SUBMITS
-		$('#formAll').submit(
-			function(e) {
-				e.preventDefault();
-				
-				clearTimeout(ajaxTimeout); // So that the form
-				// is not saved twice
-				// if the user
-				// clicks the submit
-				// button before the
-				// auto-save timeout
-				// has started
-				
-				// Mark this as the "real submit" (as opposed
-				// when saving data just because the user closes
-				// the window) so we can show the placemark as
-				// interpreted
-				$("input[id=collect_boolean_actively_saved]")
-					.val("true");
-				
-				submitForm($(this), 0);
-			});
-		
-		//http://jqueryui.com/tooltip/
-		$(document).tooltip({
-			show : null,
-			position : {
-				my : "left top",
-				at : "left bottom"
-			},
-			open : function(event, ui) {
-				ui.tooltip.animate({
-					top : ui.tooltip.position().top + 10
-				}, "fast");
-			}
-		});
-		
-		checkIfPlacemarkAlreadyFilled('#formAll', 0);
+	
+	//http://jqueryui.com/tooltip/
+	$(document).tooltip({
+		show : null,
+		position : {
+			my : "left top",
+			at : "left bottom"
+		},
+		open : function(event, ui) {
+			ui.tooltip.animate({
+				top : ui.tooltip.position().top + 10
+			}, "fast");
+		}
+	});
+	
+	checkIfPlacemarkAlreadyFilled(0);
 });
 
-var ajaxDataUpdate = function() {
+var ajaxDataUpdate = function(delay) {
+	if (typeof delay == "undefined") {
+		delay = 100;
+	}
+	
+	abortLastUpdateRequest();
 
-	var activelySaved = $("input[id=collect_boolean_actively_saved]").val() == 'true';
+	var activelySaved = $("#collect_boolean_actively_saved").val() == 'true';
+
 	// Only update automatically when the data has not been correctly saved
 	// before
-	if (! activelySaved) {
-		// Set a two second timeout so that the data is only sent to the server
-		// if the user stops clicking for over one second
-		clearTimeout(ajaxTimeout);
-		ajaxTimeout = setTimeout(function() {
-			var $form = $("#formAll");
-			var data = serializeForm("formAll");
-			$.ajax({
-				data : data,
-				type : $form.attr("method"),
-				url : $form.attr("action"),
-				dataType : 'json'
-			})
-			.done(function(json) {
-				interpretJsonSaveResponse(json, activelySaved);
-			});
-		}, 100);
+	var store = ! activelySaved;
+	
+	// Set a timeout so that the data is only sent to the server
+	// if the user stops clicking for over one second
+
+	ajaxTimeout = setTimeout(function() {
+		var data = {placemarkId: getPlacemarkId(), values: serializeFormToJSON($form), store: store};
+
+		lastUpdateRequest = $.ajax({
+			data : data,
+			type : "POST",
+			url : $form.attr("action"),
+			dataType : 'json'
+		})
+		.done(function(json) {
+			interpretJsonSaveResponse(json, false);
+		})
+		.always(function() {
+			lastUpdateRequest = null;
+		});
+	}, delay);
+};
+
+var abortLastUpdateRequest = function() {
+	clearTimeout(ajaxTimeout);
+	
+	if (lastUpdateRequest != null) {
+		lastUpdateRequest.abort();
+		lastUpdateRequest = null;
 	}
 };
 	
-var submitForm = function($form, submitCounter) {
-	var $form = $("#formAll");
-	var data = serializeForm("formAll");
-	var request = $
+var submitForm = function(submitCounter) {
+	abortLastUpdateRequest();
+	
+	var data = {placemarkId: getPlacemarkId(), values: serializeFormToJSON($form)};
+	lastUpdateRequest = $
 		.ajax({
 			data : data,
-			type : $form.attr("method"),
+			type : "POST",
 			url : $form.attr("action"),
 			dataType : 'json',
 			timeout : 5000,
@@ -111,18 +134,19 @@ var submitForm = function($form, submitCounter) {
 		})
 		.fail(function(jqXHR, textStatus, errorThrown) {
 			if (submitCounter < 3) {
-				submitForm($form, submitCounter + 1);
+				submitForm(submitCounter + 1);
 			} else {
 				showErrorMessage("Cannot save the data, the Collect Earth server is not running!");
 			}
 		})
 		.always(function() {
+			lastUpdateRequest = null;
 			$.unblockUI();
 		});
-}
+};
 
-var interpretJsonSaveResponse = function(json, activelySaved) {
-	if (activelySaved) { //show feedback message
+var interpretJsonSaveResponse = function(json, showUpdateMessage) {
+	if (showUpdateMessage) { //show feedback message
 		if (json.success) {
 			if (json.validData) {
 				showSuccessMessage(json.message);
@@ -188,7 +212,7 @@ var updateInputFieldsState = function(inputFieldInfoByParameterName) {
 			errors.push({field: fieldName, defaultMessage: info.errorMessage});
 		}
 	});
-	OF.UI.Forms.Validation.updateErrors($("#formAll"), errors);
+	OF.UI.Forms.Validation.updateErrors($form, errors);
 	
 	//manage fields visibility
 	$.each(inputFieldInfoByParameterName, function(fieldName, info) {
@@ -198,23 +222,8 @@ var updateInputFieldsState = function(inputFieldInfoByParameterName) {
 	});
 };
 
-var serializeForm = function(formId) {
-	var form = $("#" + formId);
-	var result = form.serialize();
-	form.find('input[type=checkbox]:not(:checked)').each(function() {
-        result += "&" + this.name + "=" + this.checked;
-	});
-	return result;
-};
-
-var enableSelect = function(selectName, enable) { // #elementsCover
-	$(selectName).prop('disabled', ! enable);
-	// $(selectName).selectpicker('refresh');
-};
-
 var initCodeButtonGroups = function() {
-	var form = $("#formAll");
-	form.find("button.code-item").click(function() {
+	$form.find("button.code-item").click(function() {
 		//update hidden input field
 		var btn = $(this);
 		var itemsContainer = btn.closest(".code-items");
@@ -245,13 +254,13 @@ var initDateTimePickers = function() {
 	});
 };
 
-var checkIfPlacemarkAlreadyFilled = function(formName, chechCount) {
+var checkIfPlacemarkAlreadyFilled = function(checkCount) {
 
-	var data = $(formName + " :input[value]").serialize();
+	var placemarkId = getPlacemarkId();
 	
 	$.ajax({
-		data : data,
-		type : "POST",
+		data : {id: placemarkId},
+		type : "GET",
 		//url : "$[host]placemarkInfo",
 		 url: "http://127.0.0.1:8028/earth/placemark-info-expanded",
 		dataType : 'json',
@@ -259,9 +268,9 @@ var checkIfPlacemarkAlreadyFilled = function(formName, chechCount) {
 	})
 	.fail(
 		function(jqXHR, textStatus, errorThrown) {
-			if (chechCount < 3) {
-				chechCount = chechCount + 1;
-				checkIfPlacemarkAlreadyFilled(formName, chechCount);
+			if (checkCount < 3) {
+				checkCount = checkCount + 1;
+				checkIfPlacemarkAlreadyFilled(checkCount);
 			} else {
 				showErrorMessage("The Collect Earth server is not running!");
 				initializeChangeEventSaver();
@@ -270,13 +279,11 @@ var checkIfPlacemarkAlreadyFilled = function(formName, chechCount) {
 	.done(
 		function(json) {
 			if (json.activelySaved
-					&& json.inputFieldInfoByParameterName.collect_text_id != 'testPlacemark') { // 
+					&& json.inputFieldInfoByParameterName.collect_text_id.value != 'testPlacemark') { // 
 
 				showErrorMessage("The data for this placemark has already been filled");
 
-				//TODO
-				if (json.earth_skip_filled
-						&& json.earth_skip_filled == 'true') {
+				if (json.skipFilled) {
 					forceWindowCloseAfterDialogCloses($("#dialogSuccess"));
 				}
 			}
@@ -286,6 +293,11 @@ var checkIfPlacemarkAlreadyFilled = function(formName, chechCount) {
 			fillDataWithJson(json.inputFieldInfoByParameterName);
 			initializeChangeEventSaver();
 	});
+};
+
+var getPlacemarkId = function() {
+	var id = $form.find("input[name='collect_text_id']").val();
+	return id;
 };
 
 var showSuccessMessage = function(message) {
@@ -326,20 +338,15 @@ var fillDataWithJson = function(inputFieldInfoByParameterName) {
 		// type of elements with the same key than a hidden
 		// input
 		
-		if (key == "earth_skip_filled" && value == 'true') {
-			$('#earth_skip_filled').attr('checked', value);
-		} else {
-//			var values = value == null ? []: value.split(SEPARATOR_MULTIPLE_VALUES);// In
-																					// case
-																					// of
-																					// value
-																					// being
-																					// 0;collect_code_deforestation_reason=burnt
-			
-			var inputField = $("*[name=\'" + key + "\']");
-			if (inputField.length == 1) {
-				setValueInInputField(inputField, value);
-			}
+//		var values = value == null ? []: value.split(SEPARATOR_MULTIPLE_VALUES);// In
+																				// case
+																				// of
+																				// value
+																				// being
+																				// 0;collect_code_deforestation_reason=burnt
+		var inputField = $("*[name=\'" + key + "\']");
+		if (inputField.length == 1) {
+			setValueInInputField(inputField, value);
 		}
 	});
 }
@@ -357,8 +364,10 @@ var setValueInInputField = function(inputField, value) {
 		}
 		if ("CODE_BUTTON_GROUP" == inputField.data("fieldType")) {
 			var itemsGroup = inputField.closest(".code-items-group");
+			//deselect all code item buttons
 			itemsGroup.find(".code-item").removeClass('active');
 			if (value != null && value != "") {
+				//select code item button with value equals to the specified one
 				var code = value;
 				var activeCodeItemsContainer = itemsGroup.find(".code-items:visible");
 				activeCodeItemsContainer.find(".code-item[value=" + code + "]").button('toggle');
@@ -443,3 +452,40 @@ var forceWindowCloseAfterDialogCloses = function($dialog) {
 	});
 };
 
+
+/**
+ * Utility functions
+ */
+var serializeFormToJSON = function(form) {
+   var o = {};
+   var a = form.serializeArray();
+   $.each(a, function() {
+       if (o[this.name]) {
+           if (!o[this.name].push) {
+               o[this.name] = [o[this.name]];
+           }
+           o[this.name].push(this.value || '');
+       } else {
+           o[this.name] = this.value || '';
+       }
+   });
+   //include unchecked checkboxes
+   form.find('input[type=checkbox]:not(:checked)').each(function() {
+	   o[this.name] = this.checked;  
+   });
+   return o;
+};
+
+var serializeForm = function(formId) {
+	var form = $("#" + formId);
+	var result = form.serialize();
+	form.find('input[type=checkbox]:not(:checked)').each(function() {
+        result += "&" + this.name + "=" + this.checked;
+	});
+	return result;
+};
+
+var enableSelect = function(selectName, enable) { // #elementsCover
+	$(selectName).prop('disabled', ! enable);
+	// $(selectName).selectpicker('refresh');
+};

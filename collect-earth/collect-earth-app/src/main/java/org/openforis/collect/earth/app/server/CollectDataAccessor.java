@@ -16,6 +16,7 @@ public class CollectDataAccessor implements DataAccessor {
 	@Autowired
 	private EarthSurveyService earthSurveyService;
 
+	@Deprecated
 	@Override
 	public Map<String, String> getData(String placemarkId) {
 		return earthSurveyService.getPlacemark(placemarkId);
@@ -26,13 +27,14 @@ public class CollectDataAccessor implements DataAccessor {
 		return earthSurveyService.loadPlacemarkExpanded(placemarkId);
 	}
 	
+	@Deprecated
 	@Override
 	public boolean saveData(Map<String, String> collectedData) {
 		return earthSurveyService.storePlacemarkOld(collectedData, null);
 	}
 
 	@Override
-	public PlacemarkLoadResult saveDataExpanded(Map<String, String> collectedData) {
-		return earthSurveyService.storePlacemark(collectedData, null);
+	public PlacemarkLoadResult updateData(String placemarkId, Map<String, String> collectedData, boolean store) {
+		return earthSurveyService.updatePlacemarkData(placemarkId, collectedData, null, store);
 	}
 }

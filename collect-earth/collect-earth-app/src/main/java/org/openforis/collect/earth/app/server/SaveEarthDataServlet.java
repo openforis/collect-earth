@@ -8,7 +8,6 @@ import javax.servlet.http.HttpServletResponse;
 
 import org.openforis.collect.earth.app.service.LocalPropertiesService;
 import org.openforis.collect.earth.app.view.Messages;
-import org.openforis.collect.earth.core.model.PlacemarkLoadResult;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -17,7 +16,10 @@ import org.springframework.web.bind.annotation.RequestMapping;
  * Servlet called for updating/saving the information about a placemark. Called from the form in Google Earth when the user interacts with it or clicks the save button.
  * @author Alfonso Sanchez-Paus Diaz
  *
+ * @deprecated Replaced by {@link PlacemarkDataController}
+ *
  */
+@Deprecated
 @Controller
 public class SaveEarthDataServlet extends JsonPocessorServlet {
 
@@ -53,26 +55,6 @@ public class SaveEarthDataServlet extends JsonPocessorServlet {
 		setJsonResponse(response, collectedData);
 	}
 
-	@RequestMapping("/saveDataExpanded")
-	public void saveDataExpanded(HttpServletRequest request, HttpServletResponse response) throws IOException {
-		Map<String, String> collectedData = extractRequestData(request);
-		replaceTestVariables(collectedData);
-
-		PlacemarkLoadResult result;
-		if (collectedData.size() == 0) {
-			result = new PlacemarkLoadResult();
-			result.setSuccess(false);
-			result.setMessage(Messages.getString("SaveEarthDataServlet.0")); //$NON-NLS-1$
-			getLogger().info("The request was empty"); //$NON-NLS-1$
-		} else {
-			result = getDataAccessor().saveDataExpanded(collectedData);
-			if (result.isSuccess()) {
-				result.setMessage(Messages.getString("SaveEarthDataServlet.2"));
-			}
-		}
-		setJsonResponse(response, result);
-	}
-	
 	/**
 	 * This method replaces the variable values that the form contains when it is not run
 	 * through Google Earth and the variable replacement of the ExtendedData of the KML does not kick in.
@@ -103,10 +85,4 @@ public class SaveEarthDataServlet extends JsonPocessorServlet {
 		}
 	}
 
-	@Override
-	protected void processRequest(HttpServletRequest request,
-			HttpServletResponse response) throws IOException {
-		// TODO Auto-generated method stub
-	}
-	
 }
