@@ -15,7 +15,7 @@ import org.openforis.idm.model.BooleanValue;
  */
 public class BooleanAttributeHandler extends AbstractAttributeHandler<BooleanValue> {
 
-	private static final Set<String> BOOLEAN_VALUES = Collections.unmodifiableSet(new HashSet<>(Arrays.asList("1", "true", "on")));
+	private static final Set<String> BOOLEAN_VALUES = Collections.unmodifiableSet(new HashSet<String>(Arrays.asList("1", "true", "on")));
 	private static final String PREFIX = "boolean_";
 
 	public BooleanAttributeHandler() {
