@@ -7,7 +7,7 @@ OF.UI.Forms.Validation = function() {};
  */
 OF.UI.Forms.Validation.removeErrors = function ($form) {
 	$form.find('.form-group').removeClass('has-error');
-	$form.find('.form-control').tooltip('destroy');
+	$form.find('.form-group').tooltip('destroy');
 };
 
 /**
@@ -27,8 +27,7 @@ OF.UI.Forms.Validation.updateErrors = function (form, errors) {
 			if ( !formGroup.hasClass('has-error') ){
 				formGroup.addClass('has-error');
 	
-				OF.UI.Forms.Validation.createErrorTooltip(field, error);
-				OF.UI.Forms.Validation.createErrorTooltip(formGroup.find(".control-label"), error);
+				OF.UI.Forms.Validation.createErrorTooltip(formGroup, error);
 			}
 		}
 	});
