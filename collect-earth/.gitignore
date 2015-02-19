@@ -14,7 +14,6 @@ classes
 /*.kmz
 /*.db
 /*.log
-earthFiles
 generated
 *_files
 *.db

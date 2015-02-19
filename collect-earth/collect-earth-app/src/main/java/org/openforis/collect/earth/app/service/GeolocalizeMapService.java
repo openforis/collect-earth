@@ -29,10 +29,14 @@ import freemarker.template.TemplateException;
 @Component
 public class GeolocalizeMapService {
 
+	private static final String RESOURCES_FOLDER = "resources";
+
+
+
 	/**
 	 * The file that contains the freemarker template used to produce the Bing Maps code.
 	 */
-	public static final String FREEMARKER_BING_HTML_TEMPLATE = "resources" + File.separator + "collectBing.fmt";
+	public static final String FREEMARKER_BING_HTML_TEMPLATE = RESOURCES_FOLDER + File.separator + "collectBing.fmt";
 	
 	
 
@@ -41,7 +45,11 @@ public class GeolocalizeMapService {
 	/**
 	 * The file that contains the freemarker template used to produce script that is run in GEE Playground.
 	 */
-	public static final String FREEMARKER_GEE_PLAYGROUND_TEMPLATE = "resources" + File.separator + FREEMARKER_GEE_PLAYGROUND_TEMPLATE_FILE_NAME;
+	public static final String FREEMARKER_GEE_PLAYGROUND_TEMPLATE = RESOURCES_FOLDER + File.separator + FREEMARKER_GEE_PLAYGROUND_TEMPLATE_FILE_NAME;
+
+
+
+	public static final String FREEMARKER_HERE_HTML_TEMPLATE = RESOURCES_FOLDER + File.separator + "collectHereMaps.fmt";
 
 	
 	@Autowired
@@ -98,6 +106,11 @@ public class GeolocalizeMapService {
 	public URL getTemporaryUrl(String[] centerCoordinates, String freemarkerTemplate) {
 
 		final Map<String,Object> data = getPlacemarkData(centerCoordinates);
+		return processTemplateWithData(freemarkerTemplate, data);
+
+	}
+
+	private URL processTemplateWithData(String freemarkerTemplate, final Map<String, Object> data) {
 		File transformedHtml = null;
 		try {
 			transformedHtml = applyData(data, freemarkerTemplate);
@@ -115,7 +128,36 @@ public class GeolocalizeMapService {
 			logger.error("No Bing map HTML generated.");
 			return null;
 		}
+	}
+	
+	/**
+	 * Produces a temporary file with the necessary HTML code to show the plot in Bing Maps
+	 * @param centerCoordinates The coordinates of the center of the plot.
+	 * @param bingMapsKey The bing maps key used, obtained from the Local Properties service
+	 * @param freemarkerTemplate The path to the freemarker template that is used to produce the file.
+	 * @return The URL to the temporary file that can be used to load it in a browser.
+	 */
+	public URL getBingUrl(String[] centerCoordinates, String bingMapsKey, String freemarkerTemplate) {
 
+		final Map<String,Object> data = getPlacemarkData(centerCoordinates);
+		data.put("bingMapsKey", bingMapsKey);
+		return processTemplateWithData(freemarkerTemplate, data);
+	}
+	
+	/**
+	 * Produces a temporary file with the necessary HTML code to show the plot in Here Maps
+	 * @param centerCoordinates The coordinates of the center of the plot.
+	 * @param hereAppId The Here Maps app ID
+	 * @param hereAppCode The Here Maps app code
+	 * @param freemarkerTemplate The path to the freemarker template that is used to produce the file.
+	 * @return The URL to the temporary file that can be used to load it in a browser.
+	 */
+	public URL getHereUrl(String[] centerCoordinates, String hereAppId, String hereAppCode, String freemarkerTemplate) {
+
+		final Map<String,Object> data = getPlacemarkData(centerCoordinates);
+		data.put("hereAppId", hereAppId);
+		data.put("hereAppCode", hereAppCode);
+		return processTemplateWithData(freemarkerTemplate, data);
 	}
 
 }

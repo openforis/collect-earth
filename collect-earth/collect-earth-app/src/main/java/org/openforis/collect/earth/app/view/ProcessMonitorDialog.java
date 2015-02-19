@@ -17,6 +17,7 @@ import org.slf4j.LoggerFactory;
 
 public abstract class ProcessMonitorDialog<V,S extends ProcessStatus> extends Thread {
 
+	private static final int MAX_ERRORS_SHOWN = 10;
 	ProgressMonitor progressMonitor;
 	Logger logger = LoggerFactory.getLogger(ProcessMonitorDialog.class);
 	AbstractProcess<V, S> process;
@@ -56,9 +57,19 @@ public abstract class ProcessMonitorDialog<V,S extends ProcessStatus> extends Th
 										if( process instanceof CSVDataImportProcess ){
 											List<ParsingError> errors = ((CSVDataImportProcess) process ).getStatus().getErrors();
 											
+											int numberOfErrors = 0;
 											for (ParsingError parsingError : errors) {
 												parsisngErrorMsg.append(Messages.getString("ProcessMonitorDialog.1")).append( parsingError.getRow() ).append(" - ").append( parsingError.getMessage() ).append(", ").append( parsingError.getErrorType() ).append(Messages.getString("ProcessMonitorDialog.4")).append( ArrayUtils.toString(parsingError.getColumns()) ).append(Messages.getString("ProcessMonitorDialog.5")).append( ArrayUtils.toString(parsingError.getMessageArgs()) ).append("\r\n"); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$ //$NON-NLS-4$ //$NON-NLS-5$ //$NON-NLS-6$
+												numberOfErrors ++;
+												if( numberOfErrors > MAX_ERRORS_SHOWN ){
+													break;
+												}
 											}
+											
+											if( errors.size() > MAX_ERRORS_SHOWN ){
+												parsisngErrorMsg.append( "More lines not shown . Total warnings : " + errors.size() ); 
+											}
+											
 										}
 																				
 										String primaryErrorMsg = process.getStatus().getErrorMessage();

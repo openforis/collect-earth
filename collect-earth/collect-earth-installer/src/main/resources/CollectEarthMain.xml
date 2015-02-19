@@ -112,9 +112,11 @@
             <name>programfilesosx</name>
             <platforms>osx</platforms>
             <distributionFileList>
+                <!-- 
                 <distributionFile>
                     <origin>launcher_icon.icns</origin>
                 </distributionFile>
+                 -->
                 <distributionDirectory>
                     <origin>COLLECT_EARTH_MAIN_FOLDER/collect-earth-app/autoupdate/autoupdate.app</origin>
                 </distributionDirectory>
@@ -127,14 +129,32 @@
             <progressText>Creating Launcher</progressText>
             <value>CollectEarth.jar</value>
         </setInstallerVariable>
+         <if>
+        	<actionList>
+        		<setInstallerVariable>
+        			<name>default_installdir</name>
+        			<value>${env(SYSTEMDRIVE)}/OpenForis/${product_shortname}</value> 
+        		</setInstallerVariable>
+        	</actionList>
+        	<conditionRuleList>
+        		<platformTest><type>windows</type></platformTest>
+			</conditionRuleList> 
+			<elseActionList>
+				<setInstallerVariable>
+				<name>default_installdir</name>
+				<value>~/OpenForis/${product_shortname}</value>
+			</setInstallerVariable>
+			</elseActionList>
+		</if>
     </initializationActionList>
+    
     <parameterList>
         <directoryParameter>
             <name>installdir</name>
             <description>Installer.Parameter.installdir.description</description>
             <explanation>Installer.Parameter.installdir.explanation</explanation>
             <value></value>
-            <default>${env(SYSTEMDRIVE)}/OpenForis/${product_shortname}</default>
+            <default>${default_installdir}</default>
             <allowEmptyValue>0</allowEmptyValue>
             <ask>yes</ask>
             <cliOptionName>prefix</cliOptionName>
@@ -145,6 +165,7 @@
     </parameterList>
     <postBuildActionList>
         <!-- Change installer icon on OS X, during build time -->
+        
         <copyFile>
             <destination>${installbuilder_output_filename}/Contents/Resources/installbuilder.icns</destination>
             <origin>COLLECT_EARTH_MAIN_FOLDER/collect-earth-installer/src/main/resources/installer_icon.icns</origin>
@@ -198,7 +219,15 @@
             <files>${installdir}/${java_launcher_binary_name};${installdir}/*.log;${installdir}/*.properties;${installdir}/generated;${installdir}/*.db;${installdir}/*.dbSaiku</files>
             <permissions>0777</permissions>
         </changePermissions>
-
+		<changePermissions> 
+			<files>${installdir}/*.app/Contents/MacOS/*</files>
+			<permissions>0755</permissions>
+			<ruleList>
+                <platformTest>
+                    <type>osx</type>
+                </platformTest>
+            </ruleList>
+		</changePermissions>
         <!--
         <runProgram>
             <program>chown</program>
@@ -219,7 +248,7 @@
                 </platformTest>
             </ruleList>
         </runProgram>
-		-->
+		
         <copyFile>
             <abortOnError>0</abortOnError>
             <destination>${installdir}/${java_launcher_binary_name}/Contents/Resources/installbuilder.icns</destination>
@@ -228,6 +257,10 @@
                 <compareText logic="equals" text="${platform_name}" value="osx"/>
             </ruleList>
         </copyFile>
+        
+        -->
+        
+        
         <createSymLink>
             <linkName>~/Desktop/Collect Earth.app</linkName>
             <target>${installdir}/${java_launcher_binary_name}</target>

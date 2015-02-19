@@ -4,7 +4,7 @@
 	<parent>
 		<groupId>org.openforis.collect.earth</groupId>
 		<artifactId>collect-earth</artifactId>
-		<version>1.0.25-SNAPSHOT</version>
+		<version>1.0.39-SNAPSHOT</version>
 	</parent>
 
 	<name>Earth App</name>
@@ -147,6 +147,7 @@
 					</execution>
 				</executions>
 			</plugin>
+					
 			<plugin>
 				<groupId>org.apache.maven.plugins</groupId>
 				<artifactId>maven-jar-plugin</artifactId>

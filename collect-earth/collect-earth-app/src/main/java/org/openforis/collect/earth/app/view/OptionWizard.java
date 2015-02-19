@@ -18,7 +18,6 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
-import java.util.Vector;
 
 import javax.swing.AbstractAction;
 import javax.swing.AbstractButton;
@@ -36,7 +35,6 @@ import javax.swing.JPanel;
 import javax.swing.JRadioButton;
 import javax.swing.JScrollPane;
 import javax.swing.JTabbedPane;
-import javax.swing.JTable;
 import javax.swing.JTextField;
 import javax.swing.ListSelectionModel;
 import javax.swing.ScrollPaneConstants;
@@ -47,7 +45,6 @@ import javax.swing.event.DocumentEvent;
 import javax.swing.event.DocumentListener;
 import javax.swing.event.ListSelectionEvent;
 import javax.swing.event.ListSelectionListener;
-import javax.swing.table.DefaultTableModel;
 
 import org.apache.commons.lang3.SystemUtils;
 import org.openforis.collect.earth.app.EarthConstants;
@@ -57,12 +54,8 @@ import org.openforis.collect.earth.app.service.AnalysisSaikuService;
 import org.openforis.collect.earth.app.service.EarthProjectsService;
 import org.openforis.collect.earth.app.service.LocalPropertiesService;
 import org.openforis.collect.earth.app.service.LocalPropertiesService.EarthProperty;
-import org.openforis.collect.earth.sampler.processor.KmlGenerator;
-import org.openforis.collect.earth.sampler.processor.PlotProperties;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
-import au.com.bytecode.opencsv.CSVReader;
 
 /**
  * @author Alfonso Sanchez-Paus Diaz
@@ -75,16 +68,9 @@ public class OptionWizard extends JDialog {
 	private final HashMap<Enum<?>, JComponent[]> propertyToComponent = new HashMap<Enum<?>, JComponent[]>();
 	private final Logger logger = LoggerFactory.getLogger(this.getClass());
 
-	//	JPanel clientPanel;
-	JPanel serverPanel;
 	JPanel postgresPanel;
-	JPanel sqlitePanel;
-	JRadioButton postgresRadioButton;
-	JRadioButton sqliteRadioButton;
-	JRadioButton clientModeRadioButton;
 
 	LocalPropertiesService localPropertiesService;
-
 	String backupFolder;
 
 	private AnalysisSaikuService saikuService;
@@ -205,67 +191,7 @@ public class OptionWizard extends JDialog {
 		return cancelButton;
 	}
 
-	private void enableModePanels(boolean isClientMode) {
-		//enableContainer(clientPanel, isClientMode );
-		enableContainer(serverPanel, !isClientMode);
-		enableContainer(postgresPanel, !isClientMode && postgresRadioButton.isSelected() );
-		enableContainer(sqlitePanel, !isClientMode && sqliteRadioButton.isSelected() );
-	}
-
-
-	private ActionListener getPanelUpdaterListener() {
-		return new ActionListener() {
-
-			@Override
-			public void actionPerformed(ActionEvent e ) {
-				boolean isClientMode = clientModeRadioButton.isSelected();				
-				enableModePanels( isClientMode);
-			}
-
-		};
-	}
-/*
-	private JPanel getClientPanel() {
-		final JPanel panel = new JPanel(new GridBagLayout());
-		final GridBagConstraints constraints = new GridBagConstraints();
-		constraints.gridx = 0;
-		constraints.gridy = 0;
-		constraints.anchor = GridBagConstraints.LINE_START;
-		constraints.insets = new Insets(5, 5, 5, 5);
-		constraints.weightx = 1.0;
-		constraints.fill = GridBagConstraints.HORIZONTAL;
-
-		final Border border = new TitledBorder(new BevelBorder(BevelBorder.RAISED), Messages.getString("OptionWizard.12")); //$NON-NLS-1$
-		panel.setBorder(border);
-
-		JLabel label = new JLabel(Messages.getString("OptionWizard.13")); //$NON-NLS-1$
-		panel.add(label, constraints);
-
-		constraints.gridx = 1;
-		panel.add(propertyToComponent.get(EarthProperty.HOST_KEY)[0], constraints);
-
-		constraints.gridy++;
-		label = new JLabel(Messages.getString("OptionWizard.14")); //$NON-NLS-1$
-		constraints.gridx = 0;
-		panel.add(label, constraints);
-
-		constraints.gridx = 1;
-		panel.add(propertyToComponent.get(EarthProperty.HOST_PORT_KEY)[1], constraints);
-
-		return panel;
-	}*/
-
-	private Vector<String> getColumnNames() {
-		final Vector<String> columns = new Vector<String>();
-		columns.add(Messages.getString("OptionWizard.16")); //$NON-NLS-1$
-		columns.add(Messages.getString("OptionWizard.17")); //$NON-NLS-1$
-		columns.add(Messages.getString("OptionWizard.18")); //$NON-NLS-1$
-		columns.add(Messages.getString("OptionWizard.19")); //$NON-NLS-1$
-		columns.add(Messages.getString("OptionWizard.22")); //$NON-NLS-1$
-		columns.add("Aspect"); //$NON-NLS-1$
-		return columns;
-	}
-
+	
 	private String getComputerIp() {
 		try {
 			return InetAddress.getLocalHost().getHostAddress();
@@ -288,35 +214,11 @@ public class OptionWizard extends JDialog {
 		final Border border = new TitledBorder(new BevelBorder(BevelBorder.LOWERED), Messages.getString("OptionWizard.2")); //$NON-NLS-1$
 		typeOfUsePanel.setBorder(border);
 
-//		final ButtonGroup typeChooser = new ButtonGroup();
-//		final JComponent[] operationModes = propertyToComponent.get(EarthProperty.OPERATION_MODE);
-		//clientPanel = getClientPanel();
-		serverPanel = getServerPanel();
+		JPanel serverPanel = getServerPanel();
 
 
 		typeOfUsePanel.add(serverPanel, constraints);
 
-		/*for (final JComponent typeRadioButton : operationModes) {
-			final JRadioButton operationModeButton = (JRadioButton) typeRadioButton;
-			typeChooser.add(operationModeButton);
-			typeOfUsePanel.add(operationModeButton, constraints);
-			constraints.gridy++;
-
-			ActionListener clientModeListener = getPanelUpdaterListener();
-			operationModeButton.addActionListener(clientModeListener);
-
-			if (operationModeButton.getName().equals( OperationMode.CLIENT_MODE.name())) {
-				clientModeRadioButton = operationModeButton;
-				typeOfUsePanel.add(clientPanel, constraints);
-			} else {
-				typeOfUsePanel.add(serverPanel, constraints);
-			}
-			constraints.gridy++;
-
-		}*/
-
-		boolean isClientMode = localPropertiesService.getOperationMode().equals( OperationMode.CLIENT_MODE );
-		enableModePanels(isClientMode );
 
 		return typeOfUsePanel;
 	}
@@ -574,7 +476,7 @@ public class OptionWizard extends JDialog {
 	}
 
 	private JComponent getSampleDataPanel() {
-		final JTable samplePlots = new JTable(getSamplingPoints(localPropertiesService.getValue(EarthProperty.CSV_KEY)), getColumnNames());
+		final JPlotCsvTable samplePlots = new JPlotCsvTable( localPropertiesService.getValue(EarthProperty.CSV_KEY) );
 
 		final JPanel panel = new JPanel(new GridBagLayout());
 		final GridBagConstraints constraints = new GridBagConstraints();
@@ -604,7 +506,7 @@ public class OptionWizard extends JDialog {
 		return panel;
 	}
 
-	private JFilePicker getFilePickerSamplePlots(final JTable samplePlots) {
+	private JFilePicker getFilePickerSamplePlots(final JPlotCsvTable samplePlots) {
 		final JFilePicker refreshTableOnFileChange = (JFilePicker) (propertyToComponent.get(EarthProperty.CSV_KEY)[0]);
 		refreshTableOnFileChange.addChangeListener(new DocumentListener() {
 
@@ -617,93 +519,20 @@ public class OptionWizard extends JDialog {
 			public void insertUpdate(DocumentEvent e) {
 				refreshTable();
 			}
-
-			private void refreshTable() {
-				samplePlots.removeAll();
-				final File csvFile = new File(refreshTableOnFileChange.getSelectedFilePath());
-				boolean errorLoading = false;
-				if (csvFile.exists()) {
-					final Vector<Vector<Object>> samplingPoints = getSamplingPoints(refreshTableOnFileChange.getSelectedFilePath());
-					if (samplingPoints.size() == 0) {
-						errorLoading = true;
-					} else {
-						samplePlots.setModel(new DefaultTableModel(samplingPoints, getColumnNames()));
-					}
-				} else {
-					errorLoading = true;
-				}
-
-				if (errorLoading) {
-					samplePlots.setBackground(CollectEarthWindow.ERROR_COLOR);
-					samplePlots.setModel(new DefaultTableModel());
-				} else {
-					samplePlots.setBackground(Color.white);
-				}
-			}
-
+			
 			@Override
 			public void removeUpdate(DocumentEvent e) {
 				refreshTable();
+			}
+			
+			private void refreshTable() {
+				samplePlots.refreshTable(refreshTableOnFileChange.getSelectedFilePath());
 			}
 		});
 		return refreshTableOnFileChange;
 	}
 
-	private Vector<Vector<Object>> getSamplingPoints(String csvFilePath) {
-		String[] csvRow;
-		String[] headerRow =null;
-		CSVReader reader = null;
-		final Vector<Vector<Object>> plots = new Vector<Vector<Object>>();
-		File csvFile = new File(csvFilePath);
-		if( csvFile.exists() ){
-			try {
-				boolean skip = true;
-				reader = KmlGenerator.getCsvReader(csvFilePath);
-				try {
-					while ((csvRow = reader.readNext()) != null && plots.size() < 50) {
-						
-						if( headerRow == null ){
-							headerRow = csvRow;
-						}
-						
-						if (skip) {
-							// Skip first row, it might contain column names
-							skip = false;
-							continue;
-						}
 
-						final PlotProperties plotProperties = KmlGenerator.getPlotProperties(csvRow, headerRow);
-						final Vector<Object> props = new Vector<Object>();
-						props.add(plotProperties.id);
-						props.add(plotProperties.xCoord);
-						props.add(plotProperties.yCoord);
-						props.add(plotProperties.elevation);
-						props.add(plotProperties.slope);
-						props.add(plotProperties.aspect);
-
-						plots.add(props);
-
-					}
-				} catch (final Exception e) {
-					JOptionPane.showMessageDialog(this, Messages.getString("OptionWizard.38") //$NON-NLS-1$
-							+ Messages.getString("OptionWizard.39") + "\n" + e.getMessage(), "Error reading file contents", //$NON-NLS-1$ //$NON-NLS-2$
-							JOptionPane.ERROR_MESSAGE);
-					logger.error("Error reading the CSV with the plot locations", e);
-				}
-			} catch (final IOException e) {
-				logger.error("Error when extracting data from CSV file " + csvFilePath, e); //$NON-NLS-1$
-			} finally {
-				if (reader != null) {
-					try {
-						reader.close();
-					} catch (final IOException e) {
-						logger.error(Messages.getString("OptionWizard.42"), e); //$NON-NLS-1$
-					}
-				}
-			}
-		}
-		return plots;
-	}
 
 	private JPanel getServerPanel() {
 
@@ -738,7 +567,7 @@ public class OptionWizard extends JDialog {
 		final JComponent[] dbTypes = propertyToComponent.get(EarthProperty.DB_DRIVER);
 
 		postgresPanel = getPostgreSqlPanel();
-		sqlitePanel = getSqlLitePanel();
+		JPanel sqlitePanel = getSqlLitePanel();
 
 		for (final JComponent typeRadioButton : dbTypes) {
 			final JRadioButton dbTypeButton = (JRadioButton) typeRadioButton;
@@ -746,18 +575,12 @@ public class OptionWizard extends JDialog {
 			typeOfDbPanel.add(dbTypeButton, constraints);
 			constraints.gridy++;
 
-
-			dbTypeButton.addActionListener( getPanelUpdaterListener() );
-
-
 			dbTypeButton.addActionListener(getDbTypeListener());
 
 			if (dbTypeButton.getName().equals(EarthConstants.CollectDBDriver.POSTGRESQL.name() ) ) {
-				postgresRadioButton = dbTypeButton;
 				typeOfDbPanel.add(postgresPanel, constraints);
 				constraints.gridy++;
 			}else{
-				sqliteRadioButton = dbTypeButton;
 				typeOfDbPanel.add(sqlitePanel, constraints);
 				constraints.gridy++;
 			}

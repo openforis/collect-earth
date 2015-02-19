@@ -43,6 +43,7 @@ public class PlacemarkBrowserServlet{
 						browserService.openTimelapse(latLongCoordinates);
 						browserService.openBingMaps(latLongCoordinates);
 						browserService.openGeePlayground(latLongCoordinates);
+						browserService.openHereMaps(latLongCoordinates);
 					} catch (final Exception e) {
 						LoggerFactory.getLogger(this.getClass()).error("Exception", e); //$NON-NLS-1$
 						

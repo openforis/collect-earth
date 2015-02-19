@@ -113,7 +113,7 @@ public class BrowserService implements Observer{
 	private static final Configuration cfg = new Configuration();
 	private static Template template;
 
-	private RemoteWebDriver webDriverEE, webDriverBing, webDriverTimelapse, webDriverGeePlayground;
+	private RemoteWebDriver webDriverEE, webDriverBing, webDriverTimelapse, webDriverGeePlayground, webDriverHere;
 
 	private static boolean geeMethodUpdated = false;
 
@@ -399,7 +399,7 @@ public class BrowserService implements Observer{
 	 * @param driver The browser window to use. If this value is null a new browser window is open.
 	 * @param retry Specify if there should be a second try to open a browser window if the first time fails (useful if the browser could not be found)
 	 * @return THe browser window (firefox or chrome depending on the configuration) used to open the URL.
-	 * @throws BrowserNotFoundException 
+	 * @throws BrowserNotFoundException Exception thrown when there is no Firefox/Chrome installed
 	 */
 	public synchronized RemoteWebDriver navigateTo(String url, RemoteWebDriver driver, boolean retry ) throws BrowserNotFoundException {
 
@@ -455,7 +455,7 @@ public class BrowserService implements Observer{
 				@Override
 				public void run() {
 					try {
-						webDriverBing = navigateTo(geoLocalizeTemplateService.getTemporaryUrl(latLong, GeolocalizeMapService.FREEMARKER_BING_HTML_TEMPLATE).toString(), driverCopy);
+						webDriverBing = navigateTo(geoLocalizeTemplateService.getBingUrl(latLong,  localPropertiesService.getValue( EarthProperty.BING_MAPS_KEY), GeolocalizeMapService.FREEMARKER_BING_HTML_TEMPLATE).toString(), driverCopy);
 					} catch (final Exception e) {
 						logger.error("Problems loading Bing", e);
 					}
@@ -463,6 +463,38 @@ public class BrowserService implements Observer{
 			};
 			
 			loadBingThread.start();
+			
+		}
+	}
+	
+	/**
+	 * Opens a browser window with the Here Maps representation of the plot.
+	 * @param coordinates The center point of the plot.
+	 * @throws BrowserNotFoundException In case the browser could not be found
+	 * 
+	 */
+	public synchronized void openHereMaps(String coordinates) throws BrowserNotFoundException {
+
+		if (localPropertiesService.isHereMapsSupported()) {
+
+			if (webDriverHere == null) {
+				webDriverHere = initBrowser();
+			}
+
+			final RemoteWebDriver driverCopy = webDriverHere;
+			final String[] centerPlotLocation = coordinates.split(",");
+			final Thread loadHereThread = new Thread() {
+				@Override
+				public void run() {
+					try {
+						webDriverHere = navigateTo(geoLocalizeTemplateService.getHereUrl(centerPlotLocation, localPropertiesService.getValue( EarthProperty.HERE_MAPS_APP_ID), localPropertiesService.getValue( EarthProperty.HERE_MAPS_APP_CODE), GeolocalizeMapService.FREEMARKER_HERE_HTML_TEMPLATE).toString(), driverCopy);
+					} catch (final Exception e) {
+						logger.error("Problems loading Here Maps", e);
+					}
+				};
+			};
+			
+			loadHereThread.start();
 			
 		}
 	}

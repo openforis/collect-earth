@@ -21,7 +21,7 @@ import org.apache.commons.dbcp.BasicDataSource;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.SystemUtils;
 import org.openforis.collect.earth.app.EarthConstants;
-import org.openforis.collect.earth.app.ad_hoc.PngAluToolUtils;
+import org.openforis.collect.earth.app.ad_hoc.AluToolUtils;
 import org.openforis.collect.earth.app.desktop.ServerController;
 import org.openforis.collect.earth.app.model.AspectCode;
 import org.openforis.collect.earth.app.model.DynamicsCode;
@@ -163,15 +163,15 @@ public class AnalysisSaikuService {
 							@Override
 							public Object[] mapRow(ResultSet rs, int rowNum) throws SQLException {
 	
-								final Object[] updateValues = new Object[4];
+								final Object[] updateValues = new Object[3];
 	
 								try {
-									PngAluToolUtils aluToolUtils = new PngAluToolUtils();
+									AluToolUtils aluToolUtils = new AluToolUtils();
 									
 									Integer elevation = rs.getInt("elevation"); //$NON-NLS-1$
 									String soilFundamental = rs.getString("soil_fundamental"); //$NON-NLS-1$
 									String precipitationRange = rs.getString("precipitation_ranges"); //$NON-NLS-1$
-									String collectEarthSubcategory = rs.getString("land_use_subcategory"); //$NON-NLS-1$
+									
 									
 									int precipitation = -1;
 									String climate_zone = "Unknown"; //$NON-NLS-1$
@@ -185,15 +185,11 @@ public class AnalysisSaikuService {
 									if( soilFundamental!=null){
 										soil_type = aluToolUtils.getSoilType( soilFundamental );
 									}
-									String sub_class = "Unknown"; //$NON-NLS-1$
-									if( collectEarthSubcategory != null ){
-										sub_class = aluToolUtils.getAluSubclass(collectEarthSubcategory);
-									}
+									
 									
 									updateValues[0] = climate_zone;
 									updateValues[1] = soil_type;
-									updateValues[2] = sub_class;
-									updateValues[3] = rs.getLong(PLOT_ID);
+									updateValues[2] = rs.getLong(PLOT_ID);
 								} catch (Exception e) {
 									logger.error("Error while processing the data", e); //$NON-NLS-1$
 									updateValues[0] = "Unknown"; //$NON-NLS-1$
@@ -206,7 +202,7 @@ public class AnalysisSaikuService {
 	
 						});
 	
-				jdbcTemplate.batchUpdate("UPDATE " + schemaName + "plot SET " + ALU_CLIMATE_ZONE_CODE +"=?," + ALU_SOIL_TYPE_CODE + "=?,"+ ALU_SUBCLASS_CODE+"=? WHERE "+PLOT_ID+"=?", sqlUpdateValues); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$ //$NON-NLS-4$ //$NON-NLS-5$ //$NON-NLS-6$
+				jdbcTemplate.batchUpdate("UPDATE " + schemaName + "plot SET " + ALU_CLIMATE_ZONE_CODE +"=?," + ALU_SOIL_TYPE_CODE + "=? WHERE "+PLOT_ID+"=?", sqlUpdateValues); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$ //$NON-NLS-4$ //$NON-NLS-5$ //$NON-NLS-6$
 			}
 		} catch (Exception e) {
 			logger.error("No PNG ALU information", e); //$NON-NLS-1$
@@ -222,20 +218,25 @@ public class AnalysisSaikuService {
 						@Override
 						public Object[] mapRow(ResultSet rs, int rowNum) throws SQLException {
 
-							final Object[] updateValues = new Object[2];
+							AluToolUtils aluToolUtils = new AluToolUtils();
+							final Object[] updateValues = new Object[3];
 
-
-							Integer dynamics = DynamicsCode.getDynamicsCode( rs.getString("land_use_subcategory")); //$NON-NLS-1$
-
+							String collectEarthSubcategory = rs.getString("land_use_subcategory"); //$NON-NLS-1$
+							Integer dynamics = DynamicsCode.getDynamicsCode( collectEarthSubcategory); //$NON-NLS-1$
+							String sub_class = "Unknown"; //$NON-NLS-1$
+							if( collectEarthSubcategory != null ){
+								sub_class = aluToolUtils.getAluSubclass(collectEarthSubcategory);
+							}
 
 							updateValues[0] = dynamics;
-							updateValues[1] = rs.getLong(PLOT_ID);
+							updateValues[1] = sub_class;
+							updateValues[2] = rs.getLong(PLOT_ID);
 							return updateValues;
 						}
 
 					});
 
-			jdbcTemplate.batchUpdate("UPDATE " + schemaName + "plot SET " + DYNAMICS_ID +"=? WHERE "+PLOT_ID+"=?", sqlUpdateValues); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$ //$NON-NLS-4$
+			jdbcTemplate.batchUpdate("UPDATE " + schemaName + "plot SET " + DYNAMICS_ID +"=?,"+ ALU_SUBCLASS_CODE+"=? WHERE "+PLOT_ID+"=?", sqlUpdateValues); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$ //$NON-NLS-4$
 		} catch (Exception e) {
 			logger.error("No PNG Alu information available", e); //$NON-NLS-1$
 		}
@@ -331,10 +332,14 @@ public class AnalysisSaikuService {
 	private void createPngAluVariables(){
 		if (earthSurveyService.getCollectSurvey().getName().toLowerCase().contains("png") ){  //$NON-NLS-1$
 			final String schemaName = getSchemaPrefix();
-			jdbcTemplate.execute("ALTER TABLE " + schemaName + "plot ADD "+ALU_SUBCLASS_CODE+" VARCHAR(5)"); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$
 			jdbcTemplate.execute("ALTER TABLE " + schemaName + "plot ADD "+ALU_SOIL_TYPE_CODE+" VARCHAR(5)"); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$
 			jdbcTemplate.execute("ALTER TABLE " + schemaName + "plot ADD "+ALU_CLIMATE_ZONE_CODE+" VARCHAR(5)"); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$
 		}
+	}
+	
+	private void creatAluSubclassVariables(){
+		final String schemaName = getSchemaPrefix();
+		jdbcTemplate.execute("ALTER TABLE " + schemaName + "plot ADD "+ALU_SUBCLASS_CODE+" VARCHAR(5)"); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$
 	}
 	
 	
@@ -541,6 +546,8 @@ public class AnalysisSaikuService {
 
 		createDynamicsAuxTable();
 		
+		creatAluSubclassVariables();
+		
 		createPngAluVariables();
 
 		createWeightFactors();
@@ -645,6 +652,7 @@ public class AnalysisSaikuService {
 			FreemarkerTemplateUtils.applyTemplate(dataSourceTemplate, dataSourceFile, data);
 		} catch (Exception e) {
 			System.out.println("Saiku datasources file not found, testing witht the directory for the 3.0 datasources "); //$NON-NLS-1$
+			logger.error("Error starting Saiku", e);
 			dataSourceFile = new File(getSaikuThreeConfigurationFilePath());
 			FreemarkerTemplateUtils.applyTemplate(dataSourceTemplate, dataSourceFile, data);
 		}

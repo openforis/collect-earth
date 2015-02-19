@@ -3,7 +3,7 @@
 	<parent>
 		<groupId>org.openforis.collect.earth</groupId>
 		<artifactId>collect-earth</artifactId>
-		<version>1.0.25-SNAPSHOT</version>
+		<version>1.0.39-SNAPSHOT</version>
 	</parent>
 	<artifactId>collect-earth-installer</artifactId>
 	<packaging>pom</packaging>
@@ -191,6 +191,8 @@ No Solaris installer necessary
 							<includes>
 								<include>${installbuilder-file-name}</include>
 								<include>CollectEarthMain.xml</include>
+								<include>java.xml</include>
+								<include>earth.properties_initial</include>
 								<include>${installbuilder-file-name-updater}</include>
 								<include>update.ini</include>
 								<include>${autoupdater-xml-file-name}</include>
@@ -209,7 +211,18 @@ No Solaris installer necessary
 									<token>COLLECT_EARTH_MAIN_FOLDER</token>
 									<value>${basedir}/..</value>
 								</replacement>
-								
+								<replacement>
+									<token>BING_MAPS_KEY</token>
+									<value>${bing_maps_key}</value>
+								</replacement>
+								<replacement>
+									<token>HERE_APP_ID</token>
+									<value>${here_app_id}</value>
+								</replacement>
+								<replacement>
+									<token>HERE_APP_CODE</token>
+									<value>${here_app_code}</value>
+								</replacement>
 							</replacements>
 						</configuration>
 					</plugin>
@@ -285,7 +298,7 @@ No Solaris installer necessary
 									</arguments>
 								</configuration>
 							</execution>
-							<!-- Mac OS X 
+							<!-- Mac OS X -->
 							<execution>
 								<id>osx-installer</id>
 								<phase>prepare-package</phase>
@@ -317,7 +330,7 @@ No Solaris installer necessary
 									</arguments>
 								</configuration>
 							</execution>
-							-->
+							
 						</executions>
 					</plugin>
 
@@ -355,6 +368,7 @@ No Solaris installer necessary
 											<classifier>linux-updater</classifier>
 											<type>run</type>
 										</artifact>
+									-->
 										<artifact>
 											<file>${project.build.directory}/${osx-installer-file-name}</file>
 											<classifier>osx</classifier>
@@ -365,13 +379,12 @@ No Solaris installer necessary
 											<classifier>osx-updater</classifier>
 											<type>zip</type>
 										</artifact> 
-									-->
+									
 									</artifacts>
 								</configuration>
 							</execution>
 						</executions>
 					</plugin>
-					
 					
 					<!-- 7 Upload the XML file that defines the presence of updates to the FTP directory -->
 					<plugin>
@@ -391,14 +404,14 @@ No Solaris installer necessary
 										<move file="${installbuilder-output-directory}/${windows-installer-file-name}" tofile="${project.build.directory}/${windows-installer-file-name}" failonerror="true" />
 										<move file="${installbuilder-output-directory}/${windows-autoupdater-file-name}" tofile="${project.build.directory}/${windows-autoupdater-file-name}" failonerror="true" />
 										
-										<!-- 
-										Remove the OSX/Linux installers until problems fixed
+										
+										<!-- Remove the OSX/Linux installers until problems fixed 
 										<move file="${installbuilder-output-directory}/${linux-installer-file-name}" tofile="${project.build.directory}/${linux-installer-file-name}" failonerror="true" />
 										<move file="${installbuilder-output-directory}/${linux-autoupdater-file-name}" tofile="${project.build.directory}/${linux-autoupdater-file-name}" failonerror="true" />
-										
+										-->
 										<move file="${installbuilder-output-directory}/${osx-installer-file-name}" tofile="${project.build.directory}/${osx-installer-file-name}" failonerror="true" />
 										<move file="${installbuilder-output-directory}/${osx-autoupdater-file-name}" tofile="${project.build.directory}/${osx-autoupdater-file-name}" failonerror="true" /> 
-										-->
+										
 									</tasks>
 								</configuration>
 							</execution>
@@ -432,9 +445,12 @@ No Solaris installer necessary
 						</dependencies>
 					
 					</plugin>
+	
+					
 				</plugins>
 			</build>
 		</profile>
+		
 	</profiles>
 
 </project>
