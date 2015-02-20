@@ -4,6 +4,7 @@ import java.util.List;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
+import org.apache.commons.lang3.StringUtils;
 import org.openforis.collect.model.NodeChangeSet;
 import org.openforis.collect.model.RecordUpdater;
 import org.openforis.idm.metamodel.NodeDefinition;
@@ -29,7 +30,7 @@ public abstract class AbstractAttributeHandler<C> {
 	}
 
 	public NodeChangeSet addOrUpdate(String parameterName, String parameterValue, Entity entity, int parameterChildIndex) {
-		Value value = (Value) (parameterValue == null ? null: createValue(parameterValue));
+		Value value = (Value) (StringUtils.isBlank(parameterValue) ? null: createValue(parameterValue));
 		
 		@SuppressWarnings("unchecked")
 		Attribute<?, Value> attr = (Attribute<?, Value>) getAttributeNodeFromParameter(parameterName, entity, parameterChildIndex);
