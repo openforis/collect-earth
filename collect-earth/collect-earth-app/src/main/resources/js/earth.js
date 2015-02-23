@@ -261,8 +261,7 @@ var checkIfPlacemarkAlreadyFilled = function(checkCount) {
 	$.ajax({
 		data : {id: placemarkId},
 		type : "GET",
-		//url : "$[host]placemarkInfo",
-		 url: "http://127.0.0.1:8028/earth/placemark-info-expanded",
+		url: HOST + "placemark-info-expanded",
 		dataType : 'json',
 		timeout : 5000
 	})
@@ -446,9 +445,9 @@ var fillYears = function() {
 
 var forceWindowCloseAfterDialogCloses = function($dialog) {
 	$dialog.on("dialogclose", function(event, ui) {
-		window.open("#$[next_id];flyto"); // balloonFlyto - annoying to have
-											// the balloon open, doesn't let you
-											// see the plot
+		window.open("#" + NEXT_ID + ";flyto"); 	// balloonFlyto - annoying to have
+												// the balloon open, doesn't let you
+												// see the plot
 	});
 };
 
