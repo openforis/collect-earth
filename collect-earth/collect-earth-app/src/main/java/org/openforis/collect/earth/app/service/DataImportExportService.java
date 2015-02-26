@@ -107,7 +107,7 @@ public class DataImportExportService {
 
 
 	public CSVDataImportProcess getCsvImporterProcess(File importFromFile) throws Exception {
-		final CSVDataImportProcess importProcess = applicationContext.getBean(CSVDataImportProcess.class);
+		final CSVDataImportProcess importProcess = applicationContext.getBean("transactionalCsvDataImportProcess", CSVDataImportProcess.class);
 
 		importProcess.setFile(importFromFile);
 		importProcess.setSurvey(earthSurveyService.getCollectSurvey());
