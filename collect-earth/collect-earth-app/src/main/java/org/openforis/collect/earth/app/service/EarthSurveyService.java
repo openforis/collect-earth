@@ -254,9 +254,9 @@ public class EarthSurveyService {
 					if (surveyManager.getByUri( survey.getUri() ) == null) { // NOT IN
 						// THE DB
 						String surveyName = EARTH_SURVEY_NAME + localPropertiesService.getValue( EarthProperty.SURVEY_NAME );
-						survey = surveyManager.importModel(idmSurveyModel, surveyName, false );
+						survey = surveyManager.importModel(idmSurveyModel, surveyName, false, true);
 					} else { // UPDATE ALREADY EXISTANT MODEL
-						survey = surveyManager.updateModel(idmSurveyModel, false );
+						survey = surveyManager.updateModel(idmSurveyModel, false, true);
 					}
 					setCollectSurvey(survey);
 				} else {
