@@ -74,6 +74,9 @@ public class JPlotCsvTable extends JTable{
 
 	private String[] getColumnNames(String[] headerRow) {
 		// Check if the first line is actually a header. Possible if the first header column coincides with ID, PLOT_ID or PLOT
+		if( headerRow == null ){
+			return new String[]{"No headers"};
+		}
 		if( headerRow[0].equalsIgnoreCase("id") || headerRow[0].equalsIgnoreCase("plot_id")|| headerRow[0].equalsIgnoreCase("plot")){
 			return headerRow;
 		}else{

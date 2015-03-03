@@ -60,10 +60,10 @@ public class PlacemarkImageServlet extends DataAccessingServlet {
 		}
 		
 		// If there is an exception while we get the record info (problem that might happen when using SQLite due to concurrency) return the yellow icon.
-		String imageName = null;
+		String imageName = EarthConstants.LIST_NOT_FINISHED_IMAGE;
 		try {
 			
-			final Map<String, String> placemarkParameters = earthSurveyService.getPlacemark(placemarkId);
+			final Map<String, String> placemarkParameters = earthSurveyService.getPlacemark(placemarkId,false);
 
 			if (earthSurveyService.isPlacemarkSavedActively(placemarkParameters)) {
 				if (listView != null && listView) {
@@ -82,8 +82,7 @@ public class PlacemarkImageServlet extends DataAccessingServlet {
 		} catch (Exception e) {
 			logger.error("Error loading image for placemark with ID " + placemarkId , e); //$NON-NLS-1$
 			System.out.println( e );
-			// If there is an exception while we get the record info (problem that might happen when using SQLite due to concurrency) return the yellow icon.
-			imageName = EarthConstants.LIST_NOT_FINISHED_IMAGE;
+			
 		}finally{
 			returnImage(response, request, imageName);
 		}

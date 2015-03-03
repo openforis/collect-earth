@@ -19,7 +19,7 @@ public class CollectDataAccessor implements DataAccessor {
 	@Deprecated
 	@Override
 	public Map<String, String> getData(String placemarkId) {
-		return earthSurveyService.getPlacemark(placemarkId);
+		return earthSurveyService.getPlacemark(placemarkId,true);
 	}
 
 	@Override

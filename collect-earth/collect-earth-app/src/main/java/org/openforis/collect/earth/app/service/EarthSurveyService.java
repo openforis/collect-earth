@@ -138,8 +138,8 @@ public class EarthSurveyService {
 		return localPropertiesService.getImdFile();
 	}
 
-	public Map<String, String> getPlacemark(String placemarkId) {
-		CollectRecord record = loadRecord(placemarkId);
+	public Map<String, String> getPlacemark(String placemarkId, boolean validateRecord) {
+		CollectRecord record = loadRecord(placemarkId, validateRecord);
 		Map<String, String> placemarkParameters = null;
 		if (record == null) {
 			placemarkParameters = new HashMap<String, String>();
@@ -177,13 +177,17 @@ public class EarthSurveyService {
 	}
 
 	public CollectRecord loadRecord(String placemarkId) {
+		return loadRecord(placemarkId, true);
+	}
+	
+	public synchronized CollectRecord loadRecord(String placemarkId, boolean validateRecord ) {
 		List<CollectRecord> summaries = recordManager.loadSummaries(getCollectSurvey(), ROOT_ENTITY_NAME, placemarkId);
 		CollectRecord record = null;
 		if (summaries.isEmpty()) {
 			return null;
 		} else {
 			record = summaries.get(0);
-			record = recordManager.load(getCollectSurvey(), record.getId(), Step.ENTRY);
+			record = recordManager.load(getCollectSurvey(), record.getId(), Step.ENTRY, validateRecord);
 			return record;
 		}
 	}
