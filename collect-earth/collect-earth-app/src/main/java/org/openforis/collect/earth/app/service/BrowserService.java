@@ -38,6 +38,7 @@ import org.apache.commons.io.FileUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.openforis.collect.earth.app.EarthConstants;
 import org.openforis.collect.earth.app.desktop.ServerController;
+import org.openforis.collect.earth.app.desktop.ServerController.ServerInitializationEvent;
 import org.openforis.collect.earth.app.service.LocalPropertiesService.EarthProperty;
 import org.openqa.selenium.By;
 import org.openqa.selenium.JavascriptExecutor;
@@ -796,7 +797,7 @@ public class BrowserService implements Observer{
 
 	@Override
 	public void update(Observable o, Object arg) {
-		if( arg == ServerController.SERVER_STOPPED_EVENT ){
+		if( ServerInitializationEvent.SERVER_STOPPED_EVENT.equals(arg) ){
 			this.closeBrowsers();
 		}
 	}

@@ -2,6 +2,10 @@ package org.openforis.collect.earth.app.desktop;
 
 import java.io.File;
 import java.io.IOException;
+import java.sql.Connection;
+import java.sql.DriverManager;
+import java.sql.ResultSet;
+import java.sql.Statement;
 import java.util.Map;
 import java.util.Observable;
 import java.util.Observer;
@@ -36,13 +40,31 @@ import freemarker.template.TemplateException;
 public class ServerController extends Observable {
 
 	private static final String EARTH_SUBDOMAIN = "earth"; //$NON-NLS-1$
-	
+
 	public static final String SAIKU_RDB_SUFFIX = "Saiku"; //$NON-NLS-1$
 	// Make sure that the default ports are the same for Server and Generator
 	private static final String DEFAULT_PORT = "80"; //$NON-NLS-1$
-	public static final String SERVER_STOPPED_EVENT = "server_has_stopped"; //$NON-NLS-1$
-	public static final String SERVER_STARTED_EVENT = "server_has_started"; //$NON-NLS-1$
-	public static final String SERVER_STARTED_WITH_EXCEPTION_EVENT = "server_has_started_with_exceptions"; //$NON-NLS-1$
+		
+	public enum ServerInitializationEvent{ 
+		SERVER_STOPPED_EVENT("The Server has stopped"), 
+		SERVER_STARTED_EVENT("The server started without problems"), 
+		SERVER_STARTED_NO_DB_CONNECTION_EVENT("Collect Earth could not start due to a DB connection issue"), 
+		SERVER_STARTED_WITH_DATABASE_CHANGE_EVENT( "Collect Earth started but the PostgreSQL DB could not be reached (SQLite used instead until problems are fixed)");
+		
+		private String message;
+
+		private ServerInitializationEvent(String message) {
+			this.message = message;
+		}
+
+		@Override
+		public String toString() {
+			return message;
+		}
+		
+	
+	};
+	
 	private Server server;
 	private final Logger logger = LoggerFactory.getLogger(ServerController.class);
 	private WebAppContext root;
@@ -59,9 +81,9 @@ public class ServerController extends Observable {
 		return webApplicationContext;
 	}
 
-	private static String getDbURL() {
+	private static String getDbURL(final CollectDBDriver collectDBDriver) {
 		// jdbc:postgresql://hostname:port/dbname
-		final CollectDBDriver collectDBDriver = localPropertiesService.getCollectDBDriver();
+
 		String url = collectDBDriver.getUrl();
 		url = url.replace("REPLACE_HOSTNAME", localPropertiesService.getValue(EarthProperty.DB_HOST)); //$NON-NLS-1$
 		url = url.replace("REPLACE_PORT", localPropertiesService.getValue(EarthProperty.DB_PORT)); //$NON-NLS-1$
@@ -86,33 +108,80 @@ public class ServerController extends Observable {
 		this.root = root;
 	}
 
-	private void initilizeDataSources() {
+	private boolean initilizeDataSources() throws IOException, TemplateException {
 
-		try {
-			final File jettyAppCtxTemplateSrc = new File("resources/applicationContext.fmt"); //$NON-NLS-1$
-			final File jettyAppCtxDst = new File(EarthConstants.GENERATED_FOLDER + "/applicationContext.xml"); //$NON-NLS-1$
-			
-			jettyAppCtxDst.getParentFile().mkdirs();
-			
-			final Map<String, String> data = new java.util.HashMap<String, String>();
+		CollectDBDriver collectDBDriver = localPropertiesService.getCollectDBDriver();
+		boolean isConnectionTypeSwitched = false;
+		if(localPropertiesService.isUsingPostgreSqlDB()){
+			if(!isPostgreSQLReachable(collectDBDriver) ){
 
-			data.put("driver", localPropertiesService.getCollectDBDriver().getDriverClass()); //$NON-NLS-1$
-			data.put("url", getDbURL()); //$NON-NLS-1$
-			data.put("urlSaiku", getSaikuDbURL()); //$NON-NLS-1$
-			data.put("username", localPropertiesService.getValue(EarthProperty.DB_USERNAME)); //$NON-NLS-1$
-			data.put("password", localPropertiesService.getValue(EarthProperty.DB_PASSWORD)); //$NON-NLS-1$
-			data.put("collectEarthExecutionFolder", System.getProperty("user.dir") + File.separator); //$NON-NLS-1$ //$NON-NLS-2$
+				System.out.println("Impossible to reach the PostgreSQL server at " + getDbURL(CollectDBDriver.POSTGRESQL));
+				System.out.println("Using the SQLite version until fixed!");
+				logger.error("Impossible to reach the PostgreSQL server at " + getDbURL(CollectDBDriver.POSTGRESQL) + " using SQLite version");
+				collectDBDriver = CollectDBDriver.SQLITE;
+				isConnectionTypeSwitched = true;
+			}
 
-			FreemarkerTemplateUtils.applyTemplate(jettyAppCtxTemplateSrc, jettyAppCtxDst, data);
-		} catch (IOException | TemplateException e) {
-			e.printStackTrace();
-			logger.error("Error refreshing teh Jetty application context to add the data sources for Collect Earth", e); //$NON-NLS-1$
 		}
+
+		final File jettyAppCtxTemplateSrc = new File("resources/applicationContext.fmt"); //$NON-NLS-1$
+		final File jettyAppCtxDst = new File(EarthConstants.GENERATED_FOLDER + "/applicationContext.xml"); //$NON-NLS-1$
+
+		jettyAppCtxDst.getParentFile().mkdirs();
+
+		final Map<String, String> data = new java.util.HashMap<String, String>();
+
+		data.put("driver", collectDBDriver.getDriverClass()); //$NON-NLS-1$
+		data.put("url", getDbURL(collectDBDriver)); //$NON-NLS-1$
+		data.put("urlSaiku", getSaikuDbURL(collectDBDriver)); //$NON-NLS-1$
+		data.put("username", localPropertiesService.getValue(EarthProperty.DB_USERNAME)); //$NON-NLS-1$
+		data.put("password", localPropertiesService.getValue(EarthProperty.DB_PASSWORD)); //$NON-NLS-1$
+		data.put("collectEarthExecutionFolder", System.getProperty("user.dir") + File.separator); //$NON-NLS-1$ //$NON-NLS-2$
+
+		FreemarkerTemplateUtils.applyTemplate(jettyAppCtxTemplateSrc, jettyAppCtxDst, data);
+		
+		
+		return isConnectionTypeSwitched;
 
 	}
 
-	public static String getSaikuDbURL() {
-		String urlSaikuDB = getDbURL();
+	private boolean isPostgreSQLReachable(CollectDBDriver collectDBDriver) {
+		boolean connectionWorked = false;
+
+		try {
+			Class.forName("org.postgresql.Driver");
+			Connection connection = DriverManager.getConnection( 
+					getDbURL(collectDBDriver), 
+					localPropertiesService.getValue(EarthProperty.DB_USERNAME), 
+					localPropertiesService.getValue(EarthProperty.DB_PASSWORD)
+					);
+
+			if (connection != null)
+			{
+				String query="select COUNT( DISTINCT id) from collect.ofc_record";
+				Statement s = connection.createStatement();
+				ResultSet rs=s.executeQuery(query);
+				while(rs.next())
+				{
+					System.out.print( "It works, there are " + rs.getString(1) + " rows on the ofc_record table");
+				}
+				connectionWorked = true;
+
+			}
+			else
+				System.out.println("Connection Failed!");
+		}
+		catch(Exception e){
+			e.printStackTrace();
+			logger.error("Error while testing the connection tot he postgresSQL DB", e);
+		}
+		
+		return connectionWorked;
+
+	}
+
+	public static String getSaikuDbURL(CollectDBDriver collectDBDriver) {
+		String urlSaikuDB = getDbURL(collectDBDriver);
 
 		if (localPropertiesService.isUsingSqliteDB()) {
 			urlSaikuDB += SAIKU_RDB_SUFFIX;
@@ -125,7 +194,7 @@ public class ServerController extends Observable {
 
 		this.addObserver(observeInitialization);
 
-		initilizeDataSources();
+		boolean postgresConnectionSwitchedtoSqlite = initilizeDataSources();
 		try {
 
 			final String webappDirLocation = FolderFinder.getLocalFolder();
@@ -171,10 +240,13 @@ public class ServerController extends Observable {
 			Object attribute = getRoot().getServletContext().getAttribute(WebApplicationContext.ROOT_WEB_APPLICATION_CONTEXT_ATTRIBUTE);
 			if (attribute instanceof BeanCreationException) {
 				logger.error("Error creating the database connection", attribute); //$NON-NLS-1$
-				notifyObservers(SERVER_STARTED_WITH_EXCEPTION_EVENT);
+				notifyObservers(ServerInitializationEvent.SERVER_STARTED_NO_DB_CONNECTION_EVENT);
 			} else {
-
-				notifyObservers(SERVER_STARTED_EVENT);
+				if (postgresConnectionSwitchedtoSqlite){
+					notifyObservers(ServerInitializationEvent.SERVER_STARTED_WITH_DATABASE_CHANGE_EVENT);
+				}else{
+					notifyObservers(ServerInitializationEvent.SERVER_STARTED_EVENT);
+				}
 			}
 		} catch (final IOException e) {
 			logger.error("Error initializing local properties", e); //$NON-NLS-1$
@@ -195,11 +267,11 @@ public class ServerController extends Observable {
 		if (server != null && server.isRunning()) {
 			server.stop();
 			setChanged();
-			notifyObservers(SERVER_STOPPED_EVENT);
+			notifyObservers(ServerInitializationEvent.SERVER_STOPPED_EVENT);
 		}
 	}
 
-	
+
 	public static String getHostAddress(String host, String port) {
 		String hostAndPort = ""; //$NON-NLS-1$
 		if (host != null && host.length() > 0) {

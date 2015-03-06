@@ -15,6 +15,7 @@ import java.util.Observer;
 
 import javax.swing.JOptionPane;
 
+import org.openforis.collect.earth.app.desktop.ServerController.ServerInitializationEvent;
 import org.openforis.collect.earth.app.server.LoadProjectFileServlet;
 import org.openforis.collect.earth.app.service.EarthProjectsService;
 import org.openforis.collect.earth.app.service.FolderFinder;
@@ -171,10 +172,21 @@ public class EarthApp {
 				@Override
 				public void update(Observable o, Object arg) {
 					try {
-						if (arg.equals(ServerController.SERVER_STARTED_EVENT)) {
+						ServerInitializationEvent event = (ServerInitializationEvent) arg;
+						if (
+								event.equals(ServerInitializationEvent.SERVER_STARTED_EVENT) ||
+								event.equals(ServerInitializationEvent.SERVER_STARTED_WITH_DATABASE_CHANGE_EVENT)
+								) {
 							earthApp.getKmlGeneratorService().generatePlacemarksKmzFile();
 							earthApp.simulateClickKmz();
 						}
+						
+						if( event.equals(ServerInitializationEvent.SERVER_STARTED_WITH_DATABASE_CHANGE_EVENT) || 
+								event.equals(ServerInitializationEvent.SERVER_STARTED_NO_DB_CONNECTION_EVENT)	){
+							
+							showMessage( event.toString());
+						}
+						
 					} catch (final IOException e) {
 						logger.error("Error generating KMZ file", e); //$NON-NLS-1$
 					} catch (final Exception e) {
@@ -237,7 +249,7 @@ public class EarthApp {
 			if (doubleClickedProjectFile!=null) {
 				openProjectFileInRunningCollectEarth(doubleClickedProjectFile);
 			}else{
-				earthApp.showMessage(Messages.getString("EarthApp.11")); //$NON-NLS-1$
+				showMessage(Messages.getString("EarthApp.11")); //$NON-NLS-1$
 			}
 		}else{
 
@@ -245,10 +257,18 @@ public class EarthApp {
 			final Observer observeInitialization = new Observer() {
 				@Override
 				public void update(Observable o, Object arg) {
-					if (arg.equals(ServerController.SERVER_STARTED_WITH_EXCEPTION_EVENT)) {
+					ServerInitializationEvent initializationEvent = (ServerInitializationEvent) arg;
+					if (initializationEvent.equals(ServerInitializationEvent.SERVER_STARTED_NO_DB_CONNECTION_EVENT)) {
 						serverController = null;
 					}
-					if (!arg.equals(ServerController.SERVER_STOPPED_EVENT)) {
+					
+					if( initializationEvent.equals(ServerInitializationEvent.SERVER_STARTED_WITH_DATABASE_CHANGE_EVENT) || 
+							initializationEvent.equals(ServerInitializationEvent.SERVER_STARTED_NO_DB_CONNECTION_EVENT)	){
+						
+						showMessage( initializationEvent.toString());
+					}
+					
+					if (!initializationEvent.equals(ServerInitializationEvent.SERVER_STOPPED_EVENT)) {
 						try {
 												
 							earthApp.openProject(doubleClickedProjectFile);
@@ -349,7 +369,7 @@ public class EarthApp {
 
 	}
 
-	private void showMessage(String message) {
+	private static void showMessage(String message) {
 		JOptionPane.showMessageDialog(null, message, "Collect Earth", JOptionPane.WARNING_MESSAGE); //$NON-NLS-1$
 	}
 

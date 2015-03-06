@@ -21,6 +21,7 @@ import org.apache.commons.dbcp.BasicDataSource;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.SystemUtils;
 import org.openforis.collect.earth.app.EarthConstants;
+import org.openforis.collect.earth.app.EarthConstants.CollectDBDriver;
 import org.openforis.collect.earth.app.ad_hoc.AluToolUtils;
 import org.openforis.collect.earth.app.desktop.ServerController;
 import org.openforis.collect.earth.app.model.AspectCode;
@@ -483,6 +484,7 @@ public class AnalysisSaikuService {
 					final RelationalSchemaConfig rdbConfig = RelationalSchemaConfig.createDefault();
 					rdbConfig.setTextMaxLength(4096);
 					rdbConfig.setMemoMaxLength(4096);
+					rdbConfig.setIdColumnSuffix("_id");
 
 					final String rdbSaikuSchema = getSchemaName();
 
@@ -672,6 +674,8 @@ public class AnalysisSaikuService {
 	private File getDataSourceTemplate(Map<String, String> data) throws IOException {
 		File dataSourceTemplate = null;
 
+		
+		
 		if( localPropertiesService.isUsingSqliteDB() ){
 			dataSourceTemplate = new File(SQLITE_FREEMARKER_HTML_TEMPLATE);
 			final File rdbDb = getRdbFile();
@@ -681,7 +685,8 @@ public class AnalysisSaikuService {
 			data.put("rdbFilePath", rdbDb.getAbsolutePath().replace('\\', '/')); //$NON-NLS-1$
 		}else{
 			dataSourceTemplate = new File(POSTGRESQL_FREEMARKER_HTML_TEMPLATE);
-			data.put("dbUrl", ServerController.getSaikuDbURL() ); //$NON-NLS-1$
+			CollectDBDriver collectDBDriver = localPropertiesService.getCollectDBDriver();
+			data.put("dbUrl", ServerController.getSaikuDbURL(collectDBDriver) ); //$NON-NLS-1$
 			data.put("username", localPropertiesService.getValue(EarthProperty.DB_USERNAME )); //$NON-NLS-1$
 			data.put("password", localPropertiesService.getValue(EarthProperty.DB_PASSWORD )); //$NON-NLS-1$
 		}
