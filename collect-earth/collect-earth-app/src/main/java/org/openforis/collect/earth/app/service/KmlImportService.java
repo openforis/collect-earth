@@ -85,7 +85,7 @@ public class KmlImportService {
             		Node placemarkChild = childNodes.item(j);
             		
             		if( placemarkChild.getNodeName().equalsIgnoreCase("name")){ //$NON-NLS-1$
-            			name = placemarkChild.getFirstChild().getTextContent();
+            			name = placemarkChild.getFirstChild().getNodeValue();
             		}else if ( placemarkChild.getNodeName().equals("Point")){ //$NON-NLS-1$
             			String coordinates = processPoint(placemarkChild); 
                     	
@@ -146,16 +146,17 @@ public class KmlImportService {
 		for (int h=0; h<lookAtNodes.getLength(); h++){
 			Node lookAtChild = lookAtNodes.item(h);                  		
 			if( lookAtChild.getNodeName().equalsIgnoreCase("coordinates" ) ){ //$NON-NLS-1$
-				 coordinates = lookAtChild.getFirstChild().getTextContent();
+				 coordinates = lookAtChild.getFirstChild().getNodeValue();
 			}
 		}
 		return coordinates;
 	}
 
-	public void loadFromKml( JFrame frame) throws ParserConfigurationException, SAXException, IOException{
+	public boolean loadFromKml( JFrame frame) throws ParserConfigurationException, SAXException, IOException{
 		this.frame = frame;
 		// Choose the file in the file system
 		File kmlFile = chooseKmlFile();
+		boolean kmlImported = false;
 		if( kmlFile != null ){
 			// Convert the KML into a CSV and save it into a temporary file
 			File convertedCsvFile = createTempCsv( kmlFile );
@@ -168,7 +169,10 @@ public class KmlImportService {
 
 			// Load the plots from the CSV 
 			localPropertiesService.setValue(EarthProperty.CSV_KEY, finalCsvFile.getAbsolutePath());
+			kmlImported = true;
 		}
+		
+		return kmlImported;
 	}
 
 	private File selectAndSaveToCsv(File convertedCsvFile, String name) throws IOException {

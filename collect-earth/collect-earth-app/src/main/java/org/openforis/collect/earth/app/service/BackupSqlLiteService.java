@@ -54,8 +54,7 @@ public class BackupSqlLiteService {
 		Runtime.getRuntime().addShutdownHook(new Thread() {
 			@Override
 			public void run() {
-				if (localPropertiesService.getValue(EarthProperty.AUTOMATIC_BACKUP) != null
-						&& localPropertiesService.getValue(EarthProperty.AUTOMATIC_BACKUP).toLowerCase().trim().equals("true")) { //$NON-NLS-1$
+				if ( "true".equals(localPropertiesService.getValue(EarthProperty.AUTOMATIC_BACKUP) ) ) { //$NON-NLS-1$
 					backupDB();
 				}
 			}

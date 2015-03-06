@@ -65,7 +65,7 @@ public class FixMissingSaxaulStrataInfo {
 	}
 
 	private void setPlotValue(String plotId, String collectParameterName, String value) {
-		Map<String,String> plotInformation = earthSurveyService.getPlacemark(plotId);
+		Map<String,String> plotInformation = earthSurveyService.getPlacemark(plotId,true);
 		if( plotInformation.get( EarthConstants.PLACEMARK_FOUND_PARAMETER ).trim().equals("true") ){ //$NON-NLS-1$
 			plotInformation.put(collectParameterName, value);
 			earthSurveyService.storePlacemarkOld(plotInformation, null );
