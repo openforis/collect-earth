@@ -179,7 +179,7 @@ public class BalloonInputFieldsUtils {
 							for (NodeDefinition childDef : childDefs) {
 								AbstractAttributeHandler<?> childHandler = findHandler(childDef);
 								String collectParameterName = collectParameterBaseName + childHandler.getPrefix() + childDef.getName();
-								String enumeratingItemPath = parentDef.getPath() + "[" + i + "]/" + childDef.getName();
+								String enumeratingItemPath = parentDef.getPath() + "[" + (i+1) + "]/" + childDef.getName();
 								result.put(enumeratingItemPath, collectParameterName);
 							}
 						}
