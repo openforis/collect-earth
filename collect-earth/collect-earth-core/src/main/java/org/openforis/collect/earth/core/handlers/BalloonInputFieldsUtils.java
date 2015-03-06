@@ -76,7 +76,7 @@ public class BalloonInputFieldsUtils {
 		for (String parameterName : parameterNames) {
 			String cleanName = cleanUpParameterName(parameterName);
 			AbstractAttributeHandler<?> handler = findHandler(cleanName);
-			if (handler != null) {
+			if (handler != null && ! (handler instanceof EntityHandler)) {
 				PlacemarkInputFieldInfo info = new PlacemarkInputFieldInfo();
 
 				Attribute<?, ?> attribute = handler.getAttributeNodeFromParameter(cleanName, rootEntity, 0);
@@ -173,7 +173,7 @@ public class BalloonInputFieldsUtils {
 						List<CodeListItem> enumeratingItems = codeListService.loadRootItems(enumeratingList);
 						for (int i = 0; i < enumeratingItems.size(); i++) {
 							CodeListItem enumeratingItem = enumeratingItems.get(i);
-							String collectParameterBaseName = getCollectParameterBaseName(parentDef) + "[" + enumeratingItem.getCode() + "]";
+							String collectParameterBaseName = getCollectParameterBaseName(parentDef) + "[" + enumeratingItem.getCode() + "].";
 							
 							List<NodeDefinition> childDefs = parentDef.getChildDefinitions();
 							for (NodeDefinition childDef : childDefs) {

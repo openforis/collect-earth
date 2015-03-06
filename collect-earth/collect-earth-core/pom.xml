@@ -19,6 +19,11 @@
 			<version>${collect.version}</version>
 		</dependency>
 		<dependency>
+			<groupId>org.openforis.collect</groupId>
+			<artifactId>collect-rdb</artifactId>
+			<version>${collect.version}</version>
+		</dependency>
+		<dependency>
 			<groupId>org.springframework</groupId>
 			<artifactId>spring-context</artifactId>
 			<version>${spring.version}</version>

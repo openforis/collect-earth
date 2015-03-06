@@ -28,6 +28,7 @@ import org.openforis.collect.earth.app.model.AspectCode;
 import org.openforis.collect.earth.app.model.DynamicsCode;
 import org.openforis.collect.earth.app.model.SlopeCode;
 import org.openforis.collect.earth.app.service.LocalPropertiesService.EarthProperty;
+import org.openforis.collect.earth.core.rdb.RelationalSchemaContext;
 import org.openforis.collect.earth.sampler.processor.KmlGenerator;
 import org.openforis.collect.earth.sampler.utils.FreemarkerTemplateUtils;
 import org.openforis.collect.model.CollectRecord.Step;
@@ -481,10 +482,7 @@ public class AnalysisSaikuService {
 					 * The SQLite DB has no limit on the length of the varchar.
 					 * By default, if no RelationalSchemaConfig is passed to the export command text fields will be truncated to 255 characters
 					 */
-					final RelationalSchemaConfig rdbConfig = RelationalSchemaConfig.createDefault();
-					rdbConfig.setTextMaxLength(4096);
-					rdbConfig.setMemoMaxLength(4096);
-					rdbConfig.setIdColumnSuffix("_id");
+					final RelationalSchemaConfig rdbConfig = new RelationalSchemaContext().getRdbConfig();
 
 					final String rdbSaikuSchema = getSchemaName();
 

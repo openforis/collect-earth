@@ -42,7 +42,7 @@ public class EntityHandler extends AbstractAttributeHandler<Entity> {
 		parameterName = removePrefix(parameterName);
 		String childEntityName = getEntityName(parameterName);
 		String keyValue = getEntityKey(parameterName);
-		String entityAttribute = getNestedAttributeParameterName(parameterName);
+		String entityAttribute = extractNestedAttributeParameterName(parameterName);
 
 		Entity childEntity = getChildEntity(parentEntity, childEntityName, keyValue);
 		if (childEntity == null) {
@@ -74,7 +74,7 @@ public class EntityHandler extends AbstractAttributeHandler<Entity> {
 		String cleanName = removePrefix(parameterName);
 		String childEntityName = getEntityName(cleanName);
 		String keyValue = getEntityKey(cleanName);
-		String nestedAttributeParameterName = getNestedAttributeParameterName(cleanName);
+		String nestedAttributeParameterName = extractNestedAttributeParameterName(cleanName);
 		Entity childEntity = getChildEntity(entity, childEntityName, keyValue);
 		return balloonInputFieldUtils.getAttributeNodeFromParameter(childEntity, nestedAttributeParameterName, index);
 	}
@@ -84,7 +84,7 @@ public class EntityHandler extends AbstractAttributeHandler<Entity> {
 		return EntityBuilder.createEntity(null, parameterValue);
 	}
 
-	private String getNestedAttributeParameterName(String parameterName) {
+	private String extractNestedAttributeParameterName(String parameterName) {
 		int indexOfDot = parameterName.indexOf('.');
 		return parameterName.substring(indexOfDot + 1);
 	}

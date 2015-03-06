@@ -220,6 +220,12 @@ var updateInputFieldsState = function(inputFieldInfoByParameterName) {
 		var formGroup = field.closest('.form-group');
 		formGroup.toggle(info.visible);
 	});
+	//manage tabs visibility
+	$form.find(".tab").each(function() {
+		$(this).show();
+		var hasNestedVisibleFormFields = $(this).find(".form-group:visible").length > 0;
+		$(this).toggle(hasNestedVisibleFormFields);
+	});
 };
 
 var initCodeButtonGroups = function() {
