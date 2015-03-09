@@ -38,7 +38,7 @@ public class EntityHandler extends AbstractAttributeHandler<Entity> {
 		NodeChangeMap result = new NodeChangeMap();
 		
 		// Expected parameter name:
-		// colllect_entity_topography[house].code_coverage=XX
+		// collect_entity_topography[house].code_coverage=XX
 		parameterName = removePrefix(parameterName);
 		String childEntityName = getEntityName(parameterName);
 		String keyValue = getEntityKey(parameterName);
@@ -46,11 +46,8 @@ public class EntityHandler extends AbstractAttributeHandler<Entity> {
 
 		Entity childEntity = getChildEntity(parentEntity, childEntityName, keyValue);
 		if (childEntity == null) {
-//			childEntity = EntityBuilder.addEntity(parentEntity, childEntityName);
-			NodeChangeSet changeSet = recordUpdater.addEntity(parentEntity, childEntityName);
-			result.addMergeChanges(changeSet);
+			throw new IllegalStateException(String.format("Enumerated entity expected but not found: %s[%s]", childEntityName, keyValue));
 		}
-		
 		Map<String,String> parameters = new HashMap<String, String>();
 		parameters.put(entityAttribute, parameterValue);
 
@@ -58,7 +55,7 @@ public class EntityHandler extends AbstractAttributeHandler<Entity> {
 		result.addMergeChanges(otherChangeSet);
 		return result;
 	}
-	
+
 	private Entity getChildEntity(Entity parentEntity, String entityName, String entityKey) {
 		List<Entity> entities = parentEntity.findChildEntitiesByKeys(entityName, entityKey);
 		if (entities.isEmpty()) {

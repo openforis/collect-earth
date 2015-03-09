@@ -76,7 +76,11 @@ public class BalloonInputFieldsUtils {
 		for (String parameterName : parameterNames) {
 			String cleanName = cleanUpParameterName(parameterName);
 			AbstractAttributeHandler<?> handler = findHandler(cleanName);
-			if (handler != null && ! (handler instanceof EntityHandler)) {
+			if (handler == null) {
+				logger.error("Cannot find handler for parameter: " + parameterName);
+			} else if (handler instanceof EntityHandler) {
+				
+			} else {
 				PlacemarkInputFieldInfo info = new PlacemarkInputFieldInfo();
 
 				Attribute<?, ?> attribute = handler.getAttributeNodeFromParameter(cleanName, rootEntity, 0);
@@ -101,8 +105,6 @@ public class BalloonInputFieldsUtils {
 					info.setPossibleCodedItems(possibleCodedItems);
 				}
 				result.put(parameterName, info);
-			} else {
-				logger.error("Cannot find handler for parameter: " + parameterName);
 			}
 		}
 		return result;

@@ -3,7 +3,11 @@ package org.openforis.collect.earth.app.server;
 import static org.openforis.collect.earth.app.EarthConstants.PLACEMARK_ID_PARAMETER;
 
 import java.io.IOException;
+import java.io.UnsupportedEncodingException;
+import java.net.URLDecoder;
+import java.util.HashMap;
 import java.util.Map;
+import java.util.Map.Entry;
 
 import javax.servlet.http.HttpServletResponse;
 
@@ -50,8 +54,7 @@ public class PlacemarkDataController extends JsonPocessorServlet {
 	
 	@RequestMapping(value="/save-data-expanded", method = RequestMethod.POST)
 	public void saveDataExpanded(PlacemarkUpdateRequest updateRequest, HttpServletResponse response) throws IOException {
-		Map<String, String> collectedData = updateRequest.getValues();
-		replaceTestParameters(collectedData);
+		Map<String, String> collectedData = adjustParameters(updateRequest);
 
 		PlacemarkLoadResult result;
 		if (collectedData.isEmpty()) {
@@ -67,6 +70,18 @@ public class PlacemarkDataController extends JsonPocessorServlet {
 			}
 		}
 		setJsonResponse(response, result);
+	}
+
+	private Map<String, String> adjustParameters(
+			PlacemarkUpdateRequest updateRequest)
+			throws UnsupportedEncodingException {
+		Map<String, String> originalCollectedData = updateRequest.getValues();
+		Map<String, String> collectedData = new HashMap<String, String>(originalCollectedData.size());
+		for (Entry<String, String> entry : originalCollectedData.entrySet()) {
+			collectedData.put(URLDecoder.decode(entry.getKey(), "UTF-8"), entry.getValue());
+		}
+		replaceTestParameters(collectedData);
+		return collectedData;
 	}
 	
 	/**
