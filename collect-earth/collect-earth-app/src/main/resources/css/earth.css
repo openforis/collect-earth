@@ -184,3 +184,7 @@ form input[type='text'].numeric {
 form textarea {
 	width: 250px;
 }
+
+.step {
+	overflow: auto;
+}

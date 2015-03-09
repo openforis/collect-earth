@@ -11,9 +11,10 @@ var lastUpdateRequest = null; //last update request sent to the server
 //DO NOT REMOVE
 var ajaxTimeout = null;
 
-$(document).ready(function() {
+$(function() {
 	$form = $("#formAll");
 	
+	initSteps();
 	fillYears();
 	initCodeButtonGroups();
 	initDateTimePickers();
@@ -214,17 +215,47 @@ var updateInputFieldsState = function(inputFieldInfoByParameterName) {
 	});
 	OF.UI.Forms.Validation.updateErrors($form, errors);
 	
+	updateStepsErrorFeedback();
+
 	//manage fields visibility
 	$.each(inputFieldInfoByParameterName, function(fieldName, info) {
 		var field = $("#" + fieldName);
 		var formGroup = field.closest('.form-group');
 		formGroup.toggle(info.visible);
 	});
-	//manage tabs visibility
-	$form.find(".tab").each(function() {
-		$(this).show();
-		var hasNestedVisibleFormFields = $(this).find(".form-group:visible").length > 0;
-		$(this).toggle(hasNestedVisibleFormFields);
+	//manage tabs/steps visibility
+	$form.find(".step").each(function(index, value) {
+		var stepBody = $(this);
+		var stepHeading = $($form.find(".steps .steps ul li")[index]);
+		stepBody.show();
+		var hasNestedVisibleFormFields = stepBody.find(".form-group:visible").length > 0;
+		if (hasNestedVisibleFormFields) {
+			if (stepHeading.hasClass("notrelevant")) {
+				stepHeading.removeClass("notrelevant");
+				if (stepHeading.hasClass("done")) {
+					stepHeading.removeClass("disabled");
+				}
+			}
+		} else {
+			stepHeading.addClass("disabled notrelevant");
+		}
+		
+		stepHeading.toggle(hasNestedVisibleFormFields);
+		
+		if (! stepHeading.hasClass("current")) {
+			stepBody.hide();
+		}
+	});
+};
+
+var updateStepsErrorFeedback = function() {
+	//update steps error feedback
+	$form.find(".step").each(function(index, value) {
+		var stepHeading = $($form.find(".steps .steps ul li")[index]);
+		if (! stepHeading.hasClass("disabled")) {
+			var hasErrors = $(this).find(".form-group.has-error").length > 0;
+			stepHeading.toggleClass("error", hasErrors);
+		}
 	});
 };
 
@@ -257,6 +288,37 @@ var initDateTimePickers = function() {
 	})
 	.on('dp.change', function(e) {
 		ajaxDataUpdate();
+	});
+};
+
+var initSteps = function() {
+	$form.find(".steps").steps({
+		headerTag : "h3",
+		bodyTag : "section",
+		transitionEffect : "slideLeft",
+		autoFocus : true,
+		titleTemplate: /*"<span class=\"number\">#index#.</span>"*/ "#title#",
+		onStepChanged: function (event, currentIndex, priorIndex) {
+			var stepHeading = $($form.find(".steps .steps ul li")[currentIndex]);
+			if (stepHeading.hasClass("notrelevant")) {
+				
+			}
+			updateStepsErrorFeedback();
+		}
+		/*,
+		onStepChanging : function(event, currentIndex, newIndex) {
+			// Always allow previous action even if the current form is not
+			// valid!
+			if (newIndex < currentIndex) {
+				return true;
+			}
+			if ($form.find(".step.current .form-group.has-error").length > 0) {
+				// current form has some errors
+				return false;
+			}
+			return true;
+		}
+		*/
 	});
 };
 
@@ -392,37 +454,6 @@ var setValueInInputField = function(inputField, value) {
 };
 
 var initializeChangeEventSaver = function() {
-	$(".btn").click(function() {
-		var groupId = $(this).closest("div .btn-group").attr("id");
-
-		var suffixLength = "_group".length;
-		if (groupId && groupId.length > suffixLength) {
-			var value = $(this).val();
-			// When we expect data sucha as
-			// "0;collect_code_deforestation_reason=burnt"
-			var values = value.split(SEPARATOR_MULTIPLE_VALUES);
-
-			var idLength = groupId.length - suffixLength;
-			var hiddenInputId = groupId.substring(0, idLength);
-			$('#' + hiddenInputId).val(values[0]);// give the hidden input the
-													// same value as the button
-													// that just was clicked
-
-			if ($('.' + hiddenInputId + '_dependant').length > 0) {
-				var dependants = $('.' + hiddenInputId + '_dependant:hidden');
-				resetDependants(hiddenInputId);
-			}
-
-			// If there is an extra value
-			// "collect_code_deforestation_reason=burnt"
-			if (values.length == 2) {
-				var extraValues = values[1].split("=");
-				$('#' + extraValues[0]).val(extraValues[1]);
-			}
-		}
-		ajaxDataUpdate();
-	});
-
 	// SAVING DATA WHEN DATA CHANGES
 	// Bind event to Before user leaves page with function parameter e
 	// The window onbeforeunload or onunload events do not work in Google Earth
@@ -456,7 +487,6 @@ var forceWindowCloseAfterDialogCloses = function($dialog) {
 												// see the plot
 	});
 };
-
 
 /**
  * Utility functions

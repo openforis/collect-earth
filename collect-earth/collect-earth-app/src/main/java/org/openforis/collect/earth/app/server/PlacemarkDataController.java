@@ -78,6 +78,7 @@ public class PlacemarkDataController extends JsonPocessorServlet {
 		Map<String, String> originalCollectedData = updateRequest.getValues();
 		Map<String, String> collectedData = new HashMap<String, String>(originalCollectedData.size());
 		for (Entry<String, String> entry : originalCollectedData.entrySet()) {
+			//decode parameter name, it was previously encoded by the client
 			collectedData.put(URLDecoder.decode(entry.getKey(), "UTF-8"), entry.getValue());
 		}
 		replaceTestParameters(collectedData);

@@ -406,12 +406,12 @@ public class EarthSurveyService {
 	private CollectRecord loadOrCreateRecord(String placemarkId, String sessionId) throws RecordPersistenceException {
 		CollectRecord record;
 		List<CollectRecord> summaries = recordManager.loadSummaries(getCollectSurvey(), ROOT_ENTITY_NAME, placemarkId); //$NON-NLS-1$
-		if (! summaries.isEmpty()) {
-			record = recordManager.load(getCollectSurvey(), summaries.get(0).getId());
-		} else {
+		if (summaries.isEmpty()) {
 			// Create new record
 			record = createRecord(sessionId);
-			logger.warn("Creating a new plot entity with id " + placemarkId); //$NON-NLS-1$
+			logger.warn("Creating a new record with id " + placemarkId); //$NON-NLS-1$
+		} else {
+			record = recordManager.load(getCollectSurvey(), summaries.get(0).getId());
 		}
 		return record;
 	}
