@@ -2,6 +2,7 @@ var SEPARATOR_MULTIPLE_PARAMETERS = "===";
 var SEPARATOR_MULTIPLE_VALUES = ";";
 var DATE_FORMAT = 'MM/DD/YYYY';
 var TIME_FORMAT = 'HH:ss';
+var SUBMIT_LABEL = "Submit and validate";
 
 var $form = null; //to be initialized 
 var lastUpdateRequest = null; //last update request sent to the server
@@ -303,6 +304,9 @@ var initSteps = function() {
 		transitionEffect : "slideLeft",
 		autoFocus : true,
 		titleTemplate: /*"<span class=\"number\">#index#.</span>"*/ "#title#",
+		labels: {
+			finish: SUBMIT_LABEL
+		},
 		onStepChanged: function (event, currentIndex, priorIndex) {
 			var stepHeading = $($form.find(".steps .steps ul li")[currentIndex]);
 			if (stepHeading.hasClass("notrelevant")) {
@@ -313,6 +317,9 @@ var initSteps = function() {
 				}
 			}
 			updateStepsErrorFeedback();
+		},
+		onFinished: function (event, currentIndex) {
+			$form.submit();
 		}
 		/*,
 		onStepChanging : function(event, currentIndex, newIndex) {
@@ -329,6 +336,7 @@ var initSteps = function() {
 		}
 		*/
 	});
+	$stepsContainer.find("a[href='#finish']").addClass("btn-finish");
 };
 
 var checkIfPlacemarkAlreadyFilled = function(checkCount) {

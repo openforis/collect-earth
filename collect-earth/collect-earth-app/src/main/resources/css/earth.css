@@ -60,7 +60,7 @@ hr {
 }
 
 .ui-dialog-titlebar-close {
-	background-image: url(img/close.png) !important;
+	background-image: url(../img/close.png) !important;
 	background-position: left top !important;
 }
 
@@ -191,4 +191,21 @@ form textarea {
 
 .notrelevant {
 	display: none;
+}
+
+a.btn-finish, 
+a.btn-finish:hover, 
+a.btn-finish:active {
+	color: #fff !important;
+	background-color: #449d44 !important;
+  	border-color: #398439 !important;
+}
+
+.code-items {
+}
+
+.code-item {
+	width: 45%;
+	margin: 2px;
+	white-space: normal;
 }

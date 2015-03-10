@@ -387,3 +387,16 @@
 {
     display: list-item;
 }
+
+.wizard > .steps a 
+{
+	font-size: smaller !important;
+	margin: 0 0.1em 0.1em !important;
+	padding: 0.3em 0.7em !important;
+}
+
+.wizard > .steps > ul > li 
+{
+	width: inherit !important;
+}
+
