@@ -107,15 +107,6 @@
 .wizard > .steps .disabled a:hover,
 .wizard > .steps .disabled a:active
 {
-    background: #CDE1F7;
-    color: #aaa;
-    cursor: default;
-}
-
-.wizard > .steps .notrelevant a,
-.wizard > .steps .notrelevant a:hover,
-.wizard > .steps .notrelevant a:active
-{
     background: #eee;
     color: #aaa;
     cursor: default;
@@ -125,7 +116,7 @@
 .wizard > .steps .current a:hover,
 .wizard > .steps .current a:active
 {
-    background: #4C74BD;
+    background: #2184be;
     color: #fff;
     cursor: default;
 }
@@ -134,7 +125,7 @@
 .wizard > .steps .done a:hover,
 .wizard > .steps .done a:active
 {
-    background: #A0D3AA;
+    background: #9dc8e2;
     color: #fff;
 }
 

@@ -13,6 +13,7 @@ var ajaxTimeout = null;
 
 $(function() {
 	$form = $("#formAll");
+	$stepsContainer = $(".steps");
 	
 	initSteps();
 	fillYears();
@@ -221,37 +222,41 @@ var updateInputFieldsState = function(inputFieldInfoByParameterName) {
 	$.each(inputFieldInfoByParameterName, function(fieldName, info) {
 		var field = $("#" + fieldName);
 		var formGroup = field.closest('.form-group');
-		formGroup.toggle(info.visible);
+		formGroup.toggleClass("notrelevant", ! (info.visible));
 	});
+	
 	//manage tabs/steps visibility
 	$form.find(".step").each(function(index, value) {
 		var stepBody = $(this);
-		var stepHeading = $($form.find(".steps .steps ul li")[index]);
-		stepBody.show();
-		var hasNestedVisibleFormFields = stepBody.find(".form-group:visible").length > 0;
-		if (hasNestedVisibleFormFields) {
-			if (stepHeading.hasClass("notrelevant")) {
-				stepHeading.removeClass("notrelevant");
-				if (stepHeading.hasClass("done")) {
-					stepHeading.removeClass("disabled");
-				}
-			}
-		} else {
-			stepHeading.addClass("disabled notrelevant");
-		}
-		
-		stepHeading.toggle(hasNestedVisibleFormFields);
-		
-		if (! stepHeading.hasClass("current")) {
-			stepBody.hide();
-		}
+		var hasNestedVisibleFormFields = stepBody.find(".form-group:not(.notrelevant)").length > 0;
+		toggleStep(index, hasNestedVisibleFormFields);
 	});
+};
+
+var toggleStep = function(index, visible) {
+	var stepBody = $form.find(".step").eq(index);
+	var stepHeading = $form.find(".steps .steps ul li").eq(index);
+	if (visible) {
+		if (stepHeading.hasClass("notrelevant")) {
+			stepHeading.removeClass("notrelevant");
+			if (stepHeading.hasClass("done")) {
+				stepHeading.removeClass("disabled");
+			}
+		}
+	} else {
+		stepHeading.addClass("disabled notrelevant");
+	}
+	stepHeading.toggle(visible);
+	
+	if (! stepHeading.hasClass("current")) {
+		stepBody.hide();
+	}
 };
 
 var updateStepsErrorFeedback = function() {
 	//update steps error feedback
 	$form.find(".step").each(function(index, value) {
-		var stepHeading = $($form.find(".steps .steps ul li")[index]);
+		var stepHeading = $form.find(".steps .steps ul li").eq(index);
 		if (! stepHeading.hasClass("disabled")) {
 			var hasErrors = $(this).find(".form-group.has-error").length > 0;
 			stepHeading.toggleClass("error", hasErrors);
@@ -292,7 +297,7 @@ var initDateTimePickers = function() {
 };
 
 var initSteps = function() {
-	$form.find(".steps").steps({
+	$steps = $stepsContainer.steps({
 		headerTag : "h3",
 		bodyTag : "section",
 		transitionEffect : "slideLeft",
@@ -301,7 +306,11 @@ var initSteps = function() {
 		onStepChanged: function (event, currentIndex, priorIndex) {
 			var stepHeading = $($form.find(".steps .steps ul li")[currentIndex]);
 			if (stepHeading.hasClass("notrelevant")) {
-				
+				if (currentIndex > priorIndex) {
+					$stepsContainer.steps("next");
+				} else {
+					$stepsContainer.steps("previous");
+				}
 			}
 			updateStepsErrorFeedback();
 		}

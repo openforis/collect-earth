@@ -188,3 +188,7 @@ form textarea {
 .step {
 	overflow: auto;
 }
+
+.notrelevant {
+	display: none;
+}
