@@ -13,12 +13,10 @@ import javax.servlet.http.HttpServletResponse;
 
 import org.openforis.collect.earth.app.view.Messages;
 import org.openforis.collect.earth.core.model.PlacemarkLoadResult;
-import org.springframework.context.annotation.Scope;
 import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestMethod;
 import org.springframework.web.bind.annotation.RequestParam;
-import org.springframework.web.context.WebApplicationContext;
 
 /**
  * Controller to load and store the information that is stored in Collect Earth for one placemark (plot)
@@ -28,9 +26,11 @@ import org.springframework.web.context.WebApplicationContext;
  * 
  */
 @Controller
-@Scope(WebApplicationContext.SCOPE_SESSION)
 public class PlacemarkDataController extends JsonPocessorServlet {
 
+	private static String lastPlacemarkId;
+	private static String lastPlacemarkStep;
+	
 	@RequestMapping(value="/placemark-info-expanded", method = RequestMethod.GET)
 	protected void placemarkInfoExpanded(@RequestParam("id") String placemarkId, HttpServletResponse response) throws IOException {
 		PlacemarkLoadResult result;
@@ -45,6 +45,9 @@ public class PlacemarkDataController extends JsonPocessorServlet {
 			result = getDataAccessor().loadDataExpanded(placemarkId);
 			if (result.isSuccess()) {
 				result.setMessage("The placemark was found");
+				if (placemarkId.equals(lastPlacemarkId)) {
+					result.setCurrentStep(lastPlacemarkStep);
+				}
 			} else {
 				getLogger().info("No placemark found with id: " + placemarkId);
 			}
@@ -67,6 +70,8 @@ public class PlacemarkDataController extends JsonPocessorServlet {
 			result = getDataAccessor().updateData(placemarkId, collectedData, updateRequest.isStore());
 			if (result.isSuccess()) {
 				result.setMessage(Messages.getString("SaveEarthDataServlet.2"));
+				lastPlacemarkId = placemarkId;
+				lastPlacemarkStep = updateRequest.getCurrentStep();
 			}
 		}
 		setJsonResponse(response, result);
@@ -120,6 +125,7 @@ public class PlacemarkDataController extends JsonPocessorServlet {
 		private String placemarkId;
 		private Map<String, String> values;
 		private boolean store;
+		private String currentStep;
 
 		public String getPlacemarkId() {
 			return placemarkId;
@@ -143,6 +149,14 @@ public class PlacemarkDataController extends JsonPocessorServlet {
 		
 		public void setStore(boolean store) {
 			this.store = store;
+		}
+		
+		public String getCurrentStep() {
+			return currentStep;
+		}
+		
+		public void setCurrentStep(String currentStep) {
+			this.currentStep = currentStep;
 		}
 	}
 

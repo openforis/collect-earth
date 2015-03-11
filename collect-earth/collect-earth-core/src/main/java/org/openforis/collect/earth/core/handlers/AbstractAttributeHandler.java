@@ -67,7 +67,7 @@ public abstract class AbstractAttributeHandler<C> {
 			attributeName = cleanName;
 			actualEntity = entity;
 		}
-		Node<?> node = actualEntity.get(attributeName, index);
+		Node<?> node = actualEntity.getChild(attributeName, index);
 		return (Attribute<?, ?>) node;
 	}
 
