@@ -135,6 +135,9 @@ public class OptionWizard extends JDialog {
 		panel.add(propertyToComponent.get(EarthProperty.OPEN_BING_MAPS)[0], constraints);
 		
 		constraints.gridy++;
+		panel.add(propertyToComponent.get(EarthProperty.OPEN_HERE_MAPS)[0], constraints);
+		
+		constraints.gridy++;
 		panel.add(propertyToComponent.get(EarthProperty.OPEN_GEE_PLAYGROUND)[0], constraints);
 
 		final JPanel browserChooserPanel = new JPanel();
@@ -682,6 +685,10 @@ public class OptionWizard extends JDialog {
 		final JCheckBox openBingCheckbox = new JCheckBox(Messages.getString("OptionWizard.47")); //$NON-NLS-1$
 		openBingCheckbox.setSelected(Boolean.parseBoolean(localPropertiesService.getValue(EarthProperty.OPEN_BING_MAPS)));
 		propertyToComponent.put(EarthProperty.OPEN_BING_MAPS, new JComponent[] { openBingCheckbox });
+		
+		final JCheckBox openHereCheckbox = new JCheckBox(Messages.getString("OptionWizard.59")); //$NON-NLS-1$
+		openHereCheckbox.setSelected(Boolean.parseBoolean(localPropertiesService.getValue(EarthProperty.OPEN_HERE_MAPS)));
+		propertyToComponent.put(EarthProperty.OPEN_HERE_MAPS, new JComponent[] { openHereCheckbox });
 		
 		final JCheckBox openGeePlaygroundCheckbox = new JCheckBox(Messages.getString("OptionWizard.58")); //$NON-NLS-1$
 		openGeePlaygroundCheckbox.setSelected(Boolean.parseBoolean(localPropertiesService.getValue(EarthProperty.OPEN_GEE_PLAYGROUND)));
