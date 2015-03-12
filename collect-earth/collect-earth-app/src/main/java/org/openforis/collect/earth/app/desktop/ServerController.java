@@ -172,7 +172,6 @@ public class ServerController extends Observable {
 				System.out.println("Connection Failed!");
 		}
 		catch(Exception e){
-			e.printStackTrace();
 			logger.error("Error while testing the connection tot he postgresSQL DB", e);
 		}
 		

@@ -15,6 +15,7 @@ import java.util.Observer;
 
 import javax.swing.JOptionPane;
 
+import org.apache.log4j.PropertyConfigurator;
 import org.openforis.collect.earth.app.desktop.ServerController.ServerInitializationEvent;
 import org.openforis.collect.earth.app.server.LoadProjectFileServlet;
 import org.openforis.collect.earth.app.service.EarthProjectsService;
@@ -64,6 +65,8 @@ public class EarthApp {
 
 			// System property used in the log4j.properties configuration
 			System.setProperty("collectEarth.userFolder", FolderFinder.getLocalFolder()); //$NON-NLS-1$
+			
+			PropertyConfigurator.configure(EarthApp.class.getResource("/WEB-INF/conf/log4j.properties"));
 
 			logger = LoggerFactory.getLogger(EarthApp.class);
 

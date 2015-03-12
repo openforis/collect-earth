@@ -128,7 +128,8 @@ public class BalloonInputFieldsUtils {
 				return handler;
 			}
 		}
-		throw new IllegalArgumentException("Handler not found for the given node type: " + def.getClass().getName());
+		logger.warn("Handler not found for the given node type: " + def.getClass().getName());
+		return null;
 	}
 	
 	private String cleanUpParameterName(String parameterName) {
@@ -163,7 +164,9 @@ public class BalloonInputFieldsUtils {
 					EntityDefinition parentDef = def.getParentEntityDefinition();
 					if (parentDef == rootEntity) {
 						String collectParamName = getCollectParameterBaseName(def);
-						result.put(def.getPath(), collectParamName);
+						if( collectParamName != null ){
+							result.put(def.getPath(), collectParamName);
+						}
 					} else {
 						CodeAttributeDefinition keyCodeAttribute = parentDef.getEnumeratingKeyCodeAttribute();
 						if (keyCodeAttribute == null) {
@@ -178,9 +181,11 @@ public class BalloonInputFieldsUtils {
 							List<NodeDefinition> childDefs = parentDef.getChildDefinitions();
 							for (NodeDefinition childDef : childDefs) {
 								AbstractAttributeHandler<?> childHandler = findHandler(childDef);
-								String collectParameterName = collectParameterBaseName + childHandler.getPrefix() + childDef.getName();
-								String enumeratingItemPath = parentDef.getPath() + "[" + (i+1) + "]/" + childDef.getName();
-								result.put(enumeratingItemPath, collectParameterName);
+								if( childHandler != null ){
+									String collectParameterName = collectParameterBaseName + childHandler.getPrefix() + childDef.getName();
+									String enumeratingItemPath = parentDef.getPath() + "[" + (i+1) + "]/" + childDef.getName();
+									result.put(enumeratingItemPath, collectParameterName);
+								}
 							}
 						}
 					}
@@ -193,16 +198,24 @@ public class BalloonInputFieldsUtils {
 	private String getCollectParameterBaseName(NodeDefinition def) {
 		AbstractAttributeHandler<?> handler = findHandler(def);
 
-		// builds ie. "text_parameter"
-		String paramName = handler.getPrefix() + def.getName();
-
-		// Saves into "collect_text_parameter"
-		return COLLECT_PREFIX + paramName;
+		if( handler != null ){
+			// builds ie. "text_parameter"
+			String paramName = handler.getPrefix() + def.getName();
+	
+			// Saves into "collect_text_parameter"
+			return COLLECT_PREFIX + paramName;
+		}else{
+			return null;
+		}
 	}
 
 	protected void getHTMLParameterName(Entity plotEntity, Map<String,String> valuesByHtmlParameterName,
 			Node<?> node) {
 		AbstractAttributeHandler<?> handler = findHandler(node);
+		
+		if( handler == null ){
+			return;
+		}
 		
 		// builds ie. "text_parameter"
 		String paramName = handler.getPrefix() + node.getName();
