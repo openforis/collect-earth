@@ -64,48 +64,71 @@ public class BalloonInputFieldsUtils {
 	public Map<String, PlacemarkInputFieldInfo> extractFieldInfoByParameterName(CollectRecord record) {
 		Map<String, String> htmlParameterNameByNodePath = getHtmlParameterNameByNodePath(record);
 		Set<String> parameterNames = new HashSet<String>(htmlParameterNameByNodePath.values());
-		RecordValidationReportGenerator validationReportGenerator = new RecordValidationReportGenerator(record);
-		List<RecordValidationReportItem> validationItems = validationReportGenerator.generateValidationItems();
-		Map<String, String> validationMessageByPath = new HashMap<String, String>(validationItems.size());
-		for (RecordValidationReportItem validationItem : validationItems) {
-			validationMessageByPath.put(validationItem.getPath(), validationItem.getMessage());
-		}
+		Map<String, String> validationMessageByPath = generateValidationMessages(record);
 		Entity rootEntity = record.getRootEntity();
 
 		Map<String, PlacemarkInputFieldInfo> result = new HashMap<String, PlacemarkInputFieldInfo>(parameterNames.size());
 		for (String parameterName : parameterNames) {
 			String cleanName = cleanUpParameterName(parameterName);
 			AbstractAttributeHandler<?> handler = findHandler(cleanName);
-			if (handler != null && ! (handler instanceof EntityHandler)) {
-				PlacemarkInputFieldInfo info = new PlacemarkInputFieldInfo();
-
-				Attribute<?, ?> attribute = handler.getAttributeNodeFromParameter(cleanName, rootEntity, 0);
-
-				info.setValue(handler.getValueFromParameter(cleanName, rootEntity));
-				info.setVisible(attribute.isRelevant());
-				
-				String errorMessage = validationMessageByPath.get(attribute.getPath());
-				if (errorMessage != null) {
-					info.setInError(true);
-					info.setErrorMessage(errorMessage);
-				}
-				if (attribute instanceof CodeAttribute) {
-					CodeAttributeDefinition attrDef = (CodeAttributeDefinition) attribute.getDefinition();
-					CodeListService codeListService = record.getSurveyContext().getCodeListService();
-					List<CodeListItem> validCodeListItems = codeListService.loadValidItems(attribute.getParent(), attrDef);
-					List<PlacemarkCodedItem> possibleCodedItems = new ArrayList<PlacemarkCodedItem>(validCodeListItems.size() + 1);
-					possibleCodedItems.add(new PlacemarkCodedItem(NOT_APPLICABLE_ITEM_CODE, NOT_APPLICABLE_ITEM_LABEL));
-					for (CodeListItem item : validCodeListItems) {
-						possibleCodedItems.add(new PlacemarkCodedItem(item.getCode(), item.getLabel()));
-					}
-					info.setPossibleCodedItems(possibleCodedItems);
-				}
+			if (handler == null) {
+				logger.error("Cannot find handler for parameter: " + parameterName);
+			} else if (handler instanceof EntityHandler) {
+				Entity currentEntity = ((EntityHandler) handler).getChildEntity(cleanName, rootEntity);
+				String childAttributeParameterName = ((EntityHandler) handler).extractNestedAttributeParameterName(parameterName);
+				AbstractAttributeHandler<?> childHandler = findHandler(childAttributeParameterName);
+				PlacemarkInputFieldInfo info = generateAttributeFieldInfo(
+						record, validationMessageByPath, currentEntity, childAttributeParameterName,
+						childHandler);
 				result.put(parameterName, info);
 			} else {
-				logger.error("Cannot find handler for parameter: " + parameterName);
+				PlacemarkInputFieldInfo info = generateAttributeFieldInfo(
+						record, validationMessageByPath, rootEntity, cleanName,
+						handler);
+				result.put(parameterName, info);
 			}
 		}
 		return result;
+	}
+
+	private PlacemarkInputFieldInfo generateAttributeFieldInfo(
+			CollectRecord record, Map<String, String> validationMessageByPath,
+			Entity rootEntity, String cleanName,
+			AbstractAttributeHandler<?> handler) {
+		PlacemarkInputFieldInfo info = new PlacemarkInputFieldInfo();
+
+		Attribute<?, ?> attribute = handler.getAttributeNodeFromParameter(cleanName, rootEntity, 0);
+
+		info.setValue(handler.getValueFromParameter(cleanName, rootEntity));
+		info.setVisible(attribute.isRelevant());
+		
+		String errorMessage = validationMessageByPath.get(attribute.getPath());
+		if (errorMessage != null) {
+			info.setInError(true);
+			info.setErrorMessage(errorMessage);
+		}
+		if (attribute instanceof CodeAttribute) {
+			CodeAttributeDefinition attrDef = (CodeAttributeDefinition) attribute.getDefinition();
+			CodeListService codeListService = record.getSurveyContext().getCodeListService();
+			List<CodeListItem> validCodeListItems = codeListService.loadValidItems(attribute.getParent(), attrDef);
+			List<PlacemarkCodedItem> possibleCodedItems = new ArrayList<PlacemarkCodedItem>(validCodeListItems.size() + 1);
+			possibleCodedItems.add(new PlacemarkCodedItem(NOT_APPLICABLE_ITEM_CODE, NOT_APPLICABLE_ITEM_LABEL));
+			for (CodeListItem item : validCodeListItems) {
+				possibleCodedItems.add(new PlacemarkCodedItem(item.getCode(), item.getLabel()));
+			}
+			info.setPossibleCodedItems(possibleCodedItems);
+		}
+		return info;
+	}
+
+	private Map<String, String> generateValidationMessages(CollectRecord record) {
+		RecordValidationReportGenerator validationReportGenerator = new RecordValidationReportGenerator(record);
+		List<RecordValidationReportItem> validationItems = validationReportGenerator.generateValidationItems();
+		Map<String, String> validationMessageByPath = new HashMap<String, String>(validationItems.size());
+		for (RecordValidationReportItem validationItem : validationItems) {
+			validationMessageByPath.put(validationItem.getPath(), validationItem.getMessage());
+		}
+		return validationMessageByPath;
 	}
 	
 	private AbstractAttributeHandler<?> findHandler(String cleanParameterName) {

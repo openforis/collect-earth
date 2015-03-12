@@ -12,7 +12,6 @@ import static org.openforis.collect.earth.app.EarthConstants.SKIP_FILLED_PLOT_PA
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
-import java.util.ArrayList;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
@@ -42,7 +41,6 @@ import org.openforis.idm.metamodel.Schema;
 import org.openforis.idm.metamodel.xml.IdmlParseException;
 import org.openforis.idm.model.Entity;
 import org.openforis.idm.model.Node;
-import org.openforis.idm.model.TextAttribute;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -198,20 +196,9 @@ public class EarthSurveyService {
 	 * @param updatedSince  The date from which we want to find out if there were any records that were updates/added
 	 * @return The list of record that have been updated since the time stated in updatedSince
 	 */
-	public List<CollectRecord> getRecordsSavedSince(Date updatedSince) {
-
-		final List<CollectRecord> summaries = recordManager.loadSummaries(getCollectSurvey(), ROOT_ENTITY_NAME, updatedSince );
-		
-		if ((updatedSince != null) && (summaries != null) && !summaries.isEmpty()) {
-			final List<CollectRecord> records = new ArrayList<CollectRecord>();
-			for (CollectRecord collectRecord : summaries) {
-				final CollectRecord record = recordManager.load(getCollectSurvey(), collectRecord.getId(), Step.ENTRY);
-				records.add(record);
-			}
-			return records;
-		} else {
-			return null;
-		}
+	public List<CollectRecord> getRecordSummariesSavedSince(Date updatedSince) {
+		List<CollectRecord> summaries = recordManager.loadSummaries(getCollectSurvey(), ROOT_ENTITY_NAME, updatedSince );
+		return summaries;
 	}
 	
 	
@@ -219,14 +206,17 @@ public class EarthSurveyService {
 		if (listOfRecords == null) {
 			return new String[0];
 		}
-		final String[] placemarIds = new String[listOfRecords.size()];
+		final String[] placemarkIds = new String[listOfRecords.size()];
 		for (int i = 0; i < listOfRecords.size(); i++) {
-			if (listOfRecords.get(i).getRootEntity().get("id", 0) != null) { //$NON-NLS-1$
-				placemarIds[i] = ((TextAttribute) listOfRecords.get(i).getRootEntity().get("id", 0)).getValue().getValue(); //$NON-NLS-1$
-			}
+			CollectRecord recordSummary = listOfRecords.get(i);
+			String placemarkId = recordSummary.getRootEntityKeyValues().get(0);
+			placemarkIds[i] = placemarkId;
+//			if (recordSummary.getRootEntity().get("id", 0) != null) { //$NON-NLS-1$
+//				placemarIds[i] = ((TextAttribute) listOfRecords.get(i).getRootEntity().get("id", 0)).getValue().getValue(); //$NON-NLS-1$
+//			}
 		}
 
-		return placemarIds;
+		return placemarkIds;
 	}
 	
 	
@@ -347,7 +337,7 @@ public class EarthSurveyService {
 		return success;
 	}
 
-	public synchronized PlacemarkLoadResult updatePlacemarkData(String placemarkId, Map<String, String> parameters, String sessionId, boolean store) {
+	public synchronized PlacemarkLoadResult updatePlacemarkData(String placemarkId, Map<String, String> parameters, String sessionId) {
 		try {
 			// Add the operator to the collected data
 			parameters.put(OPERATOR_PARAMETER, localPropertiesService.getOperator());
@@ -358,19 +348,26 @@ public class EarthSurveyService {
 
 			Map<String, String> oldPlacemarkParameters = collectParametersHandler.getValuesByHtmlParameters(record.getRootEntity());
 			Map<String, String> changedParameters = calculateChanges(oldPlacemarkParameters, parameters);
-			collectParametersHandler.saveToEntity(changedParameters, plotEntity);
-
-			boolean userClickOnSaveAndValidate = isPlacemarkSavedActively(parameters);
 			
-			if (userClickOnSaveAndValidate) {
-				setPlacemarkSavedOn(parameters);
+
+			boolean placemarkAlreadySavedActively = isPlacemarkSavedActively(oldPlacemarkParameters);
+			boolean userClickOnSubmitAndValidate = isPlacemarkSavedActively(parameters);
+			
+			boolean noErrors = record.getErrors() == 0 && record.getSkipped() == 0;
+			
+			if (userClickOnSubmitAndValidate && noErrors) {
+				//if the user clicks on submit and validate but the data is not valid,
+				//do not save the record as actively saved
+				setPlacemarkSavedActively(changedParameters, false);
 			}
 
-			if ( store && ( !userClickOnSaveAndValidate || (record.getErrors() == 0 && record.getSkipped() == 0))) {
+			collectParametersHandler.saveToEntity(changedParameters, plotEntity);
+
+			if (! placemarkAlreadySavedActively || noErrors) {
+				//only save data if the information is completely valid or if the record is not already completely saved (green) 
+				setPlacemarkSavedOn(parameters);
 				record.setModifiedDate(new Date());
 				recordManager.save(record, sessionId);
-			} else {
-				setPlacemarkSavedActively(parameters, false);
 			}
 			PlacemarkLoadResult result = createPlacemarkLoadSuccessResult(record);
 			return result;
@@ -406,12 +403,12 @@ public class EarthSurveyService {
 	private CollectRecord loadOrCreateRecord(String placemarkId, String sessionId) throws RecordPersistenceException {
 		CollectRecord record;
 		List<CollectRecord> summaries = recordManager.loadSummaries(getCollectSurvey(), ROOT_ENTITY_NAME, placemarkId); //$NON-NLS-1$
-		if (! summaries.isEmpty()) {
-			record = recordManager.load(getCollectSurvey(), summaries.get(0).getId());
-		} else {
+		if (summaries.isEmpty()) {
 			// Create new record
 			record = createRecord(sessionId);
-			logger.warn("Creating a new plot entity with id " + placemarkId); //$NON-NLS-1$
+			logger.warn("Creating a new record with id " + placemarkId); //$NON-NLS-1$
+		} else {
+			record = recordManager.load(getCollectSurvey(), summaries.get(0).getId());
 		}
 		return record;
 	}

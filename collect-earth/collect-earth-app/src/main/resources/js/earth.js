@@ -2,18 +2,24 @@ var SEPARATOR_MULTIPLE_PARAMETERS = "===";
 var SEPARATOR_MULTIPLE_VALUES = ";";
 var DATE_FORMAT = 'MM/DD/YYYY';
 var TIME_FORMAT = 'HH:ss';
+var SUBMIT_LABEL = "Submit and validate";
+var ACTIVELY_SAVED_FIELD_ID = "collect_boolean_actively_saved";
+var NESTED_ATTRIBUTE_ID_PATTERN = /\w+\[\w+\]\.\w+/;
 
 var $form = null; //to be initialized 
 var lastUpdateRequest = null; //last update request sent to the server
+var currentStepIndex = null;
 
 //To be used by the method that saves the data automatically when the user
 //interacts with the form
 //DO NOT REMOVE
 var ajaxTimeout = null;
 
-$(document).ready(function() {
+$(function() {
 	$form = $("#formAll");
+	$stepsContainer = $(".steps");
 	
+	initSteps();
 	fillYears();
 	initCodeButtonGroups();
 	initDateTimePickers();
@@ -22,6 +28,7 @@ $(document).ready(function() {
 	// not work in Google Earth )
 	$("#dialogSuccess").dialog({
 		modal : true,
+		width: "400",
 		autoOpen : false,
 		buttons : {
 			Ok : function() {
@@ -46,8 +53,7 @@ $(document).ready(function() {
 			// when saving data just because the user closes
 			// the window) so we can show the placemark as
 			// interpreted
-			$("input[id=collect_boolean_actively_saved]")
-				.val("true");
+			setActivelySaved(true);
 			
 			submitForm($(this), 0);
 		});
@@ -75,19 +81,14 @@ var ajaxDataUpdate = function(delay) {
 	}
 	
 	abortLastUpdateRequest();
-
-	var activelySaved = $("#collect_boolean_actively_saved").val() == 'true';
-
-	// Only update automatically when the data has not been correctly saved
-	// before
-	var store = ! activelySaved;
+	
+	setActivelySaved(false);
 	
 	// Set a timeout so that the data is only sent to the server
 	// if the user stops clicking for over one second
 
 	ajaxTimeout = setTimeout(function() {
-		var data = {placemarkId: getPlacemarkId(), values: serializeFormToJSON($form), store: store};
-
+		var data = createPlacemarkUpdateRequest();
 		lastUpdateRequest = $.ajax({
 			data : data,
 			type : "POST",
@@ -103,6 +104,15 @@ var ajaxDataUpdate = function(delay) {
 	}, delay);
 };
 
+var createPlacemarkUpdateRequest = function() {
+	var data = {
+			placemarkId: getPlacemarkId(), 
+			values: serializeFormToJSON($form), 
+			currentStep: currentStepIndex
+	};
+	return data;
+}
+
 var abortLastUpdateRequest = function() {
 	clearTimeout(ajaxTimeout);
 	
@@ -115,7 +125,8 @@ var abortLastUpdateRequest = function() {
 var submitForm = function(submitCounter) {
 	abortLastUpdateRequest();
 	
-	var data = {placemarkId: getPlacemarkId(), values: serializeFormToJSON($form)};
+	var data = createPlacemarkUpdateRequest();
+	
 	lastUpdateRequest = $
 		.ajax({
 			data : data,
@@ -155,8 +166,13 @@ var interpretJsonSaveResponse = function(json, showUpdateMessage) {
 				var message = "";
 				$.each(json.inputFieldInfoByParameterName, function(key, info) {
 					if (info.inError) {
-						var inputField = $("#" + key);
-						var label = inputField.length > 0 ? OF.UI.Forms.getFieldLabel(inputField) : "";
+						var inputField = findById(key);
+						var label;
+						if (NESTED_ATTRIBUTE_ID_PATTERN.test(key)) {
+							label = getEnumeratedEntityNestedAttributeErrorMessageLabel(inputField);
+						} else {
+							label = inputField.length > 0 ? OF.UI.Forms.getFieldLabel(inputField) : "";
+						}
 						message += label + " : " + info.errorMessage + "<br>";
 					}
 				});
@@ -164,7 +180,7 @@ var interpretJsonSaveResponse = function(json, showUpdateMessage) {
 				
 				// Resets the "actively saved" parameter to false so that it is not sent
 				// as true when the user fixes the validation
-				$("input[id=collect_boolean_actively_saved]").val('false');
+				setActivelySaved(false);
 			}
 		} else {
 			showErrorMessage(json.message);
@@ -174,10 +190,21 @@ var interpretJsonSaveResponse = function(json, showUpdateMessage) {
 	fillDataWithJson(json.inputFieldInfoByParameterName);
 };
 
+var getEnumeratedEntityNestedAttributeErrorMessageLabel = function(inputField) {
+	var columnIndex = inputField.closest("td").index();
+	var rowHeadingEl = inputField.closest("tr").find("td").eq(0);
+	var rowHeading = rowHeadingEl.text();
+	var attributeHeadingEl = inputField.closest("table").find("thead tr th").eq(columnIndex);
+	var attributeHeading = attributeHeadingEl.text();
+	var entityHeading = inputField.closest("section").find("legend").text();
+	var label = entityHeading + " (" + rowHeading + ") " + attributeHeading;
+	return label;
+};
+
 var updateInputFieldsState = function(inputFieldInfoByParameterName) {
 	//update possible values in SELECT elements
 	$.each(inputFieldInfoByParameterName, function(fieldName, info) {
-		var el = $("#" + fieldName);
+		var el = findById(fieldName);
 		if (el.length == 1) {
 			switch(el.data("fieldType")) {
 			case "CODE_SELECT":
@@ -214,17 +241,74 @@ var updateInputFieldsState = function(inputFieldInfoByParameterName) {
 	});
 	OF.UI.Forms.Validation.updateErrors($form, errors);
 	
+	updateStepsErrorFeedback();
+
 	//manage fields visibility
 	$.each(inputFieldInfoByParameterName, function(fieldName, info) {
-		var field = $("#" + fieldName);
+		var field = findById(fieldName);
 		var formGroup = field.closest('.form-group');
-		formGroup.toggle(info.visible);
+		formGroup.toggleClass("notrelevant", ! (info.visible));
 	});
-	//manage tabs visibility
-	$form.find(".tab").each(function() {
-		$(this).show();
-		var hasNestedVisibleFormFields = $(this).find(".form-group:visible").length > 0;
-		$(this).toggle(hasNestedVisibleFormFields);
+	
+	//manage tabs/steps visibility
+	$form.find(".step").each(function(index, value) {
+		var stepBody = $(this);
+		var hasNestedVisibleFormFields = stepBody.find(".form-group:not(.notrelevant)").length > 0;
+		toggleStepVisibility(index, hasNestedVisibleFormFields);
+	});
+};
+
+var getStepHeading = function(index) {
+	var stepHeading = $form.find(".steps .steps ul li").eq(index);
+	return stepHeading;
+};
+
+var toggleStepVisibility = function(index, visible) {
+	var stepBody = $form.find(".step").eq(index);
+	var stepHeading = getStepHeading(index);
+	if (visible) {
+		if (stepHeading.hasClass("notrelevant")) {
+			stepHeading.removeClass("notrelevant");
+			if (stepHeading.hasClass("done")) {
+				stepHeading.removeClass("disabled");
+			}
+		}
+	} else {
+		stepHeading.addClass("disabled notrelevant");
+	}
+	if (visible) {
+		stepHeading.show({
+			duration: 400,
+		});
+	} else {
+		stepHeading.hide({
+			duration: 400,
+		});
+	}
+	
+	if (! stepHeading.hasClass("current")) {
+		stepBody.hide();
+	}
+};
+
+var showCurrentStep = function() {
+	if (currentStepIndex != null && currentStepIndex > 0) {
+		var stepHeading = getStepHeading(currentStepIndex);
+		var relevant = ! stepHeading.hasClass("notrelevant");
+		if (relevant) {
+			$stepsContainer.steps("setCurrentIndex", currentStepIndex);
+		}
+	}
+};
+
+var updateStepsErrorFeedback = function() {
+	//update steps error feedback
+	$form.find(".step").each(function(index, value) {
+		var stepHeading = getStepHeading(index);
+		if (! stepHeading.hasClass("disabled")) {
+			var hasErrors = $(this).find(".form-group.has-error").length > 0;
+			stepHeading.toggleClass("error", hasErrors);
+		}
 	});
 };
 
@@ -260,6 +344,50 @@ var initDateTimePickers = function() {
 	});
 };
 
+var initSteps = function() {
+	$steps = $stepsContainer.steps({
+		headerTag : "h3",
+		bodyTag : "section",
+		transitionEffect : "slideLeft",
+		autoFocus : true,
+		titleTemplate: "#title#",
+		labels: {
+			finish: SUBMIT_LABEL
+		},
+		onStepChanged: function (event, currentIndex, priorIndex) {
+			var stepHeading = $($form.find(".steps .steps ul li")[currentIndex]);
+			if (stepHeading.hasClass("notrelevant")) {
+				if (currentIndex > priorIndex) {
+					$stepsContainer.steps("next");
+				} else {
+					$stepsContainer.steps("previous");
+				}
+			} else {
+				currentStepIndex = currentIndex;
+				ajaxDataUpdate();
+			}
+		},
+		onFinished: function (event, currentIndex) {
+			$form.submit();
+		}
+		/*,
+		onStepChanging : function(event, currentIndex, newIndex) {
+			// Always allow previous action even if the current form is not
+			// valid!
+			if (newIndex < currentIndex) {
+				return true;
+			}
+			if ($form.find(".step.current .form-group.has-error").length > 0) {
+				// current form has some errors
+				return false;
+			}
+			return true;
+		}
+		*/
+	});
+	$stepsContainer.find("a[href='#finish']").addClass("btn-finish");
+};
+
 var checkIfPlacemarkAlreadyFilled = function(checkCount) {
 
 	var placemarkId = getPlacemarkId();
@@ -283,20 +411,29 @@ var checkIfPlacemarkAlreadyFilled = function(checkCount) {
 	})
 	.done(
 		function(json) {
-			if (json.activelySaved
-					&& json.inputFieldInfoByParameterName.collect_text_id.value != 'testPlacemark') { // 
-
-				showErrorMessage("The data for this placemark has already been filled");
-
-				if (json.skipFilled) {
-					forceWindowCloseAfterDialogCloses($("#dialogSuccess"));
+			if (json.success) {
+				//placemark exists in database
+				if (json.activelySaved
+						&& json.inputFieldInfoByParameterName.collect_text_id.value != 'testPlacemark') { // 
+					
+					showErrorMessage("The data for this placemark has already been filled");
+					
+					if (json.skipFilled) {
+						forceWindowCloseAfterDialogCloses($("#dialogSuccess"));
+					}
 				}
+				// Pre-fills the form and after that initilizes the
+				// change event listeners for the inputs
+				updateInputFieldsState(json.inputFieldInfoByParameterName);
+				fillDataWithJson(json.inputFieldInfoByParameterName);
+				initializeChangeEventSaver();
+				
+				currentStepIndex = json.currentStep == null ? null: parseInt(json.currentStep);
+				showCurrentStep();
+			} else {
+				//if no placemark in database, force the creation of a new record
+				ajaxDataUpdate();
 			}
-			// Pre-fills the form and after that initilizes the
-			// change event listeners for the inputs
-			updateInputFieldsState(json.inputFieldInfoByParameterName);
-			fillDataWithJson(json.inputFieldInfoByParameterName);
-			initializeChangeEventSaver();
 	});
 };
 
@@ -304,6 +441,15 @@ var getPlacemarkId = function() {
 	var id = $form.find("input[name='collect_text_id']").val();
 	return id;
 };
+
+var isActivelySaved = function() {
+	var activelySaved = findById(ACTIVELY_SAVED_FIELD_ID).val() == 'true';
+	return activelySaved;
+}
+
+var setActivelySaved = function(value) {
+	findById(ACTIVELY_SAVED_FIELD_ID).val(value == true || value == 'true');
+}
 
 var showSuccessMessage = function(message) {
 	showMessage(message, "success");
@@ -392,37 +538,6 @@ var setValueInInputField = function(inputField, value) {
 };
 
 var initializeChangeEventSaver = function() {
-	$(".btn").click(function() {
-		var groupId = $(this).closest("div .btn-group").attr("id");
-
-		var suffixLength = "_group".length;
-		if (groupId && groupId.length > suffixLength) {
-			var value = $(this).val();
-			// When we expect data sucha as
-			// "0;collect_code_deforestation_reason=burnt"
-			var values = value.split(SEPARATOR_MULTIPLE_VALUES);
-
-			var idLength = groupId.length - suffixLength;
-			var hiddenInputId = groupId.substring(0, idLength);
-			$('#' + hiddenInputId).val(values[0]);// give the hidden input the
-													// same value as the button
-													// that just was clicked
-
-			if ($('.' + hiddenInputId + '_dependant').length > 0) {
-				var dependants = $('.' + hiddenInputId + '_dependant:hidden');
-				resetDependants(hiddenInputId);
-			}
-
-			// If there is an extra value
-			// "collect_code_deforestation_reason=burnt"
-			if (values.length == 2) {
-				var extraValues = values[1].split("=");
-				$('#' + extraValues[0]).val(extraValues[1]);
-			}
-		}
-		ajaxDataUpdate();
-	});
-
 	// SAVING DATA WHEN DATA CHANGES
 	// Bind event to Before user leaves page with function parameter e
 	// The window onbeforeunload or onunload events do not work in Google Earth
@@ -457,7 +572,6 @@ var forceWindowCloseAfterDialogCloses = function($dialog) {
 	});
 };
 
-
 /**
  * Utility functions
  */
@@ -465,13 +579,15 @@ var serializeFormToJSON = function(form) {
    var o = {};
    var a = form.serializeArray();
    $.each(a, function() {
-       if (o[this.name]) {
-           if (!o[this.name].push) {
-               o[this.name] = [o[this.name]];
+	   var key = encodeURIComponent(this.name);
+	   var value = this.value || '';
+       if (o[key]) {
+           if (!o[key].push) {
+               o[key] = [o[key]];
            }
-           o[this.name].push(this.value || '');
+           o[key].push(value);
        } else {
-           o[this.name] = this.value || '';
+           o[key] = value;
        }
    });
    //include unchecked checkboxes
@@ -482,7 +598,7 @@ var serializeFormToJSON = function(form) {
 };
 
 var serializeForm = function(formId) {
-	var form = $("#" + formId);
+	var form = findById(formId);
 	var result = form.serialize();
 	form.find('input[type=checkbox]:not(:checked)').each(function() {
         result += "&" + this.name + "=" + this.checked;
@@ -493,4 +609,9 @@ var serializeForm = function(formId) {
 var enableSelect = function(selectName, enable) { // #elementsCover
 	$(selectName).prop('disabled', ! enable);
 	// $(selectName).selectpicker('refresh');
+};
+
+var findById = function(id) {
+	var newId = id.replace( /(:|\.|\[|\]|,)/g, "\\$1");
+	return $("#" + newId);
 };

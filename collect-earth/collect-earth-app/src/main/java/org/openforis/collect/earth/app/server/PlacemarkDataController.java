@@ -3,18 +3,20 @@ package org.openforis.collect.earth.app.server;
 import static org.openforis.collect.earth.app.EarthConstants.PLACEMARK_ID_PARAMETER;
 
 import java.io.IOException;
+import java.io.UnsupportedEncodingException;
+import java.net.URLDecoder;
+import java.util.HashMap;
 import java.util.Map;
+import java.util.Map.Entry;
 
 import javax.servlet.http.HttpServletResponse;
 
 import org.openforis.collect.earth.app.view.Messages;
 import org.openforis.collect.earth.core.model.PlacemarkLoadResult;
-import org.springframework.context.annotation.Scope;
 import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestMethod;
 import org.springframework.web.bind.annotation.RequestParam;
-import org.springframework.web.context.WebApplicationContext;
 
 /**
  * Controller to load and store the information that is stored in Collect Earth for one placemark (plot)
@@ -24,9 +26,11 @@ import org.springframework.web.context.WebApplicationContext;
  * 
  */
 @Controller
-@Scope(WebApplicationContext.SCOPE_SESSION)
 public class PlacemarkDataController extends JsonPocessorServlet {
 
+	private static String lastPlacemarkId;
+	private static String lastPlacemarkStep;
+	
 	@RequestMapping(value="/placemark-info-expanded", method = RequestMethod.GET)
 	protected void placemarkInfoExpanded(@RequestParam("id") String placemarkId, HttpServletResponse response) throws IOException {
 		PlacemarkLoadResult result;
@@ -41,6 +45,9 @@ public class PlacemarkDataController extends JsonPocessorServlet {
 			result = getDataAccessor().loadDataExpanded(placemarkId);
 			if (result.isSuccess()) {
 				result.setMessage("The placemark was found");
+				if (placemarkId.equals(lastPlacemarkId)) {
+					result.setCurrentStep(lastPlacemarkStep);
+				}
 			} else {
 				getLogger().info("No placemark found with id: " + placemarkId);
 			}
@@ -50,8 +57,7 @@ public class PlacemarkDataController extends JsonPocessorServlet {
 	
 	@RequestMapping(value="/save-data-expanded", method = RequestMethod.POST)
 	public void saveDataExpanded(PlacemarkUpdateRequest updateRequest, HttpServletResponse response) throws IOException {
-		Map<String, String> collectedData = updateRequest.getValues();
-		replaceTestParameters(collectedData);
+		Map<String, String> collectedData = adjustParameters(updateRequest);
 
 		PlacemarkLoadResult result;
 		if (collectedData.isEmpty()) {
@@ -61,12 +67,27 @@ public class PlacemarkDataController extends JsonPocessorServlet {
 			getLogger().info("The request was empty"); //$NON-NLS-1$
 		} else {
 			String placemarkId = replacePlacemarkIdTestValue(updateRequest.getPlacemarkId());
-			result = getDataAccessor().updateData(placemarkId, collectedData, updateRequest.isStore());
+			result = getDataAccessor().updateData(placemarkId, collectedData);
 			if (result.isSuccess()) {
 				result.setMessage(Messages.getString("SaveEarthDataServlet.2"));
+				lastPlacemarkId = placemarkId;
+				lastPlacemarkStep = updateRequest.getCurrentStep();
 			}
 		}
 		setJsonResponse(response, result);
+	}
+
+	private Map<String, String> adjustParameters(
+			PlacemarkUpdateRequest updateRequest)
+			throws UnsupportedEncodingException {
+		Map<String, String> originalCollectedData = updateRequest.getValues();
+		Map<String, String> collectedData = new HashMap<String, String>(originalCollectedData.size());
+		for (Entry<String, String> entry : originalCollectedData.entrySet()) {
+			//decode parameter name, it was previously encoded by the client
+			collectedData.put(URLDecoder.decode(entry.getKey(), "UTF-8"), entry.getValue());
+		}
+		replaceTestParameters(collectedData);
+		return collectedData;
 	}
 	
 	/**
@@ -103,7 +124,7 @@ public class PlacemarkDataController extends JsonPocessorServlet {
 		
 		private String placemarkId;
 		private Map<String, String> values;
-		private boolean store;
+		private String currentStep;
 
 		public String getPlacemarkId() {
 			return placemarkId;
@@ -121,12 +142,12 @@ public class PlacemarkDataController extends JsonPocessorServlet {
 			this.values = values;
 		}
 
-		public boolean isStore() {
-			return store;
+		public String getCurrentStep() {
+			return currentStep;
 		}
 		
-		public void setStore(boolean store) {
-			this.store = store;
+		public void setCurrentStep(String currentStep) {
+			this.currentStep = currentStep;
 		}
 	}
 

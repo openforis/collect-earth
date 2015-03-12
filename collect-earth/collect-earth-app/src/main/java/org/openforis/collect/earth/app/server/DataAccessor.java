@@ -22,5 +22,5 @@ public interface DataAccessor {
 
 	public boolean saveData(Map<String, String> collectedData);
 	
-	public PlacemarkLoadResult updateData(String placemarkId, Map<String, String> values, boolean store);
+	public PlacemarkLoadResult updateData(String placemarkId, Map<String, String> values);
 }

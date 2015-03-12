@@ -7,6 +7,9 @@ import java.util.regex.Pattern;
 import org.apache.commons.lang3.StringUtils;
 import org.openforis.collect.model.NodeChangeSet;
 import org.openforis.collect.model.RecordUpdater;
+import org.openforis.idm.metamodel.AttributeDefinition;
+import org.openforis.idm.metamodel.EntityDefinition;
+import org.openforis.idm.metamodel.KeyAttributeDefinition;
 import org.openforis.idm.metamodel.NodeDefinition;
 import org.openforis.idm.model.Attribute;
 import org.openforis.idm.model.Entity;
@@ -38,8 +41,12 @@ public abstract class AbstractAttributeHandler<C> {
 		NodeChangeSet changeSet = null;
 		if (attr == null) {
 			changeSet = recordUpdater.addAttribute(entity, removePrefix(parameterName), value);
-		} else if (attr instanceof Attribute) {
-			changeSet = recordUpdater.updateAttribute(attr, (Value) value, true);
+		} else {
+			AttributeDefinition def = attr.getDefinition();
+			EntityDefinition parentDef = def.getParentEntityDefinition();
+			if (! (parentDef.isEnumerable() && def instanceof KeyAttributeDefinition && parentDef.getKeyAttributeDefinitions().contains(def))) {
+				changeSet = recordUpdater.updateAttribute(attr, (Value) value, true);
+			}
 		}
 		return changeSet;
 	}
@@ -60,7 +67,7 @@ public abstract class AbstractAttributeHandler<C> {
 			attributeName = cleanName;
 			actualEntity = entity;
 		}
-		Node<?> node = actualEntity.get(attributeName, index);
+		Node<?> node = actualEntity.getChild(attributeName, index);
 		return (Attribute<?, ?>) node;
 	}
 

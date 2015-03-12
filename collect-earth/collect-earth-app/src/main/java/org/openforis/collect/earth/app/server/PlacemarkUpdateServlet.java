@@ -140,7 +140,7 @@ public class PlacemarkUpdateServlet {
 		
 			List<CollectRecord> lastUpdatedRecords = null;
 			try {
-				lastUpdatedRecords = earthSurveyService.getRecordsSavedSince(lastUpdateDate);
+				lastUpdatedRecords = earthSurveyService.getRecordSummariesSavedSince(lastUpdateDate);
 			} catch (Exception e) {
 				lastUpdatedRecords = new ArrayList<CollectRecord>();
 				logger.error("Error fetching information about the records updated after : " + lastUpdatedRecords , e); //$NON-NLS-1$

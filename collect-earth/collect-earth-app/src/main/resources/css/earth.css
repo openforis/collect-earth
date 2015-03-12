@@ -60,7 +60,7 @@ hr {
 }
 
 .ui-dialog-titlebar-close {
-	background-image: url(img/close.png) !important;
+	background-image: url(../img/close.png) !important;
 	background-position: left top !important;
 }
 
@@ -109,7 +109,7 @@ hr {
 }
 
 .earthDiv {
-	width: 350px;
+	width: 400px;
 }
 
 .btn-lg {
@@ -174,7 +174,8 @@ form input[type='text'] {
 }
 
 form input[type='checkbox'] {
-	width: 35px;
+	width: 20px;
+	height: 20px;
 }
 
 form input[type='text'].numeric {
@@ -183,4 +184,38 @@ form input[type='text'].numeric {
 
 form textarea {
 	width: 250px;
+}
+
+fieldset legend {
+	font-size: medium;
+}
+
+table.table td {
+	padding: 4px !important;
+}
+
+.step {
+	overflow-y: auto;
+	overflow-x: hidden;
+}
+
+.notrelevant {
+	display: none;
+}
+
+a.btn-finish, 
+a.btn-finish:hover, 
+a.btn-finish:active {
+	color: #fff !important;
+	background-color: #449d44 !important;
+  	border-color: #398439 !important;
+}
+
+.code-items {
+}
+
+.code-item {
+	width: 45%;
+	margin: 2px;
+	white-space: normal;
 }

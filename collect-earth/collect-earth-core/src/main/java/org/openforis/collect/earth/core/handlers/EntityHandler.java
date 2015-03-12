@@ -8,9 +8,7 @@ import org.openforis.collect.model.NodeChangeMap;
 import org.openforis.collect.model.NodeChangeSet;
 import org.openforis.idm.metamodel.EntityDefinition;
 import org.openforis.idm.metamodel.NodeDefinition;
-import org.openforis.idm.model.Attribute;
 import org.openforis.idm.model.Entity;
-import org.openforis.idm.model.EntityBuilder;
 
 /**
  * @author Alfonso Sanchez-Paus Diaz
@@ -29,34 +27,30 @@ public class EntityHandler extends AbstractAttributeHandler<Entity> {
 	}
 	
 	@Override
-	public String getParameterValue(Entity value) {
-		return null;
-	}
-
-	@Override
 	public NodeChangeSet addOrUpdate(String parameterName, String parameterValue, Entity parentEntity, int childParameterIndex) {
 		NodeChangeMap result = new NodeChangeMap();
 		
 		// Expected parameter name:
-		// colllect_entity_topography[house].code_coverage=XX
-		parameterName = removePrefix(parameterName);
-		String childEntityName = getEntityName(parameterName);
-		String keyValue = getEntityKey(parameterName);
-		String entityAttribute = extractNestedAttributeParameterName(parameterName);
-
-		Entity childEntity = getChildEntity(parentEntity, childEntityName, keyValue);
-		if (childEntity == null) {
-//			childEntity = EntityBuilder.addEntity(parentEntity, childEntityName);
-			NodeChangeSet changeSet = recordUpdater.addEntity(parentEntity, childEntityName);
-			result.addMergeChanges(changeSet);
-		}
-		
+		// collect_entity_topography[house].code_coverage=XX
+		Entity childEntity = getChildEntity(parameterName, parentEntity);
 		Map<String,String> parameters = new HashMap<String, String>();
-		parameters.put(entityAttribute, parameterValue);
+		String childAttributeParameter = extractNestedAttributeParameterName(parameterName);
+		parameters.put(childAttributeParameter, parameterValue);
 
 		NodeChangeSet otherChangeSet = balloonInputFieldUtils.saveToEntity(parameters, childEntity);
 		result.addMergeChanges(otherChangeSet);
 		return result;
+	}
+
+	public Entity getChildEntity(String parameterName, Entity parentEntity) {
+		String cleanName = removePrefix(parameterName);
+		String childEntityName = getEntityName(cleanName);
+		String keyValue = getEntityKey(cleanName);
+		Entity childEntity = getChildEntity(parentEntity, childEntityName, keyValue);
+		if (childEntity == null) {
+			throw new IllegalStateException(String.format("Enumerated entity expected but not found: %s[%s]", childEntityName, keyValue));
+		}
+		return childEntity;
 	}
 	
 	private Entity getChildEntity(Entity parentEntity, String entityName, String entityKey) {
@@ -69,22 +63,16 @@ public class EntityHandler extends AbstractAttributeHandler<Entity> {
 	}
 
 	@Override
-	public Attribute<?, ?> getAttributeNodeFromParameter(String parameterName,
-			Entity entity, int index) {
-		String cleanName = removePrefix(parameterName);
-		String childEntityName = getEntityName(cleanName);
-		String keyValue = getEntityKey(cleanName);
-		String nestedAttributeParameterName = extractNestedAttributeParameterName(cleanName);
-		Entity childEntity = getChildEntity(entity, childEntityName, keyValue);
-		return balloonInputFieldUtils.getAttributeNodeFromParameter(childEntity, nestedAttributeParameterName, index);
+	public String getParameterValue(Entity value) {
+		throw new UnsupportedOperationException("Cannot create a value for a Entity object");
 	}
 
 	@Override
 	protected Entity createValue(String parameterValue) {
-		return EntityBuilder.createEntity(null, parameterValue);
+		throw new UnsupportedOperationException("Cannot create enumerated entities, they should be automatically initialized by RecordManager");
 	}
 
-	private String extractNestedAttributeParameterName(String parameterName) {
+	public String extractNestedAttributeParameterName(String parameterName) {
 		int indexOfDot = parameterName.indexOf('.');
 		return parameterName.substring(indexOfDot + 1);
 	}

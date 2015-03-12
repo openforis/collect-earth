@@ -19,6 +19,7 @@ public class PlacemarkLoadResult {
 	private boolean activelySaved;
 	private boolean validData;
 	private boolean skipFilled;
+	private String currentStep;
 	
 	private transient CollectRecord collectRecord;
 	
@@ -107,6 +108,14 @@ public class PlacemarkLoadResult {
 	
 	public void setSkipFilled(boolean skipFilled) {
 		this.skipFilled = skipFilled;
+	}
+	
+	public String getCurrentStep() {
+		return currentStep;
+	}
+	
+	public void setCurrentStep(String currentStep) {
+		this.currentStep = currentStep;
 	}
 	
 }
