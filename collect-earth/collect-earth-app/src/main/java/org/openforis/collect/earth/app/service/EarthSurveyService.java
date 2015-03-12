@@ -337,7 +337,7 @@ public class EarthSurveyService {
 		return success;
 	}
 
-	public synchronized PlacemarkLoadResult updatePlacemarkData(String placemarkId, Map<String, String> parameters, String sessionId, boolean store) {
+	public synchronized PlacemarkLoadResult updatePlacemarkData(String placemarkId, Map<String, String> parameters, String sessionId) {
 		try {
 			// Add the operator to the collected data
 			parameters.put(OPERATOR_PARAMETER, localPropertiesService.getOperator());
@@ -348,19 +348,26 @@ public class EarthSurveyService {
 
 			Map<String, String> oldPlacemarkParameters = collectParametersHandler.getValuesByHtmlParameters(record.getRootEntity());
 			Map<String, String> changedParameters = calculateChanges(oldPlacemarkParameters, parameters);
-			collectParametersHandler.saveToEntity(changedParameters, plotEntity);
-
-			boolean userClickOnSaveAndValidate = isPlacemarkSavedActively(parameters);
 			
-			if (userClickOnSaveAndValidate) {
-				setPlacemarkSavedOn(parameters);
+
+			boolean placemarkAlreadySavedActively = isPlacemarkSavedActively(oldPlacemarkParameters);
+			boolean userClickOnSubmitAndValidate = isPlacemarkSavedActively(parameters);
+			
+			boolean noErrors = record.getErrors() == 0 && record.getSkipped() == 0;
+			
+			if (userClickOnSubmitAndValidate && noErrors) {
+				//if the user clicks on submit and validate but the data is not valid,
+				//do not save the record as actively saved
+				setPlacemarkSavedActively(changedParameters, false);
 			}
 
-			if ( store && ( !userClickOnSaveAndValidate || (record.getErrors() == 0 && record.getSkipped() == 0))) {
+			collectParametersHandler.saveToEntity(changedParameters, plotEntity);
+
+			if (! placemarkAlreadySavedActively || noErrors) {
+				//only save data if the information is completely valid or if the record is not already completely saved (green) 
+				setPlacemarkSavedOn(parameters);
 				record.setModifiedDate(new Date());
 				recordManager.save(record, sessionId);
-			} else {
-				setPlacemarkSavedActively(parameters, false);
 			}
 			PlacemarkLoadResult result = createPlacemarkLoadSuccessResult(record);
 			return result;

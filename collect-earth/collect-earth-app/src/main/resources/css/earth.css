@@ -174,7 +174,8 @@ form input[type='text'] {
 }
 
 form input[type='checkbox'] {
-	width: 35px;
+	width: 20px;
+	height: 20px;
 }
 
 form input[type='text'].numeric {
@@ -185,8 +186,17 @@ form textarea {
 	width: 250px;
 }
 
+fieldset legend {
+	font-size: medium;
+}
+
+table.table td {
+	padding: 4px !important;
+}
+
 .step {
-	overflow: auto;
+	overflow-y: auto;
+	overflow-x: hidden;
 }
 
 .notrelevant {

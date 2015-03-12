@@ -53,7 +53,7 @@ $(function() {
 			// when saving data just because the user closes
 			// the window) so we can show the placemark as
 			// interpreted
-			findById(ACTIVELY_SAVED_FIELD_ID).val("true");
+			setActivelySaved(true);
 			
 			submitForm($(this), 0);
 		});
@@ -81,18 +81,14 @@ var ajaxDataUpdate = function(delay) {
 	}
 	
 	abortLastUpdateRequest();
-
-	var activelySaved = findById(ACTIVELY_SAVED_FIELD_ID).val() == 'true';
-
-	// Only update automatically when the data has not been correctly saved
-	// before
-	var store = ! activelySaved;
+	
+	setActivelySaved(false);
 	
 	// Set a timeout so that the data is only sent to the server
 	// if the user stops clicking for over one second
 
 	ajaxTimeout = setTimeout(function() {
-		var data = createPlacemarkUpdateRequest(store);
+		var data = createPlacemarkUpdateRequest();
 		lastUpdateRequest = $.ajax({
 			data : data,
 			type : "POST",
@@ -108,11 +104,10 @@ var ajaxDataUpdate = function(delay) {
 	}, delay);
 };
 
-var createPlacemarkUpdateRequest = function(store) {
+var createPlacemarkUpdateRequest = function() {
 	var data = {
 			placemarkId: getPlacemarkId(), 
 			values: serializeFormToJSON($form), 
-			store: store, 
 			currentStep: currentStepIndex
 	};
 	return data;
@@ -130,7 +125,7 @@ var abortLastUpdateRequest = function() {
 var submitForm = function(submitCounter) {
 	abortLastUpdateRequest();
 	
-	var data = createPlacemarkUpdateRequest(true);
+	var data = createPlacemarkUpdateRequest();
 	
 	lastUpdateRequest = $
 		.ajax({
@@ -174,13 +169,7 @@ var interpretJsonSaveResponse = function(json, showUpdateMessage) {
 						var inputField = findById(key);
 						var label;
 						if (NESTED_ATTRIBUTE_ID_PATTERN.test(key)) {
-							var columnIndex = inputField.closest("td").index();
-							var rowHeadingEl = inputField.closest("tr").find("td").eq(0);
-							var rowHeading = rowHeadingEl.text();
-							var attributeHeadingEl = inputField.closest("table").find("thead tr th").eq(columnIndex);
-							var attributeHeading = attributeHeadingEl.text();
-							var entityHeading = inputField.closest("section").find("legend").text();
-							label = entityHeading + " (" + rowHeading + ") " + attributeHeading;
+							label = getEnumeratedEntityNestedAttributeErrorMessageLabel(inputField);
 						} else {
 							label = inputField.length > 0 ? OF.UI.Forms.getFieldLabel(inputField) : "";
 						}
@@ -191,7 +180,7 @@ var interpretJsonSaveResponse = function(json, showUpdateMessage) {
 				
 				// Resets the "actively saved" parameter to false so that it is not sent
 				// as true when the user fixes the validation
-				findById(ACTIVELY_SAVED_FIELD_ID).val('false');
+				setActivelySaved(false);
 			}
 		} else {
 			showErrorMessage(json.message);
@@ -199,6 +188,17 @@ var interpretJsonSaveResponse = function(json, showUpdateMessage) {
 	}
 	updateInputFieldsState(json.inputFieldInfoByParameterName);
 	fillDataWithJson(json.inputFieldInfoByParameterName);
+};
+
+var getEnumeratedEntityNestedAttributeErrorMessageLabel = function(inputField) {
+	var columnIndex = inputField.closest("td").index();
+	var rowHeadingEl = inputField.closest("tr").find("td").eq(0);
+	var rowHeading = rowHeadingEl.text();
+	var attributeHeadingEl = inputField.closest("table").find("thead tr th").eq(columnIndex);
+	var attributeHeading = attributeHeadingEl.text();
+	var entityHeading = inputField.closest("section").find("legend").text();
+	var label = entityHeading + " (" + rowHeading + ") " + attributeHeading;
+	return label;
 };
 
 var updateInputFieldsState = function(inputFieldInfoByParameterName) {
@@ -276,7 +276,15 @@ var toggleStepVisibility = function(index, visible) {
 	} else {
 		stepHeading.addClass("disabled notrelevant");
 	}
-	stepHeading.toggle(visible);
+	if (visible) {
+		stepHeading.show({
+			duration: 400,
+		});
+	} else {
+		stepHeading.hide({
+			duration: 400,
+		});
+	}
 	
 	if (! stepHeading.hasClass("current")) {
 		stepBody.hide();
@@ -356,8 +364,8 @@ var initSteps = function() {
 				}
 			} else {
 				currentStepIndex = currentIndex;
+				ajaxDataUpdate();
 			}
-			updateStepsErrorFeedback();
 		},
 		onFinished: function (event, currentIndex) {
 			$form.submit();
@@ -403,23 +411,29 @@ var checkIfPlacemarkAlreadyFilled = function(checkCount) {
 	})
 	.done(
 		function(json) {
-			if (json.activelySaved
-					&& json.inputFieldInfoByParameterName.collect_text_id.value != 'testPlacemark') { // 
-
-				showErrorMessage("The data for this placemark has already been filled");
-
-				if (json.skipFilled) {
-					forceWindowCloseAfterDialogCloses($("#dialogSuccess"));
+			if (json.success) {
+				//placemark exists in database
+				if (json.activelySaved
+						&& json.inputFieldInfoByParameterName.collect_text_id.value != 'testPlacemark') { // 
+					
+					showErrorMessage("The data for this placemark has already been filled");
+					
+					if (json.skipFilled) {
+						forceWindowCloseAfterDialogCloses($("#dialogSuccess"));
+					}
 				}
+				// Pre-fills the form and after that initilizes the
+				// change event listeners for the inputs
+				updateInputFieldsState(json.inputFieldInfoByParameterName);
+				fillDataWithJson(json.inputFieldInfoByParameterName);
+				initializeChangeEventSaver();
+				
+				currentStepIndex = json.currentStep == null ? null: parseInt(json.currentStep);
+				showCurrentStep();
+			} else {
+				//if no placemark in database, force the creation of a new record
+				ajaxDataUpdate();
 			}
-			// Pre-fills the form and after that initilizes the
-			// change event listeners for the inputs
-			updateInputFieldsState(json.inputFieldInfoByParameterName);
-			fillDataWithJson(json.inputFieldInfoByParameterName);
-			initializeChangeEventSaver();
-			
-			currentStepIndex = json.currentStep == null ? null: parseInt(json.currentStep);
-			showCurrentStep();
 	});
 };
 
@@ -427,6 +441,15 @@ var getPlacemarkId = function() {
 	var id = $form.find("input[name='collect_text_id']").val();
 	return id;
 };
+
+var isActivelySaved = function() {
+	var activelySaved = findById(ACTIVELY_SAVED_FIELD_ID).val() == 'true';
+	return activelySaved;
+}
+
+var setActivelySaved = function(value) {
+	findById(ACTIVELY_SAVED_FIELD_ID).val(value == true || value == 'true');
+}
 
 var showSuccessMessage = function(message) {
 	showMessage(message, "success");

@@ -67,7 +67,7 @@ public class PlacemarkDataController extends JsonPocessorServlet {
 			getLogger().info("The request was empty"); //$NON-NLS-1$
 		} else {
 			String placemarkId = replacePlacemarkIdTestValue(updateRequest.getPlacemarkId());
-			result = getDataAccessor().updateData(placemarkId, collectedData, updateRequest.isStore());
+			result = getDataAccessor().updateData(placemarkId, collectedData);
 			if (result.isSuccess()) {
 				result.setMessage(Messages.getString("SaveEarthDataServlet.2"));
 				lastPlacemarkId = placemarkId;
@@ -124,7 +124,6 @@ public class PlacemarkDataController extends JsonPocessorServlet {
 		
 		private String placemarkId;
 		private Map<String, String> values;
-		private boolean store;
 		private String currentStep;
 
 		public String getPlacemarkId() {
@@ -143,14 +142,6 @@ public class PlacemarkDataController extends JsonPocessorServlet {
 			this.values = values;
 		}
 
-		public boolean isStore() {
-			return store;
-		}
-		
-		public void setStore(boolean store) {
-			this.store = store;
-		}
-		
 		public String getCurrentStep() {
 			return currentStep;
 		}
