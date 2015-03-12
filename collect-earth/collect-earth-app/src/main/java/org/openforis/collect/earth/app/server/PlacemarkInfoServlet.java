@@ -24,11 +24,12 @@ public class PlacemarkInfoServlet extends JsonPocessorServlet {
 
 	public static final String PLACEMARK_ID_PARAMETER = "collect_text_id"; //$NON-NLS-1$
 
-	/** 
+
+	/**
 	 * Returns a JSON object with the data colleted for a placemark in the collect-earth format.
-	 * It also opens the extra browser windows for Earth Engine, Timelapse and Bing. 
-	 * (non-Javadoc)
-	 * @see org.openforis.collect.earth.app.server.JsonPocessorServlet#processRequest(javax.servlet.http.HttpServletRequest, javax.servlet.http.HttpServletResponse)
+	 * @param request
+	 * @param response
+	 * @throws IOException
 	 */
 	@RequestMapping("/placemarkInfo")
 	protected void placemarkInfoOld(HttpServletRequest request, HttpServletResponse response) throws IOException {

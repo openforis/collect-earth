@@ -15,11 +15,12 @@ import org.openforis.collect.model.EntityChange;
 import org.openforis.collect.model.NodeChange;
 import org.openforis.collect.model.NodeDeleteChange;
 
+
 /**
  * 
  * @author S. Ricci
  *
- * @param <T> NodeChange
+ * @param <C>
  */
 public class NodeChangeProxy<C extends NodeChange<?>> implements Proxy {
 
