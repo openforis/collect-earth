@@ -1,4 +1,4 @@
-var SEPARATOR_MULTIPLE_PARAMETERS = "===";
+var SEPARATOR_MULTIPLE_PARAMETERS = "==="; //used to separate multiple attribute VALUES
 var SEPARATOR_MULTIPLE_VALUES = ";";
 var DATE_FORMAT = 'MM/DD/YYYY';
 var TIME_FORMAT = 'HH:ss';
@@ -316,10 +316,24 @@ var initCodeButtonGroups = function() {
 	$form.find("button.code-item").click(function() {
 		//update hidden input field
 		var btn = $(this);
+		var wasActive = btn.hasClass("active");
+		btn.toggleClass("active", ! wasActive);
 		var itemsContainer = btn.closest(".code-items");
 		var groupContainer = itemsContainer.closest(".code-items-group");
 		var inputField = groupContainer.find("input[type='hidden']");
-		inputField.val(btn.val());
+		if (itemsContainer.data("toggle") == "buttons") {
+			//multiple selection
+			var buttons = itemsContainer.find("button.active");
+			var valueParts = [];
+			buttons.each(function() {
+				valueParts.push($(this).val());
+			});
+			value = valueParts.join(SEPARATOR_MULTIPLE_PARAMETERS);
+		} else {
+			//single selection
+			value = btn.val();
+		}
+		inputField.val(value);
 		
 		ajaxDataUpdate();
 	});
@@ -519,9 +533,11 @@ var setValueInInputField = function(inputField, value) {
 			itemsGroup.find(".code-item").removeClass('active');
 			if (value != null && value != "") {
 				//select code item button with value equals to the specified one
-				var code = value;
 				var activeCodeItemsContainer = itemsGroup.find(".code-items:visible");
-				activeCodeItemsContainer.find(".code-item[value=" + code + "]").button('toggle');
+				var splitted = value.split(SEPARATOR_MULTIPLE_PARAMETERS);
+				splitted.forEach(function(value, index) {
+					activeCodeItemsContainer.find(".code-item[value=" + value + "]").button('toggle');
+				});
 			}
 		}
 		break;

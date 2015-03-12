@@ -45,6 +45,7 @@ public class BalloonInputFieldsUtils {
 	private static final String NOT_APPLICABLE_ITEM_LABEL = "N/A";
 
 	public static final String PARAMETER_SEPARATOR = "===";
+	public static final String MULTIPLE_VALUES_SEPARATOR = ";";
 
 	private static final String COLLECT_PREFIX = "collect_";
 	private final Logger logger = LoggerFactory.getLogger(BalloonInputFieldsUtils.class);
@@ -72,7 +73,7 @@ public class BalloonInputFieldsUtils {
 			String cleanName = cleanUpParameterName(parameterName);
 			AbstractAttributeHandler<?> handler = findHandler(cleanName);
 			if (handler == null) {
-				logger.error("Cannot find handler for parameter: " + parameterName);
+				logger.warn("Cannot find handler for parameter: " + parameterName);
 			} else if (handler instanceof EntityHandler) {
 				Entity currentEntity = ((EntityHandler) handler).getChildEntity(cleanName, rootEntity);
 				String childAttributeParameterName = ((EntityHandler) handler).extractNestedAttributeParameterName(parameterName);
@@ -97,20 +98,22 @@ public class BalloonInputFieldsUtils {
 			AbstractAttributeHandler<?> handler) {
 		PlacemarkInputFieldInfo info = new PlacemarkInputFieldInfo();
 
-		Attribute<?, ?> attribute = handler.getAttributeNodeFromParameter(cleanName, rootEntity, 0);
+		List<Attribute<?, ?>> attributes = handler.getAttributeNodesFromParameter(cleanName, rootEntity);
+		Attribute<?, ?> firstAttribute = attributes.get(0);
 
 		info.setValue(handler.getValueFromParameter(cleanName, rootEntity));
-		info.setVisible(attribute.isRelevant());
 		
-		String errorMessage = validationMessageByPath.get(attribute.getPath());
+		info.setVisible(firstAttribute.isRelevant());
+		
+		String errorMessage = validationMessageByPath.get(firstAttribute.getPath());
 		if (errorMessage != null) {
 			info.setInError(true);
 			info.setErrorMessage(errorMessage);
 		}
-		if (attribute instanceof CodeAttribute) {
-			CodeAttributeDefinition attrDef = (CodeAttributeDefinition) attribute.getDefinition();
+		if (firstAttribute instanceof CodeAttribute) {
+			CodeAttributeDefinition attrDef = (CodeAttributeDefinition) firstAttribute.getDefinition();
 			CodeListService codeListService = record.getSurveyContext().getCodeListService();
-			List<CodeListItem> validCodeListItems = codeListService.loadValidItems(attribute.getParent(), attrDef);
+			List<CodeListItem> validCodeListItems = codeListService.loadValidItems(firstAttribute.getParent(), attrDef);
 			List<PlacemarkCodedItem> possibleCodedItems = new ArrayList<PlacemarkCodedItem>(validCodeListItems.size() + 1);
 			possibleCodedItems.add(new PlacemarkCodedItem(NOT_APPLICABLE_ITEM_CODE, NOT_APPLICABLE_ITEM_LABEL));
 			for (CodeListItem item : validCodeListItems) {
@@ -137,7 +140,7 @@ public class BalloonInputFieldsUtils {
 				return handler;
 			}
 		}
-//		throw new IllegalArgumentException("Handler not found for the given parameter name: " + parameterName);
+		logger.warn("Handler not found for the given parameter name: " + cleanParameterName);
 		return null;
 	}
 
@@ -246,21 +249,17 @@ public class BalloonInputFieldsUtils {
 		// Saves into "collect_text_parameter"
 		String collectParamName = COLLECT_PREFIX + paramName;
 		if (node instanceof Attribute) {
-			if (valuesByHtmlParameterName.get(collectParamName) != null) {
-
-				int index = StringUtils.countMatches(valuesByHtmlParameterName.get(collectParamName), PARAMETER_SEPARATOR) + 1;
-
+			String value = valuesByHtmlParameterName.get(collectParamName);
+			if (value == null) {
+				valuesByHtmlParameterName.put(collectParamName, handler.getValueFromParameter(paramName, plotEntity, 0));
+			} else {
+				int index = StringUtils.countMatches(value, PARAMETER_SEPARATOR) + 1;
 				try {
-					valuesByHtmlParameterName.put(
-							collectParamName,
-							valuesByHtmlParameterName.get(collectParamName) + PARAMETER_SEPARATOR
-							+ handler.getValueFromParameter(paramName, plotEntity, index));
+					String newValue = value + PARAMETER_SEPARATOR + handler.getValueFromParameter(paramName, plotEntity, index);
+					valuesByHtmlParameterName.put(collectParamName, newValue);
 				} catch (Exception e) {
 					logger.error("Exception when getting parameters for entity ", e);
 				}
-
-			} else {
-				valuesByHtmlParameterName.put(collectParamName, handler.getValueFromParameter(paramName, plotEntity));
 			}
 
 		} else if (node instanceof Entity) {
@@ -351,6 +350,11 @@ public class BalloonInputFieldsUtils {
 						result.addMergeChanges(partialChangeSet);
 					} else {
 						String[] parameterValues = parameterValue.split(BalloonInputFieldsUtils.PARAMETER_SEPARATOR);
+						AttributeDefinition attrDef = handler.getAttributeDefinition(entity, cleanName);
+						if (attrDef.isMultiple() && parameterValues.length != entity.getCount(attrDef)) {
+							//delete old values
+							result.addMergeChanges(handler.deleteAttributes(cleanName, entity));
+						}
 						for (int index = 0; index < parameterValues.length; index++) {
 							String parameterVal = parameterValues[index];
 							NodeChangeSet partialChangeSet = handler.addOrUpdate(cleanName, parameterVal, entity, index);

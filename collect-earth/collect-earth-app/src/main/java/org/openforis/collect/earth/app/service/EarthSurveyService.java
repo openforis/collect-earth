@@ -348,20 +348,21 @@ public class EarthSurveyService {
 
 			Map<String, String> oldPlacemarkParameters = collectParametersHandler.getValuesByHtmlParameters(record.getRootEntity());
 			Map<String, String> changedParameters = calculateChanges(oldPlacemarkParameters, parameters);
-			
 
 			boolean placemarkAlreadySavedActively = isPlacemarkSavedActively(oldPlacemarkParameters);
 			boolean userClickOnSubmitAndValidate = isPlacemarkSavedActively(parameters);
 			
+			collectParametersHandler.saveToEntity(changedParameters, plotEntity);
+
 			boolean noErrors = record.getErrors() == 0 && record.getSkipped() == 0;
 			
 			if (userClickOnSubmitAndValidate && noErrors) {
 				//if the user clicks on submit and validate but the data is not valid,
 				//do not save the record as actively saved
-				setPlacemarkSavedActively(changedParameters, false);
+				Map<String, String> savedActivelyParameter = new HashMap<String, String>();
+				setPlacemarkSavedActively(savedActivelyParameter, false);
+				collectParametersHandler.saveToEntity(savedActivelyParameter, plotEntity);
 			}
-
-			collectParametersHandler.saveToEntity(changedParameters, plotEntity);
 
 			if (! placemarkAlreadySavedActively || noErrors) {
 				//only save data if the information is completely valid or if the record is not already completely saved (green) 

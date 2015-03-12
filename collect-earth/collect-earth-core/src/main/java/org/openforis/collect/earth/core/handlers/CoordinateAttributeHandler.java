@@ -3,8 +3,6 @@ package org.openforis.collect.earth.core.handlers;
 import org.openforis.idm.metamodel.CoordinateAttributeDefinition;
 import org.openforis.idm.metamodel.NodeDefinition;
 import org.openforis.idm.model.Coordinate;
-import org.openforis.idm.model.CoordinateAttribute;
-import org.openforis.idm.model.Entity;
 
 /**
  * @author Alfonso Sanchez-Paus Diaz
@@ -21,7 +19,18 @@ public class CoordinateAttributeHandler extends AbstractAttributeHandler<Coordin
 
 	@Override
 	public String getParameterValue(Coordinate value) {
-		return value == null ? null: value.toString();
+		if (value == null) {
+			return null;
+		}
+		StringBuilder sb = new StringBuilder();
+		Double longitude = value.getX();
+		Double latitude = value.getY();
+		
+		sb.append(latitude);
+		sb.append(",");
+		sb.append(longitude);
+		
+		return sb.toString();
 	}
 	
 	/**
@@ -57,29 +66,6 @@ public class CoordinateAttributeHandler extends AbstractAttributeHandler<Coordin
 		return coord;
 	}
 
-	/*
-	 * Returns the  coordinate as a latitude,longitude String
-	 *  (non-Javadoc)
-	 * @see org.openforis.collect.earth.app.service.handler.AbstractAttributeHandler#getAttributeFromParameter(java.lang.String, org.openforis.idm.model.Entity, int)
-	 */
-	@Override
-	public String getValueFromParameter(String parameterName, Entity entity, int index) {
-		String cleanName = removePrefix(parameterName);
-		if( entity.getChild(cleanName, index) == null){
-			return "";
-		}
-		
-		StringBuilder stringBuilder = new StringBuilder();
-		Coordinate value = ((CoordinateAttribute) entity.getChild(cleanName, index)).getValue();
-		Double longitude = value.getX();
-		Double latitude = value.getY();
-		
-		stringBuilder.append(latitude);
-		stringBuilder.append(",");
-		stringBuilder.append(longitude);
-		
-		return stringBuilder.toString();
-	}
 
 	@Override
 	public boolean isParseable(NodeDefinition def) {

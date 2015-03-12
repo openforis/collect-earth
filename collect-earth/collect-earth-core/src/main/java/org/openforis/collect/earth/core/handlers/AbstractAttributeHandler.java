@@ -1,10 +1,11 @@
 package org.openforis.collect.earth.core.handlers;
 
+import java.util.ArrayList;
+import java.util.Iterator;
 import java.util.List;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 
 import org.apache.commons.lang3.StringUtils;
+import org.openforis.collect.model.NodeChangeMap;
 import org.openforis.collect.model.NodeChangeSet;
 import org.openforis.collect.model.RecordUpdater;
 import org.openforis.idm.metamodel.AttributeDefinition;
@@ -32,6 +33,16 @@ public abstract class AbstractAttributeHandler<C> {
 		this.recordUpdater = new RecordUpdater();
 	}
 
+	public NodeChangeSet deleteAttributes(String parameterName, Entity entity) {
+		NodeChangeMap result = new NodeChangeMap();
+		List<Attribute<?, ?>> attributes = getAttributeNodesFromParameter(parameterName, entity);
+		for (Attribute<?, ?> attribute : attributes) {
+			NodeChangeSet partialChange = recordUpdater.deleteNode(attribute);
+			result.addMergeChanges(partialChange);
+		}
+		return result;
+	}
+	
 	public NodeChangeSet addOrUpdate(String parameterName, String parameterValue, Entity entity, int parameterChildIndex) {
 		Value value = (Value) (StringUtils.isBlank(parameterValue) ? null: createValue(parameterValue));
 		
@@ -40,7 +51,8 @@ public abstract class AbstractAttributeHandler<C> {
 
 		NodeChangeSet changeSet = null;
 		if (attr == null) {
-			changeSet = recordUpdater.addAttribute(entity, removePrefix(parameterName), value);
+			AttributeDefinition attrDef = getAttributeDefinition(entity, parameterName);
+			changeSet = recordUpdater.addAttribute(entity, attrDef.getName(), value);
 		} else {
 			AttributeDefinition def = attr.getDefinition();
 			EntityDefinition parentDef = def.getParentEntityDefinition();
@@ -51,33 +63,48 @@ public abstract class AbstractAttributeHandler<C> {
 		return changeSet;
 	}
 
-	public Attribute<?, ?> getAttributeNodeFromParameter(String parameterName, Entity entity, int index) {
-		String cleanName = removePrefix(parameterName);
-		Pattern attributeInsideMultipleEntityPattern = Pattern.compile("(\\w+)\\[(\\w+)\\]\\.(\\w*)");
-		Matcher matcher = attributeInsideMultipleEntityPattern.matcher(cleanName);
-		String attributeName;
-		Entity actualEntity;
-		if (matcher.matches()) {
-			String entityName = matcher.group(1);
-			String keyValue = matcher.group(2);
-			attributeName = matcher.group(3);
-			List<Entity> nestedEntities = entity.findChildEntitiesByKeys(entityName, keyValue);
-			actualEntity = nestedEntities.get(0);
-		} else {
-			attributeName = cleanName;
-			actualEntity = entity;
+	public List<Attribute<?, ?>> getAttributeNodesFromParameter(String parameterName, Entity entity) {
+		AttributeDefinition attrDef = getAttributeDefinition(entity, parameterName);
+		List<Node<?>> children = entity.getChildren(attrDef);
+		List<Attribute<?, ?>> result = new ArrayList<Attribute<?,?>>(children.size());
+		for (Node<?> child : children) {
+			result.add((Attribute<?, ?>) child);
 		}
-		Node<?> node = actualEntity.getChild(attributeName, index);
+		return result;
+	}
+	
+	public Attribute<?, ?> getAttributeNodeFromParameter(String parameterName, Entity entity, int index) {
+		AttributeDefinition attrDef = getAttributeDefinition(entity, parameterName);
+		Node<?> node = entity.getChild(attrDef, index);
 		return (Attribute<?, ?>) node;
 	}
 
+	public AttributeDefinition getAttributeDefinition(Entity parentEntity, String parameterName) {
+		String attributeName = removePrefix(parameterName);
+		NodeDefinition childDef = parentEntity.getDefinition().getChildDefinition(attributeName);
+		return (AttributeDefinition) childDef;
+	}
+	
 	public String getValueFromParameter(String parameterName, Entity entity) {
-		return getValueFromParameter(parameterName, entity, 0);
+		StringBuilder sb = new StringBuilder();
+		List<Attribute<?, ?>> attributes = getAttributeNodesFromParameter(parameterName, entity);
+		for (Iterator<Attribute<?, ?>> iterator = attributes.iterator(); iterator.hasNext();) {
+			Attribute<?, ?> attribute = (Attribute<?, ?>) iterator.next();
+			@SuppressWarnings("unchecked")
+			C val = (C) attribute.getValue();
+			String parameterValue = getParameterValue(val);
+			sb.append(parameterValue);
+			if (iterator.hasNext()) {
+				sb.append(BalloonInputFieldsUtils.PARAMETER_SEPARATOR);
+			}
+		}
+		return sb.toString();
 	}
 
 	public String getValueFromParameter(String parameterName, Entity entity, int index) {
+		Attribute<?, ?> attribute = getAttributeNodeFromParameter(parameterName, entity, index);
 		@SuppressWarnings("unchecked")
-		C value = (C) getAttributeNodeFromParameter(parameterName, entity, index).getValue();
+		C value = (C) attribute.getValue();
 		return getParameterValue(value);
 	}
 
