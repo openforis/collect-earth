@@ -23,6 +23,7 @@ $(function() {
 	fillYears();
 	initCodeButtonGroups();
 	initDateTimePickers();
+	initBooleanButtons();
 
 	// Declares the Jquery Dialog ( The Bootstrap dialog does
 	// not work in Google Earth )
@@ -339,6 +340,18 @@ var initCodeButtonGroups = function() {
 	});
 };
 
+var initBooleanButtons = function() {
+	$('.boolean-group').each(function() {
+		var group = $(this);
+		var hiddenField = group.find("input[type='hidden']");
+		group.find("button").click(function() {
+			var btn = $(this);
+			hiddenField.val(btn.val());
+			ajaxDataUpdate();
+		});
+	});
+};
+
 var initDateTimePickers = function() {
 	//http://eonasdan.github.io/bootstrap-datetimepicker/
 	$('.datepicker').datetimepicker({
@@ -520,14 +533,21 @@ var setValueInInputField = function(inputField, value) {
 	var tagName = inputField.prop("tagName");
 	switch(tagName) {
 	case "INPUT":
-		if (inputField.prop("type") == "checkbox") {
-			inputField.prop("checked", value == "true");
-		} else {
-			if (inputField.val() != value) {
-				inputField.val(value);
-			}
+		if (inputField.val() != value) {
+			inputField.val(value);
 		}
-		if ("CODE_BUTTON_GROUP" == inputField.data("fieldType")) {
+		switch (inputField.data("fieldType")) {
+		case "BOOLEAN":
+//			if (inputField.prop("type") == "checkbox") {
+//				inputField.prop("checked", value == "true");
+//			}
+			var group = inputField.closest(".boolean-group");
+			group.find("button").removeClass('active');
+			if (value != null && value != "") {
+				group.find("button[value='" + value +"']").button('toggle');
+			}
+			break;
+		case "CODE_BUTTON_GROUP":
 			var itemsGroup = inputField.closest(".code-items-group");
 			//deselect all code item buttons
 			itemsGroup.find(".code-item").removeClass('active');
@@ -539,6 +559,7 @@ var setValueInInputField = function(inputField, value) {
 					activeCodeItemsContainer.find(".code-item[value=" + value + "]").button('toggle');
 				});
 			}
+			break;
 		}
 		break;
 	case "TEXTAREA":

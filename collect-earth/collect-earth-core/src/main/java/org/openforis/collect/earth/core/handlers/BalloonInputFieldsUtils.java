@@ -167,9 +167,9 @@ public class BalloonInputFieldsUtils {
 	public Map<String, String> getValuesByHtmlParameters(Entity plotEntity) {
 		Map<String, String> valuesByHTMLParameterName = new HashMap<String, String>();
 		
-		List<Node<? extends NodeDefinition>> children = plotEntity.getChildren();
+		List<Node<?>> children = plotEntity.getChildren();
 
-		for (Node<? extends NodeDefinition> node : children) {
+		for (Node<?> node : children) {
 			getHTMLParameterName(plotEntity, valuesByHTMLParameterName,  node);
 		}
 		return valuesByHTMLParameterName;
@@ -194,22 +194,37 @@ public class BalloonInputFieldsUtils {
 							result.put(def.getPath(), collectParamName);
 						}
 					} else {
-						CodeAttributeDefinition keyCodeAttribute = parentDef.getEnumeratingKeyCodeAttribute();
-						if (keyCodeAttribute == null) {
-							throw new IllegalStateException("Enumerating code attribute expected for entity " + parentDef.getPath());
-						}
-						CodeList enumeratingList = keyCodeAttribute.getList();
-						List<CodeListItem> enumeratingItems = codeListService.loadRootItems(enumeratingList);
-						for (int i = 0; i < enumeratingItems.size(); i++) {
-							CodeListItem enumeratingItem = enumeratingItems.get(i);
-							String collectParameterBaseName = getCollectParameterBaseName(parentDef) + "[" + enumeratingItem.getCode() + "].";
-							
-							List<NodeDefinition> childDefs = parentDef.getChildDefinitions();
+						List<NodeDefinition> childDefs = parentDef.getChildDefinitions();
+						if (parentDef.isMultiple()) {
+							//multiple (enumerated) entity
+							CodeAttributeDefinition keyCodeAttribute = parentDef.getEnumeratingKeyCodeAttribute();
+							if (keyCodeAttribute == null) {
+								throw new IllegalStateException("Enumerating code attribute expected for entity " + parentDef.getPath());
+							} else {
+								CodeList enumeratingList = keyCodeAttribute.getList();
+								List<CodeListItem> enumeratingItems = codeListService.loadRootItems(enumeratingList);
+								for (int i = 0; i < enumeratingItems.size(); i++) {
+									CodeListItem enumeratingItem = enumeratingItems.get(i);
+									String collectParameterBaseName = getCollectParameterBaseName(parentDef) + "[" + enumeratingItem.getCode() + "].";
+									
+									for (NodeDefinition childDef : childDefs) {
+										AbstractAttributeHandler<?> childHandler = findHandler(childDef);
+										if( childHandler != null ){
+											String collectParameterName = collectParameterBaseName + childHandler.getPrefix() + childDef.getName();
+											String enumeratingItemPath = parentDef.getPath() + "[" + (i+1) + "]/" + childDef.getName();
+											result.put(enumeratingItemPath, collectParameterName);
+										}
+									}
+								}
+							}
+						} else {
+							//single entity
+							String collectParameterBaseName = getCollectParameterBaseName(parentDef) + ".";
 							for (NodeDefinition childDef : childDefs) {
 								AbstractAttributeHandler<?> childHandler = findHandler(childDef);
 								if( childHandler != null ){
 									String collectParameterName = collectParameterBaseName + childHandler.getPrefix() + childDef.getName();
-									String enumeratingItemPath = parentDef.getPath() + "[" + (i+1) + "]/" + childDef.getName();
+									String enumeratingItemPath = parentDef.getPath() + "/" + childDef.getName();
 									result.put(enumeratingItemPath, collectParameterName);
 								}
 							}
@@ -264,39 +279,39 @@ public class BalloonInputFieldsUtils {
 
 		} else if (node instanceof Entity) {
 			Entity entity = (Entity) node;
-			// result should be
-			// collect_entity_NAME[KEY].code_attribute
-			String entityKey = entity.getKeyValues()[0];
-			collectParamName += "[" + entityKey + "]";
-
-			List<Node<? extends NodeDefinition>> entityChildren = entity.getChildren();
-			int index = 0;
-			Integer lastChildId = null;
-			for (Node<? extends NodeDefinition> child : entityChildren) {
-
-				if( lastChildId == null || !lastChildId.equals( child.getDefinition().getId())){
-					lastChildId = child.getDefinition().getId();
-					index = 0;
+			List<Node<?>> entityChildren = entity.getChildren();
+			
+			EntityDefinition entityDef = entity.getDefinition();
+			if (entityDef.isMultiple()) {
+				if (! entityDef.isEnumerable()) {
+					throw new IllegalArgumentException("Multiple not enumerated entity found: " + entityDef.getPath());
 				}
-				
+				// result should be
+				// collect_entity_NAME[KEY].code_attribute
+				String entityKey = entity.getKeyValues()[0];
+				collectParamName += "[" + entityKey + "]";
+			}
+//			int index = 0;
+			for (Node<?> child : entityChildren) {
 				AbstractAttributeHandler<?> handlerEntityAttribute = findHandler(child);
 				String parameterName = getMultipleParameterName( collectParamName, child, handlerEntityAttribute );
-				String parameterValue = getMultipleParameterValue(child,handlerEntityAttribute, entity, index);
-				if(!StringUtils.isBlank( parameterValue ) ){
-					
-					String previousValue = valuesByHtmlParameterName.get(parameterName);
-					String newValue = previousValue == null ? null: previousValue + PARAMETER_SEPARATOR + parameterValue;
-					valuesByHtmlParameterName.put(parameterName, newValue);
+				String parameterValue = getMultipleParameterValue(child,handlerEntityAttribute, entity);
+				if( StringUtils.isNotBlank( parameterValue ) ){
+//					String previousValue = valuesByHtmlParameterName.get(parameterName);
+//					String newValue = previousValue == null ? null: previousValue + PARAMETER_SEPARATOR + parameterValue;
+					valuesByHtmlParameterName.put(parameterName, parameterValue);
 				}
-				
-				index++;
+//				index++;
 			}
 		}
 	}
 
-	private String getMultipleParameterValue(Node<?> child, AbstractAttributeHandler<?> cah, Entity entity, int index) {
-		return cah.getValueFromParameter(child.getName(), entity, index);
-		
+//	private String getMultipleParameterValue(Node<?> child, AbstractAttributeHandler<?> cah, Entity entity, int index) {
+//		return cah.getValueFromParameter(cah.getPrefix() + child.getName(), entity, index);
+//	}
+
+	private String getMultipleParameterValue(Node<?> child, AbstractAttributeHandler<?> cah, Entity entity) {
+		return cah.getValueFromParameter(cah.getPrefix() + child.getName(), entity);
 	}
 
 	private String getMultipleParameterName( String collectParamName, 

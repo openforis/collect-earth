@@ -1,6 +1,8 @@
 package org.openforis.collect.earth.app.service;
 
-import static org.openforis.collect.earth.app.EarthConstants.ACTIVELY_SAVED_ON_PARAMTER;
+import static org.openforis.collect.earth.app.EarthConstants.ACTIVELY_SAVED_ATTRIBUTE_NAME;
+import static org.openforis.collect.earth.app.EarthConstants.ACTIVELY_SAVED_ON_ATTRIBUTE_NAME;
+import static org.openforis.collect.earth.app.EarthConstants.ACTIVELY_SAVED_ON_PARAMETER;
 import static org.openforis.collect.earth.app.EarthConstants.ACTIVELY_SAVED_PARAMETER;
 import static org.openforis.collect.earth.app.EarthConstants.COLLECT_REASON_BLANK_NOT_SPECIFIED_MESSAGE;
 import static org.openforis.collect.earth.app.EarthConstants.EARTH_SURVEY_NAME;
@@ -39,6 +41,9 @@ import org.openforis.collect.persistence.SurveyImportException;
 import org.openforis.idm.metamodel.NodeLabel.Type;
 import org.openforis.idm.metamodel.Schema;
 import org.openforis.idm.metamodel.xml.IdmlParseException;
+import org.openforis.idm.model.BooleanAttribute;
+import org.openforis.idm.model.BooleanValue;
+import org.openforis.idm.model.DateAttribute;
 import org.openforis.idm.model.Entity;
 import org.openforis.idm.model.Node;
 import org.slf4j.Logger;
@@ -276,8 +281,19 @@ public class EarthSurveyService {
 		this.collectSurvey = collectSurvey;
 	}
 
+	private void setPlacemarkSavedOn(CollectRecord record) {
+		DateAttribute attr = record.findNodeByPath(ROOT_ENTITY_NAME + "/" + ACTIVELY_SAVED_ON_ATTRIBUTE_NAME);
+		org.openforis.idm.model.Date date = org.openforis.idm.model.Date.parse(new Date());
+		recordManager.updateAttribute(attr, date);
+	}
+	
+	private void setPlacemarkSavedActively(CollectRecord record, boolean value) {
+		BooleanAttribute attr = record.findNodeByPath(ROOT_ENTITY_NAME + "/" + ACTIVELY_SAVED_ATTRIBUTE_NAME);
+		recordManager.updateAttribute(attr, new BooleanValue(value));
+	}
+
 	private void setPlacemarkSavedOn(Map<String, String> parameters) {
-		parameters.put(ACTIVELY_SAVED_ON_PARAMTER, DateAttributeHandler.DATE_ATTRIBUTE_FORMAT.format(new Date()));
+		parameters.put(ACTIVELY_SAVED_ON_PARAMETER, DateAttributeHandler.DATE_ATTRIBUTE_FORMAT.format(new Date()));
 	}
 
 	private void setPlacemarkSavedActively(Map<String, String> parameters, boolean value) {
@@ -353,20 +369,20 @@ public class EarthSurveyService {
 			boolean userClickOnSubmitAndValidate = isPlacemarkSavedActively(parameters);
 			
 			collectParametersHandler.saveToEntity(changedParameters, plotEntity);
+			
+			//update actively_saved_on attribute now, otherwise if it's empty it counts as an error
+			setPlacemarkSavedOn(record);
 
 			boolean noErrors = record.getErrors() == 0 && record.getSkipped() == 0;
 			
-			if (userClickOnSubmitAndValidate && noErrors) {
+			if (userClickOnSubmitAndValidate && ! noErrors) {
 				//if the user clicks on submit and validate but the data is not valid,
 				//do not save the record as actively saved
-				Map<String, String> savedActivelyParameter = new HashMap<String, String>();
-				setPlacemarkSavedActively(savedActivelyParameter, false);
-				collectParametersHandler.saveToEntity(savedActivelyParameter, plotEntity);
+				setPlacemarkSavedActively(record, false);
 			}
-
+			
 			if (! placemarkAlreadySavedActively || noErrors) {
 				//only save data if the information is completely valid or if the record is not already completely saved (green) 
-				setPlacemarkSavedOn(parameters);
 				record.setModifiedDate(new Date());
 				recordManager.save(record, sessionId);
 			}

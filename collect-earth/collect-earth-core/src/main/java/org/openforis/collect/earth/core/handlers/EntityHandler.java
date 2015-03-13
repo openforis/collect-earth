@@ -3,6 +3,8 @@ package org.openforis.collect.earth.core.handlers;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 import org.openforis.collect.model.NodeChangeMap;
 import org.openforis.collect.model.NodeChangeSet;
@@ -16,6 +18,8 @@ import org.openforis.idm.model.Entity;
  */
 public class EntityHandler extends AbstractAttributeHandler<Entity> {
 
+	private static final Pattern PARAMETER_NAME_PATTERN = Pattern.compile("(\\w+)(\\[(\\w+)\\])?\\.(\\w+)");
+	
 	// Expected : colllect_entity_topography[house].code_coverage=XX
 	private static final String PREFIX = "entity_";
 
@@ -45,10 +49,16 @@ public class EntityHandler extends AbstractAttributeHandler<Entity> {
 	public Entity getChildEntity(String parameterName, Entity parentEntity) {
 		String cleanName = removePrefix(parameterName);
 		String childEntityName = getEntityName(cleanName);
-		String keyValue = getEntityKey(cleanName);
-		Entity childEntity = getChildEntity(parentEntity, childEntityName, keyValue);
-		if (childEntity == null) {
-			throw new IllegalStateException(String.format("Enumerated entity expected but not found: %s[%s]", childEntityName, keyValue));
+		EntityDefinition childEntityDef = (EntityDefinition) parentEntity.getDefinition().getChildDefinition(childEntityName);
+		Entity childEntity;
+		if (childEntityDef.isMultiple()) {
+			String keyValue = getEntityKey(cleanName);
+			childEntity = getChildEntity(parentEntity, childEntityName, keyValue);
+			if (childEntity == null) {
+				throw new IllegalStateException(String.format("Enumerated entity expected but not found: %s[%s]", childEntityName, keyValue));
+			}
+		} else {
+			childEntity = (Entity) parentEntity.getChild(childEntityDef);
 		}
 		return childEntity;
 	}
@@ -73,22 +83,28 @@ public class EntityHandler extends AbstractAttributeHandler<Entity> {
 	}
 
 	public String extractNestedAttributeParameterName(String parameterName) {
-		int indexOfDot = parameterName.indexOf('.');
-		return parameterName.substring(indexOfDot + 1);
+		return extractParameterPart(parameterName, 4);
 	}
 
 	private String getEntityKey(String parameterName) {
-		int indexOfKeyStart = parameterName.indexOf("[");
-		int indexOfKeyEnd = parameterName.indexOf("]");
-		return parameterName.substring(indexOfKeyStart + 1, indexOfKeyEnd);
+		return extractParameterPart(parameterName, 3);
 	}
 
 	// topography[house].code_coverage=XX
 	private String getEntityName(String parameterName) {
-		int indexOfKey = parameterName.indexOf("[");
-		return parameterName.substring(0, indexOfKey);
+		return extractParameterPart(parameterName, 1);
 	}
 
+	private String extractParameterPart(String parameterName, int index) {
+		Matcher matcher = PARAMETER_NAME_PATTERN.matcher(parameterName);
+		if (matcher.matches()) {
+			String part = matcher.group(index);
+			return part;
+		} else {
+			throw new IllegalArgumentException("Unexpected parameter format: " + parameterName);
+		}
+	}
+	
 	@Override
 	public boolean isParseable(NodeDefinition def) {
 		return def instanceof EntityDefinition;

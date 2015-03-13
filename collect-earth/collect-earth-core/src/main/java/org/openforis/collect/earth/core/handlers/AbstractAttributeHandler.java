@@ -1,7 +1,6 @@
 package org.openforis.collect.earth.core.handlers;
 
 import java.util.ArrayList;
-import java.util.Iterator;
 import java.util.List;
 
 import org.apache.commons.lang3.StringUtils;
@@ -86,19 +85,21 @@ public abstract class AbstractAttributeHandler<C> {
 	}
 	
 	public String getValueFromParameter(String parameterName, Entity entity) {
-		StringBuilder sb = new StringBuilder();
+		List<String> parts = new ArrayList<String>();
 		List<Attribute<?, ?>> attributes = getAttributeNodesFromParameter(parameterName, entity);
-		for (Iterator<Attribute<?, ?>> iterator = attributes.iterator(); iterator.hasNext();) {
-			Attribute<?, ?> attribute = (Attribute<?, ?>) iterator.next();
+		for (Attribute<?, ?> attribute : attributes) {
 			@SuppressWarnings("unchecked")
 			C val = (C) attribute.getValue();
 			String parameterValue = getParameterValue(val);
-			sb.append(parameterValue);
-			if (iterator.hasNext()) {
-				sb.append(BalloonInputFieldsUtils.PARAMETER_SEPARATOR);
+			if (StringUtils.isNotBlank(parameterValue)) {
+				parts.add(parameterValue);
 			}
 		}
-		return sb.toString();
+		if (parts.isEmpty()) {
+			return null;
+		} else {
+			return StringUtils.join(parts, BalloonInputFieldsUtils.PARAMETER_SEPARATOR);
+		}
 	}
 
 	public String getValueFromParameter(String parameterName, Entity entity, int index) {

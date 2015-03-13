@@ -45,8 +45,10 @@ public class EarthConstants {
 	public static final String COLLECT_REASON_BLANK_NOT_SPECIFIED_MESSAGE = "Reason blank not specified";
 
 	public static final String PLACEMARK_ID_PARAMETER = "collect_text_id";
-	public static final String ACTIVELY_SAVED_PARAMETER = "collect_boolean_actively_saved"; //$NON-NLS-1$
-	public static final String ACTIVELY_SAVED_ON_PARAMTER = "collect_date_actively_saved_on"; //$NON-NLS-1$
+	public static final String ACTIVELY_SAVED_ATTRIBUTE_NAME = "actively_saved"; //$NON-NLS-1$
+	public static final String ACTIVELY_SAVED_ON_ATTRIBUTE_NAME = "actively_saved_on"; //$NON-NLS-1$
+	public static final String ACTIVELY_SAVED_PARAMETER = "collect_boolean_" + ACTIVELY_SAVED_ATTRIBUTE_NAME; //$NON-NLS-1$
+	public static final String ACTIVELY_SAVED_ON_PARAMETER = "collect_date_" + ACTIVELY_SAVED_ON_ATTRIBUTE_NAME; //$NON-NLS-1$
 	public static final String OPERATOR_PARAMETER = "collect_text_operator"; //$NON-NLS-1$
 	public static final String SKIP_FILLED_PLOT_PARAMETER = "jump_to_next_plot"; //$NON-NLS-1$
 	
