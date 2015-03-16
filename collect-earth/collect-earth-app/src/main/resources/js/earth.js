@@ -209,25 +209,31 @@ var updateInputFieldsState = function(inputFieldInfoByParameterName) {
 		if (el.length == 1) {
 			switch(el.data("fieldType")) {
 			case "CODE_SELECT":
-				var oldValue = el.val();
-				var possibleItems = info.possibleCodedItems ? info.possibleCodedItems: [];
-				OF.UI.Forms.populateSelect(el, possibleItems, "code", "label");
-				el.val(oldValue);
-				if (el.val() == null) {
-					el.val("-1"); //set N/A option by default
+				var parentCodeFieldId = el.data("parentCodeFieldId");
+				if (parentCodeFieldId && parentCodeFieldId != "") {
+					var oldValue = el.val();
+					var possibleItems = info.possibleCodedItems ? info.possibleCodedItems: [];
+					OF.UI.Forms.populateSelect(el, possibleItems, "code", "label");
+					el.val(oldValue);
+					if (el.val() == null) {
+						el.val("-1"); //set N/A option by default
+					}
 				}
 				break;
 			case "CODE_BUTTON_GROUP":
 				var parentCodeFieldId = el.data("parentCodeFieldId");
-				if (parentCodeFieldId) {
+				if (parentCodeFieldId && parentCodeFieldId != "") {
 					var parentCodeInfo = inputFieldInfoByParameterName[parentCodeFieldId];
 					var parentCodeValue = parentCodeInfo.value;
 					var groupContainer = el.closest(".code-items-group");
-					var itemsContainers = groupContainer.find(".code-items");
-					itemsContainers.hide();
 					
 					var validItemsContainer = groupContainer.find(".code-items[data-parent-code='" + parentCodeValue + "']");
-					validItemsContainer.show();
+					if (validItemsContainer.is(':hidden')) {
+						var itemsContainers = groupContainer.find(".code-items");
+						itemsContainers.hide();
+						
+						validItemsContainer.show();
+					}
 				}
 				break;
 			}
@@ -277,15 +283,7 @@ var toggleStepVisibility = function(index, visible) {
 	} else {
 		stepHeading.addClass("disabled notrelevant");
 	}
-	if (visible) {
-		stepHeading.show({
-			duration: 400,
-		});
-	} else {
-		stepHeading.hide({
-			duration: 400,
-		});
-	}
+	stepHeading.toggle(visible);
 	
 	if (! stepHeading.hasClass("current")) {
 		stepBody.hide();
@@ -375,7 +373,7 @@ var initSteps = function() {
 	$steps = $stepsContainer.steps({
 		headerTag : "h3",
 		bodyTag : "section",
-		transitionEffect : "slideLeft",
+		transitionEffect : "none",
 		autoFocus : true,
 		titleTemplate: "#title#",
 		labels: {
