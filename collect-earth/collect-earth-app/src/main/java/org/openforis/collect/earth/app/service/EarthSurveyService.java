@@ -388,7 +388,7 @@ public class EarthSurveyService {
 			}
 			PlacemarkLoadResult result = createPlacemarkLoadSuccessResult(record);
 			return result;
-		} catch (final RecordPersistenceException e) {
+		} catch (Exception e) {
 			logger.error("Error while storing the record " + e.getMessage(), e); //$NON-NLS-1$
 			PlacemarkLoadResult result = new PlacemarkLoadResult();
 			result.setSuccess(false);
