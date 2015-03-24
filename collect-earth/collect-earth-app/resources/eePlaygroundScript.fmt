@@ -129,5 +129,26 @@ landsat7MonthlyTimeSeries = landsat7MonthlyTimeSeries.setOptions({
 
 print(landsat7MonthlyTimeSeries);
 
+var landsat5AnnualNdvi = ee.ImageCollection('LANDSAT/LT5_L1T_ANNUAL_NDVI')
+    .filterDate("1984-1-1", endTime)
+    .select('NDVI');
+    
+var landsat5AnnualTimeSeries =
+    Chart.image.series(landsat5AnnualNdvi, plot, ee.Reducer.mean(), 30);
+
+landsat5AnnualTimeSeries = landsat5AnnualTimeSeries.setOptions({
+  title: 'Presence of Landsat 5 Annual imagery',
+  hAxis: {
+    title: 'Month'
+  },
+  vAxis: {
+    title: 'NDVI'
+  }
+});
+landsat5AnnualTimeSeries = landsat5AnnualTimeSeries.setChartType('ScatterChart');
+
+
+print(landsat5AnnualTimeSeries);
+
 Map.addLayer(plot);
 Map.setCenter(${placemark.shape[0].longitude}, ${placemark.shape[0].latitude}, 15);
