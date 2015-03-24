@@ -327,25 +327,29 @@ public class EarthSurveyService {
 			}
 
 			boolean userClickOnSaveAndValidate = isPlacemarkSavedActively(parameters);
-			if (userClickOnSaveAndValidate) {
-				setPlacemarkSavedOn(parameters);
-			}
-
+			
 			// Populate the data of the record using the HTTP parameters received
+			// This also generates the validation messages
 			collectParametersHandler.saveToEntity(parameters, plotEntity);
-
+						
 			// Do not validate unless actively saved
 			if (userClickOnSaveAndValidate) {
 				addValidationMessages(parameters, record);
+				
+				// Check that there is no validation errors so the tick doesn't turn green
+				if (record.getSkipped() != 0 || record.getErrors() !=0) {
+					setPlacemarkSavedActively(parameters, false);
+					//Force saving again to remove the "actively saved" parameter!
+					collectParametersHandler.saveToEntity(parameters, plotEntity);
+					
+				}else{
+					setPlacemarkSavedOn(parameters);
+				}
 			}
-
-			// Do not save unless there is no validation errors
-			if (((record.getErrors() == 0) && (record.getSkipped() == 0) && userClickOnSaveAndValidate) || !userClickOnSaveAndValidate) {
-				record.setModifiedDate(new Date());
-				recordManager.save(record, sessionId);
-			} else {
-				setPlacemarkSavedActively(parameters, false);
-			}
+			
+			record.setModifiedDate(new Date());
+			recordManager.save(record, sessionId);
+			
 			success = true;
 		} catch (final RecordPersistenceException e) {
 			logger.error("Error while storing the record " + e.getMessage(), e); //$NON-NLS-1$
