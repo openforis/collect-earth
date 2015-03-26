@@ -11,6 +11,8 @@ import java.awt.event.WindowEvent;
 import java.io.File;
 import java.io.IOException;
 import java.net.MalformedURLException;
+import java.net.URI;
+import java.net.URISyntaxException;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -128,7 +130,6 @@ public class CollectEarthWindow {
 	@PreDestroy
 	public void cleanUp(){
 		this.frame.dispose();
-		System.out.println("Closing the Collect Earth window (spring pre-destroy) ");
 	}
 
 	private void addImportExportMenu(JMenu menu) {
@@ -345,8 +346,9 @@ public class CollectEarthWindow {
 				protected void applyProperties() {
 					
 					try {
-						kmlImportService.loadFromKml( CollectEarthWindow.this.frame);
-						restartEarth();						
+						if( kmlImportService.loadFromKml( CollectEarthWindow.this.frame) ){
+							restartEarth();
+						}
 					} catch (Exception e1) {
 						JOptionPane.showMessageDialog( CollectEarthWindow.this.frame, e1.getMessage(), Messages.getString("CollectEarthWindow.63"), JOptionPane.ERROR_MESSAGE); //$NON-NLS-1$
 						logger.error("Error importing KML file", e1); //$NON-NLS-1$
@@ -392,6 +394,10 @@ public class CollectEarthWindow {
 		menuItem.addActionListener(new OpenUserManualListener());
 		menuHelp.add(menuItem);
 
+		menuItem = new JMenuItem(Messages.getString("CollectEarthWindow.64")); //$NON-NLS-1$
+		menuItem.addActionListener(new OpenSupportForum());
+		menuHelp.add(menuItem);
+	
 		menuHelp.addSeparator();
 
 		menuItem = new JMenuItem(Messages.getString("CollectEarthWindow.52")); //$NON-NLS-1$
