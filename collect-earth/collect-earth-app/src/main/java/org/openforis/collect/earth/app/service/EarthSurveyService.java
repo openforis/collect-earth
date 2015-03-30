@@ -442,7 +442,11 @@ public class EarthSurveyService {
 			String param = entry.getKey();
 			String newValue = entry.getValue();
 			String oldValue = oldPlacemarkParameters.get(param);
-			if (oldValue == null || ! oldValue.equals(newValue) ) {
+			if ( 
+					( oldValue == null && newValue != null && newValue.length()>0 ) 
+					|| 
+					( oldValue!=null && !oldValue.equals(newValue) ) 
+			) {
 				changedParameters.put(param, newValue);
 			}
 		}

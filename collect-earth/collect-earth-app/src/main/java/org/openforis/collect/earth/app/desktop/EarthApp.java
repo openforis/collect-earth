@@ -179,14 +179,13 @@ public class EarthApp {
 						if (
 								event.equals(ServerInitializationEvent.SERVER_STARTED_EVENT) ||
 								event.equals(ServerInitializationEvent.SERVER_STARTED_WITH_DATABASE_CHANGE_EVENT)
-								) {
+						) {
 							earthApp.getKmlGeneratorService().generatePlacemarksKmzFile();
 							earthApp.simulateClickKmz();
 						}
 						
 						if( event.equals(ServerInitializationEvent.SERVER_STARTED_WITH_DATABASE_CHANGE_EVENT) || 
 								event.equals(ServerInitializationEvent.SERVER_STARTED_NO_DB_CONNECTION_EVENT)	){
-							
 							showMessage( event.toString());
 						}
 						
