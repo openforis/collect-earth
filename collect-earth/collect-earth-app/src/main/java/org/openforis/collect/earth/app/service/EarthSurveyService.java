@@ -425,7 +425,8 @@ public class EarthSurveyService {
 			record = createRecord(sessionId);
 			logger.warn("Creating a new record with id " + placemarkId); //$NON-NLS-1$
 		} else {
-			record = recordManager.load(getCollectSurvey(), summaries.get(0).getId());
+			CollectRecord recordSummary = summaries.get(0);
+			record = recordManager.load(getCollectSurvey(), recordSummary.getId(), recordSummary.getStep());
 		}
 		return record;
 	}
