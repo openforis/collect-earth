@@ -41,13 +41,28 @@
         </component>
     </componentList>
 
-    <initializationActionList>
+        <initializationActionList>
         <registryGet>
             <key>HKEY_LOCAL_MACHINE\SOFTWARE\${project.vendor}\${project.fullName}</key>
             <name>InstallationPath</name>
             <variable>installdir</variable>
         </registryGet>
+        <actionGroup>
+            <actionList>
+            	<setInstallerVariable name="installdir" value=""/>
+                <iniFileGet>
+                    <file>~/.${project.vendor}-${project.fullName}.ini</file>
+                    <key>InstallationPath</key>
+                    <section>details</section>
+                    <variable>installdir</variable>
+                </iniFileGet>
+            </actionList>
+            <ruleList>
+                <fileTest condition="exists" path="~/.${project.vendor}-${project.fullName}.ini"/>
+            </ruleList>
+        </actionGroup>
     </initializationActionList>
+    
     <compressionAlgorithm>zip</compressionAlgorithm>
     <defaultUnixDirectoryPermissions>777</defaultUnixDirectoryPermissions>
     <defaultUnixFilePermissions>777</defaultUnixFilePermissions>
