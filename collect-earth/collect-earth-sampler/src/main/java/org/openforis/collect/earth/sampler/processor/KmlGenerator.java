@@ -21,11 +21,15 @@ import org.openforis.collect.earth.sampler.model.SimplePlacemarkObject;
 import org.openforis.collect.earth.sampler.utils.FreemarkerTemplateUtils;
 import org.openforis.collect.earth.sampler.utils.KmlGenerationException;
 import org.opengis.referencing.operation.TransformException;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import au.com.bytecode.opencsv.CSVReader;
 
 public abstract class KmlGenerator extends AbstractCoordinateCalculation {
 
+	private static Logger logger = LoggerFactory.getLogger( KmlGenerator.class);
+	
 	public static CSVReader getCsvReader(String csvFile) throws FileNotFoundException {
 		CSVReader reader;
 		final BufferedReader bufferedReader = new BufferedReader(new InputStreamReader(new FileInputStream(csvFile), Charset.forName("UTF-8")));
@@ -43,19 +47,36 @@ public abstract class KmlGenerator extends AbstractCoordinateCalculation {
 		plotProperties.aspect = 0d;
 		
 		Vector<String> extraInfoVector = new Vector<String>();
+		Vector<String> extraColumns = new Vector<String>();
 		if (csvValuesInLine.length > 3) {
-			plotProperties.elevation = Integer.parseInt(csvValuesInLine[3]);
-			plotProperties.slope = Double.parseDouble(csvValuesInLine[4]);
-			plotProperties.aspect = Double.parseDouble(csvValuesInLine[5]);
+			
+			try{
+				plotProperties.elevation = Integer.parseInt(csvValuesInLine[3]);
+				plotProperties.slope = Double.parseDouble(csvValuesInLine[4]);
+				plotProperties.aspect = Double.parseDouble(csvValuesInLine[5]);
+			}catch(Exception e ){
+				logger.error("Elevation Slope and Aspect could not be read correctly", e);
+			}
+			
 			if( csvValuesInLine.length > 6 ){
 			
 				for ( int extraIndex = 6; extraIndex<csvValuesInLine.length; extraIndex++) {
 					extraInfoVector.add( StringEscapeUtils.escapeXml( csvValuesInLine[extraIndex]) );
 				}
 			}
+			
+			// Add all extra columns 
+			for ( int extraIndex = 0; extraIndex < csvValuesInLine.length; extraIndex++) {
+				extraColumns.add( StringEscapeUtils.escapeXml( csvValuesInLine[extraIndex]) );
+			}
+			
 		}
+		
+		
 		String[] extraInfoArray = new String[extraInfoVector.size()];
+		String[] extraColumnArray = new String[extraColumns.size()];
 		plotProperties.extraInfo = extraInfoVector.toArray(extraInfoArray);
+		plotProperties.extraColumns = extraColumns.toArray(extraColumnArray);
 		
 		// Adds a map ( coulmnName,cellValue) so that the values can also be added to the KML by column name (for the newer versions)
 		HashMap<String, String> valuesByColumn = new HashMap<String, String>();
