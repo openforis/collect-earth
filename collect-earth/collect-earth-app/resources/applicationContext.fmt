@@ -27,6 +27,12 @@
 	<mvc:resources mapping="/images/**" location="/images/" />
 	<mvc:resources mapping="/script/**" location="/script/" />
 	<mvc:resources mapping="/org/**" location="/org/" />
+	
+	<!-- Start of override collect-code beans -->
+	<bean id="validator" class="org.openforis.collect.model.validation.CollectValidator">
+		<property name="validateSpecified" value="false" />
+	</bean>
+	<!-- End of override collect-code beans -->
 
 	<bean class="org.springframework.web.servlet.mvc.annotation.DefaultAnnotationHandlerMapping" />
 	<bean class="org.springframework.web.servlet.mvc.annotation.AnnotationMethodHandlerAdapter" />
