@@ -45,6 +45,20 @@
                     <scope>system</scope>
                     <value>${installdir}/java</value>
                 </addEnvironmentVariable>
+				<runProgram>
+		        	<!--  Link the JRE_HOME environment variable to the Java folder -->
+		        	<abortOnError>0</abortOnError>
+		            <program>defaults</program>
+		           <!-- The CDATA notation allow escaping a
+		            block of XML characters -->
+		           <programArguments>write vnd.openforis.collectearth LSEnvironment <![CDATA["<dict><key>JRE_HOME</key><string>${installdir}/java</string></dict>"]]></programArguments>
+		           <ruleList>
+		                <platformTest>
+		                    <type>osx</type>
+		                </platformTest>
+		            </ruleList>
+		        </runProgram>
+				
                 <runProgram>
                     <program>chown</program>
                     <programArguments>-fR ${system_username}  "${installdir}/saiku-server_2.6"</programArguments>

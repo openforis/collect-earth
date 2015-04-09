@@ -11,16 +11,13 @@ import java.io.IOException;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.util.Properties;
-import java.util.concurrent.ExecutionException;
 
 import javax.swing.Box;
 import javax.swing.JButton;
 import javax.swing.JDialog;
 import javax.swing.JFrame;
 import javax.swing.JLabel;
-import javax.swing.JOptionPane;
 import javax.swing.JPanel;
-import javax.swing.SwingWorker;
 
 import org.openforis.collect.earth.app.service.UpdateIniUtils;
 import org.slf4j.Logger;
@@ -126,40 +123,6 @@ public class AboutDialog extends JDialog {
 	        } catch (URISyntaxException use) {
 	            throw new AssertionError(use + ": " + l.getText()); //NOI18N //$NON-NLS-1$
 	        }
-	    }
-	}
-
-	private static class LinkRunner extends SwingWorker<Void, Void> {
-
-	    private final URI uri;
-
-	    private LinkRunner(URI u) {
-	        if (u == null) {
-	            throw new NullPointerException();
-	        }
-	        uri = u;
-	    }
-
-	    @Override
-	    protected Void doInBackground() throws Exception {
-	        Desktop desktop = java.awt.Desktop.getDesktop();
-	        desktop.browse(uri);
-	        return null;
-	    }
-
-	    @Override
-	    protected void done() {
-	        try {
-	            get();
-	        } catch (ExecutionException ee) {
-	            handleException(uri, ee);
-	        } catch (InterruptedException ie) {
-	            handleException(uri, ie);
-	        }
-	    }
-
-	    private static void handleException(URI u, Exception e) {
-	        JOptionPane.showMessageDialog(null, Messages.getString("AboutDialog.6"), Messages.getString("AboutDialog.19"), JOptionPane.ERROR_MESSAGE); //$NON-NLS-1$ //$NON-NLS-2$
 	    }
 	}
 

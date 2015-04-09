@@ -72,6 +72,8 @@ public class PlacemarkDataController extends JsonPocessorServlet {
 				result.setMessage(Messages.getString("SaveEarthDataServlet.2"));
 				lastPlacemarkId = placemarkId;
 				lastPlacemarkStep = updateRequest.getCurrentStep();
+			}else{
+				logger.warn("Error when saving the data " + result.toString());
 			}
 		}
 		setJsonResponse(response, result);

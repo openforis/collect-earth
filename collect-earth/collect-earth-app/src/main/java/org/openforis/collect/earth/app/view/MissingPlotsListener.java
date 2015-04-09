@@ -33,6 +33,7 @@ import javax.swing.JPopupMenu;
 import javax.swing.JScrollPane;
 import javax.swing.JTextArea;
 
+import org.apache.commons.io.FileUtils;
 import org.openforis.collect.earth.app.EarthConstants;
 import org.openforis.collect.earth.app.ad_hoc.FixCoordinates;
 import org.openforis.collect.earth.app.service.EarthSurveyService;
@@ -89,26 +90,20 @@ public final class MissingPlotsListener implements ActionListener {
 
 	private JDialog findMissingPlots() {
 
-		JOptionPane.showMessageDialog( frame,
-				Messages.getString("MissingPlotsListener.3"),  //$NON-NLS-1$
-				Messages.getString("MissingPlotsListener.4"),  //$NON-NLS-1$
-				JOptionPane.INFORMATION_MESSAGE
-				);
+		showFeatureInformation();
 
-		final File[] selectedPlotFiles = JFileChooserExistsAware.getFileChooserResults(DataFormat.COLLECT_COORDS, false, true, null,
-				localPropertiesService, frame);
-		long start = System.currentTimeMillis();
-		final Map<String, List<String>> plotIdsByFile = getPlotIdsByFile(selectedPlotFiles);
-		System.out.println("Finised getting all IDs " + ( start - System.currentTimeMillis() ) ); //$NON-NLS-1$
-		start = System.currentTimeMillis();
+		String missingPlotsText = getMissingPlotInformation();
+		File tempFile = getMissingPlotFile();
 
-		Map<String, List<String>> missingPlotIds = getMissingPlotIds(plotIdsByFile);
+		return buildDialog(missingPlotsText, tempFile);
+	}
 
-		System.out.println("Finised getting missing IDs " + ( start - System.currentTimeMillis() ) ); //$NON-NLS-1$
-		start = System.currentTimeMillis();
+	private File getMissingPlotFile() {
+		// TODO Auto-generated method stub
+		return null;
+	}
 
-		String missingPlotsText = getTextMissingPlots( missingPlotIds );
-
+	public JDialog buildDialog(String missingPlotsText, File tempFile) {
 		final JDialog dialog = new JDialog(frame, Messages.getString("MissingPlotsListener.1")); //$NON-NLS-1$
 		dialog.setLocationRelativeTo(frame);
 		dialog.setSize(new Dimension(300, 400));
@@ -129,14 +124,15 @@ public final class MissingPlotsListener implements ActionListener {
 		scrollPane.setPreferredSize(new Dimension(250, 250));
 
 		final JButton close = new JButton(Messages.getString("CollectEarthWindow.5")); //$NON-NLS-1$
-		close.addActionListener(new ActionListener() {
-
-			@Override
-			public void actionPerformed(ActionEvent e) {
-				dialog.setVisible(false);
-			}
-		});
+		close.addActionListener(e -> dialog.setVisible(false));
 		panel.add(close, BorderLayout.SOUTH);
+		
+		if( tempFile != null ){
+			final JButton export = new JButton(Messages.getString(Messages.getString("MissingPlotsListener.6"))); //$NON-NLS-1$
+			ActionListener exportListener = getExportListener( tempFile );
+			export.addActionListener( exportListener  );
+			panel.add(export, BorderLayout.SOUTH);
+		}
 
 		disclaimerTextArea.addMouseListener( new MouseAdapter() {
 			public void mousePressed(MouseEvent e)  {check(e);}
@@ -150,6 +146,68 @@ public final class MissingPlotsListener implements ActionListener {
 		});
 
 		return dialog;
+	}
+
+	private ActionListener getExportListener( File tempFile ) {
+		
+		ActionListener exportListener = new ActionListener() {
+			
+			@Override
+			public void actionPerformed(ActionEvent e) {
+				final File[] saveToCsvFile = JFileChooserExistsAware.getFileChooserResults(DataFormat.COLLECT_COORDS, true, false, "plotsWithMissingInfo.csv", //$NON-NLS-1$ //$NON-NLS-2$
+						localPropertiesService, frame);
+
+				if( saveToCsvFile != null && saveToCsvFile.length == 1 ){
+					try {
+						FileUtils.copyFile( tempFile, saveToCsvFile[0]);
+					
+					} catch (IOException e1) {
+						logger.error("Error when copying temporary file with missing plots to final destination " + tempFile.getAbsolutePath() + " to " + saveToCsvFile[0].getAbsolutePath() , e); //$NON-NLS-1$ //$NON-NLS-2$
+					}
+					
+				}
+			}
+		};
+		
+		return exportListener;
+		
+		
+	}
+
+	public void showFeatureInformation() {
+		JOptionPane.showMessageDialog( frame,
+				Messages.getString("MissingPlotsListener.3"),  //$NON-NLS-1$
+				Messages.getString("MissingPlotsListener.4"),  //$NON-NLS-1$
+				JOptionPane.INFORMATION_MESSAGE
+				);
+	}
+
+	private String getMissingPlotInformation() {
+		final File[] selectedPlotFiles = JFileChooserExistsAware.getFileChooserResults(DataFormat.COLLECT_COORDS, false, true, null,
+				localPropertiesService, frame);
+		final Map<String, List<String>> plotIdsByFile = getPlotIdsByFile(selectedPlotFiles);
+	
+		Map<String, List<String>> missingPlotIds = getMissingPlotsByFile(plotIdsByFile);
+
+		String missingPlotsText = getTextMissingPlots( missingPlotIds );
+		
+		int totalPlots = 0;
+		int missingPlots = 0;
+		for (String key : plotIdsByFile.keySet()) {
+			List<String> plotsInFile = plotIdsByFile.get(key);
+			if( plotsInFile!=null){
+				totalPlots += plotsInFile.size();
+				missingPlots += missingPlotIds.get(key).size();
+			}
+		}
+		missingPlotsText += "\n\n"+Messages.getString("MissingPlotsListener.10") + totalPlots ; //$NON-NLS-1$ //$NON-NLS-2$
+		
+		if( missingPlotIds.size() > 0 ){
+			missingPlotsText += "\n"+Messages.getString("MissingPlotsListener.12") + missingPlots; //$NON-NLS-1$ //$NON-NLS-2$
+		}else{
+			missingPlotsText +="\n"+Messages.getString("MissingPlotsListener.14"); //$NON-NLS-1$ //$NON-NLS-2$
+		}
+		return missingPlotsText;
 	}
 
 	private JPopupMenu getPopupMenu(){
@@ -223,7 +281,7 @@ public final class MissingPlotsListener implements ActionListener {
 		return plotIds;
 	}
 
-	private Map<String, List<String>> getMissingPlotIds(Map<String, List<String>> plotIdsByFile) {
+	private Map<String, List<String>> getMissingPlotsByFile(Map<String, List<String>> plotIdsByFile) {
 		final Map<String, List<String>> missingPlotIdsByFile = new HashMap<String, List<String>>();
 
 		final Set<String> plotFiles = plotIdsByFile.keySet();

@@ -60,16 +60,16 @@ public class OpenTextFileListener implements ActionListener {
 
 	@Override
 	public void actionPerformed(ActionEvent e) {
-		disclaimerTextArea.setText(getDisclaimerText());
+		disclaimerTextArea.setText(getTextContents());
 		dialog.setVisible(true);
 	}
 
-	private String getDisclaimerText() {
+	private String getTextContents() {
 		try {
 			
 			return FileUtils.readFileToString(new File( filePath ));
 		} catch (final IOException e) {
-			logger.error("Disclaimer text not found", e); //$NON-NLS-1$
+			logger.error(Messages.getString("OpenTextFileListener.0") + filePath.toString(), e);  //$NON-NLS-1$
 			return Messages.getString("CollectEarthWindow.8"); //$NON-NLS-1$
 		}
 	}

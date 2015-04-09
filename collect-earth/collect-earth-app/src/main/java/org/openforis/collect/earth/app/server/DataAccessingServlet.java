@@ -13,7 +13,7 @@ public abstract class DataAccessingServlet {
 
 	@Autowired
 	private DataAccessor dataAccessor;
-	private final Logger logger = LoggerFactory.getLogger(this.getClass());
+	protected final Logger logger = LoggerFactory.getLogger(this.getClass());
 
 	public DataAccessingServlet() {
 		super();

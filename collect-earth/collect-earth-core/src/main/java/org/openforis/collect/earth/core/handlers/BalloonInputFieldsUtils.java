@@ -57,6 +57,7 @@ public class BalloonInputFieldsUtils {
 			new DateAttributeHandler(),
 			new EntityHandler(this),
 			new IntegerAttributeHandler(),
+			new RangeAttributeHandler(),
 			new RealAttributeHandler(),
 			new TextAttributeHandler(),
 			new TimeAttributeHandler()

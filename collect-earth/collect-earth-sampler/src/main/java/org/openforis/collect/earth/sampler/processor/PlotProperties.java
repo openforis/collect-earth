@@ -12,5 +12,6 @@ public class PlotProperties {
 	public Double aspect;
 	public String[] extraInfo;
 	public Map<String, String> valuesByColumn;
+	public String[] extraColumns;
 
 }

@@ -144,7 +144,10 @@ ${html_for_balloon}
 		       <Data name="region">
 		        <value>${placemark.extraInfo[0]}</value>
 		      </Data>
-		      
+		      <Data name="randomNumber">
+		        <value><#if randomNumber??>${randomNumber}<#else>1</#if></value>
+		      </Data>
+     
      	</ExtendedData>
      	<gx:balloonVisibility>0</gx:balloonVisibility>
   		

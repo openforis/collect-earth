@@ -117,5 +117,14 @@ public class PlacemarkLoadResult {
 	public void setCurrentStep(String currentStep) {
 		this.currentStep = currentStep;
 	}
+
+	@Override
+	public String toString() {
+		return "PlacemarkLoadResult [inputFieldInfoByParameterName="
+				+ inputFieldInfoByParameterName + ", success=" + success
+				+ ", message=" + message + ", activelySaved=" + activelySaved
+				+ ", validData=" + validData + ", skipFilled=" + skipFilled
+				+ ", currentStep=" + currentStep + "]";
+	}
 	
 }

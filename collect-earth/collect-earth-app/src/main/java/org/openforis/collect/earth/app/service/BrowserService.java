@@ -271,7 +271,7 @@ public class BrowserService implements Observer{
 		return driver;
 	}
 
-	private boolean isGEEValidJS(String geeJs, RemoteWebDriver driver) {
+	/*private boolean isGEEValidJS(String geeJs, RemoteWebDriver driver) {
 
 		boolean stillValid = false;
 
@@ -286,7 +286,7 @@ public class BrowserService implements Observer{
 		}
 
 		return stillValid;
-	}
+	}*/
 
 	private boolean isIdOrNamePresent(String elementId, RemoteWebDriver driver) {
 		boolean found = false;
@@ -345,10 +345,11 @@ public class BrowserService implements Observer{
 						String geeJs = getGEEJavascript(latLong);
 						if (!isGeeMethodUpdated()) {
 							try {
-								if (!isGEEValidJS(geeJs, driver)) {
+								// REFRESH EVERY TIME!!!
+								// if (!isGEEValidJS(geeJs, driver)) {
 									refreshJSValues(geeJs, driver);
 									geeJs = getGEEJavascript(latLong);
-								}
+								//}
 							} catch (final Exception e) {
 								logger.error("Error checking the validity of the GEE js code", e);
 							} finally {
