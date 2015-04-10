@@ -66,7 +66,7 @@ public abstract class KmlGenerator extends AbstractCoordinateCalculation {
 			}
 			
 			// Add all extra columns 
-			for ( int extraIndex = 0; extraIndex < csvValuesInLine.length; extraIndex++) {
+			for ( int extraIndex = 3; extraIndex < csvValuesInLine.length; extraIndex++) {
 				extraColumns.add( StringEscapeUtils.escapeXml( csvValuesInLine[extraIndex]) );
 			}
 			
