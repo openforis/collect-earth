@@ -261,6 +261,7 @@
             </ruleList>
         </runProgram>
 		
+        -->
         <copyFile>
             <abortOnError>0</abortOnError>
             <destination>${installdir}/${java_launcher_binary_name}/Contents/Resources/installbuilder.icns</destination>
@@ -270,7 +271,6 @@
             </ruleList>
         </copyFile>
         
-        -->
         
         
         <createSymLink>
