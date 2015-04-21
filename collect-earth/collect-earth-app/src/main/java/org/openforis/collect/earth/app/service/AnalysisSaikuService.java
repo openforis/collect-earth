@@ -438,7 +438,9 @@ public class AnalysisSaikuService {
 		return ! ( 
 				StringUtils.isBlank( System.getenv("JAVA_HOME") )  //$NON-NLS-1$
 				&& 
-				StringUtils.isBlank( System.getenv("JRE_HOME") )  //$NON-NLS-1$
+				StringUtils.isBlank( System.getenv("JRE_HOME") ) //$NON-NLS-1$ 
+				&& 
+				StringUtils.isBlank( System.getenv("COLLECT_EARTH_JRE_HOME") )  //$NON-NLS-1$
 		);
 	}
 
