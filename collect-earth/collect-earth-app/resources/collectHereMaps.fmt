@@ -1,6 +1,6 @@
 <html>
 <head>
-
+<title>Here Maps -- Collect Earth</title>
 <meta name="viewport" content="initial-scale=1.0, 
                       width=device-width" />
                   <script src="http://js.api.here.com/v3/3.0/mapsjs-core.js" 
