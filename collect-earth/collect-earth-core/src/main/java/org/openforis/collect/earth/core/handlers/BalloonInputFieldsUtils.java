@@ -102,8 +102,9 @@ public class BalloonInputFieldsUtils {
 		List<Attribute<?, ?>> attributes = handler.getAttributeNodesFromParameter(cleanName, rootEntity);
 		Attribute<?, ?> firstAttribute = attributes.get(0);
 
-		info.setValue(handler.getValueFromParameter(cleanName, rootEntity));
-		
+		String value = handler.getValueFromParameter(cleanName, rootEntity);
+
+		info.setValue(value);
 		info.setVisible(firstAttribute.isRelevant());
 		
 		String errorMessage = validationMessageByPath.get(firstAttribute.getPath());
@@ -115,6 +116,8 @@ public class BalloonInputFieldsUtils {
 			CodeAttributeDefinition attrDef = (CodeAttributeDefinition) firstAttribute.getDefinition();
 			CodeListService codeListService = record.getSurveyContext().getCodeListService();
 			List<CodeListItem> validCodeListItems = codeListService.loadValidItems(firstAttribute.getParent(), attrDef);
+			CodeListItem selectedCodeListItem = getCodeListItem(validCodeListItems, value);
+			info.setCodeItemId(selectedCodeListItem == null ? null: selectedCodeListItem.getId());
 			List<PlacemarkCodedItem> possibleCodedItems = new ArrayList<PlacemarkCodedItem>(validCodeListItems.size() + 1);
 			possibleCodedItems.add(new PlacemarkCodedItem(NOT_APPLICABLE_ITEM_CODE, NOT_APPLICABLE_ITEM_LABEL));
 			for (CodeListItem item : validCodeListItems) {
@@ -123,6 +126,15 @@ public class BalloonInputFieldsUtils {
 			info.setPossibleCodedItems(possibleCodedItems);
 		}
 		return info;
+	}
+
+	private CodeListItem getCodeListItem(List<CodeListItem> items, String code) {
+		for (CodeListItem item : items) {
+			if (item.getCode().equals(code)) {
+				return item;
+			}
+		}
+		return null;
 	}
 
 	private Map<String, String> generateValidationMessages(CollectRecord record) {

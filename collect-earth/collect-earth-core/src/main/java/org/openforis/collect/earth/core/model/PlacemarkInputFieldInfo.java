@@ -13,6 +13,7 @@ public class PlacemarkInputFieldInfo {
 	private boolean visible;
 	private boolean inError;
 	private String errorMessage;
+	private Integer codeItemId;
 	private List<PlacemarkCodedItem> possibleCodedItems;
 
 	public String getValue() {
@@ -47,6 +48,14 @@ public class PlacemarkInputFieldInfo {
 		this.errorMessage = errorMessage;
 	}
 
+	public Integer getCodeItemId() {
+		return codeItemId;
+	}
+	
+	public void setCodeItemId(Integer codeItemId) {
+		this.codeItemId = codeItemId;
+	}
+	
 	public List<PlacemarkCodedItem> getPossibleCodedItems() {
 		return possibleCodedItems;
 	}
