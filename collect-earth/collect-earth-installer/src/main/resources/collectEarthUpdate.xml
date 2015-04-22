@@ -15,7 +15,7 @@
             <platform>linux</platform>
         </platformFile>
         <platformFile>
-            <filename>collect-earth-installer-PROJECT_VERSION-osx-updater.app</filename>
+            <filename>collect-earth-installer-PROJECT_VERSION-osx-updater.zip</filename>
             <platform>osx</platform>
         </platformFile>
     </platformFileList>
