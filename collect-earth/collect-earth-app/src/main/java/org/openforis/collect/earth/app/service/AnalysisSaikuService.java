@@ -35,6 +35,7 @@ import org.openforis.collect.model.CollectRecord.Step;
 import org.openforis.collect.relational.CollectRDBPublisher;
 import org.openforis.collect.relational.CollectRdbException;
 import org.openforis.collect.relational.model.RelationalSchemaConfig;
+import org.openforis.idm.metamodel.Schema;
 import org.openqa.selenium.remote.RemoteWebDriver;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -114,6 +115,7 @@ public class AnalysisSaikuService {
 	private static final String MDX_XML = "collectEarthCubes.xml"; //$NON-NLS-1$
 	private static final String MDX_TEMPLATE = MDX_XML + ".fmt"; //$NON-NLS-1$
 	private static final String REGION_AREAS_CSV = "region_areas.csv"; //$NON-NLS-1$
+	private static final String ATTRIBUTE_AREAS_CSV = "areas_per_attribute.csv"; //$NON-NLS-1$
 	private boolean userCancelledOperation = false;
 	private boolean saikuStarted;
 
@@ -562,7 +564,10 @@ public class AnalysisSaikuService {
 
 		assignLUCDimensionValues();
 
-		addAreasPerRegion();
+		// If the region_areas.csv is not present then try to add the areas "per attribute" using the file areas_per_attribute.csv
+		if(!addAreasPerRegion()){
+			addAreasPerAttribute();
+		}
 
 	}
 
@@ -575,8 +580,90 @@ public class AnalysisSaikuService {
 		return reader;
 	}
 
+	private boolean addAreasPerAttribute() throws SQLException {
 
-	private void addAreasPerRegion() throws SQLException {
+		final File areasPerAttribute = new File( localPropertiesService.getProjectFolder() + File.separatorChar + ATTRIBUTE_AREAS_CSV);
+		String schemaName = getSchemaPrefix();
+		
+		if (areasPerAttribute.exists()) {
+
+			try {
+				CSVReader csvReader = KmlGenerator.getCsvReader(areasPerAttribute.getAbsolutePath());
+				String[] csvLine = null;
+				
+				// The header (first line) should contain the names of the three columns : attribute_name,area,weight
+				
+				String[] columnNames = csvReader.readNext();
+				
+				String attributeName = columnNames[0];
+								
+				// Validate attribute name
+				if( !isAttributeInPlotEntity( attributeName ) ){
+					throw new RuntimeException("The expected format of the CSV file at " + areasPerAttribute.getAbsolutePath() + " should be attribute_name,area,weight. The name of the attribute in hte first column of your CSV '" + attributeName + "'is not a attribute under the plot entity.");
+				}
+				//Validate area and weight headers.
+				if( !columnNames[1].equalsIgnoreCase("area") || !columnNames[2].equalsIgnoreCase("weight")){
+					throw new RuntimeException("The expected format of the CSV file at " + areasPerAttribute.getAbsolutePath() + " should be attribute_name,area,weight");
+				}
+
+				while( ( csvLine = csvReader.readNext() ) != null ){
+						String attributeValue = csvLine[0];
+						int area_hectars = Integer.parseInt( csvLine[1] );
+						final Float plot_weight =  Float.parseFloat( csvLine[2] );
+
+						Object[] parameters = new String[]{attributeValue};
+
+						int plots_per_region = jdbcTemplate.queryForInt( "SELECT count("+PLOT_ID+") FROM " + schemaName  + "plot  WHERE " + attributeName + "=? ", parameters); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$ //$NON-NLS-4$
+
+						Float expansion_factor_hectars_calc = 0f;
+						if( plots_per_region != 0 ){
+							expansion_factor_hectars_calc = (float)area_hectars / (float) plots_per_region;
+						}
+					
+						final Object[] updateValues = new Object[3];
+						updateValues[0] = expansion_factor_hectars_calc;
+						updateValues[1] = plot_weight;
+						updateValues[2] = attributeValue;
+						jdbcTemplate.update("UPDATE " + schemaName + "plot SET "+EXPANSION_FACTOR+"=?, "+PLOT_WEIGHT+"=? WHERE " + attributeName + "=?", updateValues); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$ //$NON-NLS-4$
+				}
+								
+			} catch (FileNotFoundException e) {
+				logger.error("File not found?", e); //$NON-NLS-1$
+			} catch (IOException e) {
+				logger.error("Error reading the CSV file", e); //$NON-NLS-1$
+			}
+
+			return true;
+		}else{
+			logger.warn("No CSV region_areas.csv present, calculating areas will not be possible"); //$NON-NLS-1$
+			return false;
+		}
+
+	}
+
+	private boolean isAttributeInPlotEntity(String attributeName) {
+		Schema schema = earthSurveyService.getCollectSurvey().getSchema();
+		boolean attributeExists = true;
+		try {
+			schema.getRootEntityDefinition(EarthConstants.ROOT_ENTITY_NAME ).getChildDefinition(attributeName);
+		} catch (Exception e) {
+			// The attribute does not exist under the plot entity
+			attributeExists = false;
+		}
+		return attributeExists;
+	}
+
+	private boolean isAttributeInPlotEntity() {
+		// TODO Auto-generated method stub
+		return false;
+	}
+
+	/**
+	 * This is the "old way"of assigning an expansion factor (the area in hecaters that a plot represents) to a plot based on the information form the "region_areas.csv" file.
+	 * @return True if there was a region_areas.csv file, false if not present so that areas were not assigned.
+	 * @throws SQLException
+	 */
+	private boolean addAreasPerRegion() throws SQLException {
 
 		final File regionAreas = new File( localPropertiesService.getProjectFolder() + File.separatorChar + REGION_AREAS_CSV);
 		String schemaName = getSchemaPrefix();
@@ -632,8 +719,10 @@ public class AnalysisSaikuService {
 				logger.error("Error reading the CSV file", e); //$NON-NLS-1$
 			}
 
+			return true;
 		}else{
 			logger.warn("No CSV region_areas.csv present, calculating areas will not be possible"); //$NON-NLS-1$
+			return false;
 		}
 
 	}
