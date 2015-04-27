@@ -10,9 +10,11 @@ import java.awt.event.ActionListener;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
 import java.io.BufferedReader;
+import java.io.BufferedWriter;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
+import java.io.FileWriter;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.nio.charset.Charset;
@@ -92,15 +94,54 @@ public final class MissingPlotsListener implements ActionListener {
 
 		showFeatureInformation();
 
-		String missingPlotsText = getMissingPlotInformation();
-		File tempFile = getMissingPlotFile();
+		final File[] selectedPlotFiles = JFileChooserExistsAware.getFileChooserResults(DataFormat.COLLECT_COORDS, false, true, null,
+				localPropertiesService, frame);
+
+		final Map<String, List<String[]>> allPlotsInFiles = getPlotDataByFile(selectedPlotFiles);
+		Map<String, List<String[]>> missingPlotData = getMissingPlotsByFile(allPlotsInFiles);
+
+		String missingPlotsText = getMissingPlotInformation(allPlotsInFiles, missingPlotData);
+		File tempFile = getMissingPlotFile(missingPlotData);
 
 		return buildDialog(missingPlotsText, tempFile);
 	}
 
-	private File getMissingPlotFile() {
-		// TODO Auto-generated method stub
-		return null;
+	private File getMissingPlotFile(Map<String, List<String[]>> missingPlotData) {
+
+		BufferedWriter fw =null;
+		File tempFile = null;
+		try {
+			tempFile = File.createTempFile("missingPlots",  "csv");
+			fw = new BufferedWriter( new FileWriter( tempFile ) );
+
+
+			Set<String> files = missingPlotData.keySet();
+			for (String plotFile : files) {
+
+				List<String[]> missingPlots = missingPlotData.get(plotFile);
+				StringBuffer csvRow = new StringBuffer("");
+				for (String[] plotData : missingPlots) {
+					csvRow = new StringBuffer("");
+					for (String data : plotData) {
+						csvRow.append(data).append(",");
+					}
+					csvRow.delete(csvRow.length()-1, csvRow.length()).append("\n");
+					fw.write(csvRow.toString());
+				}
+			}
+
+		} catch (IOException e) {
+			logger.error("Error while producing the CSV with the missing plots" );
+		}finally{
+			if(fw!=null){
+				try {
+					fw.close();
+				} catch (IOException e) {
+					logger.error("Error while closing the stream of the CSV with the missing plots" );
+				}
+			}
+		}
+		return tempFile;
 	}
 
 	public JDialog buildDialog(String missingPlotsText, File tempFile) {
@@ -126,10 +167,10 @@ public final class MissingPlotsListener implements ActionListener {
 		final JButton close = new JButton(Messages.getString("CollectEarthWindow.5")); //$NON-NLS-1$
 		close.addActionListener(e -> dialog.setVisible(false));
 		panel.add(close, BorderLayout.SOUTH);
-		
+
 		if( tempFile != null ){
 			final JButton export = new JButton(Messages.getString(Messages.getString("MissingPlotsListener.6"))); //$NON-NLS-1$
-			ActionListener exportListener = getExportListener( tempFile );
+			ActionListener exportListener = getSaveAsListener( tempFile );
 			export.addActionListener( exportListener  );
 			panel.add(export, BorderLayout.SOUTH);
 		}
@@ -148,10 +189,10 @@ public final class MissingPlotsListener implements ActionListener {
 		return dialog;
 	}
 
-	private ActionListener getExportListener( File tempFile ) {
-		
-		ActionListener exportListener = new ActionListener() {
-			
+	private ActionListener getSaveAsListener( File tempFile ) {
+
+		ActionListener saveAsListener = new ActionListener() {
+
 			@Override
 			public void actionPerformed(ActionEvent e) {
 				final File[] saveToCsvFile = JFileChooserExistsAware.getFileChooserResults(DataFormat.COLLECT_COORDS, true, false, "plotsWithMissingInfo.csv", //$NON-NLS-1$ //$NON-NLS-2$
@@ -160,18 +201,17 @@ public final class MissingPlotsListener implements ActionListener {
 				if( saveToCsvFile != null && saveToCsvFile.length == 1 ){
 					try {
 						FileUtils.copyFile( tempFile, saveToCsvFile[0]);
-					
 					} catch (IOException e1) {
 						logger.error("Error when copying temporary file with missing plots to final destination " + tempFile.getAbsolutePath() + " to " + saveToCsvFile[0].getAbsolutePath() , e); //$NON-NLS-1$ //$NON-NLS-2$
 					}
-					
+
 				}
 			}
 		};
-		
-		return exportListener;
-		
-		
+
+		return saveAsListener;
+
+
 	}
 
 	public void showFeatureInformation() {
@@ -182,27 +222,22 @@ public final class MissingPlotsListener implements ActionListener {
 				);
 	}
 
-	private String getMissingPlotInformation() {
-		final File[] selectedPlotFiles = JFileChooserExistsAware.getFileChooserResults(DataFormat.COLLECT_COORDS, false, true, null,
-				localPropertiesService, frame);
-		final Map<String, List<String>> plotIdsByFile = getPlotIdsByFile(selectedPlotFiles);
-	
-		Map<String, List<String>> missingPlotIds = getMissingPlotsByFile(plotIdsByFile);
+	private String getMissingPlotInformation(Map<String, List<String[]>> allPlotDataInFiles, Map<String, List<String[]>> missingPlotDataPerFile ) {
 
-		String missingPlotsText = getTextMissingPlots( missingPlotIds );
-		
+		String missingPlotsText = getTextMissingPlots( missingPlotDataPerFile );
+
 		int totalPlots = 0;
 		int missingPlots = 0;
-		for (String key : plotIdsByFile.keySet()) {
-			List<String> plotsInFile = plotIdsByFile.get(key);
+		for (String key : allPlotDataInFiles.keySet()) {
+			List<String[]> plotsInFile = allPlotDataInFiles.get(key);
 			if( plotsInFile!=null){
 				totalPlots += plotsInFile.size();
-				missingPlots += missingPlotIds.get(key).size();
+				missingPlots += missingPlotDataPerFile.get(key).size();
 			}
 		}
 		missingPlotsText += "\n\n"+Messages.getString("MissingPlotsListener.10") + totalPlots ; //$NON-NLS-1$ //$NON-NLS-2$
-		
-		if( missingPlotIds.size() > 0 ){
+
+		if( missingPlots > 0 ){
 			missingPlotsText += "\n"+Messages.getString("MissingPlotsListener.12") + missingPlots; //$NON-NLS-1$ //$NON-NLS-2$
 		}else{
 			missingPlotsText +="\n"+Messages.getString("MissingPlotsListener.14"); //$NON-NLS-1$ //$NON-NLS-2$
@@ -233,28 +268,27 @@ public final class MissingPlotsListener implements ActionListener {
 		return popup;
 	}
 
-	private String getTextMissingPlots(Map<String, List<String>> missingPlotIds) {
-		String missingPlots = ""; //$NON-NLS-1$
+	private String getTextMissingPlots(Map<String, List<String[]>> missingPlotDataPerFile) {
+		StringBuffer missingPlots = new StringBuffer(""); //$NON-NLS-1$
 
-		Set<String> files = missingPlotIds.keySet();
-		for (String file : files) {
+		Set<String> files = missingPlotDataPerFile.keySet();
+		for (String fileToBeChecked : files) {
 
-			missingPlots += "\n" + Messages.getString("MissingPlotsListener.5") + file + " : \n"; //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$
-			List<String> plotIds = missingPlotIds.get(file);
-			if( plotIds.size() == 0 ){
-				missingPlots += "COMPLETE "; //$NON-NLS-1$
+			missingPlots.append("\n").append(Messages.getString("MissingPlotsListener.5")).append( fileToBeChecked ).append(" : \n"); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$
+
+			List<String[]> missingIds = missingPlotDataPerFile.get(fileToBeChecked);
+			if( missingIds.size() == 0 ){
+				missingPlots.append("COMPLETE "); //$NON-NLS-1$
 			}
-			
-			for (String plotId : plotIds) {
-				missingPlots += plotId + ","; //$NON-NLS-1$
+
+			for (String[] missingPlotData : missingIds) {
+				missingPlots.append( missingPlotData[0] ).append(","); //$NON-NLS-1$
 			}
-			
-			missingPlots = missingPlots.substring(0, missingPlots.length() - 1 ) + "\n"; //$NON-NLS-1$
+
+			missingPlots = missingPlots.delete(missingPlots.length() - 1, missingPlots.length() ).append("\n"); //$NON-NLS-1$
 
 		}
-
-		return missingPlots;
-
+		return missingPlots.toString();
 	}
 
 	private CSVReader getCsvReader(String csvFile) throws FileNotFoundException {
@@ -264,58 +298,52 @@ public final class MissingPlotsListener implements ActionListener {
 		return reader;
 	}
 
-	private List<String> getIdsInFile(String plotCoordinateFile) {
-		final List<String> plotIds = new ArrayList<String>();
+	private List<String[]> getPlotDataFromFile(String plotCoordinateFile) {
+		final List<String[]> plotData = new ArrayList<String[]>();
 		try {
 			final CSVReader plotCsvReader = getCsvReader(plotCoordinateFile);
 			String[] csvRow;
 			while ((csvRow = plotCsvReader.readNext()) != null) {
-				plotIds.add(csvRow[0]);
+				plotData.add(csvRow);
 			}
 		} catch (final FileNotFoundException e) {
 			logger.error("Error reading coordinate file " + plotCoordinateFile, e); //$NON-NLS-1$
 		} catch (final IOException e) {
 			logger.error("Error reading CSV line", e); //$NON-NLS-1$
 		}
-
-		return plotIds;
+		return plotData;
 	}
 
-	private Map<String, List<String>> getMissingPlotsByFile(Map<String, List<String>> plotIdsByFile) {
-		final Map<String, List<String>> missingPlotIdsByFile = new HashMap<String, List<String>>();
-
-		final Set<String> plotFiles = plotIdsByFile.keySet();
+	private Map<String, List<String[]>> getMissingPlotsByFile(Map<String, List<String[]>> plotDataByFIle) {
+		final Map<String, List<String[]>> missingPlotIdsByFile = new HashMap<String, List<String[]>>();
+		final Set<String> plotFiles = plotDataByFIle.keySet();
 		for (final String plotFile : plotFiles) {
 
-			missingPlotIdsByFile.put(plotFile, new ArrayList<String>());
-			
-			final List<String> plotIdsInFile = plotIdsByFile.get(plotFile);
-			for (final String plotId : plotIdsInFile) {
+			missingPlotIdsByFile.put(plotFile, new ArrayList<String[]>());
+
+			final List<String[]> plotDataInFile = plotDataByFIle.get(plotFile);
+			for (final String[] plotData : plotDataInFile) {
 
 				if (shouldStopFixing()) {
 					break;
 				}
-				if (!isIdActivelySavedInDB(plotId)) {
-						missingPlotIdsByFile.get(plotFile).add(plotId);
+				if (!isIdActivelySavedInDB(plotData[0])) {
+					missingPlotIdsByFile.get(plotFile).add(plotData);
 				}
 			}
-
 		}
-
 		return missingPlotIdsByFile;
 	}
 
-	private Map<String, List<String>> getPlotIdsByFile(File[] selectedPlotFiles) {
-		final Map<String, List<String>> plotIdsByFile = new HashMap<String, List<String>>();
-
+	private Map<String, List<String[]>> getPlotDataByFile(File[] selectedPlotFiles) {
+		final Map<String, List<String[]>> plotDataByFile = new HashMap<String, List<String[]>>();
 		for (final File file : selectedPlotFiles) {
 			if (shouldStopFixing()) {
 				break;
 			}
-			plotIdsByFile.put(file.getAbsolutePath(), getIdsInFile(file.getAbsolutePath()));
+			plotDataByFile.put(file.getAbsolutePath(), getPlotDataFromFile(file.getAbsolutePath()));
 		}
-
-		return plotIdsByFile;
+		return plotDataByFile;
 	}
 
 	private boolean isIdActivelySavedInDB(String plotId) {
@@ -323,7 +351,7 @@ public final class MissingPlotsListener implements ActionListener {
 				earthSurveyService.getCollectSurvey(), 
 				EarthConstants.ROOT_ENTITY_NAME,
 				plotId
-			);
+				);
 
 		if( summaries != null && summaries.size() == 1 ){
 			CollectRecord record = recordManager.load(earthSurveyService.getCollectSurvey(), summaries.get(0).getId(), Step.ENTRY);
