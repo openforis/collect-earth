@@ -1,0 +1,350 @@
+<Schema name="drylandsmonitoring">
+  <Cube name="Collect Earth Plot" cache="true" enabled="true">
+    <Table name="plot" schema="${saikuDbSchema}"/>
+    <Dimension name="Id" type="StandardDimension" visible="true">
+      <Hierarchy visible="true" hasAll="true">
+        <Level name="Id" column="id" uniqueMembers="true" levelType="Regular" type="String"/>
+      </Hierarchy>
+    </Dimension>
+    <Dimension name="Location" type="StandardDimension" visible="true">
+      <Hierarchy visible="true" hasAll="true">
+        <Level name="Location" column="location" uniqueMembers="true" levelType="Regular" type="String"/>
+      </Hierarchy>
+    </Dimension>
+    <Dimension name="Operator" type="StandardDimension" visible="true">
+      <Hierarchy visible="true" hasAll="true">
+        <Level name="Operator" column="operator" uniqueMembers="true" levelType="Regular" type="String"/>
+      </Hierarchy>
+    </Dimension>
+    <Dimension name="CSV file that contains the plot" type="StandardDimension" visible="true">
+      <Hierarchy visible="true" hasAll="true">
+        <Level name="CSV file that contains the plot" column="plot_file" uniqueMembers="true" levelType="Regular" type="String"/>
+      </Hierarchy>
+    </Dimension>
+    <Dimension name="Actively saved by user" type="StandardDimension" visible="true">
+      <Hierarchy visible="true" hasAll="true">
+        <Level name="Actively saved by user" column="actively_saved" uniqueMembers="true" levelType="Regular" type="String"/>
+      </Hierarchy>
+    </Dimension>
+    <Dimension name="Last saved on" type="" visible="true">
+      <Hierarchy type="TimeDimension" allMemberName="attrLabel" visible="true" hasAll="true">
+        <Level name="Last saved on - Year" column="actively_saved_on_year" uniqueMembers="true" levelType="TimeYears" type="Numeric"/>
+        <Level name="Last saved on - Month" column="actively_saved_on_month" uniqueMembers="true" levelType="TimeMonths" type="Numeric"/>
+        <Level name="Last saved on - Day" column="actively_saved_on_day" uniqueMembers="true" levelType="TimeDays" type="Numeric"/>
+      </Hierarchy>
+    </Dimension>
+    <Dimension name="Land Use" foreignKey="land_use_category_code_id" type="StandardDimension" visible="true">
+      <Hierarchy visible="true" hasAll="true">
+        <Table name="land_use_use_code" schema="${saikuDbSchema}"/>
+        <Level name="Land Use" table="land_use_use_code" column="land_use_use_code_id" nameColumn="land_use_use_label_en" uniqueMembers="true" levelType="Regular" type="String"/>
+      </Hierarchy>
+    </Dimension>
+    <Dimension name="Land use Alias" foreignKey="land_use_category_alias_code_id" type="StandardDimension" visible="true">
+      <Hierarchy visible="true" hasAll="true">
+        <Table name="land_use_subcategory_use_code" schema="${saikuDbSchema}"/>
+        <Level name="Land use Alias" table="land_use_subcategory_use_code" column="land_use_subcategory_use_code_id" nameColumn="land_use_subcategory_use_label_en" uniqueMembers="true" levelType="Regular" type="String"/>
+      </Hierarchy>
+    </Dimension>
+    <Dimension name="Land Use Category - Confidence" type="StandardDimension" visible="true">
+      <Hierarchy visible="true" hasAll="true">
+        <Level name="Land Use Category - Confidence" column="land_use_category_accuracy" uniqueMembers="true" levelType="Regular" type="String"/>
+      </Hierarchy>
+    </Dimension>
+    <Dimension name="Land Use Sub-Category" foreignKey="land_use_subcategory_code_id" type="StandardDimension" visible="true">
+      <Hierarchy visible="true" hasAll="true">
+        <Table name="land_use_subcategory_subcategory_code" schema="${saikuDbSchema}"/>
+        <Level name="Land Use Sub-Category" table="land_use_subcategory_subcategory_code" column="land_use_subcategory_subcategory_code_id" nameColumn="land_use_subcategory_subcategory_label_en" uniqueMembers="true" levelType="Regular" type="String"/>
+      </Hierarchy>
+    </Dimension>
+    <Dimension name="Land Use Sub-Category - Confidence" type="StandardDimension" visible="true">
+      <Hierarchy visible="true" hasAll="true">
+        <Level name="Land Use Sub-Category - Confidence" column="land_use_subcategory_accuracy" uniqueMembers="true" levelType="Regular" type="String"/>
+      </Hierarchy>
+    </Dimension>
+    <Dimension name="Land Use Change - Known year of change" type="StandardDimension" visible="true">
+      <Hierarchy visible="true" hasAll="true">
+        <Level name="Land Use Change - Known year of change" column="land_use_subcategory_year_of_change_know" uniqueMembers="true" levelType="Regular" type="String"/>
+      </Hierarchy>
+    </Dimension>
+    <Dimension name="Land Use Change - Year of change" type="StandardDimension" visible="true">
+      <Hierarchy visible="true" hasAll="true">
+        <Level name="Land Use Change - Year of change" column="land_use_subcategory_year_of_change" uniqueMembers="true" levelType="Regular" type="Integer"/>
+      </Hierarchy>
+    </Dimension>
+    <Dimension name="RS Date" type="" visible="true">
+      <Hierarchy type="TimeDimension" allMemberName="attrLabel" visible="true" hasAll="true">
+        <Level name="RS Date - Year" column="rs_date_year" uniqueMembers="true" levelType="TimeYears" type="Numeric"/>
+        <Level name="RS Date - Month" column="rs_date_month" uniqueMembers="true" levelType="TimeMonths" type="Numeric"/>
+        <Level name="RS Date - Day" column="rs_date_day" uniqueMembers="true" levelType="TimeDays" type="Numeric"/>
+      </Hierarchy>
+    </Dimension>
+    <Dimension name="RS Satellite" foreignKey="rs_satellite_code_id" type="StandardDimension" visible="true">
+      <Hierarchy visible="true" hasAll="true">
+        <Table name="rs_satellite_code" schema="${saikuDbSchema}"/>
+        <Level name="RS Satellite" table="rs_satellite_code" column="rs_satellite_code_id" nameColumn="rs_satellite_label_en" uniqueMembers="true" levelType="Regular" type="String"/>
+      </Hierarchy>
+    </Dimension>
+    <Dimension name="Farming method" foreignKey="farming_method_code_id" type="StandardDimension" visible="true">
+      <Hierarchy visible="true" hasAll="true">
+        <Table name="farming_methods_code" schema="${saikuDbSchema}"/>
+        <Level name="Farming method" table="farming_methods_code" column="farming_methods_code_id" nameColumn="farming_methods_label_en" uniqueMembers="true" levelType="Regular" type="String"/>
+      </Hierarchy>
+    </Dimension>
+    <Dimension name="Soil Type" foreignKey="soil_type_code_id" type="StandardDimension" visible="true">
+      <Hierarchy visible="true" hasAll="true">
+        <Table name="soil_types_code" schema="${saikuDbSchema}"/>
+        <Level name="Soil Type" table="soil_types_code" column="soil_types_code_id" nameColumn="soil_types_label_en" uniqueMembers="true" levelType="Regular" type="String"/>
+      </Hierarchy>
+    </Dimension>
+    <Dimension name="Climate zone" foreignKey="climate_zone_code_id" type="StandardDimension" visible="true">
+      <Hierarchy visible="true" hasAll="true">
+        <Table name="climate_zones_code" schema="${saikuDbSchema}"/>
+        <Level name="Climate zone" table="climate_zones_code" column="climate_zones_code_id" nameColumn="climate_zones_label_en" uniqueMembers="true" levelType="Regular" type="String"/>
+      </Hierarchy>
+    </Dimension>
+    <Dimension name="Elevation" type="StandardDimension" visible="true">
+      <Hierarchy visible="true" hasAll="true">
+        <Level name="Elevation" column="elevation" uniqueMembers="true" levelType="Regular" type="Integer"/>
+      </Hierarchy>
+    </Dimension>
+    <Dimension name="Slope" type="StandardDimension" visible="true">
+      <Hierarchy visible="true" hasAll="true">
+        <Level name="Slope" column="slope" uniqueMembers="true" levelType="Regular" type="Numeric"/>
+      </Hierarchy>
+    </Dimension>
+    <Dimension name="Aspect" type="StandardDimension" visible="true">
+      <Hierarchy visible="true" hasAll="true">
+        <Level name="Aspect" column="aspect" uniqueMembers="true" levelType="Regular" type="Numeric"/>
+      </Hierarchy>
+    </Dimension>
+    <Dimension name="Drylands category" type="StandardDimension" visible="true">
+      <Hierarchy visible="true" hasAll="true">
+        <Level name="Drylands category" column="dryland_category" uniqueMembers="true" levelType="Regular" type="String"/>
+      </Hierarchy>
+    </Dimension>
+    <Dimension name="Country" type="StandardDimension" visible="true">
+      <Hierarchy visible="true" hasAll="true">
+        <Level name="Country" column="country" uniqueMembers="true" levelType="Regular" type="String"/>
+      </Hierarchy>
+    </Dimension>
+    <Dimension name="FRA Class" foreignKey="fra_class_code_id" type="StandardDimension" visible="true">
+      <Hierarchy visible="true" hasAll="true">
+        <Table name="fra_classes_code" schema="${saikuDbSchema}"/>
+        <Level name="FRA Class" table="fra_classes_code" column="fra_classes_code_id" nameColumn="fra_classes_label_en" uniqueMembers="true" levelType="Regular" type="String"/>
+      </Hierarchy>
+    </Dimension>
+    <Dimension name="Vegetation - Vegetation type" foreignKey="_plot_id" type="StandardDimension" visible="true">
+      <Hierarchy name="Vegetation - Vegetation type" primaryKey="_plot_id" primaryKeyTable="vegetation_elements" visible="true" hasAll="true">
+        <Join leftKey="vegetation_element_code_id" rightKey="vegetation_elements_code_id">
+          <Table name="vegetation_elements" schema="${saikuDbSchema}"/>
+          <Table name="vegetation_elements_code" schema="${saikuDbSchema}"/>
+        </Join>
+        <Level name="Vegetation type" table="vegetation_elements_code" column="vegetation_elements_code_id" nameColumn="vegetation_elements_label_en" uniqueMembers="true" levelType="Regular" type="String"/>
+      </Hierarchy>
+    </Dimension>
+    <Dimension name="Vegetation - Vegetation cover" foreignKey="_plot_id" type="StandardDimension" visible="true">
+      <Hierarchy name="Vegetation - Vegetation cover" primaryKey="_plot_id" primaryKeyTable="vegetation_elements" visible="true" hasAll="true">
+        <Join leftKey="element_cover_code_id" rightKey="elements_cover_code_id">
+          <Table name="vegetation_elements" schema="${saikuDbSchema}"/>
+          <Table name="elements_cover_code" schema="${saikuDbSchema}"/>
+        </Join>
+        <Level name="Vegetation cover" table="elements_cover_code" column="elements_cover_code_id" nameColumn="elements_cover_label_en" uniqueMembers="true" levelType="Regular" type="String"/>
+      </Hierarchy>
+    </Dimension>
+    <Dimension name="Infrastructure - Infrastructure elements" foreignKey="_plot_id" type="StandardDimension" visible="true">
+      <Hierarchy name="Infrastructure - Infrastructure elements" primaryKey="_plot_id" primaryKeyTable="infrastructure_elements" visible="true" hasAll="true">
+        <Join leftKey="infrastructure_element_code_id" rightKey="infrastructure_elements_code_id">
+          <Table name="infrastructure_elements" schema="${saikuDbSchema}"/>
+          <Table name="infrastructure_elements_code" schema="${saikuDbSchema}"/>
+        </Join>
+        <Level name="Infrastructure elements" table="infrastructure_elements_code" column="infrastructure_elements_code_id" nameColumn="infrastructure_elements_label_en" uniqueMembers="true" levelType="Regular" type="String"/>
+      </Hierarchy>
+    </Dimension>
+    <Dimension name="Infrastructure - Infrastructure cover" foreignKey="_plot_id" type="StandardDimension" visible="true">
+      <Hierarchy name="Infrastructure - Infrastructure cover" primaryKey="_plot_id" primaryKeyTable="infrastructure_elements" visible="true" hasAll="true">
+        <Join leftKey="element_cover_code_id" rightKey="elements_cover_code_id">
+          <Table name="infrastructure_elements" schema="${saikuDbSchema}"/>
+          <Table name="elements_cover_code" schema="${saikuDbSchema}"/>
+        </Join>
+        <Level name="Infrastructure cover" table="elements_cover_code" column="elements_cover_code_id" nameColumn="elements_cover_label_en" uniqueMembers="true" levelType="Regular" type="String"/>
+      </Hierarchy>
+    </Dimension>
+    <Dimension name="Water bodies - Water body" foreignKey="_plot_id" type="StandardDimension" visible="true">
+      <Hierarchy name="Water bodies - Water body" primaryKey="_plot_id" primaryKeyTable="water_bodies" visible="true" hasAll="true">
+        <Join leftKey="water_key_code_id" rightKey="water_element_code_id">
+          <Table name="water_bodies" schema="${saikuDbSchema}"/>
+          <Table name="water_element_code" schema="${saikuDbSchema}"/>
+        </Join>
+        <Level name="Water body" table="water_element_code" column="water_element_code_id" nameColumn="water_element_label_en" uniqueMembers="true" levelType="Regular" type="String"/>
+      </Hierarchy>
+    </Dimension>
+    <Dimension name="Water bodies - Water body cover" foreignKey="_plot_id" type="StandardDimension" visible="true">
+      <Hierarchy name="Water bodies - Water body cover" primaryKey="_plot_id" primaryKeyTable="water_bodies" visible="true" hasAll="true">
+        <Join leftKey="water_cover_code_id" rightKey="elements_cover_code_id">
+          <Table name="water_bodies" schema="${saikuDbSchema}"/>
+          <Table name="elements_cover_code" schema="${saikuDbSchema}"/>
+        </Join>
+        <Level name="Water body cover" table="elements_cover_code" column="elements_cover_code_id" nameColumn="elements_cover_label_en" uniqueMembers="true" levelType="Regular" type="String"/>
+      </Hierarchy>
+    </Dimension>
+    <Dimension name="Other - Other elements" foreignKey="_plot_id" type="StandardDimension" visible="true">
+      <Hierarchy name="Other - Other elements" primaryKey="_plot_id" primaryKeyTable="other_elements" visible="true" hasAll="true">
+        <Join leftKey="other_key_code_id" rightKey="other_elements_code_id">
+          <Table name="other_elements" schema="${saikuDbSchema}"/>
+          <Table name="other_elements_code" schema="${saikuDbSchema}"/>
+        </Join>
+        <Level name="Other elements" table="other_elements_code" column="other_elements_code_id" nameColumn="other_elements_label_en" uniqueMembers="true" levelType="Regular" type="String"/>
+      </Hierarchy>
+    </Dimension>
+    <Dimension name="Other - Other elements cover" foreignKey="_plot_id" type="StandardDimension" visible="true">
+      <Hierarchy name="Other - Other elements cover" primaryKey="_plot_id" primaryKeyTable="other_elements" visible="true" hasAll="true">
+        <Join leftKey="other_cover_code_id" rightKey="elements_cover_code_id">
+          <Table name="other_elements" schema="${saikuDbSchema}"/>
+          <Table name="elements_cover_code" schema="${saikuDbSchema}"/>
+        </Join>
+        <Level name="Other elements cover" table="elements_cover_code" column="elements_cover_code_id" nameColumn="elements_cover_label_en" uniqueMembers="true" levelType="Regular" type="String"/>
+      </Hierarchy>
+    </Dimension>
+    <Dimension name="Desertification / Greening trend" foreignKey="desertification_trend_code_id" type="StandardDimension" visible="true">
+      <Hierarchy visible="true" hasAll="true">
+        <Table name="desertification_list_code" schema="${saikuDbSchema}"/>
+        <Level name="Desertification / Greening trend" table="desertification_list_code" column="desertification_list_code_id" nameColumn="desertification_list_label_en" uniqueMembers="true" levelType="Regular" type="String"/>
+      </Hierarchy>
+    </Dimension>
+    <Dimension name="Disturbance" foreignKey="human_impact_type_code_id" type="StandardDimension" visible="true">
+      <Hierarchy visible="true" hasAll="true">
+        <Table name="human_impact_type_code" schema="${saikuDbSchema}"/>
+        <Level name="Disturbance" table="human_impact_type_code" column="human_impact_type_code_id" nameColumn="human_impact_type_label_en" uniqueMembers="true" levelType="Regular" type="String"/>
+      </Hierarchy>
+    </Dimension>
+    <Dimension name="Level of impact" foreignKey="human_impact_grade_code_id" type="StandardDimension" visible="true">
+      <Hierarchy visible="true" hasAll="true">
+        <Table name="human_impact_grade_code" schema="${saikuDbSchema}"/>
+        <Level name="Level of impact" table="human_impact_grade_code" column="human_impact_grade_code_id" nameColumn="human_impact_grade_label_en" uniqueMembers="true" levelType="Regular" type="String"/>
+      </Hierarchy>
+    </Dimension>
+    <Dimension name="Continuous impact" type="StandardDimension" visible="true">
+      <Hierarchy visible="true" hasAll="true">
+        <Level name="Continuous impact" column="human_impact_continual" uniqueMembers="true" levelType="Regular" type="String"/>
+      </Hierarchy>
+    </Dimension>
+    <Dimension name="Human Impact Year" type="StandardDimension" visible="true">
+      <Hierarchy visible="true" hasAll="true">
+        <Level name="Human Impact Year" column="human_impact_year" uniqueMembers="true" levelType="Regular" type="Integer"/>
+      </Hierarchy>
+    </Dimension>
+    <Dimension name="Human Impact interpretation confidence" type="StandardDimension" visible="true">
+      <Hierarchy visible="true" hasAll="true">
+        <Level name="Human Impact interpretation confidence" column="human_impact_accuracy" uniqueMembers="true" levelType="Regular" type="String"/>
+      </Hierarchy>
+    </Dimension>
+    <Dimension name="Land class - Main" foreignKey="main_land_class_code_id" type="StandardDimension" visible="true">
+      <Hierarchy visible="true" hasAll="true">
+        <Table name="land_classes_category_code" schema="${saikuDbSchema}"/>
+        <Level name="Land class - Main" table="land_classes_category_code" column="land_classes_category_code_id" nameColumn="land_classes_category_label_en" uniqueMembers="true" levelType="Regular" type="String"/>
+      </Hierarchy>
+    </Dimension>
+    <Dimension name="Land class -subcategory" foreignKey="sub_land_class_code_id" type="StandardDimension" visible="true">
+      <Hierarchy visible="true" hasAll="true">
+        <Table name="land_classes_subcategory_code" schema="${saikuDbSchema}"/>
+        <Level name="Land class -subcategory" table="land_classes_subcategory_code" column="land_classes_subcategory_code_id" nameColumn="land_classes_subcategory_label_en" uniqueMembers="true" levelType="Regular" type="String"/>
+      </Hierarchy>
+    </Dimension>
+    <Dimension name="Land class- confidence" type="StandardDimension" visible="true">
+      <Hierarchy visible="true" hasAll="true">
+        <Level name="Land class- confidence" column="land_class_confidence" uniqueMembers="true" levelType="Regular" type="String"/>
+      </Hierarchy>
+    </Dimension>
+    <Dimension name="More than 30 trees" type="StandardDimension" visible="true">
+      <Hierarchy visible="true" hasAll="true">
+        <Level name="More than 30 trees" column="many_trees" uniqueMembers="true" levelType="Regular" type="String"/>
+      </Hierarchy>
+    </Dimension>
+    <Dimension name="Number of trees in plot" type="StandardDimension" visible="true">
+      <Hierarchy visible="true" hasAll="true">
+        <Level name="Number of trees in plot" column="tree_count" uniqueMembers="true" levelType="Regular" type="Integer"/>
+      </Hierarchy>
+    </Dimension>
+    <Dimension name="More than 30 shrubs" type="StandardDimension" visible="true">
+      <Hierarchy visible="true" hasAll="true">
+        <Level name="More than 30 shrubs" column="many_shrubs" uniqueMembers="true" levelType="Regular" type="String"/>
+      </Hierarchy>
+    </Dimension>
+    <Dimension name="Number of shrubs in plot" type="StandardDimension" visible="true">
+      <Hierarchy visible="true" hasAll="true">
+        <Level name="Number of shrubs in plot" column="shrub_count" uniqueMembers="true" levelType="Regular" type="Integer"/>
+      </Hierarchy>
+    </Dimension>
+    <Dimension name="Linear vegetation length (in meters)" type="StandardDimension" visible="true">
+      <Hierarchy visible="true" hasAll="true">
+        <Level name="Linear vegetation length (in meters)" column="linear_vegetation_length" uniqueMembers="true" levelType="Regular" type="Integer"/>
+      </Hierarchy>
+    </Dimension>
+    <Dimension name="Paved road length (in meters)" type="StandardDimension" visible="true">
+      <Hierarchy visible="true" hasAll="true">
+        <Level name="Paved road length (in meters)" column="paved_road_length" uniqueMembers="true" levelType="Regular" type="Integer"/>
+      </Hierarchy>
+    </Dimension>
+    <Dimension name="Unpaved road length (in meters)" type="StandardDimension" visible="true">
+      <Hierarchy visible="true" hasAll="true">
+        <Level name="Unpaved road length (in meters)" column="unpaved_road_length" uniqueMembers="true" levelType="Regular" type="Integer"/>
+      </Hierarchy>
+    </Dimension>
+    <Dimension name="Path length (in meters)" type="StandardDimension" visible="true">
+      <Hierarchy visible="true" hasAll="true">
+        <Level name="Path length (in meters)" column="path_length" uniqueMembers="true" levelType="Regular" type="Integer"/>
+      </Hierarchy>
+    </Dimension>
+    <Dimension name="Slope category" foreignKey="slope_id" type="StandardDimension" visible="true" highCardinality="false">
+      <Hierarchy visible="true" hasAll="true">
+        <Table name="slope_category" schema="${saikuDbSchema}"/>
+        <Level name="Slope_category" table="slope_category" column="slope_id" nameColumn="slope_caption" uniqueMembers="false" levelType="Regular" type="String"/>
+      </Hierarchy>
+    </Dimension>
+    <Dimension name="Initial Land Use" foreignKey="dynamics_id" type="StandardDimension" visible="true" highCardinality="false">
+      <Hierarchy visible="true" hasAll="true">
+        <Table name="dynamics_category" schema="${saikuDbSchema}"/>
+        <Level name="Initial_land_use" table="dynamics_category" column="dynamics_id" nameColumn="dynamics_caption" uniqueMembers="false" levelType="Regular" type="String" hideMemberIf="Never"/>
+      </Hierarchy>
+    </Dimension>
+    <Dimension name="Elevation range" foreignKey="elevation_id" type="StandardDimension" visible="true" highCardinality="false">
+      <Hierarchy visible="true" hasAll="true">
+        <Table name="elevation_category" schema="${saikuDbSchema}"/>
+        <Level name="Elevation_range" table="elevation_category" column="elevation_id" nameColumn="elevation_caption" uniqueMembers="false" levelType="Regular" type="String" hideMemberIf="Never"/>
+      </Hierarchy>
+    </Dimension>
+    <Measure name="Area (HA)" column="expansion_factor" datatype="Integer" aggregator="sum" caption="Area (HA)" formatString="#,###"/>
+    <Measure name="Plot Weight" column="plot_weight" datatype="Integer" aggregator="sum" caption="Plot Weight" formatString="#,###"/>
+    <Measure name="plot_count" column="_plot_id" datatype="Integer" aggregator="distinct count" caption="Plot Count"/>
+    <Measure name="land_use_subcategory_year_of_change_min" column="land_use_subcategory_year_of_change" datatype="Integer" aggregator="min" caption="Land Use Change - Year of change min"/>
+    <Measure name="land_use_subcategory_year_of_change_max" column="land_use_subcategory_year_of_change" datatype="Integer" aggregator="max" caption="Land Use Change - Year of change max"/>
+    <Measure name="land_use_subcategory_year_of_change_avg" column="land_use_subcategory_year_of_change" datatype="Integer" aggregator="avg" caption="Land Use Change - Year of change avg"/>
+    <Measure name="elevation_min" column="elevation" datatype="Integer" aggregator="min" caption="Elevation min"/>
+    <Measure name="elevation_max" column="elevation" datatype="Integer" aggregator="max" caption="Elevation max"/>
+    <Measure name="elevation_avg" column="elevation" datatype="Integer" aggregator="avg" caption="Elevation avg"/>
+    <Measure name="slope_min" column="slope" datatype="Integer" aggregator="min" caption="Slope min"/>
+    <Measure name="slope_max" column="slope" datatype="Integer" aggregator="max" caption="Slope max"/>
+    <Measure name="slope_avg" column="slope" datatype="Integer" aggregator="avg" caption="Slope avg"/>
+    <Measure name="aspect_min" column="aspect" datatype="Integer" aggregator="min" caption="Aspect min"/>
+    <Measure name="aspect_max" column="aspect" datatype="Integer" aggregator="max" caption="Aspect max"/>
+    <Measure name="aspect_avg" column="aspect" datatype="Integer" aggregator="avg" caption="Aspect avg"/>
+    <Measure name="tree_count_min" column="tree_count" datatype="Integer" aggregator="min" caption="Number of trees in plot min"/>
+    <Measure name="tree_count_max" column="tree_count" datatype="Integer" aggregator="max" caption="Number of trees in plot max"/>
+    <Measure name="tree_count_avg" column="tree_count" datatype="Integer" aggregator="avg" caption="Number of trees in plot avg"/>
+    <Measure name="shrub_count_min" column="shrub_count" datatype="Integer" aggregator="min" caption="Number of shrubs in plot min"/>
+    <Measure name="shrub_count_max" column="shrub_count" datatype="Integer" aggregator="max" caption="Number of shrubs in plot max"/>
+    <Measure name="shrub_count_avg" column="shrub_count" datatype="Integer" aggregator="avg" caption="Number of shrubs in plot avg"/>
+    <Measure name="linear_vegetation_length_min" column="linear_vegetation_length" datatype="Integer" aggregator="min" caption="Linear vegetation length (in meters) min"/>
+    <Measure name="linear_vegetation_length_max" column="linear_vegetation_length" datatype="Integer" aggregator="max" caption="Linear vegetation length (in meters) max"/>
+    <Measure name="linear_vegetation_length_avg" column="linear_vegetation_length" datatype="Integer" aggregator="avg" caption="Linear vegetation length (in meters) avg"/>
+    <Measure name="paved_road_length_min" column="paved_road_length" datatype="Integer" aggregator="min" caption="Paved road length (in meters) min"/>
+    <Measure name="paved_road_length_max" column="paved_road_length" datatype="Integer" aggregator="max" caption="Paved road length (in meters) max"/>
+    <Measure name="paved_road_length_avg" column="paved_road_length" datatype="Integer" aggregator="avg" caption="Paved road length (in meters) avg"/>
+    <Measure name="unpaved_road_length_min" column="unpaved_road_length" datatype="Integer" aggregator="min" caption="Unpaved road length (in meters) min"/>
+    <Measure name="unpaved_road_length_max" column="unpaved_road_length" datatype="Integer" aggregator="max" caption="Unpaved road length (in meters) max"/>
+    <Measure name="unpaved_road_length_avg" column="unpaved_road_length" datatype="Integer" aggregator="avg" caption="Unpaved road length (in meters) avg"/>
+    <Measure name="path_length_min" column="path_length" datatype="Integer" aggregator="min" caption="Path length (in meters) min"/>
+    <Measure name="path_length_max" column="path_length" datatype="Integer" aggregator="max" caption="Path length (in meters) max"/>
+    <Measure name="path_length_avg" column="path_length" datatype="Integer" aggregator="avg" caption="Path length (in meters) avg"/>
+  </Cube>
+</Schema>

@@ -39,9 +39,9 @@ here_app_code=HERE_APP_CODE
 bing_maps_key=BING_MAPS_KEY
 
 
-balloon=lucas_demo/balloon.html
-metadata_file=lucas_demo/placemark.idm.xml
-template=lucas_demo/kml_template.fmt
-survey_name=LUCAS Demo - LULUCF analysis
-csv=lucas_demo/madrid.ced
-loaded_projects=lucas_demo
+balloon=drylands_demo/balloon.html
+metadata_file=drylands_demo/placemark.idm.xml
+template=drylands_demo/kml_template.fmt
+survey_name=drylandsmonitoring
+csv=drylands_demo/grids/Drylands_1.csv
+loaded_projects=drylands_demo

@@ -1,0 +1,1957 @@
+<?xml version='1.0' encoding='UTF-8' standalone='yes' ?>
+<survey lastId="471" published="true" xmlns="http://www.openforis.org/idml/3.0" xmlns:collect="http://www.openforis.org/collect/3.0/collect" xmlns:collectearth="http://www.openforis.org/collect/3.0/collectearth" xmlns:ui="http://www.openforis.org/collect/3.0/ui" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+  <project>Drylands Monitoring</project>
+  <uri>http://www.openforis.org/idm/earth/drylandsmonitoring</uri>
+  <cycle>2014-2015</cycle>
+  <language>en</language>
+  <language>fr</language>
+  <applicationOptions>
+    <options type="ui">
+<n0:tabSet name="placemark" xmlns:n0="http://www.openforis.org/collect/3.0/ui">
+  <n0:tab name="tab_296">
+    <n0:label>Elements(A)</n0:label>
+  </n0:tab>
+  <n0:tab name="tab_448">
+    <n0:label>Elements(B)</n0:label>
+  </n0:tab>
+  <n0:tab name="tab_460">
+    <n0:label>Elements(C)</n0:label>
+  </n0:tab>
+  <n0:tab name="tab_447">
+    <n0:label>Impact</n0:label>
+  </n0:tab>
+  <n0:tab name="tab_441">
+    <n0:label>Land Class</n0:label>
+  </n0:tab>
+  <n0:tab name="tab_226">
+    <n0:label>FAO-FRA</n0:label>
+  </n0:tab>
+  <n0:tab name="placemark">
+    <n0:label>IPCC</n0:label>
+  </n0:tab>
+  <n0:tab name="tab_221">
+    <n0:label>Remote Sensing Info</n0:label>
+  </n0:tab>
+</n0:tabSet>
+    </options>
+  </applicationOptions>
+  <codeLists>
+    <list id="62" name="land_use">
+      <label type="item">Land Use</label>
+      <label type="list">Land Uses</label>
+      <codingScheme scope="local" />
+      <hierarchy>
+        <level name="use">
+          <label xml:lang="en">Use</label>
+        </level>
+        <level name="type">
+          <label xml:lang="en">Type</label>
+        </level>
+      </hierarchy>
+      <items>
+        <item id="63">
+          <code>forest</code>
+          <label>Forest</label>
+          <item id="64">
+            <code>DFP</code>
+            <label>Dense F.- Primary</label>
+            <description>Dense Forest- Primary</description>
+          </item>
+          <item id="65">
+            <code>DFS</code>
+            <label>Dense F.- Secondary</label>
+            <description>Dense Forest- Secondary</description>
+          </item>
+          <item id="66">
+            <code>DFG</code>
+            <label>Dense F.- Gallery</label>
+            <description>Dense Forest- Gallery</description>
+          </item>
+          <item id="67">
+            <code>Mangroves</code>
+            <label>Mangroves</label>
+          </item>
+          <item id="68">
+            <code>Plantations</code>
+            <label>Plantations</label>
+          </item>
+          <item id="69">
+            <code>Woodlands</code>
+            <label>Woodlands</label>
+          </item>
+          <item id="70">
+            <code>WV</code>
+            <label>WoL- in valleys</label>
+            <description>Woodlands- in valleys</description>
+          </item>
+          <item id="71">
+            <code>WS</code>
+            <label>WoL- with shrubs</label>
+            <description>Woodlands- with shrubs</description>
+          </item>
+          <item id="72">
+            <code>DSW</code>
+            <label>Dense Sav. Woodland</label>
+            <description>Dense Sav.annah Woodland</description>
+          </item>
+          <item id="73">
+            <code>DSWV</code>
+            <label>Dense Sav. WoL valleys</label>
+            <description>Dense Savanna woodlands - in valleys</description>
+          </item>
+          <item id="74">
+            <code>DSWB</code>
+            <label>Dense Sav. WoL - Bowes</label>
+            <description>Dense Savanna Woodlands and with Bowes</description>
+          </item>
+          <item id="75">
+            <code>SWL</code>
+            <label>Sav. WoL</label>
+            <description>Savanna Woodlands</description>
+          </item>
+          <item id="76">
+            <code>SWV</code>
+            <label>Sav. WoL Valleys</label>
+            <description>Savanna Woodlands- in Valleys</description>
+          </item>
+          <item id="77">
+            <code>SWB</code>
+            <label>Sav. WoL Bowes</label>
+            <description>Savanna Woodlands- in Bowes</description>
+          </item>
+          <item id="78">
+            <code>OtherForest</code>
+            <label>Other</label>
+          </item>
+        </item>
+        <item id="79">
+          <code>cropland</code>
+          <label>Cropland</label>
+          <item id="80">
+            <code>SmSc</code>
+            <label>Small-scale farming</label>
+          </item>
+          <item id="81">
+            <code>InCr</code>
+            <label>Large-Scale farming</label>
+          </item>
+          <item id="82">
+            <code>agriculture_not_sure</code>
+            <label>Not Sure</label>
+          </item>
+        </item>
+        <item id="83">
+          <code>grassland</code>
+          <label>Grassland</label>
+          <item id="84">
+            <code>ShrubSavanna</code>
+            <label>Shrub Savanna</label>
+          </item>
+          <item id="85">
+            <code>ShrubSavannaValleys</code>
+            <label>Shrub Sav. Valleys</label>
+            <description>Shrub Savanna in Valleys</description>
+          </item>
+          <item id="86">
+            <code>TreeSavanna</code>
+            <label>Tree Savanna</label>
+          </item>
+          <item id="87">
+            <code>TreeSavannaValleys</code>
+            <label>Tree Sav. Valleys</label>
+            <description>Tree Savanna in Valleys</description>
+          </item>
+          <item id="88">
+            <code>ShrubtreeSavanna</code>
+            <label>Shrub &amp; Tree Sav.</label>
+            <description>Shrub and tree Savanna</description>
+          </item>
+          <item id="89">
+            <code>ShrubTreeSavannaValley</code>
+            <label>Shrub and Tree Savanna in Valley</label>
+          </item>
+          <item id="90">
+            <code>ShrubSteppes</code>
+            <label>Shrub Steppes</label>
+          </item>
+          <item id="91">
+            <code>ShrubSteppesValleys</code>
+            <label>Shrub Steppes in Valleys</label>
+          </item>
+          <item id="92">
+            <code>TreeSteppes</code>
+            <label>Tree Steppes</label>
+          </item>
+          <item id="93">
+            <code>TreeSteppesValleys</code>
+            <label>Tree Step. Valleys</label>
+            <description>Tree Steppes in Valleys</description>
+          </item>
+          <item id="94">
+            <code>ShrubTreeSteppes</code>
+            <label>Shrub &amp; Tree Step.</label>
+            <description>Shrub and Tree Steppes</description>
+          </item>
+          <item id="95">
+            <code>ShrubTreeSteppesValleys</code>
+            <label>Shrub &amp; Tree Step. Valleys</label>
+            <description>Shrub and Tree Steppes in Valleys</description>
+          </item>
+          <item id="96">
+            <code>HerbaceousSteppes</code>
+            <label>Herbaceous Steppes</label>
+          </item>
+          <item id="97">
+            <code>Grasslandsemiaquaticvegetation</code>
+            <label>Grassland with semi aquatic vegetation</label>
+          </item>
+          <item id="98">
+            <code>OtherGrassland</code>
+            <label>Other</label>
+          </item>
+        </item>
+        <item id="99">
+          <code>settlement</code>
+          <label>Settlement</label>
+          <item id="100">
+            <code>TeSe</code>
+            <label>Temporary settlement</label>
+          </item>
+          <item id="101">
+            <code>Vi</code>
+            <label>Village</label>
+          </item>
+          <item id="102">
+            <code>ToCi</code>
+            <label>Town/City</label>
+          </item>
+          <item id="103">
+            <code>Mine</code>
+            <label>Mine</label>
+          </item>
+          <item id="104">
+            <code>Industrial</code>
+            <label>Industrial</label>
+          </item>
+          <item id="105">
+            <code>Infrastructure</code>
+            <label>Infrastructure</label>
+          </item>
+          <item id="106">
+            <code>OtSettlement</code>
+            <label>Other</label>
+          </item>
+        </item>
+        <item id="107">
+          <code>otherland</code>
+          <label>Other Land</label>
+          <item id="108">
+            <code>Rock</code>
+            <label>Rock</label>
+          </item>
+          <item id="109">
+            <code>BaSo</code>
+            <label>Bare soils</label>
+          </item>
+          <item id="110">
+            <code>SaSo</code>
+            <label>Sand soils</label>
+          </item>
+          <item id="111">
+            <code>OtOtherland</code>
+            <label>Other</label>
+          </item>
+        </item>
+        <item id="112">
+          <code>wetland</code>
+          <label>Wetland</label>
+          <item id="113">
+            <code>lake</code>
+            <label>Lake</label>
+          </item>
+          <item id="114">
+            <code>river</code>
+            <label>River</label>
+          </item>
+          <item id="115">
+            <code>swamp</code>
+            <label>Swamp</label>
+          </item>
+          <item id="116">
+            <code>marsh</code>
+            <label>Marsh</label>
+          </item>
+          <item id="117">
+            <code>OtWetland</code>
+            <label>Other</label>
+          </item>
+        </item>
+        <item id="118">
+          <code>noData</code>
+          <label>No data</label>
+          <item id="119">
+            <code>sea</code>
+            <label>Sea</label>
+          </item>
+          <item id="120">
+            <code>clouds</code>
+            <label>Clouds</label>
+          </item>
+          <item id="121">
+            <code>other_reason</code>
+            <label>Other reason</label>
+          </item>
+        </item>
+      </items>
+    </list>
+    <list id="122" name="site_accessibility">
+      <label type="item">Accessibility</label>
+      <label type="list">Accessibility</label>
+      <codingScheme scope="local" />
+      <items>
+        <item id="123">
+          <code>0-05</code>
+          <label>0-0.5 km</label>
+        </item>
+        <item id="124">
+          <code>05-1</code>
+          <label>0.5-1 km</label>
+        </item>
+        <item id="125">
+          <code>1-2</code>
+          <label>1-2 km</label>
+        </item>
+        <item id="126">
+          <code>2-4</code>
+          <label>2-4 km</label>
+        </item>
+        <item id="127">
+          <code>4-6</code>
+          <label>4-6 km</label>
+        </item>
+        <item id="128">
+          <code>6-more</code>
+          <label>&gt;6 km</label>
+        </item>
+      </items>
+    </list>
+    <list id="129" name="land_use_subcategory">
+      <label type="item">Land Use Sub-category</label>
+      <label type="list">Sub-Categories</label>
+      <hierarchy>
+        <level name="use">
+          <label xml:lang="en">Use</label>
+          <label xml:lang="es">Uso</label>
+        </level>
+        <level name="subcategory">
+          <label xml:lang="en">Subcategory</label>
+          <label xml:lang="es">Subcategoria</label>
+        </level>
+      </hierarchy>
+      <items>
+        <item id="130">
+          <code>forest</code>
+          <label>Forest</label>
+          <item id="131">
+            <code>FLtoFL</code>
+            <label>F &gt; F</label>
+            <description>Forest Land remaining Forest Land</description>
+          </item>
+          <item id="132">
+            <code>OTtoFL</code>
+            <label>O &gt; F</label>
+            <description>Other Land becoming Forest Land</description>
+          </item>
+          <item id="133">
+            <code>CLtoFL</code>
+            <label>C &gt; F</label>
+            <description>Crop Land becoming Forest Land</description>
+          </item>
+          <item id="134">
+            <code>GLtoFL</code>
+            <label>G &gt; F</label>
+            <description>Grass Land becoming Forest Land</description>
+          </item>
+          <item id="135">
+            <code>WLtoFL</code>
+            <label>W &gt; F</label>
+            <description>Wet Land becoming Forest Land</description>
+          </item>
+          <item id="136">
+            <code>SLtoFL</code>
+            <label>S &gt; F</label>
+            <description>Settlement becoming Forest Land</description>
+          </item>
+        </item>
+        <item id="137">
+          <code>cropland</code>
+          <label>Cropland</label>
+          <item id="138">
+            <code>CLtoCL</code>
+            <label>C &gt; C</label>
+            <description>Crop Land remaining Crop Land</description>
+          </item>
+          <item id="139">
+            <code>OTtoCL</code>
+            <label>O &gt; C</label>
+            <description>Other Land becoming Crop Land</description>
+          </item>
+          <item id="140">
+            <code>FLtoCL</code>
+            <label>F &gt; C</label>
+            <description>Forest Land becoming Crop Land</description>
+          </item>
+          <item id="141">
+            <code>GLtoCL</code>
+            <label>G &gt; C</label>
+            <description>Grass Land becoming Crop Land</description>
+          </item>
+          <item id="142">
+            <code>WLtoCL</code>
+            <label>W &gt; C</label>
+            <description>Wet Land becoming Crop Land</description>
+          </item>
+          <item id="143">
+            <code>SLtoCL</code>
+            <label>S &gt; C</label>
+            <description>Settlement becoming Crop Land</description>
+          </item>
+        </item>
+        <item id="144">
+          <code>otherland</code>
+          <label>Otherland</label>
+          <item id="145">
+            <code>OTtoOL</code>
+            <label>O &gt; O</label>
+            <description>Other Land remaining Other Land</description>
+          </item>
+          <item id="146">
+            <code>CLtoOL</code>
+            <label>C &gt; O</label>
+            <description>Crop Land becoming Other Land</description>
+          </item>
+          <item id="147">
+            <code>FLtoOL</code>
+            <label>F &gt; O</label>
+            <description>Forest Land becoming Other Land</description>
+          </item>
+          <item id="148">
+            <code>GLtoOL</code>
+            <label>G &gt; O</label>
+            <description>Grass Land becoming Other Land</description>
+          </item>
+          <item id="149">
+            <code>WLtoOL</code>
+            <label>W &gt; O</label>
+            <description>Wet Land becoming Other Land</description>
+          </item>
+          <item id="150">
+            <code>SLtoOL</code>
+            <label>S &gt; O</label>
+            <description>Settlement becoming Other Land</description>
+          </item>
+        </item>
+        <item id="151">
+          <code>grassland</code>
+          <label>Grassland</label>
+          <item id="152">
+            <code>GLtoGL</code>
+            <label>G &gt; G</label>
+            <description>Grass Land remaining Grass Land</description>
+          </item>
+          <item id="153">
+            <code>OTtoGL</code>
+            <label>O &gt; G</label>
+            <description>Other Land becoming Grass Land</description>
+          </item>
+          <item id="154">
+            <code>FLtoGL</code>
+            <label>F &gt; G</label>
+            <description>Forest Land becoming Grass Land</description>
+          </item>
+          <item id="155">
+            <code>CLtoGL</code>
+            <label>F &gt; G</label>
+            <description>Crop Land becoming Grass Land</description>
+          </item>
+          <item id="156">
+            <code>WLtoGL</code>
+            <label>W &gt; G</label>
+            <description>Wet Land becoming Grass Land</description>
+          </item>
+          <item id="157">
+            <code>SLtoGL</code>
+            <label>S &gt; G</label>
+            <description>Settlement becoming Grass Land</description>
+          </item>
+        </item>
+        <item id="158">
+          <code>wetland</code>
+          <label>Wetland</label>
+          <item id="159">
+            <code>WLtoWL</code>
+            <label>W &gt; W</label>
+            <description>Wet Land remaining Wet Land</description>
+          </item>
+          <item id="160">
+            <code>OTtoWL</code>
+            <label>O &gt; W</label>
+            <description>Other Land becoming Wet Land</description>
+          </item>
+          <item id="161">
+            <code>FLtoWL</code>
+            <label>F &gt; W</label>
+            <description>Forest Land becoming Wet Land</description>
+          </item>
+          <item id="162">
+            <code>CLtoWL</code>
+            <label>C &gt; W</label>
+            <description>Crop Land becoming Wet Land</description>
+          </item>
+          <item id="163">
+            <code>GLtoWL</code>
+            <label>G &gt; W</label>
+            <description>Grass Land becoming Wet Land</description>
+          </item>
+          <item id="164">
+            <code>SLtoWL</code>
+            <label>S &gt; W</label>
+            <description>Settlement becoming Wet Land</description>
+          </item>
+        </item>
+        <item id="165">
+          <code>settlement</code>
+          <label>Settlement</label>
+          <item id="166">
+            <code>SLtoSL</code>
+            <label>S &gt; S</label>
+            <description>Settlement remaining Settlement</description>
+          </item>
+          <item id="167">
+            <code>OTtoSL</code>
+            <label>O &gt; S</label>
+            <description>Other Land becoming Settlement</description>
+          </item>
+          <item id="168">
+            <code>FLtoSL</code>
+            <label>F &gt; S</label>
+            <description>Forest Land becoming Settlement</description>
+          </item>
+          <item id="169">
+            <code>CLtoSL</code>
+            <label>C &gt; S</label>
+            <description>Crop Land becoming Settlement</description>
+          </item>
+          <item id="170">
+            <code>GLtoSL</code>
+            <label>G &gt; A</label>
+            <description>Grass Land becoming Settlement</description>
+          </item>
+          <item id="171">
+            <code>WLtoSL</code>
+            <label>W &gt; S</label>
+            <description>Wet Land becoming Settlement</description>
+          </item>
+        </item>
+        <item id="172">
+          <code>noData</code>
+          <label>No data</label>
+        </item>
+      </items>
+    </list>
+    <list id="181" name="farming_methods">
+      <label type="item">Farming method</label>
+      <label type="list">Farming methods</label>
+      <items>
+        <item id="182">
+          <code>permanent</code>
+          <label>Permanent</label>
+        </item>
+        <item id="183">
+          <code>shifting</code>
+          <label>Shifting</label>
+        </item>
+        <item id="184">
+          <code>notSure</code>
+          <label>Not Sure</label>
+        </item>
+      </items>
+    </list>
+    <list id="191" name="human_impact_type">
+      <label type="item">Human Impact Type</label>
+      <label type="list">Human Impact Types</label>
+      <items>
+        <item id="192">
+          <code>logging</code>
+          <label>Logging</label>
+        </item>
+        <item id="193">
+          <code>fire</code>
+          <label>Fire</label>
+        </item>
+        <item id="194">
+          <code>grazing</code>
+          <label>Grazing</label>
+        </item>
+        <item id="195">
+          <code>mining</code>
+          <label>Mining</label>
+        </item>
+        <item id="196">
+          <code>garden</code>
+          <label>Garden</label>
+        </item>
+        <item id="197">
+          <code>fishing</code>
+          <label>Fishing</label>
+        </item>
+        <item id="198">
+          <code>other_human_impact</code>
+          <label>Other</label>
+        </item>
+        <item id="199">
+          <code>none</code>
+          <label>None</label>
+        </item>
+      </items>
+    </list>
+    <list id="200" name="human_impact_grade">
+      <label type="item">Human Impact Grade</label>
+      <label type="list">Human Impact Grades</label>
+      <items>
+        <item id="201">
+          <code>low</code>
+          <label>Low</label>
+        </item>
+        <item id="202">
+          <code>medium</code>
+          <label>Medium</label>
+        </item>
+        <item id="203">
+          <code>high</code>
+          <label>High</label>
+        </item>
+      </items>
+    </list>
+    <list id="204" name="rs_satellite">
+      <label type="item">Satellite</label>
+      <label type="list">Satellites</label>
+      <items>
+        <item id="206">
+          <code>digitalGlobe</code>
+          <label>DigitalGlobe</label>
+        </item>
+        <item id="207">
+          <code>rapidEye</code>
+          <label>RapidEye</label>
+        </item>
+        <item id="209">
+          <code>spot</code>
+          <label>Spot</label>
+        </item>
+        <item id="451">
+          <code>other_very_high</code>
+          <label>Other VHR sources</label>
+          <description>Other Very High Resolution sources</description>
+        </item>
+        <item id="205">
+          <code>landsat</code>
+          <label>Landsat</label>
+        </item>
+        <item id="208">
+          <code>other_sat</code>
+          <label>Other</label>
+        </item>
+      </items>
+    </list>
+    <list id="210" name="canopy_cover_list">
+      <label type="list">Canopy Cover</label>
+      <items>
+        <item id="211">
+          <code>0</code>
+          <label>No cover (&lt;10%)</label>
+        </item>
+        <item id="212">
+          <code>0-20</code>
+          <label>0-20%</label>
+        </item>
+        <item id="213">
+          <code>20-40</code>
+          <label>20 - 40%</label>
+        </item>
+        <item id="214">
+          <code>40-60</code>
+          <label>40 - 60%</label>
+        </item>
+        <item id="215">
+          <code>60-80</code>
+          <label>60 - 80%</label>
+        </item>
+        <item id="216">
+          <code>80-100</code>
+          <label>80 - 100%</label>
+        </item>
+      </items>
+    </list>
+    <list id="217" name="desertification_list">
+      <label type="list">Desertification/Classification</label>
+      <items>
+        <item id="220">
+          <code>desertification</code>
+          <label>Desertification</label>
+        </item>
+        <item id="219">
+          <code>none</code>
+          <label>None</label>
+        </item>
+        <item id="218">
+          <code>greening</code>
+          <label>Greening</label>
+        </item>
+      </items>
+    </list>
+    <list id="224" name="accesibility_type_list">
+      <label type="list">Type of accessibility </label>
+      <items>
+        <item id="225">
+          <code>road</code>
+          <label>Road (for vehicles)</label>
+        </item>
+        <item id="226">
+          <code>path</code>
+          <label>Path</label>
+        </item>
+        <item id="227">
+          <code>river</code>
+          <label>River</label>
+        </item>
+        <item id="228">
+          <code>OtTypeAcc</code>
+          <label>Other</label>
+        </item>
+        <item id="229">
+          <code>inaccesible</code>
+          <label>Inaccessible</label>
+        </item>
+      </items>
+    </list>
+    <list id="230" name="deforestation_reason">
+      <label type="list">Reasons for no cover</label>
+      <items>
+        <item id="231">
+          <code>burnt</code>
+          <label>Burnt</label>
+        </item>
+        <item id="232">
+          <code>other_no_cover</code>
+          <label>Other</label>
+        </item>
+      </items>
+    </list>
+    <list id="233" name="canopy_type_list">
+      <label type="item">Canopy Type</label>
+      <label type="list">Canopy Type</label>
+      <items>
+        <item id="234">
+          <code>sparse</code>
+          <label>Sparse</label>
+        </item>
+        <item id="235">
+          <code>grouped</code>
+          <label>Grouped</label>
+        </item>
+        <item id="236">
+          <code>linear</code>
+          <label>Linear</label>
+        </item>
+        <item id="237">
+          <code>unknown</code>
+          <label>Unknown</label>
+        </item>
+        <item id="238">
+          <code>random</code>
+          <label>Random</label>
+        </item>
+      </items>
+    </list>
+    <list id="239" name="crop_types">
+      <label type="item">Crop Type</label>
+      <label type="list">Crop Types</label>
+      <items>
+        <item id="240">
+          <code>irrigated</code>
+          <label>Irrigated</label>
+        </item>
+        <item id="241">
+          <code>RaFe</code>
+          <label>Non-Irrigated</label>
+        </item>
+        <item id="242">
+          <code>semiaquatic</code>
+          <label>Semiaquatic</label>
+        </item>
+        <item id="243">
+          <code>TrCr</code>
+          <label>Tree crops</label>
+        </item>
+        <item id="244">
+          <code>NoSu</code>
+          <label>Not sure</label>
+        </item>
+      </items>
+    </list>
+    <list id="245" name="hydrology_types">
+      <label type="item">Hydrology type</label>
+      <label type="list">Hydrology types</label>
+      <items>
+        <item id="246">
+          <code>seasonal</code>
+          <label>Seasonal</label>
+        </item>
+        <item id="247">
+          <code>permanent</code>
+          <label>Permanent</label>
+        </item>
+        <item id="248">
+          <code>ephemeral</code>
+          <label>Ephemeral</label>
+        </item>
+        <item id="249">
+          <code>none</code>
+          <label>Not sure</label>
+        </item>
+      </items>
+    </list>
+    <list id="250" name="bearing">
+      <label type="item">Bearing</label>
+      <items>
+        <item id="251">
+          <code>N</code>
+          <label>NORTH</label>
+        </item>
+        <item id="252">
+          <code>N-E</code>
+          <label>NORTH EAST</label>
+        </item>
+        <item id="253">
+          <code>E</code>
+          <label>EAST</label>
+        </item>
+        <item id="254">
+          <code>S-E</code>
+          <label>SOUTH EAST</label>
+        </item>
+        <item id="255">
+          <code>S</code>
+          <label>SOUTH</label>
+        </item>
+        <item id="256">
+          <code>S-W</code>
+          <label>SOUTH WEST</label>
+        </item>
+        <item id="257">
+          <code>W</code>
+          <label>WEST</label>
+        </item>
+        <item id="258">
+          <code>N-W</code>
+          <label>NORTH WEST</label>
+        </item>
+      </items>
+    </list>
+    <list id="259" name="soil_types">
+      <items>
+        <item id="260">
+          <code>ORG</code>
+          <label>Organic</label>
+        </item>
+        <item id="261">
+          <code>SAN</code>
+          <label>Sandy Soils</label>
+        </item>
+        <item id="262">
+          <code>WET</code>
+          <label>Wetland Soils</label>
+        </item>
+        <item id="263">
+          <code>VOL</code>
+          <label>Volcanic Soils</label>
+        </item>
+        <item id="264">
+          <code>SPO</code>
+          <label>Spodic Soils</label>
+        </item>
+        <item id="265">
+          <code>HAC</code>
+          <label>High Activity Clay Soils</label>
+        </item>
+        <item id="266">
+          <code>LAC</code>
+          <label>Low Activity Clay Soils</label>
+        </item>
+        <item id="267">
+          <code>OtherAreas</code>
+          <label>Other Areas</label>
+        </item>
+      </items>
+    </list>
+    <list id="268" name="climate_zones">
+      <items>
+        <item id="269">
+          <code>WTM</code>
+          <label>Warm Temperate Moist</label>
+        </item>
+        <item id="270">
+          <code>WTD</code>
+          <label>Warm Temperate Dry</label>
+        </item>
+        <item id="271">
+          <code>CTM</code>
+          <label>Cool Temperate Moist</label>
+        </item>
+        <item id="272">
+          <code>CTD</code>
+          <label>Cool Temperate Dry</label>
+        </item>
+        <item id="273">
+          <code>POM</code>
+          <label>Polar Moist</label>
+        </item>
+        <item id="274">
+          <code>POD</code>
+          <label>Polar Dry</label>
+        </item>
+        <item id="275">
+          <code>BOM</code>
+          <label>Boreal Moist</label>
+        </item>
+        <item id="276">
+          <code>BOD</code>
+          <label>Boreal Dry</label>
+        </item>
+        <item id="277">
+          <code>TRMT</code>
+          <label>Tropical Montane</label>
+        </item>
+        <item id="278">
+          <code>TRW</code>
+          <label>Tropical Wet</label>
+        </item>
+        <item id="279">
+          <code>TMM</code>
+          <label>Tropical Moist</label>
+        </item>
+        <item id="280">
+          <code>TRD</code>
+          <label>Tropical Dry</label>
+        </item>
+      </items>
+    </list>
+    <list id="281" name="sampling_design" lookup="ofc_sampling_design">
+      <hierarchy>
+        <level name="level1" />
+        <level name="level2" />
+        <level name="level3" />
+      </hierarchy>
+    </list>
+    <list id="282" name="fra_classes">
+      <label type="item">FRA Classes</label>
+      <codingScheme scope="local" />
+      <items>
+        <item id="283">
+          <code>fo</code>
+          <label>Forest</label>
+          <description>Forest</description>
+        </item>
+        <item id="284">
+          <code>owl</code>
+          <label>Other wooded land</label>
+          <description>Other wooded land</description>
+        </item>
+        <item id="285">
+          <code>oltc</code>
+          <label>Other land with tree cover</label>
+          <description>Other land with tree cover</description>
+        </item>
+        <item id="286">
+          <code>olwtc</code>
+          <label>Other land without tree cover</label>
+          <description>Other land without tree cover</description>
+        </item>
+        <item id="287">
+          <code>unk</code>
+          <label>Unknown</label>
+          <description>Unknown</description>
+        </item>
+      </items>
+    </list>
+    <list id="288" name="land_management_classes">
+      <label type="item">Land management</label>
+      <codingScheme scope="local" />
+      <items>
+        <item id="289">
+          <code>agrosilvopastoral</code>
+          <label>Agrosilvopastoral</label>
+          <description>Agrosilvopastoral</description>
+        </item>
+        <item id="290">
+          <code>silvopastoral</code>
+          <label>Silvopastoral</label>
+          <description>Silvopastoral</description>
+        </item>
+        <item id="291">
+          <code>agropastoral</code>
+          <label>Agropastoral</label>
+          <description>Agropastoral</description>
+        </item>
+        <item id="292">
+          <code>agrosilviculture</code>
+          <label>Agrosilviculture</label>
+          <description>Agrosilviculture</description>
+        </item>
+        <item id="293">
+          <code>pastoral</code>
+          <label>Pastoral</label>
+          <description>Pastoral</description>
+        </item>
+        <item id="294">
+          <code>agriculture</code>
+          <label>Agriculture</label>
+          <description>Agriculture</description>
+        </item>
+        <item id="295">
+          <code>intensive_agriculture</code>
+          <label>Intensive agriculture</label>
+          <description>Intensive agriculture</description>
+        </item>
+        <item id="296">
+          <code>fishery</code>
+          <label>Fishery</label>
+          <description>Fishery</description>
+        </item>
+        <item id="297">
+          <code>prod_forestry</code>
+          <label>Production forestry</label>
+          <description>Production forestry</description>
+        </item>
+        <item id="298">
+          <code>cons_forestry</code>
+          <label>Conservation forestry</label>
+          <description>Conservation forestry</description>
+        </item>
+        <item id="299">
+          <code>urban</code>
+          <label>Urban</label>
+          <description>Urban</description>
+        </item>
+        <item id="300">
+          <code>unmanaged</code>
+          <label>Unmanaged</label>
+          <description>Unmanaged</description>
+        </item>
+        <item id="301">
+          <code>unknown_mangement</code>
+          <label>Unknown</label>
+          <description>Unknown management</description>
+        </item>
+      </items>
+    </list>
+    <list id="302" name="project_activity_list">
+      <label type="item">Project activities list</label>
+      <codingScheme scope="local" />
+      <items>
+        <item id="303">
+          <code>tree_planting</code>
+          <label>Tree planting</label>
+        </item>
+        <item id="304">
+          <code>wind_breaks</code>
+          <label>Wind breaks</label>
+          <description>Wind breaks</description>
+        </item>
+        <item id="305">
+          <code>demi_lunes</code>
+          <label>Demi-lunes</label>
+          <description>Demi-lunes</description>
+        </item>
+        <item id="306">
+          <code>terracing</code>
+          <label>Terracing</label>
+          <description>Terracing</description>
+        </item>
+        <item id="307">
+          <code>sluices</code>
+          <label>Sluices</label>
+          <description>Sluices</description>
+        </item>
+        <item id="308">
+          <code>stone_checkdams</code>
+          <label>Stone checkdams</label>
+          <description>Stone checkdams</description>
+        </item>
+        <item id="309">
+          <code>unknown_activities</code>
+          <label>Unknown</label>
+          <description>Unknown</description>
+        </item>
+        <item id="445">
+          <code>none</code>
+          <label>None</label>
+        </item>
+      </items>
+    </list>
+    <list id="310" name="land_tenure_types">
+      <label type="item">Land tenure type</label>
+      <codingScheme scope="local" />
+      <items>
+        <item id="311">
+          <code>state</code>
+          <label>State land</label>
+          <description>State land</description>
+        </item>
+        <item id="312">
+          <code>joint</code>
+          <label>Joint ownership</label>
+          <description>Joint ownership</description>
+        </item>
+        <item id="313">
+          <code>community</code>
+          <label>Community land</label>
+          <description>Community land</description>
+        </item>
+        <item id="314">
+          <code>private</code>
+          <label>Private</label>
+        </item>
+        <item id="315">
+          <code>unknown_tenure</code>
+          <label>Unknown</label>
+          <description>Unknown tenure</description>
+        </item>
+      </items>
+    </list>
+    <list id="316" name="vegetation_types">
+      <label type="item">Vegetation type list</label>
+      <codingScheme scope="local" />
+      <items>
+        <item id="317">
+          <code>closed_forest</code>
+          <label>Closed Forest &gt;70%</label>
+          <description>Closed Forest &gt;70%</description>
+        </item>
+        <item id="318">
+          <code>dense_forest</code>
+          <label>Dense forest 40-70%</label>
+          <description>Dense forest 40-70%</description>
+        </item>
+        <item id="319">
+          <code>open_forest</code>
+          <label>Open forest 10-40%</label>
+          <description>Open forest 10-40%</description>
+        </item>
+        <item id="320">
+          <code>savannah_trees</code>
+          <label>Savannah w/ trees</label>
+          <description>Savannah with trees</description>
+        </item>
+        <item id="321">
+          <code>savannah_shrubs</code>
+          <label>Savannah w/ shrubs</label>
+          <description>Savannah with shrubs</description>
+        </item>
+        <item id="322">
+          <code>savannah</code>
+          <label>Savannah</label>
+          <description>Savannah</description>
+        </item>
+        <item id="323">
+          <code>steppe_trees</code>
+          <label>Steppe w/ trees</label>
+          <description>Steppe with trees</description>
+        </item>
+        <item id="324">
+          <code>steppe_shrubs</code>
+          <label>Steppe w/ shrubs</label>
+          <description>Steppe with shrubs</description>
+        </item>
+        <item id="325">
+          <code>steppe</code>
+          <label>Steppe</label>
+          <description>Steppe</description>
+        </item>
+        <item id="326">
+          <code>gallery_forest</code>
+          <label>Gallery forest</label>
+          <description>Gallery forest</description>
+        </item>
+        <item id="327">
+          <code>riparian_forest</code>
+          <label>Riparian forest</label>
+          <description>Riparian forest</description>
+        </item>
+        <item id="328">
+          <code>mangrove</code>
+          <label>Mangrove</label>
+          <description>Mangrove</description>
+        </item>
+        <item id="329">
+          <code>wetland</code>
+          <label>Wetland</label>
+          <description>Wetland</description>
+        </item>
+        <item id="330">
+          <code>oasis</code>
+          <label>Oasis</label>
+          <description>Oasis</description>
+        </item>
+        <item id="331">
+          <code>irrigated_crop</code>
+          <label>Irrigated crop</label>
+          <description>Irrigated crop</description>
+        </item>
+        <item id="332">
+          <code>tiger_bush</code>
+          <label>Tiger bush</label>
+        </item>
+        <item id="333">
+          <code>crop</code>
+          <label>Crop</label>
+          <description>Crop</description>
+        </item>
+        <item id="334">
+          <code>tree_crop</code>
+          <label>Tree crop</label>
+          <description>Tree crop</description>
+        </item>
+        <item id="335">
+          <code>sandy_desert</code>
+          <label>Sandy desert/dunes</label>
+          <description>Sandy desert and dunes</description>
+        </item>
+        <item id="336">
+          <code>stony_desert</code>
+          <label>Stony desert</label>
+          <description>Stony desert</description>
+        </item>
+        <item id="337">
+          <code>bare_rock</code>
+          <label>Bare rock</label>
+          <description>Bare rock</description>
+        </item>
+        <item id="338">
+          <code>urban</code>
+          <label>Urban/Village</label>
+          <description>Urban/Village</description>
+        </item>
+        <item id="339">
+          <code>unknwon_veg</code>
+          <label>Unknown</label>
+          <description>Unknown</description>
+        </item>
+      </items>
+    </list>
+    <list id="340" name="elements_cover">
+      <label type="item">Cover %</label>
+      <codingScheme scope="local" />
+      <items>
+        <item id="341">
+          <code>na</code>
+          <label>Cover %</label>
+        </item>
+        <item id="3421">
+          <code>l1</code>
+          <label>2%</label>
+        </item>
+        <item id="3422">
+          <code>l2</code>
+          <label>4%</label>
+        </item>
+        <item id="3423">
+          <code>l3</code>
+          <label>6%</label>
+        </item>
+        <item id="3424">
+          <code>l4</code>
+          <label>8%</label>
+        </item>
+        <item id="343">
+          <code>2</code>
+          <label>10-19%</label>
+        </item>
+        <item id="344">
+          <code>3</code>
+          <label>20-29%</label>
+        </item>
+        <item id="345">
+          <code>4</code>
+          <label>30-39%</label>
+        </item>
+        <item id="346">
+          <code>5</code>
+          <label>40-49%</label>
+        </item>
+        <item id="347">
+          <code>6</code>
+          <label>50-59%</label>
+        </item>
+        <item id="348">
+          <code>7</code>
+          <label>60-69%</label>
+        </item>
+        <item id="349">
+          <code>8</code>
+          <label>70-79%</label>
+        </item>
+        <item id="350">
+          <code>9</code>
+          <label>80-89%</label>
+        </item>
+        <item id="351">
+          <code>10</code>
+          <label>90-100%</label>
+        </item>
+      </items>
+    </list>
+    <list id="352" name="vegetation_elements">
+      <label type="item">Vegetation elements</label>
+      <codingScheme scope="local" />
+      <items>
+        <item id="353">
+          <code>tree</code>
+          <label>Tree</label>
+        </item>
+        <item id="354">
+          <code>shrub</code>
+          <label>Shrub</label>
+        </item>
+        <item id="355">
+          <code>palm</code>
+          <label>Palm</label>
+        </item>
+        <item id="356">
+          <code>bamboo</code>
+          <label>Bamboo</label>
+        </item>
+        <item id="357">
+          <code>crop</code>
+          <label>Crop</label>
+        </item>
+      </items>
+    </list>
+    <list id="359" name="infrastructure_elements">
+      <label type="item">Infrastructure</label>
+      <codingScheme scope="local" />
+      <items>
+        <item id="360">
+          <code>house</code>
+          <label>House</label>
+        </item>
+        <item id="361">
+          <code>other_buildings</code>
+          <label>Other buildings</label>
+        </item>
+        <item id="362">
+          <code>paved_road</code>
+          <label>Paved road</label>
+        </item>
+        <item id="363">
+          <code>unpaved_road</code>
+          <label>Unpaved road</label>
+        </item>
+      </items>
+    </list>
+    <list id="368" name="water_element">
+      <label type="item">Water</label>
+      <codingScheme scope="local" />
+      <items>
+        <item id="369">
+          <code>lake</code>
+          <label>Lake</label>
+        </item>
+        <item id="370">
+          <code>river</code>
+          <label>River</label>
+        </item>
+      </items>
+    </list>
+    <list id="376" name="other_elements">
+      <description>Other elements</description>
+      <codingScheme scope="local" />
+      <items>
+        <item id="377">
+          <code>rock</code>
+          <label>Rock</label>
+        </item>
+        <item id="378">
+          <code>bare_soil</code>
+          <label>Other bare soil</label>
+        </item>
+        <item id="380">
+          <code>other_elem</code>
+          <label>Other elements</label>
+        </item>
+      </items>
+    </list>
+    <list id="386" name="land_classes">
+      <label type="item">Land class</label>
+      <label type="list">Land classes</label>
+      <hierarchy>
+        <level name="category">
+          <label xml:lang="en">Main Category</label>
+          <label xml:lang="es">Categoria Principal</label>
+        </level>
+        <level name="subcategory">
+          <label xml:lang="en">Subcategory</label>
+          <label xml:lang="es">Subcategoria</label>
+        </level>
+      </hierarchy>
+      <items>
+        <item id="45454">
+          <code>forest</code>
+          <label>Forest</label>
+          <item id="387">
+            <code>coniferous</code>
+            <label>Coniferous forest</label>
+          </item>
+          <item id="389">
+            <code>broadleaf_evergreen</code>
+            <label>Broad-leaf evergreen forest</label>
+          </item>
+          <item id="391">
+            <code>broadleaf_deciduous</code>
+            <label>Broad-leaf deciduous forest</label>
+          </item>
+          <item id="392">
+            <code>mixed_broadleaf</code>
+            <label>Mixed broad-leaf forest</label>
+          </item>
+          <item id="393">
+            <code>mixed_broadleaf_coniferous</code>
+            <label>Mixed broad-leaf &amp; coniferous forest</label>
+          </item>
+          <item id="394">
+            <code>forest_mangrove</code>
+            <label>Mangrove with trees</label>
+          </item>
+          <item id="395">
+            <code>shrubland_mangrove</code>
+            <label>Mangrove with shrubs</label>
+          </item>
+          <item id="396">
+            <code>riparian_forest</code>
+            <label>Riparian forest</label>
+          </item>
+          <item id="397">
+            <code>gallery_forest</code>
+            <label>Gallery forest</label>
+          </item>
+          <item id="398">
+            <code>plantation_coniferous</code>
+            <label>Coniferous plantation</label>
+          </item>
+          <item id="399">
+            <code>plantation_acacia</code>
+            <label>Acacia plantation</label>
+          </item>
+          <item id="400">
+            <code>plantation_eucalyptus</code>
+            <label>Eucalyptus plantation</label>
+          </item>
+          <item id="401">
+            <code>plantation_other</code>
+            <label>Other plantation</label>
+          </item>
+          <item id="402">
+            <code>shrubland_tigerbush</code>
+            <label>Tiger bush / bushveld / thicket</label>
+            <description>Shrubland have less than 10% tree cover and more than 10% shrub cover</description>
+          </item>
+        </item>
+        <item id="454542">
+          <code>shrubland</code>
+          <label>Shrubland</label>
+          <item id="403">
+            <code>shrubland_trees</code>
+            <label>Shrubland with trees</label>
+            <description>Shrubland have less than 10% tree cover and more than 10% shrub cover</description>
+          </item>
+          <item id="406">
+            <code>shrubland</code>
+            <label>Shrubland without trees</label>
+            <description>Shrubland have less than 10% tree cover and more than 10% shrub cover</description>
+          </item>
+        </item>
+        <item id="454543">
+          <code>grassland</code>
+          <label>Grassland</label>
+          <item id="407">
+            <code>grassland</code>
+            <label>Grassland with herbaceous vegetation</label>
+            <description>- Savanna or steppe
+	- Grasslands have move than 10% herbaceous vegetation cover, less than 10% tree cover and less than 10% shrub cover</description>
+          </item>
+          <item id="408">
+            <code>grassland_trees</code>
+            <label>Grassland with trees</label>
+            <description>- Savanna or steppe
+	- Grasslands have move than 10% herbaceous vegetation cover, less than 10% tree cover and less than 10% shrub cover</description>
+          </item>
+          <item id="409">
+            <code>grassland_shrubs</code>
+            <label>Grassland with shrubs</label>
+            <description>- Savanna or steppe
+	- Grasslands have move than 10% herbaceous vegetation cover, less than 10% tree cover and less than 10% shrub cover</description>
+          </item>
+          <item id="411">
+            <code>grassland_trees_shrubs</code>
+            <label>Grassland with trees and shrubs</label>
+            <description>- Savanna or steppe
+	- Grasslands have move than 10% herbaceous vegetation cover, less than 10% tree cover and less than 10% shrub cover</description>
+          </item>
+        </item>
+        <item id="454545">
+          <code>cropland</code>
+          <label>Cropland</label>
+          <item id="424">
+            <code>cropland_irrigated</code>
+            <label>Irrigated crops</label>
+          </item>
+          <item id="426">
+            <code>cropland_nonirrigated_floodplain</code>
+            <label>Non-irrigated floodplain cropland</label>
+          </item>
+          <item id="427">
+            <code>cropland_nonirrigated_rainfed</code>
+            <label>Non-irrigated rainfed cropland</label>
+          </item>
+          <item id="428">
+            <code>cropland_orchard</code>
+            <label>Orchard</label>
+          </item>
+          <item id="429">
+            <code>cropland_perennial</code>
+            <label>Perennial cropland</label>
+          </item>
+          <item id="430">
+            <code>cropland_fallow</code>
+            <label>Fallow cropland</label>
+          </item>
+        </item>
+        <item id="454544">
+          <code>settlement</code>
+          <label>Settlement</label>
+          <item id="435">
+            <code>settlement_village</code>
+            <label>Village</label>
+          </item>
+          <item id="436">
+            <code>settlement_urban</code>
+            <label>Urban</label>
+            <description>City or town in urban area</description>
+          </item>
+          <item id="437">
+            <code>settlement_infrastructure</code>
+            <label>Infrastucture</label>
+            <description>Roads, bridges, pipelines, factories, industrial areas, etc</description>
+          </item>
+          <item id="438">
+            <code>settlement_mine</code>
+            <label>Mine</label>
+          </item>
+        </item>
+        <item id="454546">
+          <code>waterbodies</code>
+          <label>Water bodies</label>
+          <item id="414">
+            <code>wetland_river_delta_permanent</code>
+            <label>Permanent river or inner delta</label>
+          </item>
+          <item id="417">
+            <code>wetland_coastal_delta</code>
+            <label>Coastal delta</label>
+          </item>
+          <item id="418">
+            <code>wetland_lake_pool_permanent</code>
+            <label>Permanent lake or pool</label>
+          </item>
+          <item id="419">
+            <code>wetland_marsh</code>
+            <label>Marsh on inorganic soil</label>
+          </item>
+          <item id="420">
+            <code>wetland_saline</code>
+            <label>Saline, brackish or alkaline waters</label>
+          </item>
+          <item id="421">
+            <code>wetland_lake_seasonal</code>
+            <label>Season lake</label>
+          </item>
+          <item id="422">
+            <code>wetland_river_seasonal</code>
+            <label>Seasonal river</label>
+          </item>
+        </item>
+        <item id="454547">
+          <code>other</code>
+          <label>Other</label>
+          <item id="412">
+            <code>palm</code>
+            <label>Palm</label>
+          </item>
+          <item id="413">
+            <code>bamboo</code>
+            <label>Bamboo</label>
+          </item>
+          <item id="423">
+            <code>wetland_riparian_vegetation</code>
+            <label>Riparian vegetation</label>
+            <description>Shrubs and/ / or herbaceous vegation</description>
+          </item>
+          <item id="425">
+            <code>wetland_oases</code>
+            <label>Oases</label>
+          </item>
+          <item id="432">
+            <code>other_rock_stone</code>
+            <label>Rock or stone</label>
+          </item>
+          <item id="433">
+            <code>other_sand</code>
+            <label>Sand</label>
+          </item>
+          <item id="434">
+            <code>other_dune</code>
+            <label>Dune</label>
+          </item>
+          <item id="439">
+            <code>unknown</code>
+            <label>Unknown</label>
+          </item>
+        </item>
+      </items>
+    </list>
+  </codeLists>
+  <spatialReferenceSystems>
+    <spatialReferenceSystem srid="EPSG:4326">
+      <label xml:lang="en">WGS 84</label>
+      <description xml:lang="en">WGS 84</description>
+      <wkt><![CDATA[
+	        GEOGCS["WGS 84",
+		  		DATUM["WGS_1984",
+		  			SPHEROID["WGS 84",6378137,298.257223563, AUTHORITY["EPSG","7030"]],
+		        	AUTHORITY["EPSG","6326"]],
+	    		PRIMEM["Greenwich",0,
+	        		AUTHORITY["EPSG","8901"]],
+	    		UNIT["degree",0.01745329251994328,
+	        		AUTHORITY["EPSG","9122"]],
+	    		AUTHORITY["EPSG","4326"]]
+			
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      ]]>
+      </wkt>
+    </spatialReferenceSystem>
+  </spatialReferenceSystems>
+  <schema>
+    <entity id="1" name="plot" ui:tab="placemark" ui:tabSet="placemark">
+      <label type="instance">Plot</label>
+      <text id="2" name="id" required="true" type="short" key="true">
+        <label type="instance">Id</label>
+      </text>
+      <coordinate id="3" name="location">
+        <label type="instance">Location</label>
+      </coordinate>
+      <text id="4" name="operator" type="short">
+        <label type="instance">Operator</label>
+      </text>
+      <text id="34" name="plot_file" relevant="false()" type="short">
+        <label type="instance">CSV file that contains the plot</label>
+      </text>
+      <boolean id="32" name="actively_saved">
+        <label type="instance">Actively saved by user</label>
+      </boolean>
+      <date id="33" name="actively_saved_on" relevant="false()">
+        <label type="instance">Last saved on</label>
+      </date>
+      <code id="5" name="land_use_category" required="true" list="land_use">
+        <label type="instance">Land Use</label>
+      </code>
+      <code id="6" name="land_use_category_alias" ui:hide="true" calculated="true" list="land_use_subcategory">
+        <label type="instance">Land use Alias</label>
+        <default expr="land_use_category" />
+      </code>
+      <boolean id="7" name="land_use_category_accuracy" required="true">
+        <label type="instance">Land Use Category - Confidence</label>
+      </boolean>
+      <code id="8" name="land_use_subcategory" relevant="land_use_category!='noData'" required="true" ui:hideWhenNotRelevant="true" list="land_use_subcategory" parent="land_use_category_alias">
+        <label type="instance">Land Use Sub-Category</label>
+      </code>
+      <boolean id="9" name="land_use_subcategory_accuracy" relevant="land_use_category!='noData'" required="true" ui:hideWhenNotRelevant="true">
+        <label type="instance">Land Use Sub-Category - Confidence</label>
+      </boolean>
+      <boolean id="463" name="land_use_subcategory_year_of_change_know" relevant="land_use_category!='noData' and land_use_subcategory!='GLtoGL' and land_use_subcategory!='FLtoFL' and land_use_subcategory!='SLtoSL' and land_use_subcategory!='OTtoOT' and land_use_subcategory!='WLtoWL' and land_use_subcategory!='CLtoCL'" required="true" ui:hideWhenNotRelevant="true" ui:tab="placemark">
+        <label type="instance">Land Use Change - Known year of change</label>
+      </boolean>
+      <number id="10" name="land_use_subcategory_year_of_change" relevant="land_use_subcategory_year_of_change_know=true() and &#10;land_use_category!='noData' and land_use_subcategory!='GLtoGL' and land_use_subcategory!='FLtoFL' and land_use_subcategory!='SLtoSL' and land_use_subcategory!='OTtoOT' and land_use_subcategory!='WLtoWL' and land_use_subcategory!='CLtoCL'" required="true" ui:hideWhenNotRelevant="true" type="integer">
+        <label type="instance">Land Use Change - Year of change</label>
+        <compare flag="error" lt="2015" gt="1990" />
+      </number>
+      <date id="23" name="rs_date" required="true" ui:tab="tab_221">
+        <label type="instance">RS Date</label>
+      </date>
+      <code id="24" name="rs_satellite" required="true" ui:tab="tab_221" list="rs_satellite">
+        <label type="instance">RS Satellite</label>
+      </code>
+      <code id="36" name="farming_method" relevant="land_use_category='cropland'" required="true" ui:hideWhenNotRelevant="true" ui:tab="placemark" list="farming_methods">
+        <label type="instance">Farming method</label>
+      </code>
+      <code id="42" name="soil_type" relevant="false()" required="true" ui:hideWhenNotRelevant="true" ui:hide="true" list="soil_types">
+        <label type="instance">Soil Type</label>
+      </code>
+      <code id="43" name="climate_zone" relevant="false()" required="true" ui:hideWhenNotRelevant="true" ui:hide="true" list="climate_zones">
+        <label type="instance">Climate zone</label>
+      </code>
+      <number id="29" name="elevation" collectearth:fromcsv="true" type="integer">
+        <label type="instance">Elevation</label>
+      </number>
+      <number id="31" name="slope" collectearth:fromcsv="true" type="real">
+        <label type="instance">Slope</label>
+      </number>
+      <number id="30" name="aspect" collectearth:fromcsv="true" type="real">
+        <label type="instance">Aspect</label>
+      </number>
+      <text id="35" name="dryland_category" relevant="false()" ui:hide="true" ui:hideWhenNotRelevant="true" collectearth:fromcsv="true" type="short">
+        <label type="instance">Drylands category</label>
+      </text>
+      <text id="452" name="country" relevant="false()" ui:tab="placemark" collectearth:fromcsv="true" type="short">
+        <label type="instance">Country</label>
+      </text>
+      <code id="46" name="fra_class" required="true" ui:tab="tab_226" list="fra_classes">
+        <label type="instance">FRA Class</label>
+        <label type="heading">Fra classes</label>
+      </code>
+      <entity id="53" name="vegetation_elements" multiple="true" ui:layout="table" ui:tab="tab_296">
+        <label type="instance">Vegetation</label>
+        <code id="55" name="vegetation_element" key="true" list="vegetation_elements">
+          <label type="instance">Vegetation type</label>
+        </code>
+        <code id="54" name="element_cover" ui:layoutType="dropdown" list="elements_cover">
+          <label type="instance">Vegetation cover</label>
+          <default value="na" />
+        </code>
+      </entity>
+      <entity id="56" name="infrastructure_elements" multiple="true" ui:layout="table" ui:tab="tab_448">
+        <label type="instance">Infrastructure</label>
+        <code id="58" name="infrastructure_element" ui:layoutType="dropdown" key="true" list="infrastructure_elements">
+          <label type="instance">Infrastructure elements</label>
+        </code>
+        <code id="57" name="element_cover" ui:layoutType="dropdown" list="elements_cover">
+          <label type="instance">Infrastructure cover</label>
+          <default value="na" />
+        </code>
+      </entity>
+      <entity id="371" name="water_bodies" multiple="true" ui:layout="table" ui:tab="tab_296">
+        <label type="instance">Water bodies</label>
+        <code id="372" name="water_key" key="true" list="water_element">
+          <label type="instance">Water body</label>
+        </code>
+        <code id="373" name="water_cover" ui:layoutType="dropdown" list="elements_cover">
+          <label type="instance">Water body cover</label>
+          <default value="na" />
+        </code>
+      </entity>
+      <entity id="374" name="other_elements" multiple="true" ui:layout="table" ui:tab="tab_448">
+        <label type="instance">Other</label>
+        <code id="375" name="other_key" key="true" list="other_elements">
+          <label type="instance">Other elements</label>
+        </code>
+        <code id="381" name="other_cover" ui:layoutType="dropdown" list="elements_cover">
+          <label type="instance">Other elements cover</label>
+          <default value="na" />
+        </code>
+      </entity>
+      <code id="37" name="desertification_trend" required="true" ui:tab="tab_447" list="desertification_list">
+        <label type="instance">Desertification / Greening trend</label>
+      </code>
+      <entity id="383" name="disturbances" ui:layout="form" ui:tab="tab_447">
+        <label type="instance">Disturbances</label>
+        <code id="19" name="human_impact_type" multiple="true" minCount="1" maxCount="5" list="human_impact_type">
+          <label type="instance">Disturbance</label>
+          <default value="none" />
+        </code>
+        <code id="20" name="human_impact_grade" relevant="human_impact_type!='none'" required="true" ui:hideWhenNotRelevant="true" ui:layoutType="dropdown" list="human_impact_grade">
+          <label type="instance">Level of impact</label>
+        </code>
+        <boolean id="440" name="human_impact_continual" relevant="human_impact_type!='none'" required="true" ui:hideWhenNotRelevant="true">
+          <label type="instance">Continuous impact</label>
+        </boolean>
+        <number id="21" name="human_impact_year" relevant="human_impact_type!='none' and human_impact_continual!='0'" required="true" ui:hideWhenNotRelevant="true" type="integer">
+          <label type="instance">Human Impact Year</label>
+          <compare flag="error" lt="2016" gt="1980">
+            <message xml:lang="en">Human Impact must be between the years 1984 and 2015</message>
+          </compare>
+        </number>
+        <boolean id="22" name="human_impact_accuracy" relevant="human_impact_type!='none'" required="true" ui:hideWhenNotRelevant="true">
+          <label type="instance">Human Impact interpretation confidence</label>
+        </boolean>
+      </entity>
+      <code id="442" name="main_land_class" required="true" ui:tab="tab_441" ui:layoutType="radio" list="land_classes">
+        <label type="instance">Land class - Main</label>
+      </code>
+      <code id="442232" name="sub_land_class" required="true" ui:tab="tab_441" ui:layoutType="radio" list="land_classes" parent="main_land_class">
+        <label type="instance">Land class -subcategory</label>
+      </code>
+      <boolean id="443" name="land_class_confidence" required="true" ui:tab="tab_441">
+        <label type="instance">Land class- confidence</label>
+      </boolean>
+      <boolean id="461" name="many_trees" required="true" ui:tab="tab_460">
+        <label type="instance">More than 30 trees</label>
+        <default value="true" />
+      </boolean>
+      <number id="454" name="tree_count" relevant="many_trees=false()" required="true" ui:hideWhenNotRelevant="true" ui:tab="tab_460" type="integer">
+        <label type="instance">Number of trees in plot</label>
+        <default value="0" />
+        <compare flag="error" lt="31" gt="-1" />
+      </number>
+      <boolean id="462" name="many_shrubs" required="true" ui:tab="tab_460">
+        <label type="instance">More than 30 shrubs</label>
+        <default value="true" />
+      </boolean>
+      <number id="455" name="shrub_count" relevant="many_shrubs!='0'" required="true" ui:hideWhenNotRelevant="true" ui:tab="tab_460" type="integer">
+        <label type="instance">Number of shrubs in plot</label>
+        <default value="0" />
+        <compare flag="error" lt="31" gt="-1" />
+      </number>
+      <number id="456" name="linear_vegetation_length" ui:tab="tab_460" type="integer">
+        <label type="instance">Linear vegetation length (in meters)</label>
+        <compare flag="error" lt="141" gt="-1">
+          <message xml:lang="en">The length can not be longer than 140</message>
+        </compare>
+      </number>
+      <number id="457" name="paved_road_length" ui:tab="tab_460" type="integer">
+        <label type="instance">Paved road length (in meters)</label>
+        <compare flag="error" lt="141" gt="-1">
+          <message xml:lang="en">The length can not be longer than 140</message>
+        </compare>
+      </number>
+      <number id="458" name="unpaved_road_length" ui:tab="tab_460" type="integer">
+        <label type="instance">Unpaved road length (in meters)</label>
+        <compare flag="error" lt="141" gt="-1">
+          <message xml:lang="en">The length can not be longer than 140</message>
+        </compare>
+      </number>
+      <number id="459" name="path_length" ui:tab="tab_460" type="integer">
+        <label type="instance">Path length (in meters)</label>
+        <compare flag="error" lt="141" gt="-1">
+          <message xml:lang="en">The length can not be longer than 140</message>
+        </compare>
+      </number>
+    </entity>
+  </schema>
+</survey>
