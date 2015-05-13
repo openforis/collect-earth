@@ -15,6 +15,7 @@ import java.security.Security;
 import java.security.cert.CertificateException;
 import java.security.cert.X509Certificate;
 import java.util.Arrays;
+import java.util.Hashtable;
 import java.util.List;
 import java.util.Map;
 import java.util.Observable;
@@ -100,6 +101,7 @@ public class BrowserService implements Observer{
 	private static final String ZOOM_10 = "zoom,10)";
 	private static final String WORKSPACE_EL = "(\"workspace-el\");";
 	private static final String LAYER_CONTAINER_BODY = "layer-container-body";
+	private enum AuxiliaryService{BING, HERE, TIMELAPSE};
 
 	@Autowired
 	private LocalPropertiesService localPropertiesService;
@@ -113,13 +115,15 @@ public class BrowserService implements Observer{
 	private static final Configuration cfg = new Configuration();
 	private static Template template;
 
-	private RemoteWebDriver webDriverEE, webDriverBing, webDriverTimelapse, webDriverGeePlayground, webDriverHere;
+	private RemoteWebDriver webDriverEE, webDriverBing, webDriverTimelapse, webDriverGeePlayground, webDriverHere, webDriverTabs;
+	private Map<AuxiliaryService, String> openTabTitles = new Hashtable<AuxiliaryService,String>();
 
 	private static boolean geeMethodUpdated = false;
 
 
 	public void closeBrowsers() {
 		synchronized (this) {
+			openTabTitles = new Hashtable<BrowserService.AuxiliaryService, String>();
 			getClosingBrowsersThread().start();
 		}
 		
@@ -402,7 +406,7 @@ public class BrowserService implements Observer{
 	 * @return THe browser window (firefox or chrome depending on the configuration) used to open the URL.
 	 * @throws BrowserNotFoundException Exception thrown when there is no Firefox/Chrome installed
 	 */
-	public synchronized RemoteWebDriver navigateTo(String url, RemoteWebDriver driver, boolean retry ) throws BrowserNotFoundException {
+	public RemoteWebDriver navigateTo(String url, RemoteWebDriver driver, boolean retry ) throws BrowserNotFoundException {
 
 		if (driver == null || !isDriverWorking(driver) ) {
 			driver = initBrowser();
@@ -445,18 +449,34 @@ public class BrowserService implements Observer{
 	public synchronized void openBingMaps(String coordinates) throws BrowserNotFoundException {
 
 		if (localPropertiesService.isBingMapsSupported()) {
-
-			if (webDriverBing == null) {
-				webDriverBing = initBrowser();
-			}
-
-			final RemoteWebDriver driverCopy = webDriverBing;
+			
 			final String[] latLong = coordinates.split(",");
+			String url  = geoLocalizeTemplateService.getBingUrl(latLong,  localPropertiesService.getValue( EarthProperty.BING_MAPS_KEY), GeolocalizeMapService.FREEMARKER_BING_HTML_TEMPLATE).toString();
+			
+			simpleNavigation(webDriverBing, AuxiliaryService.BING,  url);
+		}
+	}
+
+	public void simpleNavigation(RemoteWebDriver defaultDriver, AuxiliaryService service, String url) throws BrowserNotFoundException {
+		if( isNavigationTabBased() ){
+			
+			getTabFor( service );
+
+			navigateTo(url, webDriverTabs);
+
+			openTabTitles.put( service, webDriverTabs.getWindowHandle());
+
+		}else{
+		
+			inititalizeDriver(defaultDriver);
+
+			final RemoteWebDriver driverCopy = defaultDriver;
+			
 			final Thread loadBingThread = new Thread() {
 				@Override
 				public void run() {
 					try {
-						webDriverBing = navigateTo(geoLocalizeTemplateService.getBingUrl(latLong,  localPropertiesService.getValue( EarthProperty.BING_MAPS_KEY), GeolocalizeMapService.FREEMARKER_BING_HTML_TEMPLATE).toString(), driverCopy);
+						navigateTo(url, driverCopy);
 					} catch (final Exception e) {
 						logger.error("Problems loading Bing", e);
 					}
@@ -464,10 +484,47 @@ public class BrowserService implements Observer{
 			};
 			
 			loadBingThread.start();
-			
+		}
+	}
+
+	public void inititalizeDriver(RemoteWebDriver defaultDriver)
+			throws BrowserNotFoundException {
+		if (defaultDriver == null) {
+			defaultDriver = initBrowser();
+		}
+	}
+
+	private boolean isNavigationTabBased() {
+		
+		return true;
+	}
+
+	public void getTabFor(AuxiliaryService service) throws BrowserNotFoundException {
+		initWebDrverForTabs();
+
+		String tabHandle = openTabTitles.get(service);	
+
+		//Open the new tab if it is not the first time the window is open
+		if( openTabTitles.size() > 0 ){
+			if( tabHandle == null ){
+				openNewTab(webDriverTabs);
+			}else{				
+				webDriverTabs.switchTo().window( tabHandle );
+			}
 		}
 	}
 	
+	private void openNewTab(RemoteWebDriver webDriver) {
+		String openNewTab = Keys.chord(Keys.CONTROL,"t");
+		webDriver.findElement(By.tagName("body")).sendKeys(openNewTab);
+	}
+
+	private void initWebDrverForTabs() throws BrowserNotFoundException {
+		if (webDriverTabs == null) {
+			webDriverTabs = initBrowser();
+		}
+	}
+
 	/**
 	 * Opens a browser window with the Here Maps representation of the plot.
 	 * @param coordinates The center point of the plot.
@@ -478,25 +535,10 @@ public class BrowserService implements Observer{
 
 		if (localPropertiesService.isHereMapsSupported()) {
 
-			if (webDriverHere == null) {
-				webDriverHere = initBrowser();
-			}
-
-			final RemoteWebDriver driverCopy = webDriverHere;
 			final String[] centerPlotLocation = coordinates.split(",");
-			final Thread loadHereThread = new Thread() {
-				@Override
-				public void run() {
-					try {
-						webDriverHere = navigateTo(geoLocalizeTemplateService.getHereUrl(centerPlotLocation, localPropertiesService.getValue( EarthProperty.HERE_MAPS_APP_ID), localPropertiesService.getValue( EarthProperty.HERE_MAPS_APP_CODE), GeolocalizeMapService.FREEMARKER_HERE_HTML_TEMPLATE).toString(), driverCopy);
-					} catch (final Exception e) {
-						logger.error("Problems loading Here Maps", e);
-					}
-				};
-			};
+			String url = geoLocalizeTemplateService.getHereUrl(centerPlotLocation, localPropertiesService.getValue( EarthProperty.HERE_MAPS_APP_ID), localPropertiesService.getValue( EarthProperty.HERE_MAPS_APP_CODE), GeolocalizeMapService.FREEMARKER_HERE_HTML_TEMPLATE).toString();
 			
-			loadHereThread.start();
-			
+			simpleNavigation(webDriverHere, AuxiliaryService.HERE,  url);
 		}
 	}
 
@@ -629,27 +671,11 @@ public class BrowserService implements Observer{
 
 		if (localPropertiesService.isTimelapseSupported()) {
 
-			if (webDriverTimelapse == null) {
-				webDriverTimelapse = initBrowser();
-			}
-
-			final RemoteWebDriver driverCopy = webDriverTimelapse;
-			final Thread loadTimelapseThread = new Thread() {
-				@Override
-				public void run() {
-
-					try {
-						webDriverTimelapse = navigateTo("https://earthengine.google.org/#timelapse/v=" + coordinates + ",10.812,latLng&t=0.08",
-								driverCopy);
-					} catch (final Exception e) {
-						logger.error("Problems loading Timelapse", e);
-					}
-
-				};
-			};
-			loadTimelapseThread.start();
+			String url = "https://earthengine.google.org/#timelapse/v=" + coordinates + ",10.812,latLng&t=0.08";
+			simpleNavigation(webDriverTimelapse, AuxiliaryService.TIMELAPSE,  url);
 		}
 	};
+	
 
 	private void refreshJSValues(String geeJs, RemoteWebDriver driver) throws IOException {
 		final String jsGee = getCompleteGeeJS();

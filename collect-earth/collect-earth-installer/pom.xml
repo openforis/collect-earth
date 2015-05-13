@@ -20,7 +20,7 @@
 		<!-- installer file names -->
 		<windows-installer-file-name>CollectEarth-${project.version}-windows-installer.exe</windows-installer-file-name>
 		<linux-installer-file-name>CollectEarth-${project.version}-linux-installer.run</linux-installer-file-name>
-		<osx-installer-file-name>CollectEarth-${project.version}-osx-installer.app.zip</osx-installer-file-name>
+		<osx-installer-file-name>CollectEarth-${project.version}-osx-installer.dmg</osx-installer-file-name>
 		<!-- autoupdater file names -->
 		<windows-autoupdater-file-name>CollectEarthUpdater-${project.version}-windows-installer.exe</windows-autoupdater-file-name>
 		<linux-autoupdater-file-name>CollectEarthUpdater-${project.version}-linux-installer.run</linux-autoupdater-file-name>
@@ -372,7 +372,7 @@ No Solaris installer necessary
 										<artifact>
 											<file>${project.build.directory}/${osx-installer-file-name}</file>
 											<classifier>osx</classifier>
-											<type>zip</type>
+											<type>dmg</type>
 										</artifact>										
 										<artifact>
 											<file>${project.build.directory}/${osx-autoupdater-file-name}</file>

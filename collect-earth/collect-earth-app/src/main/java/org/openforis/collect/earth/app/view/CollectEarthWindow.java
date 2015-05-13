@@ -47,6 +47,7 @@ import org.openforis.collect.earth.app.service.EarthSurveyService;
 import org.openforis.collect.earth.app.service.FolderFinder;
 import org.openforis.collect.earth.app.service.KmlImportService;
 import org.openforis.collect.earth.app.service.LocalPropertiesService;
+import org.openforis.collect.earth.app.service.MissingPlotService;
 import org.openforis.collect.earth.app.view.ExportActionListener.RecordsToExport;
 import org.openforis.collect.manager.RecordManager;
 import org.slf4j.Logger;
@@ -62,30 +63,33 @@ import org.springframework.stereotype.Component;
 @Component
 @Lazy(false)
 public class CollectEarthWindow {
+
+	@Autowired
+	private LocalPropertiesService localPropertiesService;
+
+	@Autowired
+	private DataImportExportService dataImportExportService;
+
+	@Autowired
+	private RecordManager recordManager;
+
+	@Autowired
+	private EarthSurveyService earthSurveyService;
+
+	@Autowired
+	private AnalysisSaikuService analysisSaikuService;
+
+	@Autowired
+	private KmlImportService kmlImportService;
+
+	@Autowired
+	private EarthProjectsService earthProjectsService;
+
+	@Autowired
+	private BackupSqlLiteService backupSqlLiteService;
 	
 	@Autowired
-	LocalPropertiesService localPropertiesService;
-	
-	@Autowired
-	DataImportExportService dataImportExportService;
-	
-	@Autowired
-	RecordManager recordManager;
-	
-	@Autowired
-	EarthSurveyService earthSurveyService;
-	
-	@Autowired
-	AnalysisSaikuService analysisSaikuService;
-	
-	@Autowired
-	KmlImportService kmlImportService;
-	
-	@Autowired
-	EarthProjectsService earthProjectsService;
-	
-	@Autowired
-	BackupSqlLiteService backupSqlLiteService;
+	private MissingPlotService missingPlotService;
 
 	public static void endWaiting(JFrame frame) {
 		frame.setCursor(java.awt.Cursor.getPredefinedCursor(java.awt.Cursor.DEFAULT_CURSOR));
@@ -97,10 +101,12 @@ public class CollectEarthWindow {
 
 	private JFrame frame;
 	private final Logger logger = LoggerFactory.getLogger(CollectEarthWindow.class);
-	
+
 	public static final Color ERROR_COLOR = new Color(225, 124, 124);
+
+	private final List<JMenuItem> serverMenuItems = new ArrayList<JMenuItem>();
+
 	
-		private final List<JMenuItem> serverMenuItems = new ArrayList<JMenuItem>();
 
 	public CollectEarthWindow() throws IOException {
 
@@ -108,7 +114,7 @@ public class CollectEarthWindow {
 		setFrame(new JFrame(Messages.getString("CollectEarthWindow.19"))); //$NON-NLS-1$
 
 	}
-	
+
 	@PostConstruct
 	public void init(){
 		Messages.setLocale(localPropertiesService.getUiLanguage().getLocale());
@@ -124,7 +130,7 @@ public class CollectEarthWindow {
 			}
 		});
 	}
-	
+
 	@PreDestroy
 	public void cleanUp(){
 		this.frame.dispose();
@@ -267,18 +273,18 @@ public class CollectEarthWindow {
 					final String langName = ((JRadioButtonMenuItem) e.getSource()).getName();
 					final UI_LANGUAGE language = UI_LANGUAGE.valueOf(langName);
 					localPropertiesService.setUiLanguage(language);
-					
+
 					SwingUtilities.invokeLater( new Thread(){
 						@Override
 						public void run() {
-							
+
 							frame.getContentPane().removeAll();
 							frame.dispose();
-							
+
 							openWindow();
 						};
 					});
-					
+
 				} catch (final Exception ex) {
 					ex.printStackTrace();
 					logger.error("Error while changing language", ex); //$NON-NLS-1$
@@ -336,28 +342,28 @@ public class CollectEarthWindow {
 		menuItem.addActionListener(getSaikuAnalysisActionListener());
 		toolsMenu.add(menuItem);
 
-		
-		 menuItem = new JMenuItem(Messages.getString("CollectEarthWindow.54")); //$NON-NLS-1$
-		 menuItem.addActionListener( new ApplyOptionChangesListener(this.frame, localPropertiesService) {
 
-				@Override
-				protected void applyProperties() {
-					
-					try {
-						if( kmlImportService.loadFromKml( CollectEarthWindow.this.frame) ){
-							restartEarth();
-						}
-					} catch (Exception e1) {
-						JOptionPane.showMessageDialog( CollectEarthWindow.this.frame, e1.getMessage(), Messages.getString("CollectEarthWindow.63"), JOptionPane.ERROR_MESSAGE); //$NON-NLS-1$
-						logger.error("Error importing KML file", e1); //$NON-NLS-1$
+		menuItem = new JMenuItem(Messages.getString("CollectEarthWindow.54")); //$NON-NLS-1$
+		menuItem.addActionListener( new ApplyOptionChangesListener(this.frame, localPropertiesService) {
+
+			@Override
+			protected void applyProperties() {
+
+				try {
+					if( kmlImportService.loadFromKml( CollectEarthWindow.this.frame) ){
+						restartEarth();
 					}
-
+				} catch (Exception e1) {
+					JOptionPane.showMessageDialog( CollectEarthWindow.this.frame, e1.getMessage(), Messages.getString("CollectEarthWindow.63"), JOptionPane.ERROR_MESSAGE); //$NON-NLS-1$
+					logger.error("Error importing KML file", e1); //$NON-NLS-1$
 				}
 
-			});
-		 serverMenuItems.add(menuItem); // This menu should only be shown if the DB is local ( not if Collect Earth is acting as a client )
-		 toolsMenu.add(menuItem);
-		
+			}
+
+		});
+		serverMenuItems.add(menuItem); // This menu should only be shown if the DB is local ( not if Collect Earth is acting as a client )
+		toolsMenu.add(menuItem);
+
 
 		toolsMenu.addSeparator();
 
@@ -366,7 +372,7 @@ public class CollectEarthWindow {
 		toolsMenu.add(menuItem);
 
 		menuItem = new JMenuItem(Messages.getString("CollectEarthWindow.18")); //$NON-NLS-1$
-		menuItem.addActionListener(new MissingPlotsListener(recordManager, earthSurveyService, frame, localPropertiesService));
+		menuItem.addActionListener(new MissingPlotsListener(frame, localPropertiesService, missingPlotService));
 		serverMenuItems.add(menuItem); // This menu should only be shown if the DB is local ( not if Collect Earth is acting as a client )
 		toolsMenu.add(menuItem);
 
@@ -383,7 +389,7 @@ public class CollectEarthWindow {
 		menuItem.addActionListener( new OpenAboutDialogListener(frame, Messages.getString("CollectEarthWindow.62")) ); //$NON-NLS-1$
 		menuHelp.add(menuItem);
 
-		
+
 		menuItem = new JMenuItem(Messages.getString("CollectEarthWindow.17")); //$NON-NLS-1$
 		menuItem.addActionListener(new OpenTextFileListener(frame, getDisclaimerFilePath(), Messages.getString("CollectEarthWindow.4")));//$NON-NLS-1$
 		menuHelp.add(menuItem);
@@ -395,7 +401,7 @@ public class CollectEarthWindow {
 		menuItem = new JMenuItem(Messages.getString("CollectEarthWindow.64")); //$NON-NLS-1$
 		menuItem.addActionListener(new OpenSupportForum());
 		menuHelp.add(menuItem);
-	
+
 		menuHelp.addSeparator();
 
 		menuItem = new JMenuItem(Messages.getString("CollectEarthWindow.52")); //$NON-NLS-1$
@@ -431,7 +437,7 @@ public class CollectEarthWindow {
 
 	}
 
-	
+
 	private ActionListener getSaikuAnalysisActionListener() {
 		return new SaikuAnalysisListener(frame, getSaikuStarter());
 	}
@@ -439,7 +445,7 @@ public class CollectEarthWindow {
 
 	private SaikuStarter getSaikuStarter() {
 		return new SaikuStarter(analysisSaikuService, frame);
-		
+
 	}
 
 	private void initializeMenu() {

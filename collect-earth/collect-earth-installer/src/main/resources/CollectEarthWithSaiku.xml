@@ -12,7 +12,8 @@
     <defaultLanguage>auto</defaultLanguage>
     <allowLanguageSelection>1</allowLanguageSelection>
     <languageSelectionStyle>onlyNativeNames</languageSelectionStyle>
-    <createOsxBundleZip>1</createOsxBundleZip>
+       <!-- <createOsxBundleZip>1</createOsxBundleZip> -->
+     <createOsxBundleDmg>1</createOsxBundleDmg>
     <componentList>
         <include>
             <file>java.xml</file>
