@@ -31,9 +31,6 @@
                     <origin>COLLECT_EARTH_MAIN_FOLDER/collect-earth-app/src/main/resources/images</origin>
                 </distributionDirectory>
                 <distributionDirectory>
-                    <origin>COLLECT_EARTH_MAIN_FOLDER/collect-earth-app/resources</origin>
-                </distributionDirectory>
-                <distributionDirectory>
                     <origin>COLLECT_EARTH_MAIN_FOLDER/collect-earth-app/target/earth-libs</origin>
                 </distributionDirectory>
                 <distributionFile>
@@ -77,6 +74,30 @@
                     <windowsPath>${installdir}</windowsPath>
                 </shortcut>
             </shortcutList>
+        </folder>
+		<folder>
+            <description>Resources Windows</description>
+            <destination>${installdir}</destination>
+            <name>resourceswindows</name>
+            <platforms>windows</platforms>
+            <distributionFileList>
+	         	<distributionDirectory>
+	                <excludeFiles>chromedriver</excludeFiles>
+	            	<origin>../../../collect-earth-app/resources</origin>
+	            </distributionDirectory>
+            </distributionFileList>
+        </folder>
+        <folder>
+            <description>Resources Linux Mac</description>
+            <destination>${installdir}</destination>
+            <name>resourceslinux</name>
+            <platforms>linux osx</platforms>
+            <distributionFileList>
+	         	<distributionDirectory>
+	                <excludeFiles>chromedriver.exe</excludeFiles>
+	            	<origin>../../../collect-earth-app/resources</origin>
+	            </distributionDirectory>
+            </distributionFileList>
         </folder>
         <folder>
             <description>Program Files</description>
@@ -262,6 +283,8 @@
         </runProgram>
 		
         -->
+        
+        <!--
         <copyFile>
             <abortOnError>0</abortOnError>
             <destination>${installdir}/${java_launcher_binary_name}/Contents/Resources/installbuilder.icns</destination>
@@ -270,7 +293,7 @@
                 <compareText logic="equals" text="${platform_name}" value="osx"/>
             </ruleList>
         </copyFile>
-        
+        -->
         
         
         <createSymLink>
