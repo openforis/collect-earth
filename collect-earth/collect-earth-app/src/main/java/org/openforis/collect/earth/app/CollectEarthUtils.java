@@ -14,4 +14,6 @@ public class CollectEarthUtils {
 	public static String getMd5FromFile(String filePath) throws IOException {
 		return DigestUtils.md5Hex(new FileInputStream(new File(filePath)));
 	}
+	
+	
 }

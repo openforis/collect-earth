@@ -52,6 +52,11 @@ public class EarthConstants {
 	public static final String OPERATOR_PARAMETER = "collect_text_operator"; //$NON-NLS-1$
 	public static final String SKIP_FILLED_PLOT_PARAMETER = "jump_to_next_plot"; //$NON-NLS-1$
 	
+	public static final String PLOT_ID = "_plot_id"; //$NON-NLS-1$
+	
+	public static final String POSTGRES_RDB_SCHEMA = "rdbcollectsaiku"; //$NON-NLS-1$
+
+	
 	public enum SAMPLE_SHAPE{ SQUARE_CIRCLE, SQUARE, CIRCLE, OCTAGON};
 	
 	public enum UI_LANGUAGE{ 

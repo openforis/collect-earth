@@ -29,13 +29,11 @@ import org.openforis.collect.earth.app.model.DynamicsCode;
 import org.openforis.collect.earth.app.model.SlopeCode;
 import org.openforis.collect.earth.app.service.LocalPropertiesService.EarthProperty;
 import org.openforis.collect.earth.core.rdb.RelationalSchemaContext;
-import org.openforis.collect.earth.sampler.processor.KmlGenerator;
 import org.openforis.collect.earth.sampler.utils.FreemarkerTemplateUtils;
 import org.openforis.collect.model.CollectRecord.Step;
 import org.openforis.collect.relational.CollectRDBPublisher;
 import org.openforis.collect.relational.CollectRdbException;
 import org.openforis.collect.relational.model.RelationalSchemaConfig;
-import org.openforis.idm.metamodel.Schema;
 import org.openqa.selenium.remote.RemoteWebDriver;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -51,17 +49,11 @@ import freemarker.template.TemplateException;
 @Component
 public class AnalysisSaikuService {
 
-	private static final String NO_DATA_LAND_USE = "noData"; //$NON-NLS-1$
-
 	private static final String ALU_CLIMATE_ZONE_CODE = "alu_climate_zone_code"; //$NON-NLS-1$
 
 	private static final String ALU_SOIL_TYPE_CODE = "alu_soil_type_code"; //$NON-NLS-1$
 
 	private static final String ALU_SUBCLASS_CODE = "alu_subclass_code"; //$NON-NLS-1$
-
-	private static final String PLOT_WEIGHT = "plot_weight"; //$NON-NLS-1$
-
-	private static final String EXPANSION_FACTOR = "expansion_factor"; //$NON-NLS-1$
 
 	private static final String DYNAMICS_ID = "dynamics_id"; //$NON-NLS-1$
 
@@ -70,10 +62,6 @@ public class AnalysisSaikuService {
 	private static final String SLOPE_ID = "slope_id"; //$NON-NLS-1$
 
 	private static final String ASPECT_ID = "aspect_id"; //$NON-NLS-1$
-	
-	protected static final String PLOT_ID = "_plot_id"; //$NON-NLS-1$
-
-	private static final String POSTGRES_RDB_SCHEMA = "rdbcollectsaiku"; //$NON-NLS-1$
 
 	private static final String START_SAIKU = "start-saiku"; //$NON-NLS-1$
 
@@ -100,6 +88,12 @@ public class AnalysisSaikuService {
 	@Autowired
 	private BasicDataSource rdbDataSource;
 
+	@Autowired
+	private RegionCalculationUtils regionCalculation;
+	
+	@Autowired
+	private SchemaService schemaNamingService;
+	
 	private JdbcTemplate jdbcTemplate;
 
 	private final Logger logger = LoggerFactory.getLogger(AnalysisSaikuService.class);
@@ -114,8 +108,7 @@ public class AnalysisSaikuService {
 	private static final String POSTGRESQL_FREEMARKER_HTML_TEMPLATE = "resources" + File.separator + "collectEarthPostgreSqlDS.fmt"; //$NON-NLS-1$ //$NON-NLS-2$
 	private static final String MDX_XML = "collectEarthCubes.xml"; //$NON-NLS-1$
 	private static final String MDX_TEMPLATE = MDX_XML + ".fmt"; //$NON-NLS-1$
-	private static final String REGION_AREAS_CSV = "region_areas.csv"; //$NON-NLS-1$
-	private static final String ATTRIBUTE_AREAS_CSV = "areas_per_attribute.csv"; //$NON-NLS-1$
+
 	private boolean userCancelledOperation = false;
 	private boolean saikuStarted;
 
@@ -123,7 +116,7 @@ public class AnalysisSaikuService {
 		try {
 			final String schemaName = getSchemaPrefix();
 			// Objet[] --> aspect_id, sloped_id, elevation_bucket_id, _plot_id
-			final List<Object[]> sqlUpdateValues = jdbcTemplate.query("SELECT "+PLOT_ID+", elevation, slope, aspect FROM " + schemaName + "plot", //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$
+			final List<Object[]> sqlUpdateValues = jdbcTemplate.query("SELECT "+EarthConstants.PLOT_ID+", elevation, slope, aspect FROM " + schemaName + "plot", //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$
 					new RowMapper<Object[]>() {
 						@Override
 						public Object[] mapRow(ResultSet rs, int rowNum) throws SQLException {
@@ -144,24 +137,28 @@ public class AnalysisSaikuService {
 							updateValues[0] = aspect;
 							updateValues[1] = slope;
 							updateValues[2] = Math.floor((int) rs.getFloat("elevation") / ELEVATION_RANGE) + 1; // 0 meters is bucket 1 ( id); //$NON-NLS-1$
-							updateValues[3] = rs.getLong(PLOT_ID);
+							updateValues[3] = rs.getLong(EarthConstants.PLOT_ID);
 							return updateValues;
 						}
 
 					});
 
-			jdbcTemplate.batchUpdate("UPDATE " + schemaName + "plot SET " + ASPECT_ID +"=?," + SLOPE_ID + "=?,"+ ELEVATION_ID+"=? WHERE "+PLOT_ID+"=?", sqlUpdateValues); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$ //$NON-NLS-4$ //$NON-NLS-5$ //$NON-NLS-6$
+			jdbcTemplate.batchUpdate("UPDATE " + schemaName + "plot SET " + ASPECT_ID +"=?," + SLOPE_ID + "=?,"+ ELEVATION_ID+"=? WHERE "+EarthConstants.PLOT_ID+"=?", sqlUpdateValues); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$ //$NON-NLS-4$ //$NON-NLS-5$ //$NON-NLS-6$
 		} catch (DataAccessException e) {
 			logger.error("No DEM information", e); //$NON-NLS-1$
 		}
 	}
 	
+	private String getSchemaPrefix() {
+		return schemaNamingService.getSchemaPrefix();
+	}
+
 	private void assignPngAluToolDimensionValues() {
 		try {
 			if (earthSurveyService.getCollectSurvey().getName().toLowerCase().contains("png") ){  //$NON-NLS-1$
 				final String schemaName = getSchemaPrefix();
 				// Objet[] --> aspect_id, sloped_id, elevation_bucket_id, _plot_id
-				final List<Object[]> sqlUpdateValues = jdbcTemplate.query("SELECT "+PLOT_ID+", elevation, soil_fundamental, land_use_subcategory, precipitation_ranges FROM " + schemaName + "plot LEFT JOIN " + schemaName + "precipitation_ranges_code where " //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$ //$NON-NLS-4$
+				final List<Object[]> sqlUpdateValues = jdbcTemplate.query("SELECT "+EarthConstants.PLOT_ID+", elevation, soil_fundamental, land_use_subcategory, precipitation_ranges FROM " + schemaName + "plot LEFT JOIN " + schemaName + "precipitation_ranges_code where " //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$ //$NON-NLS-4$
 						+ "plot.annual_precipitation_code_id=precipitation_ranges_code.precipitation_ranges_code_id", //$NON-NLS-1$
 						new RowMapper<Object[]>() {
 							@Override
@@ -193,20 +190,20 @@ public class AnalysisSaikuService {
 									
 									updateValues[0] = climate_zone;
 									updateValues[1] = soil_type;
-									updateValues[2] = rs.getLong(PLOT_ID);
+									updateValues[2] = rs.getLong(EarthConstants.PLOT_ID);
 								} catch (Exception e) {
 									logger.error("Error while processing the data", e); //$NON-NLS-1$
 									updateValues[0] = "Unknown"; //$NON-NLS-1$
 									updateValues[1] = "Unknown"; //$NON-NLS-1$
 									updateValues[2] = "Unknown"; //$NON-NLS-1$
-									updateValues[0] = rs.getLong(PLOT_ID);
+									updateValues[0] = rs.getLong(EarthConstants.PLOT_ID);
 								}
 								return updateValues;
 							}
 	
 						});
 	
-				jdbcTemplate.batchUpdate("UPDATE " + schemaName + "plot SET " + ALU_CLIMATE_ZONE_CODE +"=?," + ALU_SOIL_TYPE_CODE + "=? WHERE "+PLOT_ID+"=?", sqlUpdateValues); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$ //$NON-NLS-4$ //$NON-NLS-5$ //$NON-NLS-6$
+				jdbcTemplate.batchUpdate("UPDATE " + schemaName + "plot SET " + ALU_CLIMATE_ZONE_CODE +"=?," + ALU_SOIL_TYPE_CODE + "=? WHERE "+EarthConstants.PLOT_ID+"=?", sqlUpdateValues); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$ //$NON-NLS-4$ //$NON-NLS-5$ //$NON-NLS-6$
 			}
 		} catch (Exception e) {
 			logger.error("No PNG ALU information", e); //$NON-NLS-1$
@@ -217,7 +214,7 @@ public class AnalysisSaikuService {
 		try {
 			final String schemaName = getSchemaPrefix();
 			// Objet[] --> aspect_id, sloped_id, elevation_bucket_id, _plot_id
-			final List<Object[]> sqlUpdateValues = jdbcTemplate.query("SELECT "+PLOT_ID+", land_use_subcategory FROM " + schemaName + "plot", //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$
+			final List<Object[]> sqlUpdateValues = jdbcTemplate.query("SELECT "+EarthConstants.PLOT_ID+", land_use_subcategory FROM " + schemaName + "plot", //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$
 					new RowMapper<Object[]>() {
 						@Override
 						public Object[] mapRow(ResultSet rs, int rowNum) throws SQLException {
@@ -234,21 +231,21 @@ public class AnalysisSaikuService {
 
 							updateValues[0] = dynamics;
 							updateValues[1] = sub_class;
-							updateValues[2] = rs.getLong(PLOT_ID);
+							updateValues[2] = rs.getLong(EarthConstants.PLOT_ID);
 							return updateValues;
 						}
 
 					});
 
-			jdbcTemplate.batchUpdate("UPDATE " + schemaName + "plot SET " + DYNAMICS_ID +"=?,"+ ALU_SUBCLASS_CODE+"=? WHERE "+PLOT_ID+"=?", sqlUpdateValues); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$ //$NON-NLS-4$
+			jdbcTemplate.batchUpdate("UPDATE " + schemaName + "plot SET " + DYNAMICS_ID +"=?,"+ ALU_SUBCLASS_CODE+"=? WHERE "+EarthConstants.PLOT_ID+"=?", sqlUpdateValues); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$ //$NON-NLS-4$
 		} catch (Exception e) {
 			logger.error("No PNG Alu information available", e); //$NON-NLS-1$
 		}
 	}
 
 	private void cleanPostgresDb() {
-		jdbcTemplate.execute("DROP SCHEMA IF EXISTS " + POSTGRES_RDB_SCHEMA + " CASCADE"); //$NON-NLS-1$ //$NON-NLS-2$
-		jdbcTemplate.execute("CREATE SCHEMA IF NOT EXISTS " + POSTGRES_RDB_SCHEMA); //$NON-NLS-1$
+		jdbcTemplate.execute("DROP SCHEMA IF EXISTS " + EarthConstants.POSTGRES_RDB_SCHEMA + " CASCADE"); //$NON-NLS-1$ //$NON-NLS-2$
+		jdbcTemplate.execute("CREATE SCHEMA IF NOT EXISTS " + EarthConstants.POSTGRES_RDB_SCHEMA); //$NON-NLS-1$
 	}
 
 	private void cleanSqlLiteDb(final List<String> tables) {
@@ -326,11 +323,7 @@ public class AnalysisSaikuService {
 		jdbcTemplate.execute("ALTER TABLE " + schemaName + "plot ADD " + DYNAMICS_ID + " INTEGER"); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$
 	}
 
-	private void createWeightFactors(){
-		final String schemaName = getSchemaPrefix();
-		jdbcTemplate.execute("ALTER TABLE " + schemaName + "plot ADD " + EXPANSION_FACTOR + " FLOAT"); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$
-		jdbcTemplate.execute("ALTER TABLE " + schemaName + "plot ADD " + PLOT_WEIGHT + " FLOAT"); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$
-	}
+
 
 	
 	private void createPngAluVariables(){
@@ -390,24 +383,6 @@ public class AnalysisSaikuService {
 			final File saikuFolder = new File(configuredSaikuFolder);
 			return saikuFolder.getAbsolutePath();
 		}
-	}
-
-	private String getSchemaName() {
-		String schemaName = null;
-		if (localPropertiesService.isUsingPostgreSqlDB()) {
-			schemaName = POSTGRES_RDB_SCHEMA;
-		}
-		return schemaName;
-	}
-
-	private String getSchemaPrefix() {
-		String schemaName = getSchemaName();
-		if (schemaName != null) {
-			schemaName += "."; //$NON-NLS-1$
-		} else {
-			schemaName = ""; //$NON-NLS-1$
-		}
-		return schemaName;
 	}
 
 	@PostConstruct
@@ -534,6 +509,11 @@ public class AnalysisSaikuService {
 		}
 	}
 
+	private String getSchemaName() {
+		// TODO Auto-generated method stub
+		return null;
+	}
+
 	private void setSaikuAsDefaultSchema() {
 		if( localPropertiesService.isUsingPostgreSqlDB() ){
 			jdbcTemplate.execute("SET search_path TO " + getSchemaName() ); //$NON-NLS-1$
@@ -554,8 +534,6 @@ public class AnalysisSaikuService {
 		
 		createPngAluVariables();
 
-		createWeightFactors();
-
 		createPlotForeignKeys();
 
 		assignPngAluToolDimensionValues();
@@ -564,10 +542,7 @@ public class AnalysisSaikuService {
 
 		assignLUCDimensionValues();
 
-		// If the region_areas.csv is not present then try to add the areas "per attribute" using the file areas_per_attribute.csv
-		if(!addAreasPerRegion()){
-			addAreasPerAttribute();
-		}
+		regionCalculation.handleRegionCalculation();
 
 	}
 
@@ -580,152 +555,7 @@ public class AnalysisSaikuService {
 		return reader;
 	}
 
-	private boolean addAreasPerAttribute() throws SQLException {
 
-		final File areasPerAttribute = new File( localPropertiesService.getProjectFolder() + File.separatorChar + ATTRIBUTE_AREAS_CSV);
-		String schemaName = getSchemaPrefix();
-		
-		if (areasPerAttribute.exists()) {
-
-			try {
-				CSVReader csvReader = KmlGenerator.getCsvReader(areasPerAttribute.getAbsolutePath());
-				String[] csvLine = null;
-				
-				// The header (first line) should contain the names of the three columns : attribute_name,area,weight
-				
-				String[] columnNames = csvReader.readNext();
-				
-				String attributeName = columnNames[0];
-								
-				// Validate attribute name
-				if( !isAttributeInPlotEntity( attributeName ) ){
-					throw new RuntimeException("The expected format of the CSV file at " + areasPerAttribute.getAbsolutePath() + " should be attribute_name,area,weight. The name of the attribute in hte first column of your CSV '" + attributeName + "'is not a attribute under the plot entity.");
-				}
-				//Validate area and weight headers.
-				if( !columnNames[1].equalsIgnoreCase("area") || !columnNames[2].equalsIgnoreCase("weight")){
-					throw new RuntimeException("The expected format of the CSV file at " + areasPerAttribute.getAbsolutePath() + " should be attribute_name,area,weight");
-				}
-
-				while( ( csvLine = csvReader.readNext() ) != null ){
-						String attributeValue = csvLine[0];
-						int area_hectars = Integer.parseInt( csvLine[1] );
-						final Float plot_weight =  Float.parseFloat( csvLine[2] );
-
-						Object[] parameters = new String[]{attributeValue};
-
-						int plots_per_region = jdbcTemplate.queryForInt( "SELECT count("+PLOT_ID+") FROM " + schemaName  + "plot  WHERE " + attributeName + "=? ", parameters); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$ //$NON-NLS-4$
-
-						Float expansion_factor_hectars_calc = 0f;
-						if( plots_per_region != 0 ){
-							expansion_factor_hectars_calc = (float)area_hectars / (float) plots_per_region;
-						}
-					
-						final Object[] updateValues = new Object[3];
-						updateValues[0] = expansion_factor_hectars_calc;
-						updateValues[1] = plot_weight;
-						updateValues[2] = attributeValue;
-						jdbcTemplate.update("UPDATE " + schemaName + "plot SET "+EXPANSION_FACTOR+"=?, "+PLOT_WEIGHT+"=? WHERE " + attributeName + "=?", updateValues); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$ //$NON-NLS-4$
-				}
-								
-			} catch (FileNotFoundException e) {
-				logger.error("File not found?", e); //$NON-NLS-1$
-			} catch (IOException e) {
-				logger.error("Error reading the CSV file", e); //$NON-NLS-1$
-			}
-
-			return true;
-		}else{
-			logger.warn("No CSV region_areas.csv present, calculating areas will not be possible"); //$NON-NLS-1$
-			return false;
-		}
-
-	}
-
-	private boolean isAttributeInPlotEntity(String attributeName) {
-		Schema schema = earthSurveyService.getCollectSurvey().getSchema();
-		boolean attributeExists = true;
-		try {
-			schema.getRootEntityDefinition(EarthConstants.ROOT_ENTITY_NAME ).getChildDefinition(attributeName);
-		} catch (Exception e) {
-			// The attribute does not exist under the plot entity
-			attributeExists = false;
-		}
-		return attributeExists;
-	}
-
-	private boolean isAttributeInPlotEntity() {
-		// TODO Auto-generated method stub
-		return false;
-	}
-
-	/**
-	 * This is the "old way"of assigning an expansion factor (the area in hecaters that a plot represents) to a plot based on the information form the "region_areas.csv" file.
-	 * @return True if there was a region_areas.csv file, false if not present so that areas were not assigned.
-	 * @throws SQLException
-	 */
-	private boolean addAreasPerRegion() throws SQLException {
-
-		final File regionAreas = new File( localPropertiesService.getProjectFolder() + File.separatorChar + REGION_AREAS_CSV);
-		String schemaName = getSchemaPrefix();
-		
-		if (regionAreas.exists()) {
-
-			try {
-				CSVReader csvReader = KmlGenerator.getCsvReader(regionAreas.getAbsolutePath());
-				String[] csvLine = null;
-
-				while( ( csvLine = csvReader.readNext() ) != null ){
-					try {
-						String region = csvLine[0];
-						String plot_file = csvLine[1];
-						int area_hectars =  Integer.parseInt( csvLine[2] );
-						final Float plot_weight =  Float.parseFloat( csvLine[3] );
-
-						Object[] parameters = new String[]{region,plot_file};
-
-						int plots_per_region = jdbcTemplate.queryForInt( 
-								"SELECT count("+PLOT_ID+") FROM " + schemaName  + "plot  WHERE ( region=? OR plot_file=? ) AND land_use_category != '"+NO_DATA_LAND_USE+"' ", parameters); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$ //$NON-NLS-4$
-
-						Float expansion_factor_hectars_calc = 0f;
-						if( plots_per_region != 0 ){
-							expansion_factor_hectars_calc = (float)area_hectars / (float) plots_per_region;
-						}
-					
-						final Object[] updateValues = new Object[4];
-						updateValues[0] = expansion_factor_hectars_calc;
-						updateValues[1] = plot_weight;
-						updateValues[2] = region;
-						updateValues[3] = plot_file;
-						jdbcTemplate.update("UPDATE " + schemaName + "plot SET "+EXPANSION_FACTOR+"=?, "+PLOT_WEIGHT+"=? WHERE region=? OR plot_file=?", updateValues); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$ //$NON-NLS-4$
-						
-					} catch (NumberFormatException e) {
-						logger.error("Possibly the header", e); //$NON-NLS-1$
-					} 
-
-				}
-				
-				// FINALLY ASSIGN A WEIGHT OF CERO AND AN EXPANSION FACTOR OF 0 FOR THE PLOTS WITH NO_DATA
-				
-				final Object[] updateNoDataValues = new Object[3];
-				updateNoDataValues[0] = 0;
-				updateNoDataValues[1] = 0;
-				updateNoDataValues[2] = NO_DATA_LAND_USE;
-				
-				jdbcTemplate.update("UPDATE " + schemaName + "plot SET "+EXPANSION_FACTOR+"=?, "+PLOT_WEIGHT+"=? WHERE land_use_category=?", updateNoDataValues); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$ //$NON-NLS-4$
-				
-			} catch (FileNotFoundException e) {
-				logger.error("File not found?", e); //$NON-NLS-1$
-			} catch (IOException e) {
-				logger.error("Error reading the CSV file", e); //$NON-NLS-1$
-			}
-
-			return true;
-		}else{
-			logger.warn("No CSV region_areas.csv present, calculating areas will not be possible"); //$NON-NLS-1$
-			return false;
-		}
-
-	}
 
 	private void refreshDataSourceForSaiku() throws IOException, TemplateException {
 		final File mdxFile = new File( localPropertiesService.getProjectFolder() + File.separatorChar + MDX_XML);
