@@ -90,15 +90,10 @@ public class EarthApp {
 		}
 	}
 
-	public void openProject(String doubleClickedProjectFile) throws MalformedURLException, IOException, Exception {
+	public void generateKml() throws MalformedURLException, IOException, Exception {
 	
-
-			earthApp.loadProjectIfDoubleCLicked(doubleClickedProjectFile);
-
 			try {
-
 				getKmlGeneratorService().generateKmlFile();
-
 			} catch (final IOException e) {
 				logger.error("Could not generate KML file", e); //$NON-NLS-1$
 				e.printStackTrace();
@@ -108,8 +103,6 @@ public class EarthApp {
 				e.printStackTrace();
 				showMessage("<html>Problems while generating the KML file: <br/> " + (e.getCause()!=null?(e.getCause()+"<br/>"):"") + e.getMessage().substring(0,300) + "</html>"); //$NON-NLS-1$
 			}
-
-			earthApp.checkForUpdates();
 	}
 
 	public static void openProjectFileInRunningCollectEarth(String doubleClickedProjecFile) throws MalformedURLException, IOException {
@@ -255,6 +248,9 @@ public class EarthApp {
 			}
 		}else{
 
+			// Load the docuble-clieck CEP file before the survey manager is instantiated by the server start-up
+			earthApp.loadProjectIfDoubleClicked(doubleClickedProjectFile);
+			
 			serverController = new ServerController();
 			final Observer observeInitialization = new Observer() {
 				@Override
@@ -273,9 +269,9 @@ public class EarthApp {
 					if (!initializationEvent.equals(ServerInitializationEvent.SERVER_STOPPED_EVENT)) {
 						try {
 												
-							earthApp.openProject(doubleClickedProjectFile);
+							earthApp.generateKml();
 							earthApp.simulateClickKmz();
-							
+							earthApp.checkForUpdates();
 							closeSplash();
 						} catch (final Exception e) {
 							logger.error("Error generating KML file", e); //$NON-NLS-1$
@@ -347,7 +343,7 @@ public class EarthApp {
 	 *            The path to the CEP file that was double-clicked
 	 * 
 	 */
-	private void loadProjectIfDoubleCLicked(String doubleClickedProjecFile) {
+	private void loadProjectIfDoubleClicked(String doubleClickedProjecFile) {
 		try {
 			if (doubleClickedProjecFile != null) {
 
