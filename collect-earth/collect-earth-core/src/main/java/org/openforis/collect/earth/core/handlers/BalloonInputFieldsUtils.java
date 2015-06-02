@@ -63,7 +63,7 @@ public class BalloonInputFieldsUtils {
 			new TimeAttributeHandler()
 		);
 	
-	public Map<String, PlacemarkInputFieldInfo> extractFieldInfoByParameterName(CollectRecord record) {
+	public Map<String, PlacemarkInputFieldInfo> extractFieldInfoByParameterName(CollectRecord record, String language) {
 		Map<String, String> htmlParameterNameByNodePath = getHtmlParameterNameByNodePath(record);
 		Set<String> parameterNames = new HashSet<String>(htmlParameterNameByNodePath.values());
 		Map<String, String> validationMessageByPath = generateValidationMessages(record);
@@ -81,12 +81,12 @@ public class BalloonInputFieldsUtils {
 				AbstractAttributeHandler<?> childHandler = findHandler(childAttributeParameterName);
 				PlacemarkInputFieldInfo info = generateAttributeFieldInfo(
 						record, validationMessageByPath, currentEntity, childAttributeParameterName,
-						childHandler);
+						childHandler, language);
 				result.put(parameterName, info);
 			} else {
 				PlacemarkInputFieldInfo info = generateAttributeFieldInfo(
 						record, validationMessageByPath, rootEntity, cleanName,
-						handler);
+						handler, language);
 				result.put(parameterName, info);
 			}
 		}
@@ -96,7 +96,7 @@ public class BalloonInputFieldsUtils {
 	private PlacemarkInputFieldInfo generateAttributeFieldInfo(
 			CollectRecord record, Map<String, String> validationMessageByPath,
 			Entity rootEntity, String cleanName,
-			AbstractAttributeHandler<?> handler) {
+			AbstractAttributeHandler<?> handler, String language) {
 		PlacemarkInputFieldInfo info = new PlacemarkInputFieldInfo();
 
 		List<Attribute<?, ?>> attributes = handler.getAttributeNodesFromParameter(cleanName, rootEntity);
@@ -121,7 +121,12 @@ public class BalloonInputFieldsUtils {
 			List<PlacemarkCodedItem> possibleCodedItems = new ArrayList<PlacemarkCodedItem>(validCodeListItems.size() + 1);
 			possibleCodedItems.add(new PlacemarkCodedItem(NOT_APPLICABLE_ITEM_CODE, NOT_APPLICABLE_ITEM_LABEL));
 			for (CodeListItem item : validCodeListItems) {
-				possibleCodedItems.add(new PlacemarkCodedItem(item.getCode(), item.getLabel()));
+				String label = item.getLabel( language );
+				// Tries to get the label for the specified language, if not gets the label for the default language 
+				if( label == null && !language.equals( record.getSurvey().getDefaultLanguage() ) ){
+					label = item.getLabel();
+				}
+				possibleCodedItems.add(new PlacemarkCodedItem(item.getCode(), label));
 			}
 			info.setPossibleCodedItems(possibleCodedItems);
 		}

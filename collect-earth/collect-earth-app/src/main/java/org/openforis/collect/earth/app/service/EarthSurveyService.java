@@ -405,7 +405,7 @@ public class EarthSurveyService {
 		result.setSuccess(true);
 		result.setCollectRecord(record);
 		result.setSkipFilled(localPropertiesService.shouldJumpToNextPlot());
-		Map<String, PlacemarkInputFieldInfo> infoByParameterName = collectParametersHandler.extractFieldInfoByParameterName(record);
+		Map<String, PlacemarkInputFieldInfo> infoByParameterName = collectParametersHandler.extractFieldInfoByParameterName(record, localPropertiesService.getUiLanguage().getLocale().getLanguage() );
 		
 		//adjust error messages
 		for (Entry<String, PlacemarkInputFieldInfo> entry : infoByParameterName.entrySet()) {
