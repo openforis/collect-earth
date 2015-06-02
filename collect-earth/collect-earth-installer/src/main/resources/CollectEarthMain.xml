@@ -82,7 +82,7 @@
             <platforms>windows</platforms>
             <distributionFileList>
 	         	<distributionDirectory>
-	                <excludeFiles>chromedriver</excludeFiles>
+	                <excludeFiles>*/chromedriver</excludeFiles>
 	            	<origin>../../../collect-earth-app/resources</origin>
 	            </distributionDirectory>
             </distributionFileList>
@@ -94,7 +94,7 @@
             <platforms>linux osx</platforms>
             <distributionFileList>
 	         	<distributionDirectory>
-	                <excludeFiles>chromedriver.exe</excludeFiles>
+	                <excludeFiles>*/chromedriver.exe</excludeFiles>
 	            	<origin>../../../collect-earth-app/resources</origin>
 	            </distributionDirectory>
             </distributionFileList>
