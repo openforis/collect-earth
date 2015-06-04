@@ -57,6 +57,6 @@ public class Messages {
 	}
 	
 	public static void main(String[] args) {
-		printMissingTranslations( args.length==0?"ES":args[0]);
+		printMissingTranslations( args.length==0?"LA":args[0]);
 	}
 }

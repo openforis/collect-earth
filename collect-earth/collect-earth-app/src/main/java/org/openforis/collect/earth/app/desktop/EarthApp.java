@@ -1,6 +1,7 @@
 package org.openforis.collect.earth.app.desktop;
 
 import java.awt.Desktop;
+import java.awt.Font;
 import java.awt.SplashScreen;
 import java.io.BufferedReader;
 import java.io.File;
@@ -16,6 +17,7 @@ import java.util.Observer;
 import javax.swing.JOptionPane;
 
 import org.apache.log4j.PropertyConfigurator;
+import org.openforis.collect.earth.app.CollectEarthUtils;
 import org.openforis.collect.earth.app.desktop.ServerController.ServerInitializationEvent;
 import org.openforis.collect.earth.app.server.LoadProjectFileServlet;
 import org.openforis.collect.earth.app.service.EarthProjectsService;
@@ -67,7 +69,10 @@ public class EarthApp {
 			System.setProperty("collectEarth.userFolder", FolderFinder.getLocalFolder()); //$NON-NLS-1$
 			
 			PropertyConfigurator.configure(EarthApp.class.getResource("/WEB-INF/conf/log4j.properties"));
-
+			
+			// Change of font so that Lao and Thao glyphs are supported
+			CollectEarthUtils.setUIFont( new javax.swing.plaf.FontUIResource("Arial Unicode MS",Font.PLAIN,12) );
+			
 			logger = LoggerFactory.getLogger(EarthApp.class);
 
 			String doubleClickedProjecFile = null;
