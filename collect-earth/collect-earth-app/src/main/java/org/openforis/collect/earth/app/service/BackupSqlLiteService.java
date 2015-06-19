@@ -10,8 +10,12 @@ import java.util.Date;
 
 import javax.annotation.PostConstruct;
 
+import net.lingala.zip4j.core.ZipFile;
+import net.lingala.zip4j.exception.ZipException;
+import net.lingala.zip4j.model.ZipParameters;
+import net.lingala.zip4j.util.Zip4jConstants;
+
 import org.apache.commons.dbcp.BasicDataSource;
-import org.apache.commons.io.FileUtils;
 import org.openforis.collect.earth.app.EarthConstants;
 import org.openforis.collect.earth.app.service.LocalPropertiesService.EarthProperty;
 import org.openforis.collect.persistence.SurveyImportException;
@@ -65,8 +69,8 @@ public class BackupSqlLiteService {
 	private void backupDB() {
 		if( localPropertiesService.isUsingSqliteDB() ){
 			String nameCollectDB = ""; //$NON-NLS-1$
-			String pathToBackup = ""; //$NON-NLS-1$
-			SimpleDateFormat sdf = new SimpleDateFormat("yyyy_MM_dd_HHmmss"); //$NON-NLS-1$
+			String pathToBackupZip = ""; //$NON-NLS-1$
+			
 
 			try {
 				// DON"T USE THIS
@@ -75,27 +79,49 @@ public class BackupSqlLiteService {
 				//nameCollectDB = getCollectDBName(); 
 
 				nameCollectDB = EarthConstants.COLLECT_EARTH_DATABASE_SQLITE_DB;
+				File originalDBFile = new File(nameCollectDB);
 				
-				File backupFolder = getBackUpFolder();
-
-				File srcFile = new File(nameCollectDB);
-				StringBuilder destPathStr = new StringBuilder();
-				destPathStr.append(backupFolder.getCanonicalPath());
-				destPathStr.append(File.separatorChar);
-				destPathStr.append( EarthConstants.COLLECT_EARTH_DATABASE_FILE_NAME);
-				destPathStr.append(sdf.format( new Date() ));
-
-				pathToBackup = destPathStr.toString();
-				File destFile  = new File( pathToBackup );			
-
-				FileUtils.copyFile(srcFile, destFile );
+				pathToBackupZip = getBackupZifFilename();
+				
+				moveDBtoZipBackup(pathToBackupZip, originalDBFile);
 
 				removeExtraBackups();
 
 			} catch (IOException e) {
-				logger.error("Error when create backup of the Collect Earth Database from " + nameCollectDB + " to " + pathToBackup, e); //$NON-NLS-1$ //$NON-NLS-2$
+				logger.error("Error when create backup of the Collect Earth Database from " + nameCollectDB + " to " + pathToBackupZip, e); //$NON-NLS-1$ //$NON-NLS-2$
+			} catch (ZipException e) {
+				logger.error("Error when zipping the Collect Earth Database from " + nameCollectDB + " to " + pathToBackupZip, e); //$NON-NLS-1$ //$NON-NLS-2$			
 			}
 		}
+	}
+
+	public void moveDBtoZipBackup(String pathToBackupZip, File srcFile)
+			throws ZipException {
+		File destBackupFile = new File( pathToBackupZip );	
+		ZipFile zipBackupFile = new ZipFile( destBackupFile );
+		
+		ZipParameters zipParameters = new ZipParameters();
+		// COMP_DEFLATE is for compression
+		zipParameters.setCompressionMethod(Zip4jConstants.COMP_DEFLATE);
+		// DEFLATE_LEVEL_ULTRA = maximum compression
+		zipParameters.setCompressionLevel(Zip4jConstants.DEFLATE_LEVEL_ULTRA);
+		zipParameters.setSourceExternalStream(true);
+		zipParameters.setFileNameInZip(EarthConstants.COLLECT_EARTH_DATABASE_FILE_NAME);				
+		zipBackupFile.addFile(srcFile, zipParameters);
+	}
+
+	public String getBackupZifFilename() throws IOException {
+		String pathToBackup;
+		File backupFolder = getBackUpFolder();
+		
+		SimpleDateFormat sdf = new SimpleDateFormat("yyyy_MM_dd_HHmmss"); //$NON-NLS-1$
+		StringBuilder destPathStr = new StringBuilder();
+		destPathStr.append(backupFolder.getCanonicalPath());
+		destPathStr.append(File.separatorChar);
+		destPathStr.append( EarthConstants.COLLECT_EARTH_DATABASE_FILE_NAME);
+		destPathStr.append(sdf.format( new Date() )).append( ".zip");
+		pathToBackup = destPathStr.toString();
+		return pathToBackup;
 	}
 
 	private void removeExtraBackups() {
