@@ -7,6 +7,8 @@ import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.nio.charset.Charset;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.ArrayList;
@@ -17,9 +19,14 @@ import java.util.Map;
 import javax.annotation.PostConstruct;
 import javax.annotation.PreDestroy;
 
+import net.lingala.zip4j.core.ZipFile;
+import net.lingala.zip4j.exception.ZipException;
+
+import org.apache.commons.codec.binary.Hex;
 import org.apache.commons.dbcp.BasicDataSource;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.SystemUtils;
+import org.openforis.collect.earth.app.CollectEarthUtils;
 import org.openforis.collect.earth.app.EarthConstants;
 import org.openforis.collect.earth.app.EarthConstants.CollectDBDriver;
 import org.openforis.collect.earth.app.ad_hoc.AluToolUtils;
@@ -351,14 +358,59 @@ public class AnalysisSaikuService {
 	}
 
 
-	private File getRdbFile() {
-		return new File(COLLECT_EARTH_DATABASE_RDB_DB);
+	private String getRdbFilePrefix(){
+		String result = "";
+		try {
+			final MessageDigest messageDigest = MessageDigest.getInstance("MD5");
+			messageDigest.reset();
+			String concatenation = earthSurveyService.getCollectSurvey().getUri() + earthSurveyService.getCollectSurvey().getName();
+			messageDigest.update(concatenation.getBytes(Charset.forName("UTF8")));
+			final byte[] resultByte = messageDigest.digest();
+			result = new String(Hex.encodeHex(resultByte));
+		} catch (NoSuchAlgorithmException e) {
+			logger.error("Problems getting the MD5 hash of the project name", e);
+		}
+		return result;
+	}
+	
+	private File getZippedSaikuProjectDB() {
+		
+		File saikuFolder = new File(FolderFinder.getLocalFolder() + File.separator + "saikuDatabase");
+		
+		if ( !saikuFolder.exists() ){
+			saikuFolder.mkdir();
+		}
+		
+		return new File(saikuFolder.getAbsolutePath() + File.separator + getRdbFilePrefix() +  ServerController.SAIKU_RDB_SUFFIX + ".zip");
 	}
 
 	public boolean isRdbFilePresent(){
-		File rdbFile = getRdbFile();
+		File rdbFile = getZippedSaikuProjectDB();
 
 		return ( rdbFile!=null && rdbFile.exists() );
+	}
+
+	private boolean restoreProjectSaikuDB(){
+		boolean restoredSaiku = false;
+		if( getZippedSaikuProjectDB().exists() ){
+			// Unzip file
+			
+			try {
+				ZipFile zippedProjectSaikuData = new ZipFile( getZippedSaikuProjectDB() );
+				zippedProjectSaikuData.extractAll( FolderFinder.getLocalFolder() );
+				restoredSaiku = true;
+			} catch (ZipException e) {
+				logger.error("Problems unzipping the contents of the zipped Saiku DB to the local user folder ", e);
+			}
+			
+		}
+		return restoredSaiku;
+	}
+	
+	private File getRdbFile() {
+		
+		return new File(COLLECT_EARTH_DATABASE_RDB_DB);
+		
 	}
 
 	private String getSaikuConfigurationFilePath() {
@@ -453,30 +505,22 @@ public class AnalysisSaikuService {
 			stopSaiku();
 
 			try {
-				if (!getRdbFile().exists() || isRefreshDatabase()) {
-
-					System.currentTimeMillis();
-					removeOldRdb();
-					/*
-					 * The SQLite DB has no limit on the length of the varchar.
-					 * By default, if no RelationalSchemaConfig is passed to the export command text fields will be truncated to 255 characters
-					 */
-					final RelationalSchemaConfig rdbConfig = new RelationalSchemaContext().getRdbConfig();
-
-					final String rdbSaikuSchema = getSchemaName();
-
-					collectRDBPublisher.export(earthSurveyService.getCollectSurvey().getName(), EarthConstants.ROOT_ENTITY_NAME, Step.ENTRY,
-							rdbSaikuSchema, rdbConfig);
-
-					if (!isUserCancelledOperation()) {
-						System.currentTimeMillis();
-						try {
-							processQuantityData();
-							setSaikuAsDefaultSchema();
-						} catch (final Exception e) {
-							logger.error("Error processing quantity data", e); //$NON-NLS-1$
-						}
+				removeOldRdb();
+				
+				if (!getZippedSaikuProjectDB().exists() || isRefreshDatabase()) {
+					// The user clicked on the option to refresh the database, or there is no previous copy of the Saiku DB
+					// Generate the DB file
+					exportDataToRDB();
+					try {
+						// Save the DB file in a zipped file to keep for the next usages
+						replaceZippedSaikuProjectDB();
+					} catch (ZipException e) {
+						logger.error("Error while refreshing the Zipped content of the project Saiku DB", e);
 					}
+					
+				}else if( getZippedSaikuProjectDB().exists() ){
+					// If the zipped version of the project exists ( and the user clicked on the option to not refresh it) then restore this last version of the data 
+					restoreProjectSaikuDB();
 				}
 
 				refreshDataSourceForSaiku();
@@ -506,6 +550,37 @@ public class AnalysisSaikuService {
 
 		} catch (final CollectRdbException e) {
 			logger.error("Error while producing Relational DB from Collect format", e); //$NON-NLS-1$
+		}
+	}
+
+	private void replaceZippedSaikuProjectDB() throws ZipException {
+		CollectEarthUtils.addFileToZip( 
+				getZippedSaikuProjectDB().getAbsolutePath(),
+				getRdbFile(), 
+				getRdbFile().getName()
+			);
+	}
+
+	public void exportDataToRDB() throws CollectRdbException {
+		/*
+		 * The SQLite DB has no limit on the length of the varchar.
+		 * By default, if no RelationalSchemaConfig is passed to the export command text fields will be truncated to 255 characters
+		 */
+		final RelationalSchemaConfig rdbConfig = new RelationalSchemaContext().getRdbConfig();
+
+		final String rdbSaikuSchema = getSchemaName();
+
+		collectRDBPublisher.export(earthSurveyService.getCollectSurvey().getName(), EarthConstants.ROOT_ENTITY_NAME, Step.ENTRY,
+				rdbSaikuSchema, rdbConfig);
+
+		if (!isUserCancelledOperation()) {
+			System.currentTimeMillis();
+			try {
+				processQuantityData();
+				setSaikuAsDefaultSchema();
+			} catch (final Exception e) {
+				logger.error("Error processing quantity data", e); //$NON-NLS-1$
+			}
 		}
 	}
 

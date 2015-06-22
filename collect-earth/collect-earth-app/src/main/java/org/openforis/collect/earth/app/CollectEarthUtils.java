@@ -7,6 +7,11 @@ import java.util.Enumeration;
 
 import javax.swing.UIManager;
 
+import net.lingala.zip4j.core.ZipFile;
+import net.lingala.zip4j.exception.ZipException;
+import net.lingala.zip4j.model.ZipParameters;
+import net.lingala.zip4j.util.Zip4jConstants;
+
 import org.apache.commons.codec.digest.DigestUtils;
 
 public class CollectEarthUtils {
@@ -27,4 +32,19 @@ public class CollectEarthUtils {
 	        UIManager.put (key, f);
 	      }
 	    } 
+	
+	public static void addFileToZip(String zipFile, File srcFile, String fileNameInZip )
+			throws ZipException {
+		File destBackupFile = new File( zipFile );	
+		ZipFile zipBackupFile = new ZipFile( destBackupFile );
+		
+		ZipParameters zipParameters = new ZipParameters();
+		// COMP_DEFLATE is for compression
+		zipParameters.setCompressionMethod(Zip4jConstants.COMP_DEFLATE);
+		// DEFLATE_LEVEL_ULTRA = maximum compression
+		zipParameters.setCompressionLevel(Zip4jConstants.DEFLATE_LEVEL_ULTRA);
+		zipParameters.setSourceExternalStream(true);
+		zipParameters.setFileNameInZip( fileNameInZip );				
+		zipBackupFile.addFile(srcFile, zipParameters);
+	}
 }

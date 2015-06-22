@@ -16,6 +16,7 @@ import net.lingala.zip4j.model.ZipParameters;
 import net.lingala.zip4j.util.Zip4jConstants;
 
 import org.apache.commons.dbcp.BasicDataSource;
+import org.openforis.collect.earth.app.CollectEarthUtils;
 import org.openforis.collect.earth.app.EarthConstants;
 import org.openforis.collect.earth.app.service.LocalPropertiesService.EarthProperty;
 import org.openforis.collect.persistence.SurveyImportException;
@@ -83,7 +84,7 @@ public class BackupSqlLiteService {
 				
 				pathToBackupZip = getBackupZifFilename();
 				
-				moveDBtoZipBackup(pathToBackupZip, originalDBFile);
+				CollectEarthUtils.addFileToZip(pathToBackupZip, originalDBFile, EarthConstants.COLLECT_EARTH_DATABASE_FILE_NAME);
 
 				removeExtraBackups();
 
@@ -93,21 +94,6 @@ public class BackupSqlLiteService {
 				logger.error("Error when zipping the Collect Earth Database from " + nameCollectDB + " to " + pathToBackupZip, e); //$NON-NLS-1$ //$NON-NLS-2$			
 			}
 		}
-	}
-
-	public void moveDBtoZipBackup(String pathToBackupZip, File srcFile)
-			throws ZipException {
-		File destBackupFile = new File( pathToBackupZip );	
-		ZipFile zipBackupFile = new ZipFile( destBackupFile );
-		
-		ZipParameters zipParameters = new ZipParameters();
-		// COMP_DEFLATE is for compression
-		zipParameters.setCompressionMethod(Zip4jConstants.COMP_DEFLATE);
-		// DEFLATE_LEVEL_ULTRA = maximum compression
-		zipParameters.setCompressionLevel(Zip4jConstants.DEFLATE_LEVEL_ULTRA);
-		zipParameters.setSourceExternalStream(true);
-		zipParameters.setFileNameInZip(EarthConstants.COLLECT_EARTH_DATABASE_FILE_NAME);				
-		zipBackupFile.addFile(srcFile, zipParameters);
 	}
 
 	public String getBackupZifFilename() throws IOException {
