@@ -35,6 +35,9 @@
                         <distributionDirectory>
                             <origin>COLLECT_EARTH_MAIN_FOLDER/collect-earth-app/resources</origin>
                         </distributionDirectory>
+                        <distributionFile>
+		                    <origin>COLLECT_EARTH_MAIN_FOLDER/collect-earth-app/UserManual.pdf</origin>
+		                </distributionFile>
                     </distributionFileList>
                 </folder>
             </folderList>
