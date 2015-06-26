@@ -1,4 +1,4 @@
-<Schema name="drylandsmonitoring">
+<Schema name="drylands_monitoring_assessment">
   <Cube name="Collect Earth Plot" cache="true" enabled="true">
     <Table name="plot" schema="${saikuDbSchema}"/>
     <Dimension name="Id" type="StandardDimension" visible="true">
@@ -35,14 +35,8 @@
     </Dimension>
     <Dimension name="Land Use" foreignKey="land_use_category_code_id" type="StandardDimension" visible="true">
       <Hierarchy visible="true" hasAll="true">
-        <Table name="land_use_use_code" schema="${saikuDbSchema}"/>
-        <Level name="Land Use" table="land_use_use_code" column="land_use_use_code_id" nameColumn="land_use_use_label_en" uniqueMembers="true" levelType="Regular" type="String"/>
-      </Hierarchy>
-    </Dimension>
-    <Dimension name="Land use Alias" foreignKey="land_use_category_alias_code_id" type="StandardDimension" visible="true">
-      <Hierarchy visible="true" hasAll="true">
         <Table name="land_use_subcategory_use_code" schema="${saikuDbSchema}"/>
-        <Level name="Land use Alias" table="land_use_subcategory_use_code" column="land_use_subcategory_use_code_id" nameColumn="land_use_subcategory_use_label_en" uniqueMembers="true" levelType="Regular" type="String"/>
+        <Level name="Land Use" table="land_use_subcategory_use_code" column="land_use_subcategory_use_code_id" nameColumn="land_use_subcategory_use_label_en" uniqueMembers="true" levelType="Regular" type="String"/>
       </Hierarchy>
     </Dimension>
     <Dimension name="Land Use Category - Confidence" type="StandardDimension" visible="true">
@@ -61,14 +55,14 @@
         <Level name="Land Use Sub-Category - Confidence" column="land_use_subcategory_accuracy" uniqueMembers="true" levelType="Regular" type="String"/>
       </Hierarchy>
     </Dimension>
-    <Dimension name="Land Use Change - Known year of change" type="StandardDimension" visible="true">
+    <Dimension name="change between subdivision" type="StandardDimension" visible="true">
       <Hierarchy visible="true" hasAll="true">
-        <Level name="Land Use Change - Known year of change" column="land_use_subcategory_year_of_change_know" uniqueMembers="true" levelType="Regular" type="String"/>
+        <Level name="change between subdivision" column="land_use_subcategory_year_of_change_know" uniqueMembers="true" levelType="Regular" type="String"/>
       </Hierarchy>
     </Dimension>
-    <Dimension name="Land Use Change - Year of change" type="StandardDimension" visible="true">
+    <Dimension name="change between subdivision (year)" type="StandardDimension" visible="true">
       <Hierarchy visible="true" hasAll="true">
-        <Level name="Land Use Change - Year of change" column="land_use_subcategory_year_of_change" uniqueMembers="true" levelType="Regular" type="Integer"/>
+        <Level name="change between subdivision (year)" column="land_use_subcategory_year_of_change" uniqueMembers="true" levelType="Regular" type="Integer"/>
       </Hierarchy>
     </Dimension>
     <Dimension name="RS Date" type="" visible="true">
@@ -211,31 +205,31 @@
         <Level name="Desertification / Greening trend" table="desertification_list_code" column="desertification_list_code_id" nameColumn="desertification_list_label_en" uniqueMembers="true" levelType="Regular" type="String"/>
       </Hierarchy>
     </Dimension>
-    <Dimension name="Disturbance" foreignKey="human_impact_type_code_id" type="StandardDimension" visible="true">
+    <Dimension name="Disturbance" foreignKey="disturbance_impact_type_code_id" type="StandardDimension" visible="true">
       <Hierarchy visible="true" hasAll="true">
-        <Table name="human_impact_type_code" schema="${saikuDbSchema}"/>
-        <Level name="Disturbance" table="human_impact_type_code" column="human_impact_type_code_id" nameColumn="human_impact_type_label_en" uniqueMembers="true" levelType="Regular" type="String"/>
+        <Table name="disturbance_impact_type_code" schema="${saikuDbSchema}"/>
+        <Level name="Disturbance" table="disturbance_impact_type_code" column="disturbance_impact_type_code_id" nameColumn="disturbance_impact_type_label_en" uniqueMembers="true" levelType="Regular" type="String"/>
       </Hierarchy>
     </Dimension>
-    <Dimension name="Level of impact" foreignKey="human_impact_grade_code_id" type="StandardDimension" visible="true">
+    <Dimension name="Level of impact" foreignKey="disturbance_impact_grade_code_id" type="StandardDimension" visible="true">
       <Hierarchy visible="true" hasAll="true">
-        <Table name="human_impact_grade_code" schema="${saikuDbSchema}"/>
-        <Level name="Level of impact" table="human_impact_grade_code" column="human_impact_grade_code_id" nameColumn="human_impact_grade_label_en" uniqueMembers="true" levelType="Regular" type="String"/>
+        <Table name="disturbance_impact_grade_code" schema="${saikuDbSchema}"/>
+        <Level name="Level of impact" table="disturbance_impact_grade_code" column="disturbance_impact_grade_code_id" nameColumn="disturbance_impact_grade_label_en" uniqueMembers="true" levelType="Regular" type="String"/>
       </Hierarchy>
     </Dimension>
     <Dimension name="Continuous impact" type="StandardDimension" visible="true">
       <Hierarchy visible="true" hasAll="true">
-        <Level name="Continuous impact" column="human_impact_continual" uniqueMembers="true" levelType="Regular" type="String"/>
+        <Level name="Continuous impact" column="disturbance_impact_continual" uniqueMembers="true" levelType="Regular" type="String"/>
       </Hierarchy>
     </Dimension>
-    <Dimension name="Human Impact Year" type="StandardDimension" visible="true">
+    <Dimension name="Disturbance Impact Year" type="StandardDimension" visible="true">
       <Hierarchy visible="true" hasAll="true">
-        <Level name="Human Impact Year" column="human_impact_year" uniqueMembers="true" levelType="Regular" type="Integer"/>
+        <Level name="Disturbance Impact Year" column="disturbance_impact_year" uniqueMembers="true" levelType="Regular" type="Integer"/>
       </Hierarchy>
     </Dimension>
-    <Dimension name="Human Impact interpretation confidence" type="StandardDimension" visible="true">
+    <Dimension name="Disturbance Impact interpretation confidence" type="StandardDimension" visible="true">
       <Hierarchy visible="true" hasAll="true">
-        <Level name="Human Impact interpretation confidence" column="human_impact_accuracy" uniqueMembers="true" levelType="Regular" type="String"/>
+        <Level name="Disturbance Impact interpretation confidence" column="disturbance_impact_accuracy" uniqueMembers="true" levelType="Regular" type="String"/>
       </Hierarchy>
     </Dimension>
     <Dimension name="Land class - Main" foreignKey="main_land_class_code_id" type="StandardDimension" visible="true">
@@ -295,6 +289,12 @@
         <Level name="Path length (in meters)" column="path_length" uniqueMembers="true" levelType="Regular" type="Integer"/>
       </Hierarchy>
     </Dimension>
+    <Dimension name="Dryland region" foreignKey="dryland_region_code_id" type="StandardDimension" visible="true">
+      <Hierarchy visible="true" hasAll="true">
+        <Table name="drylands_regions_code" schema="${saikuDbSchema}"/>
+        <Level name="Dryland region" table="drylands_regions_code" column="drylands_regions_code_id" nameColumn="drylands_regions_label_en" uniqueMembers="true" levelType="Regular" type="String"/>
+      </Hierarchy>
+    </Dimension>
     <Dimension name="Slope category" foreignKey="slope_id" type="StandardDimension" visible="true" highCardinality="false">
       <Hierarchy visible="true" hasAll="true">
         <Table name="slope_category" schema="${saikuDbSchema}"/>
@@ -313,12 +313,12 @@
         <Level name="Elevation_range" table="elevation_category" column="elevation_id" nameColumn="elevation_caption" uniqueMembers="false" levelType="Regular" type="String" hideMemberIf="Never"/>
       </Hierarchy>
     </Dimension>
-    <Measure name="Area (HA)" column="expansion_factor" datatype="Integer" aggregator="sum" caption="Area (HA)" formatString="#,###"/>
-    <Measure name="Plot Weight" column="plot_weight" datatype="Integer" aggregator="sum" caption="Plot Weight" formatString="#,###"/>
+    <Measure name="area" column="expansion_factor" datatype="Integer" aggregator="sum" caption="Area (HA)" formatString="#,###"/>
+    <Measure name="plot_weight" column="plot_weight" datatype="Integer" aggregator="sum" caption="Plot Weight" formatString="#,###"/>
     <Measure name="plot_count" column="_plot_id" datatype="Integer" aggregator="distinct count" caption="Plot Count"/>
-    <Measure name="land_use_subcategory_year_of_change_min" column="land_use_subcategory_year_of_change" datatype="Integer" aggregator="min" caption="Land Use Change - Year of change min"/>
-    <Measure name="land_use_subcategory_year_of_change_max" column="land_use_subcategory_year_of_change" datatype="Integer" aggregator="max" caption="Land Use Change - Year of change max"/>
-    <Measure name="land_use_subcategory_year_of_change_avg" column="land_use_subcategory_year_of_change" datatype="Integer" aggregator="avg" caption="Land Use Change - Year of change avg"/>
+    <Measure name="land_use_subcategory_year_of_change_min" column="land_use_subcategory_year_of_change" datatype="Integer" aggregator="min" caption="change between subdivision (year) min"/>
+    <Measure name="land_use_subcategory_year_of_change_max" column="land_use_subcategory_year_of_change" datatype="Integer" aggregator="max" caption="change between subdivision (year) max"/>
+    <Measure name="land_use_subcategory_year_of_change_avg" column="land_use_subcategory_year_of_change" datatype="Integer" aggregator="avg" caption="change between subdivision (year) avg"/>
     <Measure name="elevation_min" column="elevation" datatype="Integer" aggregator="min" caption="Elevation min"/>
     <Measure name="elevation_max" column="elevation" datatype="Integer" aggregator="max" caption="Elevation max"/>
     <Measure name="elevation_avg" column="elevation" datatype="Integer" aggregator="avg" caption="Elevation avg"/>

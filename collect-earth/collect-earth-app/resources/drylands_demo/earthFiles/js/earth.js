@@ -2,7 +2,7 @@ var SEPARATOR_MULTIPLE_PARAMETERS = "==="; //used to separate multiple attribute
 var SEPARATOR_MULTIPLE_VALUES = ";";
 var DATE_FORMAT = 'MM/DD/YYYY';
 var TIME_FORMAT = 'HH:ss';
-var SUBMIT_LABEL = "Submit and validate";
+var SUBMIT_LABEL = "Finish";
 var ACTIVELY_SAVED_FIELD_ID = "collect_boolean_actively_saved";
 var NESTED_ATTRIBUTE_ID_PATTERN = /\w+\[\w+\]\.\w+/;
 
@@ -69,7 +69,7 @@ $(function() {
 	checkIfPlacemarkAlreadyFilled(0);
 });
 
-var ajaxDataUpdate = function(delay, repeat) {
+var ajaxDataUpdate = function(delay, timesTried) {
 	if (typeof delay == "undefined") {
 		delay = 100;
 	}
@@ -180,7 +180,7 @@ var submitForm = function(submitCounter) {
 				submitCounter = 0;
 			}
 			
-			if (submitCounter < 5) {
+			if (submitCounter < 10) {
 				submitForm(submitCounter + 1);
 			} else {
 				showErrorMessage("Cannot save the data, the Collect Earth server is not running!");
@@ -245,7 +245,7 @@ var updateInputFieldsState = function(inputFieldInfoByParameterName) {
 	$.each(inputFieldInfoByParameterName, function(fieldName, info) {
 		var el = findById(fieldName);
 		if (el.length == 1) {
-			var parentCodeFieldId = el.data("parentCodeFieldId");
+			var parentCodeFieldId = el.data("parentIdFieldId");
 			var hasParentCode = parentCodeFieldId && parentCodeFieldId != "";
 			if (hasParentCode) {
 				switch (el.data("fieldType")) {
@@ -261,14 +261,14 @@ var updateInputFieldsState = function(inputFieldInfoByParameterName) {
 					break;
 				case "CODE_BUTTON_GROUP":
 					var parentCodeInfo = inputFieldInfoByParameterName[parentCodeFieldId];
-					var parentCodeValue = parentCodeInfo.value;
+					var parentCodeItemId = parentCodeInfo.codeItemId;
 					var groupContainer = el.closest(".code-items-group");
 					
-					var validItemsContainer = groupContainer.find(".code-items[data-parent-code='" + parentCodeValue + "']");
-					if (validItemsContainer.is(':hidden')) {
-						var itemsContainers = groupContainer.find(".code-items");
-						itemsContainers.hide();
-						
+					var itemsContainers = groupContainer.find(".code-items");
+					itemsContainers.hide();
+
+					var validItemsContainer = groupContainer.find(".code-items[data-parent-id='" + parentCodeItemId + "']");
+					if (validItemsContainer.length > 0 && validItemsContainer.is(':hidden')) {
 						validItemsContainer.show();
 					}
 					break;

@@ -153,6 +153,9 @@ ${html_for_balloon}
 <Data name="country">
 <value>${placemark.extraColumns[4]}</value>
 </Data>
+<Data name="dryland_region">
+<value>${placemark.extraColumns[5]}</value>
+</Data>
 
 
      	</ExtendedData>

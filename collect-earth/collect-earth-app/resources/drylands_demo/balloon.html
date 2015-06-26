@@ -58,14 +58,14 @@
  	var HOST = "$[host]";
 	</script>
 	
-	<script src="earthFiles/jquery/jquery.js"></script>
-	<script src="earthFiles/jquery/jquery-ui.js"></script>
-	<script src="earthFiles/jquery/jquery.blockUI.js"></script>
-	<script src="earthFiles/jquery/jquery.selectBoxIt.min.js"></script>
+	<script src="earthFiles/jquery/jquery.js?v=$[randomNumber]"></script>
+	<script src="earthFiles/jquery/jquery-ui.js?v=$[randomNumber]"></script>
+	<script src="earthFiles/jquery/jquery.blockUI.js?v=$[randomNumber]"></script>
+	<script src="earthFiles/jquery/jquery.selectBoxIt.min.js?v=$[randomNumber]"></script>
 	<script src="earthFiles/jquery/jquery.steps.openforis.js?v=$[randomNumber]"></script>
-	<script src="earthFiles/bootstrap/bootstrap.min.js"></script>
-	<script src="earthFiles/bootstrap/moment.js"></script>
-	<script src="earthFiles/bootstrap/bootstrap-datetimepicker.min.js"></script>
+	<script src="earthFiles/bootstrap/bootstrap.min.js?v=$[randomNumber]"></script>
+	<script src="earthFiles/bootstrap/moment.js?v=$[randomNumber]"></script>
+	<script src="earthFiles/bootstrap/bootstrap-datetimepicker.min.js?v=$[randomNumber]"></script>
 
 	<script src="earthFiles/openforis/of.js?v=$[randomNumber]"></script>
 	<script src="earthFiles/openforis/of-arrays.js?v=$[randomNumber]"></script>
@@ -75,11 +75,11 @@
 	
 	<script src="earthFiles/js/earth.js?v=$[randomNumber]"></script>
 	
-	<link href="earthFiles/jquery/jquery-ui.css" rel="stylesheet" />
-	<link href="earthFiles/jquery/jquery.selectBoxIt.css" rel="stylesheet" />
-	<link href="earthFiles/jquery/jquery-steps.css" rel="stylesheet" />
-	<link href="earthFiles/bootstrap/bootstrap.css" rel="stylesheet" />
-	<link href="earthFiles/bootstrap/bootstrap-datetimepicker.min.css" rel="stylesheet"  />
+	<link href="earthFiles/jquery/jquery-ui.css?v=$[randomNumber]" rel="stylesheet" />
+	<link href="earthFiles/jquery/jquery.selectBoxIt.css?v=$[randomNumber]" rel="stylesheet" />
+	<link href="earthFiles/jquery/jquery-steps.css?v=$[randomNumber]" rel="stylesheet" />
+	<link href="earthFiles/bootstrap/bootstrap.css?v=$[randomNumber]" rel="stylesheet" />
+	<link href="earthFiles/bootstrap/bootstrap-datetimepicker.min.css?v=$[randomNumber]" rel="stylesheet"  />
 	
 	<link href="earthFiles/css/earth.css?v=$[randomNumber]" rel="stylesheet" />
 	
@@ -137,6 +137,7 @@
 <input type="hidden" id="collect_real_aspect" name="collect_real_aspect" value="$[aspect]" />
 <input type="hidden" id="collect_text_dryland_category" name="collect_text_dryland_category" value="$[dryland_category]" />
 <input type="hidden" id="collect_text_country" name="collect_text_country" value="$[country]" />
+<input type="hidden" id="collect_code_dryland_region" name="collect_code_dryland_region" value="$[dryland_region]" />
 
 <!-- END OF EXTRA CSV DATA -->
 		
@@ -158,7 +159,7 @@
 <td><label class="control-label col-sm-4">Tree</label></td><td>
 <div class="form-group">
 <div class="col-sm-8">
-<select class="form-control selectboxit show-menu-arrow show-tick" data-field-type="CODE_SELECT" data-width="75px" id="collect_entity_vegetation_elements[tree].code_element_cover" name="collect_entity_vegetation_elements[tree].code_element_cover"><option value="na">Cover %</option><option value="l1">2%</option><option value="l2">4%</option><option value="l3">6%</option><option value="l4">8%</option><option value="2">10-19%</option><option value="3">20-29%</option><option value="4">30-39%</option><option value="5">40-49%</option><option value="6">50-59%</option><option value="7">60-69%</option><option value="8">70-79%</option><option value="9">80-89%</option><option value="10">90-100%</option></select>
+<select class="form-control selectboxit show-menu-arrow show-tick" data-field-type="CODE_SELECT" data-width="75px" id="collect_entity_vegetation_elements[tree].code_element_cover" name="collect_entity_vegetation_elements[tree].code_element_cover"><option value="na">0%</option><option value="l1">2%</option><option value="l2">4%</option><option value="l3">6%</option><option value="l4">8%</option><option value="2">10-19%</option><option value="3">20-29%</option><option value="4">30-39%</option><option value="5">40-49%</option><option value="6">50-59%</option><option value="7">60-69%</option><option value="8">70-79%</option><option value="9">80-89%</option><option value="10">90-100%</option></select>
 </div>
 </div>
 </td>
@@ -167,7 +168,7 @@
 <td><label class="control-label col-sm-4">Shrub</label></td><td>
 <div class="form-group">
 <div class="col-sm-8">
-<select class="form-control selectboxit show-menu-arrow show-tick" data-field-type="CODE_SELECT" data-width="75px" id="collect_entity_vegetation_elements[shrub].code_element_cover" name="collect_entity_vegetation_elements[shrub].code_element_cover"><option value="na">Cover %</option><option value="l1">2%</option><option value="l2">4%</option><option value="l3">6%</option><option value="l4">8%</option><option value="2">10-19%</option><option value="3">20-29%</option><option value="4">30-39%</option><option value="5">40-49%</option><option value="6">50-59%</option><option value="7">60-69%</option><option value="8">70-79%</option><option value="9">80-89%</option><option value="10">90-100%</option></select>
+<select class="form-control selectboxit show-menu-arrow show-tick" data-field-type="CODE_SELECT" data-width="75px" id="collect_entity_vegetation_elements[shrub].code_element_cover" name="collect_entity_vegetation_elements[shrub].code_element_cover"><option value="na">0%</option><option value="l1">2%</option><option value="l2">4%</option><option value="l3">6%</option><option value="l4">8%</option><option value="2">10-19%</option><option value="3">20-29%</option><option value="4">30-39%</option><option value="5">40-49%</option><option value="6">50-59%</option><option value="7">60-69%</option><option value="8">70-79%</option><option value="9">80-89%</option><option value="10">90-100%</option></select>
 </div>
 </div>
 </td>
@@ -176,7 +177,7 @@
 <td><label class="control-label col-sm-4">Palm</label></td><td>
 <div class="form-group">
 <div class="col-sm-8">
-<select class="form-control selectboxit show-menu-arrow show-tick" data-field-type="CODE_SELECT" data-width="75px" id="collect_entity_vegetation_elements[palm].code_element_cover" name="collect_entity_vegetation_elements[palm].code_element_cover"><option value="na">Cover %</option><option value="l1">2%</option><option value="l2">4%</option><option value="l3">6%</option><option value="l4">8%</option><option value="2">10-19%</option><option value="3">20-29%</option><option value="4">30-39%</option><option value="5">40-49%</option><option value="6">50-59%</option><option value="7">60-69%</option><option value="8">70-79%</option><option value="9">80-89%</option><option value="10">90-100%</option></select>
+<select class="form-control selectboxit show-menu-arrow show-tick" data-field-type="CODE_SELECT" data-width="75px" id="collect_entity_vegetation_elements[palm].code_element_cover" name="collect_entity_vegetation_elements[palm].code_element_cover"><option value="na">0%</option><option value="l1">2%</option><option value="l2">4%</option><option value="l3">6%</option><option value="l4">8%</option><option value="2">10-19%</option><option value="3">20-29%</option><option value="4">30-39%</option><option value="5">40-49%</option><option value="6">50-59%</option><option value="7">60-69%</option><option value="8">70-79%</option><option value="9">80-89%</option><option value="10">90-100%</option></select>
 </div>
 </div>
 </td>
@@ -185,7 +186,7 @@
 <td><label class="control-label col-sm-4">Bamboo</label></td><td>
 <div class="form-group">
 <div class="col-sm-8">
-<select class="form-control selectboxit show-menu-arrow show-tick" data-field-type="CODE_SELECT" data-width="75px" id="collect_entity_vegetation_elements[bamboo].code_element_cover" name="collect_entity_vegetation_elements[bamboo].code_element_cover"><option value="na">Cover %</option><option value="l1">2%</option><option value="l2">4%</option><option value="l3">6%</option><option value="l4">8%</option><option value="2">10-19%</option><option value="3">20-29%</option><option value="4">30-39%</option><option value="5">40-49%</option><option value="6">50-59%</option><option value="7">60-69%</option><option value="8">70-79%</option><option value="9">80-89%</option><option value="10">90-100%</option></select>
+<select class="form-control selectboxit show-menu-arrow show-tick" data-field-type="CODE_SELECT" data-width="75px" id="collect_entity_vegetation_elements[bamboo].code_element_cover" name="collect_entity_vegetation_elements[bamboo].code_element_cover"><option value="na">0%</option><option value="l1">2%</option><option value="l2">4%</option><option value="l3">6%</option><option value="l4">8%</option><option value="2">10-19%</option><option value="3">20-29%</option><option value="4">30-39%</option><option value="5">40-49%</option><option value="6">50-59%</option><option value="7">60-69%</option><option value="8">70-79%</option><option value="9">80-89%</option><option value="10">90-100%</option></select>
 </div>
 </div>
 </td>
@@ -194,7 +195,7 @@
 <td><label class="control-label col-sm-4">Crop</label></td><td>
 <div class="form-group">
 <div class="col-sm-8">
-<select class="form-control selectboxit show-menu-arrow show-tick" data-field-type="CODE_SELECT" data-width="75px" id="collect_entity_vegetation_elements[crop].code_element_cover" name="collect_entity_vegetation_elements[crop].code_element_cover"><option value="na">Cover %</option><option value="l1">2%</option><option value="l2">4%</option><option value="l3">6%</option><option value="l4">8%</option><option value="2">10-19%</option><option value="3">20-29%</option><option value="4">30-39%</option><option value="5">40-49%</option><option value="6">50-59%</option><option value="7">60-69%</option><option value="8">70-79%</option><option value="9">80-89%</option><option value="10">90-100%</option></select>
+<select class="form-control selectboxit show-menu-arrow show-tick" data-field-type="CODE_SELECT" data-width="75px" id="collect_entity_vegetation_elements[crop].code_element_cover" name="collect_entity_vegetation_elements[crop].code_element_cover"><option value="na">0%</option><option value="l1">2%</option><option value="l2">4%</option><option value="l3">6%</option><option value="l4">8%</option><option value="2">10-19%</option><option value="3">20-29%</option><option value="4">30-39%</option><option value="5">40-49%</option><option value="6">50-59%</option><option value="7">60-69%</option><option value="8">70-79%</option><option value="9">80-89%</option><option value="10">90-100%</option></select>
 </div>
 </div>
 </td>
@@ -215,7 +216,7 @@
 <td><label class="control-label col-sm-4">Lake</label></td><td>
 <div class="form-group">
 <div class="col-sm-8">
-<select class="form-control selectboxit show-menu-arrow show-tick" data-field-type="CODE_SELECT" data-width="75px" id="collect_entity_water_bodies[lake].code_water_cover" name="collect_entity_water_bodies[lake].code_water_cover"><option value="na">Cover %</option><option value="l1">2%</option><option value="l2">4%</option><option value="l3">6%</option><option value="l4">8%</option><option value="2">10-19%</option><option value="3">20-29%</option><option value="4">30-39%</option><option value="5">40-49%</option><option value="6">50-59%</option><option value="7">60-69%</option><option value="8">70-79%</option><option value="9">80-89%</option><option value="10">90-100%</option></select>
+<select class="form-control selectboxit show-menu-arrow show-tick" data-field-type="CODE_SELECT" data-width="75px" id="collect_entity_water_bodies[lake].code_water_cover" name="collect_entity_water_bodies[lake].code_water_cover"><option value="na">0%</option><option value="l1">2%</option><option value="l2">4%</option><option value="l3">6%</option><option value="l4">8%</option><option value="2">10-19%</option><option value="3">20-29%</option><option value="4">30-39%</option><option value="5">40-49%</option><option value="6">50-59%</option><option value="7">60-69%</option><option value="8">70-79%</option><option value="9">80-89%</option><option value="10">90-100%</option></select>
 </div>
 </div>
 </td>
@@ -224,7 +225,7 @@
 <td><label class="control-label col-sm-4">River</label></td><td>
 <div class="form-group">
 <div class="col-sm-8">
-<select class="form-control selectboxit show-menu-arrow show-tick" data-field-type="CODE_SELECT" data-width="75px" id="collect_entity_water_bodies[river].code_water_cover" name="collect_entity_water_bodies[river].code_water_cover"><option value="na">Cover %</option><option value="l1">2%</option><option value="l2">4%</option><option value="l3">6%</option><option value="l4">8%</option><option value="2">10-19%</option><option value="3">20-29%</option><option value="4">30-39%</option><option value="5">40-49%</option><option value="6">50-59%</option><option value="7">60-69%</option><option value="8">70-79%</option><option value="9">80-89%</option><option value="10">90-100%</option></select>
+<select class="form-control selectboxit show-menu-arrow show-tick" data-field-type="CODE_SELECT" data-width="75px" id="collect_entity_water_bodies[river].code_water_cover" name="collect_entity_water_bodies[river].code_water_cover"><option value="na">0%</option><option value="l1">2%</option><option value="l2">4%</option><option value="l3">6%</option><option value="l4">8%</option><option value="2">10-19%</option><option value="3">20-29%</option><option value="4">30-39%</option><option value="5">40-49%</option><option value="6">50-59%</option><option value="7">60-69%</option><option value="8">70-79%</option><option value="9">80-89%</option><option value="10">90-100%</option></select>
 </div>
 </div>
 </td>
@@ -248,7 +249,7 @@
 <td><label class="control-label col-sm-4">House</label></td><td>
 <div class="form-group">
 <div class="col-sm-8">
-<select class="form-control selectboxit show-menu-arrow show-tick" data-field-type="CODE_SELECT" data-width="75px" id="collect_entity_infrastructure_elements[house].code_element_cover" name="collect_entity_infrastructure_elements[house].code_element_cover"><option value="na">Cover %</option><option value="l1">2%</option><option value="l2">4%</option><option value="l3">6%</option><option value="l4">8%</option><option value="2">10-19%</option><option value="3">20-29%</option><option value="4">30-39%</option><option value="5">40-49%</option><option value="6">50-59%</option><option value="7">60-69%</option><option value="8">70-79%</option><option value="9">80-89%</option><option value="10">90-100%</option></select>
+<select class="form-control selectboxit show-menu-arrow show-tick" data-field-type="CODE_SELECT" data-width="75px" id="collect_entity_infrastructure_elements[house].code_element_cover" name="collect_entity_infrastructure_elements[house].code_element_cover"><option value="na">0%</option><option value="l1">2%</option><option value="l2">4%</option><option value="l3">6%</option><option value="l4">8%</option><option value="2">10-19%</option><option value="3">20-29%</option><option value="4">30-39%</option><option value="5">40-49%</option><option value="6">50-59%</option><option value="7">60-69%</option><option value="8">70-79%</option><option value="9">80-89%</option><option value="10">90-100%</option></select>
 </div>
 </div>
 </td>
@@ -257,7 +258,7 @@
 <td><label class="control-label col-sm-4">Other buildings</label></td><td>
 <div class="form-group">
 <div class="col-sm-8">
-<select class="form-control selectboxit show-menu-arrow show-tick" data-field-type="CODE_SELECT" data-width="75px" id="collect_entity_infrastructure_elements[other_buildings].code_element_cover" name="collect_entity_infrastructure_elements[other_buildings].code_element_cover"><option value="na">Cover %</option><option value="l1">2%</option><option value="l2">4%</option><option value="l3">6%</option><option value="l4">8%</option><option value="2">10-19%</option><option value="3">20-29%</option><option value="4">30-39%</option><option value="5">40-49%</option><option value="6">50-59%</option><option value="7">60-69%</option><option value="8">70-79%</option><option value="9">80-89%</option><option value="10">90-100%</option></select>
+<select class="form-control selectboxit show-menu-arrow show-tick" data-field-type="CODE_SELECT" data-width="75px" id="collect_entity_infrastructure_elements[other_buildings].code_element_cover" name="collect_entity_infrastructure_elements[other_buildings].code_element_cover"><option value="na">0%</option><option value="l1">2%</option><option value="l2">4%</option><option value="l3">6%</option><option value="l4">8%</option><option value="2">10-19%</option><option value="3">20-29%</option><option value="4">30-39%</option><option value="5">40-49%</option><option value="6">50-59%</option><option value="7">60-69%</option><option value="8">70-79%</option><option value="9">80-89%</option><option value="10">90-100%</option></select>
 </div>
 </div>
 </td>
@@ -266,7 +267,7 @@
 <td><label class="control-label col-sm-4">Paved road</label></td><td>
 <div class="form-group">
 <div class="col-sm-8">
-<select class="form-control selectboxit show-menu-arrow show-tick" data-field-type="CODE_SELECT" data-width="75px" id="collect_entity_infrastructure_elements[paved_road].code_element_cover" name="collect_entity_infrastructure_elements[paved_road].code_element_cover"><option value="na">Cover %</option><option value="l1">2%</option><option value="l2">4%</option><option value="l3">6%</option><option value="l4">8%</option><option value="2">10-19%</option><option value="3">20-29%</option><option value="4">30-39%</option><option value="5">40-49%</option><option value="6">50-59%</option><option value="7">60-69%</option><option value="8">70-79%</option><option value="9">80-89%</option><option value="10">90-100%</option></select>
+<select class="form-control selectboxit show-menu-arrow show-tick" data-field-type="CODE_SELECT" data-width="75px" id="collect_entity_infrastructure_elements[paved_road].code_element_cover" name="collect_entity_infrastructure_elements[paved_road].code_element_cover"><option value="na">0%</option><option value="l1">2%</option><option value="l2">4%</option><option value="l3">6%</option><option value="l4">8%</option><option value="2">10-19%</option><option value="3">20-29%</option><option value="4">30-39%</option><option value="5">40-49%</option><option value="6">50-59%</option><option value="7">60-69%</option><option value="8">70-79%</option><option value="9">80-89%</option><option value="10">90-100%</option></select>
 </div>
 </div>
 </td>
@@ -275,7 +276,7 @@
 <td><label class="control-label col-sm-4">Unpaved road</label></td><td>
 <div class="form-group">
 <div class="col-sm-8">
-<select class="form-control selectboxit show-menu-arrow show-tick" data-field-type="CODE_SELECT" data-width="75px" id="collect_entity_infrastructure_elements[unpaved_road].code_element_cover" name="collect_entity_infrastructure_elements[unpaved_road].code_element_cover"><option value="na">Cover %</option><option value="l1">2%</option><option value="l2">4%</option><option value="l3">6%</option><option value="l4">8%</option><option value="2">10-19%</option><option value="3">20-29%</option><option value="4">30-39%</option><option value="5">40-49%</option><option value="6">50-59%</option><option value="7">60-69%</option><option value="8">70-79%</option><option value="9">80-89%</option><option value="10">90-100%</option></select>
+<select class="form-control selectboxit show-menu-arrow show-tick" data-field-type="CODE_SELECT" data-width="75px" id="collect_entity_infrastructure_elements[unpaved_road].code_element_cover" name="collect_entity_infrastructure_elements[unpaved_road].code_element_cover"><option value="na">0%</option><option value="l1">2%</option><option value="l2">4%</option><option value="l3">6%</option><option value="l4">8%</option><option value="2">10-19%</option><option value="3">20-29%</option><option value="4">30-39%</option><option value="5">40-49%</option><option value="6">50-59%</option><option value="7">60-69%</option><option value="8">70-79%</option><option value="9">80-89%</option><option value="10">90-100%</option></select>
 </div>
 </div>
 </td>
@@ -296,7 +297,7 @@
 <td><label class="control-label col-sm-4">Rock</label></td><td>
 <div class="form-group">
 <div class="col-sm-8">
-<select class="form-control selectboxit show-menu-arrow show-tick" data-field-type="CODE_SELECT" data-width="75px" id="collect_entity_other_elements[rock].code_other_cover" name="collect_entity_other_elements[rock].code_other_cover"><option value="na">Cover %</option><option value="l1">2%</option><option value="l2">4%</option><option value="l3">6%</option><option value="l4">8%</option><option value="2">10-19%</option><option value="3">20-29%</option><option value="4">30-39%</option><option value="5">40-49%</option><option value="6">50-59%</option><option value="7">60-69%</option><option value="8">70-79%</option><option value="9">80-89%</option><option value="10">90-100%</option></select>
+<select class="form-control selectboxit show-menu-arrow show-tick" data-field-type="CODE_SELECT" data-width="75px" id="collect_entity_other_elements[rock].code_other_cover" name="collect_entity_other_elements[rock].code_other_cover"><option value="na">0%</option><option value="l1">2%</option><option value="l2">4%</option><option value="l3">6%</option><option value="l4">8%</option><option value="2">10-19%</option><option value="3">20-29%</option><option value="4">30-39%</option><option value="5">40-49%</option><option value="6">50-59%</option><option value="7">60-69%</option><option value="8">70-79%</option><option value="9">80-89%</option><option value="10">90-100%</option></select>
 </div>
 </div>
 </td>
@@ -305,7 +306,7 @@
 <td><label class="control-label col-sm-4">Other bare soil</label></td><td>
 <div class="form-group">
 <div class="col-sm-8">
-<select class="form-control selectboxit show-menu-arrow show-tick" data-field-type="CODE_SELECT" data-width="75px" id="collect_entity_other_elements[bare_soil].code_other_cover" name="collect_entity_other_elements[bare_soil].code_other_cover"><option value="na">Cover %</option><option value="l1">2%</option><option value="l2">4%</option><option value="l3">6%</option><option value="l4">8%</option><option value="2">10-19%</option><option value="3">20-29%</option><option value="4">30-39%</option><option value="5">40-49%</option><option value="6">50-59%</option><option value="7">60-69%</option><option value="8">70-79%</option><option value="9">80-89%</option><option value="10">90-100%</option></select>
+<select class="form-control selectboxit show-menu-arrow show-tick" data-field-type="CODE_SELECT" data-width="75px" id="collect_entity_other_elements[bare_soil].code_other_cover" name="collect_entity_other_elements[bare_soil].code_other_cover"><option value="na">0%</option><option value="l1">2%</option><option value="l2">4%</option><option value="l3">6%</option><option value="l4">8%</option><option value="2">10-19%</option><option value="3">20-29%</option><option value="4">30-39%</option><option value="5">40-49%</option><option value="6">50-59%</option><option value="7">60-69%</option><option value="8">70-79%</option><option value="9">80-89%</option><option value="10">90-100%</option></select>
 </div>
 </div>
 </td>
@@ -314,7 +315,7 @@
 <td><label class="control-label col-sm-4">Other elements</label></td><td>
 <div class="form-group">
 <div class="col-sm-8">
-<select class="form-control selectboxit show-menu-arrow show-tick" data-field-type="CODE_SELECT" data-width="75px" id="collect_entity_other_elements[other_elem].code_other_cover" name="collect_entity_other_elements[other_elem].code_other_cover"><option value="na">Cover %</option><option value="l1">2%</option><option value="l2">4%</option><option value="l3">6%</option><option value="l4">8%</option><option value="2">10-19%</option><option value="3">20-29%</option><option value="4">30-39%</option><option value="5">40-49%</option><option value="6">50-59%</option><option value="7">60-69%</option><option value="8">70-79%</option><option value="9">80-89%</option><option value="10">90-100%</option></select>
+<select class="form-control selectboxit show-menu-arrow show-tick" data-field-type="CODE_SELECT" data-width="75px" id="collect_entity_other_elements[other_elem].code_other_cover" name="collect_entity_other_elements[other_elem].code_other_cover"><option value="na">0%</option><option value="l1">2%</option><option value="l2">4%</option><option value="l3">6%</option><option value="l4">8%</option><option value="2">10-19%</option><option value="3">20-29%</option><option value="4">30-39%</option><option value="5">40-49%</option><option value="6">50-59%</option><option value="7">60-69%</option><option value="8">70-79%</option><option value="9">80-89%</option><option value="10">90-100%</option></select>
 </div>
 </div>
 </td>
@@ -329,7 +330,7 @@
 <label class="control-label col-sm-4" for="collect_boolean_many_trees">More than 30 trees</label>
 <div class="col-sm-8">
 <div class="boolean-group" data-toggle="buttons-radio">
-<input class="form-control" data-field-type="BOOLEAN" id="collect_boolean_many_trees" name="collect_boolean_many_trees" type="hidden"><button class="btn btn-info" type="button" value="true">Yes</button><button class="btn btn-info" type="button" value="false">No</button>
+<input class="form-control" data-field-type="BOOLEAN" id="collect_boolean_many_trees" name="collect_boolean_many_trees" type="hidden"><button class="btn btn-info" type="button" value="true">!CEComponentHTMLFormatter.0!</button><button class="btn btn-info" type="button" value="false">!CEComponentHTMLFormatter.88!</button>
 </div>
 </div>
 </div>
@@ -343,7 +344,7 @@
 <label class="control-label col-sm-4" for="collect_boolean_many_shrubs">More than 30 shrubs</label>
 <div class="col-sm-8">
 <div class="boolean-group" data-toggle="buttons-radio">
-<input class="form-control" data-field-type="BOOLEAN" id="collect_boolean_many_shrubs" name="collect_boolean_many_shrubs" type="hidden"><button class="btn btn-info" type="button" value="true">Yes</button><button class="btn btn-info" type="button" value="false">No</button>
+<input class="form-control" data-field-type="BOOLEAN" id="collect_boolean_many_shrubs" name="collect_boolean_many_shrubs" type="hidden"><button class="btn btn-info" type="button" value="true">!CEComponentHTMLFormatter.0!</button><button class="btn btn-info" type="button" value="false">!CEComponentHTMLFormatter.88!</button>
 </div>
 </div>
 </div>
@@ -385,8 +386,8 @@
 <div class="col-sm-8">
 <div class="code-items-group" id="collect_code_desertification_trend_group">
 <input class="form-control" data-field-type="CODE_BUTTON_GROUP" id="collect_code_desertification_trend" name="collect_code_desertification_trend" type="hidden">
-<div class="code-items" data-toggle="buttons-radio" id="collect_code_desertification_trend_group_">
-<button class="btn btn-info code-item" type="button" value="desertification">Desertification</button><button class="btn btn-info code-item" type="button" value="none">None</button><button class="btn btn-info code-item" type="button" value="greening">Greening</button>
+<div class="code-items" data-toggle="buttons-radio" id="collect_code_desertification_trend_group_0">
+<button class="btn btn-info code-item" data-code-item-id="220" type="button" value="desertification">Desertification</button><button class="btn btn-info code-item" data-code-item-id="219" type="button" value="none">None</button><button class="btn btn-info code-item" data-code-item-id="218" type="button" value="greening">Greening</button>
 </div>
 </div>
 </div>
@@ -394,41 +395,41 @@
 <fieldset>
 <legend>Disturbances</legend>
 <div class="form-group">
-<label class="control-label col-sm-4" for="collect_entity_disturbances.code_human_impact_type">Disturbance</label>
+<label class="control-label col-sm-4" for="collect_entity_disturbances.code_disturbance_impact_type">Disturbance</label>
 <div class="col-sm-8">
-<div class="code-items-group" id="collect_entity_disturbances.code_human_impact_type_group">
-<input class="form-control" data-field-type="CODE_BUTTON_GROUP" id="collect_entity_disturbances.code_human_impact_type" name="collect_entity_disturbances.code_human_impact_type" type="hidden">
-<div class="code-items" data-toggle="buttons" id="collect_entity_disturbances.code_human_impact_type_group_">
-<button class="btn btn-info code-item" type="button" value="logging">Logging</button><button class="btn btn-info code-item" type="button" value="fire">Fire</button><button class="btn btn-info code-item" type="button" value="grazing">Grazing</button><button class="btn btn-info code-item" type="button" value="mining">Mining</button><button class="btn btn-info code-item" type="button" value="garden">Garden</button><button class="btn btn-info code-item" type="button" value="fishing">Fishing</button><button class="btn btn-info code-item" type="button" value="other_human_impact">Other</button><button class="btn btn-info code-item" type="button" value="none">None</button>
+<div class="code-items-group" id="collect_entity_disturbances.code_disturbance_impact_type_group">
+<input class="form-control" data-field-type="CODE_BUTTON_GROUP" id="collect_entity_disturbances.code_disturbance_impact_type" name="collect_entity_disturbances.code_disturbance_impact_type" type="hidden">
+<div class="code-items" data-toggle="buttons" id="collect_entity_disturbances.code_disturbance_impact_type_group_0">
+<button class="btn btn-info code-item" data-code-item-id="192" type="button" value="logging">Logging</button><button class="btn btn-info code-item" data-code-item-id="193" type="button" value="fire">Fire</button><button class="btn btn-info code-item" data-code-item-id="194" type="button" value="grazing">Grazing</button><button class="btn btn-info code-item" data-code-item-id="195" type="button" value="mining">Mining</button><button class="btn btn-info code-item" data-code-item-id="196" type="button" value="garden">Garden</button><button class="btn btn-info code-item" data-code-item-id="197" type="button" value="fishing">Fishing</button><button class="btn btn-info code-item" data-code-item-id="198" type="button" value="other_disturbance_impact">Other</button><button class="btn btn-info code-item" data-code-item-id="199" type="button" value="none">None</button>
 </div>
 </div>
 </div>
 </div>
 <div class="form-group">
-<label class="control-label col-sm-4" for="collect_entity_disturbances.code_human_impact_grade">Level of impact</label>
+<label class="control-label col-sm-4" for="collect_entity_disturbances.code_disturbance_impact_grade">Level of impact</label>
 <div class="col-sm-8">
-<select class="form-control selectboxit show-menu-arrow show-tick" data-field-type="CODE_SELECT" data-width="75px" id="collect_entity_disturbances.code_human_impact_grade" name="collect_entity_disturbances.code_human_impact_grade"><option value="">Nothing selected</option><option value="low">Low</option><option value="medium">Medium</option><option value="high">High</option></select>
+<select class="form-control selectboxit show-menu-arrow show-tick" data-field-type="CODE_SELECT" data-width="75px" id="collect_entity_disturbances.code_disturbance_impact_grade" name="collect_entity_disturbances.code_disturbance_impact_grade"><option value="">!CEComponentHTMLFormatter.119!</option><option value="low">Low</option><option value="medium">Medium</option><option value="high">High</option></select>
 </div>
 </div>
 <div class="form-group">
-<label class="control-label col-sm-4" for="collect_entity_disturbances.boolean_human_impact_continual">Continuous impact</label>
+<label class="control-label col-sm-4" for="collect_entity_disturbances.boolean_disturbance_impact_continual">Continuous impact</label>
 <div class="col-sm-8">
 <div class="boolean-group" data-toggle="buttons-radio">
-<input class="form-control" data-field-type="BOOLEAN" id="collect_entity_disturbances.boolean_human_impact_continual" name="collect_entity_disturbances.boolean_human_impact_continual" type="hidden"><button class="btn btn-info" type="button" value="true">Yes</button><button class="btn btn-info" type="button" value="false">No</button>
+<input class="form-control" data-field-type="BOOLEAN" id="collect_entity_disturbances.boolean_disturbance_impact_continual" name="collect_entity_disturbances.boolean_disturbance_impact_continual" type="hidden"><button class="btn btn-info" type="button" value="true">!CEComponentHTMLFormatter.0!</button><button class="btn btn-info" type="button" value="false">!CEComponentHTMLFormatter.88!</button>
 </div>
 </div>
 </div>
 <div class="form-group">
-<label class="control-label col-sm-4" for="collect_entity_disturbances.integer_human_impact_year">Human Impact Year</label>
+<label class="control-label col-sm-4" for="collect_entity_disturbances.integer_disturbance_impact_year">Disturbance Impact Year</label>
 <div class="col-sm-8">
-<input class="form-control numeric" id="collect_entity_disturbances.integer_human_impact_year" name="collect_entity_disturbances.integer_human_impact_year" type="text" value="0">
+<input class="form-control numeric" id="collect_entity_disturbances.integer_disturbance_impact_year" name="collect_entity_disturbances.integer_disturbance_impact_year" type="text" value="0">
 </div>
 </div>
 <div class="form-group">
-<label class="control-label col-sm-4" for="collect_entity_disturbances.boolean_human_impact_accuracy">Human Impact interpretation confidence</label>
+<label class="control-label col-sm-4" for="collect_entity_disturbances.boolean_disturbance_impact_accuracy">Disturbance Impact interpretation confidence</label>
 <div class="col-sm-8">
 <div class="boolean-group" data-toggle="buttons-radio">
-<input class="form-control" data-field-type="BOOLEAN" id="collect_entity_disturbances.boolean_human_impact_accuracy" name="collect_entity_disturbances.boolean_human_impact_accuracy" type="hidden"><button class="btn btn-info" type="button" value="true">Yes</button><button class="btn btn-info" type="button" value="false">No</button>
+<input class="form-control" data-field-type="BOOLEAN" id="collect_entity_disturbances.boolean_disturbance_impact_accuracy" name="collect_entity_disturbances.boolean_disturbance_impact_accuracy" type="hidden"><button class="btn btn-info" type="button" value="true">!CEComponentHTMLFormatter.0!</button><button class="btn btn-info" type="button" value="false">!CEComponentHTMLFormatter.88!</button>
 </div>
 </div>
 </div>
@@ -441,8 +442,8 @@
 <div class="col-sm-8">
 <div class="code-items-group" id="collect_code_main_land_class_group">
 <input class="form-control" data-field-type="CODE_BUTTON_GROUP" id="collect_code_main_land_class" name="collect_code_main_land_class" type="hidden">
-<div class="code-items" data-toggle="buttons-radio" id="collect_code_main_land_class_group_">
-<button class="btn btn-info code-item" type="button" value="forest">Forest</button><button class="btn btn-info code-item" type="button" value="shrubland">Shrubland</button><button class="btn btn-info code-item" type="button" value="grassland">Grassland</button><button class="btn btn-info code-item" type="button" value="cropland">Cropland</button><button class="btn btn-info code-item" type="button" value="settlement">Settlement</button><button class="btn btn-info code-item" type="button" value="waterbodies">Water bodies</button><button class="btn btn-info code-item" type="button" value="other">Other</button>
+<div class="code-items" data-toggle="buttons-radio" id="collect_code_main_land_class_group_0">
+<button class="btn btn-info code-item" data-code-item-id="45454" title="predominant forest use tree cover >10%" type="button" value="forest">Forest</button><button class="btn btn-info code-item" data-code-item-id="454542" title="lands with<  10% of tree cover and >10% shrubs cover" type="button" value="shrubland">Shrubland</button><button class="btn btn-info code-item" data-code-item-id="454543" title="lands cover by herbaceous vegetation with< 10% of tree cover and <10% of shrubs cover" type="button" value="grassland">Grassland</button><button class="btn btn-info code-item" data-code-item-id="454545" type="button" value="cropland">Cropland</button><button class="btn btn-info code-item" data-code-item-id="454544" type="button" value="settlement">Settlement</button><button class="btn btn-info code-item" data-code-item-id="454546" title="A&nbsp;wetland&nbsp;is a land area that is permanent or seasonal saturated&nbsp;with&nbsp;water" type="button" value="wetland">wetland</button><button class="btn btn-info code-item" data-code-item-id="454547" type="button" value="other">Other</button>
 </div>
 </div>
 </div>
@@ -451,31 +452,27 @@
 <label class="control-label col-sm-4" for="collect_code_sub_land_class">Land class -subcategory</label>
 <div class="col-sm-8">
 <div class="code-items-group" id="collect_code_sub_land_class_group">
-<input class="form-control" data-field-type="CODE_BUTTON_GROUP" data-parent-code-field-id="collect_code_main_land_class" id="collect_code_sub_land_class" name="collect_code_sub_land_class" type="hidden">
-<div class="code-items" data-parent-code="forest" data-toggle="buttons-radio" id="collect_code_sub_land_class_group_forest" style="display: none;">
-<button class="btn btn-info code-item" type="button" value="coniferous">Coniferous forest</button><button class="btn btn-info code-item" type="button" value="broadleaf_evergreen">Broad-leaf evergreen forest</button><button class="btn btn-info code-item" type="button" value="broadleaf_deciduous">Broad-leaf deciduous forest</button><button class="btn btn-info code-item" type="button" value="mixed_broadleaf">Mixed broad-leaf forest</button><button class="btn btn-info code-item" type="button" value="mixed_broadleaf_coniferous">Mixed broad-leaf &amp; coniferous forest</button><button class="btn btn-info code-item" type="button" value="forest_mangrove">Mangrove with trees</button><button class="btn btn-info code-item" type="button" value="shrubland_mangrove">Mangrove with shrubs</button><button class="btn btn-info code-item" type="button" value="riparian_forest">Riparian forest</button><button class="btn btn-info code-item" type="button" value="gallery_forest">Gallery forest</button><button class="btn btn-info code-item" type="button" value="plantation_coniferous">Coniferous plantation</button><button class="btn btn-info code-item" type="button" value="plantation_acacia">Acacia plantation</button><button class="btn btn-info code-item" type="button" value="plantation_eucalyptus">Eucalyptus plantation</button><button class="btn btn-info code-item" type="button" value="plantation_other">Other plantation</button><button class="btn btn-info code-item" title="Shrubland have less than 10% tree cover and more than 10% shrub cover" type="button" value="shrubland_tigerbush">Tiger bush / bushveld / thicket</button>
+<input class="form-control" data-field-type="CODE_BUTTON_GROUP" data-parent-id-field-id="collect_code_main_land_class" id="collect_code_sub_land_class" name="collect_code_sub_land_class" type="hidden">
+<div class="code-items" data-parent-id="454543" data-toggle="buttons-radio" id="collect_code_sub_land_class_group_454543" style="display: none;">
+<button class="btn btn-info code-item" data-code-item-id="407" type="button" value="grassland">Grassland</button><button class="btn btn-info code-item" data-code-item-id="408" type="button" value="grassland_trees">Grassland with trees</button><button class="btn btn-info code-item" data-code-item-id="409" type="button" value="grassland_shrubs">Grassland with shrubs</button><button class="btn btn-info code-item" data-code-item-id="411" type="button" value="grassland_trees_shrubs">Grassland with trees and shrubs</button>
 </div>
-<div class="code-items" data-parent-code="other" data-toggle="buttons-radio" id="collect_code_sub_land_class_group_other" style="display: none;">
-<button class="btn btn-info code-item" type="button" value="palm">Palm</button><button class="btn btn-info code-item" type="button" value="bamboo">Bamboo</button><button class="btn btn-info code-item" title="Shrubs and/ / or herbaceous vegation" type="button" value="wetland_riparian_vegetation">Riparian vegetation</button><button class="btn btn-info code-item" type="button" value="wetland_oases">Oases</button><button class="btn btn-info code-item" type="button" value="other_rock_stone">Rock or stone</button><button class="btn btn-info code-item" type="button" value="other_sand">Sand</button><button class="btn btn-info code-item" type="button" value="other_dune">Dune</button><button class="btn btn-info code-item" type="button" value="unknown">Unknown</button>
+<div class="code-items" data-parent-id="454542" data-toggle="buttons-radio" id="collect_code_sub_land_class_group_454542" style="display: none;">
+<button class="btn btn-info code-item" data-code-item-id="403" title="Shrubland have less than 10% tree cover and more than 10% shrub cover" type="button" value="shrubland_trees">Shrubland with trees</button><button class="btn btn-info code-item" data-code-item-id="406" title="Shrubland have less than 10% tree cover and more than 10% shrub cover" type="button" value="shrubland">Shrubland without trees</button>
 </div>
-<div class="code-items" data-parent-code="shrubland" data-toggle="buttons-radio" id="collect_code_sub_land_class_group_shrubland" style="display: none;">
-<button class="btn btn-info code-item" title="Shrubland have less than 10% tree cover and more than 10% shrub cover" type="button" value="shrubland_trees">Shrubland with trees</button><button class="btn btn-info code-item" title="Shrubland have less than 10% tree cover and more than 10% shrub cover" type="button" value="shrubland">Shrubland without trees</button>
+<div class="code-items" data-parent-id="454546" data-toggle="buttons-radio" id="collect_code_sub_land_class_group_454546" style="display: none;">
+<button class="btn btn-info code-item" data-code-item-id="414" type="button" value="wetland_river_delta_permanent">Permanent river or inner delta</button><button class="btn btn-info code-item" data-code-item-id="417" type="button" value="wetland_coastal_delta">Coastal delta</button><button class="btn btn-info code-item" data-code-item-id="418" type="button" value="wetland_lake_pool_permanent">Permanent lake or pool</button><button class="btn btn-info code-item" data-code-item-id="419" type="button" value="wetland_marsh">Marsh on inorganic soil</button><button class="btn btn-info code-item" data-code-item-id="420" type="button" value="wetland_saline">Saline, brackish or alkaline waters</button><button class="btn btn-info code-item" data-code-item-id="421" type="button" value="wetland_lake_seasonal">Season lake</button><button class="btn btn-info code-item" data-code-item-id="422" type="button" value="wetland_river_seasonal">Seasonal river</button><button class="btn btn-info code-item" data-code-item-id="472" title="Shrubs and/ / or herbaceous vegation" type="button" value="wetland_riparian_vegetation">Riparian vegetation</button>
 </div>
-<div class="code-items" data-parent-code="cropland" data-toggle="buttons-radio" id="collect_code_sub_land_class_group_cropland" style="display: none;">
-<button class="btn btn-info code-item" type="button" value="cropland_irrigated">Irrigated crops</button><button class="btn btn-info code-item" type="button" value="cropland_nonirrigated_floodplain">Non-irrigated floodplain cropland</button><button class="btn btn-info code-item" type="button" value="cropland_nonirrigated_rainfed">Non-irrigated rainfed cropland</button><button class="btn btn-info code-item" type="button" value="cropland_orchard">Orchard</button><button class="btn btn-info code-item" type="button" value="cropland_perennial">Perennial cropland</button><button class="btn btn-info code-item" type="button" value="cropland_fallow">Fallow cropland</button>
+<div class="code-items" data-parent-id="454547" data-toggle="buttons-radio" id="collect_code_sub_land_class_group_454547" style="display: none;">
+<button class="btn btn-info code-item" data-code-item-id="412" type="button" value="palm">Palm</button><button class="btn btn-info code-item" data-code-item-id="413" type="button" value="bamboo">Bamboo</button><button class="btn btn-info code-item" data-code-item-id="425" type="button" value="wetland_oases">Oases</button><button class="btn btn-info code-item" data-code-item-id="432" type="button" value="other_rock_stone">Rock or stone</button><button class="btn btn-info code-item" data-code-item-id="433" type="button" value="other_sand">Sand</button><button class="btn btn-info code-item" data-code-item-id="434" type="button" value="other_dune">Dune</button><button class="btn btn-info code-item" data-code-item-id="488" type="button" value="snow_glaciers">snow and glaciers</button><button class="btn btn-info code-item" data-code-item-id="439" type="button" value="unknown">Unknown</button>
 </div>
-<div class="code-items" data-parent-code="grassland" data-toggle="buttons-radio" id="collect_code_sub_land_class_group_grassland" style="display: none;">
-<button class="btn btn-info code-item" title="- Savanna or steppe
-	- Grasslands have move than 10% herbaceous vegetation cover, less than 10% tree cover and less than 10% shrub cover" type="button" value="grassland">Grassland with herbaceous vegetation</button><button class="btn btn-info code-item" title="- Savanna or steppe
-	- Grasslands have move than 10% herbaceous vegetation cover, less than 10% tree cover and less than 10% shrub cover" type="button" value="grassland_trees">Grassland with trees</button><button class="btn btn-info code-item" title="- Savanna or steppe
-	- Grasslands have move than 10% herbaceous vegetation cover, less than 10% tree cover and less than 10% shrub cover" type="button" value="grassland_shrubs">Grassland with shrubs</button><button class="btn btn-info code-item" title="- Savanna or steppe
-	- Grasslands have move than 10% herbaceous vegetation cover, less than 10% tree cover and less than 10% shrub cover" type="button" value="grassland_trees_shrubs">Grassland with trees and shrubs</button>
+<div class="code-items" data-parent-id="454544" data-toggle="buttons-radio" id="collect_code_sub_land_class_group_454544" style="display: none;">
+<button class="btn btn-info code-item" data-code-item-id="435" type="button" value="settlement_village">Village</button><button class="btn btn-info code-item" data-code-item-id="436" title="City or town in urban area" type="button" value="settlement_urban">Urban</button><button class="btn btn-info code-item" data-code-item-id="437" title="Roads, bridges, pipelines, factories, industrial areas, etc" type="button" value="settlement_infrastructure">Infrastucture</button><button class="btn btn-info code-item" data-code-item-id="438" type="button" value="settlement_mine">Mine</button><button class="btn btn-info code-item" data-code-item-id="489" type="button" value="settlement_saline">saline</button>
 </div>
-<div class="code-items" data-parent-code="settlement" data-toggle="buttons-radio" id="collect_code_sub_land_class_group_settlement" style="display: none;">
-<button class="btn btn-info code-item" type="button" value="settlement_village">Village</button><button class="btn btn-info code-item" title="City or town in urban area" type="button" value="settlement_urban">Urban</button><button class="btn btn-info code-item" title="Roads, bridges, pipelines, factories, industrial areas, etc" type="button" value="settlement_infrastructure">Infrastucture</button><button class="btn btn-info code-item" type="button" value="settlement_mine">Mine</button>
+<div class="code-items" data-parent-id="45454" data-toggle="buttons-radio" id="collect_code_sub_land_class_group_45454" style="display: none;">
+<button class="btn btn-info code-item" data-code-item-id="387" title="Coniferous forest" type="button" value="coniferous">Coniferous forest</button><button class="btn btn-info code-item" data-code-item-id="389" title="Broad-leaf evergreen forest" type="button" value="broadleaf_evergreen">Broad-leaf evergreen forest</button><button class="btn btn-info code-item" data-code-item-id="391" title="Broad-leaf deciduous forest" type="button" value="broadleaf_deciduous">Broad-leaf deciduous forest</button><button class="btn btn-info code-item" data-code-item-id="392" title="Mixed broad-leaf forest" type="button" value="mixed_broadleaf">Mixed broad-leaf forest</button><button class="btn btn-info code-item" data-code-item-id="393" title="Mixed broad-leaf &amp; coniferous forest" type="button" value="mixed_broadleaf_coniferous">Mixed broad-leaf &amp; coniferous forest</button><button class="btn btn-info code-item" data-code-item-id="394" title="Mangrove with trees" type="button" value="forest_mangrove">Mangrove with trees</button><button class="btn btn-info code-item" data-code-item-id="395" title="Mangrove with shrubs" type="button" value="shrubland_mangrove">Mangrove with shrubs</button><button class="btn btn-info code-item" data-code-item-id="396" title="forest along rivers or in valley" type="button" value="riparian_forest">Riparian forest</button><button class="btn btn-info code-item" data-code-item-id="397" title="forests mostly in valley or canyon or depressed areas." type="button" value="gallery_forest">Gallery forest</button><button class="btn btn-info code-item" data-code-item-id="398" type="button" value="plantation_coniferous">Coniferous plantation</button><button class="btn btn-info code-item" data-code-item-id="399" type="button" value="plantation_acacia">Acacia plantation</button><button class="btn btn-info code-item" data-code-item-id="400" type="button" value="plantation_eucalyptus">Eucalyptus plantation</button><button class="btn btn-info code-item" data-code-item-id="401" type="button" value="plantation_other">Other plantation</button><button class="btn btn-info code-item" data-code-item-id="402" type="button" value="shrubland_tigerbush">Tiger bush / bushveld / thicket</button>
 </div>
-<div class="code-items" data-parent-code="waterbodies" data-toggle="buttons-radio" id="collect_code_sub_land_class_group_waterbodies" style="display: none;">
-<button class="btn btn-info code-item" type="button" value="wetland_river_delta_permanent">Permanent river or inner delta</button><button class="btn btn-info code-item" type="button" value="wetland_coastal_delta">Coastal delta</button><button class="btn btn-info code-item" type="button" value="wetland_lake_pool_permanent">Permanent lake or pool</button><button class="btn btn-info code-item" type="button" value="wetland_marsh">Marsh on inorganic soil</button><button class="btn btn-info code-item" type="button" value="wetland_saline">Saline, brackish or alkaline waters</button><button class="btn btn-info code-item" type="button" value="wetland_lake_seasonal">Season lake</button><button class="btn btn-info code-item" type="button" value="wetland_river_seasonal">Seasonal river</button>
+<div class="code-items" data-parent-id="454545" data-toggle="buttons-radio" id="collect_code_sub_land_class_group_454545" style="display: none;">
+<button class="btn btn-info code-item" data-code-item-id="424" type="button" value="cropland_irrigated">Irrigated crops</button><button class="btn btn-info code-item" data-code-item-id="426" type="button" value="cropland_nonirrigated_floodplain">Non-irrigated floodplain cropland</button><button class="btn btn-info code-item" data-code-item-id="427" type="button" value="cropland_nonirrigated_rainfed">Non-irrigated rainfed cropland</button><button class="btn btn-info code-item" data-code-item-id="428" type="button" value="cropland_orchard">Orchard</button><button class="btn btn-info code-item" data-code-item-id="429" type="button" value="cropland_perennial">Perennial cropland</button><button class="btn btn-info code-item" data-code-item-id="430" type="button" value="cropland_fallow">Fallow cropland</button>
 </div>
 </div>
 </div>
@@ -484,7 +481,7 @@
 <label class="control-label col-sm-4" for="collect_boolean_land_class_confidence">Land class- confidence</label>
 <div class="col-sm-8">
 <div class="boolean-group" data-toggle="buttons-radio">
-<input class="form-control" data-field-type="BOOLEAN" id="collect_boolean_land_class_confidence" name="collect_boolean_land_class_confidence" type="hidden"><button class="btn btn-info" type="button" value="true">Yes</button><button class="btn btn-info" type="button" value="false">No</button>
+<input class="form-control" data-field-type="BOOLEAN" id="collect_boolean_land_class_confidence" name="collect_boolean_land_class_confidence" type="hidden"><button class="btn btn-info" type="button" value="true">!CEComponentHTMLFormatter.0!</button><button class="btn btn-info" type="button" value="false">!CEComponentHTMLFormatter.88!</button>
 </div>
 </div>
 </div>
@@ -496,8 +493,8 @@
 <div class="col-sm-8">
 <div class="code-items-group" id="collect_code_fra_class_group">
 <input class="form-control" data-field-type="CODE_BUTTON_GROUP" id="collect_code_fra_class" name="collect_code_fra_class" type="hidden">
-<div class="code-items" data-toggle="buttons-radio" id="collect_code_fra_class_group_">
-<button class="btn btn-info code-item" title="Forest" type="button" value="fo">Forest</button><button class="btn btn-info code-item" title="Other wooded land" type="button" value="owl">Other wooded land</button><button class="btn btn-info code-item" title="Other land with tree cover" type="button" value="oltc">Other land with tree cover</button><button class="btn btn-info code-item" title="Other land without tree cover" type="button" value="olwtc">Other land without tree cover</button><button class="btn btn-info code-item" title="Unknown" type="button" value="unk">Unknown</button>
+<div class="code-items" data-toggle="buttons-radio" id="collect_code_fra_class_group_0">
+<button class="btn btn-info code-item" data-code-item-id="283" title="Forest" type="button" value="fo">Forest</button><button class="btn btn-info code-item" data-code-item-id="284" title="Other wooded land" type="button" value="owl">Other wooded land</button><button class="btn btn-info code-item" data-code-item-id="285" title="Other land with tree cover" type="button" value="oltc">Other land with tree cover</button><button class="btn btn-info code-item" data-code-item-id="286" title="Other land" type="button" value="ol">Other land</button><button class="btn btn-info code-item" data-code-item-id="287" title="Inland water bodies" type="button" value="iwb">Inland water bodies</button>
 </div>
 </div>
 </div>
@@ -510,8 +507,8 @@
 <div class="col-sm-8">
 <div class="code-items-group" id="collect_code_land_use_category_group">
 <input class="form-control" data-field-type="CODE_BUTTON_GROUP" id="collect_code_land_use_category" name="collect_code_land_use_category" type="hidden">
-<div class="code-items" data-toggle="buttons-radio" id="collect_code_land_use_category_group_">
-<button class="btn btn-info code-item" type="button" value="forest">Forest</button><button class="btn btn-info code-item" type="button" value="cropland">Cropland</button><button class="btn btn-info code-item" type="button" value="grassland">Grassland</button><button class="btn btn-info code-item" type="button" value="settlement">Settlement</button><button class="btn btn-info code-item" type="button" value="otherland">Other Land</button><button class="btn btn-info code-item" type="button" value="wetland">Wetland</button><button class="btn btn-info code-item" type="button" value="noData">No data</button>
+<div class="code-items" data-toggle="buttons-radio" id="collect_code_land_use_category_group_0">
+<button class="btn btn-info code-item" data-code-item-id="130" type="button" value="forest">Forest</button><button class="btn btn-info code-item" data-code-item-id="137" type="button" value="cropland">Cropland</button><button class="btn btn-info code-item" data-code-item-id="144" type="button" value="otherland">Otherland</button><button class="btn btn-info code-item" data-code-item-id="151" type="button" value="grassland">Grassland</button><button class="btn btn-info code-item" data-code-item-id="158" type="button" value="wetland">Wetland</button><button class="btn btn-info code-item" data-code-item-id="165" type="button" value="settlement">Settlement</button><button class="btn btn-info code-item" data-code-item-id="172" type="button" value="noData">No data</button>
 </div>
 </div>
 </div>
@@ -520,7 +517,7 @@
 <label class="control-label col-sm-4" for="collect_boolean_land_use_category_accuracy">Land Use Category - Confidence</label>
 <div class="col-sm-8">
 <div class="boolean-group" data-toggle="buttons-radio">
-<input class="form-control" data-field-type="BOOLEAN" id="collect_boolean_land_use_category_accuracy" name="collect_boolean_land_use_category_accuracy" type="hidden"><button class="btn btn-info" type="button" value="true">Yes</button><button class="btn btn-info" type="button" value="false">No</button>
+<input class="form-control" data-field-type="BOOLEAN" id="collect_boolean_land_use_category_accuracy" name="collect_boolean_land_use_category_accuracy" type="hidden"><button class="btn btn-info" type="button" value="true">!CEComponentHTMLFormatter.0!</button><button class="btn btn-info" type="button" value="false">!CEComponentHTMLFormatter.88!</button>
 </div>
 </div>
 </div>
@@ -528,26 +525,24 @@
 <label class="control-label col-sm-4" for="collect_code_land_use_subcategory">Land Use Sub-Category</label>
 <div class="col-sm-8">
 <div class="code-items-group" id="collect_code_land_use_subcategory_group">
-<input class="form-control" data-field-type="CODE_BUTTON_GROUP" data-parent-code-field-id="collect_code_land_use_category_alias" id="collect_code_land_use_subcategory" name="collect_code_land_use_subcategory" type="hidden">
-<div class="code-items" data-parent-code="forest" data-toggle="buttons-radio" id="collect_code_land_use_subcategory_group_forest" style="display: none;">
-<button class="btn btn-info code-item" title="Forest Land remaining Forest Land" type="button" value="FLtoFL">F &gt; F</button><button class="btn btn-info code-item" title="Other Land becoming Forest Land" type="button" value="OTtoFL">O &gt; F</button><button class="btn btn-info code-item" title="Crop Land becoming Forest Land" type="button" value="CLtoFL">C &gt; F</button><button class="btn btn-info code-item" title="Grass Land becoming Forest Land" type="button" value="GLtoFL">G &gt; F</button><button class="btn btn-info code-item" title="Wet Land becoming Forest Land" type="button" value="WLtoFL">W &gt; F</button><button class="btn btn-info code-item" title="Settlement becoming Forest Land" type="button" value="SLtoFL">S &gt; F</button>
+<input class="form-control" data-field-type="CODE_BUTTON_GROUP" data-parent-id-field-id="collect_code_land_use_category" id="collect_code_land_use_subcategory" name="collect_code_land_use_subcategory" type="hidden">
+<div class="code-items" data-parent-id="137" data-toggle="buttons-radio" id="collect_code_land_use_subcategory_group_137" style="display: none;">
+<button class="btn btn-info code-item" data-code-item-id="138" title="Crop Land remaining Crop Land" type="button" value="CLtoCL">C &gt; C</button><button class="btn btn-info code-item" data-code-item-id="139" title="Other Land becoming Crop Land" type="button" value="OTtoCL">O &gt; C</button><button class="btn btn-info code-item" data-code-item-id="140" title="Forest Land becoming Crop Land" type="button" value="FLtoCL">F &gt; C</button><button class="btn btn-info code-item" data-code-item-id="141" title="Grass Land becoming Crop Land" type="button" value="GLtoCL">G &gt; C</button><button class="btn btn-info code-item" data-code-item-id="142" title="Wet Land becoming Crop Land" type="button" value="WLtoCL">W &gt; C</button><button class="btn btn-info code-item" data-code-item-id="143" title="Settlement becoming Crop Land" type="button" value="SLtoCL">S &gt; C</button>
 </div>
-<div class="code-items" data-parent-code="otherland" data-toggle="buttons-radio" id="collect_code_land_use_subcategory_group_otherland" style="display: none;">
-<button class="btn btn-info code-item" title="Other Land remaining Other Land" type="button" value="OTtoOL">O &gt; O</button><button class="btn btn-info code-item" title="Crop Land becoming Other Land" type="button" value="CLtoOL">C &gt; O</button><button class="btn btn-info code-item" title="Forest Land becoming Other Land" type="button" value="FLtoOL">F &gt; O</button><button class="btn btn-info code-item" title="Grass Land becoming Other Land" type="button" value="GLtoOL">G &gt; O</button><button class="btn btn-info code-item" title="Wet Land becoming Other Land" type="button" value="WLtoOL">W &gt; O</button><button class="btn btn-info code-item" title="Settlement becoming Other Land" type="button" value="SLtoOL">S &gt; O</button>
+<div class="code-items" data-parent-id="158" data-toggle="buttons-radio" id="collect_code_land_use_subcategory_group_158" style="display: none;">
+<button class="btn btn-info code-item" data-code-item-id="159" title="Wet Land remaining Wet Land" type="button" value="WLtoWL">W &gt; W</button><button class="btn btn-info code-item" data-code-item-id="160" title="Other Land becoming Wet Land" type="button" value="OTtoWL">O &gt; W</button><button class="btn btn-info code-item" data-code-item-id="161" title="Forest Land becoming Wet Land" type="button" value="FLtoWL">F &gt; W</button><button class="btn btn-info code-item" data-code-item-id="162" title="Crop Land becoming Wet Land" type="button" value="CLtoWL">C &gt; W</button><button class="btn btn-info code-item" data-code-item-id="163" title="Grass Land becoming Wet Land" type="button" value="GLtoWL">G &gt; W</button><button class="btn btn-info code-item" data-code-item-id="164" title="Settlement becoming Wet Land" type="button" value="SLtoWL">S &gt; W</button>
 </div>
-<div class="code-items" data-parent-code="wetland" data-toggle="buttons-radio" id="collect_code_land_use_subcategory_group_wetland" style="display: none;">
-<button class="btn btn-info code-item" title="Wet Land remaining Wet Land" type="button" value="WLtoWL">W &gt; W</button><button class="btn btn-info code-item" title="Other Land becoming Wet Land" type="button" value="OTtoWL">O &gt; W</button><button class="btn btn-info code-item" title="Forest Land becoming Wet Land" type="button" value="FLtoWL">F &gt; W</button><button class="btn btn-info code-item" title="Crop Land becoming Wet Land" type="button" value="CLtoWL">C &gt; W</button><button class="btn btn-info code-item" title="Grass Land becoming Wet Land" type="button" value="GLtoWL">G &gt; W</button><button class="btn btn-info code-item" title="Settlement becoming Wet Land" type="button" value="SLtoWL">S &gt; W</button>
+<div class="code-items" data-parent-id="144" data-toggle="buttons-radio" id="collect_code_land_use_subcategory_group_144" style="display: none;">
+<button class="btn btn-info code-item" data-code-item-id="145" title="Other Land remaining Other Land" type="button" value="OTtoOL">O &gt; O</button><button class="btn btn-info code-item" data-code-item-id="146" title="Crop Land becoming Other Land" type="button" value="CLtoOL">C &gt; O</button><button class="btn btn-info code-item" data-code-item-id="147" title="Forest Land becoming Other Land" type="button" value="FLtoOL">F &gt; O</button><button class="btn btn-info code-item" data-code-item-id="148" title="Grass Land becoming Other Land" type="button" value="GLtoOL">G &gt; O</button><button class="btn btn-info code-item" data-code-item-id="149" title="Wet Land becoming Other Land" type="button" value="WLtoOL">W &gt; O</button><button class="btn btn-info code-item" data-code-item-id="150" title="Settlement becoming Other Land" type="button" value="SLtoOL">S &gt; O</button>
 </div>
-<div class="code-items" data-parent-code="cropland" data-toggle="buttons-radio" id="collect_code_land_use_subcategory_group_cropland" style="display: none;">
-<button class="btn btn-info code-item" title="Crop Land remaining Crop Land" type="button" value="CLtoCL">C &gt; C</button><button class="btn btn-info code-item" title="Other Land becoming Crop Land" type="button" value="OTtoCL">O &gt; C</button><button class="btn btn-info code-item" title="Forest Land becoming Crop Land" type="button" value="FLtoCL">F &gt; C</button><button class="btn btn-info code-item" title="Grass Land becoming Crop Land" type="button" value="GLtoCL">G &gt; C</button><button class="btn btn-info code-item" title="Wet Land becoming Crop Land" type="button" value="WLtoCL">W &gt; C</button><button class="btn btn-info code-item" title="Settlement becoming Crop Land" type="button" value="SLtoCL">S &gt; C</button>
+<div class="code-items" data-parent-id="130" data-toggle="buttons-radio" id="collect_code_land_use_subcategory_group_130" style="display: none;">
+<button class="btn btn-info code-item" data-code-item-id="131" title="Forest Land remaining Forest Land" type="button" value="FLtoFL">F &gt; F</button><button class="btn btn-info code-item" data-code-item-id="132" title="Other Land becoming Forest Land" type="button" value="OTtoFL">O &gt; F</button><button class="btn btn-info code-item" data-code-item-id="133" title="Crop Land becoming Forest Land" type="button" value="CLtoFL">C &gt; F</button><button class="btn btn-info code-item" data-code-item-id="134" title="Grass Land becoming Forest Land" type="button" value="GLtoFL">G &gt; F</button><button class="btn btn-info code-item" data-code-item-id="135" title="Wet Land becoming Forest Land" type="button" value="WLtoFL">W &gt; F</button><button class="btn btn-info code-item" data-code-item-id="136" title="Settlement becoming Forest Land" type="button" value="SLtoFL">S &gt; F</button>
 </div>
-<div class="code-items" data-parent-code="noData" data-toggle="buttons-radio" id="collect_code_land_use_subcategory_group_noData" style="display: none;"> 
+<div class="code-items" data-parent-id="165" data-toggle="buttons-radio" id="collect_code_land_use_subcategory_group_165" style="display: none;">
+<button class="btn btn-info code-item" data-code-item-id="166" title="Settlement remaining Settlement" type="button" value="SLtoSL">S &gt; S</button><button class="btn btn-info code-item" data-code-item-id="167" title="Other Land becoming Settlement" type="button" value="OTtoSL">O &gt; S</button><button class="btn btn-info code-item" data-code-item-id="168" title="Forest Land becoming Settlement" type="button" value="FLtoSL">F &gt; S</button><button class="btn btn-info code-item" data-code-item-id="169" title="Crop Land becoming Settlement" type="button" value="CLtoSL">C &gt; S</button><button class="btn btn-info code-item" data-code-item-id="170" title="Grass Land becoming Settlement" type="button" value="GLtoSL">G &gt; S</button><button class="btn btn-info code-item" data-code-item-id="171" title="Wet Land becoming Settlement" type="button" value="WLtoSL">W &gt; S</button>
 </div>
-<div class="code-items" data-parent-code="grassland" data-toggle="buttons-radio" id="collect_code_land_use_subcategory_group_grassland" style="display: none;">
-<button class="btn btn-info code-item" title="Grass Land remaining Grass Land" type="button" value="GLtoGL">G &gt; G</button><button class="btn btn-info code-item" title="Other Land becoming Grass Land" type="button" value="OTtoGL">O &gt; G</button><button class="btn btn-info code-item" title="Forest Land becoming Grass Land" type="button" value="FLtoGL">F &gt; G</button><button class="btn btn-info code-item" title="Crop Land becoming Grass Land" type="button" value="CLtoGL">F &gt; G</button><button class="btn btn-info code-item" title="Wet Land becoming Grass Land" type="button" value="WLtoGL">W &gt; G</button><button class="btn btn-info code-item" title="Settlement becoming Grass Land" type="button" value="SLtoGL">S &gt; G</button>
-</div>
-<div class="code-items" data-parent-code="settlement" data-toggle="buttons-radio" id="collect_code_land_use_subcategory_group_settlement" style="display: none;">
-<button class="btn btn-info code-item" title="Settlement remaining Settlement" type="button" value="SLtoSL">S &gt; S</button><button class="btn btn-info code-item" title="Other Land becoming Settlement" type="button" value="OTtoSL">O &gt; S</button><button class="btn btn-info code-item" title="Forest Land becoming Settlement" type="button" value="FLtoSL">F &gt; S</button><button class="btn btn-info code-item" title="Crop Land becoming Settlement" type="button" value="CLtoSL">C &gt; S</button><button class="btn btn-info code-item" title="Grass Land becoming Settlement" type="button" value="GLtoSL">G &gt; A</button><button class="btn btn-info code-item" title="Wet Land becoming Settlement" type="button" value="WLtoSL">W &gt; S</button>
+<div class="code-items" data-parent-id="151" data-toggle="buttons-radio" id="collect_code_land_use_subcategory_group_151" style="display: none;">
+<button class="btn btn-info code-item" data-code-item-id="152" title="Grass Land remaining Grass Land" type="button" value="GLtoGL">G &gt; G</button><button class="btn btn-info code-item" data-code-item-id="153" title="Other Land becoming Grass Land" type="button" value="OTtoGL">O &gt; G</button><button class="btn btn-info code-item" data-code-item-id="154" title="Forest Land becoming Grass Land" type="button" value="FLtoGL">F &gt; G</button><button class="btn btn-info code-item" data-code-item-id="155" title="Crop Land becoming Grass Land" type="button" value="CLtoGL">C &gt; G</button><button class="btn btn-info code-item" data-code-item-id="156" title="Wet Land becoming Grass Land" type="button" value="WLtoGL">W &gt; G</button><button class="btn btn-info code-item" data-code-item-id="157" title="Settlement becoming Grass Land" type="button" value="SLtoGL">S &gt; G</button>
 </div>
 </div>
 </div>
@@ -556,20 +551,20 @@
 <label class="control-label col-sm-4" for="collect_boolean_land_use_subcategory_accuracy">Land Use Sub-Category - Confidence</label>
 <div class="col-sm-8">
 <div class="boolean-group" data-toggle="buttons-radio">
-<input class="form-control" data-field-type="BOOLEAN" id="collect_boolean_land_use_subcategory_accuracy" name="collect_boolean_land_use_subcategory_accuracy" type="hidden"><button class="btn btn-info" type="button" value="true">Yes</button><button class="btn btn-info" type="button" value="false">No</button>
+<input class="form-control" data-field-type="BOOLEAN" id="collect_boolean_land_use_subcategory_accuracy" name="collect_boolean_land_use_subcategory_accuracy" type="hidden"><button class="btn btn-info" type="button" value="true">!CEComponentHTMLFormatter.0!</button><button class="btn btn-info" type="button" value="false">!CEComponentHTMLFormatter.88!</button>
 </div>
 </div>
 </div>
 <div class="form-group">
-<label class="control-label col-sm-4" for="collect_boolean_land_use_subcategory_year_of_change_know">Land Use Change - Known year of change</label>
+<label class="control-label col-sm-4" for="collect_boolean_land_use_subcategory_year_of_change_know">change between subdivision</label>
 <div class="col-sm-8">
 <div class="boolean-group" data-toggle="buttons-radio">
-<input class="form-control" data-field-type="BOOLEAN" id="collect_boolean_land_use_subcategory_year_of_change_know" name="collect_boolean_land_use_subcategory_year_of_change_know" type="hidden"><button class="btn btn-info" type="button" value="true">Yes</button><button class="btn btn-info" type="button" value="false">No</button>
+<input class="form-control" data-field-type="BOOLEAN" id="collect_boolean_land_use_subcategory_year_of_change_know" name="collect_boolean_land_use_subcategory_year_of_change_know" type="hidden"><button class="btn btn-info" type="button" value="true">!CEComponentHTMLFormatter.0!</button><button class="btn btn-info" type="button" value="false">!CEComponentHTMLFormatter.88!</button>
 </div>
 </div>
 </div>
 <div class="form-group">
-<label class="control-label col-sm-4" for="collect_integer_land_use_subcategory_year_of_change">Land Use Change - Year of change</label>
+<label class="control-label col-sm-4" for="collect_integer_land_use_subcategory_year_of_change">change between subdivision (year)</label>
 <div class="col-sm-8">
 <input class="form-control numeric" id="collect_integer_land_use_subcategory_year_of_change" name="collect_integer_land_use_subcategory_year_of_change" type="text" value="0">
 </div>
@@ -579,8 +574,8 @@
 <div class="col-sm-8">
 <div class="code-items-group" id="collect_code_farming_method_group">
 <input class="form-control" data-field-type="CODE_BUTTON_GROUP" id="collect_code_farming_method" name="collect_code_farming_method" type="hidden">
-<div class="code-items" data-toggle="buttons-radio" id="collect_code_farming_method_group_">
-<button class="btn btn-info code-item" type="button" value="permanent">Permanent</button><button class="btn btn-info code-item" type="button" value="shifting">Shifting</button><button class="btn btn-info code-item" type="button" value="notSure">Not Sure</button>
+<div class="code-items" data-toggle="buttons-radio" id="collect_code_farming_method_group_0">
+<button class="btn btn-info code-item" data-code-item-id="182" type="button" value="permanent">Permanent</button><button class="btn btn-info code-item" data-code-item-id="183" type="button" value="shifting">Shifting</button><button class="btn btn-info code-item" data-code-item-id="184" type="button" value="notSure">Not Sure</button>
 </div>
 </div>
 </div>
@@ -601,8 +596,8 @@
 <div class="col-sm-8">
 <div class="code-items-group" id="collect_code_rs_satellite_group">
 <input class="form-control" data-field-type="CODE_BUTTON_GROUP" id="collect_code_rs_satellite" name="collect_code_rs_satellite" type="hidden">
-<div class="code-items" data-toggle="buttons-radio" id="collect_code_rs_satellite_group_">
-<button class="btn btn-info code-item" type="button" value="digitalGlobe">DigitalGlobe</button><button class="btn btn-info code-item" type="button" value="rapidEye">RapidEye</button><button class="btn btn-info code-item" type="button" value="spot">Spot</button><button class="btn btn-info code-item" title="Other Very High Resolution sources" type="button" value="other_very_high">Other VHR sources</button><button class="btn btn-info code-item" type="button" value="landsat">Landsat</button><button class="btn btn-info code-item" type="button" value="other_sat">Other</button>
+<div class="code-items" data-toggle="buttons-radio" id="collect_code_rs_satellite_group_0">
+<button class="btn btn-info code-item" data-code-item-id="206" type="button" value="digitalGlobe">DigitalGlobe</button><button class="btn btn-info code-item" data-code-item-id="207" type="button" value="rapidEye">RapidEye</button><button class="btn btn-info code-item" data-code-item-id="209" type="button" value="spot">Spot</button><button class="btn btn-info code-item" data-code-item-id="451" title="Other Very High Resolution sources" type="button" value="other_very_high">Other VHR sources</button><button class="btn btn-info code-item" data-code-item-id="205" type="button" value="landsat">Landsat</button><button class="btn btn-info code-item" data-code-item-id="208" type="button" value="other_sat">Other</button>
 </div>
 </div>
 </div>
