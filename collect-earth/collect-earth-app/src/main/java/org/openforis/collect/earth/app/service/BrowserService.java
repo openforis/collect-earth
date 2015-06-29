@@ -694,6 +694,8 @@ public class BrowserService implements Observer{
 		if (props.getProperty("webdriver.chrome.driver") == null) {
 			if( SystemUtils.IS_OS_UNIX ){
 				props.setProperty("webdriver.chrome.driver", "resources/chromedriver");
+			}else if( SystemUtils.IS_OS_MAC || SystemUtils.IS_OS_MAC_OSX){
+				props.setProperty("webdriver.chrome.driver", "resources/chromedriver_mac");
 			}else if( SystemUtils.IS_OS_WINDOWS ){
 				props.setProperty("webdriver.chrome.driver", "resources/chromedriver.exe");
 			}else{
