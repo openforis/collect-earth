@@ -241,7 +241,7 @@ public class EarthApp {
 	private static void initializeServer(final String doubleClickedProjectFile) throws Exception {
 		logger.info("START - Server Initilization"); //$NON-NLS-1$
 		final boolean ceAlreadyOpen = isAnotherCollectEarthRunning( getLocalProperties());
-		earthApp = new EarthApp();
+		
 		
 		if( ceAlreadyOpen ){
 			closeSplash();
@@ -253,6 +253,8 @@ public class EarthApp {
 			}
 		}else{
 
+			earthApp = new EarthApp();
+			
 			// Load the docuble-clieck CEP file before the survey manager is instantiated by the server start-up
 			earthApp.loadProjectIfDoubleClicked(doubleClickedProjectFile);
 			
