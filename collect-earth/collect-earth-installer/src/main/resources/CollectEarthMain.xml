@@ -83,18 +83,33 @@
             <distributionFileList>
 	         	<distributionDirectory>
 	                <excludeFiles>*/chromedriver</excludeFiles>
+	                <excludeFiles>*/chromedriver_mac</excludeFiles>
 	            	<origin>../../../collect-earth-app/resources</origin>
 	            </distributionDirectory>
             </distributionFileList>
         </folder>
         <folder>
-            <description>Resources Linux Mac</description>
+            <description>Resources Linux</description>
             <destination>${installdir}</destination>
             <name>resourceslinux</name>
-            <platforms>linux osx</platforms>
+            <platforms>linux</platforms>
             <distributionFileList>
 	         	<distributionDirectory>
 	                <excludeFiles>*/chromedriver.exe</excludeFiles>
+	                <excludeFiles>*/chromedriver_mac</excludeFiles>
+	            	<origin>../../../collect-earth-app/resources</origin>
+	            </distributionDirectory>
+            </distributionFileList>
+        </folder>
+        <folder>
+            <description>Resources Mac</description>
+            <destination>${installdir}</destination>
+            <name>resourceslinux</name>
+            <platforms>osx</platforms>
+            <distributionFileList>
+	         	<distributionDirectory>
+	                <excludeFiles>*/chromedriver.exe</excludeFiles>
+	                <excludeFiles>*/chromedriver</excludeFiles>
 	            	<origin>../../../collect-earth-app/resources</origin>
 	            </distributionDirectory>
             </distributionFileList>

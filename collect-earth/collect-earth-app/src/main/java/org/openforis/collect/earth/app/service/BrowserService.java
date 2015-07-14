@@ -48,6 +48,7 @@ import org.openqa.selenium.chrome.ChromeDriver;
 import org.openqa.selenium.firefox.FirefoxBinary;
 import org.openqa.selenium.firefox.FirefoxDriver;
 import org.openqa.selenium.firefox.FirefoxProfile;
+import org.openqa.selenium.interactions.Actions;
 import org.openqa.selenium.remote.DesiredCapabilities;
 import org.openqa.selenium.remote.RemoteWebDriver;
 import org.slf4j.Logger;
@@ -531,11 +532,24 @@ public class BrowserService implements Observer{
 						WebElement textArea = webDriverGeePlayground.findElement(By.className("ace_text-input"));
 						
 						Clipboard clipboard = Toolkit.getDefaultToolkit().getSystemClipboard();
-						StringSelection clipboardtext = new StringSelection( FileUtils.readFileToString( new File(fileWithScript.toURI())) );
+						String contents = FileUtils.readFileToString( new File(fileWithScript.toURI()));
+						StringSelection clipboardtext = new StringSelection( contents );
 						clipboard.setContents(clipboardtext, null);
 						
-						textArea.sendKeys(Keys.chord(Keys.CONTROL,"a"));
-						textArea.sendKeys(Keys.chord(Keys.CONTROL,"v"));
+						if( SystemUtils.IS_OS_MAC || SystemUtils.IS_OS_MAC_OSX){
+							
+							//textArea.sendKeys(Keys.chord(Keys.COMMAND,"a"));
+							//textArea.sendKeys(Keys.chord(Keys.COMMAND,"v"));
+						    // Command key (apple key) is not working on Chrome on Mac. Try with the right clik
+							Actions action= new Actions(webDriverGeePlayground);
+							action.contextClick(textArea).clickAndHold().sendKeys(Keys.ARROW_DOWN).sendKeys(Keys.RETURN).release();
+							action.contextClick(textArea).clickAndHold().sendKeys(Keys.ARROW_DOWN).sendKeys(Keys.ARROW_DOWN).sendKeys(Keys.RETURN).release();
+											
+						}else{
+							textArea.sendKeys(Keys.chord(Keys.CONTROL,"a"));
+							textArea.sendKeys(Keys.chord(Keys.CONTROL,"v"));
+						}
+						
 						
 						//textArea.sendKeys( FileUtils.readFileToString( new File(fileWithScript.toURI())) );
 						//((JavascriptExecutor)webDriverGeePlayground).executeScript("arguments[0].value = arguments[1];", textArea,);
@@ -692,10 +706,10 @@ public class BrowserService implements Observer{
 
 		final Properties props = System.getProperties();
 		if (props.getProperty("webdriver.chrome.driver") == null) {
-			if( SystemUtils.IS_OS_UNIX ){
-				props.setProperty("webdriver.chrome.driver", "resources/chromedriver");
-			}else if( SystemUtils.IS_OS_MAC || SystemUtils.IS_OS_MAC_OSX){
+			if( SystemUtils.IS_OS_MAC || SystemUtils.IS_OS_MAC_OSX){
 				props.setProperty("webdriver.chrome.driver", "resources/chromedriver_mac");
+			}else if( SystemUtils.IS_OS_UNIX ){
+				props.setProperty("webdriver.chrome.driver", "resources/chromedriver");
 			}else if( SystemUtils.IS_OS_WINDOWS ){
 				props.setProperty("webdriver.chrome.driver", "resources/chromedriver.exe");
 			}else{
