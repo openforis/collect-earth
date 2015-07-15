@@ -73,9 +73,9 @@ public class AnalysisSaikuService {
 	private static final String START_SAIKU = "start-saiku"; //$NON-NLS-1$
 
 	private static final String STOP_SAIKU = "stop-saiku"; //$NON-NLS-1$
-	
+
 	private static final String COMMAND_SUFFIX_BAT = ".bat"; //$NON-NLS-1$
-	
+
 	private static final String COMMAND_SUFFIX_SH = ".sh"; //$NON-NLS-1$
 
 	private static final String COLLECT_EARTH_DATABASE_RDB_DB = EarthConstants.COLLECT_EARTH_DATABASE_SQLITE_DB + ServerController.SAIKU_RDB_SUFFIX;
@@ -97,10 +97,10 @@ public class AnalysisSaikuService {
 
 	@Autowired
 	private RegionCalculationUtils regionCalculation;
-	
+
 	@Autowired
 	private SchemaService schemaNamingService;
-	
+
 	private JdbcTemplate jdbcTemplate;
 
 	private final Logger logger = LoggerFactory.getLogger(AnalysisSaikuService.class);
@@ -155,7 +155,7 @@ public class AnalysisSaikuService {
 			logger.error("No DEM information", e); //$NON-NLS-1$
 		}
 	}
-	
+
 	private String getSchemaPrefix() {
 		return schemaNamingService.getSchemaPrefix();
 	}
@@ -170,17 +170,17 @@ public class AnalysisSaikuService {
 						new RowMapper<Object[]>() {
 							@Override
 							public Object[] mapRow(ResultSet rs, int rowNum) throws SQLException {
-	
+
 								final Object[] updateValues = new Object[3];
-	
+
 								try {
 									AluToolUtils aluToolUtils = new AluToolUtils();
-									
+
 									Integer elevation = rs.getInt("elevation"); //$NON-NLS-1$
 									String soilFundamental = rs.getString("soil_fundamental"); //$NON-NLS-1$
 									String precipitationRange = rs.getString("precipitation_ranges"); //$NON-NLS-1$
-									
-									
+
+
 									int precipitation = -1;
 									String climate_zone = "Unknown"; //$NON-NLS-1$
 									if( precipitationRange != null ){
@@ -188,13 +188,13 @@ public class AnalysisSaikuService {
 										boolean shortDrySeason = true; // According to information from Abe PNG has less than 5 months of dry season
 										climate_zone = aluToolUtils.getClimateZone(elevation, precipitation, shortDrySeason );
 									}								
-									
+
 									String soil_type = "Unknown"; //$NON-NLS-1$
 									if( soilFundamental!=null){
 										soil_type = aluToolUtils.getSoilType( soilFundamental );
 									}
-									
-									
+
+
 									updateValues[0] = climate_zone;
 									updateValues[1] = soil_type;
 									updateValues[2] = rs.getLong(EarthConstants.PLOT_ID);
@@ -207,9 +207,9 @@ public class AnalysisSaikuService {
 								}
 								return updateValues;
 							}
-	
+
 						});
-	
+
 				jdbcTemplate.batchUpdate("UPDATE " + schemaName + "plot SET " + ALU_CLIMATE_ZONE_CODE +"=?," + ALU_SOIL_TYPE_CODE + "=? WHERE "+EarthConstants.PLOT_ID+"=?", sqlUpdateValues); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$ //$NON-NLS-4$ //$NON-NLS-5$ //$NON-NLS-6$
 			}
 		} catch (Exception e) {
@@ -270,21 +270,20 @@ public class AnalysisSaikuService {
 			for (final String tableName : tables) {
 				jdbcTemplate.execute("DROP TABLE IF EXISTS " + tableName); //$NON-NLS-1$
 			}
-			
+
 
 			// Now we can remove the SQLite file so that a completely new connection is open
 			oldRdbFile.delete();
-			
+
 			if (!SystemUtils.IS_OS_WINDOWS){
 				try {
 					Thread.yield();
 					Thread.sleep( 10000 );
 				} catch (InterruptedException e) {
-					// TODO Auto-generated catch block
-					e.printStackTrace();
+					logger.error("Error while giving pass to other processes", e);
 				}
 			}
-			
+
 			logger.warn("The sqlite database has been removed : " + oldRdbFile.getAbsolutePath() ); //$NON-NLS-1$
 		}
 
@@ -332,7 +331,7 @@ public class AnalysisSaikuService {
 
 
 
-	
+
 	private void createPngAluVariables(){
 		if (earthSurveyService.getCollectSurvey().getName().toLowerCase().contains("png") ){  //$NON-NLS-1$
 			final String schemaName = getSchemaPrefix();
@@ -340,13 +339,13 @@ public class AnalysisSaikuService {
 			jdbcTemplate.execute("ALTER TABLE " + schemaName + "plot ADD "+ALU_CLIMATE_ZONE_CODE+" VARCHAR(5)"); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$
 		}
 	}
-	
+
 	private void creatAluSubclassVariables(){
 		final String schemaName = getSchemaPrefix();
 		jdbcTemplate.execute("ALTER TABLE " + schemaName + "plot ADD "+ALU_SUBCLASS_CODE+" VARCHAR(5)"); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$
 	}
-	
-	
+
+
 	private void createSlopeAuxTable() {
 		final String schemaName = getSchemaPrefix();
 		// Slope can be from 0 to 90
@@ -372,15 +371,15 @@ public class AnalysisSaikuService {
 		}
 		return result;
 	}
-	
+
 	private File getZippedSaikuProjectDB() {
-		
+
 		File saikuFolder = new File(FolderFinder.getLocalFolder() + File.separator + "saikuDatabase");
-		
+
 		if ( !saikuFolder.exists() ){
 			saikuFolder.mkdir();
 		}
-		
+
 		return new File(saikuFolder.getAbsolutePath() + File.separator + getRdbFilePrefix() +  ServerController.SAIKU_RDB_SUFFIX + ".zip");
 	}
 
@@ -394,7 +393,7 @@ public class AnalysisSaikuService {
 		boolean restoredSaiku = false;
 		if( getZippedSaikuProjectDB().exists() ){
 			// Unzip file
-			
+
 			try {
 				ZipFile zippedProjectSaikuData = new ZipFile( getZippedSaikuProjectDB() );
 				zippedProjectSaikuData.extractAll( FolderFinder.getLocalFolder() );
@@ -402,26 +401,26 @@ public class AnalysisSaikuService {
 			} catch (ZipException e) {
 				logger.error("Problems unzipping the contents of the zipped Saiku DB to the local user folder ", e);
 			}
-			
+
 		}
 		return restoredSaiku;
 	}
-	
+
 	private File getRdbFile() {
-		
+
 		return new File(COLLECT_EARTH_DATABASE_RDB_DB);
-		
+
 	}
 
 	private String getSaikuConfigurationFilePath() {
-		
+
 		String configFile = getSaikuFolder() + "/" + "tomcat/webapps/saiku/WEB-INF/classes/saiku-datasources/collectEarthDS"; //$NON-NLS-1$ //$NON-NLS-2$
 		configFile = configFile.replace('/', File.separatorChar);
 		return configFile;
 	}
-	
+
 	private String getSaikuThreeConfigurationFilePath() {
-		
+
 		String configFile = getSaikuFolder() + "/" + "tomcat/webapps/saiku/WEB-INF/classes/legacy-datasources/collectEarthDS"; //$NON-NLS-1$ //$NON-NLS-2$
 		configFile = configFile.replace('/', File.separatorChar);
 		return configFile;
@@ -458,9 +457,9 @@ public class AnalysisSaikuService {
 	private boolean isSaikuConfigured() {
 		return getSaikuFolder() != null && isSaikuFolder(new File(getSaikuFolder()));
 	}
-	
+
 	private boolean isJavaHomeConfigured() {
-	
+
 		if (SystemUtils.IS_OS_MAC){
 			return true;
 		}
@@ -470,7 +469,7 @@ public class AnalysisSaikuService {
 				StringUtils.isBlank( System.getenv("JRE_HOME") ) //$NON-NLS-1$ 
 				&& 
 				StringUtils.isBlank( System.getenv("COLLECT_EARTH_JRE_HOME") )  //$NON-NLS-1$
-		);
+				);
 	}
 
 
@@ -501,12 +500,12 @@ public class AnalysisSaikuService {
 	public void prepareDataForAnalysis() throws SaikuExecutionException {
 
 		try {
-					
+
 			stopSaiku();
 
 			try {
 				removeOldRdb();
-				
+
 				if (!getZippedSaikuProjectDB().exists() || isRefreshDatabase()) {
 					// The user clicked on the option to refresh the database, or there is no previous copy of the Saiku DB
 					// Generate the DB file
@@ -517,7 +516,7 @@ public class AnalysisSaikuService {
 					} catch (ZipException e) {
 						logger.error("Error while refreshing the Zipped content of the project Saiku DB", e);
 					}
-					
+
 				}else if( getZippedSaikuProjectDB().exists() ){
 					// If the zipped version of the project exists ( and the user clicked on the option to not refresh it) then restore this last version of the data 
 					restoreProjectSaikuDB();
@@ -558,7 +557,7 @@ public class AnalysisSaikuService {
 				getZippedSaikuProjectDB().getAbsolutePath(),
 				getRdbFile(), 
 				getRdbFile().getName()
-			);
+				);
 	}
 
 	public void exportDataToRDB() throws CollectRdbException {
@@ -604,15 +603,15 @@ public class AnalysisSaikuService {
 		createElevationtAuxTable();
 
 		createDynamicsAuxTable();
-		
+
 		creatAluSubclassVariables();
-		
+
 		createPngAluVariables();
 
 		createPlotForeignKeys();
 
 		assignPngAluToolDimensionValues();
-		
+
 		assignDimensionValues();
 
 		assignLUCDimensionValues();
@@ -652,7 +651,7 @@ public class AnalysisSaikuService {
 			dataSourceFile = new File(getSaikuThreeConfigurationFilePath());
 			FreemarkerTemplateUtils.applyTemplate(dataSourceTemplate, dataSourceFile, data);
 		}
-		
+
 
 		setMdxSaikuSchema(mdxTemplate, mdxFile);
 	}
@@ -668,8 +667,8 @@ public class AnalysisSaikuService {
 	private File getDataSourceTemplate(Map<String, String> data) throws IOException {
 		File dataSourceTemplate = null;
 
-		
-		
+
+
 		if( localPropertiesService.isUsingSqliteDB() ){
 			dataSourceTemplate = new File(SQLITE_FREEMARKER_HTML_TEMPLATE);
 			final File rdbDb = getRdbFile();
@@ -724,28 +723,25 @@ public class AnalysisSaikuService {
 			throw new SaikuExecutionException("The JAVA_HOME environment variable is not configured. JAVA_HOME must point to the root folder of a valid JDK."); //$NON-NLS-1$
 		} else {
 			String saikuCmd = getSaikuFolder() + File.separator + commandName + getCommandSuffix() ;
-			
+
 			if (SystemUtils.IS_OS_WINDOWS){
 				saikuCmd = "\"" + saikuCmd  + "\""; //$NON-NLS-1$ //$NON-NLS-2$
 			}
-			
-			try {
-				final ProcessBuilder builder = new ProcessBuilder(new String[] { saikuCmd });
-				builder.directory(new File(getSaikuFolder()).getAbsoluteFile());
-				builder.redirectErrorStream(true);
-				Process p = builder.start();
-				(new ProcessLoggerThread(p.getInputStream()) ).start();
-				(new ProcessLoggerThread(p.getErrorStream()) ).start();
 
-				 if( commandName.equals( STOP_SAIKU )){
-					 int result = p.waitFor();
-					 logger.warn("Script ended with result " + result); //$NON-NLS-1$
-				 }else if ( commandName.equals( START_SAIKU ) ){
-					 Thread.sleep(6000);
-				 }
-				
-				 
-				    
+
+			try {
+
+				Process runSaiku = runProcessBuilder( new String[]{saikuCmd});
+
+				if( commandName.equals( STOP_SAIKU )){
+					int result = runSaiku.waitFor();
+					logger.warn("Script ended with result " + result); //$NON-NLS-1$
+				}else if ( commandName.equals( START_SAIKU ) ){
+					Thread.sleep(6000);
+				}
+
+
+
 			} catch (final IOException e) {
 				logger.error("Error when running Saiku start/stop command", e); //$NON-NLS-1$
 			} catch (InterruptedException e) {
@@ -754,9 +750,65 @@ public class AnalysisSaikuService {
 		}
 	}
 
+	private void setMacJreHome( ProcessBuilder p ) {
+		if( SystemUtils.IS_OS_MAC || SystemUtils.IS_OS_MAC_OSX  || SystemUtils.IS_OS_LINUX){
+
+			File javaFolder = new File("./java");
+
+			if( !javaFolder.exists() ){
+				String userName = System.getProperty("user.name");
+				String testWithPath = "/Users/"+userName + "/OpenForis/CollectEarth/java";
+				File testJavaPath = new File(testWithPath);
+				if( testJavaPath.exists()){
+					javaFolder = testJavaPath;
+				}
+			}
+
+			Map<String, String> environment = p.environment();
+			environment.put("COLLECT_EARTH_JRE_HOME", javaFolder.getAbsolutePath());
+
+			/*// In MAC the environment variable COLLECT_EARTH_JRE_HOME is not accesible from outside the bash, set it again!
+		if( SystemUtils.IS_OS_MAC || SystemUtils.IS_OS_MAC_OSX){
+			try {				
+				File javaFolder = new File("./java");
+
+				if( !javaFolder.exists() ){
+					String userName = System.getProperty("user.name");
+					String testWithPath = "/Users/"+userName + "/OpenForis/CollectEarth/java";
+					File testJavaPath = new File(testWithPath);
+					if( testJavaPath.exists()){
+						javaFolder = testJavaPath;
+					}
+				}
+
+				Process setEnv = runProcessBuilder(new String[] { "/bin/bash", "setenv", "COLLECT_EARTH_JRE_HOME=\""+ javaFolder.getAbsolutePath() +"\"" });
+				setEnv.waitFor();
+			} catch (final IOException e) {
+				logger.error("Error setting the COLLECT_EARTH_JRE_HOME environment variable", e); //$NON-NLS-1$
+			} catch (InterruptedException e) {
+				logger.error("Error when running COLLECT_EARTH_JRE_HOME environment variable", e); //$NON-NLS-1$
+			}
+		}*/
+		}
+	}
+
+	private Process runProcessBuilder(String[] cmd) throws IOException {
+		final ProcessBuilder builder = new ProcessBuilder(cmd);
+		
+		// Fixes bug with Mac OS X not using the environemnt variable set for bash
+		setMacJreHome(builder);
+		
+		builder.directory(new File(getSaikuFolder()).getAbsoluteFile());
+		builder.redirectErrorStream(true);
+		Process p = builder.start();
+		(new ProcessLoggerThread(p.getInputStream()) ).start();
+		(new ProcessLoggerThread(p.getErrorStream()) ).start();
+		return p;
+	}
+
 	private String getCommandSuffix() {
 		if (SystemUtils.IS_OS_WINDOWS){
-			
+
 			return COMMAND_SUFFIX_BAT;
 		}else{
 			return COMMAND_SUFFIX_SH;
@@ -777,7 +829,7 @@ public class AnalysisSaikuService {
 		runSaikuBat(START_SAIKU);
 
 		this.setSaikuStarted(true);
-		
+
 		logger.warn("Finished starting the Saiku server"); //$NON-NLS-1$
 	}
 

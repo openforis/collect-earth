@@ -26,7 +26,7 @@ public class ProcessLoggerThread extends Thread {
 			BufferedReader reader = new BufferedReader(new InputStreamReader(inputStream));
 			String line = reader.readLine();
 			while (line != null) {
-				LOGGER.warn(line);
+				LOGGER.error(line);
 				line = reader.readLine();
 			}
 			reader.close();
