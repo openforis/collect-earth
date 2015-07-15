@@ -104,7 +104,7 @@
         <folder>
             <description>Resources Mac</description>
             <destination>${installdir}</destination>
-            <name>resourceslinux</name>
+            <name>resourcesosx</name>
             <platforms>osx</platforms>
             <distributionFileList>
 	         	<distributionDirectory>
