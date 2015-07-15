@@ -42,6 +42,7 @@ import org.openforis.collect.earth.app.service.LocalPropertiesService.EarthPrope
 import org.openqa.selenium.By;
 import org.openqa.selenium.JavascriptExecutor;
 import org.openqa.selenium.Keys;
+import org.openqa.selenium.WebDriver;
 import org.openqa.selenium.WebDriverException;
 import org.openqa.selenium.WebElement;
 import org.openqa.selenium.chrome.ChromeDriver;
@@ -501,6 +502,14 @@ public class BrowserService implements Observer{
 		}
 	}
 
+
+	private void paste(WebElement textarea, WebDriver webDriver, String jsGeeText) {
+	    JavascriptExecutor js = (JavascriptExecutor ) webDriver;
+	    js.executeScript("arguments[0].value='arguments[1]'", textarea, jsGeeText );
+
+	}
+	
+	
 	/**
 	 * Opens a browser window with the Google Earth Engine Playground and runs the freemarker template found in resources/eePlaygroundScript.fmt on the main editor of GEE. 
 	 * @param coordinates The center point of the plot.
@@ -538,13 +547,13 @@ public class BrowserService implements Observer{
 						
 						if( SystemUtils.IS_OS_MAC || SystemUtils.IS_OS_MAC_OSX){
 							
-							//textArea.sendKeys(Keys.chord(Keys.COMMAND,"a"));
-							//textArea.sendKeys(Keys.chord(Keys.COMMAND,"v"));
+							
 						    // Command key (apple key) is not working on Chrome on Mac. Try with the right clik
-							Actions action= new Actions(webDriverGeePlayground);
-							action.contextClick(textArea).clickAndHold().sendKeys(Keys.ARROW_DOWN).sendKeys(Keys.RETURN).release();
-							action.contextClick(textArea).clickAndHold().sendKeys(Keys.ARROW_DOWN).sendKeys(Keys.ARROW_DOWN).sendKeys(Keys.RETURN).release();
-											
+							//Actions action= new Actions(webDriverGeePlayground);
+							//action.contextClick(textArea).clickAndHold().sendKeys(Keys.ARROW_DOWN).sendKeys(Keys.RETURN).release();
+							//action.contextClick(textArea).clickAndHold().sendKeys(Keys.ARROW_DOWN).sendKeys(Keys.ARROW_DOWN).sendKeys(Keys.RETURN).release();
+							textArea.sendKeys(Keys.chord(Keys.COMMAND,"a"));
+							textArea.sendKeys(Keys.chord(Keys.COMMAND,"v"));				
 						}else{
 							textArea.sendKeys(Keys.chord(Keys.CONTROL,"a"));
 							textArea.sendKeys(Keys.chord(Keys.CONTROL,"v"));
@@ -818,3 +827,4 @@ public class BrowserService implements Observer{
 		}
 	}
 }
+

@@ -10,6 +10,20 @@ import com.google.common.collect.ImmutableList;
 public class FirefoxLocatorFixed extends FirefoxLocator{
 
 
+	  /**
+	   * Dynamic because the directory version number keep changing.
+	   */
+	  protected String[] usualUnixLauncherLocations() {
+			String[] standardLocations = super.usualUnixLauncherLocations();
+
+			String[] localAppDataLocations = new ImmutableList.Builder<String>()
+					.add("/Applications/Firefox.app/Contents/MacOS" )
+					.add("/Applications/Mozilla Firefox.app/Contents/MacOS")
+					.build().toArray(new String[0]);
+
+			return (String[]) ArrayUtils.addAll(standardLocations, localAppDataLocations );
+	  }
+	
 	@Override
 	protected String[] firefoxDefaultLocationsOnWindows() {
 
