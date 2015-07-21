@@ -158,7 +158,7 @@ public class ServerController extends Observable {
 
 			if (connection != null)
 			{
-				String query="select COUNT( DISTINCT id) from collect.ofc_record";
+				String query="select version()";
 				Statement s = connection.createStatement();
 				ResultSet rs=s.executeQuery(query);
 				while(rs.next())
