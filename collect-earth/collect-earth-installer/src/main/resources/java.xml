@@ -121,7 +121,7 @@
 	<stringParameter name="java_launcher_destination" value="${installdir}" ask="0" />
 	<stringParameter name="java_launcher_binary_name" value="${project.shortName}-launcher.${platform_exec_suffix}" ask="0" />
 	<stringParameter name="java_launcher_arguments" value="" ask="0" />
-	<stringParameter name="java_launcher_vm_parameters" value="" ask="0" />
+	<stringParameter name="java_launcher_vm_parameters" value="-Duser.country=US -Duser.language=en" ask="0"/>
 	<stringParameter name="java_launcher_jar" value="" ask="0" />
 	<stringParameter name="java_launcher_mainClass" value="" ask="0" />
 	<stringParameter name="java_launcher_classpath" value="" ask="0" />
