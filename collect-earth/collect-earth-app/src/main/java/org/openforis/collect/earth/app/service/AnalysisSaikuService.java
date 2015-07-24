@@ -24,6 +24,7 @@ import net.lingala.zip4j.exception.ZipException;
 
 import org.apache.commons.codec.binary.Hex;
 import org.apache.commons.dbcp.BasicDataSource;
+import org.apache.commons.lang3.StringEscapeUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.SystemUtils;
 import org.openforis.collect.earth.app.CollectEarthUtils;
@@ -635,7 +636,7 @@ public class AnalysisSaikuService {
 		final File mdxFile = new File( localPropertiesService.getProjectFolder() + File.separatorChar + MDX_XML);
 
 		Map<String, String> data = new HashMap<String, String>();
-		data.put("cubeFilePath", mdxFile.getAbsolutePath().replace('\\', '/')); //$NON-NLS-1$
+		data.put("cubeFilePath", StringEscapeUtils.escapeJava( mdxFile.getAbsolutePath().replace('\\', '/')) ); //$NON-NLS-1$
 
 		final File mdxTemplate = getMdxTemplate();
 		final File dataSourceTemplate = getDataSourceTemplate(data);
@@ -675,13 +676,13 @@ public class AnalysisSaikuService {
 			if (!rdbDb.exists()) {
 				throw new IOException("The file contianing the Relational SQLite Database does not exist in expected location " + rdbDb.getAbsolutePath()); //$NON-NLS-1$
 			}
-			data.put("rdbFilePath", rdbDb.getAbsolutePath().replace('\\', '/')); //$NON-NLS-1$
+			data.put("rdbFilePath", StringEscapeUtils.escapeJava( rdbDb.getAbsolutePath().replace('\\', '/') ) ); //$NON-NLS-1$
 		}else{
 			dataSourceTemplate = new File(POSTGRESQL_FREEMARKER_HTML_TEMPLATE);
 			CollectDBDriver collectDBDriver = localPropertiesService.getCollectDBDriver();
-			data.put("dbUrl", ServerController.getSaikuDbURL(collectDBDriver) ); //$NON-NLS-1$
-			data.put("username", localPropertiesService.getValue(EarthProperty.DB_USERNAME )); //$NON-NLS-1$
-			data.put("password", localPropertiesService.getValue(EarthProperty.DB_PASSWORD )); //$NON-NLS-1$
+			data.put("dbUrl", StringEscapeUtils.escapeJava( ServerController.getSaikuDbURL(collectDBDriver) ) ); //$NON-NLS-1$
+			data.put("username", StringEscapeUtils.escapeJava( localPropertiesService.getValue(EarthProperty.DB_USERNAME ) ) ); //$NON-NLS-1$
+			data.put("password", StringEscapeUtils.escapeJava( localPropertiesService.getValue(EarthProperty.DB_PASSWORD ) ) ); //$NON-NLS-1$
 		}
 
 		if (!dataSourceTemplate.exists()) {
