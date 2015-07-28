@@ -49,7 +49,6 @@ import org.openqa.selenium.chrome.ChromeDriver;
 import org.openqa.selenium.firefox.FirefoxBinary;
 import org.openqa.selenium.firefox.FirefoxDriver;
 import org.openqa.selenium.firefox.FirefoxProfile;
-import org.openqa.selenium.interactions.Actions;
 import org.openqa.selenium.remote.DesiredCapabilities;
 import org.openqa.selenium.remote.RemoteWebDriver;
 import org.slf4j.Logger;
@@ -392,7 +391,7 @@ public class BrowserService implements Observer{
 		}
 	}
 	
-	public synchronized RemoteWebDriver navigateTo(String url, RemoteWebDriver driver ) throws BrowserNotFoundException {
+	public RemoteWebDriver navigateTo(String url, RemoteWebDriver driver ) throws BrowserNotFoundException {
 		return navigateTo(url, driver, true);
 	}
 
@@ -404,7 +403,7 @@ public class BrowserService implements Observer{
 	 * @return THe browser window (firefox or chrome depending on the configuration) used to open the URL.
 	 * @throws BrowserNotFoundException Exception thrown when there is no Firefox/Chrome installed
 	 */
-	public synchronized RemoteWebDriver navigateTo(String url, RemoteWebDriver driver, boolean retry ) throws BrowserNotFoundException {
+	public RemoteWebDriver navigateTo(String url, RemoteWebDriver driver, boolean retry ) throws BrowserNotFoundException {
 
 		if (driver == null || !isDriverWorking(driver) ) {
 			driver = initBrowser();
@@ -444,7 +443,7 @@ public class BrowserService implements Observer{
 	 * @throws BrowserNotFoundException In case the browser could not be found
 	 * 
 	 */
-	public synchronized void openBingMaps(String coordinates) throws BrowserNotFoundException {
+	public void openBingMaps(String coordinates) throws BrowserNotFoundException {
 
 		if (localPropertiesService.isBingMapsSupported()) {
 
@@ -476,7 +475,7 @@ public class BrowserService implements Observer{
 	 * @throws BrowserNotFoundException In case the browser could not be found
 	 * 
 	 */
-	public synchronized void openHereMaps(String coordinates) throws BrowserNotFoundException {
+	public void openHereMaps(String coordinates) throws BrowserNotFoundException {
 
 		if (localPropertiesService.isHereMapsSupported()) {
 
@@ -516,7 +515,7 @@ public class BrowserService implements Observer{
 	 * @throws BrowserNotFoundException If the browser cannot be found
 	 * 
 	 */
-	public synchronized void openGeePlayground(String coordinates) throws BrowserNotFoundException {
+	public void openGeePlayground(String coordinates) throws BrowserNotFoundException {
 
 		if (localPropertiesService.isGeePlaygroundSupported()) {
 
@@ -614,7 +613,7 @@ public class BrowserService implements Observer{
 	 * @throws BrowserNotFoundException If the browser cannot be found
 	 * 
 	 */
-	public synchronized void openEarthEngine(String coordinates) throws BrowserNotFoundException {
+	public void openEarthEngine(String coordinates) throws BrowserNotFoundException {
 
 		logger.warn("Starting to open EE - supported : " + localPropertiesService.isEarthEngineSupported()   );
 		if (localPropertiesService.isEarthEngineSupported()) {
@@ -648,7 +647,7 @@ public class BrowserService implements Observer{
 	 * @throws BrowserNotFoundException If the browser cannot be found
 	 * 
 	 */
-	public synchronized void openTimelapse(final String coordinates) throws BrowserNotFoundException {
+	public void openTimelapse(final String coordinates) throws BrowserNotFoundException {
 
 		if (localPropertiesService.isTimelapseSupported()) {
 
