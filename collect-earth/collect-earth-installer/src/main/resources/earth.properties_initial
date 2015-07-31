@@ -43,5 +43,5 @@ balloon=drylands_demo/balloon.html
 metadata_file=drylands_demo/placemark.idm.xml
 template=drylands_demo/kml_template.fmt
 survey_name=drylandsmonitoring
-csv=drylands_demo/grids/Drylands_1.csv
+csv=drylands_demo/grids/NA_grids/grid_0.csv
 loaded_projects=drylands_demo

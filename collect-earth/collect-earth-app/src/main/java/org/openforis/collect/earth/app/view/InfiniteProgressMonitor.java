@@ -6,6 +6,7 @@ import javax.swing.JLabel;
 import javax.swing.JOptionPane;
 import javax.swing.JProgressBar;
 import javax.swing.SwingUtilities;
+import javax.swing.text.html.HTMLDocument.HTMLReader.IsindexAction;
 
 public class InfiniteProgressMonitor {
 
@@ -20,10 +21,12 @@ public class InfiniteProgressMonitor {
 	private String cancelOption;
 	
 	private JLabel label;
+	
+	JProgressBar infiniteProgress;
 
 	public InfiniteProgressMonitor(JFrame parentFrame, String title, String message) {
 
-		final JProgressBar infiniteProgress = new JProgressBar();
+		infiniteProgress = new JProgressBar();
 		infiniteProgress.setIndeterminate(true);
 		label = new JLabel(message);
 
@@ -36,6 +39,21 @@ public class InfiniteProgressMonitor {
 		getDialog().setModal(true);
 
 
+	}
+	
+	public void updateProgress( int current, int total){
+		
+		infiniteProgress.setString( current + "/" + total);
+		if( infiniteProgress.isIndeterminate() ){
+			infiniteProgress.setIndeterminate(false);
+			infiniteProgress.setStringPainted(true);
+		}
+		if( infiniteProgress.getMaximum() != total) {
+			infiniteProgress.setMaximum( total );
+		}
+		infiniteProgress.setValue( current );
+		
+		
 	}
 	
 	public void setMessage(String msg){

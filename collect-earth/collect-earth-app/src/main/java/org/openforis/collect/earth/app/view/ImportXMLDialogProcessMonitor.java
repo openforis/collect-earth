@@ -3,18 +3,21 @@ package org.openforis.collect.earth.app.view;
 import java.awt.Toolkit;
 import java.io.File;
 import java.util.List;
+import java.util.Observable;
+import java.util.Observer;
 
 import javax.swing.JFrame;
 import javax.swing.JOptionPane;
 import javax.swing.SwingUtilities;
 
 import org.openforis.collect.earth.app.service.DataImportExportService;
+import org.openforis.collect.io.data.DataImportState;
 import org.openforis.collect.io.data.DataImportSummaryItem;
 import org.openforis.collect.io.data.XMLDataImportProcess;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-public class ImportXMLDialogProcessMonitor {
+public class ImportXMLDialogProcessMonitor implements Observer{
 
 	Logger logger = LoggerFactory.getLogger(ImportXMLDialogProcessMonitor.class);
 	private InfiniteProgressMonitor progressMonitor;
@@ -81,8 +84,8 @@ public class ImportXMLDialogProcessMonitor {
 					}
 				}
 			});
-
-			importProcess.call();
+			
+			importProcess.callAndObserve( this );
 
 			if (importProcess.getSummary() != null && !importProcess.getState().isCancelled()) {
 
@@ -109,6 +112,19 @@ public class ImportXMLDialogProcessMonitor {
 			closeProgressmonitor();
 		}
 
+	}
+
+	@Override
+	public void update(Observable o, Object arg) {
+		SwingUtilities.invokeLater(new Runnable() {
+			@Override
+			public void run() {
+				DataImportState importState = (DataImportState) o ;
+				progressMonitor.setMessage( Messages.getString("ImportDialogProcessMonitor.2") ); //$NON-NLS-1$
+				progressMonitor.updateProgress(  importState.getCount(), importState.getTotal());
+			}	
+		});
+		
 	}
 
 }
