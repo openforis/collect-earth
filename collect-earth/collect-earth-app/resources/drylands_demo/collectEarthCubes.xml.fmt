@@ -1,4 +1,4 @@
-<Schema name="drylands_monitoring_assessment">
+<Schema name="drylandsmonitoring">
   <Cube name="Collect Earth Plot" cache="true" enabled="true">
     <Table name="plot" schema="${saikuDbSchema}"/>
     <Dimension name="Id" type="StandardDimension" visible="true">
@@ -55,14 +55,14 @@
         <Level name="Land Use Sub-Category - Confidence" column="land_use_subcategory_accuracy" uniqueMembers="true" levelType="Regular" type="String"/>
       </Hierarchy>
     </Dimension>
-    <Dimension name="change between subdivision" type="StandardDimension" visible="true">
+    <Dimension name="Known year of change" type="StandardDimension" visible="true">
       <Hierarchy visible="true" hasAll="true">
-        <Level name="change between subdivision" column="land_use_subcategory_year_of_change_know" uniqueMembers="true" levelType="Regular" type="String"/>
+        <Level name="Known year of change" column="land_use_subcategory_year_of_change_know" uniqueMembers="true" levelType="Regular" type="String"/>
       </Hierarchy>
     </Dimension>
-    <Dimension name="change between subdivision (year)" type="StandardDimension" visible="true">
+    <Dimension name="Year of the change" type="StandardDimension" visible="true">
       <Hierarchy visible="true" hasAll="true">
-        <Level name="change between subdivision (year)" column="land_use_subcategory_year_of_change" uniqueMembers="true" levelType="Regular" type="Integer"/>
+        <Level name="Year of the change" column="land_use_subcategory_year_of_change" uniqueMembers="true" levelType="Regular" type="Integer"/>
       </Hierarchy>
     </Dimension>
     <Dimension name="RS Date" type="" visible="true">
@@ -316,9 +316,9 @@
     <Measure name="area" column="expansion_factor" datatype="Integer" aggregator="sum" caption="Area (HA)" formatString="#,###"/>
     <Measure name="plot_weight" column="plot_weight" datatype="Integer" aggregator="sum" caption="Plot Weight" formatString="#,###"/>
     <Measure name="plot_count" column="_plot_id" datatype="Integer" aggregator="distinct count" caption="Plot Count"/>
-    <Measure name="land_use_subcategory_year_of_change_min" column="land_use_subcategory_year_of_change" datatype="Integer" aggregator="min" caption="change between subdivision (year) min"/>
-    <Measure name="land_use_subcategory_year_of_change_max" column="land_use_subcategory_year_of_change" datatype="Integer" aggregator="max" caption="change between subdivision (year) max"/>
-    <Measure name="land_use_subcategory_year_of_change_avg" column="land_use_subcategory_year_of_change" datatype="Integer" aggregator="avg" caption="change between subdivision (year) avg"/>
+    <Measure name="land_use_subcategory_year_of_change_min" column="land_use_subcategory_year_of_change" datatype="Integer" aggregator="min" caption="Year of the change min"/>
+    <Measure name="land_use_subcategory_year_of_change_max" column="land_use_subcategory_year_of_change" datatype="Integer" aggregator="max" caption="Year of the change max"/>
+    <Measure name="land_use_subcategory_year_of_change_avg" column="land_use_subcategory_year_of_change" datatype="Integer" aggregator="avg" caption="Year of the change avg"/>
     <Measure name="elevation_min" column="elevation" datatype="Integer" aggregator="min" caption="Elevation min"/>
     <Measure name="elevation_max" column="elevation" datatype="Integer" aggregator="max" caption="Elevation max"/>
     <Measure name="elevation_avg" column="elevation" datatype="Integer" aggregator="avg" caption="Elevation avg"/>

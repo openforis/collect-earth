@@ -1,12 +1,13 @@
 <?xml version='1.0' encoding='UTF-8' standalone='yes' ?>
-<survey lastId="536" created="2015-05-18T12:23:15.181+02:00" modified="2015-07-13T14:29:28.646+02:00" collectearth:plotarea="0.5" collect:target="CE" collect:collectVersion="3.6.13" xsi:schemaLocation="http://www.openforis.org/idml/3.0  &#9;&#9;https://raw.github.com/openforis/ollect/master/collect-core/src/main/resources/idml3.xsd       &#9;&#9;http://www.openforis.org/collect/3.0/ui  &#9;&#9;https://raw.github.com/openforis/collect/master/collect-core/src/main/resources/idml3-ui.xsd" collectearth:samplepoints="49" xmlns="http://www.openforis.org/idml/3.0" xmlns:collect="http://www.openforis.org/collect/3.0/collect" xmlns:ui="http://www.openforis.org/collect/3.0/ui" xmlns:collectearth="http://www.openforis.org/collect/3.0/collectearth" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+<survey lastId="536" created="2015-05-18T12:23:15.181+02:00" modified="2015-07-28T14:46:48.638+02:00" collectearth:plotarea="0.5" collectearth:samplepoints="49" collect:target="CE" collect:collectVersion="3.7.0" xsi:schemaLocation="http://www.openforis.org/idml/3.0  &#9;&#9;https://raw.github.com/openforis/ollect/master/collect-core/src/main/resources/idml3.xsd       &#9;&#9;http://www.openforis.org/collect/3.0/ui  &#9;&#9;https://raw.github.com/openforis/collect/master/collect-core/src/main/resources/idml3-ui.xsd" xmlns="http://www.openforis.org/idml/3.0" xmlns:collect="http://www.openforis.org/collect/3.0/collect" xmlns:ui="http://www.openforis.org/collect/3.0/ui" xmlns:collectearth="http://www.openforis.org/collect/3.0/collectearth" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
   <project xml:lang="fr">Suivi zones arides</project>
   <project xml:lang="es">Monitoreo de las Tierras Aridas</project>
   <project>Drylands Monitoring</project>
-  <uri>http://www.openforis.org/idm/earth/drylandsmonitoring</uri>
+  <uri>http://www.openforis.org/idm/earth/demodrylandsmonitoring</uri>
   <cycle>2014-2015</cycle>
   <language>en</language>
   <language>fr</language>
+  <language>pt</language>
   <language>es</language>
   <applicationOptions>
     <options type="ui">
@@ -15,41 +16,49 @@
     <n0:label>Elements(A)</n0:label>
     <n0:label xml:lang="fr">&#201;l&#233;ments(A)</n0:label>
     <n0:label xml:lang="es">Elementos (A)</n0:label>
+    <n0:label xml:lang="pt">Elementos(A)</n0:label>
   </n0:tab>
   <n0:tab name="tab_448">
     <n0:label>Elements(B)</n0:label>
     <n0:label xml:lang="fr">&#201;l&#233;ments(B)</n0:label>
     <n0:label xml:lang="es">Elementos (B)</n0:label>
+    <n0:label xml:lang="pt">Elementos(B)</n0:label>
   </n0:tab>
   <n0:tab name="tab_460">
     <n0:label>Elements(C)</n0:label>
     <n0:label xml:lang="fr">&#201;l&#233;ments(c)</n0:label>
     <n0:label xml:lang="es">Elementos (C)</n0:label>
+    <n0:label xml:lang="pt">Elementos(C)</n0:label>
   </n0:tab>
   <n0:tab name="tab_447">
     <n0:label>Impact</n0:label>
     <n0:label xml:lang="fr">Impact</n0:label>
     <n0:label xml:lang="es">Impacto</n0:label>
+    <n0:label xml:lang="pt">Impacto</n0:label>
   </n0:tab>
   <n0:tab name="tab_441">
     <n0:label>Land Class</n0:label>
     <n0:label xml:lang="fr">Classe de terre</n0:label>
     <n0:label xml:lang="es">Clasificaci&#243;n</n0:label>
+    <n0:label xml:lang="pt">Classe do Terreno</n0:label>
   </n0:tab>
   <n0:tab name="tab_226">
     <n0:label>FAO-FRA</n0:label>
     <n0:label xml:lang="fr">FAO-FRA</n0:label>
     <n0:label xml:lang="es">FAO-FRA</n0:label>
+    <n0:label xml:lang="pt">FAO-FRA</n0:label>
   </n0:tab>
   <n0:tab name="placemark">
     <n0:label>IPCC</n0:label>
     <n0:label xml:lang="fr">GIEC (IPCC)</n0:label>
     <n0:label xml:lang="es">IPCC</n0:label>
+    <n0:label xml:lang="pt">IPCC</n0:label>
   </n0:tab>
   <n0:tab name="tab_221">
     <n0:label>Remote Sensing Info</n0:label>
     <n0:label xml:lang="fr">Informations t&#233;l&#233;detections</n0:label>
     <n0:label xml:lang="es">Teledetecci&#243;n</n0:label>
+    <n0:label xml:lang="pt">Informa&#231;&#227;o de Sensoriamento Remoto</n0:label>
   </n0:tab>
 </n0:tabSet>
     </options>
@@ -367,6 +376,7 @@
       <label type="list">Sub-Categories</label>
       <label type="item" xml:lang="fr">Sous-catégories d'utilisation des terres</label>
       <label type="list" xml:lang="fr">Sous-catégories</label>
+      <label type="item" xml:lang="pt">Sub-categorias do uso da terra</label>
       <hierarchy>
         <level name="use">
           <label xml:lang="en">Use</label>
@@ -382,59 +392,72 @@
           <code>forest</code>
           <label>Forest</label>
           <label xml:lang="fr">Terres forestières</label>
+          <label xml:lang="pt">Floresta</label>
           <label xml:lang="es">Forestal</label>
           <item id="131">
             <code>FLtoFL</code>
             <label>F &gt; F</label>
             <label xml:lang="fr">TF &gt; TF</label>
+            <label xml:lang="pt">FL &gt; FL</label>
             <label xml:lang="es">F &gt; F</label>
             <description>Forest Land remaining Forest Land</description>
             <description xml:lang="fr">Terre forestière restant terre forestière</description>
+            <description xml:lang="pt">Floresta permanecendo floresta</description>
             <description xml:lang="es">Tierra forestal que se mantiene como Tierra Forestal</description>
           </item>
           <item id="132">
             <code>OTtoFL</code>
             <label>O &gt; F</label>
             <label xml:lang="fr">O&gt;F</label>
+            <label xml:lang="pt">OU &gt; FL</label>
             <label xml:lang="es">O &gt; F</label>
             <description>Other Land becoming Forest Land</description>
             <description xml:lang="fr">Autre terre convertie en terre forestière</description>
+            <description xml:lang="pt">Outro Uso convertido para floresta</description>
             <description xml:lang="es">Otras tierras convertida a Tierra Forestal</description>
           </item>
           <item id="133">
             <code>CLtoFL</code>
             <label>C &gt; F</label>
             <label xml:lang="fr">TC&gt;FL</label>
+            <label xml:lang="pt">AG &gt; FL</label>
             <label xml:lang="es">C&gt;F</label>
             <description>Crop Land becoming Forest Land</description>
             <description xml:lang="fr">Terre cultivée convertie en terre forestière</description>
+            <description xml:lang="pt">Área Agrícola convertida para Floresta</description>
             <description xml:lang="es">Tierra de cultivo convertida a Tierra Forestal</description>
           </item>
           <item id="134">
             <code>GLtoFL</code>
             <label>G &gt; F</label>
             <label xml:lang="fr">P&gt;FL</label>
+            <label xml:lang="pt">PA &gt; FL</label>
             <label xml:lang="es">P&gt;F</label>
             <description>Grass Land becoming Forest Land</description>
             <description xml:lang="fr">Prairie convertie en terre forestière</description>
+            <description xml:lang="pt">Pastagem / Pradaria convertida para floresta</description>
             <description xml:lang="es">Pastizal convertido a Tierra Forestal</description>
           </item>
           <item id="135">
             <code>WLtoFL</code>
             <label>W &gt; F</label>
             <label xml:lang="fr">H&gt;F</label>
+            <label xml:lang="pt">AL &gt; FL</label>
             <label xml:lang="es">H &gt; F</label>
             <description>Wet Land becoming Forest Land</description>
             <description xml:lang="fr">Zone humide convertie en terre forestière</description>
+            <description xml:lang="pt">Área alagada convertida para floresta</description>
             <description xml:lang="es">Humedal convertido a Tierra Forestal</description>
           </item>
           <item id="136">
             <code>SLtoFL</code>
             <label>S &gt; F</label>
             <label xml:lang="fr">E&gt;TF</label>
+            <label xml:lang="pt">AU &gt; FL</label>
             <label xml:lang="es">A&gt;F</label>
             <description>Settlement becoming Forest Land</description>
             <description xml:lang="fr">Établissement convertie en terre forestière</description>
+            <description xml:lang="pt">Área urbana convertida para floresta</description>
             <description xml:lang="es">Asentamiento convertido a Tierra Forestal</description>
           </item>
         </item>
@@ -442,59 +465,72 @@
           <code>cropland</code>
           <label>Cropland</label>
           <label xml:lang="fr">Terres cultivées</label>
+          <label xml:lang="pt">Área agrícola</label>
           <label xml:lang="es">Cultivo</label>
           <item id="138">
             <code>CLtoCL</code>
             <label>C &gt; C</label>
             <label xml:lang="fr">TC &gt; TC</label>
+            <label xml:lang="pt">AG &gt; AG</label>
             <label xml:lang="es">C &gt; C</label>
             <description>Crop Land remaining Crop Land</description>
             <description xml:lang="fr">Terre cultivée restant terre cultivée</description>
+            <description xml:lang="pt">Área agrícola que se manteve como área agrícola</description>
             <description xml:lang="es">Tierra de cultivo que se mantiene como Tierra de cultivo</description>
           </item>
           <item id="139">
             <code>OTtoCL</code>
             <label>O &gt; C</label>
             <label xml:lang="fr">AT &gt; TC</label>
+            <label xml:lang="pt">OU &gt; AG</label>
             <label xml:lang="es">O &gt; C</label>
             <description>Other Land becoming Crop Land</description>
             <description xml:lang="fr">Autre terre convertie en terre cultivée</description>
+            <description xml:lang="pt">Outro uso convertido para Área Agrícola</description>
             <description xml:lang="es">Otras tierras convertidas a Tierra de cultivo</description>
           </item>
           <item id="140">
             <code>FLtoCL</code>
             <label>F &gt; C</label>
             <label xml:lang="fr">TF &gt; TC</label>
+            <label xml:lang="pt">FL &gt; AG</label>
             <label xml:lang="es">F &gt; C</label>
             <description>Forest Land becoming Crop Land</description>
             <description xml:lang="fr">Terre forestière convertie en terre cultivée</description>
+            <description xml:lang="pt">Floresta convertida para Área Agrícola</description>
             <description xml:lang="es">Tierra forestal convertida a Tierra de cultivo</description>
           </item>
           <item id="141">
             <code>GLtoCL</code>
             <label>G &gt; C</label>
             <label xml:lang="fr">P &gt; TC</label>
+            <label xml:lang="pt">PA &gt; AG</label>
             <label xml:lang="es">P &gt; C</label>
             <description>Grass Land becoming Crop Land</description>
             <description xml:lang="fr">Prairie convertie en terre cultivée</description>
+            <description xml:lang="pt">Pastagem/Pradaria convertida para Área Agrícola</description>
             <description xml:lang="es">Pastizal convertido a Tierra de cultivo</description>
           </item>
           <item id="142">
             <code>WLtoCL</code>
             <label>W &gt; C</label>
             <label xml:lang="fr">ZH &gt; TC</label>
+            <label xml:lang="pt">AL &gt; AG</label>
             <label xml:lang="es">H &gt; C</label>
             <description>Wet Land becoming Crop Land</description>
             <description xml:lang="fr">Zones humides convertie en terre cultivée</description>
+            <description xml:lang="pt">Área alagada convertida para Área Agrícola</description>
             <description xml:lang="es">Humedal convertido a Tierra de cultivo</description>
           </item>
           <item id="143">
             <code>SLtoCL</code>
             <label>S &gt; C</label>
             <label xml:lang="fr">E &gt; TC</label>
+            <label xml:lang="pt">AU &gt; AG</label>
             <label xml:lang="es">A &gt; C</label>
             <description>Settlement becoming Crop Land</description>
             <description xml:lang="fr">Établissement convertie en terre cultivée</description>
+            <description xml:lang="pt">Área urbana convertida para Área Agrícola</description>
             <description xml:lang="es">Asentamiento convertido a Tierra de cultivo</description>
           </item>
         </item>
@@ -502,118 +538,144 @@
           <code>otherland</code>
           <label>Otherland</label>
           <label xml:lang="fr">Autres terres</label>
+          <label xml:lang="pt">Outros usos</label>
           <label xml:lang="es">Otras tierras</label>
           <item id="145">
             <code>OTtoOL</code>
             <label>O &gt; O</label>
             <label xml:lang="fr">AT &gt; AT</label>
+            <label xml:lang="pt">OU &gt; OU</label>
             <label xml:lang="es">O &gt; O</label>
             <description>Other Land remaining Other Land</description>
             <description xml:lang="fr">Autre terre restant autre terre</description>
+            <description xml:lang="pt">Outro uso que se manteve como outro uso</description>
             <description xml:lang="es">Otra tierra que se manetiene como Otra tierra</description>
           </item>
           <item id="146">
             <code>CLtoOL</code>
             <label>C &gt; O</label>
             <label xml:lang="fr">TC &gt; AT</label>
+            <label xml:lang="pt">AG &gt; OU</label>
             <label xml:lang="es">C &gt; O</label>
             <description>Crop Land becoming Other Land</description>
             <description xml:lang="fr">Terre cultivée convertie en autre terre</description>
+            <description xml:lang="pt">Área agrícola convertida para outro uso</description>
             <description xml:lang="es">Tierra de cultivo convertida a Otra tierra</description>
           </item>
           <item id="147">
             <code>FLtoOL</code>
             <label>F &gt; O</label>
             <label xml:lang="fr">TF &gt; AT</label>
+            <label xml:lang="pt">FL &gt; OU</label>
             <label xml:lang="es">F &gt; O</label>
             <description>Forest Land becoming Other Land</description>
             <description xml:lang="fr">Terre forestière convertie en autre terre</description>
+            <description xml:lang="pt">Floresta convertida para outro uso</description>
             <description xml:lang="es">Tierra forestal convertida a Otra tierra</description>
           </item>
           <item id="148">
             <code>GLtoOL</code>
             <label>G &gt; O</label>
             <label xml:lang="fr">P &gt; AT</label>
+            <label xml:lang="pt">PA &gt; OU</label>
             <label xml:lang="es">P &gt; O</label>
             <description>Grass Land becoming Other Land</description>
             <description xml:lang="fr">Prairie convertie en autre terre</description>
+            <description xml:lang="pt">Pastagem/Pradaria convertida para outro uso</description>
             <description xml:lang="es">Pastizal convertido a Otra tierra</description>
           </item>
           <item id="149">
             <code>WLtoOL</code>
             <label>W &gt; O</label>
             <label xml:lang="fr">ZH &gt; AT</label>
+            <label xml:lang="pt">AL &gt; OU</label>
             <label xml:lang="es">H &gt; O</label>
             <description>Wet Land becoming Other Land</description>
             <description xml:lang="fr">Zone humide convertie en autre terre</description>
+            <description xml:lang="pt">Área alagada convertida para outro uso</description>
             <description xml:lang="es">Humedal convertido a Otra tierra</description>
           </item>
           <item id="150">
             <code>SLtoOL</code>
             <label>S &gt; O</label>
             <label xml:lang="fr">E &gt; AT</label>
+            <label xml:lang="pt">AU &gt; OU</label>
             <label xml:lang="es">A &gt; O</label>
             <description>Settlement becoming Other Land</description>
             <description xml:lang="fr">Asentamiento convertido a Otra tierra</description>
+            <description xml:lang="pt">Área urbana convertida para outro uso</description>
           </item>
         </item>
         <item id="151">
           <code>grassland</code>
           <label>Grassland</label>
           <label xml:lang="fr">Prairies</label>
+          <label xml:lang="pt">Pastagem / Pradaria</label>
           <label xml:lang="es">Pastizal</label>
           <item id="152">
             <code>GLtoGL</code>
             <label>G &gt; G</label>
             <label xml:lang="fr">P &gt; P</label>
+            <label xml:lang="pt">PA &gt; PA</label>
             <label xml:lang="es">P &gt; P</label>
             <description>Grass Land remaining Grass Land</description>
             <description xml:lang="fr">Prairie restant prairie</description>
+            <description xml:lang="pt">Pastagem/Pradaria que ser manteve Pastagem/Pradaria</description>
             <description xml:lang="es">Pastizal que se mantiene como Pastizal</description>
           </item>
           <item id="153">
             <code>OTtoGL</code>
             <label>O &gt; G</label>
             <label xml:lang="fr">AT &gt; P</label>
+            <label xml:lang="pt">OU &gt; PA</label>
             <label xml:lang="es">O &gt; P</label>
             <description>Other Land becoming Grass Land</description>
             <description xml:lang="fr">Autre terre convertie en prairie</description>
+            <description xml:lang="pt">Outro uso convertido para pastagem/pradaria</description>
             <description xml:lang="es">Otra tierra convertida a Pastizal</description>
           </item>
           <item id="154">
             <code>FLtoGL</code>
             <label>F &gt; G</label>
             <label xml:lang="fr">TF &gt; P</label>
+            <label xml:lang="pt">FL &gt; PA</label>
             <label xml:lang="es">F &gt; P</label>
             <description>Forest Land becoming Grass Land</description>
             <description xml:lang="fr">Terre forestière convertie en prairie</description>
+            <description xml:lang="pt">Floresta convertida para pastagem/pradaria</description>
             <description xml:lang="es">Tierra forestal convertida a Pastizal</description>
           </item>
           <item id="155">
             <code>CLtoGL</code>
             <label>C &gt; G</label>
             <label xml:lang="fr">TC &gt; P</label>
+            <label xml:lang="pt">AG &gt; PA</label>
             <label xml:lang="es">C &gt; P</label>
             <description>Crop Land becoming Grass Land</description>
             <description xml:lang="fr">Terre cultivée convertie en prairie</description>
+            <description xml:lang="pt">Área agrícola convertida para pastagem/pradaria</description>
             <description xml:lang="es">Tierra de cultivo convertida a Pastizal</description>
           </item>
           <item id="156">
             <code>WLtoGL</code>
             <label>W &gt; G</label>
             <label xml:lang="fr">ZH &gt; P</label>
+            <label xml:lang="pt">AL &gt; PA</label>
             <label xml:lang="es">H &gt; P</label>
             <description>Wet Land becoming Grass Land</description>
             <description xml:lang="fr">Zone humide convertie en prairie</description>
+            <description xml:lang="pt">Área alagada convertida para pastagem/pradaria</description>
             <description xml:lang="es">Humedal convertido a Pastizal</description>
           </item>
           <item id="157">
             <code>SLtoGL</code>
             <label>S &gt; G</label>
             <label xml:lang="fr">E &gt; P</label>
+            <label xml:lang="pt">AU &gt; PA</label>
             <label xml:lang="es">A &gt; P</label>
             <description>Settlement becoming Grass Land</description>
             <description xml:lang="fr">Établissement convertie en prairie</description>
+            <description xml:lang="pt">Área urbana convertida para pastagem/pradaria</description>
             <description xml:lang="es">Asentamiento convertido a Pastizal</description>
           </item>
         </item>
@@ -621,59 +683,72 @@
           <code>wetland</code>
           <label>Wetland</label>
           <label xml:lang="fr">Zones humides</label>
+          <label xml:lang="pt">Área alagada</label>
           <label xml:lang="es">Humedal</label>
           <item id="159">
             <code>WLtoWL</code>
             <label>W &gt; W</label>
             <label xml:lang="fr">ZH &gt; ZH</label>
+            <label xml:lang="pt">AL &gt; AL</label>
             <label xml:lang="es">H &gt; H</label>
             <description>Wet Land remaining Wet Land</description>
             <description xml:lang="fr">Zone humide restant zone humide</description>
+            <description xml:lang="pt">Área alagada que se manteve como área alagada</description>
             <description xml:lang="es">Humedal que se mantiene como Humedal</description>
           </item>
           <item id="160">
             <code>OTtoWL</code>
             <label>O &gt; W</label>
             <label xml:lang="fr">AT &gt; ZH</label>
+            <label xml:lang="pt">OU &gt; AL</label>
             <label xml:lang="es">O &gt; H</label>
             <description>Other Land becoming Wet Land</description>
             <description xml:lang="fr">Autre terre convertie en zone humide</description>
+            <description xml:lang="pt">Outro uso convertido para área alagada</description>
             <description xml:lang="es">Otra tierra convertida a Humedal</description>
           </item>
           <item id="161">
             <code>FLtoWL</code>
             <label>F &gt; W</label>
             <label xml:lang="fr">TF &gt; ZH</label>
+            <label xml:lang="pt">FL &gt; AL</label>
             <label xml:lang="es">F &gt; H</label>
             <description>Forest Land becoming Wet Land</description>
             <description xml:lang="fr">Terre forestière convertie en zone humide</description>
+            <description xml:lang="pt">Floresta convertida para área alagada</description>
             <description xml:lang="es">Tierra forestal convertida a Humedal</description>
           </item>
           <item id="162">
             <code>CLtoWL</code>
             <label>C &gt; W</label>
             <label xml:lang="fr">TC &gt; ZH</label>
+            <label xml:lang="pt">AG &gt; AL</label>
             <label xml:lang="es">C &gt; H</label>
             <description>Crop Land becoming Wet Land</description>
             <description xml:lang="fr">Terre cultivée convertie en zone humide</description>
+            <description xml:lang="pt">Área agrícola convertida para área alagada</description>
             <description xml:lang="es">Tierra de cultivo convertida a Humedal</description>
           </item>
           <item id="163">
             <code>GLtoWL</code>
             <label>G &gt; W</label>
             <label xml:lang="fr">P &gt; ZH</label>
+            <label xml:lang="pt">PA &gt; AL</label>
             <label xml:lang="es">P &gt; H</label>
             <description>Grass Land becoming Wet Land</description>
             <description xml:lang="fr">Prairie convertie en zone humide</description>
+            <description xml:lang="pt">Pastagem/pradaria convertida para área alagada</description>
             <description xml:lang="es">Pastizal convertido a Humedal</description>
           </item>
           <item id="164">
             <code>SLtoWL</code>
             <label>S &gt; W</label>
             <label xml:lang="fr">E &gt; ZH</label>
+            <label xml:lang="pt">AU &gt; AL</label>
             <label xml:lang="es">A &gt; H</label>
             <description>Settlement becoming Wet Land</description>
             <description xml:lang="fr">Établissement convertie en zone humide</description>
+            <description xml:lang="pt">Área urbana convertida para área alagada</description>
             <description xml:lang="es">Asentamiento convertido a Humedal</description>
           </item>
         </item>
@@ -681,66 +756,81 @@
           <code>settlement</code>
           <label>Settlement</label>
           <label xml:lang="fr">Établissements</label>
+          <label xml:lang="pt">Área urbana</label>
           <label xml:lang="es">Asentamiento</label>
           <item id="166">
             <code>SLtoSL</code>
             <label>S &gt; S</label>
             <label xml:lang="fr">E &gt; E</label>
+            <label xml:lang="pt">AU &gt; AU</label>
             <label xml:lang="es">A &gt; A</label>
             <description>Settlement remaining Settlement</description>
             <description xml:lang="fr">Établissement restant établissement</description>
+            <description xml:lang="pt">Área urbana permanecendo área urbana</description>
             <description xml:lang="es">Asentamiento que se mantiene como Asentamiento</description>
           </item>
           <item id="167">
             <code>OTtoSL</code>
             <label>O &gt; S</label>
             <label xml:lang="fr">AT &gt; E</label>
+            <label xml:lang="pt">OU &gt; AU</label>
             <label xml:lang="es">O &gt; A</label>
             <description>Other Land becoming Settlement</description>
             <description xml:lang="fr">Autre terre convertie en établissement</description>
+            <description xml:lang="pt">Outro uso convertido para área urbana</description>
             <description xml:lang="es">Otra tierra convertida a Asentamiento</description>
           </item>
           <item id="168">
             <code>FLtoSL</code>
             <label>F &gt; S</label>
             <label xml:lang="fr">TF &gt; E</label>
+            <label xml:lang="pt">FL &gt; AU</label>
             <label xml:lang="es">F &gt; A</label>
             <description>Forest Land becoming Settlement</description>
             <description xml:lang="fr">Terre forestière convertie en établissement</description>
+            <description xml:lang="pt">Floresta convertida para área urbana</description>
             <description xml:lang="es">Tierra forestal convertida a Asentamiento</description>
           </item>
           <item id="169">
             <code>CLtoSL</code>
             <label>C &gt; S</label>
             <label xml:lang="fr">TC &gt; E</label>
+            <label xml:lang="pt">AG &gt; AU</label>
             <label xml:lang="es">C &gt; A</label>
             <description>Crop Land becoming Settlement</description>
             <description xml:lang="fr">Terre cultivée convertie en établissement</description>
+            <description xml:lang="pt">Área agrícola convertida para área urbana</description>
             <description xml:lang="es">Tierra de cultivo convertida a Asentamiento</description>
           </item>
           <item id="170">
             <code>GLtoSL</code>
             <label>G &gt; S</label>
             <label xml:lang="fr">P &gt; E</label>
+            <label xml:lang="pt">PA &gt; AU</label>
             <label xml:lang="es">P &gt; A</label>
             <description>Grass Land becoming Settlement</description>
             <description xml:lang="fr">Prairie convertie en établissement</description>
+            <description xml:lang="pt">Pastagem/pradaria convertida para área urbana</description>
             <description xml:lang="es">Pastizal convertido a Asentamiento</description>
           </item>
           <item id="171">
             <code>WLtoSL</code>
             <label>W &gt; S</label>
             <label xml:lang="fr">ZH &gt; E</label>
+            <label xml:lang="pt">AL &gt; AU</label>
             <label xml:lang="es">H &gt; A</label>
             <description>Wet Land becoming Settlement</description>
             <description xml:lang="fr">Zone humide convertie en établissement</description>
+            <description xml:lang="pt">Área alagada convertida para área urbana</description>
             <description xml:lang="es">Humedal convertido a Asentamiento</description>
           </item>
         </item>
         <item id="172">
           <code>noData</code>
           <label>No data</label>
-          <label xml:lang="fr">Sin datos</label>
+          <label xml:lang="fr">Pas de données</label>
+          <label xml:lang="pt">Sem dados</label>
+          <label xml:lang="es">Sin datos</label>
         </item>
       </items>
     </list>
@@ -748,23 +838,27 @@
       <label type="item">Farming method</label>
       <label type="list">Farming methods</label>
       <label type="item" xml:lang="fr">Méthodes agricoles</label>
+      <label type="item" xml:lang="pt">Método Agrícola</label>
       <items>
         <item id="182">
           <code>permanent</code>
           <label>Permanent</label>
           <label xml:lang="fr">Permanent</label>
+          <label xml:lang="pt">Permanente</label>
           <label xml:lang="es">Permanente</label>
         </item>
         <item id="183">
           <code>shifting</code>
           <label>Shifting</label>
           <label xml:lang="fr">Itinérant</label>
+          <label xml:lang="pt">Intinerante</label>
           <label xml:lang="es">Itinerante</label>
         </item>
         <item id="184">
           <code>notSure</code>
           <label>Not Sure</label>
           <label xml:lang="fr">Pas sure</label>
+          <label xml:lang="pt">Incerto</label>
           <label xml:lang="es">Desconocido</label>
         </item>
       </items>
@@ -772,54 +866,64 @@
     <list id="191" name="disturbance_impact_type">
       <label type="item">disturbance Impact Type</label>
       <label type="list">Human Impact Types</label>
-      <label type="item" xml:lang="fr">Grade d'impact perturbation</label>
+      <label type="item" xml:lang="fr">Type d'impact</label>
+      <label type="item" xml:lang="pt">Tipo de Distúrbio</label>
+      <label type="item" xml:lang="es">Tipo de impacto</label>
       <items>
         <item id="192">
           <code>logging</code>
           <label>Logging</label>
           <label xml:lang="fr">Exploitation</label>
+          <label xml:lang="pt">Exploração de Madeira</label>
           <label xml:lang="es">Tala</label>
         </item>
         <item id="193">
           <code>fire</code>
           <label>Fire</label>
           <label xml:lang="fr">Feu</label>
+          <label xml:lang="pt">Fogo</label>
           <label xml:lang="es">Incendio</label>
         </item>
         <item id="194">
           <code>grazing</code>
           <label>Grazing</label>
           <label xml:lang="fr">Pâturage</label>
+          <label xml:lang="pt">Pastoreio</label>
           <label xml:lang="es">Pastoreo</label>
         </item>
         <item id="195">
           <code>mining</code>
           <label>Mining</label>
           <label xml:lang="fr">Exploitation minière</label>
+          <label xml:lang="pt">Mineiração</label>
           <label xml:lang="es">Mineria</label>
         </item>
         <item id="196">
           <code>garden</code>
           <label>Garden</label>
           <label xml:lang="fr">Jardin</label>
+          <label xml:lang="pt">Jardim</label>
           <label xml:lang="es">Jardín</label>
         </item>
         <item id="197">
           <code>fishing</code>
           <label>Fishing</label>
           <label xml:lang="fr">Pêche</label>
+          <label xml:lang="pt">Pesca</label>
           <label xml:lang="es">Pesca</label>
         </item>
         <item id="198">
           <code>other_disturbance_impact</code>
           <label>Other</label>
           <label xml:lang="fr">Autre</label>
+          <label xml:lang="pt">Outro</label>
           <label xml:lang="es">Otro</label>
         </item>
         <item id="199">
           <code>none</code>
           <label>None</label>
           <label xml:lang="fr">Aucun</label>
+          <label xml:lang="pt">Nenhum</label>
           <label xml:lang="es">Ninguno</label>
         </item>
       </items>
@@ -828,23 +932,28 @@
       <label type="item">Disturbance Impact Grade</label>
       <label type="list">Human Impact Grades</label>
       <label type="item" xml:lang="fr">Grade d'impact perturbation </label>
+      <label type="item" xml:lang="pt">Nível de Distúrbio</label>
+      <label type="item" xml:lang="es">Nivel de impacto</label>
       <items>
         <item id="201">
           <code>low</code>
           <label>Low</label>
           <label xml:lang="fr">Faible</label>
+          <label xml:lang="pt">Baixo</label>
           <label xml:lang="es">Bajo</label>
         </item>
         <item id="202">
           <code>medium</code>
           <label>Medium</label>
           <label xml:lang="fr">Moyen</label>
+          <label xml:lang="pt">Médio</label>
           <label xml:lang="es">Medio</label>
         </item>
         <item id="203">
           <code>high</code>
           <label>High</label>
           <label xml:lang="fr">Élevé</label>
+          <label xml:lang="pt">Alto</label>
           <label xml:lang="es">Alto</label>
         </item>
       </items>
@@ -853,43 +962,51 @@
       <label type="item">Satellite</label>
       <label type="list">Satellites</label>
       <label type="item" xml:lang="fr">Satellite</label>
+      <label type="item" xml:lang="pt">Satélite</label>
       <items>
         <item id="206">
           <code>digitalGlobe</code>
           <label>DigitalGlobe</label>
           <label xml:lang="fr">DigitalGlobe</label>
+          <label xml:lang="pt">DigitalGlobe</label>
           <label xml:lang="es">DigitalGlobe</label>
         </item>
         <item id="207">
           <code>rapidEye</code>
           <label>RapidEye</label>
           <label xml:lang="fr">RapidEye</label>
+          <label xml:lang="pt">RapidEye</label>
           <label xml:lang="es">RapidEye</label>
         </item>
         <item id="209">
           <code>spot</code>
           <label>Spot</label>
           <label xml:lang="fr">Spot</label>
+          <label xml:lang="pt">Spot</label>
           <label xml:lang="es">Spot</label>
         </item>
         <item id="451">
           <code>other_very_high</code>
           <label>Other VHR sources</label>
           <label xml:lang="fr">Autres très haute résolution</label>
+          <label xml:lang="pt">Outras fontes de Alta Res.</label>
           <label xml:lang="es">Otras fuentes MAR</label>
           <description>Other Very High Resolution sources</description>
+          <description xml:lang="pt">Outras fontes de imagens de alta resolução</description>
           <description xml:lang="es">Otras fuentes de imagenes de Muy Alta Resolucion</description>
         </item>
         <item id="205">
           <code>landsat</code>
           <label>Landsat</label>
           <label xml:lang="fr">Landsat</label>
+          <label xml:lang="pt">Landsat</label>
           <label xml:lang="es">Landsat</label>
         </item>
         <item id="208">
           <code>other_sat</code>
           <label>Other</label>
           <label xml:lang="fr">Autre</label>
+          <label xml:lang="pt">Outro</label>
           <label xml:lang="es">Otro</label>
         </item>
       </items>
@@ -931,23 +1048,27 @@
     </list>
     <list id="217" name="desertification_list">
       <label type="list">Desertification/Classification</label>
+      <label type="item" xml:lang="pt">Estado de Desertificação</label>
       <items>
         <item id="220">
           <code>desertification</code>
           <label>Desertification</label>
           <label xml:lang="fr">Désertification</label>
+          <label xml:lang="pt">Desertificação</label>
           <label xml:lang="es">Desertificación</label>
         </item>
         <item id="219">
           <code>none</code>
           <label>None</label>
           <label xml:lang="fr">Aucun</label>
+          <label xml:lang="pt">Nenhum</label>
           <label xml:lang="es">Sin cambio</label>
         </item>
         <item id="218">
           <code>greening</code>
           <label>Greening</label>
           <label xml:lang="fr">Écologisation</label>
+          <label xml:lang="pt">Verdejamento</label>
           <label xml:lang="es">Reverdecimiento</label>
         </item>
       </items>
@@ -959,26 +1080,35 @@
           <code>road</code>
           <label>Road (for vehicles)</label>
           <label xml:lang="fr">Route (pour voitures)</label>
+          <label xml:lang="pt">Estrada (para veículos)</label>
+          <label xml:lang="es">Carretera (para vehiculos)</label>
         </item>
         <item id="226">
           <code>path</code>
           <label>Path</label>
           <label xml:lang="fr">Sentier</label>
+          <label xml:lang="pt">Trilha</label>
+          <label xml:lang="es">Camino</label>
         </item>
         <item id="227">
           <code>river</code>
           <label>River</label>
           <label xml:lang="fr">Rivière</label>
+          <label xml:lang="pt">Rio</label>
+          <label xml:lang="es">Rio</label>
         </item>
         <item id="228">
           <code>OtTypeAcc</code>
           <label>Other</label>
           <label xml:lang="fr">Autre</label>
+          <label xml:lang="pt">Outro</label>
+          <label xml:lang="es">Otro</label>
         </item>
         <item id="229">
           <code>inaccesible</code>
           <label>Inaccessible</label>
           <label xml:lang="fr">Inaccesible</label>
+          <label xml:lang="pt">Inacessível</label>
         </item>
       </items>
     </list>
@@ -1108,53 +1238,62 @@
     </list>
     <list id="259" name="soil_types">
       <label type="item">Types de sol</label>
+      <label type="item" xml:lang="pt">Tipos de Solo</label>
       <items>
         <item id="528">
           <code>ORG</code>
           <label>Organic</label>
           <label xml:lang="fr">Organique</label>
+          <label xml:lang="pt">Orgânico</label>
           <label xml:lang="es">Orgánico</label>
         </item>
         <item id="529">
           <code>SAN</code>
           <label>Sandy Soils</label>
           <label xml:lang="fr">Sableux</label>
+          <label xml:lang="pt">Arenoso</label>
           <label xml:lang="es">Suelos Arenosos</label>
         </item>
         <item id="530">
           <code>WET</code>
           <label>Wetland Soils</label>
           <label xml:lang="fr">Sols des zones humides</label>
+          <label xml:lang="pt">Enxarcado</label>
           <label xml:lang="es">Suelos de humedales</label>
         </item>
         <item id="531">
           <code>VOL</code>
           <label>Volcanic Soils</label>
           <label xml:lang="fr">Sols volcaniques</label>
+          <label xml:lang="pt">Vulcânico</label>
           <label xml:lang="es">Suelos volcánicos</label>
         </item>
         <item id="532">
           <code>SPO</code>
           <label>Spodic Soils</label>
           <label xml:lang="fr">Sols spodiques</label>
+          <label xml:lang="pt">Espódico</label>
           <label xml:lang="es">Suelos spódicos</label>
         </item>
         <item id="533">
           <code>HAC</code>
           <label>High Activity Clay Soils</label>
           <label xml:lang="fr">Sols argileux Haute Activité</label>
+          <label xml:lang="pt">Alta CTC</label>
           <label xml:lang="es">Suelos arcillosos de Alta Actividad</label>
         </item>
         <item id="534">
           <code>LAC</code>
           <label>Low Activity Clay Soils</label>
           <label xml:lang="fr">Sols argileux Faible Activité</label>
+          <label xml:lang="pt">Baixa CTC</label>
           <label xml:lang="es">Suelos arcillosos de baja Actividad</label>
         </item>
         <item id="535">
           <code>OtherAreas</code>
           <label>Other Areas</label>
           <label xml:lang="fr">Autres zones</label>
+          <label xml:lang="pt">Outras áreas</label>
           <label xml:lang="es">Otras Areas</label>
         </item>
       </items>
@@ -1165,72 +1304,84 @@
           <code>WTM</code>
           <label>Warm Temperate Moist</label>
           <label xml:lang="fr">Tempéré chaude Humide</label>
-          <label xml:lang="es">Templado Cálido Húmedo</label>
+          <label xml:lang="pt">Temperado Quente - Húmido</label>
+          <label xml:lang="es">Templado Cálido Hú?medo</label>
         </item>
         <item id="517">
           <code>WTD</code>
           <label>Warm Temperate Dry</label>
           <label xml:lang="fr">Tempéré chaude Sec</label>
+          <label xml:lang="pt">Temperado Quente - Seco</label>
           <label xml:lang="es">Templado Cálido Seco</label>
         </item>
         <item id="518">
           <code>CTM</code>
           <label>Cool Temperate Moist</label>
           <label xml:lang="fr">Tempérée fraîche Humide</label>
-          <label xml:lang="es">Templado Frio Húmedo</label>
+          <label xml:lang="pt">Temperado Frio - Húmido</label>
+          <label xml:lang="es">Templado Frio H?úmedo</label>
         </item>
         <item id="519">
           <code>CTD</code>
           <label>Cool Temperate Dry</label>
           <label xml:lang="fr">Tempérée fraîche Sec</label>
+          <label xml:lang="pt">Temperado Frio - Seco</label>
           <label xml:lang="es">Templado Frio Seco</label>
         </item>
         <item id="520">
           <code>POM</code>
           <label>Polar Moist</label>
           <label xml:lang="fr">Polar Humide</label>
+          <label xml:lang="pt">Polar Húmido</label>
           <label xml:lang="es">Polar húmedo</label>
         </item>
         <item id="521">
           <code>POD</code>
           <label>Polar Dry</label>
           <label xml:lang="fr">Polar Sec</label>
+          <label xml:lang="pt">Polar Seco</label>
           <label xml:lang="es">Polar seco</label>
         </item>
         <item id="522">
           <code>BOM</code>
           <label>Boreal Moist</label>
           <label xml:lang="fr">Boreal Humide</label>
-          <label xml:lang="es">Boreal humedo</label>
+          <label xml:lang="pt">Boral Húmido</label>
+          <label xml:lang="es">Boreal h?umedo</label>
         </item>
         <item id="523">
           <code>BOD</code>
           <label>Boreal Dry</label>
           <label xml:lang="fr">Boreal Sec</label>
+          <label xml:lang="pt">Boreal Seco</label>
           <label xml:lang="es">Boreal seco</label>
         </item>
         <item id="524">
           <code>TRMT</code>
           <label>Tropical Montane</label>
           <label xml:lang="fr">Tropicale montagneux</label>
+          <label xml:lang="pt">Tropical Montanhoso</label>
           <label xml:lang="es">Montano Tropical</label>
         </item>
         <item id="525">
           <code>TRW</code>
           <label>Tropical Wet</label>
           <label xml:lang="fr">Tropicale pluvieux</label>
+          <label xml:lang="pt">Tropical Pluvial</label>
           <label xml:lang="es">Tropical lluvioso</label>
         </item>
         <item id="526">
           <code>TMM</code>
           <label>Tropical Moist</label>
           <label xml:lang="fr">Tropicale humide</label>
+          <label xml:lang="pt">Tropical Húmido</label>
           <label xml:lang="es">Tropical húmedo</label>
         </item>
         <item id="527">
           <code>TRD</code>
           <label>Tropical Dry</label>
           <label xml:lang="fr">Tropical Sec</label>
+          <label xml:lang="pt">Tropical Seco</label>
           <label xml:lang="es">Tropical seco</label>
         </item>
       </items>
@@ -1245,27 +1396,32 @@
     <list id="282" name="fra_classes">
       <label type="item">FRA Classes</label>
       <label type="item" xml:lang="fr">Classe FRA</label>
+      <label type="item" xml:lang="pt">Classe FRA</label>
       <codingScheme scope="local" />
       <items>
         <item id="283">
           <code>fo</code>
           <label>Forest</label>
           <label xml:lang="fr">Forêt</label>
+          <label xml:lang="pt">Floresta</label>
           <label xml:lang="es">Bosque</label>
           <description>Land spanning more than 0.5 hectares with trees higher than 5 meters and a canopy cover of more than 10 per cent, or trees able to reach these thresholds in situ. It does not include land that is predominantly under agricultural or urban 
 land use.</description>
           <description xml:lang="fr">Terres occupant une superficie de plus de 0,5 hectares avec des arbres atteignant une hauteur supérieure à cinq mètres et un couvert arboré de plus de dix pour cent, ou avec des arbres capables d’atteindre ces seuils in situ. Sont exclues les terres à vocation agricole ou urbaine prédominante</description>
+          <description xml:lang="pt">Extensão superior a 0,5 hectares, árvores &gt; 5 m e cobertura do dossel &gt; 10%, ou árvores que possam alcançar esses limiares in loco. Não inclui terrenos com predomínio de utilização agrícola ou urbana.</description>
           <description xml:lang="es">Tierras que se extienden por más de 0,5 hectáreas dotadas de árboles de una altura superior a 5 m y una cubierta de dosel superior al 10 por ciento, o de árboles capaces de alcanzar esta altura in situ. No incluye la tierra sometida a un uso predominantemente  agrícola o urbano.</description>
         </item>
         <item id="284">
           <code>owl</code>
           <label>Other wooded land</label>
           <label xml:lang="fr">Autres terres boisées</label>
+          <label xml:lang="pt">Outra área arborizada</label>
           <label xml:lang="es">Otras tierras boscosas</label>
           <description>Land not classified as “Forest”, spanning more than 0.5 hectares; with trees higher than 5 meters and a canopy cover of 5-10 per cent, or trees able to reach these thresholds in situ; or with a combined cover of shrubs, bushes and trees 
 above 10 per cent. It does not include land that is predominantly under 
 agricultural or urban land use.</description>
           <description xml:lang="fr">Terres n’entrant pas dans la catégorie «forêt», couvrant une superficie de plus de 0,5 hectares avec des arbres atteignant une hauteur supérieure à cinq mètres et un couvert arboré de cinq-dix pour cent, ou des arbres capables d’atteindre ces seuils in situ, ou un couvert mixte d’arbustes, arbrisseaux et d’arbres supérieur à dix pour cent. Sont exclues les terres à vocation agricole ou urbaine prédominante.</description>
+          <description xml:lang="pt">A área não é definida como "Floresta", abrange área superior a 0,5 hectares; com árvores maiores que 5 metros e cobertura do dossel entre 5-10%, ou árvores que possam alcançar esses limiares; combinando cobertura de arbustos e árvores superiores a 10%. Não inclui terrenos com predomínio de utilização agrícola ou urbana.</description>
           <description xml:lang="es">La tierra no clasificada como “bosque” que se extiende por más de 0,5 hectáreas; con árboles de una altura superior a 5 m y una cubierta de dosel de 5 a 10 por ciento, o árboles capaces de alcanzar estos límites
  mínimos in situ; o con una cubierta mixta de arbustos, matorrales y árboles su
 perior a 10 por ciento. No incluye la tierra sometida a un uso predominantemente agrícola o urbano.</description>
@@ -1274,12 +1430,14 @@ perior a 10 por ciento. No incluye la tierra sometida a un uso predominantemente
           <code>oltc</code>
           <label>Other land with tree cover</label>
           <label xml:lang="fr">Autres terres avec couverture des arbres</label>
+          <label xml:lang="pt">Outras áreas com árvores</label>
           <label xml:lang="es">Otras tierras con cubierta  de árboles</label>
           <description>Land classified as “Other land”, spanning more than
  0.5 hectares with a canopy cover of more than 10 per cent of trees able to reach a height of 5 meters at 
 maturity</description>
           <description xml:lang="fr">Terres entrant dans la catégorie «autres terres», couvrant une superficie supérieure à 0,5 hectares avec un couvert arboré de plus de dix pour cent 
 d’arbres pouvant atteindre une hauteur de cinq mètres à maturité.</description>
+          <description xml:lang="pt">Área considerada como “Outras Áreas”, com uso predominantemente agrícola e urbano e possuindo trechos com cobertura de árvores que se estendem mais que 0,5 hectares com cobertura do dossel &gt;10% de árvores susceptíveis para atingir 5 metros de altura na maturidade. Inclui tanto floresta e espécies de árvores não-florestais.</description>
           <description xml:lang="es">Tierras clasificadas como “otras tierras” que se extienden por más de 0,5 hectáreas con una cubierta de dosel de más de 10 por ciento de árboles capaces 
 de alcanzar una altura de 5 metros en la madurez.</description>
         </item>
@@ -1287,19 +1445,23 @@ de alcanzar una altura de 5 metros en la madurez.</description>
           <code>ol</code>
           <label>Other land</label>
           <label xml:lang="fr">Autres terres</label>
+          <label xml:lang="pt">Outras áreas</label>
           <label xml:lang="es">Otras tierras</label>
           <description>All land that is not classified as “Fore
 st” or “Other wooded land”.</description>
           <description xml:lang="fr">Toute terre n’entrant pas dans la catégorie «forêt» ou «autres terres boisées».</description>
+          <description xml:lang="pt">Toda área que não é classificado como florestas ou outras áreas arborizadas</description>
           <description xml:lang="es">Toda la tierra que no ha sido clasificada como bosque” u “otras tierras boscosas”.</description>
         </item>
         <item id="287">
           <code>iwb</code>
           <label>Inland water bodies</label>
           <label xml:lang="fr">Eaux intérieures</label>
+          <label xml:lang="pt">Corpos de água interiores</label>
           <label xml:lang="es">Aguas continentales</label>
           <description>Inland water bodies generally include major rivers, lakes and water reservoirs.</description>
           <description xml:lang="fr">Les eaux intérieures comprennent généralement les grands fleuves, lacs et réservoirs.</description>
+          <description xml:lang="pt">Os corpos de água interiores geralmente incluem grandes rios, lagos e reservatórios de água.</description>
           <description xml:lang="es">Las aguas continentales incluyen generalmente los ríos principales, lagos y  embalses.</description>
         </item>
       </items>
@@ -1572,90 +1734,105 @@ st” or “Other wooded land”.</description>
     <list id="340" name="elements_cover">
       <label type="item">Cover %</label>
       <label type="item" xml:lang="fr">0 %</label>
+      <label type="item" xml:lang="pt">Cobertura (%)</label>
       <codingScheme scope="local" />
       <items>
         <item id="502">
           <code>na</code>
           <label>0%</label>
           <label xml:lang="fr">0%</label>
+          <label xml:lang="pt">0%</label>
           <label xml:lang="es">0%</label>
         </item>
         <item id="503">
           <code>l1</code>
           <label>2%</label>
           <label xml:lang="fr">2%</label>
+          <label xml:lang="pt">2%</label>
           <label xml:lang="es">2%</label>
         </item>
         <item id="504">
           <code>l2</code>
           <label>4%</label>
           <label xml:lang="fr">4%</label>
+          <label xml:lang="pt">4%</label>
           <label xml:lang="es">4%</label>
         </item>
         <item id="505">
           <code>l3</code>
           <label>6%</label>
           <label xml:lang="fr">6%</label>
+          <label xml:lang="pt">6%</label>
           <label xml:lang="es">6%</label>
         </item>
         <item id="506">
           <code>l4</code>
           <label>8%</label>
           <label xml:lang="fr">8%</label>
+          <label xml:lang="pt">8%</label>
           <label xml:lang="es">8%</label>
         </item>
         <item id="507">
           <code>2</code>
           <label>10-19%</label>
           <label xml:lang="fr">10-19%</label>
+          <label xml:lang="pt">10-19%</label>
           <label xml:lang="es">10-19%</label>
         </item>
         <item id="508">
           <code>3</code>
           <label>20-29%</label>
           <label xml:lang="fr">20-29%</label>
+          <label xml:lang="pt">20-29%</label>
           <label xml:lang="es">20-29%</label>
         </item>
         <item id="509">
           <code>4</code>
           <label>30-39%</label>
           <label xml:lang="fr">30-39%</label>
+          <label xml:lang="pt">30-39%</label>
           <label xml:lang="es">30-39%</label>
         </item>
         <item id="510">
           <code>5</code>
           <label>40-49%</label>
           <label xml:lang="fr">40-49%</label>
+          <label xml:lang="pt">40-49%</label>
           <label xml:lang="es">40-49%</label>
         </item>
         <item id="511">
           <code>6</code>
           <label>50-59%</label>
           <label xml:lang="fr">50-59%</label>
+          <label xml:lang="pt">50-59%</label>
           <label xml:lang="es">50-59%</label>
         </item>
         <item id="512">
           <code>7</code>
           <label>60-69%</label>
           <label xml:lang="fr">60-69%</label>
+          <label xml:lang="pt">60-69%</label>
           <label xml:lang="es">60-69%</label>
         </item>
         <item id="513">
           <code>8</code>
           <label>70-79%</label>
           <label xml:lang="fr">70-79%</label>
+          <label xml:lang="pt">70-79%</label>
           <label xml:lang="es">70-79%</label>
         </item>
         <item id="514">
           <code>9</code>
           <label>80-89%</label>
           <label xml:lang="fr">80-89%</label>
+          <label xml:lang="pt">80-89%</label>
           <label xml:lang="es">80-89%</label>
         </item>
         <item id="515">
           <code>10</code>
           <label>90-100%</label>
           <label xml:lang="fr">90-100%</label>
+          <label xml:lang="pt">90-100%</label>
           <label xml:lang="es">90-100%</label>
         </item>
       </items>
@@ -1664,36 +1841,42 @@ st” or “Other wooded land”.</description>
       <label type="item">Vegetation elements</label>
       <label type="item" xml:lang="fr">Éléments végétation</label>
       <label type="item" xml:lang="es">Elementos de vegetacion</label>
+      <label type="item" xml:lang="pt">Elementos da vegetação</label>
       <codingScheme scope="local" />
       <items>
         <item id="353">
           <code>tree</code>
           <label>Tree</label>
           <label xml:lang="fr">Arbre</label>
+          <label xml:lang="pt">Árvore</label>
           <label xml:lang="es">Arboles</label>
         </item>
         <item id="354">
           <code>shrub</code>
           <label>Shrub</label>
           <label xml:lang="fr">Arbuste</label>
+          <label xml:lang="pt">Arbusto</label>
           <label xml:lang="es">Arbustos</label>
         </item>
         <item id="355">
           <code>palm</code>
           <label>Palm</label>
           <label xml:lang="fr">Palmier</label>
+          <label xml:lang="pt">Palmeira</label>
           <label xml:lang="es">Palmeras</label>
         </item>
         <item id="356">
           <code>bamboo</code>
           <label>Bamboo</label>
           <label xml:lang="fr">Bambou</label>
+          <label xml:lang="pt">Bambu</label>
           <label xml:lang="es">Bambú</label>
         </item>
         <item id="357">
           <code>crop</code>
           <label>Crop</label>
           <label xml:lang="fr">Culture</label>
+          <label xml:lang="pt">Cultura agrícola</label>
           <label xml:lang="es">Cultivos</label>
         </item>
       </items>
@@ -1701,30 +1884,35 @@ st” or “Other wooded land”.</description>
     <list id="359" name="infrastructure_elements">
       <label type="item">Infrastructure</label>
       <label type="item" xml:lang="fr">Infrastructure</label>
+      <label type="item" xml:lang="pt">Infraestrutura</label>
       <codingScheme scope="local" />
       <items>
         <item id="360">
           <code>house</code>
           <label>House</label>
           <label xml:lang="fr">Maison</label>
+          <label xml:lang="pt">Casa</label>
           <label xml:lang="es">Casa</label>
         </item>
         <item id="361">
           <code>other_buildings</code>
           <label>Other buildings</label>
           <label xml:lang="fr">Autres batiments</label>
+          <label xml:lang="pt">Outras edificações</label>
           <label xml:lang="es">Otros edificios</label>
         </item>
         <item id="362">
           <code>paved_road</code>
           <label>Paved road</label>
           <label xml:lang="fr">Route pavée</label>
+          <label xml:lang="pt">Estrada pavimentada</label>
           <label xml:lang="es">Carretera asfaltada</label>
         </item>
         <item id="363">
           <code>unpaved_road</code>
           <label>Unpaved road</label>
           <label xml:lang="fr">Route pas pavée</label>
+          <label xml:lang="pt">Estrada não-pavimentada</label>
           <label xml:lang="es">Camino sin asfaltar</label>
         </item>
       </items>
@@ -1732,23 +1920,27 @@ st” or “Other wooded land”.</description>
     <list id="368" name="water_element">
       <label type="item">Water</label>
       <label type="item" xml:lang="fr">Eau</label>
+      <label type="item" xml:lang="pt">Água</label>
       <codingScheme scope="local" />
       <items>
         <item id="369">
           <code>lake</code>
           <label>Lake</label>
           <label xml:lang="fr">Lac</label>
+          <label xml:lang="pt">Lago</label>
           <label xml:lang="es">Lago</label>
         </item>
         <item id="370">
           <code>river</code>
           <label>River</label>
           <label xml:lang="fr">Rivière</label>
+          <label xml:lang="pt">Rio</label>
           <label xml:lang="es">Rio</label>
         </item>
       </items>
     </list>
     <list id="376" name="other_elements">
+      <label type="item" xml:lang="pt">Outros Elementos</label>
       <description>Other elements</description>
       <description xml:lang="fr">Autres éléments</description>
       <codingScheme scope="local" />
@@ -1757,18 +1949,21 @@ st” or “Other wooded land”.</description>
           <code>rock</code>
           <label>Rock</label>
           <label xml:lang="fr">Rocher / galet</label>
+          <label xml:lang="pt">Rochas</label>
           <label xml:lang="es">Rocas</label>
         </item>
         <item id="378">
           <code>bare_soil</code>
           <label>Other bare soil</label>
           <label xml:lang="fr">Autre sol nu</label>
+          <label xml:lang="pt">Solo exposto</label>
           <label xml:lang="es">Tierras desnudas</label>
         </item>
         <item id="380">
           <code>other_elem</code>
           <label>Other elements</label>
           <label xml:lang="fr">Autres éléments</label>
+          <label xml:lang="pt">Outro elemento</label>
           <label xml:lang="es">Otros</label>
         </item>
       </items>
@@ -1777,6 +1972,7 @@ st” or “Other wooded land”.</description>
       <label type="item">Land class</label>
       <label type="list">Land classes</label>
       <label type="item" xml:lang="fr">Classes de terres</label>
+      <label type="item" xml:lang="pt">Classes de Terreno</label>
       <hierarchy>
         <level name="category">
           <label xml:lang="en">Main Category</label>
@@ -1792,95 +1988,116 @@ st” or “Other wooded land”.</description>
           <code>forest</code>
           <label>Forest</label>
           <label xml:lang="fr">Forêt</label>
+          <label xml:lang="pt">Floresta</label>
           <label xml:lang="es">Bosque</label>
           <description>predominant forest use tree cover &gt;10%</description>
           <description xml:lang="fr">Utilisation prédominante forestière couverture d'arbres &gt; 10%</description>
+          <description xml:lang="pt">Cobertura de copa &gt;10%</description>
           <description xml:lang="es">uso forestal predominante con cobertura de copa &gt;10%</description>
           <item id="387">
             <code>coniferous</code>
             <label>Coniferous forest</label>
             <label xml:lang="fr">Forêt de conifères</label>
+            <label xml:lang="pt">Coníferas</label>
             <label xml:lang="es">Coniferas</label>
             <description>Forest dominated by conifer trees&gt;60%</description>
             <description xml:lang="fr">Forêt de conifères</description>
+            <description xml:lang="pt">Floresta dominada por mais de 60% de coníferas</description>
             <description xml:lang="es">Tierra forestal donde predominan coniferas en mas del 60%</description>
           </item>
           <item id="389">
             <code>broadleaf_evergreen</code>
             <label>Broad-leaf evergreen forest</label>
             <label xml:lang="fr">Forêts de feuillus sempervirente</label>
+            <label xml:lang="pt">Floresta Folhosa Perene</label>
             <label xml:lang="es">Perennifolio frondoso</label>
             <description>Forest dominated bybroad-leaf evergreen trees&gt;60%</description>
             <description xml:lang="fr">Forêts de feuillus sempervirente</description>
+            <description xml:lang="pt">Floresta com predominância de árvores de folhas largas &gt;60% e não decídua.</description>
             <description xml:lang="es">Tierra forestal con predominio de arboles perniifolis latifoliados &gt; 60%</description>
           </item>
           <item id="391">
             <code>broadleaf_deciduous</code>
             <label>Broad-leaf deciduous forest</label>
             <label xml:lang="fr">Forêts de feuillus à feuilles caduques</label>
+            <label xml:lang="pt">Floresta Folhosa Decídua</label>
             <label xml:lang="es">Caducifolio frondoso</label>
             <description>Broad-leaf deciduous forest</description>
             <description xml:lang="fr">Forêts de feuillus à feuilles caduques</description>
+            <description xml:lang="pt">Floresta com predominância de árvores de folhas largas &gt;60% e decídua.</description>
             <description xml:lang="es">Tierra forestal con prefoimancia de arboles Caducifolio Latifoliados  &gt;60%</description>
           </item>
           <item id="392">
             <code>mixed_broadleaf</code>
             <label>Mixed broad-leaf forest</label>
             <label xml:lang="fr">Forêt feuillue mixte</label>
+            <label xml:lang="pt">Folhosa Mista</label>
             <label xml:lang="es">Frondoso mezclado</label>
             <description>Broad-leaf forest with not dominant phenology</description>
             <description xml:lang="fr">Forêt feuillue mixte</description>
+            <description xml:lang="pt">Floresta sem predomiancia fenologia.</description>
             <description xml:lang="es">Bosque frondoso sin predomiancia de fenología</description>
           </item>
           <item id="393">
             <code>mixed_broadleaf_coniferous</code>
             <label>Mixed broad-leaf &amp; coniferous forest</label>
             <label xml:lang="fr">Forêt mixte à larges feuilles et conifères</label>
+            <label xml:lang="pt">Mista Conif./Folhosa</label>
             <label xml:lang="es">Mezcla frondoso y conifera</label>
             <description>Mixed forest with no dominance of  broad-leaf or conifers</description>
             <description xml:lang="fr">Forêt mixte à larges feuilles et conifères</description>
+            <description xml:lang="pt">Floresta mista de espécies de folhas ou de coníferas, sem predominância</description>
             <description xml:lang="es">Bosque de especies mezclados de frondoso o coniferas sin predominancia</description>
           </item>
           <item id="394">
             <code>forest_mangrove</code>
             <label>Mangrove with trees</label>
             <label xml:lang="fr">Mangrove avec arbres</label>
+            <label xml:lang="pt">Mangue com árvores</label>
             <label xml:lang="es">Manglar/Bosque</label>
             <description>Stands of  trees belonging to the (semi)-natural aquatic or regularly flooded vegetation.</description>
             <description xml:lang="fr">Mangrove avec arbres</description>
+            <description xml:lang="pt">Árvores pertencentes ao ambiente aquático natural (semi) ou regularmente coberta por água.</description>
             <description xml:lang="es">Arboles que pertenecen al medio acuatico (semi)natural o vegetación regularmente cubierta por agua</description>
           </item>
           <item id="395">
             <code>shrubland_mangrove</code>
             <label>Mangrove with shrubs</label>
             <label xml:lang="fr">Mangrove avec arbustes</label>
+            <label xml:lang="pt">Mangue com arbustos</label>
             <label xml:lang="es">Manglar/Arbustos</label>
             <description>Stands of  shrubs belonging to the (semi)-natural aquatic or regularly flooded vegetation.</description>
             <description xml:lang="fr">Mangrove avec arbustes</description>
+            <description xml:lang="pt">Arbustos pertencentes ao ambiente aquático natural (semi) ou regularmente coberta por água</description>
             <description xml:lang="es">Arbustos que pertenecen a medio acuático (semi)natural o vegetación regularmente cubierta por agua</description>
           </item>
           <item id="396">
             <code>riparian_forest</code>
             <label>Riparian forest</label>
             <label xml:lang="fr">Forêt riveraine</label>
+            <label xml:lang="pt">Mata Ciliar</label>
             <label xml:lang="es">Bosque ribereño</label>
             <description>Forest adjacent to a body of water such as a river, stream, pond, lake, marshland, estuary.</description>
             <description xml:lang="fr">Forêt riveraine</description>
+            <description xml:lang="pt">É definida como a vegetação florestal que acompanha os rios de médio e grande porte na região do Cerrado, em que a vegetação arbórea não forma galerias. Em geral essa mata é relativamente estreita em ambas as margens, dificilmente ultrapassando 100 metros de largura em cada</description>
             <description xml:lang="es">Bosque adjacente a un cuerpo de agua como por ejemplo un rio, riachuelo, lago, charca o estuario</description>
           </item>
           <item id="397">
             <code>gallery_forest</code>
             <label>Gallery forest</label>
             <label xml:lang="fr">Forêt-galerie</label>
+            <label xml:lang="pt">Mata de Galeria</label>
             <label xml:lang="es">Bosque galeria</label>
             <description>forests mostly in valley or canyon or depressed areas.</description>
             <description xml:lang="fr">Forêt-galerie</description>
+            <description xml:lang="pt">Entende-se a vegetação florestal que acompanha os rios de pequeno porte e córregos dos planaltos do Brasil Central, formando corredores fechados (galerias) sobre o curso de água. Geralmente a Mata de Galeria localiza-se nos fundos dos vales ou nas cabeceiras de drenagem onde os cursos de água ainda não escavaram um canal definitivo</description>
             <description xml:lang="es">Bosque en zona humeda en un valle o cañon</description>
           </item>
           <item id="398">
             <code>plantation_coniferous</code>
             <label>Coniferous plantation</label>
             <label xml:lang="fr">Plantation de conifères</label>
+            <label xml:lang="pt">Plantação - Coníferas</label>
             <label xml:lang="es">Plantación - Coniferas</label>
             <description xml:lang="fr">Plantation de conifères</description>
           </item>
@@ -1888,6 +2105,7 @@ st” or “Other wooded land”.</description>
             <code>plantation_acacia</code>
             <label>Acacia plantation</label>
             <label xml:lang="fr">Plantation d'acacia</label>
+            <label xml:lang="pt">Plantação - Acácia</label>
             <label xml:lang="es">Plantación - Acacia</label>
             <description xml:lang="fr">Plantation d'acacia</description>
           </item>
@@ -1895,6 +2113,7 @@ st” or “Other wooded land”.</description>
             <code>plantation_eucalyptus</code>
             <label>Eucalyptus plantation</label>
             <label xml:lang="fr">Plantation d'eucalyptus</label>
+            <label xml:lang="pt">Plantação - Eucaliptos</label>
             <label xml:lang="es">Plantacion-Eucalipto</label>
             <description xml:lang="fr">Plantation d'eucalyptus</description>
           </item>
@@ -1902,6 +2121,7 @@ st” or “Other wooded land”.</description>
             <code>plantation_other</code>
             <label>Other plantation</label>
             <label xml:lang="fr">Autre plantation</label>
+            <label xml:lang="pt">Plantação - Outra</label>
             <label xml:lang="es">Plantación-Otro</label>
             <description xml:lang="fr">Autre plantation</description>
           </item>
@@ -1909,6 +2129,7 @@ st” or “Other wooded land”.</description>
             <code>shrubland_tigerbush</code>
             <label>Tiger bush / bushveld / thicket</label>
             <label xml:lang="fr">Brousse tigrée / bushveld / fourré</label>
+            <label xml:lang="pt">Matagal</label>
             <label xml:lang="es">Arbusto tigre</label>
             <description xml:lang="fr">Brousse tigrée / bushveld / fourré</description>
           </item>
@@ -1917,26 +2138,32 @@ st” or “Other wooded land”.</description>
           <code>shrubland</code>
           <label>Shrubland</label>
           <label xml:lang="fr">Autres terres boisées</label>
+          <label xml:lang="pt">Capoeira / Arbustivo</label>
           <label xml:lang="es">Matorral</label>
           <description>lands with&lt;  10% of tree cover and &gt;10% shrubs cover</description>
           <description xml:lang="fr">Terres avec &lt;10% de la couverture forestière et &gt;10% couverture d'arbustes</description>
+          <description xml:lang="pt">terrenos com cobertura de árvores &lt;10% e cobertura de arbustos &gt;10%</description>
           <description xml:lang="es">tierras con &lt;10% de cobertura de copa y &gt;10% de cobertura arbustiva</description>
           <item id="403">
             <code>shrubland_trees</code>
             <label>Shrubland with trees</label>
             <label xml:lang="fr">Terres arbustes avec arbres</label>
+            <label xml:lang="pt">Arbustivo denso</label>
             <label xml:lang="es">Matorral con arboles</label>
             <description>Shrubland have less than 10% tree cover and more than 10% shrub cover</description>
             <description xml:lang="fr">Terres arbustes avec arbres</description>
+            <description xml:lang="pt">Arbustivo denso, com &lt;10% de cobertura florestal e&gt; 10% de cobertura arbustiva</description>
             <description xml:lang="es">Matorral denso, tierras con &lt;10% de cubierta forestal y &gt;10% de curbierta arbustiva</description>
           </item>
           <item id="406">
             <code>shrubland</code>
             <label>Shrubland without trees</label>
             <label xml:lang="fr">Terres arbustes sans arbres</label>
+            <label xml:lang="pt">Arbustivo</label>
             <label xml:lang="es">Arbustos</label>
             <description>Shrubland have no tree cover and more than 10% shrub cover</description>
             <description xml:lang="fr">Terres arbustes sans arbres</description>
+            <description xml:lang="pt">Terra sem cobertura florestal e &gt; 10% cobertura arbustiva</description>
             <description xml:lang="es">Tierras sin cobertura forestal y &gt;10% de cubierta arbustiva</description>
           </item>
         </item>
@@ -1944,41 +2171,51 @@ st” or “Other wooded land”.</description>
           <code>grassland</code>
           <label>Grassland</label>
           <label xml:lang="fr">Prairies</label>
+          <label xml:lang="pt">Pastagem / Pradaria</label>
           <label xml:lang="es">Pastizal</label>
           <description>lands cover by herbaceous vegetation with&lt; 10% of tree cover and &lt;10% of shrubs cover</description>
           <description xml:lang="fr">Terres couvertes de végétation herbacée à &lt;10% de la couverture forestière et &lt;10% de la couverture des arbustes</description>
+          <description xml:lang="pt">Terrenos cobertos por vegetação herbácea com cobertura de árvores &lt;10% e cobertura de arbustos &lt;10%</description>
           <description xml:lang="es">Tierras cubierta por vegetación herbacea con&lt;10% de cobertura forestal y &lt;10% decobertura arbustiva</description>
           <item id="407">
             <code>grassland</code>
             <label>Grassland</label>
             <label xml:lang="fr">Prairie</label>
+            <label xml:lang="pt">Pastagem / Pradaria</label>
             <label xml:lang="es">Pastizal</label>
             <description>Grasslands cover by herbaceous vegetation with &lt;10% of tree cover and &lt;10% of shrubs cover</description>
             <description xml:lang="fr">Prairie</description>
+            <description xml:lang="pt">Pastagem com cobertura vegetação herbácea &lt;cobertura florestal de 10% e &lt;10% de cobertura de arbustos</description>
             <description xml:lang="es">Pastizal con cobertura de vegetación herbacea con &lt;10% de cobertura forestal y &lt;10% de cobertura de matorral</description>
           </item>
           <item id="408">
             <code>grassland_trees</code>
             <label>Grassland with trees</label>
             <label xml:lang="fr">Prairie avec arbres</label>
+            <label xml:lang="pt">Pastagem com árvores</label>
             <label xml:lang="es">P. con arboles</label>
             <description xml:lang="fr">Prairie avec arbres</description>
+            <description xml:lang="pt">Pastagem com árvores</description>
             <description xml:lang="es">Pastizal con arboles</description>
           </item>
           <item id="409">
             <code>grassland_shrubs</code>
             <label>Grassland with shrubs</label>
             <label xml:lang="fr">Prairie avec arbustes</label>
+            <label xml:lang="pt">Pastagem com arbustos</label>
             <label xml:lang="es">P. con arbustos</label>
             <description xml:lang="fr">Prairie avec arbustes</description>
+            <description xml:lang="pt">Pastagem com arbustos</description>
             <description xml:lang="es">Pastizal con arbustos</description>
           </item>
           <item id="411">
             <code>grassland_trees_shrubs</code>
             <label>Grassland with trees and shrubs</label>
             <label xml:lang="fr">Prairie avec arbres et arbustres</label>
+            <label xml:lang="pt">Pastagem com árvores e arbustos</label>
             <label xml:lang="es">P. con arbustos &amp; arboles</label>
             <description xml:lang="fr">Prairie avec arbres et arbustres</description>
+            <description xml:lang="pt">Pastagem com árvores e arbustos</description>
             <description xml:lang="es">Pastizal con arbustos &amp; arboles</description>
           </item>
         </item>
@@ -1986,59 +2223,72 @@ st” or “Other wooded land”.</description>
           <code>cropland</code>
           <label>Cropland</label>
           <label xml:lang="fr">Terres cultivées</label>
+          <label xml:lang="pt">Área agrícola</label>
           <label xml:lang="es">Cultivo</label>
           <item id="424">
             <code>cropland_irrigated</code>
             <label>Irrigated crops</label>
             <label xml:lang="fr">Cultures irriguées</label>
+            <label xml:lang="pt">Agricultura irrigada</label>
             <label xml:lang="es">Regadio</label>
             <description>Agricultural crops irrigated by artificial application of water to the land or soil</description>
             <description xml:lang="fr">Cultures irriguées</description>
+            <description xml:lang="pt">cultivos agrícolas irrigados por aplicação artificial de água</description>
             <description xml:lang="es">Cultivos agícolas irrigados porla aplicación artificial de agua en la tierra o suelo</description>
           </item>
           <item id="426">
             <code>cropland_nonirrigated_floodplain</code>
             <label>Non-irrigated floodplain cropland</label>
             <label xml:lang="fr">Non irriguée - plaine d'inondation</label>
+            <label xml:lang="pt">Agricultura de várzea</label>
             <label xml:lang="es">Secano - Terreno inundable</label>
             <description>Area of cropland adjacent to a stream or river that experiences flooding </description>
             <description xml:lang="fr">Non irriguée - plaine d'inondation</description>
+            <description xml:lang="pt">Área de cultivo ao lado de um rio que transborda.</description>
             <description xml:lang="es">Area de cultivos adyacente a un manantial o rio que experimenta desbordamientos</description>
           </item>
           <item id="427">
             <code>cropland_nonirrigated_rainfed</code>
             <label>Non-irrigated rainfed cropland</label>
             <label xml:lang="fr">Non irriguée - pluviale</label>
+            <label xml:lang="pt">Agricultura não irrigada</label>
             <label xml:lang="es">Secano</label>
             <description>Cropland that rely on rainfall for water</description>
             <description xml:lang="fr">Non irriguée - pluviale</description>
+            <description xml:lang="pt">Cultivo agrícola que depende de água das chuvas</description>
             <description xml:lang="es">Cultivo que utiliza tan solo de de agua de lluvia</description>
           </item>
           <item id="428">
             <code>cropland_orchard</code>
             <label>Orchard</label>
             <label xml:lang="fr">Verger</label>
+            <label xml:lang="pt">Pomar</label>
             <label xml:lang="es">Arboles/Arbustos frutales</label>
             <description>Trees or shrubs planted for food production</description>
             <description xml:lang="fr">Verger</description>
+            <description xml:lang="pt">Árvores ou arbustos plantados para produção de alimentos</description>
             <description xml:lang="es">Arboles o arbustos plantados para la producción alimentaria</description>
           </item>
           <item id="429">
             <code>cropland_perennial</code>
             <label>Perennial cropland</label>
             <label xml:lang="fr">Vivaces cultivées</label>
+            <label xml:lang="pt">Agricultura permanente / Perene</label>
             <label xml:lang="es">Perenne</label>
             <description>Perennial crops are crops developed to reduce inputs necessary to produce food by greatly reducing the need to replant crops from year-to-year. </description>
             <description xml:lang="fr">Vivaces cultivées</description>
+            <description xml:lang="pt">Culturas perenes para otimizar o esforço necessário para a produção de alimentos, reduzindo a necessidade de replantar culturas todos os anos</description>
             <description xml:lang="es">Cultivos perennes que permiten optimizar el esfuerzo necesario para la produccion alimentaria al reducir la necesidad de replantar los cultivos año a año</description>
           </item>
           <item id="430">
             <code>cropland_fallow</code>
             <label>Fallow cropland</label>
             <label xml:lang="fr">Terres agricoles en jachère</label>
+            <label xml:lang="pt">Agricultura de pousio</label>
             <label xml:lang="es">Barbecho</label>
             <description>Cropland that is purposely kept out of production during a regular growing season. Resting the ground in this manner allows one crop to be grown using the moisture and nutrients of more than one crop cycle.</description>
             <description xml:lang="fr">Terres agricoles en jachère</description>
+            <description xml:lang="pt">Culturas que são deixadas em pousio durante uma estação de crescimento. O resto do solo desta forma permite um uso crescente de umidade e os nutrientes de mais de uma estação de crescimento.</description>
             <description xml:lang="es">Cultivos que se deja sin cultivar durante un temporada de cultivo. El dejar descansar el suelo de esta manera permite que un cultivo use la humedad y los nutrientes de mas de una temporada de cultivo.</description>
           </item>
         </item>
@@ -2046,63 +2296,78 @@ st” or “Other wooded land”.</description>
           <code>settlement</code>
           <label>Settlement</label>
           <label xml:lang="fr">Établissement</label>
+          <label xml:lang="pt">Área urbana</label>
           <label xml:lang="es">Asentamientos</label>
           <item id="435">
             <code>settlement_village</code>
             <label>Village</label>
             <label xml:lang="fr">Village</label>
+            <label xml:lang="pt">Vila</label>
             <label xml:lang="es">Pueblo/Asentamiento</label>
             <description>A clustered human settlement or community, larger than a hamlet but smaller than a town, often located in rural areas</description>
+            <description xml:lang="pt">Assentamento humano ou comunidade, menor que uma cidadeunidad, mas pequeño que una ciudad, normalmente localizada em zona rural.</description>
             <description xml:lang="es">Asentamiento humano o comunidad, mas pequeño que una ciudad, a menudo localizado en una zona rural</description>
           </item>
           <item id="436">
             <code>settlement_urban</code>
             <label>Urban</label>
             <label xml:lang="fr">Urbain</label>
+            <label xml:lang="pt">Urbano</label>
             <label xml:lang="es">Area urbana</label>
             <description>City or town in urban area</description>
+            <description xml:lang="pt">Cidade em área urbana</description>
             <description xml:lang="es">Ciudad en una area urbana</description>
           </item>
           <item id="437">
             <code>settlement_infrastructure</code>
             <label>Infrastucture</label>
             <label xml:lang="fr">Infrastructure</label>
+            <label xml:lang="pt">Infraestrutura</label>
             <label xml:lang="es">Infrastructura</label>
             <description>Roads, bridges, pipelines, factories, industrial areas, etc</description>
+            <description xml:lang="pt">Pontes, fábricas, zonas industriais, óleo/gasoduto, etc...</description>
             <description xml:lang="es">Carreteras, puentes, conducciones de gas/petroleo, factorias, areas industriales, etc....</description>
           </item>
           <item id="438">
             <code>settlement_mine</code>
             <label>Mine</label>
             <label xml:lang="fr">Mine</label>
+            <label xml:lang="pt">Mina</label>
             <label xml:lang="es">Mina</label>
           </item>
           <item id="489">
             <code>settlement_saline</code>
             <label>saline</label>
             <label xml:lang="fr">salines</label>
+            <label xml:lang="pt">Salina</label>
             <label xml:lang="es">Salina</label>
+            <description xml:lang="pt">Produção de sal marinho</description>
           </item>
         </item>
         <item id="454546">
           <code>wetland</code>
           <label>wetland</label>
           <label xml:lang="fr">Zones humides</label>
+          <label xml:lang="pt">Área alagada</label>
           <label xml:lang="es">Humedales</label>
           <description>A wetland is a land area that is permanent or seasonal saturated with water</description>
           <description xml:lang="fr">Une zone humide est une zone de terre qui est permanent ou saisonnier saturé d'eau</description>
+          <description xml:lang="pt">Área coberta por água temporariamente ou permanentemente</description>
           <description xml:lang="es">Un humedal es una zona cubierta por agua de forma temporanea o permanente</description>
           <item id="414">
             <code>wetland_river_delta_permanent</code>
             <label>Permanent river or inner delta</label>
             <label xml:lang="fr">Rivière permanente ou permanent ou delta intérieur</label>
+            <label xml:lang="pt">Rio permanente ou delta interno</label>
             <label xml:lang="es">Rio /delta interior</label>
             <description xml:lang="fr">Rivière permanente ou permanent ou delta intérieur</description>
+            <description xml:lang="pt">Permanent river or inner delta</description>
           </item>
           <item id="418">
             <code>wetland_lake_pool_permanent</code>
             <label>Permanent lake or pool</label>
             <label xml:lang="fr">Lac permanent</label>
+            <label xml:lang="pt">Lago ou lagoa permanente</label>
             <label xml:lang="es">Lago/charca</label>
             <description xml:lang="fr">Lac permanent</description>
           </item>
@@ -2110,15 +2375,18 @@ st” or “Other wooded land”.</description>
             <code>wetland_marsh</code>
             <label>Marsh on inorganic soil</label>
             <label xml:lang="fr">Marais sur sol minéral</label>
+            <label xml:lang="pt">Charco</label>
             <label xml:lang="es">Marisma</label>
             <description>Fresh water wetland that is dominated by herbaceous  plant species.</description>
             <description xml:lang="fr">Marais sur sol minéral</description>
+            <description xml:lang="pt">Área alagada dominada por plantas de espécies herbáceas</description>
             <description xml:lang="es">Humedal de agua dulce que esta dominado por plantas de especies herbaceas</description>
           </item>
           <item id="417">
             <code>wetland_coastal_delta</code>
             <label>Coastal delta</label>
             <label xml:lang="fr">Delta côtière</label>
+            <label xml:lang="pt">Delta costeiro</label>
             <label xml:lang="es">Delta costero</label>
             <description xml:lang="fr">Delta côtière</description>
           </item>
@@ -2126,15 +2394,18 @@ st” or “Other wooded land”.</description>
             <code>wetland_saline</code>
             <label>Saline, brackish or alkaline waters</label>
             <label xml:lang="fr">Eau saline, saumâtre ou alcaline</label>
+            <label xml:lang="pt">Salina</label>
             <label xml:lang="es">Aguas duras/ salinas/alcalinas</label>
             <description>Water that has more salinity than fresh water, but not as much as seawater.</description>
             <description xml:lang="fr">Eau saline, saumâtre ou alcaline</description>
+            <description xml:lang="pt">Águas que possuem um alto nível de salinidade, mas não caregorizadas com oceano ou mares.</description>
             <description xml:lang="es">Aguas que tienen ul alto nivel de salinidad pero no  tanto como el agua de mar.</description>
           </item>
           <item id="421">
             <code>wetland_lake_seasonal</code>
             <label>Season lake</label>
             <label xml:lang="fr">Lac saisonnier</label>
+            <label xml:lang="pt">Lago temporário</label>
             <label xml:lang="es">Lago temporal</label>
             <description xml:lang="fr">Lac saisonnier</description>
           </item>
@@ -2142,6 +2413,7 @@ st” or “Other wooded land”.</description>
             <code>wetland_river_seasonal</code>
             <label>Seasonal river</label>
             <label xml:lang="fr">Rivière saisonnière</label>
+            <label xml:lang="pt">Rio temporário</label>
             <label xml:lang="es">Rio temporal</label>
             <description xml:lang="fr">Rivière saisonnière</description>
           </item>
@@ -2149,15 +2421,18 @@ st” or “Other wooded land”.</description>
             <code>wetland_riparian_vegetation</code>
             <label>Riparian vegetation</label>
             <label xml:lang="fr">Végétation riveraine</label>
+            <label xml:lang="pt">Vegetação ripária</label>
             <label xml:lang="es">Vegetacion riberenña</label>
             <description>Riparian vegetation refers to the plant life that exists alongside a waterway.</description>
             <description xml:lang="fr">Végétation riveraine</description>
+            <description xml:lang="pt">Refere-se a vegetação ao longo dos cursos d'água.</description>
             <description xml:lang="es">La vegetación ribereña se refiere a las plantas que existen alrededor del cauce de un rio</description>
           </item>
           <item id="536">
             <code>wetland_peatland</code>
             <label>Peatland/Turf</label>
             <label xml:lang="fr">Tourbière</label>
+            <label xml:lang="pt">Turfeira</label>
             <label xml:lang="es">Turbera</label>
           </item>
         </item>
@@ -2165,55 +2440,65 @@ st” or “Other wooded land”.</description>
           <code>other</code>
           <label>Other</label>
           <label xml:lang="fr">Autres</label>
+          <label xml:lang="pt">Outros usos</label>
           <label xml:lang="es">Otras tierras</label>
           <item id="412">
             <code>palm</code>
             <label>Palm</label>
             <label xml:lang="fr">Palmier</label>
+            <label xml:lang="pt">Palma</label>
             <label xml:lang="es">Palmar</label>
           </item>
           <item id="413">
             <code>bamboo</code>
             <label>Bamboo</label>
             <label xml:lang="fr">Bambou</label>
+            <label xml:lang="pt">Bambu</label>
             <label xml:lang="es">Bambú</label>
           </item>
           <item id="425">
             <code>wetland_oases</code>
             <label>Oases</label>
             <label xml:lang="fr">Oases</label>
+            <label xml:lang="pt">Oasis</label>
             <label xml:lang="es">Oasis</label>
             <description>an isolated area of vegetation in a desert, typically surrounding a spring or similar water source</description>
+            <description xml:lang="pt">Vegetação isolada em um deserto, tipicamente ao redor de um manancial ou outra fonte de água.</description>
             <description xml:lang="es">Area aislada de vegetacion en un desierto, tipicamente alrededor de un manantial u otro tpide fuente de agua.</description>
           </item>
           <item id="432">
             <code>other_rock_stone</code>
             <label>Rock or stone</label>
             <label xml:lang="fr">Roche ou pierre</label>
+            <label xml:lang="pt">Pedras / Rochas</label>
             <label xml:lang="es">Rocas</label>
           </item>
           <item id="433">
             <code>other_sand</code>
             <label>Sand</label>
             <label xml:lang="fr">Sable</label>
+            <label xml:lang="pt">Areia</label>
             <label xml:lang="es">Arena</label>
           </item>
           <item id="434">
             <code>other_dune</code>
             <label>Dune</label>
             <label xml:lang="fr">Dune</label>
+            <label xml:lang="pt">Dunas</label>
             <label xml:lang="es">Dunas</label>
           </item>
           <item id="488">
             <code>snow_glaciers</code>
             <label>snow and glaciers</label>
             <label xml:lang="fr">neige et glaciers</label>
+            <label xml:lang="pt">Neve e Geleiras</label>
             <label xml:lang="es">Glaciares</label>
           </item>
           <item id="439">
             <code>unknown</code>
             <label>Unknown</label>
             <label xml:lang="fr">Inconnu</label>
+            <label xml:lang="pt">Desconhecido</label>
             <label xml:lang="es">Desconocido</label>
           </item>
         </item>
@@ -2221,78 +2506,91 @@ st” or “Other wooded land”.</description>
     </list>
     <list id="474" name="drylands_regions">
       <label type="item">Drylands regions</label>
+      <label type="item" xml:lang="pt">Regiões Áridas</label>
       <codingScheme scope="local" />
       <items>
         <item id="490">
           <code>NorthernAfrica</code>
           <label>Northern Africa</label>
           <label xml:lang="fr">Afrique du Nord</label>
+          <label xml:lang="pt">Norte Africano</label>
           <label xml:lang="es">Africa del Norte</label>
         </item>
         <item id="491">
           <code>SouthernAfrica</code>
           <label>Southern Africa</label>
           <label xml:lang="fr">Afrique Du Sud</label>
+          <label xml:lang="pt">Sul Africano</label>
           <label xml:lang="es">Africa Del Sur</label>
         </item>
         <item id="492">
           <code>HornAfrica</code>
           <label>Horn of Africa</label>
           <label xml:lang="fr">Corne de l'Afrique</label>
+          <label xml:lang="pt">Chifre da África</label>
           <label xml:lang="es">Cuerno de Africa</label>
         </item>
         <item id="493">
           <code>Sahel</code>
           <label>Sahel</label>
           <label xml:lang="fr">sahel</label>
+          <label xml:lang="pt">Sahel</label>
           <label xml:lang="es">Sahel</label>
         </item>
         <item id="494">
           <code>MiddleEast</code>
           <label>Middle East</label>
           <label xml:lang="fr">Moyen-Orient</label>
+          <label xml:lang="pt">Oriente Médio</label>
           <label xml:lang="es">Medio Este</label>
         </item>
         <item id="495">
           <code>CentralAsia</code>
           <label>Central Asia</label>
           <label xml:lang="fr">Asie Centrale</label>
+          <label xml:lang="pt">Ásia Central</label>
           <label xml:lang="es">Asia Central</label>
         </item>
         <item id="496">
           <code>SouthWestAsia</code>
           <label>South West Asia</label>
           <label xml:lang="fr">Asie du Sud Ouest</label>
+          <label xml:lang="pt">Sudoeste Asiático</label>
           <label xml:lang="es">Suroeste de Asia</label>
         </item>
         <item id="497">
           <code>Australia</code>
           <label>Australia</label>
           <label xml:lang="fr">Australie</label>
+          <label xml:lang="pt">Austrália</label>
           <label xml:lang="es">Australia</label>
         </item>
         <item id="498">
           <code>NorthAmerica</code>
           <label>North America</label>
           <label xml:lang="fr">Amérique Du Nord</label>
+          <label xml:lang="pt">América do Norte</label>
           <label xml:lang="es">Norteamérica</label>
         </item>
         <item id="499">
           <code>EastSouthAmerica</code>
           <label>South America - East</label>
           <label xml:lang="fr">Amérique du Sud - Est</label>
+          <label xml:lang="pt">Leste da América do Sul</label>
           <label xml:lang="es">América del Sur - Oriente</label>
         </item>
         <item id="500">
           <code>WestSouthAmerica</code>
           <label>South America - West</label>
           <label xml:lang="fr">Amérique du Sud - Ouest</label>
+          <label xml:lang="pt">Oeste da América do Sul</label>
           <label xml:lang="es">América del Sur - Oeste</label>
         </item>
         <item id="501">
           <code>Europe</code>
           <label>Europe</label>
           <label xml:lang="fr">Europe</label>
+          <label xml:lang="pt">Europa</label>
           <label xml:lang="es">Europa</label>
         </item>
       </items>
@@ -2490,123 +2788,161 @@ st” or “Other wooded land”.</description>
       
       
       
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
       ]]>
       </wkt>
     </spatialReferenceSystem>
   </spatialReferenceSystems>
   <schema>
-    <entity id="1" name="plot" ui:tabSet="placemark" ui:tab="placemark">
+    <entity id="1" name="plot" ui:tab="placemark" ui:tabSet="placemark">
       <label type="instance">Plot</label>
       <text id="2" name="id" required="true" key="true" type="short">
         <label type="instance">Id</label>
         <label type="instance" xml:lang="fr">Id</label>
         <label type="instance" xml:lang="es">ID</label>
+        <label type="instance" xml:lang="pt">Id</label>
       </text>
       <coordinate id="3" name="location">
         <label type="instance">Location</label>
         <label type="instance" xml:lang="fr">Position</label>
         <label type="instance" xml:lang="es">Coordenadas</label>
+        <label type="instance" xml:lang="pt">Localização</label>
       </coordinate>
-      <text id="4" name="operator" type="short">
+      <text id="4" name="operator" required="true" type="short">
         <label type="instance">Operator</label>
         <label type="instance" xml:lang="fr">Opérateur</label>
         <label type="instance" xml:lang="es">Operador</label>
+        <label type="instance" xml:lang="pt">Operador</label>
       </text>
       <text id="34" name="plot_file" relevant="false()" type="short">
         <label type="instance">CSV file that contains the plot</label>
         <label type="instance" xml:lang="fr">Fichier CSV qui contient la placette</label>
         <label type="instance" xml:lang="es">Archivo CSV que contiene las parcelas</label>
+        <label type="instance" xml:lang="pt">Arquivo CSV que contém a parcela</label>
       </text>
       <boolean id="32" name="actively_saved">
         <label type="instance">Actively saved by user</label>
         <label type="instance" xml:lang="fr">Activement sauvé par l'utilisateur</label>
         <label type="instance" xml:lang="es">Guardado y validado</label>
+        <label type="instance" xml:lang="pt">Salvo ativamente pelo usuário</label>
       </boolean>
       <date id="33" name="actively_saved_on" relevant="false()">
         <label type="instance">Last saved on</label>
         <label type="instance" xml:lang="fr">Dernier enregistrement le</label>
         <label type="instance" xml:lang="es">Guardado y Validado en Fecha</label>
+        <label type="instance" xml:lang="pt">Salvo pela última vez em</label>
       </date>
       <code id="5" name="land_use_category" required="true" list="land_use_subcategory">
         <label type="instance">Land Use</label>
         <label type="instance" xml:lang="fr">Utilisation des terres</label>
         <label type="instance" xml:lang="es">Categorio de uso de la tierra</label>
+        <label type="instance" xml:lang="pt">Uso da terra</label>
+        <check flag="error" if="land_use_category='otherland'" expr="vegetation_elements[vegetation_element = 'tree']/element_cover = 'na' or vegetation_elements[vegetation_element = 'tree']/element_cover = 'l1'  or vegetation_elements[vegetation_element = 'tree']/element_cover = 'l2'  or vegetation_elements[vegetation_element = 'tree']/element_cover = 'l3'  or vegetation_elements[vegetation_element = 'tree']/element_cover = 'l4'">
+          <message xml:lang="en">If a plot has more than 10 % of tree or shrub cover it cannot be classified as Otherland</message>
+        </check>
       </code>
       <boolean id="7" name="land_use_category_accuracy" required="true">
         <label type="instance">Land Use Category - Confidence</label>
         <label type="instance" xml:lang="fr">Catégories utilisation des terres - confiance</label>
         <label type="instance" xml:lang="es">Categoria uso de la tierra - Confianza</label>
+        <label type="instance" xml:lang="pt">Categoria do Uso da Terra - Confiança</label>
       </boolean>
-      <code id="8" name="land_use_subcategory" required="true" list="land_use_subcategory" parent="land_use_category">
+      <code id="8" name="land_use_subcategory" relevant="land_use_category!= 'noData'" required="true" ui:hideWhenNotRelevant="true" list="land_use_subcategory" parent="land_use_category">
         <label type="instance">Land Use Sub-Category</label>
         <label type="instance" xml:lang="fr">Sous-catégorie utilisation des terres</label>
         <label type="instance" xml:lang="es">Subcategoria uso de la tierra</label>
+        <label type="instance" xml:lang="pt">Subcategoria do Uso da Terra</label>
       </code>
       <boolean id="9" name="land_use_subcategory_accuracy" relevant="land_use_category!='noData'" required="true" ui:hideWhenNotRelevant="true">
         <label type="instance">Land Use Sub-Category - Confidence</label>
         <label type="instance" xml:lang="fr">Sous-catégorie utilisation des terres - confiance</label>
         <label type="instance" xml:lang="es">Subcategoria uso de la tierra - Confianza</label>
+        <label type="instance" xml:lang="pt">Subcategoria do Uso da Terra - Confiança</label>
       </boolean>
-      <boolean id="463" name="land_use_subcategory_year_of_change_know" relevant="land_use_category!='noData' and land_use_subcategory!='GLtoGL' and land_use_subcategory!='FLtoFL' and land_use_subcategory!='SLtoSL' and land_use_subcategory!='OTtoOT' and land_use_subcategory!='WLtoWL' and land_use_subcategory!='CLtoCL'" required="true" ui:hideWhenNotRelevant="true" ui:tab="placemark">
-        <label type="instance">change between subdivision</label>
-        <label type="instance" xml:lang="fr">changement entre subdivision</label>
+      <boolean id="463" name="land_use_subcategory_year_of_change_know" relevant="land_use_category!='noData' and land_use_subcategory!='GLtoGL' and land_use_subcategory!='FLtoFL' and land_use_subcategory!='SLtoSL' and land_use_subcategory!='OTtoOL' and land_use_subcategory!='WLtoWL' and land_use_subcategory!='CLtoCL'" required="true" ui:hideWhenNotRelevant="true" ui:tab="placemark">
+        <label type="instance">Known year of change</label>
+        <label type="instance" xml:lang="fr">Année des changements connu </label>
         <label type="instance" xml:lang="es">Se conoce el año del cambio</label>
+        <label type="instance" xml:lang="pt">Mudança entre a subdivisão</label>
       </boolean>
-      <number id="10" name="land_use_subcategory_year_of_change" relevant="land_use_subcategory_year_of_change_know=true() and &#10;land_use_category!='noData' and land_use_subcategory!='GLtoGL' and land_use_subcategory!='FLtoFL' and land_use_subcategory!='SLtoSL' and land_use_subcategory!='OTtoOT' and land_use_subcategory!='WLtoWL' and land_use_subcategory!='CLtoCL'" required="true" ui:hideWhenNotRelevant="true" type="integer">
-        <label type="instance">change between subdivision (year)</label>
-        <label type="instance" xml:lang="fr">changement entre subdivision (Année)</label>
+      <number id="10" name="land_use_subcategory_year_of_change" relevant="land_use_subcategory_year_of_change_know=true() and &#10;land_use_category!='noData' and land_use_subcategory!='GLtoGL' and land_use_subcategory!='FLtoFL' and land_use_subcategory!='SLtoSL' and land_use_subcategory!='OTtoOL' and land_use_subcategory!='WLtoWL' and land_use_subcategory!='CLtoCL'" required="true" ui:hideWhenNotRelevant="true" type="integer">
+        <label type="instance">Year of the change</label>
+        <label type="instance" xml:lang="fr">Année de changement</label>
         <label type="instance" xml:lang="es">Año del cambio</label>
+        <label type="instance" xml:lang="pt">Mudança entre a subdivisão (ano)</label>
         <compare flag="error" lt="2016" gt="1990" />
       </number>
       <date id="23" name="rs_date" required="true" ui:tab="tab_221">
         <label type="instance">RS Date</label>
         <label type="instance" xml:lang="fr">Date télédetection</label>
         <label type="instance" xml:lang="es">Fecha de adquicisión de imagen</label>
+        <label type="instance" xml:lang="pt">Data da Imagem</label>
       </date>
       <code id="24" name="rs_satellite" required="true" ui:tab="tab_221" list="rs_satellite">
         <label type="instance">RS Satellite</label>
         <label type="instance" xml:lang="fr">Satellite télédetection</label>
         <label type="instance" xml:lang="es">Satélite</label>
+        <label type="instance" xml:lang="pt">Satélite</label>
       </code>
       <code id="36" name="farming_method" relevant="land_use_category='cropland'" required="true" ui:hideWhenNotRelevant="true" ui:tab="placemark" list="farming_methods">
         <label type="instance">Farming method</label>
         <label type="instance" xml:lang="fr">Méthode d'agriculture</label>
         <label type="instance" xml:lang="es">Método de cultivo</label>
+        <label type="instance" xml:lang="pt">Método Agrícola</label>
       </code>
       <code id="42" name="soil_type" relevant="false()" required="true" ui:hide="true" ui:hideWhenNotRelevant="true" list="soil_types">
         <label type="instance">Soil Type</label>
         <label type="instance" xml:lang="fr">Type de sol</label>
         <label type="instance" xml:lang="es">Tipo de Suelo</label>
+        <label type="instance" xml:lang="pt">Tipo de Solo</label>
       </code>
       <code id="43" name="climate_zone" relevant="false()" required="true" ui:hide="true" ui:hideWhenNotRelevant="true" list="climate_zones">
         <label type="instance">Climate zone</label>
         <label type="instance" xml:lang="fr">Zone climatique</label>
         <label type="instance" xml:lang="es">Zona climática</label>
+        <label type="instance" xml:lang="pt">Zona Climática</label>
       </code>
       <number id="29" name="elevation" collectearth:fromcsv="true" type="integer">
         <label type="instance">Elevation</label>
         <label type="instance" xml:lang="fr">Élévation</label>
         <label type="instance" xml:lang="es">Elevación</label>
+        <label type="instance" xml:lang="pt">Elevação</label>
       </number>
       <number id="31" name="slope" collectearth:fromcsv="true" type="real">
         <label type="instance">Slope</label>
         <label type="instance" xml:lang="fr">Pente</label>
         <label type="instance" xml:lang="es">Pendiente</label>
+        <label type="instance" xml:lang="pt">Declive</label>
       </number>
       <number id="30" name="aspect" collectearth:fromcsv="true" type="real">
         <label type="instance">Aspect</label>
         <label type="instance" xml:lang="fr">Aspect</label>
         <label type="instance" xml:lang="es">Orientación</label>
+        <label type="instance" xml:lang="pt">Aspecto</label>
       </number>
       <text id="35" name="dryland_category" relevant="false()" ui:hide="true" ui:hideWhenNotRelevant="true" collectearth:fromcsv="true" type="short">
         <label type="instance">Drylands category</label>
         <label type="instance" xml:lang="fr">Catégorie zones arides</label>
         <label type="instance" xml:lang="es">Categoria de tierra arida</label>
+        <label type="instance" xml:lang="pt">Categoria de Terra Árida</label>
       </text>
-      <text id="452" name="country" relevant="false()" collectearth:fromcsv="true" ui:tab="placemark" type="short">
+      <text id="452" name="country" relevant="false()" ui:tab="placemark" collectearth:fromcsv="true" type="short">
         <label type="instance">Country</label>
         <label type="instance" xml:lang="fr">Pays</label>
         <label type="instance" xml:lang="es">Pais</label>
+        <label type="instance" xml:lang="pt">País</label>
       </text>
       <code id="46" name="fra_class" required="true" ui:tab="tab_226" list="fra_classes">
         <label type="instance">FRA Class</label>
@@ -2614,20 +2950,24 @@ st” or “Other wooded land”.</description>
         <label type="instance" xml:lang="fr">Classe FRA</label>
         <label type="heading" xml:lang="fr">Classes FRA</label>
         <label type="instance" xml:lang="es">Clase FRA</label>
+        <label type="instance" xml:lang="pt">Classe FRA</label>
       </code>
       <entity id="53" name="vegetation_elements" multiple="true" ui:layout="table" ui:tab="tab_296">
         <label type="instance">Vegetation</label>
         <label type="instance" xml:lang="fr">Végétation</label>
         <label type="instance" xml:lang="es">Vegetacion</label>
+        <label type="instance" xml:lang="pt">Vegetação</label>
         <code id="55" name="vegetation_element" key="true" list="vegetation_elements">
           <label type="instance">Vegetation type</label>
           <label type="instance" xml:lang="fr">Elément de végétation</label>
           <label type="instance" xml:lang="es">Tipo de vegetación</label>
+          <label type="instance" xml:lang="pt">Tipo de Vegetação</label>
         </code>
         <code id="54" name="element_cover" ui:layoutType="dropdown" list="elements_cover">
           <label type="instance">Vegetation cover</label>
           <label type="instance" xml:lang="fr">Couverture de végétation</label>
           <label type="instance" xml:lang="es">Cobertura</label>
+          <label type="instance" xml:lang="pt">Cobertura Vegetal</label>
           <default value="na" />
         </code>
       </entity>
@@ -2635,15 +2975,18 @@ st” or “Other wooded land”.</description>
         <label type="instance">Infrastructure</label>
         <label type="instance" xml:lang="fr">Infrastructure</label>
         <label type="instance" xml:lang="es">Infrastructuras</label>
+        <label type="instance" xml:lang="pt">Infraestrutura</label>
         <code id="58" name="infrastructure_element" ui:layoutType="dropdown" key="true" list="infrastructure_elements">
           <label type="instance">Infrastructure elements</label>
           <label type="instance" xml:lang="fr">Éléments infrastructure</label>
           <label type="instance" xml:lang="es">Tipo de infrastructura</label>
+          <label type="instance" xml:lang="pt">Elementos de Infraestrutura</label>
         </code>
         <code id="57" name="element_cover" ui:layoutType="dropdown" list="elements_cover">
           <label type="instance">Infrastructure cover</label>
           <label type="instance" xml:lang="fr">Infrastructure couverture</label>
           <label type="instance" xml:lang="es">Cobertura</label>
+          <label type="instance" xml:lang="pt">Cobertura da Infraestrutura</label>
           <default value="na" />
         </code>
       </entity>
@@ -2651,15 +2994,18 @@ st” or “Other wooded land”.</description>
         <label type="instance">Water bodies</label>
         <label type="instance" xml:lang="fr">Étendue d'eau</label>
         <label type="instance" xml:lang="es">Cuerpos de agua</label>
+        <label type="instance" xml:lang="pt">Corpos D'água</label>
         <code id="372" name="water_key" key="true" list="water_element">
           <label type="instance">Water body</label>
           <label type="instance" xml:lang="fr">Étendue d'eau</label>
           <label type="instance" xml:lang="es">Tipo cuerpo de agua</label>
+          <label type="instance" xml:lang="pt">Corpo D'água</label>
         </code>
         <code id="373" name="water_cover" ui:layoutType="dropdown" list="elements_cover">
           <label type="instance">Water body cover</label>
           <label type="instance" xml:lang="fr">Étendue d'eau couverture</label>
           <label type="instance" xml:lang="es">Cobertura</label>
+          <label type="instance" xml:lang="pt">Cobertura do Corpo D'água</label>
           <default value="na" />
         </code>
       </entity>
@@ -2667,15 +3013,18 @@ st” or “Other wooded land”.</description>
         <label type="instance">Other</label>
         <label type="instance" xml:lang="fr">Autre</label>
         <label type="instance" xml:lang="es">Otros elementos</label>
+        <label type="instance" xml:lang="pt">Outros</label>
         <code id="375" name="other_key" key="true" list="other_elements">
           <label type="instance">Other elements</label>
           <label type="instance" xml:lang="fr">Autres éléments</label>
           <label type="instance" xml:lang="es">Otros elementos</label>
+          <label type="instance" xml:lang="pt">Outros Elementos</label>
         </code>
         <code id="381" name="other_cover" ui:layoutType="dropdown" list="elements_cover">
           <label type="instance">Other elements cover</label>
           <label type="instance" xml:lang="fr">Couverture autres éléments</label>
           <label type="instance" xml:lang="es">Cobertura</label>
+          <label type="instance" xml:lang="pt">Cobertura de Outros Elementos</label>
           <default value="na" />
         </code>
       </entity>
@@ -2683,30 +3032,36 @@ st” or “Other wooded land”.</description>
         <label type="instance">Desertification / Greening trend</label>
         <label type="instance" xml:lang="fr">Désertification / reverdissement</label>
         <label type="instance" xml:lang="es">Tendencia</label>
+        <label type="instance" xml:lang="pt">Tendência à Desertificação / Verdejamento</label>
       </code>
       <entity id="383" name="disturbances" ui:layout="form" ui:tab="tab_447">
         <label type="instance">Disturbances</label>
         <label type="instance" xml:lang="fr">Perturbations</label>
+        <label type="instance" xml:lang="pt">Pertubações</label>
         <code id="19" name="disturbance_impact_type" multiple="true" minCount="1" maxCount="5" list="disturbance_impact_type">
           <label type="instance">Disturbance</label>
           <label type="instance" xml:lang="fr">Perturbation</label>
           <label type="instance" xml:lang="es">Perturbación</label>
+          <label type="instance" xml:lang="pt">Pertubações</label>
           <default value="none" />
         </code>
         <code id="20" name="disturbance_impact_grade" relevant="disturbance_impact_type!='none'" required="true" ui:hideWhenNotRelevant="true" ui:layoutType="dropdown" list="disturbance_impact_grade">
           <label type="instance">Level of impact</label>
           <label type="instance" xml:lang="fr">Grade d'impact</label>
           <label type="instance" xml:lang="es">Grado de perturbación</label>
+          <label type="instance" xml:lang="pt">Nível de impacto</label>
         </code>
         <boolean id="440" name="disturbance_impact_continual" relevant="disturbance_impact_type!='none'" required="true" ui:hideWhenNotRelevant="true">
           <label type="instance">Continuous impact</label>
           <label type="instance" xml:lang="fr">Impact continu</label>
           <label type="instance" xml:lang="es">¿Impacto conitinuado?</label>
+          <label type="instance" xml:lang="pt">Impacto contínuo</label>
         </boolean>
         <number id="21" name="disturbance_impact_year" relevant="disturbance_impact_type!='none' and disturbance_impact_continual=false()" required="true" ui:hideWhenNotRelevant="true" type="integer">
           <label type="instance">Disturbance Impact Year</label>
           <label type="instance" xml:lang="fr">Année impact de perturbation</label>
           <label type="instance" xml:lang="es">Año del impacto</label>
+          <label type="instance" xml:lang="pt">Ano do impacto da pertubação</label>
           <compare flag="error" lt="2016" gt="1980">
             <message xml:lang="en">Disturbance Impact must be between the years 1984 and 2015</message>
           </compare>
@@ -2715,33 +3070,39 @@ st” or “Other wooded land”.</description>
           <label type="instance">Disturbance Impact interpretation confidence</label>
           <label type="instance" xml:lang="fr">Confiance dans l'interprétation de l'impact de perturbation</label>
           <label type="instance" xml:lang="es">Confianza en la interpretación del impacto</label>
+          <label type="instance" xml:lang="pt">Confiança na interpretação do impacto da perturbação</label>
         </boolean>
       </entity>
-      <code id="442" name="main_land_class" required="true" ui:layoutType="radio" ui:tab="tab_441" list="land_classes">
+      <code id="442" name="main_land_class" required="true" ui:tab="tab_441" ui:layoutType="radio" list="land_classes">
         <label type="instance">Land class - Main</label>
         <label type="instance" xml:lang="fr">Classe de terre - principal</label>
         <label type="instance" xml:lang="es">Clase de cobertura de la tierra</label>
+        <label type="instance" xml:lang="pt">Classe do Terreno - Principal</label>
       </code>
-      <code id="442232" name="sub_land_class" required="true" ui:layoutType="radio" ui:tab="tab_441" list="land_classes" parent="main_land_class">
+      <code id="442232" name="sub_land_class" required="true" ui:tab="tab_441" ui:layoutType="radio" list="land_classes" parent="main_land_class">
         <label type="instance">Land class -subcategory</label>
         <label type="instance" xml:lang="fr">Sous-catégorie classe de terre</label>
         <label type="instance" xml:lang="es">Clase de cobertura de la tierra - division</label>
+        <label type="instance" xml:lang="pt">Classe do Terreno - Subcategoria</label>
       </code>
       <boolean id="443" name="land_class_confidence" required="true" ui:tab="tab_441">
         <label type="instance">Land class- confidence</label>
         <label type="instance" xml:lang="fr">Classe de terre - confiance</label>
         <label type="instance" xml:lang="es">Clase de cobertura de la tierra - Confianza en la interpretación</label>
+        <label type="instance" xml:lang="pt">Classe do Terreno - Confiança</label>
       </boolean>
       <boolean id="461" name="many_trees" required="true" ui:tab="tab_460">
         <label type="instance">More than 30 trees</label>
         <label type="instance" xml:lang="fr">Plus de 30 arbres</label>
         <label type="instance" xml:lang="es">¿Hay mas de 30 arboles en la parcela?</label>
+        <label type="instance" xml:lang="pt">Mais que 30 árvores</label>
         <default value="true" />
       </boolean>
       <number id="454" name="tree_count" relevant="many_trees=false()" required="true" ui:hideWhenNotRelevant="true" ui:tab="tab_460" type="integer">
         <label type="instance">Number of trees in plot</label>
         <label type="instance" xml:lang="fr">Nombres d'arbres dans la placette</label>
         <label type="instance" xml:lang="es">Número de arboles en la parcela</label>
+        <label type="instance" xml:lang="pt">Número de árvores na parcela</label>
         <default value="0" />
         <compare flag="error" lt="31" gt="-1" />
       </number>
@@ -2749,12 +3110,14 @@ st” or “Other wooded land”.</description>
         <label type="instance">More than 30 shrubs</label>
         <label type="instance" xml:lang="fr">Plus de 30 arbustes</label>
         <label type="instance" xml:lang="es">¿Hay mas de 30 arbustos en la parcela?</label>
+        <label type="instance" xml:lang="pt">Mais que 30 arbustos</label>
         <default value="true" />
       </boolean>
       <number id="455" name="shrub_count" relevant="many_shrubs!='0'" required="true" ui:hideWhenNotRelevant="true" ui:tab="tab_460" type="integer">
         <label type="instance">Number of shrubs in plot</label>
         <label type="instance" xml:lang="fr">Nombre d'arbustes dans placette</label>
         <label type="instance" xml:lang="es">Número de arbustos en la parcela</label>
+        <label type="instance" xml:lang="pt">Número de arbustos na parcela</label>
         <default value="0" />
         <compare flag="error" lt="31" gt="-1" />
       </number>
@@ -2762,6 +3125,7 @@ st” or “Other wooded land”.</description>
         <label type="instance">Linear vegetation length (in meters)</label>
         <label type="instance" xml:lang="fr">La longueur linéaire de la végétation (en mètres)</label>
         <label type="instance" xml:lang="es">Longitud de vegetación linear</label>
+        <label type="instance" xml:lang="pt">Comprimento da vegetação linear (em metros)</label>
         <compare flag="error" lt="500" gt="-1">
           <message xml:lang="en">The length can not be longer than 500</message>
         </compare>
@@ -2770,6 +3134,7 @@ st” or “Other wooded land”.</description>
         <label type="instance">Paved road length (in meters)</label>
         <label type="instance" xml:lang="fr">Longueur de route pavée (en mètres)</label>
         <label type="instance" xml:lang="es">Longitud the carretera asfaltada</label>
+        <label type="instance" xml:lang="pt">Comprimento da estrada pavimentada (em metros)</label>
         <compare flag="error" lt="500" gt="-1">
           <message xml:lang="en">The length can not be longer than 500</message>
         </compare>
@@ -2778,6 +3143,7 @@ st” or “Other wooded land”.</description>
         <label type="instance">Unpaved road length (in meters)</label>
         <label type="instance" xml:lang="fr">Longueur de route non-pavée (en mètres)</label>
         <label type="instance" xml:lang="es">Longitud carretera sin asfaltar</label>
+        <label type="instance" xml:lang="pt">Comprimento da estrada não-pavimentada (em metros)</label>
         <compare flag="error" lt="500" gt="-1">
           <message xml:lang="en">The length can not be longer than 500</message>
         </compare>
@@ -2786,14 +3152,16 @@ st” or “Other wooded land”.</description>
         <label type="instance">Path length (in meters)</label>
         <label type="instance" xml:lang="fr">Longueur du sentier (en mètres)</label>
         <label type="instance" xml:lang="es">Longitud de camino</label>
+        <label type="instance" xml:lang="pt">Comprimento da trilha (em metros)</label>
         <compare flag="error" lt="500" gt="-1">
           <message xml:lang="en">The length can not be longer than 500</message>
         </compare>
       </number>
-      <code id="473" name="dryland_region" collectearth:fromcsv="true" ui:tab="placemark" list="drylands_regions">
+      <code id="473" name="dryland_region" ui:tab="placemark" collectearth:fromcsv="true" list="drylands_regions">
         <label type="instance">Dryland region</label>
         <label type="instance" xml:lang="fr">Région zone aride</label>
         <label type="instance" xml:lang="es">Region de las tierras aridas</label>
+        <label type="instance" xml:lang="pt">Região Árida</label>
       </code>
     </entity>
   </schema>
