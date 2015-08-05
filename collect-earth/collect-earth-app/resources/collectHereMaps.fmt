@@ -56,7 +56,7 @@
                   document.getElementById('mapContainer'),
                   maptypes.satellite.base,
                   {
-                    zoom: 18,
+                    zoom: 19,
                     center: { lng: ${placemark.coord.longitude}, lat: ${placemark.coord.latitude}  }
                   });
              	// Create the default UI:
