@@ -491,7 +491,7 @@ public class AnalysisSaikuService {
 	}
 
 	private void openSaiku() throws IOException, BrowserNotFoundException {
-		saikuWebDriver = browserService.navigateTo("http://127.0.0.1:8181", saikuWebDriver); //$NON-NLS-1$
+		saikuWebDriver = browserService.navigateTo("http://127.0.0.1:8181", saikuWebDriver,false); //$NON-NLS-1$
 		browserService.waitFor("username", saikuWebDriver); //$NON-NLS-1$
 		saikuWebDriver.findElementByName("username").sendKeys("admin"); //$NON-NLS-1$ //$NON-NLS-2$
 		saikuWebDriver.findElementByName("password").sendKeys("admin"); //$NON-NLS-1$ //$NON-NLS-2$

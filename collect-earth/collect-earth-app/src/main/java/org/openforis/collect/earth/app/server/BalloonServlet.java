@@ -76,7 +76,7 @@ public class BalloonServlet extends DataAccessingServlet {
 			@Override
 			public void run() {
 				try {
-					webKitDriver = browserService.navigateTo(fUrl, webKitDriver);
+					webKitDriver = browserService.navigateTo(fUrl, webKitDriver, false);
 				} catch (BrowserNotFoundException e) {
 					logger.error("No browser found", e); //$NON-NLS-1$
 				}

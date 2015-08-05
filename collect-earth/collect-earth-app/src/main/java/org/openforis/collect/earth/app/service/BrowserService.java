@@ -267,10 +267,20 @@ public class BrowserService implements Observer{
 	private RemoteWebDriver initBrowser() throws BrowserNotFoundException  {
 		RemoteWebDriver driver = null;
 		driver = chooseDriver();
+		//minimizeWindow(driver);
 		drivers.add(driver);
 		return driver;
 	}
 
+/*	private void minimizeWindow(RemoteWebDriver driver) {
+		try {		
+			String minimize = Keys.chord(Keys.ALT,Keys.SPACE, "n");
+			driver.getKeyboard().sendKeys(minimize);
+		} catch (Exception e) {
+			logger.error("Error minimizing", e);
+		}
+	}*/
+	
 	/*private boolean isGEEValidJS(String geeJs, RemoteWebDriver driver) {
 
 		boolean stillValid = false;

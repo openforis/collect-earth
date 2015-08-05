@@ -8,6 +8,8 @@ import java.awt.Dimension;
 import java.awt.GridBagConstraints;
 import java.awt.GridBagLayout;
 import java.awt.Insets;
+import java.awt.Toolkit;
+import java.awt.Window;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 import java.io.File;
@@ -89,8 +91,18 @@ public class OptionWizard extends JDialog {
 		this.setResizable(false);
 		initilizeInputs();
 		buildMainPane();
+		centreWindow();
+		
 	}
 
+
+	private void centreWindow() {
+	    Dimension dimension = Toolkit.getDefaultToolkit().getScreenSize();
+	    int x = (int) ((dimension.getWidth() - getWidth()) / 2);
+	    int y = (int) ((dimension.getHeight() - getHeight()) / 2);
+	    setLocation(x, y);
+	}
+	
 	private void buildMainPane() {
 
 		final JPanel panel = new JPanel(new BorderLayout());
