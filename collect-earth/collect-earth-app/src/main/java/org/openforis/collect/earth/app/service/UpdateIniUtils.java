@@ -18,6 +18,7 @@ public class UpdateIniUtils {
 
 	private static final Logger logger = LoggerFactory.getLogger(UpdateIniUtils.class);
 
+	
 
 	/**
 	 * Checks if there is a newer version of the Collect Earth updater available
@@ -46,7 +47,7 @@ public class UpdateIniUtils {
 		return null;
 	}
 
-	public boolean shouldWarnUser( String buildNumberOnline, LocalPropertiesService localPropertiesService ){
+	public boolean shouldWarnUser( String buildNumberOnline, LocalPropertiesService localPropertiesService, boolean isMajorUpdate ){
 		boolean warnUser = false;
 
 		if( buildNumberOnline != null ){
@@ -58,7 +59,7 @@ public class UpdateIniUtils {
 				Long ignoredBuildNumberUpdate =new Long(lastIgnoredBuildNumber);
 				Long buildOnline = new Long( buildNumberOnline );
 
-				if( ignoredBuildNumberUpdate<buildOnline){ // If the build number that was ignored was older thanb the current build number on the server
+				if( ignoredBuildNumberUpdate<buildOnline && isMajorUpdate){ // If the build number that was ignored was older than the current build number on the server and hte new version is marked as "major"
 					warnUser = true;
 				}
 
@@ -70,6 +71,23 @@ public class UpdateIniUtils {
 		return warnUser;
 	}
 
+
+	/**
+	 * Checks if the update in the server is a "Major"update, meaning that every user should update Collect Earth
+	 * @return True if the version on the server should be installed by all users
+	 */
+	public boolean isMajorUpdate(String pathToUpdateIni) {
+		String urlXmlUpdaterOnline = getValueFromUpdateIni("url", pathToUpdateIni); //$NON-NLS-1$
+		String tagname = "majorUpdate"; //$NON-NLS-1$
+		String majorUpdateString = getXmlValueFromTag(urlXmlUpdaterOnline, tagname);
+		if( majorUpdateString.equals("1") ){
+			majorUpdateString = "true";
+		}
+		
+		Boolean majorUpdate = Boolean.parseBoolean(majorUpdateString);
+		return majorUpdate;
+	
+	}
 
 	private String getVersionBuild(String urlXmlUpdate) {
 		String tagname = "versionId"; //$NON-NLS-1$

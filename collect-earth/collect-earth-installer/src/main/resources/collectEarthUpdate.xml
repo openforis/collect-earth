@@ -5,6 +5,7 @@
 -->
     <versionId>BUILD_NUMBER</versionId> <!-- When changing this version make sure to have the same one in update.ini and rebuild the autoupdater ! -->
     <version>PROJECT_VERSION</version>
+    <majorUpdate>true</majorUpdate> <!-- This is used to indicate if the user should be prompted or not about the new updater -->
     <platformFileList>
         <platformFile>
             <filename>collect-earth-installer-PROJECT_VERSION-windows-updater.exe</filename>

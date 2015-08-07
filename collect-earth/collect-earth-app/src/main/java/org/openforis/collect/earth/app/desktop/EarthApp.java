@@ -40,6 +40,7 @@ import org.slf4j.LoggerFactory;
  */
 public class EarthApp {
 
+	private static final String UPDATE_INI = "update.ini";
 	private static Logger logger;
 	private static ServerController serverController;
 	private static EarthApp earthApp;
@@ -312,8 +313,10 @@ public class EarthApp {
 				}
 
 				final UpdateIniUtils updateIniUtils = new UpdateIniUtils();
-				final String newVersionAvailable = updateIniUtils.getNewVersionAvailable("update.ini"); //$NON-NLS-1$
-				if (updateIniUtils.shouldWarnUser(newVersionAvailable, getLocalProperties())) {
+				final String newVersionAvailable = updateIniUtils.getNewVersionAvailable(UPDATE_INI); //$NON-NLS-1$
+				final boolean isMajorUpdate = updateIniUtils.isMajorUpdate(UPDATE_INI);
+				
+				if (updateIniUtils.shouldWarnUser(newVersionAvailable, getLocalProperties(), isMajorUpdate)) {
 
 					javax.swing.SwingUtilities.invokeLater(new Runnable() {
 						@Override
