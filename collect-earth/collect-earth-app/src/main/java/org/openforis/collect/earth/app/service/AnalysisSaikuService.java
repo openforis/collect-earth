@@ -42,6 +42,8 @@ import org.openforis.collect.model.CollectRecord.Step;
 import org.openforis.collect.relational.CollectRDBPublisher;
 import org.openforis.collect.relational.CollectRdbException;
 import org.openforis.collect.relational.model.RelationalSchemaConfig;
+import org.openforis.idm.metamodel.NodeDefinition;
+import org.openforis.idm.metamodel.NodeDefinitionVerifier;
 import org.openqa.selenium.remote.RemoteWebDriver;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -596,32 +598,45 @@ public class AnalysisSaikuService {
 	}
 
 	private void processQuantityData() throws SQLException {
-
-		createAspectAuxTable();
-
-		createSlopeAuxTable();
-
-		createElevationtAuxTable();
-
-		createDynamicsAuxTable();
-
-		creatAluSubclassVariables();
-
 		createPngAluVariables();
 
 		createPlotForeignKeys();
 
+		
+		if( !surveyContains("calculated_elevation_range") ){
+			createAspectAuxTable();
+
+			createSlopeAuxTable();
+
+			createElevationtAuxTable();
+			assignDimensionValues();
+		}
+
+		if( !surveyContains("calculated_initial_land_use") ){
+			createDynamicsAuxTable();
+
+			creatAluSubclassVariables();
+			assignLUCDimensionValues();
+		}
+		
 		assignPngAluToolDimensionValues();
-
-		assignDimensionValues();
-
-		assignLUCDimensionValues();
 
 		regionCalculation.handleRegionCalculation();
 
 	}
 
 
+
+	private boolean surveyContains(String node_name) {
+		NodeDefinition nodeDefForNAme = earthSurveyService.getCollectSurvey().getSchema().findNodeDefinition( new NodeDefinitionVerifier() {
+			
+			@Override
+			public boolean verify(NodeDefinition nodeDef) {
+				return nodeDef.getName().equals(node_name);
+			}
+		});
+		return nodeDefForNAme != null;
+	}
 
 	public static CSVReader getCsvReader(String csvFile) throws FileNotFoundException {
 		CSVReader reader;
