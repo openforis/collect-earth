@@ -4,12 +4,14 @@
      placed at the URL specified in the update.ini file 
 -->
     <versionId>BUILD_NUMBER</versionId> <!-- When changing this version make sure to have the same one in update.ini and rebuild the autoupdater ! -->
-    <version>PROJECT_VERSION</version>
-    <!-- disableSplashScreen HERE IS USED AS AN ALIAS FOR Major Update
+    <!-- 
+    version HERE WE CAN use " major" to mark that the user should be warned of the new update
     This is used to indicate if the user should be prompted or not about the new updater. 
-	1 Means the user will be notified automatically. 
-	0 means that the user can update COllect Earth but he will not be notified when Collect Earth starts that there is a new version 
+	major Means the user will be notified automatically. 
+	minor (or nothing) means that the user can update COllect Earth but he will not be notified when Collect Earth starts that there is a new version 
 	-->
+    <version>PROJECT_VERSION major</version>
+
     <disableSplashScreen>1</disableSplashScreen> 
     <platformFileList>
         <platformFile>
