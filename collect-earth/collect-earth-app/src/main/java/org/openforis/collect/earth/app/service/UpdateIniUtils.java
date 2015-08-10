@@ -78,15 +78,11 @@ public class UpdateIniUtils {
 	 */
 	public boolean isMajorUpdate(String pathToUpdateIni) {
 		String urlXmlUpdaterOnline = getValueFromUpdateIni("url", pathToUpdateIni); //$NON-NLS-1$
-		String tagname = "majorUpdate"; //$NON-NLS-1$
-		String majorUpdateString = getXmlValueFromTag(urlXmlUpdaterOnline, tagname);
-		if( majorUpdateString.equals("1") ){
-			majorUpdateString = "true";
-		}
+		//String tagname = "majorUpdate"; //$NON-NLS-1$
+		String tagname = "disableSplashScreen"; //$NON-NLS-1$
 		
-		Boolean majorUpdate = Boolean.parseBoolean(majorUpdateString);
-		return majorUpdate;
-	
+		String majorUpdateString = getXmlValueFromTag(urlXmlUpdaterOnline, tagname);
+		return majorUpdateString.equals("1");
 	}
 
 	private String getVersionBuild(String urlXmlUpdate) {

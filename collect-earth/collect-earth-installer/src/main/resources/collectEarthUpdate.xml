@@ -5,7 +5,12 @@
 -->
     <versionId>BUILD_NUMBER</versionId> <!-- When changing this version make sure to have the same one in update.ini and rebuild the autoupdater ! -->
     <version>PROJECT_VERSION</version>
-    <majorUpdate>true</majorUpdate> <!-- This is used to indicate if the user should be prompted or not about the new updater -->
+    <!-- disableSplashScreen HERE IS USED AS AN ALIAS FOR Major Update
+    This is used to indicate if the user should be prompted or not about the new updater. 
+	1 Means the user will be notified automatically. 
+	0 means that the user can update COllect Earth but he will not be notified when Collect Earth starts that there is a new version 
+	-->
+    <disableSplashScreen>1</disableSplashScreen> 
     <platformFileList>
         <platformFile>
             <filename>collect-earth-installer-PROJECT_VERSION-windows-updater.exe</filename>
