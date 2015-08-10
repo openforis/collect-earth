@@ -138,10 +138,11 @@ public final class ExportActionListener implements ActionListener {
 
 	private String getPreselectedName(DataFormat exportType, Date modifiedSince) {
 		String preselectName = "collectDataExport"; //$NON-NLS-1$
+		DateFormat dateFormat = new SimpleDateFormat("ddMMyy_HHmmss"); //$NON-NLS-1$
 		if( modifiedSince == null ){
-			preselectName += "_FULL"; //$NON-NLS-1$
+			preselectName += "_on_" + dateFormat.format( new Date() ) ; //$NON-NLS-1$
 		}else{
-			DateFormat dateFormat = new SimpleDateFormat("ddMMyy_HHmmss"); //$NON-NLS-1$
+			
 			preselectName += "_" + dateFormat.format(modifiedSince) + "_to_" + dateFormat.format( new Date() ); //$NON-NLS-1$ //$NON-NLS-2$
 		}
 
