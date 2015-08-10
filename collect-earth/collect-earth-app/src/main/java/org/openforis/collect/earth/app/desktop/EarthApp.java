@@ -14,8 +14,11 @@ import java.net.URLConnection;
 import java.util.Observable;
 import java.util.Observer;
 
+import javax.imageio.ImageReader;
+import javax.swing.ImageIcon;
 import javax.swing.JOptionPane;
 
+import org.apache.commons.lang3.SystemUtils;
 import org.apache.log4j.PropertyConfigurator;
 import org.openforis.collect.earth.app.CollectEarthUtils;
 import org.openforis.collect.earth.app.desktop.ServerController.ServerInitializationEvent;
@@ -31,6 +34,8 @@ import org.openforis.collect.earth.app.view.Messages;
 import org.openforis.collect.earth.sampler.utils.KmlGenerationException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import com.apple.eawt.OpenFilesHandler;
 
 /**
  * Contains the main class that starts Collect Earth and opens Google Earth.
@@ -82,7 +87,32 @@ public class EarthApp {
 				doubleClickedProjecFile = args[0];
 			}
 
-			initializeServer( doubleClickedProjecFile );
+			if ( SystemUtils.IS_OS_MAC || SystemUtils.IS_OS_MAC_OSX){
+				com.apple.eawt.Application a = com.apple.eawt.Application.getApplication();
+				a.setDockIconImage( new ImageIcon(new File("images/smallOpenForisBanner.png").toURI().toURL()).getImage());
+				
+				initializeServer( null );
+				
+			    a.setOpenFileHandler(new OpenFilesHandler() {
+
+			        @Override
+			        public void openFiles(com.apple.eawt.AppEvent.OpenFilesEvent e) {
+			            for (File file : e.getFiles()){
+			            	try {
+								EarthApp.openProjectFileInRunningCollectEarth(file.getAbsolutePath());
+							} catch (IOException e1) {
+								logger.error("Error opening CEP file " + e1);
+							}
+			            }
+			        }
+
+			    });
+			    
+			}else{
+
+				initializeServer( doubleClickedProjecFile );
+			}
+			
 
 		} catch (final Exception e) {
 			// The logger factory has not been initialized, this will not work, just output to console
