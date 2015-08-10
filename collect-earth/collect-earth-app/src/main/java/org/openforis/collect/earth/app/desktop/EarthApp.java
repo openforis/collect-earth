@@ -35,8 +35,6 @@ import org.openforis.collect.earth.sampler.utils.KmlGenerationException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import com.apple.eawt.OpenFilesHandler;
-
 /**
  * Contains the main class that starts Collect Earth and opens Google Earth.
  * 
@@ -88,26 +86,7 @@ public class EarthApp {
 			}
 
 			if ( SystemUtils.IS_OS_MAC || SystemUtils.IS_OS_MAC_OSX){
-				com.apple.eawt.Application a = com.apple.eawt.Application.getApplication();
-				a.setDockIconImage( new ImageIcon(new File("images/smallOpenForisBanner.png").toURI().toURL()).getImage());
-				
-				initializeServer( null );
-				
-			    a.setOpenFileHandler(new OpenFilesHandler() {
-
-			        @Override
-			        public void openFiles(com.apple.eawt.AppEvent.OpenFilesEvent e) {
-			            for (File file : e.getFiles()){
-			            	try {
-								EarthApp.openProjectFileInRunningCollectEarth(file.getAbsolutePath());
-							} catch (IOException e1) {
-								logger.error("Error opening CEP file " + e1);
-							}
-			            }
-			        }
-
-			    });
-			    
+				handleMacStartup();
 			}else{
 
 				initializeServer( doubleClickedProjecFile );
@@ -123,6 +102,46 @@ public class EarthApp {
 			System.exit(1);
 		} finally {
 			closeSplash();
+		}
+	}
+
+	
+	public static void handleMacStartup(){
+		try {
+			Class c = Class.forName("com.apple.eawt.Application");
+			
+			com.apple.eawt.Application a = com.apple.eawt.Application.getApplication();
+			
+			try {
+				a.setDockIconImage( new ImageIcon(new File("images/largeOpenForisIcon.jpg").toURI().toURL()).getImage());
+			} catch (MalformedURLException e2) {
+				logger.error("Problems finding the doccker icon", e2);
+				
+			}			
+			
+			
+			a.setOpenFileHandler(new  com.apple.eawt.OpenFilesHandler.OpenFilesHandler() {
+
+			    @Override
+			    public void openFiles(com.apple.eawt.AppEvent.OpenFilesEvent e) {
+			        for (File file : e.getFiles()){
+			        	try {
+							EarthApp.openProjectFileInRunningCollectEarth(file.getAbsolutePath());
+						} catch (IOException e1) {
+							logger.error("Error opening CEP file " + e1);
+						}
+			        }
+			    }
+
+			});
+			
+			// LEts wait for the Apple event to arrive. If it did then the earthApp variable will be non-nulls 
+			Thread.sleep(2000);
+			if( earthApp == null ){
+				initializeServer( null );
+			}
+		} catch (ClassNotFoundException e) {
+			initializeServer( null );
 		}
 	}
 

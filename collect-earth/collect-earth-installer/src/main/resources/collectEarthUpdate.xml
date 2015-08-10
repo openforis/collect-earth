@@ -11,8 +11,6 @@
 	minor (or nothing) means that the user can update COllect Earth but he will not be notified when Collect Earth starts that there is a new version 
 	-->
     <version>PROJECT_VERSION major</version>
-
-    <disableSplashScreen>1</disableSplashScreen> 
     <platformFileList>
         <platformFile>
             <filename>collect-earth-installer-PROJECT_VERSION-windows-updater.exe</filename>
