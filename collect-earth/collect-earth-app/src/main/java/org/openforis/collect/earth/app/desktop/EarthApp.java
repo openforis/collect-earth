@@ -44,7 +44,7 @@ public class EarthApp {
 	private static Logger logger;
 	private static ServerController serverController;
 	private static EarthApp earthApp;
-
+ 
 	private static void closeSplash() {
 		try {
 			final SplashScreen splash = SplashScreen.getSplashScreen();
