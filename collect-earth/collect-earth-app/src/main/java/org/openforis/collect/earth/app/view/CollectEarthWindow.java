@@ -62,7 +62,7 @@ import org.springframework.stereotype.Component;
  */
 @Component
 @Lazy(false)
-public class CollectEarthWindow {
+public class CollectEarthWindow{
 
 	@Autowired
 	private LocalPropertiesService localPropertiesService;
@@ -90,7 +90,7 @@ public class CollectEarthWindow {
 	
 	@Autowired
 	private MissingPlotService missingPlotService;
-
+	
 	public static void endWaiting(JFrame frame) {
 		frame.setCursor(java.awt.Cursor.getPredefinedCursor(java.awt.Cursor.DEFAULT_CURSOR));
 	}
@@ -109,10 +109,8 @@ public class CollectEarthWindow {
 	
 
 	public CollectEarthWindow() throws IOException {
-
 		// Create and set up the window.
-		setFrame(new JFrame(Messages.getString("CollectEarthWindow.19"))); //$NON-NLS-1$
-
+		setFrame(new JFrame(Messages.getString("CollectEarthWindow.19") ) ); //$NON-NLS-1$		
 	}
 
 	@PostConstruct
@@ -122,7 +120,9 @@ public class CollectEarthWindow {
 			@Override
 			public void run() {
 				try {			
+					
 					CollectEarthWindow.this.openWindow();
+					
 				} catch (final Exception e) {
 					logger.error("Cannot start Earth App", e); //$NON-NLS-1$
 					System.exit(0);
@@ -555,5 +555,5 @@ public class CollectEarthWindow {
 		this.frame = frame;
 	}
 
-
+	
 }

@@ -14,11 +14,8 @@ import java.net.URLConnection;
 import java.util.Observable;
 import java.util.Observer;
 
-import javax.imageio.ImageReader;
-import javax.swing.ImageIcon;
 import javax.swing.JOptionPane;
 
-import org.apache.commons.lang3.SystemUtils;
 import org.apache.log4j.PropertyConfigurator;
 import org.openforis.collect.earth.app.CollectEarthUtils;
 import org.openforis.collect.earth.app.desktop.ServerController.ServerInitializationEvent;
@@ -85,12 +82,12 @@ public class EarthApp {
 				doubleClickedProjecFile = args[0];
 			}
 
-			if ( SystemUtils.IS_OS_MAC || SystemUtils.IS_OS_MAC_OSX){
+			/*if ( SystemUtils.IS_OS_MAC || SystemUtils.IS_OS_MAC_OSX){
 				handleMacStartup();
-			}else{
+			}else{*/
 
 				initializeServer( doubleClickedProjecFile );
-			}
+			//}
 			
 
 		} catch (final Exception e) {
@@ -106,13 +103,18 @@ public class EarthApp {
 	}
 
 	
-	public static void handleMacStartup(){
+/*	public static void handleMacStartup(){
 		try {
-			Class c = Class.forName("com.apple.eawt.Application");
+			Class application = Class.forName("com.apple.eawt.Application");
 			
-			com.apple.eawt.Application a = com.apple.eawt.Application.getApplication();
+			Method getApplication = application.getMethod("getApplication");
+				
+			Object applicationObject =  getApplication.invoke(this);
 			
 			try {
+				
+				
+				applicationObject.getMethod( "setDockIconImage" )
 				a.setDockIconImage( new ImageIcon(new File("images/largeOpenForisIcon.jpg").toURI().toURL()).getImage());
 			} catch (MalformedURLException e2) {
 				logger.error("Problems finding the doccker icon", e2);
@@ -144,7 +146,7 @@ public class EarthApp {
 			initializeServer( null );
 		}
 	}
-
+*/
 	public void generateKml() throws MalformedURLException, IOException, Exception {
 	
 			try {

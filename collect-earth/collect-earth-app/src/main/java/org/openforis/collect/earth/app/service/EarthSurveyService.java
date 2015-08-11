@@ -19,6 +19,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
+import java.util.Observable;
 
 import javax.annotation.PostConstruct;
 
@@ -52,7 +53,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
 @Component
-public class EarthSurveyService {
+public class EarthSurveyService{
 
 	private CollectSurvey collectSurvey;
 
