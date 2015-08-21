@@ -137,7 +137,8 @@ public final class ExportActionListener implements ActionListener {
 	}
 
 	private String getPreselectedName(DataFormat exportType, Date modifiedSince) {
-		String preselectName = "collectDataExport"; //$NON-NLS-1$
+		String preselectName = "collectedData_"; //$NON-NLS-1$
+		preselectName += earthSurveyService.getCollectSurvey().getName();
 		DateFormat dateFormat = new SimpleDateFormat("ddMMyy_HHmmss"); //$NON-NLS-1$
 		if( modifiedSince == null ){
 			preselectName += "_on_" + dateFormat.format( new Date() ) ; //$NON-NLS-1$
