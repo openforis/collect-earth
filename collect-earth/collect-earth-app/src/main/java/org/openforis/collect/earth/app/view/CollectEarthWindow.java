@@ -133,7 +133,7 @@ public class CollectEarthWindow{
 
 	@PreDestroy
 	public void cleanUp(){
-		this.frame.dispose();
+		this.getFrame().dispose();
 	}
 
 	private void addImportExportMenu(JMenu menu) {
@@ -239,7 +239,7 @@ public class CollectEarthWindow{
 		return new ActionListener() {
 			@Override
 			public void actionPerformed(ActionEvent e) {
-				frame.dispatchEvent(new WindowEvent(frame, WindowEvent.WINDOW_CLOSING));
+				getFrame().dispatchEvent(new WindowEvent(getFrame(), WindowEvent.WINDOW_CLOSING));
 			}
 		};
 	}
@@ -252,7 +252,7 @@ public class CollectEarthWindow{
 
 
 	private ActionListener getExportActionListener(final DataFormat exportFormat, final RecordsToExport xmlExportType) {
-		return new ExportActionListener(exportFormat, xmlExportType, frame, localPropertiesService, dataImportExportService,
+		return new ExportActionListener(exportFormat, xmlExportType, getFrame(), localPropertiesService, dataImportExportService,
 				earthSurveyService);
 	}
 
@@ -261,7 +261,7 @@ public class CollectEarthWindow{
 	}
 
 	private ActionListener getImportActionListener(final DataFormat importFormat) {
-		return new ImportActionListener(importFormat, frame, localPropertiesService, dataImportExportService);
+		return new ImportActionListener(importFormat, getFrame(), localPropertiesService, dataImportExportService);
 	}
 
 	private JMenu getLanguageMenu() {
@@ -278,8 +278,8 @@ public class CollectEarthWindow{
 						@Override
 						public void run() {
 
-							frame.getContentPane().removeAll();
-							frame.dispose();
+							getFrame().getContentPane().removeAll();
+							getFrame().dispose();
 
 							openWindow();
 						};
@@ -344,17 +344,17 @@ public class CollectEarthWindow{
 
 
 		menuItem = new JMenuItem(Messages.getString("CollectEarthWindow.54")); //$NON-NLS-1$
-		menuItem.addActionListener( new ApplyOptionChangesListener(this.frame, localPropertiesService) {
+		menuItem.addActionListener( new ApplyOptionChangesListener(this.getFrame(), localPropertiesService) {
 
 			@Override
 			protected void applyProperties() {
 
 				try {
-					if( kmlImportService.loadFromKml( CollectEarthWindow.this.frame) ){
+					if( kmlImportService.loadFromKml( CollectEarthWindow.this.getFrame()) ){
 						restartEarth();
 					}
 				} catch (Exception e1) {
-					JOptionPane.showMessageDialog( CollectEarthWindow.this.frame, e1.getMessage(), Messages.getString("CollectEarthWindow.63"), JOptionPane.ERROR_MESSAGE); //$NON-NLS-1$
+					JOptionPane.showMessageDialog( CollectEarthWindow.this.getFrame(), e1.getMessage(), Messages.getString("CollectEarthWindow.63"), JOptionPane.ERROR_MESSAGE); //$NON-NLS-1$
 					logger.error("Error importing KML file", e1); //$NON-NLS-1$
 				}
 
@@ -439,12 +439,12 @@ public class CollectEarthWindow{
 
 
 	private ActionListener getSaikuAnalysisActionListener() {
-		return new SaikuAnalysisListener(frame, getSaikuStarter());
+		return new SaikuAnalysisListener(getFrame(), getSaikuStarter());
 	}
 
 
 	private SaikuStarter getSaikuStarter() {
-		return new SaikuStarter(analysisSaikuService, frame);
+		return new SaikuStarter(analysisSaikuService, getFrame());
 
 	}
 
@@ -548,7 +548,22 @@ public class CollectEarthWindow{
 			JOptionPane.showMessageDialog(getFrame(), Messages.getString("CollectEarthWindow.35"), //$NON-NLS-1$
 					Messages.getString("CollectEarthWindow.36"), JOptionPane.ERROR_MESSAGE); //$NON-NLS-1$
 		}
+		
+		changeFrameTitle();
+	}
 
+	public void changeFrameTitle() {
+		String name = "No survey loaded";
+		if( earthSurveyService.getCollectSurvey() != null ){
+			if( !StringUtils.isBlank( earthSurveyService.getCollectSurvey().getProjectName( localPropertiesService.getUiLanguage().getLocale().getLanguage() ) ) ){
+				name =  " - " +earthSurveyService.getCollectSurvey().getProjectName( localPropertiesService.getUiLanguage().getLocale().getLanguage() );
+			}else if( !StringUtils.isBlank( earthSurveyService.getCollectSurvey().getProjectName() ) ){
+				name =  " - " +earthSurveyService.getCollectSurvey().getProjectName();
+			}else{
+				name =  " - " + earthSurveyService.getCollectSurvey().getDescription( localPropertiesService.getUiLanguage().getLocale().getLanguage() );
+			}
+		}
+		getFrame().setTitle( Messages.getString("CollectEarthWindow.19") + name );
 	}
 
 	void setFrame(JFrame frame) {
