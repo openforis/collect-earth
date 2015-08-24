@@ -1,0 +1,41 @@
+<settings xmlns="http://maven.apache.org/SETTINGS/1.0.0"
+  xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+  xsi:schemaLocation="http://maven.apache.org/SETTINGS/1.0.0
+                      http://maven.apache.org/xsd/settings-1.0.0.xsd">
+  <profiles>
+    <profile>
+		<id>assembly</id> 
+		<properties>
+			<installbuilder-home>PATH TO THE INSTALLBUILDER ROOT FOLDER</installbuilder-home>
+			<installbuilder-output-directory>PATH TO THE INSTALLBUILDER INSTALLERS OUTPUT FOLDER</installbuilder-output-directory>
+			<ftp_server>THE FTP SERVER WHERE THE UDATER XML IS STORED</ftp_server>
+			<ftp_folder>FOLDER TO STORE THE UPDATER XML IN</ftp_folder>
+			<bing_maps_key>YOUR BING MAPS KEY</bing_maps_key>
+			<here_app_code>YOUR HERE MAPS APP CODE</here_app_code>
+			<here_app_id>YOUR HERE MAPS ID</here_app_id>
+		</properties>
+	</profile>
+  </profiles>
+  <servers>
+    <server>
+      <id>openforis-releases</id>
+      <username>NEXUS SERVER USERNAME</username>
+      <password>NEXUS SERVER PASSWORD</password>
+    </server>
+	<server>
+      <id>openforis-snapshots</id>
+      <username>NEXUS SERVER USERNAME</username>
+      <password>NEXUS SERVER PASSWORD</password>
+    </server>
+	<server>
+      <id>openforis-3rd-party</id>
+      <username>NEXUS SERVER USERNAME</username>
+      <password>NEXUS SERVER PASSWORD</password>
+    </server>
+	<server>
+	  <id>github.com</id>
+	  <username>GITHUB USERNAME</username>
+	  <password>GITHUB PASSWORD</password>
+	</server>
+  </servers>
+</settings>
