@@ -214,7 +214,19 @@ public class EarthApp {
 			e.printStackTrace();
 		}
 	}
-
+	
+	/**
+	 * Generates the KML for the project and opens it in Google Earth
+	 * @param force_kml_recreation Set to true if you want to forece the regeneration of the KML even if is is up to date (you might want to do this to force the update of the placemark icons as the date changes)
+	 * @throws IOException
+	 * @throws KmlGenerationException
+	 */
+	public static void loadKmlInGoogleEarth(boolean force_kml_recreation) throws IOException,
+						KmlGenerationException {
+					earthApp.getKmlGeneratorService().generatePlacemarksKmzFile( force_kml_recreation );
+					earthApp.simulateClickKmz();
+	}
+	
 	public static void restart() {
 		try {
 
@@ -230,8 +242,7 @@ public class EarthApp {
 								event.equals(ServerInitializationEvent.SERVER_STARTED_EVENT) ||
 								event.equals(ServerInitializationEvent.SERVER_STARTED_WITH_DATABASE_CHANGE_EVENT)
 						) {
-							earthApp.getKmlGeneratorService().generatePlacemarksKmzFile();
-							earthApp.simulateClickKmz();
+							loadKmlInGoogleEarth( false );
 						}
 						
 						if( event.equals(ServerInitializationEvent.SERVER_STARTED_WITH_DATABASE_CHANGE_EVENT) || 
@@ -247,6 +258,8 @@ public class EarthApp {
 					}
 
 				}
+
+				
 
 			};
 
@@ -343,7 +356,7 @@ public class EarthApp {
 		}
 	}
 
-	private void openGoogleEarth() throws IOException {
+	private void openKmlOnGoogleEarth() throws IOException {
 		if (Desktop.isDesktopSupported()) {
 			Desktop.getDesktop().open(new File(KmlGeneratorService.KML_NETWORK_LINK_STARTER));
 		} else {
@@ -352,11 +365,11 @@ public class EarthApp {
 	}
 
 	private void checkForUpdates() {
-		new Thread() {
+		new Thread("Check for new Collect Earth versions on the server") {
 			@Override
 			public void run() {
 
-				// Wait a few seconds before checking for uodates
+				// Wait a few seconds before checking for updates
 				try {
 					Thread.sleep(10000);
 				} catch (InterruptedException e1) {
@@ -435,9 +448,8 @@ public class EarthApp {
 	private void simulateClickKmz() {
 		try {
 			getKmlGeneratorService().generateLoaderKmlFile();
-			openGoogleEarth();
+			openKmlOnGoogleEarth();
 		} catch (final Exception e) {
-			e.printStackTrace();
 			showMessage(Messages.getString("EarthApp.61")); //$NON-NLS-1$
 			logger.error("The KMZ file could not be found", e); //$NON-NLS-1$
 		}

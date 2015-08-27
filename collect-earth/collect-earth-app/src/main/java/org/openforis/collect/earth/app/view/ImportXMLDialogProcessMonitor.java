@@ -2,6 +2,7 @@ package org.openforis.collect.earth.app.view;
 
 import java.awt.Toolkit;
 import java.io.File;
+import java.io.IOException;
 import java.util.List;
 import java.util.Observable;
 import java.util.Observer;
@@ -10,6 +11,7 @@ import javax.swing.JFrame;
 import javax.swing.JOptionPane;
 import javax.swing.SwingUtilities;
 
+import org.openforis.collect.earth.app.desktop.EarthApp;
 import org.openforis.collect.earth.app.service.DataImportExportService;
 import org.openforis.collect.io.data.DataImportState;
 import org.openforis.collect.io.data.DataImportSummaryItem;
@@ -105,6 +107,8 @@ public class ImportXMLDialogProcessMonitor implements Observer{
 					}	});
 
 				dataImportService.importRecordsFrom(importedFile, importProcess, conflictingRecords );
+				
+				forceRefreshGoogleEarth();
 			}
 		} catch (final Exception e1) {
 			logger.error("", e1); //$NON-NLS-1$
@@ -112,6 +116,15 @@ public class ImportXMLDialogProcessMonitor implements Observer{
 			closeProgressmonitor();
 		}
 
+	}
+
+	private void forceRefreshGoogleEarth() {
+		try {
+			EarthApp.loadKmlInGoogleEarth(true);
+		} catch (Exception e) {
+			logger.error("Error while reloading the KML file on Google Earth", e);
+		}
+		
 	}
 
 	@Override

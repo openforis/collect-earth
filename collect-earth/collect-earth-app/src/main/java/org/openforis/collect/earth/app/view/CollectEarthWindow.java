@@ -553,7 +553,7 @@ public class CollectEarthWindow{
 	}
 
 	public void changeFrameTitle() {
-		String name = "No survey loaded";
+		String name = " - No survey loaded";
 		if( earthSurveyService.getCollectSurvey() != null ){
 			if( !StringUtils.isBlank( earthSurveyService.getCollectSurvey().getProjectName( localPropertiesService.getUiLanguage().getLocale().getLanguage() ) ) ){
 				name =  " - " +earthSurveyService.getCollectSurvey().getProjectName( localPropertiesService.getUiLanguage().getLocale().getLanguage() );

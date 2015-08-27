@@ -265,12 +265,16 @@ public class KmlGeneratorService {
 		return upToDate;
 
 	}
-
+	
 	public void generatePlacemarksKmzFile() throws IOException, KmlGenerationException {
+		generatePlacemarksKmzFile(false);
+	}
+
+	public void generatePlacemarksKmzFile(boolean force_recreation ) throws IOException, KmlGenerationException {
 
 		logger.info("START - Generate KMZ file"); //$NON-NLS-1$
 
-		if (!isKmlUpToDate()) {
+		if (force_recreation || !isKmlUpToDate()) {
 
 			generateKml();
 
