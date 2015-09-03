@@ -56,7 +56,7 @@ public class LoadProjectFileServlet {
 				}
 
 			} catch (IllegalArgumentException | ZipException e) {
-				logger.error("Error loading the projec file " + projectFilePath , e); //$NON-NLS-1$
+				logger.error("Error loading the project file " + projectFilePath , e); //$NON-NLS-1$
 				response.setStatus(500);
 			}
 		}

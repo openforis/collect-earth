@@ -116,7 +116,7 @@ public class EarthProjectsService {
 	 * @return True is the project was loaded corretlt
 	 * @throws IOException If the projct folder or one of its files cannot be found
 	 */
-	public boolean loadProjectInFolder(File projectFolder ) throws IOException{
+	public boolean loadProjectInFolder(File projectFolder) throws IOException{
 		
 		File projectPropertiesFile = getProjectPropertiesFile( projectFolder );
 		
@@ -128,7 +128,10 @@ public class EarthProjectsService {
 					&&
 				validateProjectDefinitionFile(projectPropertiesFile) 
 		){
-		
+
+			// Remove the version of the survey used so that it is asked again to the user!
+			localPropertiesService.removeModelVersionName();
+			
 			Properties projectProperties = getProjectProperties( projectPropertiesFile );
 			
 			applyPropertiesToCollectEarth( projectProperties, projectFolder );
@@ -136,6 +139,7 @@ public class EarthProjectsService {
 			addToProjectList(projectFolder);
 			
 			setProjectDefinitionMD5(projectFolder);
+	
 			
 			success = true;
 		}
@@ -230,7 +234,7 @@ public class EarthProjectsService {
 	public boolean loadCompressedProjectFile( File projectZipFile ) throws IllegalArgumentException, IOException, ZipException{
 				
 		File unzippedFolder = unzipContents(projectZipFile);
-		return loadProjectInFolder(unzippedFolder);
+		return( loadProjectInFolder(unzippedFolder) );
 	}
 
 

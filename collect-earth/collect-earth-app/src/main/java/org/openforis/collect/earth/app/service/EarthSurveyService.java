@@ -19,9 +19,9 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
-import java.util.Observable;
 
 import javax.annotation.PostConstruct;
+import javax.swing.JOptionPane;
 
 import org.openforis.collect.earth.app.service.LocalPropertiesService.EarthProperty;
 import org.openforis.collect.earth.app.view.Messages;
@@ -39,6 +39,7 @@ import org.openforis.collect.model.RecordValidationReportGenerator;
 import org.openforis.collect.model.RecordValidationReportItem;
 import org.openforis.collect.persistence.RecordPersistenceException;
 import org.openforis.collect.persistence.SurveyImportException;
+import org.openforis.idm.metamodel.ModelVersion;
 import org.openforis.idm.metamodel.NodeLabel.Type;
 import org.openforis.idm.metamodel.Schema;
 import org.openforis.idm.metamodel.xml.IdmlParseException;
@@ -129,8 +130,9 @@ public class EarthSurveyService{
 
 	private CollectRecord createRecord(String sessionId) throws RecordPersistenceException {
 		final Schema schema = getCollectSurvey().getSchema();
+		String modelVersionName = localPropertiesService.getModelVersionName();
 		final CollectRecord record = recordManager
-				.create(getCollectSurvey(), schema.getRootEntityDefinition(ROOT_ENTITY_NAME), null, null, sessionId);
+				.create(getCollectSurvey(), schema.getRootEntityDefinition(ROOT_ENTITY_NAME), null, modelVersionName, sessionId);
 		return record;
 	}
 
@@ -255,9 +257,13 @@ public class EarthSurveyService{
 						// THE DB
 						String surveyName = EARTH_SURVEY_NAME + localPropertiesService.getValue( EarthProperty.SURVEY_NAME );
 						survey = surveyManager.importModel(idmSurveyModel, surveyName, false, true);
+						
 					} else { // UPDATE ALREADY EXISTANT MODEL
 						survey = surveyManager.updateModel(idmSurveyModel, false, true);
 					}
+					
+					checkVersions(survey);
+					
 					setCollectSurvey(survey);
 				} else {
 					logger.error("The survey definition file could not be found in " + idmSurveyModel.getAbsolutePath()); //$NON-NLS-1$
@@ -268,6 +274,27 @@ public class EarthSurveyService{
 			}
 		}
 
+	}
+
+	private void checkVersions( CollectSurvey loadedCollectSurvey) {
+		
+		if( !loadedCollectSurvey.getVersions().isEmpty() ) {
+			if( loadedCollectSurvey.getVersions().size() == 1 ){
+				ModelVersion onlyModelVersion = loadedCollectSurvey.getVersions().get(0);
+				localPropertiesService.setModelVersionName( onlyModelVersion.getName());
+			}
+			
+/*			
+ * 	The model version name comes directly from the CEP file ( initial earth properties )
+ */
+			else{
+				
+				// Choose one of the versions
+				ModelVersion chosenVersion = (ModelVersion) JOptionPane.showInputDialog( null, "Choose one survey version to work with", "Choose version" , JOptionPane.QUESTION_MESSAGE, null, loadedCollectSurvey.getVersions().toArray(), loadedCollectSurvey.getVersions().get( loadedCollectSurvey.getVersions().size() - 1 ) );
+				localPropertiesService.setModelVersionName( chosenVersion.getName() );
+				
+			}
+		}
 	}
 
 	public boolean isPlacemarkEdited(Map<String, String> parameters) {
@@ -406,7 +433,7 @@ public class EarthSurveyService{
 		result.setSuccess(true);
 		result.setCollectRecord(record);
 		result.setSkipFilled(localPropertiesService.shouldJumpToNextPlot());
-		Map<String, PlacemarkInputFieldInfo> infoByParameterName = collectParametersHandler.extractFieldInfoByParameterName(record, localPropertiesService.getUiLanguage().getLocale().getLanguage() );
+		Map<String, PlacemarkInputFieldInfo> infoByParameterName = collectParametersHandler.extractFieldInfoByParameterName(record, localPropertiesService.getUiLanguage().getLocale().getLanguage(), localPropertiesService.getModelVersionName() );
 		
 		//adjust error messages
 		for (Entry<String, PlacemarkInputFieldInfo> entry : infoByParameterName.entrySet()) {
