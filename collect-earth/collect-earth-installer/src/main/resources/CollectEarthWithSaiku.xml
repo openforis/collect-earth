@@ -12,6 +12,8 @@
     <defaultLanguage>auto</defaultLanguage>
     <allowLanguageSelection>1</allowLanguageSelection>
     <languageSelectionStyle>onlyNativeNames</languageSelectionStyle>
+        <requireInstallationByRootUser>0</requireInstallationByRootUser>
+     <requestedExecutionLevel>asInvoker</requestedExecutionLevel>
        <!-- <createOsxBundleZip>1</createOsxBundleZip> -->
      <createOsxBundleDmg>1</createOsxBundleDmg>
     <componentList>
@@ -41,11 +43,13 @@
                 </folder>
             </folderList>
             <postInstallationActionList>
+           
                 <addEnvironmentVariable>
                     <name>COLLECT_EARTH_JRE_HOME</name>
                     <scope>system</scope>
                     <value>${installdir}/java</value>
                 </addEnvironmentVariable>
+                
 				<runProgram>
 		        	<!--  Link the COLLECT_EARTH_JRE_HOME environment variable to the Java folder -->
 		        	<abortOnError>0</abortOnError>

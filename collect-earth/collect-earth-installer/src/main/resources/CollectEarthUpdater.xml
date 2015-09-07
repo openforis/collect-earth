@@ -6,6 +6,8 @@
     <logoImage>installer_logo.png</logoImage>
     <splashImage>installer_splash.png</splashImage>
     <createOsxBundleZip>1</createOsxBundleZip>
+    <requireInstallationByRootUser>0</requireInstallationByRootUser>
+     <requestedExecutionLevel>asInvoker</requestedExecutionLevel>
     <componentList>
         <component>
             <name>default</name>
@@ -46,7 +48,7 @@
 
         <initializationActionList>
         <registryGet>
-            <key>HKEY_LOCAL_MACHINE\SOFTWARE\${project.vendor}\${project.fullName}</key>
+            <key>HKEY_CURRENT_USER\Software\${project.vendor}\${project.fullName}</key>
             <name>InstallationPath</name>
             <variable>installdir</variable>
         </registryGet>
