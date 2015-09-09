@@ -1,8 +1,8 @@
 // Plot Landsat 8 NDVI band value means Collect Earth plot.
 
 
-var startTime = '2000-05-1';
-var endTime = '2015-01-01';
+var startTime = '2000-01-01';
+var endTime = '${todayDate}';
 
 var plot = ee.Geometry.Polygon(
             [

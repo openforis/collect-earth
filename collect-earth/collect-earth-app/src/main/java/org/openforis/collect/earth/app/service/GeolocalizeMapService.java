@@ -4,6 +4,8 @@ import java.io.File;
 import java.io.IOException;
 import java.net.MalformedURLException;
 import java.net.URL;
+import java.text.SimpleDateFormat;
+import java.util.Date;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -91,6 +93,7 @@ public class GeolocalizeMapService {
 					placemark);
 
 			data.put("placemark", placemark);
+			
 		} catch (final TransformException e) {
 			logger.error("Exception producing Bing map data for html ", e);
 		}
@@ -106,8 +109,16 @@ public class GeolocalizeMapService {
 	public URL getTemporaryUrl(String[] centerCoordinates, String freemarkerTemplate) {
 
 		final Map<String,Object> data = getPlacemarkData(centerCoordinates);
+		addTodaysDate(data);
+		
 		return processTemplateWithData(freemarkerTemplate, data);
 
+	}
+
+	public void addTodaysDate(final Map<String, Object> data) {
+		SimpleDateFormat dt1 = new SimpleDateFormat("yyyy-mm-dd"); 
+		String dateAsExpected = dt1.format(new Date() );
+		data.put("todayDate", dateAsExpected);
 	}
 
 	private URL processTemplateWithData(String freemarkerTemplate, final Map<String, Object> data) {

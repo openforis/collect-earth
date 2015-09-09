@@ -586,14 +586,14 @@ public class BrowserService implements Observer{
 				 * @return The generic script in the resources folder or the file called eePlaygroundScript.fmt in hte same folder where the current project file resides
 				 */
 				private String getGeePlaygroundTemplate() {
-					String genericPlaygroundScript = GeolocalizeMapService.FREEMARKER_GEE_PLAYGROUND_TEMPLATE;
-					
+
 					String projectPlaygroundScript = getProjectGeeScript();
-					if( getProjectGeeScript() != null  ){
+					if( projectPlaygroundScript != null  ){
 						return projectPlaygroundScript;
+					}else{
+						return GeolocalizeMapService.FREEMARKER_GEE_PLAYGROUND_TEMPLATE;
 					}
 					
-					return genericPlaygroundScript;
 				};
 			};
 			loadEEThread.start();
