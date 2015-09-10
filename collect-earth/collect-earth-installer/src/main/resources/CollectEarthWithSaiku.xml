@@ -24,8 +24,8 @@
             <file>CollectEarthMain.xml</file>
         </include>
         <component>
-            <name>saiku</name>
-            <description>saiku server</description>
+            <name>Saiku</name>
+            <description>Saiku server 2.6</description>
             <canBeEdited>1</canBeEdited>
             <selected>1</selected>
             <show>1</show>
@@ -37,7 +37,7 @@
                     <platforms>all</platforms>
                     <distributionFileList>
                         <distributionDirectory>
-                            <origin>C:/opt/apps/saiku-server_2.6</origin>
+                            <origin>C:\Users\SanchezPausDiaz\git\saikuForCollect\saiku-server_2.6</origin>
                         </distributionDirectory>
                     </distributionFileList>
                 </folder>
@@ -93,14 +93,13 @@
     <defaultUnixFilePermissions>777</defaultUnixFilePermissions>
     <defaultUnixOwner>${system_username}</defaultUnixOwner>
     <enableDebugger>1</enableDebugger>
-    <enableRollback>1</enableRollback>
+    <enableRollback>0</enableRollback>
     <enableTimestamp>1</enableTimestamp>
     <saveRelativePaths>1</saveRelativePaths>
     <splashScreenDelay>1000</splashScreenDelay>
     <vendor>Open Foris Initiative</vendor>
     <windowsExecutableIcon>installer_icon.ico</windowsExecutableIcon>
     
-    <requireInstallationByRootUser>0</requireInstallationByRootUser>
 	<!-- <osxPlatforms>osx-intel osx-ppc osx-10.2</osxPlatforms> -->
 	<!-- Configures the final destination of the installation log -->
    <installationLogFile>${installdir}/${project.shortName}-installLog.log</installationLogFile>
