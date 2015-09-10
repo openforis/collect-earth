@@ -44,11 +44,16 @@
             </folderList>
             <postInstallationActionList>
            
-                <addEnvironmentVariable>
-                    <name>COLLECT_EARTH_JRE_HOME</name>
-                    <scope>system</scope>
-                    <value>${installdir}/java</value>
-                </addEnvironmentVariable>
+                 <substitute>
+		            <files>${installdir}/saiku-server_2.6/setclasspath.*</files>
+		            <type>regexp</type>
+		            <substitutionList>
+		                <substitution>
+		                    <pattern>REPLACE_WITH_COLLECT_EARTH_JRE_HOME</pattern>
+		                    <value>${installdir}/java</value>
+		                </substitution>
+		            </substitutionList>
+		        </substitute>
                 
 				<runProgram>
 		        	<!--  Link the COLLECT_EARTH_JRE_HOME environment variable to the Java folder -->

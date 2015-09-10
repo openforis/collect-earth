@@ -244,6 +244,8 @@
                 </substitution>
             </substitutionList>
         </substitute>
+               
+        
         <!-- Set the Instalaltion directory on the registry (windows) or ini file( Linux/Mac) so that it can be used by the updater -->
         <registrySet>
             <!-- Update the installed version -->
@@ -276,40 +278,6 @@
                 </platformTest>
             </ruleList>
 		</changePermissions>
-        <!--
-        <runProgram>
-            <program>chown</program>
-            <programArguments>-fR ${system_username}  "${installdir}/${java_launcher_binary_name}" "${installdir}/earth_error.log" "${installdir}/earth.properties" "${installdir}/generated" "${installdir}/collectEarthDatabase.db" "${installdir}/collectEarthDatabase.dbSaiku"</programArguments>
-            <ruleList>
-                <platformTest>
-                    <negate>1</negate>
-                    <type>windows</type>
-                </platformTest>
-            </ruleList>
-        </runProgram>
-        <runProgram program="chmod">
-            <programArguments>-R ugo+rwX "${installdir}/${java_launcher_binary_name}" "${installdir}/earth_error.log" "${installdir}/earth.properties" "${installdir}/generated" "${installdir}/collectEarthDatabase.db" "${installdir}/collectEarthDatabase.dbSaiku"</programArguments>
-            <ruleList>
-                <platformTest>
-                    <negate>1</negate>
-                    <type>windows</type>
-                </platformTest>
-            </ruleList>
-        </runProgram>
-		
-        -->
-        
-        <!--
-        <copyFile>
-            <abortOnError>0</abortOnError>
-            <destination>${installdir}/${java_launcher_binary_name}/Contents/Resources/installbuilder.icns</destination>
-            <origin>${installdir}/launcher_icon.icns</origin>
-            <ruleList>
-                <compareText logic="equals" text="${platform_name}" value="osx"/>
-            </ruleList>
-        </copyFile>
-        -->
-        
         
         <createSymLink>
             <linkName>~/Desktop/Collect Earth.app</linkName>
