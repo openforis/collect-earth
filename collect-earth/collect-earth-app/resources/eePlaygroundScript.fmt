@@ -1,91 +1,59 @@
-// Plot Landsat 8 NDVI band value means Collect Earth plot.
+// Script automatically produced by Collect Earth for the plot that has been clicked on Google Earht. See bottom of the script for more info on customization.
+// This script will show graphs of NDVI, EVI and NDWI mean-values for the pixels contained within the plot.
 
-
+// The date that is used as the start of the chart ( if the dataset is available )
+// You can change the start date manually and hit the button "Run""again to reload the charts using the different time series
 var startTime = '2000-01-01';
+
+// The last date for which the chart is generated. Should be today's date
 var endTime = '${todayDate}';
 
+// The polygon that describes the plot.
 var plot = ee.Geometry.Polygon(
             [
-			<#list placemark.shape as coord>
-			[${coord.longitude}, ${coord.latitude}],
-			</#list>  
+				// The placemark variable has an array called shape that contains the locations of the corners of the polygon
+				<#list placemark.shape as coord>
+					[${coord.longitude}, ${coord.latitude}],
+				</#list>  
 			]);
-var landsat8Ndvi32Day = ee.ImageCollection('LANDSAT/LC8_L1T_32DAY_NDVI')
-    .filterDate(startTime, endTime)
-    .select('NDVI');
 
-var ndviTimeSeries =
-    Chart.image.series(landsat8Ndvi32Day, plot, ee.Reducer.mean(), 30);
+// Load the Landsat 8 - 32 Day Normalized Difference Vegetation Index composite. This is only available from 2013 onwards. Select the NDVI band. Resolution of the pixels is 30 meters.
+var landsat8Ndvi32Day = ee.ImageCollection('LANDSAT/LC8_L1T_32DAY_NDVI').filterDate(startTime, endTime).select('NDVI');
 
-ndviTimeSeries = ndviTimeSeries.setOptions({
-  title: 'Landsat 8 32 days NDVI',
-  hAxis: {
-    title: 'Date'
-  },
-  vAxis: {
-    title: 'NDVI'
-  }
-});
+// Generate the chart of the NDVI values through the time series. Use the mean of the NDVI value of the pixels that fall within the plot.
+var ndviTimeSeries = Chart.image.series(landsat8Ndvi32Day, plot, ee.Reducer.mean(), 30);
+ndviTimeSeries = ndviTimeSeries.setOptions({title: 'Landsat 8 32 days NDVI', hAxis: {title: 'Date' },vAxis: { title: 'NDVI'}});
 
+// Show the NDVI chart on the console
 print(ndviTimeSeries);
 
+// Load the Landsat 8 - 32 Day Normalized Difference Wetness Index composite. This is only available from 2013 onwards. Select the NDWI band. Resolution of the pixels is 30 meters.
+var landsat8Ndwi32Day = ee.ImageCollection('LANDSAT/LC8_L1T_32DAY_NDWI').filterDate(startTime, endTime).select('NDWI');
+ 
+// Generate the chart of the NDWI values through the time series. Use the mean of the NDWI value of the pixels that fall within the plot.
+var ndwiTimeSeries = Chart.image.series(landsat8Ndwi32Day, plot, ee.Reducer.mean(), 30);
+ndwiTimeSeries = ndwiTimeSeries.setOptions({title: 'Landsat 8 32 days NDWI', hAxis: {title: 'Date' }, vAxis: { title: 'NDWI' }});
 
-var landsat8Ndwi32Day = ee.ImageCollection('LANDSAT/LC8_L1T_32DAY_NDWI')
-    .filterDate(startTime, endTime)
-    .select('NDWI');
-    
-var ndwiTimeSeries =
-    Chart.image.series(landsat8Ndwi32Day, plot, ee.Reducer.mean(), 30);
-
-ndwiTimeSeries = ndwiTimeSeries.setOptions({
-  title: 'Landsat 8 32 days NDWI',
-  hAxis: {
-    title: 'Date'
-  },
-  vAxis: {
-    title: 'NDWI'
-  }
-});
-
+//Show the NDWI chart on the console 
 print(ndwiTimeSeries);
 
-var landsat8Evi32Day = ee.ImageCollection('LANDSAT/LC8_L1T_32DAY_EVI')
-    .filterDate(startTime, endTime)
-    .select('EVI');
-    
-var eviTimeSeries =
-    Chart.image.series(landsat8Evi32Day, plot, ee.Reducer.mean(), 30);
+// Load the Landsat 8 - 32 Day Enhanced Vegetation Index composite. This is only available from 2013 onwards. Select the EVI band. Resolution of the pixels is 30 meters.
+var landsat8Evi32Day = ee.ImageCollection('LANDSAT/LC8_L1T_32DAY_EVI').filterDate(startTime, endTime).select('EVI');
 
-eviTimeSeries = eviTimeSeries.setOptions({
-  title: 'Landsat 8 32 days EVI',
-  hAxis: {
-    title: 'Date'
-  },
-  vAxis: {
-    title: 'EVI'
-  }
-});
+// Generate the chart of the EVI values though the time series. Use the mean of the EVI value of the pixels that fall within the plot.
+var eviTimeSeries =  Chart.image.series(landsat8Evi32Day, plot, ee.Reducer.mean(), 30);
+eviTimeSeries = eviTimeSeries.setOptions({title: 'Landsat 8 32 days EVI', hAxis: {title: 'Date'}, vAxis: {title: 'EVI' }});
 
+//Show the EVI chart on the console
 print(eviTimeSeries);
 
-
-var modisNoaaNdvi = ee.ImageCollection('MODIS/MOD13Q1')
-    .filterDate(startTime, endTime)
-    .select('NDVI');
+// Load the MODIS  Vegetation Index composite. Select the NDVI band. Resolution of the pixels is 250 meters.
+var modisNoaaNdvi = ee.ImageCollection('MODIS/MOD13Q1').filterDate(startTime, endTime).select('NDVI');
     
-var modisNoaaTimeSeries =
-    Chart.image.series(modisNoaaNdvi, plot, ee.Reducer.mean(), 30);
+var modisNoaaTimeSeries = Chart.image.series(modisNoaaNdvi, plot, ee.Reducer.mean(), 30);
+modisNoaaTimeSeries = modisNoaaTimeSeries.setOptions({  title: 'MOD13Q1 Vegetation Indices 16-Day Global 250m',hAxis:{title: 'Date'},vAxis: {title: 'NDVI'}});
 
-modisNoaaTimeSeries = modisNoaaTimeSeries.setOptions({
-  title: 'MOD13Q1 Vegetation Indices 16-Day Global 250m',
-  hAxis: {
-    title: 'Date'
-  },
-  vAxis: {
-    title: 'NDVI'
-  }
-});
-
+// Show the MODIS NDVI chart on the console
 print(modisNoaaTimeSeries);
 
 var modisGoogleNdvi = ee.ImageCollection('MODIS/MCD43A4_NDVI')
@@ -129,26 +97,32 @@ landsat7MonthlyTimeSeries = landsat7MonthlyTimeSeries.setOptions({
 
 print(landsat7MonthlyTimeSeries);
 
-var landsat5AnnualNdvi = ee.ImageCollection('LANDSAT/LT5_L1T_ANNUAL_NDVI')
-    .filterDate("1984-1-1", endTime)
-    .select('NDVI');
-    
-var landsat5AnnualTimeSeries =
-    Chart.image.series(landsat5AnnualNdvi, plot, ee.Reducer.mean(), 30);
+// Landsat 5 was active from 1984 onwards but not all areas of the world are cover every year ( or even at all)
+// The last graphic is going to be a tools to help the operator to find Landsat 5 imagery.
+// If the scater-plot shows no results for one year it means that there is no single image for the plot area during a whole year.
 
-landsat5AnnualTimeSeries = landsat5AnnualTimeSeries.setOptions({
-  title: 'Presence of Landsat 5 Annual imagery',
-  hAxis: {
-    title: 'Month'
-  },
-  vAxis: {
-    title: 'NDVI'
-  }
-});
+// Load the Landsat 5 NDVI Annual composite from 1984 onwards. This composite is not realistic as the annual NDVI value consists of only the first NDVI value of the year and not an average.
+var landsat5AnnualNdvi = ee.ImageCollection('LANDSAT/LT5_L1T_ANNUAL_NDVI').filterDate("1984-1-1", endTime).select('NDVI');
+    
+// Generate the chart of the NDVI values through time.
+var landsat5AnnualTimeSeries = Chart.image.series(landsat5AnnualNdvi, plot, ee.Reducer.mean(), 30);
+landsat5AnnualTimeSeries = landsat5AnnualTimeSeries.setOptions({ title: 'Presence of Landsat 5 Annual imagery', hAxis: {title: 'Month'},  vAxis: {    title: 'NDVI'  }});
+
+// Set the chart as scatter type. Only interest is to see if there is an available image for one year to avoid looking for images blindly.
 landsat5AnnualTimeSeries = landsat5AnnualTimeSeries.setChartType('ScatterChart');
 
-
+// Show the Landsa 5 scatter plot on the console.
 print(landsat5AnnualTimeSeries);
 
+// Add the plot polygon to the map
 Map.addLayer(plot);
+
+// Center the map on the plot location (actually the top-left corner of the plot ) and set Zoom level to 15
 Map.setCenter(${placemark.shape[0].longitude}, ${placemark.shape[0].latitude}, 15);
+
+
+// This is an automatically generated script. 
+// If you want to Collect Earth to run a different script for your project when a user clicks on a plot on Google Earth follow these steps :
+// 1. Copy the contents of this file : https://raw.githubusercontent.com/openforis/collect-earth/master/collect-earth/collect-earth-app/resources/eePlaygroundScript.fmt
+// 2. Modify the script as you please but keep the lines where the plot variable has been defined using Freemarker tamplate variables
+// 3. Save the script as "eePlaygroundScript.fmt" inside the root folder of your CEP project file .
