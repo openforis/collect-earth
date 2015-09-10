@@ -71,12 +71,13 @@
 		
 		var description = "";
 		
-		if( startDate != null ){
-			description += "First Image " +  startDate + "<br/>";
-		}
+		
+		// if( startDate != null ){
+		//	description += "First Image " +  startDate + "<br/>";
+		//}
 		
 		if( endDate != null ){
-			description += "Last Image " +  endDate;
+			description += "Acquisition date : " +  endDate;
 		}
 		
 		if( startDate ==null && endDate == null ){
@@ -91,7 +92,7 @@
 							  description: description, 
 							  showPointer: false, 
 							  
-							  offset: new Microsoft.Maps.Point(-100,0)};
+							  offset: new Microsoft.Maps.Point(20,20)};
 		var myInfobox = new Microsoft.Maps.Infobox(corner, infoboxOptions);
 		
 		// Add the info box to the map
