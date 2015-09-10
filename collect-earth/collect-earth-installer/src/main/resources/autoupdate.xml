@@ -1,0 +1,9 @@
+<autoUpdateProject>
+  <fullName>Collect Earth</fullName>
+  <shortName>CollectEarth</shortName>
+  <vendor>Open Foris Initiative</vendor>
+  <version>1.2.1</version>  
+  <requireInstallationByRootUser>0</requireInstallationByRootUser>
+  <requestedExecutionLevel>asInvoker</requestedExecutionLevel>
+  <disableSplashScreen>1</disableSplashScreen>
+</autoUpdateProject>
