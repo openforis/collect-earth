@@ -244,27 +244,7 @@
                 </substitution>
             </substitutionList>
         </substitute>
-               
-        
-        <!-- Set the Instalaltion directory on the registry (windows) or ini file( Linux/Mac) so that it can be used by the updater -->
-        <registrySet>
-            <!-- Update the installed version -->
-            <key>HKEY_CURRENT_USER\Software\${project.vendor}\${project.fullName}</key>
-            <name>InstallationPath</name>
-            <type>REG_SZ</type>
-            <value>${installdir}</value>
-        </registrySet>
-        <iniFileSet>
-                <file>~/.${project.vendor}-${project.fullName}.ini</file>
-                <key>InstallationPath</key>
-                <section>details</section>
-                <value>${installdir}</value>
-                <ruleList>
-            		<platformTest negate="1" type="windows"/>
-        		</ruleList>
-        </iniFileSet>       
-	    <addFilesToUninstaller files="/etc/${project.vendor}-${project.fullName}.ini"/>
-	
+        	
         <changePermissions>
             <files>${installdir}/${java_launcher_binary_name};${installdir}/*.log;${installdir}/*.properties;${installdir}/generated;${installdir}/*.db;${installdir}/*.dbSaiku</files>
             <permissions>0777</permissions>
