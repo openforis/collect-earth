@@ -2,11 +2,14 @@ package org.openforis.collect.earth.app.desktop;
 
 import java.awt.Desktop;
 import java.awt.Font;
+import java.awt.Image;
 import java.awt.SplashScreen;
 import java.io.BufferedReader;
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStreamReader;
+import java.lang.reflect.Method;
+import java.lang.reflect.Proxy;
 import java.net.MalformedURLException;
 import java.net.Socket;
 import java.net.URL;
@@ -14,8 +17,10 @@ import java.net.URLConnection;
 import java.util.Observable;
 import java.util.Observer;
 
+import javax.swing.ImageIcon;
 import javax.swing.JOptionPane;
 
+import org.apache.commons.lang.SystemUtils;
 import org.apache.log4j.PropertyConfigurator;
 import org.openforis.collect.earth.app.CollectEarthUtils;
 import org.openforis.collect.earth.app.desktop.ServerController.ServerInitializationEvent;
@@ -76,18 +81,18 @@ public class EarthApp {
 			
 			logger = LoggerFactory.getLogger(EarthApp.class);
 
-			String doubleClickedProjecFile = null;
+			String doubleClickedProjectFile = null;
 
 			if (args != null && args.length == 1) {
-				doubleClickedProjecFile = args[0];
+				doubleClickedProjectFile = args[0];
 			}
 
-			/*if ( SystemUtils.IS_OS_MAC || SystemUtils.IS_OS_MAC_OSX){
+			if ( SystemUtils.IS_OS_MAC || SystemUtils.IS_OS_MAC_OSX){
 				handleMacStartup();
-			}else{*/
+			}else{
 
-				initializeServer( doubleClickedProjecFile );
-			//}
+				initializeServer( doubleClickedProjectFile );
+			}
 			
 
 		} catch (final Exception e) {
@@ -103,50 +108,55 @@ public class EarthApp {
 	}
 
 	
-/*	public static void handleMacStartup(){
+	/**
+	 * Special code that uses reflection to handle how the application should behave in Mac OS X.
+	 * Without reflection the code provokes compilation-time errors.
+	 * @throws Exception
+	 */
+	@SuppressWarnings({ "rawtypes", "unchecked" })
+	public static void handleMacStartup() throws Exception{
 		try {
-			Class application = Class.forName("com.apple.eawt.Application");
+			Class applicationClass = Class.forName("com.apple.eawt.Application");
+			Method getApplicationMethod = applicationClass.getMethod("getApplication");
+			Method setDockIconImageMethod = applicationClass.getMethod( "setDockIconImage", Image.class );
 			
-			Method getApplication = application.getMethod("getApplication");
-				
-			Object applicationObject =  getApplication.invoke(this);
+			Class openFilesHandlerInterface = Class.forName("com.apple.eawt.OpenFilesHandler");
+			Method setOpenFileHandlerMethod = applicationClass.getMethod( "setOpenFileHandler", openFilesHandlerInterface );
 			
-			try {
-				
-				
-				applicationObject.getMethod( "setDockIconImage" )
-				a.setDockIconImage( new ImageIcon(new File("images/largeOpenForisIcon.jpg").toURI().toURL()).getImage());
+			// SET THE MAC OS X DOCK ICON!
+			// Get an Application object
+			Object applicationObject  =  getApplicationMethod.invoke( null );
+			try {	
+				Image dockIconImage = new ImageIcon(new File("images/largeOpenForisIcon.jpg").toURI().toURL()).getImage();
+				// Invoke the setDockIconImage on the application object using the dockIconImage as an argument
+				setDockIconImageMethod.invoke(applicationObject, dockIconImage );
 			} catch (MalformedURLException e2) {
-				logger.error("Problems finding the doccker icon", e2);
-				
+				logger.error("Problems finding the doccker icon", e2);			
 			}			
+			// -------------------------------------------
 			
+			// DEFINE A LISTENER THAT IS REGISTERED BY THE OS TO HEAR DOUBLE-CLICK EVENTS AND REGISTER ITSELF AS THE CEP OPENER
+			MacOpenFilesInvocationHandler macOpenFileHandlerProxyInterface = new MacOpenFilesInvocationHandler();
+			Object openFilesHandlerImplementation = Proxy.newProxyInstance( 
+					applicationClass.getClassLoader(), 
+					new Class[]{ openFilesHandlerInterface },	
+					macOpenFileHandlerProxyInterface 
+			);
 			
-			a.setOpenFileHandler(new  com.apple.eawt.OpenFilesHandler.OpenFilesHandler() {
-
-			    @Override
-			    public void openFiles(com.apple.eawt.AppEvent.OpenFilesEvent e) {
-			        for (File file : e.getFiles()){
-			        	try {
-							EarthApp.openProjectFileInRunningCollectEarth(file.getAbsolutePath());
-						} catch (IOException e1) {
-							logger.error("Error opening CEP file " + e1);
-						}
-			        }
-			    }
-
-			});
+			// Call the setOpenFileHandler method of the application object using the 
+			setOpenFileHandlerMethod.invoke(applicationObject, openFilesHandlerImplementation );
 			
-			// LEts wait for the Apple event to arrive. If it did then the earthApp variable will be non-nulls 
+			// Lets wait for the Apple event to arrive. If it did then the earthApp variable will be non-nulls 
 			Thread.sleep(2000);
 			if( earthApp == null ){
 				initializeServer( null );
 			}
-		} catch (ClassNotFoundException e) {
+		} catch (Exception e) {
+			logger.error("Error while defining the double-click behaviour on CEP files in Mac OS X", e);
 			initializeServer( null );
 		}
 	}
-*/
+
 	public void generateKml() throws MalformedURLException, IOException, Exception {
 	
 			try {
