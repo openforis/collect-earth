@@ -48,7 +48,8 @@ public class PlacemarkBrowserServlet{
 						
 						openGeePlaygroundWindow(latLongCoordinates);
 						
-						openHereMapsWindow(latLongCoordinates);
+						// Until further notice
+						// openHereMapsWindow(latLongCoordinates);
 					
 				}
 				
