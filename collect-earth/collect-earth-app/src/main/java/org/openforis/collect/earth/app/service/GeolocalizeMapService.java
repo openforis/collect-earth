@@ -116,7 +116,7 @@ public class GeolocalizeMapService {
 	}
 
 	public void addTodaysDate(final Map<String, Object> data) {
-		SimpleDateFormat dt1 = new SimpleDateFormat("yyyy-mm-dd"); 
+		SimpleDateFormat dt1 = new SimpleDateFormat("yyyy-MM-dd"); 
 		String dateAsExpected = dt1.format(new Date() );
 		data.put("todayDate", dateAsExpected);
 	}
