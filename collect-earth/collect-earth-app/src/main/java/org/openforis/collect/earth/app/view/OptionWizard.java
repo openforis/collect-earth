@@ -9,7 +9,6 @@ import java.awt.GridBagConstraints;
 import java.awt.GridBagLayout;
 import java.awt.Insets;
 import java.awt.Toolkit;
-import java.awt.Window;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 import java.io.File;
@@ -146,8 +145,9 @@ public class OptionWizard extends JDialog {
 		constraints.gridy++;
 		panel.add(propertyToComponent.get(EarthProperty.OPEN_BING_MAPS)[0], constraints);
 		
-		constraints.gridy++;
-		panel.add(propertyToComponent.get(EarthProperty.OPEN_HERE_MAPS)[0], constraints);
+		// Removed Here Maps temporarily
+		// constraints.gridy++;
+		// panel.add(propertyToComponent.get(EarthProperty.OPEN_HERE_MAPS)[0], constraints);
 		
 		constraints.gridy++;
 		panel.add(propertyToComponent.get(EarthProperty.OPEN_GEE_PLAYGROUND)[0], constraints);

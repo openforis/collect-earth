@@ -17,6 +17,7 @@ import java.security.cert.X509Certificate;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
+import java.util.NoSuchElementException;
 import java.util.Observable;
 import java.util.Observer;
 import java.util.Properties;
@@ -574,7 +575,11 @@ public class BrowserService implements Observer{
 						Thread.sleep(1000);
 						webDriverGeePlayground.findElementByCssSelector("button.goog-button:nth-child(4)").click();
 						
+					} catch (final NoSuchElementException e) {
+						// This is a well known exception. Down-grade if to warning
+						logger.warn("Error when opening Earth Engine browser window. Known problem", e);
 					} catch (final Exception e) {
+						// This is a well known exception. 
 						logger.error("Error when opening Earth Engine browser window", e);
 					}
 				}
