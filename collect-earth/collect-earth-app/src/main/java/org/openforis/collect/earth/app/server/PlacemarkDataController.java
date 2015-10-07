@@ -79,8 +79,7 @@ public class PlacemarkDataController extends JsonPocessorServlet {
 		setJsonResponse(response, result);
 	}
 
-	private Map<String, String> adjustParameters(
-			PlacemarkUpdateRequest updateRequest)
+	private Map<String, String> adjustParameters( PlacemarkUpdateRequest updateRequest )
 			throws UnsupportedEncodingException {
 		Map<String, String> originalCollectedData = updateRequest.getValues();
 		Map<String, String> collectedData = new HashMap<String, String>(originalCollectedData.size());

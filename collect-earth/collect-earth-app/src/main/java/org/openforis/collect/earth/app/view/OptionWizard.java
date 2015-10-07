@@ -412,6 +412,13 @@ public class OptionWizard extends JDialog {
 		panel.add(label, constraints);
 		constraints.gridx = 1;
 		panel.add(new JScrollPane(propertyToComponent.get(EarthProperty.DISTANCE_TO_PLOT_BOUNDARIES)[0]), constraints);
+		
+		constraints.gridx = 0;
+		constraints.gridy = 3;
+		label = new JLabel(Messages.getString("OptionWizard.95") ); //$NON-NLS-1$
+		panel.add(label, constraints);
+		constraints.gridx = 1;
+		panel.add(new JScrollPane(propertyToComponent.get(EarthProperty.INNER_SUBPLOT_SIDE)[0]), constraints);
 		return panel;
 	}
 
@@ -729,7 +736,7 @@ public class OptionWizard extends JDialog {
 		propertyToComponent.put(EarthProperty.NUMBER_OF_SAMPLING_POINTS_IN_PLOT, new JComponent[] { comboNumberOfPoints });
 
 		final String[] listOfNumbers = new String[995];
-		final int offset = 5;
+		final int offset = 2;
 		for (int index = 0; index < listOfNumbers.length; index++) {
 			listOfNumbers[index] = (index + offset) + ""; //$NON-NLS-1$
 		}
@@ -747,6 +754,14 @@ public class OptionWizard extends JDialog {
 		listOfDistanceToBorder.setAutoscrolls(true);
 
 		propertyToComponent.put(EarthProperty.DISTANCE_TO_PLOT_BOUNDARIES, new JComponent[] { listOfDistanceToBorder });
+		
+		// JTextField listOfDistanceToBorder = new JTextField(localPropertiesService.getValue( EarthProperty.DISTANCE_TO_PLOT_BOUNDARIES) );
+		final JComboBox<String> listOfSizeofSamplingDot = new JComboBox<String>(listOfNumbers);
+		listOfSizeofSamplingDot.setSelectedItem(localPropertiesService.getValue(EarthProperty.INNER_SUBPLOT_SIDE));
+		listOfSizeofSamplingDot.setAutoscrolls(true);
+
+		propertyToComponent.put(EarthProperty.INNER_SUBPLOT_SIDE, new JComponent[] { listOfSizeofSamplingDot });
+
 
 		final JRadioButton chromeChooser = new JRadioButton("Chrome"); //$NON-NLS-1$
 		chromeChooser.setSelected(localPropertiesService.getValue(EarthProperty.BROWSER_TO_USE).trim().equals(EarthConstants.CHROME_BROWSER));
