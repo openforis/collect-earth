@@ -77,7 +77,7 @@
 		//}
 		
 		if( endDate != null ){
-			description += "Acquisition date : " +  endDate;
+			description += " " +  endDate;
 		}
 		
 		if( startDate ==null && endDate == null ){
@@ -87,8 +87,8 @@
 		
 		// Create an info box 
 		var infoboxOptions = {width:300, 
-							  height: 100, 
-							  title: "Imagery acquisition dates", 
+							  height: 70, 
+							  title: "Imagery acquisition date", 
 							  description: description, 
 							  showPointer: false, 
 							  
