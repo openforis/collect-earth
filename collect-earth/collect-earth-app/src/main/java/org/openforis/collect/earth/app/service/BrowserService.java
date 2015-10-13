@@ -550,30 +550,38 @@ public class BrowserService implements Observer{
 						
 						WebElement textArea = webDriverGeePlayground.findElement(By.className("ace_text-input"));
 						
-						Clipboard clipboard = Toolkit.getDefaultToolkit().getSystemClipboard();
-						String contents = FileUtils.readFileToString( new File(fileWithScript.toURI()));
-						StringSelection clipboardtext = new StringSelection( contents );
-						clipboard.setContents(clipboardtext, null);
 						
 						if( SystemUtils.IS_OS_MAC || SystemUtils.IS_OS_MAC_OSX){
-							
-							
 						    // Command key (apple key) is not working on Chrome on Mac. Try with the right clik
-							//Actions action= new Actions(webDriverGeePlayground);
-							//action.contextClick(textArea).clickAndHold().sendKeys(Keys.ARROW_DOWN).sendKeys(Keys.RETURN).release();
-							//action.contextClick(textArea).clickAndHold().sendKeys(Keys.ARROW_DOWN).sendKeys(Keys.ARROW_DOWN).sendKeys(Keys.RETURN).release();
-							textArea.sendKeys(Keys.chord(Keys.COMMAND,"a"));
-							textArea.sendKeys(Keys.chord(Keys.COMMAND,"v"));				
+							// This is not going to be fixed by Selenium
+							// Try adifferent approach! A bit slower but works
+							String contents =  FileUtils.readFileToString( new File(fileWithScript.toURI())) ;
+							// Remove comments so it is faster to send the text!
+							String noComments = removeComments(contents); 		
+							// Clear the code area
+							webDriverGeePlayground.findElementByCssSelector("div.goog-inline-block.goog-flat-menu-button.custom-reset-button").click();
+							webDriverGeePlayground.findElementByXPath("//*[contains(text(), 'Clear script')]").click();
+							// Send the content of the script
+							textArea.sendKeys( noComments );
+							// Fix the extra characters added by removing the last 10 chars ( this is a bug from Selenium! )
+							textArea.sendKeys(Keys.PAGE_DOWN);
+							for( int i=0; i<10; i++){
+								textArea.sendKeys(Keys.BACK_SPACE);
+							}
+							
 						}else{
+							Clipboard clipboard = Toolkit.getDefaultToolkit().getSystemClipboard();
+							String contents = FileUtils.readFileToString( new File(fileWithScript.toURI()));
+							StringSelection clipboardtext = new StringSelection( contents );
+							clipboard.setContents(clipboardtext, null);
 							textArea.sendKeys(Keys.chord(Keys.CONTROL,"a"));
 							textArea.sendKeys(Keys.chord(Keys.CONTROL,"v"));
 						}
 						
 						
-						//textArea.sendKeys( FileUtils.readFileToString( new File(fileWithScript.toURI())) );
 						//((JavascriptExecutor)webDriverGeePlayground).executeScript("arguments[0].value = arguments[1];", textArea,);
 						Thread.sleep(1000);
-						webDriverGeePlayground.findElementByCssSelector("button.goog-button:nth-child(4)").click();
+						webDriverGeePlayground.findElementByCssSelector("button.goog-button.run-button").click();
 						
 					} catch (final NoSuchElementException e) {
 						// This is a well known exception. Down-grade if to warning
@@ -582,6 +590,29 @@ public class BrowserService implements Observer{
 						// This is a well known exception. 
 						logger.error("Error when opening Earth Engine browser window", e);
 					}
+				}
+
+				public String removeComments(String contents) {
+					String noComments = "";
+					int indexComments = contents.indexOf("//");
+					if( indexComments != -1 ){
+						while( indexComments >= 0){
+							int endOfLine = contents.indexOf("\r\n", indexComments);		
+							if( endOfLine != -1 )
+								indexComments = contents.indexOf("//", endOfLine+2 );
+							else{
+								indexComments = -1;
+								break;
+							}
+							
+							if( indexComments != -1 )
+								noComments += contents.substring( endOfLine, indexComments );
+							else
+								noComments += contents.substring( endOfLine);
+						}
+					}else
+						noComments = contents;
+					return noComments;
 				}
 
 				/**

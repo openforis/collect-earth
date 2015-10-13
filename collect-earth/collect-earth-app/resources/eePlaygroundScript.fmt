@@ -8,14 +8,10 @@ var startTime = '2000-01-01';
 // The last date for which the chart is generated. Should be today's date
 var endTime = '${todayDate}';
 
-// The polygon that describes the plot.
-var plot = ee.Geometry.Polygon(
-            [
-				// The placemark variable has an array called shape that contains the locations of the corners of the polygon
-				<#list placemark.shape as coord>
-					[${coord.longitude}, ${coord.latitude}],
-				</#list>  
-			]);
+// x The polygon that describes the plot.
+var plot = ee.Geometry.Polygon([
+// The placemark variable has an array called shape that contains the locations of the corners of the polygon
+<#list placemark.shape as coord>[${coord.longitude}, ${coord.latitude}],</#list>]);
 
 // Load the Landsat 8 - 32 Day Normalized Difference Vegetation Index composite. This is only available from 2013 onwards. Select the NDVI band. Resolution of the pixels is 30 meters.
 var landsat8Ndvi32Day = ee.ImageCollection('LANDSAT/LC8_L1T_32DAY_NDVI').filterDate(startTime, endTime).select('NDVI');
@@ -29,7 +25,7 @@ print(ndviTimeSeries);
 
 // Load the Landsat 8 - 32 Day Normalized Difference Wetness Index composite. This is only available from 2013 onwards. Select the NDWI band. Resolution of the pixels is 30 meters.
 var landsat8Ndwi32Day = ee.ImageCollection('LANDSAT/LC8_L1T_32DAY_NDWI').filterDate(startTime, endTime).select('NDWI');
- 
+
 // Generate the chart of the NDWI values through the time series. Use the mean of the NDWI value of the pixels that fall within the plot.
 var ndwiTimeSeries = Chart.image.series(landsat8Ndwi32Day, plot, ee.Reducer.mean(), 30);
 ndwiTimeSeries = ndwiTimeSeries.setOptions({title: 'Landsat 8 32 days NDWI', hAxis: {title: 'Date' }, vAxis: { title: 'NDWI' }});
@@ -49,51 +45,28 @@ print(eviTimeSeries);
 
 // Load the MODIS  Vegetation Index composite. Select the NDVI band. Resolution of the pixels is 250 meters.
 var modisNoaaNdvi = ee.ImageCollection('MODIS/MOD13Q1').filterDate(startTime, endTime).select('NDVI');
-    
+
 var modisNoaaTimeSeries = Chart.image.series(modisNoaaNdvi, plot, ee.Reducer.mean(), 30);
 modisNoaaTimeSeries = modisNoaaTimeSeries.setOptions({  title: 'MOD13Q1 Vegetation Indices 16-Day Global 250m',hAxis:{title: 'Date'},vAxis: {title: 'NDVI'}});
 
 // Show the MODIS NDVI chart on the console
 print(modisNoaaTimeSeries);
 
-var modisGoogleNdvi = ee.ImageCollection('MODIS/MCD43A4_NDVI')
-    .filterDate(startTime, endTime)
-    .select('NDVI');
-    
-var modisGoogleTimeSeries =
-    Chart.image.series(modisGoogleNdvi, plot, ee.Reducer.mean(), 30);
+var modisGoogleNdvi = ee.ImageCollection('MODIS/MCD43A4_NDVI').filterDate(startTime, endTime).select('NDVI');
 
-modisGoogleTimeSeries = modisGoogleTimeSeries.setOptions({
-  title: 'MODIS 16-Day NDVI (Google)',
-  hAxis: {
-    title: 'Date'
-  },
-  vAxis: {
-    title: 'NDVI'
-  }
-});
+var modisGoogleTimeSeries = Chart.image.series(modisGoogleNdvi, plot, ee.Reducer.mean(), 30);
+
+modisGoogleTimeSeries = modisGoogleTimeSeries.setOptions({title: 'MODIS 16-Day NDVI (Google)',hAxis: {title: 'Date'},vAxis: {title: 'NDVI'}});
 
 print(modisGoogleTimeSeries);
 
 
+var landsat7MonthlyNdvi = ee.ImageCollection('LANDSAT/LE7_L1T_32DAY_NDVI').filterDate(startTime, endTime).select('NDVI');
 
-
-var landsat7MonthlyNdvi = ee.ImageCollection('LANDSAT/LE7_L1T_32DAY_NDVI')
-    .filterDate(startTime, endTime)
-    .select('NDVI');
-    
-var landsat7MonthlyTimeSeries =
-    Chart.image.series(landsat7MonthlyNdvi, plot, ee.Reducer.mean(), 30);
+var landsat7MonthlyTimeSeries = Chart.image.series(landsat7MonthlyNdvi, plot, ee.Reducer.mean(), 30);
 
 landsat7MonthlyTimeSeries = landsat7MonthlyTimeSeries.setOptions({
-  title: 'Landsat 7 Monthly NDVI Composite',
-  hAxis: {
-    title: 'Month'
-  },
-  vAxis: {
-    title: 'NDVI'
-  }
-});
+title: 'Landsat 7 Monthly NDVI Composite',hAxis: {title: 'Month'},vAxis: {title: 'NDVI'}});
 
 print(landsat7MonthlyTimeSeries);
 
@@ -103,10 +76,10 @@ print(landsat7MonthlyTimeSeries);
 
 // Load the Landsat 5 NDVI Annual composite from 1984 onwards. This composite is not realistic as the annual NDVI value consists of only the first NDVI value of the year and not an average.
 var landsat5AnnualNdvi = ee.ImageCollection('LANDSAT/LT5_L1T_ANNUAL_NDVI').filterDate("1984-1-1", endTime).select('NDVI');
-    
+
 // Generate the chart of the NDVI values through time.
 var landsat5AnnualTimeSeries = Chart.image.series(landsat5AnnualNdvi, plot, ee.Reducer.mean(), 30);
-landsat5AnnualTimeSeries = landsat5AnnualTimeSeries.setOptions({ title: 'Presence of Landsat 5 Annual imagery', hAxis: {title: 'Month'},  vAxis: {    title: 'NDVI'  }});
+landsat5AnnualTimeSeries = landsat5AnnualTimeSeries.setOptions({ title: 'Presence of Landsat 5 Annual imagery', hAxis: {title: 'Month'},  vAxis: {title: 'NDVI'}});
 
 // Set the chart as scatter type. Only interest is to see if there is an available image for one year to avoid looking for images blindly.
 landsat5AnnualTimeSeries = landsat5AnnualTimeSeries.setChartType('ScatterChart');
@@ -125,4 +98,4 @@ Map.setCenter(${placemark.shape[0].longitude}, ${placemark.shape[0].latitude}, 1
 // If you want to Collect Earth to run a different script for your project when a user clicks on a plot on Google Earth follow these steps :
 // 1. Copy the contents of this file : https://raw.githubusercontent.com/openforis/collect-earth/master/collect-earth/collect-earth-app/resources/eePlaygroundScript.fmt
 // 2. Modify the script as you please but keep the lines where the plot variable has been defined using Freemarker tamplate variables
-// 3. Save the script as "eePlaygroundScript.fmt" inside the root folder of your CEP project file .
+// 3. Save the script as "eePlaygroundScript.fmt" inside the root folder of your CEP project file
