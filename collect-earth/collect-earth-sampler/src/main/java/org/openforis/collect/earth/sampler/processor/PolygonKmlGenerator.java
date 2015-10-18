@@ -81,6 +81,13 @@ public abstract class PolygonKmlGenerator extends KmlGenerator {
 					if( headerRow == null ){
 						headerRow = csvRow;
 					}
+					
+					// Check that the row is not just an empty row with no data
+					if( onlyEmptyCells(csvRow)){
+						// If the row is empty ( e.g. : ",,,,," ) jump to next row
+						continue;
+					}
+					
 					final PlotProperties plotProperties = getPlotProperties(csvRow, headerRow);
 
 					final Point transformedPoint = transformToWGS84(plotProperties.xCoord, plotProperties.yCoord); // TOP-LEFT
@@ -121,7 +128,7 @@ public abstract class PolygonKmlGenerator extends KmlGenerator {
 					if(rowNumber > 0 ){
 						throw new KmlGenerationException("Error in the CSV " + csvFile + " \r\n for row " + rowNumber + " = " + Arrays.toString( csvRow ), e);
 					}else{
-						logger.warn("Error while reading the first line of the CSV fle, probably cause by the column header names");
+						logger.info("Error while reading the first line of the CSV fle, probably cause by the column header names");
 					}
 				}finally{
 					rowNumber++;
@@ -152,6 +159,15 @@ public abstract class PolygonKmlGenerator extends KmlGenerator {
 		data.put("local_port", localPort );
 		data.put("plotFileName", KmlGenerator.getCsvFileName(csvFile));
 		return data;
+	}
+
+	private boolean onlyEmptyCells(String[] csvRow) {
+		for (String csvColumn : csvRow) {
+			if( csvColumn.trim().length()>0){
+				return false;
+			}
+		}
+		return true;
 	}
 
 }
