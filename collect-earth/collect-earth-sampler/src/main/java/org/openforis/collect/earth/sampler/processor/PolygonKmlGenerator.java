@@ -9,6 +9,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+import org.openforis.collect.earth.core.utils.CsvReaderUtils;
 import org.openforis.collect.earth.sampler.model.SimpleCoordinate;
 import org.openforis.collect.earth.sampler.model.SimplePlacemarkObject;
 import org.openforis.collect.earth.sampler.utils.KmlGenerationException;
@@ -74,7 +75,7 @@ public abstract class PolygonKmlGenerator extends KmlGenerator {
 		CSVReader reader = null;
 		List<SimplePlacemarkObject> placemarks = new ArrayList<SimplePlacemarkObject>();
 		try {
-			reader = getCsvReader(csvFile);
+			reader = CsvReaderUtils.getCsvReader(csvFile);
 			
 			while ((csvRow = reader.readNext()) != null) {
 				try {
@@ -83,7 +84,7 @@ public abstract class PolygonKmlGenerator extends KmlGenerator {
 					}
 					
 					// Check that the row is not just an empty row with no data
-					if( onlyEmptyCells(csvRow)){
+					if( CsvReaderUtils.onlyEmptyCells(csvRow)){
 						// If the row is empty ( e.g. : ",,,,," ) jump to next row
 						continue;
 					}
@@ -161,13 +162,5 @@ public abstract class PolygonKmlGenerator extends KmlGenerator {
 		return data;
 	}
 
-	private boolean onlyEmptyCells(String[] csvRow) {
-		for (String csvColumn : csvRow) {
-			if( csvColumn.trim().length()>0){
-				return false;
-			}
-		}
-		return true;
-	}
-
+	
 }

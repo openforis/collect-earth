@@ -11,6 +11,7 @@ import javax.swing.JTable;
 import javax.swing.table.DefaultTableModel;
 
 import org.apache.commons.lang.ArrayUtils;
+import org.openforis.collect.earth.core.utils.CsvReaderUtils;
 import org.openforis.collect.earth.sampler.processor.KmlGenerator;
 import org.openforis.collect.earth.sampler.processor.PlotProperties;
 import org.slf4j.Logger;
@@ -122,7 +123,7 @@ public class JPlotCsvTable extends JTable{
 		if( csvFile.exists() ){
 			try {
 				
-				reader = KmlGenerator.getCsvReader(csvFilePath);
+				reader = CsvReaderUtils.getCsvReader(csvFilePath);
 				try {
 					while ((csvRow = reader.readNext()) != null && plots.size() < 50) {
 

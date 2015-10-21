@@ -7,6 +7,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+import org.openforis.collect.earth.core.utils.CsvReaderUtils;
 import org.openforis.collect.earth.sampler.model.SimplePlacemarkObject;
 import org.openforis.collect.earth.sampler.utils.KmlGenerationException;
 import org.opengis.referencing.operation.TransformException;
@@ -36,13 +37,20 @@ public class OnePointKmlGenerator extends KmlGenerator {
 		List<SimplePlacemarkObject> placemarks = null;
 		int rowNumber =0;
 		try {
-			reader = getCsvReader(csvFile);
+			reader = CsvReaderUtils.getCsvReader(csvFile);
 			String[] csvRow;
 			placemarks = new ArrayList<SimplePlacemarkObject>();
 			while ((csvRow = reader.readNext()) != null) {
 				if( headerRow == null ){
 					headerRow = csvRow;
 				}
+				
+				// Check that the row is not just an empty row with no data
+				if( CsvReaderUtils.onlyEmptyCells(csvRow)){
+					// If the row is empty ( e.g. : ",,,,," ) jump to next row
+					continue;
+				}
+				
 				final PlotProperties plotProperties = getPlotProperties(csvRow, headerRow);
 
 				try {
