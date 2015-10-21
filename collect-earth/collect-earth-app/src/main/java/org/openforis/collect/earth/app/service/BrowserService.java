@@ -1,8 +1,5 @@
 package org.openforis.collect.earth.app.service;
 
-import java.awt.Toolkit;
-import java.awt.datatransfer.Clipboard;
-import java.awt.datatransfer.StringSelection;
 import java.io.BufferedReader;
 import java.io.BufferedWriter;
 import java.io.File;
@@ -17,7 +14,6 @@ import java.security.cert.X509Certificate;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
-import java.util.NoSuchElementException;
 import java.util.Observable;
 import java.util.Observer;
 import java.util.Properties;
@@ -35,15 +31,12 @@ import javax.net.ssl.X509TrustManager;
 
 import liquibase.util.SystemUtils;
 
-import org.apache.commons.io.FileUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.openforis.collect.earth.app.EarthConstants;
 import org.openforis.collect.earth.app.desktop.ServerController.ServerInitializationEvent;
 import org.openforis.collect.earth.app.service.LocalPropertiesService.EarthProperty;
 import org.openqa.selenium.By;
 import org.openqa.selenium.JavascriptExecutor;
-import org.openqa.selenium.Keys;
-import org.openqa.selenium.WebDriver;
 import org.openqa.selenium.WebDriverException;
 import org.openqa.selenium.WebElement;
 import org.openqa.selenium.chrome.ChromeDriver;
@@ -73,6 +66,7 @@ import freemarker.template.TemplateException;
  */
 @Component
 public class BrowserService implements Observer{
+
 
 	/**
 	 * To avoid needing to addd the SSL certificate of Google to the certificate repository we ause a Trust Manager that basically trust all
@@ -108,6 +102,9 @@ public class BrowserService implements Observer{
 
 	@Autowired
 	private GeolocalizeMapService geoLocalizeTemplateService;
+	
+	@Autowired
+	private PlaygroundHandlerThread playgroundHandlerThread;
 
 	private final Vector<RemoteWebDriver> drivers = new Vector<RemoteWebDriver>();
 	private final Logger logger = LoggerFactory.getLogger(BrowserService.class);
@@ -273,42 +270,29 @@ public class BrowserService implements Observer{
 		return driver;
 	}
 
-/*	private void minimizeWindow(RemoteWebDriver driver) {
-		try {		
-			String minimize = Keys.chord(Keys.ALT,Keys.SPACE, "n");
-			driver.getKeyboard().sendKeys(minimize);
-		} catch (Exception e) {
-			logger.error("Error minimizing", e);
-		}
-	}*/
-	
-	/*private boolean isGEEValidJS(String geeJs, RemoteWebDriver driver) {
-
-		boolean stillValid = false;
-
-		try {
-
-			geeJs = geeJs.substring(0, geeJs.indexOf("focusObject."));
-			((JavascriptExecutor) driver).executeScript(geeJs);
-
-			stillValid = true;
-		} catch (final Exception e) {
-			processSeleniumError(e);
-		}
-
-		return stillValid;
-	}*/
-
-	private boolean isIdOrNamePresent(String elementId, RemoteWebDriver driver) {
+	public static boolean isIdOrNamePresent(String elementId, RemoteWebDriver driver) {
 		boolean found = false;
 
 		try {
 			if (driver.findElementById(elementId).isDisplayed() || driver.findElementByName(elementId).isDisplayed()) {
 				found = true;
 			}
-			logger.debug("Found " + elementId);
 		} catch (final Exception e) {
-			logger.debug("Not Found " + elementId);
+			// Not found
+		}
+
+		return found;
+	}
+	
+	public static boolean isCssElementPresent(String cssElement, RemoteWebDriver driver) {
+		boolean found = false;
+
+		try {
+			if (driver.findElementByCssSelector(cssElement).isDisplayed() && driver.findElementByCssSelector(cssElement).isEnabled()  ) {
+				found = true;
+			}
+		} catch (final Exception e) {
+			// Not found
 		}
 
 		return found;
@@ -438,7 +422,7 @@ public class BrowserService implements Observer{
 		return driver;
 	}
 
-	private boolean isDriverWorking(RemoteWebDriver driver) {
+	protected boolean isDriverWorking(RemoteWebDriver driver) {
 		boolean stillWorking = true;
 		try {
 			driver.findElement(By.xpath("//body"));
@@ -512,13 +496,6 @@ public class BrowserService implements Observer{
 		}
 	}
 
-
-	private void paste(WebElement textarea, WebDriver webDriver, String jsGeeText) {
-	    JavascriptExecutor js = (JavascriptExecutor ) webDriver;
-	    js.executeScript("arguments[0].value='arguments[1]'", textarea, jsGeeText );
-
-	}
-	
 	
 	/**
 	 * Opens a browser window with the Google Earth Engine Playground and runs the freemarker template found in resources/eePlaygroundScript.fmt on the main editor of GEE. 
@@ -530,128 +507,26 @@ public class BrowserService implements Observer{
 
 		if (localPropertiesService.isGeePlaygroundSupported()) {
 
-			if (webDriverGeePlayground == null) {
-				webDriverGeePlayground = initBrowser();
+			if (getWebDriverGeePlayground() == null) {
+				setWebDriverGeePlayground(initBrowser());
 			}
 
 			final String[] latLong = coordinates.split(",");
-
-			final Thread loadEEThread = new Thread() {
-				@Override
-				public void run() {
-					try {
-						URL fileWithScript = geoLocalizeTemplateService.getTemporaryUrl(latLong, getGeePlaygroundTemplate());
-						
-						if (!isIdOrNamePresent("main", webDriverGeePlayground)) {
-							webDriverGeePlayground = navigateTo( localPropertiesService.getGeePlaygoundUrl(), webDriverGeePlayground);
-						}
-						
-						webDriverGeePlayground.findElementByCssSelector("button.goog-button:nth-child(5)").click();
-						
-						WebElement textArea = webDriverGeePlayground.findElement(By.className("ace_text-input"));
-						
-						
-						if( SystemUtils.IS_OS_MAC || SystemUtils.IS_OS_MAC_OSX){
-						    // Command key (apple key) is not working on Chrome on Mac. Try with the right clik
-							// This is not going to be fixed by Selenium
-							// Try adifferent approach! A bit slower but works
-							String contents =  FileUtils.readFileToString( new File(fileWithScript.toURI())) ;
-							// Remove comments so it is faster to send the text!
-							String noComments = removeComments(contents); 		
-							// Clear the code area
-							webDriverGeePlayground.findElementByCssSelector("div.goog-inline-block.goog-flat-menu-button.custom-reset-button").click();
-							webDriverGeePlayground.findElementByXPath("//*[contains(text(), 'Clear script')]").click();
-							// Send the content of the script
-							textArea.sendKeys( noComments );
-							// Fix the extra characters added by removing the last 10 chars ( this is a bug from Selenium! )
-							textArea.sendKeys(Keys.PAGE_DOWN);
-							for( int i=0; i<10; i++){
-								textArea.sendKeys(Keys.BACK_SPACE);
-							}
-							
-						}else{
-							Clipboard clipboard = Toolkit.getDefaultToolkit().getSystemClipboard();
-							String contents = FileUtils.readFileToString( new File(fileWithScript.toURI()));
-							StringSelection clipboardtext = new StringSelection( contents );
-							clipboard.setContents(clipboardtext, null);
-							textArea.sendKeys(Keys.chord(Keys.CONTROL,"a"));
-							textArea.sendKeys(Keys.chord(Keys.CONTROL,"v"));
-						}
-						
-						
-						//((JavascriptExecutor)webDriverGeePlayground).executeScript("arguments[0].value = arguments[1];", textArea,);
-						Thread.sleep(1000);
-						webDriverGeePlayground.findElementByCssSelector("button.goog-button.run-button").click();
-						
-					} catch (final NoSuchElementException e) {
-						// This is a well known exception. Down-grade if to warning
-						logger.warn("Error when opening Earth Engine browser window. Known problem", e);
-					} catch (final Exception e) {
-						// This is a well known exception. 
-						logger.error("Error when opening Earth Engine browser window", e);
-					}
+			
+			if( playgroundHandlerThread.isWaitingForLogin() ){
+				playgroundHandlerThread.stopWaitingForLogin();
+				try {
+					Thread.currentThread().sleep(2500);
+				} catch (InterruptedException e) {
+					logger.error( "Error while waiting for the GEE Playground thread to die");
 				}
-
-				public String removeComments(String contents) {
-					String noComments = "";
-					int indexComments = contents.indexOf("//");
-					if( indexComments != -1 ){
-						while( indexComments >= 0){
-							int endOfLine = contents.indexOf("\r\n", indexComments);		
-							if( endOfLine != -1 )
-								indexComments = contents.indexOf("//", endOfLine+2 );
-							else{
-								indexComments = -1;
-								break;
-							}
-							
-							if( indexComments != -1 )
-								noComments += contents.substring( endOfLine, indexComments );
-							else
-								noComments += contents.substring( endOfLine);
-						}
-					}else
-						noComments = contents;
-					return noComments;
-				}
-
-				/**
-				 * Get the GEE Playground script that should be used.
-				 * There is an standard one that resides in resources/eePlaygroundScript.fmt but a project might have its own script.
-				 * 
-				 * @return The generic script in the resources folder or the file called eePlaygroundScript.fmt in hte same folder where the current project file resides
-				 */
-				private String getGeePlaygroundTemplate() {
-
-					String projectPlaygroundScript = getProjectGeeScript();
-					if( projectPlaygroundScript != null  ){
-						return projectPlaygroundScript;
-					}else{
-						return GeolocalizeMapService.FREEMARKER_GEE_PLAYGROUND_TEMPLATE;
-					}
-					
-				};
-			};
-			loadEEThread.start();
+			}
+			
+			playgroundHandlerThread.loadPlaygroundScript(latLong, getWebDriverGeePlayground() );
 		}
 	}
 	
-	/**
-	 * Find the GEE playground script that should be used for the project that is currently loaded in Collect Earth
-	 * @return The path to the GEE playground generic script or the one that is specified in the project folder if it exists. 
-	 */
-	private String getProjectGeeScript() {
-		// Where the metatadata file (usually placemark.idm.xml ) is located
-		
-		// Is there a "eePlaygroundScript.fmt" file in the same folder than in the metadata file folder?
-		File projectGeePlayground = new File( localPropertiesService.getProjectFolder() + File.separatorChar + GeolocalizeMapService.FREEMARKER_GEE_PLAYGROUND_TEMPLATE_FILE_NAME);
-		
-		String geePlaygroundFilePath = null;
-		if( projectGeePlayground.exists() ){
-			geePlaygroundFilePath = projectGeePlayground.getAbsolutePath();
-		}
-		return geePlaygroundFilePath;
-	}
+
 	
 	/**
 	 * Opens a browser window with the Google Earth Engine representation of the plot. The Landsat 8 Annual Greenest pixel TOA for 2013 is loaded automatically. 
@@ -870,6 +745,14 @@ public class BrowserService implements Observer{
 		if( ServerInitializationEvent.SERVER_STOPPED_EVENT.equals(arg) ){
 			this.closeBrowsers();
 		}
+	}
+
+	private RemoteWebDriver getWebDriverGeePlayground() {
+		return webDriverGeePlayground;
+	}
+
+	protected void setWebDriverGeePlayground(RemoteWebDriver webDriverGeePlayground) {
+		this.webDriverGeePlayground = webDriverGeePlayground;
 	}
 }
 
