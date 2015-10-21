@@ -30,18 +30,60 @@ public abstract class KmlGenerator extends AbstractCoordinateCalculation {
 
 	private static Logger logger = LoggerFactory.getLogger( KmlGenerator.class);
 	
-	public static CSVReader getCsvReader(String csvFile) throws FileNotFoundException {
+	
+	public static CSVReader getCsvReader(String csvFile) throws IOException {
+		
+		CSVReader commaSeparatedReader = getCsvReader(csvFile, ',');
+		
+		if( checkCsvReaderWorks( commaSeparatedReader ) ){
+			return commaSeparatedReader;
+		}else{
+			commaSeparatedReader.close();
+			CSVReader semicolonSeparatedReader = getCsvReader(csvFile, ';');
+			if( checkCsvReaderWorks(semicolonSeparatedReader) ){
+				return semicolonSeparatedReader;
+			}else{
+				semicolonSeparatedReader.close();
+			}
+		}
+		
+		throw new IllegalArgumentException("The CSV/CED plot file does not seem to contain actual comma separated values! " + csvFile );
+	}
+			
+	private static boolean checkCsvReaderWorks(CSVReader csvReader) throws IOException {
+
+		String[] csvRow = null;
+				
+		while ((csvRow = csvReader.readNext()) != null) {		
+			if( csvRow.length == 1 && csvRow[0].trim().length() == 0 ){
+				// This would be an empty line
+				continue;
+			} else if( csvRow.length == 1 && csvRow[0].trim().length() > 0){
+				return false;
+			}else if( csvRow.length < 3 ){
+				return false;
+			}else{
+				return true;
+			}
+		}
+		
+		// If the script reaches this point it means that all the lines in the CSV file were empty!
+		throw new IllegalArgumentException("The CSV/CED plot file has no data! All the lines are empty!");
+	}
+
+	private static CSVReader getCsvReader(String csvFile, char columnSeparator) throws FileNotFoundException {
 		CSVReader reader;
 		final BufferedReader bufferedReader = new BufferedReader(new InputStreamReader(new FileInputStream(csvFile), Charset.forName("UTF-8")));
-		reader = new CSVReader(bufferedReader, ',');
+		reader = new CSVReader(bufferedReader, columnSeparator);
 		return reader;
 	}
 
 	public static PlotProperties getPlotProperties(String[] csvValuesInLine, String[] possibleColumnNames )   {
 		final PlotProperties plotProperties = new PlotProperties();
 		plotProperties.id = csvValuesInLine[0];
-		plotProperties.xCoord = Double.parseDouble(csvValuesInLine[2]);
-		plotProperties.yCoord = Double.parseDouble(csvValuesInLine[1]);
+
+		plotProperties.xCoord = Double.parseDouble(csvValuesInLine[2].replace(',', '.') );
+		plotProperties.yCoord = Double.parseDouble(csvValuesInLine[1].replace(',', '.') );
 		plotProperties.elevation = 0;
 		plotProperties.slope = 0d;
 		plotProperties.aspect = 0d;
@@ -51,9 +93,9 @@ public abstract class KmlGenerator extends AbstractCoordinateCalculation {
 		if (csvValuesInLine.length > 3) {
 			
 			try{
-				plotProperties.elevation = Integer.parseInt(csvValuesInLine[3]);
-				plotProperties.slope = Double.parseDouble(csvValuesInLine[4]);
-				plotProperties.aspect = Double.parseDouble(csvValuesInLine[5]);
+				plotProperties.elevation = (int) Double.parseDouble(csvValuesInLine[3].replace(',', '.'));
+				plotProperties.slope = Double.parseDouble(csvValuesInLine[4].replace(',', '.'));
+				plotProperties.aspect = Double.parseDouble(csvValuesInLine[5].replace(',', '.'));
 			}catch(Exception e ){
 				logger.error("Elevation Slope and Aspect could not be read correctly", e);
 			}
