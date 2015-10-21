@@ -10,7 +10,7 @@ import javax.annotation.PostConstruct;
 
 import org.apache.commons.dbcp.BasicDataSource;
 import org.openforis.collect.earth.app.EarthConstants;
-import org.openforis.collect.earth.sampler.processor.KmlGenerator;
+import org.openforis.collect.earth.core.utils.CsvReaderUtils;
 import org.openforis.idm.metamodel.Schema;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -24,10 +24,14 @@ import au.com.bytecode.opencsv.CSVReader;
 @Component
 public class RegionCalculationUtils {
 
+	private static final String SHRUB_COUNT = "shrub_count";
+	private static final String TREE_COUNT = "tree_count";
 	private static final String REGION_AREAS_CSV = "region_areas.csv"; //$NON-NLS-1$
 	private static final String ATTRIBUTE_AREAS_CSV = "areas_per_attribute.csv"; //$NON-NLS-1$
 	private static final String PLOT_WEIGHT = "plot_weight"; //$NON-NLS-1$
 	private static final String EXPANSION_FACTOR = "expansion_factor"; //$NON-NLS-1$
+	private static final String TREES_PER_EXP_FACTOR = "trees_per_expansion_factor"; //$NON-NLS-1$
+	private static final String SHRUBS_PER_EXP_FACTOR = "shrubs_per_expansion_factor"; //$NON-NLS-1$
 	private final Logger logger = LoggerFactory.getLogger(RegionCalculationUtils.class);
 
 	private static final String NO_DATA_LAND_USE = "noData"; //$NON-NLS-1$
@@ -83,7 +87,7 @@ public class RegionCalculationUtils {
 		if (regionAreas.exists()) {
 
 			try {
-				CSVReader csvReader = KmlGenerator.getCsvReader(regionAreas.getAbsolutePath());
+				CSVReader csvReader = CsvReaderUtils.getCsvReader(regionAreas.getAbsolutePath());
 				String[] csvLine = null;
 
 				while( ( csvLine = csvReader.readNext() ) != null ){
@@ -125,6 +129,9 @@ public class RegionCalculationUtils {
 				
 				jdbcTemplate.update("UPDATE " + schemaName + "plot SET "+EXPANSION_FACTOR+"=?, "+PLOT_WEIGHT+"=? WHERE land_use_category=?", updateNoDataValues); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$ //$NON-NLS-4$
 				
+				handleNumberOfTrees( schemaName );
+				handleNumberOfShrubs( schemaName );
+				
 			} catch (FileNotFoundException e) {
 				logger.error("File not found?", e); //$NON-NLS-1$
 			} catch (IOException e) {
@@ -140,6 +147,28 @@ public class RegionCalculationUtils {
 	}
 	
 	
+	private void handleNumberOfShrubs(String schemaName) {
+		// This is specific to the Global Forest Survey - Drylands monitoring assessment
+		if( AnalysisSaikuService.surveyContains(SHRUB_COUNT, earthSurveyService.getCollectSurvey() ) ){
+			// First set the number of shrubs to 30 if the user assessed that there were more than 30 shrubs on the plot
+			// This way we get a conservative estimation
+			jdbcTemplate.update("UPDATE " + schemaName + "plot SET "+SHRUB_COUNT+"=30 WHERE many_shrubs=1"); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$ //$NON-NLS-4$
+			jdbcTemplate.execute("ALTER TABLE " + schemaName + "plot ADD " + SHRUBS_PER_EXP_FACTOR + " FLOAT"); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$
+			jdbcTemplate.update("UPDATE " + schemaName + "plot SET "+SHRUBS_PER_EXP_FACTOR+"="+EXPANSION_FACTOR+"*2*"  + SHRUB_COUNT); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$ //$NON-NLS-4$
+		}
+	}
+
+	private void handleNumberOfTrees(String schemaName) {
+		// This is specific to the Global Forest Survey - Drylands monitoring assessment
+		if( AnalysisSaikuService.surveyContains(TREE_COUNT, earthSurveyService.getCollectSurvey() ) ){
+			// First set the number of shrubs to 30 if the user assessed that there were more than 30 shrubs on the plot
+			// This way we get a conservative estimation
+			jdbcTemplate.update("UPDATE " + schemaName + "plot SET "+TREE_COUNT+"=30 WHERE many_trees=1"); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$ //$NON-NLS-4$
+			jdbcTemplate.execute("ALTER TABLE " + schemaName + "plot ADD " + TREES_PER_EXP_FACTOR + " FLOAT"); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$
+			jdbcTemplate.update("UPDATE " + schemaName + "plot SET "+TREES_PER_EXP_FACTOR+"="+EXPANSION_FACTOR+"*2*"  + TREE_COUNT); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$ //$NON-NLS-4$
+		}
+	}
+
 	private boolean addAreasPerAttribute() throws SQLException {
 
 		final File areasPerAttribute = new File( localPropertiesService.getProjectFolder() + File.separatorChar + ATTRIBUTE_AREAS_CSV);
@@ -148,7 +177,7 @@ public class RegionCalculationUtils {
 		if (areasPerAttribute.exists()) {
 
 			try {
-				CSVReader csvReader = KmlGenerator.getCsvReader(areasPerAttribute.getAbsolutePath());
+				CSVReader csvReader = CsvReaderUtils.getCsvReader(areasPerAttribute.getAbsolutePath());
 				String[] csvLine = null;
 				
 				// The header (first line) should contain the names of the three columns : attribute_name,area,weight
@@ -232,6 +261,9 @@ public class RegionCalculationUtils {
 						
 						jdbcTemplate.update(updateQuery.toString(), attributeValues.toArray()); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$ //$NON-NLS-4$
 				}
+				
+				handleNumberOfTrees( schemaName );
+				handleNumberOfShrubs( schemaName );
 								
 			} catch (FileNotFoundException e) {
 				logger.error("File not found?", e); //$NON-NLS-1$

@@ -39,6 +39,7 @@ import org.openforis.collect.earth.app.service.LocalPropertiesService.EarthPrope
 import org.openforis.collect.earth.core.rdb.RelationalSchemaContext;
 import org.openforis.collect.earth.sampler.utils.FreemarkerTemplateUtils;
 import org.openforis.collect.model.CollectRecord.Step;
+import org.openforis.collect.model.CollectSurvey;
 import org.openforis.collect.relational.CollectRDBPublisher;
 import org.openforis.collect.relational.CollectRdbException;
 import org.openforis.collect.relational.model.RelationalSchemaConfig;
@@ -603,18 +604,16 @@ public class AnalysisSaikuService {
 		createPlotForeignKeys();
 
 		
-		if( !surveyContains("calculated_elevation_range") ){
+		if( !surveyContains("calculated_elevation_range" , earthSurveyService.getCollectSurvey() ) ){
 			createAspectAuxTable();
 
 			createSlopeAuxTable();
-
 			createElevationtAuxTable();
 			assignDimensionValues();
 		}
 
-		if( !surveyContains("calculated_initial_land_use") ){
+		if( !surveyContains("calculated_initial_land_use", earthSurveyService.getCollectSurvey() ) ){
 			createDynamicsAuxTable();
-
 			creatAluSubclassVariables();
 			assignLUCDimensionValues();
 		}
@@ -627,8 +626,8 @@ public class AnalysisSaikuService {
 
 
 
-	private boolean surveyContains(String node_name) {
-		NodeDefinition nodeDefForNAme = earthSurveyService.getCollectSurvey().getSchema().findNodeDefinition( new NodeDefinitionVerifier() {
+	public static boolean surveyContains(String node_name, CollectSurvey survey) {
+		NodeDefinition nodeDefForNAme = survey.getSchema().findNodeDefinition( new NodeDefinitionVerifier() {
 			
 			@Override
 			public boolean verify(NodeDefinition nodeDef) {
