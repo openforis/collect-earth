@@ -102,9 +102,9 @@ public class PlaygroundHandlerThread {
 				}
 				
 				if( indexComments != -1 )
-					noComments += contents.substring( endOfLine, indexComments ).trim();
+					noComments += contents.substring( endOfLine, indexComments );
 				else
-					noComments += contents.substring( endOfLine).trim();
+					noComments += contents.substring( endOfLine);
 			}
 		}else
 			noComments = contents;
@@ -158,7 +158,7 @@ public class PlaygroundHandlerThread {
 							webDriverGee = browserService.navigateTo(  localPropertiesService.getGeePlaygoundUrl(), webDriverGee);
 							browserService.setWebDriverGeePlayground(webDriverGee);
 						}
-						// Now we have to wait until the user logs into Google Earth Enmgine!
+						// Now we have to wait until the user logs into Google Earth Engine!
 						waitingForLogin = true;
 						
 						

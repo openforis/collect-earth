@@ -47,12 +47,25 @@
     </componentList>
 
     <initializationActionList>
-         <actionGroup>
-            <actionList>
-			    <!-- The updater will be downloaded in the folder tmp under the folder where Collect Earth is installed -->
-                <setInstallerVariable name="installdir" value="${installer_directory}/.."/>
-            </actionList>
-        </actionGroup>
+        
+         <if>
+          <!-- The updater in osx comes as a ZIP that gets decompressed, so we need to go up an extra level -->
+        	<actionList>
+        		<setInstallerVariable>
+        			<name>installdir</name>
+        			<value>${installer_directory}/../..</value> 
+        		</setInstallerVariable>
+        	</actionList>
+        	<conditionRuleList>
+        		<platformTest><type>osx</type></platformTest>
+			</conditionRuleList> 
+			<elseActionList>
+				<setInstallerVariable>
+				<name>installdir</name>
+				<value>${installer_directory}/..</value>
+			</setInstallerVariable>
+			</elseActionList>
+		</if>
     </initializationActionList>
     
     <compressionAlgorithm>zip</compressionAlgorithm>

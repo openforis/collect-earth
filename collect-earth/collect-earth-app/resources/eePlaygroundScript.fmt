@@ -60,7 +60,6 @@ modisGoogleTimeSeries = modisGoogleTimeSeries.setOptions({title: 'MODIS 16-Day N
 
 print(modisGoogleTimeSeries);
 
-
 var landsat7MonthlyNdvi = ee.ImageCollection('LANDSAT/LE7_L1T_32DAY_NDVI').filterDate(startTime, endTime).select('NDVI');
 
 var landsat7MonthlyTimeSeries = Chart.image.series(landsat7MonthlyNdvi, plot, ee.Reducer.mean(), 30);
