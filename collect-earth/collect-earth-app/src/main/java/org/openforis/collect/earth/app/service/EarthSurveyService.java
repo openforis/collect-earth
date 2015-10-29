@@ -23,6 +23,7 @@ import java.util.Map.Entry;
 import javax.annotation.PostConstruct;
 import javax.swing.JOptionPane;
 
+import org.openforis.collect.earth.app.EarthConstants;
 import org.openforis.collect.earth.app.service.LocalPropertiesService.EarthProperty;
 import org.openforis.collect.earth.app.view.Messages;
 import org.openforis.collect.earth.core.handlers.BalloonInputFieldsUtils;
@@ -39,6 +40,7 @@ import org.openforis.collect.model.RecordValidationReportGenerator;
 import org.openforis.collect.model.RecordValidationReportItem;
 import org.openforis.collect.persistence.RecordPersistenceException;
 import org.openforis.collect.persistence.SurveyImportException;
+import org.openforis.idm.metamodel.AttributeDefinition;
 import org.openforis.idm.metamodel.ModelVersion;
 import org.openforis.idm.metamodel.NodeLabel.Type;
 import org.openforis.idm.metamodel.Schema;
@@ -144,8 +146,8 @@ public class EarthSurveyService{
 		return localPropertiesService.getImdFile();
 	}
 
-	public Map<String, String> getPlacemark(String placemarkId, boolean validateRecord) {
-		CollectRecord record = loadRecord(placemarkId, validateRecord);
+	public Map<String, String> getPlacemark(String[] keyAttributes, boolean validateRecord) {
+		CollectRecord record = loadRecord(keyAttributes, validateRecord);
 		Map<String, String> placemarkParameters = null;
 		if (record == null) {
 			placemarkParameters = new HashMap<String, String>();
@@ -169,9 +171,9 @@ public class EarthSurveyService{
 		return placemarkParameters;
 	}
 	
-	public PlacemarkLoadResult loadPlacemarkExpanded(String placemarkId) {
+	public PlacemarkLoadResult loadPlacemarkExpanded(String[] multipleKeyAttributes) {
 		PlacemarkLoadResult result;
-		CollectRecord record = loadRecord(placemarkId);
+		CollectRecord record = loadRecord(multipleKeyAttributes);
 		if (record == null) {
 			result = new PlacemarkLoadResult();
 			result.setSuccess(false);
@@ -182,12 +184,12 @@ public class EarthSurveyService{
 		return result;
 	}
 
-	public CollectRecord loadRecord(String placemarkId) {
-		return loadRecord(placemarkId, true);
+	public CollectRecord loadRecord(String[] mulitpleKeyAttributes) {
+		return loadRecord(mulitpleKeyAttributes, true);
 	}
 	
-	public synchronized CollectRecord loadRecord(String placemarkId, boolean validateRecord ) {
-		List<CollectRecord> summaries = recordManager.loadSummaries(getCollectSurvey(), ROOT_ENTITY_NAME, placemarkId);
+	public synchronized CollectRecord loadRecord(String[] mulitpleKeyAttributes, boolean validateRecord ) {
+		List<CollectRecord> summaries = recordManager.loadSummaries(getCollectSurvey(), ROOT_ENTITY_NAME, mulitpleKeyAttributes);
 		CollectRecord record = null;
 		if (summaries.isEmpty()) {
 			return null;
@@ -217,11 +219,14 @@ public class EarthSurveyService{
 		final String[] placemarkIds = new String[listOfRecords.size()];
 		for (int i = 0; i < listOfRecords.size(); i++) {
 			CollectRecord recordSummary = listOfRecords.get(i);
-			String placemarkId = recordSummary.getRootEntityKeyValues().get(0);
-			placemarkIds[i] = placemarkId;
-//			if (recordSummary.getRootEntity().get("id", 0) != null) { //$NON-NLS-1$
-//				placemarIds[i] = ((TextAttribute) listOfRecords.get(i).getRootEntity().get("id", 0)).getValue().getValue(); //$NON-NLS-1$
-//			}
+			List<String> rootEntityKeyValues = recordSummary.getRootEntityKeyValues();
+			String keyValues = "";
+			for (String key : rootEntityKeyValues) {
+				keyValues += key + ",";
+			}
+			keyValues = keyValues.substring(0, keyValues.lastIndexOf(',') );
+			
+			placemarkIds[i] = keyValues;
 		}
 
 		return placemarkIds;
@@ -332,7 +337,9 @@ public class EarthSurveyService{
 	@Deprecated
 	public synchronized boolean storePlacemarkOld(Map<String, String> parameters, String sessionId) {
 
-		final List<CollectRecord> summaries = recordManager.loadSummaries(getCollectSurvey(), ROOT_ENTITY_NAME, parameters.get("collect_text_id")); //$NON-NLS-1$
+		String[] keys = obtainKeys(parameters);
+		
+		final List<CollectRecord> summaries = recordManager.loadSummaries(getCollectSurvey(), ROOT_ENTITY_NAME, keys); //$NON-NLS-1$
 		boolean success = false;
 
 		try {
@@ -385,13 +392,24 @@ public class EarthSurveyService{
 		return success;
 	}
 
-	public synchronized PlacemarkLoadResult updatePlacemarkData(String placemarkId, Map<String, String> parameters, String sessionId) {
+	private String[] obtainKeys(Map<String, String> parameters) {
+		String[] keyValues= new String[parameters.size()];
+		int k = 0;
+		for ( Map.Entry<String, String> entry : parameters.entrySet()) {
+		    
+		    String idKey = entry.getValue();
+		    keyValues[ k++ ] = idKey;		
+		}
+		return keyValues;
+	}
+
+	public synchronized PlacemarkLoadResult updatePlacemarkData(String[] plotKeyAttributes, Map<String, String> parameters, String sessionId) {
 		try {
 			// Add the operator to the collected data
 			parameters.put(OPERATOR_PARAMETER, localPropertiesService.getOperator());
 
 			// Populate the data of the record using the HTTP parameters received
-			CollectRecord record = loadOrCreateRecord(placemarkId, sessionId);
+			CollectRecord record = loadOrCreateRecord(plotKeyAttributes, sessionId);
 			Entity plotEntity = record.getRootEntity();
 
 			Map<String, String> oldPlacemarkParameters = collectParametersHandler.getValuesByHtmlParameters(record.getRootEntity());
@@ -449,13 +467,14 @@ public class EarthSurveyService{
 		return result;
 	}
 	
-	private CollectRecord loadOrCreateRecord(String placemarkId, String sessionId) throws RecordPersistenceException {
+	private CollectRecord loadOrCreateRecord(String[] plotKeyAttributes, String sessionId) throws RecordPersistenceException {
 		CollectRecord record;
-		List<CollectRecord> summaries = recordManager.loadSummaries(getCollectSurvey(), ROOT_ENTITY_NAME, placemarkId); //$NON-NLS-1$
+			
+		List<CollectRecord> summaries = recordManager.loadSummaries(getCollectSurvey(), ROOT_ENTITY_NAME, plotKeyAttributes); //$NON-NLS-1$
 		if (summaries.isEmpty()) {
 			// Create new record
 			record = createRecord(sessionId);
-			logger.warn("Creating a new record with id " + placemarkId); //$NON-NLS-1$
+			logger.warn("Creating a new record with id " + plotKeyAttributes.toString() ); //$NON-NLS-1$
 		} else {
 			CollectRecord recordSummary = summaries.get(0);
 			record = recordManager.load(getCollectSurvey(), recordSummary.getId(), recordSummary.getStep());
@@ -480,5 +499,25 @@ public class EarthSurveyService{
 			}
 		}
 		return changedParameters;
+	}
+	
+
+	public String[] getKeysInOrder(Map<String, String> receivedBalloonParamaters) {
+		
+		
+		List<AttributeDefinition> keyAttributeDefinitions = this.getCollectSurvey().getSchema().getRootEntityDefinition(EarthConstants.ROOT_ENTITY_NAME).getKeyAttributeDefinitions();
+		String[] keys = new String[keyAttributeDefinitions.size()];
+		
+		BalloonInputFieldsUtils balloonInputFieldsUtils = new BalloonInputFieldsUtils();
+		int i = 0;
+		for (AttributeDefinition keyAttribute : keyAttributeDefinitions) {
+			String balloonName = balloonInputFieldsUtils.getCollectBalloonParamName(keyAttribute);
+			if(!receivedBalloonParamaters.containsKey(balloonName)){
+				throw new IllegalArgumentException("The parameters received do not contain the mandatory parameter " + balloonName);
+			}
+			keys[ i++ ] = receivedBalloonParamaters.get(balloonName);
+		}
+		
+		return keys;
 	}
 }

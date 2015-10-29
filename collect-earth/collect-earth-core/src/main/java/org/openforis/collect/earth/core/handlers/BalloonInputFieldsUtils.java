@@ -277,12 +277,11 @@ public class BalloonInputFieldsUtils {
 		}
 	}
 
-	protected void getHTMLParameterName(Entity plotEntity, Map<String,String> valuesByHtmlParameterName,
-			Node<?> node) {
+	public String getCollectBalloonParamName(NodeDefinition node){
 		AbstractAttributeHandler<?> handler = findHandler(node);
 
 		if( handler == null ){
-			return;
+			throw new IllegalArgumentException("No handler found for node " + ( node!=null?node.getName():"null node" ) );
 		}
 
 		// builds ie. "text_parameter"
@@ -290,6 +289,25 @@ public class BalloonInputFieldsUtils {
 
 		// Saves into "collect_text_parameter"
 		String collectParamName = COLLECT_PREFIX + paramName;
+		
+		return collectParamName;
+	}
+	
+	protected void getHTMLParameterName(Entity plotEntity, Map<String,String> valuesByHtmlParameterName,
+			Node<?> node) {
+		
+		AbstractAttributeHandler<?> handler = findHandler(node);
+		
+		if( handler == null ){
+			throw new IllegalArgumentException("No handler found for node " + ( node!=null?node.getName():"null node" ) );
+		}
+
+		// builds ie. "text_parameter"
+		String paramName = handler.getPrefix() + node.getName();
+
+		// Saves into "collect_text_parameter"
+		String collectParamName = COLLECT_PREFIX + paramName;
+
 		if (node instanceof Attribute) {
 			String value = valuesByHtmlParameterName.get(collectParamName);
 			if (value == null) {

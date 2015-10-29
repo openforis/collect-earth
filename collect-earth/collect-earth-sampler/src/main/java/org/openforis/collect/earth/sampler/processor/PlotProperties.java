@@ -13,5 +13,6 @@ public class PlotProperties {
 	public String[] extraInfo;
 	public Map<String, String> valuesByColumn;
 	public String[] extraColumns;
+	public String[] idColumns;
 
 }

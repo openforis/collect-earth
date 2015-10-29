@@ -10,6 +10,7 @@ import java.util.Map;
 import org.openforis.collect.earth.core.utils.CsvReaderUtils;
 import org.openforis.collect.earth.sampler.model.SimplePlacemarkObject;
 import org.openforis.collect.earth.sampler.utils.KmlGenerationException;
+import org.openforis.collect.model.CollectSurvey;
 import org.opengis.referencing.operation.TransformException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -27,7 +28,7 @@ public class OnePointKmlGenerator extends KmlGenerator {
 	}
 
 	@Override
-	protected Map<String, Object> getTemplateData(String csvFile, double distanceBetweenSamplePoints, double distancePlotBoundary) throws KmlGenerationException {
+	protected Map<String, Object> getTemplateData(String csvFile, double distanceBetweenSamplePoints, double distancePlotBoundary, CollectSurvey collectSurvey) throws KmlGenerationException {
 		final Map<String, Object> data = new HashMap<String, Object>();
 
 		// Read CSV file so that we can store the information in a Map that can
@@ -51,7 +52,7 @@ public class OnePointKmlGenerator extends KmlGenerator {
 					continue;
 				}
 				
-				final PlotProperties plotProperties = getPlotProperties(csvRow, headerRow);
+				final PlotProperties plotProperties = getPlotProperties(csvRow, headerRow, collectSurvey);
 
 				try {
 					final Point transformedPoint = transformToWGS84(plotProperties.xCoord, plotProperties.yCoord);

@@ -53,6 +53,7 @@ import org.openforis.collect.earth.app.EarthConstants.CollectDBDriver;
 import org.openforis.collect.earth.app.EarthConstants.OperationMode;
 import org.openforis.collect.earth.app.service.AnalysisSaikuService;
 import org.openforis.collect.earth.app.service.EarthProjectsService;
+import org.openforis.collect.earth.app.service.EarthSurveyService;
 import org.openforis.collect.earth.app.service.LocalPropertiesService;
 import org.openforis.collect.earth.app.service.LocalPropertiesService.EarthProperty;
 import org.slf4j.Logger;
@@ -72,18 +73,22 @@ public class OptionWizard extends JDialog {
 	JPanel postgresPanel;
 
 	LocalPropertiesService localPropertiesService;
+	
 	String backupFolder;
 
 	private AnalysisSaikuService saikuService;
 
 	private EarthProjectsService projectsService;
 
-	public OptionWizard(JFrame frame, LocalPropertiesService localPropertiesService, EarthProjectsService projectsService,  String backupFolder, AnalysisSaikuService saikuService) {
+	private EarthSurveyService earthSurveyService;
+
+	public OptionWizard(JFrame frame, LocalPropertiesService localPropertiesService, EarthProjectsService projectsService,  String backupFolder, AnalysisSaikuService saikuService, EarthSurveyService earthSurveyService) {
 		super(frame, Messages.getString("OptionWizard.0")); //$NON-NLS-1$
 		this.localPropertiesService = localPropertiesService;
 		this.projectsService = projectsService;
 		this.backupFolder = backupFolder;
 		this.saikuService = saikuService;
+		this.earthSurveyService = earthSurveyService;
 		this.setLocationRelativeTo(null);
 		this.setSize(new Dimension(600, 620));
 		this.setModal(true);
@@ -498,7 +503,7 @@ public class OptionWizard extends JDialog {
 	}
 
 	private JComponent getSampleDataPanel() {
-		final JPlotCsvTable samplePlots = new JPlotCsvTable( localPropertiesService.getValue(EarthProperty.CSV_KEY) );
+		final JPlotCsvTable samplePlots = new JPlotCsvTable( localPropertiesService.getValue(EarthProperty.CSV_KEY), earthSurveyService.getCollectSurvey()  );
 
 		final JPanel panel = new JPanel(new GridBagLayout());
 		final GridBagConstraints constraints = new GridBagConstraints();

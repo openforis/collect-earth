@@ -18,9 +18,11 @@ public interface DataAccessor {
 	 */
 	public Map<String, String> getData(String placemarkId);
 	
-	public PlacemarkLoadResult loadDataExpanded(String placemarkId);
+	public Map<String, String> getData(String[] multipleKeyAttributes);
+		
+	public PlacemarkLoadResult loadDataExpanded(String[] multipleKeyAttributes);
 
 	public boolean saveData(Map<String, String> collectedData);
-	
-	public PlacemarkLoadResult updateData(String placemarkId, Map<String, String> values);
+		
+	public PlacemarkLoadResult updateData(String[] multipleKeyAttributes, Map<String, String> values);
 }

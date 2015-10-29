@@ -100,7 +100,7 @@ public class RegionCalculationUtils {
 						Object[] parameters = new String[]{region,plot_file};
 
 						Integer plots_per_region = jdbcTemplate.queryForObject( 
-								"SELECT count("+EarthConstants.PLOT_ID+") FROM " + schemaName  + "plot  WHERE ( region=? OR plot_file=? ) AND land_use_category != '"+NO_DATA_LAND_USE+"' ", parameters,Integer.class); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$ //$NON-NLS-4$
+								"SELECT count( DISTINCT "+EarthConstants.PLOT_ID+") FROM " + schemaName  + "plot  WHERE ( region=? OR plot_file=? ) AND land_use_category != '"+NO_DATA_LAND_USE+"' ", parameters,Integer.class); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$ //$NON-NLS-4$
 
 						Float expansion_factor_hectars_calc = 0f;
 						if( plots_per_region.intValue() != 0 ){
@@ -220,7 +220,7 @@ public class RegionCalculationUtils {
 
 						
 						StringBuffer selectQuery = new StringBuffer();
-						selectQuery.append("SELECT count(").append(EarthConstants.PLOT_ID).append(") FROM ").append(schemaName).append("plot  WHERE ");
+						selectQuery.append("SELECT count(  DISTINCT ").append(EarthConstants.PLOT_ID).append(") FROM ").append(schemaName).append("plot  WHERE ");
 						for (int attr =0; attr<attributeNames.size() ; attr++) {
 							String attributeName = attributeNames.get(attr);
 							selectQuery.append(attributeName);

@@ -11,8 +11,12 @@ import java.util.Map.Entry;
 
 import javax.servlet.http.HttpServletResponse;
 
+import org.apache.commons.collections.MapUtils;
+import org.openforis.collect.earth.app.EarthConstants;
+import org.openforis.collect.earth.app.service.EarthSurveyService;
 import org.openforis.collect.earth.app.view.Messages;
 import org.openforis.collect.earth.core.model.PlacemarkLoadResult;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestMethod;
@@ -28,21 +32,20 @@ import org.springframework.web.bind.annotation.RequestParam;
 @Controller
 public class PlacemarkDataController extends JsonPocessorServlet {
 
-	private static String lastPlacemarkId;
+	private static Object lastPlacemarkId;
 	private static String lastPlacemarkStep;
+	
+	@Autowired
+	EarthSurveyService earthSurveyService;
 	
 	@RequestMapping(value="/placemark-info-expanded", method = RequestMethod.GET)
 	protected void placemarkInfoExpanded(@RequestParam("id") String placemarkId, HttpServletResponse response) throws IOException {
 		PlacemarkLoadResult result;
 		if (placemarkId == null) {
-			result = new PlacemarkLoadResult();
-			result.setSuccess(false);
-			String errorMessage = "No placemark ID found in the received request";
-			result.setMessage(errorMessage);
-			getLogger().error(errorMessage); //$NON-NLS-1$
+			result = handleEmptyPlot();
 		} else {
 			placemarkId = replacePlacemarkIdTestValue(placemarkId);
-			result = getDataAccessor().loadDataExpanded(placemarkId);
+			result = getDataAccessor().loadDataExpanded(placemarkId.split(","));
 			if (result.isSuccess()) {
 				result.setMessage("The placemark was found");
 				if (placemarkId.equals(lastPlacemarkId)) {
@@ -55,37 +58,74 @@ public class PlacemarkDataController extends JsonPocessorServlet {
 		setJsonResponse(response, result);
 	}
 	
+
+	private PlacemarkLoadResult handleEmptyPlot() {
+		PlacemarkLoadResult result;
+		result = new PlacemarkLoadResult();
+		result.setSuccess(false);
+		String errorMessage = "No placemark ID found in the received request";
+		result.setMessage(errorMessage);
+		getLogger().error(errorMessage); //$NON-NLS-1$
+		return result;
+	}
+	
 	@RequestMapping(value="/save-data-expanded", method = RequestMethod.POST)
 	public void saveDataExpanded(PlacemarkUpdateRequest updateRequest, HttpServletResponse response) throws IOException {
 		Map<String, String> collectedData = adjustParameters(updateRequest);
 
 		PlacemarkLoadResult result;
 		if (collectedData.isEmpty()) {
-			result = new PlacemarkLoadResult();
-			result.setSuccess(false);
-			result.setMessage(Messages.getString("SaveEarthDataServlet.0")); //$NON-NLS-1$
-			getLogger().info("The request was empty"); //$NON-NLS-1$
+			result = handleEmptyCollectedData();
 		} else {
 			String placemarkId = replacePlacemarkIdTestValue(updateRequest.getPlacemarkId());
-			result = getDataAccessor().updateData(placemarkId, collectedData);
-			if (result.isSuccess()) {
-				result.setMessage(Messages.getString("SaveEarthDataServlet.2"));
-				lastPlacemarkId = placemarkId;
-				lastPlacemarkStep = updateRequest.getCurrentStep();
-			}else{
-				logger.warn("Error when saving the data " + result.toString());
-			}
+			
+			result = processCollectedData(updateRequest, collectedData,	placemarkId);
 		}
 		setJsonResponse(response, result);
 	}
+
+	public PlacemarkLoadResult processCollectedData(
+			PlacemarkUpdateRequest updateRequest,
+			Map<String, String> collectedData, String placemarkKey ) {
+		PlacemarkLoadResult result;
+		result = getDataAccessor().updateData( placemarkKey.split(",") , collectedData);
+		
+				
+		if (result.isSuccess()) {
+			result.setMessage(Messages.getString("SaveEarthDataServlet.2"));
+			lastPlacemarkId = placemarkKey;
+			lastPlacemarkStep = updateRequest.getCurrentStep();
+		}else{
+			logger.warn("Error when saving the data " + result.toString());
+		}
+		return result;
+	}
+
+	public PlacemarkLoadResult handleEmptyCollectedData() {
+		PlacemarkLoadResult result;
+		result = new PlacemarkLoadResult();
+		result.setSuccess(false);
+		result.setMessage(Messages.getString("SaveEarthDataServlet.0")); //$NON-NLS-1$
+		getLogger().info("The request was empty"); //$NON-NLS-1$
+		return result;
+	}
+
 
 	private Map<String, String> adjustParameters( PlacemarkUpdateRequest updateRequest )
 			throws UnsupportedEncodingException {
 		Map<String, String> originalCollectedData = updateRequest.getValues();
 		Map<String, String> collectedData = new HashMap<String, String>(originalCollectedData.size());
 		for (Entry<String, String> entry : originalCollectedData.entrySet()) {
+			
+			
+			if( entry.getKey().equals( EarthConstants.PLACEMARK_ID_PARAMETER ) ){
+				// If there are multiple keys this value will be the combination of the keys, with the first value actually containing the plot id
+				entry.setValue( entry.getValue().split(",")[0]); 
+			}
+			
 			//decode parameter name, it was previously encoded by the client
 			collectedData.put(URLDecoder.decode(entry.getKey(), "UTF-8"), entry.getValue());
+			
 		}
 		replaceTestParameters(collectedData);
 		return collectedData;
@@ -121,19 +161,11 @@ public class PlacemarkDataController extends JsonPocessorServlet {
 		return placemarkId;
 	}
 	
-	public static class PlacemarkUpdateRequest {
+	private static class PlacemarkUpdateRequest {
 		
-		private String placemarkId;
 		private Map<String, String> values;
 		private String currentStep;
-
-		public String getPlacemarkId() {
-			return placemarkId;
-		}
-
-		public void setPlacemarkId(String id) {
-			this.placemarkId = id;
-		}
+		private String placemarkId;
 		
 		public Map<String, String> getValues() {
 			return values;
@@ -150,6 +182,16 @@ public class PlacemarkDataController extends JsonPocessorServlet {
 		public void setCurrentStep(String currentStep) {
 			this.currentStep = currentStep;
 		}
+
+		public String getPlacemarkId() {
+			return placemarkId;
+		}
+
+		public void setPlacemarkId(String id) {
+			this.placemarkId = id;
+		}
+
 	}
+	
 
 }
