@@ -11,7 +11,6 @@ import java.util.Map.Entry;
 
 import javax.servlet.http.HttpServletResponse;
 
-import org.apache.commons.collections.MapUtils;
 import org.openforis.collect.earth.app.EarthConstants;
 import org.openforis.collect.earth.app.service.EarthSurveyService;
 import org.openforis.collect.earth.app.view.Messages;
@@ -89,7 +88,6 @@ public class PlacemarkDataController extends JsonPocessorServlet {
 			Map<String, String> collectedData, String placemarkKey ) {
 		PlacemarkLoadResult result;
 		result = getDataAccessor().updateData( placemarkKey.split(",") , collectedData);
-		
 				
 		if (result.isSuccess()) {
 			result.setMessage(Messages.getString("SaveEarthDataServlet.2"));

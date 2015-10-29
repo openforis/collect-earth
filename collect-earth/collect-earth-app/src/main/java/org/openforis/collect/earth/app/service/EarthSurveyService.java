@@ -396,7 +396,6 @@ public class EarthSurveyService{
 		String[] keyValues= new String[parameters.size()];
 		int k = 0;
 		for ( Map.Entry<String, String> entry : parameters.entrySet()) {
-		    
 		    String idKey = entry.getValue();
 		    keyValues[ k++ ] = idKey;		
 		}
