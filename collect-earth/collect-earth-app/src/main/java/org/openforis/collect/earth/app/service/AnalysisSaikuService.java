@@ -462,7 +462,7 @@ public class AnalysisSaikuService {
 		return getSaikuFolder() != null && isSaikuFolder(new File(getSaikuFolder()));
 	}
 
-	private boolean isJavaHomeConfigured() {
+	/*private boolean isJavaHomeConfigured() {
 
 		if (SystemUtils.IS_OS_MAC){
 			return true;
@@ -474,7 +474,7 @@ public class AnalysisSaikuService {
 				&& 
 				StringUtils.isBlank( System.getenv("COLLECT_EARTH_JRE_HOME") )  //$NON-NLS-1$
 				);
-	}
+	}*/
 
 
 	public boolean isSaikuFolder(File saikuFolder) {
@@ -734,9 +734,12 @@ public class AnalysisSaikuService {
 	private void runSaikuBat(String commandName) throws SaikuExecutionException {
 		if (!isSaikuConfigured()) {
 			throw new SaikuExecutionException("The Saiku server is not configured."); //$NON-NLS-1$
-		} else if (!isJavaHomeConfigured()) {
+		} 
+/*		Commented out : the Java Home variable is not necessary any more in order to run Saiku as the path to the Java Runtime Environment distributed with Collect Earth is hardcoded on the bat/sh files
+		else if (!isJavaHomeConfigured()) {
 			throw new SaikuExecutionException("The JAVA_HOME environment variable is not configured. JAVA_HOME must point to the root folder of a valid JDK."); //$NON-NLS-1$
-		} else {
+		} */
+		else {
 			String saikuCmd = getSaikuFolder() + File.separator + commandName + getCommandSuffix() ;
 
 			if (SystemUtils.IS_OS_WINDOWS){
