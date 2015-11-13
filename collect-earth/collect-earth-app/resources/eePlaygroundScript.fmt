@@ -86,12 +86,125 @@ landsat5AnnualTimeSeries = landsat5AnnualTimeSeries.setChartType('ScatterChart')
 // Show the Landsa 5 scatter plot on the console.
 print(landsat5AnnualTimeSeries);
 
-// Add the plot polygon to the map
-Map.addLayer(plot);
+
+
+//Array sorting is useful for obtaining custom quality mosaics which involve reducing a subset of image bands according to the values in a different band. The following example sorts by a cloud index, then gets the mean of the least cloudy subset of images in the collection:
+
+
+var sharpenedLandsat8 = panSharpen('LANDSAT/LC8_L1T_TOA' , ['B5', 'B6', 'B4'], ['B2', 'B3', 'B4', 'B5', 'B6', 'B7', 'B8','B10', 'B11'], '2015-05-01', '2015-11-09');
+var sharpenedLandsat7 = panSharpen('LANDSAT/LE7_L1T_TOA' , ['B4', 'B5', 'B3'], ['B1', 'B2', 'B3', 'B4', 'B5', 'B6_VCID_1' , 'B6_VCID_2' , 'B7', 'B8'], '2000-01-01', '2000-12-31');
 
 // Center the map on the plot location (actually the top-left corner of the plot ) and set Zoom level to 15
 Map.setCenter(${placemark.shape[0].longitude}, ${placemark.shape[0].latitude}, 15);
 
+Map.addLayer(sharpenedLandsat7,
+             {min: getMinValue(sharpenedLandsat7), max: getMaxValue(sharpenedLandsat7), gamma: [1.3, 1.3, 1.3]},
+             '2000 Landsat-7 pan-sharpened');
+		
+Map.addLayer(sharpenedLandsat8,
+             {min: getMinValue(sharpenedLandsat8), max: getMaxValue(sharpenedLandsat8), gamma: [1.3, 1.3, 1.3]},
+             'Recent (6 months) Landsat-8 pan-sharpened');
+
+// Add the plot polygon to the map
+Map.addLayer(plot, {}, "Plot");
+
+function panSharpen(landsatCollectionName, bandsToSharpen, bandsCloudScore, startPeriod, endPeriod ){
+
+	var bandNames = ee.List(bandsCloudScore);
+	// Load a Landsat collection.
+	var collection = ee.ImageCollection( landsatCollectionName )
+	// Select the bands of interest to avoid taking up memory.
+	.select(bandsCloudScore)
+	// Filter to get only imagery at a point of interest.
+	.filterBounds(plot)
+	// Filter to get only six months of data.
+	.filterDate( startPeriod , endPeriod )
+	// Mask clouds by mapping the cloudMask function over the collection.
+	// This will add a cloud score band called 'cloud' to every image.
+	.map(function(image) {
+		return ee.Algorithms.Landsat.simpleCloudScore(image);
+	});
+
+	// Convert the collection to an array.
+	var array = collection.toArray();
+
+	// Label of the axes.
+	var imageAxis = 0;
+	var bandAxis = 1;
+
+	// Get the cloud slice and the bands of interest.
+	var bands = array.arraySlice(bandAxis, 0, bandsCloudScore.length);
+	var clouds = array.arraySlice(bandAxis, bandsCloudScore.length);
+
+	// Sort by cloudiness.
+	var sorted = bands.arraySort(clouds);
+
+	// Get the least cloudy images, 20% of the total.
+	var numImages = sorted.arrayLength(imageAxis).multiply(0.2).int();
+	var leastCloudy = sorted.arraySlice(imageAxis, 0, numImages);
+
+	// Get the mean of the least cloudy images by reducing along the image axis.
+	var mean = leastCloudy.arrayReduce({
+	reducer: ee.Reducer.mean(),
+	axes: [imageAxis]
+	});
+
+	// Turn the reduced array image into a multi-band image for display.
+	var meanImage = mean.arrayProject([bandAxis]).arrayFlatten([bandNames]);
+
+
+	// Convert the RGB bands to the HSV color space.
+	var hsv = meanImage.select( bandsToSharpen ).rgbToHsv();
+
+	// Swap in the panchromatic band and convert back to RGB.
+	var sharpened = ee.Image.cat([
+	hsv.select('hue'), hsv.select('saturation'), meanImage.select('B8')
+	]).hsvToRgb();
+
+	return sharpened;
+}
+
+function getMinValue(image){
+	var min = image.reduceRegion({
+		'reducer': ee.Reducer.min(),
+		'geometry': ee.Geometry( Map.getBounds(true) ),
+		'bestEffort': true,
+		'scale': 30
+	});
+	
+	var objects = min.getInfo();
+	var value = 10000;
+	for(var key in objects){
+		var attrValue = objects[key];
+		if ( attrValue < value){
+			value = attrValue;
+		}
+	}
+	
+	return value;
+  
+}
+
+function getMaxValue(image){
+	var max = image.reduceRegion({
+		'reducer': ee.Reducer.max(),
+		'geometry': ee.Geometry( Map.getBounds(true) ),
+		'bestEffort': true,
+		'scale': 30
+	});
+	
+	var objects = max.getInfo();
+	var value = -10000;
+	for(var key in objects){
+		var attrValue = objects[key];
+		if ( attrValue > value){
+			value = attrValue;
+		}
+	}
+	
+	return value;
+  
+}
 
 // This is an automatically generated script. 
 // If you want to Collect Earth to run a different script for your project when a user clicks on a plot on Google Earth follow these steps :
