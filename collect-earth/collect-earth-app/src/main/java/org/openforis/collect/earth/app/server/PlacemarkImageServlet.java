@@ -52,7 +52,7 @@ public class PlacemarkImageServlet extends JsonPocessorServlet {
 	 * @throws URISyntaxException In case the image icon URL contains an error
 	 */
 	@RequestMapping("/placemarkIcon")
-	public void getImage(HttpServletResponse response, HttpServletRequest request, @RequestParam("collect_text_id") String placemarkId,
+	public void getImage(HttpServletResponse response, HttpServletRequest request, @RequestParam( EarthConstants.PLACEMARK_ID_PARAMETER ) String placemarkId,
 			@RequestParam(value = "listView", required = false) Boolean listView) throws IOException, URISyntaxException {
 
 		getImageExt(response, request, placemarkId, listView);

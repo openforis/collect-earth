@@ -337,7 +337,7 @@ public class EarthSurveyService{
 	@Deprecated
 	public synchronized boolean storePlacemarkOld(Map<String, String> parameters, String sessionId) {
 
-		String[] keys = obtainKeys(parameters);
+		String[] keys = new String[]{ parameters.get( EarthConstants.PLACEMARK_ID_PARAMETER ) };
 		
 		final List<CollectRecord> summaries = recordManager.loadSummaries(getCollectSurvey(), ROOT_ENTITY_NAME, keys); //$NON-NLS-1$
 		boolean success = false;
@@ -392,15 +392,6 @@ public class EarthSurveyService{
 		return success;
 	}
 
-	private String[] obtainKeys(Map<String, String> parameters) {
-		String[] keyValues= new String[parameters.size()];
-		int k = 0;
-		for ( Map.Entry<String, String> entry : parameters.entrySet()) {
-		    String idKey = entry.getValue();
-		    keyValues[ k++ ] = idKey;		
-		}
-		return keyValues;
-	}
 
 	public synchronized PlacemarkLoadResult updatePlacemarkData(String[] plotKeyAttributes, Map<String, String> parameters, String sessionId) {
 		try {
