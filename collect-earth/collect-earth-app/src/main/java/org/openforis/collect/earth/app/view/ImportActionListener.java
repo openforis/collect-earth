@@ -67,13 +67,21 @@ public final class ImportActionListener implements ActionListener {
 			
 			switch (importType) {
 			case ZIP_WITH_XML:
+				
+								
+				
 				for (final File importedFile : filesToImport) {
 					new Thread("XML Import Thread " + importedFile.getName() ){ //$NON-NLS-1$
 						public void run() {
 							try{
 								final boolean importNonFinishedPlots = shouldImportNonFinishedRecords();
+								
+							
 								XMLDataImportProcess dataImportProcess = dataImportService.getImportSummary(importedFile, importNonFinishedPlots);
 								importDialogProcessMonitor.startImport(dataImportProcess, frame, dataImportService, importedFile );
+								
+								
+								
 
 							} catch (Exception e1) {
 								System.out.println( e1 );
@@ -83,7 +91,9 @@ public final class ImportActionListener implements ActionListener {
 										JOptionPane.ERROR_MESSAGE);
 								logger.error("Error importing data from " + importedFile.getAbsolutePath() + " in format " + importType.name() , e1); //$NON-NLS-1$ //$NON-NLS-2$
 							} 
-						};
+						}
+
+						
 					}.start();
 				}
 

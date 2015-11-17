@@ -6,11 +6,19 @@ import java.io.IOException;
 import java.util.List;
 import java.util.Observable;
 import java.util.Observer;
+import java.util.Random;
 
 import javax.swing.JFrame;
 import javax.swing.JOptionPane;
 import javax.swing.SwingUtilities;
 
+import net.lingala.zip4j.core.ZipFile;
+import net.lingala.zip4j.exception.ZipException;
+import net.lingala.zip4j.model.ZipParameters;
+import net.lingala.zip4j.util.Zip4jConstants;
+
+import org.apache.commons.io.FileUtils;
+import org.openforis.collect.earth.app.CollectEarthUtils;
 import org.openforis.collect.earth.app.desktop.EarthApp;
 import org.openforis.collect.earth.app.service.DataImportExportService;
 import org.openforis.collect.io.data.DataImportState;
@@ -18,6 +26,8 @@ import org.openforis.collect.io.data.DataImportSummaryItem;
 import org.openforis.collect.io.data.XMLDataImportProcess;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import com.google.common.io.Files;
 
 public class ImportXMLDialogProcessMonitor implements Observer{
 
@@ -87,6 +97,14 @@ public class ImportXMLDialogProcessMonitor implements Observer{
 				}
 			});
 			
+			File definitiveFileToImport = importedFile;
+			// If the file is exported from Collect rather than a XML export from Collect Earth
+			if( isCollectDataExport( definitiveFileToImport ) ){
+				// Transform the file to a Collect Earth type of format
+				definitiveFileToImport = transformCollectDataFile( definitiveFileToImport );
+				importProcess.setFile( definitiveFileToImport );
+			}
+			
 			importProcess.callAndObserve( this );
 
 			if (importProcess.getSummary() != null && !importProcess.getState().isCancelled()) {
@@ -95,7 +113,7 @@ public class ImportXMLDialogProcessMonitor implements Observer{
 
 				if ( conflictingRecords != null && conflictingRecords.size() > 0) {
 
-					if (!shouldAddConflictingRecords(conflictingRecords, importedFile.getName())) {
+					if (!shouldAddConflictingRecords(conflictingRecords, definitiveFileToImport.getName())) {
 						conflictingRecords.clear();
 					}
 				}
@@ -106,7 +124,7 @@ public class ImportXMLDialogProcessMonitor implements Observer{
 						progressMonitor.setMessage( Messages.getString("ImportDialogProcessMonitor.11") + totalRecords ); //$NON-NLS-1$
 					}	});
 
-				dataImportService.importRecordsFrom(importedFile, importProcess, conflictingRecords );
+				dataImportService.importRecordsFrom(definitiveFileToImport, importProcess, conflictingRecords );
 				
 				forceRefreshGoogleEarth();
 			}
@@ -116,6 +134,54 @@ public class ImportXMLDialogProcessMonitor implements Observer{
 			closeProgressmonitor();
 		}
 
+	}
+	
+	
+	private boolean isCollectDataExport(File importedFile) {
+		return importedFile.getName().endsWith(".collect-data");
+	}
+	
+	private File transformCollectDataFile(File zipWithXml) throws ZipException, IOException {
+		
+		
+		// Originally the collect-data file will look like this:
+		// root: idml.xml
+		// root : data (folder)
+		// root : data/1 (folder)
+		// the XML files will be under the data
+		File dst = null;
+		File tempFolder = null;
+		try {
+			ZipFile src = new ZipFile( zipWithXml );
+			tempFolder = Files.createTempDir();
+			src.extractAll( tempFolder.getAbsolutePath() );
+			
+			
+			dst = new File( tempFolder.getParentFile(), "transform" + (new Random()).nextInt() + ".zip");
+			dst.deleteOnExit();
+			
+			String surveyDefinitonName = "idml.xml";
+			File definition = new File(tempFolder, surveyDefinitonName);
+			
+			ZipFile transformedCollectData = CollectEarthUtils.addFileToZip(dst.getAbsolutePath() , definition , surveyDefinitonName);
+			
+			
+			
+			addStepToZip(tempFolder, transformedCollectData, "1");
+			addStepToZip(tempFolder, transformedCollectData, "2");
+			addStepToZip(tempFolder, transformedCollectData, "3");
+		} finally {
+			FileUtils.deleteQuietly(tempFolder);
+		}
+		
+		return dst;
+	}
+
+	
+	private void addStepToZip(File tempFolder, ZipFile dstZipFile, String step)
+			throws ZipException {
+		File folderToZip = new File( tempFolder, "data"+ File.separator+step);
+		CollectEarthUtils.addFolderToZip(dstZipFile, folderToZip);
 	}
 
 	private void forceRefreshGoogleEarth() {

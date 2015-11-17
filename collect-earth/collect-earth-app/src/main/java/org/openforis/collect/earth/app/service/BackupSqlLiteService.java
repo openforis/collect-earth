@@ -77,7 +77,7 @@ public class BackupSqlLiteService {
 				nameCollectDB = EarthConstants.COLLECT_EARTH_DATABASE_SQLITE_DB;
 				File originalDBFile = new File(nameCollectDB);
 				
-				pathToBackupZip = getBackupZifFilename();
+				pathToBackupZip = getBackupZipFilename();
 				
 				CollectEarthUtils.addFileToZip(pathToBackupZip, originalDBFile, EarthConstants.COLLECT_EARTH_DATABASE_FILE_NAME);
 
@@ -91,7 +91,7 @@ public class BackupSqlLiteService {
 		}
 	}
 
-	public String getBackupZifFilename() throws IOException {
+	public String getBackupZipFilename() throws IOException {
 		String pathToBackup;
 		File backupFolder = getBackUpFolder();
 		
