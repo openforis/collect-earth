@@ -331,7 +331,8 @@ public class BrowserService implements Observer{
 			} */
 			
 			if (!isIdOrNamePresent("workspace-el", driver)) {
-				driver = navigateTo("https://earthengine.google.org/#workspace", driver);
+				String url = localPropertiesService.getValue( EarthProperty.GEE_EXPLORER_URL);
+				driver = navigateTo(url, driver);
 			}
 			
 			if (waitFor("workspace-el", driver)) {

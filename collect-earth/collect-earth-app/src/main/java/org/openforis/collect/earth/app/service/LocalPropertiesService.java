@@ -53,7 +53,7 @@ public class LocalPropertiesService {
 						"open_earth_engine"), OPEN_TIMELAPSE("open_timelapse"),DISTANCE_BETWEEN_SAMPLE_POINTS("distance_between_sample_points"), DISTANCE_TO_PLOT_BOUNDARIES(
 								"distance_to_plot_boundaries"), INNER_SUBPLOT_SIDE("inner_point_side"), SAMPLE_SHAPE("sample_shape"),  SURVEY_NAME("survey_name"), GEE_PLAYGROUND_URL("gee_playground_url"), NUMBER_OF_SAMPLING_POINTS_IN_PLOT(
 								"number_of_sampling_points_in_plot"), LOADED_PROJECTS("loaded_projects"), ACTIVE_PROJECT_DEFINITION("active_project_definition"), LAST_IGNORED_UPDATE("last_ignored_update_version"), OPEN_HERE_MAPS("open_here_maps"), 
-								HERE_MAPS_APP_CODE("here_app_code"), HERE_MAPS_APP_ID("here_app_id"), BING_MAPS_KEY("bing_maps_key"), MODEL_VERSION_NAME("model_version_name");
+								HERE_MAPS_APP_CODE("here_app_code"), HERE_MAPS_APP_ID("here_app_id"), BING_MAPS_KEY("bing_maps_key"), MODEL_VERSION_NAME("model_version_name"), GEE_EXPLORER_URL("gee_explorer_url");
 
 
 		private String name;
