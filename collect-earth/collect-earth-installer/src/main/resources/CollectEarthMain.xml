@@ -55,9 +55,6 @@
                     <origin>earth.properties_initial</origin>
                 </distributionFile>
                 <distributionFile>
-                    <origin>earth.properties_forced_update</origin>
-                </distributionFile>
-                <distributionFile>
                     <origin>update.ini</origin>
                 </distributionFile>
             </distributionFileList>

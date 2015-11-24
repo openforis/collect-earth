@@ -25,6 +25,9 @@
 		                 <distributionFile>
 		                    <origin>earth.properties_initial</origin>
 		                </distributionFile>
+		                <distributionFile>
+		                    <origin>earth.properties_forced_update</origin>
+		                </distributionFile>
                         <distributionFile>
                             <origin>COLLECT_EARTH_MAIN_FOLDER/collect-earth-app/target/CollectEarth.jar</origin>
                         </distributionFile>
