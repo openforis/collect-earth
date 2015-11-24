@@ -341,11 +341,8 @@ public class BrowserService implements Observer{
 						String geeJs = getGEEJavascript(latLong);
 						if (!isGeeMethodUpdated()) {
 							try {
-								// REFRESH EVERY TIME!!!
-								// if (!isGEEValidJS(geeJs, driver)) {
-									refreshJSValues(geeJs, driver);
-									geeJs = getGEEJavascript(latLong);
-								//}
+								refreshJSValues(geeJs, driver);
+								geeJs = getGEEJavascript(latLong);
 							} catch (final Exception e) {
 								logger.error("Error checking the validity of the GEE js code", e);
 							} finally {
@@ -517,7 +514,7 @@ public class BrowserService implements Observer{
 			if( playgroundHandlerThread.isWaitingForLogin() ){
 				playgroundHandlerThread.stopWaitingForLogin();
 				try {
-					Thread.currentThread().sleep(2500);
+					Thread.sleep(2500);
 				} catch (InterruptedException e) {
 					logger.error( "Error while waiting for the GEE Playground thread to die");
 				}

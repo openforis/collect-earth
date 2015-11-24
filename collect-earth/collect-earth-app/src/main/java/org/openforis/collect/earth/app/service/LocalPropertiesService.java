@@ -72,6 +72,7 @@ public class LocalPropertiesService {
 	private Logger logger =null;
 	private Properties properties;
 	private static final String PROPERTIES_FILE_PATH_INITIAL = "earth.properties_initial";
+	private static final String PROPERTIES_FILE_PATH_FORCED_UPDATE= "earth.properties_forced_update";
 	private static final String PROPERTIES_FILE_PATH = FolderFinder.getLocalFolder() + File.separator + "earth.properties";
 	private static final String String = null;
 
@@ -259,7 +260,7 @@ public class LocalPropertiesService {
 						throw new IOException("Could not create file " + propertiesFile.getAbsolutePath());
 					}
 				}				
-				
+				// The earth.properties file does not exists, this mean that the earth_properties.initial file is used, only the first time
 				propertiesFile = propertiesFileInitial;
 				newInstallation = true;
 								
@@ -270,7 +271,6 @@ public class LocalPropertiesService {
 			
 			
 			if( !newInstallation ){
-				
 				// Add properties in initial_properties that are not present in earth.properites so that adding new properties in coming version does not generate issues with older versions
 				if( propertiesFileInitial.exists() ){
 					Properties initialProperties = new Properties();
@@ -283,10 +283,17 @@ public class LocalPropertiesService {
 							properties.put( nextElement, initialProperties.getProperty(nextElement));
 						}
 					}
-				
-					
 				}
 				
+				// UPDATERS!
+				// Emergency procedure for forcing the change of a value for updaters!
+				File propertiesForceChange = new File(PROPERTIES_FILE_PATH_FORCED_UPDATE);
+				if (propertiesForceChange.exists() ) {
+					fr = new FileReader(propertiesForceChange);
+					properties.load(fr);
+					// This procedure will only happen right after update
+					propertiesForceChange.deleteOnExit();
+				}
 				
 			}
 			
