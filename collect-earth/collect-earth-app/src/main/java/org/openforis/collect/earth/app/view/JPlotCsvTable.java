@@ -38,9 +38,16 @@ public class JPlotCsvTable extends JTable{
 	public JPlotCsvTable(String pathToCsvWithPlots, CollectSurvey collectSurvey) {
 		super();
 		this.collectSurvey = collectSurvey;
-		this.setModel( 
-				getPlotTableModel( pathToCsvWithPlots )
-			);
+		try {
+			this.setModel( 
+					getPlotTableModel( pathToCsvWithPlots )
+				);
+		} catch (Exception e) {
+			logger.error("Error loading plot file");
+			this.setBackground(Color.RED);
+			this.setToolTipText("The file chosen does not contain plot information");
+			
+		}
 	}
 
 
