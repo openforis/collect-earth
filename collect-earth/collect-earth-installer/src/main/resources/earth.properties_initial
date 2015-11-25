@@ -11,6 +11,7 @@ db_username=
 elevation_geotif_directory=
 firefox_exe_path=
 gee_initial_zoom=15
+gee_playground_url=https://code.earthengine.google.com/
 gee_explorer_url=https://explorer.earthengine.google.com/#workspace
 gee_js_library_url=https://explorer.earthengine.google.com/javascript/ee_js.js
 gee_js_pickFunction=

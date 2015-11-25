@@ -492,7 +492,7 @@ public class LocalPropertiesService {
 		if(  isPropertySupported(EarthProperty.GEE_PLAYGROUND_URL) ){
 			return getValue(EarthProperty.GEE_PLAYGROUND_URL );
 		}else{
-			return "https://ee-api.appspot.com";
+			return "https://code.earthengine.google.com/";
 		}
 	}
 	
