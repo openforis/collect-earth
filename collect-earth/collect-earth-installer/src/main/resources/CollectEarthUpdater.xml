@@ -70,7 +70,11 @@
 			</elseActionList>
 		</if>
     </initializationActionList>
-    
+    <postInstallationActionList>
+        <showInfo>
+            <text>You need to quit Collect Earth and re-start it for the update to finalize!</text>
+        </showInfo>
+    </postInstallationActionList>
     <compressionAlgorithm>zip</compressionAlgorithm>
     <defaultUnixDirectoryPermissions>777</defaultUnixDirectoryPermissions>
     <defaultUnixFilePermissions>777</defaultUnixFilePermissions>
