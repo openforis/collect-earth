@@ -5,6 +5,7 @@ import java.io.IOException;
 import java.net.MalformedURLException;
 import java.net.URL;
 import java.text.SimpleDateFormat;
+import java.util.Calendar;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.Map;
@@ -109,16 +110,24 @@ public class GeolocalizeMapService {
 	public URL getTemporaryUrl(String[] centerCoordinates, String freemarkerTemplate) {
 
 		final Map<String,Object> data = getPlacemarkData(centerCoordinates);
-		addTodaysDate(data);
+		addDatesForImages(data);
 		
 		return processTemplateWithData(freemarkerTemplate, data);
 
 	}
 
-	public void addTodaysDate(final Map<String, Object> data) {
+	public void addDatesForImages(final Map<String, Object> data) {
 		SimpleDateFormat dt1 = new SimpleDateFormat("yyyy-MM-dd"); 
-		String dateAsExpected = dt1.format(new Date() );
+		Date todayDate = new Date();
+		String dateAsExpected = dt1.format(todayDate );
 		data.put("todayDate", dateAsExpected);
+
+		Calendar cal = Calendar.getInstance();
+		cal.setTime(todayDate);
+		cal.add(Calendar.YEAR, -1);
+				
+		data.put("oneYearAgoDate", dt1.format( cal.getTime() ));
+		
 	}
 
 	private URL processTemplateWithData(String freemarkerTemplate, final Map<String, Object> data) {
