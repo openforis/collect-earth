@@ -3,6 +3,7 @@ package org.openforis.collect.earth.app.service;
 import static org.openforis.collect.earth.app.EarthConstants.ACTIVELY_SAVED_ATTRIBUTE_NAME;
 import static org.openforis.collect.earth.app.EarthConstants.ACTIVELY_SAVED_ON_ATTRIBUTE_NAME;
 import static org.openforis.collect.earth.app.EarthConstants.ACTIVELY_SAVED_ON_PARAMETER;
+import static org.openforis.collect.earth.app.EarthConstants.ACTIVELY_SAVED_ON_PARAMETER_OLD;
 import static org.openforis.collect.earth.app.EarthConstants.ACTIVELY_SAVED_PARAMETER;
 import static org.openforis.collect.earth.app.EarthConstants.COLLECT_REASON_BLANK_NOT_SPECIFIED_MESSAGE;
 import static org.openforis.collect.earth.app.EarthConstants.EARTH_SURVEY_NAME;
@@ -14,6 +15,7 @@ import static org.openforis.collect.earth.app.EarthConstants.SKIP_FILLED_PLOT_PA
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
+import java.text.SimpleDateFormat;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
@@ -45,11 +47,14 @@ import org.openforis.idm.metamodel.ModelVersion;
 import org.openforis.idm.metamodel.NodeLabel.Type;
 import org.openforis.idm.metamodel.Schema;
 import org.openforis.idm.metamodel.xml.IdmlParseException;
+import org.openforis.idm.model.Attribute;
 import org.openforis.idm.model.BooleanAttribute;
 import org.openforis.idm.model.BooleanValue;
 import org.openforis.idm.model.DateAttribute;
 import org.openforis.idm.model.Entity;
 import org.openforis.idm.model.Node;
+import org.openforis.idm.model.TextAttribute;
+import org.openforis.idm.model.TextValue;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -315,9 +320,22 @@ public class EarthSurveyService{
 	}
 
 	private void setPlacemarkSavedOn(CollectRecord record) {
-		DateAttribute attr = record.findNodeByPath(ROOT_ENTITY_NAME + "/" + ACTIVELY_SAVED_ON_ATTRIBUTE_NAME);
-		org.openforis.idm.model.Date date = org.openforis.idm.model.Date.parse(new Date());
-		recordManager.updateAttribute(attr, date);
+		String path = ROOT_ENTITY_NAME + "/" + ACTIVELY_SAVED_ON_ATTRIBUTE_NAME;
+		Attribute<?, ?> attr = record.findNodeByPath(path);
+		if( attr == null ){
+			logger.warn("The expected attribute at " + path + " could not be found!");
+		}else{
+			if( attr instanceof DateAttribute ){
+				org.openforis.idm.model.Date date = org.openforis.idm.model.Date.parse(new Date());
+				recordManager.updateAttribute(( DateAttribute)attr, date);
+			}else if( attr instanceof TextAttribute){
+				SimpleDateFormat sdf =  new SimpleDateFormat("yyyy/MM/dd hh:mm");
+				org.openforis.idm.model.Date date = org.openforis.idm.model.Date.parse(new Date());
+				recordManager.updateAttribute((TextAttribute)attr, new TextValue( sdf.format(date) ) );
+			}else{
+				logger.error("Attribute " + path + " is expected to be of type Text or Date" );
+			}
+		}
 	}
 	
 	private void setPlacemarkSavedActively(CollectRecord record, boolean value) {
@@ -326,7 +344,10 @@ public class EarthSurveyService{
 	}
 
 	private void setPlacemarkSavedOn(Map<String, String> parameters) {
-		parameters.put(ACTIVELY_SAVED_ON_PARAMETER, DateAttributeHandler.DATE_ATTRIBUTE_FORMAT.format(new Date()));
+		String dateSaved = DateAttributeHandler.DATE_ATTRIBUTE_FORMAT.format(new Date());
+		parameters.put(ACTIVELY_SAVED_ON_PARAMETER, dateSaved);
+		parameters.put(ACTIVELY_SAVED_ON_PARAMETER_OLD, dateSaved);
+		
 	}
 
 	private void setPlacemarkSavedActively(Map<String, String> parameters, boolean value) {
@@ -363,6 +384,8 @@ public class EarthSurveyService{
 
 			boolean userClickOnSaveAndValidate = isPlacemarkSavedActively(parameters);
 			
+			setPlacemarkSavedOn(parameters);
+			
 			// Populate the data of the record using the HTTP parameters received
 			// This also generates the validation messages
 			collectParametersHandler.saveToEntity(parameters, plotEntity);
@@ -377,8 +400,6 @@ public class EarthSurveyService{
 					//Force saving again to remove the "actively saved" parameter!
 					collectParametersHandler.saveToEntity(parameters, plotEntity);
 					
-				}else{
-					setPlacemarkSavedOn(parameters);
 				}
 			}
 			
