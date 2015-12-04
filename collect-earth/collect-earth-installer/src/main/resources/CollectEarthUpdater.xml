@@ -78,7 +78,7 @@
     <compressionAlgorithm>zip</compressionAlgorithm>
     <defaultUnixDirectoryPermissions>777</defaultUnixDirectoryPermissions>
     <defaultUnixFilePermissions>777</defaultUnixFilePermissions>
-    <enableRollback>1</enableRollback>
+    <enableRollback>0</enableRollback>
     <enableTimestamp>1</enableTimestamp>
     <installationType>upgrade</installationType>
     <overwritePolicy>onlyIfNewer</overwritePolicy>
