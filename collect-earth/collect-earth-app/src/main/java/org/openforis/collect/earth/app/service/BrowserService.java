@@ -580,7 +580,7 @@ public class BrowserService implements Observer{
 				public void run() {
 
 					try {
-						webDriverTimelapse = navigateTo("https://earthengine.google.org/#timelapse/v=" + coordinates + ",10.812,latLng&t=0.08",
+						webDriverTimelapse = navigateTo("https://earthengine.google.org/timelapse/timelapseplayer_v2.html?timelapseclient=http://earthengine.google.org/timelapse/data&v=" + coordinates + ",10.812,latLng&t=0.08",
 								driverCopy);
 					} catch (final Exception e) {
 						logger.error("Problems loading Timelapse", e);
