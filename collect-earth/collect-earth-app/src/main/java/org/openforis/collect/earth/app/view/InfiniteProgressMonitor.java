@@ -6,9 +6,11 @@ import javax.swing.JLabel;
 import javax.swing.JOptionPane;
 import javax.swing.JProgressBar;
 import javax.swing.SwingUtilities;
-import javax.swing.text.html.HTMLDocument.HTMLReader.IsindexAction;
 
-public class InfiniteProgressMonitor {
+import org.openforis.concurrency.Progress;
+import org.openforis.concurrency.ProgressListener;
+
+public class InfiniteProgressMonitor implements ProgressListener {
 
 	JDialog infiniteWaitingDialog;
 
@@ -23,6 +25,7 @@ public class InfiniteProgressMonitor {
 	private JLabel label;
 	
 	JProgressBar infiniteProgress;
+	
 
 	public InfiniteProgressMonitor(JFrame parentFrame, String title, String message) {
 
@@ -107,6 +110,11 @@ public class InfiniteProgressMonitor {
 
 	private void setPane(JOptionPane pane) {
 		this.pane = pane;
+	}
+
+	@Override
+	public void progressMade(Progress progress) {
+		updateProgress( (int)progress.getProcessedItems(), (int)progress.getTotalItems() );
 	}
 
 }
