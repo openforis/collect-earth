@@ -5,6 +5,7 @@ import java.io.IOException;
 import java.net.MalformedURLException;
 import java.net.URL;
 import java.text.SimpleDateFormat;
+import java.util.Calendar;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.Map;
@@ -52,6 +53,8 @@ public class GeolocalizeMapService {
 
 
 	public static final String FREEMARKER_HERE_HTML_TEMPLATE = RESOURCES_FOLDER + File.separator + "collectHereMaps.fmt";
+	
+	public static final String FREEMARKER_STREET_VIEW_HTML_TEMPLATE= RESOURCES_FOLDER + File.separator + "collectStreetView.fmt";
 
 	
 	@Autowired
@@ -109,16 +112,24 @@ public class GeolocalizeMapService {
 	public URL getTemporaryUrl(String[] centerCoordinates, String freemarkerTemplate) {
 
 		final Map<String,Object> data = getPlacemarkData(centerCoordinates);
-		addTodaysDate(data);
+		addDatesForImages(data);
 		
 		return processTemplateWithData(freemarkerTemplate, data);
 
 	}
 
-	public void addTodaysDate(final Map<String, Object> data) {
-		SimpleDateFormat dt1 = new SimpleDateFormat("yyyy-mm-dd"); 
-		String dateAsExpected = dt1.format(new Date() );
+	public void addDatesForImages(final Map<String, Object> data) {
+		SimpleDateFormat dt1 = new SimpleDateFormat("yyyy-MM-dd"); 
+		Date todayDate = new Date();
+		String dateAsExpected = dt1.format(todayDate );
 		data.put("todayDate", dateAsExpected);
+
+		Calendar cal = Calendar.getInstance();
+		cal.setTime(todayDate);
+		cal.add(Calendar.YEAR, -1);
+				
+		data.put("oneYearAgoDate", dt1.format( cal.getTime() ));
+		
 	}
 
 	private URL processTemplateWithData(String freemarkerTemplate, final Map<String, Object> data) {
@@ -170,5 +181,24 @@ public class GeolocalizeMapService {
 		data.put("hereAppCode", hereAppCode);
 		return processTemplateWithData(freemarkerTemplate, data);
 	}
+	
+	
+	/**
+	 * Produces a temporary file with the necessary HTML code to show the plot in Google Street View
+	 * @param centerCoordinates The coordinates of the center of the plot.
+	 * @param googleMapsApiKey The Google Maps API key
+	 * @param freemarkerTemplate The path to the freemarker template that is used to produce the file.
+	 * @return The URL to the temporary file that can be used to load it in a browser.
+	 */
+	public URL getStreetViewUrl(String[] centerCoordinates, String googleMapsApiKey, String freemarkerTemplate) {
+
+		final Map<String,Object> data = getPlacemarkData(centerCoordinates);
+		data.put("googleMapsApiKey", googleMapsApiKey);
+		return processTemplateWithData(freemarkerTemplate, data);
+	}
+	
+	
+	
+	
 
 }

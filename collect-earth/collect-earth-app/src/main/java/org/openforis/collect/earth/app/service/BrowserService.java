@@ -1,8 +1,5 @@
 package org.openforis.collect.earth.app.service;
 
-import java.awt.Toolkit;
-import java.awt.datatransfer.Clipboard;
-import java.awt.datatransfer.StringSelection;
 import java.io.BufferedReader;
 import java.io.BufferedWriter;
 import java.io.File;
@@ -34,15 +31,12 @@ import javax.net.ssl.X509TrustManager;
 
 import liquibase.util.SystemUtils;
 
-import org.apache.commons.io.FileUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.openforis.collect.earth.app.EarthConstants;
 import org.openforis.collect.earth.app.desktop.ServerController.ServerInitializationEvent;
 import org.openforis.collect.earth.app.service.LocalPropertiesService.EarthProperty;
 import org.openqa.selenium.By;
 import org.openqa.selenium.JavascriptExecutor;
-import org.openqa.selenium.Keys;
-import org.openqa.selenium.WebDriver;
 import org.openqa.selenium.WebDriverException;
 import org.openqa.selenium.WebElement;
 import org.openqa.selenium.chrome.ChromeDriver;
@@ -72,6 +66,7 @@ import freemarker.template.TemplateException;
  */
 @Component
 public class BrowserService implements Observer{
+
 
 	/**
 	 * To avoid needing to addd the SSL certificate of Google to the certificate repository we ause a Trust Manager that basically trust all
@@ -107,6 +102,9 @@ public class BrowserService implements Observer{
 
 	@Autowired
 	private GeolocalizeMapService geoLocalizeTemplateService;
+	
+	@Autowired
+	private PlaygroundHandlerThread playgroundHandlerThread;
 
 	private final Vector<RemoteWebDriver> drivers = new Vector<RemoteWebDriver>();
 	private final Logger logger = LoggerFactory.getLogger(BrowserService.class);
@@ -114,7 +112,7 @@ public class BrowserService implements Observer{
 	private static final Configuration cfg = new Configuration();
 	private static Template template;
 
-	private RemoteWebDriver webDriverEE, webDriverBing, webDriverTimelapse, webDriverGeePlayground, webDriverHere;
+	private RemoteWebDriver webDriverEE, webDriverBing, webDriverTimelapse, webDriverGeePlayground, webDriverHere, webDriverStreetView;
 
 	private static boolean geeMethodUpdated = false;
 
@@ -272,42 +270,29 @@ public class BrowserService implements Observer{
 		return driver;
 	}
 
-/*	private void minimizeWindow(RemoteWebDriver driver) {
-		try {		
-			String minimize = Keys.chord(Keys.ALT,Keys.SPACE, "n");
-			driver.getKeyboard().sendKeys(minimize);
-		} catch (Exception e) {
-			logger.error("Error minimizing", e);
-		}
-	}*/
-	
-	/*private boolean isGEEValidJS(String geeJs, RemoteWebDriver driver) {
-
-		boolean stillValid = false;
-
-		try {
-
-			geeJs = geeJs.substring(0, geeJs.indexOf("focusObject."));
-			((JavascriptExecutor) driver).executeScript(geeJs);
-
-			stillValid = true;
-		} catch (final Exception e) {
-			processSeleniumError(e);
-		}
-
-		return stillValid;
-	}*/
-
-	private boolean isIdOrNamePresent(String elementId, RemoteWebDriver driver) {
+	public static boolean isIdOrNamePresent(String elementId, RemoteWebDriver driver) {
 		boolean found = false;
 
 		try {
 			if (driver.findElementById(elementId).isDisplayed() || driver.findElementByName(elementId).isDisplayed()) {
 				found = true;
 			}
-			logger.debug("Found " + elementId);
 		} catch (final Exception e) {
-			logger.debug("Not Found " + elementId);
+			// Not found
+		}
+
+		return found;
+	}
+	
+	public static boolean isCssElementPresent(String cssElement, RemoteWebDriver driver) {
+		boolean found = false;
+
+		try {
+			if (driver.findElementByCssSelector(cssElement).isDisplayed() && driver.findElementByCssSelector(cssElement).isEnabled()  ) {
+				found = true;
+			}
+		} catch (final Exception e) {
+			// Not found
 		}
 
 		return found;
@@ -346,7 +331,8 @@ public class BrowserService implements Observer{
 			} */
 			
 			if (!isIdOrNamePresent("workspace-el", driver)) {
-				driver = navigateTo("https://earthengine.google.org/#workspace", driver);
+				String url = localPropertiesService.getValue( EarthProperty.GEE_EXPLORER_URL);
+				driver = navigateTo(url, driver);
 			}
 			
 			if (waitFor("workspace-el", driver)) {
@@ -355,11 +341,8 @@ public class BrowserService implements Observer{
 						String geeJs = getGEEJavascript(latLong);
 						if (!isGeeMethodUpdated()) {
 							try {
-								// REFRESH EVERY TIME!!!
-								// if (!isGEEValidJS(geeJs, driver)) {
-									refreshJSValues(geeJs, driver);
-									geeJs = getGEEJavascript(latLong);
-								//}
+								refreshJSValues(geeJs, driver);
+								geeJs = getGEEJavascript(latLong);
 							} catch (final Exception e) {
 								logger.error("Error checking the validity of the GEE js code", e);
 							} finally {
@@ -437,7 +420,7 @@ public class BrowserService implements Observer{
 		return driver;
 	}
 
-	private boolean isDriverWorking(RemoteWebDriver driver) {
+	protected boolean isDriverWorking(RemoteWebDriver driver) {
 		boolean stillWorking = true;
 		try {
 			driver.findElement(By.xpath("//body"));
@@ -479,6 +462,44 @@ public class BrowserService implements Observer{
 		}
 	}
 	
+		/**
+		 * Opens a browser window with the Google Street View representation of the plot.
+		 * https://www.google.com/maps/@43.7815661,11.1484876,3a,75y,210.23h,82.32t/data=!3m6!1e1!3m4!1sEz7NiCbaIYzTJkP_RMBiqw!2e0!7i13312!8i6656?hl=en
+		 * @param coordinates The center point of the plot.
+		 * @throws BrowserNotFoundException In case the browser could not be found
+		 * 
+		 */
+		public void openStreetView(String coordinates) throws BrowserNotFoundException {
+
+			if (localPropertiesService.isStreetViewSupported()) {
+
+				if (webDriverStreetView == null) {
+					webDriverStreetView = initBrowser();
+				}
+
+				final RemoteWebDriver driverCopy = webDriverStreetView;
+				final String[] centerPlotLocation = coordinates.split(",");
+				final Thread loadStreetViewThread = new Thread() {
+					@Override
+					public void run() {
+						try {
+							webDriverStreetView = navigateTo(geoLocalizeTemplateService.getStreetViewUrl(
+									centerPlotLocation, 
+									localPropertiesService.getValue( EarthProperty.GOOGLE_MAPS_API_KEY), 
+									GeolocalizeMapService.FREEMARKER_STREET_VIEW_HTML_TEMPLATE).toString(), 
+									driverCopy
+							);
+						} catch (final Exception e) {
+							logger.error("Problems loading Street View", e);
+						}
+					};
+				};
+				
+				loadStreetViewThread.start();
+				
+			}
+		}	
+		
 	/**
 	 * Opens a browser window with the Here Maps representation of the plot.
 	 * @param coordinates The center point of the plot.
@@ -511,13 +532,6 @@ public class BrowserService implements Observer{
 		}
 	}
 
-
-	private void paste(WebElement textarea, WebDriver webDriver, String jsGeeText) {
-	    JavascriptExecutor js = (JavascriptExecutor ) webDriver;
-	    js.executeScript("arguments[0].value='arguments[1]'", textarea, jsGeeText );
-
-	}
-	
 	
 	/**
 	 * Opens a browser window with the Google Earth Engine Playground and runs the freemarker template found in resources/eePlaygroundScript.fmt on the main editor of GEE. 
@@ -529,93 +543,26 @@ public class BrowserService implements Observer{
 
 		if (localPropertiesService.isGeePlaygroundSupported()) {
 
-			if (webDriverGeePlayground == null) {
-				webDriverGeePlayground = initBrowser();
+			if (getWebDriverGeePlayground() == null) {
+				setWebDriverGeePlayground(initBrowser());
 			}
 
 			final String[] latLong = coordinates.split(",");
-
-			final Thread loadEEThread = new Thread() {
-				@Override
-				public void run() {
-					try {
-						URL fileWithScript = geoLocalizeTemplateService.getTemporaryUrl(latLong, getGeePlaygroundTemplate());
-						
-						if (!isIdOrNamePresent("main", webDriverGeePlayground)) {
-							webDriverGeePlayground = navigateTo( localPropertiesService.getGeePlaygoundUrl(), webDriverGeePlayground);
-						}
-						
-						webDriverGeePlayground.findElementByCssSelector("button.goog-button:nth-child(5)").click();
-						
-						WebElement textArea = webDriverGeePlayground.findElement(By.className("ace_text-input"));
-						
-						Clipboard clipboard = Toolkit.getDefaultToolkit().getSystemClipboard();
-						String contents = FileUtils.readFileToString( new File(fileWithScript.toURI()));
-						StringSelection clipboardtext = new StringSelection( contents );
-						clipboard.setContents(clipboardtext, null);
-						
-						if( SystemUtils.IS_OS_MAC || SystemUtils.IS_OS_MAC_OSX){
-							
-							
-						    // Command key (apple key) is not working on Chrome on Mac. Try with the right clik
-							//Actions action= new Actions(webDriverGeePlayground);
-							//action.contextClick(textArea).clickAndHold().sendKeys(Keys.ARROW_DOWN).sendKeys(Keys.RETURN).release();
-							//action.contextClick(textArea).clickAndHold().sendKeys(Keys.ARROW_DOWN).sendKeys(Keys.ARROW_DOWN).sendKeys(Keys.RETURN).release();
-							textArea.sendKeys(Keys.chord(Keys.COMMAND,"a"));
-							textArea.sendKeys(Keys.chord(Keys.COMMAND,"v"));				
-						}else{
-							textArea.sendKeys(Keys.chord(Keys.CONTROL,"a"));
-							textArea.sendKeys(Keys.chord(Keys.CONTROL,"v"));
-						}
-						
-						
-						//textArea.sendKeys( FileUtils.readFileToString( new File(fileWithScript.toURI())) );
-						//((JavascriptExecutor)webDriverGeePlayground).executeScript("arguments[0].value = arguments[1];", textArea,);
-						Thread.sleep(1000);
-						webDriverGeePlayground.findElementByCssSelector("button.goog-button:nth-child(4)").click();
-						
-					} catch (final Exception e) {
-						logger.error("Error when opening Earth Engine browser window", e);
-					}
+			
+			if( playgroundHandlerThread.isWaitingForLogin() ){
+				playgroundHandlerThread.stopWaitingForLogin();
+				try {
+					Thread.sleep(2500);
+				} catch (InterruptedException e) {
+					logger.error( "Error while waiting for the GEE Playground thread to die");
 				}
-
-				/**
-				 * Get the GEE Playground script that should be used.
-				 * There is an standard one that resides in resources/eePlaygroundScript.fmt but a project might have its own script.
-				 * 
-				 * @return The generic script in the resources folder or the file called eePlaygroundScript.fmt in hte same folder where the current project file resides
-				 */
-				private String getGeePlaygroundTemplate() {
-
-					String projectPlaygroundScript = getProjectGeeScript();
-					if( projectPlaygroundScript != null  ){
-						return projectPlaygroundScript;
-					}else{
-						return GeolocalizeMapService.FREEMARKER_GEE_PLAYGROUND_TEMPLATE;
-					}
-					
-				};
-			};
-			loadEEThread.start();
+			}
+			
+			playgroundHandlerThread.loadPlaygroundScript(latLong, getWebDriverGeePlayground() );
 		}
 	}
 	
-	/**
-	 * Find the GEE playground script that should be used for the project that is currently loaded in Collect Earth
-	 * @return The path to the GEE playground generic script or the one that is specified in the project folder if it exists. 
-	 */
-	private String getProjectGeeScript() {
-		// Where the metatadata file (usually placemark.idm.xml ) is located
-		
-		// Is there a "eePlaygroundScript.fmt" file in the same folder than in the metadata file folder?
-		File projectGeePlayground = new File( localPropertiesService.getProjectFolder() + File.separatorChar + GeolocalizeMapService.FREEMARKER_GEE_PLAYGROUND_TEMPLATE_FILE_NAME);
-		
-		String geePlaygroundFilePath = null;
-		if( projectGeePlayground.exists() ){
-			geePlaygroundFilePath = projectGeePlayground.getAbsolutePath();
-		}
-		return geePlaygroundFilePath;
-	}
+
 	
 	/**
 	 * Opens a browser window with the Google Earth Engine representation of the plot. The Landsat 8 Annual Greenest pixel TOA for 2013 is loaded automatically. 
@@ -671,7 +618,7 @@ public class BrowserService implements Observer{
 				public void run() {
 
 					try {
-						webDriverTimelapse = navigateTo("https://earthengine.google.org/#timelapse/v=" + coordinates + ",10.812,latLng&t=0.08",
+						webDriverTimelapse = navigateTo("https://earthengine.google.org/timelapse/timelapseplayer_v2.html?timelapseclient=http://earthengine.google.org/timelapse/data&v=" + coordinates + ",10.812,latLng&t=0.08",
 								driverCopy);
 					} catch (final Exception e) {
 						logger.error("Problems loading Timelapse", e);
@@ -834,6 +781,14 @@ public class BrowserService implements Observer{
 		if( ServerInitializationEvent.SERVER_STOPPED_EVENT.equals(arg) ){
 			this.closeBrowsers();
 		}
+	}
+
+	private RemoteWebDriver getWebDriverGeePlayground() {
+		return webDriverGeePlayground;
+	}
+
+	protected void setWebDriverGeePlayground(RemoteWebDriver webDriverGeePlayground) {
+		this.webDriverGeePlayground = webDriverGeePlayground;
 	}
 }
 

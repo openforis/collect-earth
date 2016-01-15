@@ -6,6 +6,7 @@ import java.util.Map;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 
+import org.openforis.collect.earth.app.EarthConstants;
 import org.openforis.collect.earth.app.service.LocalPropertiesService;
 import org.openforis.collect.earth.app.view.Messages;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -64,8 +65,8 @@ public class SaveEarthDataServlet extends JsonPocessorServlet {
 	 */
 	private void replaceTestVariables(Map<String, String> collectedData) {
 		// REMOVE THIS!!!!
-		if (collectedData.get("collect_text_id").equals("$[id]")) { //$NON-NLS-1$ //$NON-NLS-2$
-			collectedData.put("collect_text_id", "testPlacemark"); //$NON-NLS-1$ //$NON-NLS-2$
+		if (collectedData.get(EarthConstants.PLACEMARK_ID_PARAMETER).equals("$[id]")) { //$NON-NLS-1$ //$NON-NLS-2$
+			collectedData.put(EarthConstants.PLACEMARK_ID_PARAMETER, "testPlacemark"); //$NON-NLS-1$ //$NON-NLS-2$
 		}
 
 		if (collectedData.get("collect_integer_elevation") != null && collectedData.get("collect_integer_elevation").equals("$[elevation]")) { //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$

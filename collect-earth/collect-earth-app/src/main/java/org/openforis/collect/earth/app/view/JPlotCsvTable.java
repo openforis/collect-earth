@@ -11,8 +11,10 @@ import javax.swing.JTable;
 import javax.swing.table.DefaultTableModel;
 
 import org.apache.commons.lang.ArrayUtils;
+import org.openforis.collect.earth.core.utils.CsvReaderUtils;
 import org.openforis.collect.earth.sampler.processor.KmlGenerator;
 import org.openforis.collect.earth.sampler.processor.PlotProperties;
+import org.openforis.collect.model.CollectSurvey;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -27,16 +29,25 @@ import au.com.bytecode.opencsv.CSVReader;
 public class JPlotCsvTable extends JTable{
 	private static final long serialVersionUID = 3456854921119125693L;
 	private final Logger logger = LoggerFactory.getLogger(this.getClass());
+	private CollectSurvey collectSurvey;
 
 	/**
 	 * Build a new JTable that contains the data from the CSV that is set as the file that contains the plots used by Collect Earth
 	 * @param pathToCsvWithPlots Path to the file containing the plot locations that should be loaded in the table 
 	 */
-	public JPlotCsvTable(String pathToCsvWithPlots) {
+	public JPlotCsvTable(String pathToCsvWithPlots, CollectSurvey collectSurvey) {
 		super();
-		this.setModel( 
-				getPlotTableModel( pathToCsvWithPlots )
-			);
+		this.collectSurvey = collectSurvey;
+		try {
+			this.setModel( 
+					getPlotTableModel( pathToCsvWithPlots )
+				);
+		} catch (Exception e) {
+			logger.error("Error loading plot file");
+			this.setBackground(Color.RED);
+			this.setToolTipText("The file chosen does not contain plot information");
+			
+		}
 	}
 
 
@@ -122,7 +133,7 @@ public class JPlotCsvTable extends JTable{
 		if( csvFile.exists() ){
 			try {
 				
-				reader = KmlGenerator.getCsvReader(csvFilePath);
+				reader = CsvReaderUtils.getCsvReader(csvFilePath);
 				try {
 					while ((csvRow = reader.readNext()) != null && plots.size() < 50) {
 
@@ -131,7 +142,7 @@ public class JPlotCsvTable extends JTable{
 						}
 
 						try {
-							final PlotProperties plotProperties = KmlGenerator.getPlotProperties(csvRow, headerRow);
+							final PlotProperties plotProperties = KmlGenerator.getPlotProperties(csvRow, headerRow, collectSurvey);
 							final Vector<Object> props = new Vector<Object>();
 							props.add(plotProperties.id);
 							props.add(plotProperties.yCoord);

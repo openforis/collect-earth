@@ -10,17 +10,12 @@ import java.util.Date;
 
 import javax.annotation.PostConstruct;
 
-import net.lingala.zip4j.core.ZipFile;
 import net.lingala.zip4j.exception.ZipException;
-import net.lingala.zip4j.model.ZipParameters;
-import net.lingala.zip4j.util.Zip4jConstants;
 
 import org.apache.commons.dbcp.BasicDataSource;
 import org.openforis.collect.earth.app.CollectEarthUtils;
 import org.openforis.collect.earth.app.EarthConstants;
 import org.openforis.collect.earth.app.service.LocalPropertiesService.EarthProperty;
-import org.openforis.collect.persistence.SurveyImportException;
-import org.openforis.idm.metamodel.xml.IdmlParseException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -51,7 +46,7 @@ public class BackupSqlLiteService {
 	private Logger logger = LoggerFactory.getLogger( BackupSqlLiteService.class );
 
 	@PostConstruct
-	public void init() throws FileNotFoundException, IdmlParseException, SurveyImportException {
+	public void init() throws FileNotFoundException {
 		attachShutDownHook();
 	}
 
@@ -82,7 +77,7 @@ public class BackupSqlLiteService {
 				nameCollectDB = EarthConstants.COLLECT_EARTH_DATABASE_SQLITE_DB;
 				File originalDBFile = new File(nameCollectDB);
 				
-				pathToBackupZip = getBackupZifFilename();
+				pathToBackupZip = getBackupZipFilename();
 				
 				CollectEarthUtils.addFileToZip(pathToBackupZip, originalDBFile, EarthConstants.COLLECT_EARTH_DATABASE_FILE_NAME);
 
@@ -96,7 +91,7 @@ public class BackupSqlLiteService {
 		}
 	}
 
-	public String getBackupZifFilename() throws IOException {
+	public String getBackupZipFilename() throws IOException {
 		String pathToBackup;
 		File backupFolder = getBackUpFolder();
 		

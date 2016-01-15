@@ -10,8 +10,8 @@
 					<Change>
 						<ItemIcon targetId="icon_${placemark}">
 							<state>open</state>
-							<#-- The unique Id forces Google Earth to reload the icon -->[
-							<href>${host}placemarkIcon?collect_text_id=${placemark}&amp;listView=true&amp;umiqueId=${uniqueId}</href>
+							<#-- The unique Id forces Google Earth to reload the icon -->
+							<href>${host}placemarkIconExtd?id=${placemark}&amp;listView=true&amp;umiqueId=${uniqueId}</href>
 						</ItemIcon>
 					</Change>
 				</#list>

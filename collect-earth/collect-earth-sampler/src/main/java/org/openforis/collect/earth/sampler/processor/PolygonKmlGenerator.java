@@ -9,9 +9,11 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+import org.openforis.collect.earth.core.utils.CsvReaderUtils;
 import org.openforis.collect.earth.sampler.model.SimpleCoordinate;
 import org.openforis.collect.earth.sampler.model.SimplePlacemarkObject;
 import org.openforis.collect.earth.sampler.utils.KmlGenerationException;
+import org.openforis.collect.model.CollectSurvey;
 import org.opengis.referencing.operation.TransformException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -58,7 +60,7 @@ public abstract class PolygonKmlGenerator extends KmlGenerator {
 	}
 
 	@Override
-	protected Map<String, Object> getTemplateData(String csvFile, double distanceBetweenSamplePoints, double distancePlotBoundary) throws KmlGenerationException {
+	protected Map<String, Object> getTemplateData(String csvFile, double distanceBetweenSamplePoints, double distancePlotBoundary, CollectSurvey collectSurvey) throws KmlGenerationException {
 		final Map<String, Object> data = new HashMap<String, Object>();
 
 		SimplePlacemarkObject previousPlacemark = null;
@@ -74,14 +76,21 @@ public abstract class PolygonKmlGenerator extends KmlGenerator {
 		CSVReader reader = null;
 		List<SimplePlacemarkObject> placemarks = new ArrayList<SimplePlacemarkObject>();
 		try {
-			reader = getCsvReader(csvFile);
+			reader = CsvReaderUtils.getCsvReader(csvFile);
 			
 			while ((csvRow = reader.readNext()) != null) {
 				try {
 					if( headerRow == null ){
 						headerRow = csvRow;
 					}
-					final PlotProperties plotProperties = getPlotProperties(csvRow, headerRow);
+					
+					// Check that the row is not just an empty row with no data
+					if( CsvReaderUtils.onlyEmptyCells(csvRow)){
+						// If the row is empty ( e.g. : ",,,,," ) jump to next row
+						continue;
+					}
+					
+					final PlotProperties plotProperties = getPlotProperties(csvRow, headerRow, collectSurvey);
 
 					final Point transformedPoint = transformToWGS84(plotProperties.xCoord, plotProperties.yCoord); // TOP-LEFT
 
@@ -121,7 +130,7 @@ public abstract class PolygonKmlGenerator extends KmlGenerator {
 					if(rowNumber > 0 ){
 						throw new KmlGenerationException("Error in the CSV " + csvFile + " \r\n for row " + rowNumber + " = " + Arrays.toString( csvRow ), e);
 					}else{
-						logger.warn("Error while reading the first line of the CSV fle, probably cause by the column header names");
+						logger.info("Error while reading the first line of the CSV fle, probably cause by the column header names");
 					}
 				}finally{
 					rowNumber++;
@@ -154,4 +163,5 @@ public abstract class PolygonKmlGenerator extends KmlGenerator {
 		return data;
 	}
 
+	
 }

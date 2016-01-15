@@ -9,7 +9,6 @@ import java.awt.GridBagConstraints;
 import java.awt.GridBagLayout;
 import java.awt.Insets;
 import java.awt.Toolkit;
-import java.awt.Window;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 import java.io.File;
@@ -54,6 +53,7 @@ import org.openforis.collect.earth.app.EarthConstants.CollectDBDriver;
 import org.openforis.collect.earth.app.EarthConstants.OperationMode;
 import org.openforis.collect.earth.app.service.AnalysisSaikuService;
 import org.openforis.collect.earth.app.service.EarthProjectsService;
+import org.openforis.collect.earth.app.service.EarthSurveyService;
 import org.openforis.collect.earth.app.service.LocalPropertiesService;
 import org.openforis.collect.earth.app.service.LocalPropertiesService.EarthProperty;
 import org.slf4j.Logger;
@@ -73,18 +73,22 @@ public class OptionWizard extends JDialog {
 	JPanel postgresPanel;
 
 	LocalPropertiesService localPropertiesService;
+	
 	String backupFolder;
 
 	private AnalysisSaikuService saikuService;
 
 	private EarthProjectsService projectsService;
 
-	public OptionWizard(JFrame frame, LocalPropertiesService localPropertiesService, EarthProjectsService projectsService,  String backupFolder, AnalysisSaikuService saikuService) {
+	private EarthSurveyService earthSurveyService;
+
+	public OptionWizard(JFrame frame, LocalPropertiesService localPropertiesService, EarthProjectsService projectsService,  String backupFolder, AnalysisSaikuService saikuService, EarthSurveyService earthSurveyService) {
 		super(frame, Messages.getString("OptionWizard.0")); //$NON-NLS-1$
 		this.localPropertiesService = localPropertiesService;
 		this.projectsService = projectsService;
 		this.backupFolder = backupFolder;
 		this.saikuService = saikuService;
+		this.earthSurveyService = earthSurveyService;
 		this.setLocationRelativeTo(null);
 		this.setSize(new Dimension(600, 620));
 		this.setModal(true);
@@ -147,7 +151,11 @@ public class OptionWizard extends JDialog {
 		panel.add(propertyToComponent.get(EarthProperty.OPEN_BING_MAPS)[0], constraints);
 		
 		constraints.gridy++;
-		panel.add(propertyToComponent.get(EarthProperty.OPEN_HERE_MAPS)[0], constraints);
+		panel.add(propertyToComponent.get(EarthProperty.OPEN_STREET_VIEW)[0], constraints);
+		
+		// Removed Here Maps temporarily
+		// constraints.gridy++;
+		// panel.add(propertyToComponent.get(EarthProperty.OPEN_HERE_MAPS)[0], constraints);
 		
 		constraints.gridy++;
 		panel.add(propertyToComponent.get(EarthProperty.OPEN_GEE_PLAYGROUND)[0], constraints);
@@ -412,6 +420,13 @@ public class OptionWizard extends JDialog {
 		panel.add(label, constraints);
 		constraints.gridx = 1;
 		panel.add(new JScrollPane(propertyToComponent.get(EarthProperty.DISTANCE_TO_PLOT_BOUNDARIES)[0]), constraints);
+		
+		constraints.gridx = 0;
+		constraints.gridy = 3;
+		label = new JLabel(Messages.getString("OptionWizard.95") ); //$NON-NLS-1$
+		panel.add(label, constraints);
+		constraints.gridx = 1;
+		panel.add(new JScrollPane(propertyToComponent.get(EarthProperty.INNER_SUBPLOT_SIDE)[0]), constraints);
 		return panel;
 	}
 
@@ -491,7 +506,7 @@ public class OptionWizard extends JDialog {
 	}
 
 	private JComponent getSampleDataPanel() {
-		final JPlotCsvTable samplePlots = new JPlotCsvTable( localPropertiesService.getValue(EarthProperty.CSV_KEY) );
+		final JPlotCsvTable samplePlots = new JPlotCsvTable( localPropertiesService.getValue(EarthProperty.CSV_KEY), earthSurveyService.getCollectSurvey()  );
 
 		final JPanel panel = new JPanel(new GridBagLayout());
 		final GridBagConstraints constraints = new GridBagConstraints();
@@ -698,6 +713,10 @@ public class OptionWizard extends JDialog {
 		openBingCheckbox.setSelected(Boolean.parseBoolean(localPropertiesService.getValue(EarthProperty.OPEN_BING_MAPS)));
 		propertyToComponent.put(EarthProperty.OPEN_BING_MAPS, new JComponent[] { openBingCheckbox });
 		
+		final JCheckBox openStreetViewCheckbox = new JCheckBox("Open Street View");
+		openStreetViewCheckbox.setSelected(Boolean.parseBoolean(localPropertiesService.getValue(EarthProperty.OPEN_STREET_VIEW)));
+		propertyToComponent.put(EarthProperty.OPEN_STREET_VIEW, new JComponent[] { openStreetViewCheckbox });
+		
 		final JCheckBox openHereCheckbox = new JCheckBox(Messages.getString("OptionWizard.59")); //$NON-NLS-1$
 		openHereCheckbox.setSelected(Boolean.parseBoolean(localPropertiesService.getValue(EarthProperty.OPEN_HERE_MAPS)));
 		propertyToComponent.put(EarthProperty.OPEN_HERE_MAPS, new JComponent[] { openHereCheckbox });
@@ -729,7 +748,7 @@ public class OptionWizard extends JDialog {
 		propertyToComponent.put(EarthProperty.NUMBER_OF_SAMPLING_POINTS_IN_PLOT, new JComponent[] { comboNumberOfPoints });
 
 		final String[] listOfNumbers = new String[995];
-		final int offset = 5;
+		final int offset = 2;
 		for (int index = 0; index < listOfNumbers.length; index++) {
 			listOfNumbers[index] = (index + offset) + ""; //$NON-NLS-1$
 		}
@@ -747,6 +766,14 @@ public class OptionWizard extends JDialog {
 		listOfDistanceToBorder.setAutoscrolls(true);
 
 		propertyToComponent.put(EarthProperty.DISTANCE_TO_PLOT_BOUNDARIES, new JComponent[] { listOfDistanceToBorder });
+		
+		// JTextField listOfDistanceToBorder = new JTextField(localPropertiesService.getValue( EarthProperty.DISTANCE_TO_PLOT_BOUNDARIES) );
+		final JComboBox<String> listOfSizeofSamplingDot = new JComboBox<String>(listOfNumbers);
+		listOfSizeofSamplingDot.setSelectedItem(localPropertiesService.getValue(EarthProperty.INNER_SUBPLOT_SIDE));
+		listOfSizeofSamplingDot.setAutoscrolls(true);
+
+		propertyToComponent.put(EarthProperty.INNER_SUBPLOT_SIDE, new JComponent[] { listOfSizeofSamplingDot });
+
 
 		final JRadioButton chromeChooser = new JRadioButton("Chrome"); //$NON-NLS-1$
 		chromeChooser.setSelected(localPropertiesService.getValue(EarthProperty.BROWSER_TO_USE).trim().equals(EarthConstants.CHROME_BROWSER));

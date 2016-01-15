@@ -3,7 +3,7 @@
 	<parent>
 		<groupId>org.openforis.collect.earth</groupId>
 		<artifactId>collect-earth</artifactId>
-		<version>1.2.1-SNAPSHOT</version>
+		<version>1.2.14-SNAPSHOT</version>
 	</parent>
 	<artifactId>collect-earth-installer</artifactId>
 	<packaging>pom</packaging>
@@ -223,6 +223,10 @@ No Solaris installer necessary
 									<token>HERE_APP_CODE</token>
 									<value>${here_app_code}</value>
 								</replacement>
+								<replacement>
+									<token>GOOGLE_MAPS_API_KEY</token>
+									<value>${google_maps_api_key}</value>
+								</replacement>
 							</replacements>
 						</configuration>
 					</plugin>
@@ -233,6 +237,38 @@ No Solaris installer necessary
 						<artifactId>exec-maven-plugin</artifactId>
 						<version>1.1</version>
 						<executions>
+						    <!-- Windows -->
+							<execution>
+								<id>windows-installer</id>
+								<phase>prepare-package</phase>
+								<goals>
+									<goal>exec</goal>
+								</goals>
+								<configuration>
+									<executable>${installbuilder-home}/bin/builder-cli.exe</executable>
+									<arguments>
+										<argument>build</argument>
+										<argument>${installer-build-path}/${installbuilder-file-name}</argument>
+										<argument>windows</argument>
+									</arguments>
+								</configuration>
+							</execution>
+							
+							<execution>
+								<id>windows-updater</id>
+								<phase>prepare-package</phase>
+								<goals>
+									<goal>exec</goal>
+								</goals>
+								<configuration>
+									<executable>${installbuilder-home}/bin/builder-cli.exe</executable>
+									<arguments>
+										<argument>build</argument>
+										<argument>${installer-build-path}/${installbuilder-file-name-updater}</argument>
+										<argument>windows</argument>
+									</arguments>
+								</configuration>
+							</execution>
 							<!-- Linux -->
 							<execution>
 								<id>linux-installer</id>
@@ -266,38 +302,7 @@ No Solaris installer necessary
 								</configuration>
 							</execution>
 							
-							<!-- Windows -->
-							<execution>
-								<id>windows-installer</id>
-								<phase>prepare-package</phase>
-								<goals>
-									<goal>exec</goal>
-								</goals>
-								<configuration>
-									<executable>${installbuilder-home}/bin/builder-cli.exe</executable>
-									<arguments>
-										<argument>build</argument>
-										<argument>${installer-build-path}/${installbuilder-file-name}</argument>
-										<argument>windows</argument>
-									</arguments>
-								</configuration>
-							</execution>
 							
-							<execution>
-								<id>windows-updater</id>
-								<phase>prepare-package</phase>
-								<goals>
-									<goal>exec</goal>
-								</goals>
-								<configuration>
-									<executable>${installbuilder-home}/bin/builder-cli.exe</executable>
-									<arguments>
-										<argument>build</argument>
-										<argument>${installer-build-path}/${installbuilder-file-name-updater}</argument>
-										<argument>windows</argument>
-									</arguments>
-								</configuration>
-							</execution>
 							<!-- Mac OS X -->
 							<execution>
 								<id>osx-installer</id>

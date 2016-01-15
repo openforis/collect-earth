@@ -58,18 +58,9 @@ public class PlacemarkUpdateServlet {
 	private LocalPropertiesService localPropertiesService;
 
 	private static final Configuration cfg = new Configuration();
+
 	private static Template template;
   
-/*	@PostConstruct
-	private void init(){
-		try {
-			// Force the local properties to be updated so we get the right generatedOn info
-			localPropertiesService.init();
-			
-		} catch (IOException e) {
-			logger.error("Error refreshing the local properties"); //$NON-NLS-1$
-		}
-	}*/
 
 	private String getKmlFromTemplate( Map<String, Object> data) throws IOException {
 

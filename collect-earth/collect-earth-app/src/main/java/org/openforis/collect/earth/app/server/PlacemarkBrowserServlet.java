@@ -48,7 +48,10 @@ public class PlacemarkBrowserServlet{
 						
 						openGeePlaygroundWindow(latLongCoordinates);
 						
-						openHereMapsWindow(latLongCoordinates);
+						openStreetViewWindow(latLongCoordinates);
+						
+						// Until further notice
+						// openHereMapsWindow(latLongCoordinates);
 					
 				}
 				
@@ -101,6 +104,23 @@ public class PlacemarkBrowserServlet{
 				}.start();
 			}
 
+			
+			public void openStreetViewWindow(final String latLongCoordinates) {
+				new Thread("Open Street View window"){  //$NON-NLS-1$
+					@Override
+					public void run() {
+						try {
+							browserService.openStreetView(latLongCoordinates);
+						} catch (final Exception e) {
+							LoggerFactory.getLogger(this.getClass()).error("Exception opening Street View window", e); //$NON-NLS-1$
+							
+						}
+					}
+
+				}.start();
+			}
+
+			
 			public void openTimeLapseWindow(final String latLongCoordinates) {
 				new Thread("Open TimeLapse window"){  //$NON-NLS-1$
 					@Override

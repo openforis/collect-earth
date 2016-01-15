@@ -99,7 +99,7 @@ public class UpdateIniUtils {
 
 			onlineVersion = parse.getElementsByTagName(tagname).item(0).getChildNodes().item(0).getNodeValue();
 		} catch (Exception e) {
-			logger.error("Error while reading the remote XML where the updater version is defined", e); //$NON-NLS-1$
+			logger.warn("Error while reading the remote XML where the updater version is defined", e); //$NON-NLS-1$
 		}
 
 		return onlineVersion;

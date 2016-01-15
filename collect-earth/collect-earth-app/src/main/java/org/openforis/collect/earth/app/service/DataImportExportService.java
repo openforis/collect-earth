@@ -133,7 +133,7 @@ public class DataImportExportService {
 					boolean include = true;
 
 					try {
-						final BooleanAttribute node = (BooleanAttribute) record.getNodeByPath("/plot/actively_saved"); //$NON-NLS-1$
+						final BooleanAttribute node = (BooleanAttribute) record.getNodeByPath("/plot/" + EarthConstants.ACTIVELY_SAVED_ATTRIBUTE_NAME); //$NON-NLS-1$
 
 						include = (node == null || (node != null && !node.isEmpty() && node.getValue().getValue()) );
 					} catch (Exception e) {

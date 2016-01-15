@@ -5,7 +5,7 @@
 	<parent>
 		<groupId>org.openforis.collect.earth</groupId>
 		<artifactId>collect-earth</artifactId>
-		<version>1.2.1-SNAPSHOT</version>
+		<version>1.2.14-SNAPSHOT</version>
 	</parent>
 
 	<artifactId>collect-earth-sampler</artifactId>
@@ -17,6 +17,11 @@
 	</properties>
 
 	<dependencies>
+		<dependency>
+			<groupId>org.openforis.collect.earth</groupId>
+			<artifactId>collect-earth-core</artifactId>
+			<version>${project.version}</version>
+		</dependency>
 		<dependency>
 			<groupId>net.sf.opencsv</groupId>
 			<artifactId>opencsv</artifactId>

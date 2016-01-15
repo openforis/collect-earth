@@ -39,9 +39,11 @@ import org.openforis.collect.earth.app.service.LocalPropertiesService.EarthPrope
 import org.openforis.collect.earth.core.rdb.RelationalSchemaContext;
 import org.openforis.collect.earth.sampler.utils.FreemarkerTemplateUtils;
 import org.openforis.collect.model.CollectRecord.Step;
+import org.openforis.collect.model.CollectSurvey;
 import org.openforis.collect.relational.CollectRDBPublisher;
 import org.openforis.collect.relational.CollectRdbException;
 import org.openforis.collect.relational.model.RelationalSchemaConfig;
+import org.openforis.concurrency.ProgressListener;
 import org.openforis.idm.metamodel.NodeDefinition;
 import org.openforis.idm.metamodel.NodeDefinitionVerifier;
 import org.openqa.selenium.remote.RemoteWebDriver;
@@ -461,7 +463,7 @@ public class AnalysisSaikuService {
 		return getSaikuFolder() != null && isSaikuFolder(new File(getSaikuFolder()));
 	}
 
-	private boolean isJavaHomeConfigured() {
+	/*private boolean isJavaHomeConfigured() {
 
 		if (SystemUtils.IS_OS_MAC){
 			return true;
@@ -473,7 +475,7 @@ public class AnalysisSaikuService {
 				&& 
 				StringUtils.isBlank( System.getenv("COLLECT_EARTH_JRE_HOME") )  //$NON-NLS-1$
 				);
-	}
+	}*/
 
 
 	public boolean isSaikuFolder(File saikuFolder) {
@@ -500,19 +502,19 @@ public class AnalysisSaikuService {
 		saikuWebDriver.findElementByClassName("form_button").click(); //$NON-NLS-1$
 	}
 
-	public void prepareDataForAnalysis() throws SaikuExecutionException {
+	public void prepareDataForAnalysis( ProgressListener progressListener) throws SaikuExecutionException {
 
 		try {
 
 			stopSaiku();
 
 			try {
-				removeOldRdb();
-
-				if (!getZippedSaikuProjectDB().exists() || isRefreshDatabase()) {
+				
+				if (( localPropertiesService.isUsingSqliteDB() &&  !getZippedSaikuProjectDB().exists() ) || isRefreshDatabase()) {
+					removeOldRdb();
 					// The user clicked on the option to refresh the database, or there is no previous copy of the Saiku DB
 					// Generate the DB file
-					exportDataToRDB();
+					exportDataToRDB( progressListener );
 					try {
 						// Save the DB file in a zipped file to keep for the next usages
 						replaceZippedSaikuProjectDB();
@@ -522,7 +524,9 @@ public class AnalysisSaikuService {
 
 				}else if( getZippedSaikuProjectDB().exists() ){
 					// If the zipped version of the project exists ( and the user clicked on the option to not refresh it) then restore this last version of the data 
-					restoreProjectSaikuDB();
+					if( localPropertiesService.isUsingSqliteDB() ){
+						restoreProjectSaikuDB();
+					}
 				}
 
 				refreshDataSourceForSaiku();
@@ -563,7 +567,7 @@ public class AnalysisSaikuService {
 				);
 	}
 
-	public void exportDataToRDB() throws CollectRdbException {
+	public void exportDataToRDB(ProgressListener progressListener) throws CollectRdbException {
 		/*
 		 * The SQLite DB has no limit on the length of the varchar.
 		 * By default, if no RelationalSchemaConfig is passed to the export command text fields will be truncated to 255 characters
@@ -573,7 +577,7 @@ public class AnalysisSaikuService {
 		final String rdbSaikuSchema = getSchemaName();
 
 		collectRDBPublisher.export(earthSurveyService.getCollectSurvey().getName(), EarthConstants.ROOT_ENTITY_NAME, Step.ENTRY,
-				rdbSaikuSchema, rdbConfig);
+				rdbSaikuSchema, rdbConfig, progressListener);
 
 		if (!isUserCancelledOperation()) {
 			System.currentTimeMillis();
@@ -587,8 +591,11 @@ public class AnalysisSaikuService {
 	}
 
 	private String getSchemaName() {
-		// TODO Auto-generated method stub
-		return null;
+		if( localPropertiesService.isUsingPostgreSqlDB() ){ 
+			return EarthConstants.POSTGRES_RDB_SCHEMA;
+		}else{
+			return null;
+		}
 	}
 
 	private void setSaikuAsDefaultSchema() {
@@ -603,18 +610,16 @@ public class AnalysisSaikuService {
 		createPlotForeignKeys();
 
 		
-		if( !surveyContains("calculated_elevation_range") ){
+		if( !surveyContains("calculated_elevation_range" , earthSurveyService.getCollectSurvey() ) ){
 			createAspectAuxTable();
 
 			createSlopeAuxTable();
-
 			createElevationtAuxTable();
 			assignDimensionValues();
 		}
 
-		if( !surveyContains("calculated_initial_land_use") ){
+		if( !surveyContains("calculated_initial_land_use", earthSurveyService.getCollectSurvey() ) ){
 			createDynamicsAuxTable();
-
 			creatAluSubclassVariables();
 			assignLUCDimensionValues();
 		}
@@ -627,8 +632,8 @@ public class AnalysisSaikuService {
 
 
 
-	private boolean surveyContains(String node_name) {
-		NodeDefinition nodeDefForNAme = earthSurveyService.getCollectSurvey().getSchema().findNodeDefinition( new NodeDefinitionVerifier() {
+	public static boolean surveyContains(String node_name, CollectSurvey survey) {
+		NodeDefinition nodeDefForNAme = survey.getSchema().findNodeDefinition( new NodeDefinitionVerifier() {
 			
 			@Override
 			public boolean verify(NodeDefinition nodeDef) {
@@ -735,9 +740,12 @@ public class AnalysisSaikuService {
 	private void runSaikuBat(String commandName) throws SaikuExecutionException {
 		if (!isSaikuConfigured()) {
 			throw new SaikuExecutionException("The Saiku server is not configured."); //$NON-NLS-1$
-		} else if (!isJavaHomeConfigured()) {
+		} 
+/*		Commented out : the Java Home variable is not necessary any more in order to run Saiku as the path to the Java Runtime Environment distributed with Collect Earth is hardcoded on the bat/sh files
+		else if (!isJavaHomeConfigured()) {
 			throw new SaikuExecutionException("The JAVA_HOME environment variable is not configured. JAVA_HOME must point to the root folder of a valid JDK."); //$NON-NLS-1$
-		} else {
+		} */
+		else {
 			String saikuCmd = getSaikuFolder() + File.separator + commandName + getCommandSuffix() ;
 
 			if (SystemUtils.IS_OS_WINDOWS){

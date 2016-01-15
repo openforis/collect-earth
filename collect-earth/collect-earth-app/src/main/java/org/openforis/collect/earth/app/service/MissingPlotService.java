@@ -195,7 +195,7 @@ public class MissingPlotService {
 			CollectRecord record = recordManager.load(earthSurveyService.getCollectSurvey(), summaries.get(0).getId(), Step.ENTRY);
 			BooleanAttribute node = null;
 			try {
-				node = (BooleanAttribute) record.getNodeByPath("/plot/actively_saved"); //$NON-NLS-1$
+				node = (BooleanAttribute) record.getNodeByPath("/plot/"+ EarthConstants.ACTIVELY_SAVED_ATTRIBUTE_NAME); //$NON-NLS-1$
 			} catch (Exception e) {
 				logger.error("No actively_saved information found", e); //$NON-NLS-1$
 			}

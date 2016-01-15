@@ -32,6 +32,9 @@ public class KmlGeneratorService {
 
 	@Autowired
 	LocalPropertiesService localPropertiesService;
+	
+	@Autowired
+	EarthSurveyService earthSurveyService;
 
 	Logger logger = LoggerFactory.getLogger(KmlGeneratorService.class);
 
@@ -213,7 +216,7 @@ public class KmlGeneratorService {
 			balloon = getLocalProperties().getValue(EarthProperty.ALTERNATIVE_BALLOON_FOR_BROWSER);
 		}
 
-		generateKml.generateFromCsv(csvFile, balloon, template, KML_RESULTING_TEMP_FILE, distanceBetweenSamplePoints, distancePlotBoundaries);
+		generateKml.generateFromCsv(csvFile, balloon, template, KML_RESULTING_TEMP_FILE, distanceBetweenSamplePoints, distancePlotBoundaries, earthSurveyService.getCollectSurvey());
 		updateFilesUsedChecksum();
 
 

@@ -8,31 +8,84 @@ var startTime = '2000-01-01';
 // The last date for which the chart is generated. Should be today's date
 var endTime = '${todayDate}';
 
-// The polygon that describes the plot.
-var plot = ee.Geometry.Polygon(
-            [
-				// The placemark variable has an array called shape that contains the locations of the corners of the polygon
-				<#list placemark.shape as coord>
-					[${coord.longitude}, ${coord.latitude}],
-				</#list>  
-			]);
+//Set up calculations for % of images with NDVI above a threshold
+
+
+var calculateDaysAboveThreshold = function( dataset,year,threshold ){
+   //Function for applying threshold to an image.  Returns binary 0 or 1
+  var NDVIthresh = function(inImage)
+    {
+      return(inImage.gt(threshold));
+    };
+  
+  //Create image collection
+  var IC = ee.ImageCollection( dataset )
+            .filterDate(new Date("01/01/" + year), new Date("12/31/"+year));
+  
+
+  //Map the function over all images in the collection
+  var ICthreshold = IC.map(NDVIthresh);
+  
+  //Sum all the images (this is the number of days over that threshold)
+  
+  var totalDays = ICthreshold.mean();
+  
+  var ndviValuePlot = totalDays.reduceRegion({
+          geometry: plot,
+          reducer: ee.Reducer.mode(),
+          scale: 30
+      });
+      return ndviValuePlot;
+};
+
+var getSeriesNDVIByThreshold = function( dataset, threshold ){
+  var listOfValues = [];
+  var listOfYears = [];
+  
+  for( var year = 2000; year<2016; year++){
+    var daysAboveThreshold = calculateDaysAboveThreshold(dataset, year, threshold);
+    var totalDays = ee.Algorithms.If( daysAboveThreshold.contains('NDVI'),  daysAboveThreshold.get('NDVI'), 0);
+    var dict = ee.Dictionary({'year' : year, 'NDVI':totalDays});
+    listOfValues.push(totalDays);
+    listOfYears.push(year);
+ }
+  
+  return ee.Dictionary({'Years' : listOfYears, 'Days':listOfValues});
+};
+
+
+// x The polygon that describes the plot.
+var plot = ee.Geometry.Polygon([
+// The placemark variable has an array called shape that contains the locations of the corners of the polygon
+<#list placemark.shape as coord>[${coord.longitude}, ${coord.latitude}],</#list>]);
 
 // Load the Landsat 8 - 32 Day Normalized Difference Vegetation Index composite. This is only available from 2013 onwards. Select the NDVI band. Resolution of the pixels is 30 meters.
 var landsat8Ndvi32Day = ee.ImageCollection('LANDSAT/LC8_L1T_32DAY_NDVI').filterDate(startTime, endTime).select('NDVI');
 
 // Generate the chart of the NDVI values through the time series. Use the mean of the NDVI value of the pixels that fall within the plot.
 var ndviTimeSeries = Chart.image.series(landsat8Ndvi32Day, plot, ee.Reducer.mean(), 30);
-ndviTimeSeries = ndviTimeSeries.setOptions({title: 'Landsat 8 32 days NDVI', hAxis: {title: 'Date' },vAxis: { title: 'NDVI'}});
+
+ndviTimeSeries = ndviTimeSeries
+.setOptions({
+		title: 'Landsat 8 32 days NDVI', 
+		hAxis: {title: 'Date' },
+		vAxis: { title: 'NDVI',viewWindowMode: 'explicit',viewWindow: {max: 1,min: -0.25,},gridlines: {count: 5,}}
+	});
 
 // Show the NDVI chart on the console
 print(ndviTimeSeries);
 
 // Load the Landsat 8 - 32 Day Normalized Difference Wetness Index composite. This is only available from 2013 onwards. Select the NDWI band. Resolution of the pixels is 30 meters.
 var landsat8Ndwi32Day = ee.ImageCollection('LANDSAT/LC8_L1T_32DAY_NDWI').filterDate(startTime, endTime).select('NDWI');
- 
+
 // Generate the chart of the NDWI values through the time series. Use the mean of the NDWI value of the pixels that fall within the plot.
 var ndwiTimeSeries = Chart.image.series(landsat8Ndwi32Day, plot, ee.Reducer.mean(), 30);
-ndwiTimeSeries = ndwiTimeSeries.setOptions({title: 'Landsat 8 32 days NDWI', hAxis: {title: 'Date' }, vAxis: { title: 'NDWI' }});
+ndwiTimeSeries = ndwiTimeSeries
+.setOptions({
+	title: 'Landsat 8 32 days NDWI', 
+	hAxis: {title: 'Date' }, 
+	vAxis: { title: 'NDWI',viewWindowMode: 'explicit',viewWindow: {max: 1,min: -0.25,},gridlines: {count: 5,}}
+	});
 
 //Show the NDWI chart on the console 
 print(ndwiTimeSeries);
@@ -42,58 +95,117 @@ var landsat8Evi32Day = ee.ImageCollection('LANDSAT/LC8_L1T_32DAY_EVI').filterDat
 
 // Generate the chart of the EVI values though the time series. Use the mean of the EVI value of the pixels that fall within the plot.
 var eviTimeSeries =  Chart.image.series(landsat8Evi32Day, plot, ee.Reducer.mean(), 30);
-eviTimeSeries = eviTimeSeries.setOptions({title: 'Landsat 8 32 days EVI', hAxis: {title: 'Date'}, vAxis: {title: 'EVI' }});
+eviTimeSeries = eviTimeSeries
+.setOptions({
+	title: 'Landsat 8 32 days EVI', 
+	hAxis: {title: 'Date'}, 
+	vAxis: {title: 'EVI',viewWindowMode: 'explicit',viewWindow: {max: 1,min: -0.25,},gridlines: {count: 5,}}
+	});
 
 //Show the EVI chart on the console
 print(eviTimeSeries);
 
 // Load the MODIS  Vegetation Index composite. Select the NDVI band. Resolution of the pixels is 250 meters.
 var modisNoaaNdvi = ee.ImageCollection('MODIS/MOD13Q1').filterDate(startTime, endTime).select('NDVI');
-    
+
 var modisNoaaTimeSeries = Chart.image.series(modisNoaaNdvi, plot, ee.Reducer.mean(), 30);
-modisNoaaTimeSeries = modisNoaaTimeSeries.setOptions({  title: 'MOD13Q1 Vegetation Indices 16-Day Global 250m',hAxis:{title: 'Date'},vAxis: {title: 'NDVI'}});
+modisNoaaTimeSeries = modisNoaaTimeSeries
+.setOptions({  
+		title: 'MOD13Q1 Vegetation Indices 16-Day Global 250m',
+		hAxis: {title: 'Date',gridlines: {count: 10,}},
+		vAxis: {title: 'NDVI',viewWindowMode: 'explicit', viewWindow: {max: 10000,min: -2500,},gridlines: {count: 5,}}
+	});
 
 // Show the MODIS NDVI chart on the console
 print(modisNoaaTimeSeries);
 
-var modisGoogleNdvi = ee.ImageCollection('MODIS/MCD43A4_NDVI')
-    .filterDate(startTime, endTime)
-    .select('NDVI');
-    
-var modisGoogleTimeSeries =
-    Chart.image.series(modisGoogleNdvi, plot, ee.Reducer.mean(), 30);
 
-modisGoogleTimeSeries = modisGoogleTimeSeries.setOptions({
-  title: 'MODIS 16-Day NDVI (Google)',
-  hAxis: {
-    title: 'Date'
-  },
-  vAxis: {
-    title: 'NDVI'
-  }
+
+var ndviAboveThersholdPerYear1 = getSeriesNDVIByThreshold('MODIS/MOD13Q1', 2000);
+
+// Convert the band data to plot on the y-axis to arrays.
+// Concatenate the y-axis data by stacking the arrays on the 1-axis.
+var yValues =  ee.Array(ndviAboveThersholdPerYear1.get('Days')).multiply(100);
+
+// The band data to plot on the x-axis is a List.
+var xValues = ee.Array(ndviAboveThersholdPerYear1.get('Years'));
+
+
+// Make a band correlation chart.
+var chart1 = Chart.array.values(yValues, 0, xValues)
+    .setSeriesNames(['Days'])
+    .setOptions({
+	  seriesType: 'bars',
+      title: 'MOD13Q1 Vegetation Indices 16-Day Global 250m - % of images above 0.2 NDVI' ,
+      hAxis: {gridlines: { count: 10 },format: '####', 'title': 'Year',  minValue: 2000, maxValue: 2016, viewWindow:{ max: 2016, min: 2000,}},
+      vAxis: {'title': '% of images above 0.2 NDVI', minValue: 0, maxValue: 100, viewWindow:{ max: 100, min: 0,},format: '###'},
+      pointSize: 5,
+      colors: ['#028900'],
+      
 });
 
+// Print the chart.
+print(chart1);
+
+print("For more information, go to https://lpdaac.usgs.gov/dataset_discovery/modis/modis_products_table/mod13q1");
+
+
+
+var modisGoogleNdvi = ee.ImageCollection('MODIS/MCD43A4_NDVI').filterDate(startTime, endTime).select('NDVI');
+var modisGoogleTimeSeries = Chart.image.series(modisGoogleNdvi, plot, ee.Reducer.mean(), 30);
+modisGoogleTimeSeries = modisGoogleTimeSeries
+	.setOptions({
+		title: 'MODIS 16-Day NDVI (Google)',
+		hAxis: {title: 'Date',gridlines: {count: 10,}},
+		vAxis: {title: 'NDVI',viewWindowMode: 'explicit', viewWindow: {max: 1, min: -0.25,}, gridlines: {count: 5,}}
+	});
 print(modisGoogleTimeSeries);
 
 
 
 
-var landsat7MonthlyNdvi = ee.ImageCollection('LANDSAT/LE7_L1T_32DAY_NDVI')
-    .filterDate(startTime, endTime)
-    .select('NDVI');
-    
-var landsat7MonthlyTimeSeries =
-    Chart.image.series(landsat7MonthlyNdvi, plot, ee.Reducer.mean(), 30);
 
-landsat7MonthlyTimeSeries = landsat7MonthlyTimeSeries.setOptions({
-  title: 'Landsat 7 Monthly NDVI Composite',
-  hAxis: {
-    title: 'Month'
-  },
-  vAxis: {
-    title: 'NDVI'
-  }
+var ndviAboveThersholdPerYear = getSeriesNDVIByThreshold('MODIS/MCD43A4_NDVI', 0.2);
+
+// Convert the band data to plot on the y-axis to arrays.
+// Concatenate the y-axis data by stacking the arrays on the 1-axis.
+var yValues =  ee.Array(ndviAboveThersholdPerYear.get('Days')).multiply(100);
+
+
+// The band data to plot on the x-axis is a List.
+var xValues = ee.Array(ndviAboveThersholdPerYear.get('Years'));
+
+// Make a band correlation chart.
+var chart = Chart.array.values(yValues, 0, xValues)
+    .setSeriesNames(['Days'])
+    .setOptions({
+      seriesType: 'bars',
+      title: 'MODIS 16-Day NDVI (Google) 500m - % of images above 0.2 NDVI',
+      hAxis: {gridlines: { count: 10 },format: '####', 'title': 'Year',  minValue: 2000, maxValue: 2016, viewWindow:{ max: 2016, min: 2000,}},
+      vAxis: {gridlines: { count: 5 }, 'title': '% of images above 0.2 NDVI', minValue: 0, maxValue: 100, viewWindow:{ max: 100, min: 0,},format: '##'},
+      pointSize: 5,
+      colors: ['#028900'],
+      
 });
+
+// Print the chart.
+print(chart);
+
+
+print("For more information, go to https://lpdaac.usgs.gov/dataset_discovery/modis/modis_products_table/myd09ga");
+
+
+
+var landsat7MonthlyNdvi = ee.ImageCollection('LANDSAT/LE7_L1T_32DAY_NDVI').filterDate(startTime, endTime).select('NDVI');
+
+var landsat7MonthlyTimeSeries = Chart.image.series(landsat7MonthlyNdvi, plot, ee.Reducer.mean(), 30);
+
+landsat7MonthlyTimeSeries = landsat7MonthlyTimeSeries
+	.setOptions({
+		title: 'Landsat 7 Monthly NDVI Composite',
+		hAxis: {title: 'Month'},
+		vAxis: {title: 'NDVI',viewWindowMode: 'explicit', viewWindow: {max: 1,min: -0.25,},gridlines: {count: 5,}}
+	});
 
 print(landsat7MonthlyTimeSeries);
 
@@ -103,10 +215,15 @@ print(landsat7MonthlyTimeSeries);
 
 // Load the Landsat 5 NDVI Annual composite from 1984 onwards. This composite is not realistic as the annual NDVI value consists of only the first NDVI value of the year and not an average.
 var landsat5AnnualNdvi = ee.ImageCollection('LANDSAT/LT5_L1T_ANNUAL_NDVI').filterDate("1984-1-1", endTime).select('NDVI');
-    
+
 // Generate the chart of the NDVI values through time.
 var landsat5AnnualTimeSeries = Chart.image.series(landsat5AnnualNdvi, plot, ee.Reducer.mean(), 30);
-landsat5AnnualTimeSeries = landsat5AnnualTimeSeries.setOptions({ title: 'Presence of Landsat 5 Annual imagery', hAxis: {title: 'Month'},  vAxis: {    title: 'NDVI'  }});
+landsat5AnnualTimeSeries = landsat5AnnualTimeSeries
+.setOptions({ 
+	title: 'Presence of Landsat 5 Annual imagery', 
+	hAxis: {title: 'Month'},  
+	vAxis: {title: 'NDVI',viewWindowMode: 'explicit',viewWindow: {max: 1, min: -0.25,}, gridlines: {count: 5,}}
+	});
 
 // Set the chart as scatter type. Only interest is to see if there is an available image for one year to avoid looking for images blindly.
 landsat5AnnualTimeSeries = landsat5AnnualTimeSeries.setChartType('ScatterChart');
@@ -114,15 +231,143 @@ landsat5AnnualTimeSeries = landsat5AnnualTimeSeries.setChartType('ScatterChart')
 // Show the Landsa 5 scatter plot on the console.
 print(landsat5AnnualTimeSeries);
 
-// Add the plot polygon to the map
-Map.addLayer(plot);
+
+
+//Array sorting is useful for obtaining custom quality mosaics which involve reducing a subset of image bands according to the values in a different band. The following example sorts by a cloud index, then gets the mean of the least cloudy subset of images in the collection:
+
+
+var sharpenedLandsat8 = panSharpen('LANDSAT/LC8_L1T_TOA' , ['B5', 'B6', 'B4'], ['B2', 'B3', 'B4', 'B5', 'B6', 'B7', 'B8','B10', 'B11'], '2015-05-01', '2015-11-09');
+var sharpenedLandsat7_2000 = panSharpen('LANDSAT/LE7_L1T_TOA' , ['B4', 'B5', 'B3'], ['B1', 'B2', 'B3', 'B4', 'B5', 'B6_VCID_1' , 'B6_VCID_2' , 'B7', 'B8'], '2000-01-01', '2000-12-31');
+var sharpenedLandsat7_2004 = panSharpen('LANDSAT/LE7_L1T_TOA' , ['B4', 'B5', 'B3'], ['B1', 'B2', 'B3', 'B4', 'B5', 'B6_VCID_1' , 'B6_VCID_2' , 'B7', 'B8'], '2004-01-01', '2004-12-31');
+var sharpenedLandsat7_2008 = panSharpen('LANDSAT/LE7_L1T_TOA' , ['B4', 'B5', 'B3'], ['B1', 'B2', 'B3', 'B4', 'B5', 'B6_VCID_1' , 'B6_VCID_2' , 'B7', 'B8'], '2008-01-01', '2008-12-31');
+var sharpenedLandsat7_2012 = panSharpen('LANDSAT/LE7_L1T_TOA' , ['B4', 'B5', 'B3'], ['B1', 'B2', 'B3', 'B4', 'B5', 'B6_VCID_1' , 'B6_VCID_2' , 'B7', 'B8'], '2012-01-01', '2012-12-31');
 
 // Center the map on the plot location (actually the top-left corner of the plot ) and set Zoom level to 15
 Map.setCenter(${placemark.shape[0].longitude}, ${placemark.shape[0].latitude}, 15);
+
+Map.addLayer(sharpenedLandsat7_2000,
+             {min: getMinValue(sharpenedLandsat7_2000), max: getMaxValue(sharpenedLandsat7_2000), gamma: [1.3, 1.3, 1.3]},
+             '2000 Landsat-7 pan-sharpened');
+Map.addLayer(sharpenedLandsat7_2004,
+             {min: getMinValue(sharpenedLandsat7_2004), max: getMaxValue(sharpenedLandsat7_2004), gamma: [1.3, 1.3, 1.3]},
+             '2004 Landsat-7 pan-sharpened',false);
+Map.addLayer(sharpenedLandsat7_2008,
+             {min: getMinValue(sharpenedLandsat7_2008), max: getMaxValue(sharpenedLandsat7_2008), gamma: [1.3, 1.3, 1.3]},
+             '2008 Landsat-7 pan-sharpened',false);
+Map.addLayer(sharpenedLandsat7_2012,
+             {min: getMinValue(sharpenedLandsat7_2012), max: getMaxValue(sharpenedLandsat7_2012), gamma: [1.3, 1.3, 1.3]},
+             '2012 Landsat-7 pan-sharpened',false);
+			 
+Map.addLayer(sharpenedLandsat8,
+             {min: getMinValue(sharpenedLandsat8), max: getMaxValue(sharpenedLandsat8), gamma: [1.3, 1.3, 1.3]},
+             'Recent (6 months) Landsat-8 pan-sharpened');
+
+// Add the plot polygon to the map
+Map.addLayer(plot, {}, "Plot");
+
+function panSharpen(landsatCollectionName, bandsToSharpen, bandsCloudScore, startPeriod, endPeriod ){
+
+	var bandNames = ee.List(bandsCloudScore);
+	// Load a Landsat collection.
+	var collection = ee.ImageCollection( landsatCollectionName )
+	// Select the bands of interest to avoid taking up memory.
+	.select(bandsCloudScore)
+	// Filter to get only imagery at a point of interest.
+	.filterBounds(plot)
+	// Filter to get only six months of data.
+	.filterDate( startPeriod , endPeriod )
+	// Mask clouds by mapping the cloudMask function over the collection.
+	// This will add a cloud score band called 'cloud' to every image.
+	.map(function(image) {
+		return ee.Algorithms.Landsat.simpleCloudScore(image);
+	});
+
+	// Convert the collection to an array.
+	var array = collection.toArray();
+
+	// Label of the axes.
+	var imageAxis = 0;
+	var bandAxis = 1;
+
+	// Get the cloud slice and the bands of interest.
+	var bands = array.arraySlice(bandAxis, 0, bandsCloudScore.length);
+	var clouds = array.arraySlice(bandAxis, bandsCloudScore.length);
+
+	// Sort by cloudiness.
+	var sorted = bands.arraySort(clouds);
+
+	// Get the least cloudy images, 20% of the total.
+	var numImages = sorted.arrayLength(imageAxis).multiply(0.2).int();
+	var leastCloudy = sorted.arraySlice(imageAxis, 0, numImages);
+
+	// Get the mean of the least cloudy images by reducing along the image axis.
+	var mean = leastCloudy.arrayReduce({
+	reducer: ee.Reducer.mean(),
+	axes: [imageAxis]
+	});
+
+	// Turn the reduced array image into a multi-band image for display.
+	var meanImage = mean.arrayProject([bandAxis]).arrayFlatten([bandNames]);
+
+
+	// Convert the RGB bands to the HSV color space.
+	var hsv = meanImage.select( bandsToSharpen ).rgbToHsv();
+
+	// Swap in the panchromatic band and convert back to RGB.
+	var sharpened = ee.Image.cat([
+	hsv.select('hue'), hsv.select('saturation'), meanImage.select('B8')
+	]).hsvToRgb();
+
+	return sharpened;
+}
+
+function getMinValue(image){
+	var min = image.reduceRegion({
+		'reducer': ee.Reducer.min(),
+		'geometry': ee.Geometry( Map.getBounds(true) ),
+		'bestEffort': true,
+		'scale': 30
+	});
+	
+	var objects = min.getInfo();
+	var value = 10000;
+	for(var key in objects){
+		var attrValue = objects[key];
+		if ( attrValue < value){
+			value = attrValue;
+		}
+	}
+	
+	return value;
+  
+}
+
+function getMaxValue(image){
+	var max = image.reduceRegion({
+		'reducer': ee.Reducer.max(),
+		'geometry': ee.Geometry( Map.getBounds(true) ),
+		'bestEffort': true,
+		'scale': 30
+	});
+	
+	var objects = max.getInfo();
+	var value = -10000;
+	for(var key in objects){
+		var attrValue = objects[key];
+		if ( attrValue > value){
+			value = attrValue;
+		}
+	}
+	
+	return value;
+  
+}
+
+
 
 
 // This is an automatically generated script. 
 // If you want to Collect Earth to run a different script for your project when a user clicks on a plot on Google Earth follow these steps :
 // 1. Copy the contents of this file : https://raw.githubusercontent.com/openforis/collect-earth/master/collect-earth/collect-earth-app/resources/eePlaygroundScript.fmt
 // 2. Modify the script as you please but keep the lines where the plot variable has been defined using Freemarker tamplate variables
-// 3. Save the script as "eePlaygroundScript.fmt" inside the root folder of your CEP project file .
+// 3. Save the script as "eePlaygroundScript.fmt" inside the root folder of your CEP project file

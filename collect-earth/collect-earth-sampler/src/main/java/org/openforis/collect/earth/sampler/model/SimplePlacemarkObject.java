@@ -43,9 +43,9 @@ public class SimplePlacemarkObject {
 	private Map<String, String> valuesByColumn;
 
 	private String[] extraColumns;
-
-
-
+	
+	private String[] idColumns;
+	
 	public SimplePlacemarkObject(Coordinate coordinate,
 			PlotProperties plotProperties) {
 		this.aspect = (int) Math.round(plotProperties.aspect);
@@ -55,6 +55,7 @@ public class SimplePlacemarkObject {
 		this.extraInfo = plotProperties.extraInfo;
 		this.valuesByColumn = plotProperties.valuesByColumn;
 		this.extraColumns = plotProperties.extraColumns;
+		this.idColumns = plotProperties.idColumns;
 		this.slope = (int) Math.round(plotProperties.slope);
 
 	}
@@ -196,6 +197,14 @@ public class SimplePlacemarkObject {
 
 	public void setValuesByColumn(Map<String, String> valuesByColumn) {
 		this.valuesByColumn = valuesByColumn;
+	}
+
+	public String[] getIdColumns() {
+		return idColumns;
+	}
+
+	public void setIdColumns(String[] idColumns) {
+		this.idColumns = idColumns;
 	}
 
 }

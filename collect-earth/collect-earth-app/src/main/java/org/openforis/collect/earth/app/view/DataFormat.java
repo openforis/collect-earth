@@ -3,7 +3,7 @@ package org.openforis.collect.earth.app.view;
 public enum DataFormat{
 	PROJECT_DEFINITION_FILE(
 			new String[]{"cep", "zip"}, Messages.getString("JFileChooserExistsAware.0")), //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$
-			ZIP_WITH_XML(new String[]{"zip"},Messages.getString("CollectEarthWindow.48")), //$NON-NLS-1$ //$NON-NLS-2$
+			ZIP_WITH_XML(new String[]{"zip", "collect-data"},Messages.getString("CollectEarthWindow.48")), //$NON-NLS-1$ //$NON-NLS-2$
 			CSV(new String[]{"csv"}, Messages.getString("CollectEarthWindow.38")), //$NON-NLS-1$ //$NON-NLS-2$
 			FUSION(new String[]{"csv"}, Messages.getString("CollectEarthWindow.49")), //$NON-NLS-1$ //$NON-NLS-2$
 			COLLECT_COORDS(new String[]{"ced", "csv"}, "Collect Earth plots"),//$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$
