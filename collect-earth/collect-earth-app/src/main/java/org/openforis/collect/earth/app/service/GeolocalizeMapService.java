@@ -53,6 +53,8 @@ public class GeolocalizeMapService {
 
 
 	public static final String FREEMARKER_HERE_HTML_TEMPLATE = RESOURCES_FOLDER + File.separator + "collectHereMaps.fmt";
+	
+	public static final String FREEMARKER_STREET_VIEW_HTML_TEMPLATE= RESOURCES_FOLDER + File.separator + "collectStreetView.fmt";
 
 	
 	@Autowired
@@ -179,5 +181,24 @@ public class GeolocalizeMapService {
 		data.put("hereAppCode", hereAppCode);
 		return processTemplateWithData(freemarkerTemplate, data);
 	}
+	
+	
+	/**
+	 * Produces a temporary file with the necessary HTML code to show the plot in Google Street View
+	 * @param centerCoordinates The coordinates of the center of the plot.
+	 * @param googleMapsApiKey The Google Maps API key
+	 * @param freemarkerTemplate The path to the freemarker template that is used to produce the file.
+	 * @return The URL to the temporary file that can be used to load it in a browser.
+	 */
+	public URL getStreetViewUrl(String[] centerCoordinates, String googleMapsApiKey, String freemarkerTemplate) {
+
+		final Map<String,Object> data = getPlacemarkData(centerCoordinates);
+		data.put("googleMapsApiKey", googleMapsApiKey);
+		return processTemplateWithData(freemarkerTemplate, data);
+	}
+	
+	
+	
+	
 
 }

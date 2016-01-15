@@ -150,6 +150,9 @@ public class OptionWizard extends JDialog {
 		constraints.gridy++;
 		panel.add(propertyToComponent.get(EarthProperty.OPEN_BING_MAPS)[0], constraints);
 		
+		constraints.gridy++;
+		panel.add(propertyToComponent.get(EarthProperty.OPEN_STREET_VIEW)[0], constraints);
+		
 		// Removed Here Maps temporarily
 		// constraints.gridy++;
 		// panel.add(propertyToComponent.get(EarthProperty.OPEN_HERE_MAPS)[0], constraints);
@@ -709,6 +712,10 @@ public class OptionWizard extends JDialog {
 		final JCheckBox openBingCheckbox = new JCheckBox(Messages.getString("OptionWizard.47")); //$NON-NLS-1$
 		openBingCheckbox.setSelected(Boolean.parseBoolean(localPropertiesService.getValue(EarthProperty.OPEN_BING_MAPS)));
 		propertyToComponent.put(EarthProperty.OPEN_BING_MAPS, new JComponent[] { openBingCheckbox });
+		
+		final JCheckBox openStreetViewCheckbox = new JCheckBox("Open Street View");
+		openStreetViewCheckbox.setSelected(Boolean.parseBoolean(localPropertiesService.getValue(EarthProperty.OPEN_STREET_VIEW)));
+		propertyToComponent.put(EarthProperty.OPEN_STREET_VIEW, new JComponent[] { openStreetViewCheckbox });
 		
 		final JCheckBox openHereCheckbox = new JCheckBox(Messages.getString("OptionWizard.59")); //$NON-NLS-1$
 		openHereCheckbox.setSelected(Boolean.parseBoolean(localPropertiesService.getValue(EarthProperty.OPEN_HERE_MAPS)));

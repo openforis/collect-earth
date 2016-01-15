@@ -43,6 +43,7 @@ import org.openforis.collect.model.CollectSurvey;
 import org.openforis.collect.relational.CollectRDBPublisher;
 import org.openforis.collect.relational.CollectRdbException;
 import org.openforis.collect.relational.model.RelationalSchemaConfig;
+import org.openforis.concurrency.ProgressListener;
 import org.openforis.idm.metamodel.NodeDefinition;
 import org.openforis.idm.metamodel.NodeDefinitionVerifier;
 import org.openqa.selenium.remote.RemoteWebDriver;
@@ -501,19 +502,19 @@ public class AnalysisSaikuService {
 		saikuWebDriver.findElementByClassName("form_button").click(); //$NON-NLS-1$
 	}
 
-	public void prepareDataForAnalysis() throws SaikuExecutionException {
+	public void prepareDataForAnalysis( ProgressListener progressListener) throws SaikuExecutionException {
 
 		try {
 
 			stopSaiku();
 
 			try {
-				removeOldRdb();
-
-				if (!getZippedSaikuProjectDB().exists() || isRefreshDatabase()) {
+				
+				if (( localPropertiesService.isUsingSqliteDB() &&  !getZippedSaikuProjectDB().exists() ) || isRefreshDatabase()) {
+					removeOldRdb();
 					// The user clicked on the option to refresh the database, or there is no previous copy of the Saiku DB
 					// Generate the DB file
-					exportDataToRDB();
+					exportDataToRDB( progressListener );
 					try {
 						// Save the DB file in a zipped file to keep for the next usages
 						replaceZippedSaikuProjectDB();
@@ -523,7 +524,9 @@ public class AnalysisSaikuService {
 
 				}else if( getZippedSaikuProjectDB().exists() ){
 					// If the zipped version of the project exists ( and the user clicked on the option to not refresh it) then restore this last version of the data 
-					restoreProjectSaikuDB();
+					if( localPropertiesService.isUsingSqliteDB() ){
+						restoreProjectSaikuDB();
+					}
 				}
 
 				refreshDataSourceForSaiku();
@@ -564,7 +567,7 @@ public class AnalysisSaikuService {
 				);
 	}
 
-	public void exportDataToRDB() throws CollectRdbException {
+	public void exportDataToRDB(ProgressListener progressListener) throws CollectRdbException {
 		/*
 		 * The SQLite DB has no limit on the length of the varchar.
 		 * By default, if no RelationalSchemaConfig is passed to the export command text fields will be truncated to 255 characters
@@ -574,7 +577,7 @@ public class AnalysisSaikuService {
 		final String rdbSaikuSchema = getSchemaName();
 
 		collectRDBPublisher.export(earthSurveyService.getCollectSurvey().getName(), EarthConstants.ROOT_ENTITY_NAME, Step.ENTRY,
-				rdbSaikuSchema, rdbConfig);
+				rdbSaikuSchema, rdbConfig, progressListener);
 
 		if (!isUserCancelledOperation()) {
 			System.currentTimeMillis();
@@ -588,8 +591,11 @@ public class AnalysisSaikuService {
 	}
 
 	private String getSchemaName() {
-		// TODO Auto-generated method stub
-		return null;
+		if( localPropertiesService.isUsingPostgreSqlDB() ){ 
+			return EarthConstants.POSTGRES_RDB_SCHEMA;
+		}else{
+			return null;
+		}
 	}
 
 	private void setSaikuAsDefaultSchema() {

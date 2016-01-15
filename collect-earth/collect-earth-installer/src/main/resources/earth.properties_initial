@@ -36,6 +36,7 @@ use_browser=firefox
 here_app_id=HERE_APP_ID
 here_app_code=HERE_APP_CODE
 bing_maps_key=BING_MAPS_KEY
+google_maps_api_key=GOOGLE_MAPS_API_KEY
 
 distance_between_sample_points=10
 distance_to_plot_boundaries=5

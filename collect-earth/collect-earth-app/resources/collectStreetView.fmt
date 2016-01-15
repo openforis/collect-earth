@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8">
+    <title>Street View - Collect Earth</title>
+    <style>
+      html, body {
+        height: 100%;
+        margin: 0;
+        padding: 0;
+      }
+      #street-view {
+        height: 100%;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="street-view"></div>
+    <script>
+var panorama;
+function initialize() {
+  panorama = new google.maps.StreetViewPanorama(
+      document.getElementById('street-view'),
+      {
+        position: {lat: ${placemark.coord.latitude}, lng: ${placemark.coord.longitude}},
+        pov: {heading: 0, pitch: 0},
+		radius: 1000,
+        zoom: 1,
+		streetViewControl: false
+      });
+}
+
+    </script>
+    <script async defer
+         src="https://maps.googleapis.com/maps/api/js?key=${googleMapsApiKey}&signed_in=true&callback=initialize">
+    </script>
+  </body>
+</html>

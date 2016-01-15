@@ -112,7 +112,7 @@ public class BrowserService implements Observer{
 	private static final Configuration cfg = new Configuration();
 	private static Template template;
 
-	private RemoteWebDriver webDriverEE, webDriverBing, webDriverTimelapse, webDriverGeePlayground, webDriverHere;
+	private RemoteWebDriver webDriverEE, webDriverBing, webDriverTimelapse, webDriverGeePlayground, webDriverHere, webDriverStreetView;
 
 	private static boolean geeMethodUpdated = false;
 
@@ -462,6 +462,44 @@ public class BrowserService implements Observer{
 		}
 	}
 	
+		/**
+		 * Opens a browser window with the Google Street View representation of the plot.
+		 * https://www.google.com/maps/@43.7815661,11.1484876,3a,75y,210.23h,82.32t/data=!3m6!1e1!3m4!1sEz7NiCbaIYzTJkP_RMBiqw!2e0!7i13312!8i6656?hl=en
+		 * @param coordinates The center point of the plot.
+		 * @throws BrowserNotFoundException In case the browser could not be found
+		 * 
+		 */
+		public void openStreetView(String coordinates) throws BrowserNotFoundException {
+
+			if (localPropertiesService.isStreetViewSupported()) {
+
+				if (webDriverStreetView == null) {
+					webDriverStreetView = initBrowser();
+				}
+
+				final RemoteWebDriver driverCopy = webDriverStreetView;
+				final String[] centerPlotLocation = coordinates.split(",");
+				final Thread loadStreetViewThread = new Thread() {
+					@Override
+					public void run() {
+						try {
+							webDriverStreetView = navigateTo(geoLocalizeTemplateService.getStreetViewUrl(
+									centerPlotLocation, 
+									localPropertiesService.getValue( EarthProperty.GOOGLE_MAPS_API_KEY), 
+									GeolocalizeMapService.FREEMARKER_STREET_VIEW_HTML_TEMPLATE).toString(), 
+									driverCopy
+							);
+						} catch (final Exception e) {
+							logger.error("Problems loading Street View", e);
+						}
+					};
+				};
+				
+				loadStreetViewThread.start();
+				
+			}
+		}	
+		
 	/**
 	 * Opens a browser window with the Here Maps representation of the plot.
 	 * @param coordinates The center point of the plot.
