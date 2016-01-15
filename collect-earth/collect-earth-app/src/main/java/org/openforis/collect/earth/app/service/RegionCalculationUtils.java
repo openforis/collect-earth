@@ -174,7 +174,7 @@ public class RegionCalculationUtils {
 		if( AnalysisSaikuService.surveyContains(SHRUB_COUNT, earthSurveyService.getCollectSurvey() ) ){
 			// First set the number of shrubs to 30 if the user assessed that there were more than 30 shrubs on the plot
 			// This way we get a conservative estimation
-			jdbcTemplate.update("UPDATE " + schemaName + "plot SET "+SHRUB_COUNT+"=30 WHERE many_shrubs=1"); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$ //$NON-NLS-4$
+			jdbcTemplate.update("UPDATE " + schemaName + "plot SET "+SHRUB_COUNT+"=30 WHERE many_shrubs='1'"); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$ //$NON-NLS-4$
 			jdbcTemplate.execute("ALTER TABLE " + schemaName + "plot ADD " + SHRUBS_PER_EXP_FACTOR + " FLOAT"); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$
 			jdbcTemplate.update("UPDATE " + schemaName + "plot SET "+SHRUBS_PER_EXP_FACTOR+"="+EXPANSION_FACTOR+"*2*"  + SHRUB_COUNT); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$ //$NON-NLS-4$
 		}
@@ -186,7 +186,7 @@ public class RegionCalculationUtils {
 		if( AnalysisSaikuService.surveyContains(TREE_COUNT, earthSurveyService.getCollectSurvey() ) ){
 			// First set the number of shrubs to 30 if the user assessed that there were more than 30 shrubs on the plot
 			// This way we get a conservative estimation
-			jdbcTemplate.update("UPDATE " + schemaName + "plot SET "+TREE_COUNT+"=30 WHERE many_trees=1"); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$ //$NON-NLS-4$
+			jdbcTemplate.update("UPDATE " + schemaName + "plot SET "+TREE_COUNT+"=30 WHERE many_trees='1'"); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$ //$NON-NLS-4$
 			jdbcTemplate.execute("ALTER TABLE " + schemaName + "plot ADD " + TREES_PER_EXP_FACTOR + " FLOAT"); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$
 			jdbcTemplate.update("UPDATE " + schemaName + "plot SET "+TREES_PER_EXP_FACTOR+"="+EXPANSION_FACTOR+"*2*"  + TREE_COUNT); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$ //$NON-NLS-4$
 		}
