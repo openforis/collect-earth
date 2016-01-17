@@ -37,7 +37,7 @@ final class SaikuStarter {
 	}
 	
 	public boolean shouldShowRdbGenerationOption(){
-		return saikuService.isRdbFilePresent();
+		return saikuService.isRdbAlreadyGenerated();
 	}
 
 	public boolean isStarting() {
@@ -45,6 +45,8 @@ final class SaikuStarter {
 	}
 	
 	public void initializeAndOpen() {
+		progressStartSaiku = new InfiniteProgressMonitor( frame, Messages.getString("SaikuStarter.1"), Messages.getString("SaikuStarter.2")); //$NON-NLS-1$ //$NON-NLS-2$
+		
 		threadInitializingSaiku = new Thread("Start Saiku server/initialize RDB"){ //$NON-NLS-1$
 			@Override
 			public void run() {
@@ -67,8 +69,9 @@ final class SaikuStarter {
 		};
 		
 		threadInitializingSaiku.start();
-		progressStartSaiku = new InfiniteProgressMonitor( frame, Messages.getString("SaikuStarter.1"), Messages.getString("SaikuStarter.2")); //$NON-NLS-1$ //$NON-NLS-2$
+
 		progressStartSaiku.show();
+		
 		
 		
 		if( progressStartSaiku.isUserCancelled() ){

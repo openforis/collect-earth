@@ -46,17 +46,24 @@ public class InfiniteProgressMonitor implements ProgressListener {
 	
 	public void updateProgress( int current, int total){
 		
-		infiniteProgress.setString( current + "/" + total);
-		if( infiniteProgress.isIndeterminate() ){
-			infiniteProgress.setIndeterminate(false);
-			infiniteProgress.setStringPainted(true);
-		}
-		if( infiniteProgress.getMaximum() != total) {
-			infiniteProgress.setMaximum( total );
-		}
-		infiniteProgress.setValue( current );
-		
-		
+		SwingUtilities.invokeLater(new Runnable() {
+			
+			@Override
+			public void run() {
+				
+				
+				infiniteProgress.setString( current + "%");
+				if( infiniteProgress.isIndeterminate() ){
+					infiniteProgress.setIndeterminate(false);
+					infiniteProgress.setStringPainted(true);
+				}
+				
+				infiniteProgress.setMaximum( 100 );
+				
+				infiniteProgress.setValue( current );
+			}
+		});
+
 	}
 	
 	public void setMessage(String msg){

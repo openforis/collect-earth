@@ -3,7 +3,6 @@ package org.openforis.collect.earth.app;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
-import java.util.ArrayList;
 import java.util.Enumeration;
 
 import javax.swing.UIManager;

@@ -18,6 +18,7 @@ import java.util.Map;
 
 import javax.annotation.PostConstruct;
 import javax.annotation.PreDestroy;
+import javax.swing.SwingUtilities;
 
 import net.lingala.zip4j.core.ZipFile;
 import net.lingala.zip4j.exception.ZipException;
@@ -36,6 +37,7 @@ import org.openforis.collect.earth.app.model.AspectCode;
 import org.openforis.collect.earth.app.model.DynamicsCode;
 import org.openforis.collect.earth.app.model.SlopeCode;
 import org.openforis.collect.earth.app.service.LocalPropertiesService.EarthProperty;
+import org.openforis.collect.earth.app.view.InfiniteProgressMonitor;
 import org.openforis.collect.earth.core.rdb.RelationalSchemaContext;
 import org.openforis.collect.earth.sampler.utils.FreemarkerTemplateUtils;
 import org.openforis.collect.model.CollectRecord.Step;
@@ -43,7 +45,7 @@ import org.openforis.collect.model.CollectSurvey;
 import org.openforis.collect.relational.CollectRDBPublisher;
 import org.openforis.collect.relational.CollectRdbException;
 import org.openforis.collect.relational.model.RelationalSchemaConfig;
-import org.openforis.concurrency.ProgressListener;
+import org.openforis.concurrency.Progress;
 import org.openforis.idm.metamodel.NodeDefinition;
 import org.openforis.idm.metamodel.NodeDefinitionVerifier;
 import org.openqa.selenium.remote.RemoteWebDriver;
@@ -388,10 +390,18 @@ public class AnalysisSaikuService {
 		return new File(saikuFolder.getAbsolutePath() + File.separator + getRdbFilePrefix() +  ServerController.SAIKU_RDB_SUFFIX + ".zip");
 	}
 
-	public boolean isRdbFilePresent(){
-		File rdbFile = getZippedSaikuProjectDB();
-
-		return ( rdbFile!=null && rdbFile.exists() );
+	public boolean isRdbAlreadyGenerated(){
+		
+		boolean saikuDBAlreadyPresent = false;           
+		if( localPropertiesService.isUsingSqliteDB() ){
+			File rdbFile = getZippedSaikuProjectDB();
+			saikuDBAlreadyPresent = rdbFile!=null && rdbFile.exists();
+		}else{
+			// Here we should check if the "rdbcollectearth" schema is created in the PostgreSQL database
+			saikuDBAlreadyPresent = true;
+		}
+		
+		return saikuDBAlreadyPresent;
 	}
 
 	private boolean restoreProjectSaikuDB(){
@@ -502,7 +512,7 @@ public class AnalysisSaikuService {
 		saikuWebDriver.findElementByClassName("form_button").click(); //$NON-NLS-1$
 	}
 
-	public void prepareDataForAnalysis( ProgressListener progressListener) throws SaikuExecutionException {
+	public void prepareDataForAnalysis( InfiniteProgressMonitor progressListener) throws SaikuExecutionException {
 
 		try {
 
@@ -567,7 +577,7 @@ public class AnalysisSaikuService {
 				);
 	}
 
-	public void exportDataToRDB(ProgressListener progressListener) throws CollectRdbException {
+	public void exportDataToRDB(InfiniteProgressMonitor progressListener) throws CollectRdbException {
 		/*
 		 * The SQLite DB has no limit on the length of the varchar.
 		 * By default, if no RelationalSchemaConfig is passed to the export command text fields will be truncated to 255 characters
@@ -576,13 +586,22 @@ public class AnalysisSaikuService {
 
 		final String rdbSaikuSchema = getSchemaName();
 
+		SwingUtilities.invokeLater( new Runnable() {
+			
+			@Override
+			public void run() {
+				progressListener.setMessage("Exporting collected records into Saiku DB" );
+			}
+		});
+		
 		collectRDBPublisher.export(earthSurveyService.getCollectSurvey().getName(), EarthConstants.ROOT_ENTITY_NAME, Step.ENTRY,
 				rdbSaikuSchema, rdbConfig, progressListener);
 
 		if (!isUserCancelledOperation()) {
 			System.currentTimeMillis();
 			try {
-				processQuantityData();
+				
+				processQuantityData(progressListener);
 				setSaikuAsDefaultSchema();
 			} catch (final Exception e) {
 				logger.error("Error processing quantity data", e); //$NON-NLS-1$
@@ -604,29 +623,51 @@ public class AnalysisSaikuService {
 		}
 	}
 
-	private void processQuantityData() throws SQLException {
+	private void processQuantityData(InfiniteProgressMonitor progressListener)throws SQLException {
+		
+		SwingUtilities.invokeLater( new Runnable() {
+			
+			@Override
+			public void run() {
+				progressListener.setMessage("Preparing Saiku data for analysis" );
+			}
+		});
+		
+		progressListener.progressMade(new Progress(0,100));
 		createPngAluVariables();
-
 		createPlotForeignKeys();
 
+		progressListener.progressMade(new Progress( 25, 100));
 		
 		if( !surveyContains("calculated_elevation_range" , earthSurveyService.getCollectSurvey() ) ){
 			createAspectAuxTable();
-
 			createSlopeAuxTable();
 			createElevationtAuxTable();
 			assignDimensionValues();
+			
 		}
+		progressListener.progressMade(new Progress(50, 100));
 
 		if( !surveyContains("calculated_initial_land_use", earthSurveyService.getCollectSurvey() ) ){
 			createDynamicsAuxTable();
 			creatAluSubclassVariables();
 			assignLUCDimensionValues();
+			
 		}
+		progressListener.progressMade(new Progress(75, 100));
 		
 		assignPngAluToolDimensionValues();
 
+		SwingUtilities.invokeLater( new Runnable() {
+			
+			@Override
+			public void run() {
+				progressListener.setMessage("Calculating expansion factors" );
+			}
+		});
+		
 		regionCalculation.handleRegionCalculation();
+		progressListener.progressMade(new Progress(100, 100));
 
 	}
 
