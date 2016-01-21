@@ -36,6 +36,7 @@ import javax.swing.WindowConstants;
 import javax.swing.border.Border;
 
 import org.apache.commons.lang3.StringUtils;
+import org.openforis.collect.earth.app.CollectEarthUtils;
 import org.openforis.collect.earth.app.EarthConstants.OperationMode;
 import org.openforis.collect.earth.app.EarthConstants.UI_LANGUAGE;
 import org.openforis.collect.earth.app.desktop.EarthApp;
@@ -272,6 +273,7 @@ public class CollectEarthWindow{
 				try {
 					final String langName = ((JRadioButtonMenuItem) e.getSource()).getName();
 					final UI_LANGUAGE language = UI_LANGUAGE.valueOf(langName);
+					CollectEarthUtils.setFontDependingOnLanguaue(language);
 					localPropertiesService.setUiLanguage(language);
 
 					SwingUtilities.invokeLater( new Thread(){

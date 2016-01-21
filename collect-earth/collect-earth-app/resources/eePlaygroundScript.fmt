@@ -50,7 +50,7 @@ var getSeriesNDVIByThreshold = function( dataset, threshold ){
     listOfYears.push(year);
  }
   
-  return ee.Dictionary({'Years' : listOfYears, 'Days':listOfValues});
+  return ee.Dictionary({'Years' : listOfYears, '% Days per year':listOfValues});
 };
 
 
@@ -125,7 +125,7 @@ var ndviAboveThersholdPerYear1 = getSeriesNDVIByThreshold('MODIS/MOD13Q1', 2000)
 
 // Convert the band data to plot on the y-axis to arrays.
 // Concatenate the y-axis data by stacking the arrays on the 1-axis.
-var yValues =  ee.Array(ndviAboveThersholdPerYear1.get('Days')).multiply(100);
+var yValues =  ee.Array(ndviAboveThersholdPerYear1.get('% Days per year')).multiply(100);
 
 // The band data to plot on the x-axis is a List.
 var xValues = ee.Array(ndviAboveThersholdPerYear1.get('Years'));
@@ -133,7 +133,7 @@ var xValues = ee.Array(ndviAboveThersholdPerYear1.get('Years'));
 
 // Make a band correlation chart.
 var chart1 = Chart.array.values(yValues, 0, xValues)
-    .setSeriesNames(['Days'])
+    .setSeriesNames(['% Days per year'])
     .setOptions({
 	  seriesType: 'bars',
       title: 'MOD13Q1 Vegetation Indices 16-Day Global 250m - % of images above 0.2 NDVI' ,
@@ -169,7 +169,7 @@ var ndviAboveThersholdPerYear = getSeriesNDVIByThreshold('MODIS/MCD43A4_NDVI', 0
 
 // Convert the band data to plot on the y-axis to arrays.
 // Concatenate the y-axis data by stacking the arrays on the 1-axis.
-var yValues =  ee.Array(ndviAboveThersholdPerYear.get('Days')).multiply(100);
+var yValues =  ee.Array(ndviAboveThersholdPerYear.get('% Days per year')).multiply(100);
 
 
 // The band data to plot on the x-axis is a List.
@@ -177,7 +177,7 @@ var xValues = ee.Array(ndviAboveThersholdPerYear.get('Years'));
 
 // Make a band correlation chart.
 var chart = Chart.array.values(yValues, 0, xValues)
-    .setSeriesNames(['Days'])
+    .setSeriesNames(['% Days per year'])
     .setOptions({
       seriesType: 'bars',
       title: 'MODIS 16-Day NDVI (Google) 500m - % of images above 0.2 NDVI',

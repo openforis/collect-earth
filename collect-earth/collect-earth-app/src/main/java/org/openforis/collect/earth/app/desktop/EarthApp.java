@@ -77,7 +77,7 @@ public class EarthApp {
 			PropertyConfigurator.configure(EarthApp.class.getResource("/WEB-INF/conf/log4j.properties"));
 			
 			// Change of font so that Lao and Thao glyphs are supported
-			CollectEarthUtils.setUIFont( new javax.swing.plaf.FontUIResource("Arial Unicode MS",Font.PLAIN,12) );
+			CollectEarthUtils.setFontDependingOnLanguaue( getLocalProperties().getUiLanguage() );
 			
 			logger = LoggerFactory.getLogger(EarthApp.class);
 
