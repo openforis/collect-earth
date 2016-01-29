@@ -128,6 +128,7 @@ public abstract class PolygonKmlGenerator extends KmlGenerator {
 
 				} catch (final Exception e) {
 					if(rowNumber > 0 ){
+						logger.error( "Error on the CSV file ", e );
 						throw new KmlGenerationException("Error in the CSV " + csvFile + " \r\n for row " + rowNumber + " = " + Arrays.toString( csvRow ), e);
 					}else{
 						logger.info("Error while reading the first line of the CSV fle, probably cause by the column header names");
