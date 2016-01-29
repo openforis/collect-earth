@@ -38,6 +38,7 @@ import org.openforis.collect.manager.exception.SurveyValidationException;
 import org.openforis.collect.model.CollectRecord;
 import org.openforis.collect.model.CollectRecord.Step;
 import org.openforis.collect.model.CollectSurvey;
+import org.openforis.collect.model.RecordUpdater;
 import org.openforis.collect.model.RecordValidationReportGenerator;
 import org.openforis.collect.model.RecordValidationReportItem;
 import org.openforis.collect.persistence.RecordPersistenceException;
@@ -55,6 +56,7 @@ import org.openforis.idm.model.Entity;
 import org.openforis.idm.model.Node;
 import org.openforis.idm.model.TextAttribute;
 import org.openforis.idm.model.TextValue;
+import org.openforis.idm.model.Value;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -77,10 +79,13 @@ public class EarthSurveyService{
 	@Autowired
 	private SurveyManager surveyManager;
 	
+	private RecordUpdater recordUpdater;
 	private BalloonInputFieldsUtils collectParametersHandler;
 
 	public EarthSurveyService() {
 		collectParametersHandler = new BalloonInputFieldsUtils();
+		recordUpdater = new RecordUpdater();
+		recordUpdater.setClearNotRelevantAttributes(true);
 	}
 	
 	private void addLocalProperties(Map<String, String> placemarkParameters) {
@@ -94,7 +99,7 @@ public class EarthSurveyService{
 	@Deprecated
 	private void addValidationMessages(Map<String, String> parameters, CollectRecord record) {
 		// Validation
-		recordManager.validate(record);
+		recordUpdater.validate(record);
 
 		final RecordValidationReportGenerator reportGenerator = new RecordValidationReportGenerator(record);
 		final List<RecordValidationReportItem> validationItems = reportGenerator.generateValidationItems();
@@ -327,11 +332,11 @@ public class EarthSurveyService{
 		}else{
 			if( attr instanceof DateAttribute ){
 				org.openforis.idm.model.Date date = org.openforis.idm.model.Date.parse(new Date());
-				recordManager.updateAttribute(( DateAttribute)attr, date);
+				recordUpdater.updateAttribute(( DateAttribute)attr, date);
 			}else if( attr instanceof TextAttribute){
 				SimpleDateFormat sdf =  new SimpleDateFormat("yyyy/MM/dd hh:mm");
 				org.openforis.idm.model.Date date = org.openforis.idm.model.Date.parse(new Date());
-				recordManager.updateAttribute((TextAttribute)attr, new TextValue( sdf.format(date) ) );
+				recordUpdater.updateAttribute((TextAttribute)attr, new TextValue( sdf.format(date) ) );
 			}else{
 				logger.error("Attribute " + path + " is expected to be of type Text or Date" );
 			}
@@ -340,7 +345,7 @@ public class EarthSurveyService{
 	
 	private void setPlacemarkSavedActively(CollectRecord record, boolean value) {
 		BooleanAttribute attr = record.findNodeByPath(ROOT_ENTITY_NAME + "/" + ACTIVELY_SAVED_ATTRIBUTE_NAME);
-		recordManager.updateAttribute(attr, new BooleanValue(value));
+		recordUpdater.updateAttribute(attr, new BooleanValue(value));
 	}
 
 	private void setPlacemarkSavedOn(Map<String, String> parameters) {
@@ -485,6 +490,13 @@ public class EarthSurveyService{
 		if (summaries.isEmpty()) {
 			// Create new record
 			record = createRecord(sessionId);
+			List<AttributeDefinition> keyAttributeDefinitions = getCollectSurvey().getSchema().getRootEntityDefinitions().get(0).getKeyAttributeDefinitions();
+			for (int i = 0; i < plotKeyAttributes.length; i++) {
+				String keyValue = plotKeyAttributes[i];
+				AttributeDefinition keyAttrDef = keyAttributeDefinitions.get(i);
+				Attribute<?, Value> keyAttr = record.findNodeByPath(keyAttrDef.getPath());
+				recordUpdater.updateAttribute(keyAttr, (Value) keyAttr.getDefinition().createValue(keyValue));
+			}
 			logger.warn("Creating a new record with id " + plotKeyAttributes.toString() ); //$NON-NLS-1$
 		} else {
 			CollectRecord recordSummary = summaries.get(0);
