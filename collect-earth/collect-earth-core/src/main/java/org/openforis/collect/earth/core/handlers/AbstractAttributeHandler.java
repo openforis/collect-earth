@@ -30,6 +30,7 @@ public abstract class AbstractAttributeHandler<C> {
 		super();
 		this.prefix = prefix;
 		this.recordUpdater = new RecordUpdater();
+		this.recordUpdater.setClearNotRelevantAttributes(true);
 	}
 
 	public NodeChangeSet deleteAttributes(String parameterName, Entity entity) {
