@@ -41,9 +41,8 @@ public class CollectDataAccessor implements DataAccessor {
 	}
 
 	@Override
-	public PlacemarkLoadResult updateData(
-			String[] multipleKeyAttributes,
-			Map<String, String> collectedData) {
-		return earthSurveyService.updatePlacemarkData(multipleKeyAttributes, collectedData, null);
+	public PlacemarkLoadResult updateData(String[] multipleKeyAttributes, Map<String, String> collectedData,
+			boolean partialUpdate) {
+		return earthSurveyService.updatePlacemarkData(multipleKeyAttributes, collectedData, null, partialUpdate);
 	}
 }
