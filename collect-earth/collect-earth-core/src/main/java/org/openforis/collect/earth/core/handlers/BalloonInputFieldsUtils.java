@@ -68,18 +68,7 @@ public class BalloonInputFieldsUtils {
 
 	public Map<String, PlacemarkInputFieldInfo> extractFieldInfoByParameterName(CollectRecord record,
 			NodeChangeSet changeSet, String language, String modelVersionName) {
-		Collection<AttributeDefinition> changedDefs;
-		if (changeSet == null) {
-			changedDefs = extractAttributeDefinitions(record);
-		} else {
-			Set<Node<?>> changedNodes = changeSet.getChangedNodes();
-			changedDefs = new HashSet<AttributeDefinition>();
-			for (Node<?> node : changedNodes) {
-				if (node instanceof Attribute) {
-					changedDefs.add((AttributeDefinition) node.getDefinition());
-				}
-			}
-		}
+		Collection<AttributeDefinition> changedDefs = extractChangedAttributeDefinitions(record, changeSet);
 		Map<String, String> htmlParameterNameByNodePath = generateAttributeHtmlParameterNameByNodePath(changedDefs);
 		Set<String> parameterNames = new HashSet<String>(htmlParameterNameByNodePath.values());
 		Map<String, String> validationMessageByPath = generateValidationMessages(record);
@@ -107,6 +96,29 @@ public class BalloonInputFieldsUtils {
 			}
 		}
 		return result;
+	}
+
+	private Set<AttributeDefinition> extractChangedAttributeDefinitions(CollectRecord record,
+			NodeChangeSet changeSet) {
+		if (changeSet == null) {
+			return extractAttributeDefinitions(record);
+		} else {
+			Set<AttributeDefinition> changedDefs = new HashSet<AttributeDefinition>();
+			Set<Node<?>> changedNodes = changeSet.getChangedNodes();
+			for (Node<?> node : changedNodes) {
+				if (node instanceof Attribute) {
+					changedDefs.add((AttributeDefinition) node.getDefinition());
+				}
+			}
+			Set<CodeAttributeDefinition> relatedParentCodeDefs = new HashSet<CodeAttributeDefinition>();
+			for (AttributeDefinition changedDef : changedDefs) {
+				if (changedDef instanceof CodeAttributeDefinition) {
+					relatedParentCodeDefs.addAll(((CodeAttributeDefinition) changedDef).getAncestorCodeAttributeDefinitions());
+				}
+			}
+			changedDefs.addAll(relatedParentCodeDefs);
+			return changedDefs;
+		}
 	}
 
 	private PlacemarkInputFieldInfo generateAttributeFieldInfo(

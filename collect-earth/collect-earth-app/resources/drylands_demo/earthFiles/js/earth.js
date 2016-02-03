@@ -158,7 +158,8 @@ var createPlacemarkUpdateRequest = function(inputField) {
 	var data = {
 		placemarkId : getPlacemarkId(),
 		values : values,
-		currentStep : currentStepIndex
+		currentStep : currentStepIndex,
+		partialUpdate : true
 	};
 	return data;
 }
@@ -623,10 +624,12 @@ var setValueInInputField = function(inputField, value) {
 				var codeItemsContainers = itemsGroup.find(".code-items");
 				var activeCodeItemsContainer = getVisibleComponent(codeItemsContainers);
 				var splitted = value.split(SEPARATOR_MULTIPLE_PARAMETERS);
-				splitted.forEach(function(value, index) {
-					var button = activeCodeItemsContainer.find(".code-item[value=" + escapeRegExp(value) + "]");
-					button.addClass('active');
-				});
+				if (activeCodeItemsContainer != null) {
+					splitted.forEach(function(value, index) {
+						var button = activeCodeItemsContainer.find(".code-item[value=" + escapeRegExp(value) + "]");
+						button.addClass('active');
+					});
+				}
 			}
 			break;
 		}

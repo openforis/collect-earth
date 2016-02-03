@@ -442,7 +442,7 @@ public class EarthSurveyService {
 	}
 
 	public synchronized PlacemarkLoadResult updatePlacemarkData(String[] plotKeyAttributes,
-			Map<String, String> parameters, String sessionId) {
+			Map<String, String> parameters, String sessionId, boolean partialUpdate) {
 		try {
 			// Add the operator to the collected data
 			parameters.put(OPERATOR_PARAMETER, localPropertiesService.getOperator());
@@ -490,7 +490,11 @@ public class EarthSurveyService {
 					record.setModifiedDate(new Date());
 					recordManager.save(record, sessionId);
 				}
-				return createPlacemarkLoadSuccessResult(record, changeSet);
+				if (partialUpdate) {
+					return createPlacemarkLoadSuccessResult(record, changeSet);
+				} else {
+					return createPlacemarkLoadSuccessResult(record);
+				}
 			}
 		} catch (Exception e) {
 			logger.error("Error while storing the record " + e.getMessage(), e); //$NON-NLS-1$

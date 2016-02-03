@@ -87,7 +87,8 @@ public class PlacemarkDataController extends JsonPocessorServlet {
 			PlacemarkUpdateRequest updateRequest,
 			Map<String, String> collectedData, String placemarkKey ) {
 		PlacemarkLoadResult result;
-		result = getDataAccessor().updateData( placemarkKey.split(",") , collectedData);
+		result = getDataAccessor().updateData( placemarkKey.split(",") , collectedData, 
+				updateRequest.isPartialUpdate());
 				
 		if (result.isSuccess()) {
 			result.setMessage(Messages.getString("SaveEarthDataServlet.2"));
@@ -164,6 +165,7 @@ public class PlacemarkDataController extends JsonPocessorServlet {
 		private Map<String, String> values;
 		private String currentStep;
 		private String placemarkId;
+		private boolean partialUpdate = false;
 		
 		public Map<String, String> getValues() {
 			return values;
@@ -189,6 +191,14 @@ public class PlacemarkDataController extends JsonPocessorServlet {
 			this.placemarkId = id;
 		}
 
+		public boolean isPartialUpdate() {
+			return partialUpdate;
+		}
+		
+		public void setPartialUpdate(boolean partialUpdate) {
+			this.partialUpdate = partialUpdate;
+		}
+		
 	}
 	
 
