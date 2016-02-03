@@ -2,8 +2,10 @@ package org.openforis.collect.earth.core.handlers;
 
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
@@ -64,8 +66,21 @@ public class BalloonInputFieldsUtils {
 			new TimeAttributeHandler()
 			);
 
-	public Map<String, PlacemarkInputFieldInfo> extractFieldInfoByParameterName(CollectRecord record, String language, String modelVersionName) {
-		Map<String, String> htmlParameterNameByNodePath = getHtmlParameterNameByNodePath(record);
+	public Map<String, PlacemarkInputFieldInfo> extractFieldInfoByParameterName(CollectRecord record,
+			NodeChangeSet changeSet, String language, String modelVersionName) {
+		Collection<AttributeDefinition> changedDefs;
+		if (changeSet == null) {
+			changedDefs = extractAttributeDefinitions(record);
+		} else {
+			Set<Node<?>> changedNodes = changeSet.getChangedNodes();
+			changedDefs = new HashSet<AttributeDefinition>();
+			for (Node<?> node : changedNodes) {
+				if (node instanceof Attribute) {
+					changedDefs.add((AttributeDefinition) node.getDefinition());
+				}
+			}
+		}
+		Map<String, String> htmlParameterNameByNodePath = generateAttributeHtmlParameterNameByNodePath(changedDefs);
 		Set<String> parameterNames = new HashSet<String>(htmlParameterNameByNodePath.values());
 		Map<String, String> validationMessageByPath = generateValidationMessages(record);
 		Entity rootEntity = record.getRootEntity();
@@ -202,67 +217,79 @@ public class BalloonInputFieldsUtils {
 		return valuesByHTMLParameterName;
 	}
 
-	public Map<String, String> getHtmlParameterNameByNodePath(CollectRecord record) {
-		return getHtmlParameterNameByNodePath(record.getRootEntity().getDefinition());
-	}
+	private Set<AttributeDefinition> extractAttributeDefinitions(CollectRecord record) {
+		final Set<AttributeDefinition> result = new LinkedHashSet<AttributeDefinition>();
 
-	public Map<String, String> getHtmlParameterNameByNodePath(final EntityDefinition rootEntity) {
-		final CodeListService codeListService = rootEntity.getSurvey().getContext().getCodeListService();
-
-		final Map<String, String> result = new HashMap<String, String>();
-
-		rootEntity.traverse(new NodeDefinitionVisitor() {
+		record.getRootEntity().getDefinition().traverse(new NodeDefinitionVisitor() {
 			public void visit(NodeDefinition def) {
 				if (def instanceof AttributeDefinition) {
-					EntityDefinition parentDef = def.getParentEntityDefinition();
-					if (parentDef == rootEntity) {
-						String collectParamName = getCollectParameterBaseName(def);
-						if( collectParamName != null ){
-							result.put(def.getPath(), collectParamName);
-						}
-					} else {
-						List<NodeDefinition> childDefs = parentDef.getChildDefinitions();
-						if (parentDef.isMultiple()) {
-							//multiple (enumerated) entity
-							CodeAttributeDefinition keyCodeAttribute = parentDef.getEnumeratingKeyCodeAttribute();
-							if (keyCodeAttribute == null) {
-								throw new IllegalStateException("Enumerating code attribute expected for entity " + parentDef.getPath());
-							} else {
-								CodeList enumeratingList = keyCodeAttribute.getList();
-								List<CodeListItem> enumeratingItems = codeListService.loadRootItems(enumeratingList);
-								for (int i = 0; i < enumeratingItems.size(); i++) {
-									CodeListItem enumeratingItem = enumeratingItems.get(i);
-									String collectParameterBaseName = getCollectParameterBaseName(parentDef) + "[" + enumeratingItem.getCode() + "].";
-
-									for (NodeDefinition childDef : childDefs) {
-										AbstractAttributeHandler<?> childHandler = findHandler(childDef);
-										if( childHandler != null ){
-											String collectParameterName = collectParameterBaseName + childHandler.getPrefix() + childDef.getName();
-											String enumeratingItemPath = parentDef.getPath() + "[" + (i+1) + "]/" + childDef.getName();
-											result.put(enumeratingItemPath, collectParameterName);
-										}
-									}
-								}
-							}
-						} else {
-							//single entity
-							String collectParameterBaseName = getCollectParameterBaseName(parentDef) + ".";
-							for (NodeDefinition childDef : childDefs) {
-								AbstractAttributeHandler<?> childHandler = findHandler(childDef);
-								if( childHandler != null ){
-									String collectParameterName = collectParameterBaseName + childHandler.getPrefix() + childDef.getName();
-									String enumeratingItemPath = parentDef.getPath() + "/" + childDef.getName();
-									result.put(enumeratingItemPath, collectParameterName);
-								}
-							}
-						}
-					}
+					result.add((AttributeDefinition) def);
 				}
 			}
 		});
 		return result;
 	}
 
+	private Map<String, String> generateAttributeHtmlParameterNameByNodePath(Collection<AttributeDefinition> defs) {
+		Map<String, String> result = new HashMap<String, String>();
+		for (AttributeDefinition def : defs) {
+			result.putAll(generateAttributeHtmlParameterNameByNodePath(def));
+		}
+		return result;
+	}
+		
+	
+	private Map<String, String> generateAttributeHtmlParameterNameByNodePath(AttributeDefinition def) {
+		CodeListService codeListService = def.getSurvey().getContext().getCodeListService();
+
+		Map<String, String> result = new HashMap<String, String>();
+		
+		EntityDefinition parentDef = def.getParentEntityDefinition();
+		if (parentDef.isRoot()) {
+			String collectParamName = getCollectParameterBaseName(def);
+			if( collectParamName != null ){
+				result.put(def.getPath(), collectParamName);
+			}
+		} else {
+			List<NodeDefinition> childDefs = parentDef.getChildDefinitions();
+			if (parentDef.isMultiple()) {
+				//multiple (enumerated) entity
+				CodeAttributeDefinition keyCodeAttribute = parentDef.getEnumeratingKeyCodeAttribute();
+				if (keyCodeAttribute == null) {
+					throw new IllegalStateException("Enumerating code attribute expected for entity " + parentDef.getPath());
+				} else {
+					CodeList enumeratingList = keyCodeAttribute.getList();
+					List<CodeListItem> enumeratingItems = codeListService.loadRootItems(enumeratingList);
+					for (int i = 0; i < enumeratingItems.size(); i++) {
+						CodeListItem enumeratingItem = enumeratingItems.get(i);
+						String collectParameterBaseName = getCollectParameterBaseName(parentDef) + "[" + enumeratingItem.getCode() + "].";
+
+						for (NodeDefinition childDef : childDefs) {
+							AbstractAttributeHandler<?> childHandler = findHandler(childDef);
+							if( childHandler != null ){
+								String collectParameterName = collectParameterBaseName + childHandler.getPrefix() + childDef.getName();
+								String enumeratingItemPath = parentDef.getPath() + "[" + (i+1) + "]/" + childDef.getName();
+								result.put(enumeratingItemPath, collectParameterName);
+							}
+						}
+					}
+				}
+			} else {
+				//single entity
+				String collectParameterBaseName = getCollectParameterBaseName(parentDef) + ".";
+				for (NodeDefinition childDef : childDefs) {
+					AbstractAttributeHandler<?> childHandler = findHandler(childDef);
+					if( childHandler != null ){
+						String collectParameterName = collectParameterBaseName + childHandler.getPrefix() + childDef.getName();
+						String enumeratingItemPath = parentDef.getPath() + "/" + childDef.getName();
+						result.put(enumeratingItemPath, collectParameterName);
+					}
+				}
+			}
+		}
+		return result;
+	}
+	
 	private String getCollectParameterBaseName(NodeDefinition def) {
 		AbstractAttributeHandler<?> handler = findHandler(def);
 

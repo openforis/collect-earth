@@ -25,4 +25,5 @@ public interface DataAccessor {
 	public boolean saveData(Map<String, String> collectedData);
 		
 	public PlacemarkLoadResult updateData(String[] multipleKeyAttributes, Map<String, String> values);
+
 }
