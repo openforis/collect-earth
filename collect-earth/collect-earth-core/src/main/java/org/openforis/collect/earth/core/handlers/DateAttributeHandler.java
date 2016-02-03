@@ -16,8 +16,8 @@ public class DateAttributeHandler extends AbstractAttributeHandler<Date> {
 
 	private static final String PREFIX = "date_";
 
-	public static final SimpleDateFormat DATE_ATTRIBUTE_FORMAT = new SimpleDateFormat("MM/dd/yyyy");
-
+	public static final String DATE_ATTRIBUTE_FORMAT = "MM/dd/yyyy";
+	
 	public DateAttributeHandler() {
 		super(PREFIX);
 	}
@@ -29,7 +29,7 @@ public class DateAttributeHandler extends AbstractAttributeHandler<Date> {
 		}
 		try {
 			java.util.Date javaDate = value.toJavaDate();
-			return javaDate == null ? null : DATE_ATTRIBUTE_FORMAT.format(javaDate);
+			return javaDate == null ? null : new SimpleDateFormat( DATE_ATTRIBUTE_FORMAT).format(javaDate);
 		} catch(Exception e) {
 			return null;
 		}
@@ -40,7 +40,7 @@ public class DateAttributeHandler extends AbstractAttributeHandler<Date> {
 		// month/day/year
 		Date date;
 		try {
-			java.util.Date dateParam = DATE_ATTRIBUTE_FORMAT.parse(parameterValue);
+			java.util.Date dateParam =new SimpleDateFormat(DATE_ATTRIBUTE_FORMAT).parse(parameterValue);
 			Calendar cal = Calendar.getInstance();
 			cal.setTime(dateParam);
 			int year = cal.get(Calendar.YEAR);
