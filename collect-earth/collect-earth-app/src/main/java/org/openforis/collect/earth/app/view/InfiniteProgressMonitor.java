@@ -52,7 +52,29 @@ public class InfiniteProgressMonitor implements ProgressListener {
 			public void run() {
 				
 				
-				infiniteProgress.setString( current + "%");
+				infiniteProgress.setString( current + "/" + total);
+				if( infiniteProgress.isIndeterminate() ){
+					infiniteProgress.setIndeterminate(false);
+					infiniteProgress.setStringPainted(true);
+				}
+				
+				infiniteProgress.setMaximum( total );
+				
+				infiniteProgress.setValue( current );
+			}
+		});
+
+	}
+	
+	public void updateProgress( int currentPercentage ){
+		
+		SwingUtilities.invokeLater(new Runnable() {
+			
+			@Override
+			public void run() {
+				
+				
+				infiniteProgress.setString( currentPercentage + "%");
 				if( infiniteProgress.isIndeterminate() ){
 					infiniteProgress.setIndeterminate(false);
 					infiniteProgress.setStringPainted(true);
@@ -60,7 +82,7 @@ public class InfiniteProgressMonitor implements ProgressListener {
 				
 				infiniteProgress.setMaximum( 100 );
 				
-				infiniteProgress.setValue( current );
+				infiniteProgress.setValue( currentPercentage );
 			}
 		});
 
@@ -121,7 +143,7 @@ public class InfiniteProgressMonitor implements ProgressListener {
 
 	@Override
 	public void progressMade(Progress progress) {
-		updateProgress( (int)progress.getProcessedItems(), (int)progress.getTotalItems() );
+		updateProgress( (int)progress.getProcessedItems()  );
 	}
 
 }
