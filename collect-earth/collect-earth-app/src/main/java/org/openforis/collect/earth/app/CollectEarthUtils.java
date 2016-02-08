@@ -91,4 +91,6 @@ public class CollectEarthUtils {
 			zipFile.addFolder(folderToCompress, zipParameters);
 		}
 	}
+	
+
 }

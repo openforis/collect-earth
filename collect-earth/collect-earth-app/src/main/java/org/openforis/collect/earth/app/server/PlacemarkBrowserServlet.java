@@ -59,7 +59,7 @@ public class PlacemarkBrowserServlet{
 				
 			}
 
-			public void openHereMapsWindow(final String latLongCoordinates) {
+/*			public void openHereMapsWindow(final String latLongCoordinates) {
 				new Thread("Open Here Maps window"){  //$NON-NLS-1$
 					@Override
 					public void run() {
@@ -72,7 +72,7 @@ public class PlacemarkBrowserServlet{
 					}
 
 				}.start();
-			}
+			}*/
 
 			public void openGeePlaygroundWindow(final String latLongCoordinates) {
 				new Thread("Open GEE Playground window"){  //$NON-NLS-1$

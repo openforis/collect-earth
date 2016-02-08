@@ -3,8 +3,6 @@ package org.openforis.collect.earth.sampler.model;
 import java.util.List;
 import java.util.Map;
 
-import org.openforis.collect.earth.sampler.processor.PlotProperties;
-
 import com.vividsolutions.jts.geom.Coordinate;
 
 /**
@@ -36,8 +34,6 @@ public class SimplePlacemarkObject {
 
 	private int aspect;
 
-	private int plotId;
-
 	private String[] extraInfo;
 	
 	private Map<String, String> valuesByColumn;
@@ -45,31 +41,28 @@ public class SimplePlacemarkObject {
 	private String[] extraColumns;
 	
 	private String[] idColumns;
-	
-	public SimplePlacemarkObject(Coordinate coordinate,
-			PlotProperties plotProperties) {
-		this.aspect = (int) Math.round(plotProperties.aspect);
-		this.coord = new SimpleCoordinate(coordinate);
-		this.elevation = plotProperties.elevation;
-		this.placemarkId = plotProperties.id;
-		this.extraInfo = plotProperties.extraInfo;
-		this.valuesByColumn = plotProperties.valuesByColumn;
-		this.extraColumns = plotProperties.extraColumns;
-		this.idColumns = plotProperties.idColumns;
-		this.slope = (int) Math.round(plotProperties.slope);
 
+	private String kmlPolygon;
+	
+	public SimplePlacemarkObject(Coordinate coordinate) {
+		this.coord = new SimpleCoordinate(coordinate);
 	}
 
 	public SimplePlacemarkObject(double[] coord, String placemarkId) {
 		super();
 		this.placemarkId = placemarkId;
-		this.coord = new SimpleCoordinate(new Coordinate(coord[0], coord[1]));
+		double longitude = coord[1];
+		double latitude = coord[0];
+		this.coord = new SimpleCoordinate(new Coordinate(longitude, latitude));
 	}
 
 	public SimplePlacemarkObject(String[] coordinatesLatLong) {
 		super();
 		this.coord = new SimpleCoordinate(coordinatesLatLong[0],
 				coordinatesLatLong[1]);
+	}
+
+	public SimplePlacemarkObject() {
 	}
 
 	public int getAspect() {
@@ -98,10 +91,6 @@ public class SimplePlacemarkObject {
 
 	public String getPlacemarkId() {
 		return placemarkId;
-	}
-
-	public int getPlotId() {
-		return plotId;
 	}
 
 	public List<SimplePlacemarkObject> getPoints() {
@@ -154,9 +143,6 @@ public class SimplePlacemarkObject {
 		this.placemarkId = placemarkId;
 	}
 
-	public void setPlotId(int plotId) {
-		this.plotId = plotId;
-	}
 	
 	public String[] getExtraColumns() {
 		return extraColumns;
@@ -205,6 +191,15 @@ public class SimplePlacemarkObject {
 
 	public void setIdColumns(String[] idColumns) {
 		this.idColumns = idColumns;
+	}
+
+	public void setKmlPolygon(String kmlPolygon) {
+		this.kmlPolygon = kmlPolygon;
+		
+	}
+
+	public String getKmlPolygon() {
+		return kmlPolygon;
 	}
 
 }

@@ -110,7 +110,7 @@ public class BackupSqlLiteService {
 		File backupFolder = getBackUpFolder();
 
 		File[] files = backupFolder.listFiles();
-		if( files.length > MAXIMUM_NUMBER_OF_BACKUPS ){
+		if( files!=null && files.length > MAXIMUM_NUMBER_OF_BACKUPS ){
 
 			Arrays.sort(files, new Comparator<File>() {
 
