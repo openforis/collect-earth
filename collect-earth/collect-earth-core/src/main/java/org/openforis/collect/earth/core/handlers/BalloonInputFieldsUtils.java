@@ -138,7 +138,7 @@ public class BalloonInputFieldsUtils {
 		info.setVisible(firstAttribute.isRelevant());
 
 		String errorMessage = validationMessageByPath.get(firstAttribute.getPath());
-		if (errorMessage != null) {
+		if (errorMessage != null && firstAttribute.isRelevant()) {
 			info.setInError(true);
 			info.setErrorMessage(errorMessage);
 		}

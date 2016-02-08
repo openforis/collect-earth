@@ -2,7 +2,6 @@ package org.openforis.collect.earth.core.model;
 
 import java.util.HashMap;
 import java.util.Map;
-import java.util.Map.Entry;
 
 import org.openforis.collect.model.CollectRecord;
 
@@ -17,7 +16,6 @@ public class PlacemarkLoadResult {
 	private boolean success;
 	private String message;
 	private boolean activelySaved;
-	private boolean validData;
 	private boolean skipFilled;
 	private String currentStep;
 	
@@ -44,23 +42,8 @@ public class PlacemarkLoadResult {
 	private void updateCalculatedFields() {
 		PlacemarkInputFieldInfo activelySavedFieldInfo = inputFieldInfoByParameterName.get("collect_boolean_actively_saved");
 		activelySaved = activelySavedFieldInfo != null && Boolean.TRUE.toString().equals(activelySavedFieldInfo.getValue());
-		validData = calculateContainsValidData();
 	}
 
-	private boolean calculateContainsValidData() {
-		for (Entry<String, PlacemarkInputFieldInfo> entry : inputFieldInfoByParameterName.entrySet()) {
-			PlacemarkInputFieldInfo info = entry.getValue();
-			if (info.isInError()) {
-				return false;
-			}
-		}
-		return true;
-	}
-	
-	public boolean isValidData() {
-		return validData;
-	}
-	
 	/**
 	 * Calculated field based on inputFieldInfoByParameterName content
 	 */
@@ -123,7 +106,6 @@ public class PlacemarkLoadResult {
 		return "PlacemarkLoadResult [inputFieldInfoByParameterName="
 				+ inputFieldInfoByParameterName + ", success=" + success
 				+ ", message=" + message + ", activelySaved=" + activelySaved
-				+ ", validData=" + validData + ", skipFilled=" + skipFilled
 				+ ", currentStep=" + currentStep + "]";
 	}
 	
