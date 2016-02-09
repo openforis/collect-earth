@@ -27,9 +27,11 @@ import org.springframework.stereotype.Component;
 public class EarthProjectsService {
 
 	
-	private static final int MAX_FOLDER_LENGTH = 20;
+	private static final int OLD_MAX_FOLDER_LENGTH = 20;
+	
+	private static final int NEW_MAX_FOLDER_LENGTH = 255;
 
-	private static final String PROJECT_FILE_NAME = "project_definition.properties"; //$NON-NLS-1$
+	private static final String PROJECT_PROPERTIES_FILE_NAME = "project_definition.properties"; //$NON-NLS-1$
 
 	private static final String PROJECTS = "projects"; //$NON-NLS-1$
 	
@@ -139,7 +141,6 @@ public class EarthProjectsService {
 			addToProjectList(projectFolder);
 			
 			setProjectDefinitionMD5(projectFolder);
-	
 			
 			success = true;
 		}
@@ -159,7 +160,7 @@ public class EarthProjectsService {
 	
 
 	public File getProjectPropertiesFile(File projectFolder) {
-		return new File( projectFolder.getAbsolutePath() + File.separator + PROJECT_FILE_NAME );
+		return new File( projectFolder.getAbsolutePath() + File.separator + PROJECT_PROPERTIES_FILE_NAME );
 	}
 
 
@@ -233,28 +234,43 @@ public class EarthProjectsService {
 	
 	public boolean loadCompressedProjectFile( File projectZipFile ) throws IllegalArgumentException, IOException, ZipException{
 				
-		File unzippedFolder = unzipContents(projectZipFile);
+		File unzippedFolder = unzipContentsOnProjectFolder(projectZipFile);
 		return( loadProjectInFolder(unzippedFolder) );
 	}
 
 
-	private File unzipContents(File projectZipFile) throws ZipException, IOException {
-		String projectName = getProjectName( projectZipFile );
-		return unzipContents(projectZipFile, projectName);
+	private File unzipContentsOnProjectFolder(File projectZipFile) throws ZipException, IOException {
+		String projectFolderName = "" ;
+		// There was an error in the first versions of Collect Earth that limited the folder names to 20 characters
+		// Newer version support u to 255 but we need to take in consideration backwards compatibility!
+		if ( oldFormatFolderExists( projectZipFile ) ){
+			// If there was already a project with the older format of the name then use that!
+			projectFolderName = getProjectFolderName( projectZipFile , OLD_MAX_FOLDER_LENGTH );
+		}else{
+			projectFolderName = getProjectFolderName( projectZipFile , NEW_MAX_FOLDER_LENGTH );
+		}		
+		
+		return unzipContents(projectZipFile, projectFolderName);
 	}
 	
 
-	private String getProjectName(File projectZipFile) throws ZipException, IOException {
+	private boolean oldFormatFolderExists(File projectZipFile) throws ZipException, IOException {
+		String oldProjectFolderName = getProjectFolderName( projectZipFile , OLD_MAX_FOLDER_LENGTH );
+		File oldProjectFolder = new File( getProjectsFolder() + File.separator  + oldProjectFolderName );
+		return oldProjectFolder.exists();
+	}
+
+	private String getProjectFolderName(File projectZipFile, int max_lenght_folder_name) throws ZipException, IOException {
 		ZipFile zipFile = new ZipFile(projectZipFile);
 		File definitionFolder = new File(EarthConstants.GENERATED_FOLDER);
 		//FileHeader fileHeader = zipFile.getFileHeader(PROJECT_FILE_NAME);
-		zipFile.extractFile( PROJECT_FILE_NAME, definitionFolder.getAbsolutePath() );		
-		String projectName =  getProjectSurveyName(new File( definitionFolder + File.separator + PROJECT_FILE_NAME) );
+		zipFile.extractFile( PROJECT_PROPERTIES_FILE_NAME, definitionFolder.getAbsolutePath() );		
+		String projectName =  getProjectSurveyName(new File( definitionFolder + File.separator + PROJECT_PROPERTIES_FILE_NAME) );
 		
 		projectName = StringUtils.remove(projectName, " "); //$NON-NLS-1$
 		
-		if( projectName.length() > MAX_FOLDER_LENGTH ){
-			projectName = projectName.substring(0, MAX_FOLDER_LENGTH);
+		if( projectName.length() > max_lenght_folder_name ){
+			projectName = projectName.substring(0, max_lenght_folder_name);
 		}
 		
 		return projectName;

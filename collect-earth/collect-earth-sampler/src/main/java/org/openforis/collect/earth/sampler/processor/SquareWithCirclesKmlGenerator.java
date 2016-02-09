@@ -10,19 +10,18 @@ import org.opengis.referencing.operation.TransformException;
 public class SquareWithCirclesKmlGenerator extends SquareKmlGenerator {
 	private static final int NUMBER_OF_EXTERNAL_POINTS = 4;
 
-	public SquareWithCirclesKmlGenerator(String epsgCode, String hostAddress, String localPort, Integer innerPointSide) {
-		super(epsgCode, hostAddress, localPort, innerPointSide, 25);
+	public SquareWithCirclesKmlGenerator(String epsgCode, String hostAddress, String localPort, Integer innerPointSide, int numberOfPoints,  double distanceBetweenSamplePoints, double distancePlotBoundary) {
+		super(epsgCode, hostAddress, localPort, innerPointSide, numberOfPoints, distanceBetweenSamplePoints, distancePlotBoundary);
 	}
 
 	@Override
-	public void fillSamplePoints(double distanceBetweenSamplePoints, double[] centerCoordinate, String currentPlaceMarkId,
-			SimplePlacemarkObject parentPlacemark) throws TransformException {
+	public void fillSamplePoints(SimplePlacemarkObject placemark) throws TransformException {
 
 		// Move to the top-left point
 		final double originalCoordGeneralOffsetX = (-1d * getNumOfRows() * distanceBetweenSamplePoints / 2d);
 		final double originalCoordGeneralOffsetY = (getNumOfRows() * distanceBetweenSamplePoints / 2d);
 
-		final double[] topLeftCoord = getPointWithOffset(centerCoordinate, originalCoordGeneralOffsetX, originalCoordGeneralOffsetY);
+		final double[] topLeftCoord = getPointWithOffset(placemark.getCoord().getCoordinates(), originalCoordGeneralOffsetX, originalCoordGeneralOffsetY);
 
 		final List<SimplePlacemarkObject> pointsInPlacemark = new ArrayList<SimplePlacemarkObject>();
 
@@ -52,10 +51,10 @@ public class SquareWithCirclesKmlGenerator extends SquareKmlGenerator {
 				// CLOSE
 				final double cosLength = Math.round(getPointSide() * Math.cos(0));
 				final double sinLength = Math.round(getPointSide() * Math.sin(0));
-				final double[] circunferencePosition = getPointWithOffset(centerCoordinate, cosLength, sinLength);
+				final double[] circunferencePosition = getPointWithOffset(placemark.getCoord().getCoordinates(), cosLength, sinLength);
 				coords.add(new SimpleCoordinate(circunferencePosition));
 
-				final SimplePlacemarkObject insidePlacemark = new SimplePlacemarkObject(centerCircle, currentPlaceMarkId);
+				final SimplePlacemarkObject insidePlacemark = new SimplePlacemarkObject(centerCircle, placemark.getPlacemarkId());
 
 				insidePlacemark.setShape(coords);
 
@@ -65,7 +64,7 @@ public class SquareWithCirclesKmlGenerator extends SquareKmlGenerator {
 
 		}
 
-		parentPlacemark.setPoints(pointsInPlacemark);
+		placemark.setPoints(pointsInPlacemark);
 	}
 
 }

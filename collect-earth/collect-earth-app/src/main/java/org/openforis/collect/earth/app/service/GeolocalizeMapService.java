@@ -10,10 +10,10 @@ import java.util.Date;
 import java.util.HashMap;
 import java.util.Map;
 
-import org.openforis.collect.earth.app.service.LocalPropertiesService.EarthProperty;
 import org.openforis.collect.earth.sampler.model.SimplePlacemarkObject;
 import org.openforis.collect.earth.sampler.processor.KmlGenerator;
 import org.openforis.collect.earth.sampler.utils.FreemarkerTemplateUtils;
+import org.openforis.collect.earth.sampler.utils.KmlGenerationException;
 import org.opengis.referencing.operation.TransformException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -83,22 +83,22 @@ public class GeolocalizeMapService {
 		final Map<String, Object> data = new HashMap<String, Object>();
 		final SimplePlacemarkObject placemark = new SimplePlacemarkObject(centerLatLong);
 
-		final Float distanceBetweenSamplingPoints = Float.parseFloat( localPropertiesService.getValue(EarthProperty.DISTANCE_BETWEEN_SAMPLE_POINTS));
-		final Float distancePlotBoundary = Float.parseFloat(localPropertiesService.getValue(EarthProperty.DISTANCE_TO_PLOT_BOUNDARIES));
-
 		KmlGenerator kmlGenerator = kmlGeneratorService.getKmlGenerator();
 		
-		final double[] centerLatLongD = new double[] { Double.parseDouble(centerLatLong[0]), Double.parseDouble(centerLatLong[1])};
-		
+		if ( kmlGenerator == null ){
+			throw new IllegalArgumentException("Error while generating KML");
+		}
+				
 		try {
-			kmlGenerator.fillSamplePoints(distanceBetweenSamplingPoints, centerLatLongD, "", placemark);
-			kmlGenerator.fillExternalLine(distanceBetweenSamplingPoints.floatValue(), distancePlotBoundary.floatValue(), centerLatLongD,
-					placemark);
+			kmlGenerator.fillSamplePoints(placemark);
+			kmlGenerator.fillExternalLine(placemark);
 
 			data.put("placemark", placemark);
 			
 		} catch (final TransformException e) {
-			logger.error("Exception producing Bing map data for html ", e);
+			logger.error("Exception producing shape data for html ", e);
+		} catch (KmlGenerationException e) {
+			logger.error("Exception producing shape data for html ", e);
 		}
 		return data;
 	}

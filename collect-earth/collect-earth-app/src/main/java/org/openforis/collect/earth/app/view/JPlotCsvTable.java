@@ -3,18 +3,13 @@ package org.openforis.collect.earth.app.view;
 import java.awt.Color;
 import java.io.File;
 import java.io.IOException;
-import java.util.Arrays;
-import java.util.Vector;
+import java.util.List;
 
-import javax.swing.JOptionPane;
 import javax.swing.JTable;
 import javax.swing.table.DefaultTableModel;
 
 import org.apache.commons.lang.ArrayUtils;
 import org.openforis.collect.earth.core.utils.CsvReaderUtils;
-import org.openforis.collect.earth.sampler.processor.KmlGenerator;
-import org.openforis.collect.earth.sampler.processor.PlotProperties;
-import org.openforis.collect.model.CollectSurvey;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -29,15 +24,14 @@ import au.com.bytecode.opencsv.CSVReader;
 public class JPlotCsvTable extends JTable{
 	private static final long serialVersionUID = 3456854921119125693L;
 	private final Logger logger = LoggerFactory.getLogger(this.getClass());
-	private CollectSurvey collectSurvey;
 
 	/**
 	 * Build a new JTable that contains the data from the CSV that is set as the file that contains the plots used by Collect Earth
 	 * @param pathToCsvWithPlots Path to the file containing the plot locations that should be loaded in the table 
 	 */
-	public JPlotCsvTable(String pathToCsvWithPlots, CollectSurvey collectSurvey) {
+	public JPlotCsvTable(String pathToCsvWithPlots) {
 		super();
-		this.collectSurvey = collectSurvey;
+		
 		try {
 			this.setModel( 
 					getPlotTableModel( pathToCsvWithPlots )
@@ -88,7 +82,7 @@ public class JPlotCsvTable extends JTable{
 		if( headerRow == null ){
 			return new String[]{"No headers"};
 		}
-		if( headerRow[0].equalsIgnoreCase("id") || headerRow[0].equalsIgnoreCase("plot_id")|| headerRow[0].equalsIgnoreCase("plot")){
+		if( headerRow[0].equalsIgnoreCase("id") || headerRow[0].equalsIgnoreCase("plot_id") || headerRow[0].equalsIgnoreCase("plot") || headerRow[0].equalsIgnoreCase("name") ){
 			return headerRow;
 		}else{
 			String[] columns = new String[6];
@@ -116,72 +110,18 @@ public class JPlotCsvTable extends JTable{
 
 	private DefaultTableModel getPlotTableModel(String csvFilePath) {
 		
-		String[] headerRow =null;
-		final Vector<Vector<Object>> plots = new Vector<Vector<Object>>();
-		
-		headerRow = readCsvContents(csvFilePath, headerRow, plots);
-		
-		return new DefaultTableModel( plots , new Vector<String>(Arrays.asList(getColumnNames(headerRow))));
-	}
-
-
-	public String[] readCsvContents(String csvFilePath, String[] headerRow, final Vector<Vector<Object>> plots) {
-		CSVReader reader = null;
-		String[] csvRow;
-		
-		File csvFile = new File(csvFilePath);
-		if( csvFile.exists() ){
-			try {
-				
-				reader = CsvReaderUtils.getCsvReader(csvFilePath);
-				try {
-					while ((csvRow = reader.readNext()) != null && plots.size() < 50) {
-
-						if( headerRow == null ){
-							headerRow = csvRow;
-						}
-
-						try {
-							final PlotProperties plotProperties = KmlGenerator.getPlotProperties(csvRow, headerRow, collectSurvey);
-							final Vector<Object> props = new Vector<Object>();
-							props.add(plotProperties.id);
-							props.add(plotProperties.yCoord);
-							props.add(plotProperties.xCoord);
-							props.add(plotProperties.elevation);
-							props.add(plotProperties.slope);
-							props.add(plotProperties.aspect);
-							if ( plotProperties.extraInfo!= null )
-							{
-								for (String extra : plotProperties.extraInfo) {
-									props.add(extra);
-								}
-								props.add(plotProperties.aspect);
-							}
-							plots.add(props);
-						} catch (Exception e) {
-							logger.error("Probably the first line containing the headers " + Arrays.toString(csvRow), e);
-						}
-
-					}
-				} catch (final Exception e) {
-					JOptionPane.showMessageDialog(this, Messages.getString("OptionWizard.38") //$NON-NLS-1$
-							+ Messages.getString("OptionWizard.39") + "\n" + e.getMessage(), "Error reading file contents", //$NON-NLS-1$ //$NON-NLS-2$
-							JOptionPane.ERROR_MESSAGE);
-					logger.error("Error reading the CSV with the plot locations", e);
-				}
-			} catch (final IOException e) {
-				logger.error("Error when extracting data from CSV file " + csvFilePath, e); //$NON-NLS-1$
-			} finally {
-				if (reader != null) {
-					try {
-						reader.close();
-					} catch (final IOException e) {
-						logger.error(Messages.getString("OptionWizard.42"), e); //$NON-NLS-1$
-					}
-				}
-			}
+		String[][] allValues = new String[0][0];
+		String[] headerRow = new String[0];
+		try {
+			CSVReader reader = CsvReaderUtils.getCsvReader(csvFilePath);
+			List<String[]> allLines = reader.readAll();
+			allValues = allLines.toArray(new String[][] {});
+			headerRow = getColumnNames( allValues[0] );
+		} catch (IOException e) {
+			logger.error(" Error reading the CSV file " + csvFilePath);
 		}
-		return headerRow;
+		
+		return new DefaultTableModel( allValues , headerRow);
 	}
 
 }
