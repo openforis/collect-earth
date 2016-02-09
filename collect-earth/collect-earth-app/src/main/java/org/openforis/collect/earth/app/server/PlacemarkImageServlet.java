@@ -13,6 +13,7 @@ import javax.servlet.ServletContext;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 
+import org.apache.commons.lang3.ArrayUtils;
 import org.openforis.collect.earth.app.EarthConstants;
 import org.openforis.collect.earth.app.service.EarthSurveyService;
 import org.openforis.collect.earth.app.service.PreloadedFilesService;
@@ -98,7 +99,7 @@ public class PlacemarkImageServlet extends JsonPocessorServlet {
 			}
 			
 		} catch (Exception e) {
-			logger.error("Error loading image for placemark with ID " + keys.toString() , e); //$NON-NLS-1$
+			logger.error("Error loading image for placemark with ID " + ArrayUtils.toString( keys ) , e); //$NON-NLS-1$
 			System.out.println( e );
 			
 		}finally{

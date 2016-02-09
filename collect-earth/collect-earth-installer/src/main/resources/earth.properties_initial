@@ -33,8 +33,6 @@ saiku_server_folder=saiku-server_2.6/
 sample_shape=SQUARE
 ui_language=INSTALLATION_LANGUAGE
 use_browser=firefox
-here_app_id=HERE_APP_ID
-here_app_code=HERE_APP_CODE
 bing_maps_key=BING_MAPS_KEY
 google_maps_api_key=GOOGLE_MAPS_API_KEY
 

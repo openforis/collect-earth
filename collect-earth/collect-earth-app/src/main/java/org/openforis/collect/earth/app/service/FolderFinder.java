@@ -33,6 +33,7 @@ public class FolderFinder {
 			localFolder.mkdirs();
 		} catch (Exception e) {
 			e.printStackTrace(); // ATTENTION do not use a logger here!
+			
 		}
 		return localFolder.getAbsolutePath();
 	}

@@ -13,66 +13,85 @@ import java.util.Vector;
 import org.apache.commons.io.FileUtils;
 import org.apache.commons.lang.StringEscapeUtils;
 import org.apache.commons.lang.StringUtils;
+import org.openforis.collect.earth.sampler.model.SimpleCoordinate;
 import org.openforis.collect.earth.sampler.model.SimplePlacemarkObject;
 import org.openforis.collect.earth.sampler.utils.FreemarkerTemplateUtils;
 import org.openforis.collect.earth.sampler.utils.KmlGenerationException;
 import org.openforis.collect.model.CollectSurvey;
 import org.openforis.idm.metamodel.AttributeDefinition;
 import org.opengis.referencing.operation.TransformException;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 public abstract class KmlGenerator extends AbstractCoordinateCalculation {
 
-	private static Logger logger = LoggerFactory.getLogger( KmlGenerator.class);
+	private static final String KML_POLYGON = "<polygon>";
 
 
-	public static PlotProperties getPlotProperties(String[] csvValuesInLine, String[] possibleColumnNames, CollectSurvey collectSurvey )   {
+	/*
+	 * Find the column containing a kml Polygon information
+	 * @param csvValues 
+	 * @return Returns the value in the array of the String containing the KML <Polygon> element, null if there is none
+	 */
+	public static String getKmlPolygonColumn( String[] csvValues ){
+		for (String value : csvValues) {
+			if ( isKmlPolygon(value) ){
+				return value;
+			}
+		}
+		return null;
+	}
+
+
+	public static boolean isKmlPolygon(String value) {
+		return value.toLowerCase().contains(KML_POLYGON);
+	}
+	
+	
+	public static SimplePlacemarkObject getPlotObject(String[] csvValuesInLine, String[] possibleColumnNames, CollectSurvey collectSurvey ) throws KmlGenerationException   {
 		
 		List<AttributeDefinition> keyAttributeDefinitions = collectSurvey.getSchema().getRootEntityDefinitions().get(0).getKeyAttributeDefinitions();
 		int number_of_key_attributes = keyAttributeDefinitions.size();
 		
-		final PlotProperties plotProperties = new PlotProperties();
+		final SimplePlacemarkObject plotProperties = new SimplePlacemarkObject();
 		
 		String keys = "";
 		for(int i=0; i<number_of_key_attributes; i++){
 			keys += csvValuesInLine[i] + ",";
 		}
 		keys = keys.substring(0, keys.lastIndexOf(','));
-		plotProperties.id = keys;
-
-		plotProperties.xCoord = Double.parseDouble(csvValuesInLine[number_of_key_attributes+1].replace(',', '.') );
-		plotProperties.yCoord = Double.parseDouble(csvValuesInLine[number_of_key_attributes].replace(',', '.') );
-		plotProperties.elevation = 0;
-		plotProperties.slope = 0d;
-		plotProperties.aspect = 0d;
+		plotProperties.setPlacemarkId( keys );
+		
+		String kmlPolygon = getKmlPolygonColumn(csvValuesInLine);
+		if( kmlPolygon != null ){
+			plotProperties.setKmlPolygon( kmlPolygon );
+		}
+		
+		int leading_columns = 0;
+		
+		String longitude = csvValuesInLine[number_of_key_attributes+1].replace(',', '.') ;
+		String latitude = csvValuesInLine[number_of_key_attributes].replace(',', '.');
+		if( isNumber(longitude) && isNumber(latitude) ){
+			plotProperties.setCoord( new SimpleCoordinate(latitude, longitude));
+			leading_columns = 2;
+		}else{
+			throw new KmlGenerationException(" The latitude and longitude columns contain values other than numbers" );
+		}
 		
 		Vector<String> extraInfoVector = new Vector<String>();
 		Vector<String> extraColumns = new Vector<String>();
-		if (csvValuesInLine.length > 2 + number_of_key_attributes) {
-			
-			try{
-				plotProperties.elevation = (int) Double.parseDouble(csvValuesInLine[number_of_key_attributes+2].replace(',', '.'));
-				plotProperties.slope = Double.parseDouble(csvValuesInLine[number_of_key_attributes+3].replace(',', '.'));
-				plotProperties.aspect = Double.parseDouble(csvValuesInLine[number_of_key_attributes+4].replace(',', '.'));
-			}catch(Exception e ){
-				logger.error("Elevation Slope and Aspect could not be read correctly", e);
-			}
-			
-			if( csvValuesInLine.length > 5 + number_of_key_attributes ){
-			
-				for ( int extraIndex = 5+number_of_key_attributes; extraIndex<csvValuesInLine.length; extraIndex++) {
-					extraInfoVector.add( StringEscapeUtils.escapeXml( csvValuesInLine[extraIndex]) );
-				}
-			}
-			
+		int columnsWithIfAndLocationInfo = leading_columns + number_of_key_attributes;
+		if (csvValuesInLine.length > columnsWithIfAndLocationInfo) {
 			// Add all extra columns 
-			for ( int extraIndex = 2+number_of_key_attributes; extraIndex < csvValuesInLine.length; extraIndex++) {
-				extraColumns.add( StringEscapeUtils.escapeXml( csvValuesInLine[extraIndex]) );
+			for ( int extraIndex = leading_columns +number_of_key_attributes; extraIndex < csvValuesInLine.length; extraIndex++) {
+				
+				// DO NOT INCLUDE THE POLYGONS IN THE EXTRA DATA AS THEY WILL MAKE THE KML REALLY LARGE!
+				if( isKmlPolygon(csvValuesInLine[extraIndex])){
+					extraColumns.add( "Polygon used in the placemark not included." );
+				}else{
+					extraColumns.add( StringEscapeUtils.escapeXml( csvValuesInLine[extraIndex]) );
+				}
+				
 			}
-			
 		}
-		
 		
 		String[] extraInfoArray = new String[extraInfoVector.size()];
 		String[] extraColumnArray = new String[extraColumns.size()];
@@ -81,9 +100,9 @@ public abstract class KmlGenerator extends AbstractCoordinateCalculation {
 			idColumnArray[i] = csvValuesInLine[i];
 		}
 		
-		plotProperties.extraInfo = extraInfoVector.toArray(extraInfoArray);
-		plotProperties.extraColumns = extraColumns.toArray(extraColumnArray);
-		plotProperties.idColumns = idColumnArray;
+		plotProperties.setExtraInfo( extraInfoVector.toArray(extraInfoArray) );
+		plotProperties.setExtraColumns( extraColumns.toArray(extraColumnArray) );
+		plotProperties.setIdColumns( idColumnArray );
 		
 		// Adds a map ( coulmnName,cellValue) so that the values can also be added to the KML by column name (for the newer versions)
 		HashMap<String, String> valuesByColumn = new HashMap<String, String>();
@@ -92,7 +111,7 @@ public abstract class KmlGenerator extends AbstractCoordinateCalculation {
 				valuesByColumn.put( possibleColumnNames[i], csvValuesInLine[i]);
 			}
 		}
-		plotProperties.valuesByColumn = valuesByColumn;
+		plotProperties.setValuesByColumn( valuesByColumn );
 		
 		return plotProperties;
 	}
@@ -116,7 +135,7 @@ public abstract class KmlGenerator extends AbstractCoordinateCalculation {
 
 	
 
-	public void generateFromCsv(String csvFile, String balloonFile, String freemarkerKmlTemplateFile, String destinationKmlFile,
+	public void generateKmlFile(String destinationKmlFile, String csvFile, String balloonFile, String freemarkerKmlTemplateFile, 
 			String distanceBetweenSamplePoints, String distancePlotBoundary, CollectSurvey collectSurvey) throws KmlGenerationException {
 
 		final File destinationFile = new File(destinationKmlFile);
@@ -124,16 +143,12 @@ public abstract class KmlGenerator extends AbstractCoordinateCalculation {
 		getKmlCode(csvFile, balloonFile, freemarkerKmlTemplateFile, destinationFile, distanceBetweenSamplePoints, distancePlotBoundary,collectSurvey);
 	}
 
-	public abstract void fillExternalLine(double distanceBetweenSamplePoints, double distancePlotBoundary, double[] coordOriginalPoints,
-			SimplePlacemarkObject parentPlacemark) throws TransformException;
+	public abstract void fillExternalLine( SimplePlacemarkObject placemark) throws TransformException, KmlGenerationException;
 
-	public abstract void fillSamplePoints(double distanceBetweenSamplePoints, double[] coordOriginalPoints, String currentPlaceMarkId,
-			SimplePlacemarkObject parentPlacemark) throws TransformException;
+	public abstract void fillSamplePoints( SimplePlacemarkObject placemark) throws TransformException;
 	
 	private void getKmlCode(String csvFile, String balloonFile, String freemarkerKmlTemplateFile, File destinationFile,
 			String distanceBetweenSamplePoints, String distancePlotBoundary, CollectSurvey collectSurvey) throws KmlGenerationException {
-		
-		
 		
 		if( StringUtils.isBlank(csvFile) ){
 			throw new IllegalArgumentException("THe CSV file location cannot be null");
@@ -147,11 +162,8 @@ public abstract class KmlGenerator extends AbstractCoordinateCalculation {
 			throw new IllegalArgumentException("The KML freemarker Template file location cannot be null");
 		}
 
-		final Float fDistancePoints = Float.parseFloat(distanceBetweenSamplePoints);
-		final Float fDistancePlotBoundary = Float.parseFloat(distancePlotBoundary);
-		
 		// Build the data-model
-		final Map<String, Object> data = getTemplateData(csvFile, fDistancePoints, fDistancePlotBoundary, collectSurvey);
+		final Map<String, Object> data = getTemplateData(csvFile, collectSurvey);
 		data.put("expiration", httpHeaderDf.format(new Date()));
 
 		// Get the HTML content of the balloon from a file, this way we can
@@ -164,7 +176,9 @@ public abstract class KmlGenerator extends AbstractCoordinateCalculation {
 		}
 		try {
 			data.put("html_for_balloon", balloonContents);
-			data.put("randomNumber", FreemarkerTemplateUtils.randInt(10000, 5000000));
+			// This random number is used as a parameter when the JS and CSS files are referenced so that 
+			// it forces Google Earth to reload them when the KMZ file changes
+			data.put("randomNumber", FreemarkerTemplateUtils.randInt(10000, 5000000)); 
 
 			// Process the template file using the data in the "data" Map
 			final File templateFile = new File(freemarkerKmlTemplateFile);
@@ -175,9 +189,35 @@ public abstract class KmlGenerator extends AbstractCoordinateCalculation {
 		}
 	}
 
-	protected abstract Map<String, Object> getTemplateData(String csvFile, double distanceBetweenSamplePoints, double distancePlotBoundary, CollectSurvey collectSurvey)
+	protected abstract Map<String, Object> getTemplateData(String csvFile, CollectSurvey collectSurvey)
 			throws  KmlGenerationException;
 
+	
+	/**
+	 * Checks if the given String represents a number
+	 * @param string The String to check
+	 * @return
+	 */
+	public static boolean isNumber(String string) {
+	    if (string == null || string.isEmpty()) {
+	        return false;
+	    }
+	    int i = 0;
+	    if (string.charAt(0) == '-') {
+	        if (string.length() > 1) {
+	            i++;
+	        } else {
+	            return false;
+	        }
+	    }
+	    for (; i < string.length(); i++) {
+	        char charAt = string.charAt(i);
+			if ( charAt!='.' && charAt!=',' &&!Character.isDigit(charAt)) {
+	            return false;
+	        }
+	    }
+	    return true;
+	}
 	
 	
 }

@@ -74,7 +74,6 @@ public class LocalPropertiesService {
 	private static final String PROPERTIES_FILE_PATH_INITIAL = "earth.properties_initial";
 	private static final String PROPERTIES_FILE_PATH_FORCED_UPDATE= "earth.properties_forced_update";
 	private static final String PROPERTIES_FILE_PATH = FolderFinder.getLocalFolder() + File.separator + "earth.properties";
-	private static final String String = null;
 
 	public LocalPropertiesService() {
 		try {

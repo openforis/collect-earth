@@ -46,17 +46,46 @@ public class InfiniteProgressMonitor implements ProgressListener {
 	
 	public void updateProgress( int current, int total){
 		
-		infiniteProgress.setString( current + "/" + total);
-		if( infiniteProgress.isIndeterminate() ){
-			infiniteProgress.setIndeterminate(false);
-			infiniteProgress.setStringPainted(true);
-		}
-		if( infiniteProgress.getMaximum() != total) {
-			infiniteProgress.setMaximum( total );
-		}
-		infiniteProgress.setValue( current );
+		SwingUtilities.invokeLater(new Runnable() {
+			
+			@Override
+			public void run() {
+				
+				
+				infiniteProgress.setString( current + "/" + total);
+				if( infiniteProgress.isIndeterminate() ){
+					infiniteProgress.setIndeterminate(false);
+					infiniteProgress.setStringPainted(true);
+				}
+				
+				infiniteProgress.setMaximum( total );
+				
+				infiniteProgress.setValue( current );
+			}
+		});
+
+	}
+	
+	public void updateProgress( int currentPercentage ){
 		
-		
+		SwingUtilities.invokeLater(new Runnable() {
+			
+			@Override
+			public void run() {
+				
+				
+				infiniteProgress.setString( currentPercentage + "%");
+				if( infiniteProgress.isIndeterminate() ){
+					infiniteProgress.setIndeterminate(false);
+					infiniteProgress.setStringPainted(true);
+				}
+				
+				infiniteProgress.setMaximum( 100 );
+				
+				infiniteProgress.setValue( currentPercentage );
+			}
+		});
+
 	}
 	
 	public void setMessage(String msg){
@@ -114,7 +143,7 @@ public class InfiniteProgressMonitor implements ProgressListener {
 
 	@Override
 	public void progressMade(Progress progress) {
-		updateProgress( (int)progress.getProcessedItems(), (int)progress.getTotalItems() );
+		updateProgress( (int)progress.getProcessedItems()  );
 	}
 
 }

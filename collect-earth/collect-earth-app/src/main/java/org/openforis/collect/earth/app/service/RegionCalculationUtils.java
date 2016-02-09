@@ -6,8 +6,6 @@ import java.io.IOException;
 import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Collections;
-import java.util.List;
 
 import javax.annotation.PostConstruct;
 
@@ -86,32 +84,11 @@ public class RegionCalculationUtils {
 
 	private void recalculatePlotWeights() {
 		String schemaName = schemaService.getSchemaPrefix();
-		List<Double> distinctExpFactors = jdbcTemplate.queryForList("SELECT DISTINCT(" + EXPANSION_FACTOR + ") FROM " + schemaName  + "plot", Double.class);
-
-		ArrayList<Double> actualExpFactors = new ArrayList<Double>();
-		for (Object expFactor : distinctExpFactors) {
-			if( expFactor!= null ){
-				actualExpFactors.add( (Double) expFactor );
-			}
-		}
-		
-		// Sort in ascending order
-		Collections.sort(actualExpFactors);
-
-		double minimunEF = actualExpFactors.get(0);
-
-		for (double expansionFactor : actualExpFactors) {
-			// The plots with the minimum expansion factor will have a weight of 1
-			double plotWeight = expansionFactor/minimunEF;
-			final Object[] updateValues = new Object[2];
-
-			updateValues[0] = plotWeight;
-			updateValues[1] = expansionFactor;
-
-			jdbcTemplate.update("UPDATE " + schemaName + "plot SET "+PLOT_WEIGHT+"=? WHERE " + EXPANSION_FACTOR +" =?", updateValues); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$ //$NON-NLS-4$
-		}
-
-
+		String selectMinExpansionFactorSql = String.format("SELECT MIN(%s) FROM %splot", EXPANSION_FACTOR, schemaName); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$
+		Double minExpansionFactor = jdbcTemplate.queryForObject(selectMinExpansionFactorSql, Double.class);
+		//set plot_weight = expansion_factor / minExpansionFactor 
+		String updatePlotWeightSql = String.format("UPDATE %splot SET %s=%s/%f", schemaName, PLOT_WEIGHT, EXPANSION_FACTOR, minExpansionFactor); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$
+		jdbcTemplate.update(updatePlotWeightSql);
 	}
 
 	private void createWeightFactors(){
@@ -121,7 +98,7 @@ public class RegionCalculationUtils {
 	}
 
 	/**
-	 * This is the "old way"of assigning an expansion factor (the area in hecaters that a plot represents) to a plot based on the information form the "region_areas.csv" file.
+	 * This is the "old way"of assigning an expansion factor (the area in hectares that a plot represents) to a plot based on the information form the "region_areas.csv" file.
 	 * @return True if there was a region_areas.csv file, false if not present so that areas were not assigned.
 	 * @throws SQLException
 	 */
@@ -197,7 +174,7 @@ public class RegionCalculationUtils {
 		if( AnalysisSaikuService.surveyContains(SHRUB_COUNT, earthSurveyService.getCollectSurvey() ) ){
 			// First set the number of shrubs to 30 if the user assessed that there were more than 30 shrubs on the plot
 			// This way we get a conservative estimation
-			jdbcTemplate.update("UPDATE " + schemaName + "plot SET "+SHRUB_COUNT+"=30 WHERE many_shrubs=1"); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$ //$NON-NLS-4$
+			jdbcTemplate.update("UPDATE " + schemaName + "plot SET "+SHRUB_COUNT+"=30 WHERE many_shrubs='1'"); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$ //$NON-NLS-4$
 			jdbcTemplate.execute("ALTER TABLE " + schemaName + "plot ADD " + SHRUBS_PER_EXP_FACTOR + " FLOAT"); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$
 			jdbcTemplate.update("UPDATE " + schemaName + "plot SET "+SHRUBS_PER_EXP_FACTOR+"="+EXPANSION_FACTOR+"*2*"  + SHRUB_COUNT); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$ //$NON-NLS-4$
 		}
@@ -209,7 +186,7 @@ public class RegionCalculationUtils {
 		if( AnalysisSaikuService.surveyContains(TREE_COUNT, earthSurveyService.getCollectSurvey() ) ){
 			// First set the number of shrubs to 30 if the user assessed that there were more than 30 shrubs on the plot
 			// This way we get a conservative estimation
-			jdbcTemplate.update("UPDATE " + schemaName + "plot SET "+TREE_COUNT+"=30 WHERE many_trees=1"); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$ //$NON-NLS-4$
+			jdbcTemplate.update("UPDATE " + schemaName + "plot SET "+TREE_COUNT+"=30 WHERE many_trees='1'"); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$ //$NON-NLS-4$
 			jdbcTemplate.execute("ALTER TABLE " + schemaName + "plot ADD " + TREES_PER_EXP_FACTOR + " FLOAT"); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$
 			jdbcTemplate.update("UPDATE " + schemaName + "plot SET "+TREES_PER_EXP_FACTOR+"="+EXPANSION_FACTOR+"*2*"  + TREE_COUNT); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$ //$NON-NLS-4$
 		}

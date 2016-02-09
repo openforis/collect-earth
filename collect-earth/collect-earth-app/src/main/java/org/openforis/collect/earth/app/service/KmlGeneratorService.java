@@ -6,16 +6,19 @@ import java.util.HashMap;
 import java.util.Map;
 
 import org.apache.commons.io.FileUtils;
+import org.apache.commons.lang3.StringUtils;
 import org.openforis.collect.earth.app.CollectEarthUtils;
 import org.openforis.collect.earth.app.EarthConstants;
 import org.openforis.collect.earth.app.EarthConstants.SAMPLE_SHAPE;
 import org.openforis.collect.earth.app.desktop.ServerController;
 import org.openforis.collect.earth.app.service.LocalPropertiesService.EarthProperty;
 import org.openforis.collect.earth.app.view.Messages;
+import org.openforis.collect.earth.core.utils.CsvReaderUtils;
 import org.openforis.collect.earth.sampler.processor.CircleKmlGenerator;
+import org.openforis.collect.earth.sampler.processor.HexagonKmlGenerator;
 import org.openforis.collect.earth.sampler.processor.KmlGenerator;
 import org.openforis.collect.earth.sampler.processor.KmzGenerator;
-import org.openforis.collect.earth.sampler.processor.OctagonKmlGenerator;
+import org.openforis.collect.earth.sampler.processor.PolygonKmlGenerator;
 import org.openforis.collect.earth.sampler.processor.SquareKmlGenerator;
 import org.openforis.collect.earth.sampler.processor.SquareWithCirclesKmlGenerator;
 import org.openforis.collect.earth.sampler.utils.FreemarkerTemplateUtils;
@@ -25,6 +28,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
+import au.com.bytecode.opencsv.CSVReader;
 import freemarker.template.TemplateException;
 
 @Component
@@ -166,40 +170,71 @@ public class KmlGeneratorService {
 	}
 
 	public KmlGenerator getKmlGenerator() {
-		KmlGenerator generateKml;
+		KmlGenerator generateKml =null;
+		
 		final String crsSystem = getLocalProperties().getCrs();
 		final Integer innerPointSide = Integer.parseInt(getLocalProperties().getValue(EarthProperty.INNER_SUBPLOT_SIDE));
-		final SAMPLE_SHAPE plotShape = getLocalProperties().getSampleShape();
+		SAMPLE_SHAPE plotShape = getLocalProperties().getSampleShape();
 		final String hostAddress = ServerController.getHostAddress(getLocalProperties().getHost(), getLocalProperties().getPort());
+		final float distanceBetweenSamplePoints = Float.parseFloat(getLocalProperties().getValue(EarthProperty.DISTANCE_BETWEEN_SAMPLE_POINTS));
+		final float distanceToPlotBoundaries = Float.parseFloat(getLocalProperties().getValue(EarthProperty.DISTANCE_TO_PLOT_BOUNDARIES));
+		final String localPort = getLocalProperties().getLocalPort();
+		final String numberOfSamplingPlots = getLocalProperties().getValue(EarthProperty.NUMBER_OF_SAMPLING_POINTS_IN_PLOT);
+		final String csvFile = getLocalProperties().getCsvFile();
 		
-		if (plotShape.equals(SAMPLE_SHAPE.CIRCLE)) {
-			generateKml = new CircleKmlGenerator(crsSystem, hostAddress, getLocalProperties()
-					.getLocalPort(), innerPointSide, Float.parseFloat(getLocalProperties().getValue(EarthProperty.DISTANCE_BETWEEN_SAMPLE_POINTS)));
-		} else if (plotShape.equals(SAMPLE_SHAPE.OCTAGON)) {
-			generateKml = new OctagonKmlGenerator(crsSystem, hostAddress, getLocalProperties()
-					.getLocalPort(), innerPointSide, Float.parseFloat(getLocalProperties().getValue(EarthProperty.DISTANCE_BETWEEN_SAMPLE_POINTS)));
-		} else if (plotShape.equals(SAMPLE_SHAPE.SQUARE_CIRCLE)) {
-			generateKml = new SquareWithCirclesKmlGenerator(crsSystem, hostAddress,
-					getLocalProperties().getLocalPort(), innerPointSide);
-		} else {
-
-			final String numberOfSamplingPlots = getLocalProperties().getValue(EarthProperty.NUMBER_OF_SAMPLING_POINTS_IN_PLOT);
-			int numberOfSamplingPlotsI = 25;
-			if ((numberOfSamplingPlots != null) && (numberOfSamplingPlots.trim().length() > 0)) {
-				numberOfSamplingPlotsI = Integer.parseInt(numberOfSamplingPlots.trim());
+		int numberOfPoints = 25;
+		if ((numberOfSamplingPlots != null) && (numberOfSamplingPlots.trim().length() > 0)) {
+			numberOfPoints = Integer.parseInt(numberOfSamplingPlots.trim());
+		}
+		
+		try{ 
+			// If there is a polygon column then the type of plot shape is assumed to be POLYGON
+			if( csvContainsPolygons(csvFile)){
+				plotShape = SAMPLE_SHAPE.POLYGON;
 			}
-			generateKml = new SquareKmlGenerator(crsSystem, hostAddress, getLocalProperties()
-					.getLocalPort(), innerPointSide, numberOfSamplingPlotsI);
+						
+			if (plotShape.equals(SAMPLE_SHAPE.CIRCLE)) {
+				generateKml = new CircleKmlGenerator(crsSystem, hostAddress, localPort, innerPointSide,  numberOfPoints, distanceBetweenSamplePoints );
+			}  else if (plotShape.equals(SAMPLE_SHAPE.HEXAGON)) {
+				generateKml = new HexagonKmlGenerator(crsSystem, hostAddress, localPort, innerPointSide,  numberOfPoints, distanceBetweenSamplePoints );
+			}  else if (plotShape.equals(SAMPLE_SHAPE.SQUARE_CIRCLE)) {
+				generateKml = new SquareWithCirclesKmlGenerator(crsSystem, hostAddress, localPort, innerPointSide,  numberOfPoints, 
+						distanceBetweenSamplePoints, distanceToPlotBoundaries);
+			} else if (plotShape.equals(SAMPLE_SHAPE.POLYGON)) {
+				generateKml = new PolygonKmlGenerator(crsSystem, hostAddress, localPort);
+			} else {
+				generateKml = new SquareKmlGenerator(crsSystem, hostAddress, localPort, innerPointSide,  numberOfPoints, 
+						distanceBetweenSamplePoints, distanceToPlotBoundaries);
+			}
+		}catch(IOException e){
+			logger.error("Error generating KML " + e );
 		}
 		return generateKml;
+	}
+	
+	
+
+	private boolean csvContainsPolygons(String csvFile) throws IOException {
+		CSVReader csvReader = CsvReaderUtils.getCsvReader(csvFile);
+		csvReader.readNext(); // Ignore it might be the column headers
+		
+		String[] secondLine = csvReader.readNext();
+		if( secondLine != null && CsvReaderUtils.onlyEmptyCells(secondLine) ){
+			if( csvContainsPolygons(csvFile) && KmlGenerator.getKmlPolygonColumn(secondLine) != null ){
+				return true;
+			}
+		}
+		return false;
 	}
 
 	private void generateKml() throws KmlGenerationException, IOException {
 
-		logger.info("START - Generate KML file"); //$NON-NLS-1$
-		KmlGenerator generateKml = null;
-		generateKml = getKmlGenerator();
+		KmlGenerator kmlGenerator = null;
+		kmlGenerator = getKmlGenerator();
 
+		if ( kmlGenerator == null ){
+			throw new KmlGenerationException("Error while generating KML");
+		}
 
 		final String csvFile = getLocalProperties().getCsvFile();
 		String balloon = getLocalProperties().getBalloonFile();
@@ -213,14 +248,15 @@ public class KmlGeneratorService {
 		// opens a firefox browser with the real form
 		final Boolean openBalloonInFirefox = Boolean.valueOf(getLocalProperties().getValue(EarthProperty.OPEN_BALLOON_IN_BROWSER));
 		if (openBalloonInFirefox) {
-			balloon = getLocalProperties().getValue(EarthProperty.ALTERNATIVE_BALLOON_FOR_BROWSER);
+			String alternativeBalloon = getLocalProperties().getValue(EarthProperty.ALTERNATIVE_BALLOON_FOR_BROWSER);
+			if( !StringUtils.isBlank( alternativeBalloon ) ){
+				balloon = alternativeBalloon;
+			}
 		}
 
-		generateKml.generateFromCsv(csvFile, balloon, template, KML_RESULTING_TEMP_FILE, distanceBetweenSamplePoints, distancePlotBoundaries, earthSurveyService.getCollectSurvey());
+		// Using all of the files that compose the final KML it is generated and stores in KML_RESULTING_TEMP_FILE
+		kmlGenerator.generateKmlFile(KML_RESULTING_TEMP_FILE, csvFile, balloon, template, distanceBetweenSamplePoints, distancePlotBoundaries, earthSurveyService.getCollectSurvey());
 		updateFilesUsedChecksum();
-
-
-		logger.info("END - Generate KML file"); //$NON-NLS-1$
 
 	}
 

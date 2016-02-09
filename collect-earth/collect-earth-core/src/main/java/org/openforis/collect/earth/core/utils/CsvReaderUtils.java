@@ -17,26 +17,26 @@ public class CsvReaderUtils {
 
 	public static CSVReader getCsvReader(String csvFile) throws IOException {
 		
-		CSVReader commaSeparatedReader = getCsvReader(csvFile, ',');
-		
-		if( checkCsvReaderWorks( commaSeparatedReader ) ){
-			// Close and open again a reader so it starts from the first line!
-			commaSeparatedReader.close();
-			return getCsvReader(csvFile, ',');
-		}else{
-			commaSeparatedReader.close();
-			CSVReader semicolonSeparatedReader = getCsvReader(csvFile, ';');
-			if( checkCsvReaderWorks(semicolonSeparatedReader) ){
-				// Close and open again a reader so it starts from the first line!
-				semicolonSeparatedReader.close();
-				return getCsvReader(csvFile, ';');
+		char[] possibleSeparators = new char[]{',', ';','\t', '|'};
+		CSVReader csvReader = null;
+		for (char c : possibleSeparators) {
+			CSVReader commaSeparatedReader = getCsvReader(csvFile, c);
+			if( checkCsvReaderWorks( commaSeparatedReader ) ){
+				csvReader =getCsvReader(csvFile, c); // Get the reader again so that it starts from the first column
+				break;
 			}else{
-				semicolonSeparatedReader.close();
+				commaSeparatedReader.close();
 			}
 		}
 		
-		throw new IllegalArgumentException("The CSV/CED plot file does not seem to contain actual comma separated values! " + csvFile );
+		if( csvReader == null ){
+			throw new IllegalArgumentException("The CSV/CED plot file does not seem to contain actual comma separated values! " + csvFile );
+		}else{
+			return csvReader;
+		}
 	}
+	
+	
 			
 	public static boolean onlyEmptyCells(String[] csvRow) {
 		for (String csvColumn : csvRow) {

@@ -1,7 +1,6 @@
 package org.openforis.collect.earth.app.desktop;
 
 import java.awt.Desktop;
-import java.awt.Font;
 import java.awt.Image;
 import java.awt.SplashScreen;
 import java.io.BufferedReader;
@@ -77,7 +76,7 @@ public class EarthApp {
 			PropertyConfigurator.configure(EarthApp.class.getResource("/WEB-INF/conf/log4j.properties"));
 			
 			// Change of font so that Lao and Thao glyphs are supported
-			CollectEarthUtils.setUIFont( new javax.swing.plaf.FontUIResource("Arial Unicode MS",Font.PLAIN,12) );
+			CollectEarthUtils.setFontDependingOnLanguaue( getLocalProperties().getUiLanguage() );
 			
 			logger = LoggerFactory.getLogger(EarthApp.class);
 
@@ -168,7 +167,7 @@ public class EarthApp {
 			} catch (final KmlGenerationException e) {
 				logger.error("Problems while generating the KML file ", e); //$NON-NLS-1$
 				e.printStackTrace();
-				showMessage("<html>Problems while generating the KML file: <br/> " + (e.getCause()!=null?(e.getCause()+"<br/>"):"") + e.getMessage().substring(0,300) + "</html>"); //$NON-NLS-1$
+				showMessage("<html>Problems while generating the KML file: <br/> " + (e.getCause()!=null?(e.getCause()+"<br/>"):"") + ( e.getMessage().length() > 300?e.getMessage().substring(0,300):e.getMessage() ) + "</html>"); //$NON-NLS-1$
 			}
 	}
 
@@ -330,7 +329,7 @@ public class EarthApp {
 
 			earthApp = new EarthApp();
 			
-			// Load the docuble-clieck CEP file before the survey manager is instantiated by the server start-up
+			// Load the double-clicked CEP file before the survey manager is instantiated by the server start-up
 			earthApp.loadProjectIfDoubleClicked(doubleClickedProjectFile);
 			
 			serverController = new ServerController();
@@ -427,11 +426,11 @@ public class EarthApp {
 	 *            The path to the CEP file that was double-clicked
 	 * 
 	 */
-	private void loadProjectIfDoubleClicked(String doubleClickedProjecFile) {
+	private void loadProjectIfDoubleClicked(String doubleClickedProjectFile) {
 		try {
-			if (doubleClickedProjecFile != null) {
+			if (doubleClickedProjectFile != null) {
 
-				final File projectFile = new File(doubleClickedProjecFile);
+				final File projectFile = new File(doubleClickedProjectFile);
 
 				if (projectFile.exists()) {
 					getProjectsService().loadCompressedProjectFile(projectFile);
