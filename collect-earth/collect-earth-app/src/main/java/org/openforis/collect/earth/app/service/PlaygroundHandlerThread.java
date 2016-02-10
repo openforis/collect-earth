@@ -12,6 +12,7 @@ import java.util.NoSuchElementException;
 import liquibase.util.SystemUtils;
 
 import org.apache.commons.io.FileUtils;
+import org.apache.commons.lang.StringUtils;
 import org.apache.commons.lang3.ArrayUtils;
 import org.openqa.selenium.By;
 import org.openqa.selenium.Keys;
@@ -25,6 +26,7 @@ import org.springframework.stereotype.Component;
 @Component
 public class PlaygroundHandlerThread {
 	private static final String RUN_SCRIPT_BUTTON = "button.goog-button:nth-child(5)";
+	private static final int DUMMY_SPACES = 150;
 	private String[] latLong;
 	private RemoteWebDriver webDriverGee;
 		
@@ -52,6 +54,7 @@ public class PlaygroundHandlerThread {
 		
 		webDriverGee.findElementByCssSelector(RUN_SCRIPT_BUTTON).click();
 		
+		
 		WebElement textArea = webDriverGee.findElement(By.className("ace_text-input"));
 		
 		
@@ -62,24 +65,51 @@ public class PlaygroundHandlerThread {
 			String contents =  FileUtils.readFileToString( new File(fileWithScript.toURI())) ;
 			// Remove comments so it is faster to send the text!
 			String noComments = removeComments(contents); 		
+			
+			
 			// Clear the code area
 			webDriverGee.findElementByCssSelector("div.goog-inline-block.goog-flat-menu-button.custom-reset-button").click();
 			webDriverGee.findElementByXPath("//*[contains(text(), 'Clear script')]").click();
-			// Send the content of the script
-			textArea.sendKeys( noComments );
+			
+			StringBuffer fixedScriptForMac = new StringBuffer();
+			String[] lines = noComments.split("\\n");
+			for (String line : lines) {
+				// Send the content of the script
+				String trimmedLine = line.trim();
+				
+				// Add Spaces after "{" so we avoid the automatic closing of the method by GEE Playground JS
+				trimmedLine = trimmedLine.replace("{", "{ ");
+				
+				if( !StringUtils.isBlank(trimmedLine) ){
+					fixedScriptForMac = fixedScriptForMac.append(trimmedLine).append("\n");					
+				}
+			}
+			
+			fixedScriptForMac.append("//THE END"); // Don't remove this!!! this way we mark the point where tere should be no trailing character removal
+			for(int i=0; i<DUMMY_SPACES; i++){
+				fixedScriptForMac.append(" ");
+			}
+						
+			textArea.sendKeys(fixedScriptForMac);
 			// Fix the extra characters added by removing the last 10 chars ( this is a bug from Selenium! )
 			textArea.sendKeys(Keys.PAGE_DOWN);
-			for( int i=0; i<10; i++){
-				textArea.sendKeys(Keys.BACK_SPACE);
-			}
+			Thread.sleep(500);
+			textArea.sendKeys(Keys.PAGE_DOWN);
+			// Remove training special characters "}", "]", ")" 
+			removeTrailingAddedCharacters(textArea);		
+			
 			
 		}else{
 			Clipboard clipboard = Toolkit.getDefaultToolkit().getSystemClipboard();
 			String contents = FileUtils.readFileToString( new File(fileWithScript.toURI()));
 			StringSelection clipboardtext = new StringSelection( contents );
 			clipboard.setContents(clipboardtext, null);
-			textArea.sendKeys(Keys.chord(Keys.CONTROL,"a"));
-			textArea.sendKeys(Keys.chord(Keys.CONTROL,"v"));
+			Keys controlChar = Keys.CONTROL;
+			if( SystemUtils.IS_OS_MAC || SystemUtils.IS_OS_MAC_OSX ){
+				controlChar = Keys.COMMAND;
+			}
+			textArea.sendKeys(Keys.chord(controlChar,"a"));
+			textArea.sendKeys(Keys.chord(controlChar,"v"));
 		}
 		
 		
@@ -88,12 +118,25 @@ public class PlaygroundHandlerThread {
 		webDriverGee.findElementByCssSelector("button.goog-button.run-button").click();
 	}
 
+	// GEE Playground adds trailing characters automatically through Javascript, lets remove them!!!
+	private void removeTrailingAddedCharacters(WebElement textArea) {
+		for(int i =0; i<DUMMY_SPACES; i++)
+			textArea.sendKeys( Keys.BACK_SPACE ) ;
+	}
+
+
 	public String removeComments(String contents) {
+		
+		
+		contents = contents.replaceAll("http://", "");
+		contents = contents.replaceAll("https://", "");
+		contents  = contents.replaceAll("\r","");
+		
 		String noComments = "";
 		int indexComments = contents.indexOf("//");
 		if( indexComments != -1 ){
 			while( indexComments >= 0){
-				int endOfLine = contents.indexOf("\r\n", indexComments);		
+				int endOfLine = contents.indexOf("\n", indexComments);		
 				if( endOfLine != -1 )
 					indexComments = contents.indexOf("//", endOfLine+2 );
 				else{
@@ -201,4 +244,3 @@ public class PlaygroundHandlerThread {
 		waitingForLogin = false;		
 	}
 }
-
