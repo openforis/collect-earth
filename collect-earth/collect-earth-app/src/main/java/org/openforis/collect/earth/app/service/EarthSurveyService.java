@@ -7,6 +7,7 @@ import static org.openforis.collect.earth.app.EarthConstants.ACTIVELY_SAVED_ON_P
 import static org.openforis.collect.earth.app.EarthConstants.ACTIVELY_SAVED_PARAMETER;
 import static org.openforis.collect.earth.app.EarthConstants.COLLECT_REASON_BLANK_NOT_SPECIFIED_MESSAGE;
 import static org.openforis.collect.earth.app.EarthConstants.EARTH_SURVEY_NAME;
+import static org.openforis.collect.earth.app.EarthConstants.OPERATOR_ATTRIBUTE_NAME;
 import static org.openforis.collect.earth.app.EarthConstants.OPERATOR_PARAMETER;
 import static org.openforis.collect.earth.app.EarthConstants.PLACEMARK_FOUND_PARAMETER;
 import static org.openforis.collect.earth.app.EarthConstants.ROOT_ENTITY_NAME;
@@ -367,6 +368,11 @@ public class EarthSurveyService {
 		BooleanAttribute attr = record.findNodeByPath(ROOT_ENTITY_NAME + "/" + ACTIVELY_SAVED_ATTRIBUTE_NAME);
 		recordUpdater.updateAttribute(attr, new BooleanValue(value));
 	}
+	
+	private void setPlacemarkOperator(CollectRecord record) {
+		TextAttribute attr = record.findNodeByPath(ROOT_ENTITY_NAME + "/" + OPERATOR_ATTRIBUTE_NAME);
+		recordUpdater.updateAttribute(attr, new TextValue(localPropertiesService.getOperator()));
+	}
 
 	private void setPlacemarkSavedOn(Map<String, String> parameters) {
 
@@ -374,12 +380,10 @@ public class EarthSurveyService {
 
 		parameters.put(ACTIVELY_SAVED_ON_PARAMETER, dateSaved);
 		parameters.put(ACTIVELY_SAVED_ON_PARAMETER_OLD, dateSaved);
-
 	}
 
 	private void setPlacemarkSavedActively(Map<String, String> parameters, boolean value) {
 		parameters.put(ACTIVELY_SAVED_PARAMETER, Boolean.toString(value)); // $NON-NLS-1$
-
 	}
 
 	@Deprecated
@@ -446,22 +450,24 @@ public class EarthSurveyService {
 	public synchronized PlacemarkLoadResult updatePlacemarkData(String[] plotKeyAttributes,
 			Map<String, String> parameters, String sessionId, boolean partialUpdate) {
 		try {
-			// Add the operator to the collected data
-			parameters.put(OPERATOR_PARAMETER, localPropertiesService.getOperator());
-
-			// Populate the data of the record using the HTTP parameters
-			// received
 			CollectRecord record = loadRecord(plotKeyAttributes);
 			if (record == null) {
 				record = createRecord(null);
 				// update actively_saved_on attribute now, otherwise if it's empty
 				// it counts as an error
 				setPlacemarkSavedOn(record);
+				setPlacemarkSavedActively(record, false);
+				setPlacemarkOperator(record);
 				updateKeyAttributeValues(record, plotKeyAttributes);
 				record.setModifiedDate(new Date());
 				recordManager.save(record, sessionId);
 				return createPlacemarkLoadSuccessResult(record);
 			} else {
+				// Add the operator to the collected data
+				parameters.put(OPERATOR_PARAMETER, localPropertiesService.getOperator());
+				
+				// Populate the data of the record using the HTTP parameters
+				// received
 				Entity plotEntity = record.getRootEntity();
 				
 				Map<String, String> oldPlacemarkParameters = collectParametersHandler

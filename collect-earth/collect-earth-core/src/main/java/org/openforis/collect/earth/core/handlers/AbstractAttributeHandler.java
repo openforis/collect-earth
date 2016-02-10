@@ -31,6 +31,7 @@ public abstract class AbstractAttributeHandler<C> {
 		this.prefix = prefix;
 		this.recordUpdater = new RecordUpdater();
 		this.recordUpdater.setClearNotRelevantAttributes(true);
+		this.recordUpdater.setClearDependentCodeAttributes(true);
 	}
 
 	public NodeChangeSet deleteAttributes(String parameterName, Entity entity) {
@@ -57,7 +58,7 @@ public abstract class AbstractAttributeHandler<C> {
 			AttributeDefinition def = attr.getDefinition();
 			EntityDefinition parentDef = def.getParentEntityDefinition();
 			if (! (parentDef.isEnumerable() && def instanceof KeyAttributeDefinition && parentDef.getKeyAttributeDefinitions().contains(def))) {
-				changeSet = recordUpdater.updateAttribute(attr, (Value) value, true);
+				changeSet = recordUpdater.updateAttribute(attr, (Value) value);
 			}
 		}
 		return changeSet;
