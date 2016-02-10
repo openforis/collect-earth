@@ -81,16 +81,17 @@ public abstract class AbstractCoordinateCalculation {
 
 				boolean longitudeChanged = false;
 				if (offsetLongitudeMeters != 0) {
-					calc.setDirection(longitudeDirection, Math.abs(offsetLongitudeMeters));
+					calc.setDirection(longitudeDirection, Math.abs( offsetLongitudeMeters ) );
 					longitudeChanged = true;
 				}
 
 				if (offsetLatitudeMeters != 0) {
 					if (longitudeChanged) {
+						// Move the point in the horizontal axis first, afterwards reset the point and move vertically
 						final double[] firstMove = calc.getDestinationPosition().getCoordinate();
 						calc.setStartingGeographicPoint(firstMove[0], firstMove[1]);
 					}
-					calc.setDirection(latitudeDirection, Math.abs(offsetLatitudeMeters));
+					calc.setDirection(latitudeDirection, Math.abs( offsetLatitudeMeters ) );
 				}
 
 				movedPointXY = calc.getDestinationPosition().getCoordinate();
@@ -108,6 +109,14 @@ public abstract class AbstractCoordinateCalculation {
 		}
 
 	}
+	
+	/** Check the spatial reference system used in the specified coordinates of the plots
+	 * @return True if using latlong coordinates false otherwise
+	 */
+	protected boolean isUsingWGS84(){
+		return (sourceEpsgCode.trim().length() == 0 || sourceEpsgCode.equals(LATLONG) || sourceEpsgCode.equals(WGS84) || sourceEpsgCode.equals(EPSG4326));	
+	
+	}
 
 	protected Point transformToWGS84(double longitude, double latitude) throws TransformException, FactoryException {
 
@@ -115,12 +124,9 @@ public abstract class AbstractCoordinateCalculation {
 		final Coordinate c = new Coordinate(longitude, latitude);
 
 		Point p = gf.createPoint(c);
-		if (sourceEpsgCode.trim().length() > 0 && !sourceEpsgCode.equals(LATLONG) && !sourceEpsgCode.equals(WGS84)
-				&& !sourceEpsgCode.equals(EPSG4326)) {
-			final CoordinateReferenceSystem utmCrs = CRS.decode(sourceEpsgCode);
-			final MathTransform mathTransform = CRS.findMathTransform(utmCrs, DefaultGeographicCRS.WGS84, false);
-			p = (Point) JTS.transform(p, mathTransform);
-		}
-		return p;
+		final CoordinateReferenceSystem utmCrs = CRS.decode(sourceEpsgCode);
+		final MathTransform mathTransform = CRS.findMathTransform(utmCrs, DefaultGeographicCRS.WGS84, false);
+		return (Point) JTS.transform(p, mathTransform);
+		
 	}
 }

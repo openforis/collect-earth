@@ -375,7 +375,9 @@ public class EarthSurveyService {
 	}
 
 	private void setPlacemarkSavedOn(Map<String, String> parameters) {
+
 		String dateSaved = new SimpleDateFormat( DateAttributeHandler.DATE_ATTRIBUTE_FORMAT ).format(new Date());
+
 		parameters.put(ACTIVELY_SAVED_ON_PARAMETER, dateSaved);
 		parameters.put(ACTIVELY_SAVED_ON_PARAMETER_OLD, dateSaved);
 	}
@@ -536,7 +538,6 @@ public class EarthSurveyService {
 		result.setInputFieldInfoByParameterName(infoByParameterName);
 		return result;
 	}
-
 	private void updateKeyAttributeValues(CollectRecord record, String[] keyAttributeValues) {
 		List<AttributeDefinition> keyAttributeDefinitions = getCollectSurvey().getSchema().getRootEntityDefinitions()
 				.get(0).getKeyAttributeDefinitions();
@@ -545,6 +546,7 @@ public class EarthSurveyService {
 			AttributeDefinition keyAttrDef = keyAttributeDefinitions.get(i);
 			Attribute<?, Value> keyAttr = record.findNodeByPath(keyAttrDef.getPath());
 			recordUpdater.updateAttribute(keyAttr, (Value) keyAttr.getDefinition().createValue(keyValue));
+
 		}
 	}
 

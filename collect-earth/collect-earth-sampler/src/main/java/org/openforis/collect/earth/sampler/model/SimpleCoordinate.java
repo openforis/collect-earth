@@ -22,6 +22,12 @@ public class SimpleCoordinate {
 		this.longitude = coordLatLong[1] + "";
 		this.latitude = coordLatLong[0] + "";
 	}
+	
+	public SimpleCoordinate(Double latitude, Double longitude) {
+		super();
+		this.longitude = longitude + "";
+		this.latitude = latitude + "";
+	}
 
 	public SimpleCoordinate( String latitude, String longitude) {
 		super();
@@ -35,6 +41,10 @@ public class SimpleCoordinate {
 
 	public String getLongitude() {
 		return longitude;
+	}
+
+	public double[] getCoordinates() {
+		return new double[]{ Double.parseDouble(getLatitude()), Double.parseDouble( getLongitude() ) };
 	}
 
 	public void setLatitude(String latitude) {

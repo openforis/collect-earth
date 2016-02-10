@@ -9,26 +9,23 @@ import org.openforis.collect.earth.sampler.model.SimplePlacemarkObject;
 import org.openforis.collect.earth.sampler.model.SimpleRegion;
 import org.opengis.referencing.operation.TransformException;
 
-public class CircleKmlGenerator extends PolygonKmlGenerator {
+public class CircleKmlGenerator extends AbstractPolygonKmlGenerator {
 
-	private static final int NUMBER_OF_NON_CENTRAL_SAMPLING_POINTS = 24;
-
-	private float radiusOfCircle;
-
-	private static final int NUMBER_OF_EXTERNAL_POINTS = 70;
+	private double radiusOfCircle;
 
 	private static final int MARGIN_CIRCLE = 5;
-
-	public CircleKmlGenerator(String epsgCode, String hostAddress, String localPort, Integer innerPointSide, float radius) {
-		super(epsgCode, hostAddress, localPort, innerPointSide);
+	
+	public CircleKmlGenerator(String epsgCode, String hostAddress, String localPort,  Integer numberOfPoints, Integer innerPointSide, double radius ) {
+		super(epsgCode, hostAddress, localPort, numberOfPoints, innerPointSide, 0, 0);
 		setRadiusOfCircle(radius);
 	}
 
 	private boolean checkPlacemarkOverlaps(SimplePlacemarkObject newPlacemark, List<SimplePlacemarkObject> readyPlacemarks) {
 		boolean shareSpace = false;
 		for (final SimplePlacemarkObject oldPlacemark : readyPlacemarks) {
-			if (placemarkIntersects(newPlacemark, oldPlacemark)) {
+			if (isSamplePointIntersectingWithOthers(newPlacemark, oldPlacemark)) {
 				shareSpace = true;
+				break;
 			}
 		}
 		return shareSpace;
@@ -54,18 +51,21 @@ public class CircleKmlGenerator extends PolygonKmlGenerator {
 			}
 		}
 
-		return new Rectangle2D.Float(minX, minY, maxX - minX, maxY - minY);
+		// Return the rectangle described by the top-left position, width and height
+		// units are degrees
+		return new Rectangle2D.Float(minX, maxY, maxX - minX, maxY - minY);
 
 	}
 
 	@Override
-	public void fillExternalLine(double radiusOfSamplingCircle, double distanceToBoundary, double[] centerCircleCoord,
-			SimplePlacemarkObject parentPlacemark) throws TransformException {
+	public void fillExternalLine(SimplePlacemarkObject placemark) throws TransformException {
 		final List<SimpleCoordinate> shapePoints = new ArrayList<SimpleCoordinate>();
+		
+		double[] centerCircleCoord = placemark.getCoord().getCoordinates();
 
 		final double arc = 360 / getNumberOfExternalPoints();
 
-		final double radius = radiusOfSamplingCircle + getMarginCircle();
+		final double radius = radiusOfCircle + getMarginCircle();
 
 		for (int i = 0; i < getNumberOfExternalPoints(); i++) {
 			final double t = i * arc;
@@ -82,7 +82,7 @@ public class CircleKmlGenerator extends PolygonKmlGenerator {
 		final double[] circunferencePosition = getPointWithOffset(centerCircleCoord, offsetLong, offsetLat);
 		shapePoints.add(new SimpleCoordinate(circunferencePosition));
 
-		parentPlacemark.setShape(shapePoints);
+		placemark.setShape(shapePoints);
 
 		final double[] left = getPointWithOffset(centerCircleCoord, -1 * radius, 0);
 		final double[] right = getPointWithOffset(centerCircleCoord, radius, 0);
@@ -90,43 +90,38 @@ public class CircleKmlGenerator extends PolygonKmlGenerator {
 		final double[] top = getPointWithOffset(centerCircleCoord, 0, radius);
 		final double[] bottom = getPointWithOffset(centerCircleCoord, 0, -1 * radius);
 
-		parentPlacemark.setRegion(new SimpleRegion(top[1] + "", left[0] + "", bottom[1] + "", right[0] + ""));
+		placemark.setRegion(new SimpleRegion(top[1] + "", left[0] + "", bottom[1] + "", right[0] + ""));
 	}
 
 	@Override
-	public void fillSamplePoints(double radiusOfSamplingCircle, double[] coordOriginalPoints, String currentPlaceMarkId,
-			SimplePlacemarkObject parentPlacemark) throws TransformException {
+	public void fillSamplePoints(SimplePlacemarkObject placemark) throws TransformException {
 
 		final List<SimplePlacemarkObject> pointsInPlacemark = new ArrayList<SimplePlacemarkObject>();
 
-		final List<SimpleCoordinate> samplePointBoundaries = getSamplePointPolygon(coordOriginalPoints, getPointSide());
-		final SimplePlacemarkObject insidePlacemark = new SimplePlacemarkObject(coordOriginalPoints, currentPlaceMarkId);
-		// Get the center sampling point
-		insidePlacemark.setShape(samplePointBoundaries);
+		double[] centerCircleCoord = placemark.getCoord().getCoordinates();
+		
+		final double[] centerPosition = getPointWithOffset(centerCircleCoord, -getPointSide() / 2, -getPointSide() / 2);
+		final SimplePlacemarkObject centralPoint = new SimplePlacemarkObject(centerPosition, placemark.getPlacemarkId() + "center");
+		centralPoint.setShape(getSamplePointPolygon(centerPosition, getPointSide() ));
+		pointsInPlacemark.add(centralPoint);
+		placemark.setSamplePointOutlined(0);
 
-		pointsInPlacemark.add(insidePlacemark);
 
 		int numPoints = 0;
-		while (numPoints < getNumberOfNonCentralSamplingPoints()) {
-
-			final SimplePlacemarkObject randomSamplingPoint = getRandomPosition( getRadiusOfCircle(), coordOriginalPoints, currentPlaceMarkId);
+		while (numPoints < getNumberOfSamplePoints() ) {	
+			final SimplePlacemarkObject randomSamplingPoint = getRandomSamplePoint( getRadiusOfCircle(), centerCircleCoord, placemark.getPlacemarkId()+"_random_" + numPoints);
 			if (!checkPlacemarkOverlaps(randomSamplingPoint, pointsInPlacemark)) {
 				pointsInPlacemark.add(randomSamplingPoint);
 				numPoints++;
 			}
-
 		}
-
-		parentPlacemark.setPoints(pointsInPlacemark);
+		
+		placemark.setPoints(pointsInPlacemark);
 
 	}
 
-	@Override
-	int getNumOfRows() {
-		return 25;
-	}
 
-	private SimplePlacemarkObject getRandomPosition(double orginalRadius, double[] centerCoordinates, String currentPlaceMarkId)
+	private SimplePlacemarkObject getRandomSamplePoint(double orginalRadius, double[] centerCoordinates, String currentPlaceMarkId)
 			throws TransformException {
 
 		// http://www.anderswallin.net/2009/05/uniform-random-points-in-a-circle-using-polar-coordinates
@@ -147,29 +142,25 @@ public class CircleKmlGenerator extends PolygonKmlGenerator {
 		return insidePlacemark;
 	}
 
-	private boolean placemarkIntersects(SimplePlacemarkObject newPlacemark, SimplePlacemarkObject oldPlacemark) {
+	private boolean isSamplePointIntersectingWithOthers(SimplePlacemarkObject newPlacemark, SimplePlacemarkObject oldPlacemark) {
 		final Rectangle2D r1 = createRectangle(newPlacemark.getShape());
 		final Rectangle2D r2 = createRectangle(oldPlacemark.getShape());
-		return r1.intersects(r2) ? true : false;
+		return r2.intersects(r1);
 	}
 
 	protected int getNumberOfExternalPoints() {
-		return NUMBER_OF_EXTERNAL_POINTS;
+		return 70;
 	}
 
 	private static int getMarginCircle() {
 		return MARGIN_CIRCLE;
 	}
 
-	protected int getNumberOfNonCentralSamplingPoints() {
-		return NUMBER_OF_NON_CENTRAL_SAMPLING_POINTS;
-	}
-
-	protected float getRadiusOfCircle() {
+	protected double getRadiusOfCircle() {
 		return radiusOfCircle;
 	}
 
-	private void setRadiusOfCircle(float radiusOfCircle) {
+	private void setRadiusOfCircle(double radiusOfCircle) {
 		this.radiusOfCircle = radiusOfCircle;
 	}
 

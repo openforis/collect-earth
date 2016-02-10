@@ -64,5 +64,7 @@ public class FreemarkerTemplateUtils {
 
 	    return randomNum;
 	}
+	
+
 
 }
