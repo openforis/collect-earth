@@ -32,28 +32,30 @@ public class MacOpenFilesInvocationHandler implements java.lang.reflect.Invocati
         try {
 
             // Prints the method being invoked
-
-            System.out.print("begin method "+ m.getName() + "(");
-
+        	String message = "";
+        	message = "begin method "+ m.getName() + "(";
+            
             for(int i=0; i<args.length; i++){
                 if(i>0) 
-                	System.out.print(",");
+                	message +=",";
 
-                System.out.print(" " +  args[i].toString());
+                message += " " +  args[i].toString();
             
             }
 
-         System.out.println(" )");
+            message += " )";
 
+         logger.error( message + m.getName() );
          // if the method name equals some method's name then call your method
 
          if (m.getName().equals("openFiles")) {
         	 
         	 openFilesImplmentation(args[0]);
 
-         }         
+         }
 
       } catch (Exception e) {
+    	  logger.error(" Error while interpreting invocation " , e );
            throw new RuntimeException("unexpected invocation exception: " + e.getMessage());
      } finally {
              System.out.println("end method " + m.getName());
@@ -68,6 +70,7 @@ public class MacOpenFilesInvocationHandler implements java.lang.reflect.Invocati
 	  Method getFilesMethod = openFilesEventClass.getMethod("getFiles");
 	  
 	  List<File> files = (List<File>) getFilesMethod.invoke( openFilesEventObject );
+	  
 	  
 	  for (File file : files ){
       	try {
