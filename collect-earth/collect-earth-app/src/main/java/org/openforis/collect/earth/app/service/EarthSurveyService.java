@@ -369,11 +369,6 @@ public class EarthSurveyService {
 		recordUpdater.updateAttribute(attr, new BooleanValue(value));
 	}
 	
-	private void setPlacemarkOperator(CollectRecord record) {
-		TextAttribute attr = record.findNodeByPath(ROOT_ENTITY_NAME + "/" + OPERATOR_ATTRIBUTE_NAME);
-		recordUpdater.updateAttribute(attr, new TextValue(localPropertiesService.getOperator()));
-	}
-
 	private void setPlacemarkSavedOn(Map<String, String> parameters) {
 
 		String dateSaved = new SimpleDateFormat( DateAttributeHandler.DATE_ATTRIBUTE_FORMAT ).format(new Date());
@@ -450,22 +445,25 @@ public class EarthSurveyService {
 	public synchronized PlacemarkLoadResult updatePlacemarkData(String[] plotKeyAttributes,
 			Map<String, String> parameters, String sessionId, boolean partialUpdate) {
 		try {
+			// Add the operator to the collected data
+			parameters.put(OPERATOR_PARAMETER, localPropertiesService.getOperator());
+
 			CollectRecord record = loadRecord(plotKeyAttributes);
 			if (record == null) {
 				record = createRecord(null);
+
+				collectParametersHandler.saveToEntity(parameters, record.getRootEntity());
+
 				// update actively_saved_on attribute now, otherwise if it's empty
 				// it counts as an error
 				setPlacemarkSavedOn(record);
 				setPlacemarkSavedActively(record, false);
-				setPlacemarkOperator(record);
+				
 				updateKeyAttributeValues(record, plotKeyAttributes);
 				record.setModifiedDate(new Date());
 				recordManager.save(record, sessionId);
 				return createPlacemarkLoadSuccessResult(record);
 			} else {
-				// Add the operator to the collected data
-				parameters.put(OPERATOR_PARAMETER, localPropertiesService.getOperator());
-				
 				// Populate the data of the record using the HTTP parameters
 				// received
 				Entity plotEntity = record.getRootEntity();
