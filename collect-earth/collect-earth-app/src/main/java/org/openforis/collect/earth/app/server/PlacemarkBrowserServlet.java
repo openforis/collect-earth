@@ -1,7 +1,6 @@
 package org.openforis.collect.earth.app.server;
 
 import java.io.IOException;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
@@ -15,7 +14,6 @@ import org.openforis.collect.earth.app.service.LocalPropertiesService;
 import org.openforis.collect.earth.core.utils.CsvReaderUtils;
 import org.openforis.collect.earth.sampler.model.SimplePlacemarkObject;
 import org.openforis.collect.earth.sampler.processor.KmlGenerator;
-import org.openforis.collect.earth.sampler.utils.KmlGenerationException;
 import org.openforis.idm.metamodel.AttributeDefinition;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;

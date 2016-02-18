@@ -149,7 +149,7 @@ public class GeolocalizeMapService {
 	
 	/**
 	 * Produces a temporary file with the necessary HTML code to show the plot in Bing Maps
-	 * @param centerCoordinates The coordinates of the center of the plot.
+	 * @param placemarkObject The data of the plot.
 	 * @param bingMapsKey The bing maps key used, obtained from the Local Properties service
 	 * @param freemarkerTemplate The path to the freemarker template that is used to produce the file.
 	 * @return The URL to the temporary file that can be used to load it in a browser.
@@ -163,7 +163,7 @@ public class GeolocalizeMapService {
 	
 	/**
 	 * Produces a temporary file with the necessary HTML code to show the plot in Here Maps
-	 * @param centerCoordinates The coordinates of the center of the plot.
+	 * @param placemarkObject The data of the plot.
 	 * @param hereAppId The Here Maps app ID
 	 * @param hereAppCode The Here Maps app code
 	 * @param freemarkerTemplate The path to the freemarker template that is used to produce the file.
@@ -180,7 +180,7 @@ public class GeolocalizeMapService {
 	
 	/**
 	 * Produces a temporary file with the necessary HTML code to show the plot in Google Street View
-	 * @param centerCoordinates The coordinates of the center of the plot.
+	 * @param placemarkObject The data of the plot.
 	 * @param googleMapsApiKey The Google Maps API key
 	 * @param freemarkerTemplate The path to the freemarker template that is used to produce the file.
 	 * @return The URL to the temporary file that can be used to load it in a browser.

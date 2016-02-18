@@ -35,8 +35,8 @@ public class CoordinateAttributeHandler extends AbstractAttributeHandler<Coordin
 	
 	/**
 	 * Expects the coordinate as a String "latitude,longitude" 
-	 * @param parameterValue
-	 * @return
+	 * @param parameterValue the latitude and longitude as "latitude,longitude"
+	 * @return Coordinate returns the coordinate generated
 	 */
 	@Override
 	public Coordinate createValue(String parameterValue) {

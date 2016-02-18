@@ -7,7 +7,6 @@ import static org.openforis.collect.earth.app.EarthConstants.ACTIVELY_SAVED_ON_P
 import static org.openforis.collect.earth.app.EarthConstants.ACTIVELY_SAVED_PARAMETER;
 import static org.openforis.collect.earth.app.EarthConstants.COLLECT_REASON_BLANK_NOT_SPECIFIED_MESSAGE;
 import static org.openforis.collect.earth.app.EarthConstants.EARTH_SURVEY_NAME;
-import static org.openforis.collect.earth.app.EarthConstants.OPERATOR_ATTRIBUTE_NAME;
 import static org.openforis.collect.earth.app.EarthConstants.OPERATOR_PARAMETER;
 import static org.openforis.collect.earth.app.EarthConstants.PLACEMARK_FOUND_PARAMETER;
 import static org.openforis.collect.earth.app.EarthConstants.ROOT_ENTITY_NAME;
