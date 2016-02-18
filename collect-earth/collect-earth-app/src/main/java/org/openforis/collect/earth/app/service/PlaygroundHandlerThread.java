@@ -13,7 +13,7 @@ import liquibase.util.SystemUtils;
 
 import org.apache.commons.io.FileUtils;
 import org.apache.commons.lang.StringUtils;
-import org.apache.commons.lang3.ArrayUtils;
+import org.openforis.collect.earth.sampler.model.SimplePlacemarkObject;
 import org.openqa.selenium.By;
 import org.openqa.selenium.Keys;
 import org.openqa.selenium.WebElement;
@@ -27,7 +27,8 @@ import org.springframework.stereotype.Component;
 public class PlaygroundHandlerThread {
 	private static final String RUN_SCRIPT_BUTTON = "button.goog-button:nth-child(5)";
 	private static final int DUMMY_SPACES = 150;
-	private String[] latLong;
+	private SimplePlacemarkObject placemarkObject;
+	
 	private RemoteWebDriver webDriverGee;
 		
 	@Autowired
@@ -50,7 +51,9 @@ public class PlaygroundHandlerThread {
 			throws IOException, URISyntaxException,
 			InterruptedException {
 		
-		URL fileWithScript = geoLocalizeTemplateService.getTemporaryUrl(latLong, getGeePlaygroundTemplate());
+		
+		URL fileWithScript = geoLocalizeTemplateService.getTemporaryUrl(placemarkObject, getGeePlaygroundTemplate());
+		
 		
 		webDriverGee.findElementByCssSelector(RUN_SCRIPT_BUTTON).click();
 		
@@ -176,8 +179,6 @@ public class PlaygroundHandlerThread {
 	 * @return The path to the GEE playground generic script or the one that is specified in the project folder if it exists. 
 	 */
 	private String getProjectGeeScript() {
-		// Where the meta-data file (usually placemark.idm.xml ) is located
-		
 		// Is there a "eePlaygroundScript.fmt" file in the same folder than in the metadata file folder?
 		File projectGeePlayground = new File( localPropertiesService.getProjectFolder() + File.separatorChar + GeolocalizeMapService.FREEMARKER_GEE_PLAYGROUND_TEMPLATE_FILE_NAME);
 		
@@ -187,11 +188,15 @@ public class PlaygroundHandlerThread {
 		}
 		return geePlaygroundFilePath;
 	}
-
-	public void loadPlaygroundScript(String[] latLong, RemoteWebDriver webDriverGeePlayground) {
-		this.latLong = latLong;
+	
+	public void loadPlaygroundScript(SimplePlacemarkObject placemarkObject, RemoteWebDriver webDriverGeePlayground) {
+		this.placemarkObject = placemarkObject;
+		loadPlaygroundScript(webDriverGeePlayground);
+	}
+	
+	private void loadPlaygroundScript(RemoteWebDriver webDriverGeePlayground) {
 		this.webDriverGee = webDriverGeePlayground;
-		Thread loadGee = new Thread("Opening GEE Playground " + ArrayUtils.toString(latLong)){
+		Thread loadGee = new Thread("Opening GEE Playground " +  (placemarkObject != null?placemarkObject.toString():"") ){
 			@Override
 			public void run() {
 				try {			

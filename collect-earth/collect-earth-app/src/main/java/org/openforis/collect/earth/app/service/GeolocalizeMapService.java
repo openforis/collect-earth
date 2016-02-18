@@ -34,8 +34,6 @@ public class GeolocalizeMapService {
 
 	private static final String RESOURCES_FOLDER = "resources";
 
-
-
 	/**
 	 * The file that contains the freemarker template used to produce the Bing Maps code.
 	 */
@@ -79,9 +77,8 @@ public class GeolocalizeMapService {
 
 	}
 
-	public Map<String, Object> getPlacemarkData(String[] centerLatLong) {
+	public Map<String, Object> getPlacemarkData(SimplePlacemarkObject placemarkObject) {
 		final Map<String, Object> data = new HashMap<String, Object>();
-		final SimplePlacemarkObject placemark = new SimplePlacemarkObject(centerLatLong);
 
 		KmlGenerator kmlGenerator = kmlGeneratorService.getKmlGenerator();
 		
@@ -90,10 +87,10 @@ public class GeolocalizeMapService {
 		}
 				
 		try {
-			kmlGenerator.fillSamplePoints(placemark);
-			kmlGenerator.fillExternalLine(placemark);
+			kmlGenerator.fillSamplePoints(placemarkObject);
+			kmlGenerator.fillExternalLine(placemarkObject);
 
-			data.put("placemark", placemark);
+			data.put("placemark", placemarkObject);
 			
 		} catch (final TransformException e) {
 			logger.error("Exception producing shape data for html ", e);
@@ -102,20 +99,18 @@ public class GeolocalizeMapService {
 		}
 		return data;
 	}
-
+	
 	/**
 	 * Produces a temporary file with the necessary HTML code to show the plot in Bing Maps
-	 * @param centerCoordinates The coordinates of the center of the plot.
+	 * @param placemarkObject The object containing information of the placemark.
 	 * @param freemarkerTemplate The path to the freemarker template that is used to produce the file.
 	 * @return The URL to the temporary file that can be used to load it in a browser.
 	 */
-	public URL getTemporaryUrl(String[] centerCoordinates, String freemarkerTemplate) {
-
-		final Map<String,Object> data = getPlacemarkData(centerCoordinates);
+	public URL getTemporaryUrl(SimplePlacemarkObject placemarkObject, String freemarkerTemplate) {
+		final Map<String, Object> data = new HashMap<String, Object>();
+		data.put("placemark", placemarkObject);
 		addDatesForImages(data);
-		
 		return processTemplateWithData(freemarkerTemplate, data);
-
 	}
 
 	public void addDatesForImages(final Map<String, Object> data) {
@@ -159,9 +154,9 @@ public class GeolocalizeMapService {
 	 * @param freemarkerTemplate The path to the freemarker template that is used to produce the file.
 	 * @return The URL to the temporary file that can be used to load it in a browser.
 	 */
-	public URL getBingUrl(String[] centerCoordinates, String bingMapsKey, String freemarkerTemplate) {
+	public URL getBingUrl(SimplePlacemarkObject placemarkObject, String bingMapsKey, String freemarkerTemplate) {
 
-		final Map<String,Object> data = getPlacemarkData(centerCoordinates);
+		final Map<String,Object> data = getPlacemarkData(placemarkObject);
 		data.put("bingMapsKey", bingMapsKey);
 		return processTemplateWithData(freemarkerTemplate, data);
 	}
@@ -174,9 +169,9 @@ public class GeolocalizeMapService {
 	 * @param freemarkerTemplate The path to the freemarker template that is used to produce the file.
 	 * @return The URL to the temporary file that can be used to load it in a browser.
 	 */
-	public URL getHereUrl(String[] centerCoordinates, String hereAppId, String hereAppCode, String freemarkerTemplate) {
+	public URL getHereUrl(SimplePlacemarkObject placemarkObject, String hereAppId, String hereAppCode, String freemarkerTemplate) {
 
-		final Map<String,Object> data = getPlacemarkData(centerCoordinates);
+		final Map<String,Object> data = getPlacemarkData(placemarkObject);
 		data.put("hereAppId", hereAppId);
 		data.put("hereAppCode", hereAppCode);
 		return processTemplateWithData(freemarkerTemplate, data);
@@ -190,9 +185,9 @@ public class GeolocalizeMapService {
 	 * @param freemarkerTemplate The path to the freemarker template that is used to produce the file.
 	 * @return The URL to the temporary file that can be used to load it in a browser.
 	 */
-	public URL getStreetViewUrl(String[] centerCoordinates, String googleMapsApiKey, String freemarkerTemplate) {
+	public URL getStreetViewUrl(SimplePlacemarkObject placemarkObject, String googleMapsApiKey, String freemarkerTemplate) {
 
-		final Map<String,Object> data = getPlacemarkData(centerCoordinates);
+		final Map<String,Object> data = getPlacemarkData(placemarkObject);
 		data.put("googleMapsApiKey", googleMapsApiKey);
 		return processTemplateWithData(freemarkerTemplate, data);
 	}

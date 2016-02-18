@@ -8,6 +8,8 @@ import com.vividsolutions.jts.geom.Coordinate;
  *
  */
 public class SimpleCoordinate {
+
+
 	private String latitude;
 	private String longitude;
 
@@ -53,5 +55,10 @@ public class SimpleCoordinate {
 
 	public void setLongitude(String longitude) {
 		this.longitude = longitude;
+	}
+	
+	@Override
+	public String toString() {
+		return latitude + "," + longitude;
 	}
 }

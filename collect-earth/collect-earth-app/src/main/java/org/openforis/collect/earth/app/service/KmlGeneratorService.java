@@ -186,7 +186,7 @@ public class KmlGeneratorService {
 		if ((numberOfSamplingPlots != null) && (numberOfSamplingPlots.trim().length() > 0)) {
 			numberOfPoints = Integer.parseInt(numberOfSamplingPlots.trim());
 		}
-		
+
 		try{ 
 			// If there is a polygon column then the type of plot shape is assumed to be POLYGON
 			if( csvContainsPolygons(csvFile)){
@@ -219,8 +219,8 @@ public class KmlGeneratorService {
 		csvReader.readNext(); // Ignore it might be the column headers
 		
 		String[] secondLine = csvReader.readNext();
-		if( secondLine != null && CsvReaderUtils.onlyEmptyCells(secondLine) ){
-			if( csvContainsPolygons(csvFile) && KmlGenerator.getKmlPolygonColumn(secondLine) != null ){
+		if( secondLine != null && !CsvReaderUtils.onlyEmptyCells(secondLine) ){
+			if( KmlGenerator.getKmlPolygonColumn(secondLine) != null ){
 				return true;
 			}
 		}

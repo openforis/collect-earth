@@ -62,7 +62,7 @@ public abstract class KmlGenerator extends AbstractCoordinateCalculation {
 		
 		String kmlPolygon = getKmlPolygonColumn(csvValuesInLine);
 		if( kmlPolygon != null ){
-			plotProperties.setKmlPolygon( kmlPolygon );
+			processKmlPolygonProperties(plotProperties, kmlPolygon);
 		}
 		
 		int leading_columns = 0;
@@ -91,6 +91,13 @@ public abstract class KmlGenerator extends AbstractCoordinateCalculation {
 				}
 				
 			}
+			
+			// THIS IS ONLY FOR OLD SURVEYS!!!
+			if( csvValuesInLine.length > 5 + number_of_key_attributes ){
+				for ( int extraIndex = 5+number_of_key_attributes; extraIndex<csvValuesInLine.length; extraIndex++) {
+					extraInfoVector.add( StringEscapeUtils.escapeXml( csvValuesInLine[extraIndex]) );
+				}
+			}
 		}
 		
 		String[] extraInfoArray = new String[extraInfoVector.size()];
@@ -114,6 +121,13 @@ public abstract class KmlGenerator extends AbstractCoordinateCalculation {
 		plotProperties.setValuesByColumn( valuesByColumn );
 		
 		return plotProperties;
+	}
+
+
+	public static void processKmlPolygonProperties(
+			final SimplePlacemarkObject plotProperties, String kmlPolygon) {
+		plotProperties.setKmlPolygon( kmlPolygon );
+		plotProperties.setShape( PolygonKmlGenerator.getPointsInPolygon(kmlPolygon) );
 	}
 
 	private final SimpleDateFormat httpHeaderDf = new SimpleDateFormat("EEE, dd MMM yyyy HH:mm:ss zzz");

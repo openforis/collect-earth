@@ -1,5 +1,6 @@
 package org.openforis.collect.earth.sampler.model;
 
+import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 
@@ -195,11 +196,109 @@ public class SimplePlacemarkObject {
 
 	public void setKmlPolygon(String kmlPolygon) {
 		this.kmlPolygon = kmlPolygon;
-		
 	}
 
 	public String getKmlPolygon() {
 		return kmlPolygon;
 	}
+	
+
+	@Override
+	public String toString() {
+		return "SimplePlacemarkObject [coord=" + coord + ", placemarkId="
+				+ placemarkId + "]";
+	}
+	
+	@Override
+	public int hashCode() {
+		final int prime = 31;
+		int result = 1;
+		result = prime * result + aspect;
+		result = prime * result + ((coord == null) ? 0 : coord.hashCode());
+		result = prime * result + elevation;
+		result = prime * result + Arrays.hashCode(extraColumns);
+		result = prime * result + Arrays.hashCode(extraInfo);
+		result = prime * result + Arrays.hashCode(idColumns);
+		result = prime * result
+				+ ((nextPlacemarkId == null) ? 0 : nextPlacemarkId.hashCode());
+		result = prime * result
+				+ ((placemarkId == null) ? 0 : placemarkId.hashCode());
+		result = prime * result + ((points == null) ? 0 : points.hashCode());
+		result = prime * result + ((region == null) ? 0 : region.hashCode());
+		result = prime
+				* result
+				+ ((samplePointOutlined == null) ? 0 : samplePointOutlined
+						.hashCode());
+		result = prime * result + ((shape == null) ? 0 : shape.hashCode());
+		result = prime * result + slope;
+		result = prime * result
+				+ ((valuesByColumn == null) ? 0 : valuesByColumn.hashCode());
+		return result;
+	}
+
+	@Override
+	public boolean equals(Object obj) {
+		if (this == obj)
+			return true;
+		if (obj == null)
+			return false;
+		if (getClass() != obj.getClass())
+			return false;
+		SimplePlacemarkObject other = (SimplePlacemarkObject) obj;
+		if (aspect != other.aspect)
+			return false;
+		if (coord == null) {
+			if (other.coord != null)
+				return false;
+		} else if (!coord.equals(other.coord))
+			return false;
+		if (elevation != other.elevation)
+			return false;
+		if (!Arrays.equals(extraColumns, other.extraColumns))
+			return false;
+		if (!Arrays.equals(extraInfo, other.extraInfo))
+			return false;
+		if (!Arrays.equals(idColumns, other.idColumns))
+			return false;
+		if (nextPlacemarkId == null) {
+			if (other.nextPlacemarkId != null)
+				return false;
+		} else if (!nextPlacemarkId.equals(other.nextPlacemarkId))
+			return false;
+		if (placemarkId == null) {
+			if (other.placemarkId != null)
+				return false;
+		} else if (!placemarkId.equals(other.placemarkId))
+			return false;
+		if (points == null) {
+			if (other.points != null)
+				return false;
+		} else if (!points.equals(other.points))
+			return false;
+		if (region == null) {
+			if (other.region != null)
+				return false;
+		} else if (!region.equals(other.region))
+			return false;
+		if (samplePointOutlined == null) {
+			if (other.samplePointOutlined != null)
+				return false;
+		} else if (!samplePointOutlined.equals(other.samplePointOutlined))
+			return false;
+		if (shape == null) {
+			if (other.shape != null)
+				return false;
+		} else if (!shape.equals(other.shape))
+			return false;
+		if (slope != other.slope)
+			return false;
+		if (valuesByColumn == null) {
+			if (other.valuesByColumn != null)
+				return false;
+		} else if (!valuesByColumn.equals(other.valuesByColumn))
+			return false;
+		return true;
+	}
+
 
 }

@@ -11,7 +11,6 @@ import java.net.URL;
 import java.security.Security;
 import java.security.cert.CertificateException;
 import java.security.cert.X509Certificate;
-import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.Observable;
@@ -35,6 +34,7 @@ import org.apache.commons.lang3.StringUtils;
 import org.openforis.collect.earth.app.EarthConstants;
 import org.openforis.collect.earth.app.desktop.ServerController.ServerInitializationEvent;
 import org.openforis.collect.earth.app.service.LocalPropertiesService.EarthProperty;
+import org.openforis.collect.earth.sampler.model.SimplePlacemarkObject;
 import org.openqa.selenium.By;
 import org.openqa.selenium.JavascriptExecutor;
 import org.openqa.selenium.WebDriverException;
@@ -216,12 +216,12 @@ public class BrowserService implements Observer{
 		return jsResult.toString();
 	}
 
-	private String getGEEJavascript(String[] latLong) {
+	private String getGEEJavascript(SimplePlacemarkObject placemarkObject) {
 
 		//final Map<String, String> data = new HashMap<String, String>();
-		final Map<String,Object> data = geoLocalizeTemplateService.getPlacemarkData(latLong);
-		data.put("latitude", latLong[0]);
-		data.put("longitude", latLong[1]);
+		final Map<String,Object> data = geoLocalizeTemplateService.getPlacemarkData(placemarkObject);
+		data.put("latitude", placemarkObject.getCoord().getLatitude());
+		data.put("longitude", placemarkObject.getCoord().getLongitude());
 		data.put(EarthProperty.GEE_FUNCTION_PICK.toString(), localPropertiesService.getValue(EarthProperty.GEE_FUNCTION_PICK));
 		data.put(EarthProperty.GEE_ZOOM_OBJECT.toString(), localPropertiesService.getValue(EarthProperty.GEE_ZOOM_OBJECT));
 		data.put(EarthProperty.GEE_ZOOM_METHOD.toString(), localPropertiesService.getValue(EarthProperty.GEE_ZOOM_METHOD));
@@ -313,23 +313,10 @@ public class BrowserService implements Observer{
 		return found;
 	}
 
-	private RemoteWebDriver loadLayers(String[] latLong, RemoteWebDriver driver) throws InterruptedException, BrowserNotFoundException {
+	private RemoteWebDriver loadLayers(SimplePlacemarkObject placemarkObject, RemoteWebDriver driver) throws InterruptedException, BrowserNotFoundException {
 
 		if (driver != null) {
-/*			if (!isIdOrNamePresent("workspace-el", driver)) {
-				final String[] layers = {
-				// "http://earthengine.google.org/#detail/LANDSAT%2FL7_L1T_ANNUAL_GREENEST_TOA"
-				// "http://earthengine.google.org/#detail/LANDSAT%2FL5_L1T_ANNUAL_GREENEST_TOA",
-				"https://earthengine.google.org/#detail/LANDSAT%2FLC8_L1T_ANNUAL_GREENEST_TOA" };
-				for (final String urlForLayer : layers) {
-					driver = navigateTo(urlForLayer, driver);
-					if (waitForXPath("//*[@id=\"detail-el\"]/div[2]/div[1]", driver)) {
-						driver.findElementByXPath("//*[@id=\"detail-el\"]/div[2]/div[1]").click();
-						waitFor("workspace-el", driver);
-					}
-				}
-			} */
-			
+
 			if (!isIdOrNamePresent("workspace-el", driver)) {
 				String url = localPropertiesService.getValue( EarthProperty.GEE_EXPLORER_URL);
 				driver = navigateTo(url, driver);
@@ -338,11 +325,11 @@ public class BrowserService implements Observer{
 			if (waitFor("workspace-el", driver)) {
 				if (driver instanceof JavascriptExecutor) {
 					try {
-						String geeJs = getGEEJavascript(latLong);
+						String geeJs = getGEEJavascript(placemarkObject);
 						if (!isGeeMethodUpdated()) {
 							try {
 								refreshJSValues(geeJs, driver);
-								geeJs = getGEEJavascript(latLong);
+								geeJs = getGEEJavascript(placemarkObject);
 							} catch (final Exception e) {
 								logger.error("Error checking the validity of the GEE js code", e);
 							} finally {
@@ -436,7 +423,7 @@ public class BrowserService implements Observer{
 	 * @throws BrowserNotFoundException In case the browser could not be found
 	 * 
 	 */
-	public void openBingMaps(String coordinates) throws BrowserNotFoundException {
+	public void openBingMaps(SimplePlacemarkObject placemarkObject) throws BrowserNotFoundException {
 
 		if (localPropertiesService.isBingMapsSupported()) {
 
@@ -445,12 +432,12 @@ public class BrowserService implements Observer{
 			}
 
 			final RemoteWebDriver driverCopy = webDriverBing;
-			final String[] latLong = coordinates.split(",");
+			
 			final Thread loadBingThread = new Thread() {
 				@Override
 				public void run() {
 					try {
-						webDriverBing = navigateTo(geoLocalizeTemplateService.getBingUrl(latLong,  localPropertiesService.getValue( EarthProperty.BING_MAPS_KEY), GeolocalizeMapService.FREEMARKER_BING_HTML_TEMPLATE).toString(), driverCopy);
+						webDriverBing = navigateTo(geoLocalizeTemplateService.getBingUrl(placemarkObject,  localPropertiesService.getValue( EarthProperty.BING_MAPS_KEY), GeolocalizeMapService.FREEMARKER_BING_HTML_TEMPLATE).toString(), driverCopy);
 					} catch (final Exception e) {
 						logger.error("Problems loading Bing", e);
 					}
@@ -469,7 +456,7 @@ public class BrowserService implements Observer{
 		 * @throws BrowserNotFoundException In case the browser could not be found
 		 * 
 		 */
-		public void openStreetView(String coordinates) throws BrowserNotFoundException {
+		public void openStreetView(SimplePlacemarkObject placemarkObject) throws BrowserNotFoundException {
 
 			if (localPropertiesService.isStreetViewSupported()) {
 
@@ -478,13 +465,13 @@ public class BrowserService implements Observer{
 				}
 
 				final RemoteWebDriver driverCopy = webDriverStreetView;
-				final String[] centerPlotLocation = coordinates.split(",");
+			
 				final Thread loadStreetViewThread = new Thread() {
 					@Override
 					public void run() {
 						try {
 							webDriverStreetView = navigateTo(geoLocalizeTemplateService.getStreetViewUrl(
-									centerPlotLocation, 
+									placemarkObject, 
 									localPropertiesService.getValue( EarthProperty.GOOGLE_MAPS_API_KEY), 
 									GeolocalizeMapService.FREEMARKER_STREET_VIEW_HTML_TEMPLATE).toString(), 
 									driverCopy
@@ -506,7 +493,7 @@ public class BrowserService implements Observer{
 	 * @throws BrowserNotFoundException In case the browser could not be found
 	 * 
 	 */
-	public void openHereMaps(String coordinates) throws BrowserNotFoundException {
+	public void openHereMaps(SimplePlacemarkObject placemarkObject) throws BrowserNotFoundException {
 
 		if (localPropertiesService.isHereMapsSupported()) {
 
@@ -515,12 +502,12 @@ public class BrowserService implements Observer{
 			}
 
 			final RemoteWebDriver driverCopy = webDriverHere;
-			final String[] centerPlotLocation = coordinates.split(",");
+			
 			final Thread loadHereThread = new Thread() {
 				@Override
 				public void run() {
 					try {
-						webDriverHere = navigateTo(geoLocalizeTemplateService.getHereUrl(centerPlotLocation, localPropertiesService.getValue( EarthProperty.HERE_MAPS_APP_ID), localPropertiesService.getValue( EarthProperty.HERE_MAPS_APP_CODE), GeolocalizeMapService.FREEMARKER_HERE_HTML_TEMPLATE).toString(), driverCopy);
+						webDriverHere = navigateTo(geoLocalizeTemplateService.getHereUrl(placemarkObject, localPropertiesService.getValue( EarthProperty.HERE_MAPS_APP_ID), localPropertiesService.getValue( EarthProperty.HERE_MAPS_APP_CODE), GeolocalizeMapService.FREEMARKER_HERE_HTML_TEMPLATE).toString(), driverCopy);
 					} catch (final Exception e) {
 						logger.error("Problems loading Here Maps", e);
 					}
@@ -535,19 +522,17 @@ public class BrowserService implements Observer{
 	
 	/**
 	 * Opens a browser window with the Google Earth Engine Playground and runs the freemarker template found in resources/eePlaygroundScript.fmt on the main editor of GEE. 
-	 * @param coordinates The center point of the plot.
+	 * @param placemarkObject The center point of the plot.
 	 * @throws BrowserNotFoundException If the browser cannot be found
 	 * 
 	 */
-	public void openGeePlayground(String coordinates) throws BrowserNotFoundException {
+	public void openGeePlayground(SimplePlacemarkObject placemarkObject) throws BrowserNotFoundException {
 
 		if (localPropertiesService.isGeePlaygroundSupported()) {
 
 			if (getWebDriverGeePlayground() == null) {
 				setWebDriverGeePlayground(initBrowser());
 			}
-
-			final String[] latLong = coordinates.split(",");
 			
 			if( playgroundHandlerThread.isWaitingForLogin() ){
 				playgroundHandlerThread.stopWaitingForLogin();
@@ -558,7 +543,7 @@ public class BrowserService implements Observer{
 				}
 			}
 			
-			playgroundHandlerThread.loadPlaygroundScript(latLong, getWebDriverGeePlayground() );
+			playgroundHandlerThread.loadPlaygroundScript(placemarkObject, getWebDriverGeePlayground() );
 		}
 	}
 	
@@ -566,11 +551,11 @@ public class BrowserService implements Observer{
 	
 	/**
 	 * Opens a browser window with the Google Earth Engine representation of the plot. The Landsat 8 Annual Greenest pixel TOA for 2013 is loaded automatically. 
-	 * @param coordinates The center point of the plot.
+	 * @param placemarkObject The center point of the plot.
 	 * @throws BrowserNotFoundException If the browser cannot be found
 	 * 
 	 */
-	public void openEarthEngine(String coordinates) throws BrowserNotFoundException {
+	public void openEarthEngine(SimplePlacemarkObject placemarkObject) throws BrowserNotFoundException {
 
 		logger.warn("Starting to open EE - supported : " + localPropertiesService.isEarthEngineSupported()   );
 		if (localPropertiesService.isEarthEngineSupported()) {
@@ -580,15 +565,14 @@ public class BrowserService implements Observer{
 				webDriverEE = initBrowser();
 			}
 
-			final String[] latLong = coordinates.split(",");
 
 			final RemoteWebDriver driverCopy = webDriverEE;
 			final Thread loadEEThread = new Thread() {
 				@Override
 				public void run() {
 					try {
-						logger.warn("Loading layers - " + Arrays.toString(latLong)   );
-						webDriverEE = loadLayers(latLong, driverCopy);
+						logger.warn("Loading layers - " + placemarkObject   );
+						webDriverEE = loadLayers(placemarkObject, driverCopy);
 					} catch (final Exception e) {
 						logger.error("Error when opening Earth Engine browser window", e);
 					}
@@ -600,11 +584,11 @@ public class BrowserService implements Observer{
 
 	/**
 	 * Opens a browser window with the Google Earth Engine Timelapse representation of the plot. 
-	 * @param coordinates The center point of the plot.
+	 * @param placemarkObject The center point of the plot.
 	 * @throws BrowserNotFoundException If the browser cannot be found
 	 * 
 	 */
-	public void openTimelapse(final String coordinates) throws BrowserNotFoundException {
+	public void openTimelapse(final SimplePlacemarkObject placemarkObject) throws BrowserNotFoundException {
 
 		if (localPropertiesService.isTimelapseSupported()) {
 
@@ -618,7 +602,8 @@ public class BrowserService implements Observer{
 				public void run() {
 
 					try {
-						webDriverTimelapse = navigateTo("https://earthengine.google.org/timelapse/timelapseplayer_v2.html?timelapseclient=http://earthengine.google.org/timelapse/data&v=" + coordinates + ",10.812,latLng&t=0.08",
+						String coordinates = placemarkObject.getCoord().toString();
+						webDriverTimelapse = navigateTo("https://earthengine.google.org/timelapse/timelapseplayer_v2.html?timelapseclient=http://earthengine.google.org/timelapse/data&v=" + coordinates  + ",10.812,latLng&t=0.08",
 								driverCopy);
 					} catch (final Exception e) {
 						logger.error("Problems loading Timelapse", e);
