@@ -51,7 +51,8 @@ public class PolygonKmlGenerator extends AbstractPolygonKmlGenerator{
 			SimpleCoordinate coords = new SimpleCoordinate( splitCoord[idx+1], splitCoord[idx]);
 			simpleCoordinates.add(coords);
 		}
-				
+		
+
 		return simpleCoordinates;
 	}
 

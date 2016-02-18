@@ -59,12 +59,7 @@ public abstract class KmlGenerator extends AbstractCoordinateCalculation {
 		}
 		keys = keys.substring(0, keys.lastIndexOf(','));
 		plotProperties.setPlacemarkId( keys );
-		
-		String kmlPolygon = getKmlPolygonColumn(csvValuesInLine);
-		if( kmlPolygon != null ){
-			processKmlPolygonProperties(plotProperties, kmlPolygon);
-		}
-		
+	
 		int leading_columns = 0;
 		
 		String longitude = csvValuesInLine[number_of_key_attributes+1].replace(',', '.') ;
@@ -74,6 +69,12 @@ public abstract class KmlGenerator extends AbstractCoordinateCalculation {
 			leading_columns = 2;
 		}else{
 			throw new KmlGenerationException(" The latitude and longitude columns contain values other than numbers" );
+		}
+		
+		String kmlPolygon = getKmlPolygonColumn(csvValuesInLine);
+		if( kmlPolygon != null ){
+			processKmlPolygonProperties(plotProperties, kmlPolygon);
+			plotProperties.setCoord( getCentroid(plotProperties.getShape() ));
 		}
 		
 		Vector<String> extraInfoVector = new Vector<String>();
@@ -121,6 +122,19 @@ public abstract class KmlGenerator extends AbstractCoordinateCalculation {
 		plotProperties.setValuesByColumn( valuesByColumn );
 		
 		return plotProperties;
+	}
+
+
+	private static SimpleCoordinate getCentroid(List<SimpleCoordinate> shape) {
+
+		double centroidX = 0, centroidY = 0;
+
+		for(SimpleCoordinate knot : shape) {
+			centroidX += knot.getCoordinates()[1];
+			centroidY += knot.getCoordinates()[0];
+		}
+		return new SimpleCoordinate(centroidY / shape.size(), centroidX / shape.size());
+
 	}
 
 
