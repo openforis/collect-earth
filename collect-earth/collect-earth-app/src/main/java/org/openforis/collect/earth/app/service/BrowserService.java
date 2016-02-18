@@ -418,8 +418,8 @@ public class BrowserService implements Observer{
 	}
 
 	/**
-	 * Opens a browser window with the Bing Maps representation of th eplot.
-	 * @param coordinates The center point of the plot.
+	 * Opens a browser window with the Bing Maps representation of the plot.
+	 * @param placemarkObject The data of the plot.
 	 * @throws BrowserNotFoundException In case the browser could not be found
 	 * 
 	 */
@@ -452,7 +452,7 @@ public class BrowserService implements Observer{
 		/**
 		 * Opens a browser window with the Google Street View representation of the plot.
 		 * https://www.google.com/maps/@43.7815661,11.1484876,3a,75y,210.23h,82.32t/data=!3m6!1e1!3m4!1sEz7NiCbaIYzTJkP_RMBiqw!2e0!7i13312!8i6656?hl=en
-		 * @param coordinates The center point of the plot.
+		 * @param placemarkObject The data of the plot.
 		 * @throws BrowserNotFoundException In case the browser could not be found
 		 * 
 		 */
@@ -489,7 +489,7 @@ public class BrowserService implements Observer{
 		
 	/**
 	 * Opens a browser window with the Here Maps representation of the plot.
-	 * @param coordinates The center point of the plot.
+	 * @param placemarkObject The data of the plot.
 	 * @throws BrowserNotFoundException In case the browser could not be found
 	 * 
 	 */
