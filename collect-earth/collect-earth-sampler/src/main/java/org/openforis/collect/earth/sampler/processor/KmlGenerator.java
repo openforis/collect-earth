@@ -210,7 +210,7 @@ public abstract class KmlGenerator extends AbstractCoordinateCalculation {
 	/**
 	 * Checks if the given String represents a number
 	 * @param string The String to check
-	 * @return
+	 * @return True if the string is a number
 	 */
 	public static boolean isNumber(String string) {
 	    if (string == null || string.isEmpty()) {
