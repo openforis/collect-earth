@@ -266,7 +266,7 @@ public class AnalysisSaikuService {
 		final File oldRdbFile = getRdbFile();
 		if(oldRdbFile.exists() ){
 			// We need to delete all tables before we can remove the file and drop the connection
-			final List<Map<String, Object>> listOfTables = jdbcTemplate.queryForList("SELECT name FROM sqlite_master WHERE type='table';"); //$NON-NLS-1$
+			final List<Map<String, Object>> listOfTables = jdbcTemplate.queryForList("SELECT name FROM sqlite_master WHERE type='table' OR type ;"); //$NON-NLS-1$
 			for (final Map<String, Object> entry : listOfTables) {
 				final String tableName = (String) entry.get("name"); //$NON-NLS-1$
 				if (!tableName.equals("sqlite_sequence")) { //$NON-NLS-1$
@@ -277,11 +277,18 @@ public class AnalysisSaikuService {
 			for (final String tableName : tables) {
 				jdbcTemplate.execute("DROP TABLE IF EXISTS " + tableName); //$NON-NLS-1$
 			}
+			
+			// DROP VIEWS!
+			final List<Map<String, Object>> listOfViews = jdbcTemplate.queryForList("SELECT name FROM sqlite_master WHERE type = 'view';"); //$NON-NLS-1$
+			for (final Map<String, Object> entry : listOfViews) {
+				final String viewName = (String) entry.get("name"); //$NON-NLS-1$
+				jdbcTemplate.execute("DROP VIEW IF EXISTS " + viewName); //$NON-NLS-1$
+			}
 
-
+			
 			// Now we can remove the SQLite file so that a completely new connection is open
 			oldRdbFile.delete();
-
+			
 			if (!SystemUtils.IS_OS_WINDOWS){
 				try {
 					Thread.yield();
