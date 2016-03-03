@@ -19,3 +19,6 @@ FAO declines all responsibility for errors or deficiencies in the database or so
 Countries
 
 The word "countries" appearing in the text refers to countries, territories and areas without distinction. 
+
+Bing Maps Terms of Service
+https://www.microsoft.com/maps/assets/docs/terms.aspx
