@@ -107,8 +107,7 @@ public class GeolocalizeMapService {
 	 * @return The URL to the temporary file that can be used to load it in a browser.
 	 */
 	public URL getTemporaryUrl(SimplePlacemarkObject placemarkObject, String freemarkerTemplate) {
-		final Map<String, Object> data = new HashMap<String, Object>();
-		data.put("placemark", placemarkObject);
+		final Map<String, Object> data = getPlacemarkData(placemarkObject);
 		addDatesForImages(data);
 		return processTemplateWithData(freemarkerTemplate, data);
 	}
@@ -132,7 +131,7 @@ public class GeolocalizeMapService {
 		try {
 			transformedHtml = applyData(data, freemarkerTemplate);
 		} catch (final Exception e) {
-			logger.error("Exception when applying template for Bing map", e);
+			logger.error("Exception when applying template " + freemarkerTemplate + "with data : " + data.toString(), e);
 		}
 		if (transformedHtml != null) {
 			try {
