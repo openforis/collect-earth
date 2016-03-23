@@ -1,5 +1,5 @@
 <?xml version='1.0' encoding='UTF-8' standalone='yes' ?>
-<survey lastId="536" created="2015-05-18T12:23:15.181+02:00" modified="2015-07-28T14:46:48.638+02:00" collectearth:plotarea="0.5" collectearth:samplepoints="49" collect:target="CE" collect:collectVersion="3.7.0" xsi:schemaLocation="http://www.openforis.org/idml/3.0  &#9;&#9;https://raw.github.com/openforis/ollect/master/collect-core/src/main/resources/idml3.xsd       &#9;&#9;http://www.openforis.org/collect/3.0/ui  &#9;&#9;https://raw.github.com/openforis/collect/master/collect-core/src/main/resources/idml3-ui.xsd" xmlns="http://www.openforis.org/idml/3.0" xmlns:collect="http://www.openforis.org/collect/3.0/collect" xmlns:ui="http://www.openforis.org/collect/3.0/ui" xmlns:collectearth="http://www.openforis.org/collect/3.0/collectearth" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+<survey lastId="1549" published="true" created="2015-10-15T15:22:40.609+02:00" modified="2015-12-03T16:30:48.224+01:00" collectearth:plotarea="0.5" collectearth:samplepoints="49" collect:target="CE" collect:collectVersion="3.8.20" xsi:schemaLocation="http://www.openforis.org/idml/3.0  &#9;&#9;https://raw.github.com/openforis/ollect/master/collect-core/src/main/resources/idml3.xsd       &#9;&#9;http://www.openforis.org/collect/3.0/ui  &#9;&#9;https://raw.github.com/openforis/collect/master/collect-core/src/main/resources/idml3-ui.xsd" xmlns="http://www.openforis.org/idml/3.0" xmlns:collect="http://www.openforis.org/collect/3.0/collect" xmlns:ui="http://www.openforis.org/collect/3.0/ui" xmlns:collectearth="http://www.openforis.org/collect/3.0/collectearth" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
   <project xml:lang="fr">Suivi zones arides</project>
   <project xml:lang="es">Monitoreo de las Tierras Aridas</project>
   <project>Drylands Monitoring</project>
@@ -59,6 +59,9 @@
     <n0:label xml:lang="fr">Informations t&#233;l&#233;detections</n0:label>
     <n0:label xml:lang="es">Teledetecci&#243;n</n0:label>
     <n0:label xml:lang="pt">Informa&#231;&#227;o de Sensoriamento Remoto</n0:label>
+  </n0:tab>
+  <n0:tab name="tab_625">
+    <n0:label>Biomes</n0:label>
   </n0:tab>
 </n0:tabSet>
     </options>
@@ -2595,6 +2598,3880 @@ st” or “Other wooded land”.</description>
         </item>
       </items>
     </list>
+    <list id="539" name="elevation_ranges">
+      <label type="item">Elevation ranges</label>
+      <codingScheme scope="local" />
+      <items>
+        <item id="540">
+          <code>1</code>
+          <label>1-100</label>
+        </item>
+        <item id="541">
+          <code>2</code>
+          <label>101-200</label>
+        </item>
+        <item id="542">
+          <code>3</code>
+          <label>201-300</label>
+        </item>
+        <item id="543">
+          <code>4</code>
+          <label>301-400</label>
+        </item>
+        <item id="544">
+          <code>5</code>
+          <label>401-500</label>
+        </item>
+        <item id="545">
+          <code>6</code>
+          <label>501-600</label>
+        </item>
+        <item id="546">
+          <code>7</code>
+          <label>601-700</label>
+        </item>
+        <item id="547">
+          <code>8</code>
+          <label>701-800</label>
+        </item>
+        <item id="548">
+          <code>9</code>
+          <label>801-900</label>
+        </item>
+        <item id="549">
+          <code>10</code>
+          <label>901-1000</label>
+        </item>
+        <item id="550">
+          <code>11</code>
+          <label>1001-1100</label>
+        </item>
+        <item id="551">
+          <code>12</code>
+          <label>1101-1200</label>
+        </item>
+        <item id="552">
+          <code>13</code>
+          <label>1201-1300</label>
+        </item>
+        <item id="553">
+          <code>14</code>
+          <label>1301-1400</label>
+        </item>
+        <item id="554">
+          <code>15</code>
+          <label>1401-1500</label>
+        </item>
+        <item id="555">
+          <code>16</code>
+          <label>1501-1600</label>
+        </item>
+        <item id="556">
+          <code>17</code>
+          <label>1601-1700</label>
+        </item>
+        <item id="557">
+          <code>18</code>
+          <label>1701-1800</label>
+        </item>
+        <item id="558">
+          <code>19</code>
+          <label>1801-1900</label>
+        </item>
+        <item id="559">
+          <code>20</code>
+          <label>1901-2000</label>
+        </item>
+        <item id="560">
+          <code>21</code>
+          <label>2001-2100</label>
+        </item>
+        <item id="561">
+          <code>22</code>
+          <label>2101-2200</label>
+        </item>
+        <item id="562">
+          <code>23</code>
+          <label>2201-2300</label>
+        </item>
+        <item id="563">
+          <code>24</code>
+          <label>2301-2400</label>
+        </item>
+        <item id="564">
+          <code>25</code>
+          <label>2401-2500</label>
+        </item>
+        <item id="565">
+          <code>26</code>
+          <label>2501-2600</label>
+        </item>
+        <item id="566">
+          <code>27</code>
+          <label>2601-2700</label>
+        </item>
+        <item id="567">
+          <code>28</code>
+          <label>2701-2800</label>
+        </item>
+        <item id="568">
+          <code>29</code>
+          <label>2801-2900</label>
+        </item>
+        <item id="569">
+          <code>30</code>
+          <label>2901-3000</label>
+        </item>
+        <item id="570">
+          <code>31</code>
+          <label>3001-3100</label>
+        </item>
+        <item id="571">
+          <code>32</code>
+          <label>3101-3200</label>
+        </item>
+        <item id="572">
+          <code>33</code>
+          <label>3201-3300</label>
+        </item>
+        <item id="573">
+          <code>34</code>
+          <label>3301-3400</label>
+        </item>
+        <item id="574">
+          <code>35</code>
+          <label>3401-3500</label>
+        </item>
+        <item id="575">
+          <code>36</code>
+          <label>3501-3600</label>
+        </item>
+        <item id="576">
+          <code>37</code>
+          <label>3601-3700</label>
+        </item>
+        <item id="577">
+          <code>38</code>
+          <label>3701-3800</label>
+        </item>
+        <item id="578">
+          <code>39</code>
+          <label>3801-3900</label>
+        </item>
+        <item id="579">
+          <code>40</code>
+          <label>3901-4000</label>
+        </item>
+        <item id="580">
+          <code>41</code>
+          <label>4001-4100</label>
+        </item>
+        <item id="581">
+          <code>42</code>
+          <label>4101-4200</label>
+        </item>
+        <item id="582">
+          <code>43</code>
+          <label>4201-4300</label>
+        </item>
+        <item id="583">
+          <code>44</code>
+          <label>4301-4400</label>
+        </item>
+        <item id="584">
+          <code>45</code>
+          <label>4401-4500</label>
+        </item>
+        <item id="585">
+          <code>46</code>
+          <label>4501-4600</label>
+        </item>
+        <item id="586">
+          <code>47</code>
+          <label>4601-4700</label>
+        </item>
+        <item id="587">
+          <code>48</code>
+          <label>4701-4800</label>
+        </item>
+        <item id="588">
+          <code>49</code>
+          <label>4801-4900</label>
+        </item>
+        <item id="589">
+          <code>50</code>
+          <label>4901-5000</label>
+        </item>
+        <item id="590">
+          <code>51</code>
+          <label>5001-5100</label>
+        </item>
+        <item id="591">
+          <code>52</code>
+          <label>5101-5200</label>
+        </item>
+        <item id="592">
+          <code>53</code>
+          <label>5201-5300</label>
+        </item>
+        <item id="593">
+          <code>54</code>
+          <label>5301-5400</label>
+        </item>
+        <item id="594">
+          <code>55</code>
+          <label>5401-5500</label>
+        </item>
+        <item id="595">
+          <code>56</code>
+          <label>5501-5600</label>
+        </item>
+        <item id="596">
+          <code>57</code>
+          <label>5601-5700</label>
+        </item>
+        <item id="597">
+          <code>58</code>
+          <label>5701-5800</label>
+        </item>
+        <item id="598">
+          <code>59</code>
+          <label>5801-5900</label>
+        </item>
+        <item id="599">
+          <code>60</code>
+          <label>5901-6000</label>
+        </item>
+        <item id="600">
+          <code>61</code>
+          <label>6001-6100</label>
+        </item>
+        <item id="601">
+          <code>62</code>
+          <label>6101-6200</label>
+        </item>
+        <item id="602">
+          <code>63</code>
+          <label>6201-6300</label>
+        </item>
+        <item id="6023333">
+          <code>0</code>
+          <label>-99 - 0</label>
+        </item>
+        <item id="624">
+          <code>-1</code>
+          <label>-199/-100</label>
+        </item>
+      </items>
+    </list>
+    <list id="604" name="orientation">
+      <label type="item">Orientation</label>
+      <codingScheme scope="local" />
+      <items>
+        <item id="605">
+          <code>N</code>
+          <label>North</label>
+          <label xml:lang="fr">Nord</label>
+          <label xml:lang="es">Norte</label>
+        </item>
+        <item id="606">
+          <code>NE</code>
+          <label>Nort East</label>
+          <label xml:lang="fr">Nord Est</label>
+          <label xml:lang="es">Noreste</label>
+        </item>
+        <item id="607">
+          <code>E</code>
+          <label>East</label>
+          <label xml:lang="fr">Est</label>
+          <label xml:lang="es">Este</label>
+        </item>
+        <item id="608">
+          <code>SE</code>
+          <label>South East</label>
+          <label xml:lang="fr">Sud Est</label>
+          <label xml:lang="es">Sureste</label>
+        </item>
+        <item id="609">
+          <code>S</code>
+          <label>South</label>
+          <label xml:lang="fr">Sud</label>
+          <label xml:lang="es">Sur</label>
+        </item>
+        <item id="610">
+          <code>SW</code>
+          <label>South West</label>
+          <label xml:lang="fr">Sud Oest</label>
+          <label xml:lang="es">Suroeste</label>
+        </item>
+        <item id="611">
+          <code>W</code>
+          <label>West</label>
+          <label xml:lang="fr">Oest</label>
+          <label xml:lang="es">Oeste</label>
+        </item>
+        <item id="612">
+          <code>NW</code>
+          <label>North West</label>
+          <label xml:lang="fr">Nord Oest</label>
+          <label xml:lang="es">Noroeste</label>
+        </item>
+      </items>
+    </list>
+    <list id="616" name="slope_classes">
+      <label type="item">Slope classes</label>
+      <codingScheme scope="local" />
+      <items>
+        <item id="617">
+          <code>FLAT</code>
+          <label xml:lang="es">0-5 °</label>
+        </item>
+        <item id="618">
+          <code>SLIGHT</code>
+          <label xml:lang="es">6-15 °</label>
+        </item>
+        <item id="619">
+          <code>STEEP</code>
+          <label xml:lang="es">16-30  °</label>
+        </item>
+        <item id="620">
+          <code>VERY_STEEP</code>
+          <label xml:lang="es">31-45  °</label>
+        </item>
+        <item id="621">
+          <code>EXTREME</code>
+          <label xml:lang="es">46-60  °</label>
+        </item>
+        <item id="622">
+          <code>FALL</code>
+          <label xml:lang="es">61-90 °</label>
+        </item>
+        <item id="623">
+          <code>NA</code>
+          <label xml:lang="es">NA</label>
+        </item>
+      </items>
+    </list>
+    <list id="652" name="biome_name">
+      <label type="item">Biome name</label>
+      <codingScheme scope="local" />
+      <items>
+        <item id="670">
+          <code>1</code>
+          <label>Tropical and subtropical moist broadleaf forests</label>
+        </item>
+        <item id="671">
+          <code>2</code>
+          <label>Tropical and subtropical dry broadleaf forests</label>
+        </item>
+        <item id="672">
+          <code>3</code>
+          <label>Tropical and subtropical coniferous Forest</label>
+        </item>
+        <item id="673">
+          <code>4</code>
+          <label>Temperate broadleaf and mixed forests</label>
+        </item>
+        <item id="674">
+          <code>5</code>
+          <label>Temperate coniferous forest</label>
+        </item>
+        <item id="675">
+          <code>6</code>
+          <label>Boreal forests; Taiga</label>
+        </item>
+        <item id="676">
+          <code>7</code>
+          <label>Tropical and subtropical grasslands; savannas and shrublands</label>
+        </item>
+        <item id="677">
+          <code>8</code>
+          <label>Temperate grasslands; savannas and shrublands</label>
+        </item>
+        <item id="678">
+          <code>9</code>
+          <label>Flooded grasslands and savannas</label>
+        </item>
+        <item id="679">
+          <code>10</code>
+          <label>Montane grasslands and shrublands</label>
+        </item>
+        <item id="680">
+          <code>11</code>
+          <label>Tundra</label>
+        </item>
+        <item id="681">
+          <code>12</code>
+          <label>Mediterranean forests; woodlands and scrubs</label>
+        </item>
+        <item id="682">
+          <code>13</code>
+          <label>Deserts and xeric shrublands</label>
+        </item>
+        <item id="683">
+          <code>14</code>
+          <label>Mangroves</label>
+        </item>
+        <item id="684">
+          <code>98</code>
+          <label>Lake</label>
+        </item>
+        <item id="685">
+          <code>99</code>
+          <label>Rock and Ice</label>
+        </item>
+        <item id="1524">
+          <code>0</code>
+          <label>value_biome</label>
+        </item>
+      </items>
+    </list>
+    <list id="686" name="ecoregion_name">
+      <label type="item">Ecoregion name</label>
+      <codingScheme scope="local" />
+      <items>
+        <item id="687">
+          <code>9999</code>
+          <label>Rock and Ice</label>
+        </item>
+        <item id="688">
+          <code>9998</code>
+          <label>Lake</label>
+        </item>
+        <item id="689">
+          <code>60301</code>
+          <label>Bahamian pine mosaic</label>
+        </item>
+        <item id="690">
+          <code>61401</code>
+          <label>Amazon-Orinoco-Southern Caribbean mangroves</label>
+        </item>
+        <item id="691">
+          <code>61301</code>
+          <label>Araya and Paria xeric scrub</label>
+        </item>
+        <item id="692">
+          <code>60201</code>
+          <label>Apure-Villavicencio dry forests</label>
+        </item>
+        <item id="693">
+          <code>81001</code>
+          <label>Altai alpine meadow and tundra</label>
+        </item>
+        <item id="694">
+          <code>81101</code>
+          <label>Arctic desert</label>
+        </item>
+        <item id="695">
+          <code>80601</code>
+          <label>East Siberian taiga</label>
+        </item>
+        <item id="696">
+          <code>81201</code>
+          <label>Aegean and Western Turkey sclerophyllous and mixed forests</label>
+        </item>
+        <item id="697">
+          <code>61001</code>
+          <label>Central Andean dry puna</label>
+        </item>
+        <item id="698">
+          <code>61201</code>
+          <label>Chilean matorral</label>
+        </item>
+        <item id="699">
+          <code>60101</code>
+          <label>Araucaria moist forests</label>
+        </item>
+        <item id="700">
+          <code>60801</code>
+          <label>Espinal</label>
+        </item>
+        <item id="701">
+          <code>60401</code>
+          <label>Juan Fernández Islands temperate forests</label>
+        </item>
+        <item id="702">
+          <code>40501</code>
+          <label>Eastern Himalayan subalpine conifer forests</label>
+        </item>
+        <item id="703">
+          <code>51101</code>
+          <label>Alaska-St. Elias Range tundra</label>
+        </item>
+        <item id="704">
+          <code>10701</code>
+          <label>Arnhem Land tropical savanna</label>
+        </item>
+        <item id="705">
+          <code>70201</code>
+          <label>Fiji tropical dry forests</label>
+        </item>
+        <item id="706">
+          <code>51301</code>
+          <label>Baja California desert</label>
+        </item>
+        <item id="707">
+          <code>50601</code>
+          <label>Alaska Peninsula montane taiga</label>
+        </item>
+        <item id="708">
+          <code>40401</code>
+          <label>Eastern Himalayan broadleaf forests</label>
+        </item>
+        <item id="709">
+          <code>51201</code>
+          <label>California coastal sage and chaparral</label>
+        </item>
+        <item id="710">
+          <code>50701</code>
+          <label>Western Gulf coastal grasslands</label>
+        </item>
+        <item id="711">
+          <code>40701</code>
+          <label>Terai-Duar savanna and grasslands</label>
+        </item>
+        <item id="712">
+          <code>40301</code>
+          <label>Himalayan subtropical pine forests</label>
+        </item>
+        <item id="713">
+          <code>41301</code>
+          <label>Deccan thorn scrub forests</label>
+        </item>
+        <item id="714">
+          <code>50201</code>
+          <label>Sonoran-Sinaloan transition subtropical dry forest</label>
+        </item>
+        <item id="715">
+          <code>81301</code>
+          <label>Afghan Mountains semi-desert</label>
+        </item>
+        <item id="716">
+          <code>40101</code>
+          <label>Andaman Islands rain forests</label>
+        </item>
+        <item id="717">
+          <code>50501</code>
+          <label>Alberta Mountain forests</label>
+        </item>
+        <item id="718">
+          <code>11401</code>
+          <label>New Guinea mangroves</label>
+        </item>
+        <item id="719">
+          <code>31401</code>
+          <label>Central African mangroves</label>
+        </item>
+        <item id="720">
+          <code>80901</code>
+          <label>Amur meadow steppe</label>
+        </item>
+        <item id="721">
+          <code>80501</code>
+          <label>Alps conifer and mixed forests</label>
+        </item>
+        <item id="722">
+          <code>41401</code>
+          <label>Goadavari-Krishna mangroves</label>
+        </item>
+        <item id="723">
+          <code>70101</code>
+          <label>Carolines tropical moist forests</label>
+        </item>
+        <item id="724">
+          <code>80401</code>
+          <label>Appenine deciduous montane forests</label>
+        </item>
+        <item id="725">
+          <code>80801</code>
+          <label>Alai-Western Tian Shan steppe</label>
+        </item>
+        <item id="726">
+          <code>50401</code>
+          <label>Allegheny Highlands forests</label>
+        </item>
+        <item id="727">
+          <code>50801</code>
+          <label>California Central Valley grasslands</label>
+        </item>
+        <item id="728">
+          <code>30801</code>
+          <label>Al Hajar montane woodlands</label>
+        </item>
+        <item id="729">
+          <code>30201</code>
+          <label>Cape Verde Islands dry forests</label>
+        </item>
+        <item id="730">
+          <code>50301</code>
+          <label>Bermuda subtropical conifer forests</label>
+        </item>
+        <item id="731">
+          <code>80101</code>
+          <label>Guizhou Plateau broadleaf and mixed forests</label>
+        </item>
+        <item id="732">
+          <code>40901</code>
+          <label>Rann of Kutch seasonal salt marsh</label>
+        </item>
+        <item id="733">
+          <code>40201</code>
+          <label>Central Deccan Plateau dry deciduous forests</label>
+        </item>
+        <item id="734">
+          <code>70701</code>
+          <label>Hawaii tropical high shrublands</label>
+        </item>
+        <item id="735">
+          <code>10101</code>
+          <label>Admiralty Islands lowland rain forests</label>
+        </item>
+        <item id="736">
+          <code>30901</code>
+          <label>East African halophytics</label>
+        </item>
+        <item id="737">
+          <code>10201</code>
+          <label>Lesser Sundas deciduous forests</label>
+        </item>
+        <item id="738">
+          <code>41001</code>
+          <label>Kinabalu montane alpine meadows</label>
+        </item>
+        <item id="739">
+          <code>31001</code>
+          <label>Angolan montane forest-grassland mosaic</label>
+        </item>
+        <item id="740">
+          <code>30101</code>
+          <label>Albertine Rift montane forests</label>
+        </item>
+        <item id="741">
+          <code>31201</code>
+          <label>Albany thickets</label>
+        </item>
+        <item id="742">
+          <code>10401</code>
+          <label>Chatham Island temperate forests</label>
+        </item>
+        <item id="743">
+          <code>10801</code>
+          <label>Cantebury-Otago tussock grasslands</label>
+        </item>
+        <item id="744">
+          <code>21101</code>
+          <label>Marielandia Antarctic tundra</label>
+        </item>
+        <item id="745">
+          <code>30701</code>
+          <label>Angolan Miombo woodlands</label>
+        </item>
+        <item id="746">
+          <code>31301</code>
+          <label>Aldabra Island xeric scrub</label>
+        </item>
+        <item id="747">
+          <code>11301</code>
+          <label>Carnarvon xeric shrublands</label>
+        </item>
+        <item id="748">
+          <code>11201</code>
+          <label>Coolgardie woodlands</label>
+        </item>
+        <item id="749">
+          <code>11001</code>
+          <label>Australian Alps montane grasslands</label>
+        </item>
+        <item id="750">
+          <code>11101</code>
+          <label>Antipodes Subantarctic Islands tundra</label>
+        </item>
+        <item id="751">
+          <code>61402</code>
+          <label>Bahamian-Antillean mangroves</label>
+        </item>
+        <item id="752">
+          <code>60302</code>
+          <label>Belizian pine forests</label>
+        </item>
+        <item id="753">
+          <code>60902</code>
+          <label>Cuban wetlands</label>
+        </item>
+        <item id="754">
+          <code>60402</code>
+          <label>Magellanic subpolar forests</label>
+        </item>
+        <item id="755">
+          <code>80402</code>
+          <label>Atlantic mixed forests</label>
+        </item>
+        <item id="756">
+          <code>51102</code>
+          <label>Aleutian Islands tundra</label>
+        </item>
+        <item id="757">
+          <code>60102</code>
+          <label>Atlantic Coast restingas</label>
+        </item>
+        <item id="758">
+          <code>80602</code>
+          <label>Iceland boreal birch forests and alpine tundra</label>
+        </item>
+        <item id="759">
+          <code>50602</code>
+          <label>Central Canadian Shield forests</label>
+        </item>
+        <item id="760">
+          <code>60702</code>
+          <label>Beni savanna</label>
+        </item>
+        <item id="761">
+          <code>50302</code>
+          <label>Sierra Madre Occidental pine-oak forests</label>
+        </item>
+        <item id="762">
+          <code>50502</code>
+          <label>Alberta-British Columbia foothills forests</label>
+        </item>
+        <item id="763">
+          <code>41402</code>
+          <label>Indochina mangroves</label>
+        </item>
+        <item id="764">
+          <code>50802</code>
+          <label>Canadian Aspen forests and parklands</label>
+        </item>
+        <item id="765">
+          <code>60202</code>
+          <label>Atlantic dry forests</label>
+        </item>
+        <item id="766">
+          <code>61002</code>
+          <label>Central Andean puna</label>
+        </item>
+        <item id="767">
+          <code>60802</code>
+          <label>Low Monte</label>
+        </item>
+        <item id="768">
+          <code>81102</code>
+          <label>Bering tundra</label>
+        </item>
+        <item id="769">
+          <code>30202</code>
+          <label>Madagascar dry deciduous forests</label>
+        </item>
+        <item id="770">
+          <code>40502</code>
+          <label>Western Himalayan subalpine conifer forests</label>
+        </item>
+        <item id="771">
+          <code>50402</code>
+          <label>Appalachian mixed mesophytic forests</label>
+        </item>
+        <item id="772">
+          <code>51202</code>
+          <label>California interior chaparral and woodlands</label>
+        </item>
+        <item id="773">
+          <code>80502</code>
+          <label>Altai montane forest and forest steppe</label>
+        </item>
+        <item id="774">
+          <code>80902</code>
+          <label>Bohai Sea saline meadow</label>
+        </item>
+        <item id="775">
+          <code>81002</code>
+          <label>Central Tibetan Plateau alpine steppe</label>
+        </item>
+        <item id="776">
+          <code>10102</code>
+          <label>Banda Sea Islands moist deciduous forests</label>
+        </item>
+        <item id="777">
+          <code>40102</code>
+          <label>Borneo lowland rain forests</label>
+        </item>
+        <item id="778">
+          <code>80802</code>
+          <label>Altai steppe and semi-desert</label>
+        </item>
+        <item id="779">
+          <code>81302</code>
+          <label>Alashan Plateau semi-desert</label>
+        </item>
+        <item id="780">
+          <code>40202</code>
+          <label>Central Indochina dry forests</label>
+        </item>
+        <item id="781">
+          <code>70202</code>
+          <label>Hawaii tropical dry forests</label>
+        </item>
+        <item id="782">
+          <code>70702</code>
+          <label>Hawaii tropical low shrublands</label>
+        </item>
+        <item id="783">
+          <code>10202</code>
+          <label>New Caledonia dry forests</label>
+        </item>
+        <item id="784">
+          <code>81202</code>
+          <label>Anatolian conifer and deciduous mixed forests</label>
+        </item>
+        <item id="785">
+          <code>41302</code>
+          <label>Indus Valley desert</label>
+        </item>
+        <item id="786">
+          <code>70102</code>
+          <label>Central Polynesian tropical moist forests</label>
+        </item>
+        <item id="787">
+          <code>31402</code>
+          <label>East African mangroves</label>
+        </item>
+        <item id="788">
+          <code>31302</code>
+          <label>Arabian Peninsula coastal fog desert</label>
+        </item>
+        <item id="789">
+          <code>80102</code>
+          <label>Yunnan Plateau subtropical evergreen forests</label>
+        </item>
+        <item id="790">
+          <code>40402</code>
+          <label>Northern Triangle temperate forests</label>
+        </item>
+        <item id="791">
+          <code>51302</code>
+          <label>Central Mexican matorral</label>
+        </item>
+        <item id="792">
+          <code>40302</code>
+          <label>Luzon tropical pine forests</label>
+        </item>
+        <item id="793">
+          <code>31002</code>
+          <label>Angolan scarp savanna and woodlands</label>
+        </item>
+        <item id="794">
+          <code>30902</code>
+          <label>Etosha Pan halophytics</label>
+        </item>
+        <item id="795">
+          <code>11002</code>
+          <label>Central Range sub-alpine grasslands</label>
+        </item>
+        <item id="796">
+          <code>30102</code>
+          <label>Atlantic Equatorial coastal forests</label>
+        </item>
+        <item id="797">
+          <code>11302</code>
+          <label>Central Ranges xeric scrub</label>
+        </item>
+        <item id="798">
+          <code>10702</code>
+          <label>Brigalow tropical savanna</label>
+        </item>
+        <item id="799">
+          <code>31202</code>
+          <label>Lowland fynbos and renosterveld</label>
+        </item>
+        <item id="800">
+          <code>11202</code>
+          <label>Esperance mallee</label>
+        </item>
+        <item id="801">
+          <code>21102</code>
+          <label>Maudlandia Antarctic desert</label>
+        </item>
+        <item id="802">
+          <code>30702</code>
+          <label>Angolan Mopane woodlands</label>
+        </item>
+        <item id="803">
+          <code>10402</code>
+          <label>Eastern Australian temperate forests</label>
+        </item>
+        <item id="804">
+          <code>10802</code>
+          <label>Eastern Australia mulga shrublands</label>
+        </item>
+        <item id="805">
+          <code>30802</code>
+          <label>Amsterdam and Saint-Paul Islands temperate grasslands</label>
+        </item>
+        <item id="806">
+          <code>61403</code>
+          <label>Mesoamerican Gulf-Caribbean mangroves</label>
+        </item>
+        <item id="807">
+          <code>60303</code>
+          <label>Central American pine-oak forests</label>
+        </item>
+        <item id="808">
+          <code>60903</code>
+          <label>Enriquillo wetlands</label>
+        </item>
+        <item id="809">
+          <code>81103</code>
+          <label>Cherskii-Kolyma mountain tundra</label>
+        </item>
+        <item id="810">
+          <code>61303</code>
+          <label>Atacama desert</label>
+        </item>
+        <item id="811">
+          <code>60703</code>
+          <label>Campos Rupestres montane savanna</label>
+        </item>
+        <item id="812">
+          <code>51103</code>
+          <label>Arctic coastal tundra</label>
+        </item>
+        <item id="813">
+          <code>61003</code>
+          <label>Central Andean wet puna</label>
+        </item>
+        <item id="814">
+          <code>80403</code>
+          <label>Azores temperate mixed forests</label>
+        </item>
+        <item id="815">
+          <code>41403</code>
+          <label>Indus River Delta-Arabian Sea mangroves</label>
+        </item>
+        <item id="816">
+          <code>50603</code>
+          <label>Cook Inlet taiga</label>
+        </item>
+        <item id="817">
+          <code>80603</code>
+          <label>Kamchatka-Kurile meadows and sparse forests</label>
+        </item>
+        <item id="818">
+          <code>60103</code>
+          <label>Bahia coastal forests</label>
+        </item>
+        <item id="819">
+          <code>60403</code>
+          <label>San Félix-San Ambrosio Islands temperate forests</label>
+        </item>
+        <item id="820">
+          <code>60803</code>
+          <label>Humid Pampas</label>
+        </item>
+        <item id="821">
+          <code>50303</code>
+          <label>Sierra Madre Oriental pine-oak forests</label>
+        </item>
+        <item id="822">
+          <code>40403</code>
+          <label>Western Himalayan broadleaf forests</label>
+        </item>
+        <item id="823">
+          <code>81003</code>
+          <label>Eastern Himalayan alpine shrub and meadows</label>
+        </item>
+        <item id="824">
+          <code>40303</code>
+          <label>Northeast India-Myanmar pine forests</label>
+        </item>
+        <item id="825">
+          <code>41303</code>
+          <label>Northwestern thorn scrub forests</label>
+        </item>
+        <item id="826">
+          <code>70703</code>
+          <label>Northwestern Hawaii scrub</label>
+        </item>
+        <item id="827">
+          <code>31303</code>
+          <label>East Saharan montane xeric woodlands</label>
+        </item>
+        <item id="828">
+          <code>80803</code>
+          <label>Central Anatolian steppe</label>
+        </item>
+        <item id="829">
+          <code>50403</code>
+          <label>Appalachian-Blue Ridge forests</label>
+        </item>
+        <item id="830">
+          <code>51303</code>
+          <label>Chihuahuan desert</label>
+        </item>
+        <item id="831">
+          <code>10703</code>
+          <label>Cape York Peninsula tropical savanna</label>
+        </item>
+        <item id="832">
+          <code>80503</code>
+          <label>Caledon conifer forests</label>
+        </item>
+        <item id="833">
+          <code>80903</code>
+          <label>Nenjiang River grassland</label>
+        </item>
+        <item id="834">
+          <code>31403</code>
+          <label>Guinean mangroves</label>
+        </item>
+        <item id="835">
+          <code>30103</code>
+          <label>Cameroonian Highlands forests</label>
+        </item>
+        <item id="836">
+          <code>81203</code>
+          <label>Canary Islands dry woodlands and forests</label>
+        </item>
+        <item id="837">
+          <code>51203</code>
+          <label>California montane chaparral and woodlands</label>
+        </item>
+        <item id="838">
+          <code>50503</code>
+          <label>Arizona Mountains forests</label>
+        </item>
+        <item id="839">
+          <code>70203</code>
+          <label>Marianas tropical dry forests</label>
+        </item>
+        <item id="840">
+          <code>50803</code>
+          <label>Central and Southern mixed grasslands</label>
+        </item>
+        <item id="841">
+          <code>81303</code>
+          <label>Arabian Desert and East Sahero-Arabian xeric shrublands</label>
+        </item>
+        <item id="842">
+          <code>30903</code>
+          <label>Inner Niger Delta flooded savanna</label>
+        </item>
+        <item id="843">
+          <code>40203</code>
+          <label>Chhota-Nagpur dry deciduous forests</label>
+        </item>
+        <item id="844">
+          <code>30203</code>
+          <label>Zambezian Cryptosepalum dry forests</label>
+        </item>
+        <item id="845">
+          <code>40103</code>
+          <label>Borneo montane rain forests</label>
+        </item>
+        <item id="846">
+          <code>11003</code>
+          <label>South Island montane grasslands</label>
+        </item>
+        <item id="847">
+          <code>70103</code>
+          <label>Cook Islands tropical moist forests</label>
+        </item>
+        <item id="848">
+          <code>10403</code>
+          <label>Fiordland temperate forests</label>
+        </item>
+        <item id="849">
+          <code>31203</code>
+          <label>Montane fynbos and renosterveld</label>
+        </item>
+        <item id="850">
+          <code>10103</code>
+          <label>Biak-Numfoor rain forests</label>
+        </item>
+        <item id="851">
+          <code>30703</code>
+          <label>Ascension scrub and grasslands</label>
+        </item>
+        <item id="852">
+          <code>10203</code>
+          <label>Sumba deciduous forests</label>
+        </item>
+        <item id="853">
+          <code>21103</code>
+          <label>Scotia Sea Islands tundra</label>
+        </item>
+        <item id="854">
+          <code>31003</code>
+          <label>Drakensberg alti-montane grasslands and woodlands</label>
+        </item>
+        <item id="855">
+          <code>11303</code>
+          <label>Gibson desert</label>
+        </item>
+        <item id="856">
+          <code>10803</code>
+          <label>Southeast Australia temperate savanna</label>
+        </item>
+        <item id="857">
+          <code>11203</code>
+          <label>Eyre and York mallee</label>
+        </item>
+        <item id="858">
+          <code>30803</code>
+          <label>Tristan Da Cunha-Gough Islands shrub and grasslands</label>
+        </item>
+        <item id="859">
+          <code>61404</code>
+          <label>Northern Mesoamerican Pacific mangroves</label>
+        </item>
+        <item id="860">
+          <code>60904</code>
+          <label>Everglades</label>
+        </item>
+        <item id="861">
+          <code>60404</code>
+          <label>Valdivian temperate forests</label>
+        </item>
+        <item id="862">
+          <code>60304</code>
+          <label>Cuban pine forests</label>
+        </item>
+        <item id="863">
+          <code>60104</code>
+          <label>Bahia interior forests</label>
+        </item>
+        <item id="864">
+          <code>60704</code>
+          <label>Cerrado</label>
+        </item>
+        <item id="865">
+          <code>81104</code>
+          <label>Chukchi Peninsula tundra</label>
+        </item>
+        <item id="866">
+          <code>70104</code>
+          <label>Eastern Micronesia tropical moist forests</label>
+        </item>
+        <item id="867">
+          <code>61004</code>
+          <label>Cordillera Central páramo</label>
+        </item>
+        <item id="868">
+          <code>60204</code>
+          <label>Bajío dry forests</label>
+        </item>
+        <item id="869">
+          <code>61304</code>
+          <label>Caatinga</label>
+        </item>
+        <item id="870">
+          <code>51104</code>
+          <label>Arctic foothills tundra</label>
+        </item>
+        <item id="871">
+          <code>31404</code>
+          <label>Madagascar mangroves</label>
+        </item>
+        <item id="872">
+          <code>41404</code>
+          <label>Myanmar Coast mangroves</label>
+        </item>
+        <item id="873">
+          <code>30904</code>
+          <label>Lake Chad flooded savanna</label>
+        </item>
+        <item id="874">
+          <code>81204</code>
+          <label>Corsican montane broadleaf and mixed forests</label>
+        </item>
+        <item id="875">
+          <code>50504</code>
+          <label>Atlantic coastal pine barrens</label>
+        </item>
+        <item id="876">
+          <code>80504</code>
+          <label>Carpathian montane forests</label>
+        </item>
+        <item id="877">
+          <code>10204</code>
+          <label>Timor and Wetar deciduous forests</label>
+        </item>
+        <item id="878">
+          <code>70204</code>
+          <label>Yap tropical dry forests</label>
+        </item>
+        <item id="879">
+          <code>50604</code>
+          <label>Copper Plateau taiga</label>
+        </item>
+        <item id="880">
+          <code>81004</code>
+          <label>Ghorat-Hazarajat alpine meadow</label>
+        </item>
+        <item id="881">
+          <code>80604</code>
+          <label>Kamchatka-Kurile taiga</label>
+        </item>
+        <item id="882">
+          <code>40104</code>
+          <label>Borneo peat swamp forests</label>
+        </item>
+        <item id="883">
+          <code>30704</code>
+          <label>Central Zambezian Miombo woodlands</label>
+        </item>
+        <item id="884">
+          <code>80804</code>
+          <label>Daurian forest steppe</label>
+        </item>
+        <item id="885">
+          <code>81304</code>
+          <label>Atlantic coastal desert</label>
+        </item>
+        <item id="886">
+          <code>40304</code>
+          <label>Sumatran tropical pine forests</label>
+        </item>
+        <item id="887">
+          <code>80404</code>
+          <label>Balkan mixed forests</label>
+        </item>
+        <item id="888">
+          <code>50804</code>
+          <label>Central forest-grasslands transition</label>
+        </item>
+        <item id="889">
+          <code>51304</code>
+          <label>Colorado Plateau shrublands</label>
+        </item>
+        <item id="890">
+          <code>50404</code>
+          <label>Central U.S. hardwood forests</label>
+        </item>
+        <item id="891">
+          <code>80904</code>
+          <label>Nile Delta flooded savanna</label>
+        </item>
+        <item id="892">
+          <code>41304</code>
+          <label>Thar desert</label>
+        </item>
+        <item id="893">
+          <code>40204</code>
+          <label>East Deccan dry-evergreen forests</label>
+        </item>
+        <item id="894">
+          <code>31304</code>
+          <label>Eritrean coastal desert</label>
+        </item>
+        <item id="895">
+          <code>10704</code>
+          <label>Carpentaria tropical savanna</label>
+        </item>
+        <item id="896">
+          <code>21104</code>
+          <label>Southern Indian Ocean Islands tundra</label>
+        </item>
+        <item id="897">
+          <code>10104</code>
+          <label>Buru rain forests</label>
+        </item>
+        <item id="898">
+          <code>30104</code>
+          <label>Central Congolian lowland forests</label>
+        </item>
+        <item id="899">
+          <code>31004</code>
+          <label>Drakensberg montane grasslands; woodlands and forests</label>
+        </item>
+        <item id="900">
+          <code>11304</code>
+          <label>Great Sandy-Tanami desert</label>
+        </item>
+        <item id="901">
+          <code>11204</code>
+          <label>Jarrah-Karri forest and shrublands</label>
+        </item>
+        <item id="902">
+          <code>10404</code>
+          <label>Nelson Coast temperate forests</label>
+        </item>
+        <item id="903">
+          <code>61305</code>
+          <label>Caribbean shrublands</label>
+        </item>
+        <item id="904">
+          <code>61405</code>
+          <label>South American Pacific mangroves</label>
+        </item>
+        <item id="905">
+          <code>60205</code>
+          <label>Balsas dry forests</label>
+        </item>
+        <item id="906">
+          <code>61005</code>
+          <label>Cordillera de Merida páramo</label>
+        </item>
+        <item id="907">
+          <code>60805</code>
+          <label>Patagonian steppe</label>
+        </item>
+        <item id="908">
+          <code>50605</code>
+          <label>Eastern Canadian forests</label>
+        </item>
+        <item id="909">
+          <code>31305</code>
+          <label>Ethiopian xeric grasslands and shrublands</label>
+        </item>
+        <item id="910">
+          <code>51105</code>
+          <label>Baffin coastal tundra</label>
+        </item>
+        <item id="911">
+          <code>60305</code>
+          <label>Hispaniolan pine forests</label>
+        </item>
+        <item id="912">
+          <code>60905</code>
+          <label>Guayaquil flooded grasslands</label>
+        </item>
+        <item id="913">
+          <code>30905</code>
+          <label>Saharan flooded grasslands</label>
+        </item>
+        <item id="914">
+          <code>60105</code>
+          <label>Bolivian Yungas</label>
+        </item>
+        <item id="915">
+          <code>81105</code>
+          <label>Kamchatka Mountain tundra and forest tundra</label>
+        </item>
+        <item id="916">
+          <code>80505</code>
+          <label>Da Hinggan-Dzhagdy Mountains conifer forests</label>
+        </item>
+        <item id="917">
+          <code>30105</code>
+          <label>Comoros forests</label>
+        </item>
+        <item id="918">
+          <code>70105</code>
+          <label>Fiji tropical moist forests</label>
+        </item>
+        <item id="919">
+          <code>80405</code>
+          <label>Baltic mixed forests</label>
+        </item>
+        <item id="920">
+          <code>80605</code>
+          <label>Northeast Siberian taiga</label>
+        </item>
+        <item id="921">
+          <code>50405</code>
+          <label>East Central Texas forests</label>
+        </item>
+        <item id="922">
+          <code>80905</code>
+          <label>Saharan halophytics</label>
+        </item>
+        <item id="923">
+          <code>50505</code>
+          <label>Blue Mountains forests</label>
+        </item>
+        <item id="924">
+          <code>50805</code>
+          <label>Central tall grasslands</label>
+        </item>
+        <item id="925">
+          <code>80805</code>
+          <label>Eastern Anatolian montane steppe</label>
+        </item>
+        <item id="926">
+          <code>81005</code>
+          <label>Hindu Kush alpine meadow</label>
+        </item>
+        <item id="927">
+          <code>41405</code>
+          <label>Sunda Shelf mangroves</label>
+        </item>
+        <item id="928">
+          <code>81205</code>
+          <label>Crete Mediterranean forests</label>
+        </item>
+        <item id="929">
+          <code>51305</code>
+          <label>Great Basin shrub steppe</label>
+        </item>
+        <item id="930">
+          <code>81305</code>
+          <label>Azerbaijan shrub desert and steppe</label>
+        </item>
+        <item id="931">
+          <code>30705</code>
+          <label>East Sudanian savanna</label>
+        </item>
+        <item id="932">
+          <code>40205</code>
+          <label>Irrawaddy dry forests</label>
+        </item>
+        <item id="933">
+          <code>40105</code>
+          <label>Brahmaputra Valley semi-evergreen forests</label>
+        </item>
+        <item id="934">
+          <code>10405</code>
+          <label>North Island temperate forests</label>
+        </item>
+        <item id="935">
+          <code>60705</code>
+          <label>Clipperton Island shrub and grasslands</label>
+        </item>
+        <item id="936">
+          <code>31405</code>
+          <label>Southern Africa mangroves</label>
+        </item>
+        <item id="937">
+          <code>31005</code>
+          <label>East African montane moorlands</label>
+        </item>
+        <item id="938">
+          <code>10105</code>
+          <label>Central Range montane rain forests</label>
+        </item>
+        <item id="939">
+          <code>10705</code>
+          <label>Einasleigh upland savanna</label>
+        </item>
+        <item id="940">
+          <code>11305</code>
+          <label>Great Victoria desert</label>
+        </item>
+        <item id="941">
+          <code>11205</code>
+          <label>Swan Coastal Plain Scrub and Woodlands</label>
+        </item>
+        <item id="942">
+          <code>61006</code>
+          <label>Northern Andean páramo</label>
+        </item>
+        <item id="943">
+          <code>61306</code>
+          <label>Cuban cactus scrub</label>
+        </item>
+        <item id="944">
+          <code>60306</code>
+          <label>Miskito pine forests</label>
+        </item>
+        <item id="945">
+          <code>60906</code>
+          <label>Orinoco wetlands</label>
+        </item>
+        <item id="946">
+          <code>50506</code>
+          <label>British Columbia mainland coastal forests</label>
+        </item>
+        <item id="947">
+          <code>50606</code>
+          <label>Eastern Canadian Shield taiga</label>
+        </item>
+        <item id="948">
+          <code>61406</code>
+          <label>Southern Atlantic mangroves</label>
+        </item>
+        <item id="949">
+          <code>60206</code>
+          <label>Bolivian montane dry forests</label>
+        </item>
+        <item id="950">
+          <code>51106</code>
+          <label>Beringia lowland tundra</label>
+        </item>
+        <item id="951">
+          <code>60106</code>
+          <label>Caatinga Enclaves moist forests</label>
+        </item>
+        <item id="952">
+          <code>80406</code>
+          <label>Cantabrian mixed forests</label>
+        </item>
+        <item id="953">
+          <code>81106</code>
+          <label>Kola Peninsula tundra</label>
+        </item>
+        <item id="954">
+          <code>81006</code>
+          <label>Karakoram-West Tibetan Plateau alpine steppe</label>
+        </item>
+        <item id="955">
+          <code>41406</code>
+          <label>Sundarbans mangroves</label>
+        </item>
+        <item id="956">
+          <code>50406</code>
+          <label>Eastern forest-boreal transition</label>
+        </item>
+        <item id="957">
+          <code>50806</code>
+          <label>Edwards Plateau savanna</label>
+        </item>
+        <item id="958">
+          <code>40106</code>
+          <label>Cardamom Mountains rain forests</label>
+        </item>
+        <item id="959">
+          <code>80606</code>
+          <label>Okhotsk-Manchurian taiga</label>
+        </item>
+        <item id="960">
+          <code>51306</code>
+          <label>Gulf of California xeric scrub</label>
+        </item>
+        <item id="961">
+          <code>81206</code>
+          <label>Cyprus Mediterranean forests</label>
+        </item>
+        <item id="962">
+          <code>10106</code>
+          <label>Halmahera rain forests</label>
+        </item>
+        <item id="963">
+          <code>80506</code>
+          <label>East Afghan montane conifer forests</label>
+        </item>
+        <item id="964">
+          <code>80806</code>
+          <label>Emin Valley steppe</label>
+        </item>
+        <item id="965">
+          <code>70106</code>
+          <label>Hawaii tropical moist forests</label>
+        </item>
+        <item id="966">
+          <code>81306</code>
+          <label>Badghyz and Karabil semi-desert</label>
+        </item>
+        <item id="967">
+          <code>80906</code>
+          <label>Tigris-Euphrates alluvial salt marsh</label>
+        </item>
+        <item id="968">
+          <code>40206</code>
+          <label>Khathiar-Gir dry deciduous forests</label>
+        </item>
+        <item id="969">
+          <code>31306</code>
+          <label>Gulf of Oman desert and semi-desert</label>
+        </item>
+        <item id="970">
+          <code>31006</code>
+          <label>Eastern Zimbabwe montane forest-grassland mosaic</label>
+        </item>
+        <item id="971">
+          <code>30106</code>
+          <label>Cross-Niger transition forests</label>
+        </item>
+        <item id="972">
+          <code>10706</code>
+          <label>Kimberly tropical savanna</label>
+        </item>
+        <item id="973">
+          <code>30906</code>
+          <label>Zambezian coastal flooded savanna</label>
+        </item>
+        <item id="974">
+          <code>11206</code>
+          <label>Mount Lofty woodlands</label>
+        </item>
+        <item id="975">
+          <code>30706</code>
+          <label>Eastern Miombo woodlands</label>
+        </item>
+        <item id="976">
+          <code>11306</code>
+          <label>Nullarbor Plains xeric shrublands</label>
+        </item>
+        <item id="977">
+          <code>10406</code>
+          <label>Northland temperate kauri forests</label>
+        </item>
+        <item id="978">
+          <code>61407</code>
+          <label>Southern Mesoamerican Pacific mangroves</label>
+        </item>
+        <item id="979">
+          <code>60707</code>
+          <label>Guianan savanna</label>
+        </item>
+        <item id="980">
+          <code>60307</code>
+          <label>Sierra de la Laguna pine-oak forests</label>
+        </item>
+        <item id="981">
+          <code>60107</code>
+          <label>Caqueta moist forests</label>
+        </item>
+        <item id="982">
+          <code>61307</code>
+          <label>Galápagos Islands scrubland mosaic</label>
+        </item>
+        <item id="983">
+          <code>60907</code>
+          <label>Pantanal</label>
+        </item>
+        <item id="984">
+          <code>81007</code>
+          <label>Khangai Mountains alpine meadow</label>
+        </item>
+        <item id="985">
+          <code>51107</code>
+          <label>Beringia upland tundra</label>
+        </item>
+        <item id="986">
+          <code>61007</code>
+          <label>Santa Marta páramo</label>
+        </item>
+        <item id="987">
+          <code>81107</code>
+          <label>Northeast Siberian coastal tundra</label>
+        </item>
+        <item id="988">
+          <code>60207</code>
+          <label>Cauca Valley dry forests</label>
+        </item>
+        <item id="989">
+          <code>81207</code>
+          <label>Eastern Mediterranean conifer-sclerophyllous-broadleaf forests</label>
+        </item>
+        <item id="990">
+          <code>30707</code>
+          <label>Guinean forest-savanna mosaic</label>
+        </item>
+        <item id="991">
+          <code>31007</code>
+          <label>Ethiopian montane grasslands and woodlands</label>
+        </item>
+        <item id="992">
+          <code>80407</code>
+          <label>Caspian Hyrcanian mixed forests</label>
+        </item>
+        <item id="993">
+          <code>50407</code>
+          <label>Eastern Great Lakes lowland forests</label>
+        </item>
+        <item id="994">
+          <code>80507</code>
+          <label>Elburz Range forest steppe</label>
+        </item>
+        <item id="995">
+          <code>50607</code>
+          <label>Interior Alaska-Yukon lowland taiga</label>
+        </item>
+        <item id="996">
+          <code>80907</code>
+          <label>Suiphun-Khanka meadows and forest meadows</label>
+        </item>
+        <item id="997">
+          <code>30907</code>
+          <label>Zambezian flooded grasslands</label>
+        </item>
+        <item id="998">
+          <code>80807</code>
+          <label>Faroe Islands boreal grasslands</label>
+        </item>
+        <item id="999">
+          <code>80607</code>
+          <label>Sakhalin Island taiga</label>
+        </item>
+        <item id="1000">
+          <code>81307</code>
+          <label>Baluchistan xeric woodlands</label>
+        </item>
+        <item id="1001">
+          <code>50507</code>
+          <label>Cascade Mountains leeward forests</label>
+        </item>
+        <item id="1002">
+          <code>50807</code>
+          <label>Flint Hills tall grasslands</label>
+        </item>
+        <item id="1003">
+          <code>11307</code>
+          <label>Pilbara shrublands</label>
+        </item>
+        <item id="1004">
+          <code>40107</code>
+          <label>Chao Phraya freshwater swamp forests</label>
+        </item>
+        <item id="1005">
+          <code>51307</code>
+          <label>Meseta Central matorral</label>
+        </item>
+        <item id="1006">
+          <code>40207</code>
+          <label>Narmada Valley dry deciduous forests</label>
+        </item>
+        <item id="1007">
+          <code>30107</code>
+          <label>Cross-Sanaga-Bioko coastal forests</label>
+        </item>
+        <item id="1008">
+          <code>31307</code>
+          <label>Hobyo grasslands and shrublands</label>
+        </item>
+        <item id="1009">
+          <code>10407</code>
+          <label>Rakiura Island temperate forests</label>
+        </item>
+        <item id="1010">
+          <code>10107</code>
+          <label>Huon Peninsula montane rain forests</label>
+        </item>
+        <item id="1011">
+          <code>10707</code>
+          <label>Mitchell grass downs</label>
+        </item>
+        <item id="1012">
+          <code>11207</code>
+          <label>Murray-Darling woodlands and mallee</label>
+        </item>
+        <item id="1013">
+          <code>70107</code>
+          <label>Kermadec Islands subtropical moist forests</label>
+        </item>
+        <item id="1014">
+          <code>60308</code>
+          <label>Sierra Madre de Oaxaca pine-oak forests</label>
+        </item>
+        <item id="1015">
+          <code>61308</code>
+          <label>Guajira-Barranquilla xeric scrub</label>
+        </item>
+        <item id="1016">
+          <code>80608</code>
+          <label>Scandinavian and Russian taiga</label>
+        </item>
+        <item id="1017">
+          <code>60108</code>
+          <label>Catatumbo moist forests</label>
+        </item>
+        <item id="1018">
+          <code>31008</code>
+          <label>Ethiopian montane moorlands</label>
+        </item>
+        <item id="1019">
+          <code>80808</code>
+          <label>Gissaro-Alai open woodlands</label>
+        </item>
+        <item id="1020">
+          <code>50508</code>
+          <label>Central and Southern Cascades forests</label>
+        </item>
+        <item id="1021">
+          <code>81108</code>
+          <label>Northwest Russian-Novaya Zemlya tundra</label>
+        </item>
+        <item id="1022">
+          <code>60708</code>
+          <label>Humid Chaco</label>
+        </item>
+        <item id="1023">
+          <code>61008</code>
+          <label>Southern Andean steppe</label>
+        </item>
+        <item id="1024">
+          <code>60908</code>
+          <label>Paraná flooded savanna</label>
+        </item>
+        <item id="1025">
+          <code>81008</code>
+          <label>Kopet Dag woodlands and forest steppe</label>
+        </item>
+        <item id="1026">
+          <code>50608</code>
+          <label>Mid-Continental Canadian forests</label>
+        </item>
+        <item id="1027">
+          <code>81308</code>
+          <label>Caspian lowland desert</label>
+        </item>
+        <item id="1028">
+          <code>81208</code>
+          <label>Iberian conifer forests</label>
+        </item>
+        <item id="1029">
+          <code>51108</code>
+          <label>Brooks-British Range tundra</label>
+        </item>
+        <item id="1030">
+          <code>50408</code>
+          <label>Gulf of St. Lawrence lowland forests</label>
+        </item>
+        <item id="1031">
+          <code>30708</code>
+          <label>Itigi-Sumbu thicket</label>
+        </item>
+        <item id="1032">
+          <code>30108</code>
+          <label>East African montane forests</label>
+        </item>
+        <item id="1033">
+          <code>10108</code>
+          <label>Yapen rain forests</label>
+        </item>
+        <item id="1034">
+          <code>50808</code>
+          <label>Montana Valley and Foothill grasslands</label>
+        </item>
+        <item id="1035">
+          <code>80408</code>
+          <label>Caucasus mixed forests</label>
+        </item>
+        <item id="1036">
+          <code>80508</code>
+          <label>Helanshan montane conifer forests</label>
+        </item>
+        <item id="1037">
+          <code>51308</code>
+          <label>Mojave desert</label>
+        </item>
+        <item id="1038">
+          <code>80908</code>
+          <label>Yellow Sea saline meadow</label>
+        </item>
+        <item id="1039">
+          <code>40108</code>
+          <label>Chao Phraya lowland moist deciduous forests</label>
+        </item>
+        <item id="1040">
+          <code>40208</code>
+          <label>Northern dry deciduous forests</label>
+        </item>
+        <item id="1041">
+          <code>70108</code>
+          <label>Marquesas tropical moist forests</label>
+        </item>
+        <item id="1042">
+          <code>31308</code>
+          <label>Ile Europa and Bassas da India xeric scrub</label>
+        </item>
+        <item id="1043">
+          <code>30908</code>
+          <label>Zambezian halophytics</label>
+        </item>
+        <item id="1044">
+          <code>10708</code>
+          <label>Trans Fly savanna and grasslands</label>
+        </item>
+        <item id="1045">
+          <code>11308</code>
+          <label>Simpson desert</label>
+        </item>
+        <item id="1046">
+          <code>11208</code>
+          <label>Naracoorte woodlands</label>
+        </item>
+        <item id="1047">
+          <code>10408</code>
+          <label>Richmond temperate forests</label>
+        </item>
+        <item id="1048">
+          <code>60309</code>
+          <label>Sierra Madre del Sur pine-oak forests</label>
+        </item>
+        <item id="1049">
+          <code>60709</code>
+          <label>Llanos</label>
+        </item>
+        <item id="1050">
+          <code>60209</code>
+          <label>Central American dry forests</label>
+        </item>
+        <item id="1051">
+          <code>61309</code>
+          <label>La Costa xeric shrublands</label>
+        </item>
+        <item id="1052">
+          <code>80409</code>
+          <label>Celtic broadleaf forests</label>
+        </item>
+        <item id="1053">
+          <code>60109</code>
+          <label>Cauca Valley montane forests</label>
+        </item>
+        <item id="1054">
+          <code>51109</code>
+          <label>Davis Highlands tundra</label>
+        </item>
+        <item id="1055">
+          <code>60909</code>
+          <label>Southern Cone Mesopotamian savanna</label>
+        </item>
+        <item id="1056">
+          <code>70109</code>
+          <label>Ogasawara subtropical moist forests</label>
+        </item>
+        <item id="1057">
+          <code>40209</code>
+          <label>South Deccan Plateau dry deciduous forests</label>
+        </item>
+        <item id="1058">
+          <code>81109</code>
+          <label>Novosibirsk Islands arctic desert</label>
+        </item>
+        <item id="1059">
+          <code>80609</code>
+          <label>Trans-Baikal conifer forests</label>
+        </item>
+        <item id="1060">
+          <code>51309</code>
+          <label>Snake-Columbia shrub steppe</label>
+        </item>
+        <item id="1061">
+          <code>81309</code>
+          <label>Central Afghan Mountains xeric woodlands</label>
+        </item>
+        <item id="1062">
+          <code>50609</code>
+          <label>Midwestern Canadian Shield forests</label>
+        </item>
+        <item id="1063">
+          <code>50509</code>
+          <label>Central British Columbia Mountain forests</label>
+        </item>
+        <item id="1064">
+          <code>80809</code>
+          <label>Kazakh forest steppe</label>
+        </item>
+        <item id="1065">
+          <code>81009</code>
+          <label>Kuh Rud and Eastern Iran montane woodlands</label>
+        </item>
+        <item id="1066">
+          <code>50809</code>
+          <label>Nebraska Sand Hills mixed grasslands</label>
+        </item>
+        <item id="1067">
+          <code>81209</code>
+          <label>Iberian sclerophyllous and semi-deciduous forests</label>
+        </item>
+        <item id="1068">
+          <code>50409</code>
+          <label>Mississippi lowland forests</label>
+        </item>
+        <item id="1069">
+          <code>80509</code>
+          <label>Hengduan Mountains subalpine conifer forests</label>
+        </item>
+        <item id="1070">
+          <code>40109</code>
+          <label>Chin Hills-Arakan Yoma montane forests</label>
+        </item>
+        <item id="1071">
+          <code>11309</code>
+          <label>Tirari-Sturt stony desert</label>
+        </item>
+        <item id="1072">
+          <code>30109</code>
+          <label>Eastern Arc forests</label>
+        </item>
+        <item id="1073">
+          <code>30709</code>
+          <label>Kalahari Acacia-Baikiaea woodlands</label>
+        </item>
+        <item id="1074">
+          <code>10709</code>
+          <label>Victoria Plains tropical savanna</label>
+        </item>
+        <item id="1075">
+          <code>10109</code>
+          <label>Lord Howe Island subtropical forests</label>
+        </item>
+        <item id="1076">
+          <code>31309</code>
+          <label>Kalahari xeric savanna</label>
+        </item>
+        <item id="1077">
+          <code>31009</code>
+          <label>Highveld grasslands</label>
+        </item>
+        <item id="1078">
+          <code>11209</code>
+          <label>Southwest Australia savanna</label>
+        </item>
+        <item id="1079">
+          <code>10409</code>
+          <label>Southeast Australia temperate forests</label>
+        </item>
+        <item id="1080">
+          <code>60310</code>
+          <label>Trans-Mexican Volcanic Belt pine-oak forests</label>
+        </item>
+        <item id="1081">
+          <code>60110</code>
+          <label>Cayos Miskitos-San Andrés and Providencia moist forests</label>
+        </item>
+        <item id="1082">
+          <code>51110</code>
+          <label>High Arctic tundra</label>
+        </item>
+        <item id="1083">
+          <code>81110</code>
+          <label>Scandinavian Montane Birch forest and grasslands</label>
+        </item>
+        <item id="1084">
+          <code>80510</code>
+          <label>Hokkaido montane conifer forests</label>
+        </item>
+        <item id="1085">
+          <code>60210</code>
+          <label>Dry Chaco</label>
+        </item>
+        <item id="1086">
+          <code>61010</code>
+          <label>High Monte</label>
+        </item>
+        <item id="1087">
+          <code>60710</code>
+          <label>Uruguayan savanna</label>
+        </item>
+        <item id="1088">
+          <code>50510</code>
+          <label>Central Pacific coastal forests</label>
+        </item>
+        <item id="1089">
+          <code>50410</code>
+          <label>New England-Acadian forests</label>
+        </item>
+        <item id="1090">
+          <code>81010</code>
+          <label>Mediterranean High Atlas juniper steppe</label>
+        </item>
+        <item id="1091">
+          <code>80610</code>
+          <label>Ural montane forests and tundra</label>
+        </item>
+        <item id="1092">
+          <code>50610</code>
+          <label>Muskwa-Slave Lake forests</label>
+        </item>
+        <item id="1093">
+          <code>10110</code>
+          <label>Louisiade Archipelago rain forests</label>
+        </item>
+        <item id="1094">
+          <code>81310</code>
+          <label>Central Asian northern desert</label>
+        </item>
+        <item id="1095">
+          <code>50810</code>
+          <label>Northern mixed grasslands</label>
+        </item>
+        <item id="1096">
+          <code>31010</code>
+          <label>Jos Plateau forest-grassland mosaic</label>
+        </item>
+        <item id="1097">
+          <code>80810</code>
+          <label>Kazakh steppe</label>
+        </item>
+        <item id="1098">
+          <code>51310</code>
+          <label>Sonoran desert</label>
+        </item>
+        <item id="1099">
+          <code>81210</code>
+          <label>Illyrian deciduous forests</label>
+        </item>
+        <item id="1100">
+          <code>80410</code>
+          <label>Central Anatolian steppe and woodlands</label>
+        </item>
+        <item id="1101">
+          <code>70110</code>
+          <label>Palau tropical moist forests</label>
+        </item>
+        <item id="1102">
+          <code>40210</code>
+          <label>Southeastern Indochina dry evergreen forests</label>
+        </item>
+        <item id="1103">
+          <code>30710</code>
+          <label>Mandara Plateau mosaic</label>
+        </item>
+        <item id="1104">
+          <code>40110</code>
+          <label>Christmas and Cocos Islands tropical forests</label>
+        </item>
+        <item id="1105">
+          <code>10410</code>
+          <label>South Island temperate forests</label>
+        </item>
+        <item id="1106">
+          <code>30110</code>
+          <label>Eastern Congolian swamp forests</label>
+        </item>
+        <item id="1107">
+          <code>11310</code>
+          <label>Western Australian Mulga shrublands</label>
+        </item>
+        <item id="1108">
+          <code>31310</code>
+          <label>Kaokoveld desert</label>
+        </item>
+        <item id="1109">
+          <code>11210</code>
+          <label>Southwest Australia woodlands</label>
+        </item>
+        <item id="1110">
+          <code>80811</code>
+          <label>Kazakh upland</label>
+        </item>
+        <item id="1111">
+          <code>60111</code>
+          <label>Central American Atlantic moist forests</label>
+        </item>
+        <item id="1112">
+          <code>81111</code>
+          <label>Taimyr-Central Siberian tundra</label>
+        </item>
+        <item id="1113">
+          <code>51111</code>
+          <label>Interior Yukon-Alaska alpine tundra</label>
+        </item>
+        <item id="1114">
+          <code>50611</code>
+          <label>Newfoundland Highland forests</label>
+        </item>
+        <item id="1115">
+          <code>30111</code>
+          <label>Eastern Guinean forests</label>
+        </item>
+        <item id="1116">
+          <code>60211</code>
+          <label>Chiapas Depression dry forests</label>
+        </item>
+        <item id="1117">
+          <code>50411</code>
+          <label>Northeastern coastal forests</label>
+        </item>
+        <item id="1118">
+          <code>61311</code>
+          <label>Malpelo Island xeric scrub</label>
+        </item>
+        <item id="1119">
+          <code>80511</code>
+          <label>Honshu alpine conifer forests</label>
+        </item>
+        <item id="1120">
+          <code>80411</code>
+          <label>Central China loess plateau mixed forests</label>
+        </item>
+        <item id="1121">
+          <code>80611</code>
+          <label>West Siberian taiga</label>
+        </item>
+        <item id="1122">
+          <code>81311</code>
+          <label>Central Asian riparian woodlands</label>
+        </item>
+        <item id="1123">
+          <code>40211</code>
+          <label>Southern Vietnam lowland dry forests</label>
+        </item>
+        <item id="1124">
+          <code>10111</code>
+          <label>New Britain-New Ireland lowland rain forests</label>
+        </item>
+        <item id="1125">
+          <code>51311</code>
+          <label>Tamaulipan matorral</label>
+        </item>
+        <item id="1126">
+          <code>50811</code>
+          <label>Northern short grasslands</label>
+        </item>
+        <item id="1127">
+          <code>81211</code>
+          <label>Italian sclerophyllous and semi-deciduous forests</label>
+        </item>
+        <item id="1128">
+          <code>50511</code>
+          <label>Colorado Rockies forests</label>
+        </item>
+        <item id="1129">
+          <code>81011</code>
+          <label>North Tibetan Plateau-Kunlun Mountains alpine desert</label>
+        </item>
+        <item id="1130">
+          <code>40111</code>
+          <label>Eastern highlands moist deciduous forests</label>
+        </item>
+        <item id="1131">
+          <code>30711</code>
+          <label>Northern Acacia-Commiphora bushlands and thickets</label>
+        </item>
+        <item id="1132">
+          <code>31311</code>
+          <label>Madagascar spiny thickets</label>
+        </item>
+        <item id="1133">
+          <code>31011</code>
+          <label>Madagascar ericoid thickets</label>
+        </item>
+        <item id="1134">
+          <code>70111</code>
+          <label>Rapa Nui subtropical broadleaf forests</label>
+        </item>
+        <item id="1135">
+          <code>10411</code>
+          <label>Tasmanian Central Highland forests</label>
+        </item>
+        <item id="1136">
+          <code>60112</code>
+          <label>Central American montane forests</label>
+        </item>
+        <item id="1137">
+          <code>80512</code>
+          <label>Khangai Mountains conifer forests</label>
+        </item>
+        <item id="1138">
+          <code>30112</code>
+          <label>Ethiopian montane forests</label>
+        </item>
+        <item id="1139">
+          <code>51112</code>
+          <label>Kalaallit Nunaat high arctic tundra</label>
+        </item>
+        <item id="1140">
+          <code>61312</code>
+          <label>Motagua Valley thornscrub</label>
+        </item>
+        <item id="1141">
+          <code>80812</code>
+          <label>Middle East steppe</label>
+        </item>
+        <item id="1142">
+          <code>81112</code>
+          <label>Trans-Baikal Bald Mountain tundra</label>
+        </item>
+        <item id="1143">
+          <code>60212</code>
+          <label>Chiquitano dry forests</label>
+        </item>
+        <item id="1144">
+          <code>80412</code>
+          <label>Central European mixed forests</label>
+        </item>
+        <item id="1145">
+          <code>50612</code>
+          <label>Northern Canadian Shield taiga</label>
+        </item>
+        <item id="1146">
+          <code>81312</code>
+          <label>Central Asian southern desert</label>
+        </item>
+        <item id="1147">
+          <code>81012</code>
+          <label>Northwestern Himalayan alpine shrub and meadows</label>
+        </item>
+        <item id="1148">
+          <code>81212</code>
+          <label>Mediterranean acacia-argania dry woodlands and succulent thickets</label>
+        </item>
+        <item id="1149">
+          <code>50812</code>
+          <label>Northern tall grasslands</label>
+        </item>
+        <item id="1150">
+          <code>50512</code>
+          <label>Eastern Cascades forests</label>
+        </item>
+        <item id="1151">
+          <code>50412</code>
+          <label>Ozark Mountain forests</label>
+        </item>
+        <item id="1152">
+          <code>51312</code>
+          <label>Tamaulipan mezquital</label>
+        </item>
+        <item id="1153">
+          <code>40212</code>
+          <label>Sri Lanka dry-zone dry evergreen forests</label>
+        </item>
+        <item id="1154">
+          <code>30712</code>
+          <label>Northern Congolian forest-savanna mosaic</label>
+        </item>
+        <item id="1155">
+          <code>10112</code>
+          <label>New Britain-New Ireland montane rain forests</label>
+        </item>
+        <item id="1156">
+          <code>70112</code>
+          <label>Samoan tropical moist forests</label>
+        </item>
+        <item id="1157">
+          <code>31012</code>
+          <label>Maputaland-Pondoland bushland and thickets</label>
+        </item>
+        <item id="1158">
+          <code>40112</code>
+          <label>Eastern Java-Bali montane rain forests</label>
+        </item>
+        <item id="1159">
+          <code>10412</code>
+          <label>Tasmanian temperate forests</label>
+        </item>
+        <item id="1160">
+          <code>31312</code>
+          <label>Madagascar succulent woodlands</label>
+        </item>
+        <item id="1161">
+          <code>60113</code>
+          <label>Chiapas montane forests</label>
+        </item>
+        <item id="1162">
+          <code>60213</code>
+          <label>Cuban dry forests</label>
+        </item>
+        <item id="1163">
+          <code>51113</code>
+          <label>Kalaallit Nunaat low arctic tundra</label>
+        </item>
+        <item id="1164">
+          <code>61313</code>
+          <label>Paraguana xeric scrub</label>
+        </item>
+        <item id="1165">
+          <code>81113</code>
+          <label>Wrangel Island arctic desert</label>
+        </item>
+        <item id="1166">
+          <code>80513</code>
+          <label>Mediterranean conifer and mixed forests</label>
+        </item>
+        <item id="1167">
+          <code>50513</code>
+          <label>Florida sand pine scrub</label>
+        </item>
+        <item id="1168">
+          <code>50613</code>
+          <label>Northern Cordillera forests</label>
+        </item>
+        <item id="1169">
+          <code>81213</code>
+          <label>Mediterranean dry woodlands and steppe</label>
+        </item>
+        <item id="1170">
+          <code>80813</code>
+          <label>Mongolian-Manchurian grassland</label>
+        </item>
+        <item id="1171">
+          <code>50813</code>
+          <label>Palouse grasslands</label>
+        </item>
+        <item id="1172">
+          <code>51313</code>
+          <label>Wyoming Basin shrub steppe</label>
+        </item>
+        <item id="1173">
+          <code>81013</code>
+          <label>Ordos Plateau steppe</label>
+        </item>
+        <item id="1174">
+          <code>80413</code>
+          <label>Central Korean deciduous forests</label>
+        </item>
+        <item id="1175">
+          <code>50413</code>
+          <label>Southeastern mixed forests</label>
+        </item>
+        <item id="1176">
+          <code>81313</code>
+          <label>Central Persian desert basins</label>
+        </item>
+        <item id="1177">
+          <code>30713</code>
+          <label>Sahelian Acacia savanna</label>
+        </item>
+        <item id="1178">
+          <code>31313</code>
+          <label>Masai xeric grasslands and shrublands</label>
+        </item>
+        <item id="1179">
+          <code>30113</code>
+          <label>Granitic Seychelles forests</label>
+        </item>
+        <item id="1180">
+          <code>70113</code>
+          <label>Society Islands tropical moist forests</label>
+        </item>
+        <item id="1181">
+          <code>10113</code>
+          <label>New Caledonia rain forests</label>
+        </item>
+        <item id="1182">
+          <code>40113</code>
+          <label>Eastern Java-Bali rain forests</label>
+        </item>
+        <item id="1183">
+          <code>31013</code>
+          <label>Rwenzori-Virunga montane moorlands</label>
+        </item>
+        <item id="1184">
+          <code>10413</code>
+          <label>Tasmanian temperate rain forests</label>
+        </item>
+        <item id="1185">
+          <code>61314</code>
+          <label>San Lucan xeric scrub</label>
+        </item>
+        <item id="1186">
+          <code>51114</code>
+          <label>Low Arctic tundra</label>
+        </item>
+        <item id="1187">
+          <code>60114</code>
+          <label>Chimalapas montane forests</label>
+        </item>
+        <item id="1188">
+          <code>60214</code>
+          <label>Ecuadorian dry forests</label>
+        </item>
+        <item id="1189">
+          <code>40114</code>
+          <label>Greater Negros-Panay rain forests</label>
+        </item>
+        <item id="1190">
+          <code>81114</code>
+          <label>Yamal-Gydan tundra</label>
+        </item>
+        <item id="1191">
+          <code>80414</code>
+          <label>Changbai Mountains mixed forests</label>
+        </item>
+        <item id="1192">
+          <code>50414</code>
+          <label>Southern Great Lakes forests</label>
+        </item>
+        <item id="1193">
+          <code>81214</code>
+          <label>Mediterranean woodlands and forests</label>
+        </item>
+        <item id="1194">
+          <code>50614</code>
+          <label>Northwest Territories taiga</label>
+        </item>
+        <item id="1195">
+          <code>81314</code>
+          <label>Eastern Gobi desert steppe</label>
+        </item>
+        <item id="1196">
+          <code>80814</code>
+          <label>Pontic steppe</label>
+        </item>
+        <item id="1197">
+          <code>50514</code>
+          <label>Fraser Plateau and Basin complex</label>
+        </item>
+        <item id="1198">
+          <code>30114</code>
+          <label>Guinean montane forests</label>
+        </item>
+        <item id="1199">
+          <code>81014</code>
+          <label>Pamir alpine desert and tundra</label>
+        </item>
+        <item id="1200">
+          <code>70114</code>
+          <label>Tongan tropical moist forests</label>
+        </item>
+        <item id="1201">
+          <code>50814</code>
+          <label>Texas blackland prairies</label>
+        </item>
+        <item id="1202">
+          <code>80514</code>
+          <label>Northeastern Himalayan subalpine conifer forests</label>
+        </item>
+        <item id="1203">
+          <code>10414</code>
+          <label>Westland temperate forests</label>
+        </item>
+        <item id="1204">
+          <code>30714</code>
+          <label>Serengeti volcanic grasslands</label>
+        </item>
+        <item id="1205">
+          <code>31014</code>
+          <label>South Malawi montane forest-grassland mosaic</label>
+        </item>
+        <item id="1206">
+          <code>10114</code>
+          <label>Norfolk Island subtropical forests</label>
+        </item>
+        <item id="1207">
+          <code>31314</code>
+          <label>Nama Karoo</label>
+        </item>
+        <item id="1208">
+          <code>60215</code>
+          <label>Hispaniolan dry forests</label>
+        </item>
+        <item id="1209">
+          <code>60115</code>
+          <label>Chocó-Darién moist forests</label>
+        </item>
+        <item id="1210">
+          <code>51115</code>
+          <label>Middle Arctic tundra</label>
+        </item>
+        <item id="1211">
+          <code>61315</code>
+          <label>Sechura desert</label>
+        </item>
+        <item id="1212">
+          <code>50515</code>
+          <label>Great Basin montane forests</label>
+        </item>
+        <item id="1213">
+          <code>40115</code>
+          <label>Himalayan subtropical broadleaf forests</label>
+        </item>
+        <item id="1214">
+          <code>70115</code>
+          <label>Tuamotu tropical moist forests</label>
+        </item>
+        <item id="1215">
+          <code>31015</code>
+          <label>Southern Rift montane forest-grassland mosaic</label>
+        </item>
+        <item id="1216">
+          <code>50415</code>
+          <label>Upper Midwest forest-savanna transition</label>
+        </item>
+        <item id="1217">
+          <code>80815</code>
+          <label>Sayan Intermontane steppe</label>
+        </item>
+        <item id="1218">
+          <code>10115</code>
+          <label>Northern New Guinea lowland rain and freshwater swamp forests</label>
+        </item>
+        <item id="1219">
+          <code>50615</code>
+          <label>South Avalon-Burin oceanic barrens</label>
+        </item>
+        <item id="1220">
+          <code>81315</code>
+          <label>Gobi Lakes Valley desert steppe</label>
+        </item>
+        <item id="1221">
+          <code>81215</code>
+          <label>Northeastern Spain and Southern France Mediterranean forests</label>
+        </item>
+        <item id="1222">
+          <code>50815</code>
+          <label>Western short grasslands</label>
+        </item>
+        <item id="1223">
+          <code>80515</code>
+          <label>Northern Anatolian conifer and deciduous forests</label>
+        </item>
+        <item id="1224">
+          <code>81015</code>
+          <label>Qilian Mountains subalpine meadows</label>
+        </item>
+        <item id="1225">
+          <code>80415</code>
+          <label>Changjiang Plain evergreen forests</label>
+        </item>
+        <item id="1226">
+          <code>30715</code>
+          <label>Somali Acacia-Commiphora bushlands and thickets</label>
+        </item>
+        <item id="1227">
+          <code>31315</code>
+          <label>Namib desert</label>
+        </item>
+        <item id="1228">
+          <code>30115</code>
+          <label>Knysna-Amatole montane forests</label>
+        </item>
+        <item id="1229">
+          <code>60216</code>
+          <label>Islas Revillagigedo dry forests</label>
+        </item>
+        <item id="1230">
+          <code>61316</code>
+          <label>Tehuacán Valley matorral</label>
+        </item>
+        <item id="1231">
+          <code>60116</code>
+          <label>Cocos Island moist forests</label>
+        </item>
+        <item id="1232">
+          <code>50516</code>
+          <label>Klamath-Siskiyou forests</label>
+        </item>
+        <item id="1233">
+          <code>80816</code>
+          <label>Selenge-Orkhon forest steppe</label>
+        </item>
+        <item id="1234">
+          <code>81016</code>
+          <label>Sayan Alpine meadows and tundra</label>
+        </item>
+        <item id="1235">
+          <code>81316</code>
+          <label>Great Lakes Basin desert steppe</label>
+        </item>
+        <item id="1236">
+          <code>51116</code>
+          <label>Ogilvie-MacKenzie alpine tundra</label>
+        </item>
+        <item id="1237">
+          <code>50616</code>
+          <label>Southern Hudson Bay taiga</label>
+        </item>
+        <item id="1238">
+          <code>50416</code>
+          <label>Western Great Lakes forests</label>
+        </item>
+        <item id="1239">
+          <code>81216</code>
+          <label>Northwest Iberian montane forests</label>
+        </item>
+        <item id="1240">
+          <code>80416</code>
+          <label>Crimean Submediterranean forest complex</label>
+        </item>
+        <item id="1241">
+          <code>30716</code>
+          <label>Southern Acacia-Commiphora bushlands and thickets</label>
+        </item>
+        <item id="1242">
+          <code>80516</code>
+          <label>Nujiang Langcang Gorge alpine conifer and mixed forests</label>
+        </item>
+        <item id="1243">
+          <code>40116</code>
+          <label>Irrawaddy freshwater swamp forests</label>
+        </item>
+        <item id="1244">
+          <code>70116</code>
+          <label>Tubuai tropical moist forests</label>
+        </item>
+        <item id="1245">
+          <code>10116</code>
+          <label>Northern New Guinea montane rain forests</label>
+        </item>
+        <item id="1246">
+          <code>31316</code>
+          <label>Namibian savanna woodlands</label>
+        </item>
+        <item id="1247">
+          <code>30116</code>
+          <label>KwaZulu-Cape coastal forest mosaic</label>
+        </item>
+        <item id="1248">
+          <code>60117</code>
+          <label>Cordillera La Costa montane forests</label>
+        </item>
+        <item id="1249">
+          <code>60217</code>
+          <label>Jalisco dry forests</label>
+        </item>
+        <item id="1250">
+          <code>51117</code>
+          <label>Pacific Coastal Mountain icefields and tundra</label>
+        </item>
+        <item id="1251">
+          <code>81217</code>
+          <label>Pindus Mountains mixed forests</label>
+        </item>
+        <item id="1252">
+          <code>50517</code>
+          <label>Middle Atlantic coastal forests</label>
+        </item>
+        <item id="1253">
+          <code>50617</code>
+          <label>Yukon Interior dry forests</label>
+        </item>
+        <item id="1254">
+          <code>80817</code>
+          <label>South Siberian forest steppe</label>
+        </item>
+        <item id="1255">
+          <code>80517</code>
+          <label>Qilian Mountains conifer forests</label>
+        </item>
+        <item id="1256">
+          <code>81017</code>
+          <label>Southeast Tibet shrublands and meadows</label>
+        </item>
+        <item id="1257">
+          <code>81317</code>
+          <label>Junggar Basin semi-desert</label>
+        </item>
+        <item id="1258">
+          <code>50417</code>
+          <label>Willamette Valley forests</label>
+        </item>
+        <item id="1259">
+          <code>70117</code>
+          <label>Western Polynesian tropical moist forests</label>
+        </item>
+        <item id="1260">
+          <code>80417</code>
+          <label>Daba Mountains evergreen forests</label>
+        </item>
+        <item id="1261">
+          <code>40117</code>
+          <label>Irrawaddy moist deciduous forests</label>
+        </item>
+        <item id="1262">
+          <code>10117</code>
+          <label>Queensland tropical rain forests</label>
+        </item>
+        <item id="1263">
+          <code>30117</code>
+          <label>Madagascar lowland forests</label>
+        </item>
+        <item id="1264">
+          <code>30717</code>
+          <label>Southern Africa bushveld</label>
+        </item>
+        <item id="1265">
+          <code>60218</code>
+          <label>Jamaican dry forests</label>
+        </item>
+        <item id="1266">
+          <code>51118</code>
+          <label>Torngat Mountain tundra</label>
+        </item>
+        <item id="1267">
+          <code>60118</code>
+          <label>Cordillera Oriental montane forests</label>
+        </item>
+        <item id="1268">
+          <code>81318</code>
+          <label>Kazakh semi-desert</label>
+        </item>
+        <item id="1269">
+          <code>81018</code>
+          <label>Sulaiman Range alpine meadows</label>
+        </item>
+        <item id="1270">
+          <code>80518</code>
+          <label>Qionglai-Minshan conifer forests</label>
+        </item>
+        <item id="1271">
+          <code>80418</code>
+          <label>Dinaric Mountains mixed forests</label>
+        </item>
+        <item id="1272">
+          <code>50518</code>
+          <label>North Central Rockies forests</label>
+        </item>
+        <item id="1273">
+          <code>80818</code>
+          <label>Tian Shan foothill arid steppe</label>
+        </item>
+        <item id="1274">
+          <code>81218</code>
+          <label>South Appenine mixed montane forests</label>
+        </item>
+        <item id="1275">
+          <code>40118</code>
+          <label>Jian Nan subtropical evergreen forests</label>
+        </item>
+        <item id="1276">
+          <code>31318</code>
+          <label>Socotra Island xeric shrublands</label>
+        </item>
+        <item id="1277">
+          <code>30118</code>
+          <label>Madagascar subhumid forests</label>
+        </item>
+        <item id="1278">
+          <code>30718</code>
+          <label>Southern Congolian forest-savanna mosaic</label>
+        </item>
+        <item id="1279">
+          <code>61318</code>
+          <label>St. Peter and St. Paul rocks</label>
+        </item>
+        <item id="1280">
+          <code>10118</code>
+          <label>Seram rain forests</label>
+        </item>
+        <item id="1281">
+          <code>60119</code>
+          <label>Costa Rican seasonal moist forests</label>
+        </item>
+        <item id="1282">
+          <code>60219</code>
+          <label>Lara-Falcón dry forests</label>
+        </item>
+        <item id="1283">
+          <code>80419</code>
+          <label>East European forest steppe</label>
+        </item>
+        <item id="1284">
+          <code>81019</code>
+          <label>Tian Shan montane steppe and meadows</label>
+        </item>
+        <item id="1285">
+          <code>50519</code>
+          <label>Northern California coastal forests</label>
+        </item>
+        <item id="1286">
+          <code>80519</code>
+          <label>Sayan montane conifer forests</label>
+        </item>
+        <item id="1287">
+          <code>81319</code>
+          <label>Kopet Dag semi-desert</label>
+        </item>
+        <item id="1288">
+          <code>81219</code>
+          <label>Southeastern Iberian shrubs and woodlands</label>
+        </item>
+        <item id="1289">
+          <code>31319</code>
+          <label>Somali montane xeric woodlands</label>
+        </item>
+        <item id="1290">
+          <code>40119</code>
+          <label>Kayah-Karen montane rain forests</label>
+        </item>
+        <item id="1291">
+          <code>10119</code>
+          <label>Solomon Islands rain forests</label>
+        </item>
+        <item id="1292">
+          <code>30719</code>
+          <label>Southern Miombo woodlands</label>
+        </item>
+        <item id="1293">
+          <code>30119</code>
+          <label>Maputaland coastal forest mosaic</label>
+        </item>
+        <item id="1294">
+          <code>60220</code>
+          <label>Lesser Antillean dry forests</label>
+        </item>
+        <item id="1295">
+          <code>60120</code>
+          <label>Cuban moist forests</label>
+        </item>
+        <item id="1296">
+          <code>80520</code>
+          <label>Scandinavian coastal conifer forests</label>
+        </item>
+        <item id="1297">
+          <code>50520</code>
+          <label>Northern Pacific coastal forests</label>
+        </item>
+        <item id="1298">
+          <code>81320</code>
+          <label>Mesopotamian shrub desert</label>
+        </item>
+        <item id="1299">
+          <code>10120</code>
+          <label>Southeastern Papuan rain forests</label>
+        </item>
+        <item id="1300">
+          <code>81220</code>
+          <label>Southern Anatolian montane conifer and deciduous forests</label>
+        </item>
+        <item id="1301">
+          <code>80420</code>
+          <label>Eastern Anatolian deciduous forests</label>
+        </item>
+        <item id="1302">
+          <code>81020</code>
+          <label>Tibetan Plateau alpine shrublands and meadows</label>
+        </item>
+        <item id="1303">
+          <code>40120</code>
+          <label>Lower Gangetic Plains moist deciduous forests</label>
+        </item>
+        <item id="1304">
+          <code>31320</code>
+          <label>Southwestern Arabian foothills savanna</label>
+        </item>
+        <item id="1305">
+          <code>30120</code>
+          <label>Mascarene forests</label>
+        </item>
+        <item id="1306">
+          <code>30720</code>
+          <label>St. Helena scrub and woodlands</label>
+        </item>
+        <item id="1307">
+          <code>60121</code>
+          <label>Eastern Cordillera real montane forests</label>
+        </item>
+        <item id="1308">
+          <code>80521</code>
+          <label>Tian Shan montane conifer forests</label>
+        </item>
+        <item id="1309">
+          <code>60221</code>
+          <label>Magdalena Valley dry forests</label>
+        </item>
+        <item id="1310">
+          <code>50521</code>
+          <label>Northern transitional alpine forests</label>
+        </item>
+        <item id="1311">
+          <code>81021</code>
+          <label>Western Himalayan alpine shrub and Meadows</label>
+        </item>
+        <item id="1312">
+          <code>80421</code>
+          <label>English Lowlands beech forests</label>
+        </item>
+        <item id="1313">
+          <code>40121</code>
+          <label>Luang Prabang montane rain forests</label>
+        </item>
+        <item id="1314">
+          <code>81221</code>
+          <label>Southwest Iberian Mediterranean sclerophyllous and mixed forests</label>
+        </item>
+        <item id="1315">
+          <code>81321</code>
+          <label>North Saharan steppe and woodlands</label>
+        </item>
+        <item id="1316">
+          <code>30721</code>
+          <label>Victoria Basin forest-savanna mosaic</label>
+        </item>
+        <item id="1317">
+          <code>31321</code>
+          <label>Southwestern Arabian montane woodlands</label>
+        </item>
+        <item id="1318">
+          <code>30121</code>
+          <label>Mount Cameroon and Bioko montane forests</label>
+        </item>
+        <item id="1319">
+          <code>10121</code>
+          <label>Southern New Guinea freshwater swamp forests</label>
+        </item>
+        <item id="1320">
+          <code>60122</code>
+          <label>Eastern Panamanian montane forests</label>
+        </item>
+        <item id="1321">
+          <code>60222</code>
+          <label>Maracaibo dry forests</label>
+        </item>
+        <item id="1322">
+          <code>81222</code>
+          <label>Tyrrhenian-Adriatic Sclerophyllous and mixed forests</label>
+        </item>
+        <item id="1323">
+          <code>40122</code>
+          <label>Luzon montane rain forests</label>
+        </item>
+        <item id="1324">
+          <code>30722</code>
+          <label>West Sudanian savanna</label>
+        </item>
+        <item id="1325">
+          <code>80422</code>
+          <label>Euxine-Colchic broadleaf forests</label>
+        </item>
+        <item id="1326">
+          <code>50522</code>
+          <label>Okanagan dry forests</label>
+        </item>
+        <item id="1327">
+          <code>81022</code>
+          <label>Yarlung Tsangpo arid steppe</label>
+        </item>
+        <item id="1328">
+          <code>81322</code>
+          <label>Paropamisus xeric woodlands</label>
+        </item>
+        <item id="1329">
+          <code>30122</code>
+          <label>Niger Delta swamp forests</label>
+        </item>
+        <item id="1330">
+          <code>10122</code>
+          <label>Southern New Guinea lowland rain forests</label>
+        </item>
+        <item id="1331">
+          <code>31322</code>
+          <label>Succulent Karoo</label>
+        </item>
+        <item id="1332">
+          <code>60123</code>
+          <label>Fernando de Noronha-Atol das Rocas moist forests</label>
+        </item>
+        <item id="1333">
+          <code>60223</code>
+          <label>Marañón dry forests</label>
+        </item>
+        <item id="1334">
+          <code>40123</code>
+          <label>Luzon rain forests</label>
+        </item>
+        <item id="1335">
+          <code>10123</code>
+          <label>Sulawesi lowland rain forests</label>
+        </item>
+        <item id="1336">
+          <code>81323</code>
+          <label>Persian Gulf desert and semi-desert</label>
+        </item>
+        <item id="1337">
+          <code>80423</code>
+          <label>Hokkaido deciduous forests</label>
+        </item>
+        <item id="1338">
+          <code>50523</code>
+          <label>Piney Woods forests</label>
+        </item>
+        <item id="1339">
+          <code>30723</code>
+          <label>Western Congolian forest-savanna mosaic</label>
+        </item>
+        <item id="1340">
+          <code>30123</code>
+          <label>Nigerian lowland forests</label>
+        </item>
+        <item id="1341">
+          <code>60124</code>
+          <label>Guianan Highlands moist forests</label>
+        </item>
+        <item id="1342">
+          <code>50524</code>
+          <label>Puget lowland forests</label>
+        </item>
+        <item id="1343">
+          <code>60224</code>
+          <label>Panamanian dry forests</label>
+        </item>
+        <item id="1344">
+          <code>30724</code>
+          <label>Western Zambezian grasslands</label>
+        </item>
+        <item id="1345">
+          <code>40124</code>
+          <label>Malabar Coast moist forests</label>
+        </item>
+        <item id="1346">
+          <code>80424</code>
+          <label>Huang He Plain mixed forests</label>
+        </item>
+        <item id="1347">
+          <code>81324</code>
+          <label>Qaidam Basin semi-desert</label>
+        </item>
+        <item id="1348">
+          <code>10124</code>
+          <label>Sulawesi montane rain forests</label>
+        </item>
+        <item id="1349">
+          <code>30124</code>
+          <label>Northeastern Congolian lowland forests</label>
+        </item>
+        <item id="1350">
+          <code>50525</code>
+          <label>Queen Charlotte Islands</label>
+        </item>
+        <item id="1351">
+          <code>60125</code>
+          <label>Guianan moist forests</label>
+        </item>
+        <item id="1352">
+          <code>40125</code>
+          <label>Maldives-Lakshadweep-Chagos Archipelago tropical moist forests</label>
+        </item>
+        <item id="1353">
+          <code>60225</code>
+          <label>Patía Valley dry forests</label>
+        </item>
+        <item id="1354">
+          <code>80425</code>
+          <label>Madeira evergreen forests</label>
+        </item>
+        <item id="1355">
+          <code>30125</code>
+          <label>Northern Zanzibar-Inhambane coastal forest mosaic</label>
+        </item>
+        <item id="1356">
+          <code>81325</code>
+          <label>Red Sea Nubo-Sindian tropical desert and semi-desert</label>
+        </item>
+        <item id="1357">
+          <code>10125</code>
+          <label>Trobriand Islands rain forests</label>
+        </item>
+        <item id="1358">
+          <code>30725</code>
+          <label>Zambezian and Mopane woodlands</label>
+        </item>
+        <item id="1359">
+          <code>60226</code>
+          <label>Puerto Rican dry forests</label>
+        </item>
+        <item id="1360">
+          <code>60126</code>
+          <label>Gurupa varzeá</label>
+        </item>
+        <item id="1361">
+          <code>80426</code>
+          <label>Manchurian mixed forests</label>
+        </item>
+        <item id="1362">
+          <code>10126</code>
+          <label>Vanuatu rain forests</label>
+        </item>
+        <item id="1363">
+          <code>81326</code>
+          <label>Registan-North Pakistan sandy desert</label>
+        </item>
+        <item id="1364">
+          <code>50526</code>
+          <label>Sierra Juarez and San Pedro Martir pine-oak forests</label>
+        </item>
+        <item id="1365">
+          <code>40126</code>
+          <label>Meghalaya subtropical forests</label>
+        </item>
+        <item id="1366">
+          <code>30126</code>
+          <label>Northwestern Congolian lowland forests</label>
+        </item>
+        <item id="1367">
+          <code>30726</code>
+          <label>Zambezian Baikiaea woodlands</label>
+        </item>
+        <item id="1368">
+          <code>60227</code>
+          <label>Sierra de la Laguna dry forests</label>
+        </item>
+        <item id="1369">
+          <code>60127</code>
+          <label>Hispaniolan moist forests</label>
+        </item>
+        <item id="1370">
+          <code>80427</code>
+          <label>Nihonkai evergreen forests</label>
+        </item>
+        <item id="1371">
+          <code>30127</code>
+          <label>Sao Tome; Principe and Annobon moist lowland forests</label>
+        </item>
+        <item id="1372">
+          <code>50527</code>
+          <label>Sierra Nevada forests</label>
+        </item>
+        <item id="1373">
+          <code>81327</code>
+          <label>Sahara desert</label>
+        </item>
+        <item id="1374">
+          <code>40127</code>
+          <label>Mentawai Islands rain forests</label>
+        </item>
+        <item id="1375">
+          <code>10127</code>
+          <label>Vogelkop montane rain forests</label>
+        </item>
+        <item id="1376">
+          <code>60228</code>
+          <label>Sinaloan dry forests</label>
+        </item>
+        <item id="1377">
+          <code>60128</code>
+          <label>Iquitos varzeá</label>
+        </item>
+        <item id="1378">
+          <code>80428</code>
+          <label>Nihonkai montane deciduous forests</label>
+        </item>
+        <item id="1379">
+          <code>81328</code>
+          <label>South Iran Nubo-Sindian desert and semi-desert</label>
+        </item>
+        <item id="1380">
+          <code>30128</code>
+          <label>Southern Zanzibar-Inhambane coastal forest mosaic</label>
+        </item>
+        <item id="1381">
+          <code>50528</code>
+          <label>South Central Rockies forests</label>
+        </item>
+        <item id="1382">
+          <code>10128</code>
+          <label>Vogelkop-Aru lowland rain forests</label>
+        </item>
+        <item id="1383">
+          <code>40128</code>
+          <label>Mindanao montane rain forests</label>
+        </item>
+        <item id="1384">
+          <code>60229</code>
+          <label>Sinú Valley dry forests</label>
+        </item>
+        <item id="1385">
+          <code>60129</code>
+          <label>Isthmian-Atlantic moist forests</label>
+        </item>
+        <item id="1386">
+          <code>40129</code>
+          <label>Mindanao-Eastern Visayas rain forests</label>
+        </item>
+        <item id="1387">
+          <code>80429</code>
+          <label>North Atlantic moist mixed forests</label>
+        </item>
+        <item id="1388">
+          <code>50529</code>
+          <label>Southeastern conifer forests</label>
+        </item>
+        <item id="1389">
+          <code>30129</code>
+          <label>Western Congolian swamp forests</label>
+        </item>
+        <item id="1390">
+          <code>81329</code>
+          <label>South Saharan steppe and woodlands</label>
+        </item>
+        <item id="1391">
+          <code>60130</code>
+          <label>Isthmian-Pacific moist forests</label>
+        </item>
+        <item id="1392">
+          <code>60230</code>
+          <label>Southern Pacific dry forests</label>
+        </item>
+        <item id="1393">
+          <code>30130</code>
+          <label>Western Guinean lowland forests</label>
+        </item>
+        <item id="1394">
+          <code>80430</code>
+          <label>Northeast China Plain deciduous forests</label>
+        </item>
+        <item id="1395">
+          <code>81330</code>
+          <label>Taklimakan desert</label>
+        </item>
+        <item id="1396">
+          <code>50530</code>
+          <label>Wasatch and Uinta montane forests</label>
+        </item>
+        <item id="1397">
+          <code>40130</code>
+          <label>Mindoro rain forests</label>
+        </item>
+        <item id="1398">
+          <code>60131</code>
+          <label>Jamaican moist forests</label>
+        </item>
+        <item id="1399">
+          <code>81331</code>
+          <label>Tibesti-Jebel Uweinat montane xeric woodlands</label>
+        </item>
+        <item id="1400">
+          <code>80431</code>
+          <label>Pannonian mixed forests</label>
+        </item>
+        <item id="1401">
+          <code>40131</code>
+          <label>Mizoram-Manipur-Kachin rain forests</label>
+        </item>
+        <item id="1402">
+          <code>40132</code>
+          <label>Myanmar coastal rain forests</label>
+        </item>
+        <item id="1403">
+          <code>60232</code>
+          <label>Tumbes-Piura dry forests</label>
+        </item>
+        <item id="1404">
+          <code>81332</code>
+          <label>West Saharan montane xeric woodlands</label>
+        </item>
+        <item id="1405">
+          <code>60132</code>
+          <label>Japurá-Solimoes-Negro moist forests</label>
+        </item>
+        <item id="1406">
+          <code>80432</code>
+          <label>Po Basin mixed forests</label>
+        </item>
+        <item id="1407">
+          <code>60133</code>
+          <label>Juruá-Purus moist forests</label>
+        </item>
+        <item id="1408">
+          <code>60233</code>
+          <label>Veracruz dry forests</label>
+        </item>
+        <item id="1409">
+          <code>81333</code>
+          <label>Red Sea coastal desert</label>
+        </item>
+        <item id="1410">
+          <code>80433</code>
+          <label>Pyrenees conifer and mixed forests</label>
+        </item>
+        <item id="1411">
+          <code>40133</code>
+          <label>Nicobar Islands rain forests</label>
+        </item>
+        <item id="1412">
+          <code>60134</code>
+          <label>Leeward Islands moist forests</label>
+        </item>
+        <item id="1413">
+          <code>80434</code>
+          <label>Qin Ling Mountains deciduous forests</label>
+        </item>
+        <item id="1414">
+          <code>40134</code>
+          <label>North Western Ghats moist deciduous forests</label>
+        </item>
+        <item id="1415">
+          <code>60235</code>
+          <label>Yucatán dry forests</label>
+        </item>
+        <item id="1416">
+          <code>80435</code>
+          <label>Rodope montane mixed forests</label>
+        </item>
+        <item id="1417">
+          <code>60135</code>
+          <label>Madeira-Tapajós moist forests</label>
+        </item>
+        <item id="1418">
+          <code>40135</code>
+          <label>North Western Ghats montane rain forests</label>
+        </item>
+        <item id="1419">
+          <code>60136</code>
+          <label>Magdalena Valley montane forests</label>
+        </item>
+        <item id="1420">
+          <code>80436</code>
+          <label>Sarmatic mixed forests</label>
+        </item>
+        <item id="1421">
+          <code>40136</code>
+          <label>Northern Annamites rain forests</label>
+        </item>
+        <item id="1422">
+          <code>60137</code>
+          <label>Magdalena-Urabá moist forests</label>
+        </item>
+        <item id="1423">
+          <code>80437</code>
+          <label>Sichuan Basin evergreen broadleaf forests</label>
+        </item>
+        <item id="1424">
+          <code>40137</code>
+          <label>Northern Indochina subtropical forests</label>
+        </item>
+        <item id="1425">
+          <code>60138</code>
+          <label>Marajó varzeá</label>
+        </item>
+        <item id="1426">
+          <code>80438</code>
+          <label>South Sakhalin-Kurile mixed forests</label>
+        </item>
+        <item id="1427">
+          <code>40138</code>
+          <label>Northern Khorat Plateau moist deciduous forests</label>
+        </item>
+        <item id="1428">
+          <code>60139</code>
+          <label>Maranhão Babaçu forests</label>
+        </item>
+        <item id="1429">
+          <code>80439</code>
+          <label>Southern Korea evergreen forests</label>
+        </item>
+        <item id="1430">
+          <code>40139</code>
+          <label>Northern Thailand-Laos moist deciduous forests</label>
+        </item>
+        <item id="1431">
+          <code>60140</code>
+          <label>Mato Grosso seasonal forests</label>
+        </item>
+        <item id="1432">
+          <code>80440</code>
+          <label>Taiheiyo evergreen forests</label>
+        </item>
+        <item id="1433">
+          <code>40140</code>
+          <label>Northern Triangle subtropical forests</label>
+        </item>
+        <item id="1434">
+          <code>60141</code>
+          <label>Monte Alegre varzeá</label>
+        </item>
+        <item id="1435">
+          <code>80441</code>
+          <label>Taiheiyo montane deciduous forests</label>
+        </item>
+        <item id="1436">
+          <code>40141</code>
+          <label>Northern Vietnam lowland rain forests</label>
+        </item>
+        <item id="1437">
+          <code>60142</code>
+          <label>Napo moist forests</label>
+        </item>
+        <item id="1438">
+          <code>80442</code>
+          <label>Tarim Basin deciduous forests and steppe</label>
+        </item>
+        <item id="1439">
+          <code>40142</code>
+          <label>Orissa semi-evergreen forests</label>
+        </item>
+        <item id="1440">
+          <code>40143</code>
+          <label>Palawan rain forests</label>
+        </item>
+        <item id="1441">
+          <code>60143</code>
+          <label>Negro-Branco moist forests</label>
+        </item>
+        <item id="1442">
+          <code>80443</code>
+          <label>Ussuri broadleaf and mixed forests</label>
+        </item>
+        <item id="1443">
+          <code>60144</code>
+          <label>Northeastern Brazil restingas</label>
+        </item>
+        <item id="1444">
+          <code>80444</code>
+          <label>Western Siberian hemiboreal forests</label>
+        </item>
+        <item id="1445">
+          <code>40144</code>
+          <label>Peninsular Malaysian montane rain forests</label>
+        </item>
+        <item id="1446">
+          <code>60145</code>
+          <label>Northwestern Andean montane forests</label>
+        </item>
+        <item id="1447">
+          <code>80445</code>
+          <label>Western European broadleaf forests</label>
+        </item>
+        <item id="1448">
+          <code>40145</code>
+          <label>Peninsular Malaysian peat swamp forests</label>
+        </item>
+        <item id="1449">
+          <code>60146</code>
+          <label>Oaxacan montane forests</label>
+        </item>
+        <item id="1450">
+          <code>40146</code>
+          <label>Peninsular Malaysian rain forests</label>
+        </item>
+        <item id="1451">
+          <code>80446</code>
+          <label>Zagros Mountains forest steppe</label>
+        </item>
+        <item id="1452">
+          <code>60147</code>
+          <label>Orinoco Delta swamp forests</label>
+        </item>
+        <item id="1453">
+          <code>40147</code>
+          <label>Red River freshwater swamp forests</label>
+        </item>
+        <item id="1454">
+          <code>60148</code>
+          <label>Pantanos de Centla</label>
+        </item>
+        <item id="1455">
+          <code>40148</code>
+          <label>South China Sea Islands</label>
+        </item>
+        <item id="1456">
+          <code>60149</code>
+          <label>Guianan freshwater swamp forests</label>
+        </item>
+        <item id="1457">
+          <code>40149</code>
+          <label>South China-Vietnam subtropical evergreen forests</label>
+        </item>
+        <item id="1458">
+          <code>60150</code>
+          <label>Alto Paraná Atlantic forests</label>
+        </item>
+        <item id="1459">
+          <code>40150</code>
+          <label>South Western Ghats moist deciduous forests</label>
+        </item>
+        <item id="1460">
+          <code>60151</code>
+          <label>Pernambuco coastal forests</label>
+        </item>
+        <item id="1461">
+          <code>40151</code>
+          <label>South Western Ghats montane rain forests</label>
+        </item>
+        <item id="1462">
+          <code>60152</code>
+          <label>Pernambuco interior forests</label>
+        </item>
+        <item id="1463">
+          <code>40152</code>
+          <label>Southern Annamites montane rain forests</label>
+        </item>
+        <item id="1464">
+          <code>60153</code>
+          <label>Peruvian Yungas</label>
+        </item>
+        <item id="1465">
+          <code>40153</code>
+          <label>Southwest Borneo freshwater swamp forests</label>
+        </item>
+        <item id="1466">
+          <code>60154</code>
+          <label>Petén-Veracruz moist forests</label>
+        </item>
+        <item id="1467">
+          <code>40154</code>
+          <label>Sri Lanka lowland rain forests</label>
+        </item>
+        <item id="1468">
+          <code>60155</code>
+          <label>Puerto Rican moist forests</label>
+        </item>
+        <item id="1469">
+          <code>40155</code>
+          <label>Sri Lanka montane rain forests</label>
+        </item>
+        <item id="1470">
+          <code>60156</code>
+          <label>Purus varzeá</label>
+        </item>
+        <item id="1471">
+          <code>40156</code>
+          <label>Sulu Archipelago rain forests</label>
+        </item>
+        <item id="1472">
+          <code>60157</code>
+          <label>Purus-Madeira moist forests</label>
+        </item>
+        <item id="1473">
+          <code>40157</code>
+          <label>Sumatran freshwater swamp forests</label>
+        </item>
+        <item id="1474">
+          <code>60158</code>
+          <label>Rio Negro campinarana</label>
+        </item>
+        <item id="1475">
+          <code>40158</code>
+          <label>Sumatran lowland rain forests</label>
+        </item>
+        <item id="1476">
+          <code>60159</code>
+          <label>Santa Marta montane forests</label>
+        </item>
+        <item id="1477">
+          <code>40159</code>
+          <label>Sumatran montane rain forests</label>
+        </item>
+        <item id="1478">
+          <code>60160</code>
+          <label>Serra do Mar coastal forests</label>
+        </item>
+        <item id="1479">
+          <code>40160</code>
+          <label>Sumatran peat swamp forests</label>
+        </item>
+        <item id="1480">
+          <code>60161</code>
+          <label>Sierra de los Tuxtlas</label>
+        </item>
+        <item id="1481">
+          <code>40161</code>
+          <label>Sundaland heath forests</label>
+        </item>
+        <item id="1482">
+          <code>60162</code>
+          <label>Sierra Madre de Chiapas moist forests</label>
+        </item>
+        <item id="1483">
+          <code>40162</code>
+          <label>Sundarbans freshwater swamp forests</label>
+        </item>
+        <item id="1484">
+          <code>40163</code>
+          <label>Tenasserim-South Thailand semi-evergreen rain forests</label>
+        </item>
+        <item id="1485">
+          <code>60163</code>
+          <label>Solimões-Japurá moist forests</label>
+        </item>
+        <item id="1486">
+          <code>60164</code>
+          <label>South Florida rocklands</label>
+        </item>
+        <item id="1487">
+          <code>40164</code>
+          <label>Tonle Sap freshwater swamp forests</label>
+        </item>
+        <item id="1488">
+          <code>60165</code>
+          <label>Southern Andean Yungas</label>
+        </item>
+        <item id="1489">
+          <code>40165</code>
+          <label>Tonle Sap-Mekong peat swamp forests</label>
+        </item>
+        <item id="1490">
+          <code>60166</code>
+          <label>Southwest Amazon moist forests</label>
+        </item>
+        <item id="1491">
+          <code>40166</code>
+          <label>Upper Gangetic Plains moist deciduous forests</label>
+        </item>
+        <item id="1492">
+          <code>60167</code>
+          <label>Talamancan montane forests</label>
+        </item>
+        <item id="1493">
+          <code>40167</code>
+          <label>Western Java montane rain forests</label>
+        </item>
+        <item id="1494">
+          <code>60168</code>
+          <label>Tapajós-Xingu moist forests</label>
+        </item>
+        <item id="1495">
+          <code>40168</code>
+          <label>Western Java rain forests</label>
+        </item>
+        <item id="1496">
+          <code>60169</code>
+          <label>Pantepui</label>
+        </item>
+        <item id="1497">
+          <code>40169</code>
+          <label>Hainan Island monsoon rain forests</label>
+        </item>
+        <item id="1498">
+          <code>60170</code>
+          <label>Tocantins/Pindare moist forests</label>
+        </item>
+        <item id="1499">
+          <code>40170</code>
+          <label>Nansei Islands subtropical evergreen forests</label>
+        </item>
+        <item id="1500">
+          <code>60171</code>
+          <label>Trinidad and Tobago moist forests</label>
+        </item>
+        <item id="1501">
+          <code>40171</code>
+          <label>South Taiwan monsoon rain forests</label>
+        </item>
+        <item id="1502">
+          <code>40172</code>
+          <label>Taiwan subtropical evergreen forests</label>
+        </item>
+        <item id="1503">
+          <code>60172</code>
+          <label>Trindade-Martin Vaz Islands tropical forests</label>
+        </item>
+        <item id="1504">
+          <code>60173</code>
+          <label>Uatuma-Trombetas moist forests</label>
+        </item>
+        <item id="1505">
+          <code>60174</code>
+          <label>Ucayali moist forests</label>
+        </item>
+        <item id="1506">
+          <code>60175</code>
+          <label>Venezuelan Andes montane forests</label>
+        </item>
+        <item id="1507">
+          <code>60176</code>
+          <label>Veracruz moist forests</label>
+        </item>
+        <item id="1508">
+          <code>60177</code>
+          <label>Veracruz montane forests</label>
+        </item>
+        <item id="1509">
+          <code>60178</code>
+          <label>Western Ecuador moist forests</label>
+        </item>
+        <item id="1510">
+          <code>60179</code>
+          <label>Windward Islands moist forests</label>
+        </item>
+        <item id="1511">
+          <code>60180</code>
+          <label>Xingu-Tocantins-Araguaia moist forests</label>
+        </item>
+        <item id="1512">
+          <code>60181</code>
+          <label>Yucatán moist forests</label>
+        </item>
+        <item id="1513">
+          <code>60182</code>
+          <label>Guianan piedmont and lowland moist forests</label>
+        </item>
+        <item id="1525">
+          <code>0</code>
+          <label>value_ecoregion</label>
+        </item>
+      </items>
+    </list>
+    <list id="1514" name="realm_name">
+      <label type="item">Realm name</label>
+      <codingScheme scope="local" />
+      <items>
+        <item id="1515">
+          <code>NT</code>
+          <label>Neotropic</label>
+        </item>
+        <item id="1516">
+          <code>PA</code>
+          <label>Palearctic</label>
+        </item>
+        <item id="1517">
+          <code>IM</code>
+          <label>Indo-Malay</label>
+        </item>
+        <item id="1518">
+          <code>AA</code>
+          <label>Australasia</label>
+        </item>
+        <item id="1519">
+          <code>OC</code>
+          <label>Oceania</label>
+        </item>
+        <item id="1520">
+          <code>AT</code>
+          <label>Afrotropic</label>
+        </item>
+        <item id="1521">
+          <code>AN</code>
+          <label>Antarctic</label>
+        </item>
+        <item id="1526">
+          <code>0</code>
+          <label>value_realm</label>
+        </item>
+      </items>
+    </list>
+    <list id="1527" name="fao_ecozones">
+      <label type="item">FAO ecozones</label>
+      <codingScheme scope="local" />
+      <items>
+        <item id="1528">
+          <code>41</code>
+          <label>Boreal coniferous forest</label>
+        </item>
+        <item id="1529">
+          <code>43</code>
+          <label>Boreal mountain system</label>
+        </item>
+        <item id="1530">
+          <code>42</code>
+          <label>Boreal tundra woodland</label>
+        </item>
+        <item id="1531">
+          <code>50</code>
+          <label>Polar</label>
+        </item>
+        <item id="1532">
+          <code>24</code>
+          <label>Subtropical desert</label>
+        </item>
+        <item id="1533">
+          <code>22</code>
+          <label>Subtropical dry forest</label>
+        </item>
+        <item id="1534">
+          <code>21</code>
+          <label>Subtropical humid forest</label>
+        </item>
+        <item id="1535">
+          <code>25</code>
+          <label>Subtropical mountain system</label>
+        </item>
+        <item id="1536">
+          <code>23</code>
+          <label>Subtropical steppe</label>
+        </item>
+        <item id="1537">
+          <code>32</code>
+          <label>Temperate continental forest</label>
+        </item>
+        <item id="1538">
+          <code>34</code>
+          <label>Temperate desert</label>
+        </item>
+        <item id="1539">
+          <code>35</code>
+          <label>Temperate mountain system</label>
+        </item>
+        <item id="1540">
+          <code>31</code>
+          <label>Temperate oceanic forest</label>
+        </item>
+        <item id="1541">
+          <code>33</code>
+          <label>Temperate steppe</label>
+        </item>
+        <item id="1542">
+          <code>15</code>
+          <label>Tropical desert</label>
+        </item>
+        <item id="1543">
+          <code>13</code>
+          <label>Tropical dry forest</label>
+        </item>
+        <item id="1544">
+          <code>12</code>
+          <label>Tropical moist forest</label>
+        </item>
+        <item id="1545">
+          <code>16</code>
+          <label>Tropical mountain system</label>
+        </item>
+        <item id="1546">
+          <code>11</code>
+          <label>Tropical rainforest</label>
+        </item>
+        <item id="1547">
+          <code>14</code>
+          <label>Tropical shrubland</label>
+        </item>
+        <item id="1548">
+          <code>90</code>
+          <label>Water</label>
+        </item>
+      </items>
+    </list>
   </codeLists>
   <spatialReferenceSystems>
     <spatialReferenceSystem srid="EPSG:4326">
@@ -2611,6 +6488,31 @@ st” or “Other wooded land”.</description>
 	        		AUTHORITY["EPSG","9122"]],
 	    		AUTHORITY["EPSG","4326"]]
 			
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
       
       
       
@@ -2820,7 +6722,7 @@ st” or “Other wooded land”.</description>
         <label type="instance" xml:lang="es">Coordenadas</label>
         <label type="instance" xml:lang="pt">Localização</label>
       </coordinate>
-      <text id="4" name="operator" required="true" type="short">
+      <text id="4" name="operator" type="short">
         <label type="instance">Operator</label>
         <label type="instance" xml:lang="fr">Opérateur</label>
         <label type="instance" xml:lang="es">Operador</label>
@@ -2864,6 +6766,15 @@ st” or “Other wooded land”.</description>
         <label type="instance" xml:lang="fr">Sous-catégorie utilisation des terres</label>
         <label type="instance" xml:lang="es">Subcategoria uso de la tierra</label>
         <label type="instance" xml:lang="pt">Subcategoria do Uso da Terra</label>
+      </code>
+      <code id="537" name="calculated_initial_land_use" ui:hide="true" ui:tab="placemark" calculated="true" list="land_use_subcategory">
+        <label type="instance">Initial Land Use</label>
+        <default value="forest" if="land_use_subcategory='FLtoFL' or land_use_subcategory='FLtoCL' or land_use_subcategory='FLtoGL' or land_use_subcategory='FLtoOL' or land_use_subcategory='FLtoWL' or land_use_subcategory='FLtoSL'" />
+        <default value="cropland" if="land_use_subcategory='CLtoFL' or land_use_subcategory='CLtoCL' or land_use_subcategory='CLtoGL' or land_use_subcategory='CLtoOL' or land_use_subcategory='CLtoWL' or land_use_subcategory='CLtoSL'" />
+        <default value="grassland" if="land_use_subcategory='GLtoFL' or land_use_subcategory='GLtoCL' or land_use_subcategory='GLtoGL' or land_use_subcategory='GLtoOL' or land_use_subcategory='GLtoWL' or land_use_subcategory='GLtoSL'" />
+        <default value="settlement" if="land_use_subcategory='SLtoFL' or land_use_subcategory='SLtoCL' or land_use_subcategory='SLtoGL' or land_use_subcategory='SLtoOL' or land_use_subcategory='SLtoWL' or land_use_subcategory='SLtoSL'" />
+        <default value="otherland" if="land_use_subcategory='OTtoFL' or land_use_subcategory='OTtoCL' or land_use_subcategory='OTtoGL' or land_use_subcategory='OTtoOL' or land_use_subcategory='OTtoWL' or land_use_subcategory='OTtoSL'" />
+        <default value="wetland" if="land_use_subcategory='WLtoFL' or land_use_subcategory='WLtoCL' or land_use_subcategory='WLtoGL' or land_use_subcategory='WLtoOL' or land_use_subcategory='WLtoWL' or land_use_subcategory='WLtoSL'" />
       </code>
       <boolean id="9" name="land_use_subcategory_accuracy" relevant="land_use_category!='noData'" required="true" ui:hideWhenNotRelevant="true">
         <label type="instance">Land Use Sub-Category - Confidence</label>
@@ -3162,6 +7073,52 @@ st” or “Other wooded land”.</description>
         <label type="instance" xml:lang="fr">Région zone aride</label>
         <label type="instance" xml:lang="es">Region de las tierras aridas</label>
         <label type="instance" xml:lang="pt">Região Árida</label>
+      </code>
+      <code id="538" name="calculated_elevation_range" ui:hide="true" ui:tab="placemark" calculated="true" list="elevation_ranges">
+        <label type="instance">Elevation - range</label>
+        <label type="instance" xml:lang="es">Elevación - rangos</label>
+        <label type="instance" xml:lang="fr">Élévation - gamme</label>
+        <label type="instance" xml:lang="pt">Elevação - faixa</label>
+        <default expr="format-number( ceiling(elevation div 100 ), '#')" />
+      </code>
+      <code id="614" name="calculated_aspect" ui:hide="true" ui:tab="placemark" calculated="true" list="orientation">
+        <label type="instance" xml:lang="es">Orientacion - rangos</label>
+        <label type="instance">Aspect - ranges</label>
+        <label type="instance" xml:lang="fr">Orientation - gamme</label>
+        <label type="instance" xml:lang="pt">Orientação - faixa</label>
+        <default value="N" if="aspect&gt;337.5 and aspect&lt;=22.5" />
+        <default value="NE" if="aspect&gt;22.5 and aspect&lt;=67.5" />
+        <default value="E" if="aspect&gt;67.5 and aspect&lt;=112.5" />
+        <default value="SE" if="aspect&gt;112.5 and aspect&lt;=157.5" />
+        <default value="S" if="aspect&gt;157.5 and aspect&lt;=202.5" />
+        <default value="SW" if="aspect&gt;202.5 and aspect&lt;=247.5" />
+        <default value="W" if="aspect&gt;247.5 and aspect&lt;=292.5" />
+        <default value="NW" if="aspect&gt;292.5 and aspect&lt;=337.5" />
+      </code>
+      <code id="615" name="calculated_slope" ui:hide="true" ui:tab="placemark" calculated="true" list="slope_classes">
+        <label type="instance" xml:lang="es">Pendiente - rangos</label>
+        <label type="instance">Slope - ranges</label>
+        <label type="instance" xml:lang="fr">Pente - gamme</label>
+        <label type="instance" xml:lang="pt">Declive - faixa</label>
+        <default value="FLAT" if="slope&gt;=0 and slope&lt;6" />
+        <default value="SLIGHT" if="slope&gt;=6 and slope&lt;16" />
+        <default value="STEEP" if="slope&gt;=16 and slope&lt;31" />
+        <default value="VERY_STEEP" if="slope&gt;=31 and slope&lt;45" />
+        <default value="EXTREME" if="slope&gt;=46 and slope&lt;61" />
+        <default value="FALL" if="slope&gt;=60" />
+        <default value="NA" if="idm:blank(aspect)" />
+      </code>
+      <code id="1522" name="realm" relevant="false()" required="true" ui:hideWhenNotRelevant="true" ui:tab="tab_625" collectearth:fromcsv="true" list="realm_name">
+        <label type="instance">Realm</label>
+      </code>
+      <code id="651" name="biome" relevant="false()" required="true" ui:hideWhenNotRelevant="true" ui:tab="tab_625" collectearth:fromcsv="true" list="biome_name">
+        <label type="instance">Biome</label>
+      </code>
+      <code id="1523" name="ecoregion" relevant="false()" required="true" ui:hideWhenNotRelevant="true" ui:tab="tab_625" collectearth:fromcsv="true" list="ecoregion_name">
+        <label type="instance">Ecoregion</label>
+      </code>
+      <code id="1549" name="fao_ecozones" required="true" ui:tab="placemark" collectearth:fromcsv="true" list="fao_ecozones">
+        <label type="instance">FAO ecozones</label>
       </code>
     </entity>
   </schema>

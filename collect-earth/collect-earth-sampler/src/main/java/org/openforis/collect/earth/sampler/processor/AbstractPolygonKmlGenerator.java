@@ -20,8 +20,6 @@ import org.slf4j.LoggerFactory;
 
 import au.com.bytecode.opencsv.CSVReader;
 
-import com.vividsolutions.jts.geom.Point;
-
 public abstract class AbstractPolygonKmlGenerator extends KmlGenerator {
 
 	private static final Integer DEFAULT_INNER_POINT_SIDE = 2;
@@ -94,15 +92,7 @@ public abstract class AbstractPolygonKmlGenerator extends KmlGenerator {
 					}
 					
 					final SimplePlacemarkObject currentPlacemark = getPlotObject(csvRow, headerRow, collectSurvey);
-
-					if (!isUsingWGS84() ){
-						final Point transformedPoint = transformToWGS84( 
-								Double.parseDouble( currentPlacemark.getCoord().getLongitude() ), 
-								Double.parseDouble(currentPlacemark.getCoord().getLatitude())
-								); // TOP-LEFT
-						currentPlacemark.setCoord( new SimpleCoordinate( transformedPoint.getY(), transformedPoint.getX() ) );
-					}
-					
+			
 					
 					Double X = Double.parseDouble( currentPlacemark.getCoord().getLongitude() );
 					Double Y = Double.parseDouble( currentPlacemark.getCoord().getLatitude() );

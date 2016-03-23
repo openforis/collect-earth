@@ -20,6 +20,7 @@ import org.geotools.gce.geotiff.GeoTiffReader;
 import org.geotools.geometry.DirectPosition2D;
 import org.geotools.referencing.GeodeticCalculator;
 import org.geotools.referencing.crs.DefaultGeographicCRS;
+import org.openforis.collect.earth.sampler.utils.GeoUtils;
 import org.opengis.coverage.PointOutsideCoverageException;
 import org.opengis.referencing.FactoryException;
 import org.opengis.referencing.operation.TransformException;
@@ -224,7 +225,7 @@ public class PreprocessElevationData extends AbstractCoordinateCalculation {
 	private void overwritePlacemarkInfo(String[] nextRow, OutputStream overwriteToNewFile) throws TransformException, FactoryException, IOException {
 		final double originalX = Double.parseDouble(nextRow[1]);
 		final double originalY = Double.parseDouble(nextRow[2]);
-		final Point wgs84Point = transformToWGS84(originalX, originalY); // TOP-LEFT
+		final Point wgs84Point = GeoUtils.transformToWGS84(originalX, originalY, "EPSG:8326"); // TOP-LEFT
 		final String placemarkId = nextRow[0];
 
 		String elevation = "-1";

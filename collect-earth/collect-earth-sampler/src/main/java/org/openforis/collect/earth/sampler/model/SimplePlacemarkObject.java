@@ -43,6 +43,10 @@ public class SimplePlacemarkObject {
 	
 	private String[] idColumns;
 
+	private String originalLatitude;
+	
+	private String originalLongitude;
+	
 	private String kmlPolygon;
 	
 	public SimplePlacemarkObject(Coordinate coordinate) {
@@ -203,11 +207,8 @@ public class SimplePlacemarkObject {
 	}
 	
 
-	@Override
-	public String toString() {
-		return "SimplePlacemarkObject [coord=" + coord + ", placemarkId="
-				+ placemarkId + "]";
-	}
+	
+
 	
 	@Override
 	public int hashCode() {
@@ -298,6 +299,37 @@ public class SimplePlacemarkObject {
 		} else if (!valuesByColumn.equals(other.valuesByColumn))
 			return false;
 		return true;
+	}
+
+	public String getOriginalLatitude() {
+		return originalLatitude;
+	}
+
+	public void setOriginalLatitude(String originalLatitude) {
+		this.originalLatitude = originalLatitude;
+	}
+
+	public String getOriginalLongitude() {
+		return originalLongitude;
+	}
+
+	public void setOriginalLongitude(String originalLongitude) {
+		this.originalLongitude = originalLongitude;
+	}
+
+	@Override
+	public String toString() {
+		return "SimplePlacemarkObject [coord=" + coord + ", nextPlacemarkId="
+				+ nextPlacemarkId + ", placemarkId=" + placemarkId
+				+ ", points=" + points + ", region=" + region + ", shape="
+				+ shape + ", samplePointOutlined=" + samplePointOutlined
+				+ ", elevation=" + elevation + ", slope=" + slope + ", aspect="
+				+ aspect + ", extraInfo=" + Arrays.toString(extraInfo)
+				+ ", valuesByColumn=" + valuesByColumn + ", extraColumns="
+				+ Arrays.toString(extraColumns) + ", idColumns="
+				+ Arrays.toString(idColumns) + ", originalLatitude="
+				+ originalLatitude + ", originalLongitude=" + originalLongitude
+				+ ", kmlPolygon=" + kmlPolygon + "]";
 	}
 
 

@@ -16,10 +16,14 @@ import org.apache.commons.lang.StringUtils;
 import org.openforis.collect.earth.sampler.model.SimpleCoordinate;
 import org.openforis.collect.earth.sampler.model.SimplePlacemarkObject;
 import org.openforis.collect.earth.sampler.utils.FreemarkerTemplateUtils;
+import org.openforis.collect.earth.sampler.utils.GeoUtils;
 import org.openforis.collect.earth.sampler.utils.KmlGenerationException;
 import org.openforis.collect.model.CollectSurvey;
 import org.openforis.idm.metamodel.AttributeDefinition;
+import org.opengis.referencing.FactoryException;
 import org.opengis.referencing.operation.TransformException;
+
+import com.vividsolutions.jts.geom.Point;
 
 public abstract class KmlGenerator extends AbstractCoordinateCalculation {
 
@@ -46,7 +50,7 @@ public abstract class KmlGenerator extends AbstractCoordinateCalculation {
 	}
 	
 	
-	public static SimplePlacemarkObject getPlotObject(String[] csvValuesInLine, String[] possibleColumnNames, CollectSurvey collectSurvey ) throws KmlGenerationException   {
+	public static SimplePlacemarkObject getPlotObject(String[] csvValuesInLine, String[] possibleColumnNames, CollectSurvey collectSurvey ) throws KmlGenerationException, NumberFormatException, TransformException, FactoryException   {
 		
 		List<AttributeDefinition> keyAttributeDefinitions = collectSurvey.getSchema().getRootEntityDefinitions().get(0).getKeyAttributeDefinitions();
 		int number_of_key_attributes = keyAttributeDefinitions.size();
@@ -120,6 +124,24 @@ public abstract class KmlGenerator extends AbstractCoordinateCalculation {
 			}
 		}
 		plotProperties.setValuesByColumn( valuesByColumn );
+		
+		
+		
+		// Handle teh calculation of different SRSs that EPSG:3264
+		// Lets keep a copy of the original coordinates to use on the KML Data for long/lat that will be sent to Collect Earth
+		plotProperties.setOriginalLongitude( plotProperties.getCoord().getLongitude());
+		plotProperties.setOriginalLatitude( plotProperties.getCoord().getLatitude());
+		
+		String sourceEpsgCode = collectSurvey.getSpatialReferenceSystems().get(0).getId();
+		
+		if (!GeoUtils.isUsingWGS84( sourceEpsgCode ) ){
+			final Point transformedPoint = GeoUtils.transformToWGS84( 
+					Double.parseDouble( plotProperties.getCoord().getLongitude() ), 
+					Double.parseDouble(plotProperties.getCoord().getLatitude() ), 
+					sourceEpsgCode								
+					); // TOP-LEFT
+			plotProperties.setCoord( new SimpleCoordinate( transformedPoint.getY(), transformedPoint.getX() ) );
+		}
 		
 		return plotProperties;
 	}
