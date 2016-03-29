@@ -23,19 +23,16 @@ public class GeoUtils {
 	 * @return True if using latlong coordinates false otherwise
 	 */
 	public static boolean isUsingWGS84( String epsgCode ){
-		return (epsgCode.trim().length() == 0 || epsgCode.equals(LATLONG) || epsgCode.equals(WGS84) );	
+		return (epsgCode.trim().length() == 0 || epsgCode.equals(LATLONG) || epsgCode.equals(WGS84)  || epsgCode.equals(EPSG4326) );	
 	
 	}
 
 	public static Point transformToWGS84(double longitude, double latitude, String sourceEpsgCode ) throws TransformException, FactoryException {
-
 		final GeometryFactory gf = new GeometryFactory();
 		final Coordinate c = new Coordinate(longitude, latitude);
-
 		Point p = gf.createPoint(c);
 		final CoordinateReferenceSystem sourceEpsgCRS = CRS.decode(sourceEpsgCode);
 		final MathTransform mathTransform = CRS.findMathTransform(sourceEpsgCRS, DefaultGeographicCRS.WGS84, false);
-		return (Point) JTS.transform(p, mathTransform);
-		
+		return (Point) JTS.transform(p, mathTransform);		
 	}
 }

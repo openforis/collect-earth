@@ -11,7 +11,9 @@ import org.openforis.idm.metamodel.AttributeDefinition;
 import org.openforis.idm.metamodel.EntityDefinition;
 import org.openforis.idm.metamodel.KeyAttributeDefinition;
 import org.openforis.idm.metamodel.NodeDefinition;
+import org.openforis.idm.metamodel.SpatialReferenceSystem;
 import org.openforis.idm.model.Attribute;
+import org.openforis.idm.model.Coordinate;
 import org.openforis.idm.model.Entity;
 import org.openforis.idm.model.Node;
 import org.openforis.idm.model.Value;
@@ -45,7 +47,16 @@ public abstract class AbstractAttributeHandler<C> {
 	}
 	
 	public NodeChangeSet addOrUpdate(String parameterName, String parameterValue, Entity entity, int parameterChildIndex) {
-		Value value = (Value) (StringUtils.isBlank(parameterValue) ? null: createValue(parameterValue));
+		Value value = (Value) (StringUtils.isBlank(parameterValue) ? null: createValue(parameterValue ) );
+		
+		
+		if( value instanceof Coordinate){
+			// Set the actual SRS used by the survey
+			// Only one SRS can be used on the Collect Earth surveys, so get the first one!
+			SpatialReferenceSystem usedSrs = entity.getSchema().getSurvey().getSpatialReferenceSystems().get(0);
+			// TODO FIX this as soon as Stenao releases 3.9.16
+			((Coordinate) value ).setSrsId( usedSrs.getId() );
+		}
 		
 		@SuppressWarnings("unchecked")
 		Attribute<?, Value> attr = (Attribute<?, Value>) getAttributeNodeFromParameter(parameterName, entity, parameterChildIndex);
