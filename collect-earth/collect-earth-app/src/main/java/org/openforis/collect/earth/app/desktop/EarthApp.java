@@ -84,10 +84,12 @@ public class EarthApp {
 
 			if (args != null && args.length == 1) {
 				doubleClickedProjectFile = args[0];
+			}else if( getProjectsService().getProjectList().size() == 0 ){
+				doubleClickedProjectFile = "resources/demo_survey.cep";
 			}
 
 			if ( SystemUtils.IS_OS_MAC || SystemUtils.IS_OS_MAC_OSX){
-				handleMacStartup();
+				handleMacStartup( doubleClickedProjectFile );
 			}else{
 
 				initializeServer( doubleClickedProjectFile );
@@ -110,10 +112,11 @@ public class EarthApp {
 	/**
 	 * Special code that uses reflection to handle how the application should behave in Mac OS X.
 	 * Without reflection the code provokes compilation-time errors.
+	 * @param doubleClickedProjectFile 
 	 * @throws Exception
 	 */
 	@SuppressWarnings({ "rawtypes", "unchecked" })
-	public static void handleMacStartup() throws Exception{
+	public static void handleMacStartup(String doubleClickedProjectFile) throws Exception{
 		try {
 			Class applicationClass = Class.forName("com.apple.eawt.Application");
 			Method getApplicationMethod = applicationClass.getMethod("getApplication");
@@ -148,7 +151,7 @@ public class EarthApp {
 			// Lets wait for the Apple event to arrive. If it did then the earthApp variable will be non-nulls 
 			Thread.sleep(2000);
 			if( earthApp == null ){
-				initializeServer( null );
+				initializeServer( doubleClickedProjectFile );
 			}
 		} catch (Exception e) {
 			logger.error("Error while defining the double-click behaviour on CEP files in Mac OS X", e);
@@ -293,7 +296,7 @@ public class EarthApp {
 		}
 	}
 
-	private EarthProjectsService getProjectsService() {
+	private static EarthProjectsService getProjectsService() {
 		if (serverController != null) {
 			return serverController.getContext().getBean(EarthProjectsService.class);
 		} else {
