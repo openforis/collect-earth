@@ -48,9 +48,6 @@
                 <distributionFile>
                     <origin>COLLECT_EARTH_MAIN_FOLDER/collect-earth-app/UserManual.pdf</origin>
                 </distributionFile>
-                <distributionDirectory>
-                    <origin>COLLECT_EARTH_MAIN_FOLDER/collect-earth-app/resources/drylands_demo</origin>
-                </distributionDirectory>
                 <distributionFile>
                     <origin>earth.properties_initial</origin>
                 </distributionFile>
