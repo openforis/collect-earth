@@ -13,7 +13,7 @@
 	<name>Earth Sampler</name>
 
 	<properties>
-		<geotools.version>9.4</geotools.version>
+		<geotools.version>14.3</geotools.version>
 	</properties>
 
 	<dependencies>

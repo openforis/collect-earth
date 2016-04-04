@@ -47,11 +47,11 @@ public abstract class AbstractCoordinateCalculation {
 	 */
 	protected double[] getPointWithOffset(double[] originalLatLong, double offsetLongitudeMeters, double offsetLatitudeMeters)
 			throws TransformException {
-		double[] movedPointXY = null;
+		double[] movedPointLatLong = null;
 		try {
 
 			if (offsetLatitudeMeters == 0 && offsetLongitudeMeters == 0) {
-				movedPointXY = originalLatLong;
+				return movedPointLatLong;
 			} else {
 
 				double longitudeDirection = 90; // EAST
@@ -64,7 +64,7 @@ public abstract class AbstractCoordinateCalculation {
 					latitudeDirection = 180; // SOUTH
 				}
 
-				calc.setStartingGeographicPoint(originalLatLong[1], originalLatLong[0]);
+				calc.setStartingGeographicPoint( originalLatLong[1], originalLatLong[0]);
 
 				boolean longitudeChanged = false;
 				if (offsetLongitudeMeters != 0) {
@@ -81,15 +81,16 @@ public abstract class AbstractCoordinateCalculation {
 					calc.setDirection(latitudeDirection, Math.abs( offsetLatitudeMeters ) );
 				}
 
-				movedPointXY = calc.getDestinationPosition().getCoordinate();
+				movedPointLatLong = calc.getDestinationPosition().getCoordinate();
 			}
 		} catch (final Exception e) {
 			getLogger().error(
 					"Exception when moving point " + Arrays.toString(originalLatLong) + " with offset longitude " + offsetLongitudeMeters
 							+ " and latitude " + offsetLatitudeMeters, e);
+			e.printStackTrace( System.out );
 		}
-		if( movedPointXY!= null ){
-			double[] latLongPoint = new double[]{ movedPointXY[1], movedPointXY[0]};
+		if( movedPointLatLong!= null ){
+			double[] latLongPoint = new double[]{ movedPointLatLong[1], movedPointLatLong[0]};
 			return latLongPoint ;
 		}else{
 			return null;
