@@ -6,6 +6,7 @@ import java.io.IOException;
 import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.List;
 import java.util.Locale;
 
 import javax.annotation.PostConstruct;
@@ -230,37 +231,42 @@ public class RegionCalculationUtils {
 					throw new RuntimeException("The expected format of the CSV file at " + areasPerAttribute.getAbsolutePath() + " should be attribute_name,area,weight");
 				}
 
+				int numberOfAttributes = attributeNames.size();
+				StringBuffer attributeWhereConditionsSB = new StringBuffer();
+				for (int attrIdx=0; attrIdx < numberOfAttributes ; attrIdx++) {
+					String attributeName = attributeNames.get(attrIdx);
+					attributeWhereConditionsSB.append(attributeName);
+					if( attrIdx == numberOfAttributes-1 ){
+						attributeWhereConditionsSB.append("=? ");
+					} else{
+						attributeWhereConditionsSB.append("=? AND ");
+					}
+				}
+				String attributeWhereConditions = attributeWhereConditionsSB.toString();
+				
+				StringBuffer selectQuerySB = new StringBuffer();
+				selectQuerySB.append("SELECT count(  DISTINCT ").append(EarthConstants.PLOT_ID).append(") FROM ").append(schemaName).append("plot  WHERE ").append(attributeWhereConditions);
+				String plotCountSelectQuery = selectQuerySB.toString();
+				
+				// Build the update query
+				StringBuffer updateQuerySB = new StringBuffer();
+				updateQuerySB.append("UPDATE ").append(schemaName).append("plot SET ").append(EXPANSION_FACTOR).append("=?, ").append(PLOT_WEIGHT).append("=? WHERE ").append(attributeWhereConditions);
+
+				String updatePlotQuery = updateQuerySB.toString();
+
+				List<Object[]> batchArgs = new ArrayList<Object[]>();
 				int line = 1;
 				while( ( csvLine = csvReader.readNext() ) != null ){
-
 					try{
-
-
 						int area_hectars = Integer.parseInt( csvLine[columnNames.length -2] );
 						final Float plot_weight =  Float.parseFloat( csvLine[columnNames.length -1] );
-
-						int numberOfAttributes = attributeNames.size();
 
 						ArrayList<Object> attributeValues = new ArrayList<Object>(); 
 						for(int attributeValueCol = 0; attributeValueCol<numberOfAttributes;attributeValueCol++){
 							attributeValues.add(csvLine[attributeValueCol]);
 						}						
 
-
-						StringBuffer selectQuery = new StringBuffer();
-						selectQuery.append("SELECT count(  DISTINCT ").append(EarthConstants.PLOT_ID).append(") FROM ").append(schemaName).append("plot  WHERE ");
-						for (int attr =0; attr<attributeNames.size() ; attr++) {
-							String attributeName = attributeNames.get(attr);
-							selectQuery.append(attributeName);
-							if( attr == numberOfAttributes-1 ){
-								selectQuery.append("=? ");
-							}else{
-								selectQuery.append("=? AND ");
-							}
-
-						}
-
-						Integer plots_per_region = jdbcTemplate.queryForObject(selectQuery.toString(), attributeValues.toArray(), Integer.class); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$ //$NON-NLS-4$
+						Integer plots_per_region = jdbcTemplate.queryForObject(plotCountSelectQuery, attributeValues.toArray(), Integer.class); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$ //$NON-NLS-4$
 
 						// Calculate the expansion factor. Simply the deivision of the area for the selected attributes by the amount of plots that match the attribute values
 						Float expansion_factor_hectars_calc = 0f;
@@ -268,34 +274,18 @@ public class RegionCalculationUtils {
 							expansion_factor_hectars_calc = (float)area_hectars / (float) plots_per_region.intValue();
 						}
 
-
-						// Build the update query
-						StringBuffer updateQuery = new StringBuffer();
-						updateQuery.append("UPDATE ").append(schemaName).append("plot SET ").append(EXPANSION_FACTOR).append("=?, ").append(PLOT_WEIGHT).append("=? WHERE ");
-						for (int attr =0; attr<attributeNames.size() ; attr++) {
-							String attributeName = attributeNames.get(attr);
-							updateQuery.append(attributeName);
-							if( attr == numberOfAttributes-1 ){
-								updateQuery.append("=? ");
-							}else{
-								updateQuery.append("=? AND ");
-							}
-
-						}
-
 						// Add the expansion factor and plot_weight to the values that will be sent with the update
 						attributeValues.add(0, expansion_factor_hectars_calc);
 						attributeValues.add(1, plot_weight);
-
-						jdbcTemplate.update(updateQuery.toString(), attributeValues.toArray()); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$ //$NON-NLS-4$
+						
+						batchArgs.add(attributeValues.toArray());
 					}catch( Exception e5){
 						logger.error("Problem in line number " + line + " with values "  + Arrays.toString( csvLine ), e5 );
 					}finally{
 						line++;
 					}
 				}
-
-
+				jdbcTemplate.batchUpdate(updatePlotQuery, batchArgs);
 			} catch (FileNotFoundException e) {
 				logger.error("File not found?", e); //$NON-NLS-1$
 			} catch (IOException e) {
