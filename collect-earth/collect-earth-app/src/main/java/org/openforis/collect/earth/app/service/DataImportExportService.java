@@ -8,12 +8,11 @@ import java.util.List;
 import org.openforis.collect.earth.app.EarthConstants;
 import org.openforis.collect.io.data.CSVDataExportProcess;
 import org.openforis.collect.io.data.CSVDataImportProcess;
+import org.openforis.collect.io.data.CSVDataImportProcess.CSVDataImportSettings;
 import org.openforis.collect.io.data.DataImportSummaryItem;
 import org.openforis.collect.io.data.XMLDataExportProcess;
 import org.openforis.collect.io.data.XMLDataImportProcess;
 import org.openforis.collect.io.data.csv.CSVExportConfiguration;
-import org.openforis.collect.manager.RecordManager;
-import org.openforis.collect.manager.SurveyManager;
 import org.openforis.collect.model.CollectRecord;
 import org.openforis.collect.model.CollectRecord.Step;
 import org.openforis.collect.model.CollectSurvey;
@@ -35,12 +34,6 @@ public class DataImportExportService {
 
 	@Autowired
 	private EarthSurveyService earthSurveyService;
-
-	@Autowired
-	private SurveyManager surveyManager;
-
-	@Autowired
-	private RecordManager recordManager;
 
 	private final Logger logger = LoggerFactory.getLogger(DataImportExportService.class);
 	/**
@@ -113,9 +106,12 @@ public class DataImportExportService {
 		importProcess.setSurvey(earthSurveyService.getCollectSurvey());
 		importProcess.setParentEntityDefinitionId(earthSurveyService.getCollectSurvey().getSchema().getRootEntityDefinition(EarthConstants.ROOT_ENTITY_NAME).getId());
 		importProcess.setStep(Step.ENTRY );
-		importProcess.setRecordValidationEnabled(false);
-		importProcess.setInsertNewRecords(false);
-		importProcess.setNewRecordVersionName(null);
+		CSVDataImportSettings settings = new CSVDataImportSettings();
+		settings.setRecordValidationEnabled(false);
+		settings.setInsertNewRecords(false);
+		settings.setNewRecordVersionName(null);
+		settings.setReportNoRecordFoundErrors(false);
+		importProcess.setSettings(settings);
 		return importProcess;
 	}
 
