@@ -365,6 +365,22 @@ public class CollectEarthWindow{
 		});
 		serverMenuItems.add(menuItem); // This menu should only be shown if the DB is local ( not if Collect Earth is acting as a client )
 		toolsMenu.add(menuItem);
+		
+		menuItem = new JMenuItem("Open data folder"); //$NON-NLS-1$
+		menuItem.addActionListener( new ActionListener() {
+			
+			@Override
+			public void actionPerformed(ActionEvent e) {
+				try {
+					CollectEarthUtils.openFolderInExplorer(FolderFinder.getAppDataFolder() );
+				} catch (IOException e1) {
+					logger.error("Could not findthe data folder", e1 );
+				}
+				
+			}
+		});
+		serverMenuItems.add(menuItem); // This menu should only be shown if the DB is local ( not if Collect Earth is acting as a client )
+		toolsMenu.add(menuItem);
 
 
 		toolsMenu.addSeparator();
@@ -431,7 +447,7 @@ public class CollectEarthWindow{
 
 			@Override
 			public void actionPerformed(ActionEvent e) {
-				final JDialog dialog = new OptionWizard(owner, localPropertiesService, earthProjectsService, backupSqlLiteService.getBackUpFolder().getAbsolutePath(), analysisSaikuService);
+				final JDialog dialog = new OptionWizard(owner, localPropertiesService, earthProjectsService, backupSqlLiteService.getBackUpFolder().getPath(), analysisSaikuService);
 				dialog.setVisible(true);
 				dialog.pack();
 			}

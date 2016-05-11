@@ -271,28 +271,7 @@ public class SimplePlacemarkObject {
 				return false;
 		} else if (!placemarkId.equals(other.placemarkId))
 			return false;
-		if (points == null) {
-			if (other.points != null)
-				return false;
-		} else if (!points.equals(other.points))
-			return false;
-		if (region == null) {
-			if (other.region != null)
-				return false;
-		} else if (!region.equals(other.region))
-			return false;
-		if (samplePointOutlined == null) {
-			if (other.samplePointOutlined != null)
-				return false;
-		} else if (!samplePointOutlined.equals(other.samplePointOutlined))
-			return false;
-		if (shape == null) {
-			if (other.shape != null)
-				return false;
-		} else if (!shape.equals(other.shape))
-			return false;
-		if (slope != other.slope)
-			return false;
+		
 		if (valuesByColumn == null) {
 			if (other.valuesByColumn != null)
 				return false;
