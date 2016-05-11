@@ -17,6 +17,7 @@ import net.lingala.zip4j.model.ZipParameters;
 import net.lingala.zip4j.util.Zip4jConstants;
 
 import org.apache.commons.codec.digest.DigestUtils;
+import org.apache.commons.lang3.SystemUtils;
 import org.openforis.collect.earth.app.EarthConstants.UI_LANGUAGE;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -92,5 +93,28 @@ public class CollectEarthUtils {
 		}
 	}
 	
+	public static void openFolderInExplorer(String folder) throws IOException {
+		if (SystemUtils.IS_OS_WINDOWS){
+			new ProcessBuilder("explorer.exe", "/open," + folder).start(); //$NON-NLS-1$ //$NON-NLS-2$
+		}else if (SystemUtils.IS_OS_MAC){
+			new ProcessBuilder("usr/bin/open", folder).start(); //$NON-NLS-1$ //$NON-NLS-2$
+		}else if ( SystemUtils.IS_OS_UNIX){
+
+			try {
+				new ProcessBuilder("nautilus", folder).start(); //$NON-NLS-1$ //$NON-NLS-2$
+			} catch (Exception e1) {
+				try {
+					new ProcessBuilder("gnome-open", folder).start(); //$NON-NLS-1$ //$NON-NLS-2$
+				} catch (Exception e2) {
+					try {
+						new ProcessBuilder("kde-open", folder).start(); //$NON-NLS-1$ //$NON-NLS-2$
+					} catch (Exception e3) {
+						new ProcessBuilder("caja", folder).start(); //$NON-NLS-1$ //$NON-NLS-2$
+					}
+				}
+			}
+
+		}
+	}
 
 }

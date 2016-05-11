@@ -47,7 +47,7 @@ import javax.swing.event.DocumentListener;
 import javax.swing.event.ListSelectionEvent;
 import javax.swing.event.ListSelectionListener;
 
-import org.apache.commons.lang3.SystemUtils;
+import org.openforis.collect.earth.app.CollectEarthUtils;
 import org.openforis.collect.earth.app.EarthConstants;
 import org.openforis.collect.earth.app.EarthConstants.CollectDBDriver;
 import org.openforis.collect.earth.app.EarthConstants.OperationMode;
@@ -625,32 +625,14 @@ public class OptionWizard extends JDialog {
 			public void actionPerformed(ActionEvent e) {
 				try {
 
-					if (SystemUtils.IS_OS_WINDOWS){
-						new ProcessBuilder("explorer.exe", "/select," + backupFolder).start(); //$NON-NLS-1$ //$NON-NLS-2$
-					}else if (SystemUtils.IS_OS_MAC){
-						new ProcessBuilder("usr/bin/open", backupFolder).start(); //$NON-NLS-1$ //$NON-NLS-2$
-					}else if ( SystemUtils.IS_OS_UNIX){
-
-						try {
-							new ProcessBuilder("nautilus", backupFolder).start(); //$NON-NLS-1$ //$NON-NLS-2$
-						} catch (Exception e1) {
-							try {
-								new ProcessBuilder("gnome-open", backupFolder).start(); //$NON-NLS-1$ //$NON-NLS-2$
-							} catch (Exception e2) {
-								try {
-									new ProcessBuilder("kde-open", backupFolder).start(); //$NON-NLS-1$ //$NON-NLS-2$
-								} catch (Exception e3) {
-									new ProcessBuilder("caja", backupFolder).start(); //$NON-NLS-1$ //$NON-NLS-2$
-								}
-							}
-						}
-
-					}
+					CollectEarthUtils.openFolderInExplorer( backupFolder );
 
 				} catch (final IOException e1) {
 					logger.error("Error when opening the explorer window to visualize backups", e1); //$NON-NLS-1$
 				}
 			}
+
+
 		};
 
 		return new JButton( backupAction );
