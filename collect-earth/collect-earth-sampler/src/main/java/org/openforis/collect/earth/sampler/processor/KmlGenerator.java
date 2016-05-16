@@ -18,6 +18,7 @@ import org.openforis.collect.earth.sampler.model.SimplePlacemarkObject;
 import org.openforis.collect.earth.sampler.utils.FreemarkerTemplateUtils;
 import org.openforis.collect.earth.sampler.utils.GeoUtils;
 import org.openforis.collect.earth.sampler.utils.KmlGenerationException;
+import org.openforis.collect.metamodel.CollectAnnotations;
 import org.openforis.collect.model.CollectSurvey;
 import org.openforis.idm.metamodel.AttributeDefinition;
 import org.opengis.referencing.FactoryException;
@@ -55,14 +56,26 @@ public abstract class KmlGenerator extends AbstractCoordinateCalculation {
 		List<AttributeDefinition> keyAttributeDefinitions = collectSurvey.getSchema().getRootEntityDefinitions().get(0).getKeyAttributeDefinitions();
 		int number_of_key_attributes = keyAttributeDefinitions.size();
 		
+		CollectAnnotations annotations = collectSurvey.getAnnotations();
+		
 		final SimplePlacemarkObject plotProperties = new SimplePlacemarkObject();
 		
 		String keys = "";
+		String visibleKeys = csvValuesInLine[0];
 		for(int i=0; i<number_of_key_attributes; i++){
 			keys += csvValuesInLine[i] + ",";
+			boolean isKeyHiddenInGoogleEarth = annotations.isHideKeyInCollectEarthRecordList((AttributeDefinition)  keyAttributeDefinitions.get(i) );
+			// Check that the Key attribute should not be hidden to user...
+			// This is helpful to have blind Quality Control plots
+			if( !isKeyHiddenInGoogleEarth ){
+				visibleKeys += csvValuesInLine[i] + ",";
+			}
 		}
 		keys = keys.substring(0, keys.lastIndexOf(','));
+		visibleKeys = visibleKeys.substring(0, visibleKeys.lastIndexOf(','));
+		
 		plotProperties.setPlacemarkId( keys );
+		plotProperties.setVisiblePlacemarkId(visibleKeys);
 	
 		int leading_columns = 0;
 		

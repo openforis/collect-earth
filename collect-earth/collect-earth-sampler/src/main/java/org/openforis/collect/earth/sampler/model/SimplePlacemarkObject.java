@@ -20,6 +20,8 @@ public class SimplePlacemarkObject {
 	private String nextPlacemarkId = "unknown";
 
 	private String placemarkId;
+	
+	private String visiblePlacemarkId;
 
 	private List<SimplePlacemarkObject> points;
 
@@ -309,6 +311,14 @@ public class SimplePlacemarkObject {
 				+ Arrays.toString(idColumns) + ", originalLatitude="
 				+ originalLatitude + ", originalLongitude=" + originalLongitude
 				+ ", kmlPolygon=" + kmlPolygon + "]";
+	}
+
+	public String getVisiblePlacemarkId() {
+		return visiblePlacemarkId;
+	}
+
+	public void setVisiblePlacemarkId(String visiblePlacemarkId) {
+		this.visiblePlacemarkId = visiblePlacemarkId;
 	}
 
 
