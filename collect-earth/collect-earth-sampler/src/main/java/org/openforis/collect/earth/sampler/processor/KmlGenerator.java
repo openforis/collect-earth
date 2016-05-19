@@ -61,7 +61,7 @@ public abstract class KmlGenerator extends AbstractCoordinateCalculation {
 		final SimplePlacemarkObject plotProperties = new SimplePlacemarkObject();
 		
 		String keys = "";
-		String visibleKeys = csvValuesInLine[0];
+		String visibleKeys = "";
 		for(int i=0; i<number_of_key_attributes; i++){
 			keys += csvValuesInLine[i] + ",";
 			boolean isKeyHiddenInGoogleEarth = annotations.isHideKeyInCollectEarthRecordList((AttributeDefinition)  keyAttributeDefinitions.get(i) );
