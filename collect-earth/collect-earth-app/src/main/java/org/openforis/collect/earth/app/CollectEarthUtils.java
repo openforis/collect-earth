@@ -34,22 +34,29 @@ public class CollectEarthUtils {
 	
 	public static void setFontDependingOnLanguaue( UI_LANGUAGE ui_language){
 		if( ui_language == UI_LANGUAGE.LO){
-			
+			String ttfFileName = "Phetsarath_OT.ttf";
             //create the font
-            try {
-                //create the font to use. Specify the size!
-            	InputStream fontStream = CollectEarthUtils.class.getResourceAsStream("Phetsarath_OT.ttf");
-                Font laoFont = Font.createFont(Font.TRUETYPE_FONT, fontStream).deriveFont(12f);
-                GraphicsEnvironment ge = GraphicsEnvironment.getLocalGraphicsEnvironment();
-                //register the font
-                ge.registerFont(laoFont);
-                CollectEarthUtils.setUIFont( new javax.swing.plaf.FontUIResource( laoFont.getFontName(),Font.PLAIN,12)  );
-            } catch (IOException | FontFormatException e) {
-                Logger logger = LoggerFactory.getLogger( CollectEarthUtils.class);
-                logger.error("error setting the Lao font " , e );
-            }
-		}else{
+            setUiFont(ttfFileName);
+		}/*else if( ui_language == UI_LANGUAGE.MN){
+			String ttfFileName = "arhangai.ttf";
+            //create the font
+            setUiFont(ttfFileName);
+		}*/else{
 			CollectEarthUtils.setUIFont( new javax.swing.plaf.FontUIResource("Arial Unicode MS",Font.PLAIN,12) );
+		}
+	}
+	public static void setUiFont(String ttfFileName) {
+		try {
+		    //create the font to use. Specify the size!
+			InputStream fontStream = CollectEarthUtils.class.getResourceAsStream(ttfFileName);
+		    Font laoFont = Font.createFont(Font.TRUETYPE_FONT, fontStream).deriveFont(12f);
+		    GraphicsEnvironment ge = GraphicsEnvironment.getLocalGraphicsEnvironment();
+		    //register the font
+		    ge.registerFont(laoFont);
+		    CollectEarthUtils.setUIFont( new javax.swing.plaf.FontUIResource( laoFont.getFontName(),Font.PLAIN,12)  );
+		} catch (IOException | FontFormatException e) {
+		    Logger logger = LoggerFactory.getLogger( CollectEarthUtils.class);
+		    logger.error("error setting the font " + ttfFileName , e );
 		}
 	}
 	
