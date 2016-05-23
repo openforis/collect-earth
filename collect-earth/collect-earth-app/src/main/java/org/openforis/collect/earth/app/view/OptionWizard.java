@@ -39,6 +39,7 @@ import javax.swing.JTabbedPane;
 import javax.swing.JTextField;
 import javax.swing.ListSelectionModel;
 import javax.swing.ScrollPaneConstants;
+import javax.swing.SwingUtilities;
 import javax.swing.border.BevelBorder;
 import javax.swing.border.Border;
 import javax.swing.border.TitledBorder;
@@ -51,6 +52,7 @@ import org.openforis.collect.earth.app.CollectEarthUtils;
 import org.openforis.collect.earth.app.EarthConstants;
 import org.openforis.collect.earth.app.EarthConstants.CollectDBDriver;
 import org.openforis.collect.earth.app.EarthConstants.OperationMode;
+import org.openforis.collect.earth.app.desktop.EarthApp;
 import org.openforis.collect.earth.app.service.AnalysisSaikuService;
 import org.openforis.collect.earth.app.service.EarthProjectsService;
 import org.openforis.collect.earth.app.service.LocalPropertiesService;
@@ -78,6 +80,8 @@ public class OptionWizard extends JDialog {
 	private AnalysisSaikuService saikuService;
 
 	private EarthProjectsService projectsService;
+	
+	private boolean restartRequired;
 
 
 	public OptionWizard(JFrame frame, LocalPropertiesService localPropertiesService, EarthProjectsService projectsService,  String backupFolder, AnalysisSaikuService saikuService) {
@@ -192,13 +196,60 @@ public class OptionWizard extends JDialog {
 			protected void applyProperties() {
 
 				savePropertyValues();
-				restartEarth();
+				if(restartRequired ){
+					restartEarth();
+				}else{
+					
+					new Thread(){
+						public void run() {
+							// Only regenerate KML and reload
+							try {
+								SwingUtilities.invokeAndWait( new Runnable() {
+									
+									@Override
+									public void run() {
+										CollectEarthWindow.startWaiting(OptionWizard.this);
+									}
+								});
+								
+								EarthApp.loadKmlInGoogleEarth(true);
+								
+								
+								SwingUtilities.invokeAndWait( new Runnable() {
+									
+									@Override
+									public void run() {
+										CollectEarthWindow.endWaiting(OptionWizard.this);
+										OptionWizard.this.closeDialog();
+									}
+								});
+							} catch (Exception e) {
+								logger.error("Error loading the KML",e);
+								try {
+									EarthApp.loadKmlInGoogleEarth(true);
+								} catch (Exception e1) {
+									// TODO Auto-generated catch block
+									e1.printStackTrace();
+								}
+								
+								
+							}
+							
+						};
+					}.start();
+					
+				}
 			}
 
 		});
 
 		return applyChanges;
 	}
+
+	protected void closeDialog() {
+		this.dispose();
+	}
+
 
 	private Component getCancelButton() {
 		final JButton cancelButton = new JButton(Messages.getString("OptionWizard.24")); //$NON-NLS-1$
@@ -875,6 +926,16 @@ public class OptionWizard extends JDialog {
 		final JTextField dbPort = new JTextField(localPropertiesService.getValue(EarthProperty.DB_PORT));
 		propertyToComponent.put(EarthProperty.DB_PORT, new JComponent[] { dbPort });
 
+	}
+
+
+	public boolean isRestartRequired() {
+		return restartRequired;
+	}
+
+
+	public void setRestartRequired(boolean restartRequired) {
+		this.restartRequired = restartRequired;
 	}
 
 }
