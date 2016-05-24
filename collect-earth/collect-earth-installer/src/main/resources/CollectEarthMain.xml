@@ -52,6 +52,9 @@
                     <origin>earth.properties_initial</origin>
                 </distributionFile>
                 <distributionFile>
+                    <origin>earth.properties_forced_update</origin>
+                </distributionFile>
+                <distributionFile>
                     <origin>update.ini</origin>
                 </distributionFile>
             </distributionFileList>
@@ -209,7 +212,7 @@
     </postBuildActionList>
     <postInstallationActionList>
         <substitute>
-            <files>${installdir}/earth.properties_initial</files>
+            <files>${installdir}/earth.properties_initial;${installdir}/earth.properties_forced_update</files>
             <type>regexp</type>
             <substitutionList>
                 <substitution>

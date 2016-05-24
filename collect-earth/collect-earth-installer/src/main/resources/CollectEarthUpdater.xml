@@ -71,6 +71,16 @@
 		</if>
     </initializationActionList>
     <postInstallationActionList>
+		<substitute>
+            <files>${installdir}/earth.properties_initial;${installdir}/earth.properties_forced_update</files>
+            <type>regexp</type>
+            <substitutionList>
+                <substitution>
+                    <pattern>install_directory</pattern>
+                    <value>${installdir}</value>
+                </substitution>
+            </substitutionList>
+        </substitute>
         <showInfo>
             <text>You need to quit Collect Earth and re-start it for the update to finalize!</text>
         </showInfo>
@@ -84,4 +94,3 @@
     <overwritePolicy>onlyIfNewer</overwritePolicy>
     <vendor>Open Foris Initiative</vendor>
 </project>
-

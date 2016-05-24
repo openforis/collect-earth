@@ -109,4 +109,3 @@
 	<!-- Configures the final destination of the installation log -->
    <installationLogFile>${installdir}/${project.shortName}-installLog.log</installationLogFile>
 </project>
-
