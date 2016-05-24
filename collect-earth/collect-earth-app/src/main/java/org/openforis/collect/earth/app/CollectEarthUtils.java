@@ -1,5 +1,6 @@
 package org.openforis.collect.earth.app;
 
+import java.awt.Desktop;
 import java.awt.Font;
 import java.awt.FontFormatException;
 import java.awt.GraphicsEnvironment;
@@ -101,26 +102,29 @@ public class CollectEarthUtils {
 	}
 	
 	public static void openFolderInExplorer(String folder) throws IOException {
-		if (SystemUtils.IS_OS_WINDOWS){
-			new ProcessBuilder("explorer.exe", "/open," + folder).start(); //$NON-NLS-1$ //$NON-NLS-2$
-		}else if (SystemUtils.IS_OS_MAC){
-			new ProcessBuilder("usr/bin/open", folder).start(); //$NON-NLS-1$ //$NON-NLS-2$
-		}else if ( SystemUtils.IS_OS_UNIX){
-
-			try {
-				new ProcessBuilder("nautilus", folder).start(); //$NON-NLS-1$ //$NON-NLS-2$
-			} catch (Exception e1) {
+		if (Desktop.isDesktopSupported()) {
+		    Desktop.getDesktop().open(new File(folder));
+		}else{
+			if (SystemUtils.IS_OS_WINDOWS){
+				new ProcessBuilder("explorer.exe", "/open," + folder).start(); //$NON-NLS-1$ //$NON-NLS-2$
+			}else if (SystemUtils.IS_OS_MAC){
+				new ProcessBuilder("usr/bin/open", folder).start(); //$NON-NLS-1$ //$NON-NLS-2$
+			}else if ( SystemUtils.IS_OS_UNIX){
+	
 				try {
-					new ProcessBuilder("gnome-open", folder).start(); //$NON-NLS-1$ //$NON-NLS-2$
-				} catch (Exception e2) {
+					new ProcessBuilder("nautilus", folder).start(); //$NON-NLS-1$ //$NON-NLS-2$
+				} catch (Exception e1) {
 					try {
-						new ProcessBuilder("kde-open", folder).start(); //$NON-NLS-1$ //$NON-NLS-2$
-					} catch (Exception e3) {
-						new ProcessBuilder("caja", folder).start(); //$NON-NLS-1$ //$NON-NLS-2$
+						new ProcessBuilder("gnome-open", folder).start(); //$NON-NLS-1$ //$NON-NLS-2$
+					} catch (Exception e2) {
+						try {
+							new ProcessBuilder("kde-open", folder).start(); //$NON-NLS-1$ //$NON-NLS-2$
+						} catch (Exception e3) {
+							new ProcessBuilder("caja", folder).start(); //$NON-NLS-1$ //$NON-NLS-2$
+						}
 					}
 				}
 			}
-
 		}
 	}
 
