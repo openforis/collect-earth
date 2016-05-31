@@ -31,10 +31,10 @@ public class ProduceCsvFiles {
 	public static void main(String[] args) {
 
 		ProduceCsvFiles producer = new ProduceCsvFiles("mongolia_training_random");
-		File fileToDivide = new File("Mongolia_10000_qc_eco.csv");
+		File fileToDivide = new File("C:\\opt\\workspaceClean\\CsvSorter\\Mongolia_10000_qc_eco.csv");
 
 		//producer.divideRandomlyByColumn(fileToDivide, 10, 9);
-		producer.divideRandomly(fileToDivide, 22);
+		producer.divideRandomlyByColumn(fileToDivide, 10, 10);
 
 		System.exit(0);
 	}
@@ -53,6 +53,7 @@ public class ProduceCsvFiles {
 		if( !outputFolder.exists() ){
 			outputFolder.mkdir();
 		}
+		System.out.println(outputFolder.getAbsolutePath());
 	}
 
 	private void divideByColumn(File fileToDivide, int numberOfFiles, Integer dividideByValueInColumn ){
@@ -72,6 +73,7 @@ public class ProduceCsvFiles {
 		createOutputFolder(numberOfFiles);
 
 		Map<Strata,CSVWriter> csvFiles = new HashMap<Strata, CSVWriter>();
+		Map<String,Integer> linesPerStrata = new HashMap<String, Integer>(); 
 
 		try {
 			// If there is no division by column and the order should be randomized then randomize the file contents from the beginning
@@ -95,13 +97,24 @@ public class ProduceCsvFiles {
 					continue;
 				}
 			
-
-				String stratumColumnValue = "Mongolia";
+				Integer fileNumber = rowNumber % numberOfFiles;
+				
+				String stratumColumnValue = outputFolderName ;
 				if( dividideByValueInColumn != null ){
 					stratumColumnValue = csvRow[ dividideByValueInColumn ];
+					Integer lines = linesPerStrata.get( stratumColumnValue );
+					if( lines == null ){
+						lines = 1;
+					}else{
+						lines++;
+					}
+					
+					// Adjust the fileNumber in relation to how many lines there are per strata so that the sub-files have equal sizes!
+					fileNumber = lines % numberOfFiles;
+				
+					linesPerStrata.put(stratumColumnValue, lines);
 				}
-
-				Integer fileNumber = rowNumber % numberOfFiles;
+				
 				Strata stratum = new Strata(stratumColumnValue, fileNumber);
 
 				writCsvRow(csvFiles, csvRow, stratum);
