@@ -127,6 +127,8 @@ public class PlacemarkUpdateServlet {
 			Date lastUpdateDate = null;
 			if (lastUpdate != null && lastUpdate.length() > 0) {
 				lastUpdateDate = dateFormat.parse(lastUpdate);
+			}else{
+				lastUpdateDate = getTwoMinutesAgo();
 			}
 		
 			List<CollectRecord> lastUpdatedRecords = null;
@@ -158,9 +160,15 @@ public class PlacemarkUpdateServlet {
 	}
 
 	private String getUpdateFromDate(final SimpleDateFormat dateFormat) throws UnsupportedEncodingException {
+		Date twoMinutesAgo = getTwoMinutesAgo();
+		return URLEncoder.encode(dateFormat.format(twoMinutesAgo), "UTF-8" ); //$NON-NLS-1$
+	}
+
+	public Date getTwoMinutesAgo() {
 		Calendar cal = Calendar.getInstance();
-		cal.add(Calendar.MINUTE, -1);
-		return URLEncoder.encode(dateFormat.format(cal.getTime()), "UTF-8" ); //$NON-NLS-1$
+		cal.add(Calendar.MINUTE, -2);
+		Date twoMinutesAgo = cal.getTime();
+		return twoMinutesAgo;
 	}
 
 	private void setKmlResponse(HttpServletResponse response, String kmlCode, SimpleDateFormat dateFormat) throws IOException {
@@ -169,6 +177,7 @@ public class PlacemarkUpdateServlet {
 		response.setHeader("Date", dateFormat.format(new Date())); //$NON-NLS-1$
 		response.setHeader("Content-Length", kmlCode.getBytes(Charset.forName("UTF-8")).length + ""); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$
 		response.getOutputStream().write(kmlCode.getBytes(Charset.forName("UTF-8"))); //$NON-NLS-1$
+		response.getOutputStream().flush();
 		response.getOutputStream().close();
 	}
 	

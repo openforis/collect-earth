@@ -10,6 +10,7 @@ import java.util.Locale;
 import java.util.Map;
 
 import javax.servlet.ServletContext;
+import javax.servlet.ServletOutputStream;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 
@@ -141,12 +142,14 @@ public class PlacemarkImageServlet extends JsonPocessorServlet {
 	}
 
 	private void writeToResponse(HttpServletResponse response, byte[] fileContents) throws IOException {
+		ServletOutputStream outputStream = response.getOutputStream();
 		try {
-			response.getOutputStream().write(fileContents);
+			outputStream.write(fileContents);
+			outputStream.flush();
 		} catch (final Exception e) {
 			getLogger().error("Error writing reponse body to output stream ", e); //$NON-NLS-1$
 		} finally {
-			response.getOutputStream().close();
+			outputStream.close();
 		}
 
 	}
