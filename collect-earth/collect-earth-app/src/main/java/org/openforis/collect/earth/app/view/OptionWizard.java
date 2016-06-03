@@ -15,6 +15,7 @@ import java.io.File;
 import java.io.IOException;
 import java.net.InetAddress;
 import java.net.UnknownHostException;
+import java.text.DecimalFormat;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
@@ -82,6 +83,8 @@ public class OptionWizard extends JDialog {
 	private EarthProjectsService projectsService;
 	
 	private boolean restartRequired;
+
+	private String oldSelectedDistance;
 
 
 	public OptionWizard(JFrame frame, LocalPropertiesService localPropertiesService, EarthProjectsService projectsService,  String backupFolder, AnalysisSaikuService saikuService) {
@@ -452,7 +455,8 @@ public class OptionWizard extends JDialog {
 		panel.add(label, constraints);
 
 		constraints.gridx = 1;
-		panel.add(propertyToComponent.get(EarthProperty.NUMBER_OF_SAMPLING_POINTS_IN_PLOT)[0], constraints);
+		JComboBox numberPoints = (JComboBox) propertyToComponent.get(EarthProperty.NUMBER_OF_SAMPLING_POINTS_IN_PLOT)[0];
+		panel.add(numberPoints, constraints);
 
 		constraints.gridx = 0;
 		constraints.gridy = 1;
@@ -460,23 +464,86 @@ public class OptionWizard extends JDialog {
 		panel.add(label, constraints);
 
 		constraints.gridx = 1;
-		panel.add(new JScrollPane(propertyToComponent.get(EarthProperty.DISTANCE_BETWEEN_SAMPLE_POINTS)[0]), constraints);
+		JComboBox distanceBetweenPoints = (JComboBox) propertyToComponent.get(EarthProperty.DISTANCE_BETWEEN_SAMPLE_POINTS)[0];
+		panel.add(new JScrollPane(distanceBetweenPoints), constraints);
 
 		constraints.gridx = 0;
 		constraints.gridy = 2;
 		label = new JLabel(Messages.getString("OptionWizard.37")); //$NON-NLS-1$
 		panel.add(label, constraints);
 		constraints.gridx = 1;
-		panel.add(new JScrollPane(propertyToComponent.get(EarthProperty.DISTANCE_TO_PLOT_BOUNDARIES)[0]), constraints);
+		JComboBox distanceToFrame = (JComboBox) propertyToComponent.get(EarthProperty.DISTANCE_TO_PLOT_BOUNDARIES)[0];
+		panel.add(new JScrollPane(distanceToFrame), constraints);
 		
 		constraints.gridx = 0;
 		constraints.gridy = 3;
 		label = new JLabel(Messages.getString("OptionWizard.95") ); //$NON-NLS-1$
 		panel.add(label, constraints);
 		constraints.gridx = 1;
-		panel.add(new JScrollPane(propertyToComponent.get(EarthProperty.INNER_SUBPLOT_SIDE)[0]), constraints);
+		JComboBox innerPlotSide = (JComboBox) propertyToComponent.get(EarthProperty.INNER_SUBPLOT_SIDE)[0];
+		panel.add(new JScrollPane(innerPlotSide), constraints);
+		
+		constraints.gridx = 0;
+		constraints.gridy = 4;
+		label = new JLabel( "Area (hectares)" );
+		panel.add(label, constraints);
+		constraints.gridx = 1;
+		JLabel area = new JLabel( calculateArea(  numberPoints, distanceBetweenPoints, distanceToFrame) );
+		panel.add(new JScrollPane(area), constraints);
+		
+		ActionListener calculateAreas = new ActionListener() {
+			
+			@Override
+			public void actionPerformed(ActionEvent e) {
+				area.setText( calculateArea( numberPoints, distanceBetweenPoints, distanceToFrame )  );
+				
+			}
+		};
+		
+		numberPoints.addActionListener(calculateAreas);
+		distanceBetweenPoints.addActionListener(calculateAreas);
+		distanceToFrame.addActionListener(calculateAreas);
+		
 		return panel;
 	}
+
+	private String calculateArea(JComboBox numberOfPoints, JComboBox distanceBetweenPoints, JComboBox distanceToFrame) {
+		double side = 0;
+		try{
+			int numberOfPointsI = ((ComboBoxItem)numberOfPoints.getSelectedItem() ).getNumberOfPoints();
+			int distanceBetweenPointsI =  Integer.parseInt( (String) distanceBetweenPoints.getSelectedItem() ) ;
+			int distanceToFrameI =  Integer.parseInt( (String) distanceToFrame.getSelectedItem() ) ;
+			
+			
+			if( numberOfPointsI==0 || numberOfPointsI==1){
+				
+				side = 2d* distanceToFrameI;
+				if(oldSelectedDistance == null ){
+					oldSelectedDistance = (String) distanceBetweenPoints.getSelectedItem();
+					distanceBetweenPoints.setEnabled(false);
+				}
+				distanceBetweenPoints.setSelectedItem("0");
+				
+			}else{
+				if( oldSelectedDistance!=null ){
+					distanceBetweenPoints.setSelectedItem( oldSelectedDistance );
+					oldSelectedDistance = null;
+				}
+				distanceBetweenPoints.setEnabled(true);
+				double pointsByLines = Math.sqrt( numberOfPointsI ) ;
+				side = 2d * distanceToFrameI + ( pointsByLines - 1 ) * distanceBetweenPointsI;
+				
+			}
+			
+			
+		}catch(RuntimeException e){
+			logger.error("Error calculating area of the plot", e);
+		}
+		
+		DecimalFormat df = new DecimalFormat("###.##");
+		return df.format( side*side / 10000d );
+	}
+
 
 	private JPanel getPostgreSqlPanel() {
 		final JPanel panel = new JPanel(new GridBagLayout());
@@ -778,9 +845,9 @@ public class OptionWizard extends JDialog {
 		propertyToComponent.put(EarthProperty.NUMBER_OF_SAMPLING_POINTS_IN_PLOT, new JComponent[] { comboNumberOfPoints });
 
 		final String[] listOfNumbers = new String[995];
-		final int offset = 2;
+		
 		for (int index = 0; index < listOfNumbers.length; index++) {
-			listOfNumbers[index] = (index + offset) + ""; //$NON-NLS-1$
+			listOfNumbers[index] = index  + ""; //$NON-NLS-1$
 		}
 
 		// JTextField listOfDistanceBetweenPoints = new JTextField( localPropertiesService.getValue( EarthProperty.DISTANCE_BETWEEN_SAMPLE_POINTS) );

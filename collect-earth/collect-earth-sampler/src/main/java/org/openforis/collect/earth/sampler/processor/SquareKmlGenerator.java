@@ -83,29 +83,36 @@ public class SquareKmlGenerator extends AbstractPolygonKmlGenerator {
 
 		final boolean addCentralPoints = getPointSide() > 20;
 
-		for (int col = 1; col < getNumOfRows(); col++) {
-			final double offsetLong = col * distanceBetweenSamplePoints; // GO
-			// EAST
-			for (int row = 1; row < getNumOfRows(); row++) {
-				final double offsetLat = -(row * distanceBetweenSamplePoints); // GO
-				// SOUTH
-
-				final double[] miniPlacemarkPosition = getPointWithOffset(topLeftCoord, offsetLong, offsetLat);
-				final SimplePlacemarkObject insidePlacemark = new SimplePlacemarkObject(miniPlacemarkPosition, placemark.getPlacemarkId() + "_" + col+"_"+row);
-
-				insidePlacemark.setShape(getSamplePointPolygon(miniPlacemarkPosition, getPointSide()));
-
-				pointsInPlacemark.add(insidePlacemark);
-
-				if (addCentralPoints) {
-
-					final double[] centerPosition = getPointWithOffset(miniPlacemarkPosition, getPointSide() / 2, getPointSide() / 2);
-					final SimplePlacemarkObject centralPoint = new SimplePlacemarkObject(centerPosition, placemark.getPlacemarkId() + "center");
-					centralPoint.setShape(getSamplePointPolygon(centerPosition, 1));
-					pointsInPlacemark.add(centralPoint);
+		if( getNumberOfSamplePoints() > 1 ){
+			for (int col = 1; col < getNumOfRows(); col++) {
+				final double offsetLong = col * distanceBetweenSamplePoints; // GO
+				// EAST
+				for (int row = 1; row < getNumOfRows(); row++) {
+					final double offsetLat = -(row * distanceBetweenSamplePoints); // GO
+					// SOUTH
+	
+					final double[] miniPlacemarkPosition = getPointWithOffset(topLeftCoord, offsetLong, offsetLat);
+					final SimplePlacemarkObject insidePlacemark = new SimplePlacemarkObject(miniPlacemarkPosition, placemark.getPlacemarkId() + "_" + col+"_"+row);
+	
+					insidePlacemark.setShape(getSamplePointPolygon(miniPlacemarkPosition, getPointSide()));
+	
+					pointsInPlacemark.add(insidePlacemark);
+	
+					if (addCentralPoints) {
+	
+						final double[] centerPosition = getPointWithOffset(miniPlacemarkPosition, getPointSide() / 2, getPointSide() / 2);
+						final SimplePlacemarkObject centralPoint = new SimplePlacemarkObject(centerPosition, placemark.getPlacemarkId() + "center");
+						centralPoint.setShape(getSamplePointPolygon(centerPosition, getPointSide()));
+						pointsInPlacemark.add(centralPoint);
+					}
 				}
+	
 			}
-
+		}else{
+			final double[] centerPosition = getPointWithOffset(placemark.getCoord().getCoordinates(), -1* getPointSide() / 2, -1 * getPointSide() / 2);
+			final SimplePlacemarkObject centralPoint = new SimplePlacemarkObject(centerPosition, placemark.getPlacemarkId() + "center");
+			centralPoint.setShape(getSamplePointPolygon(centerPosition, getPointSide()));
+			pointsInPlacemark.add(centralPoint);
 		}
 
 		if (getNumberOfSamplePoints() % 2 == 1) {
