@@ -18,15 +18,16 @@ public class ProduceEqualDistanceGrid {
 	
 	public static void main(String[] args) {
 				
-		Coordinate northWest = new Coordinate( 86, 51);
-		Coordinate southEast = new Coordinate( 125, 39);
-		Float distanceInMeters = 2000f;
+		Coordinate northWest = new Coordinate( 0, 90);
+		Coordinate southEast = new Coordinate( 360, -90);
+		Float distanceInMeters = 16000f;
 		
 		ProduceEqualDistanceGrid equalDistanceGrid = new ProduceEqualDistanceGrid();
 		try {
 			
 			File csvFile = equalDistanceGrid.getEqualDistanceGridInMeters( northWest, southEast, distanceInMeters );			
 			FileUtils.copyFile(csvFile, new File("equalDistance.csv") );
+			System.out.println( csvFile.getAbsolutePath() );
 			
 		} catch (Exception e) {
 			e.printStackTrace();

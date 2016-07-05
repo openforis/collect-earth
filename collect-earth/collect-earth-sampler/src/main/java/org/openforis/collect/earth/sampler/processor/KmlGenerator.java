@@ -88,12 +88,13 @@ public abstract class KmlGenerator extends AbstractCoordinateCalculation {
 			throw new KmlGenerationException(" The latitude and longitude columns contain values other than numbers" );
 		}
 		
-		String kmlPolygon = getKmlPolygonColumn(csvValuesInLine);
-		if( kmlPolygon != null ){
-			processKmlPolygonProperties(plotProperties, kmlPolygon);
-			plotProperties.setCoord( getCentroid(plotProperties.getShape() ));
-		}
-		
+
+			String kmlPolygon = getKmlPolygonColumn(csvValuesInLine);
+			if( kmlPolygon != null ){
+				processKmlPolygonProperties(plotProperties, kmlPolygon);
+				plotProperties.setCoord( getCentroid(plotProperties.getShape() ));
+			}
+
 		Vector<String> extraInfoVector = new Vector<String>();
 		Vector<String> extraColumns = new Vector<String>();
 		int columnsWithIfAndLocationInfo = leading_columns + number_of_key_attributes;
@@ -175,8 +176,12 @@ public abstract class KmlGenerator extends AbstractCoordinateCalculation {
 
 	public static void processKmlPolygonProperties(
 			final SimplePlacemarkObject plotProperties, String kmlPolygon) {
-		plotProperties.setKmlPolygon( kmlPolygon );
-		plotProperties.setShape( PolygonKmlGenerator.getPointsInPolygon(kmlPolygon) );
+		
+		List<SimpleCoordinate> pointsInPolygon = PolygonKmlGenerator.getPointsInPolygon(kmlPolygon);
+		plotProperties.setShape( pointsInPolygon );
+		if( pointsInPolygon.size() > 0 ){
+			plotProperties.setKmlPolygon( kmlPolygon );
+		}
 	}
 
 	private final SimpleDateFormat httpHeaderDf = new SimpleDateFormat("EEE, dd MMM yyyy HH:mm:ss zzz");

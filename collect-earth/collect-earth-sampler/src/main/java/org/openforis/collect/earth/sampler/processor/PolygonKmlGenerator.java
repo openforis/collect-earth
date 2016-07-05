@@ -8,6 +8,7 @@ import org.openforis.collect.earth.sampler.model.SimpleCoordinate;
 import org.openforis.collect.earth.sampler.model.SimplePlacemarkObject;
 import org.openforis.collect.earth.sampler.utils.KmlGenerationException;
 import org.opengis.referencing.operation.TransformException;
+import org.slf4j.LoggerFactory;
 
 public class PolygonKmlGenerator extends AbstractPolygonKmlGenerator{
 
@@ -37,32 +38,49 @@ public class PolygonKmlGenerator extends AbstractPolygonKmlGenerator{
 
 
 	public static List<SimpleCoordinate> getPointsInPolygon(String kmlPolygon) {
+		
+		if( StringUtils.isBlank( kmlPolygon)){
+			throw new IllegalArgumentException("The KML Polygon string cannot be null");
+		}
 		String lowerCase = kmlPolygon.toLowerCase();
-
+		
 		String valueAttr = extractXmlTextValue(lowerCase, "<linearring>","</linearring>");
 		valueAttr = extractXmlTextValue(valueAttr,  "<coordinates>","</coordinates>");
 		
-		// Coordinates look lie this : lat,long,elev lat,long,elev ... -15.805135,16.389028,0.0 -15.804454,16.388447,0.0
-		valueAttr = valueAttr.replaceAll( ",0.0 ", ",");
-		String[] splitCoord = valueAttr.split(",");
-				
+		// Coordinates look like this : lat,long,elev lat,long,elev ... -15.805135,16.389028,0.0 -15.804454,16.388447,0.0
+	
+		String[] splitGroup =   valueAttr.split(" ");
 		List<SimpleCoordinate> simpleCoordinates = new ArrayList<SimpleCoordinate>();
-		for( int idx =0; idx<splitCoord.length-1; idx = idx + 2){
-			SimpleCoordinate coords = new SimpleCoordinate( splitCoord[idx+1], splitCoord[idx]);
-			simpleCoordinates.add(coords);
+		for (String coordsWithElev : splitGroup) {
+			String[] splitCoord = coordsWithElev.split(",");
+			if( splitCoord.length > 1 ){
+				SimpleCoordinate coords = new SimpleCoordinate( splitCoord[1], splitCoord[0]);
+				simpleCoordinates.add(coords);
+			}
 		}
-		
 
 		return simpleCoordinates;
 	}
 
 
 	public static String extractXmlTextValue(String lowerCase,
-			String startLinearRing, String endLinearRing) {
-		int startOfLinearRing = lowerCase.indexOf(startLinearRing);
-		int endOfLinearRing = lowerCase.indexOf(endLinearRing);
-		
-		String valueAttr = lowerCase.substring( startOfLinearRing + startLinearRing.length(), endOfLinearRing);
+			String startXmlTag, String endXmlTag) {
+		int startOfXmlTag = lowerCase.indexOf(startXmlTag);
+		int endOfXmlTag = lowerCase.indexOf(endXmlTag);
+		String valueAttr = "";
+		try {
+			if( startOfXmlTag!= -1 && endOfXmlTag != -1 ){
+					valueAttr = lowerCase.substring( startOfXmlTag + startXmlTag.length(), endOfXmlTag);
+					
+			}
+		} catch (Exception e) {
+			System.out.println( lowerCase );
+			System.out.println( startXmlTag );
+			System.out.println( endXmlTag );
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+			LoggerFactory.getLogger( PolygonKmlGenerator.class).error( " error with " + lowerCase, e );
+		}
 		return valueAttr;
 	}
 
