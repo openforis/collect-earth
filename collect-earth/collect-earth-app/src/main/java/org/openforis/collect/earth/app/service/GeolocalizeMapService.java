@@ -39,6 +39,12 @@ public class GeolocalizeMapService {
 	 */
 	public static final String FREEMARKER_BING_HTML_TEMPLATE = RESOURCES_FOLDER + File.separator + "collectBing.fmt";
 	
+	/**
+	 * The file that contains the freemarker template used to produce the Yandex Maps code.
+	 */
+	public static final String FREEMARKER_YANDEX_HTML_TEMPLATE = RESOURCES_FOLDER + File.separator + "collectYandex.fmt";
+	
+
 	
 
 	public static final String FREEMARKER_GEE_PLAYGROUND_TEMPLATE_FILE_NAME = "eePlaygroundScript.fmt";
@@ -157,6 +163,18 @@ public class GeolocalizeMapService {
 
 		final Map<String,Object> data = getPlacemarkData(placemarkObject);
 		data.put("bingMapsKey", bingMapsKey);
+		return processTemplateWithData(freemarkerTemplate, data);
+	}
+	
+	/**
+	 * Produces a temporary file with the necessary HTML code to show the plot in Yandex Maps
+	 * @param placemarkObject The data of the plot.
+	 * @param freemarkerTemplate The path to the freemarker template that is used to produce the file.
+	 * @return The URL to the temporary file that can be used to load it in a browser.
+	 */
+	public URL getYandexUrl(SimplePlacemarkObject placemarkObject, String freemarkerTemplate) {
+
+		final Map<String,Object> data = getPlacemarkData(placemarkObject);
 		return processTemplateWithData(freemarkerTemplate, data);
 	}
 	

@@ -43,4 +43,16 @@ public class FolderFinder {
 		//File thisFolder = new File(".");
 		//return thisFolder.getAbsolutePath();
 	}
+	
+	/**
+	 * Returns a folder inside the appfolder should be placed.
+	 * @param folderName The name of the new folder to be created
+	 * @return The name of the new forlder
+	 */
+	public static File getLocalFolder( String folderName) {
+		String localFolderPath = FolderFinder.getAppDataFolder() + File.separatorChar + folderName;
+		File localFolder = new File(localFolderPath);
+		localFolder.mkdirs();
+		return localFolder;
+	}
 }

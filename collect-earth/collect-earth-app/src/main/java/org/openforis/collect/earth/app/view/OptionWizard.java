@@ -155,6 +155,9 @@ public class OptionWizard extends JDialog {
 		panel.add(propertyToComponent.get(EarthProperty.OPEN_BING_MAPS)[0], constraints);
 		
 		constraints.gridy++;
+		panel.add(propertyToComponent.get(EarthProperty.OPEN_YANDEX_MAPS)[0], constraints);
+
+		constraints.gridy++;
 		panel.add(propertyToComponent.get(EarthProperty.OPEN_STREET_VIEW)[0], constraints);
 		
 		// Removed Here Maps temporarily
@@ -809,6 +812,10 @@ public class OptionWizard extends JDialog {
 		final JCheckBox openBingCheckbox = new JCheckBox(Messages.getString("OptionWizard.47")); //$NON-NLS-1$
 		openBingCheckbox.setSelected(Boolean.parseBoolean(localPropertiesService.getValue(EarthProperty.OPEN_BING_MAPS)));
 		propertyToComponent.put(EarthProperty.OPEN_BING_MAPS, new JComponent[] { openBingCheckbox });
+		
+		final JCheckBox openYandexCheckbox = new JCheckBox("Open Yandex maps for the plot area");
+		openYandexCheckbox.setSelected(Boolean.parseBoolean(localPropertiesService.getValue(EarthProperty.OPEN_YANDEX_MAPS)));
+		propertyToComponent.put(EarthProperty.OPEN_YANDEX_MAPS, new JComponent[] { openYandexCheckbox });
 		
 		final JCheckBox openStreetViewCheckbox = new JCheckBox("Open Street View");
 		openStreetViewCheckbox.setSelected(Boolean.parseBoolean(localPropertiesService.getValue(EarthProperty.OPEN_STREET_VIEW)));

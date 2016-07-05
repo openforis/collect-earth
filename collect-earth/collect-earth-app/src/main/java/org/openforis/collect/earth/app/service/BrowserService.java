@@ -112,7 +112,7 @@ public class BrowserService implements Observer{
 	private static final Configuration cfg = new Configuration();
 	private static Template template;
 
-	private RemoteWebDriver webDriverEE, webDriverBing, webDriverTimelapse, webDriverGeePlayground, webDriverHere, webDriverStreetView;
+	private RemoteWebDriver webDriverEE, webDriverBing, webDriverTimelapse, webDriverGeePlayground, webDriverHere, webDriverStreetView, webDriverYandex;
 
 	private static boolean geeMethodUpdated = false;
 
@@ -445,6 +445,39 @@ public class BrowserService implements Observer{
 			};
 			
 			loadBingThread.start();
+			
+		}
+	}
+	
+	
+	/**
+	 * Opens a browser window with the Yandex Maps representation of the plot.
+	 * @param placemarkObject The data of the plot.
+	 * @throws BrowserNotFoundException In case the browser could not be found
+	 * 
+	 */
+	public void openYandexMaps(SimplePlacemarkObject placemarkObject) throws BrowserNotFoundException {
+
+		if (localPropertiesService.isYandexMapsSupported()) {
+
+			if (webDriverYandex == null) {
+				webDriverYandex = initBrowser();
+			}
+
+			final RemoteWebDriver driverCopy = webDriverYandex;
+			
+			final Thread loadYandexThread = new Thread() {
+				@Override
+				public void run() {
+					try {
+						webDriverYandex = navigateTo(geoLocalizeTemplateService.getYandexUrl(placemarkObject,  GeolocalizeMapService.FREEMARKER_YANDEX_HTML_TEMPLATE).toString(), driverCopy);
+					} catch (final Exception e) {
+						logger.error("Problems loading Yandex", e);
+					}
+				};
+			};
+			
+			loadYandexThread.start();
 			
 		}
 	}

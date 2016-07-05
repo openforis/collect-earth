@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+    <title>Yandex map</title>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    <script src="https://api-maps.yandex.ru/2.1/?lang=en_US&coordorder=latLong" type="text/javascript"></script>
+    <script type="text/javascript">
+        ymaps.ready(init);
+        var myMap, 
+            frame, point;
+
+        function init(){ 
+           myMap = new ymaps.Map("map", {
+				center: [${placemark.coord.latitude},${placemark.coord.longitude}],
+                zoom: 17,
+				type: "yandex#satellite"
+            }); 
+
+			 // Creating a polygon using the GeoObject class.
+			 // Creating a polyline using the GeoObject class.
+			frame = new ymaps.GeoObject({
+					// Describing the geometry of the geo object.
+					geometry: {
+						// The "Polyline" geometry type.
+						type: "LineString",
+						// Specifying the coordinates of the vertices of the polyline.
+						coordinates: [
+						 <#list placemark.shape as coord>
+							[${coord.latitude}, ${coord.longitude}],
+						</#list>
+						]
+					},
+					// Defining properties of the geo object.
+					properties:{
+						// The contents of the hint.
+						//hintContent: "? ?????????",
+						// The contents of the balloon.
+						//balloonContent: "???? ????? ??????????"
+					}
+				}, {
+					// Setting the geo object options. Enabling drag-n-drop for the polyline.
+					draggable: false,
+					// The line color.
+					strokeColor: "#FFFFFF",
+					// Line width.
+					strokeWidth: 2
+				});
+				
+				// Adding the polygon to the map.
+				myMap.geoObjects.add(frame);
+
+
+				<#list placemark.points as square>
+				// Creating a polygon using the GeoObject class.
+				 // Creating a polyline using the GeoObject class.
+				point = new ymaps.GeoObject({
+						// Describing the geometry of the geo object.
+						geometry: {
+							// The "Polyline" geometry type.
+							type: "LineString",
+							// Specifying the coordinates of the vertices of the polyline.
+							coordinates: [
+								<#list square.shape as squareCorners>
+								[${squareCorners.latitude},${squareCorners.longitude}],
+								</#list>
+							]
+						},
+						// Defining properties of the geo object.
+						properties:{
+						}
+					}, {
+						// Setting the geo object options. Enabling drag-n-drop for the polyline.
+						draggable: false,
+						// The line color.
+						strokeColor: "#FFFFFF",
+						// Line width.
+						strokeWidth: 2
+					}
+				);
+				myMap.geoObjects.add(point);
+				 </#list>
+			
+		
+	}
+    </script>
+</head>
+
+<body>
+    <div id="map"></div>
+</body>
+<script type="text/javascript">
+
+	// The width and heigth of the DIV don't seem to work when set to 100%!
+	function resizeMap(){
+		var w = window.innerWidth
+		|| document.documentElement.clientWidth
+		|| document.body.clientWidth;
+
+		w = w-20; 
+		
+		var h = window.innerHeight
+		|| document.documentElement.clientHeight
+		|| document.body.clientHeight;
+		
+		h = h-20;
+
+		document.getElementById('map').setAttribute("style","display:block;width:"+w+"px;height:"+h+"px");
+		document.getElementById('map').style.width=w + 'px'; 
+		document.getElementById('map').style.height=h + 'px'; 
+	}
+	window.onresize = function(event) {
+		resizeMap();
+	};
+
+	// Force resize
+	resizeMap();
+
+
+</script>
+
+</html>

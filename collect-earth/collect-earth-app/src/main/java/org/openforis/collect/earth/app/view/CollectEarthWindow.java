@@ -448,7 +448,7 @@ public class CollectEarthWindow{
 
 			@Override
 			public void actionPerformed(ActionEvent e) {
-				final JDialog dialog = new OptionWizard(owner, localPropertiesService, earthProjectsService, backupSqlLiteService.getBackUpFolder().getPath(), analysisSaikuService);
+				final JDialog dialog = new OptionWizard(owner, localPropertiesService, earthProjectsService, backupSqlLiteService.getAutomaticBackUpFolder().getPath(), analysisSaikuService);
 				dialog.setVisible(true);
 				dialog.pack();
 			}

@@ -65,12 +65,14 @@ public class PlacemarkBrowserServlet {
 					|| !lastPlacemark.equals( placemarkObject ) ) {
 				
 				openGEEWindow(placemarkObject);
+				
+				openGeePlaygroundWindow(placemarkObject);
 
 				openTimeLapseWindow(placemarkObject);
 
 				openBingMapsWindow(placemarkObject);
-
-				openGeePlaygroundWindow(placemarkObject);
+				
+				openYandexMapsWindow(placemarkObject);
 
 				openStreetViewWindow(placemarkObject);
 
@@ -131,6 +133,22 @@ public class PlacemarkBrowserServlet {
 			}.start();
 		}
 
+		public void openYandexMapsWindow(final SimplePlacemarkObject placemarkObject) {
+			new Thread("Open Yandex Maps window") { //$NON-NLS-1$
+				@Override
+				public void run() {
+					try {
+						browserService.openYandexMaps(placemarkObject);
+					} catch (final Exception e) {
+						LoggerFactory.getLogger(this.getClass()).error(
+								"Exception opening Yandex Maps window", e); //$NON-NLS-1$
+
+					}
+				}
+
+			}.start();
+		}
+		
 		public void openStreetViewWindow(final SimplePlacemarkObject placemarkObject) {
 			new Thread("Open Street View window") { //$NON-NLS-1$
 				@Override

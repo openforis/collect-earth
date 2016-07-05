@@ -35,8 +35,8 @@ public class BackupSqlLiteService {
 
 	private static final String BACKUP_COLLECT_EARTH = "backupSqlite"; //$NON-NLS-1$
 
-	private static final int MAXIMUM_NUMBER_OF_BACKUPS = 10; 
-
+	private static final int MAXIMUM_NUMBER_OF_BACKUPS = 10;
+	
 	@Autowired
 	BasicDataSource dataSource;
 
@@ -55,18 +55,20 @@ public class BackupSqlLiteService {
 			@Override
 			public void run() {
 				if ( "true".equals(localPropertiesService.getValue(EarthProperty.AUTOMATIC_BACKUP) ) ) { //$NON-NLS-1$
-					backupDB();
+					automaticDBBackup();
 				}
 			}
 
 		});
 	}
 
-	private void backupDB() {
+	private void automaticDBBackup() {
 		if( localPropertiesService.isUsingSqliteDB() ){
-			String nameCollectDB = ""; //$NON-NLS-1$
+			
 			String pathToBackupZip = ""; //$NON-NLS-1$
 			
+			String nameCollectDB = EarthConstants.COLLECT_EARTH_DATABASE_SQLITE_DB;
+			File originalDBFile = new File(nameCollectDB);
 
 			try {
 				// DON"T USE THIS
@@ -74,8 +76,7 @@ public class BackupSqlLiteService {
 				// which generates a folder within the backup folder
 				//nameCollectDB = getCollectDBName(); 
 
-				nameCollectDB = EarthConstants.COLLECT_EARTH_DATABASE_SQLITE_DB;
-				File originalDBFile = new File(nameCollectDB);
+
 				
 				pathToBackupZip = getBackupZipFilename();
 				
@@ -91,10 +92,16 @@ public class BackupSqlLiteService {
 		}
 	}
 
-	public String getBackupZipFilename() throws IOException {
-		String pathToBackup;
-		File backupFolder = getBackUpFolder();
+	private String getBackupZipFilename() throws IOException {
 		
+		File backupFolder = getAutomaticBackUpFolder();
+		String pathToBackup = getDBCopyName(backupFolder);
+		return pathToBackup;
+		
+	}
+
+	public String getDBCopyName(File backupFolder) throws IOException {
+		String pathToBackup;
 		SimpleDateFormat sdf = new SimpleDateFormat("yyyy_MM_dd_HHmmss"); //$NON-NLS-1$
 		StringBuilder destPathStr = new StringBuilder();
 		destPathStr.append(backupFolder.getCanonicalPath());
@@ -107,7 +114,7 @@ public class BackupSqlLiteService {
 
 	private void removeExtraBackups() {
 
-		File backupFolder = getBackUpFolder();
+		File backupFolder = getAutomaticBackUpFolder();
 
 		File[] files = backupFolder.listFiles();
 		if( files!=null && files.length > MAXIMUM_NUMBER_OF_BACKUPS ){
@@ -135,23 +142,13 @@ public class BackupSqlLiteService {
 
 	}
 
+	
 	/**
 	 * Returns the folder where the backup copies should be placed.
 	 * @return The OS dependent folder where the application should saved the backed up copies. 
 	 */
-	public File getBackUpFolder() {
-		String backupFolderPath = FolderFinder.getAppDataFolder() + File.separatorChar + BACKUP_COLLECT_EARTH;
-		File backupFolder = new File(backupFolderPath);
-		backupFolder.mkdirs();
-		return backupFolder;
+	public File getAutomaticBackUpFolder() {
+		return FolderFinder.getLocalFolder( BACKUP_COLLECT_EARTH);
 	}
-//
-//	private String getCollectDBName() {
-//		String nameCollectDB;
-//		nameCollectDB = dataSource.getUrl();
-//		int indexLastColon = nameCollectDB.lastIndexOf(':');
-//		// should look like jdbc:sqlite:collectEarthDatabase.db"
-//		nameCollectDB = nameCollectDB.substring(indexLastColon+1);
-//		return nameCollectDB;
-//	}
+	
 }
