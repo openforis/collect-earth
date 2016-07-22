@@ -275,9 +275,9 @@ public class LocalPropertiesService {
 					Properties initialProperties = new Properties();
 					initialProperties.load( new FileReader( propertiesFileInitial ) );
 					
-					Enumeration<String> initialPropertyNames = (Enumeration<String>) initialProperties.propertyNames();
+					Enumeration<?> initialPropertyNames = initialProperties.propertyNames();
 					while( initialPropertyNames.hasMoreElements()){
-						String nextElement = initialPropertyNames.nextElement();
+						String nextElement = (String) initialPropertyNames.nextElement();
 						if( properties.get( nextElement ) == null  ){
 							properties.put( nextElement, initialProperties.getProperty(nextElement));
 						}

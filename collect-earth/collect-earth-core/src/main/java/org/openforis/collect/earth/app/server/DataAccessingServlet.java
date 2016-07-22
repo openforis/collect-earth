@@ -11,10 +11,11 @@ import org.springframework.beans.factory.annotation.Autowired;
  */
 public abstract class DataAccessingServlet {
 
-	@Autowired
-	private DataAccessor dataAccessor;
 	protected final Logger logger = LoggerFactory.getLogger(this.getClass());
 
+	@Autowired(required=false)
+	private DataAccessor dataAccessor;
+	
 	public DataAccessingServlet() {
 		super();
 	}

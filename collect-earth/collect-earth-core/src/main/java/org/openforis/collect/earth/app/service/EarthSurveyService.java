@@ -112,10 +112,7 @@ public class EarthSurveyService {
 				label = node.getDefinition().getLabel(Type.INSTANCE,
 						localPropertiesService.getUiLanguage().name().toLowerCase());
 
-				String message = recordValidationReportItem.getMessage();
-				if (message.equals(COLLECT_REASON_BLANK_NOT_SPECIFIED_MESSAGE)) { // $NON-NLS-1$
-					message = Messages.getString("EarthSurveyService.9"); //$NON-NLS-1$
-				}
+				String message = getAdaptedValidationMessage(recordValidationReportItem.getMessage());
 
 				parameters.put("validation_" + node.getDefinition().getName(), label + " - " + message); //$NON-NLS-1$ //$NON-NLS-2$
 
@@ -187,17 +184,26 @@ public class EarthSurveyService {
 		return placemarkParameters;
 	}
 
-	public PlacemarkLoadResult loadPlacemarkExpanded(String[] multipleKeyAttributes) {
-		PlacemarkLoadResult result;
-		CollectRecord record = loadRecord(multipleKeyAttributes);
+	public PlacemarkLoadResult loadPlacemarkExpanded(String[] keyAttributeValues) {
+		CollectRecord record;
+		if (isPreviewRecordID(keyAttributeValues)) {
+			try {
+				record = createRecord(null);
+				updateKeyAttributeValues(record, keyAttributeValues);
+			} catch (Exception e) {
+				record = null;
+			}
+		} else {
+			record = loadRecord(keyAttributeValues);
+		}
 		if (record == null) {
-			result = new PlacemarkLoadResult();
+			PlacemarkLoadResult result = new PlacemarkLoadResult();
 			result.setSuccess(false);
 			result.setMessage("No placemark found");
+			return result;
 		} else {
-			result = createPlacemarkLoadSuccessResult(record);
+			return createPlacemarkLoadSuccessResult(record);
 		}
-		return result;
 	}
 
 	public CollectRecord loadRecord(String[] mulitpleKeyAttributes) {
@@ -340,7 +346,7 @@ public class EarthSurveyService {
 		return parameters != null && "true".equals(parameters.get(ACTIVELY_SAVED_PARAMETER)); //$NON-NLS-1$
 	}
 
-	private void setCollectSurvey(CollectSurvey collectSurvey) {
+	public void setCollectSurvey(CollectSurvey collectSurvey) {
 		this.collectSurvey = collectSurvey;
 	}
 
@@ -447,9 +453,8 @@ public class EarthSurveyService {
 			// Add the operator to the collected data
 			parameters.put(OPERATOR_PARAMETER, localPropertiesService.getOperator());
 
-			CollectRecord record = loadRecord(plotKeyAttributes);
-			if (record == null) {
-				record = createRecord(null);
+			if (isPreviewRecordID(plotKeyAttributes)) {
+				CollectRecord record = createRecord(null);
 
 				collectParametersHandler.saveToEntity(parameters, record.getRootEntity());
 
@@ -460,45 +465,61 @@ public class EarthSurveyService {
 				
 				updateKeyAttributeValues(record, plotKeyAttributes);
 				record.setModifiedDate(new Date());
-				recordManager.save(record, sessionId);
 				return createPlacemarkLoadSuccessResult(record);
 			} else {
-				// Populate the data of the record using the HTTP parameters
-				// received
-				Entity plotEntity = record.getRootEntity();
-				
-				Map<String, String> oldPlacemarkParameters = collectParametersHandler
-						.getValuesByHtmlParameters(record.getRootEntity());
-				Map<String, String> changedParameters = calculateChanges(oldPlacemarkParameters, parameters);
-				
-				boolean placemarkAlreadySavedActively = isPlacemarkSavedActively(oldPlacemarkParameters);
-				boolean userClickOnSubmitAndValidate = isPlacemarkSavedActively(parameters);
-				
-				NodeChangeSet changeSet = collectParametersHandler.saveToEntity(changedParameters, plotEntity);
-				
-				// update actively_saved_on attribute now, otherwise if it's empty
-				// it counts as an error
-				setPlacemarkSavedOn(record);
-				
-				boolean noErrors = record.getErrors() == 0 && record.getSkipped() == 0;
-				
-				if (userClickOnSubmitAndValidate && !noErrors) {
-					// if the user clicks on submit and validate but the data is not
-					// valid,
-					// do not save the record as actively saved
+				CollectRecord record = loadRecord(plotKeyAttributes);
+				if (record == null) {
+					record = createRecord(null);
+	
+					collectParametersHandler.saveToEntity(parameters, record.getRootEntity());
+	
+					// update actively_saved_on attribute now, otherwise if it's empty
+					// it counts as an error
+					setPlacemarkSavedOn(record);
 					setPlacemarkSavedActively(record, false);
-				}
-				
-				if (!placemarkAlreadySavedActively || noErrors) {
-					// only save data if the information is completely valid or if
-					// the record is not already completely saved (green)
+					
+					updateKeyAttributeValues(record, plotKeyAttributes);
 					record.setModifiedDate(new Date());
 					recordManager.save(record, sessionId);
-				}
-				if (partialUpdate) {
-					return createPlacemarkLoadSuccessResult(record, changeSet);
-				} else {
 					return createPlacemarkLoadSuccessResult(record);
+				} else {
+					// Populate the data of the record using the HTTP parameters
+					// received
+					Entity plotEntity = record.getRootEntity();
+					
+					Map<String, String> oldPlacemarkParameters = collectParametersHandler
+							.getValuesByHtmlParameters(record.getRootEntity());
+					Map<String, String> changedParameters = calculateChanges(oldPlacemarkParameters, parameters);
+					
+					boolean placemarkAlreadySavedActively = isPlacemarkSavedActively(oldPlacemarkParameters);
+					boolean userClickOnSubmitAndValidate = isPlacemarkSavedActively(parameters);
+					
+					NodeChangeSet changeSet = collectParametersHandler.saveToEntity(changedParameters, plotEntity);
+					
+					// update actively_saved_on attribute now, otherwise if it's empty
+					// it counts as an error
+					setPlacemarkSavedOn(record);
+					
+					boolean noErrors = record.getErrors() == 0 && record.getSkipped() == 0;
+					
+					if (userClickOnSubmitAndValidate && !noErrors) {
+						// if the user clicks on submit and validate but the data is not
+						// valid,
+						// do not save the record as actively saved
+						setPlacemarkSavedActively(record, false);
+					}
+					
+					if (!placemarkAlreadySavedActively || noErrors) {
+						// only save data if the information is completely valid or if
+						// the record is not already completely saved (green)
+						record.setModifiedDate(new Date());
+						recordManager.save(record, sessionId);
+					}
+					if (partialUpdate) {
+						return createPlacemarkLoadSuccessResult(record, changeSet);
+					} else {
+						return createPlacemarkLoadSuccessResult(record);
+					}
 				}
 			}
 		} catch (Exception e) {
@@ -527,9 +548,7 @@ public class EarthSurveyService {
 			PlacemarkInputFieldInfo info = entry.getValue();
 			if (info.isInError()) {
 				String message = info.getErrorMessage();
-				if (message.equals(COLLECT_REASON_BLANK_NOT_SPECIFIED_MESSAGE)) { // $NON-NLS-1$
-					info.setErrorMessage(Messages.getString("EarthSurveyService.9")); //$NON-NLS-1$
-				}
+				info.setErrorMessage(getAdaptedValidationMessage(message));
 			}
 		}
 		result.setInputFieldInfoByParameterName(infoByParameterName);
@@ -549,7 +568,7 @@ public class EarthSurveyService {
 
 	private Map<String, String> calculateChanges(Map<String, String> oldPlacemarkParameters,
 			Map<String, String> parameters) {
-		Map<String, String> changedParameters = new HashMap<>(parameters.size());
+		Map<String, String> changedParameters = new HashMap<String, String>(parameters.size());
 		for (Entry<String, String> entry : parameters.entrySet()) {
 			String param = entry.getKey();
 			String newValue = entry.getValue();
@@ -581,4 +600,9 @@ public class EarthSurveyService {
 
 		return keys;
 	}
+	
+	private boolean isPreviewRecordID(String[] multipleKeyAttributes) {
+		return multipleKeyAttributes.length == 1 && "$[EXTRA_id]".equals(multipleKeyAttributes[0]);
+	}
+
 }

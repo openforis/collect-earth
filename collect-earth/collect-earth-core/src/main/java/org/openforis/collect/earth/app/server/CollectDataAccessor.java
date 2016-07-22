@@ -5,12 +5,14 @@ import java.util.Map;
 import org.openforis.collect.earth.app.service.EarthSurveyService;
 import org.openforis.collect.earth.core.model.PlacemarkLoadResult;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Component;
 
 /**
  * Class to get/set data for the given placemark using Collect API.
  * @author Alfonso Sanchez-Paus Diaz
  *
  */
+@Component
 public class CollectDataAccessor implements DataAccessor {
 
 	@Autowired
@@ -21,7 +23,6 @@ public class CollectDataAccessor implements DataAccessor {
 	public Map<String, String> getData(String placemarkId) {
 		return earthSurveyService.getPlacemark( new String[]{placemarkId},true);
 	}
-
 
 	@Deprecated
 	@Override
