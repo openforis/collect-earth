@@ -57,7 +57,11 @@ public class Strata {
 		return true;
 	}
 	public String getFileName() {
-		return stratum + "_" + fileNumber + ".csv";
+		if( fileNumber == null ){
+			return stratum + ".csv";
+		}else{
+			return stratum + "_" + fileNumber + ".csv";
+		}
 	}
 	public File getOutputFile() {
 		return outputFile;

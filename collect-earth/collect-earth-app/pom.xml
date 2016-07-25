@@ -13,7 +13,7 @@
 
 	<properties>
 		<jetty.version>9.3.9.v20160517</jetty.version>
-		<selenium.version>2.53.0</selenium.version>
+		<selenium.version>2.53.1</selenium.version>
 		<sonar.language>java</sonar.language>
 		<classpath.prefix>earth-libs</classpath.prefix>
 	</properties>

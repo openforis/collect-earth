@@ -30,11 +30,11 @@ public class ProduceCsvFiles {
 
 	public static void main(String[] args) {
 
-		ProduceCsvFiles producer = new ProduceCsvFiles("NMBU_UK_and_Ireland");
-		File fileToDivide = new File("C:\\opt\\workspaceClean\\CsvSorter\\uk_and_ireland_missing.csv");
+		ProduceCsvFiles producer = new ProduceCsvFiles("Madrid"); 
+		File fileToDivide = new File("C:\\opt\\workspaceClean\\CsvSorter\\MADRID_UNIVERSITY.csv");
 
 		//producer.divideRandomlyByColumn(fileToDivide, 10, 9);
-		producer.divideRandomly(fileToDivide, 10);
+		producer.divideRandomly(fileToDivide, 20);
 
 		System.exit(0);
 	}
@@ -119,6 +119,9 @@ public class ProduceCsvFiles {
 					linesPerStrata.put(stratumColumnValue, lines);
 				}
 				
+				if( fileNumber == 0 && numberOfFiles == 1){
+					fileNumber = null;
+				}
 				Strata stratum = new Strata(stratumColumnValue, fileNumber);
 
 				writCsvRow(csvFiles, csvRow, stratum);
