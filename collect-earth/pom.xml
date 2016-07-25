@@ -23,7 +23,7 @@
 		<collect.version>3.10.15</collect.version>
 		<spring.version>4.2.4.RELEASE</spring.version>
 		<slf4j.version>1.7.13</slf4j.version>
-		<project.scm.id>github.com<project.scm.id>
+		<project.scm.id>github.com</project.scm.id>
 	</properties>
 
 	<distributionManagement>
