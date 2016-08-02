@@ -5,6 +5,7 @@ import java.util.Arrays;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
@@ -25,6 +26,7 @@ import org.openforis.idm.metamodel.CodeList;
 import org.openforis.idm.metamodel.CodeListItem;
 import org.openforis.idm.metamodel.CodeListService;
 import org.openforis.idm.metamodel.EntityDefinition;
+import org.openforis.idm.metamodel.EntityDefinition.TraversalType;
 import org.openforis.idm.metamodel.ModelVersion;
 import org.openforis.idm.metamodel.NodeDefinition;
 import org.openforis.idm.metamodel.NodeDefinitionVisitor;
@@ -221,7 +223,7 @@ public class BalloonInputFieldsUtils {
 	public Map<String, String> getHtmlParameterNameByNodePath(final EntityDefinition rootEntityDef) {
 		final CodeListService codeListService = rootEntityDef.getSurvey().getContext().getCodeListService();
 
-		final Map<String, String> result = new HashMap<String, String>();
+		final Map<String, String> result = new LinkedHashMap<String, String>();
 
 		rootEntityDef.traverse(new NodeDefinitionVisitor() {
 			public void visit(NodeDefinition def) {
@@ -271,7 +273,7 @@ public class BalloonInputFieldsUtils {
 					}
 				}
 			}
-		});
+		}, TraversalType.BFS);
 		return result;
 	}
 	
@@ -489,7 +491,7 @@ public class BalloonInputFieldsUtils {
 	}
 
 	public NodeChangeSet saveToEntity(Map<String, String> parameters, Entity entity) {
-		NodeChangeMap result = new NodeChangeMap();
+		final NodeChangeMap result = new NodeChangeMap();
 
 		Set<Entry<String, String>> parameterEntries = parameters.entrySet();
 

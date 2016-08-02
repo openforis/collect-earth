@@ -5,15 +5,23 @@ import static org.openforis.collect.earth.app.EarthConstants.PLACEMARK_ID_PARAME
 import java.io.IOException;
 import java.io.UnsupportedEncodingException;
 import java.net.URLDecoder;
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
+import java.util.NavigableMap;
+import java.util.Set;
+import java.util.SortedMap;
+import java.util.TreeMap;
 
 import javax.servlet.http.HttpServletResponse;
 
 import org.openforis.collect.earth.app.EarthConstants;
 import org.openforis.collect.earth.app.service.EarthSurveyService;
 import org.openforis.collect.earth.app.view.Messages;
+import org.openforis.collect.earth.core.handlers.BalloonInputFieldsUtils;
 import org.openforis.collect.earth.core.model.PlacemarkLoadResult;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -82,12 +90,11 @@ public class AbstractPlacemarkDataController extends JsonPocessorServlet {
 	public PlacemarkLoadResult processCollectedData(
 			PlacemarkUpdateRequest updateRequest,
 			Map<String, String> collectedData, String placemarkKey ) {
-		PlacemarkLoadResult result;
-		result = getDataAccessor().updateData( placemarkKey.split(",") , collectedData, 
+		PlacemarkLoadResult result = getDataAccessor().updateData( placemarkKey.split(",") , collectedData, 
 				updateRequest.isPartialUpdate());
 				
 		if (result.isSuccess()) {
-			result.setMessage(Messages.getString("SaveEarthDataServlet.2"));
+			result.setMessage(Messages.getString("SaveEarthDataServlet.2")); //$NON-NLS-1$ 
 			lastPlacemarkId = placemarkKey;
 			lastPlacemarkStep = updateRequest.getCurrentStep();
 		}else{
@@ -109,21 +116,47 @@ public class AbstractPlacemarkDataController extends JsonPocessorServlet {
 	private Map<String, String> adjustParameters( PlacemarkUpdateRequest updateRequest )
 			throws UnsupportedEncodingException {
 		Map<String, String> originalCollectedData = updateRequest.getValues();
-		Map<String, String> collectedData = new HashMap<String, String>(originalCollectedData.size());
+		Map<String, String> result = new HashMap<String, String>(originalCollectedData.size());
 		for (Entry<String, String> entry : originalCollectedData.entrySet()) {
-			
-			
 			if( entry.getKey().equals( EarthConstants.PLACEMARK_ID_PARAMETER ) ){
 				// If there are multiple keys this value will be the combination of the keys, with the first value actually containing the plot id
 				entry.setValue( entry.getValue().split(",")[0]); 
 			}
 			
 			//decode parameter name, it was previously encoded by the client
-			collectedData.put(URLDecoder.decode(entry.getKey(), "UTF-8"), entry.getValue());
+			result.put(URLDecoder.decode(entry.getKey(), "UTF-8"), entry.getValue());
 			
 		}
-		replaceTestParameters(collectedData);
-		return collectedData;
+		replaceTestParameters(result);
+		return sortParameters(result);
+	}
+
+	/**
+	 * Sort parameters based on schema order (BFS)
+	 * @param parameters
+	 * @return
+	 */
+	public Map<String, String> sortParameters(Map<String, String> parameters) {
+		NavigableMap<String, String> navigableParameters = new TreeMap<String, String>(parameters);
+		//extract parameter names in order
+		BalloonInputFieldsUtils collectParametersHandler = new BalloonInputFieldsUtils();
+		Map<String, String> sortedParameterNameByNodePath = collectParametersHandler.getHtmlParameterNameByNodePath(earthSurveyService.getRootEntityDefinition());
+		List<String> sortedParameterNames = new ArrayList<String>(sortedParameterNameByNodePath.values());
+		
+		//create a new map and put the parameters in order there
+		Map<String, String> result = new LinkedHashMap<String, String>(navigableParameters.size());
+		for (String parameterName : sortedParameterNames) {
+			//get all the entries with key starting with parameterName
+			SortedMap<String,String> subMap = navigableParameters.subMap(parameterName, parameterName + Character.MAX_VALUE);
+			Set<Entry<String,String>> entrySet = subMap.entrySet();
+			for (Entry<String, String> entry : entrySet) {
+				result.put(entry.getKey(), entry.getValue());
+				navigableParameters.remove(entry.getKey());
+			}
+		}
+		//add remaining parameters (if any)
+		result.putAll(navigableParameters);
+		return result;
 	}
 	
 	/**

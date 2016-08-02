@@ -45,6 +45,7 @@ import org.openforis.collect.model.RecordValidationReportItem;
 import org.openforis.collect.persistence.RecordPersistenceException;
 import org.openforis.collect.persistence.SurveyImportException;
 import org.openforis.idm.metamodel.AttributeDefinition;
+import org.openforis.idm.metamodel.EntityDefinition;
 import org.openforis.idm.metamodel.ModelVersion;
 import org.openforis.idm.metamodel.NodeLabel.Type;
 import org.openforis.idm.metamodel.Schema;
@@ -140,11 +141,16 @@ public class EarthSurveyService {
 	}
 
 	private CollectRecord createRecord(String sessionId) throws RecordPersistenceException {
-		Schema schema = getCollectSurvey().getSchema();
 		String modelVersionName = localPropertiesService.getModelVersionName();
 		CollectRecord record = recordManager.create(getCollectSurvey(),
-				schema.getRootEntityDefinition(ROOT_ENTITY_NAME), null, modelVersionName, sessionId);
+				getRootEntityDefinition(), null, modelVersionName, sessionId);
 		return record;
+	}
+
+	public EntityDefinition getRootEntityDefinition() {
+		Schema schema = getCollectSurvey().getSchema();
+		EntityDefinition rootEntityDef = schema.getRootEntityDefinition(ROOT_ENTITY_NAME);
+		return rootEntityDef;
 	}
 
 	public CollectSurvey getCollectSurvey() {
@@ -433,7 +439,6 @@ public class EarthSurveyService {
 					// Force saving again to remove the "actively saved"
 					// parameter!
 					collectParametersHandler.saveToEntity(parameters, plotEntity);
-
 				}
 			}
 
@@ -583,8 +588,7 @@ public class EarthSurveyService {
 
 	public String[] getKeysInOrder(Map<String, String> receivedBalloonParamaters) {
 
-		List<AttributeDefinition> keyAttributeDefinitions = this.getCollectSurvey().getSchema()
-				.getRootEntityDefinition(EarthConstants.ROOT_ENTITY_NAME).getKeyAttributeDefinitions();
+		List<AttributeDefinition> keyAttributeDefinitions = getRootEntityDefinition().getKeyAttributeDefinitions();
 		String[] keys = new String[keyAttributeDefinitions.size()];
 
 		BalloonInputFieldsUtils balloonInputFieldsUtils = new BalloonInputFieldsUtils();
