@@ -66,8 +66,10 @@ public final class ImportActionListener implements ActionListener {
 	
 			if (selectedOption == JOptionPane.YES_OPTION){
 				return YES;
-			}else{
+			}else if (selectedOption == JOptionPane.NO_OPTION){
 				return NO;
+			}else{
+				return JOptionPane.CLOSED_OPTION;
 			}
 		}else{
 			
