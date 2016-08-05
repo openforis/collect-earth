@@ -37,6 +37,7 @@ import org.springframework.web.bind.annotation.RequestParam;
  */
 public class AbstractPlacemarkDataController extends JsonPocessorServlet {
 
+	private static final String PREVIEW_PLOT_ID = "$[EXTRA_id]";
 	private static Object lastPlacemarkId;
 	private static String lastPlacemarkStep;
 	
@@ -45,7 +46,7 @@ public class AbstractPlacemarkDataController extends JsonPocessorServlet {
 	
 	protected void placemarkInfoExpanded(@RequestParam("id") String placemarkId, HttpServletResponse response) throws IOException {
 		PlacemarkLoadResult result;
-		if (placemarkId == null) {
+		if (placemarkId == null || placemarkId.equals(PREVIEW_PLOT_ID)) {
 			result = handleEmptyPlot();
 		} else {
 			placemarkId = replacePlacemarkIdTestValue(placemarkId);
