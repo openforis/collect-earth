@@ -852,9 +852,11 @@ public class OptionWizard extends JDialog {
 		propertyToComponent.put(EarthProperty.NUMBER_OF_SAMPLING_POINTS_IN_PLOT, new JComponent[] { comboNumberOfPoints });
 
 		final String[] listOfNumbers = new String[995];
+		final String[] listOfNumbersFromTwo = new String[995];
 		
 		for (int index = 0; index < listOfNumbers.length; index++) {
 			listOfNumbers[index] = index  + ""; //$NON-NLS-1$
+			listOfNumbersFromTwo[index] = (index+2)  + ""; //$NON-NLS-1$
 		}
 
 		// JTextField listOfDistanceBetweenPoints = new JTextField( localPropertiesService.getValue( EarthProperty.DISTANCE_BETWEEN_SAMPLE_POINTS) );
@@ -872,7 +874,7 @@ public class OptionWizard extends JDialog {
 		propertyToComponent.put(EarthProperty.DISTANCE_TO_PLOT_BOUNDARIES, new JComponent[] { listOfDistanceToBorder });
 		
 		// JTextField listOfDistanceToBorder = new JTextField(localPropertiesService.getValue( EarthProperty.DISTANCE_TO_PLOT_BOUNDARIES) );
-		final JComboBox<String> listOfSizeofSamplingDot = new JComboBox<String>(listOfNumbers);
+		final JComboBox<String> listOfSizeofSamplingDot = new JComboBox<String>(listOfNumbersFromTwo);
 		listOfSizeofSamplingDot.setSelectedItem(localPropertiesService.getValue(EarthProperty.INNER_SUBPLOT_SIDE));
 		listOfSizeofSamplingDot.setAutoscrolls(true);
 
