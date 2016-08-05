@@ -340,19 +340,28 @@ public class BrowserService implements Observer{
 					} catch (final Exception e) {
 						processSeleniumError(e);
 					}
+					
 					Thread.sleep(1000);
-					final List<WebElement> dataLayerVisibility = driver.findElementsByClassName("indicator");
-					for (final WebElement webElement : dataLayerVisibility) {
-						if (webElement.isDisplayed()) {
-							webElement.click();
-							Thread.sleep(1000);
-							webElement.click();
-						}
-					}
+					String eyeShowing = "span.indicator.visible";
+					String eyeLoading = "span.indicator.loading";
+					
+					clickOnElements(driver, eyeShowing);
+					clickOnElements(driver, eyeLoading);
 				}
 			}
 		}
 		return driver;
+	}
+
+	public void clickOnElements(RemoteWebDriver driver, String cssSelector) {
+		final List<WebElement> dataLayerVisibility = driver.findElementsByCssSelector( cssSelector );
+		for (final WebElement webElement : dataLayerVisibility) {
+			if (webElement.isDisplayed()) {
+				webElement.click();
+				//Thread.sleep(1000);
+				//webElement.click();
+			}
+		}
 	}
 
 	public static boolean isGeeMethodUpdated() {
