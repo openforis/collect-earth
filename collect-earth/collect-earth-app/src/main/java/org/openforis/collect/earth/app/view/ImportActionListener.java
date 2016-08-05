@@ -21,6 +21,11 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 public final class ImportActionListener implements ActionListener {
+	protected static final Integer YES = 0;
+	protected static final Integer YES_TO_ALL = 1;
+	protected static final Integer NO = 2;
+	protected static final Integer NO_TO_ALL = 3;
+	
 	private final DataFormat importFormat;
 	private JFrame frame;
 	private LocalPropertiesService localPropertiesService;
@@ -45,18 +50,33 @@ public final class ImportActionListener implements ActionListener {
 
 	}
 
-	private boolean shouldImportNonFinishedRecords() {
-		final int selectedOption = JOptionPane.showConfirmDialog(null,
-
-				"<html>" //$NON-NLS-1$
+	private Integer shouldImportNonFinishedRecords( boolean moreThanOneFiles ) {
+		String message = "<html>" //$NON-NLS-1$
 				+ Messages.getString("ImportActionListener.0") //$NON-NLS-1$
 				+"<br/>" //$NON-NLS-1$
 				+ Messages.getString("ImportActionListener.2") //$NON-NLS-1$
-				+ "</html>",  //$NON-NLS-1$
-				Messages.getString("ImportActionListener.3"),  //$NON-NLS-1$
-				JOptionPane.YES_NO_OPTION);
+				+ "</html>";
+		
+		if( !moreThanOneFiles ){
+			
+			final int selectedOption = JOptionPane.showConfirmDialog(null,
+					message  //$NON-NLS-1$
+					,Messages.getString("ImportActionListener.3"),  //$NON-NLS-1$
+					JOptionPane.YES_NO_OPTION);
+	
+			if (selectedOption == JOptionPane.YES_OPTION){
+				return YES;
+			}else{
+				return NO;
+			}
+		}else{
+			
+			 String[] buttons = { Messages.getString("YES"), Messages.getString("YES_TO_ALL"), Messages.getString("NO"), Messages.getString("NO_TO_ALL") };
 
-		return (selectedOption == JOptionPane.YES_OPTION);
+			 return JOptionPane.showOptionDialog(null, message, Messages.getString("ImportActionListener.3") ,
+			        JOptionPane.WARNING_MESSAGE, 0, null, buttons, buttons[1]);
+	
+		}
 	}
 
 	private void importDataFrom(final ActionEvent e, final DataFormat importType) {
@@ -70,32 +90,42 @@ public final class ImportActionListener implements ActionListener {
 				
 								
 				
-				for (final File importedFile : filesToImport) {
-					new Thread("XML Import Thread " + importedFile.getName() ){ //$NON-NLS-1$
+					new Thread("XML Import Thread " ){ //$NON-NLS-1$
 						public void run() {
-							try{
-								final boolean importNonFinishedPlots = shouldImportNonFinishedRecords();
-								
+							Integer importNonFinishedPlots = shouldImportNonFinishedRecords( filesToImport.length > 1);
+							boolean firstFile = true;
 							
-								XMLDataImportProcess dataImportProcess = dataImportService.getImportSummary(importedFile, importNonFinishedPlots);
-								importDialogProcessMonitor.startImport(dataImportProcess, frame, dataImportService, importedFile );
-								
-								
-								
-
-							} catch (Exception e1) {
-								System.out.println( e1 );
-								logger.error("Error importing data" , e1); //$NON-NLS-1$
-								importDialogProcessMonitor.closeProgressmonitor();
-								JOptionPane.showMessageDialog( frame,  importedFile.getName() + " - " + Messages.getString("CollectEarthWindow.3"), importedFile.getName() + " - " + Messages.getString("CollectEarthWindow.7"), //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$ //$NON-NLS-4$
-										JOptionPane.ERROR_MESSAGE);
-								logger.error("Error importing data from " + importedFile.getAbsolutePath() + " in format " + importType.name() , e1); //$NON-NLS-1$ //$NON-NLS-2$
-							} 
+							for (final File importedFile : filesToImport) {								
+								try{
+									if ( firstFile ){
+										firstFile = false;
+									}else if ( !firstFile && (importNonFinishedPlots == YES || importNonFinishedPlots == NO  ) ){
+										importNonFinishedPlots = shouldImportNonFinishedRecords( filesToImport.length > 1);
+									}
+	
+									if( importNonFinishedPlots.equals( JOptionPane.CLOSED_OPTION ) ){
+										break;
+									}
+									
+									boolean importNotFinished= importNonFinishedPlots.equals( YES ) || importNonFinishedPlots.equals( YES_TO_ALL );
+																		
+									XMLDataImportProcess dataImportProcess = dataImportService.getImportSummary(importedFile, importNotFinished);
+									importDialogProcessMonitor.startImport(dataImportProcess, frame, dataImportService, importedFile );
+									
+								} catch (Exception e1) {
+									System.out.println( e1 );
+									logger.error("Error importing data" , e1); //$NON-NLS-1$
+									importDialogProcessMonitor.closeProgressmonitor();
+									JOptionPane.showMessageDialog( frame,  importedFile.getName() + " - " + Messages.getString("CollectEarthWindow.3"), importedFile.getName() + " - " + Messages.getString("CollectEarthWindow.7"), //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$ //$NON-NLS-4$
+											JOptionPane.ERROR_MESSAGE);
+									logger.error("Error importing data from " + importedFile.getAbsolutePath() + " in format " + importType.name() , e1); //$NON-NLS-1$ //$NON-NLS-2$
+								} 
+							}
 						}
 
 						
 					}.start();
-				}
+				
 
 				break;
 			case CSV:
