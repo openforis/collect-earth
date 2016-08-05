@@ -49,12 +49,11 @@ public abstract class AbstractAttributeHandler<C> {
 	public NodeChangeSet addOrUpdate(String parameterName, String parameterValue, Entity entity, int parameterChildIndex) {
 		Value value = (Value) (StringUtils.isBlank(parameterValue) ? null: createValue(parameterValue ) );
 		
-		
 		if( value instanceof Coordinate){
 			// Set the actual SRS used by the survey
 			// Only one SRS can be used on the Collect Earth surveys, so get the first one!
 			SpatialReferenceSystem usedSrs = entity.getSchema().getSurvey().getSpatialReferenceSystems().get(0);
-			// TODO FIX this as soon as Stenao releases 3.9.16
+			// TODO FIX this as soon as Stefano releases 3.9.16
 			((Coordinate) value ).setSrsId( usedSrs.getId() );
 		}
 		

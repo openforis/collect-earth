@@ -2,7 +2,6 @@ package org.openforis.collect.earth.app.view;
 
 import java.util.Enumeration;
 import java.util.Locale;
-import java.util.MissingResourceException;
 import java.util.PropertyResourceBundle;
 import java.util.ResourceBundle;
 
@@ -11,7 +10,14 @@ import javax.swing.JComponent;
 public class Messages {
 	public static final String BUNDLE_NAME = "org.openforis.collect.earth.app.view.Messages"; //$NON-NLS-1$
 
-	private static ResourceBundle RESOURCE_BUNDLE = ResourceBundle.getBundle(BUNDLE_NAME);
+	private static ResourceBundle RESOURCE_BUNDLE;
+	static {
+		try {
+			RESOURCE_BUNDLE = ResourceBundle.getBundle(BUNDLE_NAME);
+		} catch(Exception e) {
+			RESOURCE_BUNDLE = null;
+		}
+	}
 
 	private Messages() {
 	}
@@ -23,11 +29,12 @@ public class Messages {
 	}
 
 	public static String getString(String key) {
-		try {
-			return RESOURCE_BUNDLE.getString(key);
-		} catch (MissingResourceException e) {
-			return '!' + key + '!';
+		if (RESOURCE_BUNDLE != null) {
+			try {
+				return RESOURCE_BUNDLE.getString(key);
+			} catch (Exception e) {}
 		}
+		return '!' + key + '!';
 	}
 	
 	
