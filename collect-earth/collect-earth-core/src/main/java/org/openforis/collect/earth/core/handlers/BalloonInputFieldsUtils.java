@@ -5,6 +5,7 @@ import java.util.Arrays;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
@@ -25,6 +26,7 @@ import org.openforis.idm.metamodel.CodeList;
 import org.openforis.idm.metamodel.CodeListItem;
 import org.openforis.idm.metamodel.CodeListService;
 import org.openforis.idm.metamodel.EntityDefinition;
+import org.openforis.idm.metamodel.EntityDefinition.TraversalType;
 import org.openforis.idm.metamodel.ModelVersion;
 import org.openforis.idm.metamodel.NodeDefinition;
 import org.openforis.idm.metamodel.NodeDefinitionVisitor;
@@ -218,6 +220,63 @@ public class BalloonInputFieldsUtils {
 		return cleanParameter;
 	}
 
+	public Map<String, String> getHtmlParameterNameByNodePath(final EntityDefinition rootEntityDef) {
+		final CodeListService codeListService = rootEntityDef.getSurvey().getContext().getCodeListService();
+
+		final Map<String, String> result = new LinkedHashMap<String, String>();
+
+		rootEntityDef.traverse(new NodeDefinitionVisitor() {
+			public void visit(NodeDefinition def) {
+				if (def instanceof AttributeDefinition) {
+					EntityDefinition parentDef = def.getParentEntityDefinition();
+					if (parentDef == rootEntityDef) {
+						String collectParamName = getCollectParameterBaseName(def);
+						if( collectParamName != null ){
+							result.put(def.getPath(), collectParamName);
+						}
+					} else {
+						List<NodeDefinition> childDefs = parentDef.getChildDefinitions();
+						if (parentDef.isMultiple()) {
+							//multiple (enumerated) entity
+							CodeAttributeDefinition keyCodeAttribute = parentDef.getEnumeratingKeyCodeAttribute();
+							if (keyCodeAttribute == null) {
+								throw new IllegalStateException("Enumerating code attribute expected for entity " + parentDef.getPath());
+							} else {
+								CodeList enumeratingList = keyCodeAttribute.getList();
+								List<CodeListItem> enumeratingItems = codeListService.loadRootItems(enumeratingList);
+								for (int i = 0; i < enumeratingItems.size(); i++) {
+									CodeListItem enumeratingItem = enumeratingItems.get(i);
+									String collectParameterBaseName = getCollectParameterBaseName(parentDef) + "[" + enumeratingItem.getCode() + "].";
+
+									for (NodeDefinition childDef : childDefs) {
+										AbstractAttributeHandler<?> childHandler = findHandler(childDef);
+										if( childHandler != null ){
+											String collectParameterName = collectParameterBaseName + childHandler.getPrefix() + childDef.getName();
+											String enumeratingItemPath = parentDef.getPath() + "[" + (i+1) + "]/" + childDef.getName();
+											result.put(enumeratingItemPath, collectParameterName);
+										}
+									}
+								}
+							}
+						} else {
+							//single entity
+							String collectParameterBaseName = getCollectParameterBaseName(parentDef) + ".";
+							for (NodeDefinition childDef : childDefs) {
+								AbstractAttributeHandler<?> childHandler = findHandler(childDef);
+								if( childHandler != null ){
+									String collectParameterName = collectParameterBaseName + childHandler.getPrefix() + childDef.getName();
+									String enumeratingItemPath = parentDef.getPath() + "/" + childDef.getName();
+									result.put(enumeratingItemPath, collectParameterName);
+								}
+							}
+						}
+					}
+				}
+			}
+		}, TraversalType.BFS);
+		return result;
+	}
+	
 	public Map<String, String> getValuesByHtmlParameters(Entity plotEntity) {
 		Map<String, String> valuesByHTMLParameterName = new HashMap<String, String>();
 
@@ -228,7 +287,7 @@ public class BalloonInputFieldsUtils {
 		}
 		return valuesByHTMLParameterName;
 	}
-
+	
 	private Set<AttributeDefinition> extractAttributeDefinitions(CollectRecord record) {
 		final Set<AttributeDefinition> result = new LinkedHashSet<AttributeDefinition>();
 
@@ -432,7 +491,7 @@ public class BalloonInputFieldsUtils {
 	}
 
 	public NodeChangeSet saveToEntity(Map<String, String> parameters, Entity entity) {
-		NodeChangeMap result = new NodeChangeMap();
+		final NodeChangeMap result = new NodeChangeMap();
 
 		Set<Entry<String, String>> parameterEntries = parameters.entrySet();
 

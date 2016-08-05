@@ -1,7 +1,6 @@
 package org.openforis.collect.earth.core.handlers;
 
 import org.openforis.idm.metamodel.NodeDefinition;
-import org.openforis.idm.metamodel.NumberAttributeDefinition;
 import org.openforis.idm.metamodel.NumericAttributeDefinition.Type;
 import org.openforis.idm.metamodel.RangeAttributeDefinition;
 import org.openforis.idm.model.IntegerValue;
