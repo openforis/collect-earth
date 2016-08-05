@@ -73,6 +73,7 @@ public class OptionWizard extends JDialog {
 	private final Logger logger = LoggerFactory.getLogger(this.getClass());
 
 	JPanel postgresPanel;
+	JPanel sqlitePanel;
 
 	LocalPropertiesService localPropertiesService;
 	
@@ -269,14 +270,6 @@ public class OptionWizard extends JDialog {
 	}
 
 	
-	private String getComputerIp() {
-		try {
-			return InetAddress.getLocalHost().getHostAddress();
-		} catch (final UnknownHostException e) {
-			logger.warn("Unknown IP address", e); //$NON-NLS-1$
-			return Messages.getString("OptionWizard.11"); //$NON-NLS-1$
-		}
-	}
 
 	private JComponent getOperationModePanel() {
 		final GridBagConstraints constraints = new GridBagConstraints();
@@ -292,23 +285,26 @@ public class OptionWizard extends JDialog {
 		typeOfUsePanel.setBorder(border);
 
 		JPanel serverPanel = getServerPanel();
-
-
+	
 		typeOfUsePanel.add(serverPanel, constraints);
 
 
 		return typeOfUsePanel;
 	}
+	
+	public void enableDBOptions(boolean isPostgreDb) {
+		enableContainer(postgresPanel, isPostgreDb);
+		enableContainer( sqlitePanel, !isPostgreDb);
+	}
 
 	private ActionListener getDbTypeListener() {
 		return new ActionListener() {
-
 			@Override
 			public void actionPerformed(ActionEvent e) {
 				final JRadioButton theJRB = (JRadioButton) e.getSource();
 
 				boolean isPostgreDb = theJRB.getName().equals(CollectDBDriver.POSTGRESQL.name() );
-				enableContainer(postgresPanel, isPostgreDb);
+				enableDBOptions( isPostgreDb );
 			}
 		};
 	}
@@ -696,7 +692,7 @@ public class OptionWizard extends JDialog {
 		final Border border = new TitledBorder(new BevelBorder(BevelBorder.RAISED), Messages.getString("OptionWizard.3")); //$NON-NLS-1$
 		typeOfDbPanel.setBorder(border);
 
-		JLabel label = new JLabel(Messages.getString("OptionWizard.4") + getComputerIp()); //$NON-NLS-1$
+		JLabel label = new JLabel(Messages.getString("OptionWizard.4") + CollectEarthUtils.getComputerIp()); //$NON-NLS-1$
 		typeOfDbPanel.add(label, constraints);
 		constraints.gridy++;
 
@@ -715,7 +711,10 @@ public class OptionWizard extends JDialog {
 		final JComponent[] dbTypes = propertyToComponent.get(EarthProperty.DB_DRIVER);
 
 		postgresPanel = getPostgreSqlPanel();
-		JPanel sqlitePanel = getSqlLitePanel();
+		sqlitePanel = getSqlLitePanel();
+		
+		boolean usingPostgreSQL = localPropertiesService.getCollectDBDriver().equals(CollectDBDriver.POSTGRESQL);
+		enableDBOptions( usingPostgreSQL );
 
 		for (final JComponent typeRadioButton : dbTypes) {
 			final JRadioButton dbTypeButton = (JRadioButton) typeRadioButton;
@@ -728,6 +727,7 @@ public class OptionWizard extends JDialog {
 			if (dbTypeButton.getName().equals(EarthConstants.CollectDBDriver.POSTGRESQL.name() ) ) {
 				typeOfDbPanel.add(postgresPanel, constraints);
 				constraints.gridy++;
+				
 			}else{
 				typeOfDbPanel.add(sqlitePanel, constraints);
 				constraints.gridy++;
@@ -981,9 +981,11 @@ public class OptionWizard extends JDialog {
 		sqliteDbType.setName(CollectDBDriver.SQLITE.name());
 
 		final JRadioButton postgresDbType = new JRadioButton(Messages.getString("OptionWizard.94")); //$NON-NLS-1$
-		postgresDbType.setSelected(localPropertiesService.getCollectDBDriver().equals(CollectDBDriver.POSTGRESQL));
+		boolean usingPostgreSQL = localPropertiesService.getCollectDBDriver().equals(CollectDBDriver.POSTGRESQL);
+		postgresDbType.setSelected(usingPostgreSQL);
 		postgresDbType.setName(CollectDBDriver.POSTGRESQL.name());
 		propertyToComponent.put(EarthProperty.DB_DRIVER, new JComponent[] { sqliteDbType, postgresDbType });
+		
 
 		final JTextField dbUserName = new JTextField(localPropertiesService.getValue(EarthProperty.DB_USERNAME));
 		propertyToComponent.put(EarthProperty.DB_USERNAME, new JComponent[] { dbUserName });
