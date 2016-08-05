@@ -14,6 +14,7 @@ import java.util.TreeSet;
 import javax.annotation.PreDestroy;
 
 import org.apache.commons.lang3.StringUtils;
+import org.openforis.collect.earth.app.CollectEarthUtils;
 import org.openforis.collect.earth.app.EarthConstants.CollectDBDriver;
 import org.openforis.collect.earth.app.EarthConstants.OperationMode;
 import org.openforis.collect.earth.app.EarthConstants.SAMPLE_SHAPE;
@@ -32,7 +33,7 @@ import org.springframework.stereotype.Component;
 @Component
 public class LocalPropertiesService {
 
-	private static final String LOCAL_HOST = "127.0.0.1";
+	public static final String LOCAL_HOST = "127.0.0.1";
 
 	/**
 	 * Enumeration containing the names of all the possible values that can be configured in Collect Earth.

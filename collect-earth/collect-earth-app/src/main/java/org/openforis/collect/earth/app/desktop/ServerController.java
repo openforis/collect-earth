@@ -16,6 +16,7 @@ import org.eclipse.jetty.server.Server;
 import org.eclipse.jetty.server.ServerConnector;
 import org.eclipse.jetty.util.thread.ExecutorThreadPool;
 import org.eclipse.jetty.webapp.WebAppContext;
+import org.openforis.collect.earth.app.CollectEarthUtils;
 import org.openforis.collect.earth.app.EarthConstants;
 import org.openforis.collect.earth.app.EarthConstants.CollectDBDriver;
 import org.openforis.collect.earth.app.service.BrowserService;
@@ -206,8 +207,10 @@ public class ServerController extends Observable {
 
 			// // Use blocking-IO connector to improve throughput
 			final ServerConnector connector = new ServerConnector(server);
-			connector.setName("127.0.0.1:" + getPort()); //$NON-NLS-1$
-			connector.setHost("0.0.0.0"); //$NON-NLS-1$
+			connector.setName( LocalPropertiesService.LOCAL_HOST + ":" + getPort()); //$NON-NLS-1$
+			//connector.setHost("0.0.0.0"); //$NON-NLS-1$
+			connector.setHost( LocalPropertiesService.LOCAL_HOST );
+			 
 			connector.setPort(getPort());
 
 			connector.setStopTimeout(1000);

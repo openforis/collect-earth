@@ -8,6 +8,8 @@ import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.net.InetAddress;
+import java.net.UnknownHostException;
 import java.util.Enumeration;
 
 import javax.swing.UIManager;
@@ -20,6 +22,7 @@ import net.lingala.zip4j.util.Zip4jConstants;
 import org.apache.commons.codec.digest.DigestUtils;
 import org.apache.commons.lang3.SystemUtils;
 import org.openforis.collect.earth.app.EarthConstants.UI_LANGUAGE;
+import org.openforis.collect.earth.app.view.Messages;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -86,6 +89,15 @@ public class CollectEarthUtils {
 		zipBackupFile.addFile(srcFile, zipParameters);
 		
 		return zipBackupFile;
+	}
+	
+	public static String getComputerIp() {
+		try {
+			return InetAddress.getLocalHost().getHostAddress();
+		} catch (final UnknownHostException e) {
+			LoggerFactory.getLogger(CollectEarthUtils.class).warn("Unknown IP address", e); //$NON-NLS-1$
+			return Messages.getString("OptionWizard.11"); //$NON-NLS-1$
+		}
 	}
 	
 	public static void addFolderToZip(ZipFile zipFile, File folderToCompress )

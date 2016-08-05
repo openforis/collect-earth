@@ -2,9 +2,10 @@ package org.openforis.collect.earth.app.service;
 
 import java.io.BufferedWriter;
 import java.io.File;
+import java.io.FileOutputStream;
 import java.io.FileReader;
-import java.io.FileWriter;
 import java.io.IOException;
+import java.io.OutputStreamWriter;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -120,8 +121,10 @@ public class KmlImportService {
         }
         
         File tempFile = File.createTempFile("kmlExtractedPoints", "csv"); //$NON-NLS-1$ //$NON-NLS-2$
-        FileWriter fw = new FileWriter(tempFile);
-		BufferedWriter bw = new BufferedWriter(fw);
+        
+        OutputStreamWriter osw = new OutputStreamWriter(  new FileOutputStream( tempFile ), "UTF-8" );
+
+		BufferedWriter bw = new BufferedWriter(osw);
 		bw.write(sb.toString());
 		bw.close();
         

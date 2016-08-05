@@ -89,11 +89,11 @@ public abstract class KmlGenerator extends AbstractCoordinateCalculation {
 		}
 		
 
-			String kmlPolygon = getKmlPolygonColumn(csvValuesInLine);
-			if( kmlPolygon != null ){
-				processKmlPolygonProperties(plotProperties, kmlPolygon);
-				plotProperties.setCoord( getCentroid(plotProperties.getShape() ));
-			}
+		String kmlPolygon = getKmlPolygonColumn(csvValuesInLine);
+		if( kmlPolygon != null ){
+			processKmlPolygonProperties(plotProperties, kmlPolygon);
+			plotProperties.setCoord( getCentroid(plotProperties.getShape() ));
+		}
 
 		Vector<String> extraInfoVector = new Vector<String>();
 		Vector<String> extraColumns = new Vector<String>();
@@ -138,8 +138,6 @@ public abstract class KmlGenerator extends AbstractCoordinateCalculation {
 			}
 		}
 		plotProperties.setValuesByColumn( valuesByColumn );
-		
-		
 		
 		// Handle teh calculation of different SRSs that EPSG:3264
 		// Lets keep a copy of the original coordinates to use on the KML Data for long/lat that will be sent to Collect Earth

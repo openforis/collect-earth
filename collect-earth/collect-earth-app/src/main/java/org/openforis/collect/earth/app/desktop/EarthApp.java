@@ -200,7 +200,7 @@ public class EarthApp {
 	private static boolean isAnotherCollectEarthRunning(LocalPropertiesService localProperties) {
 		boolean alreadyRunning = false;
 		try {
-			new Socket("127.0.0.1", Integer.parseInt(localProperties.getPort())).close(); //$NON-NLS-1$
+			new Socket( LocalPropertiesService.LOCAL_HOST , Integer.parseInt(localProperties.getPort())).close(); //$NON-NLS-1$
 			// If here there is something is serving on port 8888
 			// So stop it
 			logger.warn("There is a server already running " + localProperties.getPort()); //$NON-NLS-1$
