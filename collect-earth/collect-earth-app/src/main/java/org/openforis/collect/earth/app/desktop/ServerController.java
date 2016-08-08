@@ -208,8 +208,8 @@ public class ServerController extends Observable {
 			// // Use blocking-IO connector to improve throughput
 			final ServerConnector connector = new ServerConnector(server);
 			connector.setName( LocalPropertiesService.LOCAL_HOST + ":" + getPort()); //$NON-NLS-1$
-			//connector.setHost("0.0.0.0"); //$NON-NLS-1$
-			connector.setHost( LocalPropertiesService.LOCAL_HOST );
+			connector.setHost("0.0.0.0"); //$NON-NLS-1$
+			//connector.setHost( LocalPropertiesService.LOCAL_HOST );
 			 
 			connector.setPort(getPort());
 
