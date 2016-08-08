@@ -81,8 +81,6 @@ public class SquareKmlGenerator extends AbstractPolygonKmlGenerator {
 
 		final List<SimplePlacemarkObject> pointsInPlacemark = new ArrayList<SimplePlacemarkObject>();
 
-		final boolean addCentralPoints = getPointSide() > 20;
-
 		if( getNumberOfSamplePoints() > 1 ){
 			for (int col = 1; col < getNumOfRows(); col++) {
 				final double offsetLong = col * distanceBetweenSamplePoints; // GO
@@ -98,17 +96,10 @@ public class SquareKmlGenerator extends AbstractPolygonKmlGenerator {
 	
 					pointsInPlacemark.add(insidePlacemark);
 	
-					if (addCentralPoints) {
-	
-						final double[] centerPosition = getPointWithOffset(miniPlacemarkPosition, getPointSide() / 2, getPointSide() / 2);
-						final SimplePlacemarkObject centralPoint = new SimplePlacemarkObject(centerPosition, placemark.getPlacemarkId() + "center");
-						centralPoint.setShape(getSamplePointPolygon(centerPosition, getPointSide()));
-						pointsInPlacemark.add(centralPoint);
-					}
 				}
 	
 			}
-		}else{
+		}else if( getNumberOfSamplePoints() == 1 ){
 			final double[] centerPosition = getPointWithOffset(placemark.getCoord().getCoordinates(), -1* getPointSide() / 2, -1 * getPointSide() / 2);
 			final SimplePlacemarkObject centralPoint = new SimplePlacemarkObject(centerPosition, placemark.getPlacemarkId() + "center");
 			centralPoint.setShape(getSamplePointPolygon(centerPosition, getPointSide()));
@@ -116,11 +107,7 @@ public class SquareKmlGenerator extends AbstractPolygonKmlGenerator {
 		}
 
 		if (getNumberOfSamplePoints() % 2 == 1) {
-			if (addCentralPoints) {
-				placemark.setSamplePointOutlined(getNumberOfSamplePoints() - 1);
-			} else {
 				placemark.setSamplePointOutlined((int) Math.ceil(getNumberOfSamplePoints() / 2d) - 1);
-			}
 		}
 
 		placemark.setPoints(pointsInPlacemark);
