@@ -19,7 +19,7 @@ import java.util.TreeMap;
 import javax.servlet.http.HttpServletResponse;
 
 import org.openforis.collect.earth.app.EarthConstants;
-import org.openforis.collect.earth.app.service.EarthSurveyService;
+import org.openforis.collect.earth.app.service.AbstractEarthSurveyService;
 import org.openforis.collect.earth.app.view.Messages;
 import org.openforis.collect.earth.core.handlers.BalloonInputFieldsUtils;
 import org.openforis.collect.earth.core.model.PlacemarkLoadResult;
@@ -42,7 +42,7 @@ public class AbstractPlacemarkDataController extends JsonPocessorServlet {
 	private static String lastPlacemarkStep;
 	
 	@Autowired
-	EarthSurveyService earthSurveyService;
+	AbstractEarthSurveyService earthSurveyService;
 	
 	protected void placemarkInfoExpanded(@RequestParam("id") String placemarkId, HttpServletResponse response) throws IOException {
 		PlacemarkLoadResult result;

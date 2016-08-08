@@ -2,7 +2,7 @@ package org.openforis.collect.earth.app.server;
 
 import java.util.Map;
 
-import org.openforis.collect.earth.app.service.EarthSurveyService;
+import org.openforis.collect.earth.app.service.AbstractEarthSurveyService;
 import org.openforis.collect.earth.core.model.PlacemarkLoadResult;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
@@ -16,7 +16,7 @@ import org.springframework.stereotype.Component;
 public class CollectDataAccessor implements DataAccessor {
 
 	@Autowired
-	private EarthSurveyService earthSurveyService;
+	private AbstractEarthSurveyService earthSurveyService;
 
 	@Deprecated
 	@Override

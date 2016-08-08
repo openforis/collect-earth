@@ -6,15 +6,11 @@ import static org.openforis.collect.earth.app.EarthConstants.ACTIVELY_SAVED_ON_P
 import static org.openforis.collect.earth.app.EarthConstants.ACTIVELY_SAVED_ON_PARAMETER_OLD;
 import static org.openforis.collect.earth.app.EarthConstants.ACTIVELY_SAVED_PARAMETER;
 import static org.openforis.collect.earth.app.EarthConstants.COLLECT_REASON_BLANK_NOT_SPECIFIED_MESSAGE;
-import static org.openforis.collect.earth.app.EarthConstants.EARTH_SURVEY_NAME;
 import static org.openforis.collect.earth.app.EarthConstants.OPERATOR_PARAMETER;
 import static org.openforis.collect.earth.app.EarthConstants.PLACEMARK_FOUND_PARAMETER;
 import static org.openforis.collect.earth.app.EarthConstants.ROOT_ENTITY_NAME;
 import static org.openforis.collect.earth.app.EarthConstants.SKIP_FILLED_PLOT_PARAMETER;
 
-import java.io.File;
-import java.io.FileInputStream;
-import java.io.FileNotFoundException;
 import java.text.SimpleDateFormat;
 import java.util.Date;
 import java.util.HashMap;
@@ -22,11 +18,9 @@ import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 
-import javax.annotation.PostConstruct;
 import javax.swing.JOptionPane;
 
 import org.openforis.collect.earth.app.EarthConstants;
-import org.openforis.collect.earth.app.service.LocalPropertiesService.EarthProperty;
 import org.openforis.collect.earth.app.view.Messages;
 import org.openforis.collect.earth.core.handlers.BalloonInputFieldsUtils;
 import org.openforis.collect.earth.core.handlers.DateAttributeHandler;
@@ -34,7 +28,6 @@ import org.openforis.collect.earth.core.model.PlacemarkInputFieldInfo;
 import org.openforis.collect.earth.core.model.PlacemarkLoadResult;
 import org.openforis.collect.manager.RecordManager;
 import org.openforis.collect.manager.SurveyManager;
-import org.openforis.collect.manager.exception.SurveyValidationException;
 import org.openforis.collect.model.CollectRecord;
 import org.openforis.collect.model.CollectRecord.Step;
 import org.openforis.collect.model.CollectSurvey;
@@ -43,13 +36,11 @@ import org.openforis.collect.model.RecordUpdater;
 import org.openforis.collect.model.RecordValidationReportGenerator;
 import org.openforis.collect.model.RecordValidationReportItem;
 import org.openforis.collect.persistence.RecordPersistenceException;
-import org.openforis.collect.persistence.SurveyImportException;
 import org.openforis.idm.metamodel.AttributeDefinition;
 import org.openforis.idm.metamodel.EntityDefinition;
 import org.openforis.idm.metamodel.ModelVersion;
 import org.openforis.idm.metamodel.NodeLabel.Type;
 import org.openforis.idm.metamodel.Schema;
-import org.openforis.idm.metamodel.xml.IdmlParseException;
 import org.openforis.idm.model.Attribute;
 import org.openforis.idm.model.BooleanAttribute;
 import org.openforis.idm.model.BooleanValue;
@@ -62,28 +53,23 @@ import org.openforis.idm.model.Value;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.stereotype.Component;
 
-@Component
-public class EarthSurveyService {
+public abstract class AbstractEarthSurveyService {
 
-	private CollectSurvey collectSurvey;
+	protected final Logger logger = LoggerFactory.getLogger(this.getClass());
 
 	@Autowired
-	private LocalPropertiesService localPropertiesService;
-
-	private final Logger logger = LoggerFactory.getLogger(this.getClass());
-
+	protected LocalPropertiesService localPropertiesService;
 	@Autowired
-	private RecordManager recordManager;
-
+	protected RecordManager recordManager;
 	@Autowired
-	private SurveyManager surveyManager;
+	protected SurveyManager surveyManager;
 
-	private RecordUpdater recordUpdater;
-	private BalloonInputFieldsUtils collectParametersHandler;
+	protected CollectSurvey collectSurvey;
+	protected RecordUpdater recordUpdater;
+	protected BalloonInputFieldsUtils collectParametersHandler;
 
-	public EarthSurveyService() {
+	public AbstractEarthSurveyService() {
 		collectParametersHandler = new BalloonInputFieldsUtils();
 		recordUpdater = new RecordUpdater();
 		recordUpdater.setClearNotRelevantAttributes(true);
@@ -157,7 +143,7 @@ public class EarthSurveyService {
 		return collectSurvey;
 	}
 
-	private String getIdmFilePath() {
+	protected String getIdmFilePath() {
 		return localPropertiesService.getImdFile();
 	}
 
@@ -282,44 +268,7 @@ public class EarthSurveyService {
 		}
 	}
 
-	@PostConstruct
-	private void init() throws FileNotFoundException, IdmlParseException, SurveyImportException {
-		// Initialize the Collect survey using the idm
-		// This is only done if the survey has not yet been created in the DB
-
-		if (getCollectSurvey() == null) {
-			CollectSurvey survey;
-			try {
-				File idmSurveyModel = new File(getIdmFilePath());
-				if (idmSurveyModel.exists()) {
-					survey = surveyManager.unmarshalSurvey(new FileInputStream(idmSurveyModel), true, true);
-					if (surveyManager.getByUri(survey.getUri()) == null) { // NOT
-																			// IN
-						// THE DB
-						String surveyName = EARTH_SURVEY_NAME
-								+ localPropertiesService.getValue(EarthProperty.SURVEY_NAME);
-						survey = surveyManager.importModel(idmSurveyModel, surveyName, false, true);
-
-					} else { // UPDATE ALREADY EXISTANT MODEL
-						survey = surveyManager.updateModel(idmSurveyModel, false, true);
-					}
-
-					checkVersions(survey);
-
-					setCollectSurvey(survey);
-				} else {
-					logger.error(
-							"The survey definition file could not be found in " + idmSurveyModel.getAbsolutePath()); //$NON-NLS-1$
-				}
-			} catch (final SurveyValidationException e) {
-				logger.error("Unable to validate survey at " + getIdmFilePath(), e); //$NON-NLS-1$
-				e.printStackTrace();
-			}
-		}
-
-	}
-
-	private void checkVersions(CollectSurvey loadedCollectSurvey) {
+	protected void checkVersions(CollectSurvey loadedCollectSurvey) {
 
 		if (!loadedCollectSurvey.getVersions().isEmpty()) {
 			if (loadedCollectSurvey.getVersions().size() == 1) {
