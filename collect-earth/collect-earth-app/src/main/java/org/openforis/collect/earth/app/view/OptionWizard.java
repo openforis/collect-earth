@@ -13,8 +13,6 @@ import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 import java.io.File;
 import java.io.IOException;
-import java.net.InetAddress;
-import java.net.UnknownHostException;
 import java.text.DecimalFormat;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -66,6 +64,10 @@ import org.slf4j.LoggerFactory;
  * 
  */
 public class OptionWizard extends JDialog {
+
+	private static final ComboBoxItem COMBO_BOX_ITEM_CENTRAL_POINT = new ComboBoxItem(1, Messages.getString("OptionWizard.54"));
+
+	private static final ComboBoxItem COMBO_BOX_ITEM_SQUARE = new ComboBoxItem(0, Messages.getString("OptionWizard.53"));
 
 	private static final long serialVersionUID = -6760020609229102842L;
 
@@ -479,22 +481,22 @@ public class OptionWizard extends JDialog {
 		label = new JLabel(Messages.getString("OptionWizard.95") ); //$NON-NLS-1$
 		panel.add(label, constraints);
 		constraints.gridx = 1;
-		JComboBox innerPlotSide = (JComboBox) propertyToComponent.get(EarthProperty.INNER_SUBPLOT_SIDE)[0];
-		panel.add(new JScrollPane(innerPlotSide), constraints);
+		JComboBox dotsSide = (JComboBox) propertyToComponent.get(EarthProperty.INNER_SUBPLOT_SIDE)[0];
+		panel.add(new JScrollPane(dotsSide), constraints);
 		
 		constraints.gridx = 0;
 		constraints.gridy = 4;
 		label = new JLabel( "Area (hectares)" );
 		panel.add(label, constraints);
 		constraints.gridx = 1;
-		JLabel area = new JLabel( calculateArea(  numberPoints, distanceBetweenPoints, distanceToFrame) );
+		JLabel area = new JLabel( calculateArea(  numberPoints, distanceBetweenPoints, distanceToFrame, dotsSide) );
 		panel.add(new JScrollPane(area), constraints);
 		
 		ActionListener calculateAreas = new ActionListener() {
 			
 			@Override
 			public void actionPerformed(ActionEvent e) {
-				area.setText( calculateArea( numberPoints, distanceBetweenPoints, distanceToFrame )  );
+				area.setText( calculateArea( numberPoints, distanceBetweenPoints, distanceToFrame, dotsSide )  );
 				
 			}
 		};
@@ -506,7 +508,7 @@ public class OptionWizard extends JDialog {
 		return panel;
 	}
 
-	private String calculateArea(JComboBox numberOfPoints, JComboBox distanceBetweenPoints, JComboBox distanceToFrame) {
+	private String calculateArea(JComboBox numberOfPoints, JComboBox distanceBetweenPoints, JComboBox distanceToFrame, JComboBox dotsSide) {
 		double side = 0;
 		try{
 			int numberOfPointsI = ((ComboBoxItem)numberOfPoints.getSelectedItem() ).getNumberOfPoints();
@@ -523,12 +525,22 @@ public class OptionWizard extends JDialog {
 				}
 				distanceBetweenPoints.setSelectedItem("0");
 				
+				if( numberOfPointsI == 0 ){
+					dotsSide.setEnabled(false);
+				}else if( numberOfPointsI == 1 ){
+					dotsSide.setEnabled(true);
+				}
+				
 			}else{
 				if( oldSelectedDistance!=null ){
 					distanceBetweenPoints.setSelectedItem( oldSelectedDistance );
 					oldSelectedDistance = null;
 				}
+				
 				distanceBetweenPoints.setEnabled(true);
+				distanceToFrame.setEnabled( true );
+				dotsSide.setEnabled(true);
+				
 				double pointsByLines = Math.sqrt( numberOfPointsI ) ;
 				side = 2d * distanceToFrameI + ( pointsByLines - 1 ) * distanceBetweenPointsI;
 				
@@ -588,7 +600,7 @@ public class OptionWizard extends JDialog {
 
 		constraints.gridx = 1;
 		panel.add(propertyToComponent.get(EarthProperty.DB_HOST)[0], constraints);
-
+		
 		constraints.gridy++;
 		label = new JLabel(Messages.getString("OptionWizard.29")); //$NON-NLS-1$
 		constraints.gridx = 0;
@@ -596,6 +608,30 @@ public class OptionWizard extends JDialog {
 
 		constraints.gridx = 1;
 		panel.add(propertyToComponent.get(EarthProperty.DB_PORT)[0], constraints);
+
+		constraints.gridx = 2;
+		panel.add( new JLabel ("Default: 5432"), constraints);
+		
+		constraints.gridy++;
+		constraints.gridx = 1;
+		JButton button = new JButton("Test Connection"); //$NON-NLS-1$
+		button.addActionListener( new ActionListener() {
+			
+			@Override
+			public void actionPerformed(ActionEvent e) {
+				String host =  ( (JTextField)(propertyToComponent.get(EarthProperty.DB_HOST)[0]) ).getText();
+				String port = ( (JTextField)(propertyToComponent.get(EarthProperty.DB_PORT)[0]) ).getText();
+				String dbName = ( (JTextField)(propertyToComponent.get(EarthProperty.DB_NAME)[0]) ).getText();
+				String username = ( (JTextField)(propertyToComponent.get(EarthProperty.DB_USERNAME)[0]) ).getText();
+				String password = ( (JTextField)(propertyToComponent.get(EarthProperty.DB_HOST)[0]) ).getText();
+				
+				String message = CollectEarthUtils.testPostgreSQLConnection( host, port, dbName, username, password);
+				JOptionPane.showMessageDialog(OptionWizard.this.getOwner(), message  , "PostgreSQL Connection test", JOptionPane.INFORMATION_MESSAGE);
+				
+			}
+		});
+		panel.add(button, constraints);
+		
 
 		return panel;
 	}
@@ -844,7 +880,7 @@ public class OptionWizard extends JDialog {
 
 		final JComboBox<ComboBoxItem> comboNumberOfPoints = new JComboBox<ComboBoxItem>(
 				new ComboBoxItem[] {
-						new ComboBoxItem(0, Messages.getString("OptionWizard.53")), new ComboBoxItem(1, Messages.getString("OptionWizard.54")), new ComboBoxItem(4, "2x2"), //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$
+						COMBO_BOX_ITEM_SQUARE, COMBO_BOX_ITEM_CENTRAL_POINT, new ComboBoxItem(4, "2x2"), //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$
 						new ComboBoxItem(9, "3x3"), new ComboBoxItem(16, "4x4"), new ComboBoxItem(25, "5x5"), new ComboBoxItem(36, "6x6"), //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$ //$NON-NLS-4$
 						new ComboBoxItem(49, "7x7") }); //$NON-NLS-1$
 		comboNumberOfPoints.setSelectedItem(new ComboBoxItem(Integer.parseInt(localPropertiesService
