@@ -148,11 +148,11 @@ public class AbstractPlacemarkDataController extends JsonPocessorServlet {
 		Map<String, String> result = new LinkedHashMap<String, String>(navigableParameters.size());
 		for (String parameterName : sortedParameterNames) {
 			//get all the entries with key starting with parameterName
-			SortedMap<String,String> subMap = navigableParameters.subMap(parameterName, parameterName + Character.MAX_VALUE);
+			SortedMap<String,String> subMap = new TreeMap<String, String>( navigableParameters.subMap(parameterName, parameterName + Character.MAX_VALUE) );
 			Set<Entry<String,String>> entrySet = subMap.entrySet();
 			for (Entry<String, String> entry : entrySet) {
-				result.put(entry.getKey(), entry.getValue());
-				navigableParameters.remove(entry.getKey());
+					result.put(entry.getKey(), entry.getValue());
+					navigableParameters.remove(entry.getKey());
 			}
 		}
 		//add remaining parameters (if any)

@@ -148,25 +148,35 @@ public class BalloonInputFieldsUtils {
 			CodeAttributeDefinition attrDef = (CodeAttributeDefinition) firstAttribute.getDefinition();
 			CodeListService codeListService = record.getSurveyContext().getCodeListService();
 			List<CodeListItem> validCodeListItems = codeListService.loadValidItems(firstAttribute.getParent(), attrDef);
+			
 			CodeListItem selectedCodeListItem = getCodeListItem(validCodeListItems, value);
 			info.setCodeItemId(selectedCodeListItem == null ? null: selectedCodeListItem.getId());
 			List<PlacemarkCodedItem> possibleCodedItems = new ArrayList<PlacemarkCodedItem>(validCodeListItems.size() + 1);
 			possibleCodedItems.add(new PlacemarkCodedItem(NOT_APPLICABLE_ITEM_CODE, NOT_APPLICABLE_ITEM_LABEL));
-			for (CodeListItem item : validCodeListItems) {
-				// Check that the code list item is available for the current record version
-				if( recordVersion == null 
-						||
-					recordVersion.isApplicable( item ) 
-				){ //If the item is used on the current version used
-					String label = item.getLabel( language );
-					// Tries to get the label for the specified language, if not gets the label for the default language 
-					if( label == null && !language.equals( record.getSurvey().getDefaultLanguage() ) ){
-						label = item.getLabel();
+
+			
+			if( validCodeListItems.isEmpty() ){
+				info.setVisible(false);
+			}else{
+				for (CodeListItem item : validCodeListItems) {
+					// Check that the code list item is available for the current record version
+					if( recordVersion == null 
+							||
+						recordVersion.isApplicable( item ) 
+					){ //If the item is used on the current version used
+						String label = item.getLabel( language );
+						// Tries to get the label for the specified language, if not gets the label for the default language 
+						if( label == null && !language.equals( record.getSurvey().getDefaultLanguage() ) ){
+							label = item.getLabel();
+						}
+						possibleCodedItems.add(new PlacemarkCodedItem(item.getCode(), label));
 					}
-					possibleCodedItems.add(new PlacemarkCodedItem(item.getCode(), label));
 				}
 			}
+			
 			info.setPossibleCodedItems(possibleCodedItems);
+
+			
 		}
 		return info;
 	}

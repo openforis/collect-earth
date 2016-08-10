@@ -21,12 +21,20 @@ public class PlacemarkDataController extends AbstractPlacemarkDataController {
 
 	@RequestMapping(value="/placemark-info-expanded", method = RequestMethod.GET)
 	protected void placemarkInfoExpanded(@RequestParam("id") String placemarkId, HttpServletResponse response) throws IOException {
-		super.placemarkInfoExpanded(placemarkId, response);
+		try{
+			super.placemarkInfoExpanded(placemarkId, response);
+		}catch(Exception e){
+			logger.error("Error saving data" , e);
+		}
 	}
 
 	@RequestMapping(value="/save-data-expanded", method = RequestMethod.POST)
 	public void saveDataExpanded(PlacemarkUpdateRequest updateRequest, HttpServletResponse response) throws IOException {
-		super.saveDataExpanded(updateRequest, response);
+		try{
+			super.saveDataExpanded(updateRequest, response);
+		}catch(Exception e){
+			logger.error("Error saving data" , e);
+		}
 	}
 
 }
