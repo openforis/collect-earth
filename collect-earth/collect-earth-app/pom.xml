@@ -51,11 +51,6 @@
 			<artifactId>collect-rdb</artifactId>
 			<version>${collect.version}</version>
 		</dependency>
-		<dependency>
-			<groupId>org.apache.commons</groupId>
-			<artifactId>commons-lang3</artifactId>
-			<version>3.0</version>
-		</dependency>
 
 		<!-- Spring dependencies -->
 		<dependency>
