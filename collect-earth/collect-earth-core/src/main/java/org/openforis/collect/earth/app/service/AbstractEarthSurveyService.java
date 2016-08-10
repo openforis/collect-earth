@@ -20,6 +20,7 @@ import java.util.Map.Entry;
 
 import javax.swing.JOptionPane;
 
+import org.openforis.collect.earth.CollectEarthSurveyContext;
 import org.openforis.collect.earth.app.EarthConstants;
 import org.openforis.collect.earth.app.view.Messages;
 import org.openforis.collect.earth.core.handlers.BalloonInputFieldsUtils;
@@ -35,12 +36,14 @@ import org.openforis.collect.model.NodeChangeSet;
 import org.openforis.collect.model.RecordUpdater;
 import org.openforis.collect.model.RecordValidationReportGenerator;
 import org.openforis.collect.model.RecordValidationReportItem;
+import org.openforis.collect.model.validation.CollectEarthValidator;
 import org.openforis.collect.persistence.RecordPersistenceException;
 import org.openforis.idm.metamodel.AttributeDefinition;
 import org.openforis.idm.metamodel.EntityDefinition;
 import org.openforis.idm.metamodel.ModelVersion;
 import org.openforis.idm.metamodel.NodeLabel.Type;
 import org.openforis.idm.metamodel.Schema;
+import org.openforis.idm.metamodel.SurveyContext;
 import org.openforis.idm.model.Attribute;
 import org.openforis.idm.model.BooleanAttribute;
 import org.openforis.idm.model.BooleanValue;
@@ -64,7 +67,9 @@ public abstract class AbstractEarthSurveyService {
 	protected RecordManager recordManager;
 	@Autowired
 	protected SurveyManager surveyManager;
-
+	@Autowired
+	protected CollectEarthValidator collectEarthValidator;
+	
 	protected CollectSurvey collectSurvey;
 	protected RecordUpdater recordUpdater;
 	protected BalloonInputFieldsUtils collectParametersHandler;
@@ -72,6 +77,7 @@ public abstract class AbstractEarthSurveyService {
 	public AbstractEarthSurveyService() {
 		collectParametersHandler = new BalloonInputFieldsUtils();
 		recordUpdater = new RecordUpdater();
+		recordUpdater.setClearDependentCodeAttributes(true);
 		recordUpdater.setClearNotRelevantAttributes(true);
 	}
 
@@ -303,6 +309,13 @@ public abstract class AbstractEarthSurveyService {
 
 	public void setCollectSurvey(CollectSurvey collectSurvey) {
 		this.collectSurvey = collectSurvey;
+		this.collectSurvey.setSurveyContext(createCollectEarthSurveyContext(collectSurvey.getContext()));
+	}
+
+	private CollectEarthSurveyContext createCollectEarthSurveyContext(SurveyContext collectSurveyContext) {
+		CollectEarthSurveyContext collectEarthSurveyContext = new CollectEarthSurveyContext(collectSurveyContext.getExpressionFactory(), 
+				collectEarthValidator, collectSurveyContext.getCodeListService());
+		return collectEarthSurveyContext;
 	}
 
 	private void setPlacemarkSavedOn(CollectRecord record) {
