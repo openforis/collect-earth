@@ -623,7 +623,7 @@ public class OptionWizard extends JDialog {
 				String port = ( (JTextField)(propertyToComponent.get(EarthProperty.DB_PORT)[0]) ).getText();
 				String dbName = ( (JTextField)(propertyToComponent.get(EarthProperty.DB_NAME)[0]) ).getText();
 				String username = ( (JTextField)(propertyToComponent.get(EarthProperty.DB_USERNAME)[0]) ).getText();
-				String password = ( (JTextField)(propertyToComponent.get(EarthProperty.DB_HOST)[0]) ).getText();
+				String password = ( (JTextField)(propertyToComponent.get(EarthProperty.DB_PASSWORD)[0]) ).getText();
 				
 				String message = CollectEarthUtils.testPostgreSQLConnection( host, port, dbName, username, password);
 				JOptionPane.showMessageDialog(OptionWizard.this.getOwner(), message  , "PostgreSQL Connection test", JOptionPane.INFORMATION_MESSAGE);
