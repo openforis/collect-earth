@@ -44,7 +44,6 @@ import org.slf4j.LoggerFactory;
  */
 public class EarthApp {
 
-	private static final String UPDATE_INI = "update.ini";
 	private static Logger logger;
 	private static ServerController serverController;
 	private static EarthApp earthApp;
@@ -270,9 +269,6 @@ public class EarthApp {
 					}
 
 				}
-
-				
-
 			};
 
 			serverStartAndOpenGe(observeInitializationAfterRestart);
@@ -389,10 +385,11 @@ public class EarthApp {
 				}
 
 				final UpdateIniUtils updateIniUtils = new UpdateIniUtils();
-				final String newVersionAvailable = updateIniUtils.getNewVersionAvailable(UPDATE_INI); //$NON-NLS-1$
-				final boolean isMajorUpdate = updateIniUtils.isMajorUpdate(UPDATE_INI);
+				// newVersionAvailable will be null if the version installed is not older than the current version of the updater
+				final String newVersionAvailable = updateIniUtils.getNewVersionAvailable(); //$NON-NLS-1$
 				
-				if (updateIniUtils.shouldWarnUser(newVersionAvailable, getLocalProperties(), isMajorUpdate)) {
+				
+				if (updateIniUtils.shouldWarnUser(newVersionAvailable, getLocalProperties() )) {
 
 					javax.swing.SwingUtilities.invokeLater(new Runnable() {
 						@Override
