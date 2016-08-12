@@ -5,10 +5,13 @@ import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.net.URL;
 import java.text.SimpleDateFormat;
+import java.util.Date;
 import java.util.Properties;
+import java.util.concurrent.TimeUnit;
 
 import javax.xml.parsers.DocumentBuilderFactory;
 
+import org.apache.commons.lang.StringUtils;
 import org.openforis.collect.earth.app.service.LocalPropertiesService.EarthProperty;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -17,7 +20,8 @@ import org.w3c.dom.Document;
 public class UpdateIniUtils {
 
 	private static final Logger logger = LoggerFactory.getLogger(UpdateIniUtils.class);
-
+	private static final SimpleDateFormat fromXml = new SimpleDateFormat("yyyyMMddHHmm");
+	public static final String UPDATE_INI = "update.ini";
 	
 
 	/**
@@ -25,10 +29,10 @@ public class UpdateIniUtils {
 	 * @param pathToUpdateIni THe path to the update.ini file that is compliant with Installbuilder http://installbuilder.bitrock.com/docs/installbuilder-userguide/ar01s23.html
 	 * @return The new version build-number if there is a new version. Null if the version online is not newer than the one installed
 	 */
-	public String getNewVersionAvailable(String pathToUpdateIni){
+	public String getVersionAvailableOnline(){
 
-		String installedVersionBuild = getValueFromUpdateIni("version_id", pathToUpdateIni); //$NON-NLS-1$
-		String urlXmlUpdaterOnline = getValueFromUpdateIni("url", pathToUpdateIni); //$NON-NLS-1$
+		String installedVersionBuild = getVersionInstalled();
+		String urlXmlUpdaterOnline = getValueFromUpdateIni("url", UPDATE_INI); //$NON-NLS-1$
 		String onlineVersionBuild = getVersionBuild(urlXmlUpdaterOnline);
 
 
@@ -47,37 +51,90 @@ public class UpdateIniUtils {
 		return null;
 	}
 
-	public boolean shouldWarnUser( String buildNumberOnline, LocalPropertiesService localPropertiesService, boolean isMajorUpdate ){
+	private String getVersionInstalled() {
+		String installedVersionBuild = getValueFromUpdateIni("version_id", UPDATE_INI); //$NON-NLS-1$
+		return installedVersionBuild;
+	}
+
+	public boolean shouldWarnUser(LocalPropertiesService localPropertiesService){
 		boolean warnUser = false;
-
-		if( buildNumberOnline != null ){
-
+		
+		// newVersionAvailable will be null if the version installed is not older than the current version of the updater
+		String currentVersionOnline = getVersionAvailableOnline();
+		
+		boolean newerVersionAvailable = !StringUtils.isEmpty( currentVersionOnline ) ;
+		if( newerVersionAvailable ){
+			
 			// There is a new version. did the user chose "Not to be bother"with this update?
 			String lastIgnoredBuildNumber = localPropertiesService.getValue(EarthProperty.LAST_IGNORED_UPDATE);
+		
+			if( isCurrentNewerThanIgnoredUpdate(lastIgnoredBuildNumber, currentVersionOnline) && isMajorUpdate()){
+				warnUser = true;
+			}else if( isInstalledOlderThanOneMonth(currentVersionOnline, getVersionInstalled()) ){
+				warnUser = true;
+			}			
 
-			if(lastIgnoredBuildNumber.length() > 0){
+		}
+		return warnUser;
+	}
+	
+
+	/**
+	 * Check if the current version of the updater is newer than the version of the updater that was last ignored
+	 * @param lastIgnoredBuildNumber The version of the last ignored updater as a string with the format yyyyMMddHHmm
+	 * @param buildNumberOnline The version of the current updater in the server in the format yyyyMMddHHmm
+	 * @return True is the new version of the updater is newer than the one last ignored. False otherwise
+	 */
+	private boolean isCurrentNewerThanIgnoredUpdate(String lastIgnoredBuildNumber, String buildNumberOnline){
+		
+		boolean isNewerThanIgnored = true;
+		
+		try {
+			if( !StringUtils.isEmpty(lastIgnoredBuildNumber) && !StringUtils.isEmpty(buildNumberOnline) ){
 				Long ignoredBuildNumberUpdate =new Long(lastIgnoredBuildNumber);
 				Long buildOnline = new Long( buildNumberOnline );
 
-				if( ignoredBuildNumberUpdate<buildOnline && isMajorUpdate){ // If the build number that was ignored was older than the current build number on the server and hte new version is marked as "major"
-					warnUser = true;
-				}
-
-			}else{ // The user has never chosen to ignore an update
-				warnUser = true;
+				isNewerThanIgnored = ignoredBuildNumberUpdate<buildOnline; // If the build number that was ignored was older than the current build number on the server and hte new version is marked as "major"
 			}
+		} catch (NumberFormatException e) {
+			logger.error( "Error checking if the current version of the updater is newer than the updater that was last ignored", e);
 		}
-
-		return warnUser;
+		
+		return isNewerThanIgnored;
 	}
 
+	
+	/**
+	 * This method checks the difference in dates between the currently installed version of Collect Earth and the latest update available
+	 * @param currentVersion The date of the currently available version of collect earth in the format yyyyMMddHHmm
+	 * @param installedVersion The date of the installed version of Collect Earth in the format yyyyMMddHHmm
+	 * @return True if the difference on the dates is more than 30 days, false otherwise
+	 */
+	private boolean isInstalledOlderThanOneMonth( String currentVersion, String installedVersion ){
+		
+		boolean isOlderThanOneMonth = true;
+		Date d1 = null;
+		Date d2 = null;
+		try {
+		    d1 = fromXml.parse(installedVersion);
+		    d2 = fromXml.parse(currentVersion);
+			long diff = d2.getTime() - d1.getTime();//as given
+			long daysDifferenceInstalledAndCurrent = TimeUnit.MILLISECONDS.toDays(diff);
+			isOlderThanOneMonth = (daysDifferenceInstalledAndCurrent > 30);
+		} catch (Exception e) {
+		   logger.error( "Error calculating difference in dates bvetween installed and available versions", e );
+		}    
+		
+		return isOlderThanOneMonth;
+	}
+	
 
 	/**
 	 * Checks if the update in the server is a "Major"update, meaning that every user should update Collect Earth
 	 * @return True if the version on the server should be installed by all users
 	 */
-	public boolean isMajorUpdate(String pathToUpdateIni) {
-		String urlXmlUpdaterOnline = getValueFromUpdateIni("url", pathToUpdateIni); //$NON-NLS-1$
+	public boolean isMajorUpdate() {
+		String urlXmlUpdaterOnline = getValueFromUpdateIni("url", UPDATE_INI); //$NON-NLS-1$
 		String tagname = "version"; //$NON-NLS-1$
 		
 		String majorUpdateString = getXmlValueFromTag(urlXmlUpdaterOnline, tagname);
@@ -120,7 +177,6 @@ public class UpdateIniUtils {
 	}
 
 	public String convertToDate(String buildVersionNumber) {
-		SimpleDateFormat fromXml = new SimpleDateFormat("yyyyMMddHHmm");
 		SimpleDateFormat humanReadable = new SimpleDateFormat("yyyy-MM-dd");
 		String reformattedStr = buildVersionNumber;
 		try {

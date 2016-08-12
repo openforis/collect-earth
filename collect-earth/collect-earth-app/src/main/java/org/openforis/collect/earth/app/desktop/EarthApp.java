@@ -44,7 +44,6 @@ import org.slf4j.LoggerFactory;
  */
 public class EarthApp {
 
-	private static final String UPDATE_INI = "update.ini";
 	private static Logger logger;
 	private static ServerController serverController;
 	private static EarthApp earthApp;
@@ -270,9 +269,6 @@ public class EarthApp {
 					}
 
 				}
-
-				
-
 			};
 
 			serverStartAndOpenGe(observeInitializationAfterRestart);
@@ -389,10 +385,8 @@ public class EarthApp {
 				}
 
 				final UpdateIniUtils updateIniUtils = new UpdateIniUtils();
-				final String newVersionAvailable = updateIniUtils.getNewVersionAvailable(UPDATE_INI); //$NON-NLS-1$
-				final boolean isMajorUpdate = updateIniUtils.isMajorUpdate(UPDATE_INI);
-				
-				if (updateIniUtils.shouldWarnUser(newVersionAvailable, getLocalProperties(), isMajorUpdate)) {
+								
+				if (updateIniUtils.shouldWarnUser(getLocalProperties() )) {
 
 					javax.swing.SwingUtilities.invokeLater(new Runnable() {
 						@Override
@@ -401,16 +395,19 @@ public class EarthApp {
 							String remindLater = Messages.getString("EarthApp.3"); //$NON-NLS-1$
 							String doItNow = Messages.getString("EarthApp.4"); //$NON-NLS-1$
 							String doNotBother = Messages.getString("EarthApp.5"); //$NON-NLS-1$
+							
+							String newestVersionOnline = updateIniUtils.getVersionAvailableOnline();
+							
 							Object[] possibleValues = { remindLater, doItNow, doNotBother };
 							int chosenOption = JOptionPane.showOptionDialog(null,
-									Messages.getString("EarthApp.57"), Messages.getString("EarthApp.58") + Messages.getString("EarthApp.6") + updateIniUtils.convertToDate(newVersionAvailable),  //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$
+									Messages.getString("EarthApp.57"), Messages.getString("EarthApp.58") + Messages.getString("EarthApp.6") + updateIniUtils.convertToDate(newestVersionOnline),  //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$
 									JOptionPane.DEFAULT_OPTION, JOptionPane.INFORMATION_MESSAGE, null, possibleValues, possibleValues[0]);
 							if( chosenOption != JOptionPane.CLOSED_OPTION ){
 								if (possibleValues[chosenOption].equals(doItNow)) {
 									CheckForUpdatesListener checkForUpdatesListener = new CheckForUpdatesListener();
 									checkForUpdatesListener.actionPerformed(null);
 								} else if (possibleValues[chosenOption].equals(doNotBother)) {
-									getLocalProperties().setValue(EarthProperty.LAST_IGNORED_UPDATE, newVersionAvailable);
+									getLocalProperties().setValue(EarthProperty.LAST_IGNORED_UPDATE, newestVersionOnline);
 								}
 							}
 						}
