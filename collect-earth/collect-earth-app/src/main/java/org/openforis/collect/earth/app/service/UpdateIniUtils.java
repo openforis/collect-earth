@@ -29,7 +29,7 @@ public class UpdateIniUtils {
 	 * @param pathToUpdateIni THe path to the update.ini file that is compliant with Installbuilder http://installbuilder.bitrock.com/docs/installbuilder-userguide/ar01s23.html
 	 * @return The new version build-number if there is a new version. Null if the version online is not newer than the one installed
 	 */
-	public String getNewVersionAvailable(){
+	public String getVersionAvailableOnline(){
 
 		String installedVersionBuild = getVersionInstalled();
 		String urlXmlUpdaterOnline = getValueFromUpdateIni("url", UPDATE_INI); //$NON-NLS-1$
@@ -56,8 +56,11 @@ public class UpdateIniUtils {
 		return installedVersionBuild;
 	}
 
-	public boolean shouldWarnUser( String currentVersionOnline, LocalPropertiesService localPropertiesService ){
+	public boolean shouldWarnUser(LocalPropertiesService localPropertiesService){
 		boolean warnUser = false;
+		
+		// newVersionAvailable will be null if the version installed is not older than the current version of the updater
+		String currentVersionOnline = getVersionAvailableOnline();
 		
 		boolean newerVersionAvailable = !StringUtils.isEmpty( currentVersionOnline ) ;
 		if( newerVersionAvailable ){
