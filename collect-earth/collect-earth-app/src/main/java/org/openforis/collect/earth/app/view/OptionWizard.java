@@ -214,7 +214,6 @@ public class OptionWizard extends JDialog {
 							// Only regenerate KML and reload
 							try {
 								SwingUtilities.invokeAndWait( new Runnable() {
-									
 									@Override
 									public void run() {
 										CollectEarthWindow.startWaiting(OptionWizard.this);
@@ -223,9 +222,7 @@ public class OptionWizard extends JDialog {
 								
 								EarthApp.loadKmlInGoogleEarth(true);
 								
-								
 								SwingUtilities.invokeAndWait( new Runnable() {
-									
 									@Override
 									public void run() {
 										CollectEarthWindow.endWaiting(OptionWizard.this);

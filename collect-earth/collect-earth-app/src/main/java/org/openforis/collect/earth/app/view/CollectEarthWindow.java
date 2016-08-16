@@ -11,6 +11,7 @@ import java.awt.event.WindowAdapter;
 import java.awt.event.WindowEvent;
 import java.io.File;
 import java.io.IOException;
+import java.lang.reflect.InvocationTargetException;
 import java.net.MalformedURLException;
 import java.util.ArrayList;
 import java.util.List;
@@ -134,8 +135,14 @@ public class CollectEarthWindow{
 	}
 
 	@PreDestroy
-	public void cleanUp(){
-		this.getFrame().dispose();
+	public void cleanUp() throws InvocationTargetException, InterruptedException{
+		SwingUtilities.invokeAndWait( new Runnable() {
+			
+			@Override
+			public void run() {
+				CollectEarthWindow.this.getFrame().dispose();
+			}
+		});
 	}
 
 	private void addImportExportMenu(JMenu menu) {
