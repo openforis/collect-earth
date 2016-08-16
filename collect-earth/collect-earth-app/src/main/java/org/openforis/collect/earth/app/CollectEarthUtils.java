@@ -10,10 +10,17 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.net.InetAddress;
 import java.net.UnknownHostException;
+import java.nio.file.FileVisitOption;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.SQLException;
 import java.util.Enumeration;
+import java.util.List;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 import javax.swing.UIManager;
 
@@ -32,9 +39,21 @@ import org.slf4j.LoggerFactory;
 
 public class CollectEarthUtils {
 
-	public static String getMd5FromFile(File file) throws IOException {
-		return DigestUtils.md5Hex(new FileInputStream(file));
+	public static String getMd5FromFolder(File folder) throws IOException {
+		
+		if( !folder.isDirectory() ){
+			throw new IllegalArgumentException("The file passed as an argument needs to be a folder!");
+		}
+		StringBuffer md5Hex = new StringBuffer();
+		
+			
+		List<File> listFiles = Files.walk( Paths.get( folder.toURI()) , 3 ).filter(Files::isRegularFile).map(Path::toFile).collect(Collectors.toList());
+		for (File file : listFiles) {
+			md5Hex.append( DigestUtils.md5Hex(new FileInputStream(file)) );
+		}
+		return DigestUtils.md5Hex( md5Hex.toString().getBytes());
 	}
+	
 	public static String getMd5FromFile(String filePath) throws IOException {
 		return DigestUtils.md5Hex(new FileInputStream(new File(filePath)));
 	}

@@ -126,7 +126,7 @@ public class EarthProjectsService {
 		
 		// Change the loaded project only if the project definition file has changed or the user changes project
 		if( 
-				!getProjectDefinitionMD5().equals( CollectEarthUtils.getMd5FromFile( getProjectPropertiesFile(projectFolder)) ) 
+				!getProjectDefinitionMD5().equals( CollectEarthUtils.getMd5FromFolder( projectFolder ) ) 
 					&&
 				validateProjectDefinitionFile(projectPropertiesFile) 
 		){
@@ -151,7 +151,7 @@ public class EarthProjectsService {
 
 
 	private void setProjectDefinitionMD5(File projectFolder) throws IOException {
-		localPropertiesService.setValue( EarthProperty.ACTIVE_PROJECT_DEFINITION, CollectEarthUtils.getMd5FromFile( getProjectPropertiesFile(projectFolder)) );
+		localPropertiesService.setValue( EarthProperty.ACTIVE_PROJECT_DEFINITION, CollectEarthUtils.getMd5FromFolder( projectFolder ) );
 	}
 	
 	private String getProjectDefinitionMD5() {
@@ -163,6 +163,9 @@ public class EarthProjectsService {
 		return new File( projectFolder.getAbsolutePath() + File.separator + PROJECT_PROPERTIES_FILE_NAME );
 	}
 
+	public File getSurveyStructureFile(File projectFolder) {
+		return new File( projectFolder.getAbsolutePath() + File.separator + PROJECT_PROPERTIES_FILE_NAME );
+	}
 
 	private void applyPropertiesToCollectEarth(Properties projectProperties, File projectFolder) {
 
