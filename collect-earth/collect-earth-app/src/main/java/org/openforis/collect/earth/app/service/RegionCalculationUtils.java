@@ -14,7 +14,9 @@ import javax.annotation.PostConstruct;
 import org.apache.commons.dbcp.BasicDataSource;
 import org.openforis.collect.earth.app.EarthConstants;
 import org.openforis.collect.earth.core.utils.CsvReaderUtils;
-import org.openforis.idm.metamodel.Schema;
+import org.openforis.idm.metamodel.BooleanAttributeDefinition;
+import org.openforis.idm.metamodel.EntityDefinition;
+import org.openforis.idm.metamodel.NodeDefinition;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -203,8 +205,7 @@ public class RegionCalculationUtils {
 
 			try {
 				CSVReader csvReader = CsvReaderUtils.getCsvReader(areasPerAttribute.getAbsolutePath());
-				String[] csvLine = null;
-
+				
 				// The header (first line) should contain the names of the three columns : attribute_name,area,weight
 
 				String[] columnNames = csvReader.readNext();
@@ -256,22 +257,20 @@ public class RegionCalculationUtils {
 
 				List<Object[]> batchArgs = new ArrayList<Object[]>();
 				int line = 1;
+				String[] csvLine = null;
 				while( ( csvLine = csvReader.readNext() ) != null ){
 					try{
 						int area_hectars = Integer.parseInt( csvLine[columnNames.length -2] );
 						final Float plot_weight =  Float.parseFloat( csvLine[columnNames.length -1] );
 
-						ArrayList<Object> attributeValues = new ArrayList<Object>(); 
-						for(int attributeValueCol = 0; attributeValueCol<numberOfAttributes;attributeValueCol++){
-							attributeValues.add(csvLine[attributeValueCol]);
-						}						
+						List<Object> attributeValues = extractAttributeValues(csvLine, attributeNames);
 
-						Integer plots_per_region = jdbcTemplate.queryForObject(plotCountSelectQuery, attributeValues.toArray(), Integer.class); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$ //$NON-NLS-4$
+						Integer plotCountPerAttributes = jdbcTemplate.queryForObject(plotCountSelectQuery, attributeValues.toArray(), Integer.class); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$ //$NON-NLS-4$
 
-						// Calculate the expansion factor. Simply the deivision of the area for the selected attributes by the amount of plots that match the attribute values
+						// Calculate the expansion factor: simply the division of the area for the selected attributes by the amount of plots that match the attribute values
 						Float expansion_factor_hectars_calc = 0f;
-						if( plots_per_region.intValue() != 0 ){
-							expansion_factor_hectars_calc = (float)area_hectars / (float) plots_per_region.intValue();
+						if( plotCountPerAttributes.intValue() != 0 ){
+							expansion_factor_hectars_calc = (float) area_hectars / (float) plotCountPerAttributes.intValue();
 						}
 
 						// Add the expansion factor and plot_weight to the values that will be sent with the update
@@ -300,16 +299,36 @@ public class RegionCalculationUtils {
 
 	}
 
+	private List<Object> extractAttributeValues(String[] csvLine, List<String> attributeNames) {
+		List<Object> values = new ArrayList<Object>(attributeNames.size()); 
+		for(int colIndex = 0; colIndex < attributeNames.size(); colIndex++) {
+			String stringValue = csvLine[colIndex];
+			String attributeName = attributeNames.get(colIndex);
+			Object value = getTypedValue(attributeName, stringValue);
+			values.add(value);
+		}
+		return values;
+	}
+
+	private Object getTypedValue(String attributeName, String stringValue) {
+		EntityDefinition rootEntityDef = earthSurveyService.getRootEntityDefinition();
+		NodeDefinition attributeDef = rootEntityDef.getChildDefinition(attributeName);
+		if (attributeDef instanceof BooleanAttributeDefinition) {
+			return Boolean.TRUE.toString().equalsIgnoreCase(stringValue) || "1".equals(stringValue);
+		} else {
+			return stringValue;
+		}
+	}
+
 	private boolean isAttributeInPlotEntity(String attributeName) {
-		Schema schema = earthSurveyService.getCollectSurvey().getSchema();
-		boolean attributeExists = true;
+		EntityDefinition rootEntityDefinition = earthSurveyService.getRootEntityDefinition();
 		try {
-			schema.getRootEntityDefinition(EarthConstants.ROOT_ENTITY_NAME ).getChildDefinition(attributeName);
+			rootEntityDefinition.getChildDefinition(attributeName);
 		} catch (Exception e) {
 			// The attribute does not exist under the plot entity
-			attributeExists = false;
+			return false;
 		}
-		return attributeExists;
+		return true;
 	}
 
 
