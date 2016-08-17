@@ -55,7 +55,7 @@ public class DataImportExportService {
 		final CSVDataExportProcess csvDataExportProcess = applicationContext.getBean(CSVDataExportProcess.class);
 		csvDataExportProcess.setOutputFile(exportToFile);
 
-		csvDataExportProcess.setEntityId(earthSurveyService.getCollectSurvey().getSchema().getRootEntityDefinition(EarthConstants.ROOT_ENTITY_NAME).getId());
+		csvDataExportProcess.setEntityId(earthSurveyService.getRootEntityDefinition().getId());
 		csvDataExportProcess.setRecordFilter( getRecordFilter() ) ;
 		
 		CSVExportConfiguration config = new CSVExportConfiguration();
@@ -66,7 +66,7 @@ public class DataImportExportService {
 	}
 
 	private RecordFilter getRecordFilter( ) {
-		RecordFilter recordFilter = new RecordFilter(earthSurveyService.getCollectSurvey(), earthSurveyService.getCollectSurvey().getSchema().getRootEntityDefinition(EarthConstants.ROOT_ENTITY_NAME).getId());
+		RecordFilter recordFilter = new RecordFilter(earthSurveyService.getCollectSurvey(), earthSurveyService.getRootEntityDefinition().getId());
 		recordFilter.setStepGreaterOrEqual(Step.ENTRY);
 		return recordFilter;
 	}
@@ -75,7 +75,7 @@ public class DataImportExportService {
 
 		final CSVDataExportProcess csvDataExportProcess = applicationContext.getBean(CSVDataExportProcess.class);
 		csvDataExportProcess.setOutputFile(exportToFile);
-		csvDataExportProcess.setEntityId(earthSurveyService.getCollectSurvey().getSchema().getRootEntityDefinition(EarthConstants.ROOT_ENTITY_NAME).getId());
+		csvDataExportProcess.setEntityId(earthSurveyService.getRootEntityDefinition().getId());
 		csvDataExportProcess.setRecordFilter( getRecordFilter() ) ;
 		
 
@@ -104,7 +104,7 @@ public class DataImportExportService {
 
 		importProcess.setFile(importFromFile);
 		importProcess.setSurvey(earthSurveyService.getCollectSurvey());
-		importProcess.setParentEntityDefinitionId(earthSurveyService.getCollectSurvey().getSchema().getRootEntityDefinition(EarthConstants.ROOT_ENTITY_NAME).getId());
+		importProcess.setParentEntityDefinitionId(earthSurveyService.getRootEntityDefinition().getId());
 		importProcess.setStep(Step.ENTRY );
 		CSVDataImportSettings settings = new CSVDataImportSettings();
 		settings.setRecordValidationEnabled(false);

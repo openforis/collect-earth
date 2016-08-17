@@ -228,8 +228,7 @@ public class PlacemarkBrowserServlet {
 
 		
 		List<AttributeDefinition> keyAttributeDefinitions = earthSurveyService
-				.getCollectSurvey().getSchema()
-				.getRootEntityDefinition(EarthConstants.ROOT_ENTITY_NAME)
+				.getRootEntityDefinition()
 				.getKeyAttributeDefinitions();
 		
 		// the keys should the the parameter names
