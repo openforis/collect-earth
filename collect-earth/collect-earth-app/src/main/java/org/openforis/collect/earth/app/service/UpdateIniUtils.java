@@ -26,7 +26,6 @@ public class UpdateIniUtils {
 
 	/**
 	 * Checks if there is a newer version of the Collect Earth updater available
-	 * @param pathToUpdateIni THe path to the update.ini file that is compliant with Installbuilder http://installbuilder.bitrock.com/docs/installbuilder-userguide/ar01s23.html
 	 * @return The new version build-number if there is a new version. Null if the version online is not newer than the one installed
 	 */
 	public String getVersionAvailableOnline(){

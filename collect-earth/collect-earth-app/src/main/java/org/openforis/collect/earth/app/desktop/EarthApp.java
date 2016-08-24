@@ -112,7 +112,7 @@ public class EarthApp {
 	 * Special code that uses reflection to handle how the application should behave in Mac OS X.
 	 * Without reflection the code provokes compilation-time errors.
 	 * @param doubleClickedProjectFile 
-	 * @throws Exception
+	 * @throws Exception Throws Exception when the process fails to open the file double-clicked. Initializes the server in any case
 	 */
 	@SuppressWarnings({ "rawtypes", "unchecked" })
 	public static void handleMacStartup(String doubleClickedProjectFile) throws Exception{
@@ -229,8 +229,8 @@ public class EarthApp {
 	/**
 	 * Generates the KML for the project and opens it in Google Earth
 	 * @param force_kml_recreation Set to true if you want to forece the regeneration of the KML even if is is up to date (you might want to do this to force the update of the placemark icons as the date changes)
-	 * @throws IOException
-	 * @throws KmlGenerationException
+	 * @throws IOException Throws exception if the KMl file cannot be generated
+	 * @throws KmlGenerationException Throws exception if the KML file contents cannot be generated
 	 */
 	public static void loadKmlInGoogleEarth(boolean force_kml_recreation) throws IOException,
 						KmlGenerationException {

@@ -25,9 +25,9 @@ public class PlacemarkInfoServlet extends JsonPocessorServlet {
 	
 	/**
 	 * Returns a JSON object with the data collected for a placemark in the collect-earth format.
-	 * @param request
-	 * @param response
-	 * @throws IOException
+	 * @param request The request sent from Google Earth pop-up to Collect Earth
+	 * @param response The response to the Collect Earth request
+	 * @throws IOException Throws exception if the response cannot be written to the channel
 	 */
 	@RequestMapping("/placemarkInfo")
 	protected void placemarkInfoOld(HttpServletRequest request, HttpServletResponse response) throws IOException {

@@ -20,7 +20,7 @@ import org.openforis.collect.model.NodeDeleteChange;
  * 
  * @author S. Ricci
  *
- * @param <C>
+ * @param <C> The type of NodeChange
  */
 public class NodeChangeProxy<C extends NodeChange<?>> implements Proxy {
 
