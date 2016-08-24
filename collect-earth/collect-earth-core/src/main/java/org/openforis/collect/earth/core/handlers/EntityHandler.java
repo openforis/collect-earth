@@ -18,7 +18,7 @@ import org.openforis.idm.model.Entity;
  */
 public class EntityHandler extends AbstractAttributeHandler<Entity> {
 
-	private static final Pattern PARAMETER_NAME_PATTERN = Pattern.compile("(\\w+)(\\[(([\\w|-])+)\\])?\\.(\\w+)");
+	private static final Pattern PARAMETER_NAME_PATTERN = Pattern.compile("(\\w+)(\\[([\\w|-]+)\\])?\\.(\\w+)");
 	
 	// Expected : colllect_entity_topography[house].code_coverage=XX
 	private static final String PREFIX = "entity_";
