@@ -30,11 +30,11 @@ public class ProduceCsvFiles {
 
 	public static void main(String[] args) {
 
-		ProduceCsvFiles producer = new ProduceCsvFiles("Madrid"); 
-		File fileToDivide = new File("C:\\opt\\workspaceClean\\CsvSorter\\MADRID_UNIVERSITY.csv");
+		ProduceCsvFiles producer = new ProduceCsvFiles("Indonesia"); 
+		File fileToDivide = new File("C:\\opt\\workspaceClean\\CsvSorter\\All_Points_Grid.csv");
 
 		//producer.divideRandomlyByColumn(fileToDivide, 10, 9);
-		producer.divideRandomly(fileToDivide, 20);
+		producer.divideRandomly(fileToDivide, 10);
 
 		System.exit(0);
 	}

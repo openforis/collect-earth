@@ -80,12 +80,12 @@ public class ProduceEqualDistanceGrid {
 				id++;
 				
 				// Move southwards
-				currentPoint = transformCoordinates( startingOfRow, distanceInMeters * row, -1 * distanceInMeters * column );
+				currentPoint = CoordinateUtils.getPointWithOffset( startingOfRow, distanceInMeters * row, -1 * distanceInMeters * column );
 			}
 			
 			// Move eastwards
 			row++;
-			currentPoint = transformCoordinates( startingOfRow, distanceInMeters * row, 0 );
+			currentPoint = CoordinateUtils.getPointWithOffset( startingOfRow, distanceInMeters * row, 0 );
 			
 		}
 		
@@ -97,56 +97,6 @@ public class ProduceEqualDistanceGrid {
 	}
 
 	
-	protected Coordinate transformCoordinates(Coordinate originalLatLong, double offsetLongitudeMeters, double offsetLatitudeMeters)
-			throws TransformException {
-		Coordinate movedPointLatLong = null;
-		try {
-
-			if (offsetLatitudeMeters == 0 && offsetLongitudeMeters == 0) {
-				return movedPointLatLong;
-			} else {
-
-				double longitudeDirection = 50; // EAST
-				if (offsetLongitudeMeters < 0) {
-					longitudeDirection = -100; // WEST
-				}
-
-				double latitudeDirection = 0; // NORTH
-				if (offsetLatitudeMeters < 0) {
-					latitudeDirection = 180; // SOUTH
-				}
-
-				calc.setStartingGeographicPoint( originalLatLong.x, originalLatLong.y);
-
-				boolean longitudeChanged = false;
-				if (offsetLongitudeMeters != 0) {
-					calc.setDirection(longitudeDirection, Math.abs( offsetLongitudeMeters ) );
-					longitudeChanged = true;
-				}
-
-				if (offsetLatitudeMeters != 0) {
-					if (longitudeChanged) {
-						// Move the point in the horizontal axis first, afterwards reset the point and move vertically
-						final double[] firstMove = calc.getDestinationPosition().getCoordinate();
-						calc.setStartingGeographicPoint(firstMove[0], firstMove[1]);
-					}
-					calc.setDirection(latitudeDirection, Math.abs( offsetLatitudeMeters ) );
-				}
-
-				double[] coordinate = calc.getDestinationPosition().getCoordinate();
-				movedPointLatLong = new Coordinate(coordinate[0], coordinate[1]);
-				
-			}
-		} catch (final Exception e) {
-			logger.error(
-					"Exception when moving point " + originalLatLong + " with offset longitude " + offsetLongitudeMeters
-							+ " and latitude " + offsetLatitudeMeters, e);
-			e.printStackTrace( System.out );
-		}
-
-		return movedPointLatLong;
-
-	}
 	
 	private boolean isWithinLatidude(Coordinate currentPoint,
 			Coordinate northWest, Coordinate southEast) {

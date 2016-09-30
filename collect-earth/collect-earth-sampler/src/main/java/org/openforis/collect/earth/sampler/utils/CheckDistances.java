@@ -31,6 +31,7 @@ public class CheckDistances {
 							calc.setDestinationGeographicPoint( coordinates1[1], coordinates1[0]);
 							System.out.print( ( coordinates0[0] - coordinates1[0] ) + " " +  ( coordinates0[1] - coordinates1[1] ) + "  :  " );
 							System.out.println( calc.getOrthodromicDistance() );
+							
 						}else{
 							System.out.println( "Last row!!!" );
 							break;
