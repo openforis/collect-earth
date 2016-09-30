@@ -10,7 +10,6 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.net.InetAddress;
 import java.net.UnknownHostException;
-import java.nio.file.FileVisitOption;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -20,7 +19,6 @@ import java.sql.SQLException;
 import java.util.Enumeration;
 import java.util.List;
 import java.util.stream.Collectors;
-import java.util.stream.Stream;
 
 import javax.swing.UIManager;
 
@@ -64,11 +62,11 @@ public class CollectEarthUtils {
 			String ttfFileName = "Phetsarath_OT.ttf";
 			//create the font
 			setUiFont(ttfFileName);
-		}/*else if( ui_language == UI_LANGUAGE.MN){
+		}else if( ui_language == UI_LANGUAGE.MN){
 			String ttfFileName = "arhangai.ttf";
             //create the font
             setUiFont(ttfFileName);
-		}*/else{
+		}else{
 			CollectEarthUtils.setUIFont( new javax.swing.plaf.FontUIResource("Arial Unicode MS",Font.PLAIN,12) );
 		}
 	}
