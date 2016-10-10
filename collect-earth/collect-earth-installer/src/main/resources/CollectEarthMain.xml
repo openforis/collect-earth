@@ -318,6 +318,29 @@
                 </platformTest>
             </ruleList>
         </runProgram>
+        
+        
+   		<runProgram>
+             <program>chmod</program>
+             <programArguments>a+x geckodriver_mac chromedriver_mac</programArguments>
+             <ruleList>
+                 <platformTest>
+                    <type>osx</type>
+                </platformTest>
+             </ruleList>
+         </runProgram>
+         
+         <runProgram>
+             <program>chmod</program>
+             <programArguments>a+x geckodriver chromedriver</programArguments>
+             <ruleList>
+                 <platformTest>
+                    <type>linux</type>
+                </platformTest>
+             </ruleList>
+         </runProgram>
+         
+                
     </postInstallationActionList>
     <startMenuShortcutList>
         <startMenuShortcut>
