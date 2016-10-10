@@ -77,40 +77,46 @@
         </folder>
 		<folder>
             <description>Resources Windows</description>
-            <destination>${installdir}</destination>
+            <destination>${installdir}/resources</destination>
             <name>resourceswindows</name>
             <platforms>windows</platforms>
             <distributionFileList>
-	         	<distributionDirectory>
+	         	<distributionDirectory  allowWildcards="1">
 	                <excludeFiles>*/chromedriver</excludeFiles>
 	                <excludeFiles>*/chromedriver_mac</excludeFiles>
-	            	<origin>../../../collect-earth-app/resources</origin>
+	                <excludeFiles>*/geckodriver</excludeFiles>
+	                <excludeFiles>*/geckodriver_mac</excludeFiles>
+	            	<origin>../../../collect-earth-app/resources/*</origin>
 	            </distributionDirectory>
             </distributionFileList>
         </folder>
         <folder>
             <description>Resources Linux</description>
-            <destination>${installdir}</destination>
+            <destination>${installdir}/resources</destination>
             <name>resourceslinux</name>
             <platforms>linux</platforms>
             <distributionFileList>
-	         	<distributionDirectory>
+	         	<distributionDirectory  allowWildcards="1">
 	                <excludeFiles>*/chromedriver.exe</excludeFiles>
 	                <excludeFiles>*/chromedriver_mac</excludeFiles>
-	            	<origin>../../../collect-earth-app/resources</origin>
+	                 <excludeFiles>*/geckodriver.exe</excludeFiles>
+	                <excludeFiles>*/geckodriver_mac</excludeFiles>
+	            	<origin>../../../collect-earth-app/resources/*</origin>
 	            </distributionDirectory>
             </distributionFileList>
         </folder>
         <folder>
             <description>Resources Mac</description>
-            <destination>${installdir}</destination>
+            <destination>${installdir}/resources</destination>
             <name>resourcesosx</name>
             <platforms>osx</platforms>
             <distributionFileList>
-	         	<distributionDirectory>
+	         	<distributionDirectory allowWildcards="1">
 	                <excludeFiles>*/chromedriver.exe</excludeFiles>
 	                <excludeFiles>*/chromedriver</excludeFiles>
-	            	<origin>../../../collect-earth-app/resources</origin>
+	                <excludeFiles>*/geckodriver.exe</excludeFiles>
+	                <excludeFiles>*/geckodriver</excludeFiles>
+	            	<origin>../../../collect-earth-app/resources/*</origin>
 	            </distributionDirectory>
             </distributionFileList>
         </folder>

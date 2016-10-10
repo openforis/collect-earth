@@ -3,6 +3,8 @@ package org.openforis.collect.earth.app.service;
 import java.io.BufferedReader;
 import java.io.BufferedWriter;
 import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.StringWriter;
@@ -39,10 +41,13 @@ import org.openqa.selenium.By;
 import org.openqa.selenium.JavascriptExecutor;
 import org.openqa.selenium.WebDriverException;
 import org.openqa.selenium.WebElement;
+import org.openqa.selenium.browserlaunchers.locators.BrowserInstallation;
 import org.openqa.selenium.chrome.ChromeDriver;
 import org.openqa.selenium.firefox.FirefoxBinary;
 import org.openqa.selenium.firefox.FirefoxDriver;
 import org.openqa.selenium.firefox.FirefoxProfile;
+import org.openqa.selenium.firefox.GeckoDriverService;
+import org.openqa.selenium.firefox.MarionetteDriver;
 import org.openqa.selenium.remote.DesiredCapabilities;
 import org.openqa.selenium.remote.RemoteWebDriver;
 import org.slf4j.Logger;
@@ -136,24 +141,32 @@ public class BrowserService implements Observer{
 		final String browserSetInProperties = localPropertiesService.getValue(EarthProperty.BROWSER_TO_USE);
 		final String browserThatExists = checkIfBrowserIsInstalled(browserSetInProperties);
 
-		try {
-			if (browserThatExists != null && browserThatExists.trim().toLowerCase().equals(EarthConstants.CHROME_BROWSER.toLowerCase())) {
-					driver = startChromeBrowser(driver);
-			} else {
-				driver = startFirefoxBrowser(driver);
+		
+	
+		if (browserThatExists != null && browserThatExists.trim().toLowerCase().equals(EarthConstants.CHROME_BROWSER.toLowerCase())) {
+			try{
+				driver = startChromeBrowser(driver);
+			} catch (final WebDriverException e) {
+				logger.warn("The browser executable for Chrome (chrome.exe in Windows) cannot be found, please edit earth.properties and add the chrome.exe location in "
+						+ EarthProperty.CHROME_BINARY_PATH + " pointing to the full path to chrome", e);
 			}
-		} catch (final WebDriverException e) {
-			logger.warn("The chrome executable chrome.exe cannot be found, please edit earth.properties and add the chrome.exe location in "
-					+ EarthProperty.CHROME_BINARY_PATH + " pointing to the full path to chrome.exe", e);
-			// The user chose Chrome, but Chrome could not be found
+		} else {
+			try{
+				driver = startFirefoxBrowser(driver);
+			} catch (final WebDriverException e) {
+				logger.warn("The browser executable for Firefox (Firefox.exe) cannot be found, please edit earth.properties and add the firefox.exe location in "
+						+ EarthProperty.FIREFOX_BINARY_PATH + " pointing to the full path to firefox", e);
+			}
+		}
+	
+		if( driver == null ){
 			if( browserSetInProperties.equals(browserThatExists ) ){
 				throw new BrowserNotFoundException("Chrome could not be found");
 			}else{ // THe user chose Firefox, it was not found then it tried Chrome and it was not found either, no browser has been installed 
-				throw new BrowserNotFoundException("Neither Chrome nor Firefox is installed. You need to have one of them installed in order to use GEE, Bing Maps or Saiku.", e);
+				throw new BrowserNotFoundException("Neither Chrome nor Firefox is installed. You need to have one of them installed in order to use GEE, Bing Maps or Saiku.");
 			}
-			
 		}
-
+	
 		return driver;
 	}
 
@@ -726,11 +739,55 @@ public class BrowserService implements Observer{
 	}
 
 	private RemoteWebDriver startFirefoxBrowser(RemoteWebDriver driver) {
+		
+		// Firefox under version 48 will work in the "old" way with Selenium. For newer versions we need to use the GeckoDriver (Marionette)
+		final String firefoxBinaryPathSetByUser = localPropertiesService.getValue(EarthProperty.FIREFOX_BINARY_PATH);
+		
+		FirefoxLocatorFixed flf = new FirefoxLocatorFixed();
+		BrowserInstallation browserInstallation = flf.findBrowserLocationFix();
+		
+		String pathToFirefoxBin = firefoxBinaryPathSetByUser;
+		if( StringUtils.isEmpty( firefoxBinaryPathSetByUser ) ){
+			pathToFirefoxBin = browserInstallation.launcherFilePath();
+		}
+		
+		Integer firefoxVersion = getFirefoxVersionMajor( pathToFirefoxBin );
+		
+		if( firefoxVersion < 48 ){
+				
+			driver = getFirefoxDriverOld(pathToFirefoxBin);
+			
+		}else{
+			
+			String geckoDriverPath = "";
+			if( SystemUtils.IS_OS_MAC || SystemUtils.IS_OS_MAC_OSX){
+				geckoDriverPath = "resources/geckodriver_mac";
+			}else if( SystemUtils.IS_OS_UNIX ){
+				geckoDriverPath = "resources/geckodriver";
+			}else if( SystemUtils.IS_OS_WINDOWS ){
+				geckoDriverPath = "resources/geckodriver.exe";
+			}else{
+				throw new RuntimeException("Geckodriver is not supported in the current OS" );
+			}
+			
+			File geckoDriverFile = new File( geckoDriverPath );
+			
+			System.setProperty("webdriver.firefox.marionette", geckoDriverFile.getAbsolutePath() );
+			// if above property is not working or not opening the application in browser then try below property
+			System.setProperty(GeckoDriverService.GECKO_DRIVER_EXE_PROPERTY , geckoDriverFile.getAbsolutePath() );
+			System.setProperty( FirefoxDriver.SystemProperty.BROWSER_BINARY, browserInstallation.launcherFilePath() );
+			
+			driver = new MarionetteDriver();
+		}
+		
+		
+		return driver;
+	}
+
+	public RemoteWebDriver getFirefoxDriverOld(	String firefoxBinaryPath) {
+		FirefoxBinary firefoxBinary;
 		final FirefoxProfile ffprofile = new FirefoxProfile();
-		FirefoxBinary firefoxBinary = null;
-
-		final String firefoxBinaryPath = localPropertiesService.getValue(EarthProperty.FIREFOX_BINARY_PATH);
-
+		RemoteWebDriver driver =null;
 		if (firefoxBinaryPath != null && firefoxBinaryPath.trim().length() > 0) {
 			try {
 				firefoxBinary = new FirefoxBinary(new File(firefoxBinaryPath));
@@ -753,6 +810,34 @@ public class BrowserService implements Observer{
 			}
 		}
 		return driver;
+	}
+
+	private Integer getFirefoxVersionMajor(String firefoxBinaryPath) {
+	
+		Integer versionInstalled = 49;
+		try {
+			// Getting the application version from the "application.ini"file on the folder where the firefox bin is!
+			Properties applicationProperties = new Properties();
+			
+			File firefoxBin = new File( firefoxBinaryPath);
+			File applicationIni = new File( firefoxBin.getParent(), "application.ini");
+			
+			applicationProperties.load( new FileInputStream(applicationIni) );
+			
+			if( applicationProperties.containsKey("Version") ){
+				String version = applicationProperties.getProperty("Version");
+				// TYhe version should look sonething like 49.0.1, we only need the major version
+				versionInstalled = Integer.parseInt( version.split("\\.")[0] );
+			}
+		} catch (FileNotFoundException e) {
+			logger.error( "The application.ini file with info on the istalled firefox cannot be found", e);
+		} catch (IOException e) {
+			logger.error( "The application.ini file cannot be read", e);
+		}catch (Exception e) {
+			logger.error( "The version of Firefox could not be read ", e);
+		}
+		
+		return versionInstalled;
 	}
 
 	public boolean waitFor(String elementId, RemoteWebDriver driver) {
@@ -817,5 +902,7 @@ public class BrowserService implements Observer{
 	protected void setWebDriverGeePlayground(RemoteWebDriver webDriverGeePlayground) {
 		this.webDriverGeePlayground = webDriverGeePlayground;
 	}
+	
+	
 }
 
