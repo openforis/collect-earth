@@ -256,7 +256,11 @@ public class CollectEarthWindow{
 
 	private String getDisclaimerFilePath() {
 		final String suffix_lang = localPropertiesService.getUiLanguage().getLocale().getLanguage();
-		return "resources/disclaimer_" + suffix_lang + ".txt"; //$NON-NLS-1$ //$NON-NLS-2$
+		if (new File( "resources/disclaimer_" + suffix_lang + ".txt" ).exists() ){ //$NON-NLS-1$ //$NON-NLS-2$
+			return "resources/disclaimer_" + suffix_lang + ".txt";
+		}else{
+			return  "resources/disclaimer_en.txt";
+		}
 	}
 
 
