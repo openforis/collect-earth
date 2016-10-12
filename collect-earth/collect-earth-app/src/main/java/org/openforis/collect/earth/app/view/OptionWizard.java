@@ -222,23 +222,23 @@ public class OptionWizard extends JDialog {
 								
 								EarthApp.loadKmlInGoogleEarth(true);
 								
-								SwingUtilities.invokeAndWait( new Runnable() {
-									@Override
-									public void run() {
-										CollectEarthWindow.endWaiting(OptionWizard.this);
-										OptionWizard.this.closeDialog();
-									}
-								});
 							} catch (Exception e) {
 								logger.error("Error loading the KML",e);
+								e.printStackTrace();
+								EarthApp.showMessage("<html>Problems while generating the KML file: <br/> " + (e.getCause()!=null?(e.getCause()+"<br/>"):"") + ( e.getMessage().length() > 300?e.getMessage().substring(0,300):e.getMessage() ) + "</html>"); //$NON-NLS-1$
+
+							}finally{
 								try {
-									EarthApp.loadKmlInGoogleEarth(true);
-								} catch (Exception e1) {
-									// TODO Auto-generated catch block
-									e1.printStackTrace();
+									SwingUtilities.invokeAndWait( new Runnable() {
+										@Override
+										public void run() {
+											CollectEarthWindow.endWaiting(OptionWizard.this);
+											OptionWizard.this.closeDialog();
+										}
+									});
+								} catch (Exception e) {
+									logger.error("Error closing Options dialog", e);
 								}
-								
-								
 							}
 							
 						};

@@ -263,6 +263,7 @@ public class EarthApp {
 						
 					} catch (final IOException e) {
 						logger.error("Error generating KMZ file", e); //$NON-NLS-1$
+						e.printStackTrace();
 					} catch (final Exception e) {
 						logger.error("Error starting server", e); //$NON-NLS-1$
 						e.printStackTrace();
@@ -450,7 +451,7 @@ public class EarthApp {
 
 	}
 
-	private static void showMessage(String message) {
+	public static void showMessage(String message) {
 		JOptionPane.showMessageDialog(null, message, "Collect Earth", JOptionPane.WARNING_MESSAGE); //$NON-NLS-1$
 	}
 
