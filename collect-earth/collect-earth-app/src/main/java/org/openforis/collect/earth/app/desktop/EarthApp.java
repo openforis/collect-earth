@@ -18,6 +18,7 @@ import java.util.Observer;
 
 import javax.swing.ImageIcon;
 import javax.swing.JOptionPane;
+import javax.swing.SwingUtilities;
 
 import org.apache.commons.lang.SystemUtils;
 import org.apache.log4j.PropertyConfigurator;
@@ -162,15 +163,15 @@ public class EarthApp {
 	
 			try {
 				getKmlGeneratorService().generateKmlFile();
-			} catch (final IOException e) {
-				logger.error("Could not generate KML file", e); //$NON-NLS-1$
-				e.printStackTrace();
-				showMessage("Error generating KML file : <br/> " + e.getMessage()); //$NON-NLS-1$
 			} catch (final KmlGenerationException e) {
 				logger.error("Problems while generating the KML file ", e); //$NON-NLS-1$
 				e.printStackTrace();
 				showMessage("<html>Problems while generating the KML file: <br/> " + (e.getCause()!=null?(e.getCause()+"<br/>"):"") + ( e.getMessage().length() > 300?e.getMessage().substring(0,300):e.getMessage() ) + "</html>"); //$NON-NLS-1$
-			}
+			} catch (final Exception e) {
+				logger.error("Could not generate KML file", e); //$NON-NLS-1$
+				e.printStackTrace();
+				showMessage("<html>Error generating KML file : <br/> " + e.getMessage()); //$NON-NLS-1$
+			} 
 	}
 
 	public static void openProjectFileInRunningCollectEarth(String doubleClickedProjecFile) throws MalformedURLException, IOException {
@@ -452,7 +453,19 @@ public class EarthApp {
 	}
 
 	public static void showMessage(String message) {
-		JOptionPane.showMessageDialog(null, message, "Collect Earth", JOptionPane.WARNING_MESSAGE); //$NON-NLS-1$
+		try {
+			SwingUtilities.invokeAndWait( new Runnable() {
+				
+				@Override
+				public void run() {
+					JOptionPane.showMessageDialog(null, message, "Collect Earth", JOptionPane.WARNING_MESSAGE); //$NON-NLS-1$
+				}
+			});
+		} catch (Exception e) {
+			logger.error("Error showing message",e);
+			e.printStackTrace();
+		}
+		
 	}
 
 	private void simulateClickKmz() {

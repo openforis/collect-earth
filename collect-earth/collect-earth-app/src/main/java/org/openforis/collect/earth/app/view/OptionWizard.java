@@ -893,7 +893,7 @@ public class OptionWizard extends JDialog {
 		}
 
 		// JTextField listOfDistanceBetweenPoints = new JTextField( localPropertiesService.getValue( EarthProperty.DISTANCE_BETWEEN_SAMPLE_POINTS) );
-		final JComboBox<String> listOfDistanceBetweenPoints = new JComboBox<String>(listOfNumbers);
+		final JComboBox<String> listOfDistanceBetweenPoints = new JComboBox<String>(listOfNumbersFromTwo);
 		listOfDistanceBetweenPoints.setSelectedItem(localPropertiesService.getValue(EarthProperty.DISTANCE_BETWEEN_SAMPLE_POINTS));
 		listOfDistanceBetweenPoints.setAutoscrolls(true);
 
