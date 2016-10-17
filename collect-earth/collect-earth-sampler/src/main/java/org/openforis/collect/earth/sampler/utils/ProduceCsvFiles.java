@@ -30,17 +30,18 @@ public class ProduceCsvFiles {
 
 	public static void main(String[] args) {
 
-		ProduceCsvFiles producer = new ProduceCsvFiles("Indonesia"); 
-		File fileToDivide = new File("C:\\opt\\workspaceClean\\CsvSorter\\All_Points_Grid.csv");
+		ProduceCsvFiles producer = new ProduceCsvFiles("TrainingMorocco2016"); 
+		File fileToDivide = new File("C:\\opt\\workspaceClean\\CsvSorter\\grille_maroc_4k_sel.csv");
 
 		//producer.divideRandomlyByColumn(fileToDivide, 10, 9);
-		producer.divideRandomly(fileToDivide, 10);
+		producer.divideRandomly(fileToDivide, 40);
 
 		System.exit(0);
 	}
 
 	File outputFolder;
 	String outputFolderName;
+	private String[] headers;
 
 
 	public ProduceCsvFiles(String outputFolderName) {
@@ -80,6 +81,9 @@ public class ProduceCsvFiles {
 		Map<String,Integer> linesPerStrata = new HashMap<String, Integer>(); 
 
 		try {
+			
+			processHeaders(fileToDivide);
+			
 			// If there is no division by column and the order should be randomized then randomize the file contents from the beginning
 			if( dividideByValueInColumn == null && randomize ){
 				fileToDivide = randomizeFile( fileToDivide );
@@ -95,6 +99,7 @@ public class ProduceCsvFiles {
 				// longitude has to be a number, otherwise it is a header
 				try {
 					Float.parseFloat( csvRow[2]);
+					
 				} catch (NumberFormatException e) {
 					// Not a number, we need to skip this row
 					rowNumber++;
@@ -159,6 +164,27 @@ public class ProduceCsvFiles {
 
 	}
 
+	public void processHeaders(File fileToDivide) throws IOException {
+		CSVReader reader = CsvReaderUtils.getCsvReader(fileToDivide.getPath());
+		String[] firstRow = null;
+		// longitude has to be a number, otherwise it is a header
+		try {
+			firstRow = reader.readNext();
+			Float.parseFloat( firstRow[2]);
+			
+		} catch (NumberFormatException e) {
+			setHeaders( firstRow);
+		}
+	}
+
+	private void setHeaders(String[] csvRow) {
+		headers = csvRow;
+	}
+	
+	private String[] getHeaders(){
+		return headers;
+	}
+
 	private File randomizeFile(File fileToDivide) throws Exception {
 		List<String> lines = getAllLines(fileToDivide);
 
@@ -218,6 +244,11 @@ public class ProduceCsvFiles {
 			toStrataFile.setOutputFile(fileOutput);
 			writer = new CSVWriter( new FileWriter( fileOutput  ) );
 			csvFiles.put(toStrataFile, writer );
+			
+			if( getHeaders() != null ){
+				writer.writeNext(getHeaders());
+			}
+			
 		}
 		writer.writeNext(csvRow);
 	}

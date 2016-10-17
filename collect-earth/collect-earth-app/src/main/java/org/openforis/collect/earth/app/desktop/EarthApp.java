@@ -3,6 +3,7 @@ package org.openforis.collect.earth.app.desktop;
 import java.awt.Desktop;
 import java.awt.Image;
 import java.awt.SplashScreen;
+import java.awt.Window;
 import java.io.BufferedReader;
 import java.io.File;
 import java.io.IOException;
@@ -32,7 +33,9 @@ import org.openforis.collect.earth.app.service.LocalPropertiesService;
 import org.openforis.collect.earth.app.service.LocalPropertiesService.EarthProperty;
 import org.openforis.collect.earth.app.service.UpdateIniUtils;
 import org.openforis.collect.earth.app.view.CheckForUpdatesListener;
+import org.openforis.collect.earth.app.view.CollectEarthWindow;
 import org.openforis.collect.earth.app.view.Messages;
+import org.openforis.collect.earth.app.view.OptionWizard;
 import org.openforis.collect.earth.sampler.utils.KmlGenerationException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -233,7 +236,7 @@ public class EarthApp {
 	 * @throws IOException Throws exception if the KMl file cannot be generated
 	 * @throws KmlGenerationException Throws exception if the KML file contents cannot be generated
 	 */
-	public static void loadKmlInGoogleEarth(boolean force_kml_recreation) throws IOException,
+	private static void loadKmlInGoogleEarth(boolean force_kml_recreation) throws IOException,
 						KmlGenerationException {
 					earthApp.getKmlGeneratorService().generatePlacemarksKmzFile( force_kml_recreation );
 					earthApp.simulateClickKmz();
@@ -477,5 +480,44 @@ public class EarthApp {
 			logger.error("The KMZ file could not be found", e); //$NON-NLS-1$
 		}
 	}
+	
+	public static void executeKmlLoadAsynchronously( Window windowShowingTimer ) {
+		new Thread(){
+			public void run() {
+				// Only regenerate KML and reload
+				try {
+					SwingUtilities.invokeAndWait( new Runnable() {
+						@Override
+						public void run() {
+							CollectEarthWindow.startWaiting(windowShowingTimer);
+						}
+					});
+					
+					EarthApp.loadKmlInGoogleEarth(true);
+					
+				} catch (Exception e) {
+					logger.error("Error loading the KML",e);
+					e.printStackTrace();
+					EarthApp.showMessage("<html>Problems while generating the KML file: <br/> " + (e.getCause()!=null?(e.getCause()+"<br/>"):"") + ( e.getMessage().length() > 300?e.getMessage().substring(0,300):e.getMessage() ) + "</html>"); //$NON-NLS-1$
+				}finally{
+					try {
+						SwingUtilities.invokeAndWait( new Runnable() {
+							@Override
+							public void run() {
+								CollectEarthWindow.endWaiting(windowShowingTimer);
+								if( windowShowingTimer instanceof OptionWizard ){
+								    ( (OptionWizard) windowShowingTimer).closeDialog();
+								}
+							}
+						});
+					} catch (Exception e2) {
+						logger.error("Error closing Options dialog", e2);
+					}
+				}
+				
+			}
+		}.start();
+	}
+
 
 }

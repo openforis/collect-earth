@@ -113,7 +113,9 @@ public class CollectEarthWindow{
 
 	public CollectEarthWindow() throws IOException {
 		// Create and set up the window.
-		setFrame(new JFrame(Messages.getString("CollectEarthWindow.19") ) ); //$NON-NLS-1$		
+		JFrame framePriv = new JFrame(Messages.getString("CollectEarthWindow.19") );//$NON-NLS-1$
+	
+		setFrame(framePriv ); 
 	}
 
 	@PostConstruct
@@ -486,9 +488,15 @@ public class CollectEarthWindow{
 
 	private void initializePanel() {
 		final JPanel pane = new JPanel(new GridBagLayout());
+		
 		final Border raisedetched = BorderFactory.createRaisedBevelBorder();
 		pane.setBorder(raisedetched);
 
+
+		// Handle Drag and Drop of files into the panel
+		pane.setTransferHandler( new CollectEarthTransferHandler( this, localPropertiesService) );
+		
+		
 		final GridBagConstraints c = new GridBagConstraints();
 
 		final JTextField operatorTextField = new JTextField(getOperator(), 30);
@@ -547,7 +555,8 @@ public class CollectEarthWindow{
 
 			}
 		});
-
+		
+		
 	}
 
 	private void initializeWindow() {

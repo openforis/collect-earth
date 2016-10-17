@@ -41,7 +41,7 @@ public class LocalPropertiesService {
 	 * 
 	 */
 	public enum EarthProperty {
-		OPERATOR_KEY("operator"), JUMP_TO_NEXT("jump_to_next_plot"), HOST_KEY("host"), HOST_PORT_KEY("port"), LOCAL_PORT_KEY("local_port"), CSV_KEY("csv"), KML_TEMPLATE_KEY("template"), BALLOON_TEMPLATE_KEY(
+		OPERATOR_KEY("operator"), JUMP_TO_NEXT("jump_to_next_plot"), HOST_KEY("host"), HOST_PORT_KEY("port"), LOCAL_PORT_KEY("local_port"), SAMPLE_FILE("csv"), KML_TEMPLATE_KEY("template"), BALLOON_TEMPLATE_KEY(
 				"balloon"), CRS_KEY("coordinates_reference_system"), GENERATED_KEY("generated_on"), KML_TEMPLATE_KEY_CHECKSUM("template_checksum"), BALLOON_TEMPLATE_KEY_CHECKSUM(
 				"balloon_checksum"), CSV_KEY_CHECKSUM("csv_checksum"), OPEN_BALLOON_IN_BROWSER(
 				"open_separate_browser_form"), ALTERNATIVE_BALLOON_FOR_BROWSER("alternative_balloon_for_browser"), ELEVATION_GEOTIF_DIRECTORY(
@@ -127,7 +127,7 @@ public class LocalPropertiesService {
 	}
 
 	public String getCsvFile() {
-		return convertToOSPath( getValue(EarthProperty.CSV_KEY) );
+		return convertToOSPath( getValue(EarthProperty.SAMPLE_FILE) );
 	}
 
 	public String getCsvFileChecksum() {
@@ -340,7 +340,7 @@ public class LocalPropertiesService {
 	}
 
 	public void saveCsvFile(String csvFile) {
-		setValue(EarthProperty.CSV_KEY, csvFile);
+		setValue(EarthProperty.SAMPLE_FILE, csvFile);
 
 	}
 

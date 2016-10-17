@@ -183,13 +183,8 @@ public class ImportXMLDialogProcessMonitor implements Observer{
 	}
 
 	private void forceRefreshGoogleEarth() {
-		try {
-			EarthApp.loadKmlInGoogleEarth(true);
-		} catch (Exception e) {
-			logger.error("Error while reloading the KML file on Google Earth", e);
-			EarthApp.showMessage("<html>Problems while generating the KML file: <br/> " + (e.getCause()!=null?(e.getCause()+"<br/>"):"") + ( e.getMessage().length() > 300?e.getMessage().substring(0,300):e.getMessage() ) + "</html>"); //$NON-NLS-1$
-
-		}
+		
+		EarthApp.executeKmlLoadAsynchronously( null );
 		
 	}
 
