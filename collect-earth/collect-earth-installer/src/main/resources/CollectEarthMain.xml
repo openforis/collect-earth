@@ -318,6 +318,8 @@
                 </platformTest>
             </ruleList>
         </runProgram>
+                 
+                
     </postInstallationActionList>
     <startMenuShortcutList>
         <startMenuShortcut>

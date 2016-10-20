@@ -31,6 +31,7 @@ import org.apache.commons.codec.digest.DigestUtils;
 import org.apache.commons.lang3.SystemUtils;
 import org.openforis.collect.earth.app.EarthConstants.UI_LANGUAGE;
 import org.openforis.collect.earth.app.view.Messages;
+import org.openforis.collect.earth.sampler.utils.KmlGenerationException;
 import org.postgresql.Driver;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -203,4 +204,9 @@ public class CollectEarthUtils {
 
 		}
 
+	public static boolean validateCsvColumns(File fileToImport) throws KmlGenerationException{
+		// TODO Auto-generated method stub
+		return true;
 	}
+
+}

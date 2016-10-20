@@ -115,8 +115,8 @@ public class EarthProjectsService {
 	 * Loads the contents of the project-specific properties into earth.properties
 	 * 
 	 * @param projectFolder The folder where the project definition and the rest of the files reside.
-	 * @return True is the project was loaded corretlt
-	 * @throws IOException If the projct folder or one of its files cannot be found
+	 * @return True is the project was loaded correctly
+	 * @throws IOException If the project folder or one of its files cannot be found
 	 */
 	public boolean loadProjectInFolder(File projectFolder) throws IOException{
 		

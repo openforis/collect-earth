@@ -171,7 +171,7 @@ public class KmlImportService {
 			File finalCsvFile = selectAndSaveToCsv(convertedCsvFile, kmlFile.getName());
 
 			// Load the plots from the CSV 
-			localPropertiesService.setValue(EarthProperty.CSV_KEY, finalCsvFile.getAbsolutePath());
+			localPropertiesService.setValue(EarthProperty.SAMPLE_FILE, finalCsvFile.getAbsolutePath());
 			kmlImported = true;
 		}
 		

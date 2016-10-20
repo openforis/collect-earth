@@ -113,7 +113,9 @@ public class CollectEarthWindow{
 
 	public CollectEarthWindow() throws IOException {
 		// Create and set up the window.
-		setFrame(new JFrame(Messages.getString("CollectEarthWindow.19") ) ); //$NON-NLS-1$		
+		JFrame framePriv = new JFrame(Messages.getString("CollectEarthWindow.19") );//$NON-NLS-1$
+	
+		setFrame(framePriv ); 
 	}
 
 	@PostConstruct
@@ -256,7 +258,11 @@ public class CollectEarthWindow{
 
 	private String getDisclaimerFilePath() {
 		final String suffix_lang = localPropertiesService.getUiLanguage().getLocale().getLanguage();
-		return "resources/disclaimer_" + suffix_lang + ".txt"; //$NON-NLS-1$ //$NON-NLS-2$
+		if (new File( "resources/disclaimer_" + suffix_lang + ".txt" ).exists() ){ //$NON-NLS-1$ //$NON-NLS-2$
+			return "resources/disclaimer_" + suffix_lang + ".txt";
+		}else{
+			return  "resources/disclaimer_en.txt";
+		}
 	}
 
 
@@ -482,9 +488,15 @@ public class CollectEarthWindow{
 
 	private void initializePanel() {
 		final JPanel pane = new JPanel(new GridBagLayout());
+		
 		final Border raisedetched = BorderFactory.createRaisedBevelBorder();
 		pane.setBorder(raisedetched);
 
+
+		// Handle Drag and Drop of files into the panel
+		pane.setTransferHandler( new CollectEarthTransferHandler( this, localPropertiesService) );
+		
+		
 		final GridBagConstraints c = new GridBagConstraints();
 
 		final JTextField operatorTextField = new JTextField(getOperator(), 30);
@@ -543,7 +555,8 @@ public class CollectEarthWindow{
 
 			}
 		});
-
+		
+		
 	}
 
 	private void initializeWindow() {

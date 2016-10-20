@@ -138,7 +138,7 @@ public class KmlGeneratorService {
 			if (!csvFile.exists()) {
 				final File otherFile = new File(prefixUserFolder + getLocalProperties().getCsvFile());
 				if (otherFile.exists()) {
-					getLocalProperties().setValue(EarthProperty.CSV_KEY, otherFile.getAbsolutePath());
+					getLocalProperties().setValue(EarthProperty.SAMPLE_FILE, otherFile.getAbsolutePath());
 				}
 			}
 
@@ -278,7 +278,7 @@ public class KmlGeneratorService {
 		data.put("host", ServerController.getHostAddress(getLocalProperties().getHost(), getLocalProperties().getLocalPort())); //$NON-NLS-1$
 		data.put("kmlGeneratedOn", getLocalProperties().getGeneratedOn()); //$NON-NLS-1$
 		data.put("surveyName", getLocalProperties().getValue(EarthProperty.SURVEY_NAME)); //$NON-NLS-1$
-		data.put("plotFileName", KmlGenerator.getCsvFileName(getLocalProperties().getValue(EarthProperty.CSV_KEY))); //$NON-NLS-1$
+		data.put("plotFileName", KmlGenerator.getCsvFileName(getLocalProperties().getValue(EarthProperty.SAMPLE_FILE))); //$NON-NLS-1$
 
 		FreemarkerTemplateUtils.applyTemplate(new File(KML_NETWORK_LINK_TEMPLATE), new File(KML_NETWORK_LINK_STARTER), data);
 	}
