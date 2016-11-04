@@ -94,6 +94,9 @@ public class CollectEarthWindow{
 	@Autowired
 	private MissingPlotService missingPlotService;
 	
+	@Autowired
+	private CollectEarthTransferHandler collectEarthTransferHandler;
+	
 	public static void endWaiting(Window frame) {
 		frame.setCursor(java.awt.Cursor.getPredefinedCursor(java.awt.Cursor.DEFAULT_CURSOR));
 	}
@@ -366,7 +369,7 @@ public class CollectEarthWindow{
 			protected void applyProperties() {
 
 				try {
-					if( kmlImportService.loadFromKml( CollectEarthWindow.this.getFrame()) ){
+					if( kmlImportService.prompToOpenKml( CollectEarthWindow.this.getFrame()) ){
 						restartEarth();
 					}
 				} catch (Exception e1) {
@@ -492,10 +495,8 @@ public class CollectEarthWindow{
 		final Border raisedetched = BorderFactory.createRaisedBevelBorder();
 		pane.setBorder(raisedetched);
 
-
 		// Handle Drag and Drop of files into the panel
-		pane.setTransferHandler( new CollectEarthTransferHandler( this, localPropertiesService) );
-		
+		pane.setTransferHandler( collectEarthTransferHandler );
 		
 		final GridBagConstraints c = new GridBagConstraints();
 

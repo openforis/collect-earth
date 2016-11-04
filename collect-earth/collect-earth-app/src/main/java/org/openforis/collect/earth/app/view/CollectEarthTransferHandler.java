@@ -10,28 +10,27 @@ import javax.swing.TransferHandler;
 
 import org.openforis.collect.earth.app.CollectEarthUtils;
 import org.openforis.collect.earth.app.desktop.EarthApp;
+import org.openforis.collect.earth.app.service.KmlImportService;
 import org.openforis.collect.earth.app.service.LocalPropertiesService;
 import org.openforis.collect.earth.app.service.LocalPropertiesService.EarthProperty;
 import org.openforis.collect.earth.sampler.utils.KmlGenerationException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Component;
 
+@Component
 public class CollectEarthTransferHandler extends TransferHandler {
 	
-	
+	@Autowired
 	private CollectEarthWindow collectEarthWindow;
+	
+	@Autowired
 	private LocalPropertiesService localPropertiesService;
 	
-	public CollectEarthTransferHandler(CollectEarthWindow collectEarthWindow, LocalPropertiesService localPropertiesService) {
-		super();
-		this.collectEarthWindow = collectEarthWindow;
-		this.localPropertiesService = localPropertiesService;
-	}
+	@Autowired
+	private KmlImportService kmlImportService;	
 
-
-	/**
-	 * 
-	 */
 	private static final long serialVersionUID = 1L;
 	Logger logger = LoggerFactory.getLogger( CollectEarthTransferHandler.class);
 	
@@ -82,7 +81,7 @@ public class CollectEarthTransferHandler extends TransferHandler {
 
     private boolean isFileExtensionValid(File file ){
     	String fileExtension = getFileExtension(file);
-    	return fileExtension!=null && ( DataFormat.COLLECT_COORDS.checkFileExtensionMatches(fileExtension) || DataFormat.PROJECT_DEFINITION_FILE.checkFileExtensionMatches(fileExtension) );
+    	return fileExtension!=null && ( DataFormat.COLLECT_COORDS.checkFileExtensionMatches(fileExtension) || DataFormat.PROJECT_DEFINITION_FILE.checkFileExtensionMatches(fileExtension) || DataFormat.KML_FILE.checkFileExtensionMatches(fileExtension)  );
     }
     
 	/* 
@@ -140,6 +139,15 @@ public class CollectEarthTransferHandler extends TransferHandler {
             		logger.error( "Problem loading CSV file dropped into the window" , kmlGenerationException );
             		EarthApp.showMessage(" Problem loading CSV file" + kmlGenerationException.getCause() );
             	}
+            	
+            	
+            }else if( DataFormat.KML_FILE.checkFileExtensionMatches( fileExtension ) ) {
+            	
+            	// Check if the CSV file can be loaded in the survey!!!
+            	
+            	if( kmlImportService.loadFromKml( null, fileToImport ) ){
+            		EarthApp.executeKmlLoadAsynchronously( collectEarthWindow.getFrame() );
+				}
             	
             	
             }else{
