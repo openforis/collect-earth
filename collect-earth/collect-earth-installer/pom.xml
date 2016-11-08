@@ -18,15 +18,13 @@
 		<installbuilder-file-name-updater>CollectEarthUpdater.xml</installbuilder-file-name-updater>
 		<jre.version>1.8.0_11</jre.version>
 		<!-- installer file names -->
-		<windows-i386-installer-file-name>CollectEarth-${project.version}-windows-i386-installer.exe</windows-i386-installer-file-name>
+		<windows-installer-file-name>CollectEarth-${project.version}-windows-installer.exe</windows-installer-file-name>
 		<linux-i386-installer-file-name>CollectEarth-${project.version}-linux-i386-installer.run</linux-i386-installer-file-name>
-		<windows-x64-installer-file-name>CollectEarth-${project.version}-windows-x64-installer.exe</windows-x64-installer-file-name>
 		<linux-x64-installer-file-name>CollectEarth-${project.version}-linux-x64-installer.run</linux-x64-installer-file-name>
 		<osx-installer-file-name>CollectEarth-${project.version}-osx-installer.dmg</osx-installer-file-name>
 		<!-- autoupdater file names -->
-		<windows-i386-autoupdater-file-name>CollectEarthUpdater-${project.version}-windows-i386-installer.exe</windows-i386-autoupdater-file-name>
+		<windows-autoupdater-file-name>CollectEarthUpdater-${project.version}-windows-installer.exe</windows-autoupdater-file-name>
 		<linux-i386-autoupdater-file-name>CollectEarthUpdater-${project.version}-linux-i386-installer.run</linux-i386-autoupdater-file-name>
-		<windows-x64-autoupdater-file-name>CollectEarthUpdater-${project.version}-windows-x64-installer.exe</windows-x64-autoupdater-file-name>
 		<linux-x64-autoupdater-file-name>CollectEarthUpdater-${project.version}-linux-x64-installer.run</linux-x64-autoupdater-file-name>
 		<osx-autoupdater-file-name>CollectEarthUpdater-${project.version}-osx-installer.app.zip</osx-autoupdater-file-name>
 		
@@ -106,20 +104,12 @@
 											<groupId>com.oracle.java</groupId>
 											<artifactId>jre</artifactId>
 											<version>${jre.version}</version>
-											<classifier>windows-i386</classifier>
+											<classifier>windows</classifier>
 											<type>zip</type>
 											<overWrite>false</overWrite>
 											<outputDirectory>${installer-build-path}/jre_files</outputDirectory>
 										</artifactItem>
-										<artifactItem>
-											<groupId>com.oracle.java</groupId>
-											<artifactId>jre</artifactId>
-											<version>${jre.version}</version>
-											<classifier>windows-x64</classifier>
-											<type>zip</type>
-											<overWrite>false</overWrite>
-											<outputDirectory>${installer-build-path}/jre_files</outputDirectory>
-										</artifactItem>
+									
 <!-- 									
 No Solaris installer necessary	
 										<artifactItem>
@@ -243,7 +233,7 @@ No Solaris installer necessary
 						<executions>
 						    <!-- Windows -->
 							<execution>
-								<id>windows-i386-installer</id>
+								<id>windows-installer</id>
 								<phase>prepare-package</phase>
 								<goals>
 									<goal>exec</goal>
@@ -253,13 +243,13 @@ No Solaris installer necessary
 									<arguments>
 										<argument>build</argument>
 										<argument>${installer-build-path}/${installbuilder-file-name}</argument>
-										<argument>windows-i386</argument>
+										<argument>windows</argument>
 									</arguments>
 								</configuration>
 							</execution>
 							
 							<execution>
-								<id>windows-i386-updater</id>
+								<id>windows-updater</id>
 								<phase>prepare-package</phase>
 								<goals>
 									<goal>exec</goal>
@@ -269,42 +259,12 @@ No Solaris installer necessary
 									<arguments>
 										<argument>build</argument>
 										<argument>${installer-build-path}/${installbuilder-file-name-updater}</argument>
-										<argument>windows-i386</argument>
+										<argument>windows</argument>
 									</arguments>
 								</configuration>
 							</execution>
 							
-							<execution>
-								<id>windows-x64-installer</id>
-								<phase>prepare-package</phase>
-								<goals>
-									<goal>exec</goal>
-								</goals>
-								<configuration>
-									<executable>${installbuilder-home}/bin/builder-cli.exe</executable>
-									<arguments>
-										<argument>build</argument>
-										<argument>${installer-build-path}/${installbuilder-file-name}</argument>
-										<argument>windows-x64</argument>
-									</arguments>
-								</configuration>
-							</execution>
 							
-							<execution>
-								<id>windows-x64-updater</id>
-								<phase>prepare-package</phase>
-								<goals>
-									<goal>exec</goal>
-								</goals>
-								<configuration>
-									<executable>${installbuilder-home}/bin/builder-cli.exe</executable>
-									<arguments>
-										<argument>build</argument>
-										<argument>${installer-build-path}/${installbuilder-file-name-updater}</argument>
-										<argument>windows-x64</argument>
-									</arguments>
-								</configuration>
-							</execution>
 							<!-- Linux -->
 							<execution>
 								<id>linux-i386-installer</id>
@@ -420,25 +380,16 @@ No Solaris installer necessary
 								<configuration>
 									<artifacts>
 										<artifact>
-											<file>${project.build.directory}/${windows-i386-installer-file-name}</file>
-											<classifier>windows-i386</classifier>
+											<file>${project.build.directory}/${windows-installer-file-name}</file>
+											<classifier>windows</classifier>
 											<type>exe</type>
 										</artifact>
 										<artifact>
-											<file>${project.build.directory}/${windows-i386-autoupdater-file-name}</file>
-											<classifier>windows-i386-updater</classifier>
+											<file>${project.build.directory}/${windows-autoupdater-file-name}</file>
+											<classifier>windows-updater</classifier>
 											<type>exe</type>
 										</artifact>
-										<artifact>
-											<file>${project.build.directory}/${windows-x64-installer-file-name}</file>
-											<classifier>windows-x64</classifier>
-											<type>exe</type>
-										</artifact>
-										<artifact>
-											<file>${project.build.directory}/${windows-x64-autoupdater-file-name}</file>
-											<classifier>windows-x64-updater</classifier>
-											<type>exe</type>
-										</artifact>
+										
 									 	
 									 	<artifact>
 											<file>${project.build.directory}/${linux-i386-installer-file-name}</file>
@@ -496,14 +447,12 @@ No Solaris installer necessary
 								</goals>
 								<configuration>
 									<tasks>
-										<move file="${installbuilder-output-directory}/${windows-i386-installer-file-name}" tofile="${project.build.directory}/${windows-i386-installer-file-name}" failonerror="true" />
-										<move file="${installbuilder-output-directory}/${windows-i386-autoupdater-file-name}" tofile="${project.build.directory}/${windows-i386-autoupdater-file-name}" failonerror="true" />
+										<move file="${installbuilder-output-directory}/${windows-installer-file-name}" tofile="${project.build.directory}/${windows-installer-file-name}" failonerror="true" />
+										<move file="${installbuilder-output-directory}/${windows-autoupdater-file-name}" tofile="${project.build.directory}/${windows-autoupdater-file-name}" failonerror="true" />
 										
 										<move file="${installbuilder-output-directory}/${linux-i386-installer-file-name}" tofile="${project.build.directory}/${linux-i386-installer-file-name}" failonerror="true" />
 										<move file="${installbuilder-output-directory}/${linux-i386-autoupdater-file-name}" tofile="${project.build.directory}/${linux-i386-autoupdater-file-name}" failonerror="true" />
 										
-										<move file="${installbuilder-output-directory}/${windows-x64-installer-file-name}" tofile="${project.build.directory}/${windows-x64-installer-file-name}" failonerror="true" />
-										<move file="${installbuilder-output-directory}/${windows-x64-autoupdater-file-name}" tofile="${project.build.directory}/${windows-x64-autoupdater-file-name}" failonerror="true" />
 										
 										<move file="${installbuilder-output-directory}/${linux-x64-installer-file-name}" tofile="${project.build.directory}/${linux-x64-installer-file-name}" failonerror="true" />
 										<move file="${installbuilder-output-directory}/${linux-x64-autoupdater-file-name}" tofile="${project.build.directory}/${linux-x64-autoupdater-file-name}" failonerror="true" />
