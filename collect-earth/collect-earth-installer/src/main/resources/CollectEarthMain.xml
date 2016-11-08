@@ -91,7 +91,7 @@
             <description>Resources Linux</description>
             <destination>${installdir}/resources</destination>
             <name>resourceslinux</name>
-            <platforms>linux</platforms>
+            <platforms>linux linux-x64</platforms>
             <distributionFileList>
 	         	<distributionDirectory  allowWildcards="1">
 	                <excludeFiles>*/chromedriver.exe;*/chromedriver_mac;*/geckodriver.exe;*/geckodriver_mac</excludeFiles>
@@ -115,7 +115,7 @@
             <description>Program Files</description>
             <destination>${installdir}</destination>
             <name>programfileslinux</name>
-            <platforms>linux</platforms>
+            <platforms>linux linux-x64</platforms>
             <distributionFileList>
                 <distributionFile>
                     <origin>launcher_logo.png</origin>
@@ -219,25 +219,6 @@
                 <substitution>
                     <pattern>INSTALLATION_LANGUAGE</pattern>
                     <value>${installation_language_code}</value>
-                </substitution>
-                <substitution>
-                    <pattern>SEPARATE_BROWSER_SUBSTITUTE</pattern>
-                    <value>true</value>
-                    <ruleList>
-                        <platformTest>
-                            <type>linux</type>
-                        </platformTest>
-                    </ruleList>
-                </substitution>
-                <substitution>
-                    <pattern>SEPARATE_BROWSER_SUBSTITUTE</pattern>
-                    <value>false</value>
-                    <ruleList>
-                        <platformTest>
-                            <negate>1</negate>
-                            <type>linux</type>
-                        </platformTest>
-                    </ruleList>
                 </substitution>
             </substitutionList>
         </substitute>
