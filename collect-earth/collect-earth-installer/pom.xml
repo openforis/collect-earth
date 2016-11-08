@@ -19,12 +19,12 @@
 		<jre.version>1.8.0_11</jre.version>
 		<!-- installer file names -->
 		<windows-installer-file-name>CollectEarth-${project.version}-windows-installer.exe</windows-installer-file-name>
-		<linux-i386-installer-file-name>CollectEarth-${project.version}-linux-i386-installer.run</linux-i386-installer-file-name>
+		<linux-installer-file-name>CollectEarth-${project.version}-linux-installer.run</linux-installer-file-name>
 		<linux-x64-installer-file-name>CollectEarth-${project.version}-linux-x64-installer.run</linux-x64-installer-file-name>
 		<osx-installer-file-name>CollectEarth-${project.version}-osx-installer.dmg</osx-installer-file-name>
 		<!-- autoupdater file names -->
 		<windows-autoupdater-file-name>CollectEarthUpdater-${project.version}-windows-installer.exe</windows-autoupdater-file-name>
-		<linux-i386-autoupdater-file-name>CollectEarthUpdater-${project.version}-linux-i386-installer.run</linux-i386-autoupdater-file-name>
+		<linux-autoupdater-file-name>CollectEarthUpdater-${project.version}-linux-installer.run</linux-autoupdater-file-name>
 		<linux-x64-autoupdater-file-name>CollectEarthUpdater-${project.version}-linux-x64-installer.run</linux-x64-autoupdater-file-name>
 		<osx-autoupdater-file-name>CollectEarthUpdater-${project.version}-osx-installer.app.zip</osx-autoupdater-file-name>
 		
@@ -77,7 +77,7 @@
 											<groupId>com.oracle.java</groupId>
 											<artifactId>jre</artifactId>
 											<version>${jre.version}</version>
-											<classifier>linux-i386</classifier>
+											<classifier>linux</classifier>
 											<type>zip</type>
 											<overWrite>false</overWrite>
 											<outputDirectory>${installer-build-path}/jre_files</outputDirectory>
@@ -267,7 +267,7 @@ No Solaris installer necessary
 							
 							<!-- Linux -->
 							<execution>
-								<id>linux-i386-installer</id>
+								<id>linux-installer</id>
 								<phase>prepare-package</phase>
 								<goals>
 									<goal>exec</goal>
@@ -277,13 +277,13 @@ No Solaris installer necessary
 									<arguments>
 										<argument>build</argument>
 										<argument>${installer-build-path}/${installbuilder-file-name}</argument>
-										<argument>linux-i386</argument>
+										<argument>linux</argument>
 									</arguments>
 								</configuration>
 							</execution>
 							
 							<execution>
-								<id>linux-i386-updater</id>
+								<id>linux-updater</id>
 								<phase>prepare-package</phase>
 								<goals>
 									<goal>exec</goal>
@@ -293,7 +293,7 @@ No Solaris installer necessary
 									<arguments>
 										<argument>build</argument>
 										<argument>${installer-build-path}/${installbuilder-file-name-updater}</argument>
-										<argument>linux-i386</argument>
+										<argument>linux</argument>
 									</arguments>
 								</configuration>
 							</execution>
@@ -392,13 +392,13 @@ No Solaris installer necessary
 										
 									 	
 									 	<artifact>
-											<file>${project.build.directory}/${linux-i386-installer-file-name}</file>
-											<classifier>linux-i386</classifier>
+											<file>${project.build.directory}/${linux-installer-file-name}</file>
+											<classifier>linux</classifier>
 											<type>run</type>
 										</artifact>
 										<artifact>
-											<file>${project.build.directory}/${linux-i386-autoupdater-file-name}</file>
-											<classifier>linux-i386-updater</classifier>
+											<file>${project.build.directory}/${linux-autoupdater-file-name}</file>
+											<classifier>linux-updater</classifier>
 											<type>run</type>
 										</artifact>
 										
@@ -450,8 +450,8 @@ No Solaris installer necessary
 										<move file="${installbuilder-output-directory}/${windows-installer-file-name}" tofile="${project.build.directory}/${windows-installer-file-name}" failonerror="true" />
 										<move file="${installbuilder-output-directory}/${windows-autoupdater-file-name}" tofile="${project.build.directory}/${windows-autoupdater-file-name}" failonerror="true" />
 										
-										<move file="${installbuilder-output-directory}/${linux-i386-installer-file-name}" tofile="${project.build.directory}/${linux-i386-installer-file-name}" failonerror="true" />
-										<move file="${installbuilder-output-directory}/${linux-i386-autoupdater-file-name}" tofile="${project.build.directory}/${linux-i386-autoupdater-file-name}" failonerror="true" />
+										<move file="${installbuilder-output-directory}/${linux-installer-file-name}" tofile="${project.build.directory}/${linux-installer-file-name}" failonerror="true" />
+										<move file="${installbuilder-output-directory}/${linux-autoupdater-file-name}" tofile="${project.build.directory}/${linux-autoupdater-file-name}" failonerror="true" />
 										
 										
 										<move file="${installbuilder-output-directory}/${linux-x64-installer-file-name}" tofile="${project.build.directory}/${linux-x64-installer-file-name}" failonerror="true" />
