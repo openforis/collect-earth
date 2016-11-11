@@ -109,7 +109,7 @@ public class BrowserService implements Observer{
 	private GeolocalizeMapService geoLocalizeTemplateService;
 	
 	@Autowired
-	private PlaygroundHandlerThread playgroundHandlerThread;
+	private PlaygroundHandlerThread codeEditorHandlerThread;
 
 	private final Vector<RemoteWebDriver> drivers = new Vector<RemoteWebDriver>();
 	private final Logger logger = LoggerFactory.getLogger(BrowserService.class);
@@ -585,12 +585,14 @@ public class BrowserService implements Observer{
 
 		if (localPropertiesService.isGeePlaygroundSupported()) {
 
+			boolean firstOpening = false;
 			if (getWebDriverGeePlayground() == null) {
 				setWebDriverGeePlayground(initBrowser());
+				firstOpening = true;
 			}
 			
-			if( playgroundHandlerThread.isWaitingForLogin() ){
-				playgroundHandlerThread.stopWaitingForLogin();
+			if( codeEditorHandlerThread.isWaitingForLogin() ){
+				codeEditorHandlerThread.stopWaitingForLogin();
 				try {
 					Thread.sleep(2500);
 				} catch (InterruptedException e) {
@@ -598,7 +600,11 @@ public class BrowserService implements Observer{
 				}
 			}
 			
-			playgroundHandlerThread.loadPlaygroundScript(placemarkObject, getWebDriverGeePlayground() );
+			if( firstOpening && ( SystemUtils.IS_OS_MAC || SystemUtils.IS_OS_MAC_OSX )){
+				codeEditorHandlerThread.disableCodeEditorAutocomplete( getWebDriverGeePlayground() );
+			}
+			
+			codeEditorHandlerThread.loadPlaygroundScript(placemarkObject, getWebDriverGeePlayground() );
 		}
 	}
 	

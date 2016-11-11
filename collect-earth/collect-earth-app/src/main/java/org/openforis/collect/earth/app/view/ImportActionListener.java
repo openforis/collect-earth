@@ -89,9 +89,6 @@ public final class ImportActionListener implements ActionListener {
 			
 			switch (importType) {
 			case ZIP_WITH_XML:
-				
-								
-				
 					new Thread("XML Import Thread " ){ //$NON-NLS-1$
 						public void run() {
 							Integer importNonFinishedPlots = shouldImportNonFinishedRecords( filesToImport.length > 1);
@@ -124,11 +121,7 @@ public final class ImportActionListener implements ActionListener {
 								} 
 							}
 						}
-
-						
 					}.start();
-				
-
 				break;
 			case CSV:
 				for (final File importedFile : filesToImport) {

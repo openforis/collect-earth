@@ -18,6 +18,7 @@ import org.openqa.selenium.By;
 import org.openqa.selenium.Keys;
 import org.openqa.selenium.WebElement;
 import org.openqa.selenium.remote.RemoteWebDriver;
+import org.openqa.selenium.remote.RemoteWebElement;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -191,11 +192,70 @@ public class PlaygroundHandlerThread {
 	
 	public void loadPlaygroundScript(SimplePlacemarkObject placemarkObject, RemoteWebDriver webDriverGeePlayground) {
 		this.placemarkObject = placemarkObject;
-		loadPlaygroundScript(webDriverGeePlayground);
+		loadCodeEditorScript(webDriverGeePlayground);
 	}
 	
-	private void loadPlaygroundScript(RemoteWebDriver webDriverGeePlayground) {
-		this.webDriverGee = webDriverGeePlayground;
+	public void disableCodeEditorAutocomplete(RemoteWebDriver webDriverCodeEditor){
+		this.webDriverGee = webDriverCodeEditor;
+		try {			
+			if (!isPlaygroundShowing()) {
+				// Open GEE Playground
+				if( !browserService.isDriverWorking(webDriverGee) || webDriverGee.getCurrentUrl()==null || ( !webDriverGee.getCurrentUrl().contains("google") && !webDriverGee.getCurrentUrl().contains("google") ) ){
+					webDriverGee = browserService.navigateTo(  localPropertiesService.getGeePlaygoundUrl(), webDriverGee);
+					browserService.setWebDriverGeePlayground(webDriverGee);
+				}
+				// Now we have to wait until the user logs into Google Earth Engine!
+				waitingForLogin = true;
+				
+				
+				// Initially the login page appears!
+				// wait until the user logs - in  ( but no more than 5 minutes )
+				
+				while( waitingForLogin && !isPlaygroundShowing()  ){ // 5 minutes a 2 seconds == 30 * 5 = 150 
+					Thread.sleep(2000);
+				}
+				
+				// If the reason to get to this point is not that we have waited more than 5 minutes....
+				if( waitingForLogin){
+					stopWaitingForLogin();
+					disableAutoComplete();
+				}
+				
+				
+			}else{						
+				disableAutoComplete();
+			}
+			
+		} catch (final NoSuchElementException e) {
+			// This is a well known exception. Down-grade if to warning
+			logger.warn("Error when opening Earth Engine browser window. Known problem", e);
+		} catch (final Exception e) {
+			// This is a well known exception. 
+			logger.error("Error when opening Earth Engine browser window", e);
+		}
+	}
+	
+	private void disableAutoComplete(){
+		// Display the settings in Google Earth Engine Code Editor  (this emulates clicking on the settings icon)
+		webDriverGee.findElementByClassName("settings-menu-button").click();
+		// Get the Div that is the parent of the one with text that contains Autocomplete
+		RemoteWebElement autocompleteButton = (RemoteWebElement) webDriverGee.findElementByXPath("//div[contains(text(), \"Autocomplete\")]/..");
+		
+		if(isAutocompleChecked(autocompleteButton)){
+			// Disable the Autocomplete of special characters 
+			autocompleteButton.click();
+		}
+				
+		
+	}
+
+	public boolean isAutocompleChecked(RemoteWebElement autocompleteButton) {
+		String buttonChecked = autocompleteButton.getAttribute("aria-checked");
+		return buttonChecked.equals("true" );
+	}
+	
+	private void loadCodeEditorScript(RemoteWebDriver webDriverCodeEditor) {
+		this.webDriverGee = webDriverCodeEditor;
 		Thread loadGee = new Thread("Opening GEE Playground " +  (placemarkObject != null?placemarkObject.toString():"") ){
 			@Override
 			public void run() {

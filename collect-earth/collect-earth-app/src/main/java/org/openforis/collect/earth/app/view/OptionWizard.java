@@ -205,54 +205,22 @@ public class OptionWizard extends JDialog {
 			protected void applyProperties() {
 
 				savePropertyValues();
-				if(restartRequired ){
+				if( isRestartRequired() ){
 					restartEarth();
 				}else{
 					
-					new Thread(){
-						public void run() {
-							// Only regenerate KML and reload
-							try {
-								SwingUtilities.invokeAndWait( new Runnable() {
-									@Override
-									public void run() {
-										CollectEarthWindow.startWaiting(OptionWizard.this);
-									}
-								});
-								
-								EarthApp.loadKmlInGoogleEarth(true);
-								
-							} catch (Exception e) {
-								logger.error("Error loading the KML",e);
-								e.printStackTrace();
-								EarthApp.showMessage("<html>Problems while generating the KML file: <br/> " + (e.getCause()!=null?(e.getCause()+"<br/>"):"") + ( e.getMessage().length() > 300?e.getMessage().substring(0,300):e.getMessage() ) + "</html>"); //$NON-NLS-1$
-
-							}finally{
-								try {
-									SwingUtilities.invokeAndWait( new Runnable() {
-										@Override
-										public void run() {
-											CollectEarthWindow.endWaiting(OptionWizard.this);
-											OptionWizard.this.closeDialog();
-										}
-									});
-								} catch (Exception e) {
-									logger.error("Error closing Options dialog", e);
-								}
-							}
-							
-						};
-					}.start();
+					EarthApp.executeKmlLoadAsynchronously( OptionWizard.this );
 					
 				}
 			}
-
 		});
+
+			
 
 		return applyChanges;
 	}
 
-	protected void closeDialog() {
+	public void closeDialog() {
 		this.dispose();
 	}
 
@@ -653,7 +621,7 @@ public class OptionWizard extends JDialog {
 	}
 
 	private JComponent getSampleDataPanel() {
-		final JPlotCsvTable samplePlots = new JPlotCsvTable( localPropertiesService.getValue(EarthProperty.CSV_KEY) );
+		final JPlotCsvTable samplePlots = new JPlotCsvTable( localPropertiesService.getValue(EarthProperty.SAMPLE_FILE) );
 
 		final JPanel panel = new JPanel(new GridBagLayout());
 		final GridBagConstraints constraints = new GridBagConstraints();
@@ -684,7 +652,7 @@ public class OptionWizard extends JDialog {
 	}
 
 	private JFilePicker getFilePickerSamplePlots(final JPlotCsvTable samplePlots) {
-		final JFilePicker refreshTableOnFileChange = (JFilePicker) (propertyToComponent.get(EarthProperty.CSV_KEY)[0]);
+		final JFilePicker refreshTableOnFileChange = (JFilePicker) (propertyToComponent.get(EarthProperty.SAMPLE_FILE)[0]);
 		refreshTableOnFileChange.addChangeListener(new DocumentListener() {
 
 			@Override
@@ -868,12 +836,12 @@ public class OptionWizard extends JDialog {
 		propertyToComponent.put(EarthProperty.OPEN_BALLOON_IN_BROWSER, new JComponent[] { openInSeparateWindowCheckbox });
 
 		final JFilePicker csvWithPlotData = new JFilePicker(
-				Messages.getString("OptionWizard.49"), localPropertiesService.getValue(EarthProperty.CSV_KEY), //$NON-NLS-1$
+				Messages.getString("OptionWizard.49"), localPropertiesService.getValue(EarthProperty.SAMPLE_FILE), //$NON-NLS-1$
 				Messages.getString("OptionWizard.50")); //$NON-NLS-1$
 		csvWithPlotData.setMode(JFilePicker.MODE_OPEN);
 
 		csvWithPlotData.addFileTypeFilter(".csv,.ced", Messages.getString("OptionWizard.52"), true); //$NON-NLS-1$ //$NON-NLS-2$
-		propertyToComponent.put(EarthProperty.CSV_KEY, new JComponent[] { csvWithPlotData });
+		propertyToComponent.put(EarthProperty.SAMPLE_FILE, new JComponent[] { csvWithPlotData });
 
 		final JComboBox<ComboBoxItem> comboNumberOfPoints = new JComboBox<ComboBoxItem>(
 				new ComboBoxItem[] {

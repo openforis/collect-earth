@@ -3,7 +3,7 @@
 	<parent>
 		<groupId>org.openforis.collect.earth</groupId>
 		<artifactId>collect-earth</artifactId>
-		<version>1.3.18-SNAPSHOT</version>
+		<version>1.4.5-SNAPSHOT</version>
 	</parent>
 	<artifactId>collect-earth-installer</artifactId>
 	<packaging>pom</packaging>
@@ -20,10 +20,12 @@
 		<!-- installer file names -->
 		<windows-installer-file-name>CollectEarth-${project.version}-windows-installer.exe</windows-installer-file-name>
 		<linux-installer-file-name>CollectEarth-${project.version}-linux-installer.run</linux-installer-file-name>
+		<linux-x64-installer-file-name>CollectEarth-${project.version}-linux-x64-installer.run</linux-x64-installer-file-name>
 		<osx-installer-file-name>CollectEarth-${project.version}-osx-installer.dmg</osx-installer-file-name>
 		<!-- autoupdater file names -->
 		<windows-autoupdater-file-name>CollectEarthUpdater-${project.version}-windows-installer.exe</windows-autoupdater-file-name>
 		<linux-autoupdater-file-name>CollectEarthUpdater-${project.version}-linux-installer.run</linux-autoupdater-file-name>
+		<linux-x64-autoupdater-file-name>CollectEarthUpdater-${project.version}-linux-x64-installer.run</linux-x64-autoupdater-file-name>
 		<osx-autoupdater-file-name>CollectEarthUpdater-${project.version}-osx-installer.app.zip</osx-autoupdater-file-name>
 		
 		<autoupdater-xml-file-name>collectEarthUpdate.xml</autoupdater-xml-file-name>
@@ -107,15 +109,7 @@
 											<overWrite>false</overWrite>
 											<outputDirectory>${installer-build-path}/jre_files</outputDirectory>
 										</artifactItem>
-										<artifactItem>
-											<groupId>com.oracle.java</groupId>
-											<artifactId>jre</artifactId>
-											<version>${jre.version}</version>
-											<classifier>windows-x64</classifier>
-											<type>zip</type>
-											<overWrite>false</overWrite>
-											<outputDirectory>${installer-build-path}/jre_files</outputDirectory>
-										</artifactItem>
+									
 <!-- 									
 No Solaris installer necessary	
 										<artifactItem>
@@ -269,6 +263,8 @@ No Solaris installer necessary
 									</arguments>
 								</configuration>
 							</execution>
+							
+							
 							<!-- Linux -->
 							<execution>
 								<id>linux-installer</id>
@@ -302,6 +298,37 @@ No Solaris installer necessary
 								</configuration>
 							</execution>
 							
+							<execution>
+								<id>linux-x64-installer</id>
+								<phase>prepare-package</phase>
+								<goals>
+									<goal>exec</goal>
+								</goals>
+								<configuration>
+									<executable>${installbuilder-home}/bin/builder-cli.exe</executable>
+									<arguments>
+										<argument>build</argument>
+										<argument>${installer-build-path}/${installbuilder-file-name}</argument>
+										<argument>linux-x64</argument>
+									</arguments>
+								</configuration>
+							</execution>
+							
+							<execution>
+								<id>linux-x64-updater</id>
+								<phase>prepare-package</phase>
+								<goals>
+									<goal>exec</goal>
+								</goals>
+								<configuration>
+									<executable>${installbuilder-home}/bin/builder-cli.exe</executable>
+									<arguments>
+										<argument>build</argument>
+										<argument>${installer-build-path}/${installbuilder-file-name-updater}</argument>
+										<argument>linux-x64</argument>
+									</arguments>
+								</configuration>
+							</execution>
 							
 							<!-- Mac OS X -->
 							<execution>
@@ -362,8 +389,9 @@ No Solaris installer necessary
 											<classifier>windows-updater</classifier>
 											<type>exe</type>
 										</artifact>
+										
 									 	
-										<artifact>
+									 	<artifact>
 											<file>${project.build.directory}/${linux-installer-file-name}</file>
 											<classifier>linux</classifier>
 											<type>run</type>
@@ -373,6 +401,19 @@ No Solaris installer necessary
 											<classifier>linux-updater</classifier>
 											<type>run</type>
 										</artifact>
+										
+										<artifact>
+											<file>${project.build.directory}/${linux-x64-installer-file-name}</file>
+											<classifier>linux-x64</classifier>
+											<type>run</type>
+										</artifact>
+										<artifact>
+											<file>${project.build.directory}/${linux-x64-autoupdater-file-name}</file>
+											<classifier>linux-x64-updater</classifier>
+											<type>run</type>
+										</artifact>
+										
+								
 									
 										<artifact>
 											<file>${project.build.directory}/${osx-installer-file-name}</file>
@@ -411,6 +452,10 @@ No Solaris installer necessary
 										
 										<move file="${installbuilder-output-directory}/${linux-installer-file-name}" tofile="${project.build.directory}/${linux-installer-file-name}" failonerror="true" />
 										<move file="${installbuilder-output-directory}/${linux-autoupdater-file-name}" tofile="${project.build.directory}/${linux-autoupdater-file-name}" failonerror="true" />
+										
+										
+										<move file="${installbuilder-output-directory}/${linux-x64-installer-file-name}" tofile="${project.build.directory}/${linux-x64-installer-file-name}" failonerror="true" />
+										<move file="${installbuilder-output-directory}/${linux-x64-autoupdater-file-name}" tofile="${project.build.directory}/${linux-x64-autoupdater-file-name}" failonerror="true" />
 										
 										<move file="${installbuilder-output-directory}/${osx-installer-file-name}" tofile="${project.build.directory}/${osx-installer-file-name}" failonerror="true" />
 										<move file="${installbuilder-output-directory}/${osx-autoupdater-file-name}" tofile="${project.build.directory}/${osx-autoupdater-file-name}" failonerror="true" /> 
