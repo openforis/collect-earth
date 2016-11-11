@@ -170,13 +170,17 @@ public class CollectEarthWindow{
 		
 		ieSubmenu.add(xmlExportSubmenu);
 		
+		final JMenu backupExportSubmenu = new JMenu("Export to Collect Backup");
+		
 		final JMenuItem exportDataBackup = new JMenuItem("Export data as Collect backup (all data)");
 		exportDataBackup.addActionListener(getExportActionListener(DataFormat.COLLECT_BACKUP, RecordsToExport.ALL));
-		ieSubmenu.add(exportDataBackup);
+		backupExportSubmenu.add(exportDataBackup);
 		
 		final JMenuItem exportDataRangeBackup = new JMenuItem("Export data as Collect backup (from date)");
 		exportDataRangeBackup.addActionListener(getExportActionListener(DataFormat.COLLECT_BACKUP, RecordsToExport.PICK_FROM_DATE));
-		ieSubmenu.add(exportDataRangeBackup);
+		backupExportSubmenu.add(exportDataRangeBackup);
+		
+		ieSubmenu.add( backupExportSubmenu );
 
 		menuItem = new JMenuItem(Messages.getString("CollectEarthWindow.6")); //$NON-NLS-1$
 		menuItem.addActionListener(getExportActionListener(DataFormat.FUSION, RecordsToExport.ALL));
