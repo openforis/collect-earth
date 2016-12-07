@@ -47,7 +47,8 @@ Edit that file to use the path of where your InstallBuilder is installed and the
 Don't forget to change your settings now in Eclipse so that this file is used Preferences->Maven->User Settings (User settings field)
 
 ### First step, prepare the release
-Now you can run the maven goal (using the profile assembly, which is the one in maven_settings.xml that contains the installbuilder parameters) 
+Now you can run the maven goal (using the profile __assembly__, which is the one in maven_settings.xml that contains the InstallBuilder parameters) . From Eclipse yu can do this in the main menu Run->Run Configurations...->Maven Build dialog.
+Choose ${workspace_loc:/collect-earth/collect-earth-app} as the base directory
 
 > release:clean release:prepare 
 
@@ -58,7 +59,7 @@ You can run this maven task if there is a problem while preparing the release
 
 ### Second step, perform the release
 
-Now you need to perform the release so that the installers that are generated end up in the nexus server
+Now you need to perform the release so that the installers that are generated end up in the nexus server. Also using the __assembly__ profile and ${workspace_loc:/collect-earth/collect-earth-app} as the base directory.
 
 > release:perform
 
