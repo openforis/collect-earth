@@ -36,6 +36,46 @@ Please register into our [community support forum](http://www.openforis.org/supp
 You can run Collect Earth directly through the IDE. In Eclipse you can use Run->Run Configurations... and then create a new "Java application" configuration.
 In the project set `collect-earth-app` and as Main class set `org.openforis.collect.earth.app.desktop.EarthApp`
 
+## Generating the installer
+
+In order to generate the installer you need to have [Bitrock InstallBuilder](https://installbuilder.bitrock.com/) installed in your computer.
+
+Take the file called [maven_settings.xml](https://github.com/openforis/collect-earth/blob/master/collect-earth/maven_settings.xml) (in the root folder ) and save it somewhere in your hard drive ( e.g. in the maven folder located in C:/Users/YOUR_USERNAME/.m2.
+
+Edit that file to use the path of where your InstallBuilder is installed and the credentials for Nexus server (where the rekleases are stored) and Github.
+
+Don't forget to change your settings now in Eclipse so that this file is used Preferences->Maven->User Settings (User settings field)
+
+# First step, prepare the release
+Now you can run the maven goal (using the profile assembly, which is the one in maven_settings.xml that contains the installbuilder parameters) 
+
+release:clean release:prepare 
+
+# Rollback if this goes wrong
+You can run this maven task if there is a problem while preparing the release
+
+release:rollback
+
+# Second step, perform the release
+
+Now you need to perform the release so that the installers that are generated end up in the nexus server
+
+release:perform
+
+Here you misht need to specify some extra parameters
+username (github username)
+password (github password)
+connectionUrl : scm:git/https://github.com/openforis/collect-earth.git )
+
+If anything goes bad during this step you can try to fix it and resume the release with this command
+
+release:perform -rf:collect-earth-installer
+
+# Last step, upload the collectEarthUpdater.xml to the server
+
+This is the file used by Collect Earth to know what is the latest version available.
+This step is manual and requires that you have access to the openforis.org website. The file should be accessible at the same location that is pointed out by the file in ./collect-earth-installer/src/main/resources/update.ini , currently the URL used is http://www.openforis.org/newwebsite/fileadmin/installer/collectEarthUpdate.xml 
+
 ## Contact
 
 Contact us through GitHub (@herrtunante) or openforisinitiative at gmail !
