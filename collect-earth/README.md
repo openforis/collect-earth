@@ -46,30 +46,30 @@ Edit that file to use the path of where your InstallBuilder is installed and the
 
 Don't forget to change your settings now in Eclipse so that this file is used Preferences->Maven->User Settings (User settings field)
 
-# First step, prepare the release
+### First step, prepare the release
 Now you can run the maven goal (using the profile assembly, which is the one in maven_settings.xml that contains the installbuilder parameters) 
 
-release:clean release:prepare 
+> release:clean release:prepare 
 
-# Rollback if this goes wrong
+### Rollback if this goes wrong
 You can run this maven task if there is a problem while preparing the release
 
-release:rollback
+> release:rollback
 
-# Second step, perform the release
+### Second step, perform the release
 
 Now you need to perform the release so that the installers that are generated end up in the nexus server
 
-release:perform
+> release:perform
 
 Here you misht need to specify some extra parameters
 username (github username)
 password (github password)
 connectionUrl : scm:git/https://github.com/openforis/collect-earth.git )
 
-If anything goes bad during this step you can try to fix it and resume the release with this command
+If anything goes wrong during this step you can try to fix it and resume the release with this command
 
-release:perform -rf:collect-earth-installer
+> release:perform -rf:collect-earth-installer
 
 # Last step, upload the collectEarthUpdater.xml to the server
 
