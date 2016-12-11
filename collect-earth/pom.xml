@@ -5,7 +5,7 @@
 	<version>1.4.6-SNAPSHOT</version>
 	<packaging>pom</packaging>
 	<name>Collect Earth</name>
-	<description>Collect Earth - Point Sampling Analysis tool</description>
+	<description>Collect Earth - Augmented Visual Interpretation</description>
 	<modules>
 		<module>collect-earth-core</module>
 		<module>collect-earth-app</module>
