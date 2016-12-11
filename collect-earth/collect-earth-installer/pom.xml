@@ -3,7 +3,7 @@
 	<parent>
 		<groupId>org.openforis.collect.earth</groupId>
 		<artifactId>collect-earth</artifactId>
-		<version>${project.parent.version}</version>
+		<version>1.4.6-SNAPSHOT</version>
 	</parent>
 	<artifactId>collect-earth-installer</artifactId>
 	<packaging>pom</packaging>
@@ -510,4 +510,5 @@ No Solaris installer necessary
 		
 	</profiles>
 
+	<version>${project.parent.version}</version>
 </project>

@@ -4,7 +4,7 @@
 	<parent>
 		<groupId>org.openforis.collect.earth</groupId>
 		<artifactId>collect-earth</artifactId>
-		<version>${project.parent.version}</version>
+		<version>1.4.6-SNAPSHOT</version>
 	</parent>
 
 	<name>Collect Earth Core</name>
@@ -58,4 +58,5 @@
 			</plugin>
 		</plugins>
 	</build>
+	<version>${project.parent.version}</version>
 </project>

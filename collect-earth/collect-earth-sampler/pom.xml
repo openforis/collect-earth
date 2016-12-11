@@ -5,7 +5,7 @@
 	<parent>
 		<groupId>org.openforis.collect.earth</groupId>
 		<artifactId>collect-earth</artifactId>
-		<version>${project.parent.version}</version>
+		<version>1.4.6-SNAPSHOT</version>
 	</parent>
 
 	<artifactId>collect-earth-sampler</artifactId>
@@ -90,4 +90,5 @@
 			<url>http://download.osgeo.org/webdav/geotools/</url>
 		</repository>
 	</repositories>
+	<version>${project.parent.version}</version>
 </project>
