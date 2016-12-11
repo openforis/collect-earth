@@ -510,5 +510,4 @@ No Solaris installer necessary
 		
 	</profiles>
 
-	<version>${project.parent.version}</version>
 </project>

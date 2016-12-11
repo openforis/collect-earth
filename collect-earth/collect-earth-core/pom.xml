@@ -58,5 +58,4 @@
 			</plugin>
 		</plugins>
 	</build>
-	<version>${project.parent.version}</version>
 </project>

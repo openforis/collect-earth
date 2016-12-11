@@ -90,5 +90,4 @@
 			<url>http://download.osgeo.org/webdav/geotools/</url>
 		</repository>
 	</repositories>
-	<version>${project.parent.version}</version>
 </project>
