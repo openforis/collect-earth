@@ -106,6 +106,22 @@
 			<artifactId>commons-io</artifactId>
 			<version>2.4</version>
 		</dependency>
+		<dependency>
+			<groupId>org.openforis.collect.earth</groupId>
+			<artifactId>collect-earth-core</artifactId>
+			<version>${project.version}</version>
+		</dependency>
+		<dependency>
+			<groupId>org.openforis.collect.earth</groupId>
+			<artifactId>collect-earth-sampler</artifactId>
+			<version>${project.version}</version>
+		</dependency>
+
+		<dependency>
+			<groupId>org.openforis.collect</groupId>
+			<artifactId>collect-core</artifactId>
+			<version>${collect.version}</version>
+		</dependency>
 		
 	</dependencies>
 
