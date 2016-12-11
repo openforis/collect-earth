@@ -168,5 +168,9 @@
 
 		</plugins>
 	</build>
-	<version>${project.parent.version}</version>
+
+  <scm>
+    <tag>collect-earth-app-1.4.6</tag>
+  </scm>
+  <version>${project.parent.version}</version>
 </project>
