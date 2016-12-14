@@ -4,13 +4,13 @@ import java.io.File;
 import java.io.FileReader;
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Properties;
 
-import net.lingala.zip4j.core.ZipFile;
-import net.lingala.zip4j.exception.ZipException;
-
+import org.apache.commons.io.FileUtils;
+import org.apache.commons.io.filefilter.IOFileFilter;
 import org.apache.commons.lang.ArrayUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.openforis.collect.earth.app.CollectEarthUtils;
@@ -20,6 +20,9 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
+
+import net.lingala.zip4j.core.ZipFile;
+import net.lingala.zip4j.exception.ZipException;
 
 
 
@@ -142,6 +145,8 @@ public class EarthProjectsService {
 			
 			setProjectDefinitionMD5(projectFolder);
 			
+			moveSaikuQueriesToRepository(projectFolder, (String) projectProperties.get("survey_name") );
+			
 			success = true;
 		}
 		
@@ -149,6 +154,41 @@ public class EarthProjectsService {
 		return success;
 	}
 
+
+	private void moveSaikuQueriesToRepository(File projectFolder, String surveyName) {
+
+		try {
+			Collection<File> saikuFiles = getSaikuFiles( projectFolder );
+			
+			String repoDirectory = "tomcat/webapps/saiku/WEB-INF/classes/saiku-repository";	
+			File saikuRepo = new File( localPropertiesService.getSaikuFolder() + File.separator + repoDirectory  + File.separator + surveyName );
+			
+			for (File saikuFile : saikuFiles) {
+				FileUtils.copyFileToDirectory(saikuFile, saikuRepo, true);
+			}
+		} catch (IOException e) {
+			logger.error("Error moving the Saiku files", e);
+		}
+
+		
+		
+	}
+
+	private Collection<File> getSaikuFiles(File projectFolder) {
+		return FileUtils.listFiles(projectFolder, new IOFileFilter() {
+			
+			@Override
+			public boolean accept(File dir, String name) {
+				return name.endsWith("saiku");
+			}
+			
+			@Override
+			public boolean accept(File file) {
+				
+				return file.getName().endsWith("saiku");
+			}
+		}, null);
+	}
 
 	private void setProjectDefinitionMD5(File projectFolder) throws IOException {
 		localPropertiesService.setValue( EarthProperty.ACTIVE_PROJECT_DEFINITION, CollectEarthUtils.getMd5FromFolder( projectFolder ) );
