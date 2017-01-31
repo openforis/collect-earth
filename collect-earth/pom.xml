@@ -2,7 +2,7 @@
 	<modelVersion>4.0.0</modelVersion>
 	<groupId>org.openforis.collect.earth</groupId>
 	<artifactId>collect-earth</artifactId>
-	<version>1.4.1-SNAPSHOT</version>
+	<version>1.4.5-SNAPSHOT</version>
 	<packaging>pom</packaging>
 	<name>Collect Earth</name>
 	<description>Collect Earth - Point Sampling Analysis tool</description>
@@ -20,7 +20,7 @@
 	<properties>
 		<java.version>1.8</java.version>
 		<project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-		<collect.version>3.10.22</collect.version>
+		<collect.version>3.11.8</collect.version>
 		<spring.version>4.2.4.RELEASE</spring.version>
 		<slf4j.version>1.7.13</slf4j.version>
 		<project.scm.id>github.com</project.scm.id>
@@ -41,7 +41,7 @@
 
 	<scm>
 		<developerConnection>scm:git:https://github.com/openforis/collect-earth.git</developerConnection>
-		<tag>collect-earth-1.3.10</tag>		
+		<tag>collect-earth-1.4.1</tag>		
 	</scm>
 
 	<build>

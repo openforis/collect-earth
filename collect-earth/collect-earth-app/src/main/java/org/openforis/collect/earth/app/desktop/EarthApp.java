@@ -374,7 +374,7 @@ public class EarthApp {
 		if (Desktop.isDesktopSupported()) {
 			Desktop.getDesktop().open(new File(KmlGeneratorService.KML_NETWORK_LINK_STARTER));
 		} else {
-			showMessage("The KMZ file cannot be open"); //$NON-NLS-1$
+			showMessage("The KML file cannot be open at " + KmlGeneratorService.KML_NETWORK_LINK_STARTER); //$NON-NLS-1$
 		}
 	}
 
