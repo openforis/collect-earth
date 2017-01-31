@@ -75,6 +75,9 @@ public class OptionWizard extends JDialog {
 
 	JPanel postgresPanel;
 	JPanel sqlitePanel;
+	JTabbedPane tabbedPane;
+	JComponent advancedPanel;
+	JFilePicker saikuPath;
 
 	LocalPropertiesService localPropertiesService;
 	
@@ -276,7 +279,7 @@ public class OptionWizard extends JDialog {
 	}
 
 	private JTabbedPane getOptionTabs() {
-		final JTabbedPane tabbedPane = new JTabbedPane();
+		tabbedPane = new JTabbedPane();
 		tabbedPane.setSize(550, 300);
 		final JComponent panel1 = getSampleDataPanel();
 		tabbedPane.addTab(Messages.getString("OptionWizard.31"), panel1); //$NON-NLS-1$
@@ -287,14 +290,16 @@ public class OptionWizard extends JDialog {
 		final JComponent panel3 = getSurveyDefinitonPanel();
 		tabbedPane.addTab(Messages.getString("OptionWizard.33"), panel3); //$NON-NLS-1$
 
-		final JComponent panel4 = getAdvancedOptionsPanel();
-		tabbedPane.addTab(Messages.getString("OptionWizard.34"), panel4); //$NON-NLS-1$
+		advancedPanel = getAdvancedOptionsPanel();
+		tabbedPane.addTab(Messages.getString("OptionWizard.34"), advancedPanel); //$NON-NLS-1$
 
 		final JComponent panel5 = getOperationModePanelScroll();
 		tabbedPane.addTab(Messages.getString("OptionWizard.25"), panel5); //$NON-NLS-1$
 
 		final JComponent panel6 = getProjectsPanelScroll();
 		tabbedPane.addTab(Messages.getString("OptionWizard.40"), panel6); //$NON-NLS-1$
+		
+		validateSaikuFolder(saikuPath) ;
 
 		return tabbedPane;
 	}
@@ -890,20 +895,14 @@ public class OptionWizard extends JDialog {
 		firefoxChooser.setName(EarthConstants.FIREFOX_BROWSER);
 		propertyToComponent.put(EarthProperty.BROWSER_TO_USE, new JComponent[] { firefoxChooser, chromeChooser });
 
-		final JFilePicker saikuPath = new JFilePicker(Messages.getString("OptionWizard.65"), //$NON-NLS-1$
+		saikuPath = new JFilePicker(Messages.getString("OptionWizard.65"), //$NON-NLS-1$
 				localPropertiesService.getValue(EarthProperty.SAIKU_SERVER_FOLDER), Messages.getString("OptionWizard.66")); //$NON-NLS-1$
 		saikuPath.setMode(JFilePicker.MODE_OPEN);
 		saikuPath.setFolderChooser();
 		saikuPath.addChangeListener(new DocumentListener() {
 
 			private void showSaikuWarning(){
-				final File saikuFolder = new File(saikuPath.getSelectedFilePath());
-				if( saikuFolder!=null && !saikuService.isSaikuFolder( saikuFolder )){
-					JOptionPane.showMessageDialog( OptionWizard.this, Messages.getString("OptionWizard.27"), Messages.getString("OptionWizard.28"), JOptionPane.INFORMATION_MESSAGE ); //$NON-NLS-1$ //$NON-NLS-2$
-					saikuPath.getTextField().setBackground(CollectEarthWindow.ERROR_COLOR);
-				}else{
-					saikuPath.getTextField().setBackground(Color.white);
-				}
+				validateSaikuFolder(saikuPath);
 			}
 
 			@Override
@@ -1014,6 +1013,19 @@ public class OptionWizard extends JDialog {
 
 	public void setRestartRequired(boolean restartRequired) {
 		this.restartRequired = restartRequired;
+	}
+
+
+	private void validateSaikuFolder(final JFilePicker saikuPath) {
+		final File saikuFolder = new File(saikuPath.getSelectedFilePath());
+		if( saikuFolder!=null && !saikuService.isSaikuFolder( saikuFolder )){
+			JOptionPane.showMessageDialog( OptionWizard.this, Messages.getString("OptionWizard.27"), Messages.getString("OptionWizard.28"), JOptionPane.INFORMATION_MESSAGE ); //$NON-NLS-1$ //$NON-NLS-2$
+			saikuPath.getTextField().setBackground(CollectEarthWindow.ERROR_COLOR);
+			tabbedPane.setSelectedComponent(advancedPanel);
+			saikuPath.requestFocus();
+		}else{
+			saikuPath.getTextField().setBackground(Color.white);
+		}
 	}
 
 }
