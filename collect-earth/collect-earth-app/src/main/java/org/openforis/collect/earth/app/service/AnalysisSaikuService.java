@@ -26,7 +26,6 @@ import net.lingala.zip4j.exception.ZipException;
 import org.apache.commons.codec.binary.Hex;
 import org.apache.commons.dbcp.BasicDataSource;
 import org.apache.commons.lang3.StringEscapeUtils;
-import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.SystemUtils;
 import org.openforis.collect.earth.app.CollectEarthUtils;
 import org.openforis.collect.earth.app.EarthConstants;
@@ -94,6 +93,7 @@ public class AnalysisSaikuService {
 	EarthSurveyService earthSurveyService;
 
 	@Autowired
+	public
 	LocalPropertiesService localPropertiesService;
 
 	@Autowired
@@ -436,26 +436,16 @@ public class AnalysisSaikuService {
 
 	private String getSaikuConfigurationFilePath() {
 
-		String configFile = getSaikuFolder() + "/" + "tomcat/webapps/saiku/WEB-INF/classes/saiku-datasources/collectEarthDS"; //$NON-NLS-1$ //$NON-NLS-2$
+		String configFile = localPropertiesService.getSaikuFolder() + "/" + "tomcat/webapps/saiku/WEB-INF/classes/saiku-datasources/collectEarthDS"; //$NON-NLS-1$ //$NON-NLS-2$
 		configFile = configFile.replace('/', File.separatorChar);
 		return configFile;
 	}
 
 	private String getSaikuThreeConfigurationFilePath() {
 
-		String configFile = getSaikuFolder() + "/" + "tomcat/webapps/saiku/WEB-INF/classes/legacy-datasources/collectEarthDS"; //$NON-NLS-1$ //$NON-NLS-2$
+		String configFile = localPropertiesService.getSaikuFolder() + "/" + "tomcat/webapps/saiku/WEB-INF/classes/legacy-datasources/collectEarthDS"; //$NON-NLS-1$ //$NON-NLS-2$
 		configFile = configFile.replace('/', File.separatorChar);
 		return configFile;
-	}
-
-	private String getSaikuFolder() {
-		final String configuredSaikuFolder = localPropertiesService.convertToOSPath( localPropertiesService.getValue(EarthProperty.SAIKU_SERVER_FOLDER) );
-		if (StringUtils.isBlank(configuredSaikuFolder)) {
-			return ""; //$NON-NLS-1$
-		} else {
-			final File saikuFolder = new File(configuredSaikuFolder);
-			return saikuFolder.getAbsolutePath();
-		}
 	}
 
 	@PostConstruct
@@ -477,7 +467,7 @@ public class AnalysisSaikuService {
 	}
 
 	private boolean isSaikuConfigured() {
-		return getSaikuFolder() != null && isSaikuFolder(new File(getSaikuFolder()));
+		return localPropertiesService.getSaikuFolder() != null && isSaikuFolder(new File(localPropertiesService.getSaikuFolder()));
 	}
 
 	/*private boolean isJavaHomeConfigured() {
@@ -794,7 +784,7 @@ public class AnalysisSaikuService {
 			throw new SaikuExecutionException("The JAVA_HOME environment variable is not configured. JAVA_HOME must point to the root folder of a valid JDK."); //$NON-NLS-1$
 		} */
 		else {
-			String saikuCmd = getSaikuFolder() + File.separator + commandName + getCommandSuffix() ;
+			String saikuCmd = localPropertiesService.getSaikuFolder() + File.separator + commandName + getCommandSuffix() ;
 
 			if (SystemUtils.IS_OS_WINDOWS){
 				saikuCmd = "\"" + saikuCmd  + "\""; //$NON-NLS-1$ //$NON-NLS-2$
@@ -870,7 +860,7 @@ public class AnalysisSaikuService {
 		// Fixes bug with Mac OS X not using the environemnt variable set for bash
 		setMacJreHome(builder);
 		
-		builder.directory(new File(getSaikuFolder()).getAbsoluteFile());
+		builder.directory(new File(localPropertiesService.getSaikuFolder()).getAbsoluteFile());
 		builder.redirectErrorStream(true);
 		Process p = builder.start();
 		(new ProcessLoggerThread(p.getInputStream()) ).start();
@@ -896,7 +886,7 @@ public class AnalysisSaikuService {
 	}
 
 	private void startSaiku() throws SaikuExecutionException {
-		logger.warn("Starting the Saiku server" + getSaikuFolder() + File.separator + START_SAIKU); //$NON-NLS-1$
+		logger.warn("Starting the Saiku server" + localPropertiesService.getSaikuFolder() + File.separator + START_SAIKU); //$NON-NLS-1$
 
 		runSaikuBat(START_SAIKU);
 
@@ -906,7 +896,7 @@ public class AnalysisSaikuService {
 	}
 
 	private void stopSaiku() throws SaikuExecutionException {
-		logger.warn("Stoping the Saiku server" + getSaikuFolder() + File.separator + STOP_SAIKU); //$NON-NLS-1$
+		logger.warn("Stoping the Saiku server" + localPropertiesService.getSaikuFolder() + File.separator + STOP_SAIKU); //$NON-NLS-1$
 		if( isSaikuStarted() ){
 			runSaikuBat(STOP_SAIKU);
 			this.setSaikuStarted(true);

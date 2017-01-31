@@ -18,6 +18,7 @@ import org.openforis.collect.earth.app.EarthConstants.CollectDBDriver;
 import org.openforis.collect.earth.app.EarthConstants.OperationMode;
 import org.openforis.collect.earth.app.EarthConstants.SAMPLE_SHAPE;
 import org.openforis.collect.earth.app.EarthConstants.UI_LANGUAGE;
+import org.openforis.collect.earth.app.service.LocalPropertiesService.EarthProperty;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
@@ -524,6 +525,16 @@ public class LocalPropertiesService {
 
 	public void removeModelVersionName() {
 		setValue(EarthProperty.MODEL_VERSION_NAME, "", true);
+	}
+
+	public String getSaikuFolder() {
+		final String configuredSaikuFolder = convertToOSPath( getValue(EarthProperty.SAIKU_SERVER_FOLDER) );
+		if (StringUtils.isBlank(configuredSaikuFolder)) {
+			return ""; //$NON-NLS-1$
+		} else {
+			final File saikuFolder = new File(configuredSaikuFolder);
+			return saikuFolder.getAbsolutePath();
+		}
 	}
 
 	

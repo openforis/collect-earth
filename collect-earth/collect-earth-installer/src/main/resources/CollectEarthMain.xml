@@ -170,7 +170,9 @@
         		</setInstallerVariable>
         	</actionList>
         	<conditionRuleList>
-        		<platformTest><type>windows</type></platformTest>
+        		<platformTest>
+        			<type>windows</type>
+        		</platformTest>
 			</conditionRuleList> 
 			<elseActionList>
 				<setInstallerVariable>
@@ -291,7 +293,20 @@
             </ruleList>
         </runProgram>
                  
-                
+        <!-- Make sure that Collect Earth runs properly n 4K displays by disabling the High DPI feature -->
+         <registrySet>
+	      <type>REG_SZ</type>
+	      <value>~ HIGHDPIAWARE</value>
+	      <key>HKEY_CURRENT_USER\Software\Microsoft\Windows NT\CurrentVersion\AppCompatFlags\Layers</key>
+	      <name>${installdir}\${java_launcher_binary_name}</name>
+	      <ruleList>
+                <platformTest>
+                    <type>windows</type>
+                </platformTest>
+            </ruleList>
+		</registrySet>
+        
+            
     </postInstallationActionList>
     <startMenuShortcutList>
         <startMenuShortcut>

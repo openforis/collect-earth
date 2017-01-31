@@ -521,14 +521,22 @@ public abstract class AbstractEarthSurveyService {
 		result.setInputFieldInfoByParameterName(infoByParameterName);
 		return result;
 	}
+	
 	private void updateKeyAttributeValues(CollectRecord record, String[] keyAttributeValues) {
+		boolean previewRecordID = isPreviewRecordID(keyAttributeValues);
 		List<AttributeDefinition> keyAttributeDefinitions = getCollectSurvey().getSchema().getRootEntityDefinitions()
 				.get(0).getKeyAttributeDefinitions();
 		for (int i = 0; i < keyAttributeValues.length; i++) {
 			String keyValue = keyAttributeValues[i];
 			AttributeDefinition keyAttrDef = keyAttributeDefinitions.get(i);
 			Attribute<?, Value> keyAttr = record.findNodeByPath(keyAttrDef.getPath());
-			recordUpdater.updateAttribute(keyAttr, (Value) keyAttr.getDefinition().createValue(keyValue));
+			Value keyVal;
+			if (previewRecordID) {
+				keyVal = (Value) keyAttr.getDefinition().createValue(i == 0 ? "testPlacemark" : "1");
+			} else {
+				keyVal = (Value) keyAttr.getDefinition().createValue(keyValue);
+			}
+			recordUpdater.updateAttribute(keyAttr, keyVal);
 
 		}
 	}
@@ -567,8 +575,9 @@ public abstract class AbstractEarthSurveyService {
 		return keys;
 	}
 	
-	private boolean isPreviewRecordID(String[] multipleKeyAttributes) {
-		return multipleKeyAttributes.length == 1 && "$[EXTRA_id]".equals(multipleKeyAttributes[0]);
+	private boolean isPreviewRecordID(String[] keyAttributeValues) {
+		return keyAttributeValues.length >= 1 && 
+				"$[EXTRA_id]".equals(keyAttributeValues[0]);
 	}
 
 }

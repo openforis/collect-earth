@@ -52,7 +52,6 @@ import org.openforis.collect.earth.app.service.KmlImportService;
 import org.openforis.collect.earth.app.service.LocalPropertiesService;
 import org.openforis.collect.earth.app.service.MissingPlotService;
 import org.openforis.collect.earth.app.view.ExportActionListener.RecordsToExport;
-import org.openforis.collect.manager.RecordManager;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -72,9 +71,6 @@ public class CollectEarthWindow{
 
 	@Autowired
 	private DataImportExportService dataImportExportService;
-
-	@Autowired
-	private RecordManager recordManager;
 
 	@Autowired
 	private EarthSurveyService earthSurveyService;
@@ -168,11 +164,23 @@ public class CollectEarthWindow{
 		exportModifiedRecords.addActionListener(getExportActionListener(DataFormat.ZIP_WITH_XML, RecordsToExport.MODIFIED_SINCE_LAST_EXPORT));
 		xmlExportSubmenu.add(exportModifiedRecords);
 
-		final JMenuItem exportDataRangeRecords = new JMenuItem("Export data to XML (from specific date)"); //$NON-NLS-1$
+		final JMenuItem exportDataRangeRecords = new JMenuItem("Export data to XML (from specific date)");
 		exportDataRangeRecords.addActionListener(getExportActionListener(DataFormat.ZIP_WITH_XML, RecordsToExport.PICK_FROM_DATE));
 		xmlExportSubmenu.add(exportDataRangeRecords);
-
+		
 		ieSubmenu.add(xmlExportSubmenu);
+		
+		final JMenu backupExportSubmenu = new JMenu("Export to Collect Backup");
+		
+		final JMenuItem exportDataBackup = new JMenuItem("Export data as Collect backup (all data)");
+		exportDataBackup.addActionListener(getExportActionListener(DataFormat.COLLECT_BACKUP, RecordsToExport.ALL));
+		backupExportSubmenu.add(exportDataBackup);
+		
+		final JMenuItem exportDataRangeBackup = new JMenuItem("Export data as Collect backup (from date)");
+		exportDataRangeBackup.addActionListener(getExportActionListener(DataFormat.COLLECT_BACKUP, RecordsToExport.PICK_FROM_DATE));
+		backupExportSubmenu.add(exportDataRangeBackup);
+		
+		ieSubmenu.add( backupExportSubmenu );
 
 		menuItem = new JMenuItem(Messages.getString("CollectEarthWindow.6")); //$NON-NLS-1$
 		menuItem.addActionListener(getExportActionListener(DataFormat.FUSION, RecordsToExport.ALL));

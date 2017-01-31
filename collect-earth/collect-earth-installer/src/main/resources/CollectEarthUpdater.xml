@@ -37,14 +37,48 @@
                         <distributionFile>
                             <origin>COLLECT_EARTH_MAIN_FOLDER/collect-earth-installer/target/installer/update.ini</origin>
                         </distributionFile>
-                        <distributionDirectory>
-                            <origin>COLLECT_EARTH_MAIN_FOLDER/collect-earth-app/resources</origin>
-                        </distributionDirectory>
                         <distributionFile>
 		                    <origin>COLLECT_EARTH_MAIN_FOLDER/collect-earth-app/UserManual.pdf</origin>
 		                </distributionFile>
                     </distributionFileList>
                 </folder>
+                <folder>
+		            <description>Resources Windows</description>
+		            <destination>${installdir}/resources</destination>
+		            <name>resourceswindows</name>
+		            <platforms>windows</platforms>
+		            <distributionFileList>
+			         	<distributionDirectory  allowWildcards="1">
+			                <excludeFiles>*/chromedriver;*/chromedriver_mac;*/geckodriver;*/geckodriver_mac</excludeFiles>
+			            	<origin>../../../collect-earth-app/resources/*</origin>
+			            </distributionDirectory>
+		            </distributionFileList>
+		        </folder>
+		        <folder>
+		            <description>Resources Linux</description>
+		            <destination>${installdir}/resources</destination>
+		            <name>resourceslinux</name>
+		            <platforms>linux linux-x64</platforms>
+		            <distributionFileList>
+			         	<distributionDirectory  allowWildcards="1">
+			                <excludeFiles>*/chromedriver.exe;*/chromedriver_mac;*/geckodriver.exe;*/geckodriver_mac</excludeFiles>
+			            	<origin>../../../collect-earth-app/resources/*</origin>
+			            </distributionDirectory>
+		            </distributionFileList>
+		        </folder>
+		        <folder>
+		            <description>Resources Mac</description>
+		            <destination>${installdir}/resources</destination>
+		            <name>resourcesosx</name>
+		            <platforms>osx</platforms>
+		            <distributionFileList>
+			         	<distributionDirectory allowWildcards="1">
+			                <excludeFiles>*/chromedriver.exe;*/chromedriver;*/geckodriver.exe;*/geckodriver</excludeFiles>
+			            	<origin>../../../collect-earth-app/resources/*</origin>
+			            </distributionDirectory>
+		            </distributionFileList>
+		        </folder>
+                
             </folderList>
         </component>
     </componentList>

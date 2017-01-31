@@ -10,9 +10,6 @@
 			<installbuilder-output-directory>PATH TO THE INSTALLBUILDER INSTALLERS OUTPUT FOLDER</installbuilder-output-directory>
 			<ftp_server>THE FTP SERVER WHERE THE UDATER XML IS STORED</ftp_server>
 			<ftp_folder>FOLDER TO STORE THE UPDATER XML IN</ftp_folder>
-			<bing_maps_key>YOUR BING MAPS KEY</bing_maps_key>
-			<here_app_code>YOUR HERE MAPS APP CODE</here_app_code>
-			<here_app_id>YOUR HERE MAPS ID</here_app_id>
 		</properties>
 	</profile>
   </profiles>

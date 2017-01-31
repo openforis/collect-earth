@@ -9,7 +9,8 @@ public enum DataFormat{
 			CSV(new String[]{"csv"}, Messages.getString("CollectEarthWindow.38")), //$NON-NLS-1$ //$NON-NLS-2$
 			FUSION(new String[]{"csv"}, Messages.getString("CollectEarthWindow.49")), //$NON-NLS-1$ //$NON-NLS-2$
 			COLLECT_COORDS(new String[]{"ced", "csv"}, "Collect Earth plots"),//$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$
-			KML_FILE(new String[]{"kml"}, "Google Earth Kml File"); //$NON-NLS-1$ //$NON-NLS-2$
+			KML_FILE(new String[]{"kml"}, "Google Earth Kml File"), //$NON-NLS-1$ //$NON-NLS-2$
+			COLLECT_BACKUP(new String[]{"collect-data"}, "Collect Backup");
 
 	private String[] fileExtension;
 	private String description;

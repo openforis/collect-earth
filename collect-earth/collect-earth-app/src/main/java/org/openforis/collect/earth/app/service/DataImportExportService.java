@@ -8,11 +8,13 @@ import java.util.List;
 import org.openforis.collect.earth.app.EarthConstants;
 import org.openforis.collect.io.data.CSVDataExportProcess;
 import org.openforis.collect.io.data.CSVDataImportProcess;
+import org.openforis.collect.io.data.DataExportStatus;
 import org.openforis.collect.io.data.DataImportSummaryItem;
 import org.openforis.collect.io.data.XMLDataExportProcess;
 import org.openforis.collect.io.data.XMLDataImportProcess;
 import org.openforis.collect.io.data.csv.CSVDataImportSettings;
 import org.openforis.collect.io.data.csv.CSVExportConfiguration;
+import org.openforis.collect.manager.process.AbstractProcess;
 import org.openforis.collect.model.CollectRecord;
 import org.openforis.collect.model.CollectRecord.Step;
 import org.openforis.collect.model.CollectSurvey;
@@ -51,7 +53,7 @@ public class DataImportExportService {
 		}
 	}
 
-	public CSVDataExportProcess exportSurveyAsCsv(File exportToFile) throws Exception {
+	public CSVDataExportProcess exportSurveyAsCsv(File exportToFile, boolean includeCodeItemLabelColumn) throws Exception {
 		final CSVDataExportProcess csvDataExportProcess = applicationContext.getBean(CSVDataExportProcess.class);
 		csvDataExportProcess.setOutputFile(exportToFile);
 
@@ -60,6 +62,7 @@ public class DataImportExportService {
 		
 		CSVExportConfiguration config = new CSVExportConfiguration();
 		config.setIncludeAllAncestorAttributes(true);
+		config.setIncludeCodeItemLabelColumn(includeCodeItemLabelColumn);
 		csvDataExportProcess.setConfiguration(config);
 
 		return csvDataExportProcess;
@@ -71,18 +74,18 @@ public class DataImportExportService {
 		return recordFilter;
 	}
 
-	public CSVDataExportProcess exportSurveyAsFusionTable(File exportToFile) throws Exception {
+	public CSVDataExportProcess exportSurveyAsFusionTable(File exportToFile, boolean includeCodeItemLabelColumn) throws Exception {
 
 		final CSVDataExportProcess csvDataExportProcess = applicationContext.getBean(CSVDataExportProcess.class);
 		csvDataExportProcess.setOutputFile(exportToFile);
 		csvDataExportProcess.setEntityId(earthSurveyService.getRootEntityDefinition().getId());
 		csvDataExportProcess.setRecordFilter( getRecordFilter() ) ;
 		
-
 		CSVExportConfiguration config = new CSVExportConfiguration();
 		config.setIncludeAllAncestorAttributes(true);
 		config.setIncludeCodeItemPositionColumn(true);
 		config.setIncludeKMLColumnForCoordinates(true);
+		config.setIncludeCodeItemLabelColumn( includeCodeItemLabelColumn );
 		csvDataExportProcess.setConfiguration(config);
 		return csvDataExportProcess;
 	}
@@ -160,6 +163,21 @@ public class DataImportExportService {
 
 		logger.warn("Data imported into db. Number of Records imported : " + entryIdsToImport.size() + " Conflicting records added : " //$NON-NLS-1$ //$NON-NLS-2$
 				+ conflictingRecordsAdded);
+	}
+
+	public AbstractProcess<Void, DataExportStatus> exportSurveyAsBackup(File exportToFile) {
+		final CSVDataExportProcess csvDataExportProcess = applicationContext.getBean(CSVDataExportProcess.class);
+		csvDataExportProcess.setOutputFile(exportToFile);
+		csvDataExportProcess.setEntityId(earthSurveyService.getRootEntityDefinition().getId());
+		csvDataExportProcess.setRecordFilter( getRecordFilter() ) ;
+		
+
+		CSVExportConfiguration config = new CSVExportConfiguration();
+		config.setIncludeAllAncestorAttributes(true);
+		config.setIncludeCodeItemPositionColumn(true);
+		config.setIncludeKMLColumnForCoordinates(true);
+		csvDataExportProcess.setConfiguration(config);
+		return csvDataExportProcess;
 	}
 
 

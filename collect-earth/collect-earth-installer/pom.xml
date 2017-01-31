@@ -3,7 +3,7 @@
 	<parent>
 		<groupId>org.openforis.collect.earth</groupId>
 		<artifactId>collect-earth</artifactId>
-		<version>1.4.5-SNAPSHOT</version>
+		<version>1.5.3-SNAPSHOT</version>
 	</parent>
 	<artifactId>collect-earth-installer</artifactId>
 	<packaging>pom</packaging>
@@ -105,6 +105,15 @@
 											<artifactId>jre</artifactId>
 											<version>${jre.version}</version>
 											<classifier>windows-i386</classifier>
+											<type>zip</type>
+											<overWrite>false</overWrite>
+											<outputDirectory>${installer-build-path}/jre_files</outputDirectory>
+										</artifactItem>
+										<artifactItem>
+											<groupId>com.oracle.java</groupId>
+											<artifactId>jre</artifactId>
+											<version>${jre.version}</version>
+											<classifier>windows-x64</classifier>
 											<type>zip</type>
 											<overWrite>false</overWrite>
 											<outputDirectory>${installer-build-path}/jre_files</outputDirectory>

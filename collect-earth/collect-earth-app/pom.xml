@@ -4,10 +4,10 @@
 	<parent>
 		<groupId>org.openforis.collect.earth</groupId>
 		<artifactId>collect-earth</artifactId>
-		<version>1.4.5-SNAPSHOT</version>
+		<version>1.5.3-SNAPSHOT</version>
 	</parent>
 
-	<name>Earth App</name>
+	<name>Collect Earth Application</name>
 	<artifactId>collect-earth-app</artifactId>
 	<packaging>jar</packaging>
 
@@ -19,32 +19,20 @@
 	</properties>
 
 	<dependencies>
+		
 		<dependency>
 			<groupId>org.openforis.collect.earth</groupId>
 			<artifactId>collect-earth-core</artifactId>
-			<version>${project.version}</version>
 		</dependency>
 		<dependency>
 			<groupId>org.openforis.collect.earth</groupId>
 			<artifactId>collect-earth-sampler</artifactId>
-			<version>${project.version}</version>
-		</dependency>
-
-		<dependency>
-			<groupId>org.openforis.collect</groupId>
-			<artifactId>collect-core</artifactId>
-			<version>${collect.version}</version>
 		</dependency>
 		
 		<!-- Jetty -->
 		<dependency>
 			<groupId>org.eclipse.jetty</groupId>
 			<artifactId>jetty-server</artifactId>
-			<version>${jetty.version}</version>
-		</dependency>
-		<dependency>
-			<groupId>org.eclipse.jetty</groupId>
-			<artifactId>jetty-servlet</artifactId>
 			<version>${jetty.version}</version>
 		</dependency>
 		<dependency>
@@ -59,12 +47,6 @@
 		</dependency>
 
 		<!-- Spring dependencies -->
-		<dependency>
-			<groupId>org.springframework</groupId>
-			<artifactId>spring-test</artifactId>
-			<scope>test</scope>
-			<version>${spring.version}</version>
-		</dependency>
 		<dependency>
 			<groupId>org.springframework</groupId>
 			<artifactId>spring-tx</artifactId>
@@ -168,4 +150,8 @@
 
 		</plugins>
 	</build>
+
+  <scm>
+    <tag>collect-earth-app-1.4.6</tag>
+  </scm>
 </project>
