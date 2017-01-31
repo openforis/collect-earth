@@ -90,17 +90,16 @@ public class PlaygroundHandlerThread {
 			}
 			
 			fixedScriptForMac.append("//THE END"); // Don't remove this!!! this way we mark the point where tere should be no trailing character removal
-			for(int i=0; i<DUMMY_SPACES; i++){
-				fixedScriptForMac.append(" ");
-			}
+			
 						
 			textArea.sendKeys(fixedScriptForMac);
+			
+			Thread.sleep(5000);
 			// Fix the extra characters added by removing the last 10 chars ( this is a bug from Selenium! )
 			textArea.sendKeys(Keys.PAGE_DOWN);
 			Thread.sleep(500);
 			textArea.sendKeys(Keys.PAGE_DOWN);
-			// Remove training special characters "}", "]", ")" 
-			removeTrailingAddedCharacters(textArea);		
+			
 			
 			
 		}else{
@@ -120,12 +119,6 @@ public class PlaygroundHandlerThread {
 		//((JavascriptExecutor)webDriverGeePlayground).executeScript("arguments[0].value = arguments[1];", textArea,);
 		Thread.sleep(1000);
 		webDriverGee.findElementByCssSelector("button.goog-button.run-button").click();
-	}
-
-	// GEE Playground adds trailing characters automatically through Javascript, lets remove them!!!
-	private void removeTrailingAddedCharacters(WebElement textArea) {
-		for(int i =0; i<DUMMY_SPACES; i++)
-			textArea.sendKeys( Keys.BACK_SPACE ) ;
 	}
 
 
