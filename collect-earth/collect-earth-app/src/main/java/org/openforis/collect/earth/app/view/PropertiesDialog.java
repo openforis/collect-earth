@@ -55,6 +55,7 @@ import org.openforis.collect.earth.app.service.AnalysisSaikuService;
 import org.openforis.collect.earth.app.service.EarthProjectsService;
 import org.openforis.collect.earth.app.service.LocalPropertiesService;
 import org.openforis.collect.earth.app.service.LocalPropertiesService.EarthProperty;
+import org.openforis.collect.model.CollectSurvey;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -62,7 +63,7 @@ import org.slf4j.LoggerFactory;
  * @author Alfonso Sanchez-Paus Diaz
  * 
  */
-public class OptionWizard extends JDialog {
+public class PropertiesDialog extends JDialog {
 
 	private static final ComboBoxItem COMBO_BOX_ITEM_CENTRAL_POINT = new ComboBoxItem(1, Messages.getString("OptionWizard.54"));
 
@@ -88,13 +89,18 @@ public class OptionWizard extends JDialog {
 
 	private String oldSelectedDistance;
 
+	private CollectSurvey surveyLoaded;
 
-	public OptionWizard(JFrame frame, LocalPropertiesService localPropertiesService, EarthProjectsService projectsService,  String backupFolder, AnalysisSaikuService saikuService) {
+	private JButton applyChanges;
+
+
+	public PropertiesDialog(JFrame frame, LocalPropertiesService localPropertiesService, EarthProjectsService projectsService,  String backupFolder, AnalysisSaikuService saikuService, CollectSurvey surveyLoaded) {
 		super(frame, Messages.getString("OptionWizard.0")); //$NON-NLS-1$
 		this.localPropertiesService = localPropertiesService;
 		this.projectsService = projectsService;
 		this.backupFolder = backupFolder;
 		this.saikuService = saikuService;
+		this.surveyLoaded = surveyLoaded;
 		this.setLocationRelativeTo(null);
 		this.setSize(new Dimension(600, 620));
 		this.setModal(true);
@@ -125,7 +131,7 @@ public class OptionWizard extends JDialog {
 
 	}
 
-	public void enableContainer(Container container, boolean enable) {
+	private void enableContainer(Container container, boolean enable) {
 		final Component[] components = container.getComponents();
 		for (final Component component : components) {
 			component.setEnabled(enable);
@@ -198,23 +204,23 @@ public class OptionWizard extends JDialog {
 	}
 
 	private Component getApplyChangesButton() {
-		final JButton applyChanges = new JButton(Messages.getString("OptionWizard.15")); //$NON-NLS-1$
-		applyChanges.addActionListener(new ApplyOptionChangesListener(this, localPropertiesService, propertyToComponent){
-			@Override
-			protected void applyProperties() {
-
-				savePropertyValues();
-				if( isRestartRequired() ){
-					restartEarth();
-				}else{
-					
-					EarthApp.executeKmlLoadAsynchronously( OptionWizard.this );
-					
+		if( applyChanges == null ){
+			applyChanges = new JButton(Messages.getString("OptionWizard.15"));
+			applyChanges.addActionListener(new ApplyOptionChangesListener(this, localPropertiesService, propertyToComponent){
+				@Override
+				protected void applyProperties() {
+	
+					savePropertyValues();
+					if( isRestartRequired() ){
+						restartEarth();
+					}else{
+						
+						EarthApp.executeKmlLoadAsynchronously( PropertiesDialog.this );
+						
+					}
 				}
-			}
-		});
-
-			
+			});
+		}		
 
 		return applyChanges;
 	}
@@ -229,7 +235,7 @@ public class OptionWizard extends JDialog {
 		cancelButton.addActionListener(new ActionListener() {
 			@Override
 			public void actionPerformed(ActionEvent arg0) {
-				OptionWizard.this.dispose();
+				PropertiesDialog.this.dispose();
 			}
 		});
 		return cancelButton;
@@ -258,7 +264,7 @@ public class OptionWizard extends JDialog {
 		return typeOfUsePanel;
 	}
 	
-	public void enableDBOptions(boolean isPostgreDb) {
+	private void enableDBOptions(boolean isPostgreDb) {
 		enableContainer(postgresPanel, isPostgreDb);
 		enableContainer( sqlitePanel, !isPostgreDb);
 	}
@@ -322,7 +328,7 @@ public class OptionWizard extends JDialog {
 				final File[] selectedProjectFile = JFileChooserExistsAware.getFileChooserResults(
 						DataFormat.PROJECT_DEFINITION_FILE, false, false, 
 						null,localPropertiesService,
-						(JFrame) OptionWizard.this.getParent());
+						(JFrame) PropertiesDialog.this.getParent());
 
 				if( selectedProjectFile.length == 1 ){
 					try {
@@ -330,7 +336,7 @@ public class OptionWizard extends JDialog {
 
 						restartEarth();						
 					} catch (Exception e1) {
-						JOptionPane.showMessageDialog( OptionWizard.this, e1.getMessage(), Messages.getString("OptionWizard.51"), JOptionPane.ERROR_MESSAGE); //$NON-NLS-1$
+						JOptionPane.showMessageDialog( PropertiesDialog.this, e1.getMessage(), Messages.getString("OptionWizard.51"), JOptionPane.ERROR_MESSAGE); //$NON-NLS-1$
 						logger.error("Error importing project file " + selectedProjectFile[0].getAbsolutePath(), e1); //$NON-NLS-1$
 					}
 
@@ -379,7 +385,7 @@ public class OptionWizard extends JDialog {
 					projectsService.loadProjectInFolder( projectFolder );
 					restartEarth();						
 				} catch (Exception e1) {
-					JOptionPane.showMessageDialog( OptionWizard.this, e1.getMessage(), Messages.getString("OptionWizard.55"), JOptionPane.ERROR_MESSAGE); //$NON-NLS-1$
+					JOptionPane.showMessageDialog( PropertiesDialog.this, e1.getMessage(), Messages.getString("OptionWizard.55"), JOptionPane.ERROR_MESSAGE); //$NON-NLS-1$
 					logger.error("Error importing project folder " + projectFolder.getAbsolutePath(), e1); //$NON-NLS-1$
 				}
 
@@ -590,7 +596,7 @@ public class OptionWizard extends JDialog {
 				String password = ( (JTextField)(propertyToComponent.get(EarthProperty.DB_PASSWORD)[0]) ).getText();
 				
 				String message = CollectEarthUtils.testPostgreSQLConnection( host, port, dbName, username, password);
-				JOptionPane.showMessageDialog(OptionWizard.this.getOwner(), message  , "PostgreSQL Connection test", JOptionPane.INFORMATION_MESSAGE);
+				JOptionPane.showMessageDialog(PropertiesDialog.this.getOwner(), message  , "PostgreSQL Connection test", JOptionPane.INFORMATION_MESSAGE);
 				
 			}
 		});
@@ -620,7 +626,7 @@ public class OptionWizard extends JDialog {
 	}
 
 	private JComponent getSampleDataPanel() {
-		final JPlotCsvTable samplePlots = new JPlotCsvTable( localPropertiesService.getValue(EarthProperty.SAMPLE_FILE) );
+		final JPlotCsvTable samplePlots = new JPlotCsvTable( localPropertiesService.getValue(EarthProperty.SAMPLE_FILE), surveyLoaded );
 
 		final JPanel panel = new JPanel(new GridBagLayout());
 		final GridBagConstraints constraints = new GridBagConstraints();
@@ -671,6 +677,9 @@ public class OptionWizard extends JDialog {
 			
 			private void refreshTable() {
 				samplePlots.refreshTable(refreshTableOnFileChange.getSelectedFilePath());
+				
+				//Do not let the user save the changes if the sample data is wrong!!!
+				getApplyChangesButton().setEnabled( samplePlots.isDataValid() );		
 			}
 		});
 		return refreshTableOnFileChange;
@@ -899,7 +908,7 @@ public class OptionWizard extends JDialog {
 			private void showSaikuWarning(){
 				final File saikuFolder = new File(saikuPath.getSelectedFilePath());
 				if( saikuFolder!=null && !saikuService.isSaikuFolder( saikuFolder )){
-					JOptionPane.showMessageDialog( OptionWizard.this, Messages.getString("OptionWizard.27"), Messages.getString("OptionWizard.28"), JOptionPane.INFORMATION_MESSAGE ); //$NON-NLS-1$ //$NON-NLS-2$
+					JOptionPane.showMessageDialog( PropertiesDialog.this, Messages.getString("OptionWizard.27"), Messages.getString("OptionWizard.28"), JOptionPane.INFORMATION_MESSAGE ); //$NON-NLS-1$ //$NON-NLS-2$
 					saikuPath.getTextField().setBackground(CollectEarthWindow.ERROR_COLOR);
 				}else{
 					saikuPath.getTextField().setBackground(Color.white);

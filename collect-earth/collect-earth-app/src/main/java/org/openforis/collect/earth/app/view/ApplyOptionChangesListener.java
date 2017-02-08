@@ -104,7 +104,7 @@ public abstract class ApplyOptionChangesListener implements ActionListener {
 
 			JOptionPane.showMessageDialog( callingDialog, Messages.getString("OptionWizard.20"), //$NON-NLS-1$
 					Messages.getString("OptionWizard.21"), JOptionPane.INFORMATION_MESSAGE); //$NON-NLS-1$
-			if( callingDialog!= null && callingDialog instanceof OptionWizard){
+			if( callingDialog!= null && callingDialog instanceof PropertiesDialog){
 				callingDialog.dispose();
 			}
 

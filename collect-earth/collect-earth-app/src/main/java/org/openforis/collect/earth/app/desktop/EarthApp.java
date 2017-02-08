@@ -35,7 +35,7 @@ import org.openforis.collect.earth.app.service.UpdateIniUtils;
 import org.openforis.collect.earth.app.view.CheckForUpdatesListener;
 import org.openforis.collect.earth.app.view.CollectEarthWindow;
 import org.openforis.collect.earth.app.view.Messages;
-import org.openforis.collect.earth.app.view.OptionWizard;
+import org.openforis.collect.earth.app.view.PropertiesDialog;
 import org.openforis.collect.earth.sampler.utils.KmlGenerationException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -489,7 +489,9 @@ public class EarthApp {
 					SwingUtilities.invokeAndWait( new Runnable() {
 						@Override
 						public void run() {
-							CollectEarthWindow.startWaiting(windowShowingTimer);
+							if( windowShowingTimer != null ){
+								CollectEarthWindow.startWaiting(windowShowingTimer);
+							}
 						}
 					});
 					
@@ -500,18 +502,21 @@ public class EarthApp {
 					e.printStackTrace();
 					EarthApp.showMessage("<html>Problems while generating the KML file: <br/> " + (e.getCause()!=null?(e.getCause()+"<br/>"):"") + ( e.getMessage().length() > 300?e.getMessage().substring(0,300):e.getMessage() ) + "</html>"); //$NON-NLS-1$
 				}finally{
-					try {
-						SwingUtilities.invokeAndWait( new Runnable() {
-							@Override
-							public void run() {
-								CollectEarthWindow.endWaiting(windowShowingTimer);
-								if( windowShowingTimer instanceof OptionWizard ){
-								    ( (OptionWizard) windowShowingTimer).closeDialog();
+					if( windowShowingTimer != null ){
+						try {
+							SwingUtilities.invokeAndWait( new Runnable() {
+								@Override
+								public void run() {
+									
+									CollectEarthWindow.endWaiting(windowShowingTimer);
+									if( windowShowingTimer instanceof PropertiesDialog ){
+									    ( (PropertiesDialog) windowShowingTimer).closeDialog();
+									}
 								}
-							}
-						});
-					} catch (Exception e2) {
-						logger.error("Error closing Options dialog", e2);
+							});
+						} catch (Exception e2) {
+							logger.error("Error closing Options dialog", e2);
+						}
 					}
 				}
 				
