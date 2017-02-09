@@ -16,7 +16,7 @@ var visualizationSentinel = {min: 0, max: 4000, gamma: [1.3, 1.3, 1.3]};
 
 // DO NOT EDIT THIS BLOCK!! ------
 // x The polygon that describes the plot.
-var plot = ee.Geometry.Polygon([
+var plot = ee.Geometry.LinearRing([
 // The placemark variable has an array called shape that contains the locations of the corners of the polygon
 <#list placemark.shape as coord>[${coord.longitude}, ${coord.latitude}],</#list>]);
 
@@ -28,7 +28,7 @@ var modisNoaaNdvi = ee.ImageCollection('MODIS/MOD13Q1').filterDate(startTime, en
 var modisNoaaTimeSeries = Chart.image.series(modisNoaaNdvi, plot, ee.Reducer.mean(), 30);
 modisNoaaTimeSeries = modisNoaaTimeSeries
 .setOptions({  
-		title: 'MOD13Q1 Vegetation Indices 16-Day Global 250m',
+		title: 'MODIS NDVI 16-Day',
 		hAxis: {title: 'Date',gridlines: {count: 10,}},
 		vAxis: {title: 'NDVI',viewWindowMode: 'explicit', viewWindow: {max: 10000,min: -2500,},gridlines: {count: 5,}}
 	});
