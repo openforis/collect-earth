@@ -2,6 +2,7 @@ package org.openforis.collect.earth.app.view;
 
 import java.awt.Color;
 import java.awt.Component;
+import java.awt.event.MouseEvent;
 import java.io.File;
 import java.io.IOException;
 import java.util.List;
@@ -69,23 +70,45 @@ public class JPlotCsvTable extends JTable{
 		Component comp = super.prepareRenderer(renderer, row, col);
 	
 		if ( cellHasError(row,col)){
-			comp.setBackground(Color.red);
+			comp.setBackground( ERROR_BG_COLOR );
+		}else{
+			comp.setBackground(Color.WHITE);
 		}
 		
 		return comp;
 	}
+	
+	@Override
+	public String getToolTipText(MouseEvent event) {
+		 String tip = null;
+         java.awt.Point p = event.getPoint();
+         int row = rowAtPoint(p);
+         int col = columnAtPoint(p);
+
+         try {
+             tip = getCellErrorMessage(row, col);
+         } catch (RuntimeException e1) {
+             //catch null pointer exception if mouse is over an empty line
+         }
+         
+         return tip;
+		
+	}
 
 	private boolean cellHasError(Integer row, Integer col) {		
+		String errorMessage = getCellErrorMessage(row, col);
+		return errorMessage!=null;
+	}
+
+	private String getCellErrorMessage(Integer row, Integer col) {		
 		List<CSVRowValidationResult> rowValidations = validationResults.getRowValidations();
 		for (CSVRowValidationResult csvRowValidationResult : rowValidations) {
 			if( csvRowValidationResult.getRowNumber().equals(row) && csvRowValidationResult.getColumnPosition().equals( col  ) ){
-				return true;
+				return csvRowValidationResult.getMessage();
 			}
 		}
-		
-		return false;
+		return null;
 	}
-
 
 	/**
 	 * Refreshes the data loaded in the table. Used when the user changes the file that contains the CSV file using the OptionWizard dialog. 
