@@ -140,6 +140,7 @@ public class EarthApp {
 			}			
 			// -------------------------------------------
 			
+			
 			// DEFINE A LISTENER THAT IS REGISTERED BY THE OS TO HEAR DOUBLE-CLICK EVENTS AND REGISTER ITSELF AS THE CEP OPENER
 			MacOpenFilesInvocationHandler macOpenFileHandlerProxyInterface = new MacOpenFilesInvocationHandler();
 			Object openFilesHandlerImplementation = Proxy.newProxyInstance( 
@@ -149,7 +150,7 @@ public class EarthApp {
 			);
 			
 			// Call the setOpenFileHandler method of the application object using the 
-			setOpenFileHandlerMethod.invoke(applicationObject, openFilesHandlerImplementation );
+			setOpenFileHandlerMethod.invoke(applicationObject, ( openFilesHandlerInterface.cast( openFilesHandlerImplementation ) ) );
 			
 			// Lets wait for the Apple event to arrive. If it did then the earthApp variable will be non-nulls 
 			Thread.sleep(2000);

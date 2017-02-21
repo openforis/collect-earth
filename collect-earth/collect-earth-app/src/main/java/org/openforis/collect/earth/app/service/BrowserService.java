@@ -828,6 +828,13 @@ public class BrowserService implements Observer{
 			File firefoxBin = new File( firefoxBinaryPath);
 			File applicationIni = new File( firefoxBin.getParent(), "application.ini");
 			
+			// for Mac OSX 
+			if( !applicationIni.exists() ){
+				// try in the folder ../Resources
+				String macOsAppDir = firefoxBin.getParentFile().getParentFile().getAbsolutePath() + "/Resources";
+				applicationIni = new File( macOsAppDir, "application.ini");
+			}
+			
 			applicationProperties.load( new FileInputStream(applicationIni) );
 			
 			if( applicationProperties.containsKey("Version") ){
@@ -911,4 +918,5 @@ public class BrowserService implements Observer{
 	
 	
 }
+
 

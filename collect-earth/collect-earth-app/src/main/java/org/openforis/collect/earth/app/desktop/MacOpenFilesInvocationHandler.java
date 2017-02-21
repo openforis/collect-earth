@@ -5,6 +5,9 @@ import java.io.IOException;
 import java.lang.reflect.Method;
 import java.util.List;
 
+import javax.swing.JOptionPane;
+
+import org.openforis.collect.earth.app.view.CollectEarthWindow;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -27,28 +30,33 @@ public class MacOpenFilesInvocationHandler implements java.lang.reflect.Invocati
 
     {
 
+    	JOptionPane.showMessageDialog(null, " M ehtoer " +  m + " args " + args);
+    	
+    	
         Object result = null;
 
         try {
 
             // Prints the method being invoked
         	String message = "";
-        	message = "begin method "+ m.getName() + "(";
-            
-            for(int i=0; i<args.length; i++){
-                if(i>0) 
-                	message +=",";
-
-                message += " " +  args[i].toString();
-            
+        	
+            if( args!= null ){
+	            for(int i=0; i<args.length; i++){
+	                if(i>0) 
+	                	message +=",";
+	
+	                message += " " +  args[i].toString();
+	            
+	            }
             }
 
             message += " )";
 
-         logger.error( message + m.getName() );
+        
          // if the method name equals some method's name then call your method
 
-         if (m.getName().equals("openFiles")) {
+         if ( m!= null && m.getName().equals("openFiles")) {
+        	 logger.error( message + m.getName() );
         	 
         	 openFilesImplmentation(args[0]);
 
@@ -69,8 +77,7 @@ public class MacOpenFilesInvocationHandler implements java.lang.reflect.Invocati
 	  Class openFilesEventClass = Class.forName("com.apple.eawt.AppEvent.OpenFilesEvent");
 	  Method getFilesMethod = openFilesEventClass.getMethod("getFiles");
 	  
-	  List<File> files = (List<File>) getFilesMethod.invoke( openFilesEventObject );
-	  
+	  List<File> files = (List<File>) getFilesMethod.invoke( openFilesEventClass.cast( openFilesEventObject ) );
 	  
 	  for (File file : files ){
       	try {
