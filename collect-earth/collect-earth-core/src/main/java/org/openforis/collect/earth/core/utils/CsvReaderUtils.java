@@ -14,6 +14,18 @@ public class CsvReaderUtils {
 	private CsvReaderUtils(){
 		
 	}
+	
+	public static boolean isCsvFile( String csvFile) throws IOException{
+		boolean isCsvFile = true;
+		try {
+			getCsvReader(csvFile);
+		} catch (IllegalArgumentException e) {
+			// The CSV reader could not read the file, thus it is not a CSVReader
+			isCsvFile = false;
+		}
+		
+		return isCsvFile;
+	}
 
 	public static CSVReader getCsvReader(String csvFile) throws IOException {
 		

@@ -21,6 +21,10 @@ import java.util.Set;
 
 import org.apache.commons.io.FileUtils;
 import org.openforis.collect.earth.core.utils.CsvReaderUtils;
+import org.openforis.collect.model.CollectSurvey;
+import org.openforis.idm.metamodel.AttributeDefinition;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import au.com.bytecode.opencsv.CSVReader;
 import au.com.bytecode.opencsv.CSVWriter;
@@ -28,54 +32,66 @@ import au.com.bytecode.opencsv.CSVWriter;
 
 public class ProduceCsvFiles {
 
+	/*
 	public static void main(String[] args) {
 
-		ProduceCsvFiles producer = new ProduceCsvFiles("TrainingMorocco2016"); 
-		File fileToDivide = new File("C:\\opt\\workspaceClean\\CsvSorter\\grille_maroc_4k_sel.csv");
+		ProduceCsvFiles producer = new ProduceCsvFiles("Panama2017"); 
+		File fileToDivide = new File("C:\\opt\\workspaceClean\\CsvSorter\\Panama_grid_6000_m.csv");
 
 		//producer.divideRandomlyByColumn(fileToDivide, 10, 9);
-		producer.divideRandomly(fileToDivide, 40);
+		producer.divideRandomly(fileToDivide, 5);
 
 		System.exit(0);
 	}
+	*/
 
-	File outputFolder;
-	String outputFolderName;
 	private String[] headers;
+	private Logger logger = LoggerFactory.getLogger( ProduceCsvFiles.class );
+	private String sourceCsvFile;
+	private boolean randomizeLines;
+	private Integer randomizeUsingColumnValues;
+	private String destinationFolder;
+	private File outputFolder;
+	private Integer filesToDivideInto;
+	private CollectSurvey survey;
 
-
-	public ProduceCsvFiles(String outputFolderName) {
+	public ProduceCsvFiles(CollectSurvey survey, String sourceCsvFile, String destinationFolder, boolean randomizeLines, Integer randomizeUsingColumnValues, Integer filesToDivideInto ) {
 		super();
-		this.outputFolderName = outputFolderName;
+		this.survey = survey;
+		this.sourceCsvFile = sourceCsvFile;
+		this.destinationFolder = destinationFolder;
+		this.randomizeLines = randomizeLines;
+		this.randomizeUsingColumnValues = randomizeUsingColumnValues;
+		this.filesToDivideInto = filesToDivideInto;
+		
 	}
 
-	public void createOutputFolder( Integer numberOfFiles) {
-		outputFolder = new File(outputFolderName + "_div_"+ numberOfFiles);
+	private void createOutputFolder( Integer numberOfFiles) {
+		outputFolder = new File(outputFolder + "_div_"+ filesToDivideInto);
 		if( !outputFolder.exists() ){
 			outputFolder.mkdir();
 		}
 		System.out.println(outputFolder.getAbsolutePath());
 	}
 
-	private void divideByColumn(File fileToDivide, int numberOfFiles, Integer dividideByValueInColumn ){
-		divideIntoFiles(fileToDivide, numberOfFiles, false, dividideByValueInColumn);
-	}
-
-	private void divideSystematically(File fileToDivide, int numberOfFiles){
-		divideIntoFiles(fileToDivide, numberOfFiles, false, null);
+	private int getNumberOfIDColumns(){
+		if(survey!=null){
+			List<AttributeDefinition> keyAttributeDefinitions = survey.getSchema().getRootEntityDefinitions().get(0).getKeyAttributeDefinitions();
+			return keyAttributeDefinitions.size();
+		}else{
+			// Assume an standard survey with just one ID column
+			return 1;
+		}
 	}
 	
-	private void divideRandomly(File fileToDivide, int numberOfFiles){
-		divideIntoFiles(fileToDivide, numberOfFiles, true, null);
-	}
-
-	private void divideRandomlyByColumn(File fileToDivide, int numberOfFiles, Integer dividideByValueInColumn ){
-		divideIntoFiles(fileToDivide, numberOfFiles, true, dividideByValueInColumn);
-	}
-
-	private void divideIntoFiles( File fileToDivide, int numberOfFiles, boolean randomize, Integer dividideByValueInColumn ) {
-
-		createOutputFolder(numberOfFiles);
+	public File divideIntoFiles() {
+		
+		File fileToDivide = new File(sourceCsvFile);
+		if( !fileToDivide.exists() ){
+			throw new IllegalArgumentException("The file selected " + sourceCsvFile + " does not exist");
+		}
+		
+		createOutputFolder(filesToDivideInto);
 
 		Map<Strata,CSVWriter> csvFiles = new HashMap<Strata, CSVWriter>();
 		Map<String,Integer> linesPerStrata = new HashMap<String, Integer>(); 
@@ -85,20 +101,21 @@ public class ProduceCsvFiles {
 			processHeaders(fileToDivide);
 			
 			// If there is no division by column and the order should be randomized then randomize the file contents from the beginning
-			if( dividideByValueInColumn == null && randomize ){
+			if( randomizeUsingColumnValues == null && randomizeLines ){
 				fileToDivide = randomizeFile( fileToDivide );
 			}
 
+
 			CSVReader reader = CsvReaderUtils.getCsvReader(fileToDivide.getPath());
-
-
 			String[] csvRow;
 			int rowNumber = 0;
+			
+			int numberOfIdColumns = getNumberOfIDColumns();
 			while ((csvRow = reader.readNext()) != null ) {
 				
-				// longitude has to be a number, otherwise it is a header
+				// latitude has to be a number, otherwise it is a header
 				try {
-					Float.parseFloat( csvRow[2]);
+					Float.parseFloat( csvRow[ numberOfIdColumns +1]); // The first column after the ID column(s) should be a real number
 					
 				} catch (NumberFormatException e) {
 					// Not a number, we need to skip this row
@@ -106,11 +123,11 @@ public class ProduceCsvFiles {
 					continue;
 				}
 			
-				Integer fileNumber = rowNumber % numberOfFiles;
+				Integer fileNumber = rowNumber % filesToDivideInto;
 				
-				String stratumColumnValue = outputFolderName ;
-				if( dividideByValueInColumn != null ){
-					stratumColumnValue = csvRow[ dividideByValueInColumn ];
+				String stratumColumnValue = destinationFolder;
+				if( randomizeUsingColumnValues != null ){
+					stratumColumnValue = csvRow[ randomizeUsingColumnValues ];
 					Integer lines = linesPerStrata.get( stratumColumnValue );
 					if( lines == null ){
 						lines = 1;
@@ -119,12 +136,12 @@ public class ProduceCsvFiles {
 					}
 					
 					// Adjust the fileNumber in relation to how many lines there are per strata so that the sub-files have equal sizes!
-					fileNumber = lines % numberOfFiles;
+					fileNumber = lines % filesToDivideInto;
 				
 					linesPerStrata.put(stratumColumnValue, lines);
 				}
 				
-				if( fileNumber == 0 && numberOfFiles == 1){
+				if( fileNumber == 0 && filesToDivideInto == 1){
 					fileNumber = null;
 				}
 				Strata stratum = new Strata(stratumColumnValue, fileNumber);
@@ -135,13 +152,13 @@ public class ProduceCsvFiles {
 			}
 
 		} catch (Exception e) {
-			e.printStackTrace();
+			logger.error("Error processing CSV file", e);
 		}finally{
 			closeAllWriters( csvFiles );
 		}
 
 		// If there is no division by column and the order should be randomized then randomize the file contents from the beginning
-		if( dividideByValueInColumn != null && randomize ){
+		if( randomizeUsingColumnValues != null && randomizeLines ){
 			Set<Strata> keySet = csvFiles.keySet();
 			File randomizedOutput = new File( outputFolder, "randomized");
 			if( randomizedOutput.exists() ){
@@ -155,25 +172,32 @@ public class ProduceCsvFiles {
 
 					FileUtils.copyFile(outputRandom, copyToFile);
 				} catch (Exception e) {
-					// TODO Auto-generated catch block
-					e.printStackTrace();
+					logger.error( "Error while copying files", e);
 				}
 			}
 
 		}
+		
+		
+		return outputFolder;
 
 	}
 
-	public void processHeaders(File fileToDivide) throws IOException {
+	private void processHeaders(File fileToDivide) throws IOException {
 		CSVReader reader = CsvReaderUtils.getCsvReader(fileToDivide.getPath());
 		String[] firstRow = null;
 		// longitude has to be a number, otherwise it is a header
 		try {
+			
 			firstRow = reader.readNext();
-			Float.parseFloat( firstRow[2]);
+			int numberOfIdColumns = getNumberOfIDColumns();
+			Float.parseFloat( firstRow[ numberOfIdColumns+1 ]); // The first column after the ID column(s) should be a real number
 			
 		} catch (NumberFormatException e) {
+			logger.warn("There are no numbers in the third row of the CSV file where the latitude should be" );
 			setHeaders( firstRow);
+		}finally{
+			reader.close();
 		}
 	}
 
@@ -197,7 +221,7 @@ public class ProduceCsvFiles {
 		return randomizedFile;
 	}
 
-	public File writeLinesToFile(List<String> lines) throws IOException {
+	private File writeLinesToFile(List<String> lines) throws IOException {
 		File randomizedFile = File.createTempFile("randomizeLines", "txt");
 		BufferedOutputStream writer = new BufferedOutputStream( new FileOutputStream(randomizedFile ) );
 		Charset utfCharset = Charset.forName("UTF-8");
@@ -210,18 +234,7 @@ public class ProduceCsvFiles {
 	}
 
 	
-	
-/*	public File writeLinesToFile(List<String> lines) throws IOException {
-		File randomizedFile = File.createTempFile("randomizeLines", "txt");
-		FileWriter writer = new FileWriter( randomizedFile ); 
-		for(String line: lines) {
-			writer.write( line + "\r\n");
-		}
-		writer.close();
-		return randomizedFile;
-	}*/
-	
-	public List<String> getAllLines(File fileToDivide)
+	private List<String> getAllLines(File fileToDivide)
 			throws FileNotFoundException, IOException {
 		// Read in the file into a list of strings
 		final BufferedReader reader = new BufferedReader(new InputStreamReader(new FileInputStream(fileToDivide), Charset.forName("UTF-8"))); //$NON-NLS-1$
@@ -260,17 +273,8 @@ public class ProduceCsvFiles {
 			try {
 				fileWriter.getValue().close();
 			} catch (IOException e) {
-				// TODO Auto-generated catch block
-				e.printStackTrace();
+				logger.error(" ");
 			}
 		}
 	}
-
-	private boolean isSquare(String coord, int degree) {
-		float floatNum = Float.parseFloat( coord );
-		int intNum = Math.round( floatNum * 100f );
-		return (intNum%degree)==0;
-
-	}
-
 }
