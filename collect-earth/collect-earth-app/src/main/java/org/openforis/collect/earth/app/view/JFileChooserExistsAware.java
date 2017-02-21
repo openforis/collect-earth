@@ -46,21 +46,24 @@ public class JFileChooserExistsAware extends JFileChooser {
 	}        
 	
 	public static File[] getFileChooserResults(final DataFormat dataFormat, boolean isSaveDlg, boolean multipleSelect, String preselectedName, LocalPropertiesService localPropertiesService, JFrame frame) {
+		return getFileChooserResults(dataFormat, isSaveDlg, multipleSelect, preselectedName, localPropertiesService, frame, null);
+	}
+	
+	public static File[] getFileChooserResults(final DataFormat dataFormat, boolean isSaveDlg, boolean multipleSelect, String preselectedName, LocalPropertiesService localPropertiesService, JFrame frame, File preSelectedFolder) {
 
 		JFileChooser fc ;
 
-		String lastUsedFolder = localPropertiesService.getValue( EarthProperty.LAST_USED_FOLDER );
-		if( !StringUtils.isBlank( lastUsedFolder ) ){
-			File lastFolder = new File( lastUsedFolder );
-			if(lastFolder.exists() ){
-				fc= new JFileChooserExistsAware( lastFolder );
-			}else{
-				fc= new JFileChooserExistsAware( );
+		if( preSelectedFolder == null ){
+			String lastUsedFolder = localPropertiesService.getValue( EarthProperty.LAST_USED_FOLDER );
+			if( !StringUtils.isBlank( lastUsedFolder ) ){
+				preSelectedFolder = new File( lastUsedFolder );
+				if( !preSelectedFolder.exists()){
+					preSelectedFolder = null;
+				}
 			}
-
-		}else{
-			fc = new JFileChooserExistsAware();
 		}
+		
+		fc = new JFileChooserExistsAware( preSelectedFolder );
 		
 		if( preselectedName != null ){
 			File selectedFile = new File( fc.getCurrentDirectory().getAbsolutePath() + File.separatorChar + preselectedName );

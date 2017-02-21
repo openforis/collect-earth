@@ -4,6 +4,7 @@ import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 import java.io.File;
 import java.text.DateFormat;
+import java.text.Normalizer;
 import java.text.SimpleDateFormat;
 import java.util.Calendar;
 import java.util.Date;
@@ -12,6 +13,7 @@ import javax.swing.JFrame;
 import javax.swing.JOptionPane;
 import javax.swing.JPanel;
 
+import org.apache.commons.lang3.StringUtils;
 import org.jdesktop.swingx.JXDatePicker;
 import org.openforis.collect.earth.app.service.DataImportExportService;
 import org.openforis.collect.earth.app.service.EarthSurveyService;
@@ -155,7 +157,26 @@ public final class ExportActionListener implements ActionListener {
 	}
 
 	private String getPreselectedName(DataFormat exportType, Date modifiedSince) {
-		String preselectName = "collectedData_"; //$NON-NLS-1$
+		
+		
+		String operator = "";
+		
+		try {
+			operator = localPropertiesService.getOperator();
+			
+			operator = StringUtils.deleteWhitespace(operator);
+			// Replaces character like Tĥïŝ ĩš â fůňķŷ Šťŕĭńġ with This is a funky String
+			operator = Normalizer.normalize(operator, Normalizer.Form.NFD).replaceAll("[^\\p{ASCII}]", "");
+			
+			//Remove non-alphanumeric characters
+			operator = operator.replaceAll("[^a-zA-Z0-9]" , "");
+			
+		} catch (Exception e) {
+			logger.error("Error normalizing operator name " , e);
+		}
+		
+		String preselectName = operator + "_collectedData_"; //$NON-NLS-1$
+		
 		preselectName += earthSurveyService.getCollectSurvey().getName();
 		DateFormat dateFormat = new SimpleDateFormat("ddMMyy_HHmmss"); //$NON-NLS-1$
 		if( modifiedSince == null ){

@@ -26,6 +26,7 @@ import javax.swing.JScrollPane;
 import javax.swing.JTextArea;
 
 import org.apache.commons.io.FileUtils;
+import org.apache.commons.lang3.StringUtils;
 import org.openforis.collect.earth.app.ad_hoc.FixCoordinates;
 import org.openforis.collect.earth.app.service.LocalPropertiesService;
 import org.openforis.collect.earth.app.service.MissingPlotService;
@@ -71,9 +72,18 @@ public final class MissingPlotsListener implements ActionListener {
 	private JDialog findMissingPlots() {
 
 		showInfoAboutFunctionality();
+		
+		String csvFile = localPropertiesService.getCsvFile();
+		File currentFolder = null;
+		
+		if( !StringUtils.isBlank( csvFile ) ){
+			File file = new File( csvFile );
+			if( file.exists() )
+				currentFolder = file.getParentFile(); 
+		}
 
 		final File[] selectedPlotFiles = JFileChooserExistsAware.getFileChooserResults(DataFormat.COLLECT_COORDS, false, true, null,
-				localPropertiesService, frame);
+				localPropertiesService, frame, currentFolder);
 
 		
 		// Returns the list of all of the plots that are stored in the selected CSV files
