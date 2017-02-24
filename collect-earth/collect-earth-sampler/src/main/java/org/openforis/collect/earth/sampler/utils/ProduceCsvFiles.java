@@ -32,19 +32,6 @@ import au.com.bytecode.opencsv.CSVWriter;
 
 public class ProduceCsvFiles {
 
-	/*
-	public static void main(String[] args) {
-
-		ProduceCsvFiles producer = new ProduceCsvFiles("Panama2017"); 
-		File fileToDivide = new File("C:\\opt\\workspaceClean\\CsvSorter\\Panama_grid_6000_m.csv");
-
-		//producer.divideRandomlyByColumn(fileToDivide, 10, 9);
-		producer.divideRandomly(fileToDivide, 5);
-
-		System.exit(0);
-	}
-	*/
-
 	private String[] headers;
 	private Logger logger = LoggerFactory.getLogger( ProduceCsvFiles.class );
 	private String sourceCsvFile;
@@ -67,7 +54,7 @@ public class ProduceCsvFiles {
 	}
 
 	private void createOutputFolder( Integer numberOfFiles) {
-		outputFolder = new File(outputFolder + "_div_"+ filesToDivideInto);
+		outputFolder = new File(destinationFolder , "div_"+ filesToDivideInto);
 		if( !outputFolder.exists() ){
 			outputFolder.mkdir();
 		}
@@ -100,6 +87,8 @@ public class ProduceCsvFiles {
 			
 			processHeaders(fileToDivide);
 			
+			String originalFileName = fileToDivide.getName();
+			
 			// If there is no division by column and the order should be randomized then randomize the file contents from the beginning
 			if( randomizeUsingColumnValues == null && randomizeLines ){
 				fileToDivide = randomizeFile( fileToDivide );
@@ -125,7 +114,7 @@ public class ProduceCsvFiles {
 			
 				Integer fileNumber = rowNumber % filesToDivideInto;
 				
-				String stratumColumnValue = destinationFolder;
+				String stratumColumnValue = originalFileName;
 				if( randomizeUsingColumnValues != null ){
 					stratumColumnValue = csvRow[ randomizeUsingColumnValues ];
 					Integer lines = linesPerStrata.get( stratumColumnValue );
@@ -144,13 +133,12 @@ public class ProduceCsvFiles {
 				if( fileNumber == 0 && filesToDivideInto == 1){
 					fileNumber = null;
 				}
+				
 				Strata stratum = new Strata(stratumColumnValue, fileNumber);
-
 				writCsvRow(csvFiles, csvRow, stratum);
-
 				rowNumber++;
+				
 			}
-
 		} catch (Exception e) {
 			logger.error("Error processing CSV file", e);
 		}finally{
@@ -169,7 +157,6 @@ public class ProduceCsvFiles {
 				try {
 					File outputRandom = randomizeFile( strata.getOutputFile() );
 					File copyToFile = new File( randomizedOutput, strata.getFileName());
-
 					FileUtils.copyFile(outputRandom, copyToFile);
 				} catch (Exception e) {
 					logger.error( "Error while copying files", e);
@@ -210,24 +197,43 @@ public class ProduceCsvFiles {
 	}
 
 	private File randomizeFile(File fileToDivide) throws Exception {
+		
+		
 		List<String> lines = getAllLines(fileToDivide);
 
-		// Choose a random one from the list
-		Random rnd = new Random( 8230809358934589l );		
-		Collections.shuffle( lines, rnd);
-
-		File randomizedFile = writeLinesToFile(lines);
+		List<String> linesWithoutFirst =  null;
+		String firstLine = lines.get(0);
+		
+		if(lines.size() > 1 ){
+			// Keep the first line in the first row (in case the first row contains header)
+			List<String> linesWithoutFirstTemp = lines.subList(1, lines.size() );
+			linesWithoutFirst = new ArrayList<String>(linesWithoutFirstTemp);
+			linesWithoutFirstTemp.clear();
+			
+			// Choose a random one from the list
+			Random rnd = new Random( 8230809358934589l );		
+			Collections.shuffle( linesWithoutFirst, rnd);
+		}
+		
+		File randomizedFile = writeLinesToFile( firstLine, linesWithoutFirst);
 
 		return randomizedFile;
 	}
 
-	private File writeLinesToFile(List<String> lines) throws IOException {
+	private File writeLinesToFile(String firstLine, List<String> lines) throws IOException {
 		File randomizedFile = File.createTempFile("randomizeLines", "txt");
 		BufferedOutputStream writer = new BufferedOutputStream( new FileOutputStream(randomizedFile ) );
 		Charset utfCharset = Charset.forName("UTF-8");
-		for(String line: lines) {
-			line = line + "\r\n";
-			writer.write( line.getBytes( utfCharset));
+		
+		// Write the possible header
+		writer.write( (firstLine + "\r\n").getBytes( utfCharset));
+		
+		if( lines != null ){
+			// Then append the next lines
+			for(String line: lines) {
+				line = line + "\r\n";
+				writer.write( line.getBytes( utfCharset));
+			}
 		}
 		writer.close();
 		return randomizedFile;
@@ -273,7 +279,7 @@ public class ProduceCsvFiles {
 			try {
 				fileWriter.getValue().close();
 			} catch (IOException e) {
-				logger.error(" ");
+				logger.error("Error closing writer", e);
 			}
 		}
 	}

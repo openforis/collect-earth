@@ -1,5 +1,6 @@
 package org.openforis.collect.earth.app.view;
 
+import java.awt.Color;
 import java.awt.GridBagConstraints;
 import java.awt.GridBagLayout;
 import java.awt.Insets;
@@ -24,6 +25,8 @@ import org.slf4j.LoggerFactory;
  */
 public class JFilePicker extends JPanel {
 	
+	public enum DlgMode{MODE_OPEN,MODE_SAVE };
+	
 	private static final long serialVersionUID = 9057893034177011651L;
 
 	private JLabel label;
@@ -31,14 +34,14 @@ public class JFilePicker extends JPanel {
 	private JButton button;
 	private Logger logger = LoggerFactory.getLogger(this.getClass());
 	private JFileChooser fileChooser;
-	private int mode;
-	public static final int MODE_OPEN = 1;
-	public static final int MODE_SAVE = 2;
+	
+	private DlgMode mode;
 
-	public JFilePicker(String textFieldLabel, String originalPathValue, String buttonLabel) {
+	public JFilePicker(String textFieldLabel, String originalPathValue, String buttonLabel, DlgMode mode) {
 
 		fileChooser = new JFileChooser();
 		setBorder( new BevelBorder( BevelBorder.RAISED ));
+		this.mode = mode;
 		if (originalPathValue != null && originalPathValue.length() > 0) {
 			try {
 				File originalFile = new File(originalPathValue);
@@ -101,11 +104,11 @@ public class JFilePicker extends JPanel {
 	}
 
 	private void buttonActionPerformed(ActionEvent evt) {
-		if (mode == MODE_OPEN) {
+		if (mode == DlgMode.MODE_OPEN) {
 			if (fileChooser.showOpenDialog(this) == JFileChooser.APPROVE_OPTION) {
 				getTextField().setText(relativize(fileChooser.getSelectedFile()));
 			}
-		} else if (mode == MODE_SAVE) {
+		} else if (mode == DlgMode.MODE_SAVE) {
 			if (fileChooser.showSaveDialog(this) == JFileChooser.APPROVE_OPTION) {
 				getTextField().setText(relativize(fileChooser.getSelectedFile()));
 			}
@@ -126,10 +129,6 @@ public class JFilePicker extends JPanel {
 		return new File(pathParentDummy).toURI().relativize(selectedFile.toURI()).getPath();
 	}
 
-	public void setMode(int mode) {
-		this.mode = mode;
-	}
-	
 	public void setFolderChooser() {
 		fileChooser.setFileSelectionMode(JFileChooser.DIRECTORIES_ONLY);
 	}
@@ -140,6 +139,16 @@ public class JFilePicker extends JPanel {
 
 	private void setTextField(JTextField textField) {
 		this.textField = textField;
+	}
+
+	public void setTextBackground(Color bgColor) {
+		getTextField().setBackground(bgColor);
+	}
+	
+	@Override
+	public void setEnabled(boolean enabled) {
+		button.setEnabled(enabled);
+		textField.setEnabled(enabled);
 	}
 	
 }

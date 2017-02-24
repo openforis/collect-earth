@@ -55,6 +55,7 @@ import org.openforis.collect.earth.app.service.AnalysisSaikuService;
 import org.openforis.collect.earth.app.service.EarthProjectsService;
 import org.openforis.collect.earth.app.service.LocalPropertiesService;
 import org.openforis.collect.earth.app.service.LocalPropertiesService.EarthProperty;
+import org.openforis.collect.earth.app.view.JFilePicker.DlgMode;
 import org.openforis.collect.model.CollectSurvey;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -845,8 +846,8 @@ public class PropertiesDialog extends JDialog {
 
 		final JFilePicker csvWithPlotData = new JFilePicker(
 				Messages.getString("OptionWizard.49"), localPropertiesService.getValue(EarthProperty.SAMPLE_FILE), //$NON-NLS-1$
-				Messages.getString("OptionWizard.50")); //$NON-NLS-1$
-		csvWithPlotData.setMode(JFilePicker.MODE_OPEN);
+				Messages.getString("OptionWizard.50"),
+				DlgMode.MODE_OPEN); //$NON-NLS-1$
 
 		csvWithPlotData.addFileTypeFilter(".csv,.ced", Messages.getString("OptionWizard.52"), true); //$NON-NLS-1$ //$NON-NLS-2$
 		propertyToComponent.put(EarthProperty.SAMPLE_FILE, new JComponent[] { csvWithPlotData });
@@ -900,8 +901,7 @@ public class PropertiesDialog extends JDialog {
 		propertyToComponent.put(EarthProperty.BROWSER_TO_USE, new JComponent[] { firefoxChooser, chromeChooser });
 
 		final JFilePicker saikuPath = new JFilePicker(Messages.getString("OptionWizard.65"), //$NON-NLS-1$
-				localPropertiesService.getValue(EarthProperty.SAIKU_SERVER_FOLDER), Messages.getString("OptionWizard.66")); //$NON-NLS-1$
-		saikuPath.setMode(JFilePicker.MODE_OPEN);
+				localPropertiesService.getValue(EarthProperty.SAIKU_SERVER_FOLDER), Messages.getString("OptionWizard.66"), DlgMode.MODE_OPEN); //$NON-NLS-1$
 		saikuPath.setFolderChooser();
 		saikuPath.addChangeListener(new DocumentListener() {
 
@@ -933,35 +933,30 @@ public class PropertiesDialog extends JDialog {
 		propertyToComponent.put(EarthProperty.SAIKU_SERVER_FOLDER, new JComponent[] { saikuPath });
 
 		final JFilePicker firefoxBinaryPath = new JFilePicker(Messages.getString("OptionWizard.67"), //$NON-NLS-1$
-				localPropertiesService.getValue(EarthProperty.FIREFOX_BINARY_PATH), Messages.getString("OptionWizard.68")); //$NON-NLS-1$
-		firefoxBinaryPath.setMode(JFilePicker.MODE_OPEN);
+				localPropertiesService.getValue(EarthProperty.FIREFOX_BINARY_PATH), Messages.getString("OptionWizard.68"), DlgMode.MODE_OPEN); //$NON-NLS-1$
 		firefoxBinaryPath.addFileTypeFilter(".exe", Messages.getString("OptionWizard.70"), true); //$NON-NLS-1$ //$NON-NLS-2$
 		firefoxBinaryPath.addFileTypeFilter(".bin", Messages.getString("OptionWizard.72"), false); //$NON-NLS-1$ //$NON-NLS-2$
 		propertyToComponent.put(EarthProperty.FIREFOX_BINARY_PATH, new JComponent[] { firefoxBinaryPath });
 
 		final JFilePicker chromeBinaryPath = new JFilePicker(Messages.getString("OptionWizard.73"), //$NON-NLS-1$
-				localPropertiesService.getValue(EarthProperty.CHROME_BINARY_PATH), Messages.getString("OptionWizard.74")); //$NON-NLS-1$
-		chromeBinaryPath.setMode(JFilePicker.MODE_OPEN);
+				localPropertiesService.getValue(EarthProperty.CHROME_BINARY_PATH), Messages.getString("OptionWizard.74"), DlgMode.MODE_OPEN); //$NON-NLS-1$
 		chromeBinaryPath.addFileTypeFilter(".exe", Messages.getString("OptionWizard.76"), true); //$NON-NLS-1$ //$NON-NLS-2$
 		chromeBinaryPath.addFileTypeFilter(".bin", Messages.getString("OptionWizard.78"), false); //$NON-NLS-1$ //$NON-NLS-2$
 		propertyToComponent.put(EarthProperty.CHROME_BINARY_PATH, new JComponent[] { chromeBinaryPath });
 
 		final JFilePicker kmlTemplatePath = new JFilePicker(Messages.getString("OptionWizard.79"), //$NON-NLS-1$
-				localPropertiesService.getValue(EarthProperty.KML_TEMPLATE_KEY), Messages.getString("OptionWizard.80")); //$NON-NLS-1$
-		kmlTemplatePath.setMode(JFilePicker.MODE_OPEN);
+				localPropertiesService.getValue(EarthProperty.KML_TEMPLATE_KEY), Messages.getString("OptionWizard.80"), DlgMode.MODE_OPEN); //$NON-NLS-1$
 		kmlTemplatePath.addFileTypeFilter(".fmt", Messages.getString("OptionWizard.82"), true); //$NON-NLS-1$ //$NON-NLS-2$
 		propertyToComponent.put(EarthProperty.KML_TEMPLATE_KEY, new JComponent[] { kmlTemplatePath });
 
 		final JFilePicker htmlBalloonPath = new JFilePicker(Messages.getString("OptionWizard.83"), //$NON-NLS-1$
-				localPropertiesService.getValue(EarthProperty.BALLOON_TEMPLATE_KEY), Messages.getString("OptionWizard.84")); //$NON-NLS-1$
-		htmlBalloonPath.setMode(JFilePicker.MODE_OPEN);
+				localPropertiesService.getValue(EarthProperty.BALLOON_TEMPLATE_KEY), Messages.getString("OptionWizard.84"), DlgMode.MODE_OPEN); //$NON-NLS-1$
 		htmlBalloonPath.addFileTypeFilter(".html,.htm", Messages.getString("OptionWizard.86"), true); //$NON-NLS-1$ //$NON-NLS-2$
 		propertyToComponent.put(EarthProperty.BALLOON_TEMPLATE_KEY, new JComponent[] { htmlBalloonPath });
 
 		final JFilePicker idmPath = new JFilePicker(
 				Messages.getString("OptionWizard.87"), localPropertiesService.getImdFile(), //$NON-NLS-1$
-				Messages.getString("OptionWizard.88")); //$NON-NLS-1$
-		idmPath.setMode(JFilePicker.MODE_OPEN);
+				Messages.getString("OptionWizard.88"), DlgMode.MODE_OPEN); //$NON-NLS-1$
 		idmPath.addFileTypeFilter(".xml", Messages.getString("OptionWizard.90"), true); //$NON-NLS-1$ //$NON-NLS-2$
 		propertyToComponent.put(EarthProperty.METADATA_FILE, new JComponent[] { idmPath });
 

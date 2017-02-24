@@ -414,10 +414,27 @@ public class CollectEarthWindow{
 		menuItem.addActionListener(getPropertiesAction(frame));
 		toolsMenu.add(menuItem);
 
+		JMenu utilities = new JMenu("Utilities");
+			
 		menuItem = new JMenuItem(Messages.getString("CollectEarthWindow.18")); //$NON-NLS-1$
 		menuItem.addActionListener(new MissingPlotsListener(frame, localPropertiesService, missingPlotService));
 		serverMenuItems.add(menuItem); // This menu should only be shown if the DB is local ( not if Collect Earth is acting as a client )
-		toolsMenu.add(menuItem);
+		
+		utilities.add( menuItem );
+		
+		menuItem = new JMenuItem("Divide large CSV plot files");
+		menuItem.addActionListener( new ActionListener() {
+			
+			@Override
+			public void actionPerformed(ActionEvent e) {
+				FileDividerToolDlg.open(frame, earthSurveyService.getCollectSurvey() );
+			}
+		});
+		serverMenuItems.add(menuItem); // This menu should only be shown if the DB is local ( not if Collect Earth is acting as a client )
+		
+		utilities.add( menuItem );
+		
+		toolsMenu.add(utilities);
 
 		toolsMenu.addSeparator();
 		final JMenu languageMenu = getLanguageMenu();

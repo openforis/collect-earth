@@ -241,6 +241,7 @@ public class ServerController extends Observable {
 
 			Object attribute = getRoot().getServletContext().getAttribute(WebApplicationContext.ROOT_WEB_APPLICATION_CONTEXT_ATTRIBUTE);
 			if (attribute instanceof BeanCreationException) {
+				( (BeanCreationException) attribute).printStackTrace(System.out);
 				logger.error("Error creating the database connection", attribute); //$NON-NLS-1$
 				notifyObservers(ServerInitializationEvent.SERVER_STARTED_NO_DB_CONNECTION_EVENT);
 			} else {
