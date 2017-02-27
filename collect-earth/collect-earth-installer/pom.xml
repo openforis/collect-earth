@@ -3,7 +3,7 @@
 	<parent>
 		<groupId>org.openforis.collect.earth</groupId>
 		<artifactId>collect-earth</artifactId>
-		<version>1.5.3-SNAPSHOT</version>
+		<version>1.5.4-SNAPSHOT</version>
 	</parent>
 	<artifactId>collect-earth-installer</artifactId>
 	<packaging>pom</packaging>
@@ -16,7 +16,7 @@
 		<installer-build-path>${project.build.directory}/installer</installer-build-path>
 		<installbuilder-file-name>CollectEarthWithSaiku.xml</installbuilder-file-name>
 		<installbuilder-file-name-updater>CollectEarthUpdater.xml</installbuilder-file-name-updater>
-		<jre.version>1.8.0_11</jre.version>
+		<jre.version>1.8.0_121</jre.version>
 		<!-- installer file names -->
 		<windows-installer-file-name>CollectEarth-${project.version}-windows-installer.exe</windows-installer-file-name>
 		<linux-installer-file-name>CollectEarth-${project.version}-linux-installer.run</linux-installer-file-name>
