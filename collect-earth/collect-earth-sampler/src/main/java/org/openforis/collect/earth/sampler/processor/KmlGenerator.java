@@ -134,7 +134,7 @@ public abstract class KmlGenerator extends AbstractCoordinateCalculation {
 		HashMap<String, String> valuesByColumn = new HashMap<String, String>();
 		if( possibleColumnNames != null ){
 			for (int i = 0; i < possibleColumnNames.length; i++) {
-				valuesByColumn.put( possibleColumnNames[i], csvValuesInLine[i]);
+				valuesByColumn.put( possibleColumnNames[i], csvValuesInLine[i]==null?"":csvValuesInLine[i]);
 			}
 		}
 		plotProperties.setValuesByColumn( valuesByColumn );

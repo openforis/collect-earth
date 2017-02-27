@@ -103,7 +103,7 @@ public class JPlotCsvTable extends JTable{
 	private String getCellErrorMessage(Integer row, Integer col) {		
 		List<CSVRowValidationResult> rowValidations = validationResults.getRowValidations();
 		for (CSVRowValidationResult csvRowValidationResult : rowValidations) {
-			if( csvRowValidationResult.getRowNumber().equals(row) && csvRowValidationResult.getColumnPosition().equals( col  ) ){
+			if( csvRowValidationResult.getRowNumber().equals(row+1) && csvRowValidationResult.getColumnPosition().equals( col  ) ){
 				return csvRowValidationResult.getMessage();
 			}
 		}
