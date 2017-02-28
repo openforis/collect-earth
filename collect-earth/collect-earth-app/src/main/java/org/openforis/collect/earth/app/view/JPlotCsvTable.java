@@ -100,11 +100,13 @@ public class JPlotCsvTable extends JTable{
 		return errorMessage!=null;
 	}
 
-	private String getCellErrorMessage(Integer row, Integer col) {		
-		List<CSVRowValidationResult> rowValidations = validationResults.getRowValidations();
-		for (CSVRowValidationResult csvRowValidationResult : rowValidations) {
-			if( csvRowValidationResult.getRowNumber().equals(row+1) && csvRowValidationResult.getColumnPosition().equals( col  ) ){
-				return csvRowValidationResult.getMessage();
+	private String getCellErrorMessage(Integer row, Integer col) {	
+		if( validationResults != null ){
+			List<CSVRowValidationResult> rowValidations = validationResults.getRowValidations();
+			for (CSVRowValidationResult csvRowValidationResult : rowValidations) {
+				if( csvRowValidationResult.getRowNumber().equals(row+1) && csvRowValidationResult.getColumnPosition().equals( col  ) ){
+					return csvRowValidationResult.getMessage();
+				}
 			}
 		}
 		return null;
@@ -171,7 +173,7 @@ public class JPlotCsvTable extends JTable{
 		CSVFileValidationResult validation = cegtg.validate( new File(csvFilePath), forSurvey);
 
 		this.setBackground( Color.white ); 
-		this.setValidationResults( validation );
+		
 
 		if( !validation.isSuccessful() ){
 			switch (  validation.getErrorType() ) {
@@ -183,6 +185,7 @@ public class JPlotCsvTable extends JTable{
 			case INVALID_HEADERS:
 				JPlotCsvTable.this.setBackground( ERROR_BG_COLOR);
 				JOptionPane.showMessageDialog( JPlotCsvTable.this.getParent(), "The expected columns in the CSV are " + validation.getExpectedHeaders(), "Columns in CSV do not match survey", JOptionPane.ERROR_MESSAGE);
+				validation = null; // not bad enough to stop the user from loading the CSV file
 				break;
 
 			case INVALID_NUMBER_OF_COLUMNS:
@@ -193,11 +196,13 @@ public class JPlotCsvTable extends JTable{
 			case INVALID_NUMBER_OF_PLOTS_TOO_LARGE:
 				JPlotCsvTable.this.setBackground( ERROR_BG_COLOR);
 				JOptionPane.showMessageDialog( JPlotCsvTable.this.getParent(), "Using CSV files that are too large makes Google Earth extremely slow.\nPlease divide this CSV file into smaller file (reccomended less than 2000 plots per CSV file.\nNumber of plots in this file : " + validation.getNumberOfRows() , "File too large", JOptionPane.ERROR_MESSAGE); //$NON-NLS-1$
+				validation = null; // not bad enough to stop the user from loading the CSV file
 				break;
 
 			case INVALID_NUMBER_OF_PLOTS_WARNING:
 				JPlotCsvTable.this.setBackground( WARNING_BG_COLOR);
 				JOptionPane.showMessageDialog( JPlotCsvTable.this.getParent(), "Using CSV files that are too large makes Google Earth slow.\n Please divide this CSV file into smaller file (reccomended size is less than 2000 plots per CSV file.\nNumber of plots in this file : " + validation.getNumberOfRows() ,  "File too large", JOptionPane.WARNING_MESSAGE); //$NON-NLS-1$
+				validation = null; // not bad enough to stop the user from loading the CSV file
 				break;
 
 			case INVALID_VALUES_IN_CSV:
@@ -209,6 +214,9 @@ public class JPlotCsvTable extends JTable{
 				break;
 			}
 		}
+		
+		
+		this.setValidationResults( validation );
 	}
 
 
