@@ -77,7 +77,7 @@
 											<groupId>com.oracle.java</groupId>
 											<artifactId>jre</artifactId>
 											<version>${jre.version}</version>
-											<classifier>linux-i386</classifier>
+											<classifier>linux</classifier>
 											<type>zip</type>
 											<overWrite>false</overWrite>
 											<outputDirectory>${installer-build-path}/jre_files</outputDirectory>
@@ -230,6 +230,12 @@ No Solaris installer necessary
 									<token>GOOGLE_MAPS_API_KEY</token>
 									<value>${google_maps_api_key}</value>
 								</replacement>
+								<replacement>
+									<token>JAVA_VERSION_SET_POM</token>
+									<value>${jre.version}</value>
+								</replacement>
+								
+								
 							</replacements>
 						</configuration>
 					</plugin>

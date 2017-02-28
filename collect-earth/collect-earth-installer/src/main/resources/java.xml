@@ -15,7 +15,7 @@
             <distributionFileList>
                 <distributionFile>
                     <allowWildcards>1</allowWildcards>
-                    <origin>jre_files/jre1.8.0_11-windows/java-windows/*</origin>
+                    <origin>jre_files/jreJAVA_VERSION_SET_POM-windows/java-windows/*</origin>
                 </distributionFile>
             </distributionFileList>
             <ruleList>
@@ -31,7 +31,7 @@
             <distributionFileList>
                 <distributionFile>
                     <allowWildcards>1</allowWildcards>
-                    <origin>jre_files/jre1.8.0_11-windows-x64/java-windows/*</origin>
+                    <origin>jre_files/jreJAVA_VERSION_SET_POM-windows-x64/java-windows/*</origin>
                 </distributionFile>
             </distributionFileList>
             <ruleList>
@@ -47,7 +47,7 @@
             <distributionFileList>
                 <distributionFile>
                     <allowWildcards>1</allowWildcards>
-                    <origin>jre_files/jre1.8.0_11-linux/java-linux/*</origin>
+                    <origin>jre_files/jreJAVA_VERSION_SET_POM-linux/java-linux/*</origin>
                 </distributionFile>
             </distributionFileList>
             <ruleList>
@@ -62,7 +62,7 @@
             <distributionFileList>
                 <distributionFile>
                     <allowWildcards>1</allowWildcards>
-                    <origin>jre_files/jre1.8.0_11-linux-x64/java-linux-x64/*</origin>
+                    <origin>jre_files/jreJAVA_VERSION_SET_POM-linux-x64/java-linux-x64/*</origin>
                 </distributionFile>
             </distributionFileList>
             <ruleList>
@@ -77,7 +77,7 @@
             <distributionFileList>
                 <distributionFile>
                     <allowWildcards>1</allowWildcards>
-                    <origin>jre_files/jre1.8.0_11-solaris-sparc/java-solaris-sparc/*</origin>
+                    <origin>jre_files/jreJAVA_VERSION_SET_POM-solaris-sparc/java-solaris-sparc/*</origin>
                 </distributionFile>
             </distributionFileList>
             <ruleList>
@@ -92,7 +92,7 @@
             <distributionFileList>
                 <distributionFile>
                     <allowWildcards>1</allowWildcards>
-                    <origin>jre_files/jre1.8.0_11-solaris-intel/java-solaris-intel/*</origin>
+                    <origin>jre_files/jreJAVA_VERSION_SET_POM-solaris-intel/java-solaris-intel/*</origin>
                 </distributionFile>
             </distributionFileList>
             <ruleList>
@@ -107,7 +107,7 @@
             <distributionFileList>
                 <distributionFile>
                     <allowWildcards>1</allowWildcards>
-                    <origin>jre_files/jre1.8.0_11-osx/java-osx/*</origin>
+                    <origin>jre_files/jreJAVA_VERSION_SET_POM-osx/java-osx/*</origin>
                 </distributionFile>
             </distributionFileList>
             <ruleList>
@@ -420,7 +420,7 @@
             <actionList>
                 <setInstallerVariable name="java_version_major" value="1.8" />
 				<setInstallerVariable name="java_version" value="1.8.0" />
-				<setInstallerVariable name="java_version_full" value="1.8.0_11" />
+				<setInstallerVariable name="java_version_full" value="JAVA_VERSION_SET_POM" />
 				<setInstallerVariable name="java_version_vendor" value="Sun" />
                 <setInstallerVariable name="java_bitness" value="32"/>
 
