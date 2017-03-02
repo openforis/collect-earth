@@ -41,13 +41,10 @@ import org.openqa.selenium.By;
 import org.openqa.selenium.JavascriptExecutor;
 import org.openqa.selenium.WebDriverException;
 import org.openqa.selenium.WebElement;
-import org.openqa.selenium.browserlaunchers.locators.BrowserInstallation;
 import org.openqa.selenium.chrome.ChromeDriver;
 import org.openqa.selenium.firefox.FirefoxBinary;
 import org.openqa.selenium.firefox.FirefoxDriver;
 import org.openqa.selenium.firefox.FirefoxProfile;
-import org.openqa.selenium.firefox.GeckoDriverService;
-import org.openqa.selenium.firefox.MarionetteDriver;
 import org.openqa.selenium.remote.DesiredCapabilities;
 import org.openqa.selenium.remote.RemoteWebDriver;
 import org.slf4j.Logger;
@@ -173,9 +170,13 @@ public class BrowserService implements Observer{
 	private String checkIfBrowserIsInstalled(String chosenBrowser) {
 		if( chosenBrowser.equals( EarthConstants.FIREFOX_BROWSER ) ){
 			if( StringUtils.isBlank( localPropertiesService.getValue(EarthProperty.FIREFOX_BINARY_PATH) ) ){
-				FirefoxLocatorFixed firefoxLocator = new FirefoxLocatorFixed();
+				
+				FirefoxBinary fb = new FirefoxBinary();
+				
 				try {
-					firefoxLocator.findBrowserLocationOrFail();
+					fb.toString();
+					
+					
 				} catch (Exception e) {
 					logger.warn("Could not find firefox browser, switching to Chrome ", e);
 					chosenBrowser = EarthConstants.CHROME_BROWSER;
@@ -748,7 +749,15 @@ public class BrowserService implements Observer{
 		
 		// Firefox under version 48 will work in the "old" way with Selenium. For newer versions we need to use the GeckoDriver (Marionette)
 		final String firefoxBinaryPathSetByUser = localPropertiesService.getValue(EarthProperty.FIREFOX_BINARY_PATH);
+		FirefoxDriver fd = null;
+		if( !StringUtils.isBlank( firefoxBinaryPathSetByUser )){
+			fd = new FirefoxDriver( new FirefoxBinary(firefoxBinaryPathSetByUser), null );
+		}else{
+			fd = new FirefoxDriver();
+		}
+		return fd;
 		
+		/*
 		FirefoxLocatorFixed flf = new FirefoxLocatorFixed();
 		BrowserInstallation browserInstallation = flf.findBrowserLocationFix();
 		
@@ -783,11 +792,9 @@ public class BrowserService implements Observer{
 			System.setProperty(GeckoDriverService.GECKO_DRIVER_EXE_PROPERTY , geckoDriverFile.getAbsolutePath() );
 			System.setProperty( FirefoxDriver.SystemProperty.BROWSER_BINARY, browserInstallation.launcherFilePath() );
 			
-			driver = new MarionetteDriver();
 		}
+		*/
 		
-		
-		return driver;
 	}
 
 	public RemoteWebDriver getFirefoxDriverOld(	String firefoxBinaryPath) {
@@ -802,17 +809,6 @@ public class BrowserService implements Observer{
 				logger.error(
 						"The firefox executable firefox.exe cannot be found, please edit earth.properties and correct the firefox.exe location at "
 								+ EarthProperty.FIREFOX_BINARY_PATH + " pointing to the full path to firefox.exe", e);
-			}
-		} else {
-			// Try with default Firefox executable
-			try {
-				FirefoxLocatorFixed flf = new FirefoxLocatorFixed();
-				String launcherFilePath = flf.findBrowserLocationFix().launcherFilePath();
-				firefoxBinary = new FirefoxBinary( new File( launcherFilePath ) );
-				driver = new FirefoxDriver(firefoxBinary, ffprofile);
-			} catch (final WebDriverException e) {
-				logger.error("The firefox executable firefox.exe cannot be found, please edit earth.properties and add a line with the property "
-						+ EarthProperty.FIREFOX_BINARY_PATH + " pointing to the full path to firefox.exe", e);
 			}
 		}
 		return driver;

@@ -1,18 +1,12 @@
 package org.openforis.collect.earth.app.service;
 
-import org.apache.commons.lang.ArrayUtils;
-import org.openqa.selenium.browserlaunchers.locators.BrowserInstallation;
-import org.openqa.selenium.browserlaunchers.locators.FirefoxLocator;
-import org.openqa.selenium.os.WindowsUtils;
 
-import com.google.common.collect.ImmutableList;
-
-public class FirefoxLocatorFixed extends FirefoxLocator{
+public class FirefoxLocatorFixed{
 
 
 	  /**
 	   * Dynamic because the directory version number keep changing.
-	   */
+	  
 	  protected String[] usualUnixLauncherLocations() {
 			String[] standardLocations = super.usualUnixLauncherLocations();
 
@@ -70,4 +64,5 @@ public class FirefoxLocatorFixed extends FirefoxLocator{
 
 		throw new RuntimeException(couldNotFindAnyInstallationMessage());
 	}
+	 */
 }
