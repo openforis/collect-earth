@@ -75,36 +75,27 @@ public class FileDividerToolDlg extends JDialog{
 
 		panel.add( getCsvFilePicker(), c );
 		c.gridwidth = 1;
+		c.gridy = row++;
+		
 		c.gridx = 0;
 
 		panel.add( new JLabel("Number of files to split the CSV into"), c );
 
 		c.gridx = 1;
-		c.gridy = row++;
-
 		panel.add( getNumberOfFilesSelector(), c );
 
 		c.gridx = 0;
-
-		panel.add( new JLabel("Number of files to split the CSV into"), c );
-
-		c.gridx = 1;
 		c.gridy = row++;
-
+		c.gridwidth = 2;
 		panel.add( getRandomSelector(), c );
 
+		c.gridy = row++;
 		c.gridx = 0;
-
+		c.gridwidth = 1;
 		panel.add( new JLabel("Split files by strata (values of the column i.e : region )"), c );
 
 		c.gridx = 1;
-		c.gridy = row++;
-
 		panel.add( getColumnSelector(), c );
-
-		c.gridx = 0;
-
-		panel.add( new JLabel("Split files by strata (values of the column i.e : region )"), c );
 
 		c.gridx = 0;
 		c.gridy = row++;
@@ -162,8 +153,7 @@ public class FileDividerToolDlg extends JDialog{
 				
 				@Override
 				public void removeUpdate(DocumentEvent e) {
-					// TODO Auto-generated method stub
-					
+				
 				}
 				
 				@Override
@@ -216,6 +206,7 @@ public class FileDividerToolDlg extends JDialog{
 		}
 	}
 
+	
 	private JComboBox<CsvColumn> getColumnSelector() {
 		if( csvColumns == null ){
 			csvColumns = new JComboBox<CsvColumn>();
