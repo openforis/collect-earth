@@ -182,9 +182,19 @@ public class PropertiesDialog extends JDialog {
 
 		final ButtonGroup browserChooser = new ButtonGroup();
 		final JComponent[] browsers = propertyToComponent.get(EarthProperty.BROWSER_TO_USE);
+		ActionListener restartListener = new ActionListener() {
+			
+			@Override
+			public void actionPerformed(ActionEvent e) {
+				setRestartRequired(true);
+				
+			}
+		};
 		for (final JComponent broserRadioButton : browsers) {
 			browserChooserPanel.add(broserRadioButton);
 			browserChooser.add((AbstractButton) broserRadioButton);
+			
+			( (JRadioButton) broserRadioButton ).addActionListener( restartListener);
 		}
 		constraints.gridy++;
 		panel.add(browserChooserPanel, constraints);
@@ -663,7 +673,6 @@ public class PropertiesDialog extends JDialog {
 
 			@Override
 			public void changedUpdate(DocumentEvent e) {
-				refreshTable();
 			}
 
 			@Override
@@ -673,7 +682,6 @@ public class PropertiesDialog extends JDialog {
 			
 			@Override
 			public void removeUpdate(DocumentEvent e) {
-				refreshTable();
 			}
 			
 			private void refreshTable() {
