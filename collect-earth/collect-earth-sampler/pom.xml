@@ -13,7 +13,7 @@
 	<name>Earth Sampler</name>
 
 	<properties>
-		<geotools.version>16.1</geotools.version>
+		<geotools.version>16.2</geotools.version>
 	</properties>
 
 	<dependencies>
@@ -47,6 +47,11 @@
 			<groupId>org.geotools</groupId>
 			<artifactId>gt-coverage</artifactId>
 			<version>${geotools.version}</version>
+		</dependency>
+		<dependency>
+		    <groupId>org.geotools</groupId>
+		    <artifactId>gt-epsg-wkt</artifactId>
+		    <version>${geotools.version}</version>
 		</dependency>
 		<dependency>
 			<groupId>org.apache.commons</groupId>
