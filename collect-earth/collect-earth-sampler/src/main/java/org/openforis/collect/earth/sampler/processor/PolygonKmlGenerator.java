@@ -13,6 +13,16 @@ import org.slf4j.LoggerFactory;
 public class PolygonKmlGenerator extends AbstractPolygonKmlGenerator{
 
 	
+	private static final String COORDINATES_END = "</coordinates>";
+	private static final String COORDINATES_START = "<coordinates>";
+	private static final String LINEARRING_END = "</linearring>";
+	private static final String LINEARRING_START = "<linearring>";
+	private static final String MULTIGEOMETRY_END = "</multigeometry>";
+	private static final String MULTIGEOMETRY_START = "<multigeometry>";
+	private static final String POLYGON_START = "<polygon>";
+	private static final String POLYGON_END = "</polygon>";
+
+
 	public PolygonKmlGenerator(String epsgCode, String hostAddress, String localPort) {
 		super(epsgCode, hostAddress, localPort, 0, 0, 0,0);
 
@@ -28,7 +38,7 @@ public class PolygonKmlGenerator extends AbstractPolygonKmlGenerator{
 			throw new KmlGenerationException("The placemark kmlPolygon attribute is empty! There needs to be a column where the <Polygon> value is specified");
 		}
 		
-		placemark.setShape( PolygonKmlGenerator.getPointsInPolygon( placemark.getKmlPolygon() ));
+		placemark.setMultiShape( PolygonKmlGenerator.getPointsInPolygon( placemark.getKmlPolygon() ));
 	}
 
 	@Override
@@ -37,20 +47,48 @@ public class PolygonKmlGenerator extends AbstractPolygonKmlGenerator{
 	}
 
 
-	public static List<SimpleCoordinate> getPointsInPolygon(String kmlPolygon) {
+	public static List<List<SimpleCoordinate>> getPointsInPolygon(String kmlPolygon) {
+		
+		List<List<SimpleCoordinate>> shapes =  new ArrayList<List<SimpleCoordinate>>();
 		
 		if( StringUtils.isBlank( kmlPolygon)){
 			throw new IllegalArgumentException("The KML Polygon string cannot be null");
 		}
 		String lowerCase = kmlPolygon.toLowerCase();
 		
-		String valueAttr = extractXmlTextValue(lowerCase, "<linearring>","</linearring>");
-		valueAttr = extractXmlTextValue(valueAttr,  "<coordinates>","</coordinates>");
-		
-		// Coordinates look like this : lat,long,elev lat,long,elev ... -15.805135,16.389028,0.0 -15.804454,16.388447,0.0
-	
-		String[] splitGroup =   valueAttr.split(" ");
+		// If there are multiple polygons or lines
+		if( lowerCase.contains( MULTIGEOMETRY_START ) ){
+			
+			String geometries = extractXmlTextValue(lowerCase, MULTIGEOMETRY_START,MULTIGEOMETRY_END);
+			int lastFoundPolygon = geometries.indexOf(POLYGON_START, 0);
+			while( lastFoundPolygon > -1 ){
+				
+				String polygon = extractXmlTextValue(geometries.substring(lastFoundPolygon), POLYGON_START, POLYGON_END);
+				
+				shapes.add(  getPolygonPointsCoordinates(polygon) );
+				
+				lastFoundPolygon = geometries.indexOf(POLYGON_START, lastFoundPolygon + POLYGON_START.length());
+			}
+			
+		}else{
+			shapes.add(  getPolygonPointsCoordinates(lowerCase) );
+		}
+		return shapes;
+	}
+
+
+	private static List<SimpleCoordinate> getPolygonPointsCoordinates(
+			String lowerCase) {
+		String valueAttr = extractXmlTextValue(lowerCase, LINEARRING_START,LINEARRING_END);
+		valueAttr = extractXmlTextValue(valueAttr,  COORDINATES_START,COORDINATES_END);
 		List<SimpleCoordinate> simpleCoordinates = new ArrayList<SimpleCoordinate>();
+		// Coordinates look like this : lat,long,elev lat,long,elev ... -15.805135,16.389028,0.0 -15.804454,16.388447,0.0
+
+		String[] splitGroup =   valueAttr.split(" ");
+		if( splitGroup.length == 1){
+			splitGroup =   valueAttr.split("\n");
+		}
+
 		for (String coordsWithElev : splitGroup) {
 			String[] splitCoord = coordsWithElev.split(",");
 			if( splitCoord.length > 1 ){
@@ -58,12 +96,11 @@ public class PolygonKmlGenerator extends AbstractPolygonKmlGenerator{
 				simpleCoordinates.add(coords);
 			}
 		}
-
 		return simpleCoordinates;
 	}
 
 
-	public static String extractXmlTextValue(String lowerCase,
+	private static String extractXmlTextValue(String lowerCase,
 			String startXmlTag, String endXmlTag) {
 		int startOfXmlTag = lowerCase.indexOf(startXmlTag);
 		int endOfXmlTag = lowerCase.indexOf(endXmlTag);
@@ -74,11 +111,6 @@ public class PolygonKmlGenerator extends AbstractPolygonKmlGenerator{
 					
 			}
 		} catch (Exception e) {
-			System.out.println( lowerCase );
-			System.out.println( startXmlTag );
-			System.out.println( endXmlTag );
-			// TODO Auto-generated catch block
-			e.printStackTrace();
 			LoggerFactory.getLogger( PolygonKmlGenerator.class).error( " error with " + lowerCase, e );
 		}
 		return valueAttr;

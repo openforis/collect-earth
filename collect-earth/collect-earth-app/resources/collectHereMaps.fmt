@@ -62,17 +62,19 @@
              	// Create the default UI:
               	var ui = H.ui.UI.createDefault(map, maptypes);
              
+              	var outerPoints;
              	
-             	
-                //Create points on the rectangle that defines the plot   		
-                var outerPoints = [
-                    <#list placemark.shape as coord>
-        			{ lat: ${coord.latitude}, lng: ${coord.longitude} },
-        			</#list>
-                ];
-             	
-                // Add main plot frame
-                addPolyLine(outerPoints,map);
+             	 <#list placemark.multiShape as shp>
+	                //Create points on the rectangle that defines the plot   		
+	                outerPoints = [
+	                    <#list shp as coord>
+	        			{ lat: ${coord.latitude}, lng: ${coord.longitude} },
+	        			</#list>
+	                ];
+	             	
+	                // Add main plot frame
+	                addPolyLine(outerPoints,map);
+	             </#list>
                 
                
                 <#list placemark.points as square>

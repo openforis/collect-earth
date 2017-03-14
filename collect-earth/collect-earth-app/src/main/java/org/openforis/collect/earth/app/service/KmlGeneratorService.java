@@ -18,6 +18,7 @@ import org.openforis.collect.earth.sampler.processor.CircleKmlGenerator;
 import org.openforis.collect.earth.sampler.processor.HexagonKmlGenerator;
 import org.openforis.collect.earth.sampler.processor.KmlGenerator;
 import org.openforis.collect.earth.sampler.processor.KmzGenerator;
+import org.openforis.collect.earth.sampler.processor.NfmaKmlGenerator;
 import org.openforis.collect.earth.sampler.processor.PolygonKmlGenerator;
 import org.openforis.collect.earth.sampler.processor.SquareKmlGenerator;
 import org.openforis.collect.earth.sampler.processor.SquareWithCirclesKmlGenerator;
@@ -195,7 +196,9 @@ public class KmlGeneratorService {
 						
 			if (plotShape.equals(SAMPLE_SHAPE.CIRCLE)) {
 				generateKml = new CircleKmlGenerator(crsSystem, hostAddress, localPort, innerPointSide,  numberOfPoints, distanceBetweenSamplePoints );
-			}  else if (plotShape.equals(SAMPLE_SHAPE.HEXAGON)) {
+			} else if (plotShape.equals(SAMPLE_SHAPE.NFMA)) {
+				generateKml = new NfmaKmlGenerator(crsSystem, hostAddress, localPort );
+			} else if (plotShape.equals(SAMPLE_SHAPE.HEXAGON)) {
 				generateKml = new HexagonKmlGenerator(crsSystem, hostAddress, localPort, innerPointSide,  numberOfPoints, distanceBetweenSamplePoints );
 			}  else if (plotShape.equals(SAMPLE_SHAPE.SQUARE_CIRCLE)) {
 				generateKml = new SquareWithCirclesKmlGenerator(crsSystem, hostAddress, localPort, innerPointSide,  numberOfPoints, 

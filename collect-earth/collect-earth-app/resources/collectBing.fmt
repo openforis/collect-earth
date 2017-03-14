@@ -9,18 +9,13 @@
       <script type="text/javascript">
 
       var map = null;
-
 	  var bingKey = "${bingMapsKey}";
 	  
       function GetMap()
       {  
-
         map = new Microsoft.Maps.Map(document.getElementById("mapDiv"), { mapTypeId: Microsoft.Maps.MapTypeId.aerial, credentials: bingKey, center: new 
 		Microsoft.Maps.Location(${placemark.coord.latitude}, ${placemark.coord.longitude}), zoom: 19 });
         Microsoft.Maps.loadModule('Microsoft.Maps.AdvancedShapes', { callback: shapesModuleLoaded });
-		 
-		 
-
       }
 
 
@@ -28,12 +23,16 @@
       {
         //Create mock data   		
         var rings = [
-            [
+           
             
-            <#list placemark.shape as coord>
-			new Microsoft.Maps.Location(${coord.latitude}, ${coord.longitude}),
-			</#list>  
+            <#list placemark.multiShape as shp>
+             [
+            	<#list shp as coord>
+				new Microsoft.Maps.Location(${coord.latitude}, ${coord.longitude}),
+				</#list>  
 			],
+			</#list>
+			
            <#list placemark.points as square>
  				[ 
 			     <#list square.shape as squareCorners>

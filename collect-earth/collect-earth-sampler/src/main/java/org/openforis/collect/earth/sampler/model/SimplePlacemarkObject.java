@@ -1,5 +1,6 @@
 package org.openforis.collect.earth.sampler.model;
 
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
@@ -26,6 +27,8 @@ public class SimplePlacemarkObject {
 	private List<SimplePlacemarkObject> points;
 
 	private SimpleRegion region;
+	
+	private List<List<SimpleCoordinate>> multiShape;
 
 	private List<SimpleCoordinate> shape;
 
@@ -112,10 +115,6 @@ public class SimplePlacemarkObject {
 		return samplePointOutlined;
 	}
 
-	public List<SimpleCoordinate> getShape() {
-		return shape;
-	}
-
 	public int getSlope() {
 		return slope;
 	}
@@ -172,9 +171,7 @@ public class SimplePlacemarkObject {
 		this.samplePointOutlined = samplePointOutlined;
 	}
 
-	public void setShape(List<SimpleCoordinate> shape) {
-		this.shape = shape;
-	}
+
 
 	public void setSlope(double slope) {
 		this.slope = (int) slope;
@@ -319,6 +316,30 @@ public class SimplePlacemarkObject {
 
 	public void setVisiblePlacemarkId(String visiblePlacemarkId) {
 		this.visiblePlacemarkId = visiblePlacemarkId;
+	}
+
+	public void setShape(List<SimpleCoordinate> shapePoints) {
+		if(shapePoints != null ){
+			List<List<SimpleCoordinate>> tempShapes = new ArrayList<List<SimpleCoordinate>>();
+			tempShapes.add(shapePoints);
+			multiShape = tempShapes;
+		}
+		shape = shapePoints;
+	}
+
+	public List<SimpleCoordinate> getShape() {
+		return shape;
+	}
+
+	public void setMultiShape(List<List<SimpleCoordinate>> multiShape) {
+		this.multiShape = multiShape;
+		if( multiShape!=null && !multiShape.isEmpty() ){
+			shape = multiShape.get(0);
+		}
+	}
+	
+	public List<List<SimpleCoordinate>> getMultiShape() {
+		return multiShape;
 	}
 
 

@@ -16,27 +16,21 @@
 				type: "yandex#satellite"
             }); 
 
-			 // Creating a polygon using the GeoObject class.
-			 // Creating a polyline using the GeoObject class.
-			frame = new ymaps.GeoObject({
+			<#list placemark.multiShape as shp>
+				 // Creating a polygon using the GeoObject class.
+				 // Creating a polyline using the GeoObject class.
+				frame = new ymaps.GeoObject({
 					// Describing the geometry of the geo object.
 					geometry: {
 						// The "Polyline" geometry type.
 						type: "LineString",
 						// Specifying the coordinates of the vertices of the polyline.
 						coordinates: [
-						 <#list placemark.shape as coord>
+						 <#list shp as coord>
 							[${coord.latitude}, ${coord.longitude}],
 						</#list>
 						]
 					},
-					// Defining properties of the geo object.
-					properties:{
-						// The contents of the hint.
-						//hintContent: "? ?????????",
-						// The contents of the balloon.
-						//balloonContent: "???? ????? ??????????"
-					}
 				}, {
 					// Setting the geo object options. Enabling drag-n-drop for the polyline.
 					draggable: false,
@@ -48,7 +42,7 @@
 				
 				// Adding the polygon to the map.
 				myMap.geoObjects.add(frame);
-
+			</#list>
 
 				<#list placemark.points as square>
 				// Creating a polygon using the GeoObject class.

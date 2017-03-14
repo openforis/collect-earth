@@ -1,9 +1,10 @@
 var mapDefinition =new google.maps.Map(${gee_js_pickFunction}("map"),{center:new google.maps.LatLng(0,0),zoom:2,mapTypeId:google.maps.MapTypeId.SATELLITE,panControl:!1,streetViewControl:!1,scaleControl:!0,scrollwheel:!0,zoomControlOptions:{position:google.maps.ControlPosition.RIGHT_TOP,style:google.maps.ZoomControlStyle.LARGE}});
+var plotCoords;
 
-
+<#list placemark.multiShape as shp>
   // Define the LatLng coordinates for the polygon's path.
-  var plotCoords = [
-  		<#list placemark.shape as coord>
+  plotCoords = [
+  		<#list shp as coord>
 		new google.maps.LatLng(${coord.latitude},${coord.longitude}),
 		</#list>
   ];
@@ -19,8 +20,7 @@ var mapDefinition =new google.maps.Map(${gee_js_pickFunction}("map"),{center:new
   });
 
   plotSquare.setMap(mapDefinition);
-
-
+</#list>
 
 
 

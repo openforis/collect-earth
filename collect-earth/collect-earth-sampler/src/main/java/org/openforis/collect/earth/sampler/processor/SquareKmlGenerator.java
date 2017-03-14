@@ -88,16 +88,11 @@ public class SquareKmlGenerator extends AbstractPolygonKmlGenerator {
 				for (int row = 1; row < getNumOfRows(); row++) {
 					final double offsetLat = -(row * distanceBetweenSamplePoints); // GO
 					// SOUTH
-	
 					final double[] miniPlacemarkPosition = getPointWithOffset(topLeftCoord, offsetLong, offsetLat);
 					final SimplePlacemarkObject insidePlacemark = new SimplePlacemarkObject(miniPlacemarkPosition, placemark.getPlacemarkId() + "_" + col+"_"+row);
-	
 					insidePlacemark.setShape(getSamplePointPolygon(miniPlacemarkPosition, getPointSide()));
-	
 					pointsInPlacemark.add(insidePlacemark);
-	
 				}
-	
 			}
 		}else if( getNumberOfSamplePoints() == 1 ){
 			final double[] centerPosition = getPointWithOffset(placemark.getCoord().getCoordinates(), -1* getPointSide() / 2, -1 * getPointSide() / 2);

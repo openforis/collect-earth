@@ -25,7 +25,7 @@ public abstract class AbstractPolygonKmlGenerator extends KmlGenerator {
 	private static final Integer DEFAULT_INNER_POINT_SIDE = 2;
 	private Integer innerPointSide;
 	private final String localPort;
-	private final Logger logger = LoggerFactory.getLogger(this.getClass());
+	protected final Logger logger = LoggerFactory.getLogger(this.getClass());
 	protected double distanceBetweenSamplePoints;
 	protected double distancePlotBoundary;
 	private int numberOfSamplePoints;
