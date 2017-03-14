@@ -22,6 +22,7 @@ import java.util.List;
 import javax.swing.AbstractAction;
 import javax.swing.AbstractButton;
 import javax.swing.ButtonGroup;
+import javax.swing.ComboBoxModel;
 import javax.swing.JButton;
 import javax.swing.JCheckBox;
 import javax.swing.JComboBox;
@@ -50,6 +51,7 @@ import org.openforis.collect.earth.app.CollectEarthUtils;
 import org.openforis.collect.earth.app.EarthConstants;
 import org.openforis.collect.earth.app.EarthConstants.CollectDBDriver;
 import org.openforis.collect.earth.app.EarthConstants.OperationMode;
+import org.openforis.collect.earth.app.EarthConstants.SAMPLE_SHAPE;
 import org.openforis.collect.earth.app.desktop.EarthApp;
 import org.openforis.collect.earth.app.service.AnalysisSaikuService;
 import org.openforis.collect.earth.app.service.EarthProjectsService;
@@ -433,7 +435,19 @@ public class PropertiesDialog extends JDialog {
 		constraints.insets = new Insets(5, 5, 5, 5);
 		constraints.fill = GridBagConstraints.HORIZONTAL;
 
-		JLabel label = new JLabel(Messages.getString("OptionWizard.35")); //$NON-NLS-1$
+		
+
+		JLabel label = new JLabel("Plot shape");
+		panel.add(label, constraints);
+
+		constraints.gridx = 1;
+		JComboBox plotShape = (JComboBox) propertyToComponent.get(EarthProperty.SAMPLE_SHAPE)[0];
+		panel.add(plotShape, constraints);
+		
+
+		constraints.gridx = 0;
+		constraints.gridy++;
+		label = new JLabel(Messages.getString("OptionWizard.35")); //$NON-NLS-1$
 		panel.add(label, constraints);
 
 		constraints.gridx = 1;
@@ -441,16 +455,16 @@ public class PropertiesDialog extends JDialog {
 		panel.add(numberPoints, constraints);
 
 		constraints.gridx = 0;
-		constraints.gridy = 1;
-		label = new JLabel(Messages.getString("OptionWizard.36")); //$NON-NLS-1$
-		panel.add(label, constraints);
+		constraints.gridy++;
+		JLabel distanceOrRadiuslabel = new JLabel(Messages.getString("OptionWizard.36")); //$NON-NLS-1$
+		panel.add(distanceOrRadiuslabel, constraints);
 
 		constraints.gridx = 1;
 		JComboBox distanceBetweenPoints = (JComboBox) propertyToComponent.get(EarthProperty.DISTANCE_BETWEEN_SAMPLE_POINTS)[0];
 		panel.add(new JScrollPane(distanceBetweenPoints), constraints);
 
 		constraints.gridx = 0;
-		constraints.gridy = 2;
+		constraints.gridy++;
 		label = new JLabel(Messages.getString("OptionWizard.37")); //$NON-NLS-1$
 		panel.add(label, constraints);
 		constraints.gridx = 1;
@@ -458,7 +472,7 @@ public class PropertiesDialog extends JDialog {
 		panel.add(new JScrollPane(distanceToFrame), constraints);
 		
 		constraints.gridx = 0;
-		constraints.gridy = 3;
+		constraints.gridy++;
 		label = new JLabel(Messages.getString("OptionWizard.95") ); //$NON-NLS-1$
 		panel.add(label, constraints);
 		constraints.gridx = 1;
@@ -466,29 +480,58 @@ public class PropertiesDialog extends JDialog {
 		panel.add(new JScrollPane(dotsSide), constraints);
 		
 		constraints.gridx = 0;
-		constraints.gridy = 4;
-		label = new JLabel( "Area (hectares)" );
-		panel.add(label, constraints);
-		constraints.gridx = 1;
-		JLabel area = new JLabel( calculateArea(  numberPoints, distanceBetweenPoints, distanceToFrame, dotsSide) );
-		panel.add(new JScrollPane(area), constraints);
+		constraints.gridy++;
+		JLabel area = new JLabel( "Area (hectares)  :  " + calculateArea(  numberPoints, distanceBetweenPoints, distanceToFrame, dotsSide) );
+		panel.add(area, constraints);
 		
-		ActionListener calculateAreas = new ActionListener() {
+		
+		ActionListener calculateAreas = (actionPerformed) -> area.setText( "Area (hectares)  :  " + calculateArea( numberPoints, distanceBetweenPoints, distanceToFrame, dotsSide )  );
+		
+		
+		plotShape.addActionListener( new ActionListener() {
 			
 			@Override
 			public void actionPerformed(ActionEvent e) {
-				area.setText( calculateArea( numberPoints, distanceBetweenPoints, distanceToFrame, dotsSide )  );
 				
+				handleVisibilityPlotLayout(plotShape, numberPoints,	distanceBetweenPoints, distanceToFrame, dotsSide, area, distanceOrRadiuslabel);
 			}
-		};
+
+			
+		});
+
 		
 		numberPoints.addActionListener(calculateAreas);
 		distanceBetweenPoints.addActionListener(calculateAreas);
 		distanceToFrame.addActionListener(calculateAreas);
 		
+		handleVisibilityPlotLayout(plotShape, numberPoints,	distanceBetweenPoints, distanceToFrame, dotsSide, area, distanceOrRadiuslabel);
+		
 		return panel;
 	}
 
+	public void handleVisibilityPlotLayout(JComboBox plotShape,
+			JComboBox numberPoints, JComboBox distanceBetweenPoints,
+			JComboBox distanceToFrame, JComboBox dotsSide, JLabel area, JLabel distanceOrRadiuslabel) {
+		numberPoints.setEnabled( false );
+		distanceBetweenPoints.setEnabled( false );
+		distanceToFrame.setEnabled( false );
+		dotsSide.setEnabled( false );
+		area.setVisible( false );
+		
+		
+		if( plotShape.getSelectedItem().equals( SAMPLE_SHAPE.SQUARE) ){
+			numberPoints.setEnabled( true );
+			distanceBetweenPoints.setEnabled( true );
+			distanceToFrame.setEnabled( true );
+			dotsSide.setEnabled( true );
+			area.setVisible( true );
+			distanceOrRadiuslabel.setText(	Messages.getString("OptionWizard.36") );
+		}else if( plotShape.getSelectedItem().equals( SAMPLE_SHAPE.CIRCLE )	|| plotShape.getSelectedItem().equals( SAMPLE_SHAPE.HEXAGON )){
+			distanceToFrame.setEnabled( true );
+			distanceOrRadiuslabel.setText(	"Radius" );
+		}
+	}
+	
 	private String calculateArea(JComboBox numberOfPoints, JComboBox distanceBetweenPoints, JComboBox distanceToFrame, JComboBox dotsSide) {
 		double side = 0;
 		try{
@@ -860,6 +903,12 @@ public class PropertiesDialog extends JDialog {
 		csvWithPlotData.addFileTypeFilter(".csv,.ced", Messages.getString("OptionWizard.52"), true); //$NON-NLS-1$ //$NON-NLS-2$
 		propertyToComponent.put(EarthProperty.SAMPLE_FILE, new JComponent[] { csvWithPlotData });
 
+		
+		final JComboBox<SAMPLE_SHAPE> plotShape = new JComboBox<SAMPLE_SHAPE>( SAMPLE_SHAPE.values() );
+		plotShape.setSelectedItem( SAMPLE_SHAPE.valueOf( localPropertiesService.getValue( EarthProperty.SAMPLE_SHAPE) ) );
+		propertyToComponent.put(EarthProperty.SAMPLE_SHAPE, new JComponent[] { plotShape });
+
+		
 		final JComboBox<ComboBoxItem> comboNumberOfPoints = new JComboBox<ComboBoxItem>(
 				new ComboBoxItem[] {
 						COMBO_BOX_ITEM_SQUARE, COMBO_BOX_ITEM_CENTRAL_POINT, new ComboBoxItem(4, "2x2"), //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$

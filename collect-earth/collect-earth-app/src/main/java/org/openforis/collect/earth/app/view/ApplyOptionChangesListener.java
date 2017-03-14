@@ -14,6 +14,7 @@ import javax.swing.JOptionPane;
 import javax.swing.JRadioButton;
 import javax.swing.text.JTextComponent;
 
+import org.openforis.collect.earth.app.EarthConstants.SAMPLE_SHAPE;
 import org.openforis.collect.earth.app.desktop.EarthApp;
 import org.openforis.collect.earth.app.service.LocalPropertiesService;
 import org.openforis.collect.earth.app.service.LocalPropertiesService.EarthProperty;
@@ -72,8 +73,10 @@ public abstract class ApplyOptionChangesListener implements ActionListener {
 				if (((JComboBox) component).getItemAt(0) instanceof ComboBoxItem) {
 					setPropertyValue(propertyKey,
 							((ComboBoxItem) ((JComboBox) component).getSelectedItem()).getNumberOfPoints() + ""); //$NON-NLS-1$
-				} else {
-					setPropertyValue(propertyKey, (String) ((JComboBox) component).getSelectedItem());
+				} else if (((JComboBox) component).getItemAt(0) instanceof String) {
+					setPropertyValue(propertyKey, ((String) ((JComboBox) component).getSelectedItem() ) ); //$NON-NLS-1$
+				} else if (((JComboBox) component).getItemAt(0) instanceof SAMPLE_SHAPE) {
+					setPropertyValue(propertyKey,  ( (SAMPLE_SHAPE) ((JComboBox) component).getSelectedItem() ).name() );
 				}
 			} else if (component instanceof JList) {
 				setPropertyValue(propertyKey, ((JList) component).getSelectedValue() + ""); //$NON-NLS-1$

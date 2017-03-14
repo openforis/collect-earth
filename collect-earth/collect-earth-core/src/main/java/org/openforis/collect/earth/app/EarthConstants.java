@@ -59,7 +59,20 @@ public class EarthConstants {
 	public static final String POSTGRES_RDB_SCHEMA = "rdbcollectsaiku"; //$NON-NLS-1$
 
 	
-	public enum SAMPLE_SHAPE{ SQUARE_CIRCLE, SQUARE, CIRCLE, POLYGON, HEXAGON, NFMA};
+	public enum SAMPLE_SHAPE{ 
+		SQUARE("Square (Standard)"), CIRCLE("Circle"), POLYGON("Predefined polygon within CSV plot file"), HEXAGON("Hexagon"), NFMA ("NFMA plot design"), SQUARE_CIRCLE ("Square with circles (beta)");
+	
+		private String label;
+		
+		private SAMPLE_SHAPE(String label){
+			this.label = label;
+		}
+		
+		@Override
+		public String toString() {
+			return label;
+		}
+	};
 	
 	public enum UI_LANGUAGE{ 
 		FR( "Français", new Locale("fr", "FR") ) , EN( "English", new Locale("en", "EN") ), ES( "Español", new Locale("es", "ES")), PT("Português", new Locale("pt","PT") ), VI("tiếng Việt", new Locale("vi","VI") ) , LO("Lao", new Locale("lo","LO")), MN("Монгол", new Locale("mn","MN") ), HI("हिंदी", new Locale("hi","HI") ) ; //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$ //$NON-NLS-4$ //$NON-NLS-5$ //$NON-NLS-6$ //$NON-NLS-7$ //$NON-NLS-8$ //$NON-NLS-9$ //$NON-NLS-10$ //$NON-NLS-11$ //$NON-NLS-12$
