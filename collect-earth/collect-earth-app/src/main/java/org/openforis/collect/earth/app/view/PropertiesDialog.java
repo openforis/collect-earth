@@ -527,7 +527,9 @@ public class PropertiesDialog extends JDialog {
 			area.setVisible( true );
 			distanceOrRadiuslabel.setText(	Messages.getString("OptionWizard.36") );
 		}else if( plotShape.getSelectedItem().equals( SAMPLE_SHAPE.CIRCLE )	|| plotShape.getSelectedItem().equals( SAMPLE_SHAPE.HEXAGON )){
-			distanceToFrame.setEnabled( true );
+			distanceBetweenPoints.setEnabled( true );
+			dotsSide.setEnabled(true);
+			numberPoints.setEnabled(true);
 			distanceOrRadiuslabel.setText(	"Radius" );
 		}
 	}

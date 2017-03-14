@@ -33,27 +33,29 @@ public class CircleKmlGenerator extends AbstractPolygonKmlGenerator {
 
 	private Rectangle2D createRectangle(List<SimpleCoordinate> samplingSquarePoints) {
 
+		float buffer = 0.000005f;
+		
 		Float minX = null, minY = null, maxX = null, maxY = null;
 		for (final SimpleCoordinate simplePlacemarkObject : samplingSquarePoints) {
 			final float longitude = Float.parseFloat(simplePlacemarkObject.getLongitude());
 			final float latitude = Float.parseFloat(simplePlacemarkObject.getLatitude());
 			if (minX == null || longitude < minX) {
-				minX = longitude;
+				minX = longitude - buffer;
 			}
 			if (maxX == null || longitude > maxX) {
-				maxX = longitude;
+				maxX = longitude + buffer;
 			}
 			if (minY == null || latitude < minY) {
-				minY = latitude;
+				minY = latitude  - buffer;
 			}
 			if (maxY == null || latitude > maxY) {
-				maxY = latitude;
+				maxY = latitude + buffer;
 			}
 		}
 
 		// Return the rectangle described by the top-left position, width and height
 		// units are degrees
-		return new Rectangle2D.Float(minX, maxY, maxX - minX, maxY - minY);
+		return new Rectangle2D.Float(minX, minY, maxX - minX, maxY - minY);
 
 	}
 
@@ -149,7 +151,7 @@ public class CircleKmlGenerator extends AbstractPolygonKmlGenerator {
 	}
 
 	protected int getNumberOfExternalPoints() {
-		return 70;
+		return 60;
 	}
 
 	private static int getMarginCircle() {

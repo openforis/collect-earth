@@ -39,10 +39,6 @@ public abstract class AbstractPolygonKmlGenerator extends KmlGenerator {
 		this.distanceBetweenSamplePoints = distanceBetweenSamplePoints;
 		this.distancePlotBoundary = distancePlotBoundary;
 		this.setNumberOfSamplePoints(numberOfPoints);
-		
-		if( numberOfPoints > 1 && distanceBetweenSamplePoints <1 ){
-			throw new IllegalArgumentException("The distance between sampling-dots must be higher than 0!!");
-		}
 	}
 
 	protected int getPointSide() {
