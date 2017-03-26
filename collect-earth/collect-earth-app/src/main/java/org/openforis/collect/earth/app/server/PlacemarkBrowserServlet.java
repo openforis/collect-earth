@@ -74,6 +74,8 @@ public class PlacemarkBrowserServlet {
 				
 				openYandexMapsWindow(placemarkObject);
 
+				openExtraMapWindow(placemarkObject);
+				
 				openStreetViewWindow(placemarkObject);
 
 				// Until further notice
@@ -142,6 +144,22 @@ public class PlacemarkBrowserServlet {
 					} catch (final Exception e) {
 						LoggerFactory.getLogger(this.getClass()).error(
 								"Exception opening Yandex Maps window", e); //$NON-NLS-1$
+
+					}
+				}
+
+			}.start();
+		}
+		
+		public void openExtraMapWindow(final SimplePlacemarkObject placemarkObject) {
+			new Thread("Open Expa Map window") { //$NON-NLS-1$
+				@Override
+				public void run() {
+					try {
+						browserService.openExtraMap(placemarkObject);
+					} catch (final Exception e) {
+						LoggerFactory.getLogger(this.getClass()).error(
+								"Exception opening Extra Map window", e); //$NON-NLS-1$
 
 					}
 				}

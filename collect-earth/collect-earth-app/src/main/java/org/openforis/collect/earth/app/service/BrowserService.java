@@ -117,7 +117,7 @@ public class BrowserService implements Observer{
 	private static final Configuration cfg = new Configuration();
 	private static Template template;
 
-	private RemoteWebDriver webDriverEE, webDriverBing, webDriverTimelapse, webDriverGeePlayground, webDriverHere, webDriverStreetView, webDriverYandex;
+	private RemoteWebDriver webDriverEE, webDriverBing, webDriverTimelapse, webDriverGeePlayground, webDriverHere, webDriverStreetView, webDriverYandex, webDriverExtraMap;
 
 	private static boolean geeMethodUpdated = false;
 
@@ -504,6 +504,41 @@ public class BrowserService implements Observer{
 		}
 	}
 	
+	/**
+	 * Opens a browser window with a map representation of the plot.
+	 * @param placemarkObject The data of the plot.
+	 * @throws BrowserNotFoundException In case the browser could not be found
+	 * 
+	 */
+	public void openExtraMap(SimplePlacemarkObject placemarkObject) throws BrowserNotFoundException {
+
+		if (!localPropertiesService.getExtraMap().isEmpty() ) {
+
+			if (webDriverExtraMap == null) {
+				webDriverExtraMap = initBrowser();
+			}
+
+			final RemoteWebDriver driverCopy = webDriverExtraMap;
+			
+			final Thread loadYandexThread = new Thread() {
+				@Override
+				public void run() {
+					try {
+						String latitude = placemarkObject.getCoord().getLatitude();
+						String longitude = placemarkObject.getCoord().getLongitude();
+						String url = localPropertiesService.getExtraMap();
+						url = url.replaceAll("LATITUDE", latitude).replaceAll("LONGITUDE" , longitude);
+						webDriverExtraMap = navigateTo( url, driverCopy);
+					} catch (final Exception e) {
+						logger.error("Problems loading Yandex", e);
+					}
+				};
+			};
+			
+			loadYandexThread.start();
+			
+		}
+	}
 		/**
 		 * Opens a browser window with the Google Street View representation of the plot.
 		 * https://www.google.com/maps/@43.7815661,11.1484876,3a,75y,210.23h,82.32t/data=!3m6!1e1!3m4!1sEz7NiCbaIYzTJkP_RMBiqw!2e0!7i13312!8i6656?hl=en
