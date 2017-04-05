@@ -441,6 +441,7 @@ public class BalloonInputFieldsUtils {
 				}
 				// result should be
 				// collect_entity_NAME[KEY].code_attribute
+				@SuppressWarnings("deprecation")
 				String entityKey = entity.getKeyValues()[0];
 				collectParamName += "[" + entityKey + "]";
 			}
@@ -501,6 +502,10 @@ public class BalloonInputFieldsUtils {
 	}
 
 	public NodeChangeSet saveToEntity(Map<String, String> parameters, Entity entity) {
+		return saveToEntity(parameters, entity, false);
+	}
+	
+	public NodeChangeSet saveToEntity(Map<String, String> parameters, Entity entity, boolean newRecord) {
 		final NodeChangeMap result = new NodeChangeMap();
 
 		Set<Entry<String, String>> parameterEntries = parameters.entrySet();
@@ -513,21 +518,25 @@ public class BalloonInputFieldsUtils {
 			AbstractAttributeHandler<?> handler = findHandler(cleanName);
 			if (handler != null) {
 				try {
-					if( handler.isMultiValueAware() ){ // EntityHandler will use the original separated parameter values while the other will take single values
-						NodeChangeSet partialChangeSet = handler.addOrUpdate(cleanName, parameterValue, entity, 0);
-						result.addMergeChanges(partialChangeSet);
-					} else {
-						String[] parameterValues = parameterValue.split(BalloonInputFieldsUtils.PARAMETER_SEPARATOR);
-						AttributeDefinition attrDef = handler.getAttributeDefinition(entity, cleanName);
-						if (attrDef.isMultiple() && parameterValues.length != entity.getCount(attrDef)) {
-							//delete old values
-							result.addMergeChanges(handler.deleteAttributes(cleanName, entity));
-						}
-						for (int index = 0; index < parameterValues.length; index++) {
-							String parameterVal = parameterValues[index];
-							NodeChangeSet partialChangeSet = handler.addOrUpdate(cleanName, parameterVal, entity, index);
-							if (partialChangeSet != null) {
-								result.addMergeChanges(partialChangeSet);
+					//update attribute value only the record is not new or the value is not null (e.g. from CSV) 
+					//otherwise default values or calculated attributes can be overwritten
+					if (!newRecord || StringUtils.isNotBlank(parameterValue)) {
+						if( handler.isMultiValueAware() ){ // EntityHandler will use the original separated parameter values while the other will take single values
+							NodeChangeSet partialChangeSet = handler.addOrUpdate(cleanName, parameterValue, entity, 0);
+							result.addMergeChanges(partialChangeSet);
+						} else {
+							AttributeDefinition attrDef = handler.getAttributeDefinition(entity, cleanName);
+							String[] parameterValues = parameterValue.split(BalloonInputFieldsUtils.PARAMETER_SEPARATOR);
+							if (attrDef.isMultiple() && parameterValues.length != entity.getCount(attrDef)) {
+								//delete old values
+								result.addMergeChanges(handler.deleteAttributes(cleanName, entity));
+							}
+							for (int index = 0; index < parameterValues.length; index++) {
+								String parameterVal = parameterValues[index];
+								NodeChangeSet partialChangeSet = handler.addOrUpdate(cleanName, parameterVal, entity, index);
+								if (partialChangeSet != null) {
+									result.addMergeChanges(partialChangeSet);
+								}
 							}
 						}
 					}
