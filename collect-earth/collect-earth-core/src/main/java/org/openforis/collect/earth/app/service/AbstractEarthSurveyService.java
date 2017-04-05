@@ -132,10 +132,10 @@ public abstract class AbstractEarthSurveyService {
 		return message;
 	}
 
-	private CollectRecord createRecord(String sessionId) throws RecordPersistenceException {
+	private CollectRecord createRecord() throws RecordPersistenceException {
 		String modelVersionName = localPropertiesService.getModelVersionName();
 		CollectRecord record = recordManager.create(getCollectSurvey(),
-				getRootEntityDefinition(), null, modelVersionName, sessionId);
+				getRootEntityDefinition(), null, modelVersionName, null);
 		return record;
 	}
 
@@ -186,7 +186,7 @@ public abstract class AbstractEarthSurveyService {
 		CollectRecord record;
 		if (isPreviewRecordID(keyAttributeValues)) {
 			try {
-				record = createRecord(null);
+				record = createRecord();
 				updateKeyAttributeValues(record, keyAttributeValues);
 			} catch (Exception e) {
 				record = null;
@@ -355,7 +355,7 @@ public abstract class AbstractEarthSurveyService {
 	}
 
 	@Deprecated
-	public synchronized boolean storePlacemarkOld(Map<String, String> parameters, String sessionId) {
+	public synchronized boolean storePlacemarkOld(Map<String, String> parameters) {
 
 		String[] keys = new String[] { parameters.get(EarthConstants.PLACEMARK_ID_PARAMETER) };
 
@@ -372,11 +372,11 @@ public abstract class AbstractEarthSurveyService {
 			if (summaries.size() > 0) { // DELETE IF ALREADY PRESENT
 				record = summaries.get(0);
 				recordManager.delete(record.getId());
-				record = createRecord(sessionId);
+				record = createRecord();
 				plotEntity = record.getRootEntity();
 			} else {
 				// Create new record
-				record = createRecord(sessionId);
+				record = createRecord();
 				plotEntity = record.getRootEntity();
 				logger.warn("Creating a new plot entity with data " + parameters.toString()); //$NON-NLS-1$
 			}
@@ -405,10 +405,10 @@ public abstract class AbstractEarthSurveyService {
 			}
 
 			record.setModifiedDate(new Date());
-			recordManager.save(record, sessionId);
+			recordManager.save(record);
 
 			success = true;
-		} catch (final RecordPersistenceException e) {
+		} catch (Exception e) {
 			logger.error("Error while storing the record " + e.getMessage(), e); //$NON-NLS-1$
 		}
 		return success;
@@ -421,7 +421,7 @@ public abstract class AbstractEarthSurveyService {
 			parameters.put(OPERATOR_PARAMETER, localPropertiesService.getOperator());
 
 			if (isPreviewRecordID(plotKeyAttributes)) {
-				CollectRecord record = createRecord(null);
+				CollectRecord record = createRecord();
 
 				collectParametersHandler.saveToEntity(parameters, record.getRootEntity());
 
@@ -436,9 +436,9 @@ public abstract class AbstractEarthSurveyService {
 			} else {
 				CollectRecord record = loadRecord(plotKeyAttributes);
 				if (record == null) {
-					record = createRecord(null);
+					record = createRecord();
 	
-					collectParametersHandler.saveToEntity(parameters, record.getRootEntity());
+					collectParametersHandler.saveToEntity(parameters, record.getRootEntity(), true);
 	
 					// update actively_saved_on attribute now, otherwise if it's empty
 					// it counts as an error
