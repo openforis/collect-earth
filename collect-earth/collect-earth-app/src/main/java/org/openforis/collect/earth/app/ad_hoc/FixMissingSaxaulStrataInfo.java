@@ -64,11 +64,12 @@ public class FixMissingSaxaulStrataInfo {
 		}
 	}
 
+	@SuppressWarnings("deprecation")
 	private void setPlotValue(String plotId, String collectParameterName, String value) {
 		Map<String,String> plotInformation = earthSurveyService.getPlacemark( new String[]{plotId},true);
 		if( plotInformation.get( EarthConstants.PLACEMARK_FOUND_PARAMETER ).trim().equals("true") ){ //$NON-NLS-1$
 			plotInformation.put(collectParameterName, value);
-			earthSurveyService.storePlacemarkOld(plotInformation, null );
+			earthSurveyService.storePlacemarkOld(plotInformation);
 		}
 	}
 }

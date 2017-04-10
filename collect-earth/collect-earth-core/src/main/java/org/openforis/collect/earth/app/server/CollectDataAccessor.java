@@ -27,7 +27,7 @@ public class CollectDataAccessor implements DataAccessor {
 	@Deprecated
 	@Override
 	public boolean saveData(Map<String, String> collectedData) {
-		return earthSurveyService.storePlacemarkOld(collectedData, null);
+		return earthSurveyService.storePlacemarkOld(collectedData);
 	}
 
 	@Override
