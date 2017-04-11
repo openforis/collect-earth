@@ -32,11 +32,20 @@ var plot = ee.Geometry.MultiPolygon([
 
 // Load the MODIS  Vegetation Index composite. Select the NDVI band. Resolution of the pixels is 250 meters.
 var modisNoaaNdvi = ee.ImageCollection('MODIS/MOD13Q1').filterDate(startTime, endTime).select('NDVI');
-
+var addFire = function(i){
+ var image = ee.Image(i);
+ var startModisRange = image.get("system:time_start");
+ var endModisRange = image.get("system:time_end"); 
+ var fireValue = ee.ImageCollection('FIRMS').filterDate(startModisRange, endModisRange).select('T21').mean();
+ var fireValueImage = ee.Image( fireValue );
+ var concat = image.addBands( fireValueImage );
+ return concat;
+}
+modisNoaaNdvi = modisNoaaNdvi.map( addFire );
 var modisNoaaTimeSeries = Chart.image.series(modisNoaaNdvi, plot, ee.Reducer.mean(), 30);
 modisNoaaTimeSeries = modisNoaaTimeSeries
 .setOptions({  
-		title: 'MODIS NDVI 16-Day',
+		title: 'MODIS NDVI 16-Day + FIRMS Fire alerts',
 		hAxis: {title: 'Date',gridlines: {count: 10,}},
 		vAxis: {title: 'NDVI',viewWindowMode: 'explicit', viewWindow: {max: 10000,min: -2500,},gridlines: {count: 5,}}
 	});
