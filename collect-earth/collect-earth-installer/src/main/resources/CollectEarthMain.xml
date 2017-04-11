@@ -82,7 +82,7 @@
             <platforms>windows</platforms>
             <distributionFileList>
 	         	<distributionDirectory  allowWildcards="1">
-	                <excludeFiles>*/chromedriver;*/chromedriver_mac;*/geckodriver;*/geckodriver_mac</excludeFiles>
+	                <excludeFiles>*/chromedriver32;*/chromedriver64;*/chromedriver_mac;*/geckodriver;*/geckodriver_mac</excludeFiles>
 	            	<origin>../../../collect-earth-app/resources/*</origin>
 	            </distributionDirectory>
             </distributionFileList>
@@ -91,10 +91,22 @@
             <description>Resources Linux</description>
             <destination>${installdir}/resources</destination>
             <name>resourceslinux</name>
-            <platforms>linux linux-x64</platforms>
+            <platforms>linux</platforms>
             <distributionFileList>
 	         	<distributionDirectory  allowWildcards="1">
-	                <excludeFiles>*/chromedriver.exe;*/chromedriver_mac;*/geckodriver.exe;*/geckodriver_mac</excludeFiles>
+	                <excludeFiles>*/chromedriver64;*/chromedriver.exe;*/chromedriver_mac;*/geckodriver.exe;*/geckodriver_mac</excludeFiles>
+	            	<origin>../../../collect-earth-app/resources/*</origin>
+	            </distributionDirectory>
+            </distributionFileList>
+        </folder>
+        <folder>
+            <description>Resources Linux</description>
+            <destination>${installdir}/resources</destination>
+            <name>resourceslinux</name>
+            <platforms>linux-x64</platforms>
+            <distributionFileList>
+	         	<distributionDirectory  allowWildcards="1">
+	                <excludeFiles>*/chromedriver32;*/chromedriver.exe;*/chromedriver_mac;*/geckodriver.exe;*/geckodriver_mac</excludeFiles>
 	            	<origin>../../../collect-earth-app/resources/*</origin>
 	            </distributionDirectory>
             </distributionFileList>
@@ -106,7 +118,7 @@
             <platforms>osx</platforms>
             <distributionFileList>
 	         	<distributionDirectory allowWildcards="1">
-	                <excludeFiles>*/chromedriver.exe;*/chromedriver;*/geckodriver.exe;*/geckodriver</excludeFiles>
+	                <excludeFiles>*/chromedriver.exe;*/chromedriver32;*/chromedriver64;*/geckodriver.exe;*/geckodriver</excludeFiles>
 	            	<origin>../../../collect-earth-app/resources/*</origin>
 	            </distributionDirectory>
             </distributionFileList>
