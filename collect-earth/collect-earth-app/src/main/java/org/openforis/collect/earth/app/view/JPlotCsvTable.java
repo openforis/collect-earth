@@ -16,6 +16,7 @@ import org.openforis.collect.earth.core.utils.CsvReaderUtils;
 import org.openforis.collect.io.metadata.collectearth.CSVFileValidationResult;
 import org.openforis.collect.io.metadata.collectearth.CSVRowValidationResult;
 import org.openforis.collect.io.metadata.collectearth.CollectEarthGridTemplateGenerator;
+import org.openforis.collect.manager.validation.SurveyValidator.ValidationParameters;
 import org.openforis.collect.model.CollectSurvey;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -170,7 +171,9 @@ public class JPlotCsvTable extends JTable{
 	protected void validateCsvFile(String csvFilePath) {
 
 		CollectEarthGridTemplateGenerator cegtg = new CollectEarthGridTemplateGenerator();
-		CSVFileValidationResult validation = cegtg.validate( new File(csvFilePath), forSurvey);
+		ValidationParameters validationParameters = new ValidationParameters();
+		validationParameters.setValidateOnlyFirstLines( false );
+		CSVFileValidationResult validation = cegtg.validate( new File(csvFilePath), forSurvey, validationParameters);
 
 		this.setBackground( Color.white ); 
 		

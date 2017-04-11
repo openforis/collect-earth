@@ -13,6 +13,7 @@ import java.net.URL;
 import java.security.Security;
 import java.security.cert.CertificateException;
 import java.security.cert.X509Certificate;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Observable;
@@ -41,13 +42,10 @@ import org.openqa.selenium.By;
 import org.openqa.selenium.JavascriptExecutor;
 import org.openqa.selenium.WebDriverException;
 import org.openqa.selenium.WebElement;
-import org.openqa.selenium.browserlaunchers.locators.BrowserInstallation;
 import org.openqa.selenium.chrome.ChromeDriver;
 import org.openqa.selenium.firefox.FirefoxBinary;
 import org.openqa.selenium.firefox.FirefoxDriver;
 import org.openqa.selenium.firefox.FirefoxProfile;
-import org.openqa.selenium.firefox.GeckoDriverService;
-import org.openqa.selenium.firefox.MarionetteDriver;
 import org.openqa.selenium.remote.DesiredCapabilities;
 import org.openqa.selenium.remote.RemoteWebDriver;
 import org.slf4j.Logger;
@@ -58,6 +56,7 @@ import org.springframework.stereotype.Component;
 import freemarker.template.Configuration;
 import freemarker.template.Template;
 import freemarker.template.TemplateException;
+import freemarker.template.Version;
 
 /**
  * This class contains methods that allow Collect Earth to open browser windows that allow the user to have a better understanding of the plot.
@@ -74,7 +73,7 @@ public class BrowserService implements Observer{
 
 
 	/**
-	 * To avoid needing to addd the SSL certificate of Google to the certificate repository we ause a Trust Manager that basically trust all
+	 * To avoid needing to add the SSL certificate of Google to the certificate repository we ause a Trust Manager that basically trust all
 	 * certificates. Not very safe but it is OK for Collect Earth's contex ( only Goolge Earth Engine is used and no sign-in is necessary )
 	 * 
 	 * @author Alfonso Sanchez-Paus Diaz
@@ -83,15 +82,17 @@ public class BrowserService implements Observer{
 	static class TrustAllCertificates implements X509TrustManager {
 		@Override
 		public void checkClientTrusted(X509Certificate[] cert, String s) throws CertificateException {
+			// TRUST EVERYTHING!
 		}
 
 		@Override
 		public void checkServerTrusted(X509Certificate[] cert, String s) throws CertificateException {
+			// DOES NOT CHECK A THING
 		}
 
 		@Override
 		public X509Certificate[] getAcceptedIssuers() {
-			return null;
+			return new X509Certificate[0];
 		}
 
 	}
@@ -111,10 +112,10 @@ public class BrowserService implements Observer{
 	@Autowired
 	private PlaygroundHandlerThread codeEditorHandlerThread;
 
-	private final Vector<RemoteWebDriver> drivers = new Vector<RemoteWebDriver>();
+	private final ArrayList<RemoteWebDriver> drivers = new ArrayList<>();
 	private final Logger logger = LoggerFactory.getLogger(BrowserService.class);
 	private static final String KML_FOR_GEE_JS = "resources/javascript_gee.fmt";
-	private static final Configuration cfg = new Configuration();
+	private static final Configuration cfg = new Configuration( new Version("2.3.23"));
 	private static Template template;
 
 	private RemoteWebDriver webDriverEE, webDriverBing, webDriverTimelapse, webDriverGeePlayground, webDriverHere, webDriverStreetView, webDriverYandex, webDriverExtraMap;
@@ -140,26 +141,30 @@ public class BrowserService implements Observer{
 		RemoteWebDriver driver = null;
 		final String browserSetInProperties = localPropertiesService.getValue(EarthProperty.BROWSER_TO_USE);
 		final String browserThatExists = checkIfBrowserIsInstalled(browserSetInProperties);
-
+		boolean driverSet;
 		
 	
-		if (browserThatExists != null && browserThatExists.trim().toLowerCase().equals(EarthConstants.CHROME_BROWSER.toLowerCase())) {
+		if (browserThatExists != null && browserThatExists.trim().equalsIgnoreCase(EarthConstants.CHROME_BROWSER)) {
 			try{
 				driver = startChromeBrowser(driver);
+				driverSet = true;
 			} catch (final WebDriverException e) {
 				logger.warn("The browser executable for Chrome (chrome.exe in Windows) cannot be found, please edit earth.properties and add the chrome.exe location in "
 						+ EarthProperty.CHROME_BINARY_PATH + " pointing to the full path to chrome", e);
+				driverSet = false;
 			}
 		} else {
 			try{
 				driver = startFirefoxBrowser(driver);
+				driverSet = true;
 			} catch (final WebDriverException e) {
 				logger.warn("The browser executable for Firefox (Firefox.exe) cannot be found, please edit earth.properties and add the firefox.exe location in "
 						+ EarthProperty.FIREFOX_BINARY_PATH + " pointing to the full path to firefox", e);
+				driverSet = false;
 			}
 		}
 	
-		if( driver == null ){
+		if( !driverSet ){
 			if( browserSetInProperties.equals(browserThatExists ) ){
 				throw new BrowserNotFoundException("Chrome could not be found");
 			}else{ // THe user chose Firefox, it was not found then it tried Chrome and it was not found either, no browser has been installed 
@@ -171,23 +176,28 @@ public class BrowserService implements Observer{
 	}
 
 	private String checkIfBrowserIsInstalled(String chosenBrowser) {
-		if( chosenBrowser.equals( EarthConstants.FIREFOX_BROWSER ) ){
+		String browser = chosenBrowser;
+		if( browser.equals( EarthConstants.FIREFOX_BROWSER ) ){
 			if( StringUtils.isBlank( localPropertiesService.getValue(EarthProperty.FIREFOX_BINARY_PATH) ) ){
-				FirefoxLocatorFixed firefoxLocator = new FirefoxLocatorFixed();
+				
+				FirefoxBinary fb = new FirefoxBinary();
+				
 				try {
-					firefoxLocator.findBrowserLocationOrFail();
+					fb.toString();
+					
+					
 				} catch (Exception e) {
 					logger.warn("Could not find firefox browser, switching to Chrome ", e);
-					chosenBrowser = EarthConstants.CHROME_BROWSER;
+					browser = EarthConstants.CHROME_BROWSER;
 				}
 			}			
 		}
-		return chosenBrowser;
+		return browser;
 	}
 
 	private String getCompleteGeeJS() throws IOException {
 		BufferedReader in = null;
-		final StringBuffer jsResult = new StringBuffer();
+		final StringBuilder jsResult = new StringBuilder();
 		try {
 			final URL geeJsUrl = new URL(localPropertiesService.getValue(EarthProperty.GEE_JS_LIBRARY_URL));
 
@@ -199,12 +209,7 @@ public class BrowserService implements Observer{
 			final HttpsURLConnection connection = (HttpsURLConnection) geeJsUrl.openConnection();
 			connection.setSSLSocketFactory(factory);
 			
-			connection.setHostnameVerifier(new HostnameVerifier() {
-				@Override
-				public boolean verify(String hostname, SSLSession session) {
-					return true;
-				}
-			});
+			connection.setHostnameVerifier( (hostname, session) -> {return true;} );
 			// End or work-around
 
 			if (connection.getHeaderField("Content-Encoding")!=null && connection.getHeaderField("Content-Encoding").equals("gzip")){
@@ -231,7 +236,6 @@ public class BrowserService implements Observer{
 
 	private String getGEEJavascript(SimplePlacemarkObject placemarkObject) {
 
-		//final Map<String, String> data = new HashMap<String, String>();
 		final Map<String,Object> data = geoLocalizeTemplateService.getPlacemarkData(placemarkObject);
 		data.put("latitude", placemarkObject.getCoord().getLatitude());
 		data.put("longitude", placemarkObject.getCoord().getLongitude());
@@ -278,7 +282,6 @@ public class BrowserService implements Observer{
 	private RemoteWebDriver initBrowser() throws BrowserNotFoundException  {
 		RemoteWebDriver driver = null;
 		driver = chooseDriver();
-		//minimizeWindow(driver);
 		drivers.add(driver);
 		return driver;
 	}
@@ -326,8 +329,10 @@ public class BrowserService implements Observer{
 		return found;
 	}
 
-	private RemoteWebDriver loadLayers(SimplePlacemarkObject placemarkObject, RemoteWebDriver driver) throws InterruptedException, BrowserNotFoundException {
+	private RemoteWebDriver loadLayers(SimplePlacemarkObject placemarkObject, RemoteWebDriver driverParam) throws InterruptedException, BrowserNotFoundException {
 
+		RemoteWebDriver driver = driverParam;
+		
 		if (driver != null) {
 
 			if (!isIdOrNamePresent("workspace-el", driver)) {
@@ -371,8 +376,6 @@ public class BrowserService implements Observer{
 		for (final WebElement webElement : dataLayerVisibility) {
 			if (webElement.isDisplayed()) {
 				webElement.click();
-				//Thread.sleep(1000);
-				//webElement.click();
 			}
 		}
 	}
@@ -405,8 +408,10 @@ public class BrowserService implements Observer{
 	 * @return THe browser window (firefox or chrome depending on the configuration) used to open the URL.
 	 * @throws BrowserNotFoundException Exception thrown when there is no Firefox/Chrome installed
 	 */
-	public RemoteWebDriver navigateTo(String url, RemoteWebDriver driver, boolean retry ) throws BrowserNotFoundException {
+	public RemoteWebDriver navigateTo(String url, RemoteWebDriver driverParam, boolean retry ) throws BrowserNotFoundException {
 
+		RemoteWebDriver driver = driverParam;
+		
 		if (driver == null || !isDriverWorking(driver) ) {
 			driver = initBrowser();
 		}
@@ -748,8 +753,10 @@ public class BrowserService implements Observer{
 
 	}
 
-	private RemoteWebDriver startChromeBrowser(RemoteWebDriver driver) {
+	private RemoteWebDriver startChromeBrowser(RemoteWebDriver driverParam) {
 
+		RemoteWebDriver driver = driverParam;
+		
 		final Properties props = System.getProperties();
 		if (props.getProperty("webdriver.chrome.driver") == null) {
 			if( SystemUtils.IS_OS_MAC || SystemUtils.IS_OS_MAC_OSX){
@@ -783,6 +790,14 @@ public class BrowserService implements Observer{
 		
 		// Firefox under version 48 will work in the "old" way with Selenium. For newer versions we need to use the GeckoDriver (Marionette)
 		final String firefoxBinaryPathSetByUser = localPropertiesService.getValue(EarthProperty.FIREFOX_BINARY_PATH);
+		FirefoxDriver fd = null;
+		if( !StringUtils.isBlank( firefoxBinaryPathSetByUser )){
+			fd = new FirefoxDriver( new FirefoxBinary(firefoxBinaryPathSetByUser), null );
+		}else{
+			fd = new FirefoxDriver();
+		}
+		return fd;
+		
 		
 		FirefoxLocatorFixed flf = new FirefoxLocatorFixed();
 		BrowserInstallation browserInstallation = flf.findBrowserLocationFix();
@@ -818,11 +833,9 @@ public class BrowserService implements Observer{
 			System.setProperty(GeckoDriverService.GECKO_DRIVER_EXE_PROPERTY , geckoDriverFile.getAbsolutePath() );
 			System.setProperty( FirefoxDriver.SystemProperty.BROWSER_BINARY, browserInstallation.launcherFilePath() );
 			
-			driver = new MarionetteDriver();
 		}
 		
 		
-		return driver;
 	}
 
 	public RemoteWebDriver getFirefoxDriverOld(	String firefoxBinaryPath) {
@@ -837,17 +850,6 @@ public class BrowserService implements Observer{
 				logger.error(
 						"The firefox executable firefox.exe cannot be found, please edit earth.properties and correct the firefox.exe location at "
 								+ EarthProperty.FIREFOX_BINARY_PATH + " pointing to the full path to firefox.exe", e);
-			}
-		} else {
-			// Try with default Firefox executable
-			try {
-				FirefoxLocatorFixed flf = new FirefoxLocatorFixed();
-				String launcherFilePath = flf.findBrowserLocationFix().launcherFilePath();
-				firefoxBinary = new FirefoxBinary( new File( launcherFilePath ) );
-				driver = new FirefoxDriver(firefoxBinary, ffprofile);
-			} catch (final WebDriverException e) {
-				logger.error("The firefox executable firefox.exe cannot be found, please edit earth.properties and add a line with the property "
-						+ EarthProperty.FIREFOX_BINARY_PATH + " pointing to the full path to firefox.exe", e);
 			}
 		}
 		return driver;
