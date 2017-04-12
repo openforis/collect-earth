@@ -12,6 +12,7 @@ import java.util.Random;
 import freemarker.template.Configuration;
 import freemarker.template.Template;
 import freemarker.template.TemplateException;
+import freemarker.template.Version;
 
 
 public class FreemarkerTemplateUtils {
@@ -21,7 +22,7 @@ public class FreemarkerTemplateUtils {
 		boolean success = true;
 		
 		// Process the template file using the data in the "data" Map
-		final Configuration cfg = new Configuration();
+		final Configuration cfg = new Configuration( new Version("2.3.23"));
 		cfg.setDirectoryForTemplateLoading(sourceTemplate.getParentFile());
 
 		// Load template from source folder

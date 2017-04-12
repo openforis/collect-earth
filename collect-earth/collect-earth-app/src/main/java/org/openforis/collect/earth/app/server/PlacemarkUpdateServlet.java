@@ -37,6 +37,7 @@ import freemarker.cache.FileTemplateLoader;
 import freemarker.template.Configuration;
 import freemarker.template.Template;
 import freemarker.template.TemplateException;
+import freemarker.template.Version;
 
 /**
  * Servlet called by the NetworkLink which tries to update the status of the placemark icons every few seconds.
@@ -57,7 +58,7 @@ public class PlacemarkUpdateServlet {
 	@Autowired
 	private LocalPropertiesService localPropertiesService;
 
-	private static final Configuration cfg = new Configuration();
+	private static final Configuration cfg = new Configuration( new Version("2.3.23"));
 
 	private static Template template;
   
