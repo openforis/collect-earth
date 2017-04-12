@@ -7,6 +7,7 @@ import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStreamReader;
+import java.io.Reader;
 import java.io.StringWriter;
 import java.io.Writer;
 import java.net.URL;
@@ -19,14 +20,11 @@ import java.util.Map;
 import java.util.Observable;
 import java.util.Observer;
 import java.util.Properties;
-import java.util.Vector;
 import java.util.zip.GZIPInputStream;
 
 import javax.annotation.PostConstruct;
-import javax.net.ssl.HostnameVerifier;
 import javax.net.ssl.HttpsURLConnection;
 import javax.net.ssl.SSLContext;
-import javax.net.ssl.SSLSession;
 import javax.net.ssl.SSLSocketFactory;
 import javax.net.ssl.TrustManager;
 import javax.net.ssl.X509TrustManager;
@@ -38,13 +36,16 @@ import org.openforis.collect.earth.app.EarthConstants;
 import org.openforis.collect.earth.app.desktop.ServerController.ServerInitializationEvent;
 import org.openforis.collect.earth.app.service.LocalPropertiesService.EarthProperty;
 import org.openforis.collect.earth.sampler.model.SimplePlacemarkObject;
+import org.openforis.collect.earth.sampler.utils.FreemarkerTemplateUtils;
 import org.openqa.selenium.By;
 import org.openqa.selenium.JavascriptExecutor;
 import org.openqa.selenium.WebDriverException;
 import org.openqa.selenium.WebElement;
 import org.openqa.selenium.chrome.ChromeDriver;
+import org.openqa.selenium.chrome.ChromeOptions;
 import org.openqa.selenium.firefox.FirefoxBinary;
 import org.openqa.selenium.firefox.FirefoxDriver;
+import org.openqa.selenium.firefox.FirefoxOptions;
 import org.openqa.selenium.firefox.FirefoxProfile;
 import org.openqa.selenium.remote.DesiredCapabilities;
 import org.openqa.selenium.remote.RemoteWebDriver;
@@ -53,6 +54,8 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
+import freemarker.cache.FileTemplateLoader;
+import freemarker.cache.TemplateLoader;
 import freemarker.template.Configuration;
 import freemarker.template.Template;
 import freemarker.template.TemplateException;
@@ -116,8 +119,6 @@ public class BrowserService implements Observer{
 	private final Logger logger = LoggerFactory.getLogger(BrowserService.class);
 	private static final String KML_FOR_GEE_JS = "resources/javascript_gee.fmt";
 	private static final Configuration cfg = new Configuration( new Version("2.3.23"));
-	private static Template template;
-
 	private RemoteWebDriver webDriverEE, webDriverBing, webDriverTimelapse, webDriverGeePlayground, webDriverHere, webDriverStreetView, webDriverYandex, webDriverExtraMap;
 
 	private static boolean geeMethodUpdated = false;
@@ -243,14 +244,14 @@ public class BrowserService implements Observer{
 		data.put(EarthProperty.GEE_ZOOM_OBJECT.toString(), localPropertiesService.getValue(EarthProperty.GEE_ZOOM_OBJECT));
 		data.put(EarthProperty.GEE_ZOOM_METHOD.toString(), localPropertiesService.getValue(EarthProperty.GEE_ZOOM_METHOD));
 		data.put(EarthProperty.GEE_INITIAL_ZOOM.toString(), localPropertiesService.getValue(EarthProperty.GEE_INITIAL_ZOOM));
-		
+			
 		StringWriter fw = null;
 		Writer out = null;
 		try {
-			if (template == null) {
-				// Load template from source folder
-				template = cfg.getTemplate(KML_FOR_GEE_JS);
-			}
+			// Load template from source folder
+			cfg.setTemplateLoader( new FileTemplateLoader( new File( System.getProperty("user.dir") ) ) ); 
+			final Template template = cfg.getTemplate(KML_FOR_GEE_JS);
+			
 			// Console output
 			fw = new StringWriter();
 			out = new BufferedWriter(fw);
@@ -761,8 +762,10 @@ public class BrowserService implements Observer{
 		if (props.getProperty("webdriver.chrome.driver") == null) {
 			if( SystemUtils.IS_OS_MAC || SystemUtils.IS_OS_MAC_OSX){
 				props.setProperty("webdriver.chrome.driver", "resources/chromedriver_mac");
+			}else if( SystemUtils.IS_OS_UNIX && System.getProperty("os.arch").contains("64")){
+				props.setProperty("webdriver.chrome.driver", "resources/chromedriver64");
 			}else if( SystemUtils.IS_OS_UNIX ){
-				props.setProperty("webdriver.chrome.driver", "resources/chromedriver");
+				props.setProperty("webdriver.chrome.driver", "resources/chromedriver32");
 			}else if( SystemUtils.IS_OS_WINDOWS ){
 				props.setProperty("webdriver.chrome.driver", "resources/chromedriver.exe");
 			}else{
@@ -771,18 +774,25 @@ public class BrowserService implements Observer{
 		}
 
 		final String chromeBinaryPath = localPropertiesService.getValue(EarthProperty.CHROME_BINARY_PATH);
+		final DesiredCapabilities capabilities = DesiredCapabilities.chrome();
+		capabilities.setCapability("credentials_enable_service", false);
+		capabilities.setCapability("password_manager_enabled", false);
+		ChromeOptions chromeOptions = new ChromeOptions();
+		chromeOptions.addArguments("disable-infobars");
+		chromeOptions.addArguments("disable-save-password-bubble");
+						
 		if (chromeBinaryPath != null && chromeBinaryPath.trim().length() > 0) {
 			try {
-				final DesiredCapabilities capabilities = DesiredCapabilities.chrome();
 				capabilities.setCapability("chrome.binary", chromeBinaryPath);
-				driver = new ChromeDriver(capabilities);
+				chromeOptions.setBinary( chromeBinaryPath );
 			} catch (final WebDriverException e) {
 				logger.error("The chrome executable chrome.exe cannot be found, please edit earth.properties and correct the chrome.exe location at "
 						+ EarthProperty.CHROME_BINARY_PATH + " pointing to the full path to chrome.exe", e);
 			}
-		} else {
-			driver = new ChromeDriver();			
 		}
+		
+		driver = new ChromeDriver(chromeOptions);			
+		
 		return driver;
 	}
 
@@ -790,18 +800,20 @@ public class BrowserService implements Observer{
 		
 		// Firefox under version 48 will work in the "old" way with Selenium. For newer versions we need to use the GeckoDriver (Marionette)
 		final String firefoxBinaryPathSetByUser = localPropertiesService.getValue(EarthProperty.FIREFOX_BINARY_PATH);
+		final DesiredCapabilities capabilities = DesiredCapabilities.firefox();
 		FirefoxDriver fd = null;
 		if( !StringUtils.isBlank( firefoxBinaryPathSetByUser )){
-			fd = new FirefoxDriver( new FirefoxBinary(firefoxBinaryPathSetByUser), null );
+			FirefoxBinary fb = new FirefoxBinary(new File(firefoxBinaryPathSetByUser)  );
+			FirefoxOptions fo = new FirefoxOptions();
+			fo.setBinary( fb );
+			fd = new FirefoxDriver(fo);			
 		}else{
 			fd = new FirefoxDriver();
 		}
 		return fd;
 		
-		
-		FirefoxLocatorFixed flf = new FirefoxLocatorFixed();
-		BrowserInstallation browserInstallation = flf.findBrowserLocationFix();
-		
+		/*
+			
 		String pathToFirefoxBin = firefoxBinaryPathSetByUser;
 		if( StringUtils.isEmpty( firefoxBinaryPathSetByUser ) ){
 			pathToFirefoxBin = browserInstallation.launcherFilePath();
@@ -835,7 +847,7 @@ public class BrowserService implements Observer{
 			
 		}
 		
-		
+		*/
 	}
 
 	public RemoteWebDriver getFirefoxDriverOld(	String firefoxBinaryPath) {
