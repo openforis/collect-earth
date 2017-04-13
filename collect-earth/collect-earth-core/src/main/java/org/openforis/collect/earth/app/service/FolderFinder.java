@@ -5,7 +5,7 @@ import java.io.File;
 import org.apache.commons.lang3.SystemUtils;
 import org.openforis.collect.earth.app.EarthConstants;
 
-public class FolderFinder implements getCollectEarthDataFolder {
+public class FolderFinder {
 
 	private FolderFinder(){
 		
