@@ -1,68 +1,64 @@
 package org.openforis.collect.earth.app.service;
 
+import java.io.File;
+
+import org.apache.commons.lang3.SystemUtils;
+
 
 public class FirefoxLocatorFixed{
 
-
-	  /**
-	   * Dynamic because the directory version number keep changing.
-	  */
-	  protected String[] usualUnixLauncherLocations() {
-			String[] standardLocations = super.usualUnixLauncherLocations();
-
-			String[] localAppDataLocations = new ImmutableList.Builder<String>()
-					.add("/Applications/Firefox.app/Contents/MacOS" )
-					.add("/Applications/Mozilla Firefox.app/Contents/MacOS")
-					.build().toArray(new String[0]);
-
-			return (String[]) ArrayUtils.addAll(standardLocations, localAppDataLocations );
-	  }
-	
-	@Override
-	protected String[] firefoxDefaultLocationsOnWindows() {
-
-		String[] standardLocations = super.firefoxDefaultLocationsOnWindows();
-
-		String[] localAppDataLocations = new ImmutableList.Builder<String>()
-				.add(WindowsUtils.getLocalAppDataPath() + "\\Firefox-3" )
-				.add(WindowsUtils.getLocalAppDataPath() + "\\Mozilla Firefox")
-				.add(WindowsUtils.getLocalAppDataPath() + "\\Firefox")
-				.build().toArray(new String[0]);
-
-		return (String[]) ArrayUtils.addAll(standardLocations, localAppDataLocations );
+	private FirefoxLocatorFixed(){
 	}
 
-
-	public BrowserInstallation findBrowserLocationGrandParent() {
-		final BrowserInstallation defaultPath;
-
-		defaultPath = findAtADefaultLocation();
-		if (null != defaultPath) {
-			return defaultPath;
+	public static String tryToFindFolder(){
+		String path = null;
+		if (SystemUtils.IS_OS_WINDOWS){
+			return findInUsualWindowsLocations();
+		}else if (SystemUtils.IS_OS_MAC){
+			return findInUsualMacLocations();
 		}
 
-		return findInPath();
+		return path;		  
 	}
 
-	public BrowserInstallation findBrowserLocationFix() {
-
-		BrowserInstallation findBrowserLocation = findBrowserLocationGrandParent();
-
-		if( findBrowserLocation == null ){
-			findBrowserLocation = ( (FirefoxLocator) this) .findBrowserLocation();
-		}
-
-		return findBrowserLocation;
-	}
-
-	@Override
-	public BrowserInstallation findBrowserLocationOrFail() {
-		final BrowserInstallation firefoxPathLocation =  findBrowserLocationFix();
-		if (null != firefoxPathLocation) {
-			return firefoxPathLocation;
-		}
-
-		throw new RuntimeException(couldNotFindAnyInstallationMessage());
-	}
+	/**
+	 * Dynamic because the directory version number keep changing.
 	 */
+	private  static String findInUsualMacLocations() {
+
+		String[] localAppDataLocations = new String[]{
+				FolderFinder.getLocalAppDataFolder() + "/Applications/Firefox.app/Contents/MacOS/firefox-bin" ,
+				FolderFinder.getLocalAppDataFolder() + "/Applications/Mozilla Firefox.app/Contents/MacOS/firefox-bin"
+		};
+
+		for (String path : localAppDataLocations) {
+			File f = new File(path);
+			if( f.exists() ){
+				return path;
+			}
+
+		}
+
+		return null;
+	}
+
+
+	private static String findInUsualWindowsLocations() {
+
+		String[] localAppDataLocations = new String[]{
+				FolderFinder.getLocalAppDataFolder() + "\\Firefox-3\\firefox.exe" ,
+				FolderFinder.getLocalAppDataFolder() + "\\Mozilla Firefox\\firefox.exe",
+				FolderFinder.getLocalAppDataFolder() + "\\Firefox\\firefox.exe"
+		};
+
+		for (String path : localAppDataLocations) {
+			File f = new File(path);
+			if( f.exists() ){
+				return path;
+			}
+
+		}
+		return null;
+	}
+
 }

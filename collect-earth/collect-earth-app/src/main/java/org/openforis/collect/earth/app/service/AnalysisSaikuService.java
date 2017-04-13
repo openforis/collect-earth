@@ -388,7 +388,7 @@ public class AnalysisSaikuService {
 
 	private File getZippedSaikuProjectDB() {
 
-		File saikuFolder = new File(FolderFinder.getLocalFolder() + File.separator + "saikuDatabase");
+		File saikuFolder = new File(FolderFinder.getCollectEarthDataFolder() + File.separator + "saikuDatabase");
 
 		if ( !saikuFolder.exists() ){
 			saikuFolder.mkdir();
@@ -418,7 +418,7 @@ public class AnalysisSaikuService {
 
 			try {
 				ZipFile zippedProjectSaikuData = new ZipFile( getZippedSaikuProjectDB() );
-				zippedProjectSaikuData.extractAll( FolderFinder.getLocalFolder() );
+				zippedProjectSaikuData.extractAll( FolderFinder.getCollectEarthDataFolder() );
 				restoredSaiku = true;
 			} catch (ZipException e) {
 				logger.error("Problems unzipping the contents of the zipped Saiku DB to the local user folder ", e);

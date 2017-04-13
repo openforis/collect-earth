@@ -306,7 +306,6 @@ public class EarthProjectsService {
 	private String getProjectFolderName(File projectZipFile, int max_lenght_folder_name) throws ZipException, IOException {
 		ZipFile zipFile = new ZipFile(projectZipFile);
 		File definitionFolder = new File(EarthConstants.GENERATED_FOLDER);
-		//FileHeader fileHeader = zipFile.getFileHeader(PROJECT_FILE_NAME);
 		zipFile.extractFile( PROJECT_PROPERTIES_FILE_NAME, definitionFolder.getAbsolutePath() );		
 		String projectName =  getProjectSurveyName(new File( definitionFolder + File.separator + PROJECT_PROPERTIES_FILE_NAME) );
 		
@@ -321,7 +320,7 @@ public class EarthProjectsService {
 	}
 
 	public String getProjectsFolder(){
-		return FolderFinder.getLocalFolder() + File.separator + PROJECTS;
+		return FolderFinder.getCollectEarthDataFolder() + File.separator + PROJECTS;
 	}
 
 	private File unzipContents(File projectZipFile, String projectName) throws ZipException {

@@ -341,7 +341,7 @@ public class CollectEarthWindow{
 
 
 	private String getLogFilePath() {
-		return FolderFinder.getAppDataFolder() + "/earth_error.log"; //$NON-NLS-1$ 
+		return FolderFinder.getCollectEarthDataFolder() + "/earth_error.log"; //$NON-NLS-1$ 
 	}
 
 	public JMenuBar getMenu(JFrame frame) {
@@ -397,7 +397,7 @@ public class CollectEarthWindow{
 			@Override
 			public void actionPerformed(ActionEvent e) {
 				try {
-					CollectEarthUtils.openFolderInExplorer(FolderFinder.getAppDataFolder() );
+					CollectEarthUtils.openFolderInExplorer(FolderFinder.getCollectEarthDataFolder() );
 				} catch (IOException e1) {
 					logger.error("Could not findthe data folder", e1 );
 				}
