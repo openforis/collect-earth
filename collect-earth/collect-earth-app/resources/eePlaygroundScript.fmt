@@ -12,13 +12,19 @@ var endTime = '${todayDate}';
 
 
 var visualizationLandsat = {min: 0, max: 0.2, gamma: [1.3, 1.3, 1.3]};
+var visualizationLandsat5 = {min: 0, max: 0.425, gamma: [1.3, 1.3, 1.3]};
 var visualizationSentinel = {min: 0, max: 4000, gamma: [1.3, 1.3, 1.3]};
+var visualizationLandsat8 = {min: 0, max: 0.1, gamma: [1.2, 1.2, 1.2]};
+
+
+var startYear = "-01-01"; 
+var endYear = "-12-31";
 
 // DO NOT EDIT THIS BLOCK!! ------
 // x The polygon that describes the plot.
-var plot = ee.Geometry.MultiPolygon([
+var plot =  ee.Geometry.MultiLineString([
 		<#list placemark.multiShape as shp>
-		ee.Geometry.Polygon([
+		ee.Geometry.LineString([
 		 // The placemark variable has an array called shape that contains the locations of the corners of the polygon
 		 <#list shp as coord>
 		 [${coord.longitude}, ${coord.latitude}],
@@ -32,6 +38,7 @@ var plot = ee.Geometry.MultiPolygon([
 
 // Load the MODIS  Vegetation Index composite. Select the NDVI band. Resolution of the pixels is 250 meters.
 var modisNoaaNdvi = ee.ImageCollection('MODIS/MOD13Q1').filterDate(startTime, endTime).select('NDVI');
+
 var addFire = function(i){
  var image = ee.Image(i);
  var startModisRange = image.get("system:time_start");
@@ -70,10 +77,10 @@ print(landsat7MonthlyTimeSeries);
 //Array sorting is useful for obtaining custom quality mosaics which involve reducing a subset of image bands according to the values in a different band. The following example sorts by a cloud index, then gets the mean of the least cloudy subset of images in the collection:
 
 
-var sharpenedLandsat8_false = panSharpen('LANDSAT/LC8_L1T_TOA' , ['B5', 'B6', 'B4'], ['B2', 'B3', 'B4', 'B5', 'B6', 'B7', 'B8','B10', 'B11'], '${oneYearAgoDate}', '${todayDate}');
-var sharpenedLandsat8_true = panSharpen('LANDSAT/LC8_L1T_TOA' , ['B4', 'B3', 'B2'], ['B2', 'B3', 'B4', 'B5', 'B6', 'B7', 'B8','B10', 'B11'], '${oneYearAgoDate}', '${todayDate}');
-var sharpenedLandsat7_2000 = panSharpen('LANDSAT/LE7_L1T_TOA' , ['B4', 'B5', 'B3'], ['B1', 'B2', 'B3', 'B4', 'B5', 'B6_VCID_1' , 'B6_VCID_2' , 'B7', 'B8'], '2000-01-01', '2000-12-31');
-var sharpenedLandsat7_2008 = panSharpen('LANDSAT/LE7_L1T_TOA' , ['B4', 'B5', 'B3'], ['B1', 'B2', 'B3', 'B4', 'B5', 'B6_VCID_1' , 'B6_VCID_2' , 'B7', 'B8'], '2008-01-01', '2008-12-31');
+var sharpenedLandsat8_false = panSharpen('LANDSAT/LC8_L1T_ANNUAL_GREENEST_TOA' , ['B5', 'B6', 'B4'], ['B2', 'B3', 'B4', 'B5', 'B6', 'B7', 'B8','B10', 'B11'], '${oneYearAgoDate}', '${todayDate}');
+var sharpenedLandsat8_true = panSharpen('LANDSAT/LC8_L1T_ANNUAL_GREENEST_TOA' , ['B4', 'B3', 'B2'], ['B2', 'B3', 'B4', 'B5', 'B6', 'B7', 'B8','B10', 'B11'], '${oneYearAgoDate}', '${todayDate}');
+var sharpenedLandsat5_1990 = (ee.Image) ( ee.ImageCollection( "LANDSAT/LT5_L1T_ANNUAL_GREENEST_TOA" ).select(['B4', 'B5', 'B3']).filterBounds(plot).filterDate( '1990'+startYear , '1990' + endYear  ).first() );
+var sharpenedLandsat7_2008 = panSharpen('LANDSAT/LE7_L1T_ANNUAL_GREENEST_TOA' , ['B4', 'B5', 'B3'], ['B1', 'B2', 'B3', 'B4', 'B5', 'B6_VCID_1' , 'B6_VCID_2' , 'B7', 'B8'], '2008'+startYear, '2008' + endYear);
 var sentinelVV = ee.ImageCollection('COPERNICUS/S2').filterDate('${oneYearAgoDate}', '${todayDate}').filterBounds(plot).filter(ee.Filter.lte('CLOUDY_PIXEL_PERCENTAGE', 30) ).map(cloudMask);
 var sentinelImage = sentinelVV.median().select(['B4','B3','B2','B8', 'B11']);
 
@@ -124,9 +131,17 @@ function createCheckboxMap( images, visualization, name){
     return addPlotToMap(map);
 }
 
-function createSliderMap( image, visualization, year, name){
+function createL7SliderMap( image, visualization, year, name){
     var map = ui.Map();
-    addSlider(map, year);
+    addL7Slider(map, year);
+    map.addLayer(image, visualization, name);
+    // Add the plot polygon to the map
+    return addPlotToMap(map);
+}
+
+function createL5SliderMap( image, visualization, year, name){
+    var map = ui.Map();
+    addL5Slider(map, year);
     map.addLayer(image, visualization, name);
     // Add the plot polygon to the map
     return addPlotToMap(map);
@@ -139,27 +154,29 @@ var showLandsat7ForYearTop = function(year){
   showLandsat7ForYear( landsat7Map1, year);
 }
 
-var showLandsat7ForYearBottom = function( year){
-  showLandsat7ForYear( landsat7Map2, year);
+var showLandsat5ForYearBottom = function( year){
+  showLandsat5ForYear( landsat5Map2, year);
 }
 
-var showLandsat7ForYear = function(map, year){
-  var landsat = panSharpen('LANDSAT/LE7_L1T_TOA' , ['B4', 'B5', 'B3'], ['B1', 'B2', 'B3', 'B4', 'B5', 'B6_VCID_1' , 'B6_VCID_2' , 'B7', 'B8'], year+'-01-01', year+'-12-31');
-  landsat = landsat.visualize(visualizationLandsat );
+var showLandsat5ForYear = function(map, year){
+  var landsat = (ee.Image) ( ee.ImageCollection( "LANDSAT/LT5_L1T_ANNUAL_GREENEST_TOA" ).select(['B4', 'B5', 'B3']).filterBounds(plot).filterDate( year + startYear, year + endYear ).first() );
+  landsat = landsat.visualize(visualizationLandsat5 );
   map.layers().set( 0, landsat);
  
 }
 
-var addSlider = function(mapWithSlider , selectedYear ){
+var showLandsat7ForYear = function(map, year){
+  var landsat = panSharpen('LANDSAT/LE7_L1T_ANNUAL_GREENEST_TOA' , ['B4', 'B5', 'B3'], ['B1', 'B2', 'B3', 'B4', 'B5', 'B6_VCID_1' , 'B6_VCID_2' , 'B7', 'B8'],  year + startYear, year + endYear  );
+  landsat = landsat.visualize(visualizationLandsat );
+  map.layers().set( 0, landsat);
+}
+
+var addL7Slider = function(mapWithSlider , selectedYear ){
   // Create a label and slider.
   var label = ui.Label('Landsat 7 False Color');
  
-  var onChangeFunction ;
-  if( selectedYear == 2008){
-    onChangeFunction = showLandsat7ForYearTop;
-  }else{
-    onChangeFunction = showLandsat7ForYearBottom;
-  }
+  var onChangeFunction = showLandsat7ForYearTop;
+
   
   var slider = ui.Slider({
     min: 2000,
@@ -183,21 +200,49 @@ var addSlider = function(mapWithSlider , selectedYear ){
   slider.setValue(selectedYear,false);
 }
 
-var sentinelMap = createCheckboxMap( [sentinelFalseColor, sentinelTrueColor], visualizationSentinel , "Sentinel 2 -2016 False/True color");
-var landsat8Map = createCheckboxMap([sharpenedLandsat8_false, sharpenedLandsat8_true], visualizationLandsat, "Landsat 8 -2016 False/True color");
-var landsat7Map1 = createSliderMap(sharpenedLandsat7_2008, visualizationLandsat, 2008, "L7 False color");
-var landsat7Map2 = createSliderMap(sharpenedLandsat7_2000, visualizationLandsat, 2000, "L7 False color");
+var addL5Slider = function(mapWithSlider , selectedYear ){
+  // Create a label and slider.
+  var label = ui.Label('Landsat 5 False Color');
+ 
+  var onChangeFunction = showLandsat5ForYearBottom;
+    
+  var slider = ui.Slider({
+    min: 1984,
+    max: 2000,
+    step: 1,
+    onChange: onChangeFunction,
+    style: {stretch: 'horizontal'}
+  });
+  
+  // Create a panel that contains both the slider and the label.
+  var panelSlider = ui.Panel({
+    widgets: [label, slider],
+    layout: ui.Panel.Layout.flow('vertical'),
+    style: {
+      position: 'top-center',
+      padding: '7px'
+    }
+  });
+ 
+  mapWithSlider.add(panelSlider);
+  slider.setValue(selectedYear,false);
+}
+
+var sentinelMap = createCheckboxMap( [sentinelFalseColor, sentinelTrueColor], visualizationSentinel , "Sentinel 2 -2016 False/Natural color");
+var landsat8Map = createCheckboxMap([sharpenedLandsat8_false, sharpenedLandsat8_true], visualizationLandsat8, "Landsat 8 -2016 False/Natural color");
+var landsat7Map1 = createL7SliderMap(sharpenedLandsat7_2008, visualizationLandsat, 2008, "L7 False color");
+var landsat5Map2 = createL5SliderMap(sharpenedLandsat5_1990, visualizationLandsat5, 1990, "L5 False color");
 
 maps.push(sentinelMap);
 maps.push(landsat8Map);
 maps.push(landsat7Map1);
-maps.push(landsat7Map2);
+maps.push(landsat5Map2);
 
 var linker = ui.Map.Linker(maps);
 // Create a grid of maps.
 
 var panelLeft =  ui.Panel([sentinelMap, landsat8Map], null, {stretch: 'both'});
-var panelRight =  ui.Panel([landsat7Map1, landsat7Map2], null, {stretch: 'both'});
+var panelRight =  ui.Panel([landsat7Map1, landsat5Map2], null, {stretch: 'both'});
 
 var mapGrid = ui.Panel([ panelLeft,panelRight],
   ui.Panel.Layout.Flow('horizontal'), {stretch: 'both'}
@@ -226,54 +271,22 @@ function sharpenSentinel(image){
 function panSharpen(landsatCollectionName, bandsToSharpen, bandsCloudScore, startPeriod, endPeriod ){
 
 	var bandNames = ee.List(bandsCloudScore);
+
 	// Load a Landsat collection.
-	var collection = ee.ImageCollection( landsatCollectionName )
+	var image= ee.ImageCollection( landsatCollectionName )
 	// Select the bands of interest to avoid taking up memory.
 	.select(bandsCloudScore)
-	// Filter to get only imagery at a point of interest.
-	.filterBounds(plot)
 	// Filter to get only six months of data.
-	.filterDate( startPeriod , endPeriod )
-	// Mask clouds by mapping the cloudMask function over the collection.
-	// This will add a cloud score band called 'cloud' to every image.
-	.map(function(image) {
-		return ee.Algorithms.Landsat.simpleCloudScore(image);
-	});
+	.filterDate( startPeriod , endPeriod ).first();
 
-	// Convert the collection to an array.
-	var array = collection.toArray();
-
-	// Label of the axes.
-	var imageAxis = 0;
-	var bandAxis = 1;
-
-	// Get the cloud slice and the bands of interest.
-	var bands = array.arraySlice(bandAxis, 0, bandsCloudScore.length);
-	var clouds = array.arraySlice(bandAxis, bandsCloudScore.length);
-
-	// Sort by cloudiness.
-	var sorted = bands.arraySort(clouds);
-
-	// Get the least cloudy images, 20% of the total.
-	var numImages = sorted.arrayLength(imageAxis).multiply(0.2).int();
-	var leastCloudy = sorted.arraySlice(imageAxis, 0, numImages);
-
-	// Get the mean of the least cloudy images by reducing along the image axis.
-	var mean = leastCloudy.arrayReduce({
-	reducer: ee.Reducer.mean(),
-	axes: [imageAxis]
-	});
-
-	// Turn the reduced array image into a multi-band image for display.
-	var meanImage = mean.arrayProject([bandAxis]).arrayFlatten([bandNames]);
-
+	image = ee.Image(image );
 
 	// Convert the RGB bands to the HSV color space.
-	var hsv = meanImage.select( bandsToSharpen ).rgbToHsv();
+	var hsv = image.select( bandsToSharpen ).rgbToHsv();
 
 	// Swap in the panchromatic band and convert back to RGB.
 	var sharpened = ee.Image.cat([
-	hsv.select('hue'), hsv.select('saturation'), meanImage.select('B8')
+		hsv.select('hue'), hsv.select('saturation'), image.select('B8')
 	]).hsvToRgb();
 
 	return sharpened;
