@@ -91,7 +91,7 @@
             <description>Resources Linux</description>
             <destination>${installdir}/resources</destination>
             <name>resourceslinux</name>
-            <platforms>linux</platforms>
+            <platforms>linux linux-x64</platforms>
             <distributionFileList>
 	         	<distributionDirectory  allowWildcards="1">
 	                <excludeFiles>*/chromedriver.exe;*/chromedriver_mac;*/geckodriver.exe;*/geckodriver_mac</excludeFiles>
@@ -234,7 +234,7 @@
             <permissions>0777</permissions>
             <ruleList>
                 <platformTest>
-                    <type>linux</type>
+                    <type>linux linux-x64</type>
                 </platformTest>
             </ruleList>
         </changePermissions>
