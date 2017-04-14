@@ -234,7 +234,7 @@
             <permissions>0777</permissions>
             <ruleList>
                 <platformTest>
-                    <type>linux linux-x64</type>
+                    <type>linux</type>
                 </platformTest>
             </ruleList>
         </changePermissions>
