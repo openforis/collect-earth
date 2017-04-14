@@ -94,19 +94,7 @@
             <platforms>linux</platforms>
             <distributionFileList>
 	         	<distributionDirectory  allowWildcards="1">
-	                <excludeFiles>*/chromedriver64;*/chromedriver.exe;*/chromedriver_mac;*/geckodriver.exe;*/geckodriver_mac</excludeFiles>
-	            	<origin>../../../collect-earth-app/resources/*</origin>
-	            </distributionDirectory>
-            </distributionFileList>
-        </folder>
-        <folder>
-            <description>Resources Linux</description>
-            <destination>${installdir}/resources</destination>
-            <name>resourceslinux64</name>
-            <platforms>linux-x64</platforms>
-            <distributionFileList>
-	         	<distributionDirectory  allowWildcards="1">
-	                <excludeFiles>*/chromedriver32;*/chromedriver.exe;*/chromedriver_mac;*/geckodriver.exe;*/geckodriver_mac</excludeFiles>
+	                <excludeFiles>*/chromedriver.exe;*/chromedriver_mac;*/geckodriver.exe;*/geckodriver_mac</excludeFiles>
 	            	<origin>../../../collect-earth-app/resources/*</origin>
 	            </distributionDirectory>
             </distributionFileList>
@@ -240,6 +228,24 @@
         <changePermissions>
             <files>${installdir}/${java_launcher_binary_name};${installdir}/*.log;${installdir}/*.properties;${installdir}/generated;${installdir}/*.db;${installdir}/*.dbSaiku</files>
             <permissions>0777</permissions>
+        </changePermissions>
+         <changePermissions>
+            <files>${installdir}/resources/chromedriver32;${installdir}/resources/chromedriver64;${installdir}/resources/geckodriver</files>
+            <permissions>0777</permissions>
+            <ruleList>
+                <platformTest>
+                    <type>linux</type>
+                </platformTest>
+            </ruleList>
+        </changePermissions>
+        <changePermissions>
+            <files>${installdir}/resources/chromedriver_mac;${installdir}/resources/geckodriver_mac</files>
+            <permissions>0777</permissions>
+            <ruleList>
+                <platformTest>
+                    <type>osx</type>
+                </platformTest>
+            </ruleList>
         </changePermissions>
 		<changePermissions> 
 			<files>${installdir}/*.app/Contents/MacOS/*</files>
