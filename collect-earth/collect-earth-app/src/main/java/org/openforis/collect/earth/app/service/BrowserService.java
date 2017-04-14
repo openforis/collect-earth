@@ -28,8 +28,6 @@ import javax.net.ssl.SSLSocketFactory;
 import javax.net.ssl.TrustManager;
 import javax.net.ssl.X509TrustManager;
 
-import liquibase.util.SystemUtils;
-
 import org.apache.commons.lang3.StringUtils;
 import org.openforis.collect.earth.app.EarthConstants;
 import org.openforis.collect.earth.app.desktop.ServerController.ServerInitializationEvent;
@@ -40,6 +38,7 @@ import org.openqa.selenium.JavascriptExecutor;
 import org.openqa.selenium.WebDriverException;
 import org.openqa.selenium.WebElement;
 import org.openqa.selenium.chrome.ChromeDriver;
+import org.openqa.selenium.chrome.ChromeDriverService;
 import org.openqa.selenium.chrome.ChromeOptions;
 import org.openqa.selenium.firefox.FirefoxBinary;
 import org.openqa.selenium.firefox.FirefoxDriver;
@@ -58,6 +57,7 @@ import freemarker.template.Configuration;
 import freemarker.template.Template;
 import freemarker.template.TemplateException;
 import freemarker.template.Version;
+import liquibase.util.SystemUtils;
 
 /**
  * This class contains methods that allow Collect Earth to open browser windows that allow the user to have a better understanding of the plot.
@@ -762,19 +762,23 @@ public class BrowserService implements Observer{
 		RemoteWebDriver driver = driverParam;
 
 		final Properties props = System.getProperties();
-		if (props.getProperty("webdriver.chrome.driver") == null) {
+		String chromedriverExe = null;
+		if (props.getProperty(ChromeDriverService.CHROME_DRIVER_EXE_PROPERTY) == null) {
 			if( SystemUtils.IS_OS_MAC || SystemUtils.IS_OS_MAC_OSX){
-				props.setProperty("webdriver.chrome.driver", "resources/chromedriver_mac");
+				chromedriverExe = "resources/chromedriver_mac";
 			}else if( SystemUtils.IS_OS_UNIX && System.getProperty("os.arch").contains("64")){
-				props.setProperty("webdriver.chrome.driver", "resources/chromedriver64");
+				chromedriverExe = "resources/chromedriver64";
 			}else if( SystemUtils.IS_OS_UNIX ){
-				props.setProperty("webdriver.chrome.driver", "resources/chromedriver32");
+				chromedriverExe = "resources/chromedriver32";
 			}else if( SystemUtils.IS_OS_WINDOWS ){
-				props.setProperty("webdriver.chrome.driver", "resources/chromedriver.exe");
+				chromedriverExe = "resources/chromedriver.exe";
 			}else{
 				throw new RuntimeException("Chromedriver is not supported in the current OS" );
 			}
+			props.setProperty(ChromeDriverService.CHROME_DRIVER_EXE_PROPERTY, chromedriverExe);
 		}
+		
+		
 
 		final String chromeBinaryPath = localPropertiesService.getValue(EarthProperty.CHROME_BINARY_PATH);
 		final DesiredCapabilities capabilities = DesiredCapabilities.chrome();
@@ -784,7 +788,7 @@ public class BrowserService implements Observer{
 		chromeOptions.addArguments("disable-infobars");
 		chromeOptions.addArguments("disable-save-password-bubble");
 
-		if (chromeBinaryPath != null && chromeBinaryPath.trim().length() > 0) {
+		if ( !StringUtils.isBlank(chromeBinaryPath) ) {
 			try {
 				capabilities.setCapability("chrome.binary", chromeBinaryPath);
 				chromeOptions.setBinary( chromeBinaryPath );
@@ -794,9 +798,8 @@ public class BrowserService implements Observer{
 			}
 		}
 
-		driver = new ChromeDriver(chromeOptions);			
+		return new ChromeDriver(chromeOptions);			
 
-		return driver;
 	}
 
 	private RemoteWebDriver startFirefoxBrowser(RemoteWebDriver driver) {
@@ -808,51 +811,20 @@ public class BrowserService implements Observer{
 		if( StringUtils.isBlank( firefoxBinaryPath )){
 			firefoxBinaryPath = FirefoxLocatorFixed.tryToFindFolder();
 		}
-		System.setProperty(FirefoxDriver.SystemProperty.BROWSER_BINARY , firefoxBinaryPath  );
 		
+		FirefoxBinary fb = null;
+		if( firefoxBinaryPath != null ){
+			System.setProperty(FirefoxDriver.SystemProperty.BROWSER_BINARY , firefoxBinaryPath  );
+			fb = new FirefoxBinary(new File(firefoxBinaryPath)  );
+		}else{
+			fb = new FirefoxBinary();
+		}
 
-		FirefoxBinary fb = new FirefoxBinary(new File(firefoxBinaryPath)  );
+
 		FirefoxOptions fo = new FirefoxOptions();
 		fo.setLegacy(false);
 		fo.setBinary( fb );
 		return new FirefoxDriver(fo);
-		
-		/*
-
-		String pathToFirefoxBin = firefoxBinaryPathSetByUser;
-		if( StringUtils.isEmpty( firefoxBinaryPathSetByUser ) ){
-			pathToFirefoxBin = browserInstallation.launcherFilePath();
-		}
-
-		Integer firefoxVersion = getFirefoxVersionMajor( pathToFirefoxBin );
-
-		if( firefoxVersion < 48 ){
-
-			driver = getFirefoxDriverOld(pathToFirefoxBin);
-
-		}else{
-
-			String geckoDriverPath = "";
-			if( SystemUtils.IS_OS_MAC || SystemUtils.IS_OS_MAC_OSX){
-				geckoDriverPath = "resources/geckodriver_mac";
-			}else if( SystemUtils.IS_OS_UNIX ){
-				geckoDriverPath = "resources/geckodriver";
-			}else if( SystemUtils.IS_OS_WINDOWS ){
-				geckoDriverPath = "resources/geckodriver.exe";
-			}else{
-				throw new RuntimeException("Geckodriver is not supported in the current OS" );
-			}
-
-			File geckoDriverFile = new File( geckoDriverPath );
-
-			System.setProperty("webdriver.firefox.marionette", geckoDriverFile.getAbsolutePath() );
-			// if above property is not working or not opening the application in browser then try below property
-			System.setProperty(GeckoDriverService.GECKO_DRIVER_EXE_PROPERTY , geckoDriverFile.getAbsolutePath() );
-			System.setProperty( FirefoxDriver.SystemProperty.BROWSER_BINARY, browserInstallation.launcherFilePath() );
-
-		}
-
-		*/
 	}
 
 	private void setGeckoDriverPath() {
