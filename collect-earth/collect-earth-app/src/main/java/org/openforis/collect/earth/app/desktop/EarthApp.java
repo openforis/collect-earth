@@ -115,7 +115,7 @@ public class EarthApp {
 	/**
 	 * Special code that uses reflection to handle how the application should behave in Mac OS X.
 	 * Without reflection the code provokes compilation-time errors.
-	 * @param doubleClickedProjectFile 
+	 * @param doubleClickedProjectFile Project file (CEP) that was clicked
 	 * @throws Exception Throws Exception when the process fails to open the file double-clicked. Initializes the server in any case
 	 */
 	@SuppressWarnings({ "rawtypes", "unchecked" })

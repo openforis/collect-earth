@@ -42,6 +42,7 @@ public class JPlotCsvTable extends JTable{
 	/**
 	 * Build a new JTable that contains the data from the CSV that is set as the file that contains the plots used by Collect Earth
 	 * @param pathToCsvWithPlots Path to the file containing the plot locations that should be loaded in the table 
+	 * @param forSurvey Survey that the csv file belongs to
 	 */
 	public JPlotCsvTable(String pathToCsvWithPlots, CollectSurvey forSurvey) {
 		super();
