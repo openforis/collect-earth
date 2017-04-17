@@ -148,7 +148,7 @@ public class BackupSqlLiteService {
 	 * @return The OS dependent folder where the application should saved the backed up copies. 
 	 */
 	public File getAutomaticBackUpFolder() {
-		return FolderFinder.getLocalFolder( BACKUP_COLLECT_EARTH);
+		return FolderFinder.createFolderInAppData( BACKUP_COLLECT_EARTH);
 	}
 	
 }

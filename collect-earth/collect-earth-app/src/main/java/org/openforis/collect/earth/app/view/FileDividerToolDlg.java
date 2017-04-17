@@ -30,6 +30,7 @@ import org.openforis.collect.earth.sampler.utils.ProduceCsvFiles;
 import org.openforis.collect.io.metadata.collectearth.CSVFileValidationResult;
 import org.openforis.collect.io.metadata.collectearth.CSVFileValidationResult.ErrorType;
 import org.openforis.collect.io.metadata.collectearth.CollectEarthGridTemplateGenerator;
+import org.openforis.collect.manager.validation.SurveyValidator.ValidationParameters;
 import org.openforis.collect.model.CollectSurvey;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -270,7 +271,9 @@ public class FileDividerToolDlg extends JDialog{
 							CollectEarthGridTemplateGenerator cetg = new CollectEarthGridTemplateGenerator();
 
 							File csvFile = new File( filePath );
-							CSVFileValidationResult validationResults = cetg.validate(csvFile, survey);
+							ValidationParameters validationParameters = new ValidationParameters();
+							validationParameters.setValidateOnlyFirstLines(false);
+							CSVFileValidationResult validationResults = cetg.validate(csvFile, survey, validationParameters );
 
 							validFile = validationResults.isSuccessful();
 							if( !validFile ){

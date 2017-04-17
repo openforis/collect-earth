@@ -134,7 +134,7 @@ public class KmlGeneratorService {
 			template = new File(templatePath);
 			idmFile = new File(metadataPath);
 
-			final String prefixUserFolder = FolderFinder.getLocalFolder() + File.separator;
+			final String prefixUserFolder = FolderFinder.getCollectEarthDataFolder() + File.separator;
 
 			if (!csvFile.exists()) {
 				final File otherFile = new File(prefixUserFolder + getLocalProperties().getCsvFile());

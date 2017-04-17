@@ -17,10 +17,10 @@ file:${collectEarth.userFolder}/generated/applicationContext.xml
 		<param-name>webAppRootKey</param-name>
 		<param-value>SimpleServer.root</param-value>
 	</context-param>
-	<!-- <context-param> -->
-	<!-- <param-name>log4jConfigLocation</param-name> -->
-	<!-- <param-value>classpath:/WEB-INF/conf/log4j.properties</param-value> -->
-	<!-- </context-param> -->
+	<context-param>
+		<param-name>log4jConfigLocation</param-name>
+		<param-value>classpath:/WEB-INF/conf/log4j.properties</param-value>
+	</context-param>
 
 	<listener>
 		<listener-class>org.springframework.web.util.Log4jConfigListener</listener-class>

@@ -37,6 +37,7 @@ import freemarker.cache.FileTemplateLoader;
 import freemarker.template.Configuration;
 import freemarker.template.Template;
 import freemarker.template.TemplateException;
+import freemarker.template.Version;
 
 /**
  * Servlet called by the NetworkLink which tries to update the status of the placemark icons every few seconds.
@@ -57,9 +58,9 @@ public class PlacemarkUpdateServlet {
 	@Autowired
 	private LocalPropertiesService localPropertiesService;
 
-	private static final Configuration cfg = new Configuration();
+	private final Configuration cfg = new Configuration( new Version("2.3.23"));;
 
-	private static Template template;
+	private Template template;
   
 
 	private String getKmlFromTemplate( Map<String, Object> data) throws IOException {
@@ -91,17 +92,17 @@ public class PlacemarkUpdateServlet {
 			File possibleKmlFile = new File( possibleUpdateKmlLocation );
 			
 			if( possibleKmlFile.exists() ){
-				
 				/*
 				 * We need to create a new TemplateLoader and use it momentarily as by default the Template loader 
 				 * uses the basedir of the project which causes problems when loading file from outside the project folder
-				 */
-				cfg.setTemplateLoader( new FileTemplateLoader( new File( possibleKmlFile.getParent() ) ) ); 
+				 */				
+				cfg.setTemplateLoader( new FileTemplateLoader( new File( possibleKmlFile.getParent() ) ) );
 				template = cfg.getTemplate( STANDARD_KML_FOR_UPDATES_FILENAME );
 				
 			}else{
 				// No specific updatekml template found on the project folder, fall back to the general one
 				// Load template from the resource folder
+				cfg.setTemplateLoader( new FileTemplateLoader( new File( "." ) ) );
 				template = cfg.getTemplate(GENERIC_KML_FOR_UPDATES);
 			}
 		}
@@ -121,7 +122,6 @@ public class PlacemarkUpdateServlet {
 	public void getUpdatePlacemark(HttpServletResponse response, @RequestParam(value = "lastUpdate", required = false) String lastUpdate) {
 
 		try {
-			//long time = System.currentTimeMillis();
 			
 			final SimpleDateFormat dateFormat = new SimpleDateFormat(EarthConstants.DATE_FORMAT_HTTP, Locale.ENGLISH );
 			Date lastUpdateDate = null;
@@ -151,9 +151,7 @@ public class PlacemarkUpdateServlet {
 			
 		} catch (final ParseException e) {
 			logger.error("Error in the lastUpdate date format : " + lastUpdate, e); //$NON-NLS-1$
-		} catch (final IOException e) {
-			logger.error("Error generating the update KML.", e); //$NON-NLS-1$
-		}catch (final Exception e) {
+		} catch (final Exception e) {
 			logger.error("Error generating the update KML.", e); //$NON-NLS-1$
 		}
 
@@ -167,8 +165,7 @@ public class PlacemarkUpdateServlet {
 	public Date getTwoMinutesAgo() {
 		Calendar cal = Calendar.getInstance();
 		cal.add(Calendar.MINUTE, -2);
-		Date twoMinutesAgo = cal.getTime();
-		return twoMinutesAgo;
+		return cal.getTime();
 	}
 
 	private void setKmlResponse(HttpServletResponse response, String kmlCode, SimpleDateFormat dateFormat) throws IOException {
