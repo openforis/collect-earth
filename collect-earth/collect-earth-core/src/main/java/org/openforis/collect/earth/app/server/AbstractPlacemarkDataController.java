@@ -134,8 +134,8 @@ public class AbstractPlacemarkDataController extends JsonPocessorServlet {
 
 	/**
 	 * Sort parameters based on schema order (BFS)
-	 * @param parameters
-	 * @return
+	 * @param parameters Parameters to be sorted
+	 * @return The parameters sorted alphabetically
 	 */
 	public Map<String, String> sortParameters(Map<String, String> parameters) {
 		NavigableMap<String, String> navigableParameters = new TreeMap<String, String>(parameters);
