@@ -61,6 +61,9 @@ public abstract class AbstractEarthSurveyService {
 
 	protected final Logger logger = LoggerFactory.getLogger(this.getClass());
 
+	private static final String PREVIEW_PLACEMARK_ID = "testPlacemark";
+	private static final String PREVIEW_PLACEMARK_ID_PLACEHOLDER = "$[EXTRA_id]";
+
 	@Autowired
 	protected LocalPropertiesService localPropertiesService;
 	@Autowired
@@ -343,7 +346,6 @@ public abstract class AbstractEarthSurveyService {
 	}
 	
 	private void setPlacemarkSavedOn(Map<String, String> parameters) {
-
 		String dateSaved = new SimpleDateFormat( DateAttributeHandler.DATE_ATTRIBUTE_FORMAT ).format(new Date());
 
 		parameters.put(ACTIVELY_SAVED_ON_PARAMETER, dateSaved);
@@ -523,7 +525,6 @@ public abstract class AbstractEarthSurveyService {
 	}
 	
 	private void updateKeyAttributeValues(CollectRecord record, String[] keyAttributeValues) {
-		boolean previewRecordID = isPreviewRecordID(keyAttributeValues);
 		List<AttributeDefinition> keyAttributeDefinitions = getCollectSurvey().getSchema().getRootEntityDefinitions()
 				.get(0).getKeyAttributeDefinitions();
 		for (int i = 0; i < keyAttributeValues.length; i++) {
@@ -531,8 +532,8 @@ public abstract class AbstractEarthSurveyService {
 			AttributeDefinition keyAttrDef = keyAttributeDefinitions.get(i);
 			Attribute<?, Value> keyAttr = record.findNodeByPath(keyAttrDef.getPath());
 			Value keyVal;
-			if (previewRecordID) {
-				keyVal = (Value) keyAttr.getDefinition().createValue(i == 0 ? "testPlacemark" : "1");
+			if (isPreviewRecordID(keyAttributeValues)) {
+				keyVal = (Value) keyAttr.getDefinition().createValue(i == 0 ? PREVIEW_PLACEMARK_ID : "1");
 			} else {
 				keyVal = (Value) keyAttr.getDefinition().createValue(keyValue);
 			}
@@ -576,8 +577,13 @@ public abstract class AbstractEarthSurveyService {
 	}
 	
 	private boolean isPreviewRecordID(String[] keyAttributeValues) {
-		return keyAttributeValues.length >= 1 && 
-				"$[EXTRA_id]".equals(keyAttributeValues[0]);
+		if (keyAttributeValues.length >= 1) {
+			String firstKeyAttributeValue = keyAttributeValues[0];
+			return PREVIEW_PLACEMARK_ID_PLACEHOLDER.equals(firstKeyAttributeValue) || 
+					PREVIEW_PLACEMARK_ID.equals(firstKeyAttributeValue);
+		} else {
+			return false;
+		}
 	}
 
 }
