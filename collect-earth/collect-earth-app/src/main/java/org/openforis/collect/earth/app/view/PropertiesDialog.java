@@ -222,19 +222,15 @@ public class PropertiesDialog extends JDialog {
 			applyChanges.addActionListener(new ApplyOptionChangesListener(this, localPropertiesService, propertyToComponent){
 				@Override
 				protected void applyProperties() {
-	
 					savePropertyValues();
 					if( isRestartRequired() ){
 						restartEarth();
 					}else{
-						
 						EarthApp.executeKmlLoadAsynchronously( PropertiesDialog.this );
-						
 					}
 				}
 			});
-		}		
-
+		}
 		return applyChanges;
 	}
 

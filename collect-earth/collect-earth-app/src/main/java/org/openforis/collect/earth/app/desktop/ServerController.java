@@ -11,12 +11,12 @@ import java.util.Observable;
 import java.util.Observer;
 import java.util.concurrent.TimeUnit;
 
+import org.apache.log4j.PropertyConfigurator;
 import org.eclipse.jetty.server.Connector;
 import org.eclipse.jetty.server.Server;
 import org.eclipse.jetty.server.ServerConnector;
 import org.eclipse.jetty.util.thread.ExecutorThreadPool;
 import org.eclipse.jetty.webapp.WebAppContext;
-import org.openforis.collect.earth.app.CollectEarthUtils;
 import org.openforis.collect.earth.app.EarthConstants;
 import org.openforis.collect.earth.app.EarthConstants.CollectDBDriver;
 import org.openforis.collect.earth.app.service.BrowserService;
@@ -201,7 +201,7 @@ public class ServerController extends Observable {
 
 			// The port that we should run on can be set into an environment variable
 			// Look for that variable and default to 8080 if it isn't there.
-			// PropertyConfigurator.configure(this.getClass().getResource("/WEB-INF/conf/log4j.properties"));
+			PropertyConfigurator.configure(this.getClass().getResource("/WEB-INF/conf/log4j.properties"));
 
 			server = new Server(new ExecutorThreadPool(10, 50, 5, TimeUnit.SECONDS));
 
@@ -256,14 +256,14 @@ public class ServerController extends Observable {
 		} catch (Exception e) {
 			logger.error("Error staring the server", e); //$NON-NLS-1$
 		}
-
+		
 		// Force the local properties to be loaded before the browserservice is instantiated!! DO NOT REMOVE
-		//LocalPropertiesService localPropertiesService = getContext().getBean(LocalPropertiesService.class);
+		LocalPropertiesService localPropertiesService = getContext().getBean(LocalPropertiesService.class);
 		this.addObserver(getContext().getBean(BrowserService.class));
 		//Force the initialization of backup service
 		//getContext().getBean( BackupSqlLiteService.class);
 
-		//server.join();
+		
 	}
 
 	public void stopServer() throws Exception {

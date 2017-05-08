@@ -11,6 +11,7 @@ import net.lingala.zip4j.exception.ZipException;
 import org.apache.commons.lang.StringUtils;
 import org.openforis.collect.earth.app.desktop.EarthApp;
 import org.openforis.collect.earth.app.service.EarthProjectsService;
+import org.openforis.collect.earth.app.service.LocalPropertiesService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -35,6 +36,10 @@ public class LoadProjectFileServlet {
 
 	@Autowired
 	EarthProjectsService earthProjectsService;
+	
+	@Autowired
+	LocalPropertiesService localPropertiesService;
+
 
 	@RequestMapping("/" + SERVLET_NAME)
 	protected void processRequest(HttpServletRequest request, HttpServletResponse response) throws IOException {
@@ -43,17 +48,26 @@ public class LoadProjectFileServlet {
 			logger.error("The " + PROJECT_FILE_PARAMETER + " parameter cannot be empty"); //$NON-NLS-1$ //$NON-NLS-2$
 		}else{
 			try {
-				if( earthProjectsService.loadCompressedProjectFile( new File(projectFilePath)) ) {
-
+				File projectZipFile = new File(projectFilePath);
+				if( earthProjectsService.loadCompressedProjectFile( projectZipFile ) ) {
+					localPropertiesService.nullifyChecksumValues();
 					// Re-generate KMZ
-					new Thread(){
+					new Thread("Restarting server after double-clicking on CEP file : " + projectZipFile.getName()){
+						@Override
 						public void run() {
-							EarthApp.restart();
-						};
+								try {
+									Thread.sleep(3000);
+								} catch (InterruptedException e) {
+									// TODO Auto-generated catch block
+									e.printStackTrace();
+								}
+								EarthApp.restart();
+							}
+						
 					}.start();
-					
-					response.setStatus(200);
-				}
+				}						
+				
+				response.setStatus(200);
 
 			} catch (IllegalArgumentException | ZipException e) {
 				logger.error("Error loading the project file " + projectFilePath , e); //$NON-NLS-1$
@@ -63,4 +77,7 @@ public class LoadProjectFileServlet {
 
 
 	}
+	
+	
+	
 }

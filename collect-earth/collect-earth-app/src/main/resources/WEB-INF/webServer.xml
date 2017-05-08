@@ -17,7 +17,7 @@
 	</context-param>
 
 	<listener>
-		<listener-class>org.springframework.web.util.Log4jConfigListener</listener-class>
+		<listener-class>org.apache.logging.log4j.web.Log4jServletContextListener</listener-class>
 	</listener>
 	<listener>
 		<listener-class>org.springframework.web.context.ContextLoaderListener</listener-class>

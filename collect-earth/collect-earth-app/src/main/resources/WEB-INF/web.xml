@@ -7,24 +7,21 @@
 
 	<context-param>
 		<param-name>contextConfigLocation</param-name>
-		<param-value>
-<!--             ../conf/applicationContext.xml -->
-<!--             classpath:/WEB-INF/conf/applicationContext.xml -->
-file:${collectEarth.userFolder}/generated/applicationContext.xml
-        </param-value>
+		<param-value>file:${collectEarth.userFolder}/generated/applicationContext.xml</param-value>
 	</context-param>
 	<context-param>
 		<param-name>webAppRootKey</param-name>
 		<param-value>SimpleServer.root</param-value>
 	</context-param>
-	<context-param>
+	<!-- <context-param>
 		<param-name>log4jConfigLocation</param-name>
 		<param-value>classpath:/WEB-INF/conf/log4j.properties</param-value>
 	</context-param>
-
+ -->
 	<listener>
-		<listener-class>org.springframework.web.util.Log4jConfigListener</listener-class>
+		<listener-class>org.apache.logging.log4j.web.Log4jServletContextListener</listener-class>
 	</listener>
+	
 	<listener>
 		<listener-class>org.springframework.web.context.ContextLoaderListener</listener-class>
 	</listener>

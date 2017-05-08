@@ -216,7 +216,7 @@ public class CollectEarthWindow{
 							JOptionPane.YES_NO_OPTION, JOptionPane.QUESTION_MESSAGE, null, options, keepOpen);
 
 					if (confirmation == JOptionPane.YES_OPTION) {
-						final Thread stopServer = new Thread() {
+						final Thread stopServer = new Thread("Stopping server") {
 							@Override
 							public void run() {
 								try {
@@ -301,7 +301,7 @@ public class CollectEarthWindow{
 					CollectEarthUtils.setFontDependingOnLanguaue(language);
 					localPropertiesService.setUiLanguage(language);
 
-					SwingUtilities.invokeLater( new Thread(){
+					SwingUtilities.invokeLater( new Thread("Resseting main CE Window"){
 						@Override
 						public void run() {
 
@@ -486,7 +486,6 @@ public class CollectEarthWindow{
 	private ActionListener getPropertiesAction(final JFrame owner) {
 
 		return new ActionListener() {
-
 			@Override
 			public void actionPerformed(ActionEvent e) {
 				final JDialog dialog = new PropertiesDialog(owner, localPropertiesService, earthProjectsService, backupSqlLiteService.getAutomaticBackUpFolder().getPath(), analysisSaikuService, earthSurveyService.getCollectSurvey() );

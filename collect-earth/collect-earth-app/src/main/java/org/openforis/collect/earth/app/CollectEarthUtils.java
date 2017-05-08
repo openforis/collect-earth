@@ -48,8 +48,7 @@ public class CollectEarthUtils {
 		if( !folder.isDirectory() ){
 			throw new IllegalArgumentException("The file passed as an argument needs to be a folder!");
 		}
-		StringBuffer md5Hex = new StringBuffer();
-
+		StringBuilder md5Hex = new StringBuilder();
 
 		List<File> listFiles = Files.walk( Paths.get( folder.toURI()) , 3 ).filter(Files::isRegularFile).map(Path::toFile).collect(Collectors.toList());
 		for (File file : listFiles) {

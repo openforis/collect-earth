@@ -98,7 +98,7 @@ public abstract class ApplyOptionChangesListener implements ActionListener {
 
 		try {
 			// Re-generate KMZ
-			new Thread(){
+			new Thread("Restarting Collect Earth after chigin properties/loading project/loading KML points"){
 				public void run() {
 					EarthApp.restart();
 				};

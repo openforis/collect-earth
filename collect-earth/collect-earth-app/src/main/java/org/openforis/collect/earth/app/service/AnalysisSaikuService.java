@@ -540,7 +540,7 @@ public class AnalysisSaikuService {
 
 				if (!isUserCancelledOperation()) {
 					startSaiku();
-					new Thread() {
+					new Thread("Opening Saiku") {
 						@Override
 						public void run() {
 							try {

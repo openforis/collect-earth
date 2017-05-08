@@ -71,7 +71,7 @@ public class BalloonServlet extends DataAccessingServlet {
 		String url = ServerController.getHostAddress(localPropertiesService.getHost(), localPropertiesService.getLocalPort());
 		url = url + BALLOON_EXTERNAL_URL + "?" + buildGetParameters(request.getParameterMap()); //$NON-NLS-1$
 		final String fUrl = url;
-		final Thread openBrowser = new Thread() {
+		final Thread openBrowser = new Thread("Open URL in browser : " + fUrl) {
 
 			@Override
 			public void run() {

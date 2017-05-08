@@ -73,7 +73,7 @@ public class EarthApp {
 
 		try {
 
-			// System property used in the log4j.properties configuration
+			// System property used in the web.xml configuration
 			System.setProperty("collectEarth.userFolder", FolderFinder.getCollectEarthDataFolder()); //$NON-NLS-1$
 			
 			PropertyConfigurator.configure(EarthApp.class.getResource("/WEB-INF/conf/log4j.properties"));
@@ -94,11 +94,9 @@ public class EarthApp {
 			if ( SystemUtils.IS_OS_MAC || SystemUtils.IS_OS_MAC_OSX){
 				handleMacStartup( doubleClickedProjectFile );
 			}else{
-
-				initializeServer( doubleClickedProjectFile );
+				startCollectEarth( doubleClickedProjectFile );
 			}
 			
-
 		} catch (final Exception e) {
 			// The logger factory has not been initialized, this will not work, just output to console
 			if (logger != null) {
@@ -155,11 +153,11 @@ public class EarthApp {
 			// Lets wait for the Apple event to arrive. If it did then the earthApp variable will be non-nulls 
 			Thread.sleep(2000);
 			if( earthApp == null ){
-				initializeServer( doubleClickedProjectFile );
+				startCollectEarth( doubleClickedProjectFile );
 			}
 		} catch (Exception e) {
 			logger.error("Error while defining the double-click behaviour on CEP files in Mac OS X", e);
-			initializeServer( null );
+			startCollectEarth( null );
 		}
 	}
 
@@ -233,54 +231,24 @@ public class EarthApp {
 	
 	/**
 	 * Generates the KML for the project and opens it in Google Earth
-	 * @param force_kml_recreation Set to true if you want to forece the regeneration of the KML even if is is up to date (you might want to do this to force the update of the placemark icons as the date changes)
+	 * @param forceKmlRecreation Set to true if you want to forece the regeneration of the KML even if is is up to date (you might want to do this to force the update of the placemark icons as the date changes)
 	 * @throws IOException Throws exception if the KMl file cannot be generated
 	 * @throws KmlGenerationException Throws exception if the KML file contents cannot be generated
 	 */
-	private static void loadKmlInGoogleEarth(boolean force_kml_recreation) throws IOException,
-						KmlGenerationException {
-					earthApp.getKmlGeneratorService().generatePlacemarksKmzFile( force_kml_recreation );
-					earthApp.simulateClickKmz();
+	private static void loadKmlInGoogleEarth(boolean forceKmlRecreation) throws IOException, KmlGenerationException {
+		earthApp.getKmlGeneratorService().generatePlacemarksKmzFile( forceKmlRecreation );
+		earthApp.simulateClickKmz();
 	}
 	
 	public static void restart() {
 		try {
 
 			serverController.stopServer();
-
-			final Observer observeInitializationAfterRestart = new Observer() {
-
-				@Override
-				public void update(Observable o, Object arg) {
-					try {
-						ServerInitializationEvent event = (ServerInitializationEvent) arg;
-						if (
-								event.equals(ServerInitializationEvent.SERVER_STARTED_EVENT) ||
-								event.equals(ServerInitializationEvent.SERVER_STARTED_WITH_DATABASE_CHANGE_EVENT)
-						) {
-							loadKmlInGoogleEarth( false );
-						}
-						
-						if( event.equals(ServerInitializationEvent.SERVER_STARTED_WITH_DATABASE_CHANGE_EVENT) || 
-								event.equals(ServerInitializationEvent.SERVER_STARTED_NO_DB_CONNECTION_EVENT)	){
-							showMessage( event.toString());
-						}
-						
-					} catch (final IOException e) {
-						logger.error("Error generating KMZ file", e); //$NON-NLS-1$
-						e.printStackTrace();
-					} catch (final Exception e) {
-						logger.error("Error starting server", e); //$NON-NLS-1$
-						e.printStackTrace();
-					}
-
-				}
-			};
-
-			serverStartAndOpenGe(observeInitializationAfterRestart);
+			startServer(null);
 
 		} catch (final Exception e) {
 			logger.error("Error while stopping server", e); //$NON-NLS-1$
+			e.printStackTrace();	
 		}
 	}
 
@@ -317,10 +285,9 @@ public class EarthApp {
 		}
 	}
 
-	private static void initializeServer(final String doubleClickedProjectFile) throws Exception {
+	private static void startCollectEarth(final String doubleClickedProjectFile) throws Exception {
 		logger.info("START - Server Initilization"); //$NON-NLS-1$
 		final boolean ceAlreadyOpen = isAnotherCollectEarthRunning( getLocalProperties());
-		
 		
 		if( ceAlreadyOpen ){
 			closeSplash();
@@ -332,42 +299,50 @@ public class EarthApp {
 			}
 		}else{
 
-			earthApp = new EarthApp();
-			
-			// Load the double-clicked CEP file before the survey manager is instantiated by the server start-up
-			earthApp.loadProjectIfDoubleClicked(doubleClickedProjectFile);
-			
-			serverController = new ServerController();
-			final Observer observeInitialization = new Observer() {
-				@Override
-				public void update(Observable o, Object arg) {
-					ServerInitializationEvent initializationEvent = (ServerInitializationEvent) arg;
-					if (initializationEvent.equals(ServerInitializationEvent.SERVER_STARTED_NO_DB_CONNECTION_EVENT)) {
-						serverController = null;
-					}
+			startServer(doubleClickedProjectFile);
+		}
+	}
+
+	public static void startServer(final String doubleClickedProjectFile)
+			throws IOException, Exception {
+		earthApp = new EarthApp();
+		
+		// Load the double-clicked CEP file before the survey manager is instantiated by the server start-up
+		earthApp.loadProjectIfDoubleClicked(doubleClickedProjectFile);
+		
+
+		final Observer observeInitialization = getServerObserver();
+		serverStartAndOpenGe(observeInitialization);
+	}
+
+	private static Observer getServerObserver() {
+		return new Observer() {
+			@Override
+			public void update(Observable o, Object arg) {
+				ServerInitializationEvent initializationEvent = (ServerInitializationEvent) arg;
+				if (initializationEvent.equals(ServerInitializationEvent.SERVER_STARTED_NO_DB_CONNECTION_EVENT)) {
+					serverController = null;
+				}
+				
+				if( initializationEvent.equals(ServerInitializationEvent.SERVER_STARTED_WITH_DATABASE_CHANGE_EVENT) || 
+						initializationEvent.equals(ServerInitializationEvent.SERVER_STARTED_NO_DB_CONNECTION_EVENT)	){
 					
-					if( initializationEvent.equals(ServerInitializationEvent.SERVER_STARTED_WITH_DATABASE_CHANGE_EVENT) || 
-							initializationEvent.equals(ServerInitializationEvent.SERVER_STARTED_NO_DB_CONNECTION_EVENT)	){
-						
-						showMessage( initializationEvent.toString());
-					}
-					
-					if (!initializationEvent.equals(ServerInitializationEvent.SERVER_STOPPED_EVENT)) {
-						try {
-												
-							earthApp.generateKml();
-							earthApp.simulateClickKmz();
-							earthApp.checkForUpdates();
-							closeSplash();
-						} catch (final Exception e) {
-							logger.error("Error generating KML file", e); //$NON-NLS-1$
-							e.printStackTrace();
-						}
+					showMessage( initializationEvent.toString());
+				}
+				
+				if (!initializationEvent.equals(ServerInitializationEvent.SERVER_STOPPED_EVENT)) {
+					try {				
+						earthApp.generateKml();
+						earthApp.simulateClickKmz();
+						earthApp.checkForUpdates();
+						closeSplash();
+					} catch (final Exception e) {
+						logger.error("Error generating KML file", e); //$NON-NLS-1$
+						e.printStackTrace();
 					}
 				}
-			};
-			serverStartAndOpenGe(observeInitialization);
-		}
+			}
+		};
 	}
 
 	private void openKmlOnGoogleEarth() throws IOException {
@@ -450,7 +425,7 @@ public class EarthApp {
 	}
 
 	private static void serverStartAndOpenGe(Observer observeInitialization) throws IOException, Exception {
-
+		serverController = new ServerController();
 		serverController.deleteObservers();
 		serverController.startServer(observeInitialization);
 
@@ -483,7 +458,7 @@ public class EarthApp {
 	}
 	
 	public static void executeKmlLoadAsynchronously( Window windowShowingTimer ) {
-		new Thread(){
+		new Thread("Load KML in Google Earth"){
 			public void run() {
 				// Only regenerate KML and reload
 				try {

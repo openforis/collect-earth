@@ -28,7 +28,7 @@ public abstract class ProcessMonitorDialog<V,S extends ProcessStatus> extends Th
 	@Override
 	public synchronized void start() {
 
-		new Thread() {
+		new Thread("Monitorinf progress of a process") {
 			@Override
 			public void run() {
 				boolean keepRunning = true;

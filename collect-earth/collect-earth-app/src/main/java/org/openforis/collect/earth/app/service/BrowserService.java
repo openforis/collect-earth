@@ -932,7 +932,7 @@ public class BrowserService implements Observer{
 	}
 
 	private Thread getClosingBrowsersThread() {
-		return new Thread() {
+		return new Thread("Quit the open browsers") {
 			@Override
 			public void run() {
 

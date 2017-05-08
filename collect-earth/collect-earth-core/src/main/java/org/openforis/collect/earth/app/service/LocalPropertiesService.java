@@ -316,8 +316,8 @@ public class LocalPropertiesService {
 	}
 
 	/**
-	 * Removes the GEE obfusted method/parameter names so that they are regenerated when GEE is accessed for the fist time.
-	 * This way we avoid the bug when the reobfuscation of GEE JS code changes the zooming method but does not provoke an error.
+	 * Removes the GEE obfuscated method/parameter names so that they are regenerated when GEE is accessed for the fist time.
+	 * This way we avoid the bug when the re-obfuscation of GEE JS code changes the zooming method but does not provoke an error.
 	 */
 	@PreDestroy
 	public void removeGeeProperties() {
