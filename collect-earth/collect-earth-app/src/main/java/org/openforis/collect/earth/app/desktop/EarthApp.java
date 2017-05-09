@@ -76,7 +76,8 @@ public class EarthApp {
 			// System property used in the web.xml configuration
 			System.setProperty("collectEarth.userFolder", FolderFinder.getCollectEarthDataFolder()); //$NON-NLS-1$
 			
-			PropertyConfigurator.configure(EarthApp.class.getResource("/WEB-INF/conf/log4j.properties"));
+			// For Log4j 1.2 --> moving to log4j 2
+			//PropertyConfigurator.configure(EarthApp.class.getResource("/WEB-INF/conf/log4j.properties"));
 			
 			// Change of font so that Lao and Thao glyphs are supported
 			CollectEarthUtils.setFontDependingOnLanguaue( getLocalProperties().getUiLanguage() );

@@ -201,7 +201,9 @@ public class ServerController extends Observable {
 
 			// The port that we should run on can be set into an environment variable
 			// Look for that variable and default to 8080 if it isn't there.
-			PropertyConfigurator.configure(this.getClass().getResource("/WEB-INF/conf/log4j.properties"));
+			
+			// For log4j 1.2 --> Moving to Log4J2
+			//PropertyConfigurator.configure(this.getClass().getResource("/WEB-INF/conf/log4j.properties"));
 
 			server = new Server(new ExecutorThreadPool(10, 50, 5, TimeUnit.SECONDS));
 
