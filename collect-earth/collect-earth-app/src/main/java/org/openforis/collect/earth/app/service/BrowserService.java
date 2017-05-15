@@ -834,7 +834,14 @@ public class BrowserService implements Observer{
 		}else if( SystemUtils.IS_OS_UNIX ){
 			geckoDriverPath = "resources/geckodriver";
 		}else if( SystemUtils.IS_OS_WINDOWS ){
-			geckoDriverPath = "resources/geckodriver.exe";
+			try {
+				if( System.getProperty("sun.arch.data.model").equals("32"))
+					geckoDriverPath = "resources/geckodriver_32.exe";
+				else
+					geckoDriverPath = "resources/geckodriver_64.exe";
+			} catch (Exception e) {
+				geckoDriverPath = "resources/geckodriver_64.exe";
+			}
 		}else{
 			throw new RuntimeException("Geckodriver is not supported in the current OS" );
 		}
