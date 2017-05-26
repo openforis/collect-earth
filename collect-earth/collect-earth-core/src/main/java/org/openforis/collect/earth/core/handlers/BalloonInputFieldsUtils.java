@@ -46,6 +46,7 @@ import org.springframework.stereotype.Component;
 @Component
 public class BalloonInputFieldsUtils {
 
+	private static final String FROM_CSV_PARAMETER_VAL_PLACEHOLDER_PREFIX = "$[EXTRA_";
 	private static final String NOT_APPLICABLE_ITEM_CODE = "-1";
 	private static final String NOT_APPLICABLE_ITEM_LABEL = "N/A";
 
@@ -533,9 +534,11 @@ public class BalloonInputFieldsUtils {
 							}
 							for (int index = 0; index < parameterValues.length; index++) {
 								String parameterVal = parameterValues[index];
-								NodeChangeSet partialChangeSet = handler.addOrUpdate(cleanName, parameterVal, entity, index);
-								if (partialChangeSet != null) {
-									result.addMergeChanges(partialChangeSet);
+								if (parameterVal == null || ! parameterVal.startsWith(FROM_CSV_PARAMETER_VAL_PLACEHOLDER_PREFIX)) {
+									NodeChangeSet partialChangeSet = handler.addOrUpdate(cleanName, parameterVal, entity, index);
+									if (partialChangeSet != null) {
+										result.addMergeChanges(partialChangeSet);
+									}
 								}
 							}
 						}

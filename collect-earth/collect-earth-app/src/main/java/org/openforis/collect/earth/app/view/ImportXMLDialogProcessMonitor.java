@@ -12,14 +12,14 @@ import javax.swing.JFrame;
 import javax.swing.JOptionPane;
 import javax.swing.SwingUtilities;
 
-import net.lingala.zip4j.core.ZipFile;
-import net.lingala.zip4j.exception.ZipException;
-
 import org.apache.commons.io.FileUtils;
 import org.openforis.collect.earth.app.CollectEarthUtils;
 import org.openforis.collect.earth.app.desktop.EarthApp;
+import org.openforis.collect.earth.app.server.DataAccessor;
 import org.openforis.collect.earth.app.service.DataImportExportService;
 import org.openforis.collect.io.data.DataImportState;
+import org.openforis.collect.io.data.DataImportState.MainStep;
+import org.openforis.collect.io.data.DataImportState.SubStep;
 import org.openforis.collect.io.data.DataImportSummaryItem;
 import org.openforis.collect.io.data.XMLDataImportProcess;
 import org.slf4j.Logger;
@@ -27,10 +27,20 @@ import org.slf4j.LoggerFactory;
 
 import com.google.common.io.Files;
 
+import net.lingala.zip4j.core.ZipFile;
+import net.lingala.zip4j.exception.ZipException;
+
 public class ImportXMLDialogProcessMonitor implements Observer{
 
 	Logger logger = LoggerFactory.getLogger(ImportXMLDialogProcessMonitor.class);
 	private InfiniteProgressMonitor progressMonitor;
+	
+	private DataAccessor dataAccessor;
+	
+	public ImportXMLDialogProcessMonitor(DataAccessor dataAccessor) {
+		super();
+		this.dataAccessor = dataAccessor;
+	}
 
 	public void closeProgressmonitor() {
 
@@ -196,9 +206,16 @@ public class ImportXMLDialogProcessMonitor implements Observer{
 				DataImportState importState = (DataImportState) o ;
 				progressMonitor.setMessage( Messages.getString("ImportDialogProcessMonitor.2") ); //$NON-NLS-1$
 				progressMonitor.updateProgress(  importState.getCount(), importState.getTotal());
-			}	
+				if (importState.getMainStep() == MainStep.IMPORT && importState.getSubStep() == SubStep.COMPLETE) {
+					onImportComplete();
+				}
+			}
+
 		});
 		
 	}
 
+	private void onImportComplete() {
+		dataAccessor.clearRecordCache();
+	}	
 }

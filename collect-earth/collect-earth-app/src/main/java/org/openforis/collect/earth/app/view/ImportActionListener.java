@@ -12,6 +12,8 @@ import java.io.InputStreamReader;
 import javax.swing.JFrame;
 import javax.swing.JOptionPane;
 
+import org.apache.commons.io.IOUtils;
+import org.openforis.collect.earth.app.server.DataAccessor;
 import org.openforis.collect.earth.app.service.DataImportExportService;
 import org.openforis.collect.earth.app.service.LocalPropertiesService;
 import org.openforis.collect.io.data.CSVDataImportProcess;
@@ -31,8 +33,11 @@ public final class ImportActionListener implements ActionListener {
 	private LocalPropertiesService localPropertiesService;
 	private DataImportExportService dataImportService;
 	private Logger logger = LoggerFactory.getLogger( ImportActionListener.class );
+	
+	private DataAccessor dataAccessor;
 
-	public ImportActionListener(DataFormat importFormat, JFrame frame, LocalPropertiesService localPropertiesService, DataImportExportService dataImportService) {
+	public ImportActionListener(DataFormat importFormat, JFrame frame, LocalPropertiesService localPropertiesService, 
+			DataImportExportService dataImportService, DataAccessor dataAccessor) {
 		this.importFormat = importFormat;
 		this.frame = frame;
 		this.localPropertiesService = localPropertiesService;
@@ -83,7 +88,7 @@ public final class ImportActionListener implements ActionListener {
 
 	private void importDataFrom(final ActionEvent e, final DataFormat importType) {
 		File[] filesToImport = JFileChooserExistsAware.getFileChooserResults( importType, false, true, null, localPropertiesService, frame );
-		final ImportXMLDialogProcessMonitor importDialogProcessMonitor = new ImportXMLDialogProcessMonitor();
+		final ImportXMLDialogProcessMonitor importDialogProcessMonitor = new ImportXMLDialogProcessMonitor(dataAccessor);
 		if (filesToImport != null) {
 
 			
@@ -158,11 +163,10 @@ public final class ImportActionListener implements ActionListener {
 
 	private long getTotalNumberOfLines(File importedFile) {
 		long count = 0;
+		BufferedReader br = null;
 		try {
 			FileInputStream fstream = new FileInputStream(importedFile);
-			BufferedReader br = new BufferedReader(new InputStreamReader(fstream));
-			String strLine;
-			
+			br = new BufferedReader(new InputStreamReader(fstream));
 			while ( br.readLine() != null)   {
 			  count++;
 			}
@@ -170,6 +174,8 @@ public final class ImportActionListener implements ActionListener {
 			logger.error("Error counting the number of lines in file " + importedFile.getAbsolutePath() , e) ; //$NON-NLS-1$
 		} catch (IOException e) {
 			logger.error("Error counting the number of lines in file " + importedFile.getAbsolutePath() , e) ; //$NON-NLS-1$
+		} finally {
+			IOUtils.closeQuietly(br);
 		}
 		return count;
 	}

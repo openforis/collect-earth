@@ -27,4 +27,6 @@ public interface DataAccessor {
 	public PlacemarkLoadResult updateData(String[] multipleKeyAttributes, 
 			Map<String, String> values, boolean partialUpdate);
 
+	public void clearRecordCache();
+
 }

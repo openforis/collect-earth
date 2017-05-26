@@ -6,6 +6,7 @@ import java.util.Date;
 import java.util.List;
 
 import org.openforis.collect.earth.app.EarthConstants;
+import org.openforis.collect.earth.app.server.DataAccessor;
 import org.openforis.collect.io.data.CSVDataExportProcess;
 import org.openforis.collect.io.data.CSVDataImportProcess;
 import org.openforis.collect.io.data.DataExportStatus;
@@ -36,6 +37,8 @@ public class DataImportExportService {
 
 	@Autowired
 	private EarthSurveyService earthSurveyService;
+	@Autowired
+	private DataAccessor dataAccessor;
 
 	private final Logger logger = LoggerFactory.getLogger(DataImportExportService.class);
 	/**

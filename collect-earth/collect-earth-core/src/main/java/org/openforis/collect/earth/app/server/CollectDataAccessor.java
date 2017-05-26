@@ -46,4 +46,9 @@ public class CollectDataAccessor implements DataAccessor {
 			boolean partialUpdate) {
 		return earthSurveyService.updatePlacemarkData(multipleKeyAttributes, collectedData, null, partialUpdate);
 	}
+	
+	@Override
+	public void clearRecordCache() {
+		earthSurveyService.clearRecordCache();
+	}
 }

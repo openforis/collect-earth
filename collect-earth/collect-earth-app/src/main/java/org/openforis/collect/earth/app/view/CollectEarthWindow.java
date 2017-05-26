@@ -42,6 +42,7 @@ import org.openforis.collect.earth.app.CollectEarthUtils;
 import org.openforis.collect.earth.app.EarthConstants.OperationMode;
 import org.openforis.collect.earth.app.EarthConstants.UI_LANGUAGE;
 import org.openforis.collect.earth.app.desktop.EarthApp;
+import org.openforis.collect.earth.app.server.DataAccessor;
 import org.openforis.collect.earth.app.service.AnalysisSaikuService;
 import org.openforis.collect.earth.app.service.BackupSqlLiteService;
 import org.openforis.collect.earth.app.service.DataImportExportService;
@@ -92,6 +93,9 @@ public class CollectEarthWindow{
 	
 	@Autowired
 	private CollectEarthTransferHandler collectEarthTransferHandler;
+
+	@Autowired
+	private DataAccessor dataAccessor;
 	
 	public static void endWaiting(Window frame) {
 		frame.setCursor(java.awt.Cursor.getPredefinedCursor(java.awt.Cursor.DEFAULT_CURSOR));
@@ -287,7 +291,7 @@ public class CollectEarthWindow{
 	}
 
 	private ActionListener getImportActionListener(final DataFormat importFormat) {
-		return new ImportActionListener(importFormat, getFrame(), localPropertiesService, dataImportExportService);
+		return new ImportActionListener(importFormat, getFrame(), localPropertiesService, dataImportExportService, dataAccessor);
 	}
 
 	private JMenu getLanguageMenu() {

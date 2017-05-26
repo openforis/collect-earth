@@ -37,7 +37,6 @@ import org.springframework.web.bind.annotation.RequestParam;
  */
 public class AbstractPlacemarkDataController extends JsonPocessorServlet {
 
-	private static final String PREVIEW_PLOT_ID = "$[EXTRA_id]";
 	private static Object lastPlacemarkId;
 	private static String lastPlacemarkStep;
 	
@@ -45,34 +44,19 @@ public class AbstractPlacemarkDataController extends JsonPocessorServlet {
 	AbstractEarthSurveyService earthSurveyService;
 	
 	protected void placemarkInfoExpanded(@RequestParam("id") String placemarkId, HttpServletResponse response) throws IOException {
-		PlacemarkLoadResult result;
-		if (placemarkId == null || placemarkId.equals(PREVIEW_PLOT_ID)) {
-			result = handleEmptyPlot();
-		} else {
-			placemarkId = replacePlacemarkIdTestValue(placemarkId);
-			result = getDataAccessor().loadDataExpanded(placemarkId.split(","));
-			if (result.isSuccess()) {
-				result.setMessage("The placemark was found");
-				if (placemarkId.equals(lastPlacemarkId)) {
-					result.setCurrentStep(lastPlacemarkStep);
-				}
-			} else {
-				getLogger().info("No placemark found with id: " + placemarkId);
+		placemarkId = replacePlacemarkIdTestValue(placemarkId);
+		PlacemarkLoadResult result = getDataAccessor().loadDataExpanded(placemarkId.split(","));
+		if (result.isSuccess()) {
+			result.setMessage("The placemark was found");
+			if (placemarkId.equals(lastPlacemarkId)) {
+				result.setCurrentStep(lastPlacemarkStep);
 			}
+		} else {
+			getLogger().info("No placemark found with id: " + placemarkId);
 		}
 		setJsonResponse(response, result);
 	}
 
-	private PlacemarkLoadResult handleEmptyPlot() {
-		PlacemarkLoadResult result;
-		result = new PlacemarkLoadResult();
-		result.setSuccess(false);
-		String errorMessage = "No placemark ID found in the received request";
-		result.setMessage(errorMessage);
-		getLogger().error(errorMessage); //$NON-NLS-1$
-		return result;
-	}
-	
 	@RequestMapping(value="/save-data-expanded", method = RequestMethod.POST)
 	public void saveDataExpanded(PlacemarkUpdateRequest updateRequest, HttpServletResponse response) throws IOException {
 		Map<String, String> collectedData = adjustParameters(updateRequest);
