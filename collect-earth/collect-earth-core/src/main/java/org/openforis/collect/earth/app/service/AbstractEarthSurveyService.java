@@ -218,7 +218,8 @@ public abstract class AbstractEarthSurveyService {
 	}
 
 	public synchronized CollectRecord getOrLoadRecord(String[] mulitpleKeyAttributes, boolean validateRecord) {
-		CollectRecord cachedRecord = recordCache.get(new RecordKey(getCollectSurvey(), mulitpleKeyAttributes));
+		RecordKey recordKey = new RecordKey(getCollectSurvey(), mulitpleKeyAttributes);
+		CollectRecord cachedRecord = recordCache.get(recordKey);
 		if (cachedRecord != null) {
 			return cachedRecord;
 		} else {
@@ -228,7 +229,12 @@ public abstract class AbstractEarthSurveyService {
 				return null;
 			} else {
 				CollectRecord summary = summaries.get(0);
-				return recordManager.load(getCollectSurvey(), summary.getId(), Step.ENTRY, validateRecord);
+				CollectRecord record = recordManager.load(getCollectSurvey(), summary.getId(), Step.ENTRY, validateRecord);
+				if (validateRecord) {
+					//store it in the cache only if it has been validated
+					recordCache.put(recordKey, record);
+				}
+				return record;
 			}
 		}
 	}
