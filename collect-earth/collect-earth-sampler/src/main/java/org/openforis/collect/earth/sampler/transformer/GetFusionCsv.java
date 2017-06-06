@@ -6,7 +6,9 @@ import java.io.FileWriter;
 import java.io.IOException;
 import java.util.HashMap;
 
-import org.apache.log4j.Logger;
+
+
+import org.slf4j.LoggerFactory;
 
 import au.com.bytecode.opencsv.CSVReader;
 import au.com.bytecode.opencsv.CSVWriter;
@@ -21,7 +23,7 @@ public class GetFusionCsv {
 		try {
 			fusionCsv.processFile();
 		} catch (final IOException e) {
-			Logger.getLogger(GetFusionCsv.class);
+			LoggerFactory.getLogger(GetFusionCsv.class);
 		}
 
 	}

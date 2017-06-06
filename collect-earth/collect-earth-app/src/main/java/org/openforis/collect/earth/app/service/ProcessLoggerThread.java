@@ -5,11 +5,13 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 
-import org.apache.log4j.Logger;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 
 public class ProcessLoggerThread extends Thread {
 
-	private final static Logger LOGGER = Logger.getLogger(ProcessLoggerThread.class);
+	private final static Logger LOGGER = LoggerFactory.getLogger(ProcessLoggerThread.class);
 
 	private InputStream inputStream;
 
