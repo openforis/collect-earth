@@ -20,7 +20,7 @@
 	<properties>
 		<java.version>1.8</java.version>
 		<project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-		<collect.version>3.13.3</collect.version>
+		<collect.version>3.13.6</collect.version>
 		<spring.version>4.2.4.RELEASE</spring.version>
 		<project.scm.id>github.com</project.scm.id>
 	</properties>
