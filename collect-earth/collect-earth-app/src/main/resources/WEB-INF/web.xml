@@ -39,6 +39,10 @@
 		</init-param>
 	</filter>
 
+	<filter>
+		<filter-name>googleEarthHeaderFilter</filter-name>
+		<filter-class>org.openforis.collect.earth.app.server.GoogleEarthHeaderFilter</filter-class>
+	</filter>
 
 	<filter-mapping>
 		<filter-name>localizationFilter</filter-name>
@@ -46,6 +50,10 @@
 	</filter-mapping>
 	<filter-mapping>
 		<filter-name>characterEncodingFilter</filter-name>
+		<url-pattern>/*</url-pattern>
+	</filter-mapping>
+	<filter-mapping>
+		<filter-name>googleEarthHeaderFilter</filter-name>
 		<url-pattern>/*</url-pattern>
 	</filter-mapping>
 
