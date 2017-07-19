@@ -14,15 +14,18 @@ import javax.servlet.ServletResponse;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletRequestWrapper;
 import javax.servlet.http.HttpServletResponse;
-import javax.servlet.http.HttpServletResponseWrapper;
 
 import org.eclipse.jetty.http.HttpHeader;
+import org.eclipse.jetty.servlets.CrossOriginFilter;
 import org.openforis.collect.earth.app.EarthConstants;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 public class GoogleEarthHeaderFilter implements Filter{
 
 	final SimpleDateFormat dateFormat = new SimpleDateFormat(EarthConstants.DATE_FORMAT_HTTP, Locale.ENGLISH );
-	
+	Logger logger = LoggerFactory.getLogger(GoogleEarthHeaderFilter.class );
+		
 	@Override
 	public void init(FilterConfig filterConfig) throws ServletException {
 		// TODO Auto-generated method stub
@@ -32,7 +35,7 @@ public class GoogleEarthHeaderFilter implements Filter{
 	public void doFilter(ServletRequest request, ServletResponse response, FilterChain chain)
 			throws IOException, ServletException {
 	       
-	        chain.doFilter(new HttpServletRequestWrapper((HttpServletRequest) request){
+	        chain.doFilter(new HttpServletRequestWrapper( (HttpServletRequest) request) {
 	        	@Override
 	        	public long getDateHeader(String name){
 	                if(name.equals(HttpHeader.IF_MODIFIED_SINCE.toString() )){
@@ -41,8 +44,24 @@ public class GoogleEarthHeaderFilter implements Filter{
 	                }else
 	                	return super.getDateHeader(name);
 	            }
+	        	
+	        	@Override
+	        	public String getHeader(String name) {
+	        		 if(name!=null && name.equals("Origin") &&  (super.getHeader("Origin")==null || super.getHeader("Origin").equals("null")) ){
+		                	return "*";
+		             }else
+		               	return super.getHeader(name);
+	        	}
 	        }, response
 	       );
+	        
+	       
+	        
+	       ((HttpServletResponse) response).setHeader("Access-Control-Allow-Origin" , "*");
+	       ((HttpServletResponse) response).setHeader("Access-Control-Allow-Methods" , "GET, POST, PATCH, PUT, DELETE, OPTIONS");
+	       ((HttpServletResponse) response).setHeader("Access-Control-Allow-Headers" , "Origin, Content-Type, X-Auth-Token");
+	       
+	       logger.debug( "Added Acces control origin to " + ( ( HttpServletRequest)request).getRequestURI() );
 		
 	}
 

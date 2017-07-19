@@ -38,12 +38,15 @@
 			<param-value>UTF-8</param-value>
 		</init-param>
 	</filter>
-
 	<filter>
 		<filter-name>googleEarthHeaderFilter</filter-name>
 		<filter-class>org.openforis.collect.earth.app.server.GoogleEarthHeaderFilter</filter-class>
 	</filter>
-
+	<filter>
+        <filter-name>cross-origin</filter-name>
+        <filter-class>org.eclipse.jetty.servlets.CrossOriginFilter</filter-class>
+    </filter>
+   
 	<filter-mapping>
 		<filter-name>localizationFilter</filter-name>
 		<url-pattern>/*</url-pattern>
@@ -56,6 +59,11 @@
 		<filter-name>googleEarthHeaderFilter</filter-name>
 		<url-pattern>/*</url-pattern>
 	</filter-mapping>
+	 <filter-mapping>
+        <filter-name>cross-origin</filter-name>
+        <url-pattern>/*</url-pattern>
+    </filter-mapping>
+	
 
 	<resource-ref>
 		<description>DB Connection</description>
@@ -90,6 +98,11 @@
 	<servlet-mapping >
 		<servlet-name >default</servlet-name>
 		<url-pattern >/generated/*</url-pattern>
+	</servlet-mapping>
+	
+	<servlet-mapping >
+		<servlet-name >default</servlet-name>
+		<url-pattern >/testOnline/*</url-pattern>
 	</servlet-mapping>
 	
 	<session-config>
