@@ -335,6 +335,7 @@ public class EarthApp {
 						earthApp.generateKml();
 						earthApp.simulateClickKmz();
 						earthApp.checkForUpdates();
+						earthApp.userStats();
 						closeSplash();
 					} catch (final Exception e) {
 						logger.error("Error generating KML file", e); //$NON-NLS-1$
@@ -366,7 +367,9 @@ public class EarthApp {
 				}
 
 				final UpdateIniUtils updateIniUtils = new UpdateIniUtils();
-								
+				
+				
+				
 				if (updateIniUtils.shouldWarnUser(getLocalProperties() )) {
 
 					javax.swing.SwingUtilities.invokeLater(new Runnable() {
@@ -397,6 +400,18 @@ public class EarthApp {
 			};
 		}.start();
 
+	}
+	
+	
+	private void userStats() {
+		new Thread("Update user stats") {
+			@Override
+			public void run() {
+				// Wait a few seconds before checking for updates
+				final UpdateIniUtils updateIniUtils = new UpdateIniUtils();
+				updateIniUtils.trackUserStart();			
+			};
+		}.start();
 	}
 
 	/**
