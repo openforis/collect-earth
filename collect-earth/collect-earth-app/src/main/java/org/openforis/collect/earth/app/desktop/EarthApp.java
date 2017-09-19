@@ -183,10 +183,10 @@ public class EarthApp {
 
 			String hostAddress = ServerController.getHostAddress( getLocalProperties().getHost(), getLocalProperties().getPort());
 
-			URL loadPfojectFileInRunningCE = new URL(hostAddress + LoadProjectFileServlet.SERVLET_NAME +  
+			URL loadProjectFileInRunningCE = new URL(hostAddress + LoadProjectFileServlet.SERVLET_NAME +  
 					"?" + LoadProjectFileServlet.PROJECT_FILE_PARAMETER + "=" + //$NON-NLS-1$ //$NON-NLS-2$
 					doubleClickedProjecFile);
-			URLConnection urlConn = loadPfojectFileInRunningCE.openConnection();
+			URLConnection urlConn = loadProjectFileInRunningCE.openConnection();
 
 			BufferedReader in = new BufferedReader(new InputStreamReader(urlConn.getInputStream()));
 			String inputLine;
