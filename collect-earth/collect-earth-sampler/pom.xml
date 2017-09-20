@@ -20,8 +20,7 @@
 		<dependency>
 			<groupId>org.openforis.collect.earth</groupId>
 			<artifactId>collect-earth-core</artifactId>
-			<version>${project.version}</version>
-		</dependency>
+			</dependency>
 		<dependency>
 			<groupId>net.sf.opencsv</groupId>
 			<artifactId>opencsv</artifactId>
