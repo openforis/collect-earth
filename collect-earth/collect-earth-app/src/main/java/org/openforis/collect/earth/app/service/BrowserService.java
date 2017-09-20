@@ -785,7 +785,7 @@ public class BrowserService implements Observer{
 		if ( SystemUtils.IS_OS_MAC || SystemUtils.IS_OS_MAC_OSX){
 			// Handle the special case when the user picks the Chrome or Firefox app files for Mac
 									
-			if( chromeBinaryPath.toLowerCase().equals("google chrome.app" ) || chromeBinaryPath.toLowerCase().equals("chrome.app" )){
+			if( chromeBinaryPath.toLowerCase().endsWith("google chrome.app" ) || chromeBinaryPath.toLowerCase().endsWith("chrome.app" )){
 				chromeBinaryPath = chromeBinaryPath + "/Contents/MacOS/Google Chrome";
 			}
 		}
@@ -825,7 +825,7 @@ public class BrowserService implements Observer{
 		if ( SystemUtils.IS_OS_MAC || SystemUtils.IS_OS_MAC_OSX){
 			// Handle the special case when the user picks the Chrome or Firefox app files for Mac
 									
-			if( firefoxBinaryPath.toLowerCase().equals("firefox.app" ) ){
+			if( firefoxBinaryPath.toLowerCase().endsWith("firefox.app" ) ){
 				firefoxBinaryPath = firefoxBinaryPath + "/Contents/MacOS/firefox";
 			}
 		}
