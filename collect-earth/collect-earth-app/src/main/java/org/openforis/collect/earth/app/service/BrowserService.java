@@ -780,7 +780,17 @@ public class BrowserService implements Observer{
 		
 		
 
-		final String chromeBinaryPath = localPropertiesService.getValue(EarthProperty.CHROME_BINARY_PATH);
+		String chromeBinaryPath = localPropertiesService.getValue(EarthProperty.CHROME_BINARY_PATH);
+		
+		if ( SystemUtils.IS_OS_MAC || SystemUtils.IS_OS_MAC_OSX){
+			// Handle the special case when the user picks the Chrome or Firefox app files for Mac
+									
+			if( chromeBinaryPath.toLowerCase().equals("google chrome.app" ) || chromeBinaryPath.toLowerCase().equals("chrome.app" )){
+				chromeBinaryPath = chromeBinaryPath + "/Contents/MacOS/Google Chrome";
+			}
+		}
+		
+		
 		final DesiredCapabilities capabilities = DesiredCapabilities.chrome();
 		capabilities.setCapability("credentials_enable_service", false);
 		capabilities.setCapability("password_manager_enabled", false);
@@ -811,6 +821,15 @@ public class BrowserService implements Observer{
 		if( StringUtils.isBlank( firefoxBinaryPath )){
 			firefoxBinaryPath = FirefoxLocatorFixed.tryToFindFolder();
 		}
+		
+		if ( SystemUtils.IS_OS_MAC || SystemUtils.IS_OS_MAC_OSX){
+			// Handle the special case when the user picks the Chrome or Firefox app files for Mac
+									
+			if( firefoxBinaryPath.toLowerCase().equals("firefox.app" ) ){
+				firefoxBinaryPath = firefoxBinaryPath + "/Contents/MacOS/firefox";
+			}
+		}
+		
 		
 		FirefoxBinary fb = null;
 		if( firefoxBinaryPath != null ){
