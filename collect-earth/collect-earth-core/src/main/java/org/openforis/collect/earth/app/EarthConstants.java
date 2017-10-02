@@ -60,7 +60,7 @@ public class EarthConstants {
 
 	
 	public enum SAMPLE_SHAPE{ 
-		SQUARE("Square (Standard)"), CIRCLE("Circle"), POLYGON("Predefined polygon within CSV plot file"), HEXAGON("Hexagon"), NFMA ("NFMA plot design"), SQUARE_CIRCLE ("Square with circles (beta)");
+		SQUARE("Square (Standard)"), CIRCLE("Circle"), POLYGON("Predefined polygon within CSV plot file"), HEXAGON("Hexagon"), NFMA ("NFMA plot design"), SQUARE_CIRCLE ("Square with circles (beta)"), NFI_CIRCLES("NFI cluster with three circular plots");
 	
 		private String label;
 		

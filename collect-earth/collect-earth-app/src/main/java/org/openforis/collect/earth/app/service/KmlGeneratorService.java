@@ -18,6 +18,7 @@ import org.openforis.collect.earth.sampler.processor.CircleKmlGenerator;
 import org.openforis.collect.earth.sampler.processor.HexagonKmlGenerator;
 import org.openforis.collect.earth.sampler.processor.KmlGenerator;
 import org.openforis.collect.earth.sampler.processor.KmzGenerator;
+import org.openforis.collect.earth.sampler.processor.NfiCirclesKmlGenerator;
 import org.openforis.collect.earth.sampler.processor.NfmaKmlGenerator;
 import org.openforis.collect.earth.sampler.processor.PolygonKmlGenerator;
 import org.openforis.collect.earth.sampler.processor.SquareKmlGenerator;
@@ -178,6 +179,7 @@ public class KmlGeneratorService {
 		SAMPLE_SHAPE plotShape = getLocalProperties().getSampleShape();
 		final String hostAddress = ServerController.getHostAddress(getLocalProperties().getHost(), getLocalProperties().getPort());
 		final float distanceBetweenSamplePoints = Float.parseFloat(getLocalProperties().getValue(EarthProperty.DISTANCE_BETWEEN_SAMPLE_POINTS));
+		final float distanceBetweenPlots = Float.parseFloat(getLocalProperties().getValue(EarthProperty.DISTANCE_BETWEEN_PLOTS ));
 		final float distanceToPlotBoundaries = Float.parseFloat(getLocalProperties().getValue(EarthProperty.DISTANCE_TO_PLOT_BOUNDARIES));
 		final String localPort = getLocalProperties().getLocalPort();
 		final String numberOfSamplingPlots = getLocalProperties().getValue(EarthProperty.NUMBER_OF_SAMPLING_POINTS_IN_PLOT);
@@ -198,7 +200,9 @@ public class KmlGeneratorService {
 				generateKml = new CircleKmlGenerator(crsSystem, hostAddress, localPort, innerPointSide,  numberOfPoints, distanceBetweenSamplePoints );
 			} else if (plotShape.equals(SAMPLE_SHAPE.NFMA)) {
 				generateKml = new NfmaKmlGenerator(crsSystem, hostAddress, localPort );
-			} else if (plotShape.equals(SAMPLE_SHAPE.HEXAGON)) {
+			} else if (plotShape.equals(SAMPLE_SHAPE.NFI_CIRCLES)) {
+				generateKml = new NfiCirclesKmlGenerator(crsSystem, hostAddress, localPort, innerPointSide,  distanceBetweenSamplePoints, distanceBetweenPlots );
+			}else if (plotShape.equals(SAMPLE_SHAPE.HEXAGON)) {
 				generateKml = new HexagonKmlGenerator(crsSystem, hostAddress, localPort, innerPointSide,  numberOfPoints, distanceBetweenSamplePoints );
 			}  else if (plotShape.equals(SAMPLE_SHAPE.SQUARE_CIRCLE)) {
 				generateKml = new SquareWithCirclesKmlGenerator(crsSystem, hostAddress, localPort, innerPointSide,  numberOfPoints, 
