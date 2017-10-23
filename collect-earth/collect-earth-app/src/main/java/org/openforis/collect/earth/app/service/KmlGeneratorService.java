@@ -171,23 +171,44 @@ public class KmlGeneratorService {
 
 	}
 
+	private float parseFloat( String floatNumber ){
+		float f = 0f;
+		try{
+			f = Float.parseFloat( floatNumber );
+		}catch(Exception e){
+			logger.error( "Error parsing float number" );
+		}
+		return f;
+	}
+	
+	private int parseInt( String intNumber ){
+		int i = 0;
+		try{
+			i = Integer.parseInt( intNumber );
+		}catch(Exception e){
+			logger.error( "Error parsing integer number" );
+		}
+		return i;
+	}
+
+
 	public KmlGenerator getKmlGenerator() {
 		KmlGenerator generateKml =null;
 		
 		final String crsSystem = getLocalProperties().getCrs();
-		final Integer innerPointSide = Integer.parseInt(getLocalProperties().getValue(EarthProperty.INNER_SUBPLOT_SIDE));
+		final Integer innerPointSide = parseInt(getLocalProperties().getValue(EarthProperty.INNER_SUBPLOT_SIDE));
 		SAMPLE_SHAPE plotShape = getLocalProperties().getSampleShape();
 		final String hostAddress = ServerController.getHostAddress(getLocalProperties().getHost(), getLocalProperties().getPort());
-		final float distanceBetweenSamplePoints = Float.parseFloat(getLocalProperties().getValue(EarthProperty.DISTANCE_BETWEEN_SAMPLE_POINTS));
-		final float distanceBetweenPlots = Float.parseFloat(getLocalProperties().getValue(EarthProperty.DISTANCE_BETWEEN_PLOTS ));
-		final float distanceToPlotBoundaries = Float.parseFloat(getLocalProperties().getValue(EarthProperty.DISTANCE_TO_PLOT_BOUNDARIES));
+		final float distanceBetweenSamplePoints = parseFloat(getLocalProperties().getValue(EarthProperty.DISTANCE_BETWEEN_SAMPLE_POINTS));
+		final float distanceBetweenPlots = parseFloat(getLocalProperties().getValue(EarthProperty.DISTANCE_BETWEEN_PLOTS ));
+		final float distanceToPlotBoundaries = parseFloat(getLocalProperties().getValue(EarthProperty.DISTANCE_TO_PLOT_BOUNDARIES));
 		final String localPort = getLocalProperties().getLocalPort();
 		final String numberOfSamplingPlots = getLocalProperties().getValue(EarthProperty.NUMBER_OF_SAMPLING_POINTS_IN_PLOT);
 		final String csvFile = getLocalProperties().getCsvFile();
 		
 		int numberOfPoints = 25;
 		if ((numberOfSamplingPlots != null) && (numberOfSamplingPlots.trim().length() > 0)) {
-			numberOfPoints = Integer.parseInt(numberOfSamplingPlots.trim());
+			numberOfPoints = parseInt(numberOfSamplingPlots.trim());
 		}
 
 		try{ 
