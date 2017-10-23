@@ -13,7 +13,7 @@
 	<name>Earth Sampler</name>
 
 	<properties>
-		<geotools.version>16.2</geotools.version>
+		<geotools.version>18.0</geotools.version>
 	</properties>
 
 	<dependencies>
@@ -55,7 +55,7 @@
 		<dependency>
 			<groupId>org.apache.commons</groupId>
 			<artifactId>commons-lang3</artifactId>
-			<version>3.5</version>
+			<version>3.6</version>
 		</dependency>
 
 	</dependencies>
