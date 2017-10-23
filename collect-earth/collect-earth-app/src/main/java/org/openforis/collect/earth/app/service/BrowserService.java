@@ -873,22 +873,6 @@ public class BrowserService implements Observer{
 
 	}
 
-	public RemoteWebDriver getFirefoxDriverOld(	String firefoxBinaryPath) {
-		FirefoxBinary firefoxBinary;
-		final FirefoxProfile ffprofile = new FirefoxProfile();
-		RemoteWebDriver driver =null;
-		if (firefoxBinaryPath != null && firefoxBinaryPath.trim().length() > 0) {
-			try {
-				firefoxBinary = new FirefoxBinary(new File(firefoxBinaryPath));
-				driver = new FirefoxDriver(firefoxBinary, ffprofile);
-			} catch (final WebDriverException e) {
-				logger.error(
-						"The firefox executable firefox.exe cannot be found, please edit earth.properties and correct the firefox.exe location at "
-								+ EarthProperty.FIREFOX_BINARY_PATH + " pointing to the full path to firefox.exe", e);
-			}
-		}
-		return driver;
-	}
 
 	private Integer getFirefoxVersionMajor(String firefoxBinaryPath) {
 
