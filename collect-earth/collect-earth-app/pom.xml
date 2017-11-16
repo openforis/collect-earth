@@ -4,7 +4,7 @@
 	<parent>
 		<groupId>org.openforis.collect.earth</groupId>
 		<artifactId>collect-earth</artifactId>
-		<version>1.6.15-SNAPSHOT</version>
+		<version>1.6.15</version>
 	</parent>
 
 	<name>Collect Earth Application</name>
@@ -173,6 +173,6 @@
 	</build>
 
   <scm>
-    <tag>collect-earth-1.6.6</tag>
+    <tag>collect-earth-1.6.15</tag>
   </scm>
 </project>
