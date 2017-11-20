@@ -18,6 +18,7 @@ import org.openforis.collect.earth.sampler.processor.CircleKmlGenerator;
 import org.openforis.collect.earth.sampler.processor.HexagonKmlGenerator;
 import org.openforis.collect.earth.sampler.processor.KmlGenerator;
 import org.openforis.collect.earth.sampler.processor.KmzGenerator;
+import org.openforis.collect.earth.sampler.processor.NfiCirclesKmlGenerator;
 import org.openforis.collect.earth.sampler.processor.NfmaKmlGenerator;
 import org.openforis.collect.earth.sampler.processor.PolygonKmlGenerator;
 import org.openforis.collect.earth.sampler.processor.SquareKmlGenerator;
@@ -170,22 +171,44 @@ public class KmlGeneratorService {
 
 	}
 
+	private float parseFloat( String floatNumber ){
+		float f = 0f;
+		try{
+			f = Float.parseFloat( floatNumber );
+		}catch(Exception e){
+			logger.error( "Error parsing float number" );
+		}
+		return f;
+	}
+	
+	private int parseInt( String intNumber ){
+		int i = 0;
+		try{
+			i = Integer.parseInt( intNumber );
+		}catch(Exception e){
+			logger.error( "Error parsing integer number" );
+		}
+		return i;
+	}
+
+
 	public KmlGenerator getKmlGenerator() {
 		KmlGenerator generateKml =null;
 		
 		final String crsSystem = getLocalProperties().getCrs();
-		final Integer innerPointSide = Integer.parseInt(getLocalProperties().getValue(EarthProperty.INNER_SUBPLOT_SIDE));
+		final Integer innerPointSide = parseInt(getLocalProperties().getValue(EarthProperty.INNER_SUBPLOT_SIDE));
 		SAMPLE_SHAPE plotShape = getLocalProperties().getSampleShape();
 		final String hostAddress = ServerController.getHostAddress(getLocalProperties().getHost(), getLocalProperties().getPort());
-		final float distanceBetweenSamplePoints = Float.parseFloat(getLocalProperties().getValue(EarthProperty.DISTANCE_BETWEEN_SAMPLE_POINTS));
-		final float distanceToPlotBoundaries = Float.parseFloat(getLocalProperties().getValue(EarthProperty.DISTANCE_TO_PLOT_BOUNDARIES));
+		final float distanceBetweenSamplePoints = parseFloat(getLocalProperties().getValue(EarthProperty.DISTANCE_BETWEEN_SAMPLE_POINTS));
+		final float distanceBetweenPlots = parseFloat(getLocalProperties().getValue(EarthProperty.DISTANCE_BETWEEN_PLOTS ));
+		final float distanceToPlotBoundaries = parseFloat(getLocalProperties().getValue(EarthProperty.DISTANCE_TO_PLOT_BOUNDARIES));
 		final String localPort = getLocalProperties().getLocalPort();
 		final String numberOfSamplingPlots = getLocalProperties().getValue(EarthProperty.NUMBER_OF_SAMPLING_POINTS_IN_PLOT);
 		final String csvFile = getLocalProperties().getCsvFile();
 		
 		int numberOfPoints = 25;
 		if ((numberOfSamplingPlots != null) && (numberOfSamplingPlots.trim().length() > 0)) {
-			numberOfPoints = Integer.parseInt(numberOfSamplingPlots.trim());
+			numberOfPoints = parseInt(numberOfSamplingPlots.trim());
 		}
 
 		try{ 
@@ -198,7 +221,9 @@ public class KmlGeneratorService {
 				generateKml = new CircleKmlGenerator(crsSystem, hostAddress, localPort, innerPointSide,  numberOfPoints, distanceBetweenSamplePoints );
 			} else if (plotShape.equals(SAMPLE_SHAPE.NFMA)) {
 				generateKml = new NfmaKmlGenerator(crsSystem, hostAddress, localPort );
-			} else if (plotShape.equals(SAMPLE_SHAPE.HEXAGON)) {
+			} else if (plotShape.equals(SAMPLE_SHAPE.NFI_CIRCLES)) {
+				generateKml = new NfiCirclesKmlGenerator(crsSystem, hostAddress, localPort, innerPointSide,  distanceBetweenSamplePoints, distanceBetweenPlots );
+			}else if (plotShape.equals(SAMPLE_SHAPE.HEXAGON)) {
 				generateKml = new HexagonKmlGenerator(crsSystem, hostAddress, localPort, innerPointSide,  numberOfPoints, distanceBetweenSamplePoints );
 			}  else if (plotShape.equals(SAMPLE_SHAPE.SQUARE_CIRCLE)) {
 				generateKml = new SquareWithCirclesKmlGenerator(crsSystem, hostAddress, localPort, innerPointSide,  numberOfPoints, 

@@ -23,12 +23,12 @@ import au.com.bytecode.opencsv.CSVReader;
 public abstract class AbstractPolygonKmlGenerator extends KmlGenerator {
 
 	private static final Integer DEFAULT_INNER_POINT_SIDE = 2;
-	private Integer innerPointSide;
-	private final String localPort;
+	protected Integer innerPointSide;
+	protected final String localPort;
 	protected final Logger logger = LoggerFactory.getLogger(this.getClass());
 	protected double distanceBetweenSamplePoints;
 	protected double distancePlotBoundary;
-	private int numberOfSamplePoints;
+	protected int numberOfSamplePoints;
 
 
 	public AbstractPolygonKmlGenerator(String epsgCode, String hostAddress, String localPort, Integer innerPointSide, Integer numberOfPoints, double distanceBetweenSamplePoints, double distancePlotBoundary) {

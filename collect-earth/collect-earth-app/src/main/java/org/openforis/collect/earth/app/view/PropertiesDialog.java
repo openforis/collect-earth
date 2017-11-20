@@ -22,7 +22,6 @@ import java.util.List;
 import javax.swing.AbstractAction;
 import javax.swing.AbstractButton;
 import javax.swing.ButtonGroup;
-import javax.swing.ComboBoxModel;
 import javax.swing.JButton;
 import javax.swing.JCheckBox;
 import javax.swing.JComboBox;
@@ -477,6 +476,14 @@ public class PropertiesDialog extends JDialog {
 		
 		constraints.gridx = 0;
 		constraints.gridy++;
+		label = new JLabel("Distance between plots in cluster");
+		panel.add(label, constraints);
+		constraints.gridx = 1;
+		JComboBox plotDistanceInCluster = (JComboBox) propertyToComponent.get(EarthProperty.DISTANCE_BETWEEN_PLOTS)[0];
+		panel.add(new JScrollPane(plotDistanceInCluster), constraints);
+		
+		constraints.gridx = 0;
+		constraints.gridy++;
 		JLabel area = new JLabel( "Area (hectares)  :  " + calculateArea(  numberPoints, distanceBetweenPoints, distanceToFrame, dotsSide) );
 		panel.add(area, constraints);
 		
@@ -489,7 +496,7 @@ public class PropertiesDialog extends JDialog {
 			@Override
 			public void actionPerformed(ActionEvent e) {
 				
-				handleVisibilityPlotLayout(plotShape, numberPoints,	distanceBetweenPoints, distanceToFrame, dotsSide, area, distanceOrRadiuslabel);
+				handleVisibilityPlotLayout(plotShape, numberPoints,	distanceBetweenPoints, distanceToFrame, dotsSide, plotDistanceInCluster, area, distanceOrRadiuslabel);
 			}
 
 			
@@ -500,19 +507,21 @@ public class PropertiesDialog extends JDialog {
 		distanceBetweenPoints.addActionListener(calculateAreas);
 		distanceToFrame.addActionListener(calculateAreas);
 		
-		handleVisibilityPlotLayout(plotShape, numberPoints,	distanceBetweenPoints, distanceToFrame, dotsSide, area, distanceOrRadiuslabel);
+		handleVisibilityPlotLayout(plotShape, numberPoints,	distanceBetweenPoints, distanceToFrame, dotsSide, plotDistanceInCluster, area, distanceOrRadiuslabel);
 		
 		return panel;
 	}
 
 	public void handleVisibilityPlotLayout(JComboBox plotShape,
 			JComboBox numberPoints, JComboBox distanceBetweenPoints,
-			JComboBox distanceToFrame, JComboBox dotsSide, JLabel area, JLabel distanceOrRadiuslabel) {
+			JComboBox distanceToFrame, JComboBox dotsSide, JComboBox distanceBetweenPlots, JLabel area, JLabel distanceOrRadiuslabel) {
 		numberPoints.setEnabled( false );
 		distanceBetweenPoints.setEnabled( false );
 		distanceToFrame.setEnabled( false );
 		dotsSide.setEnabled( false );
 		area.setVisible( false );
+		distanceBetweenPlots.setVisible( false );
+		distanceBetweenPlots.setEnabled(false);
 		
 		
 		if( plotShape.getSelectedItem().equals( SAMPLE_SHAPE.SQUARE) ){
@@ -527,6 +536,12 @@ public class PropertiesDialog extends JDialog {
 			dotsSide.setEnabled(true);
 			numberPoints.setEnabled(true);
 			distanceOrRadiuslabel.setText(	"Radius" );
+		}else if( plotShape.getSelectedItem().equals( SAMPLE_SHAPE.NFI_CIRCLES )	 ){
+			dotsSide.setEnabled(true);
+			distanceBetweenPoints.setEnabled( true );
+			distanceBetweenPlots.setVisible(true);
+			distanceBetweenPlots.setEnabled(true);
+			distanceOrRadiuslabel.setText(	"Radius of the plots" );
 		}
 	}
 	
@@ -916,8 +931,8 @@ public class PropertiesDialog extends JDialog {
 				.getValue(EarthProperty.NUMBER_OF_SAMPLING_POINTS_IN_PLOT)), "")); //$NON-NLS-1$
 		propertyToComponent.put(EarthProperty.NUMBER_OF_SAMPLING_POINTS_IN_PLOT, new JComponent[] { comboNumberOfPoints });
 
-		final String[] listOfNumbers = new String[995];
-		final String[] listOfNumbersFromTwo = new String[995];
+		final String[] listOfNumbers = new String[1500];
+		final String[] listOfNumbersFromTwo = new String[1500];
 		
 		for (int index = 0; index < listOfNumbers.length; index++) {
 			listOfNumbers[index] = index  + ""; //$NON-NLS-1$
@@ -930,6 +945,13 @@ public class PropertiesDialog extends JDialog {
 		listOfDistanceBetweenPoints.setAutoscrolls(true);
 
 		propertyToComponent.put(EarthProperty.DISTANCE_BETWEEN_SAMPLE_POINTS, new JComponent[] { listOfDistanceBetweenPoints });
+		
+		
+		final JComboBox<String> listOfDistanceBetweenPlots = new JComboBox<String>(listOfNumbersFromTwo);
+		listOfDistanceBetweenPlots.setSelectedItem(localPropertiesService.getValue(EarthProperty.DISTANCE_BETWEEN_PLOTS));
+		listOfDistanceBetweenPlots.setAutoscrolls(true);
+
+		propertyToComponent.put(EarthProperty.DISTANCE_BETWEEN_PLOTS, new JComponent[] { listOfDistanceBetweenPlots });
 
 		// JTextField listOfDistanceToBorder = new JTextField(localPropertiesService.getValue( EarthProperty.DISTANCE_TO_PLOT_BOUNDARIES) );
 		final JComboBox<String> listOfDistanceToBorder = new JComboBox<String>(listOfNumbers);

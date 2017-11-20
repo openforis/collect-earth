@@ -58,6 +58,14 @@
 		var startDate = data.resourceSets[0].resources[0].vintageStart;
 		var endDate =  data.resourceSets[0].resources[0].vintageEnd;
 		
+		if( startDate !=null){
+			startDate = startDate.replace("GMT", "");
+		}
+		
+		if( endDate != null ){
+			endDate = endDate.replace("GMT", "");
+		}
+		
 		// Retrieve the location of the map center 
         var center = map.getCenter();
          
@@ -69,23 +77,29 @@
 		var description = "";
 		
 		
-		// if( startDate != null ){
-		//	description += "First Image " +  startDate + "<br/>";
-		//}
-		
-		if( endDate != null ){
-			description += " " +  endDate;
-		}
-		
-		if( startDate ==null && endDate == null ){
+		if( startDate !=null && endDate != null && startDate == endDate ){
+			description = "Single image : "  + startDate ;
+		}else if( startDate !=null && endDate == null ){
+			description = "Single image : "  + startDate ;
+		}else if( startDate == null && endDate == null ){
 			description = "Unknown imagery dates";
+		}else{
+
+			if( startDate != null ){
+				description += "Start " +  startDate + "<br/>";
+			}
+			
+			if( endDate != null ){
+				description += "End " +  endDate;
+			}
 		}
+		
 		
 		
 		// Create an info box 
 		var infoboxOptions = {width:300, 
 							  height: 70, 
-							  title: "Imagery acquisition date", 
+							  title: "Imagery acquisition period", 
 							  description: description, 
 							  showPointer: false, 
 							  

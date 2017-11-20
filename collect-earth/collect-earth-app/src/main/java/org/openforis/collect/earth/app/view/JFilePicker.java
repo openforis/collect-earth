@@ -106,11 +106,13 @@ public class JFilePicker extends JPanel {
 	private void buttonActionPerformed(ActionEvent evt) {
 		if (mode == DlgMode.MODE_OPEN) {
 			if (fileChooser.showOpenDialog(this) == JFileChooser.APPROVE_OPTION) {
-				getTextField().setText(relativize(fileChooser.getSelectedFile()));
+				//getTextField().setText(relativize(fileChooser.getSelectedFile()));
+				getTextField().setText( fileChooser.getSelectedFile().getAbsolutePath() );
 			}
 		} else if (mode == DlgMode.MODE_SAVE) {
 			if (fileChooser.showSaveDialog(this) == JFileChooser.APPROVE_OPTION) {
-				getTextField().setText(relativize(fileChooser.getSelectedFile()));
+				//getTextField().setText(relativize(fileChooser.getSelectedFile()));
+				getTextField().setText( fileChooser.getSelectedFile().getAbsolutePath() );
 			}
 		}
 	}
@@ -122,13 +124,13 @@ public class JFilePicker extends JPanel {
 	public String getSelectedFilePath() {
 		return getTextField().getText();
 	}
-
+/*
 	private String relativize(File selectedFile) {
 		File dummyFile = new File("dummy.txt"); //$NON-NLS-1$
 		String pathParentDummy = dummyFile.getAbsolutePath().substring(0, dummyFile.getAbsolutePath().length() - dummyFile.getName().length());
 		return new File(pathParentDummy).toURI().relativize(selectedFile.toURI()).getPath();
 	}
-
+*/
 	public void setFolderChooser() {
 		fileChooser.setFileSelectionMode(JFileChooser.DIRECTORIES_ONLY);
 	}

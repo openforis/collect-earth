@@ -780,7 +780,17 @@ public class BrowserService implements Observer{
 		
 		
 
-		final String chromeBinaryPath = localPropertiesService.getValue(EarthProperty.CHROME_BINARY_PATH);
+		String chromeBinaryPath = localPropertiesService.getValue(EarthProperty.CHROME_BINARY_PATH);
+		
+		if ( SystemUtils.IS_OS_MAC || SystemUtils.IS_OS_MAC_OSX){
+			// Handle the special case when the user picks the Chrome or Firefox app files for Mac
+									
+			if( chromeBinaryPath.toLowerCase().endsWith("google chrome.app" ) || chromeBinaryPath.toLowerCase().endsWith("chrome.app" )){
+				chromeBinaryPath = chromeBinaryPath + "/Contents/MacOS/Google Chrome";
+			}
+		}
+		
+		
 		final DesiredCapabilities capabilities = DesiredCapabilities.chrome();
 		capabilities.setCapability("credentials_enable_service", false);
 		capabilities.setCapability("password_manager_enabled", false);
@@ -811,6 +821,15 @@ public class BrowserService implements Observer{
 		if( StringUtils.isBlank( firefoxBinaryPath )){
 			firefoxBinaryPath = FirefoxLocatorFixed.tryToFindFolder();
 		}
+		
+		if ( SystemUtils.IS_OS_MAC || SystemUtils.IS_OS_MAC_OSX){
+			// Handle the special case when the user picks the Chrome or Firefox app files for Mac
+									
+			if( firefoxBinaryPath.toLowerCase().endsWith("firefox.app" ) ){
+				firefoxBinaryPath = firefoxBinaryPath + "/Contents/MacOS/firefox";
+			}
+		}
+		
 		
 		FirefoxBinary fb = null;
 		if( firefoxBinaryPath != null ){
@@ -854,22 +873,6 @@ public class BrowserService implements Observer{
 
 	}
 
-	public RemoteWebDriver getFirefoxDriverOld(	String firefoxBinaryPath) {
-		FirefoxBinary firefoxBinary;
-		final FirefoxProfile ffprofile = new FirefoxProfile();
-		RemoteWebDriver driver =null;
-		if (firefoxBinaryPath != null && firefoxBinaryPath.trim().length() > 0) {
-			try {
-				firefoxBinary = new FirefoxBinary(new File(firefoxBinaryPath));
-				driver = new FirefoxDriver(firefoxBinary, ffprofile);
-			} catch (final WebDriverException e) {
-				logger.error(
-						"The firefox executable firefox.exe cannot be found, please edit earth.properties and correct the firefox.exe location at "
-								+ EarthProperty.FIREFOX_BINARY_PATH + " pointing to the full path to firefox.exe", e);
-			}
-		}
-		return driver;
-	}
 
 	private Integer getFirefoxVersionMajor(String firefoxBinaryPath) {
 

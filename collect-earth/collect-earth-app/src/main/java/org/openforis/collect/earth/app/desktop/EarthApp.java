@@ -14,6 +14,7 @@ import java.net.MalformedURLException;
 import java.net.Socket;
 import java.net.URL;
 import java.net.URLConnection;
+import java.net.URLEncoder;
 import java.util.Observable;
 import java.util.Observer;
 
@@ -183,10 +184,10 @@ public class EarthApp {
 
 			String hostAddress = ServerController.getHostAddress( getLocalProperties().getHost(), getLocalProperties().getPort());
 
-			URL loadPfojectFileInRunningCE = new URL(hostAddress + LoadProjectFileServlet.SERVLET_NAME +  
+			URL loadProjectFileInRunningCE = new URL(hostAddress + LoadProjectFileServlet.SERVLET_NAME +  
 					"?" + LoadProjectFileServlet.PROJECT_FILE_PARAMETER + "=" + //$NON-NLS-1$ //$NON-NLS-2$
-					doubleClickedProjecFile);
-			URLConnection urlConn = loadPfojectFileInRunningCE.openConnection();
+					 URLEncoder.encode(doubleClickedProjecFile, "UTF-8") );
+			URLConnection urlConn = loadProjectFileInRunningCE.openConnection();
 
 			BufferedReader in = new BufferedReader(new InputStreamReader(urlConn.getInputStream()));
 			String inputLine;

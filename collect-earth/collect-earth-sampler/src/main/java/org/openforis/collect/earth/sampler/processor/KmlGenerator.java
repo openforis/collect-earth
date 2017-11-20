@@ -182,7 +182,7 @@ public abstract class KmlGenerator extends AbstractCoordinateCalculation {
 		}
 	}
 
-	private final SimpleDateFormat httpHeaderDf = new SimpleDateFormat("EEE, dd MMM yyyy HH:mm:ss zzz");
+	private final SimpleDateFormat iso8601Timestamp = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss");
 	protected String hostAddress;
 
 	
@@ -230,7 +230,7 @@ public abstract class KmlGenerator extends AbstractCoordinateCalculation {
 
 		// Build the data-model
 		final Map<String, Object> data = getTemplateData(csvFile, collectSurvey);
-		data.put("expiration", httpHeaderDf.format(new Date()));
+		data.put("expiration", iso8601Timestamp.format(new Date()));
 
 		// Get the HTML content of the balloon from a file, this way we can
 		// separate the KML generation so it is easier to create different KMLs
