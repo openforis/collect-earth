@@ -34,6 +34,7 @@ import org.openforis.idm.model.Attribute;
 import org.openforis.idm.model.CodeAttribute;
 import org.openforis.idm.model.Entity;
 import org.openforis.idm.model.Node;
+import org.openforis.idm.path.Path;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
@@ -139,15 +140,22 @@ public class BalloonInputFieldsUtils {
 		info.setValue(value);
 		info.setVisible(firstAttribute.isRelevant());
 
-		String errorMessage = validationMessageByPath.get(firstAttribute.getPath());
+		AttributeDefinition attrDef = firstAttribute.getDefinition();
+		String validationMessagePath;
+		if (attrDef.isMultiple()) {
+			validationMessagePath = firstAttribute.getParent().getPath() + Path.SEPARATOR + attrDef.getName();
+		} else {
+			validationMessagePath = firstAttribute.getPath();
+		}
+		
+		String errorMessage = validationMessageByPath.get(validationMessagePath);
 		if (errorMessage != null && firstAttribute.isRelevant()) {
 			info.setInError(true);
 			info.setErrorMessage(errorMessage);
 		}
 		if (firstAttribute instanceof CodeAttribute) {
-			CodeAttributeDefinition attrDef = (CodeAttributeDefinition) firstAttribute.getDefinition();
 			CodeListService codeListService = record.getSurveyContext().getCodeListService();
-			List<CodeListItem> validCodeListItems = codeListService.loadValidItems(firstAttribute.getParent(), attrDef);
+			List<CodeListItem> validCodeListItems = codeListService.loadValidItems(firstAttribute.getParent(), (CodeAttributeDefinition) attrDef);
 			
 			CodeListItem selectedCodeListItem = getCodeListItem(validCodeListItems, value);
 			info.setCodeItemId(selectedCodeListItem == null ? null: selectedCodeListItem.getId());
