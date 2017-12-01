@@ -54,9 +54,7 @@ public abstract class FixCoordinates {
 						Coordinate coordinate = new Coordinate(plotCoord.getValue().getY(), plotCoord.getValue().getX(), plotCoord.getValue().getSrsId() );
 						plotCoord.setValue( coordinate );
 						recordManager.save( collectRecord );
-				}
-
-
+					}
 				}
 			} catch (Exception e) {
 				logger.error("Error fixing Coordinates", e); //$NON-NLS-1$

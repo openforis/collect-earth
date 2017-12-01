@@ -88,12 +88,12 @@ public class KmlImportService {
         for (int i = 0; i < placemarks.getLength(); i++) {                
             Node placemark = placemarks.item(i);
 
-                   
             if (placemark.hasChildNodes()) {
             	NodeList childNodes = placemark.getChildNodes();
             	String longitude = "",latitude = "",name = "Placemark";  //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$
+            	name = "placemark" + i;
             	for (int j=0; j<childNodes.getLength(); j++){
-            		name = "placemark" + j;
+            		
             		Node placemarkChild = childNodes.item(j);
             		
             		if ( placemarkChild.getNodeName().equalsIgnoreCase("Point")){ //$NON-NLS-1$
@@ -123,7 +123,6 @@ public class KmlImportService {
             			name = placemarkChild.getFirstChild().getNodeValue();
             		}
             	}
-            	            	
             	sb.append(name).append( CollectEarthProjectFileCreator.PLACEHOLDER_ID_COLUMNS_VALUES ).append("_").append( i+1 ).append(",").append( latitude ).append(",").append( longitude ).append(CollectEarthProjectFileCreator.PLACEHOLDER_FOR_EXTRA_COLUMNS_VALUES).append( "\r\n"); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$
             }
         }
