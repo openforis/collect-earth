@@ -31,8 +31,10 @@ import org.openforis.collect.manager.RecordManager;
 import org.openforis.collect.manager.SurveyManager;
 import org.openforis.collect.model.CollectRecord;
 import org.openforis.collect.model.CollectRecord.Step;
+import org.openforis.collect.model.CollectRecordSummary;
 import org.openforis.collect.model.CollectSurvey;
 import org.openforis.collect.model.NodeChangeSet;
+import org.openforis.collect.model.RecordFilter;
 import org.openforis.collect.model.RecordUpdater;
 import org.openforis.collect.model.RecordValidationReportGenerator;
 import org.openforis.collect.model.RecordValidationReportItem;
@@ -212,15 +214,13 @@ public abstract class AbstractEarthSurveyService {
 	}
 
 	public synchronized CollectRecord loadRecord(String[] mulitpleKeyAttributes, boolean validateRecord) {
-		List<CollectRecord> summaries = recordManager.loadSummaries(getCollectSurvey(), ROOT_ENTITY_NAME,
-				mulitpleKeyAttributes);
-		CollectRecord record = null;
+		RecordFilter rf = new RecordFilter(getCollectSurvey(), ROOT_ENTITY_NAME);
+		rf.setKeyValues(mulitpleKeyAttributes);
+		List<CollectRecordSummary> summaries = recordManager.loadSummaries(rf);
 		if (summaries.isEmpty()) {
 			return null;
 		} else {
-			record = summaries.get(0);
-			record = recordManager.load(getCollectSurvey(), record.getId(), Step.ENTRY, validateRecord);
-			return record;
+			return recordManager.load(getCollectSurvey(), summaries.get(0).getId(), Step.ENTRY, validateRecord);
 		}
 	}
 
@@ -235,18 +235,19 @@ public abstract class AbstractEarthSurveyService {
 	 * @return The list of record that have been updated since the time stated
 	 *         in updatedSince
 	 */
-	public List<CollectRecord> getRecordSummariesSavedSince(Date updatedSince) {
-		List<CollectRecord> summaries = recordManager.loadSummaries(getCollectSurvey(), ROOT_ENTITY_NAME, updatedSince);
-		return summaries;
+	public List<CollectRecordSummary> getRecordSummariesSavedSince(Date updatedSince) {
+		RecordFilter rf = new RecordFilter(getCollectSurvey(), ROOT_ENTITY_NAME);
+		rf.setModifiedSince(updatedSince);
+		return recordManager.loadSummaries(rf );
 	}
 
-	public String[] getPlacemarksId(List<CollectRecord> listOfRecords) {
+	public String[] getPlacemarksId(List<CollectRecordSummary> listOfRecords) {
 		if (listOfRecords == null) {
 			return new String[0];
 		}
 		final String[] placemarkIds = new String[listOfRecords.size()];
 		for (int i = 0; i < listOfRecords.size(); i++) {
-			CollectRecord recordSummary = listOfRecords.get(i);
+			CollectRecordSummary recordSummary = listOfRecords.get(i);
 			List<String> rootEntityKeyValues = recordSummary.getRootEntityKeyValues();
 			String keyValues = "";
 			for (String key : rootEntityKeyValues) {
@@ -267,8 +268,10 @@ public abstract class AbstractEarthSurveyService {
 	 * @return The list of the IDs of the records for the survey in the DB
 	 */
 	public String[] getRecordsSavedIDs() {
-		final List<CollectRecord> recordsSavedForSurvey = recordManager.loadSummaries(getCollectSurvey(),
-				ROOT_ENTITY_NAME);
+		final List<CollectRecordSummary> recordsSavedForSurvey = recordManager.loadSummaries(
+				new RecordFilter(getCollectSurvey(),ROOT_ENTITY_NAME)
+				
+		);
 
 		if ((recordsSavedForSurvey != null) && !recordsSavedForSurvey.isEmpty()) {
 			return getPlacemarksId(recordsSavedForSurvey);
@@ -360,8 +363,9 @@ public abstract class AbstractEarthSurveyService {
 	public synchronized boolean storePlacemarkOld(Map<String, String> parameters) {
 
 		String[] keys = new String[] { parameters.get(EarthConstants.PLACEMARK_ID_PARAMETER) };
-
-		final List<CollectRecord> summaries = recordManager.loadSummaries(getCollectSurvey(), ROOT_ENTITY_NAME, keys); // $NON-NLS-1$
+		RecordFilter rf = new RecordFilter(getCollectSurvey(), ROOT_ENTITY_NAME);
+		rf.setKeyValues(keys);
+		final List<CollectRecordSummary> summaries = recordManager.loadSummaries(rf); // $NON-NLS-1$
 		boolean success = false;
 
 		try {
@@ -371,9 +375,8 @@ public abstract class AbstractEarthSurveyService {
 			CollectRecord record = null;
 			Entity plotEntity = null;
 
-			if (summaries.size() > 0) { // DELETE IF ALREADY PRESENT
-				record = summaries.get(0);
-				recordManager.delete(record.getId());
+			if ( !summaries.isEmpty() ) { // DELETE IF ALREADY PRESENT
+				recordManager.delete(summaries.get(0).getId());
 				record = createRecord();
 				plotEntity = record.getRootEntity();
 			} else {

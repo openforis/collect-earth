@@ -25,7 +25,7 @@ import org.openforis.collect.earth.app.desktop.ServerController;
 import org.openforis.collect.earth.app.service.EarthSurveyService;
 import org.openforis.collect.earth.app.service.LocalPropertiesService;
 import org.openforis.collect.earth.sampler.utils.FreemarkerTemplateUtils;
-import org.openforis.collect.model.CollectRecord;
+import org.openforis.collect.model.CollectRecordSummary;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -131,11 +131,11 @@ public class PlacemarkUpdateServlet {
 				lastUpdateDate = getTwoMinutesAgo();
 			}
 		
-			List<CollectRecord> lastUpdatedRecords = null;
+			List<CollectRecordSummary> lastUpdatedRecords = null;
 			try {
 				lastUpdatedRecords = earthSurveyService.getRecordSummariesSavedSince(lastUpdateDate);
 			} catch (Exception e) {
-				lastUpdatedRecords = new ArrayList<CollectRecord>();
+				lastUpdatedRecords = new ArrayList<CollectRecordSummary>();
 				logger.error("Error fetching information about the records updated after : " + lastUpdatedRecords , e); //$NON-NLS-1$
 			}
 			
