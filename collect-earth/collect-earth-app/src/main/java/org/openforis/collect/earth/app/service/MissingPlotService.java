@@ -11,6 +11,7 @@ import java.io.InputStreamReader;
 import java.io.OutputStreamWriter;
 import java.nio.charset.Charset;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -21,6 +22,8 @@ import org.openforis.collect.earth.app.view.Messages;
 import org.openforis.collect.manager.RecordManager;
 import org.openforis.collect.model.CollectRecord;
 import org.openforis.collect.model.CollectRecord.Step;
+import org.openforis.collect.model.CollectRecordSummary;
+import org.openforis.collect.model.RecordFilter;
 import org.openforis.idm.model.BooleanAttribute;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -190,11 +193,9 @@ public class MissingPlotService {
 	}
 
 	private boolean isIdActivelySavedInDB(String plotId) {
-		final List<CollectRecord> summaries = recordManager.loadSummaries(
-				earthSurveyService.getCollectSurvey(), 
-				EarthConstants.ROOT_ENTITY_NAME,
-				plotId
-				);
+		RecordFilter rf = new RecordFilter(earthSurveyService.getCollectSurvey(), EarthConstants.ROOT_ENTITY_NAME);
+		rf.setKeyValues( Arrays.asList( plotId ));
+		final List<CollectRecordSummary> summaries = recordManager.loadSummaries(rf);
 
 		if( summaries != null && summaries.size() == 1 ){
 			CollectRecord record = recordManager.load(earthSurveyService.getCollectSurvey(), summaries.get(0).getId(), Step.ENTRY);

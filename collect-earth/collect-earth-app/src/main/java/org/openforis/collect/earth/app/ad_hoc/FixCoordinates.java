@@ -6,7 +6,9 @@ import org.openforis.collect.earth.app.EarthConstants;
 import org.openforis.collect.earth.app.service.EarthSurveyService;
 import org.openforis.collect.manager.RecordManager;
 import org.openforis.collect.model.CollectRecord;
+import org.openforis.collect.model.CollectRecordSummary;
 import org.openforis.collect.model.CollectRecord.Step;
+import org.openforis.collect.model.RecordFilter;
 import org.openforis.idm.model.Coordinate;
 import org.openforis.idm.model.CoordinateAttribute;
 import org.slf4j.Logger;
@@ -27,19 +29,20 @@ public abstract class FixCoordinates {
 
 	private boolean stopFix = false;
 
-	private List<CollectRecord> getAllRecords(){
-		List<CollectRecord> records = recordManager.loadSummaries( earthSurveyService.getCollectSurvey() , EarthConstants.ROOT_ENTITY_NAME );
+	private List<CollectRecordSummary> getAllRecords(){
+		RecordFilter rf = new RecordFilter(earthSurveyService.getCollectSurvey() , EarthConstants.ROOT_ENTITY_NAME);
+		List<CollectRecordSummary> records = recordManager.loadSummaries( rf );
 		return records;
 	}
 
 	public void fixCoordinates(){
-		List<CollectRecord> allRecords = getAllRecords();
+		List<CollectRecordSummary> allRecords = getAllRecords();
 		
 		if( shouldStopFixing()){
 			return;
 		}
 		
-		for (CollectRecord summaryCollectRecord : allRecords) {
+		for (CollectRecordSummary summaryCollectRecord : allRecords) {
 			if( shouldStopFixing()){
 				break;
 			}

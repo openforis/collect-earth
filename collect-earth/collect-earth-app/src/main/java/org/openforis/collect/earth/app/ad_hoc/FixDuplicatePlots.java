@@ -8,6 +8,8 @@ import org.openforis.collect.earth.app.service.EarthSurveyService;
 import org.openforis.collect.manager.RecordManager;
 import org.openforis.collect.model.CollectRecord;
 import org.openforis.collect.model.CollectRecord.Step;
+import org.openforis.collect.model.CollectRecordSummary;
+import org.openforis.collect.model.RecordFilter;
 import org.openforis.idm.model.CoordinateAttribute;
 import org.openforis.idm.model.TextAttribute;
 import org.slf4j.Logger;
@@ -28,21 +30,24 @@ public class FixDuplicatePlots {
 
 	private boolean stopFix = false;
 
-	private List<CollectRecord> getAllRecords(){
-		List<CollectRecord> records = recordManager.loadSummaries( earthSurveyService.getCollectSurvey() , EarthConstants.ROOT_ENTITY_NAME );
-		return records;
+	private List<CollectRecordSummary> getAllRecords(){
+		return recordManager.loadSummaries( 
+				new RecordFilter(
+						earthSurveyService.getCollectSurvey() , 
+						EarthConstants.ROOT_ENTITY_NAME 
+				) );
 	}
 
 
 
 	public void fixHela(){
-		List<CollectRecord> allRecords = getAllRecords();
+		List<CollectRecordSummary> allRecords = getAllRecords();
 
 		if( shouldStopFixing()){
 			return;
 		}
 		int i = 0;
-		for (CollectRecord summaryCollectRecord : allRecords) {
+		for (CollectRecordSummary summaryCollectRecord : allRecords) {
 			if( shouldStopFixing()){
 				break;
 			}

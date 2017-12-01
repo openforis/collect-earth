@@ -12,8 +12,9 @@ import org.openforis.collect.io.data.DataExportStatus;
 import org.openforis.collect.io.data.DataImportSummaryItem;
 import org.openforis.collect.io.data.XMLDataExportProcess;
 import org.openforis.collect.io.data.XMLDataImportProcess;
+import org.openforis.collect.io.data.csv.CSVDataExportParameters;
 import org.openforis.collect.io.data.csv.CSVDataImportSettings;
-import org.openforis.collect.io.data.csv.CSVExportConfiguration;
+
 import org.openforis.collect.manager.process.AbstractProcess;
 import org.openforis.collect.model.CollectRecord;
 import org.openforis.collect.model.CollectRecord.Step;
@@ -60,7 +61,7 @@ public class DataImportExportService {
 		csvDataExportProcess.setEntityId(earthSurveyService.getRootEntityDefinition().getId());
 		csvDataExportProcess.setRecordFilter( getRecordFilter() ) ;
 		
-		CSVExportConfiguration config = new CSVExportConfiguration();
+		CSVDataExportParameters config = new CSVDataExportParameters();
 		config.setIncludeAllAncestorAttributes(true);
 		config.setIncludeCodeItemLabelColumn(includeCodeItemLabelColumn);
 		csvDataExportProcess.setConfiguration(config);
@@ -81,7 +82,7 @@ public class DataImportExportService {
 		csvDataExportProcess.setEntityId(earthSurveyService.getRootEntityDefinition().getId());
 		csvDataExportProcess.setRecordFilter( getRecordFilter() ) ;
 		
-		CSVExportConfiguration config = new CSVExportConfiguration();
+		CSVDataExportParameters config = new CSVDataExportParameters();
 		config.setIncludeAllAncestorAttributes(true);
 		config.setIncludeCodeItemPositionColumn(true);
 		config.setIncludeKMLColumnForCoordinates(true);
@@ -172,7 +173,7 @@ public class DataImportExportService {
 		csvDataExportProcess.setRecordFilter( getRecordFilter() ) ;
 		
 
-		CSVExportConfiguration config = new CSVExportConfiguration();
+		CSVDataExportParameters config = new CSVDataExportParameters();
 		config.setIncludeAllAncestorAttributes(true);
 		config.setIncludeCodeItemPositionColumn(true);
 		config.setIncludeKMLColumnForCoordinates(true);

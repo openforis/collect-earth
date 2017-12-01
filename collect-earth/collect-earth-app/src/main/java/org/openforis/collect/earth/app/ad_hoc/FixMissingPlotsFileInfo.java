@@ -23,6 +23,8 @@ import org.openforis.collect.earth.app.view.JFileChooserExistsAware;
 import org.openforis.collect.manager.RecordManager;
 import org.openforis.collect.model.CollectRecord;
 import org.openforis.collect.model.CollectRecord.Step;
+import org.openforis.collect.model.CollectRecordSummary;
+import org.openforis.collect.model.RecordFilter;
 import org.openforis.collect.persistence.RecordPersistenceException;
 import org.openforis.idm.model.TextAttribute;
 import org.openforis.idm.model.TextValue;
@@ -79,8 +81,9 @@ public final class FixMissingPlotsFileInfo {
 		return plot_id.getValue().getValue();
 	}
 
-	private List<CollectRecord> getAllRecords(){
-		List<CollectRecord> records = recordManager.loadSummaries( earthSurveyService.getCollectSurvey() , EarthConstants.ROOT_ENTITY_NAME );
+	private List<CollectRecordSummary> getAllRecords(){
+		RecordFilter rf = new RecordFilter(earthSurveyService.getCollectSurvey() , EarthConstants.ROOT_ENTITY_NAME);
+		List<CollectRecordSummary> records = recordManager.loadSummaries( rf );
 		return records;
 	}
 	
@@ -112,15 +115,14 @@ public final class FixMissingPlotsFileInfo {
 
 	private List<CollectRecord> getPlotsNoRegion() {
 		List<CollectRecord> plotsWithNoRegionInfo = new ArrayList<CollectRecord>();
-		List<CollectRecord> allRecords = getAllRecords();
-		for (CollectRecord summary : allRecords) {
+		List<CollectRecordSummary> allRecords = getAllRecords();
+		for (CollectRecordSummary summary : allRecords) {
 			CollectRecord record = recordManager.load( earthSurveyService.getCollectSurvey(), summary.getId(), Step.ENTRY);
 			TextAttribute plot_file = (TextAttribute) record.getNodeByPath("/plot/plot_file"); //$NON-NLS-1$
 			if( plot_file ==null || plot_file.getValue() == null || plot_file.getValue().getValue() == null  ){
 				plotsWithNoRegionInfo.add( record );
 			}
 		}
-		System.out.println( "Number of plots with no plot_file info " + plotsWithNoRegionInfo.size() ); //$NON-NLS-1$
 		return plotsWithNoRegionInfo;
 	}
 
