@@ -93,10 +93,10 @@ public class KmlImportService {
             	NodeList childNodes = placemark.getChildNodes();
             	String longitude = "",latitude = "",name = "Placemark";  //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$
             	for (int j=0; j<childNodes.getLength(); j++){
-            		
+            		name = "placemark" + j;
             		Node placemarkChild = childNodes.item(j);
             		
-            		if ( placemarkChild.getNodeName().equals("Point")){ //$NON-NLS-1$
+            		if ( placemarkChild.getNodeName().equalsIgnoreCase("Point")){ //$NON-NLS-1$
             			String coordinates = processPoint(placemarkChild); 
                     	
                     	String[] splitCoords = coordinates.split(","); //$NON-NLS-1$
@@ -119,11 +119,12 @@ public class KmlImportService {
                      			latitude = splitCoords[1];
                     		 }
                     	}
-                    
-            		}              		
+            		}else if ( placemarkChild.getNodeName().equalsIgnoreCase("name")){ //$NON-NLS-1$
+            			name = placemarkChild.getFirstChild().getNodeValue();
+            		}
             	}
             	            	
-            	sb.append( CollectEarthProjectFileCreator.PLACEHOLDER_ID_COLUMNS_VALUES ).append("_").append( i+1 ).append(",").append( latitude ).append(",").append( longitude ).append(CollectEarthProjectFileCreator.PLACEHOLDER_FOR_EXTRA_COLUMNS_VALUES).append( "\r\n"); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$
+            	sb.append(name).append( CollectEarthProjectFileCreator.PLACEHOLDER_ID_COLUMNS_VALUES ).append("_").append( i+1 ).append(",").append( latitude ).append(",").append( longitude ).append(CollectEarthProjectFileCreator.PLACEHOLDER_FOR_EXTRA_COLUMNS_VALUES).append( "\r\n"); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$
             }
         }
         
@@ -140,25 +141,13 @@ public class KmlImportService {
 		
 		CollectEarthGridTemplateGenerator generator = new CollectEarthGridTemplateGenerator();
 		return generator.generateTemplateCSVFile(earthSurveyService.getCollectSurvey(), bis);
-
-	}
-
-	private String getNamePlacemark(String name) {
-		if( namesAndTimes.containsKey( name)){
-			Integer times = namesAndTimes.get(name);
-			namesAndTimes.put(name, ++times );
-			return name + times;
-		}else{
-			namesAndTimes.put(name, 1);
-			return name;
-		}
 	}
 
 	public String processPoint(Node placemarkChild) {
 		NodeList lookAtNodes  = placemarkChild.getChildNodes();
 		String coordinates = null;
 		for (int h=0; h<lookAtNodes.getLength(); h++){
-			Node lookAtChild = lookAtNodes.item(h);                  		
+			Node lookAtChild = lookAtNodes.item(h);		
 			if( lookAtChild.getNodeName().equalsIgnoreCase("coordinates" ) ){ //$NON-NLS-1$
 				 coordinates = lookAtChild.getFirstChild().getNodeValue();
 			}
