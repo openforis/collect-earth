@@ -850,13 +850,17 @@ public class BrowserService implements Observer{
 		if( SystemUtils.IS_OS_MAC || SystemUtils.IS_OS_MAC_OSX){
 			geckoDriverPath = "resources/geckodriver_mac";
 		}else if( SystemUtils.IS_OS_UNIX ){
-			geckoDriverPath = "resources/geckodriver";
+			if( System.getProperty("os.arch").contains("64") || System.getProperty("sun.arch.data.model").equals("64") ){
+				geckoDriverPath = "resources/geckodriver_64";
+			}else{
+				geckoDriverPath = "resources/geckodriver_32";
+			}
 		}else if( SystemUtils.IS_OS_WINDOWS ){
 			try {
-				if( System.getProperty("sun.arch.data.model").equals("32"))
-					geckoDriverPath = "resources/geckodriver_32.exe";
-				else
+				if( System.getProperty("os.arch").contains("64") || System.getProperty("sun.arch.data.model").equals("64"))
 					geckoDriverPath = "resources/geckodriver_64.exe";
+				else
+					geckoDriverPath = "resources/geckodriver_32.exe";
 			} catch (Exception e) {
 				geckoDriverPath = "resources/geckodriver_64.exe";
 			}
