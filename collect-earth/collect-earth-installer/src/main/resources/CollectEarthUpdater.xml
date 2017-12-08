@@ -57,7 +57,7 @@
 		        <folder>
 		            <description>Resources Linux 32</description>
 		            <destination>${installdir}/resources</destination>
-		            <name>resourceslinux</name>
+		            <name>resourceslinux32</name>
 		            <platforms>linux</platforms>
 		            <distributionFileList>
 			         	<distributionDirectory  allowWildcards="1">
@@ -69,7 +69,7 @@
 		        <folder>
 		            <description>Resources Linux</description>
 		            <destination>${installdir}/resources</destination>
-		            <name>resourceslinux</name>
+		            <name>resourceslinux64</name>
 		            <platforms>linux-x64</platforms>
 		            <distributionFileList>
 			         	<distributionDirectory  allowWildcards="1">
