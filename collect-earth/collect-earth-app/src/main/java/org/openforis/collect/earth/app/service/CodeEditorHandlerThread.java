@@ -259,7 +259,7 @@ public class CodeEditorHandlerThread {
 			public void run() {
 				try {			
 					if (!isCodeEditorShowing()) {
-						// Open GEE Playground
+						// Open GEE Code Editor
 						if( !browserService.isDriverWorking(webDriverGee) || webDriverGee.getCurrentUrl()==null || ( !webDriverGee.getCurrentUrl().contains("google") && !webDriverGee.getCurrentUrl().contains("google") ) ){
 							webDriverGee = browserService.navigateTo(  localPropertiesService.getGeePlaygoundUrl(), webDriverGee);
 							browserService.setWebDriverGeeCodeEditor(webDriverGee);
