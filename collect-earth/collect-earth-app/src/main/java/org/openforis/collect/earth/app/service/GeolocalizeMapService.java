@@ -48,11 +48,13 @@ public class GeolocalizeMapService {
 	
 
 	public static final String FREEMARKER_GEE_PLAYGROUND_TEMPLATE_FILE_NAME = "eePlaygroundScript.fmt";
+	public static final String FREEMARKER_GEE_CODE_EDITOR_TEMPLATE_FILE_NAME = "eeCodeEditorScript.fmt";
 	
 	/**
-	 * The file that contains the freemarker template used to produce script that is run in GEE Playground.
+	 * The file that contains the freemarker template used to produce script that is run in GEE Code Editor.
 	 */
 	public static final String FREEMARKER_GEE_PLAYGROUND_TEMPLATE = RESOURCES_FOLDER + File.separator + FREEMARKER_GEE_PLAYGROUND_TEMPLATE_FILE_NAME;
+	public static final String FREEMARKER_GEE_CODE_EDITOR_TEMPLATE = RESOURCES_FOLDER + File.separator + FREEMARKER_GEE_CODE_EDITOR_TEMPLATE_FILE_NAME;
 
 
 

@@ -107,7 +107,7 @@ public class PlacemarkBrowserServlet {
 				public void run() {
 					try {
 						browserService
-								.openGeePlayground(placemarkObject);
+								.openGeeCodeEditor(placemarkObject);
 					} catch (final Exception e) {
 						LoggerFactory
 								.getLogger(this.getClass())

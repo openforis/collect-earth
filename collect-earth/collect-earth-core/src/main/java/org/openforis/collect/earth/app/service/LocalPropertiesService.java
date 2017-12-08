@@ -474,7 +474,7 @@ public class LocalPropertiesService {
 		return isPropertySupported(EarthProperty.OPEN_YANDEX_MAPS);
 	}
 	
-	public boolean isGeePlaygroundSupported() {
+	public boolean isCodeEditorSupported() {
 		return isPropertySupported(EarthProperty.OPEN_GEE_PLAYGROUND);
 	}
 	

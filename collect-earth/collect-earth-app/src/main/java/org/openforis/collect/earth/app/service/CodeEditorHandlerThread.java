@@ -25,7 +25,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
 @Component
-public class PlaygroundHandlerThread {
+public class CodeEditorHandlerThread {
 	private static final String RUN_SCRIPT_BUTTON = "button.goog-button:nth-child(5)";
 	private static final int DUMMY_SPACES = 150;
 	private SimplePlacemarkObject placemarkObject;
@@ -34,7 +34,7 @@ public class PlaygroundHandlerThread {
 		
 	@Autowired
 	private BrowserService browserService;
-	private Logger logger = LoggerFactory.getLogger( PlaygroundHandlerThread.class);
+	private Logger logger = LoggerFactory.getLogger( CodeEditorHandlerThread.class);
 	
 	@Autowired
 	private GeolocalizeMapService geoLocalizeTemplateService;
@@ -44,16 +44,16 @@ public class PlaygroundHandlerThread {
 	private boolean waitingForLogin = false;
 
 
-	public boolean isPlaygroundShowing() {
+	public boolean isCodeEditorShowing() {
 		return BrowserService.isCssElementPresent( RUN_SCRIPT_BUTTON, webDriverGee);
 	}
 
-	public void runPlaygroundScript()
+	public void runScript()
 			throws IOException, URISyntaxException,
 			InterruptedException {
 		
 		
-		URL fileWithScript = geoLocalizeTemplateService.getTemporaryUrl(placemarkObject, getGeePlaygroundTemplate());
+		URL fileWithScript = geoLocalizeTemplateService.getTemporaryUrl(placemarkObject, getGeeCodeEditorTemplate());
 		
 		
 		webDriverGee.findElementByCssSelector(RUN_SCRIPT_BUTTON).click();
@@ -157,13 +157,13 @@ public class PlaygroundHandlerThread {
 	 * 
 	 * @return The generic script in the resources folder or the file called eePlaygroundScript.fmt in hte same folder where the current project file resides
 	 */
-	private String getGeePlaygroundTemplate() {
+	private String getGeeCodeEditorTemplate() {
 
 		String projectPlaygroundScript = getProjectGeeScript();
 		if( projectPlaygroundScript != null  ){
 			return projectPlaygroundScript;
 		}else{
-			return GeolocalizeMapService.FREEMARKER_GEE_PLAYGROUND_TEMPLATE;
+			return GeolocalizeMapService.FREEMARKER_GEE_CODE_EDITOR_TEMPLATE; // New format name since version 1.6.20
 		}
 		
 	}
@@ -176,14 +176,19 @@ public class PlaygroundHandlerThread {
 		// Is there a "eePlaygroundScript.fmt" file in the same folder than in the metadata file folder?
 		File projectGeePlayground = new File( localPropertiesService.getProjectFolder() + File.separatorChar + GeolocalizeMapService.FREEMARKER_GEE_PLAYGROUND_TEMPLATE_FILE_NAME);
 		
-		String geePlaygroundFilePath = null;
-		if( projectGeePlayground.exists() ){
-			geePlaygroundFilePath = projectGeePlayground.getAbsolutePath();
+		// Is there a "eeCodeEditorScript.fmt" file in the same folder than in the metadata file folder? NEW NAME AFTER 12/2017!!!
+		File projectGeeCodeEditor = new File( localPropertiesService.getProjectFolder() + File.separatorChar + GeolocalizeMapService.FREEMARKER_GEE_PLAYGROUND_TEMPLATE_FILE_NAME);
+		
+		String geeFilePath = null;
+		if( projectGeeCodeEditor.exists() ){ // The new format name takes precedence
+			geeFilePath = projectGeeCodeEditor.getAbsolutePath();
+		}else if( projectGeePlayground.exists() ){
+			geeFilePath = projectGeePlayground.getAbsolutePath();
 		}
-		return geePlaygroundFilePath;
+		return geeFilePath;
 	}
 	
-	public void loadPlaygroundScript(SimplePlacemarkObject placemarkObject, RemoteWebDriver webDriverGeePlayground) {
+	public void loadCodeEditorScript(SimplePlacemarkObject placemarkObject, RemoteWebDriver webDriverGeePlayground) {
 		this.placemarkObject = placemarkObject;
 		loadCodeEditorScript(webDriverGeePlayground);
 	}
@@ -191,11 +196,11 @@ public class PlaygroundHandlerThread {
 	public void disableCodeEditorAutocomplete(RemoteWebDriver webDriverCodeEditor){
 		this.webDriverGee = webDriverCodeEditor;
 		try {			
-			if (!isPlaygroundShowing()) {
+			if (!isCodeEditorShowing()) {
 				// Open GEE Playground
 				if( !browserService.isDriverWorking(webDriverGee) || webDriverGee.getCurrentUrl()==null || ( !webDriverGee.getCurrentUrl().contains("google") && !webDriverGee.getCurrentUrl().contains("google") ) ){
 					webDriverGee = browserService.navigateTo(  localPropertiesService.getGeePlaygoundUrl(), webDriverGee);
-					browserService.setWebDriverGeePlayground(webDriverGee);
+					browserService.setWebDriverGeeCodeEditor(webDriverGee);
 				}
 				// Now we have to wait until the user logs into Google Earth Engine!
 				waitingForLogin = true;
@@ -204,7 +209,7 @@ public class PlaygroundHandlerThread {
 				// Initially the login page appears!
 				// wait until the user logs - in  ( but no more than 5 minutes )
 				
-				while( waitingForLogin && !isPlaygroundShowing()  ){ // 5 minutes a 2 seconds == 30 * 5 = 150 
+				while( waitingForLogin && !isCodeEditorShowing()  ){ // 5 minutes a 2 seconds == 30 * 5 = 150 
 					Thread.sleep(2000);
 				}
 				
@@ -253,11 +258,11 @@ public class PlaygroundHandlerThread {
 			@Override
 			public void run() {
 				try {			
-					if (!isPlaygroundShowing()) {
+					if (!isCodeEditorShowing()) {
 						// Open GEE Playground
 						if( !browserService.isDriverWorking(webDriverGee) || webDriverGee.getCurrentUrl()==null || ( !webDriverGee.getCurrentUrl().contains("google") && !webDriverGee.getCurrentUrl().contains("google") ) ){
 							webDriverGee = browserService.navigateTo(  localPropertiesService.getGeePlaygoundUrl(), webDriverGee);
-							browserService.setWebDriverGeePlayground(webDriverGee);
+							browserService.setWebDriverGeeCodeEditor(webDriverGee);
 						}
 						// Now we have to wait until the user logs into Google Earth Engine!
 						waitingForLogin = true;
@@ -266,19 +271,19 @@ public class PlaygroundHandlerThread {
 						// Initially the login page appears!
 						// wait until the user logs - in  ( but no more than 5 minutes )
 						
-						while( waitingForLogin && !isPlaygroundShowing()  ){ // 5 minutes a 2 seconds == 30 * 5 = 150 
+						while( waitingForLogin && !isCodeEditorShowing()  ){ // 5 minutes a 2 seconds == 30 * 5 = 150 
 							sleep(2000);
 						}
 						
 						// If the reason to get to this point is not that we have waited more than 5 minutes....
 						if( waitingForLogin){
 							stopWaitingForLogin();
-							runPlaygroundScript();
+							runScript();
 						}
 						
 						
 					}else{						
-						runPlaygroundScript();
+						runScript();
 					}
 					
 				} catch (final NoSuchElementException e) {

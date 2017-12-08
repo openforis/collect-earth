@@ -43,7 +43,6 @@ import org.openqa.selenium.chrome.ChromeOptions;
 import org.openqa.selenium.firefox.FirefoxBinary;
 import org.openqa.selenium.firefox.FirefoxDriver;
 import org.openqa.selenium.firefox.FirefoxOptions;
-import org.openqa.selenium.firefox.FirefoxProfile;
 import org.openqa.selenium.firefox.GeckoDriverService;
 import org.openqa.selenium.remote.DesiredCapabilities;
 import org.openqa.selenium.remote.RemoteWebDriver;
@@ -111,13 +110,13 @@ public class BrowserService implements Observer{
 	private GeolocalizeMapService geoLocalizeTemplateService;
 
 	@Autowired
-	private PlaygroundHandlerThread codeEditorHandlerThread;
+	private CodeEditorHandlerThread codeEditorHandlerThread;
 
 	private final ArrayList<RemoteWebDriver> drivers = new ArrayList<>();
 	private final Logger logger = LoggerFactory.getLogger(BrowserService.class);
 	private static final String KML_FOR_GEE_JS = "resources/javascript_gee.fmt";
 	private static final Configuration cfg = new Configuration( new Version("2.3.23"));
-	private RemoteWebDriver webDriverEE, webDriverBing, webDriverTimelapse, webDriverGeePlayground, webDriverHere, webDriverStreetView, webDriverYandex, webDriverExtraMap;
+	private RemoteWebDriver webDriverEE, webDriverBing, webDriverTimelapse, webDriverGeeCodeEditor, webDriverHere, webDriverStreetView, webDriverYandex, webDriverExtraMap;
 
 	private static boolean geeMethodUpdated = false;
 
@@ -620,18 +619,18 @@ public class BrowserService implements Observer{
 
 
 	/**
-	 * Opens a browser window with the Google Earth Engine Playground and runs the freemarker template found in resources/eePlaygroundScript.fmt on the main editor of GEE. 
+	 * Opens a browser window with the Google Earth Engine Code Editor and runs the freemarker template found in resources/eeCodeEditorScript.fmt on the main editor of GEE. 
 	 * @param placemarkObject The center point of the plot.
 	 * @throws BrowserNotFoundException If the browser cannot be found
 	 * 
 	 */
-	public void openGeePlayground(SimplePlacemarkObject placemarkObject) throws BrowserNotFoundException {
+	public void openGeeCodeEditor(SimplePlacemarkObject placemarkObject) throws BrowserNotFoundException {
 
-		if (localPropertiesService.isGeePlaygroundSupported()) {
+		if (localPropertiesService.isCodeEditorSupported()) {
 
 			boolean firstOpening = false;
-			if (getWebDriverGeePlayground() == null) {
-				setWebDriverGeePlayground(initBrowser());
+			if (getWebDriverGeeCodeEditor() == null) {
+				setWebDriverGeeCodeEditor(initBrowser());
 				firstOpening = true;
 			}
 
@@ -640,15 +639,15 @@ public class BrowserService implements Observer{
 				try {
 					Thread.sleep(2500);
 				} catch (InterruptedException e) {
-					logger.error( "Error while waiting for the GEE Playground thread to die");
+					logger.error( "Error while waiting for the GEE Code Editor thread to die");
 				}
 			}
 
 			if( firstOpening && ( SystemUtils.IS_OS_MAC || SystemUtils.IS_OS_MAC_OSX )){
-				codeEditorHandlerThread.disableCodeEditorAutocomplete( getWebDriverGeePlayground() );
+				codeEditorHandlerThread.disableCodeEditorAutocomplete( getWebDriverGeeCodeEditor() );
 			}
 
-			codeEditorHandlerThread.loadPlaygroundScript(placemarkObject, getWebDriverGeePlayground() );
+			codeEditorHandlerThread.loadCodeEditorScript(placemarkObject, getWebDriverGeeCodeEditor() );
 		}
 	}
 
@@ -964,12 +963,12 @@ public class BrowserService implements Observer{
 		}
 	}
 
-	private RemoteWebDriver getWebDriverGeePlayground() {
-		return webDriverGeePlayground;
+	private RemoteWebDriver getWebDriverGeeCodeEditor() {
+		return webDriverGeeCodeEditor;
 	}
 
-	protected void setWebDriverGeePlayground(RemoteWebDriver webDriverGeePlayground) {
-		this.webDriverGeePlayground = webDriverGeePlayground;
+	protected void setWebDriverGeeCodeEditor(RemoteWebDriver webDriverGeeCodeEditor) {
+		this.webDriverGeeCodeEditor = webDriverGeeCodeEditor;
 	}
 
 
