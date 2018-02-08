@@ -258,7 +258,8 @@ public class BalloonInputFieldsUtils {
 							//multiple (enumerated) entity
 							CodeAttributeDefinition keyCodeAttribute = parentDef.getEnumeratingKeyCodeAttribute();
 							if (keyCodeAttribute == null) {
-								throw new IllegalStateException("Enumerating code attribute expected for entity " + parentDef.getPath());
+								//throw new IllegalStateException("Enumerating code attribute expected for entity " + parentDef.getPath());
+								//TODO support multiple entities
 							} else {
 								CodeList enumeratingList = keyCodeAttribute.getList();
 								List<CodeListItem> enumeratingItems = codeListService.loadRootItems(enumeratingList);
