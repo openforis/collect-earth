@@ -765,10 +765,8 @@ public class BrowserService implements Observer{
 		if (props.getProperty(ChromeDriverService.CHROME_DRIVER_EXE_PROPERTY) == null) {
 			if( SystemUtils.IS_OS_MAC || SystemUtils.IS_OS_MAC_OSX){
 				chromedriverExe = "resources/chromedriver_mac";
-			}else if( SystemUtils.IS_OS_UNIX && System.getProperty("os.arch").contains("64")){
+			}else if( SystemUtils.IS_OS_UNIX){
 				chromedriverExe = "resources/chromedriver64";
-			}else if( SystemUtils.IS_OS_UNIX ){
-				chromedriverExe = "resources/chromedriver32";
 			}else if( SystemUtils.IS_OS_WINDOWS ){
 				chromedriverExe = "resources/chromedriver.exe";
 			}else{

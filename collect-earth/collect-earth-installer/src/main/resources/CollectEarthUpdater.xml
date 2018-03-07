@@ -37,11 +37,19 @@
                         <distributionFile>
                             <origin>COLLECT_EARTH_MAIN_FOLDER/collect-earth-installer/target/installer/update.ini</origin>
                         </distributionFile>
+                        <!--
+                        
+                        Uncomment in case there is an update of the UserManual!
+                          
                         <distributionFile>
 		                    <origin>COLLECT_EARTH_MAIN_FOLDER/collect-earth-app/UserManual.pdf</origin>
 		                </distributionFile>
+		                 -->
                     </distributionFileList>
                 </folder>
+                
+                
+                
                 <folder>
 		            <description>Resources Windows</description>
 		            <destination>${installdir}/resources</destination>
@@ -49,7 +57,7 @@
 		            <platforms>windows</platforms>
 		            <distributionFileList>
 			         	<distributionDirectory  allowWildcards="1">
-			                <excludeFiles>*/chromedriver32;*/chromedriver64;*/chromedriver_mac;*/geckodriver_32;*/geckodriver_64;*/geckodriver_mac</excludeFiles>
+			                <excludeFiles>*/chromedriver64;*/chromedriver_mac;*/geckodriver_32;*/geckodriver_64;*/geckodriver_mac</excludeFiles>
 			            	<origin>../../../collect-earth-app/resources/*</origin>
 			            </distributionDirectory>
 		            </distributionFileList>
@@ -85,7 +93,7 @@
 		            <platforms>osx</platforms>
 		            <distributionFileList>
 			         	<distributionDirectory allowWildcards="1">
-			                <excludeFiles>*/chromedriver.exe;*/chromedriver32;*/chromedriver64;*/geckodriver_32.exe;*/geckodriver_64.exe;*/geckodriver_32;*/geckodriver_64</excludeFiles>
+			                <excludeFiles>*/chromedriver.exe;*/chromedriver64;*/geckodriver_32.exe;*/geckodriver_64.exe;*/geckodriver_32;*/geckodriver_64</excludeFiles>
 			            	<origin>../../../collect-earth-app/resources/*</origin>
 			            </distributionDirectory>
 		            </distributionFileList>

@@ -169,8 +169,7 @@ public class CodeEditorHandlerThread {
 	}
 	
 	/**
-	 * Find the GEE playground script that should be used for the project that is currently loaded in Collect Earth
-	 * @return The path to the GEE playground generic script or the one that is specified in the project folder if it exists. 
+	 * @return The path to the GEE Code Editor generic script or the one that is specified in the project folder if it exists. 
 	 */
 	private String getProjectGeeScript() {
 		// Is there a "eePlaygroundScript.fmt" file in the same folder than in the metadata file folder?

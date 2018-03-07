@@ -82,7 +82,7 @@
             <platforms>windows</platforms>
             <distributionFileList>
 	         	<distributionDirectory  allowWildcards="1">
-	                <excludeFiles>*/chromedriver32;*/chromedriver64;*/chromedriver_mac;*/geckodriver_32;*/geckodriver_64;*/geckodriver_mac</excludeFiles>
+	                <excludeFiles>*/chromedriver64;*/chromedriver_mac;*/geckodriver_32;*/geckodriver_64;*/geckodriver_mac</excludeFiles>
 	            	<origin>../../../collect-earth-app/resources/*</origin>
 	            </distributionDirectory>
             </distributionFileList>
@@ -118,7 +118,7 @@
             <platforms>osx</platforms>
             <distributionFileList>
 	         	<distributionDirectory allowWildcards="1">
-	                <excludeFiles>*/chromedriver.exe;*/chromedriver32;*/chromedriver64;*/geckodriver_32.exe;*/geckodriver_64.exe;*/geckodriver_32;*/geckodriver_64</excludeFiles>
+	                <excludeFiles>*/chromedriver.exe;*/chromedriver64;*/geckodriver_32.exe;*/geckodriver_64.exe;*/geckodriver_32;*/geckodriver_64</excludeFiles>
 	            	<origin>../../../collect-earth-app/resources/*</origin>
 	            </distributionDirectory>
             </distributionFileList>
@@ -242,7 +242,7 @@
             <permissions>0777</permissions>
         </changePermissions>
          <changePermissions>
-            <files>${installdir}/resources/chromedriver32;${installdir}/resources/chromedriver64;${installdir}/resources/geckodriver_32;${installdir}/resources/geckodriver_64</files>
+            <files>${installdir}/resources/chromedriver64;${installdir}/resources/geckodriver_32;${installdir}/resources/geckodriver_64</files>
             <permissions>0777</permissions>
             <ruleList>
                 <platformTest>
