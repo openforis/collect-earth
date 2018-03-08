@@ -106,16 +106,12 @@ public class PlacemarkBrowserServlet {
 				@Override
 				public void run() {
 					try {
-						browserService
-								.openGeeCodeEditor(placemarkObject);
+						browserService.openGeeCodeEditor(placemarkObject);
 					} catch (final Exception e) {
-						LoggerFactory
-								.getLogger(this.getClass())
-								.error("Exception opening Earth Engine Playground window", e); //$NON-NLS-1$
-
+						logger.error("Exception opening Earth Engine Playground window", e); //$NON-NLS-1$
 					}
 				}
-
+	
 			}.start();
 		}
 

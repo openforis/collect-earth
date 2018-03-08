@@ -26,7 +26,7 @@ import org.springframework.stereotype.Component;
 
 @Component
 public class CodeEditorHandlerThread {
-	private static final String RUN_SCRIPT_BUTTON = "button.goog-button:nth-child(5)";
+	private static final String RUN_SCRIPT_BUTTON = "button.run-button";
 	private static final int DUMMY_SPACES = 150;
 	private SimplePlacemarkObject placemarkObject;
 	
