@@ -13,10 +13,14 @@
     <Console name="STDOUT" target="SYSTEM_OUT">
       <PatternLayout pattern="%-5p %d [%t] %c: %m%n"/>
     </Console>
+    
+    <Sentry name="Sentry" />
+    
   </Appenders>
   <Loggers>
     <Root level="trace">
       <AppenderRef ref="file" level="ERROR"/>
+      <appender-ref ref="Sentry" level="ERROR" />
       <AppenderRef ref="STDOUT" level="WARN"/>
     </Root>
   </Loggers>

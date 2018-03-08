@@ -40,6 +40,8 @@ import org.openforis.collect.earth.sampler.utils.KmlGenerationException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import io.sentry.Sentry;
+
 /**
  * Contains the main class that starts Collect Earth and opens Google Earth.
  * 
@@ -76,8 +78,7 @@ public class EarthApp {
 			// System property used in the web.xml configuration
 			System.setProperty("collectEarth.userFolder", FolderFinder.getCollectEarthDataFolder()); //$NON-NLS-1$
 			
-			// For Log4j 1.2 --> moving to log4j 2
-			//PropertyConfigurator.configure(EarthApp.class.getResource("/WEB-INF/conf/log4j.properties"));
+			Sentry.init("https://24dd6a90c1e4461484712db99c3b3bb7:831e42661c5c4ff3aa5eca270db3f619@sentry.io/299626");
 			
 			// Change of font so that Lao and Thao glyphs are supported
 			CollectEarthUtils.setFontDependingOnLanguaue( getLocalProperties().getUiLanguage() );
@@ -97,7 +98,7 @@ public class EarthApp {
 			}else{
 				startCollectEarth( doubleClickedProjectFile );
 			}
-			
+
 		} catch (final Exception e) {
 			// The logger factory has not been initialized, this will not work, just output to console
 			if (logger != null) {
