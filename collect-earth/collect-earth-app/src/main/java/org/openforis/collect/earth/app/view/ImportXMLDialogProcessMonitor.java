@@ -47,7 +47,9 @@ public class ImportXMLDialogProcessMonitor implements Observer{
 
 		if (listConflictingRecords.size() > 0) {
 
-			final int selectedOption = JOptionPane.showConfirmDialog(null,
+			Object[] options = {Messages.getString("ImportXMLDialogProcessMonitor.1"), Messages.getString("ImportXMLDialogProcessMonitor.2")};
+			
+			final int selectedOption = JOptionPane.showOptionDialog(null,
 
 					"<html>" //$NON-NLS-1$
 					+ "<b>" + importedFileName + " : </b></br>" //$NON-NLS-1$ //$NON-NLS-2$
@@ -64,7 +66,12 @@ public class ImportXMLDialogProcessMonitor implements Observer{
 
 					Messages.getString("CollectEarthWindow.43"), //$NON-NLS-1$
 
-					JOptionPane.YES_NO_OPTION);
+					JOptionPane.YES_NO_OPTION,
+				    JOptionPane.QUESTION_MESSAGE,
+				    null,     //do not use a custom Icon
+				    options,  //the titles of buttons
+				    options[1] //default button title
+			);
 
 			return (selectedOption == JOptionPane.YES_OPTION);
 		} else {
