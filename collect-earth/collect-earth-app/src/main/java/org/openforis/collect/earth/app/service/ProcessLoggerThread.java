@@ -14,12 +14,15 @@ public class ProcessLoggerThread extends Thread {
 	private final static Logger LOGGER = LoggerFactory.getLogger(ProcessLoggerThread.class);
 
 	private InputStream inputStream;
+	
+	private Boolean logOutputAsError;
 
 
-	public ProcessLoggerThread(InputStream inputStream) {
+	public ProcessLoggerThread(InputStream inputStream, Boolean logOutputAsError) {
 		super();
 
 		this.inputStream = inputStream;
+		this.logOutputAsError = logOutputAsError;
 	}
 
 
@@ -28,13 +31,17 @@ public class ProcessLoggerThread extends Thread {
 			BufferedReader reader = new BufferedReader(new InputStreamReader(inputStream));
 			String line = reader.readLine();
 			while (line != null) {
-				LOGGER.error(line);
+				if( logOutputAsError )
+					LOGGER.error(line);
+				else
+					LOGGER.warn(line);
+				
 				line = reader.readLine();
 			}
 			reader.close();
 			LOGGER.warn("End of logs");
 		} catch (IOException e) {
-			LOGGER.error("The log reader died unexpectedly.");
+			LOGGER.error("The log reader died unexpectedly.", e);
 		}
 	}
 }

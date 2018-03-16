@@ -61,7 +61,7 @@ public final class MissingPlotsListener implements ActionListener {
 
 			dialog.setVisible(true);
 		} catch (Exception e1) {
-			logger.error(Messages.getString("MissingPlotsListener.0")); //$NON-NLS-1$
+			logger.error(Messages.getString("MissingPlotsListener.0"),e1); //$NON-NLS-1$
 		} finally{
 			CollectEarthWindow.endWaiting(frame);
 		}

@@ -338,7 +338,7 @@ public class PropertiesDialog extends JDialog {
 						null,localPropertiesService,
 						(JFrame) PropertiesDialog.this.getParent());
 
-				if( selectedProjectFile.length == 1 ){
+				if( selectedProjectFile!=null && selectedProjectFile.length == 1 ){
 					try {
 						projectsService.loadCompressedProjectFile( selectedProjectFile[0]);
 

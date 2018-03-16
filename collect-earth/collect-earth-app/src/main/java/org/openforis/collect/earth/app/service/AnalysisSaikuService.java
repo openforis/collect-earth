@@ -865,8 +865,8 @@ public class AnalysisSaikuService {
 		builder.directory(new File(localPropertiesService.getSaikuFolder()).getAbsoluteFile());
 		builder.redirectErrorStream(true);
 		Process p = builder.start();
-		(new ProcessLoggerThread(p.getInputStream()) ).start();
-		(new ProcessLoggerThread(p.getErrorStream()) ).start();
+		(new ProcessLoggerThread(p.getInputStream(), Boolean.FALSE) ).start();
+		(new ProcessLoggerThread(p.getErrorStream(), Boolean.TRUE) ).start();
 		return p;
 	}
 

@@ -207,7 +207,7 @@ public class LocalPropertiesService {
 			try {
 				selected = UI_LANGUAGE.valueOf(value.toUpperCase());
 			} catch (Exception e) {
-				logger.error("Unknown UI Language "+ value );
+				logger.warn("Unknown UI Language "+ value );
 			}
 			
 			if( selected!=null){

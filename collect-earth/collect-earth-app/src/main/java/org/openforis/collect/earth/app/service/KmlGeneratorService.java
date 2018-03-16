@@ -176,7 +176,7 @@ public class KmlGeneratorService {
 		try{
 			f = Float.parseFloat( floatNumber );
 		}catch(Exception e){
-			logger.error( "Error parsing float number" );
+			logger.error( "Error parsing float number", e );
 		}
 		return f;
 	}

@@ -26,7 +26,20 @@ public class IntegerAttributeHandler extends AbstractAttributeHandler<IntegerVal
 
 	@Override
 	public IntegerValue createValue(String parameterValue) {
-		return new IntegerValue(Integer.parseInt(parameterValue), null);
+		Integer value =null;
+		
+		try {
+			value = Integer.parseInt(parameterValue);
+		} catch (Exception e) {
+			try {
+				Float isItAFloatingNumber = Float.parseFloat( parameterValue );
+				value = isItAFloatingNumber.intValue();
+			} catch (NumberFormatException e1) {
+				throw new NumberFormatException( "Parameter value '" +parameterValue +"' is neither an Integer or a Real number");
+			}
+		}
+		
+		return new IntegerValue(value, null);
 	}
 
 	@Override
