@@ -1,13 +1,18 @@
 package org.openforis.collect.earth.app.service;
 
+import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.FileReader;
 import java.io.FileWriter;
 import java.io.IOException;
+import java.io.PrintStream;
+import java.io.UnsupportedEncodingException;
+import java.nio.charset.StandardCharsets;
 import java.util.Collections;
 import java.util.Date;
 import java.util.Enumeration;
+import java.util.Observable;
 import java.util.Properties;
 import java.util.TreeSet;
 
@@ -30,7 +35,7 @@ import org.springframework.stereotype.Component;
  * 
  */
 @Component
-public class LocalPropertiesService {
+public class LocalPropertiesService extends Observable{
 
 	public static final String LOCAL_HOST = "127.0.0.1";
 
@@ -80,6 +85,7 @@ public class LocalPropertiesService {
 			init();
 		} catch (IOException e) {
 			e.printStackTrace();
+			logger.error("Error initilizeng Local Properties", e);
 		}
 	}
 
@@ -399,6 +405,8 @@ public class LocalPropertiesService {
 
 	public void setValue(EarthProperty key, String value) {
 		setValue(key, value, true);
+		this.setChanged();
+		this.notifyObservers( key );
 	}
 
 	private void setValue(EarthProperty key, String value, boolean forceWrite) {
@@ -539,7 +547,5 @@ public class LocalPropertiesService {
 	public String getExtraMap() {
 		return getValue( EarthProperty.EXTRA_MAP_URL);
 	}
-
-	
 
 }

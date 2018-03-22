@@ -20,7 +20,7 @@ public class JFileChooserExistsAware extends JFileChooser {
 		super(lastFolder);		
 	}
 
-	private JFileChooserExistsAware() {
+	private JFileChooserExistsAware(){
 		super();
 	}
 

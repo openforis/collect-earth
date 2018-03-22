@@ -20,6 +20,8 @@ import org.w3c.dom.Document;
 
 public class UpdateIniUtils {
 
+	private static final String VERSION_ID = "version_id";
+	private static final String VERSION_NAME = "version";
 	private static final Logger logger = LoggerFactory.getLogger(UpdateIniUtils.class);
 	private static final SimpleDateFormat fromXml = new SimpleDateFormat("yyyyMMddHHmm");
 	public static final String UPDATE_INI = "update.ini";
@@ -62,9 +64,12 @@ public class UpdateIniUtils {
 		return null;
 	}
 
-	private String getVersionInstalled() {
-		String installedVersionBuild = getValueFromUpdateIni("version_id", UPDATE_INI); //$NON-NLS-1$
-		return installedVersionBuild;
+	public static String getVersionInstalled() {
+		return getValueFromUpdateIni(VERSION_ID, UPDATE_INI); //$NON-NLS-1$
+	}
+	
+	public static String getReleaseNameInstalled() {
+		return getValueFromUpdateIni(VERSION_NAME, UPDATE_INI); //$NON-NLS-1$
 	}
 
 	public boolean shouldWarnUser(LocalPropertiesService localPropertiesService){

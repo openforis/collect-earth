@@ -2,6 +2,8 @@ package org.openforis.collect.earth.sampler.processor;
 
 public class HexagonKmlGenerator extends CircleKmlGenerator{
 
+	private static final int NUMBER_OF_VERTICES_IN_HEXAGON = 6;
+
 	public HexagonKmlGenerator(String epsgCode, String hostAddress,
 			String localPort, Integer innerPointSide, Integer numberOfPoints,
 			double radius) {
@@ -10,6 +12,6 @@ public class HexagonKmlGenerator extends CircleKmlGenerator{
 	}
 
 	protected int getNumberOfExternalPoints() {
-		return 6;
+		return NUMBER_OF_VERTICES_IN_HEXAGON;
 	}
 }

@@ -120,7 +120,7 @@ public class PropertiesDialog extends JDialog {
 	    int y = (int) ((dimension.getHeight() - getHeight()) / 2);
 	    setLocation(x, y);
 	}
-	
+
 	private void buildMainPane() {
 
 		final JPanel panel = new JPanel(new BorderLayout());
@@ -142,7 +142,6 @@ public class PropertiesDialog extends JDialog {
 			}
 		}
 	}
-
 
 	private JComponent getAdvancedOptionsPanel() {
 		final JPanel panel = new JPanel(new GridBagLayout());
@@ -237,7 +236,6 @@ public class PropertiesDialog extends JDialog {
 		this.dispose();
 	}
 
-
 	private Component getCancelButton() {
 		final JButton cancelButton = new JButton(Messages.getString("OptionWizard.24")); //$NON-NLS-1$
 		cancelButton.addActionListener(new ActionListener() {
@@ -248,8 +246,6 @@ public class PropertiesDialog extends JDialog {
 		});
 		return cancelButton;
 	}
-
-	
 
 	private JComponent getOperationModePanel() {
 		final GridBagConstraints constraints = new GridBagConstraints();
@@ -264,10 +260,8 @@ public class PropertiesDialog extends JDialog {
 		final Border border = new TitledBorder(new BevelBorder(BevelBorder.LOWERED), Messages.getString("OptionWizard.2")); //$NON-NLS-1$
 		typeOfUsePanel.setBorder(border);
 
-		JPanel serverPanel = getServerPanel();
-	
+		JPanel serverPanel = getServerPanel();	
 		typeOfUsePanel.add(serverPanel, constraints);
-
 
 		return typeOfUsePanel;
 	}

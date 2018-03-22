@@ -11,6 +11,8 @@ import org.opengis.referencing.operation.TransformException;
 
 public class CircleKmlGenerator extends AbstractPolygonKmlGenerator {
 
+	private static final int NUMBER_OF_POINTS_TO_DRAW_CIRCLE = 100;
+
 	private double radiusOfCircle;
 
 	private static final int MARGIN_CIRCLE = 5;
@@ -151,7 +153,7 @@ public class CircleKmlGenerator extends AbstractPolygonKmlGenerator {
 	}
 
 	protected int getNumberOfExternalPoints() {
-		return 60;
+		return NUMBER_OF_POINTS_TO_DRAW_CIRCLE;
 	}
 
 	private static int getMarginCircle() {

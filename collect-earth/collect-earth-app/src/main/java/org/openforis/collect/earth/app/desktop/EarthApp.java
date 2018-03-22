@@ -22,6 +22,7 @@ import javax.swing.ImageIcon;
 import javax.swing.JOptionPane;
 import javax.swing.SwingUtilities;
 
+import org.apache.commons.lang.StringUtils;
 import org.apache.commons.lang.SystemUtils;
 import org.openforis.collect.earth.app.CollectEarthUtils;
 import org.openforis.collect.earth.app.desktop.ServerController.ServerInitializationEvent;
@@ -41,6 +42,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import io.sentry.Sentry;
+import io.sentry.event.UserBuilder;
 
 /**
  * Contains the main class that starts Collect Earth and opens Google Earth.
@@ -78,11 +80,11 @@ public class EarthApp {
 			// System property used in the web.xml configuration
 			System.setProperty("collectEarth.userFolder", FolderFinder.getCollectEarthDataFolder()); //$NON-NLS-1$
 			
-			Sentry.init("https://24dd6a90c1e4461484712db99c3b3bb7:831e42661c5c4ff3aa5eca270db3f619@sentry.io/299626");
+			initializeSentry();
 			
 			// Change of font so that Lao and Thao glyphs are supported
 			CollectEarthUtils.setFontDependingOnLanguaue( getLocalProperties().getUiLanguage() );
-			
+
 			logger = LoggerFactory.getLogger(EarthApp.class);
 
 			String doubleClickedProjectFile = null;
@@ -110,8 +112,29 @@ public class EarthApp {
 			closeSplash();
 		}
 	}
-
 	
+	private static void initializeSentry() {
+		try {
+			String releaseName= " unknown";
+			try {
+				releaseName = UpdateIniUtils.getReleaseNameInstalled();
+			}catch(Exception e) {
+				e.printStackTrace();
+			}
+			
+			
+			Sentry.init("https://24dd6a90c1e4461484712db99c3b3bb7:831e42661c5c4ff3aa5eca270db3f619@sentry.io/299626?release="+releaseName+"&maxmessagelength=2000", new EarthSentryClientFactory());
+			if( !StringUtils.isEmpty( UpdateIniUtils.getVersionInstalled() ) ) {
+				Sentry.getContext().addTag( "ReleaseDate", UpdateIniUtils.getVersionInstalled() );
+			}
+			if( !StringUtils.isEmpty( getLocalProperties().getOperator() ) ) {
+				Sentry.getContext().setUser( new UserBuilder().setUsername( getLocalProperties().getOperator() ).build() );
+			}
+
+		} catch (Exception e) {
+			logger.error( "Error initializing Sentry logger" , e);
+		}
+	}
 	/**
 	 * Special code that uses reflection to handle how the application should behave in Mac OS X.
 	 * Without reflection the code provokes compilation-time errors.

@@ -10,6 +10,7 @@ import org.apache.commons.lang3.StringUtils;
 import org.openforis.collect.earth.app.CollectEarthUtils;
 import org.openforis.collect.earth.app.EarthConstants;
 import org.openforis.collect.earth.app.EarthConstants.SAMPLE_SHAPE;
+import org.openforis.collect.earth.app.desktop.EarthApp;
 import org.openforis.collect.earth.app.desktop.ServerController;
 import org.openforis.collect.earth.app.service.LocalPropertiesService.EarthProperty;
 import org.openforis.collect.earth.app.view.Messages;
@@ -171,15 +172,6 @@ public class KmlGeneratorService {
 
 	}
 
-	private float parseFloat( String floatNumber ){
-		float f = 0f;
-		try{
-			f = Float.parseFloat( floatNumber );
-		}catch(Exception e){
-			logger.error( "Error parsing float number", e );
-		}
-		return f;
-	}
 	
 	private int parseInt( String intNumber ){
 		int i = 0;
@@ -191,7 +183,6 @@ public class KmlGeneratorService {
 		return i;
 	}
 
-
 	public KmlGenerator getKmlGenerator() {
 		KmlGenerator generateKml =null;
 		
@@ -199,9 +190,33 @@ public class KmlGeneratorService {
 		final Integer innerPointSide = parseInt(getLocalProperties().getValue(EarthProperty.INNER_SUBPLOT_SIDE));
 		SAMPLE_SHAPE plotShape = getLocalProperties().getSampleShape();
 		final String hostAddress = ServerController.getHostAddress(getLocalProperties().getHost(), getLocalProperties().getPort());
-		final float distanceBetweenSamplePoints = parseFloat(getLocalProperties().getValue(EarthProperty.DISTANCE_BETWEEN_SAMPLE_POINTS));
-		final float distanceBetweenPlots = parseFloat(getLocalProperties().getValue(EarthProperty.DISTANCE_BETWEEN_PLOTS ));
-		final float distanceToPlotBoundaries = parseFloat(getLocalProperties().getValue(EarthProperty.DISTANCE_TO_PLOT_BOUNDARIES));
+		
+		final float distanceBetweenSamplePoints, distanceBetweenPlots, distanceToPlotBoundaries;
+		String dBSP = getLocalProperties().getValue(EarthProperty.DISTANCE_BETWEEN_SAMPLE_POINTS);
+		try {
+			distanceBetweenSamplePoints = Float.parseFloat(dBSP);
+		} catch (Exception e) {
+			logger.error("Error parsing distance between sample points , wrong value : " + dBSP,e);
+			EarthApp.showMessage("Attention: Check earth.properties file. The distance between sample points must be a number! You have set it to : " + dBSP); //$NON-NLS-1$
+			return null;
+		}
+		String dBP = getLocalProperties().getValue(EarthProperty.DISTANCE_BETWEEN_PLOTS );
+		try {
+			distanceBetweenPlots = Float.parseFloat(dBP);
+		} catch (Exception e) {
+			logger.error("Error parsing distance between plots , wrong value : " + dBP,e);
+			EarthApp.showMessage("Attention: Check earth.properties file. The distance between plots must be a number! You have set it to : " + dBP); //$NON-NLS-1$
+			return null;
+		}	
+		
+		String dToPlotB = getLocalProperties().getValue(EarthProperty.DISTANCE_TO_PLOT_BOUNDARIES);
+		try {
+			distanceToPlotBoundaries = Float.parseFloat(dToPlotB);
+		} catch (Exception e) {
+			logger.error("Error parsing distance between plots , wrong value : " + dToPlotB,e);
+			EarthApp.showMessage("Attention: Check earth.properties file. The distance between sample point and border of the plot must be a number ! You have set it to : " + dToPlotB); //$NON-NLS-1$
+			return null;
+		}		
 		final String localPort = getLocalProperties().getLocalPort();
 		final String numberOfSamplingPlots = getLocalProperties().getValue(EarthProperty.NUMBER_OF_SAMPLING_POINTS_IN_PLOT);
 		final String csvFile = getLocalProperties().getCsvFile();
