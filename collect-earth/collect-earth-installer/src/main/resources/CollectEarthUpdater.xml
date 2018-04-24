@@ -139,7 +139,8 @@
             <text>You need to quit Collect Earth and re-start it for the update to finalize!</text>
         </showInfo>
     </postInstallationActionList>
-    <compressionAlgorithm>zip</compressionAlgorithm>
+    <compressionAlgorithm>lzma-ultra</compressionAlgorithm>
+  	<lzmaUltraBlockSize>40</lzmaUltraBlockSize>
     <defaultUnixDirectoryPermissions>777</defaultUnixDirectoryPermissions>
     <defaultUnixFilePermissions>777</defaultUnixFilePermissions>
     <enableRollback>0</enableRollback>
