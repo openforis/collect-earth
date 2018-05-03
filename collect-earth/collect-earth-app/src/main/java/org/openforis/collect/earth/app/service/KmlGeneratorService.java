@@ -191,7 +191,7 @@ public class KmlGeneratorService {
 		SAMPLE_SHAPE plotShape = getLocalProperties().getSampleShape();
 		final String hostAddress = ServerController.getHostAddress(getLocalProperties().getHost(), getLocalProperties().getPort());
 		
-		final float distanceBetweenSamplePoints, distanceBetweenPlots, distanceToPlotBoundaries;
+		final float distanceBetweenSamplePoints, distanceToPlotBoundaries;
 		String dBSP = getLocalProperties().getValue(EarthProperty.DISTANCE_BETWEEN_SAMPLE_POINTS);
 		try {
 			distanceBetweenSamplePoints = Float.parseFloat(dBSP);
@@ -200,14 +200,7 @@ public class KmlGeneratorService {
 			EarthApp.showMessage("Attention: Check earth.properties file. The distance between sample points must be a number! You have set it to : " + dBSP); //$NON-NLS-1$
 			return null;
 		}
-		String dBP = getLocalProperties().getValue(EarthProperty.DISTANCE_BETWEEN_PLOTS );
-		try {
-			distanceBetweenPlots = Float.parseFloat(dBP);
-		} catch (Exception e) {
-			logger.error("Error parsing distance between plots , wrong value : " + dBP,e);
-			EarthApp.showMessage("Attention: Check earth.properties file. The distance between plots must be a number! You have set it to : " + dBP); //$NON-NLS-1$
-			return null;
-		}	
+
 		
 		String dToPlotB = getLocalProperties().getValue(EarthProperty.DISTANCE_TO_PLOT_BOUNDARIES);
 		try {
@@ -237,6 +230,17 @@ public class KmlGeneratorService {
 			} else if (plotShape.equals(SAMPLE_SHAPE.NFMA)) {
 				generateKml = new NfmaKmlGenerator(crsSystem, hostAddress, localPort );
 			} else if (plotShape.equals(SAMPLE_SHAPE.NFI_CIRCLES)) {
+				
+				String dBP = getLocalProperties().getValue(EarthProperty.DISTANCE_BETWEEN_PLOTS );
+				float distanceBetweenPlots;
+				try {
+					distanceBetweenPlots = Float.parseFloat(dBP);
+				} catch (Exception e) {
+					logger.error("Error parsing distance between plots , wrong value : " + dBP,e);
+					EarthApp.showMessage("Attention: Check earth.properties file. The distance between plots must be a number! You have set it to : " + dBP); //$NON-NLS-1$
+					return null;
+				}	
+				
 				generateKml = new NfiCirclesKmlGenerator(crsSystem, hostAddress, localPort, innerPointSide,  distanceBetweenSamplePoints, distanceBetweenPlots );
 			}else if (plotShape.equals(SAMPLE_SHAPE.HEXAGON)) {
 				generateKml = new HexagonKmlGenerator(crsSystem, hostAddress, localPort, innerPointSide,  numberOfPoints, distanceBetweenSamplePoints );

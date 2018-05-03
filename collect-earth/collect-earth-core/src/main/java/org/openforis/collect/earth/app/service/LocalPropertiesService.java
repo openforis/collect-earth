@@ -1,14 +1,10 @@
 package org.openforis.collect.earth.app.service;
 
-import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.FileReader;
 import java.io.FileWriter;
 import java.io.IOException;
-import java.io.PrintStream;
-import java.io.UnsupportedEncodingException;
-import java.nio.charset.StandardCharsets;
 import java.util.Collections;
 import java.util.Date;
 import java.util.Enumeration;
@@ -38,6 +34,7 @@ import org.springframework.stereotype.Component;
 public class LocalPropertiesService extends Observable{
 
 	public static final String LOCAL_HOST = "127.0.0.1";
+	public static final String DEFAULT_LOCAL_PORT = "8028";
 
 	/**
 	 * Enumeration containing the names of all the possible values that can be configured in Collect Earth.
@@ -183,7 +180,11 @@ public class LocalPropertiesService extends Observable{
 	}
 
 	public String getPort() {
-		return getValue(EarthProperty.HOST_PORT_KEY);
+		String port = getValue(EarthProperty.HOST_PORT_KEY);
+		if( StringUtils.isEmpty( port )) {
+			port = DEFAULT_LOCAL_PORT;
+		}
+		return port;
 	}
 	
 	public String getLocalPort() {
