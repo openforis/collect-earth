@@ -48,7 +48,7 @@ public class CollectEarthTransferHandler extends TransferHandler {
 			try {
 				data = (List<File>)t.getTransferData(DataFlavor.javaFileListFlavor);
 
-				if( data.size() == 1){
+				if( data !=null && data.size() == 1){
 					return isFileExtensionValid( data.get(0) );
 				}else {
 					return false;
