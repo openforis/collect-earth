@@ -228,7 +228,7 @@ public class EarthApp {
 		boolean alreadyRunning = false;
 		try {
 			new Socket( LocalPropertiesService.LOCAL_HOST , Integer.parseInt(localProperties.getPort())).close(); //$NON-NLS-1$
-			// If here there is something is serving on port 8888
+			// If here there is something is serving on port 8028
 			// So stop it
 			logger.warn("There is a server already running " + localProperties.getPort()); //$NON-NLS-1$
 			alreadyRunning = true;

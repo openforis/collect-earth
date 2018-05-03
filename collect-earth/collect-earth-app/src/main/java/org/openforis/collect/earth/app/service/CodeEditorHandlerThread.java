@@ -7,9 +7,8 @@ import java.io.File;
 import java.io.IOException;
 import java.net.URISyntaxException;
 import java.net.URL;
+import java.nio.charset.Charset;
 import java.util.NoSuchElementException;
-
-import liquibase.util.SystemUtils;
 
 import org.apache.commons.io.FileUtils;
 import org.apache.commons.lang.StringUtils;
@@ -24,10 +23,12 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
+import liquibase.util.SystemUtils;
+
 @Component
 public class CodeEditorHandlerThread {
 	private static final String RUN_SCRIPT_BUTTON = "button.run-button";
-	private static final int DUMMY_SPACES = 150;
+	private static final String RESET_SCRIPT_BUTTON = "button.reset-button";
 	private SimplePlacemarkObject placemarkObject;
 	
 	private RemoteWebDriver webDriverGee;
@@ -41,8 +42,6 @@ public class CodeEditorHandlerThread {
 	
 	@Autowired
 	private LocalPropertiesService localPropertiesService;
-	private boolean waitingForLogin = false;
-
 
 	public boolean isCodeEditorShowing() {
 		return BrowserService.isCssElementPresent( RUN_SCRIPT_BUTTON, webDriverGee);
@@ -52,12 +51,9 @@ public class CodeEditorHandlerThread {
 			throws IOException, URISyntaxException,
 			InterruptedException {
 		
+		webDriverGee.findElementByCssSelector(RESET_SCRIPT_BUTTON).click();
 		
-		URL fileWithScript = geoLocalizeTemplateService.getTemporaryUrl(placemarkObject, getGeeCodeEditorTemplate());
-		
-		
-		webDriverGee.findElementByCssSelector(RUN_SCRIPT_BUTTON).click();
-		
+		URL fileWithScript = geoLocalizeTemplateService.getTemporaryUrl(placemarkObject, getGeeCodeEditorTemplate());		
 		
 		WebElement textArea = webDriverGee.findElement(By.className("ace_text-input"));
 		
@@ -66,7 +62,7 @@ public class CodeEditorHandlerThread {
 		    // Command key (apple key) is not working on Chrome on Mac. Try with the right clik
 			// This is not going to be fixed by Selenium
 			// Try a different approach! A bit slower but works
-			String contents =  FileUtils.readFileToString( new File(fileWithScript.toURI())) ;
+			String contents =  FileUtils.readFileToString( new File(fileWithScript.toURI()), Charset.forName("UTF-8")) ;
 			// Remove comments so it is faster to send the text!
 			String noComments = removeComments(contents); 		
 			
@@ -75,7 +71,7 @@ public class CodeEditorHandlerThread {
 			webDriverGee.findElementByCssSelector("div.goog-inline-block.goog-flat-menu-button.custom-reset-button").click();
 			webDriverGee.findElementByXPath("//*[contains(text(), 'Clear script')]").click();
 			
-			StringBuffer fixedScriptForMac = new StringBuffer();
+			StringBuilder fixedScriptForMac = new StringBuilder();
 			String[] lines = noComments.split("\\n");
 			for (String line : lines) {
 				// Send the content of the script
@@ -104,7 +100,7 @@ public class CodeEditorHandlerThread {
 			
 		}else{
 			Clipboard clipboard = Toolkit.getDefaultToolkit().getSystemClipboard();
-			String contents = FileUtils.readFileToString( new File(fileWithScript.toURI()));
+			String contents = FileUtils.readFileToString( new File(fileWithScript.toURI()), Charset.forName("UTF-8")) ;
 			StringSelection clipboardtext = new StringSelection( contents );
 			clipboard.setContents(clipboardtext, null);
 			Keys controlChar = Keys.CONTROL;
@@ -115,40 +111,38 @@ public class CodeEditorHandlerThread {
 			textArea.sendKeys(Keys.chord(controlChar,"v"));
 		}
 		
-		
-		//((JavascriptExecutor)webDriverGeePlayground).executeScript("arguments[0].value = arguments[1];", textArea,);
 		Thread.sleep(1000);
-		webDriverGee.findElementByCssSelector("button.goog-button.run-button").click();
+		webDriverGee.findElementByCssSelector(RUN_SCRIPT_BUTTON).click();
+
 	}
 
 
 	public String removeComments(String contents) {
 		
+		String wholeCode = contents;
+		wholeCode = wholeCode.replaceAll("http://", "");
+		wholeCode = wholeCode.replaceAll("https://", "");
+		wholeCode = wholeCode.replaceAll("\r","");
 		
-		contents = contents.replaceAll("http://", "");
-		contents = contents.replaceAll("https://", "");
-		contents  = contents.replaceAll("\r","");
-		
-		String noComments = "";
+		StringBuilder noComments = new StringBuilder("");
 		int indexComments = contents.indexOf("//");
 		if( indexComments != -1 ){
 			while( indexComments >= 0){
-				int endOfLine = contents.indexOf("\n", indexComments);		
+				int endOfLine = contents.indexOf('\n', indexComments);		
 				if( endOfLine != -1 )
 					indexComments = contents.indexOf("//", endOfLine+2 );
 				else{
-					indexComments = -1;
 					break;
 				}
 				
 				if( indexComments != -1 )
-					noComments += contents.substring( endOfLine, indexComments );
+					noComments = noComments.append( contents.substring( endOfLine, indexComments ) );
 				else
-					noComments += contents.substring( endOfLine);
+					noComments = noComments.append(  contents.substring( endOfLine) );
 			}
+			return noComments.toString();
 		}else
-			noComments = contents;
-		return noComments;
+			return wholeCode;
 	}
 
 	/**
@@ -197,27 +191,15 @@ public class CodeEditorHandlerThread {
 		try {			
 			if (!isCodeEditorShowing()) {
 				// Open GEE Playground
-				if( !browserService.isDriverWorking(webDriverGee) || webDriverGee.getCurrentUrl()==null || ( !webDriverGee.getCurrentUrl().contains("google") && !webDriverGee.getCurrentUrl().contains("google") ) ){
+				if( !browserService.isDriverWorking(webDriverGee) || webDriverGee.getCurrentUrl()==null || !webDriverGee.getCurrentUrl().contains("google") ){
 					webDriverGee = browserService.navigateTo(  localPropertiesService.getGeePlaygoundUrl(), webDriverGee);
 					browserService.setWebDriverGeeCodeEditor(webDriverGee);
 				}
-				// Now we have to wait until the user logs into Google Earth Engine!
-				waitingForLogin = true;
-				
 				
 				// Initially the login page appears!
-				// wait until the user logs - in  ( but no more than 5 minutes )
-				
-				while( waitingForLogin && !isCodeEditorShowing()  ){ // 5 minutes a 2 seconds == 30 * 5 = 150 
+				while( !isCodeEditorShowing()  ){ // 5 minutes a 2 seconds == 30 * 5 = 150 
 					Thread.sleep(2000);
 				}
-				
-				// If the reason to get to this point is not that we have waited more than 5 minutes....
-				if( waitingForLogin){
-					stopWaitingForLogin();
-					disableAutoComplete();
-				}
-				
 				
 			}else{						
 				disableAutoComplete();
@@ -259,32 +241,16 @@ public class CodeEditorHandlerThread {
 				try {			
 					if (!isCodeEditorShowing()) {
 						// Open GEE Code Editor
-						if( !browserService.isDriverWorking(webDriverGee) || webDriverGee.getCurrentUrl()==null || ( !webDriverGee.getCurrentUrl().contains("google") && !webDriverGee.getCurrentUrl().contains("google") ) ){
+						if( !browserService.isDriverWorking(webDriverGee) || webDriverGee.getCurrentUrl()==null || !webDriverGee.getCurrentUrl().contains("google")  ){
 							webDriverGee = browserService.navigateTo(  localPropertiesService.getGeePlaygoundUrl(), webDriverGee);
 							browserService.setWebDriverGeeCodeEditor(webDriverGee);
 						}
-						// Now we have to wait until the user logs into Google Earth Engine!
-						waitingForLogin = true;
-						
-						
-						// Initially the login page appears!
-						// wait until the user logs - in  ( but no more than 5 minutes )
-						
-						while( waitingForLogin && !isCodeEditorShowing()  ){ // 5 minutes a 2 seconds == 30 * 5 = 150 
+						// Initially the login page appears!						
+						while( !isCodeEditorShowing()  ){
 							sleep(2000);
 						}
-						
-						// If the reason to get to this point is not that we have waited more than 5 minutes....
-						if( waitingForLogin){
-							stopWaitingForLogin();
-							runScript();
-						}
-						
-						
-					}else{						
-						runScript();
 					}
-					
+					runScript();
 				} catch (final NoSuchElementException e) {
 					// This is a well known exception. Down-grade if to warning
 					logger.warn("Error when opening Earth Engine browser window. Known problem", e);
@@ -293,16 +259,7 @@ public class CodeEditorHandlerThread {
 					logger.error("Error when opening Earth Engine browser window", e);
 				}
 			}
-
 		};
 		loadGee.start();
-	}
-
-	public boolean isWaitingForLogin() {
-		return waitingForLogin;
-	}
-
-	public void stopWaitingForLogin() {
-		waitingForLogin = false;		
 	}
 }
