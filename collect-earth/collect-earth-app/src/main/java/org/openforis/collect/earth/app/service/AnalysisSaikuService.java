@@ -20,9 +20,6 @@ import javax.annotation.PostConstruct;
 import javax.annotation.PreDestroy;
 import javax.swing.SwingUtilities;
 
-import net.lingala.zip4j.core.ZipFile;
-import net.lingala.zip4j.exception.ZipException;
-
 import org.apache.commons.codec.binary.Hex;
 import org.apache.commons.dbcp.BasicDataSource;
 import org.apache.commons.lang3.StringEscapeUtils;
@@ -58,6 +55,8 @@ import org.springframework.stereotype.Component;
 
 import au.com.bytecode.opencsv.CSVReader;
 import freemarker.template.TemplateException;
+import net.lingala.zip4j.core.ZipFile;
+import net.lingala.zip4j.exception.ZipException;
 
 @Component
 public class AnalysisSaikuService {
