@@ -46,6 +46,16 @@ public abstract class AbstractAttributeHandler<C> {
 		return result;
 	}
 	
+	public NodeChangeSet updateMultipleAttribute(String parameterName, Entity parentEntity, String[] parameterValues) {
+		AttributeDefinition attrDef = getAttributeDefinition(parentEntity, parameterName);
+		List<Value> values = new ArrayList<Value>(parameterValues.length);
+		for (String paramVal : parameterValues) {
+			Value value = (Value) (StringUtils.isBlank(paramVal) ? null: createValue(paramVal ) );
+			values.add(value);
+		}
+		return recordUpdater.updateMultipleAttribute(parentEntity, attrDef, values);
+	}
+	
 	public NodeChangeSet addOrUpdate(String parameterName, String parameterValue, Entity entity, int parameterChildIndex) {
 		Value value = (Value) (StringUtils.isBlank(parameterValue) ? null: createValue(parameterValue ) );
 		
