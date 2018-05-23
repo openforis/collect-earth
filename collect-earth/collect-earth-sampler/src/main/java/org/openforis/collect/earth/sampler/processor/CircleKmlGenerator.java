@@ -67,7 +67,7 @@ public class CircleKmlGenerator extends AbstractPolygonKmlGenerator {
 		
 		double[] centerCircleCoord = placemark.getCoord().getCoordinates();
 
-		final double arc = 360 / getNumberOfExternalPoints();
+		final double arc = (double) 360 / getNumberOfExternalPoints();
 
 		final double radius = radiusOfCircle + getMarginCircle();
 

@@ -534,19 +534,9 @@ public class BalloonInputFieldsUtils {
 							NodeChangeSet partialChangeSet = handler.addOrUpdate(cleanName, parameterValue, entity, 0);
 							result.addMergeChanges(partialChangeSet);
 						} else {
-							AttributeDefinition attrDef = handler.getAttributeDefinition(entity, cleanName);
 							String[] parameterValues = parameterValue.split(BalloonInputFieldsUtils.PARAMETER_SEPARATOR);
-							if (attrDef.isMultiple() && parameterValues.length != entity.getCount(attrDef)) {
-								//delete old values
-								result.addMergeChanges(handler.deleteAttributes(cleanName, entity));
-							}
-							for (int index = 0; index < parameterValues.length; index++) {
-								String parameterVal = parameterValues[index];
-								NodeChangeSet partialChangeSet = handler.addOrUpdate(cleanName, parameterVal, entity, index);
-								if (partialChangeSet != null) {
-									result.addMergeChanges(partialChangeSet);
-								}
-							}
+							NodeChangeSet partialChangeSet = handler.updateMultipleAttribute(cleanName, entity, parameterValues);
+							result.addMergeChanges(partialChangeSet);
 						}
 					}
 				} catch (Exception e) {
