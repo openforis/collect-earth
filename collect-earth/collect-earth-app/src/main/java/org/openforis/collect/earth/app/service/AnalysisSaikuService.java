@@ -157,8 +157,8 @@ public class AnalysisSaikuService {
 					});
 
 			jdbcTemplate.batchUpdate("UPDATE " + schemaName + "plot SET " + ASPECT_ID +"=?," + SLOPE_ID + "=?,"+ ELEVATION_ID+"=? WHERE "+EarthConstants.PLOT_ID+"=?", sqlUpdateValues); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$ //$NON-NLS-4$ //$NON-NLS-5$ //$NON-NLS-6$
-		} catch (DataAccessException e) {
-			logger.error("No DEM information", e); //$NON-NLS-1$
+		} catch (Exception e) {
+			logger.warn("No DEM information", e); //$NON-NLS-1$
 		}
 	}
 
