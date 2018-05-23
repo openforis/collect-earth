@@ -102,7 +102,7 @@ public class CollectEarthUtils {
 	} 
 
 	public static ZipFile addFileToZip(String fileToCompress, File srcFile, String fileNameInZip )
-			throws ZipException {
+			throws ZipException,IOException{
 		File destBackupFile = new File( fileToCompress );	
 		ZipFile zipBackupFile = new ZipFile( destBackupFile );
 
