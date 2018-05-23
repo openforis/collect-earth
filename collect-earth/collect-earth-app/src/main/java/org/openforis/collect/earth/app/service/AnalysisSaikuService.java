@@ -252,7 +252,7 @@ public class AnalysisSaikuService {
 
 			jdbcTemplate.batchUpdate("UPDATE " + schemaName + "plot SET " + DYNAMICS_ID +"=?,"+ ALU_SUBCLASS_CODE+"=? WHERE "+EarthConstants.PLOT_ID+"=?", sqlUpdateValues); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$ //$NON-NLS-4$
 		} catch (Exception e) {
-			logger.error("No PNG Alu information available", e); //$NON-NLS-1$
+			logger.warn("No PNG Alu information available", e); //$NON-NLS-1$
 		}
 	}
 
