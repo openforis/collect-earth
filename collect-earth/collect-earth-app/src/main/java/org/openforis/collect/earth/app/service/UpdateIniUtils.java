@@ -78,8 +78,7 @@ public class UpdateIniUtils {
 		// newVersionAvailable will be null if the version installed is not older than the current version of the updater
 		String currentVersionOnline = getVersionAvailableOnline();
 		
-		boolean newerVersionAvailable = !StringUtils.isEmpty( currentVersionOnline ) ;
-		if( newerVersionAvailable ){
+		if( !StringUtils.isBlank( currentVersionOnline ) ){
 			
 			// There is a new version. did the user chose "Not to be bother"with this update?
 			String lastIgnoredBuildNumber = localPropertiesService.getValue(EarthProperty.LAST_IGNORED_UPDATE);
