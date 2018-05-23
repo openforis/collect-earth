@@ -568,11 +568,13 @@ public class AnalysisSaikuService {
 	}
 
 	private void replaceZippedSaikuProjectDB() throws ZipException {
-		CollectEarthUtils.addFileToZip( 
-				getZippedSaikuProjectDB().getAbsolutePath(),
-				getRdbFile(), 
-				getRdbFile().getName()
-				);
+		if (localPropertiesService.isUsingSqliteDB()) {		
+			CollectEarthUtils.addFileToZip( 
+					getZippedSaikuProjectDB().getAbsolutePath(),
+					getRdbFile(), 
+					getRdbFile().getName()
+					);
+		}
 	}
 
 	public void exportDataToRDB(InfiniteProgressMonitor progressListener) throws CollectRdbException {
