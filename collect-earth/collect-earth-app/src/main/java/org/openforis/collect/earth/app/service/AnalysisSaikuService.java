@@ -48,7 +48,6 @@ import org.openqa.selenium.remote.RemoteWebDriver;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.dao.DataAccessException;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.core.RowMapper;
 import org.springframework.stereotype.Component;
@@ -157,8 +156,8 @@ public class AnalysisSaikuService {
 					});
 
 			jdbcTemplate.batchUpdate("UPDATE " + schemaName + "plot SET " + ASPECT_ID +"=?," + SLOPE_ID + "=?,"+ ELEVATION_ID+"=? WHERE "+EarthConstants.PLOT_ID+"=?", sqlUpdateValues); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$ //$NON-NLS-4$ //$NON-NLS-5$ //$NON-NLS-6$
-		} catch (DataAccessException e) {
-			logger.error("No DEM information", e); //$NON-NLS-1$
+		} catch (Exception e) {
+			logger.warn("No DEM information", e); //$NON-NLS-1$
 		}
 	}
 
@@ -252,7 +251,7 @@ public class AnalysisSaikuService {
 
 			jdbcTemplate.batchUpdate("UPDATE " + schemaName + "plot SET " + DYNAMICS_ID +"=?,"+ ALU_SUBCLASS_CODE+"=? WHERE "+EarthConstants.PLOT_ID+"=?", sqlUpdateValues); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$ //$NON-NLS-4$
 		} catch (Exception e) {
-			logger.error("No PNG Alu information available", e); //$NON-NLS-1$
+			logger.warn("No PNG Alu information available", e); //$NON-NLS-1$
 		}
 	}
 
@@ -526,7 +525,7 @@ public class AnalysisSaikuService {
 					try {
 						// Save the DB file in a zipped file to keep for the next usages
 						replaceZippedSaikuProjectDB();
-					} catch (ZipException e) {
+					} catch (Exception e) {
 						logger.error("Error while refreshing the Zipped content of the project Saiku DB", e);
 					}
 
@@ -567,12 +566,14 @@ public class AnalysisSaikuService {
 		}
 	}
 
-	private void replaceZippedSaikuProjectDB() throws ZipException {
-		CollectEarthUtils.addFileToZip( 
-				getZippedSaikuProjectDB().getAbsolutePath(),
-				getRdbFile(), 
-				getRdbFile().getName()
-				);
+	private void replaceZippedSaikuProjectDB() throws ZipException, IOException {
+		if (localPropertiesService.isUsingSqliteDB()) {		
+			CollectEarthUtils.addFileToZip( 
+					getZippedSaikuProjectDB().getAbsolutePath(),
+					getRdbFile(), 
+					getRdbFile().getName()
+					);
+		}
 	}
 
 	public void exportDataToRDB(InfiniteProgressMonitor progressListener) throws CollectRdbException {

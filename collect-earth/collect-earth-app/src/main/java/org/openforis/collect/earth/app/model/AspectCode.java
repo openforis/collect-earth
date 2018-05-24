@@ -21,9 +21,9 @@ public enum AspectCode {
 	 * @return The aspect code corresponding to the aspect in degrees.
 	 */
 	public static AspectCode getAspectCode(Double aspect) {
-		double aspectProc = aspect + 22.5; // North starts at -22.5, so add 22.5 to normalize so north becomes 0-45 , north east 45-90 and so on..
+		double aspectProc = aspect + 22.5d; // North starts at -22.5, so add 22.5 to normalize so north becomes 0-45 , north east 45-90 and so on..
 		if (aspectProc >= 360d) {
-			aspectProc = aspectProc - 360;
+			aspectProc = aspectProc - 360d;
 		}
 		final int modulo = (int) Math.floor(aspectProc / 45d);
 		return AspectCode.values()[modulo];

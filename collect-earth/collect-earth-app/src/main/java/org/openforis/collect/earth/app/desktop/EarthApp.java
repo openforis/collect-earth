@@ -407,16 +407,19 @@ public class EarthApp {
 							
 							String newestVersionOnline = updateIniUtils.getVersionAvailableOnline();
 							
-							Object[] possibleValues = { remindLater, doItNow, doNotBother };
-							int chosenOption = JOptionPane.showOptionDialog(null,
-									Messages.getString("EarthApp.57"), Messages.getString("EarthApp.58") + Messages.getString("EarthApp.6") + updateIniUtils.convertToDate(newestVersionOnline),  //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$
-									JOptionPane.DEFAULT_OPTION, JOptionPane.INFORMATION_MESSAGE, null, possibleValues, possibleValues[0]);
-							if( chosenOption != JOptionPane.CLOSED_OPTION ){
-								if (possibleValues[chosenOption].equals(doItNow)) {
-									CheckForUpdatesListener checkForUpdatesListener = new CheckForUpdatesListener();
-									checkForUpdatesListener.actionPerformed(null);
-								} else if (possibleValues[chosenOption].equals(doNotBother)) {
-									getLocalProperties().setValue(EarthProperty.LAST_IGNORED_UPDATE, newestVersionOnline);
+							if( StringUtils.isNotBlank( newestVersionOnline ) ) {
+							
+								Object[] possibleValues = { remindLater, doItNow, doNotBother };
+								int chosenOption = JOptionPane.showOptionDialog(null,
+										Messages.getString("EarthApp.57"), Messages.getString("EarthApp.58") + Messages.getString("EarthApp.6") + updateIniUtils.convertToDate(newestVersionOnline),  //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$
+										JOptionPane.DEFAULT_OPTION, JOptionPane.INFORMATION_MESSAGE, null, possibleValues, possibleValues[0]);
+								if( chosenOption != JOptionPane.CLOSED_OPTION ){
+									if (possibleValues[chosenOption].equals(doItNow)) {
+										CheckForUpdatesListener checkForUpdatesListener = new CheckForUpdatesListener();
+										checkForUpdatesListener.actionPerformed(null);
+									} else if (possibleValues[chosenOption].equals(doNotBother)) {
+										getLocalProperties().setValue(EarthProperty.LAST_IGNORED_UPDATE, newestVersionOnline);
+									}
 								}
 							}
 						}
