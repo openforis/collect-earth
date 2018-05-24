@@ -228,7 +228,9 @@ public class KmlGeneratorService {
 			if (plotShape.equals(SAMPLE_SHAPE.CIRCLE)) {
 				generateKml = new CircleKmlGenerator(crsSystem, hostAddress, localPort, innerPointSide,  numberOfPoints, distanceBetweenSamplePoints );
 			} else if (plotShape.equals(SAMPLE_SHAPE.NFMA)) {
-				generateKml = new NfmaKmlGenerator(crsSystem, hostAddress, localPort );
+				generateKml = new NfmaKmlGenerator(crsSystem, hostAddress, localPort, 150, false);
+			} else if (plotShape.equals(SAMPLE_SHAPE.NFMA_250)) {
+				generateKml = new NfmaKmlGenerator(crsSystem, hostAddress, localPort, 250, true);
 			} else if (plotShape.equals(SAMPLE_SHAPE.NFI_CIRCLES)) {
 				
 				String dBP = getLocalProperties().getValue(EarthProperty.DISTANCE_BETWEEN_PLOTS );
