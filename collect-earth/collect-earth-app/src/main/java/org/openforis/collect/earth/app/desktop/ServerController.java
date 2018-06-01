@@ -5,6 +5,7 @@ import java.io.IOException;
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.ResultSet;
+import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.Map;
 import java.util.Observable;
@@ -147,10 +148,10 @@ public class ServerController extends Observable {
 
 	private boolean isPostgreSQLReachable(CollectDBDriver collectDBDriver) {
 		boolean connectionWorked = false;
-
+		Connection connection = null;
 		try {
 			Class.forName("org.postgresql.Driver");
-			Connection connection = DriverManager.getConnection( 
+			connection = DriverManager.getConnection( 
 					getDbURL(collectDBDriver), 
 					localPropertiesService.getValue(EarthProperty.DB_USERNAME), 
 					localPropertiesService.getValue(EarthProperty.DB_PASSWORD)
@@ -172,7 +173,15 @@ public class ServerController extends Observable {
 				System.out.println("Connection Failed!");
 		}
 		catch(Exception e){
-			logger.error("Error while testing the connection tot he postgresSQL DB", e);
+			logger.error("Error while testing the connection to the postgresSQL DB", e);
+		}finally {
+			if( connection != null ) {
+				try {
+					connection.close();
+				} catch (SQLException e) {
+					logger.error("Error while closing the connection to the postgresSQL DB", e);
+				}
+			}
 		}
 		
 		return connectionWorked;
