@@ -34,8 +34,8 @@
 	</bean>
 	<!-- End of override collect-code beans -->
 
-	<bean class="org.springframework.web.servlet.mvc.annotation.DefaultAnnotationHandlerMapping" />
-	<bean class="org.springframework.web.servlet.mvc.annotation.AnnotationMethodHandlerAdapter" />
+	<bean class="org.springframework.web.servlet.mvc.method.annotation.RequestMappingHandlerMapping" />
+	<bean class="org.springframework.web.servlet.mvc.method.annotation.RequestMappingHandlerAdapter" />
 	
 	<!-- Controllers -->
 	<!-- 	<bean id="fileNameViewController" class="org.springframework.web.servlet.mvc.UrlFilenameViewController" /> -->
