@@ -58,6 +58,8 @@ public abstract class KmlGenerator extends AbstractCoordinateCalculation {
 		
 		CollectAnnotations annotations = collectSurvey.getAnnotations();
 		
+		csvValuesInLine = removeTrailingSpaces( csvValuesInLine );
+		
 		final SimplePlacemarkObject plotProperties = new SimplePlacemarkObject();
 		
 		String keys = "";
@@ -79,13 +81,13 @@ public abstract class KmlGenerator extends AbstractCoordinateCalculation {
 	
 		int leading_columns = 0;
 		
-		String longitude = csvValuesInLine[number_of_key_attributes+1].replace(',', '.') ;
-		String latitude = csvValuesInLine[number_of_key_attributes].replace(',', '.');
+		String longitude = csvValuesInLine[number_of_key_attributes+1].replace(',', '.').trim() ;
+		String latitude = csvValuesInLine[number_of_key_attributes].replace(',', '.').trim();
 		if( isNumber(longitude) && isNumber(latitude) ){
 			plotProperties.setCoord( new SimpleCoordinate(latitude, longitude));
 			leading_columns = 2;
 		}else{
-			throw new KmlGenerationException(" The latitude and longitude columns contain values other than numbers" );
+			throw new KmlGenerationException(" The latitude and longitude columns contain values other than numbers : LAT : " + latitude + " , LONG :" + longitude);
 		}
 		
 
@@ -156,6 +158,15 @@ public abstract class KmlGenerator extends AbstractCoordinateCalculation {
 		}
 		
 		return plotProperties;
+	}
+
+
+	private static String[] removeTrailingSpaces(String[] csvValuesInLine) {
+		for (int i = 0; i < csvValuesInLine.length; i++) {
+			String val = csvValuesInLine[i];
+			csvValuesInLine[ i ] = val.trim();
+		}
+		return csvValuesInLine;
 	}
 
 
