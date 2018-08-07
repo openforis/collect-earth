@@ -86,7 +86,7 @@ public class CollectEarthMenu extends JMenuBar {
 		// Build file menu in the menu bar.
 		final JMenu fileMenu = new JMenu(Messages.getString("CollectEarthWindow.10")); //$NON-NLS-1$
 
-		menuItem = new JMenuItem("Import CEP file");
+		menuItem = new JMenuItem(Messages.getString("CollectEarthMenu.0")); //$NON-NLS-1$
 		menuItem.addActionListener(new ApplyOptionChangesListener(this.getFrame(), localPropertiesService) {
 
 			@Override
@@ -171,7 +171,7 @@ public class CollectEarthMenu extends JMenuBar {
 		menuItem.addActionListener(getPropertiesAction(frame));
 		toolsMenu.add(menuItem);
 
-		JMenu utilities = new JMenu("Utilities");
+		JMenu utilities = new JMenu(Messages.getString("CollectEarthMenu.2")); //$NON-NLS-1$
 
 		menuItem = new JMenuItem(Messages.getString("CollectEarthWindow.18")); //$NON-NLS-1$
 		menuItem.addActionListener(new MissingPlotsListener(frame, localPropertiesService, missingPlotService));
@@ -180,7 +180,7 @@ public class CollectEarthMenu extends JMenuBar {
 
 		utilities.add(menuItem);
 
-		menuItem = new JMenuItem("Divide large CSV plot files");
+		menuItem = new JMenuItem(Messages.getString("CollectEarthMenu.3")); //$NON-NLS-1$
 		menuItem.addActionListener(new ActionListener() {
 
 			@Override
@@ -257,20 +257,20 @@ public class CollectEarthMenu extends JMenuBar {
 				getExportActionListener(DataFormat.ZIP_WITH_XML, RecordsToExport.MODIFIED_SINCE_LAST_EXPORT));
 		xmlExportSubmenu.add(exportModifiedRecords);
 
-		final JMenuItem exportDataRangeRecords = new JMenuItem("Export data to XML (from specific date)");
+		final JMenuItem exportDataRangeRecords = new JMenuItem(Messages.getString("CollectEarthMenu.4")); //$NON-NLS-1$
 		exportDataRangeRecords
 		.addActionListener(getExportActionListener(DataFormat.ZIP_WITH_XML, RecordsToExport.PICK_FROM_DATE));
 		xmlExportSubmenu.add(exportDataRangeRecords);
 
 		ieSubmenu.add(xmlExportSubmenu);
 
-		final JMenu backupExportSubmenu = new JMenu("Export to Collect Backup");
+		final JMenu backupExportSubmenu = new JMenu(Messages.getString("CollectEarthMenu.5")); //$NON-NLS-1$
 
-		final JMenuItem exportDataBackup = new JMenuItem("Export data as Collect backup (all data)");
+		final JMenuItem exportDataBackup = new JMenuItem(Messages.getString("CollectEarthMenu.6")); //$NON-NLS-1$
 		exportDataBackup.addActionListener(getExportActionListener(DataFormat.COLLECT_BACKUP, RecordsToExport.ALL));
 		backupExportSubmenu.add(exportDataBackup);
 
-		final JMenuItem exportDataRangeBackup = new JMenuItem("Export data as Collect backup (from date)");
+		final JMenuItem exportDataRangeBackup = new JMenuItem(Messages.getString("CollectEarthMenu.7")); //$NON-NLS-1$
 		exportDataRangeBackup
 		.addActionListener(getExportActionListener(DataFormat.COLLECT_BACKUP, RecordsToExport.PICK_FROM_DATE));
 		backupExportSubmenu.add(exportDataRangeBackup);
