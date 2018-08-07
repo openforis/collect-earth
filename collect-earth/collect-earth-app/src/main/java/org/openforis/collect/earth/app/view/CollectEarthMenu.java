@@ -81,47 +81,59 @@ public class CollectEarthMenu extends JMenuBar {
 	@PostConstruct
 	public void init() {
 		setFrame(collectEarthWindow.getFrame());
-		JMenuItem menuItem;
 
 		// Build file menu in the menu bar.
-		final JMenu fileMenu = new JMenu(Messages.getString("CollectEarthWindow.10")); //$NON-NLS-1$
-
-		menuItem = new JMenuItem(Messages.getString("CollectEarthMenu.0")); //$NON-NLS-1$
-		menuItem.addActionListener(new ApplyOptionChangesListener(this.getFrame(), localPropertiesService) {
-
-			@Override
-			protected void applyProperties() {
-				final File[] selectedProjectFile = JFileChooserExistsAware.getFileChooserResults(
-						DataFormat.PROJECT_DEFINITION_FILE, false, false, null, localPropertiesService,
-						getFrame() );
-
-				if (selectedProjectFile != null && selectedProjectFile.length == 1) {
-					try {
-						projectsService.loadCompressedProjectFile(selectedProjectFile[0]);
-
-						restartEarth();
-					} catch (Exception e1) {
-						JOptionPane.showMessageDialog( getFrame(), e1.getMessage(),
-								Messages.getString("OptionWizard.51"), JOptionPane.ERROR_MESSAGE); //$NON-NLS-1$
-						logger.error("Error importing project file " + selectedProjectFile[0].getAbsolutePath(), e1); //$NON-NLS-1$
-					}
-				}
-			}
-		});
-		fileMenu.add(menuItem);
-		this.add(fileMenu);
-		
-		menuItem = new JMenuItem(Messages.getString("CollectEarthWindow.11")); //$NON-NLS-1$
-		menuItem.addActionListener(collectEarthWindow.getCloseActionListener());
-		fileMenu.add(menuItem);
-		this.add(fileMenu);
+		this.add( getFileMenu() );
 
 		// Build tools menu in the menu bar.
-		final JMenu toolsMenu = new JMenu(Messages.getString("CollectEarthWindow.12")); //$NON-NLS-1$
+		this.add(getToolsMenu());
+
+		// Build help menu in the menu bar.
+		this.add(getHelpMenu());
+
+	}
+
+	public JMenu getHelpMenu() {
+		JMenu menuHelp = new JMenu(Messages.getString("CollectEarthWindow.16")); //$NON-NLS-1$
+
+		JMenuItem menuItem = new JMenuItem(Messages.getString("CollectEarthWindow.56")); //$NON-NLS-1$
+		menuItem.addActionListener(new OpenAboutDialogListener(frame, Messages.getString("CollectEarthWindow.62"))); //$NON-NLS-1$
+		menuHelp.add(menuItem);
+
+		menuItem = new JMenuItem(Messages.getString("CollectEarthWindow.17")); //$NON-NLS-1$
+		menuItem.addActionListener(
+				new OpenTextFileListener(frame, getDisclaimerFilePath(), Messages.getString("CollectEarthWindow.4")));//$NON-NLS-1$
+		menuHelp.add(menuItem);
+
+		menuItem = new JMenuItem(Messages.getString("CollectEarthWindow.50")); //$NON-NLS-1$
+		menuItem.addActionListener(new OpenUserManualListener());
+		menuHelp.add(menuItem);
+
+		menuItem = new JMenuItem(Messages.getString("CollectEarthWindow.64")); //$NON-NLS-1$
+		menuItem.addActionListener(new OpenSupportForum());
+		menuHelp.add(menuItem);
+
+		menuHelp.addSeparator();
+
+		menuItem = new JMenuItem(Messages.getString("CollectEarthWindow.52")); //$NON-NLS-1$
+		menuItem.addActionListener(
+				new OpenTextFileListener(frame, getLogFilePath(), Messages.getString("CollectEarthWindow.53"))); //$NON-NLS-1$
+		menuHelp.add(menuItem);
+
+		menuHelp.addSeparator();
+
+		menuItem = new JMenuItem(Messages.getString("CollectEarthWindow.51")); //$NON-NLS-1$
+		menuItem.addActionListener(new CheckForUpdatesListener());
+		menuHelp.add(menuItem);
+		return menuHelp;
+	}
+
+	private JMenu getToolsMenu() {
+		JMenu toolsMenu = new JMenu(Messages.getString("CollectEarthWindow.12")); //$NON-NLS-1$
 
 		addImportExportMenu(toolsMenu);
 
-		menuItem = new JMenuItem(Messages.getString("CollectEarthWindow.14")); //$NON-NLS-1$
+		JMenuItem menuItem = new JMenuItem(Messages.getString("CollectEarthWindow.14")); //$NON-NLS-1$
 		menuItem.addActionListener(getSaikuAnalysisActionListener());
 		toolsMenu.add(menuItem);
 
@@ -198,44 +210,41 @@ public class CollectEarthMenu extends JMenuBar {
 		toolsMenu.addSeparator();
 		final JMenu languageMenu = getLanguageMenu();
 		toolsMenu.add(languageMenu);
+		return toolsMenu;
+	}
 
-		this.add(toolsMenu);
+	private JMenu getFileMenu() {
+		JMenu fileMenu = new JMenu(Messages.getString("CollectEarthWindow.10")); //$NON-NLS-1$
 
-		// Build help menu in the menu bar.
-		final JMenu menuHelp = new JMenu(Messages.getString("CollectEarthWindow.16")); //$NON-NLS-1$
+		JMenuItem menuItem = new JMenuItem(Messages.getString("CollectEarthMenu.0")); //$NON-NLS-1$
+		menuItem.addActionListener(new ApplyOptionChangesListener(this.getFrame(), localPropertiesService) {
 
-		menuItem = new JMenuItem(Messages.getString("CollectEarthWindow.56")); //$NON-NLS-1$
-		menuItem.addActionListener(new OpenAboutDialogListener(frame, Messages.getString("CollectEarthWindow.62"))); //$NON-NLS-1$
-		menuHelp.add(menuItem);
+			@Override
+			protected void applyProperties() {
+				final File[] selectedProjectFile = JFileChooserExistsAware.getFileChooserResults(
+						DataFormat.PROJECT_DEFINITION_FILE, false, false, null, localPropertiesService,
+						getFrame() );
 
-		menuItem = new JMenuItem(Messages.getString("CollectEarthWindow.17")); //$NON-NLS-1$
-		menuItem.addActionListener(
-				new OpenTextFileListener(frame, getDisclaimerFilePath(), Messages.getString("CollectEarthWindow.4")));//$NON-NLS-1$
-		menuHelp.add(menuItem);
+				if (selectedProjectFile != null && selectedProjectFile.length == 1) {
+					try {
+						projectsService.loadCompressedProjectFile(selectedProjectFile[0]);
 
-		menuItem = new JMenuItem(Messages.getString("CollectEarthWindow.50")); //$NON-NLS-1$
-		menuItem.addActionListener(new OpenUserManualListener());
-		menuHelp.add(menuItem);
-
-		menuItem = new JMenuItem(Messages.getString("CollectEarthWindow.64")); //$NON-NLS-1$
-		menuItem.addActionListener(new OpenSupportForum());
-		menuHelp.add(menuItem);
-
-		menuHelp.addSeparator();
-
-		menuItem = new JMenuItem(Messages.getString("CollectEarthWindow.52")); //$NON-NLS-1$
-		menuItem.addActionListener(
-				new OpenTextFileListener(frame, getLogFilePath(), Messages.getString("CollectEarthWindow.53"))); //$NON-NLS-1$
-		menuHelp.add(menuItem);
-
-		menuHelp.addSeparator();
-
-		menuItem = new JMenuItem(Messages.getString("CollectEarthWindow.51")); //$NON-NLS-1$
-		menuItem.addActionListener(new CheckForUpdatesListener());
-		menuHelp.add(menuItem);
-
-		this.add(menuHelp);
-
+						restartEarth();
+					} catch (Exception e1) {
+						JOptionPane.showMessageDialog( getFrame(), e1.getMessage(),
+								Messages.getString("OptionWizard.51"), JOptionPane.ERROR_MESSAGE); //$NON-NLS-1$
+						logger.error("Error importing project file " + selectedProjectFile[0].getAbsolutePath(), e1); //$NON-NLS-1$
+					}
+				}
+			}
+		});
+		fileMenu.add(menuItem);
+		this.add(fileMenu);
+		fileMenu.addSeparator();
+		menuItem = new JMenuItem(Messages.getString("CollectEarthWindow.11")); //$NON-NLS-1$
+		menuItem.addActionListener(collectEarthWindow.getCloseActionListener());
+		fileMenu.add(menuItem);
+		return fileMenu;
 	}
 
 	private void addImportExportMenu(JMenu menu) {
