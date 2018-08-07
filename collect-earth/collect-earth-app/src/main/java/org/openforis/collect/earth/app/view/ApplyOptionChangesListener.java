@@ -38,7 +38,6 @@ public abstract class ApplyOptionChangesListener implements ActionListener {
 	public ApplyOptionChangesListener(Window callingDialog, LocalPropertiesService localPropertiesService) {
 		this.callingDialog = callingDialog;
 		this.localPropertiesService = localPropertiesService;
-
 	}
 
 	@Override
@@ -98,7 +97,7 @@ public abstract class ApplyOptionChangesListener implements ActionListener {
 
 		try {
 			// Re-generate KMZ
-			new Thread("Restarting Collect Earth after chigin properties/loading project/loading KML points"){
+			new Thread("Restarting Collect Earth after changing properties/loading project/loading KML points"){
 				public void run() {
 					EarthApp.restart();
 				};
