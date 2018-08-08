@@ -10,9 +10,8 @@ import org.openforis.collect.earth.sampler.utils.KmlGenerationException;
 import org.opengis.referencing.operation.TransformException;
 import org.slf4j.LoggerFactory;
 
-public class PolygonKmlGenerator extends AbstractPolygonKmlGenerator{
+public class PolygonKmlGenerator extends AbstractPolygonKmlGenerator {
 
-	
 	private static final String COORDINATES_END = "</coordinates>";
 	private static final String COORDINATES_START = "<coordinates>";
 	private static final String LINEARRING_END = "</linearring>";
@@ -22,99 +21,93 @@ public class PolygonKmlGenerator extends AbstractPolygonKmlGenerator{
 	private static final String POLYGON_START = "<polygon>";
 	private static final String POLYGON_END = "</polygon>";
 
-
 	public PolygonKmlGenerator(String epsgCode, String hostAddress, String localPort) {
-		super(epsgCode, hostAddress, localPort, 0, 0, 0,0);
+		super(epsgCode, hostAddress, localPort, 0, 0, 0, 0);
 
 	}
 
-
 	@Override
 	public void fillExternalLine(SimplePlacemarkObject placemark) throws TransformException, KmlGenerationException {
-		// No need to do anything, the polygon is already defined within the placemark.kmlPolygon attribute
+		// No need to do anything, the polygon is already defined within the
+		// placemark.kmlPolygon attribute
 		// The kmlPolygo is then used directly in the freemarker template
 		// Just check that the value is actually set!
-		if( StringUtils.isBlank( placemark.getKmlPolygon() ) ){
-			throw new KmlGenerationException("The placemark kmlPolygon attribute is empty! There needs to be a column where the <Polygon> value is specified");
+		if (StringUtils.isBlank(placemark.getKmlPolygon())) {
+			throw new KmlGenerationException(
+					"The placemark kmlPolygon attribute is empty! There needs to be a column where the <Polygon> value is specified");
 		}
-		
-		placemark.setMultiShape( PolygonKmlGenerator.getPointsInPolygon( placemark.getKmlPolygon() ));
+
+		placemark.setMultiShape(PolygonKmlGenerator.getPolygonsInMultiGeometry(placemark.getKmlPolygon()));
 	}
 
 	@Override
 	public void fillSamplePoints(SimplePlacemarkObject placemark) throws TransformException {
-		placemark.setPoints( new ArrayList<SimplePlacemarkObject>());
+		placemark.setPoints(new ArrayList<SimplePlacemarkObject>());
 	}
 
+	public static List<List<SimpleCoordinate>> getPolygonsInMultiGeometry(String kmlPolygon) {
 
-	public static List<List<SimpleCoordinate>> getPointsInPolygon(String kmlPolygon) {
-		
-		List<List<SimpleCoordinate>> shapes =  new ArrayList<List<SimpleCoordinate>>();
-		
-		if( StringUtils.isBlank( kmlPolygon)){
+		List<List<SimpleCoordinate>> polygons = new ArrayList<List<SimpleCoordinate>>();
+
+		if (StringUtils.isBlank(kmlPolygon)) {
 			throw new IllegalArgumentException("The KML Polygon string cannot be null");
 		}
 		String lowerCase = kmlPolygon.toLowerCase();
-		
+
 		// If there are multiple polygons or lines
-		if( lowerCase.contains( MULTIGEOMETRY_START ) ){
-			
-			String geometries = extractXmlTextValue(lowerCase, MULTIGEOMETRY_START,MULTIGEOMETRY_END);
+		if (lowerCase.contains(MULTIGEOMETRY_START)) {
+			String geometries = extractXmlTextValue(lowerCase, MULTIGEOMETRY_START, MULTIGEOMETRY_END);
 			int lastFoundPolygon = geometries.indexOf(POLYGON_START, 0);
-			while( lastFoundPolygon > -1 ){
-				
-				String polygon = extractXmlTextValue(geometries.substring(lastFoundPolygon), POLYGON_START, POLYGON_END);
-				
-				shapes.add(  getPolygonPointsCoordinates(polygon) );
-				
+			while (lastFoundPolygon > -1) {
+
+				String polygon = extractXmlTextValue(geometries.substring(lastFoundPolygon), POLYGON_START,
+						POLYGON_END);
+
+				polygons.add(getPolygonVertices(polygon));
+
 				lastFoundPolygon = geometries.indexOf(POLYGON_START, lastFoundPolygon + POLYGON_START.length());
 			}
-			
-		}else{
-			shapes.add(  getPolygonPointsCoordinates(lowerCase) );
+		} else {
+			polygons.add(getPolygonVertices(lowerCase));
 		}
-		return shapes;
+		return polygons;
 	}
 
-
-	private static List<SimpleCoordinate> getPolygonPointsCoordinates(
-			String lowerCase) {
-		String valueAttr = extractXmlTextValue(lowerCase, LINEARRING_START,LINEARRING_END);
-		valueAttr = extractXmlTextValue(valueAttr,  COORDINATES_START,COORDINATES_END);
+	private static List<SimpleCoordinate> getPolygonVertices(String lowerCase) {
+		String valueAttr = extractXmlTextValue(lowerCase, LINEARRING_START, LINEARRING_END);
+		valueAttr = extractXmlTextValue(valueAttr, COORDINATES_START, COORDINATES_END);
 		List<SimpleCoordinate> simpleCoordinates = new ArrayList<SimpleCoordinate>();
-		// Coordinates look like this : lat,long,elev lat,long,elev ... -15.805135,16.389028,0.0 -15.804454,16.388447,0.0
+		// Coordinates look like this : lat,long,elev lat,long,elev ...
+		// -15.805135,16.389028,0.0 -15.804454,16.388447,0.0
 
-		String[] splitGroup =   valueAttr.split(" ");
-		if( splitGroup.length == 1){
-			splitGroup =   valueAttr.split("\n");
+		String[] splitGroup = valueAttr.split(" ");
+		if (splitGroup.length == 1) {
+			splitGroup = valueAttr.split("\n");
 		}
 
 		for (String coordsWithElev : splitGroup) {
 			String[] splitCoord = coordsWithElev.split(",");
-			if( splitCoord.length > 1 ){
-				SimpleCoordinate coords = new SimpleCoordinate( splitCoord[1], splitCoord[0]);
+			if (splitCoord.length > 1) {
+				SimpleCoordinate coords = new SimpleCoordinate(splitCoord[1], splitCoord[0]);
 				simpleCoordinates.add(coords);
 			}
 		}
 		return simpleCoordinates;
 	}
 
-
-	private static String extractXmlTextValue(String lowerCase,
-			String startXmlTag, String endXmlTag) {
+	private static String extractXmlTextValue(String lowerCase, String startXmlTag, String endXmlTag) {
 		int startOfXmlTag = lowerCase.indexOf(startXmlTag);
 		int endOfXmlTag = lowerCase.indexOf(endXmlTag);
 		String valueAttr = "";
 		try {
-			if( startOfXmlTag!= -1 && endOfXmlTag != -1 ){
-					valueAttr = lowerCase.substring( startOfXmlTag + startXmlTag.length(), endOfXmlTag);
-					
+			if (startOfXmlTag != -1 && endOfXmlTag != -1) {
+				valueAttr = lowerCase.substring(startOfXmlTag + startXmlTag.length(), endOfXmlTag);
+
 			}
 		} catch (Exception e) {
-			LoggerFactory.getLogger( PolygonKmlGenerator.class).error( " error with " + lowerCase, e );
+			LoggerFactory.getLogger(PolygonKmlGenerator.class).error(" error with " + lowerCase, e);
 		}
 		return valueAttr;
 	}
 
-	
 }

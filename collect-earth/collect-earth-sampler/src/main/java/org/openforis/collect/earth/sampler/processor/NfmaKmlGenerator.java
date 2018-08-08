@@ -51,7 +51,7 @@ public class NfmaKmlGenerator extends PolygonKmlGenerator {
 		String kml = getKmlForTract(placemark);
 		
 		placemark.setKmlPolygon(kml);
-		placemark.setMultiShape( PolygonKmlGenerator.getPointsInPolygon( kml ) );
+		placemark.setMultiShape( PolygonKmlGenerator.getPolygonsInMultiGeometry( kml ) );
 	}
 
 	

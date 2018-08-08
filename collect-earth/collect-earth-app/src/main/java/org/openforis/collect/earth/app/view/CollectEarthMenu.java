@@ -168,7 +168,7 @@ public class CollectEarthMenu extends JMenuBar {
 				try {
 					CollectEarthUtils.openFolderInExplorer(FolderFinder.getCollectEarthDataFolder());
 				} catch (IOException e1) {
-					logger.error("Could not findthe data folder", e1);
+					logger.error("Could not find the data folder", e1);
 				}
 
 			}
@@ -182,7 +182,15 @@ public class CollectEarthMenu extends JMenuBar {
 		menuItem = new JMenuItem(Messages.getString("CollectEarthWindow.15")); //$NON-NLS-1$
 		menuItem.addActionListener(getPropertiesAction(frame));
 		toolsMenu.add(menuItem);
+		toolsMenu.add(getUtilitiesMenu() );
 
+		toolsMenu.addSeparator();
+		toolsMenu.add(getLanguageMenu());
+		return toolsMenu;
+	}
+
+	private JMenu getUtilitiesMenu() {
+		JMenuItem menuItem;
 		JMenu utilities = new JMenu(Messages.getString("CollectEarthMenu.2")); //$NON-NLS-1$
 
 		menuItem = new JMenuItem(Messages.getString("CollectEarthWindow.18")); //$NON-NLS-1$
@@ -204,13 +212,7 @@ public class CollectEarthMenu extends JMenuBar {
 		// acting as a client )
 
 		utilities.add(menuItem);
-
-		toolsMenu.add(utilities);
-
-		toolsMenu.addSeparator();
-		final JMenu languageMenu = getLanguageMenu();
-		toolsMenu.add(languageMenu);
-		return toolsMenu;
+		return utilities;
 	}
 
 	private JMenu getFileMenu() {

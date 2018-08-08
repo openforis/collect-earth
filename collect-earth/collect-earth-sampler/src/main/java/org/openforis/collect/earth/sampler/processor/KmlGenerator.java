@@ -186,7 +186,7 @@ public abstract class KmlGenerator extends AbstractCoordinateCalculation {
 	public static void processKmlPolygonProperties(
 			final SimplePlacemarkObject plotProperties, String kmlPolygon) {
 		
-		List<List<SimpleCoordinate>> pointsInPolygon = PolygonKmlGenerator.getPointsInPolygon(kmlPolygon);
+		List<List<SimpleCoordinate>> pointsInPolygon = PolygonKmlGenerator.getPolygonsInMultiGeometry(kmlPolygon);
 		plotProperties.setMultiShape( pointsInPolygon );
 		if( pointsInPolygon.size() > 0 ){
 			plotProperties.setKmlPolygon( kmlPolygon );
