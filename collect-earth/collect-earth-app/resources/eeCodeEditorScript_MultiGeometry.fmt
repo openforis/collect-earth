@@ -1,0 +1,41 @@
+// Script automatically produced by Collect Earth for the plot that has been clicked on Google Earht. See bottom of the script for more info on customization.
+// This script will show graphs of NDVI, EVI and NDWI mean-values for the pixels contained within the plot.
+// Require a script with all of the functions that load the charts and maps
+var ee_script = require("users/collectearth/ce_scripts:frames_landsat_v1");
+
+// The date that is used as the start of the chart ( if the dataset is available )
+// You can change the start date manually and hit the button "Run""again to reload the charts using the different time series
+var startDate = '2000-01-01';
+
+// The last date for which the chart is generated. Should be today's date
+var endDate = '${todayDate}';
+
+// The date to use to produce the "Latest imagery" maps. Should be one year ago (to get a full year composite)
+var latestImageFromDate = '${oneYearAgoDate}';
+
+// DO NOT EDIT THIS BLOCK!! ------
+// START
+
+// The polygon that describes the plot (processed by Collect Earth)
+var plot = ee.Geometry.LinearRing([
+// The placemark variable has an array called shape that contains the locations of the corners of the polygon
+<#list placemark.shape as coord>[${coord.longitude}, ${coord.latitude}],</#list>]);
+
+// FINISH
+//--------------------------------
+
+ee_script.processPlotInfo( plot, startDate, endDate, latestImageFromDate);
+
+// START -- SPECIAL CODE TO ADD SUBPLOTS 
+var subPlot;
+<#list placemark.multiShape as subPlot>
+    <#if subPlot?index gt 0> <#-- IGNORE the first subplot,as it will be the same as the plot polygon -->
+subPlot = ee.Geometry.LinearRing([
+	<#list subPlot as coord>[${coord.longitude}, ${coord.latitude}],</#list>
+]);
+Map.addLayer( subPlot, null, "Subplot", true );
+	</#if>
+</#list>
+// END -- SPECIAL CODE TO ADD SUBPLOTS 
+
+// For more info on the possible scripts to use go to : https://code.earthengine.google.com/?accept_repo=users/collectearth/ce_scripts
