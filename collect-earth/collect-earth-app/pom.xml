@@ -12,7 +12,7 @@
 	<packaging>jar</packaging>
 
 	<properties>
-		<jetty.version>9.4.12.RC0</jetty.version>
+		<jetty.version>9.4.11.v20180605</jetty.version>
 		<selenium.version>3.13.0</selenium.version>
 		<sonar.language>java</sonar.language>
 		<classpath.prefix>earth-libs</classpath.prefix>
