@@ -5,7 +5,7 @@
 	<parent>
 		<groupId>org.openforis.collect.earth</groupId>
 		<artifactId>collect-earth</artifactId>
-		<version>1.6.36</version>
+		<version>1.7.0-SNAPSHOT</version>
 	</parent>
 
 	<artifactId>collect-earth-sampler</artifactId>
@@ -13,7 +13,7 @@
 	<name>Earth Sampler</name>
 
 	<properties>
-		<geotools.version>18.0</geotools.version>
+		<geotools.version>19.2</geotools.version>
 	</properties>
 
 	<dependencies>
@@ -22,14 +22,14 @@
 			<artifactId>collect-earth-core</artifactId>
 			</dependency>
 		<dependency>
-			<groupId>net.sf.opencsv</groupId>
+			<groupId>com.opencsv</groupId>
 			<artifactId>opencsv</artifactId>
-			<version>2.3</version>
+			<version>4.2</version>
 		</dependency>
 		<dependency>
 			<groupId>org.freemarker</groupId>
 			<artifactId>freemarker</artifactId>
-			<version>2.3.26-incubating</version>
+			<version>2.3.28</version>
 		</dependency>
 		<!-- GeoTools -->
 		<dependency>
@@ -55,7 +55,7 @@
 		<dependency>
 			<groupId>org.apache.commons</groupId>
 			<artifactId>commons-lang3</artifactId>
-			<version>3.6</version>
+			<version>3.7</version>
 		</dependency>
 
 	</dependencies>

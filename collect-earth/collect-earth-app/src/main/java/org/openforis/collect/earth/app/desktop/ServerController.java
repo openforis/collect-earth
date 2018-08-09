@@ -9,7 +9,6 @@ import java.sql.Statement;
 import java.util.Map;
 import java.util.Observable;
 import java.util.Observer;
-import java.util.concurrent.TimeUnit;
 
 import org.eclipse.jetty.server.Connector;
 import org.eclipse.jetty.server.Server;
@@ -204,7 +203,8 @@ public class ServerController extends Observable {
 			// For log4j 1.2 --> Moving to Log4J2
 			//PropertyConfigurator.configure(this.getClass().getResource("/WEB-INF/conf/log4j.properties"));
 
-			server = new Server(new ExecutorThreadPool(10, 50, 5, TimeUnit.SECONDS));
+			//server = new Server(new ExecutorThreadPool(10, 50, 5, TimeUnit.SECONDS)); // For JEtty 7
+			server = new Server(new ExecutorThreadPool(50, 5) ); // For JEtty 9, different parameters for the constructor
 
 			// // Use blocking-IO connector to improve throughput
 			final ServerConnector connector = new ServerConnector(server);

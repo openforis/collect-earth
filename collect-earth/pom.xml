@@ -2,7 +2,7 @@
 	<modelVersion>4.0.0</modelVersion>
 	<groupId>org.openforis.collect.earth</groupId>
 	<artifactId>collect-earth</artifactId>
-	<version>1.6.36</version>
+	<version>1.7.0-SNAPSHOT</version>
 	<packaging>pom</packaging>
 	<name>Collect Earth</name>
 	<description>Collect Earth - Augmented Visual Interpretation</description>
@@ -20,8 +20,8 @@
 	<properties>
 		<java.version>1.8</java.version>
 		<project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-		<collect.version>3.21.13</collect.version>
-		<spring.version>4.3.12.RELEASE</spring.version>
+		<collect.version>3.22.6</collect.version>
+		<spring.version>5.0.7.RELEASE</spring.version>
 		<project.scm.id>github.com</project.scm.id>
 	</properties>
 
@@ -40,7 +40,7 @@
 
 	<scm>
 		<developerConnection>scm:git:https://github.com/openforis/collect-earth.git</developerConnection>
-		<tag>collect-earth-1.6.36</tag>		
+		<tag>collect-earth-1.6.31</tag>		
 	</scm>
 
 	<build>
