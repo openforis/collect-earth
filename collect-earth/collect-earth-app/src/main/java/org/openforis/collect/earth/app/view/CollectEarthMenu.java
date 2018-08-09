@@ -217,7 +217,7 @@ public class CollectEarthMenu extends JMenuBar {
 			}
 		});
 		serverMenuItems.add(menuItem); // This menu should only be shown if the DB is local ( not if Collect Earth is // acting as a client )
-		
+		utilities.add(menuItem);
 		
 		menuItem = new JMenuItem("Delete Plots from DB using CSV");
 		menuItem.addActionListener(new ActionListener() {
