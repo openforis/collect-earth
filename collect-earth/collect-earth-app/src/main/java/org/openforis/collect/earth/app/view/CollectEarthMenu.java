@@ -30,6 +30,7 @@ import org.openforis.collect.earth.app.service.KmlImportService;
 import org.openforis.collect.earth.app.service.LocalPropertiesService;
 import org.openforis.collect.earth.app.service.MissingPlotService;
 import org.openforis.collect.earth.app.view.ExportActionListener.RecordsToExport;
+import org.openforis.collect.manager.RecordManager;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -64,6 +65,13 @@ public class CollectEarthMenu extends JMenuBar {
 
 	@Autowired
 	private BackupSqlLiteService backupSqlLiteService;
+	
+	@Autowired
+	private RemovePlotsFromDBDlg removePlotsFromDBDlg;
+	
+	@Autowired
+	private RecordManager recordManager;
+
 
 	@Autowired
 	private EarthProjectsService projectsService;
@@ -208,8 +216,19 @@ public class CollectEarthMenu extends JMenuBar {
 				FileDividerToolDlg.open(frame, earthSurveyService.getCollectSurvey());
 			}
 		});
-		serverMenuItems.add(menuItem); // This menu should only be shown if the DB is local ( not if Collect Earth is
-		// acting as a client )
+		serverMenuItems.add(menuItem); // This menu should only be shown if the DB is local ( not if Collect Earth is // acting as a client )
+		
+		
+		menuItem = new JMenuItem("Delete Plots from DB using CSV");
+		menuItem.addActionListener(new ActionListener() {
+
+			@Override
+			public void actionPerformed(ActionEvent e) {
+				removePlotsFromDBDlg.open(frame, earthSurveyService.getCollectSurvey());
+			}
+		});
+		utilities.add(menuItem);
+		
 
 		utilities.add(menuItem);
 		return utilities;
