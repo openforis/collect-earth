@@ -136,7 +136,7 @@ public class PlacemarkUpdateServlet {
 				lastUpdatedRecords = earthSurveyService.getRecordSummariesSavedSince(lastUpdateDate);
 			} catch (Exception e) {
 				lastUpdatedRecords = new ArrayList<CollectRecordSummary>();
-				logger.error("Error fetching information about the records updated after : " + lastUpdatedRecords , e); //$NON-NLS-1$
+				logger.error("Error fetching information about the records updated after : " + lastUpdateDate , e); //$NON-NLS-1$
 			}
 			
 			final Map<String, Object> data = new HashMap<String, Object>();
