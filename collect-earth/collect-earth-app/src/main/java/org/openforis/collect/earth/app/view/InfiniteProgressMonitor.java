@@ -1,7 +1,8 @@
 package org.openforis.collect.earth.app.view;
 
+import java.awt.Component;
+
 import javax.swing.JDialog;
-import javax.swing.JFrame;
 import javax.swing.JLabel;
 import javax.swing.JOptionPane;
 import javax.swing.JProgressBar;
@@ -21,13 +22,13 @@ public class InfiniteProgressMonitor implements ProgressListener {
 	private JOptionPane pane;
 
 	private String cancelOption;
-	
-	private JLabel label;
-	
-	JProgressBar infiniteProgress;
-	
 
-	public InfiniteProgressMonitor(JFrame parentFrame, String title, String message) {
+	private JLabel label;
+
+	JProgressBar infiniteProgress;
+	//private Logger logger = LoggerFactory.getLogger(InfiniteProgressMonitor.class);
+
+	public InfiniteProgressMonitor(Component parentFrame, String title, String message) {
 
 		infiniteProgress = new JProgressBar();
 		infiniteProgress.setIndeterminate(true);
@@ -37,58 +38,56 @@ public class InfiniteProgressMonitor implements ProgressListener {
 
 		cancelOption = Messages.getString("InfiniteProgressMonitor.0"); //$NON-NLS-1$
 		final Object[] options = { cancelOption };
-		setPane(new JOptionPane(dialogItems, JOptionPane.PLAIN_MESSAGE, JOptionPane.YES_NO_CANCEL_OPTION, null, options));
+		setPane(new JOptionPane(dialogItems, JOptionPane.PLAIN_MESSAGE, JOptionPane.YES_NO_CANCEL_OPTION, null,
+				options));
 		setDialog(getPane().createDialog(parentFrame, title));
 		getDialog().setModal(true);
 
-
 	}
-	
-	public void updateProgress( int current, int total){
-		
+
+	public void updateProgress(int current, int total) {
+
 		SwingUtilities.invokeLater(new Runnable() {
-			
+
 			@Override
 			public void run() {
-				
-				
-				infiniteProgress.setString( current + "/" + total);
-				if( infiniteProgress.isIndeterminate() ){
+
+				infiniteProgress.setString(current + "/" + total);
+				if (infiniteProgress.isIndeterminate()) {
 					infiniteProgress.setIndeterminate(false);
 					infiniteProgress.setStringPainted(true);
 				}
-				
-				infiniteProgress.setMaximum( total );
-				
-				infiniteProgress.setValue( current );
+
+				infiniteProgress.setMaximum(total);
+
+				infiniteProgress.setValue(current);
 			}
 		});
 
 	}
-	
-	public void updateProgress( int currentPercentage ){
-		
+
+	public void updateProgress(int currentPercentage) {
+
 		SwingUtilities.invokeLater(new Runnable() {
-			
+
 			@Override
 			public void run() {
-				
-				
-				infiniteProgress.setString( currentPercentage + "%");
-				if( infiniteProgress.isIndeterminate() ){
+
+				infiniteProgress.setString(currentPercentage + "%");
+				if (infiniteProgress.isIndeterminate()) {
 					infiniteProgress.setIndeterminate(false);
 					infiniteProgress.setStringPainted(true);
 				}
-				
-				infiniteProgress.setMaximum( 100 );
-				
-				infiniteProgress.setValue( currentPercentage );
+
+				infiniteProgress.setMaximum(100);
+
+				infiniteProgress.setValue(currentPercentage);
 			}
 		});
 
 	}
-	
-	public void setMessage(String msg){
+
+	public void setMessage(String msg) {
 		label.setText(msg);
 	}
 
@@ -127,10 +126,18 @@ public class InfiniteProgressMonitor implements ProgressListener {
 	}
 
 	public void show() {
-		getDialog().setVisible(true);
-		if (getPane().getValue().equals(cancelOption)) {
-			setUserCancelled(true);
-		}
+		SwingUtilities.invokeLater(new Runnable() {
+
+			@Override
+			public void run() {
+				getDialog().setVisible(true);
+				if (getPane().getValue().equals(cancelOption)) {
+					setUserCancelled(true);
+				}
+			}
+
+		});
+
 	}
 
 	private JOptionPane getPane() {
@@ -143,7 +150,7 @@ public class InfiniteProgressMonitor implements ProgressListener {
 
 	@Override
 	public void progressMade(Progress progress) {
-		updateProgress( (int)progress.getProcessedItems()  );
+		updateProgress((int) progress.getProcessedItems());
 	}
 
 }

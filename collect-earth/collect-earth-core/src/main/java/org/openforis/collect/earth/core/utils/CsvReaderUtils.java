@@ -18,7 +18,7 @@ public class CsvReaderUtils {
 	public static boolean isCsvFile( String csvFile) throws IOException{
 		boolean isCsvFile = true;
 		try {
-			getCsvReader(csvFile);
+			getCsvReader(csvFile, false);
 		} catch (IllegalArgumentException e) {
 			// The CSV reader could not read the file, thus it is not a CSVReader
 			isCsvFile = false;
@@ -26,17 +26,23 @@ public class CsvReaderUtils {
 		
 		return isCsvFile;
 	}
-
+	
 	public static CSVReader getCsvReader(String csvFile) throws IOException {
+		return getCsvReader(csvFile, true);
+	}
+
+	public static CSVReader getCsvReader(String csvFile, boolean checkContainsCoordinates) throws IOException {
 		
 		char[] possibleSeparators = new char[]{',', ';','\t', '|'};
 		CSVReader csvReader = null;
 		for (char c : possibleSeparators) {
 			CSVReader commaSeparatedReader = getCsvReader(csvFile, c);
-			if( checkCsvReaderWorks( commaSeparatedReader ) ){
+			if( !checkContainsCoordinates ) {
+				return commaSeparatedReader;
+			} else if( checkCsvReaderWorks( commaSeparatedReader ) ){
 				csvReader =getCsvReader(csvFile, c); // Get the reader again so that it starts from the first column
 				break;
-			}else{
+			} else{
 				commaSeparatedReader.close();
 			}
 		}

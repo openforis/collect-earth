@@ -21,13 +21,13 @@ public class SimplePlacemarkObject {
 	private String nextPlacemarkId = "unknown";
 
 	private String placemarkId;
-	
+
 	private String visiblePlacemarkId;
 
 	private List<SimplePlacemarkObject> points;
 
 	private SimpleRegion region;
-	
+
 	private List<List<SimpleCoordinate>> multiShape;
 
 	private List<SimpleCoordinate> shape;
@@ -41,19 +41,19 @@ public class SimplePlacemarkObject {
 	private int aspect;
 
 	private String[] extraInfo;
-	
+
 	private Map<String, String> valuesByColumn;
 
 	private String[] extraColumns;
-	
+
 	private String[] idColumns;
 
 	private String originalLatitude;
-	
+
 	private String originalLongitude;
-	
+
 	private String kmlPolygon;
-	
+
 	public SimplePlacemarkObject(Coordinate coordinate) {
 		this.coord = new SimpleCoordinate(coordinate);
 	}
@@ -68,8 +68,7 @@ public class SimplePlacemarkObject {
 
 	public SimplePlacemarkObject(String[] coordinatesLatLong) {
 		super();
-		this.coord = new SimpleCoordinate(coordinatesLatLong[0],
-				coordinatesLatLong[1]);
+		this.coord = new SimpleCoordinate(coordinatesLatLong[0], coordinatesLatLong[1]);
 	}
 
 	public SimplePlacemarkObject() {
@@ -78,8 +77,6 @@ public class SimplePlacemarkObject {
 	public int getAspect() {
 		return aspect;
 	}
-
-
 
 	public SimpleCoordinate getCoord() {
 		return coord;
@@ -92,8 +89,6 @@ public class SimplePlacemarkObject {
 	public String[] getExtraInfo() {
 		return extraInfo;
 	}
-
-	
 
 	public String getNextPlacemarkId() {
 		return nextPlacemarkId;
@@ -127,7 +122,6 @@ public class SimplePlacemarkObject {
 		this.aspect = aspect;
 	}
 
-
 	public void setCoord(SimpleCoordinate coord) {
 		this.coord = coord;
 	}
@@ -140,7 +134,6 @@ public class SimplePlacemarkObject {
 		this.extraInfo = extraInfo;
 	}
 
-
 	public void setNextPlacemarkId(String nextPlacemarkId) {
 		this.nextPlacemarkId = nextPlacemarkId;
 	}
@@ -149,7 +142,6 @@ public class SimplePlacemarkObject {
 		this.placemarkId = placemarkId;
 	}
 
-	
 	public String[] getExtraColumns() {
 		return extraColumns;
 	}
@@ -157,7 +149,6 @@ public class SimplePlacemarkObject {
 	public void setExtraColumns(String[] extraColumns) {
 		this.extraColumns = extraColumns;
 	}
-
 
 	public void setPoints(List<SimplePlacemarkObject> points) {
 		this.points = points;
@@ -171,8 +162,6 @@ public class SimplePlacemarkObject {
 		this.samplePointOutlined = samplePointOutlined;
 	}
 
-
-
 	public void setSlope(double slope) {
 		this.slope = (int) slope;
 	}
@@ -180,7 +169,7 @@ public class SimplePlacemarkObject {
 	public void setSlope(int slope) {
 		this.slope = slope;
 	}
-	
+
 	public Map<String, String> getValuesByColumn() {
 		return valuesByColumn;
 	}
@@ -204,11 +193,7 @@ public class SimplePlacemarkObject {
 	public String getKmlPolygon() {
 		return kmlPolygon;
 	}
-	
 
-	
-
-	
 	@Override
 	public int hashCode() {
 		final int prime = 31;
@@ -219,20 +204,14 @@ public class SimplePlacemarkObject {
 		result = prime * result + Arrays.hashCode(extraColumns);
 		result = prime * result + Arrays.hashCode(extraInfo);
 		result = prime * result + Arrays.hashCode(idColumns);
-		result = prime * result
-				+ ((nextPlacemarkId == null) ? 0 : nextPlacemarkId.hashCode());
-		result = prime * result
-				+ ((placemarkId == null) ? 0 : placemarkId.hashCode());
+		result = prime * result + ((nextPlacemarkId == null) ? 0 : nextPlacemarkId.hashCode());
+		result = prime * result + ((placemarkId == null) ? 0 : placemarkId.hashCode());
 		result = prime * result + ((points == null) ? 0 : points.hashCode());
 		result = prime * result + ((region == null) ? 0 : region.hashCode());
-		result = prime
-				* result
-				+ ((samplePointOutlined == null) ? 0 : samplePointOutlined
-						.hashCode());
+		result = prime * result + ((samplePointOutlined == null) ? 0 : samplePointOutlined.hashCode());
 		result = prime * result + ((shape == null) ? 0 : shape.hashCode());
 		result = prime * result + slope;
-		result = prime * result
-				+ ((valuesByColumn == null) ? 0 : valuesByColumn.hashCode());
+		result = prime * result + ((valuesByColumn == null) ? 0 : valuesByColumn.hashCode());
 		return result;
 	}
 
@@ -270,7 +249,7 @@ public class SimplePlacemarkObject {
 				return false;
 		} else if (!placemarkId.equals(other.placemarkId))
 			return false;
-		
+
 		if (valuesByColumn == null) {
 			if (other.valuesByColumn != null)
 				return false;
@@ -297,17 +276,13 @@ public class SimplePlacemarkObject {
 
 	@Override
 	public String toString() {
-		return "SimplePlacemarkObject [coord=" + coord + ", nextPlacemarkId="
-				+ nextPlacemarkId + ", placemarkId=" + placemarkId
-				+ ", points=" + points + ", region=" + region + ", shape="
-				+ shape + ", samplePointOutlined=" + samplePointOutlined
-				+ ", elevation=" + elevation + ", slope=" + slope + ", aspect="
-				+ aspect + ", extraInfo=" + Arrays.toString(extraInfo)
-				+ ", valuesByColumn=" + valuesByColumn + ", extraColumns="
-				+ Arrays.toString(extraColumns) + ", idColumns="
-				+ Arrays.toString(idColumns) + ", originalLatitude="
-				+ originalLatitude + ", originalLongitude=" + originalLongitude
-				+ ", kmlPolygon=" + kmlPolygon + "]";
+		return "SimplePlacemarkObject [coord=" + coord + ", nextPlacemarkId=" + nextPlacemarkId + ", placemarkId="
+				+ placemarkId + ", points=" + points + ", region=" + region + ", shape=" + shape
+				+ ", samplePointOutlined=" + samplePointOutlined + ", elevation=" + elevation + ", slope=" + slope
+				+ ", aspect=" + aspect + ", extraInfo=" + Arrays.toString(extraInfo) + ", valuesByColumn="
+				+ valuesByColumn + ", extraColumns=" + Arrays.toString(extraColumns) + ", idColumns="
+				+ Arrays.toString(idColumns) + ", originalLatitude=" + originalLatitude + ", originalLongitude="
+				+ originalLongitude + ", kmlPolygon=" + kmlPolygon + "]";
 	}
 
 	public String getVisiblePlacemarkId() {
@@ -319,7 +294,7 @@ public class SimplePlacemarkObject {
 	}
 
 	public void setShape(List<SimpleCoordinate> shapePoints) {
-		if(shapePoints != null ){
+		if (shapePoints != null) {
 			List<List<SimpleCoordinate>> tempShapes = new ArrayList<List<SimpleCoordinate>>();
 			tempShapes.add(shapePoints);
 			multiShape = tempShapes;
@@ -333,14 +308,13 @@ public class SimplePlacemarkObject {
 
 	public void setMultiShape(List<List<SimpleCoordinate>> multiShape) {
 		this.multiShape = multiShape;
-		if( multiShape!=null && !multiShape.isEmpty() ){
+		if (multiShape != null && !multiShape.isEmpty()) {
 			shape = multiShape.get(0);
 		}
 	}
-	
+
 	public List<List<SimpleCoordinate>> getMultiShape() {
 		return multiShape;
 	}
-
 
 }

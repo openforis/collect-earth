@@ -135,7 +135,10 @@ public class ProduceCsvFiles {
 				}
 				
 				Strata stratum = new Strata(stratumColumnValue, fileNumber);
-				writCsvRow(csvFiles, csvRow, stratum);
+				// ROWS where the first column has the word DELETEME will not be written to the CSV file, this way we can delete unwanted repeated rows
+				if( !csvRow[0].equals("DELETEME") ) {
+					writCsvRow(csvFiles, csvRow, stratum);
+				}
 				rowNumber++;
 				
 			}

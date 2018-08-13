@@ -3,7 +3,7 @@
 	<parent>
 		<groupId>org.openforis.collect.earth</groupId>
 		<artifactId>collect-earth</artifactId>
-		<version>1.6.36-SNAPSHOT</version>
+		<version>1.7.2-SNAPSHOT</version>
 	</parent>
 	<artifactId>collect-earth-installer</artifactId>
 	<packaging>pom</packaging>
@@ -504,7 +504,7 @@ No Solaris installer necessary
 							<dependency>
 								<groupId>com.jcraft</groupId>
 								<artifactId>jsch</artifactId>
-								<version>0.1.51</version>
+								<version>0.1.54</version>
 							</dependency>
 						</dependencies>
 					
