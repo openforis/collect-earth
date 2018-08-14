@@ -42,8 +42,8 @@ public class JSwingAppender extends AbstractAppender {
 
 	@Override
 	public void append(LogEvent event) {
-		// TODO Auto-generated method stub
-		final String message = new String(this.getLayout().toByteArray(event));
+
+		final String message = new String(this.getLayout().toByteArray(event)).replaceAll("(\r\n|\n)", "<br />");
 
 		// Append formatted message to text area using the Thread.
 		try {
