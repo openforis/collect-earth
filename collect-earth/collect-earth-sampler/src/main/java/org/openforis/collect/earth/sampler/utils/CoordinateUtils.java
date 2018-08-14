@@ -51,7 +51,7 @@ public class CoordinateUtils {
 	 * @return The coordinates of the original point after being displaced using theprovided offsets as longitude, latitude.
 	 * @throws TransformException
 	 */
-	public static double[] getPointWithOffset(double[] originalLatLong, double offsetLongitudeMeters, double offsetLatitudeMeters)
+	public static synchronized double[] getPointWithOffset(double[] originalLatLong, double offsetLongitudeMeters, double offsetLatitudeMeters)
 			throws TransformException {
 		double[] movedPointLatLong = null;
 		try {
@@ -93,14 +93,24 @@ public class CoordinateUtils {
 			logger.error(
 					"Exception when moving point " + Arrays.toString(originalLatLong) + " with offset longitude " + offsetLongitudeMeters
 							+ " and latitude " + offsetLatitudeMeters, e);
-			e.printStackTrace( System.out );
 		}
-		if( movedPointLatLong!= null ){
-			double[] latLongPoint = new double[]{ movedPointLatLong[1], movedPointLatLong[0]};
-			return latLongPoint ;
-		}else{
-			return null;
-		}
+		
+		return( movedPointLatLong!= null ? new double[]{ movedPointLatLong[1], movedPointLatLong[0]}:null);
 
+	}
+	
+	public static void main(String[] args) {
+	//	Exception when moving point [17.934589857940825, -88.44027673628483] with offset longitude 40.0 and latitude -30.0
+		double[] coord = new double[] {17.934589857940825d, -88.44027673628483d};
+		try {
+			double[] pointWithOffset = getPointWithOffset(
+					coord, 
+					40.0d, 30.0d );
+			System.out.println( Arrays.toString(pointWithOffset) );
+		} catch (TransformException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+		
 	}
 }

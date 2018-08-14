@@ -260,7 +260,7 @@ public class EarthApp {
 	 * @throws IOException Throws exception if the KMl file cannot be generated
 	 * @throws KmlGenerationException Throws exception if the KML file contents cannot be generated
 	 */
-	private static void loadKmlInGoogleEarth(boolean forceKmlRecreation) throws IOException, KmlGenerationException {
+	private static synchronized void loadKmlInGoogleEarth(boolean forceKmlRecreation) throws IOException, KmlGenerationException {
 		earthApp.getKmlGeneratorService().generatePlacemarksKmzFile( forceKmlRecreation );
 		earthApp.simulateClickKmz();
 	}
@@ -505,7 +505,7 @@ public class EarthApp {
 			public void run() {
 				// Only regenerate KML and reload
 				try {
-					SwingUtilities.invokeAndWait( new Runnable() {
+					SwingUtilities.invokeLater( new Runnable() {
 						@Override
 						public void run() {
 							if( windowShowingTimer != null ){
@@ -523,7 +523,7 @@ public class EarthApp {
 				}finally{
 					if( windowShowingTimer != null ){
 						try {
-							SwingUtilities.invokeAndWait( new Runnable() {
+							SwingUtilities.invokeLater( new Runnable() {
 								@Override
 								public void run() {
 									
