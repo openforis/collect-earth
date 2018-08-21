@@ -126,8 +126,6 @@ public final class ImportActionListener implements ActionListener {
 			case CSV:
 				for (final File importedFile : filesToImport) {
 
-					logger.error("Should come in the log" ); //$NON-NLS-1$
-					
 					CSVDataImportProcess importSurveyAsCsv = null;
 					try {
 						importSurveyAsCsv = dataImportService.getCsvImporterProcess(importedFile);
