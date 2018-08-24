@@ -24,6 +24,7 @@ import javax.swing.event.DocumentEvent;
 import javax.swing.event.DocumentListener;
 
 import org.apache.commons.lang3.StringUtils;
+import org.openforis.collect.earth.app.desktop.EarthApp;
 import org.openforis.collect.earth.app.service.EarthSurveyService;
 import org.openforis.collect.earth.app.view.JFilePicker.DlgMode;
 import org.openforis.collect.earth.core.utils.CsvReaderUtils;
@@ -269,6 +270,9 @@ public class RemovePlotsFromDBDlg {
 			    JScrollPane scrollPane = new JScrollPane(web);
 			    scrollPane.setPreferredSize( new Dimension( 450, 350 ));
 
+			    // Refresh contents of Google Earth!
+			    EarthApp.executeKmlLoadAsynchronously( null );
+			    
 				SwingUtilities.invokeLater(new Runnable() {
 
 					@Override

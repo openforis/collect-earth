@@ -1,27 +1,38 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<Configuration status="warn">
-  <Appenders>
-    <RollingFile name="file" fileName="${sys:collectEarth.userFolder}/earth_error.log" filePattern="${sys:collectEarth.userFolder}/earth_error_%d{MM-dd-yyyy}-%i.log" bufferSize="512" bufferedIO="true">
-      <PatternLayout>
-        <Pattern>%-5p %d [%t] %c: %m%n</Pattern>
-      </PatternLayout>
-      <Policies>
-        <SizeBasedTriggeringPolicy size="10 MB"/>
-      </Policies>
-      <DefaultRolloverStrategy max="5"/>
-    </RollingFile>
-    <Console name="STDOUT" target="SYSTEM_OUT">
-      <PatternLayout pattern="%-5p %d [%t] %c: %m%n"/>
-    </Console>
-    
-    <Sentry name="Sentry" />
-    
-  </Appenders>
-  <Loggers>
-    <Root level="trace">
-      <AppenderRef ref="file" level="ERROR"/>
-      <appender-ref ref="Sentry" level="ERROR" />
-      <AppenderRef ref="STDOUT" level="WARN"/>
-    </Root>
-  </Loggers>
+<Configuration status="warn"
+	packages="org.openforis.collect.earth.app.logging">
+	<Appenders>
+		<RollingFile name="file"
+			fileName="${sys:collectEarth.userFolder}/earth_error.log"
+			filePattern="${sys:collectEarth.userFolder}/earth_error_%d{MM-dd-yyyy}-%i.log"
+			bufferSize="512" bufferedIO="true">
+			<PatternLayout>
+				<Pattern>%-5p %d [%t] %c: %m%n</Pattern>
+			</PatternLayout>
+			<Policies>
+				<SizeBasedTriggeringPolicy size="10 MB" />
+			</Policies>
+			<DefaultRolloverStrategy max="5" />
+		</RollingFile>
+		<Console name="STDOUT" target="SYSTEM_OUT">
+			<PatternLayout pattern="%-5p %d [%t] %c: %m%n" />
+		</Console>
+
+		<JSwingAppender name="jswing-log">
+			<PatternLayout>
+				<pattern>[%-5level] %d{yyyy-MM-dd HH:mm:ss} %msg%n</pattern>
+			</PatternLayout>
+		</JSwingAppender>
+
+		<Sentry name="Sentry" />
+
+	</Appenders>
+	<Loggers>
+		<Root level="trace">
+			<AppenderRef ref="file" level="ERROR" />
+			<AppenderRef ref="Sentry" level="ERROR" />
+			<AppenderRef ref="STDOUT" level="WARN" />
+			<AppenderRef ref="jswing-log" level="ERROR"/>
+		</Root>
+	</Loggers>
 </Configuration>
