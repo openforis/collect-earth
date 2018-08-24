@@ -1,5 +1,9 @@
 package org.openforis.collect.earth.app.view;
 
+import java.awt.Desktop;
+import java.io.File;
+import java.io.IOException;
+
 import javax.swing.JFrame;
 import javax.swing.ProgressMonitor;
 
@@ -13,16 +17,18 @@ public class ExportProcessMonitorDialog extends ProcessMonitorDialog<Void, DataE
 
 
 	private RecordsToExport recordsToExport;
-	private DataFormat exportType;
+	private DataFormat exportFormat;
 	private EarthSurveyService earthSurveyService;
 	private LocalPropertiesService localPropertiesService;
+	private File exportToFile;
 
-	public ExportProcessMonitorDialog(AbstractProcess<Void, DataExportStatus> exportProcess, JFrame parentFrame,  RecordsToExport recordsToExport, DataFormat exportType, EarthSurveyService earthSurveyService, LocalPropertiesService localPropertiesService ) {
+	public ExportProcessMonitorDialog(AbstractProcess<Void, DataExportStatus> exportProcess, JFrame parentFrame,  RecordsToExport recordsToExport, DataFormat exportFormat, EarthSurveyService earthSurveyService, File exportToFile, LocalPropertiesService localPropertiesService ) {
 		super();
 		this.process = exportProcess;
 		this.recordsToExport = recordsToExport;
-		this.exportType = exportType;
+		this.exportFormat = exportFormat;
 		this.earthSurveyService = earthSurveyService;
+		this.exportToFile = exportToFile;
 		this.localPropertiesService = localPropertiesService;
 		progressMonitor = new ProgressMonitor(parentFrame, Messages.getString("ExportDialogProcessMonitor.0"), Messages.getString("ExportDialogProcessMonitor.1"), 0, 100); //$NON-NLS-1$ //$NON-NLS-2$
 		progressMonitor.setMillisToPopup(1000);
@@ -37,7 +43,7 @@ public class ExportProcessMonitorDialog extends ProcessMonitorDialog<Void, DataE
 
 		try {
 			process.call();
-			if( process.getStatus().isComplete() && exportType.equals( DataFormat.ZIP_WITH_XML ) && recordsToExport.equals(RecordsToExport.MODIFIED_SINCE_LAST_EXPORT) ){
+			if( process.getStatus().isComplete() && exportFormat.equals( DataFormat.ZIP_WITH_XML ) && recordsToExport.equals(RecordsToExport.MODIFIED_SINCE_LAST_EXPORT) ){
 				String surveyName = ""; //$NON-NLS-1$
 					if( earthSurveyService.getCollectSurvey()!= null ){
 						surveyName = earthSurveyService.getCollectSurvey().getName();
@@ -46,10 +52,23 @@ public class ExportProcessMonitorDialog extends ProcessMonitorDialog<Void, DataE
 				
 			}
 			
+			if( process.getStatus().isComplete() && exportFormat.equals( DataFormat.CSV ) || exportFormat.equals( DataFormat.FUSION ) || exportFormat.equals( DataFormat.KML_FILE ) ) {
+				openFile( exportToFile );
+			}
+			
 		} catch (final Exception e) {
 			logger.error("Error starting the process", e); //$NON-NLS-1$
 		}
 
 	}
 
+private void openFile(File exportedFile) {
+if (Desktop.isDesktopSupported()) {
+    try {
+        Desktop.getDesktop().open(exportedFile);
+    } catch (IOException ex) {
+        logger.warn("No application registered to open file " + exportedFile.getAbsolutePath() ); //$NON-NLS-1$
+    }
+}
+}
 }

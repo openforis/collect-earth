@@ -29,14 +29,16 @@ public final class ExportActionListener implements ActionListener {
 	private LocalPropertiesService localPropertiesService;
 	private DataImportExportService dataExportService;
 	private EarthSurveyService earthSurveyService;
-	private Logger logger = LoggerFactory.getLogger( ExportActionListener.class);
+	private Logger logger = LoggerFactory.getLogger(ExportActionListener.class);
 	private RecordsToExport recordsToExport;
 
-	public enum RecordsToExport{
-		ALL, MODIFIED_SINCE_LAST_EXPORT,PICK_FROM_DATE
+	public enum RecordsToExport {
+		ALL, MODIFIED_SINCE_LAST_EXPORT, PICK_FROM_DATE
 	};
 
-	public ExportActionListener(DataFormat exportFormat, RecordsToExport recordsToExport, JFrame frame, LocalPropertiesService localPropertiesService, DataImportExportService dataExportService, EarthSurveyService earthSurveyService) {
+	public ExportActionListener(DataFormat exportFormat, RecordsToExport recordsToExport, JFrame frame,
+			LocalPropertiesService localPropertiesService, DataImportExportService dataExportService,
+			EarthSurveyService earthSurveyService) {
 		this.exportFormat = exportFormat;
 		this.frame = frame;
 		this.localPropertiesService = localPropertiesService;
@@ -47,33 +49,33 @@ public final class ExportActionListener implements ActionListener {
 
 	@Override
 	public void actionPerformed(ActionEvent e) {
-		try{
+		try {
 			CollectEarthWindow.startWaiting(frame);
 
 			Date recordsModifiedSince = null;
-			if( recordsToExport.equals( RecordsToExport.MODIFIED_SINCE_LAST_EXPORT) ){
+			if (recordsToExport.equals(RecordsToExport.MODIFIED_SINCE_LAST_EXPORT)) {
 				String surveyName = ""; //$NON-NLS-1$
-				if( earthSurveyService.getCollectSurvey()!= null ){
+				if (earthSurveyService.getCollectSurvey() != null) {
 					surveyName = earthSurveyService.getCollectSurvey().getName();
 				}
-				recordsModifiedSince = localPropertiesService.getLastExportedDate( surveyName );
-			}else if( recordsToExport.equals( RecordsToExport.PICK_FROM_DATE ) ){
+				recordsModifiedSince = localPropertiesService.getLastExportedDate(surveyName);
+			} else if (recordsToExport.equals(RecordsToExport.PICK_FROM_DATE)) {
 				recordsModifiedSince = getPickDateDlg();
-				if( recordsModifiedSince == null ){
+				if (recordsModifiedSince == null) {
 					// No date chosen, do not proceed with the export
 					return;
 				}
 			}
 
-			exportDataTo(e, exportFormat, recordsModifiedSince  );
-		}finally{
+			exportDataTo(e, exportFormat, recordsModifiedSince);
+		} finally {
 			CollectEarthWindow.endWaiting(frame);
 		}
 
 	}
 
-	private Date getPickDateDlg() {	
-		
+	private Date getPickDateDlg() {
+
 		JPanel panel = new JPanel();
 
 		JXDatePicker picker = new JXDatePicker();
@@ -81,74 +83,81 @@ public final class ExportActionListener implements ActionListener {
 		picker.setFormats(new SimpleDateFormat("dd.MM.yyyy")); //$NON-NLS-1$
 
 		panel.add(picker);
-		
-		int result = JOptionPane.showConfirmDialog(frame,
-                panel,
-                Messages.getString("ExportActionListener.1"), //$NON-NLS-1$
-                JOptionPane.OK_CANCEL_OPTION,
-                JOptionPane.PLAIN_MESSAGE);		
-		if( result ==  JOptionPane.OK_OPTION ){ 
+
+		int result = JOptionPane.showConfirmDialog(frame, panel, Messages.getString("ExportActionListener.1"), //$NON-NLS-1$
+				JOptionPane.OK_CANCEL_OPTION, JOptionPane.PLAIN_MESSAGE);
+		if (result == JOptionPane.OK_OPTION) {
 			return picker.getDate();
-		}else{
+		} else {
 			return null;
 		}
 	}
 
-	private void exportDataTo(ActionEvent e, DataFormat exportType, Date recordsModifiedSince) {
+	private File exportDataTo(ActionEvent e, DataFormat exportType, Date recordsModifiedSince) {
 		String preselectedName = getPreselectedName(exportType, recordsModifiedSince);
 
-		File[] exportToFile = JFileChooserExistsAware.getFileChooserResults( exportType, true, false, preselectedName, localPropertiesService, frame);
+		File[] exportToFile = JFileChooserExistsAware.getFileChooserResults(exportType, true, false, preselectedName,
+				localPropertiesService, frame);
 
+		File exportedFile = null;
 		if (exportToFile != null && exportToFile.length > 0) {
-			startExportingData(exportType, recordsModifiedSince, exportToFile); 
+			startExportingData(exportType, recordsModifiedSince, exportToFile[0]);
+			exportedFile = exportToFile[0];
 		}
+
+		return exportedFile;
 	}
 
-	
-	private boolean promptForLabelInclusion(DataFormat exportType){
+	private boolean promptForLabelInclusion(DataFormat exportType) {
 		boolean includeLabels = false;
-		
-		if( exportType.equals( DataFormat.CSV)){
-			int result = JOptionPane.showConfirmDialog(frame, "Include labels for code attributes", "Include labels", JOptionPane.YES_NO_OPTION, JOptionPane.QUESTION_MESSAGE);
+
+		if (exportType.equals(DataFormat.CSV)) {
+			int result = JOptionPane.showConfirmDialog(frame, "Include labels for code attributes", "Include labels",
+					JOptionPane.YES_NO_OPTION, JOptionPane.QUESTION_MESSAGE);
 			includeLabels = (result == JOptionPane.YES_OPTION);
 		}
-		
+
 		return includeLabels;
 	}
-	
-	private void startExportingData(DataFormat exportType, Date recordsModifiedSince, File[] exportToFile) {
-		AbstractProcess<Void, DataExportStatus> exportProcess = null ;
+
+	private void startExportingData(DataFormat exportType, Date recordsModifiedSince, File exportToFile) {
+		AbstractProcess<Void, DataExportStatus> exportProcess = null;
 		try {
 			exportProcess = getExportProcess(exportType, recordsModifiedSince, exportToFile);
-			if( exportProcess != null ){
-				ExportProcessMonitorDialog exportProcessWorker = new ExportProcessMonitorDialog(exportProcess, frame, recordsToExport, exportType, earthSurveyService, localPropertiesService );
+			if (exportProcess != null) {
+				ExportProcessMonitorDialog exportProcessWorker = new ExportProcessMonitorDialog(exportProcess, frame,
+						recordsToExport, exportType, earthSurveyService, exportToFile, localPropertiesService);
 				exportProcessWorker.start();
 			}
 		} catch (Exception e1) {
-			logger.error("What happened?" , e1); //$NON-NLS-1$ //$NON-NLS-2$
-			JOptionPane.showMessageDialog(this.frame, Messages.getString("CollectEarthWindow.0"), Messages.getString("CollectEarthWindow.1"), //$NON-NLS-1$ //$NON-NLS-2$
+			logger.error("What happened?", e1); //$NON-NLS-1$ //$NON-NLS-2$
+			JOptionPane.showMessageDialog(this.frame, Messages.getString("CollectEarthWindow.0"), //$NON-NLS-1$
+					Messages.getString("CollectEarthWindow.1"), //$NON-NLS-1$
 					JOptionPane.ERROR_MESSAGE);
-			logger.error("Error exporting data to " + exportToFile[0].getAbsolutePath() + " in format " + exportType.name() , e1); //$NON-NLS-1$ //$NON-NLS-2$
+			logger.error(
+					"Error exporting data to " + exportToFile.getAbsolutePath() + " in format " + exportType.name(), //$NON-NLS-1$ //$NON-NLS-2$
+					e1);
 		}
 	}
 
-	private AbstractProcess<Void, DataExportStatus> getExportProcess(DataFormat exportType, Date recordsModifiedSince, File[] exportToFile) throws Exception {
-		AbstractProcess<Void, DataExportStatus> exportProcess = null ;
+	private AbstractProcess<Void, DataExportStatus> getExportProcess(DataFormat exportType, Date recordsModifiedSince,
+			File exportToFile) throws Exception {
+		AbstractProcess<Void, DataExportStatus> exportProcess = null;
 		boolean addLabels = false;
 		switch (exportType) {
 		case CSV:
 			addLabels = promptForLabelInclusion(exportType);
-			exportProcess = dataExportService.exportSurveyAsCsv(exportToFile[0], addLabels);
+			exportProcess = dataExportService.exportSurveyAsCsv(exportToFile, addLabels);
 			break;
 		case ZIP_WITH_XML:
-			exportProcess = dataExportService.exportSurveyAsZipWithXml(exportToFile[0], recordsModifiedSince);
+			exportProcess = dataExportService.exportSurveyAsZipWithXml(exportToFile, recordsModifiedSince);
 			break;
 		case FUSION:
 			addLabels = promptForLabelInclusion(exportType);
-			exportProcess = dataExportService.exportSurveyAsFusionTable(exportToFile[0], addLabels);
+			exportProcess = dataExportService.exportSurveyAsFusionTable(exportToFile, addLabels);
 			break;
 		case COLLECT_BACKUP:
-			exportProcess = dataExportService.exportSurveyAsBackup(exportToFile[0]);
+			exportProcess = dataExportService.exportSurveyAsBackup(exportToFile);
 			break;
 		default:
 			break;
@@ -157,36 +166,35 @@ public final class ExportActionListener implements ActionListener {
 	}
 
 	private String getPreselectedName(DataFormat exportType, Date modifiedSince) {
-		
-		
+
 		String operator = "";
-		
+
 		try {
 			operator = localPropertiesService.getOperator();
-			
+
 			operator = StringUtils.deleteWhitespace(operator);
 			// Replaces character like Tĥïŝ ĩš â fůňķŷ Šťŕĭńġ with This is a funky String
 			operator = Normalizer.normalize(operator, Normalizer.Form.NFD).replaceAll("[^\\p{ASCII}]", "");
-			
-			//Remove non-alphanumeric characters
-			operator = operator.replaceAll("[^a-zA-Z0-9]" , "");
-			
+
+			// Remove non-alphanumeric characters
+			operator = operator.replaceAll("[^a-zA-Z0-9]", "");
+
 		} catch (Exception e) {
-			logger.error("Error normalizing operator name " , e);
-		}
-		
-		String preselectName = operator + "_collectedData_"; //$NON-NLS-1$
-		
-		preselectName += earthSurveyService.getCollectSurvey().getName();
-		DateFormat dateFormat = new SimpleDateFormat("ddMMyy_HHmmss"); //$NON-NLS-1$
-		if( modifiedSince == null ){
-			preselectName += "_on_" + dateFormat.format( new Date() ) ; //$NON-NLS-1$
-		}else{
-			
-			preselectName += "_" + dateFormat.format(modifiedSince) + "_to_" + dateFormat.format( new Date() ); //$NON-NLS-1$ //$NON-NLS-2$
+			logger.error("Error normalizing operator name ", e);
 		}
 
-		preselectName += "_" + exportType.name() +  "." + exportType.getDefaultExtension(); //$NON-NLS-1$ //$NON-NLS-2$
+		String preselectName = operator + "_collectedData_"; //$NON-NLS-1$
+
+		preselectName += earthSurveyService.getCollectSurvey().getName();
+		DateFormat dateFormat = new SimpleDateFormat("ddMMyy_HHmmss"); //$NON-NLS-1$
+		if (modifiedSince == null) {
+			preselectName += "_on_" + dateFormat.format(new Date()); //$NON-NLS-1$
+		} else {
+
+			preselectName += "_" + dateFormat.format(modifiedSince) + "_to_" + dateFormat.format(new Date()); //$NON-NLS-1$ //$NON-NLS-2$
+		}
+
+		preselectName += "_" + exportType.name() + "." + exportType.getDefaultExtension(); //$NON-NLS-1$ //$NON-NLS-2$
 
 		return preselectName;
 	}
