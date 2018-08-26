@@ -204,7 +204,7 @@ public class RegionCalculationUtils {
 		if (areasPerAttribute.exists()) {
 
 			try {
-				CSVReader csvReader = CsvReaderUtils.getCsvReader(areasPerAttribute.getAbsolutePath());
+				CSVReader csvReader = CsvReaderUtils.getCsvReader(areasPerAttribute.getAbsolutePath(), false);
 				
 				// The header (first line) should contain the names of the three columns : attribute_name,area,weight
 

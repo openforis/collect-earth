@@ -341,7 +341,6 @@ public class PropertiesDialog extends JDialog {
 				if (selectedProjectFile != null && selectedProjectFile.length == 1) {
 					try {
 						projectsService.loadCompressedProjectFile(selectedProjectFile[0]);
-
 						restartEarth();
 					} catch (Exception e1) {
 						JOptionPane.showMessageDialog(PropertiesDialog.this, e1.getMessage(),
