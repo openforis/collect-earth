@@ -271,9 +271,7 @@ public class ServerController extends Observable {
 		LocalPropertiesService localPropertiesService = getContext().getBean(LocalPropertiesService.class);
 		this.addObserver(getContext().getBean(BrowserService.class));
 		//Force the initialization of backup service
-		//getContext().getBean( BackupSqlLiteService.class);
-
-		
+		//getContext().getBean( BackupSqlLiteService.class);		
 	}
 
 	public void stopServer() throws Exception {

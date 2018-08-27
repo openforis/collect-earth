@@ -5,8 +5,7 @@ import java.io.IOException;
 
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
-
-import net.lingala.zip4j.exception.ZipException;
+import javax.swing.SwingUtilities;
 
 import org.apache.commons.lang.StringUtils;
 import org.openforis.collect.earth.app.desktop.EarthApp;
@@ -17,6 +16,8 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.RequestMapping;
+
+import net.lingala.zip4j.exception.ZipException;
 
 /**
  * Servlet to load a project file when Collect Earth is already running:
@@ -36,7 +37,7 @@ public class LoadProjectFileServlet {
 
 	@Autowired
 	EarthProjectsService earthProjectsService;
-	
+
 	@Autowired
 	LocalPropertiesService localPropertiesService;
 
@@ -47,37 +48,41 @@ public class LoadProjectFileServlet {
 		if( StringUtils.isBlank( projectFilePath ) ){
 			logger.error("The " + PROJECT_FILE_PARAMETER + " parameter cannot be empty"); //$NON-NLS-1$ //$NON-NLS-2$
 		}else{
-			try {
-				File projectZipFile = new File(projectFilePath);
-				if( earthProjectsService.loadCompressedProjectFile( projectZipFile ) ) {
-					localPropertiesService.nullifyChecksumValues();
-					// Re-generate KMZ
-					new Thread("Restarting server after double-clicking on CEP file : " + projectZipFile.getName()){
-						@Override
-						public void run() {
-								try {
-									Thread.sleep(3000);
-								} catch (InterruptedException e) {
-									// TODO Auto-generated catch block
-									e.printStackTrace();
-								}
-								EarthApp.restart();
-							}
-						
-					}.start();
-				}						
-				
-				response.setStatus(200);
 
-			} catch (IllegalArgumentException | ZipException e) {
-				logger.error("Error loading the project file " + projectFilePath , e); //$NON-NLS-1$
-				response.setStatus(500);
-			}
+			SwingUtilities.invokeLater( new Thread("Reloading the Collect Earth window") {
+
+				@Override
+				public void run() {
+					File projectZipFile = new File(projectFilePath);
+					try {
+						if( earthProjectsService.loadCompressedProjectFile( projectZipFile ) ) {
+							localPropertiesService.nullifyChecksumValues();
+							// Re-generate KMZ
+							new Thread("Restarting server after double-clicking on CEP file : " + projectZipFile.getName()){
+								@Override
+								public void run() {
+									EarthApp.restart();
+								}
+
+							}.start();
+						}				
+
+					} catch (IllegalArgumentException | ZipException | IOException e) {
+						logger.error("Error loading the project file " + projectFilePath , e); //$NON-NLS-1$
+						response.setStatus(500);
+					}
+				}
+
+			});
+
+
+			response.setStatus(200);
+
 		}
 
 
 	}
-	
-	
-	
+
+
+
 }

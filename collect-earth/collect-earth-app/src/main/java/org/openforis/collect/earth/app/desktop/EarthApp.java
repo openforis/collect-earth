@@ -364,7 +364,6 @@ public class EarthApp {
 						closeSplash();
 					} catch (final Exception e) {
 						logger.error("Error generating KML file", e); //$NON-NLS-1$
-						e.printStackTrace();
 					}
 				}
 			}
@@ -471,12 +470,11 @@ public class EarthApp {
 		serverController = new ServerController();
 		serverController.deleteObservers();
 		serverController.startServer(observeInitialization);
-
 	}
 
 	public static void showMessage(String message) {
 		try {
-			SwingUtilities.invokeAndWait( new Runnable() {
+			SwingUtilities.invokeLater( new Runnable() {
 				
 				@Override
 				public void run() {
@@ -505,7 +503,7 @@ public class EarthApp {
 			public void run() {
 				// Only regenerate KML and reload
 				try {
-					SwingUtilities.invokeLater( new Runnable() {
+					SwingUtilities.invokeLater( new Thread("Start waiting cursor") {
 						@Override
 						public void run() {
 							if( windowShowingTimer != null ){
@@ -523,7 +521,7 @@ public class EarthApp {
 				}finally{
 					if( windowShowingTimer != null ){
 						try {
-							SwingUtilities.invokeLater( new Runnable() {
+							SwingUtilities.invokeLater( new Thread("End waiting cursor") {
 								@Override
 								public void run() {
 									
