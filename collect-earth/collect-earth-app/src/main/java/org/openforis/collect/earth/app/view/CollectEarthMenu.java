@@ -9,6 +9,7 @@ import java.util.List;
 
 import javax.annotation.PostConstruct;
 import javax.swing.ButtonGroup;
+import javax.swing.JCheckBoxMenuItem;
 import javax.swing.JDialog;
 import javax.swing.JFrame;
 import javax.swing.JMenu;
@@ -18,8 +19,13 @@ import javax.swing.JOptionPane;
 import javax.swing.JRadioButtonMenuItem;
 import javax.swing.SwingUtilities;
 
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
+import org.apache.logging.log4j.core.LoggerContext;
+import org.apache.logging.log4j.core.config.Configuration;
 import org.openforis.collect.earth.app.CollectEarthUtils;
 import org.openforis.collect.earth.app.EarthConstants.UI_LANGUAGE;
+import org.openforis.collect.earth.app.logging.JSwingAppender;
 import org.openforis.collect.earth.app.service.AnalysisSaikuService;
 import org.openforis.collect.earth.app.service.BackupSqlLiteService;
 import org.openforis.collect.earth.app.service.DataImportExportService;
@@ -30,8 +36,6 @@ import org.openforis.collect.earth.app.service.KmlImportService;
 import org.openforis.collect.earth.app.service.LocalPropertiesService;
 import org.openforis.collect.earth.app.service.MissingPlotService;
 import org.openforis.collect.earth.app.view.ExportActionListener.RecordsToExport;
-import org.openforis.collect.manager.RecordManager;
-import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
@@ -70,16 +74,12 @@ public class CollectEarthMenu extends JMenuBar {
 	private RemovePlotsFromDBDlg removePlotsFromDBDlg;
 	
 	@Autowired
-	private RecordManager recordManager;
-
-
-	@Autowired
 	private EarthProjectsService projectsService;
 	
 	private static final long serialVersionUID = -2457052260968029351L;
 	private final List<JMenuItem> serverMenuItems = new ArrayList<JMenuItem>();
 	private JFrame frame;
-	private final Logger logger = LoggerFactory.getLogger(CollectEarthMenu.class);
+	private final org.slf4j.Logger logger = LoggerFactory.getLogger(CollectEarthMenu.class);
 
 	public CollectEarthMenu() {
 		// Where the GUI is created:
@@ -127,6 +127,29 @@ public class CollectEarthMenu extends JMenuBar {
 		menuItem.addActionListener(
 				new OpenTextFileListener(frame, getLogFilePath(), Messages.getString("CollectEarthWindow.53"))); //$NON-NLS-1$
 		menuHelp.add(menuItem);
+		
+		JCheckBoxMenuItem checkboxErrors = new JCheckBoxMenuItem("Show exception errors", localPropertiesService.isExceptionShown() ); //$NON-NLS-1$
+		checkboxErrors.addActionListener(
+				new ActionListener() {
+					// This sets/unsets the property that is checked when an exception is catch by the JSwingAppender log4j2 appender 
+					@Override
+					public void actionPerformed(ActionEvent e) {
+						Boolean showException = checkboxErrors.isSelected();
+						localPropertiesService.setExceptionShown( showException );
+						
+						final LoggerContext ctx = (LoggerContext) LogManager.getContext(false);
+				        final Configuration config = ctx.getConfiguration();
+						
+						JSwingAppender jSwingAppender = config.getAppender("jswing-log");
+						
+						jSwingAppender.setExceptionShown( showException );
+						
+					}
+				}
+				
+		); 
+		menuHelp.add(checkboxErrors);
+
 
 		menuHelp.addSeparator();
 

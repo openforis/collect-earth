@@ -33,9 +33,6 @@ import org.springframework.stereotype.Component;
 @Component
 public class LocalPropertiesService extends Observable{
 
-	public static final String LOCAL_HOST = "127.0.0.1";
-	public static final String DEFAULT_LOCAL_PORT = "8028";
-
 	/**
 	 * Enumeration containing the names of all the possible values that can be configured in Collect Earth.
 	 * 
@@ -43,19 +40,19 @@ public class LocalPropertiesService extends Observable{
 	 * 
 	 */
 	public enum EarthProperty {
-		OPERATOR_KEY("operator"), JUMP_TO_NEXT("jump_to_next_plot"), HOST_KEY("host"), HOST_PORT_KEY("port"), LOCAL_PORT_KEY("local_port"), SAMPLE_FILE("csv"), KML_TEMPLATE_KEY("template"), BALLOON_TEMPLATE_KEY(
-				"balloon"), CRS_KEY("coordinates_reference_system"), GENERATED_KEY("generated_on"), KML_TEMPLATE_KEY_CHECKSUM("template_checksum"), BALLOON_TEMPLATE_KEY_CHECKSUM(
-				"balloon_checksum"), CSV_KEY_CHECKSUM("csv_checksum"), OPEN_BALLOON_IN_BROWSER(
-				"open_separate_browser_form"), ALTERNATIVE_BALLOON_FOR_BROWSER("alternative_balloon_for_browser"), ELEVATION_GEOTIF_DIRECTORY(
-				"elevation_geotif_directory"), METADATA_FILE("metadata_file"), FIREFOX_BINARY_PATH("firefox_exe_path"), CHROME_BINARY_PATH(
-				"chrome_exe_path"), BROWSER_TO_USE("use_browser"), GEE_FUNCTION_PICK("gee_js_pickFunction"), GEE_ZOOM_OBJECT("gee_js_zoom_object"), GEE_ZOOM_METHOD(
-				"gee_js_zoom_method"), GEE_INITIAL_ZOOM("gee_initial_zoom"), AUTOMATIC_BACKUP("automatic_backup"), GEE_JS_LIBRARY_URL("gee_js_library_url"), SAIKU_SERVER_FOLDER("saiku_server_folder"), OPERATION_MODE(
-				"operation_mode"), DB_DRIVER("db_driver"), DB_USERNAME("db_username"), DB_PASSWORD("db_password"), DB_NAME("db_name"), DB_HOST(
-				"db_host"), DB_PORT("db_port"), UI_LANGUAGE("ui_language"), LAST_USED_FOLDER("last_used_folder"), LAST_EXPORTED_DATE("last_exported_survey_date"), OPEN_GEE_PLAYGROUND("open_gee_playground"), OPEN_YANDEX_MAPS("open_yandex_maps"), OPEN_BING_MAPS("open_bing_maps"), OPEN_EARTH_ENGINE(
-						"open_earth_engine"), OPEN_TIMELAPSE("open_timelapse"),DISTANCE_BETWEEN_SAMPLE_POINTS("distance_between_sample_points"), DISTANCE_TO_PLOT_BOUNDARIES(
-								"distance_to_plot_boundaries"), INNER_SUBPLOT_SIDE("inner_point_side"), SAMPLE_SHAPE("sample_shape"),  SURVEY_NAME("survey_name"), GEE_PLAYGROUND_URL("gee_playground_url"), NUMBER_OF_SAMPLING_POINTS_IN_PLOT(
-								"number_of_sampling_points_in_plot"), LOADED_PROJECTS("loaded_projects"), ACTIVE_PROJECT_DEFINITION("active_project_definition"), LAST_IGNORED_UPDATE("last_ignored_update_version"), OPEN_HERE_MAPS("open_here_maps"), OPEN_STREET_VIEW("open_street_view"), 
-								HERE_MAPS_APP_CODE("here_app_code"), HERE_MAPS_APP_ID("here_app_id"), BING_MAPS_KEY("bing_maps_key"), MODEL_VERSION_NAME("model_version_name"), GEE_EXPLORER_URL("gee_explorer_url"), GOOGLE_MAPS_API_KEY("google_maps_api_key"), EXTRA_MAP_URL("extra_map_url"), DISTANCE_BETWEEN_PLOTS("distance_between_plots");
+		ACTIVE_PROJECT_DEFINITION("active_project_definition"), ALTERNATIVE_BALLOON_FOR_BROWSER("alternative_balloon_for_browser"),AUTOMATIC_BACKUP("automatic_backup"), BALLOON_TEMPLATE_KEY(
+				"balloon"), BALLOON_TEMPLATE_KEY_CHECKSUM(
+				"balloon_checksum"), BING_MAPS_KEY("bing_maps_key"), BROWSER_TO_USE("use_browser"), CHROME_BINARY_PATH(
+				"chrome_exe_path"), CRS_KEY("coordinates_reference_system"), CSV_KEY_CHECKSUM("csv_checksum"), DB_DRIVER("db_driver"), DB_HOST(
+						"db_host"), DB_NAME("db_name"), DB_PASSWORD("db_password"), DB_PORT("db_port"), DB_USERNAME("db_username"), DISTANCE_BETWEEN_PLOTS("distance_between_plots"), DISTANCE_BETWEEN_SAMPLE_POINTS("distance_between_sample_points"), DISTANCE_TO_PLOT_BOUNDARIES(
+												"distance_to_plot_boundaries"), ELEVATION_GEOTIF_DIRECTORY(
+												"elevation_geotif_directory"), EXCEPTION_SHOWN("exception_shown"), EXTRA_MAP_URL("extra_map_url"), FIREFOX_BINARY_PATH("firefox_exe_path"), GEE_EXPLORER_URL("gee_explorer_url"), GEE_FUNCTION_PICK("gee_js_pickFunction"), GEE_INITIAL_ZOOM("gee_initial_zoom"), GEE_JS_LIBRARY_URL("gee_js_library_url"), GEE_PLAYGROUND_URL("gee_playground_url"), GEE_ZOOM_METHOD(
+																"gee_js_zoom_method"), GEE_ZOOM_OBJECT("gee_js_zoom_object"), GENERATED_KEY("generated_on"), GOOGLE_MAPS_API_KEY("google_maps_api_key"), HERE_MAPS_APP_CODE("here_app_code"), HERE_MAPS_APP_ID("here_app_id"), HOST_KEY("host"), HOST_PORT_KEY("port"), INNER_SUBPLOT_SIDE("inner_point_side"), JUMP_TO_NEXT("jump_to_next_plot"), KML_TEMPLATE_KEY("template"), KML_TEMPLATE_KEY_CHECKSUM("template_checksum"), LAST_EXPORTED_DATE("last_exported_survey_date"), LAST_IGNORED_UPDATE("last_ignored_update_version"), LAST_USED_FOLDER("last_used_folder"),LOADED_PROJECTS("loaded_projects"), LOCAL_PORT_KEY("local_port"), METADATA_FILE("metadata_file"), MODEL_VERSION_NAME("model_version_name"),  NUMBER_OF_SAMPLING_POINTS_IN_PLOT(
+																								"number_of_sampling_points_in_plot"), OPEN_BALLOON_IN_BROWSER(
+																								"open_separate_browser_form"), OPEN_BING_MAPS("open_bing_maps"), OPEN_EARTH_ENGINE(
+																										"open_earth_engine"), OPEN_GEE_PLAYGROUND("open_gee_playground"), OPEN_HERE_MAPS("open_here_maps"), OPEN_STREET_VIEW("open_street_view"), OPEN_TIMELAPSE("open_timelapse"), 
+		OPEN_YANDEX_MAPS("open_yandex_maps"), OPERATION_MODE(
+				"operation_mode"), OPERATOR_KEY("operator"), SAIKU_SERVER_FOLDER("saiku_server_folder"), SAMPLE_FILE("csv"), SAMPLE_SHAPE("sample_shape"), SURVEY_NAME("survey_name"), UI_LANGUAGE("ui_language");
 
 
 		private String name;
@@ -70,12 +67,15 @@ public class LocalPropertiesService extends Observable{
 		}
 
 	}
+	public static final String DEFAULT_LOCAL_PORT = "8028";
 
+	public static final String LOCAL_HOST = "127.0.0.1";
+
+	private static final String PROPERTIES_FILE_PATH = FolderFinder.getCollectEarthDataFolder() + File.separator + "earth.properties";
+	private static final String PROPERTIES_FILE_PATH_FORCED_UPDATE= "earth.properties_forced_update";
+	private static final String PROPERTIES_FILE_PATH_INITIAL = "earth.properties_initial";
 	private Logger logger =null;
 	private Properties properties;
-	private static final String PROPERTIES_FILE_PATH_INITIAL = "earth.properties_initial";
-	private static final String PROPERTIES_FILE_PATH_FORCED_UPDATE= "earth.properties_forced_update";
-	private static final String PROPERTIES_FILE_PATH = FolderFinder.getCollectEarthDataFolder() + File.separator + "earth.properties";
 
 	public LocalPropertiesService() {
 		try {
@@ -86,21 +86,19 @@ public class LocalPropertiesService extends Observable{
 		}
 	}
 
+	public String convertToOSPath(String path) {
+		String pathSeparator = File.separator;
+		path = path.replace("/", pathSeparator);
+		path = path.replace("\\", pathSeparator);
+		return path;
+	}
+
 	public String getBalloonFile() {
 		return convertToOSPath( getValue(EarthProperty.BALLOON_TEMPLATE_KEY) );
 	}
 
-	public SAMPLE_SHAPE getSampleShape() {
-		final String value = getValue(EarthProperty.SAMPLE_SHAPE);
-		if (StringUtils.isBlank(value)) {
-			return SAMPLE_SHAPE.SQUARE;
-		} else {
-			return SAMPLE_SHAPE.valueOf(value);
-		}
-	}
 
-	
-	
+
 	public String getBalloonFileChecksum() {
 		return getValue(EarthProperty.BALLOON_TEMPLATE_KEY_CHECKSUM);
 	}
@@ -114,17 +112,7 @@ public class LocalPropertiesService extends Observable{
 		return CollectDBDriver.valueOf(collectDbDriver);
 
 	}
-	
-	public String getImdFile(){
-		return convertToOSPath( getValue(EarthProperty.METADATA_FILE ) );
-	}
 
-	public String convertToOSPath(String path) {
-		String pathSeparator = File.separator;
-		path = path.replace("/", pathSeparator);
-		path = path.replace("\\", pathSeparator);
-		return path;
-	}
 	public String getCrs() {
 		return getValue(EarthProperty.CRS_KEY);
 	}
@@ -132,13 +120,25 @@ public class LocalPropertiesService extends Observable{
 	public String getCsvFile() {
 		return convertToOSPath( getValue(EarthProperty.SAMPLE_FILE) );
 	}
-
 	public String getCsvFileChecksum() {
 		return getValue(EarthProperty.CSV_KEY_CHECKSUM);
 	}
 
 	private String getExportedSurveyName(String surveyName) {
 		return EarthProperty.LAST_EXPORTED_DATE + "_" + surveyName;
+	}
+
+	public String getExtraMap() {
+		return getValue( EarthProperty.EXTRA_MAP_URL);
+	}
+
+	public String getGeePlaygoundUrl(){
+
+		if(  isPropertyActivated(EarthProperty.GEE_PLAYGROUND_URL) ){
+			return getValue(EarthProperty.GEE_PLAYGROUND_URL );
+		}else{
+			return "https://code.earthengine.google.com/";
+		}
 	}
 
 	public String getGeneratedOn() {
@@ -151,6 +151,10 @@ public class LocalPropertiesService extends Observable{
 		}else{
 			return LOCAL_HOST;
 		}
+	}
+
+	public String getImdFile(){
+		return convertToOSPath( getValue(EarthProperty.METADATA_FILE ) );
 	}
 
 	public Date getLastExportedDate(String surveyName) {
@@ -167,6 +171,22 @@ public class LocalPropertiesService extends Observable{
 		return lastExported;
 	}
 
+	public String getLocalPort() {
+		if( getOperationMode().equals( OperationMode.SERVER_MODE ) ){
+			return getPort();
+		}else{
+			return getValue(EarthProperty.LOCAL_PORT_KEY);
+		}
+	}
+
+	public String getModelVersionName() {
+		String modelVersion = (java.lang.String) properties.get(EarthProperty.MODEL_VERSION_NAME.toString());
+		if( modelVersion != null && modelVersion.trim().length() == 0 ){
+			modelVersion = null;
+		}
+		return modelVersion;
+	}
+
 	public OperationMode getOperationMode() {
 		final String instanceType = getValue(EarthProperty.OPERATION_MODE);
 		if (instanceType.length() == 0) {
@@ -174,7 +194,9 @@ public class LocalPropertiesService extends Observable{
 		}
 		return OperationMode.valueOf(instanceType);
 	}
-	
+
+
+
 	public String getOperator() {
 		return getValue(EarthProperty.OPERATOR_KEY);
 	}
@@ -186,15 +208,32 @@ public class LocalPropertiesService extends Observable{
 		}
 		return port;
 	}
-	
-	public String getLocalPort() {
-		if( getOperationMode().equals( OperationMode.SERVER_MODE ) ){
-			return getPort();
-		}else{
-			return getValue(EarthProperty.LOCAL_PORT_KEY);
+
+	public String getProjectFolder() {
+		final File metadataFile = new File(getImdFile() );
+		return metadataFile.getParent();
+	}
+
+	public String getSaikuFolder() {
+		final String configuredSaikuFolder = convertToOSPath( getValue(EarthProperty.SAIKU_SERVER_FOLDER) );
+		if (StringUtils.isBlank(configuredSaikuFolder)) {
+			return ""; //$NON-NLS-1$
+		} else {
+			final File saikuFolder = new File(configuredSaikuFolder);
+			return saikuFolder.getAbsolutePath();
 		}
 	}
 
+
+
+	public SAMPLE_SHAPE getSampleShape() {
+		final String value = getValue(EarthProperty.SAMPLE_SHAPE);
+		if (StringUtils.isBlank(value)) {
+			return SAMPLE_SHAPE.SQUARE;
+		} else {
+			return SAMPLE_SHAPE.valueOf(value);
+		}
+	}
 
 
 	public String getTemplateFile() {
@@ -216,7 +255,7 @@ public class LocalPropertiesService extends Observable{
 			} catch (Exception e) {
 				logger.warn("Unknown UI Language "+ value );
 			}
-			
+
 			if( selected!=null){
 				return selected;
 			}else{
@@ -234,8 +273,6 @@ public class LocalPropertiesService extends Observable{
 		return value;
 	}
 
-	
-	
 	private void init() throws IOException {
 		properties = new Properties() {
 			/**
@@ -252,14 +289,14 @@ public class LocalPropertiesService extends Observable{
 
 		FileReader fr = null;
 		boolean newInstallation = false;
-		
+
 		File propertiesFileInitial = new File(PROPERTIES_FILE_PATH_INITIAL);
 		logger = LoggerFactory.getLogger(LocalPropertiesService.class);
 		try {
-			
+
 			File propertiesFile = new File(PROPERTIES_FILE_PATH);						
 			if (!propertiesFile.exists() || propertiesFile.length() < 300 ) {
-				
+
 				if(!propertiesFile.exists()  ){
 					final boolean success = propertiesFile.createNewFile();
 					if (!success) {
@@ -269,19 +306,19 @@ public class LocalPropertiesService extends Observable{
 				// The earth.properties file does not exists, this mean that the earth_properties.initial file is used, only the first time
 				propertiesFile = propertiesFileInitial;
 				newInstallation = true;
-								
+
 			}
-			
+
 			fr = new FileReader(propertiesFile);
 			properties.load(fr);		
-			
-			
+
+
 			if( !newInstallation ){
 				// Add properties in initial_properties that are not present in earth.properites so that adding new properties in coming version does not generate issues with older versions
 				if( propertiesFileInitial.exists() ){
 					Properties initialProperties = new Properties();
 					initialProperties.load( new FileReader( propertiesFileInitial ) );
-					
+
 					Enumeration<String> initialPropertyNames = (Enumeration<String>) initialProperties.propertyNames();
 					while( initialPropertyNames.hasMoreElements()){
 						String nextElement = initialPropertyNames.nextElement();
@@ -290,7 +327,7 @@ public class LocalPropertiesService extends Observable{
 						}
 					}
 				}
-				
+
 				// UPDATERS!
 				// Emergency procedure for forcing the change of a value for updaters!
 				File propertiesForceChange = new File(PROPERTIES_FILE_PATH_FORCED_UPDATE);
@@ -300,9 +337,9 @@ public class LocalPropertiesService extends Observable{
 					// This procedure will only happen right after update
 					propertiesForceChange.deleteOnExit();
 				}
-				
+
 			}
-			
+
 		} catch (final FileNotFoundException e) {
 			logger.error("Could not find properties file", e);
 		} catch (final IOException e) {
@@ -314,6 +351,57 @@ public class LocalPropertiesService extends Observable{
 		}
 	}
 
+	public boolean isBingMapsSupported() {
+
+		return isPropertyActivated(EarthProperty.OPEN_BING_MAPS);
+	}
+
+	public boolean isCodeEditorSupported() {
+		return isPropertyActivated(EarthProperty.OPEN_GEE_PLAYGROUND);
+	}
+
+	public boolean isEarthEngineSupported() {
+		return isPropertyActivated(EarthProperty.OPEN_EARTH_ENGINE);
+	}
+
+	public Boolean isExceptionShown() {
+		return isPropertyActivated(EarthProperty.EXCEPTION_SHOWN);
+	}
+
+	public boolean isHereMapsSupported() {
+		return isPropertyActivated(EarthProperty.OPEN_HERE_MAPS);
+	}
+
+	private boolean isPropertyActivated( EarthProperty earthProperty ) {
+		boolean supported = false;
+		String value = getValue(earthProperty);
+		if (StringUtils.isNotBlank(value) ){
+			supported = Boolean.parseBoolean(value);
+		}
+		return supported;
+	}
+
+	public boolean isStreetViewSupported() {
+
+		return isPropertyActivated(EarthProperty.OPEN_STREET_VIEW);
+	}
+
+	public boolean isTimelapseSupported() {
+		return isPropertyActivated(EarthProperty.OPEN_TIMELAPSE);
+	}
+
+	public boolean isUsingPostgreSqlDB() {
+		return getCollectDBDriver().equals(CollectDBDriver.POSTGRESQL);
+	}
+
+	public boolean isUsingSqliteDB() {
+		return getCollectDBDriver().equals(CollectDBDriver.SQLITE);
+	}
+
+	public boolean isYandexMapsSupported() {
+
+		return isPropertyActivated(EarthProperty.OPEN_YANDEX_MAPS);
+	}
 
 	public void nullifyChecksumValues() {
 		saveBalloonFileChecksum("");
@@ -328,12 +416,16 @@ public class LocalPropertiesService extends Observable{
 	 */
 	@PreDestroy
 	public void removeGeeProperties() {
-		
+
 		this.storeProperties();
-		
-/*		this.setValue(EarthProperty.GEE_ZOOM_METHOD, "", false);
+
+		/*		this.setValue(EarthProperty.GEE_ZOOM_METHOD, "", false);
 		this.setValue(EarthProperty.GEE_ZOOM_OBJECT, "", false);
 		this.setValue(EarthProperty.GEE_FUNCTION_PICK, "", true);*/
+	}
+
+	public void removeModelVersionName() {
+		setValue(EarthProperty.MODEL_VERSION_NAME, "", true);
 	}
 
 	public void saveBalloonFileChecksum(String checksum) {
@@ -381,6 +473,11 @@ public class LocalPropertiesService extends Observable{
 
 	}
 
+	public void setExceptionShown( Boolean showException ) {
+		setValue(EarthProperty.EXCEPTION_SHOWN, showException.toString(), true);
+	}
+
+
 	public void setJumpToNextPlot(String shouldSkip) {
 		String booleanSkip = "";
 		if (shouldSkip != null && shouldSkip.length() > 0) {
@@ -396,8 +493,17 @@ public class LocalPropertiesService extends Observable{
 
 	}
 
+
 	public void setLastExportedDate(String surveyName) {
 		setValue(getExportedSurveyName(surveyName), System.currentTimeMillis() + "", true);
+	}
+
+	public void setModelVersionName( String modelVersionName) {
+		setValue(EarthProperty.MODEL_VERSION_NAME, modelVersionName);
+	}
+
+	public void setSampleShape(SAMPLE_SHAPE shape) {
+		setValue(EarthProperty.SAMPLE_SHAPE, shape.name());
 	}
 
 	public void setUiLanguage(UI_LANGUAGE language) {
@@ -433,11 +539,11 @@ public class LocalPropertiesService extends Observable{
 	private synchronized void storeProperties() {
 		FileWriter fw = null;
 		try {
-			
+
 			File propertiesFile = new File(PROPERTIES_FILE_PATH);
 			fw = new FileWriter(propertiesFile);
 			properties.store(fw, null);
-			
+
 		} catch (final IOException e) {
 			logger.error("The properties could not be saved", e);
 		} finally {
@@ -449,104 +555,6 @@ public class LocalPropertiesService extends Observable{
 				logger.error("Error closing file writer", e);
 			}
 		}
-	}
-
-	public boolean isUsingPostgreSqlDB() {
-		return getCollectDBDriver().equals(CollectDBDriver.POSTGRESQL);
-	}
-	
-	public boolean isUsingSqliteDB() {
-		return getCollectDBDriver().equals(CollectDBDriver.SQLITE);
-	}
-
-	private boolean isPropertySupported( EarthProperty earthProperty ) {
-		boolean supported = false;
-		String value = getValue(earthProperty);
-		if (value != null && value.length() > 0) {
-			supported = Boolean.parseBoolean(value);
-		}
-		return supported;
-	}
-	
-	public boolean isBingMapsSupported() {
-		
-		return isPropertySupported(EarthProperty.OPEN_BING_MAPS);
-	}
-
-	public boolean isStreetViewSupported() {
-		
-		return isPropertySupported(EarthProperty.OPEN_STREET_VIEW);
-	}
-	
-	public boolean isYandexMapsSupported() {
-		
-		return isPropertySupported(EarthProperty.OPEN_YANDEX_MAPS);
-	}
-	
-	public boolean isCodeEditorSupported() {
-		return isPropertySupported(EarthProperty.OPEN_GEE_PLAYGROUND);
-	}
-	
-	public boolean isEarthEngineSupported() {
-		return isPropertySupported(EarthProperty.OPEN_EARTH_ENGINE);
-	}
-
-	public boolean isTimelapseSupported() {
-		return isPropertySupported(EarthProperty.OPEN_TIMELAPSE);
-	}
-	
-	public boolean isHereMapsSupported() {
-		return isPropertySupported(EarthProperty.OPEN_HERE_MAPS);
-	}
-
-	
-	public void setSampleShape(SAMPLE_SHAPE shape) {
-		setValue(EarthProperty.SAMPLE_SHAPE, shape.name());
-	}
-
-	
-	public String getGeePlaygoundUrl(){
-		
-		if(  isPropertySupported(EarthProperty.GEE_PLAYGROUND_URL) ){
-			return getValue(EarthProperty.GEE_PLAYGROUND_URL );
-		}else{
-			return "https://code.earthengine.google.com/";
-		}
-	}
-	
-	public String getProjectFolder() {
-		final File metadataFile = new File(getImdFile() );
-		return metadataFile.getParent();
-	}
-
-	public String getModelVersionName() {
-		String modelVersion = (java.lang.String) properties.get(EarthProperty.MODEL_VERSION_NAME.toString());
-		if( modelVersion != null && modelVersion.trim().length() == 0 ){
-			modelVersion = null;
-		}
-		return modelVersion;
-	}
-	
-	public void setModelVersionName( String modelVersionName) {
-		setValue(EarthProperty.MODEL_VERSION_NAME, modelVersionName);
-	}
-
-	public void removeModelVersionName() {
-		setValue(EarthProperty.MODEL_VERSION_NAME, "", true);
-	}
-
-	public String getSaikuFolder() {
-		final String configuredSaikuFolder = convertToOSPath( getValue(EarthProperty.SAIKU_SERVER_FOLDER) );
-		if (StringUtils.isBlank(configuredSaikuFolder)) {
-			return ""; //$NON-NLS-1$
-		} else {
-			final File saikuFolder = new File(configuredSaikuFolder);
-			return saikuFolder.getAbsolutePath();
-		}
-	}
-
-	public String getExtraMap() {
-		return getValue( EarthProperty.EXTRA_MAP_URL);
 	}
 
 }

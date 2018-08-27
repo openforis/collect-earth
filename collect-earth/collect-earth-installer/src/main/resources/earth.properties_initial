@@ -8,6 +8,7 @@ db_password=
 db_port=
 db_username=
 elevation_geotif_directory=
+exception_shown=true
 firefox_exe_path=
 gee_initial_zoom=15
 gee_playground_url=https://code.earthengine.google.com/

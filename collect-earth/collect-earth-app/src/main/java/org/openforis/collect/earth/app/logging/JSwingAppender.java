@@ -16,9 +16,12 @@ import org.apache.logging.log4j.core.config.plugins.PluginAttribute;
 import org.apache.logging.log4j.core.config.plugins.PluginElement;
 import org.apache.logging.log4j.core.config.plugins.PluginFactory;
 import org.apache.logging.log4j.core.layout.PatternLayout;
+import org.openforis.collect.earth.app.service.LocalPropertiesService;
 
 @Plugin(name = "JSwingAppender", category = "Core", elementType = "appender", printObject = true)
 public class JSwingAppender extends AbstractAppender {
+
+	private Boolean showException;
 
 	public JSwingAppender(String name, Filter filter, Layout<?> layout, boolean ignoreExceptions) {
 		super(name, filter, layout, ignoreExceptions);
@@ -43,26 +46,40 @@ public class JSwingAppender extends AbstractAppender {
 	@Override
 	public void append(LogEvent event) {
 
-		final String message = new String(this.getLayout().toByteArray(event)).replaceAll("(\r\n|\n)", "<br />");
+		if( isExceptionShown() ) {
+			final String message = new String(this.getLayout().toByteArray(event)).replaceAll("(\r\n|\n)", "<br />");
 
-		// Append formatted message to text area using the Thread.
-		try {
-			SwingUtilities.invokeLater(new Runnable() {
-				@Override
-				public void run() {
-					JEditorPane web = new JEditorPane();
-					web.setEditable(false);
-					web.setContentType("text/html");
-					web.setText(message);
+			// Append formatted message to text area using the Thread.
+			try {
+				SwingUtilities.invokeLater(new Runnable() {
+					@Override
+					public void run() {
+						JEditorPane web = new JEditorPane();
+						web.setEditable(false);
+						web.setContentType("text/html");
+						web.setText(message);
 
-					JScrollPane scrollPane = new JScrollPane(web);
-					scrollPane.setPreferredSize(new Dimension(450, 350));
+						JScrollPane scrollPane = new JScrollPane(web);
+						scrollPane.setPreferredSize(new Dimension(450, 350));
 
-					JOptionPane.showMessageDialog(null, scrollPane, "Error has been loogged", JOptionPane.ERROR_MESSAGE);
-				}
-			});
-		} catch (final IllegalStateException e) {
-			// ignore case when the platform hasn't yet been initialized
+						JOptionPane.showMessageDialog(null, scrollPane, "Error has been loogged", JOptionPane.ERROR_MESSAGE);
+					}
+				});
+			} catch (final IllegalStateException e) {
+				// ignore case when the platform hasn't yet been initialized
+			}
 		}
+	}
+
+	private boolean isExceptionShown() {
+		if( showException == null ) {
+			LocalPropertiesService localPropertiesService = new LocalPropertiesService();
+			showException = localPropertiesService.isExceptionShown();
+		}
+		return showException;
+	}
+
+	public void setExceptionShown(Boolean showException) {
+		this.showException = showException;
 	}
 }
