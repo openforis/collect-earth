@@ -51,6 +51,7 @@ public class RemovePlotsFromDBDlg {
 	@Autowired
 	private EarthSurveyService earthSurveyService;
 
+	@SuppressWarnings("unused")
 	private static final long serialVersionUID = 5175096170385736616L;
 	private CollectSurvey survey;
 	private Logger logger = LoggerFactory.getLogger(RemovePlotsFromDBDlg.class);

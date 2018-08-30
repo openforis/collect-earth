@@ -24,6 +24,7 @@ import org.openforis.collect.model.CollectRecord;
 import org.openforis.collect.model.CollectRecord.Step;
 import org.openforis.collect.model.CollectRecordSummary;
 import org.openforis.collect.model.RecordFilter;
+import org.openforis.idm.metamodel.AttributeDefinition;
 import org.openforis.idm.model.BooleanAttribute;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -154,6 +155,17 @@ public class MissingPlotService {
 		}
 		return plotData;
 	}
+	
+	private String[] getKeys(String[] plotData ) {
+		List<AttributeDefinition> keyAttributeDefinitions = earthSurveyService.getCollectSurvey().getSchema().getRootEntityDefinitions().get(0)
+				.getKeyAttributeDefinitions();
+		String[] keys = new String[keyAttributeDefinitions.size()];
+		int i = 0;
+		for (AttributeDefinition keyAttributeDefinition : keyAttributeDefinitions) {
+			keys[i] = plotData[i++];
+		}
+		return keys;
+	}
 
 	public Map<String, List<String[]>> getMissingPlotsByFile(Map<String, List<String[]>> plotDataByFIle) {
 		final Map<String, List<String[]>> missingPlotIdsByFile = new HashMap<String, List<String[]>>();
@@ -165,9 +177,10 @@ public class MissingPlotService {
 			final List<String[]> plotDataInFile = plotDataByFIle.get(plotFile);
 			for (final String[] plotData : plotDataInFile) {
 
+				String[] plotKeys = getKeys(plotData);
 				// If the plot ID is not contained in the DB
 				// And if the latitude cell (second column) actually contains a number (so it is not a header row)
-				if (!isIdActivelySavedInDB(plotData[0]) && isLatitudeANumber(plotData[1]) ) {
+				if (!isIdActivelySavedInDB(plotKeys) && isLatitudeANumber(plotData[ plotKeys.length ]) ) {
 					missingPlotIdsByFile.get(plotFile).add(plotData);
 				}
 			}
@@ -192,9 +205,9 @@ public class MissingPlotService {
 		return plotDataByFile;
 	}
 
-	private boolean isIdActivelySavedInDB(String plotId) {
+	private boolean isIdActivelySavedInDB(String[] plotIds) {
 		RecordFilter rf = new RecordFilter(earthSurveyService.getCollectSurvey(), EarthConstants.ROOT_ENTITY_NAME);
-		rf.setKeyValues( Arrays.asList( plotId ));
+		rf.setKeyValues( Arrays.asList( plotIds ));
 		final List<CollectRecordSummary> summaries = recordManager.loadSummaries(rf);
 
 		if( summaries != null && summaries.size() == 1 ){
