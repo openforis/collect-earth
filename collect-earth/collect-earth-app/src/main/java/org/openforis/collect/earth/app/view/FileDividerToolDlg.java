@@ -38,7 +38,7 @@ import org.slf4j.LoggerFactory;
 public class FileDividerToolDlg extends JDialog{
 
 	private static final long serialVersionUID = 2241706750062961024L;
-	private static final int MAX_FILES = 50;
+	private static final int MAX_FILES = 500;
 	private CollectSurvey survey;
 	private Logger logger = LoggerFactory.getLogger( FileDividerToolDlg.class); 
 	private JComboBox<Integer> numberOfFiles ;
