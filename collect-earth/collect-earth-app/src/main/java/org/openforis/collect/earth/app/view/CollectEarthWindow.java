@@ -185,6 +185,9 @@ public class CollectEarthWindow {
 	}
 
 	private void initializeMenu() {
+		
+		collectEarthMenu.removeAll();
+		collectEarthMenu.init();
 		getFrame().setJMenuBar( collectEarthMenu );
 
 		disableMenuItems();
