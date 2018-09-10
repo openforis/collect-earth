@@ -13,7 +13,6 @@ final class SaikuStarter {
 
 	private Logger logger = LoggerFactory.getLogger( SaikuStarter.class);
 	private JFrame frame;
-	private Thread threadInitializingSaiku;
 	private AnalysisSaikuService saikuService;
 	private boolean  shouldRefreshDb;
 	private boolean starting = false;
@@ -47,7 +46,7 @@ final class SaikuStarter {
 	public void initializeAndOpen() {
 		progressStartSaiku = new InfiniteProgressMonitor( frame, Messages.getString("SaikuStarter.1"), Messages.getString("SaikuStarter.2")); //$NON-NLS-1$ //$NON-NLS-2$
 		
-		threadInitializingSaiku = new Thread("Start Saiku server/initialize RDB"){ //$NON-NLS-1$
+		Thread threadInitializingSaiku = new Thread("Start Saiku server/initialize RDB"){ //$NON-NLS-1$
 			@Override
 			public void run() {
 				starting = true;
