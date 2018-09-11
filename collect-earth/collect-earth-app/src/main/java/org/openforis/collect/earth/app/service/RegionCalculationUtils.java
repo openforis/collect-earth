@@ -221,7 +221,8 @@ public class RegionCalculationUtils {
 
 					// Validate attribute name
 					if( !isAttributeInPlotEntity( attributeName ) ){
-						throw new RuntimeException("The expected format of the CSV file at " + areasPerAttribute.getAbsolutePath() + " should be attribute_name,area,weight. The name of the attribute in hte first column of your CSV '" + attributeName + "'is not a attribute under the plot entity.");
+						throw new RuntimeException("The expected format of the CSV file at " + areasPerAttribute.getAbsolutePath() + " should be attribute_name,area,weight. "
+								+ "The name of the attribute in the first column of your CSV '" + attributeName + "'is not an attribute under the plot entity.");
 					}
 
 					attributeNames.add(attributeName);

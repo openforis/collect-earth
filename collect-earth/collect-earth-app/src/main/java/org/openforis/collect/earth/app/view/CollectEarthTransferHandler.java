@@ -55,7 +55,7 @@ public class CollectEarthTransferHandler extends TransferHandler {
 				}
 
 			}catch(java.awt.dnd.InvalidDnDOperationException unknownException) {
-				logger.error("EWhy do I get this error?t", unknownException);
+				logger.warn("Why do I get this error?t", unknownException);
 				return true; 
 			}catch (Exception e) {
 				logger.error("Error on the drop support assessment", e);
