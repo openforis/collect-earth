@@ -29,7 +29,7 @@ import com.google.common.io.Files;
 
 public class ImportXMLDialogProcessMonitor implements Observer{
 
-	Logger logger = LoggerFactory.getLogger(ImportXMLDialogProcessMonitor.class);
+	private static final Logger logger = LoggerFactory.getLogger(ImportXMLDialogProcessMonitor.class);
 	private InfiniteProgressMonitor progressMonitor;
 
 	public void closeProgressmonitor() {

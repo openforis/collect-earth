@@ -12,6 +12,7 @@ import java.io.InputStreamReader;
 import javax.swing.JFrame;
 import javax.swing.JOptionPane;
 
+import org.apache.commons.io.IOUtils;
 import org.openforis.collect.earth.app.service.DataImportExportService;
 import org.openforis.collect.earth.app.service.LocalPropertiesService;
 import org.openforis.collect.io.data.CSVDataImportProcess;
@@ -95,6 +96,7 @@ public final class ImportActionListener implements ActionListener {
 							boolean firstFile = true;
 							
 							for (final File importedFile : filesToImport) {								
+								XMLDataImportProcess dataImportProcess = null;
 								try{
 									if ( firstFile ){
 										firstFile = false;
@@ -108,7 +110,7 @@ public final class ImportActionListener implements ActionListener {
 									
 									boolean importNotFinished= importNonFinishedPlots.equals( YES ) || importNonFinishedPlots.equals( YES_TO_ALL );
 																		
-									XMLDataImportProcess dataImportProcess = dataImportService.getImportSummary(importedFile, importNotFinished);
+									dataImportProcess = dataImportService.getImportSummary(importedFile, importNotFinished);
 									importDialogProcessMonitor.startImport(dataImportProcess, frame, dataImportService, importedFile );
 									
 								} catch (Exception e1) {
@@ -118,7 +120,9 @@ public final class ImportActionListener implements ActionListener {
 									JOptionPane.showMessageDialog( frame,  importedFile.getName() + " - " + Messages.getString("CollectEarthWindow.3"), importedFile.getName() + " - " + Messages.getString("CollectEarthWindow.7"), //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$ //$NON-NLS-4$
 											JOptionPane.ERROR_MESSAGE);
 									logger.error("Error importing data from " + importedFile.getAbsolutePath() + " in format " + importType.name() , e1); //$NON-NLS-1$ //$NON-NLS-2$
-								} 
+								} finally {
+									IOUtils.closeQuietly(dataImportProcess);
+								}
 							}
 						}
 					}.start();
