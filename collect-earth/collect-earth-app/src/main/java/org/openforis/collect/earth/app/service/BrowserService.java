@@ -284,9 +284,8 @@ public class BrowserService implements Observer{
 		boolean found = false;
 
 		try {
-			if (driver.findElementByCssSelector(cssElement).isDisplayed() && driver.findElementByCssSelector(cssElement).isEnabled()  ) {
-				found = true;
-			}
+			WebElement elementByCssSelector = driver.findElementByCssSelector(cssElement);
+			found = elementByCssSelector!=null;
 		} catch (final Exception e) {
 			// Not found
 		}

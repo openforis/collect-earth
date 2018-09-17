@@ -14,6 +14,7 @@ import org.apache.commons.io.FileUtils;
 import org.apache.commons.lang.StringUtils;
 import org.openforis.collect.earth.sampler.model.SimplePlacemarkObject;
 import org.openqa.selenium.By;
+import org.openqa.selenium.JavascriptExecutor;
 import org.openqa.selenium.Keys;
 import org.openqa.selenium.WebElement;
 import org.openqa.selenium.remote.RemoteWebDriver;
@@ -49,65 +50,81 @@ public class CodeEditorHandlerThread {
 
 	public void runScript() throws IOException, URISyntaxException, InterruptedException {
 
-		webDriverGee.findElementByCssSelector(RESET_SCRIPT_BUTTON).click();
-
-		URL fileWithScript = geoLocalizeTemplateService.getTemporaryUrl(placemarkObject, getGeeCodeEditorTemplate());
-
-		WebElement textArea = webDriverGee.findElement(By.className("ace_text-input"));
-
-		if (SystemUtils.IS_OS_MAC || SystemUtils.IS_OS_MAC_OSX) {
-			// Command key (apple key) is not working on Chrome on Mac. Try with the right click
-			// This is not going to be fixed by Selenium
-			// Try a different approach! A bit slower but works
-			String contents = FileUtils.readFileToString(new File(fileWithScript.toURI()), Charset.forName("UTF-8"));
-			// Remove comments so it is faster to send the text!
-			String noComments = removeComments(contents);
-
-			// Clear the code area
-			webDriverGee.findElementByCssSelector("div.goog-inline-block.goog-flat-menu-button.custom-reset-button").click();
-			webDriverGee.findElementByXPath("//*[contains(text(), 'Clear script')]").click();
-
-			StringBuilder fixedScriptForMac = new StringBuilder();
-			String[] lines = noComments.split("\\n");
-			for (String line : lines) {
-				// Send the content of the script
-				String trimmedLine = line.trim();
-
-				// Add Spaces after "{" so we avoid the automatic closing of the method by GEE
-				// Playground JS
-				trimmedLine = trimmedLine.replace("{", "{ ");
-
-				if (!StringUtils.isBlank(trimmedLine)) {
-					fixedScriptForMac = fixedScriptForMac.append(trimmedLine).append("\n");
-				}
-			}
-
-			fixedScriptForMac.append("//THE END"); // Don't remove this!!! this way we mark the point where there should be no trailing character removal
-
-			textArea.sendKeys(fixedScriptForMac);
-
-			Thread.sleep(5000);
-			// Fix the extra characters added by removing the last 10 chars ( this is a bug from Selenium! )
-			textArea.sendKeys(Keys.PAGE_DOWN);
-			Thread.sleep(500);
-			textArea.sendKeys(Keys.PAGE_DOWN);
-
-		} else {
-			Clipboard clipboard = Toolkit.getDefaultToolkit().getSystemClipboard();
-			String contents = FileUtils.readFileToString(new File(fileWithScript.toURI()), Charset.forName("UTF-8"));
-			StringSelection clipboardtext = new StringSelection(contents);
-			clipboard.setContents(clipboardtext, null);
-			Keys controlChar = Keys.CONTROL;
+		
+		try {
+			WebElement resetButton = webDriverGee.findElementByCssSelector(RESET_SCRIPT_BUTTON);
+			
+			forceClick( resetButton );
+		
+			URL fileWithScript = geoLocalizeTemplateService.getTemporaryUrl(placemarkObject, getGeeCodeEditorTemplate());
+	
+			WebElement textArea = webDriverGee.findElement(By.className("ace_text-input"));
+	
 			if (SystemUtils.IS_OS_MAC || SystemUtils.IS_OS_MAC_OSX) {
-				controlChar = Keys.COMMAND;
+				// Command key (apple key) is not working on Chrome on Mac. Try with the right click
+				// This is not going to be fixed by Selenium
+				// Try a different approach! A bit slower but works
+				String contents = FileUtils.readFileToString(new File(fileWithScript.toURI()), Charset.forName("UTF-8"));
+				// Remove comments so it is faster to send the text!
+				String noComments = removeComments(contents);
+	
+				// Clear the code area
+				forceClick( resetButton );
+				WebElement clearButton = webDriverGee.findElementByXPath("//*[contains(text(), 'Clear script')]");
+				forceClick( clearButton );
+	
+				StringBuilder fixedScriptForMac = new StringBuilder();
+				String[] lines = noComments.split("\\n");
+				for (String line : lines) {
+					// Send the content of the script
+					String trimmedLine = line.trim();
+	
+					// Add Spaces after "{" so we avoid the automatic closing of the method by GEE
+					// Playground JS
+					trimmedLine = trimmedLine.replace("{", "{ ");
+	
+					if (!StringUtils.isBlank(trimmedLine)) {
+						fixedScriptForMac = fixedScriptForMac.append(trimmedLine).append("\n");
+					}
+				}
+	
+				fixedScriptForMac.append("//THE END"); // Don't remove this!!! this way we mark the point where there should be no trailing character removal
+	
+				textArea.sendKeys(fixedScriptForMac);
+	
+				Thread.sleep(5000);
+				// Fix the extra characters added by removing the last 10 chars ( this is a bug from Selenium! )
+				textArea.sendKeys(Keys.PAGE_DOWN);
+				Thread.sleep(500);
+				textArea.sendKeys(Keys.PAGE_DOWN);
+	
+			} else {
+				Clipboard clipboard = Toolkit.getDefaultToolkit().getSystemClipboard();
+				String contents = FileUtils.readFileToString(new File(fileWithScript.toURI()), Charset.forName("UTF-8"));
+				StringSelection clipboardtext = new StringSelection(contents);
+				clipboard.setContents(clipboardtext, null);
+				Keys controlChar = Keys.CONTROL;
+				if (SystemUtils.IS_OS_MAC || SystemUtils.IS_OS_MAC_OSX) {
+					controlChar = Keys.COMMAND;
+				}
+				textArea.sendKeys(Keys.chord(controlChar, "a"));
+				textArea.sendKeys(Keys.chord(controlChar, "v"));
 			}
-			textArea.sendKeys(Keys.chord(controlChar, "a"));
-			textArea.sendKeys(Keys.chord(controlChar, "v"));
+	
+			Thread.sleep(1000);
+			WebElement runButton = webDriverGee.findElementByCssSelector(RUN_SCRIPT_BUTTON);
+			forceClick( runButton );
+		} catch (NoSuchElementException e) {
+
+			webDriverGee.executeScript( "alert('test alert')" );
+			
 		}
 
-		Thread.sleep(1000);
-		webDriverGee.findElementByCssSelector(RUN_SCRIPT_BUTTON).click();
-
+	}
+	
+	private void forceClick( WebElement element ) {
+		JavascriptExecutor js = (JavascriptExecutor)webDriverGee;
+		js.executeScript("arguments[0].click();", element);
 	}
 
 	public String removeComments(String contents) {
