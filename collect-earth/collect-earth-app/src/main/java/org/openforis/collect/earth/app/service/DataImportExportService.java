@@ -6,6 +6,7 @@ import java.util.Date;
 import java.util.List;
 
 import org.openforis.collect.earth.app.EarthConstants;
+import org.openforis.collect.earth.app.service.LocalPropertiesService.EarthProperty;
 import org.openforis.collect.io.data.CSVDataExportProcess;
 import org.openforis.collect.io.data.CSVDataImportProcess;
 import org.openforis.collect.io.data.DataExportStatus;
@@ -37,6 +38,9 @@ public class DataImportExportService {
 
 	@Autowired
 	private EarthSurveyService earthSurveyService;
+	
+	@Autowired
+	private LocalPropertiesService localPropertiesService;
 
 	private final Logger logger = LoggerFactory.getLogger(DataImportExportService.class);
 	/**
@@ -63,6 +67,7 @@ public class DataImportExportService {
 		
 		CSVDataExportParameters config = new CSVDataExportParameters();
 		config.setIncludeAllAncestorAttributes(true);
+		config.setLanguageCode( localPropertiesService.getValue(EarthProperty.UI_LANGUAGE) );
 		config.setIncludeCodeItemLabelColumn(includeCodeItemLabelColumn);
 		csvDataExportProcess.setConfiguration(config);
 
@@ -84,6 +89,7 @@ public class DataImportExportService {
 		
 		CSVDataExportParameters config = new CSVDataExportParameters();
 		config.setIncludeAllAncestorAttributes(true);
+		config.setLanguageCode( localPropertiesService.getValue(EarthProperty.UI_LANGUAGE) );
 		config.setIncludeCodeItemPositionColumn(true);
 		config.setIncludeKMLColumnForCoordinates(true);
 		config.setIncludeCodeItemLabelColumn( includeCodeItemLabelColumn );
