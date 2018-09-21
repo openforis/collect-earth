@@ -172,11 +172,7 @@ public class BalloonInputFieldsUtils {
 							||
 						recordVersion.isApplicable( item ) 
 					){ //If the item is used on the current version used
-						String label = item.getLabel( language );
-						// Tries to get the label for the specified language, if not gets the label for the default language 
-						if( label == null && !language.equals( record.getSurvey().getDefaultLanguage() ) ){
-							label = item.getLabel();
-						}
+						String label = item.getLabel(language, true);
 						possibleCodedItems.add(new PlacemarkCodedItem(item.getCode(), label));
 					}
 				}

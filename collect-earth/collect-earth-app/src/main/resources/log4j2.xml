@@ -28,7 +28,7 @@
 
 	</Appenders>
 	<Loggers>
-		<Root level="trace">
+		<Root level="WARN">
 			<AppenderRef ref="file" level="ERROR" />
 			<AppenderRef ref="Sentry" level="ERROR" />
 			<AppenderRef ref="STDOUT" level="WARN" />
