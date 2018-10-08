@@ -18,7 +18,7 @@ public class CircleKmlGenerator extends AbstractPolygonKmlGenerator {
 	private static final int MARGIN_CIRCLE = 5;
 	
 	public CircleKmlGenerator(String epsgCode, String hostAddress, String localPort,  Integer numberOfPoints, Integer innerPointSide, double radius ) {
-		super(epsgCode, hostAddress, localPort, numberOfPoints, innerPointSide, 0, 0);
+		super(epsgCode, hostAddress, localPort, numberOfPoints, innerPointSide, 0, 0, (Integer)null);
 		setRadiusOfCircle(radius);
 	}
 

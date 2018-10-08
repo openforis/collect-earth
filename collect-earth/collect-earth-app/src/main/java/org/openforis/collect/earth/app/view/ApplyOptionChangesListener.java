@@ -64,30 +64,34 @@ public abstract class ApplyOptionChangesListener implements ActionListener {
 		final Set<Enum<?>> keySet = propertyToComponent.keySet();
 		for (final Enum<?> propertyKey : keySet) {
 			final JComponent component = propertyToComponent.get(propertyKey)[0];
-			if (component instanceof JTextComponent) {
-				setPropertyValue(propertyKey, ((JTextComponent) component).getText());
-			} else if (component instanceof JCheckBox) {
-				setPropertyValue(propertyKey, ((JCheckBox) component).isSelected() + ""); //$NON-NLS-1$
-			} else if (component instanceof JComboBox) {
-				if (((JComboBox) component).getItemAt(0) instanceof ComboBoxItem) {
-					setPropertyValue(propertyKey,
-							((ComboBoxItem) ((JComboBox) component).getSelectedItem()).getNumberOfPoints() + ""); //$NON-NLS-1$
-				} else if (((JComboBox) component).getItemAt(0) instanceof String) {
-					setPropertyValue(propertyKey, ((String) ((JComboBox) component).getSelectedItem() ) ); //$NON-NLS-1$
-				} else if (((JComboBox) component).getItemAt(0) instanceof SAMPLE_SHAPE) {
-					setPropertyValue(propertyKey,  ( (SAMPLE_SHAPE) ((JComboBox) component).getSelectedItem() ).name() );
-				}
-			} else if (component instanceof JList) {
-				setPropertyValue(propertyKey, ((JList) component).getSelectedValue() + ""); //$NON-NLS-1$
-			} else if (component instanceof JRadioButton) {
-				final JComponent[] jComponents = propertyToComponent.get(propertyKey);
-				for (final JComponent jComponent : jComponents) {
-					if (((JRadioButton) jComponent).isSelected()) {
-						setPropertyValue(propertyKey, ((JRadioButton) jComponent).getName());
+			if( !component.isVisible() ) {
+				setPropertyValue(propertyKey, "");
+			}else {
+				if (component instanceof JTextComponent) {
+					setPropertyValue(propertyKey, ((JTextComponent) component).getText());
+				} else if (component instanceof JCheckBox) {
+					setPropertyValue(propertyKey, ((JCheckBox) component).isSelected() + ""); //$NON-NLS-1$
+				} else if (component instanceof JComboBox) {
+					if (((JComboBox) component).getItemAt(0) instanceof ComboBoxItem) {
+						setPropertyValue(propertyKey,
+								((ComboBoxItem) ((JComboBox) component).getSelectedItem()).getNumberOfPoints() + ""); //$NON-NLS-1$
+					} else if (((JComboBox) component).getItemAt(0) instanceof String) {
+						setPropertyValue(propertyKey, ((String) ((JComboBox) component).getSelectedItem() ) ); //$NON-NLS-1$
+					} else if (((JComboBox) component).getItemAt(0) instanceof SAMPLE_SHAPE) {
+						setPropertyValue(propertyKey,  ( (SAMPLE_SHAPE) ((JComboBox) component).getSelectedItem() ).name() );
 					}
+				} else if (component instanceof JList) {
+					setPropertyValue(propertyKey, ((JList) component).getSelectedValue() + ""); //$NON-NLS-1$
+				} else if (component instanceof JRadioButton) {
+					final JComponent[] jComponents = propertyToComponent.get(propertyKey);
+					for (final JComponent jComponent : jComponents) {
+						if (((JRadioButton) jComponent).isSelected()) {
+							setPropertyValue(propertyKey, ((JRadioButton) jComponent).getName());
+						}
+					}
+				} else if (component instanceof JFilePicker) {
+					setPropertyValue(propertyKey, ((JFilePicker) component).getSelectedFilePath());
 				}
-			} else if (component instanceof JFilePicker) {
-				setPropertyValue(propertyKey, ((JFilePicker) component).getSelectedFilePath());
 			}
 		}
 	}

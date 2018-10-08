@@ -473,6 +473,16 @@ public class PropertiesDialog extends JDialog {
 		constraints.gridx = 1;
 		JComboBox<String> dotsSide = (JComboBox<String>) propertyToComponent.get(EarthProperty.INNER_SUBPLOT_SIDE)[0];
 		panel.add(new JScrollPane(dotsSide), constraints);
+		
+		constraints.gridx = 0;
+		constraints.gridy++;
+		label = new JLabel("Central plot side"); //$NON-NLS-1$
+		panel.add(label, constraints);
+		constraints.gridx = 1;
+		JComboBox<String> largeCentralPlotSide = (JComboBox<String>) propertyToComponent.get(EarthProperty.LARGE_CENTRAL_PLOT_SIDE)[0];
+		panel.add(new JScrollPane(largeCentralPlotSide), constraints);
+		
+		
 
 		constraints.gridx = 0;
 		constraints.gridy++;
@@ -498,7 +508,7 @@ public class PropertiesDialog extends JDialog {
 			public void actionPerformed(ActionEvent e) {
 
 				handleVisibilityPlotLayout(plotShape, numberPoints, distanceBetweenPoints, distanceToFrame, dotsSide,
-						plotDistanceInCluster, area, distanceOrRadiuslabel);
+						plotDistanceInCluster, area, distanceOrRadiuslabel, largeCentralPlotSide);
 			}
 
 		});
@@ -508,14 +518,14 @@ public class PropertiesDialog extends JDialog {
 		distanceToFrame.addActionListener(calculateAreas);
 
 		handleVisibilityPlotLayout(plotShape, numberPoints, distanceBetweenPoints, distanceToFrame, dotsSide,
-				plotDistanceInCluster, area, distanceOrRadiuslabel);
+				plotDistanceInCluster, area, distanceOrRadiuslabel, largeCentralPlotSide);
 
 		return panel;
 	}
 
 	public void handleVisibilityPlotLayout(JComboBox plotShape, JComboBox numberPoints, JComboBox distanceBetweenPoints,
 			JComboBox distanceToFrame, JComboBox dotsSide, JComboBox distanceBetweenPlots, JLabel area,
-			JLabel distanceOrRadiuslabel) {
+			JLabel distanceOrRadiuslabel, JComboBox largeCentralPlotSide ) {
 		numberPoints.setEnabled(false);
 		distanceBetweenPoints.setEnabled(false);
 		distanceToFrame.setEnabled(false);
@@ -523,14 +533,22 @@ public class PropertiesDialog extends JDialog {
 		area.setVisible(false);
 		distanceBetweenPlots.setVisible(false);
 		distanceBetweenPlots.setEnabled(false);
+		largeCentralPlotSide.setVisible( false );
+		largeCentralPlotSide.setEnabled(false);
 
-		if (plotShape.getSelectedItem().equals(SAMPLE_SHAPE.SQUARE)) {
+		if (plotShape.getSelectedItem().equals(SAMPLE_SHAPE.SQUARE) || plotShape.getSelectedItem().equals(SAMPLE_SHAPE.SQUARE_WITH_LARGE_CENTRAL_PLOT) ) {
 			numberPoints.setEnabled(true);
 			distanceBetweenPoints.setEnabled(true);
 			distanceToFrame.setEnabled(true);
 			dotsSide.setEnabled(true);
 			area.setVisible(true);
 			distanceOrRadiuslabel.setText(Messages.getString("OptionWizard.36"));
+			
+			if( plotShape.getSelectedItem().equals(SAMPLE_SHAPE.SQUARE_WITH_LARGE_CENTRAL_PLOT) ) {
+				largeCentralPlotSide.setVisible( true );
+				largeCentralPlotSide.setEnabled(true);
+			}
+			
 		} else if (plotShape.getSelectedItem().equals(SAMPLE_SHAPE.CIRCLE)
 				|| plotShape.getSelectedItem().equals(SAMPLE_SHAPE.HEXAGON)) {
 			distanceBetweenPoints.setEnabled(true);
@@ -983,6 +1001,13 @@ public class PropertiesDialog extends JDialog {
 		listOfSizeofSamplingDot.setAutoscrolls(true);
 
 		propertyToComponent.put(EarthProperty.INNER_SUBPLOT_SIDE, new JComponent[] { listOfSizeofSamplingDot });
+		
+		final JComboBox<String> listOfSideOflargeCentralPlot = new JComboBox<String>(listOfNumbersFromTwo);
+		listOfSideOflargeCentralPlot.setSelectedItem(localPropertiesService.getValue(EarthProperty.LARGE_CENTRAL_PLOT_SIDE));
+		listOfSideOflargeCentralPlot.setAutoscrolls(true);
+
+		propertyToComponent.put(EarthProperty.LARGE_CENTRAL_PLOT_SIDE, new JComponent[] { listOfSideOflargeCentralPlot });
+		
 
 		final JRadioButton chromeChooser = new JRadioButton("Chrome"); //$NON-NLS-1$
 		chromeChooser.setSelected(localPropertiesService.getValue(EarthProperty.BROWSER_TO_USE).trim()

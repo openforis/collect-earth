@@ -72,6 +72,41 @@
 					}
 				);
 				myMap.geoObjects.add(point);
+				
+				
+				<#if square.points?? >
+				<#list square.points as innerpoint>
+				// Creating a polygon using the GeoObject class.
+				 // Creating a polyline using the GeoObject class.
+				point = new ymaps.GeoObject({
+						// Describing the geometry of the geo object.
+						geometry: {
+							// The "Polyline" geometry type.
+							type: "LineString",
+							// Specifying the coordinates of the vertices of the polyline.
+							coordinates: [
+								<#list innerpoint.shape as squareCorners>
+								[${squareCorners.latitude},${squareCorners.longitude}],
+								</#list>
+							]
+						},
+						// Defining properties of the geo object.
+						properties:{
+						}
+					}, {
+						// Setting the geo object options. Enabling drag-n-drop for the polyline.
+						draggable: false,
+						// The line color.
+						strokeColor: "#FFFFFF",
+						// Line width.
+						strokeWidth: 2
+					}
+				);
+				myMap.geoObjects.add(point);
+				 
+				  </#list>
+				  </#if>
+				
 				 </#list>
 			
 		

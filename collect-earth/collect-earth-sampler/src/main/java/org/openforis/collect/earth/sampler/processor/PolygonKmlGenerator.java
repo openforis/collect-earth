@@ -22,7 +22,7 @@ public class PolygonKmlGenerator extends AbstractPolygonKmlGenerator {
 	private static final String POLYGON_END = "</polygon>";
 
 	public PolygonKmlGenerator(String epsgCode, String hostAddress, String localPort) {
-		super(epsgCode, hostAddress, localPort, 0, 0, 0, 0);
+		super(epsgCode, hostAddress, localPort, 0, 0, 0, 0, (Integer) null);
 
 	}
 

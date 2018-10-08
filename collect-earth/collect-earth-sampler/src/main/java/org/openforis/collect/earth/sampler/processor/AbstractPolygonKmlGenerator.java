@@ -29,9 +29,9 @@ public abstract class AbstractPolygonKmlGenerator extends KmlGenerator {
 	protected double distanceBetweenSamplePoints;
 	protected double distancePlotBoundary;
 	protected int numberOfSamplePoints;
-
-
-	public AbstractPolygonKmlGenerator(String epsgCode, String hostAddress, String localPort, Integer innerPointSide, Integer numberOfPoints, double distanceBetweenSamplePoints, double distancePlotBoundary) {
+	protected Integer largeCentralPlotSide;
+	
+	public AbstractPolygonKmlGenerator(String epsgCode, String hostAddress, String localPort, Integer innerPointSide, Integer numberOfPoints, double distanceBetweenSamplePoints, double distancePlotBoundary, Integer largeCentralPlotSide) {
 		super(epsgCode);
 		this.hostAddress = hostAddress;
 		this.localPort = localPort;
@@ -39,8 +39,17 @@ public abstract class AbstractPolygonKmlGenerator extends KmlGenerator {
 		this.distanceBetweenSamplePoints = distanceBetweenSamplePoints;
 		this.distancePlotBoundary = distancePlotBoundary;
 		this.setNumberOfSamplePoints(numberOfPoints);
+		this.setLargeCentralPlotSide(largeCentralPlotSide);
 	}
 
+	public Integer getLargeCentralPlotSide() {
+		return largeCentralPlotSide;
+	}
+
+	public void setLargeCentralPlotSide(Integer largeCentralPlotSide) {
+		this.largeCentralPlotSide = largeCentralPlotSide;
+	}
+	
 	protected int getPointSide() {
 		if (innerPointSide == null) {
 			innerPointSide = DEFAULT_INNER_POINT_SIDE;

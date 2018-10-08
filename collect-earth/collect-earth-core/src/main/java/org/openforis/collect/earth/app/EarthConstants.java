@@ -60,7 +60,8 @@ public class EarthConstants {
 
 	
 	public enum SAMPLE_SHAPE{ 
-		SQUARE("Square (Standard)"), 
+		SQUARE("Square (Standard)"),
+		SQUARE_WITH_LARGE_CENTRAL_PLOT("Square (large central point)"),
 		CIRCLE("Circle"), 
 		POLYGON("Predefined polygon within CSV plot file"), 
 		HEXAGON("Hexagon"), 

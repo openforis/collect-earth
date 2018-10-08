@@ -37,6 +37,20 @@
 			           new Microsoft.Maps.Location(${squareCorners.latitude},${squareCorners.longitude}),
 			     </#list>
 		     	],
+		     	
+		     	
+		     	<#if square.points?? >
+				<#list square.points as innerpoint>
+
+					[
+					  <#list innerpoint.shape as squareCorners>
+					  new Microsoft.Maps.Location(${squareCorners.latitude},${squareCorners.longitude}),
+					   </#list>
+					],
+				 
+				  </#list>
+				  </#if>
+		     	
 		    </#list>
         ];
 
