@@ -26,7 +26,6 @@ public class InfiniteProgressMonitor implements ProgressListener {
 	private JLabel label;
 
 	JProgressBar infiniteProgress;
-	//private Logger logger = LoggerFactory.getLogger(InfiniteProgressMonitor.class);
 
 	public InfiniteProgressMonitor(Component parentFrame, String title, String message) {
 

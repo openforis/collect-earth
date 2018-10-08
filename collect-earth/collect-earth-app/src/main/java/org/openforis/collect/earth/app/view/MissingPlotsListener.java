@@ -24,6 +24,7 @@ import javax.swing.JPanel;
 import javax.swing.JPopupMenu;
 import javax.swing.JScrollPane;
 import javax.swing.JTextArea;
+import javax.swing.SwingUtilities;
 
 import org.apache.commons.io.FileUtils;
 import org.apache.commons.lang3.StringUtils;
@@ -45,8 +46,8 @@ public final class MissingPlotsListener implements ActionListener {
 
 	private MissingPlotService missingPlotService;
 
-
-	public MissingPlotsListener(JFrame frame, LocalPropertiesService localPropertiesService, MissingPlotService missingPlotService ) {
+	public MissingPlotsListener(JFrame frame, LocalPropertiesService localPropertiesService,
+			MissingPlotService missingPlotService) {
 		this.frame = frame;
 		this.localPropertiesService = localPropertiesService;
 		this.missingPlotService = missingPlotService;
@@ -57,51 +58,75 @@ public final class MissingPlotsListener implements ActionListener {
 
 		try {
 			CollectEarthWindow.startWaiting(frame);
-			final JDialog dialog = findMissingPlots();
-
-			dialog.setVisible(true);
+			findMissingPlots();
 		} catch (Exception e1) {
-			logger.error(Messages.getString("MissingPlotsListener.0"),e1); //$NON-NLS-1$
-		} finally{
+			logger.error(Messages.getString("MissingPlotsListener.0"), e1); //$NON-NLS-1$
+		} finally {
+
 			CollectEarthWindow.endWaiting(frame);
 		}
 
-
 	}
 
-	private JDialog findMissingPlots() {
+	private void findMissingPlots() {
 
 		showInfoAboutFunctionality();
-		
-		String csvFile = localPropertiesService.getCsvFile();
-		File currentFolder = null;
-		
-		if( !StringUtils.isBlank( csvFile ) ){
-			File file = new File( csvFile );
-			if( file.exists() )
-				currentFolder = file.getParentFile(); 
-		}
 
-		final File[] selectedPlotFiles = JFileChooserExistsAware.getFileChooserResults(DataFormat.COLLECT_COORDS, false, true, null,
-				localPropertiesService, frame, currentFolder);
+		SwingUtilities.invokeLater(new Runnable() {
+			public void run() {
+				InfiniteProgressMonitor infiniteProgressMonitor = new InfiniteProgressMonitor(frame,
+						"Finding missing plots", "Please wait...");
 
-		
-		// Returns the list of all of the plots that are stored in the selected CSV files
-		final Map<String, List<String[]>> allPlotsInFiles = missingPlotService.getPlotDataByFile(selectedPlotFiles);
-		
-		// Returns the list of the plots that are not completely saved or not saved at all in the DB
-		Map<String, List<String[]>> missingPlotData = missingPlotService.getMissingPlotsByFile(allPlotsInFiles);
+				// Generates a text representation of the missing plots plus the brief on the
+				// total plots
+				String missingPlotsText = null;
+				// Generates a temporary file that contains the missing plots as a CED
+				File tempFile = null;
+				try {
+					String csvFile = localPropertiesService.getCsvFile();
+					File currentFolder = null;
 
-		// Generates a text representation of the missing plots plus the brief on the total plots
-		String missingPlotsText = missingPlotService.getMissingPlotInformation(allPlotsInFiles, missingPlotData);
-		
-		// Generates a temporary file that contains the missing plots as a CED 
-		File tempFile = missingPlotService.getMissingPlotFile(missingPlotData);
+					if (!StringUtils.isBlank(csvFile)) {
+						File file = new File(csvFile);
+						if (file.exists())
+							currentFolder = file.getParentFile();
+					}
 
-		return buildDialog(missingPlotsText, tempFile);
+					final File[] selectedPlotFiles = JFileChooserExistsAware.getFileChooserResults(
+							DataFormat.COLLECT_COORDS, false, true, null, localPropertiesService, frame, currentFolder);
+					infiniteProgressMonitor.show();
+
+					// Returns the list of all of the plots that are stored in the selected CSV
+					// files
+					final Map<String, List<String[]>> allPlotsInFiles = missingPlotService
+							.getPlotDataByFile(selectedPlotFiles);
+
+					// Returns the list of the plots that are not completely saved or not saved at
+					// all in the DB
+					Map<String, List<String[]>> missingPlotData = missingPlotService
+							.getMissingPlotsByFile(allPlotsInFiles);
+
+					missingPlotsText = missingPlotService.getMissingPlotInformation(allPlotsInFiles, missingPlotData);
+
+					tempFile = missingPlotService.getMissingPlotFile(missingPlotData);
+					infiniteProgressMonitor.close();
+					JDialog missingDlg = buildDialog(missingPlotsText, tempFile);
+
+					SwingUtilities.invokeLater(new Runnable() {
+
+						@Override
+						public void run() {
+							missingDlg.setVisible(true);
+						}
+					});
+				} catch (Exception e) {
+					logger.error("Error while finding missing plots", e);
+				} finally {
+					infiniteProgressMonitor.close();
+				}
+			}
+		});
 	}
-
-
 
 	private JDialog buildDialog(String missingPlotsText, File tempFile) {
 		final JDialog dialog = new JDialog(frame, Messages.getString("MissingPlotsListener.1")); //$NON-NLS-1$
@@ -115,7 +140,7 @@ public final class MissingPlotsListener implements ActionListener {
 
 		dialog.add(panel);
 
-		disclaimerTextArea = new JTextArea( missingPlotsText );
+		disclaimerTextArea = new JTextArea(missingPlotsText);
 		disclaimerTextArea.setEditable(false);
 		disclaimerTextArea.setLineWrap(true);
 		disclaimerTextArea.setWrapStyleWord(true);
@@ -127,19 +152,26 @@ public final class MissingPlotsListener implements ActionListener {
 		close.addActionListener(e -> dialog.setVisible(false));
 		panel.add(close, BorderLayout.SOUTH);
 
-		if( tempFile != null ){
+		if (tempFile != null) {
 			final JButton export = new JButton(Messages.getString(Messages.getString("MissingPlotsListener.6"))); //$NON-NLS-1$
-			ActionListener exportListener = getSaveAsListener( tempFile );
-			export.addActionListener( exportListener  );
+			ActionListener exportListener = getSaveAsListener(tempFile);
+			export.addActionListener(exportListener);
 			panel.add(export, BorderLayout.SOUTH);
 		}
 
-		disclaimerTextArea.addMouseListener( new MouseAdapter() {
-			public void mousePressed(MouseEvent e)  {check(e);}
-			public void mouseReleased(MouseEvent e) {check(e);}
+		disclaimerTextArea.addMouseListener(new MouseAdapter() {
+			@Override
+			public void mousePressed(MouseEvent e) {
+				check(e);
+			}
+
+			@Override
+			public void mouseReleased(MouseEvent e) {
+				check(e);
+			}
 
 			public void check(MouseEvent e) {
-				if (e.isPopupTrigger()) { //if the event shows the menu
+				if (e.isPopupTrigger()) { // if the event shows the menu
 					getPopupMenu().show(disclaimerTextArea, e.getPoint().x, e.getPoint().y);
 				}
 			}
@@ -148,42 +180,37 @@ public final class MissingPlotsListener implements ActionListener {
 		return dialog;
 	}
 
-	private ActionListener getSaveAsListener( File tempFile ) {
+	private ActionListener getSaveAsListener(File tempFile) {
 
-		ActionListener saveAsListener = new ActionListener() {
+		return new ActionListener() {
 
 			@Override
 			public void actionPerformed(ActionEvent e) {
-				final File[] saveToCsvFile = JFileChooserExistsAware.getFileChooserResults(DataFormat.COLLECT_COORDS, true, false, "plotsWithMissingInfo.csv", //$NON-NLS-1$ //$NON-NLS-2$
+				final File[] saveToCsvFile = JFileChooserExistsAware.getFileChooserResults(DataFormat.COLLECT_COORDS,
+						true, false, "plotsWithMissingInfo.csv", //$NON-NLS-1$ //$NON-NLS-2$
 						localPropertiesService, frame);
 
-				if( saveToCsvFile != null && saveToCsvFile.length == 1 ){
+				if (saveToCsvFile != null && saveToCsvFile.length == 1) {
 					try {
-						FileUtils.copyFile( tempFile, saveToCsvFile[0]);
+						FileUtils.copyFile(tempFile, saveToCsvFile[0]);
 					} catch (IOException e1) {
-						logger.error("Error when copying temporary file with missing plots to final destination " + tempFile.getAbsolutePath() + " to " + saveToCsvFile[0].getAbsolutePath() , e); //$NON-NLS-1$ //$NON-NLS-2$
+						logger.error("Error when copying temporary file with missing plots to final destination " //$NON-NLS-1$
+								+ tempFile.getAbsolutePath() + " to " + saveToCsvFile[0].getAbsolutePath(), e); //$NON-NLS-1$
 					}
 
 				}
 			}
 		};
 
-		return saveAsListener;
-
-
 	}
 
 	public void showInfoAboutFunctionality() {
-		JOptionPane.showMessageDialog( frame,
-				Messages.getString("MissingPlotsListener.3"),  //$NON-NLS-1$
-				Messages.getString("MissingPlotsListener.4"),  //$NON-NLS-1$
-				JOptionPane.INFORMATION_MESSAGE
-				);
+		JOptionPane.showMessageDialog(frame, Messages.getString("MissingPlotsListener.3"), //$NON-NLS-1$
+				Messages.getString("MissingPlotsListener.4"), //$NON-NLS-1$
+				JOptionPane.INFORMATION_MESSAGE);
 	}
 
-
-
-	private JPopupMenu getPopupMenu(){
+	private JPopupMenu getPopupMenu() {
 		Action copyAction = new AbstractAction(Messages.getString("MissingPlotsListener.2")) { //$NON-NLS-1$
 
 			private static final long serialVersionUID = 1L;
@@ -191,22 +218,19 @@ public final class MissingPlotsListener implements ActionListener {
 			@Override
 			public void actionPerformed(ActionEvent e) {
 				disclaimerTextArea.selectAll();
-				String selection =disclaimerTextArea.getSelectedText();
+				String selection = disclaimerTextArea.getSelectedText();
 				Clipboard clipboard = Toolkit.getDefaultToolkit().getSystemClipboard();
-				if(selection==null){
+				if (selection == null) {
 					return;
 				}
-				StringSelection clipString=new StringSelection(selection);
+				StringSelection clipString = new StringSelection(selection);
 				clipboard.setContents(clipString, clipString);
 			}
 		};
 
 		JPopupMenu popup = new JPopupMenu();
-		popup.add (copyAction);
+		popup.add(copyAction);
 		return popup;
 	}
-
-
-
 
 }

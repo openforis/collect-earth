@@ -84,7 +84,7 @@ public class ImportXMLDialogProcessMonitor implements Observer{
 
 		try {
 
-			SwingUtilities.invokeLater(new Runnable() {
+			SwingUtilities.invokeLater(new Thread("Importing files from " + importedFile.getAbsolutePath()) {
 				@Override
 				public void run() {
 

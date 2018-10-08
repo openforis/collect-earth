@@ -11,7 +11,7 @@ import org.slf4j.LoggerFactory;
 
 public class ProcessLoggerThread extends Thread {
 
-	private final static Logger LOGGER = LoggerFactory.getLogger(ProcessLoggerThread.class);
+	private static final Logger LOGGER = LoggerFactory.getLogger(ProcessLoggerThread.class);
 
 	private InputStream inputStream;
 	
@@ -26,6 +26,7 @@ public class ProcessLoggerThread extends Thread {
 	}
 
 
+	@Override
 	public void run() {
 		try {
 			BufferedReader reader = new BufferedReader(new InputStreamReader(inputStream));
