@@ -176,7 +176,9 @@ public class KmlGeneratorService {
 	private int parseInt( String intNumber ){
 		int i = 0;
 		try{
-			i = Integer.parseInt( intNumber );
+			if( StringUtils.isNoneBlank( intNumber ) ) {
+				i = Integer.parseInt( intNumber );
+			}
 		}catch(Exception e){
 			logger.error( "Error parsing integer number" );
 		}
