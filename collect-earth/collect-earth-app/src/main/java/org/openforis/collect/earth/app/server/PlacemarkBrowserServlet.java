@@ -66,7 +66,7 @@ public class PlacemarkBrowserServlet {
 				
 				openGEEWindow(placemarkObject);
 				
-				openGeePlaygroundWindow(placemarkObject);
+				openGeeCodeEditorWindow(placemarkObject);
 
 				openTimeLapseWindow(placemarkObject);
 
@@ -101,7 +101,7 @@ public class PlacemarkBrowserServlet {
 		 * }.start(); }
 		 */
 
-		public void openGeePlaygroundWindow(final SimplePlacemarkObject placemarkObject) {
+		public void openGeeCodeEditorWindow(final SimplePlacemarkObject placemarkObject) {
 			new Thread("Open GEE Playground window") { //$NON-NLS-1$
 				@Override
 				public void run() {
