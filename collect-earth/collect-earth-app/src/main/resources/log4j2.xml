@@ -6,6 +6,9 @@
 			fileName="${sys:collectEarth.userFolder}/earth_error.log"
 			filePattern="${sys:collectEarth.userFolder}/earth_error_%d{MM-dd-yyyy}-%i.log"
 			bufferSize="512" bufferedIO="true">
+			
+			<RegexFilter regex=".*io.sentry.connection.ConnectionException.*" onMatch="DENY" onMismatch="ACCEPT"/>
+			
 			<PatternLayout>
 				<Pattern>%-5p %d [%t] %c: %m%n</Pattern>
 			</PatternLayout>
@@ -19,6 +22,7 @@
 		</Console>
 
 		<JSwingAppender name="jswing-log">
+			<RegexFilter regex=".*io.sentry.connection.ConnectionException.*" onMatch="DENY" onMismatch="ACCEPT"/>
 			<PatternLayout>
 				<pattern>[%-5level] %d{yyyy-MM-dd HH:mm:ss} %msg%n</pattern>
 			</PatternLayout>
