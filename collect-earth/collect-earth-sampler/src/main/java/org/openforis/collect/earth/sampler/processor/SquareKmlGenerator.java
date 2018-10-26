@@ -124,6 +124,11 @@ public class SquareKmlGenerator extends AbstractPolygonKmlGenerator {
 			pointsInPlacemark.remove( positionOfCentralPoint );
 			
 			pointsInPlacemark.add(centralPoint);
+			ArrayList<SimplePlacemarkObject> subplots = new ArrayList<SimplePlacemarkObject>();
+			centralPoint.setName("Central Subplot");
+			subplots.add( centralPoint );
+			placemark.setSubplots( subplots );
+			
 			
 			//Set the central plot as the red square
 			placemark.setSamplePointOutlined(pointsInPlacemark.size()-1);
