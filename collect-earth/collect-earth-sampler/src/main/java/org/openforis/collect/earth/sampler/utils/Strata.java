@@ -60,7 +60,7 @@ public class Strata {
 		if( fileNumber == null ){
 			return stratum + ".csv";
 		}else{
-			return stratum + "_" + fileNumber + ".csv";
+			return stratum + "_" +  (fileNumber+1 ) + ".csv"; // make usre that the first file is one and not zero
 		}
 	}
 	public File getOutputFile() {

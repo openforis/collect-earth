@@ -20,6 +20,7 @@ import java.util.Random;
 import java.util.Set;
 
 import org.apache.commons.io.FileUtils;
+import org.apache.commons.io.FilenameUtils;
 import org.openforis.collect.earth.core.utils.CsvReaderUtils;
 import org.openforis.collect.model.CollectSurvey;
 import org.openforis.idm.metamodel.AttributeDefinition;
@@ -50,7 +51,6 @@ public class ProduceCsvFiles {
 		this.randomizeLines = randomizeLines;
 		this.randomizeUsingColumnValues = randomizeUsingColumnValues;
 		this.filesToDivideInto = filesToDivideInto;
-		
 	}
 
 	private void createOutputFolder( Integer numberOfFiles) {
@@ -87,7 +87,7 @@ public class ProduceCsvFiles {
 			
 			processHeaders(fileToDivide);
 			
-			String originalFileName = fileToDivide.getName();
+			String originalFileName = FilenameUtils.getBaseName( fileToDivide.getName() );
 			
 			// If there is no division by column and the order should be randomized then randomize the file contents from the beginning
 			if( randomizeUsingColumnValues == null && randomizeLines ){

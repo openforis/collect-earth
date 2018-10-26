@@ -108,8 +108,6 @@ public class FileDividerToolDlg extends JDialog{
 
 		panel.add( getGenerateButton(), c );
 
-
-
 		this.add(panel);
 	}
 
@@ -179,15 +177,12 @@ public class FileDividerToolDlg extends JDialog{
 		getColumnSelector().setEnabled(validFile);
 		getNumberOfFilesSelector().setEnabled(true);
 		getOutputFolder().setEnabled(true);
-
 		setColumns( validFile );
 	}
 
 
 	private void setColumns( boolean validFile){
-
 		if( validFile ){
-
 			CollectEarthGridTemplateGenerator cegtg = new CollectEarthGridTemplateGenerator();
 
 			List<String> expectedHeaders = cegtg.getExpectedHeaders(survey);
@@ -225,7 +220,6 @@ public class FileDividerToolDlg extends JDialog{
 	}
 
 	private JComboBox<Integer> getNumberOfFilesSelector() {
-
 		if( numberOfFiles == null ){
 			Integer[] items = new Integer[MAX_FILES];
 			for (int i =1; i<= MAX_FILES; i++) {
@@ -246,19 +240,13 @@ public class FileDividerToolDlg extends JDialog{
 
 			filePicker.addChangeListener( new DocumentListener() {
 
-
-
 				@Override
 				public void removeUpdate(DocumentEvent e) {
-
 				}
 
 				@Override
 				public void insertUpdate(DocumentEvent e) {
-					// TODO Auto-generated method stub
-
 					validateCsv( filePicker.getTextField().getText() );
-
 				}
 
 				private boolean validateCsv(String filePath) {
@@ -297,12 +285,10 @@ public class FileDividerToolDlg extends JDialog{
 									break;
 
 								case INVALID_HEADERS:
-
 									JOptionPane.showMessageDialog( FileDividerToolDlg.this.getParent(),  String.format("The expected columns in the CSV for the survey %s are %s", survey.getName(), validationResults.getExpectedHeaders() ) , "Columns in CSV do not match survey", JOptionPane.ERROR_MESSAGE);
 									break;
 
 								case INVALID_NUMBER_OF_COLUMNS:
-
 									JOptionPane.showMessageDialog( FileDividerToolDlg.this.getParent(), String.format("The number of columns in the CSV file do not coincide with the expercted columns expected for the survey %s /n%s", survey.getName(), validationResults.getExpectedHeaders() ), "Expected File Type", JOptionPane.ERROR_MESSAGE);
 									break;
 
@@ -333,7 +319,6 @@ public class FileDividerToolDlg extends JDialog{
 
 				@Override
 				public void changedUpdate(DocumentEvent e) {
-					// TODO Auto-generated method stub
 					validateCsv( filePicker.getTextField().getText() );
 				}
 			});

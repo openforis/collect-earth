@@ -17,6 +17,7 @@ import org.apache.logging.log4j.core.config.plugins.PluginElement;
 import org.apache.logging.log4j.core.config.plugins.PluginFactory;
 import org.apache.logging.log4j.core.layout.PatternLayout;
 import org.openforis.collect.earth.app.service.LocalPropertiesService;
+import org.slf4j.LoggerFactory;
 
 @Plugin(name = "JSwingAppender", category = "Core", elementType = "appender", printObject = true)
 public class JSwingAppender extends AbstractAppender {
@@ -33,7 +34,7 @@ public class JSwingAppender extends AbstractAppender {
 			@PluginAttribute("ignoreExceptions") boolean ignoreExceptions) {
 
 		if (name == null) {
-			LOGGER.error("No name provided for JTextAreaAppender");
+			LoggerFactory.getLogger( JSwingAppender.class ).error("No name provided for JTextAreaAppender");
 			return null;
 		}
 
