@@ -114,7 +114,7 @@ public class BrowserService implements Observer{
 	private final Logger logger = LoggerFactory.getLogger(BrowserService.class);
 	private static final String KML_FOR_GEE_JS = "resources/javascript_gee.fmt";
 	private static final Configuration cfg = new Configuration( new Version("2.3.23"));
-	private RemoteWebDriver webDriverEE, webDriverBing, webDriverTimelapse, webDriverGeeCodeEditor, webDriverHere, webDriverStreetView, webDriverYandex, webDriverExtraMap;
+	private RemoteWebDriver webDriverEE, webDriverBing, webDriverBaidu, webDriverTimelapse, webDriverGeeCodeEditor, webDriverHere, webDriverStreetView, webDriverYandex, webDriverExtraMap;
 
 	private static boolean geeMethodUpdated = false;
 
@@ -444,6 +444,38 @@ public class BrowserService implements Observer{
 				public void run() {
 					try {
 						webDriverBing = navigateTo(geoLocalizeTemplateService.getBingUrl(placemarkObject,  localPropertiesService.getValue( EarthProperty.BING_MAPS_KEY), GeolocalizeMapService.FREEMARKER_BING_HTML_TEMPLATE).toString(), driverCopy);
+					} catch (final Exception e) {
+						logger.error("Problems loading Bing", e);
+					}
+				}
+			};
+
+			loadBingThread.start();
+
+		}
+	}
+	
+	/**
+	 * Opens a browser window with the Baidu Maps representation of the plot.
+	 * @param placemarkObject The data of the plot.
+	 * @throws BrowserNotFoundException In case the browser could not be found
+	 * 
+	 */
+	public void openBaiduMaps(SimplePlacemarkObject placemarkObject) throws BrowserNotFoundException {
+
+		if (localPropertiesService.isBaiduMapsSupported()) {
+
+			if (webDriverBaidu == null) {
+				webDriverBaidu = initBrowser();
+			}
+
+			final RemoteWebDriver driverCopy = webDriverBaidu;
+
+			final Thread loadBingThread = new Thread() {
+				@Override
+				public void run() {
+					try {
+						webDriverBaidu = navigateTo(geoLocalizeTemplateService.getBaiduUrl(placemarkObject,  GeolocalizeMapService.FREEMARKER_BAIDU_HTML_TEMPLATE).toString(), driverCopy);
 					} catch (final Exception e) {
 						logger.error("Problems loading Bing", e);
 					}

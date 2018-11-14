@@ -44,6 +44,10 @@ public class GeolocalizeMapService {
 	 * code.
 	 */
 	public static final String FREEMARKER_BING_HTML_TEMPLATE = RESOURCES_FOLDER + File.separator + "collectBing.fmt";
+	
+
+	public static final String FREEMARKER_BAIDU_HTML_TEMPLATE = RESOURCES_FOLDER + File.separator + "collectBaidu.fmt";
+
 
 	/**
 	 * The file that contains the freemarker template used to produce the Yandex
@@ -69,7 +73,6 @@ public class GeolocalizeMapService {
 
 	public static final String FREEMARKER_STREET_VIEW_HTML_TEMPLATE = RESOURCES_FOLDER + File.separator
 			+ "collectStreetView.fmt";
-
 	@Autowired
 	LocalPropertiesService localPropertiesService;
 
@@ -186,6 +189,24 @@ public class GeolocalizeMapService {
 
 		final Map<String, Object> data = getPlacemarkData(placemarkObject);
 		data.put("bingMapsKey", bingMapsKey);
+		return processTemplateWithData(freemarkerTemplate, data);
+	}
+	
+	/**
+	 * Produces a temporary file with the necessary HTML code to show the plot in
+	 * Baidu Maps
+	 * 
+	 * @param placemarkObject
+	 *            The data of the plot.
+	 * @param freemarkerTemplate
+	 *            The path to the freemarker template that is used to produce the
+	 *            file.
+	 * @return The URL to the temporary file that can be used to load it in a
+	 *         browser.
+	 */
+	public URL getBaiduUrl(SimplePlacemarkObject placemarkObject, String freemarkerTemplate) {
+
+		final Map<String, Object> data = getPlacemarkData(placemarkObject);
 		return processTemplateWithData(freemarkerTemplate, data);
 	}
 

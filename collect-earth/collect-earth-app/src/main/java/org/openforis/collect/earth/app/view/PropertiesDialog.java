@@ -164,9 +164,12 @@ public class PropertiesDialog extends JDialog {
 
 		constraints.gridy++;
 		panel.add(propertyToComponent.get(EarthProperty.OPEN_BING_MAPS)[0], constraints);
-
+		
 		constraints.gridy++;
 		panel.add(propertyToComponent.get(EarthProperty.OPEN_YANDEX_MAPS)[0], constraints);
+		
+		constraints.gridy++;
+		panel.add(propertyToComponent.get(EarthProperty.OPEN_BAIDU_MAPS)[0], constraints);
 
 		constraints.gridy++;
 		panel.add(propertyToComponent.get(EarthProperty.OPEN_STREET_VIEW)[0], constraints);
@@ -908,6 +911,12 @@ public class PropertiesDialog extends JDialog {
 		openBingCheckbox
 				.setSelected(Boolean.parseBoolean(localPropertiesService.getValue(EarthProperty.OPEN_BING_MAPS)));
 		propertyToComponent.put(EarthProperty.OPEN_BING_MAPS, new JComponent[] { openBingCheckbox });
+		
+		final JCheckBox openBaiduCheckbox = new JCheckBox("Open Baidu Maps");
+		openBaiduCheckbox
+				.setSelected(Boolean.parseBoolean(localPropertiesService.getValue(EarthProperty.OPEN_BAIDU_MAPS)));
+		propertyToComponent.put(EarthProperty.OPEN_BAIDU_MAPS, new JComponent[] { openBaiduCheckbox });
+
 
 		final JCheckBox openYandexCheckbox = new JCheckBox("Open Yandex maps for the plot area");
 		openYandexCheckbox

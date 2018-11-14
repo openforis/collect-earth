@@ -7,7 +7,6 @@ import java.util.Map;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 
-import org.openforis.collect.earth.app.EarthConstants;
 import org.openforis.collect.earth.app.service.BrowserService;
 import org.openforis.collect.earth.app.service.EarthSurveyService;
 import org.openforis.collect.earth.app.service.LocalPropertiesService;
@@ -72,6 +71,8 @@ public class PlacemarkBrowserServlet {
 
 				openBingMapsWindow(placemarkObject);
 				
+				openBaiduMapsWindow(placemarkObject);
+								
 				openYandexMapsWindow(placemarkObject);
 
 				openExtraMapWindow(placemarkObject);
@@ -131,6 +132,23 @@ public class PlacemarkBrowserServlet {
 			}.start();
 		}
 
+
+		public void openBaiduMapsWindow(final SimplePlacemarkObject placemarkObject) {
+			new Thread("Open Baidu Maps window") { //$NON-NLS-1$
+				@Override
+				public void run() {
+					try {
+						browserService.openBaiduMaps(placemarkObject);
+					} catch (final Exception e) {
+						LoggerFactory.getLogger(this.getClass()).error(
+								"Exception opening Baidu Maps window", e); //$NON-NLS-1$
+
+					}
+				}
+
+			}.start();
+		}
+		
 		public void openYandexMapsWindow(final SimplePlacemarkObject placemarkObject) {
 			new Thread("Open Yandex Maps window") { //$NON-NLS-1$
 				@Override
