@@ -5,7 +5,8 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 
-import com.vividsolutions.jts.geom.Coordinate;
+import org.locationtech.jts.geom.Coordinate;
+
 
 /**
  * Data defining a plot and used in the generation of the KML through a

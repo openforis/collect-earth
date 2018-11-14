@@ -7,19 +7,16 @@ import java.io.IOException;
 import org.apache.commons.io.FileUtils;
 import org.geotools.referencing.GeodeticCalculator;
 import org.geotools.referencing.crs.DefaultGeographicCRS;
+import org.locationtech.jts.geom.Coordinate;
 import org.openforis.commons.io.csv.CsvWriter;
 import org.opengis.referencing.operation.TransformException;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
-import com.vividsolutions.jts.geom.Coordinate;
 
 public class ProduceEqualDistanceGrid {
 	
 	public static void main(String[] args) {
 				
 		Coordinate northWest = new Coordinate( 0, 90);
-		Coordinate southEast = new Coordinate( 360, -90);
+		Coordinate	 southEast = new Coordinate( 360, -90);
 		Float distanceInMeters = 16000f;
 		
 		ProduceEqualDistanceGrid equalDistanceGrid = new ProduceEqualDistanceGrid();
@@ -35,8 +32,6 @@ public class ProduceEqualDistanceGrid {
 			System.exit(0);
 		}
 	}
-
-	private Logger logger = LoggerFactory.getLogger(this.getClass());
 	GeodeticCalculator calc = new GeodeticCalculator(DefaultGeographicCRS.WGS84);
 
 	

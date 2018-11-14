@@ -13,6 +13,7 @@ import java.util.Vector;
 import org.apache.commons.io.FileUtils;
 import org.apache.commons.lang.StringEscapeUtils;
 import org.apache.commons.lang.StringUtils;
+import org.locationtech.jts.geom.Point;
 import org.openforis.collect.earth.sampler.model.SimpleCoordinate;
 import org.openforis.collect.earth.sampler.model.SimplePlacemarkObject;
 import org.openforis.collect.earth.sampler.utils.FreemarkerTemplateUtils;
@@ -24,7 +25,6 @@ import org.openforis.idm.metamodel.AttributeDefinition;
 import org.opengis.referencing.FactoryException;
 import org.opengis.referencing.operation.TransformException;
 
-import com.vividsolutions.jts.geom.Point;
 
 public abstract class KmlGenerator extends AbstractCoordinateCalculation {
 

@@ -1,6 +1,6 @@
 package org.openforis.collect.earth.sampler.model;
 
-import com.vividsolutions.jts.geom.Coordinate;
+import org.locationtech.jts.geom.Coordinate;
 
 /**
  * Sstores the coordinates as latitude and longitude strings.

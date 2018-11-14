@@ -4,14 +4,13 @@ import java.util.Arrays;
 
 import org.geotools.referencing.GeodeticCalculator;
 import org.geotools.referencing.crs.DefaultGeographicCRS;
+import org.locationtech.jts.geom.Coordinate;
 import org.opengis.referencing.operation.TransformException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import com.vividsolutions.jts.geom.Coordinate;
-
 public class CoordinateUtils {
-
+	
 	private static GeodeticCalculator calc = new GeodeticCalculator(DefaultGeographicCRS.WGS84);
 	
 	private static final Logger logger = LoggerFactory.getLogger(CoordinateUtils.class);
