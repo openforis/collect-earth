@@ -122,7 +122,7 @@
 		<dependency>
 		    <groupId>io.sentry</groupId>
 		    <artifactId>sentry-log4j2</artifactId>
-		    <version>1.7.14</version>
+		    <version>1.7.15</version>
 		</dependency>
 
 	</dependencies>
