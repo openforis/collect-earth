@@ -17,12 +17,15 @@ import org.apache.logging.log4j.core.config.plugins.PluginElement;
 import org.apache.logging.log4j.core.config.plugins.PluginFactory;
 import org.apache.logging.log4j.core.layout.PatternLayout;
 import org.openforis.collect.earth.app.service.LocalPropertiesService;
+import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 @Plugin(name = "JSwingAppender", category = "Core", elementType = "appender", printObject = true)
 public class JSwingAppender extends AbstractAppender {
 
 	private Boolean showException;
+
+	private Logger logger = LoggerFactory.getLogger( JSwingAppender.class );
 
 	public JSwingAppender(String name, Filter filter, Layout<?> layout, boolean ignoreExceptions) {
 		super(name, filter, layout, ignoreExceptions);
@@ -46,30 +49,37 @@ public class JSwingAppender extends AbstractAppender {
 
 	@Override
 	public void append(LogEvent event) {
+		try {
+			if( isExceptionShown() ) {
+				final String message = new String(this.getLayout().toByteArray(event)).replaceAll("(\r\n|\n)", "<br />");
 
-		if( isExceptionShown() ) {
-			final String message = new String(this.getLayout().toByteArray(event)).replaceAll("(\r\n|\n)", "<br />");
+				// Append formatted message to text area using the Thread.
 
-			// Append formatted message to text area using the Thread.
-			try {
 				SwingUtilities.invokeLater(new Runnable() {
 					@Override
 					public void run() {
-						JEditorPane web = new JEditorPane();
-						web.setEditable(false);
-						web.setContentType("text/html");
-						web.setText(message);
+						try {
+							JEditorPane web = new JEditorPane();
+							web.setEditable(false);
+							web.setContentType("text/html");
+							web.setText(message);
 
-						JScrollPane scrollPane = new JScrollPane(web);
-						scrollPane.setPreferredSize(new Dimension(450, 350));
+							JScrollPane scrollPane = new JScrollPane(web);
+							scrollPane.setPreferredSize(new Dimension(450, 350));
 
-						JOptionPane.showMessageDialog(null, scrollPane, "Error has been loogged", JOptionPane.ERROR_MESSAGE);
+							JOptionPane.showMessageDialog(null, scrollPane, "Error has been loogged", JOptionPane.ERROR_MESSAGE);
+						}catch (Exception e) {
+							// Avoid creating an infinite loop by catching this exception and not logging it as error
+							logger.debug("Error shown exception", e);
+						}
 					}
 				});
-			} catch (final IllegalStateException e) {
-				// ignore case when the platform hasn't yet been initialized
 			}
+		} catch (final IllegalStateException e) {
+			// ignore case when the platform hasn't yet been initialized
+			logger.debug("Error shown exception", e);
 		}
+
 	}
 
 	private boolean isExceptionShown() {

@@ -261,7 +261,7 @@ public class RegionCalculationUtils {
 				String[] csvLine = null;
 				while( ( csvLine = csvReader.readNext() ) != null ){
 					try{
-						int area_hectars = Integer.parseInt( csvLine[columnNames.length -2] );
+						float area_hectars = Float.parseFloat( csvLine[columnNames.length -2] );
 						final Float plot_weight =  Float.parseFloat( csvLine[columnNames.length -1] );
 
 						List<Object> attributeValues = extractAttributeValues(csvLine, attributeNames);

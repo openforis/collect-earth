@@ -23,6 +23,7 @@
 
 		<JSwingAppender name="jswing-log">
 			<RegexFilter regex=".*io.sentry.connection.ConnectionException.*" onMatch="DENY" onMismatch="ACCEPT"/>
+			<RegexFilter regex=".*org.openforis.collect.earth.app.logging.*" onMatch="DENY" onMismatch="ACCEPT"/>
 			<PatternLayout>
 				<pattern>[%-5level] %d{yyyy-MM-dd HH:mm:ss} %msg%n</pattern>
 			</PatternLayout>
