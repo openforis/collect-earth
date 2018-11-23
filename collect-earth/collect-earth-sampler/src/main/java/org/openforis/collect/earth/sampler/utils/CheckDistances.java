@@ -1,6 +1,7 @@
 package org.openforis.collect.earth.sampler.utils;
 
 import java.io.File;
+import java.io.IOException;
 
 import org.geotools.referencing.GeodeticCalculator;
 import org.geotools.referencing.crs.DefaultGeographicCRS;
@@ -14,9 +15,10 @@ public class CheckDistances {
 
 		File csvFile = new File( "C:\\Users\\SanchezPausDiaz\\Downloads\\ecuador.csv");
 		if( csvFile.exists() ){
+			CSVReader reader = null;
 			try {
 
-				CSVReader reader = CsvReaderUtils.getCsvReader(csvFile.getAbsolutePath());
+				reader = CsvReaderUtils.getCsvReader(csvFile.getAbsolutePath());
 				String[] csvRow = reader.readNext();
 
 				while ( csvRow != null ) {
@@ -45,6 +47,13 @@ public class CheckDistances {
 
 			}catch(Exception e){
 				e.printStackTrace();
+			}finally{
+				try {
+					reader.close();
+				} catch (IOException e) {
+					// TODO Auto-generated catch block
+					e.printStackTrace();
+				}
 			}
 		}else{
 			System.out.println("CSV file not found " + csvFile.getAbsolutePath());
