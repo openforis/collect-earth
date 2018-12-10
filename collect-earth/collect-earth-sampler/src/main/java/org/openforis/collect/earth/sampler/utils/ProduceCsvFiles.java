@@ -82,7 +82,7 @@ public class ProduceCsvFiles {
 
 		Map<Strata,CSVWriter> csvFiles = new HashMap<Strata, CSVWriter>();
 		Map<String,Integer> linesPerStrata = new HashMap<String, Integer>(); 
-
+		CSVReader reader = null;
 		try {
 			
 			processHeaders(fileToDivide);
@@ -95,7 +95,7 @@ public class ProduceCsvFiles {
 			}
 
 
-			CSVReader reader = CsvReaderUtils.getCsvReader(fileToDivide.getPath());
+			reader = CsvReaderUtils.getCsvReader(fileToDivide.getPath());
 			String[] csvRow;
 			int rowNumber = 0;
 			
@@ -146,6 +146,13 @@ public class ProduceCsvFiles {
 			logger.error("Error processing CSV file", e);
 		}finally{
 			closeAllWriters( csvFiles );
+			if(reader!=null) {
+				try {
+					reader.close();
+				} catch (IOException e) {
+					logger.warn("Error closing CSV reader ");
+				}
+			}
 		}
 
 		// If there is no division by column and the order should be randomized then randomize the file contents from the beginning

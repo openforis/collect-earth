@@ -27,8 +27,9 @@ public class ProduceGridWithOffset {
 	private Logger logger = LoggerFactory.getLogger(this.getClass());
 
 	public void addTransformedColumns(  File gridFile ){
+		CSVReader csvReader =null;
 		try {
-			CSVReader csvReader = CsvReaderUtils.getCsvReader(gridFile.getPath());
+			csvReader = CsvReaderUtils.getCsvReader(gridFile.getPath());
 			
 			File fileOutput = new File( gridFile.getParent(), "All_Points_Grid_corrected_50moffset.csv" );
 			CSVWriter writer = new CSVWriter( new FileWriter( fileOutput  ) );
@@ -59,6 +60,13 @@ public class ProduceGridWithOffset {
 			writer.close();
 		} catch (IOException e) {
 			logger.error(" Error reading the file " + gridFile );
+		} finally {
+			try {
+				csvReader.close();
+			} catch (IOException e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
+			}
 		}
 		
 	}
