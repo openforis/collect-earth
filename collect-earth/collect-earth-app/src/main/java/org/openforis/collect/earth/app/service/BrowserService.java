@@ -439,7 +439,7 @@ public class BrowserService implements Observer{
 
 			final RemoteWebDriver driverCopy = webDriverBing;
 
-			final Thread loadBingThread = new Thread() {
+			final Thread loadBingThread = new Thread("Opening Bing Maps window") {
 				@Override
 				public void run() {
 					try {
@@ -471,7 +471,7 @@ public class BrowserService implements Observer{
 
 			final RemoteWebDriver driverCopy = webDriverBaidu;
 
-			final Thread loadBingThread = new Thread() {
+			final Thread loadBingThread = new Thread("Opening Baidu Window") {
 				@Override
 				public void run() {
 					try {
@@ -504,7 +504,7 @@ public class BrowserService implements Observer{
 
 			final RemoteWebDriver driverCopy = webDriverYandex;
 
-			final Thread loadYandexThread = new Thread() {
+			final Thread loadYandexThread = new Thread("Opening Yandex Window") {
 				@Override
 				public void run() {
 					try {
@@ -536,7 +536,7 @@ public class BrowserService implements Observer{
 
 			final RemoteWebDriver driverCopy = webDriverExtraMap;
 
-			final Thread loadYandexThread = new Thread() {
+			final Thread loadExtraMapThread = new Thread("Opening Extra Map Window") {
 				@Override
 				public void run() {
 					try {
@@ -551,7 +551,7 @@ public class BrowserService implements Observer{
 				}
 			};
 
-			loadYandexThread.start();
+			loadExtraMapThread.start();
 
 		}
 	}
@@ -572,7 +572,7 @@ public class BrowserService implements Observer{
 
 			final RemoteWebDriver driverCopy = webDriverStreetView;
 
-			final Thread loadStreetViewThread = new Thread() {
+			final Thread loadStreetViewThread = new Thread("Opening Street View Window") {
 				@Override
 				public void run() {
 					try {
@@ -609,7 +609,7 @@ public class BrowserService implements Observer{
 
 			final RemoteWebDriver driverCopy = webDriverHere;
 
-			final Thread loadHereThread = new Thread() {
+			final Thread loadHereThread = new Thread("Opening Here Maps Window") {
 				@Override
 				public void run() {
 					try {
@@ -670,7 +670,7 @@ public class BrowserService implements Observer{
 
 
 			final RemoteWebDriver driverCopy = webDriverEE;
-			final Thread loadEEThread = new Thread() {
+			final Thread loadEEThread = new Thread("Opening GEE Window") {
 				@Override
 				public void run() {
 					try {
@@ -700,7 +700,7 @@ public class BrowserService implements Observer{
 			}
 
 			final RemoteWebDriver driverCopy = webDriverTimelapse;
-			final Thread loadTimelapseThread = new Thread() {
+			final Thread loadTimelapseThread = new Thread("Opening Timelapse Window") {
 				@Override
 				public void run() {
 

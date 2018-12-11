@@ -26,7 +26,7 @@ public class RealAttributeHandler extends AbstractAttributeHandler<RealValue> {
 
 	@Override
 	public RealValue createValue(String parameterValue) {
-		return new RealValue(Double.parseDouble(parameterValue), null);
+		return new RealValue(Double.parseDouble(parameterValue.replace(',', '.')), null);
 	}
 
 	@Override
