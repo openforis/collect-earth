@@ -12,9 +12,6 @@ import javax.swing.JFrame;
 import javax.swing.JOptionPane;
 import javax.swing.SwingUtilities;
 
-import net.lingala.zip4j.core.ZipFile;
-import net.lingala.zip4j.exception.ZipException;
-
 import org.apache.commons.io.FileUtils;
 import org.openforis.collect.earth.app.CollectEarthUtils;
 import org.openforis.collect.earth.app.desktop.EarthApp;
@@ -26,6 +23,9 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.google.common.io.Files;
+
+import net.lingala.zip4j.core.ZipFile;
+import net.lingala.zip4j.exception.ZipException;
 
 public class ImportXMLDialogProcessMonitor implements Observer{
 
@@ -80,7 +80,7 @@ public class ImportXMLDialogProcessMonitor implements Observer{
 	}
 
 	public synchronized void startImport(final XMLDataImportProcess importProcess, final JFrame parentFrame,
-			final DataImportExportService dataImportService, final File importedFile ) {
+			final DataImportExportService dataImportService, final File importedFile ) throws Exception {
 
 		try {
 
@@ -133,8 +133,6 @@ public class ImportXMLDialogProcessMonitor implements Observer{
 				
 				forceRefreshGoogleEarth();
 			}
-		} catch (final Exception e1) {
-			logger.error("", e1); //$NON-NLS-1$
 		} finally {
 			closeProgressmonitor();
 		}

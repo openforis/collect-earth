@@ -230,6 +230,7 @@ public class PropertiesDialog extends JDialog {
 						protected void applyProperties() {
 							savePropertyValues();
 							if (isRestartRequired()) {
+								
 								restartEarth();
 							} else {
 								EarthApp.executeKmlLoadAsynchronously(PropertiesDialog.this);

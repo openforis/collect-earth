@@ -114,7 +114,6 @@ public final class ImportActionListener implements ActionListener {
 									importDialogProcessMonitor.startImport(dataImportProcess, frame, dataImportService, importedFile );
 									
 								} catch (Exception e1) {
-									System.out.println( e1 );
 									logger.error("Error importing data" , e1); //$NON-NLS-1$
 									importDialogProcessMonitor.closeProgressmonitor();
 									JOptionPane.showMessageDialog( frame,  importedFile.getName() + " - " + Messages.getString("CollectEarthWindow.3"), importedFile.getName() + " - " + Messages.getString("CollectEarthWindow.7"), //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$ //$NON-NLS-4$
