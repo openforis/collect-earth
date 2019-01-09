@@ -130,7 +130,10 @@ public class InfiniteProgressMonitor implements ProgressListener {
 			@Override
 			public void run() {
 				getDialog().setVisible(true);
-				if (getPane().getValue().equals(cancelOption)) {
+				if (getPane().getValue() == null  // User closes the dialog
+						|| 
+					getPane().getValue().equals(cancelOption) // User clicks on cancel option
+				) {
 					setUserCancelled(true);
 				}
 			}
