@@ -12,11 +12,13 @@ import java.security.Security;
 import java.security.cert.CertificateException;
 import java.security.cert.X509Certificate;
 import java.util.ArrayList;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Observable;
 import java.util.Observer;
 import java.util.Properties;
+import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.zip.GZIPInputStream;
 
 import javax.annotation.PostConstruct;
@@ -117,6 +119,8 @@ public class BrowserService implements Observer{
 	private RemoteWebDriver webDriverEE, webDriverBing, webDriverBaidu, webDriverTimelapse, webDriverGeeCodeEditor, webDriverHere, webDriverStreetView, webDriverYandex, webDriverExtraMap;
 
 	private static boolean geeMethodUpdated = false;
+	
+	private boolean isClosing = false;
 
 
 	public void closeBrowsers() {
@@ -262,7 +266,12 @@ public class BrowserService implements Observer{
 	private RemoteWebDriver initBrowser() throws BrowserNotFoundException  {
 		RemoteWebDriver driver = null;
 		driver = chooseDriver();
-		drivers.add(driver);
+		if( isClosing ) { // In case the browser takes so long to start that the user closes CE and this method is called when the other windows are being closed 
+			driver.quit();
+			driver = null;
+		}else {
+			drivers.add(driver);
+		}
 		return driver;
 	}
 
@@ -897,17 +906,21 @@ public class BrowserService implements Observer{
 	}
 
 	private Thread getClosingBrowsersThread() {
+		isClosing = true;
 		return new Thread("Quit the open browsers") {
 			@Override
 			public void run() {
 
-				for (final RemoteWebDriver driver : drivers) {
+				CopyOnWriteArrayList<RemoteWebDriver> driversCopy = new CopyOnWriteArrayList<RemoteWebDriver>(drivers);
+				for (Iterator<RemoteWebDriver> iterator = driversCopy.iterator(); iterator.hasNext();) {
+					RemoteWebDriver remoteWebDriver = (RemoteWebDriver) iterator.next();
 					try {
-						driver.quit();
+						remoteWebDriver.quit();
 					} catch (final Exception e) {
 						logger.error("Error quitting the browser", e);
 					}
 				}
+
 			}
 		};
 	}
