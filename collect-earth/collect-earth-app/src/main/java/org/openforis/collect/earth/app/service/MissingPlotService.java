@@ -18,6 +18,7 @@ import java.util.Map;
 import java.util.Set;
 
 import org.openforis.collect.earth.app.EarthConstants;
+import org.openforis.collect.earth.app.view.InfiniteProgressMonitor;
 import org.openforis.collect.earth.app.view.Messages;
 import org.openforis.collect.manager.RecordManager;
 import org.openforis.collect.model.CollectRecord;
@@ -167,11 +168,13 @@ public class MissingPlotService {
 		return keys;
 	}
 
-	public Map<String, List<String[]>> getMissingPlotsByFile(Map<String, List<String[]>> plotDataByFIle) {
+	public Map<String, List<String[]>> getMissingPlotsByFile(Map<String, List<String[]>> plotDataByFIle, InfiniteProgressMonitor infiniteProgressMonitor) {
 		final Map<String, List<String[]>> missingPlotIdsByFile = new HashMap<String, List<String[]>>();
 		final Set<String> plotFiles = plotDataByFIle.keySet();
+		int i = 0;
 		for (final String plotFile : plotFiles) {
 
+			infiniteProgressMonitor.updateProgress( ++i, plotFiles.size(), plotFile );
 			missingPlotIdsByFile.put(plotFile, new ArrayList<String[]>());
 
 			final List<String[]> plotDataInFile = plotDataByFIle.get(plotFile);

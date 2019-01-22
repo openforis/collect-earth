@@ -90,7 +90,7 @@ public class ImportXMLDialogProcessMonitor implements Observer{
 
 					progressMonitor = new InfiniteProgressMonitor(parentFrame, Messages.getString("ImportDialogProcessMonitor.8") + "(" //$NON-NLS-1$ //$NON-NLS-2$
 							+ importedFile.getName() + ")", Messages.getString("ImportDialogProcessMonitor.11") + Messages.getString("ImportDialogProcessMonitor.0")); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$
-					progressMonitor.show();
+					progressMonitor.showLater();
 
 					if (progressMonitor != null && progressMonitor.isUserCancelled()) {
 

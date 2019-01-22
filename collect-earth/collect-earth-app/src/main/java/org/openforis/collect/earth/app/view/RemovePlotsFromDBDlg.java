@@ -203,7 +203,7 @@ public class RemovePlotsFromDBDlg {
 					int totalLines = allLines.size() - 1;
 					boolean skipFirst = true;
 					int plot = 0;
-					progressDeletion.show();
+					progressDeletion.showLater();
 					for (String[] csvRow : allLines) {
 
 						if (skipFirst) {

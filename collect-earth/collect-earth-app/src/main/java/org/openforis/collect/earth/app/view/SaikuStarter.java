@@ -69,7 +69,7 @@ final class SaikuStarter {
 		
 		threadInitializingSaiku.start();
 
-		progressStartSaiku.show();		
+		progressStartSaiku.showLater();		
 		
 		if( progressStartSaiku.isUserCancelled() ){
 			saikuService.setUserCancelledOperation(true);

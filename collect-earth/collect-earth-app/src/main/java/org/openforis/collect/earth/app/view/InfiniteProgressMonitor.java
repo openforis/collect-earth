@@ -1,6 +1,7 @@
 package org.openforis.collect.earth.app.view;
 
 import java.awt.Component;
+import java.lang.reflect.InvocationTargetException;
 
 import javax.swing.JDialog;
 import javax.swing.JLabel;
@@ -8,6 +9,7 @@ import javax.swing.JOptionPane;
 import javax.swing.JProgressBar;
 import javax.swing.SwingUtilities;
 
+import org.apache.commons.lang3.StringUtils;
 import org.openforis.concurrency.Progress;
 import org.openforis.concurrency.ProgressListener;
 
@@ -46,6 +48,12 @@ public class InfiniteProgressMonitor implements ProgressListener {
 
 	public void updateProgress(int current, int total) {
 
+		updateProgress(current, total, null);
+
+	}
+	
+	public void updateProgress(int current, int total, String msg) {
+
 		SwingUtilities.invokeLater(new Runnable() {
 
 			@Override
@@ -60,6 +68,8 @@ public class InfiniteProgressMonitor implements ProgressListener {
 				infiniteProgress.setMaximum(total);
 
 				infiniteProgress.setValue(current);
+				if( StringUtils.isNotBlank( msg ))
+					setMessage( msg );
 			}
 		});
 
@@ -123,8 +133,31 @@ public class InfiniteProgressMonitor implements ProgressListener {
 	public void setUserCancelled(boolean userCancelled) {
 		this.userCancelled = userCancelled;
 	}
-
+	
 	public void show() {
+		try {
+			SwingUtilities.invokeAndWait(new Runnable() {
+
+				@Override
+				public void run() {
+					getDialog().setVisible(true);
+					if (getPane().getValue() == null  // User closes the dialog
+							|| 
+						getPane().getValue().equals(cancelOption) // User clicks on cancel option
+					) {
+						setUserCancelled(true);
+					}
+				}
+
+			});
+		} catch (InvocationTargetException | InterruptedException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+
+	}
+
+	public void showLater() {
 		SwingUtilities.invokeLater(new Runnable() {
 
 			@Override
