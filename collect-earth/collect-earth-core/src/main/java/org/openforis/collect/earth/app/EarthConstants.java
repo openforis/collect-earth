@@ -22,7 +22,7 @@ public class EarthConstants {
 
 	public static final String LIST_NOT_FINISHED_IMAGE = "images/list_not_finished.png"; //$NON-NLS-1$
 	public static final String GENERATED_FOLDER_SUFFIX =  "generated"; //$NON-NLS-1$
-	public static final String GENERATED_FOLDER = FolderFinder.getCollectEarthDataFolder() + File.separator + GENERATED_FOLDER_SUFFIX;
+	public static final String GENERATED_FOLDER = FolderFinder.getCollectEarthDataFolderNoAmpersad() + File.separator + GENERATED_FOLDER_SUFFIX;
 
 	public static final String FOLDER_COPIED_TO_KMZ = "earthFiles"; //$NON-NLS-1$
 

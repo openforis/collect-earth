@@ -30,6 +30,13 @@ public class FolderFinder {
 		return localFolder.getAbsolutePath();
 	}
 	
+	public static String getCollectEarthDataFolderNoAmpersad() {
+		String dataFolder = getCollectEarthDataFolder();
+		// Remove ampersands from the URL (like in case a username is something like "Romeo&Giulietta") so that the SAX parser does not confuse it with an XML entity
+		dataFolder =  dataFolder.replaceAll( "&([^;]+(?!(?:\\w|;)))", "&amp;$1" );
+		return dataFolder;
+	}
+	
 	private static String getUserHome() {
 		String userHome = "" ; 
 		
