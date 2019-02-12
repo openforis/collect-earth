@@ -60,55 +60,17 @@ public class CodeEditorHandlerThread {
 	
 			WebElement textArea = webDriverGee.findElement(By.className("ace_text-input"));
 	
+			String contents = FileUtils.readFileToString(new File(fileWithScript.toURI()), Charset.forName("UTF-8"));
+			
 			if (SystemUtils.IS_OS_MAC || SystemUtils.IS_OS_MAC_OSX) {
-				// Command key (apple key) is not working on Chrome on Mac. Try with the right click
-				// This is not going to be fixed by Selenium
-				// Try a different approach! A bit slower but works
-				String contents = FileUtils.readFileToString(new File(fileWithScript.toURI()), Charset.forName("UTF-8"));
-				// Remove comments so it is faster to send the text!
-				String noComments = removeComments(contents);
-	
-				// Clear the code area
-				forceClick( resetButton );
-				WebElement clearButton = webDriverGee.findElementByXPath("//*[contains(text(), 'Clear script')]");
-				forceClick( clearButton );
-	
-				StringBuilder fixedScriptForMac = new StringBuilder();
-				String[] lines = noComments.split("\\n");
-				for (String line : lines) {
-					// Send the content of the script
-					String trimmedLine = line.trim();
-	
-					// Add Spaces after "{" so we avoid the automatic closing of the method by GEE
-					// Playground JS
-					trimmedLine = trimmedLine.replace("{", "{ ");
-	
-					if (!StringUtils.isBlank(trimmedLine)) {
-						fixedScriptForMac = fixedScriptForMac.append(trimmedLine).append("\n");
-					}
-				}
-	
-				fixedScriptForMac.append("//THE END"); // Don't remove this!!! this way we mark the point where there should be no trailing character removal
-	
-				textArea.sendKeys(fixedScriptForMac);
-	
-				Thread.sleep(5000);
-				// Fix the extra characters added by removing the last 10 chars ( this is a bug from Selenium! )
-				textArea.sendKeys(Keys.PAGE_DOWN);
-				Thread.sleep(500);
-				textArea.sendKeys(Keys.PAGE_DOWN);
+				sendThroughKeys(textArea, contents);
 	
 			} else {
-				Clipboard clipboard = Toolkit.getDefaultToolkit().getSystemClipboard();
-				String contents = FileUtils.readFileToString(new File(fileWithScript.toURI()), Charset.forName("UTF-8"));
-				StringSelection clipboardtext = new StringSelection(contents);
-				clipboard.setContents(clipboardtext, null);
-				Keys controlChar = Keys.CONTROL;
-				if (SystemUtils.IS_OS_MAC || SystemUtils.IS_OS_MAC_OSX) {
-					controlChar = Keys.COMMAND;
+				sendThroughClipboard(textArea, contents);
+				// Fix bug provoked by antivirus not accepting the control characters sent by Selenium
+				if( webDriverGee.findElement(By.className("ace_line") ).getAttribute("value").trim().equals("av") ) {
+					sendThroughKeys(textArea, contents);
 				}
-				textArea.sendKeys(Keys.chord(controlChar, "a"));
-				textArea.sendKeys(Keys.chord(controlChar, "v"));
 			}
 	
 			Thread.sleep(1000);
@@ -120,6 +82,56 @@ public class CodeEditorHandlerThread {
 			
 		}
 
+	}
+
+	private void sendThroughClipboard(WebElement textArea, String contents) {
+		Clipboard clipboard = Toolkit.getDefaultToolkit().getSystemClipboard();
+		StringSelection clipboardtext = new StringSelection(contents);
+		clipboard.setContents(clipboardtext, null);
+		Keys controlChar = Keys.CONTROL;
+		if (SystemUtils.IS_OS_MAC || SystemUtils.IS_OS_MAC_OSX) {
+			controlChar = Keys.COMMAND;
+		}
+		textArea.sendKeys(Keys.chord(controlChar, "a"));
+		textArea.sendKeys(Keys.chord(controlChar, "v"));
+	}
+
+	private void sendThroughKeys(WebElement textArea, String contents)
+			throws InterruptedException {
+		// Command key (apple key) is not working on Chrome on Mac. Try with the right click
+		// This is not going to be fixed by Selenium
+		
+		// Remove comments so it is faster to send the text!
+		String noComments = removeComments(contents);
+
+		// Clear the code area
+		WebElement clearButton = webDriverGee.findElementByXPath("//*[contains(text(), 'Clear script')]");
+		forceClick( clearButton );
+
+		StringBuilder fixedScriptForMac = new StringBuilder();
+		String[] lines = noComments.split("\\n");
+		for (String line : lines) {
+			// Send the content of the script
+			String trimmedLine = line.trim();
+
+			// Add Spaces after "{" so we avoid the automatic closing of the method by GEE
+			// Playground JS
+			trimmedLine = trimmedLine.replace("{", "{ ");
+
+			if (!StringUtils.isBlank(trimmedLine)) {
+				fixedScriptForMac = fixedScriptForMac.append(trimmedLine).append("\n");
+			}
+		}
+
+		fixedScriptForMac.append("//THE END"); // Don't remove this!!! this way we mark the point where there should be no trailing character removal
+
+		textArea.sendKeys(fixedScriptForMac);
+
+		Thread.sleep(500);
+		// Fix the extra characters added by removing the last 10 chars ( this is a bug from Selenium! )
+		textArea.sendKeys(Keys.PAGE_DOWN);
+		Thread.sleep(500);
+		textArea.sendKeys(Keys.PAGE_DOWN);
 	}
 	
 	private void forceClick( WebElement element ) {

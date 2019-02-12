@@ -906,11 +906,11 @@ public class BrowserService implements Observer{
 	}
 
 	private Thread getClosingBrowsersThread() {
-		isClosing = true;
+		
 		return new Thread("Quit the open browsers") {
 			@Override
 			public void run() {
-
+				isClosing = true;
 				CopyOnWriteArrayList<RemoteWebDriver> driversCopy = new CopyOnWriteArrayList<RemoteWebDriver>(drivers);
 				for (Iterator<RemoteWebDriver> iterator = driversCopy.iterator(); iterator.hasNext();) {
 					RemoteWebDriver remoteWebDriver = (RemoteWebDriver) iterator.next();
