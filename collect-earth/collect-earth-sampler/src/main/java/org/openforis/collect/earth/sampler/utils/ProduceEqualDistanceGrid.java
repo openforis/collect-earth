@@ -15,9 +15,9 @@ public class ProduceEqualDistanceGrid {
 	
 	public static void main(String[] args) {
 				
-		Coordinate northWest = new Coordinate( 0, 90);
-		Coordinate	 southEast = new Coordinate( 360, -90);
-		Float distanceInMeters = 16000f;
+		Coordinate northWest = new Coordinate( -100, 80);
+		Coordinate	 southEast = new Coordinate( 100, -80);
+		Float distanceInMeters = 100000f;
 		
 		ProduceEqualDistanceGrid equalDistanceGrid = new ProduceEqualDistanceGrid();
 		try {
@@ -95,32 +95,17 @@ public class ProduceEqualDistanceGrid {
 	
 	private boolean isWithinLatidude(Coordinate currentPoint,
 			Coordinate northWest, Coordinate southEast) {
-		boolean withinBounds = true;
-		double southBoundary = southEast.y;
 
 		double latiude = currentPoint.y;
-		
-		if( latiude < southBoundary  ){
-			withinBounds = false;
-		}
-				
-		return withinBounds;
-		
+		return ( latiude <northWest.y && latiude > southEast.y);
+	
 	}
 	
 	private boolean isWithinLongitude(Coordinate currentPoint,
 			Coordinate northWest, Coordinate southEast) {
 
-		boolean withinBounds = true;
-		double eastBoundary = southEast.x;
-		
-		double longitude = currentPoint.x;
-		
-		if( longitude > eastBoundary  ){
-			withinBounds = false;
-		}
-		
-		return withinBounds;		
+		double longitude = currentPoint.x;		
+		return ( longitude >northWest.x && longitude < southEast.x);		
 	}
 	
 
