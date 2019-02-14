@@ -58,11 +58,11 @@ public class ProduceEqualDistanceGrid {
 		
 		// The points will go first south, then east!!
 
-		while( isWithinLongitude(currentPoint, northWest, southEast) ){
+		while( isWithinLatidude(currentPoint, northWest, southEast) ){
 			
 			int column = 0;
 			
-			while( isWithinLatidude(currentPoint, northWest, southEast) ){
+			while( isWithinLongitude(currentPoint, northWest, southEast) ){
 				csvValues[0] = id+"";
 				csvValues[1] = currentPoint.y+"";
 				csvValues[2] = currentPoint.x+"";
