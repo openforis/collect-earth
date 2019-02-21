@@ -1,5 +1,9 @@
 package org.openforis.collect.earth.sampler.model;
 
+import java.text.DecimalFormat;
+import java.text.DecimalFormatSymbols;
+import java.util.Locale;
+
 import org.locationtech.jts.geom.Coordinate;
 
 /**
@@ -12,23 +16,33 @@ public class SimpleCoordinate {
 
 	private String latitude;
 	private String longitude;
+	
+	
+	private static final DecimalFormat DF;
+	
+	static {
+		DecimalFormatSymbols symbols = new DecimalFormatSymbols( Locale.getDefault() );
+		symbols.setDecimalSeparator('.');
+		DF = new DecimalFormat("#.######", symbols);
+	}
+
 
 	public SimpleCoordinate(Coordinate coord) {
 		super();
-		this.longitude = coord.x + "";
-		this.latitude = coord.y + "";
+		this.longitude = DF.format( coord.x );
+		this.latitude = DF.format( coord.y );
 	}
 
 	public SimpleCoordinate(double[] coordLatLong) {
 		super();
-		this.longitude = coordLatLong[1] + "";
-		this.latitude = coordLatLong[0] + "";
+		this.longitude = DF.format( coordLatLong[1] );
+		this.latitude = DF.format( coordLatLong[0] );
 	}
 	
 	public SimpleCoordinate(Double latitude, Double longitude) {
 		super();
-		this.longitude = longitude + "";
-		this.latitude = latitude + "";
+		this.longitude = DF.format( longitude );
+		this.latitude = DF.format( latitude );
 	}
 
 	public SimpleCoordinate( String latitude, String longitude) {
