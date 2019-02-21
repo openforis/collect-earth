@@ -1,14 +1,17 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <Configuration status="warn"
 	packages="org.openforis.collect.earth.app.logging">
+	
+	<Filters>
+		<RegexFilter regex=".*io.sentry.connection.ConnectionException.*" onMatch="DENY" onMismatch="ACCEPT"/>
+		<BurstFilter level="ERROR" rate="1" maxBurst="5"/>
+	</Filters>
+	
 	<Appenders>
 		<RollingFile name="file"
 			fileName="${sys:collectEarth.userFolder}/earth_error.log"
 			filePattern="${sys:collectEarth.userFolder}/earth_error_%d{MM-dd-yyyy}-%i.log"
 			bufferSize="512" bufferedIO="true">
-			
-			<RegexFilter regex=".*io.sentry.connection.ConnectionException.*" onMatch="DENY" onMismatch="ACCEPT"/>
-			
 			<PatternLayout>
 				<Pattern>%-5p %d [%t] %c: %m%n</Pattern>
 			</PatternLayout>
@@ -22,7 +25,7 @@
 		</Console>
 
 		<JSwingAppender name="jswing-log">
-			<RegexFilter regex=".*(ConnectionException|JSwingAppender).*" onMatch="DENY" onMismatch="ACCEPT"/>
+			<RegexFilter regex=".*JSwingAppender.*" onMatch="DENY" onMismatch="ACCEPT"/>
 			<PatternLayout>
 				<pattern>[%-5level] %d{yyyy-MM-dd HH:mm:ss} %msg%n</pattern>
 			</PatternLayout>
