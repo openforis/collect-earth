@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Configuration status="warn"
+	packages="org.openforis.collect.earth.app.logging">
+	
+	<Filters>
+		<RegexFilter regex=".*io.sentry.connection.ConnectionException.*" onMatch="DENY" onMismatch="ACCEPT"/>
+		<BurstFilter level="ERROR" rate="1" maxBurst="5"/>
+	</Filters>
+	
+	<Appenders>
+		<RollingFile name="file"
+			fileName="grid_error.log"
+			filePattern="grid_error_%d{MM-dd-yyyy}-%i.log"
+			bufferSize="512" bufferedIO="true">
+			<PatternLayout>
+				<Pattern>%-5p %d [%t] %c: %m%n</Pattern>
+			</PatternLayout>
+			<Policies>
+				<SizeBasedTriggeringPolicy size="10 MB" />
+			</Policies>
+			<DefaultRolloverStrategy max="5" />
+		</RollingFile>
+		<Console name="STDOUT" target="SYSTEM_OUT">
+			<PatternLayout pattern="%-5p %d [%t] %c: %m%n" />
+		</Console>
+
+
+	</Appenders>
+	<Loggers>
+		<Root level="WARN">
+			<AppenderRef ref="file" level="ERROR" />
+			<AppenderRef ref="STDOUT" level="WARN" />
+		</Root>
+	</Loggers>
+</Configuration>

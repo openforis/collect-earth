@@ -1,0 +1,30 @@
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+	<modelVersion>4.0.0</modelVersion>
+	<parent>
+		<groupId>org.openforis.collect.earth</groupId>
+		<artifactId>collect-earth</artifactId>
+		<version>1.7.10-SNAPSHOT</version>
+	</parent>
+	<artifactId>collect-earth-grid</artifactId>
+	<packaging>jar</packaging>
+	<name>Open Foris Collect Earth Grid</name>
+	<description>Module to create Collect Earth Global Grids</description>
+	<dependencies>
+		<dependency>
+			<groupId>org.openforis.collect.earth</groupId>
+			<artifactId>collect-earth-sampler</artifactId>
+		</dependency>
+		<dependency>
+			<groupId>org.hibernate</groupId>
+			<artifactId>hibernate-core</artifactId>
+			<version>5.4.1.Final</version>
+		</dependency>
+		<dependency>
+			<groupId>org.postgresql</groupId>
+			<artifactId>postgresql</artifactId>
+			<version>42.2.5</version>
+		</dependency>
+	</dependencies>
+</project>
