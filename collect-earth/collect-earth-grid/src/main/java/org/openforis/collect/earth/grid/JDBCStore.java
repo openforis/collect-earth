@@ -15,7 +15,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 public class JDBCStore extends AbstractStore{
-
+	int count =0;
 
 	private int distanceBetweenPlots;
 	Connection connection = null;
@@ -66,7 +66,7 @@ public class JDBCStore extends AbstractStore{
 			}
 		}
 		
-		int count =0;
+		
 		try {
 
 			getStatement().setInt(1, distanceBetweenPlots );
