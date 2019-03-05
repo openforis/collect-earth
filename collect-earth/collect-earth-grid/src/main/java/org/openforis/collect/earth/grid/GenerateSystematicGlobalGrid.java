@@ -12,7 +12,7 @@ public class GenerateSystematicGlobalGrid{
 
 	}
 
-	private static final Integer DISTANCE_BETWEEN_PLOTS_IN_METERS = 50000;
+	private static final Integer DISTANCE_BETWEEN_PLOTS_IN_METERS = 5000;
 
 	private static final Double STARTING_LONGITUDE = -169d;
 

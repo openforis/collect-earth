@@ -12,7 +12,7 @@ CREATE TABLE IF NOT EXISTS public.plot
   xoffset integer,
   ycoordinate double precision,
   yoffset integer,
-  CONSTRAINT plot_pkey PRIMARY KEY ("row", griddistance, col)
+  CONSTRAINT plot_pkey PRIMARY KEY (row, griddistance, col)
 )
 WITH (
   OIDS=FALSE

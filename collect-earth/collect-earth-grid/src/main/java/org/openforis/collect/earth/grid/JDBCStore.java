@@ -16,7 +16,7 @@ import org.slf4j.LoggerFactory;
 
 public class JDBCStore extends AbstractStore{
 
-
+	private int count =0;
 	private int distanceBetweenPlots;
 	Connection connection = null;
 	private PreparedStatement preparedStatement;
@@ -66,7 +66,7 @@ public class JDBCStore extends AbstractStore{
 			}
 		}
 		
-		int count =0;
+
 		try {
 
 			getStatement().setInt(1, distanceBetweenPlots );
@@ -81,9 +81,10 @@ public class JDBCStore extends AbstractStore{
 			getStatement().addBatch();
 			count++;
 			// execute every 100 rows or less
-			if (count % 1000 == 0 ) {
-				System.out.println( "FLushing to DB " );
+			if (count % 50000 == 0 ) {
+				System.out.println( "Flushing to DB "+count );
 				getStatement().executeBatch();
+
 			}
 	} catch (SQLException e) {
 		logger.error( "Error inserting data", e);
