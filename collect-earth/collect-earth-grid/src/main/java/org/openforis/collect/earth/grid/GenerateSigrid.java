@@ -4,15 +4,15 @@ import org.openforis.collect.earth.sampler.utils.CoordinateUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-public class GenerateSystematicGlobalGrid{
+public class GenerateSigrid{
 
 	public static void main(String[] args)  {
-		GenerateSystematicGlobalGrid globalGrid = new GenerateSystematicGlobalGrid();
+		GenerateSigrid globalGrid = new GenerateSigrid();
 		globalGrid.generate();
 
 	}
 
-	private static final Integer DISTANCE_BETWEEN_PLOTS_IN_METERS = 5000;
+	private static final Integer DISTANCE_BETWEEN_PLOTS_IN_METERS = 30000;
 
 	private static final Double STARTING_LONGITUDE = -169d;
 
@@ -28,7 +28,7 @@ public class GenerateSystematicGlobalGrid{
 		long startTime = System.currentTimeMillis();
 		try {
 
-			
+
 			store.initializeStore( DISTANCE_BETWEEN_PLOTS_IN_METERS );
 
 			Double latitude = STARTING_LATITUDE;
@@ -48,9 +48,9 @@ public class GenerateSystematicGlobalGrid{
 				xOffset = 0;
 
 				while( !moveToNextRow ){
-					store.savePlot( latitude, longitude, yOffset, xOffset, row,  column);
+					store.savePlot( latitude, longitude, row,  column);
 
-					pointWithOffset = CoordinateUtils.getPointWithOffset( new double[]{ latitude, longitude}, DISTANCE_BETWEEN_PLOTS_IN_METERS*-1, 0); // Move DISTANCE Westwards
+					pointWithOffset = CoordinateUtils.getPointWithOffset( new double[]{ latitude.doubleValue(), longitude.doubleValue()}, DISTANCE_BETWEEN_PLOTS_IN_METERS*-1, 0); // Move DISTANCE Westwards
 					longitude = pointWithOffset[1];
 					xOffset += DISTANCE_BETWEEN_PLOTS_IN_METERS;
 
@@ -64,7 +64,7 @@ public class GenerateSystematicGlobalGrid{
 				row++;
 				column = 0;
 				yOffset += DISTANCE_BETWEEN_PLOTS_IN_METERS;
-				pointWithOffset = CoordinateUtils.getPointWithOffset( new double[]{ latitude, STARTING_LONGITUDE},  0, DISTANCE_BETWEEN_PLOTS_IN_METERS*-1); // Move DISTANCE Southwards
+				pointWithOffset = CoordinateUtils.getPointWithOffset( new double[]{ latitude.doubleValue(), STARTING_LONGITUDE.doubleValue()},  0, DISTANCE_BETWEEN_PLOTS_IN_METERS*-1); // Move DISTANCE Southwards
 				longitude = STARTING_LONGITUDE;
 				latitude = pointWithOffset[0];
 			}

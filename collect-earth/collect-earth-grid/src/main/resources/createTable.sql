@@ -4,14 +4,12 @@
 
 CREATE TABLE IF NOT EXISTS public.plot
 (
-  row integer NOT NULL,
-  griddistance integer NOT NULL,
+  row smallint NOT NULL,
+  griddistance smallint NOT NULL,
   col integer NOT NULL,
   gridflags integer,
-  xcoordinate double precision,
-  xoffset integer,
-  ycoordinate double precision,
-  yoffset integer,
+  xcoordinate integer,
+  ycoordinate integer,
   CONSTRAINT plot_pkey PRIMARY KEY (row, griddistance, col)
 )
 WITH (

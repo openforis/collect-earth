@@ -19,7 +19,7 @@ public class HibernateStore extends AbstractStore{
 	}
 
 	@Override
-	public void savePlot(Double latitude, Double longitude, Integer yOffset, Integer xOffset, Integer row,
+	public void savePlot(Double latitude, Double longitude, Integer row,
 			Integer column){
 		Plot plot = new Plot();
 		plot.setColumn( column );
@@ -27,8 +27,6 @@ public class HibernateStore extends AbstractStore{
 		plot.setRow( row);
 		plot.setxCoordinate(longitude);
 		plot.setyCoordinate(latitude);
-		plot.setxOffset(xOffset);
-		plot.setyOffset(yOffset);
 		
 		int gridFlags = 0;
 		for (Integer d : getDistances()) {
