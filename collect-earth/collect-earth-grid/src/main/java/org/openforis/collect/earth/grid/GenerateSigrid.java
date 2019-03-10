@@ -3,6 +3,7 @@ package org.openforis.collect.earth.grid;
 import org.openforis.collect.earth.sampler.utils.CoordinateUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.sqlite.SQLiteException;
 
 public class GenerateSigrid{
 
@@ -69,7 +70,9 @@ public class GenerateSigrid{
 				latitude = pointWithOffset[0];
 			}
 
-		}  catch (Exception e) {
+		}  catch (SQLiteException e) {
+			logger.error(" Error with SQL query ", e );
+		}catch (Exception e) {
 			logger.error(" Error transforming the point coordinates ", e );
 		} finally {
 			System.out.println( "Total time millis " + (System.currentTimeMillis() - startTime ));

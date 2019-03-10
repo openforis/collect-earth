@@ -25,14 +25,18 @@ public class JDBCStore extends AbstractStore{
 	private Logger logger = LoggerFactory.getLogger(JDBCStore.class); 
 	
 	public static final int SCALING_FACTOR = 10000000;
+	
+	private static final Boolean USE_SQLITE = false;
+	
+	private static final String SQLITE_URL = "jdbc:sqlite:";
+	private static final String POSTGRESQL_URL = "jdbc:postgresql://localhost/sigrid";
 
 	private Connection getConnection() {
 		if(connection == null ) {
 			try {
-				Class.forName("org.postgresql.Driver");
-
-				connection = DriverManager.getConnection(
-						"jdbc:postgresql://localhost/globalgridJDBC","collectearth", "collectearth");
+				Class.forName("org.sqlite.JDBC");
+				File sigridDBFile = new File( "sigrid.db" );
+				connection = DriverManager.getConnection( USE_SQLITE?SQLITE_URL+sigridDBFile.getAbsolutePath():POSTGRESQL_URL, "collectearth","collectearth");
 			} catch (Exception e) {
 				logger.error("Error loading JDBC driver", e);
 			}
@@ -51,7 +55,7 @@ public class JDBCStore extends AbstractStore{
 
 	private void createTable() throws IOException, SQLException, URISyntaxException, ClassNotFoundException {
 		String createTable = FileUtils.readFileToString( 
-				new File( this.getClass().getClassLoader().getResource("createTable.sql").toURI() ),
+				new File( this.getClass().getClassLoader().getResource(USE_SQLITE?"createTableSqlite.sql":"createTable.sql").toURI() ),
 				Charset.forName("UTF-8") 
 				);
 		Statement createStatement = getConnection().createStatement();
