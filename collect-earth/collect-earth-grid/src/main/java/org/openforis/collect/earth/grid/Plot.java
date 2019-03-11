@@ -33,12 +33,6 @@ public class Plot implements Serializable{
 	private double xCoordinate;
 	
 	@Column
-	private int xOffset;
-	
-	@Column
-	private int yOffset;
-
-	@Column
 	private int gridFlags;
 
 	public int getGridDistance() {
@@ -81,22 +75,6 @@ public class Plot implements Serializable{
 		this.xCoordinate = xCoordinate;
 	}
 
-	public int getxOffset() {
-		return xOffset;
-	}
-
-	public void setxOffset(int xOffset) {
-		this.xOffset = xOffset;
-	}
-
-	public int getyOffset() {
-		return yOffset;
-	}
-
-	public void setyOffset(int yOffset) {
-		this.yOffset = yOffset;
-	}
-
 	public int getGridFlags() {
 		return gridFlags;
 	}
@@ -121,10 +99,8 @@ public class Plot implements Serializable{
 		long temp;
 		temp = Double.doubleToLongBits(xCoordinate);
 		result = prime * result + (int) (temp ^ (temp >>> 32));
-		result = prime * result + xOffset;
 		temp = Double.doubleToLongBits(yCoordinate);
 		result = prime * result + (int) (temp ^ (temp >>> 32));
-		result = prime * result + yOffset;
 		return result;
 	}
 
@@ -147,11 +123,7 @@ public class Plot implements Serializable{
 			return false;
 		if (Double.doubleToLongBits(xCoordinate) != Double.doubleToLongBits(other.xCoordinate))
 			return false;
-		if (xOffset != other.xOffset)
-			return false;
 		if (Double.doubleToLongBits(yCoordinate) != Double.doubleToLongBits(other.yCoordinate))
-			return false;
-		if (yOffset != other.yOffset)
 			return false;
 		return true;
 	}
