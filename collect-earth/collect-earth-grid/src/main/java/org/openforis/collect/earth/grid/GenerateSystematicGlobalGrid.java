@@ -48,7 +48,7 @@ public class GenerateSystematicGlobalGrid{
 				xOffset = 0;
 
 				while( !moveToNextRow ){
-					store.savePlot( latitude, longitude, yOffset, xOffset, row,  column);
+					store.savePlot( latitude, longitude, row,  column);
 
 					pointWithOffset = CoordinateUtils.getPointWithOffset( new double[]{ latitude, longitude}, DISTANCE_BETWEEN_PLOTS_IN_METERS*-1, 0); // Move DISTANCE Westwards
 					longitude = pointWithOffset[1];
