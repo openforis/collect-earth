@@ -58,6 +58,8 @@ public class SimplePlacemarkObject {
 	private Map<String, String> valuesByColumn;
 
 	private String visiblePlacemarkId;
+	
+	private List<SimplePlacemarkObject> buffers;
 
 	public SimplePlacemarkObject() {
 	}
@@ -124,6 +126,14 @@ public class SimplePlacemarkObject {
 
 	public int getAspect() {
 		return aspect;
+	}
+
+	public List<SimplePlacemarkObject> getBuffers() {
+		return buffers;
+	}
+
+	public void setBuffers(List<SimplePlacemarkObject> buffers) {
+		this.buffers = buffers;
 	}
 
 	public SimpleCoordinate getCoord() {
@@ -337,5 +347,6 @@ public class SimplePlacemarkObject {
 				+ Arrays.toString(idColumns) + ", originalLatitude=" + originalLatitude + ", originalLongitude="
 				+ originalLongitude + ", kmlPolygon=" + kmlPolygon + "]";
 	}
+
 
 }

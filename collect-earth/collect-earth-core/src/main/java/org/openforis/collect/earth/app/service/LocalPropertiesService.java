@@ -52,7 +52,7 @@ public class LocalPropertiesService extends Observable{
 																								"open_separate_browser_form"), OPEN_BING_MAPS("open_bing_maps"), OPEN_EARTH_ENGINE(
 																										"open_earth_engine"), OPEN_GEE_PLAYGROUND("open_gee_playground"), OPEN_HERE_MAPS("open_here_maps"), OPEN_STREET_VIEW("open_street_view"), OPEN_TIMELAPSE("open_timelapse"), 
 		OPEN_YANDEX_MAPS("open_yandex_maps"), OPERATION_MODE(
-				"operation_mode"), OPERATOR_KEY("operator"), SAIKU_SERVER_FOLDER("saiku_server_folder"), SAMPLE_FILE("csv"), SAMPLE_SHAPE("sample_shape"), SURVEY_NAME("survey_name"), UI_LANGUAGE("ui_language"), LARGE_CENTRAL_PLOT_SIDE("large_central_plot_side"), OPEN_BAIDU_MAPS("open_baidu_maps");
+				"operation_mode"), OPERATOR_KEY("operator"), SAIKU_SERVER_FOLDER("saiku_server_folder"), SAMPLE_FILE("csv"), SAMPLE_SHAPE("sample_shape"), SURVEY_NAME("survey_name"), UI_LANGUAGE("ui_language"), LARGE_CENTRAL_PLOT_SIDE("large_central_plot_side"), OPEN_BAIDU_MAPS("open_baidu_maps"), DISTANCE_TO_BUFFERS("distance_to_buffers");
 
 
 		private String name;

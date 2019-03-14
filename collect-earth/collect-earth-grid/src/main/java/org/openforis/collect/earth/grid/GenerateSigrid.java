@@ -13,7 +13,7 @@ public class GenerateSigrid{
 
 	}
 
-	private static final Integer DISTANCE_BETWEEN_PLOTS_IN_METERS = 15000;
+	private static final Integer DISTANCE_BETWEEN_PLOTS_IN_METERS = 1000;
 
 	private static final Double STARTING_LONGITUDE = -169d;
 
@@ -61,7 +61,7 @@ public class GenerateSigrid{
 					moveToNextRow = !firstPass && (  STARTING_LONGITUDE > longitude ); 
 					column ++;
 				}
-				System.out.println( "Finished row - " + row);
+				//System.out.println( "Finished row - " + row);
 				row++;
 				column = 0;
 				yOffset += DISTANCE_BETWEEN_PLOTS_IN_METERS;
