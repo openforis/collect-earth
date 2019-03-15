@@ -20,6 +20,8 @@ import org.openforis.collect.earth.sampler.processor.HexagonKmlGenerator;
 import org.openforis.collect.earth.sampler.processor.KmlGenerator;
 import org.openforis.collect.earth.sampler.processor.KmzGenerator;
 import org.openforis.collect.earth.sampler.processor.NfiCirclesKmlGenerator;
+import org.openforis.collect.earth.sampler.processor.NfiFourCirclesGenerator;
+import org.openforis.collect.earth.sampler.processor.NfiThreeCirclesGenerator;
 import org.openforis.collect.earth.sampler.processor.NfmaKmlGenerator;
 import org.openforis.collect.earth.sampler.processor.PolygonKmlGenerator;
 import org.openforis.collect.earth.sampler.processor.SquareKmlGenerator;
@@ -235,7 +237,7 @@ public class KmlGeneratorService {
 				generateKml = new NfmaKmlGenerator(crsSystem, hostAddress, localPort, 150, false);
 			} else if (plotShape.equals(SAMPLE_SHAPE.NFMA_250)) {
 				generateKml = new NfmaKmlGenerator(crsSystem, hostAddress, localPort, 250, true);
-			} else if (plotShape.equals(SAMPLE_SHAPE.NFI_CIRCLES)) {
+			} else if (plotShape.equals(SAMPLE_SHAPE.NFI_THREE_CIRCLES)) {
 				
 				String dBP = getLocalProperties().getValue(EarthProperty.DISTANCE_BETWEEN_PLOTS );
 				float distanceBetweenPlots;
@@ -247,7 +249,20 @@ public class KmlGeneratorService {
 					return null;
 				}	
 				
-				generateKml = new NfiCirclesKmlGenerator(crsSystem, hostAddress, localPort, innerPointSide,  distanceBetweenSamplePoints, distanceBetweenPlots );
+				generateKml = new NfiThreeCirclesGenerator(crsSystem, hostAddress, localPort, innerPointSide,  distanceBetweenSamplePoints, distanceBetweenPlots );
+			}else if (plotShape.equals(SAMPLE_SHAPE.NFI_FOUR_CIRCLES)) {
+				
+				String dBP = getLocalProperties().getValue(EarthProperty.DISTANCE_BETWEEN_PLOTS );
+				float distanceBetweenPlots;
+				try {
+					distanceBetweenPlots = Float.parseFloat(dBP);
+				} catch (Exception e) {
+					logger.error("Error parsing distance between plots , wrong value : " + dBP,e);
+					EarthApp.showMessage("Attention: Check earth.properties file. The distance between plots must be a number! You have set it to : " + dBP); //$NON-NLS-1$
+					return null;
+				}	
+				
+				generateKml = new NfiFourCirclesGenerator(crsSystem, hostAddress, localPort, innerPointSide,  distanceBetweenSamplePoints, distanceBetweenPlots );
 			}else if (plotShape.equals(SAMPLE_SHAPE.HEXAGON)) {
 				generateKml = new HexagonKmlGenerator(crsSystem, hostAddress, localPort, innerPointSide,  numberOfPoints, distanceBetweenSamplePoints );
 			}  else if (plotShape.equals(SAMPLE_SHAPE.SQUARE_CIRCLE)) {

@@ -559,7 +559,7 @@ public class PropertiesDialog extends JDialog {
 			dotsSide.setEnabled(true);
 			numberPoints.setEnabled(true);
 			distanceOrRadiuslabel.setText("Radius");
-		} else if (plotShape.getSelectedItem().equals(SAMPLE_SHAPE.NFI_CIRCLES)) {
+		} else if (plotShape.getSelectedItem().equals(SAMPLE_SHAPE.NFI_THREE_CIRCLES) || plotShape.getSelectedItem().equals(SAMPLE_SHAPE.NFI_FOUR_CIRCLES)) {
 			dotsSide.setEnabled(true);
 			distanceBetweenPoints.setEnabled(true);
 			distanceBetweenPlots.setVisible(true);
@@ -952,7 +952,11 @@ public class PropertiesDialog extends JDialog {
 		propertyToComponent.put(EarthProperty.SAMPLE_FILE, new JComponent[] { csvWithPlotData });
 
 		final JComboBox<SAMPLE_SHAPE> plotShape = new JComboBox<SAMPLE_SHAPE>(SAMPLE_SHAPE.values());
-		plotShape.setSelectedItem(SAMPLE_SHAPE.valueOf(localPropertiesService.getValue(EarthProperty.SAMPLE_SHAPE)));
+		try {
+			plotShape.setSelectedItem(SAMPLE_SHAPE.valueOf(localPropertiesService.getValue(EarthProperty.SAMPLE_SHAPE)));
+		} catch (Exception e1) {
+			logger.error("The selected shape type is not supported " + localPropertiesService.getValue(EarthProperty.SAMPLE_SHAPE), e1 );
+		}
 		propertyToComponent.put(EarthProperty.SAMPLE_SHAPE, new JComponent[] { plotShape });
 
 		final JComboBox<ComboBoxItem> comboNumberOfPoints = new JComboBox<ComboBoxItem>(

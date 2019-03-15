@@ -1,11 +1,13 @@
 package org.openforis.collect.earth.sampler.processor;
 
+import java.util.ArrayList;
+
 import org.openforis.collect.earth.sampler.model.SimplePlacemarkObject;
 import org.openforis.collect.earth.sampler.model.SimpleRegion;
 import org.openforis.collect.earth.sampler.utils.KmlGenerationException;
 import org.opengis.referencing.operation.TransformException;
 
-public class NfiCirclesKmlGenerator extends PolygonKmlGenerator {
+public abstract class NfiCirclesKmlGenerator extends PolygonKmlGenerator {
 	
 	private float distanceBetweenPlots;
 	private float radius;
@@ -35,11 +37,19 @@ public class NfiCirclesKmlGenerator extends PolygonKmlGenerator {
 	}
 
 	
-	private String getKmlForTract(SimplePlacemarkObject placemark) throws TransformException {	
+	protected abstract String getKmlForTract(SimplePlacemarkObject placemark) throws TransformException;
+
+
+	protected String getKmlForTract(SimplePlacemarkObject placemark, boolean fourCircles) throws TransformException {	
 		double[] tractCoord = placemark.getCoord().getCoordinates();
 		// Rectangle north-west 
 		float halfSide = innerPointSide/2f;
-				
+		
+		ArrayList<SimplePlacemarkObject> subplots = new ArrayList<SimplePlacemarkObject>();
+		
+
+		
+		
 		String circleCenter = createRectangle( getPointWithOffset(tractCoord, -radius, -radius), getPointWithOffset(tractCoord, -radius, radius), getPointWithOffset(tractCoord, radius, radius) , getPointWithOffset(tractCoord, radius, -radius) );
 		String circleNorth = createRectangle( getPointWithOffset(tractCoord, (radius*3)+distanceBetweenPlots, -radius), getPointWithOffset(tractCoord, (radius*3)+distanceBetweenPlots, radius), getPointWithOffset(tractCoord, radius+distanceBetweenPlots, radius) , getPointWithOffset(tractCoord, radius+distanceBetweenPlots, -radius) );
 		String circleEast = createRectangle( getPointWithOffset(tractCoord, -radius, radius+distanceBetweenPlots), getPointWithOffset(tractCoord, -radius, (radius*3)+distanceBetweenPlots), getPointWithOffset(tractCoord, radius, (radius*3)+distanceBetweenPlots) , getPointWithOffset(tractCoord, radius, radius+distanceBetweenPlots) );
@@ -48,7 +58,47 @@ public class NfiCirclesKmlGenerator extends PolygonKmlGenerator {
 		String dotNorth = createRectangle( getPointWithOffset(tractCoord, (radius*2)+distanceBetweenPlots + halfSide, -halfSide), getPointWithOffset(tractCoord, (radius*2)+distanceBetweenPlots + halfSide, halfSide), getPointWithOffset(tractCoord, (radius*2)+distanceBetweenPlots - halfSide, halfSide) , getPointWithOffset(tractCoord, (radius*2)+distanceBetweenPlots - halfSide, -halfSide) );
 		String dotEast = createRectangle( getPointWithOffset(tractCoord, -halfSide, (radius*2)+distanceBetweenPlots - halfSide), getPointWithOffset(tractCoord, -halfSide, (radius*2)+distanceBetweenPlots + halfSide), getPointWithOffset(tractCoord, halfSide, (radius*2)+distanceBetweenPlots + halfSide) , getPointWithOffset(tractCoord, halfSide, (radius*2)+distanceBetweenPlots - halfSide) );
 		
-		return "<MultiGeometry>" + circleCenter+ "\n" + circleNorth+ "\n" + circleEast+ "\n" + dotCenter+ "\n" + dotNorth+ "\n" + dotEast + "\n"+ "</MultiGeometry>";
+		/*
+		final SimplePlacemarkObject southWestPlot = new SimplePlacemarkObject( tractCoord , placemark.getPlacemarkId() + "southWestPlot");
+		southWestPlot.setShape(getSamplePointPolygon(getPointWithOffset(tractCoord, -halfSide, halfSide), innerPointSide));
+		southWestPlot.setName("South West");
+		subplots.add( southWestPlot );
+		*/
+		
+		final SimplePlacemarkObject southEastPlot = new SimplePlacemarkObject( getPointWithOffset(tractCoord, (radius*2)+distanceBetweenPlots, 0) , placemark.getPlacemarkId() + "southEastPlot");
+		southEastPlot.setShape(getSamplePointPolygon(getPointWithOffset(tractCoord, (radius*2)+distanceBetweenPlots - radius, -radius), (int) (radius*2)));
+		southEastPlot.setName("South East");
+		subplots.add( southEastPlot );
+		
+		final SimplePlacemarkObject northWestPlot = new SimplePlacemarkObject( getPointWithOffset(tractCoord, 0, (radius*2)+distanceBetweenPlots) , placemark.getPlacemarkId() + "northWestPlot");
+		northWestPlot.setShape(getSamplePointPolygon(getPointWithOffset(tractCoord, -radius , radius+distanceBetweenPlots ), (int) (radius*2)));
+		northWestPlot.setName("North West");
+		subplots.add( northWestPlot );
+		
+		
+		if( fourCircles ) {
+			String dotNorthEast = createRectangle( 
+					getPointWithOffset(tractCoord, (radius*2)+distanceBetweenPlots + halfSide, (radius*2)+distanceBetweenPlots - halfSide), 
+					getPointWithOffset(tractCoord, (radius*2)+distanceBetweenPlots + halfSide, (radius*2)+distanceBetweenPlots + halfSide), 
+					getPointWithOffset(tractCoord, (radius*2)+distanceBetweenPlots - halfSide, (radius*2)+distanceBetweenPlots + halfSide) , 
+					getPointWithOffset(tractCoord, (radius*2)+distanceBetweenPlots - halfSide, (radius*2)+distanceBetweenPlots - halfSide) );
+			String circleNorthEast = createRectangle( getPointWithOffset(tractCoord, (radius*3)+distanceBetweenPlots, radius+distanceBetweenPlots), getPointWithOffset(tractCoord, (radius*3)+distanceBetweenPlots, (radius*3)+distanceBetweenPlots), getPointWithOffset(tractCoord, radius+distanceBetweenPlots ,(radius*3)+distanceBetweenPlots),getPointWithOffset(tractCoord, radius+distanceBetweenPlots, radius+distanceBetweenPlots) );
+			
+			
+			
+			final SimplePlacemarkObject northEastPlot = new SimplePlacemarkObject( getPointWithOffset(tractCoord, (radius*2)+distanceBetweenPlots, (radius*2)+distanceBetweenPlots) , placemark.getPlacemarkId() + "northEastPlot");
+			northEastPlot.setShape(getSamplePointPolygon(getPointWithOffset(tractCoord, radius+distanceBetweenPlots, radius+distanceBetweenPlots ), (int) (radius*2)) );
+			northEastPlot.setName("North East");
+			subplots.add( northEastPlot );
+			
+			
+			placemark.setSubplots( subplots );			
+			return "<MultiGeometry>" + circleCenter+ "\n" + circleNorth+ "\n" + circleEast+ "\n" + circleNorthEast+ "\n" + dotCenter+ "\n" + dotNorth+ "\n" + dotEast + "\n"+ dotNorthEast + "\n"+ "</MultiGeometry>";
+		}else {
+			
+			placemark.setSubplots( subplots );
+			return "<MultiGeometry>" + circleCenter+ "\n" + circleNorth+ "\n" + circleEast+ "\n" + dotCenter+ "\n" + dotNorth+ "\n" + dotEast + "\n"+ "</MultiGeometry>";
+		}
 	}
 
 

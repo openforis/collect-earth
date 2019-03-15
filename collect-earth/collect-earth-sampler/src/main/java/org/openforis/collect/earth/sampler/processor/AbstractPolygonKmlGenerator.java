@@ -181,7 +181,7 @@ public abstract class AbstractPolygonKmlGenerator extends KmlGenerator {
 
 	private void fillBuffersAroundPlot(SimplePlacemarkObject currentPlacemark) {
 		final List<SimplePlacemarkObject> buffers = new ArrayList<SimplePlacemarkObject>();
-
+		// when there is a property in the earth.properties like this : distance_to_buffers=70,112,194
 		if( StringUtils.isNotBlank( distanceToBuffers )) {
 			String[] distances =  StringUtils.split( distanceToBuffers, ',' );
 
