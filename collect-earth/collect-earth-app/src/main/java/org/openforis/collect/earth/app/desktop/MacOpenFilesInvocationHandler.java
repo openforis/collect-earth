@@ -7,7 +7,6 @@ import java.util.List;
 
 import javax.swing.JOptionPane;
 
-import org.openforis.collect.earth.app.view.CollectEarthWindow;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 

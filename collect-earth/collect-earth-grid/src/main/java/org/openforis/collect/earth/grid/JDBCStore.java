@@ -98,7 +98,6 @@ public class JDBCStore extends AbstractStore{
 			}
 		}
 
-
 		try {
 
 			getInsertStatement().setInt(1, distanceBetweenPlots );

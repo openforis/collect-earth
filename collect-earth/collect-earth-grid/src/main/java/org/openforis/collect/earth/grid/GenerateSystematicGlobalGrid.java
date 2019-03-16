@@ -3,17 +3,16 @@ package org.openforis.collect.earth.grid;
 import org.openforis.collect.earth.sampler.utils.CoordinateUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.sqlite.SQLiteException;
 
-public class GenerateSigrid{
+public class GenerateSystematicGlobalGrid{
 
 	public static void main(String[] args)  {
-		GenerateSigrid globalGrid = new GenerateSigrid();
+		GenerateSystematicGlobalGrid globalGrid = new GenerateSystematicGlobalGrid();
 		globalGrid.generate();
 
 	}
 
-	private static final Integer DISTANCE_BETWEEN_PLOTS_IN_METERS = 1000;
+	private static final Integer DISTANCE_BETWEEN_PLOTS_IN_METERS = 100000;
 
 	private static final Double STARTING_LONGITUDE = -169d;
 
@@ -23,13 +22,13 @@ public class GenerateSigrid{
 
 	private Logger logger = LoggerFactory.getLogger(this.getClass());
 
-	private AbstractStore store = new JDBCStore();
+	private AbstractStore store = new CSVStore();
 
 	public void generate(){
 		long startTime = System.currentTimeMillis();
 		try {
 
-
+			
 			store.initializeStore( DISTANCE_BETWEEN_PLOTS_IN_METERS );
 
 			Double latitude = STARTING_LATITUDE;
@@ -51,7 +50,7 @@ public class GenerateSigrid{
 				while( !moveToNextRow ){
 					store.savePlot( latitude, longitude, row,  column);
 
-					pointWithOffset = CoordinateUtils.getPointWithOffset( new double[]{ latitude.doubleValue(), longitude.doubleValue()}, DISTANCE_BETWEEN_PLOTS_IN_METERS*-1, 0); // Move DISTANCE Westwards
+					pointWithOffset = CoordinateUtils.getPointWithOffset( new double[]{ latitude, longitude}, DISTANCE_BETWEEN_PLOTS_IN_METERS*-1, 0); // Move DISTANCE Westwards
 					longitude = pointWithOffset[1];
 					xOffset += DISTANCE_BETWEEN_PLOTS_IN_METERS;
 
@@ -61,18 +60,16 @@ public class GenerateSigrid{
 					moveToNextRow = !firstPass && (  STARTING_LONGITUDE > longitude ); 
 					column ++;
 				}
-				//System.out.println( "Finished row - " + row);
+				System.out.println( "Finished row - " + row);
 				row++;
 				column = 0;
 				yOffset += DISTANCE_BETWEEN_PLOTS_IN_METERS;
-				pointWithOffset = CoordinateUtils.getPointWithOffset( new double[]{ latitude.doubleValue(), STARTING_LONGITUDE.doubleValue()},  0, DISTANCE_BETWEEN_PLOTS_IN_METERS*-1); // Move DISTANCE Southwards
+				pointWithOffset = CoordinateUtils.getPointWithOffset( new double[]{ latitude, STARTING_LONGITUDE},  0, DISTANCE_BETWEEN_PLOTS_IN_METERS*-1); // Move DISTANCE Southwards
 				longitude = STARTING_LONGITUDE;
 				latitude = pointWithOffset[0];
 			}
 
-		}  catch (SQLiteException e) {
-			logger.error(" Error with SQL query ", e );
-		}catch (Exception e) {
+		}  catch (Exception e) {
 			logger.error(" Error transforming the point coordinates ", e );
 		} finally {
 			System.out.println( "Total time millis " + (System.currentTimeMillis() - startTime ));

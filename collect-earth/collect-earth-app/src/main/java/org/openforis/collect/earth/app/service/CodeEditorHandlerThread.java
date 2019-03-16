@@ -67,9 +67,15 @@ public class CodeEditorHandlerThread {
 	
 			} else {
 				sendThroughClipboard(textArea, contents);
-				// Fix bug provoked by antivirus not accepting the control characters sent by Selenium
-				if( webDriverGee.findElement(By.className("ace_line") ).getAttribute("value").trim().equals("av") ) {
-					sendThroughKeys(textArea, contents);
+				try {
+					// Fix bug provoked by antivirus not accepting the control characters sent by Selenium
+					if( webDriverGee.findElement(By.className("ace_line") ).getAttribute("value").trim().equals("av") ) {
+						sendThroughKeys(textArea, contents);
+					}
+				} catch (Exception e) {
+
+					logger.warn("Error while refreshing code editor", e);
+					
 				}
 			}
 	

@@ -7,7 +7,6 @@ import java.util.Map;
 
 import org.locationtech.jts.geom.Coordinate;
 
-
 /**
  * Data defining a plot and used in the generation of the KML through a
  * freemarker template.
@@ -18,6 +17,8 @@ import org.locationtech.jts.geom.Coordinate;
 public class SimplePlacemarkObject {
 
 	private int aspect;
+
+	private List<SimplePlacemarkObject> buffers;
 
 	private SimpleCoordinate coord;
 
@@ -124,6 +125,10 @@ public class SimplePlacemarkObject {
 
 	public int getAspect() {
 		return aspect;
+	}
+
+	public List<SimplePlacemarkObject> getBuffers() {
+		return buffers;
 	}
 
 	public SimpleCoordinate getCoord() {
@@ -233,6 +238,10 @@ public class SimplePlacemarkObject {
 
 	public void setAspect(int aspect) {
 		this.aspect = aspect;
+	}
+
+	public void setBuffers(List<SimplePlacemarkObject> buffers) {
+		this.buffers = buffers;
 	}
 
 	public void setCoord(SimpleCoordinate coord) {

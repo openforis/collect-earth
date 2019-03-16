@@ -68,7 +68,8 @@ public class EarthConstants {
 		NFMA("NFMA plot design (150m length)"), 
 		NFMA_250("NFMA plot design (250m length)"),
 		SQUARE_CIRCLE("Square with circles (beta)"),
-		NFI_CIRCLES("NFI cluster with three circular plots");
+		NFI_THREE_CIRCLES("NFI cluster with three circular plots"),
+		NFI_FOUR_CIRCLES("NFI cluster with four circular plots");
 	
 		private String label;
 		

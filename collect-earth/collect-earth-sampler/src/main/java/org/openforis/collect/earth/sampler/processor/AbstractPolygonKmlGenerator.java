@@ -9,9 +9,11 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+import org.apache.commons.lang3.StringUtils;
 import org.openforis.collect.earth.core.utils.CsvReaderUtils;
 import org.openforis.collect.earth.sampler.model.SimpleCoordinate;
 import org.openforis.collect.earth.sampler.model.SimplePlacemarkObject;
+import org.openforis.collect.earth.sampler.model.SimpleRegion;
 import org.openforis.collect.earth.sampler.utils.KmlGenerationException;
 import org.openforis.collect.model.CollectSurvey;
 import org.opengis.referencing.operation.TransformException;
@@ -30,14 +32,16 @@ public abstract class AbstractPolygonKmlGenerator extends KmlGenerator {
 	protected double distancePlotBoundary;
 	protected int numberOfSamplePoints;
 	protected Integer largeCentralPlotSide;
-	
-	public AbstractPolygonKmlGenerator(String epsgCode, String hostAddress, String localPort, Integer innerPointSide, Integer numberOfPoints, double distanceBetweenSamplePoints, double distancePlotBoundary, Integer largeCentralPlotSide) {
+	private String distanceToBuffers;
+
+	public AbstractPolygonKmlGenerator(String epsgCode, String hostAddress, String localPort, Integer innerPointSide, Integer numberOfPoints, double distanceBetweenSamplePoints, double distancePlotBoundary, Integer largeCentralPlotSide, String distanceToBuffers) {
 		super(epsgCode);
 		this.hostAddress = hostAddress;
 		this.localPort = localPort;
 		this.innerPointSide = innerPointSide;
 		this.distanceBetweenSamplePoints = distanceBetweenSamplePoints;
 		this.distancePlotBoundary = distancePlotBoundary;
+		this.distanceToBuffers = distanceToBuffers;
 		this.setNumberOfSamplePoints(numberOfPoints);
 		this.setLargeCentralPlotSide(largeCentralPlotSide);
 	}
@@ -49,7 +53,7 @@ public abstract class AbstractPolygonKmlGenerator extends KmlGenerator {
 	public void setLargeCentralPlotSide(Integer largeCentralPlotSide) {
 		this.largeCentralPlotSide = largeCentralPlotSide;
 	}
-	
+
 	protected int getPointSide() {
 		if (innerPointSide == null) {
 			innerPointSide = DEFAULT_INNER_POINT_SIDE;
@@ -87,30 +91,30 @@ public abstract class AbstractPolygonKmlGenerator extends KmlGenerator {
 		List<SimplePlacemarkObject> placemarks = new ArrayList<SimplePlacemarkObject>();
 		try {
 			reader = CsvReaderUtils.getCsvReader(csvFile);
-			
+
 			while ((csvRow = reader.readNext()) != null) {
 				try {
 					if( headerRow == null ){
 						headerRow = csvRow;
 					}
-					
+
 					// Check that the row is not just an empty row with no data
 					if( CsvReaderUtils.onlyEmptyCells(csvRow)){
 						// If the row is empty ( e.g. : ",,,,," ) jump to next row
 						continue;
 					}
-					
+
 					final SimplePlacemarkObject currentPlacemark = getPlotObject(csvRow, headerRow, collectSurvey);
-			
-					
+
+
 					Double X = Double.parseDouble( currentPlacemark.getCoord().getLongitude() );
 					Double Y = Double.parseDouble( currentPlacemark.getCoord().getLatitude() );
-					
+
 					if( X > 180 || X < -180 || Y > 90 || Y< -90 ){
 						throw new KmlGenerationException( "The coordinates are wrong for row number :" + rowNumber + " with latitude " + Y + " and longitude " + X + " (latitude must be a number between  -90 and 90 and longitude between -180 and 180) ");
 					}
-					
-					
+
+
 					if (firstPoint) {
 						viewFrame.setRect(X, Y, 0, 0);
 						firstPoint = false;
@@ -119,7 +123,7 @@ public abstract class AbstractPolygonKmlGenerator extends KmlGenerator {
 						rectTemp.setRect(X, Y, 0, 0);
 						viewFrame = viewFrame.createUnion(rectTemp);
 					}
-					
+
 
 					if (previousPlacemark != null) {
 						// Give the current ID to the previous placemark so that
@@ -132,6 +136,8 @@ public abstract class AbstractPolygonKmlGenerator extends KmlGenerator {
 					fillSamplePoints( currentPlacemark);
 
 					fillExternalLine( currentPlacemark);
+
+					fillBuffersAroundPlot( currentPlacemark );
 
 					placemarks.add(currentPlacemark);
 
@@ -173,6 +179,54 @@ public abstract class AbstractPolygonKmlGenerator extends KmlGenerator {
 		return data;
 	}
 
+	private void fillBuffersAroundPlot(SimplePlacemarkObject currentPlacemark) {
+		final List<SimplePlacemarkObject> buffers = new ArrayList<SimplePlacemarkObject>();
+		// when there is a property in the earth.properties like this : distance_to_buffers=70,112,194
+		if( StringUtils.isNotBlank( distanceToBuffers )) {
+			String[] distances =  StringUtils.split( distanceToBuffers, ',' );
+
+
+			try {
+				for (String bufDistStr : distances) {
+
+					List<SimpleCoordinate> bufferPoints = new ArrayList<SimpleCoordinate>();
+
+					Integer bufDist = Integer.parseInt( bufDistStr );
+
+					// TOP LEFT
+					bufferPoints.add(new SimpleCoordinate( getPointWithOffset( currentPlacemark.getCoord().getCoordinates(), -bufDist, bufDist) ) );
+
+					// TOP RIGHT
+					bufferPoints.add(new SimpleCoordinate( getPointWithOffset( currentPlacemark.getCoord().getCoordinates(), bufDist, bufDist) ));
+
+					// BOTTOM RIGHT
+					bufferPoints.add( new SimpleCoordinate( getPointWithOffset( currentPlacemark.getCoord().getCoordinates(), bufDist, -bufDist) ) );
+
+					// BOTTOM LEFT
+					bufferPoints.add(new SimpleCoordinate(  getPointWithOffset( currentPlacemark.getCoord().getCoordinates(), -bufDist, -bufDist) ) ) ;
+
+					// TOP LEFT -- CLOSE RECTANGLE
+					bufferPoints.add( new SimpleCoordinate( getPointWithOffset( currentPlacemark.getCoord().getCoordinates(), -bufDist, bufDist) ) );
+
+					SimplePlacemarkObject spo = new SimplePlacemarkObject();
+
+					spo.setShape(bufferPoints);
+
+					buffers.add( spo );
+
+				}
+			} catch (NumberFormatException e) {
+				logger.error("Error reading number", e);
+			} catch (TransformException e) {
+				logger.error("Error transforming coordinate", e);
+			}
+		}
+
+		// TOP LEFT -- CLOSE RECTANGLE
+		currentPlacemark.setBuffers( buffers );
+	}
+
+
 	protected int getNumberOfSamplePoints() {
 		return numberOfSamplePoints;
 	}
@@ -181,5 +235,5 @@ public abstract class AbstractPolygonKmlGenerator extends KmlGenerator {
 		this.numberOfSamplePoints = numberOfSamplePoints;
 	}
 
-	
+
 }
