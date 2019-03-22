@@ -111,7 +111,7 @@ public class CodeEditorHandlerThread {
 		String noComments = removeComments(contents);
 
 		// Clear the code area
-		WebElement clearButton = webDriverGee.findElementByXPath("//*[contains(text(), 'Clear script')]");
+		WebElement clearButton = webDriverGee.findElementByCssSelector(RESET_SCRIPT_BUTTON);
 		forceClick( clearButton );
 
 		StringBuilder fixedScriptForMac = new StringBuilder();
@@ -130,14 +130,19 @@ public class CodeEditorHandlerThread {
 		}
 
 		fixedScriptForMac.append("//THE END"); // Don't remove this!!! this way we mark the point where there should be no trailing character removal
-
+		Keys controlChar = Keys.CONTROL;
+		if (SystemUtils.IS_OS_MAC || SystemUtils.IS_OS_MAC_OSX) {
+			controlChar = Keys.COMMAND;
+		}
+		textArea.sendKeys(Keys.chord(controlChar, "a"));
 		textArea.sendKeys(fixedScriptForMac);
-
+/*
 		Thread.sleep(500);
 		// Fix the extra characters added by removing the last 10 chars ( this is a bug from Selenium! )
 		textArea.sendKeys(Keys.PAGE_DOWN);
 		Thread.sleep(500);
 		textArea.sendKeys(Keys.PAGE_DOWN);
+		*/
 	}
 	
 	private void forceClick( WebElement element ) {
