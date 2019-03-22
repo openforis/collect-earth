@@ -67,6 +67,7 @@ public class DataImportExportService {
 		
 		CSVDataExportParameters config = new CSVDataExportParameters();
 		config.setIncludeAllAncestorAttributes(true);
+		config.setIncludeEnumeratedEntities(true);
 		config.setLanguageCode( localPropertiesService.getValue(EarthProperty.UI_LANGUAGE) );
 		config.setIncludeCodeItemLabelColumn(includeCodeItemLabelColumn);
 		csvDataExportProcess.setConfiguration(config);
