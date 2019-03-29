@@ -13,7 +13,7 @@ public class GenerateSigrid{
 
 	}
 
-	private static final Integer DISTANCE_BETWEEN_PLOTS_IN_METERS = 1000;
+	private static final Integer DISTANCE_BETWEEN_PLOTS_IN_METERS = 100000;
 
 	private static final Double STARTING_LONGITUDE = -169d;
 
@@ -23,7 +23,7 @@ public class GenerateSigrid{
 
 	private Logger logger = LoggerFactory.getLogger(this.getClass());
 
-	private AbstractStore store = new JDBCStore();
+	private AbstractStore store = new CSVStore();
 
 	public void generate(){
 		long startTime = System.currentTimeMillis();

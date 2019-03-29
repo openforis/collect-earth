@@ -157,8 +157,13 @@ public class JDBCStore extends AbstractStore{
 	@Override
 	public void closeStore() {
 		try {
-			getInsertStatement().executeBatch();
-			getConnection().close();
+			if( getInsertStatement() != null ) {
+				getInsertStatement().executeBatch();	
+			}
+			
+			if(getConnection()!=null ) {
+				getConnection().close();
+			}
 		} catch (SQLException e) {
 			logger.error( "Error closing connection", e);
 		}

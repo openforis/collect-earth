@@ -33,7 +33,7 @@ public class CSVStore extends AbstractStore{
 	public void initializeStore( int distanceBetweenPlots, String prefix ) {
 
 		Vector<String> headers = new Vector<String>();
-		headers.add("id");
+		headers.add("CE_ID");
 		headers.add("yCoordinate");
 		headers.add("xCoordinate");
 

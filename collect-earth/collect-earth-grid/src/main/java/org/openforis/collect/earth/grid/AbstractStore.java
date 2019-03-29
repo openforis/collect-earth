@@ -2,7 +2,7 @@ package org.openforis.collect.earth.grid;
 
 public abstract class AbstractStore {
 	
-	private Integer[] distances = new Integer[] { 1, 2 , 3 , 4, 5, 6, 8, 9, 10, 12, 15, 16, 20, 25, 30 };
+	private Integer[] distances = new Integer[] { 1, 2 , 3 , 4, 5, 6, 8, 9, 10, 12, 15, 16, 20, 25, 30, 50, 100 };
 
 	protected Integer[] getDistances() {
 		return distances;
