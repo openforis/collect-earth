@@ -227,6 +227,7 @@ public abstract class KmlGenerator extends AbstractCoordinateCalculation {
 	private void getKmlCode(String csvFile, String balloonFile, String freemarkerKmlTemplateFile, File destinationFile,
 			String distanceBetweenSamplePoints, String distancePlotBoundary, CollectSurvey collectSurvey) throws KmlGenerationException {
 		
+			
 		if( StringUtils.isBlank(csvFile) ){
 			throw new IllegalArgumentException("THe CSV file location cannot be null");
 		}
@@ -237,6 +238,10 @@ public abstract class KmlGenerator extends AbstractCoordinateCalculation {
 		
 		if( StringUtils.isBlank(freemarkerKmlTemplateFile) ){
 			throw new IllegalArgumentException("The KML freemarker Template file location cannot be null");
+		}
+		
+		if( collectSurvey ==null ){
+			throw new IllegalArgumentException("The Collect survey cannot be null. There is an error on the Survey and it was not loaded correctly");
 		}
 
 		// Build the data-model
