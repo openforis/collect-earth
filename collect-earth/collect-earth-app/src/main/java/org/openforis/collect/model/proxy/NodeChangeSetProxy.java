@@ -16,8 +16,8 @@ import org.openforis.collect.model.NodeChangeSet;
  */
 public class NodeChangeSetProxy implements Proxy {
 
-	private transient NodeChangeSet changeSet;
-	private transient CollectRecord record;
+	private NodeChangeSet changeSet;
+	private CollectRecord record;
 	private boolean recordSaved;
 	private ProxyContext context;
 	
