@@ -88,44 +88,40 @@ public final class MissingPlotsListener implements ActionListener {
 
 			final File[] selectedPlotFiles = JFileChooserExistsAware.getFileChooserResults(
 					DataFormat.COLLECT_COORDS, false, true, null, localPropertiesService, frame, currentFolder);
+			if( selectedPlotFiles != null && selectedPlotFiles.length > 0 ) {
+				new Thread("Finding Missing plots") {
+					@Override
+					public void run() {
+						infiniteProgressMonitor.showLater();
 
-			new Thread("Finding Missing plots") {
-				@Override
-				public void run() {
-					infiniteProgressMonitor.showLater();
+						// Returns the list of all of the plots that are stored in the selected CSV
+						// files
+						final Map<String, List<String[]>> allPlotsInFiles = missingPlotService
+								.getPlotDataByFile(selectedPlotFiles);
 
-					// Returns the list of all of the plots that are stored in the selected CSV
-					// files
-					final Map<String, List<String[]>> allPlotsInFiles = missingPlotService
-							.getPlotDataByFile(selectedPlotFiles);
+						// Returns the list of the plots that are not completely saved or not saved at
+						// all in the DB
+						Map<String, List<String[]>> missingPlotData = missingPlotService
+								.getMissingPlotsByFile(allPlotsInFiles, infiniteProgressMonitor);
+						// Generates a text representation of the missing plots plus the brief on the
+						// total plots
+						String missingPlotsText = missingPlotService.getMissingPlotInformation(allPlotsInFiles, missingPlotData);
+						// Generates a temporary file that contains the missing plots as a CED
+						File tempFile = missingPlotService.getMissingPlotFile(missingPlotData);
+						SwingUtilities.invokeLater(new Runnable() {
+							@Override
+							public void run() {
+								infiniteProgressMonitor.close();
+							}
+						});
 
-					// Returns the list of the plots that are not completely saved or not saved at
-					// all in the DB
-					Map<String, List<String[]>> missingPlotData = missingPlotService
-							.getMissingPlotsByFile(allPlotsInFiles, infiniteProgressMonitor);
-					// Generates a text representation of the missing plots plus the brief on the
-					// total plots
-					String missingPlotsText = missingPlotService.getMissingPlotInformation(allPlotsInFiles, missingPlotData);
-					// Generates a temporary file that contains the missing plots as a CED
-					File tempFile = missingPlotService.getMissingPlotFile(missingPlotData);
-					SwingUtilities.invokeLater(new Runnable() {
-						@Override
-						public void run() {
-							infiniteProgressMonitor.close();
-						}
-					});
+						JDialog missingDlg = buildDialog(missingPlotsText, tempFile);
 
-					JDialog missingDlg = buildDialog(missingPlotsText, tempFile);
-
-					SwingUtilities.invokeLater(new Runnable() {
-
-						@Override
-						public void run() {
-							missingDlg.setVisible(true);
-						}
-					});
-				}
-			}.start();
+						Runnable setVisible =() -> {missingDlg.setVisible(true);};
+						SwingUtilities.invokeLater( setVisible );
+					}
+				}.start();
+			}
 		} catch (Exception e) {
 			logger.error("Error while finding missing plots", e);
 		} finally {
