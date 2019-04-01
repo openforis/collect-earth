@@ -202,8 +202,10 @@ public class MissingPlotService {
 
 	public Map<String, List<String[]>> getPlotDataByFile(File[] selectedPlotFiles) {
 		final Map<String, List<String[]>> plotDataByFile = new HashMap<String, List<String[]>>();
-		for (final File file : selectedPlotFiles) {
-			plotDataByFile.put(file.getAbsolutePath(), getPlotDataFromFile(file.getAbsolutePath()));
+		if( selectedPlotFiles != null && selectedPlotFiles.length > 0 ) {
+			for (final File file : selectedPlotFiles) {
+				plotDataByFile.put(file.getAbsolutePath(), getPlotDataFromFile(file.getAbsolutePath()));
+			}
 		}
 		return plotDataByFile;
 	}

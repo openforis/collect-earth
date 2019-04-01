@@ -12,6 +12,8 @@ import javax.swing.SwingUtilities;
 import org.apache.commons.lang3.StringUtils;
 import org.openforis.concurrency.Progress;
 import org.openforis.concurrency.ProgressListener;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 public class InfiniteProgressMonitor implements ProgressListener {
 
@@ -28,7 +30,9 @@ public class InfiniteProgressMonitor implements ProgressListener {
 	private JLabel label;
 
 	JProgressBar infiniteProgress;
-
+	
+	private Logger logger = LoggerFactory.getLogger( InfiniteProgressMonitor.class );
+	
 	public InfiniteProgressMonitor(Component parentFrame, String title, String message) {
 
 		infiniteProgress = new JProgressBar();
@@ -54,45 +58,38 @@ public class InfiniteProgressMonitor implements ProgressListener {
 	
 	public void updateProgress(int current, int total, String msg) {
 
-		SwingUtilities.invokeLater(new Runnable() {
-
-			@Override
-			public void run() {
-
-				infiniteProgress.setString(current + "/" + total);
-				if (infiniteProgress.isIndeterminate()) {
-					infiniteProgress.setIndeterminate(false);
-					infiniteProgress.setStringPainted(true);
-				}
-
-				infiniteProgress.setMaximum(total);
-
-				infiniteProgress.setValue(current);
-				if( StringUtils.isNotBlank( msg ))
-					setMessage( msg );
+		Runnable updateTask = () -> {
+			infiniteProgress.setString(current + "/" + total);
+			if (infiniteProgress.isIndeterminate()) {
+				infiniteProgress.setIndeterminate(false);
+				infiniteProgress.setStringPainted(true);
 			}
-		});
+
+			infiniteProgress.setMaximum(total);
+
+			infiniteProgress.setValue(current);
+			if( StringUtils.isNotBlank( msg ))
+				setMessage( msg );
+		};
+		
+		SwingUtilities.invokeLater( updateTask );
 
 	}
 
 	public void updateProgress(int currentPercentage) {
-
-		SwingUtilities.invokeLater(new Runnable() {
-
-			@Override
-			public void run() {
-
-				infiniteProgress.setString(currentPercentage + "%");
-				if (infiniteProgress.isIndeterminate()) {
-					infiniteProgress.setIndeterminate(false);
-					infiniteProgress.setStringPainted(true);
-				}
-
-				infiniteProgress.setMaximum(100);
-
-				infiniteProgress.setValue(currentPercentage);
+		Runnable updateTask = () -> {
+			infiniteProgress.setString(currentPercentage + "%");
+			if (infiniteProgress.isIndeterminate()) {
+				infiniteProgress.setIndeterminate(false);
+				infiniteProgress.setStringPainted(true);
 			}
-		});
+
+			infiniteProgress.setMaximum(100);
+
+			infiniteProgress.setValue(currentPercentage);
+		};
+		
+		SwingUtilities.invokeLater( updateTask );
 
 	}
 
@@ -136,32 +133,7 @@ public class InfiniteProgressMonitor implements ProgressListener {
 	
 	public void show() {
 		try {
-			SwingUtilities.invokeAndWait(new Runnable() {
-
-				@Override
-				public void run() {
-					getDialog().setVisible(true);
-					if (getPane().getValue() == null  // User closes the dialog
-							|| 
-						getPane().getValue().equals(cancelOption) // User clicks on cancel option
-					) {
-						setUserCancelled(true);
-					}
-				}
-
-			});
-		} catch (InvocationTargetException | InterruptedException e) {
-			// TODO Auto-generated catch block
-			e.printStackTrace();
-		}
-
-	}
-
-	public void showLater() {
-		SwingUtilities.invokeLater(new Runnable() {
-
-			@Override
-			public void run() {
+			Runnable showTask = () -> {
 				getDialog().setVisible(true);
 				if (getPane().getValue() == null  // User closes the dialog
 						|| 
@@ -169,9 +141,25 @@ public class InfiniteProgressMonitor implements ProgressListener {
 				) {
 					setUserCancelled(true);
 				}
-			}
+			};
+			SwingUtilities.invokeAndWait( showTask );
+		} catch (InvocationTargetException | InterruptedException e) {
+			logger.error( "Error showing infinite progress monitor", e );
+		}
 
-		});
+	}
+
+	public void showLater() {
+		Runnable showLater = () -> {
+			getDialog().setVisible(true);
+			if (getPane().getValue() == null  // User closes the dialog
+					|| 
+				getPane().getValue().equals(cancelOption) // User clicks on cancel option
+			) {
+				setUserCancelled(true);
+			}
+		};
+		SwingUtilities.invokeLater( showLater );
 
 	}
 
