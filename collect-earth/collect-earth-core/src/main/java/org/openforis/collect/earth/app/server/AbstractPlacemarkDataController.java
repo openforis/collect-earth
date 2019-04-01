@@ -38,8 +38,8 @@ import org.springframework.web.bind.annotation.RequestParam;
 public class AbstractPlacemarkDataController extends JsonPocessorServlet {
 
 	private static final String PREVIEW_PLOT_ID = "$[EXTRA_id]";
-	private static Object lastPlacemarkId;
-	private static String lastPlacemarkStep;
+	private Object lastPlacemarkId;
+	private String lastPlacemarkStep;
 	
 	@Autowired
 	AbstractEarthSurveyService earthSurveyService;
@@ -57,7 +57,7 @@ public class AbstractPlacemarkDataController extends JsonPocessorServlet {
 					result.setCurrentStep(lastPlacemarkStep);
 				}
 			} else {
-				getLogger().info("No placemark found with id: " + placemarkId);
+				getLogger().info("No placemark found with id: {%s}", placemarkId);
 			}
 		}
 		setJsonResponse(response, result);
@@ -99,7 +99,7 @@ public class AbstractPlacemarkDataController extends JsonPocessorServlet {
 			lastPlacemarkId = placemarkKey;
 			lastPlacemarkStep = updateRequest.getCurrentStep();
 		}else{
-			logger.warn("Error when saving the data " + result.toString());
+			logger.warn("Error when saving the data %s", result );
 		}
 		return result;
 	}
@@ -184,9 +184,9 @@ public class AbstractPlacemarkDataController extends JsonPocessorServlet {
 	}
 
 	private String replacePlacemarkIdTestValue(String placemarkId) {
-		if (placemarkId.equals("$[id]")) { //$NON-NLS-1$
-			placemarkId = "testPlacemark"; //$NON-NLS-1$
-		}
-		return placemarkId;
+		if (placemarkId.equals("$[id]")) //$NON-NLS-1$
+			return "testPlacemark"; //$NON-NLS-1$
+		else
+			return placemarkId;
 	}
 }

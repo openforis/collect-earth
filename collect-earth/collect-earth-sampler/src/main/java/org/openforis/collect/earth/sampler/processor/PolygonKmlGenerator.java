@@ -47,7 +47,7 @@ public class PolygonKmlGenerator extends AbstractPolygonKmlGenerator {
 
 	public static List<List<SimpleCoordinate>> getPolygonsInMultiGeometry(String kmlPolygon) {
 
-		List<List<SimpleCoordinate>> polygons = new ArrayList<List<SimpleCoordinate>>();
+		List<List<SimpleCoordinate>> polygons = new ArrayList<>();
 
 		if (StringUtils.isBlank(kmlPolygon)) {
 			throw new IllegalArgumentException("The KML Polygon string cannot be null");
@@ -76,7 +76,7 @@ public class PolygonKmlGenerator extends AbstractPolygonKmlGenerator {
 	private static List<SimpleCoordinate> getPolygonVertices(String lowerCase) {
 		String valueAttr = extractXmlTextValue(lowerCase, LINEARRING_START, LINEARRING_END);
 		valueAttr = extractXmlTextValue(valueAttr, COORDINATES_START, COORDINATES_END);
-		List<SimpleCoordinate> simpleCoordinates = new ArrayList<SimpleCoordinate>();
+		List<SimpleCoordinate> simpleCoordinates = new ArrayList<>();
 		// Coordinates look like this : lat,long,elev lat,long,elev ...
 		// -15.805135,16.389028,0.0 -15.804454,16.388447,0.0
 

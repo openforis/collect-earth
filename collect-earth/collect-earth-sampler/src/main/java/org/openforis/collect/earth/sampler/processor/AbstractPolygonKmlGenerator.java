@@ -13,7 +13,6 @@ import org.apache.commons.lang3.StringUtils;
 import org.openforis.collect.earth.core.utils.CsvReaderUtils;
 import org.openforis.collect.earth.sampler.model.SimpleCoordinate;
 import org.openforis.collect.earth.sampler.model.SimplePlacemarkObject;
-import org.openforis.collect.earth.sampler.model.SimpleRegion;
 import org.openforis.collect.earth.sampler.utils.KmlGenerationException;
 import org.openforis.collect.model.CollectSurvey;
 import org.opengis.referencing.operation.TransformException;
@@ -62,7 +61,7 @@ public abstract class AbstractPolygonKmlGenerator extends KmlGenerator {
 	}
 
 	protected List<SimpleCoordinate> getSamplePointPolygon(double[] topLeftPositionLatLong, int samplePointSide) throws TransformException {
-		final List<SimpleCoordinate> coords = new ArrayList<SimpleCoordinate>();
+		final List<SimpleCoordinate> coords = new ArrayList<>();
 		coords.add(new SimpleCoordinate(topLeftPositionLatLong)); // TOP-LEFT
 		coords.add(new SimpleCoordinate(getPointWithOffset(topLeftPositionLatLong, samplePointSide, 0))); // TOP-RIGHT
 		coords.add(new SimpleCoordinate(getPointWithOffset(topLeftPositionLatLong, samplePointSide, samplePointSide))); // BOTTOM-RIGHT
@@ -75,7 +74,7 @@ public abstract class AbstractPolygonKmlGenerator extends KmlGenerator {
 
 	@Override
 	protected Map<String, Object> getTemplateData(String csvFile, CollectSurvey collectSurvey) throws KmlGenerationException {
-		final Map<String, Object> data = new HashMap<String, Object>();
+		final Map<String, Object> data = new HashMap<>();
 
 		SimplePlacemarkObject previousPlacemark = null;
 
@@ -88,7 +87,7 @@ public abstract class AbstractPolygonKmlGenerator extends KmlGenerator {
 		int rowNumber = 0 ;
 
 		CSVReader reader = null;
-		List<SimplePlacemarkObject> placemarks = new ArrayList<SimplePlacemarkObject>();
+		List<SimplePlacemarkObject> placemarks = new ArrayList<>();
 		try {
 			reader = CsvReaderUtils.getCsvReader(csvFile);
 
@@ -167,10 +166,10 @@ public abstract class AbstractPolygonKmlGenerator extends KmlGenerator {
 		final DecimalFormat df = new DecimalFormat("#.###");
 
 		data.put("placemarks", placemarks);
-		data.put("region_north", viewFrame.getMaxY() + "");
-		data.put("region_south", viewFrame.getMinY() + "");
-		data.put("region_west", viewFrame.getMinX() + "");
-		data.put("region_east", viewFrame.getMaxX() + "");
+		data.put("region_north", Double.toString( viewFrame.getMaxY() ) );
+		data.put("region_south", Double.toString(viewFrame.getMinY() ));
+		data.put("region_west", Double.toString(viewFrame.getMinX() ));
+		data.put("region_east",  Double.toString( viewFrame.getMaxX() ));
 		data.put("region_center_X", df.format(viewFrame.getCenterX()));
 		data.put("region_center_Y", df.format(viewFrame.getCenterY()));
 		data.put("host", hostAddress);
@@ -180,7 +179,7 @@ public abstract class AbstractPolygonKmlGenerator extends KmlGenerator {
 	}
 
 	private void fillBuffersAroundPlot(SimplePlacemarkObject currentPlacemark) {
-		final List<SimplePlacemarkObject> buffers = new ArrayList<SimplePlacemarkObject>();
+		final List<SimplePlacemarkObject> buffers = new ArrayList<>();
 		// when there is a property in the earth.properties like this : distance_to_buffers=70,112,194
 		if( StringUtils.isNotBlank( distanceToBuffers )) {
 			String[] distances =  StringUtils.split( distanceToBuffers, ',' );
@@ -189,7 +188,7 @@ public abstract class AbstractPolygonKmlGenerator extends KmlGenerator {
 			try {
 				for (String bufDistStr : distances) {
 
-					List<SimpleCoordinate> bufferPoints = new ArrayList<SimpleCoordinate>();
+					List<SimpleCoordinate> bufferPoints = new ArrayList<>();
 
 					Integer bufDist = Integer.parseInt( bufDistStr );
 

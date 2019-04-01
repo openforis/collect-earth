@@ -55,7 +55,7 @@ public class EarthApp {
 	private static Logger logger;
 	private static ServerController serverController;
 	private static EarthApp earthApp;
- 
+
 	private static void closeSplash() {
 		try {
 			final SplashScreen splash = SplashScreen.getSplashScreen();
@@ -79,9 +79,9 @@ public class EarthApp {
 
 			// System property used in the web.xml configuration
 			System.setProperty("collectEarth.userFolder", FolderFinder.getCollectEarthDataFolder()); //$NON-NLS-1$
-			
+
 			initializeSentry();
-			
+
 			// Change of font so that Lao and Thao glyphs are supported
 			CollectEarthUtils.setFontDependingOnLanguaue( getLocalProperties().getUiLanguage() );
 
@@ -112,7 +112,7 @@ public class EarthApp {
 			closeSplash();
 		}
 	}
-	
+
 	private static void initializeSentry() {
 		try {
 			String releaseName= " unknown";
@@ -121,8 +121,8 @@ public class EarthApp {
 			}catch(Exception e) {
 				e.printStackTrace();
 			}
-			
-			
+
+
 			Sentry.init("https://24dd6a90c1e4461484712db99c3b3bb7:831e42661c5c4ff3aa5eca270db3f619@sentry.io/299626?release="+releaseName+"&maxmessagelength=2000", new EarthSentryClientFactory());
 			if( !StringUtils.isEmpty( UpdateIniUtils.getVersionInstalled() ) ) {
 				Sentry.getContext().addTag( "ReleaseDate", UpdateIniUtils.getVersionInstalled() );
@@ -147,10 +147,10 @@ public class EarthApp {
 			Class applicationClass = Class.forName("com.apple.eawt.Application");
 			Method getApplicationMethod = applicationClass.getMethod("getApplication");
 			Method setDockIconImageMethod = applicationClass.getMethod( "setDockIconImage", Image.class );
-			
+
 			Class openFilesHandlerInterface = Class.forName("com.apple.eawt.OpenFilesHandler");
 			Method setOpenFileHandlerMethod = applicationClass.getMethod( "setOpenFileHandler", openFilesHandlerInterface );
-			
+
 			// SET THE MAC OS X DOCK ICON!
 			// Get an Application object
 			Object applicationObject  =  getApplicationMethod.invoke( null );
@@ -162,19 +162,19 @@ public class EarthApp {
 				logger.error("Problems finding the doccker icon", e2);			
 			}			
 			// -------------------------------------------
-			
-			
+
+
 			// DEFINE A LISTENER THAT IS REGISTERED BY THE OS TO HEAR DOUBLE-CLICK EVENTS AND REGISTER ITSELF AS THE CEP OPENER
 			MacOpenFilesInvocationHandler macOpenFileHandlerProxyInterface = new MacOpenFilesInvocationHandler();
 			Object openFilesHandlerImplementation = Proxy.newProxyInstance( 
 					applicationClass.getClassLoader(), 
 					new Class[]{ openFilesHandlerInterface },	
 					macOpenFileHandlerProxyInterface 
-			);
-			
+					);
+
 			// Call the setOpenFileHandler method of the application object using the 
 			setOpenFileHandlerMethod.invoke(applicationObject, ( openFilesHandlerInterface.cast( openFilesHandlerImplementation ) ) );
-			
+
 			// Lets wait for the Apple event to arrive. If it did then the earthApp variable will be non-nulls 
 			Thread.sleep(2000);
 			if( earthApp == null ){
@@ -187,18 +187,18 @@ public class EarthApp {
 	}
 
 	public void generateKml() throws MalformedURLException, IOException, Exception {
-	
-			try {
-				getKmlGeneratorService().generateKmlFile();
-			} catch (final KmlGenerationException e) {
-				logger.error("Problems while generating the KML file ", e); //$NON-NLS-1$
-				e.printStackTrace();
-				showMessage("<html>Problems while generating the KML file: <br/> " + (e.getCause()!=null?(e.getCause()+"<br/>"):"") + ( e.getMessage().length() > 300?e.getMessage().substring(0,300):e.getMessage() ) + "</html>"); //$NON-NLS-1$
-			} catch (final Exception e) {
-				logger.error("Could not generate KML file", e); //$NON-NLS-1$
-				e.printStackTrace();
-				showMessage("<html>Error generating KML file : <br/> " + e.getMessage()); //$NON-NLS-1$
-			} 
+
+		try {
+			getKmlGeneratorService().generateKmlFile();
+		} catch (final KmlGenerationException e) {
+			logger.error("Problems while generating the KML file ", e); //$NON-NLS-1$
+			e.printStackTrace();
+			showMessage("<html>Problems while generating the KML file: <br/> " + (e.getCause()!=null?(e.getCause()+"<br/>"):"") + ( e.getMessage().length() > 300?e.getMessage().substring(0,300):e.getMessage() ) + "</html>"); //$NON-NLS-1$
+		} catch (final Exception e) {
+			logger.error("Could not generate KML file", e); //$NON-NLS-1$
+			e.printStackTrace();
+			showMessage("<html>Error generating KML file : <br/> " + e.getMessage()); //$NON-NLS-1$
+		} 
 	}
 
 	public static void openProjectFileInRunningCollectEarth(String doubleClickedProjecFile) throws MalformedURLException, IOException {
@@ -210,7 +210,7 @@ public class EarthApp {
 
 			URL loadProjectFileInRunningCE = new URL(hostAddress + LoadProjectFileServlet.SERVLET_NAME +  
 					"?" + LoadProjectFileServlet.PROJECT_FILE_PARAMETER + "=" + //$NON-NLS-1$ //$NON-NLS-2$
-					 URLEncoder.encode(doubleClickedProjecFile, "UTF-8") );
+					URLEncoder.encode(doubleClickedProjecFile, "UTF-8") );
 			URLConnection urlConn = loadProjectFileInRunningCE.openConnection();
 
 			BufferedReader in = new BufferedReader(new InputStreamReader(urlConn.getInputStream()));
@@ -244,7 +244,7 @@ public class EarthApp {
 		}
 		return alreadyRunning;
 	}
-	
+
 	public static void quitServer() {
 		try {
 			serverController.stopServer();
@@ -253,7 +253,7 @@ public class EarthApp {
 			e.printStackTrace();
 		}
 	}
-	
+
 	/**
 	 * Generates the KML for the project and opens it in Google Earth
 	 * @param forceKmlRecreation Set to true if you want to forece the regeneration of the KML even if is is up to date (you might want to do this to force the update of the placemark icons as the date changes)
@@ -264,7 +264,7 @@ public class EarthApp {
 		earthApp.getKmlGeneratorService().generatePlacemarksKmzFile( forceKmlRecreation );
 		earthApp.simulateClickKmz();
 	}
-	
+
 	public static void restart() {
 		try {
 
@@ -278,7 +278,7 @@ public class EarthApp {
 	}
 
 	private static LocalPropertiesService nonManagedPropertiesService;
-	
+
 
 	private static LocalPropertiesService getLocalProperties() {
 		if (serverController == null || serverController.getContext() == null) {
@@ -313,7 +313,7 @@ public class EarthApp {
 	private static void startCollectEarth(final String doubleClickedProjectFile) throws Exception {
 		logger.info("START - Server Initilization"); //$NON-NLS-1$
 		final boolean ceAlreadyOpen = isAnotherCollectEarthRunning( getLocalProperties());
-		
+
 		if( ceAlreadyOpen ){
 			closeSplash();
 			// If the user double clicked on a project file while Collect Earth is running then load the project in the running Collect Earth		
@@ -329,12 +329,12 @@ public class EarthApp {
 	}
 
 	public static void startServer(final String doubleClickedProjectFile)
-			throws IOException, Exception {
+			throws Exception {
 		earthApp = new EarthApp();
-		
+
 		// Load the double-clicked CEP file before the survey manager is instantiated by the server start-up
 		earthApp.loadProjectIfDoubleClicked(doubleClickedProjectFile);
-		
+
 
 		final Observer observeInitialization = getServerObserver();
 		serverStartAndOpenGe(observeInitialization);
@@ -348,13 +348,13 @@ public class EarthApp {
 				if (initializationEvent.equals(ServerInitializationEvent.SERVER_STARTED_NO_DB_CONNECTION_EVENT)) {
 					serverController = null;
 				}
-				
+
 				if( initializationEvent.equals(ServerInitializationEvent.SERVER_STARTED_WITH_DATABASE_CHANGE_EVENT) || 
 						initializationEvent.equals(ServerInitializationEvent.SERVER_STARTED_NO_DB_CONNECTION_EVENT)	){
-					
+
 					showMessage( initializationEvent.toString());
 				}
-				
+
 				if (!initializationEvent.equals(ServerInitializationEvent.SERVER_STOPPED_EVENT)) {
 					try {				
 						earthApp.generateKml();
@@ -391,9 +391,9 @@ public class EarthApp {
 				}
 
 				final UpdateIniUtils updateIniUtils = new UpdateIniUtils();
-				
-				
-				
+
+
+
 				if (updateIniUtils.shouldWarnUser(getLocalProperties() )) {
 
 					javax.swing.SwingUtilities.invokeLater(new Runnable() {
@@ -403,11 +403,11 @@ public class EarthApp {
 							String remindLater = Messages.getString("EarthApp.3"); //$NON-NLS-1$
 							String doItNow = Messages.getString("EarthApp.4"); //$NON-NLS-1$
 							String doNotBother = Messages.getString("EarthApp.5"); //$NON-NLS-1$
-							
+
 							String newestVersionOnline = updateIniUtils.getVersionAvailableOnline();
-							
+
 							if( StringUtils.isNotBlank( newestVersionOnline ) ) {
-							
+
 								Object[] possibleValues = { remindLater, doItNow, doNotBother };
 								int chosenOption = JOptionPane.showOptionDialog(null,
 										Messages.getString("EarthApp.57"), Messages.getString("EarthApp.58") + Messages.getString("EarthApp.6") + updateIniUtils.convertToDate(newestVersionOnline),  //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$
@@ -424,12 +424,12 @@ public class EarthApp {
 						}
 					});
 				}
-			};
+			}
 		}.start();
 
 	}
-	
-	
+
+
 	private void userStats() {
 		new Thread("Update user stats") {
 			@Override
@@ -466,7 +466,7 @@ public class EarthApp {
 		}
 	}
 
-	private static void serverStartAndOpenGe(Observer observeInitialization) throws IOException, Exception {
+	private static void serverStartAndOpenGe(Observer observeInitialization) throws Exception {
 		serverController = new ServerController();
 		serverController.deleteObservers();
 		serverController.startServer(observeInitialization);
@@ -475,7 +475,7 @@ public class EarthApp {
 	public static void showMessage(String message) {
 		try {
 			SwingUtilities.invokeLater( new Runnable() {
-				
+
 				@Override
 				public void run() {
 					JOptionPane.showMessageDialog(null, message, "Collect Earth", JOptionPane.WARNING_MESSAGE); //$NON-NLS-1$
@@ -485,7 +485,7 @@ public class EarthApp {
 			logger.error("Error showing message",e);
 			e.printStackTrace();
 		}
-		
+
 	}
 
 	private void simulateClickKmz() {
@@ -497,23 +497,20 @@ public class EarthApp {
 			logger.error("The KMZ file could not be found", e); //$NON-NLS-1$
 		}
 	}
-	
+
 	public static void executeKmlLoadAsynchronously( Window windowShowingTimer ) {
 		new Thread("Load KML in Google Earth"){
 			public void run() {
 				// Only regenerate KML and reload
 				try {
-					SwingUtilities.invokeLater( new Thread("Start waiting cursor") {
-						@Override
-						public void run() {
-							if( windowShowingTimer != null ){
-								CollectEarthWindow.startWaiting(windowShowingTimer);
-							}
+					SwingUtilities.invokeLater( ( ) -> {
+						if( windowShowingTimer != null ){
+							CollectEarthWindow.startWaiting(windowShowingTimer);
 						}
 					});
-					
+
 					EarthApp.loadKmlInGoogleEarth(true);
-					
+
 				} catch (Exception e) {
 					logger.error("Error loading the KML",e);
 					e.printStackTrace();
@@ -521,14 +518,10 @@ public class EarthApp {
 				}finally{
 					if( windowShowingTimer != null ){
 						try {
-							SwingUtilities.invokeLater( new Thread("End waiting cursor") {
-								@Override
-								public void run() {
-									
-									CollectEarthWindow.endWaiting(windowShowingTimer);
-									if( windowShowingTimer instanceof PropertiesDialog ){
-									    ( (PropertiesDialog) windowShowingTimer).closeDialog();
-									}
+							SwingUtilities.invokeLater( () -> {
+								CollectEarthWindow.endWaiting(windowShowingTimer);
+								if( windowShowingTimer instanceof PropertiesDialog ){
+									( (PropertiesDialog) windowShowingTimer).closeDialog();
 								}
 							});
 						} catch (Exception e2) {
@@ -536,7 +529,7 @@ public class EarthApp {
 						}
 					}
 				}
-				
+
 			}
 		}.start();
 	}

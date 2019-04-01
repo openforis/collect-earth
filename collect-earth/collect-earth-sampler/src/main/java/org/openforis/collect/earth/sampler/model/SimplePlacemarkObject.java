@@ -309,7 +309,7 @@ public class SimplePlacemarkObject {
 
 	public void setShape(List<SimpleCoordinate> shapePoints) {
 		if (shapePoints != null) {
-			List<List<SimpleCoordinate>> tempShapes = new ArrayList<List<SimpleCoordinate>>();
+			List<List<SimpleCoordinate>> tempShapes = new ArrayList<>();
 			tempShapes.add(shapePoints);
 			multiShape = tempShapes;
 		}

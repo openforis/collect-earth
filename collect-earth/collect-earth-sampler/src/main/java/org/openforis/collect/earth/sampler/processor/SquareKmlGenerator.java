@@ -20,7 +20,7 @@ public class SquareKmlGenerator extends AbstractPolygonKmlGenerator {
 
 	@Override
 	public void fillExternalLine(SimplePlacemarkObject placemark) throws TransformException {
-		final List<SimpleCoordinate> shapePoints = new ArrayList<SimpleCoordinate>();
+		final List<SimpleCoordinate> shapePoints = new ArrayList<>();
 
 		final double xSideLength = (distanceBetweenSamplePoints * (getNumOfRows() - 2)) + 2 * distancePlotBoundary;
 		final double ySideLength = (distanceBetweenSamplePoints * (getNumOfRows() - 2)) + 2 * distancePlotBoundary;
@@ -36,8 +36,8 @@ public class SquareKmlGenerator extends AbstractPolygonKmlGenerator {
 		// TOP LEFT
 		shapePoints.add(new SimpleCoordinate(topLeftSquareCoordLatLong));
 
-		north = topLeftSquareCoordLatLong[0] + "";
-		west = topLeftSquareCoordLatLong[1] + "";
+		north = Double.toString( topLeftSquareCoordLatLong[0] );
+		west = Double.toString( topLeftSquareCoordLatLong[1] );
 
 		// TOP RIGHT
 		double offsetLong = xSideLength;
@@ -46,7 +46,7 @@ public class SquareKmlGenerator extends AbstractPolygonKmlGenerator {
 		double[] squareCorner = getPointWithOffset(topLeftSquareCoordLatLong, offsetLong, offsetLat);
 		shapePoints.add(new SimpleCoordinate(squareCorner));
 
-		east = squareCorner[1] + "";
+		east = Double.toString( squareCorner[1] );
 
 		// BOTTOM RIGHT
 		offsetLong = xSideLength;
@@ -54,7 +54,7 @@ public class SquareKmlGenerator extends AbstractPolygonKmlGenerator {
 		squareCorner = getPointWithOffset(topLeftSquareCoordLatLong, offsetLong, offsetLat);
 		shapePoints.add(new SimpleCoordinate(squareCorner));
 
-		south = squareCorner[0] + "";
+		south = Double.toString( squareCorner[0] );
 
 		// BOTTOM LEFT
 		offsetLong = 0;
@@ -74,7 +74,7 @@ public class SquareKmlGenerator extends AbstractPolygonKmlGenerator {
 	public void fillSamplePoints( SimplePlacemarkObject placemark) throws TransformException {
 
 
-		final List<SimplePlacemarkObject> pointsInPlacemark = new ArrayList<SimplePlacemarkObject>();
+		final List<SimplePlacemarkObject> pointsInPlacemark = new ArrayList<>();
 
 		if( getNumberOfSamplePoints() > 1 ){
 		
@@ -124,7 +124,7 @@ public class SquareKmlGenerator extends AbstractPolygonKmlGenerator {
 			pointsInPlacemark.remove( positionOfCentralPoint );
 			
 			pointsInPlacemark.add(centralPoint);
-			ArrayList<SimplePlacemarkObject> subplots = new ArrayList<SimplePlacemarkObject>();
+			ArrayList<SimplePlacemarkObject> subplots = new ArrayList<>();
 			centralPoint.setName("Central Subplot");
 			subplots.add( centralPoint );
 			placemark.setSubplots( subplots );

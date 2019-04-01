@@ -3,12 +3,12 @@ package org.openforis.collect.earth.sampler.processor;
 import java.io.File;
 import java.io.IOException;
 import java.text.SimpleDateFormat;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Vector;
 
 import org.apache.commons.io.FileUtils;
 import org.apache.commons.lang.StringEscapeUtils;
@@ -79,13 +79,13 @@ public abstract class KmlGenerator extends AbstractCoordinateCalculation {
 		plotProperties.setPlacemarkId( keys );
 		plotProperties.setVisiblePlacemarkId(visibleKeys);
 	
-		int leading_columns = 0;
+		int leadingColumns = 0;
 		
 		String longitude = csvValuesInLine[number_of_key_attributes+1].replace(',', '.').trim() ;
 		String latitude = csvValuesInLine[number_of_key_attributes].replace(',', '.').trim();
 		if( isNumber(longitude) && isNumber(latitude) ){
 			plotProperties.setCoord( new SimpleCoordinate(latitude, longitude));
-			leading_columns = 2;
+			leadingColumns = 2;
 		}else{
 			throw new KmlGenerationException(" The latitude and longitude columns contain values other than numbers : LAT : " + latitude + " , LONG :" + longitude);
 		}
@@ -97,12 +97,12 @@ public abstract class KmlGenerator extends AbstractCoordinateCalculation {
 			plotProperties.setCoord( getCentroid(plotProperties.getShape() ));
 		}
 
-		Vector<String> extraInfoVector = new Vector<String>();
-		Vector<String> extraColumns = new Vector<String>();
-		int columnsWithIfAndLocationInfo = leading_columns + number_of_key_attributes;
+		ArrayList<String> extraInfoVector = new ArrayList<>();
+		ArrayList<String> extraColumns = new ArrayList<>();
+		int columnsWithIfAndLocationInfo = leadingColumns + number_of_key_attributes;
 		if (csvValuesInLine.length > columnsWithIfAndLocationInfo) {
 			// Add all extra columns 
-			for ( int extraIndex = leading_columns +number_of_key_attributes; extraIndex < csvValuesInLine.length; extraIndex++) {
+			for ( int extraIndex = leadingColumns +number_of_key_attributes; extraIndex < csvValuesInLine.length; extraIndex++) {
 				
 				// DO NOT INCLUDE THE POLYGONS IN THE EXTRA DATA AS THEY WILL MAKE THE KML REALLY LARGE!
 				if( isKmlPolygon(csvValuesInLine[extraIndex])){
@@ -133,7 +133,7 @@ public abstract class KmlGenerator extends AbstractCoordinateCalculation {
 		plotProperties.setIdColumns( idColumnArray );
 		
 		// Adds a map ( coulmnName,cellValue) so that the values can also be added to the KML by column name (for the newer versions)
-		HashMap<String, String> valuesByColumn = new HashMap<String, String>();
+		HashMap<String, String> valuesByColumn = new HashMap<>();
 		if( possibleColumnNames != null ){
 			for (int i = 0; i < possibleColumnNames.length; i++) {
 				valuesByColumn.put( possibleColumnNames[i], csvValuesInLine[i]==null?"":csvValuesInLine[i]);
@@ -188,7 +188,7 @@ public abstract class KmlGenerator extends AbstractCoordinateCalculation {
 		
 		List<List<SimpleCoordinate>> pointsInPolygon = PolygonKmlGenerator.getPolygonsInMultiGeometry(kmlPolygon);
 		plotProperties.setMultiShape( pointsInPolygon );
-		if( pointsInPolygon.size() > 0 ){
+		if( !pointsInPolygon.isEmpty() ){
 			plotProperties.setKmlPolygon( kmlPolygon );
 		}
 	}
@@ -199,7 +199,7 @@ public abstract class KmlGenerator extends AbstractCoordinateCalculation {
 	
 	public static String getCsvFileName(String csvFilePath) {
 		final File csvFile = new File(csvFilePath);
-		if (csvFile != null && csvFile.exists()) {
+		if ( csvFile.exists()) {
 			return csvFile.getName();
 		} else {
 			return "No CSV file found";

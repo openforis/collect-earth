@@ -63,7 +63,7 @@ public class CircleKmlGenerator extends AbstractPolygonKmlGenerator {
 
 	@Override
 	public void fillExternalLine(SimplePlacemarkObject placemark) throws TransformException {
-		final List<SimpleCoordinate> shapePoints = new ArrayList<SimpleCoordinate>();
+		final List<SimpleCoordinate> shapePoints = new ArrayList<>();
 		
 		double[] centerCircleCoord = placemark.getCoord().getCoordinates();
 
@@ -94,17 +94,17 @@ public class CircleKmlGenerator extends AbstractPolygonKmlGenerator {
 		final double[] top = getPointWithOffset(centerCircleCoord, 0, radius);
 		final double[] bottom = getPointWithOffset(centerCircleCoord, 0, -1 * radius);
 
-		placemark.setRegion(new SimpleRegion(top[1] + "", left[0] + "", bottom[1] + "", right[0] + ""));
+		placemark.setRegion(new SimpleRegion( Double.toString( top[1] ), Double.toString(left[0] ), Double.toString(bottom[1] ), Double.toString(right[0] )));
 	}
 
 	@Override
 	public void fillSamplePoints(SimplePlacemarkObject placemark) throws TransformException {
 
-		final List<SimplePlacemarkObject> pointsInPlacemark = new ArrayList<SimplePlacemarkObject>();
+		final List<SimplePlacemarkObject> pointsInPlacemark = new ArrayList<>();
 
 		double[] centerCircleCoord = placemark.getCoord().getCoordinates();
 		
-		final double[] centerPosition = getPointWithOffset(centerCircleCoord, -getPointSide() / 2, -getPointSide() / 2);
+		final double[] centerPosition = getPointWithOffset(centerCircleCoord, -getPointSide() / 2d, -getPointSide() / 2d);
 		final SimplePlacemarkObject centralPoint = new SimplePlacemarkObject(centerPosition, placemark.getPlacemarkId() + "center");
 		centralPoint.setShape(getSamplePointPolygon(centerPosition, getPointSide() ));
 		pointsInPlacemark.add(centralPoint);

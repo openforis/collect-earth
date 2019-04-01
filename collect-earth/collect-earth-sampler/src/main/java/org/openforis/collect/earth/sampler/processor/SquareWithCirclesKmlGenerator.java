@@ -23,10 +23,10 @@ public class SquareWithCirclesKmlGenerator extends SquareKmlGenerator {
 
 		final double[] topLeftCoord = getPointWithOffset(placemark.getCoord().getCoordinates(), originalCoordGeneralOffsetX, originalCoordGeneralOffsetY);
 
-		final List<SimplePlacemarkObject> pointsInPlacemark = new ArrayList<SimplePlacemarkObject>();
+		final List<SimplePlacemarkObject> pointsInPlacemark = new ArrayList<>();
 
 		// Get the inner boundaries of the squares
-		final List<SimpleCoordinate> coords = new ArrayList<SimpleCoordinate>();
+		final List<SimpleCoordinate> coords = new ArrayList<>();
 
 		for (int col = 1; col < getNumOfRows(); col++) {
 			final double offsetLong = col * distanceBetweenSamplePoints; // GO

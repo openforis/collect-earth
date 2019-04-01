@@ -18,6 +18,7 @@ public class GeoUtils {
 	public static final String WGS84 = "WGS84";
 	public static final String EPSG4326 = "EPSG:4326";
 
+	private GeoUtils() {}
 	
 	/** Check the spatial reference system used in the specified coordinates of the plots
 	 * @return True if using latlong coordinates false otherwise

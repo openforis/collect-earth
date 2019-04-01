@@ -11,6 +11,7 @@ public class HexagonKmlGenerator extends CircleKmlGenerator{
 		
 	}
 
+	@Override
 	protected int getNumberOfExternalPoints() {
 		return NUMBER_OF_VERTICES_IN_HEXAGON;
 	}

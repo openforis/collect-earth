@@ -36,7 +36,7 @@ public class EarthConstants {
 
 	public static final String EARTH_SURVEY_NAME = "earth"; //$NON-NLS-1$
 	
-	public enum OperationMode{ SERVER_MODE, CLIENT_MODE};
+	public enum OperationMode{ SERVER_MODE, CLIENT_MODE}
 	
 	public static final String COLLECT_EARTH_DATABASE_FILE_NAME = "collectEarthDatabase.db";
 	
@@ -81,7 +81,7 @@ public class EarthConstants {
 		public String toString() {
 			return label;
 		}
-	};
+	}
 	
 	public enum UI_LANGUAGE{ 
 		FR( "Français", new Locale("fr", "FR") ) , EN( "English", new Locale("en", "EN") ), ES( "Español", new Locale("es", "ES")), PT("Português", new Locale("pt","PT") ), VI("tiếng Việt", new Locale("vi","VI") ) , LO("Lao", new Locale("lo","LO")), MN("Монгол", new Locale("mn","MN") ), HI("हिंदी", new Locale("hi","HI") ) ; //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$ //$NON-NLS-4$ //$NON-NLS-5$ //$NON-NLS-6$ //$NON-NLS-7$ //$NON-NLS-8$ //$NON-NLS-9$ //$NON-NLS-10$ //$NON-NLS-11$ //$NON-NLS-12$
@@ -101,7 +101,7 @@ public class EarthConstants {
 		public String getLabel(){
 			return label;
 		}
-	};
+	}
 	
 	public enum CollectDBDriver{ 
 		SQLITE("org.sqlite.JDBC", "jdbc:sqlite:" + COLLECT_EARTH_DATABASE_SQLITE_DB ),  //$NON-NLS-1$ //$NON-NLS-2$
@@ -122,7 +122,7 @@ public class EarthConstants {
 			return url;
 		}
 
-	};
+	}
 
 	private EarthConstants() {
 		 throw new AssertionError();
