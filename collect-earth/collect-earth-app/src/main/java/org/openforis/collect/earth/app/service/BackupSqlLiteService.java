@@ -1,16 +1,12 @@
 package org.openforis.collect.earth.app.service;
 
 import java.io.File;
-import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.text.SimpleDateFormat;
 import java.util.Arrays;
-import java.util.Comparator;
 import java.util.Date;
 
 import javax.annotation.PostConstruct;
-
-import net.lingala.zip4j.exception.ZipException;
 
 import org.apache.commons.dbcp.BasicDataSource;
 import org.openforis.collect.earth.app.CollectEarthUtils;
@@ -21,6 +17,8 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Lazy;
 import org.springframework.stereotype.Component;
+
+import net.lingala.zip4j.exception.ZipException;
 
 /**
  * Spring managed bean that handles the creation of backups of the Collect database.
@@ -46,7 +44,7 @@ public class BackupSqlLiteService {
 	private Logger logger = LoggerFactory.getLogger( BackupSqlLiteService.class );
 
 	@PostConstruct
-	public void init() throws FileNotFoundException {
+	public void init() {
 		attachShutDownHook();
 	}
 
@@ -71,12 +69,6 @@ public class BackupSqlLiteService {
 			File originalDBFile = new File(nameCollectDB);
 
 			try {
-				// DON"T USE THIS
-				// This generates a file with name "\Users\USERNAME\AppData\Roaming\CollectEarth\collectEarthDatabase.db"
-				// which generates a folder within the backup folder
-				//nameCollectDB = getCollectDBName(); 
-
-
 				
 				pathToBackupZip = getBackupZipFilename();
 				
@@ -93,11 +85,8 @@ public class BackupSqlLiteService {
 	}
 
 	private String getBackupZipFilename() throws IOException {
-		
 		File backupFolder = getAutomaticBackUpFolder();
-		String pathToBackup = getDBCopyName(backupFolder);
-		return pathToBackup;
-		
+		return getDBCopyName(backupFolder);		
 	}
 
 	public String getDBCopyName(File backupFolder) throws IOException {
@@ -119,10 +108,7 @@ public class BackupSqlLiteService {
 		File[] files = backupFolder.listFiles();
 		if( files!=null && files.length > MAXIMUM_NUMBER_OF_BACKUPS ){
 
-			Arrays.sort(files, new Comparator<File>() {
-
-				@Override
-				public int compare(File o1, File o2) {
+			Arrays.sort(files, (o1,o2) -> {
 					if( o1.lastModified() < o2.lastModified() ){
 						return 1;
 					}else if( o1.lastModified() == o2.lastModified() ){
@@ -132,10 +118,12 @@ public class BackupSqlLiteService {
 					}
 
 				}
-			});
+			);
 
 			for( int i = MAXIMUM_NUMBER_OF_BACKUPS; i< files.length ; i++ ){
-				files[i].delete();
+				if( !files[i].delete() ) {
+					logger.error( "Error deleteting file", files[i].getAbsolutePath() );
+				}
 			}
 
 		}

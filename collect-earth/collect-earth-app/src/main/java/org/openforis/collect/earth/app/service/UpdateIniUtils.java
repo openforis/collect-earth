@@ -23,7 +23,7 @@ public class UpdateIniUtils {
 	private static final String VERSION_ID = "version_id";
 	private static final String VERSION_NAME = "version";
 	private static final Logger logger = LoggerFactory.getLogger(UpdateIniUtils.class);
-	private static final SimpleDateFormat fromXml = new SimpleDateFormat("yyyyMMddHHmm");
+	private final SimpleDateFormat fromXml = new SimpleDateFormat("yyyyMMddHHmm");
 	public static final String UPDATE_INI = "update.ini";
 	
 
@@ -83,9 +83,11 @@ public class UpdateIniUtils {
 			// There is a new version. did the user chose "Not to be bother"with this update?
 			String lastIgnoredBuildNumber = localPropertiesService.getValue(EarthProperty.LAST_IGNORED_UPDATE);
 		
-			if( isCurrentNewerThanIgnoredUpdate(lastIgnoredBuildNumber, currentVersionOnline) && isMajorUpdate()){
-				warnUser = true;
-			}else if( isInstalledOlderThanOneMonth(currentVersionOnline, getVersionInstalled()) ){
+			if( 
+				( isCurrentNewerThanIgnoredUpdate(lastIgnoredBuildNumber, currentVersionOnline) && isMajorUpdate())
+				||
+				isInstalledOlderThanOneMonth(currentVersionOnline, getVersionInstalled() )
+			){
 				warnUser = true;
 			}			
 

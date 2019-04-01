@@ -25,7 +25,7 @@ public class JSwingAppender extends AbstractAppender {
 
 	private Boolean showException;
 
-	private Logger logger = LoggerFactory.getLogger( JSwingAppender.class );
+	private transient Logger logger = LoggerFactory.getLogger( JSwingAppender.class );
 
 	public JSwingAppender(String name, Filter filter, Layout<?> layout, boolean ignoreExceptions) {
 		super(name, filter, layout, ignoreExceptions);
@@ -55,25 +55,22 @@ public class JSwingAppender extends AbstractAppender {
 
 				// Append formatted message to text area using the Thread.
 
-				SwingUtilities.invokeLater(new Runnable() {
-					@Override
-					public void run() {
-						try {
-							JEditorPane web = new JEditorPane();
-							web.setEditable(false);
-							web.setContentType("text/html");
-							web.setText(message);
+				SwingUtilities.invokeLater( () ->  {
+					try {
+						JEditorPane web = new JEditorPane();
+						web.setEditable(false);
+						web.setContentType("text/html");
+						web.setText(message);
 
-							JScrollPane scrollPane = new JScrollPane(web);
-							scrollPane.setPreferredSize(new Dimension(450, 350));
+						JScrollPane scrollPane = new JScrollPane(web);
+						scrollPane.setPreferredSize(new Dimension(450, 350));
 
-							JOptionPane.showMessageDialog(null, scrollPane, "Error has been loogged", JOptionPane.ERROR_MESSAGE);
-						}catch (Exception e) {
-							// Avoid creating an infinite loop by catching this exception and not logging it as error
-							logger.debug("Error shown exception", e);
-						}
+						JOptionPane.showMessageDialog(null, scrollPane, "Error has been loogged", JOptionPane.ERROR_MESSAGE);
+					}catch (Exception e) {
+						// Avoid creating an infinite loop by catching this exception and not logging it as error
+						logger.debug("Error shown exception", e);
 					}
-				});
+				} );
 			}
 		} catch (final IllegalStateException e) {
 			// ignore case when the platform hasn't yet been initialized

@@ -35,7 +35,7 @@ import org.xml.sax.SAXException;
 @Component
 public class KmlImportService {
 	
-	Map<String,Integer> namesAndTimes = new HashMap<String,Integer>();
+	Map<String,Integer> namesAndTimes = new HashMap<>();
 
 	@Autowired
 	LocalPropertiesService localPropertiesService;
@@ -127,13 +127,19 @@ public class KmlImportService {
             }
         }
         
-        File tempFile = File.createTempFile("kmlExtractedPointsTemplate", "csv"); //$NON-NLS-1$ //$NON-NLS-2$
-        
-        OutputStreamWriter osw = new OutputStreamWriter(  new FileOutputStream( tempFile ), "UTF-8" );
+        File tempFile = File.createTempFile("kmlExtractedPointsTemplate", "csv");
+        OutputStreamWriter osw = null;
+         
+		try {
+			osw = new OutputStreamWriter(  new FileOutputStream( tempFile ), "UTF-8" );
 
-		BufferedWriter bw = new BufferedWriter(osw);
-		bw.write(sb.toString());
-		bw.close();
+			BufferedWriter bw = new BufferedWriter(osw);
+			bw.write(sb.toString());
+			bw.close();
+		} finally{
+			if( osw != null )
+				osw.close();
+		}
         
 		
 		BufferedInputStream bis = new BufferedInputStream( new FileInputStream(tempFile) );

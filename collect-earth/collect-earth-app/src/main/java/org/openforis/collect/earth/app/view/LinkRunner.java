@@ -29,14 +29,12 @@ class LinkRunner extends SwingWorker<Void, Void> {
     protected void done() {
         try {
             get();
-        } catch (ExecutionException ee) {
-            handleException(uri, ee);
-        } catch (InterruptedException ie) {
-            handleException(uri, ie);
+        } catch (ExecutionException|InterruptedException ee) {
+            handleException(ee);
         }
     }
 
-    private static void handleException(URI u, Exception e) {
+    private static void handleException(Exception e) {
         JOptionPane.showMessageDialog(null, Messages.getString("AboutDialog.6"), Messages.getString("AboutDialog.19"), JOptionPane.ERROR_MESSAGE); //$NON-NLS-1$ //$NON-NLS-2$
     }
 }

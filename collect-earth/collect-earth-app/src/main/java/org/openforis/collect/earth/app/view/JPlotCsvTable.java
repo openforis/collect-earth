@@ -34,9 +34,9 @@ public class JPlotCsvTable extends JTable{
 	private static final Color WARNING_BG_COLOR = new Color(254, 255, 196);
 	private static final Color ERROR_BG_COLOR = new Color(218, 152, 152);
 	private static final long serialVersionUID = 3456854921119125693L;
-	private final Logger logger = LoggerFactory.getLogger(this.getClass());
-	private CollectSurvey forSurvey;
-	private CSVFileValidationResult validationResults;
+	private final transient Logger logger = LoggerFactory.getLogger(this.getClass());
+	private transient CollectSurvey forSurvey;
+	private transient CSVFileValidationResult validationResults;
 
 
 	/**
@@ -157,13 +157,20 @@ public class JPlotCsvTable extends JTable{
 	private DefaultTableModel getPlotTableModel(String csvFilePath) {
 
 		String[][] allValues = new String[0][0];
-
+		CSVReader reader = null;
 		try {
-			CSVReader reader = CsvReaderUtils.getCsvReader(csvFilePath);
+			reader = CsvReaderUtils.getCsvReader(csvFilePath);
 			List<String[]> allLines = reader.readAll();
 			allValues = allLines.toArray(new String[][] {});	
 		} catch (IOException e) {
 			logger.error(" Error reading the CSV file " + csvFilePath);
+		}finally {
+			try {
+				if( reader != null )
+					reader.close();
+			} catch (IOException e) {
+				logger.error(" Error closing CSV reader");
+			}
 		}
 
 		return new DefaultTableModel( allValues , getColumnNames());
@@ -182,6 +189,7 @@ public class JPlotCsvTable extends JTable{
 		if( !validation.isSuccessful() ){
 			switch (  validation.getErrorType() ) {
 			case INVALID_FILE_TYPE:
+			case INVALID_NUMBER_OF_COLUMNS:
 				JPlotCsvTable.this.setBackground( ERROR_BG_COLOR);
 				JOptionPane.showMessageDialog( JPlotCsvTable.this.getParent(), "The expected file type is CSV or CED ", "Expected File Type", JOptionPane.ERROR_MESSAGE);
 				break;
@@ -191,12 +199,6 @@ public class JPlotCsvTable extends JTable{
 				JOptionPane.showMessageDialog( JPlotCsvTable.this.getParent(), "The expected columns in the CSV are " + validation.getExpectedHeaders(), "Columns in CSV do not match survey", JOptionPane.ERROR_MESSAGE);
 				validation = null; // not bad enough to stop the user from loading the CSV file
 				break;
-
-			case INVALID_NUMBER_OF_COLUMNS:
-				JPlotCsvTable.this.setBackground( ERROR_BG_COLOR);
-				JOptionPane.showMessageDialog( JPlotCsvTable.this.getParent(), "The expected file type is CSV or CED ", "Expected File Type", JOptionPane.ERROR_MESSAGE);
-				break;
-
 			case INVALID_NUMBER_OF_PLOTS_TOO_LARGE:
 				JPlotCsvTable.this.setBackground( ERROR_BG_COLOR);
 				JOptionPane.showMessageDialog( JPlotCsvTable.this.getParent(), "Using CSV files that are too large makes Google Earth extremely slow.\nPlease divide this CSV file into smaller file (reccomended less than 2000 plots per CSV file.\nNumber of plots in this file : " + validation.getNumberOfRows() , "File too large", JOptionPane.ERROR_MESSAGE); //$NON-NLS-1$

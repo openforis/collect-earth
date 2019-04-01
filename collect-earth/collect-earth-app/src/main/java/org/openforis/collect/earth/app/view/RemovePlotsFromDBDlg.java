@@ -85,8 +85,7 @@ public class RemovePlotsFromDBDlg {
 	}
 
 	public void open(Frame owner, CollectSurvey survey) {
-		JDialog dlg = new JDialog(owner);
-		this.dlg = dlg;
+		this.dlg = new JDialog(owner);
 		this.survey = survey;
 		this.dlg.setModal(true);
 		this.dlg.setSize(new Dimension(700, 350));
@@ -117,7 +116,7 @@ public class RemovePlotsFromDBDlg {
 		c.gridwidth = 2;
 		c.gridy = row++;
 		panel.add(getCsvFilePicker(), c);
-		c.gridy = row++;
+		c.gridy = row;
 
 		panel.add(getDeleteButton(), c);
 		this.dlg.add(panel);
@@ -127,19 +126,13 @@ public class RemovePlotsFromDBDlg {
 		if (deleteFromDB == null) {
 			deleteFromDB = new JButton("Delete plots with IDs in the CSV from the database");
 			deleteFromDB.setEnabled(false);
-			deleteFromDB.addActionListener(new ActionListener() {
-
-				@Override
-				public void actionPerformed(ActionEvent e) {
-
-					if (JOptionPane.showConfirmDialog(RemovePlotsFromDBDlg.this.dlg,
-							"Are you sure you want to remove the plots with the IDs that are specified in the CSV file??",
-							"Confirm deletion of plots in DB", JOptionPane.YES_NO_OPTION,
-							JOptionPane.QUESTION_MESSAGE) == JOptionPane.YES_OPTION) {
-						deletePlotsFromDB();
-					}
-
-				}
+			deleteFromDB.addActionListener( e -> {
+				if (JOptionPane.showConfirmDialog(RemovePlotsFromDBDlg.this.dlg,
+						"Are you sure you want to remove the plots with the IDs that are specified in the CSV file??",
+						"Confirm deletion of plots in DB", JOptionPane.YES_NO_OPTION,
+						JOptionPane.QUESTION_MESSAGE) == JOptionPane.YES_OPTION) {
+					deletePlotsFromDB();
+				}			
 			});
 		}
 		return deleteFromDB;
@@ -147,13 +140,14 @@ public class RemovePlotsFromDBDlg {
 
 	private boolean validateCsv(String filePath) {
 		boolean validFile = true;
+		CSVReader csvReader = null;
 		try {
 
 			filePicker.setTextBackground(Color.white);
 
 			if (CsvReaderUtils.isCsvFile(filePath)) {
 
-				CSVReader csvReader = CsvReaderUtils.getCsvReader(filePath, false);
+				csvReader = CsvReaderUtils.getCsvReader(filePath, false);
 
 				// Get the first line
 				String[] csvHeaders = csvReader.readNext();
@@ -176,9 +170,17 @@ public class RemovePlotsFromDBDlg {
 			}
 		} catch (Exception e) {
 			JOptionPane.showMessageDialog(RemovePlotsFromDBDlg.this.dlg,
-					String.format("Error opening file at %s.  " + e.getMessage(), filePath));
+					String.format("Error opening file at %s.  %s ", filePath, e.getMessage()));
 			logger.error("Error while validating the CSV file", e);
 			validFile = false;
+		}finally {
+			if( csvReader != null ) {
+				try {
+					csvReader.close();
+				} catch (IOException e) {
+					logger.error("Error closing CSV file", e);
+				}
+			}
 		}
 		getDeleteButton().setEnabled(validFile);
 		return validFile;
@@ -193,12 +195,13 @@ public class RemovePlotsFromDBDlg {
 			int plotsNotFoundInDB = 0;
 			int plotsCouldNotBeDeleted = 0;
 			boolean success = true;
-			ArrayList<String> messages = new ArrayList<String>();
+			ArrayList<String> messages = new ArrayList<>();
 
 			@Override
 			public void run() {
+				CSVReader csvReader = null;
 				try {
-					CSVReader csvReader = CsvReaderUtils.getCsvReader(getCsvFilePicker().getSelectedFilePath(), false);
+					csvReader = CsvReaderUtils.getCsvReader(getCsvFilePicker().getSelectedFilePath(), false);
 					List<String[]> allLines = csvReader.readAll();
 					int totalLines = allLines.size() - 1;
 					boolean skipFirst = true;
@@ -235,13 +238,21 @@ public class RemovePlotsFromDBDlg {
 
 				} catch (IOException e) {
 					JOptionPane.showMessageDialog(RemovePlotsFromDBDlg.this.dlg,
-							String.format("Error reading CSV file"));
+							"Error reading CSV file");
 					logger.error("Error while validating the CSV file", e);
 					success = false;
 				} finally {
 
 					if (progressDeletion != null) {
 						progressDeletion.close();
+					}
+
+					if( csvReader != null ) {
+						try {
+							csvReader.close();
+						} catch (IOException e) {
+							logger.error("Error closing the CSV file", e);
+						}
 					}
 				}
 
@@ -261,34 +272,28 @@ public class RemovePlotsFromDBDlg {
 							+ result + "</html>";
 				}
 
-				
-			    JEditorPane web = new JEditorPane();
-			    web.setEditable(false);
-			    web.setContentType("text/html");
-			    web.setText(result);
-			    
 
-			    JScrollPane scrollPane = new JScrollPane(web);
-			    scrollPane.setPreferredSize( new Dimension( 450, 350 ));
+				JEditorPane web = new JEditorPane();
+				web.setEditable(false);
+				web.setContentType("text/html");
+				web.setText(result);
 
-			    // Refresh contents of Google Earth!
-			    EarthApp.executeKmlLoadAsynchronously( null );
-			    
-				SwingUtilities.invokeLater(new Runnable() {
 
-					@Override
-					public void run() {
-						if (deleteResults.success) {
-							JOptionPane.showMessageDialog(RemovePlotsFromDBDlg.this.dlg, scrollPane, "Success deleting plots", JOptionPane.INFORMATION_MESSAGE);
-						} else {
+				JScrollPane scrollPane = new JScrollPane(web);
+				scrollPane.setPreferredSize( new Dimension( 450, 350 ));
 
-							JOptionPane.showMessageDialog(RemovePlotsFromDBDlg.this.dlg, scrollPane, "Error deleting plots", JOptionPane.WARNING_MESSAGE);
-						}
+				// Refresh contents of Google Earth!
+				EarthApp.executeKmlLoadAsynchronously( null );
 
+				SwingUtilities.invokeLater( () -> {
+					if (deleteResults.success) {
+						JOptionPane.showMessageDialog(RemovePlotsFromDBDlg.this.dlg, scrollPane, "Success deleting plots", JOptionPane.INFORMATION_MESSAGE);
+					} else {
+
+						JOptionPane.showMessageDialog(RemovePlotsFromDBDlg.this.dlg, scrollPane, "Error deleting plots", JOptionPane.WARNING_MESSAGE);
 					}
 				});
-
-			};
+			}
 		};
 
 		treadDeleting.start();
@@ -318,18 +323,16 @@ public class RemovePlotsFromDBDlg {
 
 				@Override
 				public void removeUpdate(DocumentEvent e) {
-
+					// Do not react
 				}
 
 				@Override
 				public void insertUpdate(DocumentEvent e) {
-					// TODO Auto-generated method stub
 					validateCsv(filePicker.getTextField().getText());
 				}
 
 				@Override
 				public void changedUpdate(DocumentEvent e) {
-					// TODO Auto-generated method stub
 					validateCsv(filePicker.getTextField().getText());
 				}
 			});

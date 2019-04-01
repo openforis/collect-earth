@@ -42,7 +42,7 @@ public class PlacemarkImageServlet extends JsonPocessorServlet {
 	@Autowired
 	private PreloadedFilesService preloadedFilesService;
 	
-	private Logger logger = LoggerFactory.getLogger( PlacemarkImageServlet.class );
+	private transient Logger logger = LoggerFactory.getLogger( PlacemarkImageServlet.class );
 
 	/**
 	 * Returns an icon/overlay image that represents the state of the placemark not-filled/filling/filled
@@ -86,17 +86,11 @@ public class PlacemarkImageServlet extends JsonPocessorServlet {
 			final Map<String, String> placemarkParameters = earthSurveyService.getPlacemark(keys,false);
 
 			if (earthSurveyService.isPlacemarkSavedActively(placemarkParameters)) {
-				if (listView != null && listView) {
-					imageName = EarthConstants.LIST_FILLED_IMAGE;
-				} 
+				imageName = EarthConstants.LIST_FILLED_IMAGE;
 			} else if (earthSurveyService.isPlacemarkEdited(placemarkParameters)) {
-				if (listView != null && listView) {
-					imageName = EarthConstants.LIST_NOT_FINISHED_IMAGE;
-				} 
+				imageName = EarthConstants.LIST_NOT_FINISHED_IMAGE;
 			} else {
-				if (listView != null && listView) {
-					imageName = EarthConstants.LIST_NON_FILLED_IMAGE;
-				} 
+				imageName = EarthConstants.LIST_NON_FILLED_IMAGE;
 			}
 			
 		} catch (Exception e) {
@@ -133,7 +127,7 @@ public class PlacemarkImageServlet extends JsonPocessorServlet {
 		}
 		
 		if (resultingImage != null) {
-			response.setHeader("Content-Length", resultingImage.length + ""); //$NON-NLS-1$ //$NON-NLS-2$
+			response.setHeader("Content-Length", Integer.toString( resultingImage.length ) ); //$NON-NLS-1$ //$NON-NLS-2$
 			writeToResponse(response, resultingImage);
 		} else {
 			getLogger().error("There was a problem fetching the image, please check the name!"); //$NON-NLS-1$

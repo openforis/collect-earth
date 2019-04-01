@@ -26,31 +26,22 @@ public abstract class ProcessMonitorDialog<V,S extends ProcessStatus> extends Th
 	protected abstract String getProcessActionMessage();
 	
 	@Override
-	public synchronized void start() {
+	public synchronized void run() {
 
-		new Thread("Monitorinf progress of a process") {
+		new Thread("Monitoring progress of a process") {
 			@Override
 			public void run() {
 				boolean keepRunning = true;
 				while (keepRunning) {
 					if (process.getStatus() != null) {
-						SwingUtilities.invokeLater(new Runnable() {
-							@Override
-							public void run() {
+						SwingUtilities.invokeLater( () -> {
 								progressMonitor.setProgress(process.getStatus().getProgressPercent());
 								progressMonitor.setNote(getProcessActionMessage() + process.getStatus().getProcessed() + "/" //$NON-NLS-1$ //$NON-NLS-2$
 										+ process.getStatus().getTotal());
-							}
-
-
 						});
 
 						if (progressMonitor.isCanceled() || process.getStatus().isComplete() || process.getStatus().isError() ) {
-							SwingUtilities.invokeLater(new Runnable() {
-
-								@SuppressWarnings("deprecation")
-								@Override
-								public void run(){
+							SwingUtilities.invokeLater( () -> {
 									progressMonitor.close();
 									if( process.getStatus().isError() ){
 										StringBuilder parsisngErrorMsg = new StringBuilder("\r\n"); //$NON-NLS-1$
@@ -75,7 +66,6 @@ public abstract class ProcessMonitorDialog<V,S extends ProcessStatus> extends Th
 										String primaryErrorMsg = process.getStatus().getErrorMessage();
 										JOptionPane.showMessageDialog(null, "Attention : " + ( primaryErrorMsg!=null?primaryErrorMsg:"") + parsisngErrorMsg.toString() ); //$NON-NLS-1$ //$NON-NLS-2$
 									}
-								}
 							});
 							Toolkit.getDefaultToolkit().beep();
 							if ( !process.getStatus().isComplete() && !process.getStatus().isError() ) {
@@ -92,10 +82,8 @@ public abstract class ProcessMonitorDialog<V,S extends ProcessStatus> extends Th
 						logger.error("Error whille waiting in thread", e); //$NON-NLS-1$
 					}
 				}
-			};
+			}
 		}.start();
-		super.start();
-
 	}
 
 }

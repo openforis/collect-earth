@@ -437,7 +437,7 @@ public class EarthApp {
 				// Wait a few seconds before checking for updates
 				final UpdateIniUtils updateIniUtils = new UpdateIniUtils();
 				updateIniUtils.trackUserStart();			
-			};
+			}
 		}.start();
 	}
 

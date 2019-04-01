@@ -48,13 +48,7 @@ public class OpenTextFileListener implements ActionListener {
 		scrollPane.setPreferredSize(new Dimension(250, 250));
 
 		final JButton close = new JButton(Messages.getString("CollectEarthWindow.5")); //$NON-NLS-1$
-		close.addActionListener(new ActionListener() {
-
-			@Override
-			public void actionPerformed(ActionEvent e) {
-				dialog.setVisible(false);
-			}
-		});
+		close.addActionListener( e -> dialog.setVisible(false) );
 		panel.add(close, BorderLayout.SOUTH);
 	}
 
@@ -67,7 +61,7 @@ public class OpenTextFileListener implements ActionListener {
 	private String getTextContents() {
 		try {
 			
-			return FileUtils.readFileToString(new File( filePath ));
+			return FileUtils.readFileToString(new File( filePath ), "UTF-8");
 		} catch (final IOException e) {
 			logger.error(Messages.getString("OpenTextFileListener.0") + filePath.toString(), e);  //$NON-NLS-1$
 			return Messages.getString("CollectEarthWindow.8"); //$NON-NLS-1$

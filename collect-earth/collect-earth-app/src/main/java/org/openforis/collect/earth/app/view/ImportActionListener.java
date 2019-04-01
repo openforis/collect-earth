@@ -91,6 +91,7 @@ public final class ImportActionListener implements ActionListener {
 			switch (importType) {
 			case ZIP_WITH_XML:
 					new Thread("XML Import Thread " ){ //$NON-NLS-1$
+						@Override
 						public void run() {
 							Integer importNonFinishedPlots = shouldImportNonFinishedRecords( filesToImport.length > 1);
 							boolean firstFile = true;
@@ -159,18 +160,25 @@ public final class ImportActionListener implements ActionListener {
 
 	private long getTotalNumberOfLines(File importedFile) {
 		long count = 0;
+		BufferedReader br = null;
 		try {
-			FileInputStream fstream = new FileInputStream(importedFile);
-			BufferedReader br = new BufferedReader(new InputStreamReader(fstream));
-			String strLine;
-			
+			br = new BufferedReader(new InputStreamReader(new FileInputStream(importedFile)));
+	
 			while ( br.readLine() != null)   {
 			  count++;
 			}
-		} catch (FileNotFoundException e) {
-			logger.error("Error counting the number of lines in file " + importedFile.getAbsolutePath() , e) ; //$NON-NLS-1$
 		} catch (IOException e) {
 			logger.error("Error counting the number of lines in file " + importedFile.getAbsolutePath() , e) ; //$NON-NLS-1$
+		}finally {
+			if( br!=null) {
+				try {
+					br.close();
+				} catch (IOException e) {
+					logger.error("Error closing file reader " + importedFile.getAbsolutePath() , e) ;
+				}
+			}
+			
+			
 		}
 		return count;
 	}

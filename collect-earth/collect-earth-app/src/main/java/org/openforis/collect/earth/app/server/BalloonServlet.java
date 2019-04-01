@@ -19,10 +19,7 @@ import org.openforis.collect.earth.app.desktop.ServerController;
 import org.openforis.collect.earth.app.service.BrowserNotFoundException;
 import org.openforis.collect.earth.app.service.BrowserService;
 import org.openforis.collect.earth.app.service.LocalPropertiesService;
-import org.openforis.collect.earth.app.service.PreloadedFilesService;
 import org.openqa.selenium.remote.RemoteWebDriver;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -48,14 +45,9 @@ public class BalloonServlet extends DataAccessingServlet {
 	@Autowired
 	private LocalPropertiesService localPropertiesService;
 
-	@Autowired
-	private PreloadedFilesService preloadedFilesService;
-
-	private static RemoteWebDriver webKitDriver = null;
+	private RemoteWebDriver webKitDriver = null;
 	
 	private static final String BALLOON_EXTERNAL_URL = "balloon"; //$NON-NLS-1$
-	
-	private Logger logger = LoggerFactory.getLogger(BalloonServlet.class);
 
 	private String buildGetParameters(Map<String, String[]> parameterMap) {
 		final StringBuilder getParameters = new StringBuilder();
@@ -80,7 +72,7 @@ public class BalloonServlet extends DataAccessingServlet {
 				} catch (BrowserNotFoundException e) {
 					logger.error("No browser found", e); //$NON-NLS-1$
 				}
-			};
+			}
 		};
 		openBrowser.start();
 
@@ -110,7 +102,7 @@ public class BalloonServlet extends DataAccessingServlet {
 			balloonContents = replaceGoalsWithParameters(balloonContents, request.getParameterMap());
 
 			final byte[] bytes = balloonContents.getBytes();
-			response.setHeader("Content-Length", bytes.length + ""); //$NON-NLS-1$ //$NON-NLS-2$
+			response.setHeader("Content-Length", Integer.toString( bytes.length ) ); //$NON-NLS-1$ //$NON-NLS-2$
 			writeToResponse(response, bytes);
 
 		} else {

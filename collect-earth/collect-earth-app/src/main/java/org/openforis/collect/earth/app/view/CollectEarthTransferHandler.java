@@ -23,16 +23,16 @@ import org.springframework.stereotype.Component;
 public class CollectEarthTransferHandler extends TransferHandler {
 
 	@Autowired
-	private CollectEarthWindow collectEarthWindow;
+	private transient CollectEarthWindow collectEarthWindow;
 
 	@Autowired
-	private LocalPropertiesService localPropertiesService;
+	private transient LocalPropertiesService localPropertiesService;
 
 	@Autowired
-	private KmlImportService kmlImportService;	
+	private transient KmlImportService kmlImportService;	
 
 	private static final long serialVersionUID = 1L;
-	Logger logger = LoggerFactory.getLogger( CollectEarthTransferHandler.class);
+	private transient Logger logger = LoggerFactory.getLogger( CollectEarthTransferHandler.class);
 
 	/* 
 	 * Can Only import an object if it represents a SINGLE file
@@ -89,6 +89,7 @@ public class CollectEarthTransferHandler extends TransferHandler {
 	 * (non-Javadoc)
 	 * @see javax.swing.TransferHandler#getSourceActions(javax.swing.JComponent)
 	 */
+	@Override
 	public int getSourceActions(JComponent c) {
 		return COPY_OR_MOVE;
 	}
@@ -99,6 +100,7 @@ public class CollectEarthTransferHandler extends TransferHandler {
 	 * (non-Javadoc)
 	 * @see javax.swing.TransferHandler#importData(javax.swing.TransferHandler.TransferSupport)
 	 */
+	@Override
 	public boolean importData(TransferSupport info) {
 		if (!info.isDrop()) {
 			return false;
@@ -126,20 +128,7 @@ public class CollectEarthTransferHandler extends TransferHandler {
 				EarthApp.openProjectFileInRunningCollectEarth( fileToImport.getAbsolutePath() );
 			}else if( DataFormat.COLLECT_COORDS.checkFileExtensionMatches(fileExtension)){
 
-				// Check if the CSV file can be loaded in the survey!!!
-
-				try{
-					if( CollectEarthUtils.validateCsvColumns( fileToImport ) ){
-
-						localPropertiesService.setValue( EarthProperty.SAMPLE_FILE, fileToImport.getAbsolutePath() );
-						EarthApp.executeKmlLoadAsynchronously( collectEarthWindow.getFrame() );
-					}
-
-				}catch( KmlGenerationException kmlGenerationException ){
-					logger.error( "Problem loading CSV file dropped into the window" , kmlGenerationException );
-					EarthApp.showMessage(" Problem loading CSV file" + kmlGenerationException.getCause() );
-				}
-
+				importCSVWithPlots(fileToImport);
 
 			}else if( DataFormat.KML_FILE.checkFileExtensionMatches( fileExtension ) ) {
 
@@ -164,6 +153,21 @@ public class CollectEarthTransferHandler extends TransferHandler {
 
 
 		return true;
+	}
+
+
+	private void importCSVWithPlots(File fileToImport) {
+		try{
+			if( CollectEarthUtils.validateCsvColumns( fileToImport ) ){
+
+				localPropertiesService.setValue( EarthProperty.SAMPLE_FILE, fileToImport.getAbsolutePath() );
+				EarthApp.executeKmlLoadAsynchronously( collectEarthWindow.getFrame() );
+			}
+
+		}catch( KmlGenerationException kmlGenerationException ){
+			logger.error( "Problem loading CSV file dropped into the window" , kmlGenerationException );
+			EarthApp.showMessage(" Problem loading CSV file" + kmlGenerationException.getCause() );
+		}
 	}
 
 

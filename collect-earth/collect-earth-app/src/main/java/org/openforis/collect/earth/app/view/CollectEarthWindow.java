@@ -5,7 +5,6 @@ import java.awt.GridBagConstraints;
 import java.awt.GridBagLayout;
 import java.awt.Insets;
 import java.awt.Window;
-import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 import java.awt.event.WindowAdapter;
 import java.awt.event.WindowEvent;
@@ -84,30 +83,19 @@ public class CollectEarthWindow {
 	@PostConstruct
 	public void init() {
 		Messages.setLocale(localPropertiesService.getUiLanguage().getLocale());
-		javax.swing.SwingUtilities.invokeLater(new Runnable() {
-			@Override
-			public void run() {
-				try {
-
-					CollectEarthWindow.this.openWindow();
-
-				} catch (final Exception e) {
-					logger.error("Cannot start Earth App", e); //$NON-NLS-1$
-					System.exit(0);
-				}
+		javax.swing.SwingUtilities.invokeLater( () -> {
+			try {
+				CollectEarthWindow.this.openWindow();
+			} catch (final Exception e) {
+				logger.error("Cannot start Earth App", e); //$NON-NLS-1$
+				System.exit(0);
 			}
 		});
 	}
 
 	@PreDestroy
 	public void cleanUp() throws InvocationTargetException, InterruptedException {
-		SwingUtilities.invokeAndWait(new Runnable() {
-
-			@Override
-			public void run() {
-				CollectEarthWindow.this.getFrame().dispose();
-			}
-		});
+		SwingUtilities.invokeAndWait( () -> CollectEarthWindow.this.getFrame().dispose()  );
 	}
 
 	private void addWindowClosingListener() {
@@ -130,12 +118,11 @@ public class CollectEarthWindow {
 							@Override
 							public void run() {
 								try {
-									// getServerController().stopServer();
 									EarthApp.quitServer();
 								} catch (final Exception e) {
 									logger.error("Error when trying to closing the server", e); //$NON-NLS-1$
 								}
-							};
+							}
 						};
 
 						getFrame().setVisible(false);
@@ -168,12 +155,7 @@ public class CollectEarthWindow {
 	}
 
 	protected ActionListener getCloseActionListener() {
-		return new ActionListener() {
-			@Override
-			public void actionPerformed(ActionEvent e) {
-				getFrame().dispatchEvent(new WindowEvent(getFrame(), WindowEvent.WINDOW_CLOSING));
-			}
-		};
+		return  e -> getFrame().dispatchEvent(new WindowEvent(getFrame(), WindowEvent.WINDOW_CLOSING));
 	}
 
 	public JFrame getFrame() {
@@ -185,7 +167,7 @@ public class CollectEarthWindow {
 	}
 
 	private void initializeMenu() {
-		
+
 		collectEarthMenu.removeAll();
 		collectEarthMenu.init();
 		getFrame().setJMenuBar( collectEarthMenu );
@@ -238,26 +220,21 @@ public class CollectEarthWindow {
 		c.gridy++;
 		c.gridwidth = GridBagConstraints.REMAINDER;
 		c.fill = GridBagConstraints.NONE;
-		final JButton closeButton = new JButton(Messages.getString("CollectEarthWindow.32")); //$NON-NLS-1$
-		closeButton.addActionListener(getCloseActionListener());
-		pane.add(closeButton, c);
+		final JButton propertiesButton = new JButton(Messages.getString("CollectEarthWindow.15")); //$NON-NLS-1$
+		propertiesButton.addActionListener( collectEarthMenu.getPropertiesAction( frame ) );
+		pane.add(propertiesButton, c);
 
 		getFrame().getContentPane().add(pane);
 
-		updateOperator.addActionListener(new ActionListener() {
-
-			@Override
-			public void actionPerformed(ActionEvent e) {
-				final String operatorName = operatorTextField.getText().trim();
-				if (operatorName.length() > 5 && operatorName.length() < 50) {
-					localPropertiesService.saveOperator(operatorName);
-					operatorTextField.setBackground(Color.white);
-				} else {
-					JOptionPane.showMessageDialog(getFrame(), Messages.getString("CollectEarthWindow.33"), //$NON-NLS-1$
-							Messages.getString("CollectEarthWindow.34"), JOptionPane.ERROR_MESSAGE); //$NON-NLS-1$
-					operatorTextField.setText(getOperator());
-				}
-
+		updateOperator.addActionListener( e -> {
+			final String operatorName = operatorTextField.getText().trim();
+			if (operatorName.length() > 5 && operatorName.length() < 50) {
+				localPropertiesService.saveOperator(operatorName);
+				operatorTextField.setBackground(Color.white);
+			} else {
+				JOptionPane.showMessageDialog(getFrame(), Messages.getString("CollectEarthWindow.33"), //$NON-NLS-1$
+						Messages.getString("CollectEarthWindow.34"), JOptionPane.ERROR_MESSAGE); //$NON-NLS-1$
+				operatorTextField.setText(getOperator());
 			}
 		});
 
@@ -268,7 +245,6 @@ public class CollectEarthWindow {
 		// Initialize the translations
 		Messages.setLocale(localPropertiesService.getUiLanguage().getLocale());
 
-		// frame.setSize(400, 300);
 		getFrame().setDefaultCloseOperation(WindowConstants.DO_NOTHING_ON_CLOSE);
 		getFrame().setResizable(false);
 		try {
@@ -302,12 +278,12 @@ public class CollectEarthWindow {
 			if (!StringUtils.isBlank(earthSurveyService.getCollectSurvey()
 					.getProjectName(localPropertiesService.getUiLanguage().getLocale().getLanguage()))) {
 				name = " - " + earthSurveyService.getCollectSurvey()
-						.getProjectName(localPropertiesService.getUiLanguage().getLocale().getLanguage());
+				.getProjectName(localPropertiesService.getUiLanguage().getLocale().getLanguage());
 			} else if (!StringUtils.isBlank(earthSurveyService.getCollectSurvey().getProjectName())) {
 				name = " - " + earthSurveyService.getCollectSurvey().getProjectName();
 			} else {
 				name = " - " + earthSurveyService.getCollectSurvey()
-						.getDescription(localPropertiesService.getUiLanguage().getLocale().getLanguage());
+				.getDescription(localPropertiesService.getUiLanguage().getLocale().getLanguage());
 			}
 		}
 		getFrame().setTitle(Messages.getString("CollectEarthWindow.19") + name);

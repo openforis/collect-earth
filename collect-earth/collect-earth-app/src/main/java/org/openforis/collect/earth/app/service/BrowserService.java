@@ -201,7 +201,7 @@ public class BrowserService implements Observer{
 			final HttpsURLConnection connection = (HttpsURLConnection) geeJsUrl.openConnection();
 			connection.setSSLSocketFactory(factory);
 
-			connection.setHostnameVerifier( (hostname, session) -> {return true;} );
+			connection.setHostnameVerifier( (hostname, session) -> true );
 			// End or work-around
 			InputStreamReader isr;
 			if (connection.getHeaderField("Content-Encoding")!=null && connection.getHeaderField("Content-Encoding").equals("gzip")){
@@ -911,9 +911,9 @@ public class BrowserService implements Observer{
 			@Override
 			public void run() {
 				isClosing = true;
-				CopyOnWriteArrayList<RemoteWebDriver> driversCopy = new CopyOnWriteArrayList<RemoteWebDriver>(drivers);
+				CopyOnWriteArrayList<RemoteWebDriver> driversCopy = new CopyOnWriteArrayList<>(drivers);
 				for (Iterator<RemoteWebDriver> iterator = driversCopy.iterator(); iterator.hasNext();) {
-					RemoteWebDriver remoteWebDriver = (RemoteWebDriver) iterator.next();
+					RemoteWebDriver remoteWebDriver = iterator.next();
 					try {
 						remoteWebDriver.quit();
 					} catch (final Exception e) {

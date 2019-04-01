@@ -108,16 +108,11 @@ public final class MissingPlotsListener implements ActionListener {
 						String missingPlotsText = missingPlotService.getMissingPlotInformation(allPlotsInFiles, missingPlotData);
 						// Generates a temporary file that contains the missing plots as a CED
 						File tempFile = missingPlotService.getMissingPlotFile(missingPlotData);
-						SwingUtilities.invokeLater(new Runnable() {
-							@Override
-							public void run() {
-								infiniteProgressMonitor.close();
-							}
-						});
+						SwingUtilities.invokeLater( () -> infiniteProgressMonitor.close() );
 
 						JDialog missingDlg = buildDialog(missingPlotsText, tempFile);
 
-						Runnable setVisible =() -> {missingDlg.setVisible(true);};
+						Runnable setVisible =() -> missingDlg.setVisible(true);
 						SwingUtilities.invokeLater( setVisible );
 					}
 				}.start();
@@ -183,22 +178,17 @@ public final class MissingPlotsListener implements ActionListener {
 
 	private ActionListener getSaveAsListener(File tempFile) {
 
-		return new ActionListener() {
+		return e -> {
+			final File[] saveToCsvFile = JFileChooserExistsAware.getFileChooserResults(DataFormat.COLLECT_COORDS,
+					true, false, "plotsWithMissingInfo.csv", //$NON-NLS-1$ //$NON-NLS-2$
+					localPropertiesService, frame);
 
-			@Override
-			public void actionPerformed(ActionEvent e) {
-				final File[] saveToCsvFile = JFileChooserExistsAware.getFileChooserResults(DataFormat.COLLECT_COORDS,
-						true, false, "plotsWithMissingInfo.csv", //$NON-NLS-1$ //$NON-NLS-2$
-						localPropertiesService, frame);
-
-				if (saveToCsvFile != null && saveToCsvFile.length == 1) {
-					try {
-						FileUtils.copyFile(tempFile, saveToCsvFile[0]);
-					} catch (IOException e1) {
-						logger.error("Error when copying temporary file with missing plots to final destination " //$NON-NLS-1$
-								+ tempFile.getAbsolutePath() + " to " + saveToCsvFile[0].getAbsolutePath(), e); //$NON-NLS-1$
-					}
-
+			if (saveToCsvFile != null && saveToCsvFile.length == 1) {
+				try {
+					FileUtils.copyFile(tempFile, saveToCsvFile[0]);
+				} catch (IOException e1) {
+					logger.error("Error when copying temporary file with missing plots to final destination " //$NON-NLS-1$
+							+ tempFile.getAbsolutePath() + " to " + saveToCsvFile[0].getAbsolutePath(), e); //$NON-NLS-1$
 				}
 			}
 		};

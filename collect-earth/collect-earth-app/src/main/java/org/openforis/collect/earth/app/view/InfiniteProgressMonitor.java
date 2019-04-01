@@ -98,12 +98,9 @@ public class InfiniteProgressMonitor implements ProgressListener {
 	}
 
 	public void close() {
-		SwingUtilities.invokeLater(new Runnable() {
-			@Override
-			public void run() {
+		SwingUtilities.invokeLater(() -> {
 				hide();
 				getDialog().dispose();
-			}
 		});
 	}
 

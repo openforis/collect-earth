@@ -9,22 +9,18 @@ public class SaikuExecutionException extends Exception {
 
 	public SaikuExecutionException() {
 		super();
-		// TODO Auto-generated constructor stub
 	}
 
 	public SaikuExecutionException(String message, Throwable cause) {
 		super(message, cause);
-		// TODO Auto-generated constructor stub
 	}
 
 	public SaikuExecutionException(String message) {
 		super(message);
-		// TODO Auto-generated constructor stub
 	}
 
 	public SaikuExecutionException(Throwable cause) {
 		super(cause);
-		// TODO Auto-generated constructor stub
 	}
 	
 

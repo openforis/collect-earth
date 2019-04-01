@@ -18,7 +18,7 @@ import org.springframework.web.bind.annotation.RequestParam;
  */
 @Controller
 public class PlacemarkDataController extends AbstractPlacemarkDataController {
-
+	@Override
 	@RequestMapping(value="/placemark-info-expanded", method = RequestMethod.GET)
 	protected void placemarkInfoExpanded(@RequestParam("id") String placemarkId, HttpServletResponse response) throws IOException {
 		try{
@@ -28,6 +28,7 @@ public class PlacemarkDataController extends AbstractPlacemarkDataController {
 		}
 	}
 
+	@Override
 	@RequestMapping(value="/save-data-expanded", method = RequestMethod.POST)
 	public void saveDataExpanded(PlacemarkUpdateRequest updateRequest, HttpServletResponse response) throws IOException {
 		try{

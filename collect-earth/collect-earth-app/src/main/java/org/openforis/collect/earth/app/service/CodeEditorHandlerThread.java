@@ -146,7 +146,7 @@ public class CodeEditorHandlerThread {
 	}
 	
 	private void forceClick( WebElement element ) {
-		JavascriptExecutor js = (JavascriptExecutor)webDriverGee;
+		JavascriptExecutor js = webDriverGee;
 		js.executeScript("arguments[0].click();", element);
 	}
 

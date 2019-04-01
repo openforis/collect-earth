@@ -61,9 +61,8 @@ public class ServerController extends Observable {
 		public String toString() {
 			return message;
 		}
-		
-	
-	};
+
+	}
 	
 	private Server server;
 	private final Logger logger = LoggerFactory.getLogger(ServerController.class);
@@ -112,16 +111,13 @@ public class ServerController extends Observable {
 
 		CollectDBDriver collectDBDriver = localPropertiesService.getCollectDBDriver();
 		boolean isConnectionTypeSwitched = false;
-		if(localPropertiesService.isUsingPostgreSqlDB()){
-			if(!isPostgreSQLReachable(collectDBDriver) ){
+		if(localPropertiesService.isUsingPostgreSqlDB() && !isPostgreSQLReachable(collectDBDriver) ){
 
 				System.out.println("Impossible to reach the PostgreSQL server at " + getDbURL(CollectDBDriver.POSTGRESQL));
 				System.out.println("Using the SQLite version until fixed!");
 				logger.error("Impossible to reach the PostgreSQL server at " + getDbURL(CollectDBDriver.POSTGRESQL) + " using SQLite version");
 				collectDBDriver = CollectDBDriver.SQLITE;
 				isConnectionTypeSwitched = true;
-			}
-
 		}
 
 		final File jettyAppCtxTemplateSrc = new File("resources/applicationContext.fmt"); //$NON-NLS-1$
@@ -129,7 +125,7 @@ public class ServerController extends Observable {
 
 		jettyAppCtxDst.getParentFile().mkdirs();
 
-		final Map<String, String> data = new java.util.HashMap<String, String>();
+		final Map<String, String> data = new java.util.HashMap<>();
 
 		data.put("driver", collectDBDriver.getDriverClass()); //$NON-NLS-1$
 		data.put("url", getDbURL(collectDBDriver)); //$NON-NLS-1$
@@ -166,7 +162,7 @@ public class ServerController extends Observable {
 					System.out.print( "It works, there are " + rs.getString(1) + " rows on the ofc_record table");
 				}
 				connectionWorked = true;
-
+				
 			}
 			else
 				System.out.println("Connection Failed!");

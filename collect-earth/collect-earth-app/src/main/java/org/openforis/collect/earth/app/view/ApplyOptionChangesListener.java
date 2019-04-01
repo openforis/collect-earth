@@ -102,9 +102,10 @@ public abstract class ApplyOptionChangesListener implements ActionListener {
 		try {
 			// Re-generate KMZ
 			new Thread("Restarting Collect Earth after changing properties/loading project/loading KML points"){
+				@Override
 				public void run() {
 					EarthApp.restart();
-				};
+				}
 			}.start();
 
 

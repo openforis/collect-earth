@@ -22,13 +22,13 @@ public class PreloadedFilesService {
 	private final Map<String,byte[]> filesInMemory;
 	
 	public PreloadedFilesService() {
-		filesInMemory = new ConcurrentHashMap<String, byte[]>();
+		filesInMemory = new ConcurrentHashMap<>();
 	}
 	
 	public byte[] getFileContent(File file) {
 		byte[] fileContents = filesInMemory.get(file.getPath());
 		if (fileContents == null) {
-			byte content[] = new byte[0];
+			byte[] content = new byte[0];
 			try {
 				content = FileUtils.readFileToByteArray(file);
 				filesInMemory.put(file.getPath(), content);

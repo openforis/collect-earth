@@ -15,6 +15,7 @@ import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Set;
 
 import org.openforis.collect.earth.app.EarthConstants;
@@ -60,9 +61,9 @@ public class MissingPlotService {
 			for (String plotFile : files) {
 
 				List<String[]> missingPlots = missingPlotData.get(plotFile);
-				StringBuffer csvRow = new StringBuffer("");
+				StringBuilder csvRow = new StringBuilder("");
 				for (String[] plotData : missingPlots) {
-					csvRow = new StringBuffer("");
+					csvRow = new StringBuilder("");
 					for (String data : plotData) {
 						
 						data = data.replaceAll("\"", "\\\"");
@@ -93,11 +94,10 @@ public class MissingPlotService {
 
 		int totalPlots = 0;
 		int missingPlots = 0;
-		for (String key : allPlotDataInFiles.keySet()) {
-			List<String[]> plotsInFile = allPlotDataInFiles.get(key);
-			if( plotsInFile!=null){
-				totalPlots += plotsInFile.size();
-				missingPlots += missingPlotDataPerFile.get(key).size();
+		for (Entry<String, List<String[]>> entry : allPlotDataInFiles.entrySet() ) {
+			if( entry.getValue()!=null){
+				totalPlots += entry.getValue().size();
+				missingPlots += missingPlotDataPerFile.get( entry.getKey() ).size();
 			}
 		}
 		missingPlotsText += "\n\n"+Messages.getString("MissingPlotsListener.10") + totalPlots ; //$NON-NLS-1$ //$NON-NLS-2$
@@ -111,7 +111,7 @@ public class MissingPlotService {
 	}
 
 	private String getTextMissingPlots(Map<String, List<String[]>> missingPlotDataPerFile) {
-		StringBuffer missingPlots = new StringBuffer(""); //$NON-NLS-1$
+		StringBuilder missingPlots = new StringBuilder(""); //$NON-NLS-1$
 
 		Set<String> files = missingPlotDataPerFile.keySet();
 		for (String fileToBeChecked : files) {
@@ -119,7 +119,7 @@ public class MissingPlotService {
 			missingPlots.append("\n").append(Messages.getString("MissingPlotsListener.5")).append( fileToBeChecked ).append(" : \n"); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$
 
 			List<String[]> missingIds = missingPlotDataPerFile.get(fileToBeChecked);
-			if( missingIds.size() == 0 ){
+			if( missingIds.isEmpty() ){
 				missingPlots.append("COMPLETE "); //$NON-NLS-1$
 			}
 
@@ -142,7 +142,7 @@ public class MissingPlotService {
 
 
 	private List<String[]> getPlotDataFromFile(String plotCoordinateFile) {
-		final List<String[]> plotData = new ArrayList<String[]>();
+		final List<String[]> plotData = new ArrayList<>();
 		try {
 			final CSVReader plotCsvReader = getCsvReader(plotCoordinateFile);
 			String[] csvRow;
@@ -169,7 +169,7 @@ public class MissingPlotService {
 	}
 
 	public Map<String, List<String[]>> getMissingPlotsByFile(Map<String, List<String[]>> plotDataByFIle, InfiniteProgressMonitor infiniteProgressMonitor) {
-		final Map<String, List<String[]>> missingPlotIdsByFile = new HashMap<String, List<String[]>>();
+		final Map<String, List<String[]>> missingPlotIdsByFile = new HashMap<>();
 		final Set<String> plotFiles = plotDataByFIle.keySet();
 		int i = 0;
 		for (final String plotFile : plotFiles) {
@@ -201,7 +201,7 @@ public class MissingPlotService {
 	}
 
 	public Map<String, List<String[]>> getPlotDataByFile(File[] selectedPlotFiles) {
-		final Map<String, List<String[]>> plotDataByFile = new HashMap<String, List<String[]>>();
+		final Map<String, List<String[]>> plotDataByFile = new HashMap<>();
 		if( selectedPlotFiles != null && selectedPlotFiles.length > 0 ) {
 			for (final File file : selectedPlotFiles) {
 				plotDataByFile.put(file.getAbsolutePath(), getPlotDataFromFile(file.getAbsolutePath()));
@@ -219,7 +219,7 @@ public class MissingPlotService {
 			CollectRecord record = recordManager.load(earthSurveyService.getCollectSurvey(), summaries.get(0).getId(), Step.ENTRY);
 			BooleanAttribute node = null;
 			try {
-				node = (BooleanAttribute) record.findNodeByPath("/plot/"+ EarthConstants.ACTIVELY_SAVED_ATTRIBUTE_NAME); //$NON-NLS-1$
+				node = record.findNodeByPath("/plot/"+ EarthConstants.ACTIVELY_SAVED_ATTRIBUTE_NAME); //$NON-NLS-1$
 			} catch (Exception e) {
 				logger.error("No actively_saved information found", e); //$NON-NLS-1$
 			}

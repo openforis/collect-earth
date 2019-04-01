@@ -76,18 +76,18 @@ public class PropertiesDialog extends JDialog {
 	private static final long serialVersionUID = -6760020609229102842L;
 
 	private final HashMap<Enum<?>, JComponent[]> propertyToComponent = new HashMap<Enum<?>, JComponent[]>();
-	private final Logger logger = LoggerFactory.getLogger(this.getClass());
+	private final transient  Logger logger = LoggerFactory.getLogger(this.getClass());
 
 	JPanel postgresPanel;
 	JPanel sqlitePanel;
 
-	LocalPropertiesService localPropertiesService;
+	private transient LocalPropertiesService localPropertiesService;
 
 	String backupFolder;
 
-	private AnalysisSaikuService saikuService;
+	private transient AnalysisSaikuService saikuService;
 
-	private EarthProjectsService projectsService;
+	private transient EarthProjectsService projectsService;
 
 	private boolean restartRequired;
 
@@ -174,11 +174,6 @@ public class PropertiesDialog extends JDialog {
 		constraints.gridy++;
 		panel.add(propertyToComponent.get(EarthProperty.OPEN_STREET_VIEW)[0], constraints);
 
-		// Removed Here Maps temporarily
-		// constraints.gridy++;
-		// panel.add(propertyToComponent.get(EarthProperty.OPEN_HERE_MAPS)[0],
-		// constraints);
-
 		constraints.gridy++;
 		panel.add(propertyToComponent.get(EarthProperty.OPEN_GEE_PLAYGROUND)[0], constraints);
 
@@ -247,12 +242,7 @@ public class PropertiesDialog extends JDialog {
 
 	private Component getCancelButton() {
 		final JButton cancelButton = new JButton(Messages.getString("OptionWizard.24")); //$NON-NLS-1$
-		cancelButton.addActionListener(new ActionListener() {
-			@Override
-			public void actionPerformed(ActionEvent arg0) {
-				PropertiesDialog.this.dispose();
-			}
-		});
+		cancelButton.addActionListener( e -> PropertiesDialog.this.dispose() );
 		return cancelButton;
 	}
 
@@ -282,14 +272,11 @@ public class PropertiesDialog extends JDialog {
 	}
 
 	private ActionListener getDbTypeListener() {
-		return new ActionListener() {
-			@Override
-			public void actionPerformed(ActionEvent e) {
+		return e -> {
 				final JRadioButton theJRB = (JRadioButton) e.getSource();
 
 				boolean isPostgreDb = theJRB.getName().equals(CollectDBDriver.POSTGRESQL.name());
 				enableDBOptions(isPostgreDb);
-			}
 		};
 	}
 
@@ -319,9 +306,7 @@ public class PropertiesDialog extends JDialog {
 
 	private JComponent getProjectsPanelScroll() {
 		final JComponent projectsPanel = getProjectsPanel();
-		JScrollPane scroll = new JScrollPane(projectsPanel, JScrollPane.VERTICAL_SCROLLBAR_AS_NEEDED,
-				JScrollPane.HORIZONTAL_SCROLLBAR_NEVER);
-		return scroll;
+		return new JScrollPane(projectsPanel, JScrollPane.VERTICAL_SCROLLBAR_AS_NEEDED, JScrollPane.HORIZONTAL_SCROLLBAR_NEVER);
 	}
 
 	private JComponent getProjectsPanel() {
@@ -367,10 +352,10 @@ public class PropertiesDialog extends JDialog {
 		constraints.gridy = 1;
 		panel.add(typeOfDbPanel, constraints);
 
-		List<String> listOfProjectsByName = new ArrayList<String>();
+		List<String> listOfProjectsByName = new ArrayList<>();
 		listOfProjectsByName.addAll(projectsService.getProjectList().keySet());
 		Collections.sort(listOfProjectsByName);
-		final JList<String> listOfProjects = new JList<String>(listOfProjectsByName.toArray(new String[0])); // data has type Object[]
+		final JList<String> listOfProjects = new JList<>(listOfProjectsByName.toArray(new String[0])); // data has type Object[]
 		listOfProjects.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
 		listOfProjects.setLayoutOrientation(JList.VERTICAL);
 		listOfProjects.setVisibleRowCount(-1);
@@ -404,13 +389,7 @@ public class PropertiesDialog extends JDialog {
 
 		});
 
-		listOfProjects.addListSelectionListener(new ListSelectionListener() {
-
-			@Override
-			public void valueChanged(ListSelectionEvent e) {
-				openProject.setEnabled(listOfProjects.getSelectedValue() != null);
-			}
-		});
+		listOfProjects.addListSelectionListener(e -> openProject.setEnabled(listOfProjects.getSelectedValue() != null) );
 
 		typeOfDbPanel.add(openProject);
 
@@ -419,9 +398,7 @@ public class PropertiesDialog extends JDialog {
 
 	private JScrollPane getOperationModePanelScroll() {
 		final JComponent operationModePanel = getOperationModePanel();
-		JScrollPane scroll = new JScrollPane(operationModePanel, JScrollPane.VERTICAL_SCROLLBAR_AS_NEEDED,
-				JScrollPane.HORIZONTAL_SCROLLBAR_NEVER);
-		return scroll;
+		return new JScrollPane(operationModePanel, JScrollPane.VERTICAL_SCROLLBAR_AS_NEEDED,JScrollPane.HORIZONTAL_SCROLLBAR_NEVER);
 	}
 
 	private JComponent getPlotOptionsPanel() {
@@ -503,19 +480,12 @@ public class PropertiesDialog extends JDialog {
 				"Area (hectares)  :  " + calculateArea(numberPoints, distanceBetweenPoints, distanceToFrame, dotsSide));
 		panel.add(area, constraints);
 
-		ActionListener calculateAreas = (actionPerformed) -> area.setText(
-				"Area (hectares)  :  " + calculateArea(numberPoints, distanceBetweenPoints, distanceToFrame, dotsSide));
+		ActionListener calculateAreas = actionPerformed -> area.setText("Area (hectares)  :  " + calculateArea(numberPoints, distanceBetweenPoints, distanceToFrame, dotsSide));
 
-		plotShape.addActionListener(new ActionListener() {
-
-			@Override
-			public void actionPerformed(ActionEvent e) {
-
+		plotShape.addActionListener( e->
 				handleVisibilityPlotLayout(plotShape, numberPoints, distanceBetweenPoints, distanceToFrame, dotsSide,
-						plotDistanceInCluster, area, distanceOrRadiuslabel, largeCentralPlotSide);
-			}
-
-		});
+						plotDistanceInCluster, area, distanceOrRadiuslabel, largeCentralPlotSide)
+		);
 
 		numberPoints.addActionListener(calculateAreas);
 		distanceBetweenPoints.addActionListener(calculateAreas);
@@ -673,10 +643,7 @@ public class PropertiesDialog extends JDialog {
 		constraints.gridy++;
 		constraints.gridx = 1;
 		JButton button = new JButton("Test Connection"); //$NON-NLS-1$
-		button.addActionListener(new ActionListener() {
-
-			@Override
-			public void actionPerformed(ActionEvent e) {
+		button.addActionListener( e-> {
 				String host = ((JTextField) (propertyToComponent.get(EarthProperty.DB_HOST)[0])).getText();
 				String port = ((JTextField) (propertyToComponent.get(EarthProperty.DB_PORT)[0])).getText();
 				String dbName = ((JTextField) (propertyToComponent.get(EarthProperty.DB_NAME)[0])).getText();
@@ -686,8 +653,6 @@ public class PropertiesDialog extends JDialog {
 				String message = CollectEarthUtils.testPostgreSQLConnection(host, port, dbName, username, password);
 				JOptionPane.showMessageDialog(PropertiesDialog.this.getOwner(), message, "PostgreSQL Connection test",
 						JOptionPane.INFORMATION_MESSAGE);
-
-			}
 		});
 		panel.add(button, constraints);
 
@@ -753,6 +718,7 @@ public class PropertiesDialog extends JDialog {
 
 			@Override
 			public void changedUpdate(DocumentEvent e) {
+				// Do not react
 			}
 
 			@Override
@@ -762,6 +728,7 @@ public class PropertiesDialog extends JDialog {
 
 			@Override
 			public void removeUpdate(DocumentEvent e) {
+				// Do not react
 			}
 
 			private void refreshTable() {
@@ -951,7 +918,7 @@ public class PropertiesDialog extends JDialog {
 		csvWithPlotData.addFileTypeFilter(".csv,.ced", Messages.getString("OptionWizard.52"), true); //$NON-NLS-1$ //$NON-NLS-2$
 		propertyToComponent.put(EarthProperty.SAMPLE_FILE, new JComponent[] { csvWithPlotData });
 
-		final JComboBox<SAMPLE_SHAPE> plotShape = new JComboBox<SAMPLE_SHAPE>(SAMPLE_SHAPE.values());
+		final JComboBox<SAMPLE_SHAPE> plotShape = new JComboBox<>(SAMPLE_SHAPE.values());
 		try {
 			plotShape.setSelectedItem(SAMPLE_SHAPE.valueOf(localPropertiesService.getValue(EarthProperty.SAMPLE_SHAPE)));
 		} catch (Exception e1) {
@@ -959,7 +926,7 @@ public class PropertiesDialog extends JDialog {
 		}
 		propertyToComponent.put(EarthProperty.SAMPLE_SHAPE, new JComponent[] { plotShape });
 
-		final JComboBox<ComboBoxItem> comboNumberOfPoints = new JComboBox<ComboBoxItem>(
+		final JComboBox<ComboBoxItem> comboNumberOfPoints = new JComboBox<>(
 				new ComboBoxItem[] { COMBO_BOX_ITEM_SQUARE, COMBO_BOX_ITEM_CENTRAL_POINT, new ComboBoxItem(4, "2x2"), //$NON-NLS-1$ //$NON-NLS-2$
 																														// //$NON-NLS-3$
 						new ComboBoxItem(9, "3x3"), new ComboBoxItem(16, "4x4"), new ComboBoxItem(25, "5x5"), //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$
@@ -975,14 +942,11 @@ public class PropertiesDialog extends JDialog {
 		final String[] listOfNumbersFromTwo = new String[1500];
 
 		for (int index = 0; index < listOfNumbers.length; index++) {
-			listOfNumbers[index] = index + ""; //$NON-NLS-1$
-			listOfNumbersFromTwo[index] = (index + 2) + ""; //$NON-NLS-1$
+			listOfNumbers[index] = Integer.toString( index ); //$NON-NLS-1$
+			listOfNumbersFromTwo[index] =  Integer.toString( index + 2 ); //$NON-NLS-1$
 		}
 
-		// JTextField listOfDistanceBetweenPoints = new JTextField(
-		// localPropertiesService.getValue(
-		// EarthProperty.DISTANCE_BETWEEN_SAMPLE_POINTS) );
-		final JComboBox<String> listOfDistanceBetweenPoints = new JComboBox<String>(listOfNumbersFromTwo);
+		final JComboBox<String> listOfDistanceBetweenPoints = new JComboBox<>(listOfNumbersFromTwo);
 		listOfDistanceBetweenPoints
 				.setSelectedItem(localPropertiesService.getValue(EarthProperty.DISTANCE_BETWEEN_SAMPLE_POINTS));
 		listOfDistanceBetweenPoints.setAutoscrolls(true);
@@ -990,33 +954,27 @@ public class PropertiesDialog extends JDialog {
 		propertyToComponent.put(EarthProperty.DISTANCE_BETWEEN_SAMPLE_POINTS,
 				new JComponent[] { listOfDistanceBetweenPoints });
 
-		final JComboBox<String> listOfDistanceBetweenPlots = new JComboBox<String>(listOfNumbersFromTwo);
+		final JComboBox<String> listOfDistanceBetweenPlots = new JComboBox<>(listOfNumbersFromTwo);
 		listOfDistanceBetweenPlots
 				.setSelectedItem(localPropertiesService.getValue(EarthProperty.DISTANCE_BETWEEN_PLOTS));
 		listOfDistanceBetweenPlots.setAutoscrolls(true);
 
 		propertyToComponent.put(EarthProperty.DISTANCE_BETWEEN_PLOTS, new JComponent[] { listOfDistanceBetweenPlots });
 
-		// JTextField listOfDistanceToBorder = new
-		// JTextField(localPropertiesService.getValue(
-		// EarthProperty.DISTANCE_TO_PLOT_BOUNDARIES) );
-		final JComboBox<String> listOfDistanceToBorder = new JComboBox<String>(listOfNumbers);
+		final JComboBox<String> listOfDistanceToBorder = new JComboBox<>(listOfNumbers);
 		listOfDistanceToBorder
 				.setSelectedItem(localPropertiesService.getValue(EarthProperty.DISTANCE_TO_PLOT_BOUNDARIES));
 		listOfDistanceToBorder.setAutoscrolls(true);
 
 		propertyToComponent.put(EarthProperty.DISTANCE_TO_PLOT_BOUNDARIES, new JComponent[] { listOfDistanceToBorder });
 
-		// JTextField listOfDistanceToBorder = new
-		// JTextField(localPropertiesService.getValue(
-		// EarthProperty.DISTANCE_TO_PLOT_BOUNDARIES) );
-		final JComboBox<String> listOfSizeofSamplingDot = new JComboBox<String>(listOfNumbersFromTwo);
+		final JComboBox<String> listOfSizeofSamplingDot = new JComboBox<>(listOfNumbersFromTwo);
 		listOfSizeofSamplingDot.setSelectedItem(localPropertiesService.getValue(EarthProperty.INNER_SUBPLOT_SIDE));
 		listOfSizeofSamplingDot.setAutoscrolls(true);
 
 		propertyToComponent.put(EarthProperty.INNER_SUBPLOT_SIDE, new JComponent[] { listOfSizeofSamplingDot });
 		
-		final JComboBox<String> listOfSideOflargeCentralPlot = new JComboBox<String>(listOfNumbersFromTwo);
+		final JComboBox<String> listOfSideOflargeCentralPlot = new JComboBox<>(listOfNumbersFromTwo);
 		listOfSideOflargeCentralPlot.setSelectedItem(localPropertiesService.getValue(EarthProperty.LARGE_CENTRAL_PLOT_SIDE));
 		listOfSideOflargeCentralPlot.setAutoscrolls(true);
 
@@ -1042,7 +1000,7 @@ public class PropertiesDialog extends JDialog {
 
 			private void showSaikuWarning() {
 				final File saikuFolder = new File(saikuPath.getSelectedFilePath());
-				if (saikuFolder != null && !saikuService.isSaikuFolder(saikuFolder)) {
+				if ( !saikuService.isSaikuFolder(saikuFolder)) {
 					JOptionPane.showMessageDialog(PropertiesDialog.this, Messages.getString("OptionWizard.27"), //$NON-NLS-1$
 							Messages.getString("OptionWizard.28"), JOptionPane.INFORMATION_MESSAGE); //$NON-NLS-1$
 					saikuPath.getTextField().setBackground(CollectEarthWindow.ERROR_COLOR);
@@ -1053,7 +1011,7 @@ public class PropertiesDialog extends JDialog {
 
 			@Override
 			public void removeUpdate(DocumentEvent e) {
-
+				// Do not react
 			}
 
 			@Override
@@ -1063,7 +1021,7 @@ public class PropertiesDialog extends JDialog {
 
 			@Override
 			public void changedUpdate(DocumentEvent e) {
-
+				// Do not react
 			}
 		});
 		propertyToComponent.put(EarthProperty.SAIKU_SERVER_FOLDER, new JComponent[] { saikuPath });

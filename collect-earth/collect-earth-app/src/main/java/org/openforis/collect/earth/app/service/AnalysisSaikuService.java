@@ -151,12 +151,8 @@ public class AnalysisSaikuService {
 
 							updateValues[0] = aspect;
 							updateValues[1] = slope;
-							updateValues[2] = Math.floor((int) rs.getFloat("elevation") / ELEVATION_RANGE) + 1; // 0 //$NON-NLS-1$
-																												// meters
-																												// is
-																												// bucket
-																												// 1 (
-																												// id);
+							updateValues[2] = ( (int) rs.getFloat("elevation") / ELEVATION_RANGE) + 1; // 0 //$NON-NLS-1$
+																											
 							updateValues[3] = rs.getLong(EarthConstants.PLOT_ID);
 							return updateValues;
 						}
@@ -644,13 +640,7 @@ public class AnalysisSaikuService {
 
 	private void processQuantityData(InfiniteProgressMonitor progressListener) throws SQLException {
 
-		SwingUtilities.invokeLater(new Runnable() {
-
-			@Override
-			public void run() {
-				progressListener.setMessage("Preparing Saiku data for analysis");
-			}
-		});
+		SwingUtilities.invokeLater( () ->  progressListener.setMessage("Preparing Saiku data for analysis") );
 
 		progressListener.progressMade(new Progress(0, 100));
 		createPngAluVariables();
@@ -677,25 +667,19 @@ public class AnalysisSaikuService {
 
 		assignPngAluToolDimensionValues();
 
-		SwingUtilities.invokeLater(new Runnable() {
-
-			@Override
-			public void run() {
-				progressListener.setMessage("Calculating expansion factors");
-			}
-		});
+		SwingUtilities.invokeLater( () -> progressListener.setMessage("Calculating expansion factors") );
 
 		regionCalculation.handleRegionCalculation();
 		progressListener.progressMade(new Progress(100, 100));
 
 	}
 
-	public static boolean surveyContains(String node_name, CollectSurvey survey) {
+	public static boolean surveyContains(String nodeName, CollectSurvey survey) {
 		NodeDefinition nodeDefForNAme = survey.getSchema().findNodeDefinition(new NodeDefinitionVerifier() {
 
 			@Override
 			public boolean verify(NodeDefinition nodeDef) {
-				return nodeDef.getName().equals(node_name);
+				return nodeDef.getName().equals(nodeName);
 			}
 		});
 		return nodeDefForNAme != null;
@@ -712,7 +696,7 @@ public class AnalysisSaikuService {
 	private void refreshDataSourceForSaiku() throws IOException, TemplateException {
 		final File mdxFile = new File(localPropertiesService.getProjectFolder() + File.separatorChar + MDX_XML);
 
-		Map<String, String> data = new HashMap<String, String>();
+		Map<String, String> data = new HashMap<>();
 		data.put("cubeFilePath", StringEscapeUtils.escapeJava(mdxFile.getAbsolutePath().replace('\\', '/'))); //$NON-NLS-1$
 
 		final File mdxTemplate = getMdxTemplate();
@@ -724,8 +708,6 @@ public class AnalysisSaikuService {
 			dataSourceFile = new File(getSaikuConfigurationFilePath());
 			FreemarkerTemplateUtils.applyTemplate(dataSourceTemplate, dataSourceFile, data);
 		} catch (Exception e) {
-			System.out
-					.println("Saiku datasources file not found, testing witht the directory for the 3.0 datasources "); //$NON-NLS-1$
 			logger.error("Error starting Saiku", e);
 			dataSourceFile = new File(getSaikuThreeConfigurationFilePath());
 			FreemarkerTemplateUtils.applyTemplate(dataSourceTemplate, dataSourceFile, data);
@@ -778,7 +760,7 @@ public class AnalysisSaikuService {
 
 	private void setMdxSaikuSchema(final File mdxFileTemplate, final File mdxFile)
 			throws IOException, TemplateException {
-		Map<String, String> saikuData = new HashMap<String, String>();
+		Map<String, String> saikuData = new HashMap<>();
 		String saikuSchemaName = getSchemaName();
 		if (saikuSchemaName == null) {
 			saikuSchemaName = ""; //$NON-NLS-1$
@@ -789,7 +771,7 @@ public class AnalysisSaikuService {
 
 	private void removeOldRdb() {
 
-		final List<String> tables = new ArrayList<String>();
+		final List<String> tables = new ArrayList<>();
 
 		if (localPropertiesService.isUsingSqliteDB()) {
 
@@ -806,14 +788,7 @@ public class AnalysisSaikuService {
 		if (!isSaikuConfigured()) {
 			throw new SaikuExecutionException("The Saiku server is not configured."); //$NON-NLS-1$
 		}
-		/*
-		 * Commented out : the Java Home variable is not necessary any more in order to
-		 * run Saiku as the path to the Java Runtime Environment distributed with
-		 * Collect Earth is hardcoded on the bat/sh files else if
-		 * (!isJavaHomeConfigured()) { throw new
-		 * SaikuExecutionException("The JAVA_HOME environment variable is not configured. JAVA_HOME must point to the root folder of a valid JDK."
-		 * ); //$NON-NLS-1$ }
-		 */
+
 		else {
 			String saikuCmd = localPropertiesService.getSaikuFolder() + File.separator + commandName
 					+ getCommandSuffix();

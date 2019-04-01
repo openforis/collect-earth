@@ -96,7 +96,7 @@ public class GeolocalizeMapService {
 	}
 
 	public Map<String, Object> getPlacemarkData(SimplePlacemarkObject placemarkObject) {
-		final Map<String, Object> data = new HashMap<String, Object>();
+		final Map<String, Object> data = new HashMap<>();
 
 		KmlGenerator kmlGenerator = kmlGeneratorService.getKmlGenerator();
 
@@ -107,12 +107,8 @@ public class GeolocalizeMapService {
 		try {
 			kmlGenerator.fillSamplePoints(placemarkObject);
 			kmlGenerator.fillExternalLine(placemarkObject);
-
 			data.put("placemark", placemarkObject);
-
-		} catch (final TransformException e) {
-			logger.error("Exception producing shape data for html ", e);
-		} catch (KmlGenerationException e) {
+		} catch (final TransformException|KmlGenerationException e) {
 			logger.error("Exception producing shape data for html ", e);
 		}
 		return data;

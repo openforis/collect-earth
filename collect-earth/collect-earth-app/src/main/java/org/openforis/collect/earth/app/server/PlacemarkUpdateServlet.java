@@ -58,7 +58,7 @@ public class PlacemarkUpdateServlet {
 	@Autowired
 	private LocalPropertiesService localPropertiesService;
 
-	private final Configuration cfg = new Configuration( new Version("2.3.23"));;
+	private final Configuration cfg = new Configuration( new Version("2.3.23"));
 
 	private Template template;
   
@@ -135,11 +135,11 @@ public class PlacemarkUpdateServlet {
 			try {
 				lastUpdatedRecords = earthSurveyService.getRecordSummariesSavedSince(lastUpdateDate);
 			} catch (Exception e) {
-				lastUpdatedRecords = new ArrayList<CollectRecordSummary>();
+				lastUpdatedRecords = new ArrayList<>();
 				logger.error("Error fetching information about the records updated after : " + lastUpdateDate , e); //$NON-NLS-1$
 			}
 			
-			final Map<String, Object> data = new HashMap<String, Object>();
+			final Map<String, Object> data = new HashMap<>();
 			data.put("host", ServerController.getHostAddress(localPropertiesService.getHost(), localPropertiesService.getLocalPort())); //$NON-NLS-1$
 			data.put("date", getUpdateFromDate(dateFormat) ); // Keep for historical reasons //$NON-NLS-1$
 			data.put("lastUpdateDateTime", getUpdateFromDate(dateFormat) ); //$NON-NLS-1$
@@ -172,7 +172,7 @@ public class PlacemarkUpdateServlet {
 		response.setHeader("Content-Type", "application/vnd.google-earth.kml+xml"); //$NON-NLS-1$ //$NON-NLS-2$
 		response.setHeader("Cache-Control", "max-age=30"); //$NON-NLS-1$ //$NON-NLS-2$
 		response.setHeader("Date", dateFormat.format(new Date())); //$NON-NLS-1$
-		response.setHeader("Content-Length", kmlCode.getBytes(Charset.forName("UTF-8")).length + ""); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$
+		response.setHeader("Content-Length", Integer.toString( kmlCode.getBytes(Charset.forName("UTF-8")).length ) ); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$
 		response.getOutputStream().write(kmlCode.getBytes(Charset.forName("UTF-8"))); //$NON-NLS-1$
 		response.getOutputStream().flush();
 		response.getOutputStream().close();

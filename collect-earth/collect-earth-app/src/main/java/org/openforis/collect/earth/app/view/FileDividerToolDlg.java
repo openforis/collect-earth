@@ -5,8 +5,6 @@ import java.awt.Dimension;
 import java.awt.Frame;
 import java.awt.GridBagConstraints;
 import java.awt.GridBagLayout;
-import java.awt.event.ActionEvent;
-import java.awt.event.ActionListener;
 import java.io.File;
 import java.io.IOException;
 import java.util.List;
@@ -40,7 +38,7 @@ public class FileDividerToolDlg extends JDialog{
 	private static final long serialVersionUID = 2241706750062961024L;
 	private static final int MAX_FILES = 500;
 	private CollectSurvey survey;
-	private Logger logger = LoggerFactory.getLogger( FileDividerToolDlg.class); 
+	private transient Logger logger = LoggerFactory.getLogger( FileDividerToolDlg.class); 
 	private JComboBox<Integer> numberOfFiles ;
 	private JCheckBox randomSelector;
 	private JComboBox<CsvColumn> csvColumns;
@@ -77,7 +75,7 @@ public class FileDividerToolDlg extends JDialog{
 		panel.add( getCsvFilePicker(), c );
 		c.gridwidth = 1;
 		c.gridy = row++;
-		
+
 		c.gridx = 0;
 
 		panel.add( new JLabel("Number of files to split the CSV into"), c );
@@ -104,7 +102,7 @@ public class FileDividerToolDlg extends JDialog{
 		panel.add( getOutputFolder(), c );
 
 		c.gridx = 0;
-		c.gridy = row++;
+		c.gridy = row;
 
 		panel.add( getGenerateButton(), c );
 
@@ -115,27 +113,22 @@ public class FileDividerToolDlg extends JDialog{
 		if( generateGrids == null ){
 			generateGrids = new JButton("Divide file");
 			generateGrids.setEnabled( false );
-			generateGrids.addActionListener( new ActionListener() {
+			generateGrids.addActionListener( e -> {
+				String sourceCsvFile = getCsvFilePicker().getSelectedFilePath();
+				String destinationFolder = getOutputFolder().getSelectedFilePath();
+				boolean randomizeLines = getRandomSelector().isSelected();
+				Integer randomizeUsingColumnValues = null;
+				if(  ( (CsvColumn) getColumnSelector().getSelectedItem() )!=null ){
+					randomizeUsingColumnValues = ( (CsvColumn) getColumnSelector().getSelectedItem() ).getPos();
+				}
+				Integer filesToDivideInto = getNumberOfFilesSelector().getSelectedIndex()+1;
+				ProduceCsvFiles produceCsvFiles = new ProduceCsvFiles(survey, sourceCsvFile, destinationFolder, randomizeLines, randomizeUsingColumnValues, filesToDivideInto);
+				File dest = produceCsvFiles.divideIntoFiles();
 
-				@Override
-				public void actionPerformed(ActionEvent e) {
-					String sourceCsvFile = getCsvFilePicker().getSelectedFilePath();
-					String destinationFolder = getOutputFolder().getSelectedFilePath();
-					boolean randomizeLines = getRandomSelector().isSelected();
-					Integer randomizeUsingColumnValues = null;
-					if(  ( (CsvColumn) getColumnSelector().getSelectedItem() )!=null ){
-						randomizeUsingColumnValues = ( (CsvColumn) getColumnSelector().getSelectedItem() ).getPos();
-					}
-					Integer filesToDivideInto = getNumberOfFilesSelector().getSelectedIndex()+1;
-					ProduceCsvFiles produceCsvFiles = new ProduceCsvFiles(survey, sourceCsvFile, destinationFolder, randomizeLines, randomizeUsingColumnValues, filesToDivideInto);
-					File dest = produceCsvFiles.divideIntoFiles();
-
-					try {
-						CollectEarthUtils.openFolderInExplorer( dest.getAbsolutePath() );
-					} catch (IOException e1) {
-						logger.error(" Error opening the destination folder", e);
-					}
-
+				try {
+					CollectEarthUtils.openFolderInExplorer( dest.getAbsolutePath() );
+				} catch (IOException e1) {
+					logger.error(" Error opening the destination folder", e);
 				}
 			});
 		}
@@ -147,26 +140,26 @@ public class FileDividerToolDlg extends JDialog{
 			outputFolder = new JFilePicker("Select the output folder" , null, "Select...", DlgMode.MODE_SAVE);
 			outputFolder.getFileChooser().setFileSelectionMode(JFileChooser.DIRECTORIES_ONLY);
 			outputFolder.setEnabled(false);
-			
+
 			outputFolder.addChangeListener( new DocumentListener() {
-				
+
 				@Override
 				public void removeUpdate(DocumentEvent e) {
-				
+					// No need to do anything
 				}
-				
+
 				@Override
 				public void insertUpdate(DocumentEvent e) {
 					String outputFolderPath = outputFolder.getSelectedFilePath();
 					File out = new File( outputFolderPath );
 					getGenerateButton().setEnabled(out.exists() );
 				}
-				
+
 				@Override
 				public void changedUpdate(DocumentEvent e) {
-					
+					// No need to react to the update
 				}
-			});;
+			});
 		}
 		return outputFolder;
 	}
@@ -202,10 +195,10 @@ public class FileDividerToolDlg extends JDialog{
 		}
 	}
 
-	
+
 	private JComboBox<CsvColumn> getColumnSelector() {
 		if( csvColumns == null ){
-			csvColumns = new JComboBox<CsvColumn>();
+			csvColumns = new JComboBox<>();
 			csvColumns.setEnabled(false);
 		}
 		return csvColumns;
@@ -223,9 +216,9 @@ public class FileDividerToolDlg extends JDialog{
 		if( numberOfFiles == null ){
 			Integer[] items = new Integer[MAX_FILES];
 			for (int i =1; i<= MAX_FILES; i++) {
-				items[i-1] = new Integer(i);
+				items[i-1] = Integer.valueOf(i);
 			}
-			numberOfFiles = new JComboBox<Integer>(items);
+			numberOfFiles = new JComboBox<>(items);
 			numberOfFiles.setEnabled( false );
 		}
 		return numberOfFiles;
@@ -242,6 +235,7 @@ public class FileDividerToolDlg extends JDialog{
 
 				@Override
 				public void removeUpdate(DocumentEvent e) {
+					// No need to validate
 				}
 
 				@Override
@@ -264,16 +258,17 @@ public class FileDividerToolDlg extends JDialog{
 							CSVFileValidationResult validationResults = cetg.validate(csvFile, survey, validationParameters );
 
 							validFile = validationResults.isSuccessful();
-							if( !validFile ){
-								// If the message is that there are too many rows then we ignore the validation!
-								if( 
-										validationResults.getErrorType().equals( ErrorType.INVALID_NUMBER_OF_PLOTS_TOO_LARGE) 
-										|| 
-										validationResults.getErrorType().equals( ErrorType.INVALID_NUMBER_OF_PLOTS_WARNING) 
-								){
-									validFile = true;
-								}
-								
+							if( 
+									!validFile 
+									// If the message is that there are too many rows then we ignore the validation!
+									&& ( 
+											validationResults.getErrorType().equals( ErrorType.INVALID_NUMBER_OF_PLOTS_TOO_LARGE) 
+											|| 
+											validationResults.getErrorType().equals( ErrorType.INVALID_NUMBER_OF_PLOTS_WARNING) 
+											)
+									){
+								validFile = true;
+
 							}
 
 							if( !validFile ){

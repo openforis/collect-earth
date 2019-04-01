@@ -16,7 +16,6 @@ import javax.servlet.http.HttpServletRequestWrapper;
 import javax.servlet.http.HttpServletResponse;
 
 import org.eclipse.jetty.http.HttpHeader;
-import org.eclipse.jetty.servlets.CrossOriginFilter;
 import org.openforis.collect.earth.app.EarthConstants;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -28,7 +27,6 @@ public class GoogleEarthHeaderFilter implements Filter{
 		
 	@Override
 	public void init(FilterConfig filterConfig) throws ServletException {
-		// TODO Auto-generated method stub
 	}
 
 	@Override
@@ -67,7 +65,6 @@ public class GoogleEarthHeaderFilter implements Filter{
 
 	@Override
 	public void destroy() {
-		// TODO Auto-generated method stub
 		
 	}
 

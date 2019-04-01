@@ -8,12 +8,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 - Added the Changelog mechanism to keep track of changes to the code 
+- Added a link to this Change Log from the About dialog
+- Added a button to access the Properties directly in the dialog
 
 ### Changed
 - Fix exceptions when no file is chosen in the "Find Missing Plots in Database" dialog/
 
 ### Removed
-- None
+- Removed the unnecessary Quit button from the main windows
 
 
 ## [1.7.12] - 2019-03-29

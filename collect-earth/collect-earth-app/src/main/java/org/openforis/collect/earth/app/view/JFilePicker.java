@@ -24,17 +24,17 @@ import org.slf4j.LoggerFactory;
  *
  */
 public class JFilePicker extends JPanel {
-	
+
 	public enum DlgMode{MODE_OPEN,MODE_SAVE };
-	
+
 	private static final long serialVersionUID = 9057893034177011651L;
 
 	private JLabel label;
 	private JTextField textField;
 	private JButton button;
-	private Logger logger = LoggerFactory.getLogger(this.getClass());
+	private transient Logger logger = LoggerFactory.getLogger(this.getClass());
 	private JFileChooser fileChooser;
-	
+
 	private DlgMode mode;
 
 	public JFilePicker(String textFieldLabel, String originalPathValue, String buttonLabel, DlgMode mode) {
@@ -53,7 +53,7 @@ public class JFilePicker extends JPanel {
 			}
 		}
 
-		
+
 		// creates the GUI
 		label = new JLabel(textFieldLabel);
 		setTextField(new JTextField(originalPathValue, 20));
@@ -63,16 +63,13 @@ public class JFilePicker extends JPanel {
 			getTextField().setCaretPosition(originalPathValue.length() - 1);
 		}
 
-		button.addActionListener(new ActionListener() {
-			@Override
-			public void actionPerformed(ActionEvent evt) {
-				buttonActionPerformed(evt);
-			}
+		button.addActionListener( e -> {
+			buttonActionPerformed(e);
 		});
 
-		
+
 		setLayout(new GridBagLayout());
-		
+
 		final GridBagConstraints constraints = new GridBagConstraints();
 		constraints.gridx = 0;
 		constraints.gridy = 0;
@@ -81,7 +78,7 @@ public class JFilePicker extends JPanel {
 		constraints.fill = GridBagConstraints.BOTH;
 
 		add(label, constraints);
-		
+
 		constraints.gridy = 1;
 		constraints.weightx =1;
 		add(getTextField(), constraints);
@@ -104,16 +101,10 @@ public class JFilePicker extends JPanel {
 	}
 
 	private void buttonActionPerformed(ActionEvent evt) {
-		if (mode == DlgMode.MODE_OPEN) {
-			if (fileChooser.showOpenDialog(this) == JFileChooser.APPROVE_OPTION) {
-				//getTextField().setText(relativize(fileChooser.getSelectedFile()));
-				getTextField().setText( fileChooser.getSelectedFile().getAbsolutePath() );
-			}
-		} else if (mode == DlgMode.MODE_SAVE) {
-			if (fileChooser.showSaveDialog(this) == JFileChooser.APPROVE_OPTION) {
-				//getTextField().setText(relativize(fileChooser.getSelectedFile()));
-				getTextField().setText( fileChooser.getSelectedFile().getAbsolutePath() );
-			}
+		if (mode == DlgMode.MODE_OPEN && fileChooser.showOpenDialog(this) == JFileChooser.APPROVE_OPTION) {
+			getTextField().setText( fileChooser.getSelectedFile().getAbsolutePath() );
+		} else if (mode == DlgMode.MODE_SAVE && fileChooser.showSaveDialog(this) == JFileChooser.APPROVE_OPTION) {
+			getTextField().setText( fileChooser.getSelectedFile().getAbsolutePath() );
 		}
 	}
 
@@ -124,13 +115,7 @@ public class JFilePicker extends JPanel {
 	public String getSelectedFilePath() {
 		return getTextField().getText();
 	}
-/*
-	private String relativize(File selectedFile) {
-		File dummyFile = new File("dummy.txt"); //$NON-NLS-1$
-		String pathParentDummy = dummyFile.getAbsolutePath().substring(0, dummyFile.getAbsolutePath().length() - dummyFile.getName().length());
-		return new File(pathParentDummy).toURI().relativize(selectedFile.toURI()).getPath();
-	}
-*/
+
 	public void setFolderChooser() {
 		fileChooser.setFileSelectionMode(JFileChooser.DIRECTORIES_ONLY);
 	}
@@ -146,11 +131,11 @@ public class JFilePicker extends JPanel {
 	public void setTextBackground(Color bgColor) {
 		getTextField().setBackground(bgColor);
 	}
-	
+
 	@Override
 	public void setEnabled(boolean enabled) {
 		button.setEnabled(enabled);
 		textField.setEnabled(enabled);
 	}
-	
+
 }

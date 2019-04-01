@@ -15,11 +15,9 @@ import org.openforis.collect.io.data.XMLDataExportProcess;
 import org.openforis.collect.io.data.XMLDataImportProcess;
 import org.openforis.collect.io.data.csv.CSVDataExportParameters;
 import org.openforis.collect.io.data.csv.CSVDataImportSettings;
-
 import org.openforis.collect.manager.process.AbstractProcess;
 import org.openforis.collect.model.CollectRecord;
 import org.openforis.collect.model.CollectRecord.Step;
-import org.openforis.collect.model.CollectSurvey;
 import org.openforis.collect.model.RecordFilter;
 import org.openforis.commons.collection.Predicate;
 import org.openforis.idm.model.BooleanAttribute;
@@ -49,7 +47,7 @@ public class DataImportExportService {
 	@Autowired
 	private ApplicationContext applicationContext;
 
-	private void addRecordsToImportList(CollectSurvey collectSurvey, List<DataImportSummaryItem> recordsToImport, List<Integer> entryIdsToImport) {
+	private void addRecordsToImportList( List<DataImportSummaryItem> recordsToImport, List<Integer> entryIdsToImport) {
 		if (recordsToImport != null) {
 			List<DataImportSummaryItem> cleanRecordsToImport = recordsToImport;
 			for (final DataImportSummaryItem importRecord : cleanRecordsToImport) {
@@ -110,7 +108,7 @@ public class DataImportExportService {
 	}
 
 
-	public CSVDataImportProcess getCsvImporterProcess(File importFromFile) throws Exception {
+	public CSVDataImportProcess getCsvImporterProcess(File importFromFile) {
 		final CSVDataImportProcess importProcess = applicationContext.getBean("transactionalCsvDataImportProcess", CSVDataImportProcess.class);
 
 		importProcess.setFile(importFromFile);
@@ -157,8 +155,8 @@ public class DataImportExportService {
 	public void importRecordsFrom(File zipWithXml, XMLDataImportProcess dataImportProcess, List<DataImportSummaryItem> listConflictingRecords) throws Exception {
 		final List<Integer> entryIdsToImport = new ArrayList<Integer>();
 
-		addRecordsToImportList(dataImportProcess.getExistingSurvey(), listConflictingRecords, entryIdsToImport);
-		addRecordsToImportList(dataImportProcess.getPackagedSurvey(), dataImportProcess.getSummary().getRecordsToImport(),entryIdsToImport);
+		addRecordsToImportList( listConflictingRecords, entryIdsToImport);
+		addRecordsToImportList( dataImportProcess.getSummary().getRecordsToImport(),entryIdsToImport);
 
 		dataImportProcess.setEntryIdsToImport(entryIdsToImport);
 		dataImportProcess.prepareToStartImport();

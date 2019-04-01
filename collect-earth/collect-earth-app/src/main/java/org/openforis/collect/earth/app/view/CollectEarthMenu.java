@@ -1,6 +1,5 @@
 package org.openforis.collect.earth.app.view;
 
-import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 import java.io.File;
 import java.io.IOException;
@@ -43,42 +42,42 @@ import org.springframework.stereotype.Component;
 public class CollectEarthMenu extends JMenuBar {
 
 	@Autowired
-	private DataImportExportService dataImportExportService;
+	private transient DataImportExportService dataImportExportService;
 
 	@Autowired
-	private KmlImportService kmlImportService;
+	private transient KmlImportService kmlImportService;
 
 	@Autowired
-	private MissingPlotService missingPlotService;
+	private transient MissingPlotService missingPlotService;
 
 	@Autowired
-	private AnalysisSaikuService analysisSaikuService;
+	private transient AnalysisSaikuService analysisSaikuService;
 
 	@Autowired
-	private LocalPropertiesService localPropertiesService;
+	private transient LocalPropertiesService localPropertiesService;
 
 	@Autowired
-	private CollectEarthWindow collectEarthWindow;
+	private transient CollectEarthWindow collectEarthWindow;
 
 	@Autowired
-	private EarthSurveyService earthSurveyService;
+	private transient EarthSurveyService earthSurveyService;
 
 	@Autowired
-	private EarthProjectsService earthProjectsService;
+	private transient EarthProjectsService earthProjectsService;
 
 	@Autowired
-	private BackupSqlLiteService backupSqlLiteService;
-	
+	private transient BackupSqlLiteService backupSqlLiteService;
+
 	@Autowired
-	private RemovePlotsFromDBDlg removePlotsFromDBDlg;
-	
+	private transient RemovePlotsFromDBDlg removePlotsFromDBDlg;
+
 	@Autowired
-	private EarthProjectsService projectsService;
-	
+	private transient EarthProjectsService projectsService;
+
 	private static final long serialVersionUID = -2457052260968029351L;
-	private final List<JMenuItem> serverMenuItems = new ArrayList<JMenuItem>();
+	private final List<JMenuItem> serverMenuItems = new ArrayList<>();
 	private JFrame frame;
-	private final org.slf4j.Logger logger = LoggerFactory.getLogger(CollectEarthMenu.class);
+	private final transient org.slf4j.Logger logger = LoggerFactory.getLogger(CollectEarthMenu.class);
 
 	public CollectEarthMenu() {
 		// Where the GUI is created:
@@ -100,6 +99,7 @@ public class CollectEarthMenu extends JMenuBar {
 
 	}
 
+	@Override
 	public JMenu getHelpMenu() {
 		JMenu menuHelp = new JMenu(Messages.getString("CollectEarthWindow.16")); //$NON-NLS-1$
 
@@ -126,27 +126,23 @@ public class CollectEarthMenu extends JMenuBar {
 		menuItem.addActionListener(
 				new OpenTextFileListener(frame, getLogFilePath(), Messages.getString("CollectEarthWindow.53"))); //$NON-NLS-1$
 		menuHelp.add(menuItem);
-		
+
 		JCheckBoxMenuItem checkboxErrors = new JCheckBoxMenuItem("Show exception errors", localPropertiesService.isExceptionShown() ); //$NON-NLS-1$
-		checkboxErrors.addActionListener(
-				new ActionListener() {
-					// This sets/unsets the property that is checked when an exception is catch by the JSwingAppender log4j2 appender 
-					@Override
-					public void actionPerformed(ActionEvent e) {
-						Boolean showException = checkboxErrors.isSelected();
-						localPropertiesService.setExceptionShown( showException );
-						
-						final LoggerContext ctx = (LoggerContext) LogManager.getContext(false);
-				        final Configuration config = ctx.getConfiguration();
-						
-						JSwingAppender jSwingAppender = config.getAppender("jswing-log");
-						
-						jSwingAppender.setExceptionShown( showException );
-						
-					}
-				}
-				
-		); 
+		checkboxErrors.addActionListener( e -> {
+			// This sets/unsets the property that is checked when an exception is catch by the JSwingAppender log4j2 appender 
+
+			Boolean showException = checkboxErrors.isSelected();
+			localPropertiesService.setExceptionShown( showException );
+
+			final LoggerContext ctx = (LoggerContext) LogManager.getContext(false);
+			final Configuration config = ctx.getConfiguration();
+
+			JSwingAppender jSwingAppender = config.getAppender("jswing-log");
+
+			jSwingAppender.setExceptionShown( showException );
+		}
+
+				); 
 		menuHelp.add(checkboxErrors);
 
 
@@ -191,16 +187,11 @@ public class CollectEarthMenu extends JMenuBar {
 		toolsMenu.add(menuItem);
 
 		menuItem = new JMenuItem("Open data folder"); //$NON-NLS-1$
-		menuItem.addActionListener(new ActionListener() {
-
-			@Override
-			public void actionPerformed(ActionEvent e) {
-				try {
-					CollectEarthUtils.openFolderInExplorer(FolderFinder.getCollectEarthDataFolder());
-				} catch (IOException e1) {
-					logger.error("Could not find the data folder", e1);
-				}
-
+		menuItem.addActionListener( e-> {
+			try {
+				CollectEarthUtils.openFolderInExplorer(FolderFinder.getCollectEarthDataFolder());
+			} catch (IOException e1) {
+				logger.error("Could not find the data folder", e1);
 			}
 		});
 		serverMenuItems.add(menuItem); // This menu should only be shown if the DB is local ( not if Collect Earth is
@@ -231,26 +222,14 @@ public class CollectEarthMenu extends JMenuBar {
 		utilities.add(menuItem);
 
 		menuItem = new JMenuItem(Messages.getString("CollectEarthMenu.3")); //$NON-NLS-1$
-		menuItem.addActionListener(new ActionListener() {
-
-			@Override
-			public void actionPerformed(ActionEvent e) {
-				FileDividerToolDlg.open(frame, earthSurveyService.getCollectSurvey());
-			}
-		});
+		menuItem.addActionListener( e ->  FileDividerToolDlg.open(frame, earthSurveyService.getCollectSurvey()) );
 		serverMenuItems.add(menuItem); // This menu should only be shown if the DB is local ( not if Collect Earth is // acting as a client )
 		utilities.add(menuItem);
-		
-		menuItem = new JMenuItem("Delete Plots from DB using CSV");
-		menuItem.addActionListener(new ActionListener() {
 
-			@Override
-			public void actionPerformed(ActionEvent e) {
-				removePlotsFromDBDlg.open(frame, earthSurveyService.getCollectSurvey());
-			}
-		});
+		menuItem = new JMenuItem("Delete Plots from DB using CSV");
+		menuItem.addActionListener( e ->  removePlotsFromDBDlg.open(frame, earthSurveyService.getCollectSurvey()) );
 		utilities.add(menuItem);
-		
+
 
 		utilities.add(menuItem);
 		return utilities;
@@ -350,9 +329,9 @@ public class CollectEarthMenu extends JMenuBar {
 	}
 
 	private String getDisclaimerFilePath() {
-		final String suffix_lang = localPropertiesService.getUiLanguage().getLocale().getLanguage();
-		if (new File("resources/disclaimer_" + suffix_lang + ".txt").exists()) { //$NON-NLS-1$ //$NON-NLS-2$
-			return "resources/disclaimer_" + suffix_lang + ".txt";
+		final String suffixLang = localPropertiesService.getUiLanguage().getLocale().getLanguage();
+		if (new File("resources/disclaimer_" + suffixLang + ".txt").exists()) { //$NON-NLS-1$ //$NON-NLS-2$
+			return "resources/disclaimer_" + suffixLang + ".txt";
 		} else {
 			return "resources/disclaimer_en.txt";
 		}
@@ -369,30 +348,26 @@ public class CollectEarthMenu extends JMenuBar {
 
 	private JMenu getLanguageMenu() {
 
-		final ActionListener actionLanguage = new ActionListener() {
-			@Override
-			public void actionPerformed(ActionEvent e) {
-				try {
-					final String langName = ((JRadioButtonMenuItem) e.getSource()).getName();
-					final UI_LANGUAGE language = UI_LANGUAGE.valueOf(langName);
-					CollectEarthUtils.setFontDependingOnLanguaue(language);
-					localPropertiesService.setUiLanguage(language);
+		final ActionListener actionLanguage = e -> {
+			try {
+				final String langName = ((JRadioButtonMenuItem) e.getSource()).getName();
+				final UI_LANGUAGE language = UI_LANGUAGE.valueOf(langName);
+				CollectEarthUtils.setFontDependingOnLanguaue(language);
+				localPropertiesService.setUiLanguage(language);
 
-					SwingUtilities.invokeLater(new Thread("Resseting main CE Window") {
-						@Override
-						public void run() {
+				SwingUtilities.invokeLater(new Thread("Resseting main CE Window") {
+					@Override
+					public void run() {
 
-							getFrame().getContentPane().removeAll();
-							getFrame().dispose();
+						getFrame().getContentPane().removeAll();
+						getFrame().dispose();
 
-							collectEarthWindow.openWindow();
-						};
-					});
+						collectEarthWindow.openWindow();
+					};
+				});
 
-				} catch (final Exception ex) {
-					ex.printStackTrace();
-					logger.error("Error while changing language", ex); //$NON-NLS-1$
-				}
+			} catch (final Exception ex) {
+				logger.error("Error while changing language", ex); //$NON-NLS-1$
 			}
 		};
 
@@ -416,16 +391,13 @@ public class CollectEarthMenu extends JMenuBar {
 		return menuLanguage;
 	}
 
-	private ActionListener getPropertiesAction(final JFrame owner) {
-		return new ActionListener() {
-			@Override
-			public void actionPerformed(ActionEvent e) {
-				final JDialog dialog = new PropertiesDialog(owner, localPropertiesService, earthProjectsService,
-						backupSqlLiteService.getAutomaticBackUpFolder().getPath(), analysisSaikuService,
-						earthSurveyService.getCollectSurvey());
-				dialog.setVisible(true);
-				dialog.pack();
-			}
+	public ActionListener getPropertiesAction(final JFrame owner) {
+		return e -> {
+			final JDialog dialog = new PropertiesDialog(owner, localPropertiesService, earthProjectsService,
+					backupSqlLiteService.getAutomaticBackUpFolder().getPath(), analysisSaikuService,
+					earthSurveyService.getCollectSurvey());
+			dialog.setVisible(true);
+			dialog.pack();
 		};
 	}
 

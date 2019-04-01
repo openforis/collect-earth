@@ -6,7 +6,6 @@ import java.awt.event.ActionListener;
 import javax.swing.JFrame;
 import javax.swing.JOptionPane;
 
-import org.openforis.collect.earth.app.service.SaikuExecutionException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -25,7 +24,7 @@ public class SaikuAnalysisListener implements ActionListener {
 		try {
 
 			CollectEarthWindow.startWaiting(frame);
-			exportDataToRDB(e);
+			exportDataToRDB();
 		}catch (Exception e1) {
 			logger.error("Error starting Saiku server", e1); //$NON-NLS-1$
 		} finally{
@@ -33,7 +32,7 @@ public class SaikuAnalysisListener implements ActionListener {
 		}
 	}
 
-	private void exportDataToRDB(ActionEvent e) throws SaikuExecutionException {
+	private void exportDataToRDB() {
 		if( saikuStarter.isStarting() ){
 			JOptionPane.showMessageDialog(frame, Messages.getString("CollectEarthWindow.57"), Messages.getString("CollectEarthWindow.58"), JOptionPane.WARNING_MESSAGE );  //$NON-NLS-1$ //$NON-NLS-2$
 		}else{

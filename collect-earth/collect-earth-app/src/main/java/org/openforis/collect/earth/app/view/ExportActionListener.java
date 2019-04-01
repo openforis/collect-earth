@@ -34,7 +34,7 @@ public final class ExportActionListener implements ActionListener {
 
 	public enum RecordsToExport {
 		ALL, MODIFIED_SINCE_LAST_EXPORT, PICK_FROM_DATE
-	};
+	}
 
 	public ExportActionListener(DataFormat exportFormat, RecordsToExport recordsToExport, JFrame frame,
 			LocalPropertiesService localPropertiesService, DataImportExportService dataExportService,
@@ -67,7 +67,7 @@ public final class ExportActionListener implements ActionListener {
 				}
 			}
 
-			exportDataTo(e, exportFormat, recordsModifiedSince);
+			exportDataTo(exportFormat, recordsModifiedSince);
 		} finally {
 			CollectEarthWindow.endWaiting(frame);
 		}
@@ -93,7 +93,7 @@ public final class ExportActionListener implements ActionListener {
 		}
 	}
 
-	private File exportDataTo(ActionEvent e, DataFormat exportType, Date recordsModifiedSince) {
+	private File exportDataTo(DataFormat exportType, Date recordsModifiedSince) {
 		String preselectedName = getPreselectedName(exportType, recordsModifiedSince);
 
 		File[] exportToFile = JFileChooserExistsAware.getFileChooserResults(exportType, true, false, preselectedName,

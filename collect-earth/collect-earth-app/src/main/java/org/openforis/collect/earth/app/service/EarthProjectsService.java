@@ -50,7 +50,7 @@ public class EarthProjectsService {
 	public Map<String,File> getProjectList(){
 		ArrayList<File> projectFolders = getProjects();
 		
-		HashMap<String, File> projectListByName = new HashMap<String, File>();
+		HashMap<String, File> projectListByName = new HashMap<>();
 		for (File projectFolder : projectFolders) {
 			
 			try {
@@ -72,8 +72,7 @@ public class EarthProjectsService {
 	private String getProjectSurveyName(File projectPropertiesFile) throws IOException {
 		Properties properties;
 		properties = getProjectProperties(projectPropertiesFile);
-		String projectName = properties.getProperty( EarthProperty.SURVEY_NAME.toString() );
-		return projectName;
+		return properties.getProperty( EarthProperty.SURVEY_NAME.toString() );
 	}
 	
 	
@@ -303,7 +302,7 @@ public class EarthProjectsService {
 		return oldProjectFolder.exists();
 	}
 
-	private String getProjectFolderName(File projectZipFile, int max_lenght_folder_name) throws ZipException, IOException {
+	private String getProjectFolderName(File projectZipFile, int maxLenghtFolderName) throws ZipException, IOException {
 		ZipFile zipFile = new ZipFile(projectZipFile);
 		File definitionFolder = new File(EarthConstants.GENERATED_FOLDER);
 		zipFile.extractFile( PROJECT_PROPERTIES_FILE_NAME, definitionFolder.getAbsolutePath() );		
@@ -311,8 +310,8 @@ public class EarthProjectsService {
 		
 		projectName = StringUtils.remove(projectName, " "); //$NON-NLS-1$
 		
-		if( projectName.length() > max_lenght_folder_name ){
-			projectName = projectName.substring(0, max_lenght_folder_name);
+		if( projectName.length() > maxLenghtFolderName ){
+			projectName = projectName.substring(0, maxLenghtFolderName);
 		}
 		
 		return projectName;
