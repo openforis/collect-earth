@@ -37,7 +37,7 @@ public class SquareWithCirclesKmlGenerator extends SquareKmlGenerator {
 
 				final double[] centerCircle = getPointWithOffset(topLeftCoord, offsetLong, offsetLat);
 
-				final float arc = 360 / NUMBER_OF_EXTERNAL_POINTS;
+				final float arc = 360f / NUMBER_OF_EXTERNAL_POINTS;
 
 				for (int i = 0; i < NUMBER_OF_EXTERNAL_POINTS; i++) {
 					final double t = i * arc;

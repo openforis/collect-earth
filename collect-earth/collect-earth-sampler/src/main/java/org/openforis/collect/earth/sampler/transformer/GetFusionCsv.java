@@ -6,8 +6,6 @@ import java.io.FileWriter;
 import java.io.IOException;
 import java.util.HashMap;
 
-
-
 import org.slf4j.LoggerFactory;
 
 import au.com.bytecode.opencsv.CSVReader;

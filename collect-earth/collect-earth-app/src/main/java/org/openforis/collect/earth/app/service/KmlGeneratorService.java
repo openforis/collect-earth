@@ -19,7 +19,6 @@ import org.openforis.collect.earth.sampler.processor.CircleKmlGenerator;
 import org.openforis.collect.earth.sampler.processor.HexagonKmlGenerator;
 import org.openforis.collect.earth.sampler.processor.KmlGenerator;
 import org.openforis.collect.earth.sampler.processor.KmzGenerator;
-import org.openforis.collect.earth.sampler.processor.NfiCirclesKmlGenerator;
 import org.openforis.collect.earth.sampler.processor.NfiFourCirclesGenerator;
 import org.openforis.collect.earth.sampler.processor.NfiThreeCirclesGenerator;
 import org.openforis.collect.earth.sampler.processor.NfmaKmlGenerator;

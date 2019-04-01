@@ -46,7 +46,7 @@ public class NfmaKmlGenerator extends PolygonKmlGenerator {
 		double[] tractCoord = placemark.getCoord().getCoordinates();
 		double[] top = getPointWithOffset(tractCoord, 0, -1000);
 		double[] bottom = getPointWithOffset(tractCoord, 1000, 0);
-		placemark.setRegion(new SimpleRegion(top[1] + "", top[0] + "", bottom[1] + "", bottom[0] + ""));
+		placemark.setRegion(new SimpleRegion( Double.toString( top[1] ), Double.toString( top[0] ), Double.toString( bottom[1] ), Double.toString( bottom[0] ) ));
 
 		String kml = getKmlForTract(placemark);
 		
@@ -95,7 +95,7 @@ public class NfmaKmlGenerator extends PolygonKmlGenerator {
 			getPointWithOffset(tractCoord, halfCornerWidth, halfCornerWidth) , 
 			getPointWithOffset(tractCoord, halfCornerWidth, -halfCornerWidth) );
 		
-		List<String> geometryParts = new ArrayList<String>(Arrays.asList(polygonNorthEast, polygonNorthWest, polygonSouthEast, polygonSouthWest));
+		List<String> geometryParts = new ArrayList<>(Arrays.asList(polygonNorthEast, polygonNorthWest, polygonSouthEast, polygonSouthWest));
 		
 		if (drawCorner) {
 			geometryParts.add(tractCorner);
@@ -106,26 +106,26 @@ public class NfmaKmlGenerator extends PolygonKmlGenerator {
 			int linesDistance = Math.floorDiv(plotLength, plotAreasCount);
 			int lineMargin = 2; //margin from plot border
 			
-			List<String> polygonNWlines = new ArrayList<String>(plotAreasCount - 1);
+			List<String> polygonNWlines = new ArrayList<>(plotAreasCount - 1);
 			for (int i = 1; i < plotAreasCount; i++) {
 				double[] point1 = getPointWithOffsetAndMove(tractCoord, -centerToPlotSPDistance + linesDistance * i, centerToPlotSPDistance + halfPlotWidth - lineMargin);
 				double[] point2 = getPointWithOffsetAndMove(tractCoord, -centerToPlotSPDistance + linesDistance * i, centerToPlotSPDistance - halfPlotWidth + lineMargin);
 				polygonNWlines.add(createLine(point1, point2));
 			}
 			
-			List<String> polygonNElines = new ArrayList<String>(plotAreasCount - 1);
+			List<String> polygonNElines = new ArrayList<>(plotAreasCount - 1);
 			for (int i = 1; i < plotAreasCount; i++) {
 				double[] point1 = getPointWithOffsetAndMove(tractCoord, centerToPlotSPDistance - halfPlotWidth + lineMargin, centerToPlotSPDistance - linesDistance * i);
 				double[] point2 = getPointWithOffsetAndMove(tractCoord, centerToPlotSPDistance + halfPlotWidth - lineMargin, centerToPlotSPDistance - linesDistance * i);
 				polygonNElines.add(createLine(point1, point2));
 			}
-			List<String> polygonSElines = new ArrayList<String>(plotAreasCount - 1);
+			List<String> polygonSElines = new ArrayList<>(plotAreasCount - 1);
 			for (int i = 1; i < plotAreasCount; i++) {
 				double[] point1 = getPointWithOffsetAndMove(tractCoord, centerToPlotSPDistance - linesDistance * i, -centerToPlotSPDistance - halfPlotWidth + lineMargin);
 				double[] point2 = getPointWithOffsetAndMove(tractCoord, centerToPlotSPDistance - linesDistance * i, -centerToPlotSPDistance + halfPlotWidth - lineMargin);
 				polygonSElines.add(createLine(point1, point2));
 			}
-			List<String> polygonSWlines = new ArrayList<String>(plotAreasCount - 1);
+			List<String> polygonSWlines = new ArrayList<>(plotAreasCount - 1);
 			for (int i = 1; i < plotAreasCount; i++) {
 				double[] point1 = getPointWithOffsetAndMove(tractCoord, -centerToPlotSPDistance - halfPlotWidth + lineMargin, -centerToPlotSPDistance + linesDistance * i);
 				double[] point2 = getPointWithOffsetAndMove(tractCoord,-centerToPlotSPDistance + halfPlotWidth - lineMargin, -centerToPlotSPDistance + linesDistance * i);

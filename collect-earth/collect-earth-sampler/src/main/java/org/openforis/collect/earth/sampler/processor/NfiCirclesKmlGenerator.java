@@ -28,7 +28,7 @@ public abstract class NfiCirclesKmlGenerator extends PolygonKmlGenerator {
 		double[] tractCoord = placemark.getCoord().getCoordinates();
 		double[] top = getPointWithOffset(tractCoord, 0, -145);
 		double[] bottom = getPointWithOffset(tractCoord, 145, 0);
-		placemark.setRegion(new SimpleRegion(top[1] + "", top[0] + "", bottom[1] + "", bottom[0] + ""));
+		placemark.setRegion(new SimpleRegion( Double.toString( top[1]), Double.toString(top[0] ), Double.toString( bottom[1] ), Double.toString( bottom[0] ) ));
 
 		String kml = getKmlForTract(placemark);
 		
@@ -45,7 +45,7 @@ public abstract class NfiCirclesKmlGenerator extends PolygonKmlGenerator {
 		// Rectangle north-west 
 		float halfSide = innerPointSide/2f;
 		
-		ArrayList<SimplePlacemarkObject> subplots = new ArrayList<SimplePlacemarkObject>();
+		ArrayList<SimplePlacemarkObject> subplots = new ArrayList<>();
 		
 
 		
@@ -57,13 +57,6 @@ public abstract class NfiCirclesKmlGenerator extends PolygonKmlGenerator {
 		String dotCenter = createRectangle( getPointWithOffset(tractCoord, -halfSide, -halfSide), getPointWithOffset(tractCoord, -halfSide, halfSide), getPointWithOffset(tractCoord, halfSide, halfSide) , getPointWithOffset(tractCoord, halfSide, -halfSide) );
 		String dotNorth = createRectangle( getPointWithOffset(tractCoord, (radius*2)+distanceBetweenPlots + halfSide, -halfSide), getPointWithOffset(tractCoord, (radius*2)+distanceBetweenPlots + halfSide, halfSide), getPointWithOffset(tractCoord, (radius*2)+distanceBetweenPlots - halfSide, halfSide) , getPointWithOffset(tractCoord, (radius*2)+distanceBetweenPlots - halfSide, -halfSide) );
 		String dotEast = createRectangle( getPointWithOffset(tractCoord, -halfSide, (radius*2)+distanceBetweenPlots - halfSide), getPointWithOffset(tractCoord, -halfSide, (radius*2)+distanceBetweenPlots + halfSide), getPointWithOffset(tractCoord, halfSide, (radius*2)+distanceBetweenPlots + halfSide) , getPointWithOffset(tractCoord, halfSide, (radius*2)+distanceBetweenPlots - halfSide) );
-		
-		/*
-		final SimplePlacemarkObject southWestPlot = new SimplePlacemarkObject( tractCoord , placemark.getPlacemarkId() + "southWestPlot");
-		southWestPlot.setShape(getSamplePointPolygon(getPointWithOffset(tractCoord, -halfSide, halfSide), innerPointSide));
-		southWestPlot.setName("South West");
-		subplots.add( southWestPlot );
-		*/
 		
 		final SimplePlacemarkObject southEastPlot = new SimplePlacemarkObject( getPointWithOffset(tractCoord, (radius*2)+distanceBetweenPlots, 0) , placemark.getPlacemarkId() + "southEastPlot");
 		southEastPlot.setShape(getSamplePointPolygon(getPointWithOffset(tractCoord, (radius*2)+distanceBetweenPlots - radius, -radius), (int) (radius*2)));
