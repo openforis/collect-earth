@@ -24,15 +24,15 @@ import org.openforis.collect.model.NodeDeleteChange;
  */
 public class NodeChangeProxy<C extends NodeChange<?>> implements Proxy {
 
-	protected transient C change;
-	protected transient ProxyContext context;
+	protected C change;
+	protected ProxyContext context;
 
 	public NodeChangeProxy(C change, ProxyContext context) {
 		this.context = context;
 	}
 
 	public static List<NodeChangeProxy<?>> fromList(Collection<NodeChange<?>> items, ProxyContext context) {
-		List<NodeChangeProxy<?>> result = new ArrayList<NodeChangeProxy<?>>();
+		List<NodeChangeProxy<?>> result = new ArrayList<>();
 		if ( items != null ) {
 			for (NodeChange<?> item : items) {
 				NodeChangeProxy<?> proxy;

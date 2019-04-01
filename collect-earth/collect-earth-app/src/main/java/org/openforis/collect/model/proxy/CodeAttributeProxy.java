@@ -15,7 +15,7 @@ import org.openforis.idm.model.CodeAttribute;
  */
 public class CodeAttributeProxy extends AttributeProxy {
 
-	private transient CodeAttribute codeAttribute;
+	private CodeAttribute codeAttribute;
 	
 	public CodeAttributeProxy(EntityProxy parent,
 			CodeAttribute attribute, ProxyContext context) {
@@ -26,12 +26,13 @@ public class CodeAttributeProxy extends AttributeProxy {
 	public boolean isEnumerator() {
 		CodeAttributeDefinition definition = codeAttribute.getDefinition();
 		EntityDefinition parentDefinition = (EntityDefinition) definition.getParentDefinition();
-		if(parentDefinition.isEnumerable() && definition.isKey() && 
-				definition.getList() != null && ! definition.getList().isExternal()) {
-			return true;
-		} else {
-			return false;
-		}
+		return (
+				parentDefinition.isEnumerable() && 
+				definition.isKey() && 
+				definition.getList() != null && 
+				!definition.getList().isExternal()
+		);
+		
 	}
 
 	protected boolean isExternalCodeList() {

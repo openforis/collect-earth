@@ -22,8 +22,8 @@ import org.openforis.idm.model.Entity;
  */
 public class RecordProxy implements Proxy {
 
-	private transient CollectRecord record;
-	private transient ProxyContext context;
+	private CollectRecord record;
+	private ProxyContext context;
 
 	private Integer errors;
 	private Integer skipped;
@@ -42,13 +42,12 @@ public class RecordProxy implements Proxy {
 		missing = record.getMissing();
 		missingErrors = record.getMissingErrors();
 		missingWarnings = record.getMissingWarnings();
-		/*missingErrors = missingWarnings = 0; //TODO these values are not stored in records table */
 		warnings = record.getWarnings();
 		owner = record.getOwner() == null ? null: new UserProxy(record.getOwner());
 	}
 
 	public static List<RecordProxy> fromList(List<CollectRecord> records, ProxyContext context) {
-		List<RecordProxy> result = new ArrayList<RecordProxy>();
+		List<RecordProxy> result = new ArrayList<>();
 		if ( records != null ) {
 			for (CollectRecord collectRecord : records) {
 				result.add(new RecordProxy(collectRecord, context));
@@ -114,15 +113,9 @@ public class RecordProxy implements Proxy {
 	}
 	
 	public boolean isCleansingComplete() {
-		if(record.getStep() != null) {
-			switch(record.getStep()) {
-				case ANALYSIS:
-					return true;
-				default:
-					return false;
-			}
-		}
-		return false;
+		return (
+				record.getStep() != null && record.getStep().equals( Step.ANALYSIS) 
+		);
 	}
 
 	public Integer getErrors() {

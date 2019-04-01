@@ -21,9 +21,9 @@ import org.openforis.idm.model.Attribute;
  */
 public class ValidationResultsProxy implements Proxy {
 
-	private transient Attribute<?, ?> attribute;
-	private transient ValidationResults validationResults;
-	private transient ProxyContext context;
+	private Attribute<?, ?> attribute;
+	private ValidationResults validationResults;
+	private ProxyContext context;
 
 	public ValidationResultsProxy(ProxyContext context, Attribute<?, ?> attribute, ValidationResults validationResults) {
 		this.attribute = attribute;
@@ -50,7 +50,7 @@ public class ValidationResultsProxy implements Proxy {
 	}
 	
 	private List<String> extractValidationResultMessages(List<ValidationResult> validationResultList) {
-		List<String> result = new ArrayList<String>();
+		List<String> result = new ArrayList<>();
 		ValidationMessageBuilder validationMessageBuilder = ValidationMessageBuilder.createInstance(context.getMessageSource());
 		for (ValidationResult validationResult : validationResultList) {
 			result.add(validationMessageBuilder.getValidationMessage(attribute, validationResult, context.getLocale()));

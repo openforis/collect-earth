@@ -12,7 +12,7 @@ import org.openforis.collect.model.AbstractSummaries;
  */
 public abstract class AbstractSummariesProxy implements Proxy {
 	
-	protected transient AbstractSummaries<?> summaries;
+	protected AbstractSummaries<?> summaries;
 
 	public AbstractSummariesProxy(AbstractSummaries<?> summaries) {
 		super();

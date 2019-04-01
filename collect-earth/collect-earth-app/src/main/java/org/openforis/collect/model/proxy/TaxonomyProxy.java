@@ -30,7 +30,7 @@ public class TaxonomyProxy implements Proxy {
 	}
 	
 	public static List<TaxonomyProxy> fromList(List<CollectTaxonomy> list) {
-		List<TaxonomyProxy> proxies = new ArrayList<TaxonomyProxy>();
+		List<TaxonomyProxy> proxies = new ArrayList<>();
 		if (list != null) {
 			for (CollectTaxonomy item : list) {
 				proxies.add(new TaxonomyProxy(item));

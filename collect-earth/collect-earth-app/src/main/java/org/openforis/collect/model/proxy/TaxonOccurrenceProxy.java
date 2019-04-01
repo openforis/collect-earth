@@ -15,7 +15,7 @@ import org.openforis.idm.model.TaxonOccurrence;
  */
 public class TaxonOccurrenceProxy implements Proxy {
 
-	private transient TaxonOccurrence occurrence;
+	private TaxonOccurrence occurrence;
 
 	public TaxonOccurrenceProxy(TaxonOccurrence occurence) {
 		super();
@@ -23,7 +23,7 @@ public class TaxonOccurrenceProxy implements Proxy {
 	}
 	
 	public static List<TaxonOccurrenceProxy> fromList(List<TaxonOccurrence> list) {
-		List<TaxonOccurrenceProxy> proxies = new ArrayList<TaxonOccurrenceProxy>();
+		List<TaxonOccurrenceProxy> proxies = new ArrayList<>();
 		if (list != null) {
 			for (TaxonOccurrence item : list) {
 				proxies.add(new TaxonOccurrenceProxy(item));

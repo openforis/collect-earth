@@ -26,8 +26,8 @@ import org.openforis.idm.model.Record;
  */
 public class EntityProxy extends NodeProxy {
 
-	private transient Entity entity;
-	private transient List<NodeDefinition> availableChildDefinitions;
+	private Entity entity;
+	private List<NodeDefinition> availableChildDefinitions;
 	
 	public EntityProxy(EntityProxy parent, Entity entity, ProxyContext context) {
 		super(parent, entity, context);

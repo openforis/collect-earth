@@ -33,7 +33,7 @@ public class UserProxy implements Proxy {
 	}
 
 	public static List<UserProxy> fromList(List<User> users) {
-		List<UserProxy> result = new ArrayList<UserProxy>();
+		List<UserProxy> result = new ArrayList<>();
 		if ( users != null ) {
 			for (User user : users) {
 				UserProxy proxy = new UserProxy(user);
@@ -54,7 +54,7 @@ public class UserProxy implements Proxy {
 	}
 	
 	private List<UserRole> getRolesFromCodes(List<String> codes) {
-		List<UserRole> roles = new ArrayList<UserRole>();
+		List<UserRole> roles = new ArrayList<>();
 		for (String code : codes) {
 			UserRole role = UserRole.fromCode(code);
 			roles.add(role);

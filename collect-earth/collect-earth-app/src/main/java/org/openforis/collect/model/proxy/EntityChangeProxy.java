@@ -43,7 +43,7 @@ public class EntityChangeProxy extends NodeChangeProxy<EntityChange> {
 
 	private <V extends Object> Map<Integer, V> convertToChildDefinitionIdMap(Map<String, V> from) {
 		EntityDefinition entityDef = change.getNode().getDefinition();
-		Map<Integer, V> map = new HashMap<Integer, V>();
+		Map<Integer, V> map = new HashMap<>();
 		Set<Entry<String, V>> entries = from.entrySet();
 		for (Entry<String, V> entry : entries) {
 			String childName = entry.getKey();

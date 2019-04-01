@@ -22,8 +22,8 @@ import org.openforis.idm.model.Node;
  */
 public class NodeProxy implements Proxy {
 
-	private transient Node<?> node;
-	protected transient ProxyContext context;
+	private Node<?> node;
+	protected ProxyContext context;
 	
 	public static NodeProxy fromNode(Node<?> node, ProxyContext context) {
 		if (node instanceof Attribute<?, ?>) {
@@ -42,7 +42,7 @@ public class NodeProxy implements Proxy {
 
 	public static List<NodeProxy> fromList(EntityProxy parent,
 			List<Node<?>> list, ProxyContext context) {
-		List<NodeProxy> result = new ArrayList<NodeProxy>();
+		List<NodeProxy> result = new ArrayList<>();
 		if(list != null) {
 			for (Node<?> node : list) {
 				NodeProxy proxy;
