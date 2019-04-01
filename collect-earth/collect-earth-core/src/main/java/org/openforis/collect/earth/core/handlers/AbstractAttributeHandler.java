@@ -53,7 +53,13 @@ public abstract class AbstractAttributeHandler<C> {
 			Value value = (Value) (StringUtils.isBlank(paramVal) ? null: createValue(paramVal ) );
 			values.add(value);
 		}
-		return recordUpdater.updateMultipleAttribute(parentEntity, attrDef, values);
+		if (attrDef.isMultiple()) {
+			return recordUpdater.updateMultipleAttribute(parentEntity, attrDef, values);
+		} else {
+			Value value = values.isEmpty() ? null : values.get(0);
+			Attribute<?,Value> attribute = parentEntity.getChild(attrDef);
+			return recordUpdater.updateAttribute(attribute, value);
+		}
 	}
 	
 	public NodeChangeSet addOrUpdate(String parameterName, String parameterValue, Entity entity, int parameterChildIndex) {
