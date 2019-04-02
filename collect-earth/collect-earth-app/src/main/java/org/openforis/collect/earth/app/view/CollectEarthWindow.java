@@ -10,11 +10,8 @@ import java.awt.event.WindowAdapter;
 import java.awt.event.WindowEvent;
 import java.io.File;
 import java.io.IOException;
-import java.lang.reflect.InvocationTargetException;
 import java.net.MalformedURLException;
 
-import javax.annotation.PostConstruct;
-import javax.annotation.PreDestroy;
 import javax.swing.BorderFactory;
 import javax.swing.ImageIcon;
 import javax.swing.JButton;
@@ -36,6 +33,8 @@ import org.openforis.collect.earth.app.service.EarthSurveyService;
 import org.openforis.collect.earth.app.service.LocalPropertiesService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.DisposableBean;
+import org.springframework.beans.factory.InitializingBean;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Lazy;
 import org.springframework.stereotype.Component;
@@ -46,7 +45,7 @@ import org.springframework.stereotype.Component;
  */
 @Component
 @Lazy(false)
-public class CollectEarthWindow {
+public class CollectEarthWindow implements InitializingBean, DisposableBean{
 
 	@Autowired
 	private LocalPropertiesService localPropertiesService;
@@ -80,8 +79,7 @@ public class CollectEarthWindow {
 		setFrame(framePriv);
 	}
 
-	@PostConstruct
-	public void init() {
+	private void init() {
 		Messages.setLocale(localPropertiesService.getUiLanguage().getLocale());
 		javax.swing.SwingUtilities.invokeLater( () -> {
 			try {
@@ -92,9 +90,13 @@ public class CollectEarthWindow {
 			}
 		});
 	}
+	@Override
+	public void afterPropertiesSet() throws Exception {
+		init();
+	}
 
-	@PreDestroy
-	public void cleanUp() throws InvocationTargetException, InterruptedException {
+	@Override
+	public void destroy() throws Exception {
 		SwingUtilities.invokeAndWait( () -> CollectEarthWindow.this.getFrame().dispose()  );
 	}
 

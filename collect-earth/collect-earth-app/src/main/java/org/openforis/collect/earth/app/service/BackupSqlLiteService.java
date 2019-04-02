@@ -6,14 +6,13 @@ import java.text.SimpleDateFormat;
 import java.util.Arrays;
 import java.util.Date;
 
-import javax.annotation.PostConstruct;
-
 import org.apache.commons.dbcp.BasicDataSource;
 import org.openforis.collect.earth.app.CollectEarthUtils;
 import org.openforis.collect.earth.app.EarthConstants;
 import org.openforis.collect.earth.app.service.LocalPropertiesService.EarthProperty;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.InitializingBean;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Lazy;
 import org.springframework.stereotype.Component;
@@ -29,7 +28,7 @@ import net.lingala.zip4j.exception.ZipException;
  */
 @Component
 @Lazy(false)
-public class BackupSqlLiteService {
+public class BackupSqlLiteService implements InitializingBean{
 
 	private static final String BACKUP_COLLECT_EARTH = "backupSqlite"; //$NON-NLS-1$
 
@@ -43,8 +42,8 @@ public class BackupSqlLiteService {
 
 	private Logger logger = LoggerFactory.getLogger( BackupSqlLiteService.class );
 
-	@PostConstruct
-	public void init() {
+	@Override
+    public void afterPropertiesSet() throws Exception {
 		attachShutDownHook();
 	}
 

@@ -16,8 +16,6 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-import javax.annotation.PostConstruct;
-import javax.annotation.PreDestroy;
 import javax.swing.SwingUtilities;
 
 import org.apache.commons.codec.binary.Hex;
@@ -47,6 +45,8 @@ import org.openforis.idm.metamodel.NodeDefinitionVerifier;
 import org.openqa.selenium.remote.RemoteWebDriver;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.DisposableBean;
+import org.springframework.beans.factory.InitializingBean;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.core.RowMapper;
@@ -58,7 +58,7 @@ import net.lingala.zip4j.core.ZipFile;
 import net.lingala.zip4j.exception.ZipException;
 
 @Component
-public class AnalysisSaikuService {
+public class AnalysisSaikuService implements InitializingBean, DisposableBean{
 
 	private static final String ALU_CLIMATE_ZONE_CODE = "alu_climate_zone_code"; //$NON-NLS-1$
 
@@ -466,13 +466,15 @@ public class AnalysisSaikuService {
 		return configFile;
 	}
 
-	@PostConstruct
-	public void initialize() {
+	// @PostConstruct support removed by JDK11
+	@Override
+    public void afterPropertiesSet() throws Exception {
 		jdbcTemplate = new JdbcTemplate(rdbDataSource);
 	}
 
-	@PreDestroy
-	public void destroy() {
+	// @PreDestroy support removed by JDK11
+	@Override
+    public void destroy() throws Exception {
 		try {
 			stopSaiku();
 		} catch (SaikuExecutionException e) {

@@ -6,7 +6,6 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 
-import javax.annotation.PostConstruct;
 import javax.swing.ButtonGroup;
 import javax.swing.JCheckBoxMenuItem;
 import javax.swing.JDialog;
@@ -35,11 +34,12 @@ import org.openforis.collect.earth.app.service.LocalPropertiesService;
 import org.openforis.collect.earth.app.service.MissingPlotService;
 import org.openforis.collect.earth.app.view.ExportActionListener.RecordsToExport;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.InitializingBean;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
 @Component
-public class CollectEarthMenu extends JMenuBar {
+public class CollectEarthMenu extends JMenuBar implements InitializingBean {
 
 	@Autowired
 	private transient DataImportExportService dataImportExportService;
@@ -84,8 +84,7 @@ public class CollectEarthMenu extends JMenuBar {
 		super();
 	}
 
-	@PostConstruct
-	public void init() {
+	protected void init() {
 		setFrame(collectEarthWindow.getFrame());
 
 		// Build file menu in the menu bar.
@@ -96,7 +95,11 @@ public class CollectEarthMenu extends JMenuBar {
 
 		// Build help menu in the menu bar.
 		this.add(getHelpMenu());
-
+	}
+	
+	@Override
+	public void afterPropertiesSet() throws Exception {
+		init();
 	}
 
 	@Override
@@ -355,15 +358,10 @@ public class CollectEarthMenu extends JMenuBar {
 				CollectEarthUtils.setFontDependingOnLanguaue(language);
 				localPropertiesService.setUiLanguage(language);
 
-				SwingUtilities.invokeLater(new Thread("Resseting main CE Window") {
-					@Override
-					public void run() {
-
+				SwingUtilities.invokeLater( () -> {
 						getFrame().getContentPane().removeAll();
 						getFrame().dispose();
-
 						collectEarthWindow.openWindow();
-					};
 				});
 
 			} catch (final Exception ex) {

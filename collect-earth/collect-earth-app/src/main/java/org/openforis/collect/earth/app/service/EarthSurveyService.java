@@ -4,22 +4,18 @@ import static org.openforis.collect.earth.app.EarthConstants.EARTH_SURVEY_NAME;
 
 import java.io.File;
 import java.io.FileInputStream;
-import java.io.FileNotFoundException;
-
-import javax.annotation.PostConstruct;
 
 import org.openforis.collect.earth.app.service.LocalPropertiesService.EarthProperty;
 import org.openforis.collect.manager.exception.SurveyValidationException;
 import org.openforis.collect.model.CollectSurvey;
-import org.openforis.collect.persistence.SurveyImportException;
-import org.openforis.idm.metamodel.xml.IdmlParseException;
+import org.springframework.beans.factory.InitializingBean;
 import org.springframework.stereotype.Component;
 
 @Component
-public class EarthSurveyService extends AbstractEarthSurveyService {
+public class EarthSurveyService extends AbstractEarthSurveyService implements InitializingBean{
 
-	@PostConstruct
-	private void init() throws FileNotFoundException, IdmlParseException, SurveyImportException {
+	@Override
+    public void afterPropertiesSet() throws Exception {
 		// Initialize the Collect survey using the idm
 		// This is only done if the survey has not yet been created in the DB
 

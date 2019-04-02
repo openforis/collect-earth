@@ -9,8 +9,6 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Locale;
 
-import javax.annotation.PostConstruct;
-
 import org.apache.commons.dbcp.BasicDataSource;
 import org.openforis.collect.earth.app.EarthConstants;
 import org.openforis.collect.earth.core.utils.CsvReaderUtils;
@@ -19,15 +17,15 @@ import org.openforis.idm.metamodel.EntityDefinition;
 import org.openforis.idm.metamodel.NodeDefinition;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.InitializingBean;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Component;
 
 import au.com.bytecode.opencsv.CSVReader;
 
-
 @Component
-public class RegionCalculationUtils {
+public class RegionCalculationUtils implements InitializingBean{
 
 	private static final String SHRUB_COUNT = "shrub_count";
 	private static final String TREE_COUNT = "tree_count";
@@ -38,7 +36,6 @@ public class RegionCalculationUtils {
 	private static final String TREES_PER_EXP_FACTOR = "trees_per_expansion_factor"; //$NON-NLS-1$
 	private static final String SHRUBS_PER_EXP_FACTOR = "shrubs_per_expansion_factor"; //$NON-NLS-1$
 	private final Logger logger = LoggerFactory.getLogger(RegionCalculationUtils.class);
-
 	private static final String NO_DATA_LAND_USE = "noData"; //$NON-NLS-1$
 
 	@Autowired
@@ -55,9 +52,8 @@ public class RegionCalculationUtils {
 
 	private JdbcTemplate jdbcTemplate;
 
-
-	@PostConstruct
-	public void initialize() {
+	@Override
+	public void afterPropertiesSet() throws Exception {
 		jdbcTemplate = new JdbcTemplate(rdbDataSource);
 	}
 
@@ -120,25 +116,25 @@ public class RegionCalculationUtils {
 				while( ( csvLine = csvReader.readNext() ) != null ){
 					try {
 						String region = csvLine[0];
-						String plot_file = csvLine[1];
-						int area_hectars =  Integer.parseInt( csvLine[2] );
-						final Float plot_weight =  Float.parseFloat( csvLine[3] );
+						String plotFile = csvLine[1];
+						int areaHectares =  Integer.parseInt( csvLine[2] );
+						final Float plotWeight =  Float.parseFloat( csvLine[3] );
 
-						Object[] parameters = new String[]{region,plot_file};
+						Object[] parameters = new String[]{region,plotFile};
 
 						Integer plots_per_region = jdbcTemplate.queryForObject( 
 								"SELECT count( DISTINCT "+EarthConstants.PLOT_ID+") FROM " + schemaName  + "plot  WHERE ( region=? OR plot_file=? ) AND land_use_category != '"+NO_DATA_LAND_USE+"' ", parameters,Integer.class); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$ //$NON-NLS-4$
 
-						Float expansion_factor_hectars_calc = 0f;
+						Float expansionFactorHectaresCalc = 0f;
 						if( plots_per_region.intValue() != 0 ){
-							expansion_factor_hectars_calc = (float)area_hectars / (float) plots_per_region.intValue();
+							expansionFactorHectaresCalc = (float)areaHectares / (float) plots_per_region.intValue();
 						}
 
 						final Object[] updateValues = new Object[4];
-						updateValues[0] = expansion_factor_hectars_calc;
-						updateValues[1] = plot_weight;
+						updateValues[0] = expansionFactorHectaresCalc;
+						updateValues[1] = plotWeight;
 						updateValues[2] = region;
-						updateValues[3] = plot_file;
+						updateValues[3] = plotFile;
 						jdbcTemplate.update("UPDATE " + schemaName + "plot SET "+EXPANSION_FACTOR+"=?, "+PLOT_WEIGHT+"=? WHERE region=? OR plot_file=?", updateValues); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$ //$NON-NLS-4$
 
 					} catch (NumberFormatException e) {
@@ -205,7 +201,7 @@ public class RegionCalculationUtils {
 
 			try {
 				CSVReader csvReader = CsvReaderUtils.getCsvReader(areasPerAttribute.getAbsolutePath(), false);
-				
+
 				// The header (first line) should contain the names of the three columns : attribute_name,area,weight
 
 				String[] columnNames = csvReader.readNext();
@@ -234,7 +230,7 @@ public class RegionCalculationUtils {
 				}
 
 				int numberOfAttributes = attributeNames.size();
-				StringBuffer attributeWhereConditionsSB = new StringBuffer();
+				StringBuilder attributeWhereConditionsSB = new StringBuilder();
 				for (int attrIdx=0; attrIdx < numberOfAttributes ; attrIdx++) {
 					String attributeName = attributeNames.get(attrIdx);
 					attributeWhereConditionsSB.append(attributeName);
@@ -245,39 +241,39 @@ public class RegionCalculationUtils {
 					}
 				}
 				String attributeWhereConditions = attributeWhereConditionsSB.toString();
-				
-				StringBuffer selectQuerySB = new StringBuffer();
+
+				StringBuilder selectQuerySB = new StringBuilder();
 				selectQuerySB.append("SELECT count(  DISTINCT ").append(EarthConstants.PLOT_ID).append(") FROM ").append(schemaName).append("plot  WHERE ").append(attributeWhereConditions);
 				String plotCountSelectQuery = selectQuerySB.toString();
-				
+
 				// Build the update query
-				StringBuffer updateQuerySB = new StringBuffer();
+				StringBuilder updateQuerySB = new StringBuilder();
 				updateQuerySB.append("UPDATE ").append(schemaName).append("plot SET ").append(EXPANSION_FACTOR).append("=?, ").append(PLOT_WEIGHT).append("=? WHERE ").append(attributeWhereConditions);
 
 				String updatePlotQuery = updateQuerySB.toString();
 
-				List<Object[]> batchArgs = new ArrayList<Object[]>();
+				List<Object[]> batchArgs = new ArrayList<>();
 				int line = 1;
 				String[] csvLine = null;
 				while( ( csvLine = csvReader.readNext() ) != null ){
 					try{
-						float area_hectars = Float.parseFloat( csvLine[columnNames.length -2] );
-						final Float plot_weight =  Float.parseFloat( csvLine[columnNames.length -1] );
+						float areaHectares = Float.parseFloat( csvLine[columnNames.length -2] );
+						final Float plotWeight =  Float.parseFloat( csvLine[columnNames.length -1] );
 
 						List<Object> attributeValues = extractAttributeValues(csvLine, attributeNames);
 
 						Integer plotCountPerAttributes = jdbcTemplate.queryForObject(plotCountSelectQuery, attributeValues.toArray(), Integer.class); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$ //$NON-NLS-4$
 
 						// Calculate the expansion factor: simply the division of the area for the selected attributes by the amount of plots that match the attribute values
-						Float expansion_factor_hectars_calc = 0f;
+						Float expansionFactorHectaresCalc = 0f;
 						if( plotCountPerAttributes.intValue() != 0 ){
-							expansion_factor_hectars_calc = (float) area_hectars / (float) plotCountPerAttributes.intValue();
+							expansionFactorHectaresCalc = (float) areaHectares / (float) plotCountPerAttributes.intValue();
 						}
 
 						// Add the expansion factor and plot_weight to the values that will be sent with the update
-						attributeValues.add(0, expansion_factor_hectars_calc);
-						attributeValues.add(1, plot_weight);
-						
+						attributeValues.add(0, expansionFactorHectaresCalc);
+						attributeValues.add(1, plotWeight);
+
 						batchArgs.add(attributeValues.toArray());
 					}catch( Exception e5){
 						logger.error("Problem in line number " + line + " with values "  + Arrays.toString( csvLine ), e5 );
@@ -301,7 +297,7 @@ public class RegionCalculationUtils {
 	}
 
 	private List<Object> extractAttributeValues(String[] csvLine, List<String> attributeNames) {
-		List<Object> values = new ArrayList<Object>(attributeNames.size()); 
+		List<Object> values = new ArrayList<>(attributeNames.size()); 
 		for(int colIndex = 0; colIndex < attributeNames.size(); colIndex++) {
 			String stringValue = csvLine[colIndex];
 			String attributeName = attributeNames.get(colIndex);

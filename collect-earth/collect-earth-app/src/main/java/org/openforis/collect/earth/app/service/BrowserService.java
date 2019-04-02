@@ -21,7 +21,6 @@ import java.util.Properties;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.zip.GZIPInputStream;
 
-import javax.annotation.PostConstruct;
 import javax.net.ssl.HttpsURLConnection;
 import javax.net.ssl.SSLContext;
 import javax.net.ssl.SSLSocketFactory;
@@ -48,6 +47,7 @@ import org.openqa.selenium.remote.DesiredCapabilities;
 import org.openqa.selenium.remote.RemoteWebDriver;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.InitializingBean;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
@@ -69,7 +69,7 @@ import liquibase.util.SystemUtils;
  * 
  */
 @Component
-public class BrowserService implements Observer{
+public class BrowserService  implements InitializingBean, Observer{
 
 
 	/**
@@ -127,12 +127,10 @@ public class BrowserService implements Observer{
 		synchronized (this) {
 			getClosingBrowsersThread().start();
 		}
-
 	}
 
-	
-	@PostConstruct
-	public void attachShutDownHook() {
+	@Override
+    public void afterPropertiesSet() throws Exception {
 		Runtime.getRuntime().addShutdownHook(
 				getClosingBrowsersThread()
 				);
