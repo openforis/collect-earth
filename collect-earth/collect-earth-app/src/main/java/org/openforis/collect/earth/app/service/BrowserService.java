@@ -669,7 +669,7 @@ public class BrowserService implements Observer{
 	 */
 	public void openEarthEngine(SimplePlacemarkObject placemarkObject) throws BrowserNotFoundException {
 
-		logger.warn("Starting to open EE - supported : " + localPropertiesService.isEarthEngineSupported()   );
+		logger.warn("Starting to open EE - supported : {}", localPropertiesService.isEarthEngineSupported()   );
 		if (localPropertiesService.isEarthEngineSupported()) {
 
 			if (webDriverEE == null) {
@@ -683,7 +683,7 @@ public class BrowserService implements Observer{
 				@Override
 				public void run() {
 					try {
-						logger.warn( String.format("Loading layers - %s", placemarkObject ) );
+						logger.warn( "Loading layers - {}", placemarkObject );
 						webDriverEE = loadLayers(placemarkObject, driverCopy);
 					} catch (final Exception e) {
 						logger.error("Error when opening Earth Engine browser window", e);

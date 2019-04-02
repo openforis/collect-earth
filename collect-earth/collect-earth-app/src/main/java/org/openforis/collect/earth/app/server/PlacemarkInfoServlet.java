@@ -43,13 +43,13 @@ public class PlacemarkInfoServlet extends JsonPocessorServlet {
 			if (collectedData != null && collectedData.get(EarthConstants.PLACEMARK_FOUND_PARAMETER) != null
 					&& collectedData.get(EarthConstants.PLACEMARK_FOUND_PARAMETER).equals("true")) { //$NON-NLS-1$
 				setResult(true, "The placemark was found", collectedData); //$NON-NLS-1$
-				getLogger().info("A placemark was found with these properties" + collectedData.toString()); //$NON-NLS-1$
+				getLogger().info("A placemark was found with these properties {}", collectedData ); //$NON-NLS-1$
 			} else {
 				if (collectedData == null) {
 					collectedData = new HashMap<String, String>();
 				}
 				setResult(false, "No placemark found", collectedData); //$NON-NLS-1$
-				getLogger().info("No placemark found " + collectedData.toString()); //$NON-NLS-1$
+				getLogger().info("No placemark found {}", collectedData ); //$NON-NLS-1$
 			}
 		}
 

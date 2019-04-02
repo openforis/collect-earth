@@ -391,7 +391,7 @@ public class KmlGeneratorService {
 			final String folderToInclude = balloonFile.getParent() + File.separator + EarthConstants.FOLDER_COPIED_TO_KMZ;
 
 			kmzGenerator.generateKmzFile(KMZ_FILE_PATH, KML_RESULTING_TEMP_FILE, folderToInclude);
-			logger.info("KMZ File generated : " + KMZ_FILE_PATH); //$NON-NLS-1$
+			logger.info("KMZ File generated : {}", KMZ_FILE_PATH); //$NON-NLS-1$
 
 			copyContentsToGeneratedFolder(folderToInclude);
 
@@ -399,7 +399,7 @@ public class KmlGeneratorService {
 			if (kmlFile.exists()) {
 				final boolean deleted = kmlFile.delete();
 				if (deleted) {
-					logger.info("KML File deleted : " + KML_RESULTING_TEMP_FILE); //$NON-NLS-1$
+					logger.info("KML File deleted : {}", KML_RESULTING_TEMP_FILE); //$NON-NLS-1$
 				} else {
 					throw new IOException("The KML file could not be deleted at " + kmlFile.getPath()); //$NON-NLS-1$
 				}

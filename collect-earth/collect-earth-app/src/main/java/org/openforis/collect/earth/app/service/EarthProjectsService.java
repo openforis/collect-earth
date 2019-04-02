@@ -70,8 +70,7 @@ public class EarthProjectsService {
 
 
 	private String getProjectSurveyName(File projectPropertiesFile) throws IOException {
-		Properties properties;
-		properties = getProjectProperties(projectPropertiesFile);
+		Properties properties = getProjectProperties(projectPropertiesFile);
 		return properties.getProperty( EarthProperty.SURVEY_NAME.toString() );
 	}
 	
@@ -81,7 +80,7 @@ public class EarthProjectsService {
 		
 		String[] projectFolderPaths = loadedProjects.split( File.pathSeparator );
 		
-		ArrayList<File> workingProjectFolders = new ArrayList<File>(); 
+		ArrayList<File> workingProjectFolders = new ArrayList<>(); 
 		
 		for (String projectFolder : projectFolderPaths) {
 			try {
@@ -215,7 +214,7 @@ public class EarthProjectsService {
 			if( earthPropertyEnum != null ){
 				localPropertiesService.setValue( earthPropertyEnum , value);
 			}else{
-				logger.warn("The property in the is unknown : " +  key) ; //$NON-NLS-1$
+				logger.warn("The property in the is unknown : {}",  key) ; //$NON-NLS-1$
 			}
 		}
 		
@@ -255,7 +254,7 @@ public class EarthProjectsService {
 	}
 
 
-	private boolean validateProjectDefinitionFile(File projectDefinitionFile) throws IllegalArgumentException, IOException{
+	private boolean validateProjectDefinitionFile(File projectDefinitionFile) throws IOException{
 		boolean success = false;
 		if( projectDefinitionFile.exists() ){
 			if( checkValidContent(projectDefinitionFile) ){
@@ -268,13 +267,13 @@ public class EarthProjectsService {
 	}
 	
 	
-	public boolean folderContainsProjectDefinition(File folder ) throws IllegalArgumentException, IOException{
+	public boolean folderContainsProjectDefinition(File folder ) throws IOException{
 		File projectPropertiesFile = getProjectPropertiesFile( folder );		
 		return validateProjectDefinitionFile(projectPropertiesFile);
 	}
 	
 	
-	public boolean loadCompressedProjectFile( File projectZipFile ) throws IllegalArgumentException, IOException, ZipException{
+	public boolean loadCompressedProjectFile( File projectZipFile ) throws IOException, ZipException{
 				
 		File unzippedFolder = unzipContentsOnProjectFolder(projectZipFile);
 		return( loadProjectInFolder(unzippedFolder) );

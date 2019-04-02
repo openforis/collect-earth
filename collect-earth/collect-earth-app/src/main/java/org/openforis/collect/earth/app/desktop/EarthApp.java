@@ -186,7 +186,7 @@ public class EarthApp {
 		}
 	}
 
-	public void generateKml() throws MalformedURLException, IOException, Exception {
+	public void generateKml() {
 
 		try {
 			getKmlGeneratorService().generateKmlFile();
@@ -230,15 +230,15 @@ public class EarthApp {
 			new Socket( LocalPropertiesService.LOCAL_HOST , Integer.parseInt(localProperties.getPort())).close(); //$NON-NLS-1$
 			// If here there is something is serving on port 8028
 			// So stop it
-			logger.warn("There is a server already running " + localProperties.getPort()); //$NON-NLS-1$
+			logger.warn("There is a server already running {}", localProperties.getPort()); //$NON-NLS-1$
 			alreadyRunning = true;
 		} catch (final IOException e) {
 			// Nothing there, so OK to proceed
-			logger.info("There is no server running in port " + localProperties.getPort()); //$NON-NLS-1$
+			logger.info("There is no server running in port {}", localProperties.getPort()); //$NON-NLS-1$
 			alreadyRunning = false;
 		} catch (final NumberFormatException e) {
 			// Nothing there, so OK to proceed
-			logger.info("Error parsing integer value " + localProperties.getPort()); //$NON-NLS-1$
+			logger.info("Error parsing integer value {}", localProperties.getPort()); //$NON-NLS-1$
 			e.printStackTrace();
 			alreadyRunning = false;
 		}
@@ -396,29 +396,25 @@ public class EarthApp {
 
 				if (updateIniUtils.shouldWarnUser(getLocalProperties() )) {
 
-					javax.swing.SwingUtilities.invokeLater(new Runnable() {
-						@Override
-						public void run() {
+					javax.swing.SwingUtilities.invokeLater( () -> {
+						String remindLater = Messages.getString("EarthApp.3"); //$NON-NLS-1$
+						String doItNow = Messages.getString("EarthApp.4"); //$NON-NLS-1$
+						String doNotBother = Messages.getString("EarthApp.5"); //$NON-NLS-1$
 
-							String remindLater = Messages.getString("EarthApp.3"); //$NON-NLS-1$
-							String doItNow = Messages.getString("EarthApp.4"); //$NON-NLS-1$
-							String doNotBother = Messages.getString("EarthApp.5"); //$NON-NLS-1$
+						String newestVersionOnline = updateIniUtils.getVersionAvailableOnline();
 
-							String newestVersionOnline = updateIniUtils.getVersionAvailableOnline();
+						if( StringUtils.isNotBlank( newestVersionOnline ) ) {
 
-							if( StringUtils.isNotBlank( newestVersionOnline ) ) {
-
-								Object[] possibleValues = { remindLater, doItNow, doNotBother };
-								int chosenOption = JOptionPane.showOptionDialog(null,
-										Messages.getString("EarthApp.57"), Messages.getString("EarthApp.58") + Messages.getString("EarthApp.6") + updateIniUtils.convertToDate(newestVersionOnline),  //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$
-										JOptionPane.DEFAULT_OPTION, JOptionPane.INFORMATION_MESSAGE, null, possibleValues, possibleValues[0]);
-								if( chosenOption != JOptionPane.CLOSED_OPTION ){
-									if (possibleValues[chosenOption].equals(doItNow)) {
-										CheckForUpdatesListener checkForUpdatesListener = new CheckForUpdatesListener();
-										checkForUpdatesListener.actionPerformed(null);
-									} else if (possibleValues[chosenOption].equals(doNotBother)) {
-										getLocalProperties().setValue(EarthProperty.LAST_IGNORED_UPDATE, newestVersionOnline);
-									}
+							Object[] possibleValues = { remindLater, doItNow, doNotBother };
+							int chosenOption = JOptionPane.showOptionDialog(null,
+									Messages.getString("EarthApp.57"), Messages.getString("EarthApp.58") + Messages.getString("EarthApp.6") + updateIniUtils.convertToDate(newestVersionOnline),  //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$
+									JOptionPane.DEFAULT_OPTION, JOptionPane.INFORMATION_MESSAGE, null, possibleValues, possibleValues[0]);
+							if( chosenOption != JOptionPane.CLOSED_OPTION ){
+								if (possibleValues[chosenOption].equals(doItNow)) {
+									CheckForUpdatesListener checkForUpdatesListener = new CheckForUpdatesListener();
+									checkForUpdatesListener.actionPerformed(null);
+								} else if (possibleValues[chosenOption].equals(doNotBother)) {
+									getLocalProperties().setValue(EarthProperty.LAST_IGNORED_UPDATE, newestVersionOnline);
 								}
 							}
 						}

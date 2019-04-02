@@ -167,8 +167,8 @@ public class DataImportExportService {
 			conflictingRecordsAdded = listConflictingRecords.size();
 		}
 
-		logger.warn("Data imported into db. Number of Records imported : " + entryIdsToImport.size() + " Conflicting records added : " //$NON-NLS-1$ //$NON-NLS-2$
-				+ conflictingRecordsAdded);
+		logger.warn("Data imported into db. Number of Records imported : {} Conflicting records added : {}" //$NON-NLS-1$ //$NON-NLS-2$
+				,entryIdsToImport.size(), conflictingRecordsAdded);
 	}
 
 	public AbstractProcess<Void, DataExportStatus> exportSurveyAsBackup(File exportToFile) {

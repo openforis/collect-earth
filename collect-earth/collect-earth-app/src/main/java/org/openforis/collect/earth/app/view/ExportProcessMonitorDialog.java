@@ -67,7 +67,7 @@ if (Desktop.isDesktopSupported()) {
     try {
         Desktop.getDesktop().open(exportedFile);
     } catch (IOException ex) {
-        logger.warn("No application registered to open file " + exportedFile.getAbsolutePath() ); //$NON-NLS-1$
+        logger.warn("No application registered to open file {}", exportedFile.getAbsolutePath() ); //$NON-NLS-1$
     }
 }
 }

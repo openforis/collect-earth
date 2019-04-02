@@ -308,7 +308,7 @@ public class AnalysisSaikuService {
 				}
 			}
 
-			logger.warn("The sqlite database has been removed : " + oldRdbFile.getAbsolutePath()); //$NON-NLS-1$
+			logger.warn("The sqlite database has been removed : {}", oldRdbFile.getAbsolutePath()); //$NON-NLS-1$
 		}
 
 	}
@@ -803,7 +803,7 @@ public class AnalysisSaikuService {
 
 				if (commandName.equals(STOP_SAIKU)) {
 					int result = runSaiku.waitFor();
-					logger.warn("Script ended with result " + result); //$NON-NLS-1$
+					logger.warn("Script ended with result {}", result); //$NON-NLS-1$
 				} else if (commandName.equals(START_SAIKU)) {
 					Thread.sleep(6000);
 				}
@@ -886,7 +886,7 @@ public class AnalysisSaikuService {
 
 	private void startSaiku() throws SaikuExecutionException {
 		logger.warn(
-				"Starting the Saiku server " + localPropertiesService.getSaikuFolder() + File.separator + START_SAIKU); //$NON-NLS-1$
+				"Starting the Saiku server {}{}{}", localPropertiesService.getSaikuFolder(), File.separator, START_SAIKU); //$NON-NLS-1$
 
 		runSaikuBat(START_SAIKU);
 
@@ -896,7 +896,7 @@ public class AnalysisSaikuService {
 	}
 
 	private void stopSaiku() throws SaikuExecutionException {
-		logger.warn("Stoping the Saiku server" + localPropertiesService.getSaikuFolder() + File.separator + STOP_SAIKU); //$NON-NLS-1$
+		logger.warn("Stoping the Saiku server {}{}{}", localPropertiesService.getSaikuFolder() , File.separator , STOP_SAIKU); //$NON-NLS-1$
 		if (isSaikuStarted()) {
 			runSaikuBat(STOP_SAIKU);
 			this.setSaikuStarted(true);
