@@ -14,10 +14,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added a button to access the Properties directly in the dialog
 
 ### Changed
-- Fix exceptions when no file is chosen in the "Find Missing Plots in Database" dialog/
+- Fix exceptions when no file is chosen in the "Find Missing Plots in Database" dialog
+- Operator name is updated automatically when the user finished typing on the text field 
 
 ### Removed
 - Removed the unnecessary Quit button from the main windows
+- Operator name update button
 
 
 ## [1.7.12] - 2019-03-29

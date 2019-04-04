@@ -6,6 +6,8 @@ import java.awt.GridBagLayout;
 import java.awt.Insets;
 import java.awt.Window;
 import java.awt.event.ActionListener;
+import java.awt.event.KeyAdapter;
+import java.awt.event.KeyEvent;
 import java.awt.event.WindowAdapter;
 import java.awt.event.WindowEvent;
 import java.io.File;
@@ -23,6 +25,7 @@ import javax.swing.JPanel;
 import javax.swing.JTextField;
 import javax.swing.SwingConstants;
 import javax.swing.SwingUtilities;
+import javax.swing.Timer;
 import javax.swing.WindowConstants;
 import javax.swing.border.Border;
 
@@ -69,6 +72,7 @@ public class CollectEarthWindow implements InitializingBean, DisposableBean{
 
 	private JFrame frame;
 	private final Logger logger = LoggerFactory.getLogger(CollectEarthWindow.class);
+	private JTextField operatorTextField;
 
 	public static final Color ERROR_COLOR = new Color(225, 124, 124);
 
@@ -177,6 +181,22 @@ public class CollectEarthWindow implements InitializingBean, DisposableBean{
 		disableMenuItems();
 	}
 
+	private void updateOperatorName() {
+		final String operatorName = operatorTextField.getText().trim();
+		if( !operatorName.equals(localPropertiesService.getOperator() ) ) {
+			if (operatorName.length() > 5 && operatorName.length() < 50 ) {
+				localPropertiesService.saveOperator(operatorName);
+				operatorTextField.setBackground(Color.white);
+				JOptionPane.showMessageDialog(getFrame(), Messages.getString("CollectEarthWindow.65"), //$NON-NLS-1$
+						Messages.getString("CollectEarthWindow.66"), JOptionPane.INFORMATION_MESSAGE); //$NON-NLS-1$
+			} else{
+				JOptionPane.showMessageDialog(getFrame(), Messages.getString("CollectEarthWindow.33"), //$NON-NLS-1$
+						Messages.getString("CollectEarthWindow.34"), JOptionPane.ERROR_MESSAGE); //$NON-NLS-1$
+				operatorTextField.setText(getOperator());
+			}
+		}
+	}
+	
 	private void initializePanel() {
 		final JPanel pane = new JPanel(new GridBagLayout());
 
@@ -188,7 +208,7 @@ public class CollectEarthWindow implements InitializingBean, DisposableBean{
 
 		final GridBagConstraints c = new GridBagConstraints();
 
-		final JTextField operatorTextField = new JTextField(getOperator(), 30);
+		operatorTextField = new JTextField(getOperator(), 30);
 		if (StringUtils.isBlank(getOperator())) {
 			operatorTextField.setBackground(ERROR_COLOR);
 		}
@@ -196,7 +216,7 @@ public class CollectEarthWindow implements InitializingBean, DisposableBean{
 		final JLabel operatorTextLabel = new JLabel(Messages.getString("CollectEarthWindow.26"), SwingConstants.CENTER); //$NON-NLS-1$
 		operatorTextLabel.setSize(100, 20);
 
-		final JButton updateOperator = new JButton(Messages.getString("CollectEarthWindow.27")); //$NON-NLS-1$
+		//		final JButton updateOperator = new JButton(Messages.getString("CollectEarthWindow.27")); //$NON-NLS-1$
 		c.insets = new Insets(3, 3, 3, 3);
 		c.fill = GridBagConstraints.HORIZONTAL;
 		c.gridx = 0;
@@ -210,7 +230,7 @@ public class CollectEarthWindow implements InitializingBean, DisposableBean{
 
 		c.gridx = 2;
 		c.gridy = 0;
-		pane.add(updateOperator, c);
+		//		pane.add(updateOperator, c);
 
 		c.gridx = 0;
 		c.gridy++;
@@ -228,18 +248,15 @@ public class CollectEarthWindow implements InitializingBean, DisposableBean{
 
 		getFrame().getContentPane().add(pane);
 
-		updateOperator.addActionListener( e -> {
-			final String operatorName = operatorTextField.getText().trim();
-			if (operatorName.length() > 5 && operatorName.length() < 50) {
-				localPropertiesService.saveOperator(operatorName);
-				operatorTextField.setBackground(Color.white);
-			} else {
-				JOptionPane.showMessageDialog(getFrame(), Messages.getString("CollectEarthWindow.33"), //$NON-NLS-1$
-						Messages.getString("CollectEarthWindow.34"), JOptionPane.ERROR_MESSAGE); //$NON-NLS-1$
-				operatorTextField.setText(getOperator());
+		// Three seconds after the last key is typed on hte text field the operator name changes on the properties service
+		Timer timerOperatorChanged = new Timer(3000, e-> updateOperatorName() );	
+		
+		operatorTextField.addKeyListener( new KeyAdapter() {
+			@Override
+			public void keyTyped(KeyEvent e) {
+				timerOperatorChanged.restart();
 			}
 		});
-
 	}
 
 	private void initializeWindow() {
