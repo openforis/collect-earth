@@ -84,7 +84,7 @@ public class EarthConstants {
 	}
 	
 	public enum UI_LANGUAGE{ 
-		FR( "Français", new Locale("fr", "FR") ) , EN( "English", new Locale("en", "EN") ), ES( "Español", new Locale("es", "ES")), PT("Português", new Locale("pt","PT") ), VI("tiếng Việt", new Locale("vi","VI") ) , LO("Lao", new Locale("lo","LO")), MN("Монгол", new Locale("mn","MN") ), HI("हिंदी", new Locale("hi","HI") ) ; //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$ //$NON-NLS-4$ //$NON-NLS-5$ //$NON-NLS-6$ //$NON-NLS-7$ //$NON-NLS-8$ //$NON-NLS-9$ //$NON-NLS-10$ //$NON-NLS-11$ //$NON-NLS-12$
+		FR( "Français", new Locale("fr", "FR") ) , EN( "English", new Locale("en", "EN") ), ES( "Español", new Locale("es", "ES")), PT("Português", new Locale("pt","PT") ), VI("tiếng Việt", new Locale("vi","VI") ) , LO("Lao", new Locale("lo","LO")), MN("Монгол", new Locale("mn","MN") ), HI("हिंदी", new Locale("hi","HI") ), RU("Pусский", new Locale("ru","RU") ) ; //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$ //$NON-NLS-4$ //$NON-NLS-5$ //$NON-NLS-6$ //$NON-NLS-7$ //$NON-NLS-8$ //$NON-NLS-9$ //$NON-NLS-10$ //$NON-NLS-11$ //$NON-NLS-12$
 		
 		private Locale locale;
 		private String label;

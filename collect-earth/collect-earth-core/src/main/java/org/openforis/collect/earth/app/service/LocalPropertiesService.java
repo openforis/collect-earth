@@ -500,7 +500,7 @@ public class LocalPropertiesService extends Observable{
 
 
 	public void setLastExportedDate(String surveyName) {
-		setValue(getExportedSurveyName(surveyName), System.currentTimeMillis() + "", true);
+		setValue(getExportedSurveyName(surveyName), Long.toString( System.currentTimeMillis() ), true );
 	}
 
 	public void setModelVersionName( String modelVersionName) {
