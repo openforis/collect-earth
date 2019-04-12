@@ -6,8 +6,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [1.8.0 Unreleased]
 
-### IMPORTANT : Moved to Java 11. This means that users cannot update through the updater to this version, they will need to install the software anew (the data stored will not be changed)
-
 ### Added
 - Added the Changelog mechanism to keep track of changes to the code 
 - Added a link to this Change Log from the About dialog
