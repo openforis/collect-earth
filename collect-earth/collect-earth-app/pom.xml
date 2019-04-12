@@ -178,6 +178,6 @@
 	</build>
 
   <scm>
-    <tag>collect-earth-1.6.36</tag>
+    <tag>collect-earth-1.8.0</tag>
   </scm>
 </project>
