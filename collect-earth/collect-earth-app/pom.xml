@@ -4,7 +4,7 @@
 	<parent>
 		<groupId>org.openforis.collect.earth</groupId>
 		<artifactId>collect-earth</artifactId>
-		<version>1.8.0-SNAPSHOT</version>
+		<version>1.8.1-SNAPSHOT</version>
 	</parent>
 
 	<name>Collect Earth Application</name>
@@ -72,8 +72,7 @@
 		<dependency>
 			<groupId>org.xerial</groupId>
 			<artifactId>sqlite-jdbc</artifactId>
-			<version>3.27.2</version>
-			<!-- This latest version provokes an exception in Linux! <version>3.8.7</version> -->
+			<version>3.27.2.1</version>
 		</dependency>
 		<dependency>
 			<groupId>org.postgresql</groupId>
@@ -178,6 +177,6 @@
 	</build>
 
   <scm>
-    <tag>collect-earth-1.6.36</tag>
+    <tag>collect-earth-1.8.0</tag>
   </scm>
 </project>

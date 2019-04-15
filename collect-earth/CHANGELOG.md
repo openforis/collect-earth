@@ -4,9 +4,7 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [1.8.0 Unreleased]
-
-### IMPORTANT : Moved to Java 11. This means that users cannot update through the updater to this version, they will need to install the software anew (the data stored will not be changed)
+## [1.8.0] - 2019-04-12
 
 ### Added
 - Added the Changelog mechanism to keep track of changes to the code 
