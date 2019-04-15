@@ -44,6 +44,7 @@ import javax.swing.border.TitledBorder;
 import javax.swing.event.DocumentEvent;
 import javax.swing.event.DocumentListener;
 
+import org.apache.commons.lang3.StringUtils;
 import org.openforis.collect.earth.app.CollectEarthUtils;
 import org.openforis.collect.earth.app.EarthConstants;
 import org.openforis.collect.earth.app.EarthConstants.CollectDBDriver;
@@ -930,9 +931,15 @@ public class PropertiesDialog extends JDialog {
 						new ComboBoxItem(9, "3x3"), new ComboBoxItem(16, "4x4"), new ComboBoxItem(25, "5x5"), //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$
 						new ComboBoxItem(36, "6x6"), //$NON-NLS-1$
 						new ComboBoxItem(49, "7x7") }); //$NON-NLS-1$
-		comboNumberOfPoints.setSelectedItem(new ComboBoxItem(
-				Integer.parseInt(localPropertiesService.getValue(EarthProperty.NUMBER_OF_SAMPLING_POINTS_IN_PLOT)),
-				"")); //$NON-NLS-1$
+		if( StringUtils.isNotBlank( localPropertiesService.getValue(EarthProperty.NUMBER_OF_SAMPLING_POINTS_IN_PLOT) ) ){
+			try {
+				comboNumberOfPoints.setSelectedItem(new ComboBoxItem(
+						Integer.parseInt(localPropertiesService.getValue(EarthProperty.NUMBER_OF_SAMPLING_POINTS_IN_PLOT)),
+						"")); //$NON-NLS-1$
+			} catch (NumberFormatException e1) {
+				logger.error("This should be a number {}", localPropertiesService.getValue(EarthProperty.NUMBER_OF_SAMPLING_POINTS_IN_PLOT), e1);
+			}
+		}
 		propertyToComponent.put(EarthProperty.NUMBER_OF_SAMPLING_POINTS_IN_PLOT,
 				new JComponent[] { comboNumberOfPoints });
 
