@@ -549,8 +549,11 @@ public class BrowserService  implements InitializingBean, Observer{
 					try {
 						String latitude = placemarkObject.getCoord().getLatitude();
 						String longitude = placemarkObject.getCoord().getLongitude();
+						String id = placemarkObject.getPlacemarkId();
+
 						String url = localPropertiesService.getExtraMap();
-						url = url.replaceAll("LATITUDE", latitude).replaceAll("LONGITUDE" , longitude);
+						url = url.replaceAll("LATITUDE", latitude).replaceAll("LONGITUDE" , longitude).replaceAll("PLOT_ID" , id);
+						
 						webDriverExtraMap = navigateTo( url, driverCopy);
 					} catch (final Exception e) {
 						logger.error("Problems loading Yandex", e);
