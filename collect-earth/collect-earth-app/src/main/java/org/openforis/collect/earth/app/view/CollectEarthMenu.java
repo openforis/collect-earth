@@ -96,7 +96,7 @@ public class CollectEarthMenu extends JMenuBar implements InitializingBean {
 		// Build help menu in the menu bar.
 		this.add(getHelpMenu());
 	}
-	
+
 	@Override
 	public void afterPropertiesSet() throws Exception {
 		init();
@@ -105,8 +105,16 @@ public class CollectEarthMenu extends JMenuBar implements InitializingBean {
 	@Override
 	public JMenu getHelpMenu() {
 		JMenu menuHelp = new JMenu(Messages.getString("CollectEarthWindow.16")); //$NON-NLS-1$
+		JMenuItem menuItem;
+		File surveyGuide = earthSurveyService.getSurveyGuide();
+		if( surveyGuide != null ) {
+			menuItem = new JMenuItem(Messages.getString("CollectEarthWindow.70")); //$NON-NLS-1$
+			menuItem.addActionListener(new OpenOSFileListener( surveyGuide) );
+			menuHelp.add(menuItem);
+			menuHelp.addSeparator();
+		}
 
-		JMenuItem menuItem = new JMenuItem(Messages.getString("CollectEarthWindow.56")); //$NON-NLS-1$
+		menuItem = new JMenuItem(Messages.getString("CollectEarthWindow.56")); //$NON-NLS-1$
 		menuItem.addActionListener(new OpenAboutDialogListener(frame, Messages.getString("CollectEarthWindow.62"))); //$NON-NLS-1$
 		menuHelp.add(menuItem);
 
@@ -116,8 +124,9 @@ public class CollectEarthMenu extends JMenuBar implements InitializingBean {
 		menuHelp.add(menuItem);
 
 		menuItem = new JMenuItem(Messages.getString("CollectEarthWindow.50")); //$NON-NLS-1$
-		menuItem.addActionListener(new OpenUserManualListener());
+		menuItem.addActionListener(new OpenOSFileListener( new File("UserManual.pdf")));
 		menuHelp.add(menuItem);
+
 
 		menuItem = new JMenuItem(Messages.getString("CollectEarthWindow.64")); //$NON-NLS-1$
 		menuItem.addActionListener(new OpenSupportForum());
@@ -359,9 +368,9 @@ public class CollectEarthMenu extends JMenuBar implements InitializingBean {
 				localPropertiesService.setUiLanguage(language);
 
 				SwingUtilities.invokeLater( () -> {
-						getFrame().getContentPane().removeAll();
-						getFrame().dispose();
-						collectEarthWindow.openWindow();
+					getFrame().getContentPane().removeAll();
+					getFrame().dispose();
+					collectEarthWindow.openWindow();
 				});
 
 			} catch (final Exception ex) {

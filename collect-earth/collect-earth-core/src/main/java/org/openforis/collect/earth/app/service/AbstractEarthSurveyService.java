@@ -11,6 +11,7 @@ import static org.openforis.collect.earth.app.EarthConstants.PLACEMARK_FOUND_PAR
 import static org.openforis.collect.earth.app.EarthConstants.ROOT_ENTITY_NAME;
 import static org.openforis.collect.earth.app.EarthConstants.SKIP_FILLED_PLOT_PARAMETER;
 
+import java.io.File;
 import java.text.SimpleDateFormat;
 import java.util.Date;
 import java.util.HashMap;
@@ -359,6 +360,14 @@ public abstract class AbstractEarthSurveyService {
 		parameters.put(ACTIVELY_SAVED_PARAMETER, Boolean.toString(value)); // $NON-NLS-1$
 	}
 
+	public File getSurveyGuide() {
+		File surveyGuide = new File(localPropertiesService.getProjectFolder(), "survey_guide.pdf" );
+		if( surveyGuide.exists() && surveyGuide.canRead() ) {
+			return surveyGuide;
+		}else {
+			return null;
+		}
+	}
 	@Deprecated
 	public synchronized boolean storePlacemarkOld(Map<String, String> parameters) {
 

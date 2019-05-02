@@ -9,18 +9,24 @@ import java.io.IOException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-public class OpenUserManualListener implements ActionListener {
+public class OpenOSFileListener implements ActionListener {
 	
-	private final Logger logger = LoggerFactory.getLogger(OpenUserManualListener.class);
+	private final Logger logger = LoggerFactory.getLogger(OpenOSFileListener.class);
 	
+	private File fileToOpen;
+	
+	public OpenOSFileListener(File fileToOpen) {
+		super();
+		this.fileToOpen = fileToOpen;
+	}
+
 	@Override
 	public void actionPerformed(ActionEvent e) {
 		if (Desktop.isDesktopSupported()) {
 		    try {
-		        File myFile = new File("UserManual.pdf"); //$NON-NLS-1$
-		        Desktop.getDesktop().open(myFile);
+		        Desktop.getDesktop().open(fileToOpen);
 		    } catch (IOException ex) {
-		        logger.error("No application registered to open PDF",e); //$NON-NLS-1$
+		        logger.error("No application registered in the OS to open file " + fileToOpen.getName(),e); //$NON-NLS-1$
 		    }
 		}
 		
