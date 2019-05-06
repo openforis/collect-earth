@@ -109,7 +109,7 @@ public class CollectEarthMenu extends JMenuBar implements InitializingBean {
 		File surveyGuide = earthSurveyService.getSurveyGuide();
 		if( surveyGuide != null ) {
 			menuItem = new JMenuItem(Messages.getString("CollectEarthWindow.70")); //$NON-NLS-1$
-			menuItem.addActionListener(new OpenOSFileListener( surveyGuide) );
+			menuItem.addActionListener( (e) -> CollectEarthUtils.openFile( surveyGuide) );
 			menuHelp.add(menuItem);
 			menuHelp.addSeparator();
 		}
@@ -124,7 +124,7 @@ public class CollectEarthMenu extends JMenuBar implements InitializingBean {
 		menuHelp.add(menuItem);
 
 		menuItem = new JMenuItem(Messages.getString("CollectEarthWindow.50")); //$NON-NLS-1$
-		menuItem.addActionListener(new OpenOSFileListener( new File("UserManual.pdf")));
+		menuItem.addActionListener( (e) -> CollectEarthUtils.openFile( new File("UserManual.pdf")));
 		menuHelp.add(menuItem);
 
 

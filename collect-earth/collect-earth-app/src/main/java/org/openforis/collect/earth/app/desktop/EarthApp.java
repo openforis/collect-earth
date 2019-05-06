@@ -1,6 +1,5 @@
 package org.openforis.collect.earth.app.desktop;
 
-import java.awt.Desktop;
 import java.awt.Image;
 import java.awt.SplashScreen;
 import java.awt.Window;
@@ -370,10 +369,8 @@ public class EarthApp {
 		};
 	}
 
-	private void openKmlOnGoogleEarth() throws IOException {
-		if (Desktop.isDesktopSupported()) {
-			Desktop.getDesktop().open(new File(KmlGeneratorService.KML_NETWORK_LINK_STARTER));
-		} else {
+	private void openKmlOnGoogleEarth(){
+		if (! CollectEarthUtils.openFile( new File(KmlGeneratorService.KML_NETWORK_LINK_STARTER)) ) {
 			showMessage("The KML file cannot be open at " + KmlGeneratorService.KML_NETWORK_LINK_STARTER); //$NON-NLS-1$
 		}
 	}

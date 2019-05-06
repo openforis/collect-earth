@@ -25,8 +25,7 @@ public abstract class ProcessMonitorDialog<V,S extends ProcessStatus> extends Th
 
 	protected abstract String getProcessActionMessage();
 	
-	@Override
-	public synchronized void run() {
+	public synchronized void monitorProgress() {
 
 		new Thread("Monitoring progress of a process") {
 			@Override
