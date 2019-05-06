@@ -16,7 +16,7 @@
 		<installer-build-path>${project.build.directory}/installer</installer-build-path>
 		<installbuilder-file-name>CollectEarthWithSaiku.xml</installbuilder-file-name>
 		<installbuilder-file-name-updater>CollectEarthUpdater.xml</installbuilder-file-name-updater>
-		<jre.version>11.0.2</jre.version>
+		<jre.version>1.8.0_121</jre.version>
 		<!-- installer file names -->
 		<windows-installer-file-name>CollectEarth-${project.version}-windows-installer.exe</windows-installer-file-name>
 		<linux-installer-file-name>CollectEarth-${project.version}-linux-installer.run</linux-installer-file-name>
