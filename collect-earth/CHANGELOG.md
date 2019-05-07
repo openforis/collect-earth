@@ -11,7 +11,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added support to the new Survey Guide PDF document file. If a Survey Guide file is added to the survey it can be opened directly within the Help menu
 
 ### Changed
-- 
+- Updated Chromedriver to be compatible with Chrome version 74
+- Fixed the progress monitor not working when exporting data (CSV or XML)
 
 ### Removed
 - 

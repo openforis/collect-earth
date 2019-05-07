@@ -1,12 +1,12 @@
 package org.openforis.collect.earth.app.view;
 
-import java.awt.Desktop;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 import java.io.File;
 import java.io.IOException;
 
 import org.apache.commons.lang3.SystemUtils;
+import org.openforis.collect.earth.app.CollectEarthUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -40,9 +40,9 @@ public class CheckForUpdatesListener implements ActionListener {
 				}
 			}else{
 				
-				Desktop.getDesktop().open(autoupdateFile);
+				CollectEarthUtils.openFile( autoupdateFile );
 			}
-		} catch (IOException e1) {
+		} catch (Exception e1) {
 			logger.error("Error when opening the Autoupdate executable", e1); //$NON-NLS-1$
 		}
 	}

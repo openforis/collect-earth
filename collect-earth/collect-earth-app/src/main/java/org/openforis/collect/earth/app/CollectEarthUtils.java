@@ -169,6 +169,19 @@ public class CollectEarthUtils {
 			}
 		}
 	}
+	
+	public static boolean openFile(File fileToOpenWithOSViewer) {
+		boolean success = false;
+		if (Desktop.isDesktopSupported()) {
+			try {
+				Desktop.getDesktop().open(fileToOpenWithOSViewer);
+				success = true;
+			} catch (IOException ex) {
+				logger.warn("No application registered to open file {}", fileToOpenWithOSViewer.getAbsolutePath() ); //$NON-NLS-1$
+			}
+		}
+		return success;
+	}
 
 	
 
@@ -183,6 +196,7 @@ public class CollectEarthUtils {
 			String url = "jdbc:postgresql://"+host+":"+port+"/"+dbName;
 			conn = DriverManager.getConnection(url, username, password);
 
+			@SuppressWarnings("unused")
 			boolean reachable = conn.isValid(10);// 10 sec
 		} catch(ClassNotFoundException e){
 			logger.error( "No PostgreSQL driver found", e );   
