@@ -549,7 +549,7 @@ public class BrowserService  implements InitializingBean, Observer{
 					try {
 						String latitude = placemarkObject.getCoord().getLatitude();
 						String longitude = placemarkObject.getCoord().getLongitude();
-						String id = placemarkObject.getPlacemarkId();
+						String id = placemarkObject.getPlacemarkId().split(",")[0]; // for cases where ID also has round, then the id string woutl be something like "plotId,round", we only want the ID
 
 						String url = localPropertiesService.getExtraMap();
 						url = url.replaceAll("LATITUDE", latitude).replaceAll("LONGITUDE" , longitude).replaceAll("PLOT_ID" , id);
