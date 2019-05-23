@@ -52,7 +52,9 @@ public class QuerySigrid {
 		//querySigrid.writeCsvFromBoundingBox( new Double[] {11.7d, 37.5d, 7.2d, 30d}, 1000, 1, "Tunisia_1000");
 		//querySigrid.writeCsvFromBoundingBox( new Double[] {6.034, 14.862, 1.687, 12.725}, 1000, 1, "FFEM_1000");
 		//querySigrid.writeCsvFromBoundingBox( new Double[] {34.434541, -7.869966, 21.344595, -18.697429}, 1000, 1, "Zambia");
-		querySigrid.writeCsvFromBoundingBox( new Double[] {30.88, -2.3, 28.98, -4.5}, 1000, 1, "Burundi");
+		//querySigrid.writeCsvFromBoundingBox( new Double[] {30.88, -2.3, 28.98, -4.5}, 1000, 1, "Burundi");
+		//querySigrid.writeCsvFromBoundingBox( new Double[] {29.8, -28.5, 26.7, -30.8}, 1000, 1, "Lesotho");
+		querySigrid.writeCsvFromBoundingBox( new Double[] {47.1, 43.7, 39.8, 40.8}, 1000, 1, "Georgia");
 		System.exit(0);
 	}
 }
