@@ -32,6 +32,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
+import org.springframework.util.StringUtils;
 
 import au.com.bytecode.opencsv.CSVReader;
 
@@ -174,7 +175,7 @@ public class MissingPlotService {
 		int i = 0;
 		for (final String plotFile : plotFiles) {
 
-			infiniteProgressMonitor.updateProgress( ++i, plotFiles.size(), plotFile );
+			infiniteProgressMonitor.updateProgress( ++i, plotFiles.size(), StringUtils.getFilename( StringUtils.cleanPath( plotFile ) ) );
 			missingPlotIdsByFile.put(plotFile, new ArrayList<String[]>());
 
 			final List<String[]> plotDataInFile = plotDataByFIle.get(plotFile);
