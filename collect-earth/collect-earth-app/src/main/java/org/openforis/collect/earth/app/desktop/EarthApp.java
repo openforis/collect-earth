@@ -14,7 +14,6 @@ import java.net.Socket;
 import java.net.URL;
 import java.net.URLConnection;
 import java.net.URLEncoder;
-import java.util.Observable;
 import java.util.Observer;
 
 import javax.swing.ImageIcon;
@@ -340,10 +339,8 @@ public class EarthApp {
 	}
 
 	private static Observer getServerObserver() {
-		return new Observer() {
-			@Override
-			public void update(Observable o, Object arg) {
-				ServerInitializationEvent initializationEvent = (ServerInitializationEvent) arg;
+		return (observable, initializationEvent) ->{
+				initializationEvent = (ServerInitializationEvent) initializationEvent;
 				if (initializationEvent.equals(ServerInitializationEvent.SERVER_STARTED_NO_DB_CONNECTION_EVENT)) {
 					serverController = null;
 				}
@@ -365,7 +362,6 @@ public class EarthApp {
 						logger.error("Error generating KML file", e); //$NON-NLS-1$
 					}
 				}
-			}
 		};
 	}
 

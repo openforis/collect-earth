@@ -183,19 +183,12 @@ public class PropertiesDialog extends JDialog {
 
 		final ButtonGroup browserChooser = new ButtonGroup();
 		final JComponent[] browsers = propertyToComponent.get(EarthProperty.BROWSER_TO_USE);
-		ActionListener restartListener = new ActionListener() {
+		
+		for (final JComponent browserRadioButton : browsers) {
+			browserChooserPanel.add(browserRadioButton);
+			browserChooser.add((AbstractButton) browserRadioButton);
 
-			@Override
-			public void actionPerformed(ActionEvent e) {
-				setRestartRequired(true);
-
-			}
-		};
-		for (final JComponent broserRadioButton : browsers) {
-			browserChooserPanel.add(broserRadioButton);
-			browserChooser.add((AbstractButton) broserRadioButton);
-
-			((JRadioButton) broserRadioButton).addActionListener(restartListener);
+			((JRadioButton) browserRadioButton).addActionListener(e -> setRestartRequired(true));
 		}
 		constraints.gridy++;
 		panel.add(browserChooserPanel, constraints);
@@ -222,13 +215,19 @@ public class PropertiesDialog extends JDialog {
 					new ApplyOptionChangesListener(this, localPropertiesService, propertyToComponent) {
 						@Override
 						protected void applyProperties() {
-							savePropertyValues();
-							if (isRestartRequired()) {
-								
-								restartEarth();
-							} else {
-								EarthApp.executeKmlLoadAsynchronously(PropertiesDialog.this);
-							}
+							new Thread("Applying properties dialog") {
+								@Override
+								public void run() {
+									savePropertyValues();
+									if (isRestartRequired()) {
+										
+										restartEarth();
+									} else {
+										EarthApp.executeKmlLoadAsynchronously(PropertiesDialog.this);
+									}
+								};
+							
+							}.start();
 						}
 					});
 		}
@@ -786,6 +785,7 @@ public class PropertiesDialog extends JDialog {
 			constraints.gridy++;
 
 			dbTypeButton.addActionListener(getDbTypeListener());
+			dbTypeButton.addActionListener(e -> setRestartRequired(true));
 
 			if (dbTypeButton.getName().equals(EarthConstants.CollectDBDriver.POSTGRESQL.name())) {
 				typeOfDbPanel.add(postgresPanel, constraints);

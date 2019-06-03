@@ -67,7 +67,7 @@ public class ServerController extends Observable {
 	private Server server;
 	private final Logger logger = LoggerFactory.getLogger(ServerController.class);
 	private WebAppContext root;
-	static LocalPropertiesService localPropertiesService = new LocalPropertiesService();
+	static LocalPropertiesService localPropertiesService;
 
 	public WebApplicationContext getContext() {
 		WebApplicationContext webApplicationContext = null;
@@ -195,6 +195,8 @@ public class ServerController extends Observable {
 
 	public void startServer(Observer observeInitialization) throws Exception {
 
+		localPropertiesService = new LocalPropertiesService();
+				 
 		this.addObserver(observeInitialization);
 
 		boolean postgresConnectionSwitchedtoSqlite = initilizeDataSources();
