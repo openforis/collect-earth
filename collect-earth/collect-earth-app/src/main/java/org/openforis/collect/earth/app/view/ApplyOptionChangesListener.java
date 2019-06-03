@@ -13,6 +13,7 @@ import javax.swing.JComponent;
 import javax.swing.JList;
 import javax.swing.JOptionPane;
 import javax.swing.JRadioButton;
+import javax.swing.SwingUtilities;
 import javax.swing.text.JTextComponent;
 
 import org.openforis.collect.earth.app.EarthConstants.SAMPLE_SHAPE;
@@ -109,12 +110,13 @@ public abstract class ApplyOptionChangesListener implements ActionListener {
 				}
 			}.start();
 
-
-			JOptionPane.showMessageDialog( callingDialog, Messages.getString("OptionWizard.20"), //$NON-NLS-1$
-					Messages.getString("OptionWizard.21"), JOptionPane.INFORMATION_MESSAGE); //$NON-NLS-1$
-			if( callingDialog!= null && callingDialog instanceof PropertiesDialog){
-				callingDialog.dispose();
-			}
+			SwingUtilities.invokeLater( ()->{
+				JOptionPane.showMessageDialog( callingDialog, Messages.getString("OptionWizard.20"), //$NON-NLS-1$
+						Messages.getString("OptionWizard.21"), JOptionPane.INFORMATION_MESSAGE); //$NON-NLS-1$
+				if( callingDialog!= null && callingDialog instanceof PropertiesDialog){
+					callingDialog.dispose();
+				}
+			});
 
 		} catch (final Exception e) {
 			logger.error("Error when re-generating the KML code to open in GE ", e); //$NON-NLS-1$
