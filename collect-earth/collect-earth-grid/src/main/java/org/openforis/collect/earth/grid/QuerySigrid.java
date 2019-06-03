@@ -37,7 +37,7 @@ public class QuerySigrid {
 						);
 			}
 		} catch (SQLException e) {
-			logger.error("Error readig results from DB", e);
+			//logger.error("Error readig results from DB", e);
 		} finally {
 			csv.closeStore();
 			database.closeStore();
@@ -54,7 +54,9 @@ public class QuerySigrid {
 		//querySigrid.writeCsvFromBoundingBox( new Double[] {34.434541, -7.869966, 21.344595, -18.697429}, 1000, 1, "Zambia");
 		//querySigrid.writeCsvFromBoundingBox( new Double[] {30.88, -2.3, 28.98, -4.5}, 1000, 1, "Burundi");
 		//querySigrid.writeCsvFromBoundingBox( new Double[] {29.8, -28.5, 26.7, -30.8}, 1000, 1, "Lesotho");
-		querySigrid.writeCsvFromBoundingBox( new Double[] {47.1, 43.7, 39.8, 40.8}, 1000, 1, "Georgia");
+		//querySigrid.writeCsvFromBoundingBox( new Double[] {47.1, 43.7, 39.8, 40.8}, 1000, 1, "Georgia");
+		//querySigrid.writeCsvFromBoundingBox( new Double[] {43.6, 12.8, 41.49, 10.77}, 1000, 1, "Djibouti");
+		querySigrid.writeCsvFromBoundingBox( new Double[] {4.2, 13.25, -3.88, 4.29}, 1000, 4, "Ghanna_4x4");
 		System.exit(0);
 	}
 }
