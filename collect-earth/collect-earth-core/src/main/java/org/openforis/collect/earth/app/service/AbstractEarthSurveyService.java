@@ -490,12 +490,14 @@ public abstract class AbstractEarthSurveyService {
 						setPlacemarkSavedActively(record, false);
 					}
 					
-					if (!placemarkAlreadySavedActively || noErrors) {
+					if (userClickOnSubmitAndValidate && noErrors) {
 						// only save data if the information is completely valid or if
 						// the record is not already completely saved (green)
 						record.setModifiedDate(new Date());
-						recordManager.save(record, sessionId);
 					}
+					
+					recordManager.save(record, sessionId);
+					
 					if (partialUpdate) {
 						return createPlacemarkLoadSuccessResult(record, changeSet);
 					} else {
