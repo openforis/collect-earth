@@ -100,10 +100,12 @@ public class JFilePicker extends JPanel {
 	}
 
 	private void buttonActionPerformed(ActionEvent evt) {
-		if (mode == DlgMode.MODE_OPEN && fileChooser.showOpenDialog(this) == JFileChooser.APPROVE_OPTION) {
-			getTextField().setText( fileChooser.getSelectedFile().getAbsolutePath() );
-		} else if (mode == DlgMode.MODE_SAVE && fileChooser.showSaveDialog(this) == JFileChooser.APPROVE_OPTION) {
-			getTextField().setText( fileChooser.getSelectedFile().getAbsolutePath() );
+		if( fileChooser.getSelectedFile() != null ) {
+			if (mode == DlgMode.MODE_OPEN && fileChooser.showOpenDialog(this) == JFileChooser.APPROVE_OPTION) {
+				getTextField().setText( fileChooser.getSelectedFile().getAbsolutePath() );
+			} else if (mode == DlgMode.MODE_SAVE && fileChooser.showSaveDialog(this) == JFileChooser.APPROVE_OPTION) {
+				getTextField().setText( fileChooser.getSelectedFile().getAbsolutePath() );
+			}
 		}
 	}
 
