@@ -46,7 +46,7 @@ public class QuerySigrid {
 
 	public static void main(String[] args) {
 		QuerySigrid querySigrid = new QuerySigrid();
-		//Double maxX, Double maxY, Double minX, Double minY
+		//Double West, Double North, Double East, Double South
 		//querySigrid.writeCsvFromBoundingBox( new Double[] {38d,38d,-17d,14d}, 1000, 10, "NorthAfrica");
 		//querySigrid.writeCsvFromBoundingBox( new Double[] {60d,38d,-17d,-35d}, 1000, 10, "AllAfricaAfrica");
 		//querySigrid.writeCsvFromBoundingBox( new Double[] {11.7d, 37.5d, 7.2d, 30d}, 1000, 1, "Tunisia_1000");
@@ -57,7 +57,9 @@ public class QuerySigrid {
 		//querySigrid.writeCsvFromBoundingBox( new Double[] {47.1, 43.7, 39.8, 40.8}, 1000, 1, "Georgia");
 		//querySigrid.writeCsvFromBoundingBox( new Double[] {43.6, 12.8, 41.49, 10.77}, 1000, 1, "Djibouti");
 		//querySigrid.writeCsvFromBoundingBox( new Double[] {4.2, 13.25, -3.88, 4.29}, 1000, 5, "Ghanna_5x5");
-		querySigrid.writeCsvFromBoundingBox( new Double[] {-11.0, 17.0, -17.8, 10.39}, 1000, 1, "Senegal");
+		//querySigrid.writeCsvFromBoundingBox( new Double[] {-11.0, 17.0, -17.8, 10.39}, 1000, 1, "Senegal");
+		//querySigrid.writeCsvFromBoundingBox( new Double[] {36.15d, -5.51d, 11.38d, -29.09d}, 1000, 1, "Namibia_Zambia_Zimbawe_Malawi_Botswana");
+		querySigrid.writeCsvFromBoundingBox( new Double[] {32.17d, -25.62d, 30.7d, -27.5d}, 1000, 1, "Eswatini");
 		System.exit(0);
 	}
 }
