@@ -20,8 +20,8 @@
 	<properties>
 		<java.version>1.8</java.version>
 		<project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-		<collect.version>3.24.24</collect.version>
-		<spring.version>5.1.1.RELEASE</spring.version>
+		<collect.version>3.24.25</collect.version>
+		<spring.version>5.1.8.RELEASE</spring.version>
 		<project.scm.id>github.com</project.scm.id>
 	</properties>
 
