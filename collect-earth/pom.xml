@@ -2,7 +2,7 @@
 	<modelVersion>4.0.0</modelVersion>
 	<groupId>org.openforis.collect.earth</groupId>
 	<artifactId>collect-earth</artifactId>
-	<version>1.8.7</version>
+	<version>1.8.8-SNAPSHOT</version>
 	<packaging>pom</packaging>
 	<name>Collect Earth</name>
 	<description>Collect Earth - Augmented Visual Interpretation</description>
@@ -40,7 +40,7 @@
 
 	<scm>
 		<developerConnection>scm:git:https://github.com/openforis/collect-earth.git</developerConnection>
-		<tag>collect-earth-1.8.7</tag>		
+		<tag>collect-earth-1.7.10</tag>		
 	</scm>
 
 	<build>
