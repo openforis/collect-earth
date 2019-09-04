@@ -56,11 +56,15 @@ public class Strata {
 			return false;
 		return true;
 	}
+	
 	public String getFileName() {
+		// For the cases when there are / in the name, not allowed as DOS File names. 
+		String escapedStratum = stratum.replaceAll("/", "_");
+		escapedStratum = escapedStratum.replaceAll("\\\\", "_");
 		if( fileNumber == null ){
-			return stratum + ".csv";
+			return escapedStratum + ".csv";
 		}else{
-			return stratum + "_" +  (fileNumber+1 ) + ".csv"; // make usre that the first file is one and not zero
+			return escapedStratum + "_" +  (fileNumber+1 ) + ".csv"; // make user that the first file is one and not zero
 		}
 	}
 	public File getOutputFile() {

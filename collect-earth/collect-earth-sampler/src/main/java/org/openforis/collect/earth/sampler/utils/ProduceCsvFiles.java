@@ -105,7 +105,6 @@ public class ProduceCsvFiles {
 				// latitude has to be a number, otherwise it is a header
 				try {
 					Float.parseFloat( csvRow[ numberOfIdColumns +1]); // The first column after the ID column(s) should be a real number
-					
 				} catch (NumberFormatException e) {
 					// Not a number, we need to skip this row
 					rowNumber++;
@@ -137,7 +136,7 @@ public class ProduceCsvFiles {
 				Strata stratum = new Strata(stratumColumnValue, fileNumber);
 				// ROWS where the first column has the word DELETEME will not be written to the CSV file, this way we can delete unwanted repeated rows
 				if( !csvRow[0].equals("DELETEME") ) {
-					writCsvRow(csvFiles, csvRow, stratum);
+					writeCsvRow(csvFiles, csvRow, stratum);
 				}
 				rowNumber++;
 				
@@ -264,7 +263,7 @@ public class ProduceCsvFiles {
 		return lines;
 	}
 
-	private void writCsvRow(Map<Strata, CSVWriter> csvFiles, String[] csvRow,
+	private void writeCsvRow(Map<Strata, CSVWriter> csvFiles, String[] csvRow,
 			Strata toStrataFile) throws IOException {
 		CSVWriter writer = csvFiles.get( toStrataFile );
 		if( writer == null ){
