@@ -13,7 +13,7 @@ public class GenerateSigrid{
 
 	}
 
-	private static final Integer DISTANCE_BETWEEN_PLOTS_IN_METERS = 100000;
+	private static final Integer DISTANCE_BETWEEN_PLOTS_IN_METERS = 200000;
 
 	private static final Double STARTING_LONGITUDE = -169d;
 
