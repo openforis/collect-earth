@@ -63,7 +63,15 @@ public class QuerySigrid {
 		//querySigrid.writeCsvFromBoundingBox( new Double[] {30.92d, -1d, 28.78d, -2.93d}, 1000, 1, "Rwanda");
 		//querySigrid.writeCsvFromBoundingBox( new Double[] {35.13d, 4.34d, 29.49d, -1.56d}, 1000, 2, "Uganda");
 		//querySigrid.writeCsvFromBoundingBox( new Double[] {50.8d, 42d, 44.5d, 38.2d}, 1000, 1, "Azerbaijan");
-		querySigrid.writeCsvFromBoundingBox( new Double[] {1.36d, 11.28d, -3.37d, 4.64d}, 1000, 1, "Ghana");
+		//querySigrid.writeCsvFromBoundingBox( new Double[] {1.36d, 11.28d, -3.37d, 4.64d}, 1000, 1, "Ghana");
+		querySigrid.writeCsvFromBoundingBox( new Double[] {-60.84d, 15.67d, -61.52d, 13.70d}, 1000, 1, "Caribean");
+		
+		//querySigrid.writeCsvFromBoundingBox( new Double[] {77.8d, 45.00d, 77.29d, 44.58d}, 1000, 1, "Kazakhstan_CACILM");
+		//querySigrid.writeCsvFromBoundingBox( new Double[] {33.24d, 40.71d, 29.62d, 38.80d}, 1000, 1, "Turkey_CACILM");
+		//querySigrid.writeCsvFromBoundingBox( new Double[] {76.68d, 42.47d, 74.65d, 41.71d}, 1000, 1, "Kyrgyzstan_CACILM");
+		// querySigrid.writeCsvFromBoundingBox( new Double[] {59.84d, 42.13d, 59.37d, 41.8d}, 1000, 1, "Turkmenistan_Gurbansoltaneje_CACILM");
+		//querySigrid.writeCsvFromBoundingBox( new Double[] {70.5d, 38.71d, 69.8d, 38.31d}, 1000, 1, "Tajikistan_CACILM");
+		//querySigrid.writeCsvFromBoundingBox( new Double[] {65.42d, 41.45d, 62.08d, 38.9d}, 1000, 1, "Uzbekistan_CACILM");
 		System.exit(0);
 	}
 }
