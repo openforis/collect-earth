@@ -16,6 +16,7 @@
      <requestedExecutionLevel>asInvoker</requestedExecutionLevel>
        <!-- <createOsxBundleZip>1</createOsxBundleZip> -->
      <createOsxBundleDmg>1</createOsxBundleDmg>
+     <osxPlatforms>osx-intel osx-x86_64</osxPlatforms>
     <componentList>
         <include>
             <file>java.xml</file>
