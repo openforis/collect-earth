@@ -117,8 +117,6 @@
     <splashScreenDelay>1000</splashScreenDelay>
     <vendor>Open Foris Initiative</vendor>
     <windowsExecutableIcon>installer_icon.ico</windowsExecutableIcon>
-    
-	<!-- <osxPlatforms>osx-intel osx-ppc osx-10.2</osxPlatforms> -->
 	<!-- Configures the final destination of the installation log -->
    <installationLogFile>${installdir}/${project.shortName}-installLog.log</installationLogFile>
 </project>

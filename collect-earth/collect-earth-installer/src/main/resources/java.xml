@@ -190,7 +190,11 @@
 		    <classpath>${java_launcher_classpath}</classpath>
 		    <jarFile>${java_launcher_jar}</jarFile>
 		    <mainClass>${java_launcher_mainClass}</mainClass>
+                    
+                    <!-- 
+                    REMOVE THIS AS IT CREATES PROBLEMS WHEN CREATING THE LAUNCHER IN MAC 
                     <osxApplicationBundleIcon>COLLECT_EARTH_MAIN_FOLDER/collect-earth-installer/target/installer/openforis.icns</osxApplicationBundleIcon>
+                     -->
                     <osxApplicationBundleIdentifier>vnd.openforis.collectearth</osxApplicationBundleIdentifier> 
 		    <preferredJavaBinary>${java_executable}</preferredJavaBinary>
                     <runInBackground>0</runInBackground>
@@ -254,38 +258,4 @@
 	</actionGroup>
     </postInstallationActionList>
 
-    <!-- set Java information -->
-    <readyToInstallActionList>
-        <if>
-            <actionList>
-                <setInstallerVariable name="java_version_major" value="1.8" />
-				<setInstallerVariable name="java_version" value="1.8.0" />
-				<setInstallerVariable name="java_version_full" value="JAVA_VERSION_SET_POM" />
-				<setInstallerVariable name="java_version_vendor" value="Sun" />
-                <setInstallerVariable name="java_bitness" value="64"/>
-
-                <!-- determine Java binary name - javaw.exe on Windows, java otherwise -->
-                <setInstallerVariable>
-                    <name>java_executable</name>
-                    <value>${installdir}/java/bin/java</value>
-                </setInstallerVariable>
-                <setInstallerVariable>
-                    <name>java_executable</name>
-                    <value>${installdir}/java/bin/javaw.exe</value>
-                    <ruleList>
-                        <platformTest type="windows"/>
-                    </ruleList>
-                </setInstallerVariable>
-            </actionList>
-            <conditionRuleList>
-                <isTrue value="${java_install_jre}"/>
-            </conditionRuleList>
-            <elseActionList>
-                <setInstallerVariable>
-                    <name>java_executable</name>
-                    <value></value>
-                </setInstallerVariable>
-            </elseActionList>
-        </if>
-    </readyToInstallActionList>
 </component>
