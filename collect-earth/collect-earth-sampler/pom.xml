@@ -5,7 +5,7 @@
 	<parent>
 		<groupId>org.openforis.collect.earth</groupId>
 		<artifactId>collect-earth</artifactId>
-		<version>1.9.0-SNAPSHOT</version>
+		<version>1.9.0</version>
 	</parent>
 
 	<artifactId>collect-earth-sampler</artifactId>
