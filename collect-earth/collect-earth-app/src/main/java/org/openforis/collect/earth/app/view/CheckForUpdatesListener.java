@@ -7,6 +7,7 @@ import java.io.IOException;
 
 import org.apache.commons.lang3.SystemUtils;
 import org.openforis.collect.earth.app.CollectEarthUtils;
+import org.openforis.collect.earth.app.service.ProcessLoggerThread;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -34,7 +35,11 @@ public class CheckForUpdatesListener implements ActionListener {
 					final ProcessBuilder builder = new ProcessBuilder(new String[] { autoupdateFile.getAbsolutePath() });
 					
 					builder.redirectErrorStream(true);
-					builder.start();
+					Process p = builder.start();
+			
+					(new ProcessLoggerThread(p.getInputStream(), Boolean.FALSE)).start();
+					(new ProcessLoggerThread(p.getErrorStream(), Boolean.TRUE)).start();
+			
 				} catch (final IOException e2) {
 					logger.error("Error when starting the Autoupdate executable", e2); //$NON-NLS-1$
 				}
@@ -56,7 +61,9 @@ public class CheckForUpdatesListener implements ActionListener {
 				autoUpdateExecutable += ".exe"; //$NON-NLS-1$
 			}else if (SystemUtils.IS_OS_MAC){
 				autoUpdateExecutable += ".app"; //$NON-NLS-1$
-			}else if ( SystemUtils.IS_OS_UNIX){
+			}else if ( SystemUtils.IS_OS_UNIX && System.getProperty("sun.arch.data.model").equals("64")){
+				autoUpdateExecutable += "-x64.run"; //$NON-NLS-1$
+			}else if ( SystemUtils.IS_OS_UNIX ) {
 				autoUpdateExecutable += ".run"; //$NON-NLS-1$
 			}
 
