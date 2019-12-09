@@ -116,7 +116,7 @@ public class BrowserService  implements InitializingBean, Observer{
 	private final Logger logger = LoggerFactory.getLogger(BrowserService.class);
 	private static final String KML_FOR_GEE_JS = "resources/javascript_gee.fmt";
 	private static final Configuration cfg = new Configuration( new Version("2.3.23"));
-	private RemoteWebDriver webDriverEE, webDriverBing, webDriverBaidu, webDriverTimelapse, webDriverGeeCodeEditor, webDriverHere, webDriverStreetView, webDriverYandex, webDriverExtraMap;
+	private RemoteWebDriver webDriverEE, webDriverBing, webDriverBaidu, webDriverTimelapse, webDriverGeeCodeEditor, webDriverHere, webDriverStreetView, webDriverYandex, webDriverPlanet, webDriverExtraMap;
 
 	private static boolean geeMethodUpdated = false;
 	
@@ -450,7 +450,14 @@ public class BrowserService  implements InitializingBean, Observer{
 				@Override
 				public void run() {
 					try {
-						webDriverBing = navigateTo(geoLocalizeTemplateService.getBingUrl(placemarkObject,  localPropertiesService.getValue( EarthProperty.BING_MAPS_KEY), GeolocalizeMapService.FREEMARKER_BING_HTML_TEMPLATE).toString(), driverCopy);
+						
+						webDriverBing = navigateTo(
+								geoLocalizeTemplateService.getUrlToFreemarkerOutput(
+										placemarkObject,								
+										GeolocalizeMapService.FREEMARKER_BING_HTML_TEMPLATE,
+										"bingMapsKey", localPropertiesService.getValue( EarthProperty.BING_MAPS_KEY)
+								).toString(), driverCopy);
+												
 					} catch (final Exception e) {
 						logger.error("Problems loading Bing", e);
 					}
@@ -461,6 +468,49 @@ public class BrowserService  implements InitializingBean, Observer{
 
 		}
 	}
+	
+	/**
+	 * Opens a browser window with the Planet Basemaps representation of the plot.
+	 * @param placemarkObject The data of the plot.
+	 * @throws BrowserNotFoundException In case the browser could not be found
+	 * 
+	 */
+	public void openPlanetMaps(SimplePlacemarkObject placemarkObject) throws BrowserNotFoundException {
+
+		if (localPropertiesService.isPlanetMapsSupported()) {
+
+			if (webDriverPlanet == null) {
+				webDriverPlanet = initBrowser();
+			}
+
+			final RemoteWebDriver driverCopy = webDriverPlanet;
+
+			final Thread loadBingThread = new Thread("Opening Planet BaseMaps window") {
+				@Override
+				public void run() {
+					URL planetMapUrlWithText = geoLocalizeTemplateService.getUrlToFreemarkerOutput(
+							placemarkObject,								
+							GeolocalizeMapService.FREEMARKER_PLANET_URL_TEMPLATE,
+							"zoom", "18"
+					);					
+					try (BufferedReader read = new BufferedReader(new InputStreamReader(planetMapUrlWithText.openStream()))){
+						StringBuilder url = new StringBuilder();
+				        String line;
+						while ( ( line = read.readLine()) != null)
+				        	url.append( line.trim() );
+				        webDriverPlanet = navigateTo(url.toString(), driverCopy);
+				        
+					} catch (final Exception e) {
+						logger.error("Problems loading Bing", e);
+					}
+				}
+			};
+
+			loadBingThread.start();
+
+		}
+	}
+	
 	
 	/**
 	 * Opens a browser window with the Baidu Maps representation of the plot.
@@ -482,7 +532,11 @@ public class BrowserService  implements InitializingBean, Observer{
 				@Override
 				public void run() {
 					try {
-						webDriverBaidu = navigateTo(geoLocalizeTemplateService.getBaiduUrl(placemarkObject,  GeolocalizeMapService.FREEMARKER_BAIDU_HTML_TEMPLATE).toString(), driverCopy);
+						webDriverBaidu = navigateTo(
+								geoLocalizeTemplateService.getUrlToFreemarkerOutput(
+										placemarkObject,								
+										GeolocalizeMapService.FREEMARKER_BAIDU_HTML_TEMPLATE
+								).toString(), driverCopy);
 					} catch (final Exception e) {
 						logger.error("Problems loading Bing", e);
 					}
@@ -515,7 +569,11 @@ public class BrowserService  implements InitializingBean, Observer{
 				@Override
 				public void run() {
 					try {
-						webDriverYandex = navigateTo(geoLocalizeTemplateService.getYandexUrl(placemarkObject,  GeolocalizeMapService.FREEMARKER_YANDEX_HTML_TEMPLATE).toString(), driverCopy);
+						webDriverBaidu = navigateTo(
+								geoLocalizeTemplateService.getUrlToFreemarkerOutput(
+										placemarkObject,								
+										GeolocalizeMapService.FREEMARKER_YANDEX_HTML_TEMPLATE
+								).toString(), driverCopy);
 					} catch (final Exception e) {
 						logger.error("Problems loading Yandex", e);
 					}
@@ -586,12 +644,12 @@ public class BrowserService  implements InitializingBean, Observer{
 				@Override
 				public void run() {
 					try {
-						webDriverStreetView = navigateTo(geoLocalizeTemplateService.getStreetViewUrl(
-								placemarkObject, 
-								localPropertiesService.getValue( EarthProperty.GOOGLE_MAPS_API_KEY), 
-								GeolocalizeMapService.FREEMARKER_STREET_VIEW_HTML_TEMPLATE).toString(), 
-								driverCopy
-								);
+						webDriverStreetView = navigateTo(
+								geoLocalizeTemplateService.getUrlToFreemarkerOutput(
+										placemarkObject,								
+										GeolocalizeMapService.FREEMARKER_STREET_VIEW_HTML_TEMPLATE,
+										"googleMapsApiKey", localPropertiesService.getValue( EarthProperty.GOOGLE_MAPS_API_KEY)
+								).toString(), driverCopy);
 					} catch (final Exception e) {
 						logger.error("Problems loading Street View", e);
 					}
@@ -623,7 +681,13 @@ public class BrowserService  implements InitializingBean, Observer{
 				@Override
 				public void run() {
 					try {
-						webDriverHere = navigateTo(geoLocalizeTemplateService.getHereUrl(placemarkObject, localPropertiesService.getValue( EarthProperty.HERE_MAPS_APP_ID), localPropertiesService.getValue( EarthProperty.HERE_MAPS_APP_CODE), GeolocalizeMapService.FREEMARKER_HERE_HTML_TEMPLATE).toString(), driverCopy);
+						webDriverHere = navigateTo(
+								geoLocalizeTemplateService.getUrlToFreemarkerOutput(
+										placemarkObject,								
+										GeolocalizeMapService.FREEMARKER_HERE_HTML_TEMPLATE,
+										"hereAppId", localPropertiesService.getValue( EarthProperty.HERE_MAPS_APP_ID), 
+										"hereAppCode", localPropertiesService.getValue( EarthProperty.HERE_MAPS_APP_CODE)
+								).toString(), driverCopy);
 					} catch (final Exception e) {
 						logger.error("Problems loading Here Maps", e);
 					}

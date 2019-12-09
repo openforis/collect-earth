@@ -1,0 +1,38 @@
+https://www.planet.com/explorer/#/mosaic/global_quarterly_2019q3_mosaic/center/
+${placemark.coord.longitude},${placemark.coord.latitude}
+
+/zoom/${zoom}/geometry/
+
+POLYGON(
+
+			<#list placemark.multiShape as shp>
+             (
+            	<#list shp as coord>
+				${coord.longitude}+${coord.latitude},
+				</#list>
+			),
+			</#list>
+			
+           
+           <#list placemark.points as square>
+ 				( 
+			     <#list square.shape as squareCorners>
+			           ${squareCorners.longitude}+${squareCorners.latitude},
+			     </#list>
+		     	),
+		     	
+		     	
+		     	<#if square.points?? >
+					<#list square.points as innerpoint>
+
+					(
+						<#list innerpoint.shape as squareCorners>
+					  ${squareCorners.longitude}+${squareCorners.latitude},
+						</#list>
+					),
+				 
+					</#list>
+				</#if>
+		     	
+		    </#list>
+)

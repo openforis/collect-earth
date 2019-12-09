@@ -320,9 +320,7 @@ public abstract class AbstractEarthSurveyService {
 	}
 
 	private CollectEarthSurveyContext createCollectEarthSurveyContext(SurveyContext collectSurveyContext) {
-		CollectEarthSurveyContext collectEarthSurveyContext = new CollectEarthSurveyContext(collectSurveyContext.getExpressionFactory(), 
-				collectEarthValidator, collectSurveyContext.getCodeListService());
-		return collectEarthSurveyContext;
+		return new CollectEarthSurveyContext(collectSurveyContext.getExpressionFactory(), collectEarthValidator, collectSurveyContext.getCodeListService());
 	}
 
 	private void setPlacemarkSavedOn(CollectRecord record) {

@@ -44,10 +44,11 @@ public class GeolocalizeMapService {
 	 * code.
 	 */
 	public static final String FREEMARKER_BING_HTML_TEMPLATE = RESOURCES_FOLDER + File.separator + "collectBing.fmt";
-	
 
 	public static final String FREEMARKER_BAIDU_HTML_TEMPLATE = RESOURCES_FOLDER + File.separator + "collectBaidu.fmt";
 
+	public static final String FREEMARKER_PLANET_URL_TEMPLATE = RESOURCES_FOLDER + File.separator
+			+ "collectPlanetUrl.fmt";
 
 	/**
 	 * The file that contains the freemarker template used to produce the Yandex
@@ -81,6 +82,20 @@ public class GeolocalizeMapService {
 	@Autowired
 	KmlGeneratorService kmlGeneratorService;
 
+	public void addDatesForImages(final Map<String, Object> data) {
+		SimpleDateFormat dt1 = new SimpleDateFormat("yyyy-MM-dd");
+		Date todayDate = new Date();
+		String dateAsExpected = dt1.format(todayDate);
+		data.put("todayDate", dateAsExpected);
+
+		Calendar cal = Calendar.getInstance();
+		cal.setTime(todayDate);
+		cal.add(Calendar.YEAR, -1);
+
+		data.put("oneYearAgoDate", dt1.format(cal.getTime()));
+
+	}
+
 	private File applyData(Map<String, Object> data, String freemarkerTemplateFile)
 			throws IOException, TemplateException {
 
@@ -108,7 +123,7 @@ public class GeolocalizeMapService {
 			kmlGenerator.fillSamplePoints(placemarkObject);
 			kmlGenerator.fillExternalLine(placemarkObject);
 			data.put("placemark", placemarkObject);
-		} catch (final TransformException|KmlGenerationException e) {
+		} catch (final TransformException | KmlGenerationException e) {
 			logger.error("Exception producing shape data for html ", e);
 		}
 		return data;
@@ -132,19 +147,30 @@ public class GeolocalizeMapService {
 		return processTemplateWithData(freemarkerTemplate, data);
 	}
 
-	public void addDatesForImages(final Map<String, Object> data) {
-		SimpleDateFormat dt1 = new SimpleDateFormat("yyyy-MM-dd");
-		Date todayDate = new Date();
-		String dateAsExpected = dt1.format(todayDate);
-		data.put("todayDate", dateAsExpected);
+	/**
+	 * Produces a URL using Planet Labs explorer expected format
+	 * 
+	 * @param placemarkObject
+	 *            The data of the plot.
+	 * @param bingMapsKey
+	 *            The bing maps key used, obtained from the Local Properties service
+	 * @return The URL to the temporary file that can be used to load it in a
+	 *         browser.
+	 */
+	public URL getUrlToFreemarkerOutput(SimplePlacemarkObject placemarkObject, String freemarkerTemplate,
+			String... extraData) {
 
-		Calendar cal = Calendar.getInstance();
-		cal.setTime(todayDate);
-		cal.add(Calendar.YEAR, -1);
-
-		data.put("oneYearAgoDate", dt1.format(cal.getTime()));
+		final Map<String, Object> data = getPlacemarkData(placemarkObject);
+		
+		if( extraData !=null) {
+			for (int i = 0; i < extraData.length; i = i+2) {
+				data.put(extraData[i], extraData[i+1]);
+			}
+		}
+		return processTemplateWithData(freemarkerTemplate, data);
 
 	}
+		
 
 	private URL processTemplateWithData(String freemarkerTemplate, final Map<String, Object> data) {
 		File transformedHtml = null;
@@ -166,109 +192,4 @@ public class GeolocalizeMapService {
 			return null;
 		}
 	}
-
-	/**
-	 * Produces a temporary file with the necessary HTML code to show the plot in
-	 * Bing Maps
-	 * 
-	 * @param placemarkObject
-	 *            The data of the plot.
-	 * @param bingMapsKey
-	 *            The bing maps key used, obtained from the Local Properties service
-	 * @param freemarkerTemplate
-	 *            The path to the freemarker template that is used to produce the
-	 *            file.
-	 * @return The URL to the temporary file that can be used to load it in a
-	 *         browser.
-	 */
-	public URL getBingUrl(SimplePlacemarkObject placemarkObject, String bingMapsKey, String freemarkerTemplate) {
-
-		final Map<String, Object> data = getPlacemarkData(placemarkObject);
-		data.put("bingMapsKey", bingMapsKey);
-		return processTemplateWithData(freemarkerTemplate, data);
-	}
-	
-	/**
-	 * Produces a temporary file with the necessary HTML code to show the plot in
-	 * Baidu Maps
-	 * 
-	 * @param placemarkObject
-	 *            The data of the plot.
-	 * @param freemarkerTemplate
-	 *            The path to the freemarker template that is used to produce the
-	 *            file.
-	 * @return The URL to the temporary file that can be used to load it in a
-	 *         browser.
-	 */
-	public URL getBaiduUrl(SimplePlacemarkObject placemarkObject, String freemarkerTemplate) {
-
-		final Map<String, Object> data = getPlacemarkData(placemarkObject);
-		return processTemplateWithData(freemarkerTemplate, data);
-	}
-
-	/**
-	 * Produces a temporary file with the necessary HTML code to show the plot in
-	 * Yandex Maps
-	 * 
-	 * @param placemarkObject
-	 *            The data of the plot.
-	 * @param freemarkerTemplate
-	 *            The path to the freemarker template that is used to produce the
-	 *            file.
-	 * @return The URL to the temporary file that can be used to load it in a
-	 *         browser.
-	 */
-	public URL getYandexUrl(SimplePlacemarkObject placemarkObject, String freemarkerTemplate) {
-
-		final Map<String, Object> data = getPlacemarkData(placemarkObject);
-		return processTemplateWithData(freemarkerTemplate, data);
-	}
-
-	/**
-	 * Produces a temporary file with the necessary HTML code to show the plot in
-	 * Here Maps
-	 * 
-	 * @param placemarkObject
-	 *            The data of the plot.
-	 * @param hereAppId
-	 *            The Here Maps app ID
-	 * @param hereAppCode
-	 *            The Here Maps app code
-	 * @param freemarkerTemplate
-	 *            The path to the freemarker template that is used to produce the
-	 *            file.
-	 * @return The URL to the temporary file that can be used to load it in a
-	 *         browser.
-	 */
-	public URL getHereUrl(SimplePlacemarkObject placemarkObject, String hereAppId, String hereAppCode,
-			String freemarkerTemplate) {
-
-		final Map<String, Object> data = getPlacemarkData(placemarkObject);
-		data.put("hereAppId", hereAppId);
-		data.put("hereAppCode", hereAppCode);
-		return processTemplateWithData(freemarkerTemplate, data);
-	}
-
-	/**
-	 * Produces a temporary file with the necessary HTML code to show the plot in
-	 * Google Street View
-	 * 
-	 * @param placemarkObject
-	 *            The data of the plot.
-	 * @param googleMapsApiKey
-	 *            The Google Maps API key
-	 * @param freemarkerTemplate
-	 *            The path to the freemarker template that is used to produce the
-	 *            file.
-	 * @return The URL to the temporary file that can be used to load it in a
-	 *         browser.
-	 */
-	public URL getStreetViewUrl(SimplePlacemarkObject placemarkObject, String googleMapsApiKey,
-			String freemarkerTemplate) {
-
-		final Map<String, Object> data = getPlacemarkData(placemarkObject);
-		data.put("googleMapsApiKey", googleMapsApiKey);
-		return processTemplateWithData(freemarkerTemplate, data);
-	}
-
 }

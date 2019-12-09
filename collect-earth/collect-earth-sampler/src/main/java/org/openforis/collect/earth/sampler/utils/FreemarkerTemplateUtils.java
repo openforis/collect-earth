@@ -9,6 +9,9 @@ import java.nio.charset.Charset;
 import java.util.Map;
 import java.util.Random;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import freemarker.template.Configuration;
 import freemarker.template.Template;
 import freemarker.template.TemplateException;
@@ -16,35 +19,33 @@ import freemarker.template.Version;
 
 
 public class FreemarkerTemplateUtils {
-	
+
+	private static final Logger logger = LoggerFactory.getLogger(FreemarkerTemplateUtils.class);
+
 	private FreemarkerTemplateUtils() {}
 
 	public static boolean applyTemplate(File sourceTemplate, File destinationFile, Map<?, ?> data) throws IOException, TemplateException{
-
-		boolean success = true;
-		
-		// Process the template file using the data in the "data" Map
-		final Configuration cfg = new Configuration( new Version("2.3.23"));
-		cfg.setDirectoryForTemplateLoading(sourceTemplate.getParentFile());
-
-		// Load template from source folder
-		final Template template = cfg.getTemplate(sourceTemplate.getName());
+		boolean success = false;
 
 		// Console output
-		BufferedWriter fw = null;
-		try {
-			fw = new BufferedWriter(new OutputStreamWriter(new FileOutputStream(destinationFile), Charset.forName("UTF-8")));
+		try ( BufferedWriter fw = new BufferedWriter(new OutputStreamWriter(new FileOutputStream(destinationFile), Charset.forName("UTF-8"))) ) {
+
+			// Process the template file using the data in the "data" Map
+			final Configuration cfg = new Configuration( new Version("2.3.23"));
+			cfg.setDirectoryForTemplateLoading(sourceTemplate.getParentFile());
+
+			// Load template from source folder
+			final Template template = cfg.getTemplate(sourceTemplate.getName());
+
 			template.process(data, fw);
-		}finally {
-			if (fw != null) {
-				fw.close();
-			}
-		}
-		
+			success = true;
+		}catch (Exception e) {
+			logger.error("Error reading FreeMarker template", e);
+		} 
 		return success;
-		
+
 	}
-	
+
 	/**
 	 * Returns a pseudo-random number between min and max, inclusive.
 	 * The difference between min and max can be at most
@@ -57,12 +58,12 @@ public class FreemarkerTemplateUtils {
 	 */
 	public static int randInt(int min, int max) {
 		Random rand = new Random();
-	  		
-	    // nextInt is normally exclusive of the top value,
-	    // so add 1 to make it inclusive
-	    return rand.nextInt((max - min) + 1) + min;
+
+		// nextInt is normally exclusive of the top value,
+		// so add 1 to make it inclusive
+		return rand.nextInt((max - min) + 1) + min;
 	}
-	
+
 
 
 }

@@ -78,6 +78,8 @@ public class PlacemarkBrowserServlet {
 				openExtraMapWindow(placemarkObject);
 				
 				openStreetViewWindow(placemarkObject);
+				
+				openPlanetMapsWindow(placemarkObject);
 
 				// Until further notice
 				// openHereMapsWindow(placemarkObject);
@@ -112,7 +114,6 @@ public class PlacemarkBrowserServlet {
 						logger.error("Exception opening Earth Engine Playground window", e); //$NON-NLS-1$
 					}
 				}
-	
 			}.start();
 		}
 
@@ -125,10 +126,23 @@ public class PlacemarkBrowserServlet {
 					} catch (final Exception e) {
 						LoggerFactory.getLogger(this.getClass()).error(
 								"Exception opening Bing Maps window", e); //$NON-NLS-1$
-
 					}
 				}
-
+			}.start();
+		}
+		
+		
+		public void openPlanetMapsWindow(final SimplePlacemarkObject placemarkObject) {
+			new Thread("Open Planet Maps window") { //$NON-NLS-1$
+				@Override
+				public void run() {
+					try {
+						browserService.openPlanetMaps(placemarkObject);
+					} catch (final Exception e) {
+						LoggerFactory.getLogger(this.getClass()).error(
+								"Exception opening Planet Maps window", e); //$NON-NLS-1$
+					}
+				}
 			}.start();
 		}
 
