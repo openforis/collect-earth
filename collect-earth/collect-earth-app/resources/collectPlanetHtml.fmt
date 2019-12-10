@@ -34,9 +34,12 @@
 
 
 	var map = L.map('map');
-
+	var lastLayer;
 	var setLayer = function( period ){
-		var tms_ne = L.tileLayer('https://tiles0.planet.com/basemaps/v1/planet-tiles/'+period+'/gmap/{z}/{x}/{y}.png?api_key=${planetMapsKey}', {
+		if( lastLayer ){
+			map.removeLayer( lastLayer);		
+		}
+		lastLayer = L.tileLayer('https://tiles0.planet.com/basemaps/v1/planet-tiles/'+period+'/gmap/{z}/{x}/{y}.png?api_key=${planetMapsKey}', {
 			tms: false
 		}).addTo(map);
 	}
