@@ -135,6 +135,9 @@
                 <distributionFile>
                     <origin>COLLECT_EARTH_MAIN_FOLDER/collect-earth-app/autoupdate/autoupdate.run</origin>
                 </distributionFile>
+                <distributionFile>
+                    <origin>COLLECT_EARTH_MAIN_FOLDER/collect-earth-app/autoupdate/autoupdate-x64.run</origin>
+                </distributionFile>
             </distributionFileList>
         </folder>
         <folder>
