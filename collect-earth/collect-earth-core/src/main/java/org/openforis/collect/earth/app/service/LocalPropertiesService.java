@@ -102,7 +102,7 @@ public class LocalPropertiesService extends Observable {
 																																																																																																																		"large_central_plot_side"), OPEN_BAIDU_MAPS(
 																																																																																																																				"open_baidu_maps"), DISTANCE_TO_BUFFERS(
 																																																																																																																						"distance_to_buffers"), OPEN_PLANET_MAPS(
-																																																																																																																								"open_planet_maps");
+																																																																																																																								"open_planet_maps"), PLANET_MAPS_KEY("planet_maps_key");
 
 		private String name;
 

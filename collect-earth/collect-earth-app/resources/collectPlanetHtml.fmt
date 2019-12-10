@@ -1,0 +1,96 @@
+
+<!DOCTYPE html>
+<html>
+<head>
+	
+	<title>Planet Labs - Collect Earth Integration</title>
+
+	<meta charset="utf-8" />
+	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+	
+	<link rel="shortcut icon" type="image/x-icon" href="docs/images/favicon.ico" />
+
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.6.0/dist/leaflet.css" integrity="sha512-xwE/Az9zrjBIphAcBb3F6JVqxf46+CDLwfLMHloNu6KEQCAWi6HcDUbeOfBIptF7tcCzusKFjFw2yuvEpDL9wQ==" crossorigin=""/>
+    <script src="https://unpkg.com/leaflet@1.6.0/dist/leaflet.js" integrity="sha512-gZwIG9x3wUXg2hdXF6+rVkLF/0Vi9U8D2Ntg4Ga5I5BZpVkVxlJWbSQtXPSiUTtC0TjtGOmxa1AJPuV0CPthew==" crossorigin=""></script>
+	<script src="https://ajax.googleapis.com/ajax/libs/jquery/3.4.1/jquery.min.js"></script>
+
+	<style>
+		html, body {
+			height: 100%;
+			margin: 0;
+		}
+		#map {
+			width: 100%;
+			height: 100%;
+		}
+	</style>
+
+	
+</head>
+<body>
+<div id='map'></select></></div>
+
+<script type="text/javascript">
+
+
+	var map = L.map('map');
+
+	var setLayer = function( period ){
+		var tms_ne = L.tileLayer('https://tiles0.planet.com/basemaps/v1/planet-tiles/'+period+'/gmap/{z}/{x}/{y}.png?api_key=${planetMapsKey}', {
+			tms: false
+		}).addTo(map);
+	}
+	
+	setLayer( 'global_monthly_2019_10_mosaic' );
+	
+	var latlngs = [ 
+	// create a red polyline from an array of LatLng points
+			<#list placemark.multiShape as shp>
+             [
+            	<#list shp as coord>
+				[${coord.latitude},${coord.longitude}],
+				</#list>
+			],
+			</#list>
+           <#list placemark.points as square>
+ 				[ 
+			     <#list square.shape as squareCorners>
+			           [${squareCorners.latitude},${squareCorners.longitude}],
+			     </#list>
+		     	],
+		     	<#if square.points?? >
+					<#list square.points as innerpoint>
+					[
+						<#list innerpoint.shape as squareCorners>
+					  [${squareCorners.latitude},${squareCorners.longitude}],
+						</#list>
+					],				 
+					</#list>
+				</#if>		     	
+		    </#list>
+	];
+	
+
+	var polyline = L.polyline(latlngs, {color: 'yellow'}).addTo(map);
+	// zoom the map to the polyline
+	map.fitBounds(polyline.getBounds(), { padding : [35,35] } );
+
+	var legend = L.control({position: 'topright'  });
+	legend.onAdd = function (map) {
+		var div = L.DomUtil.create('div', 'info legend');
+		div.innerHTML = '<select><option value="global_monthly_2019_10_mosaic">Planet Monthly 2019-10</option><option value="global_monthly_2019_08_mosaic">Planet Monthly 2019-08</option><option value="global_monthly_2019_06_mosaic">Planet Monthly 2019-06</option><option value="global_monthly_2019_04_mosaic">Planet Monthly 2019-04</option><option value="global_monthly_2019_02_mosaic">Planet Monthly 2019-02</option><option value="global_monthly_2018_12_mosaic">Planet Monthly 2018-12</option><option value="global_monthly_2018_10_mosaic">Planet Monthly 2018-10</option><option value="global_monthly_2018_08_mosaic">Planet Monthly 2018-08</option><option value="global_monthly_2018_06_mosaic">Planet Monthly 2018-06</option><option value="global_monthly_2018_04_mosaic">Planet Monthly 2018-04</option><option value="global_monthly_2018_02_mosaic">Planet Monthly 2018-02</option><option value="global_monthly_2017_12_mosaic">Planet Monthly 2017-12</option></select>';
+		div.firstChild.onmousedown = div.firstChild.ondblclick = L.DomEvent.stopPropagation;
+		return div;
+	};
+	
+	legend.addTo(map);
+	
+$('select').change(function( ){
+	setLayer( this.value );
+});
+</script>
+
+
+
+</body>
+</html>
