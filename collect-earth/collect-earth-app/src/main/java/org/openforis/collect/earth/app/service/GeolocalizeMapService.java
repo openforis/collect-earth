@@ -154,8 +154,10 @@ public class GeolocalizeMapService {
 	 * 
 	 * @param placemarkObject
 	 *            The data of the plot.
-	 * @param bingMapsKey
-	 *            The bing maps key used, obtained from the Local Properties service
+	 * @param freemarkerTemplate
+	 *            The freemarker template file to use
+	 * @param extraData
+	 * 				Variable listof key value strings
 	 * @return The URL to the temporary file that can be used to load it in a
 	 *         browser.
 	 */
