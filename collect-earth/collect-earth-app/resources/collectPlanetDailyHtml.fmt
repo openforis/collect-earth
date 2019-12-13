@@ -24,7 +24,12 @@
 			height: 100%;
 		}
 	</style>
-
+	
+<script>
+  $( function() {
+    $( "#slider" ).slider();
+  } );
+  </script>
 	
 </head>
 <body>
@@ -74,23 +79,57 @@
 	];
 	
 
+	 var datesTicks = [];
+	  
+	 var currentYear = new Date().getFullYear();
+	 var currentMonth = new Date().getMonth() + 1; // January is 0
+	 
+	 for( var year = 2014; year<=currentYear; year++){
+	 
+	 	for( var month=1; month<=12; month++ ){
+	 	
+	 		if( year === currentYear && month >= currentMonth ){
+	 			continue; 		
+	 		}
+	 		
+	 		datesTicks.push( year + "/" + month ); 
+	 	}
+	 	
+	 
+	 }
+	 
+	 var datesValues = Array.from(Array( datesTicks.length ).keys())
+
 	var polyline = L.polyline(latlngs, {color: 'yellow'}).addTo(map);
 	// zoom the map to the polyline
 	map.fitBounds(polyline.getBounds(), { padding : [35,35] } );
 
 	var legend = L.control({position: 'topright'  });
+	
+	var sliderElement = document.createElement("div", [, options]);
+	sliderElement.setAttribute("id", "slider");
+
+<input id="slider" type="text" data-slider-ticks="" data-slider-ticks-snap-bounds="1" data-slider-ticks-labels=''/>
+
+
 	legend.onAdd = function (map) {
-		var div = L.DomUtil.create('div', 'info legend');
-		div.innerHTML = '<select><option value="global_monthly_2019_10_mosaic">Planet Monthly 2019-10</option><option value="global_monthly_2019_08_mosaic">Planet Monthly 2019-08</option><option value="global_monthly_2019_06_mosaic">Planet Monthly 2019-06</option><option value="global_monthly_2019_04_mosaic">Planet Monthly 2019-04</option><option value="global_monthly_2019_02_mosaic">Planet Monthly 2019-02</option><option value="global_monthly_2018_12_mosaic">Planet Monthly 2018-12</option><option value="global_monthly_2018_10_mosaic">Planet Monthly 2018-10</option><option value="global_monthly_2018_08_mosaic">Planet Monthly 2018-08</option><option value="global_monthly_2018_06_mosaic">Planet Monthly 2018-06</option><option value="global_monthly_2018_04_mosaic">Planet Monthly 2018-04</option><option value="global_monthly_2018_02_mosaic">Planet Monthly 2018-02</option><option value="global_monthly_2017_12_mosaic">Planet Monthly 2017-12</option><option value="global_monthly_2017_10_mosaic">Planet Monthly 2017-10</option><option value="global_monthly_2017_08_mosaic">Planet Monthly 2017-08</option><option value="global_monthly_2017_06_mosaic">Planet Monthly 2017-06</option><option value="global_monthly_2017_04_mosaic">Planet Monthly 2017-04</option><option value="global_monthly_2017_02_mosaic">Planet Monthly 2017-02</option><option value="global_monthly_2016_12_mosaic">Planet Monthly 2016-12</option><option value="global_monthly_2016_10_mosaic">Planet Monthly 2016-10</option><option value="global_monthly_2016_08_mosaic">Planet Monthly 2016-08</option><option value="global_monthly_2016_06_mosaic">Planet Monthly 2016-06</option><option value="global_monthly_2016_04_mosaic">Planet Monthly 2016-04</option><option value="global_monthly_2016_02_mosaic">Planet Monthly 2016-02</option><option value="global_monthly_2015_12_mosaic">Planet Monthly 2015-12</option><option value="global_monthly_2016_10_mosaic">Planet Monthly 2016-10</option><option value="global_monthly_2016_08_mosaic">Planet Monthly 2015-08</option><option value="global_monthly_2015_06_mosaic">Planet Monthly 2016-06</option><option value="global_monthly_2015_04_mosaic">Planet Monthly 2015-04</option><option value="global_monthly_2015_02_mosaic">Planet Monthly 2015-02</option></select>';
+		var div = L.DomUtil.create('div', 'info legend', sliderElement);
+		div.innerHTML = '<p> <label for="range">Date range:</label> <input type="text" id="range" readonly style="border:0; color:#f6931f; font-weight:bold;"> </p></div>';
 		div.firstChild.onmousedown = div.firstChild.ondblclick = L.DomEvent.stopPropagation;
 		return div;
 	};
 	
 	legend.addTo(map);
 	
-$('select').change(function( ){
+$('#slider').change(function( ){
 	setLayer( this.value );
 });
+
+$('#slider')
+         .attr("data-slider-ticks",datesValues)
+         .attr("data-slider-ticks-labels",datesTicks)
+                    
+                    
 </script>
 
 

@@ -482,7 +482,7 @@ public class BrowserService  implements InitializingBean, Observer{
 			if (webDriverPlanet == null) {
 				webDriverPlanet = initBrowser();
 			}
-
+/*
 			final RemoteWebDriver driverCopy = webDriverPlanet;
 
 			final Thread loadPlanetThread = new Thread("Opening Planet BaseMaps window") {
@@ -506,7 +506,7 @@ public class BrowserService  implements InitializingBean, Observer{
 				}
 			};
 			loadPlanetThread.start();
-			
+*/			
 			final RemoteWebDriver driverCopyHtml = webDriverPlanetHtml;
 
 			final Thread loadPlanetThreadHtml = new Thread("Opening Planet BaseMaps window") {
@@ -549,7 +549,7 @@ public class BrowserService  implements InitializingBean, Observer{
 
 			final RemoteWebDriver driverCopy = webDriverBaidu;
 
-			final Thread loadBingThread = new Thread("Opening Baidu Window") {
+			final Thread loadBaiduThread = new Thread("Opening Baidu Window") {
 				@Override
 				public void run() {
 					try {
@@ -564,7 +564,7 @@ public class BrowserService  implements InitializingBean, Observer{
 				}
 			};
 
-			loadBingThread.start();
+			loadBaiduThread.start();
 
 		}
 	}
