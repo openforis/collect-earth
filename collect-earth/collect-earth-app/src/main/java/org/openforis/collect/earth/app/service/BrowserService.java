@@ -116,7 +116,7 @@ public class BrowserService  implements InitializingBean, Observer{
 	private final Logger logger = LoggerFactory.getLogger(BrowserService.class);
 	private static final String KML_FOR_GEE_JS = "resources/javascript_gee.fmt";
 	private static final Configuration cfg = new Configuration( new Version("2.3.23"));
-	private RemoteWebDriver webDriverEE, webDriverBing, webDriverBaidu, webDriverTimelapse, webDriverGeeCodeEditor, webDriverHere, webDriverStreetView, webDriverYandex, webDriverPlanet, webDriverPlanetHtml, webDriverExtraMap;
+	private RemoteWebDriver webDriverEE, webDriverBing, webDriverBaidu, webDriverTimelapse, webDriverGeeCodeEditor, webDriverHere, webDriverStreetView, webDriverYandex, webDriverPlanetHtml, webDriverExtraMap;
 
 	private static boolean geeMethodUpdated = false;
 	
@@ -478,11 +478,11 @@ public class BrowserService  implements InitializingBean, Observer{
 	public void openPlanetMaps(SimplePlacemarkObject placemarkObject) throws BrowserNotFoundException {
 
 		if (localPropertiesService.isPlanetMapsSupported()) {
-
+			/*
 			if (webDriverPlanet == null) {
 				webDriverPlanet = initBrowser();
 			}
-/*
+
 			final RemoteWebDriver driverCopy = webDriverPlanet;
 
 			final Thread loadPlanetThread = new Thread("Opening Planet BaseMaps window") {
