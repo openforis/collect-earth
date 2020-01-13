@@ -280,7 +280,7 @@ No Solaris installer necessary
 							</execution>
 							
 							
-							<!-- Linux -->
+							<!-- Linux 
 							<execution>
 								<id>linux-installer</id>
 								<phase>prepare-package</phase>
@@ -311,7 +311,7 @@ No Solaris installer necessary
 										<argument>linux</argument>
 									</arguments>
 								</configuration>
-							</execution>
+							</execution>-->
 							
 							<execution>
 								<id>linux-x64-installer</id>
