@@ -73,6 +73,7 @@
 								</goals>
 								<configuration>
 									<artifactItems>
+									<!-- 
 										<artifactItem>
 											<groupId>com.oracle.java</groupId>
 											<artifactId>jre</artifactId>
@@ -82,6 +83,7 @@
 											<overWrite>false</overWrite>
 											<outputDirectory>${installer-build-path}/jre_files</outputDirectory>
 										</artifactItem>
+									-->
 										<artifactItem>
 											<groupId>com.oracle.java</groupId>
 											<artifactId>jre</artifactId>
@@ -412,13 +414,13 @@ No Solaris installer necessary
 											<classifier>linux</classifier>
 											<type>run</type>
 										</artifact>
-										 -->
+										
 										<artifact>
 											<file>${project.build.directory}/${linux-autoupdater-file-name}</file>
 											<classifier>linux-updater</classifier>
 											<type>run</type>
 										</artifact>
-										
+										 -->
 										<artifact>
 											<file>${project.build.directory}/${linux-x64-installer-file-name}</file>
 											<classifier>linux-x64</classifier>
