@@ -102,6 +102,7 @@
 											<overWrite>false</overWrite>
 											<outputDirectory>${installer-build-path}/jre_files</outputDirectory>
 										</artifactItem>
+										<!-- 
 										<artifactItem>
 											<groupId>com.oracle.java</groupId>
 											<artifactId>jre</artifactId>
@@ -110,7 +111,7 @@
 											<type>zip</type>
 											<overWrite>false</overWrite>
 											<outputDirectory>${installer-build-path}/jre_files</outputDirectory>
-										</artifactItem>
+										</artifactItem> -->
 										<artifactItem>
 											<groupId>com.oracle.java</groupId>
 											<artifactId>jre</artifactId>
