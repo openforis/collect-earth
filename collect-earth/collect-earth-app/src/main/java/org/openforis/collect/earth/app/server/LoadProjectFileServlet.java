@@ -67,7 +67,7 @@ public class LoadProjectFileServlet {
 							}.start();
 						}				
 
-					} catch (IllegalArgumentException | ZipException | IOException e) {
+					} catch (IllegalArgumentException | IOException e) {
 						logger.error("Error loading the project file " + projectFilePath , e); //$NON-NLS-1$
 						response.setStatus(500);
 					}

@@ -31,10 +31,11 @@ import org.postgresql.Driver;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import net.lingala.zip4j.core.ZipFile;
+import net.lingala.zip4j.ZipFile;
 import net.lingala.zip4j.exception.ZipException;
 import net.lingala.zip4j.model.ZipParameters;
-import net.lingala.zip4j.util.Zip4jConstants;
+import net.lingala.zip4j.model.enums.CompressionLevel;
+import net.lingala.zip4j.model.enums.CompressionMethod;
 
 public class CollectEarthUtils {
 
@@ -108,10 +109,10 @@ public class CollectEarthUtils {
 
 		ZipParameters zipParameters = new ZipParameters();
 		// COMP_DEFLATE is for compression
-		zipParameters.setCompressionMethod(Zip4jConstants.COMP_DEFLATE);
+		zipParameters.setCompressionMethod(CompressionMethod.DEFLATE);
 		// DEFLATE_LEVEL_ULTRA = maximum compression
-		zipParameters.setCompressionLevel(Zip4jConstants.DEFLATE_LEVEL_ULTRA);
-		zipParameters.setSourceExternalStream(true);
+		zipParameters.setCompressionLevel(CompressionLevel.ULTRA);
+		// deprecated in version 2 of lingala ?? does it matter? zipParameters.setSourceExternalStream(true);
 		zipParameters.setFileNameInZip( fileNameInZip );				
 		zipBackupFile.addFile(srcFile, zipParameters);
 
@@ -131,9 +132,9 @@ public class CollectEarthUtils {
 			throws ZipException {
 		ZipParameters zipParameters = new ZipParameters();
 		// COMP_DEFLATE is for compression
-		zipParameters.setCompressionMethod(Zip4jConstants.COMP_DEFLATE);
+		zipParameters.setCompressionMethod(CompressionMethod.DEFLATE);
 		// DEFLATE_LEVEL_ULTRA = maximum compression
-		zipParameters.setCompressionLevel(Zip4jConstants.DEFLATE_LEVEL_ULTRA);
+		zipParameters.setCompressionLevel(CompressionLevel.ULTRA);
 
 		if( folderToCompress.exists() && folderToCompress.isDirectory() ){
 			zipFile.addFolder(folderToCompress, zipParameters);

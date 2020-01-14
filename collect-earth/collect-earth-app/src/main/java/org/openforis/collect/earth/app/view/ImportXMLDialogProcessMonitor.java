@@ -24,7 +24,7 @@ import org.slf4j.LoggerFactory;
 
 import com.google.common.io.Files;
 
-import net.lingala.zip4j.core.ZipFile;
+import net.lingala.zip4j.ZipFile;
 import net.lingala.zip4j.exception.ZipException;
 
 public class ImportXMLDialogProcessMonitor implements Observer{
