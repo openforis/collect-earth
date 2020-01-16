@@ -7,6 +7,7 @@ import java.io.IOException;
 import java.io.InputStreamReader;
 import java.nio.charset.Charset;
 
+import au.com.bytecode.opencsv.CSVParser;
 import au.com.bytecode.opencsv.CSVReader;
 
 public class CsvReaderUtils {
@@ -30,17 +31,21 @@ public class CsvReaderUtils {
 	public static CSVReader getCsvReader(String csvFile) throws IOException {
 		return getCsvReader(csvFile, true);
 	}
-
+	
 	public static CSVReader getCsvReader(String csvFile, boolean checkContainsCoordinates) throws IOException {
+		return getCsvReader(csvFile, checkContainsCoordinates, false);
+	}
+
+	public static CSVReader getCsvReader(String csvFile, boolean checkContainsCoordinates, boolean skipHeader) throws IOException {
 		
 		char[] possibleSeparators = new char[]{',', ';','\t', '|'};
 		CSVReader csvReader = null;
 		for (char c : possibleSeparators) {
-			CSVReader commaSeparatedReader = getCsvReader(csvFile, c);
+			CSVReader commaSeparatedReader = getCsvReader(csvFile, c, skipHeader);
 			if( !checkContainsCoordinates ) {
 				return commaSeparatedReader;
 			} else if( checkCsvReaderWorks( commaSeparatedReader ) ){
-				csvReader =getCsvReader(csvFile, c); // Get the reader again so that it starts from the first column
+				csvReader =getCsvReader(csvFile, c, skipHeader); // Get the reader again so that it starts from the first column
 				break;
 			} else{
 				commaSeparatedReader.close();
@@ -88,10 +93,11 @@ public class CsvReaderUtils {
 		throw new IllegalArgumentException("The CSV/CED plot file has no data! All the lines are empty!");
 	}
 
-	private static CSVReader getCsvReader(String csvFile, char columnSeparator) throws FileNotFoundException {
+	private static CSVReader getCsvReader(String csvFile, char columnSeparator, boolean skipHeader) throws FileNotFoundException {
 		CSVReader reader;
 		final BufferedReader bufferedReader = new BufferedReader(new InputStreamReader(new FileInputStream(csvFile), Charset.forName("UTF-8")));
-		reader = new CSVReader(bufferedReader, columnSeparator);
+		int skip = skipHeader? 1 : 0;
+		reader = new CSVReader(bufferedReader, columnSeparator, CSVParser.DEFAULT_QUOTE_CHARACTER, skip );
 		return reader;
 	}
 }
