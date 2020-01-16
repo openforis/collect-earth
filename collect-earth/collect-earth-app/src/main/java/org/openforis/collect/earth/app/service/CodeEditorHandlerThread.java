@@ -73,7 +73,6 @@ public class CodeEditorHandlerThread {
 						sendThroughKeys(textArea, contents);
 					}
 				} catch (Exception e) {
-
 					logger.warn("Error while refreshing code editor", e);
 					
 				}
@@ -83,9 +82,14 @@ public class CodeEditorHandlerThread {
 			WebElement runButton = webDriverGee.findElementByCssSelector(RUN_SCRIPT_BUTTON);
 			forceClick( runButton );
 		} catch (NoSuchElementException e) {
-
-			webDriverGee.executeScript( "alert('test alert')" );
-			
+			try {
+			// retry
+				Thread.sleep(1000);
+				WebElement runButton = webDriverGee.findElementByCssSelector(RUN_SCRIPT_BUTTON);
+				forceClick( runButton );
+			}catch (Exception e2) {
+				// TODO: handle exception
+			}
 		}
 
 	}

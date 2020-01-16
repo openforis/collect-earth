@@ -3,7 +3,6 @@ package org.openforis.collect.earth.app.view;
 import java.awt.Window;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
-import java.io.IOException;
 import java.util.HashMap;
 import java.util.Set;
 

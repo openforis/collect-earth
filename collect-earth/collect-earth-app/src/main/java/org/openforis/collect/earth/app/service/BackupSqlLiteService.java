@@ -17,7 +17,6 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Lazy;
 import org.springframework.stereotype.Component;
 
-import net.lingala.zip4j.exception.ZipException;
 
 /**
  * Spring managed bean that handles the creation of backups of the Collect database.
@@ -77,7 +76,7 @@ public class BackupSqlLiteService implements InitializingBean{
 
 			} catch (IOException e) {
 				logger.error("Error when create backup of the Collect Earth Database from " + nameCollectDB + " to " + pathToBackupZip, e); //$NON-NLS-1$ //$NON-NLS-2$
-			} catch (ZipException e) {
+			} catch (Exception e) {
 				logger.error("Error when zipping the Collect Earth Database from " + nameCollectDB + " to " + pathToBackupZip, e); //$NON-NLS-1$ //$NON-NLS-2$			
 			}
 		}

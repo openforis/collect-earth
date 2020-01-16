@@ -43,7 +43,6 @@ import org.openqa.selenium.firefox.FirefoxBinary;
 import org.openqa.selenium.firefox.FirefoxDriver;
 import org.openqa.selenium.firefox.FirefoxOptions;
 import org.openqa.selenium.firefox.GeckoDriverService;
-import org.openqa.selenium.remote.DesiredCapabilities;
 import org.openqa.selenium.remote.RemoteWebDriver;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -878,16 +877,12 @@ public class BrowserService  implements InitializingBean, Observer{
 				chromeBinaryPath = chromeBinaryPath + "/Contents/MacOS/Google Chrome";
 		}
 		
-		final DesiredCapabilities capabilities = DesiredCapabilities.chrome();
-		capabilities.setCapability("credentials_enable_service", false);
-		capabilities.setCapability("password_manager_enabled", false);
 		ChromeOptions chromeOptions = new ChromeOptions();
 		chromeOptions.addArguments("disable-infobars");
 		chromeOptions.addArguments("disable-save-password-bubble");
 
 		if ( !StringUtils.isBlank(chromeBinaryPath) ) {
 			try {
-				capabilities.setCapability("chrome.binary", chromeBinaryPath);
 				chromeOptions.setBinary( chromeBinaryPath );
 			} catch (final WebDriverException e) {
 				logger.error("The chrome executable chrome.exe cannot be found, please edit earth.properties and correct the chrome.exe location at "
