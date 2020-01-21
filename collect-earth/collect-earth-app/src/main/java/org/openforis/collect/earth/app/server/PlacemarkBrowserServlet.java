@@ -65,7 +65,9 @@ public class PlacemarkBrowserServlet {
 				
 				openGEEWindow(placemarkObject);
 				
-				openGeeCodeEditorWindow(placemarkObject);
+				openGEEAppWindow(placemarkObject);
+				
+				openGEECodeEditorWindow(placemarkObject);
 
 				openTimeLapseWindow(placemarkObject);
 
@@ -104,14 +106,27 @@ public class PlacemarkBrowserServlet {
 		 * }.start(); }
 		 */
 
-		public void openGeeCodeEditorWindow(final SimplePlacemarkObject placemarkObject) {
+		public void openGEECodeEditorWindow(final SimplePlacemarkObject placemarkObject) {
 			new Thread("Open GEE Playground window") { //$NON-NLS-1$
 				@Override
 				public void run() {
 					try {
-						browserService.openGeeCodeEditor(placemarkObject);
+						browserService.openGEECodeEditor(placemarkObject);
 					} catch (final Exception e) {
 						logger.error("Exception opening Earth Engine Playground window", e); //$NON-NLS-1$
+					}
+				}
+			}.start();
+		}
+		
+		public void openGEEAppWindow(final SimplePlacemarkObject placemarkObject) {
+			new Thread("Open GEE APP window") { //$NON-NLS-1$
+				@Override
+				public void run() {
+					try {
+						browserService.openGEEAppURL(placemarkObject);
+					} catch (final Exception e) {
+						logger.error("Exception opening Earth Engine APP window", e); //$NON-NLS-1$
 					}
 				}
 			}.start();
@@ -232,7 +247,7 @@ public class PlacemarkBrowserServlet {
 				@Override
 				public void run() {
 					try {
-						browserService.openEarthEngine(placemarkObject);
+						browserService.openGEEExplorer(placemarkObject);
 					} catch (final Exception e) {
 						LoggerFactory.getLogger(this.getClass()).error(
 								"Exception opening Earth Engine window", e); //$NON-NLS-1$

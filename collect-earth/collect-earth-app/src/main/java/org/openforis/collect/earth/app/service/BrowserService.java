@@ -1,5 +1,6 @@
 package org.openforis.collect.earth.app.service;
 
+import java.awt.Desktop;
 import java.io.BufferedReader;
 import java.io.BufferedWriter;
 import java.io.File;
@@ -7,7 +8,10 @@ import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.StringWriter;
 import java.io.Writer;
+import java.net.URI;
 import java.net.URL;
+import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
 import java.security.Security;
 import java.security.cert.CertificateException;
 import java.security.cert.X509Certificate;
@@ -31,6 +35,7 @@ import org.apache.commons.lang3.StringUtils;
 import org.openforis.collect.earth.app.EarthConstants;
 import org.openforis.collect.earth.app.desktop.ServerController.ServerInitializationEvent;
 import org.openforis.collect.earth.app.service.LocalPropertiesService.EarthProperty;
+import org.openforis.collect.earth.sampler.model.SimpleCoordinate;
 import org.openforis.collect.earth.sampler.model.SimplePlacemarkObject;
 import org.openqa.selenium.By;
 import org.openqa.selenium.JavascriptExecutor;
@@ -115,10 +120,10 @@ public class BrowserService  implements InitializingBean, Observer{
 	private final Logger logger = LoggerFactory.getLogger(BrowserService.class);
 	private static final String KML_FOR_GEE_JS = "resources/javascript_gee.fmt";
 	private static final Configuration cfg = new Configuration( new Version("2.3.23"));
-	private RemoteWebDriver webDriverEE, webDriverBing, webDriverBaidu, webDriverTimelapse, webDriverGeeCodeEditor, webDriverHere, webDriverStreetView, webDriverYandex, webDriverPlanetHtml, webDriverExtraMap;
+	private RemoteWebDriver webDriverEE, webDriverBing, webDriverBaidu, webDriverTimelapse, webDriverGeeCodeEditor, webDriverHere, webDriverStreetView, webDriverYandex, webDriverPlanetHtml, webDriverExtraMap, webDriverGEEMap;
 
 	private static boolean geeMethodUpdated = false;
-	
+
 	private boolean isClosing = false;
 
 
@@ -129,7 +134,7 @@ public class BrowserService  implements InitializingBean, Observer{
 	}
 
 	@Override
-    public void afterPropertiesSet() throws Exception {
+	public void afterPropertiesSet() throws Exception {
 		Runtime.getRuntime().addShutdownHook(
 				getClosingBrowsersThread()
 				);
@@ -154,7 +159,7 @@ public class BrowserService  implements InitializingBean, Observer{
 		}
 
 		if( driver == null ){
-				throw new BrowserNotFoundException("Neither Chrome nor Firefox could be opened. You need to have one of them installed in order to use GEE, Bing Maps or Saiku.");
+			throw new BrowserNotFoundException("Neither Chrome nor Firefox could be opened. You need to have one of them installed in order to use GEE, Bing Maps or Saiku.");
 		}
 
 		return driver;
@@ -185,7 +190,7 @@ public class BrowserService  implements InitializingBean, Observer{
 	}
 
 	private String getCompleteGeeJS() throws IOException {
-		
+
 		final StringBuilder jsResult = new StringBuilder();
 		try {
 			final URL geeJsUrl = new URL(localPropertiesService.getValue(EarthProperty.GEE_JS_LIBRARY_URL));
@@ -206,10 +211,10 @@ public class BrowserService  implements InitializingBean, Observer{
 			} else {
 				isr = new InputStreamReader(connection.getInputStream());            
 			}   
-			
+
 			try(
-				BufferedReader in = new BufferedReader( isr );				  
-			){
+					BufferedReader in = new BufferedReader( isr );				  
+					){
 				String inputLine;
 				while ((inputLine = in.readLine()) != null) {
 					jsResult.append(inputLine);
@@ -219,7 +224,7 @@ public class BrowserService  implements InitializingBean, Observer{
 			logger.error("Not possible to read URI " + localPropertiesService.getValue(EarthProperty.GEE_JS_LIBRARY_URL), e);
 			return null;
 		}
-		
+
 		return jsResult.toString();
 	}
 
@@ -245,9 +250,9 @@ public class BrowserService  implements InitializingBean, Observer{
 
 			// Add date to avoid caching
 			template.process(data, out);
-			
+
 			out.flush();
-			
+
 			result = fw.toString();
 
 		} catch (final TemplateException e) {
@@ -328,7 +333,7 @@ public class BrowserService  implements InitializingBean, Observer{
 			if (waitFor("workspace-el", driver)) {
 				if (driver instanceof JavascriptExecutor) {
 					try {
-						
+
 						if (!isGeeMethodUpdated()) {
 							try {
 								refreshJSValues();
@@ -449,14 +454,14 @@ public class BrowserService  implements InitializingBean, Observer{
 				@Override
 				public void run() {
 					try {
-						
+
 						webDriverBing = navigateTo(
 								geoLocalizeTemplateService.getUrlToFreemarkerOutput(
 										placemarkObject,								
 										GeolocalizeMapService.FREEMARKER_BING_HTML_TEMPLATE,
 										"bingMapsKey", localPropertiesService.getValue( EarthProperty.BING_MAPS_KEY)
-								).toString(), driverCopy);
-												
+										).toString(), driverCopy);
+
 					} catch (final Exception e) {
 						logger.error("Problems loading Bing", e);
 					}
@@ -467,7 +472,7 @@ public class BrowserService  implements InitializingBean, Observer{
 
 		}
 	}
-	
+
 	/**
 	 * Opens a browser window with the Planet Basemaps representation of the plot.
 	 * @param placemarkObject The data of the plot.
@@ -498,28 +503,28 @@ public class BrowserService  implements InitializingBean, Observer{
 						while ( ( line = read.readLine()) != null)
 				        	url.append( line.trim() );
 				        webDriverPlanet = navigateTo(url.toString(), driverCopy);
-				        
+
 					} catch (final Exception e) {
 						logger.error("Problems loading Bing", e);
 					}
 				}
 			};
 			loadPlanetThread.start();
-*/			
+			 */			
 			final RemoteWebDriver driverCopyHtml = webDriverPlanetHtml;
 
 			final Thread loadPlanetThreadHtml = new Thread("Opening Planet BaseMaps window") {
 				@Override
 				public void run() {
 					try {
-						
+
 						webDriverPlanetHtml = navigateTo(
 								geoLocalizeTemplateService.getUrlToFreemarkerOutput(
 										placemarkObject,								
 										GeolocalizeMapService.FREEMARKER_PLANET_HTML_TEMPLATE,
 										"planetMapsKey", localPropertiesService.getValue( EarthProperty.PLANET_MAPS_KEY)
-								).toString(), driverCopyHtml);
-												
+										).toString(), driverCopyHtml);
+
 					} catch (final Exception e) {
 						logger.error("Problems loading Bing", e);
 					}
@@ -530,8 +535,8 @@ public class BrowserService  implements InitializingBean, Observer{
 
 		}
 	}
-	
-	
+
+
 	/**
 	 * Opens a browser window with the Baidu Maps representation of the plot.
 	 * @param placemarkObject The data of the plot.
@@ -556,7 +561,7 @@ public class BrowserService  implements InitializingBean, Observer{
 								geoLocalizeTemplateService.getUrlToFreemarkerOutput(
 										placemarkObject,								
 										GeolocalizeMapService.FREEMARKER_BAIDU_HTML_TEMPLATE
-								).toString(), driverCopy);
+										).toString(), driverCopy);
 					} catch (final Exception e) {
 						logger.error("Problems loading Bing", e);
 					}
@@ -593,7 +598,7 @@ public class BrowserService  implements InitializingBean, Observer{
 								geoLocalizeTemplateService.getUrlToFreemarkerOutput(
 										placemarkObject,								
 										GeolocalizeMapService.FREEMARKER_YANDEX_HTML_TEMPLATE
-								).toString(), driverCopy);
+										).toString(), driverCopy);
 					} catch (final Exception e) {
 						logger.error("Problems loading Yandex", e);
 					}
@@ -631,7 +636,7 @@ public class BrowserService  implements InitializingBean, Observer{
 
 						String url = localPropertiesService.getExtraMap();
 						url = url.replaceAll("LATITUDE", latitude).replaceAll("LONGITUDE" , longitude).replaceAll("PLOT_ID" , id);
-						
+
 						webDriverExtraMap = navigateTo( url, driverCopy);
 					} catch (final Exception e) {
 						logger.error("Problems loading Yandex", e);
@@ -669,7 +674,7 @@ public class BrowserService  implements InitializingBean, Observer{
 										placemarkObject,								
 										GeolocalizeMapService.FREEMARKER_STREET_VIEW_HTML_TEMPLATE,
 										"googleMapsApiKey", localPropertiesService.getValue( EarthProperty.GOOGLE_MAPS_API_KEY)
-								).toString(), driverCopy);
+										).toString(), driverCopy);
 					} catch (final Exception e) {
 						logger.error("Problems loading Street View", e);
 					}
@@ -707,7 +712,7 @@ public class BrowserService  implements InitializingBean, Observer{
 										GeolocalizeMapService.FREEMARKER_HERE_HTML_TEMPLATE,
 										"hereAppId", localPropertiesService.getValue( EarthProperty.HERE_MAPS_APP_ID), 
 										"hereAppCode", localPropertiesService.getValue( EarthProperty.HERE_MAPS_APP_CODE)
-								).toString(), driverCopy);
+										).toString(), driverCopy);
 					} catch (final Exception e) {
 						logger.error("Problems loading Here Maps", e);
 					}
@@ -720,13 +725,74 @@ public class BrowserService  implements InitializingBean, Observer{
 	}
 
 
+	private StringBuilder getGeoJsonSegment( List<SimpleCoordinate> coordinates ) {
+		StringBuilder geoJson = new StringBuilder("[");
+		for (SimpleCoordinate coord : coordinates) {
+			geoJson = geoJson.append("[")
+					.append(coord.getLongitude())
+					.append(",")
+					.append(coord.getLatitude())
+					.append("],");
+		}
+		//remove last character
+		geoJson = geoJson.deleteCharAt(geoJson.length()-1);
+		geoJson = geoJson.append("],");
+		return geoJson;
+	}
+
+	private String getGeoJson( SimplePlacemarkObject placemarkObject) {
+
+		StringBuilder geoJson = new StringBuilder("{\"type\":\"MultiLineString\",\"coordinates\":[");
+		List<SimpleCoordinate> shape = (List<SimpleCoordinate>) placemarkObject.getShape();
+		geoJson = geoJson.append( getGeoJsonSegment(shape));
+		geoJson = geoJson.deleteCharAt(geoJson.length()-1);
+		geoJson = geoJson.append("]}");
+		return geoJson.toString();		
+	}
+
 	/**
 	 * Opens a browser window with the Google Earth Engine Code Editor and runs the freemarker template found in resources/eeCodeEditorScript.fmt on the main editor of GEE. 
 	 * @param placemarkObject The center point of the plot.
 	 * @throws BrowserNotFoundException If the browser cannot be found
 	 * 
 	 */
-	public void openGeeCodeEditor(SimplePlacemarkObject placemarkObject) throws BrowserNotFoundException {
+	public void openGEEAppURL(SimplePlacemarkObject placemarkObject) throws BrowserNotFoundException {
+
+		if (localPropertiesService.isGEEAppSupported()) {
+
+			if (webDriverGEEMap == null) {
+				webDriverGEEMap = initBrowser();
+			}
+
+			final RemoteWebDriver driverCopy = webDriverGEEMap;
+
+			final Thread loadExtraMapThread = new Thread("Opening GEE App Window") {
+				@Override
+				public void run() {
+					try {
+						String url = localPropertiesService.getGEEAppURL();
+						url = url +"#geoJson=" + URLEncoder.encode( getGeoJson( placemarkObject ), StandardCharsets.UTF_8.toString()) + ";";
+						
+						webDriverGEEMap = navigateTo( url, driverCopy);
+					} catch (final Exception e) {
+						logger.error("Problems loading GEE APP window", e);
+					}
+				}
+			};
+
+			loadExtraMapThread.start();
+		}
+
+	}
+
+
+	/**
+	 * Opens a browser window with the Google Earth Engine Code Editor and runs the freemarker template found in resources/eeCodeEditorScript.fmt on the main editor of GEE. 
+	 * @param placemarkObject The center point of the plot.
+	 * @throws BrowserNotFoundException If the browser cannot be found
+	 * 
+	 */
+	public void openGEECodeEditor(SimplePlacemarkObject placemarkObject) throws BrowserNotFoundException {
 
 		if (localPropertiesService.isCodeEditorSupported()) {
 
@@ -752,10 +818,10 @@ public class BrowserService  implements InitializingBean, Observer{
 	 * @throws BrowserNotFoundException If the browser cannot be found
 	 * 
 	 */
-	public void openEarthEngine(SimplePlacemarkObject placemarkObject) throws BrowserNotFoundException {
+	public void openGEEExplorer(SimplePlacemarkObject placemarkObject) throws BrowserNotFoundException {
 
-		logger.warn("Starting to open EE - supported : {}", localPropertiesService.isEarthEngineSupported()   );
-		if (localPropertiesService.isEarthEngineSupported()) {
+		logger.warn("Starting to open EE - supported : {}", localPropertiesService.isExplorerSupported()   );
+		if (localPropertiesService.isExplorerSupported()) {
 
 			if (webDriverEE == null) {
 				setGeeMethodUpdated(false); // Force the method to find the GEE specific methods again
@@ -870,13 +936,13 @@ public class BrowserService  implements InitializingBean, Observer{
 
 		// Handle the special case when the user picks the Chrome or Firefox app files for Mac
 		if (
-			( SystemUtils.IS_OS_MAC || SystemUtils.IS_OS_MAC_OSX ) 
+				( SystemUtils.IS_OS_MAC || SystemUtils.IS_OS_MAC_OSX ) 
 				&&
-			( chromeBinaryPath.toLowerCase().endsWith("google chrome.app" ) || chromeBinaryPath.toLowerCase().endsWith("chrome.app" ) )
-		) {
-				chromeBinaryPath = chromeBinaryPath + "/Contents/MacOS/Google Chrome";
+				( chromeBinaryPath.toLowerCase().endsWith("google chrome.app" ) || chromeBinaryPath.toLowerCase().endsWith("chrome.app" ) )
+				) {
+			chromeBinaryPath = chromeBinaryPath + "/Contents/MacOS/Google Chrome";
 		}
-		
+
 		ChromeOptions chromeOptions = new ChromeOptions();
 		chromeOptions.addArguments("disable-infobars");
 		chromeOptions.addArguments("disable-save-password-bubble");
@@ -895,7 +961,7 @@ public class BrowserService  implements InitializingBean, Observer{
 	}
 
 	private RemoteWebDriver startFirefoxBrowser(){
-		
+
 		// Firefox under version 48 will work in the "old" way with Selenium. For newer versions we need to use the GeckoDriver (Marionette)
 		String firefoxBinaryPath = localPropertiesService.getValue(EarthProperty.FIREFOX_BINARY_PATH);
 
@@ -906,8 +972,8 @@ public class BrowserService  implements InitializingBean, Observer{
 		if ( ( SystemUtils.IS_OS_MAC || SystemUtils.IS_OS_MAC_OSX) && firefoxBinaryPath.toLowerCase().endsWith("firefox.app" )  ){
 			firefoxBinaryPath = firefoxBinaryPath + "/Contents/MacOS/firefox";
 		}
-		
-		
+
+
 		FirefoxBinary fb = null;
 		if( firefoxBinaryPath != null ){
 			System.setProperty(FirefoxDriver.SystemProperty.BROWSER_BINARY , firefoxBinaryPath  );
@@ -947,7 +1013,7 @@ public class BrowserService  implements InitializingBean, Observer{
 		}
 
 		File geckoDriverFile = new File( geckoDriverPath );
-		
+
 		// if above property is not working or not opening the application in browser then try below property
 		System.setProperty(GeckoDriverService.GECKO_DRIVER_EXE_PROPERTY , geckoDriverFile.getAbsolutePath() );
 		System.setProperty(FirefoxDriver.SystemProperty.DRIVER_USE_MARIONETTE , "true"  );
@@ -987,7 +1053,7 @@ public class BrowserService  implements InitializingBean, Observer{
 	}
 
 	private Thread getClosingBrowsersThread() {
-		
+
 		return new Thread("Quit the open browsers") {
 			@Override
 			public void run() {

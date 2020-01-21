@@ -156,11 +156,11 @@ public class PropertiesDialog extends JDialog {
 
 		constraints.gridx = 0;
 		constraints.gridwidth = 2;
-		panel.add(propertyToComponent.get(EarthProperty.OPEN_EARTH_ENGINE)[0], constraints);
+		panel.add(propertyToComponent.get(EarthProperty.OPEN_GEE_CODE_EDITOR)[0], constraints);
 
 		constraints.gridy++;
-		panel.add(propertyToComponent.get(EarthProperty.OPEN_TIMELAPSE)[0], constraints);
-
+		panel.add(propertyToComponent.get(EarthProperty.OPEN_GEE_APP)[0], constraints);
+		
 		constraints.gridy++;
 		panel.add(propertyToComponent.get(EarthProperty.OPEN_BING_MAPS)[0], constraints);
 		
@@ -174,8 +174,12 @@ public class PropertiesDialog extends JDialog {
 		panel.add(propertyToComponent.get(EarthProperty.OPEN_STREET_VIEW)[0], constraints);
 
 		constraints.gridy++;
-		panel.add(propertyToComponent.get(EarthProperty.OPEN_GEE_PLAYGROUND)[0], constraints);
+		panel.add(propertyToComponent.get(EarthProperty.OPEN_GEE_EXPLORER)[0], constraints);
 
+		constraints.gridy++;
+		panel.add(propertyToComponent.get(EarthProperty.OPEN_TIMELAPSE)[0], constraints);
+
+		
 		final JPanel browserChooserPanel = new JPanel();
 		final Border browserBorder = new TitledBorder(new BevelBorder(BevelBorder.LOWERED),
 				Messages.getString("OptionWizard.1")); //$NON-NLS-1$
@@ -866,8 +870,13 @@ public class PropertiesDialog extends JDialog {
 
 		final JCheckBox openEarthEngineCheckbox = new JCheckBox(Messages.getString("OptionWizard.45")); //$NON-NLS-1$
 		openEarthEngineCheckbox
-				.setSelected(Boolean.parseBoolean(localPropertiesService.getValue(EarthProperty.OPEN_EARTH_ENGINE)));
-		propertyToComponent.put(EarthProperty.OPEN_EARTH_ENGINE, new JComponent[] { openEarthEngineCheckbox });
+				.setSelected(Boolean.parseBoolean(localPropertiesService.getValue(EarthProperty.OPEN_GEE_EXPLORER)));
+		propertyToComponent.put(EarthProperty.OPEN_GEE_EXPLORER, new JComponent[] { openEarthEngineCheckbox });
+		
+		final JCheckBox openGEEAppCheckbox = new JCheckBox("Google Earth Engine APP (no sign-in)"); //$NON-NLS-1$
+		openGEEAppCheckbox
+				.setSelected(Boolean.parseBoolean(localPropertiesService.getValue(EarthProperty.OPEN_GEE_APP)));
+		propertyToComponent.put(EarthProperty.OPEN_GEE_APP, new JComponent[] { openGEEAppCheckbox });
 
 		final JCheckBox openTimelapseCheckbox = new JCheckBox(Messages.getString("OptionWizard.46")); //$NON-NLS-1$
 		openTimelapseCheckbox
@@ -883,7 +892,6 @@ public class PropertiesDialog extends JDialog {
 		openBaiduCheckbox
 				.setSelected(Boolean.parseBoolean(localPropertiesService.getValue(EarthProperty.OPEN_BAIDU_MAPS)));
 		propertyToComponent.put(EarthProperty.OPEN_BAIDU_MAPS, new JComponent[] { openBaiduCheckbox });
-
 
 		final JCheckBox openYandexCheckbox = new JCheckBox("Open Yandex maps for the plot area");
 		openYandexCheckbox
@@ -902,8 +910,8 @@ public class PropertiesDialog extends JDialog {
 
 		final JCheckBox openGeePlaygroundCheckbox = new JCheckBox(Messages.getString("OptionWizard.58")); //$NON-NLS-1$
 		openGeePlaygroundCheckbox
-				.setSelected(Boolean.parseBoolean(localPropertiesService.getValue(EarthProperty.OPEN_GEE_PLAYGROUND)));
-		propertyToComponent.put(EarthProperty.OPEN_GEE_PLAYGROUND, new JComponent[] { openGeePlaygroundCheckbox });
+				.setSelected(Boolean.parseBoolean(localPropertiesService.getValue(EarthProperty.OPEN_GEE_CODE_EDITOR)));
+		propertyToComponent.put(EarthProperty.OPEN_GEE_CODE_EDITOR, new JComponent[] { openGeePlaygroundCheckbox });
 
 		final JCheckBox openInSeparateWindowCheckbox = new JCheckBox(Messages.getString("OptionWizard.48")); //$NON-NLS-1$
 		openInSeparateWindowCheckbox.setSelected(

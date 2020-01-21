@@ -85,8 +85,8 @@ public class LocalPropertiesService extends Observable {
 																																																																																"model_version_name"), NUMBER_OF_SAMPLING_POINTS_IN_PLOT(
 																																																																																		"number_of_sampling_points_in_plot"), OPEN_BALLOON_IN_BROWSER(
 																																																																																				"open_separate_browser_form"), OPEN_BING_MAPS(
-																																																																																						"open_bing_maps"), OPEN_EARTH_ENGINE(
-																																																																																								"open_earth_engine"), OPEN_GEE_PLAYGROUND(
+																																																																																						"open_bing_maps"), OPEN_GEE_EXPLORER(
+																																																																																								"open_earth_engine"), OPEN_GEE_CODE_EDITOR(
 																																																																																										"open_gee_playground"), OPEN_HERE_MAPS(
 																																																																																												"open_here_maps"), OPEN_STREET_VIEW(
 																																																																																														"open_street_view"), OPEN_TIMELAPSE(
@@ -102,7 +102,7 @@ public class LocalPropertiesService extends Observable {
 																																																																																																																		"large_central_plot_side"), OPEN_BAIDU_MAPS(
 																																																																																																																				"open_baidu_maps"), DISTANCE_TO_BUFFERS(
 																																																																																																																						"distance_to_buffers"), OPEN_PLANET_MAPS(
-																																																																																																																								"open_planet_maps"), PLANET_MAPS_KEY("planet_maps_key");
+																																																																																																																								"open_planet_maps"), PLANET_MAPS_KEY("planet_maps_key"), OPEN_GEE_APP("open_gee_app"), GEE_MAP_URL("gee_app_url");
 
 		private String name;
 
@@ -180,6 +180,10 @@ public class LocalPropertiesService extends Observable {
 
 	public String getExtraMap() {
 		return getValue(EarthProperty.EXTRA_MAP_URL);
+	}
+	
+	public String getGEEAppURL() {
+		return getValue(EarthProperty.GEE_MAP_URL);
 	}
 
 	public String getGeePlaygoundUrl() {
@@ -408,12 +412,17 @@ public class LocalPropertiesService extends Observable {
 		return isPropertyActivated(EarthProperty.OPEN_BING_MAPS);
 	}
 
+	public boolean isGEEAppSupported() {
+
+		return isPropertyActivated(EarthProperty.OPEN_GEE_APP);
+	}
+	
 	public boolean isCodeEditorSupported() {
-		return isPropertyActivated(EarthProperty.OPEN_GEE_PLAYGROUND);
+		return isPropertyActivated(EarthProperty.OPEN_GEE_CODE_EDITOR );
 	}
 
-	public boolean isEarthEngineSupported() {
-		return isPropertyActivated(EarthProperty.OPEN_EARTH_ENGINE);
+	public boolean isExplorerSupported() {
+		return isPropertyActivated(EarthProperty.OPEN_GEE_EXPLORER);
 	}
 
 	public Boolean isExceptionShown() {
