@@ -725,15 +725,17 @@ public class BrowserService  implements InitializingBean, Observer{
 
 	private StringBuilder getGeoJsonSegment( List<SimpleCoordinate> coordinates ) {
 		StringBuilder geoJson = new StringBuilder("[");
-		for (SimpleCoordinate coord : coordinates) {
-			geoJson = geoJson.append("[")
-					.append(coord.getLongitude())
-					.append(",")
-					.append(coord.getLatitude())
-					.append("],");
+		if( coordinates != null ) {
+			for (SimpleCoordinate coord : coordinates) {
+				geoJson = geoJson.append("[")
+						.append(coord.getLongitude())
+						.append(",")
+						.append(coord.getLatitude())
+						.append("],");
+			}
+			//remove last character
+			geoJson = geoJson.deleteCharAt(geoJson.length()-1);
 		}
-		//remove last character
-		geoJson = geoJson.deleteCharAt(geoJson.length()-1);
 		geoJson = geoJson.append("],");
 		return geoJson;
 	}
@@ -741,7 +743,7 @@ public class BrowserService  implements InitializingBean, Observer{
 	private String getGeoJson( SimplePlacemarkObject placemarkObject) {
 
 		StringBuilder geoJson = new StringBuilder("{\"type\":\"MultiLineString\",\"coordinates\":[");
-		List<SimpleCoordinate> shape = (List<SimpleCoordinate>) placemarkObject.getShape();
+		List<SimpleCoordinate> shape = placemarkObject.getShape();
 		geoJson = geoJson.append( getGeoJsonSegment(shape));
 		geoJson = geoJson.deleteCharAt(geoJson.length()-1);
 		geoJson = geoJson.append("]}");
@@ -768,10 +770,11 @@ public class BrowserService  implements InitializingBean, Observer{
 				@Override
 				public void run() {
 					try {
-						String url = localPropertiesService.getGEEAppURL();
-						url = url +"#geoJson=" + URLEncoder.encode( getGeoJson( placemarkObject ), StandardCharsets.UTF_8.toString()) + ";";
-						
-						webDriverGEEMap = navigateTo( url, driverCopy);
+						StringBuilder url = new StringBuilder( localPropertiesService.getGEEAppURL() );
+						url = url.append( "#geoJson=" ).append( URLEncoder.encode( getGeoJson( placemarkObject ), StandardCharsets.UTF_8.toString()) ).append(";");
+						url = url.append("plotId=").append( URLEncoder.encode( placemarkObject.getPlacemarkId(), StandardCharsets.UTF_8.toString()) ).append( ";" );
+						webDriverGEEMap = navigateTo( url.toString(), driverCopy);
+						logger.info("Opening " + url.toString()) ;
 					} catch (final Exception e) {
 						logger.error("Problems loading GEE APP window", e);
 					}
