@@ -509,7 +509,83 @@ public class BrowserService  implements InitializingBean, Observer{
 
 		}
 	}
+	
+	public void openPlanetMapsSIMPLE(SimplePlacemarkObject placemarkObject) throws BrowserNotFoundException {
 
+		if (localPropertiesService.isPlanetMapsSupported()) {
+			
+			final RemoteWebDriver driverCopyHtml = webDriverPlanetHtml;
+
+			final Thread loadPlanetThreadHtml = new Thread("Opening Planet BaseMaps window") {
+				@Override
+				public void run() {
+					try {
+						
+						String planetLabsUrl = 
+								"https://www.planet.com/explorer/#/types/PSScene3Band,PSScene4Band,REScene/center/"
+								+ placemarkObject.getOriginalLongitude()+","+ placemarkObject.getOriginalLatitude() + "/zoom/15/geometry/POLYGON("
+								+ getPlanetPolygon( placemarkObject ) 
+								+")/cloud_cover/0,0.5/interval/1%20day";
+
+						webDriverPlanetHtml = navigateTo(
+							planetLabsUrl, 
+							driverCopyHtml);
+
+					} catch (final Exception e) {
+						logger.error("Problems loading Planet", e);
+					}
+				}
+
+				private String getPlanetPolygon(SimplePlacemarkObject placemarkObject) {
+					List<List<SimpleCoordinate>> multiShape = placemarkObject.getMultiShape();
+					StringBuilder polygonPlanet = new StringBuilder();
+					for (List<SimpleCoordinate> shp : multiShape) {
+						polygonPlanet.append("(");
+						for (SimpleCoordinate simpleCoordinate : shp) {
+							polygonPlanet.append( simpleCoordinate.getLongitude() ).append("+").append( simpleCoordinate.getLatitude() ).append(",");
+						}
+						polygonPlanet = removeLastCharacter( polygonPlanet );
+						polygonPlanet.append("),");
+					}
+					polygonPlanet = removeLastCharacter( polygonPlanet );
+					/*
+					List<SimplePlacemarkObject> points = placemarkObject.getPoints();
+					for (SimplePlacemarkObject square : points) {
+						polygonPlanet.append("(");
+						List<SimpleCoordinate> shape = square.getShape();
+						for (SimpleCoordinate simpleCoordinate : shape) {
+							polygonPlanet.append( simpleCoordinate.getLongitude() ).append("+").append( simpleCoordinate.getLatitude() ).append(",");
+						}
+						polygonPlanet.append("),");
+						
+						if( square.getPoints() != null ) {
+							
+							List<SimplePlacemarkObject> internalPoints = square.getPoints();
+							
+							for (SimplePlacemarkObject simplePlacemarkObject : internalPoints) {
+								polygonPlanet.append("(");
+								List<SimpleCoordinate> innerShape = simplePlacemarkObject.getShape();
+								for (SimpleCoordinate coords : innerShape) {
+									polygonPlanet.append( coords.getLongitude() ).append("+").append( coords.getLatitude() ).append(",");
+								}
+								polygonPlanet.append("),");
+							}
+							
+						}
+					}
+					*/
+					return polygonPlanet.toString();
+				}
+
+				private StringBuilder removeLastCharacter(StringBuilder polygonPlanet) {
+					return polygonPlanet.deleteCharAt( polygonPlanet.length() - 1 );
+				}
+			};
+
+			loadPlanetThreadHtml.start();
+
+		}
+	}
 
 	/**
 	 * Opens a browser window with the Baidu Maps representation of the plot.

@@ -8,12 +8,21 @@
 	<meta charset="utf-8" />
 	<meta name="viewport" content="width=device-width, initial-scale=1.0">
 	
-	<link rel="shortcut icon" type="image/x-icon" href="docs/images/favicon.ico" />
-
+ 	<link rel="stylesheet" href="http://ghusse.github.io/jQRangeSlider/stable/css/iThing.css" />
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.6.0/dist/leaflet.css" integrity="sha512-xwE/Az9zrjBIphAcBb3F6JVqxf46+CDLwfLMHloNu6KEQCAWi6HcDUbeOfBIptF7tcCzusKFjFw2yuvEpDL9wQ==" crossorigin=""/>
     <script src="https://unpkg.com/leaflet@1.6.0/dist/leaflet.js" integrity="sha512-gZwIG9x3wUXg2hdXF6+rVkLF/0Vi9U8D2Ntg4Ga5I5BZpVkVxlJWbSQtXPSiUTtC0TjtGOmxa1AJPuV0CPthew==" crossorigin=""></script>
-	<script src="https://ajax.googleapis.com/ajax/libs/jquery/3.4.1/jquery.min.js"></script>
-
+	<script src="https://ajax.googleapis.com/ajax/libs/jquery/1.7.2/jquery.min.js"></script>
+	<link rel="stylesheet" href="https://ajax.googleapis.com/ajax/libs/jqueryui/1.8.18/themes/smoothness/jquery-ui.css">
+	<script src="https://ajax.googleapis.com/ajax/libs/jqueryui/1.8.18/jquery-ui.min.js"></script>
+	<script src="http://ghusse.github.io/jQRangeSlider/stable/jQRangeSliderMouseTouch.js"></script>
+	<script src="http://ghusse.github.io/jQRangeSlider/stable/jQRangeSliderDraggable.js"></script>
+	<script src="http://ghusse.github.io/jQRangeSlider/stable/jQRangeSliderBar.js"></script>
+	<script src="http://ghusse.github.io/jQRangeSlider/stable/jQRangeSliderHandle.js"></script>
+	<script src="http://ghusse.github.io/jQRangeSlider/stable/jQRangeSliderLabel.js"></script>
+	<script src="http://ghusse.github.io/jQRangeSlider/stable/jQRangeSlider.js"></script>
+	<script src="http://ghusse.github.io/jQRangeSlider/stable/jQDateRangeSliderHandle.js"></script>
+	<script src="http://ghusse.github.io/jQRangeSlider/stable/jQDateRangeSlider.js"></script>
+	<script src="http://ghusse.github.io/jQRangeSlider/stable/jQRuler.js"></script>
 	<style>
 		html, body {
 			height: 100%;
@@ -28,8 +37,33 @@
 	
 </head>
 <body>
-<div id='map'></select></></div>
+<div id='map' style="z-index: 1;"></select></></div>
+<div id="slider" style="position:absolute; bottom:0px; left:15px; right:15px; width:95%; height:100px; z-index: 100"></div>
 
+<script>
+     $("#slider").dateRangeSlider({
+		valueLabels:"change",
+		delayOut: 4000,
+		min: {days: 2},
+		max: {days: 30},
+		bounds: {min: new Date(2016, 0, 1), max: new Date(2019,12,31)},
+		defaultValues: {min: new Date(2019, 10, 01), max: new Date(2019, 10, 31)},
+		})
+		
+		$("#slider").bind("userValuesChanged", function(e, data){
+		  
+		  $.post( "${urlPlanetEndpointPrefix}planet", 
+			{ start: JSON.stringify( data.values.min ), end : JSON.stringify( data.values.max ), geometry : JSON.stringify( boundaries ) })
+			  .done(function( data ) {
+			  	if( data === ""){
+			  		alert("No imagery for the dates selected");
+			  	}
+				setLayer( data );
+			  });
+			setLayer( this.value );
+			
+		});
+</script>
 <script type="text/javascript">
 
 
@@ -44,8 +78,18 @@
 		}).addTo(map);
 	}
 	
-	setLayer( ${latestUrl} );
+	setLayer( "${latestUrl}" );
 	
+	var boundaries = [ 
+	// create a red polyline from an array of LatLng points
+			<#list placemark.multiShape as shp>
+             [
+            	<#list shp as coord>
+				[${coord.longitude},${coord.latitude}],
+				</#list>
+			]
+			</#list>
+			];
 	var latlngs = [ 
 	// create a red polyline from an array of LatLng points
 			<#list placemark.multiShape as shp>
@@ -81,7 +125,7 @@
 	var legend = L.control({position: 'topright'  });
 	legend.onAdd = function (map) {
 		var div = L.DomUtil.create('div', 'info legend');
-		div.innerHTML = '<select><option value="2019-10-01">Planet Monthly 2019-10</option><option value="2019-08-01">Planet Monthly 2019-08</option><option value="2019-06-01">Planet Monthly 2019-06</option><option value="global_monthly_2019_04_mosaic">Planet Monthly 2019-04</option><option value="global_monthly_2019_02_mosaic">Planet Monthly 2019-02</option><option value="global_monthly_2018_12_mosaic">Planet Monthly 2018-12</option><option value="global_monthly_2018_10_mosaic">Planet Monthly 2018-10</option><option value="global_monthly_2018_08_mosaic">Planet Monthly 2018-08</option><option value="global_monthly_2018_06_mosaic">Planet Monthly 2018-06</option><option value="global_monthly_2018_04_mosaic">Planet Monthly 2018-04</option><option value="global_monthly_2018_02_mosaic">Planet Monthly 2018-02</option><option value="global_monthly_2017_12_mosaic">Planet Monthly 2017-12</option><option value="global_monthly_2017_10_mosaic">Planet Monthly 2017-10</option><option value="global_monthly_2017_08_mosaic">Planet Monthly 2017-08</option><option value="global_monthly_2017_06_mosaic">Planet Monthly 2017-06</option><option value="global_monthly_2017_04_mosaic">Planet Monthly 2017-04</option><option value="global_monthly_2017_02_mosaic">Planet Monthly 2017-02</option><option value="global_monthly_2016_12_mosaic">Planet Monthly 2016-12</option><option value="global_monthly_2016_10_mosaic">Planet Monthly 2016-10</option><option value="global_monthly_2016_08_mosaic">Planet Monthly 2016-08</option><option value="global_monthly_2016_06_mosaic">Planet Monthly 2016-06</option><option value="global_monthly_2016_04_mosaic">Planet Monthly 2016-04</option><option value="global_monthly_2016_02_mosaic">Planet Monthly 2016-02</option><option value="global_monthly_2015_12_mosaic">Planet Monthly 2015-12</option><option value="global_monthly_2016_10_mosaic">Planet Monthly 2016-10</option><option value="global_monthly_2016_08_mosaic">Planet Monthly 2015-08</option><option value="global_monthly_2015_06_mosaic">Planet Monthly 2016-06</option><option value="global_monthly_2015_04_mosaic">Planet Monthly 2015-04</option><option value="global_monthly_2015_02_mosaic">Planet Monthly 2015-02</option></select>';
+		div.innerHTML = '<select><option value="2019-10-01">Planet Monthly 2019-10</option></select>';
 		div.firstChild.onmousedown = div.firstChild.ondblclick = L.DomEvent.stopPropagation;
 		return div;
 	};
@@ -90,9 +134,8 @@
 	
 $('select').change(function( ){
 	$.post( "${urlPlanetEndpointPrefix}planet", 
-			{ start: this.value, end : "", geometry : latlngs })
+			{ start: this.value, end : "", geometry : JSON.stringify( latlngs ) })
 	  .done(function( data ) {
-	    alert( "Data Loaded: " + data );
 	    setLayer( data );
 	  });
 	setLayer( this.value );

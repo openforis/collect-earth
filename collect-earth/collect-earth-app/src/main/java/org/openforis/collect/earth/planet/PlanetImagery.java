@@ -120,8 +120,7 @@ public class PlanetImagery {
 			response = readStream(conn.getInputStream());
 		} catch (Exception e) {
 			StringBuilder errorMessage = readStream(conn.getErrorStream());
-			if( errorMessage != null )
-				logger.error( errorMessage.toString() );
+			logger.error( "Error from Planet",errorMessage.toString() );
 			logger.error("Error connecting to Planet server", e );
 		}finally {
 			conn.disconnect();
@@ -131,10 +130,8 @@ public class PlanetImagery {
 
 
 	private StringBuilder readStream(InputStream is) throws IOException, UnsupportedEncodingException {
-		StringBuilder response = null;
-		try(BufferedReader br = new BufferedReader( new InputStreamReader(is, "utf-8"))) {
-
-			response = new StringBuilder();
+		StringBuilder response = new StringBuilder();;
+		try(BufferedReader br = new BufferedReader( new InputStreamReader(is, "utf-8"))) {	
 			String responseLine = null;
 			while ((responseLine = br.readLine()) != null) {
 				response.append(responseLine.trim());
@@ -159,9 +156,9 @@ public class PlanetImagery {
 
 	}
 
-	private Feature[] getNextPage(String res_json) throws MalformedURLException, IOException {
-		if( StringUtils.isNotBlank( res_json ) ) {
-			Response resp = gson.fromJson(res_json, Response.class );
+	private Feature[] getNextPage(String resJson) throws MalformedURLException, IOException {
+		if( StringUtils.isNotBlank( resJson ) ) {
+			Response resp = gson.fromJson(resJson, Response.class );
 			Feature[] features = resp.getFeatures();
 			Links links = resp.getLinks();
 			if( links != null && links.getNext() != null ) {
@@ -231,8 +228,8 @@ public class PlanetImagery {
 		double[][][] polygon =new double[1][ shape.size() ][2];
 		int i=0;
 		for (SimpleCoordinate simpleCoordinate : shape) {
-			polygon[0][ i ][ 0 ] =  Double.parseDouble( simpleCoordinate.getLatitude() );
-			polygon[0][ i++ ][ 1 ] =  Double.parseDouble( simpleCoordinate.getLongitude() );
+			polygon[0][ i ][ 1 ] =  Double.parseDouble( simpleCoordinate.getLatitude() );
+			polygon[0][ i++ ][ 0 ] =  Double.parseDouble( simpleCoordinate.getLongitude() );
 		}
 		String[] itemTypes = {"PSScene3Band", "PSScene4Band"};
 		return getLayerUrl( start, new Date(), polygon, itemTypes );

@@ -60,7 +60,6 @@ public class PlacemarkBrowserServlet {
 			this.placemarkObject = placemarkObject;	
 		}
 
-
 		@Override
 		public void run() {
 			// If this is the first plot or the plot is the last one that

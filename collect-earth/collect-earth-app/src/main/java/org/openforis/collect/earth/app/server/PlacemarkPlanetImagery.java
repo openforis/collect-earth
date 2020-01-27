@@ -2,10 +2,11 @@ package org.openforis.collect.earth.app.server;
 
 import java.io.IOException;
 import java.text.DateFormat;
-import java.text.ParseException;
+import java.text.SimpleDateFormat;
 import java.time.LocalDateTime;
 import java.util.Date;
 
+import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 
 import org.openforis.collect.earth.app.service.LocalPropertiesService;
@@ -15,7 +16,9 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestMethod;
-import org.springframework.web.bind.annotation.RequestParam;
+
+import com.google.gson.Gson;
+import com.google.gson.GsonBuilder;
 
 /**
  * Controller to load and store the information that is stored in Collect Earth for one placemark (plot)
@@ -30,25 +33,25 @@ public class PlacemarkPlanetImagery extends JsonPocessorServlet {
 	@Autowired
 	LocalPropertiesService localPropertiesService;
 
-	private PlanetImagery planetImagery;
-
 	@RequestMapping(value="/planet", method = RequestMethod.POST)
-	//public void planet(@RequestParam("json") SearchRequest searchRequest, HttpServletResponse response) throws IOException {
-	public void planet(@RequestParam("start") String start, @RequestParam("end") String end, @RequestParam("geometry") double[][][] coords,HttpServletResponse response) throws IOException {
+	public void planet(HttpServletRequest request,HttpServletResponse response) throws IOException {
 		try {
-			Date startDate= DateFormat.getDateInstance().parse( start );
-			Date endDate= null;
-			if( end.length() > 0 ) {
-
-				endDate = DateFormat.getDateInstance().parse( start );
-
+			//2015-07-17T10:50:18.650Z
+			SimpleDateFormat sdf =new SimpleDateFormat("yyyy-MM-dd");
+			Date startDate= sdf.parse( request.getParameter("start").substring(1, 11) );
+			String endDateString= request.getParameter("end");
+			Date endDate = null;
+			if( endDateString.length() > 0 ) {
+				endDate = sdf.parse( endDateString.substring(1, 11) );
 			}else {
 				LocalDateTime localDateTime = DateUtils.asLocalDateTime( startDate );
 				endDate = DateUtils.asDate( localDateTime.plusDays(30) );
 			}
 
-			planetImagery = new PlanetImagery( localPropertiesService.getPlanetMapsKey() );
-
+			PlanetImagery planetImagery = new PlanetImagery( localPropertiesService.getPlanetMapsKey() );
+			
+			Gson gson = new GsonBuilder().create();
+			double[][][] coords = gson.fromJson( request.getParameter("geometry"), double[][][].class);
 			setJsonResponse(response, planetImagery.getLayerUrl(startDate, endDate, coords, new String[]{"PSScene3Band", "PSScene4Band"} ));
 		}catch(Exception e){
 			logger.error("Error getting planet images url" , e);
