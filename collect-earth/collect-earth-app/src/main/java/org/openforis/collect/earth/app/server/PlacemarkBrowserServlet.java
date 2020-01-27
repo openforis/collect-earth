@@ -9,11 +9,14 @@ import javax.servlet.http.HttpServletResponse;
 
 import org.openforis.collect.earth.app.service.BrowserService;
 import org.openforis.collect.earth.app.service.EarthSurveyService;
+import org.openforis.collect.earth.app.service.KmlGeneratorService;
 import org.openforis.collect.earth.app.service.LocalPropertiesService;
 import org.openforis.collect.earth.core.utils.CsvReaderUtils;
 import org.openforis.collect.earth.sampler.model.SimplePlacemarkObject;
 import org.openforis.collect.earth.sampler.processor.KmlGenerator;
+import org.openforis.collect.earth.sampler.utils.KmlGenerationException;
 import org.openforis.idm.metamodel.AttributeDefinition;
+import org.opengis.referencing.operation.TransformException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -37,18 +40,20 @@ public class PlacemarkBrowserServlet {
 
 	@Autowired
 	private EarthSurveyService earthSurveyService;
-	
+
 	@Autowired
 	private LocalPropertiesService localPropertiesService;
-	
-	private SimplePlacemarkObject lastPlacemark = null;
-	
-	private final Logger logger = LoggerFactory.getLogger( PlacemarkBrowserServlet.class );
-	
-	private final class OpenBrowserThread extends Thread {
-		
-		private SimplePlacemarkObject placemarkObject;
 
+	@Autowired
+	private KmlGeneratorService kmlGeneratorService;
+
+	private SimplePlacemarkObject lastPlacemark = null;
+
+	private final Logger logger = LoggerFactory.getLogger( PlacemarkBrowserServlet.class );
+
+	private final class OpenBrowserThread extends Thread {
+
+		private SimplePlacemarkObject placemarkObject;
 
 		private OpenBrowserThread(String name, SimplePlacemarkObject placemarkObject) {
 			super(name);
@@ -62,30 +67,41 @@ public class PlacemarkBrowserServlet {
 			// was opened
 			if (lastPlacemark == null
 					|| !lastPlacemark.equals( placemarkObject ) ) {
-				
-				openGEEWindow(placemarkObject);
-				
-				openGEEAppWindow(placemarkObject);
-				
-				openGEECodeEditorWindow(placemarkObject);
 
-				openTimeLapseWindow(placemarkObject);
+				try {
+					KmlGenerator kmlGenerator = kmlGeneratorService.getKmlGenerator();
+					
+					kmlGenerator.fillSamplePoints(placemarkObject);
 
-				openBingMapsWindow(placemarkObject);
-				
-				openBaiduMapsWindow(placemarkObject);
-								
-				openYandexMapsWindow(placemarkObject);
+					kmlGenerator.fillExternalLine(placemarkObject);
 
-				openExtraMapWindow(placemarkObject);
-				
-				openStreetViewWindow(placemarkObject);
-				
-				openPlanetMapsWindow(placemarkObject);
+					openGEEWindow(placemarkObject);
 
-				// Until further notice
-				// openHereMapsWindow(placemarkObject);
+					openGEEAppWindow(placemarkObject);
 
+					openGEECodeEditorWindow(placemarkObject);
+
+					openTimeLapseWindow(placemarkObject);
+
+					openBingMapsWindow(placemarkObject);
+
+					openBaiduMapsWindow(placemarkObject);
+
+					openYandexMapsWindow(placemarkObject);
+
+					openExtraMapWindow(placemarkObject);
+
+					openStreetViewWindow(placemarkObject);
+
+					openPlanetMapsWindow(placemarkObject);
+
+					// Until further notice
+					// openHereMapsWindow(placemarkObject);
+				} catch (TransformException e) {
+					logger.error("Error generating polygon", e );
+				} catch (KmlGenerationException e) {
+					logger.error("Error generating polygon", e );
+				}
 			}
 
 			lastPlacemark = placemarkObject;
@@ -118,7 +134,7 @@ public class PlacemarkBrowserServlet {
 				}
 			}.start();
 		}
-		
+
 		public void openGEEAppWindow(final SimplePlacemarkObject placemarkObject) {
 			new Thread("Open GEE APP window") { //$NON-NLS-1$
 				@Override
@@ -145,8 +161,8 @@ public class PlacemarkBrowserServlet {
 				}
 			}.start();
 		}
-		
-		
+
+
 		public void openPlanetMapsWindow(final SimplePlacemarkObject placemarkObject) {
 			new Thread("Open Planet Maps window") { //$NON-NLS-1$
 				@Override
@@ -177,7 +193,7 @@ public class PlacemarkBrowserServlet {
 
 			}.start();
 		}
-		
+
 		public void openYandexMapsWindow(final SimplePlacemarkObject placemarkObject) {
 			new Thread("Open Yandex Maps window") { //$NON-NLS-1$
 				@Override
@@ -193,7 +209,7 @@ public class PlacemarkBrowserServlet {
 
 			}.start();
 		}
-		
+
 		public void openExtraMapWindow(final SimplePlacemarkObject placemarkObject) {
 			new Thread("Open Expa Map window") { //$NON-NLS-1$
 				@Override
@@ -209,7 +225,7 @@ public class PlacemarkBrowserServlet {
 
 			}.start();
 		}
-		
+
 		public void openStreetViewWindow(final SimplePlacemarkObject placemarkObject) {
 			new Thread("Open Street View window") { //$NON-NLS-1$
 				@Override
@@ -274,7 +290,7 @@ public class PlacemarkBrowserServlet {
 	protected void openAuxiliaryWindows(
 			HttpServletResponse response,
 			@RequestParam(value = "latLongCoordinates", required = false) final String latLongCoordinates)
-			{
+	{
 		try {
 			SimplePlacemarkObject placemarkObject = new SimplePlacemarkObject(latLongCoordinates.split(",") );
 			OpenBrowserThread browserThread = new OpenBrowserThread("Open auxiliary windows " + latLongCoordinates, placemarkObject);
@@ -287,11 +303,11 @@ public class PlacemarkBrowserServlet {
 	@RequestMapping("/ancillaryWindows")
 	protected void openAuxiliaryWindowsNew(HttpServletResponse response, HttpServletRequest request) throws IOException {
 
-		
+
 		List<AttributeDefinition> keyAttributeDefinitions = earthSurveyService
 				.getRootEntityDefinition()
 				.getKeyAttributeDefinitions();
-		
+
 		// the keys should the the parameter names
 		Map<String, String[]> keys = request.getParameterMap();
 
@@ -302,11 +318,11 @@ public class PlacemarkBrowserServlet {
 
 		try {
 			String[] csvValues = getValuesFromCsv(keysInOrder);
-			
+
 			if( csvValues == null ){
 				throw new IllegalArgumentException("The keys " + keys.toString() + " are not present on the CSV file with the plot lcoations!!!");
 			}
-			
+
 			SimplePlacemarkObject placemarkObject = KmlGenerator.getPlotObject(csvValues, null, earthSurveyService.getCollectSurvey() );
 			OpenBrowserThread browserThread = new OpenBrowserThread("Open ancillary windows - polygon ", placemarkObject );
 			browserThread.start();
@@ -318,7 +334,7 @@ public class PlacemarkBrowserServlet {
 
 	private String[] getValuesFromCsv(String[] keysInOrder) {
 		CSVReader reader = null;
-		
+
 		try {
 			final String csvFile = localPropertiesService.getCsvFile();
 			reader = CsvReaderUtils.getCsvReader(csvFile);
@@ -331,19 +347,19 @@ public class PlacemarkBrowserServlet {
 						foundIt = false;
 					}
 				}
-				
+
 				if( foundIt ){
 					return csvRow;
 				}
-				
+
 			}
-			
-			
+
+
 		}catch(Exception e){
 			logger.error("Error reading data from the CSV containing the plot locations ", e);
 		}
 		return null;
-		
+
 	}
 
 }

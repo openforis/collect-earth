@@ -11,10 +11,7 @@ import java.util.HashMap;
 import java.util.Map;
 
 import org.openforis.collect.earth.sampler.model.SimplePlacemarkObject;
-import org.openforis.collect.earth.sampler.processor.KmlGenerator;
 import org.openforis.collect.earth.sampler.utils.FreemarkerTemplateUtils;
-import org.openforis.collect.earth.sampler.utils.KmlGenerationException;
-import org.opengis.referencing.operation.TransformException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -114,20 +111,7 @@ public class GeolocalizeMapService {
 
 	public Map<String, Object> getPlacemarkData(SimplePlacemarkObject placemarkObject) {
 		final Map<String, Object> data = new HashMap<>();
-
-		KmlGenerator kmlGenerator = kmlGeneratorService.getKmlGenerator();
-
-		if (kmlGenerator == null) {
-			throw new IllegalArgumentException("Error while generating KML");
-		}
-
-		try {
-			kmlGenerator.fillSamplePoints(placemarkObject);
-			kmlGenerator.fillExternalLine(placemarkObject);
-			data.put("placemark", placemarkObject);
-		} catch (final TransformException | KmlGenerationException e) {
-			logger.error("Exception producing shape data for html ", e);
-		}
+		data.put("placemark", placemarkObject);
 		return data;
 	}
 

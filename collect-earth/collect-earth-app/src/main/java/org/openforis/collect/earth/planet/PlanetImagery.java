@@ -204,7 +204,6 @@ public class PlanetImagery {
 			Filter geometryFilter = getGeometryFilter( geometry );
 			Filter stringFilter = getStringInFilter( "quality_category",  new String[] {"standard"} );
 
-
 			Feature[] searchResults = search(
 					itemTypes,
 					new Filter[]{
