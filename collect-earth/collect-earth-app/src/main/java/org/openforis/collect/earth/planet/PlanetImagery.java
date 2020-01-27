@@ -31,8 +31,8 @@ public class PlanetImagery {
 	private static final Gson gson = new GsonBuilder().setDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'").create();;
 
 	private String apiKey;
-	
-	
+
+
 	public PlanetImagery(String apiKey) {
 		super();
 		this.apiKey = apiKey;
@@ -174,20 +174,25 @@ public class PlanetImagery {
 	}
 
 	private String getLayers(Feature[] features ) throws IOException {
-		String[] ids = new String[ features.length ];
-		for (int i = 0; i < ids.length; i++) {
-			Feature feature = features[i];
+		String layerUrl = "";
+		if( features.length > 0 ) {
+			String[] ids = new String[ features.length ];
+			for (int i = 0; i < ids.length; i++) {
+				Feature feature = features[i];
 
-			String idSearch = feature.getProperties().getItemType()
-					+ ':' + feature.getId();
-			ids[ i ] = idSearch;
+				String idSearch = feature.getProperties().getItemType()
+						+ ':' + feature.getId();
+				ids[ i ] = idSearch;
+			}
+
+			SearchRequest layerRequest = new SearchRequest(ids);
+			String layers = sendRequest( new URL("https://tiles0.planet.com/data/v1/layers"), layerRequest);
+			LayerResponse layerResponse = gson.fromJson(layers , LayerResponse.class);
+			if( layerResponse != null ) {
+				layerUrl = layerResponse.getTiles()[0];
+			}
 		}
-		SearchRequest layerRequest = new SearchRequest(ids);
-		String layers = sendRequest( new URL("https://tiles0.planet.com/data/v1/layers"), layerRequest);
-		LayerResponse layerResponse = gson.fromJson(layers , LayerResponse.class);
-		if( layerResponse != null ) {
-			return layerResponse.getTiles()[0];
-		}else {return "";}
+		return layerUrl;
 	}
 
 
@@ -211,7 +216,7 @@ public class PlanetImagery {
 					true
 					);
 			layerURL = getLayers(searchResults );
-			
+
 		} catch (Exception e) {
 			logger.error( "Error gettting Planet layer URL", e);
 		}
@@ -222,9 +227,9 @@ public class PlanetImagery {
 	public String getLatestUrl(SimplePlacemarkObject placemarkObject) {
 		LocalDateTime localDateTime = DateUtils.asLocalDateTime( new Date() );
 		Date start = DateUtils.asDate( localDateTime.minusDays(30) );
-		
+
 		List<SimpleCoordinate> shape = placemarkObject.getMultiShape().get(0);
-		
+
 		double[][][] polygon =new double[1][ shape.size() ][2];
 		int i=0;
 		for (SimpleCoordinate simpleCoordinate : shape) {

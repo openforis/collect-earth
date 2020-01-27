@@ -41,31 +41,49 @@
 <div id="slider" style="position:absolute; bottom:0px; left:15px; right:15px; width:95%; height:100px; z-index: 100"></div>
 
 <script>
+
+
+	function setLayerURL( fromDate, toDate, geometry){
+				  $.post( 
+				    	"${urlPlanetEndpointPrefix}planet", 
+						{ start: JSON.stringify( fromDate ), end : JSON.stringify( toDate ), geometry : JSON.stringify( geometry ) }
+					).done(
+						function( data ) {
+						  	if( data === ""){
+						  		alert("No imagery for the dates selected");
+						  	}
+							setLayer( data );
+					 	});
+	}
+	
+	var defaultEndDate = new Date();
+	var defaultStartDate = new Date();
+	defaultStartDate.setDate( defaultStartDate.getDate() - 30 );  
+
      $("#slider").dateRangeSlider({
 		valueLabels:"change",
 		delayOut: 4000,
-		min: {days: 2},
-		max: {days: 30},
-		bounds: {min: new Date(2016, 0, 1), max: new Date(2019,12,31)},
-		defaultValues: {min: new Date(2019, 10, 01), max: new Date(2019, 10, 31)},
+		range:{
+		    min: {days: 5},
+		    max: {days: 60}
+		},
+		bounds: {min: new Date(2016, 01, 01), max: defaultEndDate},
+		defaultValues: {min: defaultStartDate, max: defaultEndDate},
 		})
 		
 		$("#slider").bind("userValuesChanged", function(e, data){
-		  
-		  $.post( "${urlPlanetEndpointPrefix}planet", 
-			{ start: JSON.stringify( data.values.min ), end : JSON.stringify( data.values.max ), geometry : JSON.stringify( boundaries ) })
-			  .done(function( data ) {
-			  	if( data === ""){
-			  		alert("No imagery for the dates selected");
-			  	}
-				setLayer( data );
-			  });
-			setLayer( this.value );
-			
+			var fromDate = data.values.min;
+			var toDate = data.values.max;
+			setLayerURL(fromDate, toDate, boundaries );
 		});
 </script>
 <script type="text/javascript">
 
+	$(document).ready(function () {
+	  	
+		setLayerURL( defaultStartDate, defaultEndDate, boundaries);
+	  
+	});
 
 	var map = L.map('map');
 	var lastLayer;
@@ -77,8 +95,6 @@
 			tms: false
 		}).addTo(map);
 	}
-	
-	setLayer( "${latestUrl}" );
 	
 	var boundaries = [ 
 	// create a red polyline from an array of LatLng points
@@ -122,24 +138,6 @@
 	// zoom the map to the polyline
 	map.fitBounds(polyline.getBounds(), { padding : [35,35] } );
 
-	var legend = L.control({position: 'topright'  });
-	legend.onAdd = function (map) {
-		var div = L.DomUtil.create('div', 'info legend');
-		div.innerHTML = '<select><option value="2019-10-01">Planet Monthly 2019-10</option></select>';
-		div.firstChild.onmousedown = div.firstChild.ondblclick = L.DomEvent.stopPropagation;
-		return div;
-	};
-	
-	legend.addTo(map);
-	
-$('select').change(function( ){
-	$.post( "${urlPlanetEndpointPrefix}planet", 
-			{ start: this.value, end : "", geometry : JSON.stringify( latlngs ) })
-	  .done(function( data ) {
-	    setLayer( data );
-	  });
-	setLayer( this.value );
-});
 </script>
 
 

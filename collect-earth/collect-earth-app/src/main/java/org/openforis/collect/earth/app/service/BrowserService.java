@@ -34,7 +34,6 @@ import org.openforis.collect.earth.app.EarthConstants;
 import org.openforis.collect.earth.app.desktop.ServerController;
 import org.openforis.collect.earth.app.desktop.ServerController.ServerInitializationEvent;
 import org.openforis.collect.earth.app.service.LocalPropertiesService.EarthProperty;
-import org.openforis.collect.earth.planet.PlanetImagery;
 import org.openforis.collect.earth.sampler.model.SimpleCoordinate;
 import org.openforis.collect.earth.sampler.model.SimplePlacemarkObject;
 import org.openqa.selenium.By;
@@ -506,14 +505,22 @@ public class BrowserService implements InitializingBean, Observer {
 
 			try {
 
-				webDriverPlanetHtml = navigateTo(geoLocalizeTemplateService.getUrlToFreemarkerOutput(placemarkObject,
-						GeolocalizeMapService.FREEMARKER_PLANET_HTML_TEMPLATE, "planetMapsKey",
-						localPropertiesService.getValue(EarthProperty.PLANET_MAPS_KEY), "urlPlanetEndpointPrefix",
-						ServerController.getHostAddress(localPropertiesService.getHost(),
-								localPropertiesService.getPort()),
-						"latestUrl",
-						new PlanetImagery(localPropertiesService.getPlanetMapsKey()).getLatestUrl(placemarkObject))
-						.toString(), driverCopyHtml);
+				webDriverPlanetHtml = navigateTo(
+						
+						geoLocalizeTemplateService.getUrlToFreemarkerOutput(
+							placemarkObject,
+							GeolocalizeMapService.FREEMARKER_PLANET_HTML_TEMPLATE, 
+							"planetMapsKey",
+							localPropertiesService.getValue(EarthProperty.PLANET_MAPS_KEY), 
+							"urlPlanetEndpointPrefix",
+							ServerController.getHostAddress(
+									localPropertiesService.getHost(),
+									localPropertiesService.getPort())
+							/*"latestUrl",
+							new PlanetImagery(localPropertiesService.getPlanetMapsKey()).getLatestUrl(placemarkObject)).toString(), 
+							*/).toString(),
+						driverCopyHtml
+				);
 
 			} catch (final Exception e) {
 				logger.error("Problems loading Bing", e);
