@@ -1,12 +1,14 @@
 package org.openforis.collect.earth.planet;
 
+import java.util.Date;
+
 public class FilterConfig {
-	DatePlanet gte; // DateRangeFiter gte;
-	DatePlanet lt;
+	Date gte; // DateRangeFiter gte;
+	Date lt;
 	String type; // for geojson
 	double[][][] coordinates;
 	
-	public FilterConfig(DatePlanet gte, DatePlanet lt) {
+	public FilterConfig(Date gte, Date lt) {
 		super();
 		this.gte = gte;
 		this.lt = lt;
@@ -18,16 +20,16 @@ public class FilterConfig {
 		this.coordinates = coordinates;
 	}
 
-	public DatePlanet getGte() {
+	public Date getGte() {
 		return gte;
 	}
-	public void setGte(DatePlanet gte) {
+	public void setGte(Date gte) {
 		this.gte = gte;
 	}
-	public DatePlanet getLt() {
+	public Date getLt() {
 		return lt;
 	}
-	public void setLt(DatePlanet lt) {
+	public void setLt(Date lt) {
 		this.lt = lt;
 	}
 

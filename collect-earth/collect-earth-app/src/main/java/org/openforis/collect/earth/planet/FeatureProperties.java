@@ -6,8 +6,9 @@ public class FeatureProperties {
 
 	Date acquired;
 	Integer clear_percent;
-	Integer cloud_cover;
+	Float cloud_cover;
 	String item_type;
+	String instrument;
 
 	public Date getAcquired() {
 		return acquired;
@@ -21,7 +22,7 @@ public class FeatureProperties {
 		return clear_percent;
 	}
 
-	public int getCloudCover() {
+	public float getCloudCover() {
 		return cloud_cover;
 	}
 
@@ -31,6 +32,14 @@ public class FeatureProperties {
 
 	public void setItemType(String item_type) {
 		this.item_type = item_type;
+	}
+
+	public String getInstrument() {
+		return instrument;
+	}
+
+	public void setInstrument(String instrument) {
+		this.instrument = instrument;
 	}
 	
 	

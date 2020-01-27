@@ -1,10 +1,12 @@
 package org.openforis.collect.earth.planet;
 
+import com.google.gson.annotations.SerializedName;
+
 public enum FilterType {
-	DATERANGE("DateRangeFilter"),
-	STRING_IN("StringInFilter"),
-	AND("AndFilter"),
-	GEOMETRY("GeometryFilter");
+	@SerializedName("DateRangeFilter") DATERANGE("DateRangeFilter"),
+	@SerializedName("StringInFilter") STRING_IN("StringInFilter"),
+	@SerializedName("AndFilter") AND("AndFilter"),
+	@SerializedName("GeometryFilter") GEOMETRY("GeometryFilter");
 
 	private String type;
 

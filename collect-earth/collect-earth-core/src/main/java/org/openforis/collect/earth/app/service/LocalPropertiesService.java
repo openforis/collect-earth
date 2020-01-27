@@ -185,6 +185,10 @@ public class LocalPropertiesService extends Observable {
 	public String getGEEAppURL() {
 		return getValue(EarthProperty.GEE_MAP_URL);
 	}
+	
+	public String getPlanetMapsKey() {
+		return getValue(EarthProperty.PLANET_MAPS_KEY);
+	}
 
 	public String getGeePlaygoundUrl() {
 

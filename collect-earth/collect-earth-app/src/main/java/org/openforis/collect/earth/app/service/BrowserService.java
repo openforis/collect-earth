@@ -31,8 +31,10 @@ import javax.net.ssl.X509TrustManager;
 
 import org.apache.commons.lang3.StringUtils;
 import org.openforis.collect.earth.app.EarthConstants;
+import org.openforis.collect.earth.app.desktop.ServerController;
 import org.openforis.collect.earth.app.desktop.ServerController.ServerInitializationEvent;
 import org.openforis.collect.earth.app.service.LocalPropertiesService.EarthProperty;
+import org.openforis.collect.earth.planet.PlanetImagery;
 import org.openforis.collect.earth.sampler.model.SimpleCoordinate;
 import org.openforis.collect.earth.sampler.model.SimplePlacemarkObject;
 import org.openqa.selenium.By;
@@ -225,7 +227,7 @@ public class BrowserService  implements InitializingBean, Observer{
 
 		return jsResult.toString();
 	}
-
+	
 	private String getGEEJavascript(SimplePlacemarkObject placemarkObject) {
 
 		final Map<String,Object> data = geoLocalizeTemplateService.getPlacemarkData(placemarkObject);
@@ -480,35 +482,7 @@ public class BrowserService  implements InitializingBean, Observer{
 	public void openPlanetMaps(SimplePlacemarkObject placemarkObject) throws BrowserNotFoundException {
 
 		if (localPropertiesService.isPlanetMapsSupported()) {
-			/*
-			if (webDriverPlanet == null) {
-				webDriverPlanet = initBrowser();
-			}
-
-			final RemoteWebDriver driverCopy = webDriverPlanet;
-
-			final Thread loadPlanetThread = new Thread("Opening Planet BaseMaps window") {
-				@Override
-				public void run() {
-					URL planetMapUrlWithText = geoLocalizeTemplateService.getUrlToFreemarkerOutput(
-							placemarkObject,								
-							GeolocalizeMapService.FREEMARKER_PLANET_URL_TEMPLATE,
-							"zoom", "18"
-					);					
-					try (BufferedReader read = new BufferedReader(new InputStreamReader(planetMapUrlWithText.openStream()))){
-						StringBuilder url = new StringBuilder();
-				        String line;
-						while ( ( line = read.readLine()) != null)
-				        	url.append( line.trim() );
-				        webDriverPlanet = navigateTo(url.toString(), driverCopy);
-
-					} catch (final Exception e) {
-						logger.error("Problems loading Bing", e);
-					}
-				}
-			};
-			loadPlanetThread.start();
-			 */			
+			
 			final RemoteWebDriver driverCopyHtml = webDriverPlanetHtml;
 
 			final Thread loadPlanetThreadHtml = new Thread("Opening Planet BaseMaps window") {
@@ -520,7 +494,9 @@ public class BrowserService  implements InitializingBean, Observer{
 								geoLocalizeTemplateService.getUrlToFreemarkerOutput(
 										placemarkObject,								
 										GeolocalizeMapService.FREEMARKER_PLANET_HTML_TEMPLATE,
-										"planetMapsKey", localPropertiesService.getValue( EarthProperty.PLANET_MAPS_KEY)
+										"planetMapsKey", localPropertiesService.getValue( EarthProperty.PLANET_MAPS_KEY),
+										"urlPlanetEndpointPrefix", ServerController.getHostAddress(localPropertiesService.getHost(), localPropertiesService.getPort()),
+										"latestUrl", new PlanetImagery( localPropertiesService.getPlanetMapsKey() ).getLatestUrl(placemarkObject)
 										).toString(), driverCopyHtml);
 
 					} catch (final Exception e) {

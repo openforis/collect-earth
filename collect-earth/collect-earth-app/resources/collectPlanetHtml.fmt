@@ -35,16 +35,16 @@
 
 	var map = L.map('map');
 	var lastLayer;
-	var setLayer = function( period ){
+	var setLayer = function( url ){
 		if( lastLayer ){
 			map.removeLayer( lastLayer);		
 		}
-		lastLayer = L.tileLayer('https://tiles0.planet.com/basemaps/v1/planet-tiles/'+period+'/gmap/{z}/{x}/{y}.png?api_key=${planetMapsKey}', {
+		lastLayer = L.tileLayer(url+'?api_key=${planetMapsKey}', {
 			tms: false
 		}).addTo(map);
 	}
 	
-	setLayer( 'global_monthly_2019_10_mosaic' );
+	setLayer( ${latestUrl} );
 	
 	var latlngs = [ 
 	// create a red polyline from an array of LatLng points
@@ -81,7 +81,7 @@
 	var legend = L.control({position: 'topright'  });
 	legend.onAdd = function (map) {
 		var div = L.DomUtil.create('div', 'info legend');
-		div.innerHTML = '<select><option value="global_monthly_2019_10_mosaic">Planet Monthly 2019-10</option><option value="global_monthly_2019_08_mosaic">Planet Monthly 2019-08</option><option value="global_monthly_2019_06_mosaic">Planet Monthly 2019-06</option><option value="global_monthly_2019_04_mosaic">Planet Monthly 2019-04</option><option value="global_monthly_2019_02_mosaic">Planet Monthly 2019-02</option><option value="global_monthly_2018_12_mosaic">Planet Monthly 2018-12</option><option value="global_monthly_2018_10_mosaic">Planet Monthly 2018-10</option><option value="global_monthly_2018_08_mosaic">Planet Monthly 2018-08</option><option value="global_monthly_2018_06_mosaic">Planet Monthly 2018-06</option><option value="global_monthly_2018_04_mosaic">Planet Monthly 2018-04</option><option value="global_monthly_2018_02_mosaic">Planet Monthly 2018-02</option><option value="global_monthly_2017_12_mosaic">Planet Monthly 2017-12</option><option value="global_monthly_2017_10_mosaic">Planet Monthly 2017-10</option><option value="global_monthly_2017_08_mosaic">Planet Monthly 2017-08</option><option value="global_monthly_2017_06_mosaic">Planet Monthly 2017-06</option><option value="global_monthly_2017_04_mosaic">Planet Monthly 2017-04</option><option value="global_monthly_2017_02_mosaic">Planet Monthly 2017-02</option><option value="global_monthly_2016_12_mosaic">Planet Monthly 2016-12</option><option value="global_monthly_2016_10_mosaic">Planet Monthly 2016-10</option><option value="global_monthly_2016_08_mosaic">Planet Monthly 2016-08</option><option value="global_monthly_2016_06_mosaic">Planet Monthly 2016-06</option><option value="global_monthly_2016_04_mosaic">Planet Monthly 2016-04</option><option value="global_monthly_2016_02_mosaic">Planet Monthly 2016-02</option><option value="global_monthly_2015_12_mosaic">Planet Monthly 2015-12</option><option value="global_monthly_2016_10_mosaic">Planet Monthly 2016-10</option><option value="global_monthly_2016_08_mosaic">Planet Monthly 2015-08</option><option value="global_monthly_2015_06_mosaic">Planet Monthly 2016-06</option><option value="global_monthly_2015_04_mosaic">Planet Monthly 2015-04</option><option value="global_monthly_2015_02_mosaic">Planet Monthly 2015-02</option></select>';
+		div.innerHTML = '<select><option value="2019-10-01">Planet Monthly 2019-10</option><option value="2019-08-01">Planet Monthly 2019-08</option><option value="2019-06-01">Planet Monthly 2019-06</option><option value="global_monthly_2019_04_mosaic">Planet Monthly 2019-04</option><option value="global_monthly_2019_02_mosaic">Planet Monthly 2019-02</option><option value="global_monthly_2018_12_mosaic">Planet Monthly 2018-12</option><option value="global_monthly_2018_10_mosaic">Planet Monthly 2018-10</option><option value="global_monthly_2018_08_mosaic">Planet Monthly 2018-08</option><option value="global_monthly_2018_06_mosaic">Planet Monthly 2018-06</option><option value="global_monthly_2018_04_mosaic">Planet Monthly 2018-04</option><option value="global_monthly_2018_02_mosaic">Planet Monthly 2018-02</option><option value="global_monthly_2017_12_mosaic">Planet Monthly 2017-12</option><option value="global_monthly_2017_10_mosaic">Planet Monthly 2017-10</option><option value="global_monthly_2017_08_mosaic">Planet Monthly 2017-08</option><option value="global_monthly_2017_06_mosaic">Planet Monthly 2017-06</option><option value="global_monthly_2017_04_mosaic">Planet Monthly 2017-04</option><option value="global_monthly_2017_02_mosaic">Planet Monthly 2017-02</option><option value="global_monthly_2016_12_mosaic">Planet Monthly 2016-12</option><option value="global_monthly_2016_10_mosaic">Planet Monthly 2016-10</option><option value="global_monthly_2016_08_mosaic">Planet Monthly 2016-08</option><option value="global_monthly_2016_06_mosaic">Planet Monthly 2016-06</option><option value="global_monthly_2016_04_mosaic">Planet Monthly 2016-04</option><option value="global_monthly_2016_02_mosaic">Planet Monthly 2016-02</option><option value="global_monthly_2015_12_mosaic">Planet Monthly 2015-12</option><option value="global_monthly_2016_10_mosaic">Planet Monthly 2016-10</option><option value="global_monthly_2016_08_mosaic">Planet Monthly 2015-08</option><option value="global_monthly_2015_06_mosaic">Planet Monthly 2016-06</option><option value="global_monthly_2015_04_mosaic">Planet Monthly 2015-04</option><option value="global_monthly_2015_02_mosaic">Planet Monthly 2015-02</option></select>';
 		div.firstChild.onmousedown = div.firstChild.ondblclick = L.DomEvent.stopPropagation;
 		return div;
 	};
@@ -89,6 +89,12 @@
 	legend.addTo(map);
 	
 $('select').change(function( ){
+	$.post( "${urlPlanetEndpointPrefix}planet", 
+			{ start: this.value, end : "", geometry : latlngs })
+	  .done(function( data ) {
+	    alert( "Data Loaded: " + data );
+	    setLayer( data );
+	  });
 	setLayer( this.value );
 });
 </script>

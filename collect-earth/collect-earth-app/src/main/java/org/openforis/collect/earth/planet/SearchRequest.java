@@ -1,6 +1,6 @@
 package org.openforis.collect.earth.planet;
 
-public class SearchRequest extends RequestQuery{
+public class SearchRequest{
 
 	String[] item_types;
 	Filter filter;
