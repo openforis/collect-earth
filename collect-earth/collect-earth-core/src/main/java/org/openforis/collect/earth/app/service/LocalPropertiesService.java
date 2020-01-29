@@ -102,7 +102,7 @@ public class LocalPropertiesService extends Observable {
 																																																																																																																		"large_central_plot_side"), OPEN_BAIDU_MAPS(
 																																																																																																																				"open_baidu_maps"), DISTANCE_TO_BUFFERS(
 																																																																																																																						"distance_to_buffers"), OPEN_PLANET_MAPS(
-																																																																																																																								"open_planet_maps"), PLANET_MAPS_KEY("planet_maps_key"), OPEN_GEE_APP("open_gee_app"), GEE_MAP_URL("gee_app_url");
+																																																																																																																								"open_planet_maps"), PLANET_MAPS_KEY("planet_maps_key"), OPEN_GEE_APP("open_gee_app"), GEE_MAP_URL("gee_app_url"), OPEN_MAXAR_SECUREWATCH("open_maxar_securewatch");
 
 		private String name;
 
