@@ -93,6 +93,8 @@ public class PlacemarkBrowserServlet {
 					openStreetViewWindow(placemarkObject);
 
 					openPlanetMapsWindow(placemarkObject);
+					
+					openSecureWatchWindow(placemarkObject);
 
 					// Until further notice
 					// openHereMapsWindow(placemarkObject);
@@ -176,6 +178,19 @@ public class PlacemarkBrowserServlet {
 			}.start();
 		}
 
+		public void openSecureWatchWindow(final SimplePlacemarkObject placemarkObject) {
+			new Thread("Open SecureWatch window") { //$NON-NLS-1$
+				@Override
+				public void run() {
+					try {
+						browserService.openSecureWatch(placemarkObject);
+					} catch (final Exception e) {
+						LoggerFactory.getLogger(this.getClass()).error(
+								"Exception opening SecureWatch window", e); //$NON-NLS-1$
+					}
+				}
+			}.start();
+		}
 
 		public void openBaiduMapsWindow(final SimplePlacemarkObject placemarkObject) {
 			new Thread("Open Baidu Maps window") { //$NON-NLS-1$

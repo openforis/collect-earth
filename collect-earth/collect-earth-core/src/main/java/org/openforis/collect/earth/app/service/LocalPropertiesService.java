@@ -102,7 +102,11 @@ public class LocalPropertiesService extends Observable {
 																																																																																																																		"large_central_plot_side"), OPEN_BAIDU_MAPS(
 																																																																																																																				"open_baidu_maps"), DISTANCE_TO_BUFFERS(
 																																																																																																																						"distance_to_buffers"), OPEN_PLANET_MAPS(
-																																																																																																																								"open_planet_maps"), PLANET_MAPS_KEY("planet_maps_key"), OPEN_GEE_APP("open_gee_app"), GEE_MAP_URL("gee_app_url"), OPEN_MAXAR_SECUREWATCH("open_maxar_securewatch");
+																																																																																																																								"open_planet_maps"), PLANET_MAPS_KEY(
+																																																																																																																										"planet_maps_key"), OPEN_GEE_APP(
+																																																																																																																												"open_gee_app"), GEE_MAP_URL(
+																																																																																																																														"gee_app_url"), OPEN_MAXAR_SECUREWATCH(
+																																																																																																																																"open_maxar_securewatch");
 
 		private String name;
 
@@ -181,11 +185,11 @@ public class LocalPropertiesService extends Observable {
 	public String getExtraMap() {
 		return getValue(EarthProperty.EXTRA_MAP_URL);
 	}
-	
+
 	public String getGEEAppURL() {
 		return getValue(EarthProperty.GEE_MAP_URL);
 	}
-	
+
 	public String getPlanetMapsKey() {
 		return getValue(EarthProperty.PLANET_MAPS_KEY);
 	}
@@ -407,22 +411,19 @@ public class LocalPropertiesService extends Observable {
 	}
 
 	public boolean isBaiduMapsSupported() {
-
 		return isPropertyActivated(EarthProperty.OPEN_BAIDU_MAPS);
 	}
 
 	public boolean isBingMapsSupported() {
-
 		return isPropertyActivated(EarthProperty.OPEN_BING_MAPS);
 	}
 
 	public boolean isGEEAppSupported() {
-
 		return isPropertyActivated(EarthProperty.OPEN_GEE_APP);
 	}
-	
+
 	public boolean isCodeEditorSupported() {
-		return isPropertyActivated(EarthProperty.OPEN_GEE_CODE_EDITOR );
+		return isPropertyActivated(EarthProperty.OPEN_GEE_CODE_EDITOR);
 	}
 
 	public boolean isExplorerSupported() {
@@ -450,8 +451,11 @@ public class LocalPropertiesService extends Observable {
 		return supported;
 	}
 
-	public boolean isStreetViewSupported() {
+	public Boolean isSecureWatchSupported() {
+		return isPropertyActivated(EarthProperty.OPEN_MAXAR_SECUREWATCH);
+	}
 
+	public boolean isStreetViewSupported() {
 		return isPropertyActivated(EarthProperty.OPEN_STREET_VIEW);
 	}
 

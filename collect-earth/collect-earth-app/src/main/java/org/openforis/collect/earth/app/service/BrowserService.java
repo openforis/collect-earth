@@ -123,7 +123,7 @@ public class BrowserService implements InitializingBean, Observer {
 	private static final String KML_FOR_GEE_JS = "resources/javascript_gee.fmt";
 	private static final Configuration cfg = new Configuration(new Version("2.3.23"));
 	private RemoteWebDriver webDriverEE, webDriverBing, webDriverBaidu, webDriverTimelapse, webDriverGeeCodeEditor,
-			webDriverHere, webDriverStreetView, webDriverYandex, webDriverPlanetHtml, webDriverExtraMap,
+			webDriverHere, webDriverStreetView, webDriverYandex, webDriverPlanetHtml, webDriverExtraMap, webDriverSecureWatch,
 			webDriverGEEMap;
 
 	private static boolean geeMethodUpdated = false;
@@ -340,32 +340,30 @@ public class BrowserService implements InitializingBean, Observer {
 				driver = navigateTo(url, driver);
 			}
 
-			if (waitFor("workspace-el", driver)) {
-				if (driver instanceof JavascriptExecutor) {
-					try {
+			if (waitFor("workspace-el", driver) && driver instanceof JavascriptExecutor) {
+				try {
 
-						if (!isGeeMethodUpdated()) {
-							try {
-								refreshJSValues();
-							} catch (final Exception e) {
-								logger.error("Error checking the validity of the GEE js code", e);
-							} finally {
-								setGeeMethodUpdated(true);
-							}
+					if (!isGeeMethodUpdated()) {
+						try {
+							refreshJSValues();
+						} catch (final Exception e) {
+							logger.error("Error checking the validity of the GEE js code", e);
+						} finally {
+							setGeeMethodUpdated(true);
 						}
-						String geeJs = getGEEJavascript(placemarkObject);
-						driver.executeScript(geeJs);
-					} catch (final Exception e) {
-						processSeleniumError(e);
 					}
-
-					Thread.sleep(1000);
-					String eyeShowing = "span.indicator.visible";
-					String eyeLoading = "span.indicator.loading";
-
-					clickOnElements(driver, eyeShowing);
-					clickOnElements(driver, eyeLoading);
+					String geeJs = getGEEJavascript(placemarkObject);
+					driver.executeScript(geeJs);
+				} catch (final Exception e) {
+					processSeleniumError(e);
 				}
+
+				Thread.sleep(1000);
+				String eyeShowing = "span.indicator.visible";
+				String eyeLoading = "span.indicator.loading";
+
+				clickOnElements(driver, eyeShowing);
+				clickOnElements(driver, eyeLoading);
 			}
 		}
 		return driver;
@@ -464,7 +462,7 @@ public class BrowserService implements InitializingBean, Observer {
 	 *             In case the browser could not be found
 	 * 
 	 */
-	synchronized public void openBingMaps(SimplePlacemarkObject placemarkObject) throws BrowserNotFoundException {
+	 public synchronized void openBingMaps(SimplePlacemarkObject placemarkObject) throws BrowserNotFoundException {
 
 		if (localPropertiesService.isBingMapsSupported()) {
 
@@ -495,7 +493,7 @@ public class BrowserService implements InitializingBean, Observer {
 	 *             In case the browser could not be found
 	 * 
 	 */
-	synchronized public void openPlanetMaps(SimplePlacemarkObject placemarkObject) throws BrowserNotFoundException {
+	public synchronized void openPlanetMaps(SimplePlacemarkObject placemarkObject) throws BrowserNotFoundException {
 
 		if (localPropertiesService.isPlanetMapsSupported()) {
 
@@ -520,7 +518,7 @@ public class BrowserService implements InitializingBean, Observer {
 				);
 
 			} catch (final Exception e) {
-				logger.error("Problems loading Bing", e);
+				logger.error("Problems loading Planet", e);
 			}
 		}
 
@@ -576,7 +574,7 @@ public class BrowserService implements InitializingBean, Observer {
 	 *             In case the browser could not be found
 	 * 
 	 */
-	synchronized public void openBaiduMaps(SimplePlacemarkObject placemarkObject) throws BrowserNotFoundException {
+	public synchronized void openBaiduMaps(SimplePlacemarkObject placemarkObject) throws BrowserNotFoundException {
 
 		if (localPropertiesService.isBaiduMapsSupported()) {
 
@@ -589,7 +587,7 @@ public class BrowserService implements InitializingBean, Observer {
 						.getUrlToFreemarkerOutput(placemarkObject, GeolocalizeMapService.FREEMARKER_BAIDU_HTML_TEMPLATE)
 						.toString(), webDriverBaidu);
 			} catch (final Exception e) {
-				logger.error("Problems loading Bing", e);
+				logger.error("Problems loading Baidu", e);
 			}
 		}
 
@@ -604,7 +602,7 @@ public class BrowserService implements InitializingBean, Observer {
 	 *             In case the browser could not be found
 	 * 
 	 */
-	synchronized public void openYandexMaps(SimplePlacemarkObject placemarkObject) throws BrowserNotFoundException {
+	public synchronized void openYandexMaps(SimplePlacemarkObject placemarkObject) throws BrowserNotFoundException {
 
 		if (localPropertiesService.isYandexMapsSupported()) {
 
@@ -620,6 +618,28 @@ public class BrowserService implements InitializingBean, Observer {
 			}
 		}
 	}
+	
+	/**
+	 * Opens a browser window with a map representation of the plot.
+	 * 
+	 * @param placemarkObject
+	 *            The data of the plot.
+	 * @throws BrowserNotFoundException
+	 *             In case the browser could not be found
+	 * 
+	 */
+	public synchronized void openSecureWatch(SimplePlacemarkObject placemarkObject) throws BrowserNotFoundException {
+
+		if ( localPropertiesService.isSecureWatchSupported() ) {
+
+			if (webDriverSecureWatch == null) {
+				webDriverSecureWatch = initBrowser();
+			}
+
+			String url = getUrlBaseIntegration(placemarkObject, "https://access.maxar.com/myDigitalGlobe/#18/LATITUDE/LONGITUDE" );
+			navigateTo(url, webDriverSecureWatch);
+		}
+	}
 
 	/**
 	 * Opens a browser window with a map representation of the plot.
@@ -630,7 +650,7 @@ public class BrowserService implements InitializingBean, Observer {
 	 *             In case the browser could not be found
 	 * 
 	 */
-	synchronized public void openExtraMap(SimplePlacemarkObject placemarkObject) throws BrowserNotFoundException {
+	public synchronized void openExtraMap(SimplePlacemarkObject placemarkObject) throws BrowserNotFoundException {
 
 		if (!StringUtils.isBlank(localPropertiesService.getExtraMap())) {
 
@@ -638,21 +658,25 @@ public class BrowserService implements InitializingBean, Observer {
 				webDriverExtraMap = initBrowser();
 			}
 
-			try {
-				String latitude = placemarkObject.getCoord().getLatitude();
-				String longitude = placemarkObject.getCoord().getLongitude();
-				String id = placemarkObject.getPlacemarkId().split(",")[0]; // for cases where ID also has round, then
-																			// the id string woutl be something like
-																			// "plotId,round", we only want the ID
-
-				String url = localPropertiesService.getExtraMap();
-				url = url.replaceAll("LATITUDE", latitude).replaceAll("LONGITUDE", longitude).replaceAll("PLOT_ID", id);
-
-				webDriverExtraMap = navigateTo(url, webDriverYandex);
-			} catch (final Exception e) {
-				logger.error("Problems loading Yandex", e);
-			}
+			navigateTo( getUrlBaseIntegration(placemarkObject, localPropertiesService.getExtraMap() ) , webDriverExtraMap );
 		}
+	}
+
+	private String getUrlBaseIntegration(SimplePlacemarkObject placemarkObject, String url) {
+		
+		try {
+			String latitude = placemarkObject.getCoord().getLatitude();
+			String longitude = placemarkObject.getCoord().getLongitude();
+			String id = placemarkObject.getPlacemarkId().split(",")[0]; // for cases where ID also has round, then
+																		// the id string woutl be something like
+																		// "plotId,round", we only want the ID
+
+			url = url.replaceAll("LATITUDE", latitude).replaceAll("LONGITUDE", longitude).replaceAll("PLOT_ID", id);
+
+		} catch (final Exception e) {
+			logger.error("Problems loading Yandex", e);
+		}
+		return url;
 	}
 
 	/**
@@ -666,7 +690,7 @@ public class BrowserService implements InitializingBean, Observer {
 	 *             In case the browser could not be found
 	 * 
 	 */
-	synchronized public void openStreetView(SimplePlacemarkObject placemarkObject) throws BrowserNotFoundException {
+	public synchronized void openStreetView(SimplePlacemarkObject placemarkObject) throws BrowserNotFoundException {
 
 		if (localPropertiesService.isStreetViewSupported()) {
 
@@ -695,7 +719,7 @@ public class BrowserService implements InitializingBean, Observer {
 	 *             In case the browser could not be found
 	 * 
 	 */
-	synchronized public void openHereMaps(SimplePlacemarkObject placemarkObject) throws BrowserNotFoundException {
+	public synchronized void openHereMaps(SimplePlacemarkObject placemarkObject) throws BrowserNotFoundException {
 
 		if (localPropertiesService.isHereMapsSupported()) {
 
@@ -751,7 +775,7 @@ public class BrowserService implements InitializingBean, Observer {
 	 *             If the browser cannot be found
 	 * 
 	 */
-	synchronized public void openGEEAppURL(SimplePlacemarkObject placemarkObject) throws BrowserNotFoundException {
+	 public synchronized void openGEEAppURL(SimplePlacemarkObject placemarkObject) throws BrowserNotFoundException {
 
 		if (localPropertiesService.isGEEAppSupported()) {
 
@@ -788,7 +812,7 @@ public class BrowserService implements InitializingBean, Observer {
 	 *             If the browser cannot be found
 	 * 
 	 */
-	synchronized public void openGEECodeEditor(SimplePlacemarkObject placemarkObject) throws BrowserNotFoundException {
+	public synchronized void openGEECodeEditor(SimplePlacemarkObject placemarkObject) throws BrowserNotFoundException {
 
 		if (localPropertiesService.isCodeEditorSupported()) {
 
@@ -817,7 +841,7 @@ public class BrowserService implements InitializingBean, Observer {
 	 *             If the browser cannot be found
 	 * 
 	 */
-	synchronized public void openGEEExplorer(SimplePlacemarkObject placemarkObject) throws BrowserNotFoundException {
+	public synchronized void openGEEExplorer(SimplePlacemarkObject placemarkObject) throws BrowserNotFoundException {
 
 		logger.warn("Starting to open EE - supported : {}", localPropertiesService.isExplorerSupported());
 		if (localPropertiesService.isExplorerSupported()) {
@@ -846,7 +870,7 @@ public class BrowserService implements InitializingBean, Observer {
 	 *             If the browser cannot be found
 	 * 
 	 */
-	synchronized public void openTimelapse(final SimplePlacemarkObject placemarkObject)
+	public synchronized void openTimelapse(final SimplePlacemarkObject placemarkObject)
 			throws BrowserNotFoundException {
 
 		if (localPropertiesService.isTimelapseSupported()) {
