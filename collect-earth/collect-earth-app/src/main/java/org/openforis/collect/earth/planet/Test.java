@@ -8,7 +8,7 @@ public class Test {
 
 	public static void main(String[] args) {
 		try {
-			PlanetImagery planet = new PlanetImagery( "SET API KEY HERE" );
+			PlanetImagery planet = new PlanetImagery( "8dfb61e5458c4d3ab595dc24e160b55b" );
 			SimpleDateFormat formatter = new SimpleDateFormat("yyyy-MM-dd");
 			Date start = formatter.parse("2019-11-01");
 			Date end =  formatter.parse("2019-12-01");

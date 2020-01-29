@@ -9,6 +9,7 @@ import java.net.HttpURLConnection;
 import java.net.MalformedURLException;
 import java.net.URL;
 import java.time.LocalDateTime;
+import java.util.Arrays;
 import java.util.Base64;
 import java.util.Date;
 import java.util.List;
@@ -31,6 +32,8 @@ public class PlanetImagery {
 	private static final Gson gson = new GsonBuilder().setDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'").create();;
 
 	private String apiKey;
+	
+	private static final int MAX_IMAGES_IN_LAYER = 5; 
 
 
 	public PlanetImagery(String apiKey) {
@@ -140,7 +143,7 @@ public class PlanetImagery {
 		return response;
 	}
 
-	private Feature[] search( String[] itemTypes, Filter[] filters, Boolean sort ) {
+	private Feature[] search( String[] itemTypes, Filter[] filters ) {
 
 		Filter andFilter  = getAndFilter( filters );
 		SearchRequest searchRequest = new  SearchRequest( itemTypes, andFilter);
@@ -152,6 +155,17 @@ public class PlanetImagery {
 		} catch (IOException e) {
 			logger.error( "Error searching", e );
 		}
+		
+		if( featuresInPage != null ) {
+			Arrays.sort( featuresInPage, new FeatureSorter() );
+			//System.out.println( ArrayUtils.toString( featuresInPage ) );
+	
+			if( featuresInPage != null && featuresInPage.length > MAX_IMAGES_IN_LAYER ) {			
+				featuresInPage = ArrayUtils.subarray(featuresInPage, 0, MAX_IMAGES_IN_LAYER);
+			}
+			ArrayUtils.reverse( featuresInPage ) ;
+		}
+		
 		return featuresInPage;
 
 	}
@@ -164,7 +178,7 @@ public class PlanetImagery {
 			if( links != null && links.getNext() != null ) {
 				String nextUrl = links.getNext();
 				String res = sendRequest( new URL(nextUrl), null ) ;
-				Feature[]next_features = getNextPage(res);
+				Feature[] next_features = getNextPage(res);
 				return ArrayUtils.addAll(features, next_features);
 			}else {
 				return features;
@@ -212,8 +226,7 @@ public class PlanetImagery {
 							dateFilter,
 							geometryFilter,
 							stringFilter
-					}, 
-					true
+					}
 					);
 			layerURL = getLayers(searchResults );
 
