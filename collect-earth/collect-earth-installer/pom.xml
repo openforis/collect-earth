@@ -19,12 +19,17 @@
 		<jre.version>1.8.0_232</jre.version>
 		<!-- installer file names -->
 		<windows-installer-file-name>CollectEarth-${project.version}-windows-installer.exe</windows-installer-file-name>
+		<!-- 
 		<linux-installer-file-name>CollectEarth-${project.version}-linux-installer.run</linux-installer-file-name>
+		 -->
 		<linux-x64-installer-file-name>CollectEarth-${project.version}-linux-x64-installer.run</linux-x64-installer-file-name>
+		
 		<osx-installer-file-name>CollectEarth-${project.version}-osx-installer.dmg</osx-installer-file-name>
 		<!-- autoupdater file names -->
 		<windows-autoupdater-file-name>CollectEarthUpdater-${project.version}-windows-installer.exe</windows-autoupdater-file-name>
+		<!-- 
 		<linux-autoupdater-file-name>CollectEarthUpdater-${project.version}-linux-installer.run</linux-autoupdater-file-name>
+		 -->
 		<linux-x64-autoupdater-file-name>CollectEarthUpdater-${project.version}-linux-x64-installer.run</linux-x64-autoupdater-file-name>
 		<osx-autoupdater-file-name>CollectEarthUpdater-${project.version}-osx-installer.app.zip</osx-autoupdater-file-name>
 		
@@ -73,6 +78,7 @@
 								</goals>
 								<configuration>
 									<artifactItems>
+										<!-- 
 										<artifactItem>
 											<groupId>com.oracle.java</groupId>
 											<artifactId>jre</artifactId>
@@ -82,6 +88,7 @@
 											<overWrite>false</overWrite>
 											<outputDirectory>${installer-build-path}/jre_files</outputDirectory>
 										</artifactItem>
+										 -->
 										<artifactItem>
 											<groupId>com.oracle.java</groupId>
 											<artifactId>jre</artifactId>
@@ -100,6 +107,7 @@
 											<overWrite>false</overWrite>
 											<outputDirectory>${installer-build-path}/jre_files</outputDirectory>
 										</artifactItem>
+										<!-- 
 										<artifactItem>
 											<groupId>com.oracle.java</groupId>
 											<artifactId>jre</artifactId>
@@ -109,6 +117,7 @@
 											<overWrite>false</overWrite>
 											<outputDirectory>${installer-build-path}/jre_files</outputDirectory>
 										</artifactItem>
+										 -->
 										<artifactItem>
 											<groupId>com.oracle.java</groupId>
 											<artifactId>jre</artifactId>
@@ -407,7 +416,7 @@ No Solaris installer necessary
 											<type>exe</type>
 										</artifact>
 										
-									 	
+									 	/*
 									 	<artifact>
 											<file>${project.build.directory}/${linux-installer-file-name}</file>
 											<classifier>linux</classifier>
@@ -418,7 +427,7 @@ No Solaris installer necessary
 											<classifier>linux-updater</classifier>
 											<type>run</type>
 										</artifact>
-										
+										*/
 										<artifact>
 											<file>${project.build.directory}/${linux-x64-installer-file-name}</file>
 											<classifier>linux-x64</classifier>
@@ -466,10 +475,10 @@ No Solaris installer necessary
 									<tasks>
 										<move file="${installbuilder-output-directory}/${windows-installer-file-name}" tofile="${project.build.directory}/${windows-installer-file-name}" failonerror="true" />
 										<move file="${installbuilder-output-directory}/${windows-autoupdater-file-name}" tofile="${project.build.directory}/${windows-autoupdater-file-name}" failonerror="true" />
-										
+										/*
 										<move file="${installbuilder-output-directory}/${linux-installer-file-name}" tofile="${project.build.directory}/${linux-installer-file-name}" failonerror="true" />
 										<move file="${installbuilder-output-directory}/${linux-autoupdater-file-name}" tofile="${project.build.directory}/${linux-autoupdater-file-name}" failonerror="true" />
-										
+										*/
 										
 										<move file="${installbuilder-output-directory}/${linux-x64-installer-file-name}" tofile="${project.build.directory}/${linux-x64-installer-file-name}" failonerror="true" />
 										<move file="${installbuilder-output-directory}/${linux-x64-autoupdater-file-name}" tofile="${project.build.directory}/${linux-x64-autoupdater-file-name}" failonerror="true" />
