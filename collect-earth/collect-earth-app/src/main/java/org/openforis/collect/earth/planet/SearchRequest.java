@@ -11,9 +11,9 @@ public class SearchRequest{
 		this.ids = ids;
 	}
 
-	public SearchRequest(String[] item_types, Filter filter) {
+	public SearchRequest(String[] itemTypes, Filter filter) {
 		super();
-		this.item_types = item_types;
+		this.item_types = itemTypes;
 		this.filter = filter;
 	}
 
@@ -21,8 +21,8 @@ public class SearchRequest{
 		return item_types;
 	}
 
-	public void setItemTypes(String[] item_types) {
-		this.item_types = item_types;
+	public void setItemTypes(String[] itemTypes) {
+		this.item_types = itemTypes;
 	}
 
 	public Filter getFilter() {

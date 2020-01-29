@@ -46,7 +46,11 @@
 	function setLayerURL( fromDate, toDate, geometry){
 				  $.post( 
 				    	"${urlPlanetEndpointPrefix}planet", 
-						{ start: JSON.stringify( fromDate ), end : JSON.stringify( toDate ), geometry : JSON.stringify( geometry ) }
+						{ 
+							start: JSON.stringify( fromDate ), 
+							end : JSON.stringify( toDate ),
+							itemTypes : ["PSScene3Band","PSScene4Band"], // , "REOrthoTile" RapidEye not working 
+							geometry : JSON.stringify( geometry ) }
 					).done(
 						function( data ) {
 						  	if( data === ""){
@@ -65,7 +69,7 @@
 		delayOut: 4000,
 		range:{
 		    min: {days: 5},
-		    max: {days: 60}
+		    max: {days: 120}
 		},
 		bounds: {min: new Date(2016, 01, 01), max: defaultEndDate},
 		defaultValues: {min: defaultStartDate, max: defaultEndDate},

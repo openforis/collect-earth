@@ -9,6 +9,7 @@ import java.util.Date;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 
+import org.apache.commons.lang.StringUtils;
 import org.openforis.collect.earth.app.service.LocalPropertiesService;
 import org.openforis.collect.earth.planet.DateUtils;
 import org.openforis.collect.earth.planet.PlanetImagery;
@@ -41,7 +42,7 @@ public class PlacemarkPlanetImagery extends JsonPocessorServlet {
 			Date startDate= sdf.parse( request.getParameter("start").substring(1, 11) );
 			String endDateString= request.getParameter("end");
 			Date endDate = null;
-			if( endDateString.length() > 0 ) {
+			if( StringUtils.isNotBlank( endDateString ) ) {
 				endDate = sdf.parse( endDateString.substring(1, 11) );
 			}else {
 				LocalDateTime localDateTime = DateUtils.asLocalDateTime( startDate );
@@ -52,7 +53,14 @@ public class PlacemarkPlanetImagery extends JsonPocessorServlet {
 			
 			Gson gson = new GsonBuilder().create();
 			double[][][] coords = gson.fromJson( request.getParameter("geometry"), double[][][].class);
-			setJsonResponse(response, planetImagery.getLayerUrl(startDate, endDate, coords, new String[]{"PSScene3Band", "PSScene4Band"} ));
+			
+			String[] itemTypeArray = new String[] {"PSScene3Band", "PSScene4Band"};
+			String itemTypes = request.getParameter("itemTypes");
+			if( StringUtils.isNotBlank( itemTypes ) ) {
+				itemTypeArray = gson.fromJson( itemTypes, String[].class);
+			}
+			
+			setJsonResponse(response, planetImagery.getLayerUrl(startDate, endDate, coords, itemTypeArray));
 		}catch(Exception e){
 			logger.error("Error getting planet images url" , e);
 		}

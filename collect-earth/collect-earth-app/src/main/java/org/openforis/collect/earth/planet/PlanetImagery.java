@@ -71,7 +71,7 @@ public class PlanetImagery {
 	}
 
 	private Filter<Filter[] > getAndFilter( Filter[] filters ) {
-		Filter<Filter[] > andFilter = new Filter<Filter[] >();
+		Filter<Filter[] > andFilter = new Filter<>();
 		andFilter.setType( FilterType.AND);
 		andFilter.setConfig( filters );
 		return andFilter;
@@ -95,6 +95,7 @@ public class PlanetImagery {
 			return (int) ( (1 - p.getCloudCover() ) * 50);
 		}
 	}
+	
 	private String sendRequest( URL url, Object jsonObject ) throws IOException {
 		byte[] postDataBytes = null;
 		if( jsonObject != null ) {
@@ -145,7 +146,7 @@ public class PlanetImagery {
 
 	private Feature[] search( String[] itemTypes, Filter[] filters ) {
 
-		Filter andFilter  = getAndFilter( filters );
+		Filter<Filter[]> andFilter  = getAndFilter( filters );
 		SearchRequest searchRequest = new  SearchRequest( itemTypes, andFilter);
 		Feature[] featuresInPage = null;
 		String response;
@@ -158,9 +159,8 @@ public class PlanetImagery {
 		
 		if( featuresInPage != null ) {
 			Arrays.sort( featuresInPage, new FeatureSorter() );
-			//System.out.println( ArrayUtils.toString( featuresInPage ) );
 	
-			if( featuresInPage != null && featuresInPage.length > MAX_IMAGES_IN_LAYER ) {			
+			if( featuresInPage.length > MAX_IMAGES_IN_LAYER ) {			
 				featuresInPage = ArrayUtils.subarray(featuresInPage, 0, MAX_IMAGES_IN_LAYER);
 			}
 			ArrayUtils.reverse( featuresInPage ) ;
