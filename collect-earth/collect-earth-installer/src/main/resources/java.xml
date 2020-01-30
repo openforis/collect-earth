@@ -129,7 +129,7 @@
 		<setInstallerVariable name="java_version_major" value="1.8" />
 		<setInstallerVariable name="java_version" value="1.8.0" />
 		<setInstallerVariable name="java_version_full" value="JAVA_VERSION_SET_POM" />
-		<setInstallerVariable name="java_version_vendor" value="Sun" />
+		<setInstallerVariable name="java_version_vendor" value="Eclipse OpenJ9" />
 		<setInstallerVariable name="java_bitness" value="64" />
 		<!-- determine Java binary name - javaw.exe on Windows, java otherwise -->
 		<setInstallerVariable>
