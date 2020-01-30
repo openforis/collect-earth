@@ -79,7 +79,7 @@
             <description>Resources Windows</description>
             <destination>${installdir}/resources</destination>
             <name>resourceswindows</name>
-            <platforms>windows</platforms>
+            <platforms>windowsx64</platforms>
             <distributionFileList>
 	         	<distributionDirectory  allowWildcards="1">
 	                <excludeFiles>*/chromedriver64;*/chromedriver_mac;*/geckodriver_32;*/geckodriver_64;*/geckodriver_mac</excludeFiles>
@@ -144,7 +144,7 @@
             <description>Program Files</description>
             <destination>${installdir}</destination>
             <name>programfileswindows</name>
-            <platforms>windows</platforms>
+            <platforms>windowsx64</platforms>
             <distributionFileList>
                 <distributionFile>
                     <origin>launcher_icon.ico</origin>
@@ -186,7 +186,7 @@
         	</actionList>
         	<conditionRuleList>
         		<platformTest>
-        			<type>windows</type>
+        			<type>windowsx64</type>
         		</platformTest>
 			</conditionRuleList> 
 			<elseActionList>
@@ -334,7 +334,7 @@
 	      <name>${installdir}\${java_launcher_binary_name}</name>
 	      <ruleList>
                 <platformTest>
-                    <type>windows</type>
+                    <type>windowsx64</type>
                 </platformTest>
             </ruleList>
 		</registrySet>

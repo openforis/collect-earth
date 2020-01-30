@@ -11,7 +11,7 @@
             <description>Java binaries - Microsoft Windows</description>
             <destination>${installdir}/java</destination>
             <name>java_windows</name>
-            <platforms>all</platforms>
+            <platforms>windows-x64 windows</platforms>
             <distributionFileList>
                 <distributionFile>
                     <allowWildcards>1</allowWildcards>
