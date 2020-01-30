@@ -15,7 +15,7 @@
             <distributionFileList>
                 <distributionFile>
                     <allowWildcards>1</allowWildcards>
-                    <origin>jre_files/jreJAVA_VERSION_SET_POM-windows/java-windows/*</origin>
+                    <origin>jre_files/jreJAVA_VERSION_SET_POM-windows/java-windows-x64/*</origin>
                 </distributionFile>
             </distributionFileList>
             <!--
