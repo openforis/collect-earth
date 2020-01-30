@@ -186,7 +186,7 @@
         	</actionList>
         	<conditionRuleList>
         		<platformTest>
-        			<type>windows windows-x64</type>
+        			<type>windows-x64</type>
         		</platformTest>
 			</conditionRuleList> 
 			<elseActionList>
@@ -334,7 +334,7 @@
 	      <name>${installdir}\${java_launcher_binary_name}</name>
 	      <ruleList>
                 <platformTest>
-                    <type>windows windows-x64</type>
+                    <type>windows-x64</type>
                 </platformTest>
             </ruleList>
 		</registrySet>
