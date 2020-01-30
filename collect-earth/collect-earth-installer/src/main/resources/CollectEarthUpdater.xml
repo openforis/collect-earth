@@ -55,7 +55,7 @@
 		            <description>Resources Windows</description>
 		            <destination>${installdir}/resources</destination>
 		            <name>resourceswindows</name>
-		            <platforms>windowsx64</platforms>
+		            <platforms>windows windows-x64</platforms>
 		            <distributionFileList>
 			         	<distributionDirectory  allowWildcards="1">
 			                <excludeFiles>*/chromedriver64;*/chromedriver_mac;*/geckodriver_32;*/geckodriver_64;*/geckodriver_mac</excludeFiles>
