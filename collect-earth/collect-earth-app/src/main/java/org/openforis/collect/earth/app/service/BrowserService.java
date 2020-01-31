@@ -589,7 +589,7 @@ public class BrowserService implements InitializingBean, Observer {
 
 		if (!StringUtils.isBlank(localPropertiesService.getExtraMap())) {
 
-			navigateTo( getUrlBaseIntegration(placemarkObject, localPropertiesService.getExtraMap() ) , webDriverExtraMap );
+			webDriverExtraMap = navigateTo( getUrlBaseIntegration(placemarkObject, localPropertiesService.getExtraMap() ) , webDriverExtraMap );
 		}
 	}
 
