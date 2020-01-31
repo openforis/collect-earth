@@ -39,11 +39,11 @@ public class PlacemarkPlanetImagery extends JsonPocessorServlet {
 		try {
 			//2015-07-17T10:50:18.650Z
 			SimpleDateFormat sdf =new SimpleDateFormat("yyyy-MM-dd");
-			Date startDate= sdf.parse( request.getParameter("start").substring(1, 11) );
+			Date startDate= sdf.parse( request.getParameter("start") );
 			String endDateString= request.getParameter("end");
 			Date endDate = null;
 			if( StringUtils.isNotBlank( endDateString ) ) {
-				endDate = sdf.parse( endDateString.substring(1, 11) );
+				endDate = sdf.parse( endDateString );
 			}else {
 				LocalDateTime localDateTime = DateUtils.asLocalDateTime( startDate );
 				endDate = DateUtils.asDate( localDateTime.plusDays(30) );
