@@ -49,7 +49,7 @@
 						{ 
 							start: $.datepicker.formatDate('yy-mm-dd', fromDate ), 
 							end : $.datepicker.formatDate('yy-mm-dd', toDate ),
-							itemTypes : ["PSScene3Band","PSScene4Band"], // , "REOrthoTile" RapidEye not working 
+							itemTypes : ["PSScene3Band","PSScene4Band","REOrthoTile"], // , "REOrthoTile" RapidEye not working 
 							geometry : JSON.stringify( geometry ) }
 					).done(
 						function( data ) {
@@ -57,21 +57,30 @@
 						  		alert("No imagery for the dates selected");
 						  	}
 							setLayer( data );
-					 	});
+					 	}
+					 ).fail(function(data, textStatus, xhr) {
+		                 //This shows status code eg. 403
+		                 console.log("error", data.status);
+		                 if( data.responseText.includes("401") ){
+		                 	alert("Planet Authentication Error: Check that the Planet API Key used is correct in the Collect Earth properties dialog");
+		                 }else{
+		                 	alert("Error connecting to Planet servers " + data.responseText );
+		                 }
+		            });
 	}
 	
 	var defaultEndDate = new Date();
 	var defaultStartDate = new Date();
-	defaultStartDate.setDate( defaultStartDate.getDate() - 30 );  
+	defaultStartDate.setDate( defaultStartDate.getDate() - 120 );  
 
      $("#slider").dateRangeSlider({
 		valueLabels:"change",
 		delayOut: 4000,
 		range:{
 		    min: {days: 5},
-		    max: {days: 120}
+		    max: {days: 240}
 		},
-		bounds: {min: new Date(2016, 01, 01), max: defaultEndDate},
+		bounds: {min: new Date(2009, 01, 01), max: defaultEndDate},
 		defaultValues: {min: defaultStartDate, max: defaultEndDate},
 		})
 		
