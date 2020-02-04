@@ -32,11 +32,37 @@
 			width: 100%;
 			height: 100%;
 		}
+		
+		.LockOn {
+		    display: block;
+		    visibility: visible;
+		    position: absolute;
+		    z-index: 999;
+		    top: 0px;
+		    left: 0px;
+		    width: 105%;
+		    height: 105%;
+		    background-color:white;
+		    vertical-align:bottom;
+		    padding-top: 20%; 
+		    filter: alpha(opacity=75); 
+		    opacity: 0.82; 
+		    font-size:large;
+		    color:blue;
+		    font-style:italic;
+		    font-weight:400;
+		    background-image: url("http://www.openforis.org/fileadmin/docs/collectEarth/pic/png/of_collectEarth_logo_vertical.png");
+		    background-repeat: no-repeat;
+		    background-attachment: fixed;
+		    background-position: center;
+		}
+		
 	</style>
 
 	
 </head>
 <body>
+<div id="coverScreen"  class="LockOn"></div>
 <div id='map' style="z-index: 1;"></select></></div>
 <div id="slider" style="position:absolute; bottom:0px; left:15px; right:15px; width:95%; height:100px; z-index: 100"></div>
 
@@ -44,6 +70,12 @@
 
 
 	function setLayerURL( fromDate, toDate, geometry){
+				$.ajaxSetup({
+   					beforeSend: function() { $("#coverScreen").show() },
+   					complete: function() { $("#coverScreen").hide() },
+				});
+	
+	
 				  $.post( 
 				    	"${urlPlanetEndpointPrefix}planet", 
 						{ 
@@ -149,7 +181,10 @@
 
 	var polyline = L.polyline(latlngs, {color: 'yellow'}).addTo(map);
 	// zoom the map to the polyline
-	map.fitBounds(polyline.getBounds(), { padding : [35,35] } );
+	//map.fitBounds(polyline.getBounds(), { padding : [35,35] } );
+	// Or center on the polygon
+	var center = polyline.getBounds().getCenter()
+	map.setView(center, 16)
 
 </script>
 
