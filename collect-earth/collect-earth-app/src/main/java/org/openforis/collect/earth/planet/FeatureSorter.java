@@ -6,18 +6,27 @@ public class FeatureSorter implements Comparator<Feature>{
 
 	@Override
 	public int compare(Feature o1, Feature o2) {
-		if( o1.getProperties().getCloudPercent() !=null && o2.getProperties().getCloudPercent() != null  )
+		if( o1.getProperties().getCloudPercent() !=null && o2.getProperties().getCloudPercent() != null  ) {
 			if( o1.getProperties().getCloudPercent() == o2.getProperties().getCloudPercent()) {
-					return o2.getProperties().getVisibleConfidencePercent() - o1.getProperties().getVisibleConfidencePercent();
+					if( o2.getProperties().getVisibleConfidencePercent() !=null &&  o1.getProperties().getVisibleConfidencePercent() != null ) {
+						return o2.getProperties().getVisibleConfidencePercent() - o1.getProperties().getVisibleConfidencePercent();
+					}else if( o2.getProperties().getVisibleConfidencePercent() !=null ) {
+						return 1;
+					}else{
+						return -1;
+					}
 				}else {
 					return o1.getProperties().getCloudPercent() - o2.getProperties().getCloudPercent();
 				}
-		else if( o1.getProperties().getCloudPercent() != null ) {
+		}else if( o1.getProperties().getCloudPercent() != null ) {
 			return -1;
 		}else if( o2.getProperties().getCloudPercent() != null) {
 			return 1;
 		}else {
-			return (int) ( (o1.getProperties().getCloudCover() - o2.getProperties().getCloudCover() ) * 100 );
+			if( o1.getProperties().getCloudCover()!=null && o2.getProperties().getCloudCover()!=null ) { 
+				return (int) ( (o1.getProperties().getCloudCover() - o2.getProperties().getCloudCover() ) * 100 );
+			}else 
+				return 1; // No way to know so return the latest
 		}
 	}
 
