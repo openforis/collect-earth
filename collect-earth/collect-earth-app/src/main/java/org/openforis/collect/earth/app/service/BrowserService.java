@@ -33,6 +33,7 @@ import org.apache.commons.lang3.StringUtils;
 import org.openforis.collect.earth.app.EarthConstants;
 import org.openforis.collect.earth.app.desktop.ServerController;
 import org.openforis.collect.earth.app.desktop.ServerController.ServerInitializationEvent;
+import org.openforis.collect.earth.app.service.LocalPropertiesService;
 import org.openforis.collect.earth.app.service.LocalPropertiesService.EarthProperty;
 import org.openforis.collect.earth.sampler.model.SimpleCoordinate;
 import org.openforis.collect.earth.sampler.model.SimplePlacemarkObject;
@@ -75,33 +76,6 @@ import liquibase.util.SystemUtils;
  */
 @Component
 public class BrowserService implements InitializingBean, Observer {
-
-	/**
-	 * To avoid needing to add the SSL certificate of Google to the certificate
-	 * repository we ause a Trust Manager that basically trust all certificates. Not
-	 * very safe but it is OK for Collect Earth's contex ( only Goolge Earth Engine
-	 * is used and no sign-in is necessary )
-	 * 
-	 * @author Alfonso Sanchez-Paus Diaz
-	 * 
-	 */
-	static class TrustAllCertificates implements X509TrustManager {
-		@Override
-		public void checkClientTrusted(X509Certificate[] cert, String s) throws CertificateException {
-			// TRUST EVERYTHING!
-		}
-
-		@Override
-		public void checkServerTrusted(X509Certificate[] cert, String s) throws CertificateException {
-			// DOES NOT CHECK A THING
-		}
-
-		@Override
-		public X509Certificate[] getAcceptedIssuers() {
-			return new X509Certificate[0];
-		}
-
-	}
 
 	private static final String NEW = "=new ";
 	private static final String PROTOTYPE = ".prototype";

@@ -8,6 +8,7 @@ import java.io.UnsupportedEncodingException;
 import java.net.HttpURLConnection;
 import java.net.MalformedURLException;
 import java.net.URL;
+import java.security.Security;
 import java.time.LocalDateTime;
 import java.util.Arrays;
 import java.util.Base64;
@@ -15,8 +16,14 @@ import java.util.Calendar;
 import java.util.Date;
 import java.util.List;
 
+import javax.net.ssl.HttpsURLConnection;
+import javax.net.ssl.SSLContext;
+import javax.net.ssl.SSLSocketFactory;
+import javax.net.ssl.TrustManager;
+
 import org.apache.commons.lang3.ArrayUtils;
 import org.apache.commons.lang3.StringUtils;
+import org.openforis.collect.earth.app.service.TrustAllCertificates;
 import org.openforis.collect.earth.sampler.model.SimpleCoordinate;
 import org.openforis.collect.earth.sampler.model.SimplePlacemarkObject;
 import org.slf4j.Logger;
@@ -29,10 +36,14 @@ public class PlanetImagery {
 
 	private static final Logger logger = LoggerFactory.getLogger(PlanetImagery.class);
 	private static final Gson gson = new GsonBuilder().setDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'").create();
+	private static final SSLSocketFactory factory = getSSLAcceptAllFactory();
 
 	private String apiKey;
+	
+	private int retries = 0;
 
 	private static final int MAX_IMAGES_IN_LAYER = 5;
+	private static final int MAX_RETRIES = 6;
 
 	public PlanetImagery(String apiKey) {
 		super();
@@ -90,36 +101,77 @@ public class PlanetImagery {
 	}
 
 	private String sendRequest(URL url, Object jsonObject) throws IOException {
-		byte[] postDataBytes = null;
-		if (jsonObject != null) {
-			String jsonInputString = gson.toJson(jsonObject);
-			postDataBytes = jsonInputString.getBytes("UTF-8");
-			logger.info(jsonInputString);
-		}
-
-		HttpURLConnection conn = (HttpURLConnection) url.openConnection();
-		// very  important to keep the semicolon at the end
-		String basicAuth = "Basic " + new String(Base64.getEncoder().encode((apiKey + ":").getBytes())); 
-		conn.setRequestProperty("Authorization", basicAuth);
-
-		conn.setRequestMethod(jsonObject != null ? "POST" : "GET");
-		conn.setRequestProperty("Content-Type", "application/json");
-		conn.setRequestProperty("Accept", "application/json");
-		conn.setDoOutput(true);
-		if (postDataBytes != null) {
-			conn.setRequestProperty("Content-Length", String.valueOf(postDataBytes.length));
-			conn.getOutputStream().write(postDataBytes);
-		} else {
-			conn.setRequestProperty("Content-Length", "0");
-		}
-
-		StringBuilder response = null;
 		try {
-			response = readStream(conn.getInputStream());
-		} finally {
-			conn.disconnect();
+			byte[] postDataBytes = null;
+			if (jsonObject != null) {
+				String jsonInputString = gson.toJson(jsonObject);
+				postDataBytes = jsonInputString.getBytes("UTF-8");
+				logger.info(jsonInputString);
+			}
+
+			HttpURLConnection conn = null;
+			if( factory != null ) { // THIS IS A WORKAROUND TO REMOVE SSL CERTIFICATE ISSUES
+				conn = (HttpsURLConnection) url.openConnection();
+				((HttpsURLConnection)conn).setSSLSocketFactory(factory);
+			}else {
+				conn = (HttpURLConnection) url.openConnection();
+			}
+
+			// very  important to keep the semicolon at the end
+			String basicAuth = "Basic " + new String(Base64.getEncoder().encode((apiKey + ":").getBytes())); 
+			conn.setRequestProperty("Authorization", basicAuth);
+
+			conn.setRequestMethod(jsonObject != null ? "POST" : "GET");
+			conn.setRequestProperty("Content-Type", "application/json");
+			conn.setRequestProperty("Accept", "application/json");
+			conn.setDoOutput(true);
+			if (postDataBytes != null) {
+				conn.setRequestProperty("Content-Length", String.valueOf(postDataBytes.length));
+				conn.getOutputStream().write(postDataBytes);
+			} else {
+				conn.setRequestProperty("Content-Length", "0");
+			}
+
+			StringBuilder response = null;
+			try {
+				response = readStream(conn.getInputStream());
+			} finally {
+				conn.disconnect();
+			}
+			return response != null ? response.toString() : null;
+		} catch (IOException e) {
+			if( e.getMessage()!=null && e.getMessage().contains("429") ) { // This happens when there are too many consecutive requests! Make the user wait a bit and try again!
+				try {
+					if( retries < MAX_RETRIES ) {
+						Thread.sleep( 5000 );
+						retries++;
+					}else {
+						retries = 0;
+						throw e;
+					}
+				} catch (InterruptedException e1) {
+					logger.error( "Error waiting for Thread requesting Planet imagery");
+				}
+				return sendRequest(url, jsonObject);
+			}else {
+				throw e; // Another type of error throw!
+			}
 		}
-		return response != null ? response.toString() : null;
+	}
+
+	// Workaround for computers that have trouble accepting Planet's SSL certificates
+	private static SSLSocketFactory getSSLAcceptAllFactory(){
+		SSLSocketFactory factory = null;
+		try {
+			Security.getProviders();
+			final SSLContext ssl = SSLContext.getInstance("TLSv1");
+			ssl.init(null, new TrustManager[] { new TrustAllCertificates() }, null);
+			return ssl.getSocketFactory();
+		} catch (Exception e) {
+			logger.error( "Error obtaining SSL factory when opeining Planet REST URL",e);
+		}
+		
+		return factory;
 	}
 
 	private StringBuilder readStream(InputStream is) throws IOException, UnsupportedEncodingException {
