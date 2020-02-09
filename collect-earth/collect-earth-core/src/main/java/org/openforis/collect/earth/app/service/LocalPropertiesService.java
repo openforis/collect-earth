@@ -106,7 +106,8 @@ public class LocalPropertiesService extends Observable {
 																																																																																																																										"planet_maps_key"), OPEN_GEE_APP(
 																																																																																																																												"open_gee_app"), GEE_MAP_URL(
 																																																																																																																														"gee_app_url"), OPEN_MAXAR_SECUREWATCH(
-																																																																																																																																"open_maxar_securewatch");
+																																																																																																																																"open_maxar_securewatch"), EARTH_MAP_URL("earth_map_url"), 
+		OPEN_EARTH_MAP("open_earth_map"), EARTH_MAP_LAYERS("earth_map_layers"), EARTH_MAP_SCRIPTS("earth_map_scripts"), EARTH_MAP_AOI("earth_map_aoi");
 
 		private String name;
 
@@ -182,6 +183,22 @@ public class LocalPropertiesService extends Observable {
 		return EarthProperty.LAST_EXPORTED_DATE + "_" + surveyName;
 	}
 
+	public String getEarthMapAOI() {
+		return getValue(EarthProperty.EARTH_MAP_AOI);
+	}
+
+	public String getEarthMapLayers() {
+		return getValue(EarthProperty.EARTH_MAP_LAYERS);
+	}
+
+	public String getEarthMapScripts() {
+		return getValue(EarthProperty.EARTH_MAP_SCRIPTS);
+	}
+	
+	public String getEarthMapURL() {
+		return getValue(EarthProperty.EARTH_MAP_URL);
+	}
+	
 	public String getExtraMap() {
 		return getValue(EarthProperty.EXTRA_MAP_URL);
 	}
@@ -425,6 +442,11 @@ public class LocalPropertiesService extends Observable {
 	public boolean isCodeEditorSupported() {
 		return isPropertyActivated(EarthProperty.OPEN_GEE_CODE_EDITOR);
 	}
+	
+	public boolean isEarthMapSupported() {
+		return isPropertyActivated(EarthProperty.OPEN_EARTH_MAP);
+	}
+
 
 	public boolean isExplorerSupported() {
 		return isPropertyActivated(EarthProperty.OPEN_GEE_EXPLORER);

@@ -4,6 +4,21 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.10.6] - 2020-2-5
+
+### Changed
+- Planet Imagery improvements
+
+## [1.10.5] - 2020-2-3
+
+### Changed
+- Added access to Rapid Eye imagery for the Planet integration
+
+## [1.10.4] - 2020-1-31
+
+### Changed
+- Fixed JRE issue when installing new versions of Windows and MacOS
+
 ## [1.10.0] - 2020-1-29
 
 ### Changed

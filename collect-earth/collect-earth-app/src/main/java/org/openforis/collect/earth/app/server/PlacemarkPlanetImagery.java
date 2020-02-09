@@ -2,6 +2,7 @@ package org.openforis.collect.earth.app.server;
 
 import java.io.IOException;
 import java.text.DateFormat;
+import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.time.LocalDateTime;
 import java.util.Date;
@@ -35,15 +36,15 @@ public class PlacemarkPlanetImagery extends JsonPocessorServlet {
 	LocalPropertiesService localPropertiesService;
 
 	@RequestMapping(value="/planet", method = RequestMethod.POST)
-	public void planet(HttpServletRequest request,HttpServletResponse response) throws IOException {
-		try {
+	public void planet(HttpServletRequest request,HttpServletResponse response) throws IOException, ParseException {
+
 			//2015-07-17T10:50:18.650Z
 			SimpleDateFormat sdf =new SimpleDateFormat("yyyy-MM-dd");
-			Date startDate= sdf.parse( request.getParameter("start").substring(1, 11) );
+			Date startDate= sdf.parse( request.getParameter("start") );
 			String endDateString= request.getParameter("end");
 			Date endDate = null;
 			if( StringUtils.isNotBlank( endDateString ) ) {
-				endDate = sdf.parse( endDateString.substring(1, 11) );
+				endDate = sdf.parse( endDateString );
 			}else {
 				LocalDateTime localDateTime = DateUtils.asLocalDateTime( startDate );
 				endDate = DateUtils.asDate( localDateTime.plusDays(30) );
@@ -54,16 +55,13 @@ public class PlacemarkPlanetImagery extends JsonPocessorServlet {
 			Gson gson = new GsonBuilder().create();
 			double[][][] coords = gson.fromJson( request.getParameter("geometry"), double[][][].class);
 			
-			String[] itemTypeArray = new String[] {"PSScene3Band", "PSScene4Band"};
-			String itemTypes = request.getParameter("itemTypes");
-			if( StringUtils.isNotBlank( itemTypes ) ) {
-				itemTypeArray = gson.fromJson( itemTypes, String[].class);
+			String[] itemTypeArray = request.getParameterMap().get("itemTypes[]");
+			if( itemTypeArray == null || itemTypeArray.length == 0 ) {
+				itemTypeArray = new String[] {"PSScene3Band", "PSScene4Band"};
 			}
 			
 			setJsonResponse(response, planetImagery.getLayerUrl(startDate, endDate, coords, itemTypeArray));
-		}catch(Exception e){
-			logger.error("Error getting planet images url" , e);
-		}
+		
 	}
 
 }

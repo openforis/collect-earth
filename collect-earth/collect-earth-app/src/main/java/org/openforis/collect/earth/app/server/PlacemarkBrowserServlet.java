@@ -79,6 +79,8 @@ public class PlacemarkBrowserServlet {
 					openGEEAppWindow(placemarkObject);
 
 					openGEECodeEditorWindow(placemarkObject);
+					
+					openEarthMapWindow( placemarkObject );
 
 					openTimeLapseWindow(placemarkObject);
 
@@ -96,8 +98,6 @@ public class PlacemarkBrowserServlet {
 					
 					openSecureWatchWindow(placemarkObject);
 
-					// Until further notice
-					// openHereMapsWindow(placemarkObject);
 				} catch (TransformException e) {
 					logger.error("Error generating polygon", e );
 				} catch (KmlGenerationException e) {
@@ -109,20 +109,20 @@ public class PlacemarkBrowserServlet {
 
 		}
 
-		/*
-		 * public void openHereMapsWindow(final String latLongCoordinates) {
-		 * new Thread("Open Here Maps window"){ //$NON-NLS-1$
-		 * 
-		 * @Override public void run() { try {
-		 * browserService.openHereMaps(latLongCoordinates); } catch (final
-		 * Exception e) { LoggerFactory.getLogger(this.getClass()).error(
-		 * "Exception opening Here Maps window", e); //$NON-NLS-1$
-		 * 
-		 * } }
-		 * 
-		 * }.start(); }
-		 */
-
+	
+		public void openEarthMapWindow(final SimplePlacemarkObject placemarkObject) {
+			new Thread("Open Earth Map window") { //$NON-NLS-1$
+				@Override
+				public void run() {
+					try {
+						browserService.openEarthMapURL(placemarkObject);
+					} catch (final Exception e) {
+						logger.error("Exception opening Earth Map window", e); //$NON-NLS-1$
+					}
+				}
+			}.start();
+		}
+		
 		public void openGEECodeEditorWindow(final SimplePlacemarkObject placemarkObject) {
 			new Thread("Open GEE Playground window") { //$NON-NLS-1$
 				@Override

@@ -33,6 +33,7 @@ import org.apache.commons.lang3.StringUtils;
 import org.openforis.collect.earth.app.EarthConstants;
 import org.openforis.collect.earth.app.desktop.ServerController;
 import org.openforis.collect.earth.app.desktop.ServerController.ServerInitializationEvent;
+import org.openforis.collect.earth.app.service.LocalPropertiesService;
 import org.openforis.collect.earth.app.service.LocalPropertiesService.EarthProperty;
 import org.openforis.collect.earth.sampler.model.SimpleCoordinate;
 import org.openforis.collect.earth.sampler.model.SimplePlacemarkObject;
@@ -76,33 +77,6 @@ import liquibase.util.SystemUtils;
 @Component
 public class BrowserService implements InitializingBean, Observer {
 
-	/**
-	 * To avoid needing to add the SSL certificate of Google to the certificate
-	 * repository we ause a Trust Manager that basically trust all certificates. Not
-	 * very safe but it is OK for Collect Earth's contex ( only Goolge Earth Engine
-	 * is used and no sign-in is necessary )
-	 * 
-	 * @author Alfonso Sanchez-Paus Diaz
-	 * 
-	 */
-	static class TrustAllCertificates implements X509TrustManager {
-		@Override
-		public void checkClientTrusted(X509Certificate[] cert, String s) throws CertificateException {
-			// TRUST EVERYTHING!
-		}
-
-		@Override
-		public void checkServerTrusted(X509Certificate[] cert, String s) throws CertificateException {
-			// DOES NOT CHECK A THING
-		}
-
-		@Override
-		public X509Certificate[] getAcceptedIssuers() {
-			return new X509Certificate[0];
-		}
-
-	}
-
 	private static final String NEW = "=new ";
 	private static final String PROTOTYPE = ".prototype";
 	private static final String ZOOM_10 = "zoom,10)";
@@ -124,7 +98,7 @@ public class BrowserService implements InitializingBean, Observer {
 	private static final Configuration cfg = new Configuration(new Version("2.3.23"));
 	private RemoteWebDriver webDriverEE, webDriverBing, webDriverBaidu, webDriverTimelapse, webDriverGeeCodeEditor,
 			webDriverHere, webDriverStreetView, webDriverYandex, webDriverPlanetHtml, webDriverExtraMap, webDriverSecureWatch,
-			webDriverGEEMap;
+			webDriverGEEMap, webDriverEarthMap;
 
 	private static boolean geeMethodUpdated = false;
 
@@ -675,9 +649,18 @@ public class BrowserService implements InitializingBean, Observer {
 		return geoJson;
 	}
 
-	private String getGeoJson(SimplePlacemarkObject placemarkObject) {
+	
+	
+	
+	private String getFeature(SimplePlacemarkObject placemarkObject, String shapeType, String name ) {
+		StringBuilder feature = new StringBuilder("{\"type\":\"Feature\",\"properties\":{\"name\":\"").append( name).append("\"},\"geometry\":");
+		feature= feature.append(   getGeoJson(placemarkObject, shapeType )).append("}");				
+	    return feature.toString();		
+	}
+	
+	private String getGeoJson(SimplePlacemarkObject placemarkObject, String shapeType ) {
 
-		StringBuilder geoJson = new StringBuilder("{\"type\":\"MultiLineString\",\"coordinates\":[");
+		StringBuilder geoJson = new StringBuilder("{\"type\":\"" ).append( shapeType).append("\",\"coordinates\":[");
 		List<SimpleCoordinate> shape = placemarkObject.getShape();
 		geoJson = geoJson.append(getGeoJsonSegment(shape));
 		geoJson = geoJson.deleteCharAt(geoJson.length() - 1);
@@ -703,7 +686,7 @@ public class BrowserService implements InitializingBean, Observer {
 			try {
 				StringBuilder url = new StringBuilder(localPropertiesService.getGEEAppURL());
 				url = url.append("#geoJson=")
-						.append(URLEncoder.encode(getGeoJson(placemarkObject), StandardCharsets.UTF_8.toString()))
+						.append(URLEncoder.encode(getGeoJson(placemarkObject, "MultiLineString"), StandardCharsets.UTF_8.toString()))
 						.append(";");
 				url = url.append("plotId=")
 						.append(URLEncoder.encode(placemarkObject.getPlacemarkId(), StandardCharsets.UTF_8.toString()))
@@ -712,6 +695,35 @@ public class BrowserService implements InitializingBean, Observer {
 				webDriverGEEMap.navigate().refresh();  // FORCE REFRESH - OTHERWISE WINDOW IS NOT REFRESHED FOR SOME STRANGE REASON
 			} catch (final Exception e) {
 				logger.error("Problems loading GEE APP window", e);
+			}
+		}
+
+	}
+	 
+	 
+	 public synchronized void openEarthMapURL(SimplePlacemarkObject placemarkObject) throws BrowserNotFoundException {
+
+		if (localPropertiesService.isEarthMapSupported()) {
+
+			try {
+				StringBuilder url = new StringBuilder(localPropertiesService.getEarthMapURL()).append("?");
+				url = url.append("polygon=")
+						.append(URLEncoder.encode(getFeature(placemarkObject, "Polygon", placemarkObject.getPlacemarkId()), StandardCharsets.UTF_8.toString()))
+						.append("&");
+				url = url.append("layers=")
+						.append(URLEncoder.encode(localPropertiesService.getEarthMapLayers(), StandardCharsets.UTF_8.toString()))
+						.append("&");
+				url = url.append("scripts=")
+						.append(URLEncoder.encode(localPropertiesService.getEarthMapScripts(), StandardCharsets.UTF_8.toString()))
+						.append("&");
+				url = url.append("aoi=")
+						.append(URLEncoder.encode(localPropertiesService.getEarthMapAOI(), StandardCharsets.UTF_8.toString()))
+						.append("&");
+				
+				webDriverEarthMap = navigateTo(url.toString(), webDriverEarthMap);
+				//webDriverEarthMap.navigate().refresh();  // FORCE REFRESH - OTHERWISE WINDOW IS NOT REFRESHED FOR SOME STRANGE REASON
+			} catch (final Exception e) {
+				logger.error("Problems loading Earth Map window", e);
 			}
 		}
 

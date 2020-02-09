@@ -32,11 +32,37 @@
 			width: 100%;
 			height: 100%;
 		}
+		
+		.LockOn {
+		    display: block;
+		    visibility: visible;
+		    position: absolute;
+		    z-index: 999;
+		    top: 0px;
+		    left: 0px;
+		    width: 105%;
+		    height: 105%;
+		    background-color:white;
+		    vertical-align:bottom;
+		    padding-top: 20%; 
+		    filter: alpha(opacity=75); 
+		    opacity: 0.82; 
+		    font-size:large;
+		    color:blue;
+		    font-style:italic;
+		    font-weight:400;
+		    background-image: url("http://www.openforis.org/fileadmin/docs/collectEarth/pic/png/of_collectEarth_logo_vertical.png");
+		    background-repeat: no-repeat;
+		    background-attachment: fixed;
+		    background-position: center;
+		}
+		
 	</style>
 
 	
 </head>
 <body>
+<div id="coverScreen"  class="LockOn"></div>
 <div id='map' style="z-index: 1;"></select></></div>
 <div id="slider" style="position:absolute; bottom:0px; left:15px; right:15px; width:95%; height:100px; z-index: 100"></div>
 
@@ -44,12 +70,18 @@
 
 
 	function setLayerURL( fromDate, toDate, geometry){
+				$.ajaxSetup({
+   					beforeSend: function() { $("#coverScreen").show() },
+   					complete: function() { $("#coverScreen").hide() },
+				});
+	
+	
 				  $.post( 
 				    	"${urlPlanetEndpointPrefix}planet", 
 						{ 
-							start: JSON.stringify( fromDate ), 
-							end : JSON.stringify( toDate ),
-							itemTypes : ["PSScene3Band","PSScene4Band"], // , "REOrthoTile" RapidEye not working 
+							start: $.datepicker.formatDate('yy-mm-dd', fromDate ), 
+							end : $.datepicker.formatDate('yy-mm-dd', toDate ),
+							itemTypes : ["PSScene3Band","PSScene4Band","REOrthoTile"], // , "REOrthoTile" RapidEye not working 
 							geometry : JSON.stringify( geometry ) }
 					).done(
 						function( data ) {
@@ -57,21 +89,30 @@
 						  		alert("No imagery for the dates selected");
 						  	}
 							setLayer( data );
-					 	});
+					 	}
+					 ).fail(function(data, textStatus, xhr) {
+		                 //This shows status code eg. 403
+		                 console.log("error", data.status);
+		                 if( data.responseText.includes("401") ){
+		                 	alert("Planet Authentication Error: Check that the Planet API Key used is correct in the Collect Earth properties dialog");
+		                 }else{
+		                 	alert("Error connecting to Planet servers " + data.responseText );
+		                 }
+		            });
 	}
 	
 	var defaultEndDate = new Date();
 	var defaultStartDate = new Date();
-	defaultStartDate.setDate( defaultStartDate.getDate() - 30 );  
+	defaultStartDate.setDate( defaultStartDate.getDate() - 120 );  
 
      $("#slider").dateRangeSlider({
 		valueLabels:"change",
 		delayOut: 4000,
 		range:{
 		    min: {days: 5},
-		    max: {days: 120}
+		    max: {days: 240}
 		},
-		bounds: {min: new Date(2016, 01, 01), max: defaultEndDate},
+		bounds: {min: new Date(2009, 01, 01), max: defaultEndDate},
 		defaultValues: {min: defaultStartDate, max: defaultEndDate},
 		})
 		
@@ -140,7 +181,10 @@
 
 	var polyline = L.polyline(latlngs, {color: 'yellow'}).addTo(map);
 	// zoom the map to the polyline
-	map.fitBounds(polyline.getBounds(), { padding : [35,35] } );
+	//map.fitBounds(polyline.getBounds(), { padding : [35,35] } );
+	// Or center on the polygon
+	var center = polyline.getBounds().getCenter()
+	map.setView(center, 16)
 
 </script>
 
