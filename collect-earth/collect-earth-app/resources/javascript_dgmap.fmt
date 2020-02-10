@@ -1,0 +1,40 @@
+<@compress single_line=true>
+var wkt = "MULTIPOLYGON(
+			<#list placemark.multiShape as shp>
+             (
+            	<#list shp as coord>
+				${coord.longitude} ${coord.latitude}<#if coord?has_next>,</#if>
+				</#list>
+			 )<#if shp?has_next>,</#if>
+			</#list>
+			
+			<#if placemark.points?? >
+			   ,
+			
+	           <#list placemark.points as square>
+	 				( 
+				     <#list square.shape as squareCorners>
+				           ${squareCorners.longitude} ${squareCorners.latitude}<#if squareCorners?has_next>,</#if>
+				     </#list>
+			     	)
+			     	<#if square.points?? >
+			     	,
+						<#list square.points as innerpoint>
+						(
+						   <#list innerpoint.shape as squareCorners>
+						  [${squareCorners.longitude} ${squareCorners.latitude}]<#if squareCorners?has_next>,</#if>
+							</#list>
+						)<#if innerpoint?has_next>,</#if>				 
+						</#list>
+					</#if>		
+					<#if square?has_next>,</#if>     	
+			    </#list>
+		    </#if>
+)";
+</@compress>
+
+var aoiObj=aoiLayer.createFeatureFromWkt(wkt,'#FFFF00',null);
+
+aoiObj.setStyle({stroke:true,color:'#FFFF00',weight:2,fill:false,dashArray:null,clickable:false});
+aoiLayer.addLayer(aoiObj);
+aoiLayer.addToMap();
