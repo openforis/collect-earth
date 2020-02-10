@@ -138,6 +138,7 @@ public class PlanetImagery {
 			} finally {
 				conn.disconnect();
 			}
+			retries = 0; // reset the counter as it was a success
 			return response != null ? response.toString() : null;
 		} catch (IOException e) {
 			if( e.getMessage()!=null && e.getMessage().contains("429") ) { // This happens when there are too many consecutive requests! Make the user wait a bit and try again!
