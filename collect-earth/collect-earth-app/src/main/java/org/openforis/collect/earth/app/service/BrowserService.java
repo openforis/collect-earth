@@ -312,28 +312,33 @@ public class BrowserService implements InitializingBean, Observer {
 		return found;
 	}
 
-	private RemoteWebDriver loadPlotInDGMap(SimplePlacemarkObject placemarkObject, RemoteWebDriver driverParam)
+	private boolean loadPlotInDGMap(SimplePlacemarkObject placemarkObject, RemoteWebDriver driver)
 			throws InterruptedException {
 
-		RemoteWebDriver driver = driverParam;
-
+		boolean success = true;
 		if (driver != null && waitFor("mainContent", driver) && driver instanceof JavascriptExecutor) {
 			try {
 				String dgmapJs = getDGMapJavascript(placemarkObject);
 				driver.executeScript(dgmapJs);
+				
+				Thread.sleep( 1000 );
+				// Unlock the view if it is locked
+				if( isCssElementPresent(".lock.on",  driver)  ) {
+					driver.findElementByCssSelector(".lock.on").click(); // UNLOCK
+				}
+				
 			} catch (final Exception e) {
 				processSeleniumError(e);
+				success = false;
 			}
-
-			Thread.sleep(1000);
 		}
-		return driver;
+		return success;
 	}
 
-	private RemoteWebDriver loadPlotInGEEExplorer(SimplePlacemarkObject placemarkObject, RemoteWebDriver driverParam)
+	private boolean loadPlotInGEEExplorer(SimplePlacemarkObject placemarkObject, RemoteWebDriver driver)
 			throws InterruptedException, BrowserNotFoundException {
 
-		RemoteWebDriver driver = driverParam;
+		boolean success = true;
 
 		if (driver != null) {
 
@@ -366,9 +371,10 @@ public class BrowserService implements InitializingBean, Observer {
 
 				clickOnElements(driver, eyeShowing);
 				clickOnElements(driver, eyeLoading);
+				success = false;
 			}
 		}
-		return driver;
+		return success;
 	}
 
 	public void clickOnElements(RemoteWebDriver driver, String cssSelector) {
@@ -576,7 +582,7 @@ public class BrowserService implements InitializingBean, Observer {
 	}
 
 	/**
-	 * Opens a browser window with a map representation of the plot.
+	 * Opens a browser window with a map representation of the plot in SecureWatch.
 	 * 
 	 * @param placemarkObject
 	 *            The data of the plot.
@@ -592,7 +598,7 @@ public class BrowserService implements InitializingBean, Observer {
 				webDriverSecureWatch = navigateTo(url, webDriverSecureWatch);
 				try {
 					logger.warn("Loading layers - {}", placemarkObject);
-					webDriverEE = loadPlotInDGMap(placemarkObject, webDriverSecureWatch);
+					loadPlotInDGMap(placemarkObject, webDriverSecureWatch);
 				} catch (final Exception e) {
 					logger.error("Error when opening Secure Watch browser window", e);
 				}
@@ -613,27 +619,26 @@ public class BrowserService implements InitializingBean, Observer {
 		Object lock = getLock("EXTRA");
 		synchronized (lock) {
 			if (!StringUtils.isBlank(localPropertiesService.getExtraMap())) {
-	
 				webDriverExtraMap = navigateTo( getUrlBaseIntegration(placemarkObject, localPropertiesService.getExtraMap() ) , webDriverExtraMap );
 			}
 		}
 	}
 
 	private String getUrlBaseIntegration(SimplePlacemarkObject placemarkObject, String url) {
-
+		String temp = null;
 		try {
 			String latitude = placemarkObject.getCoord().getLatitude();
 			String longitude = placemarkObject.getCoord().getLongitude();
 			String id = placemarkObject.getPlacemarkId().split(",")[0]; // for cases where ID also has round, then
-			// the id string woutl be something like
+			// the id string would be something like
 			// "plotId,round", we only want the ID
 
-			url = url.replaceAll("LATITUDE", latitude).replaceAll("LONGITUDE", longitude).replaceAll("PLOT_ID", id);
+			temp = url.replaceAll("LATITUDE", latitude).replaceAll("LONGITUDE", longitude).replaceAll("PLOT_ID", id);
 
 		} catch (final Exception e) {
-			logger.error("Problems loading Yandex", e);
+			logger.error("Problems Getting the URL filling for " + url, e);
 		}
-		return url;
+		return temp;
 	}
 
 	/**
@@ -842,7 +847,7 @@ public class BrowserService implements InitializingBean, Observer {
 	
 				try {
 					logger.warn("Loading layers - {}", placemarkObject);
-					webDriverEE = loadPlotInGEEExplorer(placemarkObject, webDriverEE);
+					loadPlotInGEEExplorer(placemarkObject, webDriverEE);
 				} catch (final Exception e) {
 					logger.error("Error when opening Earth Engine browser window", e);
 				}
