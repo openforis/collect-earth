@@ -45,69 +45,72 @@ public class LocalPropertiesService extends Observable {
 	public enum EarthProperty {
 		ACTIVE_PROJECT_DEFINITION("active_project_definition"), ALTERNATIVE_BALLOON_FOR_BROWSER(
 				"alternative_balloon_for_browser"), AUTOMATIC_BACKUP("automatic_backup"), BALLOON_TEMPLATE_KEY(
-						"balloon"), BALLOON_TEMPLATE_KEY_CHECKSUM("balloon_checksum"), BING_MAPS_KEY(
-								"bing_maps_key"), BROWSER_TO_USE("use_browser"), CHROME_BINARY_PATH(
-										"chrome_exe_path"), CRS_KEY("coordinates_reference_system"), CSV_KEY_CHECKSUM(
-												"csv_checksum"), DB_DRIVER("db_driver"), DB_HOST(
-														"db_host"), DB_NAME("db_name"), DB_PASSWORD(
-																"db_password"), DB_PORT("db_port"), DB_USERNAME(
-																		"db_username"), DISTANCE_BETWEEN_PLOTS(
-																				"distance_between_plots"), DISTANCE_BETWEEN_SAMPLE_POINTS(
-																						"distance_between_sample_points"), DISTANCE_TO_PLOT_BOUNDARIES(
-																								"distance_to_plot_boundaries"), ELEVATION_GEOTIF_DIRECTORY(
-																										"elevation_geotif_directory"), EXCEPTION_SHOWN(
-																												"exception_shown"), EXTRA_MAP_URL(
-																														"extra_map_url"), FIREFOX_BINARY_PATH(
-																																"firefox_exe_path"), GEE_EXPLORER_URL(
-																																		"gee_explorer_url"), GEE_FUNCTION_PICK(
-																																				"gee_js_pickFunction"), GEE_INITIAL_ZOOM(
-																																						"gee_initial_zoom"), GEE_JS_LIBRARY_URL(
-																																								"gee_js_library_url"), GEE_PLAYGROUND_URL(
-																																										"gee_playground_url"), GEE_ZOOM_METHOD(
-																																												"gee_js_zoom_method"), GEE_ZOOM_OBJECT(
-																																														"gee_js_zoom_object"), GENERATED_KEY(
-																																																"generated_on"), GOOGLE_MAPS_API_KEY(
-																																																		"google_maps_api_key"), HERE_MAPS_APP_CODE(
-																																																				"here_app_code"), HERE_MAPS_APP_ID(
-																																																						"here_app_id"), HOST_KEY(
-																																																								"host"), HOST_PORT_KEY(
-																																																										"port"), INNER_SUBPLOT_SIDE(
-																																																												"inner_point_side"), JUMP_TO_NEXT(
-																																																														"jump_to_next_plot"), KML_TEMPLATE_KEY(
-																																																																"template"), KML_TEMPLATE_KEY_CHECKSUM(
-																																																																		"template_checksum"), LAST_EXPORTED_DATE(
-																																																																				"last_exported_survey_date"), LAST_IGNORED_UPDATE(
-																																																																						"last_ignored_update_version"), LAST_USED_FOLDER(
-																																																																								"last_used_folder"), LOADED_PROJECTS(
-																																																																										"loaded_projects"), LOCAL_PORT_KEY(
-																																																																												"local_port"), METADATA_FILE(
-																																																																														"metadata_file"), MODEL_VERSION_NAME(
-																																																																																"model_version_name"), NUMBER_OF_SAMPLING_POINTS_IN_PLOT(
-																																																																																		"number_of_sampling_points_in_plot"), OPEN_BALLOON_IN_BROWSER(
-																																																																																				"open_separate_browser_form"), OPEN_BING_MAPS(
-																																																																																						"open_bing_maps"), OPEN_GEE_EXPLORER(
-																																																																																								"open_earth_engine"), OPEN_GEE_CODE_EDITOR(
-																																																																																										"open_gee_playground"), OPEN_HERE_MAPS(
-																																																																																												"open_here_maps"), OPEN_STREET_VIEW(
-																																																																																														"open_street_view"), OPEN_TIMELAPSE(
-																																																																																																"open_timelapse"), OPEN_YANDEX_MAPS(
-																																																																																																		"open_yandex_maps"), OPERATION_MODE(
-																																																																																																				"operation_mode"), OPERATOR_KEY(
-																																																																																																						"operator"), SAIKU_SERVER_FOLDER(
-																																																																																																								"saiku_server_folder"), SAMPLE_FILE(
-																																																																																																										"csv"), SAMPLE_SHAPE(
-																																																																																																												"sample_shape"), SURVEY_NAME(
-																																																																																																														"survey_name"), UI_LANGUAGE(
-																																																																																																																"ui_language"), LARGE_CENTRAL_PLOT_SIDE(
-																																																																																																																		"large_central_plot_side"), OPEN_BAIDU_MAPS(
-																																																																																																																				"open_baidu_maps"), DISTANCE_TO_BUFFERS(
-																																																																																																																						"distance_to_buffers"), OPEN_PLANET_MAPS(
-																																																																																																																								"open_planet_maps"), PLANET_MAPS_KEY(
-																																																																																																																										"planet_maps_key"), OPEN_GEE_APP(
-																																																																																																																												"open_gee_app"), GEE_MAP_URL(
-																																																																																																																														"gee_app_url"), OPEN_MAXAR_SECUREWATCH(
-																																																																																																																																"open_maxar_securewatch"), EARTH_MAP_URL("earth_map_url"), 
-		OPEN_EARTH_MAP("open_earth_map"), EARTH_MAP_LAYERS("earth_map_layers"), EARTH_MAP_SCRIPTS("earth_map_scripts"), EARTH_MAP_AOI("earth_map_aoi");
+				"balloon"), BALLOON_TEMPLATE_KEY_CHECKSUM("balloon_checksum"), BING_MAPS_KEY(
+				"bing_maps_key"), BROWSER_TO_USE("use_browser"), CHROME_BINARY_PATH(
+				"chrome_exe_path"), CRS_KEY("coordinates_reference_system"), CSV_KEY_CHECKSUM(
+				"csv_checksum"), DB_DRIVER("db_driver"), DB_HOST(
+				"db_host"), DB_NAME("db_name"), DB_PASSWORD(
+				"db_password"), DB_PORT("db_port"), DB_USERNAME(
+				"db_username"), DISTANCE_BETWEEN_PLOTS(
+				"distance_between_plots"), DISTANCE_BETWEEN_SAMPLE_POINTS(
+				"distance_between_sample_points"), DISTANCE_TO_PLOT_BOUNDARIES(
+				"distance_to_plot_boundaries"), ELEVATION_GEOTIF_DIRECTORY(
+				"elevation_geotif_directory"), EXCEPTION_SHOWN(
+				"exception_shown"), EXTRA_MAP_URL(
+				"extra_map_url"), FIREFOX_BINARY_PATH(
+				"firefox_exe_path"), GEE_EXPLORER_URL(
+				"gee_explorer_url"), GEE_FUNCTION_PICK(
+				"gee_js_pickFunction"), GEE_INITIAL_ZOOM(
+				"gee_initial_zoom"), GEE_JS_LIBRARY_URL(
+				"gee_js_library_url"), GEE_PLAYGROUND_URL(
+				"gee_playground_url"), GEE_ZOOM_METHOD(
+				"gee_js_zoom_method"), GEE_ZOOM_OBJECT(
+				"gee_js_zoom_object"), GENERATED_KEY(
+				"generated_on"), GOOGLE_MAPS_API_KEY(
+				"google_maps_api_key"), HERE_MAPS_APP_CODE(
+				"here_app_code"), HERE_MAPS_APP_ID(
+				"here_app_id"), HOST_KEY(
+				"host"), HOST_PORT_KEY(
+				"port"), INNER_SUBPLOT_SIDE(
+				"inner_point_side"), JUMP_TO_NEXT(
+				"jump_to_next_plot"), KML_TEMPLATE_KEY(
+				"template"), KML_TEMPLATE_KEY_CHECKSUM(
+				"template_checksum"), LAST_EXPORTED_DATE(
+				"last_exported_survey_date"), LAST_IGNORED_UPDATE(
+				"last_ignored_update_version"), LAST_USED_FOLDER(
+				"last_used_folder"), LOADED_PROJECTS(
+				"loaded_projects"), LOCAL_PORT_KEY(
+				"local_port"), METADATA_FILE(
+				"metadata_file"), MODEL_VERSION_NAME(
+				"model_version_name"), NUMBER_OF_SAMPLING_POINTS_IN_PLOT(
+				"number_of_sampling_points_in_plot"), OPEN_BALLOON_IN_BROWSER(
+				"open_separate_browser_form"), OPEN_BING_MAPS(
+				"open_bing_maps"), OPEN_GEE_EXPLORER(
+				"open_earth_engine"), OPEN_GEE_CODE_EDITOR(
+				"open_gee_playground"), OPEN_HERE_MAPS(
+				"open_here_maps"), OPEN_STREET_VIEW(
+				"open_street_view"), OPEN_TIMELAPSE(
+				"open_timelapse"), OPEN_YANDEX_MAPS(
+				"open_yandex_maps"), OPERATION_MODE(
+				"operation_mode"), OPERATOR_KEY(
+				"operator"), SAIKU_SERVER_FOLDER(
+				"saiku_server_folder"), SAMPLE_FILE(
+				"csv"), SAMPLE_SHAPE(
+				"sample_shape"), SURVEY_NAME(
+				"survey_name"), UI_LANGUAGE(
+				"ui_language"), LARGE_CENTRAL_PLOT_SIDE(
+				"large_central_plot_side"), OPEN_BAIDU_MAPS(
+				"open_baidu_maps"), DISTANCE_TO_BUFFERS(
+				"distance_to_buffers"), OPEN_PLANET_MAPS(
+				"open_planet_maps"), PLANET_MAPS_KEY(
+				"planet_maps_key"), OPEN_GEE_APP(
+				"open_gee_app"), GEE_MAP_URL(
+				"gee_app_url"), OPEN_MAXAR_SECUREWATCH(
+				"open_maxar_securewatch"),MAXAR_SECUREWATCH_URL("secure_watch_url"), EARTH_MAP_URL("earth_map_url"), 
+				OPEN_EARTH_MAP("open_earth_map"), 
+				EARTH_MAP_LAYERS("earth_map_layers"), 
+				EARTH_MAP_SCRIPTS("earth_map_scripts"), 
+				EARTH_MAP_AOI("earth_map_aoi");
 
 		private String name;
 
@@ -309,7 +312,11 @@ public class LocalPropertiesService extends Observable {
 			return SAMPLE_SHAPE.valueOf(value);
 		}
 	}
-
+	
+	public String getSecureWatchURL() {
+		return getValue(EarthProperty.MAXAR_SECUREWATCH_URL);
+	}
+	
 	public String getTemplateFile() {
 		return convertToOSPath(getValue(EarthProperty.KML_TEMPLATE_KEY));
 	}
@@ -653,5 +660,7 @@ public class LocalPropertiesService extends Observable {
 			}
 		}
 	}
+
+
 
 }

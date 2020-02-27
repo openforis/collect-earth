@@ -221,8 +221,16 @@ public class PropertiesDialog extends JDialog {
 		constraints.gridwidth = 2;
 		panel.add(propertyToComponent.get(EarthProperty.OPEN_MAXAR_SECUREWATCH)[0], constraints);
 
+		constraints.gridy++;
+		constraints.gridwidth = 1;
+		final JLabel labelMaxar = new JLabel(Messages.getString("OptionWizard.1021")); //$NON-NLS-1$
+		panel.add(labelMaxar, constraints);
+		constraints.gridx = 1;
+		panel.add(propertyToComponent.get(EarthProperty.MAXAR_SECUREWATCH_URL)[0], constraints);
+		
 		constraints.gridx = 0;
 		constraints.gridy++;
+		constraints.gridwidth = 2;
 		panel.add(propertyToComponent.get(EarthProperty.OPEN_YANDEX_MAPS)[0], constraints);
 		
 		constraints.gridy++;
@@ -949,6 +957,20 @@ public class PropertiesDialog extends JDialog {
 				.setSelected(Boolean.parseBoolean(localPropertiesService.getValue(EarthProperty.OPEN_MAXAR_SECUREWATCH)));
 		propertyToComponent.put(EarthProperty.OPEN_MAXAR_SECUREWATCH, new JComponent[] { openSecureWatchCheckbox });
 
+		final JTextField secureWatchUrlTextField = new JTextField(
+				localPropertiesService.getValue(EarthProperty.MAXAR_SECUREWATCH_URL));
+		secureWatchUrlTextField.setMinimumSize(new Dimension( 250,  20 ));
+		propertyToComponent.put(EarthProperty.MAXAR_SECUREWATCH_URL, new JComponent[] { secureWatchUrlTextField });
+		secureWatchUrlTextField.setEnabled( localPropertiesService.isSecureWatchSupported() );
+		propertyToComponent.put(EarthProperty.MAXAR_SECUREWATCH_URL, new JComponent[] { secureWatchUrlTextField });
+		openSecureWatchCheckbox.addActionListener( new ActionListener() {
+			
+			@Override
+			public void actionPerformed(ActionEvent e) {
+				secureWatchUrlTextField.setEnabled( openSecureWatchCheckbox.isSelected() );
+			}
+		});
+		
 		final JTextField extraUrlTextField = new JTextField(
 				localPropertiesService.getValue(EarthProperty.EXTRA_MAP_URL));
 		planetAPIKeyTextField.setMinimumSize(new Dimension( 250,  20 ));

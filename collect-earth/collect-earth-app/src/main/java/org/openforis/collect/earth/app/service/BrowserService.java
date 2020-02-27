@@ -594,7 +594,7 @@ public class BrowserService implements InitializingBean, Observer {
 		Object lock = getLock("SECUREWATCH");
 		synchronized (lock) {
 			if ( localPropertiesService.isSecureWatchSupported() ) {
-				String url = getUrlBaseIntegration(placemarkObject, "https://access.maxar.com/myDigitalGlobe/#18/LATITUDE/LONGITUDE" );
+				String url = getUrlBaseIntegration(placemarkObject, localPropertiesService.getSecureWatchURL() + "/#18/LATITUDE/LONGITUDE" );
 				webDriverSecureWatch = navigateTo(url, webDriverSecureWatch);
 				try {
 					logger.warn("Loading layers - {}", placemarkObject);
