@@ -4,6 +4,16 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.10.12] - 2020-2-27
+
+### Changed
+- Refresh the view in SecureWatch when it is locked
+
+## [1.10.11] - 2020-2-13
+
+### Changed
+- Fixed installer for the Mac OS X
+
 ## [1.10.10] - 2020-2-11
 
 ### Changed
