@@ -3,7 +3,7 @@
 	<parent>
 		<groupId>org.openforis.collect.earth</groupId>
 		<artifactId>collect-earth</artifactId>
-		<version>1.10.11-SNAPSHOT</version>
+		<version>1.10.12-SNAPSHOT</version>
 	</parent>
 	<artifactId>collect-earth-installer</artifactId>
 	<packaging>pom</packaging>
@@ -73,7 +73,7 @@
 								<configuration>
 									<artifactItems>
 										<artifactItem>
-											<groupId>com.oracle.java</groupId>
+											<groupId>net.java.openjdk</groupId>
 											<artifactId>jre</artifactId>
 											<version>${jre.version}</version>
 											<classifier>linux-x64</classifier>
@@ -82,7 +82,7 @@
 											<outputDirectory>${installer-build-path}/jre_files</outputDirectory>
 										</artifactItem>
 										<artifactItem>
-											<groupId>com.oracle.java</groupId>
+											<groupId>net.java.openjdk</groupId>
 											<artifactId>jre</artifactId>
 											<version>${jre.version}</version>
 											<classifier>osx</classifier>
@@ -90,19 +90,9 @@
 											<overWrite>false</overWrite>
 											<outputDirectory>${installer-build-path}/jre_files</outputDirectory>
 										</artifactItem>
-										<!-- 
+										
 										<artifactItem>
-											<groupId>com.oracle.java</groupId>
-											<artifactId>jre</artifactId>
-											<version>${jre.version}</version>
-											<classifier>windows-i386</classifier>
-											<type>zip</type>
-											<overWrite>false</overWrite>
-											<outputDirectory>${installer-build-path}/jre_files</outputDirectory>
-										</artifactItem>
-										 -->
-										<artifactItem>
-											<groupId>com.oracle.java</groupId>
+											<groupId>net.java.openjdk</groupId>
 											<artifactId>jre</artifactId>
 											<version>${jre.version}</version>
 											<classifier>windows-x64</classifier>
@@ -111,28 +101,6 @@
 											<outputDirectory>${installer-build-path}/jre_files</outputDirectory>
 										</artifactItem>
 									
-<!-- 									
-No Solaris installer necessary	
-										<artifactItem>
-											<groupId>com.oracle.java</groupId>
-											<artifactId>jre</artifactId>
-											<version>${jre.version}</version>
-											<classifier>solaris-intel</classifier>
-											<type>zip</type>
-											<overWrite>false</overWrite>
-											<outputDirectory>${installer-build-path}/jre_files</outputDirectory>
-										</artifactItem>
-										<artifactItem>
-											<groupId>com.oracle.java</groupId>
-											<artifactId>jre</artifactId>
-											<version>${jre.version}</version>
-											<classifier>solaris-sparc</classifier>
-											<type>zip</type>
-											<overWrite>false</overWrite>
-											<outputDirectory>${installer-build-path}/jre_files</outputDirectory>
-										</artifactItem> 
--->
-	
 									</artifactItems>
 								</configuration>
 							</execution>
