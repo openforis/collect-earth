@@ -9,3 +9,4 @@ earth_map_scripts={"hansen":{},"max_temperature":{"aggregation":"annual","dateRa
 earth_map_layers={"burnedLastYear":{}, "hansen":{}, "contourLines":{}}
 earth_map_aoi=global
 earth_map_url=https://beta.earthmap.org
+secure_watch_url=https\://access.maxar.com/myDigitalGlobe
