@@ -77,7 +77,7 @@
 		<dependency>
 			<groupId>org.postgresql</groupId>
 			<artifactId>postgresql</artifactId>
-			<version>42.2.10.jre7</version>
+			<version>42.2.11.jre7</version>
 		</dependency>
 		<dependency>
 			<groupId>org.seleniumhq.selenium</groupId>
@@ -104,7 +104,7 @@
 		<dependency>
 			<groupId>net.lingala.zip4j</groupId>
 			<artifactId>zip4j</artifactId>
-			<version>2.4.0</version>
+			<version>2.5.1</version>
 		</dependency>
 
 
