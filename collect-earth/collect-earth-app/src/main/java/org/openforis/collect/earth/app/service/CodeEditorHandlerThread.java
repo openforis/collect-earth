@@ -69,7 +69,8 @@ public class CodeEditorHandlerThread {
 				sendThroughClipboard(textArea, contents);
 				try {
 					// Fix bug provoked by antivirus not accepting the control characters sent by Selenium
-					if( webDriverGee.findElement(By.className("ace_line") ).getAttribute("value").trim().equals("av") ) {
+					WebElement element = webDriverGee.findElement(By.className("ace_line") );
+					if( element!= null && element.getAttribute("value").trim().equals("av") ) {
 						sendThroughKeys(textArea, contents);
 					}
 				} catch (Exception e) {
