@@ -14,7 +14,7 @@ import org.openforis.collect.earth.app.service.LocalPropertiesService.EarthPrope
 
 public class JFileChooserExistsAware extends JFileChooser {
 
-	private static final long serialVersionUID = 1L;
+	private static final long serialVersionUID = 2571562963995019882L;
 
 	private JFileChooserExistsAware(File lastFolder) {
 		super(lastFolder);		
