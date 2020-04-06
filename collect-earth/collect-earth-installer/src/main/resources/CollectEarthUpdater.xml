@@ -124,6 +124,13 @@
 			</setInstallerVariable>
 			</elseActionList>
 		</if>
+		
+		<!-- Make sure that there are no chromedriver processes running so that the updater can replace the file -->
+		<kill>
+			<name>chromedriver.exe</name>
+			<abortOnError>0</abortOnError>
+		</kill>
+		
     </initializationActionList>
     <postInstallationActionList>
 		<substitute>
