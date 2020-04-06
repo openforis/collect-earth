@@ -1,5 +1,6 @@
 package org.openforis.collect.earth.app.service;
 
+import java.awt.Desktop;
 import java.io.BufferedReader;
 import java.io.BufferedWriter;
 import java.io.File;
@@ -7,6 +8,7 @@ import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.StringWriter;
 import java.io.Writer;
+import java.net.URI;
 import java.net.URL;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
@@ -767,23 +769,36 @@ public class BrowserService implements InitializingBean, Observer {
 		Object lock = getLock("EARTH_MAP");
 		synchronized (lock) {
 			if (localPropertiesService.isEarthMapSupported()) {
-	
+				
+				
 				try {
 					StringBuilder url = new StringBuilder(localPropertiesService.getEarthMapURL()).append("?");
 					url = url.append("polygon=")
 							.append(URLEncoder.encode(getFeature(placemarkObject, "Polygon", placemarkObject.getPlacemarkId()), StandardCharsets.UTF_8.toString()))
 							.append("&");
-					url = url.append("layers=")
-							.append(URLEncoder.encode(localPropertiesService.getEarthMapLayers(), StandardCharsets.UTF_8.toString()))
-							.append("&");
-					url = url.append("scripts=")
-							.append(URLEncoder.encode(localPropertiesService.getEarthMapScripts(), StandardCharsets.UTF_8.toString()))
-							.append("&");
+					
+					if( StringUtils.isNotBlank(localPropertiesService.getEarthMapLayers()) ) {
+						url = url.append("layers=")
+								.append(URLEncoder.encode(localPropertiesService.getEarthMapLayers(), StandardCharsets.UTF_8.toString()))
+								.append("&");
+					}
+					
+					if( StringUtils.isNotBlank(localPropertiesService.getEarthMapScripts()) ) {
+						url = url.append("scripts=")
+								.append(URLEncoder.encode(localPropertiesService.getEarthMapScripts(), StandardCharsets.UTF_8.toString()))
+								.append("&");
+					}
+					
+					String aoi = localPropertiesService.getEarthMapAOI();
+					if( StringUtils.isBlank(aoi) ) {
+						aoi = "global";
+					}
 					url = url.append("aoi=")
-							.append(URLEncoder.encode(localPropertiesService.getEarthMapAOI(), StandardCharsets.UTF_8.toString()))
+							.append(URLEncoder.encode( aoi, StandardCharsets.UTF_8.toString() ))
 							.append("&");
 	
 					webDriverEarthMap = navigateTo(url.toString(), webDriverEarthMap);
+					//Desktop.getDesktop().browse( new URI( url.toString() ) );
 					//webDriverEarthMap.navigate().refresh();  // FORCE REFRESH - OTHERWISE WINDOW IS NOT REFRESHED FOR SOME STRANGE REASON
 				} catch (final Exception e) {
 					logger.error("Problems loading Earth Map window", e);
