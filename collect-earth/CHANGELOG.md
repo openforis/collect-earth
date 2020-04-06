@@ -4,6 +4,18 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.10.16] - 2020-4-6
+
+### Changed
+- Demo survey now opens the GEE App rather than a GEE Code Editor
+
+## [1.10.15] - 2020-4-6
+
+### Changed
+- Fixed the hesagon and circle shape plot layout generation.
+- Updater updated so that the chromedriver.exe processes are stoped and the updater might replace the file
+- Installer is now deleting the java and tmp folders so that there are no issues with the JRE versions 
+
 ## [1.10.14] - 2020-3-30
 
 ### Changed
