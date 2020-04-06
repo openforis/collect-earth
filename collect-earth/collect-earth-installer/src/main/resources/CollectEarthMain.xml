@@ -49,7 +49,7 @@
                     <origin>COLLECT_EARTH_MAIN_FOLDER/collect-earth-app/UserManual.pdf</origin>
                 </distributionFile>
                 <distributionFile>
-                    <origin>COLLECT_EARTH_MAIN_FOLDER/collect-earth/CHANGELOG.md</origin>
+                    <origin>COLLECT_EARTH_MAIN_FOLDER/CHANGELOG.md</origin>
                 </distributionFile>
                 <distributionFile>
                     <origin>earth.properties_initial</origin>
