@@ -49,6 +49,9 @@
                     <origin>COLLECT_EARTH_MAIN_FOLDER/collect-earth-app/UserManual.pdf</origin>
                 </distributionFile>
                 <distributionFile>
+                    <origin>COLLECT_EARTH_MAIN_FOLDER/collect-earth/CHANGELOG.md</origin>
+                </distributionFile>
+                <distributionFile>
                     <origin>earth.properties_initial</origin>
                 </distributionFile>
                 <distributionFile>
@@ -224,6 +227,19 @@
             </ruleList>
         </copyFile>
     </postBuildActionList>
+    <preInstallationActionList>
+        <deleteFile>
+        	<path>${installdir}/java</path>
+        	<progressText>Removing old JRE</progressText>
+        	<abortOnError>0</abortOnError>
+        </deleteFile>
+        <deleteFile>
+        	<path>${installdir}/tmp</path>
+        	<progressText>Removing old updaters</progressText>
+        	<abortOnError>0</abortOnError>
+        </deleteFile>
+            
+    </preInstallationActionList>
     <postInstallationActionList>
         <substitute>
             <files>${installdir}/earth.properties_initial;${installdir}/earth.properties_forced_update</files>
