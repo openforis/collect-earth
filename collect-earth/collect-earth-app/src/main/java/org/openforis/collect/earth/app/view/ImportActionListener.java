@@ -7,6 +7,7 @@ import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStreamReader;
+import java.util.Arrays;
 
 import javax.swing.JFrame;
 import javax.swing.JOptionPane;
@@ -130,6 +131,17 @@ public final class ImportActionListener implements ActionListener {
 				new Thread("Update using CSV Thread " ){ //$NON-NLS-1$
 					@Override
 					public void run() {
+
+						String[] ids = dataImportService.getEarthSurveyService().getKeyNamesForSurvey();
+						String keyAttributesForSurvey = Arrays.toString( ids );
+
+						JOptionPane.showMessageDialog(
+								frame,
+								"The CSV files used must have columns with at least the headers for the key attributes " + keyAttributesForSurvey+ " followed by one or more attribute names ( see http://www.openforis.org/support/questions/80/changing-plot-attributes-in-the-collect-earth-database ) ", //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$ //$NON-NLS-4$
+								"CSV file format info", 
+								JOptionPane.INFORMATION_MESSAGE);
+
+
 						for (final File importedFile : filesToImport) {
 
 							CSVDataImportProcess importSurveyAsCsv = null;

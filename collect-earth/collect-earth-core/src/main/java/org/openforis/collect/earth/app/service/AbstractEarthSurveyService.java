@@ -588,6 +588,19 @@ public abstract class AbstractEarthSurveyService {
 		return keys;
 	}
 	
+	public String[] getKeyNamesForSurvey() {
+
+		List<AttributeDefinition> keyAttributeDefinitions = getRootEntityDefinition().getKeyAttributeDefinitions();
+		String[] keys = new String[keyAttributeDefinitions.size()];
+
+		int i = 0;
+		for (AttributeDefinition keyAttribute : keyAttributeDefinitions) {
+			keys[i++] = keyAttribute.getName();
+		}
+
+		return keys;
+	}
+	
 	private boolean isPreviewRecordID(String[] keyAttributeValues) {
 		if (keyAttributeValues.length >= 1) {
 			String firstKeyAttributeValue = keyAttributeValues[0];

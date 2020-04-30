@@ -186,5 +186,8 @@ public class DataImportExportService {
 		return csvDataExportProcess;
 	}
 
+	public EarthSurveyService getEarthSurveyService() {
+		return earthSurveyService;
+	}
 
 }
