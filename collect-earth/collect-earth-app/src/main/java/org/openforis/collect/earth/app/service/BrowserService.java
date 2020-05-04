@@ -85,6 +85,9 @@ public class BrowserService implements InitializingBean, Observer {
 
 	@Autowired
 	private GeolocalizeMapService geoLocalizeTemplateService;
+	
+	@Autowired
+	private EarthSurveyService earthSurveyService;
 
 	@Autowired
 	private CodeEditorHandlerThread codeEditorHandlerThread;
@@ -752,6 +755,9 @@ public class BrowserService implements InitializingBean, Observer {
 							.append(";");
 					url = url.append("plotId=")
 							.append(URLEncoder.encode(placemarkObject.getPlacemarkId(), StandardCharsets.UTF_8.toString()))
+							.append(";");
+					url = url.append("survey=")
+							.append(URLEncoder.encode( earthSurveyService.getCollectSurvey().getName() , StandardCharsets.UTF_8.toString()))
 							.append(";");
 					webDriverGEEMap = navigateTo(url.toString(), webDriverGEEMap);
 					webDriverGEEMap.navigate().refresh();  // FORCE REFRESH - OTHERWISE WINDOW IS NOT REFRESHED FOR SOME STRANGE REASON
