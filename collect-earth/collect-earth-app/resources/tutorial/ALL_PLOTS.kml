@@ -1,0 +1,1808 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<kml xmlns="http://www.opengis.net/kml/2.2" xmlns:gx="http://www.google.com/kml/ext/2.2" xmlns:kml="http://www.opengis.net/kml/2.2" xmlns:atom="http://www.w3.org/2005/Atom">
+<Document>
+	<name>COLLECT EARTH TRAINING PLOTS 18.05.20.kml</name>
+	<open>1</open>
+	<Style id="sh_ylw-pushpin11">
+		<IconStyle>
+			<scale>1.3</scale>
+			<Icon>
+				<href>http://maps.google.com/mapfiles/kml/pushpin/ylw-pushpin.png</href>
+			</Icon>
+			<hotSpot x="20" y="2" xunits="pixels" yunits="pixels"/>
+		</IconStyle>
+	</Style>
+	<StyleMap id="m_ylw-pushpin000">
+		<Pair>
+			<key>normal</key>
+			<styleUrl>#s_ylw-pushpin00</styleUrl>
+		</Pair>
+		<Pair>
+			<key>highlight</key>
+			<styleUrl>#s_ylw-pushpin_hl0</styleUrl>
+		</Pair>
+	</StyleMap>
+	<Style id="s_ylw-pushpin00">
+		<IconStyle>
+			<scale>1.1</scale>
+			<Icon>
+				<href>http://maps.google.com/mapfiles/kml/pushpin/ylw-pushpin.png</href>
+			</Icon>
+			<hotSpot x="20" y="2" xunits="pixels" yunits="pixels"/>
+		</IconStyle>
+	</Style>
+	<Style id="sn_ylw-pushpin">
+		<IconStyle>
+			<scale>1.1</scale>
+			<Icon>
+				<href>http://maps.google.com/mapfiles/kml/pushpin/ylw-pushpin.png</href>
+			</Icon>
+			<hotSpot x="20" y="2" xunits="pixels" yunits="pixels"/>
+		</IconStyle>
+		<LabelStyle>
+			<color>f0ffffff</color>
+		</LabelStyle>
+	</Style>
+	<Style id="sn_ylw-pushpin00">
+		<IconStyle>
+			<scale>1.1</scale>
+			<Icon>
+				<href>http://maps.google.com/mapfiles/kml/pushpin/ylw-pushpin.png</href>
+			</Icon>
+			<hotSpot x="20" y="2" xunits="pixels" yunits="pixels"/>
+		</IconStyle>
+	</Style>
+	<Style id="s_ylw-pushpin_hl">
+		<IconStyle>
+			<scale>1.3</scale>
+			<Icon>
+				<href>http://maps.google.com/mapfiles/kml/pushpin/ylw-pushpin.png</href>
+			</Icon>
+			<hotSpot x="20" y="2" xunits="pixels" yunits="pixels"/>
+		</IconStyle>
+	</Style>
+	<Style id="s_ylw-pushpin">
+		<IconStyle>
+			<scale>1.1</scale>
+			<Icon>
+				<href>http://maps.google.com/mapfiles/kml/pushpin/ylw-pushpin.png</href>
+			</Icon>
+			<hotSpot x="20" y="2" xunits="pixels" yunits="pixels"/>
+		</IconStyle>
+	</Style>
+	<StyleMap id="msn_ylw-pushpin1">
+		<Pair>
+			<key>normal</key>
+			<styleUrl>#sn_ylw-pushpin00</styleUrl>
+		</Pair>
+		<Pair>
+			<key>highlight</key>
+			<styleUrl>#sh_ylw-pushpin1</styleUrl>
+		</Pair>
+	</StyleMap>
+	<Style id="s_ylw-pushpin_hl0">
+		<IconStyle>
+			<scale>1.3</scale>
+			<Icon>
+				<href>http://maps.google.com/mapfiles/kml/pushpin/ylw-pushpin.png</href>
+			</Icon>
+			<hotSpot x="20" y="2" xunits="pixels" yunits="pixels"/>
+		</IconStyle>
+	</Style>
+	<Style id="sh_ylw-pushpin110">
+		<IconStyle>
+			<scale>1.3</scale>
+			<Icon>
+				<href>http://maps.google.com/mapfiles/kml/pushpin/ylw-pushpin.png</href>
+			</Icon>
+			<hotSpot x="20" y="2" xunits="pixels" yunits="pixels"/>
+		</IconStyle>
+	</Style>
+	<StyleMap id="msn_ylw-pushpin110">
+		<Pair>
+			<key>normal</key>
+			<styleUrl>#sn_ylw-pushpin0</styleUrl>
+		</Pair>
+		<Pair>
+			<key>highlight</key>
+			<styleUrl>#sh_ylw-pushpin11</styleUrl>
+		</Pair>
+	</StyleMap>
+	<StyleMap id="msn_ylw-pushpin11">
+		<Pair>
+			<key>normal</key>
+			<styleUrl>#sn_ylw-pushpin010</styleUrl>
+		</Pair>
+		<Pair>
+			<key>highlight</key>
+			<styleUrl>#sh_ylw-pushpin1100</styleUrl>
+		</Pair>
+	</StyleMap>
+	<StyleMap id="m_ylw-pushpin001">
+		<Pair>
+			<key>normal</key>
+			<styleUrl>#s_ylw-pushpin0</styleUrl>
+		</Pair>
+		<Pair>
+			<key>highlight</key>
+			<styleUrl>#s_ylw-pushpin_hl00</styleUrl>
+		</Pair>
+	</StyleMap>
+	<Style id="sn_ylw-pushpin0">
+		<IconStyle>
+			<scale>1.1</scale>
+			<Icon>
+				<href>http://maps.google.com/mapfiles/kml/pushpin/ylw-pushpin.png</href>
+			</Icon>
+			<hotSpot x="20" y="2" xunits="pixels" yunits="pixels"/>
+		</IconStyle>
+	</Style>
+	<Style id="s_ylw-pushpin_hl000">
+		<IconStyle>
+			<scale>1.3</scale>
+			<Icon>
+				<href>http://maps.google.com/mapfiles/kml/pushpin/ylw-pushpin.png</href>
+			</Icon>
+			<hotSpot x="20" y="2" xunits="pixels" yunits="pixels"/>
+		</IconStyle>
+	</Style>
+	<Style id="s_ylw-pushpin0">
+		<IconStyle>
+			<scale>1.1</scale>
+			<Icon>
+				<href>http://maps.google.com/mapfiles/kml/pushpin/ylw-pushpin.png</href>
+			</Icon>
+			<hotSpot x="20" y="2" xunits="pixels" yunits="pixels"/>
+		</IconStyle>
+	</Style>
+	<Style id="s_ylw-pushpin01">
+		<IconStyle>
+			<scale>1.1</scale>
+			<Icon>
+				<href>http://maps.google.com/mapfiles/kml/pushpin/ylw-pushpin.png</href>
+			</Icon>
+			<hotSpot x="20" y="2" xunits="pixels" yunits="pixels"/>
+		</IconStyle>
+	</Style>
+	<Style id="sh_ylw-pushpin">
+		<IconStyle>
+			<scale>1.3</scale>
+			<Icon>
+				<href>http://maps.google.com/mapfiles/kml/pushpin/ylw-pushpin.png</href>
+			</Icon>
+			<hotSpot x="20" y="2" xunits="pixels" yunits="pixels"/>
+		</IconStyle>
+		<LabelStyle>
+			<color>f0ffffff</color>
+		</LabelStyle>
+	</Style>
+	<Style id="sn_ylw-pushpin01">
+		<IconStyle>
+			<scale>1.1</scale>
+			<Icon>
+				<href>http://maps.google.com/mapfiles/kml/pushpin/ylw-pushpin.png</href>
+			</Icon>
+			<hotSpot x="20" y="2" xunits="pixels" yunits="pixels"/>
+		</IconStyle>
+	</Style>
+	<StyleMap id="msn_ylw-pushpin4">
+		<Pair>
+			<key>normal</key>
+			<styleUrl>#sn_ylw-pushpin</styleUrl>
+		</Pair>
+		<Pair>
+			<key>highlight</key>
+			<styleUrl>#sh_ylw-pushpin</styleUrl>
+		</Pair>
+	</StyleMap>
+	<Style id="sh_ylw-pushpin1100">
+		<IconStyle>
+			<scale>1.3</scale>
+			<Icon>
+				<href>http://maps.google.com/mapfiles/kml/pushpin/ylw-pushpin.png</href>
+			</Icon>
+			<hotSpot x="20" y="2" xunits="pixels" yunits="pixels"/>
+		</IconStyle>
+	</Style>
+	<StyleMap id="m_ylw-pushpin">
+		<Pair>
+			<key>normal</key>
+			<styleUrl>#s_ylw-pushpin</styleUrl>
+		</Pair>
+		<Pair>
+			<key>highlight</key>
+			<styleUrl>#s_ylw-pushpin_hl</styleUrl>
+		</Pair>
+	</StyleMap>
+	<StyleMap id="m_ylw-pushpin00">
+		<Pair>
+			<key>normal</key>
+			<styleUrl>#s_ylw-pushpin01</styleUrl>
+		</Pair>
+		<Pair>
+			<key>highlight</key>
+			<styleUrl>#s_ylw-pushpin_hl000</styleUrl>
+		</Pair>
+	</StyleMap>
+	<Style id="sh_ylw-pushpin1">
+		<IconStyle>
+			<scale>1.3</scale>
+			<Icon>
+				<href>http://maps.google.com/mapfiles/kml/pushpin/ylw-pushpin.png</href>
+			</Icon>
+			<hotSpot x="20" y="2" xunits="pixels" yunits="pixels"/>
+		</IconStyle>
+	</Style>
+	<Style id="s_ylw-pushpin_hl00">
+		<IconStyle>
+			<scale>1.3</scale>
+			<Icon>
+				<href>http://maps.google.com/mapfiles/kml/pushpin/ylw-pushpin.png</href>
+			</Icon>
+			<hotSpot x="20" y="2" xunits="pixels" yunits="pixels"/>
+		</IconStyle>
+	</Style>
+	<Style id="sn_ylw-pushpin010">
+		<IconStyle>
+			<scale>1.1</scale>
+			<Icon>
+				<href>http://maps.google.com/mapfiles/kml/pushpin/ylw-pushpin.png</href>
+			</Icon>
+			<hotSpot x="20" y="2" xunits="pixels" yunits="pixels"/>
+		</IconStyle>
+	</Style>
+	<StyleMap id="msn_ylw-pushpin111">
+		<Pair>
+			<key>normal</key>
+			<styleUrl>#sn_ylw-pushpin01</styleUrl>
+		</Pair>
+		<Pair>
+			<key>highlight</key>
+			<styleUrl>#sh_ylw-pushpin110</styleUrl>
+		</Pair>
+	</StyleMap>
+	<Folder>
+		<name>COLLECT EARTH TRAINING PLOTS 18.05.20</name>
+		<open>1</open>
+		<Style>
+			<ListStyle>
+				<listItemType>check</listItemType>
+				<bgColor>00ffffff</bgColor>
+				<maxSnippetLines>2</maxSnippetLines>
+			</ListStyle>
+		</Style>
+		<Folder>
+			<name>Forest</name>
+			<Placemark>
+				<name>Corcovado- Costa Rica</name>
+				<description>Broadleaf evergreen. 
+Primay forest, easy to identify that it is a broadleaf evergreen forest in the NDVI graphics and with picture nearby. Corcovado, one of the most important protected areas in Pacific Costa Rica.</description>
+				<LookAt>
+					<gx:TimeStamp><when>2017-06-05</when>
+</gx:TimeStamp>
+					<gx:ViewerOptions>
+						<gx:option name="historicalimagery"></gx:option>
+						<gx:option enabled="0" name="sunlight"></gx:option>
+						<gx:option enabled="0" name="streetview"></gx:option>
+					</gx:ViewerOptions>
+					<longitude>-83.57967873687362</longitude>
+					<latitude>8.471697239736569</latitude>
+					<altitude>0</altitude>
+					<heading>-0.04195243100550072</heading>
+					<tilt>0</tilt>
+					<range>265.6944291690015</range>
+					<gx:altitudeMode>relativeToSeaFloor</gx:altitudeMode>
+				</LookAt>
+				<styleUrl>#m_ylw-pushpin000</styleUrl>
+				<Point>
+					<gx:drawOrder>1</gx:drawOrder>
+					<coordinates>-83.57913434094557,8.472121112631081,0</coordinates>
+				</Point>
+			</Placemark>
+			<Placemark>
+				<name>Sinaloa- Mexico</name>
+				<description>Broadleaf deciduous. 
+The fall of the leaves is very easy to identify from the satelite images. Broadleaf decidious in an arid area.</description>
+				<LookAt>
+					<gx:TimeStamp><when>2007-04-03</when>
+</gx:TimeStamp>
+					<gx:ViewerOptions>
+						<gx:option name="historicalimagery"></gx:option>
+						<gx:option enabled="0" name="sunlight"></gx:option>
+						<gx:option enabled="0" name="streetview"></gx:option>
+					</gx:ViewerOptions>
+					<longitude>-108.1148955791237</longitude>
+					<latitude>26.14965927149234</latitude>
+					<altitude>0</altitude>
+					<heading>-0.00187445798143916</heading>
+					<tilt>0</tilt>
+					<range>539.2213165657862</range>
+					<gx:altitudeMode>relativeToSeaFloor</gx:altitudeMode>
+				</LookAt>
+				<styleUrl>#msn_ylw-pushpin4</styleUrl>
+				<Point>
+					<gx:drawOrder>1</gx:drawOrder>
+					<coordinates>-108.1160991398879,26.14975496003838,-3793.078475033617</coordinates>
+				</Point>
+			</Placemark>
+			<Placemark>
+				<name>Utah- USA</name>
+				<description>Broadleaf decidious.
+Half of the plot decidious broadleaf and the other half coniferous. Subcategory will fall under mayority. 
+You would think that the subcategory is a mixed forest (brod-con) but the forests are not mixed.
+Example of pine pests?</description>
+				<LookAt>
+					<gx:TimeStamp><when>2018-09-15</when>
+</gx:TimeStamp>
+					<gx:ViewerOptions>
+						<gx:option name="historicalimagery"></gx:option>
+						<gx:option enabled="0" name="sunlight"></gx:option>
+						<gx:option enabled="0" name="streetview"></gx:option>
+					</gx:ViewerOptions>
+					<longitude>-111.5049359170388</longitude>
+					<latitude>41.25818292762254</latitude>
+					<altitude>0</altitude>
+					<heading>-0.002661424551984351</heading>
+					<tilt>0</tilt>
+					<range>281.992059217887</range>
+					<gx:altitudeMode>relativeToSeaFloor</gx:altitudeMode>
+				</LookAt>
+				<styleUrl>#msn_ylw-pushpin11</styleUrl>
+				<Point>
+					<gx:drawOrder>1</gx:drawOrder>
+					<coordinates>-111.5054764574505,41.25834263238092,0</coordinates>
+				</Point>
+			</Placemark>
+			<Placemark>
+				<name>Cuvette- Congo</name>
+				<description>Broadleaf mixed. 
+Located close to the Congo River. 
+It is not a riparian forest because its formation is homogeneous all around the river.</description>
+				<LookAt>
+					<gx:TimeStamp><when>2019-03-02</when>
+</gx:TimeStamp>
+					<gx:ViewerOptions>
+						<gx:option name="historicalimagery"></gx:option>
+						<gx:option enabled="0" name="sunlight"></gx:option>
+						<gx:option enabled="0" name="streetview"></gx:option>
+					</gx:ViewerOptions>
+					<longitude>17.31013354549328</longitude>
+					<latitude>-0.9558392557987762</latitude>
+					<altitude>0</altitude>
+					<heading>-1.566184530946207</heading>
+					<tilt>0</tilt>
+					<range>1767.672294957572</range>
+					<gx:altitudeMode>relativeToSeaFloor</gx:altitudeMode>
+				</LookAt>
+				<styleUrl>#msn_ylw-pushpin11</styleUrl>
+				<Point>
+					<gx:drawOrder>1</gx:drawOrder>
+					<coordinates>17.30686157447371,-0.9553990381075315,0</coordinates>
+				</Point>
+			</Placemark>
+			<Placemark>
+				<name>Plains of Hokkaido- Japan</name>
+				<description>Mixed forest (brod-con). 
+Change of the colours of the leaves can be identified from images and pictures. 
+With the Sentinel images it is very easy to identify snow, the trees and the paths.</description>
+				<LookAt>
+					<gx:TimeStamp><when>2018-09-02</when>
+</gx:TimeStamp>
+					<gx:ViewerOptions>
+						<gx:option name="historicalimagery"></gx:option>
+						<gx:option enabled="0" name="sunlight"></gx:option>
+						<gx:option enabled="0" name="streetview"></gx:option>
+					</gx:ViewerOptions>
+					<longitude>143.1841287273375</longitude>
+					<latitude>43.4110011281843</latitude>
+					<altitude>0</altitude>
+					<heading>1.392983167554932</heading>
+					<tilt>0</tilt>
+					<range>2096.911809731623</range>
+					<gx:altitudeMode>relativeToSeaFloor</gx:altitudeMode>
+				</LookAt>
+				<styleUrl>#msn_ylw-pushpin11</styleUrl>
+				<Point>
+					<gx:drawOrder>1</gx:drawOrder>
+					<coordinates>143.1810011706469,43.40939197848028,0</coordinates>
+				</Point>
+			</Placemark>
+			<Placemark>
+				<name>Abruzzo- Italy</name>
+				<description>Mixed forest (brod-con). 
+Bare soil due to a landslide that detroyed the forest.</description>
+				<LookAt>
+					<gx:TimeStamp><when>2017-07-07</when>
+</gx:TimeStamp>
+					<gx:ViewerOptions>
+						<gx:option name="historicalimagery"></gx:option>
+						<gx:option enabled="0" name="sunlight"></gx:option>
+						<gx:option enabled="0" name="streetview"></gx:option>
+					</gx:ViewerOptions>
+					<longitude>13.51529060918501</longitude>
+					<latitude>42.49783779512797</latitude>
+					<altitude>0</altitude>
+					<heading>-0.03387107170396336</heading>
+					<tilt>0</tilt>
+					<range>470.3204026660463</range>
+					<gx:altitudeMode>relativeToSeaFloor</gx:altitudeMode>
+				</LookAt>
+				<styleUrl>#msn_ylw-pushpin11</styleUrl>
+				<Point>
+					<gx:drawOrder>1</gx:drawOrder>
+					<coordinates>13.51397713664306,42.49758422759749,0</coordinates>
+				</Point>
+			</Placemark>
+			<Placemark>
+				<name>Utah- USA</name>
+				<description>Coniferous evergreen. 
+Seasonal NDVI in Sentinel probably due to shadows or snow cover.</description>
+				<LookAt>
+					<gx:TimeStamp><when>2018-09-15</when>
+</gx:TimeStamp>
+					<gx:ViewerOptions>
+						<gx:option name="historicalimagery"></gx:option>
+						<gx:option enabled="0" name="sunlight"></gx:option>
+						<gx:option enabled="0" name="streetview"></gx:option>
+					</gx:ViewerOptions>
+					<longitude>-111.491709667759</longitude>
+					<latitude>41.26648932464058</latitude>
+					<altitude>0</altitude>
+					<heading>0.00606166094977613</heading>
+					<tilt>0</tilt>
+					<range>1672.234162240142</range>
+					<gx:altitudeMode>relativeToSeaFloor</gx:altitudeMode>
+				</LookAt>
+				<styleUrl>#m_ylw-pushpin001</styleUrl>
+				<Point>
+					<gx:drawOrder>1</gx:drawOrder>
+					<coordinates>-111.4977773692618,41.26532611133275,0</coordinates>
+				</Point>
+			</Placemark>
+			<Placemark>
+				<name>Braganca- Portugal</name>
+				<description>Coniferous plantation. 
+It can be identified from the color of the forest and from the pictures around.</description>
+				<LookAt>
+					<gx:TimeStamp><when>2019-07-21</when>
+</gx:TimeStamp>
+					<gx:ViewerOptions>
+						<gx:option name="historicalimagery"></gx:option>
+						<gx:option enabled="0" name="sunlight"></gx:option>
+						<gx:option enabled="0" name="streetview"></gx:option>
+					</gx:ViewerOptions>
+					<longitude>-7.283790896432206</longitude>
+					<latitude>41.47076053815719</latitude>
+					<altitude>0</altitude>
+					<heading>0.02655905451608104</heading>
+					<tilt>0</tilt>
+					<range>395.4742131889209</range>
+					<gx:altitudeMode>relativeToSeaFloor</gx:altitudeMode>
+				</LookAt>
+				<styleUrl>#msn_ylw-pushpin11</styleUrl>
+				<Point>
+					<gx:drawOrder>1</gx:drawOrder>
+					<coordinates>-7.28496984132047,41.47081068227593,0</coordinates>
+				</Point>
+			</Placemark>
+			<Placemark>
+				<name>Bio-Bio- Chile</name>
+				<description>Eucalyptus plantation. 
+It can be easily identified on the photo in front. And the growing phases of the plantation can be seen with the historycal images. From 2017 to 2018 trees where cut and the ground prepared for a new plantation.</description>
+				<LookAt>
+					<gx:TimeStamp><when>2020-01-18</when>
+</gx:TimeStamp>
+					<gx:ViewerOptions>
+						<gx:option name="historicalimagery"></gx:option>
+						<gx:option enabled="0" name="sunlight"></gx:option>
+						<gx:option enabled="0" name="streetview"></gx:option>
+					</gx:ViewerOptions>
+					<longitude>-73.18099746385634</longitude>
+					<latitude>-37.26859211747965</latitude>
+					<altitude>0</altitude>
+					<heading>12.83276682354746</heading>
+					<tilt>0</tilt>
+					<range>306.9198534980408</range>
+					<gx:altitudeMode>relativeToSeaFloor</gx:altitudeMode>
+				</LookAt>
+				<styleUrl>#msn_ylw-pushpin11</styleUrl>
+				<Point>
+					<gx:drawOrder>1</gx:drawOrder>
+					<coordinates>-73.18158060841124,-37.26836664040489,0</coordinates>
+				</Point>
+			</Placemark>
+			<Placemark>
+				<name>Mekong Delta- Vietnam</name>
+				<description>Mangrove. 
+Easy to identify due to the intense red color in the sentinel image. 
+Mangroves are coastal forests found in sheltered estuaries and along river banks and lagoons in the tropics and subtropics.</description>
+				<LookAt>
+					<gx:TimeStamp><when>2014-02-09</when>
+</gx:TimeStamp>
+					<gx:ViewerOptions>
+						<gx:option name="historicalimagery"></gx:option>
+						<gx:option enabled="0" name="sunlight"></gx:option>
+						<gx:option enabled="0" name="streetview"></gx:option>
+					</gx:ViewerOptions>
+					<longitude>106.8642568711492</longitude>
+					<latitude>10.4279928990058</latitude>
+					<altitude>0</altitude>
+					<heading>20.24412108816917</heading>
+					<tilt>0</tilt>
+					<range>730.3344191252061</range>
+					<gx:altitudeMode>relativeToSeaFloor</gx:altitudeMode>
+				</LookAt>
+				<styleUrl>#msn_ylw-pushpin11</styleUrl>
+				<Point>
+					<gx:drawOrder>1</gx:drawOrder>
+					<coordinates>106.8625316275137,10.4282925108856,0</coordinates>
+				</Point>
+			</Placemark>
+			<Placemark>
+				<name>Alfeios- Greece</name>
+				<description>Riparian forest. 
+Very easy to identify with the photo. You can find some of the riparian forest species (Salix etc. ). This type of forest grow only on the sideline of the river.</description>
+				<LookAt>
+					<gx:TimeStamp><when>2013-10-25</when>
+</gx:TimeStamp>
+					<gx:ViewerOptions>
+						<gx:option name="historicalimagery"></gx:option>
+						<gx:option enabled="0" name="sunlight"></gx:option>
+						<gx:option enabled="0" name="streetview"></gx:option>
+					</gx:ViewerOptions>
+					<longitude>21.92181823096622</longitude>
+					<latitude>37.554666622326</latitude>
+					<altitude>0</altitude>
+					<heading>-0.006805438900802337</heading>
+					<tilt>0</tilt>
+					<range>455.3216642047586</range>
+					<gx:altitudeMode>relativeToSeaFloor</gx:altitudeMode>
+				</LookAt>
+				<styleUrl>#msn_ylw-pushpin11</styleUrl>
+				<Point>
+					<gx:drawOrder>1</gx:drawOrder>
+					<coordinates>21.92088659992737,37.55415607114263,0</coordinates>
+				</Point>
+			</Placemark>
+			<Placemark>
+				<name>Kampong Tong- Cambodia</name>
+				<description>Rubber.  
+Growing phases of rubber trees easily seen in imagery.</description>
+				<LookAt>
+					<longitude>105.5097411783404</longitude>
+					<latitude>12.61416552356611</latitude>
+					<altitude>0</altitude>
+					<heading>0.1134632016519473</heading>
+					<tilt>0</tilt>
+					<range>904.2827244805782</range>
+					<gx:altitudeMode>relativeToSeaFloor</gx:altitudeMode>
+				</LookAt>
+				<styleUrl>#msn_ylw-pushpin11</styleUrl>
+				<Point>
+					<gx:drawOrder>1</gx:drawOrder>
+					<coordinates>105.5083364170171,12.6156734749343,0</coordinates>
+				</Point>
+			</Placemark>
+		</Folder>
+		<Folder>
+			<name>Cropland</name>
+			<Placemark>
+				<name>Kakheti- Georgia</name>
+				<description>Wine. Perennial crop. 
+The vineyard is easy to identify due to the way it is planted in parallel stripes very close to each other. 
+To see how vineyards develop through the growing season you can see the NDV graphs.</description>
+				<LookAt>
+					<gx:TimeStamp><when>2011-10-17</when>
+</gx:TimeStamp>
+					<gx:ViewerOptions>
+						<gx:option name="historicalimagery"></gx:option>
+						<gx:option enabled="0" name="sunlight"></gx:option>
+						<gx:option enabled="0" name="streetview"></gx:option>
+					</gx:ViewerOptions>
+					<longitude>45.69241674755542</longitude>
+					<latitude>41.63170451336388</latitude>
+					<altitude>0</altitude>
+					<heading>0.002611313488093596</heading>
+					<tilt>0</tilt>
+					<range>229.9205668980633</range>
+					<gx:altitudeMode>relativeToSeaFloor</gx:altitudeMode>
+				</LookAt>
+				<styleUrl>#msn_ylw-pushpin1</styleUrl>
+				<Point>
+					<gx:drawOrder>1</gx:drawOrder>
+					<coordinates>45.69177963944909,41.6317714778567,0</coordinates>
+				</Point>
+			</Placemark>
+			<Placemark>
+				<name>Tamil Nadu- India</name>
+				<description>Tea. Perennial crop. 
+Rows of tea growing easy to see in images, usually done in large commercial operations.</description>
+				<LookAt>
+					<gx:TimeStamp><when>2019-04-18</when>
+</gx:TimeStamp>
+					<gx:ViewerOptions>
+						<gx:option name="historicalimagery"></gx:option>
+						<gx:option enabled="0" name="sunlight"></gx:option>
+						<gx:option enabled="0" name="streetview"></gx:option>
+					</gx:ViewerOptions>
+					<longitude>77.22112572443248</longitude>
+					<latitude>10.07024415269885</latitude>
+					<altitude>0</altitude>
+					<heading>-0.003779459695931936</heading>
+					<tilt>0</tilt>
+					<range>682.7984458416938</range>
+					<gx:altitudeMode>relativeToSeaFloor</gx:altitudeMode>
+				</LookAt>
+				<styleUrl>#msn_ylw-pushpin11</styleUrl>
+				<Point>
+					<gx:drawOrder>1</gx:drawOrder>
+					<coordinates>77.21931330921666,10.06932897923589,0</coordinates>
+				</Point>
+			</Placemark>
+			<Placemark>
+				<name>Minas Gerais- Brazil</name>
+				<description>Coffee. Perennial crop. 
+Rows of coffee growing, very easy to identify.</description>
+				<LookAt>
+					<gx:TimeStamp><when>2019-04-18</when>
+</gx:TimeStamp>
+					<gx:ViewerOptions>
+						<gx:option name="historicalimagery"></gx:option>
+						<gx:option enabled="0" name="sunlight"></gx:option>
+						<gx:option enabled="0" name="streetview"></gx:option>
+					</gx:ViewerOptions>
+					<longitude>-45.19358036344341</longitude>
+					<latitude>-22.09171971129869</latitude>
+					<altitude>0</altitude>
+					<heading>0.001465316951212898</heading>
+					<tilt>0</tilt>
+					<range>371.0400506733311</range>
+					<gx:altitudeMode>relativeToSeaFloor</gx:altitudeMode>
+				</LookAt>
+				<styleUrl>#msn_ylw-pushpin11</styleUrl>
+				<Point>
+					<gx:drawOrder>1</gx:drawOrder>
+					<coordinates>-45.19420949844853,-22.09168143893679,0</coordinates>
+				</Point>
+			</Placemark>
+			<Placemark>
+				<name>Almería- Spain</name>
+				<description>Greenhouse. 
+Very clear in real color satelite image but also in sentinel where greenhouse can be very easily identified like snow (pink or white), NDVI always below 0,25</description>
+				<LookAt>
+					<gx:TimeStamp><when>2006-04-21</when>
+</gx:TimeStamp>
+					<gx:ViewerOptions>
+						<gx:option name="historicalimagery"></gx:option>
+						<gx:option enabled="0" name="sunlight"></gx:option>
+						<gx:option enabled="0" name="streetview"></gx:option>
+					</gx:ViewerOptions>
+					<longitude>-2.651483637196712</longitude>
+					<latitude>36.78829996587306</latitude>
+					<altitude>0</altitude>
+					<heading>-0.1125048005898805</heading>
+					<tilt>0</tilt>
+					<range>1014.003150092111</range>
+					<gx:altitudeMode>relativeToSeaFloor</gx:altitudeMode>
+				</LookAt>
+				<styleUrl>#msn_ylw-pushpin11</styleUrl>
+				<Point>
+					<gx:drawOrder>1</gx:drawOrder>
+					<coordinates>-2.651906304227407,36.78773801619015,0</coordinates>
+				</Point>
+			</Placemark>
+			<Placemark>
+				<name>Biliran- Philippines</name>
+				<description>Rice. Annual crop can be perennial. 
+Can be identified from historical images and photos.  
+Should be recognizable as well from the graphs, NDVI is 0 when terraces are flooded.</description>
+				<LookAt>
+					<gx:TimeStamp><when>2009-08-08</when>
+</gx:TimeStamp>
+					<gx:ViewerOptions>
+						<gx:option name="historicalimagery"></gx:option>
+						<gx:option enabled="0" name="sunlight"></gx:option>
+						<gx:option enabled="0" name="streetview"></gx:option>
+					</gx:ViewerOptions>
+					<longitude>124.4106728096343</longitude>
+					<latitude>11.61239881456851</latitude>
+					<altitude>0</altitude>
+					<heading>-0.01072517648287962</heading>
+					<tilt>0</tilt>
+					<range>820.1083899272932</range>
+					<gx:altitudeMode>relativeToSeaFloor</gx:altitudeMode>
+				</LookAt>
+				<styleUrl>#msn_ylw-pushpin11</styleUrl>
+				<Point>
+					<gx:drawOrder>1</gx:drawOrder>
+					<coordinates>124.4072339412809,11.61233941071892,0</coordinates>
+				</Point>
+			</Placemark>
+			<Placemark>
+				<name>Guadalajara- Spain</name>
+				<description>Cereal. Annual crop. 
+The bright yellow colors and paralell stripers after the harvest make it easy to identify cereals plantations such as wheat, oat, barley or spelt. 
+Growing patterns clear in NDVI graphs.</description>
+				<LookAt>
+					<gx:TimeStamp><when>2009-08-11</when>
+</gx:TimeStamp>
+					<gx:ViewerOptions>
+						<gx:option name="historicalimagery"></gx:option>
+						<gx:option enabled="0" name="sunlight"></gx:option>
+						<gx:option enabled="0" name="streetview"></gx:option>
+					</gx:ViewerOptions>
+					<longitude>-2.672576155404685</longitude>
+					<latitude>41.08453982979243</latitude>
+					<altitude>0</altitude>
+					<heading>0.01185812153902953</heading>
+					<tilt>0</tilt>
+					<range>531.9337367892385</range>
+					<gx:altitudeMode>relativeToSeaFloor</gx:altitudeMode>
+				</LookAt>
+				<styleUrl>#msn_ylw-pushpin11</styleUrl>
+				<Point>
+					<gx:drawOrder>1</gx:drawOrder>
+					<coordinates>-2.672576155404685,41.08453982979243,0</coordinates>
+				</Point>
+			</Placemark>
+			<Placemark>
+				<name>Corozal- Belize</name>
+				<description>Sugarcane. Annual crop can be perennial.  
+Conversion from forest as seen in imagery, change occurs in 2013. Photography shows burned fields as well. NDVI graphs will show the land use change.</description>
+				<LookAt>
+					<gx:TimeStamp><when>2016-11-18</when>
+</gx:TimeStamp>
+					<gx:ViewerOptions>
+						<gx:option name="historicalimagery"></gx:option>
+						<gx:option enabled="0" name="sunlight"></gx:option>
+						<gx:option enabled="0" name="streetview"></gx:option>
+					</gx:ViewerOptions>
+					<longitude>-88.35431854814578</longitude>
+					<latitude>18.32918844968772</latitude>
+					<altitude>0</altitude>
+					<heading>0.04664206119816392</heading>
+					<tilt>0</tilt>
+					<range>465.1575475630306</range>
+					<gx:altitudeMode>relativeToSeaFloor</gx:altitudeMode>
+				</LookAt>
+				<styleUrl>#msn_ylw-pushpin11</styleUrl>
+				<Point>
+					<gx:drawOrder>1</gx:drawOrder>
+					<coordinates>-88.3540949977674,18.32940031265215,0</coordinates>
+				</Point>
+			</Placemark>
+			<Placemark>
+				<name>Kampong Cham- Cambodia</name>
+				<description>Cashew nut. Perennial crop. 
+Conversion from grassland around 2014, 2015 as seen in imagery. This change can be better identified in NDVI graphs.</description>
+				<LookAt>
+					<gx:TimeStamp><when>2020-02-15</when>
+</gx:TimeStamp>
+					<gx:ViewerOptions>
+						<gx:option name="historicalimagery"></gx:option>
+						<gx:option enabled="0" name="sunlight"></gx:option>
+						<gx:option enabled="0" name="streetview"></gx:option>
+					</gx:ViewerOptions>
+					<longitude>105.3297209613689</longitude>
+					<latitude>12.07241082158556</latitude>
+					<altitude>0</altitude>
+					<heading>-0.03065100509130883</heading>
+					<tilt>0</tilt>
+					<range>1039.063234209912</range>
+					<gx:altitudeMode>relativeToSeaFloor</gx:altitudeMode>
+				</LookAt>
+				<styleUrl>#msn_ylw-pushpin11</styleUrl>
+				<Point>
+					<gx:drawOrder>1</gx:drawOrder>
+					<coordinates>105.3297209613689,12.07241082158556,0</coordinates>
+				</Point>
+			</Placemark>
+			<Placemark>
+				<name>Arizona- USA</name>
+				<description>Any crops irrigated. Annual crops. 
+Pivot irrigation system. 
+The infrastructure related to agriculture is considered cropland.</description>
+				<LookAt>
+					<gx:TimeStamp><when>2018-11-06</when>
+</gx:TimeStamp>
+					<gx:ViewerOptions>
+						<gx:option name="historicalimagery"></gx:option>
+						<gx:option enabled="0" name="sunlight"></gx:option>
+						<gx:option enabled="0" name="streetview"></gx:option>
+					</gx:ViewerOptions>
+					<longitude>-111.9147129839634</longitude>
+					<latitude>32.91260778366659</latitude>
+					<altitude>0</altitude>
+					<heading>1.524042515356494</heading>
+					<tilt>0</tilt>
+					<range>2293.158940024193</range>
+					<gx:altitudeMode>relativeToSeaFloor</gx:altitudeMode>
+				</LookAt>
+				<styleUrl>#msn_ylw-pushpin11</styleUrl>
+				<Point>
+					<gx:drawOrder>1</gx:drawOrder>
+					<coordinates>-111.9168348636953,32.91298567662867,0</coordinates>
+				</Point>
+			</Placemark>
+			<Placemark>
+				<name>North Saba- Malaysia</name>
+				<description>Palm. 
+Growing phases easily recognisable from imagery.</description>
+				<LookAt>
+					<gx:TimeStamp><when>2020-03-24</when>
+</gx:TimeStamp>
+					<gx:ViewerOptions>
+						<gx:option name="historicalimagery"></gx:option>
+						<gx:option enabled="0" name="sunlight"></gx:option>
+						<gx:option enabled="0" name="streetview"></gx:option>
+					</gx:ViewerOptions>
+					<longitude>116.7218525294806</longitude>
+					<latitude>6.519308477864031</latitude>
+					<altitude>0</altitude>
+					<heading>0.2722180731984194</heading>
+					<tilt>0</tilt>
+					<range>416.4133436315989</range>
+					<gx:altitudeMode>relativeToSeaFloor</gx:altitudeMode>
+				</LookAt>
+				<styleUrl>#msn_ylw-pushpin11</styleUrl>
+				<Point>
+					<gx:drawOrder>1</gx:drawOrder>
+					<coordinates>116.7218525294806,6.519308477864031,0</coordinates>
+				</Point>
+			</Placemark>
+			<Placemark>
+				<name>West Sepik- PNG</name>
+				<description>Coconut. 
+Imagery available until 2014, in NDVI graph it can be seen that there was a land use change from forest to coconut plantation.</description>
+				<LookAt>
+					<gx:TimeStamp><when>2014-04-03</when>
+</gx:TimeStamp>
+					<gx:ViewerOptions>
+						<gx:option name="historicalimagery"></gx:option>
+						<gx:option enabled="0" name="sunlight"></gx:option>
+						<gx:option enabled="0" name="streetview"></gx:option>
+					</gx:ViewerOptions>
+					<longitude>141.2955300105187</longitude>
+					<latitude>-3.022625157381645</latitude>
+					<altitude>0</altitude>
+					<heading>-0.0002082698860767499</heading>
+					<tilt>0</tilt>
+					<range>1475.689422564532</range>
+					<gx:altitudeMode>relativeToSeaFloor</gx:altitudeMode>
+				</LookAt>
+				<styleUrl>#msn_ylw-pushpin11</styleUrl>
+				<Point>
+					<gx:drawOrder>1</gx:drawOrder>
+					<coordinates>141.2932398957366,-3.021132108507822,0</coordinates>
+				</Point>
+			</Placemark>
+			<Placemark>
+				<name>Brong Ahafo- Ghana</name>
+				<description>Cocoa. 
+It is difficult to distinguish because it looks like a forest but if you know the area and if you see the infrastructure you understand that it is a cocoa plantation</description>
+				<LookAt>
+					<gx:TimeStamp><when>2015-01-13</when>
+</gx:TimeStamp>
+					<gx:ViewerOptions>
+						<gx:option name="historicalimagery"></gx:option>
+						<gx:option enabled="0" name="sunlight"></gx:option>
+						<gx:option enabled="0" name="streetview"></gx:option>
+					</gx:ViewerOptions>
+					<longitude>-2.697547655049892</longitude>
+					<latitude>6.962604593874816</latitude>
+					<altitude>0</altitude>
+					<heading>-0.03456529713110506</heading>
+					<tilt>0</tilt>
+					<range>465.6786456209146</range>
+					<gx:altitudeMode>relativeToSeaFloor</gx:altitudeMode>
+				</LookAt>
+				<styleUrl>#msn_ylw-pushpin11</styleUrl>
+				<Point>
+					<gx:drawOrder>1</gx:drawOrder>
+					<coordinates>-2.698353197952464,6.962231936673562,0</coordinates>
+				</Point>
+			</Placemark>
+		</Folder>
+		<Folder>
+			<name>Grassland</name>
+			<Placemark>
+				<name>Southland- New Zealand</name>
+				<description>Grassland. 
+Very green healthy grassland. NDVI very high like an evergreen forest. High precipitation in the area.</description>
+				<LookAt>
+					<gx:TimeStamp><when>2018-12-24</when>
+</gx:TimeStamp>
+					<gx:ViewerOptions>
+						<gx:option name="historicalimagery"></gx:option>
+						<gx:option enabled="0" name="sunlight"></gx:option>
+						<gx:option enabled="0" name="streetview"></gx:option>
+					</gx:ViewerOptions>
+					<longitude>169.4917401139414</longitude>
+					<latitude>-46.38868171176353</latitude>
+					<altitude>0</altitude>
+					<heading>-6.705637608892365</heading>
+					<tilt>0</tilt>
+					<range>644.8847843109633</range>
+					<gx:altitudeMode>relativeToSeaFloor</gx:altitudeMode>
+				</LookAt>
+				<styleUrl>#msn_ylw-pushpin11</styleUrl>
+				<Point>
+					<gx:drawOrder>1</gx:drawOrder>
+					<coordinates>169.4917401139414,-46.38868171176354,0</coordinates>
+				</Point>
+			</Placemark>
+			<Placemark>
+				<name>Mato Grosso- Brazil</name>
+				<description>Grassland with shrubs. 
+Land use change around 2003 from forest to grassland. Land use change in imagery can be only identified when zooming out.</description>
+				<LookAt>
+					<gx:TimeStamp><when>2018-05-31</when>
+</gx:TimeStamp>
+					<gx:ViewerOptions>
+						<gx:option name="historicalimagery"></gx:option>
+						<gx:option enabled="0" name="sunlight"></gx:option>
+						<gx:option enabled="0" name="streetview"></gx:option>
+					</gx:ViewerOptions>
+					<longitude>-59.18578224737934</longitude>
+					<latitude>-9.54405474734617</latitude>
+					<altitude>0</altitude>
+					<heading>-0.0389207648774401</heading>
+					<tilt>0</tilt>
+					<range>395.0150474948959</range>
+					<gx:altitudeMode>relativeToSeaFloor</gx:altitudeMode>
+				</LookAt>
+				<styleUrl>#m_ylw-pushpin</styleUrl>
+				<Point>
+					<gx:drawOrder>1</gx:drawOrder>
+					<coordinates>-59.18643481944179,-9.54399612884494,0</coordinates>
+				</Point>
+			</Placemark>
+			<Placemark>
+				<name>Galapagos Islands- Ecuador</name>
+				<description>Grassland with shrubs. 
+Interesting comparison with volcanic soil where vegetation is non existent and grassland. Can be seen in Landsat and Sentinel images as well.</description>
+				<LookAt>
+					<gx:TimeStamp><when>2018-04-11</when>
+</gx:TimeStamp>
+					<gx:ViewerOptions>
+						<gx:option name="historicalimagery"></gx:option>
+						<gx:option enabled="0" name="sunlight"></gx:option>
+						<gx:option enabled="0" name="streetview"></gx:option>
+					</gx:ViewerOptions>
+					<longitude>-91.27138814187907</longitude>
+					<latitude>-0.931976851836967</latitude>
+					<altitude>0</altitude>
+					<heading>0.01060935378254292</heading>
+					<tilt>0</tilt>
+					<range>275.6069476390499</range>
+					<gx:altitudeMode>relativeToSeaFloor</gx:altitudeMode>
+				</LookAt>
+				<styleUrl>#msn_ylw-pushpin11</styleUrl>
+				<Point>
+					<gx:drawOrder>1</gx:drawOrder>
+					<coordinates>-91.27165464131771,-0.9322321762417395,0</coordinates>
+				</Point>
+			</Placemark>
+			<Placemark>
+				<name>Serengeti National Park- Tanzania</name>
+				<description>Grassland with trees. 
+NDVI graph shows growing phases of grass depending on water availability. Degraded soils due to possible fire events and paths done by wild animals.</description>
+				<LookAt>
+					<gx:TimeStamp><when>2010-08-11</when>
+</gx:TimeStamp>
+					<gx:ViewerOptions>
+						<gx:option name="historicalimagery"></gx:option>
+						<gx:option enabled="0" name="sunlight"></gx:option>
+						<gx:option enabled="0" name="streetview"></gx:option>
+					</gx:ViewerOptions>
+					<longitude>34.84191531963688</longitude>
+					<latitude>-2.333670079746869</latitude>
+					<altitude>0</altitude>
+					<heading>9.437663658291063</heading>
+					<tilt>0</tilt>
+					<range>360.0462738449735</range>
+					<gx:altitudeMode>relativeToSeaFloor</gx:altitudeMode>
+				</LookAt>
+				<styleUrl>#msn_ylw-pushpin11</styleUrl>
+				<Point>
+					<gx:drawOrder>1</gx:drawOrder>
+					<coordinates>34.84081228664875,-2.333392675929428,0</coordinates>
+				</Point>
+			</Placemark>
+			<Placemark>
+				<name>La Palma- Spain</name>
+				<description>Shrubland. 
+It is not very clear if there are trees or shrubs. By using the street view it is easily recognisable that these are shrubs with yellow flowers.</description>
+				<LookAt>
+					<gx:TimeStamp><when>2018-07-07</when>
+</gx:TimeStamp>
+					<gx:ViewerOptions>
+						<gx:option name="historicalimagery"></gx:option>
+						<gx:option enabled="0" name="sunlight"></gx:option>
+						<gx:option enabled="0" name="streetview"></gx:option>
+					</gx:ViewerOptions>
+					<longitude>-17.85864919183451</longitude>
+					<latitude>28.76216919058332</latitude>
+					<altitude>0</altitude>
+					<heading>-10.45986174159035</heading>
+					<tilt>0</tilt>
+					<range>1624.951750828723</range>
+					<gx:altitudeMode>relativeToSeaFloor</gx:altitudeMode>
+				</LookAt>
+				<styleUrl>#msn_ylw-pushpin11</styleUrl>
+				<Point>
+					<gx:drawOrder>1</gx:drawOrder>
+					<coordinates>-17.85967621513973,28.76065034236551,0</coordinates>
+				</Point>
+			</Placemark>
+			<Placemark>
+				<name>Western Rwanda- Rwanda</name>
+				<description>Grassland with trees and shrubs. 
+Difference between tree and shrub is very clear here because the shade of the tree is very easily recognisable.</description>
+				<LookAt>
+					<gx:TimeStamp><when>2019-07-02</when>
+</gx:TimeStamp>
+					<gx:ViewerOptions>
+						<gx:option name="historicalimagery"></gx:option>
+						<gx:option enabled="0" name="sunlight"></gx:option>
+						<gx:option enabled="0" name="streetview"></gx:option>
+					</gx:ViewerOptions>
+					<longitude>29.4550486308865</longitude>
+					<latitude>-1.770734314638139</latitude>
+					<altitude>0</altitude>
+					<heading>0.0354598931823552</heading>
+					<tilt>0</tilt>
+					<range>1478.738019055875</range>
+					<gx:altitudeMode>relativeToSeaFloor</gx:altitudeMode>
+				</LookAt>
+				<styleUrl>#msn_ylw-pushpin11</styleUrl>
+				<Point>
+					<gx:drawOrder>1</gx:drawOrder>
+					<coordinates>29.4518836674357,-1.77294241062062,0</coordinates>
+				</Point>
+			</Placemark>
+			<Placemark>
+				<name>Lake Chad- Chad</name>
+				<description>Grassland. 
+Seasonal land use change. Wetland in the rainy season, grassland in the dry season. Can be seen in imagery and NDVI and precipitation graphs.</description>
+				<LookAt>
+					<gx:TimeStamp><when>2018-12-24</when>
+</gx:TimeStamp>
+					<gx:ViewerOptions>
+						<gx:option name="historicalimagery"></gx:option>
+						<gx:option enabled="0" name="sunlight"></gx:option>
+						<gx:option enabled="0" name="streetview"></gx:option>
+					</gx:ViewerOptions>
+					<longitude>14.80086904024322</longitude>
+					<latitude>13.36806993485892</latitude>
+					<altitude>0</altitude>
+					<heading>-1.980072995782451</heading>
+					<tilt>0</tilt>
+					<range>579.7423954793742</range>
+					<gx:altitudeMode>relativeToSeaFloor</gx:altitudeMode>
+				</LookAt>
+				<styleUrl>#msn_ylw-pushpin11</styleUrl>
+				<Point>
+					<gx:drawOrder>1</gx:drawOrder>
+					<coordinates>14.79882386134671,13.36748717102898,0</coordinates>
+				</Point>
+			</Placemark>
+		</Folder>
+		<Folder>
+			<name>Wetland</name>
+			<Placemark>
+				<name>Nyabarongo river- Rwanda</name>
+				<description>Permanent river. 
+River with water throughout the whole year.</description>
+				<LookAt>
+					<gx:TimeStamp><when>2019-07-16</when>
+</gx:TimeStamp>
+					<gx:ViewerOptions>
+						<gx:option name="historicalimagery"></gx:option>
+						<gx:option enabled="0" name="sunlight"></gx:option>
+						<gx:option enabled="0" name="streetview"></gx:option>
+					</gx:ViewerOptions>
+					<longitude>29.76771082858684</longitude>
+					<latitude>-1.787716501453623</latitude>
+					<altitude>0</altitude>
+					<heading>-0.0006688305356272737</heading>
+					<tilt>0</tilt>
+					<range>900.5183977936857</range>
+					<gx:altitudeMode>relativeToSeaFloor</gx:altitudeMode>
+				</LookAt>
+				<styleUrl>#msn_ylw-pushpin11</styleUrl>
+				<Point>
+					<gx:drawOrder>1</gx:drawOrder>
+					<coordinates>29.76726134928862,-1.787816342482007,0</coordinates>
+				</Point>
+			</Placemark>
+			<Placemark>
+				<name>Ghaggar river- India</name>
+				<description>Seasonal river.
+River that completely dries up in a certain period of the year.</description>
+				<LookAt>
+					<gx:TimeStamp><when>2018-09-12</when>
+</gx:TimeStamp>
+					<gx:ViewerOptions>
+						<gx:option name="historicalimagery"></gx:option>
+						<gx:option enabled="0" name="sunlight"></gx:option>
+						<gx:option enabled="0" name="streetview"></gx:option>
+					</gx:ViewerOptions>
+					<longitude>74.41471203299943</longitude>
+					<latitude>29.46792320252349</latitude>
+					<altitude>0</altitude>
+					<heading>0.0003916754580554762</heading>
+					<tilt>0</tilt>
+					<range>490.5673717487254</range>
+					<gx:altitudeMode>relativeToSeaFloor</gx:altitudeMode>
+				</LookAt>
+				<styleUrl>#msn_ylw-pushpin11</styleUrl>
+				<Point>
+					<gx:drawOrder>1</gx:drawOrder>
+					<coordinates>74.41398305339865,29.46837533888509,0</coordinates>
+				</Point>
+			</Placemark>
+			<Placemark>
+				<name>Rio de Janeiro- Brazil</name>
+				<description>Lagoon. 
+Water NDVI minus 0. This lagoon is very easy to recognise due to its location and pictures around.</description>
+				<LookAt>
+					<longitude>-43.41363247716036</longitude>
+					<latitude>-23.0128919703423</latitude>
+					<altitude>0</altitude>
+					<heading>-7.15166637806475</heading>
+					<tilt>0</tilt>
+					<range>2585.9722354735</range>
+					<gx:altitudeMode>relativeToSeaFloor</gx:altitudeMode>
+				</LookAt>
+				<styleUrl>#msn_ylw-pushpin11</styleUrl>
+				<Point>
+					<gx:drawOrder>1</gx:drawOrder>
+					<coordinates>-43.41363247716036,-23.0128919703423,0</coordinates>
+				</Point>
+			</Placemark>
+			<Placemark>
+				<name>Qoqek- China</name>
+				<description>Salt extraction
+Dry area and degraded soil. NDVI close to 0.</description>
+				<LookAt>
+					<longitude>86.04843886902194</longitude>
+					<latitude>45.83917018467262</latitude>
+					<altitude>0</altitude>
+					<heading>0.8242984442977817</heading>
+					<tilt>0</tilt>
+					<range>1722.095317352042</range>
+					<gx:altitudeMode>relativeToSeaFloor</gx:altitudeMode>
+				</LookAt>
+				<styleUrl>#msn_ylw-pushpin11</styleUrl>
+				<Point>
+					<gx:drawOrder>1</gx:drawOrder>
+					<coordinates>86.04843886902194,45.83917018467262,0</coordinates>
+				</Point>
+			</Placemark>
+			<Placemark>
+				<name>Potosi- Bolivia</name>
+				<description>Salt lake. Natural salt lake located in Atacama desert with a very particular red and orange color. 
+NDVI minus 0.</description>
+				<LookAt>
+					<longitude>-67.76910634302448</longitude>
+					<latitude>-22.20654963247387</latitude>
+					<altitude>0</altitude>
+					<heading>11.31279722631371</heading>
+					<tilt>0</tilt>
+					<range>12074.70080582159</range>
+					<gx:altitudeMode>relativeToSeaFloor</gx:altitudeMode>
+				</LookAt>
+				<styleUrl>#msn_ylw-pushpin11</styleUrl>
+				<Point>
+					<gx:drawOrder>1</gx:drawOrder>
+					<coordinates>-67.78758592034208,-22.18567163287101,0</coordinates>
+				</Point>
+			</Placemark>
+			<Placemark>
+				<name>Naypiyidaw- Myanmar</name>
+				<description>Artificial water body. 
+Dam, flooded villages</description>
+				<Camera>
+					<gx:TimeStamp><when>2020-01-30</when>
+</gx:TimeStamp>
+					<gx:ViewerOptions>
+						<gx:option name="historicalimagery"></gx:option>
+						<gx:option enabled="0" name="sunlight"></gx:option>
+						<gx:option enabled="0" name="streetview"></gx:option>
+					</gx:ViewerOptions>
+					<longitude>95.95170577201216</longitude>
+					<latitude>19.66745668972692</latitude>
+					<altitude>6228.069497770065</altitude>
+					<heading>-8.180564428714378</heading>
+					<tilt>5.624908906605836</tilt>
+					<roll>-7.036430779862951</roll>
+					<gx:altitudeMode>relativeToSeaFloor</gx:altitudeMode>
+				</Camera>
+				<styleUrl>#msn_ylw-pushpin11</styleUrl>
+				<Point>
+					<gx:drawOrder>1</gx:drawOrder>
+					<coordinates>95.94549732972742,19.67116754380844,0</coordinates>
+				</Point>
+			</Placemark>
+			<Placemark>
+				<name>Muyaga- Rwanda</name>
+				<description>Peatland
+Land use change agriculture to extraction of peat for energy production
+Power plant construction in the south</description>
+				<Camera>
+					<longitude>29.96356802342031</longitude>
+					<latitude>-2.471930585554539</latitude>
+					<altitude>1168.660703573744</altitude>
+					<heading>-11.82653041093403</heading>
+					<tilt>0.06255289375453398</tilt>
+					<roll>-11.76338423698747</roll>
+					<gx:altitudeMode>relativeToSeaFloor</gx:altitudeMode>
+				</Camera>
+				<styleUrl>#msn_ylw-pushpin11</styleUrl>
+				<Point>
+					<gx:drawOrder>1</gx:drawOrder>
+					<coordinates>29.96300014277119,-2.471724487887202,0</coordinates>
+				</Point>
+			</Placemark>
+			<Placemark>
+				<name>Kildare- Ireland</name>
+				<description>Peatland.
+Important Peatland region in the western part of Dublin</description>
+				<LookAt>
+					<gx:TimeStamp><when>2019-07-16</when>
+</gx:TimeStamp>
+					<gx:ViewerOptions>
+						<gx:option name="historicalimagery"></gx:option>
+						<gx:option enabled="0" name="sunlight"></gx:option>
+						<gx:option enabled="0" name="streetview"></gx:option>
+					</gx:ViewerOptions>
+					<longitude>-7.001761875274471</longitude>
+					<latitude>53.27413031554362</latitude>
+					<altitude>0</altitude>
+					<heading>0.0009154615636928292</heading>
+					<tilt>0</tilt>
+					<range>491.6746192965774</range>
+					<gx:altitudeMode>relativeToSeaFloor</gx:altitudeMode>
+				</LookAt>
+				<styleUrl>#msn_ylw-pushpin11</styleUrl>
+				<Point>
+					<gx:drawOrder>1</gx:drawOrder>
+					<coordinates>-7.003899024484093,53.27467760008359,0</coordinates>
+				</Point>
+			</Placemark>
+			<Placemark>
+				<name>Jonglei- South Sudan</name>
+				<description>Swamp. 
+Plot is located in the part of the swamp that is dry as NDVI higher than 0 in landsat and sentinel graphs.</description>
+				<LookAt>
+					<gx:TimeStamp><when>2016-12-31</when>
+</gx:TimeStamp>
+					<gx:ViewerOptions>
+						<gx:option name="historicalimagery"></gx:option>
+						<gx:option enabled="0" name="sunlight"></gx:option>
+						<gx:option enabled="0" name="streetview"></gx:option>
+					</gx:ViewerOptions>
+					<longitude>30.65307037414217</longitude>
+					<latitude>7.727157462001759</latitude>
+					<altitude>0</altitude>
+					<heading>-0.1089156384404614</heading>
+					<tilt>0</tilt>
+					<range>4142.017908273665</range>
+					<gx:altitudeMode>relativeToSeaFloor</gx:altitudeMode>
+				</LookAt>
+				<styleUrl>#msn_ylw-pushpin11</styleUrl>
+				<Point>
+					<gx:drawOrder>1</gx:drawOrder>
+					<coordinates>30.64704385314415,7.726438721133189,0</coordinates>
+				</Point>
+			</Placemark>
+			<Placemark>
+				<name>Karalalpakstan- Uzbekistan</name>
+				<description>Permanent lake.
+Plot located in Aral sea, in the part where it is not dried.</description>
+				<LookAt>
+					<gx:TimeStamp><when>2012-10-17</when>
+</gx:TimeStamp>
+					<gx:ViewerOptions>
+						<gx:option name="historicalimagery"></gx:option>
+						<gx:option enabled="0" name="sunlight"></gx:option>
+						<gx:option enabled="0" name="streetview"></gx:option>
+					</gx:ViewerOptions>
+					<longitude>58.55982052459337</longitude>
+					<latitude>44.97970762408469</latitude>
+					<altitude>0</altitude>
+					<heading>-25.17444338784041</heading>
+					<tilt>0</tilt>
+					<range>81949.71682434547</range>
+					<gx:altitudeMode>relativeToSeaFloor</gx:altitudeMode>
+				</LookAt>
+				<styleUrl>#msn_ylw-pushpin11</styleUrl>
+				<Point>
+					<gx:drawOrder>1</gx:drawOrder>
+					<coordinates>58.4679408153039,44.95607236137721,0</coordinates>
+				</Point>
+			</Placemark>
+			<Placemark>
+				<name>Northern part of Central Siberia-  Russia</name>
+				<description>Permanent lake.</description>
+				<LookAt>
+					<gx:TimeStamp><when>2016-12-31</when>
+</gx:TimeStamp>
+					<gx:ViewerOptions>
+						<gx:option name="historicalimagery"></gx:option>
+						<gx:option enabled="0" name="sunlight"></gx:option>
+						<gx:option enabled="0" name="streetview"></gx:option>
+					</gx:ViewerOptions>
+					<longitude>99.1929795895234</longitude>
+					<latitude>73.06758804579228</latitude>
+					<altitude>0</altitude>
+					<heading>3.732004631415682</heading>
+					<tilt>0</tilt>
+					<range>10504.30443767743</range>
+					<gx:altitudeMode>relativeToSeaFloor</gx:altitudeMode>
+				</LookAt>
+				<styleUrl>#msn_ylw-pushpin11</styleUrl>
+				<Point>
+					<gx:drawOrder>1</gx:drawOrder>
+					<coordinates>99.10988228524178,73.07575963150788,0</coordinates>
+				</Point>
+			</Placemark>
+			<Placemark>
+				<name>Kapisillit- Greenland</name>
+				<description>Sea in a Fjord. 
+Landsat images pink. Seasonality between water and ice sheet can be drawn from NDVI graphs always lower 0.
+This parcel shouldnt be in the assessment grid, because it is not a Wetland based on IPCC calssification.</description>
+				<LookAt>
+					<gx:TimeStamp><when>2012-09-09</when>
+</gx:TimeStamp>
+					<gx:ViewerOptions>
+						<gx:option name="historicalimagery"></gx:option>
+						<gx:option enabled="0" name="sunlight"></gx:option>
+						<gx:option enabled="0" name="streetview"></gx:option>
+					</gx:ViewerOptions>
+					<longitude>-49.78532598958721</longitude>
+					<latitude>64.3773208561522</latitude>
+					<altitude>0</altitude>
+					<heading>0.4323540609273924</heading>
+					<tilt>0</tilt>
+					<range>1267.614904464691</range>
+					<gx:altitudeMode>relativeToSeaFloor</gx:altitudeMode>
+				</LookAt>
+				<styleUrl>#msn_ylw-pushpin11</styleUrl>
+				<Point>
+					<gx:drawOrder>1</gx:drawOrder>
+					<coordinates>-49.79207578307314,64.37632844147407,0</coordinates>
+				</Point>
+			</Placemark>
+		</Folder>
+		<Folder>
+			<name>Settlement</name>
+			<Placemark>
+				<name>Al-Azraq Camp- Jordan</name>
+				<description>Solar panels. 
+Land use change the camp exists since 2000 the solar panels where build between 2014 and 2017.</description>
+				<LookAt>
+					<gx:TimeStamp><when>2019-09-26</when>
+</gx:TimeStamp>
+					<gx:ViewerOptions>
+						<gx:option name="historicalimagery"></gx:option>
+						<gx:option enabled="0" name="sunlight"></gx:option>
+						<gx:option enabled="0" name="streetview"></gx:option>
+					</gx:ViewerOptions>
+					<longitude>36.59973518114942</longitude>
+					<latitude>31.91258805305602</latitude>
+					<altitude>0</altitude>
+					<heading>0.0005100206683961251</heading>
+					<tilt>0</tilt>
+					<range>543.4135411644572</range>
+					<gx:altitudeMode>relativeToSeaFloor</gx:altitudeMode>
+				</LookAt>
+				<styleUrl>#msn_ylw-pushpin11</styleUrl>
+				<Point>
+					<gx:drawOrder>1</gx:drawOrder>
+					<coordinates>36.59973518114942,31.91258805305602,0</coordinates>
+				</Point>
+			</Placemark>
+			<Placemark>
+				<name>La Palma- Spain</name>
+				<description>Nordic Optical Telescope. 
+Even though you see the optical station in the image it is irrelevant within the graphs that continue showing vehetation.</description>
+				<LookAt>
+					<gx:TimeStamp><when>2019-07-25</when>
+</gx:TimeStamp>
+					<gx:ViewerOptions>
+						<gx:option name="historicalimagery"></gx:option>
+						<gx:option enabled="0" name="sunlight"></gx:option>
+						<gx:option enabled="0" name="streetview"></gx:option>
+					</gx:ViewerOptions>
+					<longitude>-17.88122026471063</longitude>
+					<latitude>28.76082349575875</latitude>
+					<altitude>0</altitude>
+					<heading>-10.47072309929792</heading>
+					<tilt>0</tilt>
+					<range>287.8160942796154</range>
+					<gx:altitudeMode>relativeToSeaFloor</gx:altitudeMode>
+				</LookAt>
+				<styleUrl>#msn_ylw-pushpin11</styleUrl>
+				<Point>
+					<gx:drawOrder>1</gx:drawOrder>
+					<coordinates>-17.88168269532244,28.76065269138407,2333.593870821335</coordinates>
+				</Point>
+			</Placemark>
+			<Placemark>
+				<name>Lake Chad- Chad</name>
+				<description>Village. 
+Since 2009, village got smaller.</description>
+				<LookAt>
+					<gx:TimeStamp><when>2012-12-16</when>
+</gx:TimeStamp>
+					<gx:ViewerOptions>
+						<gx:option name="historicalimagery"></gx:option>
+						<gx:option enabled="0" name="sunlight"></gx:option>
+						<gx:option enabled="0" name="streetview"></gx:option>
+					</gx:ViewerOptions>
+					<longitude>14.59178326085068</longitude>
+					<latitude>13.17677448712071</latitude>
+					<altitude>0</altitude>
+					<heading>12.26837344894992</heading>
+					<tilt>0</tilt>
+					<range>528.5275326446824</range>
+					<gx:altitudeMode>relativeToSeaFloor</gx:altitudeMode>
+				</LookAt>
+				<styleUrl>#msn_ylw-pushpin11</styleUrl>
+				<Point>
+					<gx:drawOrder>1</gx:drawOrder>
+					<coordinates>14.59077087188868,13.17721785162233,0</coordinates>
+				</Point>
+			</Placemark>
+			<Placemark>
+				<name>Seattle- USA</name>
+				<description>City. 
+Green area around houses will make the NDVI graph higher than 0,2.</description>
+				<LookAt>
+					<gx:TimeStamp><when>2018-12-24</when>
+</gx:TimeStamp>
+					<gx:ViewerOptions>
+						<gx:option name="historicalimagery"></gx:option>
+						<gx:option enabled="0" name="sunlight"></gx:option>
+						<gx:option enabled="0" name="streetview"></gx:option>
+					</gx:ViewerOptions>
+					<longitude>-122.2925862639025</longitude>
+					<latitude>47.61867634105403</latitude>
+					<altitude>0</altitude>
+					<heading>0.02912643279711788</heading>
+					<tilt>0</tilt>
+					<range>291.2272448498538</range>
+					<gx:altitudeMode>relativeToSeaFloor</gx:altitudeMode>
+				</LookAt>
+				<styleUrl>#msn_ylw-pushpin11</styleUrl>
+				<Point>
+					<gx:drawOrder>1</gx:drawOrder>
+					<coordinates>-122.2927092706619,47.61841334081816,0</coordinates>
+				</Point>
+			</Placemark>
+			<Placemark>
+				<name>Essaouira- Morocco</name>
+				<description>City</description>
+				<LookAt>
+					<longitude>-9.771523183219061</longitude>
+					<latitude>31.51526665018943</latitude>
+					<altitude>0</altitude>
+					<heading>-0.00628335710634628</heading>
+					<tilt>0</tilt>
+					<range>218.0988291925749</range>
+					<gx:altitudeMode>relativeToSeaFloor</gx:altitudeMode>
+				</LookAt>
+				<styleUrl>#msn_ylw-pushpin11</styleUrl>
+				<Point>
+					<gx:drawOrder>1</gx:drawOrder>
+					<coordinates>-9.77144324494661,31.51490908809358,0</coordinates>
+				</Point>
+			</Placemark>
+			<Placemark>
+				<name>Hamburg- Germany</name>
+				<description>Infrastructure</description>
+				<LookAt>
+					<gx:TimeStamp><when>2019-09-21</when>
+</gx:TimeStamp>
+					<gx:ViewerOptions>
+						<gx:option name="historicalimagery"></gx:option>
+						<gx:option enabled="0" name="sunlight"></gx:option>
+						<gx:option enabled="0" name="streetview"></gx:option>
+					</gx:ViewerOptions>
+					<longitude>9.982412847235883</longitude>
+					<latitude>53.47408667851163</latitude>
+					<altitude>0</altitude>
+					<heading>1.608341603613212</heading>
+					<tilt>0</tilt>
+					<range>1467.037972002423</range>
+					<gx:altitudeMode>relativeToSeaFloor</gx:altitudeMode>
+				</LookAt>
+				<styleUrl>#msn_ylw-pushpin11</styleUrl>
+				<Point>
+					<gx:drawOrder>1</gx:drawOrder>
+					<coordinates>9.972666147503858,53.47393031236854,0</coordinates>
+				</Point>
+			</Placemark>
+			<Placemark>
+				<name>Amsterdam- Holland</name>
+				<description>Road on water. 
+Landsat, Sentinel and Modis graphs show different results due to its different spatial resolution.</description>
+				<LookAt>
+					<gx:TimeStamp><when>2019-04-22</when>
+</gx:TimeStamp>
+					<gx:ViewerOptions>
+						<gx:option name="historicalimagery"></gx:option>
+						<gx:option enabled="0" name="sunlight"></gx:option>
+						<gx:option enabled="0" name="streetview"></gx:option>
+					</gx:ViewerOptions>
+					<longitude>5.139900896387384</longitude>
+					<latitude>52.32522180236158</latitude>
+					<altitude>0</altitude>
+					<heading>17.93023767061064</heading>
+					<tilt>0</tilt>
+					<range>482.6761344117048</range>
+					<gx:altitudeMode>relativeToSeaFloor</gx:altitudeMode>
+				</LookAt>
+				<styleUrl>#m_ylw-pushpin00</styleUrl>
+				<Point>
+					<gx:drawOrder>1</gx:drawOrder>
+					<coordinates>5.138750037327293,52.32568654532097,0</coordinates>
+				</Point>
+			</Placemark>
+			<Placemark>
+				<name>North Rhine Westphalia- Germany</name>
+				<description>Coal mine. 
+The mine is on the site of the ancient Hambach Forest which was purchased  in 1978. They then cut most of it down and cleared it to mine. Only 10% of the forest area remains.</description>
+				<LookAt>
+					<gx:TimeStamp><when>2018-10-05</when>
+</gx:TimeStamp>
+					<gx:ViewerOptions>
+						<gx:option name="historicalimagery"></gx:option>
+						<gx:option enabled="0" name="sunlight"></gx:option>
+						<gx:option enabled="0" name="streetview"></gx:option>
+					</gx:ViewerOptions>
+					<longitude>6.55780181573274</longitude>
+					<latitude>50.89067378719629</latitude>
+					<altitude>0</altitude>
+					<heading>0.004902880202027589</heading>
+					<tilt>0</tilt>
+					<range>1036.537290033501</range>
+					<gx:altitudeMode>relativeToSeaFloor</gx:altitudeMode>
+				</LookAt>
+				<styleUrl>#m_ylw-pushpin</styleUrl>
+				<Point>
+					<gx:drawOrder>1</gx:drawOrder>
+					<coordinates>6.557092573219441,50.89174653347246,0</coordinates>
+				</Point>
+			</Placemark>
+			<Placemark>
+				<name>London- UK</name>
+				<description>Urban Park</description>
+				<LookAt>
+					<gx:TimeStamp><when>2019-04-22</when>
+</gx:TimeStamp>
+					<gx:ViewerOptions>
+						<gx:option name="historicalimagery"></gx:option>
+						<gx:option enabled="0" name="sunlight"></gx:option>
+						<gx:option enabled="0" name="streetview"></gx:option>
+					</gx:ViewerOptions>
+					<longitude>-0.1628504424117349</longitude>
+					<latitude>51.50974184167632</latitude>
+					<altitude>0</altitude>
+					<heading>-0.02746524187296081</heading>
+					<tilt>0</tilt>
+					<range>586.3836996880123</range>
+					<gx:altitudeMode>relativeToSeaFloor</gx:altitudeMode>
+				</LookAt>
+				<styleUrl>#msn_ylw-pushpin11</styleUrl>
+				<Point>
+					<gx:drawOrder>1</gx:drawOrder>
+					<coordinates>-0.1640600613643373,51.51035529560604,0</coordinates>
+				</Point>
+			</Placemark>
+		</Folder>
+		<Folder>
+			<name>Otherland</name>
+			<open>1</open>
+			<Placemark>
+				<name>Easter Island- Chile</name>
+				<description>Sand.
+Landsat and Sentinel graph are representing the NDVI graph correctly. Sand is close to 0, because there is no vegetation, the MODIS is biased due to its low spatial resolution and is considering the surronding area (green).</description>
+				<LookAt>
+					<longitude>-109.3231434473522</longitude>
+					<latitude>-27.07395541924293</latitude>
+					<altitude>0</altitude>
+					<heading>-0.01214284730838389</heading>
+					<tilt>0</tilt>
+					<range>580.783424640564</range>
+					<gx:altitudeMode>relativeToSeaFloor</gx:altitudeMode>
+				</LookAt>
+				<styleUrl>#msn_ylw-pushpin11</styleUrl>
+				<Point>
+					<gx:drawOrder>1</gx:drawOrder>
+					<coordinates>-109.3231617537634,-27.07371978823213,0</coordinates>
+				</Point>
+			</Placemark>
+			<Placemark>
+				<name>Yunaska Island- Alaska</name>
+				<description>Bare soil. 
+Looks like volcanic soil, graphs difficult to interpret.</description>
+				<LookAt>
+					<gx:TimeStamp><when>2014-07-28</when>
+</gx:TimeStamp>
+					<gx:ViewerOptions>
+						<gx:option name="historicalimagery"></gx:option>
+						<gx:option enabled="0" name="sunlight"></gx:option>
+						<gx:option enabled="0" name="streetview"></gx:option>
+					</gx:ViewerOptions>
+					<longitude>-170.6535217513131</longitude>
+					<latitude>52.67071558220054</latitude>
+					<altitude>0</altitude>
+					<heading>-0.007741583091376215</heading>
+					<tilt>0</tilt>
+					<range>1196.037893797755</range>
+					<gx:altitudeMode>relativeToSeaFloor</gx:altitudeMode>
+				</LookAt>
+				<styleUrl>#msn_ylw-pushpin11</styleUrl>
+				<Point>
+					<gx:drawOrder>1</gx:drawOrder>
+					<coordinates>-170.6563504161188,52.66992698088507,0</coordinates>
+				</Point>
+			</Placemark>
+			<Placemark>
+				<name>Mingsha Shan- China</name>
+				<description>Dune. 
+NDVI 0, no vegetation, very low precipitation</description>
+				<LookAt>
+					<gx:TimeStamp><when>2012-10-17</when>
+</gx:TimeStamp>
+					<gx:ViewerOptions>
+						<gx:option name="historicalimagery"></gx:option>
+						<gx:option enabled="0" name="sunlight"></gx:option>
+						<gx:option enabled="0" name="streetview"></gx:option>
+					</gx:ViewerOptions>
+					<longitude>94.67596358090213</longitude>
+					<latitude>40.05588007907625</latitude>
+					<altitude>0</altitude>
+					<heading>0.08094586169434398</heading>
+					<tilt>0</tilt>
+					<range>1682.201069274211</range>
+					<gx:altitudeMode>relativeToSeaFloor</gx:altitudeMode>
+				</LookAt>
+				<styleUrl>#msn_ylw-pushpin11</styleUrl>
+				<Point>
+					<gx:drawOrder>1</gx:drawOrder>
+					<coordinates>94.67496401815455,40.05476703470338,0</coordinates>
+				</Point>
+			</Placemark>
+			<Placemark>
+				<name>Dashoguz- Turkmenistan</name>
+				<description>Darvaza gas crater. 
+NDVI 0, no vegetation, low precipitation</description>
+				<LookAt>
+					<gx:TimeStamp><when>2016-06-04</when>
+</gx:TimeStamp>
+					<gx:ViewerOptions>
+						<gx:option name="historicalimagery"></gx:option>
+						<gx:option enabled="0" name="sunlight"></gx:option>
+						<gx:option enabled="0" name="streetview"></gx:option>
+					</gx:ViewerOptions>
+					<longitude>58.44006848046666</longitude>
+					<latitude>40.2526602772268</latitude>
+					<altitude>0</altitude>
+					<heading>0.0002378372937511738</heading>
+					<tilt>0</tilt>
+					<range>138.2649428510323</range>
+					<gx:altitudeMode>relativeToSeaFloor</gx:altitudeMode>
+				</LookAt>
+				<styleUrl>#msn_ylw-pushpin11</styleUrl>
+				<Point>
+					<gx:drawOrder>1</gx:drawOrder>
+					<coordinates>58.43968177920984,40.25260509049161,0</coordinates>
+				</Point>
+			</Placemark>
+			<Placemark>
+				<name>Graham Land- Antarctica</name>
+				<description>Glacier. 
+Ice NDVI graph below 0.</description>
+				<LookAt>
+					<gx:TimeStamp><when>2006-09-18</when>
+</gx:TimeStamp>
+					<gx:ViewerOptions>
+						<gx:option name="historicalimagery"></gx:option>
+						<gx:option enabled="0" name="sunlight"></gx:option>
+						<gx:option enabled="0" name="streetview"></gx:option>
+					</gx:ViewerOptions>
+					<longitude>-58.42733183139283</longitude>
+					<latitude>-63.85037565892153</latitude>
+					<altitude>0</altitude>
+					<heading>83.90559932102991</heading>
+					<tilt>0</tilt>
+					<range>4256.411374984152</range>
+					<gx:altitudeMode>relativeToSeaFloor</gx:altitudeMode>
+				</LookAt>
+				<styleUrl>#msn_ylw-pushpin110</styleUrl>
+				<Point>
+					<gx:drawOrder>1</gx:drawOrder>
+					<coordinates>-58.43627281941395,-63.83614183711239,0</coordinates>
+				</Point>
+			</Placemark>
+			<Placemark>
+				<name>Mendoza- Argentina</name>
+				<description>Permanent snowfields.</description>
+				<LookAt>
+					<gx:TimeStamp><when>2005-12-06</when>
+</gx:TimeStamp>
+					<gx:ViewerOptions>
+						<gx:option name="historicalimagery"></gx:option>
+						<gx:option enabled="0" name="sunlight"></gx:option>
+						<gx:option enabled="0" name="streetview"></gx:option>
+					</gx:ViewerOptions>
+					<longitude>-70.0060357094128</longitude>
+					<latitude>-32.65300946316312</latitude>
+					<altitude>0</altitude>
+					<heading>-0.002605725760583536</heading>
+					<tilt>0</tilt>
+					<range>955.2930470202319</range>
+					<gx:altitudeMode>relativeToSeaFloor</gx:altitudeMode>
+				</LookAt>
+				<styleUrl>#msn_ylw-pushpin11</styleUrl>
+				<Point>
+					<gx:drawOrder>1</gx:drawOrder>
+					<coordinates>-70.00769716838757,-32.65229466224793,0</coordinates>
+				</Point>
+			</Placemark>
+			<Placemark>
+				<name>Chimaltenango- Guatemala</name>
+				<description>Fire vulcano. 
+Active volcano can be seen in image July 2016, February 2017,  December 2018. 
+NDVI 0, bare soil. 
+What is the fluor green spot near the crater?</description>
+				<LookAt>
+					<gx:TimeStamp><when>2018-12-09</when>
+</gx:TimeStamp>
+					<gx:ViewerOptions>
+						<gx:option name="historicalimagery"></gx:option>
+						<gx:option enabled="0" name="sunlight"></gx:option>
+						<gx:option enabled="0" name="streetview"></gx:option>
+					</gx:ViewerOptions>
+					<longitude>-90.87638046689618</longitude>
+					<latitude>14.4693125659636</latitude>
+					<altitude>0</altitude>
+					<heading>-0.03587212477627479</heading>
+					<tilt>0</tilt>
+					<range>2224.259371561479</range>
+					<gx:altitudeMode>relativeToSeaFloor</gx:altitudeMode>
+				</LookAt>
+				<styleUrl>#msn_ylw-pushpin11</styleUrl>
+				<Point>
+					<gx:drawOrder>1</gx:drawOrder>
+					<coordinates>-90.87380904831463,14.46722055095741,0</coordinates>
+				</Point>
+			</Placemark>
+			<Placemark>
+				<name>Arusha- Tanzania</name>
+				<open>1</open>
+				<description>Kilimanjaro Mountain. Inactive volcanoes.
+Bare soil and snow, NDVIO graph lower than 0.</description>
+				<LookAt>
+					<longitude>37.35750572663017</longitude>
+					<latitude>-3.061631494807884</latitude>
+					<altitude>0</altitude>
+					<heading>-0.0001010144512005021</heading>
+					<tilt>0</tilt>
+					<range>3595.886000087119</range>
+					<gx:altitudeMode>relativeToSeaFloor</gx:altitudeMode>
+				</LookAt>
+				<styleUrl>#msn_ylw-pushpin111</styleUrl>
+				<Point>
+					<gx:drawOrder>1</gx:drawOrder>
+					<coordinates>37.34742689688195,-3.058168920118299,0</coordinates>
+				</Point>
+			</Placemark>
+		</Folder>
+	</Folder>
+</Document>
+</kml>
