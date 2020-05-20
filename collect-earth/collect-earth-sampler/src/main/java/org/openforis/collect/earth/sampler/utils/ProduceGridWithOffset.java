@@ -27,18 +27,18 @@ public class ProduceGridWithOffset {
 	private Logger logger = LoggerFactory.getLogger(this.getClass());
 
 	public void addTransformedColumns(  File gridFile ){
-		CSVReader csvReader =null;
-		try {
-			csvReader = CsvReaderUtils.getCsvReader(gridFile.getPath());
-			
-			File fileOutput = new File( gridFile.getParent(), "All_Points_Grid_corrected_50moffset.csv" );
-			CSVWriter writer = new CSVWriter( new FileWriter( fileOutput  ) );
+
+		File fileOutput = new File( gridFile.getParent(), "All_Points_Grid_corrected_50moffset.csv" );
+		try (
+				CSVWriter writer = new CSVWriter( new FileWriter( fileOutput  ) );
+				CSVReader csvReader = CsvReaderUtils.getCsvReader(gridFile.getPath());
+		){
 			
 			String[] csvContents = null;
 			while( ( csvContents = csvReader.readNext() )  !=null ){
 				try{
-					double latitude = Double.valueOf(csvContents[1]);
-					double longitude = Double.valueOf(csvContents[2]);
+					double latitude = Double.parseDouble(csvContents[1]);
+					double longitude = Double.parseDouble(csvContents[2]);
 					double[] pointWithOffset;
 					try {
 						pointWithOffset = CoordinateUtils.getPointWithOffset( new double[]{ latitude, longitude}, 50, 50);
@@ -60,13 +60,6 @@ public class ProduceGridWithOffset {
 			writer.close();
 		} catch (IOException e) {
 			logger.error(" Error reading the file " + gridFile );
-		} finally {
-			try {
-				csvReader.close();
-			} catch (IOException e) {
-				// TODO Auto-generated catch block
-				e.printStackTrace();
-			}
 		}
 		
 	}

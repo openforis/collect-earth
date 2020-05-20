@@ -22,6 +22,8 @@ public class FreemarkerTemplateUtils {
 
 	private static final Logger logger = LoggerFactory.getLogger(FreemarkerTemplateUtils.class);
 
+	private static final Random rand = new Random();
+	
 	private FreemarkerTemplateUtils() {}
 
 	public static boolean applyTemplate(File sourceTemplate, File destinationFile, Map<?, ?> data) throws IOException, TemplateException{
@@ -57,8 +59,6 @@ public class FreemarkerTemplateUtils {
 	 * @see java.util.Random#nextInt(int)
 	 */
 	public static int randInt(int min, int max) {
-		Random rand = new Random();
-
 		// nextInt is normally exclusive of the top value,
 		// so add 1 to make it inclusive
 		return rand.nextInt((max - min) + 1) + min;

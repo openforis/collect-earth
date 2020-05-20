@@ -23,9 +23,11 @@ public class KmzGenerator {
 		} else {
 			final byte[] buf = new byte[1024];
 			int len;
-			FileInputStream in = null;
-			try {
-				in = new FileInputStream(srcFile);
+
+			try (
+					FileInputStream in = new FileInputStream(srcFile); 
+					){
+
 				String filePathName = path + "/" + file.getName();
 				// if in root folder no / necessary
 				if (path.length() == 0) {
@@ -35,14 +37,11 @@ public class KmzGenerator {
 				while ((len = in.read(buf)) > 0) {
 					zip.write(buf, 0, len);
 				}
-				
+
 			} catch (final IOException e) {
 				logger.error("Error while writing to " + srcFile, e);
 			} finally {
 				zip.closeEntry();
-				if (in != null) {
-					in.close();
-				}
 			}
 
 		}
@@ -62,12 +61,12 @@ public class KmzGenerator {
 
 	public void generateKmzFile(String kmzFilename, String kmlFile, String dependantFolder) throws IOException {
 
-		ZipOutputStream zip = null;
-		FileOutputStream fileWriter = null;
 
-		try {
-			fileWriter = new FileOutputStream(kmzFilename);
-			zip = new ZipOutputStream(fileWriter);
+		try (
+				FileOutputStream fileWriter = new FileOutputStream(kmzFilename);
+				ZipOutputStream zip = new ZipOutputStream(fileWriter);
+
+		){
 			// Add the KML to the root folder
 			addFileToZip("", kmlFile, zip);
 
@@ -81,12 +80,6 @@ public class KmzGenerator {
 			logger.error(e.getMessage(), e);
 		} catch (final Exception e) {
 			logger.error(e.getMessage(), e);
-		} finally {
-			if (zip != null) {
-				zip.flush();
-				zip.close();
-				fileWriter.close();
-			}
 		}
 	}
 }
