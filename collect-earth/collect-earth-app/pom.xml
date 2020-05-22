@@ -17,6 +17,7 @@
 		<selenium.version>3.141.59</selenium.version>
 		<sonar.language>java</sonar.language>
 		<classpath.prefix>earth-libs</classpath.prefix>
+
 	</properties>
 
 	<dependencies>
