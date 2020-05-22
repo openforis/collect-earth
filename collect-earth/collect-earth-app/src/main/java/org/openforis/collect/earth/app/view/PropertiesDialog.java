@@ -62,7 +62,7 @@ import org.slf4j.LoggerFactory;
 
 /**
  * @author Alfonso Sanchez-Paus Diaz
- * 
+ *
  */
 public class PropertiesDialog extends JDialog {
 
@@ -161,7 +161,7 @@ public class PropertiesDialog extends JDialog {
 
 		final ButtonGroup browserChooser = new ButtonGroup();
 		final JComponent[] browsers = propertyToComponent.get(EarthProperty.BROWSER_TO_USE);
-		
+
 		for (final JComponent browserRadioButton : browsers) {
 			browserChooserPanel.add(browserRadioButton);
 			browserChooser.add((AbstractButton) browserRadioButton);
@@ -202,10 +202,14 @@ public class PropertiesDialog extends JDialog {
 
 		constraints.gridy++;
 		panel.add(propertyToComponent.get(EarthProperty.OPEN_GEE_APP)[0], constraints);
-		
+
 		constraints.gridy++;
 		panel.add(propertyToComponent.get(EarthProperty.OPEN_BING_MAPS)[0], constraints);
-		
+
+		constraints.gridy++;
+		panel.add(propertyToComponent.get(EarthProperty.OPEN_EARTH_MAP)[0], constraints);
+
+
 		constraints.gridy++;
 		panel.add(propertyToComponent.get(EarthProperty.OPEN_PLANET_MAPS)[0], constraints);
 
@@ -227,12 +231,12 @@ public class PropertiesDialog extends JDialog {
 		panel.add(labelMaxar, constraints);
 		constraints.gridx = 1;
 		panel.add(propertyToComponent.get(EarthProperty.MAXAR_SECUREWATCH_URL)[0], constraints);
-		
+
 		constraints.gridx = 0;
 		constraints.gridy++;
 		constraints.gridwidth = 2;
 		panel.add(propertyToComponent.get(EarthProperty.OPEN_YANDEX_MAPS)[0], constraints);
-		
+
 		constraints.gridy++;
 		panel.add(propertyToComponent.get(EarthProperty.OPEN_BAIDU_MAPS)[0], constraints);
 
@@ -254,7 +258,7 @@ public class PropertiesDialog extends JDialog {
 		return panel;
 	}
 
-	
+
 	private Component getApplyChangesButton() {
 		if (applyChanges == null) {
 			applyChanges = new JButton(Messages.getString("OptionWizard.15"));
@@ -267,13 +271,13 @@ public class PropertiesDialog extends JDialog {
 								public void run() {
 									savePropertyValues();
 									if (isRestartRequired()) {
-										
+
 										restartEarth();
 									} else {
 										EarthApp.executeKmlLoadAsynchronously(PropertiesDialog.this);
 									}
 								};
-							
+
 							}.start();
 						}
 					});
@@ -502,7 +506,7 @@ public class PropertiesDialog extends JDialog {
 		constraints.gridx = 1;
 		JComboBox<String> dotsSide = (JComboBox<String>) propertyToComponent.get(EarthProperty.INNER_SUBPLOT_SIDE)[0];
 		panel.add(new JScrollPane(dotsSide), constraints);
-		
+
 		constraints.gridx = 0;
 		constraints.gridy++;
 		label = new JLabel("Central plot side"); //$NON-NLS-1$
@@ -510,8 +514,8 @@ public class PropertiesDialog extends JDialog {
 		constraints.gridx = 1;
 		JComboBox<String> largeCentralPlotSide = (JComboBox<String>) propertyToComponent.get(EarthProperty.LARGE_CENTRAL_PLOT_SIDE)[0];
 		panel.add(new JScrollPane(largeCentralPlotSide), constraints);
-		
-		
+
+
 
 		constraints.gridx = 0;
 		constraints.gridy++;
@@ -565,12 +569,12 @@ public class PropertiesDialog extends JDialog {
 			dotsSide.setEnabled(true);
 			area.setVisible(true);
 			distanceOrRadiuslabel.setText(Messages.getString("OptionWizard.36"));
-			
+
 			if( plotShape.getSelectedItem().equals(SAMPLE_SHAPE.SQUARE_WITH_LARGE_CENTRAL_PLOT) ) {
 				largeCentralPlotSide.setVisible( true );
 				largeCentralPlotSide.setEnabled(true);
 			}
-			
+
 		} else if (plotShape.getSelectedItem().equals(SAMPLE_SHAPE.CIRCLE)
 				|| plotShape.getSelectedItem().equals(SAMPLE_SHAPE.HEXAGON)) {
 			distanceBetweenPoints.setEnabled(true);
@@ -918,7 +922,7 @@ public class PropertiesDialog extends JDialog {
 		openEarthEngineCheckbox
 				.setSelected(Boolean.parseBoolean(localPropertiesService.getValue(EarthProperty.OPEN_GEE_EXPLORER)));
 		propertyToComponent.put(EarthProperty.OPEN_GEE_EXPLORER, new JComponent[] { openEarthEngineCheckbox });
-		
+
 		final JCheckBox openGEEAppCheckbox = new JCheckBox("Google Earth Engine APP (no sign-in)"); //$NON-NLS-1$
 		openGEEAppCheckbox
 				.setSelected(Boolean.parseBoolean(localPropertiesService.getValue(EarthProperty.OPEN_GEE_APP)));
@@ -929,23 +933,28 @@ public class PropertiesDialog extends JDialog {
 				.setSelected(Boolean.parseBoolean(localPropertiesService.getValue(EarthProperty.OPEN_TIMELAPSE)));
 		propertyToComponent.put(EarthProperty.OPEN_TIMELAPSE, new JComponent[] { openTimelapseCheckbox });
 
+		final JCheckBox openEarthMapCheckbox = new JCheckBox(Messages.getString("OptionWizard.105")); //$NON-NLS-1$
+		openEarthMapCheckbox
+				.setSelected(Boolean.parseBoolean(localPropertiesService.getValue(EarthProperty.OPEN_EARTH_MAP)));
+		propertyToComponent.put(EarthProperty.OPEN_EARTH_MAP, new JComponent[] { openEarthMapCheckbox });
+
 		final JCheckBox openBingCheckbox = new JCheckBox(Messages.getString("OptionWizard.47")); //$NON-NLS-1$
 		openBingCheckbox
 				.setSelected(Boolean.parseBoolean(localPropertiesService.getValue(EarthProperty.OPEN_BING_MAPS)));
 		propertyToComponent.put(EarthProperty.OPEN_BING_MAPS, new JComponent[] { openBingCheckbox });
-		
+
 		final JCheckBox openPlanetCheckbox = new JCheckBox(Messages.getString("OptionWizard.100")); //$NON-NLS-1$
 		openPlanetCheckbox
 				.setSelected(Boolean.parseBoolean(localPropertiesService.getValue(EarthProperty.OPEN_PLANET_MAPS)));
 		propertyToComponent.put(EarthProperty.OPEN_PLANET_MAPS, new JComponent[] { openPlanetCheckbox });
-		
+
 		final JTextField planetAPIKeyTextField = new JTextField(
 				localPropertiesService.getValue(EarthProperty.PLANET_MAPS_KEY));
 		planetAPIKeyTextField.setMinimumSize(new Dimension( 250,  20 ));
 		planetAPIKeyTextField.setEnabled( localPropertiesService.isPlanetMapsSupported() );
 		propertyToComponent.put(EarthProperty.PLANET_MAPS_KEY, new JComponent[] { planetAPIKeyTextField });
 		openPlanetCheckbox.addActionListener( new ActionListener() {
-			
+
 			@Override
 			public void actionPerformed(ActionEvent e) {
 				planetAPIKeyTextField.setEnabled( openPlanetCheckbox.isSelected() );
@@ -964,18 +973,18 @@ public class PropertiesDialog extends JDialog {
 		secureWatchUrlTextField.setEnabled( localPropertiesService.isSecureWatchSupported() );
 		propertyToComponent.put(EarthProperty.MAXAR_SECUREWATCH_URL, new JComponent[] { secureWatchUrlTextField });
 		openSecureWatchCheckbox.addActionListener( new ActionListener() {
-			
+
 			@Override
 			public void actionPerformed(ActionEvent e) {
 				secureWatchUrlTextField.setEnabled( openSecureWatchCheckbox.isSelected() );
 			}
 		});
-		
+
 		final JTextField extraUrlTextField = new JTextField(
 				localPropertiesService.getValue(EarthProperty.EXTRA_MAP_URL));
 		planetAPIKeyTextField.setMinimumSize(new Dimension( 250,  20 ));
 		propertyToComponent.put(EarthProperty.EXTRA_MAP_URL, new JComponent[] { extraUrlTextField });
-		
+
 		final JCheckBox openBaiduCheckbox = new JCheckBox("Open Baidu Maps");
 		openBaiduCheckbox
 				.setSelected(Boolean.parseBoolean(localPropertiesService.getValue(EarthProperty.OPEN_BAIDU_MAPS)));
@@ -1074,13 +1083,13 @@ public class PropertiesDialog extends JDialog {
 		listOfSizeofSamplingDot.setAutoscrolls(true);
 
 		propertyToComponent.put(EarthProperty.INNER_SUBPLOT_SIDE, new JComponent[] { listOfSizeofSamplingDot });
-		
+
 		final JComboBox<String> listOfSideOflargeCentralPlot = new JComboBox<>(listOfNumbersFromTwo);
 		listOfSideOflargeCentralPlot.setSelectedItem(localPropertiesService.getValue(EarthProperty.LARGE_CENTRAL_PLOT_SIDE));
 		listOfSideOflargeCentralPlot.setAutoscrolls(true);
 
 		propertyToComponent.put(EarthProperty.LARGE_CENTRAL_PLOT_SIDE, new JComponent[] { listOfSideOflargeCentralPlot });
-		
+
 
 		final JRadioButton chromeChooser = new JRadioButton("Chrome"); //$NON-NLS-1$
 		chromeChooser.setSelected(localPropertiesService.getValue(EarthProperty.BROWSER_TO_USE).trim()
