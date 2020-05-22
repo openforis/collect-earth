@@ -28,9 +28,9 @@ import org.springframework.stereotype.Component;
  * code in order to fetch the values of the properties that can be configured by
  * the user, by directly editing the earth.properties file or by using the
  * Tools--Properties menu option in the Collect Earth Window.
- * 
+ *
  * @author Alfonso Sanchez-Paus Diaz
- * 
+ *
  */
 @Component
 public class LocalPropertiesService extends Observable {
@@ -38,9 +38,9 @@ public class LocalPropertiesService extends Observable {
 	/**
 	 * Enumeration containing the names of all the possible values that can be
 	 * configured in Collect Earth.
-	 * 
+	 *
 	 * @author Alfonso Sanchez-Paus Diaz
-	 * 
+	 *
 	 */
 	public enum EarthProperty {
 		ACTIVE_PROJECT_DEFINITION("active_project_definition"), ALTERNATIVE_BALLOON_FOR_BROWSER(
@@ -106,10 +106,10 @@ public class LocalPropertiesService extends Observable {
 				"planet_maps_key"), OPEN_GEE_APP(
 				"open_gee_app"), GEE_MAP_URL(
 				"gee_app_url"), OPEN_MAXAR_SECUREWATCH(
-				"open_maxar_securewatch"),MAXAR_SECUREWATCH_URL("secure_watch_url"), EARTH_MAP_URL("earth_map_url"), 
-				OPEN_EARTH_MAP("open_earth_map"), 
-				EARTH_MAP_LAYERS("earth_map_layers"), 
-				EARTH_MAP_SCRIPTS("earth_map_scripts"), 
+				"open_maxar_securewatch"),MAXAR_SECUREWATCH_URL("secure_watch_url"), EARTH_MAP_URL("earth_map_url"),
+				OPEN_EARTH_MAP("open_earth_map"),
+				EARTH_MAP_LAYERS("earth_map_layers"),
+				EARTH_MAP_SCRIPTS("earth_map_scripts"),
 				EARTH_MAP_AOI("earth_map_aoi");
 
 		private String name;
@@ -197,11 +197,11 @@ public class LocalPropertiesService extends Observable {
 	public String getEarthMapScripts() {
 		return getValue(EarthProperty.EARTH_MAP_SCRIPTS);
 	}
-	
+
 	public String getEarthMapURL() {
 		return getValue(EarthProperty.EARTH_MAP_URL);
 	}
-	
+
 	public String getExtraMap() {
 		return getValue(EarthProperty.EXTRA_MAP_URL);
 	}
@@ -312,11 +312,11 @@ public class LocalPropertiesService extends Observable {
 			return SAMPLE_SHAPE.valueOf(value);
 		}
 	}
-	
+
 	public String getSecureWatchURL() {
 		return getValue(EarthProperty.MAXAR_SECUREWATCH_URL);
 	}
-	
+
 	public String getTemplateFile() {
 		return convertToOSPath(getValue(EarthProperty.KML_TEMPLATE_KEY));
 	}
@@ -357,7 +357,7 @@ public class LocalPropertiesService extends Observable {
 	private void init() throws IOException {
 		properties = new Properties() {
 			/**
-			 * 
+			 *
 			 */
 			private static final long serialVersionUID = 4358906731731542445L;
 
@@ -368,7 +368,6 @@ public class LocalPropertiesService extends Observable {
 
 		};
 
-		FileReader fr = null;
 		boolean newInstallation = false;
 
 		File propertiesFileInitial = new File(PROPERTIES_FILE_PATH_INITIAL);
@@ -391,46 +390,47 @@ public class LocalPropertiesService extends Observable {
 
 			}
 
-			fr = new FileReader(propertiesFile);
-			properties.load(fr);
 
-			if (!newInstallation) {
-				// Add properties in initial_properties that are not present in earth.properites
-				// so that adding new properties in coming version does not generate issues with
-				// older versions
-				if (propertiesFileInitial.exists()) {
-					Properties initialProperties = new Properties();
-					initialProperties.load(new FileReader(propertiesFileInitial));
+			try( FileReader fr = new FileReader(propertiesFile) ){
 
-					Enumeration<String> initialPropertyNames = (Enumeration<String>) initialProperties.propertyNames();
-					while (initialPropertyNames.hasMoreElements()) {
-						String nextElement = initialPropertyNames.nextElement();
-						if (properties.get(nextElement) == null) {
-							properties.put(nextElement, initialProperties.getProperty(nextElement));
+
+				properties.load(fr);
+
+				if (!newInstallation) {
+					// Add properties in initial_properties that are not present in earth.properites
+					// so that adding new properties in coming version does not generate issues with
+					// older versions
+					if (propertiesFileInitial.exists()) {
+						Properties initialProperties = new Properties();
+						initialProperties.load(new FileReader(propertiesFileInitial));
+
+						Enumeration<String> initialPropertyNames = (Enumeration<String>) initialProperties.propertyNames();
+						while (initialPropertyNames.hasMoreElements()) {
+							String nextElement = initialPropertyNames.nextElement();
+							if (properties.get(nextElement) == null) {
+								properties.put(nextElement, initialProperties.getProperty(nextElement));
+							}
 						}
 					}
-				}
 
-				// UPDATERS!
-				// Emergency procedure for forcing the change of a value for updaters!
-				File propertiesForceChange = new File(PROPERTIES_FILE_PATH_FORCED_UPDATE);
-				if (propertiesForceChange.exists()) {
-					fr = new FileReader(propertiesForceChange);
-					properties.load(fr);
-					// This procedure will only happen right after update
-					propertiesForceChange.deleteOnExit();
-				}
+					// UPDATERS!
+					// Emergency procedure for forcing the change of a value for updaters!
+					File propertiesForceChange = new File(PROPERTIES_FILE_PATH_FORCED_UPDATE);
+					if (propertiesForceChange.exists()) {
+						try( FileReader frUpdater = new FileReader(propertiesForceChange) ){
+							properties.load(fr);
+							// This procedure will only happen right after update
+							propertiesForceChange.deleteOnExit();
+						}
+					}
 
+				}
 			}
 
 		} catch (final FileNotFoundException e) {
 			logger.error("Could not find properties file", e);
 		} catch (final IOException e) {
 			logger.error("Could not open properties file", e);
-		} finally {
-			if (fr != null) {
-				fr.close();
-			}
 		}
 	}
 
@@ -449,7 +449,7 @@ public class LocalPropertiesService extends Observable {
 	public boolean isCodeEditorSupported() {
 		return isPropertyActivated(EarthProperty.OPEN_GEE_CODE_EDITOR);
 	}
-	
+
 	public boolean isEarthMapSupported() {
 		return isPropertyActivated(EarthProperty.OPEN_EARTH_MAP);
 	}

@@ -4,6 +4,15 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.10.17] - 2020-5-22
+
+### Added
+ - Support to Earth Map integration
+
+### Changed
+- Updated Chromedriver to be compatible with Chrome 83
+- New Demo Survey that guides the user through the plots with a connection to a HTML/PowerPoint slides.
+
 ## [1.10.16] - 2020-4-30
 
 ### Changed
@@ -21,12 +30,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 - Fixed the hesagon and circle shape plot layout generation.
 - Updater updated so that the chromedriver.exe processes are stoped and the updater might replace the file
-- Installer is now deleting the java and tmp folders so that there are no issues with the JRE versions 
+- Installer is now deleting the java and tmp folders so that there are no issues with the JRE versions
 
 ## [1.10.14] - 2020-3-30
 
 ### Changed
-- Updated to version 3.26.6 of Collect. 
+- Updated to version 3.26.6 of Collect.
 
 ## [1.10.12] - 2020-2-27
 
@@ -80,7 +89,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added support for Maxar SecureWatch imagery
 
 ### Changed
-- Updated the JRE used on the installer from Oracle 1.8.1_121 of AdoptOpenJDK 1.8.0_232 with 
+- Updated the JRE used on the installer from Oracle 1.8.1_121 of AdoptOpenJDK 1.8.0_232 with
 - Updated to latest version of Collect and syncronized libraries to use the same versions ( Spring and others)
 - Improved Planet integration
 
@@ -134,13 +143,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [1.8.0] - 2019-04-12
 
 ### Added
-- Added the Changelog mechanism to keep track of changes to the code 
+- Added the Changelog mechanism to keep track of changes to the code
 - Added a link to this Change Log from the About dialog
 - Added a button to access the Properties directly in the dialog
 
 ### Changed
 - Fix exceptions when no file is chosen in the "Find Missing Plots in Database" dialog
-- Operator name is updated automatically when the user finished typing on the text field 
+- Operator name is updated automatically when the user finished typing on the text field
 
 ### Removed
 - Removed the unnecessary Quit button from the main windows

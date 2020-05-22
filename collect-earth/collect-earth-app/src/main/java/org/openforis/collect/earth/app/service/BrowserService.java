@@ -67,9 +67,9 @@ import liquibase.util.SystemUtils;
  * program is set to open any of these integrations, and if it is so it will
  * open each one in its own window. These windows are closed when the program
  * is closed.
- * 
+ *
  * @author Alfonso Sanchez-Paus Diaz
- * 
+ *
  */
 @Component
 public class BrowserService implements InitializingBean, Observer {
@@ -85,7 +85,7 @@ public class BrowserService implements InitializingBean, Observer {
 
 	@Autowired
 	private GeolocalizeMapService geoLocalizeTemplateService;
-	
+
 	@Autowired
 	private EarthSurveyService earthSurveyService;
 
@@ -100,8 +100,8 @@ public class BrowserService implements InitializingBean, Observer {
 	private RemoteWebDriver webDriverEE, webDriverBing, webDriverBaidu, webDriverTimelapse, webDriverGeeCodeEditor,
 	webDriverHere, webDriverStreetView, webDriverYandex, webDriverPlanetHtml, webDriverExtraMap, webDriverSecureWatch,
 	webDriverGEEMap, webDriverEarthMap;
-	
-	
+
+
 	Map<String,String> locks = new HashMap<String,String>();
 
 	private static boolean geeMethodUpdated = false;
@@ -323,13 +323,13 @@ public class BrowserService implements InitializingBean, Observer {
 			try {
 				String dgmapJs = getDGMapJavascript(placemarkObject);
 				driver.executeScript(dgmapJs);
-				
+
 				Thread.sleep( 1000 );
 				// Unlock the view if it is locked
 				if( isCssElementPresent(".lock.on",  driver)  ) {
 					driver.findElementByCssSelector(".lock.on").click(); // UNLOCK
 				}
-				
+
 			} catch (final Exception e) {
 				processSeleniumError(e);
 				success = false;
@@ -413,7 +413,7 @@ public class BrowserService implements InitializingBean, Observer {
 	/**
 	 * Loads the given URL into the browser. If the browser is null then a new
 	 * browser window is open.
-	 * 
+	 *
 	 * @param url
 	 *            The URL to load.
 	 * @param driverParam
@@ -466,12 +466,12 @@ public class BrowserService implements InitializingBean, Observer {
 
 	/**
 	 * Opens a browser window with the Bing Maps representation of the plot.
-	 * 
+	 *
 	 * @param placemarkObject
 	 *            The data of the plot.
 	 * @throws BrowserNotFoundException
 	 *             In case the browser could not be found
-	 * 
+	 *
 	 */
 	public void openBingMaps(SimplePlacemarkObject placemarkObject) throws BrowserNotFoundException {
 		Object lock = getLock("BING");
@@ -501,12 +501,12 @@ public class BrowserService implements InitializingBean, Observer {
 
 	/**
 	 * Opens a browser window with the Planet Basemaps representation of the plot.
-	 * 
+	 *
 	 * @param placemarkObject
 	 *            The data of the plot.
 	 * @throws BrowserNotFoundException
 	 *             In case the browser could not be found
-	 * 
+	 *
 	 */
 	public void openPlanetMaps(SimplePlacemarkObject placemarkObject) throws BrowserNotFoundException {
 		Object lock = getLock("PLANET");
@@ -514,18 +514,18 @@ public class BrowserService implements InitializingBean, Observer {
 			if (localPropertiesService.isPlanetMapsSupported()) {
 				try {
 					webDriverPlanetHtml = navigateTo(
-	
+
 							geoLocalizeTemplateService.getUrlToFreemarkerOutput(
 									placemarkObject,
-									GeolocalizeMapService.FREEMARKER_PLANET_HTML_TEMPLATE, 
+									GeolocalizeMapService.FREEMARKER_PLANET_HTML_TEMPLATE,
 									"planetMapsKey",
-									localPropertiesService.getValue(EarthProperty.PLANET_MAPS_KEY), 
+									localPropertiesService.getValue(EarthProperty.PLANET_MAPS_KEY),
 									"urlPlanetEndpointPrefix",
 									ServerController.getHostAddress(
 											localPropertiesService.getHost(),
 											localPropertiesService.getPort())
 									/*"latestUrl",
-								new PlanetImagery(localPropertiesService.getPlanetMapsKey()).getLatestUrl(placemarkObject)).toString(), 
+								new PlanetImagery(localPropertiesService.getPlanetMapsKey()).getLatestUrl(placemarkObject)).toString(),
 									 */).toString(),
 							webDriverPlanetHtml
 							);
@@ -538,18 +538,18 @@ public class BrowserService implements InitializingBean, Observer {
 
 	/**
 	 * Opens a browser window with the Baidu Maps representation of the plot.
-	 * 
+	 *
 	 * @param placemarkObject
 	 *            The data of the plot.
 	 * @throws BrowserNotFoundException
 	 *             In case the browser could not be found
-	 * 
+	 *
 	 */
 	public void openBaiduMaps(SimplePlacemarkObject placemarkObject) throws BrowserNotFoundException {
 		Object lock = getLock("BAIDU");
 		synchronized (lock) {
 			if (localPropertiesService.isBaiduMapsSupported()) {
-	
+
 				try {
 					webDriverBaidu = navigateTo(geoLocalizeTemplateService
 							.getUrlToFreemarkerOutput(placemarkObject, GeolocalizeMapService.FREEMARKER_BAIDU_HTML_TEMPLATE)
@@ -563,12 +563,12 @@ public class BrowserService implements InitializingBean, Observer {
 
 	/**
 	 * Opens a browser window with the Yandex Maps representation of the plot.
-	 * 
+	 *
 	 * @param placemarkObject
 	 *            The data of the plot.
 	 * @throws BrowserNotFoundException
 	 *             In case the browser could not be found
-	 * 
+	 *
 	 */
 	public void openYandexMaps(SimplePlacemarkObject placemarkObject) throws BrowserNotFoundException {
 		Object lock = getLock("YANDEX");
@@ -586,12 +586,12 @@ public class BrowserService implements InitializingBean, Observer {
 
 	/**
 	 * Opens a browser window with a map representation of the plot in SecureWatch.
-	 * 
+	 *
 	 * @param placemarkObject
 	 *            The data of the plot.
 	 * @throws BrowserNotFoundException
 	 *             In case the browser could not be found
-	 * 
+	 *
 	 */
 	public void openSecureWatch(SimplePlacemarkObject placemarkObject) throws BrowserNotFoundException {
 		Object lock = getLock("SECUREWATCH");
@@ -611,12 +611,12 @@ public class BrowserService implements InitializingBean, Observer {
 
 	/**
 	 * Opens a browser window with a map representation of the plot.
-	 * 
+	 *
 	 * @param placemarkObject
 	 *            The data of the plot.
 	 * @throws BrowserNotFoundException
 	 *             In case the browser could not be found
-	 * 
+	 *
 	 */
 	public void openExtraMap(SimplePlacemarkObject placemarkObject) throws BrowserNotFoundException {
 		Object lock = getLock("EXTRA");
@@ -648,12 +648,12 @@ public class BrowserService implements InitializingBean, Observer {
 	 * Opens a browser window with the Google Street View representation of the
 	 * plot.
 	 * https://www.google.com/maps/@43.7815661,11.1484876,3a,75y,210.23h,82.32t/data=!3m6!1e1!3m4!1sEz7NiCbaIYzTJkP_RMBiqw!2e0!7i13312!8i6656?hl=en
-	 * 
+	 *
 	 * @param placemarkObject
 	 *            The data of the plot.
 	 * @throws BrowserNotFoundException
 	 *             In case the browser could not be found
-	 * 
+	 *
 	 */
 	public void openStreetView(SimplePlacemarkObject placemarkObject) throws BrowserNotFoundException {
 		Object lock = getLock("STREET_VIEW");
@@ -674,12 +674,12 @@ public class BrowserService implements InitializingBean, Observer {
 
 	/**
 	 * Opens a browser window with the Here Maps representation of the plot.
-	 * 
+	 *
 	 * @param placemarkObject
 	 *            The data of the plot.
 	 * @throws BrowserNotFoundException
 	 *             In case the browser could not be found
-	 * 
+	 *
 	 */
 	public void openHereMaps(SimplePlacemarkObject placemarkObject) throws BrowserNotFoundException {
 		Object lock = getLock("HERE");
@@ -694,7 +694,7 @@ public class BrowserService implements InitializingBean, Observer {
 				} catch (final Exception e) {
 					logger.error("Problems loading Here Maps", e);
 				}
-	
+
 			}
 		}
 	}
@@ -718,8 +718,8 @@ public class BrowserService implements InitializingBean, Observer {
 
 	private String getFeature(SimplePlacemarkObject placemarkObject, String shapeType, String name ) {
 		StringBuilder feature = new StringBuilder("{\"type\":\"Feature\",\"properties\":{\"name\":\"").append( name).append("\"},\"geometry\":");
-		feature= feature.append(   getGeoJson(placemarkObject, shapeType )).append("}");				
-		return feature.toString();		
+		feature= feature.append(   getGeoJson(placemarkObject, shapeType )).append("}");
+		return feature.toString();
 	}
 
 	private String getGeoJson(SimplePlacemarkObject placemarkObject, String shapeType ) {
@@ -736,18 +736,18 @@ public class BrowserService implements InitializingBean, Observer {
 	 * Opens a browser window with the Google Earth Engine Code Editor and runs the
 	 * freemarker template found in resources/eeCodeEditorScript.fmt on the main
 	 * editor of GEE.
-	 * 
+	 *
 	 * @param placemarkObject
 	 *            The center point of the plot.
 	 * @throws BrowserNotFoundException
 	 *             If the browser cannot be found
-	 * 
+	 *
 	 */
 	public void openGEEAppURL(SimplePlacemarkObject placemarkObject) throws BrowserNotFoundException {
 		Object lock = getLock("GEEAPP");
 		synchronized (lock) {
 			if (localPropertiesService.isGEEAppSupported()) {
-	
+
 				try {
 					StringBuilder url = new StringBuilder(localPropertiesService.getGEEAppURL());
 					url = url.append("#geoJson=")
@@ -773,26 +773,26 @@ public class BrowserService implements InitializingBean, Observer {
 		Object lock = getLock("EARTH_MAP");
 		synchronized (lock) {
 			if (localPropertiesService.isEarthMapSupported()) {
-				
-				
+
+
 				try {
 					StringBuilder url = new StringBuilder(localPropertiesService.getEarthMapURL()).append("?");
 					url = url.append("polygon=")
 							.append(URLEncoder.encode(getFeature(placemarkObject, "Polygon", placemarkObject.getPlacemarkId()), StandardCharsets.UTF_8.toString()))
 							.append("&");
-					
+
 					if( StringUtils.isNotBlank(localPropertiesService.getEarthMapLayers()) ) {
 						url = url.append("layers=")
 								.append(URLEncoder.encode(localPropertiesService.getEarthMapLayers(), StandardCharsets.UTF_8.toString()))
 								.append("&");
 					}
-					
+
 					if( StringUtils.isNotBlank(localPropertiesService.getEarthMapScripts()) ) {
 						url = url.append("scripts=")
 								.append(URLEncoder.encode(localPropertiesService.getEarthMapScripts(), StandardCharsets.UTF_8.toString()))
 								.append("&");
 					}
-					
+
 					String aoi = localPropertiesService.getEarthMapAOI();
 					if( StringUtils.isBlank(aoi) ) {
 						aoi = "global";
@@ -800,7 +800,7 @@ public class BrowserService implements InitializingBean, Observer {
 					url = url.append("aoi=")
 							.append(URLEncoder.encode( aoi, StandardCharsets.UTF_8.toString() ))
 							.append("&");
-	
+
 					webDriverEarthMap = navigateTo(url.toString(), webDriverEarthMap);
 					//Desktop.getDesktop().browse( new URI( url.toString() ) );
 					//webDriverEarthMap.navigate().refresh();  // FORCE REFRESH - OTHERWISE WINDOW IS NOT REFRESHED FOR SOME STRANGE REASON
@@ -815,28 +815,28 @@ public class BrowserService implements InitializingBean, Observer {
 	 * Opens a browser window with the Google Earth Engine Code Editor and runs the
 	 * freemarker template found in resources/eeCodeEditorScript.fmt on the main
 	 * editor of GEE.
-	 * 
+	 *
 	 * @param placemarkObject
 	 *            The center point of the plot.
 	 * @throws BrowserNotFoundException
 	 *             If the browser cannot be found
-	 * 
+	 *
 	 */
 	public void openGEECodeEditor(SimplePlacemarkObject placemarkObject) throws BrowserNotFoundException {
 		Object lock = getLock("CODE_EDITOR");
 		synchronized (lock) {
 			if (localPropertiesService.isCodeEditorSupported()) {
-	
+
 				boolean firstOpening = false;
 				if (getWebDriverGeeCodeEditor() == null) {
 					setWebDriverGeeCodeEditor(initBrowser());
 					firstOpening = true;
 				}
-	
+
 				if (firstOpening && (SystemUtils.IS_OS_MAC || SystemUtils.IS_OS_MAC_OSX)) {
 					codeEditorHandlerThread.disableCodeEditorAutocomplete(getWebDriverGeeCodeEditor());
 				}
-	
+
 				codeEditorHandlerThread.loadCodeEditorScript(placemarkObject, getWebDriverGeeCodeEditor());
 			}
 		}
@@ -846,24 +846,24 @@ public class BrowserService implements InitializingBean, Observer {
 	 * Opens a browser window with the Google Earth Engine representation of the
 	 * plot. The Landsat 8 Annual Greenest pixel TOA for 2013 is loaded
 	 * automatically.
-	 * 
+	 *
 	 * @param placemarkObject
 	 *            The center point of the plot.
 	 * @throws BrowserNotFoundException
 	 *             If the browser cannot be found
-	 * 
+	 *
 	 */
 	public void openGEEExplorer(SimplePlacemarkObject placemarkObject) throws BrowserNotFoundException {
 		Object lock = getLock("GEE_EXPLORER");
 		synchronized (lock) {
 			logger.warn("Starting to open EE - supported : {}", localPropertiesService.isExplorerSupported());
 			if (localPropertiesService.isExplorerSupported()) {
-	
+
 				if (webDriverEE == null) {
 					setGeeMethodUpdated(false); // Force the method to find the GEE specific methods again
 					webDriverEE = initBrowser();
 				}
-	
+
 				try {
 					logger.warn("Loading layers - {}", placemarkObject);
 					loadPlotInGEEExplorer(placemarkObject, webDriverEE);
@@ -877,12 +877,12 @@ public class BrowserService implements InitializingBean, Observer {
 	/**
 	 * Opens a browser window with the Google Earth Engine Timelapse representation
 	 * of the plot.
-	 * 
+	 *
 	 * @param placemarkObject
 	 *            The center point of the plot.
 	 * @throws BrowserNotFoundException
 	 *             If the browser cannot be found
-	 * 
+	 *
 	 */
 	public void openTimelapse(final SimplePlacemarkObject placemarkObject)
 			throws BrowserNotFoundException {
