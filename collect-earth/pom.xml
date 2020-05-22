@@ -40,7 +40,7 @@
 
 	<scm>
 		<developerConnection>scm:git:https://github.com/openforis/collect-earth.git</developerConnection>
-		<tag>collect-earth-1.10.1</tag>		
+		<tag>collect-earth-1.10.1</tag>
 	</scm>
 
 	<build>
@@ -75,7 +75,7 @@
 			</plugins>
 		</pluginManagement>
 	</build>
-	
+
 	<repositories>
 		<repository>
 			<id>openforis-releases</id>
@@ -93,7 +93,7 @@
 			<url>http://www.openforis.org/nexus/content/repositories/thirdparty/</url>
 		</repository>
 	</repositories>
-	
+
 	<dependencyManagement>
 	<dependencies>
 		<dependency>
@@ -112,7 +112,7 @@
 			<version>${collect.version}</version>
 		</dependency>
 
-		
+
 	</dependencies>
 	</dependencyManagement>
 	<url>http://www.openforis.org/tools/collect-earth.html</url>

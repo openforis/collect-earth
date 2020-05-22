@@ -17,8 +17,6 @@
 		<selenium.version>3.141.59</selenium.version>
 		<sonar.language>java</sonar.language>
 		<classpath.prefix>earth-libs</classpath.prefix>
-	    <maven.compiler.source>1.8</maven.compiler.source>
-	    <maven.compiler.target>1.8</maven.compiler.target>
 	</properties>
 
 	<dependencies>
