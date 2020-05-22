@@ -10,7 +10,6 @@ import java.sql.Statement;
 import java.util.Map;
 import java.util.Observable;
 import java.util.Observer;
-import java.util.concurrent.TimeUnit;
 
 import org.eclipse.jetty.server.Connector;
 import org.eclipse.jetty.server.Server;
@@ -34,9 +33,9 @@ import freemarker.template.TemplateException;
 
 /**
  * Controls the Jetty server, starting and stopping it as well as reporting its staus.
- * 
+ *
  * @author Alfonso Sanchez-Paus Diaz
- * 
+ *
  */
 public class ServerController extends Observable {
 
@@ -45,13 +44,13 @@ public class ServerController extends Observable {
 	public static final String SAIKU_RDB_SUFFIX = "Saiku"; //$NON-NLS-1$
 	// Make sure that the default ports are the same for Server and Generator
 	private static final String DEFAULT_PORT = "80"; //$NON-NLS-1$
-		
-	public enum ServerInitializationEvent{ 
-		SERVER_STOPPED_EVENT("The Server has stopped"), 
-		SERVER_STARTED_EVENT("The server started without problems"), 
-		SERVER_STARTED_NO_DB_CONNECTION_EVENT("Collect Earth could not start due to a DB connection issue"), 
+
+	public enum ServerInitializationEvent{
+		SERVER_STOPPED_EVENT("The Server has stopped"),
+		SERVER_STARTED_EVENT("The server started without problems"),
+		SERVER_STARTED_NO_DB_CONNECTION_EVENT("Collect Earth could not start due to a DB connection issue"),
 		SERVER_STARTED_WITH_DATABASE_CHANGE_EVENT( "Collect Earth started but the PostgreSQL DB could not be reached (SQLite used instead until problems are fixed)");
-		
+
 		private String message;
 
 		private ServerInitializationEvent(String message) {
@@ -64,7 +63,7 @@ public class ServerController extends Observable {
 		}
 
 	}
-	
+
 	private Server server;
 	private final Logger logger = LoggerFactory.getLogger(ServerController.class);
 	private WebAppContext root;
@@ -136,8 +135,8 @@ public class ServerController extends Observable {
 		data.put("collectEarthExecutionFolder", System.getProperty("user.dir") + File.separator); //$NON-NLS-1$ //$NON-NLS-2$
 
 		FreemarkerTemplateUtils.applyTemplate(jettyAppCtxTemplateSrc, jettyAppCtxDst, data);
-		
-		
+
+
 		return isConnectionTypeSwitched;
 
 	}
@@ -147,9 +146,9 @@ public class ServerController extends Observable {
 		Connection connection = null;
 		try {
 			Class.forName("org.postgresql.Driver");
-			connection = DriverManager.getConnection( 
-					getDbURL(collectDBDriver), 
-					localPropertiesService.getValue(EarthProperty.DB_USERNAME), 
+			connection = DriverManager.getConnection(
+					getDbURL(collectDBDriver),
+					localPropertiesService.getValue(EarthProperty.DB_USERNAME),
 					localPropertiesService.getValue(EarthProperty.DB_PASSWORD)
 					);
 
@@ -163,7 +162,7 @@ public class ServerController extends Observable {
 					System.out.print( "It works, there are " + rs.getString(1) + " rows on the ofc_record table");
 				}
 				connectionWorked = true;
-				
+
 			}
 			else
 				System.out.println("Connection Failed!");
@@ -179,7 +178,7 @@ public class ServerController extends Observable {
 				}
 			}
 		}
-		
+
 		return connectionWorked;
 
 	}
@@ -197,7 +196,7 @@ public class ServerController extends Observable {
 	public void startServer(Observer observeInitialization) throws Exception {
 
 		localPropertiesService = new LocalPropertiesService();
-				 
+
 		this.addObserver(observeInitialization);
 
 		boolean postgresConnectionSwitchedtoSqlite = initilizeDataSources();
@@ -207,19 +206,20 @@ public class ServerController extends Observable {
 
 			// The port that we should run on can be set into an environment variable
 			// Look for that variable and default to 8080 if it isn't there.
-			
+
 			// For log4j 1.2 --> Moving to Log4J2
 			//PropertyConfigurator.configure(this.getClass().getResource("/WEB-INF/conf/log4j.properties"));
 
 			//server = new Server(new ExecutorThreadPool(10, 50, 5, TimeUnit.SECONDS)); // For JEtty 7
-			server = new Server(new ExecutorThreadPool(50, 50, 5, TimeUnit.MILLISECONDS) ); // For JEtty 9, different parameters for the constructor
+			//server = new Server(new ExecutorThreadPool(50, 50, 5, TimeUnit.MILLISECONDS) ); // For JEtty 9, different parameters for the constructor
+			server = new Server(new ExecutorThreadPool() ); // For JEtty 9.4, different parameters for the constructor
 
 			// // Use blocking-IO connector to improve throughput
 			final ServerConnector connector = new ServerConnector(server);
 			connector.setName( LocalPropertiesService.LOCAL_HOST + ":" + getPort()); //$NON-NLS-1$
 			connector.setHost("0.0.0.0"); //$NON-NLS-1$
 			//connector.setHost( LocalPropertiesService.LOCAL_HOST );
-			 
+
 			connector.setPort(getPort());
 
 			connector.setStopTimeout(1000);
@@ -265,12 +265,12 @@ public class ServerController extends Observable {
 		} catch (Exception e) {
 			logger.error("Error staring the server", e); //$NON-NLS-1$
 		}
-		
+
 		// Force the local properties to be loaded before the browserservice is instantiated!! DO NOT REMOVE
 		LocalPropertiesService localPropertiesService = getContext().getBean(LocalPropertiesService.class);
 		this.addObserver(getContext().getBean(BrowserService.class));
 		//Force the initialization of backup service
-		//getContext().getBean( BackupSqlLiteService.class);		
+		//getContext().getBean( BackupSqlLiteService.class);
 	}
 
 	public void stopServer() throws Exception {
