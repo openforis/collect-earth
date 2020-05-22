@@ -7,6 +7,11 @@
 		<artifactId>collect-earth</artifactId>
 		<version>1.10.17-SNAPSHOT</version>
 	</parent>
+
+	<properties>
+    	<maven.compiler.source>1.8</maven.compiler.source>
+    	<maven.compiler.target>1.8</maven.compiler.target>
+  	</properties>
 	<artifactId>collect-earth-grid</artifactId>
 	<packaging>jar</packaging>
 	<name>Open Foris Collect Earth Grid</name>
