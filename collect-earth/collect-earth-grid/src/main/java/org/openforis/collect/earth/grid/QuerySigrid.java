@@ -12,7 +12,7 @@ public class QuerySigrid {
 	JDBCStore database = new JDBCStore();
 	CSVStore csv = new CSVStore();
 	private Logger logger = LoggerFactory.getLogger(this.getClass());
-	
+
 	public ResultSet getSigridForShapefile( File shapefile, Integer gridDistance, Integer grid ){
 		return null;
 	}
@@ -30,9 +30,9 @@ public class QuerySigrid {
 		try {
 			while(results.next()) {
 				csv.savePlot(
-						results.getInt("ycoordinate") * 1d /JDBCStore.SCALING_FACTOR *1d, 
-						results.getInt("xcoordinate") * 1d  /JDBCStore.SCALING_FACTOR * 1d , 
-						results.getInt("row"), 
+						results.getInt("ycoordinate") * 1d /JDBCStore.SCALING_FACTOR *1d,
+						results.getInt("xcoordinate") * 1d  /JDBCStore.SCALING_FACTOR * 1d ,
+						results.getInt("row"),
 						results.getInt("col")
 						);
 			}
@@ -47,6 +47,7 @@ public class QuerySigrid {
 	public static void main(String[] args) {
 		QuerySigrid querySigrid = new QuerySigrid();
 		//Double East, Double North, Double West, Double South
+		querySigrid.writeCsvFromBoundingBox( new Double[] {88.33d, 30.67d, 79.79d, 26.39d}, 1000, 1, "Nepal");
 		//querySigrid.writeCsvFromBoundingBox( new Double[] {38d,38d,-17d,14d}, 1000, 10, "NorthAfrica");
 		//querySigrid.writeCsvFromBoundingBox( new Double[] {60d,38d,-17d,-35d}, 1000, 10, "AllAfricaAfrica");
 		//querySigrid.writeCsvFromBoundingBox( new Double[] {11.7d, 37.5d, 7.2d, 30d}, 1000, 1, "Tunisia_1000");
@@ -64,8 +65,8 @@ public class QuerySigrid {
 		//querySigrid.writeCsvFromBoundingBox( new Double[] {35.13d, 4.34d, 29.49d, -1.56d}, 1000, 2, "Uganda");
 		//querySigrid.writeCsvFromBoundingBox( new Double[] {50.8d, 42d, 44.5d, 38.2d}, 1000, 1, "Azerbaijan");
 		//querySigrid.writeCsvFromBoundingBox( new Double[] {1.36d, 11.28d, -3.37d, 4.64d}, 1000, 1, "Ghana");
-		querySigrid.writeCsvFromBoundingBox( new Double[] {-60.84d, 15.67d, -61.52d, 13.70d}, 1000, 1, "Caribean");
-		
+		//querySigrid.writeCsvFromBoundingBox( new Double[] {-60.84d, 15.67d, -61.52d, 13.70d}, 1000, 1, "Caribean");
+
 		//querySigrid.writeCsvFromBoundingBox( new Double[] {77.8d, 45.00d, 77.29d, 44.58d}, 1000, 1, "Kazakhstan_CACILM");
 		//querySigrid.writeCsvFromBoundingBox( new Double[] {33.24d, 40.71d, 29.62d, 38.80d}, 1000, 1, "Turkey_CACILM");
 		//querySigrid.writeCsvFromBoundingBox( new Double[] {76.68d, 42.47d, 74.65d, 41.71d}, 1000, 1, "Kyrgyzstan_CACILM");
