@@ -11,7 +11,7 @@ public class QuerySigrid {
 
 	JDBCStore database = new JDBCStore();
 	CSVStore csv = new CSVStore();
-	private Logger logger = LoggerFactory.getLogger(this.getClass());
+	//private Logger logger = LoggerFactory.getLogger(this.getClass());
 
 	public ResultSet getSigridForShapefile( File shapefile, Integer gridDistance, Integer grid ){
 		return null;
@@ -47,7 +47,7 @@ public class QuerySigrid {
 	public static void main(String[] args) {
 		QuerySigrid querySigrid = new QuerySigrid();
 		//Double East, Double North, Double West, Double South
-		querySigrid.writeCsvFromBoundingBox( new Double[] {88.33d, 30.67d, 79.79d, 26.39d}, 1000, 1, "Nepal");
+		querySigrid.writeCsvFromBoundingBox( new Double[] {88.21d, 30.48d, 80.05d, 26.34d}, 1000, 1, "Nepal");
 		//querySigrid.writeCsvFromBoundingBox( new Double[] {38d,38d,-17d,14d}, 1000, 10, "NorthAfrica");
 		//querySigrid.writeCsvFromBoundingBox( new Double[] {60d,38d,-17d,-35d}, 1000, 10, "AllAfricaAfrica");
 		//querySigrid.writeCsvFromBoundingBox( new Double[] {11.7d, 37.5d, 7.2d, 30d}, 1000, 1, "Tunisia_1000");
