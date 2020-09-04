@@ -39,7 +39,7 @@ public class PlanetImagery {
 	private static final SSLSocketFactory factory = getSSLAcceptAllFactory();
 
 	private String apiKey;
-	
+
 	private int retries = 0;
 
 	private static final int MAX_IMAGES_IN_LAYER = 5;
@@ -118,7 +118,7 @@ public class PlanetImagery {
 			}
 
 			// very  important to keep the semicolon at the end
-			String basicAuth = "Basic " + new String(Base64.getEncoder().encode((apiKey + ":").getBytes())); 
+			String basicAuth = "Basic " + new String(Base64.getEncoder().encode((apiKey + ":").getBytes()));
 			conn.setRequestProperty("Authorization", basicAuth);
 
 			conn.setRequestMethod(jsonObject != null ? "POST" : "GET");
@@ -171,7 +171,7 @@ public class PlanetImagery {
 		} catch (Exception e) {
 			logger.error( "Error obtaining SSL factory when opeining Planet REST URL",e);
 		}
-		
+
 		return factory;
 	}
 
@@ -217,13 +217,14 @@ public class PlanetImagery {
 			if (links != null && links.getNext() != null) {
 				String nextUrl = links.getNext();
 				String res = sendRequest(new URL(nextUrl), null);
-				Feature[] next_features = getNextPage(res);
-				return ArrayUtils.addAll(features, next_features);
+				Feature[] nextFeatures = getNextPage(res);
+				return ArrayUtils.addAll(features, nextFeatures);
 			} else {
 				return features;
 			}
-		} else
+		} else {
 			return new Feature[] {};
+		}
 	}
 
 	private String getLayers(Feature[] features) throws IOException {
