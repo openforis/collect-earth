@@ -4,7 +4,13 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [1.10.18] - 2020-9-30
+## [1.10.19] - 2020-9-28
+
+### Added
+ - Updated AutoUpdater to support SSL connection in preparation for the migration to Sonatype Repositories
+
+
+## [1.10.18] - 2020-8-30
 
 ### Changed
  - Update to use latest version of Chrome 85 and Firefox 80
