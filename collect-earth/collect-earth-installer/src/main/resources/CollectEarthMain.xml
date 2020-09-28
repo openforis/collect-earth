@@ -143,7 +143,7 @@
         <folder>
             <description>Program Files</description>
             <destination>${installdir}</destination>
-            <name>programfileslinux</name>
+            <name>programfileslinux64</name>
             <platforms>linux-x64</platforms>
             <distributionFileList>
                 <distributionFile>
@@ -157,7 +157,7 @@
         <folder>
             <description>Program Files</description>
             <destination>${installdir}</destination>
-            <name>programfileswindows</name>
+            <name>programfileswindows64</name>
             <platforms>windows-x64</platforms>
             <distributionFileList>
                 <distributionFile>
