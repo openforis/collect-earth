@@ -130,13 +130,24 @@
             <description>Program Files</description>
             <destination>${installdir}</destination>
             <name>programfileslinux</name>
-            <platforms>linux linux-x64</platforms>
+            <platforms>linux</platforms>
             <distributionFileList>
                 <distributionFile>
                     <origin>launcher_logo.png</origin>
                 </distributionFile>
                 <distributionFile>
                     <origin>COLLECT_EARTH_MAIN_FOLDER/collect-earth-app/autoupdate/autoupdate.run</origin>
+                </distributionFile>
+            </distributionFileList>
+        </folder>
+        <folder>
+            <description>Program Files</description>
+            <destination>${installdir}</destination>
+            <name>programfileslinux</name>
+            <platforms>linux-x64</platforms>
+            <distributionFileList>
+                <distributionFile>
+                    <origin>launcher_logo.png</origin>
                 </distributionFile>
                 <distributionFile>
                     <origin>COLLECT_EARTH_MAIN_FOLDER/collect-earth-app/autoupdate/autoupdate-x64.run</origin>
@@ -147,7 +158,21 @@
             <description>Program Files</description>
             <destination>${installdir}</destination>
             <name>programfileswindows</name>
-            <platforms>windows windows-x64</platforms>
+            <platforms>windows-x64</platforms>
+            <distributionFileList>
+                <distributionFile>
+                    <origin>launcher_icon.ico</origin>
+                </distributionFile>
+                <distributionFile>
+                    <origin>COLLECT_EARTH_MAIN_FOLDER/collect-earth-app/autoupdate/autoupdate-x64.exe</origin>
+                </distributionFile>
+            </distributionFileList>
+        </folder>
+        <folder>
+            <description>Program Files</description>
+            <destination>${installdir}</destination>
+            <name>programfileswindows</name>
+            <platforms>windows</platforms>
             <distributionFileList>
                 <distributionFile>
                     <origin>launcher_icon.ico</origin>
@@ -163,7 +188,7 @@
             <name>programfilesosx</name>
             <platforms>osx</platforms>
             <distributionFileList>
-                <!-- 
+                <!--
                 <distributionFile>
                     <origin>launcher_icon.icns</origin>
                 </distributionFile>
@@ -184,14 +209,14 @@
         	<actionList>
         		<setInstallerVariable>
         			<name>default_installdir</name>
-        			<value>${env(SYSTEMDRIVE)}/OpenForis/${product_shortname}</value> 
+        			<value>${env(SYSTEMDRIVE)}/OpenForis/${product_shortname}</value>
         		</setInstallerVariable>
         	</actionList>
         	<conditionRuleList>
         		<platformTest>
         			<type>windows-x64</type>
         		</platformTest>
-			</conditionRuleList> 
+			</conditionRuleList>
 			<elseActionList>
 				<setInstallerVariable>
 				<name>default_installdir</name>
@@ -200,7 +225,7 @@
 			</elseActionList>
 		</if>
     </initializationActionList>
-    
+
     <parameterList>
         <directoryParameter>
             <name>installdir</name>
@@ -218,7 +243,7 @@
     </parameterList>
     <postBuildActionList>
         <!-- Change installer icon on OS X, during build time -->
-        
+
         <copyFile>
             <destination>${installbuilder_output_filename}/Contents/Resources/installbuilder.icns</destination>
             <origin>COLLECT_EARTH_MAIN_FOLDER/collect-earth-installer/src/main/resources/installer_icon.icns</origin>
@@ -240,7 +265,7 @@
         	<progressText>Removing old updaters</progressText>
         	<abortOnError>0</abortOnError>
         </deleteFile>
-            
+
     </preInstallationActionList>
     <postInstallationActionList>
         <substitute>
@@ -257,7 +282,7 @@
                 </substitution>
             </substitutionList>
         </substitute>
-        	
+
         <changePermissions>
             <files>${installdir}/${java_launcher_binary_name};${installdir}/*.log;${installdir}/*.properties;${installdir}/generated;${installdir}/*.db;${installdir}/*.dbSaiku</files>
             <permissions>0777</permissions>
@@ -280,7 +305,7 @@
                 </platformTest>
             </ruleList>
         </changePermissions>
-		<changePermissions> 
+		<changePermissions>
 			<files>${installdir}/*.app/Contents/MacOS/*</files>
 			<permissions>0755</permissions>
 			<ruleList>
@@ -289,7 +314,7 @@
                 </platformTest>
             </ruleList>
 		</changePermissions>
-        
+
         <createSymLink>
             <linkName>~/Desktop/Collect Earth.app</linkName>
             <target>${installdir}/${java_launcher_binary_name}</target>
@@ -343,7 +368,7 @@
                 </platformTest>
             </ruleList>
         </runProgram>
-                 
+
         <!-- Make sure that Collect Earth runs properly n 4K displays by disabling the High DPI feature -->
          <registrySet>
 	      <type>REG_SZ</type>
@@ -356,8 +381,8 @@
                 </platformTest>
             </ruleList>
 		</registrySet>
-        
-            
+
+
     </postInstallationActionList>
     <startMenuShortcutList>
         <startMenuShortcut>

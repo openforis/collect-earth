@@ -7,11 +7,11 @@
         <key>CFBundleExecutable</key>
         <string>installbuilder.sh</string>
         <key>CFBundleGetInfoString</key>
-        <string>Collect Earth 1.8.8</string>
+        <string>Collect Earth 1.10.19</string>
         <key>CFBundleIconFile</key>
         <string>installbuilder.icns</string>
         <key>CFBundleIdentifier</key>
-        <string>com.bitrock.autoupdate</string>
+        <string>com.installbuilder.autoupdate</string>
         <key>CFBundleInfoDictionaryVersion</key>
         <string>6.0</string>
         <key>CFBundleLocalizations</key>
@@ -23,11 +23,11 @@
         <key>CFBundlePackageType</key>
         <string>APPL</string>
         <key>CFBundleShortVersionString</key>
-        <string>1.8.8</string>
+        <string>1.10.19</string>
         <key>CFBundleSignature</key>
-        <string>BitRock InstallBuilder</string>
+        <string>VMware InstallBuilder</string>
         <key>CFBundleVersion</key>
-        <string>1.8.8</string>
+        <string>1.10.19</string>
         <key>NSHighResolutionCapable</key>
         <true/>
  </dict>
