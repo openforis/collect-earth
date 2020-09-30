@@ -3,7 +3,7 @@
 	<parent>
 		<groupId>org.openforis.collect.earth</groupId>
 		<artifactId>collect-earth</artifactId>
-		<version>1.10.20-SNAPSHOT</version>
+		<version>1.11.00-SNAPSHOT</version>
 	</parent>
 	<artifactId>collect-earth-installer</artifactId>
 	<packaging>pom</packaging>
@@ -11,7 +11,7 @@
 	<description>Module to create the installers for Open Foris Collect Earth</description>
 
 	<properties>
-		<!-- to avoid replacing relative path to images and other resources used 
+		<!-- to avoid replacing relative path to images and other resources used
 			by the installer -->
 		<installer-build-path>${project.build.directory}/installer</installer-build-path>
 		<installbuilder-file-name>CollectEarthWithSaiku.xml</installbuilder-file-name>
@@ -20,13 +20,13 @@
 		<!-- installer file names -->
 		<windows-installer-file-name>CollectEarth-${project.version}-windows-installer.exe</windows-installer-file-name>
 		<linux-x64-installer-file-name>CollectEarth-${project.version}-linux-x64-installer.run</linux-x64-installer-file-name>
-		
+
 		<osx-installer-file-name>CollectEarth-${project.version}-osx-installer.dmg</osx-installer-file-name>
 		<!-- autoupdater file names -->
 		<windows-autoupdater-file-name>CollectEarthUpdater-${project.version}-windows-installer.exe</windows-autoupdater-file-name>
 		<linux-x64-autoupdater-file-name>CollectEarthUpdater-${project.version}-linux-x64-installer.run</linux-x64-autoupdater-file-name>
 		<osx-autoupdater-file-name>CollectEarthUpdater-${project.version}-osx-installer.app.zip</osx-autoupdater-file-name>
-		
+
 		<autoupdater-xml-file-name>collectEarthUpdate.xml</autoupdater-xml-file-name>
 	</properties>
 
@@ -34,10 +34,10 @@
 		<profile>
 			<id>assembly</id>
 			<build>
-				
+
 			<plugins>
-			
-				<!--  0. create a buildnumber to use for the updater and set a ${buildNumber} variable --> 
+
+				<!--  0. create a buildnumber to use for the updater and set a ${buildNumber} variable -->
 				<plugin>
 					<groupId>org.codehaus.mojo</groupId>
 					<artifactId>buildnumber-maven-plugin</artifactId>
@@ -57,8 +57,8 @@
 						</items>
 					</configuration>
 				</plugin>
-						      
-					<!--  1. extract jre and collect-assembly into build folder --> 
+
+					<!--  1. extract jre and collect-assembly into build folder -->
 					<plugin>
 						<groupId>org.apache.maven.plugins</groupId>
 						<artifactId>maven-dependency-plugin</artifactId>
@@ -90,7 +90,7 @@
 											<overWrite>false</overWrite>
 											<outputDirectory>${installer-build-path}/jre_files</outputDirectory>
 										</artifactItem>
-										
+
 										<artifactItem>
 											<groupId>net.java.openjdk</groupId>
 											<artifactId>jre</artifactId>
@@ -100,11 +100,11 @@
 											<overWrite>false</overWrite>
 											<outputDirectory>${installer-build-path}/jre_files</outputDirectory>
 										</artifactItem>
-									
+
 									</artifactItems>
 								</configuration>
 							</execution>
-							
+
 						</executions>
 					</plugin>
 
@@ -135,8 +135,8 @@
 						</executions>
 					</plugin>
 
-					<!-- 3. replace application version into the xml installbuilder source file--> 
-						
+					<!-- 3. replace application version into the xml installbuilder source file-->
+
 					<plugin>
 						<groupId>com.google.code.maven-replacer-plugin</groupId>
 						<artifactId>maven-replacer-plugin</artifactId>
@@ -194,8 +194,8 @@
 									<token>JAVA_VERSION_SET_POM</token>
 									<value>${jre.version}</value>
 								</replacement>
-								
-								
+
+
 							</replacements>
 						</configuration>
 					</plugin>
@@ -222,7 +222,7 @@
 									</arguments>
 								</configuration>
 							</execution>
-							
+
 							<execution>
 								<id>windows-updater</id>
 								<phase>prepare-package</phase>
@@ -238,7 +238,7 @@
 									</arguments>
 								</configuration>
 							</execution>
-						
+
 							<execution>
 								<id>linux-x64-installer</id>
 								<phase>prepare-package</phase>
@@ -254,7 +254,7 @@
 									</arguments>
 								</configuration>
 							</execution>
-							
+
 							<execution>
 								<id>linux-x64-updater</id>
 								<phase>prepare-package</phase>
@@ -270,7 +270,7 @@
 									</arguments>
 								</configuration>
 							</execution>
-							
+
 							<!-- Mac OS X -->
 							<execution>
 								<id>osx-installer</id>
@@ -287,7 +287,7 @@
 									</arguments>
 								</configuration>
 							</execution>
-							
+
 							<execution>
 								<id>osx-updater</id>
 								<phase>prepare-package</phase>
@@ -303,7 +303,7 @@
 									</arguments>
 								</configuration>
 							</execution>
-							
+
 						</executions>
 					</plugin>
 
@@ -331,8 +331,8 @@
 											<classifier>windows-updater</classifier>
 											<type>exe</type>
 										</artifact>
-										
-									 	
+
+
 										<artifact>
 											<file>${project.build.directory}/${linux-x64-installer-file-name}</file>
 											<classifier>linux-x64</classifier>
@@ -343,26 +343,26 @@
 											<classifier>linux-x64-updater</classifier>
 											<type>run</type>
 										</artifact>
-										
-								
-									
+
+
+
 										<artifact>
 											<file>${project.build.directory}/${osx-installer-file-name}</file>
 											<classifier>osx</classifier>
 											<type>dmg</type>
-										</artifact>										
+										</artifact>
 										<artifact>
 											<file>${project.build.directory}/${osx-autoupdater-file-name}</file>
 											<classifier>osx-updater</classifier>
 											<type>zip</type>
-										</artifact> 
-									
+										</artifact>
+
 									</artifacts>
 								</configuration>
 							</execution>
 						</executions>
 					</plugin>
-					
+
 					<!-- 7 Upload the XML file that defines the presence of updates to the FTP directory -->
 					<plugin>
 						<groupId>org.apache.maven.plugins</groupId>
@@ -380,13 +380,13 @@
 									<tasks>
 										<move file="${installbuilder-output-directory}/${windows-installer-file-name}" tofile="${project.build.directory}/${windows-installer-file-name}" failonerror="true" />
 										<move file="${installbuilder-output-directory}/${windows-autoupdater-file-name}" tofile="${project.build.directory}/${windows-autoupdater-file-name}" failonerror="true" />
-											
+
 										<move file="${installbuilder-output-directory}/${linux-x64-installer-file-name}" tofile="${project.build.directory}/${linux-x64-installer-file-name}" failonerror="true" />
 										<move file="${installbuilder-output-directory}/${linux-x64-autoupdater-file-name}" tofile="${project.build.directory}/${linux-x64-autoupdater-file-name}" failonerror="true" />
-										
+
 										<move file="${installbuilder-output-directory}/${osx-installer-file-name}" tofile="${project.build.directory}/${osx-installer-file-name}" failonerror="true" />
-										<move file="${installbuilder-output-directory}/${osx-autoupdater-file-name}" tofile="${project.build.directory}/${osx-autoupdater-file-name}" failonerror="true" /> 
-										
+										<move file="${installbuilder-output-directory}/${osx-autoupdater-file-name}" tofile="${project.build.directory}/${osx-autoupdater-file-name}" failonerror="true" />
+
 									</tasks>
 								</configuration>
 							</execution>
@@ -400,7 +400,7 @@
 										<property name="password" value="${ftp_password}" />
 										<property name="server" value="${ftp_server}" />
 										<property name="folder" value="${ftp_folder}" />
-										
+
 										<ant antfile="${project.build.directory}/installer/antXmlFtpUpload.xml">
 											<target name="default" />
 										</ant>
@@ -418,14 +418,14 @@
 								<version>0.1.54</version>
 							</dependency>
 						</dependencies>
-					
+
 					</plugin>
-	
-					
+
+
 				</plugins>
 			</build>
 		</profile>
-		
+
 	</profiles>
 
 </project>
