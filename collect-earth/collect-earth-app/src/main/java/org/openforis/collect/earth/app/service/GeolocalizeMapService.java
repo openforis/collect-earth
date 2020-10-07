@@ -27,9 +27,9 @@ import freemarker.template.TemplateException;
  * coordinates are applied to it. This service uses the same code than the KML
  * generator to get the plot sample deign as chosen through the configuration by
  * the user.
- * 
+ *
  * @author Alfonso Sanchez-Paus Diaz
- * 
+ *
  */
 @Component
 public class GeolocalizeMapService {
@@ -43,8 +43,8 @@ public class GeolocalizeMapService {
 	public static final String FREEMARKER_BING_HTML_TEMPLATE = RESOURCES_FOLDER + File.separator + "collectBing.fmt";
 
 	public static final String FREEMARKER_BAIDU_HTML_TEMPLATE = RESOURCES_FOLDER + File.separator + "collectBaidu.fmt";
-	
-	public static final String FREEMARKER_PLANET_HTML_TEMPLATE = RESOURCES_FOLDER + File.separator + "collectPlanetHtml.fmt";
+
+	public static final String FREEMARKER_PLANET_HTML_TEMPLATE = RESOURCES_FOLDER + File.separator + "collectPlanetMonthlyHtml.fmt";
 
 	public static final String FREEMARKER_PLANET_URL_TEMPLATE = RESOURCES_FOLDER + File.separator
 			+ "collectPlanetUrl.fmt";
@@ -118,7 +118,7 @@ public class GeolocalizeMapService {
 	/**
 	 * Produces a temporary file with the necessary HTML code to show the plot in
 	 * Bing Maps
-	 * 
+	 *
 	 * @param placemarkObject
 	 *            The object containing information of the placemark.
 	 * @param freemarkerTemplate
@@ -135,7 +135,7 @@ public class GeolocalizeMapService {
 
 	/**
 	 * Produces a URL using Planet Labs explorer expected format
-	 * 
+	 *
 	 * @param placemarkObject
 	 *            The data of the plot.
 	 * @param freemarkerTemplate
@@ -149,7 +149,7 @@ public class GeolocalizeMapService {
 			String... extraData) {
 
 		final Map<String, Object> data = getPlacemarkData(placemarkObject);
-		
+
 		if( extraData !=null) {
 			for (int i = 0; i < extraData.length; i = i+2) {
 				data.put(extraData[i], extraData[i+1]);
@@ -158,7 +158,7 @@ public class GeolocalizeMapService {
 		return processTemplateWithData(freemarkerTemplate, data);
 
 	}
-		
+
 
 	private URL processTemplateWithData(String freemarkerTemplate, final Map<String, Object> data) {
 		File transformedHtml = null;

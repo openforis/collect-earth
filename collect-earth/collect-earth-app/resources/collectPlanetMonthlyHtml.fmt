@@ -1,0 +1,301 @@
+<!DOCTYPE html>
+<html ng-app="ce">
+
+<head>
+  <meta charset="utf-8" />
+  <title>Planet Monthly basemaps</title>
+  <script>
+    document.write('<base href="' + document.location + '" />');
+  </script>
+  <script src='http://cdn.leafletjs.com/leaflet/v1.6.0/leaflet.js'></script>
+  <script src="http://lab.digital-democracy.org/leaflet-side-by-side/leaflet-side-by-side.js"></script>
+  <link href='http://cdn.leafletjs.com/leaflet/v1.6.0/leaflet.css' rel='stylesheet' />
+  <link rel="stylesheet" href="https://ajax.googleapis.com/ajax/libs/angular_material/1.2.0/angular-material.min.css">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/moment.js/2.15.1/moment-with-locales.min.js"></script>
+  <script src="https://ajax.googleapis.com/ajax/libs/angularjs/1.8.0/angular.min.js"></script>
+  <script src="https://ajax.googleapis.com/ajax/libs/angularjs/1.8.0/angular-animate.min.js"></script>
+  <script src="https://ajax.googleapis.com/ajax/libs/angularjs/1.8.0/angular-aria.min.js"></script>
+  <script src="https://ajax.googleapis.com/ajax/libs/angular_material/1.2.0/angular-material.min.js"></script>
+
+  <script>
+
+    var apiKey = "${planetMapsKey}"
+	var getTileUrl = function( year, month){
+
+		if( month < 10 ){
+			month = '0' + month;
+		}
+
+		return( 'https://tiles.planet.com/basemaps/v1/planet-tiles/global_monthly_' + year + '_' + month + '_mosaic/gmap/{z}/{x}/{y}.png?api_key='+apiKey );
+	}
+
+	var firstMonth  = 10;
+	var firstYear  = 2018;
+	/*
+	var today = new Date();
+	var lastDate = new Date(today.setMonth(today.getMonth()-1));
+	console.log( lastDate )
+	var lastMonth  =  lastDate.getMonth() -1;
+	var lastYear  = lastDate.getYear();
+	*/
+   	var lastMonth  =  10;
+	var lastYear  = 2019;
+  </script>
+	<script>
+	var app = angular.module('ce', ['ngMaterial']);
+
+	app.controller('MainCtrl', function($scope) {
+
+	var monthFormat =  buildLocaleProvider("MMM-YYYY");
+	  var ymdFormat =  buildLocaleProvider( "YYYY-MM-DD");
+	  $scope.end = new Date( lastYear, lastMonth, 1 );
+	  $scope.start = new Date( firstYear, firstMonth, 1 );
+	  $scope.left = {};
+	  $scope.left.when = $scope.start;
+
+	  $scope.right = {};
+	  $scope.right.when = $scope.end;
+
+		function buildLocaleProvider(formatString) {
+			return {
+				formatDate: function (date) {
+					if (date) return moment(date).format(formatString);
+					else return null;
+				},
+				parseDate: function (dateString) {
+					if (dateString) {
+						var m = moment(dateString, formatString, true);
+						return m.isValid() ? m.toDate() : new Date(NaN);
+					}
+					else return null;
+				}
+			};
+		}
+
+
+		function change() {
+			if( sideBySide ){
+				map.removeLayer( planetLeftLayer);
+				map.removeLayer( planetRightLayer);
+
+				loadSingleSide( $scope.left.when.getFullYear(), $scope.left.when.getMonth() +1, false);
+				loadSingleSide( $scope.right.when.getFullYear(), $scope.right.when.getMonth() +1, true);
+			}else{
+				sideBySide = loadSideBySide(
+					$scope.left.when.getFullYear(), $scope.left.when.getMonth() +1,
+					$scope.right.when.getFullYear(), $scope.right.when.getMonth() +1
+				)
+			}
+		}
+
+	  $scope.change = change;
+
+
+	  $scope.dateFields = [
+					{
+						type: 'date',
+						required: false,
+						binding: 'applicant.pickADate',
+						label: 'Standard Date Field - picking day, month and year',
+						startView: 'day',
+						mode: 'day',
+						locale: ymdFormat
+					},
+					{
+						type: 'date',
+						required: true,
+						binding: 'applicant.dateOfBirth',
+						label: 'Date of Birth (date picker that starts with month and year, but still needs day)',
+						startView: 'month',
+						mode: 'day',
+						locale: ymdFormat
+					},
+					{
+						type: 'date',
+						required: false,
+						binding: 'applicant.expectedGraduation',
+						startView: 'month',
+						label: 'Basemap Month',
+						mode: 'month',
+						locale: monthFormat,
+						startDate : new Date( firstYear, firstMonth-1, 1),
+						endDate : new Date( lastYear, lastMonth-1, 1),
+						}
+		];
+	});
+
+	</script>
+      <style>
+    body {
+        margin: 0;
+        padding: 0;
+    }
+
+    #map {
+        position: absolute;
+        top: 0;
+        bottom: 0;
+        width: 100%;
+		z-index: 1;
+    }
+
+	.controller-left {
+		position: absolute;
+		bottom: 0px;
+		left : 15px;
+		width: 15%;
+		height: 100px;
+		z-index: 100;
+		align: left;
+	}
+
+	.controller-right {
+		position: absolute;
+		bottom: 0px;
+		right: 15px;
+		width: 15%;
+		height: 100px;
+		z-index: 100;
+		align: right;
+
+	}
+
+	.background {
+		background-color: yellow;
+		opacity: 0.5;
+	}
+
+    </style>
+</head>
+
+<body layout="row" layout-wrap flex layout-fill layout-align="start start" ng-controller="MainCtrl">
+	<div id='map' ></div>
+	<div  class="controller-left">
+
+	<md-input-container flex="100" layout="column">
+	<div class="background">
+          <div style="font-size: 10px; color: blue;" label ng-bind="::dateFields[2].label"></div>
+
+          <md-datepicker ng-model="left.when"
+                     ng-required="dateFields[2].required"
+                     md-date-locale="dateFields[2].locale"
+                     md-mode="{{dateFields[2].mode}}"
+                     md-open-on-focus="true"
+					 ng-change="change()"
+					 md-min-date="dateFields[2].startDate"
+					 md-max-date="dateFields[2].endDate"
+					 >
+        </md-datepicker>
+		</div>
+    </md-input-container>
+
+	</div>
+
+
+    <div  class="controller-right">
+
+	<md-input-container flex="100" layout="column">
+	<div class="background">
+          <div style="font-size: 10px; color: blue;" label ng-bind="::dateFields[2].label"></div>
+
+                    <md-datepicker ng-model="right.when"
+                     ng-required="dateFields[2].required"
+                     md-date-locale="dateFields[2].locale"
+                     md-mode="{{dateFields[2].mode}}"
+                     md-open-on-focus="true"
+					 ng-change="change()"
+					 md-min-date="dateFields[2].startDate"
+					 md-max-date="dateFields[2].endDate"
+					 >
+        </md-datepicker>
+		</div>
+    </md-input-container>
+
+	</div>
+
+    <script>
+
+    var map = L.map('map');
+
+	var boundaries = [
+	// create a red polyline from an array of LatLng points
+			<#list placemark.multiShape as shp>
+             [
+            	<#list shp as coord>
+				[${coord.longitude},${coord.latitude}],
+				</#list>
+			]
+			</#list>
+			];
+	var latlngs = [
+	// create a red polyline from an array of LatLng points
+			<#list placemark.multiShape as shp>
+             [
+            	<#list shp as coord>
+				[${coord.latitude},${coord.longitude}],
+				</#list>
+			],
+			</#list>
+           <#list placemark.points as square>
+ 				[
+			     <#list square.shape as squareCorners>
+			           [${squareCorners.latitude},${squareCorners.longitude}],
+			     </#list>
+		     	],
+		     	<#if square.points?? >
+					<#list square.points as innerpoint>
+					[
+						<#list innerpoint.shape as squareCorners>
+					  [${squareCorners.latitude},${squareCorners.longitude}],
+						</#list>
+					],
+					</#list>
+				</#if>
+		    </#list>
+	];
+
+    var polyline = L.polyline(latlngs, {color: 'yellow'}).addTo(map);
+	// Or center on the polygon
+	var center = polyline.getBounds().getCenter()
+	map.setView(center, 16)
+	var sideBySide;
+	var planetLeftLayer;
+	var planetRightLayer;
+
+	var loadSideBySide = function( leftYear, leftMonth, rightYear, rightMonth){
+
+		planetLeftLayer = L.tileLayer(
+		    getTileUrl(leftYear, leftMonth),
+		{
+			attribution: 'Planet 2020',
+		}).addTo(map);
+
+		planetRightLayer = L.tileLayer(
+			getTileUrl(rightYear, rightMonth),
+		{
+			attribution: 'Planet 2020',
+		}).addTo(map);
+
+		return L.control.sideBySide(planetLeftLayer, planetRightLayer).addTo(map);
+	}
+
+	var loadSingleSide = function( year, month, rightSide){
+
+		var planetLayer = L.tileLayer(
+		    getTileUrl(year, month),
+		{
+			attribution: 'Planet 2020',
+		}).addTo(map);
+
+		if( rightSide ){
+			sideBySide.setRightLayers( planetLayer ).addTo(map);
+		}else{
+			sideBySide.setLeftLayers( planetLayer ).addTo(map);
+		}
+	}
+
+	sideBySide = loadSideBySide( firstYear, firstMonth, lastYear, lastMonth );
+    </script>
+</body>
+
+</html>
