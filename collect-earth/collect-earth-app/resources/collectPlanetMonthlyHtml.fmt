@@ -29,7 +29,7 @@
 		return( 'https://tiles.planet.com/basemaps/v1/planet-tiles/global_monthly_' + year + '_' + month + '_mosaic/gmap/{z}/{x}/{y}.png?api_key='+apiKey );
 	}
 
-	var firstMonth  = 10;
+	var firstMonth  = 9;
 	var firstYear  = 2018;
 	/*
 	var today = new Date();
@@ -38,8 +38,8 @@
 	var lastMonth  =  lastDate.getMonth() -1;
 	var lastYear  = lastDate.getYear();
 	*/
-   	var lastMonth  =  10;
-	var lastYear  = 2019;
+   	var lastMonth  =  8;
+	var lastYear  = 2020;
   </script>
 	<script>
 	var app = angular.module('ce', ['ngMaterial']);
