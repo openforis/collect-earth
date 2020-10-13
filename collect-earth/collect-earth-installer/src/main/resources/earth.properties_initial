@@ -41,3 +41,4 @@ ui_language=INSTALLATION_LANGUAGE
 use_browser=firefox
 google_maps_api_key=GOOGLE_MAPS_API_KEY
 bing_maps_key=BING_MAPS_KEY
+planet_maps_key=PLANET_MAPS_KEY

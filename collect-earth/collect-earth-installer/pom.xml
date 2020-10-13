@@ -156,6 +156,7 @@
 								<include>CollectEarthMain.xml</include>
 								<include>java.xml</include>
 								<include>earth.properties_initial</include>
+								<include>earth.properties_forced_update</include>
 								<include>${installbuilder-file-name-updater}</include>
 								<include>update.ini</include>
 								<include>${autoupdater-xml-file-name}</include>
@@ -189,6 +190,10 @@
 								<replacement>
 									<token>GOOGLE_MAPS_API_KEY</token>
 									<value>${google_maps_api_key}</value>
+								</replacement>
+								<replacement>
+									<token>PLANET_MAPS_API_KEY</token>
+									<value>${planet_maps_api_key}</value> <!-- This value comes from the maven_settings.xml file in the computer that fires the build -->
 								</replacement>
 								<replacement>
 									<token>JAVA_VERSION_SET_POM</token>

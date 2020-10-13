@@ -44,7 +44,7 @@ import org.springframework.stereotype.Component;
 
 /**
  * @author Alfonso Sanchez-Paus Diaz
- * 
+ *
  */
 @Component
 @Lazy(false)
@@ -196,7 +196,7 @@ public class CollectEarthWindow implements InitializingBean, DisposableBean{
 			}
 		}
 	}
-	
+
 	private void initializePanel() {
 		final JPanel pane = new JPanel(new GridBagLayout());
 
@@ -249,8 +249,8 @@ public class CollectEarthWindow implements InitializingBean, DisposableBean{
 		getFrame().getContentPane().add(pane);
 
 		// Three seconds after the last key is typed on hte text field the operator name changes on the properties service
-		Timer timerOperatorChanged = new Timer(3000, e-> updateOperatorName() );	
-		
+		Timer timerOperatorChanged = new Timer(3000, e-> updateOperatorName() );
+
 		operatorTextField.addKeyListener( new KeyAdapter() {
 			@Override
 			public void keyTyped(KeyEvent e) {
@@ -277,7 +277,6 @@ public class CollectEarthWindow implements InitializingBean, DisposableBean{
 	}
 
 	protected void openWindow() {
-
 		initializeWindow();
 		initializePanel();
 		initializeMenu();

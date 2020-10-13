@@ -212,14 +212,14 @@ public class PropertiesDialog extends JDialog {
 
 		constraints.gridy++;
 		panel.add(propertyToComponent.get(EarthProperty.OPEN_PLANET_MAPS)[0], constraints);
-
+/*
 		constraints.gridy++;
 		constraints.gridwidth = 1;
 		final JLabel label = new JLabel(Messages.getString("OptionWizard.101")); //$NON-NLS-1$
 		panel.add(label, constraints);
 		constraints.gridx = 1;
 		panel.add(propertyToComponent.get(EarthProperty.PLANET_MAPS_KEY)[0], constraints);
-
+*/
 		constraints.gridx = 0;
 		constraints.gridy++;
 		constraints.gridwidth = 2;
@@ -948,6 +948,7 @@ public class PropertiesDialog extends JDialog {
 				.setSelected(Boolean.parseBoolean(localPropertiesService.getValue(EarthProperty.OPEN_PLANET_MAPS)));
 		propertyToComponent.put(EarthProperty.OPEN_PLANET_MAPS, new JComponent[] { openPlanetCheckbox });
 
+		/*
 		final JTextField planetAPIKeyTextField = new JTextField(
 				localPropertiesService.getValue(EarthProperty.PLANET_MAPS_KEY));
 		planetAPIKeyTextField.setMinimumSize(new Dimension( 250,  20 ));
@@ -960,6 +961,7 @@ public class PropertiesDialog extends JDialog {
 				planetAPIKeyTextField.setEnabled( openPlanetCheckbox.isSelected() );
 			}
 		});
+		*/
 
 		final JCheckBox openSecureWatchCheckbox = new JCheckBox(Messages.getString("OptionWizard.102")); //$NON-NLS-1$
 		openSecureWatchCheckbox
@@ -982,7 +984,7 @@ public class PropertiesDialog extends JDialog {
 
 		final JTextField extraUrlTextField = new JTextField(
 				localPropertiesService.getValue(EarthProperty.EXTRA_MAP_URL));
-		planetAPIKeyTextField.setMinimumSize(new Dimension( 250,  20 ));
+		extraUrlTextField.setMinimumSize(new Dimension( 250,  20 ));
 		propertyToComponent.put(EarthProperty.EXTRA_MAP_URL, new JComponent[] { extraUrlTextField });
 
 		final JCheckBox openBaiduCheckbox = new JCheckBox("Open Baidu Maps");
