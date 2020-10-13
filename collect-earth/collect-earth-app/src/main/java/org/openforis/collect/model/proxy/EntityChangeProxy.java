@@ -11,7 +11,7 @@ import org.openforis.idm.metamodel.EntityDefinition;
 import org.openforis.idm.metamodel.validation.ValidationResultFlag;
 
 /**
- * 
+ *
  * @author S. Ricci
  *
  */
@@ -41,13 +41,11 @@ public class EntityChangeProxy extends NodeChangeProxy<EntityChange> {
 		return convertToChildDefinitionIdMap(change.getChildrenMaxCountValidation());
 	}
 
-	private <V extends Object> Map<Integer, V> convertToChildDefinitionIdMap(Map<String, V> from) {
-		EntityDefinition entityDef = change.getNode().getDefinition();
+	private <V extends Object> Map<Integer, V> convertToChildDefinitionIdMap(Map<Integer, V> from) {
 		Map<Integer, V> map = new HashMap<>();
-		Set<Entry<String, V>> entries = from.entrySet();
-		for (Entry<String, V> entry : entries) {
-			String childName = entry.getKey();
-			Integer childDefId = entityDef.getChildDefinition(childName).getId();
+		Set<Entry<Integer, V>> entries = from.entrySet();
+		for (Entry<Integer, V> entry : entries) {
+			Integer childDefId = entry.getKey();
 			map.put(childDefId, entry.getValue());
 		}
 		return map;

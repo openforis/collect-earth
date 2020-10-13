@@ -48,13 +48,9 @@
 
 	var monthFormat =  buildLocaleProvider("MMM-YYYY");
 	  var ymdFormat =  buildLocaleProvider( "YYYY-MM-DD");
-	  $scope.end = new Date( lastYear, lastMonth, 1 );
-	  $scope.start = new Date( firstYear, firstMonth, 1 );
-	  $scope.left = {};
-	  $scope.left.when = $scope.start;
+	  $scope.left = new Date( firstYear, firstMonth-1, 2 );
 
-	  $scope.right = {};
-	  $scope.right.when = $scope.end;
+	  $scope.right = new Date( lastYear, lastMonth-1, 2 );
 
 		function buildLocaleProvider(formatString) {
 			return {
@@ -78,12 +74,12 @@
 				map.removeLayer( planetLeftLayer);
 				map.removeLayer( planetRightLayer);
 
-				loadSingleSide( $scope.left.when.getFullYear(), $scope.left.when.getMonth() +1, false);
-				loadSingleSide( $scope.right.when.getFullYear(), $scope.right.when.getMonth() +1, true);
+				loadSingleSide( $scope.left.getFullYear(), $scope.left.getMonth() +1, false);
+				loadSingleSide( $scope.right.getFullYear(), $scope.right.getMonth() +1, true);
 			}else{
 				sideBySide = loadSideBySide(
-					$scope.left.when.getFullYear(), $scope.left.when.getMonth() +1,
-					$scope.right.when.getFullYear(), $scope.right.when.getMonth() +1
+					$scope.left.getFullYear(), $scope.left.getMonth() +1,
+					$scope.right.getFullYear(), $scope.right.getMonth() +1
 				)
 			}
 		}
@@ -92,24 +88,6 @@
 
 
 	  $scope.dateFields = [
-					{
-						type: 'date',
-						required: false,
-						binding: 'applicant.pickADate',
-						label: 'Standard Date Field - picking day, month and year',
-						startView: 'day',
-						mode: 'day',
-						locale: ymdFormat
-					},
-					{
-						type: 'date',
-						required: true,
-						binding: 'applicant.dateOfBirth',
-						label: 'Date of Birth (date picker that starts with month and year, but still needs day)',
-						startView: 'month',
-						mode: 'day',
-						locale: ymdFormat
-					},
 					{
 						type: 'date',
 						required: false,
@@ -174,16 +152,17 @@
 
 	<md-input-container flex="100" layout="column">
 	<div class="background">
-          <div style="font-size: 10px; color: blue;" label ng-bind="::dateFields[2].label"></div>
+          <div style="font-size: 10px; color: blue;" label ng-bind="::dateFields[0].label"></div>
 
-          <md-datepicker ng-model="left.when"
-                     ng-required="dateFields[2].required"
-                     md-date-locale="dateFields[2].locale"
-                     md-mode="{{dateFields[2].mode}}"
+          <md-datepicker ng-model="left"
+                     ng-required="dateFields[0].required"
+                     md-date-locale="dateFields[0].locale"
+                     md-mode="{{dateFields[0].mode}}"
                      md-open-on-focus="true"
 					 ng-change="change()"
-					 md-min-date="dateFields[2].startDate"
-					 md-max-date="dateFields[2].endDate"
+					 md-min-date="dateFields[0].startDate"
+					 md-max-date="dateFields[0].endDate"
+					 md-open-on-focus
 					 >
         </md-datepicker>
 		</div>
@@ -196,16 +175,17 @@
 
 	<md-input-container flex="100" layout="column">
 	<div class="background">
-          <div style="font-size: 10px; color: blue;" label ng-bind="::dateFields[2].label"></div>
+          <div style="font-size: 10px; color: blue;" label ng-bind="::dateFields[0].label"></div>
 
-                    <md-datepicker ng-model="right.when"
-                     ng-required="dateFields[2].required"
-                     md-date-locale="dateFields[2].locale"
-                     md-mode="{{dateFields[2].mode}}"
+                    <md-datepicker ng-model="right"
+                     ng-required="dateFields[0].required"
+                     md-date-locale="dateFields[0].locale"
+                     md-mode="{{dateFields[0].mode}}"
                      md-open-on-focus="true"
 					 ng-change="change()"
-					 md-min-date="dateFields[2].startDate"
-					 md-max-date="dateFields[2].endDate"
+					 md-min-date="dateFields[0].startDate"
+					 md-max-date="dateFields[0].endDate"
+					 md-open-on-focus
 					 >
         </md-datepicker>
 		</div>
@@ -257,7 +237,7 @@
     var polyline = L.polyline(latlngs, {color: 'yellow'}).addTo(map);
 	// Or center on the polygon
 	var center = polyline.getBounds().getCenter()
-	map.setView(center, 16)
+	map.setView(center, 17)
 	var sideBySide;
 	var planetLeftLayer;
 	var planetRightLayer;
