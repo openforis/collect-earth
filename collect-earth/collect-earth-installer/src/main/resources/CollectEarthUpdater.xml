@@ -99,6 +99,78 @@
 			            </distributionDirectory>
 		            </distributionFileList>
 		        </folder>
+				<folder>
+		            <description>Program Files</description>
+		            <destination>${installdir}</destination>
+		            <name>programfileslinux</name>
+		            <platforms>linux</platforms>
+		            <distributionFileList>
+		                <distributionFile>
+		                    <origin>launcher_logo.png</origin>
+		                </distributionFile>
+		                <distributionFile>
+		                    <origin>COLLECT_EARTH_MAIN_FOLDER/collect-earth-app/autoupdate/autoupdate.run</origin>
+		                </distributionFile>
+		            </distributionFileList>
+		        </folder>
+		        <folder>
+		            <description>Program Files</description>
+		            <destination>${installdir}</destination>
+		            <name>programfileslinux64</name>
+		            <platforms>linux-x64</platforms>
+		            <distributionFileList>
+		                <distributionFile>
+		                    <origin>launcher_logo.png</origin>
+		                </distributionFile>
+		                <distributionFile>
+		                    <origin>COLLECT_EARTH_MAIN_FOLDER/collect-earth-app/autoupdate/autoupdate-x64.run</origin>
+		                </distributionFile>
+		            </distributionFileList>
+		        </folder>
+		        <folder>
+		            <description>Program Files</description>
+		            <destination>${installdir}</destination>
+		            <name>programfileswindows64</name>
+		            <platforms>windows-x64</platforms>
+		            <distributionFileList>
+		                <distributionFile>
+		                    <origin>launcher_icon.ico</origin>
+		                </distributionFile>
+		                <distributionFile>
+		                    <origin>COLLECT_EARTH_MAIN_FOLDER/collect-earth-app/autoupdate/autoupdate-x64.exe</origin>
+		                </distributionFile>
+		            </distributionFileList>
+		        </folder>
+		        <folder>
+		            <description>Program Files</description>
+		            <destination>${installdir}</destination>
+		            <name>programfileswindows</name>
+		            <platforms>windows</platforms>
+		            <distributionFileList>
+		                <distributionFile>
+		                    <origin>launcher_icon.ico</origin>
+		                </distributionFile>
+		                <distributionFile>
+		                    <origin>COLLECT_EARTH_MAIN_FOLDER/collect-earth-app/autoupdate/autoupdate.exe</origin>
+		                </distributionFile>
+		            </distributionFileList>
+		        </folder>
+		        <folder>
+		            <description>Program Files</description>
+		            <destination>${installdir}</destination>
+		            <name>programfilesosx</name>
+		            <platforms>osx</platforms>
+		            <distributionFileList>
+		                <!--
+		                <distributionFile>
+		                    <origin>launcher_icon.icns</origin>
+		                </distributionFile>
+		                 -->
+		                <distributionDirectory>
+		                    <origin>COLLECT_EARTH_MAIN_FOLDER/collect-earth-app/autoupdate/autoupdate.app</origin>
+		                </distributionDirectory>
+		            </distributionFileList>
+		        </folder>
             </folderList>
         </component>
     </componentList>

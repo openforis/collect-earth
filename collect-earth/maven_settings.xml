@@ -4,12 +4,11 @@
                       http://maven.apache.org/xsd/settings-1.0.0.xsd">
   <profiles>
     <profile>
-		<id>assembly</id> 
+		<id>assembly</id>
 		<properties>
 			<installbuilder-home>PATH TO THE INSTALLBUILDER ROOT FOLDER</installbuilder-home>
 			<installbuilder-output-directory>PATH TO THE INSTALLBUILDER INSTALLERS OUTPUT FOLDER</installbuilder-output-directory>
-			<ftp_server>THE FTP SERVER WHERE THE UDATER XML IS STORED</ftp_server>
-			<ftp_folder>FOLDER TO STORE THE UPDATER XML IN</ftp_folder>
+			<planet_maps_ce_key>PLANET MAPS API KEY</planet_maps_ce_key>
 		</properties>
 	</profile>
   </profiles>

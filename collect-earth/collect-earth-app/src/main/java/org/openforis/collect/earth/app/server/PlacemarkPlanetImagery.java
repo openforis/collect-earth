@@ -23,10 +23,10 @@ import com.google.gson.GsonBuilder;
 
 /**
  * Controller to load and store the information that is stored in Collect Earth for one placemark (plot)
- * 
+ *
  * @author Alfonso Sanchez-Paus Diaz
  * @author S. Ricci
- * 
+ *
  */
 @Controller
 public class PlacemarkPlanetImagery extends JsonPocessorServlet {
@@ -49,18 +49,18 @@ public class PlacemarkPlanetImagery extends JsonPocessorServlet {
 				endDate = DateUtils.asDate( localDateTime.plusDays(30) );
 			}
 
-			PlanetImagery planetImagery = new PlanetImagery( localPropertiesService.getPlanetMapsKey() );
-			
+			PlanetImagery planetImagery = new PlanetImagery( localPropertiesService.getPlanetMapsCeKey() );
+
 			Gson gson = new GsonBuilder().create();
 			double[][][] coords = gson.fromJson( request.getParameter("geometry"), double[][][].class);
-			
+
 			String[] itemTypeArray = request.getParameterMap().get("itemTypes[]");
 			if( itemTypeArray == null || itemTypeArray.length == 0 ) {
 				itemTypeArray = new String[] {"PSScene3Band", "PSScene4Band"};
 			}
-			
+
 			setJsonResponse(response, planetImagery.getLayerUrl(startDate, endDate, coords, itemTypeArray));
-		
+
 	}
 
 }

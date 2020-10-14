@@ -10,4 +10,4 @@ earth_map_layers={"burnedLastYear":{}, "hansen":{}, "contourLines":{}}
 earth_map_aoi=global
 earth_map_url=https://earthmap.org
 secure_watch_url=https\://access.maxar.com/myDigitalGlobe
-planet_maps_key=PLANET_MAPS_KEY
+planet_maps_ce_key=PLANET_MAPS_CE_KEY

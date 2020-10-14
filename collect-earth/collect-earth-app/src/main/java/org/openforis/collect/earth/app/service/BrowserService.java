@@ -519,7 +519,7 @@ public class BrowserService implements InitializingBean, Observer {
 									placemarkObject,
 									GeolocalizeMapService.FREEMARKER_PLANET_HTML_TEMPLATE,
 									"planetMapsKey",
-									localPropertiesService.getValue(EarthProperty.PLANET_MAPS_KEY),
+									localPropertiesService.getValue(EarthProperty.PLANET_MAPS_CE_KEY),
 									"urlPlanetEndpointPrefix",
 									ServerController.getHostAddress(
 											localPropertiesService.getHost(),

@@ -103,7 +103,7 @@ public class LocalPropertiesService extends Observable {
 				"open_baidu_maps"), DISTANCE_TO_BUFFERS(
 				"distance_to_buffers"), OPEN_PLANET_MAPS(
 				"open_planet_maps"), PLANET_MAPS_KEY(
-				"planet_maps_key"), OPEN_GEE_APP(
+				"planet_maps_key"), PLANET_MAPS_CE_KEY("planet_maps_ce_key"), OPEN_GEE_APP(
 				"open_gee_app"), GEE_MAP_URL(
 				"gee_app_url"), OPEN_MAXAR_SECUREWATCH(
 				"open_maxar_securewatch"),MAXAR_SECUREWATCH_URL("secure_watch_url"), EARTH_MAP_URL("earth_map_url"),
@@ -212,6 +212,10 @@ public class LocalPropertiesService extends Observable {
 
 	public String getPlanetMapsKey() {
 		return getValue(EarthProperty.PLANET_MAPS_KEY);
+	}
+
+	public String getPlanetMapsCeKey() {
+		return getValue(EarthProperty.PLANET_MAPS_CE_KEY);
 	}
 
 	public String getGeePlaygoundUrl() {
