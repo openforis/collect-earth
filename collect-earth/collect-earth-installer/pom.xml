@@ -192,7 +192,7 @@
 									<value>${google_maps_api_key}</value>
 								</replacement>
 								<replacement>
-									<token>PLANET_MAPS_API_KEY</token>
+									<token>PLANET_MAPS_KEY</token>
 									<value>${planet_maps_api_key}</value> <!-- This value comes from the maven_settings.xml file in the computer that fires the build -->
 								</replacement>
 								<replacement>
