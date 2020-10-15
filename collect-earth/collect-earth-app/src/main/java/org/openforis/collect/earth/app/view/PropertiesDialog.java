@@ -32,6 +32,7 @@ import javax.swing.JLabel;
 import javax.swing.JList;
 import javax.swing.JOptionPane;
 import javax.swing.JPanel;
+import javax.swing.JPasswordField;
 import javax.swing.JRadioButton;
 import javax.swing.JScrollPane;
 import javax.swing.JTabbedPane;
@@ -212,14 +213,14 @@ public class PropertiesDialog extends JDialog {
 
 		constraints.gridy++;
 		panel.add(propertyToComponent.get(EarthProperty.OPEN_PLANET_MAPS)[0], constraints);
-/*
+
 		constraints.gridy++;
 		constraints.gridwidth = 1;
 		final JLabel label = new JLabel(Messages.getString("OptionWizard.101")); //$NON-NLS-1$
 		panel.add(label, constraints);
 		constraints.gridx = 1;
-		panel.add(propertyToComponent.get(EarthProperty.PLANET_MAPS_KEY)[0], constraints);
-*/
+		panel.add(propertyToComponent.get(EarthProperty.PLANET_MAPS_CE_KEY)[0], constraints);
+
 		constraints.gridx = 0;
 		constraints.gridy++;
 		constraints.gridwidth = 2;
@@ -276,8 +277,7 @@ public class PropertiesDialog extends JDialog {
 									} else {
 										EarthApp.executeKmlLoadAsynchronously(PropertiesDialog.this);
 									}
-								};
-
+								}
 							}.start();
 						}
 					});
@@ -358,7 +358,7 @@ public class PropertiesDialog extends JDialog {
 
 	private JComponent getProjectsPanelScroll() {
 		final JComponent projectsPanel = getProjectsPanel();
-		return new JScrollPane(projectsPanel, JScrollPane.VERTICAL_SCROLLBAR_AS_NEEDED, JScrollPane.HORIZONTAL_SCROLLBAR_NEVER);
+		return new JScrollPane(projectsPanel, ScrollPaneConstants.VERTICAL_SCROLLBAR_AS_NEEDED, ScrollPaneConstants.HORIZONTAL_SCROLLBAR_NEVER);
 	}
 
 	private JComponent getProjectsPanel() {
@@ -450,7 +450,7 @@ public class PropertiesDialog extends JDialog {
 
 	private JScrollPane getOperationModePanelScroll() {
 		final JComponent operationModePanel = getOperationModePanel();
-		return new JScrollPane(operationModePanel, JScrollPane.VERTICAL_SCROLLBAR_AS_NEEDED,JScrollPane.HORIZONTAL_SCROLLBAR_NEVER);
+		return new JScrollPane(operationModePanel, ScrollPaneConstants.VERTICAL_SCROLLBAR_AS_NEEDED, ScrollPaneConstants.HORIZONTAL_SCROLLBAR_NEVER);
 	}
 
 	private JComponent getPlotOptionsPanel() {
@@ -466,8 +466,7 @@ public class PropertiesDialog extends JDialog {
 		panel.add(label, constraints);
 
 		constraints.gridx = 1;
-		JComboBox<SAMPLE_SHAPE> plotShape = (JComboBox<SAMPLE_SHAPE>) propertyToComponent
-				.get(EarthProperty.SAMPLE_SHAPE)[0];
+		JComboBox<SAMPLE_SHAPE> plotShape = (JComboBox<SAMPLE_SHAPE>) propertyToComponent.get(EarthProperty.SAMPLE_SHAPE)[0];
 		panel.add(plotShape, constraints);
 
 		constraints.gridx = 0;
@@ -590,8 +589,7 @@ public class PropertiesDialog extends JDialog {
 		}
 	}
 
-	private String calculateArea(JComboBox numberOfPoints, JComboBox distanceBetweenPoints, JComboBox distanceToFrame,
-			JComboBox dotsSide) {
+	private String calculateArea(JComboBox numberOfPoints, JComboBox distanceBetweenPoints, JComboBox distanceToFrame, JComboBox dotsSide) {
 		double side = 0;
 		try {
 			int numberOfPointsI = ((ComboBoxItem) numberOfPoints.getSelectedItem()).getNumberOfPoints();
@@ -948,20 +946,14 @@ public class PropertiesDialog extends JDialog {
 				.setSelected(Boolean.parseBoolean(localPropertiesService.getValue(EarthProperty.OPEN_PLANET_MAPS)));
 		propertyToComponent.put(EarthProperty.OPEN_PLANET_MAPS, new JComponent[] { openPlanetCheckbox });
 
-		/*
-		final JTextField planetAPIKeyTextField = new JTextField(
-				localPropertiesService.getValue(EarthProperty.PLANET_MAPS_KEY));
+
+		final JPasswordField planetAPIKeyTextField = new JPasswordField(
+				localPropertiesService.getValue(EarthProperty.PLANET_MAPS_CE_KEY));
 		planetAPIKeyTextField.setMinimumSize(new Dimension( 250,  20 ));
 		planetAPIKeyTextField.setEnabled( localPropertiesService.isPlanetMapsSupported() );
-		propertyToComponent.put(EarthProperty.PLANET_MAPS_KEY, new JComponent[] { planetAPIKeyTextField });
-		openPlanetCheckbox.addActionListener( new ActionListener() {
+		propertyToComponent.put(EarthProperty.PLANET_MAPS_CE_KEY, new JComponent[] { planetAPIKeyTextField });
+		openPlanetCheckbox.addActionListener( e-> planetAPIKeyTextField.setEnabled( openPlanetCheckbox.isSelected() ) );
 
-			@Override
-			public void actionPerformed(ActionEvent e) {
-				planetAPIKeyTextField.setEnabled( openPlanetCheckbox.isSelected() );
-			}
-		});
-		*/
 
 		final JCheckBox openSecureWatchCheckbox = new JCheckBox(Messages.getString("OptionWizard.102")); //$NON-NLS-1$
 		openSecureWatchCheckbox
@@ -974,13 +966,7 @@ public class PropertiesDialog extends JDialog {
 		propertyToComponent.put(EarthProperty.MAXAR_SECUREWATCH_URL, new JComponent[] { secureWatchUrlTextField });
 		secureWatchUrlTextField.setEnabled( localPropertiesService.isSecureWatchSupported() );
 		propertyToComponent.put(EarthProperty.MAXAR_SECUREWATCH_URL, new JComponent[] { secureWatchUrlTextField });
-		openSecureWatchCheckbox.addActionListener( new ActionListener() {
-
-			@Override
-			public void actionPerformed(ActionEvent e) {
-				secureWatchUrlTextField.setEnabled( openSecureWatchCheckbox.isSelected() );
-			}
-		});
+		openSecureWatchCheckbox.addActionListener( e -> secureWatchUrlTextField.setEnabled( openSecureWatchCheckbox.isSelected() ) );
 
 		final JTextField extraUrlTextField = new JTextField(
 				localPropertiesService.getValue(EarthProperty.EXTRA_MAP_URL));

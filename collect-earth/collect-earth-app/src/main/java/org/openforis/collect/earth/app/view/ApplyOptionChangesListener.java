@@ -11,6 +11,7 @@ import javax.swing.JComboBox;
 import javax.swing.JComponent;
 import javax.swing.JList;
 import javax.swing.JOptionPane;
+import javax.swing.JPasswordField;
 import javax.swing.JRadioButton;
 import javax.swing.SwingUtilities;
 import javax.swing.text.JTextComponent;
@@ -70,7 +71,9 @@ public abstract class ApplyOptionChangesListener implements ActionListener {
 			}else {
 				if (component instanceof JTextComponent) {
 					setPropertyValue(propertyKey, ((JTextComponent) component).getText());
-				} else if (component instanceof JCheckBox) {
+				} else if (component instanceof JPasswordField) {
+					setPropertyValue(propertyKey, new String( ((JPasswordField) component).getPassword()) );
+				}else if (component instanceof JCheckBox) {
 					setPropertyValue(propertyKey, ((JCheckBox) component).isSelected() + ""); //$NON-NLS-1$
 				} else if (component instanceof JComboBox) {
 					if (((JComboBox) component).getItemAt(0) instanceof ComboBoxItem) {
