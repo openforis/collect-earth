@@ -512,14 +512,20 @@ public class BrowserService implements InitializingBean, Observer {
 		Object lock = getLock("PLANET");
 		synchronized (lock) {
 			if (localPropertiesService.isPlanetMapsSupported()) {
+
+				boolean monthly = localPropertiesService.isPlanetMapsMonthlyOpen();
+
+				String template = monthly ? GeolocalizeMapService.FREEMARKER_PLANET_MONTHLY_HTML_TEMPLATE : GeolocalizeMapService.FREEMARKER_PLANET_DAILY_HTML_TEMPLATE;
+				String key = monthly ? localPropertiesService.getValue( EarthProperty.PLANET_MAPS_CE_KEY ) : localPropertiesService.getValue( EarthProperty.PLANET_MAPS_KEY );
+
 				try {
 					webDriverPlanetHtml = navigateTo(
 
 							geoLocalizeTemplateService.getUrlToFreemarkerOutput(
 									placemarkObject,
-									GeolocalizeMapService.FREEMARKER_PLANET_HTML_TEMPLATE,
+									template,
 									"planetMapsKey",
-									localPropertiesService.getValue(EarthProperty.PLANET_MAPS_CE_KEY),
+									key,
 									"urlPlanetEndpointPrefix",
 									ServerController.getHostAddress(
 											localPropertiesService.getHost(),

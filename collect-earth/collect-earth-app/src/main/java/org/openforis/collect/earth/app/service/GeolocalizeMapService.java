@@ -44,7 +44,9 @@ public class GeolocalizeMapService {
 
 	public static final String FREEMARKER_BAIDU_HTML_TEMPLATE = RESOURCES_FOLDER + File.separator + "collectBaidu.fmt";
 
-	public static final String FREEMARKER_PLANET_HTML_TEMPLATE = RESOURCES_FOLDER + File.separator + "collectPlanetMonthlyHtml.fmt";
+	public static final String FREEMARKER_PLANET_MONTHLY_HTML_TEMPLATE = RESOURCES_FOLDER + File.separator + "collectPlanetMonthlyHtml.fmt";
+
+	public static final String FREEMARKER_PLANET_DAILY_HTML_TEMPLATE = RESOURCES_FOLDER + File.separator + "collectPlanetHtml.fmt";
 
 	public static final String FREEMARKER_PLANET_URL_TEMPLATE = RESOURCES_FOLDER + File.separator
 			+ "collectPlanetUrl.fmt";

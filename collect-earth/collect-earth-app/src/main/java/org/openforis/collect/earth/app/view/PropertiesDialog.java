@@ -212,14 +212,18 @@ public class PropertiesDialog extends JDialog {
 
 
 		constraints.gridy++;
+		constraints.gridwidth = 1;
 		panel.add(propertyToComponent.get(EarthProperty.OPEN_PLANET_MAPS)[0], constraints);
+		constraints.gridx = 1;
+		panel.add(propertyToComponent.get(EarthProperty.PLANET_MAPS_MONHLY)[0], constraints);
 
 		constraints.gridy++;
+		constraints.gridx = 0;
 		constraints.gridwidth = 1;
 		final JLabel label = new JLabel(Messages.getString("OptionWizard.101")); //$NON-NLS-1$
 		panel.add(label, constraints);
 		constraints.gridx = 1;
-		panel.add(propertyToComponent.get(EarthProperty.PLANET_MAPS_CE_KEY)[0], constraints);
+		panel.add(propertyToComponent.get(EarthProperty.PLANET_MAPS_KEY)[0], constraints);
 
 		constraints.gridx = 0;
 		constraints.gridy++;
@@ -946,13 +950,20 @@ public class PropertiesDialog extends JDialog {
 				.setSelected(Boolean.parseBoolean(localPropertiesService.getValue(EarthProperty.OPEN_PLANET_MAPS)));
 		propertyToComponent.put(EarthProperty.OPEN_PLANET_MAPS, new JComponent[] { openPlanetCheckbox });
 
+		final JCheckBox openMonthlyNICFICheckbox = new JCheckBox(Messages.getString("OptionWizard.110")); //$NON-NLS-1$
+		openMonthlyNICFICheckbox
+				.setSelected(Boolean.parseBoolean(localPropertiesService.getValue(EarthProperty.PLANET_MAPS_MONHLY)));
+		propertyToComponent.put(EarthProperty.PLANET_MAPS_MONHLY, new JComponent[] { openMonthlyNICFICheckbox });
+
 
 		final JPasswordField planetAPIKeyTextField = new JPasswordField(
-				localPropertiesService.getValue(EarthProperty.PLANET_MAPS_CE_KEY));
+				localPropertiesService.getValue(EarthProperty.PLANET_MAPS_KEY));
 		planetAPIKeyTextField.setMinimumSize(new Dimension( 250,  20 ));
 		planetAPIKeyTextField.setEnabled( localPropertiesService.isPlanetMapsSupported() );
-		propertyToComponent.put(EarthProperty.PLANET_MAPS_CE_KEY, new JComponent[] { planetAPIKeyTextField });
-		openPlanetCheckbox.addActionListener( e-> planetAPIKeyTextField.setEnabled( openPlanetCheckbox.isSelected() ) );
+		propertyToComponent.put(EarthProperty.PLANET_MAPS_KEY, new JComponent[] { planetAPIKeyTextField });
+
+		openPlanetCheckbox.addActionListener( e-> planetAPIKeyTextField.setEnabled( openPlanetCheckbox.isSelected() && !openMonthlyNICFICheckbox.isSelected() ) );
+		openMonthlyNICFICheckbox.addActionListener( e-> planetAPIKeyTextField.setEnabled( openPlanetCheckbox.isSelected() && !openMonthlyNICFICheckbox.isSelected() ) );
 
 
 		final JCheckBox openSecureWatchCheckbox = new JCheckBox(Messages.getString("OptionWizard.102")); //$NON-NLS-1$
