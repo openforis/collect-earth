@@ -1,13 +1,13 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/maven-v4_0_0.xsd">
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/maven-v4_0_0.xsd">
 	<modelVersion>4.0.0</modelVersion>
 	<parent>
 		<groupId>org.openforis.collect.earth</groupId>
 		<artifactId>collect-earth</artifactId>
 		<version>1.12.5-SNAPSHOT</version>
 	</parent>
-
-
 	<name>Collect Earth Application</name>
 	<artifactId>collect-earth-app</artifactId>
 	<packaging>jar</packaging>
@@ -30,7 +30,6 @@
 			<groupId>org.openforis.collect.earth</groupId>
 			<artifactId>collect-earth-sampler</artifactId>
 		</dependency>
-
 		<dependency>
 			<groupId>commons-io</groupId>
 			<artifactId>commons-io</artifactId>
@@ -98,38 +97,32 @@
 			<version>1.4</version>
 		</dependency>
 		<dependency>
-			<groupId>org.swinglabs</groupId>
-			<artifactId>swingx</artifactId>
-			<version>1.6.1</version>
-
+			<groupId>org.swinglabs.swingx</groupId>
+			<artifactId>swingx-core</artifactId>
+			<version>1.6.5-1</version>
 		</dependency>
 		<dependency>
 			<groupId>net.lingala.zip4j</groupId>
 			<artifactId>zip4j</artifactId>
 			<version>2.6.3</version>
 		</dependency>
-
-
 		<dependency>
-		    <groupId>org.apache.logging.log4j</groupId>
-		    <artifactId>log4j-slf4j-impl</artifactId>
-		    <version>${log4j.version}</version>
+			<groupId>org.apache.logging.log4j</groupId>
+			<artifactId>log4j-slf4j-impl</artifactId>
+			<version>${log4j.version}</version>
 		</dependency>
 		<dependency>
-		    <groupId>org.apache.logging.log4j</groupId>
-		    <artifactId>log4j-web</artifactId>
-		    <version>${log4j.version}</version>
+			<groupId>org.apache.logging.log4j</groupId>
+			<artifactId>log4j-web</artifactId>
+			<version>${log4j.version}</version>
 		</dependency>
 		<dependency>
-		    <groupId>io.sentry</groupId>
-		    <artifactId>sentry-log4j2</artifactId>
-		    <version>1.7.30</version>
+			<groupId>io.sentry</groupId>
+			<artifactId>sentry-log4j2</artifactId>
+			<version>1.7.30</version>
 		</dependency>
-
 	</dependencies>
 	<build>
-
-
 		<plugins>
 			<plugin>
 				<groupId>org.apache.maven.plugins</groupId>
@@ -178,7 +171,7 @@
 		</plugins>
 	</build>
 
-  <scm>
-    <tag>collect-earth-1.10.17</tag>
-  </scm>
+	<scm>
+		<tag>collect-earth-1.10.17</tag>
+	</scm>
 </project>

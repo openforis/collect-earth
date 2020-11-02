@@ -16,7 +16,6 @@
 		<name>Food And Agriculture Organization of the UN</name>
 		<url>http://www.fao.org</url>
 	</organization>
-
 	<properties>
 		<java.version>1.8</java.version>
 		<project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
@@ -40,7 +39,7 @@
 
 	<scm>
 		<developerConnection>scm:git:https://github.com/openforis/collect-earth.git</developerConnection>
-		<tag>collect-earth-1.11.01</tag>
+		<tag>collect-earth-1.12.5-SNAPSHOT</tag>
 	</scm>
 
 	<build>
@@ -95,25 +94,23 @@
 	</repositories>
 
 	<dependencyManagement>
-	<dependencies>
-		<dependency>
-			<groupId>org.openforis.collect.earth</groupId>
-			<artifactId>collect-earth-core</artifactId>
-			<version>${project.version}</version>
-		</dependency>
-		<dependency>
-			<groupId>org.openforis.collect.earth</groupId>
-			<artifactId>collect-earth-sampler</artifactId>
-			<version>${project.version}</version>
-		</dependency>
-		<dependency>
-			<groupId>org.openforis.collect</groupId>
-			<artifactId>collect-core</artifactId>
-			<version>${collect.version}</version>
-		</dependency>
-
-
-	</dependencies>
+		<dependencies>
+			<dependency>
+				<groupId>org.openforis.collect.earth</groupId>
+				<artifactId>collect-earth-core</artifactId>
+				<version>${project.version}</version>
+			</dependency>
+			<dependency>
+				<groupId>org.openforis.collect.earth</groupId>
+				<artifactId>collect-earth-sampler</artifactId>
+				<version>${project.version}</version>
+			</dependency>
+			<dependency>
+				<groupId>org.openforis.collect</groupId>
+				<artifactId>collect-core</artifactId>
+				<version>${collect.version}</version>
+			</dependency>
+		</dependencies>
 	</dependencyManagement>
 	<url>http://www.openforis.org/tools/collect-earth.html</url>
 
