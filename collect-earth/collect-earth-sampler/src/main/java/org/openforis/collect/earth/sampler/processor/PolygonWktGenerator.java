@@ -3,6 +3,7 @@ package org.openforis.collect.earth.sampler.processor;
 import org.locationtech.jts.geom.Geometry;
 import org.locationtech.jts.io.ParseException;
 import org.locationtech.jts.io.WKTReader;
+import org.openforis.collect.earth.sampler.model.SimplePlacemarkObject;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -12,10 +13,33 @@ public class PolygonWktGenerator extends PolygonGeometryGenerator {
 	}
 
 	protected final Logger logger = LoggerFactory.getLogger(PolygonWktGenerator.class);
+	private static WKTReader reader = new WKTReader();
+
+	public String isWktPolygonColumnFound(String[] csvValues) {
+		for (int i = 0; i < csvValues.length; i++) {
+			String value = csvValues[i];
+
+			try {
+				reader.read(value);
+				setColumnWithPolygonString( i );
+				return value;
+			} catch (ParseException e) {
+
+			}
+		}
+		return null;
+	}
+
+	@Override
+	protected void processPolygonProperties(SimplePlacemarkObject plotProperties, String[] csvValuesInLine) {
+		String polygon = isWktPolygonColumnFound(csvValuesInLine);
+		if( polygon != null) {
+			processWktPolygonProperties(plotProperties, polygon);
+		}
+	}
 
 	@Override
 	protected Geometry getGeometry(String polygon) {
-		WKTReader reader = new WKTReader();
 		Geometry geometry = null;
 		try {
 			geometry = reader.read(polygon);

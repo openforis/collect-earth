@@ -33,7 +33,7 @@ public abstract class NfiCirclesKmlGenerator extends PolygonKmlGenerator {
 		String kml = getKmlForTract(placemark);
 
 		placemark.setPolygon(kml);
-		placemark.setMultiShape( PolygonKmlGenerator.getPolygonsInMultiGeometry( kml ) );
+		placemark.setMultiShape( getPolygonsInMultiGeometry( kml ) );
 	}
 
 

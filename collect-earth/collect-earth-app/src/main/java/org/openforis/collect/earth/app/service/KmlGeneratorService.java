@@ -308,21 +308,21 @@ public class KmlGeneratorService {
 		return
 			csvContains(
 				csvFile,
-				csvColumns ->  KmlGenerator.isGeoJsonPolygonColumnFound(csvColumns) != null
+				csvColumns ->  new PolygonGeojsonGenerator(null, null, null ).isGeoJsonPolygonColumnFound(csvColumns) != null
 			);
 	}
 
 	private boolean csvContainsWkt(String csvFile) throws IOException {
 		return csvContains(
 				csvFile,
-				csvColumns ->  KmlGenerator.isWktPolygonColumnFound(csvColumns) != null
+				csvColumns ->  new PolygonWktGenerator(null, null, null ).isWktPolygonColumnFound(csvColumns) != null
 			);
 	}
 
 	private boolean csvContainsKml(String csvFile) throws IOException {
 		return csvContains(
 				csvFile,
-				csvColumns ->  KmlGenerator.isKmlPolygonColumnFound(csvColumns) != null
+				csvColumns ->  new PolygonKmlGenerator(null, null, null ).isKmlPolygonColumnFound(csvColumns) != null
 			);
 	}
 
@@ -406,11 +406,11 @@ public class KmlGeneratorService {
 		generatePlacemarksKmzFile(false);
 	}
 
-	public void generatePlacemarksKmzFile(boolean force_recreation ) throws IOException, KmlGenerationException {
+	public void generatePlacemarksKmzFile(boolean forceRegeneration ) throws IOException, KmlGenerationException {
 
 		logger.info("START - Generate KMZ file"); //$NON-NLS-1$
 
-		if (force_recreation || !isKmlUpToDate()) {
+		if (forceRegeneration || !isKmlUpToDate()) {
 
 			generateKml();
 

@@ -13,10 +13,7 @@ import java.util.Map;
 import org.apache.commons.io.FileUtils;
 import org.apache.commons.lang.StringEscapeUtils;
 import org.apache.commons.lang.StringUtils;
-import org.geotools.referencing.wkt.Parser;
 import org.locationtech.jts.geom.Point;
-import org.locationtech.jts.io.ParseException;
-import org.locationtech.jts.io.WKTReader;
 import org.openforis.collect.earth.sampler.model.SimpleCoordinate;
 import org.openforis.collect.earth.sampler.model.SimplePlacemarkObject;
 import org.openforis.collect.earth.sampler.utils.FreemarkerTemplateUtils;
@@ -30,13 +27,18 @@ import org.opengis.referencing.operation.TransformException;
 import org.wololo.jts2geojson.GeoJSONReader;
 
 public abstract class KmlGenerator extends AbstractCoordinateCalculation {
-
-	private static final String KML_POLYGON = "<polygon>";
-
-	private static WKTReader reader = new WKTReader();
-
 	private static PolygonGeojsonGenerator polygonGeojsonGenerator;
 	private static PolygonWktGenerator polygonWktGenerator;
+	private static PolygonKmlGenerator polygonKmlGenerator;
+
+	private static void fillPolygonProperties(SimplePlacemarkObject plotProperties, String polygon,
+			List<List<SimpleCoordinate>> pointsInPolygon) {
+		plotProperties.setMultiShape(pointsInPolygon);
+		if (!pointsInPolygon.isEmpty()) {
+			plotProperties.setPolygon(polygon);
+			plotProperties.setCoord(getCentroid(plotProperties.getShape()));
+		}
+	}
 
 	private static SimpleCoordinate getCentroid(List<SimpleCoordinate> shape) {
 
@@ -60,9 +62,136 @@ public abstract class KmlGenerator extends AbstractCoordinateCalculation {
 		}
 	}
 
+	/**
+	 * Checks if the given String represents a number
+	 *
+	 * @param string The String to check
+	 * @return True if the string is a number
+	 */
+	public static boolean isNumber(String string) {
+		if (string == null || string.isEmpty()) {
+			return false;
+		}
+		int i = 0;
+		if (string.charAt(0) == '-') {
+			if (string.length() > 1) {
+				i++;
+			} else {
+				return false;
+			}
+		}
+		for (; i < string.length(); i++) {
+			char charAt = string.charAt(i);
+			if (charAt != '.' && charAt != ',' && !Character.isDigit(charAt)) {
+				return false;
+			}
+		}
+		return true;
+	}
+
+	public static void processGeoJsonPolygonProperties(SimplePlacemarkObject plotProperties, String geoJsonPolygon) {
+		polygonGeojsonGenerator = (polygonGeojsonGenerator != null ? polygonGeojsonGenerator
+				: new PolygonGeojsonGenerator(null, null, null));
+		List<List<SimpleCoordinate>> pointsInPolygon = polygonGeojsonGenerator
+				.getPolygonsInMultiGeometry(geoJsonPolygon);
+		fillPolygonProperties(plotProperties, geoJsonPolygon, pointsInPolygon);
+	}
+
+	public static void processKmlPolygonProperties(SimplePlacemarkObject plotProperties, String kmlPolygon) {
+
+		polygonKmlGenerator = (polygonKmlGenerator != null ? polygonKmlGenerator
+				: new PolygonKmlGenerator(null, null, null));
+		List<List<SimpleCoordinate>> pointsInPolygon = polygonKmlGenerator.getPolygonsInMultiGeometry(kmlPolygon);
+		fillPolygonProperties(plotProperties, kmlPolygon, pointsInPolygon);
+	}
+
+	public static void processWktPolygonProperties(SimplePlacemarkObject plotProperties, String wktPolygon) {
+		polygonWktGenerator = (polygonWktGenerator != null ? polygonWktGenerator
+				: new PolygonWktGenerator(null, null, null));
+		List<List<SimpleCoordinate>> pointsInPolygon = polygonWktGenerator.getPolygonsInMultiGeometry(wktPolygon);
+		fillPolygonProperties(plotProperties, wktPolygon, pointsInPolygon);
+	}
+
+	private static String[] removeTrailingSpaces(String[] csvValuesInLine) {
+		for (int i = 0; i < csvValuesInLine.length; i++) {
+			String val = csvValuesInLine[i];
+			csvValuesInLine[i] = val.trim();
+		}
+		return csvValuesInLine;
+	}
+
+	protected String hostAddress;
+
+	private final SimpleDateFormat iso8601Timestamp = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss");
+
+	public KmlGenerator(String epsgCode) {
+		super(epsgCode);
+	}
+
+	public abstract void fillExternalLine(SimplePlacemarkObject placemark)
+			throws TransformException, KmlGenerationException;
+
+	public abstract void fillSamplePoints(SimplePlacemarkObject placemark) throws TransformException;
+
+	public void generateKmlFile(String destinationKmlFile, String csvFile, String balloonFile,
+			String freemarkerKmlTemplateFile, CollectSurvey collectSurvey) throws KmlGenerationException {
+
+		final File destinationFile = new File(destinationKmlFile);
+		destinationFile.getParentFile().mkdirs();
+		getKmlCode(csvFile, balloonFile, freemarkerKmlTemplateFile, destinationFile, collectSurvey);
+	}
+
+	private void getKmlCode(String csvFile, String balloonFile, String freemarkerKmlTemplateFile, File destinationFile,
+			CollectSurvey collectSurvey) throws KmlGenerationException {
+
+		if (StringUtils.isBlank(csvFile)) {
+			throw new IllegalArgumentException("THe CSV file location cannot be null");
+		}
+
+		if (StringUtils.isBlank(balloonFile)) {
+			throw new IllegalArgumentException("The balloon (Google Earth popup) file location cannot be null");
+		}
+
+		if (StringUtils.isBlank(freemarkerKmlTemplateFile)) {
+			throw new IllegalArgumentException("The KML freemarker Template file location cannot be null");
+		}
+
+		if (collectSurvey == null) {
+			throw new IllegalArgumentException(
+					"The Collect survey cannot be null. There is an error on the Survey and it was not loaded correctly");
+		}
+
+		// Build the data-model
+		final Map<String, Object> data = getTemplateData(csvFile, collectSurvey);
+		data.put("expiration", iso8601Timestamp.format(new Date()));
+
+		// Get the HTML content of the balloon from a file, this way we can
+		// separate the KML generation so it is easier to create different KMLs
+		String balloonContents;
+		try {
+			balloonContents = FileUtils.readFileToString(new File(balloonFile));
+		} catch (IOException e) {
+			throw new KmlGenerationException("Error reading the balloon file " + balloonFile, e);
+		}
+		try {
+			data.put("html_for_balloon", balloonContents);
+			// This random number is used as a parameter when the JS and CSS files are
+			// referenced so that
+			// it forces Google Earth to reload them when the KMZ file changes
+			data.put("randomNumber", FreemarkerTemplateUtils.randInt(10000, 5000000));
+
+			// Process the template file using the data in the "data" Map
+			final File templateFile = new File(freemarkerKmlTemplateFile);
+
+			FreemarkerTemplateUtils.applyTemplate(templateFile, destinationFile, data);
+		} catch (Exception e) {
+			throw new KmlGenerationException("Error generating the KML file to open in Google Earth "
+					+ freemarkerKmlTemplateFile + " with data " + Arrays.toString(data.values().toArray()), e);
+		}
+	}
+
 	public SimplePlacemarkObject getPlotObject(String[] csvValuesInLine, String[] possibleColumnNames,
-			CollectSurvey collectSurvey)
-			throws KmlGenerationException, TransformException, FactoryException {
+			CollectSurvey collectSurvey) throws KmlGenerationException, TransformException, FactoryException {
 
 		List<AttributeDefinition> keyAttributeDefinitions = collectSurvey.getSchema().getRootEntityDefinitions().get(0)
 				.getKeyAttributeDefinitions();
@@ -83,12 +212,12 @@ public abstract class KmlGenerator extends AbstractCoordinateCalculation {
 			// Check that the Key attribute should not be hidden to user...
 			// This is helpful to have blind Quality Control plots
 			if (!isKeyHiddenInGoogleEarth) {
-				visibleKeys = visibleKeys.append( csvValuesInLine[i] ).append( "," );
+				visibleKeys = visibleKeys.append(csvValuesInLine[i]).append(",");
 			}
 		}
 
-		plotProperties.setPlacemarkId( keys.substring(0, keys.lastIndexOf(",")) );
-		plotProperties.setVisiblePlacemarkId( visibleKeys.substring(0, visibleKeys.lastIndexOf(",")) );
+		plotProperties.setPlacemarkId(keys.substring(0, keys.lastIndexOf(",")));
+		plotProperties.setVisiblePlacemarkId(visibleKeys.substring(0, visibleKeys.lastIndexOf(",")));
 
 		int leadingColumns = 0;
 
@@ -103,14 +232,8 @@ public abstract class KmlGenerator extends AbstractCoordinateCalculation {
 							+ " , LONG :" + longitude);
 		}
 
-		Object polygon;
-		if ( ( polygon = isKmlPolygonColumnFound(csvValuesInLine) )  != null ) {
-			processKmlPolygonProperties(plotProperties, ( (String) polygon ));
-		}else if(( polygon = isGeoJsonPolygonColumnFound(csvValuesInLine) )  != null ) {
-			processGeoJsonPolygonProperties(plotProperties, ( (String) polygon) );
-		}else if(( polygon = isWktPolygonColumnFound(csvValuesInLine) )  != null ) {
-			processWktPolygonProperties( plotProperties, (String) polygon );
-		}
+		processPolygonProperties(plotProperties, csvValuesInLine);
+
 		ArrayList<String> extraInfoVector = new ArrayList<>();
 		ArrayList<String> extraColumns = new ArrayList<>();
 		int columnsWithIfAndLocationInfo = leadingColumns + numberOfKeyAttributes;
@@ -121,7 +244,8 @@ public abstract class KmlGenerator extends AbstractCoordinateCalculation {
 
 				// DO NOT INCLUDE THE POLYGONS IN THE EXTRA DATA AS THEY WILL MAKE THE KML
 				// REALLY LARGE!
-				if (isKmlPolygon(csvValuesInLine[extraIndex])) {
+
+				if ( extraIndex == getColumnWithPolygonString() ) {
 					extraColumns.add("Polygon used in the placemark not included.");
 				} else {
 					extraColumns.add(StringEscapeUtils.escapeXml(csvValuesInLine[extraIndex]));
@@ -176,188 +300,16 @@ public abstract class KmlGenerator extends AbstractCoordinateCalculation {
 		return plotProperties;
 	}
 
-	public static String isGeoJsonPolygonColumnFound(String[] csvValues) {
-		for (String value : csvValues) {
-			try {
-				GeoJSONReader reader = new GeoJSONReader();
-				reader.read(value);
-				return value;
-			} catch (Exception e) {
-				// DO NOTHING, IT IS NOT A WKT
-			}
-		}
-		return null;
-	}
-
-	private static boolean isKmlPolygon(String value) {
-		return value.toLowerCase().contains(KML_POLYGON);
-	}
-
-	/*
-	 * Find the column containing a kml Polygon information
-	 *
-	 * @param csvValues
-	 *
-	 * @return Returns the value in the array of the String containing the KML
-	 * <Polygon> element, null if there is none
-	 */
-	public static String isKmlPolygonColumnFound(String[] csvValues) {
-		for (String value : csvValues) {
-			if (isKmlPolygon(value)) {
-				return value;
-			}
-		}
-		return null;
-	}
-
-	/**
-	 * Checks if the given String represents a number
-	 *
-	 * @param string The String to check
-	 * @return True if the string is a number
-	 */
-	public static boolean isNumber(String string) {
-		if (string == null || string.isEmpty()) {
-			return false;
-		}
-		int i = 0;
-		if (string.charAt(0) == '-') {
-			if (string.length() > 1) {
-				i++;
-			} else {
-				return false;
-			}
-		}
-		for (; i < string.length(); i++) {
-			char charAt = string.charAt(i);
-			if (charAt != '.' && charAt != ',' && !Character.isDigit(charAt)) {
-				return false;
-			}
-		}
-		return true;
-	}
-
-	public static String isWktPolygonColumnFound(String[] csvValues) {
-		for (String value : csvValues) {
-			try {
-				reader.read(value);
-				return value;
-			} catch (ParseException e) {
-				// DO NOTHING, IT IS NOT A WKT
-				System.err.println(e);
-			}
-		}
-		return null;
-	}
-
-	private static void fillPolygonProperties(SimplePlacemarkObject plotProperties, String polygon, List<List<SimpleCoordinate>> pointsInPolygon) {
-		plotProperties.setMultiShape(pointsInPolygon);
-		if (!pointsInPolygon.isEmpty()) {
-			plotProperties.setPolygon(polygon);
-			plotProperties.setCoord(getCentroid(plotProperties.getShape()));
-		}
-	}
-
-	public static void processKmlPolygonProperties(SimplePlacemarkObject plotProperties, String kmlPolygon) {
-		List<List<SimpleCoordinate>> pointsInPolygon = PolygonKmlGenerator.getPolygonsInMultiGeometry(kmlPolygon);
-		fillPolygonProperties(plotProperties, kmlPolygon, pointsInPolygon);
-	}
-
-	public static void processGeoJsonPolygonProperties(SimplePlacemarkObject plotProperties, String geoJsonPolygon) {
-		polygonGeojsonGenerator = ( polygonGeojsonGenerator!=null?polygonGeojsonGenerator:new PolygonGeojsonGenerator(null, null, null) );
-		List<List<SimpleCoordinate>> pointsInPolygon = polygonGeojsonGenerator.getPolygonsInMultiGeometry(geoJsonPolygon);
-		fillPolygonProperties(plotProperties, geoJsonPolygon, pointsInPolygon);
-	}
-
-	public static void processWktPolygonProperties(SimplePlacemarkObject plotProperties, String wktPolygon) {
-		polygonWktGenerator = ( polygonWktGenerator!=null?polygonWktGenerator:new PolygonWktGenerator(null, null, null) );
-		List<List<SimpleCoordinate>> pointsInPolygon = polygonWktGenerator.getPolygonsInMultiGeometry(wktPolygon);
-		fillPolygonProperties(plotProperties, wktPolygon, pointsInPolygon);
-	}
-
-
-	private static String[] removeTrailingSpaces(String[] csvValuesInLine) {
-		for (int i = 0; i < csvValuesInLine.length; i++) {
-			String val = csvValuesInLine[i];
-			csvValuesInLine[i] = val.trim();
-		}
-		return csvValuesInLine;
-	}
-
-	protected String hostAddress;
-
-	private final SimpleDateFormat iso8601Timestamp = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss");
-
-	public KmlGenerator(String epsgCode) {
-		super(epsgCode);
-	}
-
-	public abstract void fillExternalLine(SimplePlacemarkObject placemark)
-			throws TransformException, KmlGenerationException;
-
-	public abstract void fillSamplePoints(SimplePlacemarkObject placemark) throws TransformException;
-
-	public void generateKmlFile(String destinationKmlFile, String csvFile, String balloonFile,
-			String freemarkerKmlTemplateFile,
-			CollectSurvey collectSurvey) throws KmlGenerationException {
-
-		final File destinationFile = new File(destinationKmlFile);
-		destinationFile.getParentFile().mkdirs();
-		getKmlCode(csvFile, balloonFile, freemarkerKmlTemplateFile, destinationFile,
-				collectSurvey);
-	}
-
-	private void getKmlCode(String csvFile, String balloonFile, String freemarkerKmlTemplateFile, File destinationFile,
-			CollectSurvey collectSurvey)
-			throws KmlGenerationException {
-
-		if (StringUtils.isBlank(csvFile)) {
-			throw new IllegalArgumentException("THe CSV file location cannot be null");
-		}
-
-		if (StringUtils.isBlank(balloonFile)) {
-			throw new IllegalArgumentException("The balloon (Google Earth popup) file location cannot be null");
-		}
-
-		if (StringUtils.isBlank(freemarkerKmlTemplateFile)) {
-			throw new IllegalArgumentException("The KML freemarker Template file location cannot be null");
-		}
-
-		if (collectSurvey == null) {
-			throw new IllegalArgumentException(
-					"The Collect survey cannot be null. There is an error on the Survey and it was not loaded correctly");
-		}
-
-		// Build the data-model
-		final Map<String, Object> data = getTemplateData(csvFile, collectSurvey);
-		data.put("expiration", iso8601Timestamp.format(new Date()));
-
-		// Get the HTML content of the balloon from a file, this way we can
-		// separate the KML generation so it is easier to create different KMLs
-		String balloonContents;
-		try {
-			balloonContents = FileUtils.readFileToString(new File(balloonFile));
-		} catch (IOException e) {
-			throw new KmlGenerationException("Error reading the balloon file " + balloonFile, e);
-		}
-		try {
-			data.put("html_for_balloon", balloonContents);
-			// This random number is used as a parameter when the JS and CSS files are
-			// referenced so that
-			// it forces Google Earth to reload them when the KMZ file changes
-			data.put("randomNumber", FreemarkerTemplateUtils.randInt(10000, 5000000));
-
-			// Process the template file using the data in the "data" Map
-			final File templateFile = new File(freemarkerKmlTemplateFile);
-
-			FreemarkerTemplateUtils.applyTemplate(templateFile, destinationFile, data);
-		} catch (Exception e) {
-			throw new KmlGenerationException("Error generating the KML file to open in Google Earth "
-					+ freemarkerKmlTemplateFile + " with data " + Arrays.toString(data.values().toArray()), e);
-		}
+	protected int getColumnWithPolygonString() {
+		// For all the classes of generators that do not use KML/GeoJson/WKT polygons
+		return -1;
 	}
 
 	protected abstract Map<String, Object> getTemplateData(String csvFile, CollectSurvey collectSurvey)
 			throws KmlGenerationException;
+
+	protected void processPolygonProperties(SimplePlacemarkObject plotProperties, String[] csvValuesInLine) {
+		// To be used in the KML/WKT and GeoJson kml generators
+	}
 
 }

@@ -13,7 +13,7 @@ import org.opengis.referencing.operation.TransformException;
 public class NfmaKmlGenerator extends PolygonKmlGenerator {
 	static final int DIST_TRACT_CORNER_LAT = 500;
 	static final int DIST_TRACT_CORNER_LONG = 500;
-	
+
 	private static final int DEFAULT_SU_WIDTH = 1000;
 	private static final int DEFAULT_CORNER_WIDTH = 4;
 	private static final int DEFAULT_DISTANCE_FROM_SU_BORDER = 250;
@@ -32,14 +32,14 @@ public class NfmaKmlGenerator extends PolygonKmlGenerator {
 			String localPort) {
 		this(epsgCode, hostAddress, localPort, DEFAULT_PLOT_LENGTH, DEFAULT_DRAW_LINES);
 	}
-	
+
 	public NfmaKmlGenerator(String epsgCode, String hostAddress,
 			String localPort, int plotLength, boolean drawLines) {
 		super(epsgCode, hostAddress, localPort);
 		this.plotLength = plotLength;
 		this.drawLines = drawLines;
 	}
-	
+
 	@Override
 	public void fillExternalLine(SimplePlacemarkObject placemark) throws TransformException, KmlGenerationException {
 		// No need to do anything, the polygon is already defined within the placemark.kmlPolygon attribute
@@ -49,70 +49,70 @@ public class NfmaKmlGenerator extends PolygonKmlGenerator {
 		placemark.setRegion(new SimpleRegion( Double.toString( top[1] ), Double.toString( top[0] ), Double.toString( bottom[1] ), Double.toString( bottom[0] ) ));
 
 		String kml = getKmlForTract(placemark);
-		
+
 		placemark.setPolygon(kml);
-		placemark.setMultiShape( PolygonKmlGenerator.getPolygonsInMultiGeometry( kml ) );
+		placemark.setMultiShape( getPolygonsInMultiGeometry( kml ) );
 	}
 
-	
-	private String getKmlForTract(SimplePlacemarkObject placemark) throws TransformException {	
+
+	private String getKmlForTract(SimplePlacemarkObject placemark) throws TransformException {
 		double[] tractCoord = placemark.getCoord().getCoordinates();
 		int cornerWidth = DEFAULT_CORNER_WIDTH;
 		int suWidth = DEFAULT_SU_WIDTH;
-		
+
 		int halfSUWidth = Math.floorDiv(suWidth, 2);
 		int centerToPlotSPDistance = halfSUWidth - distanceFromSUBorder; //distance between su center and plot starting point
 		int halfPlotWidth = Math.floorDiv(plotWidth, 2);
 		int halfCornerWidth = Math.floorDiv(cornerWidth, 2);
-		
-		String polygonNorthWest = createRectangle( 
-			getPointWithOffsetAndMove(tractCoord, -centerToPlotSPDistance, centerToPlotSPDistance + halfPlotWidth), 
-			getPointWithOffsetAndMove(tractCoord, -centerToPlotSPDistance + plotLength, centerToPlotSPDistance + halfPlotWidth), 
-			getPointWithOffsetAndMove(tractCoord, -centerToPlotSPDistance + plotLength, centerToPlotSPDistance - halfPlotWidth) , 
-			getPointWithOffsetAndMove(tractCoord, -centerToPlotSPDistance, centerToPlotSPDistance - halfPlotWidth) 
+
+		String polygonNorthWest = createRectangle(
+			getPointWithOffsetAndMove(tractCoord, -centerToPlotSPDistance, centerToPlotSPDistance + halfPlotWidth),
+			getPointWithOffsetAndMove(tractCoord, -centerToPlotSPDistance + plotLength, centerToPlotSPDistance + halfPlotWidth),
+			getPointWithOffsetAndMove(tractCoord, -centerToPlotSPDistance + plotLength, centerToPlotSPDistance - halfPlotWidth) ,
+			getPointWithOffsetAndMove(tractCoord, -centerToPlotSPDistance, centerToPlotSPDistance - halfPlotWidth)
 		);
-		String polygonNorthEast = createRectangle( 
-			getPointWithOffsetAndMove(tractCoord, centerToPlotSPDistance - halfPlotWidth, centerToPlotSPDistance), 
-			getPointWithOffsetAndMove(tractCoord, centerToPlotSPDistance + halfPlotWidth, centerToPlotSPDistance), 
-			getPointWithOffsetAndMove(tractCoord, centerToPlotSPDistance + halfPlotWidth, centerToPlotSPDistance - plotLength), 
-			getPointWithOffsetAndMove(tractCoord, centerToPlotSPDistance - halfPlotWidth, centerToPlotSPDistance - plotLength) 
+		String polygonNorthEast = createRectangle(
+			getPointWithOffsetAndMove(tractCoord, centerToPlotSPDistance - halfPlotWidth, centerToPlotSPDistance),
+			getPointWithOffsetAndMove(tractCoord, centerToPlotSPDistance + halfPlotWidth, centerToPlotSPDistance),
+			getPointWithOffsetAndMove(tractCoord, centerToPlotSPDistance + halfPlotWidth, centerToPlotSPDistance - plotLength),
+			getPointWithOffsetAndMove(tractCoord, centerToPlotSPDistance - halfPlotWidth, centerToPlotSPDistance - plotLength)
 		);
-		String polygonSouthEast = createRectangle( 
-			getPointWithOffsetAndMove(tractCoord, centerToPlotSPDistance, -centerToPlotSPDistance - halfPlotWidth), 
-			getPointWithOffsetAndMove(tractCoord, centerToPlotSPDistance, -centerToPlotSPDistance + halfPlotWidth), 
-			getPointWithOffsetAndMove(tractCoord, centerToPlotSPDistance - plotLength, -centerToPlotSPDistance + halfPlotWidth), 
-			getPointWithOffsetAndMove(tractCoord, centerToPlotSPDistance - plotLength, -centerToPlotSPDistance - halfPlotWidth) 
+		String polygonSouthEast = createRectangle(
+			getPointWithOffsetAndMove(tractCoord, centerToPlotSPDistance, -centerToPlotSPDistance - halfPlotWidth),
+			getPointWithOffsetAndMove(tractCoord, centerToPlotSPDistance, -centerToPlotSPDistance + halfPlotWidth),
+			getPointWithOffsetAndMove(tractCoord, centerToPlotSPDistance - plotLength, -centerToPlotSPDistance + halfPlotWidth),
+			getPointWithOffsetAndMove(tractCoord, centerToPlotSPDistance - plotLength, -centerToPlotSPDistance - halfPlotWidth)
 		);
-		String polygonSouthWest = createRectangle( 
-			getPointWithOffsetAndMove(tractCoord, -centerToPlotSPDistance - halfPlotWidth, -centerToPlotSPDistance), 
-			getPointWithOffsetAndMove(tractCoord, -centerToPlotSPDistance - halfPlotWidth, -centerToPlotSPDistance + plotLength), 
-			getPointWithOffsetAndMove(tractCoord, -centerToPlotSPDistance + halfPlotWidth, -centerToPlotSPDistance + plotLength) , 
-			getPointWithOffsetAndMove(tractCoord, -centerToPlotSPDistance + halfPlotWidth, -centerToPlotSPDistance) 
+		String polygonSouthWest = createRectangle(
+			getPointWithOffsetAndMove(tractCoord, -centerToPlotSPDistance - halfPlotWidth, -centerToPlotSPDistance),
+			getPointWithOffsetAndMove(tractCoord, -centerToPlotSPDistance - halfPlotWidth, -centerToPlotSPDistance + plotLength),
+			getPointWithOffsetAndMove(tractCoord, -centerToPlotSPDistance + halfPlotWidth, -centerToPlotSPDistance + plotLength) ,
+			getPointWithOffsetAndMove(tractCoord, -centerToPlotSPDistance + halfPlotWidth, -centerToPlotSPDistance)
 		);
-		String tractCorner = createRectangle( 
-			getPointWithOffset(tractCoord, -halfCornerWidth, -halfCornerWidth), 
-			getPointWithOffset(tractCoord, -halfCornerWidth, halfCornerWidth), 
-			getPointWithOffset(tractCoord, halfCornerWidth, halfCornerWidth) , 
+		String tractCorner = createRectangle(
+			getPointWithOffset(tractCoord, -halfCornerWidth, -halfCornerWidth),
+			getPointWithOffset(tractCoord, -halfCornerWidth, halfCornerWidth),
+			getPointWithOffset(tractCoord, halfCornerWidth, halfCornerWidth) ,
 			getPointWithOffset(tractCoord, halfCornerWidth, -halfCornerWidth) );
-		
+
 		List<String> geometryParts = new ArrayList<>(Arrays.asList(polygonNorthEast, polygonNorthWest, polygonSouthEast, polygonSouthWest));
-		
+
 		if (drawCorner) {
 			geometryParts.add(tractCorner);
 		}
-		
+
 		if (drawLines) {
 			int plotAreasCount = 10; //divide plots in 10 areas
 			int linesDistance = Math.floorDiv(plotLength, plotAreasCount);
 			int lineMargin = 2; //margin from plot border
-			
+
 			List<String> polygonNWlines = new ArrayList<>(plotAreasCount - 1);
 			for (int i = 1; i < plotAreasCount; i++) {
 				double[] point1 = getPointWithOffsetAndMove(tractCoord, -centerToPlotSPDistance + linesDistance * i, centerToPlotSPDistance + halfPlotWidth - lineMargin);
 				double[] point2 = getPointWithOffsetAndMove(tractCoord, -centerToPlotSPDistance + linesDistance * i, centerToPlotSPDistance - halfPlotWidth + lineMargin);
 				polygonNWlines.add(createLine(point1, point2));
 			}
-			
+
 			List<String> polygonNElines = new ArrayList<>(plotAreasCount - 1);
 			for (int i = 1; i < plotAreasCount; i++) {
 				double[] point1 = getPointWithOffsetAndMove(tractCoord, centerToPlotSPDistance - halfPlotWidth + lineMargin, centerToPlotSPDistance - linesDistance * i);
@@ -136,7 +136,7 @@ public class NfmaKmlGenerator extends PolygonKmlGenerator {
 			geometryParts.addAll(polygonSElines);
 			geometryParts.addAll(polygonSWlines);
 		}
-		
+
 		return "<MultiGeometry>" + StringUtils.join(geometryParts, '\n') + "</MultiGeometry>";
 	}
 
@@ -148,13 +148,13 @@ public class NfmaKmlGenerator extends PolygonKmlGenerator {
 		int longitude = 0;
 		int latitude = 1;
 		String polygon = "<Polygon><outerBoundaryIs><LinearRing><coordinates>";
-		
+
 		polygon += point1[latitude] + "," + point1[longitude] + ",0\n"  ;
 		polygon += point2[latitude] + "," + point2[longitude] + ",0\n"  ;
 		polygon += point3[latitude] + "," + point3[longitude] + ",0\n"  ;
 		polygon += point4[latitude] + "," + point4[longitude] + ",0\n"  ;
 		polygon += point1[latitude] + "," + point1[longitude] + ",0\n"  ;
-		
+
 		polygon += "</coordinates></LinearRing></outerBoundaryIs></Polygon>";
 		return polygon;
 	}
@@ -162,9 +162,9 @@ public class NfmaKmlGenerator extends PolygonKmlGenerator {
 	private String createLine(double[] point1, double[] point2) {
 		int lon = 0;
 		int lat = 1;
-		return "<LineString><coordinates>" + StringUtils.join(new double[] { 
-				point1[lat], point1[lon], 0., 
-				point2[lat], point2[lon], 0. 
+		return "<LineString><coordinates>" + StringUtils.join(new double[] {
+				point1[lat], point1[lon], 0.,
+				point2[lat], point2[lon], 0.
 			}, ',')
 			+ "</coordinates></LineString>";
 	}
