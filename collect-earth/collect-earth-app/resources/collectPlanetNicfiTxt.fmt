@@ -1,0 +1,25 @@
+?latlngs = [
+			<#list placemark.multiShape as shp>
+             [
+            	<#list shp as coord>
+				[${coord.latitude},${coord.longitude}],
+				</#list>
+			],
+			</#list>
+           <#list placemark.points as square>
+ 				[
+			     <#list square.shape as squareCorners>
+			           [${squareCorners.latitude},${squareCorners.longitude}],
+			     </#list>
+		     	],
+		     	<#if square.points?? >
+					<#list square.points as innerpoint>
+					[
+						<#list innerpoint.shape as squareCorners>
+					  [${squareCorners.latitude},${squareCorners.longitude}],
+						</#list>
+					],
+					</#list>
+				</#if>
+		    </#list>
+]

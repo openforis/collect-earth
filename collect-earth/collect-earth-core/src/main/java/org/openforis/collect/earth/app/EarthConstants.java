@@ -11,11 +11,11 @@ import org.openforis.collect.earth.app.service.FolderFinder;
  *
  */
 public class EarthConstants {
-	
+
 	public static final String COLLECT_EARTH_APPDATA_FOLDER = "CollectEarth"; //$NON-NLS-1$
 
 	public static final String DATE_FORMAT_HTTP = "EEE, dd MMM yyyy HH:mm:ss zzz"; //$NON-NLS-1$
-	
+
 	public static final String LIST_FILLED_IMAGE = "images/list_filled.png"; //$NON-NLS-1$
 
 	public static final String LIST_NON_FILLED_IMAGE = "images/list_empty.png"; //$NON-NLS-1$
@@ -35,11 +35,11 @@ public class EarthConstants {
 	public static final String FIREFOX_BROWSER = "firefox"; //$NON-NLS-1$
 
 	public static final String EARTH_SURVEY_NAME = "earth"; //$NON-NLS-1$
-	
+
 	public enum OperationMode{ SERVER_MODE, CLIENT_MODE}
-	
+
 	public static final String COLLECT_EARTH_DATABASE_FILE_NAME = "collectEarthDatabase.db";
-	
+
 	public static final String COLLECT_EARTH_DATABASE_SQLITE_DB = FolderFinder.getCollectEarthDataFolder() + File.separator + COLLECT_EARTH_DATABASE_FILE_NAME;
 
 	public static final String COLLECT_REASON_BLANK_NOT_SPECIFIED_MESSAGE = "Reason blank not specified";
@@ -53,60 +53,62 @@ public class EarthConstants {
 	public static final String OPERATOR_ATTRIBUTE_NAME = "operator"; //$NON-NLS-1$
 	public static final String OPERATOR_PARAMETER = "collect_text_operator"; //$NON-NLS-1$
 	public static final String SKIP_FILLED_PLOT_PARAMETER = "jump_to_next_plot"; //$NON-NLS-1$
-	
+
 	public static final String PLOT_ID = "id"; //$NON-NLS-1$
-	
+
 	public static final String POSTGRES_RDB_SCHEMA = "rdbcollectsaiku"; //$NON-NLS-1$
 
-	
-	public enum SAMPLE_SHAPE{ 
+
+	public enum SAMPLE_SHAPE{
 		SQUARE("Square (Standard)"),
 		SQUARE_WITH_LARGE_CENTRAL_PLOT("Square (large central point)"),
-		CIRCLE("Circle"), 
-		POLYGON("Predefined polygon within CSV plot file"), 
-		HEXAGON("Hexagon"), 
-		NFMA("NFMA plot design (150m length)"), 
+		CIRCLE("Circle"),
+		KML_POLYGON("Predefined polygon in KML Format within CSV plot file"),
+		WKT_POLYGON("Predefined polygon in WKT Format within CSV plot file"),
+		GEOJSON_POLYGON("Predefined polygon in GeoJSON Format within CSV plot file"),
+		HEXAGON("Hexagon"),
+		NFMA("NFMA plot design (150m length)"),
 		NFMA_250("NFMA plot design (250m length)"),
 		SQUARE_CIRCLE("Square with circles (beta)"),
 		NFI_THREE_CIRCLES("NFI cluster with three circular plots"),
 		NFI_FOUR_CIRCLES("NFI cluster with four circular plots");
-	
+
 		private String label;
-		
+
 		private SAMPLE_SHAPE(String label){
 			this.label = label;
 		}
-		
+
 		@Override
 		public String toString() {
 			return label;
 		}
 	}
-	
-	public enum UI_LANGUAGE{ 
+
+	public enum UI_LANGUAGE{
 		FR( "Français", new Locale("fr", "FR") ) , EN( "English", new Locale("en", "EN") ), ES( "Español", new Locale("es", "ES")), PT("Português", new Locale("pt","PT") ), VI("tiếng Việt", new Locale("vi","VI") ) , LO("Lao", new Locale("lo","LO")), MN("Монгол", new Locale("mn","MN") ), HI("हिंदी", new Locale("hi","HI") ), RU("Pусский", new Locale("ru","RU") ), TR("Türkçe", new Locale("tr","TR") )  ; //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$ //$NON-NLS-4$ //$NON-NLS-5$ //$NON-NLS-6$ //$NON-NLS-7$ //$NON-NLS-8$ //$NON-NLS-9$ //$NON-NLS-10$ //$NON-NLS-11$ //$NON-NLS-12$ //$NON-NLS-13$ //$NON-NLS-14$ //$NON-NLS-15$
-		
+
 		private Locale locale;
 		private String label;
-		
+
 		private UI_LANGUAGE(String label, Locale locale){
 			this.label = label;
 			this.locale = locale;
 		}
-		
+
 		public Locale getLocale(){
 			return locale;
 		}
-		
+
 		public String getLabel(){
 			return label;
 		}
 	}
-	
-	public enum CollectDBDriver{ 
+
+	public enum CollectDBDriver{
 		SQLITE("org.sqlite.JDBC", "jdbc:sqlite:" + COLLECT_EARTH_DATABASE_SQLITE_DB ),  //$NON-NLS-1$ //$NON-NLS-2$
 		POSTGRESQL("org.postgresql.Driver", "jdbc:postgresql://REPLACE_HOSTNAME:REPLACE_PORT/REPLACE_DBNAME"); //$NON-NLS-1$ //$NON-NLS-2$
-		
+
 		private String driverClass;
 		private String url;
 

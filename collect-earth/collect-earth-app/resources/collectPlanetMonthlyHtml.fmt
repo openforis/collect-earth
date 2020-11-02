@@ -196,16 +196,6 @@
 
     var map = L.map('map');
 
-	var boundaries = [
-	// create a red polyline from an array of LatLng points
-			<#list placemark.multiShape as shp>
-             [
-            	<#list shp as coord>
-				[${coord.longitude},${coord.latitude}],
-				</#list>
-			]
-			</#list>
-			];
 	var latlngs = [
 	// create a red polyline from an array of LatLng points
 			<#list placemark.multiShape as shp>

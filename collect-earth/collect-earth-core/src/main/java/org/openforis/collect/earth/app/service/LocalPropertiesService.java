@@ -107,6 +107,7 @@ public class LocalPropertiesService extends Observable {
 				"open_gee_app"), GEE_MAP_URL(
 				"gee_app_url"), OPEN_MAXAR_SECUREWATCH(
 				"open_maxar_securewatch"),MAXAR_SECUREWATCH_URL("secure_watch_url"), EARTH_MAP_URL("earth_map_url"),
+				PLANET_NICFI_URL("planet_nicfi_url"),
 				OPEN_EARTH_MAP("open_earth_map"),
 				EARTH_MAP_LAYERS("earth_map_layers"),
 				EARTH_MAP_SCRIPTS("earth_map_scripts"),
@@ -319,6 +320,10 @@ public class LocalPropertiesService extends Observable {
 
 	public String getSecureWatchURL() {
 		return getValue(EarthProperty.MAXAR_SECUREWATCH_URL);
+	}
+
+	public String getPlanetNicfiURL() {
+		return getValue(EarthProperty.PLANET_NICFI_URL);
 	}
 
 	public String getTemplateFile() {

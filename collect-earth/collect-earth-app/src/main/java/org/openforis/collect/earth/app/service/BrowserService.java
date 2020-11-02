@@ -7,8 +7,10 @@ import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.StringWriter;
 import java.io.Writer;
+import java.net.URI;
 import java.net.URL;
 import java.net.URLEncoder;
+import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
 import java.security.Security;
 import java.util.ArrayList;
@@ -27,6 +29,7 @@ import javax.net.ssl.SSLContext;
 import javax.net.ssl.SSLSocketFactory;
 import javax.net.ssl.TrustManager;
 
+import org.apache.commons.io.FileUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.openforis.collect.earth.app.EarthConstants;
 import org.openforis.collect.earth.app.desktop.ServerController;
@@ -515,26 +518,37 @@ public class BrowserService implements InitializingBean, Observer {
 
 				boolean monthly = localPropertiesService.isPlanetMapsMonthlyOpen();
 
-				String template = monthly ? GeolocalizeMapService.FREEMARKER_PLANET_MONTHLY_HTML_TEMPLATE : GeolocalizeMapService.FREEMARKER_PLANET_DAILY_HTML_TEMPLATE;
+				String template = monthly ? GeolocalizeMapService.FREEMARKER_PLANET_NICFI_ARGUMENTS : GeolocalizeMapService.FREEMARKER_PLANET_DAILY_HTML_TEMPLATE;
 				String key = monthly ? localPropertiesService.getValue( EarthProperty.PLANET_MAPS_CE_KEY ) : localPropertiesService.getValue( EarthProperty.PLANET_MAPS_KEY );
 
 				try {
-					webDriverPlanetHtml = navigateTo(
 
-							geoLocalizeTemplateService.getUrlToFreemarkerOutput(
-									placemarkObject,
-									template,
-									"planetMapsKey",
-									key,
-									"urlPlanetEndpointPrefix",
-									ServerController.getHostAddress(
-											localPropertiesService.getHost(),
-											localPropertiesService.getPort())
-									/*"latestUrl",
-								new PlanetImagery(localPropertiesService.getPlanetMapsKey()).getLatestUrl(placemarkObject)).toString(),
-									 */).toString(),
-							webDriverPlanetHtml
-							);
+					String processTemplate = geoLocalizeTemplateService.getUrlToFreemarkerOutput(
+							placemarkObject,
+							template,
+							"planetMapsKey",
+							key,
+							"urlPlanetEndpointPrefix",
+							ServerController.getHostAddress(localPropertiesService.getHost(),localPropertiesService.getPort())
+						).toString();
+
+					String urlPlanet = null;
+					if( monthly ) {
+
+				        String parameters = FileUtils.readFileToString( new File( new URI( processTemplate )  ) , StandardCharsets.UTF_8 );
+
+						// remove new lines
+				        parameters = parameters.replace("\n", "").replace("\r", "").replace("\t", "").replace(" ", "");
+						// remove trailing commas
+				        parameters = parameters.replace(",],", "],").replace("],]", "]]");
+
+						urlPlanet = localPropertiesService.getValue( EarthProperty.PLANET_NICFI_URL ) + parameters;
+					}else {
+						urlPlanet = processTemplate;
+					}
+
+					webDriverPlanetHtml = navigateTo( urlPlanet, webDriverPlanetHtml );
+
 				} catch (final Exception e) {
 					logger.error("Problems loading Planet", e);
 				}

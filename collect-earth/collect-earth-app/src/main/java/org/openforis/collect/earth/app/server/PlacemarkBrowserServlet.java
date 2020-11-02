@@ -29,9 +29,9 @@ import au.com.bytecode.opencsv.CSVReader;
 /**
  * Servlet to return the information that is stored in Collect Earth for one
  * placemark (plot)
- * 
+ *
  * @author Alfonso Sanchez-Paus Diaz
- * 
+ *
  */
 @Controller
 public class PlacemarkBrowserServlet {
@@ -47,6 +47,8 @@ public class PlacemarkBrowserServlet {
 	@Autowired
 	private KmlGeneratorService kmlGeneratorService;
 
+	private KmlGenerator kmlGenerator;
+
 	private SimplePlacemarkObject lastPlacemark = null;
 
 	private final Logger logger = LoggerFactory.getLogger( PlacemarkBrowserServlet.class );
@@ -57,7 +59,7 @@ public class PlacemarkBrowserServlet {
 
 		private OpenBrowserThread(String name, SimplePlacemarkObject placemarkObject) {
 			super(name);
-			this.placemarkObject = placemarkObject;	
+			this.placemarkObject = placemarkObject;
 		}
 
 		@Override
@@ -68,8 +70,6 @@ public class PlacemarkBrowserServlet {
 					|| !lastPlacemark.equals( placemarkObject ) ) {
 
 				try {
-					KmlGenerator kmlGenerator = kmlGeneratorService.getKmlGenerator();
-					
 					kmlGenerator.fillSamplePoints(placemarkObject);
 
 					kmlGenerator.fillExternalLine(placemarkObject);
@@ -79,7 +79,7 @@ public class PlacemarkBrowserServlet {
 					openGEEAppWindow(placemarkObject);
 
 					openGEECodeEditorWindow(placemarkObject);
-					
+
 					openEarthMapWindow( placemarkObject );
 
 					openTimeLapseWindow(placemarkObject);
@@ -95,7 +95,7 @@ public class PlacemarkBrowserServlet {
 					openStreetViewWindow(placemarkObject);
 
 					openPlanetMapsWindow(placemarkObject);
-					
+
 					openSecureWatchWindow(placemarkObject);
 
 				} catch (TransformException e) {
@@ -109,7 +109,7 @@ public class PlacemarkBrowserServlet {
 
 		}
 
-	
+
 		public void openEarthMapWindow(final SimplePlacemarkObject placemarkObject) {
 			new Thread("Open Earth Map window") { //$NON-NLS-1$
 				@Override
@@ -122,7 +122,7 @@ public class PlacemarkBrowserServlet {
 				}
 			}.start();
 		}
-		
+
 		public void openGEECodeEditorWindow(final SimplePlacemarkObject placemarkObject) {
 			new Thread("Open GEE Playground window") { //$NON-NLS-1$
 				@Override
@@ -294,7 +294,7 @@ public class PlacemarkBrowserServlet {
 	 * Returns a JSON object with the data colleted for a placemark in the
 	 * collect-earth format. It also opens the extra browser windows for Earth
 	 * Engine, Timelapse and Bing. (non-Javadoc)
-	 * 
+	 *
 	 * @see
 	 * org.openforis.collect.earth.app.server.JsonPocessorServlet#processRequest
 	 * (javax.servlet.http.HttpServletRequest,
@@ -317,7 +317,7 @@ public class PlacemarkBrowserServlet {
 	@RequestMapping("/ancillaryWindows")
 	protected void openAuxiliaryWindowsNew(HttpServletResponse response, HttpServletRequest request) throws IOException {
 
-
+		kmlGenerator = kmlGeneratorService.getKmlGenerator();
 		List<AttributeDefinition> keyAttributeDefinitions = earthSurveyService
 				.getRootEntityDefinition()
 				.getKeyAttributeDefinitions();
@@ -337,7 +337,7 @@ public class PlacemarkBrowserServlet {
 				throw new IllegalArgumentException("The keys " + keys.toString() + " are not present on the CSV file with the plot lcoations!!!");
 			}
 
-			SimplePlacemarkObject placemarkObject = KmlGenerator.getPlotObject(csvValues, null, earthSurveyService.getCollectSurvey() );
+			SimplePlacemarkObject placemarkObject = kmlGenerator.getPlotObject(csvValues, null, earthSurveyService.getCollectSurvey() );
 			OpenBrowserThread browserThread = new OpenBrowserThread("Open ancillary windows - polygon ", placemarkObject );
 			browserThread.start();
 		} catch (Exception e) {
