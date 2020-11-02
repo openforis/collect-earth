@@ -22,7 +22,9 @@ import org.openforis.collect.earth.sampler.processor.KmzGenerator;
 import org.openforis.collect.earth.sampler.processor.NfiFourCirclesGenerator;
 import org.openforis.collect.earth.sampler.processor.NfiThreeCirclesGenerator;
 import org.openforis.collect.earth.sampler.processor.NfmaKmlGenerator;
+import org.openforis.collect.earth.sampler.processor.PolygonGeojsonGenerator;
 import org.openforis.collect.earth.sampler.processor.PolygonKmlGenerator;
+import org.openforis.collect.earth.sampler.processor.PolygonWktGenerator;
 import org.openforis.collect.earth.sampler.processor.SquareKmlGenerator;
 import org.openforis.collect.earth.sampler.processor.SquareWithCirclesKmlGenerator;
 import org.openforis.collect.earth.sampler.utils.FreemarkerTemplateUtils;
@@ -40,7 +42,7 @@ public class KmlGeneratorService {
 
 	@Autowired
 	LocalPropertiesService localPropertiesService;
-	
+
 	@Autowired
 	EarthSurveyService earthSurveyService;
 
@@ -51,6 +53,9 @@ public class KmlGeneratorService {
 	public static final String KML_NETWORK_LINK_TEMPLATE = "resources/loadApp.fmt"; //$NON-NLS-1$
 	public static final String KML_NETWORK_LINK_STARTER = EarthConstants.GENERATED_FOLDER + "/loadApp.kml"; //$NON-NLS-1$
 
+	public static interface PolygonTest{
+	    Boolean isPolygon(String[] strColumns);
+	}
 
 	public void generateKmlFile() throws IOException, KmlGenerationException{
 		checkFilesExist();
@@ -173,7 +178,7 @@ public class KmlGeneratorService {
 
 	}
 
-	
+
 	private int parseInt( String intNumber ){
 		int i = 0;
 		try{
@@ -188,14 +193,14 @@ public class KmlGeneratorService {
 
 	public KmlGenerator getKmlGenerator() {
 		KmlGenerator generateKml =null;
-		
+
 		final String crsSystem = getLocalProperties().getCrs();
 		final Integer innerPointSide = parseInt(getLocalProperties().getValue(EarthProperty.INNER_SUBPLOT_SIDE));
 		final Integer largeCentralPlotSide = parseInt(getLocalProperties().getValue(EarthProperty.LARGE_CENTRAL_PLOT_SIDE));
 		final String distanceToBuffers = getLocalProperties().getValue(EarthProperty.DISTANCE_TO_BUFFERS);
 		SAMPLE_SHAPE plotShape = getLocalProperties().getSampleShape();
 		final String hostAddress = ServerController.getHostAddress(getLocalProperties().getHost(), getLocalProperties().getPort());
-		
+
 		final float distanceBetweenSamplePoints, distanceToPlotBoundaries;
 		String dBSP = getLocalProperties().getValue(EarthProperty.DISTANCE_BETWEEN_SAMPLE_POINTS);
 		try {
@@ -206,7 +211,7 @@ public class KmlGeneratorService {
 			return null;
 		}
 
-		
+
 		String dToPlotB = getLocalProperties().getValue(EarthProperty.DISTANCE_TO_PLOT_BOUNDARIES);
 		try {
 			distanceToPlotBoundaries = Float.parseFloat(dToPlotB);
@@ -214,22 +219,26 @@ public class KmlGeneratorService {
 			logger.error("Error parsing distance between plots , wrong value : " + dToPlotB,e);
 			EarthApp.showMessage("Attention: Check earth.properties file. The distance between sample point and border of the plot must be a number ! You have set it to : " + dToPlotB); //$NON-NLS-1$
 			return null;
-		}		
+		}
 		final String localPort = getLocalProperties().getLocalPort();
 		final String numberOfSamplingPlots = getLocalProperties().getValue(EarthProperty.NUMBER_OF_SAMPLING_POINTS_IN_PLOT);
 		final String csvFile = getLocalProperties().getCsvFile();
-		
+
 		int numberOfPoints = 25;
 		if ((numberOfSamplingPlots != null) && (numberOfSamplingPlots.trim().length() > 0)) {
 			numberOfPoints = parseInt(numberOfSamplingPlots.trim());
 		}
 
-		try{ 
+		try{
 			// If there is a polygon column then the type of plot shape is assumed to be POLYGON
-			if( csvContainsPolygons(csvFile)){
-				plotShape = SAMPLE_SHAPE.POLYGON;
+			if( csvContainsKml(csvFile)){
+				plotShape = SAMPLE_SHAPE.KML_POLYGON;
+			}else if( csvContainsWkt(csvFile)){
+				plotShape = SAMPLE_SHAPE.WKT_POLYGON;
+			}else if( csvContainsGeoJson(csvFile)){
+				plotShape = SAMPLE_SHAPE.GEOJSON_POLYGON;
 			}
-						
+
 			if (plotShape.equals(SAMPLE_SHAPE.CIRCLE)) {
 				generateKml = new CircleKmlGenerator(crsSystem, hostAddress, localPort, innerPointSide,  numberOfPoints, distanceBetweenSamplePoints );
 			} else if (plotShape.equals(SAMPLE_SHAPE.NFMA)) {
@@ -237,7 +246,7 @@ public class KmlGeneratorService {
 			} else if (plotShape.equals(SAMPLE_SHAPE.NFMA_250)) {
 				generateKml = new NfmaKmlGenerator(crsSystem, hostAddress, localPort, 250, true);
 			} else if (plotShape.equals(SAMPLE_SHAPE.NFI_THREE_CIRCLES)) {
-				
+
 				String dBP = getLocalProperties().getValue(EarthProperty.DISTANCE_BETWEEN_PLOTS );
 				float distanceBetweenPlots;
 				try {
@@ -246,52 +255,75 @@ public class KmlGeneratorService {
 					logger.error("Error parsing distance between plots , wrong value : " + dBP,e);
 					EarthApp.showMessage("Attention: Check earth.properties file. The distance between plots must be a number! You have set it to : " + dBP); //$NON-NLS-1$
 					return null;
-				}	
-				
+				}
+
 				generateKml = new NfiThreeCirclesGenerator(crsSystem, hostAddress, localPort, innerPointSide,  distanceBetweenSamplePoints, distanceBetweenPlots );
 			}else if (plotShape.equals(SAMPLE_SHAPE.NFI_FOUR_CIRCLES)) {
-				
+
 				String dBP = getLocalProperties().getValue(EarthProperty.DISTANCE_BETWEEN_PLOTS );
 				float distanceBetweenPlots;
 				try {
 					distanceBetweenPlots = Float.parseFloat(dBP);
 				} catch (Exception e) {
-					logger.error("Error parsing distance between plots , wrong value : " + dBP,e);
+					logger.error(String.format("Error parsing distance between plots , wrong value : %s", dBP) ,e);
 					EarthApp.showMessage("Attention: Check earth.properties file. The distance between plots must be a number! You have set it to : " + dBP); //$NON-NLS-1$
 					return null;
-				}	
-				
+				}
+
 				generateKml = new NfiFourCirclesGenerator(crsSystem, hostAddress, localPort, innerPointSide,  distanceBetweenSamplePoints, distanceBetweenPlots );
 			}else if (plotShape.equals(SAMPLE_SHAPE.HEXAGON)) {
 				generateKml = new HexagonKmlGenerator(crsSystem, hostAddress, localPort, innerPointSide,  numberOfPoints, distanceBetweenSamplePoints );
 			}  else if (plotShape.equals(SAMPLE_SHAPE.SQUARE_CIRCLE)) {
-				generateKml = new SquareWithCirclesKmlGenerator(crsSystem, hostAddress, localPort, innerPointSide,  numberOfPoints, 
+				generateKml = new SquareWithCirclesKmlGenerator(crsSystem, hostAddress, localPort, innerPointSide,  numberOfPoints,
 						distanceBetweenSamplePoints, distanceToPlotBoundaries);
-			} else if (plotShape.equals(SAMPLE_SHAPE.POLYGON)) {
+			} else if (plotShape.equals(SAMPLE_SHAPE.KML_POLYGON)) {
 				generateKml = new PolygonKmlGenerator(crsSystem, hostAddress, localPort);
-			} else {
-				generateKml = new SquareKmlGenerator(crsSystem, hostAddress, localPort, innerPointSide,  numberOfPoints, 
+			} else if (plotShape.equals(SAMPLE_SHAPE.GEOJSON_POLYGON)) {
+				generateKml = new PolygonGeojsonGenerator(crsSystem, hostAddress, localPort);
+			}else if (plotShape.equals(SAMPLE_SHAPE.WKT_POLYGON)) {
+				generateKml = new PolygonWktGenerator(crsSystem, hostAddress, localPort);
+			}else {
+				generateKml = new SquareKmlGenerator(crsSystem, hostAddress, localPort, innerPointSide,  numberOfPoints,
 						distanceBetweenSamplePoints, distanceToPlotBoundaries, largeCentralPlotSide, distanceToBuffers);
 			}
 		}catch(IOException e){
-			logger.error("Error generating KML " + e );
+			logger.error("Error generating KML", e );
 		}
 		return generateKml;
 	}
-	
-	
 
-	private boolean csvContainsPolygons(String csvFile) throws IOException {
+
+	private boolean csvContains(String csvFile, PolygonTest test ) throws IOException {
 		CSVReader csvReader = CsvReaderUtils.getCsvReader(csvFile);
 		csvReader.readNext(); // Ignore it might be the column headers
-		
+
 		String[] secondLine = csvReader.readNext();
 		if( secondLine != null && !CsvReaderUtils.onlyEmptyCells(secondLine) ){
-			if( KmlGenerator.getKmlPolygonColumn(secondLine) != null ){
-				return true;
-			}
+			return test.isPolygon( secondLine );
 		}
 		return false;
+	}
+
+	private boolean csvContainsGeoJson(String csvFile) throws IOException {
+		return
+			csvContains(
+				csvFile,
+				csvColumns ->  KmlGenerator.isGeoJsonPolygonColumnFound(csvColumns) != null
+			);
+	}
+
+	private boolean csvContainsWkt(String csvFile) throws IOException {
+		return csvContains(
+				csvFile,
+				csvColumns ->  KmlGenerator.isWktPolygonColumnFound(csvColumns) != null
+			);
+	}
+
+	private boolean csvContainsKml(String csvFile) throws IOException {
+		return csvContains(
+				csvFile,
+				csvColumns ->  KmlGenerator.isKmlPolygonColumnFound(csvColumns) != null
+			);
 	}
 
 	private void generateKml() throws KmlGenerationException, IOException {
@@ -306,8 +338,6 @@ public class KmlGeneratorService {
 		final String csvFile = getLocalProperties().getCsvFile();
 		String balloon = getLocalProperties().getBalloonFile();
 		final String template = getLocalProperties().getTemplateFile();
-		final String distanceBetweenSamplePoints = getLocalProperties().getValue(EarthProperty.DISTANCE_BETWEEN_SAMPLE_POINTS);
-		final String distancePlotBoundaries = getLocalProperties().getValue(EarthProperty.DISTANCE_TO_PLOT_BOUNDARIES);
 
 		// In case the user sets up the OPEN_BALLOON_IN_FIREFOX flag to
 		// true. Meaning that a small ballon opens in the placemark which in
@@ -322,7 +352,7 @@ public class KmlGeneratorService {
 		}
 
 		// Using all of the files that compose the final KML it is generated and stores in KML_RESULTING_TEMP_FILE
-		kmlGenerator.generateKmlFile(KML_RESULTING_TEMP_FILE, csvFile, balloon, template, distanceBetweenSamplePoints, distancePlotBoundaries, earthSurveyService.getCollectSurvey());
+		kmlGenerator.generateKmlFile(KML_RESULTING_TEMP_FILE, csvFile, balloon, template, earthSurveyService.getCollectSurvey());
 		updateFilesUsedChecksum();
 
 	}
@@ -371,7 +401,7 @@ public class KmlGeneratorService {
 		return upToDate;
 
 	}
-	
+
 	public void generatePlacemarksKmzFile() throws IOException, KmlGenerationException {
 		generatePlacemarksKmzFile(false);
 	}

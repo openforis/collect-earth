@@ -18,31 +18,21 @@ public class PolygonKmlGenerator extends AbstractPolygonKmlGenerator {
 	private static final String LINEARRING_START = "<linearring>";
 	private static final String MULTIGEOMETRY_END = "</multigeometry>";
 	private static final String MULTIGEOMETRY_START = "<multigeometry>";
-	private static final String POLYGON_START = "<polygon>";
 	private static final String POLYGON_END = "</polygon>";
+	private static final String POLYGON_START = "<polygon>";
 
-	public PolygonKmlGenerator(String epsgCode, String hostAddress, String localPort) {
-		super(epsgCode, hostAddress, localPort, 0, 0, 0, 0, (Integer) null, null);
-
-	}
-
-	@Override
-	public void fillExternalLine(SimplePlacemarkObject placemark) throws TransformException, KmlGenerationException {
-		// No need to do anything, the polygon is already defined within the
-		// placemark.kmlPolygon attribute
-		// The kmlPolygo is then used directly in the freemarker template
-		// Just check that the value is actually set!
-		if (StringUtils.isBlank(placemark.getKmlPolygon())) {
-			throw new KmlGenerationException(
-					"The placemark kmlPolygon attribute is empty! There needs to be a column where the <Polygon> value is specified");
+	private static String extractXmlTextValue(String lowerCase, String startXmlTag, String endXmlTag) {
+		int startOfXmlTag = lowerCase.indexOf(startXmlTag);
+		int endOfXmlTag = lowerCase.indexOf(endXmlTag);
+		String valueAttr = "";
+		try {
+			if (startOfXmlTag != -1 && endOfXmlTag != -1) {
+				valueAttr = lowerCase.substring(startOfXmlTag + startXmlTag.length(), endOfXmlTag);
+			}
+		} catch (Exception e) {
+			LoggerFactory.getLogger(PolygonKmlGenerator.class).error( String.format("error with %s", lowerCase ), e);
 		}
-
-		placemark.setMultiShape(PolygonKmlGenerator.getPolygonsInMultiGeometry(placemark.getKmlPolygon()));
-	}
-
-	@Override
-	public void fillSamplePoints(SimplePlacemarkObject placemark) throws TransformException {
-		placemark.setPoints(new ArrayList<SimplePlacemarkObject>());
+		return valueAttr;
 	}
 
 	public static List<List<SimpleCoordinate>> getPolygonsInMultiGeometry(String kmlPolygon) {
@@ -95,19 +85,26 @@ public class PolygonKmlGenerator extends AbstractPolygonKmlGenerator {
 		return simpleCoordinates;
 	}
 
-	private static String extractXmlTextValue(String lowerCase, String startXmlTag, String endXmlTag) {
-		int startOfXmlTag = lowerCase.indexOf(startXmlTag);
-		int endOfXmlTag = lowerCase.indexOf(endXmlTag);
-		String valueAttr = "";
-		try {
-			if (startOfXmlTag != -1 && endOfXmlTag != -1) {
-				valueAttr = lowerCase.substring(startOfXmlTag + startXmlTag.length(), endOfXmlTag);
+	public PolygonKmlGenerator(String epsgCode, String hostAddress, String localPort) {
+		super(epsgCode, hostAddress, localPort, 0, 0, 0, 0, (Integer) null, null);
 
-			}
-		} catch (Exception e) {
-			LoggerFactory.getLogger(PolygonKmlGenerator.class).error(" error with " + lowerCase, e);
+	}
+
+	@Override
+	public void fillExternalLine(SimplePlacemarkObject placemark) throws TransformException, KmlGenerationException {
+		// Parse the polygon already defined within the placemark.kmlPolygon attribute
+		// The resulting object is then used directly in the freemarker template
+		if (StringUtils.isBlank(placemark.getPolygon())) {
+			throw new KmlGenerationException(
+					"The placemark kmlPolygon attribute is empty! There needs to be a column where the <Polygon> value is specified");
 		}
-		return valueAttr;
+
+		placemark.setMultiShape(PolygonKmlGenerator.getPolygonsInMultiGeometry(placemark.getPolygon()));
+	}
+
+	@Override
+	public void fillSamplePoints(SimplePlacemarkObject placemark) throws TransformException {
+		placemark.setPoints(new ArrayList<SimplePlacemarkObject>());
 	}
 
 }

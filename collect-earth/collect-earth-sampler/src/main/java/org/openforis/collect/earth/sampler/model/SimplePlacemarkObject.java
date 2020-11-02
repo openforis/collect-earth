@@ -10,9 +10,9 @@ import org.locationtech.jts.geom.Coordinate;
 /**
  * Data defining a plot and used in the generation of the KML through a
  * freemarker template.
- * 
+ *
  * @author Alfonso Sanchez-Paus Diaz
- * 
+ *
  */
 public class SimplePlacemarkObject {
 
@@ -30,7 +30,7 @@ public class SimplePlacemarkObject {
 
 	private String[] idColumns;
 
-	private String kmlPolygon;
+	private String polygon;
 
 	private List<List<SimpleCoordinate>> multiShape;
 
@@ -151,8 +151,8 @@ public class SimplePlacemarkObject {
 		return idColumns;
 	}
 
-	public String getKmlPolygon() {
-		return kmlPolygon;
+	public String getPolygon() {
+		return polygon;
 	}
 
 	public List<List<SimpleCoordinate>> getMultiShape() {
@@ -264,8 +264,8 @@ public class SimplePlacemarkObject {
 		this.idColumns = idColumns;
 	}
 
-	public void setKmlPolygon(String kmlPolygon) {
-		this.kmlPolygon = kmlPolygon;
+	public void setPolygon(String kmlPolygon) {
+		this.polygon = kmlPolygon;
 	}
 
 	public void setMultiShape(List<List<SimpleCoordinate>> multiShape) {
@@ -344,7 +344,7 @@ public class SimplePlacemarkObject {
 				+ ", aspect=" + aspect + ", extraInfo=" + Arrays.toString(extraInfo) + ", valuesByColumn="
 				+ valuesByColumn + ", extraColumns=" + Arrays.toString(extraColumns) + ", idColumns="
 				+ Arrays.toString(idColumns) + ", originalLatitude=" + originalLatitude + ", originalLongitude="
-				+ originalLongitude + ", kmlPolygon=" + kmlPolygon + "]";
+				+ originalLongitude + ", polygon=" + polygon + "]";
 	}
 
 }
