@@ -32,10 +32,22 @@ public abstract class NfiCirclesKmlGenerator extends PolygonKmlGenerator {
 
 		String kml = getKmlForTract(placemark);
 
-		placemark.setPolygon(kml);
+		placemark.setKmlPolygon(kml);
 		placemark.setMultiShape( getPolygonsInMultiGeometry( kml ) );
 	}
 
+	@Override
+	protected void processPolygonProperties(SimplePlacemarkObject plotProperties, String[] csvValuesInLine) {
+		String polygon;
+		try {
+			polygon = getKmlForTract(plotProperties);
+			processKmlPolygonProperties(plotProperties, polygon);
+		} catch (TransformException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+
+	}
 
 	protected abstract String getKmlForTract(SimplePlacemarkObject placemark) throws TransformException;
 

@@ -1,6 +1,9 @@
 package org.openforis.collect.earth.sampler.processor;
 
+import java.util.List;
+
 import org.locationtech.jts.geom.Geometry;
+import org.openforis.collect.earth.sampler.model.SimpleCoordinate;
 import org.openforis.collect.earth.sampler.model.SimplePlacemarkObject;
 import org.wololo.jts2geojson.GeoJSONReader;
 
@@ -14,6 +17,11 @@ public class PolygonGeojsonGenerator extends PolygonGeometryGenerator {
 	protected void processPolygonProperties(SimplePlacemarkObject plotProperties, String[] csvValuesInLine) {
 		String polygon = isGeoJsonPolygonColumnFound(csvValuesInLine);
 		processGeoJsonPolygonProperties(plotProperties, ((String) polygon));
+	}
+
+	public void processGeoJsonPolygonProperties(SimplePlacemarkObject plotProperties, String geoJsonPolygon) {
+		List<List<SimpleCoordinate>> pointsInPolygon = getPolygonsInMultiGeometry(geoJsonPolygon);
+		fillPolygonProperties(plotProperties, geoJsonPolygon, pointsInPolygon);
 	}
 
 	public String isGeoJsonPolygonColumnFound(String[] csvValues) {

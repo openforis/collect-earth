@@ -50,10 +50,15 @@ public class NfmaKmlGenerator extends PolygonKmlGenerator {
 
 		String kml = getKmlForTract(placemark);
 
-		placemark.setPolygon(kml);
+		placemark.setKmlPolygon(kml);
 		placemark.setMultiShape( getPolygonsInMultiGeometry( kml ) );
 	}
 
+	@Override
+	protected void processPolygonProperties(SimplePlacemarkObject plotProperties, String[] csvValuesInLine) {
+		// Do nothing! the kml is generated later with getKmlForTract
+
+	}
 
 	private String getKmlForTract(SimplePlacemarkObject placemark) throws TransformException {
 		double[] tractCoord = placemark.getCoord().getCoordinates();

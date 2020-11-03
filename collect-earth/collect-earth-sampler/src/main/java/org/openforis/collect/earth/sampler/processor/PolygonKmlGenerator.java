@@ -119,4 +119,9 @@ public class PolygonKmlGenerator extends AbstractPolygonGeometryKmlGenerator {
 		processKmlPolygonProperties(plotProperties, polygon);
 	}
 
+	public void processKmlPolygonProperties(SimplePlacemarkObject plotProperties, String kmlPolygon) {
+		List<List<SimpleCoordinate>> pointsInPolygon = getPolygonsInMultiGeometry(kmlPolygon);
+		fillPolygonProperties(plotProperties, kmlPolygon, pointsInPolygon);
+	}
+
 }

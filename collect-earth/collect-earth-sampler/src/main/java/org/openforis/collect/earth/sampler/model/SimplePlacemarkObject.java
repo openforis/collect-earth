@@ -30,7 +30,7 @@ public class SimplePlacemarkObject {
 
 	private String[] idColumns;
 
-	private String polygon;
+	private String kmlPolygon;
 
 	private List<List<SimpleCoordinate>> multiShape;
 
@@ -151,8 +151,8 @@ public class SimplePlacemarkObject {
 		return idColumns;
 	}
 
-	public String getPolygon() {
-		return polygon;
+	public String getKmlPolygon() {
+		return kmlPolygon;
 	}
 
 	public List<List<SimpleCoordinate>> getMultiShape() {
@@ -264,8 +264,8 @@ public class SimplePlacemarkObject {
 		this.idColumns = idColumns;
 	}
 
-	public void setPolygon(String kmlPolygon) {
-		this.polygon = kmlPolygon;
+	public void setKmlPolygon(String kmlPolygon) {
+		this.kmlPolygon = kmlPolygon;
 	}
 
 	public void setMultiShape(List<List<SimpleCoordinate>> multiShape) {
@@ -344,7 +344,7 @@ public class SimplePlacemarkObject {
 				+ ", aspect=" + aspect + ", extraInfo=" + Arrays.toString(extraInfo) + ", valuesByColumn="
 				+ valuesByColumn + ", extraColumns=" + Arrays.toString(extraColumns) + ", idColumns="
 				+ Arrays.toString(idColumns) + ", originalLatitude=" + originalLatitude + ", originalLongitude="
-				+ originalLongitude + ", polygon=" + polygon + "]";
+				+ originalLongitude + ", kmlPolygon=" + kmlPolygon + "]";
 	}
 
 }

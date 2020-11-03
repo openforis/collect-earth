@@ -1,8 +1,11 @@
 package org.openforis.collect.earth.sampler.processor;
 
+import java.util.List;
+
 import org.locationtech.jts.geom.Geometry;
 import org.locationtech.jts.io.ParseException;
 import org.locationtech.jts.io.WKTReader;
+import org.openforis.collect.earth.sampler.model.SimpleCoordinate;
 import org.openforis.collect.earth.sampler.model.SimplePlacemarkObject;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -28,6 +31,11 @@ public class PolygonWktGenerator extends PolygonGeometryGenerator {
 			}
 		}
 		return null;
+	}
+
+	public void processWktPolygonProperties(SimplePlacemarkObject plotProperties, String wktPolygon) {
+		List<List<SimpleCoordinate>> pointsInPolygon = getPolygonsInMultiGeometry(wktPolygon);
+		fillPolygonProperties(plotProperties, wktPolygon, pointsInPolygon);
 	}
 
 	@Override

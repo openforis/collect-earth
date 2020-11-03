@@ -2,6 +2,7 @@ package org.openforis.collect.earth.sampler.processor;
 
 import java.io.File;
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -24,18 +25,14 @@ import org.openforis.collect.model.CollectSurvey;
 import org.openforis.idm.metamodel.AttributeDefinition;
 import org.opengis.referencing.FactoryException;
 import org.opengis.referencing.operation.TransformException;
-import org.wololo.jts2geojson.GeoJSONReader;
 
 public abstract class KmlGenerator extends AbstractCoordinateCalculation {
-	private static PolygonGeojsonGenerator polygonGeojsonGenerator;
-	private static PolygonWktGenerator polygonWktGenerator;
-	private static PolygonKmlGenerator polygonKmlGenerator;
 
-	private static void fillPolygonProperties(SimplePlacemarkObject plotProperties, String polygon,
+	protected void fillPolygonProperties(SimplePlacemarkObject plotProperties, String kmlPolygon,
 			List<List<SimpleCoordinate>> pointsInPolygon) {
 		plotProperties.setMultiShape(pointsInPolygon);
 		if (!pointsInPolygon.isEmpty()) {
-			plotProperties.setPolygon(polygon);
+			plotProperties.setKmlPolygon(kmlPolygon);
 			plotProperties.setCoord(getCentroid(plotProperties.getShape()));
 		}
 	}
@@ -87,29 +84,6 @@ public abstract class KmlGenerator extends AbstractCoordinateCalculation {
 			}
 		}
 		return true;
-	}
-
-	public static void processGeoJsonPolygonProperties(SimplePlacemarkObject plotProperties, String geoJsonPolygon) {
-		polygonGeojsonGenerator = (polygonGeojsonGenerator != null ? polygonGeojsonGenerator
-				: new PolygonGeojsonGenerator(null, null, null));
-		List<List<SimpleCoordinate>> pointsInPolygon = polygonGeojsonGenerator
-				.getPolygonsInMultiGeometry(geoJsonPolygon);
-		fillPolygonProperties(plotProperties, geoJsonPolygon, pointsInPolygon);
-	}
-
-	public static void processKmlPolygonProperties(SimplePlacemarkObject plotProperties, String kmlPolygon) {
-
-		polygonKmlGenerator = (polygonKmlGenerator != null ? polygonKmlGenerator
-				: new PolygonKmlGenerator(null, null, null));
-		List<List<SimpleCoordinate>> pointsInPolygon = polygonKmlGenerator.getPolygonsInMultiGeometry(kmlPolygon);
-		fillPolygonProperties(plotProperties, kmlPolygon, pointsInPolygon);
-	}
-
-	public static void processWktPolygonProperties(SimplePlacemarkObject plotProperties, String wktPolygon) {
-		polygonWktGenerator = (polygonWktGenerator != null ? polygonWktGenerator
-				: new PolygonWktGenerator(null, null, null));
-		List<List<SimpleCoordinate>> pointsInPolygon = polygonWktGenerator.getPolygonsInMultiGeometry(wktPolygon);
-		fillPolygonProperties(plotProperties, wktPolygon, pointsInPolygon);
 	}
 
 	private static String[] removeTrailingSpaces(String[] csvValuesInLine) {
@@ -169,7 +143,7 @@ public abstract class KmlGenerator extends AbstractCoordinateCalculation {
 		// separate the KML generation so it is easier to create different KMLs
 		String balloonContents;
 		try {
-			balloonContents = FileUtils.readFileToString(new File(balloonFile));
+			balloonContents = FileUtils.readFileToString(new File(balloonFile), StandardCharsets.UTF_8);
 		} catch (IOException e) {
 			throw new KmlGenerationException("Error reading the balloon file " + balloonFile, e);
 		}

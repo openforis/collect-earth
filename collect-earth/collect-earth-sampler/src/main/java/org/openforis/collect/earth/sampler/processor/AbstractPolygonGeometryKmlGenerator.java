@@ -24,12 +24,12 @@ public abstract class AbstractPolygonGeometryKmlGenerator extends AbstractPolygo
 	public void fillExternalLine(SimplePlacemarkObject placemark) throws TransformException, KmlGenerationException {
 		// Parse the polygon already defined within the placemark.kmlPolygon attribute
 		// The resulting object is then used directly in the freemarker template
-		if (StringUtils.isBlank(placemark.getPolygon())) {
+		if (StringUtils.isBlank(placemark.getKmlPolygon())) {
 			throw new KmlGenerationException(
 					"The placemark kmlPolygon attribute is empty! There needs to be a column where the <Polygon> value is specified");
 		}
 
-		placemark.setMultiShape(getPolygonsInMultiGeometry(placemark.getPolygon()));
+		placemark.setMultiShape(getPolygonsInMultiGeometry(placemark.getKmlPolygon()));
 	}
 
 	@Override

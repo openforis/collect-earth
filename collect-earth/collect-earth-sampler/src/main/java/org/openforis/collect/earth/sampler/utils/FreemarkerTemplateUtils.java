@@ -23,7 +23,7 @@ public class FreemarkerTemplateUtils {
 	private static final Logger logger = LoggerFactory.getLogger(FreemarkerTemplateUtils.class);
 
 	private static final Random rand = new Random();
-	
+
 	private FreemarkerTemplateUtils() {}
 
 	public static boolean applyTemplate(File sourceTemplate, File destinationFile, Map<?, ?> data) throws IOException, TemplateException{
@@ -41,9 +41,10 @@ public class FreemarkerTemplateUtils {
 
 			template.process(data, fw);
 			success = true;
+			logger.info("Kml file processed", destinationFile);
 		}catch (Exception e) {
 			logger.error("Error reading FreeMarker template", e);
-		} 
+		}
 		return success;
 
 	}
