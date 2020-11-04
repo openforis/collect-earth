@@ -1,10 +1,12 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/maven-v4_0_0.xsd">
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/maven-v4_0_0.xsd">
 	<modelVersion>4.0.0</modelVersion>
 	<parent>
 		<groupId>org.openforis.collect.earth</groupId>
 		<artifactId>collect-earth</artifactId>
-		<version>1.12.5</version>
+		<version>1.12.5-SNAPSHOT</version>
 	</parent>
 	<name>Collect Earth Application</name>
 	<artifactId>collect-earth-app</artifactId>
@@ -170,6 +172,6 @@
 	</build>
 
 	<scm>
-		<tag>collect-earth-1.12.5</tag>
+		<tag>collect-earth-1.10.17</tag>
 	</scm>
 </project>
