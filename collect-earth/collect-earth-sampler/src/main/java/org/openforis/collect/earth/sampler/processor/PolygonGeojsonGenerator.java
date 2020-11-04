@@ -2,6 +2,7 @@ package org.openforis.collect.earth.sampler.processor;
 
 import java.util.List;
 
+import org.apache.commons.lang.StringUtils;
 import org.locationtech.jts.geom.Geometry;
 import org.openforis.collect.earth.sampler.model.SimpleCoordinate;
 import org.openforis.collect.earth.sampler.model.SimplePlacemarkObject;
@@ -27,14 +28,15 @@ public class PolygonGeojsonGenerator extends PolygonGeometryGenerator {
 	public String isGeoJsonPolygonColumnFound(String[] csvValues) {
 		for (int i = 0; i < csvValues.length; i++) {
 			String value = csvValues[i];
-
-			try {
-				GeoJSONReader reader = new GeoJSONReader();
-				reader.read(value);
-				setColumnWithPolygonString( i );
-				return value;
-			} catch (Exception e) {
-				// DO NOTHING, IT IS NOT A WKT
+			if(StringUtils.isNotBlank( value )) {
+				try {
+					GeoJSONReader reader = new GeoJSONReader();
+					reader.read(value);
+					setColumnWithPolygonString( i );
+					return value;
+				} catch (Exception e) {
+					// DO NOTHING, IT IS NOT A WKT
+				}
 			}
 		}
 		return null;

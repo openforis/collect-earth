@@ -2,6 +2,7 @@ package org.openforis.collect.earth.sampler.processor;
 
 import java.util.List;
 
+import org.apache.commons.lang.StringUtils;
 import org.locationtech.jts.geom.Geometry;
 import org.locationtech.jts.io.ParseException;
 import org.locationtech.jts.io.WKTReader;
@@ -21,13 +22,14 @@ public class PolygonWktGenerator extends PolygonGeometryGenerator {
 	public String isWktPolygonColumnFound(String[] csvValues) {
 		for (int i = 0; i < csvValues.length; i++) {
 			String value = csvValues[i];
+			if(StringUtils.isNotBlank( value )) {
+				try {
+					reader.read(value);
+					setColumnWithPolygonString( i );
+					return value;
+				} catch (ParseException e) {
 
-			try {
-				reader.read(value);
-				setColumnWithPolygonString( i );
-				return value;
-			} catch (ParseException e) {
-
+				}
 			}
 		}
 		return null;
