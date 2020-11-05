@@ -27,7 +27,7 @@
 		<linux-x64-autoupdater-file-name>CollectEarthUpdater-${project.version}-linux-x64-installer.run</linux-x64-autoupdater-file-name>
 		<osx-autoupdater-file-name>CollectEarthUpdater-${project.version}-osx-installer.app.zip</osx-autoupdater-file-name>
 
-		<autoupdater-xml-file-name>collectEarthUpdate.xml</autoupdater-xml-file-name>
+		<autoupdater-xml-file-name>collectEarthUpdateMvn.xml</autoupdater-xml-file-name>
 	</properties>
 
 	<profiles>
