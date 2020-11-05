@@ -17,7 +17,7 @@ public class JFileChooserExistsAware extends JFileChooser {
 	private static final long serialVersionUID = 2571562963995019882L;
 
 	private JFileChooserExistsAware(File lastFolder) {
-		super(lastFolder);		
+		super(lastFolder);
 	}
 
 	private JFileChooserExistsAware(){
@@ -27,7 +27,7 @@ public class JFileChooserExistsAware extends JFileChooser {
 	@Override
 	public void approveSelection(){
 		File f = getSelectedFile();
-		if(f.exists() && getDialogType() == SAVE_DIALOG){
+		if( f!=null && f.exists() && getDialogType() == SAVE_DIALOG){
 			int result = JOptionPane.showConfirmDialog(this,"The file exists, overwrite?","Existing file",JOptionPane.YES_NO_CANCEL_OPTION); //$NON-NLS-1$ //$NON-NLS-2$
 			switch(result){
 				case JOptionPane.YES_OPTION:
@@ -43,7 +43,7 @@ public class JFileChooserExistsAware extends JFileChooser {
 			}
 		}
 		super.approveSelection();
-	}        
+	}
 
 	public static File[] getFileChooserResults(final DataFormat dataFormat, boolean isSaveDlg, boolean multipleSelect, String preselectedName, LocalPropertiesService localPropertiesService, JFrame frame) {
 		return getFileChooserResults(dataFormat, isSaveDlg, multipleSelect, preselectedName, localPropertiesService, frame, null);
