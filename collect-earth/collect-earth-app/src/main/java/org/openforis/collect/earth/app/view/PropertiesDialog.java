@@ -962,7 +962,13 @@ public class PropertiesDialog extends JDialog {
 		planetAPIKeyTextField.setEnabled( localPropertiesService.isPlanetMapsSupported() );
 		propertyToComponent.put(EarthProperty.PLANET_MAPS_KEY, new JComponent[] { planetAPIKeyTextField });
 
-		openPlanetCheckbox.addActionListener( e-> planetAPIKeyTextField.setEnabled( openPlanetCheckbox.isSelected() && !openMonthlyNICFICheckbox.isSelected() ) );
+		openMonthlyNICFICheckbox.setEnabled( openPlanetCheckbox.isSelected() );
+		planetAPIKeyTextField.setEnabled( openPlanetCheckbox.isSelected() && !openMonthlyNICFICheckbox.isSelected() );
+
+		openPlanetCheckbox.addActionListener( e-> {
+			planetAPIKeyTextField.setEnabled( openPlanetCheckbox.isSelected() && !openMonthlyNICFICheckbox.isSelected() );
+			openMonthlyNICFICheckbox.setEnabled( openPlanetCheckbox.isSelected() );
+		});
 		openMonthlyNICFICheckbox.addActionListener( e-> planetAPIKeyTextField.setEnabled( openPlanetCheckbox.isSelected() && !openMonthlyNICFICheckbox.isSelected() ) );
 
 
