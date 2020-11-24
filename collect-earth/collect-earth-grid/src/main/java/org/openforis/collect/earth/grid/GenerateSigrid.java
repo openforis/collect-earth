@@ -40,11 +40,12 @@ public class GenerateSigrid{
 			double[] pointWithOffset = new double[]{ latitude, longitude};
 			boolean firstPass;
 			boolean moveToNextRow;
-			Integer row = 0, column = 0;
+			Integer row = 0;
+			Integer column = 0;
 
 
 			while( ( latitude > ENDING_LATITUDE ) ){
-				firstPass = true;	
+				firstPass = true;
 				moveToNextRow = false;
 				xOffset = 0;
 
@@ -56,12 +57,11 @@ public class GenerateSigrid{
 					xOffset += DISTANCE_BETWEEN_PLOTS_IN_METERS;
 
 					if( firstPass ) {
-						firstPass = !(longitude > STARTING_LONGITUDE);
+						firstPass = longitude <= STARTING_LONGITUDE;
 					}
-					moveToNextRow = !firstPass && (  STARTING_LONGITUDE > longitude ); 
+					moveToNextRow = !firstPass && (  STARTING_LONGITUDE > longitude );
 					column ++;
 				}
-				//System.out.println( "Finished row - " + row);
 				row++;
 				column = 0;
 				yOffset += DISTANCE_BETWEEN_PLOTS_IN_METERS;
@@ -75,7 +75,7 @@ public class GenerateSigrid{
 		}catch (Exception e) {
 			logger.error(" Error transforming the point coordinates ", e );
 		} finally {
-			System.out.println( "Total time millis " + (System.currentTimeMillis() - startTime ));
+			logger.info( "Total time millis " + (System.currentTimeMillis() - startTime ));
 			store.closeStore();
 		}
 

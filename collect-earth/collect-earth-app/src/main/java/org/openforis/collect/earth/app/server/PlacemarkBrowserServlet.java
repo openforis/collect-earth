@@ -98,9 +98,7 @@ public class PlacemarkBrowserServlet {
 
 					openSecureWatchWindow(placemarkObject);
 
-				} catch (TransformException e) {
-					logger.error("Error generating polygon", e );
-				} catch (KmlGenerationException e) {
+				} catch (TransformException|KmlGenerationException e) {
 					logger.error("Error generating polygon", e );
 				}
 			}
@@ -317,7 +315,7 @@ public class PlacemarkBrowserServlet {
 	@RequestMapping("/ancillaryWindows")
 	protected void openAuxiliaryWindowsNew(HttpServletResponse response, HttpServletRequest request) throws IOException {
 
-		kmlGenerator = kmlGeneratorService.getKmlGenerator();
+
 		List<AttributeDefinition> keyAttributeDefinitions = earthSurveyService
 				.getRootEntityDefinition()
 				.getKeyAttributeDefinitions();
@@ -331,6 +329,8 @@ public class PlacemarkBrowserServlet {
 		}
 
 		try {
+			kmlGenerator = kmlGeneratorService.getKmlGenerator();
+
 			String[] csvValues = getValuesFromCsv(keysInOrder);
 
 			if( csvValues == null ){

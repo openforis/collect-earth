@@ -3,7 +3,7 @@ package org.openforis.collect.earth.grid;
 import java.io.File;
 import java.io.IOException;
 import java.net.URISyntaxException;
-import java.nio.charset.Charset;
+import java.nio.charset.StandardCharsets;
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.PreparedStatement;
@@ -17,17 +17,17 @@ import org.slf4j.LoggerFactory;
 
 public class JDBCStore extends AbstractStore{
 
-	private int count =0;
+	private int count = 0;
 	private int distanceBetweenPlots;
 	Connection connection = null;
 	private PreparedStatement insertStatement;
 	private PreparedStatement selectStatement;
-	private Logger logger = LoggerFactory.getLogger(JDBCStore.class); 
-	
+	private Logger logger = LoggerFactory.getLogger(JDBCStore.class);
+
 	public static final int SCALING_FACTOR = 10000000;
-	
+
 	private static final Boolean USE_SQLITE = false;
-	
+
 	private static final String SQLITE_URL = "jdbc:sqlite:";
 	private static final String POSTGRESQL_URL = "jdbc:postgresql://localhost/sigrid";
 
@@ -36,27 +36,26 @@ public class JDBCStore extends AbstractStore{
 			try {
 				Class.forName("org.sqlite.JDBC");
 				File sigridDBFile = new File( "sigrid.db" );
-				connection = DriverManager.getConnection( USE_SQLITE?SQLITE_URL+sigridDBFile.getAbsolutePath():POSTGRESQL_URL, "collectearth","collectearth");
+				connection = DriverManager.getConnection( Boolean.TRUE.equals(USE_SQLITE) ? SQLITE_URL+sigridDBFile.getAbsolutePath() : POSTGRESQL_URL, "collectearth","collectearth");
 			} catch (Exception e) {
 				logger.error("Error loading JDBC driver", e);
 			}
 		}
 		return connection;
 	}
-	
+
 	@Override
 	public void initializeStore(int distanceBetweenPlots) throws Exception {
 		this.distanceBetweenPlots = distanceBetweenPlots;
-
 		createTable();
 	}
 
 
 
 	private void createTable() throws IOException, SQLException, URISyntaxException, ClassNotFoundException {
-		String createTable = FileUtils.readFileToString( 
-				new File( this.getClass().getClassLoader().getResource(USE_SQLITE?"createTableSqlite.sql":"createTable.sql").toURI() ),
-				Charset.forName("UTF-8") 
+		String createTable = FileUtils.readFileToString(
+				new File( this.getClass().getClassLoader().getResource( Boolean.TRUE.equals(USE_SQLITE) ? "createTableSqlite.sql" : "createTable.sql" ).toURI() ),
+				StandardCharsets.UTF_8
 				);
 		Statement createStatement = getConnection().createStatement();
 		createStatement.executeUpdate(createTable);
@@ -71,14 +70,14 @@ public class JDBCStore extends AbstractStore{
 		}
 		return insertStatement;
 	}
-	
+
 	private PreparedStatement getSelectStatement() throws SQLException {
 		if( selectStatement == null ) {
 			String sql = "SELECT * FROM plot"
 					+ " WHERE "
 					+ " xcoordinate<=? and ycoordinate<=? "
 					+ " AND "
-					+ " xcoordinate>=? and ycoordinate>=?" 
+					+ " xcoordinate>=? and ycoordinate>=?"
 					+ " AND "
 					+ " griddistance = ? "
 					+ " AND "
@@ -106,14 +105,12 @@ public class JDBCStore extends AbstractStore{
 			getInsertStatement().setInt(4, gridFlags );
 			getInsertStatement().setInt(5, Math.round( longitude.floatValue() * SCALING_FACTOR ) );
 			getInsertStatement().setInt(6, Math.round( latitude.floatValue()  * SCALING_FACTOR ) );
-			//getStatement().setInt(7, xOffset );
-			//getStatement().setInt(8, yOffset );
 
 			getInsertStatement().addBatch();
 			count++;
 			// execute every 100 rows or less
 			if (count % 50000 == 0 ) {
-				System.out.println( "Flushing to DB "+count );
+				logger.info( "Flushing to DB "+count );
 				getInsertStatement().executeBatch();
 
 			}
@@ -122,12 +119,12 @@ public class JDBCStore extends AbstractStore{
 		}
 
 	}
-	
-	
+
+
 	public ResultSet getPlots(
 			Integer grid,
-				Double maxX, Double maxY, 
-				Double minX, Double minY, 
+				Double maxX, Double maxY,
+				Double minX, Double minY,
 				Integer distance
 				) {
 
@@ -143,14 +140,14 @@ public class JDBCStore extends AbstractStore{
 			getSelectStatement().setInt(5, Math.round( distance.floatValue() ) );
 			getSelectStatement().setInt(6, gridFlags );
 			getSelectStatement().setInt(7, gridFlags );
-			
-			System.out.println( getSelectStatement().toString() );
+
+			logger.info( getSelectStatement().toString() );
 			results = getSelectStatement().executeQuery();
-			
+
 		} catch (SQLException e) {
 			logger.error( "Error querying the DB data", e);
 		}
-		
+
 		return results;
 	}
 
@@ -158,9 +155,9 @@ public class JDBCStore extends AbstractStore{
 	public void closeStore() {
 		try {
 			if( getInsertStatement() != null ) {
-				getInsertStatement().executeBatch();	
+				getInsertStatement().executeBatch();
 			}
-			
+
 			if(getConnection()!=null ) {
 				getConnection().close();
 			}

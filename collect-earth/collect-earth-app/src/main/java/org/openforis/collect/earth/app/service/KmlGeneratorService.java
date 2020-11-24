@@ -191,7 +191,7 @@ public class KmlGeneratorService {
 		return i;
 	}
 
-	public KmlGenerator getKmlGenerator() {
+	public KmlGenerator getKmlGenerator() throws KmlGenerationException {
 		KmlGenerator generateKml =null;
 
 		final String crsSystem = getLocalProperties().getCrs();
@@ -201,7 +201,8 @@ public class KmlGeneratorService {
 		SAMPLE_SHAPE plotShape = getLocalProperties().getSampleShape();
 		final String hostAddress = ServerController.getHostAddress(getLocalProperties().getHost(), getLocalProperties().getPort());
 
-		final float distanceBetweenSamplePoints, distanceToPlotBoundaries;
+		final float distanceBetweenSamplePoints;
+		final float distanceToPlotBoundaries;
 		String dBSP = getLocalProperties().getValue(EarthProperty.DISTANCE_BETWEEN_SAMPLE_POINTS);
 		try {
 			distanceBetweenSamplePoints = Float.parseFloat(dBSP);
@@ -289,6 +290,11 @@ public class KmlGeneratorService {
 		}catch(IOException e){
 			logger.error("Error generating KML", e );
 		}
+
+		if( generateKml == null ) {
+			throw new KmlGenerationException("Error getting the KML generator for parameters " + plotShape.name() );
+		}
+
 		return generateKml;
 	}
 

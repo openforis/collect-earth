@@ -11,6 +11,7 @@ import org.apache.logging.log4j.core.Filter;
 import org.apache.logging.log4j.core.Layout;
 import org.apache.logging.log4j.core.LogEvent;
 import org.apache.logging.log4j.core.appender.AbstractAppender;
+import org.apache.logging.log4j.core.config.Property;
 import org.apache.logging.log4j.core.config.plugins.Plugin;
 import org.apache.logging.log4j.core.config.plugins.PluginAttribute;
 import org.apache.logging.log4j.core.config.plugins.PluginElement;
@@ -25,10 +26,10 @@ public class JSwingAppender extends AbstractAppender {
 
 	private Boolean showException;
 
-	private transient Logger logger = LoggerFactory.getLogger( JSwingAppender.class );
+	private Logger logger = LoggerFactory.getLogger( JSwingAppender.class );
 
-	public JSwingAppender(String name, Filter filter, Layout<?> layout, boolean ignoreExceptions) {
-		super(name, filter, layout, ignoreExceptions);
+	public JSwingAppender(String name, Filter filter, Layout<?> layout, boolean ignoreExceptions, Property[] properties) {
+		super(name, filter, layout, ignoreExceptions, properties);
 	}
 
 	@PluginFactory
@@ -44,7 +45,7 @@ public class JSwingAppender extends AbstractAppender {
 		if (layout == null) {
 			layout = PatternLayout.createDefaultLayout();
 		}
-		return new JSwingAppender(name, filter, layout, ignoreExceptions);
+		return new JSwingAppender(name, filter, layout, ignoreExceptions, Property.EMPTY_ARRAY);
 	}
 
 	@Override
@@ -72,7 +73,7 @@ public class JSwingAppender extends AbstractAppender {
 					}
 				} );
 			}
-		} catch (final IllegalStateException e) {
+		} catch (final Exception e) {
 			// ignore case when the platform hasn't yet been initialized
 			logger.debug("Error shown exception", e);
 		}
