@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
  - Open Earth Map integration with more meaningful default products
+ - Update Chromedriver to be compatible with Chrome version 87
 
 ## [1.12.5] - 2020-11-02
 
