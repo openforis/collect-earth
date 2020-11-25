@@ -153,7 +153,7 @@ public class EarthApp {
 			// Get an Application object
 			Object applicationObject  =  getApplicationMethod.invoke( null );
 			try {	
-				Image dockIconImage = new ImageIcon(new File("images/largeOpenForisIcon.jpg").toURI().toURL()).getImage();
+				Image dockIconImage = new ImageIcon(new File("images/macDockImageCE.png").toURI().toURL()).getImage();
 				// Invoke the setDockIconImage on the application object using the dockIconImage as an argument
 				setDockIconImageMethod.invoke(applicationObject, dockIconImage );
 			} catch (MalformedURLException e2) {
