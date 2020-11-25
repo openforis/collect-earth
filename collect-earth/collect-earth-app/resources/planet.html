@@ -1,4 +1,4 @@
-<!DOCTYPE html>	
+<!DOCTYPE html>
 <html ng-app="ce">
 
 <head>
@@ -22,11 +22,11 @@
 	// http://openforis.org/fileadmin/planet.html?latlngs=[[[1,3],[4,4],[4,2],[2,1],[1,3]]]
 	const params = new URL(location.href).searchParams;
 	const latlngs = JSON.parse( params.get('latlngs' ) );
-	  
+
     var apiKey = "API_KEY!"
 	// vizz  = one of "rgb" o "cir"
 	var getTileUrl = function( layerId, isRgb){
-	
+
 		var vizz =  "cir";
 		if( isRgb ){
 			vizz =  "rgb";
@@ -91,6 +91,7 @@
 				  </optgroup>
 				  <optgroup label="Monthly Mosaics (from September 2020)">
 					<option value="2020-09">September 2020</option>
+					<option value="2020-10">October 2020</option>
 				  </optgroup>
 				</select>
 			</div>
@@ -115,6 +116,7 @@
 				  </optgroup>
 				  <optgroup label="Monthly Mosaics (from September 2020)">
 					<option value="2020-09">September 2020</option>
+					<option value="2020-10">October 2020</option>
 				  </optgroup>
 				</select>
 			</div>
@@ -130,16 +132,16 @@
     <script>
 
     var map = L.map('map');
-	
+
     var polyline = L.polyline(latlngs, {color: 'yellow'}).addTo(map);
 	// Or center on the polygon
 	var center = polyline.getBounds().getCenter()
 	map.setView(center, 17)
-	
+
 	var planetLeftLayer;
 	var planetRightLayer;
 	var sideBySide;
-	
+
 	function change() {
 		map.removeLayer( planetLeftLayer);
 		map.removeLayer( planetRightLayer);
@@ -147,7 +149,7 @@
 		loadSingleSide( $scope.left.getFullYear(), $scope.left.getMonth() +1, false);
 		loadSingleSide( $scope.right.getFullYear(), $scope.right.getMonth() +1, true);
 	}
-	
+
 	var initialize = function( leftLayerId, rightLayerId){
 		$('#leftPicker').val( leftLayerId );
 		$('#rightPicker').val( rightLayerId );
@@ -173,7 +175,7 @@
 		}else{
 			map.removeLayer( planetLeftLayer);
 		}
-		
+
 		var planetLayer = L.tileLayer(
 		    getTileUrl(layerId, vizz),
 		{
@@ -188,17 +190,17 @@
 			sideBySide.setLeftLayers( planetLayer ).addTo(map);
 		}
 	}
-	
+
 	var loadLeft = function(){loadSingleSide( $('#leftPicker').val(), $('#leftRgbCheckbox:checkbox:checked').length > 0, false );};
 	var loadRight = function(){loadSingleSide( $('#rightPicker').val(), $('#rightRgbCheckbox:checkbox:checked').length > 0 , true );};
-	
+
 	$('#leftPicker').on('changed.bs.select', loadLeft);
 	$('#leftRgbCheckbox').change(loadLeft);
-	 
+
 	$('#rightPicker').on('changed.bs.select', loadRight);
 	$('#rightRgbCheckbox').change( loadRight );
 
-	sideBySide = initialize('2018-12_2019-05', '2020-09');
+	sideBySide = initialize('2018-12_2019-05', '2020-10');
     </script>
 </body>
 </html>
