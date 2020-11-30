@@ -25,10 +25,10 @@ public class UpdateIniUtils {
 	private static final Logger logger = LoggerFactory.getLogger(UpdateIniUtils.class);
 	private final SimpleDateFormat fromXml = new SimpleDateFormat("yyyyMMddHHmm");
 	public static final String UPDATE_INI = "update.ini";
-	
+
 
 	public void trackUserStart(){
-		
+
 			try {
 				Random random = new Random( new Date().getTime() );
 				Integer rand = random.nextInt();
@@ -37,7 +37,7 @@ public class UpdateIniUtils {
 				logger.debug("Error connecting to stats",  e );
 			}
 	}
-	
+
 	/**
 	 * Checks if there is a newer version of the Collect Earth updater available
 	 * @return The new version build-number if there is a new version. Null if the version online is not newer than the one installed
@@ -50,10 +50,10 @@ public class UpdateIniUtils {
 
 
 		try {
-			Long installedBuild = new Long(installedVersionBuild);
-			Long onlineBuild = new Long(onlineVersionBuild);
+			long installedBuild = Long.parseLong(installedVersionBuild);
+			long onlineBuild = Long.parseLong(onlineVersionBuild);
 
-			if( onlineBuild.longValue() > installedBuild.longValue() ){
+			if( onlineBuild > installedBuild ){
 				return onlineBuild+""; //$NON-NLS-1$
 			}
 
@@ -67,34 +67,34 @@ public class UpdateIniUtils {
 	public static String getVersionInstalled() {
 		return getValueFromUpdateIni(VERSION_ID, UPDATE_INI); //$NON-NLS-1$
 	}
-	
+
 	public static String getReleaseNameInstalled() {
 		return getValueFromUpdateIni(VERSION_NAME, UPDATE_INI); //$NON-NLS-1$
 	}
 
 	public boolean shouldWarnUser(LocalPropertiesService localPropertiesService){
 		boolean warnUser = false;
-		
+
 		// newVersionAvailable will be null if the version installed is not older than the current version of the updater
 		String currentVersionOnline = getVersionAvailableOnline();
-		
+
 		if( !StringUtils.isBlank( currentVersionOnline ) ){
-			
+
 			// There is a new version. did the user chose "Not to be bother"with this update?
 			String lastIgnoredBuildNumber = localPropertiesService.getValue(EarthProperty.LAST_IGNORED_UPDATE);
-		
-			if( 
+
+			if(
 				( isCurrentNewerThanIgnoredUpdate(lastIgnoredBuildNumber, currentVersionOnline) && isMajorUpdate())
 				||
 				isInstalledOlderThanOneMonth(currentVersionOnline, getVersionInstalled() )
 			){
 				warnUser = true;
-			}			
+			}
 
 		}
 		return warnUser;
 	}
-	
+
 
 	/**
 	 * Check if the current version of the updater is newer than the version of the updater that was last ignored
@@ -103,9 +103,9 @@ public class UpdateIniUtils {
 	 * @return True is the new version of the updater is newer than the one last ignored. False otherwise
 	 */
 	private boolean isCurrentNewerThanIgnoredUpdate(String lastIgnoredBuildNumber, String buildNumberOnline){
-		
+
 		boolean isNewerThanIgnored = true;
-		
+
 		try {
 			if( !StringUtils.isEmpty(lastIgnoredBuildNumber) && !StringUtils.isEmpty(buildNumberOnline) ){
 				Long ignoredBuildNumberUpdate =new Long(lastIgnoredBuildNumber);
@@ -116,11 +116,11 @@ public class UpdateIniUtils {
 		} catch (NumberFormatException e) {
 			logger.error( "Error checking if the current version of the updater is newer than the updater that was last ignored", e);
 		}
-		
+
 		return isNewerThanIgnored;
 	}
 
-	
+
 	/**
 	 * This method checks the difference in dates between the currently installed version of Collect Earth and the latest update available
 	 * @param currentVersion The date of the currently available version of collect earth in the format yyyyMMddHHmm
@@ -128,7 +128,7 @@ public class UpdateIniUtils {
 	 * @return True if the difference on the dates is more than 30 days, false otherwise
 	 */
 	private boolean isInstalledOlderThanOneMonth( String currentVersion, String installedVersion ){
-		
+
 		boolean isOlderThanOneMonth = true;
 		Date d1 = null;
 		Date d2 = null;
@@ -140,11 +140,11 @@ public class UpdateIniUtils {
 			isOlderThanOneMonth = (daysDifferenceInstalledAndCurrent > 30);
 		} catch (Exception e) {
 		   logger.error( "Error calculating difference in dates bvetween installed and available versions", e );
-		}    
-		
+		}
+
 		return isOlderThanOneMonth;
 	}
-	
+
 
 	/**
 	 * Checks if the update in the server is a "Major"update, meaning that every user should update Collect Earth
@@ -152,15 +152,13 @@ public class UpdateIniUtils {
 	 */
 	public boolean isMajorUpdate() {
 		String urlXmlUpdaterOnline = getValueFromUpdateIni("url", UPDATE_INI); //$NON-NLS-1$
-		String tagname = "version"; //$NON-NLS-1$
-		
-		String majorUpdateString = getXmlValueFromTag(urlXmlUpdaterOnline, tagname);
+		String majorUpdateString = getXmlValueFromTag(urlXmlUpdaterOnline, VERSION_NAME);
 		return majorUpdateString.toLowerCase().contains("major");
 	}
 
 	private String getVersionBuild(String urlXmlUpdate) {
 		String tagname = "versionId"; //$NON-NLS-1$
-		return getXmlValueFromTag(urlXmlUpdate, tagname);		
+		return getXmlValueFromTag(urlXmlUpdate, tagname);
 	}
 
 	public String getXmlValueFromTag(String urlXmlUpdate, String tagname) {
@@ -183,7 +181,7 @@ public class UpdateIniUtils {
 		Properties properties = new Properties();
 		String value = "unknown"; //$NON-NLS-1$
 		try {
-			properties.load( new FileInputStream(pathToUpdateIni));	
+			properties.load( new FileInputStream(pathToUpdateIni));
 			value = properties.getProperty(key);
 		} catch (FileNotFoundException e) {
 			logger.error("The update.ini file could not be found", e); //$NON-NLS-1$
@@ -197,12 +195,12 @@ public class UpdateIniUtils {
 		SimpleDateFormat humanReadable = new SimpleDateFormat("yyyy-MM-dd");
 		String reformattedStr = buildVersionNumber;
 		try {
-			
+
 			reformattedStr = humanReadable.format(fromXml.parse(buildVersionNumber));
 		} catch (java.text.ParseException e) {
 			logger.error("Error parsing the date from the XML updater" , e );
 		}
-		
+
 		return reformattedStr;
 	}
 }

@@ -24,7 +24,8 @@ public class GoogleEarthHeaderFilter implements Filter{
 
 	final SimpleDateFormat dateFormat = new SimpleDateFormat(EarthConstants.DATE_FORMAT_HTTP, Locale.ENGLISH );
 	Logger logger = LoggerFactory.getLogger(GoogleEarthHeaderFilter.class );
-		
+	static final String ORIGIN_HEADER = "Origin";
+
 	@Override
 	public void init(FilterConfig filterConfig) throws ServletException {
 	}
@@ -32,40 +33,40 @@ public class GoogleEarthHeaderFilter implements Filter{
 	@Override
 	public void doFilter(ServletRequest request, ServletResponse response, FilterChain chain)
 			throws IOException, ServletException {
-	       
+
 	        chain.doFilter(new HttpServletRequestWrapper( (HttpServletRequest) request) {
 	        	@Override
 	        	public long getDateHeader(String name){
 	                if(name.equals(HttpHeader.IF_MODIFIED_SINCE.toString() )){
 	                	Date now = new Date();
 	                	return now.getTime();
-	                }else
+	                }else {
 	                	return super.getDateHeader(name);
+	                }
 	            }
-	        	
+
 	        	@Override
 	        	public String getHeader(String name) {
-	        		 if(name!=null && name.equals("Origin") &&  (super.getHeader("Origin")==null || super.getHeader("Origin").equals("null")) ){
+	        		 if(name!=null && name.equals(ORIGIN_HEADER) &&  (super.getHeader(ORIGIN_HEADER)==null || super.getHeader(ORIGIN_HEADER).equals("null")) ){
 		                	return "*";
 		             }else
 		               	return super.getHeader(name);
 	        	}
 	        }, response
 	       );
-	        
-	       
-	        
+
+
+
 	       ((HttpServletResponse) response).setHeader("Access-Control-Allow-Origin" , "*");
 	       ((HttpServletResponse) response).setHeader("Access-Control-Allow-Methods" , "GET, POST, PATCH, PUT, DELETE, OPTIONS");
 	       ((HttpServletResponse) response).setHeader("Access-Control-Allow-Headers" , "Origin, Content-Type, X-Auth-Token");
-	       
+
 	       logger.debug( "Added Acces control origin to " + ( ( HttpServletRequest)request).getRequestURI() );
-		
 	}
 
 	@Override
 	public void destroy() {
-		
+
 	}
 
 }

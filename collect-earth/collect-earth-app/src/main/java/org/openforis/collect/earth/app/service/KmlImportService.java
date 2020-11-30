@@ -8,6 +8,7 @@ import java.io.FileOutputStream;
 import java.io.FileReader;
 import java.io.IOException;
 import java.io.OutputStreamWriter;
+import java.nio.charset.StandardCharsets;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -34,22 +35,22 @@ import org.xml.sax.SAXException;
 
 @Component
 public class KmlImportService {
-	
+
 	Map<String,Integer> namesAndTimes = new HashMap<>();
 
 	@Autowired
 	LocalPropertiesService localPropertiesService;
-	
+
 	@Autowired
 	EarthProjectsService earthProjectsService;
-	
+
 	@Autowired
 	EarthSurveyService earthSurveyService;
 
 	private JFrame frame;
 
 	/*
-	 * 
+	 *
 	 <Placemark>
 			<name>one</name>
 			<LookAt>
@@ -67,10 +68,10 @@ public class KmlImportService {
 				<coordinates>-5.899911231354489,41.60459478540565,0</coordinates>
 			</Point>
 		</Placemark>
-	 * 
-	 * 
+	 *
+	 *
 	 */
-	
+
 	private File createTempCsv( File kmlFile) throws ParserConfigurationException, SAXException, IOException{
 
 		DocumentBuilderFactory factory = DocumentBuilderFactory.newInstance();
@@ -81,11 +82,11 @@ public class KmlImportService {
         NodeList placemarks = doc.getElementsByTagName("Placemark"); //$NON-NLS-1$
 
         StringBuilder sb = new StringBuilder();
-        
+
         sb.append( CollectEarthProjectFileCreator.PLACEHOLDER_ID_COLUMNS_HEADER ).append(",").append( "YCoordinate" ).append(",").append( "XCoordinate" ).append(CollectEarthProjectFileCreator.PLACEHOLDER_FOR_EXTRA_COLUMNS_HEADER).append( "\r\n"); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$
-        
-        
-        for (int i = 0; i < placemarks.getLength(); i++) {                
+
+
+        for (int i = 0; i < placemarks.getLength(); i++) {
             Node placemark = placemarks.item(i);
 
             if (placemark.hasChildNodes()) {
@@ -93,28 +94,28 @@ public class KmlImportService {
             	String longitude = "",latitude = "",name = "Placemark";  //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$
             	name = "placemark" + i;
             	for (int j=0; j<childNodes.getLength(); j++){
-            		
+
             		Node placemarkChild = childNodes.item(j);
-            		
+
             		if ( placemarkChild.getNodeName().equalsIgnoreCase("Point")){ //$NON-NLS-1$
-            			String coordinates = processPoint(placemarkChild); 
-                    	
+            			String coordinates = processPoint(placemarkChild);
+
                     	String[] splitCoords = coordinates.split(","); //$NON-NLS-1$
-            			
+
             			longitude = splitCoords[0];
             			latitude = splitCoords[1];
             		}else if ( placemarkChild.getNodeName().equalsIgnoreCase("Multigeometry")){ //$NON-NLS-1$ // Special case forQGis generatedKML
-            			
+
             			NodeList childMultigemoetryNodes = placemarkChild.getChildNodes();
-                    	
+
                     	for (int t=0; t<childMultigemoetryNodes.getLength(); t++){
-                    		
+
                     		Node multigeometryChild = childMultigemoetryNodes.item(t);
                     		 if ( multigeometryChild.getNodeName().equals("Point")){ //$NON-NLS-1$
-                     			String coordinates = processPoint(multigeometryChild); 
-                             	
+                     			String coordinates = processPoint(multigeometryChild);
+
                              	String[] splitCoords = coordinates.split(","); //$NON-NLS-1$
-                     			
+
                      			longitude = splitCoords[0];
                      			latitude = splitCoords[1];
                     		 }
@@ -126,24 +127,15 @@ public class KmlImportService {
             	sb.append(name).append( CollectEarthProjectFileCreator.PLACEHOLDER_ID_COLUMNS_VALUES ).append("_").append( i+1 ).append(",").append( latitude ).append(",").append( longitude ).append(CollectEarthProjectFileCreator.PLACEHOLDER_FOR_EXTRA_COLUMNS_VALUES).append( "\r\n"); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$
             }
         }
-        
-        File tempFile = File.createTempFile("kmlExtractedPointsTemplate", "csv");
-        OutputStreamWriter osw = null;
-         
-		try {
-			osw = new OutputStreamWriter(  new FileOutputStream( tempFile ), "UTF-8" );
 
+        File tempFile = File.createTempFile("kmlExtractedPointsTemplate", "csv");
+		try ( OutputStreamWriter osw = new OutputStreamWriter(  new FileOutputStream( tempFile ), StandardCharsets.UTF_8 )){
 			BufferedWriter bw = new BufferedWriter(osw);
 			bw.write(sb.toString());
 			bw.close();
-		} finally{
-			if( osw != null )
-				osw.close();
 		}
-        
-		
+
 		BufferedInputStream bis = new BufferedInputStream( new FileInputStream(tempFile) );
-		
 		CollectEarthGridTemplateGenerator generator = new CollectEarthGridTemplateGenerator();
 		return generator.generateTemplateCSVFile(earthSurveyService.getCollectSurvey(), bis);
 	}
@@ -152,7 +144,7 @@ public class KmlImportService {
 		NodeList lookAtNodes  = placemarkChild.getChildNodes();
 		String coordinates = null;
 		for (int h=0; h<lookAtNodes.getLength(); h++){
-			Node lookAtChild = lookAtNodes.item(h);		
+			Node lookAtChild = lookAtNodes.item(h);
 			if( lookAtChild.getNodeName().equalsIgnoreCase("coordinates" ) ){ //$NON-NLS-1$
 				 coordinates = lookAtChild.getFirstChild().getNodeValue();
 			}
@@ -168,29 +160,29 @@ public class KmlImportService {
 		if( kmlFile != null ){
 			kmlImported = loadFromKml(frame, kmlFile);
 		}
-		
+
 		return kmlImported;
 	}
-	
-	
+
+
 	public boolean loadFromKml( JFrame frame, File kmlFile) throws ParserConfigurationException, SAXException, IOException{
 
 			// Convert the KML into a CSV and save it into a temporary file
 			File convertedCsvFile = createTempCsv( kmlFile );
 
 			JOptionPane.showMessageDialog(frame, Messages.getString("KmlImportService.13")); //$NON-NLS-1$
-			
+
 			// Move the temporary file to the current project folder
 			//File finalCsvFile = moveCsvToProjectFolder(convertedCsvFile, kmlFile.getName());
 			File finalCsvFile = selectAndSaveToCsv(convertedCsvFile, kmlFile.getName());
 
 			boolean loaded = false;
 			if( finalCsvFile != null ){
-				// Load the plots from the CSV 
+				// Load the plots from the CSV
 				localPropertiesService.setValue(EarthProperty.SAMPLE_FILE, finalCsvFile.getAbsolutePath());
 				loaded = true;
 			}
-			
+
 			return loaded;
 	}
 
@@ -201,8 +193,9 @@ public class KmlImportService {
 		if( saveToCsvFile != null && saveToCsvFile.length == 1 ){
 			FileUtils.copyFile( convertedCsvFile, saveToCsvFile[0]);
 			return saveToCsvFile[0];
-		}else 
+		}else {
 			return null;
+		}
 	}
 
 /*	private File moveCsvToProjectFolder(File convertedCsvFile, String originalKmlFilename) throws IOException {
@@ -217,8 +210,9 @@ public class KmlImportService {
 
 		if( selectedPlotFiles != null && selectedPlotFiles.length == 1 ){
 			return selectedPlotFiles[0];
-		}else 
+		}else {
 			return null;
+		}
 	}
 
 

@@ -75,7 +75,7 @@ public class PropertiesDialog extends JDialog {
 
 	private static final long serialVersionUID = -6760020609229102842L;
 
-	private final HashMap<Enum<?>, JComponent[]> propertyToComponent = new HashMap<Enum<?>, JComponent[]>();
+	private final HashMap<Enum<?>, JComponent[]> propertyToComponent = new HashMap<>();
 	private final transient  Logger logger = LoggerFactory.getLogger(this.getClass());
 
 	JPanel postgresPanel;

@@ -10,6 +10,7 @@ import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.OutputStreamWriter;
 import java.nio.charset.Charset;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
@@ -49,44 +50,35 @@ public class MissingPlotService {
 
 	public File getMissingPlotFile(Map<String, List<String[]>> missingPlotData) {
 
-		BufferedWriter fw =null;
 		File tempFile = null;
 		try {
 			tempFile = File.createTempFile("missingPlots",  "csv");
 			tempFile.deleteOnExit();
-			
-			fw = new BufferedWriter(new OutputStreamWriter(  new FileOutputStream( tempFile ), "UTF-8" ) );
 
+			try( BufferedWriter fw = new BufferedWriter(new OutputStreamWriter(  new FileOutputStream( tempFile ), StandardCharsets.UTF_8 ) ) ){
+				Set<String> files = missingPlotData.keySet();
+				for (String plotFile : files) {
 
-			Set<String> files = missingPlotData.keySet();
-			for (String plotFile : files) {
+					List<String[]> missingPlots = missingPlotData.get(plotFile);
+					StringBuilder csvRow = new StringBuilder("");
+					for (String[] plotData : missingPlots) {
+						csvRow = new StringBuilder("");
+						for (String data : plotData) {
 
-				List<String[]> missingPlots = missingPlotData.get(plotFile);
-				StringBuilder csvRow = new StringBuilder("");
-				for (String[] plotData : missingPlots) {
-					csvRow = new StringBuilder("");
-					for (String data : plotData) {
-						
-						data = data.replaceAll("\"", "\\\"");
-						
-						csvRow.append("\"").append(data).append("\"").append(",");
+							data = data.replaceAll("\"", "\\\"");
+
+							csvRow.append("\"").append(data).append("\"").append(",");
+						}
+						csvRow.delete(csvRow.length()-1, csvRow.length()).append("\n");
+						fw.write(csvRow.toString());
 					}
-					csvRow.delete(csvRow.length()-1, csvRow.length()).append("\n");
-					fw.write(csvRow.toString());
 				}
 			}
 
 		} catch (IOException e) {
 			logger.error("Error while producing the CSV with the missing plots" );
-		}finally{
-			if(fw!=null){
-				try {
-					fw.close();
-				} catch (IOException e) {
-					logger.error("Error while closing the stream of the CSV with the missing plots" );
-				}
-			}
 		}
+
 		return tempFile;
 	}
 	public String getMissingPlotInformation(Map<String, List<String[]>> allPlotDataInFiles, Map<String, List<String[]>> missingPlotDataPerFile ) {
@@ -136,7 +128,7 @@ public class MissingPlotService {
 
 	private CSVReader getCsvReader(String csvFile) throws FileNotFoundException {
 		CSVReader reader;
-		final BufferedReader bufferedReader = new BufferedReader(new InputStreamReader(new FileInputStream(csvFile), Charset.forName("UTF-8"))); //$NON-NLS-1$
+		final BufferedReader bufferedReader = new BufferedReader(new InputStreamReader(new FileInputStream(csvFile), StandardCharsets.UTF_8)); //$NON-NLS-1$
 		reader = new CSVReader(bufferedReader, ',');
 		return reader;
 	}
@@ -157,7 +149,7 @@ public class MissingPlotService {
 		}
 		return plotData;
 	}
-	
+
 	private String[] getKeys(String[] plotData ) {
 		List<AttributeDefinition> keyAttributeDefinitions = earthSurveyService.getCollectSurvey().getSchema().getRootEntityDefinitions().get(0)
 				.getKeyAttributeDefinitions();

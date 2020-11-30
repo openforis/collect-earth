@@ -74,7 +74,6 @@ public class ServerController extends Observable {
 		try {
 			webApplicationContext = WebApplicationContextUtils.getRequiredWebApplicationContext(getRoot().getServletContext());
 		} catch (Exception e) {
-			e.printStackTrace();
 			logger.error("Error getting web application context", e); //$NON-NLS-1$
 		}
 		return webApplicationContext;
@@ -113,11 +112,11 @@ public class ServerController extends Observable {
 		boolean isConnectionTypeSwitched = false;
 		if(localPropertiesService.isUsingPostgreSqlDB() && !isPostgreSQLReachable(collectDBDriver) ){
 
-				System.out.println("Impossible to reach the PostgreSQL server at " + getDbURL(CollectDBDriver.POSTGRESQL));
-				System.out.println("Using the SQLite version until fixed!");
-				logger.error("Impossible to reach the PostgreSQL server at " + getDbURL(CollectDBDriver.POSTGRESQL) + " using SQLite version");
-				collectDBDriver = CollectDBDriver.SQLITE;
-				isConnectionTypeSwitched = true;
+			logger.warn("Impossible to reach the PostgreSQL server at " + getDbURL(CollectDBDriver.POSTGRESQL));
+			logger.warn("Using the SQLite version until fixed!");
+			logger.error("Impossible to reach the PostgreSQL server at " + getDbURL(CollectDBDriver.POSTGRESQL) + " using SQLite version");
+			collectDBDriver = CollectDBDriver.SQLITE;
+			isConnectionTypeSwitched = true;
 		}
 
 		final File jettyAppCtxTemplateSrc = new File("resources/applicationContext.fmt"); //$NON-NLS-1$
@@ -143,40 +142,24 @@ public class ServerController extends Observable {
 
 	private boolean isPostgreSQLReachable(CollectDBDriver collectDBDriver) {
 		boolean connectionWorked = false;
-		Connection connection = null;
-		try {
-			Class.forName("org.postgresql.Driver");
-			connection = DriverManager.getConnection(
-					getDbURL(collectDBDriver),
-					localPropertiesService.getValue(EarthProperty.DB_USERNAME),
-					localPropertiesService.getValue(EarthProperty.DB_PASSWORD)
-					);
-
-			if (connection != null)
-			{
-				String query="select version()";
-				Statement s = connection.createStatement();
-				ResultSet rs=s.executeQuery(query);
-				while(rs.next())
-				{
-					System.out.print( "It works, there are " + rs.getString(1) + " rows on the ofc_record table");
+		try ( Connection connection = DriverManager.getConnection(
+				getDbURL(collectDBDriver),
+				localPropertiesService.getValue(EarthProperty.DB_USERNAME),
+				localPropertiesService.getValue(EarthProperty.DB_PASSWORD)
+				) ){
+			String query="select version()";
+			try( Statement s = connection.createStatement() ){
+				try( ResultSet rs=s.executeQuery(query) ){
+					while(rs.next())
+					{
+						logger.debug( "It works, there are " + rs.getString(1) + " rows on the ofc_record table");
+					}
+					connectionWorked = true;
 				}
-				connectionWorked = true;
-
 			}
-			else
-				System.out.println("Connection Failed!");
 		}
 		catch(Exception e){
 			logger.error("Error while testing the connection to the postgresSQL DB", e);
-		}finally {
-			if( connection != null ) {
-				try {
-					connection.close();
-				} catch (SQLException e) {
-					logger.error("Error while closing the connection to the postgresSQL DB", e);
-				}
-			}
 		}
 
 		return connectionWorked;

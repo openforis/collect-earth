@@ -15,8 +15,7 @@ import org.openforis.collect.earth.planet.DateUtils;
 import org.openforis.collect.earth.planet.PlanetImagery;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Controller;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RequestMethod;
+import org.springframework.web.bind.annotation.PostMapping;
 
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
@@ -34,7 +33,7 @@ public class PlacemarkPlanetImagery extends JsonPocessorServlet {
 	@Autowired
 	LocalPropertiesService localPropertiesService;
 
-	@RequestMapping(value="/planet", method = RequestMethod.POST)
+	@PostMapping(value="/planet")
 	public void planet(HttpServletRequest request,HttpServletResponse response) throws IOException, ParseException {
 
 			//2015-07-17T10:50:18.650Z
@@ -60,7 +59,6 @@ public class PlacemarkPlanetImagery extends JsonPocessorServlet {
 			}
 
 			setJsonResponse(response, planetImagery.getLayerUrl(startDate, endDate, coords, itemTypeArray));
-
 	}
 
 }

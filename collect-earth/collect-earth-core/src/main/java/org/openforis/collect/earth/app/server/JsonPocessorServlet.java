@@ -18,7 +18,7 @@ import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 
 /**
- * Abstract class containing common methods for servlets using JSon communication.  
+ * Abstract class containing common methods for servlets using JSon communication.
  * @author Alfonso Sanchez-Paus Diaz
  *
  */
@@ -26,13 +26,12 @@ public abstract class JsonPocessorServlet extends DataAccessingServlet {
 	Gson gson = new GsonBuilder().create();
 
 	protected Map<String, String> extractRequestData(HttpServletRequest request) {
-		Map<String, String> collectedData = new HashMap<String, String>();
+		Map<String, String> collectedData = new HashMap<>();
 
-		@SuppressWarnings("rawtypes")
-		Enumeration enParams = request.getParameterNames();
+		Enumeration<String> enParams = request.getParameterNames();
 		while (enParams.hasMoreElements()) {
 
-			String paramName = (String) enParams.nextElement();
+			String paramName = enParams.nextElement();
 			String[] values = request.getParameterValues(paramName);
 			if (values.length == 1) {
 				collectedData.put(paramName, values[0]);
@@ -48,7 +47,7 @@ public abstract class JsonPocessorServlet extends DataAccessingServlet {
 	}
 
 	protected void processRequest(HttpServletRequest request, HttpServletResponse response) throws IOException {
-		
+
 	}
 
 	protected void setJsonResponse(HttpServletResponse response, Map<String, ? extends Object> collectedData) throws IOException {
@@ -60,7 +59,7 @@ public abstract class JsonPocessorServlet extends DataAccessingServlet {
 		}
 		out.close();
 	}
-	
+
 	protected void setJsonResponse(HttpServletResponse response, Object data) throws IOException {
 		setResponseHeaders(response);
 		PrintWriter out = response.getWriter();

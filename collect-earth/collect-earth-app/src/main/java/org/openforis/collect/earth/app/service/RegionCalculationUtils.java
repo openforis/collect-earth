@@ -86,7 +86,7 @@ public class RegionCalculationUtils implements InitializingBean{
 		String schemaName = schemaService.getSchemaPrefix();
 		String selectMinExpansionFactorSql = String.format("SELECT MIN(%s) FROM %splot", EXPANSION_FACTOR, schemaName); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$
 		Double minExpansionFactor = jdbcTemplate.queryForObject(selectMinExpansionFactorSql, Double.class);
-		//set plot_weight = expansion_factor / minExpansionFactor 
+		//set plot_weight = expansion_factor / minExpansionFactor
 		String updatePlotWeightSql = String.format(Locale.US, "UPDATE %splot SET %s=%s/%.5f", schemaName, PLOT_WEIGHT, EXPANSION_FACTOR, minExpansionFactor); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$
 		jdbcTemplate.update(updatePlotWeightSql);
 	}
@@ -100,9 +100,8 @@ public class RegionCalculationUtils implements InitializingBean{
 	/**
 	 * This is the "old way"of assigning an expansion factor (the area in hectares that a plot represents) to a plot based on the information form the "region_areas.csv" file.
 	 * @return True if there was a region_areas.csv file, false if not present so that areas were not assigned.
-	 * @throws SQLException
 	 */
-	private boolean addAreasPerRegion() throws SQLException {
+	private boolean addAreasPerRegion() {
 
 		final File regionAreas = new File( localPropertiesService.getProjectFolder() + File.separatorChar + REGION_AREAS_CSV);
 		String schemaName = schemaService.getSchemaPrefix();
@@ -122,7 +121,7 @@ public class RegionCalculationUtils implements InitializingBean{
 
 						Object[] parameters = new String[]{region,plotFile};
 
-						Integer plots_per_region = jdbcTemplate.queryForObject( 
+						Integer plots_per_region = jdbcTemplate.queryForObject(
 								"SELECT count( DISTINCT "+EarthConstants.PLOT_ID+") FROM " + schemaName  + "plot  WHERE ( region=? OR plot_file=? ) AND land_use_category != '"+NO_DATA_LAND_USE+"' ", parameters,Integer.class); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$ //$NON-NLS-4$
 
 						Float expansionFactorHectaresCalc = 0f;
@@ -139,7 +138,7 @@ public class RegionCalculationUtils implements InitializingBean{
 
 					} catch (NumberFormatException e) {
 						logger.error("Possibly the header", e); //$NON-NLS-1$
-					} 
+					}
 
 				}
 
@@ -192,7 +191,7 @@ public class RegionCalculationUtils implements InitializingBean{
 		}
 	}
 
-	private boolean addAreasPerAttribute() throws SQLException {
+	private boolean addAreasPerAttribute() {
 
 		final File areasPerAttribute = new File( localPropertiesService.getProjectFolder() + File.separatorChar + ATTRIBUTE_AREAS_CSV);
 		String schemaName = schemaService.getSchemaPrefix();
@@ -297,7 +296,7 @@ public class RegionCalculationUtils implements InitializingBean{
 	}
 
 	private List<Object> extractAttributeValues(String[] csvLine, List<String> attributeNames) {
-		List<Object> values = new ArrayList<>(attributeNames.size()); 
+		List<Object> values = new ArrayList<>(attributeNames.size());
 		for(int colIndex = 0; colIndex < attributeNames.size(); colIndex++) {
 			String stringValue = csvLine[colIndex];
 			String attributeName = attributeNames.get(colIndex);

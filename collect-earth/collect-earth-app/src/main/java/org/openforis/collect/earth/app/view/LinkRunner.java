@@ -30,11 +30,11 @@ class LinkRunner extends SwingWorker<Void, Void> {
         try {
             get();
         } catch (ExecutionException|InterruptedException ee) {
-            handleException(ee);
+            handleException();
         }
     }
 
-    private static void handleException(Exception e) {
+    private static void handleException() {
         JOptionPane.showMessageDialog(null, Messages.getString("AboutDialog.6"), Messages.getString("AboutDialog.19"), JOptionPane.ERROR_MESSAGE); //$NON-NLS-1$ //$NON-NLS-2$
     }
 }

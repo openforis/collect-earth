@@ -350,7 +350,7 @@ public class KmlGeneratorService {
 		// its turn
 		// opens a firefox browser with the real form
 		final Boolean openBalloonInFirefox = Boolean.valueOf(getLocalProperties().getValue(EarthProperty.OPEN_BALLOON_IN_BROWSER));
-		if (openBalloonInFirefox) {
+		if (Boolean.TRUE.equals( openBalloonInFirefox) ) {
 			String alternativeBalloon = getLocalProperties().getValue(EarthProperty.ALTERNATIVE_BALLOON_FOR_BROWSER);
 			if( !StringUtils.isBlank( alternativeBalloon ) ){
 				balloon = alternativeBalloon;
@@ -377,7 +377,7 @@ public class KmlGeneratorService {
 
 		getLocalProperties().saveGeneratedOn(System.currentTimeMillis() + ""); //$NON-NLS-1$
 
-		final Map<String, Object> data = new HashMap<String, Object>();
+		final Map<String, Object> data = new HashMap<>();
 		data.put("host", ServerController.getHostAddress(getLocalProperties().getHost(), getLocalProperties().getLocalPort())); //$NON-NLS-1$
 		data.put("kmlGeneratedOn", getLocalProperties().getGeneratedOn()); //$NON-NLS-1$
 		data.put("surveyName", getLocalProperties().getValue(EarthProperty.SURVEY_NAME)); //$NON-NLS-1$

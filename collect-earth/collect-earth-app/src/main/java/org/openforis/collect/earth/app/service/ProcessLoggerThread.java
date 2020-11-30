@@ -14,7 +14,7 @@ public class ProcessLoggerThread extends Thread {
 	private static final Logger LOGGER = LoggerFactory.getLogger(ProcessLoggerThread.class);
 
 	private InputStream inputStream;
-	
+
 	private Boolean logOutputAsError;
 
 
@@ -32,11 +32,11 @@ public class ProcessLoggerThread extends Thread {
 			BufferedReader reader = new BufferedReader(new InputStreamReader(inputStream));
 			String line = reader.readLine();
 			while (line != null) {
-				if( logOutputAsError )
+				if( Boolean.TRUE.equals( logOutputAsError ) )
 					LOGGER.error(line);
 				else
 					LOGGER.warn(line);
-				
+
 				line = reader.readLine();
 			}
 			reader.close();

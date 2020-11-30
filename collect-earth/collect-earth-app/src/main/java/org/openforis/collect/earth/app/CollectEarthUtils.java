@@ -63,17 +63,17 @@ public class CollectEarthUtils {
 	}
 
 
-	public static void setFontDependingOnLanguaue( UI_LANGUAGE ui_language){
-		if( ui_language == UI_LANGUAGE.LO){
+	public static void setFontDependingOnLanguaue( UI_LANGUAGE uiLanguage){
+		if( uiLanguage == UI_LANGUAGE.LO){
 			String ttfFileName = "Phetsarath_OT.ttf";
 			//create the font
 			setUiFont(ttfFileName);
-		}else if( ui_language == UI_LANGUAGE.MN){
+		}else if( uiLanguage == UI_LANGUAGE.MN){
 			String ttfFileName = "arhangai.ttf";
 			//create the font
 			setUiFont(ttfFileName);
 		}else{
-			CollectEarthUtils.setUIFont( new javax.swing.plaf.FontUIResource("Arial Unicode MS",Font.PLAIN,12) );
+			CollectEarthUtils.setUiFont( new javax.swing.plaf.FontUIResource("Arial Unicode MS",Font.PLAIN,12) );
 		}
 	}
 
@@ -86,13 +86,13 @@ public class CollectEarthUtils {
 			GraphicsEnvironment ge = GraphicsEnvironment.getLocalGraphicsEnvironment();
 			//register the font
 			ge.registerFont(laoFont);
-			CollectEarthUtils.setUIFont( new javax.swing.plaf.FontUIResource( laoFont.getFontName(),Font.PLAIN,12)  );
+			CollectEarthUtils.setUiFont( new javax.swing.plaf.FontUIResource( laoFont.getFontName(),Font.PLAIN,12)  );
 		} catch (IOException | FontFormatException e) {
 			logger.error("error setting the font " + ttfFileName , e );
 		}
 	}
 
-	private static void setUIFont (javax.swing.plaf.FontUIResource f){
+	private static void setUiFont (javax.swing.plaf.FontUIResource f){
 		Enumeration<Object> keys = UIManager.getDefaults().keys();
 		while (keys.hasMoreElements()) {
 			Object key = keys.nextElement();
@@ -100,11 +100,11 @@ public class CollectEarthUtils {
 			if (value != null && value instanceof javax.swing.plaf.FontUIResource)
 				UIManager.put (key, f);
 		}
-	} 
+	}
 
 	public static ZipFile addFileToZip(String fileToCompress, File srcFile, String fileNameInZip )
-			throws ZipException,IOException{
-		File destBackupFile = new File( fileToCompress );	
+			throws IOException{
+		File destBackupFile = new File( fileToCompress );
 		ZipFile zipBackupFile = new ZipFile( destBackupFile );
 
 		ZipParameters zipParameters = new ZipParameters();
@@ -112,8 +112,7 @@ public class CollectEarthUtils {
 		zipParameters.setCompressionMethod(CompressionMethod.DEFLATE);
 		// DEFLATE_LEVEL_ULTRA = maximum compression
 		zipParameters.setCompressionLevel(CompressionLevel.ULTRA);
-		// deprecated in version 2 of lingala ?? does it matter? zipParameters.setSourceExternalStream(true);
-		zipParameters.setFileNameInZip( fileNameInZip );				
+		zipParameters.setFileNameInZip( fileNameInZip );
 		zipBackupFile.addFile(srcFile, zipParameters);
 
 		return zipBackupFile;
@@ -170,7 +169,7 @@ public class CollectEarthUtils {
 			}
 		}
 	}
-	
+
 	public static boolean openFile(File fileToOpenWithOSViewer) {
 		boolean success = false;
 		if (Desktop.isDesktopSupported()) {
@@ -184,14 +183,14 @@ public class CollectEarthUtils {
 		return success;
 	}
 
-	
+
 
 	public static String testPostgreSQLConnection(String host, String port, String dbName,
 			String username, String password) {
-		Connection conn = null;  
+		Connection conn = null;
 		String message ="Connection OK!";
-		try {    
-			Class.forName("org.postgresql.Driver");				
+		try {
+			Class.forName("org.postgresql.Driver");
 			Driver postgresDriver = new Driver();
 			DriverManager.registerDriver(postgresDriver, null);
 			String url = "jdbc:postgresql://"+host+":"+port+"/"+dbName;
@@ -200,20 +199,20 @@ public class CollectEarthUtils {
 			@SuppressWarnings("unused")
 			boolean reachable = conn.isValid(10);// 10 sec
 		} catch(ClassNotFoundException e){
-			logger.error( "No PostgreSQL driver found", e );   
-		} catch (Exception e) {    
-			logger.error( "Error connecting to DB while testing", e );   
+			logger.error( "No PostgreSQL driver found", e );
+		} catch (Exception e) {
+			logger.error( "Error connecting to DB while testing", e );
 			message = e.getMessage();
 		}
-		finally {    
-			if (conn != null) {    
-				try {    
-					conn.close();    
-				} catch (SQLException e) {    
-					// ignore    
+		finally {
+			if (conn != null) {
+				try {
+					conn.close();
+				} catch (SQLException e) {
+					// ignore
 					logger.error("Error connecting to DB", e);
-				}    
-			}    
+				}
+			}
 		}
 		return message;
 

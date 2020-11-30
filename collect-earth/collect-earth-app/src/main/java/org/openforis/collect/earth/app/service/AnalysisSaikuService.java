@@ -152,7 +152,7 @@ public class AnalysisSaikuService implements InitializingBean, DisposableBean{
 							updateValues[0] = aspect;
 							updateValues[1] = slope;
 							updateValues[2] = ( (int) rs.getFloat("elevation") / ELEVATION_RANGE) + 1; // 0 //$NON-NLS-1$
-																											
+
 							updateValues[3] = rs.getLong(EarthConstants.PLOT_ID);
 							return updateValues;
 						}
@@ -215,7 +215,6 @@ public class AnalysisSaikuService implements InitializingBean, DisposableBean{
 									updateValues[0] = "Unknown"; //$NON-NLS-1$
 									updateValues[1] = "Unknown"; //$NON-NLS-1$
 									updateValues[2] = "Unknown"; //$NON-NLS-1$
-									updateValues[0] = rs.getLong(EarthConstants.PLOT_ID);
 								}
 								return updateValues;
 							}
@@ -245,13 +244,13 @@ public class AnalysisSaikuService implements InitializingBean, DisposableBean{
 
 							String collectEarthSubcategory = rs.getString("land_use_subcategory"); //$NON-NLS-1$
 							Integer dynamics = DynamicsCode.getDynamicsCode(collectEarthSubcategory);
-							String sub_class = "Unknown"; //$NON-NLS-1$
+							String subClass = "Unknown"; //$NON-NLS-1$
 							if (collectEarthSubcategory != null) {
-								sub_class = aluToolUtils.getAluSubclass(collectEarthSubcategory);
+								subClass = aluToolUtils.getAluSubclass(collectEarthSubcategory);
 							}
 
 							updateValues[0] = dynamics;
-							updateValues[1] = sub_class;
+							updateValues[1] = subClass;
 							updateValues[2] = rs.getLong(EarthConstants.PLOT_ID);
 							return updateValues;
 						}
@@ -308,7 +307,7 @@ public class AnalysisSaikuService implements InitializingBean, DisposableBean{
 				}
 			}
 
-			logger.warn("The sqlite database has been removed : {}", oldRdbFile.getAbsolutePath()); //$NON-NLS-1$
+
 		}
 
 	}
@@ -493,7 +492,7 @@ public class AnalysisSaikuService implements InitializingBean, DisposableBean{
 
 	/*
 	 * private boolean isJavaHomeConfigured() {
-	 * 
+	 *
 	 * if (SystemUtils.IS_OS_MAC){ return true; } return ! ( StringUtils.isBlank(
 	 * System.getenv("JAVA_HOME") ) //$NON-NLS-1$ && StringUtils.isBlank(
 	 * System.getenv("JRE_HOME") ) //$NON-NLS-1$ && StringUtils.isBlank(
@@ -839,12 +838,12 @@ public class AnalysisSaikuService implements InitializingBean, DisposableBean{
 			 * // In MAC the environment variable COLLECT_EARTH_JRE_HOME is not accesible
 			 * from outside the bash, set it again! if( SystemUtils.IS_OS_MAC ||
 			 * SystemUtils.IS_OS_MAC_OSX){ try { File javaFolder = new File("./java");
-			 * 
+			 *
 			 * if( !javaFolder.exists() ){ String userName =
 			 * System.getProperty("user.name"); String testWithPath = "/Users/"+userName +
 			 * "/OpenForis/CollectEarth/java"; File testJavaPath = new File(testWithPath);
 			 * if( testJavaPath.exists()){ javaFolder = testJavaPath; } }
-			 * 
+			 *
 			 * Process setEnv = runProcessBuilder(new String[] { "/bin/bash", "setenv",
 			 * "COLLECT_EARTH_JRE_HOME=\""+ javaFolder.getAbsolutePath() +"\"" });
 			 * setEnv.waitFor(); } catch (final IOException e) {

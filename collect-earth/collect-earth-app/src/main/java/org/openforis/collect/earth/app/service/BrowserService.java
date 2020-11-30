@@ -10,7 +10,6 @@ import java.io.Writer;
 import java.net.URI;
 import java.net.URL;
 import java.net.URLEncoder;
-import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
 import java.security.Security;
 import java.util.ArrayList;
@@ -70,7 +69,7 @@ import liquibase.util.SystemUtils;
  * program is set to open any of these integrations, and if it is so it will
  * open each one in its own window. These windows are closed when the program
  * is closed.
- *
+ *s
  * @author Alfonso Sanchez-Paus Diaz
  *
  */
@@ -656,7 +655,7 @@ public class BrowserService implements InitializingBean, Observer {
 			// the id string would be something like
 			// "plotId,round", we only want the ID
 
-			temp = url.replaceAll("LATITUDE", latitude).replaceAll("LONGITUDE", longitude).replaceAll("PLOT_ID", id);
+			temp = url.replace("LATITUDE", latitude).replace("LONGITUDE", longitude).replace("PLOT_ID", id);
 
 		} catch (final Exception e) {
 			logger.error("Problems Getting the URL filling for " + url, e);

@@ -24,7 +24,7 @@ import org.slf4j.LoggerFactory;
  */
 public class JFilePicker extends JPanel {
 
-	public enum DlgMode{MODE_OPEN,MODE_SAVE };
+	public enum DlgMode{MODE_OPEN,MODE_SAVE }
 
 	private static final long serialVersionUID = 9057893034177011651L;
 
@@ -62,9 +62,7 @@ public class JFilePicker extends JPanel {
 			getTextField().setCaretPosition(originalPathValue.length() - 1);
 		}
 
-		button.addActionListener( e -> {
-			buttonActionPerformed(e);
-		});
+		button.addActionListener( this::buttonActionPerformed );
 
 
 		setLayout(new GridBagLayout());
@@ -100,11 +98,11 @@ public class JFilePicker extends JPanel {
 	}
 
 	private void buttonActionPerformed(ActionEvent evt) {
-			if (mode == DlgMode.MODE_OPEN && fileChooser.showOpenDialog(this) == JFileChooser.APPROVE_OPTION) {
-				if( fileChooser.getSelectedFile() != null )
-					getTextField().setText( fileChooser.getSelectedFile().getAbsolutePath() );
-			} else if (mode == DlgMode.MODE_SAVE && fileChooser.showSaveDialog(this) == JFileChooser.APPROVE_OPTION) {
-				if( fileChooser.getSelectedFile() != null )
+			if (
+					( mode == DlgMode.MODE_OPEN || mode == DlgMode.MODE_SAVE)  &&
+					fileChooser.showOpenDialog(this) == JFileChooser.APPROVE_OPTION &&
+					fileChooser.getSelectedFile() != null
+				) {
 					getTextField().setText( fileChooser.getSelectedFile().getAbsolutePath() );
 			}
 	}

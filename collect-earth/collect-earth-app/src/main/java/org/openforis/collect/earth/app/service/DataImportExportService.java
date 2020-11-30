@@ -29,14 +29,14 @@ import org.springframework.stereotype.Component;
 
 /**
  * @author Alfonso Sanchez-Paus Diaz
- * 
+ *
  */
 @Component
 public class DataImportExportService {
 
 	@Autowired
 	private EarthSurveyService earthSurveyService;
-	
+
 	@Autowired
 	private LocalPropertiesService localPropertiesService;
 
@@ -62,7 +62,7 @@ public class DataImportExportService {
 
 		csvDataExportProcess.setEntityId(earthSurveyService.getRootEntityDefinition().getId());
 		csvDataExportProcess.setRecordFilter( getRecordFilter() ) ;
-		
+
 		CSVDataExportParameters config = new CSVDataExportParameters();
 		config.setIncludeAllAncestorAttributes(true);
 		config.setIncludeEnumeratedEntities(true);
@@ -85,7 +85,7 @@ public class DataImportExportService {
 		csvDataExportProcess.setOutputFile(exportToFile);
 		csvDataExportProcess.setEntityId(earthSurveyService.getRootEntityDefinition().getId());
 		csvDataExportProcess.setRecordFilter( getRecordFilter() ) ;
-		
+
 		CSVDataExportParameters config = new CSVDataExportParameters();
 		config.setIncludeAllAncestorAttributes(true);
 		config.setLanguageCode( localPropertiesService.getValue(EarthProperty.UI_LANGUAGE) );
@@ -176,7 +176,7 @@ public class DataImportExportService {
 		csvDataExportProcess.setOutputFile(exportToFile);
 		csvDataExportProcess.setEntityId(earthSurveyService.getRootEntityDefinition().getId());
 		csvDataExportProcess.setRecordFilter( getRecordFilter() ) ;
-		
+
 
 		CSVDataExportParameters config = new CSVDataExportParameters();
 		config.setIncludeAllAncestorAttributes(true);

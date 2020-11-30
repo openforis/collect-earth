@@ -106,7 +106,7 @@ public final class MissingPlotsListener implements ActionListener {
 						String missingPlotsText = missingPlotService.getMissingPlotInformation(allPlotsInFiles, missingPlotData);
 						// Generates a temporary file that contains the missing plots as a CED
 						File tempFile = missingPlotService.getMissingPlotFile(missingPlotData);
-						SwingUtilities.invokeLater( () -> infiniteProgressMonitor.close() );
+						SwingUtilities.invokeLater( infiniteProgressMonitor::close );
 
 						JDialog missingDlg = buildDialog(missingPlotsText, tempFile);
 

@@ -7,6 +7,7 @@ import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 import java.io.File;
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 
 import javax.swing.JButton;
 import javax.swing.JDialog;
@@ -26,7 +27,7 @@ public class OpenTextFileListener implements ActionListener {
 	private String filePath;
 
 	public OpenTextFileListener(Frame owner, String filePath, String title) {
-		
+
 		this.filePath = filePath;
 		dialog = new JDialog(owner, title + " " + filePath); //$NON-NLS-1$
 		dialog.setLocationRelativeTo(owner);
@@ -60,8 +61,8 @@ public class OpenTextFileListener implements ActionListener {
 
 	private String getTextContents() {
 		try {
-			
-			return FileUtils.readFileToString(new File( filePath ), "UTF-8");
+
+			return FileUtils.readFileToString(new File( filePath ), StandardCharsets.UTF_8);
 		} catch (final IOException e) {
 			logger.error(Messages.getString("OpenTextFileListener.0") + filePath.toString(), e);  //$NON-NLS-1$
 			return Messages.getString("CollectEarthWindow.8"); //$NON-NLS-1$

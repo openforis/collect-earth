@@ -30,7 +30,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Controller;
-import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 
 import freemarker.cache.FileTemplateLoader;
@@ -41,9 +41,9 @@ import freemarker.template.Version;
 
 /**
  * Servlet called by the NetworkLink which tries to update the status of the placemark icons every few seconds.
- * 
+ *
  * @author Alfonso Sanchez-Paus Diaz
- * 
+ *
  */
 @Controller
 public class PlacemarkUpdateServlet {
@@ -61,7 +61,7 @@ public class PlacemarkUpdateServlet {
 	private final Configuration cfg = new Configuration( new Version("2.3.23"));
 
 	private Template template;
-  
+
 
 	private String getKmlFromTemplate( Map<String, Object> data) throws IOException {
 
@@ -85,20 +85,20 @@ public class PlacemarkUpdateServlet {
 
 	private void intializeTemplate() throws IOException {
 		if (template == null) {
-			
+
 			// first check if there is a custom update template included on the customization that can be used for the project
-			
+
 			String possibleUpdateKmlLocation = localPropertiesService.getProjectFolder() + File.separatorChar + STANDARD_KML_FOR_UPDATES_FILENAME;
 			File possibleKmlFile = new File( possibleUpdateKmlLocation );
-			
+
 			if( possibleKmlFile.exists() ){
 				/*
-				 * We need to create a new TemplateLoader and use it momentarily as by default the Template loader 
+				 * We need to create a new TemplateLoader and use it momentarily as by default the Template loader
 				 * uses the basedir of the project which causes problems when loading file from outside the project folder
-				 */				
+				 */
 				cfg.setTemplateLoader( new FileTemplateLoader( new File( possibleKmlFile.getParent() ) ) );
 				template = cfg.getTemplate( STANDARD_KML_FOR_UPDATES_FILENAME );
-				
+
 			}else{
 				// No specific updatekml template found on the project folder, fall back to the general one
 				// Load template from the resource folder
@@ -112,17 +112,17 @@ public class PlacemarkUpdateServlet {
 
 	/**
 	 * Responds with KML code that causes the Google Earth placemark icon and overlay image to update is status ( filled/not-filled/partially-filled)
-	 * 
+	 *
 	 * @param response The HTTP response object
 	 * @param lastUpdate The datetime when this servlet was last called by the Google Earth network link.
 	 *            The date that this request was last sent. This way we get the placemarks that have changed status since the last time this was
 	 *            checked.
 	 */
-	@RequestMapping("/placemarkUpdate")
+	@GetMapping("/placemarkUpdate")
 	public void getUpdatePlacemark(HttpServletResponse response, @RequestParam(value = "lastUpdate", required = false) String lastUpdate) {
 
 		try {
-			
+
 			final SimpleDateFormat dateFormat = new SimpleDateFormat(EarthConstants.DATE_FORMAT_HTTP, Locale.ENGLISH );
 			Date lastUpdateDate = null;
 			if (lastUpdate != null && lastUpdate.length() > 0) {
@@ -130,7 +130,7 @@ public class PlacemarkUpdateServlet {
 			}else{
 				lastUpdateDate = getTwoMinutesAgo();
 			}
-		
+
 			List<CollectRecordSummary> lastUpdatedRecords = null;
 			try {
 				lastUpdatedRecords = earthSurveyService.getRecordSummariesSavedSince(lastUpdateDate);
@@ -138,7 +138,7 @@ public class PlacemarkUpdateServlet {
 				lastUpdatedRecords = new ArrayList<>();
 				logger.error("Error fetching information about the records updated after : " + lastUpdateDate , e); //$NON-NLS-1$
 			}
-			
+
 			final Map<String, Object> data = new HashMap<>();
 			data.put("host", ServerController.getHostAddress(localPropertiesService.getHost(), localPropertiesService.getLocalPort())); //$NON-NLS-1$
 			data.put("date", getUpdateFromDate(dateFormat) ); // Keep for historical reasons //$NON-NLS-1$
@@ -146,9 +146,9 @@ public class PlacemarkUpdateServlet {
 			data.put("uniqueId", FreemarkerTemplateUtils.randInt(10000, 5000000) ); //$NON-NLS-1$
 			data.put("kmlGeneratedOn", localPropertiesService.getGeneratedOn()); //$NON-NLS-1$
 			data.put("placemark_ids", earthSurveyService.getPlacemarksId(lastUpdatedRecords)); //$NON-NLS-1$
-	
+
 			setKmlResponse(response, getKmlFromTemplate(data), dateFormat);
-			
+
 		} catch (final ParseException e) {
 			logger.error("Error in the lastUpdate date format : " + lastUpdate, e); //$NON-NLS-1$
 		} catch (final Exception e) {
@@ -177,7 +177,5 @@ public class PlacemarkUpdateServlet {
 		response.getOutputStream().flush();
 		response.getOutputStream().close();
 	}
-	
-	
-	
+
 }

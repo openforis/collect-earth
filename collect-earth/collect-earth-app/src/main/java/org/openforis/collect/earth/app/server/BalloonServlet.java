@@ -2,7 +2,7 @@ package org.openforis.collect.earth.app.server;
 
 import java.io.File;
 import java.io.IOException;
-import java.net.URISyntaxException;
+import java.nio.charset.StandardCharsets;
 import java.text.SimpleDateFormat;
 import java.util.Date;
 import java.util.Locale;
@@ -22,7 +22,7 @@ import org.openforis.collect.earth.app.service.LocalPropertiesService;
 import org.openqa.selenium.remote.RemoteWebDriver;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Controller;
-import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.GetMapping;
 
 /**
  * This servlet is called by the balloon (KML pop-up form) when it is open and the user has chosen to see the form in a separate browser
@@ -32,9 +32,9 @@ import org.springframework.web.bind.annotation.RequestMapping;
  * form.
  * The functionality is used mostly for LINUX users due to the different bugs present in Google Earth for LINUX which makes the Bootstrap library
  * fail.
- * 
+ *
  * @author Alfonso Sanchez-Paus Diaz
- * 
+ *
  */
 @Controller
 public class BalloonServlet extends DataAccessingServlet {
@@ -46,7 +46,7 @@ public class BalloonServlet extends DataAccessingServlet {
 	private LocalPropertiesService localPropertiesService;
 
 	private RemoteWebDriver webKitDriver = null;
-	
+
 	private static final String BALLOON_EXTERNAL_URL = "balloon"; //$NON-NLS-1$
 
 	private String buildGetParameters(Map<String, String[]> parameterMap) {
@@ -58,13 +58,12 @@ public class BalloonServlet extends DataAccessingServlet {
 		return getParameters.toString();
 	}
 
-	@RequestMapping("/openInBrowser")
-	private void openInBrowser(HttpServletResponse response, HttpServletRequest request, String imageName) throws IOException, URISyntaxException {
+	@GetMapping("/openInBrowser")
+	public void openInBrowser(HttpServletResponse response, HttpServletRequest request, String imageName) {
 		String url = ServerController.getHostAddress(localPropertiesService.getHost(), localPropertiesService.getLocalPort());
 		url = url + BALLOON_EXTERNAL_URL + "?" + buildGetParameters(request.getParameterMap()); //$NON-NLS-1$
 		final String fUrl = url;
 		final Thread openBrowser = new Thread("Open URL in browser : " + fUrl) {
-
 			@Override
 			public void run() {
 				try {
@@ -75,7 +74,6 @@ public class BalloonServlet extends DataAccessingServlet {
 			}
 		};
 		openBrowser.start();
-
 	}
 
 	private String replaceGoalsWithParameters(String htmlWithGoals, Map<String, String[]> parameterMap) {
@@ -86,25 +84,23 @@ public class BalloonServlet extends DataAccessingServlet {
 		return htmlWithGoals;
 	}
 
-	@RequestMapping("/"+BALLOON_EXTERNAL_URL)
-	private void returnBalloon(HttpServletResponse response, HttpServletRequest request, String imageName) throws IOException, URISyntaxException {
+	@GetMapping("/"+BALLOON_EXTERNAL_URL)
+	public void returnBalloon(HttpServletResponse response, HttpServletRequest request, String imageName) throws IOException {
 		response.setHeader("Content-Type", "text/html"); //$NON-NLS-1$ //$NON-NLS-2$
 		response.setHeader("Content-Disposition", "inline; filename=\"" + imageName + "\""); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$
 		response.setHeader("Cache-Control", "max-age=30"); //$NON-NLS-1$ //$NON-NLS-2$
 		response.setHeader("Date", new SimpleDateFormat(EarthConstants.DATE_FORMAT_HTTP, Locale.ENGLISH).format(new Date())); //$NON-NLS-1$
 
-		String balloonContents = FileUtils.readFileToString(new File(localPropertiesService.getBalloonFile()));
+		String balloonContents = FileUtils.readFileToString( new File(localPropertiesService.getBalloonFile()), StandardCharsets.UTF_8 );
 
 		if (balloonContents != null) {
-
-			balloonContents = balloonContents.replaceAll(EarthConstants.FOLDER_COPIED_TO_KMZ + "/", EarthConstants.GENERATED_FOLDER_SUFFIX + "/" //$NON-NLS-1$ //$NON-NLS-2$
+			balloonContents = balloonContents.replace(EarthConstants.FOLDER_COPIED_TO_KMZ + "/", EarthConstants.GENERATED_FOLDER_SUFFIX + "/" //$NON-NLS-1$ //$NON-NLS-2$
 					+ EarthConstants.FOLDER_COPIED_TO_KMZ + "/"); //$NON-NLS-1$
 			balloonContents = replaceGoalsWithParameters(balloonContents, request.getParameterMap());
 
 			final byte[] bytes = balloonContents.getBytes();
 			response.setHeader("Content-Length", Integer.toString( bytes.length ) ); //$NON-NLS-1$ //$NON-NLS-2$
 			writeToResponse(response, bytes);
-
 		} else {
 			getLogger().error("There was a problem fetching the balloon html, please check the name!"); //$NON-NLS-1$
 		}
@@ -118,6 +114,5 @@ public class BalloonServlet extends DataAccessingServlet {
 		} finally {
 			response.getOutputStream().close();
 		}
-
 	}
 }

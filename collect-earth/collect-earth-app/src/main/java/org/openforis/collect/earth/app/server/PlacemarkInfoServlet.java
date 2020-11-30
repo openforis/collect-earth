@@ -9,31 +9,31 @@ import javax.servlet.http.HttpServletResponse;
 
 import org.openforis.collect.earth.app.EarthConstants;
 import org.springframework.stereotype.Controller;
-import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.GetMapping;
 
 /**
  * Servlet to return the information that is stored in Collect Earth for one placemark (plot)
- * 
+ *
  * @author Alfonso Sanchez-Paus Diaz
- * 
+ *
  * @deprecated Replaced by {@link PlacemarkDataController}
  */
 @Deprecated
 @Controller
 public class PlacemarkInfoServlet extends JsonPocessorServlet {
 
-	
+
 	/**
 	 * Returns a JSON object with the data collected for a placemark in the collect-earth format.
 	 * @param request The request sent from Google Earth pop-up to Collect Earth
 	 * @param response The response to the Collect Earth request
 	 * @throws IOException Throws exception if the response cannot be written to the channel
 	 */
-	@RequestMapping("/placemarkInfo")
-	protected void placemarkInfoOld(HttpServletRequest request, HttpServletResponse response) throws IOException {
+	@GetMapping("/placemarkInfo")
+	public void placemarkInfoOld(HttpServletRequest request, HttpServletResponse response) throws IOException {
 		Map<String, String> collectedData = extractRequestData(request);
 		String placemarkId = getPlacemarkId(collectedData);
-		
+
 		if (placemarkId == null) {
 			setResult(false, "No placemark ID found in the request", collectedData); //$NON-NLS-1$
 			getLogger().error("No placemark ID found in the received request"); //$NON-NLS-1$
@@ -46,7 +46,7 @@ public class PlacemarkInfoServlet extends JsonPocessorServlet {
 				getLogger().info("A placemark was found with these properties {}", collectedData ); //$NON-NLS-1$
 			} else {
 				if (collectedData == null) {
-					collectedData = new HashMap<String, String>();
+					collectedData = new HashMap<>();
 				}
 				setResult(false, "No placemark found", collectedData); //$NON-NLS-1$
 				getLogger().info("No placemark found {}", collectedData ); //$NON-NLS-1$
@@ -67,5 +67,5 @@ public class PlacemarkInfoServlet extends JsonPocessorServlet {
 		}
 		return placemarkId;
 	}
-	
+
 }
