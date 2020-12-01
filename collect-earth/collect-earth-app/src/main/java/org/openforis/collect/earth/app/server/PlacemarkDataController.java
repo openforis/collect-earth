@@ -20,7 +20,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 public class PlacemarkDataController extends AbstractPlacemarkDataController {
 	@Override
 	@GetMapping(value="/placemark-info-expanded")
-	protected void placemarkInfoExpanded(@RequestParam("id") String placemarkId, HttpServletResponse response) throws IOException {
+	public void placemarkInfoExpanded(@RequestParam("id") String placemarkId, HttpServletResponse response) throws IOException {
 		try{
 			super.placemarkInfoExpanded(placemarkId, response);
 		}catch(Exception e){
