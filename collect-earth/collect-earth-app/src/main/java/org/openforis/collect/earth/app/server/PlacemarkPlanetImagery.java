@@ -48,7 +48,7 @@ public class PlacemarkPlanetImagery extends JsonPocessorServlet {
 				endDate = DateUtils.asDate( localDateTime.plusDays(30) );
 			}
 
-			PlanetImagery planetImagery = new PlanetImagery( localPropertiesService.getPlanetMapsCeKey() );
+			PlanetImagery planetImagery = new PlanetImagery( localPropertiesService.getPlanetMapsKey() );
 
 			Gson gson = new GsonBuilder().create();
 			double[][][] coords = gson.fromJson( request.getParameter("geometry"), double[][][].class);
