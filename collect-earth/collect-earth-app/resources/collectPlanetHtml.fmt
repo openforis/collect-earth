@@ -2,18 +2,25 @@
 <!DOCTYPE html>
 <html>
 <head>
-	
+
 	<title>Planet Labs - Collect Earth Integration</title>
 
 	<meta charset="utf-8" />
 	<meta name="viewport" content="width=device-width, initial-scale=1.0">
-	
+
  	<link rel="stylesheet" href="http://ghusse.github.io/jQRangeSlider/stable/css/iThing.css" />
-    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.6.0/dist/leaflet.css" integrity="sha512-xwE/Az9zrjBIphAcBb3F6JVqxf46+CDLwfLMHloNu6KEQCAWi6HcDUbeOfBIptF7tcCzusKFjFw2yuvEpDL9wQ==" crossorigin=""/>
-    <script src="https://unpkg.com/leaflet@1.6.0/dist/leaflet.js" integrity="sha512-gZwIG9x3wUXg2hdXF6+rVkLF/0Vi9U8D2Ntg4Ga5I5BZpVkVxlJWbSQtXPSiUTtC0TjtGOmxa1AJPuV0CPthew==" crossorigin=""></script>
-	<script src="https://ajax.googleapis.com/ajax/libs/jquery/1.7.2/jquery.min.js"></script>
-	<link rel="stylesheet" href="https://ajax.googleapis.com/ajax/libs/jqueryui/1.8.18/themes/smoothness/jquery-ui.css">
-	<script src="https://ajax.googleapis.com/ajax/libs/jqueryui/1.8.18/jquery-ui.min.js"></script>
+	<link rel="stylesheet" href="https://unpkg.com/leaflet@1.7.1/dist/leaflet.css"
+	  integrity="sha512-xodZBNTC5n17Xt2atTPuE1HxjVMSvLVW9ocqUKLsCC5CXdbqCmblAshOMAS6/keqq/sMZMZ19scR4PsZChSR7A=="
+	  crossorigin=""/>
+	<script src="https://unpkg.com/leaflet@1.7.1/dist/leaflet.js"
+	  integrity="sha512-XQoYMqMTK8LvdxXYG3nZ448hOEQiglfqkJs1NOQV44cWnUrBc8PkAOcXy20w0vlaXaVUearIOBhiXZ5V3ynxwA=="
+	  crossorigin=""></script>
+  	<script src="https://code.jquery.com/jquery-3.5.1.min.js" integrity="sha256-9/aliU8dGd2tb6OSsuzixeV4y/faTqgFtohetphbbj0=" crossorigin="anonymous"></script>
+	<link rel="stylesheet" href="https://code.jquery.com/ui/1.12.0/themes/smoothness/jquery-ui.css">
+	<script
+	  src="https://code.jquery.com/ui/1.12.0/jquery-ui.min.js"
+	  integrity="sha256-eGE6blurk5sHj+rmkfsGYeKyZx3M4bG+ZlFyA7Kns7E="
+	  crossorigin="anonymous"></script>
 	<script src="http://ghusse.github.io/jQRangeSlider/stable/jQRangeSliderMouseTouch.js"></script>
 	<script src="http://ghusse.github.io/jQRangeSlider/stable/jQRangeSliderDraggable.js"></script>
 	<script src="http://ghusse.github.io/jQRangeSlider/stable/jQRangeSliderBar.js"></script>
@@ -32,7 +39,7 @@
 			width: 100%;
 			height: 100%;
 		}
-		
+
 		.LockOn {
 		    display: block;
 		    visibility: visible;
@@ -44,9 +51,9 @@
 		    height: 105%;
 		    background-color:white;
 		    vertical-align:bottom;
-		    padding-top: 20%; 
-		    filter: alpha(opacity=75); 
-		    opacity: 0.82; 
+		    padding-top: 20%;
+		    filter: alpha(opacity=75);
+		    opacity: 0.82;
 		    font-size:large;
 		    color:blue;
 		    font-style:italic;
@@ -56,14 +63,13 @@
 		    background-attachment: fixed;
 		    background-position: center;
 		}
-		
+
 	</style>
 
-	
+
 </head>
 <body>
-<div id="coverScreen"  class="LockOn"></div>
-<div id='map' style="z-index: 1;"></select></></div>
+<div id='map' style="z-index: 1;"><div id="coverScreen"  class="LockOn"></div></div>
 <div id="slider" style="position:absolute; bottom:0px; left:15px; right:15px; width:95%; height:100px; z-index: 100"></div>
 
 <script>
@@ -74,14 +80,14 @@
    					beforeSend: function() { $("#coverScreen").show() },
    					complete: function() { $("#coverScreen").hide() },
 				});
-	
-	
-				  $.post( 
-				    	"${urlPlanetEndpointPrefix}planet", 
-						{ 
-							start: $.datepicker.formatDate('yy-mm-dd', fromDate ), 
+
+
+				  $.post(
+				    	"${urlPlanetEndpointPrefix}planet",
+						{
+							start: $.datepicker.formatDate('yy-mm-dd', fromDate ),
 							end : $.datepicker.formatDate('yy-mm-dd', toDate ),
-							itemTypes : ["PSScene3Band","PSScene4Band","REOrthoTile"], // , "REOrthoTile" RapidEye not working 
+							itemTypes : ["PSScene3Band","PSScene4Band","REOrthoTile"], // , "REOrthoTile" RapidEye not working
 							geometry : JSON.stringify( geometry ) }
 					).done(
 						function( data ) {
@@ -100,10 +106,10 @@
 		                 }
 		            });
 	}
-	
+
 	var defaultEndDate = new Date();
 	var defaultStartDate = new Date();
-	defaultStartDate.setDate( defaultStartDate.getDate() - 120 );  
+	defaultStartDate.setDate( defaultStartDate.getDate() - 120 );
 
      $("#slider").dateRangeSlider({
 		valueLabels:"change",
@@ -112,10 +118,10 @@
 		    min: {days: 5},
 		    max: {days: 240}
 		},
-		bounds: {min: new Date(2009, 01, 01), max: defaultEndDate},
+		bounds: {min: new Date(2015, 01, 01), max: defaultEndDate},
 		defaultValues: {min: defaultStartDate, max: defaultEndDate},
 		})
-		
+
 		$("#slider").bind("userValuesChanged", function(e, data){
 			var fromDate = data.values.min;
 			var toDate = data.values.max;
@@ -125,23 +131,23 @@
 <script type="text/javascript">
 
 	$(document).ready(function () {
-	  	
+
 		setLayerURL( defaultStartDate, defaultEndDate, boundaries);
-	  
+
 	});
 
 	var map = L.map('map');
 	var lastLayer;
 	var setLayer = function( url ){
 		if( lastLayer ){
-			map.removeLayer( lastLayer);		
+			map.removeLayer( lastLayer);
 		}
 		lastLayer = L.tileLayer(url+'?api_key=${planetMapsKey}', {
 			tms: false
 		}).addTo(map);
 	}
-	
-	var boundaries = [ 
+
+	var boundaries = [
 	// create a red polyline from an array of LatLng points
 			<#list placemark.multiShape as shp>
              [
@@ -151,7 +157,7 @@
 			]
 			</#list>
 			];
-	var latlngs = [ 
+	var latlngs = [
 	// create a red polyline from an array of LatLng points
 			<#list placemark.multiShape as shp>
              [
@@ -161,7 +167,7 @@
 			],
 			</#list>
            <#list placemark.points as square>
- 				[ 
+ 				[
 			     <#list square.shape as squareCorners>
 			           [${squareCorners.latitude},${squareCorners.longitude}],
 			     </#list>
@@ -172,12 +178,12 @@
 						<#list innerpoint.shape as squareCorners>
 					  [${squareCorners.latitude},${squareCorners.longitude}],
 						</#list>
-					],				 
+					],
 					</#list>
-				</#if>		     	
+				</#if>
 		    </#list>
 	];
-	
+
 
 	var polyline = L.polyline(latlngs, {color: 'yellow'}).addTo(map);
 	// zoom the map to the polyline
