@@ -30,20 +30,20 @@ import org.springframework.web.bind.annotation.RequestParam;
 
 /**
  * Controller to load and store the information that is stored in Collect Earth for one placemark (plot)
- * 
+ *
  * @author Alfonso Sanchez-Paus Diaz
  * @author S. Ricci
- * 
+ *
  */
 public class AbstractPlacemarkDataController extends JsonPocessorServlet {
 
 	private static final String PREVIEW_PLOT_ID = "$[EXTRA_id]";
 	private Object lastPlacemarkId;
 	private String lastPlacemarkStep;
-	
+
 	@Autowired
-	AbstractEarthSurveyService earthSurveyService;
-	
+	protected AbstractEarthSurveyService earthSurveyService;
+
 	protected void placemarkInfoExpanded(@RequestParam("id") String placemarkId, HttpServletResponse response) throws IOException {
 		PlacemarkLoadResult result;
 		if (placemarkId == null || placemarkId.equals(PREVIEW_PLOT_ID)) {
@@ -72,7 +72,7 @@ public class AbstractPlacemarkDataController extends JsonPocessorServlet {
 		getLogger().error(errorMessage); //$NON-NLS-1$
 		return result;
 	}
-	
+
 	@RequestMapping(value="/save-data-expanded", method = RequestMethod.POST)
 	public void saveDataExpanded(PlacemarkUpdateRequest updateRequest, HttpServletResponse response) throws IOException {
 		Map<String, String> collectedData = adjustParameters(updateRequest);
@@ -82,7 +82,7 @@ public class AbstractPlacemarkDataController extends JsonPocessorServlet {
 			result = handleEmptyCollectedData();
 		} else {
 			String placemarkId = replacePlacemarkIdTestValue(updateRequest.getPlacemarkId());
-			
+
 			result = processCollectedData(updateRequest, collectedData,	placemarkId);
 		}
 		setJsonResponse(response, result);
@@ -91,11 +91,11 @@ public class AbstractPlacemarkDataController extends JsonPocessorServlet {
 	public PlacemarkLoadResult processCollectedData(
 			PlacemarkUpdateRequest updateRequest,
 			Map<String, String> collectedData, String placemarkKey ) {
-		PlacemarkLoadResult result = getDataAccessor().updateData( placemarkKey.split(",") , collectedData, 
+		PlacemarkLoadResult result = getDataAccessor().updateData( placemarkKey.split(",") , collectedData,
 				updateRequest.isPartialUpdate());
-				
+
 		if (result.isSuccess()) {
-			result.setMessage(Messages.getString("SaveEarthDataServlet.2")); //$NON-NLS-1$ 
+			result.setMessage(Messages.getString("SaveEarthDataServlet.2")); //$NON-NLS-1$
 			lastPlacemarkId = placemarkKey;
 			lastPlacemarkStep = updateRequest.getCurrentStep();
 		}else{
@@ -121,12 +121,12 @@ public class AbstractPlacemarkDataController extends JsonPocessorServlet {
 		for (Entry<String, String> entry : originalCollectedData.entrySet()) {
 			if( entry.getKey().equals( EarthConstants.PLACEMARK_ID_PARAMETER ) ){
 				// If there are multiple keys this value will be the combination of the keys, with the first value actually containing the plot id
-				entry.setValue( entry.getValue().split(",")[0]); 
+				entry.setValue( entry.getValue().split(",")[0]);
 			}
-			
+
 			//decode parameter name, it was previously encoded by the client
 			result.put(URLDecoder.decode(entry.getKey(), "UTF-8"), entry.getValue());
-			
+
 		}
 		replaceTestParameters(result);
 		return sortParameters(result);
@@ -143,7 +143,7 @@ public class AbstractPlacemarkDataController extends JsonPocessorServlet {
 		BalloonInputFieldsUtils collectParametersHandler = new BalloonInputFieldsUtils();
 		Map<String, String> sortedParameterNameByNodePath = collectParametersHandler.getHtmlParameterNameByNodePath(earthSurveyService.getRootEntityDefinition());
 		List<String> sortedParameterNames = new ArrayList<String>(sortedParameterNameByNodePath.values());
-		
+
 		//create a new map and put the parameters in order there
 		Map<String, String> result = new LinkedHashMap<String, String>(navigableParameters.size());
 		for (String parameterName : sortedParameterNames) {
@@ -159,11 +159,11 @@ public class AbstractPlacemarkDataController extends JsonPocessorServlet {
 		result.putAll(navigableParameters);
 		return result;
 	}
-	
+
 	/**
 	 * This method replaces the variable values that the form contains when it is not run
 	 * through Google Earth and the variable replacement of the ExtendedData of the KML does not kick in.
-	 * 
+	 *
 	 * @param parameterByName
 	 *            The data POSTed by the form that has already been processed.
 	 */
@@ -175,7 +175,7 @@ public class AbstractPlacemarkDataController extends JsonPocessorServlet {
 		replaceParameter(parameterByName, "collect_real_aspect", "$[aspect]", "0"); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$
 		replaceParameter(parameterByName, "collect_coord_location", "$[latitude],$[longitude]", "0,0"); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$
 	}
-	
+
 	private void replaceParameter(Map<String, String> parameterByName, String name, String searchValue, String replaceValue) {
 		String val = parameterByName.get(name);
 		if (searchValue.equals(val)) {
