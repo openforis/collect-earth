@@ -6,15 +6,15 @@
     <script src="https://api-maps.yandex.ru/2.1/?lang=en_US&coordorder=latLong" type="text/javascript"></script>
     <script type="text/javascript">
         ymaps.ready(init);
-        var myMap, 
+        var myMap,
             frame, point;
 
-        function init(){ 
+        function init(){
            myMap = new ymaps.Map("map", {
 				center: [${placemark.coord.latitude},${placemark.coord.longitude}],
                 zoom: 17,
 				type: "yandex#satellite"
-            }); 
+            });
 
 			<#list placemark.multiShape as shp>
 				 // Creating a polygon using the GeoObject class.
@@ -35,11 +35,11 @@
 					// Setting the geo object options. Enabling drag-n-drop for the polyline.
 					draggable: false,
 					// The line color.
-					strokeColor: "#FFFFFF",
+					strokeColor: "#FBD11D",
 					// Line width.
 					strokeWidth: 2
 				});
-				
+
 				// Adding the polygon to the map.
 				myMap.geoObjects.add(frame);
 			</#list>
@@ -66,14 +66,14 @@
 						// Setting the geo object options. Enabling drag-n-drop for the polyline.
 						draggable: false,
 						// The line color.
-						strokeColor: "#FFFFFF",
+						strokeColor: "#FBD11D",
 						// Line width.
 						strokeWidth: 2
 					}
 				);
 				myMap.geoObjects.add(point);
-				
-				
+
+
 				<#if square.points?? >
 				<#list square.points as innerpoint>
 				// Creating a polygon using the GeoObject class.
@@ -97,19 +97,19 @@
 						// Setting the geo object options. Enabling drag-n-drop for the polyline.
 						draggable: false,
 						// The line color.
-						strokeColor: "#FFFFFF",
+						strokeColor: "#FBD11D",
 						// Line width.
 						strokeWidth: 2
 					}
 				);
 				myMap.geoObjects.add(point);
-				 
+
 				  </#list>
 				  </#if>
-				
+
 				 </#list>
-			
-		
+
+
 	}
     </script>
 </head>
@@ -125,17 +125,17 @@
 		|| document.documentElement.clientWidth
 		|| document.body.clientWidth;
 
-		w = w-20; 
-		
+		w = w-20;
+
 		var h = window.innerHeight
 		|| document.documentElement.clientHeight
 		|| document.body.clientHeight;
-		
+
 		h = h-20;
 
 		document.getElementById('map').setAttribute("style","display:block;width:"+w+"px;height:"+h+"px");
-		document.getElementById('map').style.width=w + 'px'; 
-		document.getElementById('map').style.height=h + 'px'; 
+		document.getElementById('map').style.width=w + 'px';
+		document.getElementById('map').style.height=h + 'px';
 	}
 	window.onresize = function(event) {
 		resizeMap();

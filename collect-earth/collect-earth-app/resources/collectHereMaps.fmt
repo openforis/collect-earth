@@ -1,30 +1,30 @@
 <html>
 <head>
 <title>Here Maps -- Collect Earth</title>
-<meta name="viewport" content="initial-scale=1.0, 
+<meta name="viewport" content="initial-scale=1.0,
                       width=device-width" />
-                  <script src="http://js.api.here.com/v3/3.0/mapsjs-core.js" 
+                  <script src="http://js.api.here.com/v3/3.0/mapsjs-core.js"
                       type="text/javascript" charset="utf-8"></script>
-                  <script src="http://js.api.here.com/v3/3.0/mapsjs-service.js" 
+                  <script src="http://js.api.here.com/v3/3.0/mapsjs-service.js"
                       type="text/javascript" charset="utf-8"></script>
-                  <script src="http://js.api.here.com/v3/3.0/mapsjs-ui.js" 
+                  <script src="http://js.api.here.com/v3/3.0/mapsjs-ui.js"
                       type="text/javascript" charset="utf-8"></script>
-                  <link rel="stylesheet" type="text/css" 
+                  <link rel="stylesheet" type="text/css"
                       href="http://js.api.here.com/v3/3.0/mapsjs-ui.css" />
-                  <script src="http://js.api.here.com/v3/3.0/mapsjs-mapevents.js" 
+                  <script src="http://js.api.here.com/v3/3.0/mapsjs-mapevents.js"
           	   type="text/javascript" charset="utf-8"></script>
 </head>
 <body>
 	<div style="width: 100%; height: 100%" id="mapContainer"></div>
 	<script>
-	
 
-			 	
-	
+
+
+
 				var addPolyLine = function( pointsInStrip, map){
 					// Create a style object:
 				    var customStyle = {
-				      strokeColor: 'white',
+				      strokeColor: 'yellow',
 				      lineWidth: 1,
 				      lineCap: 'square',
 				      lineJoin: 'bevel'
@@ -34,23 +34,23 @@
 	                pointsInStrip.forEach(function(point) {
 	                  strip.pushPoint(point);
 	                });
-	                
+
 	             	// Initialize a polyline with the strip:
 	                var polyline = new H.map.Polyline(strip, { style: customStyle });
-	                
+
 	                // Add the polyline to the map:
 	                map.addObject(polyline);
 				}
-	
+
                 // Initialize the platform object:
                 var platform = new H.service.Platform({
                   'app_id': '${hereAppId}',
                   'app_code': '${hereAppCode}'
                 });
-          
+
                 // Obtain the default map types from the platform object
                 var maptypes = platform.createDefaultLayers();
-          
+
                 // Instantiate (and display) a map object:
                 var map = new H.Map(
                   document.getElementById('mapContainer'),
@@ -61,50 +61,50 @@
                   });
              	// Create the default UI:
               	var ui = H.ui.UI.createDefault(map, maptypes);
-             
+
               	var outerPoints;
-             	
+
              	 <#list placemark.multiShape as shp>
-	                //Create points on the rectangle that defines the plot   		
+	                //Create points on the rectangle that defines the plot
 	                outerPoints = [
 	                    <#list shp as coord>
 	        			{ lat: ${coord.latitude}, lng: ${coord.longitude} },
 	        			</#list>
 	                ];
-	             	
+
 	                // Add main plot frame
 	                addPolyLine(outerPoints,map);
 	             </#list>
-                
-               
+
+
                 <#list placemark.points as square>
-              		//Create points on the sub-sampling dots inside the plot   		
+              		//Create points on the sub-sampling dots inside the plot
 	                var innerPoints = [
 	                    <#list square.shape as squareCorners>
 	        			{ lat: ${squareCorners.latitude}, lng: ${squareCorners.longitude} },
 	        			</#list>
 	                ];
-              	
+
 	                // Add sub-sampling dots to the plot
 	                addPolyLine(innerPoints,map);
      		    </#list>
-                
+
                 // Enable the event system on the map instance:
 		        var mapEvents = new H.mapevents.MapEvents(map);
-		                  
-		        // Instantiate the default behavior, providing the mapEvents object: 
+
+		        // Instantiate the default behavior, providing the mapEvents object:
 		        var behavior = new H.mapevents.Behavior(mapEvents);
-             	
+
               	var mapSettings = ui.getControl('mapsettings');
                 var zoom = ui.getControl('zoom');
                 var scalebar = ui.getControl('scalebar');
                 mapSettings.setAlignment('top-left');
                 zoom.setAlignment('top-left');
                 scalebar.setAlignment('top-left');
-                
-				
-          
-          
+
+
+
+
 </script>
 </body>
 </html>

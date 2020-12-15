@@ -38,7 +38,7 @@
 		map.addControl(new BMap.OverviewMapControl());
 		map.addControl(new BMap.MapTypeControl({mapTypes: [BMAP_NORMAL_MAP, BMAP_SATELLITE_MAP]}));
 
-		
+
 		var data = [];
 
 		data.push({
@@ -50,37 +50,37 @@
 			         [
 			        	<#list shp as coord>
 						[${coord.longitude},${coord.latitude}],
-						</#list>  
+						</#list>
 					],
 					</#list>
-		                
-		
+
+
 			       <#list placemark.points as square>
-						[ 
+						[
 					     <#list square.shape as squareCorners>
 					     	[${squareCorners.longitude},${squareCorners.latitude}],
 					     </#list>
 				     	],
-				     	
-				     	
+
+
 				     	<#if square.points?? >
 						<#list square.points as innerpoint>
-			
+
 							[
 							  <#list innerpoint.shape as squareCorners>
 							  [${squareCorners.longitude},${squareCorners.latitude}],
 							   </#list>
 							],
-						 
+
 						  </#list>
 						  </#if>
-				     	
+
 				    </#list>
 	    		]
 	    	}
         });
 
-			
+
         var dataSet = new mapv.DataSet(data);
 
         var options = {
@@ -94,8 +94,8 @@
         }
 
         var mapvLayer = new mapv.baiduMapLayer(map, dataSet, options);
-        
+
     </script>
-	
+
 </body>
 </html>
