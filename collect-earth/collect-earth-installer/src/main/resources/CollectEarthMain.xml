@@ -248,10 +248,8 @@
             <destination>${installbuilder_output_filename}/Contents/Resources/installbuilder.icns</destination>
             <origin>COLLECT_EARTH_MAIN_FOLDER/collect-earth-installer/src/main/resources/installer_icon.icns</origin>
             <ruleList>
-                <platformTest>
-                    <type>osx</type>
-                </platformTest>
-            </ruleList>
+				<platformTest type="osx"/>
+   			</ruleList>
         </copyFile>
     </postBuildActionList>
     <preInstallationActionList>
@@ -387,10 +385,8 @@
             <destination>${installdir}/${java_launcher_binary_name}/Contents/Resources/installbuilder.icns</destination>
             <origin>COLLECT_EARTH_MAIN_FOLDER/collect-earth-installer/src/main/resources/launcher_icons.icns</origin>
             <ruleList>
-                <platformTest>
-                    <type>osx</type>
-                </platformTest>
-            </ruleList>
+				<platformTest type="osx"/>
+   			</ruleList>
         </copyFile>
 
 
