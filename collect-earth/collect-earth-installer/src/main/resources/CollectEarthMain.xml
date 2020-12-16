@@ -246,7 +246,7 @@
 
         <copyFile>
             <destination>${installbuilder_output_filename}/Contents/Resources/installbuilder.icns</destination>
-            <origin>COLLECT_EARTH_MAIN_FOLDER/collect-earth-installer/src/main/resources/installer_icon.icns</origin>
+            <origin>COLLECT_EARTH_MAIN_FOLDER/collect-earth-installer/src/main/resources/images/installer_icon.icns</origin>
             <ruleList>
                 <platformTest>
                     <type>osx</type>
