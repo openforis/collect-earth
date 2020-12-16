@@ -99,6 +99,17 @@
 			            </distributionDirectory>
 		            </distributionFileList>
 		        </folder>
+		        <folder>
+		            <description>New Mac icon dock</description>
+		            <destination>${installdir}/images</destination>
+		            <name>newosxicon</name>
+		            <platforms>osx</platforms>
+		            <distributionFileList>
+			         	<distributionFile>
+                            <origin>../../../collect-earth-app/images/macDockImageCE.png</origin>
+                        </distributionFile>
+		            </distributionFileList>
+		        </folder>
             </folderList>
         </component>
     </componentList>
