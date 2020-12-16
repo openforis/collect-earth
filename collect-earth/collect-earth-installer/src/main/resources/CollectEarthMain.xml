@@ -381,6 +381,17 @@
                 </platformTest>
             </ruleList>
 		</registrySet>
+		
+		
+		<copyFile>
+            <destination>${installdir}/${java_launcher_binary_name}/Contents/Resources/installbuilder.icns</destination>
+            <origin>COLLECT_EARTH_MAIN_FOLDER/collect-earth-installer/src/main/resources/launcher_icons.icns</origin>
+            <ruleList>
+                <platformTest>
+                    <type>osx</type>
+                </platformTest>
+            </ruleList>
+        </copyFile>
 
 
     </postInstallationActionList>
