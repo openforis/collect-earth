@@ -31,12 +31,12 @@ public class AboutDialog extends JDialog {
 
 		UpdateIniUtils updateIniUtils = new UpdateIniUtils();
 		String buildDate = updateIniUtils.convertToDate(getBuild());
-		
+
 	    Box b = Box.createVerticalBox();
 	    b.setAlignmentX(CENTER_ALIGNMENT);
 	    b.add(Box.createGlue());
 	    b.add(new JLabel("Collect Earth v. " + getVersion() + " ( built " + buildDate + ") ")); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$
-	    b.add(new JLabel("By Open Foris Initiative")); //$NON-NLS-1$
+	    b.add(new JLabel("By Open Foris Initiative / Part of the Food and Agriculture Organization of the UN")); //$NON-NLS-1$
 	    JLabel comp = new JLabel("<html>" + Messages.getString("AboutDialog.5") + "</html>"); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$
 	    JLabel comp2 = new JLabel("<html><a href='https://github.com/openforis/collect-earth/blob/master/collect-earth/CHANGELOG.md'>CHECK THE CHANGE LOG</a></html>");
 	    if (isBrowsingSupported()) {
@@ -68,7 +68,7 @@ public class AboutDialog extends JDialog {
 		String value = "unknwown"; //$NON-NLS-1$
 		try {
 			properties.load( new FileInputStream("update.ini")); //$NON-NLS-1$
-			
+
 			value = properties.getProperty(key);
 		} catch (FileNotFoundException e) {
 			logger.error("The update.,ini file could not be found", e); //$NON-NLS-1$
@@ -77,15 +77,15 @@ public class AboutDialog extends JDialog {
 		}
 		return value;
 	}
-	
+
 	private String getVersion() {
 		String key = "version"; //$NON-NLS-1$
-		return getValueFromUpdateIni(key);		
+		return getValueFromUpdateIni(key);
 	}
-	
+
 	private static void makeLinkable(JLabel c, MouseListener ml) {
 	    assert ml != null;
-	   
+
 	    c.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
 	    c.addMouseListener(ml);
 	}
@@ -105,8 +105,8 @@ public class AboutDialog extends JDialog {
 
 	private static class LinkMouseListener extends MouseAdapter {
 		String url;
-		
-		
+
+
 	    public LinkMouseListener(String url) {
 			super();
 			this.url = url;
@@ -117,7 +117,7 @@ public class AboutDialog extends JDialog {
 	    public void mouseClicked(java.awt.event.MouseEvent evt) {
 	        JLabel l = (JLabel) evt.getSource();
 	        try {
-	            
+
 				URI uri = new java.net.URI(url); //$NON-NLS-1$
 	            (new LinkRunner(uri)).execute();
 	        } catch (URISyntaxException use) {
