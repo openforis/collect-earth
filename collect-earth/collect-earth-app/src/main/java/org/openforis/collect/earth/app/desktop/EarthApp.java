@@ -483,7 +483,12 @@ public class EarthApp {
 
 				} catch (Exception e) {
 					logger.error("Error loading the KML",e);
-					EarthApp.showMessage("<html>Problems while generating the KML file: <br/> " + (e.getCause()!=null?(e.getCause()+"<br/>"):"") + ( e.getMessage().length() > 300?e.getMessage().substring(0,300):e.getMessage() ) + "</html>"); //$NON-NLS-1$
+					EarthApp.showMessage("<html>Problems while generating the KML file: <br/> " +
+								(e.getCause()!=null?(e.getCause()+"<br/>"):"") +
+								(
+									( e.getMessage()!=null && e.getMessage().length() > 300 ) ? e.getMessage().substring(0,300) :
+										( e.getMessage()!=null ) ? e.getMessage() : ""
+								) + "</html>"); //$NON-NLS-1$
 				}finally{
 					if( windowShowingTimer != null ){
 						try {

@@ -9,6 +9,7 @@ import java.io.FileWriter;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.nio.charset.Charset;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
@@ -77,7 +78,7 @@ public class ProduceCsvFiles {
 
 		createOutputFolder();
 
-		Map<String,List<String[]>> stringsPerStrata = new HashMap<String, List<String[]>>(); 
+		Map<String,List<String[]>> stringsPerStrata = new HashMap<String, List<String[]>>();
 
 		CSVReader reader = null;
 		try {
@@ -116,7 +117,7 @@ public class ProduceCsvFiles {
 
 			for (Iterator iterator = stringsPerStrata.entrySet().iterator(); iterator.hasNext();) {
 				Entry<String, List<String[]>> rowsByFile = (Entry<String, List<String[]>>) iterator.next();
-				divideIntoFile( rowsByFile.getKey(), rowsByFile.getValue() );				
+				divideIntoFile( rowsByFile.getKey(), rowsByFile.getValue() );
 			}
 
 
@@ -160,12 +161,12 @@ public class ProduceCsvFiles {
 	}
 
 	private void processHeaders(File fileToDivide) throws IOException {
-		
+
 		String[] firstRow = null;
 		// longitude has to be a number, otherwise it is a header
 		try (
 				CSVReader reader = CsvReaderUtils.getCsvReader(fileToDivide.getPath());
-		){	
+		){
 
 			firstRow = reader.readNext();
 			int numberOfIdColumns = getNumberOfIDColumns();
@@ -195,11 +196,11 @@ public class ProduceCsvFiles {
 		if(lines.size() > 1 ){
 			// Keep the first line in the first row (in case the first row contains header)
 			List<String> linesWithoutFirstTemp = lines.subList(1, lines.size() );
-			linesWithoutFirst = new ArrayList<String>(linesWithoutFirstTemp);
+			linesWithoutFirst = new ArrayList<>(linesWithoutFirstTemp);
 			linesWithoutFirstTemp.clear();
 
 			// Choose a random one from the list
-			Random rnd = new Random( 8230809358934589l );		
+			Random rnd = new Random( 8230809358934589l );
 			Collections.shuffle( linesWithoutFirst, rnd);
 		}
 
@@ -209,10 +210,10 @@ public class ProduceCsvFiles {
 	private File writeLinesToFile(String firstLine, List<String> lines) throws IOException {
 		File randomizedFile = File.createTempFile("randomizeLines", "txt");
 
-		try ( 
+		try (
 			BufferedOutputStream writer = new BufferedOutputStream( new FileOutputStream(randomizedFile ) )
 		){
-			Charset utfCharset = Charset.forName("UTF-8");
+			Charset utfCharset = StandardCharsets.UTF_8;
 
 			// Write the possible header
 			writer.write( (firstLine + "\r\n").getBytes( utfCharset));
@@ -230,13 +231,13 @@ public class ProduceCsvFiles {
 	}
 
 
-	private List<String> getAllLines(File fileToDivide)
+	private static List<String> getAllLines(File fileToDivide)
 			throws IOException {
 		// Read in the file into a list of strings
 		try(
-				final BufferedReader reader = new BufferedReader(new InputStreamReader(new FileInputStream(fileToDivide), Charset.forName("UTF-8"))); //$NON-NLS-1$
+				final BufferedReader reader = new BufferedReader(new InputStreamReader(new FileInputStream(fileToDivide), StandardCharsets.UTF_8 )); //$NON-NLS-1$
 		){
-			List<String> lines = new ArrayList<String>();
+			List<String> lines = new ArrayList<>();
 
 			String line;
 			while( (line = reader.readLine() )!= null ) {
@@ -247,11 +248,11 @@ public class ProduceCsvFiles {
 		}
 	}
 
-	private void writeStringsToCsv( String fileName, List<String[]> rows) throws IOException {
+	public void writeStringsToCsv( String fileName, List<String[]> rows) throws IOException {
 		File fileOutput = new File( outputFolder, fileName + ".csv" );
 		try(
 				CSVWriter writer = new CSVWriter( new FileWriter( fileOutput  ) );
-		){	
+		){
 			if( getHeaders() != null ){
 				writer.writeNext(getHeaders());
 			}
