@@ -23,7 +23,7 @@
 	const params = new URL(location.href).searchParams;
 	const latlngs = JSON.parse( params.get('latlngs' ) );
 
-    var apiKey = "API_KEY!"
+    var apiKey = "API_KEY!";
 	// vizz  = one of "rgb" o "cir"
 	var getTileUrl = function( layerId, isRgb){
 
@@ -84,6 +84,12 @@
 			<div class="input-group-prepend">
 				<select id="leftPicker" class="selectpicker form-control" data-style="btn-primary">
 				  <optgroup label="Biannual Mosaics">
+					<option value="2015-12_2016-05" selected>2015/12 - 2016/05</option>
+					<option value="2016-06_2016-11">2016/06 - 2016/11</option>
+					<option value="2016-12_2017-05">2016/12 - 2017/05</option>
+					<option value="2017-06_2017-11">2017/06 - 2017/11</option>
+					<option value="2017-12_2018-05">2017/12 - 2018/05</option>
+					<option value="2018-06_2018-11">2018/06 - 2018/11</option>
 					<option value="2018-12_2019-05">2018/12 - 2019/05</option>
 					<option value="2019-06_2019-11">2019/06 - 2019/11</option>
 					<option value="2019-12_2020-05">2019/12 - 2020/05</option>
@@ -92,6 +98,8 @@
 				  <optgroup label="Monthly Mosaics (from September 2020)">
 					<option value="2020-09">September 2020</option>
 					<option value="2020-10">October 2020</option>
+					<option value="2020-11">November 2020</option>
+					<option value="2020-12">December 2020</option>
 				  </optgroup>
 				</select>
 			</div>
@@ -109,6 +117,12 @@
 			<div class="input-group-prepend">
 				<select id="rightPicker" class="selectpicker form-control" data-style="btn-primary">
 				  <optgroup label="Biannual Mosaics">
+				  	<option value="2015-12_2016-05">2015/12 - 2016/05</option>
+					<option value="2016-06_2016-11">2016/06 - 2016/11</option>
+					<option value="2016-12_2017-05">2016/12 - 2017/05</option>
+					<option value="2017-06_2017-11">2017/06 - 2017/11</option>
+					<option value="2017-12_2018-05">2017/12 - 2018/05</option>
+					<option value="2018-06_2018-11">2018/06 - 2018/11</option>
 					<option value="2018-12_2019-05">2018/12 - 2019/05</option>
 					<option value="2019-06_2019-11">2019/06 - 2019/11</option>
 					<option value="2019-12_2020-05">2019/12 - 2020/05</option>
@@ -117,6 +131,8 @@
 				  <optgroup label="Monthly Mosaics (from September 2020)">
 					<option value="2020-09">September 2020</option>
 					<option value="2020-10">October 2020</option>
+					<option value="2020-11">November 2020</option>
+					<option value="2020-12" selected>December 2020</option>
 				  </optgroup>
 				</select>
 			</div>
@@ -200,7 +216,7 @@
 	$('#rightPicker').on('changed.bs.select', loadRight);
 	$('#rightRgbCheckbox').change( loadRight );
 
-	sideBySide = initialize('2018-12_2019-05', '2020-10');
+	sideBySide = initialize('2016-06_2016-11', '2020-12');
     </script>
 </body>
 </html>
