@@ -6,6 +6,8 @@ machine_platform=`uname -p`
 machine_arch=`uname -m`
 if [ "${os_version:0:1}" == "6" ];then
     executable="none"
+elif [ "${machine_platform}" == "arm" ];then
+ executable=osx-x86_64
 elif [ "${machine_platform}" == "i386" ];then
   executable=osx-x86_64
 else
