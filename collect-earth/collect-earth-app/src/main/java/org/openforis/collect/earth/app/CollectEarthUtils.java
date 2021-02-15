@@ -62,7 +62,6 @@ public class CollectEarthUtils {
 		return DigestUtils.md5Hex(new FileInputStream(new File(filePath)));
 	}
 
-
 	public static void setFontDependingOnLanguaue( UI_LANGUAGE uiLanguage){
 		if( uiLanguage == UI_LANGUAGE.LO){
 			String ttfFileName = "Phetsarath_OT.ttf";
@@ -90,6 +89,7 @@ public class CollectEarthUtils {
 		} catch (IOException | FontFormatException e) {
 			logger.error("error setting the font " + ttfFileName , e );
 		}
+
 	}
 
 	private static void setUiFont (javax.swing.plaf.FontUIResource f){

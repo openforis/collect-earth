@@ -80,7 +80,7 @@ public class EarthApp {
 
 			initializeSentry();
 
-			// Change of font so that Lao and Thao glyphs are supported
+				// Change of font so that Lao and Thao glyphs are supported
 			CollectEarthUtils.setFontDependingOnLanguaue( getLocalProperties().getUiLanguage() );
 
 			logger = LoggerFactory.getLogger(EarthApp.class);

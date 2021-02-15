@@ -4,7 +4,7 @@
 	<parent>
 		<groupId>org.openforis.collect.earth</groupId>
 		<artifactId>collect-earth</artifactId>
-		<version>1.12.10</version>
+		<version>1.12.10-SNAPSHOT</version>
 	</parent>
 	<name>Collect Earth Application</name>
 	<artifactId>collect-earth-app</artifactId>
@@ -67,7 +67,6 @@
 			<artifactId>spring-jdbc</artifactId>
 			<version>${spring.version}</version>
 		</dependency>
-
 		<dependency>
 			<groupId>org.xerial</groupId>
 			<artifactId>sqlite-jdbc</artifactId>

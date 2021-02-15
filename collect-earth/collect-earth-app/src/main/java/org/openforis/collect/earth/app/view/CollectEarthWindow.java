@@ -30,6 +30,7 @@ import javax.swing.WindowConstants;
 import javax.swing.border.Border;
 
 import org.apache.commons.lang3.StringUtils;
+import org.openforis.collect.earth.app.CollectEarthUtils;
 import org.openforis.collect.earth.app.EarthConstants.OperationMode;
 import org.openforis.collect.earth.app.desktop.EarthApp;
 import org.openforis.collect.earth.app.service.EarthSurveyService;
@@ -263,7 +264,6 @@ public class CollectEarthWindow implements InitializingBean, DisposableBean{
 
 		// Initialize the translations
 		Messages.setLocale(localPropertiesService.getUiLanguage().getLocale());
-
 		getFrame().setDefaultCloseOperation(WindowConstants.DO_NOTHING_ON_CLOSE);
 		getFrame().setResizable(false);
 		try {
