@@ -4,9 +4,7 @@ import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
-import java.io.UnsupportedEncodingException;
 import java.net.HttpURLConnection;
-import java.net.MalformedURLException;
 import java.net.URL;
 import java.security.Security;
 import java.time.LocalDateTime;
@@ -14,7 +12,9 @@ import java.util.Arrays;
 import java.util.Base64;
 import java.util.Calendar;
 import java.util.Date;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 import javax.net.ssl.HttpsURLConnection;
 import javax.net.ssl.SSLContext;
@@ -175,7 +175,7 @@ public class PlanetImagery {
 		return factory;
 	}
 
-	private StringBuilder readStream(InputStream is) throws IOException, UnsupportedEncodingException {
+	private StringBuilder readStream(InputStream is) throws IOException {
 		StringBuilder response = new StringBuilder();
 		;
 		try (BufferedReader br = new BufferedReader(new InputStreamReader(is, "utf-8"))) {
@@ -187,29 +187,31 @@ public class PlanetImagery {
 		return response;
 	}
 
-	private Feature[] search(String[] itemTypes, Filter[] filters) throws MalformedURLException, IOException {
+	private Feature[] search(String[] itemTypes, Filter[] filters, Integer maxResults) throws IOException {
 
 		Filter<Filter[]> andFilter = getAndFilter(filters);
 		SearchRequest searchRequest = new SearchRequest(itemTypes, andFilter);
-		Feature[] featuresInPage = null;
-		String response;
-		response = sendRequest(new URL("https://api.planet.com/data/v1/quick-search"), searchRequest);
-		featuresInPage = getNextPage(response);
+
+		String response = sendRequest(new URL("https://api.planet.com/data/v1/quick-search"), searchRequest);
+		System.out.println( response );
+		Feature[] featuresInPage = getNextPage(response);
 
 		if (featuresInPage != null) {
-			Arrays.sort(featuresInPage, new FeatureSorter());
+			if( maxResults != null ) {
+				Arrays.sort(featuresInPage, new FeatureSorter());
 
-			if (featuresInPage.length > MAX_IMAGES_IN_LAYER) {
-				featuresInPage = ArrayUtils.subarray(featuresInPage, 0, MAX_IMAGES_IN_LAYER);
+				if (featuresInPage.length > maxResults) {
+					featuresInPage = ArrayUtils.subarray(featuresInPage, 0, maxResults);
+				}
+				ArrayUtils.reverse(featuresInPage);
 			}
-			ArrayUtils.reverse(featuresInPage);
 		}
 
 		return featuresInPage;
 
 	}
 
-	private Feature[] getNextPage(String resJson) throws MalformedURLException, IOException {
+	private Feature[] getNextPage(String resJson) throws IOException {
 		if (StringUtils.isNotBlank(resJson)) {
 			Response resp = gson.fromJson(resJson, Response.class);
 			Feature[] features = resp.getFeatures();
@@ -248,31 +250,62 @@ public class PlanetImagery {
 		return layerUrl;
 	}
 
-	public String getLayerUrl(Date start, Date end, double[][][] coords, String[] itemTypes) throws MalformedURLException, IOException {
-		String layerURL = null;
+	public String getLayerUrl(Date start, Date end, double[][][] coords, String[] itemTypes) throws IOException {
 		Calendar cal = Calendar.getInstance();
 		cal.set(2014, 1,1);
 
 		GeoJson geometry = new GeoJson("Polygon", coords);
 
-		Filter dateFilter = getDateFilter(start, end);
-		Filter geometryFilter = getGeometryFilter(geometry);
-		Filter[] filters = null;
+		Filter<?> dateFilter = getDateFilter(start, end);
+		Filter<?> geometryFilter = getGeometryFilter(geometry);
+		Filter<?>[] filters = null;
 		if( start.after( cal.getTime() ) ) {
 			// Add quality filter only for images after 2014
-			Filter stringFilter = getStringInFilter("quality_category", new String[] { "standard" });
+			Filter<?> stringFilter = getStringInFilter("quality_category", new String[] { "standard" });
 			filters = new Filter[] { dateFilter, geometryFilter, stringFilter };
 		}else {
 			filters = new Filter[] { dateFilter, geometryFilter };
 		}
 
-		Feature[] searchResults = search(itemTypes, filters);
-		layerURL = getLayers(searchResults);
+		Feature[] searchResults = search(itemTypes, filters, MAX_IMAGES_IN_LAYER);
 
-		return layerURL;
+		return searchResults!=null ? getLayers(searchResults) : null;
 	}
 
-	public String getLatestUrl(SimplePlacemarkObject placemarkObject) throws MalformedURLException, IOException {
+	public Map<String, String> getAvailableDates(Date start, Date end, double[][][] coords, String[] itemTypes) throws IOException {
+
+		Calendar cal = Calendar.getInstance();
+		cal.set(2014, 1,1);
+
+		GeoJson geometry = new GeoJson("Polygon", coords);
+
+		Filter<?> dateFilter = getDateFilter(start, end);
+		Filter<?> geometryFilter = getGeometryFilter(geometry);
+		Filter<?>[] filters = null;
+		if( start.after( cal.getTime() ) ) {
+			// Add quality filter only for images after 2014
+			Filter<?> stringFilter = getStringInFilter("quality_category", new String[] { "standard" });
+			filters = new Filter[] { dateFilter, geometryFilter, stringFilter };
+		}else {
+			filters = new Filter[] { dateFilter, geometryFilter };
+		}
+
+		Feature[] searchResults = search(itemTypes, filters, null);
+
+		Map<String, String> monthsAvailable = new HashMap<String, String>();
+
+		if( searchResults != null ) {
+			for (Feature feature : searchResults) {
+				cal.setTime( feature.getProperties().acquired );
+				int year = cal.get( Calendar.YEAR );
+				int month = cal.get( Calendar.MONTH ) + 1;
+				monthsAvailable.put( year+""+ ( month<10?"0"+month:month ), "true");
+			}
+		}
+		return monthsAvailable;
+	}
+
+	public String getLatestUrl(SimplePlacemarkObject placemarkObject) throws IOException {
 		LocalDateTime localDateTime = DateUtils.asLocalDateTime(new Date());
 		Date start = DateUtils.asDate(localDateTime.minusDays(30));
 

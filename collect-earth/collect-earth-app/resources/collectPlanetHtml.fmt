@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+.<!DOCTYPE html>
 <html ng-app="ce">
 
 <head>
@@ -18,28 +18,46 @@
   <script src="https://ajax.googleapis.com/ajax/libs/angular_material/1.2.0/angular-material.min.js"></script>
 
   <script src="https://code.jquery.com/jquery-3.5.1.min.js" integrity="sha256-9/aliU8dGd2tb6OSsuzixeV4y/faTqgFtohetphbbj0=" crossorigin="anonymous"></script>
+  <link rel="stylesheet" href="https://code.jquery.com/ui/1.12.0/themes/smoothness/jquery-ui.css">
   <script>
+	var boundaries = [
+	// create a red polyline from an array of LatLng points
+			<#list placemark.multiShape as shp>
+             [
+            	<#list shp as coord>
+				[${coord.longitude},${coord.latitude}],
+				</#list>
+			]
+			</#list>
+			];
+
+
+	var firstMonth  = 0;
+	var firstYear  = 2009;
+
+	var firstYearSelected = 2017;
+	var firstMonthSelected = 7;
 
     var apiKey = "${planetMapsKey}"
+
+	var today = new Date();
 
 	var getFormattedDate = function( d ){
 		const ye = new Intl.DateTimeFormat('en', { year: 'numeric' }).format(d);
 		const mo = new Intl.DateTimeFormat('en', { month: '2-digit' }).format(d);
 		const da = new Intl.DateTimeFormat('en', { day: '2-digit' }).format(d);
-		console.log(`${ye}-${mo}-${da}`);
-		return `${ye}-${mo}-${da}`;
+		return ye+"-"+mo+"-"+da;
 	}
 
 	var getTileUrl = function( year, month, geometry){
 
 		var startDay = new Date();
 		startDay.setFullYear(year, month, 1);
-
 		var lastDay = new Date(startDay.getFullYear(), startDay.getMonth() + 1, 0);
 
 		return $.ajax({
 					type : "POST",
-					url : "http://127.0.0.1:8028/earth/planet",
+					url : "http://127.0.0.1:8028/earth/planetTileUrl",
 					async : false,
 					data : {
 							start: getFormattedDate( startDay ),
@@ -49,7 +67,8 @@
 					},
 					success : function( data ) {
 						  	if( data === ""){
-						  		alert("No imagery for the dates selected");
+						  		alert("No imagery for the dates selected " + getFormattedDate( startDay ) + "/" + getFormattedDate( lastDay ));
+						  		return null;
 						  	}
 							return data;
 					},
@@ -61,22 +80,15 @@
 		                 }else{
 		                 	alert("Error connecting to Planet servers " + data.responseText );
 		                 }
+
 						 return null;
 		            }
 				}
 			).responseJSON;
 	}
 
-
-	var today = new Date();
 	var nextMonth = new Date(today.setMonth(today.getMonth()));
 	var prevMonth = new Date(today.setMonth(today.getMonth() -1 ));
-
-	var firstMonth  = 0;
-	var firstYear  = 2015;
-
-	var firstYearSelected = 2017;
-	var firstMonthSelected = 7;
 
 	var lastMonth  =  nextMonth.getMonth();
 	var lastYear  = nextMonth.getYear() + 1900;
@@ -84,67 +96,128 @@
 	var lastMonthSelected  =  prevMonth.getMonth();
 	var lastYearSelected  = prevMonth.getYear() + 1900;
 
+	var monthsAvailable;
+
   </script>
 	<script>
 	  var app = angular.module('ce', ['ngMaterial']);
 
 	  app.controller('MainCtrl', function($scope) {
 
-	  var monthFormat =  buildLocaleProvider("MMM-YYYY");
-	  var ymdFormat =  buildLocaleProvider( "YYYY-MM-DD");
-	  $scope.left = new Date( firstYearSelected, firstMonthSelected, 2 );
+		  var monthFormat =  buildLocaleProvider("MMM-YYYY");
+		  var ymdFormat =  buildLocaleProvider( "YYYY-MM-DD");
+		  $scope.left = new Date( firstYearSelected, firstMonthSelected, 2 );
 
-	  $scope.right = new Date( lastYearSelected, lastMonthSelected, 2 );
+		  $scope.right = new Date( lastYearSelected, lastMonthSelected, 2 );
 
-		function buildLocaleProvider(formatString) {
-			return {
-				formatDate: function (date) {
-					if (date) return moment(date).format(formatString);
-					else return null;
-				},
-				parseDate: function (dateString) {
-					if (dateString) {
-						var m = moment(dateString, formatString, true);
-						return m.isValid() ? m.toDate() : new Date(NaN);
-					}
-					else return null;
-				}
-			};
-		}
-
-
-		function change() {
-			if( sideBySide ){
-				map.removeLayer( planetLeftLayer);
-				map.removeLayer( planetRightLayer);
-
-				loadSingleSide( $scope.left.getFullYear(), $scope.left.getMonth() , false);
-				loadSingleSide( $scope.right.getFullYear(), $scope.right.getMonth() , true);
-			}else{
-				sideBySide = loadSideBySide(
-					$scope.left.getFullYear(), $scope.left.getMonth(),
-					$scope.right.getFullYear(), $scope.right.getMonth()
-				)
-			}
-		}
-
-	  $scope.change = change;
-
-
-	  $scope.dateFields = [
-					{
-						type: 'date',
-						required: false,
-						binding: 'applicant.expectedGraduation',
-						startView: 'month',
-						label: 'Basemap Month',
-						mode: 'month',
-						locale: monthFormat,
-						startDate : new Date( firstYear, firstMonth, 1),
-						endDate : new Date( lastYear, lastMonth, 1),
+			function buildLocaleProvider(formatString) {
+				return {
+					formatDate: function (date) {
+						if (date) return moment(date).format(formatString);
+						else return null;
+					},
+					parseDate: function (dateString) {
+						if (dateString) {
+							var m = moment(dateString, formatString, true);
+							return m.isValid() ? m.toDate() : new Date(NaN);
 						}
-		];
-	});
+						else return null;
+					}
+				};
+			}
+
+
+			function change() {
+				if( sideBySide ){
+					map.removeLayer( planetLeftLayer);
+					map.removeLayer( planetRightLayer);
+
+					loadSingleSide( $scope.left.getFullYear(), $scope.left.getMonth() , false);
+					loadSingleSide( $scope.right.getFullYear(), $scope.right.getMonth() , true);
+				}else{
+					sideBySide = loadSideBySide(
+						$scope.left.getFullYear(), $scope.left.getMonth(),
+						$scope.right.getFullYear(), $scope.right.getMonth()
+					)
+				}
+			}
+
+		  $scope.change = change;
+
+
+		  $scope.dateFields = [
+						{
+							type: 'date',
+							required: false,
+							binding: 'applicant.expectedGraduation',
+							startView: 'month',
+							label: 'Basemap Month',
+							mode: 'month',
+							locale: monthFormat,
+							startDate : new Date( firstYear, firstMonth, 1),
+							endDate : new Date( lastYear, lastMonth, 1),
+							}
+			];
+
+			$scope.filterMonth = function( date ){
+				var month = date.getMonth() +1;
+				var year = date.getFullYear();
+		    	var key = year + "" + ( month<10?"0"+month:month );
+				return monthsAvailable[ key ] !== undefined;
+			}
+
+
+			$scope.filterMonth = function( date ){
+				console.log( "TRUE" + date  );
+				return true;
+			}
+
+
+			var getMonthsWithImagery = function( geometry){
+
+				var startDay = new Date();
+				startDay.setFullYear(firstYear, firstMonth, 1);
+
+				$.ajax({
+							type : "POST",
+							url : "http://127.0.0.1:8028/earth/planetAvailableImagery",
+							async : true,
+							data : {
+									start: getFormattedDate( startDay ),
+									end : getFormattedDate( today ),
+									itemTypes : ["PSScene3Band","PSScene4Band","REOrthoTile"], // , "REOrthoTile" RapidEye not working
+									geometry : JSON.stringify( geometry )
+							},
+							success : function( data ) {
+									monthsAvailable = data;
+									$scope.filterMonth = function( date ){
+										var month = date.getMonth() +1;
+										var year = date.getFullYear();
+										var key = year + "" + ( month<10?"0"+month:month );
+										return monthsAvailable[ key ] !== undefined;
+									}
+							},
+							error : function(data, textStatus, xhr) {
+								 //This shows status code eg. 403
+								 console.log("error", data.status);
+								 if( data.responseText.includes("401") ){
+									alert("Planet Authentication Error: Check that the Planet API Key used is correct in the Collect Earth properties dialog");
+								 }else{
+									alert("Error connecting to Planet servers " + data.responseText );
+								 }
+
+								 return null;
+							}
+						}
+					);;
+			}
+
+			getMonthsWithImagery( boundaries );
+
+			});
+
+
+
 
 	</script>
       <style>
@@ -187,11 +260,36 @@
 		opacity: 0.5;
 	}
 
+	.LockOn {
+		display: block;
+		visibility: visible;
+		position: absolute;
+		z-index: 999;
+		top: 0px;
+		left: 0px;
+		width: 105%;
+		height: 105%;
+		background-color:white;
+		vertical-align:bottom;
+		padding-top: 20%;
+		filter: alpha(opacity=75);
+		opacity: 0.82;
+		font-size:large;
+		color:blue;
+		font-style:italic;
+		font-weight:400;
+		background-image: url("http://www.openforis.org/fileadmin/docs/collectEarth/pic/png/of_collectEarth_logo_vertical.png");
+		background-repeat: no-repeat;
+		background-attachment: fixed;
+		background-position: center;
+	}
+
     </style>
 </head>
 
 <body layout="row" layout-wrap flex layout-fill layout-align="start start" ng-controller="MainCtrl">
-	<div id='map' ></div>
+<div id="coverScreen" class="LockOn"></div>
+	<div id='map' style="z-index: 1;"></div>
 	<div  class="controller-left">
 
 	<md-input-container flex="100" layout="column">
@@ -207,6 +305,7 @@
 					 md-min-date="dateFields[0].startDate"
 					 md-max-date="dateFields[0].endDate"
 					 md-open-on-focus
+					 md-month-filter="filterMonth"
 					 >
         </md-datepicker>
 		</div>
@@ -230,6 +329,7 @@
 					 md-min-date="dateFields[0].startDate"
 					 md-max-date="dateFields[0].endDate"
 					 md-open-on-focus
+					 md-month-filter="filterMonth"
 					 >
         </md-datepicker>
 		</div>
@@ -239,9 +339,11 @@
 
     <script>
 
-    var map = L.map('map');
+    var map;
 
-	var latlngs = [
+	map = L.map('map');
+
+    var latlngs = [
 	// create a red polyline from an array of LatLng points
 			<#list placemark.multiShape as shp>
              [
@@ -268,16 +370,7 @@
 		    </#list>
 	];
 
-	var boundaries = [
-	// create a red polyline from an array of LatLng points
-			<#list placemark.multiShape as shp>
-             [
-            	<#list shp as coord>
-				[${coord.longitude},${coord.latitude}],
-				</#list>
-			]
-			</#list>
-			];
+
 
     var polyline = L.polyline(latlngs, {color: 'yellow'}).addTo(map);
 	// Or center on the polygon
@@ -319,7 +412,12 @@
 		}
 	}
 
-	sideBySide = loadSideBySide( firstYearSelected, firstMonthSelected, lastYearSelected, lastMonthSelected );
+	$( document ).ready( function(){
+		$("#coverScreen").show();
+		sideBySide = loadSideBySide( firstYearSelected, firstMonthSelected, lastYearSelected, lastMonthSelected );
+		$("#coverScreen").hide();
+	});
+
     </script>
 </body>
 
