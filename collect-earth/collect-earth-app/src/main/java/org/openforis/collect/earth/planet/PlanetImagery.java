@@ -103,10 +103,12 @@ public class PlanetImagery {
 	private String sendRequest(URL url, Object jsonObject) throws IOException {
 		try {
 			byte[] postDataBytes = null;
+			System.out.println( "1 URL " + url );
 			if (jsonObject != null) {
 				String jsonInputString = gson.toJson(jsonObject);
 				postDataBytes = jsonInputString.getBytes("UTF-8");
 				logger.info(jsonInputString);
+				System.out.println( "1.1 JSON with parameters " + jsonInputString );
 			}
 
 			HttpURLConnection conn = null;
@@ -138,6 +140,8 @@ public class PlanetImagery {
 			} finally {
 				conn.disconnect();
 			}
+			System.out.println( "2 RESPONSE" + ( response != null ? response.toString() : null ) );
+
 			retries = 0; // reset the counter as it was a success
 			return response != null ? response.toString() : null;
 		} catch (IOException e) {
