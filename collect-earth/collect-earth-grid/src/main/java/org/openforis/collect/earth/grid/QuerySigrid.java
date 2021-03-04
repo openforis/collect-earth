@@ -44,7 +44,8 @@ public class QuerySigrid {
 	public static void main(String[] args) {
 		QuerySigrid querySigrid = new QuerySigrid();
 		//Double East, Double North, Double West, Double South
-		querySigrid.writeCsvFromBoundingBox( new Double[] {-56.04d, -21.75d, -70.86d, -67.37d}, 1000, 10, "Argentina");
+		querySigrid.writeCsvFromBoundingBox( new Double[] {29.40d, -17.92d, 19.98d, -26.95d}, 1000, 1, "Botswana");
+		//querySigrid.writeCsvFromBoundingBox( new Double[] {-56.04d, -21.75d, -70.86d, -67.37d}, 1000, 10, "Argentina");
 		//querySigrid.writeCsvFromBoundingBox( new Double[] {88.21d, 30.48d, 80.05d, 26.34d}, 1000, 1, "Nepal");
 		//querySigrid.writeCsvFromBoundingBox( new Double[] {38d,38d,-17d,14d}, 1000, 10, "NorthAfrica");
 		//querySigrid.writeCsvFromBoundingBox( new Double[] {60d,38d,-17d,-35d}, 1000, 10, "AllAfricaAfrica");
