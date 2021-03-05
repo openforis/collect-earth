@@ -6,6 +6,7 @@ public enum FilterType {
 	@SerializedName("DateRangeFilter") DATERANGE("DateRangeFilter"),
 	@SerializedName("StringInFilter") STRING_IN("StringInFilter"),
 	@SerializedName("AndFilter") AND("AndFilter"),
+	@SerializedName("OrFilter") OR("OrFilter"),
 	@SerializedName("GeometryFilter") GEOMETRY("GeometryFilter");
 
 	private String type;

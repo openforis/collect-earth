@@ -81,6 +81,13 @@ public class PlanetImagery {
 		return andFilter;
 	}
 
+	private Filter<Filter[]> getOrFilter(Filter[] filters) {
+		Filter<Filter[]> andFilter = new Filter<>();
+		andFilter.setType(FilterType.OR);
+		andFilter.setConfig(filters);
+		return andFilter;
+	}
+
 	private Filter<String[]> getStringInFilter(String fieldName, String[] strings) {
 		Filter<String[]> stringInFilter = new Filter<String[]>();
 		stringInFilter.setType(FilterType.STRING_IN);
@@ -92,7 +99,6 @@ public class PlanetImagery {
 	private int getQuality(Feature feature) {
 		FeatureProperties p = feature.getProperties();
 		Integer quality = p.getClearPercent();
-
 		if (quality != null)
 			return quality;
 		else {
@@ -103,12 +109,10 @@ public class PlanetImagery {
 	private String sendRequest(URL url, Object jsonObject) throws IOException {
 		try {
 			byte[] postDataBytes = null;
-			System.out.println( "1 URL " + url );
 			if (jsonObject != null) {
 				String jsonInputString = gson.toJson(jsonObject);
 				postDataBytes = jsonInputString.getBytes("UTF-8");
 				logger.info(jsonInputString);
-				System.out.println( "1.1 JSON with parameters " + jsonInputString );
 			}
 
 			HttpURLConnection conn = null;
@@ -140,7 +144,6 @@ public class PlanetImagery {
 			} finally {
 				conn.disconnect();
 			}
-			System.out.println( "2 RESPONSE" + ( response != null ? response.toString() : null ) );
 
 			retries = 0; // reset the counter as it was a success
 			return response != null ? response.toString() : null;
@@ -197,7 +200,6 @@ public class PlanetImagery {
 		SearchRequest searchRequest = new SearchRequest(itemTypes, andFilter);
 
 		String response = sendRequest(new URL("https://api.planet.com/data/v1/quick-search"), searchRequest);
-		System.out.println( response );
 		Feature[] featuresInPage = getNextPage(response);
 
 		if (featuresInPage != null) {
@@ -254,50 +256,54 @@ public class PlanetImagery {
 		return layerUrl;
 	}
 
-	public String getLayerUrl(Date start, Date end, double[][][] coords, String[] itemTypes) throws IOException {
-		Calendar cal = Calendar.getInstance();
-		cal.set(2014, 1,1);
+	private Feature[] getFeatures (Date start, Date end, double[][][] coords, String[] itemTypes) throws IOException {
+		Calendar thresholdQuality = Calendar.getInstance();
+		thresholdQuality.set(2016, 0,1);
 
 		GeoJson geometry = new GeoJson("Polygon", coords);
-
-		Filter<?> dateFilter = getDateFilter(start, end);
 		Filter<?> geometryFilter = getGeometryFilter(geometry);
 		Filter<?>[] filters = null;
-		if( start.after( cal.getTime() ) ) {
-			// Add quality filter only for images after 2014
-			Filter<?> stringFilter = getStringInFilter("quality_category", new String[] { "standard" });
-			filters = new Filter[] { dateFilter, geometryFilter, stringFilter };
+		/* maybe we can use test quality anyway
+		 * it gets complicated when the filter start/end date is multiyear
+		 */
+		if( start.before( thresholdQuality.getTime() ) && end.after( thresholdQuality.getTime() ) ) {
+
+			Filter<?> qualityFilter = getStringInFilter("quality_category", new String[] { "standard" });
+			Filter<?> before2016Filter = getDateFilter(start, thresholdQuality.getTime() );
+			Filter<?> after2016Filter = getDateFilter(thresholdQuality.getTime(), end );
+
+			Filter<Filter[]> after2016AndStandardQuality = getAndFilter( new Filter[] { after2016Filter, qualityFilter } );
+			Filter<Filter[]> before2016OrAfter2016AndStandardQuality = getOrFilter( new Filter[] { before2016Filter, after2016AndStandardQuality } );
+
+			// Add quality filter only for images after 2016
+
+			filters = new Filter[] { before2016OrAfter2016AndStandardQuality, geometryFilter };
+
+		}else if( start.after( thresholdQuality.getTime() ) ) {
+			Filter<?> dateFilter = getDateFilter(start, end);
+			// Add quality filter only for images after 2016
+			Filter<?> qualityFilter = getStringInFilter("quality_category", new String[] { "standard" });
+			filters = new Filter[] { dateFilter, geometryFilter, qualityFilter };
 		}else {
+			Filter<?> dateFilter = getDateFilter(start, end);
 			filters = new Filter[] { dateFilter, geometryFilter };
 		}
 
-		Feature[] searchResults = search(itemTypes, filters, MAX_IMAGES_IN_LAYER);
+		return search(itemTypes, filters, null);
+	}
 
+	public String getLayerUrl(Date start, Date end, double[][][] coords, String[] itemTypes) throws IOException {
+		Feature[] searchResults = getFeatures (start, end, coords, itemTypes);
 		return searchResults!=null ? getLayers(searchResults) : null;
 	}
 
 	public Map<String, String> getAvailableDates(Date start, Date end, double[][][] coords, String[] itemTypes) throws IOException {
 
+		Feature[] searchResults = getFeatures (start, end, coords, itemTypes);
+
+		Map<String, String> monthsAvailable = new HashMap<>();
+
 		Calendar cal = Calendar.getInstance();
-		cal.set(2014, 1,1);
-
-		GeoJson geometry = new GeoJson("Polygon", coords);
-
-		Filter<?> dateFilter = getDateFilter(start, end);
-		Filter<?> geometryFilter = getGeometryFilter(geometry);
-		Filter<?>[] filters = null;
-		if( start.after( cal.getTime() ) ) {
-			// Add quality filter only for images after 2014
-			Filter<?> stringFilter = getStringInFilter("quality_category", new String[] { "standard" });
-			filters = new Filter[] { dateFilter, geometryFilter, stringFilter };
-		}else {
-			filters = new Filter[] { dateFilter, geometryFilter };
-		}
-
-		Feature[] searchResults = search(itemTypes, filters, null);
-
-		Map<String, String> monthsAvailable = new HashMap<String, String>();
-
 		if( searchResults != null ) {
 			for (Feature feature : searchResults) {
 				cal.setTime( feature.getProperties().acquired );
