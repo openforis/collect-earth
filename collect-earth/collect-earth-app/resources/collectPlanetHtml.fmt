@@ -87,7 +87,7 @@
 			).responseJSON;
 	}
 
-	var nextMonth = new Date(today.setMonth(today.getMonth()));
+	var nextMonth = new Date();
 	var prevMonth = new Date(today.setMonth(today.getMonth() -1 ));
 
 	var lastMonth  =  nextMonth.getMonth();
@@ -184,7 +184,7 @@
 							async : true,
 							data : {
 									start: getFormattedDate( startDay ),
-									end : getFormattedDate( today ),
+									end : getFormattedDate( new Date() ),
 									itemTypes : ["PSScene3Band","PSScene4Band","REOrthoTile"], // , "REOrthoTile" RapidEye not working
 									geometry : JSON.stringify( geometry )
 							},
@@ -414,7 +414,10 @@
 
 	$( document ).ready( function(){
 		$("#coverScreen").show();
-		sideBySide = loadSideBySide( firstYearSelected, firstMonthSelected, lastYearSelected, lastMonthSelected );
+
+		var monthBefore = new Date( (new Date() ).setMonth(today.getMonth() -1 ));
+
+		sideBySide = loadSideBySide( firstYearSelected, firstMonthSelected, monthBefore.getYear() + 1900, monthBefore.getMonth()+1 );
 		$("#coverScreen").hide();
 	});
 
