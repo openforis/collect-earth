@@ -50,6 +50,21 @@
 		</license>
 	</licenses>
 
+	<developers>
+		<developer>
+			<name>Alfonso Sanchez-Paus Diaz</name>
+			<email>alfonso.sanchezpausdiaz@fao.org</email>
+			<organization>FAO of the UN</organization>
+			<organizationUrl>http://www.fao.org</organizationUrl>
+		</developer>
+		<developer>
+			<name>Stefano Ricci</name>
+			<email>stefano.ricci@fao.org</email>
+			<organization>FAO of the UN</organization>
+			<organizationUrl>http://www.fao.org</organizationUrl>
+		</developer>
+	</developers>
+
 	<build>
 		<pluginManagement>
 			<plugins>
