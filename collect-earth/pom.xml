@@ -1,4 +1,6 @@
-<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
 	<modelVersion>4.0.0</modelVersion>
 	<groupId>org.openforis.collect.earth</groupId>
 	<artifactId>collect-earth</artifactId>
@@ -66,6 +68,33 @@
 	</developers>
 
 	<build>
+		<plugins>
+			<plugin>
+				<artifactId>maven-gpg-plugin</artifactId>
+				<version>1.6</version>
+				<executions>
+					<execution>
+						<id>sign-artifacts</id>
+						<phase>verify</phase>
+						<goals>
+							<goal>sign</goal>
+						</goals>
+					</execution>
+				</executions>
+			</plugin>
+			<plugin>
+				<groupId>org.sonatype.plugins</groupId>
+				<artifactId>nexus-staging-maven-plugin</artifactId>
+				<version>1.6.8</version>
+				<extensions>true</extensions>
+				<configuration>
+					<serverId>ossrh</serverId>
+					<nexusUrl>https://oss.sonatype.org/</nexusUrl>
+					<stagingProgressTimeoutMinutes>120</stagingProgressTimeoutMinutes>
+					<autoReleaseAfterClose>true</autoReleaseAfterClose>
+				</configuration>
+			</plugin>
+		</plugins>
 		<pluginManagement>
 			<plugins>
 				<plugin>
@@ -119,31 +148,7 @@
 						</execution>
 					</executions>
 				</plugin>
-				<plugin>
-					<artifactId>maven-gpg-plugin</artifactId>
-					<version>1.6</version>
-					<executions>
-						<execution>
-							<id>sign-artifacts</id>
-							<phase>verify</phase>
-							<goals>
-								<goal>sign</goal>
-							</goals>
-						</execution>
-					</executions>
-				</plugin>
-				<plugin>
-					<groupId>org.sonatype.plugins</groupId>
-					<artifactId>nexus-staging-maven-plugin</artifactId>
-					<version>1.6.8</version>
-					<extensions>true</extensions>
-					<configuration>
-						<serverId>ossrh</serverId>
-						<nexusUrl>https://oss.sonatype.org/</nexusUrl>
-						<stagingProgressTimeoutMinutes>120</stagingProgressTimeoutMinutes>
-						<autoReleaseAfterClose>true</autoReleaseAfterClose>
-					</configuration>
-				</plugin>
+
 			</plugins>
 		</pluginManagement>
 	</build>
