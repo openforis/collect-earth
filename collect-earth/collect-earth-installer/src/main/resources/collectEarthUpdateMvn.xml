@@ -1,14 +1,14 @@
 <installerInformation>
-<!-- 
+<!--
      This file should be modified to fit your application and
-     placed at the URL specified in the update.ini file 
+     placed at the URL specified in the update.ini file
 -->
     <versionId>BUILD_NUMBER</versionId> <!-- When changing this version make sure to have the same one in update.ini and rebuild the autoupdater ! -->
-    <!-- 
+    <!--
     version HERE WE CAN use " major" to mark that the user should be warned of the new update
-    This is used to indicate if the user should be prompted or not about the new updater. 
-	major Means the user will be notified automatically. 
-	minor (or nothing) means that the user can update COllect Earth but he will not be notified when Collect Earth starts that there is a new version 
+    This is used to indicate if the user should be prompted or not about the new updater.
+	major Means the user will be notified automatically.
+	minor (or nothing) means that the user can update COllect Earth but he will not be notified when Collect Earth starts that there is a new version
 	-->
     <version>PROJECT_VERSION major</version>
     <platformFileList>
@@ -31,7 +31,7 @@
     </platformFileList>
     <downloadLocationList>
         <downloadLocation>
-            <url>http://www.openforis.org/nexus/service/local/repositories/releases/content/org/openforis/collect/earth/collect-earth-installer/PROJECT_VERSION/</url>
+            <url>https://oss.sonatype.org/service/local/repositories/releases/content/org/openforis/collect/earth/collect-earth-installer/PROJECT_VERSION/</url>
         </downloadLocation>
     </downloadLocationList>
 </installerInformation>
