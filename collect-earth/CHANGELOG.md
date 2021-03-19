@@ -4,6 +4,16 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.12.16] - 2021-03-19
+
+### Changed
+ - Updated plugins for Mozilla Firefox and Google Chrome to use the very latest versions as of today
+
+## [1.12.15] - 2021-03-11
+
+### Changed
+ - Hosting moved from Open Foris Nexus to Sonatype
+
 ## [1.12.11] - 2021-03-05
 
 ### Changed
