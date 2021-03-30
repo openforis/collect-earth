@@ -4,6 +4,7 @@ import java.io.IOException;
 
 import javax.servlet.http.HttpServletResponse;
 
+import org.openforis.collect.earth.app.logging.GAlogger;
 import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -33,6 +34,9 @@ public class PlacemarkDataController extends AbstractPlacemarkDataController {
 	public void saveDataExpanded(PlacemarkUpdateRequest updateRequest, HttpServletResponse response) throws IOException {
 		try{
 			super.saveDataExpanded(updateRequest, response);
+			if( updateRequest.getValues().get("collect_boolean_actively_saved").equals("true")) {
+				GAlogger.logGAnalytics("Plot saved");
+			}
 		}catch(Exception e){
 			logger.error("Error saving data" , e);
 		}

@@ -24,6 +24,7 @@ import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.SystemUtils;
 import org.openforis.collect.earth.app.CollectEarthUtils;
 import org.openforis.collect.earth.app.desktop.ServerController.ServerInitializationEvent;
+import org.openforis.collect.earth.app.logging.GAlogger;
 import org.openforis.collect.earth.app.server.LoadProjectFileServlet;
 import org.openforis.collect.earth.app.service.EarthProjectsService;
 import org.openforis.collect.earth.app.service.FolderFinder;
@@ -311,6 +312,8 @@ public class EarthApp {
 
 			startServer(doubleClickedProjectFile);
 		}
+
+		GAlogger.logGAnalytics("Start");
 	}
 
 	public static void startServer(final String doubleClickedProjectFile)
