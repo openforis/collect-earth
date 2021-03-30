@@ -38,7 +38,7 @@ public class GAlogger {
 					HttpGet request = new HttpGet(uri);
 					request.addHeader("user-agent", "Collect Earth Java Application");
 					HttpResponse response = client.execute(request);
-					logger.info("Response http " + response.getStatusLine().getStatusCode());
+					logger.info(event + " GA Logged - Response http " + response.getStatusLine().getStatusCode());
 				} catch (URISyntaxException | IOException e) {
 					logger.error("Error generating URL for Analytics", e);
 				}
