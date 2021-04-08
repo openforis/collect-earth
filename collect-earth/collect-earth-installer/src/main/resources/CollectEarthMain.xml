@@ -124,6 +124,9 @@
 	                <excludeFiles>*/chromedriver.exe;*/chromedriver64;*/geckodriver_32.exe;*/geckodriver_64.exe;*/geckodriver_32;*/geckodriver_64</excludeFiles>
 	            	<origin>../../../collect-earth-app/resources/*</origin>
 	            </distributionDirectory>
+	            <distributionFile>
+                    <origin>launcher_icons.icns</origin>
+                </distributionFile>
             </distributionFileList>
         </folder>
         <folder>
@@ -383,7 +386,7 @@
 		
 		<copyFile>
             <destination>${installdir}/${java_launcher_binary_name}/Contents/Resources/installbuilder.icns</destination>
-            <origin>COLLECT_EARTH_MAIN_FOLDER/collect-earth-installer/src/main/resources/launcher_icons.icns</origin>
+            <origin>${installdir}/launcher_icons.icns</origin>
             <ruleList>
 				<platformTest type="osx"/>
    			</ruleList>
