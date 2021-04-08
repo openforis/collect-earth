@@ -124,9 +124,6 @@
 	                <excludeFiles>*/chromedriver.exe;*/chromedriver64;*/geckodriver_32.exe;*/geckodriver_64.exe;*/geckodriver_32;*/geckodriver_64</excludeFiles>
 	            	<origin>../../../collect-earth-app/resources/*</origin>
 	            </distributionDirectory>
-	            <distributionFile>
-                    <origin>launcher_icons.icns</origin>
-                </distributionFile>
             </distributionFileList>
         </folder>
         <folder>
@@ -191,11 +188,9 @@
             <name>programfilesosx</name>
             <platforms>osx</platforms>
             <distributionFileList>
-                <!--
                 <distributionFile>
-                    <origin>launcher_icon.icns</origin>
+                    <origin>launcher_icons.icns</origin>
                 </distributionFile>
-                 -->
                 <distributionDirectory>
                     <origin>COLLECT_EARTH_MAIN_FOLDER/collect-earth-app/autoupdate/autoupdate.app</origin>
                 </distributionDirectory>
@@ -382,11 +377,11 @@
                 </platformTest>
             </ruleList>
 		</registrySet>
-		
-		
+
+
 		<copyFile>
-            <destination>${installdir}/${java_launcher_binary_name}/Contents/Resources/installbuilder.icns</destination>
             <origin>${installdir}/launcher_icons.icns</origin>
+            <destination>${installdir}/${java_launcher_binary_name}/Contents/Resources/installbuilder.icns</destination>
             <ruleList>
 				<platformTest type="osx"/>
    			</ruleList>
