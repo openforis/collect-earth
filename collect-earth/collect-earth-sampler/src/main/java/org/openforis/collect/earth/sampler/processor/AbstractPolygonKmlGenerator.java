@@ -19,7 +19,8 @@ import org.opengis.referencing.operation.TransformException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import au.com.bytecode.opencsv.CSVReader;
+import com.opencsv.CSVReader;
+import com.opencsv.exceptions.CsvValidationException;
 
 public abstract class AbstractPolygonKmlGenerator extends KmlGenerator {
 
@@ -151,7 +152,7 @@ public abstract class AbstractPolygonKmlGenerator extends KmlGenerator {
 					rowNumber++;
 				}
 			}
-		} catch (final IOException e) {
+		} catch (final IOException | CsvValidationException e) {
 			throw new KmlGenerationException("Error reading CSV " + csvFile , e);
 		} finally {
 			if (reader != null) {

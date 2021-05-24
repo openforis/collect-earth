@@ -26,9 +26,9 @@ import org.openforis.idm.metamodel.AttributeDefinition;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import au.com.bytecode.opencsv.CSVReader;
-import au.com.bytecode.opencsv.CSVWriter;
-
+import com.opencsv.CSVReader;
+import com.opencsv.CSVWriter;
+import com.opencsv.exceptions.CsvValidationException;
 
 public class ProduceCsvFiles {
 
@@ -172,7 +172,7 @@ public class ProduceCsvFiles {
 			int numberOfIdColumns = getNumberOfIDColumns();
 			Float.parseFloat( firstRow[ numberOfIdColumns+1 ]); // The first column after the ID column(s) should be a real number
 
-		} catch (NumberFormatException e) {
+		} catch (NumberFormatException | CsvValidationException e) {
 			logger.warn("There are no numbers in the third row of the CSV file where the latitude should be" );
 			setHeaders( firstRow);
 		}

@@ -8,28 +8,28 @@ import java.util.Vector;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import au.com.bytecode.opencsv.CSVWriter;
+import com.opencsv.CSVWriter;
 
 public class CSVStore extends AbstractStore{
 
 	private CSVWriter[] writers;
 
 	private Logger logger = LoggerFactory.getLogger(CSVStore.class);
-	
+
 	public void closeStore() {
 		for (CSVWriter w : writers) {
 			try {
 				w.close();
 			} catch (IOException e) {
 				logger.error("error closing the file", e);
-			}			
+			}
 		}
 	}
 
 	public void initializeStore( int distanceBetweenPlots ) {
 		initializeStore( distanceBetweenPlots, "global" );
 	}
-	
+
 	public void initializeStore( int distanceBetweenPlots, String prefix ) {
 
 		Vector<String> headers = new Vector<String>();
@@ -44,7 +44,7 @@ public class CSVStore extends AbstractStore{
 		File outputDir = new File( "output" );
 		if( !outputDir.isDirectory() )
 			outputDir.mkdir();
-		
+
 		String[] headerArray =  new String[headers.size()];
 		headers.toArray(headerArray);
 

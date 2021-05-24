@@ -17,24 +17,27 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
-import au.com.bytecode.opencsv.CSVReader;
+import com.opencsv.CSVReader;
+import com.opencsv.exceptions.CsvValidationException;
+
+import au.com.bytecode.opencsv.CSVParser;
 
 @Component
 public class FixMissingSaxaulStrataInfo {
 
 	String saxaulPlots= "SaxaulStrataPlots.csv"; //$NON-NLS-1$
 	Logger logger = LoggerFactory.getLogger(FixMissingSaxaulStrataInfo.class);
-	
+
 	@Autowired
 	private EarthSurveyService earthSurveyService;
-	
+
 	protected CSVReader getCsvReader(String csvFile) throws FileNotFoundException {
 		CSVReader reader;
 		final BufferedReader bufferedReader = new BufferedReader(new InputStreamReader(new FileInputStream(csvFile), Charset.forName("UTF-8"))); //$NON-NLS-1$
-		reader = new CSVReader(bufferedReader, ',');
+		reader = new CSVReader(bufferedReader);
 		return reader;
 	}
-	
+
 	private List<String> getAllSaxaulIds(){
 		List<String> saxaulIds = new ArrayList<String>();
 		try {
@@ -47,12 +50,14 @@ public class FixMissingSaxaulStrataInfo {
 			logger.error("Error reading Saxaul file", e ); //$NON-NLS-1$
 		} catch (IOException e) {
 			logger.error("Error reading CSV line", e ); //$NON-NLS-1$
+		} catch (CsvValidationException e) {
+			logger.error("Error reading Saxaul file", e ); //$NON-NLS-1$
 		}
-		
-		
+
+
 		return saxaulIds;
 	}
-	
+
 	public void setSaxaulStrata(){
 		List<String> allSaxaulIds = getAllSaxaulIds();
 		for (String plotId : allSaxaulIds) {

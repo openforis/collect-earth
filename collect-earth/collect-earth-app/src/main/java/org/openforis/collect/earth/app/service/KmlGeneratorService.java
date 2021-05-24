@@ -34,7 +34,9 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
-import au.com.bytecode.opencsv.CSVReader;
+import com.opencsv.CSVReader;
+import com.opencsv.exceptions.CsvValidationException;
+
 import freemarker.template.TemplateException;
 
 @Component
@@ -57,7 +59,7 @@ public class KmlGeneratorService {
 	    Boolean isPolygon(String[] strColumns);
 	}
 
-	public void generateKmlFile() throws IOException, KmlGenerationException{
+	public void generateKmlFile() throws IOException, KmlGenerationException, CsvValidationException{
 		checkFilesExist();
 		generatePlacemarksKmzFile();
 
@@ -191,7 +193,7 @@ public class KmlGeneratorService {
 		return i;
 	}
 
-	public KmlGenerator getKmlGenerator() throws KmlGenerationException {
+	public KmlGenerator getKmlGenerator() throws KmlGenerationException, CsvValidationException {
 		KmlGenerator generateKml =null;
 
 		final String crsSystem = getLocalProperties().getCrs();
@@ -299,7 +301,7 @@ public class KmlGeneratorService {
 	}
 
 
-	private boolean csvContains(String csvFile, PolygonTest test ) throws IOException {
+	private boolean csvContains(String csvFile, PolygonTest test ) throws IOException, CsvValidationException {
 		CSVReader csvReader = CsvReaderUtils.getCsvReader(csvFile);
 		csvReader.readNext(); // Ignore it might be the column headers
 
@@ -310,7 +312,7 @@ public class KmlGeneratorService {
 		return false;
 	}
 
-	private boolean csvContainsGeoJson(String csvFile) throws IOException {
+	private boolean csvContainsGeoJson(String csvFile) throws IOException, CsvValidationException {
 		return
 			csvContains(
 				csvFile,
@@ -318,21 +320,21 @@ public class KmlGeneratorService {
 			);
 	}
 
-	private boolean csvContainsWkt(String csvFile) throws IOException {
+	private boolean csvContainsWkt(String csvFile) throws IOException, CsvValidationException {
 		return csvContains(
 				csvFile,
 				csvColumns ->  new PolygonWktGenerator(null, null, null ).isWktPolygonColumnFound(csvColumns) != null
 			);
 	}
 
-	private boolean csvContainsKml(String csvFile) throws IOException {
+	private boolean csvContainsKml(String csvFile) throws IOException, CsvValidationException {
 		return csvContains(
 				csvFile,
 				csvColumns ->  new PolygonKmlGenerator(null, null, null ).isKmlPolygonColumnFound(csvColumns) != null
 			);
 	}
 
-	private void generateKml() throws KmlGenerationException, IOException {
+	private void generateKml() throws KmlGenerationException, IOException, CsvValidationException {
 
 		KmlGenerator kmlGenerator = null;
 		kmlGenerator = getKmlGenerator();
@@ -408,11 +410,11 @@ public class KmlGeneratorService {
 
 	}
 
-	public void generatePlacemarksKmzFile() throws IOException, KmlGenerationException {
+	public void generatePlacemarksKmzFile() throws IOException, KmlGenerationException, CsvValidationException {
 		generatePlacemarksKmzFile(false);
 	}
 
-	public void generatePlacemarksKmzFile(boolean forceRegeneration ) throws IOException, KmlGenerationException {
+	public void generatePlacemarksKmzFile(boolean forceRegeneration ) throws IOException, KmlGenerationException, CsvValidationException {
 
 		logger.info("START - Generate KMZ file"); //$NON-NLS-1$
 

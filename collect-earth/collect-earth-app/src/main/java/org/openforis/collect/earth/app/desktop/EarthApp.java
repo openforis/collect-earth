@@ -40,6 +40,8 @@ import org.openforis.collect.earth.sampler.utils.KmlGenerationException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import com.opencsv.exceptions.CsvValidationException;
+
 import io.sentry.Sentry;
 import io.sentry.event.UserBuilder;
 
@@ -246,8 +248,9 @@ public class EarthApp {
 	 * @param forceKmlRecreation Set to true if you want to forece the regeneration of the KML even if is is up to date (you might want to do this to force the update of the placemark icons as the date changes)
 	 * @throws IOException Throws exception if the KMl file cannot be generated
 	 * @throws KmlGenerationException Throws exception if the KML file contents cannot be generated
+	 * @throws CsvValidationException
 	 */
-	private static synchronized void loadKmlInGoogleEarth(boolean forceKmlRecreation) throws IOException, KmlGenerationException {
+	private static synchronized void loadKmlInGoogleEarth(boolean forceKmlRecreation) throws IOException, KmlGenerationException, CsvValidationException {
 		earthApp.getKmlGeneratorService().generatePlacemarksKmzFile( forceKmlRecreation );
 		earthApp.simulateClickKmz();
 	}

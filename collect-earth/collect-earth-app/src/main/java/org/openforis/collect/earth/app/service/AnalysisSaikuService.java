@@ -52,7 +52,8 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.core.RowMapper;
 import org.springframework.stereotype.Component;
 
-import au.com.bytecode.opencsv.CSVReader;
+import com.opencsv.CSVReader;
+
 import freemarker.template.TemplateException;
 import net.lingala.zip4j.ZipFile;
 import net.lingala.zip4j.exception.ZipException;
@@ -690,7 +691,7 @@ public class AnalysisSaikuService implements InitializingBean, DisposableBean{
 		CSVReader reader;
 		final BufferedReader bufferedReader = new BufferedReader(
 				new InputStreamReader(new FileInputStream(csvFile), Charset.forName("UTF-8"))); //$NON-NLS-1$
-		reader = new CSVReader(bufferedReader, ',');
+		reader = new CSVReader(bufferedReader);
 		return reader;
 	}
 

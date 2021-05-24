@@ -2,8 +2,6 @@ package org.openforis.collect.earth.app.service;
 
 import java.io.File;
 import java.io.FileNotFoundException;
-import java.io.IOException;
-import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -22,7 +20,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Component;
 
-import au.com.bytecode.opencsv.CSVReader;
+import com.opencsv.CSVReader;
 
 @Component
 public class RegionCalculationUtils implements InitializingBean{
@@ -154,7 +152,7 @@ public class RegionCalculationUtils implements InitializingBean{
 
 			} catch (FileNotFoundException e) {
 				logger.error("File not found?", e); //$NON-NLS-1$
-			} catch (IOException e) {
+			} catch (Exception e) {
 				logger.error("Error reading the CSV file", e); //$NON-NLS-1$
 			}
 
@@ -283,7 +281,7 @@ public class RegionCalculationUtils implements InitializingBean{
 				jdbcTemplate.batchUpdate(updatePlotQuery, batchArgs);
 			} catch (FileNotFoundException e) {
 				logger.error("File not found?", e); //$NON-NLS-1$
-			} catch (IOException e) {
+			} catch (Exception e) {
 				logger.error("Error reading the CSV file", e); //$NON-NLS-1$
 			}
 

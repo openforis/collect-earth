@@ -9,7 +9,6 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.OutputStreamWriter;
-import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -35,7 +34,8 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 import org.springframework.util.StringUtils;
 
-import au.com.bytecode.opencsv.CSVReader;
+import com.opencsv.CSVReader;
+import com.opencsv.exceptions.CsvValidationException;
 
 @Component
 public class MissingPlotService {
@@ -129,7 +129,7 @@ public class MissingPlotService {
 	private CSVReader getCsvReader(String csvFile) throws FileNotFoundException {
 		CSVReader reader;
 		final BufferedReader bufferedReader = new BufferedReader(new InputStreamReader(new FileInputStream(csvFile), StandardCharsets.UTF_8)); //$NON-NLS-1$
-		reader = new CSVReader(bufferedReader, ',');
+		reader = new CSVReader(bufferedReader);
 		return reader;
 	}
 
@@ -146,6 +146,8 @@ public class MissingPlotService {
 			logger.error("Error reading coordinate file " + plotCoordinateFile, e); //$NON-NLS-1$
 		} catch (final IOException e) {
 			logger.error("Error reading CSV line", e); //$NON-NLS-1$
+		} catch (CsvValidationException e) {
+			logger.error("Error reading coordinate file " + plotCoordinateFile, e); //$NON-NLS-1$
 		}
 		return plotData;
 	}

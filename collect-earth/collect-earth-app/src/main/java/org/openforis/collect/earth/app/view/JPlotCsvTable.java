@@ -21,7 +21,7 @@ import org.openforis.collect.model.CollectSurvey;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import au.com.bytecode.opencsv.CSVReader;
+import com.opencsv.CSVReader;
 
 /**
  * Swing JTable used in the OptionWizard dialog.
@@ -41,7 +41,7 @@ public class JPlotCsvTable extends JTable{
 
 	/**
 	 * Build a new JTable that contains the data from the CSV that is set as the file that contains the plots used by Collect Earth
-	 * @param pathToCsvWithPlots Path to the file containing the plot locations that should be loaded in the table 
+	 * @param pathToCsvWithPlots Path to the file containing the plot locations that should be loaded in the table
 	 * @param forSurvey Survey that the csv file belongs to
 	 */
 	public JPlotCsvTable(String pathToCsvWithPlots, CollectSurvey forSurvey) {
@@ -57,7 +57,7 @@ public class JPlotCsvTable extends JTable{
 
 		}
 	}
-	
+
 	/**
 	 * The data of the CSV file is validated when the CSV/CED is loaded. This method determines if the data currently loaded is valid or not
 	 * @return True if the data is valid. False otherwise
@@ -70,16 +70,16 @@ public class JPlotCsvTable extends JTable{
 	@Override
 	public Component prepareRenderer(TableCellRenderer renderer, int row, int col) {
 		Component comp = super.prepareRenderer(renderer, row, col);
-	
+
 		if ( cellHasError(row,col)){
 			comp.setBackground( ERROR_BG_COLOR );
 		}else{
 			comp.setBackground(Color.WHITE);
 		}
-		
+
 		return comp;
 	}
-	
+
 	@Override
 	public String getToolTipText(MouseEvent event) {
 		 String tip = null;
@@ -92,17 +92,17 @@ public class JPlotCsvTable extends JTable{
          } catch (RuntimeException e1) {
              //catch null pointer exception if mouse is over an empty line
          }
-         
+
          return tip;
-		
+
 	}
 
-	private boolean cellHasError(Integer row, Integer col) {		
+	private boolean cellHasError(Integer row, Integer col) {
 		String errorMessage = getCellErrorMessage(row, col);
 		return errorMessage!=null;
 	}
 
-	private String getCellErrorMessage(Integer row, Integer col) {	
+	private String getCellErrorMessage(Integer row, Integer col) {
 		if( validationResults != null ){
 			List<CSVRowValidationResult> rowValidations = validationResults.getRowValidations();
 			for (CSVRowValidationResult csvRowValidationResult : rowValidations) {
@@ -115,23 +115,23 @@ public class JPlotCsvTable extends JTable{
 	}
 
 	/**
-	 * Refreshes the data loaded in the table. Used when the user changes the file that contains the CSV file using the OptionWizard dialog. 
+	 * Refreshes the data loaded in the table. Used when the user changes the file that contains the CSV file using the OptionWizard dialog.
 	 * @param csvFilePath The path to the CSV file that contains the plot locations
 	 */
 	public void refreshTable(String csvFilePath) {
 
 		if( csvFilePath.trim().length() == 0 )
 			return;
-		
-		this.removeAll();		
-		boolean errorLoading = false;		
+
+		this.removeAll();
+		boolean errorLoading = false;
 		final File csvFile = new File(csvFilePath);
-		
+
 		if (csvFile.exists()) {
 			DefaultTableModel newTableModel = getPlotTableModel( csvFilePath );
-			
+
 			validateCsvFile(csvFilePath);
-			
+
 			if (newTableModel.getRowCount() == 0) {
 				errorLoading = true;
 			} else {
@@ -161,8 +161,8 @@ public class JPlotCsvTable extends JTable{
 		try {
 			reader = CsvReaderUtils.getCsvReader(csvFilePath);
 			List<String[]> allLines = reader.readAll();
-			allValues = allLines.toArray(new String[][] {});	
-		} catch (IOException e) {
+			allValues = allLines.toArray(new String[][] {});
+		} catch (Exception e) {
 			logger.error(" Error reading the CSV file " + csvFilePath);
 		}finally {
 			try {
@@ -183,8 +183,8 @@ public class JPlotCsvTable extends JTable{
 		validationParameters.setValidateOnlyFirstLines( false );
 		CSVFileValidationResult validation = cegtg.validate( new File(csvFilePath), forSurvey, validationParameters);
 
-		this.setBackground( Color.white ); 
-		
+		this.setBackground( Color.white );
+
 
 		if( !validation.isSuccessful() ){
 			switch (  validation.getErrorType() ) {
@@ -193,7 +193,7 @@ public class JPlotCsvTable extends JTable{
 				JPlotCsvTable.this.setBackground( ERROR_BG_COLOR);
 				JOptionPane.showMessageDialog( JPlotCsvTable.this.getParent(), "The expected file type is CSV or CED ", "Expected File Type", JOptionPane.ERROR_MESSAGE);
 				break;
-				
+
 			case INVALID_HEADERS:
 				JPlotCsvTable.this.setBackground( ERROR_BG_COLOR);
 				JOptionPane.showMessageDialog( JPlotCsvTable.this.getParent(), "The expected columns in the CSV are " + validation.getExpectedHeaders(), "Columns in CSV do not match survey", JOptionPane.ERROR_MESSAGE);
@@ -220,8 +220,8 @@ public class JPlotCsvTable extends JTable{
 				break;
 			}
 		}
-		
-		
+
+
 		this.setValidationResults( validation );
 	}
 

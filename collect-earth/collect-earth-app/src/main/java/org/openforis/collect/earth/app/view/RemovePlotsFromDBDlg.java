@@ -37,7 +37,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Lazy;
 import org.springframework.stereotype.Component;
 
-import au.com.bytecode.opencsv.CSVReader;
+import com.opencsv.CSVReader;
 
 @Component
 @Lazy
@@ -130,7 +130,7 @@ public class RemovePlotsFromDBDlg {
 						"Confirm deletion of plots in DB", JOptionPane.YES_NO_OPTION,
 						JOptionPane.QUESTION_MESSAGE) == JOptionPane.YES_OPTION) {
 					deletePlotsFromDB();
-				}			
+				}
 			});
 		}
 		return deleteFromDB;
@@ -234,7 +234,7 @@ public class RemovePlotsFromDBDlg {
 						}
 					}
 
-				} catch (IOException e) {
+				} catch (Exception e) {
 					JOptionPane.showMessageDialog(RemovePlotsFromDBDlg.this.dlg,
 							"Error reading CSV file");
 					logger.error("Error while validating the CSV file", e);
@@ -256,9 +256,9 @@ public class RemovePlotsFromDBDlg {
 
 				DeleteResults deleteResults = new DeleteResults(success, plotsDeleted, plotsNotFoundInDB,
 						plotsCouldNotBeDeleted, messages);
-				String result = "Plots Deleted : " + deleteResults.plotsDeleted + "<br/>" + 
+				String result = "Plots Deleted : " + deleteResults.plotsDeleted + "<br/>" +
 						"Plots Not Found :</br>" + deleteResults.plotsNotFoundInDB + "<br/>"
-						+ "Plots that could not be deleted because a exception : " + deleteResults.plotsErrorWhenDeleting + "<br/>" + 
+						+ "Plots that could not be deleted because a exception : " + deleteResults.plotsErrorWhenDeleting + "<br/>" +
 						" Messages : <br/> " + StringUtils.join(deleteResults.messages, "<br/>");
 				if( success ) {
 					result = "<html>"

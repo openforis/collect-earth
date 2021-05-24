@@ -33,7 +33,8 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
-import au.com.bytecode.opencsv.CSVReader;
+import com.opencsv.CSVReader;
+import com.opencsv.exceptions.CsvValidationException;
 
 @Component
 public final class FixMissingPlotsFileInfo {
@@ -43,7 +44,7 @@ public final class FixMissingPlotsFileInfo {
 
 	@Autowired
 	private EarthSurveyService earthSurveyService;
-	
+
 	@Autowired
 	private LocalPropertiesService localPropertiesService;
 
@@ -56,17 +57,17 @@ public final class FixMissingPlotsFileInfo {
 	public void findMissingPlots(JFrame frame) {
 		final File[] selectedPlotFiles = JFileChooserExistsAware.getFileChooserResults(DataFormat.COLLECT_COORDS, false, true, null,
 				localPropertiesService, frame);
-		
+
 		final Map<String, List<String>> plotIdsByFile = getPlotIdsByFile(selectedPlotFiles);
-	
+
 		List<CollectRecord> plotIdsWithNoRegion = getPlotsNoRegion();
-		
+
 		for (CollectRecord record : plotIdsWithNoRegion) {
 			String plotFile = getFileNameForId( plotIdsByFile, record );
 			if( plotFile != null ){
 				setPlotFile( record, plotFile );
 			}else{
-				System.out.println("No plot file found for plot with ID : " + getPlotId(record) ); //$NON-NLS-1$
+				logger.info("No plot file found for plot with ID : " + getPlotId(record) ); //$NON-NLS-1$
 				try {
 					recordManager.delete( record.getId() );
 				} catch (RecordPersistenceException e) {
@@ -86,15 +87,15 @@ public final class FixMissingPlotsFileInfo {
 		List<CollectRecordSummary> records = recordManager.loadSummaries( rf );
 		return records;
 	}
-	
+
 	private void setPlotFile(CollectRecord record, String plotFile) {
-		
+
 		TextValue textValue = new TextValue( plotFile );
 		recordManager.addAttribute(record.getRootEntity(), "plot_file", textValue, null, null); //$NON-NLS-1$
-		
+
 			recordManager.save( record );
 			System.out.println("Setting record to plot_file : " + plotFile ); //$NON-NLS-1$
-		
+
 	}
 
 	private String getFileNameForId(Map<String, List<String>> plotIdsByFile, CollectRecord record) {
@@ -102,14 +103,14 @@ public final class FixMissingPlotsFileInfo {
 		Set<String> fileNames = plotIdsByFile.keySet();
 		String plotId = getPlotId(record);
 		for (String filename : fileNames) {
-			
+
 			List<String> plotIds = plotIdsByFile.get(filename);
 			for (String plotIdInFile : plotIds) {
 				if( plotIdInFile.equals(plotId)){
 					return filename;
 				}
 			}
-		}		
+		}
 		return null;
 	}
 
@@ -129,7 +130,7 @@ public final class FixMissingPlotsFileInfo {
 	private CSVReader getCsvReader(String csvFile) throws FileNotFoundException {
 		CSVReader reader;
 		final BufferedReader bufferedReader = new BufferedReader(new InputStreamReader(new FileInputStream(csvFile), Charset.forName("UTF-8"))); //$NON-NLS-1$
-		reader = new CSVReader(bufferedReader, ',');
+		reader = new CSVReader(bufferedReader);
 		return reader;
 	}
 
@@ -145,6 +146,8 @@ public final class FixMissingPlotsFileInfo {
 			logger.error("Error reading coordinate file " + plotCoordinateFile, e); //$NON-NLS-1$
 		} catch (final IOException e) {
 			logger.error("Error reading CSV line", e); //$NON-NLS-1$
+		} catch (CsvValidationException e) {
+			logger.error("Error reading coordinate file " + plotCoordinateFile, e); //$NON-NLS-1$
 		}
 
 		return plotIds;
