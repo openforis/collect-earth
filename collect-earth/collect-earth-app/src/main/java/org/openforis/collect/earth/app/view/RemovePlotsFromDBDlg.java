@@ -138,14 +138,12 @@ public class RemovePlotsFromDBDlg {
 
 	private boolean validateCsv(String filePath) {
 		boolean validFile = true;
-		CSVReader csvReader = null;
-		try {
+
+		try ( CSVReader csvReader = CsvReaderUtils.getCsvReader(filePath, false) ){
 
 			filePicker.setTextBackground(Color.white);
 
 			if (CsvReaderUtils.isCsvFile(filePath)) {
-
-				csvReader = CsvReaderUtils.getCsvReader(filePath, false);
 
 				// Get the first line
 				String[] csvHeaders = csvReader.readNext();
@@ -171,15 +169,8 @@ public class RemovePlotsFromDBDlg {
 					String.format("Error opening file at %s.  %s ", filePath, e.getMessage()));
 			logger.error("Error while validating the CSV file", e);
 			validFile = false;
-		}finally {
-			if( csvReader != null ) {
-				try {
-					csvReader.close();
-				} catch (IOException e) {
-					logger.error("Error closing CSV file", e);
-				}
-			}
 		}
+
 		getDeleteButton().setEnabled(validFile);
 		return validFile;
 	}
@@ -197,9 +188,7 @@ public class RemovePlotsFromDBDlg {
 
 			@Override
 			public void run() {
-				CSVReader csvReader = null;
-				try {
-					csvReader = CsvReaderUtils.getCsvReader(getCsvFilePicker().getSelectedFilePath(), false);
+				try ( CSVReader csvReader = CsvReaderUtils.getCsvReader(getCsvFilePicker().getSelectedFilePath(), false) ){
 					List<String[]> allLines = csvReader.readAll();
 					int totalLines = allLines.size() - 1;
 					boolean skipFirst = true;
@@ -245,13 +234,6 @@ public class RemovePlotsFromDBDlg {
 						progressDeletion.close();
 					}
 
-					if( csvReader != null ) {
-						try {
-							csvReader.close();
-						} catch (IOException e) {
-							logger.error("Error closing the CSV file", e);
-						}
-					}
 				}
 
 				DeleteResults deleteResults = new DeleteResults(success, plotsDeleted, plotsNotFoundInDB,

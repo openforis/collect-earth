@@ -87,10 +87,8 @@ public abstract class AbstractPolygonKmlGenerator extends KmlGenerator {
 		String[] headerRow =null;
 		int rowNumber = 0 ;
 
-		CSVReader reader = null;
 		List<SimplePlacemarkObject> placemarks = new ArrayList<>();
-		try {
-			reader = CsvReaderUtils.getCsvReader(csvFile);
+		try ( CSVReader reader = CsvReaderUtils.getCsvReader(csvFile) ){
 
 			while ((csvRow = reader.readNext()) != null) {
 				try {
@@ -154,14 +152,6 @@ public abstract class AbstractPolygonKmlGenerator extends KmlGenerator {
 			}
 		} catch (final IOException | CsvValidationException e) {
 			throw new KmlGenerationException("Error reading CSV " + csvFile , e);
-		} finally {
-			if (reader != null) {
-				try {
-					reader.close();
-				} catch (IOException e) {
-					logger.error("error closing the CSV reader", e);
-				}
-			}
 		}
 
 		final DecimalFormat df = new DecimalFormat("#.###");

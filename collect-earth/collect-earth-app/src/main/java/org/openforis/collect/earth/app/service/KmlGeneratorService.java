@@ -302,14 +302,16 @@ public class KmlGeneratorService {
 
 
 	private boolean csvContains(String csvFile, PolygonTest test ) throws IOException, CsvValidationException {
-		CSVReader csvReader = CsvReaderUtils.getCsvReader(csvFile);
-		csvReader.readNext(); // Ignore it might be the column headers
+		try( CSVReader csvReader = CsvReaderUtils.getCsvReader(csvFile) ){
+			csvReader.readNext(); // Ignore it might be the column headers
 
-		String[] secondLine = csvReader.readNext();
-		if( secondLine != null && !CsvReaderUtils.onlyEmptyCells(secondLine) ){
-			return test.isPolygon( secondLine );
+			String[] secondLine = csvReader.readNext();
+			if( secondLine != null && !CsvReaderUtils.onlyEmptyCells(secondLine) ){
+				return test.isPolygon( secondLine );
+			}
+
+			return false;
 		}
-		return false;
 	}
 
 	private boolean csvContainsGeoJson(String csvFile) throws IOException, CsvValidationException {

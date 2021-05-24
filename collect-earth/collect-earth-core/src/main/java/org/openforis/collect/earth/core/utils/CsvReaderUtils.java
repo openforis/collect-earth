@@ -104,19 +104,16 @@ public class CsvReaderUtils {
 		throw new IllegalArgumentException("The CSV/CED plot file has no data! All the lines are empty!");
 	}
 
-	private static CSVReader getCsvReader(String csvFile, char columnSeparator, boolean skipHeader)
-			throws IOException {
+	private static CSVReader getCsvReader(String csvFile, char columnSeparator, boolean skipHeader) throws IOException {
 		int skipLines = skipHeader ? 1 : 0;
 
 		CSVParser parser = new CSVParserBuilder().withSeparator(columnSeparator).build();
-		try (
-				BufferedReader br = new BufferedReader(new InputStreamReader(new FileInputStream(csvFile), StandardCharsets.UTF_8 ) );
-				CSVReader reader = new CSVReaderBuilder(br).withCSVParser(parser).build()
-		) {
-			if (skipLines > 0) {
-				reader.skip(skipLines);
-			}
-			return reader;
+		BufferedReader br = new BufferedReader(
+				new InputStreamReader(new FileInputStream(csvFile), StandardCharsets.UTF_8));
+		CSVReader reader = new CSVReaderBuilder(br).withCSVParser(parser).build();
+		if (skipLines > 0) {
+			reader.skip(skipLines);
 		}
+		return reader;
 	}
 }

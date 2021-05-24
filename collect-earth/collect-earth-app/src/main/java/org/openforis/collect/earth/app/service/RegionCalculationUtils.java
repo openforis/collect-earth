@@ -106,8 +106,8 @@ public class RegionCalculationUtils implements InitializingBean{
 
 		if (regionAreas.exists()) {
 
-			try {
-				CSVReader csvReader = CsvReaderUtils.getCsvReader(regionAreas.getAbsolutePath());
+			try( CSVReader csvReader = CsvReaderUtils.getCsvReader(regionAreas.getAbsolutePath()) ) {
+
 				String[] csvLine = null;
 
 				while( ( csvLine = csvReader.readNext() ) != null ){
@@ -196,9 +196,7 @@ public class RegionCalculationUtils implements InitializingBean{
 
 		if (areasPerAttribute.exists()) {
 
-			try {
-				CSVReader csvReader = CsvReaderUtils.getCsvReader(areasPerAttribute.getAbsolutePath(), false);
-
+			try ( CSVReader csvReader = CsvReaderUtils.getCsvReader(areasPerAttribute.getAbsolutePath(), false) ){
 				// The header (first line) should contain the names of the three columns : attribute_name,area,weight
 
 				String[] columnNames = csvReader.readNext();

@@ -157,20 +157,12 @@ public class JPlotCsvTable extends JTable{
 	private DefaultTableModel getPlotTableModel(String csvFilePath) {
 
 		String[][] allValues = new String[0][0];
-		CSVReader reader = null;
-		try {
-			reader = CsvReaderUtils.getCsvReader(csvFilePath);
+
+		try ( CSVReader reader = CsvReaderUtils.getCsvReader(csvFilePath) ){
 			List<String[]> allLines = reader.readAll();
 			allValues = allLines.toArray(new String[][] {});
 		} catch (Exception e) {
-			logger.error(" Error reading the CSV file " + csvFilePath);
-		}finally {
-			try {
-				if( reader != null )
-					reader.close();
-			} catch (IOException e) {
-				logger.error(" Error closing CSV reader");
-			}
+			logger.error(" Error reading the CSV file " + csvFilePath, e);
 		}
 
 		return new DefaultTableModel( allValues , getColumnNames());

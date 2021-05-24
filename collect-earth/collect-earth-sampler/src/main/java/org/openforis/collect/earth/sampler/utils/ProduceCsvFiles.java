@@ -80,8 +80,7 @@ public class ProduceCsvFiles {
 
 		Map<String,List<String[]>> stringsPerStrata = new HashMap<String, List<String[]>>();
 
-		CSVReader reader = null;
-		try {
+		try ( CSVReader reader  = CsvReaderUtils.getCsvReader(fileToDivide.getPath(), true, getHeaders() != null ) ){
 
 			processHeaders(fileToDivide);
 
@@ -90,9 +89,6 @@ public class ProduceCsvFiles {
 			if( randomizeLines ){
 				fileToDivide = randomizeFile( fileToDivide );
 			}
-
-			// If there are headers skip the first line
-			reader = CsvReaderUtils.getCsvReader(fileToDivide.getPath(), true, getHeaders() != null );
 
 			// read first line
 			String[] csvRow;
@@ -123,15 +119,6 @@ public class ProduceCsvFiles {
 
 		} catch (Exception e) {
 			logger.error("Error processing CSV file", e);
-		}finally{
-
-			if(reader!=null) {
-				try {
-					reader.close();
-				} catch (IOException e) {
-					logger.warn("Error closing CSV reader ");
-				}
-			}
 		}
 
 		return outputFolder;

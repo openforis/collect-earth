@@ -347,11 +347,13 @@ public class PlacemarkBrowserServlet {
 	}
 
 	private String[] getValuesFromCsv(String[] keysInOrder) {
-		CSVReader reader = null;
 
-		try {
-			final String csvFile = localPropertiesService.getCsvFile();
-			reader = CsvReaderUtils.getCsvReader(csvFile);
+		final String csvFile = localPropertiesService.getCsvFile();
+		try (
+				CSVReader reader = CsvReaderUtils.getCsvReader( csvFile );
+				){
+
+
 			String[] csvRow;
 			int numberOfKeys = keysInOrder.length;
 			while ((csvRow = reader.readNext()) != null) {

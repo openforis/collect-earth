@@ -25,16 +25,13 @@ public class UruguayDisplacedPoints {
 			throw new IllegalArgumentException("The file selected does not exist");
 		}
 
-		CSVReader reader = null;
 		try (
 				FileWriter fw = new FileWriter( new File("C:/temp/modified2.csv")  );
 				CSVWriter writer = new CSVWriter( fw );
+				CSVReader reader = CsvReaderUtils.getCsvReader(fileToDivide.getPath(), false, true );
 		){
 
 			List<String[]> modified = new ArrayList<>();
-
-			// If there are headers skip the first line
-			reader = CsvReaderUtils.getCsvReader(fileToDivide.getPath(), false, true );
 
 			// read first line
 			String[] csvRow;
@@ -59,16 +56,6 @@ public class UruguayDisplacedPoints {
 
 		} catch (Exception e) {
 			logger.error("Error processing CSV file", e);
-		}finally{
-
-			if(reader!=null) {
-				try {
-					reader.close();
-				} catch (IOException e) {
-					logger.warn("Error closing CSV reader ");
-				}
-			}
 		}
-
 	}
 }
