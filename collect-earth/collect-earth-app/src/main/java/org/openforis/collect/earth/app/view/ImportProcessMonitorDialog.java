@@ -5,11 +5,9 @@ import javax.swing.JOptionPane;
 import javax.swing.ProgressMonitor;
 import javax.swing.SwingUtilities;
 
-import org.openforis.collect.earth.app.CollectEarthUtils;
 import org.openforis.collect.io.ReferenceDataImportStatus;
 import org.openforis.collect.io.metadata.parsing.ParsingError;
 import org.openforis.collect.manager.process.AbstractProcess;
-import org.openforis.collect.utils.ExecutorServiceUtil;
 
 public class ImportProcessMonitorDialog extends ProcessMonitorDialog<Void, ReferenceDataImportStatus<ParsingError>> {
 

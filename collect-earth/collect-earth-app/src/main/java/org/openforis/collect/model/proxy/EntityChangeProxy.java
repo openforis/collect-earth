@@ -7,7 +7,6 @@ import java.util.Set;
 
 import org.openforis.collect.ProxyContext;
 import org.openforis.collect.model.EntityChange;
-import org.openforis.idm.metamodel.EntityDefinition;
 import org.openforis.idm.metamodel.validation.ValidationResultFlag;
 
 /**

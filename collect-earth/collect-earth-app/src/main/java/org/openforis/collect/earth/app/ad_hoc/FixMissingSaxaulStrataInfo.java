@@ -20,8 +20,6 @@ import org.springframework.stereotype.Component;
 import com.opencsv.CSVReader;
 import com.opencsv.exceptions.CsvValidationException;
 
-import au.com.bytecode.opencsv.CSVParser;
-
 @Component
 public class FixMissingSaxaulStrataInfo {
 

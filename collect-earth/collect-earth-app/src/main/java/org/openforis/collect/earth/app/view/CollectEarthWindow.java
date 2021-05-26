@@ -30,7 +30,6 @@ import javax.swing.WindowConstants;
 import javax.swing.border.Border;
 
 import org.apache.commons.lang3.StringUtils;
-import org.openforis.collect.earth.app.CollectEarthUtils;
 import org.openforis.collect.earth.app.EarthConstants.OperationMode;
 import org.openforis.collect.earth.app.desktop.EarthApp;
 import org.openforis.collect.earth.app.service.EarthSurveyService;
