@@ -57,8 +57,9 @@ public class JDBCStore extends AbstractStore{
 				new File( this.getClass().getClassLoader().getResource( Boolean.TRUE.equals(USE_SQLITE) ? "createTableSqlite.sql" : "createTable.sql" ).toURI() ),
 				StandardCharsets.UTF_8
 				);
-		Statement createStatement = getConnection().createStatement();
-		createStatement.executeUpdate(createTable);
+		try( Statement createStatement = getConnection().createStatement();){
+			createStatement.executeUpdate(createTable);
+		}
 	}
 
 

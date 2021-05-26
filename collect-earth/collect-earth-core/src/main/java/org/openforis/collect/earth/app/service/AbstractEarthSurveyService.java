@@ -75,7 +75,7 @@ public abstract class AbstractEarthSurveyService {
 	protected SurveyManager surveyManager;
 	@Autowired
 	protected CollectEarthValidator collectEarthValidator;
-	
+
 	protected CollectSurvey collectSurvey;
 	protected RecordUpdater recordUpdater;
 	protected BalloonInputFieldsUtils collectParametersHandler;
@@ -229,7 +229,7 @@ public abstract class AbstractEarthSurveyService {
 	 * Return a list of the Collect records that have been updated since the
 	 * time passed as an argument. This method is useful to update the status of
 	 * the placemarks ( updating the icon on the KML using a NetworkLink )
-	 * 
+	 *
 	 * @param updatedSince
 	 *            The date from which we want to find out if there were any
 	 *            records that were updates/added
@@ -265,13 +265,13 @@ public abstract class AbstractEarthSurveyService {
 	/**
 	 * Return the list of the IDs of records that are already saved (completely
 	 * or partially) in the database.
-	 * 
+	 *
 	 * @return The list of the IDs of the records for the survey in the DB
 	 */
 	public String[] getRecordsSavedIDs() {
 		final List<CollectRecordSummary> recordsSavedForSurvey = recordManager.loadSummaries(
 				new RecordFilter(getCollectSurvey(),ROOT_ENTITY_NAME)
-				
+
 		);
 
 		if ((recordsSavedForSurvey != null) && !recordsSavedForSurvey.isEmpty()) {
@@ -346,7 +346,7 @@ public abstract class AbstractEarthSurveyService {
 		BooleanAttribute attr = record.findNodeByPath(ROOT_ENTITY_NAME + "/" + ACTIVELY_SAVED_ATTRIBUTE_NAME);
 		recordUpdater.updateAttribute(attr, new BooleanValue(value));
 	}
-	
+
 	private void setPlacemarkSavedOn(Map<String, String> parameters) {
 		String dateSaved = new SimpleDateFormat( DateAttributeHandler.DATE_ATTRIBUTE_FORMAT ).format(new Date());
 
@@ -441,7 +441,7 @@ public abstract class AbstractEarthSurveyService {
 				// it counts as an error
 				setPlacemarkSavedOn(record);
 				setPlacemarkSavedActively(record, false);
-				
+
 				updateKeyAttributeValues(record, plotKeyAttributes);
 				record.setModifiedDate(new Date());
 				return createPlacemarkLoadSuccessResult(record);
@@ -449,14 +449,14 @@ public abstract class AbstractEarthSurveyService {
 				CollectRecord record = loadRecord(plotKeyAttributes);
 				if (record == null) {
 					record = createRecord();
-	
+
 					collectParametersHandler.saveToEntity(parameters, record.getRootEntity(), true);
-	
+
 					// update actively_saved_on attribute now, otherwise if it's empty
 					// it counts as an error
 					setPlacemarkSavedOn(record);
 					setPlacemarkSavedActively(record, false);
-					
+
 					updateKeyAttributeValues(record, plotKeyAttributes);
 					record.setModifiedDate(new Date());
 					recordManager.save(record, sessionId);
@@ -465,37 +465,36 @@ public abstract class AbstractEarthSurveyService {
 					// Populate the data of the record using the HTTP parameters
 					// received
 					Entity plotEntity = record.getRootEntity();
-					
+
 					Map<String, String> oldPlacemarkParameters = collectParametersHandler
 							.getValuesByHtmlParameters(record.getRootEntity());
 					Map<String, String> changedParameters = calculateChanges(oldPlacemarkParameters, parameters);
-					
-					boolean placemarkAlreadySavedActively = isPlacemarkSavedActively(oldPlacemarkParameters);
+
 					boolean userClickOnSubmitAndValidate = isPlacemarkSavedActively(parameters);
-					
+
 					NodeChangeSet changeSet = collectParametersHandler.saveToEntity(changedParameters, plotEntity);
-					
+
 					// update actively_saved_on attribute now, otherwise if it's empty
 					// it counts as an error
 					setPlacemarkSavedOn(record);
-					
+
 					boolean noErrors = record.getErrors() == 0 && record.getSkipped() == 0;
-					
+
 					if (userClickOnSubmitAndValidate && !noErrors) {
 						// if the user clicks on submit and validate but the data is not
 						// valid,
 						// do not save the record as actively saved
 						setPlacemarkSavedActively(record, false);
 					}
-					
+
 					if (userClickOnSubmitAndValidate && noErrors) {
 						// only save data if the information is completely valid or if
 						// the record is not already completely saved (green)
 						record.setModifiedDate(new Date());
 					}
-					
+
 					recordManager.save(record, sessionId);
-					
+
 					if (partialUpdate) {
 						return createPlacemarkLoadSuccessResult(record, changeSet);
 					} else {
@@ -535,7 +534,7 @@ public abstract class AbstractEarthSurveyService {
 		result.setInputFieldInfoByParameterName(infoByParameterName);
 		return result;
 	}
-	
+
 	private void updateKeyAttributeValues(CollectRecord record, String[] keyAttributeValues) {
 		List<AttributeDefinition> keyAttributeDefinitions = getCollectSurvey().getSchema().getRootEntityDefinitions()
 				.get(0).getKeyAttributeDefinitions();
@@ -587,7 +586,7 @@ public abstract class AbstractEarthSurveyService {
 
 		return keys;
 	}
-	
+
 	public String[] getKeyNamesForSurvey() {
 
 		List<AttributeDefinition> keyAttributeDefinitions = getRootEntityDefinition().getKeyAttributeDefinitions();
@@ -600,11 +599,11 @@ public abstract class AbstractEarthSurveyService {
 
 		return keys;
 	}
-	
+
 	private boolean isPreviewRecordID(String[] keyAttributeValues) {
 		if (keyAttributeValues.length >= 1) {
 			String firstKeyAttributeValue = keyAttributeValues[0];
-			return PREVIEW_PLACEMARK_ID_PLACEHOLDER.equals(firstKeyAttributeValue) || 
+			return PREVIEW_PLACEMARK_ID_PLACEHOLDER.equals(firstKeyAttributeValue) ||
 					PREVIEW_PLACEMARK_ID.equals(firstKeyAttributeValue);
 		} else {
 			return false;

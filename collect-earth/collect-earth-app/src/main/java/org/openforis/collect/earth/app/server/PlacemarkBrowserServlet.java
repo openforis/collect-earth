@@ -299,7 +299,7 @@ public class PlacemarkBrowserServlet {
 	 * javax.servlet.http.HttpServletResponse)
 	 */
 	@RequestMapping("/openAuxiliaryWindows")
-	protected void openAuxiliaryWindows(
+	public void openAuxiliaryWindows(
 			HttpServletResponse response,
 			@RequestParam(value = "latLongCoordinates", required = false) final String latLongCoordinates)
 	{
@@ -313,7 +313,7 @@ public class PlacemarkBrowserServlet {
 	}
 
 	@RequestMapping("/ancillaryWindows")
-	protected void openAuxiliaryWindowsNew(HttpServletResponse response, HttpServletRequest request) throws IOException {
+	public void openAuxiliaryWindowsNew(HttpServletResponse response, HttpServletRequest request) throws IOException {
 
 
 		List<AttributeDefinition> keyAttributeDefinitions = earthSurveyService

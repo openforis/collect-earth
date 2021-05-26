@@ -14,6 +14,7 @@ import java.util.Map;
 
 import javax.swing.JFrame;
 import javax.swing.JOptionPane;
+import javax.xml.XMLConstants;
 import javax.xml.parsers.DocumentBuilder;
 import javax.xml.parsers.DocumentBuilderFactory;
 import javax.xml.parsers.ParserConfigurationException;
@@ -75,6 +76,8 @@ public class KmlImportService {
 	private File createTempCsv( File kmlFile) throws ParserConfigurationException, SAXException, IOException{
 
 		DocumentBuilderFactory factory = DocumentBuilderFactory.newInstance();
+		factory.setAttribute(XMLConstants.ACCESS_EXTERNAL_DTD, ""); // Compliant
+		factory.setAttribute(XMLConstants.ACCESS_EXTERNAL_SCHEMA, ""); // compliant
         DocumentBuilder builder = factory.newDocumentBuilder();
         InputSource is = new InputSource(new FileReader(kmlFile));
         Document doc = builder.parse(is);

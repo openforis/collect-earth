@@ -94,7 +94,7 @@ public final class FixMissingPlotsFileInfo {
 		recordManager.addAttribute(record.getRootEntity(), "plot_file", textValue, null, null); //$NON-NLS-1$
 
 			recordManager.save( record );
-			System.out.println("Setting record to plot_file : " + plotFile ); //$NON-NLS-1$
+			logger.info("Setting record to plot_file : " + plotFile ); //$NON-NLS-1$
 
 	}
 

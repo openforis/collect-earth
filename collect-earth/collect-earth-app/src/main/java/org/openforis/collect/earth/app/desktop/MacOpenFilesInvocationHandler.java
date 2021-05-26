@@ -20,43 +20,43 @@ import org.slf4j.LoggerFactory;
 public class MacOpenFilesInvocationHandler implements java.lang.reflect.InvocationHandler {
 
 	private final Logger logger = LoggerFactory.getLogger(MacOpenFilesInvocationHandler.class);
-	
-    public MacOpenFilesInvocationHandler() {         
+
+    public MacOpenFilesInvocationHandler() {
     	super();
-    }    
+    }
 
     public Object invoke(Object proxy, Method m, Object[] args) throws Throwable
 
     {
 
     	JOptionPane.showMessageDialog(null, " M ehtoer " +  m + " args " + args);
-    	
-    	
+
+
         Object result = null;
 
         try {
 
             // Prints the method being invoked
         	String message = "";
-        	
+
             if( args!= null ){
 	            for(int i=0; i<args.length; i++){
-	                if(i>0) 
+	                if(i>0)
 	                	message +=",";
-	
+
 	                message += " " +  args[i].toString();
-	            
+
 	            }
             }
 
             message += " )";
 
-        
+
          // if the method name equals some method's name then call your method
 
          if ( m!= null && m.getName().equals("openFiles")) {
         	 logger.error( message + m.getName() );
-        	 
+
         	 openFilesImplmentation(args[0]);
 
          }
@@ -65,7 +65,7 @@ public class MacOpenFilesInvocationHandler implements java.lang.reflect.Invocati
     	  logger.error(" Error while interpreting invocation " , e );
            throw new RuntimeException("unexpected invocation exception: " + e.getMessage());
      } finally {
-             System.out.println("end method " + m.getName());
+             logger.info("end method " + m.getName());
     }
 
    return result;
@@ -75,9 +75,9 @@ public class MacOpenFilesInvocationHandler implements java.lang.reflect.Invocati
   private void openFilesImplmentation(Object openFilesEventObject) throws Exception {
 	  Class openFilesEventClass = Class.forName("com.apple.eawt.AppEvent.OpenFilesEvent");
 	  Method getFilesMethod = openFilesEventClass.getMethod("getFiles");
-	  
+
 	  List<File> files = (List<File>) getFilesMethod.invoke( openFilesEventClass.cast( openFilesEventObject ) );
-	  
+
 	  for (File file : files ){
       	try {
 				EarthApp.openProjectFileInRunningCollectEarth(file.getAbsolutePath());

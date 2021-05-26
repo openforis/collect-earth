@@ -50,21 +50,21 @@ public class CodeEditorHandlerThread {
 
 	public void runScript() throws IOException, URISyntaxException, InterruptedException {
 
-		
+
 		try {
 			WebElement resetButton = webDriverGee.findElementByCssSelector(RESET_SCRIPT_BUTTON);
-			
+
 			forceClick( resetButton );
-		
+
 			URL fileWithScript = geoLocalizeTemplateService.getTemporaryUrl(placemarkObject, getGeeCodeEditorTemplate());
-	
+
 			WebElement textArea = webDriverGee.findElement(By.className("ace_text-input"));
-	
+
 			String contents = FileUtils.readFileToString(new File(fileWithScript.toURI()), Charset.forName("UTF-8"));
-			
+
 			if (SystemUtils.IS_OS_MAC || SystemUtils.IS_OS_MAC_OSX) {
 				sendThroughKeys(textArea, contents);
-	
+
 			} else {
 				sendThroughClipboard(textArea, contents);
 				try {
@@ -75,10 +75,10 @@ public class CodeEditorHandlerThread {
 					}
 				} catch (Exception e) {
 					logger.warn("Error while refreshing code editor", e);
-					
+
 				}
 			}
-	
+
 			Thread.sleep(1000);
 			WebElement runButton = webDriverGee.findElementByCssSelector(RUN_SCRIPT_BUTTON);
 			forceClick( runButton );
@@ -111,7 +111,7 @@ public class CodeEditorHandlerThread {
 			throws InterruptedException {
 		// Command key (apple key) is not working on Chrome on Mac. Try with the right click
 		// This is not going to be fixed by Selenium
-		
+
 		// Remove comments so it is faster to send the text!
 		String noComments = removeComments(contents);
 
@@ -149,7 +149,7 @@ public class CodeEditorHandlerThread {
 		textArea.sendKeys(Keys.PAGE_DOWN);
 		*/
 	}
-	
+
 	private void forceClick( WebElement element ) {
 		JavascriptExecutor js = webDriverGee;
 		js.executeScript("arguments[0].click();", element);
@@ -158,9 +158,9 @@ public class CodeEditorHandlerThread {
 	public String removeComments(String contents) {
 
 		String wholeCode = contents;
-		wholeCode = wholeCode.replaceAll("http://", "");
-		wholeCode = wholeCode.replaceAll("https://", "");
-		wholeCode = wholeCode.replaceAll("\r", "");
+		wholeCode = wholeCode.replace("http://", "");
+		wholeCode = wholeCode.replace("https://", "");
+		wholeCode = wholeCode.replace("\r", "");
 
 		StringBuilder noComments = new StringBuilder("");
 		int indexComments = contents.indexOf("//");
@@ -179,15 +179,16 @@ public class CodeEditorHandlerThread {
 					noComments = noComments.append(contents.substring(endOfLine));
 			}
 			return noComments.toString();
-		} else
+		} else {
 			return wholeCode;
+		}
 	}
 
 	/**
 	 * Get the GEE Playground script that should be used. There is an standard one
 	 * that resides in resources/eePlaygroundScript.fmt but a project might have its
 	 * own script.
-	 * 
+	 *
 	 * @return The generic script in the resources folder or the file called
 	 *         eePlaygroundScript.fmt in hte same folder where the current project
 	 *         file resides

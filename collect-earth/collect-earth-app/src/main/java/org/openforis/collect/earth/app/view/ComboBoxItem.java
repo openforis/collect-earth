@@ -27,8 +27,11 @@ class ComboBoxItem {
 		if (numberOfPoints == null) {
 			if (other.numberOfPoints != null)
 				return false;
-		} else if (!numberOfPoints.equals(other.numberOfPoints))
-			return false;
+		} else {
+			if (!numberOfPoints.equals(other.numberOfPoints))
+				return false;
+		}
+
 		return true;
 	}
 

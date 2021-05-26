@@ -96,12 +96,12 @@ public final class ImportActionListener implements ActionListener {
 						Integer importNonFinishedPlots = shouldImportNonFinishedRecords( filesToImport.length > 1);
 						boolean firstFile = true;
 
-						for (final File importedFile : filesToImport) {								
+						for (final File importedFile : filesToImport) {
 							XMLDataImportProcess dataImportProcess = null;
 							try{
 								if ( firstFile ){
 									firstFile = false;
-								}else if ( !firstFile && (importNonFinishedPlots == YES || importNonFinishedPlots == NO  ) ){
+								}else if ( !firstFile && (importNonFinishedPlots.equals( YES ) || importNonFinishedPlots.equals( NO ) ) ){
 									importNonFinishedPlots = shouldImportNonFinishedRecords( filesToImport.length > 1);
 								}
 
@@ -138,7 +138,7 @@ public final class ImportActionListener implements ActionListener {
 						JOptionPane.showMessageDialog(
 								frame,
 								"The CSV files used must have columns with at least the headers for the key attributes " + keyAttributesForSurvey+ " followed by one or more attribute names ( see http://www.openforis.org/support/questions/80/changing-plot-attributes-in-the-collect-earth-database ) ", //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$ //$NON-NLS-4$
-								"CSV file format info", 
+								"CSV file format info",
 								JOptionPane.INFORMATION_MESSAGE);
 
 

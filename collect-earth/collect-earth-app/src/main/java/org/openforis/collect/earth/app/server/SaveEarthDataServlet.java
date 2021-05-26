@@ -33,7 +33,7 @@ public class SaveEarthDataServlet extends JsonPocessorServlet {
 
 	@Deprecated
 	@GetMapping("/saveData")
-	protected void saveData(HttpServletRequest request, HttpServletResponse response) throws IOException {
+	public void saveData(HttpServletRequest request, HttpServletResponse response) throws IOException {
 
 		Map<String, String> collectedData = extractRequestData(request);
 

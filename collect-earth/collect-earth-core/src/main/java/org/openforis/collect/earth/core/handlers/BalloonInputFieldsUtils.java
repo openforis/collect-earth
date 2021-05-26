@@ -40,7 +40,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 
 /**
- * 
+ *
  * @author Alfonso Sanchez-Paus Diaz
  *
  */
@@ -128,7 +128,7 @@ public class BalloonInputFieldsUtils {
 			CollectRecord record, Map<String, String> validationMessageByPath,
 			Entity rootEntity, String cleanName,
 			AbstractAttributeHandler<?> handler, String language, String modelVersionName) {
-		
+
 		PlacemarkInputFieldInfo info = new PlacemarkInputFieldInfo();
 
 		ModelVersion recordVersion = record.getSurvey().getVersion( modelVersionName );
@@ -147,7 +147,7 @@ public class BalloonInputFieldsUtils {
 		} else {
 			validationMessagePath = firstAttribute.getPath();
 		}
-		
+
 		String errorMessage = validationMessageByPath.get(validationMessagePath);
 		if (errorMessage != null && firstAttribute.isRelevant()) {
 			info.setInError(true);
@@ -156,31 +156,31 @@ public class BalloonInputFieldsUtils {
 		if (firstAttribute instanceof CodeAttribute) {
 			CodeListService codeListService = record.getSurveyContext().getCodeListService();
 			List<CodeListItem> validCodeListItems = codeListService.loadValidItems(firstAttribute.getParent(), (CodeAttributeDefinition) attrDef);
-			
+
 			CodeListItem selectedCodeListItem = getCodeListItem(validCodeListItems, value);
 			info.setCodeItemId(selectedCodeListItem == null ? null: selectedCodeListItem.getId());
 			List<PlacemarkCodedItem> possibleCodedItems = new ArrayList<PlacemarkCodedItem>(validCodeListItems.size() + 1);
 			possibleCodedItems.add(new PlacemarkCodedItem(NOT_APPLICABLE_ITEM_CODE, NOT_APPLICABLE_ITEM_LABEL));
 
-			
+
 			if( validCodeListItems.isEmpty() ){
 				info.setVisible(false);
 			}else{
 				for (CodeListItem item : validCodeListItems) {
 					// Check that the code list item is available for the current record version
-					if( recordVersion == null 
+					if( recordVersion == null
 							||
-						recordVersion.isApplicable( item ) 
+						recordVersion.isApplicable( item )
 					){ //If the item is used on the current version used
 						String label = item.getLabel(language, true);
 						possibleCodedItems.add(new PlacemarkCodedItem(item.getCode(), label));
 					}
 				}
 			}
-			
+
 			info.setPossibleCodedItems(possibleCodedItems);
 
-			
+
 		}
 		return info;
 	}
@@ -291,7 +291,7 @@ public class BalloonInputFieldsUtils {
 		}, TraversalType.BFS);
 		return result;
 	}
-	
+
 	public Map<String, String> getValuesByHtmlParameters(Entity plotEntity) {
 		Map<String, String> valuesByHTMLParameterName = new HashMap<String, String>();
 
@@ -302,7 +302,7 @@ public class BalloonInputFieldsUtils {
 		}
 		return valuesByHTMLParameterName;
 	}
-	
+
 	private Set<AttributeDefinition> extractAttributeDefinitions(CollectRecord record) {
 		final Set<AttributeDefinition> result = new LinkedHashSet<AttributeDefinition>();
 
@@ -323,13 +323,13 @@ public class BalloonInputFieldsUtils {
 		}
 		return result;
 	}
-		
-	
+
+
 	private Map<String, String> generateAttributeHtmlParameterNameByNodePath(AttributeDefinition def) {
 		CodeListService codeListService = def.getSurvey().getContext().getCodeListService();
 
 		Map<String, String> result = new HashMap<String, String>();
-		
+
 		EntityDefinition parentDef = def.getParentEntityDefinition();
 		if (parentDef.isRoot()) {
 			String collectParamName = getCollectParameterBaseName(def);
@@ -375,7 +375,7 @@ public class BalloonInputFieldsUtils {
 		}
 		return result;
 	}
-	
+
 	private String getCollectParameterBaseName(NodeDefinition def) {
 		AbstractAttributeHandler<?> handler = findHandler(def);
 
@@ -402,15 +402,15 @@ public class BalloonInputFieldsUtils {
 
 		// Saves into "collect_text_parameter"
 		String collectParamName = COLLECT_PREFIX + paramName;
-		
+
 		return collectParamName;
 	}
-	
+
 	protected void getHTMLParameterName(Entity plotEntity, Map<String,String> valuesByHtmlParameterName,
 			Node<?> node) {
-		
+
 		AbstractAttributeHandler<?> handler = findHandler(node);
-		
+
 		if( handler == null ){
 			throw new IllegalArgumentException("No handler found for node " + ( node!=null?node.getName():"null node" ) );
 		}
@@ -473,7 +473,7 @@ public class BalloonInputFieldsUtils {
 		return cah.getValueFromParameter(cah.getPrefix() + child.getName(), entity);
 	}
 
-	private String getMultipleParameterName( String collectParamName, 
+	private String getMultipleParameterName( String collectParamName,
 			Node<?> child, AbstractAttributeHandler<?> cah ) {
 
 		return collectParamName + "." + cah.getPrefix() + child.getName();
@@ -509,7 +509,7 @@ public class BalloonInputFieldsUtils {
 	public NodeChangeSet saveToEntity(Map<String, String> parameters, Entity entity) {
 		return saveToEntity(parameters, entity, false);
 	}
-	
+
 	public NodeChangeSet saveToEntity(Map<String, String> parameters, Entity entity, boolean newRecord) {
 		final NodeChangeMap result = new NodeChangeMap();
 
@@ -523,7 +523,7 @@ public class BalloonInputFieldsUtils {
 			AbstractAttributeHandler<?> handler = findHandler(cleanName);
 			if (handler != null) {
 				try {
-					//update attribute value only the record is not new or the value is not null (e.g. from CSV) 
+					//update attribute value only the record is not new or the value is not null (e.g. from CSV)
 					//otherwise default values or calculated attributes can be overwritten
 					if (!newRecord || StringUtils.isNotBlank(parameterValue)) {
 						if( handler.isMultiValueAware() ){ // EntityHandler will use the original separated parameter values while the other will take single values

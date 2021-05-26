@@ -10,6 +10,7 @@ import java.util.Properties;
 import java.util.Random;
 import java.util.concurrent.TimeUnit;
 
+import javax.xml.XMLConstants;
 import javax.xml.parsers.DocumentBuilderFactory;
 
 import org.apache.commons.lang.StringUtils;
@@ -166,6 +167,9 @@ public class UpdateIniUtils {
 		String onlineVersion = "0";  //$NON-NLS-1$
 		try {
 			DocumentBuilderFactory factory = DocumentBuilderFactory.newInstance();
+			factory.setAttribute(XMLConstants.ACCESS_EXTERNAL_DTD, ""); // Compliant
+			factory.setAttribute(XMLConstants.ACCESS_EXTERNAL_SCHEMA, ""); // compliant
+
 			factory.setNamespaceAware(true);
 			Document parse = factory.newDocumentBuilder().parse(new URL(urlXmlUpdate).openStream());
 

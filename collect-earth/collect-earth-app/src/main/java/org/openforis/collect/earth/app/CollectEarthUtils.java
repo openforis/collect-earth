@@ -19,6 +19,7 @@ import java.sql.SQLException;
 import java.util.Enumeration;
 import java.util.List;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 import javax.swing.UIManager;
 
@@ -51,12 +52,14 @@ public class CollectEarthUtils {
 		}
 		StringBuilder md5Hex = new StringBuilder();
 
-		List<File> listFiles = Files.walk(Paths.get(folder.toURI()), 3).filter(Files::isRegularFile).map(Path::toFile)
-				.collect(Collectors.toList());
-		for (File file : listFiles) {
-			md5Hex.append(DigestUtils.md5Hex(new FileInputStream(file)));
+		try( Stream<Path> paths = Files.walk(Paths.get(folder.toURI()), 3); ) {
+			List<File> listFiles = paths.filter(Files::isRegularFile).map(Path::toFile)
+					.collect(Collectors.toList());
+			for (File file : listFiles) {
+				md5Hex.append(DigestUtils.md5Hex(new FileInputStream(file)));
+			}
+			return DigestUtils.md5Hex(md5Hex.toString().getBytes());
 		}
-		return DigestUtils.md5Hex(md5Hex.toString().getBytes());
 	}
 
 	public static String getMd5FromFile(String filePath) throws IOException {

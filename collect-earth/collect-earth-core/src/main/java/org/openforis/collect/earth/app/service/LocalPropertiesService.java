@@ -377,7 +377,6 @@ public class LocalPropertiesService extends Observable {
 
 		};
 
-		FileReader fr = null;
 		boolean newInstallation = false;
 
 		File propertiesFileInitial = new File(PROPERTIES_FILE_PATH_INITIAL);
@@ -400,46 +399,43 @@ public class LocalPropertiesService extends Observable {
 
 			}
 
-			fr = new FileReader(propertiesFile);
-			properties.load(fr);
+			try( FileReader fr = new FileReader(propertiesFile); ){
+				properties.load(fr);
 
-			if (!newInstallation) {
-				// Add properties in initial_properties that are not present in earth.properites
-				// so that adding new properties in coming version does not generate issues with
-				// older versions
-				if (propertiesFileInitial.exists()) {
-					Properties initialProperties = new Properties();
-					initialProperties.load(new FileReader(propertiesFileInitial));
+				if (!newInstallation) {
+					// Add properties in initial_properties that are not present in earth.properites
+					// so that adding new properties in coming version does not generate issues with
+					// older versions
+					if (propertiesFileInitial.exists()) {
+						Properties initialProperties = new Properties();
+						initialProperties.load(new FileReader(propertiesFileInitial));
 
-					Enumeration<String> initialPropertyNames = (Enumeration<String>) initialProperties.propertyNames();
-					while (initialPropertyNames.hasMoreElements()) {
-						String nextElement = initialPropertyNames.nextElement();
-						if (properties.get(nextElement) == null) {
-							properties.put(nextElement, initialProperties.getProperty(nextElement));
+						Enumeration<String> initialPropertyNames = (Enumeration<String>) initialProperties.propertyNames();
+						while (initialPropertyNames.hasMoreElements()) {
+							String nextElement = initialPropertyNames.nextElement();
+							if (properties.get(nextElement) == null) {
+								properties.put(nextElement, initialProperties.getProperty(nextElement));
+							}
 						}
 					}
-				}
 
-				// UPDATERS!
-				// Emergency procedure for forcing the change of a value for updaters!
-				File propertiesForceChange = new File(PROPERTIES_FILE_PATH_FORCED_UPDATE);
-				if (propertiesForceChange.exists()) {
-					fr = new FileReader(propertiesForceChange);
-					properties.load(fr);
-					// This procedure will only happen right after update
-					propertiesForceChange.deleteOnExit();
-				}
+					// UPDATERS!
+					// Emergency procedure for forcing the change of a value for updaters!
+					File propertiesForceChange = new File(PROPERTIES_FILE_PATH_FORCED_UPDATE);
+					if (propertiesForceChange.exists()) {
+						try( FileReader frProps = new FileReader(propertiesForceChange);){
+							properties.load(frProps);
+							// This procedure will only happen right after update
+							propertiesForceChange.deleteOnExit();
+						}
+					}
 
+				}
 			}
-
 		} catch (final FileNotFoundException e) {
 			logger.error("Could not find properties file", e);
 		} catch (final IOException e) {
 			logger.error("Could not open properties file", e);
-		} finally {
-			if (fr != null) {
-				fr.close();
-			}
 		}
 	}
 

@@ -31,10 +31,10 @@ public class FixDuplicatePlots {
 	private boolean stopFix = false;
 
 	private List<CollectRecordSummary> getAllRecords(){
-		return recordManager.loadSummaries( 
+		return recordManager.loadSummaries(
 				new RecordFilter(
-						earthSurveyService.getCollectSurvey() , 
-						EarthConstants.ROOT_ENTITY_NAME 
+						earthSurveyService.getCollectSurvey() ,
+						EarthConstants.ROOT_ENTITY_NAME
 				) );
 	}
 
@@ -57,14 +57,14 @@ public class FixDuplicatePlots {
 				if( isSouthernPlot(collectRecord) ){
 					recordManager.delete( collectRecord.getId() );
 					i++;
-					
+
 				}
 
 			} catch (Exception e) {
 				logger.error("Error fixing Coordinates", e); //$NON-NLS-1$
 			}
 		}
-		System.out.println("In total fixed plots " + i); //$NON-NLS-1$
+		logger.info("In total fixed plots " + i); //$NON-NLS-1$
 
 	}
 
@@ -85,7 +85,7 @@ public class FixDuplicatePlots {
 
 	private CollectRecord findMathingCoordinatePlotInSouthern(List<CollectRecord> southernHighlandRecords, CoordinateAttribute plotCoord) {
 		for (CollectRecord southernPlot : southernHighlandRecords) {
-			
+
 			CoordinateAttribute sothernCoord = (CoordinateAttribute) southernPlot.getNodeByPath("/plot/location"); //$NON-NLS-1$
 			if( sothernCoord.getValue().equals(plotCoord.getValue() ) ){
 				return southernPlot;
@@ -95,7 +95,7 @@ public class FixDuplicatePlots {
 	}
 
 	private boolean isSouthernPlot(CollectRecord record) {
-		
+
 		TextAttribute plot_file = (TextAttribute) record.getNodeByPath("/plot/plot_file"); //$NON-NLS-1$
 		return( plot_file!=null && plot_file.getValue().getValue().equals("southernHighlands.ced") ); //$NON-NLS-1$
 	}

@@ -5,7 +5,7 @@ import org.hibernate.SessionFactory;
 
 public class HibernateStore extends AbstractStore{
 
-	
+
 	private int distanceBetweenPlots;
 	private SessionFactory sessionFactory;
 	private Session session;
@@ -27,7 +27,7 @@ public class HibernateStore extends AbstractStore{
 		plot.setRow( row);
 		plot.setxCoordinate(longitude);
 		plot.setyCoordinate(latitude);
-		
+
 		int gridFlags = 0;
 		for (Integer d : getDistances()) {
 			if (column%d + row%d == 0) {
@@ -35,16 +35,16 @@ public class HibernateStore extends AbstractStore{
 			}
 		}
 		plot.setGridFlags(gridFlags);
-		
+
 		//Save employee
 		session.save(plot);
-		
-		if(lastRow != row ) {
+
+		if(lastRow.equals( row) ) {
 			lastRow = row;
 			session.flush();
 	        session.clear();
 		}
-		
+
 	}
 
 	@Override
@@ -52,6 +52,6 @@ public class HibernateStore extends AbstractStore{
 		session.getTransaction().commit();
 		sessionFactory.close();
 	}
-	
-	
+
+
 }

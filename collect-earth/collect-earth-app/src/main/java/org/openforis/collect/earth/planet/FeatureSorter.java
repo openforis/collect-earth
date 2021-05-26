@@ -23,10 +23,11 @@ public class FeatureSorter implements Comparator<Feature>{
 		}else if( o2.getProperties().getCloudPercent() != null) {
 			return 1;
 		}else {
-			if( o1.getProperties().getCloudCover()!=null && o2.getProperties().getCloudCover()!=null ) { 
+			if( o1.getProperties().getCloudCover()!=null && o2.getProperties().getCloudCover()!=null ) {
 				return (int) ( (o1.getProperties().getCloudCover() - o2.getProperties().getCloudCover() ) * 100 );
-			}else 
+			} else {
 				return 1; // No way to know so return the latest
+			}
 		}
 	}
 

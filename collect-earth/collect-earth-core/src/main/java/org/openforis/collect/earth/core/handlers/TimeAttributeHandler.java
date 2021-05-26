@@ -18,12 +18,12 @@ public class TimeAttributeHandler extends AbstractAttributeHandler<Time> {
 
 	private static final String PREFIX = "time_";
 
-	public static final SimpleDateFormat TIME_ATTRIBUTE_FORMAT = new SimpleDateFormat("HH:mm");
+	public final SimpleDateFormat TIME_ATTRIBUTE_FORMAT = new SimpleDateFormat("HH:mm");
 
 	public TimeAttributeHandler() {
 		super(PREFIX);
 	}
-	
+
 	@Override
 	public String getParameterValue(Time value) {
 		if (value == null) {
@@ -37,7 +37,7 @@ public class TimeAttributeHandler extends AbstractAttributeHandler<Time> {
 			return null;
 		}
 	}
-	
+
 	@Override
 	public Time createValue(String parameterValue) {
 		Time time = Time.parseTime(parameterValue);
