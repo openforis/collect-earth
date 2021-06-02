@@ -4,6 +4,7 @@ import java.awt.Color;
 import java.awt.Component;
 import java.awt.event.MouseEvent;
 import java.io.File;
+import java.util.ArrayList;
 import java.util.List;
 
 import javax.swing.JOptionPane;
@@ -158,7 +159,14 @@ public class JPlotCsvTable extends JTable{
 		String[][] allValues = new String[0][0];
 
 		try ( CSVReader reader = CsvReaderUtils.getCsvReader(csvFilePath) ){
-			List<String[]> allLines = reader.readAll();
+			String[] line;
+			List<String[]> allLines = new ArrayList<>();
+			int i =0;
+			while( ( line = reader.readNext() ) != null && i< CollectEarthGridTemplateGenerator.CSV_LENGTH_WARNING ) { // we do this to avoid out of memory errors
+				i++;
+				allLines.add( line );
+			}
+
 			allValues = allLines.toArray(new String[][] {});
 		} catch (Exception e) {
 			logger.error(" Error reading the CSV file " + csvFilePath, e);

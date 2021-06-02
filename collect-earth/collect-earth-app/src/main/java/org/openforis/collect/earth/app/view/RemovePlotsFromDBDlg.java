@@ -208,23 +208,13 @@ public class RemovePlotsFromDBDlg {
 							messages.add(String.format(" Could not find plot with ID %s in the Database",
 									Arrays.toString(csvRow)));
 						} else {
-							try {
-								recordManager.delete(record.getId());
-								messages.add(String.format("Deleted plot with ID %s ", Arrays.toString(csvRow)));
-								plotsDeleted++;
-							} catch (RecordPersistenceException e) {
-								plotsCouldNotBeDeleted++;
-								messages.add(String.format("Error when deleting plot with ID %s. Error Message: %s",
-										Arrays.toString(csvRow), e.getMessage()));
-								logger.error("Error deleting plot with ID " + Arrays.toString(csvRow));
-								success = false;
-							}
+							deleteRecord(csvRow, record);
 						}
 					}
 
 				} catch (Exception e) {
 					JOptionPane.showMessageDialog(RemovePlotsFromDBDlg.this.dlg,
-							"Error reading CSV file");
+							"Error reading CSV file or CSV File too big!");
 					logger.error("Error while validating the CSV file", e);
 					success = false;
 				} finally {
@@ -272,6 +262,20 @@ public class RemovePlotsFromDBDlg {
 						JOptionPane.showMessageDialog(RemovePlotsFromDBDlg.this.dlg, scrollPane, "Error deleting plots", JOptionPane.WARNING_MESSAGE);
 					}
 				});
+			}
+
+			private void deleteRecord(String[] csvRow, CollectRecord record) {
+				try {
+					recordManager.delete(record.getId());
+					messages.add(String.format("Deleted plot with ID %s ", Arrays.toString(csvRow)));
+					plotsDeleted++;
+				} catch (RecordPersistenceException e) {
+					plotsCouldNotBeDeleted++;
+					messages.add(String.format("Error when deleting plot with ID %s. Error Message: %s",
+							Arrays.toString(csvRow), e.getMessage()));
+					logger.error("Error deleting plot with ID " + Arrays.toString(csvRow));
+					success = false;
+				}
 			}
 		};
 
