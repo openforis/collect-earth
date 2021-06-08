@@ -4,6 +4,18 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.13.03] - 2021-06-08
+
+### Changed
+ - Support latest Chrome version
+ - Remove memory leaks
+
+## [1.13.02] - 2021-05-23
+
+### Changed
+ - Bug fix for system memory error when loading very large table
+ - Update to latest version of Open CSV and Collect
+
 ## [1.13.00] - 2021-04-12
 
 ### Changed
