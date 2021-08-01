@@ -186,6 +186,7 @@
 				<artifactId>collect-core</artifactId>
 				<version>${collect.version}</version>
 			</dependency>
+
 		</dependencies>
 	</dependencyManagement>
 
