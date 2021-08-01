@@ -43,7 +43,7 @@ import org.slf4j.LoggerFactory;
 import com.opencsv.exceptions.CsvValidationException;
 
 import io.sentry.Sentry;
-import io.sentry.event.UserBuilder;
+import io.sentry.protocol.User;
 
 /**
  * Contains the main class that starts Collect Earth and opens Google Earth.
@@ -117,12 +117,14 @@ public class EarthApp {
 		try {
 			String releaseName= UpdateIniUtils.getReleaseNameInstalled();
 
-			Sentry.init("https://24dd6a90c1e4461484712db99c3b3bb7:831e42661c5c4ff3aa5eca270db3f619@sentry.io/299626?release="+releaseName+"&maxmessagelength=2000", new EarthSentryClientFactory());
+			Sentry.init("https://24dd6a90c1e4461484712db99c3b3bb7:831e42661c5c4ff3aa5eca270db3f619@sentry.io/299626?release="+releaseName+"&maxmessagelength=2000" );
 			if( !StringUtils.isEmpty( UpdateIniUtils.getVersionInstalled() ) ) {
-				Sentry.getContext().addTag( "ReleaseDate", UpdateIniUtils.getVersionInstalled() );
+				Sentry.setTag( "ReleaseDate", UpdateIniUtils.getVersionInstalled() );
 			}
 			if( !StringUtils.isEmpty( getLocalProperties().getOperator() ) ) {
-				Sentry.getContext().setUser( new UserBuilder().setUsername( getLocalProperties().getOperator() ).build() );
+				User user = new User();
+				user.setUsername( getLocalProperties().getOperator() );
+				Sentry.setUser(user);
 			}
 
 		} catch (Exception e) {
