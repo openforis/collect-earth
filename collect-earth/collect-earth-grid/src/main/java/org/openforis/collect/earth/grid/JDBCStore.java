@@ -15,7 +15,7 @@ import org.apache.commons.io.FileUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-public class JDBCStore extends AbstractStore{
+public class JDBCStore extends AbstractStore {
 
 	private int count = 0;
 	private int distanceBetweenPlots;
@@ -31,12 +31,14 @@ public class JDBCStore extends AbstractStore{
 	private static final String SQLITE_URL = "jdbc:sqlite:";
 	private static final String POSTGRESQL_URL = "jdbc:postgresql://localhost/sigrid";
 
-	private Connection getConnection() {
-		if(connection == null ) {
+	private Connection getConnection() throws SQLException {
+		if (connection == null || connection.isClosed() ) {
 			try {
 				Class.forName("org.sqlite.JDBC");
-				File sigridDBFile = new File( "sigrid.db" );
-				connection = DriverManager.getConnection( Boolean.TRUE.equals(USE_SQLITE) ? SQLITE_URL+sigridDBFile.getAbsolutePath() : POSTGRESQL_URL, "collectearth","collectearth");
+				File sigridDBFile = new File("sigrid.db");
+				connection = DriverManager.getConnection(
+						Boolean.TRUE.equals(USE_SQLITE) ? SQLITE_URL + sigridDBFile.getAbsolutePath() : POSTGRESQL_URL,
+						"collectearth", "collectearth");
 			} catch (Exception e) {
 				logger.error("Error loading JDBC driver", e);
 			}
@@ -50,40 +52,42 @@ public class JDBCStore extends AbstractStore{
 		createTable();
 	}
 
-
-
 	private void createTable() throws IOException, SQLException, URISyntaxException, ClassNotFoundException {
-		String createTable = FileUtils.readFileToString(
-				new File( this.getClass().getClassLoader().getResource( Boolean.TRUE.equals(USE_SQLITE) ? "createTableSqlite.sql" : "createTable.sql" ).toURI() ),
-				StandardCharsets.UTF_8
-				);
-		try( Statement createStatement = getConnection().createStatement();){
+		String createTable = FileUtils.readFileToString(new File(this.getClass().getClassLoader()
+				.getResource(Boolean.TRUE.equals(USE_SQLITE) ? "createTableSqlite.sql" : "createTable.sql").toURI()),
+				StandardCharsets.UTF_8);
+		try (Statement createStatement = getConnection().createStatement();) {
 			createStatement.executeUpdate(createTable);
 		}
 	}
 
-
 	private PreparedStatement getInsertStatement() throws SQLException {
-		if( insertStatement == null ) {
+		if (insertStatement == null) {
 			String sql = "INSERT INTO plot( griddistance, row, col, gridflags, xcoordinate, ycoordinate ) "
 					+ "VALUES(?,?,?,?,?,?)";
-			insertStatement=  getConnection().prepareStatement(sql);
+			insertStatement = getConnection().prepareStatement(sql);
 		}
 		return insertStatement;
 	}
 
 	private PreparedStatement getSelectStatement() throws SQLException {
-		if( selectStatement == null ) {
-			String sql = "SELECT * FROM plot"
-					+ " WHERE "
-					+ " xcoordinate<=? and ycoordinate<=? "
-					+ " AND "
-					+ " xcoordinate>=? and ycoordinate>=?"
-					+ " AND "
-					+ " griddistance = ? "
-					+ " AND "
-					+ " gridflags & ? = ?";
-			selectStatement=  getConnection().prepareStatement(sql);
+		if (selectStatement == null) {
+			String sql = "SELECT * FROM plot" + " WHERE " + " xcoordinate<? and ycoordinate<? " + " AND "
+					+ " xcoordinate>=? and ycoordinate>=?" + " AND " + " griddistance = ? " + " AND "
+					+ " gridflags & ? = ?"
+			// + " LIMIT ? OFFSET ?"
+			;
+			selectStatement = getConnection().prepareStatement(sql);
+		}
+		return selectStatement;
+	}
+
+	private PreparedStatement getAllStatement() throws SQLException {
+		if (selectStatement == null) {
+			String sql = "SELECT * FROM plot" + " WHERE " + " griddistance = ? " + " AND " + " gridflags & ? = ?"
+			// + " LIMIT ? OFFSET ?"
+			;
+			selectStatement = getConnection().prepareStatement(sql);
 		}
 		return selectStatement;
 	}
@@ -93,60 +97,75 @@ public class JDBCStore extends AbstractStore{
 
 		int gridFlags = 0;
 		for (Integer d : getDistances()) {
-			if (column%d + row%d == 0) {
-				gridFlags = gridFlags | (1<<d);
+			if (column % d + row % d == 0) {
+				gridFlags = gridFlags | (1 << d);
 			}
 		}
 
 		try {
 
-			getInsertStatement().setInt(1, distanceBetweenPlots );
-			getInsertStatement().setInt(2, row );
-			getInsertStatement().setInt(3, column );
-			getInsertStatement().setInt(4, gridFlags );
-			getInsertStatement().setInt(5, Math.round( longitude.floatValue() * SCALING_FACTOR ) );
-			getInsertStatement().setInt(6, Math.round( latitude.floatValue()  * SCALING_FACTOR ) );
+			getInsertStatement().setInt(1, distanceBetweenPlots);
+			getInsertStatement().setInt(2, row);
+			getInsertStatement().setInt(3, column);
+			getInsertStatement().setInt(4, gridFlags);
+			getInsertStatement().setInt(5, Math.round(longitude.floatValue() * SCALING_FACTOR));
+			getInsertStatement().setInt(6, Math.round(latitude.floatValue() * SCALING_FACTOR));
 
 			getInsertStatement().addBatch();
 			count++;
 			// execute every 100 rows or less
-			if (count % 50000 == 0 ) {
-				logger.info( "Flushing to DB "+count );
+			if (count % 50000 == 0) {
+				logger.info("Flushing to DB " + count);
 				getInsertStatement().executeBatch();
 
 			}
 		} catch (SQLException e) {
-			logger.error( "Error inserting data", e);
+			logger.error("Error inserting data", e);
 		}
 
 	}
 
+	public ResultSet getPlots(Integer grid, Double maxX, Double maxY, Double minX, Double minY, Integer distance) {
 
-	public ResultSet getPlots(
-			Integer grid,
-				Double maxX, Double maxY,
-				Double minX, Double minY,
-				Integer distance
-				) {
-
-		int gridFlags =  (int) Math.pow(2, grid);
+		int gridFlags = (int) Math.pow(2, grid);
 		ResultSet results = null;
 
 		try {
 
-			getSelectStatement().setInt(1, Math.round( maxX.floatValue() * SCALING_FACTOR ) );
-			getSelectStatement().setInt(2, Math.round( maxY.floatValue() * SCALING_FACTOR ) );
-			getSelectStatement().setInt(3, Math.round( minX.floatValue() * SCALING_FACTOR ) );
-			getSelectStatement().setInt(4, Math.round( minY.floatValue() * SCALING_FACTOR ) );
-			getSelectStatement().setInt(5, Math.round( distance.floatValue() ) );
-			getSelectStatement().setInt(6, gridFlags );
-			getSelectStatement().setInt(7, gridFlags );
+			getSelectStatement().setInt(1, Math.round(maxX.floatValue() * SCALING_FACTOR));
+			getSelectStatement().setInt(2, Math.round(maxY.floatValue() * SCALING_FACTOR));
+			getSelectStatement().setInt(3, Math.round(minX.floatValue() * SCALING_FACTOR));
+			getSelectStatement().setInt(4, Math.round(minY.floatValue() * SCALING_FACTOR));
+			getSelectStatement().setInt(5, Math.round(distance.floatValue()));
+			getSelectStatement().setInt(6, gridFlags);
+			getSelectStatement().setInt(7, gridFlags);
 
-			logger.info( getSelectStatement().toString() );
+			logger.info(getSelectStatement().toString());
 			results = getSelectStatement().executeQuery();
 
 		} catch (SQLException e) {
-			logger.error( "Error querying the DB data", e);
+			logger.error("Error querying the DB data", e);
+		}
+
+		return results;
+	}
+
+	public ResultSet getAllPlots(Integer grid, Integer distance) {
+
+		int gridFlags = (int) Math.pow(2, grid);
+		ResultSet results = null;
+
+		try {
+
+			getAllStatement().setInt(1, Math.round(distance.floatValue()));
+			getAllStatement().setInt(2, gridFlags);
+			getAllStatement().setInt(3, gridFlags);
+
+			logger.info(getAllStatement().toString());
+			results = getAllStatement().executeQuery();
+
+		} catch (SQLException e) {
+			logger.error("Error querying the DB data", e);
 		}
 
 		return results;
@@ -155,17 +174,18 @@ public class JDBCStore extends AbstractStore{
 	@Override
 	public void closeStore() {
 		try {
-			if( getInsertStatement() != null ) {
+			if (getInsertStatement() != null) {
 				getInsertStatement().executeBatch();
 			}
 
-			if(getConnection()!=null ) {
+			if (getConnection() != null) {
 				getConnection().close();
+				selectStatement = null;
+				insertStatement = null;
 			}
 		} catch (SQLException e) {
-			logger.error( "Error closing connection", e);
+			logger.error("Error closing connection", e);
 		}
 	}
-
 
 }
