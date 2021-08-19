@@ -80,8 +80,7 @@ public class ProduceCsvFiles {
 
 		Map<String,List<String[]>> stringsPerStrata = new HashMap<String, List<String[]>>();
 
-		try ( CSVReader reader  = CsvReaderUtils.getCsvReader(fileToDivide.getPath(), true, getHeaders() != null ) ){
-
+		try {
 			processHeaders(fileToDivide);
 
 			String originalFileName = FilenameUtils.getBaseName( fileToDivide.getName() );
@@ -90,35 +89,41 @@ public class ProduceCsvFiles {
 				fileToDivide = randomizeFile( fileToDivide );
 			}
 
-			// read first line
-			String[] csvRow;
+			try ( CSVReader reader  = CsvReaderUtils.getCsvReader(fileToDivide.getPath(), true, getHeaders() != null ) ){
 
-			// First divide the lines into the files by column ( or a single file if the user chose not to divide using a column)
-			while ((csvRow = reader.readNext()) != null ) {
 
-				String stratumColumnValue = originalFileName;
-				if( divideByColumnIndex != null ){
-					stratumColumnValue = csvRow[ divideByColumnIndex ];
+				// read first line
+				String[] csvRow;
+
+				// First divide the lines into the files by column ( or a single file if the user chose not to divide using a column)
+				while ((csvRow = reader.readNext()) != null ) {
+
+					String stratumColumnValue = originalFileName;
+					if( divideByColumnIndex != null ){
+						stratumColumnValue = csvRow[ divideByColumnIndex ];
+					}
+
+					List<String[]> rowsInStratum = stringsPerStrata.get( stratumColumnValue );
+					if( rowsInStratum == null ){
+						rowsInStratum = new ArrayList<String[]>();
+					}
+
+					rowsInStratum.add( csvRow );
+
+					stringsPerStrata.put(stratumColumnValue, rowsInStratum);
 				}
 
-				List<String[]> rowsInStratum = stringsPerStrata.get( stratumColumnValue );
-				if( rowsInStratum == null ){
-					rowsInStratum = new ArrayList<String[]>();
+				for (Iterator iterator = stringsPerStrata.entrySet().iterator(); iterator.hasNext();) {
+					Entry<String, List<String[]>> rowsByFile = (Entry<String, List<String[]>>) iterator.next();
+					divideIntoFile( rowsByFile.getKey(), rowsByFile.getValue() );
 				}
 
-				rowsInStratum.add( csvRow );
 
-				stringsPerStrata.put(stratumColumnValue, rowsInStratum);
+			} catch (Exception e) {
+				logger.error("Error processing CSV file 2", e);
 			}
-
-			for (Iterator iterator = stringsPerStrata.entrySet().iterator(); iterator.hasNext();) {
-				Entry<String, List<String[]>> rowsByFile = (Entry<String, List<String[]>>) iterator.next();
-				divideIntoFile( rowsByFile.getKey(), rowsByFile.getValue() );
-			}
-
-
-		} catch (Exception e) {
-			logger.error("Error processing CSV file", e);
+		}catch (Exception e) {
+			logger.error("Error processing CSV file 1", e);
 		}
 
 		return outputFolder;
