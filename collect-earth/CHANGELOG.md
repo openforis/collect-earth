@@ -4,6 +4,13 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.13.05] - 2021-09-17
+
+### Changed
+ - Support latest Chrome version (93)
+ - Remove class linking exceptions
+
+
 ## [1.13.03] - 2021-06-08
 
 ### Changed
