@@ -13,14 +13,14 @@
 	<name>Earth Sampler</name>
 
 	<properties>
-		<geotools.version>24.0</geotools.version>
+		<geotools.version>24.4</geotools.version>
 	</properties>
 
 	<dependencies>
 		<dependency>
 			<groupId>org.openforis.collect.earth</groupId>
 			<artifactId>collect-earth-core</artifactId>
-			</dependency>
+		</dependency>
 		<dependency>
 			<groupId>org.freemarker</groupId>
 			<artifactId>freemarker</artifactId>
@@ -45,7 +45,7 @@
 		<dependency>
 		    <groupId>org.wololo</groupId>
 		    <artifactId>jts2geojson</artifactId>
-		    <version>0.16.1</version>
+		    <version>0.14.3</version>
 		</dependency>
 
 		<dependency>
