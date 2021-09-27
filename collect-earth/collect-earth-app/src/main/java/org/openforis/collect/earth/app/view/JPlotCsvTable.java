@@ -34,6 +34,7 @@ public class JPlotCsvTable extends JTable{
 	private static final Color WARNING_BG_COLOR = new Color(254, 255, 196);
 	private static final Color ERROR_BG_COLOR = new Color(218, 152, 152);
 	private static final long serialVersionUID = 3456854921119125693L;
+	private static final int LIMIT_LOADED_CSV_LINES = 400;
 	private final transient Logger logger = LoggerFactory.getLogger(this.getClass());
 	private transient CollectSurvey forSurvey;
 	private transient CSVFileValidationResult validationResults;
@@ -162,7 +163,7 @@ public class JPlotCsvTable extends JTable{
 			String[] line;
 			List<String[]> allLines = new ArrayList<>();
 			int i =0;
-			while( ( line = reader.readNext() ) != null && i< CollectEarthGridTemplateGenerator.CSV_LENGTH_WARNING ) { // we do this to avoid out of memory errors
+			while( ( line = reader.readNext() ) != null && i< LIMIT_LOADED_CSV_LINES ) { // we do this to avoid out of memory errors
 				i++;
 				allLines.add( line );
 			}

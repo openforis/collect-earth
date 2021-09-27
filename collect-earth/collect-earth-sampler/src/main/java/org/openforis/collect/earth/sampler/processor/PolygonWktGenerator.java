@@ -24,9 +24,14 @@ public class PolygonWktGenerator extends PolygonGeometryGenerator {
 			String value = csvValues[i];
 			if(StringUtils.isNotBlank( value )) {
 				try {
-					reader.read(value);
-					setColumnWithPolygonString( i );
-					return value;
+					Object geometry = reader.read(value);
+					// Sometimes string such as #N/A or <3% can be read returning null values (no exceptions)
+					if( geometry != null ) {
+						setColumnWithPolygonString( i );
+						return value;
+					}else {
+						return null;
+					}
 				} catch (ParseException e) {
 
 				}

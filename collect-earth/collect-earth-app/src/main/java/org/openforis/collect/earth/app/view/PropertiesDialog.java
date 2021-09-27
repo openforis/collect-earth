@@ -197,11 +197,6 @@ public class PropertiesDialog extends JDialog {
 		constraints.weightx = 1.0;
 		constraints.fill = GridBagConstraints.HORIZONTAL;
 
-		constraints.gridx = 0;
-		constraints.gridwidth = 2;
-		panel.add(propertyToComponent.get(EarthProperty.OPEN_GEE_CODE_EDITOR)[0], constraints);
-
-		constraints.gridy++;
 		panel.add(propertyToComponent.get(EarthProperty.OPEN_GEE_APP)[0], constraints);
 
 		constraints.gridy++;
@@ -259,6 +254,13 @@ public class PropertiesDialog extends JDialog {
 		panel.add(label2, constraints);
 		constraints.gridy++;
 		panel.add(propertyToComponent.get(EarthProperty.EXTRA_MAP_URL)[0], constraints);
+
+		constraints.gridy++;
+		constraints.gridx = 0;
+		constraints.gridwidth = 2;
+		panel.add(propertyToComponent.get(EarthProperty.OPEN_GEE_CODE_EDITOR)[0], constraints);
+
+
 
 		return panel;
 	}

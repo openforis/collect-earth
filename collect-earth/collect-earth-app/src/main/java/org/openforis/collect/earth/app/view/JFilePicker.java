@@ -36,9 +36,21 @@ public class JFilePicker extends JPanel {
 
 	private DlgMode mode;
 
+	private JFileChooser getFixedFileChooser() {
+		return new JFileChooser() {
+			private static final long serialVersionUID = 1541813407103968847L;
+
+			@Override
+			public void updateUI() {
+				putClientProperty("FileChooser.useShellFolder", Boolean.FALSE);
+				super.updateUI();
+			}
+		};
+	}
+
 	public JFilePicker(String textFieldLabel, String originalPathValue, String buttonLabel, DlgMode mode) {
 
-		fileChooser = new JFileChooser();
+		fileChooser = getFixedFileChooser();
 		setBorder( new BevelBorder( BevelBorder.RAISED ));
 		this.mode = mode;
 		if (originalPathValue != null && originalPathValue.length() > 0) {

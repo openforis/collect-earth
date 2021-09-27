@@ -7,3 +7,4 @@
 /earth.properties_initial
 /release.properties
 /debug.log
+*.releaseBackup
