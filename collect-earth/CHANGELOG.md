@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
  - Support latest Chrome version (93)
  - Remove class linking exceptions
+ - Improved loading times for Properties dialog
 
 
 ## [1.13.03] - 2021-06-08
