@@ -241,15 +241,6 @@ public class PropertiesDialog extends JDialog {
 		panel.add(propertyToComponent.get(EarthProperty.OPEN_BAIDU_MAPS)[0], constraints);
 
 		constraints.gridy++;
-		panel.add(propertyToComponent.get(EarthProperty.OPEN_STREET_VIEW)[0], constraints);
-
-		constraints.gridy++;
-		panel.add(propertyToComponent.get(EarthProperty.OPEN_GEE_EXPLORER)[0], constraints);
-
-		constraints.gridy++;
-		panel.add(propertyToComponent.get(EarthProperty.OPEN_TIMELAPSE)[0], constraints);
-
-		constraints.gridy++;
 		final JLabel label2 = new JLabel(Messages.getString("OptionWizard.103")); //$NON-NLS-1$
 		panel.add(label2, constraints);
 		constraints.gridy++;
@@ -259,7 +250,6 @@ public class PropertiesDialog extends JDialog {
 		constraints.gridx = 0;
 		constraints.gridwidth = 2;
 		panel.add(propertyToComponent.get(EarthProperty.OPEN_GEE_CODE_EDITOR)[0], constraints);
-
 
 
 		return panel;
@@ -1001,11 +991,6 @@ public class PropertiesDialog extends JDialog {
 		openYandexCheckbox
 				.setSelected(Boolean.parseBoolean(localPropertiesService.getValue(EarthProperty.OPEN_YANDEX_MAPS)));
 		propertyToComponent.put(EarthProperty.OPEN_YANDEX_MAPS, new JComponent[] { openYandexCheckbox });
-
-		final JCheckBox openStreetViewCheckbox = new JCheckBox("Open Street View");
-		openStreetViewCheckbox
-				.setSelected(Boolean.parseBoolean(localPropertiesService.getValue(EarthProperty.OPEN_STREET_VIEW)));
-		propertyToComponent.put(EarthProperty.OPEN_STREET_VIEW, new JComponent[] { openStreetViewCheckbox });
 
 		final JCheckBox openHereCheckbox = new JCheckBox(Messages.getString("OptionWizard.59")); //$NON-NLS-1$
 		openHereCheckbox
