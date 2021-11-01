@@ -47,6 +47,7 @@ import org.openqa.selenium.firefox.FirefoxBinary;
 import org.openqa.selenium.firefox.FirefoxDriver;
 import org.openqa.selenium.firefox.FirefoxOptions;
 import org.openqa.selenium.firefox.GeckoDriverService;
+import org.openqa.selenium.remote.CapabilityType;
 import org.openqa.selenium.remote.RemoteWebDriver;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -59,6 +60,7 @@ import freemarker.template.Configuration;
 import freemarker.template.Template;
 import freemarker.template.TemplateException;
 import freemarker.template.Version;
+import io.github.bonigarcia.wdm.WebDriverManager;
 import liquibase.util.SystemUtils;
 
 /**
@@ -124,17 +126,29 @@ public class BrowserService implements InitializingBean, Observer {
 
 	private RemoteWebDriver chooseDriver() throws BrowserNotFoundException {
 		RemoteWebDriver driver = null;
-		final String browserSetInProperties = localPropertiesService.getValue(EarthProperty.BROWSER_TO_USE);
+		final String browserSetInProperties = localPropertiesService.getValue(EarthProperty.BROWSER_TO_USE).trim();
 
-		if (browserSetInProperties.trim().equalsIgnoreCase(EarthConstants.CHROME_BROWSER)) {
+		if (browserSetInProperties.equalsIgnoreCase(EarthConstants.CHROME_BROWSER)) {
 			driver = tryStartChrome();
-			if (driver == null) {
+		} else if (browserSetInProperties.equalsIgnoreCase(EarthConstants.FIREFOX_BROWSER)) {
+			driver = tryStartFirefox();
+		} else if (browserSetInProperties.equalsIgnoreCase(EarthConstants.EDGE_BROWSER)) {
+			driver = tryStartEdge();
+		}else if (browserSetInProperties.equalsIgnoreCase(EarthConstants.SAFARI_BROWSER)) {
+			driver = tryStartSafari();
+		}
+
+		// If the browser chosen is not installed try to find and installed browser in the computer
+		if( driver== null ) {
+			driver = tryStartChrome();
+			if( driver== null ) {
 				driver = tryStartFirefox();
 			}
-		} else {
-			driver = tryStartFirefox();
-			if (driver == null) {
-				driver = tryStartChrome();
+			if( driver== null ) {
+				driver = tryStartEdge();
+			}
+			if( driver== null ) {
+				driver = tryStartSafari();
 			}
 		}
 
@@ -149,24 +163,46 @@ public class BrowserService implements InitializingBean, Observer {
 	private RemoteWebDriver tryStartFirefox() {
 		RemoteWebDriver driver = null;
 		try {
-			driver = startFirefoxBrowser();
+			driver = (RemoteWebDriver) WebDriverManager.firefoxdriver().create();
 		} catch (final WebDriverException e) {
 			logger.warn(
-					"The browser executable for Firefox (Firefox.exe) cannot be found, please edit earth.properties and add the firefox.exe location in "
-							+ EarthProperty.FIREFOX_BINARY_PATH + " pointing to the full path to firefox",
+					"Problem starting Firefox browser!",
 							e);
 		}
 		return driver;
 	}
 
-	private RemoteWebDriver tryStartChrome() throws BrowserNotFoundException {
+	private RemoteWebDriver tryStartEdge() {
 		RemoteWebDriver driver = null;
 		try {
-			driver = startChromeBrowser();
+			driver = (RemoteWebDriver) WebDriverManager.edgedriver().create();
 		} catch (final WebDriverException e) {
 			logger.warn(
-					"The browser executable for Chrome (chrome.exe in Windows) cannot be found, please edit earth.properties and add the chrome.exe location in "
-							+ EarthProperty.CHROME_BINARY_PATH + " pointing to the full path to chrome",
+					"Problem starting Edge browser",
+							e);
+		}
+		return driver;
+	}
+
+	private RemoteWebDriver tryStartSafari() {
+		RemoteWebDriver driver = null;
+		try {
+			driver = (RemoteWebDriver) WebDriverManager.safaridriver().create();
+		} catch (final WebDriverException e) {
+			logger.warn(
+					"Problem starting Safari browser",
+							e);
+		}
+		return driver;
+	}
+
+	private RemoteWebDriver tryStartChrome() {
+		RemoteWebDriver driver = null;
+		try {
+			driver = (RemoteWebDriver) WebDriverManager.chromedriver().create();
+		} catch (final Exception e) {
+			logger.warn(
+					"Problem starting Chrome browser",
 							e);
 		}
 		return driver;
@@ -992,6 +1028,7 @@ public class BrowserService implements InitializingBean, Observer {
 		ChromeOptions chromeOptions = new ChromeOptions();
 		chromeOptions.addArguments("disable-infobars");
 		chromeOptions.addArguments("disable-save-password-bubble");
+		chromeOptions.setCapability(CapabilityType.BROWSER_VERSION, "93");
 
 		if (!StringUtils.isBlank(chromeBinaryPath)) {
 			try {

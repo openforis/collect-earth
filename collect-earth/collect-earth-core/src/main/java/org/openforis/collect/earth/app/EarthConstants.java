@@ -34,6 +34,10 @@ public class EarthConstants {
 
 	public static final String FIREFOX_BROWSER = "firefox"; //$NON-NLS-1$
 
+	public static final String EDGE_BROWSER = "edge"; //$NON-NLS-1$
+
+	public static final String SAFARI_BROWSER = "safari"; //$NON-NLS-1$
+
 	public static final String EARTH_SURVEY_NAME = "earth"; //$NON-NLS-1$
 
 	public enum OperationMode{ SERVER_MODE, CLIENT_MODE}

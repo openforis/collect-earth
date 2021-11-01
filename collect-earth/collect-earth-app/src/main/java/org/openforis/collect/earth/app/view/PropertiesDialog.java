@@ -7,6 +7,7 @@ import java.awt.Container;
 import java.awt.Dimension;
 import java.awt.GridBagConstraints;
 import java.awt.GridBagLayout;
+import java.awt.GridLayout;
 import java.awt.Insets;
 import java.awt.Toolkit;
 import java.awt.event.ActionEvent;
@@ -159,6 +160,8 @@ public class PropertiesDialog extends JDialog {
 		final Border browserBorder = new TitledBorder(new BevelBorder(BevelBorder.LOWERED),
 				Messages.getString("OptionWizard.1")); //$NON-NLS-1$
 		browserChooserPanel.setBorder(browserBorder);
+		GridLayout experimentLayout = new GridLayout(0,1);
+		browserChooserPanel.setLayout( experimentLayout );
 
 		final ButtonGroup browserChooser = new ButtonGroup();
 		final JComponent[] browsers = propertyToComponent.get(EarthProperty.BROWSER_TO_USE);
@@ -171,14 +174,6 @@ public class PropertiesDialog extends JDialog {
 		}
 		constraints.gridy++;
 		panel.add(browserChooserPanel, constraints);
-
-		constraints.gridy++;
-		constraints.gridx = 0;
-		panel.add(propertyToComponent.get(EarthProperty.FIREFOX_BINARY_PATH)[0], constraints);
-
-		constraints.gridy++;
-		constraints.gridx = 0;
-		panel.add(propertyToComponent.get(EarthProperty.CHROME_BINARY_PATH)[0], constraints);
 
 		constraints.gridy++;
 		constraints.gridx = 0;
@@ -1092,7 +1087,17 @@ public class PropertiesDialog extends JDialog {
 		firefoxChooser.setSelected(localPropertiesService.getValue(EarthProperty.BROWSER_TO_USE).trim()
 				.equals(EarthConstants.FIREFOX_BROWSER));
 		firefoxChooser.setName(EarthConstants.FIREFOX_BROWSER);
-		propertyToComponent.put(EarthProperty.BROWSER_TO_USE, new JComponent[] { firefoxChooser, chromeChooser });
+
+		final JRadioButton edgeChooser = new JRadioButton("Edge"); //$NON-NLS-1$
+		edgeChooser.setSelected(localPropertiesService.getValue(EarthProperty.BROWSER_TO_USE).trim()
+				.equals(EarthConstants.EDGE_BROWSER));
+		edgeChooser.setName(EarthConstants.EDGE_BROWSER);
+
+		final JRadioButton safariChooser = new JRadioButton("Safari"); //$NON-NLS-1$
+		safariChooser.setSelected(localPropertiesService.getValue(EarthProperty.BROWSER_TO_USE).trim()
+				.equals(EarthConstants.SAFARI_BROWSER));
+		safariChooser.setName(EarthConstants.SAFARI_BROWSER);
+		propertyToComponent.put(EarthProperty.BROWSER_TO_USE, new JComponent[] { firefoxChooser, chromeChooser,  edgeChooser, safariChooser});
 
 		final JFilePicker saikuPath = new JFilePicker(Messages.getString("OptionWizard.65"), //$NON-NLS-1$
 				localPropertiesService.getValue(EarthProperty.SAIKU_SERVER_FOLDER),
@@ -1127,20 +1132,6 @@ public class PropertiesDialog extends JDialog {
 			}
 		});
 		propertyToComponent.put(EarthProperty.SAIKU_SERVER_FOLDER, new JComponent[] { saikuPath });
-
-		final JFilePicker firefoxBinaryPath = new JFilePicker(Messages.getString("OptionWizard.67"), //$NON-NLS-1$
-				localPropertiesService.getValue(EarthProperty.FIREFOX_BINARY_PATH),
-				Messages.getString("OptionWizard.68"), DlgMode.MODE_OPEN); //$NON-NLS-1$
-		firefoxBinaryPath.addFileTypeFilter(".exe", Messages.getString("OptionWizard.70"), true); //$NON-NLS-1$ //$NON-NLS-2$
-		firefoxBinaryPath.addFileTypeFilter(".bin", Messages.getString("OptionWizard.72"), false); //$NON-NLS-1$ //$NON-NLS-2$
-		propertyToComponent.put(EarthProperty.FIREFOX_BINARY_PATH, new JComponent[] { firefoxBinaryPath });
-
-		final JFilePicker chromeBinaryPath = new JFilePicker(Messages.getString("OptionWizard.73"), //$NON-NLS-1$
-				localPropertiesService.getValue(EarthProperty.CHROME_BINARY_PATH),
-				Messages.getString("OptionWizard.74"), DlgMode.MODE_OPEN); //$NON-NLS-1$
-		chromeBinaryPath.addFileTypeFilter(".exe", Messages.getString("OptionWizard.76"), true); //$NON-NLS-1$ //$NON-NLS-2$
-		chromeBinaryPath.addFileTypeFilter(".bin", Messages.getString("OptionWizard.78"), false); //$NON-NLS-1$ //$NON-NLS-2$
-		propertyToComponent.put(EarthProperty.CHROME_BINARY_PATH, new JComponent[] { chromeBinaryPath });
 
 		final JFilePicker kmlTemplatePath = new JFilePicker(Messages.getString("OptionWizard.79"), //$NON-NLS-1$
 				localPropertiesService.getValue(EarthProperty.KML_TEMPLATE_KEY), Messages.getString("OptionWizard.80"), //$NON-NLS-1$

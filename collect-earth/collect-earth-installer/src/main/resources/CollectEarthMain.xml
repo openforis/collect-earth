@@ -78,54 +78,6 @@
                 </shortcut>
             </shortcutList>
         </folder>
-		<folder>
-            <description>Resources Windows</description>
-            <destination>${installdir}/resources</destination>
-            <name>resourceswindows</name>
-            <platforms>windows windows-x64</platforms>
-            <distributionFileList>
-	         	<distributionDirectory  allowWildcards="1">
-	                <excludeFiles>*/chromedriver64;*/chromedriver_mac;*/geckodriver_32;*/geckodriver_64;*/geckodriver_mac</excludeFiles>
-	            	<origin>../../../collect-earth-app/resources/*</origin>
-	            </distributionDirectory>
-            </distributionFileList>
-        </folder>
-        <folder>
-            <description>Resources Linux 64</description>
-            <destination>${installdir}/resources</destination>
-            <name>resourceslinux64</name>
-            <platforms>linux-x64</platforms>
-            <distributionFileList>
-	         	<distributionDirectory  allowWildcards="1">
-	                <excludeFiles>*/chromedriver.exe;*/chromedriver_mac;*/geckodriver_32.exe;*/geckodriver_64.exe;*/geckodriver_mac;*/geckodriver_32</excludeFiles>
-	            	<origin>../../../collect-earth-app/resources/*</origin>
-	            </distributionDirectory>
-            </distributionFileList>
-        </folder>
-        <folder>
-            <description>Resources Linux 32</description>
-            <destination>${installdir}/resources</destination>
-            <name>resourceslinux32</name>
-            <platforms>linux</platforms>
-            <distributionFileList>
-	         	<distributionDirectory  allowWildcards="1">
-	                <excludeFiles>*/chromedriver.exe;*/chromedriver_mac;*/geckodriver_32.exe;*/geckodriver_64.exe;*/geckodriver_mac;*/geckodriver_64</excludeFiles>
-	            	<origin>../../../collect-earth-app/resources/*</origin>
-	            </distributionDirectory>
-            </distributionFileList>
-        </folder>
-        <folder>
-            <description>Resources Mac</description>
-            <destination>${installdir}/resources</destination>
-            <name>resourcesosx</name>
-            <platforms>osx</platforms>
-            <distributionFileList>
-	         	<distributionDirectory allowWildcards="1">
-	                <excludeFiles>*/chromedriver.exe;*/chromedriver64;*/geckodriver_32.exe;*/geckodriver_64.exe;*/geckodriver_32;*/geckodriver_64</excludeFiles>
-	            	<origin>../../../collect-earth-app/resources/*</origin>
-	            </distributionDirectory>
-            </distributionFileList>
-        </folder>
         <folder>
             <description>Program Files</description>
             <destination>${installdir}</destination>
@@ -279,28 +231,6 @@
             </substitutionList>
         </substitute>
 
-        <changePermissions>
-            <files>${installdir}/${java_launcher_binary_name};${installdir}/*.log;${installdir}/*.properties;${installdir}/generated;${installdir}/*.db;${installdir}/*.dbSaiku</files>
-            <permissions>0777</permissions>
-        </changePermissions>
-         <changePermissions>
-            <files>${installdir}/resources/chromedriver64;${installdir}/resources/geckodriver_32;${installdir}/resources/geckodriver_64</files>
-            <permissions>0777</permissions>
-            <ruleList>
-                <platformTest>
-                    <type>linux</type>
-                </platformTest>
-            </ruleList>
-        </changePermissions>
-        <changePermissions>
-            <files>${installdir}/resources/chromedriver_mac;${installdir}/resources/geckodriver_mac</files>
-            <permissions>0777</permissions>
-            <ruleList>
-                <platformTest>
-                    <type>osx</type>
-                </platformTest>
-            </ruleList>
-        </changePermissions>
 		<changePermissions>
 			<files>${installdir}/*.app/Contents/MacOS/*</files>
 			<permissions>0755</permissions>
