@@ -49,11 +49,16 @@
 		return ye+"-"+mo+"-"+da;
 	}
 
-	var getTileUrl = function( year, month, geometry){
+	var getTileUrl = function( year, month, date, geometry){
 
 		var startDay = new Date();
-		startDay.setFullYear(year, month, 1);
-		var lastDay = new Date(startDay.getFullYear(), startDay.getMonth() + 1, 0);
+		startDay.setFullYear(year, month, date?date:1);
+		var lastDay;
+		if( date ){
+			lastDay = new Date(startDay.getFullYear(), startDay.getMonth(), startDay.getDate() + 1);
+		}else{
+			lastDay = new Date(startDay.getFullYear(), startDay.getMonth() + 1, 0);
+		}
 
 		return $.ajax({
 					type : "POST",
@@ -96,7 +101,7 @@
 	var lastMonthSelected  =  prevMonth.getMonth();
 	var lastYearSelected  = prevMonth.getYear() + 1900;
 
-	var monthsAvailable;
+	var datesAvailable;
 
   </script>
 	<script>
@@ -132,8 +137,8 @@
 					map.removeLayer( planetLeftLayer);
 					map.removeLayer( planetRightLayer);
 
-					loadSingleSide( $scope.left.getFullYear(), $scope.left.getMonth() , false);
-					loadSingleSide( $scope.right.getFullYear(), $scope.right.getMonth() , true);
+					loadSingleSide( $scope.left.getFullYear(), $scope.left.getMonth() , $scope.left.getDate() ,false);
+					loadSingleSide( $scope.right.getFullYear(), $scope.right.getMonth() , $scope.right.getDate() ,true);
 				}else{
 					sideBySide = loadSideBySide(
 						$scope.left.getFullYear(), $scope.left.getMonth(),
@@ -152,7 +157,7 @@
 							binding: 'applicant.expectedGraduation',
 							startView: 'month',
 							label: 'Basemap Month',
-							mode: 'month',
+							mode: 'date',
 							locale: monthFormat,
 							startDate : new Date( firstYear, firstMonth, 1),
 							endDate : new Date( lastYear, lastMonth, 1),
@@ -160,16 +165,17 @@
 			];
 
 			$scope.filterMonth = function( date ){
+				console.log( "TRUE" + date  );
+				return true;
+			}
+
+			$scope.filterDate = function( date ){
+				var day = date.getDate();
 				var month = date.getMonth() +1;
 				var year = date.getFullYear();
 		    	var key = year + "" + ( month<10?"0"+month:month );
-				return monthsAvailable[ key ] !== undefined;
-			}
-
-
-			$scope.filterMonth = function( date ){
-				console.log( "TRUE" + date  );
-				return true;
+				key = key + ( day<10?"0"+day:day );
+				return datesAvailable === undefined || datesAvailable[ key ] !== undefined; // return true if the datesAvailable variable has not been initialized
 			}
 
 
@@ -189,12 +195,12 @@
 									geometry : JSON.stringify( geometry )
 							},
 							success : function( data ) {
-									monthsAvailable = data;
+									datesAvailable = data;
 									$scope.filterMonth = function( date ){
 										var month = date.getMonth() +1;
 										var year = date.getFullYear();
 										var key = year + "" + ( month<10?"0"+month:month );
-										return monthsAvailable[ key ] !== undefined;
+										return( datesAvailable[ key ] !== undefined );
 									}
 							},
 							error : function(data, textStatus, xhr) {
@@ -383,13 +389,13 @@
 	var loadSideBySide = function( leftYear, leftMonth, rightYear, rightMonth){
 
 		planetLeftLayer = L.tileLayer(
-		    getTileUrl(leftYear, leftMonth, boundaries),
+		    getTileUrl(leftYear, leftMonth, null, boundaries),
 		{
 			attribution: 'Planet 2021',
 		}).addTo(map);
 
 		planetRightLayer = L.tileLayer(
-			getTileUrl(rightYear, rightMonth, boundaries),
+			getTileUrl(rightYear, rightMonth, null, boundaries),
 		{
 			attribution: 'Planet 2021',
 		}).addTo(map);
@@ -397,10 +403,10 @@
 		return L.control.sideBySide(planetLeftLayer, planetRightLayer).addTo(map);
 	}
 
-	var loadSingleSide = function( year, month, rightSide){
+	var loadSingleSide = function( year, month, date, rightSide){
 
 		var planetLayer = L.tileLayer(
-		    getTileUrl(year, month, boundaries),
+		    getTileUrl(year, month, date, boundaries),
 		{
 			attribution: 'Planet 2021',
 		}).addTo(map);

@@ -301,7 +301,7 @@ public class PlanetImagery {
 
 		Feature[] searchResults = getFeatures (start, end, coords, itemTypes);
 
-		Map<String, String> monthsAvailable = new HashMap<>();
+		Map<String, String> datesAvailable = new HashMap<>();
 
 		Calendar cal = Calendar.getInstance();
 		if( searchResults != null ) {
@@ -309,10 +309,12 @@ public class PlanetImagery {
 				cal.setTime( feature.getProperties().acquired );
 				int year = cal.get( Calendar.YEAR );
 				int month = cal.get( Calendar.MONTH ) + 1;
-				monthsAvailable.put( year+""+ ( month<10?"0"+month:month ), "true");
+				int day = cal.get( Calendar.DATE );
+				datesAvailable.put( year+""+ ( month<10?"0"+month:month ), "true"); // THe month, in order to know for whcioh moinths there are images
+				datesAvailable.put( year+""+ ( month<10?"0"+month:month )+ ( day<10?"0"+day:day ), "true");
 			}
 		}
-		return monthsAvailable;
+		return datesAvailable;
 	}
 
 	public String getLatestUrl(SimplePlacemarkObject placemarkObject) throws IOException {
