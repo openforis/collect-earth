@@ -72,7 +72,7 @@
 					},
 					success : function( data ) {
 						  	if( data === ""){
-						  		alert("No imagery for the dates selected " + getFormattedDate( startDay ) + "/" + getFormattedDate( lastDay ));
+						  		alert("No imagery for the dates selected : " + getFormattedDate( startDay ) + " / " + getFormattedDate( lastDay ));
 						  		return null;
 						  	}
 							return data;
@@ -132,13 +132,15 @@
 			}
 
 
-			function change() {
+			function change( rightSide ) {
 				if( sideBySide ){
-					map.removeLayer( planetLeftLayer);
-					map.removeLayer( planetRightLayer);
-
-					loadSingleSide( $scope.left.getFullYear(), $scope.left.getMonth() , $scope.left.getDate() ,false);
-					loadSingleSide( $scope.right.getFullYear(), $scope.right.getMonth() , $scope.right.getDate() ,true);
+					if( rightSide ){
+						map.removeLayer( planetRightLayer);
+						loadSingleSide( $scope.right.getFullYear(), $scope.right.getMonth() , $scope.right.getDate() ,true);
+					}else{
+						map.removeLayer( planetLeftLayer);
+						loadSingleSide( $scope.left.getFullYear(), $scope.left.getMonth() , $scope.left.getDate() ,false);
+					}
 				}else{
 					sideBySide = loadSideBySide(
 						$scope.left.getFullYear(), $scope.left.getMonth(),
@@ -307,11 +309,12 @@
                      md-date-locale="dateFields[0].locale"
                      md-mode="{{dateFields[0].mode}}"
                      md-open-on-focus="true"
-					 ng-change="change()"
+					 ng-change="change(false)"
 					 md-min-date="dateFields[0].startDate"
 					 md-max-date="dateFields[0].endDate"
 					 md-open-on-focus
 					 md-month-filter="filterMonth"
+					 md-date-filter="filterDate"
 					 >
         </md-datepicker>
 		</div>
@@ -331,11 +334,12 @@
                      md-date-locale="dateFields[0].locale"
                      md-mode="{{dateFields[0].mode}}"
                      md-open-on-focus="true"
-					 ng-change="change()"
+					 ng-change="change(true)"
 					 md-min-date="dateFields[0].startDate"
 					 md-max-date="dateFields[0].endDate"
 					 md-open-on-focus
 					 md-month-filter="filterMonth"
+					 md-date-filter="filterDate"
 					 >
         </md-datepicker>
 		</div>
