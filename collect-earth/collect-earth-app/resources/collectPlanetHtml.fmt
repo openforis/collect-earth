@@ -158,7 +158,7 @@
 							required: false,
 							binding: 'applicant.expectedGraduation',
 							startView: 'month',
-							label: 'Basemap Month',
+							label: 'Imagery Calendar',
 							mode: 'date',
 							locale: monthFormat,
 							startDate : new Date( firstYear, firstMonth, 1),
