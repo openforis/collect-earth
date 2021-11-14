@@ -49,6 +49,52 @@
                     </distributionFileList>
                 </folder>
 
+
+
+                <folder>
+		            <description>Resources Windows</description>
+		            <destination>${installdir}/resources</destination>
+		            <name>resourceswindows</name>
+		            <platforms>windows windows-x64</platforms>
+		            <distributionFileList>
+			         	<distributionDirectory  allowWildcards="1">
+			            	<origin>../../../collect-earth-app/resources/*</origin>
+			            </distributionDirectory>
+		            </distributionFileList>
+		        </folder>
+		        <folder>
+		            <description>Resources Linux 32</description>
+		            <destination>${installdir}/resources</destination>
+		            <name>resourceslinux32</name>
+		            <platforms>linux</platforms>
+		            <distributionFileList>
+			         	<distributionDirectory  allowWildcards="1">
+			            	<origin>../../../collect-earth-app/resources/*</origin>
+			            </distributionDirectory>
+		            </distributionFileList>
+		        </folder>
+		        <folder>
+		            <description>Resources Linux</description>
+		            <destination>${installdir}/resources</destination>
+		            <name>resourceslinux64</name>
+		            <platforms>linux-x64</platforms>
+		            <distributionFileList>
+			         	<distributionDirectory  allowWildcards="1">
+			            	<origin>../../../collect-earth-app/resources/*</origin>
+			            </distributionDirectory>
+		            </distributionFileList>
+		        </folder>
+		        <folder>
+		            <description>Resources Mac</description>
+		            <destination>${installdir}/resources</destination>
+		            <name>resourcesosx</name>
+		            <platforms>osx</platforms>
+		            <distributionFileList>
+			         	<distributionDirectory allowWildcards="1">
+			            	<origin>../../../collect-earth-app/resources/*</origin>
+			            </distributionDirectory>
+		            </distributionFileList>
+		        </folder>
             </folderList>
         </component>
     </componentList>
@@ -73,6 +119,65 @@
 			</setInstallerVariable>
 			</elseActionList>
 		</if>
+
+		<!-- Make sure that there are no chromedriver processes running so that the updater can replace the file -->
+		<kill>
+			<name>chromedriver.exe</name>
+			<abortOnError>0</abortOnError>
+			<showMessageOnError>0</showMessageOnError>
+			<ruleList>
+			  <platformTest type="windows" />
+			</ruleList>
+		</kill>
+
+		<kill>
+			<name>chromedriver</name>
+			<abortOnError>0</abortOnError>
+			<showMessageOnError>0</showMessageOnError>
+			<ruleList>
+			  <platformTest type="linux" />
+			</ruleList>
+		</kill>
+
+		<kill>
+			<name>chromedriver</name>
+			<abortOnError>0</abortOnError>
+			<showMessageOnError>0</showMessageOnError>
+			<ruleList>
+			  <platformTest type="osx" />
+			</ruleList>
+		</kill>
+
+		<!-- Make sure that there are no geckodriver processes running so that the updater can replace the file -->
+		<kill>
+			<name>geckodriver.exe</name>
+			<abortOnError>0</abortOnError>
+			<showMessageOnError>0</showMessageOnError>
+			<ruleList>
+			  <platformTest type="windows" />
+			</ruleList>
+		</kill>
+
+		<kill>
+			<name>geckodriver</name>
+			<abortOnError>0</abortOnError>
+			<showMessageOnError>0</showMessageOnError>
+			<ruleList>
+			  <platformTest type="osx" />
+			</ruleList>
+		</kill>
+
+		<kill>
+			<name>geckodriver</name>
+			<abortOnError>0</abortOnError>
+			<showMessageOnError>0</showMessageOnError>
+			<ruleList>
+			  <platformTest type="linux" />
+			</ruleList>
+		</kill>
+
+
+
     </initializationActionList>
     <postInstallationActionList>
 		<substitute>

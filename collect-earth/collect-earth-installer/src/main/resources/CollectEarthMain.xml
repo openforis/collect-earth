@@ -78,6 +78,50 @@
                 </shortcut>
             </shortcutList>
         </folder>
+		<folder>
+            <description>Resources Windows</description>
+            <destination>${installdir}/resources</destination>
+            <name>resourceswindows</name>
+            <platforms>windows windows-x64</platforms>
+            <distributionFileList>
+	         	<distributionDirectory  allowWildcards="1">
+	            	<origin>../../../collect-earth-app/resources/*</origin>
+	            </distributionDirectory>
+            </distributionFileList>
+        </folder>
+        <folder>
+            <description>Resources Linux 64</description>
+            <destination>${installdir}/resources</destination>
+            <name>resourceslinux64</name>
+            <platforms>linux-x64</platforms>
+            <distributionFileList>
+	         	<distributionDirectory  allowWildcards="1">
+	            	<origin>../../../collect-earth-app/resources/*</origin>
+	            </distributionDirectory>
+            </distributionFileList>
+        </folder>
+        <folder>
+            <description>Resources Linux 32</description>
+            <destination>${installdir}/resources</destination>
+            <name>resourceslinux32</name>
+            <platforms>linux</platforms>
+            <distributionFileList>
+	         	<distributionDirectory  allowWildcards="1">
+	            	<origin>../../../collect-earth-app/resources/*</origin>
+	            </distributionDirectory>
+            </distributionFileList>
+        </folder>
+        <folder>
+            <description>Resources Mac</description>
+            <destination>${installdir}/resources</destination>
+            <name>resourcesosx</name>
+            <platforms>osx</platforms>
+            <distributionFileList>
+	         	<distributionDirectory allowWildcards="1">
+	            	<origin>../../../collect-earth-app/resources/*</origin>
+	            </distributionDirectory>
+            </distributionFileList>
+        </folder>
         <folder>
             <description>Program Files</description>
             <destination>${installdir}</destination>
@@ -231,6 +275,11 @@
             </substitutionList>
         </substitute>
 
+        <changePermissions>
+            <files>${installdir}/${java_launcher_binary_name};${installdir}/*.log;${installdir}/*.properties;${installdir}/generated;${installdir}/*.db;${installdir}/*.dbSaiku</files>
+            <permissions>0777</permissions>
+        </changePermissions>
+        
 		<changePermissions>
 			<files>${installdir}/*.app/Contents/MacOS/*</files>
 			<permissions>0755</permissions>
@@ -240,7 +289,7 @@
                 </platformTest>
             </ruleList>
 		</changePermissions>
-
+		
         <createSymLink>
             <linkName>~/Desktop/Collect Earth.app</linkName>
             <target>${installdir}/${java_launcher_binary_name}</target>
