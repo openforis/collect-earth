@@ -7,6 +7,7 @@ import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.nio.charset.Charset;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -129,7 +130,7 @@ public final class FixMissingPlotsFileInfo {
 
 	private CSVReader getCsvReader(String csvFile) throws FileNotFoundException {
 		CSVReader reader;
-		final BufferedReader bufferedReader = new BufferedReader(new InputStreamReader(new FileInputStream(csvFile), Charset.forName("UTF-8"))); //$NON-NLS-1$
+		final BufferedReader bufferedReader = new BufferedReader(new InputStreamReader(new FileInputStream(csvFile), StandardCharsets.UTF_8 )); //$NON-NLS-1$
 		reader = new CSVReader(bufferedReader);
 		return reader;
 	}
