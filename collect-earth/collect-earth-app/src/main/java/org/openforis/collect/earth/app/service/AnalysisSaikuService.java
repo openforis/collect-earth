@@ -7,6 +7,7 @@ import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.nio.charset.Charset;
+import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.sql.ResultSet;
@@ -391,7 +392,7 @@ public class AnalysisSaikuService implements InitializingBean, DisposableBean{
 			messageDigest.reset();
 			String concatenation = earthSurveyService.getCollectSurvey().getUri()
 					+ earthSurveyService.getCollectSurvey().getName();
-			messageDigest.update(concatenation.getBytes(Charset.forName("UTF8")));
+			messageDigest.update(concatenation.getBytes( StandardCharsets.UTF_8 ) );
 			final byte[] resultByte = messageDigest.digest();
 			result = new String(Hex.encodeHex(resultByte));
 		} catch (NoSuchAlgorithmException e) {
@@ -690,7 +691,7 @@ public class AnalysisSaikuService implements InitializingBean, DisposableBean{
 	public static CSVReader getCsvReader(String csvFile) throws FileNotFoundException {
 		CSVReader reader;
 		final BufferedReader bufferedReader = new BufferedReader(
-				new InputStreamReader(new FileInputStream(csvFile), Charset.forName("UTF-8"))); //$NON-NLS-1$
+				new InputStreamReader(new FileInputStream(csvFile), StandardCharsets.UTF_8 ) ); //$NON-NLS-1$
 		reader = new CSVReader(bufferedReader);
 		return reader;
 	}

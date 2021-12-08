@@ -5,6 +5,7 @@ import static org.openforis.collect.earth.app.EarthConstants.PLACEMARK_ID_PARAME
 import java.io.IOException;
 import java.io.UnsupportedEncodingException;
 import java.net.URLDecoder;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
@@ -125,7 +126,7 @@ public class AbstractPlacemarkDataController extends JsonPocessorServlet {
 			}
 
 			//decode parameter name, it was previously encoded by the client
-			result.put(URLDecoder.decode(entry.getKey(), "UTF-8"), entry.getValue());
+			result.put(URLDecoder.decode(entry.getKey(), StandardCharsets.UTF_8.name()), entry.getValue());
 
 		}
 		replaceTestParameters(result);

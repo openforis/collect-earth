@@ -8,6 +8,7 @@ import java.io.IOException;
 import java.net.URISyntaxException;
 import java.net.URL;
 import java.nio.charset.Charset;
+import java.nio.charset.StandardCharsets;
 import java.util.NoSuchElementException;
 
 import org.apache.commons.io.FileUtils;
@@ -60,7 +61,7 @@ public class CodeEditorHandlerThread {
 
 			WebElement textArea = webDriverGee.findElement(By.className("ace_text-input"));
 
-			String contents = FileUtils.readFileToString(new File(fileWithScript.toURI()), Charset.forName("UTF-8"));
+			String contents = FileUtils.readFileToString(new File(fileWithScript.toURI()), StandardCharsets.UTF_8 );
 
 			if (SystemUtils.IS_OS_MAC || SystemUtils.IS_OS_MAC_OSX) {
 				sendThroughKeys(textArea, contents);

@@ -8,6 +8,7 @@ import java.io.FileOutputStream;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.io.InputStreamReader;
+import java.io.OutputStreamWriter;
 import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
@@ -243,7 +244,7 @@ public class ProduceCsvFiles {
 	public void writeStringsToCsv( String fileName, List<String[]> rows) throws IOException {
 		File fileOutput = new File( outputFolder, fileName + ".csv" );
 		try(
-				CSVWriter writer = new CSVWriter( new FileWriter( fileOutput  ) );
+				CSVWriter writer = new CSVWriter( new OutputStreamWriter( new FileOutputStream( fileOutput ), StandardCharsets.UTF_8 ) );
 		){
 			if( getHeaders() != null ){
 				writer.writeNext(getHeaders());

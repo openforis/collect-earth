@@ -6,6 +6,7 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.OutputStreamWriter;
 import java.nio.charset.Charset;
+import java.nio.charset.StandardCharsets;
 import java.util.Map;
 import java.util.Random;
 
@@ -30,7 +31,7 @@ public class FreemarkerTemplateUtils {
 		boolean success = false;
 
 		// Console output
-		try ( BufferedWriter fw = new BufferedWriter(new OutputStreamWriter(new FileOutputStream(destinationFile), Charset.forName("UTF-8"))) ) {
+		try ( BufferedWriter fw = new BufferedWriter(new OutputStreamWriter(new FileOutputStream(destinationFile), StandardCharsets.UTF_8 ) ) ) {
 
 			// Process the template file using the data in the "data" Map
 			final Configuration cfg = new Configuration( new Version("2.3.23"));

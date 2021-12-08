@@ -8,6 +8,7 @@ import java.io.UnsupportedEncodingException;
 import java.io.Writer;
 import java.net.URLEncoder;
 import java.nio.charset.Charset;
+import java.nio.charset.StandardCharsets;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
@@ -159,7 +160,7 @@ public class PlacemarkUpdateServlet {
 
 	private String getUpdateFromDate(final SimpleDateFormat dateFormat) throws UnsupportedEncodingException {
 		Date twoMinutesAgo = getTwoMinutesAgo();
-		return URLEncoder.encode(dateFormat.format(twoMinutesAgo), "UTF-8" ); //$NON-NLS-1$
+		return URLEncoder.encode(dateFormat.format(twoMinutesAgo), StandardCharsets.UTF_8.name() ); //$NON-NLS-1$
 	}
 
 	public Date getTwoMinutesAgo() {
@@ -172,8 +173,8 @@ public class PlacemarkUpdateServlet {
 		response.setHeader("Content-Type", "application/vnd.google-earth.kml+xml"); //$NON-NLS-1$ //$NON-NLS-2$
 		response.setHeader("Cache-Control", "max-age=30"); //$NON-NLS-1$ //$NON-NLS-2$
 		response.setHeader("Date", dateFormat.format(new Date())); //$NON-NLS-1$
-		response.setHeader("Content-Length", Integer.toString( kmlCode.getBytes(Charset.forName("UTF-8")).length ) ); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$
-		response.getOutputStream().write(kmlCode.getBytes(Charset.forName("UTF-8"))); //$NON-NLS-1$
+		response.setHeader("Content-Length", Integer.toString( kmlCode.getBytes( StandardCharsets.UTF_8 ).length ) ); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$
+		response.getOutputStream().write(kmlCode.getBytes( StandardCharsets.UTF_8 )); //$NON-NLS-1$
 		response.getOutputStream().flush();
 		response.getOutputStream().close();
 	}

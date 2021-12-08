@@ -14,6 +14,7 @@ import java.net.Socket;
 import java.net.URL;
 import java.net.URLConnection;
 import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
 import java.util.Observer;
 
 import javax.swing.ImageIcon;
@@ -204,7 +205,7 @@ public class EarthApp {
 
 			URL loadProjectFileInRunningCE = new URL(hostAddress + LoadProjectFileServlet.SERVLET_NAME +
 					"?" + LoadProjectFileServlet.PROJECT_FILE_PARAMETER + "=" + //$NON-NLS-1$ //$NON-NLS-2$
-					URLEncoder.encode(doubleClickedProjecFile, "UTF-8") );
+					URLEncoder.encode(doubleClickedProjecFile, StandardCharsets.UTF_8.name() ) );
 			URLConnection urlConn = loadProjectFileInRunningCE.openConnection();
 
 			try( BufferedReader in = new BufferedReader(new InputStreamReader(urlConn.getInputStream())) ){

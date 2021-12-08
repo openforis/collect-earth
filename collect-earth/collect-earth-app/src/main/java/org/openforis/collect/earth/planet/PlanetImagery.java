@@ -6,6 +6,7 @@ import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.net.HttpURLConnection;
 import java.net.URL;
+import java.nio.charset.StandardCharsets;
 import java.security.Security;
 import java.time.LocalDateTime;
 import java.util.Arrays;
@@ -111,7 +112,7 @@ public class PlanetImagery {
 			byte[] postDataBytes = null;
 			if (jsonObject != null) {
 				String jsonInputString = gson.toJson(jsonObject);
-				postDataBytes = jsonInputString.getBytes("UTF-8");
+				postDataBytes = jsonInputString.getBytes( StandardCharsets.UTF_8.name());
 				logger.info(jsonInputString);
 			}
 
