@@ -35,6 +35,8 @@ public class RegionCalculationUtils implements InitializingBean{
 	private static final String SHRUBS_PER_EXP_FACTOR = "shrubs_per_expansion_factor"; //$NON-NLS-1$
 	private final Logger logger = LoggerFactory.getLogger(RegionCalculationUtils.class);
 	private static final String NO_DATA_LAND_USE = "noData"; //$NON-NLS-1$
+	private static final String MANY_TREES = "many_trees";
+	private static final String MANY_SHRUBS = "many_shrubs";
 
 	@Autowired
 	EarthSurveyService earthSurveyService;
@@ -120,7 +122,9 @@ public class RegionCalculationUtils implements InitializingBean{
 						Object[] parameters = new String[]{region,plotFile};
 
 						Integer plots_per_region = jdbcTemplate.queryForObject(
-								"SELECT count( DISTINCT "+EarthConstants.PLOT_ID+") FROM " + schemaName  + "plot  WHERE ( region=? OR plot_file=? ) AND land_use_category != '"+NO_DATA_LAND_USE+"' ", parameters,Integer.class); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$ //$NON-NLS-4$
+								"SELECT count( DISTINCT "+EarthConstants.PLOT_ID+") FROM " + schemaName  + "plot  WHERE ( region=? OR plot_file=? ) AND land_use_category != '"+NO_DATA_LAND_USE+"' ",
+								Integer.class,
+								parameters); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$ //$NON-NLS-4$
 
 						Float expansionFactorHectaresCalc = 0f;
 						if( plots_per_region.intValue() != 0 ){
@@ -168,10 +172,14 @@ public class RegionCalculationUtils implements InitializingBean{
 	private void handleNumberOfShrubs() {
 		String schemaName = schemaService.getSchemaPrefix();
 		// This is specific to the Global Forest Survey - Drylands monitoring assessment
-		if( AnalysisSaikuService.surveyContains(SHRUB_COUNT, earthSurveyService.getCollectSurvey() ) ){
+		if(
+			AnalysisSaikuService.surveyContains(SHRUB_COUNT, earthSurveyService.getCollectSurvey() )
+				&&
+			AnalysisSaikuService.surveyContains(MANY_SHRUBS, earthSurveyService.getCollectSurvey() )
+		){
 			// First set the number of shrubs to 30 if the user assessed that there were more than 30 shrubs on the plot
 			// This way we get a conservative estimation
-			jdbcTemplate.update("UPDATE " + schemaName + "plot SET "+SHRUB_COUNT+"=30 WHERE many_shrubs='1'"); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$ //$NON-NLS-4$
+			jdbcTemplate.update("UPDATE " + schemaName + "plot SET "+SHRUB_COUNT+"=30 WHERE  " + MANY_SHRUBS + "='1'"); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$ //$NON-NLS-4$
 			jdbcTemplate.execute("ALTER TABLE " + schemaName + "plot ADD " + SHRUBS_PER_EXP_FACTOR + " FLOAT"); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$
 			jdbcTemplate.update("UPDATE " + schemaName + "plot SET "+SHRUBS_PER_EXP_FACTOR+"="+EXPANSION_FACTOR+"*2*"  + SHRUB_COUNT); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$ //$NON-NLS-4$
 		}
@@ -180,10 +188,14 @@ public class RegionCalculationUtils implements InitializingBean{
 	private void handleNumberOfTrees() {
 		String schemaName = schemaService.getSchemaPrefix();
 		// This is specific to the Global Forest Survey - Drylands monitoring assessment
-		if( AnalysisSaikuService.surveyContains(TREE_COUNT, earthSurveyService.getCollectSurvey() ) ){
+		if(
+			AnalysisSaikuService.surveyContains(TREE_COUNT, earthSurveyService.getCollectSurvey() )
+				&&
+			AnalysisSaikuService.surveyContains(MANY_TREES, earthSurveyService.getCollectSurvey() )
+		){
 			// First set the number of shrubs to 30 if the user assessed that there were more than 30 shrubs on the plot
 			// This way we get a conservative estimation
-			jdbcTemplate.update("UPDATE " + schemaName + "plot SET "+TREE_COUNT+"=30 WHERE many_trees='1'"); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$ //$NON-NLS-4$
+			jdbcTemplate.update("UPDATE " + schemaName + "plot SET "+TREE_COUNT+"=30 WHERE " + MANY_TREES + "='1'"); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$ //$NON-NLS-4$
 			jdbcTemplate.execute("ALTER TABLE " + schemaName + "plot ADD " + TREES_PER_EXP_FACTOR + " FLOAT"); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$
 			jdbcTemplate.update("UPDATE " + schemaName + "plot SET "+TREES_PER_EXP_FACTOR+"="+EXPANSION_FACTOR+"*2*"  + TREE_COUNT); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$ //$NON-NLS-4$
 		}
@@ -257,7 +269,7 @@ public class RegionCalculationUtils implements InitializingBean{
 
 						List<Object> attributeValues = extractAttributeValues(csvLine, attributeNames);
 
-						Integer plotCountPerAttributes = jdbcTemplate.queryForObject(plotCountSelectQuery, attributeValues.toArray(), Integer.class); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$ //$NON-NLS-4$
+						Integer plotCountPerAttributes = jdbcTemplate.queryForObject(plotCountSelectQuery,  Integer.class, attributeValues.toArray()); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$ //$NON-NLS-4$
 
 						// Calculate the expansion factor: simply the division of the area for the selected attributes by the amount of plots that match the attribute values
 						Float expansionFactorHectaresCalc = 0f;
