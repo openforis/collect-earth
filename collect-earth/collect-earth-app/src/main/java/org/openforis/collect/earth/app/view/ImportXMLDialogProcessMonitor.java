@@ -3,6 +3,7 @@ package org.openforis.collect.earth.app.view;
 import java.awt.Toolkit;
 import java.io.File;
 import java.io.IOException;
+import java.nio.file.Files;
 import java.util.List;
 import java.util.Observable;
 import java.util.Observer;
@@ -21,8 +22,6 @@ import org.openforis.collect.io.data.DataImportSummaryItem;
 import org.openforis.collect.io.data.XMLDataImportProcess;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
-import com.google.common.io.Files;
 
 import net.lingala.zip4j.ZipFile;
 import net.lingala.zip4j.exception.ZipException;
@@ -82,9 +81,7 @@ public class ImportXMLDialogProcessMonitor implements Observer{
 
 		try {
 
-			SwingUtilities.invokeLater(new Thread("Importing files from " + importedFile.getAbsolutePath()) {
-				@Override
-				public void run() {
+			SwingUtilities.invokeLater( () -> {
 
 					progressMonitor = new InfiniteProgressMonitor(parentFrame, Messages.getString("ImportDialogProcessMonitor.8") + "(" //$NON-NLS-1$ //$NON-NLS-2$
 							+ importedFile.getName() + ")", Messages.getString("ImportDialogProcessMonitor.11") + Messages.getString("ImportDialogProcessMonitor.0")); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$
@@ -98,7 +95,7 @@ public class ImportXMLDialogProcessMonitor implements Observer{
 
 					}
 				}
-			});
+			);
 
 			File definitiveFileToImport = importedFile;
 			// If the file is exported from Collect rather than a XML export from Collect Earth
@@ -114,14 +111,17 @@ public class ImportXMLDialogProcessMonitor implements Observer{
 
 				final List<DataImportSummaryItem> conflictingRecords = importProcess.getSummary().getConflictingRecords();
 
-				if ( conflictingRecords != null && conflictingRecords.size() > 0) {
-
-					if (!shouldAddConflictingRecords(conflictingRecords, definitiveFileToImport.getName())) {
-						conflictingRecords.clear();
-					}
+				if (
+						conflictingRecords != null
+						&&
+						!conflictingRecords.isEmpty()
+						&&
+						!shouldAddConflictingRecords(conflictingRecords, definitiveFileToImport.getName())
+				) {
+					conflictingRecords.clear();
 				}
 				final int totalRecords = ( conflictingRecords==null?0:conflictingRecords.size() ) + importProcess.getSummary().getRecordsToImport().size();
-				SwingUtilities.invokeLater( () -> 
+				SwingUtilities.invokeLater( () ->
 				progressMonitor.setMessage( Messages.getString("ImportDialogProcessMonitor.11") + totalRecords ) //$NON-NLS-1$
 						);
 
@@ -150,9 +150,8 @@ public class ImportXMLDialogProcessMonitor implements Observer{
 		// the XML files will be under the data
 		File dst = null;
 		File tempFolder = null;
-		try {
-			ZipFile src = new ZipFile( zipWithXml );
-			tempFolder = Files.createTempDir();
+		try (ZipFile src = new ZipFile( zipWithXml )){
+			tempFolder = Files.createTempDirectory("tempCE").toFile();
 			src.extractAll( tempFolder.getAbsolutePath() );
 
 
@@ -162,11 +161,11 @@ public class ImportXMLDialogProcessMonitor implements Observer{
 			String surveyDefinitonName = "idml.xml";
 			File definition = new File(tempFolder, surveyDefinitonName);
 
-			ZipFile transformedCollectData = CollectEarthUtils.addFileToZip(dst.getAbsolutePath() , definition , surveyDefinitonName);
-
-			addStepToZip(tempFolder, transformedCollectData, "1");
-			addStepToZip(tempFolder, transformedCollectData, "2");
-			addStepToZip(tempFolder, transformedCollectData, "3");
+			try( ZipFile transformedCollectData = CollectEarthUtils.addFileToZip(dst.getAbsolutePath() , definition , surveyDefinitonName) ){
+				addStepToZip(tempFolder, transformedCollectData, "1");
+				addStepToZip(tempFolder, transformedCollectData, "2");
+				addStepToZip(tempFolder, transformedCollectData, "3");
+			}
 		} finally {
 			FileUtils.deleteQuietly(tempFolder);
 		}
