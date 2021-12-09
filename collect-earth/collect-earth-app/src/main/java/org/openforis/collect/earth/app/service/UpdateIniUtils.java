@@ -174,6 +174,8 @@ public class UpdateIniUtils {
 			Document parse = factory.newDocumentBuilder().parse(new URL(urlXmlUpdate).openStream());
 
 			onlineVersion = parse.getElementsByTagName(tagname).item(0).getChildNodes().item(0).getNodeValue();
+
+			logger.info("CE Online Version available {}" , onlineVersion);
 		} catch (Exception e) {
 			logger.warn("Error while reading the remote XML where the updater version is defined", e); //$NON-NLS-1$
 		}
