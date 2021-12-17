@@ -1093,12 +1093,13 @@ public class PropertiesDialog extends JDialog {
 				.equals(EarthConstants.EDGE_BROWSER));
 		edgeChooser.setName(EarthConstants.EDGE_BROWSER);
 
+		/* Safari is being very troublesome, disable this option until further notice
 		final JRadioButton safariChooser = new JRadioButton("Safari"); //$NON-NLS-1$
 		safariChooser.setSelected(localPropertiesService.getValue(EarthProperty.BROWSER_TO_USE).trim()
 				.equals(EarthConstants.SAFARI_BROWSER));
 		safariChooser.setName(EarthConstants.SAFARI_BROWSER);
-		propertyToComponent.put(EarthProperty.BROWSER_TO_USE, new JComponent[] { firefoxChooser, chromeChooser,  edgeChooser, safariChooser});
-
+		 */
+		propertyToComponent.put(EarthProperty.BROWSER_TO_USE, new JComponent[] { firefoxChooser, chromeChooser,  edgeChooser});
 		final JFilePicker saikuPath = new JFilePicker(Messages.getString("OptionWizard.65"), //$NON-NLS-1$
 				localPropertiesService.getValue(EarthProperty.SAIKU_SERVER_FOLDER),
 				Messages.getString("OptionWizard.66"), DlgMode.MODE_OPEN); //$NON-NLS-1$
