@@ -283,7 +283,7 @@ public class EarthProjectsService {
 	private File unzipContentsOnProjectFolder(File projectZipFile) throws IOException {
 		String projectFolderName = "" ;
 		// There was an error in the first versions of Collect Earth that limited the folder names to 20 characters
-		// Newer version support u to 255 but we need to take in consideration backwards compatibility!
+		// Newer version support up to 255 but we need to take in consideration backwards compatibility!
 		if ( oldFormatFolderExists( projectZipFile ) ){
 			// If there was already a project with the older format of the name then use that!
 			projectFolderName = getProjectFolderName( projectZipFile , OLD_MAX_FOLDER_LENGTH );
@@ -302,18 +302,22 @@ public class EarthProjectsService {
 	}
 
 	private String getProjectFolderName(File projectZipFile, int maxLenghtFolderName) throws IOException {
-		ZipFile zipFile = new ZipFile(projectZipFile);
-		File definitionFolder = new File(EarthConstants.GENERATED_FOLDER);
-		zipFile.extractFile( PROJECT_PROPERTIES_FILE_NAME, definitionFolder.getAbsolutePath() );
-		String projectName =  getProjectSurveyName(new File( definitionFolder + File.separator + PROJECT_PROPERTIES_FILE_NAME) );
-
-		projectName = StringUtils.remove(projectName, " "); //$NON-NLS-1$
-
-		if( projectName.length() > maxLenghtFolderName ){
-			projectName = projectName.substring(0, maxLenghtFolderName);
+		try( ZipFile zipFile = new ZipFile(projectZipFile) ){
+			File definitionFolder = new File(EarthConstants.GENERATED_FOLDER);
+			zipFile.extractFile( PROJECT_PROPERTIES_FILE_NAME, definitionFolder.getAbsolutePath() );
+			String projectName =  getProjectSurveyName(new File( definitionFolder + File.separator + PROJECT_PROPERTIES_FILE_NAME) );
+	
+			projectName = StringUtils.remove(projectName, " "); //$NON-NLS-1$
+	
+			if( projectName.length() > maxLenghtFolderName ){
+				projectName = projectName.substring(0, maxLenghtFolderName);
+			}
+	
+			return projectName;
+		}catch(Exception e ) {
+			logger.error("Error opening project folder", projectZipFile.getAbsolutePath() );
+			return null;
 		}
-
-		return projectName;
 
 	}
 
@@ -324,8 +328,11 @@ public class EarthProjectsService {
 	private File unzipContents(File projectZipFile, String projectName) throws ZipException {
 		File projectFolder = new File( getProjectsFolder() + File.separator  + projectName );
 		if( projectFolder.exists() || projectFolder.mkdirs() ){
-			ZipFile zipFile = new ZipFile(projectZipFile);
-			zipFile.extractAll( projectFolder.getAbsolutePath() );
+			try( ZipFile zipFile = new ZipFile(projectZipFile) ){
+				zipFile.extractAll( projectFolder.getAbsolutePath() );
+			}catch(Exception e) {
+				logger.error("Error unzipping contents " + projectZipFile.getAbsolutePath(), e);
+			}
 		}
 		return projectFolder;
 	}
