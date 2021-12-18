@@ -35,10 +35,8 @@ import org.slf4j.LoggerFactory;
 
 public class FileDividerToolDlg extends JDialog{
 
-	private static final long serialVersionUID = 2241706750062961024L;
-	private static final int MAX_FILES = 500;
 	private CollectSurvey survey;
-	private transient Logger logger = LoggerFactory.getLogger( FileDividerToolDlg.class); 
+	private transient Logger logger = LoggerFactory.getLogger( SaikuToolGenerationDlg.class);
 	private JComboBox<Integer> numberOfFiles ;
 	private JCheckBox randomSelector;
 	private JComboBox<CsvColumn> csvColumns;
@@ -207,7 +205,7 @@ public class FileDividerToolDlg extends JDialog{
 	private JCheckBox getRandomSelector() {
 		if( randomSelector == null ){
 			randomSelector = new JCheckBox("Randomize the order of the lines from the source CSV file" , false);
-			randomSelector.setEnabled( false); 
+			randomSelector.setEnabled( false);
 		}
 		return randomSelector;
 	}
@@ -229,7 +227,7 @@ public class FileDividerToolDlg extends JDialog{
 			filePicker = new JFilePicker("Choose the CSV file with the sampling design (plots)", null, "Explore", DlgMode.MODE_OPEN);
 
 			filePicker.getFileChooser().setAcceptAllFileFilterUsed(false);
-			filePicker.addFileTypeFilter("csv", " CSV file with plot (sampling design)", true);		
+			filePicker.addFileTypeFilter("csv", " CSV file with plot (sampling design)", true);
 
 			filePicker.addChangeListener( new DocumentListener() {
 
@@ -258,13 +256,13 @@ public class FileDividerToolDlg extends JDialog{
 							CSVFileValidationResult validationResults = cetg.validate(csvFile, survey, validationParameters );
 
 							validFile = validationResults.isSuccessful();
-							if( 
-									!validFile 
+							if(
+									!validFile
 									// If the message is that there are too many rows then we ignore the validation!
-									&& ( 
-											validationResults.getErrorType().equals( ErrorType.INVALID_NUMBER_OF_PLOTS_TOO_LARGE) 
-											|| 
-											validationResults.getErrorType().equals( ErrorType.INVALID_NUMBER_OF_PLOTS_WARNING) 
+									&& (
+											validationResults.getErrorType().equals( ErrorType.INVALID_NUMBER_OF_PLOTS_TOO_LARGE)
+											||
+											validationResults.getErrorType().equals( ErrorType.INVALID_NUMBER_OF_PLOTS_WARNING)
 											)
 									){
 								validFile = true;
