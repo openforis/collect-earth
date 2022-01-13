@@ -20,7 +20,6 @@
 		<!-- installer file names -->
 		<windows-installer-file-name>CollectEarth-${project.version}-windows-installer.exe</windows-installer-file-name>
 		<linux-x64-installer-file-name>CollectEarth-${project.version}-linux-x64-installer.run</linux-x64-installer-file-name>
-
 		<osx-installer-file-name>CollectEarth-${project.version}-osx-installer.dmg</osx-installer-file-name>
 		<!-- autoupdater file names -->
 		<windows-autoupdater-file-name>CollectEarthUpdater-${project.version}-windows-installer.exe</windows-autoupdater-file-name>
