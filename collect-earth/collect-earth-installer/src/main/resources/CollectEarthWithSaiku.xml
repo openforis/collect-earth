@@ -4,10 +4,8 @@
 	<version>PROJECT_VERSION</version>
 	<installerFilename>${product_shortname}-${product_version}-${platform_name}-installer.${platform_exec_suffix}
 	</installerFilename>
-	<readmeFile>COLLECT_EARTH_MAIN_FOLDER/collect-earth-app/README.txt
-	</readmeFile>
-	<licenseFile>COLLECT_EARTH_MAIN_FOLDER/collect-earth-app/License.txt
-	</licenseFile>
+	<readmeFile>COLLECT_EARTH_MAIN_FOLDER/collect-earth-app/README.txt</readmeFile>
+	<licenseFile>COLLECT_EARTH_MAIN_FOLDER/collect-earth-app/License.txt</licenseFile>
 	<leftImage>installer_left_panel.png</leftImage>
 	<logoImage>installer_logo.png</logoImage>
 	<splashImage>installer_splash.png</splashImage>
@@ -45,8 +43,7 @@
 					<platforms>all</platforms>
 					<distributionFileList>
 						<distributionFile>
-							<origin>COLLECT_EARTH_MAIN_FOLDER/collect-earth-app/saiku-server_2.6.zip
-							</origin>
+							<origin>COLLECT_EARTH_MAIN_FOLDER/collect-earth-app/saiku-server_2.6.zip</origin>
 						</distributionFile>
 					</distributionFileList>
 				</folder>
@@ -103,8 +100,7 @@
 				</runProgram>
 				<runProgram>
 					<program>chmod</program>
-					<programArguments>-R ugo+rwX "${installdir}/saiku-server_2.6"
-					</programArguments>
+					<programArguments>-R ugo+rwX "${installdir}/saiku-server_2.6"</programArguments>
 					<ruleList>
 						<platformTest>
 							<negate>1</negate>
