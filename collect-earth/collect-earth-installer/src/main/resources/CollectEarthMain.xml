@@ -235,9 +235,10 @@
             <width>40</width>
         </directoryParameter>
     </parameterList>
+    <!--
+    Change installer icon on OS X, during build time
+    REMOVED Because it causes the installer not to match the signature of the installer and Monterey complains
     <postBuildActionList>
-        <!-- Change installer icon on OS X, during build time -->
-
         <copyFile>
             <destination>${installbuilder_output_filename}/Contents/Resources/installbuilder.icns</destination>
             <origin>COLLECT_EARTH_MAIN_FOLDER/collect-earth-installer/src/main/resources/installer_icon.icns</origin>
@@ -246,6 +247,7 @@
    			</ruleList>
         </copyFile>
     </postBuildActionList>
+    -->
     <preInstallationActionList>
         <deleteFile>
         	<path>${installdir}/java</path>
@@ -279,7 +281,7 @@
             <files>${installdir}/${java_launcher_binary_name};${installdir}/*.log;${installdir}/*.properties;${installdir}/generated;${installdir}/*.db;${installdir}/*.dbSaiku</files>
             <permissions>0777</permissions>
         </changePermissions>
-        
+
 		<changePermissions>
 			<files>${installdir}/*.app/Contents/MacOS/*</files>
 			<permissions>0755</permissions>
@@ -289,7 +291,7 @@
                 </platformTest>
             </ruleList>
 		</changePermissions>
-		
+
         <createSymLink>
             <linkName>~/Desktop/Collect Earth.app</linkName>
             <target>${installdir}/${java_launcher_binary_name}</target>
@@ -315,12 +317,18 @@
                 </command>
             </commandList>
         </associateWindowsFileExtension>
+
+        <!--
+        Launch Collect Earth when double-clicking in cep files (Mac OS X)
+
+        THIS BLOCK IS REMOVED as we suspect that it creates issues in some Mac computers
+        instead the user gets a message when starting Collect Earth informing that he must open the CEP file by using FILE -> Open File
+
         <runProgram>
-        	<!--  Launch Collect Earth when double-clicking in cep files (Mac OS X) -->
         	<abortOnError>0</abortOnError>
             <program>defaults</program>
-           <!-- The CDATA notation allow escaping a
-            block of XML characters -->
+           </!-- The CDATA notation allow escaping a
+            block of XML characters --/>
            <programArguments>write com.apple.LaunchServices LSHandlers -array-add <![CDATA["<dict><key>LSHandlerContentTag</key>
 <string>cep</string><key>LSHandlerContentTagClass</key>
 <string>public.filename-extension</string><key>LSHandlerRoleAll</key>
@@ -332,6 +340,8 @@
                 </platformTest>
             </ruleList>
         </runProgram>
+
+        -->
         <!-- Restart the launch services to reload the configuration (Mac OS X)-->
         <runProgram>
         	<abortOnError>0</abortOnError>
