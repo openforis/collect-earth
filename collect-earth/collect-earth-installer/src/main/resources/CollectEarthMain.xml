@@ -318,30 +318,7 @@
             </commandList>
         </associateWindowsFileExtension>
 
-        <!--
-        Launch Collect Earth when double-clicking in cep files (Mac OS X)
 
-        THIS BLOCK IS REMOVED as we suspect that it creates issues in some Mac computers
-        instead the user gets a message when starting Collect Earth informing that he must open the CEP file by using FILE -> Open File
-
-        <runProgram>
-        	<abortOnError>0</abortOnError>
-            <program>defaults</program>
-           </!-- The CDATA notation allow escaping a
-            block of XML characters --/>
-           <programArguments>write com.apple.LaunchServices LSHandlers -array-add <![CDATA["<dict><key>LSHandlerContentTag</key>
-<string>cep</string><key>LSHandlerContentTagClass</key>
-<string>public.filename-extension</string><key>LSHandlerRoleAll</key>
-<string>vnd.openforis.collectearth</string></dict>"
-           ]]></programArguments>
-           <ruleList>
-                <platformTest>
-                    <type>osx</type>
-                </platformTest>
-            </ruleList>
-        </runProgram>
-
-        -->
         <!-- Restart the launch services to reload the configuration (Mac OS X)-->
         <runProgram>
         	<abortOnError>0</abortOnError>
