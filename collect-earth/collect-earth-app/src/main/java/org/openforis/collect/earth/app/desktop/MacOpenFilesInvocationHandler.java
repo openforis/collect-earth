@@ -29,9 +29,6 @@ public class MacOpenFilesInvocationHandler implements java.lang.reflect.Invocati
 
     {
 
-    	JOptionPane.showMessageDialog(null, " M ehtoer " +  m + " args " + args);
-
-
         Object result = null;
 
         try {

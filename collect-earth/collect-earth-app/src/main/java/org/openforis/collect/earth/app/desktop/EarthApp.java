@@ -456,12 +456,35 @@ public class EarthApp {
 		serverController = new ServerController();
 		serverController.deleteObservers();
 		serverController.startServer(observeInitialization);
+
+		// Inform Mac OS users of the issues about opening CEP files in the Mac version of CE
+		if(SystemUtils.IS_OS_MAC_OSX ) {
+			showMessage(
+					"<html>" //$NON-NLS-1$
+					+ "<b>" //$NON-NLS-1$
+					+ Messages.getString("EarthApp.70")
+					+ "</b>: "  //$NON-NLS-1$
+					+ Messages.getString("EarthApp.71")
+					+ Messages.getString("EarthApp.72")
+					+ "<b>" //$NON-NLS-1$
+					+ Messages.getString("CollectEarthWindow.10")
+					+ " -> " //$NON-NLS-1$
+					+ Messages.getString("CollectEarthMenu.0")
+					+ "</b></html>", //$NON-NLS-1$
+					Messages.getString("EarthApp.73")
+			);
+		}
 	}
 
 	public static void showMessage(String message) {
+		showMessage(message, "Collect Earth");
+
+	}
+
+	public static void showMessage(String message, String title) {
 		try {
 			SwingUtilities.invokeLater(
-					() -> JOptionPane.showMessageDialog(null, message, "Collect Earth", JOptionPane.WARNING_MESSAGE)
+					() -> JOptionPane.showMessageDialog(null, message, title, JOptionPane.WARNING_MESSAGE)
 			);
 		} catch (Exception e) {
 			logger.error("Error showing message",e);
