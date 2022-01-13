@@ -4,6 +4,19 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.14.6] - 2022-01-13
+
+### Changed
+- Update to latest Log4J ( so far no risk has been detected of Log4Shell but just a precaution)
+- Fix for Mac OS X Monterey installer.
+
+
+## [1.14.5] - 2021-12-18
+
+### Removed
+- Safari not supported anymore due to persistent issues with maintenance.
+
+
 ## [1.14.4] - 2021-12-9
 
 ### Added
