@@ -81,7 +81,6 @@
 						folder -->
 					<abortOnError>0</abortOnError>
 					<program>defaults</program>
-					<!-- The CDATA notation allow escaping a block of XML characters -->
 					<programArguments>write
 						vnd.openforis.collectearth LSEnvironment <![CDATA["<dict><key>COLLECT_EARTH_JRE_HOME</key><string>${installdir}/java</string></dict>"]]></programArguments>
 					<ruleList>
