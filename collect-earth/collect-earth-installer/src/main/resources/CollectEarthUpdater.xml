@@ -6,7 +6,7 @@
     <logoImage>installer_logo.png</logoImage>
     <splashImage>installer_splash.png</splashImage>
     <createOsxBundleZip>1</createOsxBundleZip>
-    <osxPlatforms>osx-intel osx-x86_64</osxPlatforms>
+    <osxPlatforms>osx-intel osx-x86_64 osx-arm64</osxPlatforms>
     <requireInstallationByRootUser>0</requireInstallationByRootUser>
     <requestedExecutionLevel>asInvoker</requestedExecutionLevel>
     <componentList>
@@ -195,7 +195,6 @@
         </showInfo>
     </postInstallationActionList>
     <compressionAlgorithm>lzma-ultra</compressionAlgorithm>
-  	<lzmaUltraBlockSize>40</lzmaUltraBlockSize>
     <defaultUnixDirectoryPermissions>777</defaultUnixDirectoryPermissions>
     <defaultUnixFilePermissions>777</defaultUnixFilePermissions>
     <enableRollback>0</enableRollback>
