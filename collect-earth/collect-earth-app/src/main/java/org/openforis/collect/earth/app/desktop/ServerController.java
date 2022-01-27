@@ -249,10 +249,9 @@ public class ServerController extends Observable {
 		}
 
 		// Force the local properties to be loaded before the browserservice is instantiated!! DO NOT REMOVE
-		LocalPropertiesService localPropertiesService = getContext().getBean(LocalPropertiesService.class);
+		getContext().getBean(LocalPropertiesService.class);
 		this.addObserver(getContext().getBean(BrowserService.class));
-		//Force the initialization of backup service
-		//getContext().getBean( BackupSqlLiteService.class);
+
 	}
 
 	public void stopServer() throws Exception {

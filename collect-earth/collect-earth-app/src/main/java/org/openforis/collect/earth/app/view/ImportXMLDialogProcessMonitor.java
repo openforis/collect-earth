@@ -4,6 +4,8 @@ import java.awt.Toolkit;
 import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
+import java.security.NoSuchAlgorithmException;
+import java.security.SecureRandom;
 import java.util.List;
 import java.util.Observable;
 import java.util.Observer;
@@ -30,6 +32,7 @@ public class ImportXMLDialogProcessMonitor implements Observer{
 
 	private static final Logger logger = LoggerFactory.getLogger(ImportXMLDialogProcessMonitor.class);
 	private InfiniteProgressMonitor progressMonitor;
+
 
 	public void closeProgressmonitor() {
 
@@ -83,19 +86,19 @@ public class ImportXMLDialogProcessMonitor implements Observer{
 
 			SwingUtilities.invokeLater( () -> {
 
-					progressMonitor = new InfiniteProgressMonitor(parentFrame, Messages.getString("ImportDialogProcessMonitor.8") + "(" //$NON-NLS-1$ //$NON-NLS-2$
-							+ importedFile.getName() + ")", Messages.getString("ImportDialogProcessMonitor.11") + Messages.getString("ImportDialogProcessMonitor.0")); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$
-					progressMonitor.showLater();
+				progressMonitor = new InfiniteProgressMonitor(parentFrame, Messages.getString("ImportDialogProcessMonitor.8") + "(" //$NON-NLS-1$ //$NON-NLS-2$
+						+ importedFile.getName() + ")", Messages.getString("ImportDialogProcessMonitor.11") + Messages.getString("ImportDialogProcessMonitor.0")); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$
+				progressMonitor.showLater();
 
-					if (progressMonitor != null && progressMonitor.isUserCancelled()) {
+				if (progressMonitor != null && progressMonitor.isUserCancelled()) {
 
-						Toolkit.getDefaultToolkit().beep();
-						importProcess.cancel();
-						logger.warn("Import Task canceled.\n"); //$NON-NLS-1$
+					Toolkit.getDefaultToolkit().beep();
+					importProcess.cancel();
+					logger.warn("Import Task canceled.\n"); //$NON-NLS-1$
 
-					}
 				}
-			);
+			}
+					);
 
 			File definitiveFileToImport = importedFile;
 			// If the file is exported from Collect rather than a XML export from Collect Earth
@@ -117,7 +120,7 @@ public class ImportXMLDialogProcessMonitor implements Observer{
 						!conflictingRecords.isEmpty()
 						&&
 						!shouldAddConflictingRecords(conflictingRecords, definitiveFileToImport.getName())
-				) {
+						) {
 					conflictingRecords.clear();
 				}
 				final int totalRecords = ( conflictingRecords==null?0:conflictingRecords.size() ) + importProcess.getSummary().getRecordsToImport().size();
@@ -142,34 +145,39 @@ public class ImportXMLDialogProcessMonitor implements Observer{
 
 	private File transformCollectDataFile(File zipWithXml) throws ZipException, IOException {
 
-
-		// Originally the collect-data file will look like this:
-		// root: idml.xml
-		// root : data (folder)
-		// root : data/1 (folder)
-		// the XML files will be under the data
+		Random random;
 		File dst = null;
-		File tempFolder = null;
-		try (ZipFile src = new ZipFile( zipWithXml )){
-			tempFolder = Files.createTempDirectory("tempCE").toFile();
-			src.extractAll( tempFolder.getAbsolutePath() );
+		try {
+			random = SecureRandom.getInstanceStrong();
+
+			// Originally the collect-data file will look like this:
+			// root: idml.xml
+			// root : data (folder)
+			// root : data/1 (folder)
+			// the XML files will be under the data
+			File tempFolder = null;
+			try (ZipFile src = new ZipFile( zipWithXml )){
+				tempFolder = Files.createTempDirectory("tempCE").toFile();
+				src.extractAll( tempFolder.getAbsolutePath() );
 
 
-			dst = new File( tempFolder.getParentFile(), "transform" + (new Random()).nextInt() + ".zip");
-			dst.deleteOnExit();
+				dst = new File( tempFolder.getParentFile(), "transform" + random.nextInt() + ".zip");
+				dst.deleteOnExit();
 
-			String surveyDefinitonName = "idml.xml";
-			File definition = new File(tempFolder, surveyDefinitonName);
+				String surveyDefinitonName = "idml.xml";
+				File definition = new File(tempFolder, surveyDefinitonName);
 
-			try( ZipFile transformedCollectData = CollectEarthUtils.addFileToZip(dst.getAbsolutePath() , definition , surveyDefinitonName) ){
-				addStepToZip(tempFolder, transformedCollectData, "1");
-				addStepToZip(tempFolder, transformedCollectData, "2");
-				addStepToZip(tempFolder, transformedCollectData, "3");
+				try( ZipFile transformedCollectData = CollectEarthUtils.addFileToZip(dst.getAbsolutePath() , definition , surveyDefinitonName) ){
+					addStepToZip(tempFolder, transformedCollectData, "1");
+					addStepToZip(tempFolder, transformedCollectData, "2");
+					addStepToZip(tempFolder, transformedCollectData, "3");
+				}
+			} finally {
+				FileUtils.deleteQuietly(tempFolder);
 			}
-		} finally {
-			FileUtils.deleteQuietly(tempFolder);
+		} catch (Exception e) {
+			logger.error( "Error importing data", e);
 		}
-
 		return dst;
 	}
 

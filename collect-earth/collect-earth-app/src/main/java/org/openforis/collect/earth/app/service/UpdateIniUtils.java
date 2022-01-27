@@ -186,8 +186,8 @@ public class UpdateIniUtils {
 	public static String getValueFromUpdateIni(String key, String pathToUpdateIni) {
 		Properties properties = new Properties();
 		String value = "unknown"; //$NON-NLS-1$
-		try {
-			properties.load( new FileInputStream(pathToUpdateIni));
+		try (FileInputStream fis = new FileInputStream(pathToUpdateIni) ){
+			properties.load( fis );
 			value = properties.getProperty(key);
 		} catch (FileNotFoundException e) {
 			logger.error("The update.ini file could not be found", e); //$NON-NLS-1$

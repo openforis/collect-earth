@@ -138,6 +138,9 @@ public class CollectEarthWindow implements InitializingBean, DisposableBean{
 
 						System.exit(0);
 					}
+				}catch (final InterruptedException e1) {
+					logger.error("Error when interupting thread", e1); //$NON-NLS-1$
+					Thread.currentThread().interrupt();
 				} catch (final Exception e1) {
 					logger.error("Error when trying to shutdown the server when window is closed", e1); //$NON-NLS-1$
 				}

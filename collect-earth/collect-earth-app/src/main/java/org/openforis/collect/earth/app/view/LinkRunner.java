@@ -29,9 +29,12 @@ class LinkRunner extends SwingWorker<Void, Void> {
     protected void done() {
         try {
             get();
-        } catch (ExecutionException|InterruptedException ee) {
+        } catch (ExecutionException ee) {
             handleException();
-        }
+        } catch (InterruptedException e) {
+        	handleException();
+        	Thread.currentThread().interrupt();
+		}
     }
 
     private static void handleException() {

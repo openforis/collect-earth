@@ -63,6 +63,22 @@ import net.lingala.zip4j.ZipFile;
 @Component
 public class AnalysisSaikuService implements DisposableBean{
 
+	private static final String PLOT_ADD = "plot ADD ";
+
+	private static final String UPDATE = "UPDATE ";
+
+	private static final String UNKNOWN = "Unknown";
+
+	private static final String VARCHAR_5 = " VARCHAR(5)";
+
+	private static final String INTEGER = " INTEGER";
+
+	private static final String ALTER_TABLE = "ALTER TABLE ";
+
+	private static final String INSERT_INTO = "INSERT INTO ";
+
+	private static final String CREATE_TABLE = "CREATE TABLE ";
+
 	private static final String ALU_CLIMATE_ZONE_CODE = "alu_climate_zone_code"; //$NON-NLS-1$
 
 	private static final String ALU_SOIL_TYPE_CODE = "alu_soil_type_code"; //$NON-NLS-1$
@@ -162,7 +178,7 @@ public class AnalysisSaikuService implements DisposableBean{
 
 					});
 
-			getJdbcTemplate().batchUpdate("UPDATE " + schemaName + "plot SET " + ASPECT_ID + "=?," + SLOPE_ID + "=?," //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$ //$NON-NLS-4$
+			getJdbcTemplate().batchUpdate(UPDATE + schemaName + "plot SET " + ASPECT_ID + "=?," + SLOPE_ID + "=?," //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$ //$NON-NLS-4$
 					+ ELEVATION_ID + "=? WHERE " + EarthConstants.PLOT_ID + "=?", sqlUpdateValues); //$NON-NLS-1$ //$NON-NLS-2$
 		} catch (Exception e) {
 			logger.warn("No DEM information", e); //$NON-NLS-1$
@@ -196,7 +212,7 @@ public class AnalysisSaikuService implements DisposableBean{
 									String precipitationRange = rs.getString("precipitation_ranges"); //$NON-NLS-1$
 
 									int precipitation = -1;
-									String climateZone = "Unknown"; //$NON-NLS-1$
+									String climateZone = UNKNOWN; //$NON-NLS-1$
 									if (precipitationRange != null) {
 										precipitation = aluToolUtils.getPrecipitationFromRange(precipitationRange);
 										boolean shortDrySeason = true; // According to information from Abe PNG has less
@@ -205,7 +221,7 @@ public class AnalysisSaikuService implements DisposableBean{
 												shortDrySeason);
 									}
 
-									String soilType = "Unknown"; //$NON-NLS-1$
+									String soilType = UNKNOWN; //$NON-NLS-1$
 									if (soilFundamental != null) {
 										soilType = aluToolUtils.getSoilType(soilFundamental);
 									}
@@ -215,16 +231,16 @@ public class AnalysisSaikuService implements DisposableBean{
 									updateValues[2] = rs.getLong(EarthConstants.PLOT_ID);
 								} catch (Exception e) {
 									logger.error("Error while processing the data", e); //$NON-NLS-1$
-									updateValues[0] = "Unknown"; //$NON-NLS-1$
-									updateValues[1] = "Unknown"; //$NON-NLS-1$
-									updateValues[2] = "Unknown"; //$NON-NLS-1$
+									updateValues[0] = UNKNOWN; //$NON-NLS-1$
+									updateValues[1] = UNKNOWN; //$NON-NLS-1$
+									updateValues[2] = UNKNOWN; //$NON-NLS-1$
 								}
 								return updateValues;
 							}
 
 						});
 
-				getJdbcTemplate().batchUpdate("UPDATE " + schemaName + "plot SET " + ALU_CLIMATE_ZONE_CODE + "=?," //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$
+				getJdbcTemplate().batchUpdate(UPDATE + schemaName + "plot SET " + ALU_CLIMATE_ZONE_CODE + "=?," //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$
 						+ ALU_SOIL_TYPE_CODE + "=? WHERE " + EarthConstants.PLOT_ID + "=?", sqlUpdateValues); //$NON-NLS-1$ //$NON-NLS-2$
 			}
 		} catch (Exception e) {
@@ -247,7 +263,7 @@ public class AnalysisSaikuService implements DisposableBean{
 
 							String collectEarthSubcategory = rs.getString("land_use_subcategory"); //$NON-NLS-1$
 							Integer dynamics = DynamicsCode.getDynamicsCode(collectEarthSubcategory);
-							String subClass = "Unknown"; //$NON-NLS-1$
+							String subClass = UNKNOWN; //$NON-NLS-1$
 							if (collectEarthSubcategory != null) {
 								subClass = aluToolUtils.getAluSubclass(collectEarthSubcategory);
 							}
@@ -260,7 +276,7 @@ public class AnalysisSaikuService implements DisposableBean{
 
 					});
 
-			getJdbcTemplate().batchUpdate("UPDATE " + schemaName + "plot SET " + DYNAMICS_ID + "=?," + ALU_SUBCLASS_CODE //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$
+			getJdbcTemplate().batchUpdate(UPDATE + schemaName + "plot SET " + DYNAMICS_ID + "=?," + ALU_SUBCLASS_CODE //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$
 					+ "=? WHERE " + EarthConstants.PLOT_ID + "=?", sqlUpdateValues); //$NON-NLS-1$
 		} catch (Exception e) {
 			logger.warn("No PNG Alu information available", e); //$NON-NLS-1$
@@ -305,7 +321,9 @@ public class AnalysisSaikuService implements DisposableBean{
 					getJdbcTemplate().execute("DROP VIEW IF EXISTS " + viewName); //$NON-NLS-1$
 				}
 				try {
-					getJdbcTemplate().getDataSource().getConnection().close();
+					if( getJdbcTemplate().getDataSource() != null ){
+						getJdbcTemplate().getDataSource().getConnection().close();
+					}
 				} catch (CannotGetJdbcConnectionException | SQLException e2) {
 					logger.error("Error closing the DB collection", e2);
 				}
@@ -324,6 +342,7 @@ public class AnalysisSaikuService implements DisposableBean{
 					Thread.sleep(10000);
 				} catch (InterruptedException e) {
 					logger.error("Error while giving pass to other processes", e);
+					 Thread.currentThread().interrupt();
 				}
 			}
 
@@ -334,23 +353,23 @@ public class AnalysisSaikuService implements DisposableBean{
 
 	private void createAspectAuxTable() {
 		final String schemaName = getSchemaPrefix();
-		getJdbcTemplate().execute("CREATE TABLE " + schemaName + "aspect_category (" + ASPECT_ID //$NON-NLS-1$ //$NON-NLS-2$
+		getJdbcTemplate().execute(CREATE_TABLE + schemaName + "aspect_category (" + ASPECT_ID //$NON-NLS-1$ //$NON-NLS-2$
 				+ " INTEGER PRIMARY KEY, aspect_caption TEXT);"); //$NON-NLS-1$
 		final AspectCode[] aspects = AspectCode.values();
 		for (final AspectCode aspectCode : aspects) {
-			getJdbcTemplate().execute("INSERT INTO " + schemaName + "aspect_category values (" + aspectCode.getId() + ", '" //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$
+			getJdbcTemplate().execute(INSERT_INTO + schemaName + "aspect_category values (" + aspectCode.getId() + ", '" //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$
 					+ aspectCode.getLabel() + "')"); //$NON-NLS-1$
 		}
 	}
 
 	private void createElevationtAuxTable() {
 		final String schemaName = getSchemaPrefix();
-		getJdbcTemplate().execute("CREATE TABLE " + schemaName + "elevation_category ( " + ELEVATION_ID //$NON-NLS-1$ //$NON-NLS-2$
+		getJdbcTemplate().execute(CREATE_TABLE + schemaName + "elevation_category ( " + ELEVATION_ID //$NON-NLS-1$ //$NON-NLS-2$
 				+ " INTEGER PRIMARY KEY, elevation_caption TEXT);"); //$NON-NLS-1$
-		final int slots = (int) Math.ceil(9000 / ELEVATION_RANGE); // Highest mountain in the world, mount everest is
+		final int slots = 9000 / ELEVATION_RANGE; // Highest mountain in the world, mount everest is
 																	// 8820m high
 		for (int i = 1; i <= slots; i++) {
-			getJdbcTemplate().execute("INSERT INTO " + schemaName + "elevation_category values (" + i + ", '" //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$
+			getJdbcTemplate().execute(INSERT_INTO + schemaName + "elevation_category values (" + i + ", '" //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$
 					+ ((i - 1) * ELEVATION_RANGE) + "-" + i //$NON-NLS-1$
 							* ELEVATION_RANGE
 					+ "')"); //$NON-NLS-1$
@@ -360,11 +379,11 @@ public class AnalysisSaikuService implements DisposableBean{
 
 	private void createDynamicsAuxTable() {
 		final String schemaName = getSchemaPrefix();
-		getJdbcTemplate().execute("CREATE TABLE " + schemaName + "dynamics_category (" + DYNAMICS_ID //$NON-NLS-1$ //$NON-NLS-2$
+		getJdbcTemplate().execute(CREATE_TABLE + schemaName + "dynamics_category (" + DYNAMICS_ID //$NON-NLS-1$ //$NON-NLS-2$
 				+ " INTEGER PRIMARY KEY, dynamics_caption TEXT);"); //$NON-NLS-1$
 		final DynamicsCode[] dynamicsCodes = DynamicsCode.values();
 		for (final DynamicsCode dynamicsCode : dynamicsCodes) {
-			getJdbcTemplate().execute("INSERT INTO " + schemaName + "dynamics_category values (" + dynamicsCode.getId() //$NON-NLS-1$ //$NON-NLS-2$
+			getJdbcTemplate().execute(INSERT_INTO + schemaName + "dynamics_category values (" + dynamicsCode.getId() //$NON-NLS-1$ //$NON-NLS-2$
 					+ ", '" + dynamicsCode.getLabel() + "')"); //$NON-NLS-1$ //$NON-NLS-2$
 		}
 	}
@@ -372,33 +391,33 @@ public class AnalysisSaikuService implements DisposableBean{
 	private void createPlotForeignKeys() {
 		// Add aspect_id column to plot
 		final String schemaName = getSchemaPrefix();
-		getJdbcTemplate().execute("ALTER TABLE " + schemaName + "plot ADD " + ASPECT_ID + " INTEGER"); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$
-		getJdbcTemplate().execute("ALTER TABLE " + schemaName + "plot ADD " + SLOPE_ID + " INTEGER"); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$
-		getJdbcTemplate().execute("ALTER TABLE " + schemaName + "plot ADD " + ELEVATION_ID + " INTEGER"); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$
-		getJdbcTemplate().execute("ALTER TABLE " + schemaName + "plot ADD " + DYNAMICS_ID + " INTEGER"); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$
+		getJdbcTemplate().execute(ALTER_TABLE + schemaName + PLOT_ADD + ASPECT_ID + INTEGER); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$
+		getJdbcTemplate().execute(ALTER_TABLE + schemaName + PLOT_ADD + SLOPE_ID + INTEGER); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$
+		getJdbcTemplate().execute(ALTER_TABLE + schemaName + PLOT_ADD + ELEVATION_ID + INTEGER); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$
+		getJdbcTemplate().execute(ALTER_TABLE + schemaName + PLOT_ADD + DYNAMICS_ID + INTEGER); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$
 	}
 
 	private void createPngAluVariables() {
 		if (earthSurveyService.getCollectSurvey().getName().toLowerCase().contains("png")) { //$NON-NLS-1$
 			final String schemaName = getSchemaPrefix();
-			getJdbcTemplate().execute("ALTER TABLE " + schemaName + "plot ADD " + ALU_SOIL_TYPE_CODE + " VARCHAR(5)"); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$
-			getJdbcTemplate().execute("ALTER TABLE " + schemaName + "plot ADD " + ALU_CLIMATE_ZONE_CODE + " VARCHAR(5)"); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$
+			getJdbcTemplate().execute(ALTER_TABLE + schemaName + PLOT_ADD + ALU_SOIL_TYPE_CODE + VARCHAR_5); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$
+			getJdbcTemplate().execute(ALTER_TABLE + schemaName + PLOT_ADD + ALU_CLIMATE_ZONE_CODE + VARCHAR_5); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$
 		}
 	}
 
 	private void creatAluSubclassVariables() {
 		final String schemaName = getSchemaPrefix();
-		getJdbcTemplate().execute("ALTER TABLE " + schemaName + "plot ADD " + ALU_SUBCLASS_CODE + " VARCHAR(5)"); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$
+		getJdbcTemplate().execute(ALTER_TABLE + schemaName + PLOT_ADD + ALU_SUBCLASS_CODE + VARCHAR_5); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$
 	}
 
 	private void createSlopeAuxTable() {
 		final String schemaName = getSchemaPrefix();
 		// Slope can be from 0 to 90
 		getJdbcTemplate().execute(
-				"CREATE TABLE " + schemaName + "slope_category (slope_id INTEGER PRIMARY KEY, slope_caption TEXT);"); //$NON-NLS-1$ //$NON-NLS-2$
+				CREATE_TABLE + schemaName + "slope_category (slope_id INTEGER PRIMARY KEY, slope_caption TEXT);"); //$NON-NLS-1$ //$NON-NLS-2$
 		final SlopeCode[] slopeCodes = SlopeCode.values();
 		for (final SlopeCode slopeCode : slopeCodes) {
-			getJdbcTemplate().execute("INSERT INTO " + schemaName + "slope_category values (" + slopeCode.getId() + ", '" //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$
+			getJdbcTemplate().execute(INSERT_INTO + schemaName + "slope_category values (" + slopeCode.getId() + ", '" //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$
 					+ slopeCode.getLabel() + "')"); //$NON-NLS-1$
 		}
 	}
@@ -436,7 +455,7 @@ public class AnalysisSaikuService implements DisposableBean{
 		boolean saikuDBAlreadyPresent = false;
 		if (localPropertiesService.isUsingSqliteDB()) {
 			File rdbFile = getZippedSaikuProjectDB();
-			saikuDBAlreadyPresent = rdbFile != null && rdbFile.exists();
+			saikuDBAlreadyPresent = rdbFile.exists();
 		} else {
 			// Here we should check if the "rdbcollectearth" schema is created in the
 			// PostgreSQL database
@@ -806,8 +825,11 @@ public class AnalysisSaikuService implements DisposableBean{
 					Thread.sleep(6000);
 				}
 
-			} catch (final IOException| InterruptedException e) {
+			} catch (final IOException e) {
 				logger.error("Error when running Saiku start/stop command", e); //$NON-NLS-1$
+			} catch (InterruptedException e) {
+				logger.error("Error while waiting to start", e); //$NON-NLS-1$
+				Thread.currentThread().interrupt();
 			}
 		}
 	}

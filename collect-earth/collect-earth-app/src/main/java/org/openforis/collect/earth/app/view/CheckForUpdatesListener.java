@@ -19,13 +19,13 @@ public class CheckForUpdatesListener implements ActionListener {
 		// Start the auto_updater
 		try {
 			String autoUpdateExecutable = getAutoUpdateExecutable();
-			
+
 			File autoupdateFile = new File( autoUpdateExecutable);
-			
+
 			if( !autoupdateFile.exists() ){
 				autoupdateFile = new File( "autoupdate/"+autoUpdateExecutable); //$NON-NLS-1$
 			}
-			
+
 			if( !autoupdateFile.exists() ){
 				logger.error("No "+ autoUpdateExecutable + " found "); //$NON-NLS-1$ //$NON-NLS-2$
 				return;
@@ -33,18 +33,18 @@ public class CheckForUpdatesListener implements ActionListener {
 			if( SystemUtils.IS_OS_LINUX ){
 				try {
 					final ProcessBuilder builder = new ProcessBuilder(new String[] { autoupdateFile.getAbsolutePath() });
-					
+
 					builder.redirectErrorStream(true);
 					Process p = builder.start();
-			
+
 					(new ProcessLoggerThread(p.getInputStream(), Boolean.FALSE)).start();
 					(new ProcessLoggerThread(p.getErrorStream(), Boolean.TRUE)).start();
-			
+
 				} catch (final IOException e2) {
 					logger.error("Error when starting the Autoupdate executable", e2); //$NON-NLS-1$
 				}
 			}else{
-				
+
 				CollectEarthUtils.openFile( autoupdateFile );
 			}
 		} catch (Exception e1) {
@@ -55,8 +55,8 @@ public class CheckForUpdatesListener implements ActionListener {
 	private String getAutoUpdateExecutable() {
 		String autoUpdateExecutable = "autoupdate" ;  //$NON-NLS-1$
 		try {
-			
-			
+
+
 			if (SystemUtils.IS_OS_WINDOWS){
 				autoUpdateExecutable += ".exe"; //$NON-NLS-1$
 			}else if (SystemUtils.IS_OS_MAC){
@@ -68,7 +68,7 @@ public class CheckForUpdatesListener implements ActionListener {
 			}
 
 		} catch (Exception e) {
-			e.printStackTrace(); // ATTENTION do not use a logger here!
+			logger.error("Error in Autoupdate executable", e); //$NON-NLS-1$
 		}
 		return autoUpdateExecutable;
 	}

@@ -25,6 +25,12 @@ import com.opencsv.CSVReader;
 @Component
 public class RegionCalculationUtils implements InitializingBean{
 
+	private static final String PLOT_SET = "plot SET ";
+	private static final String UPDATE = "UPDATE ";
+	private static final String PLOT_ADD = "plot ADD ";
+	private static final String FLOAT = " FLOAT";
+	private static final String ALTER_TABLE = "ALTER TABLE ";
+	private static final String ALTER_TABLE2 = ALTER_TABLE;
 	private static final String SHRUB_COUNT = "shrub_count";
 	private static final String TREE_COUNT = "tree_count";
 	private static final String REGION_AREAS_CSV = "region_areas.csv"; //$NON-NLS-1$
@@ -93,8 +99,8 @@ public class RegionCalculationUtils implements InitializingBean{
 
 	private void createWeightFactors(){
 		final String schemaName = schemaService.getSchemaPrefix();
-		jdbcTemplate.execute("ALTER TABLE " + schemaName + "plot ADD " + EXPANSION_FACTOR + " FLOAT"); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$
-		jdbcTemplate.execute("ALTER TABLE " + schemaName + "plot ADD " + PLOT_WEIGHT + " FLOAT"); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$
+		jdbcTemplate.execute(ALTER_TABLE2 + schemaName + PLOT_ADD + EXPANSION_FACTOR + FLOAT); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$
+		jdbcTemplate.execute(ALTER_TABLE2 + schemaName + PLOT_ADD + PLOT_WEIGHT + FLOAT); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$
 	}
 
 	/**
@@ -121,14 +127,14 @@ public class RegionCalculationUtils implements InitializingBean{
 
 						Object[] parameters = new String[]{region,plotFile};
 
-						Integer plots_per_region = jdbcTemplate.queryForObject(
+						Integer plotsInRegion = jdbcTemplate.queryForObject(
 								"SELECT count( DISTINCT "+EarthConstants.PLOT_ID+") FROM " + schemaName  + "plot  WHERE ( region=? OR plot_file=? ) AND land_use_category != '"+NO_DATA_LAND_USE+"' ",
 								Integer.class,
 								parameters); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$ //$NON-NLS-4$
 
 						Float expansionFactorHectaresCalc = 0f;
-						if( plots_per_region.intValue() != 0 ){
-							expansionFactorHectaresCalc = (float)areaHectares / (float) plots_per_region.intValue();
+						if( plotsInRegion.intValue() != 0 ){
+							expansionFactorHectaresCalc = (float)areaHectares / (float) plotsInRegion.intValue();
 						}
 
 						final Object[] updateValues = new Object[4];
@@ -136,7 +142,7 @@ public class RegionCalculationUtils implements InitializingBean{
 						updateValues[1] = plotWeight;
 						updateValues[2] = region;
 						updateValues[3] = plotFile;
-						jdbcTemplate.update("UPDATE " + schemaName + "plot SET "+EXPANSION_FACTOR+"=?, "+PLOT_WEIGHT+"=? WHERE region=? OR plot_file=?", updateValues); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$ //$NON-NLS-4$
+						jdbcTemplate.update(UPDATE + schemaName + PLOT_SET+EXPANSION_FACTOR+"=?, "+PLOT_WEIGHT+"=? WHERE region=? OR plot_file=?", updateValues); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$ //$NON-NLS-4$
 
 					} catch (NumberFormatException e) {
 						logger.error("Possibly the header", e); //$NON-NLS-1$
@@ -151,7 +157,7 @@ public class RegionCalculationUtils implements InitializingBean{
 				updateNoDataValues[1] = 0;
 				updateNoDataValues[2] = NO_DATA_LAND_USE;
 
-				jdbcTemplate.update("UPDATE " + schemaName + "plot SET "+EXPANSION_FACTOR+"=?, "+PLOT_WEIGHT+"=? WHERE land_use_category=?", updateNoDataValues); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$ //$NON-NLS-4$
+				jdbcTemplate.update(UPDATE + schemaName + PLOT_SET+EXPANSION_FACTOR+"=?, "+PLOT_WEIGHT+"=? WHERE land_use_category=?", updateNoDataValues); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$ //$NON-NLS-4$
 
 
 			} catch (FileNotFoundException e) {
@@ -179,9 +185,9 @@ public class RegionCalculationUtils implements InitializingBean{
 		){
 			// First set the number of shrubs to 30 if the user assessed that there were more than 30 shrubs on the plot
 			// This way we get a conservative estimation
-			jdbcTemplate.update("UPDATE " + schemaName + "plot SET "+SHRUB_COUNT+"=30 WHERE  " + MANY_SHRUBS + "='1'"); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$ //$NON-NLS-4$
-			jdbcTemplate.execute("ALTER TABLE " + schemaName + "plot ADD " + SHRUBS_PER_EXP_FACTOR + " FLOAT"); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$
-			jdbcTemplate.update("UPDATE " + schemaName + "plot SET "+SHRUBS_PER_EXP_FACTOR+"="+EXPANSION_FACTOR+"*2*"  + SHRUB_COUNT); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$ //$NON-NLS-4$
+			jdbcTemplate.update(UPDATE + schemaName + PLOT_SET+SHRUB_COUNT+"=30 WHERE  " + MANY_SHRUBS + "='1'"); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$ //$NON-NLS-4$
+			jdbcTemplate.execute(ALTER_TABLE2 + schemaName + PLOT_ADD + SHRUBS_PER_EXP_FACTOR + FLOAT); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$
+			jdbcTemplate.update(UPDATE + schemaName + PLOT_SET+SHRUBS_PER_EXP_FACTOR+"="+EXPANSION_FACTOR+"*2*"  + SHRUB_COUNT); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$ //$NON-NLS-4$
 		}
 	}
 
@@ -195,9 +201,9 @@ public class RegionCalculationUtils implements InitializingBean{
 		){
 			// First set the number of shrubs to 30 if the user assessed that there were more than 30 shrubs on the plot
 			// This way we get a conservative estimation
-			jdbcTemplate.update("UPDATE " + schemaName + "plot SET "+TREE_COUNT+"=30 WHERE " + MANY_TREES + "='1'"); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$ //$NON-NLS-4$
-			jdbcTemplate.execute("ALTER TABLE " + schemaName + "plot ADD " + TREES_PER_EXP_FACTOR + " FLOAT"); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$
-			jdbcTemplate.update("UPDATE " + schemaName + "plot SET "+TREES_PER_EXP_FACTOR+"="+EXPANSION_FACTOR+"*2*"  + TREE_COUNT); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$ //$NON-NLS-4$
+			jdbcTemplate.update(UPDATE + schemaName + PLOT_SET+TREE_COUNT+"=30 WHERE " + MANY_TREES + "='1'"); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$ //$NON-NLS-4$
+			jdbcTemplate.execute(ALTER_TABLE2 + schemaName + PLOT_ADD + TREES_PER_EXP_FACTOR + FLOAT); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$
+			jdbcTemplate.update(UPDATE + schemaName + PLOT_SET+TREES_PER_EXP_FACTOR+"="+EXPANSION_FACTOR+"*2*"  + TREE_COUNT); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$ //$NON-NLS-4$
 		}
 	}
 
@@ -255,7 +261,7 @@ public class RegionCalculationUtils implements InitializingBean{
 
 				// Build the update query
 				StringBuilder updateQuerySB = new StringBuilder();
-				updateQuerySB.append("UPDATE ").append(schemaName).append("plot SET ").append(EXPANSION_FACTOR).append("=?, ").append(PLOT_WEIGHT).append("=? WHERE ").append(attributeWhereConditions);
+				updateQuerySB.append(UPDATE).append(schemaName).append(PLOT_SET).append(EXPANSION_FACTOR).append("=?, ").append(PLOT_WEIGHT).append("=? WHERE ").append(attributeWhereConditions);
 
 				String updatePlotQuery = updateQuerySB.toString();
 
@@ -274,7 +280,7 @@ public class RegionCalculationUtils implements InitializingBean{
 						// Calculate the expansion factor: simply the division of the area for the selected attributes by the amount of plots that match the attribute values
 						Float expansionFactorHectaresCalc = 0f;
 						if( plotCountPerAttributes.intValue() != 0 ){
-							expansionFactorHectaresCalc = (float) areaHectares / (float) plotCountPerAttributes.intValue();
+							expansionFactorHectaresCalc = areaHectares / (float) plotCountPerAttributes.intValue();
 						}
 
 						// Add the expansion factor and plot_weight to the values that will be sent with the update

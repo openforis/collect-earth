@@ -408,13 +408,14 @@ public class LocalPropertiesService extends Observable {
 					// older versions
 					if (propertiesFileInitial.exists()) {
 						Properties initialProperties = new Properties();
-						initialProperties.load(new FileReader(propertiesFileInitial));
-
-						Enumeration<String> initialPropertyNames = (Enumeration<String>) initialProperties.propertyNames();
-						while (initialPropertyNames.hasMoreElements()) {
-							String nextElement = initialPropertyNames.nextElement();
-							if (properties.get(nextElement) == null) {
-								properties.put(nextElement, initialProperties.getProperty(nextElement));
+						try( FileReader frPropsFileInit = new FileReader(propertiesFileInitial) ){
+							initialProperties.load(frPropsFileInit);
+							Enumeration<String> initialPropertyNames = (Enumeration<String>) initialProperties.propertyNames();
+							while (initialPropertyNames.hasMoreElements()) {
+								String nextElement = initialPropertyNames.nextElement();
+								if (properties.get(nextElement) == null) {
+									properties.put(nextElement, initialProperties.getProperty(nextElement));
+								}
 							}
 						}
 					}
@@ -489,7 +490,7 @@ public class LocalPropertiesService extends Observable {
 		return supported;
 	}
 
-	public Boolean isSecureWatchSupported() {
+	public boolean isSecureWatchSupported() {
 		return isPropertyActivated(EarthProperty.OPEN_MAXAR_SECUREWATCH);
 	}
 

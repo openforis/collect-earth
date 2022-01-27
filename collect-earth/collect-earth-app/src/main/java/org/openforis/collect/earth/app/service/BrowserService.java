@@ -353,8 +353,7 @@ public class BrowserService implements InitializingBean, Observer {
 		return found;
 	}
 
-	private boolean loadPlotInDGMap(SimplePlacemarkObject placemarkObject, RemoteWebDriver driver)
-			throws InterruptedException {
+	private boolean loadPlotInDGMap(SimplePlacemarkObject placemarkObject, RemoteWebDriver driver) {
 
 		boolean success = true;
 		if (driver != null && waitFor("mainContent", driver) && driver instanceof JavascriptExecutor) {
@@ -377,7 +376,7 @@ public class BrowserService implements InitializingBean, Observer {
 	}
 
 	private boolean loadPlotInGEEExplorer(SimplePlacemarkObject placemarkObject, RemoteWebDriver driver)
-			throws InterruptedException, BrowserNotFoundException {
+			throws BrowserNotFoundException {
 
 		boolean success = true;
 
@@ -406,7 +405,12 @@ public class BrowserService implements InitializingBean, Observer {
 					processSeleniumError(e);
 				}
 
-				Thread.sleep(1000);
+				try {
+					Thread.sleep(1000);
+				} catch (InterruptedException e) {
+					logger.error("Error waiting for GEE to load",e);
+					Thread.currentThread().interrupt();
+				}
 				String eyeShowing = "span.indicator.visible";
 				String eyeLoading = "span.indicator.loading";
 
@@ -1132,6 +1136,7 @@ public class BrowserService implements InitializingBean, Observer {
 				Thread.sleep(1000);
 			} catch (final InterruptedException e) {
 				return false;
+
 			}
 			i++;
 			if (i > 30) {

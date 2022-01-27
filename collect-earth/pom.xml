@@ -24,6 +24,8 @@
 		<collect.version>4.0.39</collect.version>
 		<spring.version>5.3.14</spring.version>
 		<project.scm.id>github.com</project.scm.id>
+		<sonar.organization>openforis</sonar.organization>
+  		<sonar.host.url>https://sonarcloud.io</sonar.host.url>
 	</properties>
 
 	<distributionManagement>
@@ -72,7 +74,7 @@
 					<executions>
 						<execution>
 							<id>sign-artifacts</id>
-							<phase>verify</phase>
+							<phase>install</phase>
 							<goals>
 								<goal>sign</goal>
 							</goals>
@@ -145,7 +147,11 @@
 						</execution>
 					</executions>
 				</plugin>
-
+				<plugin>
+					<groupId>org.sonarsource.scanner.maven</groupId>
+			        <artifactId>sonar-maven-plugin</artifactId>
+			        <version>3.7.0.1746</version>
+				</plugin>
 			</plugins>
 		</pluginManagement>
 	</build>

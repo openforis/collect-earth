@@ -32,7 +32,7 @@ public class TimeAttributeHandler extends AbstractAttributeHandler<Time> {
 		try {
 			Calendar calendar = value.toCalendar();
 			Date javaDate = calendar.getTime();
-			return calendar == null ? null : TIME_ATTRIBUTE_FORMAT.format(javaDate);
+			return TIME_ATTRIBUTE_FORMAT.format(javaDate);
 		} catch(Exception e) {
 			return null;
 		}

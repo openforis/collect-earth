@@ -43,7 +43,6 @@ public class PlanetImagery {
 
 	private int retries = 0;
 
-	private static final int MAX_IMAGES_IN_LAYER = 5;
 	private static final int MAX_RETRIES = 6;
 
 	public PlanetImagery(String apiKey) {
@@ -147,7 +146,7 @@ public class PlanetImagery {
 			}
 
 			retries = 0; // reset the counter as it was a success
-			return response != null ? response.toString() : null;
+			return response.toString();
 		} catch (IOException e) {
 			if( e.getMessage()!=null && e.getMessage().contains("429") ) { // This happens when there are too many consecutive requests! Make the user wait a bit and try again!
 				try {

@@ -7,7 +7,7 @@ public class FeatureSorter implements Comparator<Feature>{
 	@Override
 	public int compare(Feature o1, Feature o2) {
 		if( o1.getProperties().getCloudPercent() !=null && o2.getProperties().getCloudPercent() != null  ) {
-			if( o1.getProperties().getCloudPercent() == o2.getProperties().getCloudPercent()) {
+			if( o1.getProperties().getCloudPercent().equals( o2.getProperties().getCloudPercent() ) ) {
 					if( o2.getProperties().getVisibleConfidencePercent() !=null &&  o1.getProperties().getVisibleConfidencePercent() != null ) {
 						return o2.getProperties().getVisibleConfidencePercent() - o1.getProperties().getVisibleConfidencePercent();
 					}else if( o2.getProperties().getVisibleConfidencePercent() !=null ) {

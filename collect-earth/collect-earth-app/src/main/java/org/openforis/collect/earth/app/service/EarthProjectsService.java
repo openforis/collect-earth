@@ -231,11 +231,14 @@ public class EarthProjectsService {
 	}
 
 	private Properties getProjectProperties(File definitionFile) throws IOException {
-
-		FileReader fr = new FileReader( definitionFile );
-		Properties properties = new Properties();
-		properties.load(fr);
-		return properties;
+		try( FileReader fr = new FileReader( definitionFile ) ){
+			Properties properties = new Properties();
+			properties.load(fr);
+			return properties;
+		}catch(IOException e ) {
+			logger.error("Impossible to open properties file ", e);
+			return null;
+		}
 	}
 
 	private void addToProjectList(File projectFolder) {
@@ -306,13 +309,13 @@ public class EarthProjectsService {
 			File definitionFolder = new File(EarthConstants.GENERATED_FOLDER);
 			zipFile.extractFile( PROJECT_PROPERTIES_FILE_NAME, definitionFolder.getAbsolutePath() );
 			String projectName =  getProjectSurveyName(new File( definitionFolder + File.separator + PROJECT_PROPERTIES_FILE_NAME) );
-	
+
 			projectName = StringUtils.remove(projectName, " "); //$NON-NLS-1$
-	
+
 			if( projectName.length() > maxLenghtFolderName ){
 				projectName = projectName.substring(0, maxLenghtFolderName);
 			}
-	
+
 			return projectName;
 		}catch(Exception e ) {
 			logger.error("Error opening project folder", projectZipFile.getAbsolutePath() );

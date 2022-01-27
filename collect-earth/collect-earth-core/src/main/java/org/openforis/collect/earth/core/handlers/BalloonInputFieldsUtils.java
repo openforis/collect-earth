@@ -87,10 +87,12 @@ public class BalloonInputFieldsUtils {
 				Entity currentEntity = ((EntityHandler) handler).getChildEntity(cleanName, rootEntity);
 				String childAttributeParameterName = ((EntityHandler) handler).extractNestedAttributeParameterName(parameterName);
 				AbstractAttributeHandler<?> childHandler = findHandler(childAttributeParameterName);
-				PlacemarkInputFieldInfo info = generateAttributeFieldInfo(
-						record, validationMessageByPath, currentEntity, childAttributeParameterName,
-						childHandler, language, modelVersionName);
-				result.put(parameterName, info);
+				if( childHandler != null ) {
+					PlacemarkInputFieldInfo info = generateAttributeFieldInfo(
+							record, validationMessageByPath, currentEntity, childAttributeParameterName,
+							childHandler, language, modelVersionName);
+					result.put(parameterName, info);
+				}
 			} else {
 				PlacemarkInputFieldInfo info = generateAttributeFieldInfo(
 						record, validationMessageByPath, rootEntity, cleanName,
@@ -394,16 +396,14 @@ public class BalloonInputFieldsUtils {
 		AbstractAttributeHandler<?> handler = findHandler(node);
 
 		if( handler == null ){
-			throw new IllegalArgumentException("No handler found for node " + ( node!=null?node.getName():"null node" ) );
+			throw new IllegalArgumentException("No handler found for node " + node.getName() );
 		}
 
 		// builds ie. "text_parameter"
 		String paramName = handler.getPrefix() + node.getName();
 
 		// Saves into "collect_text_parameter"
-		String collectParamName = COLLECT_PREFIX + paramName;
-
-		return collectParamName;
+		return COLLECT_PREFIX + paramName;
 	}
 
 	protected void getHTMLParameterName(Entity plotEntity, Map<String,String> valuesByHtmlParameterName,

@@ -5,8 +5,6 @@ import java.io.IOException;
 import java.lang.reflect.Method;
 import java.util.List;
 
-import javax.swing.JOptionPane;
-
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -33,36 +31,15 @@ public class MacOpenFilesInvocationHandler implements java.lang.reflect.Invocati
 
         try {
 
-            // Prints the method being invoked
-        	String message = "";
-
-            if( args!= null ){
-	            for(int i=0; i<args.length; i++){
-	                if(i>0)
-	                	message +=",";
-
-	                message += " " +  args[i].toString();
-
-	            }
-            }
-
-            message += " )";
-
-
          // if the method name equals some method's name then call your method
-
-         if ( m!= null && m.getName().equals("openFiles")) {
-        	 logger.error( message + m.getName() );
-
+         if ( m!= null && m.getName().equals("openFiles") && args !=null && args.length>0) {
         	 openFilesImplmentation(args[0]);
-
          }
 
       } catch (Exception e) {
     	  logger.error(" Error while interpreting invocation " , e );
-           throw new RuntimeException("unexpected invocation exception: " + e.getMessage());
      } finally {
-             logger.info("end method " + m.getName());
+             logger.info("end method {}", m!=null?m.getName():"Unknown method");
     }
 
    return result;

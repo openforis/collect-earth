@@ -10,14 +10,14 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 public class CoordinateUtils {
-	
+
 	private static GeodeticCalculator calc = new GeodeticCalculator(DefaultGeographicCRS.WGS84);
-	
+
 	private static final Logger logger = LoggerFactory.getLogger(CoordinateUtils.class);
 
 	/**
 	 * Returns the GWS84 coordinated as an array containing [latitude, longitude] after having translocated the point using the offset.
-	 * 
+	 *
 	 * @param originalLatLong
 	 *            The original point as a WGS84 coordinate.
 	 * @param offsetLongitudeMeters
@@ -31,14 +31,14 @@ public class CoordinateUtils {
 	 */
 	public static Coordinate getPointWithOffset(Coordinate originalLatLong, double offsetLongitudeMeters, double offsetLatitudeMeters)
 			throws TransformException {
-		
+
 		double[] transformed = getPointWithOffset( new double[]{ originalLatLong.y, originalLatLong.x }, offsetLongitudeMeters, offsetLatitudeMeters);
 		return new Coordinate(transformed[0], transformed[1]);
 	}
-	
+
 	/**
 	 * Returns the GWS84 coordinated as an array containing [latitude, longitude] after having translocated the point using the offset.
-	 * 
+	 *
 	 * @param originalLatLong
 	 *            The original point as a WGS84 coordinate duple. latitude, longitude
 	 * @param offsetLongitudeMeters
@@ -93,23 +93,22 @@ public class CoordinateUtils {
 					"Exception when moving point " + Arrays.toString(originalLatLong) + " with offset longitude " + offsetLongitudeMeters
 							+ " and latitude " + offsetLatitudeMeters, e);
 		}
-		
+
 		return( movedPointLatLong!= null ? new double[]{ movedPointLatLong[1], movedPointLatLong[0]}:null);
 
 	}
-	
+
 	public static void main(String[] args) {
 	//	Exception when moving point [17.934589857940825, -88.44027673628483] with offset longitude 40.0 and latitude -30.0
 		double[] coord = new double[] {17.934589857940825d, -88.44027673628483d};
 		try {
 			double[] pointWithOffset = getPointWithOffset(
-					coord, 
+					coord,
 					40.0d, 30.0d );
-			System.out.println( Arrays.toString(pointWithOffset) );
+
 		} catch (TransformException e) {
-			// TODO Auto-generated catch block
-			e.printStackTrace();
+			logger.error("Error getting offset", e);
 		}
-		
+
 	}
 }

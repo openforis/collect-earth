@@ -66,9 +66,8 @@ public class AboutDialog extends JDialog {
 	public String getValueFromUpdateIni(String key) {
 		Properties properties = new Properties();
 		String value = "unknwown"; //$NON-NLS-1$
-		try {
-			properties.load( new FileInputStream("update.ini")); //$NON-NLS-1$
-
+		try (FileInputStream fis =  new FileInputStream("update.ini")) { //$NON-NLS-1$
+			properties.load(fis);
 			value = properties.getProperty(key);
 		} catch (FileNotFoundException e) {
 			logger.error("The update.,ini file could not be found", e); //$NON-NLS-1$

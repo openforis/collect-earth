@@ -4,42 +4,47 @@ import java.io.File;
 
 import org.apache.commons.lang3.SystemUtils;
 import org.openforis.collect.earth.app.EarthConstants;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 public class FolderFinder {
 
+	private static final Logger logger = LoggerFactory.getLogger(FolderFinder.class);
+
 	private FolderFinder(){
-		
-	} 
+
+	}
 	/**
 	 * Returns the folder where the backup copies should be placed.
-	 * @return The OS dependent folder where the application should saved the backed up copies. 
+	 * @return The OS dependent folder where the application should saved the backed up copies.
 	 */
 	public static String getCollectEarthDataFolder() {
 
 		File localFolder = null;
+		String absolutePath = null;
 		try {
 			String userHome = getUserHome();
 
 			userHome += EarthConstants.COLLECT_EARTH_APPDATA_FOLDER;
 			localFolder = new File(userHome);
 			localFolder.mkdirs();
+			absolutePath = localFolder.getAbsolutePath();
 		} catch (Exception e) {
-			e.printStackTrace(); // ATTENTION do not use a logger here!
-			
+			logger.error("Error getting Collect Earth data folder", e);
 		}
-		return localFolder.getAbsolutePath();
+		return absolutePath;
 	}
-	
+
 	public static String getCollectEarthDataFolderNoAmpersad() {
 		String dataFolder = getCollectEarthDataFolder();
 		// Remove ampersands from the URL (like in case a username is something like "Romeo&Giulietta") so that the SAX parser does not confuse it with an XML entity
 		dataFolder =  dataFolder.replaceAll( "&([^;]+(?!(?:\\w|;)))", "&amp;$1" );
 		return dataFolder;
 	}
-	
+
 	private static String getUserHome() {
-		String userHome = "" ; 
-		
+		String userHome = "" ;
+
 		if (SystemUtils.IS_OS_WINDOWS){
 			userHome = System.getenv("APPDATA") + File.separatorChar;
 		}else if (SystemUtils.IS_OS_MAC){
@@ -50,7 +55,7 @@ public class FolderFinder {
 		return userHome;
 	}
 
-	
+
 	/**
 	 * Returns a folder inside the appfolder should be placed.
 	 * @param folderName The name of the new folder to be created
@@ -62,7 +67,7 @@ public class FolderFinder {
 		localFolder.mkdirs();
 		return localFolder;
 	}
-	
+
 	public static String getLocalAppDataFolder(){
 		String appDataFolder = getUserHome();
 		if (SystemUtils.IS_OS_WINDOWS){
@@ -74,5 +79,5 @@ public class FolderFinder {
 		}
 		return appDataFolder;
 	}
-	
+
 }
