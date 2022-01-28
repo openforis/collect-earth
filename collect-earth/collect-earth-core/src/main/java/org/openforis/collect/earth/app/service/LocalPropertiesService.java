@@ -12,8 +12,6 @@ import java.util.Observable;
 import java.util.Properties;
 import java.util.TreeSet;
 
-import javax.annotation.PreDestroy;
-
 import org.apache.commons.lang3.StringUtils;
 import org.openforis.collect.earth.app.EarthConstants.CollectDBDriver;
 import org.openforis.collect.earth.app.EarthConstants.OperationMode;
@@ -134,14 +132,13 @@ public class LocalPropertiesService extends Observable {
 			+ "earth.properties";
 	private static final String PROPERTIES_FILE_PATH_FORCED_UPDATE = "earth.properties_forced_update";
 	private static final String PROPERTIES_FILE_PATH_INITIAL = "earth.properties_initial";
-	private Logger logger = null;
+	private Logger logger = LoggerFactory.getLogger(LocalPropertiesService.class);;
 	private Properties properties;
 
 	public LocalPropertiesService() {
 		try {
 			init();
 		} catch (IOException e) {
-			e.printStackTrace();
 			logger.error("Error initilizeng Local Properties", e);
 		}
 	}
@@ -365,22 +362,18 @@ public class LocalPropertiesService extends Observable {
 
 	private void init() throws IOException {
 		properties = new Properties() {
-			/**
-			 *
-			 */
 			private static final long serialVersionUID = 4358906731731542445L;
 
 			@Override
 			public synchronized Enumeration<Object> keys() {
 				return Collections.enumeration(new TreeSet<Object>(super.keySet()));
 			}
-
 		};
 
 		boolean newInstallation = false;
 
 		File propertiesFileInitial = new File(PROPERTIES_FILE_PATH_INITIAL);
-		logger = LoggerFactory.getLogger(LocalPropertiesService.class);
+
 		try {
 
 			File propertiesFile = new File(PROPERTIES_FILE_PATH);
@@ -522,26 +515,8 @@ public class LocalPropertiesService extends Observable {
 		storeProperties();
 	}
 
-	/**
-	 * Removes the GEE obfuscated method/parameter names so that they are
-	 * regenerated when GEE is accessed for the fist time. This way we avoid the bug
-	 * when the re-obfuscation of GEE JS code changes the zooming method but does
-	 * not provoke an error.
-	 */
-	@PreDestroy
-	public void removeGeeProperties() {
-
-		this.storeProperties();
-
-		/*
-		 * this.setValue(EarthProperty.GEE_ZOOM_METHOD, "", false);
-		 * this.setValue(EarthProperty.GEE_ZOOM_OBJECT, "", false);
-		 * this.setValue(EarthProperty.GEE_FUNCTION_PICK, "", true);
-		 */
-	}
-
 	public void removeModelVersionName() {
-		setValue(EarthProperty.MODEL_VERSION_NAME, "", true);
+		setValue(EarthProperty.MODEL_VERSION_NAME, "");
 	}
 
 	public void saveBalloonFileChecksum(String checksum) {
@@ -590,7 +565,7 @@ public class LocalPropertiesService extends Observable {
 	}
 
 	public void setExceptionShown(Boolean showException) {
-		setValue(EarthProperty.EXCEPTION_SHOWN, showException.toString(), true);
+		setValue(EarthProperty.EXCEPTION_SHOWN, showException.toString());
 	}
 
 	public void setJumpToNextPlot(String shouldSkip) {
@@ -609,7 +584,7 @@ public class LocalPropertiesService extends Observable {
 	}
 
 	public void setLastExportedDate(String surveyName) {
-		setValue(getExportedSurveyName(surveyName), Long.toString(System.currentTimeMillis()), true);
+		setValue(getExportedSurveyName(surveyName), Long.toString(System.currentTimeMillis()));
 	}
 
 	public void setModelVersionName(String modelVersionName) {
@@ -621,25 +596,16 @@ public class LocalPropertiesService extends Observable {
 	}
 
 	public void setUiLanguage(UI_LANGUAGE language) {
-		setValue(EarthProperty.UI_LANGUAGE, language.name(), true);
+		setValue(EarthProperty.UI_LANGUAGE, language.name());
 	}
 
-	public void setValue(EarthProperty key, String value) {
-		setValue(key, value, true);
+	public void setValue(Object key, String value) {
+		properties.setProperty(key.toString(), value);
 		this.setChanged();
 		this.notifyObservers(key);
+		storeProperties();
 	}
 
-	private void setValue(EarthProperty key, String value, boolean forceWrite) {
-		setValue(key.toString(), value, forceWrite);
-	}
-
-	private void setValue(String key, String value, boolean forceWrite) {
-		properties.setProperty(key, value);
-		if (forceWrite) {
-			storeProperties();
-		}
-	}
 
 	public boolean shouldJumpToNextPlot() {
 		boolean jumpToNext = false;
@@ -651,23 +617,12 @@ public class LocalPropertiesService extends Observable {
 	}
 
 	private synchronized void storeProperties() {
-		FileWriter fw = null;
-		try {
 
-			File propertiesFile = new File(PROPERTIES_FILE_PATH);
-			fw = new FileWriter(propertiesFile);
+		File propertiesFile = new File(PROPERTIES_FILE_PATH);
+		try(FileWriter fw = new FileWriter(propertiesFile) ) {
 			properties.store(fw, null);
-
 		} catch (final IOException e) {
 			logger.error("The properties could not be saved", e);
-		} finally {
-			try {
-				if (fw != null) {
-					fw.close();
-				}
-			} catch (final IOException e) {
-				logger.error("Error closing file writer", e);
-			}
 		}
 	}
 
