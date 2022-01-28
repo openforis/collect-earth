@@ -6,7 +6,7 @@
 	<packaging>pom</packaging>
 
 	<name>Collect Earth</name>
-	<description>Collect Earth - Augmented Visual Interpretation</description>
+	<description>Collect Earth - A desktop application for Augmented Visual Interpretation</description>
 	<url>http://www.openforis.org/tools/collect-earth.html</url>
 	<modules>
 		<module>collect-earth-core</module>
