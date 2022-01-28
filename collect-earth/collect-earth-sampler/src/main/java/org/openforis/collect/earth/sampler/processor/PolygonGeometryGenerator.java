@@ -11,12 +11,8 @@ import org.openforis.collect.earth.sampler.model.SimpleCoordinate;
 import org.openforis.collect.earth.sampler.model.SimplePlacemarkObject;
 import org.openforis.collect.earth.sampler.utils.KmlGenerationException;
 import org.opengis.referencing.operation.TransformException;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 public abstract class PolygonGeometryGenerator extends AbstractPolygonGeometryKmlGenerator {
-
-	protected final Logger logger = LoggerFactory.getLogger(PolygonGeometryGenerator.class);
 	private KMLWriter kmlWriter;
 
 	public PolygonGeometryGenerator(String epsgCode, String hostAddress, String localPort, Integer innerPointSide,

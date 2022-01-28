@@ -390,7 +390,6 @@ public abstract class AbstractEarthSurveyService {
 				// Create new record
 				record = createRecord();
 				plotEntity = record.getRootEntity();
-				logger.warn("Creating a new plot entity with data " + parameters.toString()); //$NON-NLS-1$
 			}
 
 			boolean userClickOnSaveAndValidate = isPlacemarkSavedActively(parameters);

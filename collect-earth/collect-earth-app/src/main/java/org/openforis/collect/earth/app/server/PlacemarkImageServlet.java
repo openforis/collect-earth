@@ -40,7 +40,7 @@ public class PlacemarkImageServlet extends JsonPocessorServlet {
 	@Autowired
 	private PreloadedFilesService preloadedFilesService;
 
-	private Logger logger = LoggerFactory.getLogger( PlacemarkImageServlet.class );
+	private Logger loggerSlf4 = LoggerFactory.getLogger( PlacemarkImageServlet.class );
 
 	/**
 	 * Returns an icon/overlay image that represents the state of the placemark not-filled/filling/filled
@@ -88,7 +88,7 @@ public class PlacemarkImageServlet extends JsonPocessorServlet {
 				imageName = EarthConstants.LIST_NON_FILLED_IMAGE;
 			}
 		} catch (Exception e) {
-			logger.error("Error loading image for placemark with ID " + ArrayUtils.toString( keys ) , e); //$NON-NLS-1$
+			loggerSlf4.error("Error loading image for placemark with ID " + ArrayUtils.toString( keys ) , e); //$NON-NLS-1$
 		}finally{
 			returnImage(response, imageName);
 		}

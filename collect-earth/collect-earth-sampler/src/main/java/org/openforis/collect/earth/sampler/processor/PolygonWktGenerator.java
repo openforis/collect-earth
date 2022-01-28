@@ -8,15 +8,11 @@ import org.locationtech.jts.io.ParseException;
 import org.locationtech.jts.io.WKTReader;
 import org.openforis.collect.earth.sampler.model.SimpleCoordinate;
 import org.openforis.collect.earth.sampler.model.SimplePlacemarkObject;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 public class PolygonWktGenerator extends PolygonGeometryGenerator {
 	public PolygonWktGenerator(String epsgCode, String hostAddress, String localPort) {
 		super(epsgCode, hostAddress, localPort , 0, 0, 0d,0d,0, null);
 	}
-
-	protected final Logger logger = LoggerFactory.getLogger(PolygonWktGenerator.class);
 	private static WKTReader reader = new WKTReader();
 
 	public String isWktPolygonColumnFound(String[] csvValues) {
@@ -33,7 +29,7 @@ public class PolygonWktGenerator extends PolygonGeometryGenerator {
 						return null;
 					}
 				} catch (ParseException e) {
-
+					// do nothing as the parse exception will happen often
 				}
 			}
 		}
