@@ -36,6 +36,10 @@ Please register into our [community support forum](http://www.openforis.org/supp
 You can run Collect Earth directly through the IDE. In Eclipse you can use Run->Run Configurations... and then create a new "Java application" configuration.
 In the project set `collect-earth-app` and as Main class set `org.openforis.collect.earth.app.desktop.EarthApp`
 
+### Code Quality through SonarQube
+
+The code quality of the repository can be inspected here  : https://sonarcloud.io/project/overview?id=openforis_collect-earth
+
 ## Contact
 
 Contact us through GitHub (@herrtunante) or openforisinitiative at gmail !
