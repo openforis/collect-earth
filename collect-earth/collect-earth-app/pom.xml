@@ -13,13 +13,11 @@
 	<properties>
 		<jetty.version>9.4.44.v20210927</jetty.version>
 		<selenium.version>3.141.59</selenium.version>
-		<sonar.language>java</sonar.language>
 		<classpath.prefix>earth-libs</classpath.prefix>
 		<log4j.version>2.17.1</log4j.version>
 	</properties>
 
 	<dependencies>
-
 		<dependency>
 			<groupId>org.openforis.collect.earth</groupId>
 			<artifactId>collect-earth-core</artifactId>
