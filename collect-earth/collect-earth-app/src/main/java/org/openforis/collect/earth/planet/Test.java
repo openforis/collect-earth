@@ -40,10 +40,10 @@ public class Test {
 			double[][][] coords = {{{148.440013,-5.763688}, {148.440645,-5.763688}, {148.440645,-5.76432}, {148.440013,-5.76432}, {148.440013,-5.763688}}};
 			//double[][][] coords = {{{-39.611883, -72.612975}, {-39.611883, -72.611833}, {-39.612765, -72.611833}, {-39.612765, -72.612975}, {-39.611883, -72.612975}}};
 			System.out.println(
-					planet.getAvailableDates(start, end, coords, itemTypes )
+					planet.getAvailableDates( new PlanetRequestParameters(start, end, coords, itemTypes) )
 			);
 			System.out.println(
-					planet.getLayerUrl(new PlanetRequestParameters(start, end, coords, itemTypes) )
+					planet.getLayerUrl( new PlanetRequestParameters(start, end, coords, itemTypes) )
 			);
 		} catch (Exception e) {
 			// TODO Auto-generated catch block

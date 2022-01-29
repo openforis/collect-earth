@@ -62,6 +62,13 @@ import org.springframework.beans.factory.annotation.Autowired;
 
 public abstract class AbstractEarthSurveyService {
 
+	private static final String COLLECT_CODE_CROWN_COVER = "collect_code_crown_cover";
+
+	private static final String COLLECT_CODE_CANOPY_COVER = "collect_code_canopy_cover";
+
+	private static final String COLLECT_CODE_DEFORESTATION_REASON = "collect_code_deforestation_reason" //$NON-NLS-1$
+;
+
 	protected final Logger logger = LoggerFactory.getLogger(this.getClass());
 
 	private static final String PREVIEW_PLACEMARK_ID = "testPlacemark";
@@ -122,7 +129,7 @@ public abstract class AbstractEarthSurveyService {
 
 		}
 
-		if (validationItems.size() > 0) {
+		if (!validationItems.isEmpty()) {
 			parameters.put("valid_data", "false"); //$NON-NLS-1$ //$NON-NLS-2$
 		}
 
@@ -138,17 +145,15 @@ public abstract class AbstractEarthSurveyService {
 		return message;
 	}
 
-	private CollectRecord createRecord() throws RecordPersistenceException {
+	private CollectRecord createRecord() {
 		String modelVersionName = localPropertiesService.getModelVersionName();
-		CollectRecord record = recordManager.create(getCollectSurvey(),
+		return recordManager.create(getCollectSurvey(),
 				getRootEntityDefinition(), null, modelVersionName, null);
-		return record;
 	}
 
 	public EntityDefinition getRootEntityDefinition() {
 		Schema schema = getCollectSurvey().getSchema();
-		EntityDefinition rootEntityDef = schema.getRootEntityDefinition(ROOT_ENTITY_NAME);
-		return rootEntityDef;
+		return schema.getRootEntityDefinition(ROOT_ENTITY_NAME);
 	}
 
 	public CollectSurvey getCollectSurvey() {
@@ -163,23 +168,23 @@ public abstract class AbstractEarthSurveyService {
 		CollectRecord record = loadRecord(keyAttributes, validateRecord);
 		Map<String, String> placemarkParameters = null;
 		if (record == null) {
-			placemarkParameters = new HashMap<String, String>();
+			placemarkParameters = new HashMap<>();
 			addResultParameter(placemarkParameters, false);
 		} else {
 			placemarkParameters = collectParametersHandler.getValuesByHtmlParameters(record.getRootEntity());
 
-			if ((placemarkParameters.get("collect_code_canopy_cover") != null) //$NON-NLS-1$
-					&& placemarkParameters.get("collect_code_canopy_cover").equals("0")) { //$NON-NLS-1$ //$NON-NLS-2$
-				placemarkParameters.put("collect_code_canopy_cover", //$NON-NLS-1$
-						"0;collect_code_deforestation_reason=" //$NON-NLS-1$
-								+ placemarkParameters.get("collect_code_deforestation_reason")); //$NON-NLS-1$
+			if ((placemarkParameters.get(COLLECT_CODE_CANOPY_COVER) != null) //$NON-NLS-1$
+					&& placemarkParameters.get(COLLECT_CODE_CANOPY_COVER).equals("0")) { //$NON-NLS-1$ //$NON-NLS-2$
+				placemarkParameters.put(COLLECT_CODE_CANOPY_COVER, //$NON-NLS-1$
+						"0;" + COLLECT_CODE_DEFORESTATION_REASON + "="
+								+ placemarkParameters.get(COLLECT_CODE_DEFORESTATION_REASON)); //$NON-NLS-1$
 			}
 			// For the PNG version with the old name
-			if ((placemarkParameters.get("collect_code_crown_cover") != null) //$NON-NLS-1$
-					&& placemarkParameters.get("collect_code_crown_cover").equals("0")) { //$NON-NLS-1$ //$NON-NLS-2$
-				placemarkParameters.put("collect_code_crown_cover", //$NON-NLS-1$
-						"0;collect_code_deforestation_reason=" //$NON-NLS-1$
-								+ placemarkParameters.get("collect_code_deforestation_reason")); //$NON-NLS-1$
+			if ((placemarkParameters.get(COLLECT_CODE_CROWN_COVER) != null) //$NON-NLS-1$
+					&& placemarkParameters.get(COLLECT_CODE_CROWN_COVER).equals("0")) { //$NON-NLS-1$ //$NON-NLS-2$
+				placemarkParameters.put(COLLECT_CODE_CROWN_COVER, //$NON-NLS-1$
+						COLLECT_CODE_DEFORESTATION_REASON
+								+ placemarkParameters.get(COLLECT_CODE_DEFORESTATION_REASON)); //$NON-NLS-1$
 			}
 			addResultParameter(placemarkParameters, true);
 		}
@@ -250,13 +255,12 @@ public abstract class AbstractEarthSurveyService {
 		for (int i = 0; i < listOfRecords.size(); i++) {
 			CollectRecordSummary recordSummary = listOfRecords.get(i);
 			List<String> rootEntityKeyValues = recordSummary.getRootEntityKeyValues();
-			String keyValues = "";
+			StringBuilder keyValues = new StringBuilder();
 			for (String key : rootEntityKeyValues) {
-				keyValues += key + ",";
+				keyValues.append(key).append(",");
 			}
-			keyValues = keyValues.substring(0, keyValues.lastIndexOf(','));
 
-			placemarkIds[i] = keyValues;
+			placemarkIds[i] = keyValues.substring(0,keyValues.length()-1); // return the keys minus the last comma
 		}
 
 		return placemarkIds;
@@ -271,13 +275,12 @@ public abstract class AbstractEarthSurveyService {
 	public String[] getRecordsSavedIDs() {
 		final List<CollectRecordSummary> recordsSavedForSurvey = recordManager.loadSummaries(
 				new RecordFilter(getCollectSurvey(),ROOT_ENTITY_NAME)
-
 		);
 
 		if ((recordsSavedForSurvey != null) && !recordsSavedForSurvey.isEmpty()) {
 			return getPlacemarksId(recordsSavedForSurvey);
 		} else {
-			return null;
+			return new String[]{};
 		}
 	}
 
@@ -327,7 +330,7 @@ public abstract class AbstractEarthSurveyService {
 		String path = ROOT_ENTITY_NAME + "/" + ACTIVELY_SAVED_ON_ATTRIBUTE_NAME;
 		Attribute<?, ?> attr = record.findNodeByPath(path);
 		if (attr == null) {
-			logger.warn("The expected attribute at " + path + " could not be found!");
+			logger.warn("The expected attribute at {} could not be found!", path);
 		} else {
 			if (attr instanceof DateAttribute) {
 				org.openforis.idm.model.Date date = org.openforis.idm.model.Date.parse(new Date());
@@ -337,7 +340,7 @@ public abstract class AbstractEarthSurveyService {
 				org.openforis.idm.model.Date date = org.openforis.idm.model.Date.parse(new Date());
 				recordUpdater.updateAttribute((TextAttribute) attr, new TextValue(sdf.format(date)));
 			} else {
-				logger.error("Attribute " + path + " is expected to be of type Text or Date");
+				logger.error("Attribute {} is expected to be of type Text or Date", path);
 			}
 		}
 	}
@@ -543,9 +546,9 @@ public abstract class AbstractEarthSurveyService {
 			Attribute<?, Value> keyAttr = record.findNodeByPath(keyAttrDef.getPath());
 			Value keyVal;
 			if (isPreviewRecordID(keyAttributeValues)) {
-				keyVal = (Value) keyAttr.getDefinition().createValue(i == 0 ? PREVIEW_PLACEMARK_ID : "1");
+				keyVal = keyAttr.getDefinition().createValue(i == 0 ? PREVIEW_PLACEMARK_ID : "1");
 			} else {
-				keyVal = (Value) keyAttr.getDefinition().createValue(keyValue);
+				keyVal = keyAttr.getDefinition().createValue(keyValue);
 			}
 			recordUpdater.updateAttribute(keyAttr, keyVal);
 
@@ -554,7 +557,7 @@ public abstract class AbstractEarthSurveyService {
 
 	private Map<String, String> calculateChanges(Map<String, String> oldPlacemarkParameters,
 			Map<String, String> parameters) {
-		Map<String, String> changedParameters = new HashMap<String, String>(parameters.size());
+		Map<String, String> changedParameters = new HashMap<>(parameters.size());
 		for (Entry<String, String> entry : parameters.entrySet()) {
 			String param = entry.getKey();
 			String newValue = entry.getValue();
