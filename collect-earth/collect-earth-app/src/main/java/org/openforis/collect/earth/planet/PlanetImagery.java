@@ -184,7 +184,7 @@ public class PlanetImagery {
 		SSLSocketFactory factory = null;
 		try {
 			Security.getProviders();
-			final SSLContext ssl = SSLContext.getInstance("TLSv1");
+			final SSLContext ssl = SSLContext.getInstance("TLSv1.2");
 			ssl.init(null, new TrustManager[] { new TrustAllCertificates() }, null);
 			return ssl.getSocketFactory();
 		} catch (Exception e) {
