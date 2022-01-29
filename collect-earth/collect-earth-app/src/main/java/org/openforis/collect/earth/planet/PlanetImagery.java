@@ -4,7 +4,9 @@ import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
+import java.io.UnsupportedEncodingException;
 import java.net.HttpURLConnection;
+import java.net.ProtocolException;
 import java.net.URL;
 import java.nio.charset.StandardCharsets;
 import java.security.Security;
@@ -51,7 +53,7 @@ public class PlanetImagery {
 	}
 
 	private Filter<FilterConfig> getDateFilter(Date start, Date end) {
-		Filter<FilterConfig> dateFilter = new Filter<FilterConfig>();
+		Filter<FilterConfig> dateFilter = new Filter<>();
 		dateFilter.setType(FilterType.DATERANGE);
 		dateFilter.setFieldName(PlanetAttributes.ACQUIRED);
 		dateFilter.setConfig(new FilterConfig(new DatePlanet(start), new DatePlanet(end)));
@@ -67,7 +69,7 @@ public class PlanetImagery {
 	}
 
 	private Filter<FilterConfig> getGeometryFilter(GeoJson geoJson) {
-		Filter<FilterConfig> geoFilter = new Filter<FilterConfig>();
+		Filter<FilterConfig> geoFilter = new Filter<>();
 		geoFilter.setType(FilterType.GEOMETRY);
 		geoFilter.setFieldName(PlanetAttributes.GEOMETRY);
 		geoFilter.setConfig(new FilterConfig(geoJson.getType(), geoJson.getCoordinates()));
@@ -89,7 +91,7 @@ public class PlanetImagery {
 	}
 
 	private Filter<String[]> getStringInFilter(String fieldName, String[] strings) {
-		Filter<String[]> stringInFilter = new Filter<String[]>();
+		Filter<String[]> stringInFilter = new Filter<>();
 		stringInFilter.setType(FilterType.STRING_IN);
 		stringInFilter.setFieldName(fieldName);
 		stringInFilter.setConfig(strings);
@@ -108,35 +110,10 @@ public class PlanetImagery {
 
 	private String sendRequest(URL url, Object jsonObject) throws IOException {
 		try {
-			byte[] postDataBytes = null;
-			if (jsonObject != null) {
-				String jsonInputString = gson.toJson(jsonObject);
-				postDataBytes = jsonInputString.getBytes( StandardCharsets.UTF_8.name());
-				logger.info(jsonInputString);
-			}
 
-			HttpURLConnection conn = null;
-			if( factory != null ) { // THIS IS A WORKAROUND TO REMOVE SSL CERTIFICATE ISSUES
-				conn = (HttpsURLConnection) url.openConnection();
-				((HttpsURLConnection)conn).setSSLSocketFactory(factory);
-			}else {
-				conn = (HttpURLConnection) url.openConnection();
-			}
+			HttpURLConnection conn = getAuthenticatedConnection(url, jsonObject);
 
-			// very  important to keep the semicolon at the end
-			String basicAuth = "Basic " + new String(Base64.getEncoder().encode((apiKey + ":").getBytes()));
-			conn.setRequestProperty("Authorization", basicAuth);
-
-			conn.setRequestMethod(jsonObject != null ? "POST" : "GET");
-			conn.setRequestProperty("Content-Type", "application/json");
-			conn.setRequestProperty("Accept", "application/json");
-			conn.setDoOutput(true);
-			if (postDataBytes != null) {
-				conn.setRequestProperty("Content-Length", String.valueOf(postDataBytes.length));
-				conn.getOutputStream().write(postDataBytes);
-			} else {
-				conn.setRequestProperty("Content-Length", "0");
-			}
+			buildRequet(jsonObject, conn);
 
 			StringBuilder response = null;
 			try {
@@ -167,6 +144,43 @@ public class PlanetImagery {
 		}
 	}
 
+	private void buildRequet(Object jsonObject, HttpURLConnection conn)
+			throws UnsupportedEncodingException, IOException {
+		byte[] postDataBytes = null;
+		if (jsonObject != null) {
+			String jsonInputString = gson.toJson(jsonObject);
+			postDataBytes = jsonInputString.getBytes( StandardCharsets.UTF_8.name());
+			logger.info(jsonInputString);
+		}
+		if (postDataBytes != null) {
+			conn.setRequestProperty("Content-Length", String.valueOf(postDataBytes.length));
+			conn.getOutputStream().write(postDataBytes);
+		} else {
+			conn.setRequestProperty("Content-Length", "0");
+		}
+	}
+
+	private HttpURLConnection getAuthenticatedConnection(URL url, Object jsonObject)
+			throws IOException, ProtocolException {
+		HttpURLConnection conn = null;
+		if( factory != null ) { // THIS IS A WORKAROUND TO REMOVE SSL CERTIFICATE ISSUES
+			conn = (HttpsURLConnection) url.openConnection();
+			((HttpsURLConnection)conn).setSSLSocketFactory(factory);
+		}else {
+			conn = (HttpURLConnection) url.openConnection();
+		}
+
+		// very  important to keep the semicolon at the end
+		String basicAuth = "Basic " + new String(Base64.getEncoder().encode((apiKey + ":").getBytes()));
+		conn.setRequestProperty("Authorization", basicAuth);
+
+		conn.setRequestMethod(jsonObject != null ? "POST" : "GET");
+		conn.setRequestProperty("Content-Type", "application/json");
+		conn.setRequestProperty("Accept", "application/json");
+		conn.setDoOutput(true);
+		return conn;
+	}
+
 	// Workaround for computers that have trouble accepting Planet's SSL certificates
 	private static SSLSocketFactory getSSLAcceptAllFactory(){
 		SSLSocketFactory factory = null;
@@ -184,8 +198,7 @@ public class PlanetImagery {
 
 	private StringBuilder readStream(InputStream is) throws IOException {
 		StringBuilder response = new StringBuilder();
-		;
-		try (BufferedReader br = new BufferedReader(new InputStreamReader(is, "utf-8"))) {
+		try (BufferedReader br = new BufferedReader(new InputStreamReader(is, StandardCharsets.UTF_8))) {
 			String responseLine = null;
 			while ((responseLine = br.readLine()) != null) {
 				response.append(responseLine.trim());
@@ -202,15 +215,13 @@ public class PlanetImagery {
 		String response = sendRequest(new URL("https://api.planet.com/data/v1/quick-search"), searchRequest);
 		Feature[] featuresInPage = getNextPage(response);
 
-		if (featuresInPage != null) {
-			if( maxResults != null ) {
-				Arrays.sort(featuresInPage, new FeatureSorter());
+		if (featuresInPage != null && maxResults != null ) {
+			Arrays.sort(featuresInPage, new FeatureSorter());
 
-				if (featuresInPage.length > maxResults) {
-					featuresInPage = ArrayUtils.subarray(featuresInPage, 0, maxResults);
-				}
-				ArrayUtils.reverse(featuresInPage);
+			if (featuresInPage.length > maxResults) {
+				featuresInPage = ArrayUtils.subarray(featuresInPage, 0, maxResults);
 			}
+			ArrayUtils.reverse(featuresInPage);
 		}
 
 		return featuresInPage;
@@ -256,21 +267,21 @@ public class PlanetImagery {
 		return layerUrl;
 	}
 
-	private Feature[] getFeatures (Date start, Date end, double[][][] coords, String[] itemTypes) throws IOException {
+	private Feature[] getFeatures (PlanetRequestParameters planetRequestParameters ) throws IOException {
 		Calendar thresholdQuality = Calendar.getInstance();
 		thresholdQuality.set(2016, 0,1);
 
-		GeoJson geometry = new GeoJson("Polygon", coords);
+		GeoJson geometry = new GeoJson("Polygon", planetRequestParameters.coords);
 		Filter<?> geometryFilter = getGeometryFilter(geometry);
 		Filter<?>[] filters = null;
 		/* maybe we can use test quality anyway
 		 * it gets complicated when the filter start/end date is multiyear
 		 */
-		if( start.before( thresholdQuality.getTime() ) && end.after( thresholdQuality.getTime() ) ) {
+		if( planetRequestParameters.start.before( thresholdQuality.getTime() ) && planetRequestParameters.end.after( thresholdQuality.getTime() ) ) {
 
 			Filter<?> qualityFilter = getStringInFilter("quality_category", new String[] { "standard" });
-			Filter<?> before2016Filter = getDateFilter(start, thresholdQuality.getTime() );
-			Filter<?> after2016Filter = getDateFilter(thresholdQuality.getTime(), end );
+			Filter<?> before2016Filter = getDateFilter(planetRequestParameters.start, thresholdQuality.getTime() );
+			Filter<?> after2016Filter = getDateFilter(thresholdQuality.getTime(), planetRequestParameters.end );
 
 			Filter<Filter[]> after2016AndStandardQuality = getAndFilter( new Filter[] { after2016Filter, qualityFilter } );
 			Filter<Filter[]> before2016OrAfter2016AndStandardQuality = getOrFilter( new Filter[] { before2016Filter, after2016AndStandardQuality } );
@@ -279,27 +290,27 @@ public class PlanetImagery {
 
 			filters = new Filter[] { before2016OrAfter2016AndStandardQuality, geometryFilter };
 
-		}else if( start.after( thresholdQuality.getTime() ) ) {
-			Filter<?> dateFilter = getDateFilter(start, end);
+		}else if( planetRequestParameters.start.after( thresholdQuality.getTime() ) ) {
+			Filter<?> dateFilter = getDateFilter(planetRequestParameters.start, planetRequestParameters.end);
 			// Add quality filter only for images after 2016
 			Filter<?> qualityFilter = getStringInFilter("quality_category", new String[] { "standard" });
 			filters = new Filter[] { dateFilter, geometryFilter, qualityFilter };
 		}else {
-			Filter<?> dateFilter = getDateFilter(start, end);
+			Filter<?> dateFilter = getDateFilter(planetRequestParameters.start, planetRequestParameters.end);
 			filters = new Filter[] { dateFilter, geometryFilter };
 		}
 
-		return search(itemTypes, filters, null);
+		return search(planetRequestParameters.itemTypes, filters, null);
 	}
 
-	public String getLayerUrl(Date start, Date end, double[][][] coords, String[] itemTypes) throws IOException {
-		Feature[] searchResults = getFeatures (start, end, coords, itemTypes);
+	public String getLayerUrl(PlanetRequestParameters planetRequestParameters) throws IOException {
+		Feature[] searchResults = getFeatures (planetRequestParameters);
 		return searchResults!=null ? getLayers(searchResults) : null;
 	}
 
-	public Map<String, String> getAvailableDates(Date start, Date end, double[][][] coords, String[] itemTypes) throws IOException {
+	public Map<String, String> getAvailableDates(PlanetRequestParameters planetRequestParameters) throws IOException {
 
-		Feature[] searchResults = getFeatures (start, end, coords, itemTypes);
+		Feature[] searchResults = getFeatures (planetRequestParameters);
 
 		Map<String, String> datesAvailable = new HashMap<>();
 
@@ -330,6 +341,6 @@ public class PlanetImagery {
 			polygon[0][i++][0] = Double.parseDouble(simpleCoordinate.getLongitude());
 		}
 		String[] itemTypes = { "PSScene3Band", "PSScene4Band" };
-		return getLayerUrl(start, new Date(), polygon, itemTypes);
+		return getLayerUrl(new PlanetRequestParameters(start, new Date(), polygon, itemTypes));
 	}
 }

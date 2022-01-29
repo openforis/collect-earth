@@ -43,7 +43,7 @@ public class Test {
 					planet.getAvailableDates(start, end, coords, itemTypes )
 			);
 			System.out.println(
-					planet.getLayerUrl(start, end, coords, itemTypes )
+					planet.getLayerUrl(new PlanetRequestParameters(start, end, coords, itemTypes) )
 			);
 		} catch (Exception e) {
 			// TODO Auto-generated catch block

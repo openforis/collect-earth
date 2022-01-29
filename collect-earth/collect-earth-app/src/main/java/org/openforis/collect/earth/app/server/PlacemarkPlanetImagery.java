@@ -13,6 +13,7 @@ import org.apache.commons.lang.StringUtils;
 import org.openforis.collect.earth.app.service.LocalPropertiesService;
 import org.openforis.collect.earth.planet.DateUtils;
 import org.openforis.collect.earth.planet.PlanetImagery;
+import org.openforis.collect.earth.planet.PlanetRequestParameters;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -21,7 +22,8 @@ import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 
 /**
- * Controller to load and store the information that is stored in Collect Earth for one placemark (plot)
+ * Controller to load and store the information that is stored in Collect Earth
+ * for one placemark (plot)
  *
  * @author Alfonso Sanchez-Paus Diaz
  * @author S. Ricci
@@ -33,62 +35,64 @@ public class PlacemarkPlanetImagery extends JsonPocessorServlet {
 	@Autowired
 	LocalPropertiesService localPropertiesService;
 
-	@PostMapping(value="/planetTileUrl")
-	public void planetTileUrl(HttpServletRequest request,HttpServletResponse response) throws IOException, ParseException {
+	// 2015-07-17T10:50:18.650Z
+	private SimpleDateFormat planetDateFormat = new SimpleDateFormat("yyyy-MM-dd");
 
-			//2015-07-17T10:50:18.650Z
-			SimpleDateFormat sdf =new SimpleDateFormat("yyyy-MM-dd");
-			Date startDate= sdf.parse( request.getParameter("start") );
-			String endDateString= request.getParameter("end");
-			Date endDate = null;
-			if( StringUtils.isNotBlank( endDateString ) ) {
-				endDate = sdf.parse( endDateString );
-			}else {
-				LocalDateTime localDateTime = DateUtils.asLocalDateTime( startDate );
-				endDate = DateUtils.asDate( localDateTime.plusDays(30) );
-			}
+	@PostMapping(value = "/planetTileUrl")
+	public void planetTileUrl(HttpServletRequest request, HttpServletResponse response)
+			throws IOException, ParseException {
 
-			PlanetImagery planetImagery = new PlanetImagery( localPropertiesService.getPlanetMapsKey() );
+		PlanetRequestParameters params = getRequestParameters(request);
 
-			Gson gson = new GsonBuilder().create();
-			double[][][] coords = gson.fromJson( request.getParameter("geometry"), double[][][].class);
+		PlanetImagery planetImagery = new PlanetImagery(localPropertiesService.getPlanetMapsKey());
+		String tileUrl = planetImagery.getLayerUrl(params);
 
-			String[] itemTypeArray = request.getParameterMap().get("itemTypes[]");
-			if( itemTypeArray == null || itemTypeArray.length == 0 ) {
-				itemTypeArray = new String[] {"PSScene3Band", "PSScene4Band"};
-			}
-
-			String tileUrl = planetImagery.getLayerUrl(startDate, endDate, coords, itemTypeArray);
-
-			setJsonResponse(response, tileUrl==null?"":tileUrl);
+		setJsonResponse(response, tileUrl == null ? "" : tileUrl);
 	}
 
-	@PostMapping(value="/planetAvailableImagery")
-	public void planetAvailableImagery(HttpServletRequest request,HttpServletResponse response) throws IOException, ParseException {
+	private PlanetRequestParameters getRequestParameters(HttpServletRequest request) throws ParseException {
+		Date startDate = planetDateFormat.parse(request.getParameter("start"));
+		Date endDate = getEndDate(request, startDate);
 
-			//2015-07-17T10:50:18.650Z
-			SimpleDateFormat sdf =new SimpleDateFormat("yyyy-MM-dd");
-			Date startDate= sdf.parse( request.getParameter("start") );
-			String endDateString= request.getParameter("end");
-			Date endDate = null;
-			if( StringUtils.isNotBlank( endDateString ) ) {
-				endDate = sdf.parse( endDateString );
-			}else {
-				LocalDateTime localDateTime = DateUtils.asLocalDateTime( startDate );
-				endDate = DateUtils.asDate( localDateTime.plusDays(30) );
-			}
+		double[][][] coords = getCoordinates(request);
+		String[] itemTypeArray = getItemTypes(request);
 
-			PlanetImagery planetImagery = new PlanetImagery( localPropertiesService.getPlanetMapsKey() );
+		return new PlanetRequestParameters(startDate, endDate, coords, itemTypeArray);
+	}
 
-			Gson gson = new GsonBuilder().create();
-			double[][][] coords = gson.fromJson( request.getParameter("geometry"), double[][][].class);
+	private double[][][] getCoordinates(HttpServletRequest request) {
+		Gson gson = new GsonBuilder().create();
+		return gson.fromJson(request.getParameter("geometry"), double[][][].class);
+	}
 
-			String[] itemTypeArray = request.getParameterMap().get("itemTypes[]");
-			if( itemTypeArray == null || itemTypeArray.length == 0 ) {
-				itemTypeArray = new String[] {"PSScene3Band", "PSScene4Band"};
-			}
+	private String[] getItemTypes(HttpServletRequest request) {
+		String[] itemTypeArray = request.getParameterMap().get("itemTypes[]");
+		if (itemTypeArray == null || itemTypeArray.length == 0) {
+			itemTypeArray = new String[] { "PSScene3Band", "PSScene4Band" };
+		}
+		return itemTypeArray;
+	}
 
-			setJsonResponse(response, planetImagery.getAvailableDates(startDate, endDate, coords, itemTypeArray));
+	private Date getEndDate(HttpServletRequest request, Date startDate) throws ParseException {
+		String endDateString = request.getParameter("end");
+		Date endDate = null;
+		if (StringUtils.isNotBlank(endDateString)) {
+			endDate = planetDateFormat.parse(endDateString);
+		} else {
+			LocalDateTime localDateTime = DateUtils.asLocalDateTime(startDate);
+			endDate = DateUtils.asDate(localDateTime.plusDays(30));
+		}
+		return endDate;
+	}
+
+	@PostMapping(value = "/planetAvailableImagery")
+	public void planetAvailableImagery(HttpServletRequest request, HttpServletResponse response)
+			throws IOException, ParseException {
+
+		PlanetRequestParameters params = getRequestParameters(request);
+
+		PlanetImagery planetImagery = new PlanetImagery(localPropertiesService.getPlanetMapsKey());
+		setJsonResponse(response, planetImagery.getAvailableDates(params));
 	}
 
 }
