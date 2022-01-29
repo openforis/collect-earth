@@ -4,9 +4,7 @@ import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
-import java.io.UnsupportedEncodingException;
 import java.net.HttpURLConnection;
-import java.net.ProtocolException;
 import java.net.URL;
 import java.nio.charset.StandardCharsets;
 import java.security.Security;
@@ -145,7 +143,7 @@ public class PlanetImagery {
 	}
 
 	private void buildRequet(Object jsonObject, HttpURLConnection conn)
-			throws UnsupportedEncodingException, IOException {
+			throws IOException {
 		byte[] postDataBytes = null;
 		if (jsonObject != null) {
 			String jsonInputString = gson.toJson(jsonObject);
@@ -161,7 +159,7 @@ public class PlanetImagery {
 	}
 
 	private HttpURLConnection getAuthenticatedConnection(URL url, Object jsonObject)
-			throws IOException, ProtocolException {
+			throws IOException {
 		HttpURLConnection conn = null;
 		if( factory != null ) { // THIS IS A WORKAROUND TO REMOVE SSL CERTIFICATE ISSUES
 			conn = (HttpsURLConnection) url.openConnection();
@@ -271,17 +269,17 @@ public class PlanetImagery {
 		Calendar thresholdQuality = Calendar.getInstance();
 		thresholdQuality.set(2016, 0,1);
 
-		GeoJson geometry = new GeoJson("Polygon", planetRequestParameters.coords);
+		GeoJson geometry = new GeoJson("Polygon", planetRequestParameters.getCoords());
 		Filter<?> geometryFilter = getGeometryFilter(geometry);
 		Filter<?>[] filters = null;
 		/* maybe we can use test quality anyway
 		 * it gets complicated when the filter start/end date is multiyear
 		 */
-		if( planetRequestParameters.start.before( thresholdQuality.getTime() ) && planetRequestParameters.end.after( thresholdQuality.getTime() ) ) {
+		if( planetRequestParameters.getStart().before( thresholdQuality.getTime() ) && planetRequestParameters.getEnd().after( thresholdQuality.getTime() ) ) {
 
 			Filter<?> qualityFilter = getStringInFilter("quality_category", new String[] { "standard" });
-			Filter<?> before2016Filter = getDateFilter(planetRequestParameters.start, thresholdQuality.getTime() );
-			Filter<?> after2016Filter = getDateFilter(thresholdQuality.getTime(), planetRequestParameters.end );
+			Filter<?> before2016Filter = getDateFilter(planetRequestParameters.getStart(), thresholdQuality.getTime() );
+			Filter<?> after2016Filter = getDateFilter(thresholdQuality.getTime(), planetRequestParameters.getEnd() );
 
 			Filter<Filter[]> after2016AndStandardQuality = getAndFilter( new Filter[] { after2016Filter, qualityFilter } );
 			Filter<Filter[]> before2016OrAfter2016AndStandardQuality = getOrFilter( new Filter[] { before2016Filter, after2016AndStandardQuality } );
@@ -290,17 +288,17 @@ public class PlanetImagery {
 
 			filters = new Filter[] { before2016OrAfter2016AndStandardQuality, geometryFilter };
 
-		}else if( planetRequestParameters.start.after( thresholdQuality.getTime() ) ) {
-			Filter<?> dateFilter = getDateFilter(planetRequestParameters.start, planetRequestParameters.end);
+		}else if( planetRequestParameters.getStart().after( thresholdQuality.getTime() ) ) {
+			Filter<?> dateFilter = getDateFilter(planetRequestParameters.getStart(), planetRequestParameters.getEnd());
 			// Add quality filter only for images after 2016
 			Filter<?> qualityFilter = getStringInFilter("quality_category", new String[] { "standard" });
 			filters = new Filter[] { dateFilter, geometryFilter, qualityFilter };
 		}else {
-			Filter<?> dateFilter = getDateFilter(planetRequestParameters.start, planetRequestParameters.end);
+			Filter<?> dateFilter = getDateFilter(planetRequestParameters.getStart(), planetRequestParameters.getEnd());
 			filters = new Filter[] { dateFilter, geometryFilter };
 		}
 
-		return search(planetRequestParameters.itemTypes, filters, null);
+		return search(planetRequestParameters.getItemTypes(), filters, null);
 	}
 
 	public String getLayerUrl(PlanetRequestParameters planetRequestParameters) throws IOException {
