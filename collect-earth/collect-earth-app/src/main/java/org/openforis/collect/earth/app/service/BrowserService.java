@@ -217,7 +217,7 @@ public class BrowserService implements InitializingBean, Observer {
 			// Start Work-around so that we can connect to an HTTPS server without needing
 			// to include the certificate
 			Security.getProviders();
-			final SSLContext ssl = SSLContext.getInstance("TLSv1");
+			final SSLContext ssl = SSLContext.getInstance("TLSv1.2");
 			ssl.init(null, new TrustManager[] { new TrustAllCertificates() }, null);
 			final SSLSocketFactory factory = ssl.getSocketFactory();
 			final HttpsURLConnection connection = (HttpsURLConnection) geeJsUrl.openConnection();

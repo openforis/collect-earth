@@ -45,11 +45,9 @@ public class SaveEarthDataServlet extends JsonPocessorServlet {
 		} else {
 			if (getDataAccessor().saveData(collectedData)) {
 				setResult(true, Messages.getString("SaveEarthDataServlet.2"), collectedData); //$NON-NLS-1$
-				getLogger().info("The data was saved for {}", collectedData ); //$NON-NLS-1$
-
 			} else {
 				setResult(false, Messages.getString("SaveEarthDataServlet.1"), collectedData); //$NON-NLS-1$
-				getLogger().error("The data could not be saved for {}",collectedData ); //$NON-NLS-1$
+				getLogger().error("The data could not be saved"); //$NON-NLS-1$
 			}
 		}
 

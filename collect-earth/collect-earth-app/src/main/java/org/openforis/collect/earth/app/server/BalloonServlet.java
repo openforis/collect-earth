@@ -9,6 +9,7 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Set;
+import java.util.regex.Pattern;
 
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
@@ -79,7 +80,7 @@ public class BalloonServlet extends DataAccessingServlet {
 	private String replaceGoalsWithParameters(String htmlWithGoals, Map<String, String[]> parameterMap) {
 		final Set<Entry<String, String[]>> entrySet = parameterMap.entrySet();
 		for (final Entry<String, String[]> entry : entrySet) {
-			htmlWithGoals = htmlWithGoals.replaceAll("\\$\\[" + entry.getKey() + "\\]", entry.getValue()[0]); //$NON-NLS-1$ //$NON-NLS-2$
+			htmlWithGoals = htmlWithGoals.replaceAll("\\$\\[" + Pattern.quote( entry.getKey() ) + "\\]", entry.getValue()[0]); //$NON-NLS-1$ //$NON-NLS-2$
 		}
 		return htmlWithGoals;
 	}
