@@ -29,12 +29,12 @@ public class CollectEarthTransferHandler extends TransferHandler {
 	private transient LocalPropertiesService localPropertiesService;
 
 	@Autowired
-	private transient KmlImportService kmlImportService;	
+	private transient KmlImportService kmlImportService;
 
 	private static final long serialVersionUID = 1L;
 	private transient Logger logger = LoggerFactory.getLogger( CollectEarthTransferHandler.class);
 
-	/* 
+	/*
 	 * Can Only import an object if it represents a SINGLE file
 	 * (non-Javadoc)
 	 * @see javax.swing.TransferHandler#canImport(javax.swing.TransferHandler.TransferSupport)
@@ -56,11 +56,11 @@ public class CollectEarthTransferHandler extends TransferHandler {
 
 			}catch(java.awt.dnd.InvalidDnDOperationException unknownException) {
 				logger.warn("Why do I get this error?t", unknownException);
-				return true; 
+				return true;
 			}catch (Exception e) {
 				logger.error("Error on the drop support assessment", e);
-				return false; 
-			} 
+				return false;
+			}
 		}else{
 			return false;
 		}
@@ -84,7 +84,7 @@ public class CollectEarthTransferHandler extends TransferHandler {
 		return fileExtension!=null && ( DataFormat.COLLECT_COORDS.checkFileExtensionMatches(fileExtension) || DataFormat.PROJECT_DEFINITION_FILE.checkFileExtensionMatches(fileExtension) || DataFormat.KML_FILE.checkFileExtensionMatches(fileExtension)  );
 	}
 
-	/* 
+	/*
 	 * We support both copy and move actions.
 	 * (non-Javadoc)
 	 * @see javax.swing.TransferHandler#getSourceActions(javax.swing.JComponent)
@@ -95,7 +95,7 @@ public class CollectEarthTransferHandler extends TransferHandler {
 	}
 
 
-	/* 
+	/*
 	 * Perform the actual import.  This demo only supports drag and drop.
 	 * (non-Javadoc)
 	 * @see javax.swing.TransferHandler#importData(javax.swing.TransferHandler.TransferSupport)
@@ -143,10 +143,10 @@ public class CollectEarthTransferHandler extends TransferHandler {
 				throw new IllegalArgumentException("Unknown file extension!!");
 			}
 
-		} 
+		}
 		catch (Exception e) {
 			logger.error("Error on the drop action", e);
-			return false; 
+			return false;
 		}
 
 
@@ -158,13 +158,9 @@ public class CollectEarthTransferHandler extends TransferHandler {
 
 	private void importCSVWithPlots(File fileToImport) {
 		try{
-			if( CollectEarthUtils.validateCsvColumns( fileToImport ) ){
-
-				localPropertiesService.setValue( EarthProperty.SAMPLE_FILE, fileToImport.getAbsolutePath() );
-				EarthApp.executeKmlLoadAsynchronously( collectEarthWindow.getFrame() );
-			}
-
-		}catch( KmlGenerationException kmlGenerationException ){
+			localPropertiesService.setValue( EarthProperty.SAMPLE_FILE, fileToImport.getAbsolutePath() );
+			EarthApp.executeKmlLoadAsynchronously( collectEarthWindow.getFrame() );
+		}catch( Exception kmlGenerationException ){
 			logger.error( "Problem loading CSV file dropped into the window" , kmlGenerationException );
 			EarthApp.showMessage(" Problem loading CSV file" + kmlGenerationException.getCause() );
 		}

@@ -15,7 +15,6 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.sql.Connection;
 import java.sql.DriverManager;
-import java.sql.SQLException;
 import java.util.Enumeration;
 import java.util.List;
 import java.util.stream.Collectors;
@@ -27,7 +26,6 @@ import org.apache.commons.codec.digest.DigestUtils;
 import org.apache.commons.lang3.SystemUtils;
 import org.openforis.collect.earth.app.EarthConstants.UI_LANGUAGE;
 import org.openforis.collect.earth.app.view.Messages;
-import org.openforis.collect.earth.sampler.utils.KmlGenerationException;
 import org.postgresql.Driver;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -100,7 +98,7 @@ public class CollectEarthUtils {
 		while (keys.hasMoreElements()) {
 			Object key = keys.nextElement();
 			Object value = UIManager.get(key);
-			if (value != null && value instanceof javax.swing.plaf.FontUIResource)
+			if (value instanceof javax.swing.plaf.FontUIResource)
 				UIManager.put(key, f);
 		}
 	}
@@ -188,39 +186,19 @@ public class CollectEarthUtils {
 
 	public static String testPostgreSQLConnection(String host, String port, String dbName, String username,
 			String password) {
-		Connection conn = null;
 		String message = "Connection OK!";
 		try {
-			Class.forName("org.postgresql.Driver");
 			Driver postgresDriver = new Driver();
 			DriverManager.registerDriver(postgresDriver, null);
 			String url = "jdbc:postgresql://" + host + ":" + port + "/" + dbName;
-			conn = DriverManager.getConnection(url, username, password);
-
-			@SuppressWarnings("unused")
-			boolean reachable = conn.isValid(10);// 10 sec
-		} catch (ClassNotFoundException e) {
-			logger.error("No PostgreSQL driver found", e);
+			try( Connection conn = DriverManager.getConnection(url, username, password) ){
+				logger.debug("PostgreSQL Connection is valid! {}", conn.isValid(10) );// 10 sec
+			}
 		} catch (Exception e) {
 			logger.error("Error connecting to DB while testing", e);
 			message = e.getMessage();
-		} finally {
-			if (conn != null) {
-				try {
-					conn.close();
-				} catch (SQLException e) {
-					// ignore
-					logger.error("Error connecting to DB", e);
-				}
-			}
 		}
 		return message;
-
-	}
-
-	public static boolean validateCsvColumns(File fileToImport) throws KmlGenerationException {
-		// TODO Auto-generated method stub
-		return true;
 	}
 
 }
