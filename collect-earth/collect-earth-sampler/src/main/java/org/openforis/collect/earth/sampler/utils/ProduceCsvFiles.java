@@ -10,6 +10,7 @@ import java.io.InputStreamReader;
 import java.io.OutputStreamWriter;
 import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
+import java.security.SecureRandom;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
@@ -78,7 +79,7 @@ public class ProduceCsvFiles {
 
 		createOutputFolder();
 
-		Map<String,List<String[]>> stringsPerStrata = new HashMap<String, List<String[]>>();
+		Map<String,List<String[]>> stringsPerStrata = new HashMap<>();
 
 		try {
 			processHeaders(fileToDivide);
@@ -89,44 +90,49 @@ public class ProduceCsvFiles {
 				fileToDivide = randomizeFile( fileToDivide );
 			}
 
-			try ( CSVReader reader  = CsvReaderUtils.getCsvReader(fileToDivide.getPath(), true, getHeaders() != null ) ){
+			divideCsv(fileToDivide, stringsPerStrata, originalFileName);
 
-
-				// read first line
-				String[] csvRow;
-
-				// First divide the lines into the files by column ( or a single file if the user chose not to divide using a column)
-				while ((csvRow = reader.readNext()) != null ) {
-
-					String stratumColumnValue = originalFileName;
-					if( divideByColumnIndex != null ){
-						stratumColumnValue = csvRow[ divideByColumnIndex ];
-					}
-
-					List<String[]> rowsInStratum = stringsPerStrata.get( stratumColumnValue );
-					if( rowsInStratum == null ){
-						rowsInStratum = new ArrayList<String[]>();
-					}
-
-					rowsInStratum.add( csvRow );
-
-					stringsPerStrata.put(stratumColumnValue, rowsInStratum);
-				}
-
-				for (Iterator iterator = stringsPerStrata.entrySet().iterator(); iterator.hasNext();) {
-					Entry<String, List<String[]>> rowsByFile = (Entry<String, List<String[]>>) iterator.next();
-					divideIntoFile( rowsByFile.getKey(), rowsByFile.getValue() );
-				}
-
-
-			} catch (Exception e) {
-				logger.error("Error processing CSV file 2", e);
-			}
 		}catch (Exception e) {
 			logger.error("Error processing CSV file 1", e);
 		}
 
 		return outputFolder;
+	}
+
+	private void divideCsv(File fileToDivide, Map<String, List<String[]>> stringsPerStrata, String originalFileName) {
+		try ( CSVReader reader  = CsvReaderUtils.getCsvReader(fileToDivide.getPath(), true, getHeaders() != null ) ){
+
+
+			// read first line
+			String[] csvRow;
+
+			// First divide the lines into the files by column ( or a single file if the user chose not to divide using a column)
+			while ((csvRow = reader.readNext()) != null ) {
+
+				String stratumColumnValue = originalFileName;
+				if( divideByColumnIndex != null ){
+					stratumColumnValue = csvRow[ divideByColumnIndex ];
+				}
+
+				List<String[]> rowsInStratum = stringsPerStrata.get( stratumColumnValue );
+				if( rowsInStratum == null ){
+					rowsInStratum = new ArrayList<>();
+				}
+
+				rowsInStratum.add( csvRow );
+
+				stringsPerStrata.put(stratumColumnValue, rowsInStratum);
+			}
+
+			for (Iterator iterator = stringsPerStrata.entrySet().iterator(); iterator.hasNext();) {
+				Entry<String, List<String[]>> rowsByFile = (Entry<String, List<String[]>>) iterator.next();
+				divideIntoFile( rowsByFile.getKey(), rowsByFile.getValue() );
+			}
+
+
+		} catch (Exception e) {
+			logger.error("Error processing CSV file 2", e);
+		}
 	}
 
 	private void divideIntoFile(String strata, List<String[]> rows ) throws IOException {
@@ -192,7 +198,7 @@ public class ProduceCsvFiles {
 			linesWithoutFirstTemp.clear();
 
 			// Choose a random one from the list
-			Random rnd = new Random( 8230809358934589l );
+			Random rnd = new SecureRandom();
 			Collections.shuffle( linesWithoutFirst, rnd);
 		}
 

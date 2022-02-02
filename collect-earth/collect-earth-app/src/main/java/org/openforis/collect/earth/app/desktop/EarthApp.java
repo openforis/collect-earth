@@ -383,7 +383,6 @@ public class EarthApp {
 				final UpdateIniUtils updateIniUtils = new UpdateIniUtils();
 
 
-
 				if (updateIniUtils.shouldWarnUser(getLocalProperties() )) {
 
 					javax.swing.SwingUtilities.invokeLater( () -> {

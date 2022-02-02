@@ -5,8 +5,8 @@ import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.OutputStreamWriter;
-import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
+import java.security.SecureRandom;
 import java.util.Map;
 import java.util.Random;
 
@@ -23,7 +23,7 @@ public class FreemarkerTemplateUtils {
 
 	private static final Logger logger = LoggerFactory.getLogger(FreemarkerTemplateUtils.class);
 
-	private static final Random rand = new Random();
+	private static final Random rand = new SecureRandom();
 
 	private FreemarkerTemplateUtils() {}
 
