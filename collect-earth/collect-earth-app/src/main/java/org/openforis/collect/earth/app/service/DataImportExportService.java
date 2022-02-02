@@ -126,6 +126,7 @@ public class DataImportExportService {
 
 	public XMLDataImportProcess getImportSummary(File zipWithXml, boolean importNonFinishedPlots) throws Exception {
 		final XMLDataImportProcess dataImportProcess = applicationContext.getBean(XMLDataImportProcess.class);
+		dataImportProcess.init();
 		dataImportProcess.setFile(zipWithXml);
 		dataImportProcess.setValidateRecords(false);
 		dataImportProcess.prepareToStartSummaryCreation();
