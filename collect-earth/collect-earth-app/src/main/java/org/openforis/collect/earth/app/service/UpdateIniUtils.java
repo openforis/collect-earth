@@ -27,18 +27,6 @@ public class UpdateIniUtils {
 	private final SimpleDateFormat fromXml = new SimpleDateFormat("yyyyMMddHHmm");
 	public static final String UPDATE_INI = "update.ini";
 
-
-	public void trackUserStart(){
-
-			try {
-				Random random = new Random( new Date().getTime() );
-				Integer rand = random.nextInt();
-				new URL("https://www.google-analytics.com/collect?v=1&tid=UA-55115982-1&cid=" + rand + "&t=event&ec=Application%Start&ea=Collect%20Earth%20App%20Start&el=Collect%20Earth%20App%20Start").openStream();
-			} catch (Exception e) {
-				logger.debug("Error connecting to stats",  e );
-			}
-	}
-
 	/**
 	 * Checks if there is a newer version of the Collect Earth updater available
 	 * @return The new version build-number if there is a new version. Null if the version online is not newer than the one installed

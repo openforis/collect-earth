@@ -354,7 +354,6 @@ public class EarthApp {
 						earthApp.generateKml();
 						earthApp.simulateClickKmz();
 						earthApp.checkForUpdates();
-						earthApp.userStats();
 						closeSplash();
 					} catch (final Exception e) {
 						logger.error("Error generating KML file", e); //$NON-NLS-1$
@@ -416,17 +415,6 @@ public class EarthApp {
 
 	}
 
-
-	private void userStats() {
-		new Thread("Update user stats") {
-			@Override
-			public void run() {
-				// Wait a few seconds before checking for updates
-				final UpdateIniUtils updateIniUtils = new UpdateIniUtils();
-				updateIniUtils.trackUserStart();
-			}
-		}.start();
-	}
 
 	/**
 	 * If Collect Earth is started by double clicking on a ".cep" file ( Collect Earth Project file )
