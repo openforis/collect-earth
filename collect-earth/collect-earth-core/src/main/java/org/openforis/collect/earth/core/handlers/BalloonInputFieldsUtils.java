@@ -405,7 +405,7 @@ public class BalloonInputFieldsUtils {
 
 		if (handler == null) {
 			throw new IllegalArgumentException(
-					"No handler found for node " + (node != null ? node.getName() : "null node"));
+					"No handler found for node " +  node.getName() );
 		}
 
 		// builds ie. "text_parameter"
