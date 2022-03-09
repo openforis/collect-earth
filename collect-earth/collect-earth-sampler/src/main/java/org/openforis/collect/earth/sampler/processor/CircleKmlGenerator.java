@@ -1,6 +1,7 @@
 package org.openforis.collect.earth.sampler.processor;
 
 import java.awt.geom.Rectangle2D;
+import java.security.SecureRandom;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -14,6 +15,8 @@ public class CircleKmlGenerator extends AbstractPolygonKmlGenerator {
 	private static final int NUMBER_OF_POINTS_TO_DRAW_CIRCLE = 130;
 
 	private double radiusOfCircle;
+	
+	private SecureRandom random = new SecureRandom();
 
 	private static final int MARGIN_CIRCLE = 5;
 
@@ -133,8 +136,8 @@ public class CircleKmlGenerator extends AbstractPolygonKmlGenerator {
 
 		// http://www.anderswallin.net/2009/05/uniform-random-points-in-a-circle-using-polar-coordinates
 
-		final double randomAngle = 2d * Math.PI * Math.random();
-		final double randomRadius = orginalRadius * Math.sqrt(Math.random());
+		final double randomAngle = 2d * Math.PI * random.nextDouble();
+		final double randomRadius = orginalRadius * Math.sqrt( random.nextDouble() );
 
 		final double offsetLong = randomRadius * Math.cos(randomAngle);
 		final double offsetLat = randomRadius * Math.sin(randomAngle);

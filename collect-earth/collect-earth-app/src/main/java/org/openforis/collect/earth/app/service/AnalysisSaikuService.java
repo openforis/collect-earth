@@ -47,12 +47,10 @@ import org.openqa.selenium.remote.RemoteWebDriver;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.DisposableBean;
-import org.springframework.beans.factory.InitializingBean;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.jdbc.CannotGetJdbcConnectionException;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.core.RowMapper;
-import org.springframework.jdbc.datasource.DataSourceUtils;
 import org.springframework.stereotype.Component;
 
 import com.opencsv.CSVReader;
@@ -321,7 +319,7 @@ public class AnalysisSaikuService implements DisposableBean{
 					getJdbcTemplate().execute("DROP VIEW IF EXISTS " + viewName); //$NON-NLS-1$
 				}
 				try {
-					if( getJdbcTemplate().getDataSource() != null ){
+					if( getJdbcTemplate().getDataSource() != null && getJdbcTemplate().getDataSource().getConnection() != null){
 						getJdbcTemplate().getDataSource().getConnection().close();
 					}
 				} catch (CannotGetJdbcConnectionException | SQLException e2) {

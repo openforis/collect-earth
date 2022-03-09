@@ -43,8 +43,7 @@ public abstract class NfiCirclesKmlGenerator extends PolygonKmlGenerator {
 			polygon = getKmlForTract(plotProperties);
 			processKmlPolygonProperties(plotProperties, polygon);
 		} catch (TransformException e) {
-			// TODO Auto-generated catch block
-			e.printStackTrace();
+			logger.error("Error gettting polygon for Tract", e);
 		}
 
 	}
