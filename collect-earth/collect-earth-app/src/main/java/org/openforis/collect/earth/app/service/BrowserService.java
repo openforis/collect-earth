@@ -1,17 +1,13 @@
 package org.openforis.collect.earth.app.service;
 
-import java.io.BufferedReader;
 import java.io.BufferedWriter;
 import java.io.File;
 import java.io.IOException;
-import java.io.InputStreamReader;
 import java.io.StringWriter;
 import java.io.Writer;
 import java.net.URI;
-import java.net.URL;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
-import java.security.Security;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Iterator;
@@ -19,14 +15,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Observable;
 import java.util.Observer;
-import java.util.Properties;
 import java.util.concurrent.CopyOnWriteArrayList;
-import java.util.zip.GZIPInputStream;
-
-import javax.net.ssl.HttpsURLConnection;
-import javax.net.ssl.SSLContext;
-import javax.net.ssl.SSLSocketFactory;
-import javax.net.ssl.TrustManager;
 
 import org.apache.commons.io.FileUtils;
 import org.apache.commons.lang3.StringUtils;
@@ -40,14 +29,8 @@ import org.openqa.selenium.By;
 import org.openqa.selenium.JavascriptExecutor;
 import org.openqa.selenium.WebDriverException;
 import org.openqa.selenium.WebElement;
-import org.openqa.selenium.chrome.ChromeDriver;
-import org.openqa.selenium.chrome.ChromeDriverService;
-import org.openqa.selenium.chrome.ChromeOptions;
-import org.openqa.selenium.firefox.FirefoxBinary;
 import org.openqa.selenium.firefox.FirefoxDriver;
-import org.openqa.selenium.firefox.FirefoxOptions;
 import org.openqa.selenium.firefox.GeckoDriverService;
-import org.openqa.selenium.remote.CapabilityType;
 import org.openqa.selenium.remote.RemoteWebDriver;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -78,11 +61,6 @@ import liquibase.util.SystemUtils;
 @Component
 public class BrowserService implements InitializingBean, Observer {
 
-	private static final String NEW = "=new ";
-	private static final String PROTOTYPE = ".prototype";
-	private static final String ZOOM_10 = "zoom,10)";
-	private static final String WORKSPACE_EL = "(\"workspace-el\");";
-	private static final String LAYER_CONTAINER_BODY = "layer-container-body";
 
 	@Autowired
 	private LocalPropertiesService localPropertiesService;
@@ -98,10 +76,9 @@ public class BrowserService implements InitializingBean, Observer {
 
 	private final ArrayList<RemoteWebDriver> drivers = new ArrayList<>();
 	private final Logger logger = LoggerFactory.getLogger(BrowserService.class);
-	private static final String TEMPLATE_FOR_GEE_JS = "resources/javascript_gee.fmt";
 	private static final String TEMPLATE_FOR_DGMAP_JS = "resources/javascript_dgmap.fmt";
 	private static final Configuration cfg = new Configuration(new Version("2.3.23"));
-	private RemoteWebDriver webDriverEE, webDriverBing, webDriverBaidu, webDriverTimelapse, webDriverGeeCodeEditor,
+	private RemoteWebDriver webDriverBing, webDriverBaidu, webDriverTimelapse, webDriverGeeCodeEditor,
 	webDriverHere, webDriverStreetView, webDriverYandex, webDriverPlanetHtml, webDriverExtraMap, webDriverSecureWatch,
 	webDriverGEEMap, webDriverEarthMap;
 
@@ -208,62 +185,6 @@ public class BrowserService implements InitializingBean, Observer {
 		return driver;
 	}
 
-	private String getCompleteGeeJS() throws IOException {
-
-		final StringBuilder jsResult = new StringBuilder();
-		try {
-			final URL geeJsUrl = new URL(localPropertiesService.getValue(EarthProperty.GEE_JS_LIBRARY_URL));
-
-			// Start Work-around so that we can connect to an HTTPS server without needing
-			// to include the certificate
-			Security.getProviders();
-			final SSLContext ssl = SSLContext.getInstance("TLSv1.2");
-			ssl.init(null, new TrustManager[] { new TrustAllCertificates() }, null);
-			final SSLSocketFactory factory = ssl.getSocketFactory();
-			final HttpsURLConnection connection = (HttpsURLConnection) geeJsUrl.openConnection();
-			connection.setSSLSocketFactory(factory);
-
-			connection.setHostnameVerifier((hostname, session) -> true);
-			// End or work-around
-			InputStreamReader isr;
-			if (connection.getHeaderField("Content-Encoding") != null
-					&& connection.getHeaderField("Content-Encoding").equals("gzip")) {
-				isr = new InputStreamReader(new GZIPInputStream(connection.getInputStream()));
-			} else {
-				isr = new InputStreamReader(connection.getInputStream());
-			}
-
-			try (BufferedReader in = new BufferedReader(isr);) {
-				String inputLine;
-				while ((inputLine = in.readLine()) != null) {
-					jsResult.append(inputLine);
-				}
-			}
-		} catch (final Exception e) {
-			logger.error(
-					"Not possible to read URI " + localPropertiesService.getValue(EarthProperty.GEE_JS_LIBRARY_URL), e);
-			return null;
-		}
-
-		return jsResult.toString();
-	}
-
-	private String getGEEJavascript(SimplePlacemarkObject placemarkObject) {
-
-		final Map<String, Object> data = geoLocalizeTemplateService.getPlacemarkData(placemarkObject);
-		data.put("latitude", placemarkObject.getCoord().getLatitude());
-		data.put("longitude", placemarkObject.getCoord().getLongitude());
-		data.put(EarthProperty.GEE_FUNCTION_PICK.toString(),
-				localPropertiesService.getValue(EarthProperty.GEE_FUNCTION_PICK));
-		data.put(EarthProperty.GEE_ZOOM_OBJECT.toString(),
-				localPropertiesService.getValue(EarthProperty.GEE_ZOOM_OBJECT));
-		data.put(EarthProperty.GEE_ZOOM_METHOD.toString(),
-				localPropertiesService.getValue(EarthProperty.GEE_ZOOM_METHOD));
-		data.put(EarthProperty.GEE_INITIAL_ZOOM.toString(),
-				localPropertiesService.getValue(EarthProperty.GEE_INITIAL_ZOOM));
-
-		return processJavascriptTemplate(data, TEMPLATE_FOR_GEE_JS );
-	}
 
 	private String getDGMapJavascript(SimplePlacemarkObject placemarkObject) {
 		final Map<String, Object> data = geoLocalizeTemplateService.getPlacemarkData(placemarkObject);
@@ -369,53 +290,6 @@ public class BrowserService implements InitializingBean, Observer {
 
 			} catch (final Exception e) {
 				processSeleniumError(e);
-				success = false;
-			}
-		}
-		return success;
-	}
-
-	private boolean loadPlotInGEEExplorer(SimplePlacemarkObject placemarkObject, RemoteWebDriver driver)
-			throws BrowserNotFoundException {
-
-		boolean success = true;
-
-		if (driver != null) {
-
-			if (!isIdOrNamePresent("workspace-el", driver)) {
-				String url = localPropertiesService.getValue(EarthProperty.GEE_EXPLORER_URL);
-				driver = navigateTo(url, driver);
-			}
-
-			if (waitFor("workspace-el", driver) && driver instanceof JavascriptExecutor) {
-				try {
-
-					if (!isGeeMethodUpdated()) {
-						try {
-							refreshJSValues();
-						} catch (final Exception e) {
-							logger.error("Error checking the validity of the GEE js code", e);
-						} finally {
-							setGeeMethodUpdated(true);
-						}
-					}
-					String geeJs = getGEEJavascript(placemarkObject);
-					driver.executeScript(geeJs);
-				} catch (final Exception e) {
-					processSeleniumError(e);
-				}
-
-				try {
-					Thread.sleep(1000);
-				} catch (InterruptedException e) {
-					logger.error("Error waiting for GEE to load",e);
-					Thread.currentThread().interrupt();
-				}
-				String eyeShowing = "span.indicator.visible";
-				String eyeLoading = "span.indicator.loading";
-
-				clickOnElements(driver, eyeShowing);
-				clickOnElements(driver, eyeLoading);
 				success = false;
 			}
 		}
@@ -901,37 +775,6 @@ public class BrowserService implements InitializingBean, Observer {
 		}
 	}
 
-	/**
-	 * Opens a browser window with the Google Earth Engine representation of the
-	 * plot. The Landsat 8 Annual Greenest pixel TOA for 2013 is loaded
-	 * automatically.
-	 *
-	 * @param placemarkObject
-	 *            The center point of the plot.
-	 * @throws BrowserNotFoundException
-	 *             If the browser cannot be found
-	 *
-	 */
-	public void openGEEExplorer(SimplePlacemarkObject placemarkObject) throws BrowserNotFoundException {
-		Object lock = getLock("GEE_EXPLORER");
-		synchronized (lock) {
-			logger.warn("Starting to open EE - supported : {}", localPropertiesService.isExplorerSupported());
-			if (localPropertiesService.isExplorerSupported()) {
-
-				if (webDriverEE == null) {
-					setGeeMethodUpdated(false); // Force the method to find the GEE specific methods again
-					webDriverEE = initBrowser();
-				}
-
-				try {
-					logger.warn("Loading layers - {}", placemarkObject);
-					loadPlotInGEEExplorer(placemarkObject, webDriverEE);
-				} catch (final Exception e) {
-					logger.error("Error when opening Earth Engine browser window", e);
-				}
-			}
-		}
-	}
 
 	/**
 	 * Opens a browser window with the Google Earth Engine Timelapse representation
@@ -959,124 +802,6 @@ public class BrowserService implements InitializingBean, Observer {
 				}
 			}
 		}
-	}
-
-	private void refreshJSValues() throws IOException {
-		final String jsGee = getCompleteGeeJS();
-		if (jsGee != null && jsGee.length() > 0) {
-			// try to find this pattern for the gee_js_pickFunction value ("workspace-el");
-			// " var b=H("workspace-el"); "
-			// New one : var a=F("workspace-el");N(a,!0);N(F("savebox"),!0);if(!this.ya){var
-			// e=new google.maps.Map(F("map"),
-
-			final int indexWorkspaceEL = jsGee.indexOf(WORKSPACE_EL);
-			int startEquals = 0;
-			for (startEquals = indexWorkspaceEL; startEquals > indexWorkspaceEL - 20; startEquals--) {
-				if (jsGee.charAt(startEquals) == '=') {
-					break;
-				}
-			}
-			final String pickFunction = jsGee.substring(startEquals + 1, indexWorkspaceEL).trim();
-
-			// try to find this pattern for the gee_js_zoom_object value Mt
-			// G(g,"layer-container-body");a.na=new Mt(c,b);f.V(a.na,
-			final int indexLayer = jsGee.indexOf(LAYER_CONTAINER_BODY, startEquals);
-			final int indexEqual = jsGee.indexOf(NEW, indexLayer);
-			final int indexParenthesis = jsGee.indexOf('(', indexEqual);
-
-			final String zoomObject = jsGee.substring(indexEqual + NEW.length(), indexParenthesis).trim();
-
-			// try to find this pattern for the gee_js_zoom_function value Mt
-			// Mt.prototype.I=function(a){if(ja(a)){Qt(this);var b=a.viewport;if(b){var
-			// c=parseInt(b.zoom,10),d=parseFloat(b.lat),
-			final int indexZoom10 = jsGee.indexOf(ZOOM_10);
-			final int startPrototype = jsGee.indexOf(zoomObject + PROTOTYPE, indexZoom10 - 200);
-
-			final String zoomFunction = jsGee.substring(startPrototype + zoomObject.length() + PROTOTYPE.length() + 1,
-					jsGee.indexOf('=', startPrototype)).trim();
-
-			localPropertiesService.setValue(EarthProperty.GEE_FUNCTION_PICK, pickFunction);
-			localPropertiesService.setValue(EarthProperty.GEE_ZOOM_METHOD, zoomFunction);
-			localPropertiesService.setValue(EarthProperty.GEE_ZOOM_OBJECT, zoomObject);
-		}
-
-	}
-
-	private RemoteWebDriver startChromeBrowser() throws BrowserNotFoundException {
-
-		final Properties props = System.getProperties();
-		String chromedriverExe = null;
-		if (StringUtils.isBlank(props.getProperty(ChromeDriverService.CHROME_DRIVER_EXE_PROPERTY))) {
-			if (SystemUtils.IS_OS_MAC || SystemUtils.IS_OS_MAC_OSX) {
-				chromedriverExe = "resources/chromedriver_mac";
-			} else if (SystemUtils.IS_OS_UNIX) {
-				chromedriverExe = "resources/chromedriver64";
-			} else if (SystemUtils.IS_OS_WINDOWS) {
-				chromedriverExe = "resources/chromedriver.exe";
-			} else {
-				throw new BrowserNotFoundException("Chromedriver is not supported in the current OS");
-			}
-			props.setProperty(ChromeDriverService.CHROME_DRIVER_EXE_PROPERTY, chromedriverExe);
-		}
-
-		String chromeBinaryPath = localPropertiesService.getValue(EarthProperty.CHROME_BINARY_PATH);
-
-		// Handle the special case when the user picks the Chrome or Firefox app files
-		// for Mac
-		if ((SystemUtils.IS_OS_MAC || SystemUtils.IS_OS_MAC_OSX)
-				&& (chromeBinaryPath.toLowerCase().endsWith("google chrome.app")
-						|| chromeBinaryPath.toLowerCase().endsWith("chrome.app"))) {
-			chromeBinaryPath = chromeBinaryPath + "/Contents/MacOS/Google Chrome";
-		}
-
-		ChromeOptions chromeOptions = new ChromeOptions();
-		chromeOptions.addArguments("disable-infobars");
-		chromeOptions.addArguments("disable-save-password-bubble");
-		chromeOptions.setCapability(CapabilityType.BROWSER_VERSION, "93");
-
-		if (!StringUtils.isBlank(chromeBinaryPath)) {
-			try {
-				chromeOptions.setBinary(chromeBinaryPath);
-			} catch (final WebDriverException e) {
-				logger.error(
-						"The chrome executable chrome.exe cannot be found, please edit earth.properties and correct the chrome.exe location at "
-								+ EarthProperty.CHROME_BINARY_PATH + " pointing to the full path to chrome.exe",
-								e);
-			}
-		}
-
-		return new ChromeDriver(chromeOptions);
-
-	}
-
-	private RemoteWebDriver startFirefoxBrowser() {
-
-		// Firefox under version 48 will work in the "old" way with Selenium. For newer
-		// versions we need to use the GeckoDriver (Marionette)
-		String firefoxBinaryPath = localPropertiesService.getValue(EarthProperty.FIREFOX_BINARY_PATH);
-
-		if (StringUtils.isBlank(firefoxBinaryPath)) {
-			firefoxBinaryPath = FirefoxLocatorFixed.tryToFindFolder();
-		}
-		// Handle the special case when the user picks the Chrome or Firefox app files
-		// for Mac
-		if ((SystemUtils.IS_OS_MAC || SystemUtils.IS_OS_MAC_OSX)
-				&& firefoxBinaryPath.toLowerCase().endsWith("firefox.app")) {
-			firefoxBinaryPath = firefoxBinaryPath + "/Contents/MacOS/firefox";
-		}
-
-		FirefoxBinary fb = null;
-		if (firefoxBinaryPath != null) {
-			System.setProperty(FirefoxDriver.SystemProperty.BROWSER_BINARY, firefoxBinaryPath);
-			fb = new FirefoxBinary(new File(firefoxBinaryPath));
-		} else {
-			fb = new FirefoxBinary();
-		}
-
-		FirefoxOptions fo = new FirefoxOptions();
-		fo.setLegacy(false);
-		fo.setBinary(fb);
-		return new FirefoxDriver(fo);
 	}
 
 	private void setGeckoDriverPath() {
