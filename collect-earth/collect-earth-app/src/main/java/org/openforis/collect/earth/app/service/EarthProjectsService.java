@@ -57,8 +57,9 @@ public class EarthProjectsService {
 
 				File projectPropertiesFile = getProjectPropertiesFile( projectFolder );
 				String projectName = getProjectSurveyName(projectPropertiesFile);
-
-				projectListByName.put( projectName , projectFolder);
+				if( projectName != null ) {
+					projectListByName.put( projectName , projectFolder);
+				}
 			} catch (IOException e) {
 				logger.error("The project definition file cannot be read.", e); //$NON-NLS-1$
 			}
@@ -71,7 +72,10 @@ public class EarthProjectsService {
 
 	private String getProjectSurveyName(File projectPropertiesFile) throws IOException {
 		Properties properties = getProjectProperties(projectPropertiesFile);
-		return properties.getProperty( EarthProperty.SURVEY_NAME.toString() );
+		if( properties != null)
+			return properties.getProperty( EarthProperty.SURVEY_NAME.toString() );
+		else 
+			return null;
 	}
 
 
@@ -309,13 +313,13 @@ public class EarthProjectsService {
 			File definitionFolder = new File(EarthConstants.GENERATED_FOLDER);
 			zipFile.extractFile( PROJECT_PROPERTIES_FILE_NAME, definitionFolder.getAbsolutePath() );
 			String projectName =  getProjectSurveyName(new File( definitionFolder + File.separator + PROJECT_PROPERTIES_FILE_NAME) );
-
-			projectName = StringUtils.remove(projectName, " "); //$NON-NLS-1$
-
-			if( projectName.length() > maxLenghtFolderName ){
-				projectName = projectName.substring(0, maxLenghtFolderName);
+			if( projectName != null ) {
+				projectName = StringUtils.remove(projectName, " "); //$NON-NLS-1$
+	
+				if( projectName.length() > maxLenghtFolderName ){
+					projectName = projectName.substring(0, maxLenghtFolderName);
+				}
 			}
-
 			return projectName;
 		}catch(Exception e ) {
 			logger.error("Error opening project folder", projectZipFile.getAbsolutePath() );
