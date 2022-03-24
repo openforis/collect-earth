@@ -7,7 +7,6 @@ import java.io.File;
 import java.io.IOException;
 import java.net.URISyntaxException;
 import java.net.URL;
-import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
 import java.util.NoSuchElementException;
 
@@ -25,7 +24,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
-import liquibase.repackaged.org.apache.commons.lang3.SystemUtils;
+import liquibase.util.SystemUtils;
 
 @Component
 public class CodeEditorHandlerThread {
