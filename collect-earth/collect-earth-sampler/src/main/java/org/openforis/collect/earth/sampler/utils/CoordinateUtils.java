@@ -49,7 +49,7 @@ public class CoordinateUtils {
 			throws TransformException {
 		
 		if (offsetLatitudeMeters == 0 && offsetLongitudeMeters == 0) {
-			return originalLatLong;
+			return null;
 		} else {
 
 			double longitudeDirection = 90; // EAST
@@ -79,7 +79,9 @@ public class CoordinateUtils {
 				calc.setDirection(latitudeDirection, Math.abs( offsetLatitudeMeters ) );
 			}
 
-			return calc.getDestinationPosition().getCoordinate();
+			double[] movedPointLatLong = calc.getDestinationPosition().getCoordinate();
+			return new double[]{ movedPointLatLong[1], movedPointLatLong[0]};
+
 		}
 
 	}
