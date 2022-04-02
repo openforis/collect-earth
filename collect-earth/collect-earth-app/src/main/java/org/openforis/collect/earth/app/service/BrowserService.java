@@ -732,7 +732,7 @@ public class BrowserService implements InitializingBean, Observer {
 					}
 					url = url.append("aoi=")
 							.append(URLEncoder.encode( aoi, StandardCharsets.UTF_8.toString() ))
-							.append("&");
+							.append("&embed=true"); // Set the EMBED parameter to true so that the user does not need to log in.
 
 					webDriverEarthMap = navigateTo(url.toString(), webDriverEarthMap);
 					//Desktop.getDesktop().browse( new URI( url.toString() ) );
