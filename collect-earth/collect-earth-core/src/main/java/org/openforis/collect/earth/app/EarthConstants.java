@@ -60,7 +60,8 @@ public class EarthConstants {
 
 	public static final String PLOT_ID = "id"; //$NON-NLS-1$
 
-	public static final String POSTGRES_RDB_SCHEMA = "rdbcollectsaiku"; //$NON-NLS-1$
+	public static final String POSTGRES_RDB_SCHEMA_SAIKU = "rdbcollectsaiku"; //$NON-NLS-1$
+	public static final String POSTGRES_RDB_SCHEMA_IPCC = "rdbcollectipcc"; //$NON-NLS-1$
 
 
 	public enum SAMPLE_SHAPE{

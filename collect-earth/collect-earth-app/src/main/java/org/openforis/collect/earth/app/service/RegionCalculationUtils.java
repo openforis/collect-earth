@@ -9,6 +9,7 @@ import java.util.Locale;
 
 import org.apache.commons.dbcp.BasicDataSource;
 import org.openforis.collect.earth.app.EarthConstants;
+import org.openforis.collect.earth.app.service.RDBExporter.ExportType;
 import org.openforis.collect.earth.core.utils.CsvReaderUtils;
 import org.openforis.idm.metamodel.BooleanAttributeDefinition;
 import org.openforis.idm.metamodel.EntityDefinition;
@@ -58,13 +59,16 @@ public class RegionCalculationUtils implements InitializingBean{
 
 	private JdbcTemplate jdbcTemplate;
 
+	private ExportType exportType;
+	
 	@Override
 	public void afterPropertiesSet() throws Exception {
 		jdbcTemplate = new JdbcTemplate(rdbDataSource);
 	}
 
-	public void handleRegionCalculation(){
+	public void handleRegionCalculation(ExportType exportType){
 		try {
+			setExportType(exportType);
 			createWeightFactors();
 
 			// If the region_areas.csv is not present then try to add the areas "per attribute" using the file areas_per_attribute.csv
@@ -89,7 +93,7 @@ public class RegionCalculationUtils implements InitializingBean{
 	}
 
 	private void recalculatePlotWeights() {
-		String schemaName = schemaService.getSchemaPrefix();
+		String schemaName = getSchemaPrefix();
 		String selectMinExpansionFactorSql = String.format("SELECT MIN(%s) FROM %splot", EXPANSION_FACTOR, schemaName); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$
 		Double minExpansionFactor = jdbcTemplate.queryForObject(selectMinExpansionFactorSql, Double.class);
 		//set plot_weight = expansion_factor / minExpansionFactor
@@ -97,8 +101,12 @@ public class RegionCalculationUtils implements InitializingBean{
 		jdbcTemplate.update(updatePlotWeightSql);
 	}
 
+	private String getSchemaPrefix() {
+		return schemaService.getSchemaPrefix( getExportType() );
+	}
+
 	private void createWeightFactors(){
-		final String schemaName = schemaService.getSchemaPrefix();
+		final String schemaName = getSchemaPrefix();
 		jdbcTemplate.execute(ALTER_TABLE2 + schemaName + PLOT_ADD + EXPANSION_FACTOR + FLOAT); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$
 		jdbcTemplate.execute(ALTER_TABLE2 + schemaName + PLOT_ADD + PLOT_WEIGHT + FLOAT); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$
 	}
@@ -110,7 +118,7 @@ public class RegionCalculationUtils implements InitializingBean{
 	private boolean addAreasPerRegion() {
 
 		final File regionAreas = new File( localPropertiesService.getProjectFolder() + File.separatorChar + REGION_AREAS_CSV);
-		String schemaName = schemaService.getSchemaPrefix();
+		String schemaName = getSchemaPrefix();
 
 		if (regionAreas.exists()) {
 
@@ -176,7 +184,7 @@ public class RegionCalculationUtils implements InitializingBean{
 
 
 	private void handleNumberOfShrubs() {
-		String schemaName = schemaService.getSchemaPrefix();
+		String schemaName = getSchemaPrefix();
 		// This is specific to the Global Forest Survey - Drylands monitoring assessment
 		if(
 			AnalysisSaikuService.surveyContains(SHRUB_COUNT, earthSurveyService.getCollectSurvey() )
@@ -192,7 +200,7 @@ public class RegionCalculationUtils implements InitializingBean{
 	}
 
 	private void handleNumberOfTrees() {
-		String schemaName = schemaService.getSchemaPrefix();
+		String schemaName = getSchemaPrefix();
 		// This is specific to the Global Forest Survey - Drylands monitoring assessment
 		if(
 			AnalysisSaikuService.surveyContains(TREE_COUNT, earthSurveyService.getCollectSurvey() )
@@ -210,7 +218,7 @@ public class RegionCalculationUtils implements InitializingBean{
 	private boolean addAreasPerAttribute() {
 
 		final File areasPerAttribute = new File( localPropertiesService.getProjectFolder() + File.separatorChar + ATTRIBUTE_AREAS_CSV);
-		String schemaName = schemaService.getSchemaPrefix();
+		String schemaName = getSchemaPrefix();
 
 		if (areasPerAttribute.exists()) {
 
@@ -339,6 +347,14 @@ public class RegionCalculationUtils implements InitializingBean{
 			return false;
 		}
 		return true;
+	}
+
+	public ExportType getExportType() {
+		return exportType;
+	}
+
+	public void setExportType(ExportType exportType) {
+		this.exportType = exportType;
 	}
 
 
