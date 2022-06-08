@@ -26,6 +26,8 @@ import com.opencsv.CSVReader;
 @Component
 public class RegionCalculationUtils implements InitializingBean{
 
+	private static final String AREA_CSV_COLUMN = "area";
+	private static final String WEIGHT_CSV_COLUMN = "weight";
 	private static final String PLOT_SET = "plot SET ";
 	private static final String UPDATE = "UPDATE ";
 	private static final String PLOT_ADD = "plot ADD ";
@@ -131,7 +133,7 @@ public class RegionCalculationUtils implements InitializingBean{
 						String region = csvLine[0];
 						String plotFile = csvLine[1];
 						int areaHectares =  Integer.parseInt( csvLine[2] );
-						final Float plotWeight =  Float.parseFloat( csvLine[3] );
+						final Float plotWeight =  1f; // The plot weight will always be calculated in a later step
 
 						Object[] parameters = new String[]{region,plotFile};
 
@@ -223,14 +225,26 @@ public class RegionCalculationUtils implements InitializingBean{
 		if (areasPerAttribute.exists()) {
 
 			try ( CSVReader csvReader = CsvReaderUtils.getCsvReader(areasPerAttribute.getAbsolutePath(), false) ){
-				// The header (first line) should contain the names of the three columns : attribute_name,area,weight
+				// The header (first line) should contain the names of the three columns : attribute_name,area
 
 				String[] columnNames = csvReader.readNext();
+				
 
 				ArrayList<String> attributeNames = new ArrayList<String>();
 
-				if(columnNames.length < 3 ){
-					throw new RuntimeException("The " + areasPerAttribute.getAbsolutePath() + " file needs have this format : attribute_name1,attribute_name2,...attribute_nameN,area,weight./nAt least one attribute is necessary. This wuuld be the attribute or attributes (their name in the survey definition) that would realte the plot with its expancion factor");
+				if(columnNames.length < 2 ){
+					throw new RuntimeException("The " + areasPerAttribute.getAbsolutePath() + " file needs have this format : attribute_name1,attribute_name2,...attribute_nameN,"+AREA_CSV_COLUMN+"./nAt least one attribute is necessary. This would be the attribute or attributes (their name in the survey definition) that would relate the plot with its expansion factor");
+				}
+
+				// The weight column has been removed in the latest versions of the areas per attribute csv
+				// Lets add it again for backward compatibility
+				if( !columnNames[columnNames.length -1].equalsIgnoreCase(WEIGHT_CSV_COLUMN) ) {
+					// We need to create anew array with an extra item
+					String[] longer = new String[columnNames.length + 1];
+					for (int i = 0; i < columnNames.length; i++)
+						longer[i] = columnNames[i];
+					longer[columnNames.length] = WEIGHT_CSV_COLUMN; // add the 
+					columnNames = longer;
 				}
 
 				for( int colPosition = 0; colPosition<columnNames.length -2; colPosition++){
@@ -238,7 +252,7 @@ public class RegionCalculationUtils implements InitializingBean{
 
 					// Validate attribute name
 					if( !isAttributeInPlotEntity( attributeName ) ){
-						throw new RuntimeException("The expected format of the CSV file at " + areasPerAttribute.getAbsolutePath() + " should be attribute_name,area,weight. "
+						throw new RuntimeException("The expected format of the CSV file at " + areasPerAttribute.getAbsolutePath() + " should be attribute_name,"+AREA_CSV_COLUMN
 								+ "The name of the attribute in the first column of your CSV '" + attributeName + "'is not an attribute under the plot entity.");
 					}
 
@@ -246,8 +260,8 @@ public class RegionCalculationUtils implements InitializingBean{
 				}
 
 				//Validate area and weight headers.
-				if( !columnNames[ columnNames.length -2 ].equalsIgnoreCase("area") || !columnNames[columnNames.length -1].equalsIgnoreCase("weight")){
-					throw new RuntimeException("The expected format of the CSV file at " + areasPerAttribute.getAbsolutePath() + " should be attribute_name,area,weight");
+				if( !columnNames[ columnNames.length -2 ].equalsIgnoreCase(AREA_CSV_COLUMN) || !columnNames[columnNames.length -1].equalsIgnoreCase(WEIGHT_CSV_COLUMN)){
+					throw new RuntimeException("The expected format of the CSV file at " + areasPerAttribute.getAbsolutePath() + " should be attribute_name,"+AREA_CSV_COLUMN);
 				}
 
 				int numberOfAttributes = attributeNames.size();
