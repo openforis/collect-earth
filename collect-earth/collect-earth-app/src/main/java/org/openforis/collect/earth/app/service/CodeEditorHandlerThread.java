@@ -24,7 +24,8 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
-import liquibase.util.SystemUtils;
+import liquibase.repackaged.org.apache.commons.lang3.SystemUtils;
+
 
 @Component
 public class CodeEditorHandlerThread {
@@ -190,7 +191,7 @@ public class CodeEditorHandlerThread {
 	 * own script.
 	 *
 	 * @return The generic script in the resources folder or the file called
-	 *         eePlaygroundScript.fmt in hte same folder where the current project
+	 *         eePlaygroundScript.fmt in the same folder where the current project
 	 *         file resides
 	 */
 	private String getGeeCodeEditorTemplate() {

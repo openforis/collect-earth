@@ -44,7 +44,8 @@ import freemarker.template.Template;
 import freemarker.template.TemplateException;
 import freemarker.template.Version;
 import io.github.bonigarcia.wdm.WebDriverManager;
-import liquibase.util.SystemUtils;
+import liquibase.repackaged.org.apache.commons.lang3.SystemUtils;
+
 
 /**
  * This class contains methods that allow Collect Earth to open browser windows
