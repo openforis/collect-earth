@@ -200,7 +200,6 @@ public class RDBExporter {
 		if (!isUserCancelledOperation()) {
 			System.currentTimeMillis();
 			try {
-
 				callbackProcessor.processRDBData(progressListener);
 				setJDBCDefaultSchema( exportType);
 			} catch (final Exception e) {

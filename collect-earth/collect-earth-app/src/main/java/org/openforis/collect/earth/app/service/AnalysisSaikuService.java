@@ -51,7 +51,7 @@ import freemarker.template.TemplateException;
 import net.lingala.zip4j.ZipFile;
 
 @Component
-public class AnalysisSaikuService implements DisposableBean, ProcessRDBData{
+public class AnalysisSaikuService implements DisposableBean{
 
 	private static final String PLOT_ADD = "plot ADD ";
 
@@ -371,7 +371,21 @@ public class AnalysisSaikuService implements DisposableBean, ProcessRDBData{
 				+ ServerController.SAIKU_RDB_SUFFIX + ".zip");
 	}
 
+	public boolean isRdbAlreadyGenerated() {
 
+		boolean saikuDBAlreadyPresent = false;
+		if (localPropertiesService.isUsingSqliteDB()) {
+			File rdbFile = getZippedSaikuProjectDB();
+			saikuDBAlreadyPresent = rdbFile.exists();
+		} else {
+			// Here we should check if the "rdbcollectearth" schema is created in the
+			// PostgreSQL database
+			saikuDBAlreadyPresent = true;
+		}
+
+		return saikuDBAlreadyPresent;
+	}
+	
 	private boolean restoreProjectSaikuDB() {
 		boolean restoredSaiku = false;
 		if (getZippedSaikuProjectDB().exists()) {
@@ -472,7 +486,14 @@ public class AnalysisSaikuService implements DisposableBean, ProcessRDBData{
 					// The user clicked on the option to refresh the database, or there is no
 					// previous copy of the Saiku DB
 					// Generate the DB file
-					rdbExporter.exportDataToRDB(earthSurveyService.getCollectSurvey(), ExportType.SAIKU, progressListener, this);
+					rdbExporter.exportDataToRDB(
+							earthSurveyService.getCollectSurvey(), 
+							ExportType.SAIKU, 
+							progressListener, 
+							(progress) ->  {
+								processQuantityData(progress);
+							}
+						);
 			
 					try {
 						// Save the DB file in a zipped file to keep for the next usages
@@ -799,12 +820,6 @@ public class AnalysisSaikuService implements DisposableBean, ProcessRDBData{
 
 	private void setSaikuStarted(boolean saikuStarted) {
 		this.saikuStarted = saikuStarted;
-	}
-
-
-	@Override
-	public void processRDBData(InfiniteProgressMonitor progressListener) {
-		processQuantityData(progressListener);
 	}
 
 }
