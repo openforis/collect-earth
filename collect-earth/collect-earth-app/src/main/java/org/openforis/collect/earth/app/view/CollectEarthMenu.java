@@ -33,6 +33,7 @@ import org.openforis.collect.earth.app.service.KmlImportService;
 import org.openforis.collect.earth.app.service.LocalPropertiesService;
 import org.openforis.collect.earth.app.service.MissingPlotService;
 import org.openforis.collect.earth.app.view.ExportActionListener.RecordsToExport;
+import org.openforis.collect.earth.ipcc.IPCCGenerator;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.InitializingBean;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -52,6 +53,9 @@ public class CollectEarthMenu extends JMenuBar implements InitializingBean {
 
 	@Autowired
 	private transient AnalysisSaikuService analysisSaikuService;
+	
+	@Autowired
+	private transient IPCCGenerator ipccGenerator;
 
 	@Autowired
 	private transient LocalPropertiesService localPropertiesService;
@@ -198,7 +202,7 @@ public class CollectEarthMenu extends JMenuBar implements InitializingBean {
 		// acting as a client )
 		toolsMenu.add(menuItem);
 
-		menuItem = new JMenuItem("Open data folder"); //$NON-NLS-1$
+		menuItem = new JMenuItem(Messages.getString("CollectEarthWindow.67")); //$NON-NLS-1$
 		menuItem.addActionListener( e-> {
 			try {
 				CollectEarthUtils.openFolderInExplorer(FolderFinder.getCollectEarthDataFolder());
@@ -412,8 +416,8 @@ public class CollectEarthMenu extends JMenuBar implements InitializingBean {
 		return new SaikuAnalysisListener(getFrame(), getSaikuStarter());
 	}
 
-	private SaikuStarter getSaikuStarter() {
-		return new SaikuStarter(analysisSaikuService, getFrame());
+	private GenerateDatabaseStarter getSaikuStarter() {
+		return new GenerateDatabaseStarter(analysisSaikuService, getFrame());
 
 	}
 
