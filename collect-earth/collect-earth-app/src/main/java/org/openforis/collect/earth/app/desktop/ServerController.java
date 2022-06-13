@@ -41,6 +41,8 @@ public class ServerController extends Observable {
 	private static final String EARTH_SUBDOMAIN = "earth"; //$NON-NLS-1$
 
 	public static final String SAIKU_RDB_SUFFIX = "Saiku"; //$NON-NLS-1$
+	public static final String IPCC_RDB_SUFFIX = "Ipcc"; //$NON-NLS-1$
+	
 	// Make sure that the default ports are the same for Server and Generator
 	private static final String DEFAULT_PORT = "80"; //$NON-NLS-1$
 

@@ -21,7 +21,7 @@
 	<properties>
 		<java.version>1.8</java.version>
 		<project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-		<collect.version>4.0.41</collect.version>
+		<collect.version>4.0.55</collect.version>
 		<spring.version>5.3.14</spring.version>
 		<project.scm.id>github.com</project.scm.id>
 		<sonar.language>java</sonar.language>

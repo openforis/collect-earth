@@ -2,7 +2,7 @@ package org.openforis.collect.earth.ipcc;
 
 import javax.swing.SwingUtilities;
 
-import org.openforis.collect.earth.app.service.ProcessRDBData;
+import org.openforis.collect.earth.app.service.RDBPostProcessor;
 import org.openforis.collect.earth.app.service.RDBExporter;
 import org.openforis.collect.earth.app.service.RDBExporter.ExportType;
 import org.openforis.collect.earth.app.service.RegionCalculationUtils;
@@ -13,7 +13,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
 @Component
-public class IPCCRDBGenerator {
+public class IPCCRDBGenerator  {
 	
 	@Autowired
 	RDBExporter rdbExporter;
@@ -23,14 +23,14 @@ public class IPCCRDBGenerator {
 	
 	public void generateRelationalDatabase(Survey modifiedSurvey, InfiniteProgressMonitor infiniteProgressMonitor  ) {
 		
-		ProcessRDBData ipccCallback = postProcessIpccData();
+		RDBPostProcessor ipccCallback = postProcessIpccData();
 		rdbExporter.exportDataToRDB(modifiedSurvey, ExportType.IPCC, infiniteProgressMonitor, ipccCallback);
 		
 	}
 
-	private ProcessRDBData postProcessIpccData() {
+	private RDBPostProcessor postProcessIpccData() {
 
-		// return the implementation of a ProcessRDBData interface (the callback when the initial RDB export is done so that we can add expansion factors )
+		// return the implementation of a RDBPostProcessor interface (the callback when the initial RDB export is done so that we can add expansion factors )
 		return (progressMonitor) -> {
 			
 			SwingUtilities.invokeLater( () -> progressMonitor.setMessage("Calculating expansion factors") );

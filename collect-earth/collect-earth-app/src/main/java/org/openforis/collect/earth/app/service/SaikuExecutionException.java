@@ -1,6 +1,8 @@
 package org.openforis.collect.earth.app.service;
 
-public class SaikuExecutionException extends Exception {
+import org.openforis.collect.earth.ipcc.RdbExportException;
+
+public class SaikuExecutionException extends RdbExportException {
 
 	/**
 	 * 

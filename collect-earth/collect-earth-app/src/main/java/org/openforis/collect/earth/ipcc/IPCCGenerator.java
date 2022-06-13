@@ -5,6 +5,7 @@ package org.openforis.collect.earth.ipcc;
 
 import java.io.File;
 
+import org.openforis.collect.earth.app.service.GenerateDatabase;
 import org.openforis.collect.earth.app.view.InfiniteProgressMonitor;
 import org.openforis.idm.metamodel.Survey;
 import org.slf4j.Logger;

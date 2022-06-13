@@ -7,8 +7,6 @@ import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.nio.charset.StandardCharsets;
-import java.security.MessageDigest;
-import java.security.NoSuchAlgorithmException;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.HashMap;
@@ -17,10 +15,8 @@ import java.util.Map;
 
 import javax.swing.SwingUtilities;
 
-import org.apache.commons.codec.binary.Hex;
 import org.apache.commons.lang3.SystemUtils;
 import org.apache.commons.text.StringEscapeUtils;
-import org.openforis.collect.earth.app.CollectEarthUtils;
 import org.openforis.collect.earth.app.EarthConstants;
 import org.openforis.collect.earth.app.EarthConstants.CollectDBDriver;
 import org.openforis.collect.earth.app.ad_hoc.AluToolUtils;
@@ -31,6 +27,7 @@ import org.openforis.collect.earth.app.model.SlopeCode;
 import org.openforis.collect.earth.app.service.LocalPropertiesService.EarthProperty;
 import org.openforis.collect.earth.app.service.RDBExporter.ExportType;
 import org.openforis.collect.earth.app.view.InfiniteProgressMonitor;
+import org.openforis.collect.earth.ipcc.RdbExportException;
 import org.openforis.collect.earth.sampler.utils.FreemarkerTemplateUtils;
 import org.openforis.collect.model.CollectSurvey;
 import org.openforis.collect.relational.CollectRDBPublisher;
@@ -48,10 +45,9 @@ import org.springframework.stereotype.Component;
 import com.opencsv.CSVReader;
 
 import freemarker.template.TemplateException;
-import net.lingala.zip4j.ZipFile;
 
 @Component
-public class AnalysisSaikuService implements DisposableBean{
+public class AnalysisSaikuService extends GenerateDatabase implements DisposableBean{
 
 	private static final String PLOT_ADD = "plot ADD ";
 
@@ -115,13 +111,11 @@ public class AnalysisSaikuService implements DisposableBean{
 	@Autowired
 	private SchemaService schemaNamingService;
 	
-	private final Logger logger = LoggerFactory.getLogger(AnalysisSaikuService.class);
+	final Logger logger = LoggerFactory.getLogger(AnalysisSaikuService.class);
 
 	private static final int ELEVATION_RANGE = 100;
 
 	private RemoteWebDriver saikuWebDriver;
-
-	private boolean refreshDatabase;
 
 	private static final String SQLITE_FREEMARKER_HTML_TEMPLATE = "resources" + File.separator //$NON-NLS-1$
 			+ "collectEarthSqliteDS.fmt"; //$NON-NLS-1$
@@ -130,7 +124,6 @@ public class AnalysisSaikuService implements DisposableBean{
 	private static final String MDX_XML = "collectEarthCubes.xml"; //$NON-NLS-1$
 	private static final String MDX_TEMPLATE = MDX_XML + ".fmt"; //$NON-NLS-1$
 
-	private boolean userCancelledOperation = false;
 	private boolean saikuStarted;
 
 	private void assignDimensionValues() {
@@ -271,7 +264,6 @@ public class AnalysisSaikuService implements DisposableBean{
 		}
 	}
 
-
 	private void createAspectAuxTable() {
 		final String schemaName = getSchemaPrefix();
 		rdbExporter.getJdbcTemplate().execute(CREATE_TABLE + schemaName + "aspect_category (" + ASPECT_ID //$NON-NLS-1$ //$NON-NLS-2$
@@ -343,66 +335,6 @@ public class AnalysisSaikuService implements DisposableBean{
 		}
 	}
 
-	private String getRdbFilePrefix() {
-		String result = "";
-		try {
-			final MessageDigest messageDigest = MessageDigest.getInstance("MD5");
-			messageDigest.reset();
-			String concatenation = earthSurveyService.getCollectSurvey().getUri()
-					+ earthSurveyService.getCollectSurvey().getName();
-			messageDigest.update(concatenation.getBytes( StandardCharsets.UTF_8 ) );
-			final byte[] resultByte = messageDigest.digest();
-			result = new String(Hex.encodeHex(resultByte));
-		} catch (NoSuchAlgorithmException e) {
-			logger.error("Problems getting the MD5 hash of the project name", e);
-		}
-		return result;
-	}
-
-	private File getZippedSaikuProjectDB() {
-
-		File saikuFolder = new File(FolderFinder.getCollectEarthDataFolder() + File.separator + "saikuDatabase");
-
-		if (!saikuFolder.exists()) {
-			saikuFolder.mkdir();
-		}
-
-		return new File(saikuFolder.getAbsolutePath() + File.separator + getRdbFilePrefix()
-				+ ServerController.SAIKU_RDB_SUFFIX + ".zip");
-	}
-
-	public boolean isRdbAlreadyGenerated() {
-
-		boolean saikuDBAlreadyPresent = false;
-		if (localPropertiesService.isUsingSqliteDB()) {
-			File rdbFile = getZippedSaikuProjectDB();
-			saikuDBAlreadyPresent = rdbFile.exists();
-		} else {
-			// Here we should check if the "rdbcollectearth" schema is created in the
-			// PostgreSQL database
-			saikuDBAlreadyPresent = true;
-		}
-
-		return saikuDBAlreadyPresent;
-	}
-	
-	private boolean restoreProjectSaikuDB() {
-		boolean restoredSaiku = false;
-		if (getZippedSaikuProjectDB().exists()) {
-			// Unzip file
-
-			try (ZipFile zippedProjectSaikuData = new ZipFile(getZippedSaikuProjectDB())) {
-				zippedProjectSaikuData.extractAll(FolderFinder.getCollectEarthDataFolder());
-				restoredSaiku = true;
-			} catch (IOException e) {
-				logger.error("Problems unzipping the contents of the zipped Saiku DB to the local user folder ", e);
-			}
-
-		}
-		return restoredSaiku;
-	}
-
-
 	private String getSaikuConfigurationFilePath() {
 
 		String configFile = localPropertiesService.getSaikuFolder() + "/" //$NON-NLS-1$
@@ -417,20 +349,6 @@ public class AnalysisSaikuService implements DisposableBean{
 				+ "tomcat/webapps/saiku/WEB-INF/classes/legacy-datasources/collectEarthDS"; //$NON-NLS-1$
 		configFile = configFile.replace('/', File.separatorChar);
 		return configFile;
-	}
-
-	// @PreDestroy support removed by JDK11
-	@Override
-    public void destroy() throws Exception {
-		try {
-			stopSaiku();
-		} catch (SaikuExecutionException e) {
-			logger.error("Error while trying to quite Saiku before destroying the bean", e); //$NON-NLS-1$
-		}
-	}
-
-	private boolean isRefreshDatabase() {
-		return refreshDatabase;
 	}
 
 	private boolean isSaikuConfigured() {
@@ -459,10 +377,6 @@ public class AnalysisSaikuService implements DisposableBean{
 		return isSaikuFolder;
 	}
 
-	private boolean isUserCancelledOperation() {
-		return userCancelledOperation;
-	}
-
 	private void openSaiku() throws BrowserNotFoundException {
 		saikuWebDriver = browserService.navigateTo("http://127.0.0.1:8181", saikuWebDriver, false); //$NON-NLS-1$
 		if (browserService.waitFor("username", saikuWebDriver)) { //$NON-NLS-1$
@@ -472,7 +386,7 @@ public class AnalysisSaikuService implements DisposableBean{
 		}
 	}
 
-	public void prepareDataForAnalysis(InfiniteProgressMonitor progressListener) throws SaikuExecutionException {
+	public void prepareDataForAnalysis(InfiniteProgressMonitor progressListener) throws RdbExportException {
 
 		try {
 
@@ -480,7 +394,7 @@ public class AnalysisSaikuService implements DisposableBean{
 
 			try {
 
-				if ((localPropertiesService.isUsingSqliteDB() && !getZippedSaikuProjectDB().exists())
+				if ((localPropertiesService.isUsingSqliteDB() && !getZippedProjectDB( ExportType.SAIKU ).exists())
 						|| isRefreshDatabase()) {
 					
 					// The user clicked on the option to refresh the database, or there is no
@@ -496,17 +410,17 @@ public class AnalysisSaikuService implements DisposableBean{
 						);
 			
 					try {
-						// Save the DB file in a zipped file to keep for the next usages
-						replaceZippedSaikuProjectDB();
+						// Save the DB file in a zipped file to extends GenerateDatabase keep for the next usages
+						replaceZippedProjectDB( ExportType.SAIKU );
 					} catch (Exception e) {
 						logger.error("Error while refreshing the Zipped content of the project Saiku DB", e);
 					}
 
-				} else if (getZippedSaikuProjectDB().exists()) {
+				} else if (getZippedProjectDB(ExportType.SAIKU).exists()) {
 					// If the zipped version of the project exists ( and the user clicked on the
 					// option to not refresh it) then restore this last version of the data
 					if (localPropertiesService.isUsingSqliteDB()) {
-						restoreProjectSaikuDB();
+						restoreZippedProjectDB(ExportType.SAIKU);
 					}
 				}
 
@@ -535,22 +449,6 @@ public class AnalysisSaikuService implements DisposableBean{
 
 		} catch (final CollectRdbException e) {
 			logger.error("Error while producing Relational DB from Collect format", e); //$NON-NLS-1$
-		}
-	}
-
-	private void replaceZippedSaikuProjectDB() throws IOException {
-		if (localPropertiesService.isUsingSqliteDB()) {
-			ZipFile zippedSaiku = CollectEarthUtils.addFileToZip(getZippedSaikuProjectDB().getAbsolutePath(), rdbExporter.getRdbFile(ExportType.SAIKU),
-					rdbExporter.getRdbFile(ExportType.SAIKU).getName());
-			zippedSaiku.close();
-		}
-	}
-
-	private String getSchemaName() {
-		if (localPropertiesService.isUsingPostgreSqlDB()) {
-			return EarthConstants.POSTGRES_RDB_SCHEMA_SAIKU;
-		} else {
-			return null;
 		}
 	}
 
@@ -770,14 +668,6 @@ public class AnalysisSaikuService implements DisposableBean{
 		}
 	}
 
-	public void setRefreshDatabase(boolean refreshDatabase) {
-		this.refreshDatabase = refreshDatabase;
-	}
-
-	public void setUserCancelledOperation(boolean userCancelledOperation) {
-		this.userCancelledOperation = userCancelledOperation;
-	}
-
 	private void startSaiku() throws SaikuExecutionException {
 		logger.warn(
 				"Starting the Saiku server {}{}{}", localPropertiesService.getSaikuFolder(), File.separator, START_SAIKU); //$NON-NLS-1$
@@ -789,7 +679,7 @@ public class AnalysisSaikuService implements DisposableBean{
 		logger.warn("Finished starting the Saiku server"); //$NON-NLS-1$
 	}
 
-	private void stopSaiku() throws SaikuExecutionException {
+	void stopSaiku() throws SaikuExecutionException {
 		logger.warn("Stoping the Saiku server {}{}{}", localPropertiesService.getSaikuFolder() , File.separator , STOP_SAIKU); //$NON-NLS-1$
 		if (isSaikuStarted()) {
 			runSaikuBat(STOP_SAIKU);
@@ -820,6 +710,30 @@ public class AnalysisSaikuService implements DisposableBean{
 
 	private void setSaikuStarted(boolean saikuStarted) {
 		this.saikuStarted = saikuStarted;
+	}
+	
+	@Override
+	public void destroy() throws Exception {
+		try {
+			stopSaiku();
+		} catch (SaikuExecutionException e) {
+			logger.error("Error while trying to quite Saiku before destroying the bean", e); //$NON-NLS-1$
+		}
+	}
+
+	@Override
+	public LocalPropertiesService getLocalPropertiesService() {
+		return localPropertiesService;
+	}
+
+	@Override
+	public EarthSurveyService getEarthSurveyService() {
+		return earthSurveyService;
+	}
+
+	@Override
+	public RDBExporter getRdbExporter() {
+		return rdbExporter;
 	}
 
 }

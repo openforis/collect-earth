@@ -55,7 +55,42 @@ public class RDBExporter {
 	private boolean userCancelledOperation = false;
 	
 	public enum ExportType {
-	    SAIKU, IPCC 
+	    SAIKU( ServerController.SAIKU_RDB_SUFFIX, "Saiku", "SaikuDataFolder", EarthConstants.COLLECT_EARTH_DATABASE_SQLITE_DB + ServerController.SAIKU_RDB_SUFFIX, EarthConstants.POSTGRES_RDB_SCHEMA_SAIKU), 
+	    IPCC(  ServerController.IPCC_RDB_SUFFIX, "Ipcc", "IPCCDataFolder", EarthConstants.COLLECT_EARTH_DATABASE_SQLITE_DB + ServerController.IPCC_RDB_SUFFIX, EarthConstants.POSTGRES_RDB_SCHEMA_IPCC);
+	    
+	    private String dbSuffix;
+		private String prefix;
+		private String dataFolder;
+		private String dbFileName;
+		private String rdbSchema;
+		
+	    ExportType(String dbSuffix, String prefix, String dataFolder, String dbFileName, String rdbSchema ) {
+	    	this.dbSuffix = dbSuffix;
+	    	this.prefix = prefix;
+	    	this.dbFileName = dbFileName;
+	    	this.rdbSchema = rdbSchema;
+	    }
+
+		public String getDbSuffix() {
+			return dbSuffix;
+		}
+
+		public String getPrefix() {
+			return prefix;
+		}
+		
+		public String getDataFolder() {
+			return dataFolder;
+		}
+
+		public String getDbFileName() {
+			return dbFileName;
+		}
+		
+		public String getRdbSchema() {
+			return rdbSchema;
+		}
+
 	}
 	
 	private JdbcTemplate jdbcTemplate;
@@ -76,24 +111,21 @@ public class RDBExporter {
 			cleanSqlLiteDb(exportType, tables);
 
 		} else if (localPropertiesService.isUsingPostgreSqlDB()) {
-			cleanPostgresDb();
+			cleanPostgresDb(exportType);
 
 		}
 
 	}
 	
-	private void cleanPostgresDb() {
-		getJdbcTemplate().execute("DROP SCHEMA IF EXISTS " + EarthConstants.POSTGRES_RDB_SCHEMA_SAIKU + " CASCADE"); //$NON-NLS-1$ //$NON-NLS-2$
-		getJdbcTemplate().execute("CREATE SCHEMA IF NOT EXISTS " + EarthConstants.POSTGRES_RDB_SCHEMA_SAIKU); //$NON-NLS-1$
+	private void cleanPostgresDb( ExportType exportType ) {
+		getJdbcTemplate().execute("DROP SCHEMA IF EXISTS " + exportType.getRdbSchema() + " CASCADE"); //$NON-NLS-1$ //$NON-NLS-2$
+		getJdbcTemplate().execute("CREATE SCHEMA IF NOT EXISTS " + exportType.getRdbSchema() ); //$NON-NLS-1$
 	}
 
 	public File getRdbFile( ExportType exportType) {
-		if( exportType.equals( ExportType.SAIKU) )
-			return new File(COLLECT_EARTH_SAIKU_DATABASE_RDB_DB);
-		else
-			return new File(COLLECT_EARTH_IPCC_DATABASE_RDB_DB);
-
+		return new File(exportType.getDbFileName());
 	}
+	
 	private void cleanSqlLiteDb( ExportType exportType, final List<String> tables) {
 		final File oldRdbFile = getRdbFile( exportType ) ;
 		if (oldRdbFile.exists()) {
@@ -160,11 +192,7 @@ public class RDBExporter {
 
 	public String getSchemaName( ExportType exportType ) {
 		if (localPropertiesService.isUsingPostgreSqlDB()) {
-			if( exportType.equals( ExportType.SAIKU) ) {
-				return EarthConstants.POSTGRES_RDB_SCHEMA_SAIKU;
-			}else {
-				return EarthConstants.POSTGRES_RDB_SCHEMA_IPCC;
-			}
+			return exportType.getRdbSchema();
 		} else {
 			return null;
 		}
@@ -174,7 +202,7 @@ public class RDBExporter {
 			Survey survey, 
 			ExportType exportType, 
 			InfiniteProgressMonitor progressListener,
-			ProcessRDBData callbackProcessor ) throws CollectRdbException {
+			RDBPostProcessor callbackProcessor ) throws CollectRdbException {
 		
 		// Clean the previous RDB
 		removeOldRdb( exportType );
