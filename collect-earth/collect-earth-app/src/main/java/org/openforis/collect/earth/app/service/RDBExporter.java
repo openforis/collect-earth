@@ -4,11 +4,13 @@ import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Paths;
+import java.sql.Connection;
 import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
+import javax.sql.DataSource;
 import javax.swing.SwingUtilities;
 
 import org.apache.commons.dbcp.BasicDataSource;
@@ -25,8 +27,10 @@ import org.openforis.idm.metamodel.Survey;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.jdbc.CannotGetJdbcConnectionException;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.jdbc.datasource.DataSourceUtils;
 import org.springframework.stereotype.Component;
 
 @Component
@@ -38,25 +42,42 @@ public class RDBExporter {
 	@Autowired
 	EarthSurveyService earthSurveyService;
 
-	@Autowired
+	@Autowired	
 	public LocalPropertiesService localPropertiesService;
 	
 	@Autowired
-	private BasicDataSource rdbDataSource;
+	@Qualifier("rdbDataSource")
+	private DataSource rdbDataSource;
+	
+	@Autowired
+	@Qualifier("rdbDataSourceIpcc")
+	private BasicDataSource rdbDataSourceIpcc;
 	
 	private final Logger logger = LoggerFactory.getLogger(RDBExporter.class);
 	
 	public static final String COLLECT_EARTH_IPCC_DATABASE_RDB_DB = 
 			EarthConstants.COLLECT_EARTH_DATABASE_SQLITE_DB
-			+ "ipccData";
+			+ ServerController.IPCC_RDB_SUFFIX;
 	public static final String COLLECT_EARTH_SAIKU_DATABASE_RDB_DB = EarthConstants.COLLECT_EARTH_DATABASE_SQLITE_DB
 			+ ServerController.SAIKU_RDB_SUFFIX;
 
 	private boolean userCancelledOperation = false;
 	
 	public enum ExportType {
-	    SAIKU( ServerController.SAIKU_RDB_SUFFIX, "Saiku", "SaikuDataFolder", EarthConstants.COLLECT_EARTH_DATABASE_SQLITE_DB + ServerController.SAIKU_RDB_SUFFIX, EarthConstants.POSTGRES_RDB_SCHEMA_SAIKU), 
-	    IPCC(  ServerController.IPCC_RDB_SUFFIX, "Ipcc", "IPCCDataFolder", EarthConstants.COLLECT_EARTH_DATABASE_SQLITE_DB + ServerController.IPCC_RDB_SUFFIX, EarthConstants.POSTGRES_RDB_SCHEMA_IPCC);
+	    SAIKU( 
+	    		ServerController.SAIKU_RDB_SUFFIX, 
+	    		"Saiku", 
+	    		"SaikuDataFolder", 
+	    		EarthConstants.COLLECT_EARTH_DATABASE_SQLITE_DB + ServerController.SAIKU_RDB_SUFFIX, 
+	    		EarthConstants.POSTGRES_RDB_SCHEMA_SAIKU
+	    	), 
+	    IPCC(  
+	    		ServerController.IPCC_RDB_SUFFIX, 
+	    		"Ipcc", 
+	    		"IPCCDataFolder", 
+	    		EarthConstants.COLLECT_EARTH_DATABASE_SQLITE_DB + ServerController.IPCC_RDB_SUFFIX, 
+	    		EarthConstants.POSTGRES_RDB_SCHEMA_IPCC
+	    	);
 	    
 	    private String dbSuffix;
 		private String prefix;
@@ -95,39 +116,57 @@ public class RDBExporter {
 	
 	private JdbcTemplate jdbcTemplate;
 	
+	private ExportType exportTypeUsed;
+	
 	public JdbcTemplate getJdbcTemplate() {
 		if( jdbcTemplate == null ) {
-			jdbcTemplate = new JdbcTemplate(rdbDataSource);
+			if( getExportTypeUsed().equals( ExportType.SAIKU) ) {
+				jdbcTemplate = new JdbcTemplate(rdbDataSource);
+			}else if( getExportTypeUsed().equals( ExportType.IPCC ) ){
+				jdbcTemplate = new JdbcTemplate(rdbDataSourceIpcc);
+			}else {
+				throw new IllegalArgumentException("The ExportType has not been set yet");
+			}
 		}
 		return jdbcTemplate;
 	}
 	
-	private void removeOldRdb( ExportType exportType ) {
+	private Connection getJDBCConnection() {
+		if( getExportTypeUsed().equals( ExportType.SAIKU ) ) {
+			return DataSourceUtils.getConnection(rdbDataSource);
+		}else if( getExportTypeUsed().equals( ExportType.IPCC ) ){
+			return DataSourceUtils.getConnection(rdbDataSourceIpcc);
+		}else {
+			throw new IllegalArgumentException("The ExportType has not been set yet");
+		}
+	}
+	
+	private void removeOldRdb( ) {
 
 		final List<String> tables = new ArrayList<>();
 
 		if (localPropertiesService.isUsingSqliteDB()) {
 
-			cleanSqlLiteDb(exportType, tables);
+			cleanSqlLiteDb( tables);
 
 		} else if (localPropertiesService.isUsingPostgreSqlDB()) {
-			cleanPostgresDb(exportType);
+			cleanPostgresDb();
 
 		}
 
 	}
 	
-	private void cleanPostgresDb( ExportType exportType ) {
-		getJdbcTemplate().execute("DROP SCHEMA IF EXISTS " + exportType.getRdbSchema() + " CASCADE"); //$NON-NLS-1$ //$NON-NLS-2$
-		getJdbcTemplate().execute("CREATE SCHEMA IF NOT EXISTS " + exportType.getRdbSchema() ); //$NON-NLS-1$
+	private void cleanPostgresDb( ) {
+		getJdbcTemplate().execute("DROP SCHEMA IF EXISTS " + getExportTypeUsed().getRdbSchema() + " CASCADE"); //$NON-NLS-1$ //$NON-NLS-2$
+		getJdbcTemplate().execute("CREATE SCHEMA IF NOT EXISTS " + getExportTypeUsed().getRdbSchema() ); //$NON-NLS-1$
 	}
 
 	public File getRdbFile( ExportType exportType) {
 		return new File(exportType.getDbFileName());
 	}
 	
-	private void cleanSqlLiteDb( ExportType exportType, final List<String> tables) {
-		final File oldRdbFile = getRdbFile( exportType ) ;
+	private void cleanSqlLiteDb( final List<String> tables) {
+		final File oldRdbFile = getRdbFile( getExportTypeUsed() ) ;
 		if (oldRdbFile.exists()) {
 
 			// Now we can remove the SQLite file so that a completely new connection is open
@@ -204,8 +243,10 @@ public class RDBExporter {
 			InfiniteProgressMonitor progressListener,
 			RDBPostProcessor callbackProcessor ) throws CollectRdbException {
 		
+		setExportTypeUsed(exportType);
+		
 		// Clean the previous RDB
-		removeOldRdb( exportType );
+		removeOldRdb( );
 		
 		/*
 		 * The SQLite DB has no limit on the length of the varchar. By default, if no
@@ -214,14 +255,15 @@ public class RDBExporter {
 		 */
 		final RelationalSchemaConfig rdbConfig = new RelationalSchemaContext().getRdbConfig();
 
-		final String rdbSaikuSchema = getSchemaName( exportType );
-
+		final String rdbPostgreSQLSchema = getSchemaName( exportType );
+		
 		SwingUtilities.invokeLater( () -> progressListener.setMessage("Exporting collected records into Relational DB") );
 
 		collectRDBPublisher.export( survey.getName(), 
 				EarthConstants.ROOT_ENTITY_NAME,
 				Step.ENTRY, 
-				rdbSaikuSchema, 
+				rdbPostgreSQLSchema,
+				getJDBCConnection(),
 				rdbConfig, 
 				progressListener);
 
@@ -244,6 +286,14 @@ public class RDBExporter {
 
 	private boolean isUserCancelledOperation() {
 		return userCancelledOperation;
+	}
+
+	public ExportType getExportTypeUsed() {
+		return exportTypeUsed;
+	}
+
+	public void setExportTypeUsed(ExportType exportTypeUsed) {
+		this.exportTypeUsed = exportTypeUsed;
 	}
 
 }

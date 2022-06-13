@@ -5,6 +5,7 @@ import java.util.Calendar;
 
 import org.openforis.idm.metamodel.AttributeDefault;
 import org.openforis.idm.metamodel.CodeAttributeDefinition;
+import org.openforis.idm.metamodel.EntityDefinition;
 import org.openforis.idm.metamodel.NodeLabel;
 import org.openforis.idm.metamodel.Survey;
 import org.openforis.idm.metamodel.TextAttributeDefinition;
@@ -65,21 +66,22 @@ public class IPCCSurveyAdapter {
 
 	private Survey addIPCCAttributes(Survey survey) {
 
-		addAuxilliaryAttributes( survey );
+		EntityDefinition plot = survey.getSchema().getRootEntityDefinition( "plot");
+		addAuxilliaryAttributes( survey, plot );
 
 		for( int year = START_YEAR; year <= END_YEAR; year++ ) {
 
-			addLuSubcategory( survey, year );
-			addLuCategory( survey, year );
-			addLuSubdivision( survey, year );
+			addLuSubcategory( survey, plot, year );
+			addLuCategory( survey, plot, year );
+			addLuSubdivision( survey, plot, year );
 
 		}		
 
 		return survey;
 	}
 
-	private void addAuxilliaryAttributes(Survey survey) {
-
+	private void addAuxilliaryAttributes(Survey survey, EntityDefinition plot) {
+		
 		// Adds a Current Category LU 2022 calculated attribute to be used for the Subdivision as parent
 		CodeAttributeDefinition currentLu = survey.getSchema().createCodeAttributeDefinition();
 		currentLu.setName( ATTR_CURRENT_CATEGORY );
@@ -91,6 +93,7 @@ public class IPCCSurveyAdapter {
 		ArrayList<AttributeDefault> calculation = new ArrayList<AttributeDefault>();
 		calculation.add(attributeDefault);
 		currentLu.setAttributeDefaults( calculation );
+		plot.addChildDefinition(currentLu);
 
 		// adds the Current Subdivision 2022 attribute, which is just a copy of land_use_subdivision
 		CodeAttributeDefinition currentLuSubdivision = survey.getSchema().createCodeAttributeDefinition();
@@ -103,7 +106,7 @@ public class IPCCSurveyAdapter {
 		calculation = new ArrayList<AttributeDefault>();
 		calculation.add(attributeDefault);
 		currentLuSubdivision.setAttributeDefaults( calculation );
-
+		plot.addChildDefinition(currentLuSubdivision);
 
 		// Adds a Previous Category LU using the LU Conversion attribute
 		CodeAttributeDefinition previousLu = survey.getSchema().createCodeAttributeDefinition();
@@ -116,7 +119,7 @@ public class IPCCSurveyAdapter {
 		calculation = new ArrayList<AttributeDefault>();
 		calculation.add(attributeDefault);
 		previousLu.setAttributeDefaults( calculation );
-
+		plot.addChildDefinition(previousLu);
 
 		// Adds a Previous Category LU using the LU Conversion attribute
 		CodeAttributeDefinition oldestLu = survey.getSchema().createCodeAttributeDefinition();
@@ -139,26 +142,27 @@ public class IPCCSurveyAdapter {
 				);
 
 		oldestLu.setAttributeDefaults( calculation );
+		plot.addChildDefinition(oldestLu);
 
 	}
 
-	private void addLuSubdivision(Survey survey, int year) {
+	private void addLuSubdivision(Survey survey, EntityDefinition plot, int year) {
 		// TODO Auto-generated method stub
 
 	}
 
-	private void addLuCategory(Survey survey, int year) {
+	private void addLuCategory(Survey survey, EntityDefinition plot, int year) {
 		// TODO Auto-generated method stub
 
 	}
 
-	private void addLuSubcategory(Survey survey, int year) {
+	private void addLuSubcategory(Survey survey, EntityDefinition plot, int year) {
 
 		// Create the parent attribute for the LU Subcategory ( the initial Land Use)
 
-		TextAttributeDefinition sucategory = survey.getSchema().createTextAttributeDefinition();
-		sucategory.setName(IPCC_ATTR_PREFIX + year + IPCC_SUBCATEGORY );
-		sucategory.setLabel( NodeLabel.Type.HEADING, "en", "IPCC " + year + " Land Use Conversion " );
+		TextAttributeDefinition subcategory = survey.getSchema().createTextAttributeDefinition();
+		subcategory.setName(IPCC_ATTR_PREFIX + year + IPCC_SUBCATEGORY );
+		subcategory.setLabel( NodeLabel.Type.HEADING, "en", "IPCC " + year + " Land Use Conversion " );
 
 
 		ArrayList<AttributeDefault> calculation = new ArrayList<AttributeDefault>();
@@ -203,8 +207,8 @@ public class IPCCSurveyAdapter {
 					)
 				);
 
-		sucategory.setAttributeDefaults( calculation );
-
+		subcategory.setAttributeDefaults( calculation );
+		plot.addChildDefinition(subcategory);
 	}
 
 	private boolean is2022IPCCTemplate(Survey survey) {

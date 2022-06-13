@@ -9,7 +9,6 @@ import java.security.NoSuchAlgorithmException;
 import org.apache.commons.codec.binary.Hex;
 import org.openforis.collect.earth.app.CollectEarthUtils;
 import org.openforis.collect.earth.app.EarthConstants;
-import org.openforis.collect.earth.app.desktop.ServerController;
 import org.openforis.collect.earth.app.service.RDBExporter.ExportType;
 import org.openforis.collect.earth.app.view.InfiniteProgressMonitor;
 import org.openforis.collect.earth.ipcc.RdbExportException;
@@ -46,8 +45,8 @@ public abstract class GenerateDatabase {
 		if ( getLocalPropertiesService().isUsingSqliteDB()) {
 			ZipFile zippedSaiku = CollectEarthUtils.addFileToZip(
 					getZippedProjectDB( type ).getAbsolutePath(), 
-					getRdbExporter().getRdbFile(ExportType.SAIKU),
-					getRdbExporter().getRdbFile(ExportType.SAIKU).getName()
+					getRdbExporter().getRdbFile( type ),
+					getRdbExporter().getRdbFile( type ).getName()
 				);
 			zippedSaiku.close();
 		}
@@ -125,6 +124,6 @@ public abstract class GenerateDatabase {
 		}
 
 		return new File(dbFolder.getAbsolutePath() + File.separator + getRdbFilePrefix( type ) 
-				+ ServerController.SAIKU_RDB_SUFFIX + ".zip");
+				+ type.getDbSuffix()  + ".zip");
 	}
 }

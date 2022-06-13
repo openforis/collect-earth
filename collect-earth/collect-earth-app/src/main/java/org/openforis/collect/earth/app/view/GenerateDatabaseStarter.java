@@ -10,8 +10,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 final class GenerateDatabaseStarter {
-
-
+	
 	private Logger logger = LoggerFactory.getLogger( GenerateDatabaseStarter.class);
 	private JFrame frame;
 	private GenerateDatabase generateDatabase;
@@ -23,17 +22,14 @@ final class GenerateDatabaseStarter {
 		return shouldRefreshDb;
 	}
 
-
 	public void setShouldRefreshDb(boolean shouldRefreshDb) {
 		this.shouldRefreshDb = shouldRefreshDb;
 	}
-
 
 	GenerateDatabaseStarter( final GenerateDatabase saikuService, final JFrame frame) {
 		super();
 		this.generateDatabase = saikuService;
 		this.frame = frame;
-		
 	}
 	
 	public boolean shouldShowRdbGenerationOption(){
@@ -76,4 +72,5 @@ final class GenerateDatabaseStarter {
 			generateDatabase.setUserCancelledOperation(true);
 		}
 	}
+
 }

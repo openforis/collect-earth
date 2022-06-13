@@ -87,9 +87,6 @@ public class AnalysisSaikuService extends GenerateDatabase implements Disposable
 
 	private static final String COMMAND_SUFFIX_SH = ".sh"; //$NON-NLS-1$
 
-	public static final String COLLECT_EARTH_SAIKU_DATABASE_RDB_DB = EarthConstants.COLLECT_EARTH_DATABASE_SQLITE_DB
-			+ ServerController.SAIKU_RDB_SUFFIX;
-
 	@Autowired
 	RDBExporter rdbExporter;
 	
@@ -483,7 +480,7 @@ public class AnalysisSaikuService extends GenerateDatabase implements Disposable
 
 		SwingUtilities.invokeLater( () -> progressListener.setMessage("Calculating expansion factors") );
 
-		regionCalculation.handleRegionCalculation( ExportType.SAIKU );
+		regionCalculation.handleRegionCalculation( ExportType.SAIKU, rdbExporter.getJdbcTemplate() );
 		progressListener.progressMade(new Progress(100, 100));
 
 	}
@@ -538,7 +535,7 @@ public class AnalysisSaikuService extends GenerateDatabase implements Disposable
 
 		if (localPropertiesService.isUsingSqliteDB()) {
 			dataSourceTemplate = new File(SQLITE_FREEMARKER_HTML_TEMPLATE);
-			final File rdbDb = rdbExporter.getRdbFile(ExportType.SAIKU);
+			final File rdbDb = rdbExporter.getRdbFile( ExportType.SAIKU );
 			if (!rdbDb.exists()) {
 				throw new IOException(
 						"The file contianing the Relational SQLite Database does not exist in expected location " //$NON-NLS-1$

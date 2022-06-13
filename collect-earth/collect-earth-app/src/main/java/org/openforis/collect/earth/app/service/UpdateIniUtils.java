@@ -155,8 +155,8 @@ public class UpdateIniUtils {
 		String onlineVersion = "0";  //$NON-NLS-1$
 		try {
 			DocumentBuilderFactory factory = DocumentBuilderFactory.newInstance();
-			factory.setAttribute(XMLConstants.ACCESS_EXTERNAL_DTD, ""); // Compliant
-			factory.setAttribute(XMLConstants.ACCESS_EXTERNAL_SCHEMA, ""); // compliant
+//			factory.setAttribute(XMLConstants.ACCESS_EXTERNAL_DTD, ""); // Compliant
+//			factory.setAttribute(XMLConstants.ACCESS_EXTERNAL_SCHEMA, ""); // compliant
 
 			factory.setNamespaceAware(true);
 			Document parse = factory.newDocumentBuilder().parse(new URL(urlXmlUpdate).openStream());

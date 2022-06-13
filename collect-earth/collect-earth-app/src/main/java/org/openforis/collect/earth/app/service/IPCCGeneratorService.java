@@ -43,8 +43,11 @@ public class IPCCGeneratorService extends GenerateDatabase{
 
 			try {
 
-				if ((localPropertiesService.isUsingSqliteDB() && !getZippedProjectDB( ExportType.IPCC ).exists())
-						|| isRefreshDatabase()) {
+				if (
+						(localPropertiesService.isUsingSqliteDB() && !getZippedProjectDB( ExportType.IPCC ).exists())
+						|| 
+						isRefreshDatabase()
+				) {
 					
 					// The user clicked on the option to refresh the database, or there is no
 					// previous copy of the Saiku DB
