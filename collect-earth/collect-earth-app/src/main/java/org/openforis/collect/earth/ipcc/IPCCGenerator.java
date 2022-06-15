@@ -4,8 +4,12 @@
 package org.openforis.collect.earth.ipcc;
 
 import java.io.File;
+import java.util.Calendar;
 
+import org.openforis.collect.earth.app.service.LocalPropertiesService;
+import org.openforis.collect.earth.app.view.DataFormat;
 import org.openforis.collect.earth.app.view.InfiniteProgressMonitor;
+import org.openforis.collect.earth.app.view.JFileChooserExistsAware;
 import org.openforis.idm.metamodel.Survey;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -21,24 +25,40 @@ public class IPCCGenerator {
 
 	@Autowired
 	IPCCRDBGenerator ipccRdbGenerator;
+	
+	@Autowired
+	IPCCDataExportToXML ipccDataExportToCSV;
+	
+	@Autowired
+	LocalPropertiesService localPropertiesService;
 
 	IPCCSurveyAdapter ipccSurveyAdapter;
 
 	Logger logger = LoggerFactory.getLogger( IPCCGenerator.class );
+
+	public static final int END_YEAR = Calendar.getInstance().get(Calendar.YEAR); // Assume the last year is current year
+	public static final int START_YEAR = 2000;  // Assume start year at 2000
 
 	public File generateIPCCFile( Survey survey, InfiniteProgressMonitor progressListener) throws IPCCGeneratorException {
 
 		ipccSurveyAdapter = new IPCCSurveyAdapter();
 
 		// Add attributes for each year containing the LU Category and Subdivision if not present
-		Survey modifiedSurvey = ipccSurveyAdapter.addIPCCAttributesToSurvey( survey );
+		//Survey modifiedSurvey = ipccSurveyAdapter.addIPCCAttributesToSurvey( survey );
 
 		// Generate Relational Database of the survey data
-		ipccRdbGenerator.generateRelationalDatabase( modifiedSurvey, progressListener);
-/*
-		// Extract data from the Relational Database into a CSV File
-		File csvFileTimeseries = generateCSVTimeseries();
+		//ipccRdbGenerator.generateRelationalDatabase( modifiedSurvey, progressListener);
 
+
+		File[] exportToFile = JFileChooserExistsAware.getFileChooserResults(DataFormat.GHGI_XML_FILE, true, false, "LandUseForGHGi",
+				localPropertiesService, null);
+		
+		if( exportToFile.length == 0 )
+			return null;
+		
+		// Extract data from the Relational Database into a CSV File
+		ipccDataExportToCSV.generateTimeseriesXML( exportToFile[0] );
+/*
 		// Convert CSV time-series into XML compliant format
 		File xmlFormattedFile = convertCSVtoXML(csvFileTimeseries);
 

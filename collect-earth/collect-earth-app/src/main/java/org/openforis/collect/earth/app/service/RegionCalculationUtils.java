@@ -8,7 +8,6 @@ import java.util.List;
 import java.util.Locale;
 
 import org.openforis.collect.earth.app.EarthConstants;
-import org.openforis.collect.earth.app.service.RDBExporter.ExportType;
 import org.openforis.collect.earth.core.utils.CsvReaderUtils;
 import org.openforis.idm.metamodel.BooleanAttributeDefinition;
 import org.openforis.idm.metamodel.EntityDefinition;
@@ -37,13 +36,14 @@ public class RegionCalculationUtils{
 	private static final String REGION_AREAS_CSV = "region_areas.csv"; //$NON-NLS-1$
 	private static final String ATTRIBUTE_AREAS_CSV = "areas_per_attribute.csv"; //$NON-NLS-1$
 	private static final String PLOT_WEIGHT = "plot_weight"; //$NON-NLS-1$
-	private static final String EXPANSION_FACTOR = "expansion_factor"; //$NON-NLS-1$
 	private static final String TREES_PER_EXP_FACTOR = "trees_per_expansion_factor"; //$NON-NLS-1$
 	private static final String SHRUBS_PER_EXP_FACTOR = "shrubs_per_expansion_factor"; //$NON-NLS-1$
-	private final Logger logger = LoggerFactory.getLogger(RegionCalculationUtils.class);
 	private static final String NO_DATA_LAND_USE = "noData"; //$NON-NLS-1$
 	private static final String MANY_TREES = "many_trees";
 	private static final String MANY_SHRUBS = "many_shrubs";
+
+	public static final String EXPANSION_FACTOR = "expansion_factor"; //$NON-NLS-1$
+	private final Logger logger = LoggerFactory.getLogger(RegionCalculationUtils.class);
 
 	@Autowired
 	EarthSurveyService earthSurveyService;

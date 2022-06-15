@@ -25,7 +25,6 @@ import org.openforis.collect.earth.app.model.AspectCode;
 import org.openforis.collect.earth.app.model.DynamicsCode;
 import org.openforis.collect.earth.app.model.SlopeCode;
 import org.openforis.collect.earth.app.service.LocalPropertiesService.EarthProperty;
-import org.openforis.collect.earth.app.service.RDBExporter.ExportType;
 import org.openforis.collect.earth.app.view.InfiniteProgressMonitor;
 import org.openforis.collect.earth.ipcc.RdbExportException;
 import org.openforis.collect.earth.sampler.utils.FreemarkerTemplateUtils;

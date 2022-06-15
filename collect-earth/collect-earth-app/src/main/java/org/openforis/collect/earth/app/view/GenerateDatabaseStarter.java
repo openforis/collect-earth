@@ -3,8 +3,8 @@ package org.openforis.collect.earth.app.view;
 import javax.swing.JFrame;
 import javax.swing.JOptionPane;
 
+import org.openforis.collect.earth.app.service.ExportType;
 import org.openforis.collect.earth.app.service.GenerateDatabase;
-import org.openforis.collect.earth.app.service.RDBExporter.ExportType;
 import org.openforis.collect.earth.ipcc.RdbExportException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;

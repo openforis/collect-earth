@@ -9,7 +9,6 @@ import java.security.NoSuchAlgorithmException;
 import org.apache.commons.codec.binary.Hex;
 import org.openforis.collect.earth.app.CollectEarthUtils;
 import org.openforis.collect.earth.app.EarthConstants;
-import org.openforis.collect.earth.app.service.RDBExporter.ExportType;
 import org.openforis.collect.earth.app.view.InfiniteProgressMonitor;
 import org.openforis.collect.earth.ipcc.RdbExportException;
 import org.slf4j.Logger;

@@ -1,7 +1,6 @@
 package org.openforis.collect.earth.app.service;
 
 import org.openforis.collect.earth.app.EarthConstants;
-import org.openforis.collect.earth.app.service.RDBExporter.ExportType;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 

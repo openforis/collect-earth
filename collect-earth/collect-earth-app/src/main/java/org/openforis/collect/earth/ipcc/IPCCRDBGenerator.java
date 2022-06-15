@@ -3,8 +3,8 @@ package org.openforis.collect.earth.ipcc;
 import javax.swing.SwingUtilities;
 
 import org.openforis.collect.earth.app.service.RDBPostProcessor;
+import org.openforis.collect.earth.app.service.ExportType;
 import org.openforis.collect.earth.app.service.RDBExporter;
-import org.openforis.collect.earth.app.service.RDBExporter.ExportType;
 import org.openforis.collect.earth.app.service.RegionCalculationUtils;
 import org.openforis.collect.earth.app.view.InfiniteProgressMonitor;
 import org.openforis.concurrency.Progress;
@@ -21,10 +21,9 @@ public class IPCCRDBGenerator  {
 	@Autowired
 	private RegionCalculationUtils regionCalculation;
 	
-	public void generateRelationalDatabase(Survey modifiedSurvey, InfiniteProgressMonitor infiniteProgressMonitor  ) {
+	public void generateRelationalDatabase(Survey modifiedSurvey, InfiniteProgressMonitor infiniteProgressMonitor) {
 		RDBPostProcessor ipccCallback = postProcessIpccData();
 		rdbExporter.exportDataToRDB(modifiedSurvey, ExportType.IPCC, infiniteProgressMonitor, ipccCallback);
-		
 	}
 
 	private RDBPostProcessor postProcessIpccData() {

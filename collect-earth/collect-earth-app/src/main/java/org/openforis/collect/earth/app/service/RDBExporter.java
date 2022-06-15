@@ -4,16 +4,13 @@ import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Paths;
-import java.sql.Connection;
 import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
-import javax.sql.DataSource;
 import javax.swing.SwingUtilities;
 
-import org.apache.commons.dbcp.BasicDataSource;
 import org.apache.commons.lang3.SystemUtils;
 import org.openforis.collect.earth.app.EarthConstants;
 import org.openforis.collect.earth.app.desktop.ServerController;
@@ -27,14 +24,11 @@ import org.openforis.idm.metamodel.Survey;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.jdbc.CannotGetJdbcConnectionException;
-import org.springframework.jdbc.core.JdbcTemplate;
-import org.springframework.jdbc.datasource.DataSourceUtils;
 import org.springframework.stereotype.Component;
 
 @Component
-public class RDBExporter {
+public class RDBExporter extends RDBConnector{
 	
 	@Autowired
 	CollectRDBPublisher collectRDBPublisher;
@@ -44,15 +38,7 @@ public class RDBExporter {
 
 	@Autowired	
 	public LocalPropertiesService localPropertiesService;
-	
-	@Autowired
-	@Qualifier("rdbDataSource")
-	private DataSource rdbDataSource;
-	
-	@Autowired
-	@Qualifier("rdbDataSourceIpcc")
-	private BasicDataSource rdbDataSourceIpcc;
-	
+		
 	private final Logger logger = LoggerFactory.getLogger(RDBExporter.class);
 	
 	public static final String COLLECT_EARTH_IPCC_DATABASE_RDB_DB = 
@@ -62,84 +48,6 @@ public class RDBExporter {
 			+ ServerController.SAIKU_RDB_SUFFIX;
 
 	private boolean userCancelledOperation = false;
-	
-	public enum ExportType {
-	    SAIKU( 
-	    		ServerController.SAIKU_RDB_SUFFIX, 
-	    		"Saiku", 
-	    		"SaikuDataFolder", 
-	    		EarthConstants.COLLECT_EARTH_DATABASE_SQLITE_DB + ServerController.SAIKU_RDB_SUFFIX, 
-	    		EarthConstants.POSTGRES_RDB_SCHEMA_SAIKU
-	    	), 
-	    IPCC(  
-	    		ServerController.IPCC_RDB_SUFFIX, 
-	    		"Ipcc", 
-	    		"IPCCDataFolder", 
-	    		EarthConstants.COLLECT_EARTH_DATABASE_SQLITE_DB + ServerController.IPCC_RDB_SUFFIX, 
-	    		EarthConstants.POSTGRES_RDB_SCHEMA_IPCC
-	    	);
-	    
-	    private String dbSuffix;
-		private String prefix;
-		private String dataFolder;
-		private String dbFileName;
-		private String rdbSchema;
-		
-	    ExportType(String dbSuffix, String prefix, String dataFolder, String dbFileName, String rdbSchema ) {
-	    	this.dbSuffix = dbSuffix;
-	    	this.prefix = prefix;
-	    	this.dbFileName = dbFileName;
-	    	this.rdbSchema = rdbSchema;
-	    }
-
-		public String getDbSuffix() {
-			return dbSuffix;
-		}
-
-		public String getPrefix() {
-			return prefix;
-		}
-		
-		public String getDataFolder() {
-			return dataFolder;
-		}
-
-		public String getDbFileName() {
-			return dbFileName;
-		}
-		
-		public String getRdbSchema() {
-			return rdbSchema;
-		}
-
-	}
-	
-	private JdbcTemplate jdbcTemplate;
-	
-	private ExportType exportTypeUsed;
-	
-	public JdbcTemplate getJdbcTemplate() {
-		if( jdbcTemplate == null ) {
-			if( getExportTypeUsed().equals( ExportType.SAIKU) ) {
-				jdbcTemplate = new JdbcTemplate(rdbDataSource);
-			}else if( getExportTypeUsed().equals( ExportType.IPCC ) ){
-				jdbcTemplate = new JdbcTemplate(rdbDataSourceIpcc);
-			}else {
-				throw new IllegalArgumentException("The ExportType has not been set yet");
-			}
-		}
-		return jdbcTemplate;
-	}
-	
-	private Connection getJDBCConnection() {
-		if( getExportTypeUsed().equals( ExportType.SAIKU ) ) {
-			return DataSourceUtils.getConnection(rdbDataSource);
-		}else if( getExportTypeUsed().equals( ExportType.IPCC ) ){
-			return DataSourceUtils.getConnection(rdbDataSourceIpcc);
-		}else {
-			throw new IllegalArgumentException("The ExportType has not been set yet");
-		}
-	}
 	
 	private void removeOldRdb( ) {
 
@@ -270,8 +178,8 @@ public class RDBExporter {
 		if (!isUserCancelledOperation()) {
 			System.currentTimeMillis();
 			try {
-				callbackProcessor.processRDBData(progressListener);
 				setJDBCDefaultSchema( exportType);
+				callbackProcessor.processRDBData(progressListener);
 			} catch (final Exception e) {
 				logger.error("Error processing quantity data", e); //$NON-NLS-1$
 			}
@@ -286,14 +194,6 @@ public class RDBExporter {
 
 	private boolean isUserCancelledOperation() {
 		return userCancelledOperation;
-	}
-
-	public ExportType getExportTypeUsed() {
-		return exportTypeUsed;
-	}
-
-	public void setExportTypeUsed(ExportType exportTypeUsed) {
-		this.exportTypeUsed = exportTypeUsed;
 	}
 
 }
