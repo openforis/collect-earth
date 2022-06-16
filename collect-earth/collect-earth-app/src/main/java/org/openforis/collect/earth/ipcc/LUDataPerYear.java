@@ -2,25 +2,58 @@ package org.openforis.collect.earth.ipcc;
 
 public class LUDataPerYear {
 
-	private String luCat;
-	private String luCatNextYear;
-	private String luSubdiv;
-	private String luSubdivNextYear;
+	private LUSubdivision lu;
+	private LUSubdivision luNextYear;
 	private double areaHa;
 	
-	public LUDataPerYear(String luCat, String luCatNextYear, String luSubdiv, String luSubdivNextYear, double areaHa) {
+	public LUDataPerYear(LUSubdivision lu, LUSubdivision luNextYear, double areaHa) {
 		super();
-		this.luCat = luCat;
-		this.luCatNextYear = luCatNextYear;
-		this.luSubdiv = luSubdiv;
-		this.luSubdivNextYear = luSubdivNextYear;
+		this.lu = lu;
+		this.luNextYear = luNextYear;
 		this.areaHa = areaHa;
+	}
+
+
+	public double getAreaHa() {
+		return areaHa;
 	}
 
 
 	@Override
 	public String toString() {
-		return "LUDataPerYear [luCat=" + luCat + ", luCatNextYear=" + luCatNextYear + ", luSubdiv=" + luSubdiv
-				+ ", luSubdivNextYear=" + luSubdivNextYear + ", areaHa=" + areaHa + "]";
+		return "LUDataPerYear [lu=" + lu + ", luNextYear=" + luNextYear + ", areaHa=" + areaHa + "]";
 	}
+
+
+
+
+
+	public LUSubdivision getLu() {
+		return lu;
+	}
+
+
+
+
+
+	public LUSubdivision getLuNextYear() {
+		return luNextYear;
+	}
+
+
+
+
+
+	public void setLu(LUSubdivision lu) {
+		this.lu = lu;
+	}
+
+
+
+
+
+	public void setLuNextYear(LUSubdivision luNextYear) {
+		this.luNextYear = luNextYear;
+	}
+
 }

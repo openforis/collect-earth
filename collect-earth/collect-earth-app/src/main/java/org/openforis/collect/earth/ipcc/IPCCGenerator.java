@@ -27,11 +27,14 @@ public class IPCCGenerator {
 	IPCCRDBGenerator ipccRdbGenerator;
 	
 	@Autowired
-	IPCCDataExportToXML ipccDataExportToCSV;
+	IPCCDataExportTimeSeriesCSV ipccDataExportToCSV;
 	
 	@Autowired
 	LocalPropertiesService localPropertiesService;
 
+	@Autowired
+	IPCCDataExportMatrixExcel dataExportMatrixExcel;
+	
 	IPCCSurveyAdapter ipccSurveyAdapter;
 
 	Logger logger = LoggerFactory.getLogger( IPCCGenerator.class );
@@ -49,7 +52,7 @@ public class IPCCGenerator {
 		// Generate Relational Database of the survey data
 		//ipccRdbGenerator.generateRelationalDatabase( modifiedSurvey, progressListener);
 
-
+/*
 		File[] exportToFile = JFileChooserExistsAware.getFileChooserResults(DataFormat.GHGI_XML_FILE, true, false, "LandUseForGHGi",
 				localPropertiesService, null);
 		
@@ -57,7 +60,11 @@ public class IPCCGenerator {
 			return null;
 		
 		// Extract data from the Relational Database into a CSV File
-		ipccDataExportToCSV.generateTimeseriesXML( exportToFile[0] );
+		ipccDataExportToCSV.generateTimeseriesData( exportToFile[0], IPCCGenerator.START_YEAR, IPCCGenerator.END_YEAR );
+*/
+		
+		dataExportMatrixExcel.generateTimeseriesData(null, START_YEAR, END_YEAR);
+		
 /*
 		// Convert CSV time-series into XML compliant format
 		File xmlFormattedFile = convertCSVtoXML(csvFileTimeseries);

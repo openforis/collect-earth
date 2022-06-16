@@ -55,6 +55,8 @@ final class GenerateDatabaseStarter {
 					logger.warn("The saiku server is not configured", e1); //$NON-NLS-1$ 
 				} catch ( RuntimeException e) {
 					logger.error("Error starting Saiku", e); //$NON-NLS-1$ 
+				} catch ( Exception e) {
+					logger.error("Error starting Saiku", e); //$NON-NLS-1$ 
 				} finally{
 					starting = false;
 					if( progressMonitor != null ){
