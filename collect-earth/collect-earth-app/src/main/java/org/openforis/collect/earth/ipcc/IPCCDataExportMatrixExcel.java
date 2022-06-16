@@ -128,7 +128,7 @@ public class IPCCDataExportMatrixExcel extends RDBConnector {
 
 			for (MatrixSheet matrix : matrixData) {
 				// Create a Sheet
-				Sheet sheet = workbook.createSheet("LU Matrix " + matrix.getYearData().getYear() );
+				Sheet sheet = workbook.createSheet("LU Matrix " + matrix.getYearData().getYear() + "/" + (matrix.getYearData().getYear()+1 ) );
 
 				// Create a Font for styling header cells
 				Font headerFont = workbook.createFont();
@@ -166,7 +166,7 @@ public class IPCCDataExportMatrixExcel extends RDBConnector {
 					colNum = 1;
 					for (LUSubdivision subdivisionV : matrix.getSubdivisions()) {
 
-						cell = headerRow.createCell(colNum++);
+						cell = row.createCell(colNum++);
 						cell.setCellValue( findLuData( subdivisionH, subdivisionV, matrix.getYearData().getLuData() ).getAreaHa() );
 						cell.setCellStyle(headerCellStyle);					
 					}
@@ -181,7 +181,7 @@ public class IPCCDataExportMatrixExcel extends RDBConnector {
 			}
 
 			// Write the output to a file
-			try( FileOutputStream fileOut = new FileOutputStream("poi-generated-file.xlsx") ){
+			try( FileOutputStream fileOut = new FileOutputStream("poi-generated-file.xls") ){
 				workbook.write(fileOut);
 				// Closing the workbook
 				workbook.close();
