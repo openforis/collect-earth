@@ -47,23 +47,24 @@ public class IPCCGenerator {
 		ipccSurveyAdapter = new IPCCSurveyAdapter();
 
 		// Add attributes for each year containing the LU Category and Subdivision if not present
-		//Survey modifiedSurvey = ipccSurveyAdapter.addIPCCAttributesToSurvey( survey );
+		Survey modifiedSurvey = ipccSurveyAdapter.addIPCCAttributesToSurvey( survey );
 
 		// Generate Relational Database of the survey data
-		//ipccRdbGenerator.generateRelationalDatabase( modifiedSurvey, progressListener);
+		ipccRdbGenerator.generateRelationalDatabase( modifiedSurvey, progressListener);
 
-/*
-		File[] exportToFile = JFileChooserExistsAware.getFileChooserResults(DataFormat.GHGI_XML_FILE, true, false, "LandUseForGHGi",
-				localPropertiesService, null);
+
+		File[] exportToFile = JFileChooserExistsAware.getFileChooserResults(DataFormat.GHGI_XML_FILE, true, false, "LandUseForGHGi", localPropertiesService, null);
 		
 		if( exportToFile.length == 0 )
 			return null;
 		
 		// Extract data from the Relational Database into a CSV File
 		ipccDataExportToCSV.generateTimeseriesData( exportToFile[0], IPCCGenerator.START_YEAR, IPCCGenerator.END_YEAR );
-*/
-		
+
+/* EXCEL MATRIXES		
 		dataExportMatrixExcel.generateTimeseriesData(null, START_YEAR, END_YEAR);
+*/		
+
 		
 /*
 		// Convert CSV time-series into XML compliant format

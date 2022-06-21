@@ -107,7 +107,7 @@ public class IPCCDataExportMatrixExcel extends RDBConnector {
 				return 
 						( (LUDataPerYear) a ).getLu().equals(initialSubdivision) 
 						&& 
-						( (LUDataPerYear) a ).getLu().equals(initialSubdivision);
+						( (LUDataPerYear) a ).getLuNextYear().equals(finalSubdivision);
 			}
 		});
 		if( result.size() == 1 )
@@ -126,49 +126,80 @@ public class IPCCDataExportMatrixExcel extends RDBConnector {
 			   Hyperlink, RichTextString etc, in a format (HSSF, XSSF) independent way */
 			//CreationHelper createHelper = workbook.getCreationHelper();
 
+			// Create a Font for styling header cells
+			Font cornerFont = workbook.createFont();
+			cornerFont.setBold(true);
+			cornerFont.setFontHeightInPoints((short) 15);
+			cornerFont.setColor(IndexedColors.GREY_80_PERCENT.getIndex());
+			// Create a CellStyle with the font
+			CellStyle cornerCellStyle = workbook.createCellStyle();
+			cornerCellStyle.setFont(cornerFont);
+			
+			// Create a Font for styling header cells
+			Font headerFont = workbook.createFont();
+			headerFont.setBold(true);
+			headerFont.setFontHeightInPoints((short) 14);
+			headerFont.setColor(IndexedColors.DARK_TEAL.getIndex());
+			// Create a CellStyle with the font
+			CellStyle headerCellStyle = workbook.createCellStyle();
+			headerCellStyle.setFont(headerFont);
+			
+			// Create a Font for styling non-diagonal cells
+			Font stdFont = workbook.createFont();
+			stdFont.setBold(false);
+			stdFont.setFontHeightInPoints((short) 14);
+			stdFont.setColor(IndexedColors.DARK_RED.getIndex());
+			// Create a CellStyle with the font
+			CellStyle stdCellStyle = workbook.createCellStyle();
+			stdCellStyle.setFont(stdFont);
+			
+			// Create a Font for styling non-diagonal cells
+			Font diagonalFont = workbook.createFont();
+			diagonalFont.setBold(true);
+			diagonalFont.setFontHeightInPoints((short) 14);
+			diagonalFont.setColor(IndexedColors.DARK_GREEN.getIndex());
+			// Create a CellStyle with the font
+			CellStyle diagonalCellStyle = workbook.createCellStyle();
+			diagonalCellStyle.setFont(diagonalFont);
+
 			for (MatrixSheet matrix : matrixData) {
 				// Create a Sheet
-				Sheet sheet = workbook.createSheet("LU Matrix " + matrix.getYearData().getYear() + "/" + (matrix.getYearData().getYear()+1 ) );
-
-				// Create a Font for styling header cells
-				Font headerFont = workbook.createFont();
-				headerFont.setBold(true);
-				headerFont.setFontHeightInPoints((short) 14);
-				headerFont.setColor(IndexedColors.RED.getIndex());
-
-				// Create a CellStyle with the font
-				CellStyle headerCellStyle = workbook.createCellStyle();
-				headerCellStyle.setFont(headerFont);
-
+				Sheet sheet = workbook.createSheet("LU Matrix " + matrix.getYearData().getYear() + "-" + (matrix.getYearData().getYear()+1 ) );
+				
 				// Create a Row
 				Row headerRow = sheet.createRow(0);
 				Cell cell = headerRow.createCell(0);
 				cell.setCellValue( "Transition " +  matrix.getYearData().getYear() + "/" + ( matrix.getYearData().getYear() +1 ) );
-
+				cell.setCellStyle(cornerCellStyle);
+				
 				int i = 1;
 				for (LUSubdivision subdivision : matrix.getSubdivisions()) {
-
 					cell = headerRow.createCell(i++);
 					cell.setCellValue(subdivision.toString());
 					cell.setCellStyle(headerCellStyle);
-
 				}
 
-				// Create Other rows and cells with employees data
+				
 				int rowNum = 1;
-				int colNum = 1;
+				int colNum = 0;
 				for (LUSubdivision subdivisionH : matrix.getSubdivisions()) {
+					colNum = 0;
 					Row row = sheet.createRow(rowNum++);
 
-					row.createCell(0)
-					.setCellValue(subdivisionH.toString());
+					Cell columnCell = row.createCell(colNum++);
+					columnCell.setCellStyle(headerCellStyle);
+					columnCell.setCellValue(subdivisionH.toString());
 
 					colNum = 1;
 					for (LUSubdivision subdivisionV : matrix.getSubdivisions()) {
 
 						cell = row.createCell(colNum++);
 						cell.setCellValue( findLuData( subdivisionH, subdivisionV, matrix.getYearData().getLuData() ).getAreaHa() );
-						cell.setCellStyle(headerCellStyle);					
+						if( subdivisionH.equals( subdivisionV ) ) {
+							cell.setCellStyle(diagonalCellStyle);
+						}else {
+							cell.setCellStyle(stdCellStyle);
+						}
 					}
 
 				}
@@ -189,8 +220,7 @@ public class IPCCDataExportMatrixExcel extends RDBConnector {
 				logger.error("Error generating Excel file", e);
 			}
 		} catch (Exception e) {
-			// TODO Auto-generated catch block
-			e.printStackTrace();
+			logger.error("Error generating Excel data", e);
 		}
 
 	}
