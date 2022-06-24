@@ -27,7 +27,7 @@ public class IPCCGenerator {
 	IPCCRDBGenerator ipccRdbGenerator;
 	
 	@Autowired
-	IPCCDataExportTimeSeriesCSV ipccDataExportToCSV;
+	IPCCDataExportTimeSeriesXML ipccDataExportToXML;
 	
 	@Autowired
 	LocalPropertiesService localPropertiesService;
@@ -59,12 +59,10 @@ public class IPCCGenerator {
 			return null;
 		
 		// Extract data from the Relational Database into a CSV File
-		ipccDataExportToCSV.generateTimeseriesData( exportToFile[0], IPCCGenerator.START_YEAR, IPCCGenerator.END_YEAR );
+		ipccDataExportToXML.generateTimeseriesData( exportToFile[0], IPCCGenerator.START_YEAR, IPCCGenerator.END_YEAR );
 
-/* EXCEL MATRIXES		
+/* EXCEL MATRIXES*/		
 		dataExportMatrixExcel.generateTimeseriesData(null, START_YEAR, END_YEAR);
-*/		
-
 		
 /*
 		// Convert CSV time-series into XML compliant format

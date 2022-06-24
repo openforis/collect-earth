@@ -13,7 +13,7 @@ import org.springframework.stereotype.Component;
 import com.thoughtworks.xstream.XStream;
 
 @Component
-public class IPCCDataExportTimeSeriesCSV extends IPCCDataExportTimeSeries<LUDataPerYear> {
+public class IPCCDataExportTimeSeriesXML extends IPCCDataExportTimeSeries<LUDataPerYear> {
 
 	@Override
 	protected RowMapper<LUDataPerYear> getRowMapper() {
