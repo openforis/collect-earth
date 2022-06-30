@@ -7,7 +7,7 @@ import javax.swing.JOptionPane;
 import javax.swing.ProgressMonitor;
 import javax.swing.SwingUtilities;
 
-import org.apache.commons.lang.ArrayUtils;
+import org.apache.commons.lang3.ArrayUtils;
 import org.openforis.collect.io.data.CSVDataImportProcess;
 import org.openforis.collect.io.metadata.parsing.ParsingError;
 import org.openforis.collect.manager.process.AbstractProcess;
