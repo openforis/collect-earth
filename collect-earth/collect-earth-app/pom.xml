@@ -154,6 +154,14 @@
 		    <artifactId>poi-ooxml</artifactId>
 		    <version>5.0.0</version>
 		</dependency>
+		
+		<dependency>>
+			<groupId>se.gustavkarlsson</groupId>
+			<artifactId>g-wiz</artifactId>
+			<version>1.0.1</version>
+		</dependency>
+		
+		
 	</dependencies>
 	<build>
 		<plugins>
