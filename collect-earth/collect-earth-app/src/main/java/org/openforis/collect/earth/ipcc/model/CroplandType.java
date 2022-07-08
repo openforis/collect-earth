@@ -14,4 +14,8 @@ public enum CroplandType {
 		return name;
 	}
 
+	@Override
+	public String toString() {
+		return getName();
+	}
 }

@@ -33,7 +33,7 @@ public class SettlementPage extends SubdivisionPage {
 
 	@Override
 	protected String getLabel() {
-		return "Settlement subdivisions / tree presence";
+		return Messages.getString("SettlementPage.0"); //$NON-NLS-1$
 	}
 
 }

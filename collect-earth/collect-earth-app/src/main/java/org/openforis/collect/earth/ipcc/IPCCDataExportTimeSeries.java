@@ -23,6 +23,7 @@ public abstract class IPCCDataExportTimeSeries<E> extends RDBConnector {
 	private static final String GEZ_COLUMN = "gez";
 	private static final String SOIL_COLUMN = "soil";
 	private String schemaName;
+	private static final String PLOT_TABLE = "plot";
 
 	Logger logger = LoggerFactory.getLogger(IPCCDataExportTimeSeries.class);
 
@@ -71,7 +72,7 @@ public abstract class IPCCDataExportTimeSeries<E> extends RDBConnector {
 				+ IPCCSurveyAdapter.getIpccSubdivisionAttrName(year) + ","
 				+ IPCCSurveyAdapter.getIpccSubdivisionAttrName(year + 1) + ", sum( "
 				+ RegionCalculationUtils.EXPANSION_FACTOR + ")" 
-				+ " from " + schemaName + "plot " 
+				+ " from " + schemaName + PLOT_TABLE 
 				+ " where " + CLIMATE_COLUMN + " = "
 				+ climate + " and " + SOIL_COLUMN + " = " + soil + " and " + GEZ_COLUMN + " = " + gez 
 				+ " GROUP BY "

@@ -51,7 +51,7 @@ public class IPCCGeneratorService extends GenerateDatabase{
 					// The user clicked on the option to refresh the database, or there is no
 					// previous copy of the Saiku DB
 					// Generate the DB file
-					ipccGenerator.generateIPCCFile( earthSurveyService.getCollectSurvey(), progressListener);
+					ipccGenerator.generateRDB( earthSurveyService.getCollectSurvey(), progressListener);
 			
 					try {
 						// Save the DB file in a zipped file to extends GenerateDatabase keep for the next usages
@@ -67,6 +67,8 @@ public class IPCCGeneratorService extends GenerateDatabase{
 						restoreZippedProjectDB(ExportType.IPCC);
 					}
 				}
+				
+				ipccGenerator.produceOutputs( progressListener );
 
 			} catch (final IPCCGeneratorException e) {
 				logger.error("Error while producing Relational DB from Collect format", e); //$NON-NLS-1$

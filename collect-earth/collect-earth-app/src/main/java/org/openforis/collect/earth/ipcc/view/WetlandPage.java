@@ -32,7 +32,7 @@ public class WetlandPage extends SubdivisionPage {
 
 	@Override
 	protected String getLabel() {
-		return "Wetland subdivisions / tree presence";
+		return Messages.getString("WetlandPage.0"); //$NON-NLS-1$
 	}
 
 }

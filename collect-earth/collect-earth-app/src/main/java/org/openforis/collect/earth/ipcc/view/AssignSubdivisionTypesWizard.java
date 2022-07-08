@@ -17,7 +17,6 @@ import org.openforis.collect.earth.ipcc.model.WetlandSubdivision;
 
 import se.gustavkarlsson.gwiz.AbstractWizardPage;
 import se.gustavkarlsson.gwiz.WizardController;
-import se.gustavkarlsson.gwiz.wizards.JFrameWizard;
 
 public class AssignSubdivisionTypesWizard {
 
@@ -27,7 +26,7 @@ public class AssignSubdivisionTypesWizard {
 		LandUseSubdivisionUtils.setLandUseSubdivisions(landUseSubdivisions);
 		
 		// Create a new wizard (this one is based on a JFrame)
-		JFrameWizard wizard = new JFrameWizard("Assign Management Type");
+		JDialogWizard wizard = new JDialogWizard(null, "Assign Management Type", true);
 
 		// Create the first page of the wizard
 		AbstractWizardPage forestPage = new ForestPage();
@@ -36,8 +35,8 @@ public class AssignSubdivisionTypesWizard {
 		WizardController wizardController = new WizardController(wizard);
 
 		// Start the wizard and show it
-		wizard.setVisible(true);
 		wizardController.startWizard(forestPage);
+		wizard.setVisible(true);
 
 		return landUseSubdivisions;
 	}

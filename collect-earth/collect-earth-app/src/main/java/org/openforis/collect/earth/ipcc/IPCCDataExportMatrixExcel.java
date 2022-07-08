@@ -35,6 +35,8 @@ import liquibase.pro.packaged.E;
 public class IPCCDataExportMatrixExcel extends RDBConnector {
 
 	private String schemaName;
+	
+	private static final String PLOT_TABLE = "plot";
 
 	Logger logger = LoggerFactory.getLogger(IPCCDataExportMatrixExcel.class);
 
@@ -69,7 +71,7 @@ public class IPCCDataExportMatrixExcel extends RDBConnector {
 						+ IPCCSurveyAdapter.getIpccSubdivisionAttrName(year) + ","
 						+ IPCCSurveyAdapter.getIpccSubdivisionAttrName(year + 1) + ","
 						+ "sum( " + RegionCalculationUtils.EXPANSION_FACTOR + ")" 
-						+ " from " + schemaName + "plot " 
+						+ " from " + schemaName + PLOT_TABLE 
 						+ " GROUP BY "
 						+ IPCCSurveyAdapter.getIpccCategoryAttrName(year) + ","
 						+ IPCCSurveyAdapter.getIpccCategoryAttrName(year + 1) + ","

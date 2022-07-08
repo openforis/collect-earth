@@ -14,4 +14,9 @@ public enum SettlementType {
 		return name;
 	}
 
+	@Override
+	public String toString() {
+		return getName();
+	}
+	
 }

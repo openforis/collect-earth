@@ -108,7 +108,7 @@ public class InfiniteProgressMonitor implements ProgressListener {
 		return dialog;
 	}
 
-	private void hide() {
+	public void hide() {
 		getDialog().setVisible(false);
 	}
 

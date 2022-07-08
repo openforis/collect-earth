@@ -33,7 +33,7 @@ public class CroplandPage extends SubdivisionPage {
 
 	@Override
 	protected String getLabel() {
-		return "Cropland subdivisions / Management";
+		return Messages.getString("CroplandPage.0"); //$NON-NLS-1$
 	}
 
 }

@@ -86,7 +86,7 @@ public abstract class SubdivisionPage extends AbstractWizardPage {
 
 	@Override
 	protected boolean isCancelAllowed() {
-		return true;
+		return false;
 	}
 
 	@Override

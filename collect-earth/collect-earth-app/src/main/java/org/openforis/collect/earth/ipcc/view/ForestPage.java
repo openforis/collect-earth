@@ -32,7 +32,7 @@ public class ForestPage extends SubdivisionPage {
 
 	@Override
 	protected String getLabel() {
-		return "Forest subdivisions / Management";
+		return Messages.getString("ForestPage.0"); //$NON-NLS-1$
 	}
 
 }

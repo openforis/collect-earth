@@ -32,7 +32,7 @@ public class OtherlandPage extends SubdivisionPage {
 
 	@Override
 	protected String getLabel() {
-		return "Otherland subdivisions / tree presence";
+		return Messages.getString("OtherlandPage.0"); //$NON-NLS-1$
 	}
 
 }

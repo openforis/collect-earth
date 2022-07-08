@@ -10,6 +10,7 @@ import org.openforis.collect.earth.app.service.LocalPropertiesService;
 import org.openforis.collect.earth.app.view.DataFormat;
 import org.openforis.collect.earth.app.view.InfiniteProgressMonitor;
 import org.openforis.collect.earth.app.view.JFileChooserExistsAware;
+import org.openforis.collect.earth.ipcc.view.AssignSubdivisionTypesWizard;
 import org.openforis.idm.metamodel.Survey;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -35,6 +36,9 @@ public class IPCCGenerator {
 	@Autowired
 	IPCCDataExportMatrixExcel dataExportMatrixExcel;
 	
+	@Autowired
+	IPCCLandUses landUses;
+	
 	IPCCSurveyAdapter ipccSurveyAdapter;
 
 	Logger logger = LoggerFactory.getLogger( IPCCGenerator.class );
@@ -42,7 +46,7 @@ public class IPCCGenerator {
 	public static final int END_YEAR = Calendar.getInstance().get(Calendar.YEAR); // Assume the last year is current year
 	public static final int START_YEAR = 2000;  // Assume start year at 2000
 
-	public File generateIPCCFile( Survey survey, InfiniteProgressMonitor progressListener) throws IPCCGeneratorException {
+	public File generateRDB( Survey survey, InfiniteProgressMonitor progressListener) throws IPCCGeneratorException {
 
 		ipccSurveyAdapter = new IPCCSurveyAdapter();
 
@@ -51,13 +55,19 @@ public class IPCCGenerator {
 
 		// Generate Relational Database of the survey data
 		ipccRdbGenerator.generateRelationalDatabase( modifiedSurvey, progressListener);
+; 
+		return null;
+	}
 
-
+	public void produceOutputs( InfiniteProgressMonitor progressListener ) {
+		
+		progressListener.hide();
+		AssignSubdivisionTypesWizard wizard = new AssignSubdivisionTypesWizard();
+		wizard.initializeTypes(landUses.getLandUseSubdivisions());
+		
 		File[] exportToFile = JFileChooserExistsAware.getFileChooserResults(DataFormat.GHGI_XML_FILE, true, false, "LandUseForGHGi", localPropertiesService, null);
-		
-		if( exportToFile.length == 0 )
-			return null;
-		
+		progressListener.show();
+			
 		// Extract data from the Relational Database into a CSV File
 		ipccDataExportToXML.generateTimeseriesData( exportToFile[0], IPCCGenerator.START_YEAR, IPCCGenerator.END_YEAR );
 
@@ -69,8 +79,7 @@ public class IPCCGenerator {
 		File xmlFormattedFile = convertCSVtoXML(csvFileTimeseries);
 
 		return signXMLFile( xmlFormattedFile );
-*/ 
-		return null;
+*/
 	}
 
 	private File signXMLFile(File xmlFormattedFile) {
