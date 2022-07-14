@@ -2,7 +2,7 @@ package org.openforis.collect.earth.ipcc.model;
 
 import java.util.Objects;
 
-public abstract class LandUseSubdivision<F> implements Comparable<LandUseSubdivision<F>>{
+public abstract class LandUseSubdivision<F> implements Comparable<LandUseSubdivision>{
 
 	protected LandUseCategory category;
 	protected String code;
@@ -42,7 +42,7 @@ public abstract class LandUseSubdivision<F> implements Comparable<LandUseSubdivi
 		if( this.getCategory().equals( other.getCategory() ) ){
 			return this.getCode().compareTo( other.getCode() );
 		}else {
-			return this.getCategory().compareTo( other.getCategory() );
+			return this.getCategory().getCode().compareTo( other.getCategory().getCode() );
 		}	
 	}
 	
