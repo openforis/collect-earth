@@ -131,7 +131,8 @@ public class KmlImportService {
             }
         }
 
-        File tempFile = File.createTempFile("kmlExtractedPointsTemplate", "csv");
+        File tempFile = File.createTempFile("kmlExtractedPointsTemplate", ".csv");
+        tempFile.deleteOnExit();
 		try ( OutputStreamWriter osw = new OutputStreamWriter(  new FileOutputStream( tempFile ), StandardCharsets.UTF_8 )){
 			BufferedWriter bw = new BufferedWriter(osw);
 			bw.write(sb.toString());

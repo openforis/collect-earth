@@ -52,7 +52,7 @@ public class MissingPlotService {
 
 		File tempFile = null;
 		try {
-			tempFile = File.createTempFile("missingPlots",  "csv");
+			tempFile = File.createTempFile("missingPlots",  ".csv");
 			tempFile.deleteOnExit();
 
 			try( BufferedWriter fw = new BufferedWriter(new OutputStreamWriter(  new FileOutputStream( tempFile ), StandardCharsets.UTF_8 ) ) ){
