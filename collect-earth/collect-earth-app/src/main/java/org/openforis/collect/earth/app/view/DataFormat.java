@@ -10,7 +10,7 @@ public enum DataFormat{
 			FUSION(new String[]{"csv"}, Messages.getString("CollectEarthWindow.49")), //$NON-NLS-1$ //$NON-NLS-2$
 			COLLECT_COORDS(new String[]{"ced", "csv"}, "Collect Earth plots"),//$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$
 			KML_FILE(new String[]{"kml"}, "Google Earth Kml File"), //$NON-NLS-1$ //$NON-NLS-2$
-			GHGI_XML_FILE(new String[]{"xml"}, "XML Land Use file for GHGi"), //$NON-NLS-1$ //$NON-NLS-2$
+			GHGI_ZIP_FILE(new String[]{"zip"}, "IPCC GHGi Tool Package"), //$NON-NLS-1$ //$NON-NLS-2$
 			COLLECT_BACKUP(new String[]{"collect-data"}, "Collect Backup");
 
 	private String[] fileExtension;

@@ -4,6 +4,8 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 
+import org.openforis.collect.earth.ipcc.model.LandUseSubdivision;
+
 public class MatrixSheet {
 
 	private YearData yearData;
@@ -12,8 +14,8 @@ public class MatrixSheet {
 		this.yearData = yearData;
 	}
 
-	public List<LUSubdivision> getSubdivisions() {
-		List<LUSubdivision> subdivisions = new ArrayList<>();
+	public List<LandUseSubdivision> getSubdivisions() {
+		List<LandUseSubdivision> subdivisions = new ArrayList<>();
 
 		for (LUDataPerYear luDataYear : yearData.getLuData()) {
 

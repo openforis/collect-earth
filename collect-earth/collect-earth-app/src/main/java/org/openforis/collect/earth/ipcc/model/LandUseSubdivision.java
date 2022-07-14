@@ -57,4 +57,9 @@ public abstract class LandUseSubdivision<F> implements Comparable<LandUseSubdivi
 		LandUseSubdivision<F> other = (LandUseSubdivision) obj;
 		return Objects.equals(category, other.category) && Objects.equals(code, other.code) && Objects.equals(getType(), other.getType());
 	}
+	
+	@Override
+	public String toString() {
+		return getCategory().getCode() + " / "  + getType() + " / "  + getCode();
+	}
 }

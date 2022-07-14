@@ -19,10 +19,13 @@ import org.apache.poi.ss.usermodel.IndexedColors;
 import org.apache.poi.ss.usermodel.Row;
 import org.apache.poi.ss.usermodel.Sheet;
 import org.apache.poi.ss.usermodel.Workbook;
+import org.openforis.collect.earth.app.CollectEarthUtils;
 import org.openforis.collect.earth.app.service.ExportType;
 import org.openforis.collect.earth.app.service.RDBConnector;
 import org.openforis.collect.earth.app.service.RegionCalculationUtils;
 import org.openforis.collect.earth.app.service.SchemaService;
+import org.openforis.collect.earth.ipcc.controller.LandUseSubdivisionUtils;
+import org.openforis.collect.earth.ipcc.model.LandUseSubdivision;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -47,7 +50,7 @@ public class IPCCDataExportMatrixExcel extends RDBConnector {
 		setExportTypeUsed(ExportType.IPCC);
 	}
 
-	public void generateTimeseriesData( File excelFileDestination, int startYear, int endYear ) {
+	public File generateTimeseriesData( File excelFileDestination, int startYear, int endYear ) throws IOException {
 		schemaName = schemaService.getSchemaPrefix(getExportTypeUsed());
 
 		List<MatrixSheet> matrixSheets = new ArrayList<MatrixSheet>();
@@ -58,7 +61,7 @@ public class IPCCDataExportMatrixExcel extends RDBConnector {
 				matrixSheets.add(yearMatrixData);
 		}
 
-		createExcel( matrixSheets);
+		return createExcel( matrixSheets);
 	}
 
 
@@ -94,16 +97,22 @@ public class IPCCDataExportMatrixExcel extends RDBConnector {
 		return new RowMapper<LUDataPerYear>() {
 			@Override
 			public LUDataPerYear mapRow(ResultSet rs, int rowNum) throws SQLException {
+				
+				String categoryInitial = rs.getString(1);
+				String categoryFinal = rs.getString(2);
+				String subdivInitial = rs.getString(3);
+				String subdivFinal = rs.getString(4);
+				
 				return new LUDataPerYear(
-						new LUSubdivision( rs.getString(1), rs.getString(3) ),
-						new LUSubdivision( rs.getString(2), rs.getString(4) ) ,
+						LandUseSubdivisionUtils.getSubdivision(categoryInitial, subdivInitial),
+						LandUseSubdivisionUtils.getSubdivision(categoryFinal, subdivFinal),
 						rs.getDouble(5) // area
 						);
 			}
 		};
 	}
 
-	private LUDataPerYear findLuData( LUSubdivision initialSubdivision, LUSubdivision finalSubdivision, List<LUDataPerYear> luData ) {
+	private LUDataPerYear findLuData( LandUseSubdivision initialSubdivision, LandUseSubdivision finalSubdivision, List<LUDataPerYear> luData ) {
 		Collection<E> result = CollectionUtils.select(luData, new Predicate() {
 			public boolean evaluate(Object a) {
 				return 
@@ -119,7 +128,9 @@ public class IPCCDataExportMatrixExcel extends RDBConnector {
 
 	}
 
-	private void createExcel( List<MatrixSheet> matrixData ) {
+	private File createExcel( List<MatrixSheet> matrixData ) throws IOException {
+		File excelDestination = File.createTempFile("LuMatrixTimeseries", ".xls");
+		excelDestination.deleteOnExit();
 		try {
 			// Create a Workbook
 			Workbook workbook = new HSSFWorkbook(); // new HSSFWorkbook() for generating `.xls` file
@@ -175,7 +186,7 @@ public class IPCCDataExportMatrixExcel extends RDBConnector {
 				cell.setCellStyle(cornerCellStyle);
 				
 				int i = 1;
-				for (LUSubdivision subdivision : matrix.getSubdivisions()) {
+				for (LandUseSubdivision subdivision : matrix.getSubdivisions()) {
 					cell = headerRow.createCell(i++);
 					cell.setCellValue(subdivision.toString());
 					cell.setCellStyle(headerCellStyle);
@@ -184,7 +195,7 @@ public class IPCCDataExportMatrixExcel extends RDBConnector {
 				
 				int rowNum = 1;
 				int colNum = 0;
-				for (LUSubdivision subdivisionH : matrix.getSubdivisions()) {
+				for (LandUseSubdivision subdivisionH : matrix.getSubdivisions()) {
 					colNum = 0;
 					Row row = sheet.createRow(rowNum++);
 
@@ -193,7 +204,7 @@ public class IPCCDataExportMatrixExcel extends RDBConnector {
 					columnCell.setCellValue(subdivisionH.toString());
 
 					colNum = 1;
-					for (LUSubdivision subdivisionV : matrix.getSubdivisions()) {
+					for (LandUseSubdivision subdivisionV : matrix.getSubdivisions()) {
 
 						cell = row.createCell(colNum++);
 						cell.setCellValue( findLuData( subdivisionH, subdivisionV, matrix.getYearData().getLuData() ).getAreaHa() );
@@ -214,7 +225,7 @@ public class IPCCDataExportMatrixExcel extends RDBConnector {
 			}
 
 			// Write the output to a file
-			try( FileOutputStream fileOut = new FileOutputStream("poi-generated-file.xls") ){
+			try( FileOutputStream fileOut = new FileOutputStream(excelDestination) ){
 				workbook.write(fileOut);
 				// Closing the workbook
 				workbook.close();
@@ -224,7 +235,7 @@ public class IPCCDataExportMatrixExcel extends RDBConnector {
 		} catch (Exception e) {
 			logger.error("Error generating Excel data", e);
 		}
-
+		return excelDestination;
 	}
 
 }

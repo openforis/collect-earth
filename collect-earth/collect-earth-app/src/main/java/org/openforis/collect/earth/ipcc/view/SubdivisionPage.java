@@ -27,7 +27,7 @@ public abstract class SubdivisionPage extends AbstractWizardPage {
 	
 	public SubdivisionPage( LandUseCategory category) {
 		
-		List<LandUseSubdivision> forestSubdiv = LandUseSubdivisionUtils.getSubdivisionsByCategory( category );
+		List<LandUseSubdivision> subdivisionsInCategory = LandUseSubdivisionUtils.getSubdivisionsByCategory( category );
 		
 		final GridBagConstraints constraints = new GridBagConstraints();
 		constraints.gridx = 0;
@@ -49,7 +49,7 @@ public abstract class SubdivisionPage extends AbstractWizardPage {
 				getLabel());
 		setBorder(border);
 
-		for (LandUseSubdivision subdiv : forestSubdiv) {
+		for (LandUseSubdivision subdiv : subdivisionsInCategory) {
 			
 			constraints.gridx = 0;
 			
@@ -63,6 +63,7 @@ public abstract class SubdivisionPage extends AbstractWizardPage {
 
 			constraints.gridx = 2;
 			JComboBox<Object> mgmtType = new JComboBox(getValues());
+			mgmtType.setSelectedItem( subdiv.getType() );
 			contentPane.add(mgmtType, constraints);
 			mgmtType.addActionListener( e->
 				LandUseSubdivisionUtils.setSubdivisionType( subdiv, mgmtType.getSelectedItem() )

@@ -1,6 +1,7 @@
 package org.openforis.collect.earth.ipcc;
 
 import java.io.File;
+import java.io.IOException;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.ArrayList;
@@ -35,7 +36,7 @@ public abstract class IPCCDataExportTimeSeries<E> extends RDBConnector {
 		setExportTypeUsed(ExportType.IPCC);
 	}
 
-	public void generateTimeseriesData( File xmlFileDestination, int startYear, int endYear ) {
+	public File generateTimeseriesData( int startYear, int endYear ) throws IOException {
 
 		schemaName = schemaService.getSchemaPrefix(getExportTypeUsed());
 
@@ -57,12 +58,11 @@ public abstract class IPCCDataExportTimeSeries<E> extends RDBConnector {
 			}
 		}
 
-		
-		generateFile(xmlFileDestination, strataData);
+		return generateFile( strataData);
 
 	}
 
-	protected abstract void generateFile(File xmlFileDestination, List<E> strataData);
+	protected abstract File generateFile( List<E> strataData) throws IOException;
 
 	private StratumPerYearData generateLUTimeseriesForStrata(int year, String gez, String climate, String soil) {
 

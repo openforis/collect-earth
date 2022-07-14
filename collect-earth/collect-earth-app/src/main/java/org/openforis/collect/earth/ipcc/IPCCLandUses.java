@@ -10,12 +10,15 @@ import org.openforis.collect.earth.app.service.ExportType;
 import org.openforis.collect.earth.app.service.RDBConnector;
 import org.openforis.collect.earth.app.service.SchemaService;
 import org.openforis.collect.earth.ipcc.model.CroplandSubdivision;
+import org.openforis.collect.earth.ipcc.model.CroplandType;
 import org.openforis.collect.earth.ipcc.model.ForestSubdivision;
 import org.openforis.collect.earth.ipcc.model.GrasslandSubdivision;
 import org.openforis.collect.earth.ipcc.model.LandUseCategory;
 import org.openforis.collect.earth.ipcc.model.LandUseSubdivision;
+import org.openforis.collect.earth.ipcc.model.ManagementType;
 import org.openforis.collect.earth.ipcc.model.OtherlandSubdivision;
 import org.openforis.collect.earth.ipcc.model.SettlementSubdivision;
+import org.openforis.collect.earth.ipcc.model.SettlementType;
 import org.openforis.collect.earth.ipcc.model.WetlandSubdivision;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -82,42 +85,46 @@ public class IPCCLandUses extends RDBConnector {
 		return new RowMapper<LandUseSubdivision>() {
 			@Override
 			public LandUseSubdivision mapRow(ResultSet rs, int rowNum) throws SQLException {
+				
+				String subdivisionCode = rs.getString(1);
+				String subdivisionName = rs.getString(2);
+				
 				switch (landUseCategory.getCode()) {
 					case "F":
 						return new ForestSubdivision(
-								rs.getString(1),
-								rs.getString(2),
-								null
+								subdivisionCode,
+								subdivisionName,
+								ManagementType.MANAGED // Assign default management
 								);
 					case "C":
 						return new CroplandSubdivision(
-								rs.getString(1),
-								rs.getString(2),
-								null
+								subdivisionCode,
+								subdivisionName,
+								CroplandType.ANNUAL // Assign default management
 								);
 					case "G":
 						return new GrasslandSubdivision(
-								rs.getString(1),
-								rs.getString(2),
-								null
+								subdivisionCode,
+								subdivisionName,
+								ManagementType.MANAGED // Assign default management
 								);
 					case "S":
 						return new SettlementSubdivision(
-								rs.getString(1),
-								rs.getString(2),
-								null
+								subdivisionCode,
+								subdivisionName,
+								SettlementType.OTHER // Assign default management
 								);
 					case "W":
 						return new WetlandSubdivision(
-								rs.getString(1),
-								rs.getString(2),
-								null
+								subdivisionCode,
+								subdivisionName,
+								ManagementType.UNMANAGED // Assign default management
 								);
 					case "O":
 						return new OtherlandSubdivision(
-								rs.getString(1),
-								rs.getString(2),
-								null
+								subdivisionCode,
+								subdivisionName,
+								ManagementType.UNMANAGED // Assign default management
 								);
 				default:
 					new IllegalArgumentException("Unknown code " + landUseCategory.getCode() );
