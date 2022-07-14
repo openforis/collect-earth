@@ -1,12 +1,12 @@
 package org.openforis.collect.earth.ipcc.model;
 
 public enum LandUseCategory {
-	F ( "F", "Forest"), 
+	F ("F", "Forest"), 
 	C ("C", "Cropland"), 
-	S("S", "Settlement"), 
-	W ( "W", "Wetland"), 
-	G("G","Grassland"), 
-	O( "O", "Otherland");
+	S ("S", "Settlement"), 
+	W ("W", "Wetland"), 
+	G ("G","Grassland"), 
+	O ("O", "Otherland");
 	
 	private final String code;
 	private final String name;
