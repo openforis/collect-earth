@@ -71,6 +71,11 @@ public class IPCCGenerator {
 		AssignSubdivisionTypesWizard wizard = new AssignSubdivisionTypesWizard();
 		wizard.initializeTypes(landUses.getLandUseSubdivisions());
 		
+		if( !wizard.isWizardFinished() ) {
+			logger.info( "The user closed the wizard without finishing assigning management types");
+			return;
+		}
+		
 		File[] exportToFile = JFileChooserExistsAware.getFileChooserResults(DataFormat.GHGI_ZIP_FILE, true, false, "LandUseForGHGi", localPropertiesService, null);
 
 		if( exportToFile== null || exportToFile.length != 1 ) {
@@ -81,21 +86,26 @@ public class IPCCGenerator {
 		try {
 			File destinationZip = exportToFile[0];
 			
+			progressListener.updateProgress(1, 4, "Generating subdivisions file" );
+			progressListener.show();
+			
 			// Generate list of subdivisions in survey
 			File subdivisionsFile = LandUseSubdivisionUtils.getSubdivisionsXML();
-								
+							
+			progressListener.updateProgress(2, 4, "Generating XML timeseries file" );
 			// Extract data from the Relational Database into an XML File with information per year
 			File timeseriesXMLFile =ipccDataExportToXML.generateTimeseriesData(IPCCGenerator.START_YEAR, IPCCGenerator.END_YEAR );
 
+			progressListener.updateProgress(3, 4, "Generating Excel LU Matrixes per year" );
 			// 	Extract data from the Relational Database into an excel file of transition Matrixes per year
 			File matrixXLSFile =dataExportMatrixExcel.generateTimeseriesData(null, START_YEAR, END_YEAR);
 
 			try {
-
+				progressListener.updateProgress(3, 4, "Compressing files into selected destination" );
 				CollectEarthUtils.addFileToZip( destinationZip , timeseriesXMLFile, "LU_Timeseries.xml");
 				CollectEarthUtils.addFileToZip( destinationZip , matrixXLSFile, "LU_Matrixes.xls");
 				CollectEarthUtils.addFileToZip( destinationZip , subdivisionsFile, "LU_Subdivisions.xml");
-
+				progressListener.hide();
 			} catch (IOException e) {
 				logger.error("Error when creating ZIP file with timeseries content " + destinationZip, e); //$NON-NLS-1$ //$NON-NLS-2$
 			} catch (Exception e) {

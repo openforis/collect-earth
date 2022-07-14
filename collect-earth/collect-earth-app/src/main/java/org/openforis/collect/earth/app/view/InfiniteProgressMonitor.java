@@ -129,7 +129,7 @@ public class InfiniteProgressMonitor implements ProgressListener {
 	}
 	
 	public void show() {
-		try {
+
 			Runnable showTask = () -> {
 				getDialog().setVisible(true);
 				if (getPane().getValue() == null  // User closes the dialog
@@ -139,10 +139,8 @@ public class InfiniteProgressMonitor implements ProgressListener {
 					setUserCancelled(true);
 				}
 			};
-			SwingUtilities.invokeAndWait( showTask );
-		} catch (InvocationTargetException | InterruptedException e) {
-			logger.error( "Error showing infinite progress monitor", e );
-		}
+			SwingUtilities.invokeLater( showTask );
+		
 
 	}
 

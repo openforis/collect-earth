@@ -49,6 +49,8 @@ public class JDialogWizard extends JDialog implements Wizard {
 	private final JButton previousButton = new JButton(Messages.getString("JDialogWizard.1")); //$NON-NLS-1$
 	private final JButton nextButton = new JButton(Messages.getString("JDialogWizard.2")); //$NON-NLS-1$
 	private final JButton finishButton = new JButton(Messages.getString("JDialogWizard.3")); //$NON-NLS-1$
+	
+	private boolean wizardFinished = false;
 
 	/**
 	 * Creates an <code>JDialogWizard</code> with a title and <code>GraphicsConfiguration</code>.
@@ -106,7 +108,8 @@ public class JDialogWizard extends JDialog implements Wizard {
 		finishButton.addActionListener(new ActionListener() {
 			@Override
 			public void actionPerformed(ActionEvent e) {
-				JOptionPane.showMessageDialog(getContentPane(), Messages.getString("JDialogWizard.4")); //$NON-NLS-1$
+				//JOptionPane.showMessageDialog(getContentPane(), Messages.getString("JDialogWizard.4")); //$NON-NLS-1$
+				wizardFinished = true;
 				dispose();
 			}
 		});
@@ -214,6 +217,10 @@ public class JDialogWizard extends JDialog implements Wizard {
 		public void componentRemoved(ContainerEvent e) {
 		}
 
+	}
+
+	public boolean isWizardFinished() {
+		return wizardFinished;
 	}
 
 }

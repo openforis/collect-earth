@@ -40,8 +40,8 @@ public class GenerateRDBAnalysisListener implements ActionListener {
 
 			if( saikuStarter.shouldShowRdbGenerationOption() ){
 
-				String refresh = Messages.getString("GenerateRDBAnalysisListener.0"); //$NON-NLS-1$
-				String close = Messages.getString("GenerateRDBAnalysisListener.1"); //$NON-NLS-1$
+				String refresh = Messages.getString("SaikuAnalysisListener.0"); //$NON-NLS-1$
+				String close = Messages.getString("SaikuAnalysisListener.1"); //$NON-NLS-1$
 				String[] options = new String[]{ refresh,close};
 
 

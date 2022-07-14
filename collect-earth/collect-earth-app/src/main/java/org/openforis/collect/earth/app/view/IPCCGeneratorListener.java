@@ -34,21 +34,21 @@ public class IPCCGeneratorListener implements ActionListener {
 
 	private void generateIpccData() {
 		if( ipccExporterStarter.isStarting() ){
-			JOptionPane.showMessageDialog(frame, Messages.getString("CollectEarthWindow.57"), Messages.getString("CollectEarthWindow.58"), JOptionPane.WARNING_MESSAGE );  //$NON-NLS-1$ //$NON-NLS-2$
+			JOptionPane.showMessageDialog(frame, Messages.getString("IPCCGeneratorListener.1"), Messages.getString("IPCCGeneratorListener.2"), JOptionPane.WARNING_MESSAGE );  //$NON-NLS-1$ //$NON-NLS-2$
 		}else{
 
 			int shouldRefreshDb = JOptionPane.YES_OPTION;
 
 			if( ipccExporterStarter.shouldShowRdbGenerationOption() ){
 
-				String refresh = Messages.getString("GenerateRDBAnalysisListener.0"); //$NON-NLS-1$
-				String close = Messages.getString("GenerateRDBAnalysisListener.1"); //$NON-NLS-1$
+				String refresh = Messages.getString("IPCCGeneratorListener.3"); //$NON-NLS-1$
+				String close = Messages.getString("IPCCGeneratorListener.4"); //$NON-NLS-1$
 				String[] options = new String[]{ refresh,close};
 
 
 				shouldRefreshDb = JOptionPane.showOptionDialog(
-						frame, Messages.getString("CollectEarthWindow.59"), //$NON-NLS-1$
-						Messages.getString("CollectEarthWindow.60"),  //$NON-NLS-1$
+						frame, Messages.getString("IPCCGeneratorListener.6"), //$NON-NLS-1$
+						Messages.getString("IPCCGeneratorListener.5"),  //$NON-NLS-1$
 						JOptionPane.YES_NO_OPTION,JOptionPane.INFORMATION_MESSAGE,null,options, close  );
 			}
 

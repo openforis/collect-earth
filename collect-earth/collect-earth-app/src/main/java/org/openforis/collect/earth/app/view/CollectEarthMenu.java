@@ -423,7 +423,7 @@ public class CollectEarthMenu extends JMenuBar implements InitializingBean {
 	}
 
 	private ActionListener getIPCCExportActionListener() {
-		return new GenerateRDBAnalysisListener(getFrame(), new GenerateDatabaseStarter(ipccGeneratorService, getFrame() ) );
+		return new IPCCGeneratorListener(getFrame(), new GenerateDatabaseStarter(ipccGeneratorService, getFrame() ) );
 	}
 	
 	private String getLogFilePath() {
