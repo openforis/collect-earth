@@ -44,8 +44,8 @@ public class AssignSubdivisionTypesWizard {
 					try {
 						SwingUtilities.invokeLater(
 								() -> JOptionPane.showMessageDialog(wizard, 
-										"You need to assign management types for all subdivisions and then click on \"Finnish\" to proceed" , 
-										"Closing without finishing assginament of subdivisions", JOptionPane.WARNING_MESSAGE)
+										"You need to assign management types for all subdivisions and then click on \"Finish\" to proceed" , 
+										"Closing without finishing assginment of subdivisions", JOptionPane.WARNING_MESSAGE)
 						);
 					} catch (Exception ex) {
 						logger.error("Error showing message",ex);
