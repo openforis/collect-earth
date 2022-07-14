@@ -11,6 +11,7 @@ import org.openforis.collect.earth.app.service.ExportType;
 import org.openforis.collect.earth.app.service.RDBConnector;
 import org.openforis.collect.earth.app.service.RegionCalculationUtils;
 import org.openforis.collect.earth.app.service.SchemaService;
+import org.openforis.collect.earth.ipcc.model.StratumObject;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -23,6 +24,23 @@ public abstract class IPCCDataExportTimeSeries<E> extends RDBConnector {
 	private static final String CLIMATE_COLUMN = "climate";
 	private static final String GEZ_COLUMN = "gez";
 	private static final String SOIL_COLUMN = "soil";
+	
+	private static final String CLIMATE_TABLE = "climate_zones_code";
+	private static final String CLIMATE_COLUMN_VALUE = "climate_zones";
+	private static final String CLIMATE_COLUMN_LABEL = "climate_zones_label";
+	private static final String CLIMATE_COLUMN_IN_PLOT = "climate_code_id";
+	
+	private static final String GEZ_TABLE = "ecological_zones_code";
+	private static final String GEZ_COLUMN_VALUE = "ecological_zones";
+	private static final String GEZ_COLUMN_LABEL = "ecological_zones_label";
+	private static final String GEZ_COLUMN_IN_PLOT = "gez_code_id";
+	
+	
+	private static final String SOIL_TABLE = "soil_types_code";
+	private static final String SOIL_COLUMN_VALUE = "soil_types";
+	private static final String SOIL_COLUMN_LABEL = "soil_types_label";
+	private static final String SOIL_COLUMN_IN_PLOT = "soil_code_id";
+	
 	private String schemaName;
 	private static final String PLOT_TABLE = "plot";
 
@@ -40,16 +58,16 @@ public abstract class IPCCDataExportTimeSeries<E> extends RDBConnector {
 
 		schemaName = schemaService.getSchemaPrefix(getExportTypeUsed());
 
-		List<String> strataClimate = getStrataClimate();
-		List<String> strataSoil = getStrataSoil();
-		List<String> strataGEZ = getStrataGEZ();
+		List<StratumObject> strataClimate = getStrataClimate();
+		List<StratumObject> strataSoil = getStrataSoil();
+		List<StratumObject> strataGEZ = getStrataGEZ();
 
 		List<E> strataData = new ArrayList<E>();
 
 		for (int year = startYear; year < endYear; year++) {
-			for (String gez : strataGEZ) {
-				for (String climate : strataClimate) {
-					for (String soil : strataSoil) {
+			for (StratumObject gez : strataGEZ) {
+				for (StratumObject climate : strataClimate) {
+					for (StratumObject soil : strataSoil) {
 						E yearLuData = (E) generateLUTimeseriesForStrata(year, gez, climate, soil);
 						if (yearLuData != null)
 							strataData.add(yearLuData);
@@ -64,7 +82,7 @@ public abstract class IPCCDataExportTimeSeries<E> extends RDBConnector {
 
 	protected abstract File generateFile( List<E> strataData) throws IOException;
 
-	private StratumPerYearData generateLUTimeseriesForStrata(int year, String gez, String climate, String soil) {
+	private StratumPerYearData generateLUTimeseriesForStrata(int year, StratumObject gez, StratumObject climate,StratumObject soil) {
 
 		List<LUDataPerYear> luData = getJdbcTemplate().query(
 			"select " + IPCCSurveyAdapter.getIpccCategoryAttrName(year)
@@ -73,8 +91,8 @@ public abstract class IPCCDataExportTimeSeries<E> extends RDBConnector {
 				+ IPCCSurveyAdapter.getIpccSubdivisionAttrName(year + 1) + ", sum( "
 				+ RegionCalculationUtils.EXPANSION_FACTOR + ")" 
 				+ " from " + schemaName + PLOT_TABLE 
-				+ " where " + CLIMATE_COLUMN + " = "
-				+ climate + " and " + SOIL_COLUMN + " = " + soil + " and " + GEZ_COLUMN + " = " + gez 
+				+ " where " 
+				+ CLIMATE_COLUMN + " = " + climate.getValue() + " and " + SOIL_COLUMN + " = " + soil.getValue() + " and " + GEZ_COLUMN + " = " + gez.getValue() 
 				+ " GROUP BY "
 				+ IPCCSurveyAdapter.getIpccCategoryAttrName(year) + ","
 				+ IPCCSurveyAdapter.getIpccCategoryAttrName(year + 1) + ","
@@ -87,33 +105,37 @@ public abstract class IPCCDataExportTimeSeries<E> extends RDBConnector {
 			return null;
 		}
 
-		StratumPerYearData strataPerYearData = new StratumPerYearData(year, climate, soil, gez);
+		StratumPerYearData strataPerYearData = new StratumPerYearData(year, climate.getLabel(), soil.getLabel(), gez.getLabel());
 		strataPerYearData.setLuData(luData);
 		return strataPerYearData;
 	}
 
 	protected abstract RowMapper<LUDataPerYear> getRowMapper();
 
-	private List<String> getStrataGEZ() {
-		return distinctValue(CLIMATE_COLUMN);
+	private List<StratumObject> getStrataGEZ() {
+		return distinctValue(CLIMATE_COLUMN_VALUE, CLIMATE_COLUMN_LABEL, CLIMATE_TABLE, CLIMATE_COLUMN_IN_PLOT);
 	}
 
-	private List<String> getStrataSoil() {
-		return distinctValue(SOIL_COLUMN);
+	private List<StratumObject> getStrataSoil() {
+		return distinctValue(SOIL_COLUMN_VALUE, SOIL_COLUMN_LABEL, SOIL_TABLE, SOIL_COLUMN_IN_PLOT);
 	}
 
-	private List<String> getStrataClimate() {
-		return distinctValue(GEZ_COLUMN);
+	private List<StratumObject> getStrataClimate() {
+		return distinctValue(GEZ_COLUMN_VALUE, GEZ_COLUMN_LABEL, GEZ_TABLE, GEZ_COLUMN_IN_PLOT );
 	}
 
-	private List<String> distinctValue(String column) {
+	private List<StratumObject> distinctValue(String valueColumn, String labelColumn, String table, String plotColumnId) {
 
-		return getJdbcTemplate().query("SELECT DISTINCT(" + column + ") FROM " + schemaName + "plot", //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$
-				new RowMapper<String>() {
+		return getJdbcTemplate().query(
+				"SELECT DISTINCT(" + valueColumn  +"),"+ labelColumn +
+				" FROM " + schemaName + table + ", " + schemaName + PLOT_TABLE +
+				" WHERE " + PLOT_TABLE + "." + plotColumnId + " = " +  table + "." + table + "_id"
+				 , //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$
+				new RowMapper<StratumObject>() {
 					@Override
-					public String mapRow(ResultSet rs, int rowNum) throws SQLException {
+					public StratumObject mapRow(ResultSet rs, int rowNum) throws SQLException {
 
-						return rs.getString(column);
+						return new StratumObject( rs.getString(valueColumn), rs.getString(labelColumn) );
 					}
 
 				});
