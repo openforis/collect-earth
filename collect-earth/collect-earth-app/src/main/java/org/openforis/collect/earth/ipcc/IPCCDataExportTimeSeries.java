@@ -11,6 +11,7 @@ import org.openforis.collect.earth.app.service.ExportType;
 import org.openforis.collect.earth.app.service.RDBConnector;
 import org.openforis.collect.earth.app.service.RegionCalculationUtils;
 import org.openforis.collect.earth.app.service.SchemaService;
+import org.openforis.collect.earth.ipcc.controller.LandUseSubdivisionUtils;
 import org.openforis.collect.earth.ipcc.model.StratumObject;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -21,9 +22,9 @@ import org.springframework.stereotype.Component;
 @Component
 public abstract class IPCCDataExportTimeSeries<E> extends RDBConnector {
 
-	private static final String CLIMATE_COLUMN = "climate";
-	private static final String GEZ_COLUMN = "gez";
-	private static final String SOIL_COLUMN = "soil";
+	public static final String CLIMATE_COLUMN = "climate";
+	public static final String GEZ_COLUMN = "gez";
+	public static final String SOIL_COLUMN = "soil";
 	
 	private static final String CLIMATE_TABLE = "climate_zones_code";
 	private static final String CLIMATE_COLUMN_VALUE = "climate_zones";
@@ -42,7 +43,8 @@ public abstract class IPCCDataExportTimeSeries<E> extends RDBConnector {
 	private static final String SOIL_COLUMN_IN_PLOT = "soil_code_id";
 	
 	private String schemaName;
-	private static final String PLOT_TABLE = "plot";
+	public static final String PLOT_TABLE = "plot";
+	public static final String PLOT_ID = "id";
 
 	Logger logger = LoggerFactory.getLogger(IPCCDataExportTimeSeries.class);
 
@@ -85,6 +87,7 @@ public abstract class IPCCDataExportTimeSeries<E> extends RDBConnector {
 	private StratumPerYearData generateLUTimeseriesForStrata(int year, StratumObject gez, StratumObject climate,StratumObject soil) {
 
 		List<LUDataPerYear> luData = getJdbcTemplate().query(
+				
 			"select " + IPCCSurveyAdapter.getIpccCategoryAttrName(year)
 				+ ", " + IPCCSurveyAdapter.getIpccCategoryAttrName(year + 1) + ","
 				+ IPCCSurveyAdapter.getIpccSubdivisionAttrName(year) + ","
@@ -98,8 +101,10 @@ public abstract class IPCCDataExportTimeSeries<E> extends RDBConnector {
 				+ IPCCSurveyAdapter.getIpccCategoryAttrName(year + 1) + ","
 				+ IPCCSurveyAdapter.getIpccSubdivisionAttrName(year) + ","
 				+ IPCCSurveyAdapter.getIpccSubdivisionAttrName(year + 1), 
+			
 			getRowMapper()
-			);
+			
+		);
 
 		if (luData.size() == 0) { // No LU data for the climate, soil, gez combination
 			return null;
@@ -110,7 +115,24 @@ public abstract class IPCCDataExportTimeSeries<E> extends RDBConnector {
 		return strataPerYearData;
 	}
 
-	protected abstract RowMapper<LUDataPerYear> getRowMapper();
+	protected RowMapper<LUDataPerYear> getRowMapper() {
+		return new RowMapper<LUDataPerYear>() {
+			@Override
+			public LUDataPerYear mapRow(ResultSet rs, int rowNum) throws SQLException {
+				
+				String categoryInitial = rs.getString(1);
+				String categoryFinal = rs.getString(2);
+				String subdivInitial = rs.getString(3);
+				String subdivFinal = rs.getString(4);
+				
+				return new LUDataPerYear(
+						LandUseSubdivisionUtils.getSubdivision(categoryInitial, subdivInitial),
+						LandUseSubdivisionUtils.getSubdivision(categoryFinal, subdivFinal),
+						rs.getDouble(5) // area
+						);
+			}
+		};
+	}
 
 	private List<StratumObject> getStrataGEZ() {
 		return distinctValue(CLIMATE_COLUMN_VALUE, CLIMATE_COLUMN_LABEL, CLIMATE_TABLE, CLIMATE_COLUMN_IN_PLOT);
@@ -129,8 +151,8 @@ public abstract class IPCCDataExportTimeSeries<E> extends RDBConnector {
 		return getJdbcTemplate().query(
 				"SELECT DISTINCT(" + valueColumn  +"),"+ labelColumn +
 				" FROM " + schemaName + table + ", " + schemaName + PLOT_TABLE +
-				" WHERE " + PLOT_TABLE + "." + plotColumnId + " = " +  table + "." + table + "_id"
-				 , //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$
+				" WHERE " + PLOT_TABLE + "." + plotColumnId + " = " +  table + "." + table + "_id" 
+				 , 
 				new RowMapper<StratumObject>() {
 					@Override
 					public StratumObject mapRow(ResultSet rs, int rowNum) throws SQLException {

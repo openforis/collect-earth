@@ -40,6 +40,15 @@ public class IPCCGenerator {
 	IPCCDataExportMatrixExcel dataExportMatrixExcel;
 	
 	@Autowired
+	IPCCDataExportMatrixExtendedExcel dataExportMatrixExtendedExcel;
+	
+	@Autowired
+	IPCCDataExportLandUnitsCSV dataExportLandUnitsCSV;
+	
+	@Autowired
+	IPCCDataExportPerPlotCSV dataExportPerPlotCSV;
+	
+	@Autowired
 	IPCCLandUses landUses;
 	
 	IPCCSurveyAdapter ipccSurveyAdapter;
@@ -86,43 +95,58 @@ public class IPCCGenerator {
 		try {
 			File destinationZip = exportToFile[0];
 			
-			progressListener.updateProgress(1, 4, "Generating subdivisions file" );
+			final int STEPS = 7;
+			int currentStep = 1;
+			
 			progressListener.show();
 			
+			progressListener.updateProgress(currentStep++, STEPS, "Generating CSV aggregated time-series" );
+			// 	Extract data from the Relational Database into an excel file of transition Matrixes per year
+			File landUnitsCSVFile =dataExportLandUnitsCSV.generateTimeseriesData(START_YEAR, END_YEAR);
+			
+			progressListener.updateProgress(currentStep++, STEPS, "Generating CSV per plot time-series" );
+			// 	Extract data from the Relational Database into an excel file of transition Matrixes per year
+			File perPlotCSVFile =dataExportPerPlotCSV.generateTimeseriesData(START_YEAR, END_YEAR);
+			
+			progressListener.updateProgress(currentStep++, STEPS, "Generating subdivisions file" );
 			// Generate list of subdivisions in survey
 			File subdivisionsFile = LandUseSubdivisionUtils.getSubdivisionsXML();
 							
-			progressListener.updateProgress(2, 4, "Generating XML timeseries file" );
+			progressListener.updateProgress(currentStep++, STEPS, "Generating XML timeseries file" );
 			// Extract data from the Relational Database into an XML File with information per year
 			File timeseriesXMLFile =ipccDataExportToXML.generateTimeseriesData(IPCCGenerator.START_YEAR, IPCCGenerator.END_YEAR );
 
-			progressListener.updateProgress(3, 4, "Generating Excel LU Matrixes per year" );
+			progressListener.updateProgress(currentStep++, STEPS, "Generating Excel LU Matrixes per year" );
 			// 	Extract data from the Relational Database into an excel file of transition Matrixes per year
-			File matrixXLSFile =dataExportMatrixExcel.generateTimeseriesData(null, START_YEAR, END_YEAR);
-
+			File matrixXLSFile =dataExportMatrixExcel.generateTimeseriesData(START_YEAR, END_YEAR);
+			
+			
+			progressListener.updateProgress(currentStep++, STEPS, "Generating Excel LU Matrixes per year STRATIFIED" );
+			// 	Extract data from the Relational Database into an excel file of transition Matrixes per year
+			File matrixXLSExtendedFile =dataExportMatrixExtendedExcel.generateTimeseriesData(START_YEAR, END_YEAR);
+			
+			
 			try {
-				progressListener.updateProgress(3, 4, "Compressing files into selected destination" );
+				progressListener.updateProgress(currentStep++, STEPS, "Compressing files into selected destination" );
 				CollectEarthUtils.addFileToZip( destinationZip , timeseriesXMLFile, "LU_Timeseries.xml");
 				CollectEarthUtils.addFileToZip( destinationZip , matrixXLSFile, "LU_Matrixes.xls");
+				CollectEarthUtils.addFileToZip( destinationZip , matrixXLSExtendedFile, "LU_Matrixes_stratified.xls");
 				CollectEarthUtils.addFileToZip( destinationZip , subdivisionsFile, "LU_Subdivisions.xml");
+				CollectEarthUtils.addFileToZip( destinationZip , landUnitsCSVFile, "LU_Timeseries_grouped.csv");
+				CollectEarthUtils.addFileToZip( destinationZip , perPlotCSVFile, "LU_Timeseries_per_plot.csv");
 				progressListener.hide();
 			} catch (IOException e) {
 				logger.error("Error when creating ZIP file with timeseries content " + destinationZip, e); //$NON-NLS-1$ //$NON-NLS-2$
 			} catch (Exception e) {
 				logger.error("Error when zipping the timeseries content into " + destinationZip, e); //$NON-NLS-1$ //$NON-NLS-2$
 			}
+			
 			CollectEarthUtils.openFile( destinationZip );
 
-			
 		} catch (IOException e) {
 			logger.error("Error generating file", e);
 		}
-	/*
-		// Convert CSV time-series into XML compliant format
-		File xmlFormattedFile = convertCSVtoXML(csvFileTimeseries);
 
-		return signXMLFile( xmlFormattedFile );
-*/
 	}
 
 	private File signXMLFile(File xmlFormattedFile) {

@@ -21,4 +21,34 @@ public class StratumPerYearData extends YearData{
 				+ ", luData=" + ArrayUtils.toString( luData ) + "]";
 	}
 
+
+	public String getClimate() {
+		return climate;
+	}
+
+
+	public String getSoil() {
+		return soil;
+	}
+
+
+	public String getGez() {
+		return gez;
+	}
+
+
+	public void setClimate(String climate) {
+		this.climate = climate;
+	}
+
+
+	public void setSoil(String soil) {
+		this.soil = soil;
+	}
+
+
+	public void setGez(String gez) {
+		this.gez = gez;
+	}
+
 }

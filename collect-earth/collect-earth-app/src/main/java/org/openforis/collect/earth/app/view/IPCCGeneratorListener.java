@@ -6,6 +6,7 @@ import java.awt.event.ActionListener;
 import javax.swing.JFrame;
 import javax.swing.JOptionPane;
 
+import org.openforis.collect.earth.app.service.ExportType;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -39,7 +40,7 @@ public class IPCCGeneratorListener implements ActionListener {
 
 			int shouldRefreshDb = JOptionPane.YES_OPTION;
 
-			if( ipccExporterStarter.shouldShowRdbGenerationOption() ){
+			if( ipccExporterStarter.shouldShowRdbGenerationOption(ExportType.IPCC) ){
 
 				String refresh = Messages.getString("IPCCGeneratorListener.3"); //$NON-NLS-1$
 				String close = Messages.getString("IPCCGeneratorListener.4"); //$NON-NLS-1$

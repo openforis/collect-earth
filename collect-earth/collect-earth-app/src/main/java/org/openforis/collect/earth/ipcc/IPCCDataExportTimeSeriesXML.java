@@ -7,7 +7,6 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.List;
 
-import org.openforis.collect.earth.app.CollectEarthUtils;
 import org.openforis.collect.earth.ipcc.controller.LandUseSubdivisionUtils;
 import org.openforis.collect.earth.ipcc.model.LandUseSubdivision;
 import org.springframework.jdbc.core.RowMapper;

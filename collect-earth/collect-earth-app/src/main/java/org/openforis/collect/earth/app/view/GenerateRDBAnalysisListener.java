@@ -6,6 +6,7 @@ import java.awt.event.ActionListener;
 import javax.swing.JFrame;
 import javax.swing.JOptionPane;
 
+import org.openforis.collect.earth.app.service.ExportType;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -38,7 +39,7 @@ public class GenerateRDBAnalysisListener implements ActionListener {
 
 			int shouldRefreshDb = JOptionPane.YES_OPTION;
 
-			if( saikuStarter.shouldShowRdbGenerationOption() ){
+			if( saikuStarter.shouldShowRdbGenerationOption( ExportType.IPCC ) ){
 
 				String refresh = Messages.getString("SaikuAnalysisListener.0"); //$NON-NLS-1$
 				String close = Messages.getString("SaikuAnalysisListener.1"); //$NON-NLS-1$
