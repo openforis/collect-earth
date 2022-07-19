@@ -21,9 +21,9 @@ import org.springframework.stereotype.Component;
 @Component
 public abstract class IPCCDataExportTimeSeries<E> extends RDBConnector {
 
-	private static final String CLIMATE_COLUMN = "climate";
-	private static final String GEZ_COLUMN = "gez";
-	private static final String SOIL_COLUMN = "soil";
+	public static final String CLIMATE_COLUMN = "climate";
+	public static final String GEZ_COLUMN = "gez";
+	public static final String SOIL_COLUMN = "soil";
 	
 	private static final String CLIMATE_TABLE = "climate_zones_code";
 	private static final String CLIMATE_COLUMN_VALUE = "climate_zones";
@@ -42,7 +42,8 @@ public abstract class IPCCDataExportTimeSeries<E> extends RDBConnector {
 	private static final String SOIL_COLUMN_IN_PLOT = "soil_code_id";
 	
 	private String schemaName;
-	private static final String PLOT_TABLE = "plot";
+	public static final String PLOT_TABLE = "plot";
+	public static final String PLOT_ID = "id";
 
 	Logger logger = LoggerFactory.getLogger(IPCCDataExportTimeSeries.class);
 

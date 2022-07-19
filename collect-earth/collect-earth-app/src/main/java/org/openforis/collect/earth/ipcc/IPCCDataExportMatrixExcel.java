@@ -38,8 +38,6 @@ public class IPCCDataExportMatrixExcel extends RDBConnector {
 
 	private String schemaName;
 	
-	private static final String PLOT_TABLE = "plot";
-
 	Logger logger = LoggerFactory.getLogger(IPCCDataExportMatrixExcel.class);
 
 	@Autowired
@@ -49,7 +47,7 @@ public class IPCCDataExportMatrixExcel extends RDBConnector {
 		setExportTypeUsed(ExportType.IPCC);
 	}
 
-	public File generateTimeseriesData( File excelFileDestination, int startYear, int endYear ) throws IOException {
+	public File generateTimeseriesData( int startYear, int endYear ) throws IOException {
 		schemaName = schemaService.getSchemaPrefix(getExportTypeUsed());
 
 		List<MatrixSheet> matrixSheets = new ArrayList<MatrixSheet>();
@@ -73,7 +71,7 @@ public class IPCCDataExportMatrixExcel extends RDBConnector {
 						+ IPCCSurveyAdapter.getIpccSubdivisionAttrName(year) + ","
 						+ IPCCSurveyAdapter.getIpccSubdivisionAttrName(year + 1) + ","
 						+ "sum( " + RegionCalculationUtils.EXPANSION_FACTOR + ")" 
-						+ " from " + schemaName + PLOT_TABLE 
+						+ " from " + schemaName + IPCCDataExportTimeSeries.PLOT_TABLE 
 						+ " GROUP BY "
 						+ IPCCSurveyAdapter.getIpccCategoryAttrName(year) + ","
 						+ IPCCSurveyAdapter.getIpccCategoryAttrName(year + 1) + ","

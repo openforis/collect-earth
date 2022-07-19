@@ -32,8 +32,8 @@ final class GenerateDatabaseStarter {
 		this.frame = frame;
 	}
 	
-	public boolean shouldShowRdbGenerationOption(){
-		return generateDatabase.isRdbAlreadyGenerated( ExportType.SAIKU);
+	public boolean shouldShowRdbGenerationOption(ExportType exportType){
+		return generateDatabase.isRdbAlreadyGenerated( exportType );
 	}
 
 	public boolean isStarting() {

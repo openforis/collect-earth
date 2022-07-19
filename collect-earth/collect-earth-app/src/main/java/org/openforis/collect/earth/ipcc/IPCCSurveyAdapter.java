@@ -55,7 +55,6 @@ public class IPCCSurveyAdapter {
 	}
 
 	private void addAuxilliaryAttributes(Survey survey, EntityDefinition plot) {
-
 		// Adds a Current Category LU 2022 calculated attribute to be used for the
 		// Subdivision as parent
 		CodeAttributeDefinition currentLu = survey.getSchema().createCodeAttributeDefinition();
@@ -123,27 +122,22 @@ public class IPCCSurveyAdapter {
 
 		oldestLu.setAttributeDefaults(calculation);
 		plot.addChildDefinition(oldestLu);
-
 	}
 
 	private Survey addIPCCAttributes(Survey survey) {
-
 		EntityDefinition plot = survey.getSchema().getRootEntityDefinition("plot");
 		addAuxilliaryAttributes(survey, plot);
 
 		for (int year = IPCCGenerator.START_YEAR; year <= IPCCGenerator.END_YEAR; year++) {
-
 			addLuSubcategory(survey, plot, year);
 			CodeAttributeDefinition category = addLuCategory(survey, plot, year);
 			addLuSubdivision(survey, plot, category, year);
-
 		}
 
 		return survey;
 	}
 
 	public Survey addIPCCAttributesToSurvey(Survey survey) throws IPCCGeneratorException {
-
 		// Check if the Survey follows the latest 2022 IPCC Survey Template
 		// If the survey is based on the latest IPCC 2022 Template no further processing
 		// is needed
@@ -163,7 +157,6 @@ public class IPCCSurveyAdapter {
 
 	private CodeAttributeDefinition addLuCategory(Survey survey, EntityDefinition plot, int year) {
 		// Create the parent attribute for the LU Subcategory ( the initial Land Use)
-
 		CodeAttributeDefinition category = survey.getSchema().createCodeAttributeDefinition();
 		category.setName(getIpccCategoryAttrName(year));
 		category.setLabel(NodeLabel.Type.HEADING, "en", "IPCC " + year + " Land Use Category ");
@@ -176,13 +169,11 @@ public class IPCCSurveyAdapter {
 		category.setAttributeDefaults(calculation);
 		plot.addChildDefinition(category);
 		return category;
-
 	}
 
 	private void addLuSubcategory(Survey survey, EntityDefinition plot, int year) {
 
 		// Create the parent attribute for the LU Subcategory ( the initial Land Use)
-
 		TextAttributeDefinition subcategory = survey.getSchema().createTextAttributeDefinition();
 		subcategory.setName(IPCC_ATTR_PREFIX + year + IPCC_SUBCATEGORY);
 		subcategory.setLabel(NodeLabel.Type.HEADING, "en", "IPCC " + year + " Land Use Conversion ");
