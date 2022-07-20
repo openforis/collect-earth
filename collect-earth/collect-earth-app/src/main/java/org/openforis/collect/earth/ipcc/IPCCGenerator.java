@@ -40,9 +40,12 @@ public class IPCCGenerator {
 	IPCCDataExportMatrixExcel dataExportMatrixExcel;
 	
 	@Autowired
+<<<<<<< HEAD
 	IPCCDataExportMatrixExtendedExcel dataExportMatrixExtendedExcel;
 	
 	@Autowired
+=======
+>>>>>>> branch 'ipcc' of git@github.com:openforis/collect-earth.git
 	IPCCDataExportLandUnitsCSV dataExportLandUnitsCSV;
 	
 	@Autowired
@@ -95,7 +98,11 @@ public class IPCCGenerator {
 		try {
 			File destinationZip = exportToFile[0];
 			
+<<<<<<< HEAD
 			final int STEPS = 7;
+=======
+			final int STEPS = 6;
+>>>>>>> branch 'ipcc' of git@github.com:openforis/collect-earth.git
 			int currentStep = 1;
 			
 			progressListener.show();
@@ -120,12 +127,15 @@ public class IPCCGenerator {
 			// 	Extract data from the Relational Database into an excel file of transition Matrixes per year
 			File matrixXLSFile =dataExportMatrixExcel.generateTimeseriesData(START_YEAR, END_YEAR);
 			
+<<<<<<< HEAD
 			
 			progressListener.updateProgress(currentStep++, STEPS, "Generating Excel LU Matrixes per year STRATIFIED" );
 			// 	Extract data from the Relational Database into an excel file of transition Matrixes per year
 			File matrixXLSExtendedFile =dataExportMatrixExtendedExcel.generateTimeseriesData(START_YEAR, END_YEAR);
 			
 			
+=======
+>>>>>>> branch 'ipcc' of git@github.com:openforis/collect-earth.git
 			try {
 				progressListener.updateProgress(currentStep++, STEPS, "Compressing files into selected destination" );
 				CollectEarthUtils.addFileToZip( destinationZip , timeseriesXMLFile, "LU_Timeseries.xml");
