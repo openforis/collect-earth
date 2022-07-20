@@ -54,10 +54,6 @@ public class IPCCDataExportPerPlotCSV  extends IPCCDataExportCSV  {
 				+ RegionCalculationUtils.EXPANSION_FACTOR  
 				+ " from " + schemaName + IPCCDataExportTimeSeries.PLOT_TABLE  
 				+ " ORDER BY "+ IPCCDataExportTimeSeries.PLOT_ID + " DESC"; // Remove trailing comma from list of years
-<<<<<<< HEAD
-=======
-		System.out.println( sqlSelect );
->>>>>>> branch 'ipcc' of git@github.com:openforis/collect-earth.git
 
 		List<String[]> luData = getJdbcTemplate().query(
 				sqlSelect

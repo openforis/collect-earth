@@ -43,10 +43,6 @@ public class IPCCDataExportLandUnitsCSV extends IPCCDataExportCSV {
 				+ " GROUP BY "
 				+ selectedYears.substring(0, selectedYears.length()-1)
 				+ " ORDER BY sum( "+ RegionCalculationUtils.EXPANSION_FACTOR + " ) DESC"; // Remove trailing comma from list of years
-<<<<<<< HEAD
-=======
-		System.out.println( sqlSelect );
->>>>>>> branch 'ipcc' of git@github.com:openforis/collect-earth.git
 
 		List<String[]> luData = getJdbcTemplate().query(
 					sqlSelect
