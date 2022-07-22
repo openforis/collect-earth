@@ -37,10 +37,10 @@ public class IPCCDataExportPerPlotCSV  extends IPCCDataExportCSV  {
 
 	private List<String[]> generateLUCombinations(int startYear, int endYear) {
 		
-		String selectedYears =  IPCCDataExportTimeSeries.PLOT_ID + ", " + 
-								IPCCDataExportTimeSeries.CLIMATE_COLUMN + ", " + 
-								IPCCDataExportTimeSeries.SOIL_COLUMN + " , " + 
-								IPCCDataExportTimeSeries.GEZ_COLUMN + " , " ;
+		String selectedYears =  IPCCDataExportTimeSeries.PLOT_ID + 
+									", " + IPCCDataExportTimeSeries.CLIMATE_COLUMN_LABEL + 
+									", " + IPCCDataExportTimeSeries.SOIL_COLUMN_LABEL + 
+									", " + IPCCDataExportTimeSeries.GEZ_COLUMN_LABEL + ", " ;
 		
 		for( int year = startYear ; year <= endYear; year++ ) {
 
