@@ -4,12 +4,21 @@ public class StratumObject {
 
 	String value;
 	String label;
+	String description;
 
 	public StratumObject(String value, String label) {
 		super();
 		this.value = value;
 		this.label = label;
 	}
+	
+	public StratumObject(String value, String label, String description) {
+		super();
+		this.value = value;
+		this.label = label;
+		this.description = description;
+	}
+	
 
 	public String getValue() {
 		return value;
@@ -25,6 +34,14 @@ public class StratumObject {
 
 	public void setLabel(String label) {
 		this.label = label;
+	}
+
+	public String getDescription() {
+		return description;
+	}
+
+	public void setDescription(String description) {
+		this.description = description;
 	}
 	
 	

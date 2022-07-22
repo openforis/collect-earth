@@ -68,7 +68,7 @@ public class IPCCGeneratorService extends GenerateDatabase{
 					}
 				}
 				
-				ipccGenerator.produceOutputs( progressListener );
+				ipccGenerator.produceOutputs( earthSurveyService.getCollectSurvey(),  progressListener );
 
 			} catch (final IPCCGeneratorException e) {
 				logger.error("Error while producing Relational DB from Collect format", e); //$NON-NLS-1$

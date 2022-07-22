@@ -45,7 +45,7 @@ public class IPCCSurveyAdapter {
 	private static final String TEMPLATE_SECOND_LU_CHANGE = "second_lu_change";
 	private static final String TEMPLATE_SECOND_LU_CONVERSION = "second_lu_conversion";
 	private static final String TEMPLATE_SECOND_LU_CONVERSION_YEAR = "second_lu_conversion_year";
-
+	
 	public static String getIpccCategoryAttrName(int year) {
 		return IPCC_ATTR_PREFIX + year + IPCC_CATEGORY;
 	}
@@ -381,6 +381,6 @@ public class IPCCSurveyAdapter {
 		// Check if the survey is based on the very latest 2022 IPCC survey template
 		// with all the LU changes
 		return false;
-	}
+	}	
 
 }

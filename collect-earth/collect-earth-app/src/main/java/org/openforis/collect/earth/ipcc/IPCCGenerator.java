@@ -13,6 +13,7 @@ import org.openforis.collect.earth.app.view.DataFormat;
 import org.openforis.collect.earth.app.view.InfiniteProgressMonitor;
 import org.openforis.collect.earth.app.view.JFileChooserExistsAware;
 import org.openforis.collect.earth.ipcc.controller.LandUseSubdivisionUtils;
+import org.openforis.collect.earth.ipcc.controller.StratumUtils;
 import org.openforis.collect.earth.ipcc.view.AssignSubdivisionTypesWizard;
 import org.openforis.idm.metamodel.Survey;
 import org.slf4j.Logger;
@@ -71,7 +72,7 @@ public class IPCCGenerator {
 		return null;
 	}
 
-	public void produceOutputs( InfiniteProgressMonitor progressListener ) {
+	public void produceOutputs( Survey survey, InfiniteProgressMonitor progressListener ) {
 		
 		progressListener.hide();
 		
@@ -108,10 +109,14 @@ public class IPCCGenerator {
 			// 	Extract data from the Relational Database into an excel file of transition Matrixes per year
 			File perPlotCSVFile =dataExportPerPlotCSV.generateTimeseriesData(START_YEAR, END_YEAR);
 			
-			progressListener.updateProgress(currentStep++, STEPS, "Generating subdivisions file" );
+			progressListener.updateProgress(currentStep++, STEPS, "Generating survey setup files" );
 			// Generate list of subdivisions in survey
 			File subdivisionsFile = LandUseSubdivisionUtils.getSubdivisionsXML();
-							
+			File climateZones = StratumUtils.getClimateZonesXML( survey );
+			File ecologicalZones = StratumUtils.getEcologicalZonesXML( survey );
+			File soilTypes = StratumUtils.getSoilTypesXML( survey );
+			
+			
 			progressListener.updateProgress(currentStep++, STEPS, "Generating XML timeseries file" );
 			// Extract data from the Relational Database into an XML File with information per year
 			File timeseriesXMLFile =ipccDataExportToXML.generateTimeseriesData(IPCCGenerator.START_YEAR, IPCCGenerator.END_YEAR );
@@ -129,7 +134,10 @@ public class IPCCGenerator {
 				CollectEarthUtils.addFileToZip( destinationZip , timeseriesXMLFile, "LU_Timeseries.xml");
 				CollectEarthUtils.addFileToZip( destinationZip , matrixXLSFile, "LU_Matrixes.xls");
 				CollectEarthUtils.addFileToZip( destinationZip , matrixXLSExtendedFile, "LU_Matrixes_stratified.xls");
-				CollectEarthUtils.addFileToZip( destinationZip , subdivisionsFile, "LU_Subdivisions.xml");
+				CollectEarthUtils.addFileToZip( destinationZip , subdivisionsFile, "ConfigLandUseSubdivisions.xml");
+				CollectEarthUtils.addFileToZip( destinationZip , climateZones, "ConfigClimateZones.xml");
+				CollectEarthUtils.addFileToZip( destinationZip , ecologicalZones, "ConfigEclogicalZones.xml");
+				CollectEarthUtils.addFileToZip( destinationZip , soilTypes, "ConfigSoilTypes.xml");
 				CollectEarthUtils.addFileToZip( destinationZip , landUnitsCSVFile, "LU_Timeseries_grouped.csv");
 				CollectEarthUtils.addFileToZip( destinationZip , perPlotCSVFile, "LU_Timeseries_per_plot.csv");
 				progressListener.hide();
