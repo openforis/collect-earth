@@ -30,7 +30,7 @@ public class IPCCDataExportLandUnitsCSV extends IPCCDataExportCSV {
 
 
 	private List<String[]> generateLUCombinations(int startYear, int endYear) {
-		String selectedYears = IPCCDataExportTimeSeries.CLIMATE_COLUMN + ", " + IPCCDataExportTimeSeries.SOIL_COLUMN + " , " + IPCCDataExportTimeSeries.GEZ_COLUMN + " , " ;
+		String selectedYears = IPCCDataExportTimeSeries.CLIMATE_COLUMN_LABEL + ", " + IPCCDataExportTimeSeries.SOIL_COLUMN_LABEL + " , " + IPCCDataExportTimeSeries.GEZ_COLUMN_LABEL + " , " ;
 		for( int year = startYear ; year <= endYear; year++ ) {
 			selectedYears += IPCCSurveyAdapter.getIpccCategoryAttrName(year) + ", " 
 					+ IPCCSurveyAdapter.getIpccSubdivisionAttrName(year) + ",";
@@ -39,11 +39,20 @@ public class IPCCDataExportLandUnitsCSV extends IPCCDataExportCSV {
 		String sqlSelect = "select " 
 				+ selectedYears
 				+ " sum( " + RegionCalculationUtils.EXPANSION_FACTOR + ")" 
-				+ " from " + schemaName + IPCCDataExportTimeSeries.PLOT_TABLE  
+				+ " from " + schemaName + IPCCDataExportTimeSeries.PLOT_TABLE  + " ," + schemaName + IPCCDataExportTimeSeries.SOIL_TABLE + " ," + schemaName + IPCCDataExportTimeSeries.CLIMATE_TABLE + " ," + schemaName + IPCCDataExportTimeSeries.GEZ_TABLE
+				
+				+ " where " 
+					+ IPCCDataExportTimeSeries.SOIL_COLUMN_IN_PLOT + " = " +  IPCCDataExportTimeSeries.SOIL_COLUMN_ID
+					+ " and "
+					+ IPCCDataExportTimeSeries.CLIMATE_COLUMN_IN_PLOT + " = " +  IPCCDataExportTimeSeries.CLIMATE_COLUMN_ID
+					+ " and "
+					+ IPCCDataExportTimeSeries.GEZ_COLUMN_IN_PLOT + " = " +  IPCCDataExportTimeSeries.GEZ_COLUMN_ID
+				
 				+ " GROUP BY "
 				+ selectedYears.substring(0, selectedYears.length()-1)
 				+ " ORDER BY sum( "+ RegionCalculationUtils.EXPANSION_FACTOR + " ) DESC"; // Remove trailing comma from list of years
-
+		
+		
 		List<String[]> luData = getJdbcTemplate().query(
 					sqlSelect
 					, 

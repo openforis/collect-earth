@@ -52,7 +52,15 @@ public class IPCCDataExportPerPlotCSV  extends IPCCDataExportCSV  {
 		String sqlSelect = "select " 
 				+ selectedYears
 				+ RegionCalculationUtils.EXPANSION_FACTOR  
-				+ " from " + schemaName + IPCCDataExportTimeSeries.PLOT_TABLE  
+				+ " from " + schemaName + IPCCDataExportTimeSeries.PLOT_TABLE  + " ," + schemaName + IPCCDataExportTimeSeries.SOIL_TABLE + " ," + schemaName + IPCCDataExportTimeSeries.CLIMATE_TABLE + " ," + schemaName + IPCCDataExportTimeSeries.GEZ_TABLE
+				
+				+ " where " 
+					+ IPCCDataExportTimeSeries.SOIL_COLUMN_IN_PLOT + " = " +  IPCCDataExportTimeSeries.SOIL_COLUMN_ID
+					+ " and "
+					+ IPCCDataExportTimeSeries.CLIMATE_COLUMN_IN_PLOT + " = " +  IPCCDataExportTimeSeries.CLIMATE_COLUMN_ID
+					+ " and "
+					+ IPCCDataExportTimeSeries.GEZ_COLUMN_IN_PLOT + " = " +  IPCCDataExportTimeSeries.GEZ_COLUMN_ID
+				
 				+ " ORDER BY "+ IPCCDataExportTimeSeries.PLOT_ID + " DESC"; // Remove trailing comma from list of years
 
 		List<String[]> luData = getJdbcTemplate().query(

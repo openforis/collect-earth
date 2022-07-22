@@ -26,21 +26,24 @@ public abstract class IPCCDataExportTimeSeries<E> extends RDBConnector {
 	public static final String GEZ_COLUMN = "gez";
 	public static final String SOIL_COLUMN = "soil";
 	
-	private static final String CLIMATE_TABLE = "climate_zones_code";
-	private static final String CLIMATE_COLUMN_VALUE = "climate_zones";
-	private static final String CLIMATE_COLUMN_LABEL = "climate_zones_label";
-	private static final String CLIMATE_COLUMN_IN_PLOT = "climate_code_id";
+	public static final String CLIMATE_COLUMN_VALUE = "climate_zones";
+	public static final String CLIMATE_TABLE = CLIMATE_COLUMN_VALUE + "_code";
+	public static final String CLIMATE_COLUMN_LABEL = CLIMATE_COLUMN_VALUE + "_label";
+	public static final String CLIMATE_COLUMN_ID = CLIMATE_COLUMN_VALUE + "_code_id";
+	public static final String CLIMATE_COLUMN_IN_PLOT = "climate_code_id";
 	
-	private static final String GEZ_TABLE = "ecological_zones_code";
-	private static final String GEZ_COLUMN_VALUE = "ecological_zones";
-	private static final String GEZ_COLUMN_LABEL = "ecological_zones_label";
-	private static final String GEZ_COLUMN_IN_PLOT = "gez_code_id";
+	public static final String GEZ_COLUMN_VALUE = "ecological_zones";
+	public static final String GEZ_TABLE = GEZ_COLUMN_VALUE + "_code";
+	public static final String GEZ_COLUMN_LABEL = GEZ_COLUMN_VALUE + "_label";
+	public static final String GEZ_COLUMN_ID = GEZ_COLUMN_VALUE + "_code_id";
+	public static final String GEZ_COLUMN_IN_PLOT = "gez_code_id";
 	
 	
-	private static final String SOIL_TABLE = "soil_types_code";
-	private static final String SOIL_COLUMN_VALUE = "soil_types";
-	private static final String SOIL_COLUMN_LABEL = "soil_types_label";
-	private static final String SOIL_COLUMN_IN_PLOT = "soil_code_id";
+	public static final String SOIL_COLUMN_VALUE = "soil_types";
+	public static final String SOIL_TABLE = SOIL_COLUMN_VALUE + "_code";
+	public static final String SOIL_COLUMN_LABEL = SOIL_COLUMN_VALUE + "_label";
+	public static final String SOIL_COLUMN_ID = SOIL_COLUMN_VALUE + "_code_id";
+	public static final String SOIL_COLUMN_IN_PLOT = "soil_code_id";
 	
 	private String schemaName;
 	public static final String PLOT_TABLE = "plot";
@@ -134,7 +137,7 @@ public abstract class IPCCDataExportTimeSeries<E> extends RDBConnector {
 		};
 	}
 
-	private List<StratumObject> getStrataGEZ() {
+	private List<StratumObject> getStrataClimate() {
 		return distinctValue(CLIMATE_COLUMN_VALUE, CLIMATE_COLUMN_LABEL, CLIMATE_TABLE, CLIMATE_COLUMN_IN_PLOT);
 	}
 
@@ -142,7 +145,7 @@ public abstract class IPCCDataExportTimeSeries<E> extends RDBConnector {
 		return distinctValue(SOIL_COLUMN_VALUE, SOIL_COLUMN_LABEL, SOIL_TABLE, SOIL_COLUMN_IN_PLOT);
 	}
 
-	private List<StratumObject> getStrataClimate() {
+	private List<StratumObject> getStrataGEZ() {
 		return distinctValue(GEZ_COLUMN_VALUE, GEZ_COLUMN_LABEL, GEZ_TABLE, GEZ_COLUMN_IN_PLOT );
 	}
 

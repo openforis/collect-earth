@@ -162,8 +162,4 @@ public class IPCCGenerator {
 		return null;
 	}
 
-
-
-
-
 }
