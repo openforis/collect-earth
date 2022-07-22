@@ -3,6 +3,7 @@
  */
 package org.openforis.collect.earth.ipcc;
 
+import java.awt.Toolkit;
 import java.io.File;
 import java.io.IOException;
 import java.util.Calendar;
@@ -77,7 +78,6 @@ public class IPCCGenerator {
 		progressListener.hide();
 		
 		// Assign Management types to the Land Use Subdivisions found in the survey data
-		
 		AssignSubdivisionTypesWizard wizard = new AssignSubdivisionTypesWizard();
 		wizard.initializeTypes(landUses.getLandUseSubdivisions());
 		
@@ -104,10 +104,12 @@ public class IPCCGenerator {
 			progressListener.updateProgress(currentStep++, STEPS, "Generating CSV aggregated time-series" );
 			// 	Extract data from the Relational Database into an excel file of transition Matrixes per year
 			File landUnitsCSVFile =dataExportLandUnitsCSV.generateTimeseriesData(START_YEAR, END_YEAR);
-			
+			if( progressListener.isUserCancelled() ) return;
+				
 			progressListener.updateProgress(currentStep++, STEPS, "Generating CSV per plot time-series" );
 			// 	Extract data from the Relational Database into an excel file of transition Matrixes per year
 			File perPlotCSVFile =dataExportPerPlotCSV.generateTimeseriesData(START_YEAR, END_YEAR);
+			if( progressListener.isUserCancelled() ) return;
 			
 			progressListener.updateProgress(currentStep++, STEPS, "Generating survey setup files" );
 			// Generate list of subdivisions in survey
@@ -115,19 +117,22 @@ public class IPCCGenerator {
 			File climateZones = StratumUtils.getClimateZonesXML( survey );
 			File ecologicalZones = StratumUtils.getEcologicalZonesXML( survey );
 			File soilTypes = StratumUtils.getSoilTypesXML( survey );
-			
+			if( progressListener.isUserCancelled() ) return;
 			
 			progressListener.updateProgress(currentStep++, STEPS, "Generating XML timeseries file" );
 			// Extract data from the Relational Database into an XML File with information per year
 			File timeseriesXMLFile =ipccDataExportToXML.generateTimeseriesData(IPCCGenerator.START_YEAR, IPCCGenerator.END_YEAR );
+			if( progressListener.isUserCancelled() ) return;
 
 			progressListener.updateProgress(currentStep++, STEPS, "Generating Excel LU Matrixes per year" );
 			// 	Extract data from the Relational Database into an excel file of transition Matrixes per year
 			File matrixXLSFile =dataExportMatrixExcel.generateTimeseriesData(START_YEAR, END_YEAR);
+			if( progressListener.isUserCancelled() ) return;
 			
 			progressListener.updateProgress(currentStep++, STEPS, "Generating Excel LU Matrixes per year STRATIFIED" );
 			// 	Extract data from the Relational Database into an excel file of transition Matrixes per year
 			File matrixXLSExtendedFile =dataExportMatrixExtendedExcel.generateTimeseriesData(START_YEAR, END_YEAR);
+			if( progressListener.isUserCancelled() ) return;
 
 			try {
 				progressListener.updateProgress(currentStep++, STEPS, "Compressing files into selected destination" );
@@ -147,27 +152,13 @@ public class IPCCGenerator {
 				logger.error("Error when zipping the timeseries content into " + destinationZip, e); //$NON-NLS-1$ //$NON-NLS-2$
 			}
 			
+			// Open the ZIP file automatically to inspect the output
 			CollectEarthUtils.openFile( destinationZip );
 
 		} catch (IOException e) {
 			logger.error("Error generating file", e);
 		}
 
-	}
-
-	private File signXMLFile(File xmlFormattedFile) {
-		// TODO Auto-generated method stub
-		return null;
-	}
-
-	private File convertCSVtoXML(File csvFileTimeseries) {
-		// TODO Auto-generated method stub
-		return null;
-	}
-
-	private File generateCSVTimeseries() {
-		// TODO Auto-generated method stub
-		return null;
 	}
 
 }
