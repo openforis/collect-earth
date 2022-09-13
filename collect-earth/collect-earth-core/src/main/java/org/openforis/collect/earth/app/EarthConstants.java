@@ -130,6 +130,8 @@ public class EarthConstants {
 
 	}
 
+	public static final String SAIKU_RDB_SUFFIX = "Saiku"; //$NON-NLS-1$
+
 	private EarthConstants() {
 		 throw new AssertionError();
 	}

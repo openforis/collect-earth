@@ -17,6 +17,7 @@ import javax.swing.JOptionPane;
 import javax.swing.JRadioButtonMenuItem;
 import javax.swing.SwingUtilities;
 
+import org.apache.commons.lang3.SystemUtils;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.core.LoggerContext;
 import org.apache.logging.log4j.core.config.Configuration;
@@ -173,6 +174,11 @@ public class CollectEarthMenu extends JMenuBar implements InitializingBean {
 
 		JMenuItem menuItem = new JMenuItem(Messages.getString("CollectEarthWindow.14")); //$NON-NLS-1$
 		menuItem.addActionListener(getSaikuAnalysisActionListener());
+		toolsMenu.add(menuItem);
+		
+		menuItem = new JMenuItem(Messages.getString("CollectEarthWindow.71")); //$NON-NLS-1$
+		menuItem.addActionListener(getSaikuToolExportActionListener());
+		menuItem.setEnabled(SystemUtils.IS_OS_WINDOWS ); // This option is only available in Windows!!
 		toolsMenu.add(menuItem);
 
 		menuItem = new JMenuItem(Messages.getString("CollectEarthWindow.54")); //$NON-NLS-1$
@@ -410,6 +416,10 @@ public class CollectEarthMenu extends JMenuBar implements InitializingBean {
 
 	private ActionListener getSaikuAnalysisActionListener() {
 		return new SaikuAnalysisListener(getFrame(), getSaikuStarter());
+	}
+	
+	private ActionListener getSaikuToolExportActionListener() {
+		return new SaikuToolExportListener(getFrame(), getSaikuStarter(), localPropertiesService);
 	}
 
 	private SaikuStarter getSaikuStarter() {

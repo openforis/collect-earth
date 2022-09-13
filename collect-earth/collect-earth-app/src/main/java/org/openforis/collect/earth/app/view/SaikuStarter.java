@@ -43,7 +43,7 @@ final class SaikuStarter {
 		return starting;
 	}
 	
-	public void initializeAndOpen() {
+	public void initializeAndOpen(boolean startSaikuAfterDBExport) {
 		progressStartSaiku = new InfiniteProgressMonitor( frame, Messages.getString("SaikuStarter.1"), Messages.getString("SaikuStarter.2")); //$NON-NLS-1$ //$NON-NLS-2$
 		
 		Thread threadInitializingSaiku = new Thread("Start Saiku server/initialize RDB"){ //$NON-NLS-1$
@@ -52,7 +52,7 @@ final class SaikuStarter {
 				starting = true;
 				saikuService.setRefreshDatabase( shouldRefreshDb  );
 				try {
-					saikuService.prepareDataForAnalysis(progressStartSaiku);
+					saikuService.prepareDataForAnalysis(progressStartSaiku, startSaikuAfterDBExport);
 				}catch ( SaikuExecutionException e1) {
 					JOptionPane.showMessageDialog(  frame , "<html>" + Messages.getString("CollectEarthWindow.29") + "<br>" +Messages.getString("CollectEarthWindow.40") + "<br/>" + e1.getMessage() + "</html>", Messages.getString("CollectEarthWindow.47"), JOptionPane.INFORMATION_MESSAGE); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$ //$NON-NLS-4$ //$NON-NLS-5$ //$NON-NLS-6$ //$NON-NLS-7$
 					logger.warn("The saiku server is not configured", e1); //$NON-NLS-1$ 

@@ -40,7 +40,6 @@ public class ServerController extends Observable {
 
 	private static final String EARTH_SUBDOMAIN = "earth"; //$NON-NLS-1$
 
-	public static final String SAIKU_RDB_SUFFIX = "Saiku"; //$NON-NLS-1$
 	// Make sure that the default ports are the same for Server and Generator
 	private static final String DEFAULT_PORT = "80"; //$NON-NLS-1$
 
@@ -169,7 +168,7 @@ public class ServerController extends Observable {
 		String urlSaikuDB = getDbURL(collectDBDriver);
 
 		if (localPropertiesService.isUsingSqliteDB()) {
-			urlSaikuDB += SAIKU_RDB_SUFFIX;
+			urlSaikuDB += EarthConstants.SAIKU_RDB_SUFFIX;
 		}
 		return urlSaikuDB;
 	}

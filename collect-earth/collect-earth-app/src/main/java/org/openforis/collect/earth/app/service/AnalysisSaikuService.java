@@ -99,8 +99,8 @@ public class AnalysisSaikuService implements DisposableBean{
 
 	private static final String COMMAND_SUFFIX_SH = ".sh"; //$NON-NLS-1$
 
-	private static final String COLLECT_EARTH_DATABASE_RDB_DB = EarthConstants.COLLECT_EARTH_DATABASE_SQLITE_DB
-			+ ServerController.SAIKU_RDB_SUFFIX;
+	public static final String COLLECT_EARTH_DATABASE_RDB_DB = EarthConstants.COLLECT_EARTH_DATABASE_SQLITE_DB
+			+ EarthConstants.SAIKU_RDB_SUFFIX;
 
 	@Autowired
 	CollectRDBPublisher collectRDBPublisher;
@@ -137,7 +137,7 @@ public class AnalysisSaikuService implements DisposableBean{
 			+ "collectEarthSqliteDS.fmt"; //$NON-NLS-1$
 	private static final String POSTGRESQL_FREEMARKER_HTML_TEMPLATE = "resources" + File.separator //$NON-NLS-1$
 			+ "collectEarthPostgreSqlDS.fmt"; //$NON-NLS-1$
-	private static final String MDX_XML = "collectEarthCubes.xml"; //$NON-NLS-1$
+	public static final String MDX_XML = "collectEarthCubes.xml"; //$NON-NLS-1$
 	private static final String MDX_TEMPLATE = MDX_XML + ".fmt"; //$NON-NLS-1$
 
 	private boolean userCancelledOperation = false;
@@ -445,7 +445,7 @@ public class AnalysisSaikuService implements DisposableBean{
 		}
 
 		return new File(saikuFolder.getAbsolutePath() + File.separator + getRdbFilePrefix()
-				+ ServerController.SAIKU_RDB_SUFFIX + ".zip");
+				+ EarthConstants.SAIKU_RDB_SUFFIX + ".zip");
 	}
 
 	public boolean isRdbAlreadyGenerated() {
@@ -554,7 +554,7 @@ public class AnalysisSaikuService implements DisposableBean{
 		}
 	}
 
-	public void prepareDataForAnalysis(InfiniteProgressMonitor progressListener) throws SaikuExecutionException {
+	public void prepareDataForAnalysis(InfiniteProgressMonitor progressListener, boolean startSaikuAfterDBExport) throws SaikuExecutionException {
 
 		try {
 
@@ -586,7 +586,7 @@ public class AnalysisSaikuService implements DisposableBean{
 
 				refreshDataSourceForSaiku();
 
-				if (!isUserCancelledOperation()) {
+				if (startSaikuAfterDBExport && !isUserCancelledOperation()) {
 					startSaiku();
 					new Thread("Opening Saiku") {
 						@Override

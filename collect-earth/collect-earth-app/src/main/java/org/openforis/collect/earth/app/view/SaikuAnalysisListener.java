@@ -11,8 +11,8 @@ import org.slf4j.LoggerFactory;
 
 public class SaikuAnalysisListener implements ActionListener {
 	private Logger logger = LoggerFactory.getLogger( SaikuAnalysisListener.class);
-	private JFrame frame;
-	private SaikuStarter saikuStarter;
+	protected JFrame frame;
+	protected SaikuStarter saikuStarter;
 
 	public SaikuAnalysisListener(JFrame frame, SaikuStarter saikuStarter) {
 		this.frame = frame;
@@ -24,7 +24,7 @@ public class SaikuAnalysisListener implements ActionListener {
 		try {
 
 			CollectEarthWindow.startWaiting(frame);
-			exportDataToRDB();
+			exportDataToRDB( true );
 		}catch (Exception e1) {
 			logger.error("Error starting Saiku server", e1); //$NON-NLS-1$
 		} finally{
@@ -32,7 +32,7 @@ public class SaikuAnalysisListener implements ActionListener {
 		}
 	}
 
-	private void exportDataToRDB() {
+	protected void exportDataToRDB(boolean startSaikuAfterDBExport) {
 		if( saikuStarter.isStarting() ){
 			JOptionPane.showMessageDialog(frame, Messages.getString("CollectEarthWindow.57"), Messages.getString("CollectEarthWindow.58"), JOptionPane.WARNING_MESSAGE );  //$NON-NLS-1$ //$NON-NLS-2$
 		}else{
@@ -54,7 +54,7 @@ public class SaikuAnalysisListener implements ActionListener {
 
 			if( shouldRefreshDb != JOptionPane.CLOSED_OPTION ){
 				saikuStarter.setShouldRefreshDb( shouldRefreshDb == JOptionPane.YES_OPTION  );
-				saikuStarter.initializeAndOpen();
+				saikuStarter.initializeAndOpen( startSaikuAfterDBExport);
 			}
 		}
 	}
