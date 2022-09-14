@@ -7,24 +7,16 @@ import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.nio.charset.StandardCharsets;
-import java.nio.file.Files;
-import java.nio.file.Paths;
-import java.security.MessageDigest;
-import java.security.NoSuchAlgorithmException;
 import java.sql.ResultSet;
 import java.sql.SQLException;
-import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
 import javax.swing.SwingUtilities;
 
-import org.apache.commons.codec.binary.Hex;
-import org.apache.commons.dbcp.BasicDataSource;
 import org.apache.commons.lang3.SystemUtils;
 import org.apache.commons.text.StringEscapeUtils;
-import org.openforis.collect.earth.app.CollectEarthUtils;
 import org.openforis.collect.earth.app.EarthConstants;
 import org.openforis.collect.earth.app.EarthConstants.CollectDBDriver;
 import org.openforis.collect.earth.app.ad_hoc.AluToolUtils;
@@ -34,13 +26,11 @@ import org.openforis.collect.earth.app.model.DynamicsCode;
 import org.openforis.collect.earth.app.model.SlopeCode;
 import org.openforis.collect.earth.app.service.LocalPropertiesService.EarthProperty;
 import org.openforis.collect.earth.app.view.InfiniteProgressMonitor;
-import org.openforis.collect.earth.core.rdb.RelationalSchemaContext;
+import org.openforis.collect.earth.ipcc.RdbExportException;
 import org.openforis.collect.earth.sampler.utils.FreemarkerTemplateUtils;
-import org.openforis.collect.model.CollectRecord.Step;
 import org.openforis.collect.model.CollectSurvey;
 import org.openforis.collect.relational.CollectRDBPublisher;
 import org.openforis.collect.relational.CollectRdbException;
-import org.openforis.collect.relational.model.RelationalSchemaConfig;
 import org.openforis.concurrency.Progress;
 import org.openforis.idm.metamodel.NodeDefinition;
 import org.openqa.selenium.remote.RemoteWebDriver;
@@ -48,18 +38,15 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.DisposableBean;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.jdbc.CannotGetJdbcConnectionException;
-import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.core.RowMapper;
 import org.springframework.stereotype.Component;
 
 import com.opencsv.CSVReader;
 
 import freemarker.template.TemplateException;
-import net.lingala.zip4j.ZipFile;
 
 @Component
-public class AnalysisSaikuService implements DisposableBean{
+public class AnalysisSaikuService extends GenerateDatabase implements DisposableBean{
 
 	private static final String PLOT_ADD = "plot ADD ";
 
@@ -102,6 +89,10 @@ public class AnalysisSaikuService implements DisposableBean{
 	public static final String COLLECT_EARTH_DATABASE_RDB_DB = EarthConstants.COLLECT_EARTH_DATABASE_SQLITE_DB
 			+ EarthConstants.SAIKU_RDB_SUFFIX;
 
+
+	@Autowired
+	RDBExporter rdbExporter;
+
 	@Autowired
 	CollectRDBPublisher collectRDBPublisher;
 
@@ -115,23 +106,16 @@ public class AnalysisSaikuService implements DisposableBean{
 	BrowserService browserService;
 
 	@Autowired
-	private BasicDataSource rdbDataSource;
-
-	@Autowired
 	private RegionCalculationUtils regionCalculation;
 
 	@Autowired
 	private SchemaService schemaNamingService;
-
-	private JdbcTemplate jdbcTemplate;
-
-	private final Logger logger = LoggerFactory.getLogger(AnalysisSaikuService.class);
+	
+	final Logger logger = LoggerFactory.getLogger(AnalysisSaikuService.class);
 
 	private static final int ELEVATION_RANGE = 100;
 
 	private RemoteWebDriver saikuWebDriver;
-
-	private boolean refreshDatabase;
 
 	private static final String SQLITE_FREEMARKER_HTML_TEMPLATE = "resources" + File.separator //$NON-NLS-1$
 			+ "collectEarthSqliteDS.fmt"; //$NON-NLS-1$
@@ -140,14 +124,13 @@ public class AnalysisSaikuService implements DisposableBean{
 	public static final String MDX_XML = "collectEarthCubes.xml"; //$NON-NLS-1$
 	private static final String MDX_TEMPLATE = MDX_XML + ".fmt"; //$NON-NLS-1$
 
-	private boolean userCancelledOperation = false;
 	private boolean saikuStarted;
 
 	private void assignDimensionValues() {
 		try {
 			final String schemaName = getSchemaPrefix();
 			// Objet[] --> aspect_id, sloped_id, elevation_bucket_id, _plot_id
-			final List<Object[]> sqlUpdateValues = getJdbcTemplate().query(
+			final List<Object[]> sqlUpdateValues = rdbExporter.getJdbcTemplate().query(
 					"SELECT " + EarthConstants.PLOT_ID + ", elevation, slope, aspect FROM " + schemaName + "plot", //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$
 					new RowMapper<Object[]>() {
 						@Override
@@ -176,7 +159,7 @@ public class AnalysisSaikuService implements DisposableBean{
 
 					});
 
-			getJdbcTemplate().batchUpdate(UPDATE + schemaName + "plot SET " + ASPECT_ID + "=?," + SLOPE_ID + "=?," //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$ //$NON-NLS-4$
+			rdbExporter.getJdbcTemplate().batchUpdate(UPDATE + schemaName + "plot SET " + ASPECT_ID + "=?," + SLOPE_ID + "=?," //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$ //$NON-NLS-4$
 					+ ELEVATION_ID + "=? WHERE " + EarthConstants.PLOT_ID + "=?", sqlUpdateValues); //$NON-NLS-1$ //$NON-NLS-2$
 		} catch (Exception e) {
 			logger.warn("No DEM information", e); //$NON-NLS-1$
@@ -184,7 +167,7 @@ public class AnalysisSaikuService implements DisposableBean{
 	}
 
 	private String getSchemaPrefix() {
-		return schemaNamingService.getSchemaPrefix();
+		return schemaNamingService.getSchemaPrefix(ExportType.SAIKU);
 	}
 
 	private void assignPngAluToolDimensionValues() {
@@ -192,7 +175,7 @@ public class AnalysisSaikuService implements DisposableBean{
 			if (earthSurveyService.getCollectSurvey().getName().toLowerCase().contains("png")) { //$NON-NLS-1$
 				final String schemaName = getSchemaPrefix();
 				// Objet[] --> aspect_id, sloped_id, elevation_bucket_id, _plot_id
-				final List<Object[]> sqlUpdateValues = getJdbcTemplate().query("SELECT " + EarthConstants.PLOT_ID //$NON-NLS-1$
+				final List<Object[]> sqlUpdateValues = rdbExporter.getJdbcTemplate().query("SELECT " + EarthConstants.PLOT_ID //$NON-NLS-1$
 						+ ", elevation, soil_fundamental, land_use_subcategory, precipitation_ranges FROM " + schemaName //$NON-NLS-1$
 						+ "plot LEFT JOIN " + schemaName + "precipitation_ranges_code where " //$NON-NLS-1$ //$NON-NLS-2$
 						+ "plot.annual_precipitation_code_id=precipitation_ranges_code.precipitation_ranges_code_id", //$NON-NLS-1$
@@ -238,7 +221,7 @@ public class AnalysisSaikuService implements DisposableBean{
 
 						});
 
-				getJdbcTemplate().batchUpdate(UPDATE + schemaName + "plot SET " + ALU_CLIMATE_ZONE_CODE + "=?," //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$
+				rdbExporter.getJdbcTemplate().batchUpdate(UPDATE + schemaName + "plot SET " + ALU_CLIMATE_ZONE_CODE + "=?," //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$
 						+ ALU_SOIL_TYPE_CODE + "=? WHERE " + EarthConstants.PLOT_ID + "=?", sqlUpdateValues); //$NON-NLS-1$ //$NON-NLS-2$
 			}
 		} catch (Exception e) {
@@ -250,7 +233,7 @@ public class AnalysisSaikuService implements DisposableBean{
 		try {
 			final String schemaName = getSchemaPrefix();
 			// Objet[] --> aspect_id, sloped_id, elevation_bucket_id, _plot_id
-			final List<Object[]> sqlUpdateValues = getJdbcTemplate().query(
+			final List<Object[]> sqlUpdateValues = rdbExporter.getJdbcTemplate().query(
 					"SELECT " + EarthConstants.PLOT_ID + ", land_use_subcategory FROM " + schemaName + "plot", //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$
 					new RowMapper<Object[]>() {
 						@Override
@@ -274,100 +257,32 @@ public class AnalysisSaikuService implements DisposableBean{
 
 					});
 
-			getJdbcTemplate().batchUpdate(UPDATE + schemaName + "plot SET " + DYNAMICS_ID + "=?," + ALU_SUBCLASS_CODE //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$
+			rdbExporter.getJdbcTemplate().batchUpdate(UPDATE + schemaName + "plot SET " + DYNAMICS_ID + "=?," + ALU_SUBCLASS_CODE //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$
 					+ "=? WHERE " + EarthConstants.PLOT_ID + "=?", sqlUpdateValues); //$NON-NLS-1$
 		} catch (Exception e) {
 			logger.warn("No PNG Alu information available", e); //$NON-NLS-1$
 		}
 	}
 
-	private void cleanPostgresDb() {
-		getJdbcTemplate().execute("DROP SCHEMA IF EXISTS " + EarthConstants.POSTGRES_RDB_SCHEMA + " CASCADE"); //$NON-NLS-1$ //$NON-NLS-2$
-		getJdbcTemplate().execute("CREATE SCHEMA IF NOT EXISTS " + EarthConstants.POSTGRES_RDB_SCHEMA); //$NON-NLS-1$
-	}
-
-	private void cleanSqlLiteDb(final List<String> tables) {
-		final File oldRdbFile = getRdbFile();
-		if (oldRdbFile.exists()) {
-
-			// Now we can remove the SQLite file so that a completely new connection is open
-			try {
-				Files.delete( Paths.get( oldRdbFile.toURI() ) );
-			} catch (IOException e1) {
-				logger.error("Error deleteing old Saiku DB sqlite file", e1);
-
-				// We need to delete all tables before we can remove the file and drop the
-				// connection
-				final List<Map<String, Object>> listOfTables = getJdbcTemplate()
-						.queryForList("SELECT name FROM sqlite_master WHERE type='table' OR type ;"); //$NON-NLS-1$
-				for (final Map<String, Object> entry : listOfTables) {
-					final String tableName = (String) entry.get("name"); //$NON-NLS-1$
-					if (!tableName.equals("sqlite_sequence")) { //$NON-NLS-1$
-						tables.add(tableName);
-					}
-				}
-
-				for (final String tableName : tables) {
-					getJdbcTemplate().execute("DROP TABLE IF EXISTS " + tableName); //$NON-NLS-1$
-				}
-
-				// DROP VIEWS!
-				final List<Map<String, Object>> listOfViews = getJdbcTemplate()
-						.queryForList("SELECT name FROM sqlite_master WHERE type = 'view';"); //$NON-NLS-1$
-				for (final Map<String, Object> entry : listOfViews) {
-					final String viewName = (String) entry.get("name"); //$NON-NLS-1$
-					getJdbcTemplate().execute("DROP VIEW IF EXISTS " + viewName); //$NON-NLS-1$
-				}
-				try {
-					if( getJdbcTemplate().getDataSource() != null && getJdbcTemplate().getDataSource().getConnection() != null){
-						getJdbcTemplate().getDataSource().getConnection().close();
-					}
-				} catch (CannotGetJdbcConnectionException | SQLException e2) {
-					logger.error("Error closing the DB collection", e2);
-				}
-				// Now we can remove the SQLite file so that a completely new connection is open
-				try {
-					Files.delete( Paths.get( oldRdbFile.toURI() ) );
-				} catch (IOException e3) {
-					logger.error("Error deleteing old Saiku DB sqlite file", e3);
-				}
-			}
-
-
-			if (!SystemUtils.IS_OS_WINDOWS) {
-				try {
-					Thread.yield();
-					Thread.sleep(10000);
-				} catch (InterruptedException e) {
-					logger.error("Error while giving pass to other processes", e);
-					 Thread.currentThread().interrupt();
-				}
-			}
-
-
-		}
-
-	}
-
 	private void createAspectAuxTable() {
 		final String schemaName = getSchemaPrefix();
-		getJdbcTemplate().execute(CREATE_TABLE + schemaName + "aspect_category (" + ASPECT_ID //$NON-NLS-1$ //$NON-NLS-2$
+		rdbExporter.getJdbcTemplate().execute(CREATE_TABLE + schemaName + "aspect_category (" + ASPECT_ID //$NON-NLS-1$ //$NON-NLS-2$
 				+ " INTEGER PRIMARY KEY, aspect_caption TEXT);"); //$NON-NLS-1$
 		final AspectCode[] aspects = AspectCode.values();
 		for (final AspectCode aspectCode : aspects) {
-			getJdbcTemplate().execute(INSERT_INTO + schemaName + "aspect_category values (" + aspectCode.getId() + ", '" //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$
+			rdbExporter.getJdbcTemplate().execute(INSERT_INTO + schemaName + "aspect_category values (" + aspectCode.getId() + ", '" //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$
 					+ aspectCode.getLabel() + "')"); //$NON-NLS-1$
 		}
 	}
 
 	private void createElevationtAuxTable() {
 		final String schemaName = getSchemaPrefix();
-		getJdbcTemplate().execute(CREATE_TABLE + schemaName + "elevation_category ( " + ELEVATION_ID //$NON-NLS-1$ //$NON-NLS-2$
+		rdbExporter.getJdbcTemplate().execute(CREATE_TABLE + schemaName + "elevation_category ( " + ELEVATION_ID //$NON-NLS-1$ //$NON-NLS-2$
 				+ " INTEGER PRIMARY KEY, elevation_caption TEXT);"); //$NON-NLS-1$
 		final int slots = 9000 / ELEVATION_RANGE; // Highest mountain in the world, mount everest is
 																	// 8820m high
 		for (int i = 1; i <= slots; i++) {
-			getJdbcTemplate().execute(INSERT_INTO + schemaName + "elevation_category values (" + i + ", '" //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$
+			rdbExporter.getJdbcTemplate().execute(INSERT_INTO + schemaName + "elevation_category values (" + i + ", '" //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$
 					+ ((i - 1) * ELEVATION_RANGE) + "-" + i //$NON-NLS-1$
 							* ELEVATION_RANGE
 					+ "')"); //$NON-NLS-1$
@@ -377,11 +292,11 @@ public class AnalysisSaikuService implements DisposableBean{
 
 	private void createDynamicsAuxTable() {
 		final String schemaName = getSchemaPrefix();
-		getJdbcTemplate().execute(CREATE_TABLE + schemaName + "dynamics_category (" + DYNAMICS_ID //$NON-NLS-1$ //$NON-NLS-2$
+		rdbExporter.getJdbcTemplate().execute(CREATE_TABLE + schemaName + "dynamics_category (" + DYNAMICS_ID //$NON-NLS-1$ //$NON-NLS-2$
 				+ " INTEGER PRIMARY KEY, dynamics_caption TEXT);"); //$NON-NLS-1$
 		final DynamicsCode[] dynamicsCodes = DynamicsCode.values();
 		for (final DynamicsCode dynamicsCode : dynamicsCodes) {
-			getJdbcTemplate().execute(INSERT_INTO + schemaName + "dynamics_category values (" + dynamicsCode.getId() //$NON-NLS-1$ //$NON-NLS-2$
+			rdbExporter.getJdbcTemplate().execute(INSERT_INTO + schemaName + "dynamics_category values (" + dynamicsCode.getId() //$NON-NLS-1$ //$NON-NLS-2$
 					+ ", '" + dynamicsCode.getLabel() + "')"); //$NON-NLS-1$ //$NON-NLS-2$
 		}
 	}
@@ -389,33 +304,33 @@ public class AnalysisSaikuService implements DisposableBean{
 	private void createPlotForeignKeys() {
 		// Add aspect_id column to plot
 		final String schemaName = getSchemaPrefix();
-		getJdbcTemplate().execute(ALTER_TABLE + schemaName + PLOT_ADD + ASPECT_ID + INTEGER); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$
-		getJdbcTemplate().execute(ALTER_TABLE + schemaName + PLOT_ADD + SLOPE_ID + INTEGER); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$
-		getJdbcTemplate().execute(ALTER_TABLE + schemaName + PLOT_ADD + ELEVATION_ID + INTEGER); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$
-		getJdbcTemplate().execute(ALTER_TABLE + schemaName + PLOT_ADD + DYNAMICS_ID + INTEGER); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$
+		rdbExporter.getJdbcTemplate().execute(ALTER_TABLE + schemaName + PLOT_ADD + ASPECT_ID + INTEGER); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$
+		rdbExporter.getJdbcTemplate().execute(ALTER_TABLE + schemaName + PLOT_ADD + SLOPE_ID + INTEGER); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$
+		rdbExporter.getJdbcTemplate().execute(ALTER_TABLE + schemaName + PLOT_ADD + ELEVATION_ID + INTEGER); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$
+		rdbExporter.getJdbcTemplate().execute(ALTER_TABLE + schemaName + PLOT_ADD + DYNAMICS_ID + INTEGER); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$
 	}
 
 	private void createPngAluVariables() {
 		if (earthSurveyService.getCollectSurvey().getName().toLowerCase().contains("png")) { //$NON-NLS-1$
 			final String schemaName = getSchemaPrefix();
-			getJdbcTemplate().execute(ALTER_TABLE + schemaName + PLOT_ADD + ALU_SOIL_TYPE_CODE + VARCHAR_5); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$
-			getJdbcTemplate().execute(ALTER_TABLE + schemaName + PLOT_ADD + ALU_CLIMATE_ZONE_CODE + VARCHAR_5); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$
+			rdbExporter.getJdbcTemplate().execute(ALTER_TABLE + schemaName + PLOT_ADD + ALU_SOIL_TYPE_CODE + VARCHAR_5); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$
+			rdbExporter.getJdbcTemplate().execute(ALTER_TABLE + schemaName + PLOT_ADD + ALU_CLIMATE_ZONE_CODE + VARCHAR_5); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$
 		}
 	}
 
 	private void creatAluSubclassVariables() {
 		final String schemaName = getSchemaPrefix();
-		getJdbcTemplate().execute(ALTER_TABLE + schemaName + PLOT_ADD + ALU_SUBCLASS_CODE + VARCHAR_5); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$
+		rdbExporter.getJdbcTemplate().execute(ALTER_TABLE + schemaName + PLOT_ADD + ALU_SUBCLASS_CODE + VARCHAR_5); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$
 	}
 
 	private void createSlopeAuxTable() {
 		final String schemaName = getSchemaPrefix();
 		// Slope can be from 0 to 90
-		getJdbcTemplate().execute(
+		rdbExporter.getJdbcTemplate().execute(
 				CREATE_TABLE + schemaName + "slope_category (slope_id INTEGER PRIMARY KEY, slope_caption TEXT);"); //$NON-NLS-1$ //$NON-NLS-2$
 		final SlopeCode[] slopeCodes = SlopeCode.values();
 		for (final SlopeCode slopeCode : slopeCodes) {
-			getJdbcTemplate().execute(INSERT_INTO + schemaName + "slope_category values (" + slopeCode.getId() + ", '" //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$
+			rdbExporter.getJdbcTemplate().execute(INSERT_INTO + schemaName + "slope_category values (" + slopeCode.getId() + ", '" //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$
 					+ slopeCode.getLabel() + "')"); //$NON-NLS-1$
 		}
 	}
@@ -501,20 +416,6 @@ public class AnalysisSaikuService implements DisposableBean{
 		return configFile;
 	}
 
-	// @PreDestroy support removed by JDK11
-	@Override
-    public void destroy() throws Exception {
-		try {
-			stopSaiku();
-		} catch (SaikuExecutionException e) {
-			logger.error("Error while trying to quite Saiku before destroying the bean", e); //$NON-NLS-1$
-		}
-	}
-
-	private boolean isRefreshDatabase() {
-		return refreshDatabase;
-	}
-
 	private boolean isSaikuConfigured() {
 		return localPropertiesService.getSaikuFolder() != null
 				&& isSaikuFolder(new File(localPropertiesService.getSaikuFolder()));
@@ -541,10 +442,6 @@ public class AnalysisSaikuService implements DisposableBean{
 		return isSaikuFolder;
 	}
 
-	private boolean isUserCancelledOperation() {
-		return userCancelledOperation;
-	}
-
 	private void openSaiku() throws BrowserNotFoundException {
 		saikuWebDriver = browserService.navigateTo("http://127.0.0.1:8181", saikuWebDriver, false); //$NON-NLS-1$
 		if (browserService.waitFor("username", saikuWebDriver)) { //$NON-NLS-1$
@@ -554,6 +451,7 @@ public class AnalysisSaikuService implements DisposableBean{
 		}
 	}
 
+
 	public void prepareDataForAnalysis(InfiniteProgressMonitor progressListener, boolean startSaikuAfterDBExport) throws SaikuExecutionException {
 
 		try {
@@ -562,25 +460,33 @@ public class AnalysisSaikuService implements DisposableBean{
 
 			try {
 
-				if ((localPropertiesService.isUsingSqliteDB() && !getZippedSaikuProjectDB().exists())
+				if ((localPropertiesService.isUsingSqliteDB() && !getZippedProjectDB( ExportType.SAIKU ).exists())
 						|| isRefreshDatabase()) {
-					removeOldRdb();
+					
 					// The user clicked on the option to refresh the database, or there is no
 					// previous copy of the Saiku DB
 					// Generate the DB file
-					exportDataToRDB(progressListener);
+					rdbExporter.exportDataToRDB(
+							earthSurveyService.getCollectSurvey(), 
+							ExportType.SAIKU, 
+							progressListener, 
+							(progress) ->  {
+								processQuantityData(progress);
+							}
+						);
+			
 					try {
-						// Save the DB file in a zipped file to keep for the next usages
-						replaceZippedSaikuProjectDB();
+						// Save the DB file in a zipped file to extends GenerateDatabase keep for the next usages
+						replaceZippedProjectDB( ExportType.SAIKU );
 					} catch (Exception e) {
 						logger.error("Error while refreshing the Zipped content of the project Saiku DB", e);
 					}
 
-				} else if (getZippedSaikuProjectDB().exists()) {
+				} else if (getZippedProjectDB(ExportType.SAIKU).exists()) {
 					// If the zipped version of the project exists ( and the user clicked on the
 					// option to not refresh it) then restore this last version of the data
 					if (localPropertiesService.isUsingSqliteDB()) {
-						restoreProjectSaikuDB();
+						restoreZippedProjectDB(ExportType.SAIKU);
 					}
 				}
 
@@ -609,55 +515,6 @@ public class AnalysisSaikuService implements DisposableBean{
 
 		} catch (final CollectRdbException e) {
 			logger.error("Error while producing Relational DB from Collect format", e); //$NON-NLS-1$
-		}
-	}
-
-	private void replaceZippedSaikuProjectDB() throws IOException {
-		if (localPropertiesService.isUsingSqliteDB()) {
-			ZipFile zippedSaiku = CollectEarthUtils.addFileToZip(getZippedSaikuProjectDB().getAbsolutePath(), getRdbFile(),
-					getRdbFile().getName());
-			zippedSaiku.close();
-		}
-	}
-
-	public void exportDataToRDB(InfiniteProgressMonitor progressListener) throws CollectRdbException {
-		/*
-		 * The SQLite DB has no limit on the length of the varchar. By default, if no
-		 * RelationalSchemaConfig is passed to the export command text fields will be
-		 * truncated to 255 characters
-		 */
-		final RelationalSchemaConfig rdbConfig = new RelationalSchemaContext().getRdbConfig();
-
-		final String rdbSaikuSchema = getSchemaName();
-
-		SwingUtilities.invokeLater( () -> progressListener.setMessage("Exporting collected records into Saiku DB") );
-
-		collectRDBPublisher.export(earthSurveyService.getCollectSurvey().getName(), EarthConstants.ROOT_ENTITY_NAME,
-				Step.ENTRY, rdbSaikuSchema, rdbConfig, progressListener);
-
-		if (!isUserCancelledOperation()) {
-			System.currentTimeMillis();
-			try {
-
-				processQuantityData(progressListener);
-				setSaikuAsDefaultSchema();
-			} catch (final Exception e) {
-				logger.error("Error processing quantity data", e); //$NON-NLS-1$
-			}
-		}
-	}
-
-	private String getSchemaName() {
-		if (localPropertiesService.isUsingPostgreSqlDB()) {
-			return EarthConstants.POSTGRES_RDB_SCHEMA;
-		} else {
-			return null;
-		}
-	}
-
-	private void setSaikuAsDefaultSchema() {
-		if (localPropertiesService.isUsingPostgreSqlDB()) {
-			getJdbcTemplate().execute("SET search_path TO " + getSchemaName()); //$NON-NLS-1$
 		}
 	}
 
@@ -692,7 +549,7 @@ public class AnalysisSaikuService implements DisposableBean{
 
 		SwingUtilities.invokeLater( () -> progressListener.setMessage("Calculating expansion factors") );
 
-		regionCalculation.handleRegionCalculation();
+		regionCalculation.handleRegionCalculation( ExportType.SAIKU, rdbExporter.getJdbcTemplate() );
 		progressListener.progressMade(new Progress(100, 100));
 
 	}
@@ -747,7 +604,7 @@ public class AnalysisSaikuService implements DisposableBean{
 
 		if (localPropertiesService.isUsingSqliteDB()) {
 			dataSourceTemplate = new File(SQLITE_FREEMARKER_HTML_TEMPLATE);
-			final File rdbDb = getRdbFile();
+			final File rdbDb = rdbExporter.getRdbFile( ExportType.SAIKU );
 			if (!rdbDb.exists()) {
 				throw new IOException(
 						"The file contianing the Relational SQLite Database does not exist in expected location " //$NON-NLS-1$
@@ -782,21 +639,6 @@ public class AnalysisSaikuService implements DisposableBean{
 		}
 		saikuData.put("saikuDbSchema", saikuSchemaName); //$NON-NLS-1$
 		FreemarkerTemplateUtils.applyTemplate(mdxFileTemplate, mdxFile, saikuData);
-	}
-
-	private void removeOldRdb() {
-
-		final List<String> tables = new ArrayList<>();
-
-		if (localPropertiesService.isUsingSqliteDB()) {
-
-			cleanSqlLiteDb(tables);
-
-		} else if (localPropertiesService.isUsingPostgreSqlDB()) {
-			cleanPostgresDb();
-
-		}
-
 	}
 
 	private void runSaikuBat(String commandName) throws SaikuExecutionException {
@@ -892,14 +734,6 @@ public class AnalysisSaikuService implements DisposableBean{
 		}
 	}
 
-	public void setRefreshDatabase(boolean refreshDatabase) {
-		this.refreshDatabase = refreshDatabase;
-	}
-
-	public void setUserCancelledOperation(boolean userCancelledOperation) {
-		this.userCancelledOperation = userCancelledOperation;
-	}
-
 	private void startSaiku() throws SaikuExecutionException {
 		logger.warn(
 				"Starting the Saiku server {}{}{}", localPropertiesService.getSaikuFolder(), File.separator, START_SAIKU); //$NON-NLS-1$
@@ -911,7 +745,7 @@ public class AnalysisSaikuService implements DisposableBean{
 		logger.warn("Finished starting the Saiku server"); //$NON-NLS-1$
 	}
 
-	private void stopSaiku() throws SaikuExecutionException {
+	void stopSaiku() throws SaikuExecutionException {
 		logger.warn("Stoping the Saiku server {}{}{}", localPropertiesService.getSaikuFolder() , File.separator , STOP_SAIKU); //$NON-NLS-1$
 		if (isSaikuStarted()) {
 			runSaikuBat(STOP_SAIKU);
@@ -943,12 +777,29 @@ public class AnalysisSaikuService implements DisposableBean{
 	private void setSaikuStarted(boolean saikuStarted) {
 		this.saikuStarted = saikuStarted;
 	}
-
-	private JdbcTemplate getJdbcTemplate() {
-		if( jdbcTemplate == null ) {
-			jdbcTemplate = new JdbcTemplate(rdbDataSource);
+	
+	@Override
+	public void destroy() throws Exception {
+		try {
+			stopSaiku();
+		} catch (SaikuExecutionException e) {
+			logger.error("Error while trying to quite Saiku before destroying the bean", e); //$NON-NLS-1$
 		}
-		return jdbcTemplate;
+	}
+
+	@Override
+	public LocalPropertiesService getLocalPropertiesService() {
+		return localPropertiesService;
+	}
+
+	@Override
+	public EarthSurveyService getEarthSurveyService() {
+		return earthSurveyService;
+	}
+
+	@Override
+	public RDBExporter getRdbExporter() {
+		return rdbExporter;
 	}
 
 }

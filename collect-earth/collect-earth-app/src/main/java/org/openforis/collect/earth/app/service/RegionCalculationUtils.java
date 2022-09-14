@@ -7,7 +7,6 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Locale;
 
-import org.apache.commons.dbcp.BasicDataSource;
 import org.openforis.collect.earth.app.EarthConstants;
 import org.openforis.collect.earth.core.utils.CsvReaderUtils;
 import org.openforis.idm.metamodel.BooleanAttributeDefinition;
@@ -15,7 +14,6 @@ import org.openforis.idm.metamodel.EntityDefinition;
 import org.openforis.idm.metamodel.NodeDefinition;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.InitializingBean;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Component;
@@ -23,8 +21,10 @@ import org.springframework.stereotype.Component;
 import com.opencsv.CSVReader;
 
 @Component
-public class RegionCalculationUtils implements InitializingBean{
+public class RegionCalculationUtils{
 
+	private static final String AREA_CSV_COLUMN = "area";
+	private static final String WEIGHT_CSV_COLUMN = "weight";
 	private static final String PLOT_SET = "plot SET ";
 	private static final String UPDATE = "UPDATE ";
 	private static final String PLOT_ADD = "plot ADD ";
@@ -36,13 +36,14 @@ public class RegionCalculationUtils implements InitializingBean{
 	private static final String REGION_AREAS_CSV = "region_areas.csv"; //$NON-NLS-1$
 	private static final String ATTRIBUTE_AREAS_CSV = "areas_per_attribute.csv"; //$NON-NLS-1$
 	private static final String PLOT_WEIGHT = "plot_weight"; //$NON-NLS-1$
-	private static final String EXPANSION_FACTOR = "expansion_factor"; //$NON-NLS-1$
 	private static final String TREES_PER_EXP_FACTOR = "trees_per_expansion_factor"; //$NON-NLS-1$
 	private static final String SHRUBS_PER_EXP_FACTOR = "shrubs_per_expansion_factor"; //$NON-NLS-1$
-	private final Logger logger = LoggerFactory.getLogger(RegionCalculationUtils.class);
 	private static final String NO_DATA_LAND_USE = "noData"; //$NON-NLS-1$
 	private static final String MANY_TREES = "many_trees";
 	private static final String MANY_SHRUBS = "many_shrubs";
+
+	public static final String EXPANSION_FACTOR = "expansion_factor"; //$NON-NLS-1$
+	private final Logger logger = LoggerFactory.getLogger(RegionCalculationUtils.class);
 
 	@Autowired
 	EarthSurveyService earthSurveyService;
@@ -51,20 +52,17 @@ public class RegionCalculationUtils implements InitializingBean{
 	LocalPropertiesService localPropertiesService;
 
 	@Autowired
-	private BasicDataSource rdbDataSource;
-
-	@Autowired
 	private SchemaService schemaService;
 
 	private JdbcTemplate jdbcTemplate;
 
-	@Override
-	public void afterPropertiesSet() throws Exception {
-		jdbcTemplate = new JdbcTemplate(rdbDataSource);
-	}
+	private ExportType exportType;
 
-	public void handleRegionCalculation(){
+	public void handleRegionCalculation(ExportType exportType, JdbcTemplate jdbcTemplate){
+		
 		try {
+			setExportType(exportType);
+			setJdbcTemplate(jdbcTemplate);
 			createWeightFactors();
 
 			// If the region_areas.csv is not present then try to add the areas "per attribute" using the file areas_per_attribute.csv
@@ -89,18 +87,22 @@ public class RegionCalculationUtils implements InitializingBean{
 	}
 
 	private void recalculatePlotWeights() {
-		String schemaName = schemaService.getSchemaPrefix();
+		String schemaName = getSchemaPrefix();
 		String selectMinExpansionFactorSql = String.format("SELECT MIN(%s) FROM %splot", EXPANSION_FACTOR, schemaName); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$
-		Double minExpansionFactor = jdbcTemplate.queryForObject(selectMinExpansionFactorSql, Double.class);
+		Double minExpansionFactor = getJdbcTemplate().queryForObject(selectMinExpansionFactorSql, Double.class);
 		//set plot_weight = expansion_factor / minExpansionFactor
 		String updatePlotWeightSql = String.format(Locale.US, "UPDATE %splot SET %s=%s/%.5f", schemaName, PLOT_WEIGHT, EXPANSION_FACTOR, minExpansionFactor); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$
-		jdbcTemplate.update(updatePlotWeightSql);
+		getJdbcTemplate().update(updatePlotWeightSql);
+	}
+
+	private String getSchemaPrefix() {
+		return schemaService.getSchemaPrefix( getExportType() );
 	}
 
 	private void createWeightFactors(){
-		final String schemaName = schemaService.getSchemaPrefix();
-		jdbcTemplate.execute(ALTER_TABLE2 + schemaName + PLOT_ADD + EXPANSION_FACTOR + FLOAT); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$
-		jdbcTemplate.execute(ALTER_TABLE2 + schemaName + PLOT_ADD + PLOT_WEIGHT + FLOAT); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$
+		final String schemaName = getSchemaPrefix();
+		getJdbcTemplate().execute(ALTER_TABLE2 + schemaName + PLOT_ADD + EXPANSION_FACTOR + FLOAT); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$
+		getJdbcTemplate().execute(ALTER_TABLE2 + schemaName + PLOT_ADD + PLOT_WEIGHT + FLOAT); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$
 	}
 
 	/**
@@ -110,7 +112,7 @@ public class RegionCalculationUtils implements InitializingBean{
 	private boolean addAreasPerRegion() {
 
 		final File regionAreas = new File( localPropertiesService.getProjectFolder() + File.separatorChar + REGION_AREAS_CSV);
-		String schemaName = schemaService.getSchemaPrefix();
+		String schemaName = getSchemaPrefix();
 
 		if (regionAreas.exists()) {
 
@@ -123,11 +125,11 @@ public class RegionCalculationUtils implements InitializingBean{
 						String region = csvLine[0];
 						String plotFile = csvLine[1];
 						int areaHectares =  Integer.parseInt( csvLine[2] );
-						final Float plotWeight =  Float.parseFloat( csvLine[3] );
+						final Float plotWeight =  1f; // The plot weight will always be calculated in a later step
 
 						Object[] parameters = new String[]{region,plotFile};
 
-						Integer plotsInRegion = jdbcTemplate.queryForObject(
+						Integer plotsInRegion = getJdbcTemplate().queryForObject(
 								"SELECT count( DISTINCT "+EarthConstants.PLOT_ID+") FROM " + schemaName  + "plot  WHERE ( region=? OR plot_file=? ) AND land_use_category != '"+NO_DATA_LAND_USE+"' ",
 								Integer.class,
 								parameters); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$ //$NON-NLS-4$
@@ -142,7 +144,7 @@ public class RegionCalculationUtils implements InitializingBean{
 						updateValues[1] = plotWeight;
 						updateValues[2] = region;
 						updateValues[3] = plotFile;
-						jdbcTemplate.update(UPDATE + schemaName + PLOT_SET+EXPANSION_FACTOR+"=?, "+PLOT_WEIGHT+"=? WHERE region=? OR plot_file=?", updateValues); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$ //$NON-NLS-4$
+						getJdbcTemplate().update(UPDATE + schemaName + PLOT_SET+EXPANSION_FACTOR+"=?, "+PLOT_WEIGHT+"=? WHERE region=? OR plot_file=?", updateValues); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$ //$NON-NLS-4$
 
 					} catch (NumberFormatException e) {
 						logger.error("Possibly the header", e); //$NON-NLS-1$
@@ -157,7 +159,7 @@ public class RegionCalculationUtils implements InitializingBean{
 				updateNoDataValues[1] = 0;
 				updateNoDataValues[2] = NO_DATA_LAND_USE;
 
-				jdbcTemplate.update(UPDATE + schemaName + PLOT_SET+EXPANSION_FACTOR+"=?, "+PLOT_WEIGHT+"=? WHERE land_use_category=?", updateNoDataValues); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$ //$NON-NLS-4$
+				getJdbcTemplate().update(UPDATE + schemaName + PLOT_SET+EXPANSION_FACTOR+"=?, "+PLOT_WEIGHT+"=? WHERE land_use_category=?", updateNoDataValues); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$ //$NON-NLS-4$
 
 
 			} catch (FileNotFoundException e) {
@@ -168,7 +170,7 @@ public class RegionCalculationUtils implements InitializingBean{
 
 			return true;
 		}else{
-			logger.warn("No CSV region_areas.csv present, calculating areas will not be possible"); //$NON-NLS-1$
+			logger.warn("No CSV " + REGION_AREAS_CSV + " present, calculating areas will not be possible"); //$NON-NLS-1$
 			return false;
 		}
 
@@ -176,7 +178,7 @@ public class RegionCalculationUtils implements InitializingBean{
 
 
 	private void handleNumberOfShrubs() {
-		String schemaName = schemaService.getSchemaPrefix();
+		String schemaName = getSchemaPrefix();
 		// This is specific to the Global Forest Survey - Drylands monitoring assessment
 		if(
 			AnalysisSaikuService.surveyContains(SHRUB_COUNT, earthSurveyService.getCollectSurvey() )
@@ -185,14 +187,14 @@ public class RegionCalculationUtils implements InitializingBean{
 		){
 			// First set the number of shrubs to 30 if the user assessed that there were more than 30 shrubs on the plot
 			// This way we get a conservative estimation
-			jdbcTemplate.update(UPDATE + schemaName + PLOT_SET+SHRUB_COUNT+"=30 WHERE  " + MANY_SHRUBS + "='1'"); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$ //$NON-NLS-4$
-			jdbcTemplate.execute(ALTER_TABLE2 + schemaName + PLOT_ADD + SHRUBS_PER_EXP_FACTOR + FLOAT); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$
-			jdbcTemplate.update(UPDATE + schemaName + PLOT_SET+SHRUBS_PER_EXP_FACTOR+"="+EXPANSION_FACTOR+"*2*"  + SHRUB_COUNT); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$ //$NON-NLS-4$
+			getJdbcTemplate().update(UPDATE + schemaName + PLOT_SET+SHRUB_COUNT+"=30 WHERE  " + MANY_SHRUBS + "='1'"); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$ //$NON-NLS-4$
+			getJdbcTemplate().execute(ALTER_TABLE2 + schemaName + PLOT_ADD + SHRUBS_PER_EXP_FACTOR + FLOAT); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$
+			getJdbcTemplate().update(UPDATE + schemaName + PLOT_SET+SHRUBS_PER_EXP_FACTOR+"="+EXPANSION_FACTOR+"*2*"  + SHRUB_COUNT); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$ //$NON-NLS-4$
 		}
 	}
 
 	private void handleNumberOfTrees() {
-		String schemaName = schemaService.getSchemaPrefix();
+		String schemaName = getSchemaPrefix();
 		// This is specific to the Global Forest Survey - Drylands monitoring assessment
 		if(
 			AnalysisSaikuService.surveyContains(TREE_COUNT, earthSurveyService.getCollectSurvey() )
@@ -201,28 +203,40 @@ public class RegionCalculationUtils implements InitializingBean{
 		){
 			// First set the number of shrubs to 30 if the user assessed that there were more than 30 shrubs on the plot
 			// This way we get a conservative estimation
-			jdbcTemplate.update(UPDATE + schemaName + PLOT_SET+TREE_COUNT+"=30 WHERE " + MANY_TREES + "='1'"); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$ //$NON-NLS-4$
-			jdbcTemplate.execute(ALTER_TABLE2 + schemaName + PLOT_ADD + TREES_PER_EXP_FACTOR + FLOAT); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$
-			jdbcTemplate.update(UPDATE + schemaName + PLOT_SET+TREES_PER_EXP_FACTOR+"="+EXPANSION_FACTOR+"*2*"  + TREE_COUNT); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$ //$NON-NLS-4$
+			getJdbcTemplate().update(UPDATE + schemaName + PLOT_SET+TREE_COUNT+"=30 WHERE " + MANY_TREES + "='1'"); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$ //$NON-NLS-4$
+			getJdbcTemplate().execute(ALTER_TABLE2 + schemaName + PLOT_ADD + TREES_PER_EXP_FACTOR + FLOAT); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$
+			getJdbcTemplate().update(UPDATE + schemaName + PLOT_SET+TREES_PER_EXP_FACTOR+"="+EXPANSION_FACTOR+"*2*"  + TREE_COUNT); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$ //$NON-NLS-4$
 		}
 	}
 
 	private boolean addAreasPerAttribute() {
 
 		final File areasPerAttribute = new File( localPropertiesService.getProjectFolder() + File.separatorChar + ATTRIBUTE_AREAS_CSV);
-		String schemaName = schemaService.getSchemaPrefix();
+		String schemaName = getSchemaPrefix();
 
 		if (areasPerAttribute.exists()) {
 
 			try ( CSVReader csvReader = CsvReaderUtils.getCsvReader(areasPerAttribute.getAbsolutePath(), false) ){
-				// The header (first line) should contain the names of the three columns : attribute_name,area,weight
+				// The header (first line) should contain the names of the three columns : attribute_name,area
 
 				String[] columnNames = csvReader.readNext();
+				
 
 				ArrayList<String> attributeNames = new ArrayList<String>();
 
-				if(columnNames.length < 3 ){
-					throw new RuntimeException("The " + areasPerAttribute.getAbsolutePath() + " file needs have this format : attribute_name1,attribute_name2,...attribute_nameN,area,weight./nAt least one attribute is necessary. This wuuld be the attribute or attributes (their name in the survey definition) that would realte the plot with its expancion factor");
+				if(columnNames.length < 2 ){
+					throw new RuntimeException("The " + areasPerAttribute.getAbsolutePath() + " file needs have this format : attribute_name1,attribute_name2,...attribute_nameN,"+AREA_CSV_COLUMN+"./nAt least one attribute is necessary. This would be the attribute or attributes (their name in the survey definition) that would relate the plot with its expansion factor");
+				}
+
+				// The weight column has been removed in the latest versions of the areas per attribute csv
+				// Lets add it again for backward compatibility
+				if( !columnNames[columnNames.length -1].equalsIgnoreCase(WEIGHT_CSV_COLUMN) ) {
+					// We need to create anew array with an extra item
+					String[] longer = new String[columnNames.length + 1];
+					for (int i = 0; i < columnNames.length; i++)
+						longer[i] = columnNames[i];
+					longer[columnNames.length] = WEIGHT_CSV_COLUMN; // add the 
+					columnNames = longer;
 				}
 
 				for( int colPosition = 0; colPosition<columnNames.length -2; colPosition++){
@@ -230,7 +244,7 @@ public class RegionCalculationUtils implements InitializingBean{
 
 					// Validate attribute name
 					if( !isAttributeInPlotEntity( attributeName ) ){
-						throw new RuntimeException("The expected format of the CSV file at " + areasPerAttribute.getAbsolutePath() + " should be attribute_name,area,weight. "
+						throw new RuntimeException("The expected format of the CSV file at " + areasPerAttribute.getAbsolutePath() + " should be attribute_name,"+AREA_CSV_COLUMN
 								+ "The name of the attribute in the first column of your CSV '" + attributeName + "'is not an attribute under the plot entity.");
 					}
 
@@ -238,8 +252,8 @@ public class RegionCalculationUtils implements InitializingBean{
 				}
 
 				//Validate area and weight headers.
-				if( !columnNames[ columnNames.length -2 ].equalsIgnoreCase("area") || !columnNames[columnNames.length -1].equalsIgnoreCase("weight")){
-					throw new RuntimeException("The expected format of the CSV file at " + areasPerAttribute.getAbsolutePath() + " should be attribute_name,area,weight");
+				if( !columnNames[ columnNames.length -2 ].equalsIgnoreCase(AREA_CSV_COLUMN) || !columnNames[columnNames.length -1].equalsIgnoreCase(WEIGHT_CSV_COLUMN)){
+					throw new RuntimeException("The expected format of the CSV file at " + areasPerAttribute.getAbsolutePath() + " should be attribute_name,"+AREA_CSV_COLUMN);
 				}
 
 				int numberOfAttributes = attributeNames.size();
@@ -275,7 +289,7 @@ public class RegionCalculationUtils implements InitializingBean{
 
 						List<Object> attributeValues = extractAttributeValues(csvLine, attributeNames);
 
-						Integer plotCountPerAttributes = jdbcTemplate.queryForObject(plotCountSelectQuery,  Integer.class, attributeValues.toArray()); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$ //$NON-NLS-4$
+						Integer plotCountPerAttributes = getJdbcTemplate().queryForObject(plotCountSelectQuery,  Integer.class, attributeValues.toArray()); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$ //$NON-NLS-4$
 
 						// Calculate the expansion factor: simply the division of the area for the selected attributes by the amount of plots that match the attribute values
 						Float expansionFactorHectaresCalc = 0f;
@@ -294,7 +308,7 @@ public class RegionCalculationUtils implements InitializingBean{
 						line++;
 					}
 				}
-				jdbcTemplate.batchUpdate(updatePlotQuery, batchArgs);
+				getJdbcTemplate().batchUpdate(updatePlotQuery, batchArgs);
 			} catch (FileNotFoundException e) {
 				logger.error("File not found?", e); //$NON-NLS-1$
 			} catch (Exception e) {
@@ -303,7 +317,7 @@ public class RegionCalculationUtils implements InitializingBean{
 
 			return true;
 		}else{
-			logger.warn("No CSV region_areas.csv present, calculating areas will not be possible"); //$NON-NLS-1$
+			logger.warn("No CSV " + ATTRIBUTE_AREAS_CSV + " present, calculating areas will not be possible"); //$NON-NLS-1$
 			return false;
 		}
 
@@ -339,6 +353,22 @@ public class RegionCalculationUtils implements InitializingBean{
 			return false;
 		}
 		return true;
+	}
+
+	public ExportType getExportType() {
+		return exportType;
+	}
+
+	public void setExportType(ExportType exportType) {
+		this.exportType = exportType;
+	}
+
+	private JdbcTemplate getJdbcTemplate() {
+		return jdbcTemplate;
+	}
+
+	private void setJdbcTemplate(JdbcTemplate jdbcTemplate) {
+		this.jdbcTemplate = jdbcTemplate;
 	}
 
 

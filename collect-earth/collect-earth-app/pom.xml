@@ -124,7 +124,11 @@
 		<dependency>
 			<groupId>io.sentry</groupId>
 			<artifactId>sentry-log4j2</artifactId>
+<<<<<<< HEAD
 			<version>6.4.1</version>
+=======
+			<version>6.1.2</version>
+>>>>>>> refs/remotes/origin/ipcc
 		</dependency>
 
 		<dependency>
@@ -132,6 +136,30 @@
 			<artifactId>httpclient</artifactId>
 			<version>4.5.13</version>
 		</dependency>
+		
+		<dependency>
+            <groupId>com.thoughtworks.xstream</groupId>
+            <artifactId>xstream</artifactId>
+            <version>1.4.19</version>
+        </dependency>
+        <dependency>
+		    <groupId>org.apache.poi</groupId>
+		    <artifactId>poi</artifactId>
+		    <version>5.0.0</version>
+		</dependency>
+		<dependency>
+		    <groupId>org.apache.poi</groupId>
+		    <artifactId>poi-ooxml</artifactId>
+		    <version>5.0.0</version>
+		</dependency>
+		
+		<dependency>>
+			<groupId>se.gustavkarlsson</groupId>
+			<artifactId>g-wiz</artifactId>
+			<version>1.0.1</version>
+		</dependency>
+		
+		
 	</dependencies>
 	<build>
 		<plugins>

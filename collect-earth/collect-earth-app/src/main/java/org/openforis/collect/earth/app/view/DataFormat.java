@@ -12,7 +12,7 @@ public enum DataFormat{
 			KML_FILE(new String[]{"kml"}, "Google Earth Kml File"), //$NON-NLS-1$ //$NON-NLS-2$
 			COLLECT_BACKUP(new String[]{"collect-data"}, "Collect Backup"),
 			SAIKU_ZIP( new String[] {"zip"},  "ZIP Saiku Tool Export" )
-			;
+			GHGI_ZIP_FILE(new String[]{"zip"}, "IPCC GHGi Tool Package"); //$NON-NLS-1$ //$NON-NLS-2$
 
 	private String[] fileExtension;
 	private String description;

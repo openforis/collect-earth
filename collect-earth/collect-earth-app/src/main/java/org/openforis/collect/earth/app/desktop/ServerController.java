@@ -40,6 +40,10 @@ public class ServerController extends Observable {
 
 	private static final String EARTH_SUBDOMAIN = "earth"; //$NON-NLS-1$
 
+
+	public static final String SAIKU_RDB_SUFFIX = "Saiku"; //$NON-NLS-1$
+	public static final String IPCC_RDB_SUFFIX = "Ipcc"; //$NON-NLS-1$
+	
 	// Make sure that the default ports are the same for Server and Generator
 	private static final String DEFAULT_PORT = "80"; //$NON-NLS-1$
 
@@ -127,6 +131,7 @@ public class ServerController extends Observable {
 		data.put("driver", collectDBDriver.getDriverClass()); //$NON-NLS-1$
 		data.put("url", getDbURL(collectDBDriver)); //$NON-NLS-1$
 		data.put("urlSaiku", getSaikuDbURL(collectDBDriver)); //$NON-NLS-1$
+		data.put("urlIpcc", getIpccDbURL(collectDBDriver)); //$NON-NLS-1$
 		data.put("username", localPropertiesService.getValue(EarthProperty.DB_USERNAME)); //$NON-NLS-1$
 		data.put("password", localPropertiesService.getValue(EarthProperty.DB_PASSWORD)); //$NON-NLS-1$
 		data.put("collectEarthExecutionFolder", System.getProperty("user.dir") + File.separator); //$NON-NLS-1$ //$NON-NLS-2$
@@ -173,7 +178,15 @@ public class ServerController extends Observable {
 		return urlSaikuDB;
 	}
 
+	public static String getIpccDbURL(CollectDBDriver collectDBDriver) {
+		String urlIpccDB = getDbURL(collectDBDriver);
 
+		if (localPropertiesService.isUsingSqliteDB()) {
+			urlIpccDB += IPCC_RDB_SUFFIX;
+		}
+		return urlIpccDB;
+	}
+	
 	public void startServer(Observer observeInitialization) throws Exception {
 
 		localPropertiesService = new LocalPropertiesService();

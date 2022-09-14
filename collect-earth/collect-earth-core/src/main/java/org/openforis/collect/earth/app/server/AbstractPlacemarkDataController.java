@@ -92,8 +92,12 @@ public class AbstractPlacemarkDataController extends JsonPocessorServlet {
 	public PlacemarkLoadResult processCollectedData(
 			PlacemarkUpdateRequest updateRequest,
 			Map<String, String> collectedData, String placemarkKey ) {
-		PlacemarkLoadResult result = getDataAccessor().updateData( placemarkKey.split(",") , collectedData,
-				updateRequest.isPartialUpdate());
+		
+		PlacemarkLoadResult result = getDataAccessor().updateData( 
+								placemarkKey.split(",") , 
+								collectedData,
+								updateRequest.isPartialUpdate()
+						);
 
 		if (result.isSuccess()) {
 			result.setMessage(Messages.getString("SaveEarthDataServlet.2")); //$NON-NLS-1$

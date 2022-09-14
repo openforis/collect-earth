@@ -30,6 +30,7 @@ import org.openforis.collect.earth.app.service.DataImportExportService;
 import org.openforis.collect.earth.app.service.EarthProjectsService;
 import org.openforis.collect.earth.app.service.EarthSurveyService;
 import org.openforis.collect.earth.app.service.FolderFinder;
+import org.openforis.collect.earth.app.service.IPCCGeneratorService;
 import org.openforis.collect.earth.app.service.KmlImportService;
 import org.openforis.collect.earth.app.service.LocalPropertiesService;
 import org.openforis.collect.earth.app.service.MissingPlotService;
@@ -53,6 +54,9 @@ public class CollectEarthMenu extends JMenuBar implements InitializingBean {
 
 	@Autowired
 	private transient AnalysisSaikuService analysisSaikuService;
+	
+	@Autowired
+	private transient IPCCGeneratorService ipccGeneratorService;
 
 	@Autowired
 	private transient LocalPropertiesService localPropertiesService;
@@ -176,11 +180,20 @@ public class CollectEarthMenu extends JMenuBar implements InitializingBean {
 		menuItem.addActionListener(getSaikuAnalysisActionListener());
 		toolsMenu.add(menuItem);
 		
+<<<<<<< HEAD
 		menuItem = new JMenuItem(Messages.getString("CollectEarthWindow.71")); //$NON-NLS-1$
 		menuItem.addActionListener(getSaikuToolExportActionListener());
 		menuItem.setEnabled(SystemUtils.IS_OS_WINDOWS ); // This option is only available in Windows!!
 		toolsMenu.add(menuItem);
 
+=======
+		toolsMenu.addSeparator();
+		menuItem = new JMenuItem("Generate IPCC GHGi software LULUCF package"); //$NON-NLS-1$
+		menuItem.addActionListener(getIPCCExportActionListener());
+		toolsMenu.add(menuItem);
+		toolsMenu.addSeparator();
+		
+>>>>>>> refs/remotes/origin/ipcc
 		menuItem = new JMenuItem(Messages.getString("CollectEarthWindow.54")); //$NON-NLS-1$
 		menuItem.addActionListener(new ApplyOptionChangesListener(this.getFrame(), localPropertiesService) {
 
@@ -204,7 +217,7 @@ public class CollectEarthMenu extends JMenuBar implements InitializingBean {
 		// acting as a client )
 		toolsMenu.add(menuItem);
 
-		menuItem = new JMenuItem("Open data folder"); //$NON-NLS-1$
+		menuItem = new JMenuItem(Messages.getString("CollectEarthWindow.67")); //$NON-NLS-1$
 		menuItem.addActionListener( e-> {
 			try {
 				CollectEarthUtils.openFolderInExplorer(FolderFinder.getCollectEarthDataFolder());
@@ -415,23 +428,20 @@ public class CollectEarthMenu extends JMenuBar implements InitializingBean {
 	}
 
 	private ActionListener getSaikuAnalysisActionListener() {
-		return new SaikuAnalysisListener(getFrame(), getSaikuStarter());
+		return new GenerateRDBAnalysisListener(getFrame(), new GenerateDatabaseStarter(analysisSaikuService, getFrame() ) );
 	}
 	
 	private ActionListener getSaikuToolExportActionListener() {
 		return new SaikuToolExportListener(getFrame(), getSaikuStarter(), localPropertiesService);
 	}
 
-	private SaikuStarter getSaikuStarter() {
-		return new SaikuStarter(analysisSaikuService, getFrame());
-
+	private ActionListener getIPCCExportActionListener() {
+		return new IPCCGeneratorListener(getFrame(), new GenerateDatabaseStarter(ipccGeneratorService, getFrame() ) );
 	}
-
-
+	
 	private String getLogFilePath() {
 		return FolderFinder.getCollectEarthDataFolder() + "/earth_error.log"; //$NON-NLS-1$
 	}
-
 
 	public JFrame getFrame() {
 		return frame;

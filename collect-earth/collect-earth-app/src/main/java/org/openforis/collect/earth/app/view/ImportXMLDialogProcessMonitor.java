@@ -167,7 +167,7 @@ public class ImportXMLDialogProcessMonitor implements Observer{
 				String surveyDefinitonName = "idml.xml";
 				File definition = new File(tempFolder, surveyDefinitonName);
 
-				try( ZipFile transformedCollectData = CollectEarthUtils.addFileToZip(dst.getAbsolutePath() , definition , surveyDefinitonName) ){
+				try( ZipFile transformedCollectData = CollectEarthUtils.addFileToZip(dst , definition , surveyDefinitonName) ){
 					addStepToZip(tempFolder, transformedCollectData, "1");
 					addStepToZip(tempFolder, transformedCollectData, "2");
 					addStepToZip(tempFolder, transformedCollectData, "3");

@@ -103,17 +103,21 @@ public class CollectEarthUtils {
 		}
 	}
 
-	public static ZipFile addFileToZip(String fileToCompress, File srcFile, String fileNameInZip) throws IOException {
-		File destBackupFile = new File(fileToCompress);
-		try( ZipFile zipBackupFile = new ZipFile(destBackupFile) ){
+	public static ZipFile addFileToZip(String pathToDestinationZip, File fileToAdd, String fileNameInZip) throws IOException {
+		File destinationZip = new File(pathToDestinationZip);
+		return addFileToZip(destinationZip, fileToAdd, fileNameInZip);
+	}
+	
+	public static ZipFile addFileToZip(File destinationZip, File fileToAdd, String fileNameInZip) throws IOException {
+		try( ZipFile zipFile = new ZipFile(destinationZip) ){
 			ZipParameters zipParameters = new ZipParameters();
 			// COMP_DEFLATE is for compression
 			zipParameters.setCompressionMethod(CompressionMethod.DEFLATE);
 			// DEFLATE_LEVEL_ULTRA = maximum compression
 			zipParameters.setCompressionLevel(CompressionLevel.ULTRA);
 			zipParameters.setFileNameInZip(fileNameInZip);
-			zipBackupFile.addFile(srcFile, zipParameters);
-			return zipBackupFile;
+			zipFile.addFile(fileToAdd, zipParameters);
+			return zipFile;
 		}catch(Exception e) {
 			logger.error("Error adding file to ZIP", e);
 			return null;
