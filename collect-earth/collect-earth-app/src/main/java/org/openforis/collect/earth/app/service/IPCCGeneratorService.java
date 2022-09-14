@@ -36,7 +36,7 @@ public class IPCCGeneratorService extends GenerateDatabase{
 	
 	final Logger logger = LoggerFactory.getLogger(IPCCGeneratorService.class);
 
-	public void prepareDataForAnalysis(InfiniteProgressMonitor progressListener) throws RdbExportException {
+	public void prepareDataForAnalysis(InfiniteProgressMonitor progressListener, boolean startSaikuAfterDBExport) throws RdbExportException {
 
 		try {
 

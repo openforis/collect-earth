@@ -54,7 +54,7 @@ public class GenerateRDBAnalysisListener implements ActionListener {
 
 			if( shouldRefreshDb != JOptionPane.CLOSED_OPTION ){
 				saikuStarter.setShouldRefreshDb( shouldRefreshDb == JOptionPane.YES_OPTION  );
-				saikuStarter.initializeAndOpen();
+				saikuStarter.initializeAndOpen( true );
 			}
 		}
 	}

@@ -19,38 +19,34 @@ import net.lingala.zip4j.ZipFile;
 public abstract class GenerateDatabase {
 
 
+	Logger logger = LoggerFactory.getLogger( GenerateDatabase.class);
 	boolean refreshDatabase;
 	boolean userCancelledOperation = false;
-	Logger logger = LoggerFactory.getLogger( GenerateDatabase.class);
 	
 	public GenerateDatabase() {
 		super();
 	}
 
-	public abstract void prepareDataForAnalysis(InfiniteProgressMonitor progressListener) throws RdbExportException;
-	public abstract LocalPropertiesService getLocalPropertiesService();
 	public abstract EarthSurveyService getEarthSurveyService();
+	public abstract LocalPropertiesService getLocalPropertiesService();
 	public abstract RDBExporter getRdbExporter();
 	
-	protected boolean isRefreshDatabase() {
-		return refreshDatabase;
-	}
-
-	protected boolean isUserCancelledOperation() {
-		return userCancelledOperation;
-	}
-
-	protected void replaceZippedProjectDB(ExportType type) throws IOException {
-		if ( getLocalPropertiesService().isUsingSqliteDB()) {
-			ZipFile zippedSaiku = CollectEarthUtils.addFileToZip(
-					getZippedProjectDB( type ), 
-					getRdbExporter().getRdbFile( type ),
-					getRdbExporter().getRdbFile( type ).getName()
-				);
-			zippedSaiku.close();
+	private String getRdbFilePrefix( ExportType type ) {
+		String result = "";
+		try {
+			final MessageDigest messageDigest = MessageDigest.getInstance("MD5");
+			messageDigest.reset();
+			String concatenation = getEarthSurveyService().getCollectSurvey().getUri()
+					+ getEarthSurveyService().getCollectSurvey().getName();
+			messageDigest.update(concatenation.getBytes( StandardCharsets.UTF_8 ) );
+			final byte[] resultByte = messageDigest.digest();
+			result = new String(Hex.encodeHex(resultByte));
+		} catch (NoSuchAlgorithmException e) {
+			logger.error("Problems getting the MD5 hash of the project name", e);
 		}
+		return result;
 	}
-
+	
 	protected String getSchemaName() {
 		if (getLocalPropertiesService().isUsingPostgreSqlDB()) {
 			return EarthConstants.POSTGRES_RDB_SCHEMA_SAIKU;
@@ -59,12 +55,16 @@ public abstract class GenerateDatabase {
 		}
 	}
 
-	public void setRefreshDatabase(boolean refreshDatabase) {
-		this.refreshDatabase = refreshDatabase;
-	}
+	protected File getZippedProjectDB( ExportType type ) {
 
-	public void setUserCancelledOperation(boolean userCancelledOperation) {
-		this.userCancelledOperation = userCancelledOperation;
+		File dbFolder = new File(FolderFinder.getCollectEarthDataFolder() + File.separator + type.getDataFolder());
+
+		if (!dbFolder.exists()) {
+			dbFolder.mkdir();
+		}
+
+		return new File(dbFolder.getAbsolutePath() + File.separator + getRdbFilePrefix( type ) 
+				+ type.getDbSuffix()  + ".zip");
 	}
 
 	public boolean isRdbAlreadyGenerated(ExportType type) {
@@ -80,6 +80,27 @@ public abstract class GenerateDatabase {
 		}
 
 		return saikuDBAlreadyPresent;
+	}
+
+	protected boolean isRefreshDatabase() {
+		return refreshDatabase;
+	}
+
+	protected boolean isUserCancelledOperation() {
+		return userCancelledOperation;
+	}
+
+	public abstract void prepareDataForAnalysis(InfiniteProgressMonitor progressListener, boolean startSaikuAfterDBExport) throws RdbExportException;
+
+	protected void replaceZippedProjectDB(ExportType type) throws IOException {
+		if ( getLocalPropertiesService().isUsingSqliteDB()) {
+			ZipFile zippedSaiku = CollectEarthUtils.addFileToZip(
+					getZippedProjectDB( type ), 
+					getRdbExporter().getRdbFile( type ),
+					getRdbExporter().getRdbFile( type ).getName()
+				);
+			zippedSaiku.close();
+		}
 	}
 	
 	boolean restoreZippedProjectDB( ExportType type ) {
@@ -98,31 +119,11 @@ public abstract class GenerateDatabase {
 		return restoredSaiku;
 	}
 	
-	private String getRdbFilePrefix( ExportType type ) {
-		String result = "";
-		try {
-			final MessageDigest messageDigest = MessageDigest.getInstance("MD5");
-			messageDigest.reset();
-			String concatenation = getEarthSurveyService().getCollectSurvey().getUri()
-					+ getEarthSurveyService().getCollectSurvey().getName();
-			messageDigest.update(concatenation.getBytes( StandardCharsets.UTF_8 ) );
-			final byte[] resultByte = messageDigest.digest();
-			result = new String(Hex.encodeHex(resultByte));
-		} catch (NoSuchAlgorithmException e) {
-			logger.error("Problems getting the MD5 hash of the project name", e);
-		}
-		return result;
+	public void setRefreshDatabase(boolean refreshDatabase) {
+		this.refreshDatabase = refreshDatabase;
 	}
 
-	protected File getZippedProjectDB( ExportType type ) {
-
-		File dbFolder = new File(FolderFinder.getCollectEarthDataFolder() + File.separator + type.getDataFolder());
-
-		if (!dbFolder.exists()) {
-			dbFolder.mkdir();
-		}
-
-		return new File(dbFolder.getAbsolutePath() + File.separator + getRdbFilePrefix( type ) 
-				+ type.getDbSuffix()  + ".zip");
+	public void setUserCancelledOperation(boolean userCancelledOperation) {
+		this.userCancelledOperation = userCancelledOperation;
 	}
 }

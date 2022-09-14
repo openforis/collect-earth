@@ -4,6 +4,7 @@ import javax.swing.JFrame;
 import javax.swing.JOptionPane;
 
 import org.openforis.collect.earth.app.service.AnalysisSaikuService;
+import org.openforis.collect.earth.app.service.ExportType;
 import org.openforis.collect.earth.app.service.SaikuExecutionException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -36,7 +37,7 @@ final class SaikuStarter {
 	}
 	
 	public boolean shouldShowRdbGenerationOption(){
-		return saikuService.isRdbAlreadyGenerated();
+		return saikuService.isRdbAlreadyGenerated( ExportType.SAIKU);
 	}
 
 	public boolean isStarting() {

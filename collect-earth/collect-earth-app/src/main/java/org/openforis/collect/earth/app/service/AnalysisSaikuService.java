@@ -7,6 +7,8 @@ import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.HashMap;
@@ -15,6 +17,7 @@ import java.util.Map;
 
 import javax.swing.SwingUtilities;
 
+import org.apache.commons.codec.binary.Hex;
 import org.apache.commons.lang3.SystemUtils;
 import org.apache.commons.text.StringEscapeUtils;
 import org.openforis.collect.earth.app.EarthConstants;
@@ -44,6 +47,7 @@ import org.springframework.stereotype.Component;
 import com.opencsv.CSVReader;
 
 import freemarker.template.TemplateException;
+import net.lingala.zip4j.ZipFile;
 
 @Component
 public class AnalysisSaikuService extends GenerateDatabase implements DisposableBean{
@@ -333,71 +337,6 @@ public class AnalysisSaikuService extends GenerateDatabase implements Disposable
 			rdbExporter.getJdbcTemplate().execute(INSERT_INTO + schemaName + "slope_category values (" + slopeCode.getId() + ", '" //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$
 					+ slopeCode.getLabel() + "')"); //$NON-NLS-1$
 		}
-	}
-
-	private String getRdbFilePrefix() {
-		String result = "";
-		try {
-			final MessageDigest messageDigest = MessageDigest.getInstance("MD5");
-			messageDigest.reset();
-			String concatenation = earthSurveyService.getCollectSurvey().getUri()
-					+ earthSurveyService.getCollectSurvey().getName();
-			messageDigest.update(concatenation.getBytes( StandardCharsets.UTF_8 ) );
-			final byte[] resultByte = messageDigest.digest();
-			result = new String(Hex.encodeHex(resultByte));
-		} catch (NoSuchAlgorithmException e) {
-			logger.error("Problems getting the MD5 hash of the project name", e);
-		}
-		return result;
-	}
-
-	private File getZippedSaikuProjectDB() {
-
-		File saikuFolder = new File(FolderFinder.getCollectEarthDataFolder() + File.separator + "saikuDatabase");
-
-		if (!saikuFolder.exists()) {
-			saikuFolder.mkdir();
-		}
-
-		return new File(saikuFolder.getAbsolutePath() + File.separator + getRdbFilePrefix()
-				+ EarthConstants.SAIKU_RDB_SUFFIX + ".zip");
-	}
-
-	public boolean isRdbAlreadyGenerated() {
-
-		boolean saikuDBAlreadyPresent = false;
-		if (localPropertiesService.isUsingSqliteDB()) {
-			File rdbFile = getZippedSaikuProjectDB();
-			saikuDBAlreadyPresent = rdbFile.exists();
-		} else {
-			// Here we should check if the "rdbcollectearth" schema is created in the
-			// PostgreSQL database
-			saikuDBAlreadyPresent = true;
-		}
-
-		return saikuDBAlreadyPresent;
-	}
-
-	private boolean restoreProjectSaikuDB() {
-		boolean restoredSaiku = false;
-		if (getZippedSaikuProjectDB().exists()) {
-			// Unzip file
-
-			try (ZipFile zippedProjectSaikuData = new ZipFile(getZippedSaikuProjectDB())) {
-				zippedProjectSaikuData.extractAll(FolderFinder.getCollectEarthDataFolder());
-				restoredSaiku = true;
-			} catch (IOException e) {
-				logger.error("Problems unzipping the contents of the zipped Saiku DB to the local user folder ", e);
-			}
-
-		}
-		return restoredSaiku;
-	}
-
-	private File getRdbFile() {
-
-		return new File(COLLECT_EARTH_DATABASE_RDB_DB);
-
 	}
 
 	private String getSaikuConfigurationFilePath() {

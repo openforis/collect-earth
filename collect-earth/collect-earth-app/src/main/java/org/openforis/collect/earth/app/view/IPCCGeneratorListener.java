@@ -55,7 +55,7 @@ public class IPCCGeneratorListener implements ActionListener {
 
 			if( shouldRefreshDb != JOptionPane.CLOSED_OPTION ){
 				ipccExporterStarter.setShouldRefreshDb( shouldRefreshDb == JOptionPane.YES_OPTION  );
-				ipccExporterStarter.initializeAndOpen();
+				ipccExporterStarter.initializeAndOpen( true );
 			}
 		}
 	}

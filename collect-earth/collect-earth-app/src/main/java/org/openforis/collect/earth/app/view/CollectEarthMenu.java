@@ -180,20 +180,20 @@ public class CollectEarthMenu extends JMenuBar implements InitializingBean {
 		menuItem.addActionListener(getSaikuAnalysisActionListener());
 		toolsMenu.add(menuItem);
 		
-<<<<<<< HEAD
+
 		menuItem = new JMenuItem(Messages.getString("CollectEarthWindow.71")); //$NON-NLS-1$
 		menuItem.addActionListener(getSaikuToolExportActionListener());
 		menuItem.setEnabled(SystemUtils.IS_OS_WINDOWS ); // This option is only available in Windows!!
 		toolsMenu.add(menuItem);
 
-=======
+
 		toolsMenu.addSeparator();
 		menuItem = new JMenuItem("Generate IPCC GHGi software LULUCF package"); //$NON-NLS-1$
 		menuItem.addActionListener(getIPCCExportActionListener());
 		toolsMenu.add(menuItem);
 		toolsMenu.addSeparator();
 		
->>>>>>> refs/remotes/origin/ipcc
+
 		menuItem = new JMenuItem(Messages.getString("CollectEarthWindow.54")); //$NON-NLS-1$
 		menuItem.addActionListener(new ApplyOptionChangesListener(this.getFrame(), localPropertiesService) {
 
@@ -432,8 +432,9 @@ public class CollectEarthMenu extends JMenuBar implements InitializingBean {
 	}
 	
 	private ActionListener getSaikuToolExportActionListener() {
-		return new SaikuToolExportListener(getFrame(), getSaikuStarter(), localPropertiesService);
+		return new SaikuToolExportListener(getFrame(), new GenerateDatabaseStarter(analysisSaikuService, getFrame() ), localPropertiesService);
 	}
+	
 
 	private ActionListener getIPCCExportActionListener() {
 		return new IPCCGeneratorListener(getFrame(), new GenerateDatabaseStarter(ipccGeneratorService, getFrame() ) );

@@ -124,11 +124,7 @@
 		<dependency>
 			<groupId>io.sentry</groupId>
 			<artifactId>sentry-log4j2</artifactId>
-<<<<<<< HEAD
 			<version>6.4.1</version>
-=======
-			<version>6.1.2</version>
->>>>>>> refs/remotes/origin/ipcc
 		</dependency>
 
 		<dependency>

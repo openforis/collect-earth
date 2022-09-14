@@ -6,7 +6,6 @@ import java.io.IOException;
 
 import javax.swing.JFrame;
 
-import org.apache.commons.io.FileUtils;
 import org.openforis.collect.earth.app.EarthConstants;
 import org.openforis.collect.earth.app.service.AnalysisSaikuService;
 import org.openforis.collect.earth.app.service.LocalPropertiesService;
@@ -22,7 +21,7 @@ public class SaikuToolExportListener extends SaikuAnalysisListener {
 
 	private final static String PREFIX_FOLDER = "saiku-server_2.6";
 
-	public SaikuToolExportListener(JFrame frame, SaikuStarter saikuStarter, LocalPropertiesService localPropertiesService) {
+	public SaikuToolExportListener(JFrame frame, GenerateDatabaseStarter saikuStarter, LocalPropertiesService localPropertiesService) {
 		super(frame, saikuStarter);
 		this.localPropertiesService = localPropertiesService;
 	}
