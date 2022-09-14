@@ -12,8 +12,7 @@ import java.util.List;
 import java.util.Map;
 
 import org.apache.commons.io.FileUtils;
-import org.apache.commons.lang.StringEscapeUtils;
-import org.apache.commons.lang.StringUtils;
+import org.apache.commons.lang3.StringUtils;
 import org.locationtech.jts.geom.Point;
 import org.openforis.collect.earth.sampler.model.SimpleCoordinate;
 import org.openforis.collect.earth.sampler.model.SimplePlacemarkObject;
@@ -25,6 +24,8 @@ import org.openforis.collect.model.CollectSurvey;
 import org.openforis.idm.metamodel.AttributeDefinition;
 import org.opengis.referencing.FactoryException;
 import org.opengis.referencing.operation.TransformException;
+
+import liquibase.repackaged.org.apache.commons.text.StringEscapeUtils;
 
 public abstract class KmlGenerator extends AbstractCoordinateCalculation {
 
@@ -222,7 +223,7 @@ public abstract class KmlGenerator extends AbstractCoordinateCalculation {
 				if ( extraIndex == getColumnWithPolygonString() ) {
 					extraColumns.add("Polygon used in the placemark not included.");
 				} else {
-					extraColumns.add(StringEscapeUtils.escapeXml(csvValuesInLine[extraIndex]));
+					extraColumns.add(StringEscapeUtils.escapeXml11(csvValuesInLine[extraIndex]));
 				}
 
 			}
@@ -230,7 +231,7 @@ public abstract class KmlGenerator extends AbstractCoordinateCalculation {
 			// THIS IS ONLY FOR OLD SURVEYS!!!
 			if (csvValuesInLine.length > 5 + numberOfKeyAttributes) {
 				for (int extraIndex = 5 + numberOfKeyAttributes; extraIndex < csvValuesInLine.length; extraIndex++) {
-					extraInfoVector.add(StringEscapeUtils.escapeXml(csvValuesInLine[extraIndex]));
+					extraInfoVector.add(StringEscapeUtils.escapeXml11(csvValuesInLine[extraIndex]));
 				}
 			}
 		}
