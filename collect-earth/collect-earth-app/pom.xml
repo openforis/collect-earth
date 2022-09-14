@@ -149,7 +149,7 @@
 		    <version>5.0.0</version>
 		</dependency>
 		
-		<dependency>>
+		<dependency>
 			<groupId>se.gustavkarlsson</groupId>
 			<artifactId>g-wiz</artifactId>
 			<version>1.0.1</version>

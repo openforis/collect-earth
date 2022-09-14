@@ -7,12 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-### Fixed
-- Code attributes linked to calculated attribute parents not updating in the interface.
-
+### Added
+- Export SAIKU stand-alone tool as a ZIP file.
 
 ## [1.14.13]
 
+### Fixed
+- Code attributes linked to calculated attribute parents not updating in the interface.
 ### Changed
 - Earth Map integration: No more necessary to login (using embed=true parameter in URL).
 

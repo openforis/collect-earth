@@ -11,7 +11,6 @@ import org.slf4j.LoggerFactory;
 
 final class SaikuStarter {
 
-
 	private Logger logger = LoggerFactory.getLogger( SaikuStarter.class);
 	private JFrame frame;
 	private AnalysisSaikuService saikuService;
@@ -23,17 +22,14 @@ final class SaikuStarter {
 		return shouldRefreshDb;
 	}
 
-
 	public void setShouldRefreshDb(boolean shouldRefreshDb) {
 		this.shouldRefreshDb = shouldRefreshDb;
 	}
-
 
 	SaikuStarter( final AnalysisSaikuService saikuService, final JFrame frame) {
 		super();
 		this.saikuService = saikuService;
 		this.frame = frame;
-		
 	}
 	
 	public boolean shouldShowRdbGenerationOption(){

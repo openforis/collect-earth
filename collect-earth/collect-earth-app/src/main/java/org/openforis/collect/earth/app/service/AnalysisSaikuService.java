@@ -7,8 +7,6 @@ import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.nio.charset.StandardCharsets;
-import java.security.MessageDigest;
-import java.security.NoSuchAlgorithmException;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.HashMap;
@@ -17,7 +15,6 @@ import java.util.Map;
 
 import javax.swing.SwingUtilities;
 
-import org.apache.commons.codec.binary.Hex;
 import org.apache.commons.lang3.SystemUtils;
 import org.apache.commons.text.StringEscapeUtils;
 import org.openforis.collect.earth.app.EarthConstants;
@@ -29,7 +26,6 @@ import org.openforis.collect.earth.app.model.DynamicsCode;
 import org.openforis.collect.earth.app.model.SlopeCode;
 import org.openforis.collect.earth.app.service.LocalPropertiesService.EarthProperty;
 import org.openforis.collect.earth.app.view.InfiniteProgressMonitor;
-import org.openforis.collect.earth.ipcc.RdbExportException;
 import org.openforis.collect.earth.sampler.utils.FreemarkerTemplateUtils;
 import org.openforis.collect.model.CollectSurvey;
 import org.openforis.collect.relational.CollectRDBPublisher;
@@ -47,7 +43,6 @@ import org.springframework.stereotype.Component;
 import com.opencsv.CSVReader;
 
 import freemarker.template.TemplateException;
-import net.lingala.zip4j.ZipFile;
 
 @Component
 public class AnalysisSaikuService extends GenerateDatabase implements DisposableBean{
