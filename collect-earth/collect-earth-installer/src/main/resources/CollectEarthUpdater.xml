@@ -95,6 +95,52 @@
 			            </distributionDirectory>
 		            </distributionFileList>
 		        </folder>
+		         <folder>
+		            <description>Saiku new files for Windows TOMCAT bin</description>
+		            <destination>${installdir}/saiku-server_2.6/tomcat/bin</destination>
+		            <name>resourceSaikuTomcatBinwindows</name>
+		            <platforms>windows windows-x64</platforms>
+		            <distributionFileList>
+			             <distributionFile>
+		                    <origin>../../../collect-earth-app/resources/setclasspath.bat</origin>
+		                </distributionFile>
+		                <distributionFile>
+		                    <origin>../../../collect-earth-app/resources/startup.bat</origin>
+		                </distributionFile>
+		            </distributionFileList>
+		        </folder>
+		        <folder>
+		            <description>Saiku new files for Windows SAIKU bin</description>
+		            <destination>${installdir}/saiku-server_2.6/</destination>
+		            <name>resourceSaikutBinwindows</name>
+		            <platforms>windows windows-x64</platforms>
+		            <distributionFileList>
+			         	
+			            <distributionFile>
+		                    <origin>../../../collect-earth-app/resources/set-java.bat</origin>
+		                </distributionFile>
+		                <distributionFile>
+		                    <origin>../../../collect-earth-app/resources/set-folder.bat</origin>
+		                </distributionFile>
+		                <distributionFile>
+		                    <origin>../../../collect-earth-app/resources/start-saiku.bat</origin>
+		                </distributionFile>
+		                
+		            </distributionFileList>
+		        </folder>
+		        
+		        <folder>
+		            <description>Saiku new files for Windows SAIKU bin</description>
+		            <destination>${installdir}/saiku-server_2.6/DB/</destination>
+		            <name>resourceSaikuDBwindows</name>
+		            <platforms>windows windows-x64</platforms>
+		            <distributionFileList>
+			            <distributionFile>
+		                    <origin>../../../collect-earth-app/resources/collectEarthDS_GOALS</origin>
+		                </distributionFile>
+		            </distributionFileList>
+		        </folder>
+		        
             </folderList>
         </component>
     </componentList>
