@@ -40,12 +40,12 @@ public class AluToolUtils {
 	}
 	
 	public String getSoilType( String initialSoilGroup ){
-		String soilType = "N/A"; //$NON-NLS-1$
+		
 		if( StringUtils.isBlank(initialSoilGroup) ){
 			return "N/A"; //$NON-NLS-1$
 		}
 		
-		Map<String,String> fundamentalToSoilGroup = new HashMap<String,String>();
+		Map<String,String> fundamentalToSoilGroup = new HashMap<>();
 		
 		fundamentalToSoilGroup.put("B", "HAC"); //$NON-NLS-1$ //$NON-NLS-2$
 		fundamentalToSoilGroup.put("L", "HAC"); //$NON-NLS-1$ //$NON-NLS-2$
@@ -60,8 +60,7 @@ public class AluToolUtils {
 		fundamentalToSoilGroup.put("W", "ORG"); // ORG+WET //$NON-NLS-1$ //$NON-NLS-2$
 		fundamentalToSoilGroup.put("M", "WET"); //$NON-NLS-1$ //$NON-NLS-2$
 		
-		soilType = fundamentalToSoilGroup.get(initialSoilGroup);
-		return soilType;
+		return fundamentalToSoilGroup.get(initialSoilGroup);
 	}
 	
 	

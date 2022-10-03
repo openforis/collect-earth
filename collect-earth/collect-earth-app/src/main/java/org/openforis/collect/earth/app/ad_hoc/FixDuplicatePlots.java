@@ -26,7 +26,7 @@ public class FixDuplicatePlots {
 	@Autowired
 	private EarthSurveyService earthSurveyService;
 
-	private Logger logger = LoggerFactory.getLogger( FixCoordinates.class);
+	private Logger logger = LoggerFactory.getLogger( FixDuplicatePlots.class);
 
 	private boolean stopFix = false;
 
