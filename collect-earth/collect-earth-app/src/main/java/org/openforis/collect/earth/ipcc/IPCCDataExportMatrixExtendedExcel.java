@@ -34,10 +34,9 @@ public class IPCCDataExportMatrixExtendedExcel extends IPCCDataExportTimeSeries<
 	protected File generateFile(List<StratumPerYearData> strataData) throws IOException {
 		File excelDestination = File.createTempFile("LuMatrixTimeseries_EXTENDED", ".xls");
 		excelDestination.deleteOnExit();
-		try {
-			// Create a Workbook
-			Workbook workbook = new HSSFWorkbook(); // new HSSFWorkbook() for generating `.xls` file
-
+		// Create a Workbook
+		try(Workbook workbook = new HSSFWorkbook() ) {// new HSSFWorkbook() for generating `.xls` file
+			
 			/*
 			 * CreationHelper helps us create instances of various things like DataFormat,
 			 * Hyperlink, RichTextString etc, in a format (HSSF, XSSF) independent way
@@ -110,7 +109,7 @@ public class IPCCDataExportMatrixExtendedExcel extends IPCCDataExportTimeSeries<
 					}
 
 
-					Row emptyRow = sheet.createRow(rowNum++);
+					sheet.createRow(rowNum++); // create empty row
 
 					// Create a Row
 					Row infoRow = sheet.createRow(rowNum++);
@@ -138,7 +137,7 @@ public class IPCCDataExportMatrixExtendedExcel extends IPCCDataExportTimeSeries<
 					cell.setCellValue(yearDataStratum.getGez());
 
 					// Add some empty rows before next section
-					emptyRow = sheet.createRow(rowNum++);
+					sheet.createRow(rowNum++);
 
 					// Create a Row
 					Row headerRow = sheet.createRow(rowNum++);
@@ -149,14 +148,14 @@ public class IPCCDataExportMatrixExtendedExcel extends IPCCDataExportTimeSeries<
 
 					MatrixSheet matrix = new MatrixSheet(yearDataStratum);
 					int cellPosition = 1;
-					for (LandUseSubdivision subdivision : matrix.getSubdivisions()) {
+					for (LandUseSubdivision<?> subdivision : matrix.getSubdivisions()) {
 						cell = headerRow.createCell(cellPosition++);
 						cell.setCellValue(subdivision.toString());
 						cell.setCellStyle(headerCellStyle);
 					}
 
 					int colNum = 0;
-					for (LandUseSubdivision subdivisionH : matrix.getSubdivisions()) {
+					for (LandUseSubdivision<?> subdivisionH : matrix.getSubdivisions()) {
 						colNum = 0;
 						Row row = sheet.createRow(rowNum++);
 
@@ -165,7 +164,7 @@ public class IPCCDataExportMatrixExtendedExcel extends IPCCDataExportTimeSeries<
 						columnCell.setCellValue(subdivisionH.toString());
 
 						colNum = 1;
-						for (LandUseSubdivision subdivisionV : matrix.getSubdivisions()) {
+						for (LandUseSubdivision<?> subdivisionV : matrix.getSubdivisions()) {
 
 							cell = row.createCell(colNum++);
 							cell.setCellValue(IPCCDataExportMatrixExcel
@@ -181,9 +180,9 @@ public class IPCCDataExportMatrixExtendedExcel extends IPCCDataExportTimeSeries<
 					}
 					
 					// Add some empty rows before next section
-					emptyRow = sheet.createRow(rowNum++);
-					emptyRow = sheet.createRow(rowNum++);
-					emptyRow = sheet.createRow(rowNum++);
+					sheet.createRow(rowNum++);
+					sheet.createRow(rowNum++);
+					sheet.createRow(rowNum++);
 
 
 					// Resize all columns to fit the content size
@@ -198,8 +197,6 @@ public class IPCCDataExportMatrixExtendedExcel extends IPCCDataExportTimeSeries<
 			// Write the output to a file
 			try (FileOutputStream fileOut = new FileOutputStream(excelDestination)) {
 				workbook.write(fileOut);
-				// Closing the workbook
-				workbook.close();
 			} catch (IOException e) {
 				logger.error("Error generating Excel file", e);
 			}

@@ -128,10 +128,8 @@ public class IPCCDataExportMatrixExcel extends RDBConnector {
 	private File createExcel( List<MatrixSheet> matrixData ) throws IOException {
 		File excelDestination = File.createTempFile("LuMatrixTimeseries", ".xls");
 		excelDestination.deleteOnExit();
-		try {
-			// Create a Workbook
-			Workbook workbook = new HSSFWorkbook(); // new HSSFWorkbook() for generating `.xls` file
-
+		// Create a Workbook
+		try (Workbook workbook = new HSSFWorkbook() ){
 			/* CreationHelper helps us create instances of various things like DataFormat, 
 			   Hyperlink, RichTextString etc, in a format (HSSF, XSSF) independent way */
 			//CreationHelper createHelper = workbook.getCreationHelper();
@@ -224,8 +222,6 @@ public class IPCCDataExportMatrixExcel extends RDBConnector {
 			// Write the output to a file
 			try( FileOutputStream fileOut = new FileOutputStream(excelDestination) ){
 				workbook.write(fileOut);
-				// Closing the workbook
-				workbook.close();
 			} catch (IOException e) {
 				logger.error("Error generating Excel file", e);
 			}

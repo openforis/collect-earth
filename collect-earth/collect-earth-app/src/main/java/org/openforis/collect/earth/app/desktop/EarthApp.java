@@ -159,7 +159,7 @@ public class EarthApp {
 				// Invoke the setDockIconImage on the application object using the dockIconImage as an argument
 				setDockIconImageMethod.invoke(applicationObject, dockIconImage );
 			} catch (MalformedURLException e2) {
-				logger.error("Problems finding the doccker icon", e2);
+				logger.error("Problems finding the docker icon", e2);
 			}
 			// -------------------------------------------
 

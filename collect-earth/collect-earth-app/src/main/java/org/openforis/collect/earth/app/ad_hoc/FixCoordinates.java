@@ -31,8 +31,7 @@ public abstract class FixCoordinates {
 
 	private List<CollectRecordSummary> getAllRecords(){
 		RecordFilter rf = new RecordFilter(earthSurveyService.getCollectSurvey() , EarthConstants.ROOT_ENTITY_NAME);
-		List<CollectRecordSummary> records = recordManager.loadSummaries( rf );
-		return records;
+		return recordManager.loadSummaries( rf );
 	}
 
 	public void fixCoordinates(){
@@ -53,7 +52,6 @@ public abstract class FixCoordinates {
 						Coordinate coordinate = new Coordinate(plotCoord.getValue().getY(), plotCoord.getValue().getX(), plotCoord.getValue().getSrsId() );
 						plotCoord.setValue( coordinate );
 						recordManager.save( collectRecord );
-					}
 				}
 			} catch (Exception e) {
 				logger.error("Error fixing Coordinates", e); //$NON-NLS-1$

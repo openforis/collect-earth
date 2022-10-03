@@ -33,8 +33,6 @@ import org.openforis.collect.relational.CollectRdbException;
 import org.openforis.concurrency.Progress;
 import org.openforis.idm.metamodel.NodeDefinition;
 import org.openqa.selenium.remote.RemoteWebDriver;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.DisposableBean;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.jdbc.core.RowMapper;
@@ -110,8 +108,6 @@ public class AnalysisSaikuService extends GenerateDatabase implements Disposable
 	@Autowired
 	private SchemaService schemaNamingService;
 	
-	final Logger logger = LoggerFactory.getLogger(AnalysisSaikuService.class);
-
 	private static final int ELEVATION_RANGE = 100;
 
 	private RemoteWebDriver saikuWebDriver;
@@ -404,9 +400,7 @@ public class AnalysisSaikuService extends GenerateDatabase implements Disposable
 							earthSurveyService.getCollectSurvey(), 
 							ExportType.SAIKU, 
 							progressListener, 
-							(progress) ->  {
-								processQuantityData(progress);
-							}
+							progress -> processQuantityData(progress)
 						);
 			
 					try {
@@ -416,12 +410,10 @@ public class AnalysisSaikuService extends GenerateDatabase implements Disposable
 						logger.error("Error while refreshing the Zipped content of the project Saiku DB", e);
 					}
 
-				} else if (getZippedProjectDB(ExportType.SAIKU).exists()) {
+				} else if (getZippedProjectDB(ExportType.SAIKU).exists() && localPropertiesService.isUsingSqliteDB()) {
 					// If the zipped version of the project exists ( and the user clicked on the
 					// option to not refresh it) then restore this last version of the data
-					if (localPropertiesService.isUsingSqliteDB()) {
 						restoreZippedProjectDB(ExportType.SAIKU);
-					}
 				}
 
 				refreshDataSourceForSaiku();

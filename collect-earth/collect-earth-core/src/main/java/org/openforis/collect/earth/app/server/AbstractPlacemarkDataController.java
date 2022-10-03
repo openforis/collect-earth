@@ -25,8 +25,7 @@ import org.openforis.collect.earth.app.view.Messages;
 import org.openforis.collect.earth.core.handlers.BalloonInputFieldsUtils;
 import org.openforis.collect.earth.core.model.PlacemarkLoadResult;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RequestMethod;
+import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 
 /**
@@ -74,7 +73,7 @@ public class AbstractPlacemarkDataController extends JsonPocessorServlet {
 		return result;
 	}
 
-	@RequestMapping(value="/save-data-expanded", method = RequestMethod.POST)
+	@PostMapping(value="/save-data-expanded")
 	public void saveDataExpanded(PlacemarkUpdateRequest updateRequest, HttpServletResponse response) throws IOException {
 		Map<String, String> collectedData = adjustParameters(updateRequest);
 

@@ -1,6 +1,5 @@
 package org.openforis.collect.earth.app.server;
 
-import java.io.IOException;
 import java.util.List;
 import java.util.Map;
 
@@ -21,8 +20,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Controller;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RequestMethod;
+import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 
 import com.opencsv.CSVReader;
@@ -280,7 +278,7 @@ public class PlacemarkBrowserServlet {
 	 * (javax.servlet.http.HttpServletRequest,
 	 * javax.servlet.http.HttpServletResponse)
 	 */
-	@RequestMapping(path = "/openAuxiliaryWindows", method = RequestMethod.GET)
+	@GetMapping(path = "/openAuxiliaryWindows")
 	public void openAuxiliaryWindows(
 			HttpServletResponse response,
 			@RequestParam(value = "latLongCoordinates", required = false) final String latLongCoordinates)
@@ -294,8 +292,8 @@ public class PlacemarkBrowserServlet {
 		}
 	}
 
-	@RequestMapping(path = "/ancillaryWindows", method = RequestMethod.GET)
-	public void openAuxiliaryWindowsNew(HttpServletResponse response, HttpServletRequest request) throws IOException {
+	@GetMapping(path = "/ancillaryWindows")
+	public void openAuxiliaryWindowsNew(HttpServletResponse response, HttpServletRequest request) {
 
 
 		List<AttributeDefinition> keyAttributeDefinitions = earthSurveyService
@@ -316,7 +314,7 @@ public class PlacemarkBrowserServlet {
 			String[] csvValues = getValuesFromCsv(keysInOrder);
 
 			if( csvValues == null ){
-				throw new IllegalArgumentException("The keys " + keys.toString() + " are not present on the CSV file with the plot lcoations!!!");
+				throw new IllegalArgumentException("The keys " + keys.toString() + " are not present on the CSV file with the plot locations!!!");
 			}
 
 			SimplePlacemarkObject placemarkObject = kmlGenerator.getPlotObject(csvValues, null, earthSurveyService.getCollectSurvey() );

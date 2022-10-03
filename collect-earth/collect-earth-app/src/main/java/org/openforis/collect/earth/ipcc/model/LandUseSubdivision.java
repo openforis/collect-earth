@@ -47,6 +47,11 @@ public abstract class LandUseSubdivision<F> implements Comparable<LandUseSubdivi
 	}
 	
 	@Override
+	public int hashCode() {
+		return Objects.hash(category, code, name);
+	}
+
+	@Override
 	public boolean equals(Object obj) {
 		if (this == obj)
 			return true;
@@ -54,8 +59,8 @@ public abstract class LandUseSubdivision<F> implements Comparable<LandUseSubdivi
 			return false;
 		if (getClass() != obj.getClass())
 			return false;
-		LandUseSubdivision<F> other = (LandUseSubdivision) obj;
-		return Objects.equals(category, other.category) && Objects.equals(code, other.code) && Objects.equals(getType(), other.getType());
+		LandUseSubdivision other = (LandUseSubdivision) obj;
+		return category == other.category && Objects.equals(code, other.code) && Objects.equals(name, other.name);
 	}
 	
 	@Override

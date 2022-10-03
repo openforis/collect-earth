@@ -110,7 +110,7 @@ public class RDBExporter extends RDBConnector{
 						getJdbcTemplate().getDataSource().getConnection().close();
 					}
 				} catch (CannotGetJdbcConnectionException | SQLException e2) {
-					logger.error("Error closing the DB collection", e2);
+					logger.error("Error closing the DB connection", e2);
 				}
 				// Now we can remove the SQLite file so that a completely new connection is open
 				try {
