@@ -90,30 +90,31 @@ public class JFileChooserExistsAware extends JFileChooser {
 
 		if ( returnVal == JFileChooser.APPROVE_OPTION) {
 
-			if( isSaveDlg ){
-				selectedFiles = new File[]{ fc.getSelectedFile() };
-				String fileName = selectedFiles[0].getAbsolutePath();
-
-				String fileExtension = null;
-
-				if( fileName.lastIndexOf('.') != -1){
-					fileExtension = fileName.substring( fileName.lastIndexOf('.') + 1 ).toLowerCase();
-				}
-
-				// If the chose file has no extension or the extension is not one of the default extensions for the dataformat
-				if ( fileExtension == null || Arrays.binarySearch( dataFormat.getPossibleFileExtensions(), fileExtension ) < 0 ) { //$NON-NLS-1$
-					fileName += "." + dataFormat.getDefaultExtension(); //$NON-NLS-1$
-					selectedFiles[0] = new File(fileName);
-				}
+			if( multipleSelect ){
+				selectedFiles = fc.getSelectedFiles();
 			}else{
-				if( multipleSelect ){
-					selectedFiles = fc.getSelectedFiles();
-				}else{
-					selectedFiles = new File[]{fc.getSelectedFile()};
-				}
+				selectedFiles = new File[]{fc.getSelectedFile()};
 			}
-
-			localPropertiesService.setValue(EarthProperty.LAST_USED_FOLDER, selectedFiles[0].getParent());
+			
+			if( selectedFiles != null && selectedFiles.length > 0 ) {
+				if( isSaveDlg ){
+					String fileName = selectedFiles[0].getAbsolutePath();
+	
+					String fileExtension = null;
+	
+					if( fileName.lastIndexOf('.') != -1){
+						fileExtension = fileName.substring( fileName.lastIndexOf('.') + 1 ).toLowerCase();
+					}
+	
+					// If the chose file has no extension or the extension is not one of the default extensions for the dataformat
+					if ( fileExtension == null || Arrays.binarySearch( dataFormat.getPossibleFileExtensions(), fileExtension ) < 0 ) { //$NON-NLS-1$
+						fileName += "." + dataFormat.getDefaultExtension(); //$NON-NLS-1$
+						selectedFiles[0] = new File(fileName);
+					}
+				}
+				
+				localPropertiesService.setValue(EarthProperty.LAST_USED_FOLDER, selectedFiles[0].getParent());
+			}
 
 
 		}
