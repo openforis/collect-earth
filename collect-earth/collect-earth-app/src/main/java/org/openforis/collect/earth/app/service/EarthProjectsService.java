@@ -110,7 +110,6 @@ public class EarthProjectsService {
 
 	private boolean checkValidContent(File definitionFile) throws IOException {
 		Properties projectProperties = getProjectProperties( definitionFile );
-
 		return projectProperties.containsKey( EarthProperty.SURVEY_NAME.toString() );
 
 	}
@@ -241,7 +240,7 @@ public class EarthProjectsService {
 			return properties;
 		}catch(IOException e ) {
 			logger.error("Impossible to open properties file ", e);
-			return null;
+			throw e;
 		}
 	}
 

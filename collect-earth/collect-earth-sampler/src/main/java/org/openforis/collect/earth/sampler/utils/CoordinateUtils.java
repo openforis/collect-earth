@@ -49,7 +49,7 @@ public class CoordinateUtils {
 			throws TransformException {
 		
 		if (offsetLatitudeMeters == 0 && offsetLongitudeMeters == 0) {
-			return null;
+			return originalLatLong;
 		} else {
 
 			double longitudeDirection = 90; // EAST

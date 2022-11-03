@@ -400,7 +400,7 @@ public class AnalysisSaikuService extends GenerateDatabase implements Disposable
 							earthSurveyService.getCollectSurvey(), 
 							ExportType.SAIKU, 
 							progressListener, 
-							progress -> processQuantityData(progress)
+							this::processQuantityData
 						);
 			
 					try {

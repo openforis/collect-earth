@@ -45,13 +45,13 @@ public class IPCCLandUses extends RDBConnector {
 		setExportTypeUsed(ExportType.IPCC);
 	}
 
-	public List<LandUseSubdivision> getLandUseSubdivisions() {
+	public List<LandUseSubdivision<?>> getLandUseSubdivisions() {
 
 		schemaName = schemaService.getSchemaPrefix(getExportTypeUsed());
 
 		LandUseCategory[] lUseCategories = LandUseCategory.values();
 
-		List<LandUseSubdivision> lUseSubdivisions = new ArrayList<LandUseSubdivision>();
+		List<LandUseSubdivision<?>> lUseSubdivisions = new ArrayList<LandUseSubdivision<?>>();
 
 		for (int i = 0; i < lUseCategories.length; i++) {
 			
@@ -63,9 +63,9 @@ public class IPCCLandUses extends RDBConnector {
 
 	}
 
-	private Collection<? extends LandUseSubdivision> getSubdivisions(LandUseCategory landUseCategory) {
+	private Collection<? extends LandUseSubdivision<?>> getSubdivisions(LandUseCategory landUseCategory) {
 
-		List<LandUseSubdivision> luSubdivisions = getJdbcTemplate().query(
+		List<LandUseSubdivision<?>> luSubdivisions = getJdbcTemplate().query(
 				"select " 
 					+ "land_use_subdivision,land_use_subdivision_label_fr"
 					+ " from " + schemaName + LU_SUBDIVISION_TABLE
@@ -81,10 +81,10 @@ public class IPCCLandUses extends RDBConnector {
 		return luSubdivisions;
 	}
 
-	private RowMapper<LandUseSubdivision> getRowMapper(LandUseCategory landUseCategory) {
-		return new RowMapper<LandUseSubdivision>() {
+	private RowMapper<LandUseSubdivision<?>> getRowMapper(LandUseCategory landUseCategory) {
+		return new RowMapper<LandUseSubdivision<?>>() {
 			@Override
-			public LandUseSubdivision mapRow(ResultSet rs, int rowNum) throws SQLException {
+			public LandUseSubdivision<?> mapRow(ResultSet rs, int rowNum) throws SQLException {
 				
 				String subdivisionCode = rs.getString(1);
 				String subdivisionName = rs.getString(2);
@@ -127,10 +127,8 @@ public class IPCCLandUses extends RDBConnector {
 								ManagementType.UNMANAGED // Assign default management
 								);
 				default:
-					new IllegalArgumentException("Unknown code " + landUseCategory.getCode() );
-					break;
+					throw new IllegalArgumentException("Unknown code " + landUseCategory.getCode() );
 				}
-				return null;
 				
 			}
 		};

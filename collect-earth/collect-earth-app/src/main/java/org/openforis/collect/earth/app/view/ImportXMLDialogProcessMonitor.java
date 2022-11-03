@@ -105,6 +105,7 @@ public class ImportXMLDialogProcessMonitor implements Observer{
 			if( isCollectDataExport( definitiveFileToImport ) ){
 				// Transform the file to a Collect Earth type of format
 				definitiveFileToImport = transformCollectDataFile( definitiveFileToImport );
+				if( definitiveFileToImport == null ) return; // there was a problem with the file to import, execute finally
 				importProcess.setFile( definitiveFileToImport );
 			}
 
