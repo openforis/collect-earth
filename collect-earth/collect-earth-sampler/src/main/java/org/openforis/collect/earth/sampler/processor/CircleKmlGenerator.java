@@ -25,17 +25,6 @@ public class CircleKmlGenerator extends AbstractPolygonKmlGenerator {
 		setRadiusOfCircle(radius);
 	}
 
-	private boolean checkPlacemarkOverlaps(SimplePlacemarkObject newPlacemark, List<SimplePlacemarkObject> readyPlacemarks) {
-		boolean shareSpace = false;
-		for (final SimplePlacemarkObject oldPlacemark : readyPlacemarks) {
-			if (isSamplePointIntersectingWithOthers(newPlacemark, oldPlacemark)) {
-				shareSpace = true;
-				break;
-			}
-		}
-		return shareSpace;
-	}
-
 	private Rectangle2D createRectangle(List<SimpleCoordinate> samplingSquarePoints) {
 
 		float buffer = 0.000005f;
@@ -119,10 +108,8 @@ public class CircleKmlGenerator extends AbstractPolygonKmlGenerator {
 			int numPoints = 1;
 			while (numPoints < getNumberOfSamplePoints() ) {	
 				final SimplePlacemarkObject randomSamplingPoint = getRandomSamplePoint( getRadiusOfCircle(), centerCircleCoord, placemark.getPlacemarkId()+"_random_" + numPoints);
-				//if (!checkPlacemarkOverlaps(randomSamplingPoint, pointsInPlacemark)) {
 				pointsInPlacemark.add(randomSamplingPoint);
 				numPoints++;
-				//}
 			}
 		}
 

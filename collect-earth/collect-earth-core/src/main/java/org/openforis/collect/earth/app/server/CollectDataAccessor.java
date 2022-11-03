@@ -18,12 +18,18 @@ public class CollectDataAccessor implements DataAccessor {
 	@Autowired
 	private AbstractEarthSurveyService earthSurveyService;
 
+	/**
+	* @deprecated Used for the 2013/14 versions of the surveys!
+	*/
 	@Deprecated
 	@Override
 	public Map<String, String> getData(String placemarkId) {
 		return earthSurveyService.getPlacemark( new String[]{placemarkId},true);
 	}
 
+	/**
+	* @deprecated Used for the 2013/14 versions of the surveys!
+	*/
 	@Deprecated
 	@Override
 	public boolean saveData(Map<String, String> collectedData) {

@@ -16,7 +16,7 @@ public abstract class DataAccessingServlet {
 	@Autowired(required=false)
 	private DataAccessor dataAccessor;
 	
-	public DataAccessingServlet() {
+	protected DataAccessingServlet() {
 		super();
 	}
 

@@ -40,7 +40,6 @@ import org.openforis.collect.model.RecordUpdater;
 import org.openforis.collect.model.RecordValidationReportGenerator;
 import org.openforis.collect.model.RecordValidationReportItem;
 import org.openforis.collect.model.validation.CollectEarthValidator;
-import org.openforis.collect.persistence.RecordPersistenceException;
 import org.openforis.idm.metamodel.AttributeDefinition;
 import org.openforis.idm.metamodel.EntityDefinition;
 import org.openforis.idm.metamodel.ModelVersion;
@@ -103,18 +102,21 @@ public abstract class AbstractEarthSurveyService {
 		placemarkParameters.put(PLACEMARK_FOUND_PARAMETER, Boolean.toString(found)); // $NON-NLS-1$
 	}
 
+	/**
+	* @deprecated Used for the 2013/14 versions of the surveys!
+	*/
 	@Deprecated
-	private void addValidationMessages(Map<String, String> parameters, CollectRecord record) {
+	private void addValidationMessages(Map<String, String> parameters, CollectRecord ceRecord) {
 		// Validation
-		recordUpdater.validate(record);
+		recordUpdater.validate(ceRecord);
 
-		final RecordValidationReportGenerator reportGenerator = new RecordValidationReportGenerator(record);
+		final RecordValidationReportGenerator reportGenerator = new RecordValidationReportGenerator(ceRecord);
 		final List<RecordValidationReportItem> validationItems = reportGenerator.generateValidationItems();
 
 		for (final RecordValidationReportItem recordValidationReportItem : validationItems) {
 			String label = ""; //$NON-NLS-1$
 			if (recordValidationReportItem.getNodeId() != null) {
-				final Node<?> node = record.getNodeByInternalId(recordValidationReportItem.getNodeId());
+				final Node<?> node = ceRecord.getNodeByInternalId(recordValidationReportItem.getNodeId());
 				label = node.getDefinition().getLabel(Type.INSTANCE,
 						localPropertiesService.getUiLanguage().name().toLowerCase());
 
@@ -382,17 +384,17 @@ public abstract class AbstractEarthSurveyService {
 			// Add the operator to the collected data
 			parameters.put(OPERATOR_PARAMETER, localPropertiesService.getOperator());
 
-			CollectRecord record = null;
+			CollectRecord ceRecord = null;
 			Entity plotEntity = null;
 
 			if ( !summaries.isEmpty() ) { // DELETE IF ALREADY PRESENT
 				recordManager.delete(summaries.get(0).getId());
-				record = createRecord();
-				plotEntity = record.getRootEntity();
+				ceRecord = createRecord();
+				plotEntity = ceRecord.getRootEntity();
 			} else {
 				// Create new record
-				record = createRecord();
-				plotEntity = record.getRootEntity();
+				ceRecord = createRecord();
+				plotEntity = ceRecord.getRootEntity();
 			}
 
 			boolean userClickOnSaveAndValidate = isPlacemarkSavedActively(parameters);
@@ -406,11 +408,11 @@ public abstract class AbstractEarthSurveyService {
 
 			// Do not validate unless actively saved
 			if (userClickOnSaveAndValidate) {
-				addValidationMessages(parameters, record);
+				addValidationMessages(parameters, ceRecord);
 
 				// Check that there is no validation errors so the tick doesn't
 				// turn green
-				if (record.getSkipped() != 0 || record.getErrors() != 0) {
+				if (ceRecord.getSkipped() != 0 || ceRecord.getErrors() != 0) {
 					setPlacemarkSavedActively(parameters, false);
 					// Force saving again to remove the "actively saved"
 					// parameter!
@@ -418,8 +420,8 @@ public abstract class AbstractEarthSurveyService {
 				}
 			}
 
-			record.setModifiedDate(new Date());
-			recordManager.save(record);
+			ceRecord.setModifiedDate(new Date());
+			recordManager.save(ceRecord);
 
 			success = true;
 		} catch (Exception e) {

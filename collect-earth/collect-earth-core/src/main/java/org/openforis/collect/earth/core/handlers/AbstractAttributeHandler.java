@@ -28,7 +28,7 @@ public abstract class AbstractAttributeHandler<C> {
 	
 	protected RecordUpdater recordUpdater;
 
-	public AbstractAttributeHandler(String prefix) {
+	protected AbstractAttributeHandler(String prefix) {
 		super();
 		this.prefix = prefix;
 		this.recordUpdater = new RecordUpdater();

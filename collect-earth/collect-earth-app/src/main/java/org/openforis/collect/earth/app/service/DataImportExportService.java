@@ -56,7 +56,7 @@ public class DataImportExportService {
 		}
 	}
 
-	public CSVDataExportProcess exportSurveyAsCsv(File exportToFile, boolean includeCodeItemLabelColumn) throws Exception {
+	public CSVDataExportProcess exportSurveyAsCsv(File exportToFile, boolean includeCodeItemLabelColumn) {
 		final CSVDataExportProcess csvDataExportProcess = applicationContext.getBean(CSVDataExportProcess.class);
 		csvDataExportProcess.setOutputFile(exportToFile);
 
@@ -79,7 +79,7 @@ public class DataImportExportService {
 		return recordFilter;
 	}
 
-	public CSVDataExportProcess exportSurveyAsFusionTable(File exportToFile, boolean includeCodeItemLabelColumn) throws Exception {
+	public CSVDataExportProcess exportSurveyAsFusionTable(File exportToFile, boolean includeCodeItemLabelColumn) {
 
 		final CSVDataExportProcess csvDataExportProcess = applicationContext.getBean(CSVDataExportProcess.class);
 		csvDataExportProcess.setOutputFile(exportToFile);
