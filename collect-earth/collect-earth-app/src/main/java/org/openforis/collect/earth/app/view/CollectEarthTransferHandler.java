@@ -8,12 +8,10 @@ import java.util.List;
 import javax.swing.JComponent;
 import javax.swing.TransferHandler;
 
-import org.openforis.collect.earth.app.CollectEarthUtils;
 import org.openforis.collect.earth.app.desktop.EarthApp;
 import org.openforis.collect.earth.app.service.KmlImportService;
 import org.openforis.collect.earth.app.service.LocalPropertiesService;
 import org.openforis.collect.earth.app.service.LocalPropertiesService.EarthProperty;
-import org.openforis.collect.earth.sampler.utils.KmlGenerationException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;

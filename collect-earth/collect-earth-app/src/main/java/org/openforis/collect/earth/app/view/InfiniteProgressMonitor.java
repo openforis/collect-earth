@@ -1,7 +1,6 @@
 package org.openforis.collect.earth.app.view;
 
 import java.awt.Component;
-import java.lang.reflect.InvocationTargetException;
 
 import javax.swing.JDialog;
 import javax.swing.JLabel;
