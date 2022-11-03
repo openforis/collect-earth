@@ -14,8 +14,8 @@ public class MatrixSheet {
 		this.yearData = yearData;
 	}
 
-	public List<LandUseSubdivision> getSubdivisions() {
-		List<LandUseSubdivision> subdivisions = new ArrayList<>();
+	public List<LandUseSubdivision<?>> getSubdivisions() {
+		List<LandUseSubdivision<?>> subdivisions = new ArrayList<>();
 
 		for (LUDataPerYear luDataYear : yearData.getLuData()) {
 

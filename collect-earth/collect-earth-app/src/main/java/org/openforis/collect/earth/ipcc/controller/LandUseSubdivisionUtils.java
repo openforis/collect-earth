@@ -6,9 +6,6 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 
-import org.openforis.collect.earth.app.CollectEarthUtils;
-import org.openforis.collect.earth.ipcc.LUDataPerYear;
-import org.openforis.collect.earth.ipcc.StratumPerYearData;
 import org.openforis.collect.earth.ipcc.model.CroplandSubdivision;
 import org.openforis.collect.earth.ipcc.model.ForestSubdivision;
 import org.openforis.collect.earth.ipcc.model.GrasslandSubdivision;
@@ -16,14 +13,12 @@ import org.openforis.collect.earth.ipcc.model.LandUseCategory;
 import org.openforis.collect.earth.ipcc.model.LandUseSubdivision;
 import org.openforis.collect.earth.ipcc.model.OtherlandSubdivision;
 import org.openforis.collect.earth.ipcc.model.SettlementSubdivision;
-import org.openforis.collect.earth.ipcc.model.SettlementType;
 import org.openforis.collect.earth.ipcc.model.WetlandSubdivision;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.thoughtworks.xstream.XStream;
 
-import liquibase.pro.packaged.F;
 
 public class LandUseSubdivisionUtils {
 	
@@ -31,9 +26,9 @@ public class LandUseSubdivisionUtils {
 	
 	static List<LandUseSubdivision> landUseSubdivisions;
 
-	public static List<LandUseSubdivision> getSubdivisionsByCategory(LandUseCategory category) {
-		List<LandUseSubdivision> subdivisionsInCategory = new ArrayList<LandUseSubdivision>();
-		for (LandUseSubdivision landUseSubdivision : landUseSubdivisions) {
+	public static List<LandUseSubdivision<?>> getSubdivisionsByCategory(LandUseCategory category) {
+		List<LandUseSubdivision<?>> subdivisionsInCategory = new ArrayList<LandUseSubdivision<?>>();
+		for (LandUseSubdivision<?> landUseSubdivision : landUseSubdivisions) {
 			if( landUseSubdivision.getCategory().equals( category ) ) {
 				subdivisionsInCategory.add(landUseSubdivision);
 			}
@@ -43,7 +38,7 @@ public class LandUseSubdivisionUtils {
 	}
 	
 	public static void setSubdivisionType(LandUseSubdivision subdivision, Object type) {
-		landUseSubdivisions.get( landUseSubdivisions.indexOf(subdivision)).setType(type);
+		landUseSubdivisions.get( landUseSubdivisions.indexOf(subdivision)).setType( type);
 	}
 
 	public static List<LandUseSubdivision> getLandUseSubdivisions() {
@@ -54,7 +49,7 @@ public class LandUseSubdivisionUtils {
 		LandUseSubdivisionUtils.landUseSubdivisions = landUseSubdivisions;
 	}
 	
-	public static LandUseSubdivision getSubdivision( String luCategoryCode, String luSubdivisionCode  ) {
+	public static LandUseSubdivision<?> getSubdivision( String luCategoryCode, String luSubdivisionCode  ) {
 		
 		LandUseCategory[] luCategories = LandUseCategory.values();
 		LandUseCategory landUseCategory = null;
@@ -64,7 +59,7 @@ public class LandUseSubdivisionUtils {
 			}
 		}
 		
-		for (LandUseSubdivision<F> landUseSubdiv : landUseSubdivisions) {
+		for (LandUseSubdivision<?> landUseSubdiv : landUseSubdivisions) {
 			if( landUseSubdiv.getCategory().equals(landUseCategory) && landUseSubdiv.getCode().equals( luSubdivisionCode ) ) {
 				return landUseSubdiv;
 			}
