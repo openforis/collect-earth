@@ -45,13 +45,13 @@ public class IPCCLandUses extends RDBConnector {
 		setExportTypeUsed(ExportType.IPCC);
 	}
 
-	public List<LandUseSubdivision<?>> getLandUseSubdivisions() {
+	public List<LandUseSubdivision> getLandUseSubdivisions() {
 
 		schemaName = schemaService.getSchemaPrefix(getExportTypeUsed());
 
 		LandUseCategory[] lUseCategories = LandUseCategory.values();
 
-		List<LandUseSubdivision<?>> lUseSubdivisions = new ArrayList<LandUseSubdivision<?>>();
+		List<LandUseSubdivision> lUseSubdivisions = new ArrayList<LandUseSubdivision>();
 
 		for (int i = 0; i < lUseCategories.length; i++) {
 			
