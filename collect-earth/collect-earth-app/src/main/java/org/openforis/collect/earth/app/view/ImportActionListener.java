@@ -13,6 +13,7 @@ import javax.swing.JFrame;
 import javax.swing.JOptionPane;
 
 import org.apache.commons.io.IOUtils;
+import org.openforis.collect.earth.app.desktop.EarthApp;
 import org.openforis.collect.earth.app.service.DataImportExportService;
 import org.openforis.collect.earth.app.service.LocalPropertiesService;
 import org.openforis.collect.io.data.CSVDataImportProcess;
@@ -50,7 +51,12 @@ public final class ImportActionListener implements ActionListener {
 		}
 
 	}
+	
+	private void forceRefreshGoogleEarth() {
 
+		EarthApp.executeKmlLoadAsynchronously( null );
+
+	}
 	private Integer shouldImportNonFinishedRecords( boolean moreThanOneFiles ) {
 		String message = "<html>" //$NON-NLS-1$
 				+ Messages.getString("ImportActionListener.0") //$NON-NLS-1$
@@ -124,6 +130,7 @@ public final class ImportActionListener implements ActionListener {
 								IOUtils.closeQuietly(dataImportProcess);
 							}
 						}
+						forceRefreshGoogleEarth();
 					}
 				}.start();
 				break;

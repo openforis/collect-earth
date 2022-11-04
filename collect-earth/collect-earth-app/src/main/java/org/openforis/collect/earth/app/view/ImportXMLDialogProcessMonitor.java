@@ -130,7 +130,6 @@ public class ImportXMLDialogProcessMonitor implements Observer{
 
 				dataImportService.importRecordsFrom(definitiveFileToImport, importProcess, conflictingRecords );
 
-				forceRefreshGoogleEarth();
 			}
 		} finally {
 			closeProgressmonitor();
@@ -186,12 +185,6 @@ public class ImportXMLDialogProcessMonitor implements Observer{
 			throws ZipException {
 		File folderToZip = new File( tempFolder, "data"+ File.separator+step);
 		CollectEarthUtils.addFolderToZip(dstZipFile, folderToZip);
-	}
-
-	private void forceRefreshGoogleEarth() {
-
-		EarthApp.executeKmlLoadAsynchronously( null );
-
 	}
 
 	@Override
