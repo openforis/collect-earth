@@ -230,7 +230,8 @@ public class RegionCalculationUtils{
 
 				// The weight column has been removed in the latest versions of the areas per attribute csv
 				// Lets add it again for backward compatibility
-				if( !columnNames[columnNames.length -1].equalsIgnoreCase(WEIGHT_CSV_COLUMN) ) {
+				boolean weightColumnPresent = columnNames[columnNames.length -1].equalsIgnoreCase(WEIGHT_CSV_COLUMN);
+				if( ! weightColumnPresent ) {
 					// We need to create anew array with an extra item
 					String[] longer = new String[columnNames.length + 1];
 					for (int i = 0; i < columnNames.length; i++)
@@ -253,7 +254,7 @@ public class RegionCalculationUtils{
 
 				//Validate area and weight headers.
 				if( !columnNames[ columnNames.length -2 ].equalsIgnoreCase(AREA_CSV_COLUMN) || !columnNames[columnNames.length -1].equalsIgnoreCase(WEIGHT_CSV_COLUMN)){
-					throw new RuntimeException("The expected format of the CSV file at " + areasPerAttribute.getAbsolutePath() + " should be attribute_name,"+AREA_CSV_COLUMN);
+					throw new RuntimeException("The expected format of the CSV file at " + areasPerAttribute.getAbsolutePath() + " should be attribute_name," + AREA_CSV_COLUMN);
 				}
 
 				int numberOfAttributes = attributeNames.size();
@@ -284,8 +285,8 @@ public class RegionCalculationUtils{
 				String[] csvLine = null;
 				while( ( csvLine = csvReader.readNext() ) != null ){
 					try{
-						float areaHectares = Float.parseFloat( csvLine[columnNames.length -2] );
-						final Float plotWeight =  Float.parseFloat( csvLine[columnNames.length -1] );
+						float areaHectares = Float.parseFloat( csvLine[ columnNames.length-2 ] );
+						final Float plotWeight =  weightColumnPresent ? Float.parseFloat( csvLine[columnNames.length -1] ) : 1; // if no weight column present we assume same weight for all plots
 
 						List<Object> attributeValues = extractAttributeValues(csvLine, attributeNames);
 
