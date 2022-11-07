@@ -6,12 +6,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-### Added
-- 
 ### Fixed
-- 
-### Changed
-- 
+- SAIKU not starting from the CE menu (bug introduced in version 1.14.17 )
 
 ## [1.14.17] - 2022-09-15
 
