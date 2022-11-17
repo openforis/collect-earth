@@ -15,7 +15,6 @@ import org.openforis.collect.earth.app.view.JFileChooserExistsAware;
 import org.openforis.collect.earth.ipcc.controller.LandUseSubdivisionUtils;
 import org.openforis.collect.earth.ipcc.controller.StratumUtils;
 import org.openforis.collect.earth.ipcc.view.AssignSubdivisionTypesWizard;
-import org.openforis.collect.manager.SurveyManager;
 import org.openforis.idm.metamodel.Survey;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -53,9 +52,6 @@ public class IPCCGenerator {
 	@Autowired
 	IPCCLandUses landUses;
 	
-	@Autowired
-	SurveyManager sm = new SurveyManager();
-	
 	IPCCSurveyAdapter ipccSurveyAdapter;
 
 	Logger logger = LoggerFactory.getLogger( IPCCGenerator.class );
@@ -68,7 +64,7 @@ public class IPCCGenerator {
 		ipccSurveyAdapter = new IPCCSurveyAdapter();
 
 		// Add attributes for each year containing the LU Category and Subdivision if not present
-		Survey modifiedSurvey = ipccSurveyAdapter.addIPCCAttributesToSurvey( survey, sm );
+		Survey modifiedSurvey = ipccSurveyAdapter.addIPCCAttributesToSurvey( survey );
 
 		// Generate Relational Database of the survey data
 		ipccRdbGenerator.generateRelationalDatabase( modifiedSurvey, progressListener);
