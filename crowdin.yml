@@ -1,3 +1,5 @@
 files:
   - source: collect-earth/collect-earth-app/src
     translation: collect-earth/collect-earth-app/src/main/resorces/org/openforis/collect/earth/app/view/Messages_%two_letters_code%.properties
+  - source: /collect-earth/collect-earth-app/src/main/resources/org/openforis/collect/earth/app/view/Messages.properties
+    translation: /collect-earth/collect-earth-app/src/main/resources/org/openforis/collect/earth/app/view/Messages_%two_letters_code%.properties
