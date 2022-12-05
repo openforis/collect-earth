@@ -1,14 +1,24 @@
 package org.openforis.collect.earth.app.logging;
 
 import java.io.IOException;
+import java.io.InputStream;
 import java.net.URI;
 import java.net.URISyntaxException;
+import java.util.ArrayList;
+import java.util.Date;
+import java.util.List;
 
+import org.apache.http.HttpEntity;
 import org.apache.http.HttpResponse;
+import org.apache.http.NameValuePair;
 import org.apache.http.client.HttpClient;
+import org.apache.http.client.entity.UrlEncodedFormEntity;
 import org.apache.http.client.methods.HttpGet;
+import org.apache.http.client.methods.HttpPost;
 import org.apache.http.client.utils.URIBuilder;
 import org.apache.http.impl.client.HttpClientBuilder;
+import org.apache.http.impl.client.HttpClients;
+import org.apache.http.message.BasicNameValuePair;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -22,24 +32,38 @@ public class GAlogger {
 			@Override
 			public void run() {
 				try {
-					String trackingId = "UA-55115982-1";
-					HttpClient client = HttpClientBuilder.create().build();
-					URIBuilder builder = new URIBuilder();
-					builder.setScheme("http").setHost("www.google-analytics.com").setPath("/collect")
-							.addParameter("v", "1") // API Version.
-							.addParameter("tid", trackingId) // Tracking ID / Property ID.
-							// Anonymous Client Identifier. Ideally, this should be a UUID that
-							// is associated with particular user, device, or browser instance.
-							.addParameter("cid", "555").addParameter("t", "event") // Event hit type.
-							.addParameter("ec", "Collect Earth") // Event category.
-							.addParameter("ea", event); // Event action.
-					URI uri;
-					uri = builder.build();
-					HttpGet request = new HttpGet(uri);
-					request.addHeader("user-agent", "Collect Earth Java Application");
-					HttpResponse response = client.execute(request);
+					
+					HttpClient httpclient = HttpClients.createDefault();
+					HttpPost httppost = new HttpPost("https://www.google-analytics.com/mp/collect");
+					
+					// Request parameters and other properties.
+					List<NameValuePair> params = new ArrayList<>(4);
+					params.add(new BasicNameValuePair("api_secret", "E11gVKqxSamFWwCswJPKIQ"));
+					params.add(new BasicNameValuePair("measurement_id", "G-8K943HZKJZ"));
+					params.add(new BasicNameValuePair("client_id", "CollectEarth"));
+					params.add(new BasicNameValuePair(
+							"events", 
+							"[{\"name\": \"" + event +"\",\"params\": {\"engagement_time_msec\": \"100\",\"session_id\": \""  + ( new Date() ).getTime() + "\"} }]"
+							)
+					);
+					httppost.setEntity(new UrlEncodedFormEntity(params, "UTF-8"));
+					httppost.addHeader("content-type", "application/x-www-form-urlencoded");
+
+					//Execute and get the response.
+					HttpResponse response = httpclient.execute(httppost);
+					HttpEntity entity = response.getEntity();
+
+					if (entity != null) {
+					    try (InputStream instream = entity.getContent()) {
+					    	int size = 0;
+					    	byte[] buffer = new byte[1024];
+					    	while ((size = instream.read(buffer)) != -1) System.out.write(buffer, 0, size);
+					    }
+					}
+					
+					
 					logger.info(event + " GA Logged - Response http " + response.getStatusLine().getStatusCode());
-				} catch (URISyntaxException | IOException e) {
+				} catch (IOException e) {
 					logger.error("Error generating URL for Analytics", e);
 				}
 
@@ -47,4 +71,5 @@ public class GAlogger {
 		}.start();
 
 	}
+	
 }
