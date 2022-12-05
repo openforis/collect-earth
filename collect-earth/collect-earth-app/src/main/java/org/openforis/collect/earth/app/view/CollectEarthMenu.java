@@ -21,6 +21,8 @@ import org.apache.commons.lang3.SystemUtils;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.core.LoggerContext;
 import org.apache.logging.log4j.core.config.Configuration;
+import org.kordamp.ikonli.materialdesign.MaterialDesign;
+import org.kordamp.ikonli.swing.FontIcon;
 import org.openforis.collect.earth.app.CollectEarthUtils;
 import org.openforis.collect.earth.app.EarthConstants.UI_LANGUAGE;
 import org.openforis.collect.earth.app.logging.JSwingAppender;
@@ -220,6 +222,7 @@ public class CollectEarthMenu extends JMenuBar implements InitializingBean {
 		toolsMenu.add(menuItem);
 
 		menuItem = new JMenuItem(Messages.getString("CollectEarthWindow.67")); //$NON-NLS-1$
+		menuItem.setIcon( FontIcon.of( MaterialDesign.MDI_FOLDER ) );
 		menuItem.addActionListener( e-> {
 			try {
 				CollectEarthUtils.openFolderInExplorer(FolderFinder.getCollectEarthDataFolder());
@@ -298,6 +301,7 @@ public class CollectEarthMenu extends JMenuBar implements InitializingBean {
 		fileMenu.addSeparator();
 		menuItem = new JMenuItem(Messages.getString("CollectEarthWindow.11")); //$NON-NLS-1$
 		menuItem.addActionListener(collectEarthWindow.getCloseActionListener());
+		menuItem.setIcon( FontIcon.of( MaterialDesign.MDI_LOGOUT ) );
 		fileMenu.add(menuItem);
 		return fileMenu;
 	}
@@ -307,12 +311,14 @@ public class CollectEarthMenu extends JMenuBar implements InitializingBean {
 		final JMenu ieSubmenu = new JMenu(Messages.getString("CollectEarthWindow.44")); //$NON-NLS-1$
 		JMenuItem menuItem;
 		menuItem = new JMenuItem(Messages.getString("CollectEarthWindow.13")); //$NON-NLS-1$
+		menuItem.setIcon( FontIcon.of( MaterialDesign.MDI_FILE_DELIMITED ));
 		menuItem.addActionListener(getExportActionListener(DataFormat.CSV, RecordsToExport.ALL));
 		ieSubmenu.add(menuItem);
 
 		final JMenu xmlExportSubmenu = new JMenu(Messages.getString("CollectEarthWindow.24")); //$NON-NLS-1$
-
+		xmlExportSubmenu.setIcon( FontIcon.of( MaterialDesign.MDI_FILE_EXPORT ) );
 		menuItem = new JMenuItem(Messages.getString("CollectEarthWindow.45")); //$NON-NLS-1$
+		menuItem.setIcon( FontIcon.of( MaterialDesign.MDI_FILE_XML ));
 		menuItem.addActionListener(getExportActionListener(DataFormat.ZIP_WITH_XML, RecordsToExport.ALL));
 		xmlExportSubmenu.add(menuItem);
 
@@ -353,6 +359,7 @@ public class CollectEarthMenu extends JMenuBar implements InitializingBean {
 
 		menuItem = new JMenuItem(Messages.getString("CollectEarthWindow.55")); //$NON-NLS-1$
 		menuItem.addActionListener(getImportActionListener(DataFormat.CSV));
+		
 		ieSubmenu.add(menuItem);
 
 		menu.add(ieSubmenu);
@@ -396,11 +403,11 @@ public class CollectEarthMenu extends JMenuBar implements InitializingBean {
 
 			} catch (final Exception ex) {
 				logger.error("Error while changing language", ex); //$NON-NLS-1$
-			}
+			} 
 		};
 
 		final JMenu menuLanguage = new JMenu(Messages.getString("CollectEarthWindow.2")); //$NON-NLS-1$
-
+		menuLanguage.setIcon( FontIcon.of( MaterialDesign.MDI_TRANSLATE ));
 		final ButtonGroup group = new ButtonGroup();
 		final UI_LANGUAGE[] languages = UI_LANGUAGE.values();
 
