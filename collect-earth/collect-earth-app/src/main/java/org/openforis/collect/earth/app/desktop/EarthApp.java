@@ -20,6 +20,7 @@ import java.util.Observer;
 import javax.swing.ImageIcon;
 import javax.swing.JOptionPane;
 import javax.swing.SwingUtilities;
+import javax.swing.UIManager;
 
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.SystemUtils;
@@ -41,6 +42,8 @@ import org.openforis.collect.earth.sampler.utils.KmlGenerationException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import com.formdev.flatlaf.FlatIntelliJLaf;
+import com.formdev.flatlaf.FlatLightLaf;
 import com.opencsv.exceptions.CsvValidationException;
 
 import io.sentry.Sentry;
@@ -78,7 +81,13 @@ public class EarthApp {
 	public static void main(String[] args) {
 
 		try {
-
+			FlatLightLaf.setup();
+			try {
+			    UIManager.setLookAndFeel( new FlatIntelliJLaf() );
+			} catch( Exception ex ) {
+			    System.err.println( "Failed to initialize LaF" );
+			}
+			
 			// System property used in the web.xml configuration
 			System.setProperty("collectEarth.userFolder", FolderFinder.getCollectEarthDataFolder()); //$NON-NLS-1$
 
