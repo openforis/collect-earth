@@ -32,6 +32,7 @@ import org.openforis.collect.relational.CollectRDBPublisher;
 import org.openforis.collect.relational.CollectRdbException;
 import org.openforis.concurrency.Progress;
 import org.openforis.idm.metamodel.NodeDefinition;
+import org.openqa.selenium.By;
 import org.openqa.selenium.remote.RemoteWebDriver;
 import org.springframework.beans.factory.DisposableBean;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -375,9 +376,9 @@ public class AnalysisSaikuService extends GenerateDatabase implements Disposable
 	private void openSaiku() throws BrowserNotFoundException {
 		saikuWebDriver = browserService.navigateTo("http://127.0.0.1:8181", saikuWebDriver, false); //$NON-NLS-1$
 		if (browserService.waitFor("username", saikuWebDriver)) { //$NON-NLS-1$
-			saikuWebDriver.findElementByName("username").sendKeys("admin"); //$NON-NLS-1$ //$NON-NLS-2$
-			saikuWebDriver.findElementByName("password").sendKeys("admin"); //$NON-NLS-1$ //$NON-NLS-2$
-			saikuWebDriver.findElementByClassName("form_button").click(); //$NON-NLS-1$
+			saikuWebDriver.findElement(By.name("username") ).sendKeys("admin"); //$NON-NLS-1$ //$NON-NLS-2$
+			saikuWebDriver.findElement(By.name("password") ).sendKeys("admin"); //$NON-NLS-1$ //$NON-NLS-2$
+			saikuWebDriver.findElement(By.className("form_button") ).click(); //$NON-NLS-1$
 		}
 	}
 

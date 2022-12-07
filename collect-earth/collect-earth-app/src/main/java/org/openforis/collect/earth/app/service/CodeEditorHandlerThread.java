@@ -12,6 +12,7 @@ import java.util.NoSuchElementException;
 
 import org.apache.commons.io.FileUtils;
 import org.apache.commons.lang3.StringUtils;
+import org.apache.commons.lang3.SystemUtils;
 import org.openforis.collect.earth.sampler.model.SimplePlacemarkObject;
 import org.openqa.selenium.By;
 import org.openqa.selenium.JavascriptExecutor;
@@ -23,8 +24,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
-
-import liquibase.repackaged.org.apache.commons.lang3.SystemUtils;
 
 
 @Component
@@ -53,7 +52,7 @@ public class CodeEditorHandlerThread {
 
 
 		try {
-			WebElement resetButton = webDriverGee.findElementByCssSelector(RESET_SCRIPT_BUTTON);
+			WebElement resetButton = webDriverGee.findElement( By.cssSelector(RESET_SCRIPT_BUTTON) );
 
 			forceClick( resetButton );
 
@@ -81,13 +80,13 @@ public class CodeEditorHandlerThread {
 			}
 
 			Thread.sleep(1000);
-			WebElement runButton = webDriverGee.findElementByCssSelector(RUN_SCRIPT_BUTTON);
+			WebElement runButton = webDriverGee.findElement(By.cssSelector(RUN_SCRIPT_BUTTON) );
 			forceClick( runButton );
 		} catch (NoSuchElementException e) {
 			try {
 			// retry
 				Thread.sleep(1000);
-				WebElement runButton = webDriverGee.findElementByCssSelector(RUN_SCRIPT_BUTTON);
+				WebElement runButton = webDriverGee.findElement(By.cssSelector(RUN_SCRIPT_BUTTON) );
 				forceClick( runButton );
 			}catch (Exception e2) {
 				// TODO: handle exception
@@ -117,7 +116,7 @@ public class CodeEditorHandlerThread {
 		String noComments = removeComments(contents);
 
 		// Clear the code area
-		WebElement clearButton = webDriverGee.findElementByCssSelector(RESET_SCRIPT_BUTTON);
+		WebElement clearButton = webDriverGee.findElement(By.cssSelector(RESET_SCRIPT_BUTTON) );
 		forceClick( clearButton );
 
 		StringBuilder fixedScriptForMac = new StringBuilder();
@@ -266,11 +265,11 @@ public class CodeEditorHandlerThread {
 	private void disableAutoComplete() {
 		// Display the settings in Google Earth Engine Code Editor (this emulates
 		// clicking on the settings icon)
-		webDriverGee.findElementByClassName("settings-menu-button").click();
+		webDriverGee.findElement( By.className("settings-menu-button") ).click();
 		// Get the Div that is the parent of the one with text that contains
 		// Autocomplete
 		RemoteWebElement autocompleteButton = (RemoteWebElement) webDriverGee
-				.findElementByXPath("//div[contains(text(), \"Autocomplete\")]/..");
+				.findElement(By.xpath("//div[contains(text(), \"Autocomplete\")]/..") );
 
 		if (isAutocompleChecked(autocompleteButton)) {
 			// Disable the Autocomplete of special characters

@@ -19,6 +19,7 @@ import java.util.concurrent.CopyOnWriteArrayList;
 
 import org.apache.commons.io.FileUtils;
 import org.apache.commons.lang3.StringUtils;
+import org.apache.commons.lang3.SystemUtils;
 import org.openforis.collect.earth.app.EarthConstants;
 import org.openforis.collect.earth.app.desktop.ServerController;
 import org.openforis.collect.earth.app.desktop.ServerController.ServerInitializationEvent;
@@ -29,8 +30,6 @@ import org.openqa.selenium.By;
 import org.openqa.selenium.JavascriptExecutor;
 import org.openqa.selenium.WebDriverException;
 import org.openqa.selenium.WebElement;
-import org.openqa.selenium.firefox.FirefoxDriver;
-import org.openqa.selenium.firefox.GeckoDriverService;
 import org.openqa.selenium.remote.RemoteWebDriver;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -44,7 +43,6 @@ import freemarker.template.Template;
 import freemarker.template.TemplateException;
 import freemarker.template.Version;
 import io.github.bonigarcia.wdm.WebDriverManager;
-import liquibase.repackaged.org.apache.commons.lang3.SystemUtils;
 
 /**
  * This class contains methods that allow Collect Earth to open browser windows
@@ -98,7 +96,6 @@ public class BrowserService implements InitializingBean, Observer {
 	@Override
 	public void afterPropertiesSet() throws Exception {
 		Runtime.getRuntime().addShutdownHook(getClosingBrowsersThread());
-		setGeckoDriverPath();
 	}
 
 	private RemoteWebDriver chooseDriver() throws BrowserNotFoundException {
@@ -111,9 +108,12 @@ public class BrowserService implements InitializingBean, Observer {
 			driver = tryStartFirefox();
 		} else if (browserSetInProperties.equalsIgnoreCase(EarthConstants.EDGE_BROWSER)) {
 			driver = tryStartEdge();
-		}else if (browserSetInProperties.equalsIgnoreCase(EarthConstants.SAFARI_BROWSER)) {
+		}
+		/* SAFARI support removed! 7/12/22
+		else if (browserSetInProperties.equalsIgnoreCase(EarthConstants.SAFARI_BROWSER)) {
 			driver = tryStartSafari();
 		}
+		*/
 
 		// If the browser chosen is not installed try to find and installed browser in the computer
 		if( driver== null ) {
@@ -124,9 +124,11 @@ public class BrowserService implements InitializingBean, Observer {
 			if( driver== null ) {
 				driver = tryStartEdge();
 			}
+			/* SAFARI support removed! 7/12/22
 			if( driver== null ) {
 				driver = tryStartSafari();
 			}
+			*/
 		}
 
 		if (driver == null) {
@@ -161,6 +163,7 @@ public class BrowserService implements InitializingBean, Observer {
 		return driver;
 	}
 
+	/* SAFARI support removed! 7/12/22
 	private RemoteWebDriver tryStartSafari() {
 		RemoteWebDriver driver = null;
 		try {
@@ -172,6 +175,7 @@ public class BrowserService implements InitializingBean, Observer {
 		}
 		return driver;
 	}
+	*/
 
 	private RemoteWebDriver tryStartChrome() {
 		RemoteWebDriver driver = null;
@@ -236,7 +240,7 @@ public class BrowserService implements InitializingBean, Observer {
 		boolean found = false;
 
 		try {
-			if (driver.findElementById(elementId).isDisplayed() || driver.findElementByName(elementId).isDisplayed()) {
+			if (driver.findElement(By.id(elementId)).isDisplayed() || driver.findElement(By.id(elementId)).isDisplayed()) {
 				found = true;
 			}
 		} catch (final Exception e) {
@@ -250,7 +254,7 @@ public class BrowserService implements InitializingBean, Observer {
 		boolean found = false;
 
 		try {
-			WebElement elementByCssSelector = driver.findElementByCssSelector(cssElement);
+			WebElement elementByCssSelector = driver.findElement(By.cssSelector(cssElement));
 			found = elementByCssSelector != null;
 		} catch (final Exception e) {
 			// Not found
@@ -263,7 +267,7 @@ public class BrowserService implements InitializingBean, Observer {
 		boolean found = false;
 
 		try {
-			if (driver.findElementByXPath(xpath).isDisplayed()) {
+			if (driver.findElement(By.xpath(xpath)).isDisplayed()) {
 				found = true;
 			}
 			logger.debug(String.format("Found %s", xpath));
@@ -285,7 +289,7 @@ public class BrowserService implements InitializingBean, Observer {
 				Thread.sleep( 1000 );
 				// Unlock the view if it is locked
 				if( isCssElementPresent(".lock.on",  driver)  ) {
-					driver.findElementByCssSelector(".lock.on").click(); // UNLOCK
+					driver.findElement(By.cssSelector(".lock.on")).click(); // UNLOCK
 				}
 
 			} catch (final Exception e) {
@@ -297,7 +301,7 @@ public class BrowserService implements InitializingBean, Observer {
 	}
 
 	public void clickOnElements(RemoteWebDriver driver, String cssSelector) {
-		final List<WebElement> dataLayerVisibility = driver.findElementsByCssSelector(cssSelector);
+		final List<WebElement> dataLayerVisibility = driver.findElements(By.cssSelector(cssSelector));
 		for (final WebElement webElement : dataLayerVisibility) {
 			if (webElement.isDisplayed()) {
 				webElement.click();
@@ -766,7 +770,7 @@ public class BrowserService implements InitializingBean, Observer {
 					firstOpening = true;
 				}
 
-				if (firstOpening && (liquibase.repackaged.org.apache.commons.lang3.SystemUtils.IS_OS_MAC || SystemUtils.IS_OS_MAC_OSX)) {
+				if (firstOpening && (SystemUtils.IS_OS_MAC || SystemUtils.IS_OS_MAC_OSX )) {
 					codeEditorHandlerThread.disableCodeEditorAutocomplete(getWebDriverGeeCodeEditor());
 				}
 
@@ -802,40 +806,6 @@ public class BrowserService implements InitializingBean, Observer {
 				}
 			}
 		}
-	}
-
-	private void setGeckoDriverPath() {
-		String geckoDriverPath = "";
-		if (SystemUtils.IS_OS_MAC || SystemUtils.IS_OS_MAC_OSX) {
-			geckoDriverPath = "resources/geckodriver_mac";
-		} else if (SystemUtils.IS_OS_UNIX) {
-			if (System.getProperty("os.arch").contains("64")
-					|| System.getProperty("sun.arch.data.model").equals("64")) {
-				geckoDriverPath = "resources/geckodriver_64";
-			} else {
-				geckoDriverPath = "resources/geckodriver_32";
-			}
-		} else if (SystemUtils.IS_OS_WINDOWS) {
-			try {
-				if (System.getProperty("os.arch").contains("64")
-						|| System.getProperty("sun.arch.data.model").equals("64"))
-					geckoDriverPath = "resources/geckodriver_64.exe";
-				else
-					geckoDriverPath = "resources/geckodriver_32.exe";
-			} catch (Exception e) {
-				geckoDriverPath = "resources/geckodriver_64.exe";
-			}
-		} else {
-			throw new IllegalArgumentException("Geckodriver is not supported in the current OS");
-		}
-
-		File geckoDriverFile = new File(geckoDriverPath);
-
-		// if above property is not working or not opening the application in browser
-		// then try below property
-		System.setProperty(GeckoDriverService.GECKO_DRIVER_EXE_PROPERTY, geckoDriverFile.getAbsolutePath());
-		System.setProperty(FirefoxDriver.SystemProperty.DRIVER_USE_MARIONETTE, "true");
-
 	}
 
 	public boolean waitFor(String elementId, RemoteWebDriver driver) {
