@@ -1,6 +1,6 @@
 package org.openforis.collect.earth.ipcc;
 
-import liquibase.repackaged.org.apache.commons.lang3.ArrayUtils;
+import org.apache.commons.lang3.ArrayUtils;
 
 public class StratumPerYearData extends YearData{
 

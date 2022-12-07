@@ -31,7 +31,6 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.jdbc.core.RowMapper;
 import org.springframework.stereotype.Component;
 
-import liquibase.pro.packaged.E;
 
 @Component
 public class IPCCDataExportMatrixExcel extends RDBConnector {
@@ -110,7 +109,7 @@ public class IPCCDataExportMatrixExcel extends RDBConnector {
 	}
 
 	protected static LUDataPerYear findLuData( LandUseSubdivision initialSubdivision, LandUseSubdivision finalSubdivision, List<LUDataPerYear> luData ) {
-		Collection<E> result = CollectionUtils.select(luData, new Predicate() {
+		Collection<?> result = CollectionUtils.select(luData, new Predicate() {
 			public boolean evaluate(Object a) {
 				return 
 						( (LUDataPerYear) a ).getLu().equals(initialSubdivision) 

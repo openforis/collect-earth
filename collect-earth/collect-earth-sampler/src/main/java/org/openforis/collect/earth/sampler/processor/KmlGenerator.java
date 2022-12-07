@@ -13,6 +13,7 @@ import java.util.Map;
 
 import org.apache.commons.io.FileUtils;
 import org.apache.commons.lang3.StringUtils;
+import org.apache.commons.text.StringEscapeUtils;
 import org.locationtech.jts.geom.Point;
 import org.openforis.collect.earth.sampler.model.SimpleCoordinate;
 import org.openforis.collect.earth.sampler.model.SimplePlacemarkObject;
@@ -25,7 +26,6 @@ import org.openforis.idm.metamodel.AttributeDefinition;
 import org.opengis.referencing.FactoryException;
 import org.opengis.referencing.operation.TransformException;
 
-import liquibase.repackaged.org.apache.commons.text.StringEscapeUtils;
 
 public abstract class KmlGenerator extends AbstractCoordinateCalculation {
 
