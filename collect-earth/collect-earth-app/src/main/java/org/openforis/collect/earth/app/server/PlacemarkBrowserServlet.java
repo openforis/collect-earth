@@ -284,6 +284,7 @@ public class PlacemarkBrowserServlet {
 			@RequestParam(value = "latLongCoordinates", required = false) final String latLongCoordinates)
 	{
 		try {
+			kmlGenerator = kmlGeneratorService.getKmlGenerator();
 			SimplePlacemarkObject placemarkObject = new SimplePlacemarkObject(latLongCoordinates.split(",") );
 			OpenBrowserThread browserThread = new OpenBrowserThread("Open auxiliary windows " + latLongCoordinates, placemarkObject);
 			browserThread.start();
