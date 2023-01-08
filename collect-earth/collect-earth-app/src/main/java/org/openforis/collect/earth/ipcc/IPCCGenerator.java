@@ -4,6 +4,8 @@
 package org.openforis.collect.earth.ipcc;
 
 import java.io.File;
+import java.io.FileNotFoundException;
+import java.io.FileOutputStream;
 import java.io.IOException;
 import java.util.Calendar;
 
@@ -15,6 +17,7 @@ import org.openforis.collect.earth.app.view.JFileChooserExistsAware;
 import org.openforis.collect.earth.ipcc.controller.LandUseSubdivisionUtils;
 import org.openforis.collect.earth.ipcc.controller.StratumUtils;
 import org.openforis.collect.earth.ipcc.view.AssignSubdivisionTypesWizard;
+import org.openforis.collect.manager.SurveyManager;
 import org.openforis.idm.metamodel.Survey;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -52,6 +55,9 @@ public class IPCCGenerator {
 	@Autowired
 	IPCCLandUses landUses;
 	
+	@Autowired
+	SurveyManager surveyManager;
+	
 	IPCCSurveyAdapter ipccSurveyAdapter;
 
 	Logger logger = LoggerFactory.getLogger( IPCCGenerator.class );
@@ -66,6 +72,16 @@ public class IPCCGenerator {
 		// Add attributes for each year containing the LU Category and Subdivision if not present
 		Survey modifiedSurvey = ipccSurveyAdapter.addIPCCAttributesToSurvey( survey );
 
+		try( FileOutputStream fos = new FileOutputStream( "surveyModified.xml" ) ) {
+			surveyManager.marshalSurvey(modifiedSurvey, fos );
+		} catch (FileNotFoundException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		} catch (IOException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+		
 		// Generate Relational Database of the survey data
 		ipccRdbGenerator.generateRelationalDatabase( modifiedSurvey, progressListener);
 
