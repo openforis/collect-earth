@@ -3,7 +3,7 @@ package org.openforis.collect.earth.planet;
 public class SearchRequest{
 
 	String[] item_types;
-	Filter filter;
+	Filter<?> filter;
 	String[] ids;
 
 	public SearchRequest(String[] ids) {
@@ -11,7 +11,7 @@ public class SearchRequest{
 		this.ids = ids;
 	}
 
-	public SearchRequest(String[] itemTypes, Filter filter) {
+	public SearchRequest(String[] itemTypes, Filter<?> filter) {
 		super();
 		this.item_types = itemTypes;
 		this.filter = filter;
@@ -25,11 +25,11 @@ public class SearchRequest{
 		this.item_types = itemTypes;
 	}
 
-	public Filter getFilter() {
+	public Filter<?> getFilter() {
 		return filter;
 	}
 
-	public void setFilter(Filter filter) {
+	public void setFilter(Filter<?> filter) {
 		this.filter = filter;
 	}
 

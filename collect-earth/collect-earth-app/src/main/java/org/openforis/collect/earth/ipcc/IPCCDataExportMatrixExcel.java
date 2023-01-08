@@ -180,7 +180,7 @@ public class IPCCDataExportMatrixExcel extends RDBConnector {
 				cell.setCellStyle(cornerCellStyle);
 				
 				int i = 1;
-				for (LandUseSubdivision subdivision : matrix.getSubdivisions()) {
+				for (LandUseSubdivision<?> subdivision : matrix.getSubdivisions()) {
 					cell = headerRow.createCell(i++);
 					cell.setCellValue(subdivision.toString());
 					cell.setCellStyle(headerCellStyle);
@@ -189,7 +189,7 @@ public class IPCCDataExportMatrixExcel extends RDBConnector {
 				
 				int rowNum = 1;
 				int colNum = 0;
-				for (LandUseSubdivision subdivisionH : matrix.getSubdivisions()) {
+				for (LandUseSubdivision<?> subdivisionH : matrix.getSubdivisions()) {
 					colNum = 0;
 					Row row = sheet.createRow(rowNum++);
 
@@ -198,7 +198,7 @@ public class IPCCDataExportMatrixExcel extends RDBConnector {
 					columnCell.setCellValue(subdivisionH.toString());
 
 					colNum = 1;
-					for (LandUseSubdivision subdivisionV : matrix.getSubdivisions()) {
+					for (LandUseSubdivision<?> subdivisionV : matrix.getSubdivisions()) {
 
 						cell = row.createCell(colNum++);
 						cell.setCellValue( findLuData( subdivisionH, subdivisionV, matrix.getYearData().getLuData() ).getAreaHa() );
