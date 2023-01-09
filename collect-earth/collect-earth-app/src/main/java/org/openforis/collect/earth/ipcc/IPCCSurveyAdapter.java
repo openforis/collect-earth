@@ -74,6 +74,7 @@ public class IPCCSurveyAdapter {
 		ArrayList<AttributeDefault> calculation = new ArrayList<AttributeDefault>();
 		calculation.add(attributeDefault);
 		currentLu.setAttributeDefaults(calculation);
+		currentLu.setAnnotation( new QName("ui:hide"), "true" );
 		plot.addChildDefinition(currentLu);
 
 		// adds the Current Subdivision 2022 attribute, which is just a copy of
@@ -90,6 +91,7 @@ public class IPCCSurveyAdapter {
 		calculation = new ArrayList<AttributeDefault>();
 		calculation.add(attributeDefault);
 		currentLuSubdivision.setAttributeDefaults(calculation);
+		currentLuSubdivision.setAnnotation( new QName("ui:hide"), "true" );
 		plot.addChildDefinition(currentLuSubdivision);
 
 		// Adds a Previous Category LU using the LU Conversion attribute
@@ -108,6 +110,7 @@ public class IPCCSurveyAdapter {
 		calculation = new ArrayList<AttributeDefault>();
 		calculation.add(attributeDefault);
 		previousLu.setAttributeDefaults(calculation);
+		previousLu.setAnnotation( new QName("ui:hide"), "true" );
 		plot.addChildDefinition(previousLu);
 
 		// Adds a Previous Category LU using the LU Conversion attribute
@@ -131,6 +134,7 @@ public class IPCCSurveyAdapter {
 				"idm:blank(" + TEMPLATE_SECOND_LU_CHANGE + ") or " + TEMPLATE_SECOND_LU_CHANGE + " = true() "));
 
 		oldestLu.setAttributeDefaults(calculation);
+		oldestLu.setAnnotation( new QName("ui:hide"), "true" );
 		plot.addChildDefinition(oldestLu);
 	}
 
@@ -179,6 +183,7 @@ public class IPCCSurveyAdapter {
 		calculation.add(new AttributeDefault("substring(" + (IPCC_ATTR_PREFIX + year + IPCC_SUBCATEGORY) + ", 2, 1)"));
 
 		category.setAttributeDefaults(calculation);
+		category.setAnnotation( new QName("ui:hide"), "true" );
 		plot.addChildDefinition(category);
 		return category;
 	}
@@ -345,6 +350,7 @@ public class IPCCSurveyAdapter {
 		);
 
 		subdivision.setAttributeDefaults(calculation);
+		subdivision.setAnnotation( new QName("ui:hide"), "true" );
 		plot.addChildDefinition(subdivision);
 
 	}
