@@ -54,14 +54,13 @@ public abstract class IPCCDataExportTimeSeries<E> extends RDBConnector {
 	@Autowired
 	private SchemaService schemaService;
 
-
 	public IPCCDataExportTimeSeries() {
 		setExportTypeUsed(ExportType.IPCC);
 	}
 
 	public File generateTimeseriesData( int startYear, int endYear ) throws IOException {
 
-		schemaName = schemaService.getSchemaPrefix(getExportTypeUsed());
+		initSchemaName();
 
 		List<StratumObject> strataClimate = getStrataClimate();
 		List<StratumObject> strataSoil = getStrataSoil();
@@ -91,12 +90,13 @@ public abstract class IPCCDataExportTimeSeries<E> extends RDBConnector {
 
 		List<LUDataPerYear> luData = getJdbcTemplate().query(
 				
-			"select " + IPCCSurveyAdapter.getIpccCategoryAttrName(year)
-				+ ", " + IPCCSurveyAdapter.getIpccCategoryAttrName(year + 1) + ","
+			"select " 
+				+ IPCCSurveyAdapter.getIpccCategoryAttrName(year) + ", "
+				+ IPCCSurveyAdapter.getIpccCategoryAttrName(year + 1) + ","
 				+ IPCCSurveyAdapter.getIpccSubdivisionAttrName(year) + ","
 				+ IPCCSurveyAdapter.getIpccSubdivisionAttrName(year + 1) + ", sum( "
 				+ RegionCalculationUtils.EXPANSION_FACTOR + ")" 
-				+ " from " + schemaName + PLOT_TABLE 
+				+ " from " + getSchemaName() + PLOT_TABLE 
 				+ " where " 
 				+ CLIMATE_COLUMN + " = " + climate.getValue() + " and " + SOIL_COLUMN + " = " + soil.getValue() + " and " + GEZ_COLUMN + " = " + gez.getValue() 
 				+ " GROUP BY "
@@ -137,15 +137,15 @@ public abstract class IPCCDataExportTimeSeries<E> extends RDBConnector {
 		};
 	}
 
-	private List<StratumObject> getStrataClimate() {
+	protected List<StratumObject> getStrataClimate() {
 		return distinctValue(CLIMATE_COLUMN_VALUE, CLIMATE_COLUMN_LABEL, CLIMATE_TABLE, CLIMATE_COLUMN_IN_PLOT);
 	}
 
-	private List<StratumObject> getStrataSoil() {
+	protected List<StratumObject> getStrataSoil() {
 		return distinctValue(SOIL_COLUMN_VALUE, SOIL_COLUMN_LABEL, SOIL_TABLE, SOIL_COLUMN_IN_PLOT);
 	}
 
-	private List<StratumObject> getStrataGEZ() {
+	protected List<StratumObject> getStrataGEZ() {
 		return distinctValue(GEZ_COLUMN_VALUE, GEZ_COLUMN_LABEL, GEZ_TABLE, GEZ_COLUMN_IN_PLOT );
 	}
 
@@ -153,7 +153,7 @@ public abstract class IPCCDataExportTimeSeries<E> extends RDBConnector {
 
 		return getJdbcTemplate().query(
 				"SELECT DISTINCT(" + valueColumn  +"),"+ labelColumn +
-				" FROM " + schemaName + table + ", " + schemaName + PLOT_TABLE +
+				" FROM " + getSchemaName() + table + ", " + getSchemaName() + PLOT_TABLE +
 				" WHERE " + PLOT_TABLE + "." + plotColumnId + " = " +  table + "." + table + "_id" 
 				 , 
 				new RowMapper<StratumObject>() {
@@ -164,6 +164,14 @@ public abstract class IPCCDataExportTimeSeries<E> extends RDBConnector {
 					}
 
 				});
+	}
+
+	protected String getSchemaName() {
+		return schemaName;
+	}
+
+	protected void initSchemaName() {
+		this.schemaName = schemaService.getSchemaPrefix(getExportTypeUsed());
 	}
 
 }
