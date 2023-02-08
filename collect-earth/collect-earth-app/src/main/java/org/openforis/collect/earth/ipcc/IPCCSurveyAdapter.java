@@ -25,8 +25,8 @@ public class IPCCSurveyAdapter {
 	public static final String ATTR_OLDEST_CATEGORY = IPCC_ATTR_PREFIX + "oldest_category";
 	public static final String ATTR_PREVIOUS_CATEGORY = IPCC_ATTR_PREFIX + "previous_category";
 	public static final String ATTR_PREVIOUS_SUBDIVISION = IPCC_ATTR_PREFIX + "previous_subdivision";
-	private static final String CODE_LIST_LAND_USE = "land_use";
-	private static final String CODE_LIST_LAND_USE_SUBCATEGORY = "land_use_subcategory";
+	private static final String[] CODE_LIST_LAND_USE = new String[] { "land_use", "land_uses" };
+	private static final String[] CODE_LIST_LAND_USE_SUBCATEGORY = new String[] { "land_use_subcategory", "land_use_conversions" } ;
 
 	private static final int IPCC_20_YEARS_RULE = 20;
 
@@ -61,7 +61,11 @@ public class IPCCSurveyAdapter {
 		// Subdivision as parent
 		CodeAttributeDefinition currentLu = survey.getSchema().createCodeAttributeDefinition();
 		currentLu.setName(ATTR_CURRENT_CATEGORY);
-		currentLu.setListName(CODE_LIST_LAND_USE);
+		try {
+			currentLu.setListName(CODE_LIST_LAND_USE[0]);
+		} catch (IllegalArgumentException e) {
+			currentLu.setListName(CODE_LIST_LAND_USE[1]);
+		}
 		currentLu.setCalculated(true);
 		currentLu.setLabel(NodeLabel.Type.INSTANCE, "en", "IPCC Land Use Category - current");
 		currentLu.setLabel(NodeLabel.Type.INSTANCE, "es", "IPCC Categoría Uso de la Tierra - Actual");
@@ -81,7 +85,11 @@ public class IPCCSurveyAdapter {
 		// land_use_subdivision
 		CodeAttributeDefinition currentLuSubdivision = survey.getSchema().createCodeAttributeDefinition();
 		currentLuSubdivision.setName(ATTR_CURRENT_SUBDIVISION);
-		currentLuSubdivision.setListName(CODE_LIST_LAND_USE);
+		try {
+			currentLuSubdivision.setListName(CODE_LIST_LAND_USE[0]);
+		} catch (IllegalArgumentException e) {
+			currentLuSubdivision.setListName(CODE_LIST_LAND_USE[1]);
+		}
 		currentLuSubdivision.setParentCodeAttributeDefinition(currentLu);
 		currentLuSubdivision.setLabel(NodeLabel.Type.INSTANCE, "en", "IPCC Land Use Subdivision - current");
 		currentLuSubdivision.setLabel(NodeLabel.Type.INSTANCE, "es", "IPCC Subdivisión Uso de la Tierra - actual");
@@ -97,7 +105,11 @@ public class IPCCSurveyAdapter {
 		// Adds a Previous Category LU using the LU Conversion attribute
 		CodeAttributeDefinition previousLu = survey.getSchema().createCodeAttributeDefinition();
 		previousLu.setName(ATTR_PREVIOUS_CATEGORY);
-		previousLu.setListName(CODE_LIST_LAND_USE);
+		try {
+			previousLu.setListName(CODE_LIST_LAND_USE[0]);
+		} catch (IllegalArgumentException e) {
+			previousLu.setListName(CODE_LIST_LAND_USE[1]);
+		}
 		previousLu.setCalculated(true);
 		previousLu.setLabel(NodeLabel.Type.INSTANCE, "en", "IPCC Land Use Category - previous");
 		previousLu.setLabel(NodeLabel.Type.INSTANCE, "es", "IPCC Categoría Uso de la Tierra - Previa");
@@ -116,7 +128,11 @@ public class IPCCSurveyAdapter {
 		// Adds a Previous Category LU using the LU Conversion attribute
 		CodeAttributeDefinition oldestLu = survey.getSchema().createCodeAttributeDefinition();
 		oldestLu.setName(ATTR_OLDEST_CATEGORY);
-		oldestLu.setListName(CODE_LIST_LAND_USE);
+		try {
+			oldestLu.setListName(CODE_LIST_LAND_USE[0]);
+		} catch (IllegalArgumentException e) {
+			oldestLu.setListName(CODE_LIST_LAND_USE[1]);
+		}
 		oldestLu.setCalculated(true);
 		oldestLu.setLabel(NodeLabel.Type.INSTANCE, "en", "IPCC Land Use Category - oldest");
 		oldestLu.setLabel(NodeLabel.Type.INSTANCE, "es", "IPCC Categoría Uso de la Tierra - Mas antigua");
@@ -176,7 +192,11 @@ public class IPCCSurveyAdapter {
 		category.setLabel(NodeLabel.Type.INSTANCE, "en", "IPCC " + year + " Land Use Category");
 		category.setLabel(NodeLabel.Type.INSTANCE, "es", "IPCC " + year + " Categoría Uso de la Tierra");
 		category.setLabel(NodeLabel.Type.INSTANCE, "fr", "GIEC " + year + " Catégorie d'utilisation des terres ");
-		category.setListName(CODE_LIST_LAND_USE);
+		try {
+			category.setListName(CODE_LIST_LAND_USE[0]);
+		} catch (IllegalArgumentException e) {
+			category.setListName(CODE_LIST_LAND_USE[1]);
+		}
 		category.setCalculated(true);
 
 		ArrayList<AttributeDefault> calculation = new ArrayList<AttributeDefault>();
@@ -260,7 +280,11 @@ public class IPCCSurveyAdapter {
 		subdivision.setLabel(NodeLabel.Type.INSTANCE, "en", "IPCC " + year + " Land Use Subdivision");
 		subdivision.setLabel(NodeLabel.Type.INSTANCE, "es", "IPCC " + year + " Subdivisión de Uso de la Tierra");
 		subdivision.setLabel(NodeLabel.Type.INSTANCE, "fr", "GIEC " + year + " Subdivision d'utilisation des terres");
-		subdivision.setListName(CODE_LIST_LAND_USE);
+		try {
+			subdivision.setListName(CODE_LIST_LAND_USE[0]);
+		} catch (IllegalArgumentException e) {
+			subdivision.setListName(CODE_LIST_LAND_USE[1]);
+		}
 		subdivision.setParentCodeAttributeDefinition(categoryParent);
 		subdivision.setCalculated(true);
 
@@ -386,8 +410,17 @@ public class IPCCSurveyAdapter {
 	private void checkSurveyLUCodeLists(Survey survey) throws IPCCGeneratorException {
 
 		ArrayList<String> luCodeLists = new ArrayList<String>();
-		luCodeLists.add(CODE_LIST_LAND_USE);
-		luCodeLists.add(CODE_LIST_LAND_USE_SUBCATEGORY);
+		
+		try {
+			luCodeLists.add(CODE_LIST_LAND_USE[0]);
+		} catch (IllegalArgumentException e) {
+			luCodeLists.add(CODE_LIST_LAND_USE[1]);
+		}
+		try {
+			luCodeLists.add(CODE_LIST_LAND_USE_SUBCATEGORY[0]);
+		} catch (IllegalArgumentException e) {
+			luCodeLists.add(CODE_LIST_LAND_USE_SUBCATEGORY[1]);
+		}
 
 		for (String codeList : luCodeLists) {
 			try {

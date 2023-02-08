@@ -1,41 +1,45 @@
 package org.openforis.collect.earth.ipcc.model;
 
-public class LandUseSubdivisionStratified {
+public class LandUseSubdivisionStratified<E> {
 
-	String landUseSubdivision;
-	Integer climateId;
-	Integer soilId;
-	
-	public LandUseSubdivisionStratified(String landUseSubdivision, Integer climateId, Integer soilId) {
+	LandUseCategory landUseCategory;
+	LandUseSubdivision<E> landUseSubdivision;
+	StratumObject climate;
+	StratumObject soil;
+		
+	public LandUseSubdivisionStratified(LandUseCategory landUseCategory, LandUseSubdivision<E> landUseSubdivision,
+			StratumObject climate, StratumObject soil) {
 		super();
+		this.landUseCategory = landUseCategory;
 		this.landUseSubdivision = landUseSubdivision;
-		this.climateId = climateId;
-		this.soilId = soilId;
+		this.climate = climate;
+		this.soil = soil;
 	}
-
-	public String getLandUseSubdivision() {
+	
+	public LandUseCategory getLandUseCategory() {
+		return landUseCategory;
+	}
+	public LandUseSubdivision<E> getLandUseSubdivision() {
 		return landUseSubdivision;
 	}
-
-	public Integer getClimateId() {
-		return climateId;
+	public StratumObject getClimate() {
+		return climate;
 	}
-
-	public Integer getSoilId() {
-		return soilId;
+	public StratumObject getSoil() {
+		return soil;
 	}
-
-	public void setLandUseSubdivision(String landUseSubdivision) {
+	public void setLandUseCategory(LandUseCategory landUseCategory) {
+		this.landUseCategory = landUseCategory;
+	}
+	public void setLandUseSubdivision(LandUseSubdivision<E> landUseSubdivision) {
 		this.landUseSubdivision = landUseSubdivision;
 	}
-
-	public void setClimateId(Integer climateId) {
-		this.climateId = climateId;
+	public void setClimate(StratumObject climate) {
+		this.climate = climate;
 	}
-
-	public void setSoilId(Integer soilId) {
-		this.soilId = soilId;
+	public void setSoil(StratumObject soil) {
+		this.soil = soil;
 	}
-		
-		
+	
+	
 }

@@ -7,56 +7,19 @@ import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.List;
 
-import org.openforis.collect.earth.app.service.ExportType;
-import org.openforis.collect.earth.app.service.RDBConnector;
 import org.openforis.collect.earth.app.service.RegionCalculationUtils;
-import org.openforis.collect.earth.app.service.SchemaService;
 import org.openforis.collect.earth.ipcc.controller.LandUseSubdivisionUtils;
 import org.openforis.collect.earth.ipcc.model.StratumObject;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.jdbc.core.RowMapper;
 import org.springframework.stereotype.Component;
 
 @Component
-public abstract class IPCCDataExportTimeSeries<E> extends RDBConnector {
+public abstract class AbstractIPCCDataExportTimeSeries<E> extends AbstractIPCCDataExport {
 
-	public static final String CLIMATE_COLUMN = "climate";
-	public static final String GEZ_COLUMN = "gez";
-	public static final String SOIL_COLUMN = "soil";
-	
-	public static final String CLIMATE_COLUMN_VALUE = "climate_zones";
-	public static final String CLIMATE_TABLE = CLIMATE_COLUMN_VALUE + "_code";
-	public static final String CLIMATE_COLUMN_LABEL = CLIMATE_COLUMN_VALUE + "_label";
-	public static final String CLIMATE_COLUMN_ID = CLIMATE_COLUMN_VALUE + "_code_id";
-	public static final String CLIMATE_COLUMN_IN_PLOT = "climate_code_id";
-	
-	public static final String GEZ_COLUMN_VALUE = "ecological_zones";
-	public static final String GEZ_TABLE = GEZ_COLUMN_VALUE + "_code";
-	public static final String GEZ_COLUMN_LABEL = GEZ_COLUMN_VALUE + "_label";
-	public static final String GEZ_COLUMN_ID = GEZ_COLUMN_VALUE + "_code_id";
-	public static final String GEZ_COLUMN_IN_PLOT = "gez_code_id";
-	
-	
-	public static final String SOIL_COLUMN_VALUE = "soil_types";
-	public static final String SOIL_TABLE = SOIL_COLUMN_VALUE + "_code";
-	public static final String SOIL_COLUMN_LABEL = SOIL_COLUMN_VALUE + "_label";
-	public static final String SOIL_COLUMN_ID = SOIL_COLUMN_VALUE + "_code_id";
-	public static final String SOIL_COLUMN_IN_PLOT = "soil_code_id";
-	
-	private String schemaName;
-	public static final String PLOT_TABLE = "plot";
-	public static final String PLOT_ID = "id";
+	Logger logger = LoggerFactory.getLogger(AbstractIPCCDataExportTimeSeries.class);
 
-	Logger logger = LoggerFactory.getLogger(IPCCDataExportTimeSeries.class);
-
-	@Autowired
-	private SchemaService schemaService;
-
-	public IPCCDataExportTimeSeries() {
-		setExportTypeUsed(ExportType.IPCC);
-	}
 
 	public File generateTimeseriesData( int startYear, int endYear ) throws IOException {
 
@@ -135,43 +98,6 @@ public abstract class IPCCDataExportTimeSeries<E> extends RDBConnector {
 						);
 			}
 		};
-	}
-
-	protected List<StratumObject> getStrataClimate() {
-		return distinctValue(CLIMATE_COLUMN_VALUE, CLIMATE_COLUMN_LABEL, CLIMATE_TABLE, CLIMATE_COLUMN_IN_PLOT);
-	}
-
-	protected List<StratumObject> getStrataSoil() {
-		return distinctValue(SOIL_COLUMN_VALUE, SOIL_COLUMN_LABEL, SOIL_TABLE, SOIL_COLUMN_IN_PLOT);
-	}
-
-	protected List<StratumObject> getStrataGEZ() {
-		return distinctValue(GEZ_COLUMN_VALUE, GEZ_COLUMN_LABEL, GEZ_TABLE, GEZ_COLUMN_IN_PLOT );
-	}
-
-	private List<StratumObject> distinctValue(String valueColumn, String labelColumn, String table, String plotColumnId) {
-
-		return getJdbcTemplate().query(
-				"SELECT DISTINCT(" + valueColumn  +"),"+ labelColumn +
-				" FROM " + getSchemaName() + table + ", " + getSchemaName() + PLOT_TABLE +
-				" WHERE " + PLOT_TABLE + "." + plotColumnId + " = " +  table + "." + table + "_id" 
-				 , 
-				new RowMapper<StratumObject>() {
-					@Override
-					public StratumObject mapRow(ResultSet rs, int rowNum) throws SQLException {
-
-						return new StratumObject( rs.getString(valueColumn), rs.getString(labelColumn) );
-					}
-
-				});
-	}
-
-	protected String getSchemaName() {
-		return schemaName;
-	}
-
-	protected void initSchemaName() {
-		this.schemaName = schemaService.getSchemaPrefix(getExportTypeUsed());
 	}
 
 }

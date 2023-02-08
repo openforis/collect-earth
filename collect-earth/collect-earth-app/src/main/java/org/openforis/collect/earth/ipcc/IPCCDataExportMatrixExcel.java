@@ -70,7 +70,7 @@ public class IPCCDataExportMatrixExcel extends RDBConnector {
 						+ IPCCSurveyAdapter.getIpccSubdivisionAttrName(year) + ","
 						+ IPCCSurveyAdapter.getIpccSubdivisionAttrName(year + 1) + ","
 						+ "sum( " + RegionCalculationUtils.EXPANSION_FACTOR + ")" 
-						+ " from " + schemaName + IPCCDataExportTimeSeries.PLOT_TABLE 
+						+ " from " + schemaName + AbstractIPCCDataExportTimeSeries.PLOT_TABLE 
 						+ " GROUP BY "
 						+ IPCCSurveyAdapter.getIpccCategoryAttrName(year) + ","
 						+ IPCCSurveyAdapter.getIpccCategoryAttrName(year + 1) + ","

@@ -39,6 +39,8 @@ public class IPCCLandUses extends RDBConnector {
 
 	@Autowired
 	private SchemaService schemaService;
+	
+	private List<LandUseSubdivision> landUseSubdivisions;
 
 
 	public IPCCLandUses() {
@@ -47,22 +49,26 @@ public class IPCCLandUses extends RDBConnector {
 
 	public List<LandUseSubdivision> getLandUseSubdivisions() {
 
+		if( landUseSubdivisions != null ) {
+			return landUseSubdivisions;
+		}
+		
 		schemaName = schemaService.getSchemaPrefix(getExportTypeUsed());
 
 		LandUseCategory[] lUseCategories = LandUseCategory.values();
 
-		List<LandUseSubdivision> lUseSubdivisions = new ArrayList<LandUseSubdivision>();
+		landUseSubdivisions = new ArrayList<LandUseSubdivision>();
 
 		for (int i = 0; i < lUseCategories.length; i++) {
 			
-			lUseSubdivisions.addAll( getSubdivisions(lUseCategories[i]));
+			landUseSubdivisions.addAll( getSubdivisions(lUseCategories[i]));
 			
 		}
 
-		return lUseSubdivisions;
+		return landUseSubdivisions;
 
 	}
-
+	
 	private Collection<? extends LandUseSubdivision<?>> getSubdivisions(LandUseCategory landUseCategory) {
 
 		List<LandUseSubdivision<?>> luSubdivisions = getJdbcTemplate().query(
