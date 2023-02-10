@@ -75,6 +75,8 @@ public class IPCCGenerator {
 		// Add attributes for each year containing the LU Category and Subdivision if not present
 		Survey modifiedSurvey = ipccSurveyAdapter.addIPCCAttributesToSurvey( survey );
 
+		/*
+		 * CODE NOT NECESSARY, JUST USED TO CHECK IDML SURVEY FILE
 		try( FileOutputStream fos = new FileOutputStream( "surveyModified.xml" ) ) {
 			surveyManager.marshalSurvey(modifiedSurvey, fos );
 		} catch (FileNotFoundException e) {
@@ -82,7 +84,7 @@ public class IPCCGenerator {
 		} catch (IOException e) {
 			logger.error( "Error marshalling survey", e );
 		}
-		
+		*/
 		// Generate Relational Database of the survey data
 		ipccRdbGenerator.generateRelationalDatabase( modifiedSurvey, progressListener);
 

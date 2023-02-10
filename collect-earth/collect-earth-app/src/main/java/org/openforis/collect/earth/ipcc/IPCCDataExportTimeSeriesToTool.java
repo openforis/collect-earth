@@ -25,18 +25,16 @@ import org.openforis.collect.earth.ipcc.serialize.IPCC2006Export.Record;
 import org.openforis.collect.earth.ipcc.serialize.LandTypes;
 import org.openforis.collect.earth.ipcc.serialize.SoilType;
 import org.openforis.collect.earth.ipcc.serialize.SoilTypes;
-import org.openforis.collect.manager.SurveyManager;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.jdbc.core.RowMapper;
 import org.springframework.stereotype.Component;
 
 import com.thoughtworks.xstream.XStream;
 
+import net.lingala.zip4j.ZipFile;
+
 @Component
 public class IPCCDataExportTimeSeriesToTool extends AbstractIPCCDataExport{
-
-	@Autowired
-	protected SurveyManager surveyManager;
 
 	@Autowired
 	protected IPCCLandUses ipccLandUses;
@@ -44,9 +42,9 @@ public class IPCCDataExportTimeSeriesToTool extends AbstractIPCCDataExport{
 	public File generateTimeseriesData(int startYear, int endYear, String countryCode) throws IOException {
 		initSchemaName();
 
-		File zipFileWithInventoryData = File.createTempFile("ghgi_timeseries", ".zip");
+		File zipFileWithInventoryData = File.createTempFile("ghgi_timeseries_ipcc_tool", ".zip");
 		zipFileWithInventoryData.deleteOnExit();
-
+		
 		for (int year = startYear; year < endYear; year++) {
 
 			IPCC2006Export ipcc2006Export = new IPCC2006Export();
@@ -115,11 +113,11 @@ public class IPCCDataExportTimeSeriesToTool extends AbstractIPCCDataExport{
 
 		return getJdbcTemplate().query(
 
-				"select " + "DISTINCT(" + IPCCSurveyAdapter.getIpccSubdivisionAttrName(year) + ", " + CLIMATE_COLUMN
-						+ ", " + SOIL_COLUMN + ", "
-						// + GEZ_COLUMN
-						+ ")" + " from " + getSchemaName() + PLOT_TABLE + " where "
-						+ IPCCSurveyAdapter.getIpccCategoryAttrName(year) + " + " + luCategory.getCode()
+				"select " + "DISTINCT " + IPCCSurveyAdapter.getIpccSubdivisionAttrName(year) + ", " + CLIMATE_COLUMN
+						+ ", " + SOIL_COLUMN 
+						// + ", "+ GEZ_COLUMN
+						+ " from " + getSchemaName() + PLOT_TABLE + " where "
+						+ IPCCSurveyAdapter.getIpccCategoryAttrName(year) + " = '" + luCategory.getCode() + "'"
 
 				,
 

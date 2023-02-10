@@ -426,6 +426,8 @@ public class BalloonInputFieldsUtils {
 							+ handler.getValueFromParameter(paramName, plotEntity, index);
 					valuesByHtmlParameterName.put(collectParamName, newValue);
 				} catch (Exception e) {
+					logger.warn("Attribute " + node);
+					logger.warn("With value " + value);
 					logger.error("Exception when getting parameters for entity ", e);
 				}
 			}

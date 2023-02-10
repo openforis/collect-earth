@@ -25,8 +25,8 @@ public class IPCCSurveyAdapter {
 	public static final String ATTR_OLDEST_CATEGORY = IPCC_ATTR_PREFIX + "oldest_category";
 	public static final String ATTR_PREVIOUS_CATEGORY = IPCC_ATTR_PREFIX + "previous_category";
 	public static final String ATTR_PREVIOUS_SUBDIVISION = IPCC_ATTR_PREFIX + "previous_subdivision";
-	private static final String[] CODE_LIST_LAND_USE = new String[] { "land_use", "land_uses" };
-	private static final String[] CODE_LIST_LAND_USE_SUBCATEGORY = new String[] { "land_use_subcategory", "land_use_conversions" } ;
+	private static final String CODE_LIST_LAND_USE = "land_uses";
+	private static final String CODE_LIST_LAND_USE_SUBCATEGORY = "land_use_conversions";
 
 	private static final int IPCC_20_YEARS_RULE = 20;
 
@@ -55,103 +55,113 @@ public class IPCCSurveyAdapter {
 	public static String getIpccSubdivisionAttrName(int year) {
 		return IPCC_ATTR_PREFIX + year + IPCC_SUBDIVISION;
 	}
+	
+	private boolean attributeAlreadyExists( EntityDefinition plot, String attributeName ) {
+		
+		return plot.containsChildDefinition( attributeName );
+		
+	}
 
 	private void addAuxilliaryAttributes(Survey survey, EntityDefinition plot) {
 		// Adds a Current Category LU 2022 calculated attribute to be used for the
 		// Subdivision as parent
-		CodeAttributeDefinition currentLu = survey.getSchema().createCodeAttributeDefinition();
-		currentLu.setName(ATTR_CURRENT_CATEGORY);
-		try {
-			currentLu.setListName(CODE_LIST_LAND_USE[0]);
-		} catch (IllegalArgumentException e) {
-			currentLu.setListName(CODE_LIST_LAND_USE[1]);
+		CodeAttributeDefinition currentLu;
+		if(!attributeAlreadyExists(plot, ATTR_CURRENT_CATEGORY ) ) {
+			currentLu = survey.getSchema().createCodeAttributeDefinition();
+			currentLu.setName(ATTR_CURRENT_CATEGORY);
+			currentLu.setListName( CODE_LIST_LAND_USE );
+			currentLu.setCalculated(true);
+			currentLu.setLabel(NodeLabel.Type.INSTANCE, "en", "IPCC Land Use Category - current");
+			currentLu.setLabel(NodeLabel.Type.INSTANCE, "es", "IPCC Categoría Uso de la Tierra - Actual");
+			currentLu.setLabel(NodeLabel.Type.INSTANCE, "fr", "GIEC Catégorie d'utilisation des terres - actuelle");
+			AttributeDefault attributeDefault = new AttributeDefault();
+			attributeDefault.setExpression("substring( " + TEMPLATE_LAND_USE_SUBCATEGORY + ", 2, 1)"); // get the second
+																										// character of the
+																										// LU conversion CF
+																										// --> F
+			ArrayList<AttributeDefault> calculation = new ArrayList<AttributeDefault>();
+			calculation.add(attributeDefault);
+			currentLu.setAttributeDefaults(calculation);
+			currentLu.setAnnotation( new QName("ui:hide"), "true" );
+			plot.addChildDefinition(currentLu);
+		}else {
+			currentLu = (CodeAttributeDefinition) plot.getChildDefinition(ATTR_CURRENT_CATEGORY);
 		}
-		currentLu.setCalculated(true);
-		currentLu.setLabel(NodeLabel.Type.INSTANCE, "en", "IPCC Land Use Category - current");
-		currentLu.setLabel(NodeLabel.Type.INSTANCE, "es", "IPCC Categoría Uso de la Tierra - Actual");
-		currentLu.setLabel(NodeLabel.Type.INSTANCE, "fr", "GIEC Catégorie d'utilisation des terres - actuelle");
-		AttributeDefault attributeDefault = new AttributeDefault();
-		attributeDefault.setExpression("substring( " + TEMPLATE_LAND_USE_SUBCATEGORY + ", 2, 1)"); // get the second
-																									// character of the
-																									// LU conversion CF
-																									// --> F
-		ArrayList<AttributeDefault> calculation = new ArrayList<AttributeDefault>();
-		calculation.add(attributeDefault);
-		currentLu.setAttributeDefaults(calculation);
-		currentLu.setAnnotation( new QName("ui:hide"), "true" );
-		plot.addChildDefinition(currentLu);
 
-		// adds the Current Subdivision 2022 attribute, which is just a copy of
-		// land_use_subdivision
-		CodeAttributeDefinition currentLuSubdivision = survey.getSchema().createCodeAttributeDefinition();
-		currentLuSubdivision.setName(ATTR_CURRENT_SUBDIVISION);
-		try {
-			currentLuSubdivision.setListName(CODE_LIST_LAND_USE[0]);
-		} catch (IllegalArgumentException e) {
-			currentLuSubdivision.setListName(CODE_LIST_LAND_USE[1]);
+		if(!attributeAlreadyExists(plot, ATTR_CURRENT_SUBDIVISION ) ) {
+			// adds the Current Subdivision 2022 attribute, which is just a copy of
+			// land_use_subdivision
+			CodeAttributeDefinition currentLuSubdivision = survey.getSchema().createCodeAttributeDefinition();
+			currentLuSubdivision.setName(ATTR_CURRENT_SUBDIVISION);
+			currentLuSubdivision.setListName(CODE_LIST_LAND_USE);
+			currentLuSubdivision.setParentCodeAttributeDefinition(currentLu);
+			currentLuSubdivision.setLabel(NodeLabel.Type.INSTANCE, "en", "IPCC Land Use Subdivision - current");
+			currentLuSubdivision.setLabel(NodeLabel.Type.INSTANCE, "es", "IPCC Subdivisión Uso de la Tierra - actual");
+			currentLuSubdivision.setLabel(NodeLabel.Type.INSTANCE, "fr", "GIEC Subdivision d'utilisation des terres - actuelle");
+			AttributeDefault attributeDefault = new AttributeDefault();
+			attributeDefault.setExpression(TEMPLATE_LAND_USE_SUBDIVISION); // gets the current LU subdivision
+			ArrayList<AttributeDefault> calculation = new ArrayList<AttributeDefault>();
+			calculation.add(attributeDefault);
+			currentLuSubdivision.setAttributeDefaults(calculation);
+			currentLuSubdivision.setAnnotation( new QName("ui:hide"), "true" );
+			plot.addChildDefinition(currentLuSubdivision);
 		}
-		currentLuSubdivision.setParentCodeAttributeDefinition(currentLu);
-		currentLuSubdivision.setLabel(NodeLabel.Type.INSTANCE, "en", "IPCC Land Use Subdivision - current");
-		currentLuSubdivision.setLabel(NodeLabel.Type.INSTANCE, "es", "IPCC Subdivisión Uso de la Tierra - actual");
-		currentLuSubdivision.setLabel(NodeLabel.Type.INSTANCE, "fr", "GIEC Subdivision d'utilisation des terres - actuelle");
-		attributeDefault = new AttributeDefault();
-		attributeDefault.setExpression(TEMPLATE_LAND_USE_SUBDIVISION); // gets the current LU subdivision
-		calculation = new ArrayList<AttributeDefault>();
-		calculation.add(attributeDefault);
-		currentLuSubdivision.setAttributeDefaults(calculation);
-		currentLuSubdivision.setAnnotation( new QName("ui:hide"), "true" );
-		plot.addChildDefinition(currentLuSubdivision);
-
-		// Adds a Previous Category LU using the LU Conversion attribute
-		CodeAttributeDefinition previousLu = survey.getSchema().createCodeAttributeDefinition();
-		previousLu.setName(ATTR_PREVIOUS_CATEGORY);
-		try {
-			previousLu.setListName(CODE_LIST_LAND_USE[0]);
-		} catch (IllegalArgumentException e) {
-			previousLu.setListName(CODE_LIST_LAND_USE[1]);
+		
+		if(!attributeAlreadyExists(plot, ATTR_PREVIOUS_CATEGORY ) ) {
+			// Adds a Previous Category LU using the LU Conversion attribute
+			CodeAttributeDefinition previousLu = survey.getSchema().createCodeAttributeDefinition();
+			previousLu.setName(ATTR_PREVIOUS_CATEGORY);
+			previousLu.setListName(CODE_LIST_LAND_USE);
+			previousLu.setCalculated(true);
+			previousLu.setLabel(NodeLabel.Type.INSTANCE, "en", "IPCC Land Use Category - previous");
+			previousLu.setLabel(NodeLabel.Type.INSTANCE, "es", "IPCC Categoría Uso de la Tierra - Previa");
+			previousLu.setLabel(NodeLabel.Type.INSTANCE, "fr", "GIEC Catégorie d'utilisation des terres - précédent");
+			AttributeDefault attributeDefault = new AttributeDefault();
+			attributeDefault.setExpression("substring( " + TEMPLATE_LAND_USE_SUBCATEGORY + ", 1, 1)"); // get the first
+																										// character of the
+																										// LU conversion CF
+																										// --> C
+			ArrayList<AttributeDefault> calculation = new ArrayList<AttributeDefault>();
+			calculation.add(attributeDefault);
+			previousLu.setAttributeDefaults(calculation);
+			previousLu.setAnnotation( new QName("ui:hide"), "true" );
+			plot.addChildDefinition(previousLu);
 		}
-		previousLu.setCalculated(true);
-		previousLu.setLabel(NodeLabel.Type.INSTANCE, "en", "IPCC Land Use Category - previous");
-		previousLu.setLabel(NodeLabel.Type.INSTANCE, "es", "IPCC Categoría Uso de la Tierra - Previa");
-		previousLu.setLabel(NodeLabel.Type.INSTANCE, "fr", "GIEC Catégorie d'utilisation des terres - précédent");
-		attributeDefault = new AttributeDefault();
-		attributeDefault.setExpression("substring( " + TEMPLATE_LAND_USE_SUBCATEGORY + ", 1, 1)"); // get the first
-																									// character of the
-																									// LU conversion CF
-																									// --> C
-		calculation = new ArrayList<AttributeDefault>();
-		calculation.add(attributeDefault);
-		previousLu.setAttributeDefaults(calculation);
-		previousLu.setAnnotation( new QName("ui:hide"), "true" );
-		plot.addChildDefinition(previousLu);
-
-		// Adds a Previous Category LU using the LU Conversion attribute
-		CodeAttributeDefinition oldestLu = survey.getSchema().createCodeAttributeDefinition();
-		oldestLu.setName(ATTR_OLDEST_CATEGORY);
-		try {
-			oldestLu.setListName(CODE_LIST_LAND_USE[0]);
-		} catch (IllegalArgumentException e) {
-			oldestLu.setListName(CODE_LIST_LAND_USE[1]);
+		
+		if(!attributeAlreadyExists(plot, ATTR_OLDEST_CATEGORY ) ) {
+			// Adds a Previous Category LU using the LU Conversion attribute
+			CodeAttributeDefinition oldestLu = survey.getSchema().createCodeAttributeDefinition();
+			oldestLu.setName(ATTR_OLDEST_CATEGORY);
+			oldestLu.setListName(CODE_LIST_LAND_USE);
+			oldestLu.setCalculated(true);
+			oldestLu.setLabel(NodeLabel.Type.INSTANCE, "en", "IPCC Land Use Category - oldest");
+			oldestLu.setLabel(NodeLabel.Type.INSTANCE, "es", "IPCC Categoría Uso de la Tierra - Mas antigua");
+			oldestLu.setLabel(NodeLabel.Type.INSTANCE, "fr", "GIEC Catégorie d'utilisation des terres - plus ancien");
+			ArrayList<AttributeDefault> calculation = new ArrayList<AttributeDefault>();
+			calculation.add(new AttributeDefault("substring( " + TEMPLATE_SECOND_LU_CONVERSION + ", 1,1)", // if the oldest
+																											// LU conversion
+																											// was FS then
+																											// it becomes F
+					TEMPLATE_SECOND_LU_CHANGE + " = true() "));
+			calculation.add(new AttributeDefault("substring( " + TEMPLATE_LAND_USE_SUBCATEGORY + ", 1,1)", // if the oldest
+																											// LU conversion
+																											// was FS then
+																											// it becomes F
+					"idm:blank(" + TEMPLATE_SECOND_LU_CHANGE + ") or " + TEMPLATE_SECOND_LU_CHANGE + " = true() "));
+	
+			oldestLu.setAttributeDefaults(calculation);
+			oldestLu.setAnnotation( new QName("ui:hide"), "true" );
+			plot.addChildDefinition(oldestLu);
 		}
-		oldestLu.setCalculated(true);
-		oldestLu.setLabel(NodeLabel.Type.INSTANCE, "en", "IPCC Land Use Category - oldest");
-		oldestLu.setLabel(NodeLabel.Type.INSTANCE, "es", "IPCC Categoría Uso de la Tierra - Mas antigua");
-		oldestLu.setLabel(NodeLabel.Type.INSTANCE, "fr", "GIEC Catégorie d'utilisation des terres - plus ancien");
-		calculation = new ArrayList<AttributeDefault>();
-		calculation.add(new AttributeDefault("substring( " + TEMPLATE_SECOND_LU_CONVERSION + ", 1,1)", // if the oldest
-																										// LU conversion
-																										// was FS then
-																										// it becomes F
-				TEMPLATE_SECOND_LU_CHANGE + " = true() "));
-		calculation.add(new AttributeDefault("substring( " + TEMPLATE_LAND_USE_SUBCATEGORY + ", 1,1)", // if the oldest
-																										// LU conversion
-																										// was FS then
-																										// it becomes F
-				"idm:blank(" + TEMPLATE_SECOND_LU_CHANGE + ") or " + TEMPLATE_SECOND_LU_CHANGE + " = true() "));
+	}
 
-		oldestLu.setAttributeDefaults(calculation);
-		oldestLu.setAnnotation( new QName("ui:hide"), "true" );
-		plot.addChildDefinition(oldestLu);
+	private String getCodeListName(Survey survey, String[] codeListLandUse) {
+		for (String codeListName : codeListLandUse) {
+			if( survey.getCodeList(codeListName) != null ) {
+				return codeListName;
+			}
+		}
+		throw new IllegalArgumentException( "No codelist with names is available " + codeListLandUse );
 	}
 
 	private Survey addIPCCAttributes(Survey survey) {
@@ -186,197 +196,195 @@ public class IPCCSurveyAdapter {
 	}
 
 	private CodeAttributeDefinition addLuCategory(Survey survey, EntityDefinition plot, int year) {
-		// Create the parent attribute for the LU Subcategory ( the initial Land Use)
-		CodeAttributeDefinition category = survey.getSchema().createCodeAttributeDefinition();
-		category.setName(getIpccCategoryAttrName(year));
-		category.setLabel(NodeLabel.Type.INSTANCE, "en", "IPCC " + year + " Land Use Category");
-		category.setLabel(NodeLabel.Type.INSTANCE, "es", "IPCC " + year + " Categoría Uso de la Tierra");
-		category.setLabel(NodeLabel.Type.INSTANCE, "fr", "GIEC " + year + " Catégorie d'utilisation des terres ");
-		try {
-			category.setListName(CODE_LIST_LAND_USE[0]);
-		} catch (IllegalArgumentException e) {
-			category.setListName(CODE_LIST_LAND_USE[1]);
+		if(!attributeAlreadyExists(plot, getIpccCategoryAttrName(year) ) ) {
+			// Create the parent attribute for the LU Subcategory ( the initial Land Use)
+			CodeAttributeDefinition category = survey.getSchema().createCodeAttributeDefinition();
+			category.setName(getIpccCategoryAttrName(year));
+			category.setLabel(NodeLabel.Type.INSTANCE, "en", "IPCC " + year + " Land Use Category");
+			category.setLabel(NodeLabel.Type.INSTANCE, "es", "IPCC " + year + " Categoría Uso de la Tierra");
+			category.setLabel(NodeLabel.Type.INSTANCE, "fr", "GIEC " + year + " Catégorie d'utilisation des terres ");
+			category.setListName(CODE_LIST_LAND_USE);
+			category.setCalculated(true);
+	
+			ArrayList<AttributeDefault> calculation = new ArrayList<AttributeDefault>();
+			calculation.add(new AttributeDefault("substring(" + (IPCC_ATTR_PREFIX + year + IPCC_SUBCATEGORY) + ", 2, 1)"));
+	
+			category.setAttributeDefaults(calculation);
+			category.setAnnotation( new QName("ui:hide"), "true" );
+			plot.addChildDefinition(category);
+			return category;
+		} else {
+			return  (CodeAttributeDefinition) plot.getChildDefinition(getIpccCategoryAttrName(year));
 		}
-		category.setCalculated(true);
-
-		ArrayList<AttributeDefault> calculation = new ArrayList<AttributeDefault>();
-		calculation.add(new AttributeDefault("substring(" + (IPCC_ATTR_PREFIX + year + IPCC_SUBCATEGORY) + ", 2, 1)"));
-
-		category.setAttributeDefaults(calculation);
-		category.setAnnotation( new QName("ui:hide"), "true" );
-		plot.addChildDefinition(category);
-		return category;
 	}
 
 	private void addLuSubcategory(Survey survey, EntityDefinition plot, int year) {
-
-		// Create the parent attribute for the LU Subcategory ( the initial Land Use)
-		TextAttributeDefinition subcategory = survey.getSchema().createTextAttributeDefinition();
-		subcategory.setName(IPCC_ATTR_PREFIX + year + IPCC_SUBCATEGORY);
-		subcategory.setLabel(NodeLabel.Type.INSTANCE, "en", "IPCC " + year + " Land Use Conversion");
-		subcategory.setLabel(NodeLabel.Type.INSTANCE, "es", "IPCC " + year + " Conversión de Uso de la Tierra");
-		subcategory.setLabel(NodeLabel.Type.INSTANCE, "fr", "GIEC " + year + " Conversion de l'utilisation des terres");
-		subcategory.setCalculated(true);
-
-		int thresHold20Years = year - IPCC_20_YEARS_RULE;
-
-		ArrayList<AttributeDefault> calculation = new ArrayList<AttributeDefault>();
-
-		calculation.add(
-				new AttributeDefault(
-					TEMPLATE_LAND_USE_SUBCATEGORY, 
-					TEMPLATE_LAND_USE_CATEGORY_CHANGED + "!= true()" +
-					" and ( idm:blank(" + TEMPLATE_SECOND_LU_CHANGE + " ) or " + TEMPLATE_SECOND_LU_CHANGE + " != true() ) "
-					)
-				);
-
-		calculation.add(new AttributeDefault(
-					TEMPLATE_LAND_USE_SUBCATEGORY,
-					TEMPLATE_LAND_USE_CATEGORY_CHANGED + 
-					" and " + TEMPLATE_LAND_USE_SUBCATEGORY_YEAR_CHANGED + " <= "	+ year + 
-					" and " + TEMPLATE_LAND_USE_SUBCATEGORY_YEAR_CHANGED + "  >=" + thresHold20Years)
-				);
-
-		calculation.add(new AttributeDefault(
-					"concat(" + ATTR_CURRENT_CATEGORY + "," + ATTR_CURRENT_CATEGORY + ")",
-					TEMPLATE_LAND_USE_SUBCATEGORY_YEAR_CHANGED + " < " + thresHold20Years)
-				);
-
-		calculation.add(new AttributeDefault(
-				"concat(" + ATTR_PREVIOUS_CATEGORY + "," + ATTR_PREVIOUS_CATEGORY + ")",
-					TEMPLATE_LAND_USE_CATEGORY_CHANGED + 
-					" and ( idm:blank(" + TEMPLATE_SECOND_LU_CHANGE + " ) or " + TEMPLATE_SECOND_LU_CHANGE + " != true() ) " +  
-					"and " + TEMPLATE_LAND_USE_SUBCATEGORY_YEAR_CHANGED + " > " + year)
-				);
-
-		calculation.add(new AttributeDefault(
-					"concat(" + ATTR_OLDEST_CATEGORY + "," + ATTR_PREVIOUS_CATEGORY + ")",
-					TEMPLATE_SECOND_LU_CHANGE + "=true() " + 
-					"and " + TEMPLATE_SECOND_LU_CONVERSION_YEAR + " <= " + year	+ 
-					" and " + TEMPLATE_SECOND_LU_CONVERSION_YEAR + " >= " + thresHold20Years)
-				);
-
-		calculation.add(new AttributeDefault(
+		if(!attributeAlreadyExists(plot, IPCC_ATTR_PREFIX + year + IPCC_SUBCATEGORY ) ) {
+			// Create the parent attribute for the LU Subcategory ( the initial Land Use)
+			TextAttributeDefinition subcategory = survey.getSchema().createTextAttributeDefinition();
+			subcategory.setName(IPCC_ATTR_PREFIX + year + IPCC_SUBCATEGORY);
+			subcategory.setLabel(NodeLabel.Type.INSTANCE, "en", "IPCC " + year + " Land Use Conversion");
+			subcategory.setLabel(NodeLabel.Type.INSTANCE, "es", "IPCC " + year + " Conversión de Uso de la Tierra");
+			subcategory.setLabel(NodeLabel.Type.INSTANCE, "fr", "GIEC " + year + " Conversion de l'utilisation des terres");
+			subcategory.setCalculated(true);
+	
+			int thresHold20Years = year - IPCC_20_YEARS_RULE;
+	
+			ArrayList<AttributeDefault> calculation = new ArrayList<AttributeDefault>();
+	
+			calculation.add(
+					new AttributeDefault(
+						TEMPLATE_LAND_USE_SUBCATEGORY, 
+						TEMPLATE_LAND_USE_CATEGORY_CHANGED + "!= true()" +
+						" and ( idm:blank(" + TEMPLATE_SECOND_LU_CHANGE + " ) or " + TEMPLATE_SECOND_LU_CHANGE + " != true() ) "
+						)
+					);
+	
+			calculation.add(new AttributeDefault(
+						TEMPLATE_LAND_USE_SUBCATEGORY,
+						TEMPLATE_LAND_USE_CATEGORY_CHANGED + 
+						" and " + TEMPLATE_LAND_USE_SUBCATEGORY_YEAR_CHANGED + " <= "	+ year + 
+						" and " + TEMPLATE_LAND_USE_SUBCATEGORY_YEAR_CHANGED + "  >=" + thresHold20Years)
+					);
+	
+			calculation.add(new AttributeDefault(
+						"concat(" + ATTR_CURRENT_CATEGORY + "," + ATTR_CURRENT_CATEGORY + ")",
+						TEMPLATE_LAND_USE_SUBCATEGORY_YEAR_CHANGED + " < " + thresHold20Years)
+					);
+	
+			calculation.add(new AttributeDefault(
 					"concat(" + ATTR_PREVIOUS_CATEGORY + "," + ATTR_PREVIOUS_CATEGORY + ")",
-					TEMPLATE_SECOND_LU_CHANGE + "=true() " + 
-					" and " + TEMPLATE_SECOND_LU_CONVERSION_YEAR + " < " + thresHold20Years)
-				);
-
-		calculation.add(new AttributeDefault(
-					"concat(" + ATTR_OLDEST_CATEGORY + "," + ATTR_OLDEST_CATEGORY + ")",
-					TEMPLATE_SECOND_LU_CHANGE + "=true() " + 
-					"and " + TEMPLATE_SECOND_LU_CONVERSION_YEAR + " >= "+ thresHold20Years)
-				);
-
-		subcategory.setAttributeDefaults(calculation);
-		subcategory.setAnnotation( new QName("ui:hide"), "true" );
-		plot.addChildDefinition(subcategory);
+						TEMPLATE_LAND_USE_CATEGORY_CHANGED + 
+						" and ( idm:blank(" + TEMPLATE_SECOND_LU_CHANGE + " ) or " + TEMPLATE_SECOND_LU_CHANGE + " != true() ) " +  
+						"and " + TEMPLATE_LAND_USE_SUBCATEGORY_YEAR_CHANGED + " > " + year)
+					);
+	
+			calculation.add(new AttributeDefault(
+						"concat(" + ATTR_OLDEST_CATEGORY + "," + ATTR_PREVIOUS_CATEGORY + ")",
+						TEMPLATE_SECOND_LU_CHANGE + "=true() " + 
+						"and " + TEMPLATE_SECOND_LU_CONVERSION_YEAR + " <= " + year	+ 
+						" and " + TEMPLATE_SECOND_LU_CONVERSION_YEAR + " >= " + thresHold20Years)
+					);
+	
+			calculation.add(new AttributeDefault(
+						"concat(" + ATTR_PREVIOUS_CATEGORY + "," + ATTR_PREVIOUS_CATEGORY + ")",
+						TEMPLATE_SECOND_LU_CHANGE + "=true() " + 
+						" and " + TEMPLATE_SECOND_LU_CONVERSION_YEAR + " < " + thresHold20Years)
+					);
+	
+			calculation.add(new AttributeDefault(
+						"concat(" + ATTR_OLDEST_CATEGORY + "," + ATTR_OLDEST_CATEGORY + ")",
+						TEMPLATE_SECOND_LU_CHANGE + "=true() " + 
+						"and " + TEMPLATE_SECOND_LU_CONVERSION_YEAR + " >= "+ thresHold20Years)
+					);
+	
+			subcategory.setAttributeDefaults(calculation);
+			subcategory.setAnnotation( new QName("ui:hide"), "true" );
+			plot.addChildDefinition(subcategory);
+		}
 	}
 
 	private void addLuSubdivision(Survey survey, EntityDefinition plot, CodeAttributeDefinition categoryParent,
 			int year) {
-		CodeAttributeDefinition subdivision = survey.getSchema().createCodeAttributeDefinition();
-		subdivision.setName(getIpccSubdivisionAttrName(year));
-		subdivision.setLabel(NodeLabel.Type.INSTANCE, "en", "IPCC " + year + " Land Use Subdivision");
-		subdivision.setLabel(NodeLabel.Type.INSTANCE, "es", "IPCC " + year + " Subdivisión de Uso de la Tierra");
-		subdivision.setLabel(NodeLabel.Type.INSTANCE, "fr", "GIEC " + year + " Subdivision d'utilisation des terres");
-		try {
-			subdivision.setListName(CODE_LIST_LAND_USE[0]);
-		} catch (IllegalArgumentException e) {
-			subdivision.setListName(CODE_LIST_LAND_USE[1]);
-		}
-		subdivision.setParentCodeAttributeDefinition(categoryParent);
-		subdivision.setCalculated(true);
-
-		ArrayList<AttributeDefault> calculation = new ArrayList<AttributeDefault>();
-
-		calculation
-				.add(new AttributeDefault(
-						TEMPLATE_LAND_USE_SUBDIVISION, 
-						TEMPLATE_LAND_USE_CHANGE_ONCE + "!= true()")
-				);
-
-		calculation
-				.add(new AttributeDefault(
-						TEMPLATE_LAND_USE_SUBDIVISION, 
-						TEMPLATE_LAND_USE_CATEGORY_CHANGED + 
-						" and ( idm:blank(" + TEMPLATE_LAND_USE_SUBDIVISION_CHANGED + " ) or " + TEMPLATE_LAND_USE_SUBDIVISION_CHANGED + " != true() ) " +
-						" and "	+ TEMPLATE_LAND_USE_SUBCATEGORY_YEAR_CHANGED + " <= " + year)
+		if(!attributeAlreadyExists(plot, getIpccSubdivisionAttrName(year) ) ) {
+			CodeAttributeDefinition subdivision = survey.getSchema().createCodeAttributeDefinition();
+			subdivision.setName(getIpccSubdivisionAttrName(year));
+			subdivision.setLabel(NodeLabel.Type.INSTANCE, "en", "IPCC " + year + " Land Use Subdivision");
+			subdivision.setLabel(NodeLabel.Type.INSTANCE, "es", "IPCC " + year + " Subdivisión de Uso de la Tierra");
+			subdivision.setLabel(NodeLabel.Type.INSTANCE, "fr", "GIEC " + year + " Subdivision d'utilisation des terres");
+			subdivision.setListName(CODE_LIST_LAND_USE);
+			subdivision.setParentCodeAttributeDefinition(categoryParent);
+			subdivision.setCalculated(true);
+	
+			ArrayList<AttributeDefault> calculation = new ArrayList<AttributeDefault>();
+	
+			calculation
+					.add(new AttributeDefault(
+							TEMPLATE_LAND_USE_SUBDIVISION, 
+							TEMPLATE_LAND_USE_CHANGE_ONCE + "!= true()")
 					);
-
-		calculation.add(new AttributeDefault(
-				TEMPLATE_LAND_USE_PREVIOUS_SUBDIVISION,
-				TEMPLATE_SECOND_LU_CHANGE + " = true()" + 
-				" and ( idm:blank(" + TEMPLATE_LAND_USE_CATEGORY_CHANGED + " ) or " + TEMPLATE_LAND_USE_CATEGORY_CHANGED + " != true() ) "+
-				" and " + TEMPLATE_LAND_USE_SUBDIVISION_CHANGED	+ "=true() " + 
-				" and " + TEMPLATE_LAND_USE_SUBDIVISION_YEAR_CHANGED + " > " + year +
-				" and "	+ TEMPLATE_SECOND_LU_CONVERSION_YEAR + " <= " + year
-		));
-
-		calculation.add(new AttributeDefault(
-				TEMPLATE_LAND_USE_SUBDIVISION,
-				TEMPLATE_SECOND_LU_CHANGE + " = true()" + 
-				" and ( idm:blank(" + TEMPLATE_LAND_USE_CATEGORY_CHANGED + " ) or " + TEMPLATE_LAND_USE_CATEGORY_CHANGED + " != true() ) "+
-				" and " + TEMPLATE_LAND_USE_SUBDIVISION_CHANGED	+ "=true() " + 
-				" and " + TEMPLATE_LAND_USE_SUBDIVISION_YEAR_CHANGED + " <= " + year
-		));
-		
-		calculation.add(new AttributeDefault(
-				TEMPLATE_LAND_USE_PREVIOUS_SUBDIVISION,
-				TEMPLATE_LAND_USE_CATEGORY_CHANGED + " = true() " + 
-				" and ( idm:blank(" + TEMPLATE_SECOND_LU_CHANGE + " ) or " + TEMPLATE_SECOND_LU_CHANGE + " != true() ) " + 
-				"and " + TEMPLATE_LAND_USE_SUBCATEGORY_YEAR_CHANGED	+ " > " + year)
+	
+			calculation
+					.add(new AttributeDefault(
+							TEMPLATE_LAND_USE_SUBDIVISION, 
+							TEMPLATE_LAND_USE_CATEGORY_CHANGED + 
+							" and ( idm:blank(" + TEMPLATE_LAND_USE_SUBDIVISION_CHANGED + " ) or " + TEMPLATE_LAND_USE_SUBDIVISION_CHANGED + " != true() ) " +
+							" and "	+ TEMPLATE_LAND_USE_SUBCATEGORY_YEAR_CHANGED + " <= " + year)
+						);
+	
+			calculation.add(new AttributeDefault(
+					TEMPLATE_LAND_USE_PREVIOUS_SUBDIVISION,
+					TEMPLATE_SECOND_LU_CHANGE + " = true()" + 
+					" and ( idm:blank(" + TEMPLATE_LAND_USE_CATEGORY_CHANGED + " ) or " + TEMPLATE_LAND_USE_CATEGORY_CHANGED + " != true() ) "+
+					" and " + TEMPLATE_LAND_USE_SUBDIVISION_CHANGED	+ "=true() " + 
+					" and " + TEMPLATE_LAND_USE_SUBDIVISION_YEAR_CHANGED + " > " + year +
+					" and "	+ TEMPLATE_SECOND_LU_CONVERSION_YEAR + " <= " + year
+			));
+	
+			calculation.add(new AttributeDefault(
+					TEMPLATE_LAND_USE_SUBDIVISION,
+					TEMPLATE_SECOND_LU_CHANGE + " = true()" + 
+					" and ( idm:blank(" + TEMPLATE_LAND_USE_CATEGORY_CHANGED + " ) or " + TEMPLATE_LAND_USE_CATEGORY_CHANGED + " != true() ) "+
+					" and " + TEMPLATE_LAND_USE_SUBDIVISION_CHANGED	+ "=true() " + 
+					" and " + TEMPLATE_LAND_USE_SUBDIVISION_YEAR_CHANGED + " <= " + year
+			));
+			
+			calculation.add(new AttributeDefault(
+					TEMPLATE_LAND_USE_PREVIOUS_SUBDIVISION,
+					TEMPLATE_LAND_USE_CATEGORY_CHANGED + " = true() " + 
+					" and ( idm:blank(" + TEMPLATE_SECOND_LU_CHANGE + " ) or " + TEMPLATE_SECOND_LU_CHANGE + " != true() ) " + 
+					"and " + TEMPLATE_LAND_USE_SUBCATEGORY_YEAR_CHANGED	+ " > " + year)
+				);
+	
+			calculation.add(new AttributeDefault(
+					TEMPLATE_LAND_USE_PREVIOUS_SUBDIVISION,
+					TEMPLATE_SECOND_LU_CHANGE + "=true() " + 
+					"and " + TEMPLATE_SECOND_LU_CONVERSION_YEAR + " <= " + year)
 			);
-
-		calculation.add(new AttributeDefault(
-				TEMPLATE_LAND_USE_PREVIOUS_SUBDIVISION,
-				TEMPLATE_SECOND_LU_CHANGE + "=true() " + 
-				"and " + TEMPLATE_SECOND_LU_CONVERSION_YEAR + " <= " + year)
-		);
-
-		calculation.add(new AttributeDefault(
-				TEMPLATE_LAND_USE_SECOND_SUBDIVISION,
-				TEMPLATE_SECOND_LU_CHANGE + "=true() " + 
-				"and " + TEMPLATE_SECOND_LU_CONVERSION_YEAR + " > " + year)
-		);
-
-		calculation.add(new AttributeDefault(
-				TEMPLATE_LAND_USE_PREVIOUS_SUBDIVISION,
-				"( idm:blank(" + TEMPLATE_SECOND_LU_CHANGE + " ) or " + TEMPLATE_SECOND_LU_CHANGE + " != true() ) " + 
-				" and  " + TEMPLATE_LAND_USE_CATEGORY_CHANGED + "=true() "+
-				" and " + TEMPLATE_LAND_USE_SUBDIVISION_CHANGED	+ "=true() " + 
-				" and " + TEMPLATE_LAND_USE_SUBDIVISION_YEAR_CHANGED + " > " + year + 
-				" and "	+ TEMPLATE_LAND_USE_SUBCATEGORY_YEAR_CHANGED + " <= " + year
-
-		));
-
-		calculation.add(new AttributeDefault(
-				TEMPLATE_LAND_USE_SUBDIVISION,
-				"( idm:blank(" + TEMPLATE_SECOND_LU_CHANGE + " ) or " + TEMPLATE_SECOND_LU_CHANGE + " != true() ) "+
-				" and  " + TEMPLATE_LAND_USE_CATEGORY_CHANGED + "=true() " + 
-				" and " + TEMPLATE_LAND_USE_SUBDIVISION_CHANGED	+ "=true() "+
-				" and " + TEMPLATE_LAND_USE_SUBDIVISION_YEAR_CHANGED + " <= " + year)
-		);
-
-		calculation.add(new AttributeDefault(
-				TEMPLATE_LAND_USE_PREVIOUS_SUBDIVISION,
-				TEMPLATE_LAND_USE_CATEGORY_CHANGED + "=false()  " + 
-				"and " + TEMPLATE_LAND_USE_SUBDIVISION_CHANGED	+ "=true() " + 
-				" and " + TEMPLATE_LAND_USE_SUBDIVISION_YEAR_CHANGED + " > " + year
-
-		));
-
-		calculation.add(new AttributeDefault(
-				TEMPLATE_LAND_USE_SUBDIVISION,
-				TEMPLATE_LAND_USE_CATEGORY_CHANGED + "=false() "+
-				" and " + TEMPLATE_LAND_USE_SUBDIVISION_CHANGED	+ "=true() " + 
-				" and " + TEMPLATE_LAND_USE_SUBDIVISION_YEAR_CHANGED + " <= " + year)
-		);
-
-		subdivision.setAttributeDefaults(calculation);
-		subdivision.setAnnotation( new QName("ui:hide"), "true" );
-		plot.addChildDefinition(subdivision);
-
+	
+			calculation.add(new AttributeDefault(
+					TEMPLATE_LAND_USE_SECOND_SUBDIVISION,
+					TEMPLATE_SECOND_LU_CHANGE + "=true() " + 
+					"and " + TEMPLATE_SECOND_LU_CONVERSION_YEAR + " > " + year)
+			);
+	
+			calculation.add(new AttributeDefault(
+					TEMPLATE_LAND_USE_PREVIOUS_SUBDIVISION,
+					"( idm:blank(" + TEMPLATE_SECOND_LU_CHANGE + " ) or " + TEMPLATE_SECOND_LU_CHANGE + " != true() ) " + 
+					" and  " + TEMPLATE_LAND_USE_CATEGORY_CHANGED + "=true() "+
+					" and " + TEMPLATE_LAND_USE_SUBDIVISION_CHANGED	+ "=true() " + 
+					" and " + TEMPLATE_LAND_USE_SUBDIVISION_YEAR_CHANGED + " > " + year + 
+					" and "	+ TEMPLATE_LAND_USE_SUBCATEGORY_YEAR_CHANGED + " <= " + year
+	
+			));
+	
+			calculation.add(new AttributeDefault(
+					TEMPLATE_LAND_USE_SUBDIVISION,
+					"( idm:blank(" + TEMPLATE_SECOND_LU_CHANGE + " ) or " + TEMPLATE_SECOND_LU_CHANGE + " != true() ) "+
+					" and  " + TEMPLATE_LAND_USE_CATEGORY_CHANGED + "=true() " + 
+					" and " + TEMPLATE_LAND_USE_SUBDIVISION_CHANGED	+ "=true() "+
+					" and " + TEMPLATE_LAND_USE_SUBDIVISION_YEAR_CHANGED + " <= " + year)
+			);
+	
+			calculation.add(new AttributeDefault(
+					TEMPLATE_LAND_USE_PREVIOUS_SUBDIVISION,
+					TEMPLATE_LAND_USE_CATEGORY_CHANGED + "=false()  " + 
+					"and " + TEMPLATE_LAND_USE_SUBDIVISION_CHANGED	+ "=true() " + 
+					" and " + TEMPLATE_LAND_USE_SUBDIVISION_YEAR_CHANGED + " > " + year
+	
+			));
+	
+			calculation.add(new AttributeDefault(
+					TEMPLATE_LAND_USE_SUBDIVISION,
+					TEMPLATE_LAND_USE_CATEGORY_CHANGED + "=false() "+
+					" and " + TEMPLATE_LAND_USE_SUBDIVISION_CHANGED	+ "=true() " + 
+					" and " + TEMPLATE_LAND_USE_SUBDIVISION_YEAR_CHANGED + " <= " + year)
+			);
+	
+			subdivision.setAttributeDefaults(calculation);
+			subdivision.setAnnotation( new QName("ui:hide"), "true" );
+			plot.addChildDefinition(subdivision);
+		}
 	}
 
 	private void checkSurveyLUAttributes(Survey survey) throws IPCCGeneratorException {
@@ -410,17 +418,8 @@ public class IPCCSurveyAdapter {
 	private void checkSurveyLUCodeLists(Survey survey) throws IPCCGeneratorException {
 
 		ArrayList<String> luCodeLists = new ArrayList<String>();
-		
-		try {
-			luCodeLists.add(CODE_LIST_LAND_USE[0]);
-		} catch (IllegalArgumentException e) {
-			luCodeLists.add(CODE_LIST_LAND_USE[1]);
-		}
-		try {
-			luCodeLists.add(CODE_LIST_LAND_USE_SUBCATEGORY[0]);
-		} catch (IllegalArgumentException e) {
-			luCodeLists.add(CODE_LIST_LAND_USE_SUBCATEGORY[1]);
-		}
+		luCodeLists.add(CODE_LIST_LAND_USE);
+		luCodeLists.add(CODE_LIST_LAND_USE_SUBCATEGORY);
 
 		for (String codeList : luCodeLists) {
 			try {
