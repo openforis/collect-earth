@@ -65,7 +65,7 @@ public class IPCC2006Export {
     protected String version;
     @XmlElement(required = true)
     @XmlSchemaType(name = "gYear")
-    protected XMLGregorianCalendar inventoryYear;
+    protected Integer inventoryYear;
     @XmlElement(required = true)
     protected String countryCode;
     protected List<IPCC2006Export.Record> record;
@@ -102,7 +102,7 @@ public class IPCC2006Export {
      *     {@link XMLGregorianCalendar }
      *     
      */
-    public XMLGregorianCalendar getInventoryYear() {
+    public Integer getInventoryYear() {
         return inventoryYear;
     }
 
@@ -114,7 +114,7 @@ public class IPCC2006Export {
      *     {@link XMLGregorianCalendar }
      *     
      */
-    public void setInventoryYear(XMLGregorianCalendar value) {
+    public void setInventoryYear(Integer value) {
         this.inventoryYear = value;
     }
 
