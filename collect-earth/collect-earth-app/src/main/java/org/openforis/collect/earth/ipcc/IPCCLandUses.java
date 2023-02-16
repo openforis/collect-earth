@@ -6,6 +6,7 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 
+import org.openforis.collect.earth.app.service.EarthSurveyService;
 import org.openforis.collect.earth.app.service.ExportType;
 import org.openforis.collect.earth.app.service.RDBConnector;
 import org.openforis.collect.earth.app.service.SchemaService;
@@ -30,15 +31,22 @@ import org.springframework.stereotype.Component;
 public class IPCCLandUses extends RDBConnector {
 
 	private String schemaName;
-	private static final String LU_TABLE = "land_use_use_code";
-	private static final String LU_CODE_COLUMN = "land_use_use";
-	private static final String LU_SUBDIVISION_TABLE = "land_use_subdivision_code";
+	private static final String LU_CATEGORY_COLUMN = "land_uses_category";
+	private static final String LU_TABLE = LU_CATEGORY_COLUMN + "_code";
+	private static final String LU_SUBDIVISION ="land_uses_subdivision";
+	private static final String LU_SUBDIVISION_LABEL = LU_SUBDIVISION + "_label";
+	private static final String LU_SUBDIVISION_TABLE = LU_SUBDIVISION + "_code";
 	private static final String LU_CATEGORY_ID = LU_TABLE +"_id";
 
 	Logger logger = LoggerFactory.getLogger(IPCCLandUses.class);
 
 	@Autowired
 	private SchemaService schemaService;
+	
+	@Autowired
+	private EarthSurveyService earthSurveyService;
+	
+	private List<LandUseSubdivision> landUseSubdivisions;
 
 
 	public IPCCLandUses() {
@@ -47,32 +55,36 @@ public class IPCCLandUses extends RDBConnector {
 
 	public List<LandUseSubdivision> getLandUseSubdivisions() {
 
+		if( landUseSubdivisions != null ) {
+			return landUseSubdivisions;
+		}
+		
 		schemaName = schemaService.getSchemaPrefix(getExportTypeUsed());
 
 		LandUseCategory[] lUseCategories = LandUseCategory.values();
 
-		List<LandUseSubdivision> lUseSubdivisions = new ArrayList<LandUseSubdivision>();
+		landUseSubdivisions = new ArrayList<LandUseSubdivision>();
 
 		for (int i = 0; i < lUseCategories.length; i++) {
 			
-			lUseSubdivisions.addAll( getSubdivisions(lUseCategories[i]));
+			landUseSubdivisions.addAll( getSubdivisions(lUseCategories[i]));
 			
 		}
 
-		return lUseSubdivisions;
+		return landUseSubdivisions;
 
 	}
-
+	
 	private Collection<? extends LandUseSubdivision<?>> getSubdivisions(LandUseCategory landUseCategory) {
-
+	
 		List<LandUseSubdivision<?>> luSubdivisions = getJdbcTemplate().query(
 				"select " 
-					+ "land_use_subdivision,land_use_subdivision_label_fr"
+					+ LU_SUBDIVISION + "," + LU_SUBDIVISION_LABEL
 					+ " from " + schemaName + LU_SUBDIVISION_TABLE
 					+ " where " + LU_CATEGORY_ID
 						+ " IN ( select " + LU_CATEGORY_ID
 								+ " from " + schemaName + LU_TABLE
-								+ " where " + LU_CODE_COLUMN + " = '" + landUseCategory.getCode()+ "'"
+								+ " where " + LU_CATEGORY_COLUMN + " = '" + landUseCategory.getCode()+ "'"
 						+ ")"
 				,
 				getRowMapper(landUseCategory)

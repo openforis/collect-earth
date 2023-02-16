@@ -51,9 +51,9 @@ public class IPCCDataExportLandUnitsCSV extends IPCCDataExportCSV {
 	}
 	
 	private List<String[]> generateLUCombinations(int startYear, int endYear) {
-		String selectedYears = IPCCDataExportTimeSeries.CLIMATE_COLUMN_LABEL + 
-								", " + IPCCDataExportTimeSeries.SOIL_COLUMN_LABEL + 
-								", " + IPCCDataExportTimeSeries.GEZ_COLUMN_LABEL + ", " ;
+		String selectedYears = AbstractIPCCDataExportTimeSeries.CLIMATE_COLUMN_LABEL + 
+								", " + AbstractIPCCDataExportTimeSeries.SOIL_COLUMN_LABEL + 
+								", " + AbstractIPCCDataExportTimeSeries.GEZ_COLUMN_LABEL + ", " ;
 		for( int year = startYear ; year <= endYear; year++ ) {
 			selectedYears += IPCCSurveyAdapter.getIpccCategoryAttrName(year) + ", " 
 					+ IPCCSurveyAdapter.getIpccSubdivisionAttrName(year) + ",";
@@ -62,14 +62,14 @@ public class IPCCDataExportLandUnitsCSV extends IPCCDataExportCSV {
 		String sqlSelect = "select " 
 				+ selectedYears
 				+ " sum( " + RegionCalculationUtils.EXPANSION_FACTOR + ")" 
-				+ " from " + schemaName + IPCCDataExportTimeSeries.PLOT_TABLE  + " ," + schemaName + IPCCDataExportTimeSeries.SOIL_TABLE + " ," + schemaName + IPCCDataExportTimeSeries.CLIMATE_TABLE + " ," + schemaName + IPCCDataExportTimeSeries.GEZ_TABLE
+				+ " from " + schemaName + AbstractIPCCDataExportTimeSeries.PLOT_TABLE  + " ," + schemaName + AbstractIPCCDataExportTimeSeries.SOIL_TABLE + " ," + schemaName + AbstractIPCCDataExportTimeSeries.CLIMATE_TABLE + " ," + schemaName + AbstractIPCCDataExportTimeSeries.GEZ_TABLE
 				
 				+ " where " 
-					+ IPCCDataExportTimeSeries.SOIL_COLUMN_IN_PLOT + " = " +  IPCCDataExportTimeSeries.SOIL_COLUMN_ID
+					+ AbstractIPCCDataExportTimeSeries.SOIL_COLUMN_IN_PLOT + " = " +  AbstractIPCCDataExportTimeSeries.SOIL_COLUMN_ID
 					+ " and "
-					+ IPCCDataExportTimeSeries.CLIMATE_COLUMN_IN_PLOT + " = " +  IPCCDataExportTimeSeries.CLIMATE_COLUMN_ID
+					+ AbstractIPCCDataExportTimeSeries.CLIMATE_COLUMN_IN_PLOT + " = " +  AbstractIPCCDataExportTimeSeries.CLIMATE_COLUMN_ID
 					+ " and "
-					+ IPCCDataExportTimeSeries.GEZ_COLUMN_IN_PLOT + " = " +  IPCCDataExportTimeSeries.GEZ_COLUMN_ID
+					+ AbstractIPCCDataExportTimeSeries.GEZ_COLUMN_IN_PLOT + " = " +  AbstractIPCCDataExportTimeSeries.GEZ_COLUMN_ID
 				
 				+ " GROUP BY "
 				+ selectedYears.substring(0, selectedYears.length()-1)

@@ -53,6 +53,9 @@ public class IPCCGenerator {
 	IPCCDataExportPerPlotCSV dataExportPerPlotCSV;
 	
 	@Autowired
+	IPCCDataExportTimeSeriesToTool dataExportTimeSeriesToTool;
+	
+	@Autowired
 	IPCCLandUses landUses;
 	
 	@Autowired
@@ -72,16 +75,16 @@ public class IPCCGenerator {
 		// Add attributes for each year containing the LU Category and Subdivision if not present
 		Survey modifiedSurvey = ipccSurveyAdapter.addIPCCAttributesToSurvey( survey );
 
+		/*
+		 * CODE NOT NECESSARY, JUST USED TO CHECK IDML SURVEY FILE
 		try( FileOutputStream fos = new FileOutputStream( "surveyModified.xml" ) ) {
 			surveyManager.marshalSurvey(modifiedSurvey, fos );
 		} catch (FileNotFoundException e) {
-			// TODO Auto-generated catch block
-			e.printStackTrace();
+			logger.error( "Error marshalling survey", e );
 		} catch (IOException e) {
-			// TODO Auto-generated catch block
-			e.printStackTrace();
+			logger.error( "Error marshalling survey", e );
 		}
-		
+		*/
 		// Generate Relational Database of the survey data
 		ipccRdbGenerator.generateRelationalDatabase( modifiedSurvey, progressListener);
 
@@ -148,6 +151,11 @@ public class IPCCGenerator {
 			// 	Extract data from the Relational Database into an excel file of transition Matrixes per year
 			File matrixXLSExtendedFile =dataExportMatrixExtendedExcel.generateTimeseriesData(START_YEAR, END_YEAR);
 			if( progressListener.isUserCancelled() ) return;
+			
+			progressListener.updateProgress(currentStep++, STEPS, "Generating GHGi activity data files" );
+			// 	Extract data from the Relational Database into an excel file of transition Matrixes per year
+			File zipWithGHGiYearlyData =dataExportTimeSeriesToTool.generateTimeseriesData(START_YEAR, END_YEAR, "CCC");
+			if( progressListener.isUserCancelled() ) return;
 
 			try {
 				progressListener.updateProgress(currentStep++, STEPS, "Compressing files into selected destination" );
@@ -160,6 +168,7 @@ public class IPCCGenerator {
 				CollectEarthUtils.addFileToZip( destinationZip , soilTypes, "ConfigSoilTypes.xml");
 				CollectEarthUtils.addFileToZip( destinationZip , landUnitsCSVFile, "LU_Timeseries_grouped.csv");
 				CollectEarthUtils.addFileToZip( destinationZip , perPlotCSVFile, "LU_Timeseries_per_plot.csv");
+				CollectEarthUtils.addFileToZip( destinationZip , zipWithGHGiYearlyData, "GHGi_tool_data.zip");
 				progressListener.hide();
 			} catch (IOException e) {
 				logger.error("Error when creating ZIP file with timeseries content " + destinationZip, e); //$NON-NLS-1$ //$NON-NLS-2$

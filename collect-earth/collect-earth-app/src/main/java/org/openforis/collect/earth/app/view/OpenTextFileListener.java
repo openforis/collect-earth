@@ -31,7 +31,7 @@ public class OpenTextFileListener implements ActionListener {
 		this.filePath = filePath;
 		dialog = new JDialog(owner, title + " " + filePath); //$NON-NLS-1$
 		dialog.setLocationRelativeTo(owner);
-		dialog.setSize(new Dimension(300, 400));
+		dialog.setSize(new Dimension(450, 400));
 		dialog.setModal(true);
 
 		final BorderLayout layoutManager = new BorderLayout();
@@ -46,7 +46,7 @@ public class OpenTextFileListener implements ActionListener {
 		disclaimerTextArea.setWrapStyleWord(true);
 		final JScrollPane scrollPane = new JScrollPane(disclaimerTextArea);
 		panel.add(scrollPane, BorderLayout.CENTER);
-		scrollPane.setPreferredSize(new Dimension(250, 250));
+		scrollPane.setPreferredSize(new Dimension(450, 400));
 
 		final JButton close = new JButton(Messages.getString("CollectEarthWindow.5")); //$NON-NLS-1$
 		close.addActionListener( e -> dialog.setVisible(false) );

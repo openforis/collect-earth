@@ -8,7 +8,6 @@
 
 package org.openforis.collect.earth.ipcc.serialize;
 
-import java.math.BigInteger;
 import javax.xml.bind.annotation.XmlAccessType;
 import javax.xml.bind.annotation.XmlAccessorType;
 import javax.xml.bind.annotation.XmlElement;
@@ -113,39 +112,39 @@ import javax.xml.bind.annotation.XmlType;
 public class CltForestLand {
 
     @XmlElement(required = true)
-    protected BigInteger id;
+    protected Integer id;
     @XmlElement(required = true)
     protected String guid;
     @XmlElement(required = true)
     protected String customName;
     protected boolean managed;
     @XmlElement(required = true)
-    protected BigInteger climateRegionId;
+    protected Integer climateRegionId;
     @XmlElement(required = true)
-    protected BigInteger soilTypeId;
+    protected Integer soilTypeId;
     @XmlElement(required = true)
-    protected BigInteger soilStatusId;
+    protected Integer soilStatusId;
     @XmlElement(required = true)
-    protected BigInteger nutrientTypeId;
+    protected Integer nutrientTypeId;
     @XmlElement(required = true)
-    protected BigInteger ecoZoneId;
+    protected Integer ecoZoneId;
     @XmlElement(required = true, nillable = true)
     protected String ecoZoneCustom;
     protected boolean plantation;
     @XmlElement(required = true)
-    protected BigInteger forestTypeId;
+    protected Integer forestTypeId;
     @XmlElement(required = true, nillable = true)
     protected String forestTypeCustom;
     @XmlElement(required = true)
-    protected BigInteger continentTypeId;
+    protected Integer continentTypeId;
     @XmlElement(required = true)
-    protected BigInteger ageClassId;
+    protected Integer ageClassId;
     @XmlElement(required = true)
-    protected BigInteger growingStockLevelId;
+    protected Integer growingStockLevelId;
     protected double carbonFraction;
     protected double ratio;
     @XmlElement(required = true)
-    protected BigInteger bcefRType;
+    protected Integer bcefRType;
     protected double bcefR;
     protected double aboveGroundBiomass;
     protected double aboveGroundBiomassGrowth;
@@ -158,13 +157,13 @@ public class CltForestLand {
     @XmlElement(required = true, type = Double.class, nillable = true)
     protected Double growingStockInc;
     @XmlElement(required = true)
-    protected BigInteger bcefIType;
+    protected Integer bcefIType;
     @XmlElement(required = true, type = Double.class, nillable = true)
     protected Double bef1;
     @XmlElement(required = true, type = Double.class, nillable = true)
     protected Double bcefI;
     @XmlElement(required = true)
-    protected BigInteger bcefSType;
+    protected Integer bcefSType;
     @XmlElement(required = true, type = Double.class, nillable = true)
     protected Double bef2;
     @XmlElement(required = true, type = Double.class, nillable = true)
@@ -172,7 +171,7 @@ public class CltForestLand {
     @XmlElement(required = true, nillable = true)
     protected String ageClassRange;
     @XmlElement(required = true, nillable = true)
-    protected BigInteger growingStockLevelValue;
+    protected Integer growingStockLevelValue;
     @XmlElement(required = true, type = Double.class, nillable = true)
     protected Double soilCarbonStock;
 
@@ -181,10 +180,10 @@ public class CltForestLand {
      * 
      * @return
      *     possible object is
-     *     {@link BigInteger }
+     *     {@link Integer }
      *     
      */
-    public BigInteger getId() {
+    public Integer getId() {
         return id;
     }
 
@@ -193,10 +192,10 @@ public class CltForestLand {
      * 
      * @param value
      *     allowed object is
-     *     {@link BigInteger }
+     *     {@link Integer }
      *     
      */
-    public void setId(BigInteger value) {
+    public void setId(Integer value) {
         this.id = value;
     }
 
@@ -269,10 +268,10 @@ public class CltForestLand {
      * 
      * @return
      *     possible object is
-     *     {@link BigInteger }
+     *     {@link Integer }
      *     
      */
-    public BigInteger getClimateRegionId() {
+    public Integer getClimateRegionId() {
         return climateRegionId;
     }
 
@@ -281,10 +280,10 @@ public class CltForestLand {
      * 
      * @param value
      *     allowed object is
-     *     {@link BigInteger }
+     *     {@link Integer }
      *     
      */
-    public void setClimateRegionId(BigInteger value) {
+    public void setClimateRegionId(Integer value) {
         this.climateRegionId = value;
     }
 
@@ -293,10 +292,10 @@ public class CltForestLand {
      * 
      * @return
      *     possible object is
-     *     {@link BigInteger }
+     *     {@link Integer }
      *     
      */
-    public BigInteger getSoilTypeId() {
+    public Integer getSoilTypeId() {
         return soilTypeId;
     }
 
@@ -305,10 +304,10 @@ public class CltForestLand {
      * 
      * @param value
      *     allowed object is
-     *     {@link BigInteger }
+     *     {@link Integer }
      *     
      */
-    public void setSoilTypeId(BigInteger value) {
+    public void setSoilTypeId(Integer value) {
         this.soilTypeId = value;
     }
 
@@ -317,10 +316,10 @@ public class CltForestLand {
      * 
      * @return
      *     possible object is
-     *     {@link BigInteger }
+     *     {@link Integer }
      *     
      */
-    public BigInteger getSoilStatusId() {
+    public Integer getSoilStatusId() {
         return soilStatusId;
     }
 
@@ -329,10 +328,10 @@ public class CltForestLand {
      * 
      * @param value
      *     allowed object is
-     *     {@link BigInteger }
+     *     {@link Integer }
      *     
      */
-    public void setSoilStatusId(BigInteger value) {
+    public void setSoilStatusId(Integer value) {
         this.soilStatusId = value;
     }
 
@@ -341,10 +340,10 @@ public class CltForestLand {
      * 
      * @return
      *     possible object is
-     *     {@link BigInteger }
+     *     {@link Integer }
      *     
      */
-    public BigInteger getNutrientTypeId() {
+    public Integer getNutrientTypeId() {
         return nutrientTypeId;
     }
 
@@ -353,10 +352,10 @@ public class CltForestLand {
      * 
      * @param value
      *     allowed object is
-     *     {@link BigInteger }
+     *     {@link Integer }
      *     
      */
-    public void setNutrientTypeId(BigInteger value) {
+    public void setNutrientTypeId(Integer value) {
         this.nutrientTypeId = value;
     }
 
@@ -365,10 +364,10 @@ public class CltForestLand {
      * 
      * @return
      *     possible object is
-     *     {@link BigInteger }
+     *     {@link Integer }
      *     
      */
-    public BigInteger getEcoZoneId() {
+    public Integer getEcoZoneId() {
         return ecoZoneId;
     }
 
@@ -377,10 +376,10 @@ public class CltForestLand {
      * 
      * @param value
      *     allowed object is
-     *     {@link BigInteger }
+     *     {@link Integer }
      *     
      */
-    public void setEcoZoneId(BigInteger value) {
+    public void setEcoZoneId(Integer value) {
         this.ecoZoneId = value;
     }
 
@@ -429,10 +428,10 @@ public class CltForestLand {
      * 
      * @return
      *     possible object is
-     *     {@link BigInteger }
+     *     {@link Integer }
      *     
      */
-    public BigInteger getForestTypeId() {
+    public Integer getForestTypeId() {
         return forestTypeId;
     }
 
@@ -441,10 +440,10 @@ public class CltForestLand {
      * 
      * @param value
      *     allowed object is
-     *     {@link BigInteger }
+     *     {@link Integer }
      *     
      */
-    public void setForestTypeId(BigInteger value) {
+    public void setForestTypeId(Integer value) {
         this.forestTypeId = value;
     }
 
@@ -477,10 +476,10 @@ public class CltForestLand {
      * 
      * @return
      *     possible object is
-     *     {@link BigInteger }
+     *     {@link Integer }
      *     
      */
-    public BigInteger getContinentTypeId() {
+    public Integer getContinentTypeId() {
         return continentTypeId;
     }
 
@@ -489,10 +488,10 @@ public class CltForestLand {
      * 
      * @param value
      *     allowed object is
-     *     {@link BigInteger }
+     *     {@link Integer }
      *     
      */
-    public void setContinentTypeId(BigInteger value) {
+    public void setContinentTypeId(Integer value) {
         this.continentTypeId = value;
     }
 
@@ -501,10 +500,10 @@ public class CltForestLand {
      * 
      * @return
      *     possible object is
-     *     {@link BigInteger }
+     *     {@link Integer }
      *     
      */
-    public BigInteger getAgeClassId() {
+    public Integer getAgeClassId() {
         return ageClassId;
     }
 
@@ -513,10 +512,10 @@ public class CltForestLand {
      * 
      * @param value
      *     allowed object is
-     *     {@link BigInteger }
+     *     {@link Integer }
      *     
      */
-    public void setAgeClassId(BigInteger value) {
+    public void setAgeClassId(Integer value) {
         this.ageClassId = value;
     }
 
@@ -525,10 +524,10 @@ public class CltForestLand {
      * 
      * @return
      *     possible object is
-     *     {@link BigInteger }
+     *     {@link Integer }
      *     
      */
-    public BigInteger getGrowingStockLevelId() {
+    public Integer getGrowingStockLevelId() {
         return growingStockLevelId;
     }
 
@@ -537,10 +536,10 @@ public class CltForestLand {
      * 
      * @param value
      *     allowed object is
-     *     {@link BigInteger }
+     *     {@link Integer }
      *     
      */
-    public void setGrowingStockLevelId(BigInteger value) {
+    public void setGrowingStockLevelId(Integer value) {
         this.growingStockLevelId = value;
     }
 
@@ -581,10 +580,10 @@ public class CltForestLand {
      * 
      * @return
      *     possible object is
-     *     {@link BigInteger }
+     *     {@link Integer }
      *     
      */
-    public BigInteger getBcefRType() {
+    public Integer getBcefRType() {
         return bcefRType;
     }
 
@@ -593,10 +592,10 @@ public class CltForestLand {
      * 
      * @param value
      *     allowed object is
-     *     {@link BigInteger }
+     *     {@link Integer }
      *     
      */
-    public void setBcefRType(BigInteger value) {
+    public void setBcefRType(Integer value) {
         this.bcefRType = value;
     }
 
@@ -765,10 +764,10 @@ public class CltForestLand {
      * 
      * @return
      *     possible object is
-     *     {@link BigInteger }
+     *     {@link Integer }
      *     
      */
-    public BigInteger getBcefIType() {
+    public Integer getBcefIType() {
         return bcefIType;
     }
 
@@ -777,10 +776,10 @@ public class CltForestLand {
      * 
      * @param value
      *     allowed object is
-     *     {@link BigInteger }
+     *     {@link Integer }
      *     
      */
-    public void setBcefIType(BigInteger value) {
+    public void setBcefIType(Integer value) {
         this.bcefIType = value;
     }
 
@@ -837,10 +836,10 @@ public class CltForestLand {
      * 
      * @return
      *     possible object is
-     *     {@link BigInteger }
+     *     {@link Integer }
      *     
      */
-    public BigInteger getBcefSType() {
+    public Integer getBcefSType() {
         return bcefSType;
     }
 
@@ -849,10 +848,10 @@ public class CltForestLand {
      * 
      * @param value
      *     allowed object is
-     *     {@link BigInteger }
+     *     {@link Integer }
      *     
      */
-    public void setBcefSType(BigInteger value) {
+    public void setBcefSType(Integer value) {
         this.bcefSType = value;
     }
 
@@ -933,10 +932,10 @@ public class CltForestLand {
      * 
      * @return
      *     possible object is
-     *     {@link BigInteger }
+     *     {@link Integer }
      *     
      */
-    public BigInteger getGrowingStockLevelValue() {
+    public Integer getGrowingStockLevelValue() {
         return growingStockLevelValue;
     }
 
@@ -945,10 +944,10 @@ public class CltForestLand {
      * 
      * @param value
      *     allowed object is
-     *     {@link BigInteger }
+     *     {@link Integer }
      *     
      */
-    public void setGrowingStockLevelValue(BigInteger value) {
+    public void setGrowingStockLevelValue(Integer value) {
         this.growingStockLevelValue = value;
     }
 
