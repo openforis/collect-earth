@@ -8,7 +8,6 @@
 
 package org.openforis.collect.earth.ipcc.serialize;
 
-import java.math.BigInteger;
 import javax.xml.bind.annotation.XmlAccessType;
 import javax.xml.bind.annotation.XmlAccessorType;
 import javax.xml.bind.annotation.XmlElement;
@@ -101,7 +100,7 @@ import javax.xml.bind.annotation.XmlType;
 public class CltSettlement {
 
     @XmlElement(required = true)
-    protected BigInteger id;
+    protected Integer id;
     @XmlElement(required = true)
     protected String guid;
     @XmlElement(required = true)
@@ -109,15 +108,15 @@ public class CltSettlement {
     @XmlElement(required = true)
     protected String customName;
     @XmlElement(required = true)
-    protected BigInteger climateRegionId;
+    protected Integer climateRegionId;
     @XmlElement(required = true)
-    protected BigInteger soilTypeId;
+    protected Integer soilTypeId;
     @XmlElement(required = true)
-    protected BigInteger soilStatusId;
+    protected Integer soilStatusId;
     @XmlElement(required = true)
-    protected BigInteger nutrientTypeId;
+    protected Integer nutrientTypeId;
     @XmlElement(required = true)
-    protected BigInteger settlementTypeId;
+    protected Integer settlementTypeId;
     protected double mfLandUse;
     protected double mfTillage;
     protected double mfInput;
@@ -128,9 +127,9 @@ public class CltSettlement {
     @XmlElement(required = true, type = Double.class, nillable = true)
     protected Double ratioBgbAgb;
     @XmlElement(required = true)
-    protected BigInteger ageClassId;
+    protected Integer ageClassId;
     @XmlElement(required = true, nillable = true)
-    protected BigInteger agp;
+    protected Integer agp;
     @XmlElement(required = true, type = Double.class, nillable = true)
     protected Double propCult;
     @XmlElement(required = true, type = Double.class, nillable = true)
@@ -158,17 +157,17 @@ public class CltSettlement {
     @XmlElement(required = true, type = Double.class, nillable = true)
     protected Double soilCarbonStock;
     @XmlElement(required = true)
-    protected BigInteger numberOfClasses;
+    protected Integer numberOfClasses;
 
     /**
      * Gets the value of the id property.
      * 
      * @return
      *     possible object is
-     *     {@link BigInteger }
+     *     {@link Integer }
      *     
      */
-    public BigInteger getId() {
+    public Integer getId() {
         return id;
     }
 
@@ -177,10 +176,10 @@ public class CltSettlement {
      * 
      * @param value
      *     allowed object is
-     *     {@link BigInteger }
+     *     {@link Integer }
      *     
      */
-    public void setId(BigInteger value) {
+    public void setId(Integer value) {
         this.id = value;
     }
 
@@ -261,10 +260,10 @@ public class CltSettlement {
      * 
      * @return
      *     possible object is
-     *     {@link BigInteger }
+     *     {@link Integer }
      *     
      */
-    public BigInteger getClimateRegionId() {
+    public Integer getClimateRegionId() {
         return climateRegionId;
     }
 
@@ -273,10 +272,10 @@ public class CltSettlement {
      * 
      * @param value
      *     allowed object is
-     *     {@link BigInteger }
+     *     {@link Integer }
      *     
      */
-    public void setClimateRegionId(BigInteger value) {
+    public void setClimateRegionId(Integer value) {
         this.climateRegionId = value;
     }
 
@@ -285,10 +284,10 @@ public class CltSettlement {
      * 
      * @return
      *     possible object is
-     *     {@link BigInteger }
+     *     {@link Integer }
      *     
      */
-    public BigInteger getSoilTypeId() {
+    public Integer getSoilTypeId() {
         return soilTypeId;
     }
 
@@ -297,10 +296,10 @@ public class CltSettlement {
      * 
      * @param value
      *     allowed object is
-     *     {@link BigInteger }
+     *     {@link Integer }
      *     
      */
-    public void setSoilTypeId(BigInteger value) {
+    public void setSoilTypeId(Integer value) {
         this.soilTypeId = value;
     }
 
@@ -309,10 +308,10 @@ public class CltSettlement {
      * 
      * @return
      *     possible object is
-     *     {@link BigInteger }
+     *     {@link Integer }
      *     
      */
-    public BigInteger getSoilStatusId() {
+    public Integer getSoilStatusId() {
         return soilStatusId;
     }
 
@@ -321,10 +320,10 @@ public class CltSettlement {
      * 
      * @param value
      *     allowed object is
-     *     {@link BigInteger }
+     *     {@link Integer }
      *     
      */
-    public void setSoilStatusId(BigInteger value) {
+    public void setSoilStatusId(Integer value) {
         this.soilStatusId = value;
     }
 
@@ -333,10 +332,10 @@ public class CltSettlement {
      * 
      * @return
      *     possible object is
-     *     {@link BigInteger }
+     *     {@link Integer }
      *     
      */
-    public BigInteger getNutrientTypeId() {
+    public Integer getNutrientTypeId() {
         return nutrientTypeId;
     }
 
@@ -345,10 +344,10 @@ public class CltSettlement {
      * 
      * @param value
      *     allowed object is
-     *     {@link BigInteger }
+     *     {@link Integer }
      *     
      */
-    public void setNutrientTypeId(BigInteger value) {
+    public void setNutrientTypeId(Integer value) {
         this.nutrientTypeId = value;
     }
 
@@ -357,10 +356,10 @@ public class CltSettlement {
      * 
      * @return
      *     possible object is
-     *     {@link BigInteger }
+     *     {@link Integer }
      *     
      */
-    public BigInteger getSettlementTypeId() {
+    public Integer getSettlementTypeId() {
         return settlementTypeId;
     }
 
@@ -369,10 +368,10 @@ public class CltSettlement {
      * 
      * @param value
      *     allowed object is
-     *     {@link BigInteger }
+     *     {@link Integer }
      *     
      */
-    public void setSettlementTypeId(BigInteger value) {
+    public void setSettlementTypeId(Integer value) {
         this.settlementTypeId = value;
     }
 
@@ -501,10 +500,10 @@ public class CltSettlement {
      * 
      * @return
      *     possible object is
-     *     {@link BigInteger }
+     *     {@link Integer }
      *     
      */
-    public BigInteger getAgeClassId() {
+    public Integer getAgeClassId() {
         return ageClassId;
     }
 
@@ -513,10 +512,10 @@ public class CltSettlement {
      * 
      * @param value
      *     allowed object is
-     *     {@link BigInteger }
+     *     {@link Integer }
      *     
      */
-    public void setAgeClassId(BigInteger value) {
+    public void setAgeClassId(Integer value) {
         this.ageClassId = value;
     }
 
@@ -525,10 +524,10 @@ public class CltSettlement {
      * 
      * @return
      *     possible object is
-     *     {@link BigInteger }
+     *     {@link Integer }
      *     
      */
-    public BigInteger getAgp() {
+    public Integer getAgp() {
         return agp;
     }
 
@@ -537,10 +536,10 @@ public class CltSettlement {
      * 
      * @param value
      *     allowed object is
-     *     {@link BigInteger }
+     *     {@link Integer }
      *     
      */
-    public void setAgp(BigInteger value) {
+    public void setAgp(Integer value) {
         this.agp = value;
     }
 
@@ -861,10 +860,10 @@ public class CltSettlement {
      * 
      * @return
      *     possible object is
-     *     {@link BigInteger }
+     *     {@link Integer }
      *     
      */
-    public BigInteger getNumberOfClasses() {
+    public Integer getNumberOfClasses() {
         return numberOfClasses;
     }
 
@@ -873,10 +872,10 @@ public class CltSettlement {
      * 
      * @param value
      *     allowed object is
-     *     {@link BigInteger }
+     *     {@link Integer }
      *     
      */
-    public void setNumberOfClasses(BigInteger value) {
+    public void setNumberOfClasses(Integer value) {
         this.numberOfClasses = value;
     }
 

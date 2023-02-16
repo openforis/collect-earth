@@ -1,21 +1,24 @@
 package org.openforis.collect.earth.ipcc.model;
 
+import java.util.UUID;
+
 public class StratumObject {
 
 	String value;
 	String label;
 	String description;
+	String guid;
+	
 
 	public StratumObject(String value, String label) {
 		super();
 		this.value = value;
 		this.label = label;
+		this.guid = UUID.randomUUID().toString();
 	}
 	
 	public StratumObject(String value, String label, String description) {
-		super();
-		this.value = value;
-		this.label = label;
+		this(value, label);
 		this.description = description;
 	}
 	
@@ -43,7 +46,8 @@ public class StratumObject {
 	public void setDescription(String description) {
 		this.description = description;
 	}
-	
-	
-	
+
+	public String getGuid() {
+		return guid;
+	}
 }

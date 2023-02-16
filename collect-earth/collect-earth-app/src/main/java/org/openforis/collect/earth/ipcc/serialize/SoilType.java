@@ -8,7 +8,6 @@
 
 package org.openforis.collect.earth.ipcc.serialize;
 
-import java.math.BigInteger;
 import javax.xml.bind.annotation.XmlAccessType;
 import javax.xml.bind.annotation.XmlAccessorType;
 import javax.xml.bind.annotation.XmlElement;
@@ -49,11 +48,11 @@ import javax.xml.bind.annotation.XmlType;
 public class SoilType {
 
     @XmlElement(required = true)
-    protected BigInteger id;
+    protected Integer id;
     @XmlElement(required = true)
     protected String guid;
     @XmlElement(required = true)
-    protected BigInteger compositionId;
+    protected Integer compositionId;
     @XmlElement(required = true)
     protected String fullName;
     @XmlElement(required = true)
@@ -64,10 +63,10 @@ public class SoilType {
      * 
      * @return
      *     possible object is
-     *     {@link BigInteger }
+     *     {@link Integer }
      *     
      */
-    public BigInteger getId() {
+    public Integer getId() {
         return id;
     }
 
@@ -76,10 +75,10 @@ public class SoilType {
      * 
      * @param value
      *     allowed object is
-     *     {@link BigInteger }
+     *     {@link Integer }
      *     
      */
-    public void setId(BigInteger value) {
+    public void setId(Integer value) {
         this.id = value;
     }
 
@@ -112,10 +111,10 @@ public class SoilType {
      * 
      * @return
      *     possible object is
-     *     {@link BigInteger }
+     *     {@link Integer }
      *     
      */
-    public BigInteger getCompositionId() {
+    public Integer getCompositionId() {
         return compositionId;
     }
 
@@ -124,10 +123,10 @@ public class SoilType {
      * 
      * @param value
      *     allowed object is
-     *     {@link BigInteger }
+     *     {@link Integer }
      *     
      */
-    public void setCompositionId(BigInteger value) {
+    public void setCompositionId(Integer value) {
         this.compositionId = value;
     }
 

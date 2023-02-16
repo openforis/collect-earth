@@ -8,7 +8,6 @@
 
 package org.openforis.collect.earth.ipcc.serialize;
 
-import java.math.BigInteger;
 import javax.xml.bind.annotation.XmlAccessType;
 import javax.xml.bind.annotation.XmlAccessorType;
 import javax.xml.bind.annotation.XmlElement;
@@ -56,7 +55,7 @@ public class LrtRegion {
     protected String name;
     protected double area;
     @XmlElement(required = true)
-    protected BigInteger approachId;
+    protected Integer approachId;
     @XmlElement(required = true, nillable = true)
     protected String remark;
     @XmlElement(required = true)
@@ -131,10 +130,10 @@ public class LrtRegion {
      * 
      * @return
      *     possible object is
-     *     {@link BigInteger }
+     *     {@link Integer }
      *     
      */
-    public BigInteger getApproachId() {
+    public Integer getApproachId() {
         return approachId;
     }
 
@@ -143,10 +142,10 @@ public class LrtRegion {
      * 
      * @param value
      *     allowed object is
-     *     {@link BigInteger }
+     *     {@link Integer }
      *     
      */
-    public void setApproachId(BigInteger value) {
+    public void setApproachId(Integer value) {
         this.approachId = value;
     }
 

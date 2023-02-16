@@ -1,18 +1,21 @@
 package org.openforis.collect.earth.ipcc.model;
 
 import java.util.Objects;
+import java.util.UUID;
 
 public abstract class LandUseSubdivision<F> implements Comparable<LandUseSubdivision<?>>{
 
 	protected LandUseCategory category;
 	protected String code;
 	protected String name;
+	protected String guid;
 	
 	public LandUseSubdivision(LandUseCategory category, String code, String name) {
 		super();
 		this.category = category;
 		this.code = code;
 		this.name = name;
+		this.guid = UUID.randomUUID().toString();
 	}
 	
 	public abstract F getType();
@@ -66,5 +69,9 @@ public abstract class LandUseSubdivision<F> implements Comparable<LandUseSubdivi
 	@Override
 	public String toString() {
 		return getCategory().getCode() + " / "  + getType() + " / "  + getCode();
+	}
+
+	public String getGuid() {
+		return guid;
 	}
 }

@@ -8,7 +8,6 @@
 
 package org.openforis.collect.earth.ipcc.serialize;
 
-import java.math.BigInteger;
 import javax.xml.bind.annotation.XmlAccessType;
 import javax.xml.bind.annotation.XmlAccessorType;
 import javax.xml.bind.annotation.XmlElement;
@@ -81,7 +80,7 @@ import javax.xml.bind.annotation.XmlType;
 public class CltWetland {
 
     @XmlElement(required = true)
-    protected BigInteger id;
+    protected Integer id;
     @XmlElement(required = true)
     protected String guid;
     @XmlElement(required = true)
@@ -90,13 +89,13 @@ public class CltWetland {
     protected String customName;
     protected boolean managed;
     @XmlElement(required = true)
-    protected BigInteger climateRegionId;
+    protected Integer climateRegionId;
     @XmlElement(required = true)
-    protected BigInteger soilTypeId;
+    protected Integer soilTypeId;
     @XmlElement(required = true)
-    protected BigInteger soilStatusId;
+    protected Integer soilStatusId;
     @XmlElement(required = true)
-    protected BigInteger nutrientTypeId;
+    protected Integer nutrientTypeId;
     @XmlElement(required = true)
     protected String wetlandType;
     @XmlElement(required = true, type = Double.class, nillable = true)
@@ -117,17 +116,17 @@ public class CltWetland {
     @XmlElement(required = true, type = Double.class, nillable = true)
     protected Double soilCarbonStock;
     @XmlElement(required = true, nillable = true)
-    protected BigInteger vegetationTypeId;
+    protected Integer vegetationTypeId;
 
     /**
      * Gets the value of the id property.
      * 
      * @return
      *     possible object is
-     *     {@link BigInteger }
+     *     {@link Integer }
      *     
      */
-    public BigInteger getId() {
+    public Integer getId() {
         return id;
     }
 
@@ -136,10 +135,10 @@ public class CltWetland {
      * 
      * @param value
      *     allowed object is
-     *     {@link BigInteger }
+     *     {@link Integer }
      *     
      */
-    public void setId(BigInteger value) {
+    public void setId(Integer value) {
         this.id = value;
     }
 
@@ -236,10 +235,10 @@ public class CltWetland {
      * 
      * @return
      *     possible object is
-     *     {@link BigInteger }
+     *     {@link Integer }
      *     
      */
-    public BigInteger getClimateRegionId() {
+    public Integer getClimateRegionId() {
         return climateRegionId;
     }
 
@@ -248,10 +247,10 @@ public class CltWetland {
      * 
      * @param value
      *     allowed object is
-     *     {@link BigInteger }
+     *     {@link Integer }
      *     
      */
-    public void setClimateRegionId(BigInteger value) {
+    public void setClimateRegionId(Integer value) {
         this.climateRegionId = value;
     }
 
@@ -260,10 +259,10 @@ public class CltWetland {
      * 
      * @return
      *     possible object is
-     *     {@link BigInteger }
+     *     {@link Integer }
      *     
      */
-    public BigInteger getSoilTypeId() {
+    public Integer getSoilTypeId() {
         return soilTypeId;
     }
 
@@ -272,10 +271,10 @@ public class CltWetland {
      * 
      * @param value
      *     allowed object is
-     *     {@link BigInteger }
+     *     {@link Integer }
      *     
      */
-    public void setSoilTypeId(BigInteger value) {
+    public void setSoilTypeId(Integer value) {
         this.soilTypeId = value;
     }
 
@@ -284,10 +283,10 @@ public class CltWetland {
      * 
      * @return
      *     possible object is
-     *     {@link BigInteger }
+     *     {@link Integer }
      *     
      */
-    public BigInteger getSoilStatusId() {
+    public Integer getSoilStatusId() {
         return soilStatusId;
     }
 
@@ -296,10 +295,10 @@ public class CltWetland {
      * 
      * @param value
      *     allowed object is
-     *     {@link BigInteger }
+     *     {@link Integer }
      *     
      */
-    public void setSoilStatusId(BigInteger value) {
+    public void setSoilStatusId(Integer value) {
         this.soilStatusId = value;
     }
 
@@ -308,10 +307,10 @@ public class CltWetland {
      * 
      * @return
      *     possible object is
-     *     {@link BigInteger }
+     *     {@link Integer }
      *     
      */
-    public BigInteger getNutrientTypeId() {
+    public Integer getNutrientTypeId() {
         return nutrientTypeId;
     }
 
@@ -320,10 +319,10 @@ public class CltWetland {
      * 
      * @param value
      *     allowed object is
-     *     {@link BigInteger }
+     *     {@link Integer }
      *     
      */
-    public void setNutrientTypeId(BigInteger value) {
+    public void setNutrientTypeId(Integer value) {
         this.nutrientTypeId = value;
     }
 
@@ -572,10 +571,10 @@ public class CltWetland {
      * 
      * @return
      *     possible object is
-     *     {@link BigInteger }
+     *     {@link Integer }
      *     
      */
-    public BigInteger getVegetationTypeId() {
+    public Integer getVegetationTypeId() {
         return vegetationTypeId;
     }
 
@@ -584,10 +583,10 @@ public class CltWetland {
      * 
      * @param value
      *     allowed object is
-     *     {@link BigInteger }
+     *     {@link Integer }
      *     
      */
-    public void setVegetationTypeId(BigInteger value) {
+    public void setVegetationTypeId(Integer value) {
         this.vegetationTypeId = value;
     }
 
