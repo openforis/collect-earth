@@ -48,11 +48,11 @@ public class CoordinateAttributeHandler extends AbstractAttributeHandler<Coordin
 		// REMOVE THIS!!
 		// -----------------------
 		String latitude = coordinatesCSV[0];
-		if (latitude.equals("$[latitude]")) {
+		if (latitude.equals("$[latitude]") || latitude.equals("null")) {
 			latitude = "0";
 		}
 		String longitude = coordinatesCSV[1];
-		if (longitude.equals("$[longitude]")) {
+		if (longitude.equals("$[longitude]") || latitude.equals("longitude")) {
 			longitude = "0";
 		}
 		// -----------------------
