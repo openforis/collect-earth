@@ -28,6 +28,7 @@ public enum ExportType {
     ExportType(String dbSuffix, String prefix, String dataFolder, String dbFileName, String rdbSchema ) {
     	this.dbSuffix = dbSuffix;
     	this.prefix = prefix;
+    	this.dataFolder = dataFolder;
     	this.dbFileName = dbFileName;
     	this.rdbSchema = rdbSchema;
     }
