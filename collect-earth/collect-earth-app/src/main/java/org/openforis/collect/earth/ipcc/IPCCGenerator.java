@@ -95,23 +95,22 @@ public class IPCCGenerator {
 		
 		progressListener.hide();
 		
-		// Assign Management types to the Land Use Subdivisions found in the survey data
-		AssignSubdivisionTypesWizard wizard = new AssignSubdivisionTypesWizard();
-		wizard.initializeTypes(landUses.getLandUseSubdivisions());
-		
-		if( !wizard.isWizardFinished() ) {
-			logger.info( "The user closed the wizard without finishing assigning management types");
-			return;
-		}
-		
-		File[] exportToFile = JFileChooserExistsAware.getFileChooserResults(DataFormat.GHGI_ZIP_FILE, true, false, "LandUseForGHGi", localPropertiesService, null);
-
-		if( exportToFile== null || exportToFile.length != 1 ) {
-			logger.info("The user should choose a ZIP file to export the results to! No file chosen, aborting the rest of the execution");
-			return;
-		}
-		
 		try {
+			// Assign Management types to the Land Use Subdivisions found in the survey data
+			AssignSubdivisionTypesWizard wizard = new AssignSubdivisionTypesWizard();
+			wizard.initializeTypes(landUses.getLandUseSubdivisions());
+			
+			if( !wizard.isWizardFinished() ) {
+				logger.info( "The user closed the wizard without finishing assigning management types");
+				return;
+			}
+		
+			File[] exportToFile = JFileChooserExistsAware.getFileChooserResults(DataFormat.GHGI_ZIP_FILE, true, false, "LandUseForGHGi", localPropertiesService, null);
+			if( exportToFile== null || exportToFile.length != 1 ) {
+				logger.info("The user should choose a ZIP file to export the results to! No file chosen, aborting the rest of the execution");
+				return;
+			}
+			
 			File destinationZip = exportToFile[0];
 			
 			final int STEPS = 7;
@@ -181,6 +180,8 @@ public class IPCCGenerator {
 
 		} catch (IOException e) {
 			logger.error("Error generating file", e);
+		}catch (Exception e) {
+			logger.error("Error while generating GHGi tool file ", e); //$NON-NLS-1$ //$NON-NLS-2$
 		}
 
 	}
