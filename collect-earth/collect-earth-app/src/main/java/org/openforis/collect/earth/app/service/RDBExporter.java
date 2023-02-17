@@ -4,6 +4,7 @@ import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Paths;
+import java.sql.Connection;
 import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.List;
@@ -167,14 +168,19 @@ public class RDBExporter extends RDBConnector{
 		
 		SwingUtilities.invokeLater( () -> progressListener.setMessage("Exporting collected records into Relational DB") );
 
-		collectRDBPublisher.export( survey.getName(), 
-				EarthConstants.ROOT_ENTITY_NAME,
-				Step.ENTRY, 
-				rdbPostgreSQLSchema,
-				getJDBCConnection(),
-				rdbConfig, 
-				progressListener);
-
+		try( Connection connection = getJDBCConnection() ){
+			collectRDBPublisher.export( survey.getName(), 
+					EarthConstants.ROOT_ENTITY_NAME,
+					Step.ENTRY, 
+					rdbPostgreSQLSchema,
+					connection,
+					rdbConfig, 
+					progressListener);
+			
+		} catch (SQLException e1) {
+			logger.error("Error with DB connection", e1);
+		}
+		
 		if (!isUserCancelledOperation()) {
 			System.currentTimeMillis();
 			try {
