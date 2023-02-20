@@ -74,7 +74,10 @@ public class KmlImportService {
 	 */
 
 	private File createTempCsv( File kmlFile) throws ParserConfigurationException, SAXException, IOException{
-
+		// Fixing error with Xerces implementation
+		//https://stackoverflow.com/a/62261587/4499235
+		System.setProperty("javax.xml.parsers.DocumentBuilderFactory",
+		        "com.sun.org.apache.xerces.internal.jaxp.DocumentBuilderFactoryImpl");
 		DocumentBuilderFactory factory = DocumentBuilderFactory.newInstance();
 		factory.setAttribute(XMLConstants.ACCESS_EXTERNAL_DTD, ""); // Compliant
 		factory.setAttribute(XMLConstants.ACCESS_EXTERNAL_SCHEMA, ""); // compliant
