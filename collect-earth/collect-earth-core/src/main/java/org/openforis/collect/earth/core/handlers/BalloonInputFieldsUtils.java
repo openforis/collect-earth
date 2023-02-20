@@ -7,15 +7,25 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
+import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
+import java.util.Queue;
 import java.util.Set;
 
 import org.apache.commons.lang3.StringUtils;
 import org.openforis.collect.earth.core.model.PlacemarkCodedItem;
 import org.openforis.collect.earth.core.model.PlacemarkInputFieldInfo;
+import org.openforis.collect.metamodel.ui.UIConfiguration;
+import org.openforis.collect.metamodel.ui.UIField;
+import org.openforis.collect.metamodel.ui.UIFormComponent;
+import org.openforis.collect.metamodel.ui.UIFormContentContainer;
+import org.openforis.collect.metamodel.ui.UIFormSection;
+import org.openforis.collect.metamodel.ui.UIFormSet;
+import org.openforis.collect.metamodel.ui.UITable;
 import org.openforis.collect.model.CollectRecord;
+import org.openforis.collect.model.CollectSurvey;
 import org.openforis.collect.model.NodeChangeMap;
 import org.openforis.collect.model.NodeChangeSet;
 import org.openforis.collect.model.RecordValidationReportGenerator;
@@ -26,7 +36,6 @@ import org.openforis.idm.metamodel.CodeList;
 import org.openforis.idm.metamodel.CodeListItem;
 import org.openforis.idm.metamodel.CodeListService;
 import org.openforis.idm.metamodel.EntityDefinition;
-import org.openforis.idm.metamodel.EntityDefinition.TraversalType;
 import org.openforis.idm.metamodel.ModelVersion;
 import org.openforis.idm.metamodel.NodeDefinition;
 import org.openforis.idm.metamodel.NodeDefinitionVisitor;
@@ -225,63 +234,100 @@ public class BalloonInputFieldsUtils {
 		return cleanParameter;
 	}
 
-	public Map<String, String> getHtmlParameterNameByNodePath(final EntityDefinition rootEntityDef) {
-		final CodeListService codeListService = rootEntityDef.getSurvey().getContext().getCodeListService();
+	/**
+	 * Returns a map of parameter names by node path, sorted following the order in which every field is shown in the UI.
+	 * @param rootEntityDef The root entity definition.
+	 * @return Sorted map of parameter names by node path.
+	 */
+	public LinkedHashMap<String, String> getHtmlParameterNameByNodePath(EntityDefinition rootEntityDef) {
+		LinkedHashMap<String, String> result = new LinkedHashMap<>();
 
-		final Map<String, String> result = new LinkedHashMap<>();
-
-		rootEntityDef.traverse(def -> {
-			if (def instanceof AttributeDefinition) {
-				EntityDefinition parentDef = def.getParentEntityDefinition();
-				if (parentDef == rootEntityDef) {
-					String collectParamName = getCollectParameterBaseName(def);
-					if (collectParamName != null) {
-						result.put(def.getPath(), collectParamName);
-					}
-				} else {
-					List<NodeDefinition> childDefs = parentDef.getChildDefinitions();
-					if (parentDef.isMultiple()) {
-						// multiple (enumerated) entity
-						CodeAttributeDefinition keyCodeAttribute = parentDef.getEnumeratingKeyCodeAttribute();
-						if (keyCodeAttribute != null) {
-							CodeList enumeratingList = keyCodeAttribute.getList();
-							List<CodeListItem> enumeratingItems = codeListService.loadRootItems(enumeratingList);
-							for (int i = 0; i < enumeratingItems.size(); i++) {
-								CodeListItem enumeratingItem = enumeratingItems.get(i);
-								String collectParameterBaseName = getCollectParameterBaseName(parentDef) + "["
-										+ enumeratingItem.getCode() + "].";
-
-								for (NodeDefinition childDef : childDefs) {
-									AbstractAttributeHandler<?> childHandler = findHandler(childDef);
-									if (childHandler != null) {
-										String collectParameterName = collectParameterBaseName
-												+ childHandler.getPrefix() + childDef.getName();
-										String enumeratingItemPath = parentDef.getPath() + "[" + (i + 1) + "]/"
-												+ childDef.getName();
-										result.put(enumeratingItemPath, collectParameterName);
-									}
-								}
-							}
-						}
-					} else {
-						// single entity
-						String collectParameterBaseName = getCollectParameterBaseName(parentDef) + ".";
-						for (NodeDefinition childDef : childDefs) {
-							AbstractAttributeHandler<?> childHandler = findHandler(childDef);
-							if (childHandler != null) {
-								String collectParameterName = collectParameterBaseName + childHandler.getPrefix()
-										+ childDef.getName();
-								String enumeratingItemPath = parentDef.getPath() + "/" + childDef.getName();
-								result.put(enumeratingItemPath, collectParameterName);
-							}
-						}
-					}
-				}
+		CollectSurvey survey = rootEntityDef.getSurvey();
+		UIConfiguration uiConfiguration = survey.getUIConfiguration();
+		UIFormSet mainFormSet = uiConfiguration.getMainFormSet();
+		
+		Queue<UIFormContentContainer> queue = new LinkedList<>();
+		queue.add(mainFormSet);
+		
+		while (!queue.isEmpty()) {
+			UIFormContentContainer formSet = queue.poll();
+			for (UIFormComponent uiFormComponent : formSet.getChildren()) {
+				result.putAll(getHtmlParameterNameByNodePathPerComponent(rootEntityDef, uiFormComponent));
 			}
-		}, TraversalType.BFS);
+			queue.addAll(formSet.getForms());
+		}
 		return result;
 	}
 
+	private LinkedHashMap<String, String> getHtmlParameterNameByNodePathPerComponent(
+			EntityDefinition rootEntityDef, UIFormComponent uiFormComponent) {
+		LinkedHashMap<String, String> result = new LinkedHashMap<>();
+
+		CollectSurvey survey = rootEntityDef.getSurvey();
+		CodeListService codeListService = survey.getContext().getCodeListService();
+		
+		if (uiFormComponent instanceof UIField) {
+			AttributeDefinition attrDef = ((UIField) uiFormComponent).getAttributeDefinition();
+			EntityDefinition parentDef = attrDef.getParentEntityDefinition();
+
+			if (parentDef == rootEntityDef) {
+				String collectParamName = getCollectParameterBaseName(attrDef);
+				if (collectParamName != null) {
+					result.put(attrDef.getPath(), collectParamName);
+				}
+			} else {
+				throw new IllegalStateException("unexpected non-root parentDef for attribute: " + attrDef.getName());
+			}
+		} else if (uiFormComponent instanceof UITable) {
+			EntityDefinition entityDef = ((UITable) uiFormComponent).getEntityDefinition();
+			// multiple (enumerated) entity
+			CodeAttributeDefinition keyCodeAttribute = entityDef.getEnumeratingKeyCodeAttribute();
+			if (keyCodeAttribute != null) {
+				String collectParameterBaseNamePrefix = getCollectParameterBaseName(entityDef);
+				CodeList enumeratingList = keyCodeAttribute.getList();
+				List<CodeListItem> enumeratingItems = codeListService.loadRootItems(enumeratingList);
+				for (int i = 0; i < enumeratingItems.size(); i++) {
+					CodeListItem enumeratingItem = enumeratingItems.get(i);
+					String enumeratingItemCode = enumeratingItem.getCode();
+					String collectParameterBaseName = collectParameterBaseNamePrefix + "[" + enumeratingItemCode + "].";
+					result.putAll(getHtmlParameterNameByNodePathOfChildren(entityDef, collectParameterBaseName, i));
+				}
+			}
+		} else if (uiFormComponent instanceof UIFormSection) {
+			// single entity
+			EntityDefinition entityDef = ((UIFormSection) uiFormComponent).getEntityDefinition();
+			String collectParameterBaseName = getCollectParameterBaseName(entityDef) + ".";
+			result.putAll(getHtmlParameterNameByNodePathOfChildren(entityDef, collectParameterBaseName, null));
+		}
+		return result;
+	}
+
+	private LinkedHashMap<String, String> getHtmlParameterNameByNodePathOfChildren(EntityDefinition entityDef,
+			String collectParameterBaseName, Integer parentEntityIndex) {
+		final LinkedHashMap<String, String> result = new LinkedHashMap<>();
+		String parentEntityIndexPathPart = parentEntityIndex == null ? null : "[" + (parentEntityIndex + 1) + "]";
+		for (NodeDefinition childDef : entityDef.getChildDefinitions()) {
+			AbstractAttributeHandler<?> childHandler = findHandler(childDef);
+			if (childHandler != null) {
+				StringBuilder collectParameterNameSB = new StringBuilder();
+				collectParameterNameSB.append(collectParameterBaseName);
+				collectParameterNameSB.append(childHandler.getPrefix());
+				collectParameterNameSB.append(childDef.getName());
+				String collectParameterName = collectParameterNameSB.toString();
+				
+				StringBuilder nodePathSB = new StringBuilder();
+				nodePathSB.append(entityDef.getPath());
+				nodePathSB.append(parentEntityIndexPathPart);
+				nodePathSB.append('/');
+				nodePathSB.append(childDef.getName());
+				String nodePath = nodePathSB.toString();
+				
+				result.put(nodePath, collectParameterName);
+			}
+		}
+		return result;
+	}
+	
 	public Map<String, String> getValuesByHtmlParameters(Entity plotEntity) {
 		Map<String, String> valuesByHTMLParameterName = new HashMap<String, String>();
 
