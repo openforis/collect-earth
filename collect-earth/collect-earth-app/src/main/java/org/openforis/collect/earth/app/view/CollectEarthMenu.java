@@ -188,7 +188,7 @@ public class CollectEarthMenu extends JMenuBar implements InitializingBean {
 		toolsMenu.add(menuItem);
 
 		toolsMenu.addSeparator();
-		menuItem = new JMenuItem("Generate IPCC GHGi software LULUCF package"); //$NON-NLS-1$
+		menuItem = new JMenuItem(Messages.getString("CollectEarthWindow.72")); //$NON-NLS-1$
 		menuItem.addActionListener(getIPCCExportActionListener());
 		toolsMenu.add(menuItem);
 
