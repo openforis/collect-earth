@@ -186,12 +186,12 @@ public class CollectEarthMenu extends JMenuBar implements InitializingBean {
 		menuItem.addActionListener(getSaikuToolExportActionListener());
 		menuItem.setEnabled(SystemUtils.IS_OS_WINDOWS ); // This option is only available in Windows!!
 		toolsMenu.add(menuItem);
-/* Hide menu until it is tested!
+
 		toolsMenu.addSeparator();
 		menuItem = new JMenuItem("Generate IPCC GHGi software LULUCF package"); //$NON-NLS-1$
 		menuItem.addActionListener(getIPCCExportActionListener());
 		toolsMenu.add(menuItem);
-*/
+
 		toolsMenu.addSeparator();
 		menuItem = new JMenuItem(Messages.getString("CollectEarthWindow.54")); //$NON-NLS-1$
 		menuItem.addActionListener(new ApplyOptionChangesListener(this.getFrame(), localPropertiesService) {
