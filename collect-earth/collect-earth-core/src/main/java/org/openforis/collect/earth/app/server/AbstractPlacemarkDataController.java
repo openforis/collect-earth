@@ -24,6 +24,7 @@ import org.openforis.collect.earth.app.service.AbstractEarthSurveyService;
 import org.openforis.collect.earth.app.view.Messages;
 import org.openforis.collect.earth.core.handlers.BalloonInputFieldsUtils;
 import org.openforis.collect.earth.core.model.PlacemarkLoadResult;
+import org.openforis.idm.metamodel.EntityDefinition;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -142,17 +143,18 @@ public class AbstractPlacemarkDataController extends JsonPocessorServlet {
 	 * @return The parameters sorted alphabetically
 	 */
 	public Map<String, String> sortParameters(Map<String, String> parameters) {
-		NavigableMap<String, String> navigableParameters = new TreeMap<String, String>(parameters);
+		NavigableMap<String, String> navigableParameters = new TreeMap<>(parameters);
 		//extract parameter names in order
 		BalloonInputFieldsUtils collectParametersHandler = new BalloonInputFieldsUtils();
-		Map<String, String> sortedParameterNameByNodePath = collectParametersHandler.getHtmlParameterNameByNodePath(earthSurveyService.getRootEntityDefinition());
-		List<String> sortedParameterNames = new ArrayList<String>(sortedParameterNameByNodePath.values());
+		EntityDefinition rootEntityDef = earthSurveyService.getRootEntityDefinition();
+		LinkedHashMap<String, String> sortedParameterNameByNodePath = collectParametersHandler.getHtmlParameterNameByNodePath(rootEntityDef);
+		List<String> sortedParameterNames = new ArrayList<>(sortedParameterNameByNodePath.values());
 
 		//create a new map and put the parameters in order there
-		Map<String, String> result = new LinkedHashMap<String, String>(navigableParameters.size());
+		Map<String, String> result = new LinkedHashMap<>(navigableParameters.size());
 		for (String parameterName : sortedParameterNames) {
 			//get all the entries with key starting with parameterName
-			SortedMap<String,String> subMap = new TreeMap<String, String>( navigableParameters.subMap(parameterName, parameterName + Character.MAX_VALUE) );
+			SortedMap<String,String> subMap = new TreeMap<>( navigableParameters.subMap(parameterName, parameterName + Character.MAX_VALUE) );
 			Set<Entry<String,String>> entrySet = subMap.entrySet();
 			for (Entry<String, String> entry : entrySet) {
 					result.put(entry.getKey(), entry.getValue());
