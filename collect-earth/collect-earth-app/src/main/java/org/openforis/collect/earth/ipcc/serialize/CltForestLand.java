@@ -26,6 +26,7 @@ import javax.xml.bind.annotation.XmlType;
  *       &lt;sequence>
  *         &lt;element name="id" type="{http://www.w3.org/2001/XMLSchema}integer"/>
  *         &lt;element name="guid" type="{http://ipcc2006.air.sk/IPCC2006Export}guid"/>
+ *         &lt;element name="countryCode" type="{http://www.w3.org/2001/XMLSchema}string"/>
  *         &lt;element name="customName" type="{http://www.w3.org/2001/XMLSchema}string"/>
  *         &lt;element name="managed" type="{http://www.w3.org/2001/XMLSchema}boolean"/>
  *         &lt;element name="climateRegionId" type="{http://www.w3.org/2001/XMLSchema}integer"/>
@@ -73,6 +74,7 @@ import javax.xml.bind.annotation.XmlType;
 @XmlType(name = "cltForestLand", propOrder = {
     "id",
     "guid",
+    "countryCode",
     "customName",
     "managed",
     "climateRegionId",
@@ -115,6 +117,8 @@ public class CltForestLand {
     protected Integer id;
     @XmlElement(required = true)
     protected String guid;
+    @XmlElement(required = true)
+    protected String countryCode;
     @XmlElement(required = true)
     protected String customName;
     protected boolean managed;
@@ -222,7 +226,29 @@ public class CltForestLand {
     public void setGuid(String value) {
         this.guid = value;
     }
+    /**
+     * Gets the value of the countryCode property.
+     * 
+     * @return
+     *     possible object is
+     *     {@link String }
+     *     
+     */
+    public String getCountryCode() {
+        return countryCode;
+    }
 
+    /**
+     * Sets the value of the countryCode property.
+     * 
+     * @param value
+     *     allowed object is
+     *     {@link String }
+     *     
+     */
+    public void setCountryCode(String value) {
+        this.countryCode = value;
+    }
     /**
      * Gets the value of the customName property.
      * 

@@ -8,7 +8,6 @@
 
 package org.openforis.collect.earth.ipcc.serialize;
 
-import java.math.BigInteger;
 import java.util.ArrayList;
 import java.util.List;
 import javax.xml.bind.annotation.XmlAccessType;
@@ -95,26 +94,26 @@ public class LrtLandUnit {
     @XmlElement(required = true, nillable = true)
     protected String unitCode;
     @XmlElement(required = true)
-    protected BigInteger ltIdPrev;
+    protected Integer ltIdPrev;
     @XmlElement(required = true)
-    protected BigInteger cltIdPrev;
+    protected Integer cltIdPrev;
     @XmlElement(required = true)
-    protected BigInteger transPeriod;
+    protected Integer transPeriod;
     @XmlElement(required = true)
-    protected BigInteger convYear;
+    protected Integer convYear;
     @XmlElement(required = true)
     protected LrtLandUnit.Areas areas;
     @XmlElement(required = true)
     protected LrtLandUnit.AreasA1D areasA1D;
     protected boolean isMerged;
     @XmlElement(required = true)
-    protected BigInteger pmBiomass;
+    protected Integer pmBiomass;
     @XmlElement(required = true)
-    protected BigInteger pmDomDeadwood;
+    protected Integer pmDomDeadwood;
     @XmlElement(required = true)
-    protected BigInteger pmDomLitter;
+    protected Integer pmDomLitter;
     @XmlElement(required = true)
-    protected BigInteger pmSomMineral;
+    protected Integer pmSomMineral;
     @XmlElement(required = true, nillable = true)
     protected String remark;
     @XmlElement(required = true)
@@ -173,10 +172,10 @@ public class LrtLandUnit {
      * 
      * @return
      *     possible object is
-     *     {@link BigInteger }
+     *     {@link Integer }
      *     
      */
-    public BigInteger getLtIdPrev() {
+    public Integer getLtIdPrev() {
         return ltIdPrev;
     }
 
@@ -185,10 +184,10 @@ public class LrtLandUnit {
      * 
      * @param value
      *     allowed object is
-     *     {@link BigInteger }
+     *     {@link Integer }
      *     
      */
-    public void setLtIdPrev(BigInteger value) {
+    public void setLtIdPrev(Integer value) {
         this.ltIdPrev = value;
     }
 
@@ -197,10 +196,10 @@ public class LrtLandUnit {
      * 
      * @return
      *     possible object is
-     *     {@link BigInteger }
+     *     {@link Integer }
      *     
      */
-    public BigInteger getCltIdPrev() {
+    public Integer getCltIdPrev() {
         return cltIdPrev;
     }
 
@@ -209,10 +208,10 @@ public class LrtLandUnit {
      * 
      * @param value
      *     allowed object is
-     *     {@link BigInteger }
+     *     {@link Integer }
      *     
      */
-    public void setCltIdPrev(BigInteger value) {
+    public void setCltIdPrev(Integer value) {
         this.cltIdPrev = value;
     }
 
@@ -221,10 +220,10 @@ public class LrtLandUnit {
      * 
      * @return
      *     possible object is
-     *     {@link BigInteger }
+     *     {@link Integer }
      *     
      */
-    public BigInteger getTransPeriod() {
+    public Integer getTransPeriod() {
         return transPeriod;
     }
 
@@ -233,10 +232,10 @@ public class LrtLandUnit {
      * 
      * @param value
      *     allowed object is
-     *     {@link BigInteger }
+     *     {@link Integer }
      *     
      */
-    public void setTransPeriod(BigInteger value) {
+    public void setTransPeriod(Integer value) {
         this.transPeriod = value;
     }
 
@@ -245,10 +244,10 @@ public class LrtLandUnit {
      * 
      * @return
      *     possible object is
-     *     {@link BigInteger }
+     *     {@link Integer }
      *     
      */
-    public BigInteger getConvYear() {
+    public Integer getConvYear() {
         return convYear;
     }
 
@@ -257,10 +256,10 @@ public class LrtLandUnit {
      * 
      * @param value
      *     allowed object is
-     *     {@link BigInteger }
+     *     {@link Integer }
      *     
      */
-    public void setConvYear(BigInteger value) {
+    public void setConvYear(Integer value) {
         this.convYear = value;
     }
 
@@ -333,10 +332,10 @@ public class LrtLandUnit {
      * 
      * @return
      *     possible object is
-     *     {@link BigInteger }
+     *     {@link Integer }
      *     
      */
-    public BigInteger getPmBiomass() {
+    public Integer getPmBiomass() {
         return pmBiomass;
     }
 
@@ -345,10 +344,10 @@ public class LrtLandUnit {
      * 
      * @param value
      *     allowed object is
-     *     {@link BigInteger }
+     *     {@link Integer }
      *     
      */
-    public void setPmBiomass(BigInteger value) {
+    public void setPmBiomass(Integer value) {
         this.pmBiomass = value;
     }
 
@@ -357,10 +356,10 @@ public class LrtLandUnit {
      * 
      * @return
      *     possible object is
-     *     {@link BigInteger }
+     *     {@link Integer }
      *     
      */
-    public BigInteger getPmDomDeadwood() {
+    public Integer getPmDomDeadwood() {
         return pmDomDeadwood;
     }
 
@@ -369,10 +368,10 @@ public class LrtLandUnit {
      * 
      * @param value
      *     allowed object is
-     *     {@link BigInteger }
+     *     {@link Integer }
      *     
      */
-    public void setPmDomDeadwood(BigInteger value) {
+    public void setPmDomDeadwood(Integer value) {
         this.pmDomDeadwood = value;
     }
 
@@ -381,10 +380,10 @@ public class LrtLandUnit {
      * 
      * @return
      *     possible object is
-     *     {@link BigInteger }
+     *     {@link Integer }
      *     
      */
-    public BigInteger getPmDomLitter() {
+    public Integer getPmDomLitter() {
         return pmDomLitter;
     }
 
@@ -393,10 +392,10 @@ public class LrtLandUnit {
      * 
      * @param value
      *     allowed object is
-     *     {@link BigInteger }
+     *     {@link Integer }
      *     
      */
-    public void setPmDomLitter(BigInteger value) {
+    public void setPmDomLitter(Integer value) {
         this.pmDomLitter = value;
     }
 
@@ -405,10 +404,10 @@ public class LrtLandUnit {
      * 
      * @return
      *     possible object is
-     *     {@link BigInteger }
+     *     {@link Integer }
      *     
      */
-    public BigInteger getPmSomMineral() {
+    public Integer getPmSomMineral() {
         return pmSomMineral;
     }
 
@@ -417,10 +416,10 @@ public class LrtLandUnit {
      * 
      * @param value
      *     allowed object is
-     *     {@link BigInteger }
+     *     {@link Integer }
      *     
      */
-    public void setPmSomMineral(BigInteger value) {
+    public void setPmSomMineral(Integer value) {
         this.pmSomMineral = value;
     }
 

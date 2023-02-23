@@ -4,8 +4,6 @@
 package org.openforis.collect.earth.ipcc;
 
 import java.io.File;
-import java.io.FileNotFoundException;
-import java.io.FileOutputStream;
 import java.io.IOException;
 import java.util.Calendar;
 
@@ -153,7 +151,7 @@ public class IPCCGenerator {
 			
 			progressListener.updateProgress(currentStep++, STEPS, "Generating GHGi activity data files" );
 			// 	Extract data from the Relational Database into an excel file of transition Matrixes per year
-			File zipWithGHGiYearlyData =dataExportTimeSeriesToTool.generateTimeseriesData(START_YEAR, END_YEAR, "CCC");
+			File zipWithGHGiYearlyData =dataExportTimeSeriesToTool.generateTimeseriesData(START_YEAR, END_YEAR, "BEN", RegionColumn.PROVINCE );
 			if( progressListener.isUserCancelled() ) return;
 
 			try {
