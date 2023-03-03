@@ -8,7 +8,6 @@
 
 package org.openforis.collect.earth.ipcc.serialize;
 
-import java.math.BigInteger;
 import javax.xml.bind.annotation.XmlAccessType;
 import javax.xml.bind.annotation.XmlAccessorType;
 import javax.xml.bind.annotation.XmlElement;
@@ -45,7 +44,7 @@ import javax.xml.bind.annotation.XmlType;
 public class LrtLandSubcategory {
 
     @XmlElement(required = true)
-    protected BigInteger scatId;
+    protected Integer scatId;
     @XmlElement(required = true, nillable = true)
     protected String remark;
     @XmlElement(required = true)
@@ -56,10 +55,10 @@ public class LrtLandSubcategory {
      * 
      * @return
      *     possible object is
-     *     {@link BigInteger }
+     *     {@link Integer }
      *     
      */
-    public BigInteger getScatId() {
+    public Integer getScatId() {
         return scatId;
     }
 
@@ -68,10 +67,10 @@ public class LrtLandSubcategory {
      * 
      * @param value
      *     allowed object is
-     *     {@link BigInteger }
+     *     {@link Integer }
      *     
      */
-    public void setScatId(BigInteger value) {
+    public void setScatId(Integer value) {
         this.scatId = value;
     }
 

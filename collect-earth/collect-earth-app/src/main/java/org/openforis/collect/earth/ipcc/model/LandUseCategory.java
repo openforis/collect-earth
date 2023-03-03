@@ -34,4 +34,5 @@ public enum LandUseCategory {
 	public Integer getId() {
 		return id;
 	}
+	
 }

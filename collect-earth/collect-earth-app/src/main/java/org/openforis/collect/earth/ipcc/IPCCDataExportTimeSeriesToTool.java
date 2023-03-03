@@ -7,6 +7,7 @@ import java.io.OutputStream;
 import java.math.BigInteger;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 
@@ -18,6 +19,7 @@ import org.openforis.collect.earth.app.CollectEarthUtils;
 import org.openforis.collect.earth.app.service.RegionCalculationUtils;
 import org.openforis.collect.earth.ipcc.model.CroplandType;
 import org.openforis.collect.earth.ipcc.model.LandUseCategory;
+import org.openforis.collect.earth.ipcc.model.LandUseManagement;
 import org.openforis.collect.earth.ipcc.model.LandUseSubdivision;
 import org.openforis.collect.earth.ipcc.model.LandUseSubdivisionStratified;
 import org.openforis.collect.earth.ipcc.model.ManagementType;
@@ -38,6 +40,9 @@ import org.openforis.collect.earth.ipcc.serialize.IPCC2006Export.Record;
 import org.openforis.collect.earth.ipcc.serialize.LandRepresentation;
 import org.openforis.collect.earth.ipcc.serialize.LandTypes;
 import org.openforis.collect.earth.ipcc.serialize.LrtCountry;
+import org.openforis.collect.earth.ipcc.serialize.LrtLandCategory;
+import org.openforis.collect.earth.ipcc.serialize.LrtLandSubcategory;
+import org.openforis.collect.earth.ipcc.serialize.LrtLandSubdivision;
 import org.openforis.collect.earth.ipcc.serialize.LrtRegion;
 import org.openforis.collect.earth.ipcc.serialize.LrtRegions;
 import org.openforis.collect.earth.ipcc.serialize.ObjectFactory;
@@ -58,6 +63,8 @@ public class IPCCDataExportTimeSeriesToTool extends AbstractIPCCDataExport {
 	
 	private String countryCode;
 
+	private LandTypes landTypes;
+
 	private void addClimateRegions(LandTypes landTypes) {
 		ClimateRegions climateRegions = new ClimateRegions();
 		for (StratumObject climate : getStrataClimate()) {
@@ -74,8 +81,10 @@ public class IPCCDataExportTimeSeriesToTool extends AbstractIPCCDataExport {
 		Cropland cropLand = new Cropland();
 		List<LandUseSubdivisionStratified<?>> climateSoilLandUseCombination = getClimateSoilLandUseCombination(
 				LandUseCategory.C, year);
+		int id =1;
 		for (LandUseSubdivisionStratified landUseSubdivisionStratified : climateSoilLandUseCombination) {
 			CltCropland cltCropLand = new CltCropland();
+			cltCropLand.setId( id++ );
 			cltCropLand.setGuid(landUseSubdivisionStratified.getLandUseSubdivision().getGuid());
 			cltCropLand.setCustomName(landUseSubdivisionStratified.getLandUseSubdivision().getName());
 			cltCropLand.setClimateRegionId(Integer.parseInt(landUseSubdivisionStratified.getClimate().getValue()));
@@ -93,8 +102,10 @@ public class IPCCDataExportTimeSeriesToTool extends AbstractIPCCDataExport {
 		ForestLand forestLand = new ForestLand();
 		List<LandUseSubdivisionStratified<?>> climateSoilLandUseCombination = getClimateSoilLandUseCombination(
 				LandUseCategory.F, year);
+		int id =1;
 		for (LandUseSubdivisionStratified landUseSubdivisionStratified : climateSoilLandUseCombination) {
 			CltForestLand cltForestLand = new CltForestLand();
+			cltForestLand.setId( id++ );
 			cltForestLand.setGuid(landUseSubdivisionStratified.getLandUseSubdivision().getGuid());
 			cltForestLand.setCustomName(landUseSubdivisionStratified.getLandUseSubdivision().getName());
 			cltForestLand.setClimateRegionId(Integer.parseInt(landUseSubdivisionStratified.getClimate().getValue()));
@@ -112,8 +123,10 @@ public class IPCCDataExportTimeSeriesToTool extends AbstractIPCCDataExport {
 		Grassland grassLand = new Grassland();
 		List<LandUseSubdivisionStratified<?>> climateSoilLandUseCombination = getClimateSoilLandUseCombination(
 				LandUseCategory.G, year);
+		int id =1;
 		for (LandUseSubdivisionStratified landUseSubdivisionStratified : climateSoilLandUseCombination) {
 			CltGrassland cltGrassLand = new CltGrassland();
+			cltGrassLand.setId( id++ );
 			cltGrassLand.setGuid(landUseSubdivisionStratified.getLandUseSubdivision().getGuid());
 			cltGrassLand.setCustomName(landUseSubdivisionStratified.getLandUseSubdivision().getName());
 			cltGrassLand.setClimateRegionId(Integer.parseInt(landUseSubdivisionStratified.getClimate().getValue()));
@@ -131,8 +144,10 @@ public class IPCCDataExportTimeSeriesToTool extends AbstractIPCCDataExport {
 		Settlement settlement = new Settlement();
 		List<LandUseSubdivisionStratified<?>> climateSoilLandUseCombination = getClimateSoilLandUseCombination(
 				LandUseCategory.S, year);
+		int id =1;
 		for (LandUseSubdivisionStratified landUseSubdivisionStratified : climateSoilLandUseCombination) {
 			CltSettlement cltSettlement = new CltSettlement();
+			cltSettlement.setId( id++ );
 			cltSettlement.setGuid(landUseSubdivisionStratified.getLandUseSubdivision().getGuid());
 			cltSettlement.setCustomName(landUseSubdivisionStratified.getLandUseSubdivision().getName());
 			cltSettlement.setClimateRegionId(Integer.parseInt(landUseSubdivisionStratified.getClimate().getValue()));
@@ -165,8 +180,10 @@ public class IPCCDataExportTimeSeriesToTool extends AbstractIPCCDataExport {
 		Wetland wetland = new Wetland();
 		List<LandUseSubdivisionStratified<?>> climateSoilLandUseCombination = getClimateSoilLandUseCombination(
 				LandUseCategory.S, year);
+		int id =1;
 		for (LandUseSubdivisionStratified landUseSubdivisionStratified : climateSoilLandUseCombination) {
 			CltWetland cltWetland = new CltWetland();
+			cltWetland.setId( id++ );
 			cltWetland.setGuid(landUseSubdivisionStratified.getLandUseSubdivision().getGuid());
 			cltWetland.setCustomName(landUseSubdivisionStratified.getLandUseSubdivision().getName());
 			cltWetland.setClimateRegionId(Integer.parseInt(landUseSubdivisionStratified.getClimate().getValue()));
@@ -188,8 +205,10 @@ public class IPCCDataExportTimeSeriesToTool extends AbstractIPCCDataExport {
 		Otherland otherland = new Otherland();
 		List<LandUseSubdivisionStratified<?>> climateSoilLandUseCombination = getClimateSoilLandUseCombination(
 				LandUseCategory.O, year);
+		int id =1;
 		for (LandUseSubdivisionStratified landUseSubdivisionStratified : climateSoilLandUseCombination) {
 			CltOtherland cltOtherland = new CltOtherland();
+			cltOtherland.setId( id++ );
 			cltOtherland.setGuid(landUseSubdivisionStratified.getLandUseSubdivision().getGuid());
 			cltOtherland.setCustomName(landUseSubdivisionStratified.getLandUseSubdivision().getName());
 			cltOtherland.setCustomName(landUseSubdivisionStratified.getLandUseSubdivision().getName());
@@ -215,23 +234,22 @@ public class IPCCDataExportTimeSeriesToTool extends AbstractIPCCDataExport {
 			ipcc2006Export.setInventoryYear(year);
 
 			Record record = new Record();
-			LandTypes landTypes = new LandTypes();
-
-			addClimateAndSoil(landTypes);
-
-			addLandClasses(year, landTypes);
+			
+			setLandTypes(new LandTypes());
+			addClimateAndSoil(getLandTypes());
+			addLandClasses(year, getLandTypes());
 			
 			LandRepresentation landRepresentation = new LandRepresentation();
 			LrtCountry lrtCountry = new LrtCountry();
 			lrtCountry.setCountryCode( getCountryCode() );
 			lrtCountry.setArea( getTotalArea() );
-			lrtCountry.setRegions( getLrtRegions( stratifyByRegion ));
+			lrtCountry.setRegions( getLrtRegions( stratifyByRegion, year ));
 			
 			landRepresentation.setLrtCountry(lrtCountry);
 			
-			landTypes.setLandRepresentation(landRepresentation);
+			getLandTypes().setLandRepresentation(landRepresentation);
 			
-			record.setLandTypes(landTypes);
+			record.setLandTypes(getLandTypes());
 			
 			
 			
@@ -247,9 +265,10 @@ public class IPCCDataExportTimeSeriesToTool extends AbstractIPCCDataExport {
 
 	}
 
-	private LrtRegions getLrtRegions( RegionColumn stratifyByRegionColumn ) {
+	private LrtRegions getLrtRegions( RegionColumn stratifyByRegionColumn, int year ) {
 		LrtRegions regions = new LrtRegions();
-				
+		
+		// Collect the regions in the country
 		Collection<LrtRegion> regionList = getJdbcTemplate().query(
 
 				"select " + stratifyByRegionColumn.getColumnName() 
@@ -276,8 +295,71 @@ public class IPCCDataExportTimeSeriesToTool extends AbstractIPCCDataExport {
 
 				});
 		
+		// Add the land categories to the regions
+		
+		for (LrtRegion lrtRegion : regionList) {
+			addLandCategoriesToRegion( lrtRegion, year );
+		}
+		
 		regions.getLrtRegion().addAll( regionList );
 		return regions;
+	}
+
+	private void addLandCategoriesToRegion(LrtRegion lrtRegion, int year) {
+		for (LandUseCategory landUseCat : LandUseCategory.values() ) {
+			LrtLandCategory landCategory = new LrtLandCategory();
+			landCategory.setLtId( landUseCat.getId() );
+			landCategory.getLandSubcategories().getLrtLandSubcategory().addAll( getLandSubcategories( lrtRegion, year, landUseCat) );
+			lrtRegion.getLandCategories().getLrtLandCategory().add(landCategory);
+		}
+	}
+
+	private Collection<? extends LrtLandSubcategory> getLandSubcategories(LrtRegion lrtRegion, int year, LandUseCategory landUseCat) {
+
+		Collection<LrtLandSubcategory> lartLandUseSubcategory = new ArrayList<LrtLandSubcategory>();
+		for (LandUseManagement landUseManagement : LandUseManagement.find(landUseCat)) {	
+
+			LrtLandSubcategory lrtSubcategory = new LrtLandSubcategory();
+			
+			lrtSubcategory.setScatId( landUseManagement.getId() );	
+			lrtSubcategory.getLandSubdivisions().getLrtLandSubdivision().addAll( getLrtLandSubdivisions( lrtRegion, year, landUseManagement) );
+			
+			lartLandUseSubcategory.add(lrtSubcategory);
+		}
+		return lartLandUseSubcategory;		
+	}
+
+	private Collection<? extends LrtLandSubdivision> getLrtLandSubdivisions(LrtRegion lrtRegion, int year, LandUseManagement landUseManagement) {
+		/*
+		getLandTypes().getForestLand().getCltForestLand().
+		Collection<LrtLandSubdivision> subdivisionsList = getJdbcTemplate().query(
+
+				"select " + stratifyByRegionColumn.getColumnName() 
+						+ ", SUM(" + RegionCalculationUtils.EXPANSION_FACTOR +  ") "
+						+ " from " + getSchemaName() + PLOT_TABLE 
+						+ " GROUP BY " +  stratifyByRegionColumn.getColumnName(), 
+
+				new RowMapper<LrtRegion>() {
+					@Override
+					public LrtRegion mapRow(ResultSet rs, int rowNum) throws SQLException {
+
+						
+						String regionName = rs.getString(1);
+						Double area = rs.getDouble(2);
+						
+						LrtRegion lrtRegion = new LrtRegion();
+						lrtRegion.setArea( area );
+						lrtRegion.setName(regionName);
+						
+						//lrtRegion.setLandCategories( getLandCategories( RegionColumn stratifyByRegionColumn, String name, Integer year ));
+						
+						return lrtRegion;
+					}
+
+				});
+		return subdivisionsList;
+		*/
+		return null;
 	}
 
 	private Double getTotalArea() {
@@ -370,6 +452,14 @@ public class IPCCDataExportTimeSeriesToTool extends AbstractIPCCDataExport {
 
 	public void setCountryCode(String countryCode) {
 		this.countryCode = countryCode;
+	}
+
+	private LandTypes getLandTypes() {
+		return landTypes;
+	}
+
+	private void setLandTypes(LandTypes landTypes) {
+		this.landTypes = landTypes;
 	}
 
 }
