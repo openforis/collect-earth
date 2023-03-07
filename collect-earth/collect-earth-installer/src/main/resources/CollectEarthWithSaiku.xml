@@ -86,8 +86,7 @@
 
 				<runProgram>
 					<program>chown</program>
-					<programArguments>-fR ${system_username}
-						"${installdir}/saiku-server_2.6"</programArguments>
+                    <programArguments>-fR ${system_username}  "${installdir}/saiku-server_2.6"</programArguments>
 					<ruleList>
 						<platformTest>
 							<negate>1</negate>
