@@ -8,7 +8,6 @@
 
 package org.openforis.collect.earth.ipcc.serialize;
 
-import java.math.BigInteger;
 import javax.xml.bind.annotation.XmlAccessType;
 import javax.xml.bind.annotation.XmlAccessorType;
 import javax.xml.bind.annotation.XmlElement;
@@ -97,7 +96,7 @@ import javax.xml.bind.annotation.XmlType;
 public class CltCropland {
 
     @XmlElement(required = true)
-    protected BigInteger id;
+    protected Integer id;
     @XmlElement(required = true)
     protected String guid;
     @XmlElement(required = true)
@@ -105,16 +104,16 @@ public class CltCropland {
     @XmlElement(required = true)
     protected String customName;
     @XmlElement(required = true)
-    protected BigInteger climateRegionId;
+    protected Integer climateRegionId;
     @XmlElement(required = true)
-    protected BigInteger soilTypeId;
+    protected Integer soilTypeId;
     @XmlElement(required = true)
-    protected BigInteger soilStatusId;
+    protected Integer soilStatusId;
     @XmlElement(required = true)
-    protected BigInteger nutrientTypeId;
+    protected Integer nutrientTypeId;
     protected boolean perennialCrops;
     @XmlElement(required = true)
-    protected BigInteger croplandTypeId;
+    protected Integer croplandTypeId;
     @XmlElement(required = true, nillable = true)
     protected String croplandTypeCustom;
     protected boolean riceEcosystem;
@@ -127,21 +126,21 @@ public class CltCropland {
     @XmlElement(required = true, type = Double.class, nillable = true)
     protected Double bWoodyAccumulationRate;
     @XmlElement(required = true)
-    protected BigInteger bWoodyUnitId;
+    protected Integer bWoodyUnitId;
     @XmlElement(required = true, type = Double.class, nillable = true)
     protected Double bWoodyCFrac;
     @XmlElement(required = true, type = Double.class, nillable = true)
     protected Double ratioBgbAgbWoody;
     @XmlElement(required = true)
-    protected BigInteger ageClassId;
+    protected Integer ageClassId;
     @XmlElement(required = true, type = Double.class, nillable = true)
     protected Double bHerb;
     @XmlElement(required = true)
-    protected BigInteger bHerbUnitId;
+    protected Integer bHerbUnitId;
     @XmlElement(required = true, type = Double.class, nillable = true)
     protected Double bHerbCFrac;
     @XmlElement(required = true, nillable = true)
-    protected BigInteger ageClassValue;
+    protected Integer ageClassValue;
     protected boolean agroforestry;
     @XmlElement(required = true, type = Double.class, nillable = true)
     protected Double ratioBgbAgbHerb;
@@ -153,10 +152,10 @@ public class CltCropland {
      * 
      * @return
      *     possible object is
-     *     {@link BigInteger }
+     *     {@link Integer }
      *     
      */
-    public BigInteger getId() {
+    public Integer getId() {
         return id;
     }
 
@@ -165,10 +164,10 @@ public class CltCropland {
      * 
      * @param value
      *     allowed object is
-     *     {@link BigInteger }
+     *     {@link Integer }
      *     
      */
-    public void setId(BigInteger value) {
+    public void setId(Integer value) {
         this.id = value;
     }
 
@@ -249,10 +248,10 @@ public class CltCropland {
      * 
      * @return
      *     possible object is
-     *     {@link BigInteger }
+     *     {@link Integer }
      *     
      */
-    public BigInteger getClimateRegionId() {
+    public Integer getClimateRegionId() {
         return climateRegionId;
     }
 
@@ -261,10 +260,10 @@ public class CltCropland {
      * 
      * @param value
      *     allowed object is
-     *     {@link BigInteger }
+     *     {@link Integer }
      *     
      */
-    public void setClimateRegionId(BigInteger value) {
+    public void setClimateRegionId(Integer value) {
         this.climateRegionId = value;
     }
 
@@ -273,10 +272,10 @@ public class CltCropland {
      * 
      * @return
      *     possible object is
-     *     {@link BigInteger }
+     *     {@link Integer }
      *     
      */
-    public BigInteger getSoilTypeId() {
+    public Integer getSoilTypeId() {
         return soilTypeId;
     }
 
@@ -285,10 +284,10 @@ public class CltCropland {
      * 
      * @param value
      *     allowed object is
-     *     {@link BigInteger }
+     *     {@link Integer }
      *     
      */
-    public void setSoilTypeId(BigInteger value) {
+    public void setSoilTypeId(Integer value) {
         this.soilTypeId = value;
     }
 
@@ -297,10 +296,10 @@ public class CltCropland {
      * 
      * @return
      *     possible object is
-     *     {@link BigInteger }
+     *     {@link Integer }
      *     
      */
-    public BigInteger getSoilStatusId() {
+    public Integer getSoilStatusId() {
         return soilStatusId;
     }
 
@@ -309,10 +308,10 @@ public class CltCropland {
      * 
      * @param value
      *     allowed object is
-     *     {@link BigInteger }
+     *     {@link Integer }
      *     
      */
-    public void setSoilStatusId(BigInteger value) {
+    public void setSoilStatusId(Integer value) {
         this.soilStatusId = value;
     }
 
@@ -321,10 +320,10 @@ public class CltCropland {
      * 
      * @return
      *     possible object is
-     *     {@link BigInteger }
+     *     {@link Integer }
      *     
      */
-    public BigInteger getNutrientTypeId() {
+    public Integer getNutrientTypeId() {
         return nutrientTypeId;
     }
 
@@ -333,10 +332,10 @@ public class CltCropland {
      * 
      * @param value
      *     allowed object is
-     *     {@link BigInteger }
+     *     {@link Integer }
      *     
      */
-    public void setNutrientTypeId(BigInteger value) {
+    public void setNutrientTypeId(Integer value) {
         this.nutrientTypeId = value;
     }
 
@@ -361,10 +360,10 @@ public class CltCropland {
      * 
      * @return
      *     possible object is
-     *     {@link BigInteger }
+     *     {@link Integer }
      *     
      */
-    public BigInteger getCroplandTypeId() {
+    public Integer getCroplandTypeId() {
         return croplandTypeId;
     }
 
@@ -373,10 +372,10 @@ public class CltCropland {
      * 
      * @param value
      *     allowed object is
-     *     {@link BigInteger }
+     *     {@link Integer }
      *     
      */
-    public void setCroplandTypeId(BigInteger value) {
+    public void setCroplandTypeId(Integer value) {
         this.croplandTypeId = value;
     }
 
@@ -537,10 +536,10 @@ public class CltCropland {
      * 
      * @return
      *     possible object is
-     *     {@link BigInteger }
+     *     {@link Integer }
      *     
      */
-    public BigInteger getBWoodyUnitId() {
+    public Integer getBWoodyUnitId() {
         return bWoodyUnitId;
     }
 
@@ -549,10 +548,10 @@ public class CltCropland {
      * 
      * @param value
      *     allowed object is
-     *     {@link BigInteger }
+     *     {@link Integer }
      *     
      */
-    public void setBWoodyUnitId(BigInteger value) {
+    public void setBWoodyUnitId(Integer value) {
         this.bWoodyUnitId = value;
     }
 
@@ -609,10 +608,10 @@ public class CltCropland {
      * 
      * @return
      *     possible object is
-     *     {@link BigInteger }
+     *     {@link Integer }
      *     
      */
-    public BigInteger getAgeClassId() {
+    public Integer getAgeClassId() {
         return ageClassId;
     }
 
@@ -621,10 +620,10 @@ public class CltCropland {
      * 
      * @param value
      *     allowed object is
-     *     {@link BigInteger }
+     *     {@link Integer }
      *     
      */
-    public void setAgeClassId(BigInteger value) {
+    public void setAgeClassId(Integer value) {
         this.ageClassId = value;
     }
 
@@ -657,10 +656,10 @@ public class CltCropland {
      * 
      * @return
      *     possible object is
-     *     {@link BigInteger }
+     *     {@link Integer }
      *     
      */
-    public BigInteger getBHerbUnitId() {
+    public Integer getBHerbUnitId() {
         return bHerbUnitId;
     }
 
@@ -669,10 +668,10 @@ public class CltCropland {
      * 
      * @param value
      *     allowed object is
-     *     {@link BigInteger }
+     *     {@link Integer }
      *     
      */
-    public void setBHerbUnitId(BigInteger value) {
+    public void setBHerbUnitId(Integer value) {
         this.bHerbUnitId = value;
     }
 
@@ -705,10 +704,10 @@ public class CltCropland {
      * 
      * @return
      *     possible object is
-     *     {@link BigInteger }
+     *     {@link Integer }
      *     
      */
-    public BigInteger getAgeClassValue() {
+    public Integer getAgeClassValue() {
         return ageClassValue;
     }
 
@@ -717,10 +716,10 @@ public class CltCropland {
      * 
      * @param value
      *     allowed object is
-     *     {@link BigInteger }
+     *     {@link Integer }
      *     
      */
-    public void setAgeClassValue(BigInteger value) {
+    public void setAgeClassValue(Integer value) {
         this.ageClassValue = value;
     }
 

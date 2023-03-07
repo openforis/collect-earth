@@ -168,7 +168,7 @@ public class IPCCGenerator {
 				CollectEarthUtils.addFileToZip( destinationZip , soilTypes, "ConfigSoilTypes.xml");
 				CollectEarthUtils.addFileToZip( destinationZip , landUnitsCSVFile, "LU_Timeseries_grouped.csv");
 				CollectEarthUtils.addFileToZip( destinationZip , perPlotCSVFile, "LU_Timeseries_per_plot.csv");
-				CollectEarthUtils.addFileToZip( destinationZip , zipWithGHGiYearlyData, "GHGi_timeseries.csv");
+				CollectEarthUtils.addFileToZip( destinationZip , zipWithGHGiYearlyData, "GHGi_tool_data.zip");
 				progressListener.hide();
 			} catch (IOException e) {
 				logger.error("Error when creating ZIP file with timeseries content " + destinationZip, e); //$NON-NLS-1$ //$NON-NLS-2$
