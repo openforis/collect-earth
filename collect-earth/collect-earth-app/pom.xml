@@ -23,6 +23,11 @@
 			<artifactId>collect-earth-core</artifactId>
 		</dependency>
 		<dependency>
+    <groupId>com.fasterxml.jackson.core</groupId>
+    <artifactId>jackson-core</artifactId>
+    <version>2.14.2</version>
+</dependency>
+		<dependency>
 			<groupId>org.openforis.collect.earth</groupId>
 			<artifactId>collect-earth-sampler</artifactId>
 			<exclusions>
