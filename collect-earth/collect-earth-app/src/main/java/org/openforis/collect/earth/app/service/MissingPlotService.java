@@ -18,6 +18,7 @@ import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Set;
 
+import org.apache.commons.lang3.ArrayUtils;
 import org.openforis.collect.earth.app.EarthConstants;
 import org.openforis.collect.earth.app.view.InfiniteProgressMonitor;
 import org.openforis.collect.earth.app.view.Messages;
@@ -155,12 +156,8 @@ public class MissingPlotService {
 	private String[] getKeys(String[] plotData ) {
 		List<AttributeDefinition> keyAttributeDefinitions = earthSurveyService.getCollectSurvey().getSchema().getRootEntityDefinitions().get(0)
 				.getKeyAttributeDefinitions();
-		String[] keys = new String[keyAttributeDefinitions.size()];
-		int i = 0;
-		for (AttributeDefinition keyAttributeDefinition : keyAttributeDefinitions) {
-			keys[i] = plotData[i++];
-		}
-		return keys;
+		int numberOfKeys = keyAttributeDefinitions.size();
+		return ArrayUtils.subarray(plotData, 0, numberOfKeys);
 	}
 
 	public Map<String, List<String[]>> getMissingPlotsByFile(Map<String, List<String[]>> plotDataByFIle, InfiniteProgressMonitor infiniteProgressMonitor) {
