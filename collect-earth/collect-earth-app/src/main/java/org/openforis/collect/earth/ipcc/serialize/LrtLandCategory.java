@@ -107,6 +107,9 @@ public class LrtLandCategory {
      *     
      */
     public LrtLandSubcategories getLandSubcategories() {
+    	if( landSubcategories == null ) {
+    		landSubcategories = new LrtLandSubcategories();
+    	}
         return landSubcategories;
     }
 

@@ -359,7 +359,7 @@ public class IPCCDataExportTimeSeriesToTool extends AbstractIPCCDataExport {
 				});
 		return subdivisionsList;
 		*/
-		return null;
+		return new ArrayList<LrtLandSubdivision>();
 	}
 
 	private Double getTotalArea() {

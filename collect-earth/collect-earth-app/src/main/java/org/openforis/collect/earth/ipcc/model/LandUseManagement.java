@@ -5,17 +5,17 @@ import java.util.Collection;
 
 public enum LandUseManagement {
 	MFL ("MFL", "Managed Forest Land", 1, LandUseCategory.F, ManagementType.MANAGED), 
-	UFL ("UFL", "Unmanaged Forest Land", 1, LandUseCategory.F, ManagementType.UNMANAGED),
-	ACL ("ACL", "Cropland Annual Crops", 1, LandUseCategory.C, CroplandType.ANNUAL ),
-	PCL ("PCL", "Cropland Perennial Crops", 1, LandUseCategory.C, CroplandType.PERENNIAL),
-	MGL ("MGL", "Managed Grassland", 1, LandUseCategory.G, ManagementType.MANAGED),
-	UGL ("UGL", "Unmanaged Grassland", 1, LandUseCategory.G, ManagementType.UNMANAGED),
-	MWL ("MWL", "Managed Wetlands", 1, LandUseCategory.W, ManagementType.MANAGED),
-	UWL ("UWL", "Unmanaged Wetlands", 1, LandUseCategory.W, ManagementType.UNMANAGED),
-	TSL ("TSL", "Settlements (Treed)", 1, LandUseCategory.S, SettlementType.TREED),
-	OSL ("OSL", "Settlements (Other)", 1, LandUseCategory.S, SettlementType.OTHER),
-	MOL ("MOL", "Managed Other Land", 1, LandUseCategory.O, ManagementType.MANAGED),
-	UOL ("UOL", "Unmanaged Other Land", 1, LandUseCategory.O, ManagementType.UNMANAGED),
+	UFL ("UFL", "Unmanaged Forest Land", 2, LandUseCategory.F, ManagementType.UNMANAGED),
+	ACL ("ACL", "Cropland Annual Crops", 3, LandUseCategory.C, CroplandType.ANNUAL ),
+	PCL ("PCL", "Cropland Perennial Crops", 4, LandUseCategory.C, CroplandType.PERENNIAL),
+	MGL ("MGL", "Managed Grassland", 5, LandUseCategory.G, ManagementType.MANAGED),
+	UGL ("UGL", "Unmanaged Grassland", 6, LandUseCategory.G, ManagementType.UNMANAGED),
+	MWL ("MWL", "Managed Wetlands", 7, LandUseCategory.W, ManagementType.MANAGED),
+	UWL ("UWL", "Unmanaged Wetlands", 8, LandUseCategory.W, ManagementType.UNMANAGED),
+	TSL ("TSL", "Settlements (Treed)", 9, LandUseCategory.S, SettlementType.TREED),
+	OSL ("OSL", "Settlements (Other)", 10, LandUseCategory.S, SettlementType.OTHER),
+	MOL ("MOL", "Managed Other Land", 11, LandUseCategory.O, ManagementType.MANAGED),
+	UOL ("UOL", "Unmanaged Other Land", 12, LandUseCategory.O, ManagementType.UNMANAGED),
 	;
 	
 	private final String code;

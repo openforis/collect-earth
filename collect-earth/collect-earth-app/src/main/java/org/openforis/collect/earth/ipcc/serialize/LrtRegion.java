@@ -182,6 +182,9 @@ public class LrtRegion {
      *     
      */
     public LrtLandCategories getLandCategories() {
+    	if( landCategories == null ) {
+    		landCategories = new LrtLandCategories();
+    	}
         return landCategories;
     }
 
