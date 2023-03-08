@@ -22,7 +22,7 @@
 		<java.version>1.8</java.version>
 		<project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
 		<collect.version>4.0.73</collect.version>
-		<spring.version>5.3.20</spring.version>
+		<spring.version>5.3.23</spring.version>
 		<project.scm.id>github.com</project.scm.id>
 		<sonar.language>java</sonar.language>
 		<sonar.organization>openforis</sonar.organization>
@@ -44,7 +44,7 @@
 		<url>scm:git:git@github.com:openforis/collect-earth.git</url>
 		<connection>scm:git:git@github.com:openforis/collect-earth.git</connection>
 		<developerConnection>scm:git:git@github.com:openforis/collect-earth.git</developerConnection>
-		<tag>collect-earth-1.14.24</tag>	
+		<tag>collect-earth-1.15.04</tag>	
 	</scm>
 	<licenses>
 		<license>
