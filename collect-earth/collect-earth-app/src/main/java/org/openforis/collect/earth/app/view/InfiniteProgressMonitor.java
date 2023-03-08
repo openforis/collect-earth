@@ -11,8 +11,6 @@ import javax.swing.SwingUtilities;
 import org.apache.commons.lang3.StringUtils;
 import org.openforis.concurrency.Progress;
 import org.openforis.concurrency.ProgressListener;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 public class InfiniteProgressMonitor implements ProgressListener {
 
@@ -29,8 +27,6 @@ public class InfiniteProgressMonitor implements ProgressListener {
 	private JLabel label;
 
 	JProgressBar infiniteProgress;
-	
-	private Logger logger = LoggerFactory.getLogger( InfiniteProgressMonitor.class );
 	
 	public InfiniteProgressMonitor(Component parentFrame, String title, String message) {
 
