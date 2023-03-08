@@ -240,7 +240,7 @@ public class BrowserService implements InitializingBean, Observer {
 		boolean found = false;
 
 		try {
-			if (driver.findElement(By.id(elementId)).isDisplayed() || driver.findElement(By.id(elementId)).isDisplayed()) {
+			if (driver.findElement(By.id(elementId)).isDisplayed() || driver.findElement(By.name(elementId)).isDisplayed()) {
 				found = true;
 			}
 		} catch (final Exception e) {
