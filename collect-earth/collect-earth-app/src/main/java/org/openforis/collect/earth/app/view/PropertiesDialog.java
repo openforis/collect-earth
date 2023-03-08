@@ -444,6 +444,7 @@ public class PropertiesDialog extends JDialog {
 		return new JScrollPane(operationModePanel, ScrollPaneConstants.VERTICAL_SCROLLBAR_AS_NEEDED, ScrollPaneConstants.HORIZONTAL_SCROLLBAR_NEVER);
 	}
 
+	@SuppressWarnings("unchecked")
 	private JComponent getPlotOptionsPanel() {
 		final JPanel panel = new JPanel(new GridBagLayout());
 		final GridBagConstraints constraints = new GridBagConstraints();
@@ -539,9 +540,9 @@ public class PropertiesDialog extends JDialog {
 		return panel;
 	}
 
-	public void handleVisibilityPlotLayout(JComboBox plotShape, JComboBox numberPoints, JComboBox distanceBetweenPoints,
-			JComboBox distanceToFrame, JComboBox dotsSide, JComboBox distanceBetweenPlots, JLabel area,
-			JLabel distanceOrRadiuslabel, JComboBox largeCentralPlotSide ) {
+	public void handleVisibilityPlotLayout(JComboBox<SAMPLE_SHAPE> plotShape, JComboBox<ComboBoxItem> numberPoints, JComboBox<String> distanceBetweenPoints,
+			JComboBox<String> distanceToFrame, JComboBox<String> dotsSide, JComboBox<String> distanceBetweenPlots, JLabel area,
+			JLabel distanceOrRadiuslabel, JComboBox<String> largeCentralPlotSide ) {
 		numberPoints.setEnabled(false);
 		distanceBetweenPoints.setEnabled(false);
 		distanceToFrame.setEnabled(false);
@@ -580,7 +581,7 @@ public class PropertiesDialog extends JDialog {
 		}
 	}
 
-	private String calculateArea(JComboBox numberOfPoints, JComboBox distanceBetweenPoints, JComboBox distanceToFrame, JComboBox dotsSide) {
+	private String calculateArea(JComboBox<ComboBoxItem> numberOfPoints, JComboBox<String> distanceBetweenPoints, JComboBox<String> distanceToFrame, JComboBox<String> dotsSide) {
 		double side = 0;
 		try {
 			int numberOfPointsI = ((ComboBoxItem) numberOfPoints.getSelectedItem()).getNumberOfPoints();
