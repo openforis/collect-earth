@@ -9,9 +9,9 @@ import java.util.List;
 import org.apache.http.HttpEntity;
 import org.apache.http.HttpResponse;
 import org.apache.http.NameValuePair;
-import org.apache.http.client.HttpClient;
 import org.apache.http.client.entity.UrlEncodedFormEntity;
 import org.apache.http.client.methods.HttpPost;
+import org.apache.http.impl.client.CloseableHttpClient;
 import org.apache.http.impl.client.HttpClients;
 import org.apache.http.message.BasicNameValuePair;
 import org.slf4j.Logger;
@@ -26,9 +26,8 @@ public class GAlogger {
 
 			@Override
 			public void run() {
-				try {
+				try( CloseableHttpClient httpclient = HttpClients.createDefault() ) {
 					// Following instruction from https://developers.google.com/analytics/devguides/collection/protocol/ga4/sending-events?hl=en&client_type=gtag
-					HttpClient httpclient = HttpClients.createDefault();
 					HttpPost httppost = new HttpPost("https://www.google-analytics.com/mp/collect");
 					
 					// Request parameters and other properties.
