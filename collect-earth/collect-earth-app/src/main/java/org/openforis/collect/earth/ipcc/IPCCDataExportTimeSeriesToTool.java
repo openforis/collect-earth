@@ -17,6 +17,7 @@ import javax.xml.bind.Marshaller;
 
 import org.openforis.collect.earth.app.CollectEarthUtils;
 import org.openforis.collect.earth.app.service.RegionCalculationUtils;
+import org.openforis.collect.earth.ipcc.controller.LandUseSubdivisionUtils;
 import org.openforis.collect.earth.ipcc.model.CroplandType;
 import org.openforis.collect.earth.ipcc.model.LandUseCategory;
 import org.openforis.collect.earth.ipcc.model.LandUseManagement;
@@ -330,8 +331,15 @@ public class IPCCDataExportTimeSeriesToTool extends AbstractIPCCDataExport {
 	}
 
 	private Collection<? extends LrtLandSubdivision> getLrtLandSubdivisions(LrtRegion lrtRegion, int year, LandUseManagement landUseManagement) {
+
+		List<LrtLandSubdivision> subdivisionsList = new ArrayList<LrtLandSubdivision>();
+		
+		List<LandUseSubdivision<?>> subdivisionsByCategoryAndType = LandUseSubdivisionUtils.getSubdivisionsByCategoryAndType( landUseManagement);
+
+		for (LandUseSubdivision<?> landUseSubdivision : subdivisionsByCategoryAndType) {
+			
+		}
 		/*
-		getLandTypes().getForestLand().getCltForestLand().
 		Collection<LrtLandSubdivision> subdivisionsList = getJdbcTemplate().query(
 
 				"select " + stratifyByRegionColumn.getColumnName() 
@@ -357,8 +365,7 @@ public class IPCCDataExportTimeSeriesToTool extends AbstractIPCCDataExport {
 					}
 
 				});
-		return subdivisionsList;
-		*/
+*/
 		return new ArrayList<LrtLandSubdivision>();
 	}
 

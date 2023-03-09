@@ -10,6 +10,7 @@ import org.openforis.collect.earth.ipcc.model.CroplandSubdivision;
 import org.openforis.collect.earth.ipcc.model.ForestSubdivision;
 import org.openforis.collect.earth.ipcc.model.GrasslandSubdivision;
 import org.openforis.collect.earth.ipcc.model.LandUseCategory;
+import org.openforis.collect.earth.ipcc.model.LandUseManagement;
 import org.openforis.collect.earth.ipcc.model.LandUseSubdivision;
 import org.openforis.collect.earth.ipcc.model.OtherlandSubdivision;
 import org.openforis.collect.earth.ipcc.model.SettlementSubdivision;
@@ -35,6 +36,21 @@ public class LandUseSubdivisionUtils {
 		}
 		
 		return subdivisionsInCategory;
+	}
+	
+	public static List<LandUseSubdivision<?>> getSubdivisionsByCategoryAndType(LandUseManagement landUseManagement) {
+		List<LandUseSubdivision<?>> subdivisionsInCategoryAndType = new ArrayList<LandUseSubdivision<?>>();
+		for (LandUseSubdivision<?> landUseSubdivision : landUseSubdivisions) {
+			if( 
+					landUseSubdivision.getCategory().equals( landUseManagement.getLuCategory() ) 
+					&& 
+					landUseSubdivision.getType().equals( landUseManagement.getManagementType() ) 
+			) {
+				subdivisionsInCategoryAndType.add(landUseSubdivision);
+			}
+		}
+		
+		return subdivisionsInCategoryAndType;
 	}
 	
 	public static void setSubdivisionType(LandUseSubdivision subdivision, Object type) {
