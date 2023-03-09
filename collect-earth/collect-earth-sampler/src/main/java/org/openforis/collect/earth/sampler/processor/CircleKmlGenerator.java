@@ -138,13 +138,13 @@ public class CircleKmlGenerator extends AbstractPolygonKmlGenerator {
 
 		return insidePlacemark;
 	}
-
+/*
 	private boolean isSamplePointIntersectingWithOthers(SimplePlacemarkObject newPlacemark, SimplePlacemarkObject oldPlacemark) {
 		final Rectangle2D r1 = createRectangle(newPlacemark.getShape());
 		final Rectangle2D r2 = createRectangle(oldPlacemark.getShape());
 		return r2.intersects(r1);
 	}
-
+*/
 	protected int getNumberOfExternalPoints() {
 		return NUMBER_OF_POINTS_TO_DRAW_CIRCLE;
 	}
