@@ -19,11 +19,11 @@ public class MatrixSheet {
 
 		for (LUDataPerYear<?, ?> luDataYear : yearData.getLuData()) {
 
-			if( subdivisions.indexOf( luDataYear.getLu() ) == -1 ) {
+			if( luDataYear.getLu() != null && subdivisions.indexOf( luDataYear.getLu() ) == -1 ) {
 				subdivisions.add( luDataYear.getLu());
 			}
 
-			if( subdivisions.indexOf( luDataYear.getLuNextYear() ) == -1 ) {
+			if( luDataYear.getLuNextYear() != null && subdivisions.indexOf( luDataYear.getLuNextYear() ) == -1 ) {
 				subdivisions.add( luDataYear.getLuNextYear());
 			}
 		}
