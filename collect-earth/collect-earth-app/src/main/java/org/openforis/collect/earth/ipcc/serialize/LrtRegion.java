@@ -11,7 +11,10 @@ package org.openforis.collect.earth.ipcc.serialize;
 import javax.xml.bind.annotation.XmlAccessType;
 import javax.xml.bind.annotation.XmlAccessorType;
 import javax.xml.bind.annotation.XmlElement;
+import javax.xml.bind.annotation.XmlTransient;
 import javax.xml.bind.annotation.XmlType;
+
+import org.openforis.collect.earth.ipcc.RegionColumn;
 
 
 /**
@@ -60,7 +63,9 @@ public class LrtRegion {
     protected String remark;
     @XmlElement(required = true)
     protected LrtLandCategories landCategories;
-
+    @XmlTransient
+    RegionColumn stratifyByRegionColumn;
+    
     /**
      * Gets the value of the guid property.
      * 
@@ -199,5 +204,13 @@ public class LrtRegion {
     public void setLandCategories(LrtLandCategories value) {
         this.landCategories = value;
     }
+
+	public RegionColumn getStratifyByRegionColumn() {
+		return stratifyByRegionColumn;
+	}
+
+	public void setStratifyByRegionColumn(RegionColumn stratifyByRegionColumn) {
+		this.stratifyByRegionColumn = stratifyByRegionColumn;
+	}
 
 }

@@ -8,7 +8,6 @@
 
 package org.openforis.collect.earth.ipcc.serialize;
 
-import java.math.BigInteger;
 import javax.xml.bind.annotation.XmlAccessType;
 import javax.xml.bind.annotation.XmlAccessorType;
 import javax.xml.bind.annotation.XmlElement;
@@ -49,13 +48,13 @@ import javax.xml.bind.annotation.XmlType;
 public class LrtLandUnitHistoryRecord {
 
     @XmlElement(required = true)
-    protected BigInteger ltIdPrev;
+    protected Integer ltIdPrev;
     @XmlElement(required = true)
-    protected BigInteger cltIdPrev;
+    protected Integer cltIdPrev;
     @XmlElement(required = true)
-    protected BigInteger transPeriod;
+    protected Integer transPeriod;
     @XmlElement(required = true)
-    protected BigInteger convYear;
+    protected Integer convYear;
     @XmlElement(required = true, nillable = true)
     protected String remark;
 
@@ -64,10 +63,10 @@ public class LrtLandUnitHistoryRecord {
      * 
      * @return
      *     possible object is
-     *     {@link BigInteger }
+     *     {@link Integer }
      *     
      */
-    public BigInteger getLtIdPrev() {
+    public Integer getLtIdPrev() {
         return ltIdPrev;
     }
 
@@ -76,10 +75,10 @@ public class LrtLandUnitHistoryRecord {
      * 
      * @param value
      *     allowed object is
-     *     {@link BigInteger }
+     *     {@link Integer }
      *     
      */
-    public void setLtIdPrev(BigInteger value) {
+    public void setLtIdPrev(Integer value) {
         this.ltIdPrev = value;
     }
 
@@ -88,10 +87,10 @@ public class LrtLandUnitHistoryRecord {
      * 
      * @return
      *     possible object is
-     *     {@link BigInteger }
+     *     {@link Integer }
      *     
      */
-    public BigInteger getCltIdPrev() {
+    public Integer getCltIdPrev() {
         return cltIdPrev;
     }
 
@@ -100,10 +99,10 @@ public class LrtLandUnitHistoryRecord {
      * 
      * @param value
      *     allowed object is
-     *     {@link BigInteger }
+     *     {@link Integer }
      *     
      */
-    public void setCltIdPrev(BigInteger value) {
+    public void setCltIdPrev(Integer value) {
         this.cltIdPrev = value;
     }
 
@@ -112,10 +111,10 @@ public class LrtLandUnitHistoryRecord {
      * 
      * @return
      *     possible object is
-     *     {@link BigInteger }
+     *     {@link Integer }
      *     
      */
-    public BigInteger getTransPeriod() {
+    public Integer getTransPeriod() {
         return transPeriod;
     }
 
@@ -124,10 +123,10 @@ public class LrtLandUnitHistoryRecord {
      * 
      * @param value
      *     allowed object is
-     *     {@link BigInteger }
+     *     {@link Integer }
      *     
      */
-    public void setTransPeriod(BigInteger value) {
+    public void setTransPeriod(Integer value) {
         this.transPeriod = value;
     }
 
@@ -136,10 +135,10 @@ public class LrtLandUnitHistoryRecord {
      * 
      * @return
      *     possible object is
-     *     {@link BigInteger }
+     *     {@link Integer }
      *     
      */
-    public BigInteger getConvYear() {
+    public Integer getConvYear() {
         return convYear;
     }
 
@@ -148,10 +147,10 @@ public class LrtLandUnitHistoryRecord {
      * 
      * @param value
      *     allowed object is
-     *     {@link BigInteger }
+     *     {@link Integer }
      *     
      */
-    public void setConvYear(BigInteger value) {
+    public void setConvYear(Integer value) {
         this.convYear = value;
     }
 

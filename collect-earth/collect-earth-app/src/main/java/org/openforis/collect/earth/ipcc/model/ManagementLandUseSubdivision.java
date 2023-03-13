@@ -4,16 +4,16 @@ public abstract class ManagementLandUseSubdivision extends LandUseSubdivision<Ma
 
 protected ManagementType type;
 	
-	public ManagementLandUseSubdivision( LandUseCategory category, String code, String name, ManagementType type) {
-		super(category, code, name);
-		setType(type);
+	public ManagementLandUseSubdivision( LandUseCategory category, String code, String name, ManagementType type, Integer id) {
+		super(category, code, name, id);
+		setManagementType(type);
 	}
 
-	public ManagementType getType() {
+	public ManagementType getManagementType() {
 		return type;
 	}
 
-	public void setType(ManagementType type) {
+	public void setManagementType(ManagementType type) {
 		this.type = type;
 	};
 	

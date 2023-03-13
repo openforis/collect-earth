@@ -60,7 +60,7 @@ public abstract class SubdivisionPage extends AbstractWizardPage {
 
 			constraints.gridx = 2;
 			JComboBox<Object> mgmtType = new JComboBox(getValues());
-			mgmtType.setSelectedItem( subdiv.getType() );
+			mgmtType.setSelectedItem( subdiv.getManagementType() );
 			contentPane.add(mgmtType, constraints);
 			mgmtType.addActionListener( e->
 				LandUseSubdivisionUtils.setSubdivisionType( subdiv, mgmtType.getSelectedItem() )

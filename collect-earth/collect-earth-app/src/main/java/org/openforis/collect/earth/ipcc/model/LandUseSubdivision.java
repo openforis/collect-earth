@@ -9,17 +9,19 @@ public abstract class LandUseSubdivision<F> implements Comparable<LandUseSubdivi
 	protected String code;
 	protected String name;
 	protected String guid;
+	protected Integer id;
 	
-	public LandUseSubdivision(LandUseCategory category, String code, String name) {
+	public LandUseSubdivision(LandUseCategory category, String code, String name, Integer id) {
 		super();
 		this.category = category;
 		this.code = code;
 		this.name = name;
+		this.id = id;
 		this.guid = UUID.randomUUID().toString();
 	}
 	
-	public abstract F getType();
-	public abstract void setType(F type);
+	public abstract F getManagementType();
+	public abstract void setManagementType(F type);
 	
 	public LandUseCategory getCategory() {
 		return category;
@@ -68,10 +70,18 @@ public abstract class LandUseSubdivision<F> implements Comparable<LandUseSubdivi
 	
 	@Override
 	public String toString() {
-		return getCategory().getCode() + " / "  + getType() + " / "  + getCode();
+		return getCategory().getCode() + " / "  + getManagementType() + " / "  + getCode();
 	}
 
 	public String getGuid() {
 		return guid;
+	}
+
+	public Integer getId() {
+		return id;
+	}
+
+	public void setId(Integer id) {
+		this.id = id;
 	}
 }

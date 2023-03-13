@@ -30,23 +30,21 @@ public class IPCCSurveyAdapter {
 
 	private static final int IPCC_20_YEARS_RULE = 20;
 
+	public static final String PLOT_ENTITY = "plot";
 
-	private static final String PLOT_ENTITY = "plot";
-
-	private static final String TEMPLATE_LAND_USE_CATEGORY = "land_use_category";
-	private static final String TEMPLATE_LAND_USE_CATEGORY_CHANGED = "land_use_category_has_changed";
-	private static final String TEMPLATE_LAND_USE_CHANGE_ONCE = "land_use_change_once";
-	private static final String TEMPLATE_LAND_USE_INITIAL_SUBDIVISION = "land_use_initial_subdivision";
-	private static final String TEMPLATE_LAND_USE_PREVIOUS_SUBDIVISION = "land_use_initial_subdivision";
-	private static final String TEMPLATE_LAND_USE_SECOND_SUBDIVISION = "second_lu_subdivision";
-	private static final String TEMPLATE_LAND_USE_SUBCATEGORY = "land_use_subcategory";
-	private static final String TEMPLATE_LAND_USE_SUBCATEGORY_YEAR_CHANGED = "land_use_subcategory_year_of_change";
-	private static final String TEMPLATE_LAND_USE_SUBDIVISION = "land_use_subdivision";
-	private static final String TEMPLATE_LAND_USE_SUBDIVISION_CHANGED = "land_use_subdivision_change";
-	private static final String TEMPLATE_LAND_USE_SUBDIVISION_YEAR_CHANGED = "land_use_subdivision_year_of_change";
-	private static final String TEMPLATE_SECOND_LU_CHANGE = "second_lu_change";
-	private static final String TEMPLATE_SECOND_LU_CONVERSION = "second_lu_conversion";
-	private static final String TEMPLATE_SECOND_LU_CONVERSION_YEAR = "second_lu_conversion_year";
+	public static final String TEMPLATE_LAND_USE_CATEGORY = "land_use_category";
+	public static final String TEMPLATE_LAND_USE_CATEGORY_CHANGED = "land_use_category_has_changed";
+	public static final String TEMPLATE_LAND_USE_CHANGE_ONCE = "land_use_change_once";
+	public static final String TEMPLATE_LAND_USE_INITIAL_SUBDIVISION = "land_use_initial_subdivision";
+	public static final String TEMPLATE_LAND_USE_SECOND_SUBDIVISION = "second_lu_subdivision";
+	public static final String TEMPLATE_LAND_USE_SUBCATEGORY = "land_use_subcategory";
+	public static final String TEMPLATE_LAND_USE_SUBCATEGORY_YEAR_CHANGED = "land_use_subcategory_year_of_change";
+	public static final String TEMPLATE_LAND_USE_SUBDIVISION = "land_use_subdivision";
+	public static final String TEMPLATE_LAND_USE_SUBDIVISION_CHANGED = "land_use_subdivision_change";
+	public static final String TEMPLATE_LAND_USE_SUBDIVISION_YEAR_CHANGED = "land_use_subdivision_year_of_change";
+	public static final String TEMPLATE_SECOND_LU_CHANGE = "second_lu_change";
+	public static final String TEMPLATE_SECOND_LU_CONVERSION = "second_lu_conversion";
+	public static final String TEMPLATE_SECOND_LU_CONVERSION_YEAR = "second_lu_conversion_year";
 	
 	public static String getIpccCategoryAttrName(int year) {
 		return IPCC_ATTR_PREFIX + year + IPCC_CATEGORY;
@@ -153,15 +151,6 @@ public class IPCCSurveyAdapter {
 			oldestLu.setAnnotation( new QName("ui:hide"), "true" );
 			plot.addChildDefinition(oldestLu);
 		}
-	}
-
-	private String getCodeListName(Survey survey, String[] codeListLandUse) {
-		for (String codeListName : codeListLandUse) {
-			if( survey.getCodeList(codeListName) != null ) {
-				return codeListName;
-			}
-		}
-		throw new IllegalArgumentException( "No codelist with names is available " + codeListLandUse );
 	}
 
 	private Survey addIPCCAttributes(Survey survey) {
@@ -313,7 +302,7 @@ public class IPCCSurveyAdapter {
 						);
 	
 			calculation.add(new AttributeDefault(
-					TEMPLATE_LAND_USE_PREVIOUS_SUBDIVISION,
+					TEMPLATE_LAND_USE_INITIAL_SUBDIVISION,
 					TEMPLATE_SECOND_LU_CHANGE + " = true()" + 
 					" and ( idm:blank(" + TEMPLATE_LAND_USE_CATEGORY_CHANGED + " ) or " + TEMPLATE_LAND_USE_CATEGORY_CHANGED + " != true() ) "+
 					" and " + TEMPLATE_LAND_USE_SUBDIVISION_CHANGED	+ "=true() " + 
@@ -330,14 +319,14 @@ public class IPCCSurveyAdapter {
 			));
 			
 			calculation.add(new AttributeDefault(
-					TEMPLATE_LAND_USE_PREVIOUS_SUBDIVISION,
+					TEMPLATE_LAND_USE_INITIAL_SUBDIVISION,
 					TEMPLATE_LAND_USE_CATEGORY_CHANGED + " = true() " + 
 					" and ( idm:blank(" + TEMPLATE_SECOND_LU_CHANGE + " ) or " + TEMPLATE_SECOND_LU_CHANGE + " != true() ) " + 
 					"and " + TEMPLATE_LAND_USE_SUBCATEGORY_YEAR_CHANGED	+ " > " + year)
 				);
 	
 			calculation.add(new AttributeDefault(
-					TEMPLATE_LAND_USE_PREVIOUS_SUBDIVISION,
+					TEMPLATE_LAND_USE_INITIAL_SUBDIVISION,
 					TEMPLATE_SECOND_LU_CHANGE + "=true() " + 
 					"and " + TEMPLATE_SECOND_LU_CONVERSION_YEAR + " <= " + year)
 			);
@@ -349,7 +338,7 @@ public class IPCCSurveyAdapter {
 			);
 	
 			calculation.add(new AttributeDefault(
-					TEMPLATE_LAND_USE_PREVIOUS_SUBDIVISION,
+					TEMPLATE_LAND_USE_INITIAL_SUBDIVISION,
 					"( idm:blank(" + TEMPLATE_SECOND_LU_CHANGE + " ) or " + TEMPLATE_SECOND_LU_CHANGE + " != true() ) " + 
 					" and  " + TEMPLATE_LAND_USE_CATEGORY_CHANGED + "=true() "+
 					" and " + TEMPLATE_LAND_USE_SUBDIVISION_CHANGED	+ "=true() " + 
@@ -367,7 +356,7 @@ public class IPCCSurveyAdapter {
 			);
 	
 			calculation.add(new AttributeDefault(
-					TEMPLATE_LAND_USE_PREVIOUS_SUBDIVISION,
+					TEMPLATE_LAND_USE_INITIAL_SUBDIVISION,
 					TEMPLATE_LAND_USE_CATEGORY_CHANGED + "=false()  " + 
 					"and " + TEMPLATE_LAND_USE_SUBDIVISION_CHANGED	+ "=true() " + 
 					" and " + TEMPLATE_LAND_USE_SUBDIVISION_YEAR_CHANGED + " > " + year

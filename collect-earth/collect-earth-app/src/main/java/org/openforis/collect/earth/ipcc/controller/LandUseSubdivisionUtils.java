@@ -44,7 +44,7 @@ public class LandUseSubdivisionUtils {
 			if( 
 					landUseSubdivision.getCategory().equals( landUseManagement.getLuCategory() ) 
 					&& 
-					landUseSubdivision.getType().equals( landUseManagement.getManagementType() ) 
+					landUseSubdivision.getManagementType().equals( landUseManagement.getManagementType() ) 
 			) {
 				subdivisionsInCategoryAndType.add(landUseSubdivision);
 			}
@@ -54,7 +54,7 @@ public class LandUseSubdivisionUtils {
 	}
 	
 	public static void setSubdivisionType(LandUseSubdivision subdivision, Object type) {
-		landUseSubdivisions.get( landUseSubdivisions.indexOf(subdivision)).setType( type);
+		landUseSubdivisions.get( landUseSubdivisions.indexOf(subdivision)).setManagementType( type);
 	}
 
 	public static List<LandUseSubdivision> getLandUseSubdivisions() {

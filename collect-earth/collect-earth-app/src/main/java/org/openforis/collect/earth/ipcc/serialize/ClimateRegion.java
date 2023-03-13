@@ -8,7 +8,6 @@
 
 package org.openforis.collect.earth.ipcc.serialize;
 
-import java.math.BigInteger;
 import javax.xml.bind.annotation.XmlAccessType;
 import javax.xml.bind.annotation.XmlAccessorType;
 import javax.xml.bind.annotation.XmlElement;
@@ -49,11 +48,11 @@ import javax.xml.bind.annotation.XmlType;
 public class ClimateRegion {
 
     @XmlElement(required = true)
-    protected BigInteger id;
+    protected Integer id;
     @XmlElement(required = true)
     protected String guid;
     @XmlElement(required = true)
-    protected BigInteger domainId;
+    protected Integer domainId;
     @XmlElement(required = true)
     protected String region;
     @XmlElement(required = true)
@@ -64,10 +63,10 @@ public class ClimateRegion {
      * 
      * @return
      *     possible object is
-     *     {@link BigInteger }
+     *     {@link Integer }
      *     
      */
-    public BigInteger getId() {
+    public Integer getId() {
         return id;
     }
 
@@ -76,10 +75,10 @@ public class ClimateRegion {
      * 
      * @param value
      *     allowed object is
-     *     {@link BigInteger }
+     *     {@link Integer }
      *     
      */
-    public void setId(BigInteger value) {
+    public void setId(Integer value) {
         this.id = value;
     }
 
@@ -112,10 +111,10 @@ public class ClimateRegion {
      * 
      * @return
      *     possible object is
-     *     {@link BigInteger }
+     *     {@link Integer }
      *     
      */
-    public BigInteger getDomainId() {
+    public Integer getDomainId() {
         return domainId;
     }
 
@@ -124,10 +123,10 @@ public class ClimateRegion {
      * 
      * @param value
      *     allowed object is
-     *     {@link BigInteger }
+     *     {@link Integer }
      *     
      */
-    public void setDomainId(BigInteger value) {
+    public void setDomainId(Integer value) {
         this.domainId = value;
     }
 

@@ -42,12 +42,8 @@ public class IPCCLandUses extends RDBConnector {
 
 	@Autowired
 	private SchemaService schemaService;
-	
-	@Autowired
-	private EarthSurveyService earthSurveyService;
-	
-	private List<LandUseSubdivision> landUseSubdivisions;
 
+	private List<LandUseSubdivision> landUseSubdivisions;
 
 	public IPCCLandUses() {
 		setExportTypeUsed(ExportType.IPCC);
@@ -101,42 +97,50 @@ public class IPCCLandUses extends RDBConnector {
 				String subdivisionCode = rs.getString(1);
 				String subdivisionName = rs.getString(2);
 				
+				Integer seqId = rowNum + 1;
+				
 				switch (landUseCategory.getCode()) {
 					case "F":
 						return new ForestSubdivision(
 								subdivisionCode,
 								subdivisionName,
-								ManagementType.MANAGED // Assign default management
+								ManagementType.MANAGED, // Assign default management
+								seqId
 								);
 					case "C":
 						return new CroplandSubdivision(
 								subdivisionCode,
 								subdivisionName,
-								CroplandType.ANNUAL // Assign default management
+								CroplandType.ANNUAL, // Assign default management
+								seqId
 								);
 					case "G":
 						return new GrasslandSubdivision(
 								subdivisionCode,
 								subdivisionName,
-								ManagementType.MANAGED // Assign default management
+								ManagementType.MANAGED, // Assign default management
+								seqId
 								);
 					case "S":
 						return new SettlementSubdivision(
 								subdivisionCode,
 								subdivisionName,
-								SettlementType.OTHER // Assign default management
+								SettlementType.OTHER, // Assign default management
+								seqId
 								);
 					case "W":
 						return new WetlandSubdivision(
 								subdivisionCode,
 								subdivisionName,
-								ManagementType.UNMANAGED // Assign default management
+								ManagementType.UNMANAGED, // Assign default management
+								seqId
 								);
 					case "O":
 						return new OtherlandSubdivision(
 								subdivisionCode,
 								subdivisionName,
-								ManagementType.UNMANAGED // Assign default management
+								ManagementType.UNMANAGED, // Assign default management
+								seqId
 								);
 				default:
 					throw new IllegalArgumentException("Unknown code " + landUseCategory.getCode() );

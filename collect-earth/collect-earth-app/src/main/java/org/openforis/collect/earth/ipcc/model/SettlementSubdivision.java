@@ -4,16 +4,16 @@ public class SettlementSubdivision extends LandUseSubdivision<SettlementType>{
 	
 	protected SettlementType type;
 	
-	public SettlementSubdivision( String code, String name, SettlementType type) {
-		super(LandUseCategory.S, code, name);
-		setType(type);
+	public SettlementSubdivision( String code, String name, SettlementType type, Integer id) {
+		super(LandUseCategory.S, code, name, id);
+		setManagementType(type);
 	}
 
-	public SettlementType getType() {
+	public SettlementType getManagementType() {
 		return type;
 	}
 
-	public void setType(SettlementType type) {
+	public void setManagementType(SettlementType type) {
 		this.type = type;
 	};
 	

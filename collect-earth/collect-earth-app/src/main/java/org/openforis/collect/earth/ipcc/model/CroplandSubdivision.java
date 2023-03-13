@@ -4,16 +4,16 @@ public class CroplandSubdivision extends LandUseSubdivision<CroplandType>{
 	
 	protected CroplandType type;
 	
-	public CroplandSubdivision( String code, String name, CroplandType type) {
-		super(LandUseCategory.C, code, name);
-		setType(type);
+	public CroplandSubdivision( String code, String name, CroplandType type, Integer id) {
+		super(LandUseCategory.C, code, name, id);
+		setManagementType(type);
 	}
 
-	public CroplandType getType() {
+	public CroplandType getManagementType() {
 		return type;
 	}
 
-	public void setType(CroplandType type) {
+	public void setManagementType(CroplandType type) {
 		this.type = type;
 	};
 	

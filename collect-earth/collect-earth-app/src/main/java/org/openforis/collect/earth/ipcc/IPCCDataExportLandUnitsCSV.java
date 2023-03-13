@@ -33,6 +33,36 @@ public class IPCCDataExportLandUnitsCSV extends IPCCDataExportCSV {
 		return createCsv( luCombinations);
 	}
 
+	private String getSqlSelectForStrata(String selectedYears) {
+		String sqlSelect = "select " 
+				+ selectedYears
+				+ " sum( " + RegionCalculationUtils.EXPANSION_FACTOR + ")" 
+				+ " from " + schemaName + AbstractIPCCDataExportTimeSeries.PLOT_TABLE  + " ," + schemaName + AbstractIPCCDataExportTimeSeries.SOIL_TABLE + " ," + schemaName + AbstractIPCCDataExportTimeSeries.CLIMATE_TABLE + " ," + schemaName + AbstractIPCCDataExportTimeSeries.GEZ_TABLE
+				
+				+ " where " 
+					+ AbstractIPCCDataExportTimeSeries.SOIL_COLUMN_IN_PLOT + " = " +  AbstractIPCCDataExportTimeSeries.SOIL_COLUMN_ID
+					+ " and "
+					+ AbstractIPCCDataExportTimeSeries.CLIMATE_COLUMN_IN_PLOT + " = " +  AbstractIPCCDataExportTimeSeries.CLIMATE_COLUMN_ID
+					+ " and "
+					+ AbstractIPCCDataExportTimeSeries.GEZ_COLUMN_IN_PLOT + " = " +  AbstractIPCCDataExportTimeSeries.GEZ_COLUMN_ID
+				
+				+ " GROUP BY "
+				+ selectedYears.substring(0, selectedYears.length()-1)
+				+ " ORDER BY sum( "+ RegionCalculationUtils.EXPANSION_FACTOR + " ) DESC"; // Remove trailing comma from list of years
+		return sqlSelect;
+	}
+
+	private static String getGroupingOfStrata(int startYear, int endYear) {
+		String selectedYears = AbstractIPCCDataExportTimeSeries.CLIMATE_COLUMN_LABEL + 
+								", " + AbstractIPCCDataExportTimeSeries.SOIL_COLUMN_LABEL + 
+								", " + AbstractIPCCDataExportTimeSeries.GEZ_COLUMN_LABEL + ", " ;
+		for( int year = startYear ; year <= endYear; year++ ) {
+			selectedYears += IPCCSurveyAdapter.getIpccCategoryAttrName(year) + ", " 
+					+ IPCCSurveyAdapter.getIpccSubdivisionAttrName(year) + ",";
+		}
+		return selectedYears;
+	}
+	
 	@Override
 	protected RowMapper<String[]> getRowMapper() {
 		return new RowMapper<String[]>() {
@@ -51,41 +81,24 @@ public class IPCCDataExportLandUnitsCSV extends IPCCDataExportCSV {
 	}
 	
 	private List<String[]> generateLUCombinations(int startYear, int endYear) {
-		String selectedYears = AbstractIPCCDataExportTimeSeries.CLIMATE_COLUMN_LABEL + 
-								", " + AbstractIPCCDataExportTimeSeries.SOIL_COLUMN_LABEL + 
-								", " + AbstractIPCCDataExportTimeSeries.GEZ_COLUMN_LABEL + ", " ;
-		for( int year = startYear ; year <= endYear; year++ ) {
-			selectedYears += IPCCSurveyAdapter.getIpccCategoryAttrName(year) + ", " 
-					+ IPCCSurveyAdapter.getIpccSubdivisionAttrName(year) + ",";
-		}
+		String selectedYears = getGroupingOfStrata(startYear, endYear);
 
-		String sqlSelect = "select " 
-				+ selectedYears
-				+ " sum( " + RegionCalculationUtils.EXPANSION_FACTOR + ")" 
-				+ " from " + schemaName + AbstractIPCCDataExportTimeSeries.PLOT_TABLE  + " ," + schemaName + AbstractIPCCDataExportTimeSeries.SOIL_TABLE + " ," + schemaName + AbstractIPCCDataExportTimeSeries.CLIMATE_TABLE + " ," + schemaName + AbstractIPCCDataExportTimeSeries.GEZ_TABLE
-				
-				+ " where " 
-					+ AbstractIPCCDataExportTimeSeries.SOIL_COLUMN_IN_PLOT + " = " +  AbstractIPCCDataExportTimeSeries.SOIL_COLUMN_ID
-					+ " and "
-					+ AbstractIPCCDataExportTimeSeries.CLIMATE_COLUMN_IN_PLOT + " = " +  AbstractIPCCDataExportTimeSeries.CLIMATE_COLUMN_ID
-					+ " and "
-					+ AbstractIPCCDataExportTimeSeries.GEZ_COLUMN_IN_PLOT + " = " +  AbstractIPCCDataExportTimeSeries.GEZ_COLUMN_ID
-				
-				+ " GROUP BY "
-				+ selectedYears.substring(0, selectedYears.length()-1)
-				+ " ORDER BY sum( "+ RegionCalculationUtils.EXPANSION_FACTOR + " ) DESC"; // Remove trailing comma from list of years
-		
+		String sqlSelect = getSqlSelectForStrata(selectedYears);
 		
 		List<String[]> luData = getJdbcTemplate().query(
 					sqlSelect
 					, 
 					getRowMapper()
 				);
-
+		
+		// Put the headers of the CSV in the first position of the String list!
 		selectedYears= LAND_UNIT_ID + "," + selectedYears; // Add the Land Unit ID which is basically the row number 
 		selectedYears+= "area"; // so the area columns appears too
 		luData.add( 0, selectedYears.split(",") ); // Add the header row for the CSV output in the first position of the List
+		
 		return luData;
 	}
+
+
 
 }
