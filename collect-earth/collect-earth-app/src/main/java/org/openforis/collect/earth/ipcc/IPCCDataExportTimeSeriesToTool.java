@@ -315,8 +315,11 @@ public class IPCCDataExportTimeSeriesToTool extends AbstractIPCCDataExport {
 		for (LandUseCategory landUseCat : LandUseCategory.values() ) {
 			LrtLandCategory landCategory = new LrtLandCategory();
 			landCategory.setLtId( landUseCat.getId() );
-			landCategory.getLandSubcategories().getLrtLandSubcategory().addAll( getLandSubcategories( lrtRegion, year, landUseCat) );
-			lrtRegion.getLandCategories().getLrtLandCategory().add(landCategory);
+			Collection<? extends LrtLandSubcategory> landSubcategories = getLandSubcategories( lrtRegion, year, landUseCat);
+			if( landSubcategories.size() > 0 ) {
+				landCategory.getLandSubcategories().getLrtLandSubcategory().addAll( landSubcategories );
+				lrtRegion.getLandCategories().getLrtLandCategory().add(landCategory);
+			}
 		}
 	}
 
