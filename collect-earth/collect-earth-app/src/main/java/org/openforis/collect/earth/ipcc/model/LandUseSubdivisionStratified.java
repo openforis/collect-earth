@@ -18,6 +18,7 @@ public class LandUseSubdivisionStratified<E> {
 		this.landUseSubdivision = landUseSubdivision;
 		this.climate = climate;
 		this.soil = soil;
+		this.id = id;
 		this.guid = UUID.randomUUID().toString();
 	}
 	

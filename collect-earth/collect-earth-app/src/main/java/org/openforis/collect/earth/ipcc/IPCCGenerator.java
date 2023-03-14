@@ -151,7 +151,7 @@ public class IPCCGenerator {
 			
 			progressListener.updateProgress(currentStep++, STEPS, "Generating GHGi activity data files" );
 			// 	Extract data from the Relational Database into an excel file of transition Matrixes per year
-			File zipWithGHGiYearlyData =dataExportTimeSeriesToTool.generateTimeseriesData(START_YEAR, END_YEAR, "BEN", RegionColumn.PROVINCE );
+			File zipWithGHGiYearlyData =dataExportTimeSeriesToTool.generateTimeseriesData(START_YEAR, START_YEAR, END_YEAR, "BEN", RegionColumn.PROVINCE );
 			if( progressListener.isUserCancelled() ) return;
 
 			try {

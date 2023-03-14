@@ -8,6 +8,7 @@ import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
+import java.util.Objects;
 
 import org.apache.commons.collections.CollectionUtils;
 import org.apache.commons.collections.Predicate;
@@ -37,7 +38,7 @@ public class IPCCDataExportMatrixExcel extends RDBConnector {
 
 	private String schemaName;
 	
-	Logger logger = LoggerFactory.getLogger(IPCCDataExportMatrixExcel.class);
+	final static Logger logger = LoggerFactory.getLogger(IPCCDataExportMatrixExcel.class);
 
 	@Autowired
 	private SchemaService schemaService;
@@ -109,8 +110,20 @@ public class IPCCDataExportMatrixExcel extends RDBConnector {
 	}
 
 	protected static LUDataPerYear findLuData( LandUseSubdivision initialSubdivision, LandUseSubdivision finalSubdivision, List<LUDataPerYear> luData ) {
+		if( luData.removeIf(Objects::isNull) ) { // TODO Why are there null values here??
+			logger.info("Why do we have a null LU category here?");
+		}
+
 		Collection<?> result = CollectionUtils.select(luData, new Predicate() {
 			public boolean evaluate(Object a) {
+				if(  ( (LUDataPerYear) a ).getLu() == null ) {
+					logger.info("Why do we have a null LU category here? " + a.toString());
+					return false;
+				}else if( ( (LUDataPerYear) a ).getLuNextYear() == null) {
+					logger.info("Why do we have a null LU Next Year category here?" + a.toString());
+					return false;
+				}
+				
 				return 
 						( (LUDataPerYear) a ).getLu().equals(initialSubdivision) 
 						&& 
