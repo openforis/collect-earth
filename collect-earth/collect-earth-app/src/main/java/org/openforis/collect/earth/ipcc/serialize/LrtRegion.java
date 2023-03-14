@@ -63,9 +63,7 @@ public class LrtRegion {
     protected String remark;
     @XmlElement(required = true)
     protected LrtLandCategories landCategories;
-    @XmlTransient
-    RegionColumn stratifyByRegionColumn;
-    
+     
     /**
      * Gets the value of the guid property.
      * 
@@ -204,13 +202,5 @@ public class LrtRegion {
     public void setLandCategories(LrtLandCategories value) {
         this.landCategories = value;
     }
-
-	public RegionColumn getStratifyByRegionColumn() {
-		return stratifyByRegionColumn;
-	}
-
-	public void setStratifyByRegionColumn(RegionColumn stratifyByRegionColumn) {
-		this.stratifyByRegionColumn = stratifyByRegionColumn;
-	}
 
 }
