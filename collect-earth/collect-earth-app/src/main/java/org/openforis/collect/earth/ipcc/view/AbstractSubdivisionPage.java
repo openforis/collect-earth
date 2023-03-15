@@ -15,16 +15,16 @@ import javax.swing.border.Border;
 import javax.swing.border.TitledBorder;
 
 import org.openforis.collect.earth.ipcc.controller.LandUseSubdivisionUtils;
-import org.openforis.collect.earth.ipcc.model.LandUseCategory;
-import org.openforis.collect.earth.ipcc.model.LandUseSubdivision;
+import org.openforis.collect.earth.ipcc.model.LandUseCategoryEnum;
+import org.openforis.collect.earth.ipcc.model.AbstractLandUseSubdivision;
 
 import se.gustavkarlsson.gwiz.AbstractWizardPage;
 
-public abstract class SubdivisionPage extends AbstractWizardPage {
+public abstract class AbstractSubdivisionPage extends AbstractWizardPage {
 	
-	public SubdivisionPage( LandUseCategory category) {
+	public AbstractSubdivisionPage( LandUseCategoryEnum category) {
 		
-		List<LandUseSubdivision<?>> subdivisionsInCategory = LandUseSubdivisionUtils.getSubdivisionsByCategory( category );
+		List<AbstractLandUseSubdivision<?>> subdivisionsInCategory = LandUseSubdivisionUtils.getSubdivisionsByCategory( category );
 		
 		final GridBagConstraints constraints = new GridBagConstraints();
 		constraints.gridx = 0;
@@ -46,7 +46,7 @@ public abstract class SubdivisionPage extends AbstractWizardPage {
 				getLabel());
 		setBorder(border);
 
-		for (LandUseSubdivision<?> subdiv : subdivisionsInCategory) {
+		for (AbstractLandUseSubdivision<?> subdiv : subdivisionsInCategory) {
 			
 			constraints.gridx = 0;
 			

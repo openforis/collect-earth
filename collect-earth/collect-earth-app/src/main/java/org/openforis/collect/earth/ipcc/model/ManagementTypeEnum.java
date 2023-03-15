@@ -1,12 +1,12 @@
 package org.openforis.collect.earth.ipcc.model;
 
-public enum SettlementType {
+public enum ManagementTypeEnum {
 
-	TREED("Treed"),OTHER("Other");
+	MANAGED("Managed"),UNMANAGED("Unmanaged");
 	
 	public final String name;
 	
-	private SettlementType(String name) {
+	private ManagementTypeEnum(String name) {
         this.name = name;
     }
 
@@ -18,5 +18,4 @@ public enum SettlementType {
 	public String toString() {
 		return getName();
 	}
-	
 }

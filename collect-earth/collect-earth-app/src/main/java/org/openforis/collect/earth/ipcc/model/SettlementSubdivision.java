@@ -1,19 +1,19 @@
 package org.openforis.collect.earth.ipcc.model;
 
-public class SettlementSubdivision extends LandUseSubdivision<SettlementType>{
+public class SettlementSubdivision extends AbstractLandUseSubdivision<SettlementTypeEnum>{
 	
-	protected SettlementType type;
+	protected SettlementTypeEnum type;
 	
-	public SettlementSubdivision( String code, String name, SettlementType type, Integer id) {
-		super(LandUseCategory.S, code, name, id);
+	public SettlementSubdivision( String code, String name, SettlementTypeEnum type, Integer id) {
+		super(LandUseCategoryEnum.S, code, name, id);
 		setManagementType(type);
 	}
 
-	public SettlementType getManagementType() {
+	public SettlementTypeEnum getManagementType() {
 		return type;
 	}
 
-	public void setManagementType(SettlementType type) {
+	public void setManagementType(SettlementTypeEnum type) {
 		this.type = type;
 	};
 	

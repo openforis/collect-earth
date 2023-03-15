@@ -2,11 +2,14 @@ package org.openforis.collect.earth.ipcc;
 
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.util.ArrayList;
 import java.util.List;
 
 import org.openforis.collect.earth.app.service.ExportType;
 import org.openforis.collect.earth.app.service.RDBConnector;
 import org.openforis.collect.earth.app.service.SchemaService;
+import org.openforis.collect.earth.ipcc.model.ClimateStratumObject;
+import org.openforis.collect.earth.ipcc.model.SoilStratumObject;
 import org.openforis.collect.earth.ipcc.model.StratumObject;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -48,8 +51,8 @@ public abstract class AbstractIPCCDataExport extends RDBConnector {
 	Logger logger = LoggerFactory.getLogger(AbstractIPCCDataExport.class);
 
 	
-	private List<StratumObject> climates;
-	private List<StratumObject> soils;
+	private List<ClimateStratumObject> climates;
+	private List<SoilStratumObject> soils;
 	private List<StratumObject> gezs;
 	
 	@Autowired
@@ -59,18 +62,27 @@ public abstract class AbstractIPCCDataExport extends RDBConnector {
 		setExportTypeUsed(ExportType.IPCC);
 	}
 
-	protected List<StratumObject> getStrataClimate() {
+	protected List<ClimateStratumObject> getStrataClimate() {
 		
 		if( climates == null ) {
-			climates = distinctValue(CLIMATE_COLUMN_VALUE, CLIMATE_COLUMN_LABEL, CLIMATE_TABLE, CLIMATE_COLUMN_IN_PLOT);
+			List<StratumObject> distinctClimates = distinctValue(CLIMATE_COLUMN_VALUE, CLIMATE_COLUMN_LABEL, CLIMATE_TABLE, CLIMATE_COLUMN_IN_PLOT);
+			climates = new ArrayList<ClimateStratumObject>();
+			for (StratumObject distinctClimate : distinctClimates) {
+				climates.add( new ClimateStratumObject(distinctClimate.getValue(), distinctClimate.getLabel() ) );
+			}
 		}
 		return climates;
 		
 	}
 
-	protected List<StratumObject> getStrataSoil() {
+	protected List<SoilStratumObject> getStrataSoil() {
 		if( soils == null ) {
-			soils =  distinctValue(SOIL_COLUMN_VALUE, SOIL_COLUMN_LABEL, SOIL_TABLE, SOIL_COLUMN_IN_PLOT);
+			List<StratumObject> distinctSoils =  distinctValue(SOIL_COLUMN_VALUE, SOIL_COLUMN_LABEL, SOIL_TABLE, SOIL_COLUMN_IN_PLOT);
+			soils = new ArrayList<SoilStratumObject>();
+			for (StratumObject distinctSoil : distinctSoils) {
+				soils.add( new SoilStratumObject(distinctSoil.getValue(), distinctSoil.getLabel() ) );
+			}
+			
 		}
 		return soils;
 	}

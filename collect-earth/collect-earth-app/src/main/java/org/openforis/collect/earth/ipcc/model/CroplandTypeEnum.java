@@ -1,12 +1,12 @@
 package org.openforis.collect.earth.ipcc.model;
 
-public enum ManagementType {
+public enum CroplandTypeEnum {
 
-	MANAGED("Managed"),UNMANAGED("Unmanaged");
+	ANNUAL("Annual"),PERENNIAL("Perennial");
 	
 	public final String name;
 	
-	private ManagementType(String name) {
+	private CroplandTypeEnum(String name) {
         this.name = name;
     }
 

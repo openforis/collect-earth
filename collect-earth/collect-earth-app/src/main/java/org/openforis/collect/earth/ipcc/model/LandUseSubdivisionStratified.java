@@ -4,15 +4,15 @@ import java.util.UUID;
 
 public class LandUseSubdivisionStratified<E> {
 
-	LandUseCategory landUseCategory;
-	LandUseSubdivision<E> landUseSubdivision;
-	StratumObject climate;
-	StratumObject soil;
+	LandUseCategoryEnum landUseCategory;
+	AbstractLandUseSubdivision<E> landUseSubdivision;
+	ClimateStratumObject climate;
+	SoilStratumObject soil;
 	Integer id;
 	String guid;
 		
-	public LandUseSubdivisionStratified(LandUseCategory landUseCategory, LandUseSubdivision<E> landUseSubdivision,
-			StratumObject climate, StratumObject soil, Integer id) {
+	public LandUseSubdivisionStratified(LandUseCategoryEnum landUseCategory, AbstractLandUseSubdivision<E> landUseSubdivision,
+			ClimateStratumObject climate, SoilStratumObject soil, Integer id) {
 		super();
 		this.landUseCategory = landUseCategory;
 		this.landUseSubdivision = landUseSubdivision;
@@ -22,28 +22,28 @@ public class LandUseSubdivisionStratified<E> {
 		this.guid = UUID.randomUUID().toString();
 	}
 	
-	public LandUseCategory getLandUseCategory() {
+	public LandUseCategoryEnum getLandUseCategory() {
 		return landUseCategory;
 	}
-	public LandUseSubdivision<E> getLandUseSubdivision() {
+	public AbstractLandUseSubdivision<E> getLandUseSubdivision() {
 		return landUseSubdivision;
 	}
-	public StratumObject getClimate() {
+	public ClimateStratumObject getClimate() {
 		return climate;
 	}
-	public StratumObject getSoil() {
+	public SoilStratumObject getSoil() {
 		return soil;
 	}
-	public void setLandUseCategory(LandUseCategory landUseCategory) {
+	public void setLandUseCategory(LandUseCategoryEnum landUseCategory) {
 		this.landUseCategory = landUseCategory;
 	}
-	public void setLandUseSubdivision(LandUseSubdivision<E> landUseSubdivision) {
+	public void setLandUseSubdivision(AbstractLandUseSubdivision<E> landUseSubdivision) {
 		this.landUseSubdivision = landUseSubdivision;
 	}
-	public void setClimate(StratumObject climate) {
+	public void setClimate(ClimateStratumObject climate) {
 		this.climate = climate;
 	}
-	public void setSoil(StratumObject soil) {
+	public void setSoil(SoilStratumObject soil) {
 		this.soil = soil;
 	}
 

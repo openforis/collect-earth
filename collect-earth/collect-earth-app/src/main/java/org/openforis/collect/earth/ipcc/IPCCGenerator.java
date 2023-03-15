@@ -151,7 +151,7 @@ public class IPCCGenerator {
 			
 			progressListener.updateProgress(currentStep++, STEPS, "Generating GHGi activity data files" );
 			// 	Extract data from the Relational Database into an excel file of transition Matrixes per year
-			File zipWithGHGiYearlyData =dataExportTimeSeriesToTool.generateTimeseriesData(START_YEAR, START_YEAR, END_YEAR, "BEN", RegionColumn.PROVINCE );
+			File xmlWithDataToImportGhgTool =dataExportTimeSeriesToTool.generateTimeseriesData(START_YEAR, START_YEAR, END_YEAR, "BEN", RegionColumnEnum.PROVINCE );
 			if( progressListener.isUserCancelled() ) return;
 
 			try {
@@ -165,7 +165,7 @@ public class IPCCGenerator {
 				CollectEarthUtils.addFileToZip( destinationZip , soilTypes, "ConfigSoilTypes.xml");
 				CollectEarthUtils.addFileToZip( destinationZip , landUnitsCSVFile, "LU_Timeseries_grouped.csv");
 				CollectEarthUtils.addFileToZip( destinationZip , perPlotCSVFile, "LU_Timeseries_per_plot.csv");
-				CollectEarthUtils.addFileToZip( destinationZip , zipWithGHGiYearlyData, "GHGi_tool_data.zip");
+				CollectEarthUtils.addFileToZip( destinationZip , xmlWithDataToImportGhgTool, "GHGi_tool_data.xml");
 				progressListener.hide();
 			} catch (IOException e) {
 				logger.error("Error when creating ZIP file with timeseries content " + destinationZip, e); //$NON-NLS-1$ //$NON-NLS-2$

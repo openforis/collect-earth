@@ -25,7 +25,7 @@ import org.openforis.collect.earth.app.service.RDBConnector;
 import org.openforis.collect.earth.app.service.RegionCalculationUtils;
 import org.openforis.collect.earth.app.service.SchemaService;
 import org.openforis.collect.earth.ipcc.controller.LandUseSubdivisionUtils;
-import org.openforis.collect.earth.ipcc.model.LandUseSubdivision;
+import org.openforis.collect.earth.ipcc.model.AbstractLandUseSubdivision;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -109,7 +109,7 @@ public class IPCCDataExportMatrixExcel extends RDBConnector {
 		};
 	}
 
-	protected static LUDataPerYear findLuData( LandUseSubdivision initialSubdivision, LandUseSubdivision finalSubdivision, List<LUDataPerYear> luData ) {
+	protected static LUDataPerYear findLuData( AbstractLandUseSubdivision initialSubdivision, AbstractLandUseSubdivision finalSubdivision, List<LUDataPerYear> luData ) {
 		if( luData.removeIf(Objects::isNull) ) { // TODO Why are there null values here??
 			logger.info("Why do we have a null LU category here?");
 		}
@@ -193,7 +193,7 @@ public class IPCCDataExportMatrixExcel extends RDBConnector {
 				cell.setCellStyle(cornerCellStyle);
 				
 				int i = 1;
-				for (LandUseSubdivision<?> subdivision : matrix.getSubdivisions()) {
+				for (AbstractLandUseSubdivision<?> subdivision : matrix.getSubdivisions()) {
 					cell = headerRow.createCell(i++);
 					cell.setCellValue(subdivision.toString());
 					cell.setCellStyle(headerCellStyle);
@@ -202,7 +202,7 @@ public class IPCCDataExportMatrixExcel extends RDBConnector {
 				
 				int rowNum = 1;
 				int colNum = 0;
-				for (LandUseSubdivision<?> subdivisionH : matrix.getSubdivisions()) {
+				for (AbstractLandUseSubdivision<?> subdivisionH : matrix.getSubdivisions()) {
 					colNum = 0;
 					Row row = sheet.createRow(rowNum++);
 
@@ -211,7 +211,7 @@ public class IPCCDataExportMatrixExcel extends RDBConnector {
 					columnCell.setCellValue(subdivisionH.toString());
 
 					colNum = 1;
-					for (LandUseSubdivision<?> subdivisionV : matrix.getSubdivisions()) {
+					for (AbstractLandUseSubdivision<?> subdivisionV : matrix.getSubdivisions()) {
 
 						cell = row.createCell(colNum++);
 						cell.setCellValue( findLuData( subdivisionH, subdivisionV, matrix.getYearData().getLuData() ).getAreaHa() );

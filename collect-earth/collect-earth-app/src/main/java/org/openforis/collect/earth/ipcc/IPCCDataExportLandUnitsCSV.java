@@ -14,7 +14,7 @@ import org.springframework.jdbc.core.RowMapper;
 import org.springframework.stereotype.Component;
 
 @Component
-public class IPCCDataExportLandUnitsCSV extends IPCCDataExportCSV {
+public class IPCCDataExportLandUnitsCSV extends AbstractIPCCDataExportCSV {
 
 	private String schemaName;
 

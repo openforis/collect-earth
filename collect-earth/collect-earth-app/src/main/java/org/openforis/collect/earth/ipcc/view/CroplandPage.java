@@ -1,18 +1,18 @@
 package org.openforis.collect.earth.ipcc.view;
 
-import org.openforis.collect.earth.ipcc.model.CroplandType;
-import org.openforis.collect.earth.ipcc.model.LandUseCategory;
+import org.openforis.collect.earth.ipcc.model.CroplandTypeEnum;
+import org.openforis.collect.earth.ipcc.model.LandUseCategoryEnum;
 
 import se.gustavkarlsson.gwiz.AbstractWizardPage;
 
-public class CroplandPage extends SubdivisionPage {
+public class CroplandPage extends AbstractSubdivisionPage {
 
 
 	private static final long serialVersionUID = -8470656687978500741L;
 	private AbstractWizardPage nextPage = new GrasslandPage();
 	
 	public CroplandPage() {		
-		super( LandUseCategory.C );	
+		super( LandUseCategoryEnum.C );	
 	}
 
 	@Override
@@ -28,7 +28,7 @@ public class CroplandPage extends SubdivisionPage {
 
 	@Override
 	protected Object[] getValues() {
-		return CroplandType.values();
+		return CroplandTypeEnum.values();
 	}
 
 	@Override

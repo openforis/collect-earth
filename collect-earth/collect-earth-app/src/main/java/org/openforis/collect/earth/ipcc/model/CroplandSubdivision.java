@@ -1,19 +1,19 @@
 package org.openforis.collect.earth.ipcc.model;
 
-public class CroplandSubdivision extends LandUseSubdivision<CroplandType>{
+public class CroplandSubdivision extends AbstractLandUseSubdivision<CroplandTypeEnum>{
 	
-	protected CroplandType type;
+	protected CroplandTypeEnum type;
 	
-	public CroplandSubdivision( String code, String name, CroplandType type, Integer id) {
-		super(LandUseCategory.C, code, name, id);
+	public CroplandSubdivision( String code, String name, CroplandTypeEnum type, Integer id) {
+		super(LandUseCategoryEnum.C, code, name, id);
 		setManagementType(type);
 	}
 
-	public CroplandType getManagementType() {
+	public CroplandTypeEnum getManagementType() {
 		return type;
 	}
 
-	public void setManagementType(CroplandType type) {
+	public void setManagementType(CroplandTypeEnum type) {
 		this.type = type;
 	};
 	

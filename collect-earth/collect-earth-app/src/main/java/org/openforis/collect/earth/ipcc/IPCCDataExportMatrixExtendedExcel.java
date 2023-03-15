@@ -15,7 +15,7 @@ import org.apache.poi.ss.usermodel.Row;
 import org.apache.poi.ss.usermodel.Sheet;
 import org.apache.poi.ss.usermodel.Workbook;
 import org.openforis.collect.earth.app.service.ExportType;
-import org.openforis.collect.earth.ipcc.model.LandUseSubdivision;
+import org.openforis.collect.earth.ipcc.model.AbstractLandUseSubdivision;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
@@ -148,14 +148,14 @@ public class IPCCDataExportMatrixExtendedExcel extends AbstractIPCCDataExportTim
 
 					MatrixSheet matrix = new MatrixSheet(yearDataStratum);
 					int cellPosition = 1;
-					for (LandUseSubdivision<?> subdivision : matrix.getSubdivisions()) {
+					for (AbstractLandUseSubdivision<?> subdivision : matrix.getSubdivisions()) {
 						cell = headerRow.createCell(cellPosition++);
 						cell.setCellValue(subdivision.toString());
 						cell.setCellStyle(headerCellStyle);
 					}
 
 					int colNum = 0;
-					for (LandUseSubdivision<?> subdivisionH : matrix.getSubdivisions()) {
+					for (AbstractLandUseSubdivision<?> subdivisionH : matrix.getSubdivisions()) {
 						colNum = 0;
 						Row row = sheet.createRow(rowNum++);
 
@@ -164,7 +164,7 @@ public class IPCCDataExportMatrixExtendedExcel extends AbstractIPCCDataExportTim
 						columnCell.setCellValue(subdivisionH.toString());
 
 						colNum = 1;
-						for (LandUseSubdivision<?> subdivisionV : matrix.getSubdivisions()) {
+						for (AbstractLandUseSubdivision<?> subdivisionV : matrix.getSubdivisions()) {
 
 							cell = row.createCell(colNum++);
 							cell.setCellValue(IPCCDataExportMatrixExcel

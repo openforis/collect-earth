@@ -1,6 +1,6 @@
 package org.openforis.collect.earth.ipcc;
 
-public enum RegionColumn {
+public enum RegionColumnEnum {
 
 	COUNTRY( "country" ), PROVINCE("province"), DISTRICT("district");
 	
@@ -8,7 +8,7 @@ public enum RegionColumn {
 
 	private int id;
 
-	private RegionColumn(String columnName) {
+	private RegionColumnEnum(String columnName) {
 		this.columnName = columnName;
 	}
 

@@ -1,17 +1,17 @@
 package org.openforis.collect.earth.ipcc.view;
 
-import org.openforis.collect.earth.ipcc.model.LandUseCategory;
-import org.openforis.collect.earth.ipcc.model.ManagementType;
+import org.openforis.collect.earth.ipcc.model.LandUseCategoryEnum;
+import org.openforis.collect.earth.ipcc.model.ManagementTypeEnum;
 
 import se.gustavkarlsson.gwiz.AbstractWizardPage;
 
-public class OtherlandPage extends SubdivisionPage {
+public class OtherlandPage extends AbstractSubdivisionPage {
 
 	private static final long serialVersionUID = -7092466238152990994L;
 	//private AbstractWizardPage nextPage;
 	
 	public OtherlandPage() {		
-		super( LandUseCategory.O );	
+		super( LandUseCategoryEnum.O );	
 	}
 
 	@Override
@@ -27,7 +27,7 @@ public class OtherlandPage extends SubdivisionPage {
 
 	@Override
 	protected Object[] getValues() {
-		return ManagementType.values();
+		return ManagementTypeEnum.values();
 	}
 
 	@Override

@@ -8,7 +8,7 @@ import java.sql.SQLException;
 import java.util.List;
 
 import org.openforis.collect.earth.ipcc.controller.LandUseSubdivisionUtils;
-import org.openforis.collect.earth.ipcc.model.LandUseSubdivision;
+import org.openforis.collect.earth.ipcc.model.AbstractLandUseSubdivision;
 import org.springframework.jdbc.core.RowMapper;
 import org.springframework.stereotype.Component;
 
@@ -44,7 +44,7 @@ public class IPCCDataExportTimeSeriesXML extends AbstractIPCCDataExportTimeSerie
 		XStream xStream = new XStream();
 		xStream.alias("LandUse", LUDataPerYear.class);
 		xStream.alias("Stratum", StratumPerYearData.class);
-		xStream.alias("Subdivision", LandUseSubdivision.class);
+		xStream.alias("Subdivision", AbstractLandUseSubdivision.class);
 		
 		xStream.setMode(XStream.NO_REFERENCES);
 		String xmlSchema = xStream.toXML(strataData);

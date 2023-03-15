@@ -16,13 +16,13 @@ import org.springframework.jdbc.core.RowMapper;
 
 import com.opencsv.CSVWriter;
 
-public abstract class IPCCDataExportCSV extends RDBConnector {
+public abstract class AbstractIPCCDataExportCSV extends RDBConnector {
 
 	@Autowired
 	protected SchemaService schemaService;
-	Logger logger = LoggerFactory.getLogger(IPCCDataExportCSV.class);
+	Logger logger = LoggerFactory.getLogger(AbstractIPCCDataExportCSV.class);
 
-	public IPCCDataExportCSV() {
+	public AbstractIPCCDataExportCSV() {
 		super();
 	}
 

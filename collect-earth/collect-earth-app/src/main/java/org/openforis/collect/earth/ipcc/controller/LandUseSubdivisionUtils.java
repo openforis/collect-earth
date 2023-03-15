@@ -9,9 +9,9 @@ import java.util.List;
 import org.openforis.collect.earth.ipcc.model.CroplandSubdivision;
 import org.openforis.collect.earth.ipcc.model.ForestSubdivision;
 import org.openforis.collect.earth.ipcc.model.GrasslandSubdivision;
-import org.openforis.collect.earth.ipcc.model.LandUseCategory;
-import org.openforis.collect.earth.ipcc.model.LandUseManagement;
-import org.openforis.collect.earth.ipcc.model.LandUseSubdivision;
+import org.openforis.collect.earth.ipcc.model.LandUseCategoryEnum;
+import org.openforis.collect.earth.ipcc.model.LandUseManagementEnum;
+import org.openforis.collect.earth.ipcc.model.AbstractLandUseSubdivision;
 import org.openforis.collect.earth.ipcc.model.OtherlandSubdivision;
 import org.openforis.collect.earth.ipcc.model.SettlementSubdivision;
 import org.openforis.collect.earth.ipcc.model.WetlandSubdivision;
@@ -25,11 +25,11 @@ public class LandUseSubdivisionUtils {
 	
 	private static Logger logger = LoggerFactory.getLogger( LandUseSubdivisionUtils.class );
 	
-	static List<LandUseSubdivision> landUseSubdivisions;
+	static List<AbstractLandUseSubdivision> landUseSubdivisions;
 
-	public static List<LandUseSubdivision<?>> getSubdivisionsByCategory(LandUseCategory category) {
-		List<LandUseSubdivision<?>> subdivisionsInCategory = new ArrayList<LandUseSubdivision<?>>();
-		for (LandUseSubdivision<?> landUseSubdivision : landUseSubdivisions) {
+	public static List<AbstractLandUseSubdivision<?>> getSubdivisionsByCategory(LandUseCategoryEnum category) {
+		List<AbstractLandUseSubdivision<?>> subdivisionsInCategory = new ArrayList<AbstractLandUseSubdivision<?>>();
+		for (AbstractLandUseSubdivision<?> landUseSubdivision : landUseSubdivisions) {
 			if( landUseSubdivision.getCategory().equals( category ) ) {
 				subdivisionsInCategory.add(landUseSubdivision);
 			}
@@ -38,9 +38,9 @@ public class LandUseSubdivisionUtils {
 		return subdivisionsInCategory;
 	}
 	
-	public static List<LandUseSubdivision<?>> getSubdivisionsByCategoryAndType(LandUseManagement landUseManagement) {
-		List<LandUseSubdivision<?>> subdivisionsInCategoryAndType = new ArrayList<LandUseSubdivision<?>>();
-		for (LandUseSubdivision<?> landUseSubdivision : landUseSubdivisions) {
+	public static List<AbstractLandUseSubdivision<?>> getSubdivisionsByCategoryAndType(LandUseManagementEnum landUseManagement) {
+		List<AbstractLandUseSubdivision<?>> subdivisionsInCategoryAndType = new ArrayList<AbstractLandUseSubdivision<?>>();
+		for (AbstractLandUseSubdivision<?> landUseSubdivision : landUseSubdivisions) {
 			if( 
 					landUseSubdivision.getCategory().equals( landUseManagement.getLuCategory() ) 
 					&& 
@@ -53,29 +53,29 @@ public class LandUseSubdivisionUtils {
 		return subdivisionsInCategoryAndType;
 	}
 	
-	public static void setSubdivisionType(LandUseSubdivision subdivision, Object type) {
+	public static void setSubdivisionType(AbstractLandUseSubdivision subdivision, Object type) {
 		landUseSubdivisions.get( landUseSubdivisions.indexOf(subdivision)).setManagementType( type);
 	}
 
-	public static List<LandUseSubdivision> getLandUseSubdivisions() {
+	public static List<AbstractLandUseSubdivision> getLandUseSubdivisions() {
 		return landUseSubdivisions;
 	}
 
-	public static void setLandUseSubdivisions(List<LandUseSubdivision> landUseSubdivisions) {
+	public static void setLandUseSubdivisions(List<AbstractLandUseSubdivision> landUseSubdivisions) {
 		LandUseSubdivisionUtils.landUseSubdivisions = landUseSubdivisions;
 	}
 	
-	public static LandUseSubdivision<?> getSubdivision( String luCategoryCode, String luSubdivisionCode  ) {
+	public static AbstractLandUseSubdivision<?> getSubdivision( String luCategoryCode, String luSubdivisionCode  ) {
 		
-		LandUseCategory[] luCategories = LandUseCategory.values();
-		LandUseCategory landUseCategory = null;
-		for (LandUseCategory luCat : luCategories) {
+		LandUseCategoryEnum[] luCategories = LandUseCategoryEnum.values();
+		LandUseCategoryEnum landUseCategory = null;
+		for (LandUseCategoryEnum luCat : luCategories) {
 			if( luCat.getCode().equals(luCategoryCode)) {
 				landUseCategory = luCat;
 			}
 		}
 		
-		for (LandUseSubdivision<?> landUseSubdiv : landUseSubdivisions) {
+		for (AbstractLandUseSubdivision<?> landUseSubdiv : landUseSubdivisions) {
 			if( landUseSubdiv.getCategory().equals(landUseCategory) && landUseSubdiv.getCode().equals( luSubdivisionCode ) ) {
 				return landUseSubdiv;
 			}

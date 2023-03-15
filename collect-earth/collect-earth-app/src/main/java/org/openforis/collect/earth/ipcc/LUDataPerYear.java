@@ -1,14 +1,14 @@
 package org.openforis.collect.earth.ipcc;
 
-import org.openforis.collect.earth.ipcc.model.LandUseSubdivision;
+import org.openforis.collect.earth.ipcc.model.AbstractLandUseSubdivision;
 
 public class LUDataPerYear<F,E> {
 
-	private LandUseSubdivision lu;
-	private LandUseSubdivision luNextYear;
+	private AbstractLandUseSubdivision lu;
+	private AbstractLandUseSubdivision luNextYear;
 	private double areaHa;
 	
-	public LUDataPerYear(LandUseSubdivision lu, LandUseSubdivision luNextYear, double areaHa) {
+	public LUDataPerYear(AbstractLandUseSubdivision lu, AbstractLandUseSubdivision luNextYear, double areaHa) {
 		super();
 		this.lu = lu;
 		this.luNextYear = luNextYear;
@@ -30,7 +30,7 @@ public class LUDataPerYear<F,E> {
 
 
 
-	public LandUseSubdivision<F> getLu() {
+	public AbstractLandUseSubdivision<F> getLu() {
 		return lu;
 	}
 
@@ -38,7 +38,7 @@ public class LUDataPerYear<F,E> {
 
 
 
-	public LandUseSubdivision<E> getLuNextYear() {
+	public AbstractLandUseSubdivision<E> getLuNextYear() {
 		return luNextYear;
 	}
 
@@ -46,7 +46,7 @@ public class LUDataPerYear<F,E> {
 
 
 
-	public void setLu(LandUseSubdivision<F> lu) {
+	public void setLu(AbstractLandUseSubdivision<F> lu) {
 		this.lu = lu;
 	}
 
@@ -54,7 +54,7 @@ public class LUDataPerYear<F,E> {
 
 
 
-	public void setLuNextYear(LandUseSubdivision<E> luNextYear) {
+	public void setLuNextYear(AbstractLandUseSubdivision<E> luNextYear) {
 		this.luNextYear = luNextYear;
 	}
 

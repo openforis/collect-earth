@@ -11,15 +11,15 @@ import org.openforis.collect.earth.app.service.ExportType;
 import org.openforis.collect.earth.app.service.RDBConnector;
 import org.openforis.collect.earth.app.service.SchemaService;
 import org.openforis.collect.earth.ipcc.model.CroplandSubdivision;
-import org.openforis.collect.earth.ipcc.model.CroplandType;
+import org.openforis.collect.earth.ipcc.model.CroplandTypeEnum;
 import org.openforis.collect.earth.ipcc.model.ForestSubdivision;
 import org.openforis.collect.earth.ipcc.model.GrasslandSubdivision;
-import org.openforis.collect.earth.ipcc.model.LandUseCategory;
-import org.openforis.collect.earth.ipcc.model.LandUseSubdivision;
-import org.openforis.collect.earth.ipcc.model.ManagementType;
+import org.openforis.collect.earth.ipcc.model.LandUseCategoryEnum;
+import org.openforis.collect.earth.ipcc.model.AbstractLandUseSubdivision;
+import org.openforis.collect.earth.ipcc.model.ManagementTypeEnum;
 import org.openforis.collect.earth.ipcc.model.OtherlandSubdivision;
 import org.openforis.collect.earth.ipcc.model.SettlementSubdivision;
-import org.openforis.collect.earth.ipcc.model.SettlementType;
+import org.openforis.collect.earth.ipcc.model.SettlementTypeEnum;
 import org.openforis.collect.earth.ipcc.model.WetlandSubdivision;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -43,13 +43,13 @@ public class IPCCLandUses extends RDBConnector {
 	@Autowired
 	private SchemaService schemaService;
 
-	private List<LandUseSubdivision> landUseSubdivisions;
+	private List<AbstractLandUseSubdivision> landUseSubdivisions;
 
 	public IPCCLandUses() {
 		setExportTypeUsed(ExportType.IPCC);
 	}
 
-	public List<LandUseSubdivision> getLandUseSubdivisions() {
+	public List<AbstractLandUseSubdivision> getLandUseSubdivisions() {
 
 		if( landUseSubdivisions != null ) {
 			return landUseSubdivisions;
@@ -57,9 +57,9 @@ public class IPCCLandUses extends RDBConnector {
 		
 		schemaName = schemaService.getSchemaPrefix(getExportTypeUsed());
 
-		LandUseCategory[] lUseCategories = LandUseCategory.values();
+		LandUseCategoryEnum[] lUseCategories = LandUseCategoryEnum.values();
 
-		landUseSubdivisions = new ArrayList<LandUseSubdivision>();
+		landUseSubdivisions = new ArrayList<AbstractLandUseSubdivision>();
 
 		for (int i = 0; i < lUseCategories.length; i++) {
 			
@@ -71,9 +71,9 @@ public class IPCCLandUses extends RDBConnector {
 
 	}
 	
-	private Collection<? extends LandUseSubdivision<?>> getSubdivisions(LandUseCategory landUseCategory) {
+	private Collection<? extends AbstractLandUseSubdivision<?>> getSubdivisions(LandUseCategoryEnum landUseCategory) {
 	
-		List<LandUseSubdivision<?>> luSubdivisions = getJdbcTemplate().query(
+		List<AbstractLandUseSubdivision<?>> luSubdivisions = getJdbcTemplate().query(
 				"select " 
 					+ LU_SUBDIVISION + "," + LU_SUBDIVISION_LABEL
 					+ " from " + schemaName + LU_SUBDIVISION_TABLE
@@ -89,10 +89,10 @@ public class IPCCLandUses extends RDBConnector {
 		return luSubdivisions;
 	}
 
-	private RowMapper<LandUseSubdivision<?>> getRowMapper(LandUseCategory landUseCategory) {
-		return new RowMapper<LandUseSubdivision<?>>() {
+	private RowMapper<AbstractLandUseSubdivision<?>> getRowMapper(LandUseCategoryEnum landUseCategory) {
+		return new RowMapper<AbstractLandUseSubdivision<?>>() {
 			@Override
-			public LandUseSubdivision<?> mapRow(ResultSet rs, int rowNum) throws SQLException {
+			public AbstractLandUseSubdivision<?> mapRow(ResultSet rs, int rowNum) throws SQLException {
 				
 				String subdivisionCode = rs.getString(1);
 				String subdivisionName = rs.getString(2);
@@ -104,42 +104,42 @@ public class IPCCLandUses extends RDBConnector {
 						return new ForestSubdivision(
 								subdivisionCode,
 								subdivisionName,
-								ManagementType.MANAGED, // Assign default management
+								ManagementTypeEnum.MANAGED, // Assign default management
 								seqId
 								);
 					case "C":
 						return new CroplandSubdivision(
 								subdivisionCode,
 								subdivisionName,
-								CroplandType.ANNUAL, // Assign default management
+								CroplandTypeEnum.ANNUAL, // Assign default management
 								seqId
 								);
 					case "G":
 						return new GrasslandSubdivision(
 								subdivisionCode,
 								subdivisionName,
-								ManagementType.MANAGED, // Assign default management
+								ManagementTypeEnum.MANAGED, // Assign default management
 								seqId
 								);
 					case "S":
 						return new SettlementSubdivision(
 								subdivisionCode,
 								subdivisionName,
-								SettlementType.OTHER, // Assign default management
+								SettlementTypeEnum.OTHER, // Assign default management
 								seqId
 								);
 					case "W":
 						return new WetlandSubdivision(
 								subdivisionCode,
 								subdivisionName,
-								ManagementType.UNMANAGED, // Assign default management
+								ManagementTypeEnum.UNMANAGED, // Assign default management
 								seqId
 								);
 					case "O":
 						return new OtherlandSubdivision(
 								subdivisionCode,
 								subdivisionName,
-								ManagementType.UNMANAGED, // Assign default management
+								ManagementTypeEnum.UNMANAGED, // Assign default management
 								seqId
 								);
 				default:

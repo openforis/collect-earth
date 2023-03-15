@@ -59,7 +59,7 @@ import javax.xml.datatype.XMLGregorianCalendar;
     "record"
 })
 @XmlRootElement(name = "IPCC2006Export")
-public class IPCC2006Export {
+public class IPCC2006Export{
 
     @XmlElement(name = "Version", required = true)
     protected String version;
@@ -224,5 +224,6 @@ public class IPCC2006Export {
         }
 
     }
+    
 
 }

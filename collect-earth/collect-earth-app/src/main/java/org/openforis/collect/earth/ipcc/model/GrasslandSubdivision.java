@@ -1,9 +1,9 @@
 package org.openforis.collect.earth.ipcc.model;
 
-public class GrasslandSubdivision extends ManagementLandUseSubdivision{
+public class GrasslandSubdivision extends AbstractManagementLandUseSubdivision{
 	
-	public GrasslandSubdivision( String code, String name, ManagementType type, Integer id) {
-		super( LandUseCategory.G, code, name, type, id );
+	public GrasslandSubdivision( String code, String name, ManagementTypeEnum type, Integer id) {
+		super( LandUseCategoryEnum.G, code, name, type, id );
 	}
 	
 }

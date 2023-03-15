@@ -14,7 +14,7 @@ import javax.xml.bind.annotation.XmlElement;
 import javax.xml.bind.annotation.XmlTransient;
 import javax.xml.bind.annotation.XmlType;
 
-import org.openforis.collect.earth.ipcc.RegionColumn;
+import org.openforis.collect.earth.ipcc.RegionColumnEnum;
 
 
 /**

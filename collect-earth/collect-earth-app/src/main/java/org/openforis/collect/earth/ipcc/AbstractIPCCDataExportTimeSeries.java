@@ -25,16 +25,12 @@ public abstract class AbstractIPCCDataExportTimeSeries<E> extends AbstractIPCCDa
 
 		initSchemaName();
 
-		List<StratumObject> strataClimate = getStrataClimate();
-		List<StratumObject> strataSoil = getStrataSoil();
-		List<StratumObject> strataGEZ = getStrataGEZ();
-
 		List<E> strataData = new ArrayList<E>();
 
 		for (int year = startYear; year < endYear; year++) {
-			for (StratumObject gez : strataGEZ) {
-				for (StratumObject climate : strataClimate) {
-					for (StratumObject soil : strataSoil) {
+			for (StratumObject gez : getStrataGEZ() ) {
+				for (StratumObject climate : getStrataClimate()) {
+					for (StratumObject soil : getStrataSoil() ) {
 						E yearLuData = (E) generateLUTimeseriesForStrata(year, gez, climate, soil);
 						if (yearLuData != null)
 							strataData.add(yearLuData);
