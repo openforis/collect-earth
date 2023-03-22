@@ -16,18 +16,18 @@ import javax.xml.bind.annotation.XmlType;
 
 
 /**
- * <p>Java class for lrtLandSubcategory complex type.
+ * <p>Java class for socRefRecord complex type.
  * 
  * <p>The following schema fragment specifies the expected content contained within this class.
  * 
  * <pre>
- * &lt;complexType name="lrtLandSubcategory">
+ * &lt;complexType name="socRefRecord">
  *   &lt;complexContent>
  *     &lt;restriction base="{http://www.w3.org/2001/XMLSchema}anyType">
  *       &lt;sequence>
- *         &lt;element name="scatId" type="{http://www.w3.org/2001/XMLSchema}integer"/>
- *         &lt;element name="remark" type="{http://www.w3.org/2001/XMLSchema}string"/>
- *         &lt;element name="landSubdivisions" type="{http://ipcc2006.air.sk/IPCC2006Export}lrtLandSubdivisions"/>
+ *         &lt;element name="climateRegionId" type="{http://www.w3.org/2001/XMLSchema}integer"/>
+ *         &lt;element name="soilTypeId" type="{http://www.w3.org/2001/XMLSchema}integer"/>
+ *         &lt;element name="socRef" type="{http://www.w3.org/2001/XMLSchema}double"/>
  *       &lt;/sequence>
  *     &lt;/restriction>
  *   &lt;/complexContent>
@@ -37,93 +37,90 @@ import javax.xml.bind.annotation.XmlType;
  * 
  */
 @XmlAccessorType(XmlAccessType.FIELD)
-@XmlType(name = "lrtLandSubcategory", propOrder = {
-    "scatId",
-    "remark",
-    "landSubdivisions"
+@XmlType(name = "socRefRecord", propOrder = {
+    "climateRegionId",
+    "soilTypeId",
+    "socRef"
 })
-public class LrtLandSubcategory {
+public class SocRefRecord {
 
     @XmlElement(required = true)
-    protected Integer scatId;
-    @XmlElement(required = true, nillable = true)
-    protected String remark;
+    protected Integer climateRegionId;
     @XmlElement(required = true)
-    protected LrtLandSubdivisions landSubdivisions;
+    protected Integer soilTypeId;
+    @XmlElement(required = true, type = Double.class, nillable = true)
+    protected Double socRef;
 
     /**
-     * Gets the value of the scatId property.
+     * Gets the value of the climateRegionId property.
      * 
      * @return
      *     possible object is
      *     {@link Integer }
      *     
      */
-    public Integer getScatId() {
-        return scatId;
+    public Integer getClimateRegionId() {
+        return climateRegionId;
     }
 
     /**
-     * Sets the value of the scatId property.
+     * Sets the value of the climateRegionId property.
      * 
      * @param value
      *     allowed object is
      *     {@link Integer }
      *     
      */
-    public void setScatId(Integer value) {
-        this.scatId = value;
+    public void setClimateRegionId(Integer value) {
+        this.climateRegionId = value;
     }
 
     /**
-     * Gets the value of the remark property.
+     * Gets the value of the soilTypeId property.
      * 
      * @return
      *     possible object is
-     *     {@link String }
+     *     {@link Integer }
      *     
      */
-    public String getRemark() {
-        return remark;
+    public Integer getSoilTypeId() {
+        return soilTypeId;
     }
 
     /**
-     * Sets the value of the remark property.
+     * Sets the value of the soilTypeId property.
      * 
      * @param value
      *     allowed object is
-     *     {@link String }
+     *     {@link Integer }
      *     
      */
-    public void setRemark(String value) {
-        this.remark = value;
+    public void setSoilTypeId(Integer value) {
+        this.soilTypeId = value;
     }
 
     /**
-     * Gets the value of the landSubdivisions property.
+     * Gets the value of the socRef property.
      * 
      * @return
      *     possible object is
-     *     {@link LrtLandSubdivisions }
+     *     {@link Double }
      *     
      */
-    public LrtLandSubdivisions getLandSubdivisions() {
-    	if( landSubdivisions == null ) {
-    		landSubdivisions = new LrtLandSubdivisions();
-    	}
-        return landSubdivisions;
+    public Double getSocRef() {
+        return socRef;
     }
 
     /**
-     * Sets the value of the landSubdivisions property.
+     * Sets the value of the socRef property.
      * 
      * @param value
      *     allowed object is
-     *     {@link LrtLandSubdivisions }
+     *     {@link Double }
      *     
      */
-    public void setLandSubdivisions(LrtLandSubdivisions value) {
-        this.landSubdivisions = value;
+    public void setSocRef(Double value) {
+        this.socRef = value;
     }
 
 }

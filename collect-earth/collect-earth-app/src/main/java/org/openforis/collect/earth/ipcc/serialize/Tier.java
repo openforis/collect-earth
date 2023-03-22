@@ -8,6 +8,7 @@
 
 package org.openforis.collect.earth.ipcc.serialize;
 
+
 import javax.xml.bind.annotation.XmlAccessType;
 import javax.xml.bind.annotation.XmlAccessorType;
 import javax.xml.bind.annotation.XmlElement;
@@ -15,16 +16,17 @@ import javax.xml.bind.annotation.XmlType;
 
 
 /**
- * <p>Java class for landRepresentation complex type.
+ * <p>Java class for Tier complex type.
  * 
  * <p>The following schema fragment specifies the expected content contained within this class.
  * 
  * <pre>
- * &lt;complexType name="landRepresentation">
+ * &lt;complexType name="Tier">
  *   &lt;complexContent>
  *     &lt;restriction base="{http://www.w3.org/2001/XMLSchema}anyType">
  *       &lt;sequence>
- *         &lt;element name="lrtCountry" type="{http://ipcc2006.air.sk/IPCC2006Export}lrtCountry"/>
+ *         &lt;element name="ipccCode" type="{http://ipcc2006.air.sk/IPCC2006Export}ipccCode"/>
+ *         &lt;element name="tierId" type="{http://ipcc2006.air.sk/IPCC2006Export}TierId"/>
  *       &lt;/sequence>
  *     &lt;/restriction>
  *   &lt;/complexContent>
@@ -34,36 +36,63 @@ import javax.xml.bind.annotation.XmlType;
  * 
  */
 @XmlAccessorType(XmlAccessType.FIELD)
-@XmlType(name = "landRepresentation", propOrder = {
-    "lrtCountry"
+@XmlType(name = "Tier", propOrder = {
+    "ipccCode",
+    "tierId"
 })
-public class LandRepresentation {
+public class Tier {
 
     @XmlElement(required = true)
-    protected LrtCountry lrtCountry;
+    protected String ipccCode;
+    @XmlElement(required = true)
+    protected Integer tierId;
 
     /**
-     * Gets the value of the lrtCountry property.
+     * Gets the value of the ipccCode property.
      * 
      * @return
      *     possible object is
-     *     {@link LrtCountry }
+     *     {@link String }
      *     
      */
-    public LrtCountry getLrtCountry() {
-        return lrtCountry;
+    public String getIpccCode() {
+        return ipccCode;
     }
 
     /**
-     * Sets the value of the lrtCountry property.
+     * Sets the value of the ipccCode property.
      * 
      * @param value
      *     allowed object is
-     *     {@link LrtCountry }
+     *     {@link String }
      *     
      */
-    public void setLrtCountry(LrtCountry value) {
-        this.lrtCountry = value;
+    public void setIpccCode(String value) {
+        this.ipccCode = value;
+    }
+
+    /**
+     * Gets the value of the tierId property.
+     * 
+     * @return
+     *     possible object is
+     *     {@link Integer }
+     *     
+     */
+    public Integer getTierId() {
+        return tierId;
+    }
+
+    /**
+     * Sets the value of the tierId property.
+     * 
+     * @param value
+     *     allowed object is
+     *     {@link Integer }
+     *     
+     */
+    public void setTierId(Integer value) {
+        this.tierId = value;
     }
 
 }

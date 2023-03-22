@@ -16,19 +16,18 @@ import javax.xml.bind.annotation.XmlType;
 
 
 /**
- * <p>Java class for climateRegion complex type.
+ * <p>Java class for CustomRegion complex type.
  * 
  * <p>The following schema fragment specifies the expected content contained within this class.
  * 
  * <pre>
- * &lt;complexType name="climateRegion">
+ * &lt;complexType name="CustomRegion">
  *   &lt;complexContent>
  *     &lt;restriction base="{http://www.w3.org/2001/XMLSchema}anyType">
  *       &lt;sequence>
  *         &lt;element name="id" type="{http://www.w3.org/2001/XMLSchema}integer"/>
- *         &lt;element name="guid" type="{http://ipcc2006.air.sk/IPCC2006Export}guid"/>
- *         &lt;element name="domainId" type="{http://www.w3.org/2001/XMLSchema}integer"/>
- *         &lt;element name="region" type="{http://www.w3.org/2001/XMLSchema}string"/>
+ *         &lt;element name="regionName" type="{http://www.w3.org/2001/XMLSchema}string"/>
+ *         &lt;element name="temperature" type="{http://www.w3.org/2001/XMLSchema}double"/>
  *         &lt;element name="remark" type="{http://www.w3.org/2001/XMLSchema}string"/>
  *       &lt;/sequence>
  *     &lt;/restriction>
@@ -39,24 +38,21 @@ import javax.xml.bind.annotation.XmlType;
  * 
  */
 @XmlAccessorType(XmlAccessType.FIELD)
-@XmlType(name = "climateRegion", propOrder = {
+@XmlType(name = "CustomRegion", propOrder = {
     "id",
-    "guid",
-    "domainId",
-    "region",
+    "regionName",
+    "temperature",
     "remark"
 })
-public class ClimateRegion {
+public class CustomRegion {
 
     @XmlElement(required = true)
     protected Integer id;
     @XmlElement(required = true)
-    protected String guid;
-    @XmlElement(required = true)
-    protected Integer domainId;
-    @XmlElement(required = true)
-    protected String region;
-    @XmlElement(required = true)
+    protected String regionName;
+    @XmlElement(required = true, type = Double.class, nillable = true)
+    protected Double temperature;
+    @XmlElement(required = true, nillable = true)
     protected String remark;
 
     /**
@@ -84,75 +80,51 @@ public class ClimateRegion {
     }
 
     /**
-     * Gets the value of the guid property.
+     * Gets the value of the regionName property.
      * 
      * @return
      *     possible object is
      *     {@link String }
      *     
      */
-    public String getGuid() {
-        return guid;
+    public String getRegionName() {
+        return regionName;
     }
 
     /**
-     * Sets the value of the guid property.
+     * Sets the value of the regionName property.
      * 
      * @param value
      *     allowed object is
      *     {@link String }
      *     
      */
-    public void setGuid(String value) {
-        this.guid = value;
+    public void setRegionName(String value) {
+        this.regionName = value;
     }
 
     /**
-     * Gets the value of the domainId property.
+     * Gets the value of the temperature property.
      * 
      * @return
      *     possible object is
-     *     {@link Integer }
+     *     {@link Double }
      *     
      */
-    public Integer getDomainId() {
-        return domainId;
+    public Double getTemperature() {
+        return temperature;
     }
 
     /**
-     * Sets the value of the domainId property.
+     * Sets the value of the temperature property.
      * 
      * @param value
      *     allowed object is
-     *     {@link Integer }
+     *     {@link Double }
      *     
      */
-    public void setDomainId(Integer value) {
-        this.domainId = value;
-    }
-
-    /**
-     * Gets the value of the region property.
-     * 
-     * @return
-     *     possible object is
-     *     {@link String }
-     *     
-     */
-    public String getRegion() {
-        return region;
-    }
-
-    /**
-     * Sets the value of the region property.
-     * 
-     * @param value
-     *     allowed object is
-     *     {@link String }
-     *     
-     */
-    public void setRegion(String value) {
-        this.region = value;
+    public void setTemperature(Double value) {
+        this.temperature = value;
     }
 
     /**

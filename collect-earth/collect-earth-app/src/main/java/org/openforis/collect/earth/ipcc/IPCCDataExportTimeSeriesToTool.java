@@ -5,14 +5,9 @@ import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
-import java.nio.file.Files;
-import java.nio.file.Paths;
-import java.security.MessageDigest;
-import java.security.NoSuchAlgorithmException;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.ArrayList;
-import java.util.Base64;
 import java.util.Collection;
 import java.util.List;
 import java.util.UUID;
@@ -63,7 +58,6 @@ import org.openforis.collect.earth.ipcc.serialize.LrtLandUnitHistoryRecord;
 import org.openforis.collect.earth.ipcc.serialize.LrtLandUnits;
 import org.openforis.collect.earth.ipcc.serialize.LrtRegion;
 import org.openforis.collect.earth.ipcc.serialize.LrtRegions;
-import org.openforis.collect.earth.ipcc.serialize.ObjectFactory;
 import org.openforis.collect.earth.ipcc.serialize.Otherland;
 import org.openforis.collect.earth.ipcc.serialize.Settlement;
 import org.openforis.collect.earth.ipcc.serialize.SoilType;
@@ -113,6 +107,7 @@ public class IPCCDataExportTimeSeriesToTool extends AbstractIPCCDataExport {
 			soilType.setId( soil.getSoilType().getId());
 			soilType.setCompositionId( soil.getSoilType().getSoilCompositionId());
 			soilType.setFullName(soil.getLabel());
+			soilType.setRemark(soil.getDescription());
 			soilTypes.getSoilType().add(soilType);
 		}
 		landTypes.setSoilTypes(soilTypes);
@@ -315,6 +310,7 @@ public class IPCCDataExportTimeSeriesToTool extends AbstractIPCCDataExport {
 		Record record = new Record();
 
 		setLandTypes(new LandTypes());
+		getLandTypes().setCountryCode( countryCode );
 		addClimateAndSoil(getLandTypes());
 		addLandClasses(getLandTypes());
 

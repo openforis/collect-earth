@@ -28,12 +28,16 @@ public abstract class AbstractIPCCDataExport extends RDBConnector {
 	public static final String CLIMATE_COLUMN_VALUE = CLIMATE + "_zones";
 	public static final String CLIMATE_TABLE = CLIMATE_COLUMN_VALUE + "_code";
 	public static final String CLIMATE_COLUMN_LABEL = CLIMATE_COLUMN_VALUE + "_label";
+	public static final String CLIMATE_COLUMN_DESC = CLIMATE_COLUMN_VALUE + "_desc";
+	
 	public static final String CLIMATE_COLUMN_ID = CLIMATE_COLUMN_VALUE + "_code_id";
 	public static final String CLIMATE_COLUMN_IN_PLOT = CLIMATE +"_code_id";
 	
 	public static final String GEZ_COLUMN_VALUE = "ecological_zones";
 	public static final String GEZ_TABLE = GEZ_COLUMN_VALUE + "_code";
 	public static final String GEZ_COLUMN_LABEL = GEZ_COLUMN_VALUE + "_label";
+	public static final String GEZ_COLUMN_DESC = GEZ_COLUMN_VALUE + "_label";
+	
 	public static final String GEZ_COLUMN_ID = GEZ_COLUMN_VALUE + "_code_id";
 	public static final String GEZ_COLUMN_IN_PLOT = "gez_code_id";
 	
@@ -41,6 +45,7 @@ public abstract class AbstractIPCCDataExport extends RDBConnector {
 	public static final String SOIL_COLUMN_VALUE = SOIL + "_types";
 	public static final String SOIL_TABLE = SOIL_COLUMN_VALUE + "_code";
 	public static final String SOIL_COLUMN_LABEL = SOIL_COLUMN_VALUE + "_label";
+	public static final String SOIL_COLUMN_DESC = SOIL_COLUMN_VALUE + "_desc";
 	public static final String SOIL_COLUMN_ID = SOIL_COLUMN_VALUE + "_code_id";
 	public static final String SOIL_COLUMN_IN_PLOT = SOIL + "_code_id";
 	
@@ -65,10 +70,10 @@ public abstract class AbstractIPCCDataExport extends RDBConnector {
 	protected List<ClimateStratumObject> getStrataClimate() {
 		
 		if( climates == null ) {
-			List<StratumObject> distinctClimates = distinctValue(CLIMATE_COLUMN_VALUE, CLIMATE_COLUMN_LABEL, CLIMATE_TABLE, CLIMATE_COLUMN_IN_PLOT);
+			List<StratumObject> distinctClimates = distinctValue(CLIMATE_COLUMN_VALUE, CLIMATE_COLUMN_LABEL, CLIMATE_COLUMN_DESC, CLIMATE_TABLE, CLIMATE_COLUMN_IN_PLOT);
 			climates = new ArrayList<ClimateStratumObject>();
 			for (StratumObject distinctClimate : distinctClimates) {
-				climates.add( new ClimateStratumObject(distinctClimate.getValue(), distinctClimate.getLabel() ) );
+				climates.add( new ClimateStratumObject(distinctClimate.getValue(), distinctClimate.getLabel(), distinctClimate.getDescription() ) );
 			}
 		}
 		return climates;
@@ -77,10 +82,10 @@ public abstract class AbstractIPCCDataExport extends RDBConnector {
 
 	protected List<SoilStratumObject> getStrataSoil() {
 		if( soils == null ) {
-			List<StratumObject> distinctSoils =  distinctValue(SOIL_COLUMN_VALUE, SOIL_COLUMN_LABEL, SOIL_TABLE, SOIL_COLUMN_IN_PLOT);
+			List<StratumObject> distinctSoils =  distinctValue(SOIL_COLUMN_VALUE, SOIL_COLUMN_LABEL, SOIL_COLUMN_DESC, SOIL_TABLE, SOIL_COLUMN_IN_PLOT);
 			soils = new ArrayList<SoilStratumObject>();
 			for (StratumObject distinctSoil : distinctSoils) {
-				soils.add( new SoilStratumObject(distinctSoil.getValue(), distinctSoil.getLabel() ) );
+				soils.add( new SoilStratumObject(distinctSoil.getValue(), distinctSoil.getLabel(), distinctSoil.getDescription() ) );
 			}
 			
 		}
@@ -89,15 +94,15 @@ public abstract class AbstractIPCCDataExport extends RDBConnector {
 
 	protected List<StratumObject> getStrataGEZ() {
 		if( gezs == null ) {
-			gezs = distinctValue(GEZ_COLUMN_VALUE, GEZ_COLUMN_LABEL, GEZ_TABLE, GEZ_COLUMN_IN_PLOT );
+			gezs = distinctValue(GEZ_COLUMN_VALUE, GEZ_COLUMN_LABEL, GEZ_COLUMN_DESC, GEZ_TABLE, GEZ_COLUMN_IN_PLOT );
 		}
 		return gezs;
 	}
 
-	private List<StratumObject> distinctValue(String valueColumn, String labelColumn, String table, String plotColumnId) {
+	private List<StratumObject> distinctValue(String valueColumn, String labelColumn, String descColumn, String table, String plotColumnId) {
 
 		return getJdbcTemplate().query(
-				"SELECT DISTINCT(" + valueColumn  +"),"+ labelColumn +
+				"SELECT DISTINCT(" + valueColumn  +"),"+ labelColumn + ","+ descColumn +
 				" FROM " + getSchemaName() + table + ", " + getSchemaName() + PLOT_TABLE +
 				" WHERE " + PLOT_TABLE + "." + plotColumnId + " = " +  table + "." + table + "_id" 
 				 , 
@@ -105,7 +110,7 @@ public abstract class AbstractIPCCDataExport extends RDBConnector {
 					@Override
 					public StratumObject mapRow(ResultSet rs, int rowNum) throws SQLException {
 
-						return new StratumObject( rs.getString(valueColumn), rs.getString(labelColumn) );
+						return new StratumObject( rs.getString(valueColumn), rs.getString(labelColumn), rs.getString(descColumn) );
 					}
 
 				});

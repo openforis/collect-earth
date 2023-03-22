@@ -8,6 +8,8 @@
 
 package org.openforis.collect.earth.ipcc.serialize;
 
+import java.util.ArrayList;
+import java.util.List;
 import javax.xml.bind.annotation.XmlAccessType;
 import javax.xml.bind.annotation.XmlAccessorType;
 import javax.xml.bind.annotation.XmlElement;
@@ -15,18 +17,17 @@ import javax.xml.bind.annotation.XmlType;
 
 
 /**
- * <p>Java class for lrtCountry complex type.
+ * <p>Java class for socRefTable complex type.
  * 
  * <p>The following schema fragment specifies the expected content contained within this class.
  * 
  * <pre>
- * &lt;complexType name="lrtCountry">
+ * &lt;complexType name="socRefTable">
  *   &lt;complexContent>
  *     &lt;restriction base="{http://www.w3.org/2001/XMLSchema}anyType">
  *       &lt;sequence>
  *         &lt;element name="countryCode" type="{http://ipcc2006.air.sk/IPCC2006Export}countryCode"/>
- *         &lt;element name="area" type="{http://www.w3.org/2001/XMLSchema}double"/>
- *         &lt;element name="regions" type="{http://ipcc2006.air.sk/IPCC2006Export}lrtRegions"/>
+ *         &lt;element name="socRefRecord" type="{http://ipcc2006.air.sk/IPCC2006Export}socRefRecord" maxOccurs="unbounded" minOccurs="0"/>
  *       &lt;/sequence>
  *     &lt;/restriction>
  *   &lt;/complexContent>
@@ -36,19 +37,15 @@ import javax.xml.bind.annotation.XmlType;
  * 
  */
 @XmlAccessorType(XmlAccessType.FIELD)
-@XmlType(name = "lrtCountry", propOrder = {
+@XmlType(name = "socRefTable", propOrder = {
     "countryCode",
-    "area",
-    "regions"
+    "socRefRecord"
 })
-public class LrtCountry {
+public class SocRefTable {
 
     @XmlElement(required = true)
     protected String countryCode;
-    @XmlElement(required = true, type = Double.class, nillable = true)
-    protected Double area;
-    @XmlElement(required = true)
-    protected LrtRegions regions;
+    protected List<SocRefRecord> socRefRecord;
 
     /**
      * Gets the value of the countryCode property.
@@ -75,51 +72,32 @@ public class LrtCountry {
     }
 
     /**
-     * Gets the value of the area property.
+     * Gets the value of the socRefRecord property.
      * 
-     * @return
-     *     possible object is
-     *     {@link Double }
-     *     
-     */
-    public Double getArea() {
-        return area;
-    }
-
-    /**
-     * Sets the value of the area property.
+     * <p>
+     * This accessor method returns a reference to the live list,
+     * not a snapshot. Therefore any modification you make to the
+     * returned list will be present inside the JAXB object.
+     * This is why there is not a <CODE>set</CODE> method for the socRefRecord property.
      * 
-     * @param value
-     *     allowed object is
-     *     {@link Double }
-     *     
-     */
-    public void setArea(Double value) {
-        this.area = value;
-    }
-
-    /**
-     * Gets the value of the regions property.
+     * <p>
+     * For example, to add a new item, do as follows:
+     * <pre>
+     *    getSocRefRecord().add(newItem);
+     * </pre>
      * 
-     * @return
-     *     possible object is
-     *     {@link LrtRegions }
-     *     
-     */
-    public LrtRegions getRegions() {
-        return regions;
-    }
-
-    /**
-     * Sets the value of the regions property.
      * 
-     * @param value
-     *     allowed object is
-     *     {@link LrtRegions }
-     *     
+     * <p>
+     * Objects of the following type(s) are allowed in the list
+     * {@link SocRefRecord }
+     * 
+     * 
      */
-    public void setRegions(LrtRegions value) {
-        this.regions = value;
+    public List<SocRefRecord> getSocRefRecord() {
+        if (socRefRecord == null) {
+            socRefRecord = new ArrayList<SocRefRecord>();
+        }
+        return this.socRefRecord;
     }
 
 }

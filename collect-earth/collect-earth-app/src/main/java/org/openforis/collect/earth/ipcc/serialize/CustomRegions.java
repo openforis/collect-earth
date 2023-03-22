@@ -16,16 +16,16 @@ import javax.xml.bind.annotation.XmlType;
 
 
 /**
- * <p>Java class for lrtLandUnits complex type.
+ * <p>Java class for CustomRegions complex type.
  * 
  * <p>The following schema fragment specifies the expected content contained within this class.
  * 
  * <pre>
- * &lt;complexType name="lrtLandUnits">
+ * &lt;complexType name="CustomRegions">
  *   &lt;complexContent>
  *     &lt;restriction base="{http://www.w3.org/2001/XMLSchema}anyType">
  *       &lt;sequence>
- *         &lt;element name="lrtLandUnit" type="{http://ipcc2006.air.sk/IPCC2006Export}lrtLandUnit" maxOccurs="unbounded" minOccurs="0"/>
+ *         &lt;element name="customRegion" type="{http://ipcc2006.air.sk/IPCC2006Export}CustomRegion" maxOccurs="unbounded" minOccurs="0"/>
  *       &lt;/sequence>
  *     &lt;/restriction>
  *   &lt;/complexContent>
@@ -35,40 +35,40 @@ import javax.xml.bind.annotation.XmlType;
  * 
  */
 @XmlAccessorType(XmlAccessType.FIELD)
-@XmlType(name = "lrtLandUnits", propOrder = {
-    "lrtLandUnit"
+@XmlType(name = "CustomRegions", propOrder = {
+    "customRegion"
 })
-public class LrtLandUnits {
+public class CustomRegions {
 
-    protected List<LrtLandUnit> lrtLandUnit;
+    protected List<CustomRegion> customRegion;
 
     /**
-     * Gets the value of the lrtLandUnit property.
+     * Gets the value of the customRegion property.
      * 
      * <p>
      * This accessor method returns a reference to the live list,
      * not a snapshot. Therefore any modification you make to the
      * returned list will be present inside the JAXB object.
-     * This is why there is not a <CODE>set</CODE> method for the lrtLandUnit property.
+     * This is why there is not a <CODE>set</CODE> method for the customRegion property.
      * 
      * <p>
      * For example, to add a new item, do as follows:
      * <pre>
-     *    getLrtLandUnit().add(newItem);
+     *    getCustomRegion().add(newItem);
      * </pre>
      * 
      * 
      * <p>
      * Objects of the following type(s) are allowed in the list
-     * {@link LrtLandUnit }
+     * {@link CustomRegion }
      * 
      * 
      */
-    public List<LrtLandUnit> getLrtLandUnit() {
-        if (lrtLandUnit == null) {
-            lrtLandUnit = new ArrayList<LrtLandUnit>();
+    public List<CustomRegion> getCustomRegion() {
+        if (customRegion == null) {
+            customRegion = new ArrayList<CustomRegion>();
         }
-        return this.lrtLandUnit;
+        return this.customRegion;
     }
 
 }
