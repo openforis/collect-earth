@@ -9,6 +9,7 @@ import org.openforis.collect.earth.app.service.ExportType;
 import org.openforis.collect.earth.app.service.RDBConnector;
 import org.openforis.collect.earth.app.service.SchemaService;
 import org.openforis.collect.earth.ipcc.model.ClimateStratumObject;
+import org.openforis.collect.earth.ipcc.model.EcozoneStratumObject;
 import org.openforis.collect.earth.ipcc.model.SoilStratumObject;
 import org.openforis.collect.earth.ipcc.model.StratumObject;
 import org.slf4j.Logger;
@@ -57,6 +58,7 @@ public abstract class AbstractIPCCDataExport extends RDBConnector {
 
 	
 	private List<ClimateStratumObject> climates;
+	private List<EcozoneStratumObject> ecozones;
 	private List<SoilStratumObject> soils;
 	private List<StratumObject> gezs;
 	
@@ -77,6 +79,19 @@ public abstract class AbstractIPCCDataExport extends RDBConnector {
 			}
 		}
 		return climates;
+		
+	}
+	
+	protected List<EcozoneStratumObject> getStrataEcozone() {
+		
+		if( ecozones == null ) {
+			List<StratumObject> distinctEcozones = distinctValue(GEZ_COLUMN_VALUE, GEZ_COLUMN_LABEL, GEZ_COLUMN_DESC, GEZ_TABLE, GEZ_COLUMN_IN_PLOT);
+			ecozones = new ArrayList<EcozoneStratumObject>();
+			for (StratumObject distinctEcozone : distinctEcozones) {
+				ecozones.add( new EcozoneStratumObject(distinctEcozone.getValue(), distinctEcozone.getLabel(), distinctEcozone.getDescription() ) );
+			}
+		}
+		return ecozones;
 		
 	}
 

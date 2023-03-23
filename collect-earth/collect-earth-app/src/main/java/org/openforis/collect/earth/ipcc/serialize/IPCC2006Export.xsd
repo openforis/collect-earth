@@ -1,0 +1,529 @@
+<?xml version="1.0" encoding="utf-8"?>
+<xs:schema id="IPCC2006Export" targetNamespace="http://ipcc2006.air.sk/IPCC2006Export" xmlns="http://ipcc2006.air.sk/IPCC2006Export" xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:element name="IPCC2006Export">
+    <xs:complexType>
+      <xs:sequence>
+        <xs:element name="Version" type="version" minOccurs="1" maxOccurs="1" />
+        <xs:element name="inventoryYear" type="xs:gYear" minOccurs="1" maxOccurs="1" />
+        <xs:element name="countryCode" type="countryCode" minOccurs="1" maxOccurs="1" />
+        <xs:element name="tiers" minOccurs="1" maxOccurs="1">
+          <xs:complexType>
+            <xs:sequence>
+              <xs:element name="tier" type="Tier" minOccurs="0" maxOccurs="unbounded" />
+            </xs:sequence>
+          </xs:complexType>
+        </xs:element>
+        <xs:element name="ipccSubdivisions" type="ipccSubdivisions" minOccurs="1" maxOccurs="1" />
+        <xs:element name="record" minOccurs="0" maxOccurs="unbounded">
+          <xs:complexType>
+            <xs:choice>
+              <xs:element name="customRegions" type="CustomRegions" />
+              <xs:element name="landTypes" type="landTypes" minOccurs="1" maxOccurs="1" />
+              
+            </xs:choice>
+          </xs:complexType>
+        </xs:element>
+
+      </xs:sequence>
+    </xs:complexType>
+  </xs:element>
+  <xs:simpleType name="countryCode">
+    <xs:restriction base="xs:string">
+      <xs:pattern value="[A-Za-z0-9]{3}" />
+    </xs:restriction>
+  </xs:simpleType>
+  <xs:simpleType name="ipccCode">
+    <xs:restriction base="xs:string">
+      <xs:maxLength value="15" />
+    </xs:restriction>
+  </xs:simpleType>
+  <xs:simpleType name="guid">
+    <xs:restriction base="xs:string">
+      <xs:pattern value="[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}" />
+    </xs:restriction>
+  </xs:simpleType>
+
+
+  <xs:simpleType name="version">
+    <xs:restriction base="xs:string">
+      <xs:enumeration value="2.85" />
+    </xs:restriction>
+  </xs:simpleType>
+
+  <xs:complexType name="CustomRegions">
+    <xs:sequence>
+      <xs:element name="customRegion" type="CustomRegion" minOccurs="0" maxOccurs="unbounded"/>
+    </xs:sequence>
+  </xs:complexType>
+  <xs:complexType name="CustomRegion">
+    <xs:sequence>
+      <xs:element name="id" type="xs:integer" maxOccurs="1" minOccurs="1" />
+      <xs:element name="regionName" type="xs:string" minOccurs="1" maxOccurs="1" />
+      <xs:element name="temperature" type="xs:double" minOccurs="1" maxOccurs="1" nillable="true"  />
+      <xs:element name="remark" type="xs:string" maxOccurs="1" minOccurs="1" nillable="true" />
+    </xs:sequence>
+  </xs:complexType>
+  
+  
+  <xs:complexType name="cltForestLand">
+    <xs:sequence>
+      <xs:element name="id" type="xs:integer" minOccurs="1" maxOccurs="1" />
+      <xs:element name="guid" type="guid" minOccurs="1" maxOccurs="1" />
+      <xs:element name="countryCode" type="countryCode" minOccurs="1" maxOccurs="1" />
+      <xs:element name="customName" type="xs:string" minOccurs="1" maxOccurs="1" />
+      <xs:element name="managed" type="xs:boolean" minOccurs="1" maxOccurs="1" />
+      <xs:element name="climateRegionId" type="xs:integer" minOccurs="1" maxOccurs="1" />
+      <xs:element name="soilTypeId" type="xs:integer" minOccurs="1" maxOccurs="1" />
+      <xs:element name="soilStatusId" type="xs:integer" minOccurs="1" maxOccurs="1" />
+      <xs:element name="geoPlacementId" type="xs:integer" minOccurs="1" maxOccurs="1" />
+      <xs:element name="nutrientTypeId" type="xs:integer" minOccurs="1" maxOccurs="1" />
+      <xs:element name="ecoZoneId" type="xs:integer" minOccurs="1" maxOccurs="1" />
+      <xs:element name="ecoZoneCustom" type="xs:string" minOccurs="1" maxOccurs="1" nillable="true" />
+      <xs:element name="plantation" type="xs:boolean" minOccurs="1" maxOccurs="1" />
+      <xs:element name="forestTypeId" type="xs:integer" minOccurs="1" maxOccurs="1" />
+      <xs:element name="forestTypeCustom" type="xs:string" minOccurs="1" maxOccurs="1" nillable="true" />
+      <xs:element name="continentTypeId" type="xs:integer" minOccurs="1" maxOccurs="1" />
+      <xs:element name="ageClassId" type="xs:integer" minOccurs="1" maxOccurs="1" />
+      <xs:element name="growingStockLevelId" type="xs:integer" minOccurs="1" maxOccurs="1" />
+      <xs:element name="carbonFraction" type="xs:double" minOccurs="1" maxOccurs="1" />
+      <xs:element name="ratio" type="xs:double" minOccurs="1" maxOccurs="1" />
+      <xs:element name="bcefRType" type="xs:integer" minOccurs="1" maxOccurs="1" />
+      <xs:element name="bcefR" type="xs:double" minOccurs="1" maxOccurs="1" />
+      <xs:element name="aboveGroundBiomass" type="xs:double" minOccurs="1" maxOccurs="1" />
+      <xs:element name="aboveGroundBiomassGrowth" type="xs:double" minOccurs="1" maxOccurs="1" />
+      <xs:element name="mfLandUse" type="xs:double" minOccurs="1" maxOccurs="1" />
+      <xs:element name="mfTillage" type="xs:double" minOccurs="1" maxOccurs="1" />
+      <xs:element name="mfInput" type="xs:double" minOccurs="1" maxOccurs="1" />
+      <xs:element name="abandoned" type="xs:boolean" minOccurs="1" maxOccurs="1" />
+      <xs:element name="woodDensity" type="xs:double" minOccurs="1" maxOccurs="1" nillable="true" />
+      <xs:element name="growingStockInc" type="xs:double" minOccurs="1" maxOccurs="1" nillable="true" />
+      <xs:element name="bcefIType" type="xs:integer" minOccurs="1" maxOccurs="1" />
+      <xs:element name="bef1" type="xs:double" minOccurs="1" maxOccurs="1" nillable="true" />
+      <xs:element name="bcefI" type="xs:double" minOccurs="1" maxOccurs="1" nillable="true" />
+      <xs:element name="bcefSType" type="xs:integer" minOccurs="1" maxOccurs="1" />
+      <xs:element name="bef2" type="xs:double" minOccurs="1" maxOccurs="1" nillable="true" />
+      <xs:element name="bcefS" type="xs:double" minOccurs="1" maxOccurs="1" nillable="true" />
+      <xs:element name="ageClassRange" type="xs:string" minOccurs="1" maxOccurs="1" nillable="true" />
+      <xs:element name="growingStockLevelValue" type="xs:integer" minOccurs="1" maxOccurs="1" nillable="true" />
+      <xs:element name="soilCarbonStock" type="xs:double" minOccurs="1" maxOccurs="1" nillable="true" />
+    </xs:sequence>
+  </xs:complexType>
+
+  <xs:complexType name="cltCropland">
+    <xs:sequence>
+      <xs:element name="id" type="xs:integer" minOccurs="1" maxOccurs="1" />
+      <xs:element name="guid" type="guid" minOccurs="1" maxOccurs="1" />
+      <xs:element name="countryCode" type="countryCode" minOccurs="1" maxOccurs="1" />
+      <xs:element name="customName" type="xs:string" minOccurs="1" maxOccurs="1" />
+      <xs:element name="climateRegionId" type="xs:integer" minOccurs="1" maxOccurs="1" />
+      <xs:element name="soilTypeId" type="xs:integer" minOccurs="1" maxOccurs="1" />
+      <xs:element name="soilStatusId" type="xs:integer" minOccurs="1" maxOccurs="1" />
+      <xs:element name="geoPlacementId" type="xs:integer" minOccurs="1" maxOccurs="1" />
+      <xs:element name="nutrientTypeId" type="xs:integer" minOccurs="1" maxOccurs="1" />
+      <xs:element name="perennialCrops" type="xs:boolean" minOccurs="1" maxOccurs="1" />
+      <xs:element name="croplandTypeId" type="xs:integer" minOccurs="1" maxOccurs="1" />
+      <xs:element name="croplandTypeCustom" type="xs:string" minOccurs="1" maxOccurs="1" nillable="true" />
+      <xs:element name="riceEcosystem" type="xs:boolean" minOccurs="1" maxOccurs="1" />
+      <xs:element name="mfLandUse" type="xs:double" minOccurs="1" maxOccurs="1" />
+      <xs:element name="mfTillage" type="xs:double" minOccurs="1" maxOccurs="1" />
+      <xs:element name="mfInput" type="xs:double" minOccurs="1" maxOccurs="1" />
+      <xs:element name="harvestCycle" type="xs:double" minOccurs="1" maxOccurs="1" />
+      <xs:element name="bWoody" type="xs:double" minOccurs="1" maxOccurs="1" nillable="true" />
+      <xs:element name="bWoodyAccumulationRate" type="xs:double" minOccurs="1" maxOccurs="1" nillable="true" />
+      <xs:element name="bWoodyUnitId" type="xs:integer" minOccurs="1" maxOccurs="1" />
+      <xs:element name="bWoodyCFrac" type="xs:double" minOccurs="1" maxOccurs="1" nillable="true" />
+      <xs:element name="ratioBgbAgbWoody" type="xs:double" minOccurs="1" maxOccurs="1" nillable="true" />
+      <xs:element name="ageClassId" type="xs:integer" minOccurs="1" maxOccurs="1" />
+      <xs:element name="bHerb" type="xs:double" minOccurs="1" maxOccurs="1" nillable="true" />
+      <xs:element name="bHerbUnitId" type="xs:integer" minOccurs="1" maxOccurs="1" />
+      <xs:element name="bHerbCFrac" type="xs:double" minOccurs="1" maxOccurs="1" nillable="true" />
+      <xs:element name="ageClassValue" type="xs:integer" minOccurs="1" maxOccurs="1" nillable="true" />
+      <xs:element name="agroforestry" type="xs:boolean" minOccurs="1" maxOccurs="1" />
+      <xs:element name="ratioBgbAgbHerb" type="xs:double" minOccurs="1" maxOccurs="1" nillable="true" />
+      <xs:element name="soilCarbonStock" type="xs:double" minOccurs="1" maxOccurs="1" nillable="true" />
+    </xs:sequence>
+  </xs:complexType>
+
+  <xs:complexType name="cltGrassland">
+    <xs:sequence>
+      <xs:element name="id" type="xs:integer" minOccurs="1" maxOccurs="1" />
+      <xs:element name="guid" type="guid" minOccurs="1" maxOccurs="1" />
+      <xs:element name="countryCode" type="countryCode" minOccurs="1" maxOccurs="1" />
+      <xs:element name="customName" type="xs:string" minOccurs="1" maxOccurs="1" />
+      <xs:element name="managed" type="xs:boolean" minOccurs="1" maxOccurs="1" />
+      <xs:element name="climateRegionId" type="xs:integer" minOccurs="1" maxOccurs="1" />
+      <xs:element name="soilTypeId" type="xs:integer" minOccurs="1" maxOccurs="1" />
+      <xs:element name="soilStatusId" type="xs:integer" minOccurs="1" maxOccurs="1" />
+      <xs:element name="geoPlacementId" type="xs:integer" minOccurs="1" maxOccurs="1" />
+      <xs:element name="nutrientTypeId" type="xs:integer" minOccurs="1" maxOccurs="1" />
+      <xs:element name="improvedGrassland" type="xs:boolean" minOccurs="1" maxOccurs="1" />
+      <xs:element name="vegetationTypeId" type="xs:integer" minOccurs="1" maxOccurs="1" />
+      <xs:element name="mfLandUse" type="xs:double" minOccurs="1" maxOccurs="1" />
+      <xs:element name="mfTillage" type="xs:double" minOccurs="1" maxOccurs="1" />
+      <xs:element name="mfInput" type="xs:double" minOccurs="1" maxOccurs="1" />
+      <xs:element name="biomassStockHerb" type="xs:double" minOccurs="1" maxOccurs="1" />
+      <xs:element name="biomassStockWoody" type="xs:double" minOccurs="1" maxOccurs="1" />
+      <xs:element name="carbonFractionHerb" type="xs:double" minOccurs="1" maxOccurs="1" />
+      <xs:element name="carbonFractionWoody" type="xs:double" minOccurs="1" maxOccurs="1" />
+      <xs:element name="ageClassId" type="xs:integer" minOccurs="1" maxOccurs="1" />
+      <xs:element name="ratioBgbAgbHerb" type="xs:double" minOccurs="1" maxOccurs="1" nillable="true" />
+      <xs:element name="ratioBgbAgbWoody" type="xs:double" minOccurs="1" maxOccurs="1" nillable="true" />
+      <xs:element name="agbGrowth" type="xs:double" minOccurs="1" maxOccurs="1" nillable="true" />
+      <xs:element name="abandoned" type="xs:boolean" minOccurs="1" maxOccurs="1" />
+      <xs:element name="ageClassValue" type="xs:integer" minOccurs="1" maxOccurs="1" nillable="true" />
+      <xs:element name="soilCarbonStock" type="xs:double" minOccurs="1" maxOccurs="1" nillable="true" />
+    </xs:sequence>       
+  </xs:complexType>
+
+  <xs:complexType name="cltWetland">
+    <xs:sequence>
+      <xs:element name="id" type="xs:integer" minOccurs="1" maxOccurs="1" />
+      <xs:element name="guid" type="guid" minOccurs="1" maxOccurs="1" />
+      <xs:element name="countryCode" type="countryCode" minOccurs="1" maxOccurs="1" />
+      <xs:element name="customName" type="xs:string" minOccurs="1" maxOccurs="1" />
+      <xs:element name="managed" type="xs:boolean" minOccurs="1" maxOccurs="1" />
+      <xs:element name="climateRegionId" type="xs:integer" minOccurs="1" maxOccurs="1" />
+      <xs:element name="soilTypeId" type="xs:integer" minOccurs="1" maxOccurs="1" />
+      <xs:element name="soilStatusId" type="xs:integer" minOccurs="1" maxOccurs="1" />
+      <xs:element name="geoPlacementId" type="xs:integer" minOccurs="1" maxOccurs="1" />
+      <xs:element name="nutrientTypeId" type="xs:integer" minOccurs="1" maxOccurs="1" />
+      <xs:element name="wetlandType" type="xs:string" minOccurs="1" maxOccurs="1" />
+      <xs:element name="biomassStock" type="xs:double" minOccurs="1" maxOccurs="1" nillable="true" />
+      <xs:element name="cfDryMatter" type="xs:double" minOccurs="1" maxOccurs="1" nillable="true" />
+      <xs:element name="cfAirDryWeight" type="xs:double" minOccurs="1" maxOccurs="1" nillable="true" />
+      <xs:element name="cfAirDryVolume" type="xs:double" minOccurs="1" maxOccurs="1" nillable="true" />
+      <xs:element name="agbGrowth" type="xs:double" minOccurs="1" maxOccurs="1" nillable="true" />
+      <xs:element name="ratioBgbAgb" type="xs:double" minOccurs="1" maxOccurs="1" nillable="true" />
+      <xs:element name="mfLandUse" type="xs:double" minOccurs="1" maxOccurs="1" />
+      <xs:element name="mfTillage" type="xs:double" minOccurs="1" maxOccurs="1" />
+      <xs:element name="mfInput" type="xs:double" minOccurs="1" maxOccurs="1" />
+      <xs:element name="soilCarbonStock" type="xs:double" minOccurs="1" maxOccurs="1" nillable="true" />
+      <xs:element name="vegetationTypeId" type="xs:integer" minOccurs="1" maxOccurs="1" nillable="true" />
+    </xs:sequence>
+  </xs:complexType>
+
+  <xs:complexType name="cltSettlement">
+    <xs:sequence>
+      <xs:element name="id" type="xs:integer" minOccurs="1" maxOccurs="1" />
+      <xs:element name="guid" type="guid" minOccurs="1" maxOccurs="1" />
+      <xs:element name="countryCode" type="countryCode" minOccurs="1" maxOccurs="1" />
+      <xs:element name="customName" type="xs:string" minOccurs="1" maxOccurs="1" />
+      <xs:element name="climateRegionId" type="xs:integer" minOccurs="1" maxOccurs="1" />
+      <xs:element name="soilTypeId" type="xs:integer" minOccurs="1" maxOccurs="1" />
+      <xs:element name="soilStatusId" type="xs:integer" minOccurs="1" maxOccurs="1" />
+      <xs:element name="geoPlacementId" type="xs:integer" minOccurs="1" maxOccurs="1" />
+      <xs:element name="nutrientTypeId" type="xs:integer" minOccurs="1" maxOccurs="1" />
+      <xs:element name="settlementTypeId" type="xs:integer" minOccurs="1" maxOccurs="1" />
+      <xs:element name="mfLandUse" type="xs:double" minOccurs="1" maxOccurs="1" />
+      <xs:element name="mfTillage" type="xs:double" minOccurs="1" maxOccurs="1" />
+      <xs:element name="mfInput" type="xs:double" minOccurs="1" maxOccurs="1" />
+      <xs:element name="biomassStock" type="xs:double" minOccurs="1" maxOccurs="1" nillable="true" />
+      <xs:element name="carbonFraction" type="xs:double" minOccurs="1" maxOccurs="1" nillable="true" />
+      <xs:element name="ratioBgbAgb" type="xs:double" minOccurs="1" maxOccurs="1" nillable="true" />
+      <xs:element name="ageClassId" type="xs:integer" minOccurs="1" maxOccurs="1" />
+      <xs:element name="agp" type="xs:integer" minOccurs="1" maxOccurs="1" nillable="true" />
+      <xs:element name="propCult" type="xs:double" minOccurs="1" maxOccurs="1" nillable="true" />
+      <xs:element name="mfLandUseCult" type="xs:double" minOccurs="1" maxOccurs="1" nillable="true" />
+      <xs:element name="mfManagCult" type="xs:double" minOccurs="1" maxOccurs="1" nillable="true" />
+      <xs:element name="mfInputCult" type="xs:double" minOccurs="1" maxOccurs="1" nillable="true" />
+      <xs:element name="propTurfgrass" type="xs:double" minOccurs="1" maxOccurs="1" nillable="true" />
+      <xs:element name="mfLandUseTurfgrass" type="xs:double" minOccurs="1" maxOccurs="1" nillable="true" />
+      <xs:element name="mfManagTurfgrass" type="xs:double" minOccurs="1" maxOccurs="1" nillable="true" />
+      <xs:element name="mfInputTurfgrass" type="xs:double" minOccurs="1" maxOccurs="1" nillable="true" />
+      <xs:element name="propPaved" type="xs:double" minOccurs="1" maxOccurs="1" nillable="true" />
+      <xs:element name="mfLandUsePaved" type="xs:double" minOccurs="1" maxOccurs="1" nillable="true" />
+      <xs:element name="mfManagPaved" type="xs:double" minOccurs="1" maxOccurs="1" nillable="true" />
+      <xs:element name="mfInputPaved" type="xs:double" minOccurs="1" maxOccurs="1" nillable="true" />
+      <xs:element name="soilCarbonStock" type="xs:double" minOccurs="1" maxOccurs="1" nillable="true" />
+      <xs:element name="numberOfClasses" type="xs:integer" minOccurs="1" maxOccurs="1" />
+    </xs:sequence>
+  </xs:complexType>
+
+  <xs:complexType name="cltOtherland">
+    <xs:sequence>
+      <xs:element name="id" type="xs:integer" minOccurs="1" maxOccurs="1" />
+      <xs:element name="guid" type="guid" minOccurs="1" maxOccurs="1" />
+      <xs:element name="countryCode" type="countryCode" minOccurs="1" maxOccurs="1" />
+      <xs:element name="customName" type="xs:string" minOccurs="1" maxOccurs="1" />
+      <xs:element name="managed" type="xs:boolean" minOccurs="1" maxOccurs="1" />
+      <xs:element name="climateRegionId" type="xs:integer" minOccurs="1" maxOccurs="1" />
+      <xs:element name="soilTypeId" type="xs:integer" minOccurs="1" maxOccurs="1" />
+      <xs:element name="geoPlacementId" type="xs:integer" minOccurs="1" maxOccurs="1" />
+      <xs:element name="nutrientTypeId" type="xs:integer" minOccurs="1" maxOccurs="1" />
+    </xs:sequence>
+  </xs:complexType>
+
+  <xs:complexType name="forestLand">
+    <xs:sequence>
+      <xs:element name="cltForestLand" type="cltForestLand" minOccurs="0" maxOccurs="unbounded" />
+    </xs:sequence>
+  </xs:complexType>
+
+  <xs:complexType name="cropland">
+    <xs:sequence>
+      <xs:element name="cltCropland" type="cltCropland" minOccurs="0" maxOccurs="unbounded" />
+    </xs:sequence>
+  </xs:complexType>
+
+  <xs:complexType name="grassland">
+    <xs:sequence>
+      <xs:element name="cltGrassland" type="cltGrassland" minOccurs="0" maxOccurs="unbounded" />
+    </xs:sequence>
+  </xs:complexType>
+
+  <xs:complexType name="wetland">
+    <xs:sequence>
+      <xs:element name="cltWetland" type="cltWetland" minOccurs="0" maxOccurs="unbounded" />
+    </xs:sequence>
+  </xs:complexType>
+
+  <xs:complexType name="settlement">
+    <xs:sequence>
+      <xs:element name="cltSettlement" type="cltSettlement" minOccurs="0" maxOccurs="unbounded" />
+    </xs:sequence>
+  </xs:complexType>
+
+  <xs:complexType name="otherland">
+    <xs:sequence>
+      <xs:element name="cltOtherland" type="cltOtherland" minOccurs="0" maxOccurs="unbounded" />
+    </xs:sequence>
+  </xs:complexType>
+
+  <xs:complexType name="landTypes">
+    <xs:sequence>
+      <xs:element name="countryCode" type="countryCode" minOccurs="1" maxOccurs="1" />
+      <xs:element name="climateRegions" type="climateRegions" minOccurs="1" maxOccurs="1" />
+      <xs:element name="soilTypes" type="soilTypes" minOccurs="1" maxOccurs="1" />
+      <xs:element name="forestLand" type="forestLand" minOccurs="1" maxOccurs="1" />
+      <xs:element name="cropland" type="cropland" minOccurs="1" maxOccurs="1" />
+      <xs:element name="grassland" type="grassland" minOccurs="1" maxOccurs="1" />
+      <xs:element name="wetland" type="wetland" minOccurs="1" maxOccurs="1" />
+      <xs:element name="settlement" type="settlement" minOccurs="1" maxOccurs="1" />
+      <xs:element name="otherland" type="otherland" minOccurs="1" maxOccurs="1" />
+      <xs:element name="landRepresentation" type="landRepresentation" minOccurs="1" maxOccurs="1" />
+      <xs:element name="socRefTable" type="socRefTable" minOccurs="1" maxOccurs="1" />
+    </xs:sequence>
+  </xs:complexType>
+
+  <xs:complexType name="climateRegion">
+    <xs:sequence>
+      <xs:element name="id" type="xs:integer" minOccurs="1" maxOccurs="1" />
+      <xs:element name="guid" type="guid" minOccurs="1" maxOccurs="1" />
+      <xs:element name="domainId" type="xs:integer" minOccurs="1" maxOccurs="1" />
+      <xs:element name="region" type="xs:string" minOccurs="1" maxOccurs="1" />
+      <xs:element name="remark" type="xs:string" minOccurs="1" maxOccurs="1" />
+    </xs:sequence>
+  </xs:complexType>
+
+  <xs:complexType name="climateRegions">
+    <xs:sequence>
+      <xs:element name="climateRegion" type="climateRegion" minOccurs="0" maxOccurs="unbounded" />
+    </xs:sequence>
+  </xs:complexType>
+
+  <xs:complexType name="soilType">
+    <xs:sequence>
+      <xs:element name="id" type="xs:integer" minOccurs="1" maxOccurs="1" />
+      <xs:element name="guid" type="guid" minOccurs="1" maxOccurs="1" />
+      <xs:element name="compositionId" type="xs:integer" minOccurs="1" maxOccurs="1" />
+      <xs:element name="fullName" type="xs:string" minOccurs="1" maxOccurs="1" />
+      <xs:element name="remark" type="xs:string" minOccurs="1" maxOccurs="1" />
+    </xs:sequence>
+  </xs:complexType>
+
+  <xs:complexType name="soilTypes">
+    <xs:sequence>
+      <xs:element name="soilType" type="soilType" minOccurs="0" maxOccurs="unbounded" />
+    </xs:sequence>
+  </xs:complexType>
+
+  <xs:complexType name="lrtCountry">
+    <xs:sequence>
+      <xs:element name="countryCode" type="countryCode" minOccurs="1" maxOccurs="1" />
+      <xs:element name="area" type="xs:double" minOccurs="1" maxOccurs="1" nillable="true" />
+      <xs:element name="regions" type="lrtRegions" minOccurs="1" maxOccurs="1" />
+    </xs:sequence>
+  </xs:complexType>
+
+  <xs:complexType name="lrtRegion">
+    <xs:sequence>
+      <xs:element name="guid" type="guid" minOccurs="1" maxOccurs="1" />
+      <xs:element name="name" type="xs:string" minOccurs="1" maxOccurs="1" />
+      <xs:element name="area" type="xs:double" minOccurs="1" maxOccurs="1" />
+      <xs:element name="approachId" type="xs:integer" minOccurs="1" maxOccurs="1" />
+      <xs:element name="remark" type="xs:string" minOccurs="1" maxOccurs="1" nillable="true" />
+      <xs:element name="landCategories" type="lrtLandCategories" minOccurs="1" maxOccurs="1" />
+    </xs:sequence>
+  </xs:complexType>
+
+  <xs:complexType name="lrtRegions">
+    <xs:sequence>
+      <xs:element name="lrtRegion" type="lrtRegion" minOccurs="0" maxOccurs="unbounded" />
+    </xs:sequence>
+  </xs:complexType>
+
+  <xs:complexType name="lrtLandCategory">
+    <xs:sequence>
+      <xs:element name="ltId" type="xs:integer" minOccurs="1" maxOccurs="1" />
+      <xs:element name="remark" type="xs:string" minOccurs="1" maxOccurs="1" nillable="true" />
+      <xs:element name="landSubcategories" type="lrtLandSubcategories" minOccurs="1" maxOccurs="1" />
+    </xs:sequence>
+  </xs:complexType>
+
+  <xs:complexType name="lrtLandCategories">
+    <xs:sequence>
+      <xs:element name="lrtLandCategory" type="lrtLandCategory" minOccurs="0" maxOccurs="unbounded" />
+    </xs:sequence>
+  </xs:complexType>
+
+  <xs:complexType name="lrtLandSubcategory">
+    <xs:sequence>
+      <xs:element name="scatId" type="xs:integer" minOccurs="1" maxOccurs="1" />
+      <xs:element name="remark" type="xs:string" minOccurs="1" maxOccurs="1" nillable="true" />
+      <xs:element name="landSubdivisions" type="lrtLandSubdivisions" minOccurs="1" maxOccurs="1" />
+    </xs:sequence>
+  </xs:complexType>
+
+  <xs:complexType name="lrtLandSubcategories">
+    <xs:sequence>
+      <xs:element name="lrtLandSubcategory" type="lrtLandSubcategory" minOccurs="0" maxOccurs="unbounded" />
+    </xs:sequence>
+  </xs:complexType>
+
+  <xs:complexType name="lrtLandSubdivision">
+    <xs:sequence>
+      <xs:element name="cltId" type="xs:integer" minOccurs="1" maxOccurs="1" />
+      <xs:element name="remark" type="xs:string" minOccurs="1" maxOccurs="1" nillable="true" />
+      <xs:element name="landUnits" type="lrtLandUnits" minOccurs="1" maxOccurs="1" />
+    </xs:sequence>
+  </xs:complexType>
+
+  <xs:complexType name="lrtLandSubdivisions">
+    <xs:sequence>
+      <xs:element name="lrtLandSubdivision" type="lrtLandSubdivision" minOccurs="0" maxOccurs="unbounded" />
+    </xs:sequence>
+  </xs:complexType>
+
+  <xs:complexType name="lrtLandUnit">
+    <xs:sequence>
+      <xs:element name="guid" type="guid" minOccurs="1" maxOccurs="1" />
+      <xs:element name="unitCode" type="xs:string" minOccurs="1" maxOccurs="1" nillable="true" />
+      <xs:element name="ltIdPrev" type="xs:integer" minOccurs="1" maxOccurs="1" />
+      <xs:element name="cltIdPrev" type="xs:integer" minOccurs="1" maxOccurs="1" />
+      <xs:element name="transPeriod" type="xs:integer" minOccurs="1" maxOccurs="1" />
+      <xs:element name="convYear" type="xs:integer" minOccurs="1" maxOccurs="1" />
+      <xs:element name="areas" minOccurs="1" maxOccurs="1">
+        <xs:complexType>
+          <xs:sequence>
+            <xs:element name="area" type="lrtLandUnitArea" minOccurs="0" maxOccurs="unbounded" />
+          </xs:sequence>
+        </xs:complexType>
+      </xs:element>
+      <xs:element name="areasA1D" minOccurs="1" maxOccurs="1">
+        <xs:complexType>
+          <xs:sequence>
+            <xs:element name="areaA1D" type="lrtLandUnitArea" minOccurs="0" maxOccurs="unbounded" />
+          </xs:sequence>
+        </xs:complexType>
+      </xs:element>
+      <xs:element name="isMerged" type="xs:boolean" minOccurs="1" maxOccurs="1" />
+      <xs:element name="pmBiomass" type="xs:integer" minOccurs="1" maxOccurs="1" />
+      <xs:element name="pmDomDeadwood" type="xs:integer" minOccurs="1" maxOccurs="1" />
+      <xs:element name="pmDomLitter" type="xs:integer" minOccurs="1" maxOccurs="1" />
+      <xs:element name="pmSomMineral" type="xs:integer" minOccurs="1" maxOccurs="1" />
+      <xs:element name="remark" type="xs:string" minOccurs="1" maxOccurs="1" nillable="true" />
+      <xs:element name="history" type="lrtLandUnitHistory" minOccurs="1" maxOccurs="1" />
+    </xs:sequence>
+  </xs:complexType>
+
+  <xs:complexType name="lrtLandUnitArea">
+    <xs:simpleContent>
+      <xs:extension base="xs:double">
+        <xs:attribute name="year" type="xs:unsignedShort" use="required" />
+        <xs:attribute name="isSource" type="xs:boolean" use="optional" />
+      </xs:extension>
+    </xs:simpleContent>
+  </xs:complexType>
+  
+  <xs:complexType name="lrtLandUnits">
+    <xs:sequence>
+      <xs:element name="lrtLandUnit" type="lrtLandUnit" minOccurs="0" maxOccurs="unbounded" />
+    </xs:sequence>
+  </xs:complexType>
+
+  <xs:complexType name="lrtLandUnitHistoryRecord">
+    <xs:sequence>
+      <xs:element name="ltIdPrev" type="xs:integer" minOccurs="1" maxOccurs="1" />
+      <xs:element name="cltIdPrev" type="xs:integer" minOccurs="1" maxOccurs="1" />
+      <xs:element name="transPeriod" type="xs:integer" minOccurs="1" maxOccurs="1" />
+      <xs:element name="convYear" type="xs:integer" minOccurs="1" maxOccurs="1" />
+      <xs:element name="remark" type="xs:string" minOccurs="1" maxOccurs="1" nillable="true" />
+    </xs:sequence>
+  </xs:complexType>
+
+  <xs:complexType name="lrtLandUnitHistory">
+    <xs:sequence>
+      <xs:element name="lrtLandUnitHistoryRecord" type="lrtLandUnitHistoryRecord" minOccurs="0" maxOccurs="unbounded" />
+    </xs:sequence>
+  </xs:complexType>
+  
+  <xs:complexType name="landRepresentation">
+    <xs:sequence>
+      <xs:element name="lrtCountry" type="lrtCountry" minOccurs="1" maxOccurs="1" />
+    </xs:sequence>
+  </xs:complexType>
+  
+  <xs:complexType name="socRefRecord">
+    <xs:sequence>
+      <xs:element name="climateRegionId" type="xs:integer" minOccurs="1" maxOccurs="1" />
+      <xs:element name="soilTypeId" type="xs:integer" minOccurs="1" maxOccurs="1" />
+      <xs:element name="socRef" type="xs:double" minOccurs="1" maxOccurs="1" nillable="true" />
+    </xs:sequence>
+  </xs:complexType>
+
+  <xs:complexType name="socRefTable">
+    <xs:sequence>
+      <xs:element name="countryCode" type="countryCode" minOccurs="1" maxOccurs="1" />
+      <xs:element name="socRefRecord" type="socRefRecord" minOccurs="0" maxOccurs="unbounded" />
+    </xs:sequence>
+  </xs:complexType>
+  
+
+
+ 
+
+  
+  <xs:simpleType name="TierId">
+    <xs:restriction base="xs:integer">
+      <xs:enumeration value="1" />
+      <xs:enumeration value="2" />
+      <xs:enumeration value="3" />
+      <xs:enumeration value="4" />
+    </xs:restriction>
+  </xs:simpleType>
+  <xs:complexType name="Tier">
+    <xs:sequence>
+      <xs:element name="ipccCode" type="ipccCode" minOccurs="1" maxOccurs="1" />
+      <xs:element name="tierId" type="TierId" minOccurs="1" maxOccurs="1" />
+    </xs:sequence>
+  </xs:complexType>
+
+
+  <xs:complexType name="ipccSubdivision">
+    <xs:sequence>
+      <xs:element name="id" type="guid" minOccurs="1" maxOccurs="1" />
+      <xs:element name="ipccCode" type="xs:string" minOccurs="1" maxOccurs="1" />
+      <xs:element name="subdivision" type="xs:string" minOccurs="1" maxOccurs="1" />
+      <xs:element name="isFixed" type="xs:boolean" minOccurs="1" maxOccurs="1" />
+    </xs:sequence>
+  </xs:complexType>
+  <xs:complexType name="ipccSubdivisions">
+    <xs:sequence>
+      <xs:element name="ipccSubdivision" type="ipccSubdivision" minOccurs="0" maxOccurs="unbounded" />
+    </xs:sequence>
+  </xs:complexType>
+
+
+
+</xs:schema>
+

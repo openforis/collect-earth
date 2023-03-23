@@ -53,8 +53,10 @@ public class LandUseSubdivisionUtils {
 		return subdivisionsInCategoryAndType;
 	}
 	
-	public static void setSubdivisionType(AbstractLandUseSubdivision subdivision, Object type) {
-		landUseSubdivisions.get( landUseSubdivisions.indexOf(subdivision)).setManagementType( type);
+	public static AbstractLandUseSubdivision setSubdivisionType(AbstractLandUseSubdivision subdivision, Object type) {
+		AbstractLandUseSubdivision abstractLandUseSubdivision = landUseSubdivisions.get( landUseSubdivisions.indexOf(subdivision));
+		abstractLandUseSubdivision.setManagementType( type);
+		return abstractLandUseSubdivision;
 	}
 
 	public static List<AbstractLandUseSubdivision> getLandUseSubdivisions() {

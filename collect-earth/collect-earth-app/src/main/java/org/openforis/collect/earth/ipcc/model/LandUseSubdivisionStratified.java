@@ -7,6 +7,7 @@ public class LandUseSubdivisionStratified<E> {
 	LandUseCategoryEnum landUseCategory;
 	AbstractLandUseSubdivision<E> landUseSubdivision;
 	ClimateStratumObject climate;
+	EcozoneStratumObject ecozone;
 	SoilStratumObject soil;
 	Integer id;
 	String guid;
@@ -19,6 +20,18 @@ public class LandUseSubdivisionStratified<E> {
 		this.climate = climate;
 		this.soil = soil;
 		this.id = id;
+		this.guid = UUID.randomUUID().toString();
+	}
+	
+	public LandUseSubdivisionStratified(LandUseCategoryEnum landUseCategory, AbstractLandUseSubdivision<E> landUseSubdivision,
+			ClimateStratumObject climate, SoilStratumObject soil, EcozoneStratumObject ecozone, Integer id) {
+		super();
+		this.landUseCategory = landUseCategory;
+		this.landUseSubdivision = landUseSubdivision;
+		this.climate = climate;
+		this.soil = soil;
+		this.id = id;
+		this.ecozone = ecozone;
 		this.guid = UUID.randomUUID().toString();
 	}
 	
@@ -61,6 +74,14 @@ public class LandUseSubdivisionStratified<E> {
 
 	public void setGuid(String guid) {
 		this.guid = guid;
+	}
+
+	public EcozoneStratumObject getEcozone() {
+		return ecozone;
+	}
+
+	public void setEcozone(EcozoneStratumObject ecozone) {
+		this.ecozone = ecozone;
 	}
 	
 	

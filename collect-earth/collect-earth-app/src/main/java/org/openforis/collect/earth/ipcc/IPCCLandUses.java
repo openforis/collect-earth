@@ -13,6 +13,7 @@ import org.openforis.collect.earth.app.service.SchemaService;
 import org.openforis.collect.earth.ipcc.model.CroplandSubdivision;
 import org.openforis.collect.earth.ipcc.model.CroplandTypeEnum;
 import org.openforis.collect.earth.ipcc.model.ForestSubdivision;
+import org.openforis.collect.earth.ipcc.model.ForestTypeEnum;
 import org.openforis.collect.earth.ipcc.model.GrasslandSubdivision;
 import org.openforis.collect.earth.ipcc.model.LandUseCategoryEnum;
 import org.openforis.collect.earth.ipcc.model.AbstractLandUseSubdivision;
@@ -105,7 +106,8 @@ public class IPCCLandUses extends RDBConnector {
 								subdivisionCode,
 								subdivisionName,
 								ManagementTypeEnum.MANAGED, // Assign default management
-								seqId
+								seqId,
+								ForestTypeEnum.OTHER_CONIF
 								);
 					case "C":
 						return new CroplandSubdivision(

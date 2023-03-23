@@ -81,6 +81,7 @@ public class EarthApp {
 	public static void main(String[] args) {
 
 		try {
+			
 			FlatLightLaf.setup();
 			try {
 			    UIManager.setLookAndFeel( new FlatIntelliJLaf() );

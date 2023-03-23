@@ -110,6 +110,7 @@ public abstract class GenerateDatabase {
 
 			try (ZipFile zippedProjectSaikuData = new ZipFile(getZippedProjectDB( type ))) {
 				zippedProjectSaikuData.extractAll(FolderFinder.getCollectEarthDataFolder());
+				zippedProjectSaikuData.close();
 				restoredSaiku = true;
 			} catch (IOException e) {
 				logger.error("Problems unzipping the contents of the zipped Saiku DB to the local user folder ", e);
