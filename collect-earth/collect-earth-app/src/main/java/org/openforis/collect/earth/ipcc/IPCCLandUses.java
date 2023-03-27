@@ -6,21 +6,21 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 
-import org.openforis.collect.earth.app.service.EarthSurveyService;
 import org.openforis.collect.earth.app.service.ExportType;
 import org.openforis.collect.earth.app.service.RDBConnector;
 import org.openforis.collect.earth.app.service.SchemaService;
+import org.openforis.collect.earth.ipcc.model.AbstractLandUseSubdivision;
 import org.openforis.collect.earth.ipcc.model.CroplandSubdivision;
 import org.openforis.collect.earth.ipcc.model.CroplandTypeEnum;
 import org.openforis.collect.earth.ipcc.model.ForestSubdivision;
 import org.openforis.collect.earth.ipcc.model.ForestTypeEnum;
 import org.openforis.collect.earth.ipcc.model.GrasslandSubdivision;
 import org.openforis.collect.earth.ipcc.model.LandUseCategoryEnum;
-import org.openforis.collect.earth.ipcc.model.AbstractLandUseSubdivision;
 import org.openforis.collect.earth.ipcc.model.ManagementTypeEnum;
 import org.openforis.collect.earth.ipcc.model.OtherlandSubdivision;
 import org.openforis.collect.earth.ipcc.model.SettlementSubdivision;
 import org.openforis.collect.earth.ipcc.model.SettlementTypeEnum;
+import org.openforis.collect.earth.ipcc.model.VegetationTypeEnum;
 import org.openforis.collect.earth.ipcc.model.WetlandSubdivision;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -121,7 +121,8 @@ public class IPCCLandUses extends RDBConnector {
 								subdivisionCode,
 								subdivisionName,
 								ManagementTypeEnum.MANAGED, // Assign default management
-								seqId
+								seqId,
+								VegetationTypeEnum.PR 
 								);
 					case "S":
 						return new SettlementSubdivision(

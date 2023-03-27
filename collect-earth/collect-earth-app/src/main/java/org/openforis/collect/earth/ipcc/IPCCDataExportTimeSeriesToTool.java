@@ -20,10 +20,15 @@ import org.apache.commons.math3.util.Precision;
 import org.openforis.collect.earth.app.service.RegionCalculationUtils;
 import org.openforis.collect.earth.ipcc.controller.LandUseSubdivisionUtils;
 import org.openforis.collect.earth.ipcc.model.AbstractLandUseSubdivision;
+import org.openforis.collect.earth.ipcc.model.AgeClassCroplandEnum;
+import org.openforis.collect.earth.ipcc.model.ClimateDomainEnum;
 import org.openforis.collect.earth.ipcc.model.ClimateStratumObject;
+import org.openforis.collect.earth.ipcc.model.CroplandSubdivision;
 import org.openforis.collect.earth.ipcc.model.CroplandTypeEnum;
 import org.openforis.collect.earth.ipcc.model.EcozoneStratumObject;
 import org.openforis.collect.earth.ipcc.model.ForestSubdivision;
+import org.openforis.collect.earth.ipcc.model.GrasslandSubdivision;
+import org.openforis.collect.earth.ipcc.model.GrowingStockLevelEnum;
 import org.openforis.collect.earth.ipcc.model.LandUseCategoryEnum;
 import org.openforis.collect.earth.ipcc.model.LandUseManagementEnum;
 import org.openforis.collect.earth.ipcc.model.LandUseSubdivisionStratified;
@@ -54,6 +59,7 @@ import org.openforis.collect.earth.ipcc.serialize.LrtLandCategory;
 import org.openforis.collect.earth.ipcc.serialize.LrtLandSubcategory;
 import org.openforis.collect.earth.ipcc.serialize.LrtLandSubdivision;
 import org.openforis.collect.earth.ipcc.serialize.LrtLandUnit;
+import org.openforis.collect.earth.ipcc.serialize.LrtLandUnit.AreasA1D;
 import org.openforis.collect.earth.ipcc.serialize.LrtLandUnitArea;
 import org.openforis.collect.earth.ipcc.serialize.LrtLandUnitHistory;
 import org.openforis.collect.earth.ipcc.serialize.LrtLandUnitHistoryRecord;
@@ -62,6 +68,7 @@ import org.openforis.collect.earth.ipcc.serialize.LrtRegion;
 import org.openforis.collect.earth.ipcc.serialize.LrtRegions;
 import org.openforis.collect.earth.ipcc.serialize.Otherland;
 import org.openforis.collect.earth.ipcc.serialize.Settlement;
+import org.openforis.collect.earth.ipcc.serialize.SocRefTable;
 import org.openforis.collect.earth.ipcc.serialize.SoilType;
 import org.openforis.collect.earth.ipcc.serialize.SoilTypes;
 import org.openforis.collect.earth.ipcc.serialize.Tier;
@@ -89,8 +96,6 @@ public class IPCCDataExportTimeSeriesToTool extends AbstractIPCCDataExport {
 	private IPCCLandUses ipccLandUses;
 
 	private String countryCode;
-
-	private LandTypes landTypes;
 
 	private List<LandUseSubdivisionStratified<?>> subdivisionsStrata;
 
@@ -123,8 +128,8 @@ public class IPCCDataExportTimeSeriesToTool extends AbstractIPCCDataExport {
 			climateRegion.setGuid(climate.getGuid());
 			climateRegion.setId(climate.getClimateType().getId());
 			climateRegion.setRemark(climate.getLabel());
-			climateRegion.setDomainId( climate.getClimateType().getDomainId() );
-			climateRegion.setRegion( climate.getClimateType().getDomainName() );
+			climateRegion.setDomainId( climate.getClimateType().getClimateDomain().getDomainId() );
+			climateRegion.setRegion( climate.getClimateType().getClimateDomain().getDomainName() );
 			climateRegions.getClimateRegion().add(climateRegion);
 		}
 		landTypes.setClimateRegions(climateRegions);
@@ -142,27 +147,60 @@ public class IPCCDataExportTimeSeriesToTool extends AbstractIPCCDataExport {
 			cltForestLand.setGuid(landUseSubdivisionStratified.getGuid());
 			cltForestLand.setCountryCode(getCountryCode());
 			cltForestLand.setCustomName(landUseSubdivisionStratified.getLandUseSubdivision().getCode());
-			cltForestLand.setForestTypeId(( ( ForestSubdivision) landUseSubdivisionStratified.getLandUseSubdivision() ).getForestType().getId() );
+			cltForestLand.setManaged(landUseSubdivisionStratified.getLandUseSubdivision().getManagementType().equals(ManagementTypeEnum.MANAGED));
 			cltForestLand.setClimateRegionId(landUseSubdivisionStratified.getClimate().getClimateType().getId());
 			cltForestLand.setSoilTypeId(landUseSubdivisionStratified.getSoil().getSoilType().getId());
 			cltForestLand.setSoilStatusId( SoilStatusEnum.NATURAL.getId() ); // DEFAULT TO NATURAL SOIL STATUS
+			cltForestLand.setGeoPlacementId( -1 );
 			// Relevant only in case of Organic soils. Should be -1 otherwise
 			if( landUseSubdivisionStratified.getSoil().getSoilType().equals( SoilTypeEnum.ORG ) ) {
 				cltForestLand.setNutrientTypeId( NutrientTypeEnum.UNSPECIFIED.getId() ); 
 			}else {
 				cltForestLand.setNutrientTypeId( NutrientTypeEnum.NOT_RELEVANT.getId() );			
 			}
-
-			cltForestLand.setGeoPlacementId( -1 );
-			cltForestLand.setBcefIType(0);
-			cltForestLand.setBcefRType(0);
-			cltForestLand.setBcefSType(0);
-			
-			cltForestLand.setManaged(landUseSubdivisionStratified.getLandUseSubdivision().getManagementType().equals(ManagementTypeEnum.MANAGED));
-			cltForestLand.setPlantation( false );
 			cltForestLand.setEcoZoneId( landUseSubdivisionStratified.getEcozone().getEcozoneType().getId() ); // Using the "Continental" type ID from cl_continent_type in the ipcc2006.accdb
+			cltForestLand.setPlantation( false );
+
+
+			cltForestLand.setForestTypeId(( ( ForestSubdivision) landUseSubdivisionStratified.getLandUseSubdivision() ).getForestType().getId() );
 			cltForestLand.setContinentTypeId( 1 ); // Using the "Continental" type ID from cl_continent_type in the ipcc2006.accdb
 			cltForestLand.setAgeClassId( 3 ); // Using the "Unspecified" type ID from cl_age_classes in the ipcc2006.accdb
+
+			// Set growning stock levels to < 20 years
+			ClimateDomainEnum climateDomain = landUseSubdivisionStratified.getClimate().getClimateType().getClimateDomain();
+			if( climateDomain.equals( ClimateDomainEnum.BOREAL ) ){
+				cltForestLand.setGrowingStockLevelId( GrowingStockLevelEnum.BOREAL_21_50.getId() );				
+			}else if( climateDomain.equals( ClimateDomainEnum.TEMPERATE) ){
+				cltForestLand.setGrowingStockLevelId( GrowingStockLevelEnum.TEMPERATE_21_40.getId() );				
+			}else if( climateDomain.equals( ClimateDomainEnum.TROPICAL) ){
+				cltForestLand.setGrowingStockLevelId( GrowingStockLevelEnum.TROPICAL_21_40.getId() );				
+			}else if( climateDomain.equals( ClimateDomainEnum.MEDITERRANEAN) ){
+				cltForestLand.setGrowingStockLevelId( GrowingStockLevelEnum.MEDITERRANEAN__21_40.getId() );				
+			}
+			
+			cltForestLand.setCarbonFraction(0);
+			cltForestLand.setRatio(0);
+			
+			
+			cltForestLand.setBcefRType(0);
+			cltForestLand.setBcefR(0);
+			
+			cltForestLand.setAboveGroundBiomass(0);
+			cltForestLand.setAboveGroundBiomassGrowth(0);
+			
+			cltForestLand.setMfLandUse(0);
+			cltForestLand.setMfTillage(0);
+			cltForestLand.setMfInput(0);
+			cltForestLand.setAbandoned(false);
+			
+			
+			cltForestLand.setBcefIType(0);
+			cltForestLand.setBcefI(0d);
+			
+			cltForestLand.setBcefSType(0);
+			cltForestLand.setBcefS(0d);
+			
+			
 			
 			forestLand.getCltForestLand().add(cltForestLand);
 		}
@@ -183,17 +221,22 @@ public class IPCCDataExportTimeSeriesToTool extends AbstractIPCCDataExport {
 			cltCropLand.setClimateRegionId(landUseSubdivisionStratified.getClimate().getClimateType().getId());
 			cltCropLand.setSoilTypeId(landUseSubdivisionStratified.getSoil().getSoilType().getId());
 			cltCropLand.setSoilStatusId( SoilStatusEnum.NATURAL.getId() ); // DEFAULT TO NATURAL SOIL STATUS
+			cltCropLand.setGeoPlacementId( -1 );
+
 			// Relevant only in case of Organic soils. Should be -1 otherwise
 			if( landUseSubdivisionStratified.getSoil().getSoilType().equals( SoilTypeEnum.ORG ) ) {
 				cltCropLand.setNutrientTypeId( NutrientTypeEnum.UNSPECIFIED.getId() ); 
 			}else {
 				cltCropLand.setNutrientTypeId( NutrientTypeEnum.NOT_RELEVANT.getId() );			
 			}
+			
 			cltCropLand.setPerennialCrops(landUseSubdivisionStratified.getLandUseSubdivision().getManagementType().equals(CroplandTypeEnum.PERENNIAL));
 			
-			cltCropLand.setGeoPlacementId( -1 );
+			cltCropLand.setCroplandTypeId( ( (CroplandSubdivision) landUseSubdivisionStratified.getLandUseSubdivision() ).getPerennialCropType().getId() );
+			
 			cltCropLand.setBWoodyUnitId( 0 );
 			cltCropLand.setBHerbUnitId(0);
+			cltCropLand.setAgeClassId( AgeClassCroplandEnum.UNSPECIFIED.getId());
 			
 			cropLand.getCltCropland().add(cltCropLand);
 		}
@@ -216,6 +259,7 @@ public class IPCCDataExportTimeSeriesToTool extends AbstractIPCCDataExport {
 			cltGrassLand.setClimateRegionId(landUseSubdivisionStratified.getClimate().getClimateType().getId());
 			cltGrassLand.setSoilTypeId(landUseSubdivisionStratified.getSoil().getSoilType().getId());
 			cltGrassLand.setSoilStatusId( SoilStatusEnum.NATURAL.getId() ); // DEFAULT TO NATURAL SOIL STATUS
+			cltGrassLand.setGeoPlacementId(-1);
 			// Relevant only in case of Organic soils. Should be -1 otherwise
 			if( landUseSubdivisionStratified.getSoil().getSoilType().equals( SoilTypeEnum.ORG ) ) {
 				cltGrassLand.setNutrientTypeId( NutrientTypeEnum.UNSPECIFIED.getId() ); 
@@ -223,8 +267,10 @@ public class IPCCDataExportTimeSeriesToTool extends AbstractIPCCDataExport {
 				cltGrassLand.setNutrientTypeId( NutrientTypeEnum.NOT_RELEVANT.getId() );			
 			}
 			
-			cltGrassLand.setGeoPlacementId(-1);
+			cltGrassLand.setImprovedGrassland(false);
+			cltGrassLand.setVegetationTypeId( ( (GrasslandSubdivision) landUseSubdivisionStratified.getLandUseSubdivision() ).getVegetationType().getId() );
 			
+			cltGrassLand.setAgeClassId( AgeClassCroplandEnum.UNSPECIFIED.getId() );
 			
 			grassLand.getCltGrassland().add(cltGrassLand);
 		}
@@ -277,6 +323,7 @@ public class IPCCDataExportTimeSeriesToTool extends AbstractIPCCDataExport {
 			cltSettlement.setClimateRegionId(landUseSubdivisionStratified.getClimate().getClimateType().getId());
 			cltSettlement.setSoilTypeId(landUseSubdivisionStratified.getSoil().getSoilType().getId());
 			cltSettlement.setSoilStatusId( SoilStatusEnum.NATURAL.getId() ); // DEFAULT TO NATURAL SOIL STATUS
+			cltSettlement.setGeoPlacementId(-1);
 			// Relevant only in case of Organic soils. Should be -1 otherwise
 			if( landUseSubdivisionStratified.getSoil().getSoilType().equals( SoilTypeEnum.ORG ) ) {
 				cltSettlement.setNutrientTypeId( NutrientTypeEnum.UNSPECIFIED.getId() ); 
@@ -284,10 +331,9 @@ public class IPCCDataExportTimeSeriesToTool extends AbstractIPCCDataExport {
 				cltSettlement.setNutrientTypeId( NutrientTypeEnum.NOT_RELEVANT.getId() );			
 			}
 			
-			cltSettlement.setSettlementTypeId( ( (SettlementTypeEnum ) landUseSubdivisionStratified.getLandUseSubdivision().getManagementType() ).getId() );
-			
-			cltSettlement.setGeoPlacementId(-1);
-			cltSettlement.setNumberOfClasses(-1);
+			cltSettlement.setSettlementTypeId( ( (SettlementTypeEnum ) landUseSubdivisionStratified.getLandUseSubdivision().getManagementType() ).getId() );			
+			cltSettlement.setAgeClassId( AgeClassCroplandEnum.UNSPECIFIED.getId() );
+			cltSettlement.setNumberOfClasses(1);
 			
 			settlement.getCltSettlement().add(cltSettlement);
 		}
@@ -308,6 +354,7 @@ public class IPCCDataExportTimeSeriesToTool extends AbstractIPCCDataExport {
 			cltOtherland.setManaged(landUseSubdivisionStratified.getLandUseSubdivision().getManagementType().equals(ManagementTypeEnum.MANAGED));
 			cltOtherland.setClimateRegionId(landUseSubdivisionStratified.getClimate().getClimateType().getId());
 			cltOtherland.setSoilTypeId(landUseSubdivisionStratified.getSoil().getSoilType().getId());
+			cltOtherland.setGeoPlacementId(-1);
 			// Relevant only in case of Organic soils. Should be -1 otherwise
 			if( landUseSubdivisionStratified.getSoil().getSoilType().equals( SoilTypeEnum.ORG ) ) {
 				cltOtherland.setNutrientTypeId( NutrientTypeEnum.UNSPECIFIED.getId() ); 
@@ -348,10 +395,14 @@ public class IPCCDataExportTimeSeriesToTool extends AbstractIPCCDataExport {
 
 		Record record = new Record();
 
-		setLandTypes(new LandTypes());
-		getLandTypes().setCountryCode( countryCode );
-		addClimateAndSoil(getLandTypes());
-		addLandClasses(getLandTypes());
+		LandTypes landType = new LandTypes();
+		landType.setCountryCode( countryCode );
+		SocRefTable socRefTable = new SocRefTable();
+		socRefTable.setCountryCode(countryCode);
+		landType.setSocRefTable( socRefTable );
+		
+		addClimateAndSoil(landType);
+		addLandClasses(landType);
 
 		LandRepresentation landRepresentation = new LandRepresentation();
 		LrtCountry lrtCountry = new LrtCountry();
@@ -361,9 +412,9 @@ public class IPCCDataExportTimeSeriesToTool extends AbstractIPCCDataExport {
 
 		landRepresentation.setLrtCountry(lrtCountry);
 
-		getLandTypes().setLandRepresentation(landRepresentation);
+		landType.setLandRepresentation(landRepresentation);
 
-		record.setLandTypes(getLandTypes());
+		record.setLandTypes(landType);
 
 		ipcc2006Export.getRecord().add(record);
 
@@ -392,6 +443,7 @@ public class IPCCDataExportTimeSeriesToTool extends AbstractIPCCDataExport {
 
 						LrtRegion lrtRegion = new LrtRegion();
 						lrtRegion.setArea(area);
+						lrtRegion.setGuid( UUID.randomUUID().toString()  );
 						lrtRegion.setName(regionName);
 						lrtRegion.setApproachId( LAND_REPRESENTATION_APPROACH_USED ); // defaults to IPCC Approach 2
 
@@ -492,6 +544,8 @@ public class IPCCDataExportTimeSeriesToTool extends AbstractIPCCDataExport {
 				landUnit.setPmDomLitter( 2 ); // DEFAULT 2
 				landUnit.setPmSomMineral(1); // DEFAULT 1
 
+				LrtLandUnitHistory landUnitHistory = new LrtLandUnitHistory();
+
 				if (subcategory.substring(0, 1).equals(subcategory.substring(1, 2))) {
 					if (subdivisionYearChange != null && subdivisionYearChange > -1) {
 						landUnit.setConvYear(subdivisionYearChange);
@@ -509,7 +563,6 @@ public class IPCCDataExportTimeSeriesToTool extends AbstractIPCCDataExport {
 					landUnit.setCltIdPrev(landUseSubdivisionStratified.getLandUseSubdivision().getId());
 
 					if (secondLUConversion != null && !secondLUConversion.equals("-1")) {
-						LrtLandUnitHistory landUnitHistory = new LrtLandUnitHistory();
 
 						String luSencondCategory = secondLUConversion.substring(0, 1); // The conversion would be FC (
 																						// initial land use would be F)
@@ -524,11 +577,12 @@ public class IPCCDataExportTimeSeriesToTool extends AbstractIPCCDataExport {
 						lrtLandUnitHistoryRecord.setConvYear(secondLUConversionYear);
 
 						landUnitHistory.getLrtLandUnitHistoryRecord().add(lrtLandUnitHistoryRecord);
-						landUnit.setHistory(landUnitHistory);
 					}
 
 				}
 
+				landUnit.setHistory(landUnitHistory);
+				landUnit.setAreasA1D( new AreasA1D() );
 				LrtLandUnit.Areas areas = new LrtLandUnit.Areas();
 
 				for( int year=getStartYear(); year<= getEndYear(); year++ ) {
@@ -631,6 +685,7 @@ public class IPCCDataExportTimeSeriesToTool extends AbstractIPCCDataExport {
 			m.setProperty(Marshaller.JAXB_FORMATTED_OUTPUT, Boolean.TRUE);
 			try (OutputStream os = new FileOutputStream(xmlFileDestination)) {
 				m.marshal(ipcc2006Export, os);
+				os.close();
 			}
 
 		} catch (JAXBException e1) {
@@ -709,14 +764,6 @@ public class IPCCDataExportTimeSeriesToTool extends AbstractIPCCDataExport {
 
 	private void setCountryCode(String countryCode) {
 		this.countryCode = countryCode;
-	}
-
-	private LandTypes getLandTypes() {
-		return landTypes;
-	}
-
-	private void setLandTypes(LandTypes landTypes) {
-		this.landTypes = landTypes;
 	}
 
 	private IPCCLandUses getIpccLandUses() {

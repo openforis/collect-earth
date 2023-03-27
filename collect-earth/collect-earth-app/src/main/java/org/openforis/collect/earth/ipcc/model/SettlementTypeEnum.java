@@ -2,7 +2,7 @@ package org.openforis.collect.earth.ipcc.model;
 
 public enum SettlementTypeEnum {
 
-	TREED("Treed" ,1),OTHER("Other", 2);
+	TREED("Treed" ,9),OTHER("Other", 10);
 	
 	private final String name;
 	private final Integer id;

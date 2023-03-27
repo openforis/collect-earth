@@ -1,34 +1,32 @@
 package org.openforis.collect.earth.ipcc.model;
 
 public enum ClimateTypeEnum {
-	TRW("Tropical Wet", 1, "Tropical", 1), 
-	TMM("Tropical Moist", 2, "Tropical",1),
-	TRD("Tropical Dry", 4, "Tropical",1),
-	TRMT("Tropical Montane Moist", 5, "Tropical",1),
-	TRMTD("Tropical Montane Dry", 6, "Tropical",1),
+	TRW("Tropical Wet", 1, ClimateDomainEnum.TROPICAL), 
+	TMM("Tropical Moist", 2, ClimateDomainEnum.TROPICAL),
+	TRD("Tropical Dry", 4, ClimateDomainEnum.TROPICAL),
+	TRMT("Tropical Montane Moist", 5, ClimateDomainEnum.TROPICAL),
+	TRMTD("Tropical Montane Dry", 6, ClimateDomainEnum.TROPICAL),
 	
-	WTM("Warm Temperate Moist", 7, "Subtropical(Mediterranean)",2),
-	WTD("Warm Temperate Dry", 8, "Subtropical(Mediterranean)", 2),
+	WTM("Warm Temperate Moist", 7, ClimateDomainEnum.MEDITERRANEAN),
+	WTD("Warm Temperate Dry", 8, ClimateDomainEnum.MEDITERRANEAN),
 	
-	CTM("Cool Temperate Moist", 9, "Temperate", 3),
-	CTD("Cool Temperate Dry", 10, "Temperate", 3),
+	CTM("Cool Temperate Moist", 9, ClimateDomainEnum.TEMPERATE),
+	CTD("Cool Temperate Dry", 10, ClimateDomainEnum.TEMPERATE),
 	
-	BOM("Boreal Moist", 11, "Boreal", 4),
-	BOD("Boreal Dry", 12, "Boreal", 4),
+	BOM("Boreal Moist", 11, ClimateDomainEnum.BOREAL),
+	BOD("Boreal Dry", 12, ClimateDomainEnum.BOREAL),
 	
-	POM("Polar Moist", 13, "Polar", 5),
-	POD("Polar Dry", 14, "Polar", 5);
+	POM("Polar Moist", 13, ClimateDomainEnum.POLAR),
+	POD("Polar Dry", 14, ClimateDomainEnum.POLAR);
 	
 	private final String name;
 	private int id;
-	private String domainName;
-	private int domainId;
+	private ClimateDomainEnum climateDomain;
 	
-	private ClimateTypeEnum(String name, int id, String domainName, int domainId) {
+	private ClimateTypeEnum(String name, int id, ClimateDomainEnum climateDomain) {
         this.name = name;
         this.id = id;
-        this.domainName = domainName;
-        this.domainId = domainId;
+        this.climateDomain = climateDomain;
     }
 
 	@Override
@@ -44,12 +42,8 @@ public enum ClimateTypeEnum {
 		return id;
 	}
 
-	public int getDomainId() {
-		return domainId;
-	}
-
-	public String getDomainName() {
-		return domainName;
+	public ClimateDomainEnum getClimateDomain() {
+		return climateDomain;
 	}
 
 }
