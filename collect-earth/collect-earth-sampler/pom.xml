@@ -14,6 +14,7 @@
 
 	<properties>
 		<geotools.version>24.4</geotools.version>
+		<jackson.version>2.13.4</jackson.version>
 	</properties>
 
 	<dependencies>
@@ -32,15 +33,52 @@
 			<artifactId>gt-referencing</artifactId>
 			<version>${geotools.version}</version>
 		</dependency>
+		
+		<dependency>
+			<groupId>com.fasterxml.jackson.core</groupId>
+					<artifactId>jackson-core</artifactId>
+			<version>${jackson.version}</version>
+
+				</dependency>
+				<dependency>
+			<groupId>com.fasterxml.jackson.core</groupId>
+					<artifactId>jackson-databind</artifactId>
+			<version>${jackson.version}</version>
+
+				</dependency>
+				
+							
 				<dependency>
 			<groupId>org.geotools</groupId>
 			<artifactId>gt-geometry</artifactId>
 			<version>${geotools.version}</version>
-		</dependency>
+
+			<exclusions>
+				<exclusion>
+					<groupId>com.fasterxml.jackson.core</groupId>
+					<artifactId>jackson-core</artifactId>
+				</exclusion>
+			</exclusions>
+				</dependency>
+		<!-- Error updateing to latest version. keep this version for now -->
 		<dependency>
 		    <groupId>org.wololo</groupId>
 		    <artifactId>jts2geojson</artifactId>
-		    <version>0.18.1</version>
+		    <version>0.16.1</version>
+		    <exclusions>
+		    	<exclusion>
+		    		<groupId>com.fasterxml.jackson.core</groupId>
+		    		<artifactId>jackson-core</artifactId>
+		    	</exclusion>
+		    	<exclusion>
+		    		<groupId>com.fasterxml.jackson.core</groupId>
+		    		<artifactId>jackson-databind</artifactId>
+		    	</exclusion>
+		    	<exclusion>
+		    		<groupId>com.fasterxml.jackson.core</groupId>
+		    		<artifactId>jackson-annotations</artifactId>
+		    	</exclusion>
+		    </exclusions>
 		</dependency>
 
 		<dependency>
