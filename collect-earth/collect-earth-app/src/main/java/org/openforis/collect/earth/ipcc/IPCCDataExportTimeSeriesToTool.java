@@ -161,7 +161,6 @@ public class IPCCDataExportTimeSeriesToTool extends AbstractIPCCDataExport {
 			cltForestLand.setEcoZoneId( landUseSubdivisionStratified.getEcozone().getEcozoneType().getId() ); // Using the "Continental" type ID from cl_continent_type in the ipcc2006.accdb
 			cltForestLand.setPlantation( false );
 
-
 			cltForestLand.setForestTypeId(( ( ForestSubdivision) landUseSubdivisionStratified.getLandUseSubdivision() ).getForestType().getId() );
 			cltForestLand.setContinentTypeId( 1 ); // Using the "Continental" type ID from cl_continent_type in the ipcc2006.accdb
 			cltForestLand.setAgeClassId( 3 ); // Using the "Unspecified" type ID from cl_age_classes in the ipcc2006.accdb
@@ -181,7 +180,6 @@ public class IPCCDataExportTimeSeriesToTool extends AbstractIPCCDataExport {
 			cltForestLand.setCarbonFraction(0);
 			cltForestLand.setRatio(0);
 			
-			
 			cltForestLand.setBcefRType(0);
 			cltForestLand.setBcefR(0);
 			
@@ -193,14 +191,11 @@ public class IPCCDataExportTimeSeriesToTool extends AbstractIPCCDataExport {
 			cltForestLand.setMfInput(0);
 			cltForestLand.setAbandoned(false);
 			
-			
 			cltForestLand.setBcefIType(0);
 			cltForestLand.setBcefI(0d);
 			
 			cltForestLand.setBcefSType(0);
 			cltForestLand.setBcefS(0d);
-			
-			
 			
 			forestLand.getCltForestLand().add(cltForestLand);
 		}
@@ -533,10 +528,17 @@ public class IPCCDataExportTimeSeriesToTool extends AbstractIPCCDataExport {
 				Integer secondLUConversionYear = rs.getInt(IPCCSurveyAdapter.TEMPLATE_SECOND_LU_CONVERSION_YEAR);
 				String secondLUSubdivision = rs.getString(IPCCSurveyAdapter.TEMPLATE_LAND_USE_SECOND_SUBDIVISION);
 
+				String luCurrentCategory = secondLUConversion.substring(1, 2); // The conversion would be FC (current land use would be C)
+				String luSencondCategory = secondLUConversion.substring(0, 1); // The conversion would be FC (initial land use would be F)
+				
 				LrtLandUnit landUnit = new LrtLandUnit();
 
+				String unitCode = subcategory +"-"+subcategoryYearChange+"-"+subdivision+"-"+subdivisionYearChange;
+				unitCode += secondLUConversion +"-"+secondLUConversionYear+"-"+subdivision+"-"+secondLUSubdivision;
+				unitCode += landUseSubdivisionStratified.getSoil().getValue() +"-"+landUseSubdivisionStratified.getClimate().getValue();
+				
 				landUnit.setGuid( UUID.randomUUID().toString() );
-				landUnit.setUnitCode(  "XXXX-XXXX-XXX" );
+				landUnit.setUnitCode( unitCode  );
 				landUnit.setTransPeriod( DEFAULT_IPCC_TRANSITION_PERIOD );
 				landUnit.setIsMerged(false); // DEFAULT FALSE
 				landUnit.setPmBiomass( 2 ); // DEFAULT 2
@@ -546,12 +548,17 @@ public class IPCCDataExportTimeSeriesToTool extends AbstractIPCCDataExport {
 
 				LrtLandUnitHistory landUnitHistory = new LrtLandUnitHistory();
 
-				if (subcategory.substring(0, 1).equals(subcategory.substring(1, 2))) {
-					if (subdivisionYearChange != null && subdivisionYearChange > -1) {
+				if (luCurrentCategory.equals(luSencondCategory)) { // No change of category
+					if (subdivisionYearChange != null && subdivisionYearChange > -1) { // But there is a change of subdivision within the same category
+						
 						landUnit.setConvYear(subdivisionYearChange);
-						landUnit.setLtIdPrev(landUseSubdivisionStratified.getLandUseCategory().getId());
-						landUnit.setCltIdPrev(LandUseSubdivisionUtils.getSubdivision(
-								landUseSubdivisionStratified.getLandUseCategory().getCode(), subdivision).getId());
+						LandUseCategoryEnum luInitial = LandUseCategoryEnum.valueOf(luSencondCategory);
+						
+						// Set the initial Land Use subdivision
+						AbstractLandUseSubdivision<?> previous = LandUseSubdivisionUtils.getSubdivision(luInitial.getCode(), secondLUSubdivision);
+						landUnit.setLtIdPrev(previous.getId() );
+						
+						landUnit.setCltIdPrev(LandUseManagementEnum.find(luInitial, previous.getManagementType()).getId());
 					} else {
 						landUnit.setConvYear(-2);
 						landUnit.setLtIdPrev(-200);
@@ -564,8 +571,7 @@ public class IPCCDataExportTimeSeriesToTool extends AbstractIPCCDataExport {
 
 					if (secondLUConversion != null && !secondLUConversion.equals("-1")) {
 
-						String luSencondCategory = secondLUConversion.substring(0, 1); // The conversion would be FC (
-																						// initial land use would be F)
+						
 						LandUseCategoryEnum luInitial = LandUseCategoryEnum.valueOf(luSencondCategory);
 						AbstractLandUseSubdivision<?> subdivisionInitial = LandUseSubdivisionUtils
 								.getSubdivision(luInitial.getCode(), secondLUSubdivision);
