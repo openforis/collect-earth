@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 - KML Import to open in GE working.
+- Updated Selenium to support latest versions of Chrome/Firefox.
 
 
 ## [1.14.19] - 2022-11-17
