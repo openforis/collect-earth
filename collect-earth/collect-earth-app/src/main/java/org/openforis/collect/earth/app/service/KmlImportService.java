@@ -14,7 +14,6 @@ import java.util.Map;
 
 import javax.swing.JFrame;
 import javax.swing.JOptionPane;
-import javax.xml.XMLConstants;
 import javax.xml.parsers.DocumentBuilder;
 import javax.xml.parsers.DocumentBuilderFactory;
 import javax.xml.parsers.ParserConfigurationException;
@@ -76,11 +75,13 @@ public class KmlImportService {
 	private File createTempCsv( File kmlFile) throws ParserConfigurationException, SAXException, IOException{
 		// Fixing error with Xerces implementation
 		//https://stackoverflow.com/a/62261587/4499235
-		System.setProperty("javax.xml.parsers.DocumentBuilderFactory",
-		        "com.sun.org.apache.xerces.internal.jaxp.DocumentBuilderFactoryImpl");
+		//System.setProperty("javax.xml.parsers.DocumentBuilderFactory",
+		//        "com.sun.org.apache.xerces.internal.jaxp.DocumentBuilderFactoryImpl");
 		DocumentBuilderFactory factory = DocumentBuilderFactory.newInstance();
-		factory.setAttribute(XMLConstants.ACCESS_EXTERNAL_DTD, ""); // Compliant
-		factory.setAttribute(XMLConstants.ACCESS_EXTERNAL_SCHEMA, ""); // compliant
+		// Not sure why the XML Parser used switched to Xerced
+		// The factory misses these attributes, but commenting them out seems to make no difference importing KMLs
+		//factory.setAttribute(XMLConstants.ACCESS_EXTERNAL_DTD, ""); // Compliant
+		//factory.setAttribute(XMLConstants.ACCESS_EXTERNAL_SCHEMA, ""); // compliant
         DocumentBuilder builder = factory.newDocumentBuilder();
         InputSource is = new InputSource(new FileReader(kmlFile));
         Document doc = builder.parse(is);
@@ -98,7 +99,7 @@ public class KmlImportService {
             if (placemark.hasChildNodes()) {
             	NodeList childNodes = placemark.getChildNodes();
             	String longitude = "",latitude = "",name = "Placemark";  //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$
-            	name = "placemark" + i;
+            	name = "placemark_" + i;
             	for (int j=0; j<childNodes.getLength(); j++){
 
             		Node placemarkChild = childNodes.item(j);
@@ -107,9 +108,9 @@ public class KmlImportService {
             			String coordinates = processPoint(placemarkChild);
 
                     	String[] splitCoords = coordinates.split(","); //$NON-NLS-1$
-
             			longitude = splitCoords[0];
             			latitude = splitCoords[1];
+            			
             		}else if ( placemarkChild.getNodeName().equalsIgnoreCase("Multigeometry")){ //$NON-NLS-1$ // Special case forQGis generatedKML
 
             			NodeList childMultigemoetryNodes = placemarkChild.getChildNodes();
@@ -130,7 +131,7 @@ public class KmlImportService {
             			name = placemarkChild.getFirstChild().getNodeValue();
             		}
             	}
-            	sb.append(name).append( CollectEarthProjectFileCreator.PLACEHOLDER_ID_COLUMNS_VALUES ).append("_").append( i+1 ).append(",").append( latitude ).append(",").append( longitude ).append(CollectEarthProjectFileCreator.PLACEHOLDER_FOR_EXTRA_COLUMNS_VALUES).append( "\r\n"); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$
+            	sb.append( CollectEarthProjectFileCreator.PLACEHOLDER_ID_COLUMNS_VALUES ).append("_").append( i+1 ).append(",").append( latitude ).append(",").append( longitude ).append(CollectEarthProjectFileCreator.PLACEHOLDER_FOR_EXTRA_COLUMNS_VALUES).append( "\r\n"); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$
             }
         }
 

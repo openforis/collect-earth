@@ -249,13 +249,19 @@ public abstract class KmlGenerator extends AbstractCoordinateCalculation {
 
 		// Adds a map ( coulmnName,cellValue) so that the values can also be added to
 		// the KML by column name (for the newer versions)
-		HashMap<String, String> valuesByColumn = new HashMap<>();
-		if (possibleColumnNames != null) {
-			for (int i = 0; i < possibleColumnNames.length; i++) {
-				valuesByColumn.put(possibleColumnNames[i], csvValuesInLine[i] == null ? "" : csvValuesInLine[i]);
+		HashMap<String, String> valuesByColumn;
+		try {
+			valuesByColumn = new HashMap<>();
+			if (possibleColumnNames != null) {
+				for (int i = 0; i < possibleColumnNames.length; i++) {
+					valuesByColumn.put(possibleColumnNames[i], csvValuesInLine[i] == null ? "" : csvValuesInLine[i]);
+				}
 			}
+			plotProperties.setValuesByColumn(valuesByColumn);
+		} catch (Exception e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
 		}
-		plotProperties.setValuesByColumn(valuesByColumn);
 
 		// Handle teh calculation of different SRSs that EPSG:3264
 		// Lets keep a copy of the original coordinates to use on the KML Data for
