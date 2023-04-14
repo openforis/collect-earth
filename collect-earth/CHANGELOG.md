@@ -6,6 +6,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- Export data to KML
+
+
+## [1.15.08] - 2023-04-15
+
 ### Fixed
 - KML Import to open in GE working.
 - Updated Selenium to support latest versions of Chrome/Firefox.
