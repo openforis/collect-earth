@@ -25,10 +25,14 @@ import org.openforis.collect.model.CollectSurvey;
 import org.openforis.idm.metamodel.AttributeDefinition;
 import org.opengis.referencing.FactoryException;
 import org.opengis.referencing.operation.TransformException;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 
 public abstract class KmlGenerator extends AbstractCoordinateCalculation {
 
+	Logger logger = LoggerFactory.getLogger(KmlGenerator.class);
+	
 	protected void fillPolygonProperties(SimplePlacemarkObject plotProperties, String kmlPolygon,
 			List<List<SimpleCoordinate>> pointsInPolygon) {
 		plotProperties.setMultiShape(pointsInPolygon);
@@ -109,18 +113,18 @@ public abstract class KmlGenerator extends AbstractCoordinateCalculation {
 	public abstract void fillSamplePoints(SimplePlacemarkObject placemark) throws TransformException;
 
 	public void generateKmlFile(String destinationKmlFile, String csvFile, String balloonFile,
-			String freemarkerKmlTemplateFile, CollectSurvey collectSurvey) throws KmlGenerationException {
+			String freemarkerKmlTemplateFile, CollectSurvey collectSurvey, boolean kmlExport) throws KmlGenerationException {
 
 		final File destinationFile = new File(destinationKmlFile);
 		destinationFile.getParentFile().mkdirs();
-		getKmlCode(csvFile, balloonFile, freemarkerKmlTemplateFile, destinationFile, collectSurvey);
+		getKmlCode(csvFile, balloonFile, freemarkerKmlTemplateFile, destinationFile, collectSurvey, kmlExport);
 	}
 
 	private void getKmlCode(String csvFile, String balloonFile, String freemarkerKmlTemplateFile, File destinationFile,
-			CollectSurvey collectSurvey) throws KmlGenerationException {
+			CollectSurvey collectSurvey, boolean kmlExport) throws KmlGenerationException {
 
 		if (StringUtils.isBlank(csvFile)) {
-			throw new IllegalArgumentException("THe CSV file location cannot be null");
+			throw new IllegalArgumentException("The CSV file location cannot be null");
 		}
 
 		if (StringUtils.isBlank(balloonFile)) {
@@ -137,7 +141,7 @@ public abstract class KmlGenerator extends AbstractCoordinateCalculation {
 		}
 
 		// Build the data-model
-		final Map<String, Object> data = getTemplateData(csvFile, collectSurvey);
+		final Map<String, Object> data = getTemplateData(csvFile, collectSurvey, kmlExport);
 		data.put("expiration", iso8601Timestamp.format(new Date()));
 
 		// Get the HTML content of the balloon from a file, this way we can
@@ -166,7 +170,7 @@ public abstract class KmlGenerator extends AbstractCoordinateCalculation {
 	}
 
 	public SimplePlacemarkObject getPlotObject(String[] csvValuesInLine, String[] possibleColumnNames,
-			CollectSurvey collectSurvey) throws KmlGenerationException, TransformException, FactoryException {
+			CollectSurvey collectSurvey, boolean kmlExport) throws KmlGenerationException, TransformException, FactoryException {
 
 		List<AttributeDefinition> keyAttributeDefinitions = collectSurvey.getSchema().getRootEntityDefinitions().get(0)
 				.getKeyAttributeDefinitions();
@@ -196,13 +200,21 @@ public abstract class KmlGenerator extends AbstractCoordinateCalculation {
 
 		int leadingColumns = 0;
 
+		
 		String longitude = csvValuesInLine[numberOfKeyAttributes + 1].replace(',', '.').trim();
 		String latitude = csvValuesInLine[numberOfKeyAttributes].replace(',', '.').trim();
+		
+		//Special case when we are transforming the CSV to a KML, the EPSG code occupies an extra space and lat/long arinterchanged
+		if(kmlExport) {
+			longitude = csvValuesInLine[numberOfKeyAttributes + 1].replace(',', '.').trim();
+			latitude = csvValuesInLine[numberOfKeyAttributes + 2].replace(',', '.').trim();
+		}
+		
 		if (isNumber(longitude) && isNumber(latitude)) {
 			plotProperties.setCoord(new SimpleCoordinate(latitude, longitude));
 			leadingColumns = 2;
 		} else {
-			throw new KmlGenerationException(
+			logger.warn(
 					" The latitude and longitude columns contain values other than numbers : LAT : " + latitude
 							+ " , LONG :" + longitude);
 		}
@@ -259,8 +271,7 @@ public abstract class KmlGenerator extends AbstractCoordinateCalculation {
 			}
 			plotProperties.setValuesByColumn(valuesByColumn);
 		} catch (Exception e) {
-			// TODO Auto-generated catch block
-			e.printStackTrace();
+			logger.error( "Error generating map with values", e);
 		}
 
 		// Handle teh calculation of different SRSs that EPSG:3264
@@ -286,7 +297,7 @@ public abstract class KmlGenerator extends AbstractCoordinateCalculation {
 		return -1;
 	}
 
-	protected abstract Map<String, Object> getTemplateData(String csvFile, CollectSurvey collectSurvey)
+	protected abstract Map<String, Object> getTemplateData(String csvFile, CollectSurvey collectSurvey, boolean kmlExport)
 			throws KmlGenerationException;
 
 	protected void processPolygonProperties(SimplePlacemarkObject plotProperties, String[] csvValuesInLine) {

@@ -39,6 +39,9 @@ public class DataImportExportService {
 
 	@Autowired
 	private LocalPropertiesService localPropertiesService;
+	
+	@Autowired
+	private KmlGeneratorService kmlGeneratorService;
 
 	private final Logger logger = LoggerFactory.getLogger(DataImportExportService.class);
 	/**
@@ -55,7 +58,7 @@ public class DataImportExportService {
 			}
 		}
 	}
-
+	
 	public CSVDataExportProcess exportSurveyAsCsv(File exportToFile, boolean includeCodeItemLabelColumn) {
 		final CSVDataExportProcess csvDataExportProcess = applicationContext.getBean(CSVDataExportProcess.class);
 		csvDataExportProcess.setOutputFile(exportToFile);

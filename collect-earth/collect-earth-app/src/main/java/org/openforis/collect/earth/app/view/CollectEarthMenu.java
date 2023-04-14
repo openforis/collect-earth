@@ -33,6 +33,7 @@ import org.openforis.collect.earth.app.service.EarthProjectsService;
 import org.openforis.collect.earth.app.service.EarthSurveyService;
 import org.openforis.collect.earth.app.service.FolderFinder;
 import org.openforis.collect.earth.app.service.IPCCGeneratorService;
+import org.openforis.collect.earth.app.service.KmlGeneratorService;
 import org.openforis.collect.earth.app.service.KmlImportService;
 import org.openforis.collect.earth.app.service.LocalPropertiesService;
 import org.openforis.collect.earth.app.service.MissingPlotService;
@@ -50,6 +51,9 @@ public class CollectEarthMenu extends JMenuBar implements InitializingBean {
 
 	@Autowired
 	private transient KmlImportService kmlImportService;
+	
+	@Autowired
+	private KmlGeneratorService kmlGeneratorService;
 
 	@Autowired
 	private transient MissingPlotService missingPlotService;
@@ -341,9 +345,9 @@ public class CollectEarthMenu extends JMenuBar implements InitializingBean {
 		backupExportSubmenu.add(exportDataRangeBackup);
 
 		ieSubmenu.add(backupExportSubmenu);
-
-		menuItem = new JMenuItem(Messages.getString("CollectEarthWindow.6")); //$NON-NLS-1$
-		menuItem.addActionListener(getExportActionListener(DataFormat.FUSION, RecordsToExport.ALL));
+		
+		menuItem = new JMenuItem(Messages.getString("CollectEarthWindow.73")); //$NON-NLS-1$
+		menuItem.addActionListener(getExportActionListener(DataFormat.KML_FILE, RecordsToExport.ALL));
 		ieSubmenu.add(menuItem);
 
 		ieSubmenu.addSeparator();
@@ -374,7 +378,7 @@ public class CollectEarthMenu extends JMenuBar implements InitializingBean {
 
 	private ActionListener getExportActionListener(final DataFormat exportFormat, final RecordsToExport xmlExportType) {
 		return new ExportActionListener(exportFormat, xmlExportType, getFrame(), localPropertiesService,
-				dataImportExportService, earthSurveyService);
+				dataImportExportService, earthSurveyService, kmlGeneratorService);
 	}
 
 	private ActionListener getImportActionListener(final DataFormat importFormat) {

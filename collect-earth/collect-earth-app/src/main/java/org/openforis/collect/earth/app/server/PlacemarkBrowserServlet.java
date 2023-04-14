@@ -318,7 +318,7 @@ public class PlacemarkBrowserServlet {
 				throw new IllegalArgumentException("The keys " + keys.toString() + " are not present on the CSV file with the plot locations!!!");
 			}
 
-			SimplePlacemarkObject placemarkObject = kmlGenerator.getPlotObject(csvValues, null, earthSurveyService.getCollectSurvey() );
+			SimplePlacemarkObject placemarkObject = kmlGenerator.getPlotObject(csvValues, null, earthSurveyService.getCollectSurvey() , false);
 			OpenBrowserThread browserThread = new OpenBrowserThread("Open ancillary windows - polygon ", placemarkObject );
 			browserThread.start();
 		} catch (Exception e) {

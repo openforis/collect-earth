@@ -74,7 +74,7 @@ public abstract class AbstractPolygonKmlGenerator extends KmlGenerator {
 	}
 
 	@Override
-	protected Map<String, Object> getTemplateData(String csvFile, CollectSurvey collectSurvey) throws KmlGenerationException {
+	protected Map<String, Object> getTemplateData(String csvFile, CollectSurvey collectSurvey, boolean kmlExport) throws KmlGenerationException {
 		final Map<String, Object> data = new HashMap<>();
 
 		SimplePlacemarkObject previousPlacemark = null;
@@ -102,7 +102,7 @@ public abstract class AbstractPolygonKmlGenerator extends KmlGenerator {
 						continue;
 					}
 
-					final SimplePlacemarkObject currentPlacemark = getPlotObject(csvRow, headerRow, collectSurvey);
+					final SimplePlacemarkObject currentPlacemark = getPlotObject(csvRow, headerRow, collectSurvey, kmlExport);
 
 
 					Double X = Double.parseDouble( currentPlacemark.getCoord().getLongitude() );

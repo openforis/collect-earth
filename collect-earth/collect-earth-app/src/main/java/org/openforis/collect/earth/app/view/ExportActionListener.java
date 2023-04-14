@@ -17,6 +17,7 @@ import org.apache.commons.lang3.StringUtils;
 import org.jdesktop.swingx.JXDatePicker;
 import org.openforis.collect.earth.app.service.DataImportExportService;
 import org.openforis.collect.earth.app.service.EarthSurveyService;
+import org.openforis.collect.earth.app.service.KmlGeneratorService;
 import org.openforis.collect.earth.app.service.LocalPropertiesService;
 import org.openforis.collect.io.data.DataExportStatus;
 import org.openforis.collect.manager.process.AbstractProcess;
@@ -31,6 +32,7 @@ public final class ExportActionListener implements ActionListener {
 	private EarthSurveyService earthSurveyService;
 	private Logger logger = LoggerFactory.getLogger(ExportActionListener.class);
 	private RecordsToExport recordsToExport;
+	private KmlGeneratorService kmlGeneratorService;
 
 	public enum RecordsToExport {
 		ALL, MODIFIED_SINCE_LAST_EXPORT, PICK_FROM_DATE
@@ -38,13 +40,14 @@ public final class ExportActionListener implements ActionListener {
 
 	public ExportActionListener(DataFormat exportFormat, RecordsToExport recordsToExport, JFrame frame,
 			LocalPropertiesService localPropertiesService, DataImportExportService dataExportService,
-			EarthSurveyService earthSurveyService) {
+			EarthSurveyService earthSurveyService, KmlGeneratorService kmlGeneratorService) {
 		this.exportFormat = exportFormat;
 		this.frame = frame;
 		this.localPropertiesService = localPropertiesService;
 		this.dataExportService = dataExportService;
 		this.earthSurveyService = earthSurveyService;
 		this.recordsToExport = recordsToExport;
+		this.kmlGeneratorService = kmlGeneratorService;
 	}
 
 	@Override
@@ -155,6 +158,9 @@ public final class ExportActionListener implements ActionListener {
 		case FUSION:
 			addLabels = promptForLabelInclusion(exportType);
 			exportProcess = dataExportService.exportSurveyAsFusionTable(exportToFile, addLabels);
+			break;
+		case KML_FILE:
+			kmlGeneratorService.exportToKml(exportToFile);
 			break;
 		case COLLECT_BACKUP:
 			exportProcess = dataExportService.exportSurveyAsBackup(exportToFile);

@@ -1,0 +1,34 @@
+<!DOCTYPE html>
+<html>
+	<head>
+		<meta http-equiv="Content-Type"
+			content="text/html; charset=utf-8">
+			<meta name="viewport"
+				content="width=device-width, initial-scale=1.0">
+
+				<style type="text/css">
+
+					body {
+					font-family: "en","Trebuchet MS", "Helvetica", "Arial", "Verdana",
+					"sans-serif";
+					}
+				</style>
+	</head>
+
+	<body>
+
+		<div style="height:600px; width:400px;">
+
+
+				<#-- Iterate over placemarks, store values in variable placemark -- START -->
+				<#list attributes as attribute >
+					<i>${attribute}</i> : <b>$[${attribute}]</b><br/>
+				</#list>
+				<#-- Iterate over placemarks -- END -->
+
+			</div>
+		</div>
+	</body>
+
+
+</html>
