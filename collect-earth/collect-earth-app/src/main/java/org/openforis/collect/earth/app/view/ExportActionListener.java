@@ -15,6 +15,7 @@ import javax.swing.JPanel;
 
 import org.apache.commons.lang3.StringUtils;
 import org.jdesktop.swingx.JXDatePicker;
+import org.openforis.collect.earth.app.CollectEarthUtils;
 import org.openforis.collect.earth.app.service.DataImportExportService;
 import org.openforis.collect.earth.app.service.EarthSurveyService;
 import org.openforis.collect.earth.app.service.KmlGeneratorService;
@@ -161,6 +162,7 @@ public final class ExportActionListener implements ActionListener {
 			break;
 		case KML_FILE:
 			kmlGeneratorService.exportToKml(exportToFile);
+			CollectEarthUtils.openFolderInExplorer( exportToFile.getParent() );
 			break;
 		case COLLECT_BACKUP:
 			exportProcess = dataExportService.exportSurveyAsBackup(exportToFile);
