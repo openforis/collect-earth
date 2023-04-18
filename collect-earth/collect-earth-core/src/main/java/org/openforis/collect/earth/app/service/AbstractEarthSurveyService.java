@@ -23,6 +23,7 @@ import javax.swing.JOptionPane;
 
 import org.openforis.collect.earth.CollectEarthSurveyContext;
 import org.openforis.collect.earth.app.EarthConstants;
+import org.openforis.collect.earth.app.service.LocalPropertiesService.EarthProperty;
 import org.openforis.collect.earth.app.view.Messages;
 import org.openforis.collect.earth.core.handlers.BalloonInputFieldsUtils;
 import org.openforis.collect.earth.core.handlers.DateAttributeHandler;
@@ -65,8 +66,7 @@ public abstract class AbstractEarthSurveyService {
 
 	private static final String COLLECT_CODE_CANOPY_COVER = "collect_code_canopy_cover";
 
-	private static final String COLLECT_CODE_DEFORESTATION_REASON = "collect_code_deforestation_reason" //$NON-NLS-1$
-;
+	private static final String COLLECT_CODE_DEFORESTATION_REASON = "collect_code_deforestation_reason"; //$NON-NLS-1$
 
 	protected final Logger logger = LoggerFactory.getLogger(this.getClass());
 
@@ -525,7 +525,7 @@ public abstract class AbstractEarthSurveyService {
 		result.setSkipFilled(localPropertiesService.shouldJumpToNextPlot());
 		Map<String, PlacemarkInputFieldInfo> infoByParameterName = collectParametersHandler
 				.extractFieldInfoByParameterName(record, changeSet,
-						localPropertiesService.getUiLanguage().getLocale().getLanguage(),
+						localPropertiesService.getValue(EarthProperty.UI_LANGUAGE), // Get the value of the language that the survey was exported with (not the language on CE UI)
 						localPropertiesService.getModelVersionName());
 		// adjust error messages
 		for (Entry<String, PlacemarkInputFieldInfo> entry : infoByParameterName.entrySet()) {
