@@ -9,8 +9,6 @@ import org.openforis.collect.earth.ipcc.controller.LandUseSubdivisionUtils;
 import org.openforis.collect.earth.ipcc.model.AbstractLandUseSubdivision;
 import org.openforis.collect.earth.ipcc.model.CroplandSubdivision;
 import org.openforis.collect.earth.ipcc.model.CroplandTypeEnum;
-import org.openforis.collect.earth.ipcc.model.ForestSubdivision;
-import org.openforis.collect.earth.ipcc.model.ForestTypeEnum;
 import org.openforis.collect.earth.ipcc.model.LandUseCategoryEnum;
 import org.openforis.collect.earth.ipcc.model.PerennialCropTypesEnum;
 

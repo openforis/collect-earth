@@ -25,8 +25,8 @@ public class IPCCSurveyAdapter {
 	public static final String ATTR_OLDEST_CATEGORY = IPCC_ATTR_PREFIX + "oldest_category";
 	public static final String ATTR_PREVIOUS_CATEGORY = IPCC_ATTR_PREFIX + "previous_category";
 	public static final String ATTR_PREVIOUS_SUBDIVISION = IPCC_ATTR_PREFIX + "previous_subdivision";
-	private static final String CODE_LIST_LAND_USE = "land_use";
-	private static final String CODE_LIST_LAND_USE_SUBCATEGORY = "land_use_subcategory";
+	public static final String CODE_LIST_LAND_USE = "land_uses";
+	public static final String CODE_LIST_LAND_USE_SUBCATEGORY = "land_use_conversions";
 
 	private static final int IPCC_20_YEARS_RULE = 20;
 

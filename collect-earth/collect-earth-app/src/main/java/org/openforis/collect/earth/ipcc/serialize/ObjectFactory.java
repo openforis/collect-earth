@@ -53,11 +53,11 @@ public class ObjectFactory {
     }
 
     /**
-     * Create an instance of {@link IPCC2006Export.Tiers }
+     * Create an instance of {@link Tiers }
      * 
      */
-    public IPCC2006Export.Tiers createIPCC2006ExportTiers() {
-        return new IPCC2006Export.Tiers();
+    public Tiers createIPCC2006ExportTiers() {
+        return new Tiers();
     }
 
     /**
@@ -69,11 +69,11 @@ public class ObjectFactory {
     }
 
     /**
-     * Create an instance of {@link IPCC2006Export.Record }
+     * Create an instance of {@link Record }
      * 
      */
-    public IPCC2006Export.Record createIPCC2006ExportRecord() {
-        return new IPCC2006Export.Record();
+    public Record createIPCC2006ExportRecord() {
+        return new Record();
     }
 
     /**

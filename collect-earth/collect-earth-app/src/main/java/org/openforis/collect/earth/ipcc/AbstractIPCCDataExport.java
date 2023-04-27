@@ -34,6 +34,7 @@ public abstract class AbstractIPCCDataExport extends RDBConnector {
 	public static final String CLIMATE_COLUMN_ID = CLIMATE_COLUMN_VALUE + "_code_id";
 	public static final String CLIMATE_COLUMN_IN_PLOT = CLIMATE +"_code_id";
 	
+	public static final String GEZ = "gez";
 	public static final String GEZ_COLUMN_VALUE = "ecological_zones";
 	public static final String GEZ_TABLE = GEZ_COLUMN_VALUE + "_code";
 	public static final String GEZ_COLUMN_LABEL = GEZ_COLUMN_VALUE + "_label";

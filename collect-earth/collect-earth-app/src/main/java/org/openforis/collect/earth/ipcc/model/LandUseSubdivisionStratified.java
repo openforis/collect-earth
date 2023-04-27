@@ -1,5 +1,6 @@
 package org.openforis.collect.earth.ipcc.model;
 
+import java.util.Objects;
 import java.util.UUID;
 
 public class LandUseSubdivisionStratified<E> {
@@ -82,6 +83,25 @@ public class LandUseSubdivisionStratified<E> {
 
 	public void setEcozone(EcozoneStratumObject ecozone) {
 		this.ecozone = ecozone;
+	}
+
+	@Override
+	public int hashCode() {
+		return Objects.hash(climate, ecozone, id, landUseCategory, landUseSubdivision, soil);
+	}
+
+	@Override
+	public boolean equals(Object obj) {
+		if (this == obj)
+			return true;
+		if (obj == null)
+			return false;
+		if (getClass() != obj.getClass())
+			return false;
+		LandUseSubdivisionStratified other = (LandUseSubdivisionStratified) obj;
+		return Objects.equals(climate, other.climate) && Objects.equals(ecozone, other.ecozone)
+				&& Objects.equals(id, other.id) && landUseCategory == other.landUseCategory
+				&& Objects.equals(landUseSubdivision, other.landUseSubdivision) && Objects.equals(soil, other.soil);
 	}
 	
 	

@@ -25,11 +25,14 @@ public class IPCC2006ExportSigned extends IPCC2006Export{
     protected String signature;
 
     public static IPCC2006ExportSigned cloneAndSign( IPCC2006Export notSigned, String signature ) {
+
     	IPCC2006ExportSigned signed = new IPCC2006ExportSigned();
     	signed.setCountryCode( notSigned.getCountryCode());
     	signed.setInventoryYear( notSigned.getInventoryYear());
     	signed.setVersion( notSigned.getVersion());
     	signed.record = notSigned.record;
+    	signed.setIpccSubdivisions( notSigned.getIpccSubdivisions() );
+    	signed.setTiers( notSigned.getTiers() );
         signed.setSignature(signature);
         return signed;
      }

@@ -76,7 +76,7 @@ import javax.xml.datatype.XMLGregorianCalendar;
 @XmlRootElement(name = "IPCC2006Export")
 public class IPCC2006Export {
 
-    @XmlElement(name = "Version", required = true)
+	@XmlElement(name = "Version", required = true)
     protected String version;
     @XmlElement(required = true)
     @XmlSchemaType(name = "gYear")
@@ -84,10 +84,11 @@ public class IPCC2006Export {
     @XmlElement(required = true)
     protected String countryCode;
     @XmlElement(required = true)
-    protected IPCC2006Export.Tiers tiers;
+    protected Tiers tiers;
     @XmlElement(required = true)
     protected IpccSubdivisions ipccSubdivisions;
-    protected List<IPCC2006Export.Record> record;
+    @XmlElement(required = true)
+    protected List<Record> record;
 
     /**
      * Gets the value of the version property.
@@ -166,10 +167,10 @@ public class IPCC2006Export {
      * 
      * @return
      *     possible object is
-     *     {@link IPCC2006Export.Tiers }
+     *     {@link Tiers }
      *     
      */
-    public IPCC2006Export.Tiers getTiers() {
+    public Tiers getTiers() {
         return tiers;
     }
 
@@ -178,10 +179,10 @@ public class IPCC2006Export {
      * 
      * @param value
      *     allowed object is
-     *     {@link IPCC2006Export.Tiers }
+     *     {@link Tiers }
      *     
      */
-    public void setTiers(IPCC2006Export.Tiers value) {
+    public void setTiers(Tiers value) {
         this.tiers = value;
     }
 
@@ -227,155 +228,15 @@ public class IPCC2006Export {
      * 
      * <p>
      * Objects of the following type(s) are allowed in the list
-     * {@link IPCC2006Export.Record }
+     * {@link Record }
      * 
      * 
      */
-    public List<IPCC2006Export.Record> getRecord() {
+    public List<Record> getRecord() {
         if (record == null) {
-            record = new ArrayList<IPCC2006Export.Record>();
+            record = new ArrayList<Record>();
         }
         return this.record;
-    }
-
-
-    /**
-     * <p>Java class for anonymous complex type.
-     * 
-     * <p>The following schema fragment specifies the expected content contained within this class.
-     * 
-     * <pre>
-     * &lt;complexType>
-     *   &lt;complexContent>
-     *     &lt;restriction base="{http://www.w3.org/2001/XMLSchema}anyType">
-     *       &lt;choice>
-     *         &lt;element name="customRegions" type="{http://ipcc2006.air.sk/IPCC2006Export}CustomRegions"/>
-     *         &lt;element name="landTypes" type="{http://ipcc2006.air.sk/IPCC2006Export}landTypes"/>
-     *       &lt;/choice>
-     *     &lt;/restriction>
-     *   &lt;/complexContent>
-     * &lt;/complexType>
-     * </pre>
-     * 
-     * 
-     */
-    @XmlAccessorType(XmlAccessType.FIELD)
-    @XmlType(name = "", propOrder = {
-        "customRegions",
-        "landTypes"
-    })
-    public static class Record {
-
-        protected CustomRegions customRegions;
-        protected LandTypes landTypes;
-
-        /**
-         * Gets the value of the customRegions property.
-         * 
-         * @return
-         *     possible object is
-         *     {@link CustomRegions }
-         *     
-         */
-        public CustomRegions getCustomRegions() {
-            return customRegions;
-        }
-
-        /**
-         * Sets the value of the customRegions property.
-         * 
-         * @param value
-         *     allowed object is
-         *     {@link CustomRegions }
-         *     
-         */
-        public void setCustomRegions(CustomRegions value) {
-            this.customRegions = value;
-        }
-
-        /**
-         * Gets the value of the landTypes property.
-         * 
-         * @return
-         *     possible object is
-         *     {@link LandTypes }
-         *     
-         */
-        public LandTypes getLandTypes() {
-            return landTypes;
-        }
-
-        /**
-         * Sets the value of the landTypes property.
-         * 
-         * @param value
-         *     allowed object is
-         *     {@link LandTypes }
-         *     
-         */
-        public void setLandTypes(LandTypes value) {
-            this.landTypes = value;
-        }
-
-    }
-
-
-    /**
-     * <p>Java class for anonymous complex type.
-     * 
-     * <p>The following schema fragment specifies the expected content contained within this class.
-     * 
-     * <pre>
-     * &lt;complexType>
-     *   &lt;complexContent>
-     *     &lt;restriction base="{http://www.w3.org/2001/XMLSchema}anyType">
-     *       &lt;sequence>
-     *         &lt;element name="tier" type="{http://ipcc2006.air.sk/IPCC2006Export}Tier" maxOccurs="unbounded" minOccurs="0"/>
-     *       &lt;/sequence>
-     *     &lt;/restriction>
-     *   &lt;/complexContent>
-     * &lt;/complexType>
-     * </pre>
-     * 
-     * 
-     */
-    @XmlAccessorType(XmlAccessType.FIELD)
-    @XmlType(name = "", propOrder = {
-        "tier"
-    })
-    public static class Tiers {
-
-        protected List<Tier> tier;
-
-        /**
-         * Gets the value of the tier property.
-         * 
-         * <p>
-         * This accessor method returns a reference to the live list,
-         * not a snapshot. Therefore any modification you make to the
-         * returned list will be present inside the JAXB object.
-         * This is why there is not a <CODE>set</CODE> method for the tier property.
-         * 
-         * <p>
-         * For example, to add a new item, do as follows:
-         * <pre>
-         *    getTier().add(newItem);
-         * </pre>
-         * 
-         * 
-         * <p>
-         * Objects of the following type(s) are allowed in the list
-         * {@link Tier }
-         * 
-         * 
-         */
-        public List<Tier> getTier() {
-            if (tier == null) {
-                tier = new ArrayList<Tier>();
-            }
-            return this.tier;
-        }
-
     }
 
 }
