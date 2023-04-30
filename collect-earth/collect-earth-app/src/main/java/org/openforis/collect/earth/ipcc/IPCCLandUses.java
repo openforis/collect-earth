@@ -122,7 +122,7 @@ public class IPCCLandUses extends RDBConnector {
 								subdivisionName,
 								ManagementTypeEnum.MANAGED, // Assign default management
 								seqId,
-								VegetationTypeEnum.PR 
+								VegetationTypeEnum.SV 
 								);
 					case "S":
 						return new SettlementSubdivision(

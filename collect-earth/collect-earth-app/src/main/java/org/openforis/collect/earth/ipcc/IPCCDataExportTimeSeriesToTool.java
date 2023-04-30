@@ -271,6 +271,7 @@ public class IPCCDataExportTimeSeriesToTool extends AbstractIPCCDataExport {
 			
 			cltGrassLand.setImprovedGrassland(false);
 			cltGrassLand.setVegetationTypeId( ( (GrasslandSubdivision) landUseSubdivisionStratified.getLandUseSubdivision() ).getVegetationType().getId() );
+			cltGrassLand.setRatioBgbAgbHerb( ( (GrasslandSubdivision) landUseSubdivisionStratified.getLandUseSubdivision() ).getVegetationType().getRatioBgb() );
 			
 			cltGrassLand.setAgeClassId( AgeClassCroplandEnum.UNSPECIFIED.getId() );
 			

@@ -7,7 +7,7 @@ public class GrasslandSubdivision extends AbstractManagementLandUseSubdivision{
 
 	public GrasslandSubdivision( String code, String name, ManagementTypeEnum type, Integer id) {
 		super( LandUseCategoryEnum.G, code, name, type, id );
-		this.vegetationType = VegetationTypeEnum.PR; // Set prairie as default!
+		this.vegetationType = VegetationTypeEnum.SV; // Set Savanah as default!
 	}
 	
 	public GrasslandSubdivision( String code, String name, ManagementTypeEnum type, Integer id, VegetationTypeEnum vegetationType) {
