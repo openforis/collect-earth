@@ -20,6 +20,7 @@ import org.apache.commons.math3.util.Precision;
 import org.openforis.collect.earth.app.service.RegionCalculationUtils;
 import org.openforis.collect.earth.ipcc.controller.LandUseSubdivisionUtils;
 import org.openforis.collect.earth.ipcc.model.AbstractLandUseSubdivision;
+import org.openforis.collect.earth.ipcc.model.AbstractManagementLandUseSubdivision;
 import org.openforis.collect.earth.ipcc.model.AgeClassCroplandEnum;
 import org.openforis.collect.earth.ipcc.model.ClimateDomainEnum;
 import org.openforis.collect.earth.ipcc.model.ClimateStratumObject;
@@ -639,12 +640,16 @@ public class IPCCDataExportTimeSeriesToTool extends AbstractIPCCDataExport {
 
 	private List<LrtLandUnit> generateLandUnits(LrtRegion lrtRegion, LandUseSubdivisionStratified<?> landUseSubdivisionStratified) {
 
+		// Generate Land Units no change FF/CC/SS/OO/WW/GG throughout the whole period
+		
+		// For each year generate the pre and post land unit
+		
+		
 		String sqlGrouping = IPCCSurveyAdapter.TEMPLATE_LAND_USE_SUBCATEGORY + ", "
 				+ IPCCSurveyAdapter.TEMPLATE_LAND_USE_SUBCATEGORY_YEAR_CHANGED + ", "
 				+ IPCCSurveyAdapter.TEMPLATE_LAND_USE_SUBDIVISION + ", "
 				+ IPCCSurveyAdapter.TEMPLATE_LAND_USE_SUBDIVISION_YEAR_CHANGED + ", "
 				+ IPCCSurveyAdapter.TEMPLATE_LAND_USE_INITIAL_SUBDIVISION + ", "
-				
 				+ IPCCSurveyAdapter.TEMPLATE_LAND_USE_SUBDIVISION_YEAR_CHANGED + ", "
 				+ IPCCSurveyAdapter.TEMPLATE_LAND_USE_SECOND_SUBDIVISION + ", "
 				+ IPCCSurveyAdapter.TEMPLATE_SECOND_LU_CONVERSION + ", "
@@ -759,8 +764,8 @@ public class IPCCDataExportTimeSeriesToTool extends AbstractIPCCDataExport {
 			List<LandUseSubdivisionStratified<?>> substratasInLastYear = getJdbcTemplate().query(
 					selectDistincts 
 					,
-					getLUSubdivisionStratifiedRowMapper(luCategory)
-					);
+					getLUSubdivisionStratifiedRowMapper(luCategory, 0)
+				);
 	
 			// Put these values into a variable so that we can use the same IDs later!
 			subdivisions.addAll(substratasInLastYear);
@@ -786,7 +791,7 @@ public class IPCCDataExportTimeSeriesToTool extends AbstractIPCCDataExport {
 			List<LandUseSubdivisionStratified<?>> substratasInFirstYear = getJdbcTemplate().query(
 					selectDistincts 
 					,
-					getLUSubdivisionStratifiedRowMapper(luCategory)
+					getLUSubdivisionStratifiedRowMapper(luCategory, subdivisions.size())
 					);
 	
 			substratasInFirstYear.forEach( (t) -> { if( !subdivisions.contains(t) ) subdivisions.add(t); } );
@@ -798,7 +803,7 @@ public class IPCCDataExportTimeSeriesToTool extends AbstractIPCCDataExport {
 	}
 
 	private RowMapper<LandUseSubdivisionStratified<?>> getLUSubdivisionStratifiedRowMapper(
-			LandUseCategoryEnum luCategory) {
+			LandUseCategoryEnum luCategory, int idStart) {
 		return new RowMapper<LandUseSubdivisionStratified<?>>() {
 			@Override
 			public LandUseSubdivisionStratified mapRow(ResultSet rs, int rowNum) throws SQLException {
@@ -819,7 +824,7 @@ public class IPCCDataExportTimeSeriesToTool extends AbstractIPCCDataExport {
 						.filter(soilElem -> Integer.valueOf(soilElem.getValue()).equals(soilCode)).findFirst()
 						.orElseThrow(() -> new IllegalArgumentException("No Soil found for " + soilCode));
 				
-				Integer seqId = luCategory.getId() *1000 + getSubdivisionsStrata().size() + rowNum;
+				Integer seqId = luCategory.getId() *1000 + getSubdivisionsStrata().size() + rowNum + idStart;
 				
 				// Add Ecozone to Forest subdivisions!
 				if( luCategory.equals( LandUseCategoryEnum.F ) ) {

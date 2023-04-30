@@ -99,8 +99,9 @@ public class LandUseSubdivisionStratified<E> {
 		if (getClass() != obj.getClass())
 			return false;
 		LandUseSubdivisionStratified other = (LandUseSubdivisionStratified) obj;
+		// && Objects.equals(id, other.id) removed !!
 		return Objects.equals(climate, other.climate) && Objects.equals(ecozone, other.ecozone)
-				&& Objects.equals(id, other.id) && landUseCategory == other.landUseCategory
+				 && landUseCategory == other.landUseCategory
 				&& Objects.equals(landUseSubdivision, other.landUseSubdivision) && Objects.equals(soil, other.soil);
 	}
 	
