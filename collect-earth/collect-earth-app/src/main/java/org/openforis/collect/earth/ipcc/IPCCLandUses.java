@@ -32,7 +32,7 @@ import org.springframework.stereotype.Component;
 public class IPCCLandUses extends RDBConnector {
 
 	private String schemaName;
-	private static final String LU_CATEGORY_COLUMN = IPCCSurveyAdapter.CODE_LIST_LAND_USE + "_category";
+	private static final String LU_CATEGORY_COLUMN = IPCCSurveyAdapter.CODE_LIST_LAND_USE + "_use"; // _category
 	private static final String LU_TABLE = LU_CATEGORY_COLUMN + "_code";
 	private static final String LU_SUBDIVISION =IPCCSurveyAdapter.CODE_LIST_LAND_USE +  "_subdivision";
 	private static final String LU_SUBDIVISION_LABEL = LU_SUBDIVISION + "_label";

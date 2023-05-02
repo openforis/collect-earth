@@ -1,0 +1,250 @@
+code,name
+000,(Not Set)
+016,American Samoa
+060,Bermuda
+092,British Virgin Islands
+136,Cayman Islands
+175,Mayotte
+184,Cook Islands
+196,Cyprus
+234,Faroe Islands
+238,Falkland Islands (Malvinas)
+248,èland Islands
+254,French Guiana
+258,French Polynesia
+275,State of Palestine
+292,Gibraltar
+304,Greenland
+312,Guadeloupe
+316,Guam
+336,Holy See
+344,"China, Hong Kong Special Administrative Region"
+384,Cìte d?Ivoire
+446,"China, Macao Special Administrative Region"
+474,Martinique
+499,Montenegro
+500,Montserrat
+531,Curaáao
+533,Aruba
+534,Sint Maarten (Dutch part)
+535,"Bonaire, Saint Eustatius and Saba"
+540,New Caledonia
+570,Niue
+574,Norfolk Island
+580,Northern Mariana Islands
+612,Pitcairn
+626,Timor-Leste
+630,Puerto Rico
+638,RÇunion
+652,Saint BarthÇlemy
+654,Saint Helena
+660,Anguilla
+663,Saint Martin (French part)
+666,Saint Pierre and Miquelon
+680,Sark
+728,South Sudan
+732,Western Sahara
+744,Svalbard and Jan Mayen Islands
+772,Tokelau
+796,Turks and Caicos Islands
+830,Channel Islands
+831,Guernsey
+832,Jersey
+833,Isle of Man
+850,United States Virgin Islands
+876,Wallis and Futuna Islands
+AFG,Afghanistan
+ALB,Albania
+ALG,Algeria
+AND,Andorra
+ANG,Angola
+ANT,Antigua and Barbuda
+ARG,Argentina
+ARM,Armenia
+ATF,French Southern Territories
+AUS,Australia
+AUT,Austria
+AZE,Azerbaijan
+BAH,Bahrain
+BAN,Bangladesh
+BAR,Barbados
+BDI,Burundi
+BEL,Belgium
+BEN,Benin
+BFA,Burkina Faso
+BGR,Bulgaria
+BHM,Bahamas
+BIH,Bosnia and Herzegovina
+BLR,Belarus
+BLZ,Belize
+BOL,Bolivia
+BRA,Brazil
+BRM,Myanmar
+BRN,Brunei Darussalam
+BTN,Bhutan
+BVT,Bouvet Island
+BWA,Botswana
+CAF,Central African Republic
+CAN,Canada
+CBG,Cambodia
+CCK,Cocos (Keeling) Islands
+CLM,Colombia
+CLN,Sri Lanka
+CME,Cameroon
+COG,Congo
+COM,Comoros
+CPV,Cabo Verde
+CTR,Costa Rica
+CUB,Cuba
+CXR,Christmas Island
+CZE,Czechia
+DEU,Germany
+DJI,Djibouti
+DKO,Democratic People's Republic of Korea
+DMA,Dominica
+DNK,Denmark
+DOM,Dominican Republic
+DRG,Democratic Republic of the Congo
+EGI,Equatorial Guinea
+EGY,Egypt
+EQA,Ecuador
+ERI,Eritrea
+ESP,Spain
+EST,Estonia
+ETB,Ethiopia
+FIN,Finland
+FJI,Fiji
+FRA,France
+FSM,Micronesia
+GAB,Gabon
+GBR,United Kingdom of Great Britain and Northern Ireland
+GEO,Georgia
+GHA,Ghana
+GMB,Gambia
+GNA,Guinea
+GNB,Guinea-Bissau
+GRC,Greece
+GRD,Grenada
+GTM,Guatemala
+GUY,Guyana
+HMD,Heard Island and McDonald Islands
+HND,Honduras
+HRV,Croatia
+HTI,Haiti
+HUN,Hungary
+CHD,Chad
+CHF,Switzerland
+CHL,Chile
+CHN,China
+IDN,Indonesia
+IND,India
+IOT,British Indian Ocean Territory
+IRL,Ireland
+IRN,Iran
+IRQ,Iraq
+ISL,Iceland
+ISR,Israel
+ITA,Italy
+JMC,Jamaica
+JOR,Jordan
+JPN,Japan
+KAZ,Kazakhstan
+KEN,Kenya
+KGZ,Kyrgyzstan
+KIR,Kiribati
+KOR,Republic of Korea
+KWT,Kuwait
+LAO,Lao People's Democratic Republic
+LBN,Lebanon
+LBR,Liberia
+LBY,Libya
+LCA,Saint Lucia
+LIE,Liechtenstein
+LSO,Lesotho
+LTU,Lithuania
+LUX,Luxembourg
+LVA,Latvia
+MAU,Mauritius
+MCO,Monaco
+MDA,Republic of Moldova
+MDG,Madagascar
+MEX,Mexico
+MHL,Marshall Islands
+MKD,North Macedonia
+MLA,Malaysia
+MLD,Maldives
+MLI,Mali
+MLT,Malta
+MNG,Mongolia
+MOZ,Mozambique
+MRC,Morocco
+MTN,Mauritania
+MWI,Malawi
+NCG,Nicaragua
+NGR,Niger
+NIG,Nigeria
+NLD,Netherlands
+NMB,Namibia
+NOR,Norway
+NPL,Nepal
+NRU,Nauru
+NZL,New Zealand
+OMN,Oman
+PAK,Pakistan
+PAN,Panama
+PHL,Philippines
+PLW,Palau
+PNG,Papua New Guinea
+POL,Poland
+PRG,Paraguay
+PRT,Portugal
+PRU,Peru
+QAT,Qatar
+ROM,Romania
+RRW,Rwanda
+RUS,Russian Federation
+SAF,South Africa
+SAO,Samoa
+SAU,Saudi Arabia
+SCN,Saint Kitts and Nevis
+SDN,Sudan
+SEN,Senegal
+SEY,Seychelles
+SGS,South Georgia and the South Sandwich Islands
+SLM,Solomon Islands
+SLV,El Salvador
+SMR,San Marino
+SNG,Singapore
+SOM,Somalia
+SRB,Serbia
+SRL,Sierra Leone
+STP,Sao Tome and Principe
+SUR,Suriname
+SVK,Slovakia
+SVN,Slovenia
+SWE,Sweden
+SWZ,Eswatini
+SYR,Syrian Arab Republic
+TGO,Togo
+THA,Thailand
+TJK,Tajikistan
+TKM,Turkmenistan
+TON,Tonga
+TRD,Trinidad and Tobago
+TUN,Tunisia
+TUR,Turkey
+TUV,Tuvalu
+TZA,United Republic of Tanzania
+UAE,United Arab Emirates
+UGA,Uganda
+UKR,Ukraine
+URG,Uruguay
+USA,United States of America
+UZB,Uzbekistan
+VCT,Saint Vincent and the Grenadines
+VEN,Venezuela
+VTN,Viet Nam
+VUT,Vanuatu
+YEM,Yemen
+ZMB,Zambia
+ZWE,Zimbabwe

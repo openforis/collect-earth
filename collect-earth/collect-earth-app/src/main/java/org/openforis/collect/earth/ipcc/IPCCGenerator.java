@@ -5,7 +5,9 @@ package org.openforis.collect.earth.ipcc;
 
 import java.io.File;
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.Calendar;
+import java.util.List;
 
 import org.openforis.collect.earth.app.CollectEarthUtils;
 import org.openforis.collect.earth.app.service.LocalPropertiesService;
@@ -66,8 +68,11 @@ public class IPCCGenerator {
 	public static final int END_YEAR = Calendar.getInstance().get(Calendar.YEAR); // Assume the last year is current year
 	public static final int START_YEAR = 2000;  // Assume start year at 2000
 
+	private Survey survey;
+
 	public File generateRDB( Survey survey, InfiniteProgressMonitor progressListener) throws IPCCGeneratorException {
 
+		this.survey = survey;
 		ipccSurveyAdapter = new IPCCSurveyAdapter();
 
 		// Add attributes for each year containing the LU Category and Subdivision if not present
@@ -82,7 +87,7 @@ public class IPCCGenerator {
 		} catch (IOException e) {
 			logger.error( "Error marshalling survey", e );
 		}
-		*/
+		*/ 
 		// Generate Relational Database of the survey data
 		ipccRdbGenerator.generateRelationalDatabase( modifiedSurvey, progressListener);
 
@@ -94,9 +99,13 @@ public class IPCCGenerator {
 		progressListener.hide();
 		
 		try {
+			List<String> attributeNames = new ArrayList<String>();
+			survey.getSchema().getFirstRootEntityDefinition().getChildDefinitions().forEach(nodeDefinition -> attributeNames.add( nodeDefinition.getName() ) );
+			
 			// Assign Management types to the Land Use Subdivisions found in the survey data
 			AssignSubdivisionTypesWizard wizard = new AssignSubdivisionTypesWizard();
-			wizard.initializeTypes(landUses.getLandUseSubdivisions());
+			wizard.initializeTypes(landUses.getLandUseSubdivisions(), attributeNames);
+			
 			
 			if( !wizard.isWizardFinished() ) {
 				logger.info( "The user closed the wizard without finishing assigning management types");
@@ -151,7 +160,7 @@ public class IPCCGenerator {
 			
 			progressListener.updateProgress(currentStep++, STEPS, "Generating GHGi activity data files" );
 			// 	Extract data from the Relational Database into an excel file of transition Matrixes per year
-			File xmlWithDataToImportGhgTool =dataExportTimeSeriesToTool.generateTimeseriesData(START_YEAR, START_YEAR, END_YEAR, "BEN", RegionColumnEnum.PROVINCE );
+			File xmlWithDataToImportGhgTool =dataExportTimeSeriesToTool.generateTimeseriesData(START_YEAR, START_YEAR, END_YEAR, wizard.getCountryCode().getCode(), wizard.getRegionAttribute() );
 			if( progressListener.isUserCancelled() ) return;
 
 			try {

@@ -17,10 +17,10 @@ import javax.xml.bind.JAXBException;
 import javax.xml.bind.Marshaller;
 
 import org.apache.commons.math3.util.Precision;
+import org.apache.commons.text.StringEscapeUtils;
 import org.openforis.collect.earth.app.service.RegionCalculationUtils;
 import org.openforis.collect.earth.ipcc.controller.LandUseSubdivisionUtils;
 import org.openforis.collect.earth.ipcc.model.AbstractLandUseSubdivision;
-import org.openforis.collect.earth.ipcc.model.AbstractManagementLandUseSubdivision;
 import org.openforis.collect.earth.ipcc.model.AgeClassCroplandEnum;
 import org.openforis.collect.earth.ipcc.model.ClimateDomainEnum;
 import org.openforis.collect.earth.ipcc.model.ClimateStratumObject;
@@ -106,7 +106,7 @@ public class IPCCDataExportTimeSeriesToTool extends AbstractIPCCDataExport {
 
 	private int endYear;
 
-	private RegionColumnEnum stratifyByRegion;
+	private String stratifyByRegion;
 
 	private int inventoryYear;
 
@@ -371,7 +371,7 @@ public class IPCCDataExportTimeSeriesToTool extends AbstractIPCCDataExport {
 	}
 
 	public File generateTimeseriesData(int inventoryYear, int startYear, int endYear, String countryCode,
-			RegionColumnEnum stratifyByRegion) throws IOException, IPCCGeneratorException {
+			String stratifyByRegion) throws IOException, IPCCGeneratorException {
 		
 		this.setInventoryYear(inventoryYear);
 		this.setStartYear(startYear);
@@ -427,18 +427,22 @@ public class IPCCDataExportTimeSeriesToTool extends AbstractIPCCDataExport {
 		LrtRegions regions = new LrtRegions();
 
 		// Collect the regions in the country
+		String selectDiferentRegions = "select " + getStratifyByRegion() 
+		+ ", SUM(" + RegionCalculationUtils.EXPANSION_FACTOR + ") AS " + SUM_EXPANSION_FACTOR 
+		+ " from " + getSchemaName() + PLOT_TABLE 
+		+ " GROUP BY "	+ getStratifyByRegion();
+		
+		logger.warn( "SQL select", selectDiferentRegions );
+		
 		Collection<LrtRegion> regionList = getJdbcTemplate().query(
 
-				"select " + getStratifyByRegion().getColumnName() 
-				+ ", SUM(" + RegionCalculationUtils.EXPANSION_FACTOR + ") AS " + SUM_EXPANSION_FACTOR 
-				+ " from " + getSchemaName() + PLOT_TABLE 
-				+ " GROUP BY "	+ getStratifyByRegion().getColumnName(),
+				selectDiferentRegions,
 
 				new RowMapper<LrtRegion>() {
 					@Override
 					public LrtRegion mapRow(ResultSet rs, int rowNum) throws SQLException {
 
-						String regionName = rs.getString( getStratifyByRegion().getColumnName() );
+						String regionName = rs.getString( getStratifyByRegion() );
 						Double area = Precision.round( rs.getDouble( SUM_EXPANSION_FACTOR ), AREA_PRECISION ) ;
 
 						LrtRegion lrtRegion = new LrtRegion();
@@ -463,6 +467,7 @@ public class IPCCDataExportTimeSeriesToTool extends AbstractIPCCDataExport {
 	}
 
 	private void addLandCategoriesToRegion(LrtRegion lrtRegion) {
+		lrtRegion.getLandCategories(); //initialize
 		for (LandUseCategoryEnum landUseCat : LandUseCategoryEnum.values()) {
 			LrtLandCategory landCategory = new LrtLandCategory();
 			landCategory.setLtId(landUseCat.getId());
@@ -564,11 +569,14 @@ public class IPCCDataExportTimeSeriesToTool extends AbstractIPCCDataExport {
 						LandUseCategoryEnum luInitial = LandUseCategoryEnum.valueOf(luPreviousCategory);
 						
 						// Set the initial Land Use subdivision
-						AbstractLandUseSubdivision<?> previous = LandUseSubdivisionUtils.getSubdivision(luInitial.getCode(), secondLUSubdivision);
+						AbstractLandUseSubdivision<?> previous = LandUseSubdivisionUtils.getSubdivision(luInitial.getCode(), initialSubdivision);
+						if( previous == null || LandUseManagementEnum.find(luInitial, previous.getManagementType()) == null ) {
+							logger.warn( "Error getting the LU subdivison ", luInitial.toString() + "  -  " + secondLUSubdivision );
+						}
 						landUnit.setLtIdPrev(LandUseManagementEnum.find(luInitial, previous.getManagementType()).getId());
 						
 						landUnit.setCltIdPrev(
-							findStrataLandRepresentation(landUseSubdivisionStratified, luInitial, secondLUSubdivision).getId()
+							findStrataLandRepresentation(landUseSubdivisionStratified, luInitial, initialSubdivision).getId()
 						);
 					} else {
 						landUnit.setConvYear(-2);
@@ -637,6 +645,10 @@ public class IPCCDataExportTimeSeriesToTool extends AbstractIPCCDataExport {
 			}
 		};
 	}
+	
+	private String escapeSelectQuery( String select ) {
+		return select.replaceAll( "'","''");
+	}
 
 	private List<LrtLandUnit> generateLandUnits(LrtRegion lrtRegion, LandUseSubdivisionStratified<?> landUseSubdivisionStratified) {
 
@@ -667,7 +679,7 @@ public class IPCCDataExportTimeSeriesToTool extends AbstractIPCCDataExport {
 				+ ( landUseSubdivisionStratified.getEcozone() !=null? GEZ + "= " +  landUseSubdivisionStratified.getEcozone().getValue() + " and " : "" )
 				+ IPCCSurveyAdapter.ATTR_CURRENT_CATEGORY + " = '" + landUseSubdivisionStratified.getLandUseCategory().getCode() + "' " + " and "
 				+ IPCCSurveyAdapter.ATTR_CURRENT_SUBDIVISION + " = '" + landUseSubdivisionStratified.getLandUseSubdivision().getCode() + "' " + " and "
-				+ getStratifyByRegion().getColumnName() + " = '" + lrtRegion.getName() + "' "
+				+ getStratifyByRegion() + " = '" + escapeSelectQuery( lrtRegion.getName() ) + "' "
 
 				+ " GROUP BY " + sqlGrouping + " ORDER BY " + AREAS_SUM
 				+ " DESC";
@@ -867,7 +879,7 @@ public class IPCCDataExportTimeSeriesToTool extends AbstractIPCCDataExport {
 		return endYear;
 	}
 
-	private RegionColumnEnum getStratifyByRegion() {
+	private String getStratifyByRegion() {
 		return stratifyByRegion;
 	}
 
@@ -883,7 +895,7 @@ public class IPCCDataExportTimeSeriesToTool extends AbstractIPCCDataExport {
 		this.endYear = endYear;
 	}
 
-	private void setStratifyByRegion(RegionColumnEnum stratifyByRegion) {
+	private void setStratifyByRegion(String stratifyByRegion) {
 		this.stratifyByRegion = stratifyByRegion;
 	}
 
