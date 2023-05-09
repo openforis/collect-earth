@@ -104,6 +104,13 @@ public class LandUseSubdivisionStratified<E> {
 				 && landUseCategory == other.landUseCategory
 				&& Objects.equals(landUseSubdivision, other.landUseSubdivision) && Objects.equals(soil, other.soil);
 	}
+
+	@Override
+	public String toString() {
+		return "LandUseSubdivisionStratified [landUseCategory=" + landUseCategory.getCode() + ", landUseSubdivision="
+				+ landUseSubdivision.getCode() + ", climate=" + climate.getLabel() + ", ecozone=" + ecozone.getLabel() + ", soil=" + soil.getLabel() + ", id=" + id
+				+ ", guid=" + guid + "]";
+	}
 	
 	
 }

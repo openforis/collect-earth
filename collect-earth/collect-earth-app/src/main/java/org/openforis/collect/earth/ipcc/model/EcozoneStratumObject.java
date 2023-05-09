@@ -14,4 +14,9 @@ public class EcozoneStratumObject extends StratumObject{
 		return ecozoneType;
 	}
 
+	@Override
+	public String toString() {
+		return "EcozoneStratumObject [ecozoneType=" + ecozoneType + ",  label= " + label +" ]";
+	}
+
 }

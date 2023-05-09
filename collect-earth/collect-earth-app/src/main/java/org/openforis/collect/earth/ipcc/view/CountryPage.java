@@ -46,12 +46,12 @@ public class CountryPage extends AbstractWizardPage {
 		scrollPane.setBounds(50, 30, 300, 50);
 		scrollPane.setPreferredSize(new Dimension(450, 350));
 
-		final Border border = new TitledBorder(new BevelBorder(BevelBorder.LOWERED), "Country");
+		final Border border = new TitledBorder(new BevelBorder(BevelBorder.LOWERED), "Information on the survey");
 		setBorder(border);
 
 		constraints.gridx = 0;
 
-		JLabel labelCountry = new JLabel("Survey");
+		JLabel labelCountry = new JLabel("Country");
 		contentPane.add(labelCountry, constraints);
 
 		constraints.gridx = 1;
@@ -65,7 +65,7 @@ public class CountryPage extends AbstractWizardPage {
 		
 		constraints.gridx = 0;
 
-		JLabel labelRegion = new JLabel("Region attribute (country,region,district,project...");
+		JLabel labelRegion = new JLabel("Collect Earth Region attribute (country,region,district)");
 		contentPane.add(labelRegion, constraints);
 		
 
@@ -75,6 +75,8 @@ public class CountryPage extends AbstractWizardPage {
 		attributeNames.toArray(attrNamesArray );
 		JComboBox<String> attributeList = new JComboBox(attrNamesArray);
 		
+		attributeList.addActionListener( e -> {assignSubdivisionTypesWizard.setRegionAttribute( ( (String) attributeList.getSelectedItem() ) );} );
+
 		if( attributeNames.contains( RegionColumnEnum.PROVINCE.getColumnName() ) ){
 			attributeList.setSelectedItem( RegionColumnEnum.PROVINCE.getColumnName() );
 		}else if( attributeNames.contains( RegionColumnEnum.COUNTRY.getColumnName() ) ){
@@ -83,7 +85,6 @@ public class CountryPage extends AbstractWizardPage {
 		else if( attributeNames.contains( RegionColumnEnum.DISTRICT.getColumnName() ) ){
 			attributeList.setSelectedItem( RegionColumnEnum.DISTRICT.getColumnName() );
 		}
-		attributeList.addActionListener( e -> {assignSubdivisionTypesWizard.setRegionAttribute( ( (String) attributeList.getSelectedItem() ) );} );
 
 		contentPane.add(attributeList, constraints);
 

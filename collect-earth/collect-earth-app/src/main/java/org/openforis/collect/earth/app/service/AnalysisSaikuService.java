@@ -171,7 +171,8 @@ public class AnalysisSaikuService extends GenerateDatabase implements Disposable
 			if (earthSurveyService.getCollectSurvey().getName().toLowerCase().contains("png")) { //$NON-NLS-1$
 				final String schemaName = getSchemaPrefix();
 				// Objet[] --> aspect_id, sloped_id, elevation_bucket_id, _plot_id
-				final List<Object[]> sqlUpdateValues = rdbExporter.getJdbcTemplate().query("SELECT " + EarthConstants.PLOT_ID //$NON-NLS-1$
+				final List<Object[]> sqlUpdateValues = rdbExporter.getJdbcTemplate().query(
+						"SELECT " + EarthConstants.PLOT_ID //$NON-NLS-1$
 						+ ", elevation, soil_fundamental, land_use_subcategory, precipitation_ranges FROM " + schemaName //$NON-NLS-1$
 						+ "plot LEFT JOIN " + schemaName + "precipitation_ranges_code where " //$NON-NLS-1$ //$NON-NLS-2$
 						+ "plot.annual_precipitation_code_id=precipitation_ranges_code.precipitation_ranges_code_id", //$NON-NLS-1$

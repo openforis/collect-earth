@@ -20,6 +20,7 @@ import org.apache.poi.ss.usermodel.IndexedColors;
 import org.apache.poi.ss.usermodel.Row;
 import org.apache.poi.ss.usermodel.Sheet;
 import org.apache.poi.ss.usermodel.Workbook;
+import org.openforis.collect.earth.app.EarthConstants;
 import org.openforis.collect.earth.app.service.ExportType;
 import org.openforis.collect.earth.app.service.RDBConnector;
 import org.openforis.collect.earth.app.service.RegionCalculationUtils;
@@ -72,6 +73,7 @@ public class IPCCDataExportMatrixExcel extends RDBConnector {
 						+ IPCCSurveyAdapter.getIpccSubdivisionAttrName(year + 1) + ","
 						+ "sum( " + RegionCalculationUtils.EXPANSION_FACTOR + ")" 
 						+ " from " + schemaName + AbstractIPCCDataExportTimeSeries.PLOT_TABLE 
+						+ " where " + EarthConstants.ACTIVELY_SAVED_ATTRIBUTE_NAME + " = " + EarthConstants.ACTIVELY_SAVED_BY_USER_VALUE+ " " // Only Actively saved plots so that there are no null Land Uses in the list
 						+ " GROUP BY "
 						+ IPCCSurveyAdapter.getIpccCategoryAttrName(year) + ","
 						+ IPCCSurveyAdapter.getIpccCategoryAttrName(year + 1) + ","
@@ -111,16 +113,16 @@ public class IPCCDataExportMatrixExcel extends RDBConnector {
 
 	protected static LUDataPerYear findLuData( AbstractLandUseSubdivision initialSubdivision, AbstractLandUseSubdivision finalSubdivision, List<LUDataPerYear> luData ) {
 		if( luData.removeIf(Objects::isNull) ) { // TODO Why are there null values here??
-			logger.info("Why do we have a null LU category here?");
+			logger.info("A Why do we have a null LU category here?");
 		}
 
 		Collection<?> result = CollectionUtils.select(luData, new Predicate() {
 			public boolean evaluate(Object a) {
 				if(  ( (LUDataPerYear) a ).getLu() == null ) {
-					logger.info("Why do we have a null LU category here? " + a.toString());
+					logger.info("B Why do we have a null LU category here? " + a.toString());
 					return false;
 				}else if( ( (LUDataPerYear) a ).getLuNextYear() == null) {
-					logger.info("Why do we have a null LU Next Year category here?" + a.toString());
+					logger.info("C Why do we have a null LU Next Year category here?" + a.toString());
 					return false;
 				}
 				

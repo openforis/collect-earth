@@ -14,4 +14,10 @@ public class SoilStratumObject extends StratumObject{
 		return soilType;
 	}
 
+	@Override
+	public String toString() {
+		return "SoilStratumObject [soilType=" + soilType + ",  label= " + label +" ]";
+	}
+	
+
 }

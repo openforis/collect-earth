@@ -16,6 +16,7 @@ import javax.xml.bind.JAXBContext;
 import javax.xml.bind.JAXBException;
 import javax.xml.bind.Marshaller;
 
+import org.apache.commons.lang3.ArrayUtils;
 import org.apache.commons.math3.util.Precision;
 import org.apache.commons.text.StringEscapeUtils;
 import org.openforis.collect.earth.app.service.RegionCalculationUtils;
@@ -75,6 +76,7 @@ import org.openforis.collect.earth.ipcc.serialize.SoilTypes;
 import org.openforis.collect.earth.ipcc.serialize.Tiers;
 import org.openforis.collect.earth.ipcc.serialize.Wetland;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.jdbc.core.ArgumentPreparedStatementSetter;
 import org.springframework.jdbc.core.RowMapper;
 import org.springframework.stereotype.Component;
 
@@ -94,6 +96,8 @@ public class IPCCDataExportTimeSeriesToTool extends AbstractIPCCDataExport {
 	private static final String SUM_EXPANSION_FACTOR = "SUM_EXPANSION_FACTOR";
 
 	private static final String SUBDIVISION_AUX = "SUBDIV_AUX";
+	
+	private static final String NO_SUBDIVISION = "-1";
 
 	@Autowired
 	private IPCCLandUses ipccLandUses;
@@ -153,7 +157,7 @@ public class IPCCDataExportTimeSeriesToTool extends AbstractIPCCDataExport {
 					landUseSubdivisionStratified.getLandUseSubdivision().getCode() 
 					+ "_" + landUseSubdivisionStratified.getClimate().getLabel() 
 					+ "_" + landUseSubdivisionStratified.getSoil().getLabel()
-					+ "_" + landUseSubdivisionStratified.getEcozone().getValue()
+					+ "_" + landUseSubdivisionStratified.getEcozone().getLabel()
 			);
 			cltForestLand.setManaged(landUseSubdivisionStratified.getLandUseSubdivision().getManagementType().equals(ManagementTypeEnum.MANAGED));
 			cltForestLand.setClimateRegionId(landUseSubdivisionStratified.getClimate().getClimateType().getId());
@@ -427,13 +431,10 @@ public class IPCCDataExportTimeSeriesToTool extends AbstractIPCCDataExport {
 		LrtRegions regions = new LrtRegions();
 
 		// Collect the regions in the country
-		String selectDiferentRegions = "select " + getStratifyByRegion() 
-		+ ", SUM(" + RegionCalculationUtils.EXPANSION_FACTOR + ") AS " + SUM_EXPANSION_FACTOR 
+		String selectDiferentRegions = "select " + getStratifyByRegion() + ", SUM(" + RegionCalculationUtils.EXPANSION_FACTOR + ") AS " + SUM_EXPANSION_FACTOR 
 		+ " from " + getSchemaName() + PLOT_TABLE 
 		+ " GROUP BY "	+ getStratifyByRegion();
-		
-		logger.warn( "SQL select", selectDiferentRegions );
-		
+				
 		Collection<LrtRegion> regionList = getJdbcTemplate().query(
 
 				selectDiferentRegions,
@@ -442,7 +443,7 @@ public class IPCCDataExportTimeSeriesToTool extends AbstractIPCCDataExport {
 					@Override
 					public LrtRegion mapRow(ResultSet rs, int rowNum) throws SQLException {
 
-						String regionName = rs.getString( getStratifyByRegion() );
+						String regionName = rs.getString( getStratifyByRegion() ).replaceAll("'", ""); // remove single quotes that can cause errors when importing to IPCC
 						Double area = Precision.round( rs.getDouble( SUM_EXPANSION_FACTOR ), AREA_PRECISION ) ;
 
 						LrtRegion lrtRegion = new LrtRegion();
@@ -576,7 +577,7 @@ public class IPCCDataExportTimeSeriesToTool extends AbstractIPCCDataExport {
 						landUnit.setLtIdPrev(LandUseManagementEnum.find(luInitial, previous.getManagementType()).getId());
 						
 						landUnit.setCltIdPrev(
-							findStrataLandRepresentation(landUseSubdivisionStratified, luInitial, initialSubdivision).getId()
+							findStrataLandRepresentation( luInitial, initialSubdivision, landUseSubdivisionStratified.getClimate(), landUseSubdivisionStratified.getSoil(), landUseSubdivisionStratified.getEcozone() ).getId()
 						);
 					} else {
 						landUnit.setConvYear(-2);
@@ -593,7 +594,7 @@ public class IPCCDataExportTimeSeriesToTool extends AbstractIPCCDataExport {
 					landUnit.setLtIdPrev(luInitial.getId());
 					
 					landUnit.setCltIdPrev(
-							findStrataLandRepresentation(landUseSubdivisionStratified, luInitial, initialSubdivision).getId()
+							findStrataLandRepresentation(luInitial, initialSubdivision, landUseSubdivisionStratified.getClimate(), landUseSubdivisionStratified.getSoil(), landUseSubdivisionStratified.getEcozone()).getId()
 						);
 /*
 					if (secondLUConversion != null && !secondLUConversion.equals("-1")) {
@@ -631,25 +632,45 @@ public class IPCCDataExportTimeSeriesToTool extends AbstractIPCCDataExport {
 				return landUnit;
 			}
 
+			private boolean isEqual(
+					LandUseSubdivisionStratified subdivStrata,
+					LandUseCategoryEnum landUseCategory,
+					String landUseSubdivision, 
+					ClimateStratumObject climate, 
+					SoilStratumObject soil,
+					EcozoneStratumObject ecozone
+				) {
+				boolean result =  
+					subdivStrata.getLandUseCategory().equals(landUseCategory) && 
+					subdivStrata.getLandUseSubdivision().getCode().equals( landUseSubdivision) &&
+					subdivStrata.getClimate().getValue().equals(climate.getValue() )  && 
+					subdivStrata.getSoil().getValue().equals(soil.getValue() ) 
+					&&	(
+							subdivStrata.getEcozone() ==null 
+							|| 
+							ecozone ==null  // ecozone should not be Null for Forest classes
+							||
+							subdivStrata.getEcozone().getValue().equals(ecozone.getValue() ) 
+							 
+						);
+				return result;
+			}
+			
 			private LandUseSubdivisionStratified<?> findStrataLandRepresentation(
-					LandUseSubdivisionStratified<?> landUseSubdivisionStratified, LandUseCategoryEnum luInitial, String subdivCode) {
+					LandUseCategoryEnum landUseCategory,
+					String landUseSubdivision, 
+					ClimateStratumObject climate, 
+					SoilStratumObject soil,
+					EcozoneStratumObject ecozone
+				) {
 				return getSubdivisionsStrata().stream()
-					.filter(subdivStrata -> 
-									subdivStrata.getLandUseCategory().equals(luInitial) && 
-									subdivStrata.getLandUseSubdivision().getCode().equals( subdivCode) &&
-									subdivStrata.getClimate().equals(landUseSubdivisionStratified.getClimate() )  && 
-									subdivStrata.getSoil().equals(landUseSubdivisionStratified.getSoil() )
-							).findFirst()
-					.orElseThrow(() -> new IllegalArgumentException("No LU Subdivisions found for " + subdivCode)
+					.filter( subdivStrata -> isEqual(subdivStrata, landUseCategory, landUseSubdivision, climate, soil, ecozone) ).findFirst()
+					.orElseThrow(() -> new IllegalArgumentException("No LU Subdivisions found for " + landUseCategory + "  - " + landUseSubdivision + " - " + climate + " - " + soil + " - " + ecozone)
 				);
 			}
 		};
 	}
 	
-	private String escapeSelectQuery( String select ) {
-		return select.replaceAll( "'","''");
-	}
-
 	private List<LrtLandUnit> generateLandUnits(LrtRegion lrtRegion, LandUseSubdivisionStratified<?> landUseSubdivisionStratified) {
 
 		// Generate Land Units no change FF/CC/SS/OO/WW/GG throughout the whole period
@@ -668,24 +689,35 @@ public class IPCCDataExportTimeSeriesToTool extends AbstractIPCCDataExport {
 				+ IPCCSurveyAdapter.TEMPLATE_SECOND_LU_CONVERSION_YEAR 
 				;
 		
-	
+		String sqlSelectPreparedStatement = 
+				"select " + sqlGrouping + ", sum( " + RegionCalculationUtils.EXPANSION_FACTOR + ") AS " + AREAS_SUM 
+					+ " FROM " + PLOT_TABLE 
+					+ " where " 
+					+ SOIL + " = ? and " 
+					+ CLIMATE + " = ? and "
+					+ ( landUseSubdivisionStratified.getEcozone() !=null? GEZ + "= " +  landUseSubdivisionStratified.getEcozone().getValue() + " and " : "" )
+					+ IPCCSurveyAdapter.ATTR_CURRENT_CATEGORY + " = ? and "
+					+ IPCCSurveyAdapter.ATTR_CURRENT_SUBDIVISION + " = ? and "
+					+ getStratifyByRegion() + " = ? "
 
-		String sqlSelect = 
-			"select " + sqlGrouping + ", sum( " + RegionCalculationUtils.EXPANSION_FACTOR + ") AS " 	+ AREAS_SUM 
-				+ " FROM " + PLOT_TABLE 
-				+ " where " 
-				+ SOIL + " = " + landUseSubdivisionStratified.getSoil().getValue() + " and " 
-				+ CLIMATE + " = " + landUseSubdivisionStratified.getClimate().getValue() + " and "
-				+ ( landUseSubdivisionStratified.getEcozone() !=null? GEZ + "= " +  landUseSubdivisionStratified.getEcozone().getValue() + " and " : "" )
-				+ IPCCSurveyAdapter.ATTR_CURRENT_CATEGORY + " = '" + landUseSubdivisionStratified.getLandUseCategory().getCode() + "' " + " and "
-				+ IPCCSurveyAdapter.ATTR_CURRENT_SUBDIVISION + " = '" + landUseSubdivisionStratified.getLandUseSubdivision().getCode() + "' " + " and "
-				+ getStratifyByRegion() + " = '" + escapeSelectQuery( lrtRegion.getName() ) + "' "
+					+ " GROUP BY " + sqlGrouping + " ORDER BY " + AREAS_SUM
+					+ " DESC";
 
-				+ " GROUP BY " + sqlGrouping + " ORDER BY " + AREAS_SUM
-				+ " DESC";
-
-		List<LrtLandUnit> luData = getJdbcTemplate().query(sqlSelect, getLandUnitsRowMapper(landUseSubdivisionStratified));
-
+		
+		
+		List<LrtLandUnit> luData = getJdbcTemplate().query(
+				sqlSelectPreparedStatement, 
+				new ArgumentPreparedStatementSetter( new Object[] {
+						landUseSubdivisionStratified.getSoil().getValue(),
+						landUseSubdivisionStratified.getClimate().getValue(),
+						landUseSubdivisionStratified.getLandUseCategory().getCode(), 
+						landUseSubdivisionStratified.getLandUseSubdivision().getCode(),
+						lrtRegion.getName()
+					} ),			
+				getLandUnitsRowMapper(landUseSubdivisionStratified)
+				
+			);
+		
 		return luData;
 	}
 
@@ -762,23 +794,23 @@ public class IPCCDataExportTimeSeriesToTool extends AbstractIPCCDataExport {
 				selectDistincts = "select " 
 						+ "DISTINCT " + IPCCSurveyAdapter.ATTR_CURRENT_SUBDIVISION + " AS " + SUBDIVISION_AUX +", " + CLIMATE_COLUMN + ", " + SOIL_COLUMN + ", "+ GEZ_COLUMN
 						+ " from " + getSchemaName() + PLOT_TABLE 
-						+ " where " + IPCCSurveyAdapter.ATTR_CURRENT_CATEGORY + " = '" + luCategory.getCode() + "'"
-						+ " AND " + SUBDIVISION_AUX + "!='-1'";
+						+ " where " + IPCCSurveyAdapter.ATTR_CURRENT_CATEGORY + " = ? "
+						+ " AND " + SUBDIVISION_AUX + "!= ?";
 			}else {
 				selectDistincts = "select " 
 						+ "DISTINCT " 
 						+ IPCCSurveyAdapter.ATTR_CURRENT_SUBDIVISION + " AS " + SUBDIVISION_AUX +", " + CLIMATE_COLUMN + ", "	+ SOIL_COLUMN 
 						+ " from " + getSchemaName() + PLOT_TABLE 
-						+ " where " + IPCCSurveyAdapter.ATTR_CURRENT_CATEGORY + " = '" + luCategory.getCode() + "'"
-						+ " AND " + SUBDIVISION_AUX + "!='-1'";
+						+ " where " + IPCCSurveyAdapter.ATTR_CURRENT_CATEGORY + " = ? "
+						+ " AND " + SUBDIVISION_AUX + "!= ?";
 			}
 			
 			List<LandUseSubdivisionStratified<?>> substratasInLastYear = getJdbcTemplate().query(
-					selectDistincts 
-					,
+					selectDistincts, 
+					new ArgumentPreparedStatementSetter( new Object[] {luCategory.getCode(), NO_SUBDIVISION} ),			
 					getLUSubdivisionStratifiedRowMapper(luCategory, 0)
 				);
-	
+
 			// Put these values into a variable so that we can use the same IDs later!
 			subdivisions.addAll(substratasInLastYear);
 			

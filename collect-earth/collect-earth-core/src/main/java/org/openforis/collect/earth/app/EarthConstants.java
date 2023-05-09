@@ -50,6 +50,7 @@ public class EarthConstants {
 
 	public static final String PLACEMARK_ID_PARAMETER = "collect_text_id";
 	public static final String ACTIVELY_SAVED_ATTRIBUTE_NAME = "actively_saved"; //$NON-NLS-1$
+	public static final Integer ACTIVELY_SAVED_BY_USER_VALUE = 1;
 	public static final String ACTIVELY_SAVED_ON_ATTRIBUTE_NAME = "actively_saved_on"; //$NON-NLS-1$
 	public static final String ACTIVELY_SAVED_PARAMETER = "collect_boolean_" + ACTIVELY_SAVED_ATTRIBUTE_NAME; //$NON-NLS-1$
 	public static final String ACTIVELY_SAVED_ON_PARAMETER = "collect_date_" + ACTIVELY_SAVED_ON_ATTRIBUTE_NAME; //$NON-NLS-1$

@@ -4,6 +4,7 @@ import java.io.File;
 import java.io.IOException;
 import java.util.List;
 
+import org.openforis.collect.earth.app.EarthConstants;
 import org.openforis.collect.earth.app.service.ExportType;
 import org.openforis.collect.earth.app.service.RegionCalculationUtils;
 import org.openforis.collect.earth.app.service.SchemaService;
@@ -60,6 +61,8 @@ public class IPCCDataExportPerPlotCSV  extends AbstractIPCCDataExportCSV  {
 					+ AbstractIPCCDataExportTimeSeries.CLIMATE_COLUMN_IN_PLOT + " = " +  AbstractIPCCDataExportTimeSeries.CLIMATE_COLUMN_ID
 					+ " and "
 					+ AbstractIPCCDataExportTimeSeries.GEZ_COLUMN_IN_PLOT + " = " +  AbstractIPCCDataExportTimeSeries.GEZ_COLUMN_ID
+					
+					+ " and " + EarthConstants.ACTIVELY_SAVED_ATTRIBUTE_NAME + " = " + EarthConstants.ACTIVELY_SAVED_BY_USER_VALUE+ " " // Only Actively saved plots so that there are no null Land Uses in the list
 				
 				+ " ORDER BY "+ AbstractIPCCDataExportTimeSeries.PLOT_ID + " DESC"; // Remove trailing comma from list of years
 

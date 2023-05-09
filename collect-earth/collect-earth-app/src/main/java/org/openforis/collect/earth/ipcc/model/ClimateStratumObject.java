@@ -14,4 +14,9 @@ public class ClimateStratumObject extends StratumObject{
 		return climateType;
 	}
 
+	@Override
+	public String toString() {
+		return "ClimateStratumObject [climateType=" + climateType + ",  label= " + label +" ]";
+	}
+
 }
