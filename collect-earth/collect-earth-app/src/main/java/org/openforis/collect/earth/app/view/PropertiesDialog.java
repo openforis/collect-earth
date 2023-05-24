@@ -97,7 +97,10 @@ public class PropertiesDialog extends JDialog {
 	private CollectSurvey surveyLoaded;
 
 	private JButton applyChanges;
-
+	
+	JPanel panelPlanet  = new JPanel();
+	JPanel panelGeeApp  = new JPanel();
+	
 	public PropertiesDialog(JFrame frame, LocalPropertiesService localPropertiesService,
 			EarthProjectsService projectsService, String backupFolder, AnalysisSaikuService saikuService,
 			CollectSurvey surveyLoaded) {
@@ -111,9 +114,13 @@ public class PropertiesDialog extends JDialog {
 		this.setSize(new Dimension(600, 620));
 		this.setModal(true);
 		this.setResizable(false);
-		initilizeInputs();
-		buildMainPane();
-		centreWindow();
+		try {
+			initilizeInputs();
+			buildMainPane();
+			centreWindow();
+		} catch (Exception e) {
+			logger.error("Error initializing properties dialog", e);
+		}
 
 	}
 
@@ -195,6 +202,19 @@ public class PropertiesDialog extends JDialog {
 		panel.add(propertyToComponent.get(EarthProperty.OPEN_GEE_APP)[0], constraints);
 
 		constraints.gridy++;
+		constraints.gridwidth = 4;
+		final JLabel labelGeeFromDate = new JLabel("Start date"); //$NON-NLS-1$
+		panelGeeApp.add(labelGeeFromDate, constraints);
+		panelGeeApp.add(propertyToComponent.get(EarthProperty.GEEAPP_FROM_DATE)[0]);
+		
+		final JLabel labelGeeToDate = new JLabel("End date"); //$NON-NLS-1$
+		panelGeeApp.add(labelGeeToDate, constraints);
+		panelGeeApp.add(propertyToComponent.get(EarthProperty.GEEAPP_TO_DATE)[0]);
+
+		panel.add(panelGeeApp, constraints);
+		
+		constraints.gridy++;
+		constraints.gridwidth = 1;
 		panel.add(propertyToComponent.get(EarthProperty.OPEN_BING_MAPS)[0], constraints);
 
 		constraints.gridy++;
@@ -206,7 +226,23 @@ public class PropertiesDialog extends JDialog {
 		panel.add(propertyToComponent.get(EarthProperty.OPEN_PLANET_MAPS)[0], constraints);
 		constraints.gridx = 1;
 		panel.add(propertyToComponent.get(EarthProperty.PLANET_MAPS_MONHLY)[0], constraints);
+		
+		constraints.gridy++;
+		constraints.gridx = 0;
+		constraints.gridwidth = 4;
 
+		
+		final JLabel labelPlanetFromDate = new JLabel("Month left panel"); //$NON-NLS-1$
+		panelPlanet.add(labelPlanetFromDate, constraints);
+		panelPlanet.add(propertyToComponent.get(EarthProperty.PLANET_FROM_DATE)[0], constraints);
+		
+		final JLabel labelPlanetEndDate = new JLabel("Month right panel"); //$NON-NLS-1$
+		panelPlanet.add(labelPlanetEndDate, constraints);
+		panelPlanet.add(propertyToComponent.get(EarthProperty.PLANET_TO_DATE)[0], constraints);
+
+		panel.add(panelPlanet, constraints);
+
+		
 		constraints.gridy++;
 		constraints.gridx = 0;
 		constraints.gridwidth = 1;
@@ -329,8 +365,11 @@ public class PropertiesDialog extends JDialog {
 		final JComponent panel2 = getPlotOptionsPanel();
 		tabbedPane.addTab(Messages.getString("OptionWizard.32"), panel2); //$NON-NLS-1$
 
+		/*
+		 * This panel is totally unnecessary, removed from the dialog on 24/05/2023 
 		final JComponent panel3 = getSurveyDefinitonPanel();
 		tabbedPane.addTab(Messages.getString("OptionWizard.33"), panel3); //$NON-NLS-1$
+		 */
 
 		final JComponent panel41 = getIntegrationsPanel();
 		tabbedPane.addTab(Messages.getString("OptionWizard.34"), panel41); //$NON-NLS-1$
@@ -918,6 +957,10 @@ public class PropertiesDialog extends JDialog {
 				.setSelected(Boolean.parseBoolean(localPropertiesService.getValue(EarthProperty.OPEN_GEE_APP)));
 		propertyToComponent.put(EarthProperty.OPEN_GEE_APP, new JComponent[] { openGEEAppCheckbox });
 
+		openGEEAppCheckbox.addActionListener( e-> 
+			panelGeeApp.setVisible( openGEEAppCheckbox.isSelected() )
+		);
+		
 		final JCheckBox openTimelapseCheckbox = new JCheckBox(Messages.getString("OptionWizard.46")); //$NON-NLS-1$
 		openTimelapseCheckbox
 				.setSelected(Boolean.parseBoolean(localPropertiesService.getValue(EarthProperty.OPEN_TIMELAPSE)));
@@ -927,7 +970,7 @@ public class PropertiesDialog extends JDialog {
 		openEarthMapCheckbox
 				.setSelected(Boolean.parseBoolean(localPropertiesService.getValue(EarthProperty.OPEN_EARTH_MAP)));
 		propertyToComponent.put(EarthProperty.OPEN_EARTH_MAP, new JComponent[] { openEarthMapCheckbox });
-
+		
 		final JCheckBox openBingCheckbox = new JCheckBox(Messages.getString("OptionWizard.47")); //$NON-NLS-1$
 		openBingCheckbox
 				.setSelected(Boolean.parseBoolean(localPropertiesService.getValue(EarthProperty.OPEN_BING_MAPS)));
@@ -952,13 +995,45 @@ public class PropertiesDialog extends JDialog {
 
 		openMonthlyNICFICheckbox.setEnabled( openPlanetCheckbox.isSelected() );
 		planetAPIKeyTextField.setEnabled( openPlanetCheckbox.isSelected() && !openMonthlyNICFICheckbox.isSelected() );
+		panelPlanet.setVisible( openPlanetCheckbox.isSelected() && openMonthlyNICFICheckbox.isSelected() );
 
 		openPlanetCheckbox.addActionListener( e-> {
 			planetAPIKeyTextField.setEnabled( openPlanetCheckbox.isSelected() && !openMonthlyNICFICheckbox.isSelected() );
 			openMonthlyNICFICheckbox.setEnabled( openPlanetCheckbox.isSelected() );
+			panelPlanet.setVisible( openPlanetCheckbox.isSelected() && openMonthlyNICFICheckbox.isSelected() );
 		});
-		openMonthlyNICFICheckbox.addActionListener( e-> planetAPIKeyTextField.setEnabled( openPlanetCheckbox.isSelected() && !openMonthlyNICFICheckbox.isSelected() ) );
+		openMonthlyNICFICheckbox.addActionListener( e-> {	
+			planetAPIKeyTextField.setEnabled( openPlanetCheckbox.isSelected() && !openMonthlyNICFICheckbox.isSelected() );
+			panelPlanet.setVisible( openPlanetCheckbox.isSelected() && openMonthlyNICFICheckbox.isSelected() );
+		});
+		
+		final JTextField geeAppFromDate = new JTextField(
+				localPropertiesService.getValue(EarthProperty.GEEAPP_FROM_DATE));
+		geeAppFromDate.setToolTipText("2000-01-01");
+		geeAppFromDate.setMinimumSize(new Dimension( 250,  20 ));
+		propertyToComponent.put(EarthProperty.GEEAPP_FROM_DATE, new JComponent[] { geeAppFromDate });
+		
+		final JTextField geeAppToDate = new JTextField(
+				localPropertiesService.getValue(EarthProperty.GEEAPP_TO_DATE));
+		geeAppToDate.setToolTipText("Present date");
+		geeAppToDate.setMinimumSize(new Dimension( 250,  20 ));
+		propertyToComponent.put(EarthProperty.GEEAPP_TO_DATE, new JComponent[] { geeAppToDate });
 
+		final JComboBox<PlanetMonthlyObject> nicfiStartMonth = new JComboBox<>( PlanetMonthlyObject.getPlanetMonthlyMosaics() ); //$NON-NLS-1$
+		if( StringUtils.isBlank(localPropertiesService.getValue(EarthProperty.PLANET_FROM_DATE)) ) {
+			nicfiStartMonth.setSelectedItem( PlanetMonthlyObject.STARTING_DATE );
+		}else {
+			nicfiStartMonth.setSelectedItem( PlanetMonthlyObject.getPlanetMonthlyObject(localPropertiesService.getValue(EarthProperty.PLANET_FROM_DATE) ) );
+		}
+		propertyToComponent.put(EarthProperty.PLANET_FROM_DATE, new JComponent[] { nicfiStartMonth });
+
+		final JComboBox<PlanetMonthlyObject> nicfiEndMonth = new JComboBox<>( PlanetMonthlyObject.getPlanetMonthlyMosaics() ); //$NON-NLS-1$
+		if( StringUtils.isBlank(localPropertiesService.getValue(EarthProperty.PLANET_TO_DATE)) ) {
+			nicfiEndMonth.setSelectedItem( PlanetMonthlyObject.PRESENT_DATE );
+		}else {
+			nicfiEndMonth.setSelectedItem( PlanetMonthlyObject.getPlanetMonthlyObject(localPropertiesService.getValue(EarthProperty.PLANET_TO_DATE) ) );
+		}	
+		propertyToComponent.put(EarthProperty.PLANET_TO_DATE, new JComponent[] { nicfiEndMonth });
 
 		final JCheckBox openSecureWatchCheckbox = new JCheckBox(Messages.getString("OptionWizard.102")); //$NON-NLS-1$
 		openSecureWatchCheckbox
@@ -1198,6 +1273,8 @@ public class PropertiesDialog extends JDialog {
 		propertyToComponent.put(EarthProperty.DB_PORT, new JComponent[] { dbPort });
 
 	}
+
+
 
 	public boolean isRestartRequired() {
 		return restartRequired;

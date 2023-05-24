@@ -79,6 +79,9 @@ public abstract class ApplyOptionChangesListener implements ActionListener {
 					if (((JComboBox) component).getItemAt(0) instanceof ComboBoxItem) {
 						setPropertyValue(propertyKey,
 								((ComboBoxItem) ((JComboBox) component).getSelectedItem()).getNumberOfPoints() + ""); //$NON-NLS-1$
+					}else if (((JComboBox) component).getItemAt(0) instanceof PlanetMonthlyObject) {
+						setPropertyValue(propertyKey,
+								((PlanetMonthlyObject) ((JComboBox) component).getSelectedItem()).getValue() + ""); //$NON-NLS-1$
 					} else if (((JComboBox) component).getItemAt(0) instanceof String) {
 						setPropertyValue(propertyKey, ((String) ((JComboBox) component).getSelectedItem() ) ); //$NON-NLS-1$
 					} else if (((JComboBox) component).getItemAt(0) instanceof SAMPLE_SHAPE) {
