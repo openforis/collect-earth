@@ -109,7 +109,11 @@ public class LocalPropertiesService extends Observable {
 				OPEN_EARTH_MAP("open_earth_map"),
 				EARTH_MAP_LAYERS("earth_map_layers"),
 				EARTH_MAP_SCRIPTS("earth_map_scripts"),
-				EARTH_MAP_AOI("earth_map_aoi");
+				EARTH_MAP_AOI("earth_map_aoi"),
+				PLANET_FROM_DATE("planet_date_from"),
+				PLANET_TO_DATE("planet_date_to"),
+				GEEAPP_FROM_DATE("geeapp_date_from"),
+				GEEAPP_TO_DATE("geeapp_date_to"),;
 
 		private String name;
 

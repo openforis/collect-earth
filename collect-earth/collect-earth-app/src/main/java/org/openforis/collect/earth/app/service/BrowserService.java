@@ -454,6 +454,17 @@ public class BrowserService implements InitializingBean, Observer {
 
 				        String parameters = FileUtils.readFileToString( new File( new URI( processTemplate )  ) , StandardCharsets.UTF_8 );
 
+				        if( StringUtils.isNotBlank( localPropertiesService.getValue( EarthProperty.PLANET_FROM_DATE) ) ) {
+				        
+				        	parameters += "&planet_date_from=" + localPropertiesService.getValue( EarthProperty.PLANET_FROM_DATE); 
+				        	
+				        }
+				        if( StringUtils.isNotBlank( localPropertiesService.getValue( EarthProperty.PLANET_TO_DATE) ) ) {
+					        
+				        	parameters += "&planet_date_to=" + localPropertiesService.getValue( EarthProperty.PLANET_TO_DATE); 
+				        	
+				        }
+				        
 						// remove new lines
 				        parameters = parameters.replace("\n", "").replace("\r", "").replace("\t", "").replace(" ", "");
 						// remove trailing commas
@@ -696,6 +707,18 @@ public class BrowserService implements InitializingBean, Observer {
 					url = url.append("survey=")
 							.append(URLEncoder.encode( earthSurveyService.getCollectSurvey().getName() , StandardCharsets.UTF_8.toString()))
 							.append(";");
+					
+			        if( StringUtils.isNotBlank( localPropertiesService.getValue( EarthProperty.GEEAPP_FROM_DATE) ) ) {
+			        	url = url.append("startTime=")
+								.append( localPropertiesService.getValue( EarthProperty.GEEAPP_FROM_DATE) )
+								.append(";");
+			        }
+			        if( StringUtils.isNotBlank( localPropertiesService.getValue( EarthProperty.GEEAPP_TO_DATE) ) ) {
+			        	url = url.append("endTime=")
+								.append( localPropertiesService.getValue( EarthProperty.GEEAPP_TO_DATE) )
+								.append(";");			        	
+			        }
+					
 					webDriverGEEMap = navigateTo(url.toString(), webDriverGEEMap);
 					webDriverGEEMap.navigate().refresh();  // FORCE REFRESH - OTHERWISE WINDOW IS NOT REFRESHED FOR SOME STRANGE REASON
 				} catch (final Exception e) {
