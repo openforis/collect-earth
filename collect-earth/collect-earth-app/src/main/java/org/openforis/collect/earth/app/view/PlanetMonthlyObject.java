@@ -6,8 +6,8 @@ import java.util.Objects;
 
 public class PlanetMonthlyObject {
 
-	public static final PlanetMonthlyObject STARTING_DATE = new PlanetMonthlyObject("First available", "" );
-	public static final PlanetMonthlyObject PRESENT_DATE = new PlanetMonthlyObject("Latest available", "" );
+	public static final PlanetMonthlyObject STARTING_DATE = new PlanetMonthlyObject(Messages.getString("PlanetMonthlyObject.1"), "" );
+	public static final PlanetMonthlyObject PRESENT_DATE = new PlanetMonthlyObject(Messages.getString("PlanetMonthlyObject.2"), "" );
 
 	public static PlanetMonthlyObject[] getPlanetMonthlyMosaics() {
 		
