@@ -329,12 +329,23 @@ public class PropertiesDialog extends JDialog {
 
 	private JPanel getGeeAppOptionsPanel(JPanel mainPanel, GridBagConstraints constraints) {
 		JPanel panelGeeApp  = new JPanel();
-		( (JCheckBox) propertyToComponent.get(EarthProperty.OPEN_GEE_APP)[0] ).addActionListener( e-> 
-			panelGeeApp.setVisible( ( (JCheckBox) propertyToComponent.get(EarthProperty.OPEN_GEE_APP)[0] ).isSelected() )
-		);
 		
 		JCheckBox specifyStartAndEndGeeApp = new JCheckBox( Messages.getString("OptionWizard.120") ); //$NON-NLS-1$
 		mainPanel.add( specifyStartAndEndGeeApp, constraints );
+
+		( (JCheckBox) propertyToComponent.get(EarthProperty.OPEN_GEE_APP)[0] ).addActionListener( e-> { 
+				panelGeeApp.setVisible( 
+						( (JCheckBox) propertyToComponent.get(EarthProperty.OPEN_GEE_APP)[0] ).isSelected()
+						&&
+						specifyStartAndEndGeeApp.isSelected()
+						
+				);
+				specifyStartAndEndGeeApp.setVisible( ( (JCheckBox) propertyToComponent.get(EarthProperty.OPEN_GEE_APP)[0] ).isSelected() );
+				if( !( (JCheckBox) propertyToComponent.get(EarthProperty.OPEN_GEE_APP)[0] ).isSelected()  ) {
+					specifyStartAndEndGeeApp.setSelected( false );					
+				}
+			}
+		);
 		
 		final JLabel labelGeeFromDate = new JLabel(Messages.getString("OptionWizard.121")); //$NON-NLS-1$
 		panelGeeApp.add(labelGeeFromDate);
@@ -575,9 +586,11 @@ public class PropertiesDialog extends JDialog {
 		final GridBagConstraints constraints = new GridBagConstraints();
 		constraints.gridx = 0;
 		constraints.gridy = 0;
+		constraints.ipady = 15;
+		constraints.ipadx = 0;
 		constraints.anchor = GridBagConstraints.LINE_START;
-		constraints.insets = new Insets(5, 5, 5, 5);
-		constraints.fill = GridBagConstraints.HORIZONTAL;
+		constraints.insets = new Insets(0,-10,0,-10);
+		constraints.fill = GridBagConstraints.BOTH;
 
 		JLabel label = new JLabel("Plot shape");
 		panel.add(label, constraints);
@@ -1089,6 +1102,7 @@ public class PropertiesDialog extends JDialog {
 		geeAppFromDate.setFormats(dateFormat); //$NON-NLS-1$
 		// starting 2000-01-01 for Landsat 7/MODIS
 		geeAppFromDate.getMonthView().setLowerBound( dateFormat.parse(START_OF_LANDSAT_AND_MODIS) );
+		geeAppFromDate.getMonthView().setUpperBound( new Date() );
 		geeAppFromDate.setToolTipText("Sets the starting date to analyze imagery in the GEE App");
 		geeAppFromDate.setMinimumSize(new Dimension( 250,  20 ));
 		
@@ -1101,8 +1115,9 @@ public class PropertiesDialog extends JDialog {
 		geeAppToDate.getMonthView().setZoomable(true); //this is needed for custom header
 		geeAppToDate.setFormats(dateFormat); //$NON-NLS-1$
 		// ending todays date
-		geeAppFromDate.getMonthView().setUpperBound( new Date() );
-		geeAppFromDate.setToolTipText("Sets the end date to analyze imagery in the GEE App");
+		geeAppToDate.getMonthView().setLowerBound( dateFormat.parse(START_OF_LANDSAT_AND_MODIS) );
+		geeAppToDate.getMonthView().setUpperBound( new Date() );
+		geeAppToDate.setToolTipText("Sets the end date to analyze imagery in the GEE App");
 		geeAppToDate.setMinimumSize(new Dimension( 250,  20 ));
 		
 		if( StringUtils.isNotBlank(localPropertiesService.getValue(EarthProperty.GEEAPP_TO_DATE))) {
