@@ -251,7 +251,7 @@ public class CollectEarthWindow implements InitializingBean, DisposableBean{
 		propertiesButton.setIcon( FontIcon.of( MaterialDesign.MDI_SETTINGS ));
 		panelButton.add(propertiesButton);
 		
-		final JButton exportButton = new JButton(Messages.getString("CollectEarthWindow.47")); //$NON-NLS-1$
+		final JButton exportButton = new JButton(Messages.getString("CollectEarthWindow.74")); //$NON-NLS-1$
 		exportButton.addActionListener( collectEarthMenu.getExportActionListener(DataFormat.ZIP_WITH_XML, RecordsToExport.ALL) );
 		exportButton.setIcon( FontIcon.of( MaterialDesign.MDI_FILE_XML ));
 		panelButton.add(exportButton);
