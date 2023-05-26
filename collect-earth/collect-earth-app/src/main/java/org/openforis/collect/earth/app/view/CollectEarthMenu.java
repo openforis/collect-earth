@@ -237,6 +237,7 @@ public class CollectEarthMenu extends JMenuBar implements InitializingBean {
 
 		menuItem = new JMenuItem(Messages.getString("CollectEarthWindow.15")); //$NON-NLS-1$
 		menuItem.addActionListener(getPropertiesAction(frame));
+		menuItem.setIcon( FontIcon.of( MaterialDesign.MDI_SETTINGS ));
 		toolsMenu.add(menuItem);
 		toolsMenu.add(getUtilitiesMenu() );
 
@@ -309,11 +310,7 @@ public class CollectEarthMenu extends JMenuBar implements InitializingBean {
 
 		final JMenu ieSubmenu = new JMenu(Messages.getString("CollectEarthWindow.44")); //$NON-NLS-1$
 		JMenuItem menuItem;
-		menuItem = new JMenuItem(Messages.getString("CollectEarthWindow.13")); //$NON-NLS-1$
-		menuItem.setIcon( FontIcon.of( MaterialDesign.MDI_FILE_DELIMITED ));
-		menuItem.addActionListener(getExportActionListener(DataFormat.CSV, RecordsToExport.ALL));
-		ieSubmenu.add(menuItem);
-
+		
 		final JMenu xmlExportSubmenu = new JMenu(Messages.getString("CollectEarthWindow.24")); //$NON-NLS-1$
 		xmlExportSubmenu.setIcon( FontIcon.of( MaterialDesign.MDI_FILE_EXPORT ) );
 		menuItem = new JMenuItem(Messages.getString("CollectEarthWindow.45")); //$NON-NLS-1$
@@ -362,6 +359,14 @@ public class CollectEarthMenu extends JMenuBar implements InitializingBean {
 		ieSubmenu.add(menuItem);
 
 		menu.add(ieSubmenu);
+		
+		ieSubmenu.addSeparator();
+		
+		menuItem = new JMenuItem(Messages.getString("CollectEarthWindow.13")); //$NON-NLS-1$
+		menuItem.setIcon( FontIcon.of( MaterialDesign.MDI_FILE_DELIMITED ));
+		menuItem.addActionListener(getExportActionListener(DataFormat.CSV, RecordsToExport.ALL));
+		ieSubmenu.add(menuItem);
+
 
 		serverMenuItems.add(ieSubmenu); // This menu should only be shown if the DB is local ( not if Collect Earth is
 		// acting as a client )
@@ -376,7 +381,7 @@ public class CollectEarthMenu extends JMenuBar implements InitializingBean {
 		}
 	}
 
-	private ActionListener getExportActionListener(final DataFormat exportFormat, final RecordsToExport xmlExportType) {
+	public ActionListener getExportActionListener(final DataFormat exportFormat, final RecordsToExport xmlExportType) {
 		return new ExportActionListener(exportFormat, xmlExportType, getFrame(), localPropertiesService,
 				dataImportExportService, earthSurveyService, kmlGeneratorService);
 	}
