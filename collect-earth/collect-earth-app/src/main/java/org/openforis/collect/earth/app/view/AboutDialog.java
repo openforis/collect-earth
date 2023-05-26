@@ -16,6 +16,7 @@ import javax.swing.JDialog;
 import javax.swing.JFrame;
 import javax.swing.JLabel;
 import javax.swing.JPanel;
+import javax.swing.border.EmptyBorder;
 
 import org.openforis.collect.earth.app.service.UpdateIniUtils;
 import org.slf4j.Logger;
@@ -34,6 +35,7 @@ public class AboutDialog extends JDialog {
 
 	    Box b = Box.createVerticalBox();
 	    b.setAlignmentX(CENTER_ALIGNMENT);
+	    b.setBorder(new EmptyBorder(10, 10, 10, 10));
 	    b.add(Box.createGlue());
 	    b.add(new JLabel("Collect Earth v. " + getVersion() + " ( built " + buildDate + ") ")); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$
 	    b.add(new JLabel("By Open Foris Initiative / Part of the Food and Agriculture Organization of the UN")); //$NON-NLS-1$
