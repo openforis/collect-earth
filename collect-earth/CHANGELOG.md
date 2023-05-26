@@ -10,6 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Export data to KML
 - Set start and end months for Planet NICFI imagery (on the Properties dialog and the local properties file)
 - Set start and end dates for the GEE App charts (on the Properties dialog and the local properties file)
+- Export button added on the main CE window
 
 
 ## [1.15.08] - 2023-04-15
