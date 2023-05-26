@@ -27,13 +27,17 @@ import javax.swing.SwingConstants;
 import javax.swing.SwingUtilities;
 import javax.swing.Timer;
 import javax.swing.WindowConstants;
+import javax.swing.border.BevelBorder;
 import javax.swing.border.Border;
 
 import org.apache.commons.lang3.StringUtils;
+import org.kordamp.ikonli.materialdesign.MaterialDesign;
+import org.kordamp.ikonli.swing.FontIcon;
 import org.openforis.collect.earth.app.EarthConstants.OperationMode;
 import org.openforis.collect.earth.app.desktop.EarthApp;
 import org.openforis.collect.earth.app.service.EarthSurveyService;
 import org.openforis.collect.earth.app.service.LocalPropertiesService;
+import org.openforis.collect.earth.app.view.ExportActionListener.RecordsToExport;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.DisposableBean;
@@ -219,7 +223,6 @@ public class CollectEarthWindow implements InitializingBean, DisposableBean{
 		final JLabel operatorTextLabel = new JLabel(Messages.getString("CollectEarthWindow.26"), SwingConstants.CENTER); //$NON-NLS-1$
 		operatorTextLabel.setSize(100, 20);
 
-		//		final JButton updateOperator = new JButton(Messages.getString("CollectEarthWindow.27")); //$NON-NLS-1$
 		c.insets = new Insets(3, 3, 3, 3);
 		c.fill = GridBagConstraints.HORIZONTAL;
 		c.gridx = 0;
@@ -231,23 +234,30 @@ public class CollectEarthWindow implements InitializingBean, DisposableBean{
 		c.gridy = 0;
 		pane.add(operatorTextField, c);
 
-		c.gridx = 2;
-		c.gridy = 0;
-		//		pane.add(updateOperator, c);
-
 		c.gridx = 0;
 		c.gridy++;
-		c.gridwidth = GridBagConstraints.REMAINDER;
+		c.gridwidth = GridBagConstraints.HORIZONTAL;
 		pane.add(new JLabel(Messages.getString("CollectEarthWindow.28") + "<br>" //$NON-NLS-1$ //$NON-NLS-2$
 				+ Messages.getString("CollectEarthWindow.30")), c); //$NON-NLS-1$
 
 		c.gridx = 0;
 		c.gridy++;
-		c.gridwidth = GridBagConstraints.REMAINDER;
-		c.fill = GridBagConstraints.NONE;
+		c.gridwidth = 2;
+		c.fill = GridBagConstraints.HORIZONTAL;
+
+		JPanel panelButton = new JPanel();
 		final JButton propertiesButton = new JButton(Messages.getString("CollectEarthWindow.15")); //$NON-NLS-1$
 		propertiesButton.addActionListener( collectEarthMenu.getPropertiesAction( frame ) );
-		pane.add(propertiesButton, c);
+		propertiesButton.setIcon( FontIcon.of( MaterialDesign.MDI_SETTINGS ));
+		panelButton.add(propertiesButton);
+		
+		final JButton exportButton = new JButton("Export collected data"); //$NON-NLS-1$
+		exportButton.addActionListener( collectEarthMenu.getExportActionListener(DataFormat.ZIP_WITH_XML, RecordsToExport.ALL) );
+		exportButton.setIcon( FontIcon.of( MaterialDesign.MDI_FILE_XML ));
+		panelButton.add(exportButton);
+		
+		panelButton.setBorder( new BevelBorder(BevelBorder.RAISED) );
+		pane.add(panelButton, c );
 
 		getFrame().getContentPane().add(pane);
 
