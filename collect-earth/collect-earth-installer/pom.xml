@@ -394,34 +394,8 @@
 									</tasks>
 								</configuration>
 							</execution>
-							<!-- <execution>
-								<phase>install</phase>
-								<configuration>
-									<target>
-										<property name="upload_file_name" value="${autoupdater-xml-file-name}" />
-										<property name="upload_file_folder" value="${installer-build-path}" />
-										<property name="username" value="${ftp_username}" />
-										<property name="password" value="${ftp_password}" />
-										<property name="server" value="${ftp_server}" />
-										<property name="folder" value="${ftp_folder}" />
 
-										<ant antfile="${project.build.directory}/installer/antXmlFtpUpload.xml">
-											<target name="default" />
-										</ant>
-									</target>
-								</configuration>
-								<goals>
-									<goal>run</goal>
-								</goals>
-							</execution> -->
 						</executions>
-						<dependencies>
-							<dependency>
-								<groupId>com.jcraft</groupId>
-								<artifactId>jsch</artifactId>
-								<version>0.1.54</version>
-							</dependency>
-						</dependencies>
 
 					</plugin>
 
