@@ -108,7 +108,7 @@
 		</component>
 	</componentList>
 	<allowedLanguages>en es fr pt</allowedLanguages>
-	<compressionAlgorithm>lzma-ultra</compressionAlgorithm>
+	<compressionAlgorithm>lzma</compressionAlgorithm>
 	<defaultUnixDirectoryPermissions>777</defaultUnixDirectoryPermissions>
 	<defaultUnixFilePermissions>777</defaultUnixFilePermissions>
 	<defaultUnixOwner>${system_username}</defaultUnixOwner>
