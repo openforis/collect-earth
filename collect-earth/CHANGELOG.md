@@ -6,6 +6,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+- Changed version of JRE in Collect Earth to OpjenJDK 20.0.1+9 
+
 ### Added
 - Export data to KML
 - Set start and end months for Planet NICFI imagery (on the Properties dialog and the local properties file)
