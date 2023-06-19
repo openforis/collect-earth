@@ -14,7 +14,7 @@ set CATALINA_HOME=%~dp0saiku-server_2.6\tomcat
 
 cd saiku-server_2.6\tomcat\bin
 echo SETTING CATALINA_HOME %CATALINA_HOME%
-set CATALINA_OPTS=-Xms512m -Xmx768m -XX:MaxPermSize=256m -Dfile.encoding=UTF-8 -Dorg.apache.tomcat.util.buf.UDecoder.ALLOW_ENCODED_SLASH=true -Djava.awt.headless=true
+set CATALINA_OPTS=-Xms512m -Xmx768m -Dfile.encoding=UTF-8 -Dorg.apache.tomcat.util.buf.UDecoder.ALLOW_ENCODED_SLASH=true -Djava.awt.headless=true
 set JAVA_HOME=%_JAVA_HOME%
 echo SETTING JAVA_HOME %JAVA_HOME%
 
