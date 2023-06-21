@@ -11,7 +11,7 @@
 	<packaging>jar</packaging>
 
 	<properties>
-		<jetty.version>9.4.44.v20210927</jetty.version>
+		<jetty.version>11.0.15</jetty.version>
 		<selenium.version>4.9.1</selenium.version>
 		<classpath.prefix>earth-libs</classpath.prefix>
 		<log4j.version>2.20.0</log4j.version>
@@ -57,6 +57,7 @@
 			<artifactId>jetty-webapp</artifactId>
 			<version>${jetty.version}</version>
 		</dependency>
+		
 		<dependency>
 			<groupId>org.openforis.collect</groupId>
 			<artifactId>collect-rdb</artifactId>
