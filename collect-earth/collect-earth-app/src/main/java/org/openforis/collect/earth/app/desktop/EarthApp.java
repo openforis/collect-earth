@@ -325,11 +325,15 @@ public class EarthApp {
 			if (doubleClickedProjectFile!=null) {
 				openProjectFileInRunningCollectEarth(doubleClickedProjectFile);
 			}else{
-				showMessage(Messages.getString("EarthApp.11")); //$NON-NLS-1$
+				JOptionPane.showMessageDialog(null, Messages.getString("EarthApp.11"),  "Collect Earth", JOptionPane.WARNING_MESSAGE);
+				//showMessage(Messages.getString("EarthApp.11")); //$NON-NLS-1$
+				logger.warn("Closing CE - port already in use");
+				System.exit(1);
 			}
 		}else{
 
 			startServer(doubleClickedProjectFile);
+			
 		}
 
 		GAlogger.logGAnalytics("Start");
