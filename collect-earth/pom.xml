@@ -2,7 +2,7 @@
 	<modelVersion>4.0.0</modelVersion>
 	<groupId>org.openforis.collect.earth</groupId>
 	<artifactId>collect-earth</artifactId>
-	<version>1.16.4-SNAPSHOT</version>
+	<version>1.16.3-SNAPSHOT</version>
 	<packaging>pom</packaging>
 
 	<name>Collect Earth</name>
@@ -19,9 +19,9 @@
 		<url>www.openforis.org</url>
 	</organization>
 	<properties>
-		<java.version>1.8</java.version>
+		<java.version>20</java.version>
 		<project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-		<collect.version>4.0.85</collect.version>
+		<collect.version>4.0.86</collect.version>
 		<spring.version>5.3.27</spring.version>
 		<project.scm.id>github.com</project.scm.id>
 		<sonar.language>java</sonar.language>

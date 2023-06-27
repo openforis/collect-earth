@@ -286,7 +286,6 @@ public class CollectEarthMenu extends JMenuBar implements InitializingBean {
 				if (selectedProjectFile != null && selectedProjectFile.length == 1) {
 					try {
 						projectsService.loadCompressedProjectFile(selectedProjectFile[0]);
-
 						restartEarth();
 					} catch (Exception e1) {
 						JOptionPane.showMessageDialog( getFrame(), e1.getMessage(),

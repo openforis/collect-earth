@@ -4,15 +4,15 @@
 	<parent>
 		<groupId>org.openforis.collect.earth</groupId>
 		<artifactId>collect-earth</artifactId>
-		<version>1.16.4-SNAPSHOT</version>
+		<version>1.16.3-SNAPSHOT</version>
 	</parent>
 	<name>Collect Earth Application</name>
 	<artifactId>collect-earth-app</artifactId>
 	<packaging>jar</packaging>
 
 	<properties>
-		<jetty.version>9.4.44.v20210927</jetty.version>
-		<selenium.version>4.9.1</selenium.version>
+		<jetty.version>10.0.15</jetty.version>
+		<selenium.version>4.10.0</selenium.version>
 		<classpath.prefix>earth-libs</classpath.prefix>
 		<log4j.version>2.20.0</log4j.version>
 	</properties>
@@ -29,7 +29,7 @@
 		<dependency>
 		    <groupId>io.github.bonigarcia</groupId>
 		    <artifactId>webdrivermanager</artifactId>
-		    <version>5.3.3</version>
+		    <version>5.4.0</version>
 		    <exclusions>
 		    	<exclusion>
 		    		<groupId>com.fasterxml.jackson.core</groupId>
@@ -57,10 +57,17 @@
 			<artifactId>jetty-webapp</artifactId>
 			<version>${jetty.version}</version>
 		</dependency>
+		
 		<dependency>
 			<groupId>org.openforis.collect</groupId>
 			<artifactId>collect-rdb</artifactId>
 			<version>${collect.version}</version>
+			<exclusions>
+		        <exclusion>
+					<groupId>xerces</groupId>
+    				<artifactId>xercesImpl</artifactId>
+		        </exclusion>
+		      </exclusions>
 		</dependency>
 
 		<!-- Spring dependencies -->
@@ -127,7 +134,7 @@
 		<dependency>
 			<groupId>io.sentry</groupId>
 			<artifactId>sentry-log4j2</artifactId>
-			<version>6.19.1</version>
+			<version>6.24.0</version>
 		</dependency>
 		<dependency>
 			<groupId>org.apache.httpcomponents</groupId>
@@ -154,18 +161,18 @@
 		<dependency>
 	        <groupId>org.kordamp.ikonli</groupId>
 	        <artifactId>ikonli-swing</artifactId>
-	        <version>2.6.0</version>
+	        <version>12.3.1</version>
 	    </dependency>
 		<dependency>
 		  <groupId>org.kordamp.ikonli</groupId>
 		  <artifactId>ikonli-materialdesign-pack</artifactId>
-		  <version>2.6.0</version>
+		  <version>12.3.1</version>
 		</dependency>
 		
 		<dependency>
 		    <groupId>com.formdev</groupId>
 		    <artifactId>flatlaf</artifactId>
-		    <version>2.6</version> <!-- cannot use newer one since we are including Java 8 only -->
+		    <version>3.1.1</version> <!-- cannot use newer one since we are including Java 8 only -->
 		</dependency>
 		
 	</dependencies>
