@@ -1,13 +1,13 @@
 package org.openforis.collect.earth.app.logging;
 
+import java.io.BufferedReader;
 import java.io.IOException;
-import java.io.InputStream;
-import java.util.Date;
+import java.io.InputStreamReader;
+import java.io.OutputStream;
+import java.net.HttpURLConnection;
+import java.net.URL;
 
-import org.apache.http.HttpEntity;
-import org.apache.http.HttpResponse;
 import org.apache.http.client.methods.HttpPost;
-import org.apache.http.entity.StringEntity;
 import org.apache.http.impl.client.CloseableHttpClient;
 import org.apache.http.impl.client.HttpClients;
 import org.slf4j.Logger;
@@ -26,38 +26,41 @@ public class GAlogger {
 			public void run() {
 				try( CloseableHttpClient httpclient = HttpClients.createDefault() ) {
 					// Following instruction from https://developers.google.com/analytics/devguides/collection/protocol/ga4/sending-events?hl=en&client_type=gtag
-					HttpPost httppost = new HttpPost("https://www.google-analytics.com/mp/collect?api_secret="+API_SECRET+"&measurement_id="+ MEASUREMENT_ID);
+					HttpPost httppost = new HttpPost();
 					//  See https://ga-dev-tools.google/ga4/event-builder/?p=2&d=0&f=1&c=custom_event&j=PlotSaved&n=CollectEarth&k=E11gVKqxSamFWwCswJPKIQ&i=G-8K943HZKJZ&e=1687947214291000&m=W10&b=W1tdXQ
 					// Request parameters and other properties.
 					
+					URL url = new URL ("https://www.google-analytics.com/mp/collect?api_secret="+API_SECRET+"&measurement_id="+ MEASUREMENT_ID);
+					HttpURLConnection con = (HttpURLConnection)url.openConnection();
+					con.setRequestMethod("POST");
+					con.setRequestProperty("Content-Type", "application/json");
+					con.setRequestProperty("Accept", "application/json");
+					con.setDoOutput(true);
+										
 					String jsonToSend = "{"
-							+ "  \"client_id\": \"CollectEarth\","
-							+ "  \"timestamp_micros\": \"" + (new Date() ).getTime() + "\","
-							+ "  \"non_personalized_ads\": true,"
-							+ "  \"events\": ["
-							+ "    {"
-							+ "      \"name\": \"" + event + "\"\r\n"
-							+ "    }"
-							+ "  ]"
+							+ "\"client_id\":\"CollectEarth\","
+							+ "\"non_personalized_ads\":true,"
+							+ "\"events\":["
+							+ "{"
+							+ "\"name\":\"" + event + "\""
+							+ "}"
+							+ "]"
 							+ "}";
 
-					httppost.addHeader("content-type", "application/json");
-					httppost.setEntity( new StringEntity(jsonToSend) );
-				    
-					//Execute and get the response.
-					HttpResponse response = httpclient.execute(httppost);
-					HttpEntity entity = response.getEntity();
-
-					if (entity != null) {
-					    try (InputStream instream = entity.getContent()) {
-					    	int size = 0;
-					    	byte[] buffer = new byte[1024];
-					    	while ((size = instream.read(buffer)) != -1) System.out.write(buffer, 0, size);
-					    }
+					try(OutputStream os = con.getOutputStream()) {
+					    byte[] input = jsonToSend.getBytes("utf-8");
+					    os.write(input, 0, input.length);			
 					}
-					
-					
-					logger.info(event + " GA Logged - Response http " + response.getStatusLine().getStatusCode());
+					try(BufferedReader br = new BufferedReader( new InputStreamReader(con.getInputStream(), "utf-8")) ) {
+					    StringBuilder response = new StringBuilder();
+					    String responseLine = null;
+					    while ((responseLine = br.readLine()) != null) {
+					        response.append(responseLine.trim());
+					    }
+					    System.out.println(response.toString());
+					}
+										
+					logger.info(event + " GA Logged - Response http " + con.getResponseCode());
 				} catch (IOException e) {
 					logger.error("Error generating URL for Analytics", e);
 				}

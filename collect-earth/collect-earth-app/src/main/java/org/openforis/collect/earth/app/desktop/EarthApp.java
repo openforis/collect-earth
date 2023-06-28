@@ -336,7 +336,7 @@ public class EarthApp {
 			
 		}
 
-		GAlogger.logGAnalytics("Start");
+		GAlogger.logGAnalytics("StartCollectEarth");
 	}
 
 	public static void startServer(final String doubleClickedProjectFile)
