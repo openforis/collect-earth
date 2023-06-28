@@ -10,8 +10,6 @@ import java.util.Map;
 import java.util.Observable;
 import java.util.Observer;
 
-import javax.servlet.ServletContext;
-
 import org.eclipse.jetty.server.Connector;
 import org.eclipse.jetty.server.Server;
 import org.eclipse.jetty.server.ServerConnector;
@@ -76,7 +74,7 @@ public class ServerController extends Observable {
 	public WebApplicationContext getContext() {
 		WebApplicationContext webApplicationContext = null;
 		try {
-			webApplicationContext = WebApplicationContextUtils.getRequiredWebApplicationContext((ServletContext) getRoot().getServletContext());
+			webApplicationContext = WebApplicationContextUtils.getRequiredWebApplicationContext(getRoot().getServletContext());
 		} catch (Exception e) {
 			logger.error("Error getting web application context", e); //$NON-NLS-1$
 		}
@@ -218,7 +216,7 @@ public class ServerController extends Observable {
 
 			connector.setPort(getPort());
 
-			//connector.setStopTimeout(1000); Change to setIdleTimeout ??
+			connector.setStopTimeout(1000);
 
 			server.setConnectors(new Connector[] { connector });
 
@@ -258,8 +256,8 @@ public class ServerController extends Observable {
 			}
 
 			// Force the local properties to be loaded before the browserservice is instantiated!! DO NOT REMOVE
-			//getContext().getBean(LocalPropertiesService.class);
-			//this.addObserver(getContext().getBean(BrowserService.class));
+			getContext().getBean(LocalPropertiesService.class);
+			this.addObserver(getContext().getBean(BrowserService.class));
 
 		} catch (final IOException e) {
 			logger.error("Error initializing local properties", e); //$NON-NLS-1$

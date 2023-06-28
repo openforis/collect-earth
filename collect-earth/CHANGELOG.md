@@ -7,7 +7,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Changed
-- Changed version of JRE in Collect Earth to OpjenJDK 20.0.1+9 
+- Changed version of JRE in Collect Earth to OpjenJDK 11.0.19+7
 
 ### Added
 - Export data to KML
