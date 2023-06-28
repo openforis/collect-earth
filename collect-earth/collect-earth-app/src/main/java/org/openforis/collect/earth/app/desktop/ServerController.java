@@ -277,7 +277,7 @@ public class ServerController extends Observable {
 		if (server != null && server.isRunning()) {
 			server.stop();
 			setChanged();
-			notifyObservers(ServerInitializationEvent.SERVER_STOPPED_EVENT);
+			notifyObservers(ServerInitializationEvent.SERVER_STOPPED_EVENT); // TODO remove observers
 		}
 	}
 
