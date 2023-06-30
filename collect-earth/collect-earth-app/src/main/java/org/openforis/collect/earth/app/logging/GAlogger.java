@@ -7,9 +7,9 @@ import java.io.OutputStream;
 import java.net.HttpURLConnection;
 import java.net.URL;
 
-import org.apache.http.client.methods.HttpPost;
 import org.apache.http.impl.client.CloseableHttpClient;
 import org.apache.http.impl.client.HttpClients;
+import org.openforis.collect.earth.app.service.UpdateIniUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -26,7 +26,6 @@ public class GAlogger {
 			public void run() {
 				try( CloseableHttpClient httpclient = HttpClients.createDefault() ) {
 					// Following instruction from https://developers.google.com/analytics/devguides/collection/protocol/ga4/sending-events?hl=en&client_type=gtag
-					HttpPost httppost = new HttpPost();
 					//  See https://ga-dev-tools.google/ga4/event-builder/?p=2&d=0&f=1&c=custom_event&j=PlotSaved&n=CollectEarth&k=E11gVKqxSamFWwCswJPKIQ&i=G-8K943HZKJZ&e=1687947214291000&m=W10&b=W1tdXQ
 					// Request parameters and other properties.
 					
@@ -42,11 +41,15 @@ public class GAlogger {
 							+ "\"non_personalized_ads\":true,"
 							+ "\"events\":["
 							+ "{"
-							+ "\"name\":\"" + event + "\""
+							+ "\"name\":\"" + event + "\","
+							+ "\"params\":{"
+							+ "\"items\": [],"
+							+ "\"version\": \""+ UpdateIniUtils.getVersionInstalled()+"\""
+							+ "}"
 							+ "}"
 							+ "]"
 							+ "}";
-
+					
 					try(OutputStream os = con.getOutputStream()) {
 					    byte[] input = jsonToSend.getBytes("utf-8");
 					    os.write(input, 0, input.length);			
@@ -60,7 +63,7 @@ public class GAlogger {
 					    System.out.println(response.toString());
 					}
 										
-					logger.info(event + " GA Logged - Response http " + con.getResponseCode());
+					logger.info(event + " GA Logged - Response http " + con.getResponseCode() + "/r/n" + jsonToSend);
 				} catch (IOException e) {
 					logger.error("Error generating URL for Analytics", e);
 				}

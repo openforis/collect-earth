@@ -195,4 +195,9 @@ public class UpdateIniUtils {
 
 		return reformattedStr;
 	}
+	
+	public String getBuildDate() {
+		return convertToDate( getReleaseNameInstalled() );
+	}
+
 }
