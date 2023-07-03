@@ -61,7 +61,7 @@
 
 
 				<substitute>
-					<files>${installdir}/saiku-server_2.6/tomcat/bin/setclasspath.*					</files>
+					<files>${installdir}/saiku-server_2.6/tomcat/bin/setclasspath.*</files>
 					<type>regexp</type>
 					<substitutionList>
 						<substitution>
