@@ -138,7 +138,7 @@
 		        <folder>
 		            <description>Saiku new files for Linux and MacOS SAIKU bin JRE11</description>
 		            <destination>${installdir}/saiku-server_2.6/</destination>
-		            <name>resourceSaikutBinwindows</name>
+		            <name>resourceSaikutBinLinuxAndOsX</name>
 		            <platforms>linux linux-x64 osx</platforms>
 		            <distributionFileList>
 		                <distributionFile>
