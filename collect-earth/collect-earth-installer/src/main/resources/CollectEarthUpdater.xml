@@ -14,6 +14,13 @@
     	<include>
 			<file>java.xml</file>
 		</include>
+		<preInstallationActionList>
+	        <deleteFile>
+	        	<path>${installdir}/java</path>
+	        	<progressText>Removing old JRE</progressText>
+	        	<abortOnError>0</abortOnError>
+	        </deleteFile>
+	    </preInstallationActionList>
 		<!--  PROBABLY REMOVE THIS AFTER A YEAR! -->
 		
         <component>
