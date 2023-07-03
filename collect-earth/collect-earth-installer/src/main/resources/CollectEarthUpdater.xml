@@ -14,16 +14,20 @@
     	<include>
 			<file>java.xml</file>
 		</include>
-		<preInstallationActionList>
-	        <deleteFile>
-	        	<path>${installdir}/java</path>
-	        	<progressText>Removing old JRE</progressText>
-	        	<abortOnError>0</abortOnError>
-	        </deleteFile>
-	    </preInstallationActionList>
 		<!--  PROBABLY REMOVE THIS AFTER A YEAR! -->
 		
         <component>
+	        <!--  IN THE VERSION 1.20.0 (July 2023) the JRE was updated to version 11. We need to ass it to the updater -->
+			<preInstallationActionList>
+		        <deleteFile>
+		        	<path>${installdir}/java</path>
+		        	<progressText>Removing old JRE</progressText>
+		        	<abortOnError>0</abortOnError>
+		        </deleteFile>
+		    </preInstallationActionList>
+			<!--  PROBABLY REMOVE THIS AFTER A YEAR! -->
+        
+        
             <name>default</name>
             <description>Default Component</description>
             <canBeEdited>1</canBeEdited>
