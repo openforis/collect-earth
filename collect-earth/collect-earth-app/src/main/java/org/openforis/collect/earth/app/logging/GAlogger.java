@@ -63,7 +63,7 @@ public class GAlogger {
 					    System.out.println(response.toString());
 					}
 										
-					logger.info(event + " GA Logged - Response http " + con.getResponseCode() + "/r/n" + jsonToSend);
+					logger.info(event + " GA Logged - Response http " + con.getResponseCode() );
 				} catch (IOException e) {
 					logger.error("Error generating URL for Analytics", e);
 				}
