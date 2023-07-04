@@ -40,7 +40,7 @@
 				<plugin>
 					<groupId>org.codehaus.mojo</groupId>
 					<artifactId>buildnumber-maven-plugin</artifactId>
-					<version>1.4</version>
+					<version>3.2.0</version>
 					<executions>
 						<execution>
 							<phase>validate</phase>
@@ -61,7 +61,7 @@
 					<plugin>
 						<groupId>org.apache.maven.plugins</groupId>
 						<artifactId>maven-dependency-plugin</artifactId>
-						<version>2.6</version>
+						<version>3.6.0</version>
 						<executions>
 							<execution>
 								<id>unpack-jre</id>
@@ -110,7 +110,7 @@
 					<!-- 2. copy resource files -->
 					<plugin>
 						<artifactId>maven-resources-plugin</artifactId>
-						<version>2.6</version>
+						<version>3.3.1</version>
 						<executions>
 							<execution>
 								<id>copy-installbuilder-source-file</id>
@@ -139,7 +139,7 @@
 					<plugin>
 						<groupId>com.google.code.maven-replacer-plugin</groupId>
 						<artifactId>maven-replacer-plugin</artifactId>
-						<version>1.4.0</version>
+						<version>1.4.1</version>
 						<executions>
 							<execution>
 								<phase>prepare-package</phase>
@@ -208,7 +208,7 @@
 					<plugin>
 						<groupId>org.codehaus.mojo</groupId>
 						<artifactId>exec-maven-plugin</artifactId>
-						<version>1.6.0</version>
+						<version>3.1.0</version>
 						<executions>
 						    <!-- Windows -->
 							<execution>
@@ -315,7 +315,7 @@
 					<plugin>
 						<groupId>org.codehaus.mojo</groupId>
 						<artifactId>build-helper-maven-plugin</artifactId>
-						<version>3.0.0</version>
+						<version>3.4.0</version>
 						<executions>
 							<execution>
 								<id>attach-installer-artifacts</id>
@@ -371,7 +371,7 @@
 					<plugin>
 						<groupId>org.apache.maven.plugins</groupId>
 						<artifactId>maven-antrun-plugin</artifactId>
-						<version>1.7</version>
+						<version>3.1.0</version>
 						<executions>
 							<!-- 5. move generated installers into the target folder -->
 							<execution>
