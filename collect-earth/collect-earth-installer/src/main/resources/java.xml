@@ -9,7 +9,7 @@
     <folderList>
         <folder>
             <description>Java binaries - Microsoft Windows</description>
-            <destination>${installdir}/java</destination>
+            <destination>${installdir}/jre11</destination>
             <name>java_windows</name>
             <platforms>windows-x64 windows</platforms>
             <distributionFileList>
@@ -32,7 +32,7 @@
         </folder>
         <folder>
             <description>Java binaries - Linux</description>
-            <destination>${installdir}/java</destination>
+            <destination>${installdir}/jre11</destination>
             <name>java_linux</name>
             <platforms>linux</platforms>
             <distributionFileList>
@@ -47,7 +47,7 @@
         </folder>
         <folder>
             <description>Java binaries - Linux-x64</description>
-            <destination>${installdir}/java</destination>
+            <destination>${installdir}/jre11</destination>
             <name>java_linux_x64</name>
             <platforms>linux-x64</platforms>
             <distributionFileList>
@@ -62,7 +62,7 @@
         </folder>
         <folder>
             <description>Java binaries - Solaris Sparc</description>
-            <destination>${installdir}/java</destination>
+            <destination>${installdir}/jre11</destination>
             <name>java_solaris_sparc</name>
             <platforms>solaris-sparc</platforms>
             <distributionFileList>
@@ -77,7 +77,7 @@
         </folder>
         <folder>
             <description>Java binaries - Solaris Intel</description>
-            <destination>${installdir}/java</destination>
+            <destination>${installdir}/jre11</destination>
             <name>java_solaris_intel</name>
             <platforms>solaris-intel</platforms>
             <distributionFileList>
@@ -92,7 +92,7 @@
         </folder>
         <folder>
             <description>Java binaries - Mac OS X</description>
-            <destination>${installdir}/java</destination>
+            <destination>${installdir}/jre11</destination>
             <name>java_osx</name>
             <platforms>osx</platforms>
             <distributionFileList>
@@ -126,19 +126,19 @@
     <readyToInstallActionList>
 	<if>
 	    <actionList>
-		<setInstallerVariable name="java_version_major" value="1.8" />
-		<setInstallerVariable name="java_version" value="1.8.0" />
+		<setInstallerVariable name="java_version_major" value="11" />
+		<setInstallerVariable name="java_version" value="11.0.19+7" />
 		<setInstallerVariable name="java_version_full" value="JAVA_VERSION_SET_POM" />
-		<setInstallerVariable name="java_version_vendor" value="Eclipse OpenJ9" />
+		<setInstallerVariable name="java_version_vendor" value="Eclipse Adoptium Temurin" />
 		<setInstallerVariable name="java_bitness" value="64" />
 		<!-- determine Java binary name - javaw.exe on Windows, java otherwise -->
 		<setInstallerVariable>
 		    <name>java_executable</name>
-		    <value>${installdir}/java/bin/java</value>
+		    <value>${installdir}/jre11/bin/java</value>
 		</setInstallerVariable>
 		<setInstallerVariable>
 		    <name>java_executable</name>
-		    <value>${installdir}/java/bin/javaw.exe</value>
+		    <value>${installdir}/jre11/bin/javaw.exe</value>
 		    <ruleList>
 			<platformTest type="windows" />
 		    </ruleList>
@@ -158,22 +158,22 @@
 
     <postInstallationActionList>
         <!-- change permissions of all binaries -->
-        <changePermissions files="${installdir}/java/bin/*" permissions="0755" abortOnError="0" showMessageOnError="0">
+        <changePermissions files="${installdir}/jre11/bin/*" permissions="0755" abortOnError="0" showMessageOnError="0">
             <ruleList>
-                <fileExists path="${installdir}/java/bin" />
+                <fileExists path="${installdir}/jre11/bin" />
                 <platformTest negate="1" type="windows" />
             </ruleList>
         </changePermissions>
-        <createSymLink target="../libjsig.so" linkName="${installdir}/java/jre/lib/amd64/server/libjsig.so" abortOnError="false" showMessageOnError="false">
+        <createSymLink target="../libjsig.so" linkName="${installdir}/jre11/lib/libjsig.so" abortOnError="false" showMessageOnError="false">
             <ruleList>
                 <platformTest type="linux" />
-                <fileTest condition="exists" path="${installdir}/java/jre/lib/amd64/libjsig.so" />
+                <fileTest condition="exists" path="${installdir}/jre11/lib/libjsig.so" />
             </ruleList>
         </createSymLink>
-        <createSymLink target="../libjsig.so" linkName="${installdir}/java/lib/amd64/server/libjsig.so" abortOnError="false" showMessageOnError="false">
+        <createSymLink target="../libjsig.so" linkName="${installdir}/jre11/lib/server/libjsig.so" abortOnError="false" showMessageOnError="false">
             <ruleList>
                 <platformTest type="linux" />
-                <fileTest condition="exists" path="${installdir}/java/lib/amd64/libjsig.so" />
+                <fileTest condition="exists" path="${installdir}/jre11/lib/server/libjsig.so" />
             </ruleList>
         </createSymLink>
 
