@@ -2,7 +2,7 @@
 	<modelVersion>4.0.0</modelVersion>
 	<groupId>org.openforis.collect.earth</groupId>
 	<artifactId>collect-earth</artifactId>
-	<version>1.20.6</version>
+	<version>1.20.7-SNAPSHOT</version>
 	<packaging>pom</packaging>
 
 	<name>Collect Earth</name>
@@ -44,7 +44,7 @@
 		<url>scm:git:git@github.com:openforis/collect-earth.git</url>
 		<connection>scm:git:git@github.com:openforis/collect-earth.git</connection>
 		<developerConnection>scm:git:git@github.com:openforis/collect-earth.git</developerConnection>
-		<tag>collect-earth-1.20.6</tag>	
+		<tag>collect-earth-1.15.11</tag>	
 	</scm>
 	<licenses>
 		<license>
