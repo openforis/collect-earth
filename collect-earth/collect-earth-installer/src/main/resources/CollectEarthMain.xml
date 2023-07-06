@@ -199,6 +199,16 @@
             <progressText>Creating Launcher</progressText>
             <value>CollectEarth.jar</value>
         </setInstallerVariable>
+        <setInstallerVariable>
+            <name>java_create_launcher</name>
+            <progressText>Creating Launcher setting</progressText>
+            <value>1</value>
+        </setInstallerVariable>
+        <setInstallerVariable>
+            <name>java_launcher_binary_name</name>
+            <progressText>Set launcher name</progressText>
+            <value>CollectEarth-launcher.${platform_exec_suffix}</value>
+        </setInstallerVariable>
          <if>
         	<actionList>
         		<setInstallerVariable>
@@ -213,9 +223,9 @@
 			</conditionRuleList>
 			<elseActionList>
 				<setInstallerVariable>
-				<name>default_installdir</name>
-				<value>~/OpenForis/${product_shortname}</value>
-			</setInstallerVariable>
+					<name>default_installdir</name>
+					<value>~/OpenForis/${product_shortname}</value>
+				</setInstallerVariable>
 			</elseActionList>
 		</if>
     </initializationActionList>

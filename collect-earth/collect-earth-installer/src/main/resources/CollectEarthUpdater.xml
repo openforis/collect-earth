@@ -174,10 +174,27 @@
             </folderList>
         </component>
     </componentList>
-
+    
     <initializationActionList>
 
-         <if>
+        <setInstallerVariable>
+            <name>java_launcher_jar</name>
+            <progressText>Creating Launcher</progressText>
+            <value>CollectEarth.jar</value>
+        </setInstallerVariable>
+        <setInstallerVariable>
+            <name>java_create_launcher</name>
+            <progressText>Creating Launcher setting</progressText>
+            <value>0</value>
+        </setInstallerVariable>
+        <setInstallerVariable>
+            <name>java_launcher_binary_name</name>
+            <progressText>Set launcher name</progressText>
+            <value>CollectEarth-launcher.${platform_exec_suffix}</value>
+        </setInstallerVariable>
+
+
+		<if>
           <!-- The updater in osx comes as a ZIP that gets decompressed, so we need to go up an extra level -->
         	<actionList>
         		<setInstallerVariable>
@@ -267,7 +284,7 @@
             </substitutionList>
         </substitute>
         <showInfo>
-            <text>You need to quit Collect Earth and re-start it for the update to finalize!</text>
+            <text>Please QUIT THE COLLECT EARTH WINDOW before proceeding with the update! The update will fail if Collect Earth is running!</text>
         </showInfo>
     </postInstallationActionList>
     <compressionAlgorithm>lzma</compressionAlgorithm>
