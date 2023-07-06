@@ -3,7 +3,7 @@
 	<parent>
 		<groupId>org.openforis.collect.earth</groupId>
 		<artifactId>collect-earth</artifactId>
-		<version>1.20.7-SNAPSHOT</version>
+		<version>1.21.0-SNAPSHOT</version>
 	</parent>
 	<artifactId>collect-earth-installer</artifactId>
 	<packaging>pom</packaging>
@@ -26,7 +26,7 @@
 		<linux-x64-autoupdater-file-name>CollectEarthUpdater-${project.version}-linux-x64-installer.run</linux-x64-autoupdater-file-name>
 		<osx-autoupdater-file-name>CollectEarthUpdater-${project.version}-osx-installer.app.zip</osx-autoupdater-file-name>
 
-		<autoupdater-xml-file-name>collectEarthUpdateMvn.xml</autoupdater-xml-file-name>
+		<autoupdater-xml-file-name>collectEarthUpdateJRE11.xml</autoupdater-xml-file-name>
 	</properties>
 
 	<profiles>
