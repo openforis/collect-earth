@@ -10,23 +10,14 @@
     <requireInstallationByRootUser>0</requireInstallationByRootUser>
     <requestedExecutionLevel>asInvoker</requestedExecutionLevel>
     <componentList>
-    	<!--  IN THE VERSION 1.20.0 (July 2023) the JRE was updated to version 11. We need to ass it to the updater -->
+    	<!--  IN THE VERSION 1.20.0 (July 2023) the JRE was updated to version 11. We need to ass it to the updater
     	<include>
 			<file>java.xml</file>
 		</include>
 		<!--  PROBABLY REMOVE THIS AFTER A YEAR! -->
 		
         <component>
-	        <!--  IN THE VERSION 1.20.0 (July 2023) the JRE was updated to version 11. We need to ass it to the updater -->
-			<preInstallationActionList>
-		        <deleteFile>
-		        	<path>${installdir}/java</path>
-		        	<progressText>Removing old JRE</progressText>
-		        	<abortOnError>0</abortOnError>
-		        </deleteFile>
-		    </preInstallationActionList>
-			<!--  PROBABLY REMOVE THIS AFTER A YEAR! -->
-        
+     
         
             <name>default</name>
             <description>Default Component</description>
@@ -177,6 +168,7 @@
     
     <initializationActionList>
 
+		<!--  Not necessary anymore if java.xml component is not included
         <setInstallerVariable>
             <name>java_launcher_jar</name>
             <progressText>Creating Launcher</progressText>
@@ -192,7 +184,7 @@
             <progressText>Set launcher name</progressText>
             <value>CollectEarth-launcher.${platform_exec_suffix}</value>
         </setInstallerVariable>
-
+ 		-->
 
 		<if>
           <!-- The updater in osx comes as a ZIP that gets decompressed, so we need to go up an extra level -->
@@ -272,6 +264,7 @@
 
 
     </initializationActionList>
+    <!--  This was only necessary when update to the first version of JRE11 ( for versions older than 1.20.6... they use the colletEarthUpdateMvn.xml file
     <postInstallationActionList>
 		<substitute>
             <files>${installdir}/earth.properties_initial;${installdir}/earth.properties_forced_update</files>
@@ -287,6 +280,7 @@
             <text>You need to quit Collect Earth and re-start it for the update to finalize!</text>
         </showInfo>
     </postInstallationActionList>
+     -->
     <compressionAlgorithm>lzma</compressionAlgorithm>
     <defaultUnixDirectoryPermissions>777</defaultUnixDirectoryPermissions>
     <defaultUnixFilePermissions>777</defaultUnixFilePermissions>
