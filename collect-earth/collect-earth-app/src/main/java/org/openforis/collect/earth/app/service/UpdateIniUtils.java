@@ -19,7 +19,7 @@ import org.w3c.dom.Document;
 
 public class UpdateIniUtils {
 
-	private static final String VERSION_ID = "version_id";
+	private static final String RELEASE_DATE = "version_id";
 	private static final String VERSION_NAME = "version";
 	private static final Logger logger = LoggerFactory.getLogger(UpdateIniUtils.class);
 	private final SimpleDateFormat fromXml = new SimpleDateFormat("yyyyMMddHHmm");
@@ -31,7 +31,7 @@ public class UpdateIniUtils {
 	 */
 	public String getVersionAvailableOnline(){
 
-		String installedVersionBuild = getVersionInstalled();
+		String installedVersionBuild = getVersionReleaseDateInstalled();
 		String urlXmlUpdaterOnline = getValueFromUpdateIni("url", UPDATE_INI); //$NON-NLS-1$
 		String onlineVersionBuild = getVersionBuild(urlXmlUpdaterOnline);
 
@@ -51,11 +51,11 @@ public class UpdateIniUtils {
 		return null;
 	}
 
-	public static String getVersionInstalled() {
-		return getValueFromUpdateIni(VERSION_ID, UPDATE_INI); //$NON-NLS-1$
+	public static String getVersionReleaseDateInstalled() {
+		return getValueFromUpdateIni(RELEASE_DATE, UPDATE_INI); //$NON-NLS-1$
 	}
 
-	public static String getReleaseNameInstalled() {
+	public static String getVersionNameInstalled() {
 		return getValueFromUpdateIni(VERSION_NAME, UPDATE_INI); //$NON-NLS-1$
 	}
 
@@ -73,7 +73,7 @@ public class UpdateIniUtils {
 			if(
 				( isCurrentNewerThanIgnoredUpdate(lastIgnoredBuildNumber, currentVersionOnline) && isMajorUpdate())
 				||
-				isInstalledOlderThanOneMonth(currentVersionOnline, getVersionInstalled() )
+				isInstalledOlderThanOneMonth(currentVersionOnline, getVersionReleaseDateInstalled() )
 			){
 				warnUser = true;
 			}
@@ -197,7 +197,7 @@ public class UpdateIniUtils {
 	}
 	
 	public String getBuildDate() {
-		return convertToDate( getReleaseNameInstalled() );
+		return convertToDate( getVersionReleaseDateInstalled() );
 	}
 
 }
