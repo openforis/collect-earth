@@ -114,6 +114,10 @@ public class IPCCDataExportTimeSeriesToTool extends AbstractIPCCDataExport {
 
 	private void addSoilTypes(LandTypes landTypes) {
 		SoilTypes soilTypes = new SoilTypes();
+		/*
+		 * DO NOT ADD SOIL TYPES 
+		 * We use the standard soil types from the GHGi tool
+		 * te Enum already has the correct values in the DB
 		for (SoilStratumObject soil : getStrataSoil()) {
 			SoilType soilType = new SoilType();
 			soilType.setGuid(soil.getGuid());
@@ -123,6 +127,7 @@ public class IPCCDataExportTimeSeriesToTool extends AbstractIPCCDataExport {
 			soilType.setRemark(soil.getDescription());
 			soilTypes.getSoilType().add(soilType);
 		}
+		*/
 		landTypes.setSoilTypes(soilTypes);
 	}
 	
