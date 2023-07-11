@@ -16,9 +16,7 @@ import javax.xml.bind.JAXBContext;
 import javax.xml.bind.JAXBException;
 import javax.xml.bind.Marshaller;
 
-import org.apache.commons.lang3.ArrayUtils;
 import org.apache.commons.math3.util.Precision;
-import org.apache.commons.text.StringEscapeUtils;
 import org.openforis.collect.earth.app.service.RegionCalculationUtils;
 import org.openforis.collect.earth.ipcc.controller.LandUseSubdivisionUtils;
 import org.openforis.collect.earth.ipcc.model.AbstractLandUseSubdivision;
@@ -780,7 +778,7 @@ public class IPCCDataExportTimeSeriesToTool extends AbstractIPCCDataExport {
 				os.close();
 			}
 
-		} catch (JAXBException e1) {
+		} catch (Exception e1) {
 			logger.error("Error marshalling data to " + xmlFileDestination.getAbsolutePath(), e1);
 		}
 	}
