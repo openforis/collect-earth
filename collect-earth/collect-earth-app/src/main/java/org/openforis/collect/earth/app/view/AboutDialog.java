@@ -33,7 +33,7 @@ public class AboutDialog extends JDialog {
 			b.setAlignmentX(CENTER_ALIGNMENT);
 			b.setBorder(new EmptyBorder(10, 10, 10, 10));
 			b.add(Box.createGlue());
-			b.add(new JLabel("Collect Earth v. " + UpdateIniUtils.getVersionInstalled() + " ( built " + buildDate + ")  - JRE v. " + System.getProperty("java.version"))); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$
+			b.add(new JLabel("Collect Earth v. " + UpdateIniUtils.getVersionNameInstalled() + " ( built " + buildDate + ")  - JRE v. " + System.getProperty("java.version"))); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$
 			b.add(new JLabel("By Open Foris Initiative / Part of the Food and Agriculture Organization of the UN")); //$NON-NLS-1$
 			JLabel comp = new JLabel("<html>" + Messages.getString("AboutDialog.5") + "</html>"); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$
 			JLabel comp2 = new JLabel("<html><a href='https://github.com/openforis/collect-earth/blob/master/collect-earth/CHANGELOG.md'>CHECK THE CHANGE LOG</a></html>");

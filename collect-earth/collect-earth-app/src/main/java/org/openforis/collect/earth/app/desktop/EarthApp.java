@@ -129,11 +129,11 @@ public class EarthApp {
 
 	private static void initializeSentry() {
 		try {
-			String releaseName= UpdateIniUtils.getReleaseNameInstalled();
+			String releaseName= UpdateIniUtils.getVersionNameInstalled();
 
 			Sentry.init("https://24dd6a90c1e4461484712db99c3b3bb7:831e42661c5c4ff3aa5eca270db3f619@sentry.io/299626?release="+releaseName+"&maxmessagelength=2000" );
-			if( !StringUtils.isEmpty( UpdateIniUtils.getVersionInstalled() ) ) {
-				Sentry.setTag( "ReleaseDate", UpdateIniUtils.getVersionInstalled() );
+			if( !StringUtils.isEmpty( UpdateIniUtils.getVersionReleaseDateInstalled() ) ) {
+				Sentry.setTag( "ReleaseDate", UpdateIniUtils.getVersionReleaseDateInstalled() );
 			}
 			if( !StringUtils.isEmpty( getLocalProperties().getOperator() ) ) {
 				User user = new User();
