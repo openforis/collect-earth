@@ -6,18 +6,26 @@ import java.io.InputStreamReader;
 import java.io.OutputStream;
 import java.net.HttpURLConnection;
 import java.net.URL;
+import java.security.NoSuchAlgorithmException;
+import java.security.SecureRandom;
+import java.util.Random;
 
+import org.apache.commons.codec.digest.DigestUtils;
 import org.apache.http.impl.client.CloseableHttpClient;
 import org.apache.http.impl.client.HttpClients;
+import org.openforis.collect.earth.app.service.LocalPropertiesService;
 import org.openforis.collect.earth.app.service.UpdateIniUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import com.formdev.flatlaf.util.StringUtils;
 
 public class GAlogger {
 
 	private static final Logger logger = LoggerFactory.getLogger(GAlogger.class);
 	private static final String API_SECRET = "E11gVKqxSamFWwCswJPKIQ";
 	private static final String MEASUREMENT_ID = "G-8K943HZKJZ";
+	private static String clientId;
 	
 	public static void logGAnalytics(String event) {
 		new Thread("GA logging thread") {
@@ -35,16 +43,18 @@ public class GAlogger {
 					con.setRequestProperty("Content-Type", "application/json");
 					con.setRequestProperty("Accept", "application/json");
 					con.setDoOutput(true);
+					
+					String clientId = getClientId();
 										
 					String jsonToSend = "{"
-							+ "\"client_id\":\"CollectEarth\","
+							+ "\"client_id\":\"" + clientId + "\","
 							+ "\"non_personalized_ads\":true,"
 							+ "\"events\":["
 							+ "{"
 							+ "\"name\":\"" + event + "\","
 							+ "\"params\":{"
 							+ "\"items\": [],"
-							+ "\"version\": \""+ UpdateIniUtils.getVersionInstalled()+"\""
+							+ "\"version\": \""+ UpdateIniUtils.getVersionReleaseDateInstalled()+"\""
 							+ "}"
 							+ "}"
 							+ "]"
@@ -68,6 +78,24 @@ public class GAlogger {
 					logger.error("Error generating URL for Analytics", e);
 				}
 
+			}
+
+			private String getClientId() {
+				if( clientId == null ) {
+					LocalPropertiesService props = new LocalPropertiesService();
+					String operator = props.getOperator();
+					if( StringUtils.isTrimmedEmpty(operator)) {
+						try {
+							Random random = SecureRandom.getInstanceStrong();
+							operator  = "CollectEarth" + random.nextInt();
+						} catch (NoSuchAlgorithmException e) {
+							logger.error("Error generaing random number!");
+							operator = "CollectEarth";
+						}
+					}
+					clientId = DigestUtils.md5Hex(operator);
+				}
+				return clientId;
 			}
 		}.start();
 
