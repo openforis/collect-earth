@@ -2,11 +2,8 @@ package org.openforis.collect.earth.app.service;
 
 import java.io.File;
 import java.io.IOException;
-import java.nio.charset.StandardCharsets;
-import java.security.MessageDigest;
-import java.security.NoSuchAlgorithmException;
 
-import org.apache.commons.codec.binary.Hex;
+import org.apache.commons.codec.digest.DigestUtils;
 import org.openforis.collect.earth.app.CollectEarthUtils;
 import org.openforis.collect.earth.app.EarthConstants;
 import org.openforis.collect.earth.app.view.InfiniteProgressMonitor;
@@ -34,19 +31,15 @@ public abstract class GenerateDatabase {
 	private String getRdbFilePrefix( ExportType type ) {
 		String result = "";
 		try {
-			final MessageDigest messageDigest = MessageDigest.getInstance("MD5");
-			messageDigest.reset();
 			String concatenation = getEarthSurveyService().getCollectSurvey().getUri()
 					+ getEarthSurveyService().getCollectSurvey().getName();
-			messageDigest.update(concatenation.getBytes( StandardCharsets.UTF_8 ) );
-			final byte[] resultByte = messageDigest.digest();
-			result = new String(Hex.encodeHex(resultByte));
-		} catch (NoSuchAlgorithmException e) {
+			result = DigestUtils.md5Hex(concatenation);
+		} catch (Exception e) {
 			logger.error("Problems getting the MD5 hash of the project name", e);
 		}
 		return result;
 	}
-	
+
 	protected String getSchemaName() {
 		if (getLocalPropertiesService().isUsingPostgreSqlDB()) {
 			return EarthConstants.POSTGRES_RDB_SCHEMA_SAIKU;
