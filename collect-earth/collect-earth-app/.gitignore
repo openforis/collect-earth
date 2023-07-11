@@ -8,3 +8,4 @@
 /release.properties
 /debug.log
 *.releaseBackup
+/ImportIntoGHGiTool.xml
