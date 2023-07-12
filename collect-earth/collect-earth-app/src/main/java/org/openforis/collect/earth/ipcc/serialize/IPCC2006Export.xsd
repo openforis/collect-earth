@@ -46,7 +46,7 @@
 
   <xs:simpleType name="version">
     <xs:restriction base="xs:string">
-      <xs:enumeration value="2.85" />
+      <xs:enumeration value="2.861" />
     </xs:restriction>
   </xs:simpleType>
 
@@ -64,6 +64,7 @@
     </xs:sequence>
   </xs:complexType>
   
+  <!-- 3.B - Land -->
   
   <xs:complexType name="cltForestLand">
     <xs:sequence>
@@ -199,6 +200,8 @@
       <xs:element name="mfInput" type="xs:double" minOccurs="1" maxOccurs="1" />
       <xs:element name="soilCarbonStock" type="xs:double" minOccurs="1" maxOccurs="1" nillable="true" />
       <xs:element name="vegetationTypeId" type="xs:integer" minOccurs="1" maxOccurs="1" nillable="true" />
+      <xs:element name="ageClassId" type="xs:integer" minOccurs="1" maxOccurs="1" />
+      <xs:element name="ageClassValue" type="xs:integer" minOccurs="1" maxOccurs="1" nillable="true" />
     </xs:sequence>
   </xs:complexType>
 

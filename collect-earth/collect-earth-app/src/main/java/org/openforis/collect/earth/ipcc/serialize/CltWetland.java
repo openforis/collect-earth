@@ -47,6 +47,8 @@ import javax.xml.bind.annotation.XmlType;
  *         &lt;element name="mfInput" type="{http://www.w3.org/2001/XMLSchema}double"/>
  *         &lt;element name="soilCarbonStock" type="{http://www.w3.org/2001/XMLSchema}double"/>
  *         &lt;element name="vegetationTypeId" type="{http://www.w3.org/2001/XMLSchema}integer"/>
+ *         &lt;element name="ageClassId" type="{http://www.w3.org/2001/XMLSchema}integer"/>
+ *         &lt;element name="ageClassValue" type="{http://www.w3.org/2001/XMLSchema}integer"/>
  *       &lt;/sequence>
  *     &lt;/restriction>
  *   &lt;/complexContent>
@@ -78,7 +80,9 @@ import javax.xml.bind.annotation.XmlType;
     "mfTillage",
     "mfInput",
     "soilCarbonStock",
-    "vegetationTypeId"
+    "vegetationTypeId",
+    "ageClassId",
+    "ageClassValue"
 })
 public class CltWetland {
 
@@ -122,6 +126,10 @@ public class CltWetland {
     protected Double soilCarbonStock;
     @XmlElement(required = true, nillable = true)
     protected Integer vegetationTypeId;
+    @XmlElement(required = true)
+    protected Integer ageClassId;
+    @XmlElement(required = true, nillable = true)
+    protected Integer ageClassValue;
 
     /**
      * Gets the value of the id property.
@@ -617,6 +625,54 @@ public class CltWetland {
      */
     public void setVegetationTypeId(Integer value) {
         this.vegetationTypeId = value;
+    }
+    
+    /**
+     * Gets the value of the ageClassId property.
+     * 
+     * @return
+     *     possible object is
+     *     {@link Integer }
+     *     
+     */
+    public Integer getAgeClassId() {
+        return ageClassId;
+    }
+
+    /**
+     * Sets the value of the ageClassId property.
+     * 
+     * @param value
+     *     allowed object is
+     *     {@link Integer }
+     *     
+     */
+    public void setAgeClassId(Integer value) {
+        this.ageClassId = value;
+    }
+    
+    /**
+     * Gets the value of the ageClassValue property.
+     * 
+     * @return
+     *     possible object is
+     *     {@link Integer }
+     *     
+     */
+    public Integer getAgeClassValue() {
+        return ageClassValue;
+    }
+
+    /**
+     * Sets the value of the ageClassValue property.
+     * 
+     * @param value
+     *     allowed object is
+     *     {@link Integer }
+     *     
+     */
+    public void setAgeClassValue(Integer value) {
+        this.ageClassValue = value;
     }
 
 }

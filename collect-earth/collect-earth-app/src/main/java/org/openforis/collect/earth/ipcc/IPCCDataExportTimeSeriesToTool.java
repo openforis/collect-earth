@@ -89,7 +89,7 @@ public class IPCCDataExportTimeSeriesToTool extends AbstractIPCCDataExport {
 
 	protected static final Integer LAND_REPRESENTATION_APPROACH_USED = 2;
 
-	private static final String XSL_VERSION = "2.85";
+	private static final String XSL_VERSION = "2.861";
 
 	private static final String SUM_EXPANSION_FACTOR = "SUM_EXPANSION_FACTOR";
 
@@ -314,6 +314,8 @@ public class IPCCDataExportTimeSeriesToTool extends AbstractIPCCDataExport {
 			cltWetland.setWetlandType( "OW"); 
 			
 			cltWetland.setGeoPlacementId(-1);
+			
+			cltWetland.setAgeClassId( AgeClassCroplandEnum.UNSPECIFIED.getId() );
 						
 			wetland.getCltWetland().add(cltWetland);
 		}
