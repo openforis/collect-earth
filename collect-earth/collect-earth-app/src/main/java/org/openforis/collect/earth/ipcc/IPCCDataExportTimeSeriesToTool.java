@@ -13,7 +13,6 @@ import java.util.List;
 import java.util.UUID;
 
 import javax.xml.bind.JAXBContext;
-import javax.xml.bind.JAXBException;
 import javax.xml.bind.Marshaller;
 
 import org.apache.commons.math3.util.Precision;
@@ -69,7 +68,6 @@ import org.openforis.collect.earth.ipcc.serialize.Otherland;
 import org.openforis.collect.earth.ipcc.serialize.Record;
 import org.openforis.collect.earth.ipcc.serialize.Settlement;
 import org.openforis.collect.earth.ipcc.serialize.SocRefTable;
-import org.openforis.collect.earth.ipcc.serialize.SoilType;
 import org.openforis.collect.earth.ipcc.serialize.SoilTypes;
 import org.openforis.collect.earth.ipcc.serialize.Tiers;
 import org.openforis.collect.earth.ipcc.serialize.Wetland;
