@@ -38,7 +38,7 @@ public class AboutDialog extends JDialog {
 			JLabel comp = new JLabel("<html>" + Messages.getString("AboutDialog.5") + "</html>"); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$
 			JLabel comp2 = new JLabel("<html><a href='https://github.com/openforis/collect-earth/blob/master/collect-earth/CHANGELOG.md'>CHECK THE CHANGE LOG</a></html>");
 			if (isBrowsingSupported()) {
-				makeLinkable(comp, new LinkMouseListener( "http://www.openforis.org" ));
+				makeLinkable(comp, new LinkMouseListener( "https://www.openforis.org" ));
 				makeLinkable(comp2, new LinkMouseListener( "https://github.com/openforis/collect-earth/blob/master/collect-earth/CHANGELOG.md" ));
 			}
 			b.add(comp);

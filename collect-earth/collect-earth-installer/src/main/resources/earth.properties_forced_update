@@ -10,4 +10,4 @@ earth_map_scripts={"precipitationEcmwf"\:{"aggregation"\:"annual","dateRange"\:[
 earth_map_aoi=global
 earth_map_url=https://earthmap.org
 secure_watch_url=https\://access.maxar.com/myDigitalGlobe
-planet_nicfi_url=http://openforis.org/fileadmin/planet.html
+planet_nicfi_url=https://openforis.org/fileadmin/planet.html

@@ -7,7 +7,7 @@
 
 	<name>Collect Earth</name>
 	<description>Collect Earth - A desktop application for Augmented Visual Interpretation</description>
-	<url>http://www.openforis.org/tools/collect-earth.html</url>
+	<url>https://www.openforis.org/tools/collect-earth.html</url>
 	<modules>
 		<module>collect-earth-core</module>
 		<module>collect-earth-app</module>
@@ -152,24 +152,6 @@
 			</plugins>
 		</pluginManagement>
 	</build>
-
-	<repositories>
-		<repository>
-			<id>openforis-releases</id>
-			<name>Open Foris Repository</name>
-			<url>http://www.openforis.org/nexus/content/repositories/releases/</url>
-		</repository>
-		<repository>
-			<id>openforis-snapshots</id>
-			<name>Open Foris Snapshots Repository</name>
-			<url>http://www.openforis.org/nexus/content/repositories/snapshots/</url>
-		</repository>
-		<repository>
-			<id>openforis-3rd-party</id>
-			<name>Open Foris Repository</name>
-			<url>http://www.openforis.org/nexus/content/repositories/thirdparty/</url>
-		</repository>
-	</repositories>
 
 	<dependencyManagement>
 		<dependencies>
