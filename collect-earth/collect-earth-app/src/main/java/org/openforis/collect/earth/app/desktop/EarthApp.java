@@ -1,5 +1,6 @@
 package org.openforis.collect.earth.app.desktop;
 
+import java.awt.HeadlessException;
 import java.awt.Image;
 import java.awt.SplashScreen;
 import java.awt.Window;
@@ -11,6 +12,8 @@ import java.lang.reflect.Method;
 import java.lang.reflect.Proxy;
 import java.net.MalformedURLException;
 import java.net.Socket;
+import java.net.URI;
+import java.net.URISyntaxException;
 import java.net.URL;
 import java.net.URLConnection;
 import java.net.URLEncoder;
@@ -75,30 +78,31 @@ public class EarthApp {
 	/**
 	 * Start the application, opening Google Earth and starting the Jetty server.
 	 *
-	 * @param args
-	 *            No arguments are used by this method.
+	 * @param args No arguments are used by this method.
 	 */
 	public static void main(String[] args) {
 
 		try {
-			
+
 			FlatLightLaf.setup();
 			try {
-			    UIManager.setLookAndFeel( new FlatIntelliJLaf() );
-			} catch( Exception ex ) {
-			    System.err.println( "Failed to initialize LaF" );
+				UIManager.setLookAndFeel(new FlatIntelliJLaf());
+			} catch (Exception ex) {
+				System.err.println("Failed to initialize LaF");
 			}
-			
+
 			// System property used in the web.xml configuration
 			System.setProperty("collectEarth.userFolder", FolderFinder.getCollectEarthDataFolder()); //$NON-NLS-1$
 
-			// Specify a browser as http.agent so that calls to CloudFlare hosted OpenForis.org do not return with a 403 http error
-			System.setProperty("http.agent", "Mozilla/5.0 (Macintosh; U; Intel Mac OS X 10.4; en-US; rv:1.9.2.2) Gecko/20100316 Firefox/3.6.2");
+			// Specify a browser as http.agent so that calls to CloudFlare hosted
+			// OpenForis.org do not return with a 403 http error
+			System.setProperty("http.agent",
+					"Mozilla/5.0 (Macintosh; U; Intel Mac OS X 10.4; en-US; rv:1.9.2.2) Gecko/20100316 Firefox/3.6.2");
 
 			initializeSentry();
 
-				// Change of font so that Lao and Thao glyphs are supported
-			CollectEarthUtils.setFontDependingOnLanguaue( getLocalProperties().getUiLanguage() );
+			// Change of font so that Lao and Thao glyphs are supported
+			CollectEarthUtils.setFontDependingOnLanguaue(getLocalProperties().getUiLanguage());
 
 			logger = LoggerFactory.getLogger(EarthApp.class);
 
@@ -106,18 +110,19 @@ public class EarthApp {
 
 			if (args != null && args.length == 1) {
 				doubleClickedProjectFile = args[0];
-			}else if( getProjectsService().getProjectList().size() == 0 ){
+			} else if (getProjectsService().getProjectList().size() == 0) {
 				doubleClickedProjectFile = "resources/demo_survey.cep";
 			}
 
-			if ( SystemUtils.IS_OS_MAC || SystemUtils.IS_OS_MAC_OSX){
-				handleMacStartup( doubleClickedProjectFile );
-			}else{
-				startCollectEarth( doubleClickedProjectFile );
+			if (SystemUtils.IS_OS_MAC || SystemUtils.IS_OS_MAC_OSX) {
+				handleMacStartup(doubleClickedProjectFile);
+			} else {
+				startCollectEarth(doubleClickedProjectFile);
 			}
 
 		} catch (final Exception e) {
-			// The logger factory has not been initialized, this will not work, just output to console
+			// The logger factory has not been initialized, this will not work, just output
+			// to console
 			if (logger != null) {
 				logger.error("The server could not start", e); //$NON-NLS-1$
 			}
@@ -129,70 +134,76 @@ public class EarthApp {
 
 	private static void initializeSentry() {
 		try {
-			String releaseName= UpdateIniUtils.getVersionNameInstalled();
+			String releaseName = UpdateIniUtils.getVersionNameInstalled();
 
-			Sentry.init("https://24dd6a90c1e4461484712db99c3b3bb7:831e42661c5c4ff3aa5eca270db3f619@sentry.io/299626?release="+releaseName+"&maxmessagelength=2000" );
-			if( !StringUtils.isEmpty( UpdateIniUtils.getVersionReleaseDateInstalled() ) ) {
-				Sentry.setTag( "ReleaseDate", UpdateIniUtils.getVersionReleaseDateInstalled() );
+			Sentry.init(
+					"https://24dd6a90c1e4461484712db99c3b3bb7:831e42661c5c4ff3aa5eca270db3f619@sentry.io/299626?release="
+							+ releaseName + "&maxmessagelength=2000");
+			if (!StringUtils.isEmpty(UpdateIniUtils.getVersionReleaseDateInstalled())) {
+				Sentry.setTag("ReleaseDate", UpdateIniUtils.getVersionReleaseDateInstalled());
 			}
-			if( !StringUtils.isEmpty( getLocalProperties().getOperator() ) ) {
+			if (!StringUtils.isEmpty(getLocalProperties().getOperator())) {
 				User user = new User();
-				user.setUsername( getLocalProperties().getOperator() );
+				user.setUsername(getLocalProperties().getOperator());
 				Sentry.setUser(user);
 			}
 
 		} catch (Exception e) {
-			logger.error( "Error initializing Sentry logger" , e);
+			logger.error("Error initializing Sentry logger", e);
 		}
 	}
+
 	/**
-	 * Special code that uses reflection to handle how the application should behave in Mac OS X.
-	 * Without reflection the code provokes compilation-time errors.
+	 * Special code that uses reflection to handle how the application should behave
+	 * in Mac OS X. Without reflection the code provokes compilation-time errors.
+	 * 
 	 * @param doubleClickedProjectFile Project file (CEP) that was clicked
-	 * @throws Exception Throws Exception when the process fails to open the file double-clicked. Initializes the server in any case
+	 * @throws Exception Throws Exception when the process fails to open the file
+	 *                   double-clicked. Initializes the server in any case
 	 */
 	@SuppressWarnings({ "rawtypes", "unchecked" })
-	public static void handleMacStartup(String doubleClickedProjectFile) throws Exception{
+	public static void handleMacStartup(String doubleClickedProjectFile) throws Exception {
 		try {
 			Class applicationClass = Class.forName("com.apple.eawt.Application");
 			Method getApplicationMethod = applicationClass.getMethod("getApplication");
-			Method setDockIconImageMethod = applicationClass.getMethod( "setDockIconImage", Image.class );
+			Method setDockIconImageMethod = applicationClass.getMethod("setDockIconImage", Image.class);
 
 			Class openFilesHandlerInterface = Class.forName("com.apple.eawt.OpenFilesHandler");
-			Method setOpenFileHandlerMethod = applicationClass.getMethod( "setOpenFileHandler", openFilesHandlerInterface );
+			Method setOpenFileHandlerMethod = applicationClass.getMethod("setOpenFileHandler",
+					openFilesHandlerInterface);
 
 			// SET THE MAC OS X DOCK ICON!
 			// Get an Application object
-			Object applicationObject  =  getApplicationMethod.invoke( null );
+			Object applicationObject = getApplicationMethod.invoke(null);
 			try {
 				Image dockIconImage = new ImageIcon(new File("images/dockIconMac.png").toURI().toURL()).getImage();
-				// Invoke the setDockIconImage on the application object using the dockIconImage as an argument
-				setDockIconImageMethod.invoke(applicationObject, dockIconImage );
+				// Invoke the setDockIconImage on the application object using the dockIconImage
+				// as an argument
+				setDockIconImageMethod.invoke(applicationObject, dockIconImage);
 			} catch (MalformedURLException e2) {
 				logger.error("Problems finding the docker icon", e2);
 			}
 			// -------------------------------------------
 
-
-			// DEFINE A LISTENER THAT IS REGISTERED BY THE OS TO HEAR DOUBLE-CLICK EVENTS AND REGISTER ITSELF AS THE CEP OPENER
+			// DEFINE A LISTENER THAT IS REGISTERED BY THE OS TO HEAR DOUBLE-CLICK EVENTS
+			// AND REGISTER ITSELF AS THE CEP OPENER
 			MacOpenFilesInvocationHandler macOpenFileHandlerProxyInterface = new MacOpenFilesInvocationHandler();
-			Object openFilesHandlerImplementation = Proxy.newProxyInstance(
-					applicationClass.getClassLoader(),
-					new Class[]{ openFilesHandlerInterface },
-					macOpenFileHandlerProxyInterface
-					);
+			Object openFilesHandlerImplementation = Proxy.newProxyInstance(applicationClass.getClassLoader(),
+					new Class[] { openFilesHandlerInterface }, macOpenFileHandlerProxyInterface);
 
 			// Call the setOpenFileHandler method of the application object using the
-			setOpenFileHandlerMethod.invoke(applicationObject, ( openFilesHandlerInterface.cast( openFilesHandlerImplementation ) ) );
+			setOpenFileHandlerMethod.invoke(applicationObject,
+					(openFilesHandlerInterface.cast(openFilesHandlerImplementation)));
 
-			// Lets wait for the Apple event to arrive. If it did then the earthApp variable will be non-nulls
+			// Lets wait for the Apple event to arrive. If it did then the earthApp variable
+			// will be non-nulls
 			Thread.sleep(2000);
-			if( earthApp == null ){
-				startCollectEarth( doubleClickedProjectFile );
+			if (earthApp == null) {
+				startCollectEarth(doubleClickedProjectFile);
 			}
 		} catch (Exception e) {
 			logger.error("Error while defining the double-click behaviour on CEP files in Mac OS X", e);
-			startCollectEarth( null );
+			startCollectEarth(null);
 		}
 	}
 
@@ -202,7 +213,9 @@ public class EarthApp {
 			getKmlGeneratorService().generateKmlFile();
 		} catch (final KmlGenerationException e) {
 			logger.error("Problems while generating the KML file ", e); //$NON-NLS-1$
-			showMessage("<html>Problems while generating the KML file: <br/> " + (e.getCause()!=null?(e.getCause()+"<br/>"):"") + ( e.getMessage().length() > 300?e.getMessage().substring(0,300):e.getMessage() ) + "</html>"); //$NON-NLS-1$
+			showMessage("<html>Problems while generating the KML file: <br/> " //$NON-NLS-1$
+					+ (e.getCause() != null ? (e.getCause() + "<br/>") : "")
+					+ (e.getMessage().length() > 300 ? e.getMessage().substring(0, 300) : e.getMessage()) + "</html>");
 		} catch (final Exception e) {
 			logger.error("Could not generate KML file", e); //$NON-NLS-1$
 			showMessage("<html>Error generating KML file : <br/> " + e.getMessage()); //$NON-NLS-1$
@@ -214,14 +227,15 @@ public class EarthApp {
 
 		if (projectFile.exists()) {
 
-			String hostAddress = ServerController.getHostAddress( getLocalProperties().getHost(), getLocalProperties().getPort());
+			String hostAddress = ServerController.getHostAddress(getLocalProperties().getHost(),
+					getLocalProperties().getPort());
 
-			URL loadProjectFileInRunningCE = new URL(hostAddress + LoadProjectFileServlet.SERVLET_NAME +
-					"?" + LoadProjectFileServlet.PROJECT_FILE_PARAMETER + "=" + //$NON-NLS-1$ //$NON-NLS-2$
-					URLEncoder.encode(doubleClickedProjecFile, StandardCharsets.UTF_8.name() ) );
+			URL loadProjectFileInRunningCE = new URL(hostAddress + LoadProjectFileServlet.SERVLET_NAME + "?" //$NON-NLS-1$
+					+ LoadProjectFileServlet.PROJECT_FILE_PARAMETER + "=" + //$NON-NLS-1$
+					URLEncoder.encode(doubleClickedProjecFile, StandardCharsets.UTF_8.name()));
 			URLConnection urlConn = loadProjectFileInRunningCE.openConnection();
 
-			try( BufferedReader in = new BufferedReader(new InputStreamReader(urlConn.getInputStream())) ){
+			try (BufferedReader in = new BufferedReader(new InputStreamReader(urlConn.getInputStream()))) {
 				String inputLine;
 				while ((inputLine = in.readLine()) != null) {
 					logger.info(inputLine);
@@ -234,7 +248,7 @@ public class EarthApp {
 	private static boolean isAnotherCollectEarthRunning(LocalPropertiesService localProperties) {
 		boolean alreadyRunning = false;
 		try {
-			new Socket( LocalPropertiesService.LOCAL_HOST , Integer.parseInt(localProperties.getPort())).close(); //$NON-NLS-1$
+			new Socket(LocalPropertiesService.LOCAL_HOST, Integer.parseInt(localProperties.getPort())).close(); // $NON-NLS-1$
 			// If here there is something is serving on port 8028
 			// So stop it
 			logger.warn("There is a server already running {}", localProperties.getPort()); //$NON-NLS-1$
@@ -261,13 +275,20 @@ public class EarthApp {
 
 	/**
 	 * Generates the KML for the project and opens it in Google Earth
-	 * @param forceKmlRecreation Set to true if you want to forece the regeneration of the KML even if is is up to date (you might want to do this to force the update of the placemark icons as the date changes)
-	 * @throws IOException Throws exception if the KMl file cannot be generated
-	 * @throws KmlGenerationException Throws exception if the KML file contents cannot be generated
+	 * 
+	 * @param forceKmlRecreation Set to true if you want to forece the regeneration
+	 *                           of the KML even if is is up to date (you might want
+	 *                           to do this to force the update of the placemark
+	 *                           icons as the date changes)
+	 * @throws IOException            Throws exception if the KMl file cannot be
+	 *                                generated
+	 * @throws KmlGenerationException Throws exception if the KML file contents
+	 *                                cannot be generated
 	 * @throws CsvValidationException
 	 */
-	private static synchronized void loadKmlInGoogleEarth(boolean forceKmlRecreation) throws IOException, KmlGenerationException, CsvValidationException {
-		earthApp.getKmlGeneratorService().generatePlacemarksKmzFile( forceKmlRecreation );
+	private static synchronized void loadKmlInGoogleEarth(boolean forceKmlRecreation)
+			throws IOException, KmlGenerationException, CsvValidationException {
+		earthApp.getKmlGeneratorService().generatePlacemarksKmzFile(forceKmlRecreation);
 		earthApp.simulateClickKmz();
 	}
 
@@ -283,7 +304,6 @@ public class EarthApp {
 	}
 
 	private static LocalPropertiesService nonManagedPropertiesService;
-
 
 	private static LocalPropertiesService getLocalProperties() {
 		if (serverController == null || serverController.getContext() == null) {
@@ -306,7 +326,6 @@ public class EarthApp {
 		}
 	}
 
-
 	private KmlGeneratorService getKmlGeneratorService() {
 		if (serverController != null) {
 			return serverController.getContext().getBean(KmlGeneratorService.class);
@@ -317,67 +336,68 @@ public class EarthApp {
 
 	private static void startCollectEarth(final String doubleClickedProjectFile) throws Exception {
 		logger.info("START - Server Initilization"); //$NON-NLS-1$
-		final boolean ceAlreadyOpen = isAnotherCollectEarthRunning( getLocalProperties());
+		final boolean ceAlreadyOpen = isAnotherCollectEarthRunning(getLocalProperties());
 
-		if( ceAlreadyOpen ){
+		if (ceAlreadyOpen) {
 			closeSplash();
-			// If the user double clicked on a project file while Collect Earth is running then load the project in the running Collect Earth
-			if (doubleClickedProjectFile!=null) {
+			// If the user double clicked on a project file while Collect Earth is running
+			// then load the project in the running Collect Earth
+			if (doubleClickedProjectFile != null) {
 				openProjectFileInRunningCollectEarth(doubleClickedProjectFile);
-			}else{
-				JOptionPane.showMessageDialog(null, Messages.getString("EarthApp.11"),  "Collect Earth", JOptionPane.WARNING_MESSAGE);
-				//showMessage(Messages.getString("EarthApp.11")); //$NON-NLS-1$
+			} else {
+				JOptionPane.showMessageDialog(null, Messages.getString("EarthApp.11"), "Collect Earth",
+						JOptionPane.WARNING_MESSAGE);
+				// showMessage(Messages.getString("EarthApp.11")); //$NON-NLS-1$
 				logger.warn("Closing CE - port already in use");
 				System.exit(1);
 			}
-		}else{
+		} else {
 
 			startServer(doubleClickedProjectFile);
-			
+
 		}
 
 		GAlogger.logGAnalytics("StartCollectEarth");
 	}
 
-	public static void startServer(final String doubleClickedProjectFile)
-			throws Exception {
+	public static void startServer(final String doubleClickedProjectFile) throws Exception {
 		earthApp = new EarthApp();
 
-		// Load the double-clicked CEP file before the survey manager is instantiated by the server start-up
+		// Load the double-clicked CEP file before the survey manager is instantiated by
+		// the server start-up
 		earthApp.loadProjectIfDoubleClicked(doubleClickedProjectFile);
-
 
 		final Observer observeInitialization = getServerObserver();
 		serverStartAndOpenGe(observeInitialization);
 	}
 
 	private static Observer getServerObserver() {
-		return (observable, initializationEvent) ->{
-				if (initializationEvent.equals(ServerInitializationEvent.SERVER_STARTED_NO_DB_CONNECTION_EVENT)) {
-					serverController = null;
-				}
+		return (observable, initializationEvent) -> {
+			if (initializationEvent.equals(ServerInitializationEvent.SERVER_STARTED_NO_DB_CONNECTION_EVENT)) {
+				serverController = null;
+			}
 
-				if( initializationEvent.equals(ServerInitializationEvent.SERVER_STARTED_WITH_DATABASE_CHANGE_EVENT) ||
-						initializationEvent.equals(ServerInitializationEvent.SERVER_STARTED_NO_DB_CONNECTION_EVENT)	){
+			if (initializationEvent.equals(ServerInitializationEvent.SERVER_STARTED_WITH_DATABASE_CHANGE_EVENT)
+					|| initializationEvent.equals(ServerInitializationEvent.SERVER_STARTED_NO_DB_CONNECTION_EVENT)) {
 
-					showMessage( initializationEvent.toString());
-				}
+				showMessage(initializationEvent.toString());
+			}
 
-				if (!initializationEvent.equals(ServerInitializationEvent.SERVER_STOPPED_EVENT)) {
-					try {
-						earthApp.generateKml();
-						earthApp.simulateClickKmz();
-						earthApp.checkForUpdates();
-						closeSplash();
-					} catch (final Exception e) {
-						logger.error("Error generating KML file", e); //$NON-NLS-1$
-					}
+			if (!initializationEvent.equals(ServerInitializationEvent.SERVER_STOPPED_EVENT)) {
+				try {
+					earthApp.generateKml();
+					earthApp.simulateClickKmz();
+					earthApp.checkForUpdates();
+					closeSplash();
+				} catch (final Exception e) {
+					logger.error("Error generating KML file", e); //$NON-NLS-1$
 				}
+			}
 		};
 	}
 
-	private void openKmlOnGoogleEarth(){
-		if (! CollectEarthUtils.openFile( new File(KmlGeneratorService.KML_NETWORK_LINK_STARTER)) ) {
+	private void openKmlOnGoogleEarth() {
+		if (!CollectEarthUtils.openFile(new File(KmlGeneratorService.KML_NETWORK_LINK_STARTER))) {
 			showMessage("The KML file cannot be open at " + KmlGeneratorService.KML_NETWORK_LINK_STARTER); //$NON-NLS-1$
 		}
 	}
@@ -396,30 +416,55 @@ public class EarthApp {
 
 				final UpdateIniUtils updateIniUtils = new UpdateIniUtils();
 
+				if (updateIniUtils.shouldWarnUser(getLocalProperties()) ) {
 
-				if (updateIniUtils.shouldWarnUser(getLocalProperties() )) {
+					javax.swing.SwingUtilities.invokeLater(() -> {
 
-					javax.swing.SwingUtilities.invokeLater( () -> {
-						String remindLater = Messages.getString("EarthApp.3"); //$NON-NLS-1$
-						String doItNow = Messages.getString("EarthApp.4"); //$NON-NLS-1$
-						String doNotBother = Messages.getString("EarthApp.5"); //$NON-NLS-1$
+						try {
+							Object[] possibleValues = new Object[3];
+							String newestVersionOnline = updateIniUtils.getVersionAvailableOnline();
+							if (StringUtils.isNotBlank(newestVersionOnline)) {
+								String remindLater = Messages.getString("EarthApp.3"); //$NON-NLS-1$
+								String doNotBother = Messages.getString("EarthApp.5"); //$NON-NLS-1$
+								String downloadInstaller = Messages.getString("EarthApp.51"); //$NON-NLS-1$
+								String doItNow = Messages.getString("EarthApp.4"); //$NON-NLS-1$
 
-						String newestVersionOnline = updateIniUtils.getVersionAvailableOnline();
+								possibleValues[0] = remindLater;
+								possibleValues[2] = doNotBother;
 
-						if( StringUtils.isNotBlank( newestVersionOnline ) ) {
-
-							Object[] possibleValues = { remindLater, doItNow, doNotBother };
-							int chosenOption = JOptionPane.showOptionDialog(null,
-									Messages.getString("EarthApp.57"), Messages.getString("EarthApp.58") + Messages.getString("EarthApp.6") + updateIniUtils.convertToDate(newestVersionOnline),  //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$
-									JOptionPane.DEFAULT_OPTION, JOptionPane.INFORMATION_MESSAGE, null, possibleValues, possibleValues[0]);
-							if( chosenOption != JOptionPane.CLOSED_OPTION ){
-								if (possibleValues[chosenOption].equals(doItNow)) {
-									CheckForUpdatesListener checkForUpdatesListener = new CheckForUpdatesListener();
-									checkForUpdatesListener.actionPerformed(null);
-								} else if (possibleValues[chosenOption].equals(doNotBother)) {
-									getLocalProperties().setValue(EarthProperty.LAST_IGNORED_UPDATE, newestVersionOnline);
+								// The updater does not work any more on Mac, instead of updating we ask the
+								// user to download the installer full!
+								if (SystemUtils.IS_OS_MAC) {
+									possibleValues[1] = downloadInstaller;
+								} else {
+									possibleValues[1] = doItNow;
 								}
+								String versionDate = StringUtils.isNotBlank(newestVersionOnline)?updateIniUtils.convertToDate(newestVersionOnline):"XXX";
+								int chosenOption = JOptionPane.showOptionDialog(null, Messages.getString("EarthApp.57"),//$NON-NLS-1$
+										Messages.getString("EarthApp.58") + Messages.getString("EarthApp.6") //$NON-NLS-1$ //$NON-NLS-2$
+												+ versionDate,
+										JOptionPane.DEFAULT_OPTION, JOptionPane.INFORMATION_MESSAGE, null, possibleValues,
+										possibleValues[0]);
+								
+								if (chosenOption != JOptionPane.CLOSED_OPTION) {
+									if (possibleValues[chosenOption].equals(downloadInstaller)) { // For Mac
+										try {
+											CollectEarthUtils.openUrl( new URI("https://oss.sonatype.org/service/local/artifact/maven/redirect?r=releases&g=org.openforis.collect.earth&a=collect-earth-installer&v=LATEST&c=osx&e=dmg"));
+										} catch (URISyntaxException e) {
+											logger.error("Error getting installer", e );
+										}
+									} else if (possibleValues[chosenOption].equals(doItNow)) { // For Linux and Windows
+										CheckForUpdatesListener checkForUpdatesListener = new CheckForUpdatesListener();
+										checkForUpdatesListener.actionPerformed(null);
+									} else if (possibleValues[chosenOption].equals(doNotBother)) {
+										getLocalProperties().setValue(EarthProperty.LAST_IGNORED_UPDATE,
+												newestVersionOnline);
+									}
+								}
+
 							}
+						} catch (HeadlessException e) {
+							logger.error( "Error checking for updates",  e);
 						}
 					});
 				}
@@ -428,13 +473,12 @@ public class EarthApp {
 
 	}
 
-
 	/**
-	 * If Collect Earth is started by double clicking on a ".cep" file ( Collect Earth Project file )
-	 * Then it should open directly with that project in focus
+	 * If Collect Earth is started by double clicking on a ".cep" file ( Collect
+	 * Earth Project file ) Then it should open directly with that project in focus
 	 *
-	 * @param doubleClickedProjecFile
-	 *            The path to the CEP file that was double-clicked
+	 * @param doubleClickedProjecFile The path to the CEP file that was
+	 *                                double-clicked
 	 *
 	 */
 	private void loadProjectIfDoubleClicked(String doubleClickedProjectFile) {
@@ -458,22 +502,16 @@ public class EarthApp {
 		serverController.deleteObservers();
 		serverController.startServer(observeInitialization);
 
-		// Inform Mac OS users of the issues about opening CEP files in the Mac version of CE
-		if(SystemUtils.IS_OS_MAC_OSX ) {
-			showMessage(
-					"<html>" //$NON-NLS-1$
+		// Inform Mac OS users of the issues about opening CEP files in the Mac version
+		// of CE
+		if (SystemUtils.IS_OS_MAC_OSX) {
+			showMessage("<html>" //$NON-NLS-1$
 					+ "<b>" //$NON-NLS-1$
-					+ Messages.getString("EarthApp.70")
-					+ "</b>: "  //$NON-NLS-1$
-					+ Messages.getString("EarthApp.71")
-					+ Messages.getString("EarthApp.72")
-					+ "<b>" //$NON-NLS-1$
-					+ Messages.getString("CollectEarthWindow.10")
-					+ " -> " //$NON-NLS-1$
-					+ Messages.getString("CollectEarthMenu.0")
-					+ "</b></html>", //$NON-NLS-1$
-					Messages.getString("EarthApp.73")
-			);
+					+ Messages.getString("EarthApp.70") + "</b>: " //$NON-NLS-2$
+					+ Messages.getString("EarthApp.71") + Messages.getString("EarthApp.72") + "<b>" //$NON-NLS-3$
+					+ Messages.getString("CollectEarthWindow.10") + " -> " //$NON-NLS-2$
+					+ Messages.getString("CollectEarthMenu.0") + "</b></html>", //$NON-NLS-2$
+					Messages.getString("EarthApp.73"));
 		}
 	}
 
@@ -485,10 +523,9 @@ public class EarthApp {
 	public static void showMessage(String message, String title) {
 		try {
 			SwingUtilities.invokeLater(
-					() -> JOptionPane.showMessageDialog(null, message, title, JOptionPane.WARNING_MESSAGE)
-			);
+					() -> JOptionPane.showMessageDialog(null, message, title, JOptionPane.WARNING_MESSAGE));
 		} catch (Exception e) {
-			logger.error("Error showing message",e);
+			logger.error("Error showing message", e);
 		}
 
 	}
@@ -503,14 +540,14 @@ public class EarthApp {
 		}
 	}
 
-	public static void executeKmlLoadAsynchronously( Window windowShowingTimer ) {
-		new Thread("Load KML in Google Earth"){
+	public static void executeKmlLoadAsynchronously(Window windowShowingTimer) {
+		new Thread("Load KML in Google Earth") {
 			@Override
 			public void run() {
 				// Only regenerate KML and reload
 				try {
-					SwingUtilities.invokeLater( ( ) -> {
-						if( windowShowingTimer != null ){
+					SwingUtilities.invokeLater(() -> {
+						if (windowShowingTimer != null) {
 							CollectEarthWindow.startWaiting(windowShowingTimer);
 						}
 					});
@@ -518,20 +555,20 @@ public class EarthApp {
 					EarthApp.loadKmlInGoogleEarth(true);
 
 				} catch (Exception e) {
-					logger.error("Error loading the KML",e);
-					EarthApp.showMessage("<html>Problems while generating the KML file: <br/> " +
-								(e.getCause()!=null?(e.getCause()+"<br/>"):"") +
-								(
-									( e.getMessage()!=null && e.getMessage().length() > 300 ) ? e.getMessage().substring(0,300) :
-										( e.getMessage()!=null ) ? e.getMessage() : ""
-								) + "</html>"); //$NON-NLS-1$
-				}finally{
-					if( windowShowingTimer != null ){
+					logger.error("Error loading the KML", e);
+					EarthApp.showMessage("<html>Problems while generating the KML file: <br/> "
+							+ (e.getCause() != null ? (e.getCause() + "<br/>") : "")
+							+ ((e.getMessage() != null && e.getMessage().length() > 300)
+									? e.getMessage().substring(0, 300)
+									: (e.getMessage() != null) ? e.getMessage() : "")
+							+ "</html>"); //$NON-NLS-1$
+				} finally {
+					if (windowShowingTimer != null) {
 						try {
-							SwingUtilities.invokeLater( () -> {
+							SwingUtilities.invokeLater(() -> {
 								CollectEarthWindow.endWaiting(windowShowingTimer);
-								if( windowShowingTimer instanceof PropertiesDialog ){
-									( (PropertiesDialog) windowShowingTimer).closeDialog();
+								if (windowShowingTimer instanceof PropertiesDialog) {
+									((PropertiesDialog) windowShowingTimer).closeDialog();
 								}
 							});
 						} catch (Exception e2) {
@@ -543,6 +580,5 @@ public class EarthApp {
 			}
 		}.start();
 	}
-
 
 }

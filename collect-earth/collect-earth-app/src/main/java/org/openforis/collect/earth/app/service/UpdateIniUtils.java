@@ -189,7 +189,7 @@ public class UpdateIniUtils {
 		try {
 
 			reformattedStr = humanReadable.format(fromXml.parse(buildVersionNumber));
-		} catch (java.text.ParseException e) {
+		} catch (Exception e) {
 			logger.error("Error parsing the date from the XML updater" , e );
 		}
 

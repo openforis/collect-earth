@@ -6,28 +6,23 @@ import java.awt.FontFormatException;
 import java.awt.GraphicsEnvironment;
 import java.io.File;
 import java.io.FileInputStream;
-import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStream;
 import java.net.InetAddress;
+import java.net.URI;
 import java.net.UnknownHostException;
-import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.security.MessageDigest;
-import java.security.NoSuchAlgorithmException;
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.util.Enumeration;
 import java.util.List;
-import java.util.Properties;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 import javax.swing.UIManager;
 
-import org.apache.commons.codec.binary.Hex;
 import org.apache.commons.codec.digest.DigestUtils;
 import org.apache.commons.lang3.SystemUtils;
 import org.openforis.collect.earth.app.EarthConstants.UI_LANGUAGE;
@@ -189,6 +184,19 @@ public class CollectEarthUtils {
 				success = true;
 			} catch (IOException ex) {
 				logger.warn("No application registered to open file {}", fileToOpenWithOSViewer.getAbsolutePath()); //$NON-NLS-1$
+			}
+		}
+		return success;
+	}
+	
+	public static boolean openUrl(URI urlToOpen) {
+		boolean success = false;
+		if (Desktop.isDesktopSupported()) {
+			try {
+				Desktop.getDesktop().browse(urlToOpen);
+				success = true;
+			} catch (IOException ex) {
+				logger.warn("No application registered to open URI {}", urlToOpen); //$NON-NLS-1$
 			}
 		}
 		return success;
