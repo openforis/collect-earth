@@ -68,6 +68,7 @@ import org.openforis.collect.earth.ipcc.serialize.Otherland;
 import org.openforis.collect.earth.ipcc.serialize.Record;
 import org.openforis.collect.earth.ipcc.serialize.Settlement;
 import org.openforis.collect.earth.ipcc.serialize.SocRefTable;
+import org.openforis.collect.earth.ipcc.serialize.SoilType;
 import org.openforis.collect.earth.ipcc.serialize.SoilTypes;
 import org.openforis.collect.earth.ipcc.serialize.Tiers;
 import org.openforis.collect.earth.ipcc.serialize.Wetland;
@@ -116,6 +117,7 @@ public class IPCCDataExportTimeSeriesToTool extends AbstractIPCCDataExport {
 		 * DO NOT ADD SOIL TYPES 
 		 * We use the standard soil types from the GHGi tool
 		 * te Enum already has the correct values in the DB
+		 * */
 		for (SoilStratumObject soil : getStrataSoil()) {
 			SoilType soilType = new SoilType();
 			soilType.setGuid(soil.getGuid());
@@ -125,7 +127,7 @@ public class IPCCDataExportTimeSeriesToTool extends AbstractIPCCDataExport {
 			soilType.setRemark(soil.getDescription());
 			soilTypes.getSoilType().add(soilType);
 		}
-		*/
+		
 		landTypes.setSoilTypes(soilTypes);
 	}
 	
