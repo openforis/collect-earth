@@ -10,11 +10,13 @@
     <requireInstallationByRootUser>0</requireInstallationByRootUser>
     <requestedExecutionLevel>asInvoker</requestedExecutionLevel>
     <componentList>
-    	<!--  IN THE VERSION 1.20.0 (July 2023) the JRE was updated to version 11. We need to ass it to the updater
+    	<!--  
+    	IN THE VERSION 1.20.0 (July 2023) the JRE was updated to version 11. We need to ass it to the updater
     	<include>
 			<file>java.xml</file>
 		</include>
-		<!--  PROBABLY REMOVE THIS AFTER A YEAR! -->
+		PROBABLY REMOVE THIS AFTER A YEAR! 
+		-->
 		
         <component>
      
