@@ -95,6 +95,8 @@ public class IPCCDataExportTimeSeriesToTool extends AbstractIPCCDataExport {
 	private static final String SUBDIVISION_AUX = "SUBDIV_AUX";
 	
 	private static final String NO_SUBDIVISION = "-1";
+	
+	private static final String UNKNOWN_REGION = "Unknown";
 
 	@Autowired
 	private IPCCLandUses ipccLandUses;
@@ -448,7 +450,12 @@ public class IPCCDataExportTimeSeriesToTool extends AbstractIPCCDataExport {
 					@Override
 					public LrtRegion mapRow(ResultSet rs, int rowNum) throws SQLException {
 
-						String regionName = rs.getString( getStratifyByRegion() ).replaceAll("'", ""); // remove single quotes that can cause errors when importing to IPCC
+						String regionName = rs.getString( getStratifyByRegion() );
+						
+						if( regionName == null || regionName.trim().isEmpty() ) {
+                            regionName = UNKNOWN_REGION;
+                        }
+						regionName = regionName.replaceAll("'", ""); // remove single quotes that can cause errors when importing to IPCC
 						Double area = Precision.round( rs.getDouble( SUM_EXPANSION_FACTOR ), AREA_PRECISION ) ;
 
 						LrtRegion lrtRegion = new LrtRegion();
