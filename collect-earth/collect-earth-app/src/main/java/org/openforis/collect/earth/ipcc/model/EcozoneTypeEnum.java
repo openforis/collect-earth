@@ -20,7 +20,8 @@ public enum EcozoneTypeEnum {
 	Ba("Boreal coniferous forest", 21, "coniferous dense forest dominant"),
 	Bb("Boreal tundra woodland", 22, "woodland and sparse forest dominant"),
 	BM("Boreal mountain systems", 23, "altitudes approximately >600 m"), P("Polar", 24, "all months <10°C"),
-	NA("User-defined", 25, "Not part of IPCC 2006 default classification");
+	NA("User-defined", 25, "Not part of IPCC 2006 default classification"),
+	NO_DATA("NO_DATA", 0, "No data available");
 
 	private final String name;
 	private int id;

@@ -8,7 +8,8 @@ public enum SoilTypeEnum {
 	SAN("Sandy", 5, "Mineral", 1), 
 	WET("Wetland", 6, "Mineral", 1), 
 	ORG("Organic", 7, "Organic", 2),
-	OtherAreas("Coastal Wetlands soil", 9, "Mixed", 3);
+	OtherAreas("Coastal Wetlands soil", 9, "Mixed", 3),
+	NO_DATA("No_DATA", 0, "No Data", 0);
 	
 	private final String name;
 	private int id;

@@ -5,7 +5,8 @@ public enum ClimateDomainEnum {
 	MEDITERRANEAN( "Subtropical(Mediterranean)",2),
 	TEMPERATE("Temperate", 3),
 	BOREAL( "Boreal", 4),
-	POLAR("Polar", 5);
+	POLAR("Polar", 5),
+	NO_DATA("NO_DATA", 0);
 	
 	private String domainName;
 	private int domainId;
