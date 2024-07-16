@@ -60,7 +60,7 @@ public class JPlotCsvTable extends JTable{
 	}
 
 	/**
-	 * The data of the CSV file is validated when the CSV/CED is loaded. This method determines if the data currently loaded is valid or not
+	 * The data of the CSV file is validated when the CSV is loaded. This method determines if the data currently loaded is valid or not
 	 * @return True if the data is valid. False otherwise
 	 */
 	public boolean isDataValid(){
@@ -191,7 +191,7 @@ public class JPlotCsvTable extends JTable{
 			case INVALID_FILE_TYPE:
 			case INVALID_NUMBER_OF_COLUMNS:
 				JPlotCsvTable.this.setBackground( ERROR_BG_COLOR);
-				JOptionPane.showMessageDialog( JPlotCsvTable.this.getParent(), "The expected file type is CSV or CED ", "Expected File Type", JOptionPane.ERROR_MESSAGE);
+				JOptionPane.showMessageDialog( JPlotCsvTable.this.getParent(), "The expected file type is CSV ", "Expected File Type", JOptionPane.ERROR_MESSAGE);
 				break;
 
 			case INVALID_HEADERS:

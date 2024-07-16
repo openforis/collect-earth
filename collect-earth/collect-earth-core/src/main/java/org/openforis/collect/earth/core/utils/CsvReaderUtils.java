@@ -62,7 +62,7 @@ public class CsvReaderUtils {
 
 		if (csvReader == null) {
 			throw new IllegalArgumentException(
-					"The CSV/CED plot file does not seem to contain actual comma separated values! " + csvFile);
+					"The CSV plot file does not seem to contain actual comma separated values! " + csvFile);
 		} else {
 			return csvReader;
 		}
@@ -101,7 +101,7 @@ public class CsvReaderUtils {
 
 		// If the script reaches this point it means that all the lines in the CSV file
 		// were empty!
-		throw new IllegalArgumentException("The CSV/CED plot file has no data! All the lines are empty!");
+		throw new IllegalArgumentException("The CSV plot file has no data! All the lines are empty!");
 	}
 
 	private static CSVReader getCsvReader(String csvFile, char columnSeparator, boolean skipHeader) throws IOException {

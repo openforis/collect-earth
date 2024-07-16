@@ -104,7 +104,7 @@ public final class MissingPlotsListener implements ActionListener {
 						// Generates a text representation of the missing plots plus the brief on the
 						// total plots
 						String missingPlotsText = missingPlotService.getMissingPlotInformation(allPlotsInFiles, missingPlotData);
-						// Generates a temporary file that contains the missing plots as a CED
+						// Generates a temporary file that contains the missing plots as a CSV
 						File tempFile = missingPlotService.getMissingPlotFile(missingPlotData);
 						SwingUtilities.invokeLater( infiniteProgressMonitor::close );
 

@@ -136,25 +136,29 @@ public class ProduceCsvFiles {
 	}
 
 	private void divideIntoFile(String strata, List<String[]> rows ) throws IOException {
-		if( filesToDivideInto > 1 ) {
+		try {
+			if( filesToDivideInto > 1 ) {
 
-			int blockSize = rows.size() / filesToDivideInto;
+				int blockSize = rows.size() / filesToDivideInto;
 
-			int fromIndex = 0;
-			for( int i=1; i<=filesToDivideInto; i++) {
-				String fileName = strata + "_" + i;
-				int toIndex = fromIndex + blockSize;
-				if( filesToDivideInto == i ) { // for the last one include all the remaning
-					toIndex = rows.size();
+				int fromIndex = 0;
+				for( int i=1; i<=filesToDivideInto; i++) {
+					String fileName = strata + "_" + i;
+					int toIndex = fromIndex + blockSize;
+					if( filesToDivideInto == i ) { // for the last one include all the remaning
+						toIndex = rows.size();
+					}
+
+					List<String[]> rowsBlock = rows.subList(fromIndex, toIndex);
+					writeStringsToCsv( fileName, rowsBlock);
+
+					fromIndex = fromIndex + blockSize;
 				}
-
-				List<String[]> rowsBlock = rows.subList(fromIndex, toIndex);
-				writeStringsToCsv( fileName, rowsBlock);
-
-				fromIndex = fromIndex + blockSize;
+			}else {
+				writeStringsToCsv( strata, rows);
 			}
-		}else {
-			writeStringsToCsv( strata, rows);
+		} catch (IOException e) {
+			logger.error("Error writing CSV file" , e);
 		}
 	}
 
@@ -247,6 +251,9 @@ public class ProduceCsvFiles {
 	}
 
 	public void writeStringsToCsv( String fileName, List<String[]> rows) throws IOException {
+		// remove characters that are not allowed in file names like ? or % but allow accents
+		fileName = fileName.replaceAll("[^a-zA-Z0-9\\s\\p{L}]", "_");
+				
 		File fileOutput = new File( outputFolder, fileName + ".csv" );
 		try(
 				CSVWriter writer = new CSVWriter( new OutputStreamWriter( new FileOutputStream( fileOutput ), StandardCharsets.UTF_8 ) );
