@@ -2,7 +2,7 @@
 <web-app version="2.5" xmlns="http://java.sun.com/xml/ns/javaee"
 	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
 	xsi:schemaLocation="http://java.sun.com/xml/ns/javaee 
-    http://java.sun.com/xml/ns/javaee/web-app_2_5.xsd" >
+    http://java.sun.com/xml/ns/javaee/web-app_2_5.xsd">
 	<display-name>earth</display-name>
 
 	<context-param>
@@ -13,15 +13,12 @@
 		<param-name>webAppRootKey</param-name>
 		<param-value>SimpleServer.root</param-value>
 	</context-param>
-	<!-- <context-param>
-		<param-name>log4jConfigLocation</param-name>
-		<param-value>classpath:/WEB-INF/conf/log4j.properties</param-value>
-	</context-param>
- -->
+	<!-- <context-param> <param-name>log4jConfigLocation</param-name> <param-value>classpath:/WEB-INF/conf/log4j.properties</param-value> 
+		</context-param> -->
 	<listener>
 		<listener-class>org.apache.logging.log4j.web.Log4jServletContextListener</listener-class>
 	</listener>
-	
+
 	<listener>
 		<listener-class>org.springframework.web.context.ContextLoaderListener</listener-class>
 	</listener>
@@ -43,10 +40,26 @@
 		<filter-class>org.openforis.collect.earth.app.server.GoogleEarthHeaderFilter</filter-class>
 	</filter>
 	<filter>
-        <filter-name>cross-origin</filter-name>
-        <filter-class>org.eclipse.jetty.servlets.CrossOriginFilter</filter-class>
-    </filter>
-   
+		<filter-name>cross-origin</filter-name>
+		<filter-class>org.eclipse.jetty.servlets.CrossOriginFilter</filter-class>
+		<init-param>
+			<param-name>allowedOrigins</param-name>
+			<param-value>http://localhost, http://127.0.0.1, https://earth.google.com, https://earth.googleusercontent.com</param-value>
+		</init-param>
+		<init-param>
+			<param-name>allowedMethods</param-name>
+			<param-value>GET,POST,HEAD</param-value>
+		</init-param>
+		<init-param>
+			<param-name>allowedHeaders</param-name>
+			<param-value>X-Requested-With,Content-Type,Accept,Origin</param-value>
+		</init-param>
+		<init-param>
+			<param-name>allowCredentials</param-name>
+			<param-value>true</param-value>
+		</init-param>
+	</filter>
+
 	<filter-mapping>
 		<filter-name>localizationFilter</filter-name>
 		<url-pattern>/*</url-pattern>
@@ -59,11 +72,11 @@
 		<filter-name>googleEarthHeaderFilter</filter-name>
 		<url-pattern>/*</url-pattern>
 	</filter-mapping>
-	 <filter-mapping>
-        <filter-name>cross-origin</filter-name>
-        <url-pattern>/*</url-pattern>
-    </filter-mapping>
-	
+	<filter-mapping>
+		<filter-name>cross-origin</filter-name>
+		<url-pattern>/*</url-pattern>
+	</filter-mapping>
+
 
 	<resource-ref>
 		<description>DB Connection</description>
@@ -85,9 +98,9 @@
 		<servlet-name>default</servlet-name>
 		<servlet-class>org.eclipse.jetty.servlet.DefaultServlet</servlet-class>
 		<init-param>
-	      <param-name>useFileMappedBuffer</param-name>
-	      <param-value>false</param-value>
-	    </init-param>
+			<param-name>useFileMappedBuffer</param-name>
+			<param-value>false</param-value>
+		</init-param>
 	</servlet>
 
 	<servlet-mapping>
@@ -95,16 +108,16 @@
 		<url-pattern>/</url-pattern>
 	</servlet-mapping>
 
-	<servlet-mapping >
-		<servlet-name >default</servlet-name>
-		<url-pattern >/generated/*</url-pattern>
+	<servlet-mapping>
+		<servlet-name>default</servlet-name>
+		<url-pattern>/generated/*</url-pattern>
 	</servlet-mapping>
-	
-	<servlet-mapping >
-		<servlet-name >default</servlet-name>
-		<url-pattern >/testOnline/*</url-pattern>
+
+	<servlet-mapping>
+		<servlet-name>default</servlet-name>
+		<url-pattern>/testOnline/*</url-pattern>
 	</servlet-mapping>
-	
+
 	<session-config>
 		<session-timeout>2</session-timeout>
 	</session-config>
