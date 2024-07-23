@@ -66,7 +66,7 @@ public class JSwingAppender extends AbstractAppender {
 						JScrollPane scrollPane = new JScrollPane(web);
 						scrollPane.setPreferredSize(new Dimension(450, 350));
 
-						JOptionPane.showMessageDialog(null, scrollPane, "Error has been loogged", JOptionPane.ERROR_MESSAGE);
+						JOptionPane.showMessageDialog(null, scrollPane, "Error has been logged", JOptionPane.ERROR_MESSAGE);
 					}catch (Exception e) {
 						// Avoid creating an infinite loop by catching this exception and not logging it as error
 						logger.debug("Error shown exception", e);
