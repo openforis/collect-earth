@@ -276,7 +276,7 @@ public class FileDividerToolDlg extends JDialog{
 								switch (  validationResults.getErrorType() ) {
 								case INVALID_FILE_TYPE:
 									filePicker.setTextBackground( Color.red);
-									JOptionPane.showMessageDialog( FileDividerToolDlg.this.getParent(), "The expected file type is CSV or CED ", "Expected File Type", JOptionPane.ERROR_MESSAGE);
+									JOptionPane.showMessageDialog( FileDividerToolDlg.this.getParent(), "The expected file type is CSV", "Expected File Type", JOptionPane.ERROR_MESSAGE);
 									break;
 
 								case INVALID_HEADERS:
