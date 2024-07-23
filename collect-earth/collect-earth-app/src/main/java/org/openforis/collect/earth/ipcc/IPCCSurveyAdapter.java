@@ -25,8 +25,8 @@ public class IPCCSurveyAdapter {
 	public static final String ATTR_OLDEST_CATEGORY = IPCC_ATTR_PREFIX + "oldest_category";
 	public static final String ATTR_PREVIOUS_CATEGORY = IPCC_ATTR_PREFIX + "previous_category";
 	public static final String ATTR_PREVIOUS_SUBDIVISION = IPCC_ATTR_PREFIX + "previous_subdivision";
-	public static final String CODE_LIST_LAND_USE = "land_use"; // land_uses
-	public static final String CODE_LIST_LAND_USE_SUBCATEGORY = "land_use_subcategory"; // land_use_conversions
+	public static final String CODE_LIST_LAND_USE = "land_uses"; // ITALY -> land_uses   --  BENIN -> land_use
+	public static final String CODE_LIST_LAND_USE_SUBCATEGORY = "land_use_conversions"; // Italy --> land_use_conversions  --  Benin --> land_use_subcategory
 
 	private static final int IPCC_20_YEARS_RULE = 20;
 
