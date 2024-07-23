@@ -65,7 +65,7 @@ public class IPCCGenerator {
 
 	Logger logger = LoggerFactory.getLogger( IPCCGenerator.class );
 
-	public static final int END_YEAR = Calendar.getInstance().get(Calendar.YEAR); // Assume the last year is current year
+	public static final int END_YEAR = 2023; // Calendar.getInstance().get(Calendar.YEAR); // Assume the last year is current year
 	public static final int START_YEAR = 2000;  // Assume start year at 2000
 
 	private Survey survey;
