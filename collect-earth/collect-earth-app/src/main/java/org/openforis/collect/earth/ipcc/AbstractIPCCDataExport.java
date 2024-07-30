@@ -9,8 +9,11 @@ import org.openforis.collect.earth.app.service.ExportType;
 import org.openforis.collect.earth.app.service.RDBConnector;
 import org.openforis.collect.earth.app.service.SchemaService;
 import org.openforis.collect.earth.ipcc.model.ClimateStratumObject;
+import org.openforis.collect.earth.ipcc.model.ClimateTypeEnum;
 import org.openforis.collect.earth.ipcc.model.EcozoneStratumObject;
+import org.openforis.collect.earth.ipcc.model.EcozoneTypeEnum;
 import org.openforis.collect.earth.ipcc.model.SoilStratumObject;
+import org.openforis.collect.earth.ipcc.model.SoilTypeEnum;
 import org.openforis.collect.earth.ipcc.model.StratumObject;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -76,7 +79,14 @@ public abstract class AbstractIPCCDataExport extends RDBConnector {
 			List<StratumObject> distinctClimates = distinctValue(CLIMATE_COLUMN_VALUE, CLIMATE_COLUMN_LABEL, CLIMATE_COLUMN_DESC, CLIMATE_TABLE, CLIMATE_COLUMN_IN_PLOT);
 			climates = new ArrayList<ClimateStratumObject>();
 			for (StratumObject distinctClimate : distinctClimates) {
-				climates.add( new ClimateStratumObject(distinctClimate.getValue(), distinctClimate.getLabel(), distinctClimate.getDescription() ) );
+				// Warn if not found
+				try {
+					ClimateTypeEnum.valueOf(distinctClimate.getLabel());
+					climates.add( new ClimateStratumObject(distinctClimate.getValue(), distinctClimate.getLabel(), distinctClimate.getDescription() ) );
+				} catch (Exception e) {
+					logger.error("Climate type " + distinctClimate.getLabel() + " not found in ClimateTypeEnum");
+				}
+				
 			}
 		}
 		return climates;
@@ -89,7 +99,12 @@ public abstract class AbstractIPCCDataExport extends RDBConnector {
 			List<StratumObject> distinctEcozones = distinctValue(GEZ_COLUMN_VALUE, GEZ_COLUMN_LABEL, GEZ_COLUMN_DESC, GEZ_TABLE, GEZ_COLUMN_IN_PLOT);
 			ecozones = new ArrayList<EcozoneStratumObject>();
 			for (StratumObject distinctEcozone : distinctEcozones) {
-				ecozones.add( new EcozoneStratumObject(distinctEcozone.getValue(), distinctEcozone.getLabel(), distinctEcozone.getDescription() ) );
+				try {
+					EcozoneTypeEnum.valueOf(distinctEcozone.getLabel());
+					ecozones.add( new EcozoneStratumObject(distinctEcozone.getValue(), distinctEcozone.getLabel(), distinctEcozone.getDescription() ) );
+				} catch (Exception e) {
+					logger.error("Ecozone type " + distinctEcozone.getLabel() + " not found in EcozoneTypeEnum");
+				}
 			}
 		}
 		return ecozones;
@@ -101,7 +116,12 @@ public abstract class AbstractIPCCDataExport extends RDBConnector {
 			List<StratumObject> distinctSoils =  distinctValue(SOIL_COLUMN_VALUE, SOIL_COLUMN_LABEL, SOIL_COLUMN_DESC, SOIL_TABLE, SOIL_COLUMN_IN_PLOT);
 			soils = new ArrayList<SoilStratumObject>();
 			for (StratumObject distinctSoil : distinctSoils) {
-				soils.add( new SoilStratumObject(distinctSoil.getValue(), distinctSoil.getLabel(), distinctSoil.getDescription() ) );
+				try {
+					SoilTypeEnum.valueOf(distinctSoil.getLabel());
+					soils.add( new SoilStratumObject(distinctSoil.getValue(), distinctSoil.getLabel(), distinctSoil.getDescription() ) );
+				} catch (Exception e) {
+					logger.error("Soil type " + distinctSoil.getLabel() + " not found in SoilTypeEnum");
+				}
 			}
 			
 		}

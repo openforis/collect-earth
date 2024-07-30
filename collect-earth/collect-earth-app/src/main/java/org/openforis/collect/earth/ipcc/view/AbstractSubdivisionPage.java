@@ -15,8 +15,8 @@ import javax.swing.border.Border;
 import javax.swing.border.TitledBorder;
 
 import org.openforis.collect.earth.ipcc.controller.LandUseSubdivisionUtils;
-import org.openforis.collect.earth.ipcc.model.LandUseCategoryEnum;
 import org.openforis.collect.earth.ipcc.model.AbstractLandUseSubdivision;
+import org.openforis.collect.earth.ipcc.model.LandUseCategoryEnum;
 
 import se.gustavkarlsson.gwiz.AbstractWizardPage;
 

@@ -2,7 +2,6 @@ package org.openforis.collect.earth.ipcc.view;
 
 import java.awt.event.WindowAdapter;
 import java.awt.event.WindowEvent;
-import java.util.ArrayList;
 import java.util.List;
 
 import javax.swing.JOptionPane;
@@ -11,16 +10,6 @@ import javax.swing.SwingUtilities;
 import org.openforis.collect.earth.ipcc.controller.LandUseSubdivisionUtils;
 import org.openforis.collect.earth.ipcc.model.AbstractLandUseSubdivision;
 import org.openforis.collect.earth.ipcc.model.CountryCode;
-import org.openforis.collect.earth.ipcc.model.CroplandSubdivision;
-import org.openforis.collect.earth.ipcc.model.CroplandTypeEnum;
-import org.openforis.collect.earth.ipcc.model.ForestSubdivision;
-import org.openforis.collect.earth.ipcc.model.ForestTypeEnum;
-import org.openforis.collect.earth.ipcc.model.GrasslandSubdivision;
-import org.openforis.collect.earth.ipcc.model.ManagementTypeEnum;
-import org.openforis.collect.earth.ipcc.model.OtherlandSubdivision;
-import org.openforis.collect.earth.ipcc.model.SettlementSubdivision;
-import org.openforis.collect.earth.ipcc.model.SettlementTypeEnum;
-import org.openforis.collect.earth.ipcc.model.WetlandSubdivision;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
