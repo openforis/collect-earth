@@ -3,6 +3,8 @@ package org.openforis.collect.earth.ipcc.model;
 import java.util.Objects;
 import java.util.UUID;
 
+import org.jooq.tools.StringUtils;
+
 public abstract class AbstractLandUseSubdivision<F> implements Comparable<AbstractLandUseSubdivision<?>>{
 
 	protected LandUseCategoryEnum category;
@@ -82,6 +84,10 @@ public abstract class AbstractLandUseSubdivision<F> implements Comparable<Abstra
 
 	@Override
 	public String toString() {
-		return getCategory().getCode() + " / "  + getManagementType() + " / "  + getCode();
+		// sometimes the name might be empty if it was not specified in the right language in the survey (i.e. the label is present for Italian but not English )
+		if( StringUtils.isEmpty( getName() ) ) {			
+			return getCategory().getCode() + " / "  + getManagementType() + " / "  + getCode();
+		}
+		return getCategory().getCode() + " / "  + getManagementType() + " / "  + getName();
 	}
 }
