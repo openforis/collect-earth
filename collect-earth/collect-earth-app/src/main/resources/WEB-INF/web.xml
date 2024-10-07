@@ -44,7 +44,7 @@
 		<filter-class>org.eclipse.jetty.servlets.CrossOriginFilter</filter-class>
 		<init-param>
 			<param-name>allowedOrigins</param-name>
-			<param-value>http://localhost, http://127.0.0.1, https://earth.google.com, https://earth.googleusercontent.com</param-value>
+			<param-value>http://localhost, http://127.0.0.1,http://localhost:*, http://127.0.0.1:*, https://earth.google.com, https://earth.googleusercontent.com</param-value>
 		</init-param>
 		<init-param>
 			<param-name>allowedMethods</param-name>

@@ -16,6 +16,7 @@ import org.openforis.collect.earth.planet.PlanetImagery;
 import org.openforis.collect.earth.planet.PlanetRequestParameters;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Controller;
+import org.springframework.web.bind.annotation.CrossOrigin;
 import org.springframework.web.bind.annotation.PostMapping;
 
 import com.google.gson.Gson;
@@ -38,6 +39,7 @@ public class PlacemarkPlanetImagery extends JsonPocessorServlet {
 	// 2015-07-17T10:50:18.650Z
 	private SimpleDateFormat planetDateFormat = new SimpleDateFormat("yyyy-MM-dd");
 
+	@CrossOrigin(origins = "*")
 	@PostMapping(value = "/planetTileUrl")
 	public void planetTileUrl(HttpServletRequest request, HttpServletResponse response)
 			throws IOException, ParseException {
@@ -85,6 +87,7 @@ public class PlacemarkPlanetImagery extends JsonPocessorServlet {
 		return endDate;
 	}
 
+	@CrossOrigin(origins = "*")
 	@PostMapping(value = "/planetAvailableImagery")
 	public void planetAvailableImagery(HttpServletRequest request, HttpServletResponse response)
 			throws IOException, ParseException {
