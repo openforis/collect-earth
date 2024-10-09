@@ -8,11 +8,12 @@ public class Test {
 
 	public static void main(String[] args) {
 		try {
-			PlanetImagery planet = new PlanetImagery( "YOUR API KEY FOR DAILY IMAGERY" );
+			PlanetImagery planet = new PlanetImagery( "USE_YOUR_LEVEL_API_KEY" );
 			SimpleDateFormat formatter = new SimpleDateFormat("yyyy-MM-dd");
-			Date start = formatter.parse("2013-01-01");
-			Date end =  formatter.parse("2013-12-01");
-			String[] itemTypes = {"PSScene3Band", "PSScene4Band", "REOrthoTile"};/*
+			Date start = formatter.parse("2022-01-01");
+			Date end =  formatter.parse("2022-12-01");
+			String[] itemTypes = {"PSScene"}; // Depreated --: "PSScene3Band", "PSScene4Band" 
+			/*
 			double[][][] coords = {{
 				{
 					-1.8230438232421875,

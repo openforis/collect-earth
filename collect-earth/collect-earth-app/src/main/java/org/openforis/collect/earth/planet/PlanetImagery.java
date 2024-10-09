@@ -171,6 +171,8 @@ public class PlanetImagery {
 		// very  important to keep the semicolon at the end
 		String basicAuth = "Basic " + new String(Base64.getEncoder().encode((apiKey + ":").getBytes()));
 		conn.setRequestProperty("Authorization", basicAuth);
+		
+		//conn.setRequestProperty("Authorization", "api-key " + apiKey);
 
 		conn.setRequestMethod(jsonObject != null ? "POST" : "GET");
 		conn.setRequestProperty("Content-Type", "application/json");
@@ -338,7 +340,7 @@ public class PlanetImagery {
 			polygon[0][i][1] = Double.parseDouble(simpleCoordinate.getLatitude());
 			polygon[0][i++][0] = Double.parseDouble(simpleCoordinate.getLongitude());
 		}
-		String[] itemTypes = { "PSScene3Band", "PSScene4Band" };
+		String[] itemTypes = {"PSScene"}; // Depreated --: "PSScene3Band", "PSScene4Band" 
 		return getLayerUrl(new PlanetRequestParameters(start, new Date(), polygon, itemTypes));
 	}
 }

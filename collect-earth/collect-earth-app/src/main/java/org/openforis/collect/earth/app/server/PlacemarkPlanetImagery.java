@@ -70,7 +70,7 @@ public class PlacemarkPlanetImagery extends JsonPocessorServlet {
 	private String[] getItemTypes(HttpServletRequest request) {
 		String[] itemTypeArray = request.getParameterMap().get("itemTypes[]");
 		if (itemTypeArray == null || itemTypeArray.length == 0) {
-			itemTypeArray = new String[] { "PSScene3Band", "PSScene4Band" };
+			itemTypeArray = new String[] {"PSScene"}; // Depreated --: "PSScene3Band", "PSScene4Band" 
 		}
 		return itemTypeArray;
 	}

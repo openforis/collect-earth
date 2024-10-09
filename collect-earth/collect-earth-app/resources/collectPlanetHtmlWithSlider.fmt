@@ -87,7 +87,7 @@
 						{
 							start: $.datepicker.formatDate('yy-mm-dd', fromDate ),
 							end : $.datepicker.formatDate('yy-mm-dd', toDate ),
-							itemTypes : ["PSScene3Band","PSScene4Band","REOrthoTile"], // , "REOrthoTile" RapidEye not working
+							itemTypes : ["PSScene"], // , "REOrthoTile" RapidEye not working -- "PSScene3Band","PSScene4Band","REOrthoTile" have been deprecated
 							geometry : JSON.stringify( geometry ) }
 					).done(
 						function( data ) {

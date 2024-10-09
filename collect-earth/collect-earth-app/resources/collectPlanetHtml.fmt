@@ -67,7 +67,7 @@
 					data : {
 							start: getFormattedDate( startDay ),
 							end : getFormattedDate( lastDay ),
-							itemTypes : ["PSScene3Band","PSScene4Band","REOrthoTile"], // , "REOrthoTile" RapidEye not working
+							itemTypes : ["PSScene"], // , "REOrthoTile" RapidEye not working -- "PSScene3Band","PSScene4Band","REOrthoTile" have been deprecated
 							geometry : JSON.stringify( geometry )
 					},
 					success : function( data ) {
@@ -193,7 +193,7 @@
 							data : {
 									start: getFormattedDate( startDay ),
 									end : getFormattedDate( new Date() ),
-									itemTypes : ["PSScene3Band","PSScene4Band","REOrthoTile"], // , "REOrthoTile" RapidEye not working
+									itemTypes : ["PSScene"], // , "REOrthoTile" RapidEye not working -- "PSScene3Band","PSScene4Band","REOrthoTile" have been deprecated
 									geometry : JSON.stringify( geometry )
 							},
 							success : function( data ) {
