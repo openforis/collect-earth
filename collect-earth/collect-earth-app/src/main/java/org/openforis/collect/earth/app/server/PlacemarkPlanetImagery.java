@@ -48,7 +48,8 @@ public class PlacemarkPlanetImagery extends JsonPocessorServlet {
 
 		PlanetImagery planetImagery = new PlanetImagery(localPropertiesService.getPlanetMapsKey());
 		String tileUrl = planetImagery.getLayerUrl(params);
-
+		// If the API Key is not valid there will be a 401 exception
+		// If the API Key has no permissions to use the tiles there will be a 401 exception
 		setJsonResponse(response, tileUrl == null ? "" : tileUrl);
 	}
 
