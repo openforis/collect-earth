@@ -8,6 +8,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 - Updated versions of libraries for Chrome/Firefox
+- Connection to Planet daily imagery service has been fixed
+
+
+## [1.20.7] - 2023-07-06
+
+### Changed
+- Updated versions of libraries for Chrome/Firefox
+- Connection to Planet daily imagery service has been fixed
 
 ### Added
 
