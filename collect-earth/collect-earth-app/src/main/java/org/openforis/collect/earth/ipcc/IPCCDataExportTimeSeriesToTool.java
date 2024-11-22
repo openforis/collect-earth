@@ -17,6 +17,7 @@ import javax.xml.bind.Marshaller;
 
 import org.apache.commons.math3.util.Precision;
 import org.openforis.collect.earth.app.service.RegionCalculationUtils;
+import org.openforis.collect.earth.app.service.SchemaService;
 import org.openforis.collect.earth.ipcc.controller.LandUseSubdivisionUtils;
 import org.openforis.collect.earth.ipcc.model.AbstractLandUseSubdivision;
 import org.openforis.collect.earth.ipcc.model.AgeClassCroplandEnum;
@@ -99,7 +100,9 @@ public class IPCCDataExportTimeSeriesToTool extends AbstractIPCCDataExport {
 	private static final String UNKNOWN_REGION = "Unknown";
 
 	@Autowired
-	private IPCCLandUses ipccLandUses;
+	private SchemaService schemaService;
+	
+	IPCCLandUses landUses;
 
 	private String countryCode;
 
@@ -908,7 +911,10 @@ public class IPCCDataExportTimeSeriesToTool extends AbstractIPCCDataExport {
 	}
 
 	private IPCCLandUses getIpccLandUses() {
-		return ipccLandUses;
+		if (landUses == null) {
+			landUses = new IPCCLandUses(schemaService);
+		}
+		return landUses;
 	}
 
 	private List<LandUseSubdivisionStratified<?>> getSubdivisionsStrata() {

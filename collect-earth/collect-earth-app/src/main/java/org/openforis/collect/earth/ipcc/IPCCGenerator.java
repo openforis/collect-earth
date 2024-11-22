@@ -11,6 +11,7 @@ import java.util.List;
 
 import org.openforis.collect.earth.app.CollectEarthUtils;
 import org.openforis.collect.earth.app.service.LocalPropertiesService;
+import org.openforis.collect.earth.app.service.SchemaService;
 import org.openforis.collect.earth.app.view.DataFormat;
 import org.openforis.collect.earth.app.view.InfiniteProgressMonitor;
 import org.openforis.collect.earth.app.view.JFileChooserExistsAware;
@@ -33,161 +34,178 @@ public class IPCCGenerator {
 
 	@Autowired
 	IPCCRDBGenerator ipccRdbGenerator;
-	
+
 	@Autowired
 	IPCCDataExportTimeSeriesXML ipccDataExportToXML;
-	
+
 	@Autowired
 	LocalPropertiesService localPropertiesService;
 
 	@Autowired
 	IPCCDataExportMatrixExcel dataExportMatrixExcel;
-	
+
 	@Autowired
 	IPCCDataExportMatrixExtendedExcel dataExportMatrixExtendedExcel;
-	
+
 	@Autowired
 	IPCCDataExportLandUnitsCSV dataExportLandUnitsCSV;
-	
+
 	@Autowired
 	IPCCDataExportPerPlotCSV dataExportPerPlotCSV;
-	
+
 	@Autowired
 	IPCCDataExportTimeSeriesToTool dataExportTimeSeriesToTool;
-	
+
 	@Autowired
-	IPCCLandUses landUses;
-	
+	private SchemaService schemaService;
+
 	@Autowired
 	SurveyManager surveyManager;
-	
+
 	IPCCSurveyAdapter ipccSurveyAdapter;
 
-	Logger logger = LoggerFactory.getLogger( IPCCGenerator.class );
+	Logger logger = LoggerFactory.getLogger(IPCCGenerator.class);
 
-	public static final int END_YEAR = 2023; // Calendar.getInstance().get(Calendar.YEAR); // Assume the last year is current year
-	public static final int START_YEAR = 2000;  // Assume start year at 2000
+	public static final int END_YEAR = 2023; // Calendar.getInstance().get(Calendar.YEAR); // Assume the last year is
+												// current year
+	public static final int START_YEAR = 2000; // Assume start year at 2000
 
-	private Survey survey;
+	public File generateRDB(Survey survey, InfiniteProgressMonitor progressListener) throws IPCCGeneratorException {
 
-	public File generateRDB( Survey survey, InfiniteProgressMonitor progressListener) throws IPCCGeneratorException {
-
-		this.survey = survey;
-		ipccSurveyAdapter = new IPCCSurveyAdapter();
-
-		// Add attributes for each year containing the LU Category and Subdivision if not present
-		Survey modifiedSurvey = ipccSurveyAdapter.addIPCCAttributesToSurvey( survey );
+		IPCCLandUses landUses = new IPCCLandUses(schemaService);
+		ipccSurveyAdapter = new IPCCSurveyAdapter( landUses );
+		
+		// Add attributes for each year containing the LU Category and Subdivision if
+		// not present
+		Survey modifiedSurvey = ipccSurveyAdapter.addIPCCAttributesToSurvey(survey);
 
 		/*
-		 * CODE NOT NECESSARY, JUST USED TO CHECK IDML SURVEY FILE
-		try( FileOutputStream fos = new FileOutputStream( "surveyModified.xml" ) ) {
-			surveyManager.marshalSurvey(modifiedSurvey, fos );
-		} catch (FileNotFoundException e) {
-			logger.error( "Error marshalling survey", e );
-		} catch (IOException e) {
-			logger.error( "Error marshalling survey", e );
-		}
-		*/ 
+		 * CODE NOT NECESSARY, JUST USED TO CHECK IDML SURVEY FILE try( FileOutputStream
+		 * fos = new FileOutputStream( "surveyModified.xml" ) ) {
+		 * surveyManager.marshalSurvey(modifiedSurvey, fos ); } catch
+		 * (FileNotFoundException e) { logger.error( "Error marshalling survey", e ); }
+		 * catch (IOException e) { logger.error( "Error marshalling survey", e ); }
+		 */
 		// Generate Relational Database of the survey data
-		ipccRdbGenerator.generateRelationalDatabase( modifiedSurvey, progressListener);
+		ipccRdbGenerator.generateRelationalDatabase(modifiedSurvey, progressListener);
+
+
 
 		return null;
 	}
 
-	public void produceOutputs( Survey survey, InfiniteProgressMonitor progressListener ) {
-		
+	public void produceOutputs(Survey survey, InfiniteProgressMonitor progressListener) {
+
 		progressListener.hide();
-		
+		IPCCLandUses landUses = new IPCCLandUses(schemaService);
+
 		try {
 			List<String> attributeNames = new ArrayList<String>();
-			survey.getSchema().getFirstRootEntityDefinition().getChildDefinitions().forEach(nodeDefinition -> attributeNames.add( nodeDefinition.getName() ) );
-			
+			survey.getSchema().getFirstRootEntityDefinition().getChildDefinitions()
+					.forEach(nodeDefinition -> attributeNames.add(nodeDefinition.getName()));
+
 			// Assign Management types to the Land Use Subdivisions found in the survey data
 			AssignSubdivisionTypesWizard wizard = new AssignSubdivisionTypesWizard();
 			wizard.initializeTypes(landUses.getLandUseSubdivisions(), attributeNames);
-			
-			
-			if( !wizard.isWizardFinished() ) {
-				logger.info( "The user closed the wizard without finishing assigning management types");
+
+			if (!wizard.isWizardFinished()) {
+				logger.info("The user closed the wizard without finishing assigning management types");
 				return;
 			}
-		
-			File[] exportToFile = JFileChooserExistsAware.getFileChooserResults(DataFormat.GHGI_ZIP_FILE, true, false, "LandUseForGHGi", localPropertiesService, null);
-			if( exportToFile== null || exportToFile.length != 1 ) {
-				logger.info("The user should choose a ZIP file to export the results to! No file chosen, aborting the rest of the execution");
+
+			File[] exportToFile = JFileChooserExistsAware.getFileChooserResults(DataFormat.GHGI_ZIP_FILE, true, false,
+					"LandUseForGHGi", localPropertiesService, null);
+			if (exportToFile == null || exportToFile.length != 1) {
+				logger.info(
+						"The user should choose a ZIP file to export the results to! No file chosen, aborting the rest of the execution");
 				return;
 			}
-			
+
 			File destinationZip = exportToFile[0];
-			
+
 			final int STEPS = 7;
 			int currentStep = 1;
-			
+
 			progressListener.show();
-			
-			progressListener.updateProgress(currentStep++, STEPS, "Generating CSV aggregated time-series" );
-			// 	Extract data from the Relational Database into an excel file of transition Matrixes per year
-			File landUnitsCSVFile =dataExportLandUnitsCSV.generateTimeseriesData(START_YEAR, END_YEAR);
-			if( progressListener.isUserCancelled() ) return;
-				
-			progressListener.updateProgress(currentStep++, STEPS, "Generating CSV per plot time-series" );
-			// 	Extract data from the Relational Database into an excel file of transition Matrixes per year
-			File perPlotCSVFile =dataExportPerPlotCSV.generateTimeseriesData(START_YEAR, END_YEAR);
-			if( progressListener.isUserCancelled() ) return;
-			
-			progressListener.updateProgress(currentStep++, STEPS, "Generating survey setup files" );
+
+			progressListener.updateProgress(currentStep++, STEPS, "Generating CSV aggregated time-series");
+			// Extract data from the Relational Database into an excel file of transition
+			// Matrixes per year
+			File landUnitsCSVFile = dataExportLandUnitsCSV.generateTimeseriesData(START_YEAR, END_YEAR);
+			if (progressListener.isUserCancelled())
+				return;
+
+			progressListener.updateProgress(currentStep++, STEPS, "Generating CSV per plot time-series");
+			// Extract data from the Relational Database into an excel file of transition
+			// Matrixes per year
+			File perPlotCSVFile = dataExportPerPlotCSV.generateTimeseriesData(START_YEAR, END_YEAR);
+			if (progressListener.isUserCancelled())
+				return;
+
+			progressListener.updateProgress(currentStep++, STEPS, "Generating survey setup files");
 			// Generate list of subdivisions in survey
 			File subdivisionsFile = LandUseSubdivisionUtils.getSubdivisionsXML();
-			File climateZones = StratumUtils.getClimateZonesXML( survey );
-			File ecologicalZones = StratumUtils.getEcologicalZonesXML( survey );
-			File soilTypes = StratumUtils.getSoilTypesXML( survey );
-			if( progressListener.isUserCancelled() ) return;
-			
-			progressListener.updateProgress(currentStep++, STEPS, "Generating XML timeseries file" );
-			// Extract data from the Relational Database into an XML File with information per year
-			File timeseriesXMLFile =ipccDataExportToXML.generateTimeseriesData(IPCCGenerator.START_YEAR, IPCCGenerator.END_YEAR );
-			if( progressListener.isUserCancelled() ) return;
+			File climateZones = StratumUtils.getClimateZonesXML(survey);
+			File ecologicalZones = StratumUtils.getEcologicalZonesXML(survey);
+			File soilTypes = StratumUtils.getSoilTypesXML(survey);
+			if (progressListener.isUserCancelled())
+				return;
 
-			progressListener.updateProgress(currentStep++, STEPS, "Generating Excel LU Matrixes per year" );
-			// 	Extract data from the Relational Database into an excel file of transition Matrixes per year
-			File matrixXLSFile =dataExportMatrixExcel.generateTimeseriesData(START_YEAR, END_YEAR);
-			if( progressListener.isUserCancelled() ) return;
-			
-			progressListener.updateProgress(currentStep++, STEPS, "Generating Excel LU Matrixes per year STRATIFIED" );
-			// 	Extract data from the Relational Database into an excel file of transition Matrixes per year
-			File matrixXLSExtendedFile =dataExportMatrixExtendedExcel.generateTimeseriesData(START_YEAR, END_YEAR);
-			if( progressListener.isUserCancelled() ) return;
-			
-			progressListener.updateProgress(currentStep++, STEPS, "Generating GHGi activity data files" );
-			// 	Extract data from the Relational Database into an excel file of transition Matrixes per year
-			File xmlWithDataToImportGhgTool =dataExportTimeSeriesToTool.generateTimeseriesData(START_YEAR, START_YEAR, END_YEAR, wizard.getCountryCode().getCode(), wizard.getRegionAttribute() );
-			if( progressListener.isUserCancelled() ) return;
+			progressListener.updateProgress(currentStep++, STEPS, "Generating XML timeseries file");
+			// Extract data from the Relational Database into an XML File with information
+			// per year
+			File timeseriesXMLFile = ipccDataExportToXML.generateTimeseriesData(IPCCGenerator.START_YEAR,
+					IPCCGenerator.END_YEAR);
+			if (progressListener.isUserCancelled())
+				return;
+
+			progressListener.updateProgress(currentStep++, STEPS, "Generating Excel LU Matrixes per year");
+			// Extract data from the Relational Database into an excel file of transition
+			// Matrixes per year
+			File matrixXLSFile = dataExportMatrixExcel.generateTimeseriesData(START_YEAR, END_YEAR);
+			if (progressListener.isUserCancelled())
+				return;
+
+			progressListener.updateProgress(currentStep++, STEPS, "Generating Excel LU Matrixes per year STRATIFIED");
+			// Extract data from the Relational Database into an excel file of transition
+			// Matrixes per year
+			File matrixXLSExtendedFile = dataExportMatrixExtendedExcel.generateTimeseriesData(START_YEAR, END_YEAR);
+			if (progressListener.isUserCancelled())
+				return;
+
+			progressListener.updateProgress(currentStep++, STEPS, "Generating GHGi activity data files");
+			// Extract data from the Relational Database into an excel file of transition
+			// Matrixes per year
+			File xmlWithDataToImportGhgTool = dataExportTimeSeriesToTool.generateTimeseriesData(START_YEAR, START_YEAR,
+					END_YEAR, wizard.getCountryCode().getCode(), wizard.getRegionAttribute());
+			if (progressListener.isUserCancelled())
+				return;
 
 			try {
-				progressListener.updateProgress(currentStep++, STEPS, "Compressing files into selected destination" );
-				CollectEarthUtils.addFileToZip( destinationZip , timeseriesXMLFile, "LU_Timeseries.xml");
-				CollectEarthUtils.addFileToZip( destinationZip , matrixXLSFile, "LU_Matrixes.xls");
-				CollectEarthUtils.addFileToZip( destinationZip , matrixXLSExtendedFile, "LU_Matrixes_stratified.xls");
-				CollectEarthUtils.addFileToZip( destinationZip , subdivisionsFile, "ConfigLandUseSubdivisions.xml");
-				CollectEarthUtils.addFileToZip( destinationZip , climateZones, "ConfigClimateZones.xml");
-				CollectEarthUtils.addFileToZip( destinationZip , ecologicalZones, "ConfigEclogicalZones.xml");
-				CollectEarthUtils.addFileToZip( destinationZip , soilTypes, "ConfigSoilTypes.xml");
-				CollectEarthUtils.addFileToZip( destinationZip , landUnitsCSVFile, "LU_Timeseries_grouped.csv");
-				CollectEarthUtils.addFileToZip( destinationZip , perPlotCSVFile, "LU_Timeseries_per_plot.csv");
-				CollectEarthUtils.addFileToZip( destinationZip , xmlWithDataToImportGhgTool, "GHGi_tool_data.xml");
+				progressListener.updateProgress(currentStep++, STEPS, "Compressing files into selected destination");
+				CollectEarthUtils.addFileToZip(destinationZip, timeseriesXMLFile, "LU_Timeseries.xml");
+				CollectEarthUtils.addFileToZip(destinationZip, matrixXLSFile, "LU_Matrixes.xls");
+				CollectEarthUtils.addFileToZip(destinationZip, matrixXLSExtendedFile, "LU_Matrixes_stratified.xls");
+				CollectEarthUtils.addFileToZip(destinationZip, subdivisionsFile, "ConfigLandUseSubdivisions.xml");
+				CollectEarthUtils.addFileToZip(destinationZip, climateZones, "ConfigClimateZones.xml");
+				CollectEarthUtils.addFileToZip(destinationZip, ecologicalZones, "ConfigEclogicalZones.xml");
+				CollectEarthUtils.addFileToZip(destinationZip, soilTypes, "ConfigSoilTypes.xml");
+				CollectEarthUtils.addFileToZip(destinationZip, landUnitsCSVFile, "LU_Timeseries_grouped.csv");
+				CollectEarthUtils.addFileToZip(destinationZip, perPlotCSVFile, "LU_Timeseries_per_plot.csv");
+				CollectEarthUtils.addFileToZip(destinationZip, xmlWithDataToImportGhgTool, "GHGi_tool_data.xml");
 				progressListener.hide();
 			} catch (IOException e) {
 				logger.error("Error when creating ZIP file with timeseries content " + destinationZip, e); //$NON-NLS-1$ //$NON-NLS-2$
 			} catch (Exception e) {
 				logger.error("Error when zipping the timeseries content into " + destinationZip, e); //$NON-NLS-1$ //$NON-NLS-2$
 			}
-			
+
 			// Open the ZIP file automatically to inspect the output
-			CollectEarthUtils.openFile( destinationZip );
+			CollectEarthUtils.openFile(destinationZip);
 
 		} catch (IOException e) {
 			logger.error("Error generating file", e);
-		}catch (Exception e) {
+		} catch (Exception e) {
 			logger.error("Error while generating GHGi tool file ", e); //$NON-NLS-1$ //$NON-NLS-2$
 		}
 
