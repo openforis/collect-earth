@@ -45,6 +45,9 @@ public class IPCCSurveyAdapter {
 	public static final String TEMPLATE_SECOND_LU_CONVERSION_YEAR = "second_lu_conversion_year";
 	private IPCCLandUses landUses;
 	
+	public String CODE_LIST_LAND_USE; // ITALY -> land_uses   --  BENIN -> land_use
+	public String CODE_LIST_LAND_USE_SUBCATEGORY; // Italy --> land_use_conversions  --  Benin --> land_use_subcategory
+
 	public IPCCSurveyAdapter(IPCCLandUses landUses) {
 		this.landUses = landUses;
 	}

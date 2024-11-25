@@ -6,6 +6,7 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 
+import org.openforis.collect.earth.app.service.EarthSurveyService;
 import org.openforis.collect.earth.app.service.ExportType;
 import org.openforis.collect.earth.app.service.RDBConnector;
 import org.openforis.collect.earth.app.service.SchemaService;
@@ -22,85 +23,116 @@ import org.openforis.collect.earth.ipcc.model.SettlementSubdivision;
 import org.openforis.collect.earth.ipcc.model.SettlementTypeEnum;
 import org.openforis.collect.earth.ipcc.model.VegetationTypeEnum;
 import org.openforis.collect.earth.ipcc.model.WetlandSubdivision;
+import org.openforis.idm.metamodel.CodeList;
+import org.openforis.idm.metamodel.CodeListLevel;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.jdbc.core.RowMapper;
 import org.springframework.stereotype.Component;
 
+@Component
 public class IPCCLandUses extends RDBConnector {
+	
+	@Autowired
+	private SchemaService schemaService;
+	
+	@Autowired
+	private EarthSurveyService earthSurveyService;
 
-	private String categoryColumnSuffix; // Italy--> _category || Benin --> _use
 	private String LU_CATEGORY_COLUMN; // Italy--> _category || Benin --> _use
 	private String LU_TABLE;
 	private String LU_CATEGORY_ID;
-
-
 	private String schemaName;
 	private String LU_SUBDIVISION ;
 	private String LU_SUBDIVISION_LABEL;
 	private String LU_SUBDIVISION_TABLE;
-
-	Logger logger = LoggerFactory.getLogger(IPCCLandUses.class);
-
-	private SchemaService schemaService;
-
-	private List<AbstractLandUseSubdivision> landUseSubdivisions;
 	public String CODE_LIST_LAND_USE; // ITALY -> land_uses   --  BENIN -> land_use
 	public String CODE_LIST_LAND_USE_SUBCATEGORY; // Italy --> land_use_conversions  --  Benin --> land_use_subcategory
+	
+	Logger logger = LoggerFactory.getLogger(IPCCLandUses.class);
 
-	public IPCCLandUses( SchemaService schemaService ) {
+	private List<AbstractLandUseSubdivision> landUseSubdivisions;
+
+	public IPCCLandUses() {
 		super();
-		this.schemaService = schemaService;
 		setExportTypeUsed(ExportType.IPCC);
+
+
+	}
+	
+	public void initializeCodeListValues() {
 
 		// ITALY -> land_uses   --  BENIN -> land_use
 		String[] possibleTableNames = new String[] { "land_uses", "land_use" };
 		for (String tableName : possibleTableNames) {
 			
-			if (tableExists(tableName)) {
+			if (codeListExists(tableName)) {
 				this.CODE_LIST_LAND_USE = tableName;
 				break;
 			}
+		}
+		
+		if (this.CODE_LIST_LAND_USE == null) {
+			throw new IllegalArgumentException("No land use table found in the database");
 		}
 
 		// Italy --> land_use_conversions  --  Benin --> land_use_subcategory
 		possibleTableNames = new String[] { "land_use_conversions", "land_use_subcategory" };
 		for (String tableName : possibleTableNames) {
 			
-			if (tableExists(tableName)) {
+			if (codeListExists(tableName)) {
 				this.CODE_LIST_LAND_USE_SUBCATEGORY = tableName;
 				break;
 			}
 		}
 		
+		if (this.CODE_LIST_LAND_USE_SUBCATEGORY == null) {
+			throw new IllegalArgumentException("No land use subcategory table found in the database");
+		}
+		
 		// Check if the LU_TaABLE exists in the database for the possible suffixes
 		// We made an error and changed the name of this attribute in the new template and it doesn't match the pre-IPCC attribute
-		String[] possibleSuffixes = new String[] { "_category", "_use" };
+		String[] possibleSuffixes = new String[] { "category", "use" };
 		for (String suffix : possibleSuffixes) {
-			LU_CATEGORY_COLUMN = CODE_LIST_LAND_USE + suffix;
-			LU_TABLE = LU_CATEGORY_COLUMN + "_code";
-			if (tableExists(LU_TABLE)) {
-				this.categoryColumnSuffix = suffix;
+			if (codeListAndLevelExists(CODE_LIST_LAND_USE, suffix )) {
+				LU_CATEGORY_COLUMN = CODE_LIST_LAND_USE + "_" + suffix;
+				LU_TABLE = LU_CATEGORY_COLUMN + "_code";
 				break;
 			}
 		}
 
-		LU_CATEGORY_COLUMN = CODE_LIST_LAND_USE + categoryColumnSuffix;
-		LU_TABLE = LU_CATEGORY_COLUMN + "_code";
 		LU_CATEGORY_ID = LU_TABLE + "_id";
 		
 		LU_SUBDIVISION = CODE_LIST_LAND_USE + "_subdivision";
 		LU_SUBDIVISION_LABEL = LU_SUBDIVISION + "_label";
 		LU_SUBDIVISION_TABLE = LU_SUBDIVISION + "_code";
-
+		
+	}
+	
+	private boolean codeListExists(String codeListName) {
+		
+		try {
+			return earthSurveyService.getCollectSurvey().getCodeList(codeListName) != null;
+		} catch (Exception e) {
+			logger.error("Error checking if code list exists " + codeListName, e);
+			return false;
+		}
 	}
 
-	private boolean tableExists(String tableName) {
+	
+	private boolean codeListAndLevelExists(String codeListName, String levelName) {
 		try {
-			getJdbcTemplate().queryForObject("SELECT 1 FROM " + schemaName + tableName + " WHERE 1 = 0", Integer.class);
-			return true;
+			CodeList codeList = earthSurveyService.getCollectSurvey().getCodeList(codeListName);
+			List<CodeListLevel> levels = codeList.getHierarchy();
+			for (CodeListLevel codeListLevel : levels) {
+				if (codeListLevel.getName().equalsIgnoreCase(levelName)) {
+					return true;
+				}
+			}
+			return false;
 		} catch (Exception e) {
+			logger.error("Error checking if code list and level exists " + codeListName + " - " + levelName, e);
 			return false;
 		}
 	}

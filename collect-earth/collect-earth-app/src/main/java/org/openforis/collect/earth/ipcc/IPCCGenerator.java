@@ -57,10 +57,10 @@ public class IPCCGenerator {
 	IPCCDataExportTimeSeriesToTool dataExportTimeSeriesToTool;
 
 	@Autowired
-	private SchemaService schemaService;
-
-	@Autowired
 	SurveyManager surveyManager;
+	
+	@Autowired
+	IPCCLandUses landUses;
 
 	IPCCSurveyAdapter ipccSurveyAdapter;
 
@@ -72,7 +72,6 @@ public class IPCCGenerator {
 
 	public File generateRDB(Survey survey, InfiniteProgressMonitor progressListener) throws IPCCGeneratorException {
 
-		IPCCLandUses landUses = new IPCCLandUses(schemaService);
 		ipccSurveyAdapter = new IPCCSurveyAdapter( landUses );
 		
 		// Add attributes for each year containing the LU Category and Subdivision if
@@ -89,15 +88,12 @@ public class IPCCGenerator {
 		// Generate Relational Database of the survey data
 		ipccRdbGenerator.generateRelationalDatabase(modifiedSurvey, progressListener);
 
-
-
 		return null;
 	}
 
 	public void produceOutputs(Survey survey, InfiniteProgressMonitor progressListener) {
 
 		progressListener.hide();
-		IPCCLandUses landUses = new IPCCLandUses(schemaService);
 
 		try {
 			List<String> attributeNames = new ArrayList<String>();

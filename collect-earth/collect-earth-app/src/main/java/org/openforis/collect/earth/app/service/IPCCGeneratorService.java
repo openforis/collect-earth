@@ -3,6 +3,7 @@ package org.openforis.collect.earth.app.service;
 import org.openforis.collect.earth.app.view.InfiniteProgressMonitor;
 import org.openforis.collect.earth.ipcc.IPCCGenerator;
 import org.openforis.collect.earth.ipcc.IPCCGeneratorException;
+import org.openforis.collect.earth.ipcc.IPCCLandUses;
 import org.openforis.collect.earth.ipcc.RdbExportException;
 import org.openforis.collect.model.CollectSurvey;
 import org.openforis.collect.relational.CollectRDBPublisher;
@@ -34,6 +35,9 @@ public class IPCCGeneratorService extends GenerateDatabase{
 	@Autowired
 	private IPCCGenerator ipccGenerator;
 	
+	@Autowired
+	IPCCLandUses landUses;
+	
 	final Logger logger = LoggerFactory.getLogger(IPCCGeneratorService.class);
 
 	public void prepareDataForAnalysis(InfiniteProgressMonitor progressListener, boolean startSaikuAfterDBExport) throws RdbExportException {
@@ -42,6 +46,8 @@ public class IPCCGeneratorService extends GenerateDatabase{
 
 			try {
 
+				landUses.initializeCodeListValues();
+				
 				if (
 						(localPropertiesService.isUsingSqliteDB() && !getZippedProjectDB( ExportType.IPCC ).exists())
 						|| 

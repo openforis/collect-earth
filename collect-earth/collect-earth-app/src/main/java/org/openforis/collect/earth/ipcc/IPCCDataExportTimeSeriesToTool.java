@@ -17,7 +17,6 @@ import javax.xml.bind.Marshaller;
 
 import org.apache.commons.math3.util.Precision;
 import org.openforis.collect.earth.app.service.RegionCalculationUtils;
-import org.openforis.collect.earth.app.service.SchemaService;
 import org.openforis.collect.earth.ipcc.controller.LandUseSubdivisionUtils;
 import org.openforis.collect.earth.ipcc.model.AbstractLandUseSubdivision;
 import org.openforis.collect.earth.ipcc.model.AgeClassCroplandEnum;
@@ -98,10 +97,8 @@ public class IPCCDataExportTimeSeriesToTool extends AbstractIPCCDataExport {
 	private static final String NO_SUBDIVISION = "-1";
 	
 	private static final String UNKNOWN_REGION = "Unknown";
-
-	@Autowired
-	private SchemaService schemaService;
 	
+	@Autowired
 	IPCCLandUses landUses;
 
 	private String countryCode;
@@ -867,7 +864,7 @@ public class IPCCDataExportTimeSeriesToTool extends AbstractIPCCDataExport {
 			@Override
 			public LandUseSubdivisionStratified mapRow(ResultSet rs, int rowNum) throws SQLException {
 				String landUseSubdivision = rs.getString( SUBDIVISION_AUX );
-				AbstractLandUseSubdivision<?> luSubItem = getIpccLandUses().getLandUseSubdivisions().stream()
+				AbstractLandUseSubdivision<?> luSubItem = landUses.getLandUseSubdivisions().stream()
 						.filter(luSubElem -> luSubElem.getCode().equals(landUseSubdivision)).findFirst()
 						.orElseThrow(() -> new IllegalArgumentException(
 								"No LU Subdivisions found for " + landUseSubdivision));
@@ -908,13 +905,6 @@ public class IPCCDataExportTimeSeriesToTool extends AbstractIPCCDataExport {
 
 	private void setCountryCode(String countryCode) {
 		this.countryCode = countryCode;
-	}
-
-	private IPCCLandUses getIpccLandUses() {
-		if (landUses == null) {
-			landUses = new IPCCLandUses(schemaService);
-		}
-		return landUses;
 	}
 
 	private List<LandUseSubdivisionStratified<?>> getSubdivisionsStrata() {
