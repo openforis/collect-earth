@@ -13,6 +13,7 @@ import org.apache.logging.log4j.core.util.FileUtils;
 import org.apache.poi.ss.formula.BaseFormulaEvaluator;
 import org.apache.poi.ss.usermodel.Cell;
 import org.apache.poi.ss.usermodel.CellStyle;
+import org.apache.poi.ss.usermodel.FillPatternType;
 import org.apache.poi.ss.usermodel.Font;
 import org.apache.poi.ss.usermodel.IndexedColors;
 import org.apache.poi.ss.usermodel.Row;
@@ -108,51 +109,47 @@ public class SamplingUncertaintyGenerator extends RDBConnector {
 		Font lossFont = templateWorkbook.createFont();
 		lossFont.setBold(true);
 		lossFont.setFontHeightInPoints((short) 14);
-		lossFont.setColor(IndexedColors.BLACK.getIndex());
+		lossFont.setColor(IndexedColors.DARK_RED.getIndex());
 		// Create a CellStyle with the font
 		CellStyle lossCellStyle = templateWorkbook.createCellStyle();
 		lossCellStyle.setFont(lossFont);
-		lossCellStyle.setFillBackgroundColor(IndexedColors.DARK_RED.getIndex());
 		
 		// Create a Font for styling FOREST GAIN
 		Font gainFont = templateWorkbook.createFont();
 		gainFont.setBold(true);
 		gainFont.setFontHeightInPoints((short) 14);
-		gainFont.setColor(IndexedColors.BLACK.getIndex());
+		gainFont.setColor(IndexedColors.DARK_GREEN.getIndex());
 		// Create a CellStyle with the font
 		CellStyle gainCellStyle = templateWorkbook.createCellStyle();
 		gainCellStyle.setFont(gainFont);
-		gainCellStyle.setFillBackgroundColor(IndexedColors.DARK_GREEN.getIndex());
 		
 		// Create a Font for styling STABLE FOREST
 		Font stableForestFont = templateWorkbook.createFont();
 		stableForestFont.setBold(false);
 		stableForestFont.setFontHeightInPoints((short) 14);
-		stableForestFont.setColor(IndexedColors.BLACK.getIndex());
+		stableForestFont.setColor(IndexedColors.GREEN.getIndex());
 		// Create a CellStyle with the font
 		CellStyle stableForestCellStyle = templateWorkbook.createCellStyle();
 		stableForestCellStyle.setFont(stableForestFont);
-		stableForestCellStyle.setFillBackgroundColor(IndexedColors.LIGHT_GREEN.getIndex());
+		
 		
 		// Create a Font for styling STABLE NON FOREST
 		Font stableNonForestFont = templateWorkbook.createFont();
 		stableNonForestFont.setBold(false);
 		stableNonForestFont.setFontHeightInPoints((short) 14);
-		stableNonForestFont.setColor(IndexedColors.BLACK.getIndex());
+		stableNonForestFont.setColor(IndexedColors.DARK_TEAL.getIndex());
 		// Create a CellStyle with the font
 		CellStyle stableNonForestCellStyle = templateWorkbook.createCellStyle();
 		stableNonForestCellStyle.setFont(stableNonForestFont);
-		stableNonForestCellStyle.setFillBackgroundColor(IndexedColors.LIGHT_BLUE.getIndex());
 		
 		// Create a Font for styling CHANGE NON FOREST
 		Font changeNonForestFont = templateWorkbook.createFont();
 		changeNonForestFont.setBold(false);
 		changeNonForestFont.setFontHeightInPoints((short) 14);
-		changeNonForestFont.setColor(IndexedColors.BLACK.getIndex());
+		changeNonForestFont.setColor(IndexedColors.DARK_BLUE.getIndex());
 		// Create a CellStyle with the font
 		CellStyle changeNonForestCellStyle = templateWorkbook.createCellStyle();
 		changeNonForestCellStyle.setFont(changeNonForestFont);
-		changeNonForestCellStyle.setFillBackgroundColor(IndexedColors.PLUM.getIndex());
 		
 		
 		// Land Use Conversion data should be set starting at row 6, columns A,B, C
@@ -245,6 +242,10 @@ public class SamplingUncertaintyGenerator extends RDBConnector {
 		luConversionTests.add( new LandUseCategoryConversion("F", "G", 3000, 3));
 		luConversionTests.add( new LandUseCategoryConversion("C", "C", 20000, 20));
 		luConversionTests.add( new LandUseCategoryConversion("C", "G", 2000, 2));
+		luConversionTests.add( new LandUseCategoryConversion("G", "C", 8000, 8));
+		luConversionTests.add( new LandUseCategoryConversion("G", "G", 3000, 3));
+		luConversionTests.add( new LandUseCategoryConversion("C", "F", 20000, 20));
+		luConversionTests.add( new LandUseCategoryConversion("G", "S", 2000, 2));
 		
 		SamplingUncertaintyGenerator generator = new SamplingUncertaintyGenerator();
 		File tempGenerated = generator.generateSamplignUncetaintyFile(luConversionTests, 2001, 2022);
