@@ -31,9 +31,9 @@ public abstract class AbstractIPCCDataExportCSV extends RDBConnector {
 			@Override
 			public String[] mapRow(ResultSet rs, int rowNum) throws SQLException {
 				int columnCount = rs.getMetaData().getColumnCount();
-				String[] columns = new String[ columnCount ];
+				String[] columns = new String[columnCount];
 				for (int i = 1; i <= columnCount; i++) {
-					columns[i-1] = rs.getString(i);
+					columns[i - 1] = rs.getString(i);
 				}
 				return columns;
 			}
@@ -43,15 +43,12 @@ public abstract class AbstractIPCCDataExportCSV extends RDBConnector {
 	protected File createCsv(List<String[]> luData) throws IOException {
 		File csvDestination = File.createTempFile("TimeSeriesData", ".csv");
 		csvDestination.deleteOnExit();
-		try ( 
-				FileWriter fw = new FileWriter(csvDestination); 
-				CSVWriter csvWriter = new CSVWriter(fw)
-				){
-			
+		try (FileWriter fw = new FileWriter(csvDestination); CSVWriter csvWriter = new CSVWriter(fw)) {
+
 			for (String[] row : luData) {
 				csvWriter.writeNext(row);
 			}
-	
+
 		} catch (Exception e) {
 			logger.error("Error generating CSV", e);
 		}

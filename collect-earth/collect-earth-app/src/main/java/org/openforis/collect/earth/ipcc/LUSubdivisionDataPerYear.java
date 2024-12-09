@@ -2,13 +2,13 @@ package org.openforis.collect.earth.ipcc;
 
 import org.openforis.collect.earth.ipcc.model.AbstractLandUseSubdivision;
 
-public class LUDataPerYear<F,E> {
+public class LUSubdivisionDataPerYear<F,E> {
 
-	private AbstractLandUseSubdivision lu;
-	private AbstractLandUseSubdivision luNextYear;
+	private AbstractLandUseSubdivision<?> lu;
+	private AbstractLandUseSubdivision<?> luNextYear;
 	private double areaHa;
 	
-	public LUDataPerYear(AbstractLandUseSubdivision lu, AbstractLandUseSubdivision luNextYear, double areaHa) {
+	public LUSubdivisionDataPerYear(AbstractLandUseSubdivision<F> lu, AbstractLandUseSubdivision<E> luNextYear, double areaHa) {
 		super();
 		this.lu = lu;
 		this.luNextYear = luNextYear;
@@ -23,7 +23,7 @@ public class LUDataPerYear<F,E> {
 
 	@Override
 	public String toString() {
-		return "LUDataPerYear [lu=" + lu + ", luNextYear=" + luNextYear + ", areaHa=" + areaHa + "]";
+		return "LUSubdivisionDataPerYear [lu=" + lu + ", luNextYear=" + luNextYear + ", areaHa=" + areaHa + "]";
 	}
 
 
@@ -31,7 +31,7 @@ public class LUDataPerYear<F,E> {
 
 
 	public AbstractLandUseSubdivision<F> getLu() {
-		return lu;
+		return (AbstractLandUseSubdivision<F>) lu;
 	}
 
 
@@ -39,7 +39,7 @@ public class LUDataPerYear<F,E> {
 
 
 	public AbstractLandUseSubdivision<E> getLuNextYear() {
-		return luNextYear;
+		return (AbstractLandUseSubdivision<E>) luNextYear;
 	}
 
 

@@ -17,7 +17,7 @@ public class MatrixSheet {
 	public List<AbstractLandUseSubdivision<?>> getSubdivisions() {
 		List<AbstractLandUseSubdivision<?>> subdivisions = new ArrayList<>();
 
-		for (LUDataPerYear<?, ?> luDataYear : yearData.getLuData()) {
+		for (LUSubdivisionDataPerYear<?, ?> luDataYear : yearData.getLuData()) {
 
 			if( luDataYear.getLu() != null && subdivisions.indexOf( luDataYear.getLu() ) == -1 ) {
 				subdivisions.add( luDataYear.getLu());

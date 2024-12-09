@@ -15,20 +15,20 @@ import org.springframework.stereotype.Component;
 import com.thoughtworks.xstream.XStream;
 
 @Component
-public class IPCCDataExportTimeSeriesXML extends AbstractIPCCDataExportTimeSeries<LUDataPerYear> {
+public class IPCCDataExportTimeSeriesXML extends AbstractIPCCDataExportTimeSeries<LUSubdivisionDataPerYear> {
 
 	@Override
-	protected RowMapper<LUDataPerYear> getRowMapper() {
-		return new RowMapper<LUDataPerYear>() {
+	protected RowMapper<LUSubdivisionDataPerYear> getRowMapper() {
+		return new RowMapper<LUSubdivisionDataPerYear>() {
 			@Override
-			public LUDataPerYear mapRow(ResultSet rs, int rowNum) throws SQLException {
+			public LUSubdivisionDataPerYear mapRow(ResultSet rs, int rowNum) throws SQLException {
 				
 				String categoryInitial = rs.getString(1);
 				String categoryFinal = rs.getString(2);
 				String subdivInitial = rs.getString(3);
 				String subdivFinal = rs.getString(4);
 				
-				return new LUDataPerYear(
+				return new LUSubdivisionDataPerYear(
 						LandUseSubdivisionUtils.getSubdivision(categoryInitial, subdivInitial),
 						LandUseSubdivisionUtils.getSubdivision(categoryFinal, subdivFinal),
 						rs.getDouble(5) // area
@@ -38,11 +38,11 @@ public class IPCCDataExportTimeSeriesXML extends AbstractIPCCDataExportTimeSerie
 	}
 
 	@Override
-	protected File generateFile( List<LUDataPerYear> strataData) throws IOException {
+	protected File generateFile( List<LUSubdivisionDataPerYear> strataData) throws IOException {
 		File xmlFileDestination = File.createTempFile("landUsesTimeseries", ".xml");
 		xmlFileDestination.deleteOnExit();
 		XStream xStream = new XStream();
-		xStream.alias("LandUse", LUDataPerYear.class);
+		xStream.alias("LandUse", LUSubdivisionDataPerYear.class);
 		xStream.alias("Stratum", StratumPerYearData.class);
 		xStream.alias("Subdivision", AbstractLandUseSubdivision.class);
 		
