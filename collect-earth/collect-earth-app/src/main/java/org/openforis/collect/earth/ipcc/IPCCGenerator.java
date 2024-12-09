@@ -54,6 +54,9 @@ public class IPCCGenerator {
 	IPCCDataExportPerPlotCSV dataExportPerPlotCSV;
 
 	@Autowired
+	SamplingUncertaintyGenerator sampligUncertaintyGenerator;
+	
+	@Autowired
 	IPCCDataExportTimeSeriesToTool dataExportTimeSeriesToTool;
 
 	@Autowired
@@ -119,7 +122,7 @@ public class IPCCGenerator {
 
 			File destinationZip = exportToFile[0];
 
-			final int STEPS = 7;
+			final int STEPS = 9;
 			int currentStep = 1;
 
 			progressListener.show();
@@ -135,6 +138,13 @@ public class IPCCGenerator {
 			// Extract data from the Relational Database into an excel file of transition
 			// Matrixes per year
 			File perPlotCSVFile = dataExportPerPlotCSV.generateTimeseriesData(START_YEAR, END_YEAR);
+			if (progressListener.isUserCancelled())
+				return;
+			
+			progressListener.updateProgress(currentStep++, STEPS, "Generating sampling uncertainty analysis");
+			// Extract data from the Relational Database into an excel file of transition
+			// Matrixes per year
+			File samplingUncertainty = sampligUncertaintyGenerator.getSamplingUncertainty(START_YEAR, END_YEAR);
 			if (progressListener.isUserCancelled())
 				return;
 
@@ -189,6 +199,7 @@ public class IPCCGenerator {
 				CollectEarthUtils.addFileToZip(destinationZip, landUnitsCSVFile, "LU_Timeseries_grouped.csv");
 				CollectEarthUtils.addFileToZip(destinationZip, perPlotCSVFile, "LU_Timeseries_per_plot.csv");
 				CollectEarthUtils.addFileToZip(destinationZip, xmlWithDataToImportGhgTool, "GHGi_tool_data.xml");
+				CollectEarthUtils.addFileToZip(destinationZip, samplingUncertainty, "SamplingUncertainty.xlsx");
 				progressListener.hide();
 			} catch (IOException e) {
 				logger.error("Error when creating ZIP file with timeseries content " + destinationZip, e); //$NON-NLS-1$ //$NON-NLS-2$
