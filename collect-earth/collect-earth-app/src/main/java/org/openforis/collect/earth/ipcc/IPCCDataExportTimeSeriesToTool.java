@@ -244,8 +244,9 @@ public class IPCCDataExportTimeSeriesToTool extends AbstractIPCCDataExport {
 			
 			cltCropLand.setPerennialCrops(landUseSubdivisionStratified.getLandUseSubdivision().getManagementType().equals(CroplandTypeEnum.PERENNIAL));
 			
-			cltCropLand.setCroplandTypeId( ( (CroplandSubdivision) landUseSubdivisionStratified.getLandUseSubdivision() ).getPerennialCropType().getId() );
-			
+			if( landUseSubdivisionStratified.getLandUseSubdivision().getManagementType().equals(CroplandTypeEnum.PERENNIAL) ) {
+				cltCropLand.setCroplandTypeId( ( (CroplandSubdivision) landUseSubdivisionStratified.getLandUseSubdivision() ).getPerennialCropType().getId() );
+			}
 			cltCropLand.setBWoodyUnitId( 0 );
 			cltCropLand.setBHerbUnitId(0);
 			cltCropLand.setAgeClassId( AgeClassCroplandEnum.UNSPECIFIED.getId());
