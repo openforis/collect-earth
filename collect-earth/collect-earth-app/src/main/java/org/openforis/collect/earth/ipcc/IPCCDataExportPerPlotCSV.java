@@ -62,7 +62,9 @@ public class IPCCDataExportPerPlotCSV  extends AbstractIPCCDataExportCSV  {
 					+ " and "
 					+ AbstractIPCCDataExportTimeSeries.GEZ_COLUMN_IN_PLOT + " = " +  AbstractIPCCDataExportTimeSeries.GEZ_COLUMN_ID
 					
-					+ " and " + EarthConstants.ACTIVELY_SAVED_ATTRIBUTE_NAME + " = " + EarthConstants.ACTIVELY_SAVED_BY_USER_VALUE+ " " // Only Actively saved plots so that there are no null Land Uses in the list
+					+ " and " + EarthConstants.ACTIVELY_SAVED_ATTRIBUTE_NAME + " = " + EarthConstants.ACTIVELY_SAVED_BY_USER_VALUE + " " // Only Actively saved plots so that there are no null Land Uses in the list
+					
+					+ " and " + EarthConstants.ROUND_ATTRIBUTE_NAME + " =  " + EarthConstants.ROUND_FIRST_ASSESSMENT_VALUE // Use only the data from the first re-assessmnent ( round = 1 ) otherwise we will count the area of the QC plots
 				
 				+ " ORDER BY "+ AbstractIPCCDataExportTimeSeries.PLOT_ID + " DESC"; // Remove trailing comma from list of years
 

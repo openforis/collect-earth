@@ -60,6 +60,7 @@ public abstract class AbstractIPCCDataExportTimeSeries<E> extends AbstractIPCCDa
 				+ " where " 
 				+ CLIMATE_COLUMN + " = ? and " + SOIL_COLUMN + " = ? and " + GEZ_COLUMN + " = ? "  
 				+ " and " + EarthConstants.ACTIVELY_SAVED_ATTRIBUTE_NAME + " = ?  " // Only Actively saved plots so that there are no null Land Uses in the list
+				+ " and " + EarthConstants.ROUND_ATTRIBUTE_NAME + " = ?  " // Use only the data from the first re-assessmnent ( round = 1 ) otherwise we will count the area of the QC plots
 				+ " GROUP BY "
 				+ IPCCSurveyAdapter.getIpccCategoryAttrName(year) + ","
 				+ IPCCSurveyAdapter.getIpccCategoryAttrName(year + 1) + ","
@@ -68,9 +69,10 @@ public abstract class AbstractIPCCDataExportTimeSeries<E> extends AbstractIPCCDa
 		
 		//logger.info("SQL select IPCC attr " + sqlSelect);
 				
-		List<LUDataPerYear> luData = getJdbcTemplate().query(
+		List<LUSubdivisionDataPerYear> luData = getJdbcTemplate().query(
 			sqlSelectPreparedStatement, 
-			new ArgumentPreparedStatementSetter( new Object[] {climate.getValue(), soil.getValue(), gez.getValue(), EarthConstants.ACTIVELY_SAVED_BY_USER_VALUE} ),			
+			new ArgumentPreparedStatementSetter( new Object[] {climate.getValue(), soil.getValue(), gez.getValue()
+					, EarthConstants.ACTIVELY_SAVED_BY_USER_VALUE, EarthConstants.ROUND_FIRST_ASSESSMENT_VALUE} ),			
 			getRowMapper()
 		);
 
@@ -83,17 +85,17 @@ public abstract class AbstractIPCCDataExportTimeSeries<E> extends AbstractIPCCDa
 		return strataPerYearData;
 	}
 
-	protected RowMapper<LUDataPerYear> getRowMapper() {
-		return new RowMapper<LUDataPerYear>() {
+	protected RowMapper<LUSubdivisionDataPerYear> getRowMapper() {
+		return new RowMapper<LUSubdivisionDataPerYear>() {
 			@Override
-			public LUDataPerYear mapRow(ResultSet rs, int rowNum) throws SQLException {
+			public LUSubdivisionDataPerYear mapRow(ResultSet rs, int rowNum) throws SQLException {
 				
 				String categoryInitial = rs.getString(1);
 				String categoryFinal = rs.getString(2);
 				String subdivInitial = rs.getString(3);
 				String subdivFinal = rs.getString(4);
 				
-				return new LUDataPerYear(
+				return new LUSubdivisionDataPerYear(
 						LandUseSubdivisionUtils.getSubdivision(categoryInitial, subdivInitial),
 						LandUseSubdivisionUtils.getSubdivision(categoryFinal, subdivFinal),
 						rs.getDouble(5) // area

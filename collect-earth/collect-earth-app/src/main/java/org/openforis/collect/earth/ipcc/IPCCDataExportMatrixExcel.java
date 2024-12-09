@@ -65,7 +65,7 @@ public class IPCCDataExportMatrixExcel extends RDBConnector {
 
 	private MatrixSheet generateLUMatrixForYear(int year) {
 
-		List<LUDataPerYear> luData = getJdbcTemplate().query(
+		List<LUSubdivisionDataPerYear> luData = getJdbcTemplate().query(
 				"select " 
 						+ IPCCSurveyAdapter.getIpccCategoryAttrName(year) + ", " 
 						+ IPCCSurveyAdapter.getIpccCategoryAttrName(year + 1) + ","
@@ -74,6 +74,7 @@ public class IPCCDataExportMatrixExcel extends RDBConnector {
 						+ "sum( " + RegionCalculationUtils.EXPANSION_FACTOR + ")" 
 						+ " from " + schemaName + AbstractIPCCDataExportTimeSeries.PLOT_TABLE 
 						+ " where " + EarthConstants.ACTIVELY_SAVED_ATTRIBUTE_NAME + " = " + EarthConstants.ACTIVELY_SAVED_BY_USER_VALUE+ " " // Only Actively saved plots so that there are no null Land Uses in the list
+						+ " and " + EarthConstants.ROUND_ATTRIBUTE_NAME + " =  " + EarthConstants.ROUND_FIRST_ASSESSMENT_VALUE // Use only the data from the first re-assessmnent ( round = 1 ) otherwise we will count the area of the QC plots
 						+ " GROUP BY "
 						+ IPCCSurveyAdapter.getIpccCategoryAttrName(year) + ","
 						+ IPCCSurveyAdapter.getIpccCategoryAttrName(year + 1) + ","
@@ -92,17 +93,17 @@ public class IPCCDataExportMatrixExcel extends RDBConnector {
 	}
 
 
-	protected RowMapper<LUDataPerYear> getRowMapper() {
-		return new RowMapper<LUDataPerYear>() {
+	protected RowMapper<LUSubdivisionDataPerYear> getRowMapper() {
+		return new RowMapper<LUSubdivisionDataPerYear>() {
 			@Override
-			public LUDataPerYear mapRow(ResultSet rs, int rowNum) throws SQLException {
+			public LUSubdivisionDataPerYear mapRow(ResultSet rs, int rowNum) throws SQLException {
 				
 				String categoryInitial = rs.getString(1);
 				String categoryFinal = rs.getString(2);
 				String subdivInitial = rs.getString(3);
 				String subdivFinal = rs.getString(4);
 				
-				return new LUDataPerYear(
+				return new LUSubdivisionDataPerYear(
 						LandUseSubdivisionUtils.getSubdivision(categoryInitial, subdivInitial),
 						LandUseSubdivisionUtils.getSubdivision(categoryFinal, subdivFinal),
 						rs.getDouble(5) // area
@@ -111,31 +112,31 @@ public class IPCCDataExportMatrixExcel extends RDBConnector {
 		};
 	}
 
-	protected static LUDataPerYear findLuData( AbstractLandUseSubdivision initialSubdivision, AbstractLandUseSubdivision finalSubdivision, List<LUDataPerYear> luData ) {
+	protected static LUSubdivisionDataPerYear findLuData( AbstractLandUseSubdivision initialSubdivision, AbstractLandUseSubdivision finalSubdivision, List<LUSubdivisionDataPerYear> luData ) {
 		if( luData.removeIf(Objects::isNull) ) { // TODO Why are there null values here??
 			logger.info("A Why do we have a null LU category here?");
 		}
 
 		Collection<?> result = CollectionUtils.select(luData, new Predicate() {
 			public boolean evaluate(Object a) {
-				if(  ( (LUDataPerYear) a ).getLu() == null ) {
+				if(  ( (LUSubdivisionDataPerYear) a ).getLu() == null ) {
 					logger.info("B Why do we have a null LU category here? " + a.toString());
 					return false;
-				}else if( ( (LUDataPerYear) a ).getLuNextYear() == null) {
+				}else if( ( (LUSubdivisionDataPerYear) a ).getLuNextYear() == null) {
 					logger.info("C Why do we have a null LU Next Year category here?" + a.toString());
 					return false;
 				}
 				
 				return 
-						( (LUDataPerYear) a ).getLu().equals(initialSubdivision) 
+						( (LUSubdivisionDataPerYear) a ).getLu().equals(initialSubdivision) 
 						&& 
-						( (LUDataPerYear) a ).getLuNextYear().equals(finalSubdivision);
+						( (LUSubdivisionDataPerYear) a ).getLuNextYear().equals(finalSubdivision);
 			}
 		});
 		if( result.size() == 1 )
-			return (LUDataPerYear) result.toArray(new LUDataPerYear[result.size()])[0];
+			return (LUSubdivisionDataPerYear) result.toArray(new LUSubdivisionDataPerYear[result.size()])[0];
 		else
-			return new LUDataPerYear(initialSubdivision, finalSubdivision, 0);
+			return new LUSubdivisionDataPerYear(initialSubdivision, finalSubdivision, 0);
 
 	}
 
