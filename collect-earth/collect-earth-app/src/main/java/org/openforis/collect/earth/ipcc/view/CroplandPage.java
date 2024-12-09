@@ -25,7 +25,7 @@ public class CroplandPage extends AbstractSubdivisionPage {
 	}
 
 	@Override
-	protected void getMoreInfo(GridBagConstraints constraints, JPanel contentPane, AbstractLandUseSubdivision<?> subdiv) {
+	protected void getMoreInfo(GridBagConstraints constraints, JPanel contentPane, AbstractLandUseSubdivision<?> subdiv, JComboBox<Object> mgmtType) {
 		constraints.gridx = 4;
 		JComboBox<Object> perennialCropTypes = new JComboBox( PerennialCropTypesEnum.values() );
 		perennialCropTypes.setSelectedItem( ( (CroplandSubdivision) subdiv ).getPerennialCropType() );
@@ -35,6 +35,11 @@ public class CroplandPage extends AbstractSubdivisionPage {
 				croplandSud.setPerennialCropType( (PerennialCropTypesEnum) perennialCropTypes.getSelectedItem() );
 			} 
 		);
+		
+		perennialCropTypes.setEnabled( mgmtType.getSelectedItem().equals(CroplandTypeEnum.PERENNIAL ) );
+		
+		// Only enable for perennial management type of crops
+		mgmtType.addActionListener( e ->  perennialCropTypes.setEnabled( mgmtType.getSelectedItem().equals(CroplandTypeEnum.PERENNIAL ) ) );
 	}
 	
 	@Override

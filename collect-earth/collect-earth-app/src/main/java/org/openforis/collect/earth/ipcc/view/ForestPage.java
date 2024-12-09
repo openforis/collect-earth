@@ -24,7 +24,7 @@ public class ForestPage extends AbstractSubdivisionPage {
 	}
 
 	@Override
-	protected void getMoreInfo(GridBagConstraints constraints, JPanel contentPane, AbstractLandUseSubdivision<?> subdiv) {
+	protected void getMoreInfo(GridBagConstraints constraints, JPanel contentPane, AbstractLandUseSubdivision<?> subdiv, JComboBox<Object> mgmtType) {
 		constraints.gridx = 4;
 		JComboBox<Object> forestType = new JComboBox( ForestTypeEnum.values() );
 		forestType.setSelectedItem( ( (ForestSubdivision) subdiv ).getForestType() );

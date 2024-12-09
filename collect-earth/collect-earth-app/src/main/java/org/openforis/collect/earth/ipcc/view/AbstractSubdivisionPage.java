@@ -50,11 +50,13 @@ public abstract class AbstractSubdivisionPage extends AbstractWizardPage {
 			constraints.gridx = 0;
 
 			JLabel labelCode = new JLabel(subdiv.getCode());
+			labelCode.setMaximumSize( new Dimension(40, 50 ));
 			contentPane.add(labelCode, constraints);
 
 			constraints.gridx = 1;
 
 			JLabel labelName = new JLabel(subdiv.getName());
+			labelCode.setMaximumSize( new Dimension(100, 50 ));
 			contentPane.add(labelName, constraints);
 
 			constraints.gridx = 2;
@@ -64,7 +66,7 @@ public abstract class AbstractSubdivisionPage extends AbstractWizardPage {
 			mgmtType.addActionListener(
 					e -> LandUseSubdivisionUtils.setSubdivisionType(subdiv, mgmtType.getSelectedItem()));
 
-			getMoreInfo(constraints, contentPane, subdiv);
+			getMoreInfo(constraints, contentPane, subdiv, mgmtType);
 
 			constraints.gridy++;
 		}
@@ -73,7 +75,7 @@ public abstract class AbstractSubdivisionPage extends AbstractWizardPage {
 
 	}
 
-	protected void getMoreInfo(final GridBagConstraints constraints, JPanel contentPane, AbstractLandUseSubdivision<?> subdiv) {
+	protected void getMoreInfo(final GridBagConstraints constraints, JPanel contentPane, AbstractLandUseSubdivision<?> subdiv, JComboBox<Object> mgmtType) {
 		// DO NOTHING, USED FOR FORESTS
 	}
 

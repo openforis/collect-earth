@@ -25,7 +25,7 @@ public class GrasslandPage extends AbstractSubdivisionPage {
 
 	@Override
 	protected void getMoreInfo(GridBagConstraints constraints, JPanel contentPane,
-			AbstractLandUseSubdivision<?> subdiv) {
+			AbstractLandUseSubdivision<?> subdiv, JComboBox<Object> mgmtType) {
 		constraints.gridx = 4;
 		JComboBox<Object> vegetationTypeCombo = new JComboBox(VegetationTypeEnum.values());
 		vegetationTypeCombo.setSelectedItem(((GrasslandSubdivision) subdiv).getVegetationType());
