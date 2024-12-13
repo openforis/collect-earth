@@ -13,6 +13,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 - Export Sampling Error Excel file inside the GHGi LULUCF package
 
+### Fixed
+- Bug when CE started in the new Mac iOS for arm architecture
 
 ## [1.20.7] - 2023-07-06
 
