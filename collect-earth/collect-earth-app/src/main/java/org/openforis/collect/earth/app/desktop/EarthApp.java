@@ -8,6 +8,7 @@ import java.io.BufferedReader;
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStreamReader;
+import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.lang.reflect.Proxy;
 import java.net.MalformedURLException;
@@ -164,47 +165,112 @@ public class EarthApp {
 	@SuppressWarnings({ "rawtypes", "unchecked" })
 	public static void handleMacStartup(String doubleClickedProjectFile) throws Exception {
 		try {
-			Class applicationClass = Class.forName("com.apple.eawt.Application");
-			Method getApplicationMethod = applicationClass.getMethod("getApplication");
-			Method setDockIconImageMethod = applicationClass.getMethod("setDockIconImage", Image.class);
-
-			Class openFilesHandlerInterface = Class.forName("com.apple.eawt.OpenFilesHandler");
-			Method setOpenFileHandlerMethod = applicationClass.getMethod("setOpenFileHandler",
-					openFilesHandlerInterface);
-
-			// SET THE MAC OS X DOCK ICON!
-			// Get an Application object
-			Object applicationObject = getApplicationMethod.invoke(null);
+			
 			try {
-				Image dockIconImage = new ImageIcon(new File("images/dockIconMac.png").toURI().toURL()).getImage();
-				// Invoke the setDockIconImage on the application object using the dockIconImage
-				// as an argument
-				setDockIconImageMethod.invoke(applicationObject, dockIconImage);
-			} catch (MalformedURLException e2) {
-				logger.error("Problems finding the docker icon", e2);
+				// This code is only available in Java 9 and later and in newer Mac OS versions
+				setIconMacNewOS();
+			} catch (Exception e) {
+				logger.error("Error while defining the double-click behaviour on CEP files in NEW Mac OS X", e);
+				try {
+					setIconMacOldOS();
+				} catch (Exception e2) {
+					logger.error("Error while defining the double-click behaviour on CEP files in OLD Mac OS X", e2);
+				}
+				
 			}
-			// -------------------------------------------
-
-			// DEFINE A LISTENER THAT IS REGISTERED BY THE OS TO HEAR DOUBLE-CLICK EVENTS
-			// AND REGISTER ITSELF AS THE CEP OPENER
-			MacOpenFilesInvocationHandler macOpenFileHandlerProxyInterface = new MacOpenFilesInvocationHandler();
-			Object openFilesHandlerImplementation = Proxy.newProxyInstance(applicationClass.getClassLoader(),
-					new Class[] { openFilesHandlerInterface }, macOpenFileHandlerProxyInterface);
-
-			// Call the setOpenFileHandler method of the application object using the
-			setOpenFileHandlerMethod.invoke(applicationObject,
-					(openFilesHandlerInterface.cast(openFilesHandlerImplementation)));
-
+			
 			// Lets wait for the Apple event to arrive. If it did then the earthApp variable
 			// will be non-nulls
 			Thread.sleep(2000);
-			if (earthApp == null) {
-				startCollectEarth(doubleClickedProjectFile);
-			}
+
 		} catch (Exception e) {
 			logger.error("Error while defining the double-click behaviour on CEP files in Mac OS X", e);
-			startCollectEarth(null);
+			
+		} finally {
+			if (earthApp == null) {
+				logger.info("Collect Earth started by double-clicking a CEP file in Mac OS X " + doubleClickedProjectFile);
+				startCollectEarth(doubleClickedProjectFile);
+			} else {
+				logger.info("Collect Earth started but no CEP file loaded in Mac OS X");
+				startCollectEarth(null);
+			}
 		}
+	}
+
+	private static void setIconMacOldOS()
+			throws ClassNotFoundException, NoSuchMethodException, IllegalAccessException, InvocationTargetException {
+		Class applicationClass = Class.forName("com.apple.eawt.Application");
+		Method getApplicationMethod = applicationClass.getMethod("getApplication");
+		Method setDockIconImageMethod = applicationClass.getMethod("setDockIconImage", Image.class);
+
+		Class openFilesHandlerInterface = Class.forName("com.apple.eawt.OpenFilesHandler");
+		Method setOpenFileHandlerMethod = applicationClass.getMethod("setOpenFileHandler",
+				openFilesHandlerInterface);
+
+		// SET THE MAC OS X DOCK ICON!
+		// Get an Application object
+		Object applicationObject = getApplicationMethod.invoke(null);
+		try {
+			Image dockIconImage = new ImageIcon(new File("images/dockIconMac.png").toURI().toURL()).getImage();
+			// Invoke the setDockIconImage on the application object using the dockIconImage
+			// as an argument
+			setDockIconImageMethod.invoke(applicationObject, dockIconImage);
+		} catch (MalformedURLException e2) {
+			logger.error("Problems finding the docker icon", e2);
+		}
+		// -------------------------------------------
+
+		// DEFINE A LISTENER THAT IS REGISTERED BY THE OS TO HEAR DOUBLE-CLICK EVENTS
+		// AND REGISTER ITSELF AS THE CEP OPENER
+		MacOpenFilesInvocationHandler macOpenFileHandlerProxyInterface = new MacOpenFilesInvocationHandler();
+		Object openFilesHandlerImplementation = Proxy.newProxyInstance(applicationClass.getClassLoader(),
+				new Class[] { openFilesHandlerInterface }, macOpenFileHandlerProxyInterface);
+
+		// Call the setOpenFileHandler method of the application object using the
+		setOpenFileHandlerMethod.invoke(applicationObject,
+				(openFilesHandlerInterface.cast(openFilesHandlerImplementation)));
+	}
+	
+
+	private static void setIconMacNewOS()
+			throws ClassNotFoundException, NoSuchMethodException, IllegalAccessException, InvocationTargetException {
+		// SET THE MAC OS X DOCK ICON!
+		// Get an Application object
+		Object taskbarObject;
+		Object desktopObject;
+ 
+		Class taskbarClass = Class.forName("java.awt.Taskbar");
+		Class desktopClass = Class.forName("java.awt.Desktop");
+		Method getTaskBarMethod = taskbarClass.getMethod("getTaskbar");
+		Method getDesktopMethod = desktopClass.getMethod("getDesktop");
+		Method setIconImage = taskbarClass.getMethod("setIconImage", Image.class);
+ 
+		Class openFilesHandlerInterface = Class.forName("java.awt.desktop.OpenFilesHandler");
+		Method setOpenFileHandlerMethod = desktopClass.getMethod("setOpenFileHandler",
+				openFilesHandlerInterface);
+ 
+		taskbarObject = getTaskBarMethod.invoke(null);
+		try {
+			Image dockIconImage = new ImageIcon(new File("images/dockIconMac.png").toURI().toURL()).getImage();
+			// Invoke the setDockIconImage on the application object using the dockIconImage
+			// as an argument
+			setIconImage.invoke(taskbarObject, dockIconImage);
+		} catch (MalformedURLException e2) {
+			logger.error("Problems finding the docker icon", e2);
+		}
+		// -------------------------------------------
+ 
+		// DEFINE A LISTENER THAT IS REGISTERED BY THE OS TO HEAR DOUBLE-CLICK EVENTS
+		// AND REGISTER ITSELF AS THE CEP OPENER
+		MacOpenFilesInvocationHandlerNewIos macOpenFileHandlerProxyInterface = new MacOpenFilesInvocationHandlerNewIos();
+		Object openFilesHandlerImplementation = Proxy.newProxyInstance(desktopClass.getClassLoader(),
+				new Class[] { openFilesHandlerInterface }, macOpenFileHandlerProxyInterface);
+ 
+		desktopObject = getDesktopMethod.invoke(null);
+ 
+		// Call the setOpenFileHandler method of the application object using the
+		setOpenFileHandlerMethod.invoke(desktopObject,
+				(openFilesHandlerInterface.cast(openFilesHandlerImplementation)));
 	}
 
 	public void generateKml() {
