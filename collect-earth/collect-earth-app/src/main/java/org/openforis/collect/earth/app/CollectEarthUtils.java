@@ -62,7 +62,12 @@ public class CollectEarthUtils {
 	}
 
 	public static String getMd5FromFile(String filePath) throws IOException {
-		return DigestUtils.md5Hex(new FileInputStream(new File(filePath)));
+		try (FileInputStream fis = new FileInputStream(new File(filePath))) {
+			return DigestUtils.md5Hex(fis);
+		} catch (Exception e) {
+			logger.error("Error getting MD5 from file", e);
+			return null;
+		}
 	}
 
 	public static void setFontDependingOnLanguaue(UI_LANGUAGE uiLanguage) {

@@ -466,27 +466,43 @@ public class KmlGeneratorService {
 
 	private boolean isKmlUpToDate() throws IOException {
 
-		final String csvFile = getLocalProperties().getCsvFile();
-		final String balloon = getLocalProperties().getBalloonFile();
-		final String template = getLocalProperties().getTemplateFile();
+	    // Retrieve file paths and checksums, handling potential null values
+	    final String csvFile = getLocalProperties().getCsvFile();
+	    final String balloon = getLocalProperties().getBalloonFile();
+	    final String template = getLocalProperties().getTemplateFile();
+	    final String balloonChecksum = getLocalProperties().getBalloonFileChecksum();
+	    final String templateChecksum = getLocalProperties().getTemplateFileChecksum();
+	    final String csvChecksum = getLocalProperties().getCsvFileChecksum();
 
-		boolean upToDate = true;
-		if (!getLocalProperties().getBalloonFileChecksum().trim().equals(CollectEarthUtils.getMd5FromFile(balloon))
-				|| !getLocalProperties().getTemplateFileChecksum().trim()
-						.equals(CollectEarthUtils.getMd5FromFile(template))
-				|| !getLocalProperties().getCsvFileChecksum().trim()
-						.equals(CollectEarthUtils.getMd5FromFile(csvFile))) {
-			upToDate = false;
-		}
+	    // Check if any essential property is null
+	    if (csvFile == null || balloon == null || template == null ||
+	        balloonChecksum == null || templateChecksum == null || csvChecksum == null) {
+	        return false; // Return false if any required property is null
+	    }
 
-		final File kmzFile = new File(KmlGeneratorService.KMZ_FILE_PATH);
-		if (!kmzFile.exists()) {
-			upToDate = false;
-		}
+	    boolean upToDate = true;
 
-		return upToDate;
+	    // Get MD5 checksums, ensuring null values are handled
+	    final String balloonMd5 = CollectEarthUtils.getMd5FromFile(balloon);
+	    final String templateMd5 = CollectEarthUtils.getMd5FromFile(template);
+	    final String csvMd5 = CollectEarthUtils.getMd5FromFile(csvFile);
 
+	    // Check if the computed MD5 values are null or do not match the expected checksums
+	    if (balloonMd5 == null || !balloonChecksum.trim().equals(balloonMd5) ||
+	        templateMd5 == null || !templateChecksum.trim().equals(templateMd5) ||
+	        csvMd5 == null || !csvChecksum.trim().equals(csvMd5)) {
+	        upToDate = false;
+	    }
+
+	    // Check if the KMZ file exists
+	    final File kmzFile = new File(KmlGeneratorService.KMZ_FILE_PATH);
+	    if (!kmzFile.exists()) {
+	        upToDate = false;
+	    }
+
+	    return upToDate;
 	}
+
 
 	public void generatePlacemarksKmzFile() throws IOException, KmlGenerationException, CsvValidationException {
 		generatePlacemarksKmzFile(false);
