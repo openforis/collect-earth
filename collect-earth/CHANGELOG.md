@@ -15,6 +15,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 - Bug when CE started in the new Mac iOS for arm architecture
+- Bug when Firefox not installed and Collect Earth installed fresh (browser windows not opening)
 
 ## [1.20.7] - 2023-07-06
 
