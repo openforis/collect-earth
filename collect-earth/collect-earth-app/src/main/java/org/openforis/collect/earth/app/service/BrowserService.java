@@ -133,7 +133,7 @@ public class BrowserService implements InitializingBean, Observer {
 
 		if (driver == null) {
 			throw new BrowserNotFoundException(
-					"Neither Chrome nor Firefox could be opened. You need to have one of them installed in order to use GEE, Bing Maps or Saiku.");
+					"Neither Chrome, Edege or Firefox could be opened. You need to have one of them installed in order to use GEE, Bing Maps or Saiku.");
 		}
 
 		return driver;
@@ -143,7 +143,7 @@ public class BrowserService implements InitializingBean, Observer {
 		RemoteWebDriver driver = null;
 		try {
 			driver = (RemoteWebDriver) WebDriverManager.firefoxdriver().create();
-		} catch (final WebDriverException e) {
+		} catch (final Exception e) {
 			logger.warn(
 					"Problem starting Firefox browser!",
 							e);
@@ -155,7 +155,7 @@ public class BrowserService implements InitializingBean, Observer {
 		RemoteWebDriver driver = null;
 		try {
 			driver = (RemoteWebDriver) WebDriverManager.edgedriver().create();
-		} catch (final WebDriverException e) {
+		} catch (final Exception e) {
 			logger.warn(
 					"Problem starting Edge browser",
 							e);
