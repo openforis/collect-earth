@@ -13,10 +13,13 @@ import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Queue;
 import java.util.Set;
+import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 
 import org.apache.commons.lang3.StringUtils;
 import org.openforis.collect.earth.core.model.PlacemarkCodedItem;
 import org.openforis.collect.earth.core.model.PlacemarkInputFieldInfo;
+import org.openforis.collect.earth.core.utils.CollectSurveyUtils;
 import org.openforis.collect.metamodel.ui.UIConfiguration;
 import org.openforis.collect.metamodel.ui.UIField;
 import org.openforis.collect.metamodel.ui.UIFormComponent;
@@ -56,11 +59,12 @@ import org.springframework.stereotype.Component;
 @Component
 public class BalloonInputFieldsUtils {
 
-	private static final String NOT_APPLICABLE_ITEM_CODE = "-1";
-	private static final String NOT_APPLICABLE_ITEM_LABEL = "N/A";
-
 	public static final String PARAMETER_SEPARATOR = "===";
 	public static final String MULTIPLE_VALUES_SEPARATOR = ";";
+	
+	private static final String NOT_APPLICABLE_ITEM_CODE = "-1";
+	private static final String NOT_APPLICABLE_ITEM_LABEL = "N/A";
+	private static final int MAX_MULTIPLE_ENTITIES_COUNT = 10;
 
 	private static final String COLLECT_PREFIX = "collect_";
 	private final Logger logger = LoggerFactory.getLogger(BalloonInputFieldsUtils.class);
@@ -361,8 +365,6 @@ public class BalloonInputFieldsUtils {
 	}
 
 	private Map<String, String> generateAttributeHtmlParameterNameByNodePath(AttributeDefinition def) {
-		CodeListService codeListService = def.getSurvey().getContext().getCodeListService();
-
 		Map<String, String> result = new HashMap<String, String>();
 
 		EntityDefinition parentDef = def.getParentEntityDefinition();
@@ -374,28 +376,26 @@ public class BalloonInputFieldsUtils {
 		} else {
 			List<NodeDefinition> childDefs = parentDef.getChildDefinitions();
 			if (parentDef.isMultiple()) {
-				// multiple (enumerated) entity
+				// multiple entity
+				List<?> enumeratingItems;
 				CodeAttributeDefinition keyCodeAttribute = parentDef.getEnumeratingKeyCodeAttribute();
-				if (keyCodeAttribute == null) {
-					throw new IllegalStateException(
-							"Enumerating code attribute expected for entity " + parentDef.getPath());
+				if (keyCodeAttribute != null) {
+					// enumerated entity
+					enumeratingItems = CollectSurveyUtils.getEnumeratingCodes(keyCodeAttribute);
 				} else {
-					CodeList enumeratingList = keyCodeAttribute.getList();
-					List<CodeListItem> enumeratingItems = codeListService.loadRootItems(enumeratingList);
-					for (int i = 0; i < enumeratingItems.size(); i++) {
-						CodeListItem enumeratingItem = enumeratingItems.get(i);
-						String collectParameterBaseName = getCollectParameterBaseName(parentDef) + "["
-								+ enumeratingItem.getCode() + "].";
-
-						for (NodeDefinition childDef : childDefs) {
-							AbstractAttributeHandler<?> childHandler = findHandler(childDef);
-							if (childHandler != null) {
-								String collectParameterName = collectParameterBaseName + childHandler.getPrefix()
-										+ childDef.getName();
-								String enumeratingItemPath = parentDef.getPath() + "[" + (i + 1) + "]/"
-										+ childDef.getName();
-								result.put(enumeratingItemPath, collectParameterName);
-							}
+					enumeratingItems = IntStream.rangeClosed(1, MAX_MULTIPLE_ENTITIES_COUNT).boxed().collect(Collectors.toList());
+				}
+				for (int i = 0; i < enumeratingItems.size(); i++) {
+					Object enumeratingItem = enumeratingItems.get(i);
+					String collectParameterBaseName = getCollectParameterBaseName(parentDef) + "[" + enumeratingItem + "].";
+					for (NodeDefinition childDef : childDefs) {
+						AbstractAttributeHandler<?> childHandler = findHandler(childDef);
+						if (childHandler != null) {
+							String collectParameterName = collectParameterBaseName + childHandler.getPrefix()
+									+ childDef.getName();
+							String enumeratingItemPath = parentDef.getPath() + "[" + (i + 1) + "]/"
+									+ childDef.getName();
+							result.put(enumeratingItemPath, collectParameterName);
 						}
 					}
 				}
@@ -407,8 +407,8 @@ public class BalloonInputFieldsUtils {
 					if (childHandler != null) {
 						String collectParameterName = collectParameterBaseName + childHandler.getPrefix()
 								+ childDef.getName();
-						String enumeratingItemPath = parentDef.getPath() + "/" + childDef.getName();
-						result.put(enumeratingItemPath, collectParameterName);
+						String nodePath = parentDef.getPath() + "/" + childDef.getName();
+						result.put(nodePath, collectParameterName);
 					}
 				}
 			}
