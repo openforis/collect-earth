@@ -92,13 +92,15 @@ public class BalloonInputFieldsUtils {
 				logger.warn("Cannot find handler for parameter: ", parameterName);
 			} else if (handler instanceof EntityHandler) {
 				Entity currentEntity = ((EntityHandler) handler).getChildEntity(cleanName, rootEntity);
-				String childAttributeParameterName = ((EntityHandler) handler)
-						.extractNestedAttributeParameterName(parameterName);
-				AbstractAttributeHandler<?> childHandler = findHandler(childAttributeParameterName);
-				if (childHandler != null) {
-					PlacemarkInputFieldInfo info = generateAttributeFieldInfo(record, validationMessageByPath,
-							currentEntity, childAttributeParameterName, childHandler, language, modelVersionName);
-					result.put(parameterName, info);
+				if (currentEntity != null) {
+					String childAttributeParameterName = ((EntityHandler) handler)
+							.extractNestedAttributeParameterName(parameterName);
+					AbstractAttributeHandler<?> childHandler = findHandler(childAttributeParameterName);
+					if (childHandler != null) {
+						PlacemarkInputFieldInfo info = generateAttributeFieldInfo(record, validationMessageByPath,
+								currentEntity, childAttributeParameterName, childHandler, language, modelVersionName);
+						result.put(parameterName, info);
+					}
 				}
 			} else {
 				PlacemarkInputFieldInfo info = generateAttributeFieldInfo(record, validationMessageByPath, rootEntity,
@@ -263,7 +265,7 @@ public class BalloonInputFieldsUtils {
 		return result;
 	}
 
-	private LinkedHashMap<String, String> getHtmlParameterNameByNodePathPerComponent(
+	private Map<String, String> getHtmlParameterNameByNodePathPerComponent(
 			EntityDefinition rootEntityDef, UIFormComponent uiFormComponent) {
 		LinkedHashMap<String, String> result = new LinkedHashMap<>();
 
@@ -300,7 +302,8 @@ public class BalloonInputFieldsUtils {
 		} else if (uiFormComponent instanceof UIFormSection) {
 			// single entity
 			EntityDefinition entityDef = ((UIFormSection) uiFormComponent).getEntityDefinition();
-			String collectParameterBaseName = getCollectParameterBaseName(entityDef) + ".";
+			String collectParameterBaseNamePrefix = getCollectParameterBaseName(entityDef);
+			String collectParameterBaseName = collectParameterBaseNamePrefix + (entityDef.isMultiple() ? "[$index]": "") + ".";
 			result.putAll(getHtmlParameterNameByNodePathOfChildren(entityDef, collectParameterBaseName, null));
 		}
 		return result;
@@ -309,7 +312,7 @@ public class BalloonInputFieldsUtils {
 	private LinkedHashMap<String, String> getHtmlParameterNameByNodePathOfChildren(EntityDefinition entityDef,
 			String collectParameterBaseName, Integer parentEntityIndex) {
 		final LinkedHashMap<String, String> result = new LinkedHashMap<>();
-		String parentEntityIndexPathPart = parentEntityIndex == null ? null : "[" + (parentEntityIndex + 1) + "]";
+		String parentEntityIndexPathPart = "[" + (parentEntityIndex == null ? "$index" : (parentEntityIndex + 1)) + "]";
 		for (NodeDefinition childDef : entityDef.getChildDefinitions()) {
 			AbstractAttributeHandler<?> childHandler = findHandler(childDef);
 			if (childHandler != null) {
