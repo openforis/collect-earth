@@ -27,4 +27,5 @@ public interface DataAccessor {
 	public PlacemarkLoadResult updateData(String[] multipleKeyAttributes, 
 			Map<String, String> values, boolean partialUpdate);
 
+	public PlacemarkLoadResult addNewEntity(String[] keyAttributes, String entityName, Map<String, String> values);
 }

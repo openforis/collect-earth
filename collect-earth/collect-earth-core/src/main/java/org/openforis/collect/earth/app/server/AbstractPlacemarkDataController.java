@@ -44,7 +44,7 @@ public class AbstractPlacemarkDataController extends JsonPocessorServlet {
 
 	@Autowired
 	protected AbstractEarthSurveyService earthSurveyService;
-
+	
 	protected void placemarkInfoExpanded(@RequestParam("id") String placemarkId, HttpServletResponse response) throws IOException {
 		PlacemarkLoadResult result;
 		if (placemarkId == null || placemarkId.equals(PREVIEW_PLOT_ID)) {
@@ -88,25 +88,38 @@ public class AbstractPlacemarkDataController extends JsonPocessorServlet {
 		}
 		setJsonResponse(response, result);
 	}
+	
+
+	@PostMapping(value="/create-entity")
+	public void createEntity(PlacemarkEntityCreateParams params, HttpServletResponse response) throws IOException {
+		String placemarkId = replacePlacemarkIdTestValue(params.getPlacemarkId());
+		String[] keyValues = placemarkId.split(",");
+		PlacemarkLoadResult result = getDataAccessor().addNewEntity(keyValues, params.getEntityName(), params.getValues());
+		afterPlacemarkUpdate(placemarkId, lastPlacemarkStep, result);
+		setJsonResponse(response, result);
+	}
 
 	public PlacemarkLoadResult processCollectedData(
 			PlacemarkUpdateRequest updateRequest,
 			Map<String, String> collectedData, String placemarkKey ) {
 		
 		PlacemarkLoadResult result = getDataAccessor().updateData( 
-								placemarkKey.split(",") , 
+								placemarkKey.split(","), 
 								collectedData,
 								updateRequest.isPartialUpdate()
 						);
+		afterPlacemarkUpdate(placemarkKey, lastPlacemarkStep, result);
+		return result;
+	}
 
+	private void afterPlacemarkUpdate(String placemarkKey, String currentStep, PlacemarkLoadResult result) {
 		if (result.isSuccess()) {
 			result.setMessage(Messages.getString("SaveEarthDataServlet.2")); //$NON-NLS-1$
 			lastPlacemarkId = placemarkKey;
-			lastPlacemarkStep = updateRequest.getCurrentStep();
+			lastPlacemarkStep = currentStep;
 		}else{
 			logger.warn("Error when saving the data %s", result );
 		}
-		return result;
 	}
 
 	public PlacemarkLoadResult handleEmptyCollectedData() {

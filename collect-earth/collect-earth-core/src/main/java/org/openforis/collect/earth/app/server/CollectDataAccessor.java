@@ -52,4 +52,9 @@ public class CollectDataAccessor implements DataAccessor {
 			boolean partialUpdate) {
 		return earthSurveyService.updatePlacemarkData(multipleKeyAttributes, collectedData, null, partialUpdate);
 	}
+	
+	@Override
+	public PlacemarkLoadResult addNewEntity(String [] keyAttributes, String entityName, Map<String, String> values) {
+		return earthSurveyService.updatePlacemarkAddNewEntity(keyAttributes, entityName, values, null);
+	}
 }
