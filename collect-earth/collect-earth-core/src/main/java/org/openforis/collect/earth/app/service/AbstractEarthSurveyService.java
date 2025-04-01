@@ -534,9 +534,9 @@ public abstract class AbstractEarthSurveyService {
 	public synchronized PlacemarkLoadResult updatePlacemarkAddNewEntity(String[] plotKeyAttributes, String entityName,
 			Map<String, String> parameters, String sessionId) {
 		if (isPreviewRecordID(plotKeyAttributes)) {
-			return updatePlacemarkAddNewEntityToExistingRecord(plotKeyAttributes, entityName, sessionId);
-		} else {
 			return updatePreviewPlacemarkAddNewEntity(plotKeyAttributes, entityName, parameters, sessionId);	
+		} else {
+			return updatePlacemarkAddNewEntityToExistingRecord(plotKeyAttributes, entityName, sessionId);
 		}
 	}
 
