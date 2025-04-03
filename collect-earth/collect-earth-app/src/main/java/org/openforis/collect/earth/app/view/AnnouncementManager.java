@@ -29,8 +29,8 @@ public class AnnouncementManager {
             List<Announcement> announcements = parseAnnouncements(jsonResponse);
             displayAnnouncementsInDialog(announcements);
         } catch (Exception e) {
-            e.printStackTrace();
-            logger.error("Error fetching or displaying announcements: " + e.getMessage(), e);
+            System.out.println("Error fetching announcements from: " + ANNOUNCEMENTS_URL + " " + e.getMessage());
+            logger.error("Error fetching or displaying announcements from : " + ANNOUNCEMENTS_URL  + " " +  e.getMessage(), e);
         }
     }
 
@@ -61,17 +61,32 @@ public class AnnouncementManager {
         JsonArray jsonArray = JsonParser.parseString(jsonResponse).getAsJsonArray();
 
         for (JsonElement element : jsonArray) {
-            JsonObject obj = element.getAsJsonObject();
-            Announcement announcement = new Announcement(
-                    obj.get("id").getAsString(),
-                    obj.get("title").getAsString(),
-                    obj.get("message").getAsString(),
-                    obj.get("severity").getAsString(),
-                    obj.get("start_date").getAsString(),
-                    obj.get("end_date").getAsString()
-            );
-            announcements.add(announcement);
+        	try {
+	        	if( element != null && !element.isJsonNull() ) {
+						JsonObject obj = element.getAsJsonObject();
+						Announcement announcement = new Announcement(
+						        obj.get("id").getAsString(),
+						        obj.get("title").getAsString(),
+						        obj.get("message").getAsString(),
+						        obj.get("severity").getAsString(),
+						        obj.get("start_date").getAsString(),
+						        obj.get("end_date").getAsString()
+						);
+						announcements.add(announcement);
+	        	}
+        	} catch (Exception e) {
+        		logger.error("Error parsing announcement: " + e.getMessage(), e);
+        		System.out.println("Error parsing announcement: " + element+ " " + e.getMessage());
+        	}
         }
+
+        // Sort announcements by severity
+        Collections.sort(announcements, new Comparator<Announcement>() {
+            @Override
+            public int compare(Announcement a1, Announcement a2) {
+                return a1.getSeverity().compareTo(a2.getSeverity());
+			}
+        });
 
         return filterAnnouncements(announcements);
     }
