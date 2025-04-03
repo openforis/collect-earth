@@ -45,6 +45,7 @@ import org.openforis.collect.persistence.RecordPersistenceException;
 import org.openforis.idm.metamodel.AttributeDefinition;
 import org.openforis.idm.metamodel.EntityDefinition;
 import org.openforis.idm.metamodel.ModelVersion;
+import org.openforis.idm.metamodel.NodeDefinition;
 import org.openforis.idm.metamodel.NodeLabel.Type;
 import org.openforis.idm.metamodel.Schema;
 import org.openforis.idm.metamodel.SurveyContext;
@@ -561,6 +562,44 @@ public abstract class AbstractEarthSurveyService {
 		Entity rootEntity = record.getRootEntity();
 		collectParametersHandler.saveToEntity(parameters, rootEntity);
 		NodeChangeSet changeSet = recordUpdater.addEntity(rootEntity, entityName);
+		recordManager.save(record);
+		return createPlacemarkLoadSuccessResult(record, changeSet);
+	}
+	
+	public synchronized PlacemarkLoadResult updatePlacemarkDeleteEntity(String[] plotKeyAttributes, String entityName,
+			Map<String, String> parameters, String sessionId) {
+		if (isPreviewRecordID(plotKeyAttributes)) {
+			return updatePreviewPlacemarkDeleteEntity(plotKeyAttributes, entityName, parameters, sessionId);	
+		} else {
+			return updatePlacemarkDeleteEntityToExistingRecord(plotKeyAttributes, entityName, sessionId);
+		}
+	}
+
+	private PlacemarkLoadResult updatePlacemarkDeleteEntityToExistingRecord(String[] plotKeyAttributes, String entityName, String sessionId) {
+		try {
+			CollectRecord record = loadRecord(plotKeyAttributes);
+			Entity rootEntity = record.getRootEntity();
+			List<Node<? extends NodeDefinition>> entities = rootEntity.getChildren(entityName);
+			Entity entityToDelete = (Entity) entities.getLast();
+			NodeChangeSet changeSet = recordUpdater.deleteNode(entityToDelete);
+			recordManager.save(record, sessionId);
+			return createPlacemarkLoadSuccessResult(record, changeSet);
+		} catch (Exception e) {
+			logger.error("Error creating new entity: " + e.getMessage(), e); //$NON-NLS-1$
+			PlacemarkLoadResult result = new PlacemarkLoadResult();
+			result.setSuccess(false);
+			return result;
+		}
+	}
+	
+	public synchronized PlacemarkLoadResult updatePreviewPlacemarkDeleteEntity(String[] keyAttributes,
+			String entityName, Map<String, String> parameters, String sessionId) {
+		CollectRecord record = createRecord();
+		Entity rootEntity = record.getRootEntity();
+		collectParametersHandler.saveToEntity(parameters, rootEntity);
+		List<Node<? extends NodeDefinition>> entities = rootEntity.getChildren(entityName);
+		Entity entityToDelete = (Entity) entities.getLast();
+		NodeChangeSet changeSet = recordUpdater.deleteNode(entityToDelete);
 		recordManager.save(record);
 		return createPlacemarkLoadSuccessResult(record, changeSet);
 	}

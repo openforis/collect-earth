@@ -57,4 +57,9 @@ public class CollectDataAccessor implements DataAccessor {
 	public PlacemarkLoadResult addNewEntity(String [] keyAttributes, String entityName, Map<String, String> values) {
 		return earthSurveyService.updatePlacemarkAddNewEntity(keyAttributes, entityName, values, null);
 	}
+	
+	@Override
+	public PlacemarkLoadResult deleteEntity(String [] keyAttributes, String entityName, Map<String, String> values) {
+		return earthSurveyService.updatePlacemarkDeleteEntity(keyAttributes, entityName, values, null);
+	}
 }

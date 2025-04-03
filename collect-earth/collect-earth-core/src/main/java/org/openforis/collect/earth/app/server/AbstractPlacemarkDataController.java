@@ -26,6 +26,7 @@ import org.openforis.collect.earth.core.handlers.BalloonInputFieldsUtils;
 import org.openforis.collect.earth.core.model.PlacemarkLoadResult;
 import org.openforis.idm.metamodel.EntityDefinition;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 
@@ -98,6 +99,16 @@ public class AbstractPlacemarkDataController extends JsonPocessorServlet {
 		afterPlacemarkUpdate(placemarkId, lastPlacemarkStep, result);
 		setJsonResponse(response, result);
 	}
+	
+	@DeleteMapping(value="/delete-entity")
+	public void deleteEntity(PlacemarkEntityCreateParams params, HttpServletResponse response) throws IOException {
+		String placemarkId = replacePlacemarkIdTestValue(params.getPlacemarkId());
+		String[] keyValues = placemarkId.split(",");
+		PlacemarkLoadResult result = getDataAccessor().deleteEntity(keyValues, params.getEntityName(), params.getValues());
+		afterPlacemarkUpdate(placemarkId, lastPlacemarkStep, result);
+		setJsonResponse(response, result);
+	}
+
 
 	public PlacemarkLoadResult processCollectedData(
 			PlacemarkUpdateRequest updateRequest,

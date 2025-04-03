@@ -37,10 +37,7 @@ public class EntityHandler extends AbstractAttributeHandler<Entity> {
 		
 		// Expected parameter name:
 		// collect_entity_topography[house].code_coverage=XX or collect_entity_topography[2].code_coverage=XX
-		Entity childEntity = getChildEntity(parameterName, parentEntity);
-		if (childEntity == null) {
-			return result;
-		}
+		Entity childEntity = getChildEntity(parameterName, parentEntity, true);
 		Map<String,String> parameters = new HashMap<String, String>();
 		String childAttributeParameter = extractNestedAttributeParameterName(parameterName);
 		parameters.put(childAttributeParameter, parameterValue);
@@ -49,8 +46,12 @@ public class EntityHandler extends AbstractAttributeHandler<Entity> {
 		result.addMergeChanges(otherChangeSet);
 		return result;
 	}
-
+	
 	public Entity getChildEntity(String parameterName, Entity parentEntity) {
+		return getChildEntity(parameterName, parentEntity, false);
+	}
+
+	public Entity getChildEntity(String parameterName, Entity parentEntity, boolean createIfMissing) {
 		String cleanName = removePrefix(parameterName);
 		String childEntityName = getEntityName(cleanName);
 		EntityDefinition childEntityDef = (EntityDefinition) parentEntity.getDefinition().getChildDefinition(childEntityName);
@@ -61,6 +62,9 @@ public class EntityHandler extends AbstractAttributeHandler<Entity> {
 			if (keyCodeAttribute == null) {
 				int childIndex = Integer.parseInt(keyValueOrIndex);
 				childEntity = parentEntity.getChild(childEntityName, childIndex);
+				if (childEntity == null && createIfMissing) {
+					recordUpdater.addEntity(parentEntity, childEntityName);
+				}
 			} else {
 				childEntity = CollectSurveyUtils.getChildEntity(parentEntity, childEntityName, keyValueOrIndex);
 				if (childEntity == null) {

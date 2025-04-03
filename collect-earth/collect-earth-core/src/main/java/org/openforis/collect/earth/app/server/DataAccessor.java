@@ -28,4 +28,6 @@ public interface DataAccessor {
 			Map<String, String> values, boolean partialUpdate);
 
 	public PlacemarkLoadResult addNewEntity(String[] keyAttributes, String entityName, Map<String, String> values);
+	
+	public PlacemarkLoadResult deleteEntity(String[] keyAttributes, String entityName, Map<String, String> values);
 }
