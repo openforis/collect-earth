@@ -3,6 +3,7 @@ package org.openforis.collect.earth.core.handlers;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
@@ -13,6 +14,8 @@ import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Queue;
 import java.util.Set;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
@@ -61,6 +64,7 @@ public class BalloonInputFieldsUtils {
 
 	public static final String PARAMETER_SEPARATOR = "===";
 	public static final String MULTIPLE_VALUES_SEPARATOR = ";";
+	private static final Pattern PARAMETER_PART_PATTERN = Pattern.compile("^(\\w+)(\\[(\\w+)\\])?$");
 	
 	private static final String NOT_APPLICABLE_ITEM_CODE = "-1";
 	private static final String NOT_APPLICABLE_ITEM_LABEL = "N/A";
@@ -238,6 +242,31 @@ public class BalloonInputFieldsUtils {
 		String cleanParameter = removeArraySuffix(parameterName);
 		cleanParameter = removePrefix(cleanParameter);
 		return cleanParameter;
+	}
+	
+	private List<ParameterPart> extractParameterParts(CollectSurvey survey, String cleanParameter) {
+		EntityDefinition currentParentEntityDef = survey.getSchema().getFirstRootEntityDefinition();
+		List<ParameterPart> result = new ArrayList<>();
+		String[] splitted = cleanParameter.split("\\.");
+		for (String part : splitted) {
+			String cleanPart = removeTypePrefix(part);
+			Matcher matcher = PARAMETER_PART_PATTERN.matcher(cleanPart);
+			if (matcher.find()) {
+				String childDefName = matcher.group(1);
+				if (currentParentEntityDef.containsChildDefinition(childDefName)) {
+					NodeDefinition childDef = currentParentEntityDef.getChildDefinition(childDefName);
+					String indexStr = matcher.group(3);
+					int index = indexStr == null ? 0: Integer.parseInt(indexStr);
+					result.add(new ParameterPart(childDef, index));
+					currentParentEntityDef = childDef instanceof EntityDefinition ? (EntityDefinition) childDef: null;
+				} else {
+					throw new IllegalStateException("Cannot find child definition " + childDefName + " inside entity " + currentParentEntityDef.getName());
+				}
+			} else {
+				throw new IllegalStateException("Unable to parse parameter: " + cleanParameter);
+			}
+		}
+		return result;
 	}
 
 	/**
@@ -542,19 +571,25 @@ public class BalloonInputFieldsUtils {
 			return parameterName;
 		}
 	}
+	
+	private String removeTypePrefix(String cleanParameterName) {
+		int indexOfUnderscore = cleanParameterName.indexOf('_');
+		return cleanParameterName.substring(indexOfUnderscore + 1);
+	}
 
 	public NodeChangeSet saveToEntity(Map<String, String> parameters, Entity entity) {
 		return saveToEntity(parameters, entity, false);
 	}
 
 	public NodeChangeSet saveToEntity(Map<String, String> parameters, Entity entity, boolean newRecord) {
+		CollectSurvey survey = (CollectSurvey) entity.getSurvey();
+		List<Entry<String, String>> sortedParameters = entity.isRoot() ? sortParameters(survey, parameters): new ArrayList<>(parameters.entrySet());
+		
 		final NodeChangeMap result = new NodeChangeMap();
 
-		Set<Entry<String, String>> parameterEntries = parameters.entrySet();
-
-		for (Entry<String, String> entry : parameterEntries) {
-			String parameterName = entry.getKey();
-			String parameterValue = entry.getValue();
+		for (Entry<String, String> parameter: sortedParameters) {
+			String parameterName = parameter.getKey();
+			String parameterValue = parameter.getValue();
 			String cleanName = cleanUpParameterName(parameterName);
 
 			AbstractAttributeHandler<?> handler = findHandler(cleanName);
@@ -591,5 +626,64 @@ public class BalloonInputFieldsUtils {
 		AbstractAttributeHandler<?> handler = findHandler(cleanName);
 		return handler.getAttributeNodeFromParameter(cleanName, entity, index);
 	}
+	
+	private List<Entry<String, String>> sortParameters(CollectSurvey survey, Map<String, String> parameters) {
+		List<NodeDefinition> sortedDefs = new ArrayList<>();
+		survey.getSchema().getFirstRootEntityDefinition().traverse(new NodeDefinitionVisitor() {
+			public void visit(NodeDefinition nodeDef) {
+				sortedDefs.add(nodeDef);
+			}
+		});
 
+		Map<String, List<ParameterPart>> parameterPartsByName = new HashMap<>();
+		for (Entry<String, String> entry : parameters.entrySet()) {
+			String parameterName = entry.getKey();
+			String cleanName = cleanUpParameterName(parameterName);
+			List<ParameterPart> parts = extractParameterParts(survey, cleanName);
+			parameterPartsByName.put(parameterName, parts);
+		}
+		
+		Set<Entry<String, String>> entrySet = parameters.entrySet();
+		for (Entry<String, String> entry : entrySet) {
+			
+		}
+		List<Entry<String, String>> sortedParameters = new ArrayList<>(parameters.entrySet());
+		sortedParameters.sort(new Comparator<Entry<String, String>>() {
+			public int compare(Entry<String, String> param1, Entry<String, String> param2) {
+				String name1 = param1.getKey();
+				String name2 = param2.getKey();
+				List<ParameterPart> parts1 = parameterPartsByName.get(name1);
+				List<ParameterPart> parts2 = parameterPartsByName.get(name2);
+				int depthDiff = parts1.size() - parts2.size();
+				if (depthDiff != 0) return depthDiff;
+				
+				for (int i = 0; i < parts1.size(); i++) {
+					ParameterPart part1 = parts1.get(i);
+					ParameterPart part2 = parts2.get(i);
+					int defIndex1 = sortedDefs.indexOf(part1.nodeDefinition);
+					int defIndex2 = sortedDefs.indexOf(part2.nodeDefinition);
+					int defIndexDiff = defIndex1 - defIndex2;
+					if (defIndexDiff != 0) {
+						return defIndexDiff;
+					}
+					int nodeIndexDiff = part1.index - part2.index;
+					if (nodeIndexDiff != 0) {
+						return nodeIndexDiff;
+					}
+				}
+				return 0;
+			}
+		});
+		return sortedParameters;
+	}
+
+	private class ParameterPart {
+		private NodeDefinition nodeDefinition;
+		private int index;
+		
+		ParameterPart(NodeDefinition nodeDefinition, int index) {
+			this.nodeDefinition = nodeDefinition;
+			this.index = index;
+		}
+	}
 }
