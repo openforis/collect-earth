@@ -93,18 +93,20 @@ public class AbstractPlacemarkDataController extends JsonPocessorServlet {
 
 	@PostMapping(value="/create-entity")
 	public void createEntity(PlacemarkEntityCreateParams params, HttpServletResponse response) throws IOException {
+		Map<String, String> adjustedParams = adjustParameters(params);
 		String placemarkId = replacePlacemarkIdTestValue(params.getPlacemarkId());
 		String[] keyValues = placemarkId.split(",");
-		PlacemarkLoadResult result = getDataAccessor().addNewEntity(keyValues, params.getEntityName(), params.getValues());
+		PlacemarkLoadResult result = getDataAccessor().addNewEntity(keyValues, params.getEntityName(), adjustedParams);
 		afterPlacemarkUpdate(placemarkId, lastPlacemarkStep, result);
 		setJsonResponse(response, result);
 	}
 	
 	@DeleteMapping(value="/delete-entity")
 	public void deleteEntity(PlacemarkEntityCreateParams params, HttpServletResponse response) throws IOException {
+		Map<String, String> adjustedParams = adjustParameters(params);
 		String placemarkId = replacePlacemarkIdTestValue(params.getPlacemarkId());
 		String[] keyValues = placemarkId.split(",");
-		PlacemarkLoadResult result = getDataAccessor().deleteEntity(keyValues, params.getEntityName(), params.getValues());
+		PlacemarkLoadResult result = getDataAccessor().deleteEntity(keyValues, params.getEntityName(), adjustedParams);
 		afterPlacemarkUpdate(placemarkId, lastPlacemarkStep, result);
 		setJsonResponse(response, result);
 	}
@@ -148,13 +150,15 @@ public class AbstractPlacemarkDataController extends JsonPocessorServlet {
 		Map<String, String> originalCollectedData = updateRequest.getValues();
 		Map<String, String> result = new HashMap<String, String>(originalCollectedData.size());
 		for (Entry<String, String> entry : originalCollectedData.entrySet()) {
-			if( entry.getKey().equals( EarthConstants.PLACEMARK_ID_PARAMETER ) ){
+			String key = entry.getKey();
+			String value = entry.getValue();
+			if( key.equals( EarthConstants.PLACEMARK_ID_PARAMETER ) ){
 				// If there are multiple keys this value will be the combination of the keys, with the first value actually containing the plot id
-				entry.setValue( entry.getValue().split(",")[0]);
+				entry.setValue( value.split(",")[0]);
 			}
 
 			//decode parameter name, it was previously encoded by the client
-			result.put(URLDecoder.decode(entry.getKey(), StandardCharsets.UTF_8.name()), entry.getValue());
+			result.put(URLDecoder.decode(key, StandardCharsets.UTF_8.name()), value);
 
 		}
 		replaceTestParameters(result);

@@ -1,11 +1,14 @@
 package org.openforis.collect.earth.core.handlers;
 
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 import org.openforis.collect.earth.core.utils.CollectSurveyUtils;
+import org.openforis.collect.model.EntityAddChange;
+import org.openforis.collect.model.NodeChange;
 import org.openforis.collect.model.NodeChangeMap;
 import org.openforis.collect.model.NodeChangeSet;
 import org.openforis.idm.metamodel.CodeAttributeDefinition;
@@ -63,7 +66,13 @@ public class EntityHandler extends AbstractAttributeHandler<Entity> {
 				int childIndex = Integer.parseInt(keyValueOrIndex);
 				childEntity = parentEntity.getChild(childEntityName, childIndex);
 				if (childEntity == null && createIfMissing) {
-					recordUpdater.addEntity(parentEntity, childEntityName);
+					NodeChangeSet changeSet = recordUpdater.addEntity(parentEntity, childEntityName);
+					List<NodeChange<?>> changes = changeSet.getChanges();
+					for (NodeChange<?> nodeChange : changes) {
+						if (nodeChange instanceof EntityAddChange) {
+							childEntity = (Entity) nodeChange.getNode(); 
+						}
+					}
 				}
 			} else {
 				childEntity = CollectSurveyUtils.getChildEntity(parentEntity, childEntityName, keyValueOrIndex);

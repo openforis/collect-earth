@@ -583,13 +583,17 @@ public class BalloonInputFieldsUtils {
 
 	public NodeChangeSet saveToEntity(Map<String, String> parameters, Entity entity, boolean newRecord) {
 		CollectSurvey survey = (CollectSurvey) entity.getSurvey();
-		List<Entry<String, String>> sortedParameters = entity.isRoot() ? sortParameters(survey, parameters): new ArrayList<>(parameters.entrySet());
+		List<Entry<String, String>> sortedParameters = new ArrayList<>(parameters.entrySet()); 
+//				entity.isRoot() ? sortParameters(survey, parameters): new ArrayList<>(parameters.entrySet());
 		
 		final NodeChangeMap result = new NodeChangeMap();
 
 		for (Entry<String, String> parameter: sortedParameters) {
 			String parameterName = parameter.getKey();
 			String parameterValue = parameter.getValue();
+			if (parameterValue.contains("$")) {
+				continue;
+			}
 			String cleanName = cleanUpParameterName(parameterName);
 
 			AbstractAttributeHandler<?> handler = findHandler(cleanName);
