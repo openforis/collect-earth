@@ -95,9 +95,10 @@ public class BalloonInputFieldsUtils {
 			if (handler == null) {
 				logger.warn("Cannot find handler for parameter: ", parameterName);
 			} else if (handler instanceof EntityHandler) {
-				Entity currentEntity = ((EntityHandler) handler).getChildEntity(cleanName, rootEntity);
+				EntityHandler entityHandler = (EntityHandler) handler;
+				Entity currentEntity = entityHandler.getChildEntity(cleanName, rootEntity);
 				if (currentEntity != null) {
-					String childAttributeParameterName = ((EntityHandler) handler)
+					String childAttributeParameterName = entityHandler
 							.extractNestedAttributeParameterName(parameterName);
 					AbstractAttributeHandler<?> childHandler = findHandler(childAttributeParameterName);
 					if (childHandler != null) {

@@ -63,7 +63,7 @@ public class EntityHandler extends AbstractAttributeHandler<Entity> {
 			String keyValueOrIndex = getEntityKey(cleanName);
 			CodeAttributeDefinition keyCodeAttribute = childEntityDef.getEnumeratingKeyCodeAttribute();
 			if (keyCodeAttribute == null) {
-				int childIndex = Integer.parseInt(keyValueOrIndex);
+				int childIndex = Integer.parseInt(keyValueOrIndex) - 1;
 				childEntity = parentEntity.getChild(childEntityName, childIndex);
 				if (childEntity == null && createIfMissing) {
 					NodeChangeSet changeSet = recordUpdater.addEntity(parentEntity, childEntityName);

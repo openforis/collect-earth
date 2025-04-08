@@ -35,7 +35,9 @@ import org.openforis.collect.model.CollectRecord;
 import org.openforis.collect.model.CollectRecord.Step;
 import org.openforis.collect.model.CollectRecordSummary;
 import org.openforis.collect.model.CollectSurvey;
+import org.openforis.collect.model.NodeChange;
 import org.openforis.collect.model.NodeChangeSet;
+import org.openforis.collect.model.NodeDeleteChange;
 import org.openforis.collect.model.RecordFilter;
 import org.openforis.collect.model.RecordUpdater;
 import org.openforis.collect.model.RecordValidationReportGenerator;
@@ -562,7 +564,6 @@ public abstract class AbstractEarthSurveyService {
 		Entity rootEntity = record.getRootEntity();
 		collectParametersHandler.saveToEntity(parameters, rootEntity);
 		NodeChangeSet changeSet = recordUpdater.addEntity(rootEntity, entityName);
-		recordManager.save(record);
 		return createPlacemarkLoadSuccessResult(record, changeSet);
 	}
 	
@@ -600,7 +601,6 @@ public abstract class AbstractEarthSurveyService {
 		List<Node<? extends NodeDefinition>> entities = rootEntity.getChildren(entityName);
 		Entity entityToDelete = (Entity) entities.getLast();
 		NodeChangeSet changeSet = recordUpdater.deleteNode(entityToDelete);
-		recordManager.save(record);
 		return createPlacemarkLoadSuccessResult(record, changeSet);
 	}
 
@@ -626,6 +626,13 @@ public abstract class AbstractEarthSurveyService {
 			}
 		}
 		result.setInputFieldInfoByParameterName(infoByParameterName);
+		if (changeSet != null) {
+			for (NodeChange<?> nodeChange : changeSet.getChanges()) {
+				if (nodeChange instanceof NodeDeleteChange) {
+					result.setDeletedEntityDefName(nodeChange.getNode().getDefinition().getName());
+				}
+			}
+		}
 		return result;
 	}
 

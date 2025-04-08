@@ -20,6 +20,7 @@ public class PlacemarkLoadResult {
 	private boolean validData;
 	private boolean skipFilled;
 	private String currentStep;
+	private String deletedEntityDefName;
 	
 	private transient CollectRecord collectRecord;
 	
@@ -118,7 +119,15 @@ public class PlacemarkLoadResult {
 	public void setCurrentStep(String currentStep) {
 		this.currentStep = currentStep;
 	}
-
+	
+	public String getDeletedEntityDefName() {
+		return deletedEntityDefName;
+	}
+	
+	public void setDeletedEntityDefName(String deletedEntityDefName) {
+		this.deletedEntityDefName = deletedEntityDefName;
+	}
+	
 	@Override
 	public String toString() {
 		return "PlacemarkLoadResult [inputFieldInfoByParameterName="
