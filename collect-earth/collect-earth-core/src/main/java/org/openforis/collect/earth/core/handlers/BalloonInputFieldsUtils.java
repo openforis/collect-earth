@@ -79,15 +79,15 @@ public class BalloonInputFieldsUtils {
 			new RangeAttributeHandler(), new RealAttributeHandler(), new TextAttributeHandler(),
 			new TimeAttributeHandler());
 
-	public Map<String, PlacemarkInputFieldInfo> extractFieldInfoByParameterName(CollectRecord record,
+	public LinkedHashMap<String, PlacemarkInputFieldInfo> extractFieldInfoByParameterName(CollectRecord record,
 			NodeChangeSet changeSet, String language, String modelVersionName) {
 		Collection<AttributeDefinition> changedDefs = extractChangedAttributeDefinitions(record, changeSet);
-		Map<String, String> htmlParameterNameByNodePath = generateAttributeHtmlParameterNameByNodePath(changedDefs);
-		Set<String> parameterNames = new HashSet<String>(htmlParameterNameByNodePath.values());
+		LinkedHashMap<String, String> htmlParameterNameByNodePath = generateAttributeHtmlParameterNameByNodePath(changedDefs);
+		Set<String> parameterNames = new LinkedHashSet<>(htmlParameterNameByNodePath.values());
 		Map<String, String> validationMessageByPath = generateValidationMessages(record);
 		Entity rootEntity = record.getRootEntity();
 
-		Map<String, PlacemarkInputFieldInfo> result = new HashMap<String, PlacemarkInputFieldInfo>(
+		LinkedHashMap<String, PlacemarkInputFieldInfo> result = new LinkedHashMap<String, PlacemarkInputFieldInfo>(
 				parameterNames.size());
 		for (String parameterName : parameterNames) {
 			String cleanName = cleanUpParameterName(parameterName);
@@ -389,16 +389,16 @@ public class BalloonInputFieldsUtils {
 		return result;
 	}
 
-	private Map<String, String> generateAttributeHtmlParameterNameByNodePath(Collection<AttributeDefinition> defs) {
-		Map<String, String> result = new HashMap<String, String>();
+	private LinkedHashMap<String, String> generateAttributeHtmlParameterNameByNodePath(Collection<AttributeDefinition> defs) {
+		LinkedHashMap<String, String> result = new LinkedHashMap<>();
 		for (AttributeDefinition def : defs) {
 			result.putAll(generateAttributeHtmlParameterNameByNodePath(def));
 		}
 		return result;
 	}
 
-	private Map<String, String> generateAttributeHtmlParameterNameByNodePath(AttributeDefinition def) {
-		Map<String, String> result = new HashMap<String, String>();
+	private LinkedHashMap<String, String> generateAttributeHtmlParameterNameByNodePath(AttributeDefinition def) {
+		LinkedHashMap<String, String> result = new LinkedHashMap<>();
 
 		EntityDefinition parentDef = def.getParentEntityDefinition();
 		if (parentDef.isRoot()) {

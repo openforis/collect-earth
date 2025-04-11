@@ -15,6 +15,7 @@ import java.io.File;
 import java.text.SimpleDateFormat;
 import java.util.Date;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
@@ -581,7 +582,7 @@ public abstract class AbstractEarthSurveyService {
 			CollectRecord record = loadRecord(plotKeyAttributes);
 			Entity rootEntity = record.getRootEntity();
 			List<Node<? extends NodeDefinition>> entities = rootEntity.getChildren(entityName);
-			Entity entityToDelete = (Entity) entities.getLast();
+			Entity entityToDelete = (Entity) entities.get(entities.size() - 1);
 			NodeChangeSet changeSet = recordUpdater.deleteNode(entityToDelete);
 			recordManager.save(record, sessionId);
 			return createPlacemarkLoadSuccessResult(record, changeSet);
@@ -597,9 +598,10 @@ public abstract class AbstractEarthSurveyService {
 			String entityName, Map<String, String> parameters, String sessionId) {
 		CollectRecord record = createRecord();
 		Entity rootEntity = record.getRootEntity();
+		// populate preview record using parameters
 		collectParametersHandler.saveToEntity(parameters, rootEntity);
 		List<Node<? extends NodeDefinition>> entities = rootEntity.getChildren(entityName);
-		Entity entityToDelete = (Entity) entities.getLast();
+		Entity entityToDelete = (Entity) entities.get(entities.size() - 1);
 		NodeChangeSet changeSet = recordUpdater.deleteNode(entityToDelete);
 		return createPlacemarkLoadSuccessResult(record, changeSet);
 	}
@@ -613,7 +615,7 @@ public abstract class AbstractEarthSurveyService {
 		result.setSuccess(true);
 		result.setCollectRecord(record);
 		result.setSkipFilled(localPropertiesService.shouldJumpToNextPlot());
-		Map<String, PlacemarkInputFieldInfo> infoByParameterName = collectParametersHandler
+		LinkedHashMap<String, PlacemarkInputFieldInfo> infoByParameterName = collectParametersHandler
 				.extractFieldInfoByParameterName(record, changeSet,
 						localPropertiesService.getValue(EarthProperty.UI_LANGUAGE), // Get the value of the language that the survey was exported with (not the language on CE UI)
 						localPropertiesService.getModelVersionName());
