@@ -7,6 +7,7 @@ import java.io.UnsupportedEncodingException;
 import java.net.URLDecoder;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
@@ -24,7 +25,6 @@ import org.openforis.collect.earth.core.handlers.BalloonInputFieldsUtils;
 import org.openforis.collect.earth.core.model.PlacemarkLoadResult;
 import org.openforis.idm.metamodel.EntityDefinition;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 
@@ -99,7 +99,7 @@ public class AbstractPlacemarkDataController extends JsonPocessorServlet {
 		setJsonResponse(response, result);
 	}
 	
-	@DeleteMapping(value="/delete-entity")
+	@PostMapping(value="/delete-entity")
 	public void deleteEntity(PlacemarkEntityCreateParams params, HttpServletResponse response) throws IOException {
 		Map<String, String> adjustedParams = adjustParameters(params);
 		String placemarkId = replacePlacemarkIdTestValue(params.getPlacemarkId());
@@ -145,6 +145,9 @@ public class AbstractPlacemarkDataController extends JsonPocessorServlet {
 	private Map<String, String> adjustParameters( PlacemarkUpdateRequest updateRequest )
 			throws UnsupportedEncodingException {
 		Map<String, String> originalCollectedData = updateRequest.getValues();
+		if (originalCollectedData == null) {
+			return Collections.emptyMap();
+		}
 		Map<String, String> result = new HashMap<String, String>(originalCollectedData.size());
 		for (Entry<String, String> entry : originalCollectedData.entrySet()) {
 			String key = entry.getKey();
@@ -176,8 +179,6 @@ public class AbstractPlacemarkDataController extends JsonPocessorServlet {
 
 		TreeMap<String, String> sortedParameters = new TreeMap<>(new ParametersKeyComparator(sortedParameterNames));
         sortedParameters.putAll(parameters);
-		
-	
 		return sortedParameters;
 	}
 

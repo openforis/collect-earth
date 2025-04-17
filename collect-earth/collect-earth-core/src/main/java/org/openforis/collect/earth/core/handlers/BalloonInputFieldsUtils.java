@@ -517,14 +517,15 @@ public class BalloonInputFieldsUtils {
 
 			EntityDefinition entityDef = entity.getDefinition();
 			if (entityDef.isMultiple()) {
-				if (!entityDef.isEnumerable()) {
-					throw new IllegalArgumentException("Multiple not enumerated entity found: " + entityDef.getPath());
+				if (entityDef.isEnumerable()) {
+					// result should be
+					// collect_entity_NAME[KEY].code_attribute
+					@SuppressWarnings("deprecation")
+					String entityKey = entity.getKeyValues()[0];
+					collectParamName += "[" + entityKey + "]";
+				} else {
+					collectParamName += "[" + (node.getIndex() + 1) + "]";
 				}
-				// result should be
-				// collect_entity_NAME[KEY].code_attribute
-				@SuppressWarnings("deprecation")
-				String entityKey = entity.getKeyValues()[0];
-				collectParamName += "[" + entityKey + "]";
 			}
 
 			for (Node<?> child : entityChildren) {
