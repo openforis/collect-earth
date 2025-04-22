@@ -38,6 +38,7 @@ import org.openforis.collect.earth.app.service.KmlGeneratorService;
 import org.openforis.collect.earth.app.service.LocalPropertiesService;
 import org.openforis.collect.earth.app.service.LocalPropertiesService.EarthProperty;
 import org.openforis.collect.earth.app.service.UpdateIniUtils;
+import org.openforis.collect.earth.app.view.AnnouncementManager;
 import org.openforis.collect.earth.app.view.CheckForUpdatesListener;
 import org.openforis.collect.earth.app.view.CollectEarthWindow;
 import org.openforis.collect.earth.app.view.Messages;
@@ -453,6 +454,7 @@ public class EarthApp {
 				try {
 					earthApp.generateKml();
 					earthApp.simulateClickKmz();
+					earthApp.checkForAnnouncements();
 					earthApp.checkForUpdates();
 					closeSplash();
 				} catch (final Exception e) {
@@ -467,7 +469,27 @@ public class EarthApp {
 			showMessage("The KML file cannot be open at " + KmlGeneratorService.KML_NETWORK_LINK_STARTER); //$NON-NLS-1$
 		}
 	}
+	
+	private void checkForAnnouncements() {
+		new Thread("Check for new Collect Earth versions on the server") {
+			@Override
+			public void run() {
 
+				// Wait a few seconds before checking for updates
+				try {
+					Thread.sleep(5000);
+				} catch (InterruptedException e1) {
+					logger.error("Error while waiting", e1); //$NON-NLS-1$
+				}
+
+				AnnouncementManager announcementManager = new AnnouncementManager();
+				announcementManager.checkAnnouncements();
+			}
+		}.start();
+
+	}
+	
+	
 	private void checkForUpdates() {
 		new Thread("Check for new Collect Earth versions on the server") {
 			@Override
@@ -475,7 +497,7 @@ public class EarthApp {
 
 				// Wait a few seconds before checking for updates
 				try {
-					Thread.sleep(10000);
+					Thread.sleep(20000);
 				} catch (InterruptedException e1) {
 					logger.error("Error while waiting", e1); //$NON-NLS-1$
 				}
