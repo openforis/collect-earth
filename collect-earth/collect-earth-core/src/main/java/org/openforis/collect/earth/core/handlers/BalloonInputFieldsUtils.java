@@ -510,7 +510,6 @@ public class BalloonInputFieldsUtils {
 					logger.error("Exception when getting parameters for entity ", e);
 				}
 			}
-
 		} else if (node instanceof Entity) {
 			Entity entity = (Entity) node;
 			List<Node<?>> entityChildren = entity.getChildren();

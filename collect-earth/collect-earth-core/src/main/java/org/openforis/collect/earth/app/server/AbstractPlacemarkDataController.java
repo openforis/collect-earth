@@ -215,8 +215,8 @@ public class AbstractPlacemarkDataController extends JsonPocessorServlet {
 	// sort input parameters following the hierarchical order
 	// parameters inside multiple entities will be sorted by the entity index, then by the order in the survey designer
     private static class ParametersKeyComparator implements Comparator<String> {
-    	private static final String entityIndexRegexReplace = "\\[\\d+\\]";
-    	private static final String entityIndexReplacement = "[\\$index]";
+    	private static final String ENTITY_INDEX_REGEX_REPLACE = "\\[\\d+\\]";
+    	private static final String ENTITY_INDEX_REPLACEMENT = "[\\$index]";
     	
 		private List<String> sortedParameterNames;
 		
@@ -250,7 +250,7 @@ public class AbstractPlacemarkDataController extends JsonPocessorServlet {
         }
 
 		private String cleanupKey(String key) {
-			return key.replaceAll(entityIndexRegexReplace, entityIndexReplacement);
+			return key.replaceAll(ENTITY_INDEX_REGEX_REPLACE, ENTITY_INDEX_REPLACEMENT);
 		}
         
         private int extractEntityIndex(String key) {
@@ -266,5 +266,5 @@ public class AbstractPlacemarkDataController extends JsonPocessorServlet {
             }
             return Integer.MAX_VALUE; // Should not happen for keys we are comparing
         }
-    };
+    }
 }
