@@ -2,40 +2,42 @@
 <Configuration status="warn"
 	packages="org.openforis.collect.earth.app.logging">
 
-	<Filters>
-		<RegexFilter regex=".*io.sentry.connection.ConnectionException.*" onMatch="DENY" onMismatch="ACCEPT"/>
-		<BurstFilter level="ERROR" rate="1" maxBurst="5"/>
-	</Filters>
-
 	<Appenders>
 		<RollingFile name="file"
 			fileName="${sys:collectEarth.userFolder}/earth_error.log"
 			filePattern="${sys:collectEarth.userFolder}/earth_error_%d{MM-dd-yyyy}-%i.log"
-			bufferSize="512" bufferedIO="true">
-			<PatternLayout>
-				<Pattern>%-5p %d [%t] %c: %m%n</Pattern>
-			</PatternLayout>
+			bufferedIO="false">
+			<PatternLayout pattern="%-5p %d [%t] %c: %m%n" />
 			<Policies>
 				<SizeBasedTriggeringPolicy size="10 MB" />
 			</Policies>
 			<DefaultRolloverStrategy max="5" />
+			<!-- Filters can be appender-specific -->
 		</RollingFile>
+
 		<Console name="STDOUT" target="SYSTEM_OUT">
 			<PatternLayout pattern="%-5p %d [%t] %c: %m%n" />
+			<!-- Optional: You may define filters here -->
 		</Console>
 
 		<JSwingAppender name="jswing-log">
 			<RegexFilter regex=".*JSwingAppender.*" onMatch="DENY" onMismatch="ACCEPT"/>
-			<PatternLayout>
-				<pattern>[%-5level] %d{yyyy-MM-dd HH:mm:ss} %msg%n</pattern>
-			</PatternLayout>
+			<PatternLayout pattern="%-5p %d [%t] %c: %m%n" />
 		</JSwingAppender>
+
+		<Sentry name="SENTRY">
+			<!-- If specific filtering needed, define here -->
+			<RegexFilter regex=".*io.sentry.connection.ConnectionException.*" onMatch="DENY" onMismatch="ACCEPT"/>
+			<BurstFilter level="ERROR" rate="1" maxBurst="5"/>
+		</Sentry>
 	</Appenders>
+
 	<Loggers>
-		<Root level="WARN">
+		<Root level="INFO">
 			<AppenderRef ref="file" level="ERROR" />
-			<AppenderRef ref="STDOUT" level="WARN" />
+			<AppenderRef ref="STDOUT" level="INFO" />
 			<AppenderRef ref="jswing-log" level="ERROR"/>
+			<AppenderRef ref="SENTRY" level="ERROR" />
 		</Root>
 	</Loggers>
 </Configuration>
