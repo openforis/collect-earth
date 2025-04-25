@@ -3,6 +3,7 @@ package org.openforis.collect.earth.core.handlers;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
@@ -13,10 +14,15 @@ import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Queue;
 import java.util.Set;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
+import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 
 import org.apache.commons.lang3.StringUtils;
 import org.openforis.collect.earth.core.model.PlacemarkCodedItem;
 import org.openforis.collect.earth.core.model.PlacemarkInputFieldInfo;
+import org.openforis.collect.earth.core.utils.CollectSurveyUtils;
 import org.openforis.collect.metamodel.ui.UIConfiguration;
 import org.openforis.collect.metamodel.ui.UIField;
 import org.openforis.collect.metamodel.ui.UIFormComponent;
@@ -56,11 +62,13 @@ import org.springframework.stereotype.Component;
 @Component
 public class BalloonInputFieldsUtils {
 
-	private static final String NOT_APPLICABLE_ITEM_CODE = "-1";
-	private static final String NOT_APPLICABLE_ITEM_LABEL = "N/A";
-
 	public static final String PARAMETER_SEPARATOR = "===";
 	public static final String MULTIPLE_VALUES_SEPARATOR = ";";
+	private static final Pattern PARAMETER_PART_PATTERN = Pattern.compile("^(\\w+)(\\[(\\w+)\\])?$");
+	
+	private static final String NOT_APPLICABLE_ITEM_CODE = "-1";
+	private static final String NOT_APPLICABLE_ITEM_LABEL = "N/A";
+	private static final int MAX_MULTIPLE_ENTITIES_COUNT = 10;
 
 	private static final String COLLECT_PREFIX = "collect_";
 	private final Logger logger = LoggerFactory.getLogger(BalloonInputFieldsUtils.class);
@@ -71,15 +79,15 @@ public class BalloonInputFieldsUtils {
 			new RangeAttributeHandler(), new RealAttributeHandler(), new TextAttributeHandler(),
 			new TimeAttributeHandler());
 
-	public Map<String, PlacemarkInputFieldInfo> extractFieldInfoByParameterName(CollectRecord record,
+	public LinkedHashMap<String, PlacemarkInputFieldInfo> extractFieldInfoByParameterName(CollectRecord record,
 			NodeChangeSet changeSet, String language, String modelVersionName) {
 		Collection<AttributeDefinition> changedDefs = extractChangedAttributeDefinitions(record, changeSet);
-		Map<String, String> htmlParameterNameByNodePath = generateAttributeHtmlParameterNameByNodePath(changedDefs);
-		Set<String> parameterNames = new HashSet<String>(htmlParameterNameByNodePath.values());
+		LinkedHashMap<String, String> htmlParameterNameByNodePath = generateAttributeHtmlParameterNameByNodePath(changedDefs);
+		Set<String> parameterNames = new LinkedHashSet<>(htmlParameterNameByNodePath.values());
 		Map<String, String> validationMessageByPath = generateValidationMessages(record);
 		Entity rootEntity = record.getRootEntity();
 
-		Map<String, PlacemarkInputFieldInfo> result = new HashMap<String, PlacemarkInputFieldInfo>(
+		LinkedHashMap<String, PlacemarkInputFieldInfo> result = new LinkedHashMap<String, PlacemarkInputFieldInfo>(
 				parameterNames.size());
 		for (String parameterName : parameterNames) {
 			String cleanName = cleanUpParameterName(parameterName);
@@ -87,14 +95,17 @@ public class BalloonInputFieldsUtils {
 			if (handler == null) {
 				logger.warn("Cannot find handler for parameter: ", parameterName);
 			} else if (handler instanceof EntityHandler) {
-				Entity currentEntity = ((EntityHandler) handler).getChildEntity(cleanName, rootEntity);
-				String childAttributeParameterName = ((EntityHandler) handler)
-						.extractNestedAttributeParameterName(parameterName);
-				AbstractAttributeHandler<?> childHandler = findHandler(childAttributeParameterName);
-				if (childHandler != null) {
-					PlacemarkInputFieldInfo info = generateAttributeFieldInfo(record, validationMessageByPath,
-							currentEntity, childAttributeParameterName, childHandler, language, modelVersionName);
-					result.put(parameterName, info);
+				EntityHandler entityHandler = (EntityHandler) handler;
+				Entity currentEntity = entityHandler.getChildEntity(cleanName, rootEntity);
+				if (currentEntity != null) {
+					String childAttributeParameterName = entityHandler
+							.extractNestedAttributeParameterName(parameterName);
+					AbstractAttributeHandler<?> childHandler = findHandler(childAttributeParameterName);
+					if (childHandler != null) {
+						PlacemarkInputFieldInfo info = generateAttributeFieldInfo(record, validationMessageByPath,
+								currentEntity, childAttributeParameterName, childHandler, language, modelVersionName);
+						result.put(parameterName, info);
+					}
 				}
 			} else {
 				PlacemarkInputFieldInfo info = generateAttributeFieldInfo(record, validationMessageByPath, rootEntity,
@@ -233,6 +244,31 @@ public class BalloonInputFieldsUtils {
 		cleanParameter = removePrefix(cleanParameter);
 		return cleanParameter;
 	}
+	
+	private List<ParameterPart> extractParameterParts(CollectSurvey survey, String cleanParameter) {
+		EntityDefinition currentParentEntityDef = survey.getSchema().getFirstRootEntityDefinition();
+		List<ParameterPart> result = new ArrayList<>();
+		String[] splitted = cleanParameter.split("\\.");
+		for (String part : splitted) {
+			String cleanPart = removeTypePrefix(part);
+			Matcher matcher = PARAMETER_PART_PATTERN.matcher(cleanPart);
+			if (matcher.find()) {
+				String childDefName = matcher.group(1);
+				if (currentParentEntityDef.containsChildDefinition(childDefName)) {
+					NodeDefinition childDef = currentParentEntityDef.getChildDefinition(childDefName);
+					String indexStr = matcher.group(3);
+					int index = indexStr == null ? 0: Integer.parseInt(indexStr);
+					result.add(new ParameterPart(childDef, index));
+					currentParentEntityDef = childDef instanceof EntityDefinition ? (EntityDefinition) childDef: null;
+				} else {
+					throw new IllegalStateException("Cannot find child definition " + childDefName + " inside entity " + currentParentEntityDef.getName());
+				}
+			} else {
+				throw new IllegalStateException("Unable to parse parameter: " + cleanParameter);
+			}
+		}
+		return result;
+	}
 
 	/**
 	 * Returns a map of parameter names by node path, sorted following the order in which every field is shown in the UI.
@@ -259,7 +295,7 @@ public class BalloonInputFieldsUtils {
 		return result;
 	}
 
-	private LinkedHashMap<String, String> getHtmlParameterNameByNodePathPerComponent(
+	private Map<String, String> getHtmlParameterNameByNodePathPerComponent(
 			EntityDefinition rootEntityDef, UIFormComponent uiFormComponent) {
 		LinkedHashMap<String, String> result = new LinkedHashMap<>();
 
@@ -296,7 +332,8 @@ public class BalloonInputFieldsUtils {
 		} else if (uiFormComponent instanceof UIFormSection) {
 			// single entity
 			EntityDefinition entityDef = ((UIFormSection) uiFormComponent).getEntityDefinition();
-			String collectParameterBaseName = getCollectParameterBaseName(entityDef) + ".";
+			String collectParameterBaseNamePrefix = getCollectParameterBaseName(entityDef);
+			String collectParameterBaseName = collectParameterBaseNamePrefix + (entityDef.isMultiple() ? "[$index]": "") + ".";
 			result.putAll(getHtmlParameterNameByNodePathOfChildren(entityDef, collectParameterBaseName, null));
 		}
 		return result;
@@ -305,7 +342,7 @@ public class BalloonInputFieldsUtils {
 	private LinkedHashMap<String, String> getHtmlParameterNameByNodePathOfChildren(EntityDefinition entityDef,
 			String collectParameterBaseName, Integer parentEntityIndex) {
 		final LinkedHashMap<String, String> result = new LinkedHashMap<>();
-		String parentEntityIndexPathPart = parentEntityIndex == null ? null : "[" + (parentEntityIndex + 1) + "]";
+		String parentEntityIndexPathPart = "[" + (parentEntityIndex == null ? "$index" : (parentEntityIndex + 1)) + "]";
 		for (NodeDefinition childDef : entityDef.getChildDefinitions()) {
 			AbstractAttributeHandler<?> childHandler = findHandler(childDef);
 			if (childHandler != null) {
@@ -352,18 +389,16 @@ public class BalloonInputFieldsUtils {
 		return result;
 	}
 
-	private Map<String, String> generateAttributeHtmlParameterNameByNodePath(Collection<AttributeDefinition> defs) {
-		Map<String, String> result = new HashMap<String, String>();
+	private LinkedHashMap<String, String> generateAttributeHtmlParameterNameByNodePath(Collection<AttributeDefinition> defs) {
+		LinkedHashMap<String, String> result = new LinkedHashMap<>();
 		for (AttributeDefinition def : defs) {
 			result.putAll(generateAttributeHtmlParameterNameByNodePath(def));
 		}
 		return result;
 	}
 
-	private Map<String, String> generateAttributeHtmlParameterNameByNodePath(AttributeDefinition def) {
-		CodeListService codeListService = def.getSurvey().getContext().getCodeListService();
-
-		Map<String, String> result = new HashMap<String, String>();
+	private LinkedHashMap<String, String> generateAttributeHtmlParameterNameByNodePath(AttributeDefinition def) {
+		LinkedHashMap<String, String> result = new LinkedHashMap<>();
 
 		EntityDefinition parentDef = def.getParentEntityDefinition();
 		if (parentDef.isRoot()) {
@@ -374,28 +409,26 @@ public class BalloonInputFieldsUtils {
 		} else {
 			List<NodeDefinition> childDefs = parentDef.getChildDefinitions();
 			if (parentDef.isMultiple()) {
-				// multiple (enumerated) entity
+				// multiple entity
+				List<?> enumeratingItems;
 				CodeAttributeDefinition keyCodeAttribute = parentDef.getEnumeratingKeyCodeAttribute();
-				if (keyCodeAttribute == null) {
-					throw new IllegalStateException(
-							"Enumerating code attribute expected for entity " + parentDef.getPath());
+				if (keyCodeAttribute != null) {
+					// enumerated entity
+					enumeratingItems = CollectSurveyUtils.getEnumeratingCodes(keyCodeAttribute);
 				} else {
-					CodeList enumeratingList = keyCodeAttribute.getList();
-					List<CodeListItem> enumeratingItems = codeListService.loadRootItems(enumeratingList);
-					for (int i = 0; i < enumeratingItems.size(); i++) {
-						CodeListItem enumeratingItem = enumeratingItems.get(i);
-						String collectParameterBaseName = getCollectParameterBaseName(parentDef) + "["
-								+ enumeratingItem.getCode() + "].";
-
-						for (NodeDefinition childDef : childDefs) {
-							AbstractAttributeHandler<?> childHandler = findHandler(childDef);
-							if (childHandler != null) {
-								String collectParameterName = collectParameterBaseName + childHandler.getPrefix()
-										+ childDef.getName();
-								String enumeratingItemPath = parentDef.getPath() + "[" + (i + 1) + "]/"
-										+ childDef.getName();
-								result.put(enumeratingItemPath, collectParameterName);
-							}
+					enumeratingItems = IntStream.rangeClosed(1, MAX_MULTIPLE_ENTITIES_COUNT).boxed().collect(Collectors.toList());
+				}
+				for (int i = 0; i < enumeratingItems.size(); i++) {
+					Object enumeratingItem = enumeratingItems.get(i);
+					String collectParameterBaseName = getCollectParameterBaseName(parentDef) + "[" + enumeratingItem + "].";
+					for (NodeDefinition childDef : childDefs) {
+						AbstractAttributeHandler<?> childHandler = findHandler(childDef);
+						if (childHandler != null) {
+							String collectParameterName = collectParameterBaseName + childHandler.getPrefix()
+									+ childDef.getName();
+							String enumeratingItemPath = parentDef.getPath() + "[" + (i + 1) + "]/"
+									+ childDef.getName();
+							result.put(enumeratingItemPath, collectParameterName);
 						}
 					}
 				}
@@ -407,8 +440,8 @@ public class BalloonInputFieldsUtils {
 					if (childHandler != null) {
 						String collectParameterName = collectParameterBaseName + childHandler.getPrefix()
 								+ childDef.getName();
-						String enumeratingItemPath = parentDef.getPath() + "/" + childDef.getName();
-						result.put(enumeratingItemPath, collectParameterName);
+						String nodePath = parentDef.getPath() + "/" + childDef.getName();
+						result.put(nodePath, collectParameterName);
 					}
 				}
 			}
@@ -477,21 +510,21 @@ public class BalloonInputFieldsUtils {
 					logger.error("Exception when getting parameters for entity ", e);
 				}
 			}
-
 		} else if (node instanceof Entity) {
 			Entity entity = (Entity) node;
 			List<Node<?>> entityChildren = entity.getChildren();
 
 			EntityDefinition entityDef = entity.getDefinition();
 			if (entityDef.isMultiple()) {
-				if (!entityDef.isEnumerable()) {
-					throw new IllegalArgumentException("Multiple not enumerated entity found: " + entityDef.getPath());
+				if (entityDef.isEnumerable()) {
+					// result should be
+					// collect_entity_NAME[KEY].code_attribute
+					@SuppressWarnings("deprecation")
+					String entityKey = entity.getKeyValues()[0];
+					collectParamName += "[" + entityKey + "]";
+				} else {
+					collectParamName += "[" + (node.getIndex() + 1) + "]";
 				}
-				// result should be
-				// collect_entity_NAME[KEY].code_attribute
-				@SuppressWarnings("deprecation")
-				String entityKey = entity.getKeyValues()[0];
-				collectParamName += "[" + entityKey + "]";
 			}
 
 			for (Node<?> child : entityChildren) {
@@ -539,19 +572,29 @@ public class BalloonInputFieldsUtils {
 			return parameterName;
 		}
 	}
+	
+	private String removeTypePrefix(String cleanParameterName) {
+		int indexOfUnderscore = cleanParameterName.indexOf('_');
+		return cleanParameterName.substring(indexOfUnderscore + 1);
+	}
 
 	public NodeChangeSet saveToEntity(Map<String, String> parameters, Entity entity) {
 		return saveToEntity(parameters, entity, false);
 	}
 
 	public NodeChangeSet saveToEntity(Map<String, String> parameters, Entity entity, boolean newRecord) {
+		CollectSurvey survey = (CollectSurvey) entity.getSurvey();
+		List<Entry<String, String>> sortedParameters = new ArrayList<>(parameters.entrySet()); 
+//				entity.isRoot() ? sortParameters(survey, parameters): new ArrayList<>(parameters.entrySet());
+		
 		final NodeChangeMap result = new NodeChangeMap();
 
-		Set<Entry<String, String>> parameterEntries = parameters.entrySet();
-
-		for (Entry<String, String> entry : parameterEntries) {
-			String parameterName = entry.getKey();
-			String parameterValue = entry.getValue();
+		for (Entry<String, String> parameter: sortedParameters) {
+			String parameterName = parameter.getKey();
+			String parameterValue = parameter.getValue();
+			if (parameterValue.contains("$")) {
+				continue;
+			}
 			String cleanName = cleanUpParameterName(parameterName);
 
 			AbstractAttributeHandler<?> handler = findHandler(cleanName);
@@ -588,5 +631,64 @@ public class BalloonInputFieldsUtils {
 		AbstractAttributeHandler<?> handler = findHandler(cleanName);
 		return handler.getAttributeNodeFromParameter(cleanName, entity, index);
 	}
+	
+	private List<Entry<String, String>> sortParameters(CollectSurvey survey, Map<String, String> parameters) {
+		List<NodeDefinition> sortedDefs = new ArrayList<>();
+		survey.getSchema().getFirstRootEntityDefinition().traverse(new NodeDefinitionVisitor() {
+			public void visit(NodeDefinition nodeDef) {
+				sortedDefs.add(nodeDef);
+			}
+		});
 
+		Map<String, List<ParameterPart>> parameterPartsByName = new HashMap<>();
+		for (Entry<String, String> entry : parameters.entrySet()) {
+			String parameterName = entry.getKey();
+			String cleanName = cleanUpParameterName(parameterName);
+			List<ParameterPart> parts = extractParameterParts(survey, cleanName);
+			parameterPartsByName.put(parameterName, parts);
+		}
+		
+		Set<Entry<String, String>> entrySet = parameters.entrySet();
+		for (Entry<String, String> entry : entrySet) {
+			
+		}
+		List<Entry<String, String>> sortedParameters = new ArrayList<>(parameters.entrySet());
+		sortedParameters.sort(new Comparator<Entry<String, String>>() {
+			public int compare(Entry<String, String> param1, Entry<String, String> param2) {
+				String name1 = param1.getKey();
+				String name2 = param2.getKey();
+				List<ParameterPart> parts1 = parameterPartsByName.get(name1);
+				List<ParameterPart> parts2 = parameterPartsByName.get(name2);
+				int depthDiff = parts1.size() - parts2.size();
+				if (depthDiff != 0) return depthDiff;
+				
+				for (int i = 0; i < parts1.size(); i++) {
+					ParameterPart part1 = parts1.get(i);
+					ParameterPart part2 = parts2.get(i);
+					int defIndex1 = sortedDefs.indexOf(part1.nodeDefinition);
+					int defIndex2 = sortedDefs.indexOf(part2.nodeDefinition);
+					int defIndexDiff = defIndex1 - defIndex2;
+					if (defIndexDiff != 0) {
+						return defIndexDiff;
+					}
+					int nodeIndexDiff = part1.index - part2.index;
+					if (nodeIndexDiff != 0) {
+						return nodeIndexDiff;
+					}
+				}
+				return 0;
+			}
+		});
+		return sortedParameters;
+	}
+
+	private class ParameterPart {
+		private NodeDefinition nodeDefinition;
+		private int index;
+		
+		ParameterPart(NodeDefinition nodeDefinition, int index) {
+			this.nodeDefinition = nodeDefinition;
+			this.index = index;
+		}
+	}
 }

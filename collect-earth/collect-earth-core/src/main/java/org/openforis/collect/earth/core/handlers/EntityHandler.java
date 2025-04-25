@@ -6,8 +6,12 @@ import java.util.Map;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
+import org.openforis.collect.earth.core.utils.CollectSurveyUtils;
+import org.openforis.collect.model.EntityAddChange;
+import org.openforis.collect.model.NodeChange;
 import org.openforis.collect.model.NodeChangeMap;
 import org.openforis.collect.model.NodeChangeSet;
+import org.openforis.idm.metamodel.CodeAttributeDefinition;
 import org.openforis.idm.metamodel.EntityDefinition;
 import org.openforis.idm.metamodel.NodeDefinition;
 import org.openforis.idm.model.Entity;
@@ -35,8 +39,8 @@ public class EntityHandler extends AbstractAttributeHandler<Entity> {
 		NodeChangeMap result = new NodeChangeMap();
 		
 		// Expected parameter name:
-		// collect_entity_topography[house].code_coverage=XX
-		Entity childEntity = getChildEntity(parameterName, parentEntity);
+		// collect_entity_topography[house].code_coverage=XX or collect_entity_topography[2].code_coverage=XX
+		Entity childEntity = getChildEntity(parameterName, parentEntity, true);
 		Map<String,String> parameters = new HashMap<String, String>();
 		String childAttributeParameter = extractNestedAttributeParameterName(parameterName);
 		parameters.put(childAttributeParameter, parameterValue);
@@ -45,17 +49,36 @@ public class EntityHandler extends AbstractAttributeHandler<Entity> {
 		result.addMergeChanges(otherChangeSet);
 		return result;
 	}
-
+	
 	public Entity getChildEntity(String parameterName, Entity parentEntity) {
+		return getChildEntity(parameterName, parentEntity, false);
+	}
+
+	public Entity getChildEntity(String parameterName, Entity parentEntity, boolean createIfMissing) {
 		String cleanName = removePrefix(parameterName);
 		String childEntityName = getEntityName(cleanName);
 		EntityDefinition childEntityDef = (EntityDefinition) parentEntity.getDefinition().getChildDefinition(childEntityName);
 		Entity childEntity;
 		if (childEntityDef.isMultiple()) {
-			String keyValue = getEntityKey(cleanName);
-			childEntity = getChildEntity(parentEntity, childEntityName, keyValue);
-			if (childEntity == null) {
-				throw new IllegalStateException(String.format("Enumerated entity expected but not found: %s[%s]", childEntityName, keyValue));
+			String keyValueOrIndex = getEntityKey(cleanName);
+			CodeAttributeDefinition keyCodeAttribute = childEntityDef.getEnumeratingKeyCodeAttribute();
+			if (keyCodeAttribute == null) {
+				int childIndex = Integer.parseInt(keyValueOrIndex) - 1;
+				childEntity = parentEntity.getChild(childEntityName, childIndex);
+				if (childEntity == null && createIfMissing) {
+					NodeChangeSet changeSet = recordUpdater.addEntity(parentEntity, childEntityName);
+					List<NodeChange<?>> changes = changeSet.getChanges();
+					for (NodeChange<?> nodeChange : changes) {
+						if (nodeChange instanceof EntityAddChange) {
+							childEntity = (Entity) nodeChange.getNode(); 
+						}
+					}
+				}
+			} else {
+				childEntity = CollectSurveyUtils.getChildEntity(parentEntity, childEntityName, keyValueOrIndex);
+				if (childEntity == null) {
+					throw new IllegalStateException(String.format("Enumerated entity expected but not found: %s[%s]", childEntityName, keyValueOrIndex));
+				}
 			}
 		} else {
 			childEntity = (Entity) parentEntity.getChild(childEntityDef);
@@ -63,15 +86,7 @@ public class EntityHandler extends AbstractAttributeHandler<Entity> {
 		return childEntity;
 	}
 	
-	private Entity getChildEntity(Entity parentEntity, String entityName, String entityKey) {
-		List<Entity> entities = parentEntity.findChildEntitiesByKeys(entityName, entityKey);
-		if (entities.isEmpty()) {
-			return null;
-		} else {
-			return entities.get(0);
-		}
-	}
-
+	
 	@Override
 	public String getParameterValue(Entity value) {
 		throw new UnsupportedOperationException("Cannot create a value for a Entity object");

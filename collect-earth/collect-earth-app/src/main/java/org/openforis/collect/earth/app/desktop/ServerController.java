@@ -256,8 +256,10 @@ public class ServerController extends Observable {
 			}
 
 			// Force the local properties to be loaded before the browserservice is instantiated!! DO NOT REMOVE
-			getContext().getBean(LocalPropertiesService.class);
-			this.addObserver(getContext().getBean(BrowserService.class));
+			if( getContext() != null ) {
+				getContext().getBean(LocalPropertiesService.class);
+				this.addObserver(getContext().getBean(BrowserService.class));
+			}
 
 		} catch (final IOException e) {
 			logger.error("Error initializing local properties", e); //$NON-NLS-1$

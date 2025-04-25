@@ -7,14 +7,13 @@ import java.io.UnsupportedEncodingException;
 import java.net.URLDecoder;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
+import java.util.Collections;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
-import java.util.NavigableMap;
-import java.util.Set;
-import java.util.SortedMap;
 import java.util.TreeMap;
 
 import javax.servlet.http.HttpServletResponse;
@@ -44,7 +43,7 @@ public class AbstractPlacemarkDataController extends JsonPocessorServlet {
 
 	@Autowired
 	protected AbstractEarthSurveyService earthSurveyService;
-
+	
 	protected void placemarkInfoExpanded(@RequestParam("id") String placemarkId, HttpServletResponse response) throws IOException {
 		PlacemarkLoadResult result;
 		if (placemarkId == null || placemarkId.equals(PREVIEW_PLOT_ID)) {
@@ -88,30 +87,54 @@ public class AbstractPlacemarkDataController extends JsonPocessorServlet {
 		}
 		setJsonResponse(response, result);
 	}
+	
+
+	@PostMapping(value="/create-entity")
+	public void createEntity(PlacemarkEntityCreateParams params, HttpServletResponse response) throws IOException {
+		Map<String, String> adjustedParams = adjustParameters(params);
+		String placemarkId = replacePlacemarkIdTestValue(params.getPlacemarkId());
+		String[] keyValues = placemarkId.split(",");
+		PlacemarkLoadResult result = getDataAccessor().addNewEntity(keyValues, params.getEntityName(), adjustedParams);
+		afterPlacemarkUpdate(placemarkId, lastPlacemarkStep, result);
+		setJsonResponse(response, result);
+	}
+	
+	@PostMapping(value="/delete-entity")
+	public void deleteEntity(PlacemarkEntityCreateParams params, HttpServletResponse response) throws IOException {
+		Map<String, String> adjustedParams = adjustParameters(params);
+		String placemarkId = replacePlacemarkIdTestValue(params.getPlacemarkId());
+		String[] keyValues = placemarkId.split(",");
+		PlacemarkLoadResult result = getDataAccessor().deleteEntity(keyValues, params.getEntityName(), adjustedParams);
+		afterPlacemarkUpdate(placemarkId, lastPlacemarkStep, result);
+		setJsonResponse(response, result);
+	}
+
 
 	public PlacemarkLoadResult processCollectedData(
 			PlacemarkUpdateRequest updateRequest,
 			Map<String, String> collectedData, String placemarkKey ) {
 		
 		PlacemarkLoadResult result = getDataAccessor().updateData( 
-								placemarkKey.split(",") , 
+								placemarkKey.split(","), 
 								collectedData,
 								updateRequest.isPartialUpdate()
 						);
-
-		if (result.isSuccess()) {
-			result.setMessage(Messages.getString("SaveEarthDataServlet.2")); //$NON-NLS-1$
-			lastPlacemarkId = placemarkKey;
-			lastPlacemarkStep = updateRequest.getCurrentStep();
-		}else{
-			logger.warn("Error when saving the data %s", result );
-		}
+		afterPlacemarkUpdate(placemarkKey, lastPlacemarkStep, result);
 		return result;
 	}
 
+	private void afterPlacemarkUpdate(String placemarkKey, String currentStep, PlacemarkLoadResult result) {
+		if (result.isSuccess()) {
+			result.setMessage(Messages.getString("SaveEarthDataServlet.2")); //$NON-NLS-1$
+			lastPlacemarkId = placemarkKey;
+			lastPlacemarkStep = currentStep;
+		}else{
+			logger.warn("Error when saving the data %s", result );
+		}
+	}
+
 	public PlacemarkLoadResult handleEmptyCollectedData() {
-		PlacemarkLoadResult result;
-		result = new PlacemarkLoadResult();
+		PlacemarkLoadResult result = new PlacemarkLoadResult();
 		result.setSuccess(false);
 		result.setMessage(Messages.getString("SaveEarthDataServlet.0")); //$NON-NLS-1$
 		getLogger().info("The request was empty"); //$NON-NLS-1$
@@ -122,15 +145,20 @@ public class AbstractPlacemarkDataController extends JsonPocessorServlet {
 	private Map<String, String> adjustParameters( PlacemarkUpdateRequest updateRequest )
 			throws UnsupportedEncodingException {
 		Map<String, String> originalCollectedData = updateRequest.getValues();
+		if (originalCollectedData == null) {
+			return Collections.emptyMap();
+		}
 		Map<String, String> result = new HashMap<String, String>(originalCollectedData.size());
 		for (Entry<String, String> entry : originalCollectedData.entrySet()) {
-			if( entry.getKey().equals( EarthConstants.PLACEMARK_ID_PARAMETER ) ){
+			String key = entry.getKey();
+			String value = entry.getValue();
+			if( key.equals( EarthConstants.PLACEMARK_ID_PARAMETER ) ){
 				// If there are multiple keys this value will be the combination of the keys, with the first value actually containing the plot id
-				entry.setValue( entry.getValue().split(",")[0]);
+				entry.setValue( value.split(",")[0]);
 			}
 
 			//decode parameter name, it was previously encoded by the client
-			result.put(URLDecoder.decode(entry.getKey(), StandardCharsets.UTF_8.name()), entry.getValue());
+			result.put(URLDecoder.decode(key, StandardCharsets.UTF_8.name()), value);
 
 		}
 		replaceTestParameters(result);
@@ -143,27 +171,15 @@ public class AbstractPlacemarkDataController extends JsonPocessorServlet {
 	 * @return The parameters sorted alphabetically
 	 */
 	public Map<String, String> sortParameters(Map<String, String> parameters) {
-		NavigableMap<String, String> navigableParameters = new TreeMap<>(parameters);
 		//extract parameter names in order
 		BalloonInputFieldsUtils collectParametersHandler = new BalloonInputFieldsUtils();
 		EntityDefinition rootEntityDef = earthSurveyService.getRootEntityDefinition();
 		LinkedHashMap<String, String> sortedParameterNameByNodePath = collectParametersHandler.getHtmlParameterNameByNodePath(rootEntityDef);
 		List<String> sortedParameterNames = new ArrayList<>(sortedParameterNameByNodePath.values());
 
-		//create a new map and put the parameters in order there
-		Map<String, String> result = new LinkedHashMap<>(navigableParameters.size());
-		for (String parameterName : sortedParameterNames) {
-			//get all the entries with key starting with parameterName
-			SortedMap<String,String> subMap = new TreeMap<>( navigableParameters.subMap(parameterName, parameterName + Character.MAX_VALUE) );
-			Set<Entry<String,String>> entrySet = subMap.entrySet();
-			for (Entry<String, String> entry : entrySet) {
-					result.put(entry.getKey(), entry.getValue());
-					navigableParameters.remove(entry.getKey());
-			}
-		}
-		//add remaining parameters (if any)
-		result.putAll(navigableParameters);
-		return result;
+		TreeMap<String, String> sortedParameters = new TreeMap<>(new ParametersKeyComparator(sortedParameterNames));
+        sortedParameters.putAll(parameters);
+		return sortedParameters;
 	}
 
 	/**
@@ -195,4 +211,60 @@ public class AbstractPlacemarkDataController extends JsonPocessorServlet {
 		else
 			return placemarkId;
 	}
+	
+	// sort input parameters following the hierarchical order
+	// parameters inside multiple entities will be sorted by the entity index, then by the order in the survey designer
+    private static class ParametersKeyComparator implements Comparator<String> {
+    	private static final String ENTITY_INDEX_REGEX_REPLACE = "\\[\\d+\\]";
+    	private static final String ENTITY_INDEX_REPLACEMENT = "[\\$index]";
+    	
+		private List<String> sortedParameterNames;
+		
+		public ParametersKeyComparator(List<String> sortedParameterNames) {
+			this.sortedParameterNames = sortedParameterNames;
+		}
+		
+        @Override
+        public int compare(String key1, String key2) {
+	        String modifiedKey1 = cleanupKey(key1);
+	        String modifiedKey2 = cleanupKey(key2);
+	        int sortedParametersKey1Index = sortedParameterNames.indexOf(modifiedKey1);
+	        int sortedParametersKey2Index = sortedParameterNames.indexOf(modifiedKey2);
+		        
+            // Check if both keys are related to a multiple entity attribute
+            if (key1.contains("[") && key2.contains("[")) {
+                // Extract the index from the keys
+                int entityIndex1 = extractEntityIndex(key1);
+                int entityIndex2 = extractEntityIndex(key2);
+                // Compare the indices
+                int indexCompare = Integer.compare(entityIndex1, entityIndex2);
+                if (indexCompare != 0) {
+                	return indexCompare;
+                }
+            }
+            if (sortedParametersKey1Index != -1 && sortedParametersKey2Index != -1) {
+            	return Integer.compare(sortedParametersKey1Index, sortedParametersKey2Index);
+            }
+            // For other keys, maintain their original order (if using LinkedHashMap initially)
+            return key1.compareTo(key2);
+        }
+
+		private String cleanupKey(String key) {
+			return key.replaceAll(ENTITY_INDEX_REGEX_REPLACE, ENTITY_INDEX_REPLACEMENT);
+		}
+        
+        private int extractEntityIndex(String key) {
+            int startIndex = key.indexOf("[");
+            int endIndex = key.indexOf("]");
+            if (startIndex != -1 && endIndex != -1 && startIndex < endIndex) {
+                try {
+                    return Integer.parseInt(key.substring(startIndex + 1, endIndex));
+                } catch (NumberFormatException e) {
+                    // Index could be a code list value (enumerated entity)
+                    return Integer.MAX_VALUE;
+                }
+            }
+            return Integer.MAX_VALUE; // Should not happen for keys we are comparing
+        }
+    }
 }
