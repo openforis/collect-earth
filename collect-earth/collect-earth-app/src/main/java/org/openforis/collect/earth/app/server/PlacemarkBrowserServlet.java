@@ -75,18 +75,8 @@ public class PlacemarkBrowserServlet {
 
 					openGEEAppWindow(placemarkObject);
 
-					openGEECodeEditorWindow(placemarkObject);
-
 					openEarthMapWindow( placemarkObject );
-
-					openTimeLapseWindow(placemarkObject);
-
-					openBingMapsWindow(placemarkObject);
-
-					openBaiduMapsWindow(placemarkObject);
-
-					openYandexMapsWindow(placemarkObject);
-
+					
 					openExtraMapWindow(placemarkObject);
 
 					openStreetViewWindow(placemarkObject);
@@ -118,18 +108,6 @@ public class PlacemarkBrowserServlet {
 			}.start();
 		}
 
-		public void openGEECodeEditorWindow(final SimplePlacemarkObject placemarkObject) {
-			new Thread("Open GEE Playground window") { //$NON-NLS-1$
-				@Override
-				public void run() {
-					try {
-						browserService.openGEECodeEditor(placemarkObject);
-					} catch (final Exception e) {
-						logger.error("Exception opening Earth Engine Playground window", e); //$NON-NLS-1$
-					}
-				}
-			}.start();
-		}
 
 		public void openGEEAppWindow(final SimplePlacemarkObject placemarkObject) {
 			new Thread("Open GEE APP window") { //$NON-NLS-1$
@@ -144,19 +122,6 @@ public class PlacemarkBrowserServlet {
 			}.start();
 		}
 
-		public void openBingMapsWindow(final SimplePlacemarkObject placemarkObject) {
-			new Thread("Open Bing Maps window") { //$NON-NLS-1$
-				@Override
-				public void run() {
-					try {
-						browserService.openBingMaps(placemarkObject);
-					} catch (final Exception e) {
-						LoggerFactory.getLogger(this.getClass()).error(
-								"Exception opening Bing Maps window", e); //$NON-NLS-1$
-					}
-				}
-			}.start();
-		}
 
 
 		public void openPlanetMapsWindow(final SimplePlacemarkObject placemarkObject) {
@@ -187,37 +152,6 @@ public class PlacemarkBrowserServlet {
 			}.start();
 		}
 
-		public void openBaiduMapsWindow(final SimplePlacemarkObject placemarkObject) {
-			new Thread("Open Baidu Maps window") { //$NON-NLS-1$
-				@Override
-				public void run() {
-					try {
-						browserService.openBaiduMaps(placemarkObject);
-					} catch (final Exception e) {
-						LoggerFactory.getLogger(this.getClass()).error(
-								"Exception opening Baidu Maps window", e); //$NON-NLS-1$
-
-					}
-				}
-
-			}.start();
-		}
-
-		public void openYandexMapsWindow(final SimplePlacemarkObject placemarkObject) {
-			new Thread("Open Yandex Maps window") { //$NON-NLS-1$
-				@Override
-				public void run() {
-					try {
-						browserService.openYandexMaps(placemarkObject);
-					} catch (final Exception e) {
-						LoggerFactory.getLogger(this.getClass()).error(
-								"Exception opening Yandex Maps window", e); //$NON-NLS-1$
-
-					}
-				}
-
-			}.start();
-		}
 
 		public void openExtraMapWindow(final SimplePlacemarkObject placemarkObject) {
 			new Thread("Open Expa Map window") { //$NON-NLS-1$
@@ -251,27 +185,12 @@ public class PlacemarkBrowserServlet {
 			}.start();
 		}
 
-		public void openTimeLapseWindow(final SimplePlacemarkObject placemarkObject) {
-			new Thread("Open TimeLapse window") { //$NON-NLS-1$
-				@Override
-				public void run() {
-					try {
-						browserService.openTimelapse(placemarkObject);
-					} catch (final Exception e) {
-						LoggerFactory.getLogger(this.getClass()).error(
-								"Exception opening Earth Engine window", e); //$NON-NLS-1$
-
-					}
-				}
-
-			}.start();
-		}
 
 	}
 
 
 	/*
-	 * Opens the extra browser windows for Earth Engine, Timelapse and Bing. (non-Javadoc)
+	 * Opens the extra browser windows for Earth Engine, Earth Map and others. (non-Javadoc)
 	 *
 	 * @see
 	 * org.openforis.collect.earth.app.server.JsonPocessorServlet#processRequest

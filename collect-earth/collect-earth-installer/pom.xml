@@ -175,18 +175,6 @@
 									<value>${basedir}/..</value>
 								</replacement>
 								<replacement>
-									<token>BING_MAPS_KEY</token>
-									<value>${bing_maps_key}</value>
-								</replacement>
-								<replacement>
-									<token>HERE_APP_ID</token>
-									<value>${here_app_id}</value>
-								</replacement>
-								<replacement>
-									<token>HERE_APP_CODE</token>
-									<value>${here_app_code}</value>
-								</replacement>
-								<replacement>
 									<token>GOOGLE_MAPS_API_KEY</token>
 									<value>${google_maps_api_key}</value>
 								</replacement>

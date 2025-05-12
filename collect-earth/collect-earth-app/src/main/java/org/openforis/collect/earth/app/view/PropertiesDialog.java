@@ -219,24 +219,14 @@ public class PropertiesDialog extends JDialog {
 		
 		constraints.gridy++;
 		constraints.gridwidth = 1;
-		panel.add(propertyToComponent.get(EarthProperty.OPEN_BING_MAPS)[0], constraints);
-
-		constraints.gridy++;
 		panel.add(propertyToComponent.get(EarthProperty.OPEN_EARTH_MAP)[0], constraints);
 
 
 		constraints.gridy++;
 		constraints.gridwidth = 1;
 		panel.add(propertyToComponent.get(EarthProperty.OPEN_PLANET_MAPS)[0], constraints);
-		constraints.gridx = 1;
-		panel.add(propertyToComponent.get(EarthProperty.PLANET_MAPS_MONHLY)[0], constraints);
-		
-		constraints.gridy++;
-		constraints.gridx = 0;
-		constraints.gridwidth = 4;
-		JPanel panelPlanet = getPlanetDatesPanel();
-		panel.add(panelPlanet, constraints);
-		
+
+				
 		constraints.gridy++;
 		constraints.gridx = 0;
 		constraints.gridwidth = 1;
@@ -257,75 +247,18 @@ public class PropertiesDialog extends JDialog {
 		constraints.gridx = 1;
 		panel.add(propertyToComponent.get(EarthProperty.MAXAR_SECUREWATCH_URL)[0], constraints);
 
-		constraints.gridx = 0;
 		constraints.gridy++;
 		constraints.gridwidth = 2;
-		panel.add(propertyToComponent.get(EarthProperty.OPEN_YANDEX_MAPS)[0], constraints);
-
-		constraints.gridy++;
-		panel.add(propertyToComponent.get(EarthProperty.OPEN_BAIDU_MAPS)[0], constraints);
-
-		constraints.gridy++;
 		final JLabel label2 = new JLabel(Messages.getString("OptionWizard.103")); //$NON-NLS-1$
 		panel.add(label2, constraints);
 		constraints.gridy++;
 		panel.add(propertyToComponent.get(EarthProperty.EXTRA_MAP_URL)[0], constraints);
 
-		constraints.gridy++;
-		constraints.gridx = 0;
-		constraints.gridwidth = 2;
-		panel.add(propertyToComponent.get(EarthProperty.OPEN_GEE_CODE_EDITOR)[0], constraints);
-
 
 		return panel;
 	}
 
-	private JPanel getPlanetDatesPanel() {
-		JPanel panelPlanet  = new JPanel();
 
-		( (JCheckBox) propertyToComponent.get(EarthProperty.OPEN_PLANET_MAPS)[0] ).addActionListener( e-> {
-			
-			propertyToComponent.get(EarthProperty.PLANET_MAPS_KEY)[0].setEnabled( 
-					( (JCheckBox) propertyToComponent.get(EarthProperty.OPEN_PLANET_MAPS)[0] ).isSelected() 
-					&& 
-					!( (JCheckBox) propertyToComponent.get(EarthProperty.PLANET_MAPS_MONHLY)[0] ).isSelected() 
-			);
-			
-			propertyToComponent.get(EarthProperty.PLANET_MAPS_MONHLY)[0].setEnabled( ( (JCheckBox) propertyToComponent.get(EarthProperty.OPEN_PLANET_MAPS)[0] ).isSelected() );
-			panelPlanet.setVisible( 
-					( (JCheckBox) propertyToComponent.get(EarthProperty.OPEN_PLANET_MAPS)[0] ).isSelected() 
-					&& 
-					( (JCheckBox) propertyToComponent.get(EarthProperty.PLANET_MAPS_MONHLY)[0] ).isSelected() 
-			);
-		});
-		
-		( (JCheckBox) propertyToComponent.get(EarthProperty.PLANET_MAPS_MONHLY)[0] ).addActionListener( e-> {	
-			propertyToComponent.get(EarthProperty.PLANET_MAPS_KEY)[0].setEnabled( 
-					( (JCheckBox) propertyToComponent.get(EarthProperty.OPEN_PLANET_MAPS)[0] ).isSelected() && 
-					!( (JCheckBox) propertyToComponent.get(EarthProperty.PLANET_MAPS_MONHLY)[0] ).isSelected() 
-			);
-			panelPlanet.setVisible( 
-					( (JCheckBox) propertyToComponent.get(EarthProperty.OPEN_PLANET_MAPS)[0] ).isSelected() 
-					&& 
-					( (JCheckBox) propertyToComponent.get(EarthProperty.PLANET_MAPS_MONHLY)[0] ).isSelected() 
-			);
-		});
-
-		panelPlanet.setVisible( 
-				( (JCheckBox) propertyToComponent.get(EarthProperty.OPEN_PLANET_MAPS)[0] ).isSelected() 
-				&& 
-				( (JCheckBox) propertyToComponent.get(EarthProperty.PLANET_MAPS_MONHLY)[0] ).isSelected() 
-		);
-		
-		final JLabel labelPlanetFromDate = new JLabel(Messages.getString("OptionWizard.123") ); //$NON-NLS-1$
-		panelPlanet.add(labelPlanetFromDate);
-		panelPlanet.add(propertyToComponent.get(EarthProperty.PLANET_FROM_DATE)[0]);
-		
-		final JLabel labelPlanetEndDate = new JLabel(Messages.getString("OptionWizard.124")); //$NON-NLS-1$
-		panelPlanet.add(labelPlanetEndDate);
-		panelPlanet.add(propertyToComponent.get(EarthProperty.PLANET_TO_DATE)[0]);
-		return panelPlanet;
-	}
 
 	private JPanel getGeeAppOptionsPanel(JPanel mainPanel, GridBagConstraints constraints) {
 		JPanel panelGeeApp  = new JPanel();
@@ -1069,28 +1002,18 @@ public class PropertiesDialog extends JDialog {
 		openEarthMapCheckbox
 				.setSelected(Boolean.parseBoolean(localPropertiesService.getValue(EarthProperty.OPEN_EARTH_MAP)));
 		propertyToComponent.put(EarthProperty.OPEN_EARTH_MAP, new JComponent[] { openEarthMapCheckbox });
-		
-		final JCheckBox openBingCheckbox = new JCheckBox(Messages.getString("OptionWizard.47")); //$NON-NLS-1$
-		openBingCheckbox
-				.setSelected(Boolean.parseBoolean(localPropertiesService.getValue(EarthProperty.OPEN_BING_MAPS)));
-		propertyToComponent.put(EarthProperty.OPEN_BING_MAPS, new JComponent[] { openBingCheckbox });
 
 		final JCheckBox openPlanetCheckbox = new JCheckBox(Messages.getString("OptionWizard.100")); //$NON-NLS-1$
 		openPlanetCheckbox
 				.setSelected(Boolean.parseBoolean(localPropertiesService.getValue(EarthProperty.OPEN_PLANET_MAPS)));
 		propertyToComponent.put(EarthProperty.OPEN_PLANET_MAPS, new JComponent[] { openPlanetCheckbox });
 
-		final JCheckBox openMonthlyNICFICheckbox = new JCheckBox(Messages.getString("OptionWizard.110")); //$NON-NLS-1$
-		openMonthlyNICFICheckbox
-				.setSelected(Boolean.parseBoolean(localPropertiesService.getValue(EarthProperty.PLANET_MAPS_MONHLY)));
-		openMonthlyNICFICheckbox.setEnabled( openPlanetCheckbox.isSelected() );
-		propertyToComponent.put(EarthProperty.PLANET_MAPS_MONHLY, new JComponent[] { openMonthlyNICFICheckbox });
 
 
 		final JPasswordField planetAPIKeyTextField = new JPasswordField(
 				localPropertiesService.getValue(EarthProperty.PLANET_MAPS_KEY));
 		planetAPIKeyTextField.setMinimumSize(new Dimension( 250,  20 ));
-		planetAPIKeyTextField.setEnabled( openPlanetCheckbox.isSelected() && !openMonthlyNICFICheckbox.isSelected() );
+		planetAPIKeyTextField.setEnabled( openPlanetCheckbox.isSelected() );
 		propertyToComponent.put(EarthProperty.PLANET_MAPS_KEY, new JComponent[] { planetAPIKeyTextField });
 
 		//Allows year selection in JXDatePicker	    
@@ -1125,21 +1048,6 @@ public class PropertiesDialog extends JDialog {
 		}	
 		propertyToComponent.put(EarthProperty.GEEAPP_TO_DATE, new JComponent[] { geeAppToDate });
 
-		final JComboBox<PlanetMonthlyObject> nicfiStartMonth = new JComboBox<>( PlanetMonthlyObject.getPlanetMonthlyMosaics() ); //$NON-NLS-1$
-		if( StringUtils.isBlank(localPropertiesService.getValue(EarthProperty.PLANET_FROM_DATE)) ) {
-			nicfiStartMonth.setSelectedItem( PlanetMonthlyObject.STARTING_DATE );
-		}else {
-			nicfiStartMonth.setSelectedItem( PlanetMonthlyObject.getPlanetMonthlyObject(localPropertiesService.getValue(EarthProperty.PLANET_FROM_DATE) ) );
-		}
-		propertyToComponent.put(EarthProperty.PLANET_FROM_DATE, new JComponent[] { nicfiStartMonth });
-
-		final JComboBox<PlanetMonthlyObject> nicfiEndMonth = new JComboBox<>( PlanetMonthlyObject.getPlanetMonthlyMosaics() ); //$NON-NLS-1$
-		if( StringUtils.isBlank(localPropertiesService.getValue(EarthProperty.PLANET_TO_DATE)) ) {
-			nicfiEndMonth.setSelectedItem( PlanetMonthlyObject.PRESENT_DATE );
-		}else {
-			nicfiEndMonth.setSelectedItem( PlanetMonthlyObject.getPlanetMonthlyObject(localPropertiesService.getValue(EarthProperty.PLANET_TO_DATE) ) );
-		}	
-		propertyToComponent.put(EarthProperty.PLANET_TO_DATE, new JComponent[] { nicfiEndMonth });
 
 		final JCheckBox openSecureWatchCheckbox = new JCheckBox(Messages.getString("OptionWizard.102")); //$NON-NLS-1$
 		openSecureWatchCheckbox
@@ -1158,26 +1066,6 @@ public class PropertiesDialog extends JDialog {
 				localPropertiesService.getValue(EarthProperty.EXTRA_MAP_URL));
 		extraUrlTextField.setMinimumSize(new Dimension( 250,  20 ));
 		propertyToComponent.put(EarthProperty.EXTRA_MAP_URL, new JComponent[] { extraUrlTextField });
-
-		final JCheckBox openBaiduCheckbox = new JCheckBox("Open Baidu Maps");
-		openBaiduCheckbox
-				.setSelected(Boolean.parseBoolean(localPropertiesService.getValue(EarthProperty.OPEN_BAIDU_MAPS)));
-		propertyToComponent.put(EarthProperty.OPEN_BAIDU_MAPS, new JComponent[] { openBaiduCheckbox });
-
-		final JCheckBox openYandexCheckbox = new JCheckBox("Open Yandex maps for the plot area");
-		openYandexCheckbox
-				.setSelected(Boolean.parseBoolean(localPropertiesService.getValue(EarthProperty.OPEN_YANDEX_MAPS)));
-		propertyToComponent.put(EarthProperty.OPEN_YANDEX_MAPS, new JComponent[] { openYandexCheckbox });
-
-		final JCheckBox openHereCheckbox = new JCheckBox(Messages.getString("OptionWizard.59")); //$NON-NLS-1$
-		openHereCheckbox
-				.setSelected(Boolean.parseBoolean(localPropertiesService.getValue(EarthProperty.OPEN_HERE_MAPS)));
-		propertyToComponent.put(EarthProperty.OPEN_HERE_MAPS, new JComponent[] { openHereCheckbox });
-
-		final JCheckBox openGeePlaygroundCheckbox = new JCheckBox(Messages.getString("OptionWizard.58")); //$NON-NLS-1$
-		openGeePlaygroundCheckbox
-				.setSelected(Boolean.parseBoolean(localPropertiesService.getValue(EarthProperty.OPEN_GEE_CODE_EDITOR)));
-		propertyToComponent.put(EarthProperty.OPEN_GEE_CODE_EDITOR, new JComponent[] { openGeePlaygroundCheckbox });
 
 		final JCheckBox openInSeparateWindowCheckbox = new JCheckBox(Messages.getString("OptionWizard.48")); //$NON-NLS-1$
 		openInSeparateWindowCheckbox.setSelected(
