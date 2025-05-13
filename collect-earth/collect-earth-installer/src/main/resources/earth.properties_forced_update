@@ -2,6 +2,7 @@ gee_explorer_url=https://explorer.earthengine.google.com/#workspace
 gee_js_library_url=https://explorer.earthengine.google.com/javascript/ee_js.js
 gee_playground_url=https://code.earthengine.google.com/
 gee_app_url=https://collectearth.users.earthengine.app/view/plot
+bing_maps_key=NA
 open_gee_playground=false
 open_gee_app=true
 open_earth_map=false
