@@ -14,6 +14,8 @@ import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 import java.io.File;
 import java.io.IOException;
+import java.net.MalformedURLException;
+import java.net.URL;
 import java.text.DecimalFormat;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
@@ -26,6 +28,7 @@ import java.util.List;
 import javax.swing.AbstractAction;
 import javax.swing.AbstractButton;
 import javax.swing.ButtonGroup;
+import javax.swing.InputVerifier;
 import javax.swing.JButton;
 import javax.swing.JCheckBox;
 import javax.swing.JComboBox;
@@ -50,10 +53,14 @@ import javax.swing.border.TitledBorder;
 import javax.swing.event.DocumentEvent;
 import javax.swing.event.DocumentListener;
 
+
 import org.apache.commons.lang3.StringUtils;
 import org.jdesktop.swingx.JXDatePicker;
 import org.jdesktop.swingx.plaf.basic.CalendarHeaderHandler;
 import org.jdesktop.swingx.plaf.basic.SpinningCalendarHeaderHandler;
+import org.jdesktop.swingx.prompt.PromptSupport;
+import java.awt.Color;
+
 import org.openforis.collect.earth.app.CollectEarthUtils;
 import org.openforis.collect.earth.app.EarthConstants;
 import org.openforis.collect.earth.app.EarthConstants.CollectDBDriver;
@@ -286,6 +293,7 @@ public class PropertiesDialog extends JDialog {
         // Extra Map URL
         constraints.gridy++;
         constraints.gridwidth = 2;
+        constraints.gridx = 0;
         final JLabel labelExtra = new JLabel(Messages.getString("OptionWizard.103"));
         panel.add(labelExtra, constraints);
         constraints.gridy++;
@@ -387,11 +395,14 @@ public class PropertiesDialog extends JDialog {
                             new Thread("Applying properties dialog") {
                                 @Override
                                 public void run() {
-                                    savePropertyValues();
-                                    if (isRestartRequired()) {
-                                        restartEarth();
-                                    } else {
-                                        EarthApp.executeKmlLoadAsynchronously(PropertiesDialog.this);
+                                	// Validate before saving
+                                    if (validateFields()) {
+	                                    savePropertyValues();
+	                                    if (isRestartRequired()) {
+	                                        restartEarth();
+	                                    } else {
+	                                        EarthApp.executeKmlLoadAsynchronously(PropertiesDialog.this);
+	                                    }
                                     }
                                 }
                             }.start();
@@ -1101,6 +1112,9 @@ public class PropertiesDialog extends JDialog {
         planetAPIKeyTextField.setEnabled(openPlanetCheckbox.isSelected());
         propertyToComponent.put(EarthProperty.PLANET_MAPS_KEY, new JComponent[] { planetAPIKeyTextField });
 
+        // Enable API key text field when Planet is activated
+        openPlanetCheckbox.addActionListener( e-> planetAPIKeyTextField.setEnabled(	openPlanetCheckbox.isSelected()	) );
+
         // Initialize date pickers for GEE App
         initializeDatePickers();
         
@@ -1122,6 +1136,15 @@ public class PropertiesDialog extends JDialog {
         final JTextField extraUrlTextField = new JTextField(
                 localPropertiesService.getValue(EarthProperty.EXTRA_MAP_URL));
         extraUrlTextField.setMinimumSize(new Dimension(250, 20));
+        extraUrlTextField.setInputVerifier( new UrlPlaceholderVerifier() );
+     // register it for placeholder text
+        PromptSupport.setPrompt(
+            "https://www.extramap.org/lat=LATITUDE&long=LONGITUDE&id=PLOT_ID",
+            extraUrlTextField);
+       // PromptSupport.setForeground(Color.GRAY, extraUrlTextField);
+
+
+        
         propertyToComponent.put(EarthProperty.EXTRA_MAP_URL, new JComponent[] { extraUrlTextField });
 
         // Open in separate window checkbox
@@ -1476,5 +1499,49 @@ public class PropertiesDialog extends JDialog {
      */
     public void setRestartRequired(boolean restartRequired) {
         this.restartRequired = restartRequired;
+    }
+    
+    /**
+     * Verifies that the text is a valid URL and contains required placeholders.
+     */
+    private static class UrlPlaceholderVerifier extends InputVerifier {
+        @Override
+        public boolean verify(JComponent input) {
+            String text = ((JTextField) input).getText().trim();
+            if (text.isEmpty()) {
+                return true; // allow empty
+            }
+            try {
+                new URL(text);
+            } catch (MalformedURLException e) {
+                showError(input, "Invalid URL format.");
+                return false;
+            }
+            if (!text.contains("LATITUDE") || !text.contains("LONGITUDE")) {
+                showError(input, "URL must contain LATITUDE and LONGITUDE placeholders.");
+                return false;
+            }
+            return true;
+        }
+
+        private void showError(JComponent input, String message) {
+            JOptionPane.showMessageDialog(
+                    input.getParent(),
+                    message,
+                    "Error in Extra Map URL",
+                    JOptionPane.ERROR_MESSAGE);
+            input.requestFocusInWindow();
+        }
+    }
+
+    private boolean validateFields() {
+        for (JComponent[] comps : propertyToComponent.values()) {
+            JComponent comp = comps[0];
+            InputVerifier verifier = comp.getInputVerifier();
+            if (verifier != null && !verifier.verify(comp)) {
+                return false;
+            }
+        }
+        return true;
     }
 }
