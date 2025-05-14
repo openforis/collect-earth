@@ -226,7 +226,6 @@
 					</archive>
 				</configuration>
 			</plugin>
-
 		    <plugin>
 		      <groupId>org.apache.maven.plugins</groupId>
 		      <artifactId>maven-javadoc-plugin</artifactId>
@@ -235,6 +234,29 @@
 		      <groupId>org.apache.maven.plugins</groupId>
 		      <artifactId>maven-source-plugin</artifactId>
 		    </plugin>
+    
+    		<plugin>
+			  <groupId>org.apache.maven.plugins</groupId>
+			  <artifactId>maven-compiler-plugin</artifactId>
+			  
+			      <configuration>
+			        
+			        <annotationProcessorPaths>
+			          <!-- Include `log4j-core` providing `org.apache.logging.log4j.core.config.plugins.processor.PluginProcessor` that generates `Log4j2Plugins.dat` -->
+			          <path>
+			            <groupId>org.apache.logging.log4j</groupId>
+			            <artifactId>log4j-core</artifactId>
+			            <version>${log4j.version}</version>
+			          </path>
+			        </annotationProcessorPaths>
+			        <annotationProcessors>
+			          <!-- Process sources using `org.apache.logging.log4j.core.config.plugins.processor.PluginProcessor` to generate `Log4j2Plugins.dat` -->
+			          <processor>org.apache.logging.log4j.core.config.plugins.processor.PluginProcessor</processor>
+			        </annotationProcessors>
+			      </configuration>
+			    
+			</plugin>
+    
     
 		</plugins>
 	</build>
