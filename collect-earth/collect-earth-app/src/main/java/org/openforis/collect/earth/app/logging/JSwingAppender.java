@@ -7,6 +7,8 @@ import javax.swing.JOptionPane;
 import javax.swing.JScrollPane;
 import javax.swing.SwingUtilities;
 
+import org.apache.logging.log4j.core.Appender;
+import org.apache.logging.log4j.core.Core;
 import org.apache.logging.log4j.core.Filter;
 import org.apache.logging.log4j.core.Layout;
 import org.apache.logging.log4j.core.LogEvent;
@@ -20,8 +22,7 @@ import org.apache.logging.log4j.core.layout.PatternLayout;
 import org.openforis.collect.earth.app.service.LocalPropertiesService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
-@Plugin(name = "JSwingAppender", category = "Core", elementType = "appender", printObject = true)
+@Plugin(name = "JSwingAppender", category = Core.CATEGORY_NAME, elementType = Appender.ELEMENT_TYPE, printObject = true)
 public class JSwingAppender extends AbstractAppender {
 
 	private Boolean showException;

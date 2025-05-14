@@ -1,12 +1,11 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<Configuration status="warn"
-	packages="org.openforis.collect.earth.app.logging">
+<Configuration status="warn">
 
 	<Appenders>
 		<RollingFile name="file"
 			fileName="${sys:collectEarth.userFolder}/earth_error.log"
 			filePattern="${sys:collectEarth.userFolder}/earth_error_%d{MM-dd-yyyy}-%i.log"
-			bufferedIO="false">
+			bufferedIO="true" bufferSize="8192">
 			<PatternLayout pattern="%-5p %d [%t] %c: %m%n" />
 			<Policies>
 				<SizeBasedTriggeringPolicy size="10 MB" />
@@ -21,14 +20,27 @@
 		</Console>
 
 		<JSwingAppender name="jswing-log">
-			<RegexFilter regex=".*JSwingAppender.*" onMatch="DENY" onMismatch="ACCEPT"/>
+			<RegexFilter regex=".*JSwingAppender.*" onMatch="DENY"
+				onMismatch="ACCEPT" />
 			<PatternLayout pattern="%-5p %d [%t] %c: %m%n" />
 		</JSwingAppender>
 
-		<Sentry name="SENTRY">
+		<Sentry name="SENTRY" dsn="https://24dd6a90c1e4461484712db99c3b3bb7:831e42661c5c4ff3aa5eca270db3f619@sentry.io/299626">
 			<!-- If specific filtering needed, define here -->
-			<RegexFilter regex=".*io.sentry.connection.ConnectionException.*" onMatch="DENY" onMismatch="ACCEPT"/>
-			<BurstFilter level="ERROR" rate="1" maxBurst="5"/>
+			
+			<!-- Wrap all filters here -->
+			<Filters>
+				<RegexFilter
+					regex=".*io.sentry.connection.ConnectionException.*" onMatch="DENY"
+					onMismatch="ACCEPT" />
+
+				<!-- now BurstFilter will be recognized -->
+				<BurstFilter level="ERROR"     
+					rate="1"          
+					maxBurst="5"       
+					onMatch="DENY"      
+					onMismatch="NEUTRAL"/>
+			</Filters>
 		</Sentry>
 	</Appenders>
 
@@ -36,7 +48,7 @@
 		<Root level="INFO">
 			<AppenderRef ref="file" level="ERROR" />
 			<AppenderRef ref="STDOUT" level="INFO" />
-			<AppenderRef ref="jswing-log" level="ERROR"/>
+			<AppenderRef ref="jswing-log" level="ERROR" />
 			<AppenderRef ref="SENTRY" level="ERROR" />
 		</Root>
 	</Loggers>
