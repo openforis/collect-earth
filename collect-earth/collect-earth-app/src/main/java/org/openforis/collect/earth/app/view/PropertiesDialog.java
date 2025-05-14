@@ -27,6 +27,7 @@ import java.util.List;
 
 import javax.swing.AbstractAction;
 import javax.swing.AbstractButton;
+import javax.swing.BorderFactory;
 import javax.swing.ButtonGroup;
 import javax.swing.InputVerifier;
 import javax.swing.JButton;
@@ -53,14 +54,11 @@ import javax.swing.border.TitledBorder;
 import javax.swing.event.DocumentEvent;
 import javax.swing.event.DocumentListener;
 
-
 import org.apache.commons.lang3.StringUtils;
 import org.jdesktop.swingx.JXDatePicker;
 import org.jdesktop.swingx.plaf.basic.CalendarHeaderHandler;
 import org.jdesktop.swingx.plaf.basic.SpinningCalendarHeaderHandler;
 import org.jdesktop.swingx.prompt.PromptSupport;
-import java.awt.Color;
-
 import org.openforis.collect.earth.app.CollectEarthUtils;
 import org.openforis.collect.earth.app.EarthConstants;
 import org.openforis.collect.earth.app.EarthConstants.CollectDBDriver;
@@ -203,6 +201,7 @@ public class PropertiesDialog extends JDialog {
      */
     private JComponent getBrowsersOptionsPanel() {
         final JPanel panel = new JPanel(new GridBagLayout());
+        panel.setBorder(BorderFactory.createEmptyBorder(10, 10, 10, 10));
         final GridBagConstraints constraints = createDefaultConstraints();
 
         // Browser chooser panel
@@ -244,6 +243,7 @@ public class PropertiesDialog extends JDialog {
      */
     private JComponent getIntegrationsPanel() {
         final JPanel panel = new JPanel(new GridBagLayout());
+        panel.setBorder(BorderFactory.createEmptyBorder(10, 10, 10, 10));
         final GridBagConstraints constraints = createDefaultConstraints();
 
         // Google Earth Engine App
@@ -477,6 +477,7 @@ public class PropertiesDialog extends JDialog {
      */
     private JComponent getProjectsPanel() {
         final JPanel panel = new JPanel(new GridBagLayout());
+        panel.setBorder(BorderFactory.createEmptyBorder(10, 10, 10, 10));
         final GridBagConstraints constraints = createDefaultConstraints();
         constraints.fill = GridBagConstraints.BOTH;
 
@@ -543,6 +544,7 @@ public class PropertiesDialog extends JDialog {
         JList<String> projectsList = createProjectsList();
         JScrollPane listScroller = new JScrollPane(projectsList);
         listScroller.setPreferredSize(new Dimension(250, 300));
+        
         
         constraints.gridy = 0;
         constraints.gridx = GridBagConstraints.RELATIVE;
@@ -624,6 +626,7 @@ public class PropertiesDialog extends JDialog {
     @SuppressWarnings("unchecked")
     private JComponent getPlotOptionsPanel() {
         final JPanel panel = new JPanel(new GridBagLayout());
+        panel.setBorder(BorderFactory.createEmptyBorder(10, 10, 10, 10));
         final GridBagConstraints constraints = new GridBagConstraints();
         constraints.gridx = 0;
         constraints.gridy = 0;
@@ -829,6 +832,7 @@ public class PropertiesDialog extends JDialog {
      */
     private JPanel getPostgreSqlPanel() {
         final JPanel panel = new JPanel(new GridBagLayout());
+        panel.setBorder(BorderFactory.createEmptyBorder(10, 10, 10, 10));
         final GridBagConstraints constraints = createDefaultConstraints();
 
         final Border border = new TitledBorder(new BevelBorder(BevelBorder.RAISED),
@@ -915,6 +919,7 @@ public class PropertiesDialog extends JDialog {
      */
     private JPanel getSqlLitePanel() {
         final JPanel panel = new JPanel(new GridBagLayout());
+        panel.setBorder(BorderFactory.createEmptyBorder(10, 10, 10, 10));
         final GridBagConstraints constraints = createDefaultConstraints();
 
         final Border border = new TitledBorder(new BevelBorder(BevelBorder.RAISED),
@@ -935,6 +940,7 @@ public class PropertiesDialog extends JDialog {
                 localPropertiesService.getValue(EarthProperty.SAMPLE_FILE), surveyLoaded);
 
         final JPanel panel = new JPanel(new GridBagLayout());
+        panel.setBorder(BorderFactory.createEmptyBorder(10, 10, 10, 10));
         final GridBagConstraints constraints = createDefaultConstraints();
         constraints.fill = GridBagConstraints.BOTH;
 
@@ -995,6 +1001,7 @@ public class PropertiesDialog extends JDialog {
      */
     private JPanel getServerPanel() {
         final JPanel panel = new JPanel(new GridBagLayout());
+        panel.setBorder(BorderFactory.createEmptyBorder(10, 10, 10, 10));
         final GridBagConstraints constraints = createDefaultConstraints();
 
         final Border border = new TitledBorder(new BevelBorder(BevelBorder.RAISED),
