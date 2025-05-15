@@ -3,7 +3,7 @@
 	<parent>
 		<groupId>org.openforis.collect.earth</groupId>
 		<artifactId>collect-earth</artifactId>
-		<version>1.21.9</version>
+		<version>1.21.10-SNAPSHOT</version>
 	</parent>
 	<artifactId>collect-earth-installer</artifactId>
 	<packaging>pom</packaging>
@@ -173,18 +173,6 @@
 								<replacement>
 									<token>COLLECT_EARTH_MAIN_FOLDER</token>
 									<value>${basedir}/..</value>
-								</replacement>
-								<replacement>
-									<token>BING_MAPS_KEY</token>
-									<value>${bing_maps_key}</value>
-								</replacement>
-								<replacement>
-									<token>HERE_APP_ID</token>
-									<value>${here_app_id}</value>
-								</replacement>
-								<replacement>
-									<token>HERE_APP_CODE</token>
-									<value>${here_app_code}</value>
 								</replacement>
 								<replacement>
 									<token>GOOGLE_MAPS_API_KEY</token>

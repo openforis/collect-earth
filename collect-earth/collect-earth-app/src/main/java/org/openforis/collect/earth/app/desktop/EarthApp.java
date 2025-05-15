@@ -138,9 +138,10 @@ public class EarthApp {
 		try {
 			String releaseName = UpdateIniUtils.getVersionNameInstalled();
 
-			Sentry.init(
-					"https://24dd6a90c1e4461484712db99c3b3bb7:831e42661c5c4ff3aa5eca270db3f619@sentry.io/299626?release="
-							+ releaseName + "&maxmessagelength=2000");
+			Sentry.init(options -> {
+				options.setDsn( "https://24dd6a90c1e4461484712db99c3b3bb7:831e42661c5c4ff3aa5eca270db3f619@sentry.io/299626");
+				options.setRelease(releaseName);
+				} );
 			if (!StringUtils.isEmpty(UpdateIniUtils.getVersionReleaseDateInstalled())) {
 				Sentry.setTag("ReleaseDate", UpdateIniUtils.getVersionReleaseDateInstalled());
 			}
@@ -481,9 +482,12 @@ public class EarthApp {
 				} catch (InterruptedException e1) {
 					logger.error("Error while waiting", e1); //$NON-NLS-1$
 				}
-
-				AnnouncementManager announcementManager = new AnnouncementManager();
-				announcementManager.checkAnnouncements();
+				try {
+					AnnouncementManager announcementManager = new AnnouncementManager();
+					announcementManager.checkAnnouncements();
+				} catch (Exception e) {
+					logger.error("Error checking for announcements", e); //$NON-NLS-1$
+				}
 			}
 		}.start();
 

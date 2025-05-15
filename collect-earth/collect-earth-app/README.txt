@@ -9,7 +9,7 @@ https://www.google.com/earth/
 
 
 CHROME / FIREFOX
-Keep in mind that for the Bing Maps, Google Earth Engine and Saiku integrations you will need to have the LATEST version of Mozilla Firefox or Google Chrome installed in your computer.
+Keep in mind that for the Earth Map, Google Earth Engine and Saiku integrations you will need to have the LATEST version of Mozilla Firefox or Google Chrome installed in your computer.
 
 
 GENERATION OF SURVEYS

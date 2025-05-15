@@ -5,7 +5,6 @@ import java.io.File;
 import java.io.IOException;
 import java.io.StringWriter;
 import java.io.Writer;
-import java.net.URI;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
@@ -17,9 +16,7 @@ import java.util.Observable;
 import java.util.Observer;
 import java.util.concurrent.CopyOnWriteArrayList;
 
-import org.apache.commons.io.FileUtils;
 import org.apache.commons.lang3.StringUtils;
-import org.apache.commons.lang3.SystemUtils;
 import org.openforis.collect.earth.app.EarthConstants;
 import org.openforis.collect.earth.app.desktop.ServerController;
 import org.openforis.collect.earth.app.desktop.ServerController.ServerInitializationEvent;
@@ -28,7 +25,6 @@ import org.openforis.collect.earth.sampler.model.SimpleCoordinate;
 import org.openforis.collect.earth.sampler.model.SimplePlacemarkObject;
 import org.openqa.selenium.By;
 import org.openqa.selenium.JavascriptExecutor;
-import org.openqa.selenium.WebDriverException;
 import org.openqa.selenium.WebElement;
 import org.openqa.selenium.remote.RemoteWebDriver;
 import org.slf4j.Logger;
@@ -47,8 +43,8 @@ import io.github.bonigarcia.wdm.WebDriverManager;
 /**
  * This class contains methods that allow Collect Earth to open browser windows
  * that allow the user to have a better understanding of the plot. So far there
- * are integrations with Google Earth Engine, Google Earth Engine Timelapse and
- * Bing Maps. When a user clicks on a plot Collect Earth will check if the
+ * are integrations with Google Earth Engine, Google Earth Engine and Erth Map. 
+ * When a user clicks on a plot Collect Earth will check if the
  * program is set to open any of these integrations, and if it is so it will
  * open each one in its own window. These windows are closed when the program
  * is closed.
@@ -69,17 +65,11 @@ public class BrowserService implements InitializingBean, Observer {
 	@Autowired
 	private EarthSurveyService earthSurveyService;
 
-	@Autowired
-	private CodeEditorHandlerThread codeEditorHandlerThread;
-
 	private final ArrayList<RemoteWebDriver> drivers = new ArrayList<>();
 	private final Logger logger = LoggerFactory.getLogger(BrowserService.class);
 	private static final String TEMPLATE_FOR_DGMAP_JS = "resources/javascript_dgmap.fmt";
 	private static final Configuration cfg = new Configuration(new Version("2.3.23"));
-	private RemoteWebDriver webDriverBing, webDriverBaidu, webDriverTimelapse, webDriverGeeCodeEditor,
-	webDriverHere, webDriverStreetView, webDriverYandex, webDriverPlanetHtml, webDriverExtraMap, webDriverSecureWatch,
-	webDriverGEEMap, webDriverEarthMap;
-
+	private RemoteWebDriver webDriverTimelapse, webDriverStreetView, webDriverPlanetHtml, webDriverExtraMap, webDriverSecureWatch, webDriverGEEMap, webDriverEarthMap;
 
 	Map<String,String> locks = new HashMap<String,String>();
 
@@ -133,7 +123,7 @@ public class BrowserService implements InitializingBean, Observer {
 
 		if (driver == null) {
 			throw new BrowserNotFoundException(
-					"Neither Chrome, Edege or Firefox could be opened. You need to have one of them installed in order to use GEE, Bing Maps or Saiku.");
+					"Neither Chrome, Edege or Firefox could be opened. You need to have one of them installed in order to use GEE, Earth Map or Saiku.");
 		}
 
 		return driver;
@@ -384,30 +374,6 @@ public class BrowserService implements InitializingBean, Observer {
 		return stillWorking;
 	}
 
-	/**
-	 * Opens a browser window with the Bing Maps representation of the plot.
-	 *
-	 * @param placemarkObject
-	 *            The data of the plot.
-	 * @throws BrowserNotFoundException
-	 *             In case the browser could not be found
-	 *
-	 */
-	public void openBingMaps(SimplePlacemarkObject placemarkObject) throws BrowserNotFoundException {
-		Object lock = getLock("BING");
-		synchronized (lock) {
-			if (localPropertiesService.isBingMapsSupported()) {
-				try {
-					webDriverBing = navigateTo(geoLocalizeTemplateService
-							.getUrlToFreemarkerOutput(placemarkObject, GeolocalizeMapService.FREEMARKER_BING_HTML_TEMPLATE,
-									"bingMapsKey", localPropertiesService.getValue(EarthProperty.BING_MAPS_KEY))
-							.toString(), webDriverBing);
-				} catch (final Exception e) {
-					logger.error("Problems loading Bing", e);
-				}
-			}
-		}
-	}
 
 	private Object getLock(String key) {
 		String lock = locks.get(key);
@@ -433,10 +399,9 @@ public class BrowserService implements InitializingBean, Observer {
 		synchronized (lock) {
 			if (localPropertiesService.isPlanetMapsSupported()) {
 
-				boolean monthly = localPropertiesService.isPlanetMapsMonthlyOpen();
-
-				String template = monthly ? GeolocalizeMapService.FREEMARKER_PLANET_NICFI_ARGUMENTS : GeolocalizeMapService.FREEMARKER_PLANET_DAILY_HTML_TEMPLATE;
-				String key = monthly ? localPropertiesService.getValue( EarthProperty.PLANET_MAPS_CE_KEY ) : localPropertiesService.getValue( EarthProperty.PLANET_MAPS_KEY );
+				
+				String template = GeolocalizeMapService.FREEMARKER_PLANET_DAILY_HTML_TEMPLATE;
+				String key = localPropertiesService.getValue( EarthProperty.PLANET_MAPS_KEY );
 
 				try {
 
@@ -449,84 +414,11 @@ public class BrowserService implements InitializingBean, Observer {
 							ServerController.getHostAddress(localPropertiesService.getHost(),localPropertiesService.getPort())
 						).toString();
 
-					String urlPlanet = null;
-					if( monthly ) {
 
-				        String parameters = FileUtils.readFileToString( new File( new URI( processTemplate )  ) , StandardCharsets.UTF_8 );
-
-				        if( StringUtils.isNotBlank( localPropertiesService.getValue( EarthProperty.PLANET_FROM_DATE) ) ) {
-				        
-				        	parameters += "&planet_date_from=" + localPropertiesService.getValue( EarthProperty.PLANET_FROM_DATE); 
-				        	
-				        }
-				        if( StringUtils.isNotBlank( localPropertiesService.getValue( EarthProperty.PLANET_TO_DATE) ) ) {
-					        
-				        	parameters += "&planet_date_to=" + localPropertiesService.getValue( EarthProperty.PLANET_TO_DATE); 
-				        	
-				        }
-				        
-						// remove new lines
-				        parameters = parameters.replace("\n", "").replace("\r", "").replace("\t", "").replace(" ", "");
-						// remove trailing commas
-				        parameters = parameters.replace(",],", "],").replace("],]", "]]");
-
-						urlPlanet = localPropertiesService.getValue( EarthProperty.PLANET_NICFI_URL ) + parameters;
-					}else {
-						urlPlanet = processTemplate;
-					}
-
-					webDriverPlanetHtml = navigateTo( urlPlanet, webDriverPlanetHtml );
+					webDriverPlanetHtml = navigateTo( processTemplate, webDriverPlanetHtml );
 
 				} catch (final Exception e) {
 					logger.error("Problems loading Planet", e);
-				}
-			}
-		}
-	}
-
-	/**
-	 * Opens a browser window with the Baidu Maps representation of the plot.
-	 *
-	 * @param placemarkObject
-	 *            The data of the plot.
-	 * @throws BrowserNotFoundException
-	 *             In case the browser could not be found
-	 *
-	 */
-	public void openBaiduMaps(SimplePlacemarkObject placemarkObject) throws BrowserNotFoundException {
-		Object lock = getLock("BAIDU");
-		synchronized (lock) {
-			if (localPropertiesService.isBaiduMapsSupported()) {
-
-				try {
-					webDriverBaidu = navigateTo(geoLocalizeTemplateService
-							.getUrlToFreemarkerOutput(placemarkObject, GeolocalizeMapService.FREEMARKER_BAIDU_HTML_TEMPLATE)
-							.toString(), webDriverBaidu);
-				} catch (final Exception e) {
-					logger.error("Problems loading Baidu", e);
-				}
-			}
-		}
-	}
-
-	/**
-	 * Opens a browser window with the Yandex Maps representation of the plot.
-	 *
-	 * @param placemarkObject
-	 *            The data of the plot.
-	 * @throws BrowserNotFoundException
-	 *             In case the browser could not be found
-	 *
-	 */
-	public void openYandexMaps(SimplePlacemarkObject placemarkObject) throws BrowserNotFoundException {
-		Object lock = getLock("YANDEX");
-		synchronized (lock) {
-			if (localPropertiesService.isYandexMapsSupported()) {
-				try {
-					webDriverYandex = navigateTo(geoLocalizeTemplateService.getUrlToFreemarkerOutput(placemarkObject,
-							GeolocalizeMapService.FREEMARKER_YANDEX_HTML_TEMPLATE).toString(), webDriverYandex);
-				} catch (final Exception e) {
-					logger.error("Problems loading Yandex", e);
 				}
 			}
 		}
@@ -620,32 +512,6 @@ public class BrowserService implements InitializingBean, Observer {
 		}
 	}
 
-	/**
-	 * Opens a browser window with the Here Maps representation of the plot.
-	 *
-	 * @param placemarkObject
-	 *            The data of the plot.
-	 * @throws BrowserNotFoundException
-	 *             In case the browser could not be found
-	 *
-	 */
-	public void openHereMaps(SimplePlacemarkObject placemarkObject) throws BrowserNotFoundException {
-		Object lock = getLock("HERE");
-		synchronized (lock) {
-			if (localPropertiesService.isHereMapsSupported()) {
-				try {
-					webDriverHere = navigateTo(geoLocalizeTemplateService
-							.getUrlToFreemarkerOutput(placemarkObject, GeolocalizeMapService.FREEMARKER_HERE_HTML_TEMPLATE,
-									"hereAppId", localPropertiesService.getValue(EarthProperty.HERE_MAPS_APP_ID),
-									"hereAppCode", localPropertiesService.getValue(EarthProperty.HERE_MAPS_APP_CODE))
-							.toString(), webDriverHere);
-				} catch (final Exception e) {
-					logger.error("Problems loading Here Maps", e);
-				}
-
-			}
-		}
-	}
 
 	private StringBuilder getGeoJsonSegment(List<SimpleCoordinate> coordinates) {
 		StringBuilder geoJson = new StringBuilder("[");
@@ -772,38 +638,6 @@ public class BrowserService implements InitializingBean, Observer {
 	}
 
 	/**
-	 * Opens a browser window with the Google Earth Engine Code Editor and runs the
-	 * freemarker template found in resources/eeCodeEditorScript.fmt on the main
-	 * editor of GEE.
-	 *
-	 * @param placemarkObject
-	 *            The center point of the plot.
-	 * @throws BrowserNotFoundException
-	 *             If the browser cannot be found
-	 *
-	 */
-	public void openGEECodeEditor(SimplePlacemarkObject placemarkObject) throws BrowserNotFoundException {
-		Object lock = getLock("CODE_EDITOR");
-		synchronized (lock) {
-			if (localPropertiesService.isCodeEditorSupported()) {
-
-				boolean firstOpening = false;
-				if (getWebDriverGeeCodeEditor() == null) {
-					setWebDriverGeeCodeEditor(initBrowser());
-					firstOpening = true;
-				}
-
-				if (firstOpening && (SystemUtils.IS_OS_MAC || SystemUtils.IS_OS_MAC_OSX )) {
-					codeEditorHandlerThread.disableCodeEditorAutocomplete(getWebDriverGeeCodeEditor());
-				}
-
-				codeEditorHandlerThread.loadCodeEditorScript(placemarkObject, getWebDriverGeeCodeEditor());
-			}
-		}
-	}
-
-
-	/**
 	 * Opens a browser window with the Google Earth Engine Timelapse representation
 	 * of the plot.
 	 *
@@ -889,14 +723,6 @@ public class BrowserService implements InitializingBean, Observer {
 		if (ServerInitializationEvent.SERVER_STOPPED_EVENT.equals(arg)) {
 			this.closeBrowsers();
 		}
-	}
-
-	private RemoteWebDriver getWebDriverGeeCodeEditor() {
-		return webDriverGeeCodeEditor;
-	}
-
-	protected void setWebDriverGeeCodeEditor(RemoteWebDriver webDriverGeeCodeEditor) {
-		this.webDriverGeeCodeEditor = webDriverGeeCodeEditor;
 	}
 
 }

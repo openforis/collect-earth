@@ -20,10 +20,10 @@ import org.springframework.stereotype.Component;
 import freemarker.template.TemplateException;
 
 /**
- * Customizes a Bing Map page to open zoomed into a coordinate. The HTML page is
+ * Customizes a ancillary Map page to open zoomed into a coordinate. The HTML page is
  * created in a temporary file and its URL is returned so that it can be opened
  * in a browser. A freemarker template that contains the javascript code to
- * customize the Bing Map is used and the parameters for the specific
+ * customize the ancillary Map is used and the parameters for the specific
  * coordinates are applied to it. This service uses the same code than the KML
  * generator to get the plot sample deign as chosen through the configuration by
  * the user.
@@ -37,43 +37,17 @@ public class GeolocalizeMapService {
 	private static final String RESOURCES_FOLDER = "resources";
 
 	/**
-	 * The file that contains the freemarker template used to produce the Bing Maps
+	 * The file that contains the freemarker template used to produce the ancillary Maps
 	 * code.
 	 */
-	public static final String FREEMARKER_BING_HTML_TEMPLATE = RESOURCES_FOLDER + File.separator + "collectBing.fmt";
-
-	public static final String FREEMARKER_BAIDU_HTML_TEMPLATE = RESOURCES_FOLDER + File.separator + "collectBaidu.fmt";
 
 	public static final String FREEMARKER_PLANET_MONTHLY_HTML_TEMPLATE = RESOURCES_FOLDER + File.separator + "collectPlanetMonthlyHtml.fmt";
-
-	public static final String FREEMARKER_PLANET_NICFI_ARGUMENTS = RESOURCES_FOLDER + File.separator + "collectPlanetNicfiTxt.fmt";
 
 	public static final String FREEMARKER_PLANET_DAILY_HTML_TEMPLATE = RESOURCES_FOLDER + File.separator + "collectPlanetHtml.fmt";
 
 	public static final String FREEMARKER_PLANET_URL_TEMPLATE = RESOURCES_FOLDER + File.separator
 			+ "collectPlanetUrl.fmt";
 
-	/**
-	 * The file that contains the freemarker template used to produce the Yandex
-	 * Maps code.
-	 */
-	public static final String FREEMARKER_YANDEX_HTML_TEMPLATE = RESOURCES_FOLDER + File.separator
-			+ "collectYandex.fmt";
-
-	public static final String FREEMARKER_GEE_PLAYGROUND_TEMPLATE_FILE_NAME = "eePlaygroundScript.fmt";
-	public static final String FREEMARKER_GEE_CODE_EDITOR_TEMPLATE_FILE_NAME = "eeCodeEditorScript.fmt";
-
-	/**
-	 * The file that contains the freemarker template used to produce script that is
-	 * run in GEE Code Editor.
-	 */
-	public static final String FREEMARKER_GEE_PLAYGROUND_TEMPLATE = RESOURCES_FOLDER + File.separator
-			+ FREEMARKER_GEE_PLAYGROUND_TEMPLATE_FILE_NAME;
-	public static final String FREEMARKER_GEE_CODE_EDITOR_TEMPLATE = RESOURCES_FOLDER + File.separator
-			+ FREEMARKER_GEE_CODE_EDITOR_TEMPLATE_FILE_NAME;
-
-	public static final String FREEMARKER_HERE_HTML_TEMPLATE = RESOURCES_FOLDER + File.separator
-			+ "collectHereMaps.fmt";
 
 	public static final String FREEMARKER_STREET_VIEW_HTML_TEMPLATE = RESOURCES_FOLDER + File.separator
 			+ "collectStreetView.fmt";
@@ -120,8 +94,7 @@ public class GeolocalizeMapService {
 	}
 
 	/**
-	 * Produces a temporary file with the necessary HTML code to show the plot in
-	 * Bing Maps
+	 * Produces a temporary file with the necessary HTML code to show the plot in Earth Map
 	 *
 	 * @param placemarkObject
 	 *            The object containing information of the placemark.
@@ -180,7 +153,7 @@ public class GeolocalizeMapService {
 				return null;
 			}
 		} else {
-			logger.error("No Bing map HTML generated.");
+			logger.error("No ancillary map HTML generated.");
 			return null;
 		}
 	}

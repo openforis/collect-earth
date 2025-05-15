@@ -3,7 +3,7 @@ Collect Earth - Augmented Visual Interpretation
 
 ## What is Collect Earth?
 
-Collect Earth is a tool that enables data collection through Google Earth. In conjunction with Google Earth, Bing Maps and Google Earth Engine, users can analyze high and very high resolution satellite imagery for a wide variety of purposes, including :
+Collect Earth is a tool that enables data collection through Google Earth. In conjunction with Google Earth, and Google Earth Engine, users can analyze high and very high resolution satellite imagery for a wide variety of purposes, including :
  
   - Support multi-phase National Forest Inventories
   - Land Use, Land Use Change and Forestry (LULUCF) assessments

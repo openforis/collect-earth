@@ -26,184 +26,193 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 public final class ExportActionListener implements ActionListener {
-	private final DataFormat exportFormat;
-	private JFrame frame;
-	private LocalPropertiesService localPropertiesService;
-	private DataImportExportService dataExportService;
-	private EarthSurveyService earthSurveyService;
-	private Logger logger = LoggerFactory.getLogger(ExportActionListener.class);
-	private RecordsToExport recordsToExport;
-	private KmlGeneratorService kmlGeneratorService;
+    private final DataFormat exportFormat;
+    private JFrame frame;
+    private LocalPropertiesService localPropertiesService;
+    private DataImportExportService dataExportService;
+    private EarthSurveyService earthSurveyService;
+    private Logger logger = LoggerFactory.getLogger(ExportActionListener.class);
+    private RecordsToExport recordsToExport;
+    private KmlGeneratorService kmlGeneratorService;
 
-	public enum RecordsToExport {
-		ALL, MODIFIED_SINCE_LAST_EXPORT, PICK_FROM_DATE
-	}
+    public enum RecordsToExport {
+        ALL, MODIFIED_SINCE_LAST_EXPORT, PICK_FROM_DATE
+    }
 
-	public ExportActionListener(DataFormat exportFormat, RecordsToExport recordsToExport, JFrame frame,
-			LocalPropertiesService localPropertiesService, DataImportExportService dataExportService,
-			EarthSurveyService earthSurveyService, KmlGeneratorService kmlGeneratorService) {
-		this.exportFormat = exportFormat;
-		this.frame = frame;
-		this.localPropertiesService = localPropertiesService;
-		this.dataExportService = dataExportService;
-		this.earthSurveyService = earthSurveyService;
-		this.recordsToExport = recordsToExport;
-		this.kmlGeneratorService = kmlGeneratorService;
-	}
+    public ExportActionListener(DataFormat exportFormat, RecordsToExport recordsToExport, JFrame frame,
+            LocalPropertiesService localPropertiesService, DataImportExportService dataExportService,
+            EarthSurveyService earthSurveyService, KmlGeneratorService kmlGeneratorService) {
+        this.exportFormat = exportFormat;
+        this.frame = frame;
+        this.localPropertiesService = localPropertiesService;
+        this.dataExportService = dataExportService;
+        this.earthSurveyService = earthSurveyService;
+        this.recordsToExport = recordsToExport;
+        this.kmlGeneratorService = kmlGeneratorService;
+    }
 
-	@Override
-	public void actionPerformed(ActionEvent e) {
-		try {
-			CollectEarthWindow.startWaiting(frame);
+    @Override
+    public void actionPerformed(ActionEvent e) {
+        try {
+            CollectEarthWindow.startWaiting(frame);
 
-			Date recordsModifiedSince = null;
-			if (recordsToExport.equals(RecordsToExport.MODIFIED_SINCE_LAST_EXPORT)) {
-				String surveyName = ""; //$NON-NLS-1$
-				if (earthSurveyService.getCollectSurvey() != null) {
-					surveyName = earthSurveyService.getCollectSurvey().getName();
-				}
-				recordsModifiedSince = localPropertiesService.getLastExportedDate(surveyName);
-			} else if (recordsToExport.equals(RecordsToExport.PICK_FROM_DATE)) {
-				recordsModifiedSince = getPickDateDlg();
-				if (recordsModifiedSince == null) {
-					// No date chosen, do not proceed with the export
-					return;
-				}
-			}
+            Date recordsModifiedSince = null;
+            if (recordsToExport.equals(RecordsToExport.MODIFIED_SINCE_LAST_EXPORT)) {
+                String surveyName = ""; //$NON-NLS-1$
+                if (earthSurveyService.getCollectSurvey() != null) {
+                    surveyName = earthSurveyService.getCollectSurvey().getName();
+                }
+                recordsModifiedSince = localPropertiesService.getLastExportedDate(surveyName);
+            } else if (recordsToExport.equals(RecordsToExport.PICK_FROM_DATE)) {
+                recordsModifiedSince = getPickDateDlg();
+                if (recordsModifiedSince == null) {
+                    // No date chosen, do not proceed with the export
+                    return;
+                }
+            }
 
-			exportDataTo(exportFormat, recordsModifiedSince);
-		} finally {
-			CollectEarthWindow.endWaiting(frame);
-		}
+            exportDataTo(exportFormat, recordsModifiedSince);
+        } finally {
+            CollectEarthWindow.endWaiting(frame);
+        }
 
-	}
+    }
 
-	private Date getPickDateDlg() {
+    private Date getPickDateDlg() {
 
-		JPanel panel = new JPanel();
+        JPanel panel = new JPanel();
 
-		JXDatePicker picker = new JXDatePicker();
-		picker.setDate(Calendar.getInstance().getTime());
-		picker.setFormats(new SimpleDateFormat("dd.MM.yyyy")); //$NON-NLS-1$
+        JXDatePicker picker = new JXDatePicker();
+        picker.setDate(Calendar.getInstance().getTime());
+        picker.setFormats(new SimpleDateFormat("dd.MM.yyyy")); //$NON-NLS-1$
 
-		panel.add(picker);
+        panel.add(picker);
 
-		int result = JOptionPane.showConfirmDialog(frame, panel, Messages.getString("ExportActionListener.1"), //$NON-NLS-1$
-				JOptionPane.OK_CANCEL_OPTION, JOptionPane.PLAIN_MESSAGE);
-		if (result == JOptionPane.OK_OPTION) {
-			return picker.getDate();
-		} else {
-			return null;
-		}
-	}
+        int result = JOptionPane.showConfirmDialog(frame, panel, Messages.getString("ExportActionListener.1"), //$NON-NLS-1$
+                JOptionPane.OK_CANCEL_OPTION, JOptionPane.PLAIN_MESSAGE);
+        if (result == JOptionPane.OK_OPTION) {
+            return picker.getDate();
+        } else {
+            return null;
+        }
+    }
 
-	private File exportDataTo(DataFormat exportType, Date recordsModifiedSince) {
-		String preselectedName = getPreselectedName(exportType, recordsModifiedSince);
+    private File exportDataTo(DataFormat exportType, Date recordsModifiedSince) {
+        // Informational warning for CSV exports
+        if (exportType.equals(DataFormat.CSV)) {
+            // Warn the user that CSV is for visualization but not shareable across Collect Earth instances
+            JOptionPane.showMessageDialog(frame,
+            		Messages.getString("ExportActionListener.2"), // $NON-NLS-1$
+                "Information",
+                JOptionPane.INFORMATION_MESSAGE);
+        }
 
-		File[] exportToFile = JFileChooserExistsAware.getFileChooserResults(exportType, true, false, preselectedName,
-				localPropertiesService, frame);
+        String preselectedName = getPreselectedName(exportType, recordsModifiedSince);
 
-		File exportedFile = null;
-		if (exportToFile != null && exportToFile.length > 0) {
-			startExportingData(exportType, recordsModifiedSince, exportToFile[0]);
-			exportedFile = exportToFile[0];
-		}
+        File[] exportToFile = JFileChooserExistsAware.getFileChooserResults(exportType, true, false, preselectedName,
+                localPropertiesService, frame);
 
-		return exportedFile;
-	}
+        File exportedFile = null;
+        if (exportToFile != null && exportToFile.length > 0) {
+            startExportingData(exportType, recordsModifiedSince, exportToFile[0]);
+            exportedFile = exportToFile[0];
+        }
 
-	private boolean promptForLabelInclusion(DataFormat exportType) {
-		boolean includeLabels = false;
+        return exportedFile;
+    }
 
-		if (exportType.equals(DataFormat.CSV)) {
-			int result = JOptionPane.showConfirmDialog(frame, "Include labels for code attributes", "Include labels",
-					JOptionPane.YES_NO_OPTION, JOptionPane.QUESTION_MESSAGE);
-			includeLabels = (result == JOptionPane.YES_OPTION);
-		}
+    private boolean promptForLabelInclusion(DataFormat exportType) {
+        boolean includeLabels = false;
 
-		return includeLabels;
-	}
+        if (exportType.equals(DataFormat.CSV)) {
+            int result = JOptionPane.showConfirmDialog(frame, "Include labels for code attributes", "Include labels",
+                    JOptionPane.YES_NO_OPTION, JOptionPane.QUESTION_MESSAGE);
+            includeLabels = (result == JOptionPane.YES_OPTION);
+        }
 
-	private void startExportingData(DataFormat exportType, Date recordsModifiedSince, File exportToFile) {
-		AbstractProcess<Void, DataExportStatus> exportProcess = null;
-		try {
-			exportProcess = getExportProcess(exportType, recordsModifiedSince, exportToFile);
-			if (exportProcess != null) {
-				ExportProcessMonitorDialog exportProcessWorker = new ExportProcessMonitorDialog(exportProcess, frame,
-						recordsToExport, exportType, earthSurveyService, exportToFile, localPropertiesService);
-				exportProcessWorker.start();
-			}
-		} catch (Exception e1) {
-			logger.error("What happened?", e1); //$NON-NLS-1$ //$NON-NLS-2$
-			JOptionPane.showMessageDialog(this.frame, Messages.getString("CollectEarthWindow.0"), //$NON-NLS-1$
-					Messages.getString("CollectEarthWindow.1"), //$NON-NLS-1$
-					JOptionPane.ERROR_MESSAGE);
-			logger.error(
-					"Error exporting data to " + exportToFile.getAbsolutePath() + " in format " + exportType.name(), //$NON-NLS-1$ //$NON-NLS-2$
-					e1);
-		}
-	}
+        return includeLabels;
+    }
 
-	private AbstractProcess<Void, DataExportStatus> getExportProcess(DataFormat exportType, Date recordsModifiedSince,
-			File exportToFile) throws Exception {
-		AbstractProcess<Void, DataExportStatus> exportProcess = null;
-		boolean addLabels = false;
-		switch (exportType) {
-		case CSV:
-			addLabels = promptForLabelInclusion(exportType);
-			exportProcess = dataExportService.exportSurveyAsCsv(exportToFile, addLabels);
-			break;
-		case ZIP_WITH_XML:
-			exportProcess = dataExportService.exportSurveyAsZipWithXml(exportToFile, recordsModifiedSince);
-			break;
-		case FUSION:
-			addLabels = promptForLabelInclusion(exportType);
-			exportProcess = dataExportService.exportSurveyAsFusionTable(exportToFile, addLabels);
-			break;
-		case KML_FILE:
-			kmlGeneratorService.exportToKml(exportToFile);
-			CollectEarthUtils.openFolderInExplorer( exportToFile.getParent() );
-			break;
-		case COLLECT_BACKUP:
-			exportProcess = dataExportService.exportSurveyAsBackup(exportToFile);
-			break;
-		default:
-			break;
-		}
-		return exportProcess;
-	}
+    private void startExportingData(DataFormat exportType, Date recordsModifiedSince, File exportToFile) {
+        AbstractProcess<Void, DataExportStatus> exportProcess = null;
+        try {
+            exportProcess = getExportProcess(exportType, recordsModifiedSince, exportToFile);
+            if (exportProcess != null) {
+                ExportProcessMonitorDialog exportProcessWorker = new ExportProcessMonitorDialog(exportProcess, frame,
+                        recordsToExport, exportType, earthSurveyService, exportToFile, localPropertiesService);
+                exportProcessWorker.start();
+            }
+        } catch (Exception e1) {
+            logger.error("What happened?", e1); //$NON-NLS-1$ //$NON-NLS-2$
+            JOptionPane.showMessageDialog(this.frame, Messages.getString("CollectEarthWindow.0"), //$NON-NLS-1$
+                    Messages.getString("CollectEarthWindow.1"), //$NON-NLS-1$
+                    JOptionPane.ERROR_MESSAGE);
+            logger.error(
+                    "Error exporting data to " + exportToFile.getAbsolutePath() + " in format " + exportType.name(), //$NON-NLS-1$ //$NON-NLS-2$
+                    e1);
+        }
+    }
 
-	private String getPreselectedName(DataFormat exportType, Date modifiedSince) {
+    private AbstractProcess<Void, DataExportStatus> getExportProcess(DataFormat exportType, Date recordsModifiedSince,
+            File exportToFile) throws Exception {
+        AbstractProcess<Void, DataExportStatus> exportProcess = null;
+        boolean addLabels = false;
+        switch (exportType) {
+        case CSV:
+            addLabels = promptForLabelInclusion(exportType);
+            exportProcess = dataExportService.exportSurveyAsCsv(exportToFile, addLabels);
+            break;
+        case ZIP_WITH_XML:
+            exportProcess = dataExportService.exportSurveyAsZipWithXml(exportToFile, recordsModifiedSince);
+            break;
+        case FUSION:
+            addLabels = promptForLabelInclusion(exportType);
+            exportProcess = dataExportService.exportSurveyAsFusionTable(exportToFile, addLabels);
+            break;
+        case KML_FILE:
+            kmlGeneratorService.exportToKml(exportToFile);
+            CollectEarthUtils.openFolderInExplorer( exportToFile.getParent() );
+            break;
+        case COLLECT_BACKUP:
+            exportProcess = dataExportService.exportSurveyAsBackup(exportToFile);
+            break;
+        default:
+            break;
+        }
+        return exportProcess;
+    }
 
-		String operator = "";
+    private String getPreselectedName(DataFormat exportType, Date modifiedSince) {
 
-		try {
-			operator = localPropertiesService.getOperator();
+        String operator = "";
 
-			operator = StringUtils.deleteWhitespace(operator);
-			// Replaces character like Tĥïŝ ĩš â fůňķŷ Šťŕĭńġ with This is a funky String
-			operator = Normalizer.normalize(operator, Normalizer.Form.NFD).replaceAll("[^\\p{ASCII}]", "");
+        try {
+            operator = localPropertiesService.getOperator();
 
-			// Remove non-alphanumeric characters
-			operator = operator.replaceAll("[^a-zA-Z0-9]", "");
+            operator = StringUtils.deleteWhitespace(operator);
+            // Replaces character like Tĥïŝ ĩš â fůňķŷ Šťŕĭńġ with This is a funky String
+            operator = Normalizer.normalize(operator, Normalizer.Form.NFD).replaceAll("[^\\p{ASCII}]", "");
 
-		} catch (Exception e) {
-			logger.error("Error normalizing operator name ", e);
-		}
+            // Remove non-alphanumeric characters
+            operator = operator.replaceAll("[^a-zA-Z0-9]", "");
 
-		String preselectName = operator + "_collectedData_"; //$NON-NLS-1$
+        } catch (Exception e) {
+            logger.error("Error normalizing operator name ", e);
+        }
 
-		preselectName += earthSurveyService.getCollectSurvey().getName();
-		DateFormat dateFormat = new SimpleDateFormat("ddMMyy_HHmmss"); //$NON-NLS-1$
-		if (modifiedSince == null) {
-			preselectName += "_on_" + dateFormat.format(new Date()); //$NON-NLS-1$
-		} else {
+        String preselectName = operator + "_collectedData_"; //$NON-NLS-1$
 
-			preselectName += "_" + dateFormat.format(modifiedSince) + "_to_" + dateFormat.format(new Date()); //$NON-NLS-1$ //$NON-NLS-2$
-		}
+        preselectName += earthSurveyService.getCollectSurvey().getName();
+        DateFormat dateFormat = new SimpleDateFormat("ddMMyy_HHmmss"); //$NON-NLS-1$
+        if (modifiedSince == null) {
+            preselectName += "_on_" + dateFormat.format(new Date()); //$NON-NLS-1$
+        } else {
 
-		preselectName += "_" + exportType.name() + "." + exportType.getDefaultExtension(); //$NON-NLS-1$ //$NON-NLS-2$
+            preselectName += "_" + dateFormat.format(modifiedSince) + "_to_" + dateFormat.format(new Date()); //$NON-NLS-1$ //$NON-NLS-2$
+        }
 
-		return preselectName;
-	}
+        preselectName += "_" + exportType.name() + "." + exportType.getDefaultExtension(); //$NON-NLS-1$ //$NON-NLS-2$
+
+        return preselectName;
+    }
 }
