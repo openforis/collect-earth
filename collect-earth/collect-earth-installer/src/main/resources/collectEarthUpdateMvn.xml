@@ -31,7 +31,7 @@
     </platformFileList>
     <downloadLocationList>
         <downloadLocation>
-            <url>https://s01.oss.sonatype.org/service/local/repositories/releases/content/org/openforis/collect/earth/collect-earth-installer/PROJECT_VERSION/</url>
+            <url>https://ossrh-staging-api.central.sonatype.com/service/local/repositories/releases/content/org/openforis/collect/earth/collect-earth-installer/PROJECT_VERSION/</url>
         </downloadLocation>
     </downloadLocationList>
 </installerInformation>
