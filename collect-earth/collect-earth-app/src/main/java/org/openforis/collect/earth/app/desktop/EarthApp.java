@@ -541,7 +541,7 @@ public class EarthApp {
 								if (chosenOption != JOptionPane.CLOSED_OPTION) {
 									if (possibleValues[chosenOption].equals(downloadInstaller)) { // For Mac
 										try {
-											CollectEarthUtils.openUrl( new URI("https://oss.sonatype.org/service/local/artifact/maven/redirect?r=releases&g=org.openforis.collect.earth&a=collect-earth-installer&v=LATEST&c=osx&e=dmg"));
+											CollectEarthUtils.openUrl( new URI("https://s01.oss.sonatype.org/service/local/artifact/maven/redirect?r=releases&g=org.openforis.collect.earth&a=collect-earth-installer&v=LATEST&c=osx&e=dmg"));
 										} catch (URISyntaxException e) {
 											logger.error("Error getting installer", e );
 										}
