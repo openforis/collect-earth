@@ -6,7 +6,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 ### Changed
-- 
+- Updated libraries
+- Moved to Maven Central repo
+- Removed unused integrations with Planet and Bing Maps
 
 ### Added
 - 
