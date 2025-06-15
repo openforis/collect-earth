@@ -1524,9 +1524,22 @@ public class PropertiesDialog extends JDialog {
                 showError(input, "Invalid URL format.");
                 return false;
             }
-            if (!text.contains("LATITUDE") || !text.contains("LONGITUDE")) {
-                showError(input, "URL must contain LATITUDE and LONGITUDE placeholders.");
-                return false;
+            
+            boolean hasLatitude = text.contains("LATITUDE");
+            boolean hasLongitude = text.contains("LONGITUDE");
+            boolean hasPlotId = text.contains("PLOT_ID");
+            boolean hasGeoJson = text.contains("GEOJSON");
+            
+            if (!hasLatitude && !hasLongitude && !hasPlotId && !hasGeoJson) {
+                showWarning(input, "At least one of these parameters should be specified in the URL: LATITUDE, LONGITUDE, PLOT_ID or GEOJSON.");
+                return true; // Allow saving with warning
+            } else if ( 
+            		(hasLatitude && !hasLongitude)
+        	         || 
+        	         (!hasLatitude && hasLongitude)
+            ){
+                showWarning(input, "You should set bothe LATITUDE and LONGITUDE.");
+                return true; // Allow saving with warning
             }
             return true;
         }
@@ -1538,6 +1551,14 @@ public class PropertiesDialog extends JDialog {
                     "Error in Extra Map URL",
                     JOptionPane.ERROR_MESSAGE);
             input.requestFocusInWindow();
+        }
+        
+        private void showWarning(JComponent input, String message) {
+            JOptionPane.showMessageDialog(
+                    input.getParent(),
+                    message,
+                    "Warning - Extra Map URL",
+                    JOptionPane.WARNING_MESSAGE);
         }
     }
 
