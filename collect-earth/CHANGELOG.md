@@ -4,7 +4,7 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [1.22.2] - 2025-06-15
 ### Changed
 - Updated libraries
 - Moved to Maven Central repo
@@ -14,7 +14,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - 
 
 ### Fixed
-- 
+- Proerties dialog Look and Fell
+- Update default DEMO survey to 2025 ( it was stuck in  2020)
 
 ## [1.21.9] - 2025-04-25
 ### Changed
