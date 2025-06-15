@@ -12,6 +12,8 @@ import java.awt.Insets;
 import java.awt.Toolkit;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
+import java.awt.event.MouseAdapter;
+import java.awt.event.MouseEvent;
 import java.io.File;
 import java.io.IOException;
 import java.net.MalformedURLException;
@@ -28,6 +30,7 @@ import java.util.List;
 import javax.swing.AbstractAction;
 import javax.swing.AbstractButton;
 import javax.swing.BorderFactory;
+import javax.swing.Box;
 import javax.swing.ButtonGroup;
 import javax.swing.InputVerifier;
 import javax.swing.JButton;
@@ -43,10 +46,12 @@ import javax.swing.JPanel;
 import javax.swing.JPasswordField;
 import javax.swing.JRadioButton;
 import javax.swing.JScrollPane;
+import javax.swing.JSpinner;
 import javax.swing.JTabbedPane;
 import javax.swing.JTextField;
 import javax.swing.ListSelectionModel;
 import javax.swing.ScrollPaneConstants;
+import javax.swing.SpinnerNumberModel;
 import javax.swing.UIManager;
 import javax.swing.border.BevelBorder;
 import javax.swing.border.Border;
@@ -127,9 +132,11 @@ public class PropertiesDialog extends JDialog {
      */
     private void initializeDialog() {
         this.setLocationRelativeTo(null);
-        this.setSize(new Dimension(600, 620));
+        this.setMinimumSize(new Dimension(700, 650));
+        this.setPreferredSize(new Dimension(800, 700));
+        this.setSize(new Dimension(800, 700));
         this.setModal(true);
-        this.setResizable(false);
+        this.setResizable(true);
         
         try {
             initializeInputs();
@@ -155,10 +162,18 @@ public class PropertiesDialog extends JDialog {
      */
     private void buildMainPane() {
         final JPanel panel = new JPanel(new BorderLayout());
-        panel.add(getOptionTabs(), BorderLayout.CENTER);
+        panel.setBorder(BorderFactory.createEmptyBorder(10, 10, 10, 10));
         
+        // Make tabs expandable
+        JTabbedPane tabs = getOptionTabs();
+        tabs.setBorder(BorderFactory.createEmptyBorder(5, 5, 5, 5));
+        panel.add(tabs, BorderLayout.CENTER);
+        
+        // Button panel with proper spacing
         final JPanel buttonPanel = new JPanel();
+        buttonPanel.setBorder(BorderFactory.createEmptyBorder(10, 0, 0, 0));
         buttonPanel.add(getApplyChangesButton());
+        buttonPanel.add(Box.createHorizontalStrut(10)); // Add spacing between buttons
         buttonPanel.add(getCancelButton());
         panel.add(buttonPanel, BorderLayout.PAGE_END);
         
@@ -170,15 +185,16 @@ public class PropertiesDialog extends JDialog {
      */
     private JTabbedPane getOptionTabs() {
         final JTabbedPane tabbedPane = new JTabbedPane();
-        tabbedPane.setSize(550, 300);
+        // Remove fixed size to allow responsive behavior
+        tabbedPane.setPreferredSize(new Dimension(750, 550));
         
-        // Add tabs for different setting groups
-        tabbedPane.addTab(Messages.getString("OptionWizard.31"), getSampleDataPanel());
-        tabbedPane.addTab(Messages.getString("OptionWizard.32"), getPlotOptionsPanel());
-        tabbedPane.addTab(Messages.getString("OptionWizard.34"), getIntegrationsPanel());
-        tabbedPane.addTab(Messages.getString("OptionWizard.104"), getBrowsersOptionsPanel());
-        tabbedPane.addTab(Messages.getString("OptionWizard.25"), getOperationModePanelScroll());
-        tabbedPane.addTab(Messages.getString("OptionWizard.40"), getProjectsPanelScroll());
+        // Add tabs with better logical grouping
+        tabbedPane.addTab(Messages.getString("OptionWizard.31"), getSampleDataPanel()); // Sample Data
+        tabbedPane.addTab(Messages.getString("OptionWizard.32"), getPlotOptionsPanel()); // Plot Configuration
+        tabbedPane.addTab("External Services", getExternalServicesPanel()); // Combined external services
+        tabbedPane.addTab("Database & Server", getDatabaseServerPanel()); // Combined DB and server settings
+        tabbedPane.addTab("Browser & Display", getBrowserDisplayPanel()); // Browser and display options
+        tabbedPane.addTab(Messages.getString("OptionWizard.40"), getProjectsPanelScroll()); // Project Management
 
         return tabbedPane;
     }
@@ -201,7 +217,7 @@ public class PropertiesDialog extends JDialog {
      */
     private JComponent getBrowsersOptionsPanel() {
         final JPanel panel = new JPanel(new GridBagLayout());
-        panel.setBorder(BorderFactory.createEmptyBorder(10, 10, 10, 10));
+        panel.setBorder(BorderFactory.createEmptyBorder(15, 15, 15, 15));
         final GridBagConstraints constraints = createDefaultConstraints();
 
         // Browser chooser panel
@@ -243,7 +259,7 @@ public class PropertiesDialog extends JDialog {
      */
     private JComponent getIntegrationsPanel() {
         final JPanel panel = new JPanel(new GridBagLayout());
-        panel.setBorder(BorderFactory.createEmptyBorder(10, 10, 10, 10));
+        panel.setBorder(BorderFactory.createEmptyBorder(15, 15, 15, 15));
         final GridBagConstraints constraints = createDefaultConstraints();
 
         // Google Earth Engine App
@@ -295,6 +311,71 @@ public class PropertiesDialog extends JDialog {
         constraints.gridwidth = 2;
         constraints.gridx = 0;
         final JLabel labelExtra = new JLabel(Messages.getString("OptionWizard.103"));
+        panel.add(labelExtra, constraints);
+        constraints.gridy++;
+        panel.add(propertyToComponent.get(EarthProperty.EXTRA_MAP_URL)[0], constraints);
+
+        return panel;
+    }
+    
+    /**
+     * Creates the external services panel (reorganized from integrations).
+     */
+    private JComponent getExternalServicesPanel() {
+        final JPanel panel = new JPanel(new GridBagLayout());
+        panel.setBorder(BorderFactory.createEmptyBorder(15, 15, 15, 15));
+        final GridBagConstraints constraints = createDefaultConstraints();
+
+        // Google Earth Engine App
+        panel.add(propertyToComponent.get(EarthProperty.OPEN_GEE_APP)[0], constraints);
+        constraints.gridx = 1;
+        JPanel panelGeeApp = getGeeAppOptionsPanel(panel, constraints);
+
+        // Add GEE App options panel
+        constraints.gridx = 0;
+        constraints.gridy++;
+        constraints.gridwidth = 4;
+        panel.add(panelGeeApp, constraints);
+        
+        // Earth Map
+        constraints.gridy++;
+        constraints.gridwidth = 1;
+        panel.add(propertyToComponent.get(EarthProperty.OPEN_EARTH_MAP)[0], constraints);
+
+        // Planet Maps
+        constraints.gridy++;
+        constraints.gridwidth = 1;
+        panel.add(propertyToComponent.get(EarthProperty.OPEN_PLANET_MAPS)[0], constraints);
+                
+        // Planet Maps API Key
+        constraints.gridy++;
+        constraints.gridx = 0;
+        constraints.gridwidth = 1;
+        final JLabel labelPlanet = new JLabel(Messages.getString("OptionWizard.101"));
+        panel.add(labelPlanet, constraints);
+        constraints.gridx = 1;
+        panel.add(propertyToComponent.get(EarthProperty.PLANET_MAPS_KEY)[0], constraints);
+
+        // Maxar SecureWatch
+        constraints.gridx = 0;
+        constraints.gridy++;
+        constraints.gridwidth = 2;
+        panel.add(propertyToComponent.get(EarthProperty.OPEN_MAXAR_SECUREWATCH)[0], constraints);
+
+        // Maxar URL
+        constraints.gridy++;
+        constraints.gridwidth = 1;
+        final JLabel labelMaxar = new JLabel(Messages.getString("OptionWizard.1021"));
+        panel.add(labelMaxar, constraints);
+        constraints.gridx = 1;
+        panel.add(propertyToComponent.get(EarthProperty.MAXAR_SECUREWATCH_URL)[0], constraints);
+
+        // Extra Map URL with improved layout
+        constraints.gridy++;
+        constraints.gridwidth = 2;
+        constraints.gridx = 0;
+        final JLabel labelExtra = new JLabel(Messages.getString("OptionWizard.103"));
+        labelExtra.setToolTipText("Custom map service URL with placeholders for LATITUDE, LONGITUDE, PLOT_ID, or GEOJSON");
         panel.add(labelExtra, constraints);
         constraints.gridy++;
         panel.add(propertyToComponent.get(EarthProperty.EXTRA_MAP_URL)[0], constraints);
@@ -392,17 +473,44 @@ public class PropertiesDialog extends JDialog {
                     new ApplyOptionChangesListener(this, localPropertiesService, propertyToComponent) {
                         @Override
                         protected void applyProperties() {
+                            // Show progress and disable button
+                            applyChanges.setText("Applying Changes...");
+                            applyChanges.setEnabled(false);
+                            setCursor(java.awt.Cursor.getPredefinedCursor(java.awt.Cursor.WAIT_CURSOR));
+                            
                             new Thread("Applying properties dialog") {
                                 @Override
                                 public void run() {
-                                	// Validate before saving
-                                    if (validateFields()) {
-	                                    savePropertyValues();
-	                                    if (isRestartRequired()) {
-	                                        restartEarth();
-	                                    } else {
-	                                        EarthApp.executeKmlLoadAsynchronously(PropertiesDialog.this);
-	                                    }
+                                    try {
+                                        // Validate before saving
+                                        if (validateFields()) {
+                                            savePropertyValues();
+                                            
+                                            javax.swing.SwingUtilities.invokeLater(() -> {
+                                                if (isRestartRequired()) {
+                                                    restartEarth();
+                                                } else {
+                                                    EarthApp.executeKmlLoadAsynchronously(PropertiesDialog.this);
+                                                }
+                                                showSuccessMessage();
+                                                closeDialog();
+                                            });
+                                        } else {
+                                            javax.swing.SwingUtilities.invokeLater(() -> {
+                                                showValidationErrorMessage();
+                                            });
+                                        }
+                                    } catch (Exception e) {
+                                        javax.swing.SwingUtilities.invokeLater(() -> {
+                                            showErrorMessage(e);
+                                        });
+                                    } finally {
+                                        // Reset button state
+                                        javax.swing.SwingUtilities.invokeLater(() -> {
+                                            applyChanges.setText(Messages.getString("OptionWizard.15"));
+                                            applyChanges.setEnabled(true);
+                                            setCursor(java.awt.Cursor.getDefaultCursor());
+                                        });
                                     }
                                 }
                             }.start();
@@ -410,6 +518,43 @@ public class PropertiesDialog extends JDialog {
                     });
         }
         return applyChanges;
+    }
+    
+    /**
+     * Shows a success message when properties are applied successfully.
+     */
+    private void showSuccessMessage() {
+        String message = "Settings have been applied successfully.";
+        if (isRestartRequired()) {
+            message += "\n\nThe application will restart to apply some changes.";
+        }
+        JOptionPane.showMessageDialog(this, message, 
+                "Settings Applied", JOptionPane.INFORMATION_MESSAGE);
+    }
+    
+    /**
+     * Shows an error message when validation fails.
+     */
+    private void showValidationErrorMessage() {
+        JOptionPane.showMessageDialog(this, 
+                "Please correct the validation errors before applying changes.\n\n" +
+                "Look for fields highlighted in red and check their tooltips for guidance.",
+                "Validation Error", JOptionPane.WARNING_MESSAGE);
+    }
+    
+    /**
+     * Shows an error message when an exception occurs.
+     */
+    private void showErrorMessage(Exception e) {
+        String userMessage = "An error occurred while applying settings.";
+        String technicalDetails = e.getMessage() != null ? e.getMessage() : e.getClass().getSimpleName();
+        
+        JOptionPane.showMessageDialog(this, 
+                userMessage + "\n\nTechnical details: " + technicalDetails + 
+                "\n\nPlease check your settings and try again.",
+                "Error Applying Settings", JOptionPane.ERROR_MESSAGE);
+        
+        logger.error("Error applying properties", e);
     }
 
     /**
@@ -426,6 +571,49 @@ public class PropertiesDialog extends JDialog {
         final JButton cancelButton = new JButton(Messages.getString("OptionWizard.24"));
         cancelButton.addActionListener(e -> PropertiesDialog.this.dispose());
         return cancelButton;
+    }
+    
+    /**
+     * Creates the database and server configuration panel.
+     */
+    private JComponent getDatabaseServerPanel() {
+        final JPanel mainPanel = new JPanel(new GridBagLayout());
+        mainPanel.setBorder(BorderFactory.createEmptyBorder(15, 15, 15, 15));
+        final GridBagConstraints constraints = createDefaultConstraints();
+        constraints.fill = GridBagConstraints.BOTH;
+        
+        // Server configuration section
+        JPanel serverPanel = getServerPanel();
+        constraints.gridy = 0;
+        constraints.weighty = 1.0;
+        mainPanel.add(serverPanel, constraints);
+        
+        return new JScrollPane(mainPanel, ScrollPaneConstants.VERTICAL_SCROLLBAR_AS_NEEDED, 
+                ScrollPaneConstants.HORIZONTAL_SCROLLBAR_NEVER);
+    }
+    
+    /**
+     * Creates the browser and display options panel.
+     */
+    private JComponent getBrowserDisplayPanel() {
+        final JPanel panel = new JPanel(new GridBagLayout());
+        panel.setBorder(BorderFactory.createEmptyBorder(15, 15, 15, 15));
+        final GridBagConstraints constraints = createDefaultConstraints();
+
+        // Browser chooser panel
+        final JPanel browserChooserPanel = createBrowserChooserPanel();
+        constraints.gridy++;
+        panel.add(browserChooserPanel, constraints);
+
+        // Saiku server folder
+        constraints.gridy++;
+        panel.add(propertyToComponent.get(EarthProperty.SAIKU_SERVER_FOLDER)[0], constraints);
+        
+        // Open in separate window checkbox
+        constraints.gridy++;
+        panel.add(propertyToComponent.get(EarthProperty.OPEN_BALLOON_IN_BROWSER)[0], constraints);
+
+        return panel;
     }
 
     /**
@@ -477,7 +665,7 @@ public class PropertiesDialog extends JDialog {
      */
     private JComponent getProjectsPanel() {
         final JPanel panel = new JPanel(new GridBagLayout());
-        panel.setBorder(BorderFactory.createEmptyBorder(10, 10, 10, 10));
+        panel.setBorder(BorderFactory.createEmptyBorder(15, 15, 15, 15));
         final GridBagConstraints constraints = createDefaultConstraints();
         constraints.fill = GridBagConstraints.BOTH;
 
@@ -563,7 +751,7 @@ public class PropertiesDialog extends JDialog {
     }
     
     /**
-     * Create list of projects.
+     * Create list of projects with double-click support.
      */
     private JList<String> createProjectsList() {
         List<String> projectNames = new ArrayList<>(projectsService.getProjectList().keySet());
@@ -573,8 +761,38 @@ public class PropertiesDialog extends JDialog {
         projectsList.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
         projectsList.setLayoutOrientation(JList.VERTICAL);
         projectsList.setVisibleRowCount(-1);
+        projectsList.setToolTipText("Double-click a project to load it, or select and use the button below");
+        
+        // Add double-click listener to load project
+        projectsList.addMouseListener(new MouseAdapter() {
+            @Override
+            public void mouseClicked(MouseEvent e) {
+                if (e.getClickCount() == 2 && !e.isConsumed()) {
+                    e.consume();
+                    int index = projectsList.locationToIndex(e.getPoint());
+                    if (index >= 0) {
+                        projectsList.setSelectedIndex(index);
+                        loadSelectedProject(projectsList);
+                    }
+                }
+            }
+        });
         
         return projectsList;
+    }
+    
+    /**
+     * Load the selected project with progress feedback (used by both button and double-click).
+     */
+    private void loadSelectedProject(JList<String> projectsList) {
+        new ApplyOptionChangesListener(this, localPropertiesService) {
+            @Override
+            protected void applyProperties() {
+                if (openSelectedProject(projectsList)) {
+                    restartEarth();
+                }
+            }
+        }.actionPerformed(null);
     }
     
     /**
@@ -582,12 +800,7 @@ public class PropertiesDialog extends JDialog {
      */
     private JButton createOpenProjectButton(JList<String> projectsList) {
         final JButton openProject = new JButton(Messages.getString("OptionWizard.56"));
-        openProject.addActionListener(new ApplyOptionChangesListener(this, localPropertiesService) {
-            @Override
-            protected void applyProperties() {
-                if( openSelectedProject(projectsList) )  restartEarth();
-            }
-        });
+        openProject.addActionListener(e -> loadSelectedProject(projectsList));
         return openProject;
     }
     
@@ -626,15 +839,15 @@ public class PropertiesDialog extends JDialog {
     @SuppressWarnings("unchecked")
     private JComponent getPlotOptionsPanel() {
         final JPanel panel = new JPanel(new GridBagLayout());
-        panel.setBorder(BorderFactory.createEmptyBorder(10, 10, 10, 10));
+        panel.setBorder(BorderFactory.createEmptyBorder(15, 15, 15, 15));
         final GridBagConstraints constraints = new GridBagConstraints();
         constraints.gridx = 0;
         constraints.gridy = 0;
-        constraints.ipady = 15;
-        constraints.ipadx = 0;
+        constraints.ipady = 5; // Reduced from 15 to 5
+        constraints.ipadx = 5;
         constraints.anchor = GridBagConstraints.LINE_START;
-        constraints.insets = new Insets(0, -10, 0, -10);
-        constraints.fill = GridBagConstraints.BOTH;
+        constraints.insets = new Insets(5, 5, 5, 15); // More reasonable spacing
+        constraints.fill = GridBagConstraints.HORIZONTAL;
 
         // Plot shape selector
         JLabel label = new JLabel("Plot shape");
@@ -662,9 +875,9 @@ public class PropertiesDialog extends JDialog {
         panel.add(distanceOrRadiusLabel, constraints);
 
         constraints.gridx = 1;
-        JComboBox<String> distanceBetweenPoints = (JComboBox<String>) propertyToComponent
+        JSpinner distanceBetweenPoints = (JSpinner) propertyToComponent
                 .get(EarthProperty.DISTANCE_BETWEEN_SAMPLE_POINTS)[0];
-        panel.add(new JScrollPane(distanceBetweenPoints), constraints);
+        panel.add(distanceBetweenPoints, constraints);
 
         // Distance to frame
         constraints.gridx = 0;
@@ -673,9 +886,9 @@ public class PropertiesDialog extends JDialog {
         panel.add(label, constraints);
         
         constraints.gridx = 1;
-        JComboBox<String> distanceToFrame = (JComboBox<String>) propertyToComponent
+        JSpinner distanceToFrame = (JSpinner) propertyToComponent
                 .get(EarthProperty.DISTANCE_TO_PLOT_BOUNDARIES)[0];
-        panel.add(new JScrollPane(distanceToFrame), constraints);
+        panel.add(distanceToFrame, constraints);
 
         // Dots side
         constraints.gridx = 0;
@@ -684,8 +897,8 @@ public class PropertiesDialog extends JDialog {
         panel.add(label, constraints);
         
         constraints.gridx = 1;
-        JComboBox<String> dotsSide = (JComboBox<String>) propertyToComponent.get(EarthProperty.INNER_SUBPLOT_SIDE)[0];
-        panel.add(new JScrollPane(dotsSide), constraints);
+        JSpinner dotsSide = (JSpinner) propertyToComponent.get(EarthProperty.INNER_SUBPLOT_SIDE)[0];
+        panel.add(dotsSide, constraints);
 
         // Central plot side
         constraints.gridx = 0;
@@ -694,8 +907,8 @@ public class PropertiesDialog extends JDialog {
         panel.add(label, constraints);
         
         constraints.gridx = 1;
-        JComboBox<String> largeCentralPlotSide = (JComboBox<String>) propertyToComponent.get(EarthProperty.LARGE_CENTRAL_PLOT_SIDE)[0];
-        panel.add(new JScrollPane(largeCentralPlotSide), constraints);
+        JSpinner largeCentralPlotSide = (JSpinner) propertyToComponent.get(EarthProperty.LARGE_CENTRAL_PLOT_SIDE)[0];
+        panel.add(largeCentralPlotSide, constraints);
 
         // Distance between plots in cluster
         constraints.gridx = 0;
@@ -704,9 +917,9 @@ public class PropertiesDialog extends JDialog {
         panel.add(label, constraints);
         
         constraints.gridx = 1;
-        JComboBox<String> plotDistanceInCluster = (JComboBox<String>) propertyToComponent
+        JSpinner plotDistanceInCluster = (JSpinner) propertyToComponent
                 .get(EarthProperty.DISTANCE_BETWEEN_PLOTS)[0];
-        panel.add(new JScrollPane(plotDistanceInCluster), constraints);
+        panel.add(plotDistanceInCluster, constraints);
 
         // Area display
         constraints.gridx = 0;
@@ -715,8 +928,12 @@ public class PropertiesDialog extends JDialog {
                 "Area (hectares)  :  " + calculateArea(numberPoints, distanceBetweenPoints, distanceToFrame, dotsSide));
         panel.add(area, constraints);
 
-        // Set up action listeners
-        ActionListener calculateAreasListener = e -> 
+        // Set up change listeners for spinners
+        javax.swing.event.ChangeListener calculateAreasListener = e -> 
+            area.setText("Area (hectares)  :  " + calculateArea(numberPoints, distanceBetweenPoints, distanceToFrame, dotsSide));
+
+        // Action listener for combo box (converts ActionEvent to area calculation)
+        ActionListener calculateAreasActionListener = e -> 
             area.setText("Area (hectares)  :  " + calculateArea(numberPoints, distanceBetweenPoints, distanceToFrame, dotsSide));
 
         plotShape.addActionListener(e ->
@@ -724,9 +941,9 @@ public class PropertiesDialog extends JDialog {
                         plotDistanceInCluster, area, distanceOrRadiusLabel, largeCentralPlotSide)
         );
 
-        numberPoints.addActionListener(calculateAreasListener);
-        distanceBetweenPoints.addActionListener(calculateAreasListener);
-        distanceToFrame.addActionListener(calculateAreasListener);
+        numberPoints.addActionListener(calculateAreasActionListener);
+        distanceBetweenPoints.addChangeListener(calculateAreasListener);
+        distanceToFrame.addChangeListener(calculateAreasListener);
 
         // Initialize visibility
         handleVisibilityPlotLayout(plotShape, numberPoints, distanceBetweenPoints, distanceToFrame, dotsSide,
@@ -739,9 +956,9 @@ public class PropertiesDialog extends JDialog {
      * Handle visibility of plot layout components based on selected shape.
      */
     public void handleVisibilityPlotLayout(JComboBox<SAMPLE_SHAPE> plotShape, JComboBox<ComboBoxItem> numberPoints, 
-            JComboBox<String> distanceBetweenPoints, JComboBox<String> distanceToFrame, JComboBox<String> dotsSide, 
-            JComboBox<String> distanceBetweenPlots, JLabel area, JLabel distanceOrRadiusLabel, 
-            JComboBox<String> largeCentralPlotSide) {
+            JSpinner distanceBetweenPoints, JSpinner distanceToFrame, JSpinner dotsSide, 
+            JSpinner distanceBetweenPlots, JLabel area, JLabel distanceOrRadiusLabel, 
+            JSpinner largeCentralPlotSide) {
         
         // First, disable all components
         numberPoints.setEnabled(false);
@@ -786,29 +1003,34 @@ public class PropertiesDialog extends JDialog {
     /**
      * Calculate the area based on plot parameters.
      */
-    private String calculateArea(JComboBox<ComboBoxItem> numberOfPoints, JComboBox<String> distanceBetweenPoints, 
-            JComboBox<String> distanceToFrame, JComboBox<String> dotsSide) {
+    private String calculateArea(JComboBox<ComboBoxItem> numberOfPoints, JSpinner distanceBetweenPoints, 
+            JSpinner distanceToFrame, JSpinner dotsSide) {
         
         double side = 0;
         try {
             int numberOfPointsI = ((ComboBoxItem) numberOfPoints.getSelectedItem()).getNumberOfPoints();
-            int distanceBetweenPointsI = Integer.parseInt((String) distanceBetweenPoints.getSelectedItem());
-            int distanceToFrameI = Integer.parseInt((String) distanceToFrame.getSelectedItem());
+            int distanceBetweenPointsI = (Integer) distanceBetweenPoints.getValue();
+            int distanceToFrameI = (Integer) distanceToFrame.getValue();
 
             if (numberOfPointsI == 0 || numberOfPointsI == 1) {
                 // Single point or no points
                 side = 2d * distanceToFrameI;
                 if (oldSelectedDistance == null) {
-                    oldSelectedDistance = (String) distanceBetweenPoints.getSelectedItem();
+                    oldSelectedDistance = distanceBetweenPointsI + "";
                     distanceBetweenPoints.setEnabled(false);
                 }
-                distanceBetweenPoints.setSelectedItem("0");
+                distanceBetweenPoints.setValue(0);
 
                 dotsSide.setEnabled(numberOfPointsI == 1);
             } else {
                 // Multiple points
                 if (oldSelectedDistance != null) {
-                    distanceBetweenPoints.setSelectedItem(oldSelectedDistance);
+                    try {
+                        distanceBetweenPoints.setValue(Integer.parseInt(oldSelectedDistance));
+                    } catch (NumberFormatException e) {
+                        // Use default if parsing fails
+                        distanceBetweenPoints.setValue(10);
+                    }
                     oldSelectedDistance = null;
                 }
 
@@ -832,7 +1054,7 @@ public class PropertiesDialog extends JDialog {
      */
     private JPanel getPostgreSqlPanel() {
         final JPanel panel = new JPanel(new GridBagLayout());
-        panel.setBorder(BorderFactory.createEmptyBorder(10, 10, 10, 10));
+        panel.setBorder(BorderFactory.createEmptyBorder(15, 15, 15, 15));
         final GridBagConstraints constraints = createDefaultConstraints();
 
         final Border border = new TitledBorder(new BevelBorder(BevelBorder.RAISED),
@@ -919,7 +1141,7 @@ public class PropertiesDialog extends JDialog {
      */
     private JPanel getSqlLitePanel() {
         final JPanel panel = new JPanel(new GridBagLayout());
-        panel.setBorder(BorderFactory.createEmptyBorder(10, 10, 10, 10));
+        panel.setBorder(BorderFactory.createEmptyBorder(15, 15, 15, 15));
         final GridBagConstraints constraints = createDefaultConstraints();
 
         final Border border = new TitledBorder(new BevelBorder(BevelBorder.RAISED),
@@ -940,25 +1162,31 @@ public class PropertiesDialog extends JDialog {
                 localPropertiesService.getValue(EarthProperty.SAMPLE_FILE), surveyLoaded);
 
         final JPanel panel = new JPanel(new GridBagLayout());
-        panel.setBorder(BorderFactory.createEmptyBorder(10, 10, 10, 10));
+        panel.setBorder(BorderFactory.createEmptyBorder(15, 15, 15, 15));
         final GridBagConstraints constraints = createDefaultConstraints();
-        constraints.fill = GridBagConstraints.BOTH;
+        constraints.fill = GridBagConstraints.HORIZONTAL;
 
         // File picker for sample plots CSV
         final JFilePicker refreshTableOnFileChange = getFilePickerSamplePlots(samplePlots);
         panel.add(refreshTableOnFileChange, constraints);
 
-        // Table of sample plots
+        // Table of sample plots with better sizing
         samplePlots.setFillsViewportHeight(true);
         constraints.gridy = 1;
         constraints.weightx = 1.0;
-        constraints.weighty = 1.0;
+        constraints.weighty = 1.0; // Allow vertical expansion
         constraints.gridwidth = GridBagConstraints.REMAINDER;
         constraints.gridheight = GridBagConstraints.REMAINDER;
+        constraints.fill = GridBagConstraints.BOTH;
 
-        samplePlots.setPreferredScrollableViewportSize(samplePlots.getPreferredSize());
-        panel.add(new JScrollPane(samplePlots, ScrollPaneConstants.VERTICAL_SCROLLBAR_AS_NEEDED,
-                ScrollPaneConstants.HORIZONTAL_SCROLLBAR_AS_NEEDED), constraints);
+        // Create scroll pane with reasonable minimum size
+        JScrollPane scrollPane = new JScrollPane(samplePlots, 
+                ScrollPaneConstants.VERTICAL_SCROLLBAR_AS_NEEDED,
+                ScrollPaneConstants.HORIZONTAL_SCROLLBAR_AS_NEEDED);
+        scrollPane.setPreferredSize(new Dimension(600, 400));
+        scrollPane.setMinimumSize(new Dimension(500, 300));
+        
+        panel.add(scrollPane, constraints);
 
         return panel;
     }
@@ -1001,7 +1229,7 @@ public class PropertiesDialog extends JDialog {
      */
     private JPanel getServerPanel() {
         final JPanel panel = new JPanel(new GridBagLayout());
-        panel.setBorder(BorderFactory.createEmptyBorder(10, 10, 10, 10));
+        panel.setBorder(BorderFactory.createEmptyBorder(15, 15, 15, 15));
         final GridBagConstraints constraints = createDefaultConstraints();
 
         final Border border = new TitledBorder(new BevelBorder(BevelBorder.RAISED),
@@ -1139,18 +1367,21 @@ public class PropertiesDialog extends JDialog {
         openSecureWatchCheckbox.addActionListener(e -> 
             secureWatchUrlTextField.setEnabled(openSecureWatchCheckbox.isSelected()));
 
-        // Extra Map URL field
+        // Extra Map URL field with improved validation
         final JTextField extraUrlTextField = new JTextField(
                 localPropertiesService.getValue(EarthProperty.EXTRA_MAP_URL));
         extraUrlTextField.setMinimumSize(new Dimension(250, 20));
-        extraUrlTextField.setInputVerifier( new UrlPlaceholderVerifier() );
-     // register it for placeholder text
+        extraUrlTextField.setToolTipText("Custom map service URL. Use placeholders: LATITUDE, LONGITUDE, PLOT_ID, or GEOJSON");
+        
+        // Create improved URL validator
+        UrlPlaceholderVerifier urlValidator = new UrlPlaceholderVerifier();
+        extraUrlTextField.setInputVerifier(urlValidator);
+        addRealTimeValidation(extraUrlTextField, urlValidator);
+        
+        // Register placeholder text
         PromptSupport.setPrompt(
             "https://www.extramap.org/lat=LATITUDE&long=LONGITUDE&id=PLOT_ID",
             extraUrlTextField);
-       // PromptSupport.setForeground(Color.GRAY, extraUrlTextField);
-
-
         
         propertyToComponent.put(EarthProperty.EXTRA_MAP_URL, new JComponent[] { extraUrlTextField });
 
@@ -1275,57 +1506,65 @@ public class PropertiesDialog extends JDialog {
     }
     
     /**
-     * Initialize distance-related dropdown components.
+     * Initialize distance-related components with user-friendly spinners.
      */
     private void initializeDistanceComponents() {
-        // Generate lists of numbers for distance dropdowns
-        final String[] listOfNumbers = new String[1500];
-        final String[] listOfNumbersFromTwo = new String[1500];
-
-        for (int index = 0; index < listOfNumbers.length; index++) {
-            listOfNumbers[index] = Integer.toString(index);
-            listOfNumbersFromTwo[index] = Integer.toString(index + 2);
-        }
-
-        // Distance between sampling points
-        final JComboBox<String> listOfDistanceBetweenPoints = new JComboBox<>(listOfNumbersFromTwo);
-        listOfDistanceBetweenPoints.setSelectedItem(
-                localPropertiesService.getValue(EarthProperty.DISTANCE_BETWEEN_SAMPLE_POINTS));
-        listOfDistanceBetweenPoints.setAutoscrolls(true);
+        // Distance between sampling points (min: 2, max: 1000, step: 1)
+        int distanceBetweenPoints = parseIntOrDefault(
+                localPropertiesService.getValue(EarthProperty.DISTANCE_BETWEEN_SAMPLE_POINTS), 10);
+        final JSpinner spinnerDistanceBetweenPoints = new JSpinner(
+                new SpinnerNumberModel(distanceBetweenPoints, 2, 1000, 1));
+        spinnerDistanceBetweenPoints.setToolTipText("Distance between sampling points in meters (2-1000)");
         propertyToComponent.put(EarthProperty.DISTANCE_BETWEEN_SAMPLE_POINTS,
-                new JComponent[] { listOfDistanceBetweenPoints });
+                new JComponent[] { spinnerDistanceBetweenPoints });
 
-        // Distance between plots
-        final JComboBox<String> listOfDistanceBetweenPlots = new JComboBox<>(listOfNumbersFromTwo);
-        listOfDistanceBetweenPlots.setSelectedItem(
-                localPropertiesService.getValue(EarthProperty.DISTANCE_BETWEEN_PLOTS));
-        listOfDistanceBetweenPlots.setAutoscrolls(true);
+        // Distance between plots (min: 2, max: 1000, step: 1)
+        int distanceBetweenPlots = parseIntOrDefault(
+                localPropertiesService.getValue(EarthProperty.DISTANCE_BETWEEN_PLOTS), 100);
+        final JSpinner spinnerDistanceBetweenPlots = new JSpinner(
+                new SpinnerNumberModel(distanceBetweenPlots, 2, 1000, 1));
+        spinnerDistanceBetweenPlots.setToolTipText("Distance between plots in cluster in meters (2-1000)");
         propertyToComponent.put(EarthProperty.DISTANCE_BETWEEN_PLOTS, 
-                new JComponent[] { listOfDistanceBetweenPlots });
+                new JComponent[] { spinnerDistanceBetweenPlots });
 
-        // Distance to plot boundaries
-        final JComboBox<String> listOfDistanceToBorder = new JComboBox<>(listOfNumbers);
-        listOfDistanceToBorder.setSelectedItem(
-                localPropertiesService.getValue(EarthProperty.DISTANCE_TO_PLOT_BOUNDARIES));
-        listOfDistanceToBorder.setAutoscrolls(true);
+        // Distance to plot boundaries (min: 0, max: 500, step: 1)
+        int distanceToBorder = parseIntOrDefault(
+                localPropertiesService.getValue(EarthProperty.DISTANCE_TO_PLOT_BOUNDARIES), 0);
+        final JSpinner spinnerDistanceToBorder = new JSpinner(
+                new SpinnerNumberModel(distanceToBorder, 0, 500, 1));
+        spinnerDistanceToBorder.setToolTipText("Distance to plot boundaries in meters (0-500)");
         propertyToComponent.put(EarthProperty.DISTANCE_TO_PLOT_BOUNDARIES, 
-                new JComponent[] { listOfDistanceToBorder });
+                new JComponent[] { spinnerDistanceToBorder });
 
-        // Inner subplot side
-        final JComboBox<String> listOfSizeofSamplingDot = new JComboBox<>(listOfNumbersFromTwo);
-        listOfSizeofSamplingDot.setSelectedItem(
-                localPropertiesService.getValue(EarthProperty.INNER_SUBPLOT_SIDE));
-        listOfSizeofSamplingDot.setAutoscrolls(true);
+        // Inner subplot side (min: 2, max: 100, step: 1)
+        int innerSubplotSide = parseIntOrDefault(
+                localPropertiesService.getValue(EarthProperty.INNER_SUBPLOT_SIDE), 2);
+        final JSpinner spinnerInnerSubplotSide = new JSpinner(
+                new SpinnerNumberModel(innerSubplotSide, 2, 100, 1));
+        spinnerInnerSubplotSide.setToolTipText("Size of inner subplot side in meters (2-100)");
         propertyToComponent.put(EarthProperty.INNER_SUBPLOT_SIDE, 
-                new JComponent[] { listOfSizeofSamplingDot });
+                new JComponent[] { spinnerInnerSubplotSide });
 
-        // Large central plot side
-        final JComboBox<String> listOfSideOflargeCentralPlot = new JComboBox<>(listOfNumbersFromTwo);
-        listOfSideOflargeCentralPlot.setSelectedItem(
-                localPropertiesService.getValue(EarthProperty.LARGE_CENTRAL_PLOT_SIDE));
-        listOfSideOflargeCentralPlot.setAutoscrolls(true);
+        // Large central plot side (min: 2, max: 200, step: 1)
+        int largeCentralPlotSide = parseIntOrDefault(
+                localPropertiesService.getValue(EarthProperty.LARGE_CENTRAL_PLOT_SIDE), 20);
+        final JSpinner spinnerLargeCentralPlotSide = new JSpinner(
+                new SpinnerNumberModel(largeCentralPlotSide, 2, 200, 1));
+        spinnerLargeCentralPlotSide.setToolTipText("Size of large central plot side in meters (2-200)");
         propertyToComponent.put(EarthProperty.LARGE_CENTRAL_PLOT_SIDE, 
-                new JComponent[] { listOfSideOflargeCentralPlot });
+                new JComponent[] { spinnerLargeCentralPlotSide });
+    }
+    
+    /**
+     * Helper method to parse integer values with a default fallback.
+     */
+    private int parseIntOrDefault(String value, int defaultValue) {
+        try {
+            return StringUtils.isNotBlank(value) ? Integer.parseInt(value.trim()) : defaultValue;
+        } catch (NumberFormatException e) {
+            logger.warn("Invalid integer value '{}', using default: {}", value, defaultValue);
+            return defaultValue;
+        }
     }
     
     /**
@@ -1463,33 +1702,43 @@ public class PropertiesDialog extends JDialog {
         
         propertyToComponent.put(EarthProperty.DB_DRIVER, new JComponent[] { sqliteDbType, postgresDbType });
 
-        // DB connection settings
+        // DB connection settings with real-time validation
         final JTextField dbUserName = new JTextField(localPropertiesService.getValue(EarthProperty.DB_USERNAME));
+        dbUserName.setToolTipText("Database username for PostgreSQL connection");
+        addRealTimeValidation(dbUserName, createDatabaseConnectionValidator());
         propertyToComponent.put(EarthProperty.DB_USERNAME, new JComponent[] { dbUserName });
 
         final JTextField dbPassword = new JTextField(localPropertiesService.getValue(EarthProperty.DB_PASSWORD));
+        dbPassword.setToolTipText("Database password for PostgreSQL connection");
+        addRealTimeValidation(dbPassword, createDatabaseConnectionValidator());
         propertyToComponent.put(EarthProperty.DB_PASSWORD, new JComponent[] { dbPassword });
 
         final JTextField dbName = new JTextField(localPropertiesService.getValue(EarthProperty.DB_NAME));
+        dbName.setToolTipText("Name of the PostgreSQL database to connect to");
+        addRealTimeValidation(dbName, createDatabaseConnectionValidator());
         propertyToComponent.put(EarthProperty.DB_NAME, new JComponent[] { dbName });
 
         final JTextField dbHost = new JTextField(localPropertiesService.getValue(EarthProperty.DB_HOST));
+        dbHost.setToolTipText("Hostname or IP address of the PostgreSQL server");
+        addRealTimeValidation(dbHost, createDatabaseConnectionValidator());
         propertyToComponent.put(EarthProperty.DB_HOST, new JComponent[] { dbHost });
 
         final JTextField dbPort = new JTextField(localPropertiesService.getValue(EarthProperty.DB_PORT));
+        dbPort.setToolTipText("Port number for PostgreSQL connection (default: 5432)");
+        addRealTimeValidation(dbPort, createPortValidator());
         propertyToComponent.put(EarthProperty.DB_PORT, new JComponent[] { dbPort });
     }
     
     /**
-     * Create default GridBagConstraints.
+     * Create default GridBagConstraints for responsive layouts.
      */
     private GridBagConstraints createDefaultConstraints() {
         GridBagConstraints constraints = new GridBagConstraints();
         constraints.gridx = 0;
         constraints.gridy = 0;
-        constraints.anchor = GridBagConstraints.LINE_START;
-        constraints.insets = new Insets(5, 5, 5, 5);
-        constraints.weightx = 1.0;
+        constraints.anchor = GridBagConstraints.NORTHWEST;
+        constraints.insets = new Insets(8, 8, 8, 8); // Consistent spacing
+        constraints.weightx = 1.0; // Allow horizontal expansion
         constraints.fill = GridBagConstraints.HORIZONTAL;
         return constraints;
     }
@@ -1545,19 +1794,36 @@ public class PropertiesDialog extends JDialog {
         }
 
         private void showError(JComponent input, String message) {
+            // Set visual feedback immediately
+            input.setBackground(new Color(255, 220, 220));
+            input.setToolTipText(message);
+            
+            // Show user-friendly dialog
             JOptionPane.showMessageDialog(
                     input.getParent(),
-                    message,
-                    "Error in Extra Map URL",
+                    message + "\n\nPlease ensure your URL follows this format:\nhttps://example.com/map?lat=LATITUDE&lon=LONGITUDE",
+                    "Invalid Map URL",
                     JOptionPane.ERROR_MESSAGE);
             input.requestFocusInWindow();
         }
         
         private void showWarning(JComponent input, String message) {
+            // Set visual feedback for warning
+            input.setBackground(new Color(255, 250, 200)); // Light yellow
+            input.setToolTipText(message);
+            
+            // Show informative warning dialog
+            String detailedMessage = message + 
+                "\n\nRecommended placeholders:" +
+                "\n• LATITUDE, LONGITUDE - for coordinate-based maps" +
+                "\n• PLOT_ID - for plot identifier-based maps" +
+                "\n• GEOJSON - for geometry-based maps" +
+                "\n\nExample: https://maps.example.com?lat=LATITUDE&lon=LONGITUDE&plot=PLOT_ID";
+                
             JOptionPane.showMessageDialog(
                     input.getParent(),
-                    message,
-                    "Warning - Extra Map URL",
+                    detailedMessage,
+                    "Map URL Configuration",
                     JOptionPane.WARNING_MESSAGE);
         }
     }
@@ -1571,5 +1837,62 @@ public class PropertiesDialog extends JDialog {
             }
         }
         return true;
+    }
+    
+    /**
+     * Adds real-time validation to a text field with visual feedback.
+     */
+    private void addRealTimeValidation(JTextField textField, InputVerifier validator) {
+        textField.getDocument().addDocumentListener(new DocumentListener() {
+            @Override
+            public void changedUpdate(DocumentEvent e) { validateField(); }
+            @Override
+            public void removeUpdate(DocumentEvent e) { validateField(); }
+            @Override
+            public void insertUpdate(DocumentEvent e) { validateField(); }
+            
+            private void validateField() {
+                boolean isValid = validator.verify(textField);
+                if (isValid) {
+                    textField.setBackground(Color.WHITE);
+                    textField.setToolTipText(null);
+                } else {
+                    textField.setBackground(new Color(255, 220, 220)); // Light red
+                    textField.setToolTipText("Invalid input - please check the format");
+                }
+            }
+        });
+    }
+    
+    /**
+     * Creates a database connection validator.
+     */
+    private InputVerifier createDatabaseConnectionValidator() {
+        return new InputVerifier() {
+            @Override
+            public boolean verify(JComponent input) {
+                String text = ((JTextField) input).getText().trim();
+                return !text.isEmpty(); // Basic non-empty validation
+            }
+        };
+    }
+    
+    /**
+     * Creates a port number validator.
+     */
+    private InputVerifier createPortValidator() {
+        return new InputVerifier() {
+            @Override
+            public boolean verify(JComponent input) {
+                String text = ((JTextField) input).getText().trim();
+                if (text.isEmpty()) return true; // Allow empty for optional fields
+                try {
+                    int port = Integer.parseInt(text);
+                    return port > 0 && port <= 65535;
+                } catch (NumberFormatException e) {
+                    return false;
+                }
+            }
+        };
     }
 }
