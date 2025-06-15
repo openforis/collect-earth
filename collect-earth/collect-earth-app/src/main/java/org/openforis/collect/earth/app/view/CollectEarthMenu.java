@@ -5,6 +5,7 @@ import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 
 import javax.swing.ButtonGroup;
 import javax.swing.JCheckBoxMenuItem;
@@ -82,10 +83,16 @@ public class CollectEarthMenu extends JMenuBar implements InitializingBean {
 	@Autowired
 	private transient RemovePlotsFromDBDlg removePlotsFromDBDlg;
 
-	@Autowired
-	private transient EarthProjectsService projectsService;
-
 	private static final long serialVersionUID = -2457052260968029351L;
+	private static final String USER_MANUAL_FILENAME = "UserManual.pdf";
+	private static final String LOG_FILENAME = "earth_error.log";
+	private static final String DISCLAIMER_FILENAME_PREFIX = "disclaimer_";
+	private static final String DISCLAIMER_FILENAME_SUFFIX = ".txt";
+	private static final String DISCLAIMER_DEFAULT = "disclaimer_en.txt";
+	private static final String RESOURCES_FOLDER = "resources";
+	private static final String JSWING_APPENDER_NAME = "jswing-log";
+	private static final String UNKNOWN_ERROR_MESSAGE = "Unknown error occurred";
+	
 	private final List<JMenuItem> serverMenuItems = new ArrayList<>();
 	private JFrame frame;
 	private final transient org.slf4j.Logger logger = LoggerFactory.getLogger(CollectEarthMenu.class);
@@ -118,9 +125,15 @@ public class CollectEarthMenu extends JMenuBar implements InitializingBean {
 		JMenu menuHelp = new JMenu(Messages.getString("CollectEarthWindow.16")); //$NON-NLS-1$
 		JMenuItem menuItem;
 		File surveyGuide = earthSurveyService.getSurveyGuide();
-		if( surveyGuide != null ) {
+		if( surveyGuide != null && surveyGuide.exists() && surveyGuide.canRead() ) {
 			menuItem = new JMenuItem(Messages.getString("CollectEarthWindow.70")); //$NON-NLS-1$
-			menuItem.addActionListener( (e) -> CollectEarthUtils.openFile( surveyGuide) );
+			menuItem.addActionListener( (e) -> {
+				try {
+					CollectEarthUtils.openFile( surveyGuide );
+				} catch (Exception ex) {
+					showErrorDialog("Error opening survey guide: " + surveyGuide.getAbsolutePath(), ex);
+				}
+			});
 			menuHelp.add(menuItem);
 			menuHelp.addSeparator();
 		}
@@ -135,7 +148,20 @@ public class CollectEarthMenu extends JMenuBar implements InitializingBean {
 		menuHelp.add(menuItem);
 
 		menuItem = new JMenuItem(Messages.getString("CollectEarthWindow.50")); //$NON-NLS-1$
-		menuItem.addActionListener( (e) -> CollectEarthUtils.openFile( new File("UserManual.pdf")));
+		menuItem.addActionListener( (e) -> {
+			File userManual = new File(USER_MANUAL_FILENAME);
+			if (userManual.exists() && userManual.canRead()) {
+				try {
+					CollectEarthUtils.openFile(userManual);
+				} catch (Exception ex) {
+					showErrorDialog("Error opening user manual", ex);
+				}
+			} else {
+				JOptionPane.showMessageDialog(frame, 
+					"User manual not found: " + USER_MANUAL_FILENAME,
+					"File Not Found", JOptionPane.WARNING_MESSAGE);
+			}
+		});
 		menuHelp.add(menuItem);
 
 
@@ -150,7 +176,7 @@ public class CollectEarthMenu extends JMenuBar implements InitializingBean {
 				new OpenTextFileListener(frame, getLogFilePath(), Messages.getString("CollectEarthWindow.53"))); //$NON-NLS-1$
 		menuHelp.add(menuItem);
 
-		JCheckBoxMenuItem checkboxErrors = new JCheckBoxMenuItem("Show exception errors", localPropertiesService.isExceptionShown() ); //$NON-NLS-1$
+		JCheckBoxMenuItem checkboxErrors = new JCheckBoxMenuItem(Messages.getString("CollectEarthMenu.9"), localPropertiesService.isExceptionShown()); //$NON-NLS-1$
 		checkboxErrors.addActionListener( e -> {
 			// This sets/unsets the property that is checked when an exception is catch by the JSwingAppender log4j2 appender 
 
@@ -160,7 +186,7 @@ public class CollectEarthMenu extends JMenuBar implements InitializingBean {
 			final LoggerContext ctx = (LoggerContext) LogManager.getContext(false);
 			final Configuration config = ctx.getConfiguration();
 
-			JSwingAppender jSwingAppender = config.getAppender("jswing-log");
+			JSwingAppender jSwingAppender = config.getAppender(JSWING_APPENDER_NAME);
 
 			jSwingAppender.setExceptionShown( showException );
 		}
@@ -181,69 +207,94 @@ public class CollectEarthMenu extends JMenuBar implements InitializingBean {
 		JMenu toolsMenu = new JMenu(Messages.getString("CollectEarthWindow.12")); //$NON-NLS-1$
 
 		addImportExportMenu(toolsMenu);
-
+		addAnalysisMenuItems(toolsMenu);
+		addKmlAndDataMenuItems(toolsMenu);
+		addSettingsAndUtilityMenuItems(toolsMenu);
+		
+		return toolsMenu;
+	}
+	
+	private void addAnalysisMenuItems(JMenu toolsMenu) {
 		JMenuItem menuItem = new JMenuItem(Messages.getString("CollectEarthWindow.14")); //$NON-NLS-1$
 		menuItem.addActionListener(getSaikuAnalysisActionListener());
 		toolsMenu.add(menuItem);
 		
 		menuItem = new JMenuItem(Messages.getString("CollectEarthWindow.71")); //$NON-NLS-1$
 		menuItem.addActionListener(getSaikuToolExportActionListener());
-		menuItem.setEnabled(SystemUtils.IS_OS_WINDOWS ); // This option is only available in Windows!!
+		menuItem.setEnabled(SystemUtils.IS_OS_WINDOWS);
 		toolsMenu.add(menuItem);
 
 		toolsMenu.addSeparator();
 		menuItem = new JMenuItem(Messages.getString("CollectEarthWindow.72")); //$NON-NLS-1$
 		menuItem.addActionListener(getIPCCExportActionListener());
 		toolsMenu.add(menuItem);
-
+	}
+	
+	private void addKmlAndDataMenuItems(JMenu toolsMenu) {
 		toolsMenu.addSeparator();
-		menuItem = new JMenuItem(Messages.getString("CollectEarthWindow.54")); //$NON-NLS-1$
-		menuItem.addActionListener(new ApplyOptionChangesListener(this.getFrame(), localPropertiesService) {
+		
+		JMenuItem kmlImportItem = new JMenuItem(Messages.getString("CollectEarthWindow.54")); //$NON-NLS-1$
+		kmlImportItem.addActionListener(createKmlImportActionListener());
+		serverMenuItems.add(kmlImportItem);
+		toolsMenu.add(kmlImportItem);
 
-			@Override
-			protected void applyProperties() {
-
-				try {
-					if (kmlImportService.prompToOpenKml(getFrame())) {
-						restartEarth();
-					}
-				} catch (Exception e1) {
-					JOptionPane.showMessageDialog(getFrame(), e1.getMessage(),
-							Messages.getString("CollectEarthWindow.63"), JOptionPane.ERROR_MESSAGE); //$NON-NLS-1$
-					logger.error("Error importing KML file", e1); //$NON-NLS-1$
-				}
-
-			}
-
-		});
-		serverMenuItems.add(menuItem); // This menu should only be shown if the DB is local ( not if Collect Earth is
-		// acting as a client )
-		toolsMenu.add(menuItem);
-
-		menuItem = new JMenuItem(Messages.getString("CollectEarthWindow.67")); //$NON-NLS-1$
-		menuItem.setIcon( FontIcon.of( MaterialDesign.MDI_FOLDER ) );
-		menuItem.addActionListener( e-> {
-			try {
-				CollectEarthUtils.openFolderInExplorer(FolderFinder.getCollectEarthDataFolder());
-			} catch (IOException e1) {
-				logger.error("Could not find the data folder", e1);
-			}
-		});
-		serverMenuItems.add(menuItem); // This menu should only be shown if the DB is local ( not if Collect Earth is
-		// acting as a client )
-		toolsMenu.add(menuItem);
-
+		JMenuItem dataFolderItem = new JMenuItem(Messages.getString("CollectEarthWindow.67")); //$NON-NLS-1$
+		dataFolderItem.setIcon(FontIcon.of(MaterialDesign.MDI_FOLDER));
+		dataFolderItem.addActionListener(createDataFolderActionListener());
+		serverMenuItems.add(dataFolderItem);
+		toolsMenu.add(dataFolderItem);
+	}
+	
+	private void addSettingsAndUtilityMenuItems(JMenu toolsMenu) {
 		toolsMenu.addSeparator();
 
-		menuItem = new JMenuItem(Messages.getString("CollectEarthWindow.15")); //$NON-NLS-1$
-		menuItem.addActionListener(getPropertiesAction(frame));
-		menuItem.setIcon( FontIcon.of( MaterialDesign.MDI_SETTINGS ));
-		toolsMenu.add(menuItem);
-		toolsMenu.add(getUtilitiesMenu() );
+		JMenuItem settingsItem = new JMenuItem(Messages.getString("CollectEarthWindow.15")); //$NON-NLS-1$
+		settingsItem.addActionListener(getPropertiesAction(frame));
+		settingsItem.setIcon(FontIcon.of(MaterialDesign.MDI_SETTINGS));
+		toolsMenu.add(settingsItem);
+		toolsMenu.add(getUtilitiesMenu());
 
 		toolsMenu.addSeparator();
 		toolsMenu.add(getLanguageMenu());
-		return toolsMenu;
+	}
+	
+	private ActionListener createKmlImportActionListener() {
+		return new ApplyOptionChangesListener(this.getFrame(), localPropertiesService) {
+			@Override
+			protected void applyProperties() {
+				try {
+					if (kmlImportService != null && kmlImportService.prompToOpenKml(getFrame())) {
+						restartEarth();
+					}
+				} catch (Exception e1) {
+					showErrorDialog("Error importing KML file", e1);
+				}
+			}
+		};
+	}
+	
+	private ActionListener createDataFolderActionListener() {
+		return e -> {
+			try {
+				String dataFolder = FolderFinder.getCollectEarthDataFolder();
+				if (dataFolder != null) {
+					File folder = new File(dataFolder);
+					if (folder.exists() && folder.isDirectory()) {
+						CollectEarthUtils.openFolderInExplorer(dataFolder);
+					} else {
+						JOptionPane.showMessageDialog(frame, 
+							"Data folder not found: " + dataFolder,
+							"Folder Not Found", JOptionPane.WARNING_MESSAGE);
+					}
+				} else {
+					JOptionPane.showMessageDialog(frame, 
+						"Could not determine data folder location",
+						"Error", JOptionPane.ERROR_MESSAGE);
+				}
+			} catch (IOException e1) {
+				showErrorDialog("Could not open the data folder", e1);
+			}
+		};
 	}
 
 	private JMenu getUtilitiesMenu() {
@@ -258,15 +309,16 @@ public class CollectEarthMenu extends JMenuBar implements InitializingBean {
 		utilities.add(menuItem);
 
 		menuItem = new JMenuItem(Messages.getString("CollectEarthMenu.3")); //$NON-NLS-1$
-		menuItem.addActionListener( e ->  FileDividerToolDlg.open(frame, earthSurveyService.getCollectSurvey()) );
+		menuItem.addActionListener(e -> {
+			FileDividerToolDlg.open(frame, earthSurveyService.getCollectSurvey());
+		});
 		serverMenuItems.add(menuItem); // This menu should only be shown if the DB is local ( not if Collect Earth is // acting as a client )
 		utilities.add(menuItem);
 
-		menuItem = new JMenuItem("Delete Plots from DB using CSV");
-		menuItem.addActionListener( e ->  removePlotsFromDBDlg.open(frame, earthSurveyService.getCollectSurvey()) );
-		utilities.add(menuItem);
-
-
+		menuItem = new JMenuItem(Messages.getString("CollectEarthMenu.10")); //$NON-NLS-1$
+		menuItem.addActionListener(e -> {
+			removePlotsFromDBDlg.open(frame, earthSurveyService.getCollectSurvey());
+		});
 		utilities.add(menuItem);
 		return utilities;
 	}
@@ -285,12 +337,19 @@ public class CollectEarthMenu extends JMenuBar implements InitializingBean {
 
 				if (selectedProjectFile != null && selectedProjectFile.length == 1) {
 					try {
-						projectsService.loadCompressedProjectFile(selectedProjectFile[0]);
-						restartEarth();
+						if (selectedProjectFile[0].exists() && selectedProjectFile[0].canRead()) {
+							earthProjectsService.loadCompressedProjectFile(selectedProjectFile[0]);
+							restartEarth();
+						} else {
+							JOptionPane.showMessageDialog(getFrame(), 
+								"Project file not accessible: " + selectedProjectFile[0].getAbsolutePath(),
+								"File Access Error", JOptionPane.ERROR_MESSAGE);
+						}
 					} catch (Exception e1) {
-						JOptionPane.showMessageDialog( getFrame(), e1.getMessage(),
-								Messages.getString("OptionWizard.51"), JOptionPane.ERROR_MESSAGE); //$NON-NLS-1$
-						logger.error("Error importing project file " + selectedProjectFile[0].getAbsolutePath(), e1); //$NON-NLS-1$
+						String errorMessage = e1.getMessage() != null ? e1.getMessage() : "Unknown error occurred";
+						JOptionPane.showMessageDialog( getFrame(), errorMessage,
+								Messages.getString("OptionWizard.51"), JOptionPane.ERROR_MESSAGE);
+						logger.error("Error importing project file " + selectedProjectFile[0].getAbsolutePath(), e1);
 					}
 				}
 			}
@@ -373,19 +432,27 @@ public class CollectEarthMenu extends JMenuBar implements InitializingBean {
 
 	private String getDisclaimerFilePath() {
 		final String suffixLang = localPropertiesService.getUiLanguage().getLocale().getLanguage();
-		if (new File("resources/disclaimer_" + suffixLang + ".txt").exists()) { //$NON-NLS-1$ //$NON-NLS-2$
-			return "resources/disclaimer_" + suffixLang + ".txt";
+		final String localizedDisclaimer = RESOURCES_FOLDER + File.separator + 
+				DISCLAIMER_FILENAME_PREFIX + suffixLang + DISCLAIMER_FILENAME_SUFFIX;
+		
+		if (new File(localizedDisclaimer).exists()) {
+			return localizedDisclaimer;
 		} else {
-			return "resources/disclaimer_en.txt";
+			return RESOURCES_FOLDER + File.separator + DISCLAIMER_DEFAULT;
 		}
 	}
 
 	public ActionListener getExportActionListener(final DataFormat exportFormat, final RecordsToExport xmlExportType) {
+		Objects.requireNonNull(exportFormat, "Export format cannot be null");
+		Objects.requireNonNull(xmlExportType, "Export type cannot be null");
+		
 		return new ExportActionListener(exportFormat, xmlExportType, getFrame(), localPropertiesService,
 				dataImportExportService, earthSurveyService, kmlGeneratorService);
 	}
 
 	private ActionListener getImportActionListener(final DataFormat importFormat) {
+		Objects.requireNonNull(importFormat, "Import format cannot be null");
+		
 		return new ImportActionListener(importFormat, getFrame(), localPropertiesService, dataImportExportService);
 	}
 
@@ -419,7 +486,7 @@ public class CollectEarthMenu extends JMenuBar implements InitializingBean {
 			langItem.setName(language.name());
 			langItem.addActionListener(actionLanguage);
 			menuLanguage.add(langItem);
-			group.add(menuLanguage);
+			group.add(langItem);
 			if (localPropertiesService.getUiLanguage().equals(language)) {
 				langItem.setSelected(true);
 			}
@@ -430,6 +497,8 @@ public class CollectEarthMenu extends JMenuBar implements InitializingBean {
 	}
 
 	public ActionListener getPropertiesAction(final JFrame owner) {
+		Objects.requireNonNull(owner, "Owner frame cannot be null");
+		
 		return e -> {
 			final JDialog dialog = new PropertiesDialog(owner, localPropertiesService, earthProjectsService,
 					backupSqlLiteService.getAutomaticBackUpFolder().getPath(), analysisSaikuService,
@@ -453,7 +522,7 @@ public class CollectEarthMenu extends JMenuBar implements InitializingBean {
 	}
 	
 	private String getLogFilePath() {
-		return FolderFinder.getCollectEarthDataFolder() + "/earth_error.log"; //$NON-NLS-1$
+		return FolderFinder.getCollectEarthDataFolder() + File.separator + LOG_FILENAME;
 	}
 
 	public JFrame getFrame() {
@@ -464,6 +533,13 @@ public class CollectEarthMenu extends JMenuBar implements InitializingBean {
 		this.frame = frame;
 	}
 
+	private void showErrorDialog(String message, Exception ex) {
+		logger.error(message, ex);
+		String displayMessage = ex.getMessage() != null ? ex.getMessage() : UNKNOWN_ERROR_MESSAGE;
+		JOptionPane.showMessageDialog(frame, displayMessage, 
+			Messages.getString("CollectEarthWindow.63"), JOptionPane.ERROR_MESSAGE);
+	}
+	
 	public List<JMenuItem> getServerMenuItems() {
 		return serverMenuItems;
 	}
