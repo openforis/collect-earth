@@ -152,7 +152,7 @@ public class IPCCDataExportTimeSeriesToTool extends AbstractIPCCDataExport {
 		List<LandUseSubdivisionStratified<?>> climateSoilLandUseCombination = getClimateSoilLandUseCombination(
 				LandUseCategoryEnum.F);
 		
-		for (LandUseSubdivisionStratified landUseSubdivisionStratified : climateSoilLandUseCombination) {
+		for (LandUseSubdivisionStratified<?> landUseSubdivisionStratified : climateSoilLandUseCombination) {
 			CltForestLand cltForestLand = new CltForestLand();
 			cltForestLand.setId(landUseSubdivisionStratified.getId());
 			
@@ -224,7 +224,7 @@ public class IPCCDataExportTimeSeriesToTool extends AbstractIPCCDataExport {
 		List<LandUseSubdivisionStratified<?>> climateSoilLandUseCombination = getClimateSoilLandUseCombination(
 				LandUseCategoryEnum.C);
 
-		for (LandUseSubdivisionStratified landUseSubdivisionStratified : climateSoilLandUseCombination) {
+		for (LandUseSubdivisionStratified<?> landUseSubdivisionStratified : climateSoilLandUseCombination) {
 			CltCropland cltCropLand = new CltCropland();
 			cltCropLand.setId(landUseSubdivisionStratified.getId());
 			cltCropLand.setGuid(landUseSubdivisionStratified.getGuid());
@@ -262,7 +262,7 @@ public class IPCCDataExportTimeSeriesToTool extends AbstractIPCCDataExport {
 		List<LandUseSubdivisionStratified<?>> climateSoilLandUseCombination = getClimateSoilLandUseCombination(
 				LandUseCategoryEnum.G);
 
-		for (LandUseSubdivisionStratified landUseSubdivisionStratified : climateSoilLandUseCombination) {
+		for (LandUseSubdivisionStratified<?> landUseSubdivisionStratified : climateSoilLandUseCombination) {
 			CltGrassland cltGrassLand = new CltGrassland();
 			cltGrassLand.setId(landUseSubdivisionStratified.getId());
 			cltGrassLand.setGuid(landUseSubdivisionStratified.getGuid());
@@ -296,7 +296,7 @@ public class IPCCDataExportTimeSeriesToTool extends AbstractIPCCDataExport {
 		List<LandUseSubdivisionStratified<?>> climateSoilLandUseCombination = getClimateSoilLandUseCombination(
 				LandUseCategoryEnum.W);
 		
-		for (LandUseSubdivisionStratified landUseSubdivisionStratified : climateSoilLandUseCombination) {
+		for (LandUseSubdivisionStratified<?> landUseSubdivisionStratified : climateSoilLandUseCombination) {
 			CltWetland cltWetland = new CltWetland();
 			cltWetland.setId(landUseSubdivisionStratified.getId());
 			cltWetland.setGuid(landUseSubdivisionStratified.getGuid());
@@ -330,7 +330,7 @@ public class IPCCDataExportTimeSeriesToTool extends AbstractIPCCDataExport {
 		List<LandUseSubdivisionStratified<?>> climateSoilLandUseCombination = getClimateSoilLandUseCombination(
 				LandUseCategoryEnum.S);
 		
-		for (LandUseSubdivisionStratified landUseSubdivisionStratified : climateSoilLandUseCombination) {
+		for (LandUseSubdivisionStratified<?> landUseSubdivisionStratified : climateSoilLandUseCombination) {
 			CltSettlement cltSettlement = new CltSettlement();
 			cltSettlement.setId(landUseSubdivisionStratified.getId());
 			cltSettlement.setGuid(landUseSubdivisionStratified.getGuid());
@@ -361,7 +361,7 @@ public class IPCCDataExportTimeSeriesToTool extends AbstractIPCCDataExport {
 		List<LandUseSubdivisionStratified<?>> climateSoilLandUseCombination = getClimateSoilLandUseCombination(
 				LandUseCategoryEnum.O);
 
-		for (LandUseSubdivisionStratified landUseSubdivisionStratified : climateSoilLandUseCombination) {
+		for (LandUseSubdivisionStratified<?> landUseSubdivisionStratified : climateSoilLandUseCombination) {
 			CltOtherland cltOtherland = new CltOtherland();
 			cltOtherland.setId(landUseSubdivisionStratified.getId());
 			cltOtherland.setGuid(landUseSubdivisionStratified.getGuid());
@@ -551,8 +551,8 @@ public class IPCCDataExportTimeSeriesToTool extends AbstractIPCCDataExport {
 				Integer subdivisionYearChange = rs.getInt(IPCCSurveyAdapter.TEMPLATE_LAND_USE_SUBDIVISION_YEAR_CHANGED);
 				String initialSubdivision = rs.getString(IPCCSurveyAdapter.TEMPLATE_LAND_USE_INITIAL_SUBDIVISION);
 				Integer subdivisionChangeYear = rs.getInt(IPCCSurveyAdapter.TEMPLATE_LAND_USE_SUBDIVISION_YEAR_CHANGED);
-				String secondLUConversion = rs.getString(IPCCSurveyAdapter.TEMPLATE_SECOND_LU_CONVERSION);
-				Integer secondLUConversionYear = rs.getInt(IPCCSurveyAdapter.TEMPLATE_SECOND_LU_CONVERSION_YEAR);
+				//String secondLUConversion = rs.getString(IPCCSurveyAdapter.TEMPLATE_SECOND_LU_CONVERSION);
+				//Integer secondLUConversionYear = rs.getInt(IPCCSurveyAdapter.TEMPLATE_SECOND_LU_CONVERSION_YEAR);
 				String secondLUSubdivision = rs.getString(IPCCSurveyAdapter.TEMPLATE_LAND_USE_SECOND_SUBDIVISION);
 
 				String luCurrentCategory = subcategory.substring(1, 2); // The conversion would be FC (current land use would be C)
@@ -602,7 +602,7 @@ public class IPCCDataExportTimeSeriesToTool extends AbstractIPCCDataExport {
 					
 					LandUseCategoryEnum luInitial = LandUseCategoryEnum.valueOf(luPreviousCategory);
 					// Set the initial Land Use subdivision
-					AbstractLandUseSubdivision<?> previous = LandUseSubdivisionUtils.getSubdivision(luInitial.getCode(), initialSubdivision);
+					//AbstractLandUseSubdivision<?> previous = LandUseSubdivisionUtils.getSubdivision(luInitial.getCode(), initialSubdivision);
 
 					landUnit.setLtIdPrev(luInitial.getId());
 					
@@ -646,7 +646,7 @@ public class IPCCDataExportTimeSeriesToTool extends AbstractIPCCDataExport {
 			}
 
 			private boolean isEqual(
-					LandUseSubdivisionStratified subdivStrata,
+					LandUseSubdivisionStratified<?> subdivStrata,
 					LandUseCategoryEnum landUseCategory,
 					String landUseSubdivision, 
 					ClimateStratumObject climate, 
@@ -780,7 +780,7 @@ public class IPCCDataExportTimeSeriesToTool extends AbstractIPCCDataExport {
 		return xmlFileDestinationSigned;
 	}
 
-	private void marshallXMLToFile(IPCC2006Export ipcc2006Export, File xmlFileDestination, Class classToMarshall)
+	private void marshallXMLToFile(IPCC2006Export ipcc2006Export, File xmlFileDestination, Class<?> classToMarshall)
 			throws IOException, FileNotFoundException {
 		JAXBContext jc;
 		try {
@@ -790,7 +790,6 @@ public class IPCCDataExportTimeSeriesToTool extends AbstractIPCCDataExport {
 			m.setProperty(Marshaller.JAXB_FORMATTED_OUTPUT, Boolean.TRUE);
 			try (OutputStream os = new FileOutputStream(xmlFileDestination)) {
 				m.marshal(ipcc2006Export, os);
-				os.close();
 			}
 
 		} catch (Exception e1) {
@@ -863,23 +862,25 @@ public class IPCCDataExportTimeSeriesToTool extends AbstractIPCCDataExport {
 			LandUseCategoryEnum luCategory, int idStart) {
 		return new RowMapper<LandUseSubdivisionStratified<?>>() {
 			@Override
-			public LandUseSubdivisionStratified mapRow(ResultSet rs, int rowNum) throws SQLException {
+			public LandUseSubdivisionStratified<?> mapRow(ResultSet rs, int rowNum) throws SQLException {
 				String landUseSubdivision = rs.getString( SUBDIVISION_AUX );
 				AbstractLandUseSubdivision<?> luSubItem = landUses.getLandUseSubdivisions().stream()
 						.filter(luSubElem -> luSubElem.getCode().equals(landUseSubdivision)).findFirst()
-						.orElseThrow(() -> new IllegalArgumentException(
-								"No LU Subdivisions found for " + landUseSubdivision));
+						.orElseThrow(() -> new IllegalArgumentException( "No LU Subdivisions found for " + landUseSubdivision));
 
 				Integer climateCode = rs.getInt(CLIMATE_COLUMN);
 				ClimateStratumObject climateItem = getStrataClimate().stream()
 						.filter(climElem -> Integer.valueOf(climElem.getValue()).equals(climateCode))
 						.findFirst()
-						.orElseThrow(() -> new IllegalArgumentException("No Climate found for " + climateCode));
+						// If no climate is found, we return the unknown climate
+						.orElse( ClimateStratumObject.NODATA );
+						//.orElseThrow(() -> new IllegalArgumentException("No Climate found for " + climateCode));
 
 				Integer soilCode = rs.getInt(SOIL_COLUMN);
 				SoilStratumObject soilItem = getStrataSoil().stream()
 						.filter(soilElem -> Integer.valueOf(soilElem.getValue()).equals(soilCode)).findFirst()
-						.orElseThrow(() -> new IllegalArgumentException("No Soil found for " + soilCode));
+						.orElse( SoilStratumObject.NODATA );
+						//.orElseThrow(() -> new IllegalArgumentException("No Soil found for " + soilCode));
 				
 				Integer seqId = luCategory.getId() *1000 + getSubdivisionsStrata().size() + rowNum + idStart;
 				
@@ -888,11 +889,12 @@ public class IPCCDataExportTimeSeriesToTool extends AbstractIPCCDataExport {
 					Integer ecozoneCode = rs.getInt( GEZ_COLUMN );
 					EcozoneStratumObject ecozoneItem = getStrataEcozone().stream()
 							.filter(ecozoneElem -> Integer.valueOf(ecozoneElem.getValue()).equals(ecozoneCode)).findFirst()
-							.orElseThrow(() -> new IllegalArgumentException("No Ecozone found for " + ecozoneCode));
+							.orElse( EcozoneStratumObject.NODATA );
+							//.orElseThrow(() -> new IllegalArgumentException("No Ecozone found for " + ecozoneCode));
 					
-					return new LandUseSubdivisionStratified(luCategory, luSubItem, climateItem, soilItem, ecozoneItem, seqId);
+					return new LandUseSubdivisionStratified<Object>(luCategory, (AbstractLandUseSubdivision<Object>) luSubItem, climateItem, soilItem, ecozoneItem, seqId);
 				}else {
-					return new LandUseSubdivisionStratified(luCategory, luSubItem, climateItem, soilItem, seqId);
+					return new LandUseSubdivisionStratified<Object>(luCategory, (AbstractLandUseSubdivision<Object>) luSubItem, climateItem, soilItem, seqId);
 				}
 
 			}
