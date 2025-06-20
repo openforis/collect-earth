@@ -98,7 +98,7 @@ public class LandUseSubdivisionStratified<E> {
 			return false;
 		if (getClass() != obj.getClass())
 			return false;
-		LandUseSubdivisionStratified other = (LandUseSubdivisionStratified) obj;
+		LandUseSubdivisionStratified<?> other = (LandUseSubdivisionStratified<?>) obj;
 		// && Objects.equals(id, other.id) removed !!
 		return Objects.equals(climate, other.climate) && Objects.equals(ecozone, other.ecozone)
 				 && landUseCategory == other.landUseCategory
@@ -107,9 +107,9 @@ public class LandUseSubdivisionStratified<E> {
 
 	@Override
 	public String toString() {
-		return "LandUseSubdivisionStratified [landUseCategory=" + landUseCategory.getCode() + ", landUseSubdivision="
-				+ landUseSubdivision.getCode() + ", climate=" + climate.getLabel() + ", ecozone=" + ecozone.getLabel() + ", soil=" + soil.getLabel() + ", id=" + id
-				+ ", guid=" + guid + "]";
+	    return String.format("LandUseSubdivisionStratified [landUseCategory=%s, landUseSubdivision=%s, climate=%s, ecozone=%s, soil=%s, id=%d, guid=%s]",
+	            landUseCategory.getCode(), landUseSubdivision.getCode(), climate.getLabel(), 
+	            ecozone != null ? ecozone.getLabel() : "null", soil.getLabel(), id, guid);
 	}
 	
 	

@@ -3,6 +3,12 @@ package org.openforis.collect.earth.ipcc.model;
 public class EcozoneStratumObject extends StratumObject{
 
 	private EcozoneTypeEnum ecozoneType;
+	
+	public static final EcozoneStratumObject NODATA = getNoDataEcozoneStratumObject();
+	
+	private static EcozoneStratumObject getNoDataEcozoneStratumObject() {
+		return new EcozoneStratumObject(EcozoneTypeEnum.NO_DATA.getName(), "NO_DATA", "No Data");
+	}
 
 	public EcozoneStratumObject(String value, String label , String description ) {
 		super(value, label, description);
