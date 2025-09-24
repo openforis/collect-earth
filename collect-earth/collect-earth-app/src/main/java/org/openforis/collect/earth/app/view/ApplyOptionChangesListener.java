@@ -13,6 +13,7 @@ import javax.swing.JList;
 import javax.swing.JOptionPane;
 import javax.swing.JPasswordField;
 import javax.swing.JRadioButton;
+import javax.swing.JSpinner;
 import javax.swing.SwingUtilities;
 import javax.swing.text.JTextComponent;
 
@@ -96,7 +97,9 @@ public abstract class ApplyOptionChangesListener implements ActionListener {
 					}
 				} else if (component instanceof JList) {
 					setPropertyValue(propertyKey, ((JList) component).getSelectedValue() + ""); //$NON-NLS-1$
-				} else if (component instanceof JRadioButton) {
+				} else if (component instanceof JSpinner) {
+					setPropertyValue(propertyKey, ((JSpinner) component).getValue() + ""); //$NON-NLS-1$
+				}else if (component instanceof JRadioButton) {
 					final JComponent[] jComponents = propertyToComponent.get(propertyKey);
 					for (final JComponent jComponent : jComponents) {
 						if (((JRadioButton) jComponent).isSelected()) {
@@ -105,6 +108,10 @@ public abstract class ApplyOptionChangesListener implements ActionListener {
 					}
 				} else if (component instanceof JFilePicker) {
 					setPropertyValue(propertyKey, ((JFilePicker) component).getSelectedFilePath());
+				}else {
+					logger.warn("Component not managed: " + component.getClass().getName() ); //$NON-NLS-1$
+					logger.warn("Please, add it to " + this.getClass().getName() + ".savePropertyValues() method"); //$NON-NLS-1$ //$NON-NLS-2$
+					logger.warn("Property " + propertyKey + " not saved"); //$NON-NLS-1$ //$NON-NLS-2$
 				}
 			}
 		}
