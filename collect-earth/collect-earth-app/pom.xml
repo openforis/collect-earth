@@ -11,10 +11,10 @@
 	<packaging>jar</packaging>
 
 	<properties>
-		<jetty.version>9.4.56.v20240826</jetty.version>
-		<selenium.version>4.33.0</selenium.version>
+		<jetty.version>9.4.58.v20250814</jetty.version>
+		<selenium.version>4.35.0</selenium.version>
 		<classpath.prefix>earth-libs</classpath.prefix>
-		<log4j.version>2.24.3</log4j.version>
+		<log4j.version>2.25.2</log4j.version>
 	</properties>
 
 	<dependencies>
@@ -29,7 +29,7 @@
 		<dependency>
 		    <groupId>io.github.bonigarcia</groupId>
 		    <artifactId>webdrivermanager</artifactId>
-		    <version>6.1.0</version>
+		    <version>6.3.2</version>
 		    <exclusions>
 		    	<exclusion>
 		    		<groupId>com.fasterxml.jackson.core</groupId>
@@ -72,12 +72,12 @@
 		<dependency>
 			<groupId>org.xerial</groupId>
 			<artifactId>sqlite-jdbc</artifactId>
-			<version>3.49.1.0</version>
+			<version>3.50.3.0</version>
 		</dependency>
 		<dependency>
 			<groupId>org.postgresql</groupId>
 			<artifactId>postgresql</artifactId>
-			<version>42.7.6</version>
+			<version>42.7.8</version>
 		</dependency>
 		<dependency>
 			<groupId>org.seleniumhq.selenium</groupId>
