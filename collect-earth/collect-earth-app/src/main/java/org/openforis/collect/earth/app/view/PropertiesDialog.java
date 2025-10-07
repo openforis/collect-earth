@@ -192,9 +192,9 @@ public class PropertiesDialog extends JDialog {
         // Add tabs with better logical grouping
         tabbedPane.addTab(Messages.getString("OptionWizard.31"), getSampleDataPanel()); // Sample Data
         tabbedPane.addTab(Messages.getString("OptionWizard.32"), getPlotOptionsPanel()); // Plot Configuration
-        tabbedPane.addTab("External Services", getExternalServicesPanel()); // Combined external services
-        tabbedPane.addTab("Database & Server", getDatabaseServerPanel()); // Combined DB and server settings
-        tabbedPane.addTab("Browser & Display", getBrowserDisplayPanel()); // Browser and display options
+        tabbedPane.addTab(Messages.getString("OptionWizard.125"), getExternalServicesPanel()); // Combined external services
+        tabbedPane.addTab(Messages.getString("OptionWizard.126"), getDatabaseServerPanel()); // Combined DB and server settings
+        tabbedPane.addTab(Messages.getString("OptionWizard.127"), getBrowserDisplayPanel()); // Browser and display options
         tabbedPane.addTab(Messages.getString("OptionWizard.40"), getProjectsPanelScroll()); // Project Management
 
         return tabbedPane;
@@ -851,7 +851,7 @@ public class PropertiesDialog extends JDialog {
         constraints.fill = GridBagConstraints.HORIZONTAL;
 
 		// Plot shape selector
-		final JLabel plotShapeLabel = new JLabel("Plot shape");
+		final JLabel plotShapeLabel = new JLabel(Messages.getString("OptionWizard.128"));
 		panel.add(plotShapeLabel, constraints);
 
 		constraints.gridx = 1;
@@ -908,7 +908,7 @@ public class PropertiesDialog extends JDialog {
 		// Central plot side
 		constraints.gridx = 0;
 		constraints.gridy++;
-		final JLabel largeCentralPlotSideLabel = new JLabel("Central plot side");
+		final JLabel largeCentralPlotSideLabel = new JLabel(Messages.getString("OptionWizard.129"));
 		panel.add(largeCentralPlotSideLabel, constraints);
 		
 		constraints.gridx = 1;
@@ -919,7 +919,7 @@ public class PropertiesDialog extends JDialog {
 		// Distance between plots in cluster
 		constraints.gridx = 0;
 		constraints.gridy++;
-		final JLabel plotDistanceInClusterLabel = new JLabel("Distance between plots in cluster");
+		final JLabel plotDistanceInClusterLabel = new JLabel(Messages.getString("OptionWizard.130"));
 		panel.add(plotDistanceInClusterLabel, constraints);
 		
 		constraints.gridx = 1;
@@ -932,16 +932,16 @@ public class PropertiesDialog extends JDialog {
         constraints.gridx = 0;
         constraints.gridy++;
         JLabel area = new JLabel(
-                "Area (hectares)  :  " + calculateArea(numberPoints, distanceBetweenPoints, distanceToFrame, dotsSide));
+                Messages.getString("OptionWizard.131") + calculateArea(numberPoints, distanceBetweenPoints, distanceToFrame, dotsSide));
         panel.add(area, constraints);
 
         // Set up change listeners for spinners
-        javax.swing.event.ChangeListener calculateAreasListener = e -> 
-            area.setText("Area (hectares)  :  " + calculateArea(numberPoints, distanceBetweenPoints, distanceToFrame, dotsSide));
+        javax.swing.event.ChangeListener calculateAreasListener = e ->
+            area.setText(Messages.getString("OptionWizard.131") + calculateArea(numberPoints, distanceBetweenPoints, distanceToFrame, dotsSide));
 
         // Action listener for combo box (converts ActionEvent to area calculation)
-        ActionListener calculateAreasActionListener = e -> 
-            area.setText("Area (hectares)  :  " + calculateArea(numberPoints, distanceBetweenPoints, distanceToFrame, dotsSide));
+        ActionListener calculateAreasActionListener = e ->
+            area.setText(Messages.getString("OptionWizard.131") + calculateArea(numberPoints, distanceBetweenPoints, distanceToFrame, dotsSide));
 
 		plotShape.addActionListener(e ->
 				handleVisibilityPlotLayout(plotShape, numberPoints, distanceBetweenPoints, distanceToFrame, dotsSide,
@@ -997,14 +997,14 @@ public class PropertiesDialog extends JDialog {
 			setRowState(dotsSide, true);
 			setRowState(numberPoints, true);
 			if (distanceOrRadiusLabel != null) {
-				distanceOrRadiusLabel.setText("Radius");
+				distanceOrRadiusLabel.setText(Messages.getString("OptionWizard.132"));
 			}
 		} else if (selectedShape == SAMPLE_SHAPE.NFI_THREE_CIRCLES || selectedShape == SAMPLE_SHAPE.NFI_FOUR_CIRCLES) {
 			setRowState(dotsSide, true);
 			setRowState(distanceBetweenPoints, true);
 			setRowState(distanceBetweenPlots, true);
 			if (distanceOrRadiusLabel != null) {
-				distanceOrRadiusLabel.setText("Radius of the plots");
+				distanceOrRadiusLabel.setText(Messages.getString("OptionWizard.133"));
 			}
 		}
 
@@ -1158,7 +1158,7 @@ public class PropertiesDialog extends JDialog {
         panel.add(propertyToComponent.get(EarthProperty.DB_PORT)[0], constraints);
 
         constraints.gridx = 2;
-        panel.add(new JLabel("Default: 5432"), constraints);
+        panel.add(new JLabel(Messages.getString("OptionWizard.134")), constraints);
 
         // Test connection button
         constraints.gridy++;
@@ -1173,7 +1173,7 @@ public class PropertiesDialog extends JDialog {
      * Create button for testing PostgreSQL connection.
      */
     private JButton createTestConnectionButton() {
-        JButton button = new JButton("Test Connection");
+        JButton button = new JButton(Messages.getString("OptionWizard.135"));
         button.addActionListener(e -> {
             String host = ((JTextField) (propertyToComponent.get(EarthProperty.DB_HOST)[0])).getText();
             String port = ((JTextField) (propertyToComponent.get(EarthProperty.DB_PORT)[0])).getText();
@@ -1373,7 +1373,7 @@ public class PropertiesDialog extends JDialog {
         propertyToComponent.put(EarthProperty.OPEN_GEE_EXPLORER, new JComponent[] { openEarthEngineCheckbox });
 
         // Google Earth Engine App checkbox
-        final JCheckBox openGEEAppCheckbox = new JCheckBox("Google Earth Engine APP (no sign-in)");
+        final JCheckBox openGEEAppCheckbox = new JCheckBox(Messages.getString("OptionWizard.136"));
         openGEEAppCheckbox.setSelected(Boolean.parseBoolean(localPropertiesService.getValue(EarthProperty.OPEN_GEE_APP)));
         propertyToComponent.put(EarthProperty.OPEN_GEE_APP, new JComponent[] { openGEEAppCheckbox });
 
@@ -1562,8 +1562,8 @@ public class PropertiesDialog extends JDialog {
      */
     private void initializeDistanceComponents() {
         // Distance between sampling points (min: 2, max: 1000, step: 1)
-        int distanceBetweenPoints = parseIntOrDefault(
-                localPropertiesService.getValue(EarthProperty.DISTANCE_BETWEEN_SAMPLE_POINTS), 10);
+        int distanceBetweenPoints = parseIntWithinRange(
+                localPropertiesService.getValue(EarthProperty.DISTANCE_BETWEEN_SAMPLE_POINTS), 10, 2, 1000);
         final JSpinner spinnerDistanceBetweenPoints = new JSpinner(
                 new SpinnerNumberModel(distanceBetweenPoints, 2, 1000, 1));
         spinnerDistanceBetweenPoints.setToolTipText("Distance between sampling points in meters (2-1000)");
@@ -1571,8 +1571,8 @@ public class PropertiesDialog extends JDialog {
                 new JComponent[] { spinnerDistanceBetweenPoints });
 
         // Distance between plots (min: 2, max: 1000, step: 1)
-        int distanceBetweenPlots = parseIntOrDefault(
-                localPropertiesService.getValue(EarthProperty.DISTANCE_BETWEEN_PLOTS), 100);
+        int distanceBetweenPlots = parseIntWithinRange(
+                localPropertiesService.getValue(EarthProperty.DISTANCE_BETWEEN_PLOTS), 100, 2, 1000);
         final JSpinner spinnerDistanceBetweenPlots = new JSpinner(
                 new SpinnerNumberModel(distanceBetweenPlots, 2, 1000, 1));
         spinnerDistanceBetweenPlots.setToolTipText("Distance between plots in cluster in meters (2-1000)");
@@ -1580,8 +1580,8 @@ public class PropertiesDialog extends JDialog {
                 new JComponent[] { spinnerDistanceBetweenPlots });
 
         // Distance to plot boundaries (min: 0, max: 500, step: 1)
-        int distanceToBorder = parseIntOrDefault(
-                localPropertiesService.getValue(EarthProperty.DISTANCE_TO_PLOT_BOUNDARIES), 0);
+        int distanceToBorder = parseIntWithinRange(
+                localPropertiesService.getValue(EarthProperty.DISTANCE_TO_PLOT_BOUNDARIES), 0, 0, 500);
         final JSpinner spinnerDistanceToBorder = new JSpinner(
                 new SpinnerNumberModel(distanceToBorder, 0, 500, 1));
         spinnerDistanceToBorder.setToolTipText("Distance to plot boundaries in meters (0-500)");
@@ -1589,8 +1589,8 @@ public class PropertiesDialog extends JDialog {
                 new JComponent[] { spinnerDistanceToBorder });
 
         // Inner subplot side (min: 2, max: 100, step: 1)
-        int innerSubplotSide = parseIntOrDefault(
-                localPropertiesService.getValue(EarthProperty.INNER_SUBPLOT_SIDE), 2);
+        int innerSubplotSide = parseIntWithinRange(
+                localPropertiesService.getValue(EarthProperty.INNER_SUBPLOT_SIDE), 2, 2, 100);
         final JSpinner spinnerInnerSubplotSide = new JSpinner(
                 new SpinnerNumberModel(innerSubplotSide, 2, 100, 1));
         spinnerInnerSubplotSide.setToolTipText("Size of inner subplot side in meters (2-100)");
@@ -1598,8 +1598,8 @@ public class PropertiesDialog extends JDialog {
                 new JComponent[] { spinnerInnerSubplotSide });
 
         // Large central plot side (min: 2, max: 200, step: 1)
-        int largeCentralPlotSide = parseIntOrDefault(
-                localPropertiesService.getValue(EarthProperty.LARGE_CENTRAL_PLOT_SIDE), 20);
+        int largeCentralPlotSide = parseIntWithinRange(
+                localPropertiesService.getValue(EarthProperty.LARGE_CENTRAL_PLOT_SIDE), 20, 2, 200);
         final JSpinner spinnerLargeCentralPlotSide = new JSpinner(
                 new SpinnerNumberModel(largeCentralPlotSide, 2, 200, 1));
         spinnerLargeCentralPlotSide.setToolTipText("Size of large central plot side in meters (2-200)");
@@ -1608,15 +1608,27 @@ public class PropertiesDialog extends JDialog {
     }
     
     /**
-     * Helper method to parse integer values with a default fallback.
+     * Helper method to parse integer values with a default fallback clamped to a range.
      */
-    private int parseIntOrDefault(String value, int defaultValue) {
+    private int parseIntWithinRange(String value, int defaultValue, int min, int max) {
+        int parsedValue = defaultValue;
         try {
-            return StringUtils.isNotBlank(value) ? Integer.parseInt(value.trim()) : defaultValue;
+            if (StringUtils.isNotBlank(value)) {
+                parsedValue = Integer.parseInt(value.trim());
+            }
         } catch (NumberFormatException e) {
             logger.warn("Invalid integer value '{}', using default: {}", value, defaultValue);
-            return defaultValue;
+            parsedValue = defaultValue;
         }
+        if (parsedValue < min) {
+            logger.warn("Value '{}' is below minimum {}. Clamping to {}", parsedValue, min, min);
+            return min;
+        }
+        if (parsedValue > max) {
+            logger.warn("Value '{}' is above maximum {}. Clamping to {}", parsedValue, max, max);
+            return max;
+        }
+        return parsedValue;
     }
     
     /**
