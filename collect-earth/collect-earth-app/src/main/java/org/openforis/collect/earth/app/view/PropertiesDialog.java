@@ -92,7 +92,8 @@ public class PropertiesDialog extends JDialog {
     private static final long serialVersionUID = -6760020609229102842L;
 
     // Main data structures
-    private final HashMap<Enum<?>, JComponent[]> propertyToComponent = new HashMap<>();
+	private final HashMap<Enum<?>, JComponent[]> propertyToComponent = new HashMap<>();
+	private final HashMap<JComponent, JLabel> componentToRowLabel = new HashMap<>();
     private final transient Logger logger = LoggerFactory.getLogger(this.getClass());
     
     // UI panels
@@ -849,77 +850,83 @@ public class PropertiesDialog extends JDialog {
         constraints.insets = new Insets(5, 5, 5, 15); // More reasonable spacing
         constraints.fill = GridBagConstraints.HORIZONTAL;
 
-        // Plot shape selector
-        JLabel label = new JLabel("Plot shape");
-        panel.add(label, constraints);
+		// Plot shape selector
+		final JLabel plotShapeLabel = new JLabel("Plot shape");
+		panel.add(plotShapeLabel, constraints);
 
-        constraints.gridx = 1;
-        JComboBox<SAMPLE_SHAPE> plotShape = (JComboBox<SAMPLE_SHAPE>) propertyToComponent.get(EarthProperty.SAMPLE_SHAPE)[0];
-        panel.add(plotShape, constraints);
+		constraints.gridx = 1;
+		JComboBox<SAMPLE_SHAPE> plotShape = (JComboBox<SAMPLE_SHAPE>) propertyToComponent.get(EarthProperty.SAMPLE_SHAPE)[0];
+		panel.add(plotShape, constraints);
 
-        // Number of points
-        constraints.gridx = 0;
-        constraints.gridy++;
-        label = new JLabel(Messages.getString("OptionWizard.35"));
-        panel.add(label, constraints);
+		// Number of points
+		constraints.gridx = 0;
+		constraints.gridy++;
+		final JLabel numberPointsLabel = new JLabel(Messages.getString("OptionWizard.35"));
+		panel.add(numberPointsLabel, constraints);
 
-        constraints.gridx = 1;
-        JComboBox<ComboBoxItem> numberPoints = (JComboBox<ComboBoxItem>) propertyToComponent
-                .get(EarthProperty.NUMBER_OF_SAMPLING_POINTS_IN_PLOT)[0];
-        panel.add(numberPoints, constraints);
+		constraints.gridx = 1;
+		JComboBox<ComboBoxItem> numberPoints = (JComboBox<ComboBoxItem>) propertyToComponent
+				.get(EarthProperty.NUMBER_OF_SAMPLING_POINTS_IN_PLOT)[0];
+		panel.add(numberPoints, constraints);
+		componentToRowLabel.put(numberPoints, numberPointsLabel);
 
-        // Distance between points
-        constraints.gridx = 0;
-        constraints.gridy++;
-        JLabel distanceOrRadiusLabel = new JLabel(Messages.getString("OptionWizard.36"));
-        panel.add(distanceOrRadiusLabel, constraints);
+		// Distance between points
+		constraints.gridx = 0;
+		constraints.gridy++;
+		JLabel distanceOrRadiusLabel = new JLabel(Messages.getString("OptionWizard.36"));
+		panel.add(distanceOrRadiusLabel, constraints);
 
-        constraints.gridx = 1;
-        JSpinner distanceBetweenPoints = (JSpinner) propertyToComponent
-                .get(EarthProperty.DISTANCE_BETWEEN_SAMPLE_POINTS)[0];
-        panel.add(distanceBetweenPoints, constraints);
+		constraints.gridx = 1;
+		JSpinner distanceBetweenPoints = (JSpinner) propertyToComponent
+				.get(EarthProperty.DISTANCE_BETWEEN_SAMPLE_POINTS)[0];
+		panel.add(distanceBetweenPoints, constraints);
+		componentToRowLabel.put(distanceBetweenPoints, distanceOrRadiusLabel);
 
-        // Distance to frame
-        constraints.gridx = 0;
-        constraints.gridy++;
-        label = new JLabel(Messages.getString("OptionWizard.37"));
-        panel.add(label, constraints);
-        
-        constraints.gridx = 1;
-        JSpinner distanceToFrame = (JSpinner) propertyToComponent
-                .get(EarthProperty.DISTANCE_TO_PLOT_BOUNDARIES)[0];
-        panel.add(distanceToFrame, constraints);
+		// Distance to frame
+		constraints.gridx = 0;
+		constraints.gridy++;
+		final JLabel distanceToFrameLabel = new JLabel(Messages.getString("OptionWizard.37"));
+		panel.add(distanceToFrameLabel, constraints);
+		
+		constraints.gridx = 1;
+		JSpinner distanceToFrame = (JSpinner) propertyToComponent
+				.get(EarthProperty.DISTANCE_TO_PLOT_BOUNDARIES)[0];
+		panel.add(distanceToFrame, constraints);
+		componentToRowLabel.put(distanceToFrame, distanceToFrameLabel);
 
-        // Dots side
-        constraints.gridx = 0;
-        constraints.gridy++;
-        label = new JLabel(Messages.getString("OptionWizard.95"));
-        panel.add(label, constraints);
-        
-        constraints.gridx = 1;
-        JSpinner dotsSide = (JSpinner) propertyToComponent.get(EarthProperty.INNER_SUBPLOT_SIDE)[0];
-        panel.add(dotsSide, constraints);
+		// Dots side
+		constraints.gridx = 0;
+		constraints.gridy++;
+		final JLabel dotsSideLabel = new JLabel(Messages.getString("OptionWizard.95"));
+		panel.add(dotsSideLabel, constraints);
+		
+		constraints.gridx = 1;
+		JSpinner dotsSide = (JSpinner) propertyToComponent.get(EarthProperty.INNER_SUBPLOT_SIDE)[0];
+		panel.add(dotsSide, constraints);
+		componentToRowLabel.put(dotsSide, dotsSideLabel);
 
-        // Central plot side
-        constraints.gridx = 0;
-        constraints.gridy++;
-        label = new JLabel("Central plot side");
-        panel.add(label, constraints);
-        
-        constraints.gridx = 1;
-        JSpinner largeCentralPlotSide = (JSpinner) propertyToComponent.get(EarthProperty.LARGE_CENTRAL_PLOT_SIDE)[0];
-        panel.add(largeCentralPlotSide, constraints);
+		// Central plot side
+		constraints.gridx = 0;
+		constraints.gridy++;
+		final JLabel largeCentralPlotSideLabel = new JLabel("Central plot side");
+		panel.add(largeCentralPlotSideLabel, constraints);
+		
+		constraints.gridx = 1;
+		JSpinner largeCentralPlotSide = (JSpinner) propertyToComponent.get(EarthProperty.LARGE_CENTRAL_PLOT_SIDE)[0];
+		panel.add(largeCentralPlotSide, constraints);
+		componentToRowLabel.put(largeCentralPlotSide, largeCentralPlotSideLabel);
 
-        // Distance between plots in cluster
-        constraints.gridx = 0;
-        constraints.gridy++;
-        label = new JLabel("Distance between plots in cluster");
-        panel.add(label, constraints);
-        
-        constraints.gridx = 1;
-        JSpinner plotDistanceInCluster = (JSpinner) propertyToComponent
-                .get(EarthProperty.DISTANCE_BETWEEN_PLOTS)[0];
-        panel.add(plotDistanceInCluster, constraints);
+		// Distance between plots in cluster
+		constraints.gridx = 0;
+		constraints.gridy++;
+		final JLabel plotDistanceInClusterLabel = new JLabel("Distance between plots in cluster");
+		panel.add(plotDistanceInClusterLabel, constraints);
+		
+		constraints.gridx = 1;
+		JSpinner plotDistanceInCluster = (JSpinner) propertyToComponent
+				.get(EarthProperty.DISTANCE_BETWEEN_PLOTS)[0];
+		panel.add(plotDistanceInCluster, constraints);
+		componentToRowLabel.put(plotDistanceInCluster, plotDistanceInClusterLabel);
 
         // Area display
         constraints.gridx = 0;
@@ -936,69 +943,91 @@ public class PropertiesDialog extends JDialog {
         ActionListener calculateAreasActionListener = e -> 
             area.setText("Area (hectares)  :  " + calculateArea(numberPoints, distanceBetweenPoints, distanceToFrame, dotsSide));
 
-        plotShape.addActionListener(e ->
-                handleVisibilityPlotLayout(plotShape, numberPoints, distanceBetweenPoints, distanceToFrame, dotsSide,
-                        plotDistanceInCluster, area, distanceOrRadiusLabel, largeCentralPlotSide)
-        );
+		plotShape.addActionListener(e ->
+				handleVisibilityPlotLayout(plotShape, numberPoints, distanceBetweenPoints, distanceToFrame, dotsSide,
+						plotDistanceInCluster, area, largeCentralPlotSide)
+		);
 
         numberPoints.addActionListener(calculateAreasActionListener);
         distanceBetweenPoints.addChangeListener(calculateAreasListener);
         distanceToFrame.addChangeListener(calculateAreasListener);
 
         // Initialize visibility
-        handleVisibilityPlotLayout(plotShape, numberPoints, distanceBetweenPoints, distanceToFrame, dotsSide,
-                plotDistanceInCluster, area, distanceOrRadiusLabel, largeCentralPlotSide);
+		handleVisibilityPlotLayout(plotShape, numberPoints, distanceBetweenPoints, distanceToFrame, dotsSide,
+				plotDistanceInCluster, area, largeCentralPlotSide);
 
-        return panel;
-    }
+		return panel;
+	}
 
     /**
      * Handle visibility of plot layout components based on selected shape.
      */
-    public void handleVisibilityPlotLayout(JComboBox<SAMPLE_SHAPE> plotShape, JComboBox<ComboBoxItem> numberPoints, 
-            JSpinner distanceBetweenPoints, JSpinner distanceToFrame, JSpinner dotsSide, 
-            JSpinner distanceBetweenPlots, JLabel area, JLabel distanceOrRadiusLabel, 
-            JSpinner largeCentralPlotSide) {
-        
-        // First, disable all components
-        numberPoints.setEnabled(false);
-        distanceBetweenPoints.setEnabled(false);
-        distanceToFrame.setEnabled(false);
-        dotsSide.setEnabled(false);
-        area.setVisible(false);
-        distanceBetweenPlots.setVisible(false);
-        distanceBetweenPlots.setEnabled(false);
-        largeCentralPlotSide.setVisible(false);
-        largeCentralPlotSide.setEnabled(false);
+	public void handleVisibilityPlotLayout(JComboBox<SAMPLE_SHAPE> plotShape, JComboBox<ComboBoxItem> numberPoints, 
+			JSpinner distanceBetweenPoints, JSpinner distanceToFrame, JSpinner dotsSide, 
+			JSpinner distanceBetweenPlots, JLabel area, JSpinner largeCentralPlotSide) {
+		
+		// First, disable all components
+		setRowState(numberPoints, false);
+		setRowState(distanceBetweenPoints, false);
+		setRowState(distanceToFrame, false);
+		setRowState(dotsSide, false);
+		setRowState(distanceBetweenPlots, false);
+		setRowState(largeCentralPlotSide, false);
+		area.setVisible(false);
 
-        // Then enable specific components based on the selected shape
-        SAMPLE_SHAPE selectedShape = (SAMPLE_SHAPE) plotShape.getSelectedItem();
-        
-        if (selectedShape == SAMPLE_SHAPE.SQUARE || selectedShape == SAMPLE_SHAPE.SQUARE_WITH_LARGE_CENTRAL_PLOT) {
-            numberPoints.setEnabled(true);
-            distanceBetweenPoints.setEnabled(true);
-            distanceToFrame.setEnabled(true);
-            dotsSide.setEnabled(true);
-            area.setVisible(true);
-            distanceOrRadiusLabel.setText(Messages.getString("OptionWizard.36"));
+		// Then enable specific components based on the selected shape
+		SAMPLE_SHAPE selectedShape = (SAMPLE_SHAPE) plotShape.getSelectedItem();
+		JLabel distanceOrRadiusLabel = componentToRowLabel.get(distanceBetweenPoints);
+		
+		if (selectedShape == SAMPLE_SHAPE.SQUARE || selectedShape == SAMPLE_SHAPE.SQUARE_WITH_LARGE_CENTRAL_PLOT) {
+			setRowState(numberPoints, true);
+			setRowState(distanceBetweenPoints, true);
+			setRowState(distanceToFrame, true);
+			setRowState(dotsSide, true);
+			area.setVisible(true);
+			if (distanceOrRadiusLabel != null) {
+				distanceOrRadiusLabel.setText(Messages.getString("OptionWizard.36"));
+			}
 
-            if (selectedShape == SAMPLE_SHAPE.SQUARE_WITH_LARGE_CENTRAL_PLOT) {
-                largeCentralPlotSide.setVisible(true);
-                largeCentralPlotSide.setEnabled(true);
-            }
-        } else if (selectedShape == SAMPLE_SHAPE.CIRCLE || selectedShape == SAMPLE_SHAPE.HEXAGON) {
-            distanceBetweenPoints.setEnabled(true);
-            dotsSide.setEnabled(true);
-            numberPoints.setEnabled(true);
-            distanceOrRadiusLabel.setText("Radius");
-        } else if (selectedShape == SAMPLE_SHAPE.NFI_THREE_CIRCLES || selectedShape == SAMPLE_SHAPE.NFI_FOUR_CIRCLES) {
-            dotsSide.setEnabled(true);
-            distanceBetweenPoints.setEnabled(true);
-            distanceBetweenPlots.setVisible(true);
-            distanceBetweenPlots.setEnabled(true);
-            distanceOrRadiusLabel.setText("Radius of the plots");
-        }
-    }
+			if (selectedShape == SAMPLE_SHAPE.SQUARE_WITH_LARGE_CENTRAL_PLOT) {
+				setRowState(largeCentralPlotSide, true);
+			}
+		} else if (selectedShape == SAMPLE_SHAPE.CIRCLE || selectedShape == SAMPLE_SHAPE.HEXAGON) {
+			setRowState(distanceBetweenPoints, true);
+			setRowState(dotsSide, true);
+			setRowState(numberPoints, true);
+			if (distanceOrRadiusLabel != null) {
+				distanceOrRadiusLabel.setText("Radius");
+			}
+		} else if (selectedShape == SAMPLE_SHAPE.NFI_THREE_CIRCLES || selectedShape == SAMPLE_SHAPE.NFI_FOUR_CIRCLES) {
+			setRowState(dotsSide, true);
+			setRowState(distanceBetweenPoints, true);
+			setRowState(distanceBetweenPlots, true);
+			if (distanceOrRadiusLabel != null) {
+				distanceOrRadiusLabel.setText("Radius of the plots");
+			}
+		}
+
+		Component parent = plotShape.getParent();
+		if (parent != null) {
+			parent.revalidate();
+			parent.repaint();
+		}
+	}
+
+	private void setRowState(JComponent component, boolean enabledAndVisible) {
+		component.setEnabled(enabledAndVisible);
+		component.setVisible(enabledAndVisible);
+		JLabel label = componentToRowLabel.get(component);
+		if (label != null) {
+			label.setVisible(enabledAndVisible);
+		}
+		Component parent = component.getParent();
+		if (parent != null) {
+			parent.revalidate();
+			parent.repaint();
+		}
+	}
 
     /**
      * Calculate the area based on plot parameters.
@@ -1011,17 +1040,32 @@ public class PropertiesDialog extends JDialog {
             int numberOfPointsI = ((ComboBoxItem) numberOfPoints.getSelectedItem()).getNumberOfPoints();
             int distanceBetweenPointsI = (Integer) distanceBetweenPoints.getValue();
             int distanceToFrameI = (Integer) distanceToFrame.getValue();
+			@SuppressWarnings("unchecked")
+			JComboBox<SAMPLE_SHAPE> plotShapeCombo = (JComboBox<SAMPLE_SHAPE>) propertyToComponent
+					.get(EarthProperty.SAMPLE_SHAPE)[0];
+			SAMPLE_SHAPE selectedShape = (SAMPLE_SHAPE) plotShapeCombo.getSelectedItem();
+			boolean squareVariant = selectedShape == SAMPLE_SHAPE.SQUARE
+					|| selectedShape == SAMPLE_SHAPE.SQUARE_WITH_LARGE_CENTRAL_PLOT;
+			boolean circleVariant = selectedShape == SAMPLE_SHAPE.CIRCLE || selectedShape == SAMPLE_SHAPE.HEXAGON;
+			boolean nfiVariant = selectedShape == SAMPLE_SHAPE.NFI_THREE_CIRCLES
+					|| selectedShape == SAMPLE_SHAPE.NFI_FOUR_CIRCLES;
+			boolean manageLayoutControls = squareVariant || circleVariant || nfiVariant;
 
             if (numberOfPointsI == 0 || numberOfPointsI == 1) {
                 // Single point or no points
                 side = 2d * distanceToFrameI;
                 if (oldSelectedDistance == null) {
                     oldSelectedDistance = distanceBetweenPointsI + "";
-                    distanceBetweenPoints.setEnabled(false);
                 }
-                distanceBetweenPoints.setValue(0);
+				distanceBetweenPoints.setValue(0);
 
-                dotsSide.setEnabled(numberOfPointsI == 1);
+				if (manageLayoutControls) {
+					setRowState(distanceBetweenPoints, false);
+					setRowState(dotsSide, numberOfPointsI == 1);
+				} else {
+					distanceBetweenPoints.setEnabled(false);
+					dotsSide.setEnabled(numberOfPointsI == 1);
+				}
             } else {
                 // Multiple points
                 if (oldSelectedDistance != null) {
@@ -1034,9 +1078,17 @@ public class PropertiesDialog extends JDialog {
                     oldSelectedDistance = null;
                 }
 
-                distanceBetweenPoints.setEnabled(true);
-                distanceToFrame.setEnabled(true);
-                dotsSide.setEnabled(true);
+				if (manageLayoutControls) {
+					setRowState(distanceBetweenPoints, true);
+					setRowState(dotsSide, true);
+					if (squareVariant) {
+						setRowState(distanceToFrame, true);
+					}
+				} else {
+					distanceBetweenPoints.setEnabled(true);
+					distanceToFrame.setEnabled(true);
+					dotsSide.setEnabled(true);
+				}
 
                 double pointsByLines = Math.sqrt(numberOfPointsI);
                 side = 2d * distanceToFrameI + (pointsByLines - 1) * distanceBetweenPointsI;
@@ -1890,6 +1942,27 @@ public class PropertiesDialog extends JDialog {
                     int port = Integer.parseInt(text);
                     return port > 0 && port <= 65535;
                 } catch (NumberFormatException e) {
+                    return false;
+                }
+            }
+        };
+    }
+    
+    /**
+     * Creates a URL validator.
+     */
+    private InputVerifier createUrlValidator() {
+        return new InputVerifier() {
+            @Override
+            public boolean verify(JComponent input) {
+                String text = ((JTextField) input).getText().trim();
+                if (text.isEmpty()) return true; // Allow empty for optional fields
+                try {
+                    java.net.URI uri = java.net.URI.create(text);
+                    return uri.getScheme() != null && 
+                           (uri.getScheme().equals("http") || uri.getScheme().equals("https")) &&
+                           uri.getHost() != null;
+                } catch (Exception e) {
                     return false;
                 }
             }
