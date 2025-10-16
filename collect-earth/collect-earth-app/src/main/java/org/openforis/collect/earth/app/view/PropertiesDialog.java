@@ -138,13 +138,18 @@ public class PropertiesDialog extends JDialog {
         this.setSize(new Dimension(800, 700));
         this.setModal(true);
         this.setResizable(true);
-        
+
         try {
+            logger.info("Starting PropertiesDialog initialization...");
             initializeInputs();
+            logger.info("Inputs initialized successfully");
             buildMainPane();
+            logger.info("Main pane built successfully");
             centerWindow();
+            logger.info("PropertiesDialog initialization completed");
         } catch (Exception e) {
             logger.error("Error initializing properties dialog", e);
+            throw new RuntimeException("Failed to initialize Properties Dialog: " + e.getMessage(), e);
         }
     }
 
@@ -1484,46 +1489,57 @@ public class PropertiesDialog extends JDialog {
      * Initialize GEE App date pickers.
      */
     private void initializeDatePickers() {
-        //Allows year selection in JXDatePicker     
-        UIManager.put(CalendarHeaderHandler.uiControllerID, SpinningCalendarHeaderHandler.class.getName());
-        
-        SimpleDateFormat dateFormat = new SimpleDateFormat("yyyy-MM-dd");
-        
-        // From date picker
-        JXDatePicker geeAppFromDate = new JXDatePicker();
-        geeAppFromDate.getMonthView().setZoomable(true); // needed for custom header
-        geeAppFromDate.setFormats(dateFormat);
         try {
-            geeAppFromDate.getMonthView().setLowerBound(dateFormat.parse(START_OF_LANDSAT_AND_MODIS));
-            geeAppFromDate.getMonthView().setUpperBound(new Date());
-            
-            if (StringUtils.isNotBlank(localPropertiesService.getValue(EarthProperty.GEEAPP_FROM_DATE))) {
-                geeAppFromDate.setDate(dateFormat.parse(localPropertiesService.getValue(EarthProperty.GEEAPP_FROM_DATE)));
+            logger.info("Initializing date pickers (SwingX components)...");
+            //Allows year selection in JXDatePicker
+            UIManager.put(CalendarHeaderHandler.uiControllerID, SpinningCalendarHeaderHandler.class.getName());
+
+            SimpleDateFormat dateFormat = new SimpleDateFormat("yyyy-MM-dd");
+
+            // From date picker
+            JXDatePicker geeAppFromDate = new JXDatePicker();
+            geeAppFromDate.getMonthView().setZoomable(true); // needed for custom header
+            geeAppFromDate.setFormats(dateFormat);
+            try {
+                geeAppFromDate.getMonthView().setLowerBound(dateFormat.parse(START_OF_LANDSAT_AND_MODIS));
+                geeAppFromDate.getMonthView().setUpperBound(new Date());
+
+                if (StringUtils.isNotBlank(localPropertiesService.getValue(EarthProperty.GEEAPP_FROM_DATE))) {
+                    geeAppFromDate.setDate(dateFormat.parse(localPropertiesService.getValue(EarthProperty.GEEAPP_FROM_DATE)));
+                }
+            } catch (ParseException e) {
+                logger.error("Error parsing date", e);
             }
-        } catch (ParseException e) {
-            logger.error("Error parsing date", e);
-        }
-        geeAppFromDate.setToolTipText("Sets the starting date to analyze imagery in the GEE App");
-        geeAppFromDate.setMinimumSize(new Dimension(250, 20));
-        propertyToComponent.put(EarthProperty.GEEAPP_FROM_DATE, new JComponent[] { geeAppFromDate });
-        
-        // To date picker
-        JXDatePicker geeAppToDate = new JXDatePicker();
-        geeAppToDate.getMonthView().setZoomable(true); // needed for custom header
-        geeAppToDate.setFormats(dateFormat);
-        try {
-            geeAppToDate.getMonthView().setLowerBound(dateFormat.parse(START_OF_LANDSAT_AND_MODIS));
-            geeAppToDate.getMonthView().setUpperBound(new Date());
-            
-            if (StringUtils.isNotBlank(localPropertiesService.getValue(EarthProperty.GEEAPP_TO_DATE))) {
-                geeAppToDate.setDate(dateFormat.parse(localPropertiesService.getValue(EarthProperty.GEEAPP_TO_DATE)));
+            geeAppFromDate.setToolTipText("Sets the starting date to analyze imagery in the GEE App");
+            geeAppFromDate.setMinimumSize(new Dimension(250, 20));
+            propertyToComponent.put(EarthProperty.GEEAPP_FROM_DATE, new JComponent[] { geeAppFromDate });
+
+            // To date picker
+            JXDatePicker geeAppToDate = new JXDatePicker();
+            geeAppToDate.getMonthView().setZoomable(true); // needed for custom header
+            geeAppToDate.setFormats(dateFormat);
+            try {
+                geeAppToDate.getMonthView().setLowerBound(dateFormat.parse(START_OF_LANDSAT_AND_MODIS));
+                geeAppToDate.getMonthView().setUpperBound(new Date());
+
+                if (StringUtils.isNotBlank(localPropertiesService.getValue(EarthProperty.GEEAPP_TO_DATE))) {
+                    geeAppToDate.setDate(dateFormat.parse(localPropertiesService.getValue(EarthProperty.GEEAPP_TO_DATE)));
+                }
+            } catch (ParseException e) {
+                logger.error("Error parsing date", e);
             }
-        } catch (ParseException e) {
-            logger.error("Error parsing date", e);
+            geeAppToDate.setToolTipText("Sets the end date to analyze imagery in the GEE App");
+            geeAppToDate.setMinimumSize(new Dimension(250, 20));
+            propertyToComponent.put(EarthProperty.GEEAPP_TO_DATE, new JComponent[] { geeAppToDate });
+
+            logger.info("Date pickers initialized successfully");
+        } catch (Exception e) {
+            logger.error("Failed to initialize date pickers (SwingX). This may be due to missing SwingX library components.", e);
+            throw new RuntimeException("Failed to initialize date picker components: " + e.getMessage(), e);
+        } catch (Error e) {
+            logger.error("Critical error initializing date pickers. Possible classloading issue with SwingX library.", e);
+            throw e;
         }
-        geeAppToDate.setToolTipText("Sets the end date to analyze imagery in the GEE App");
-        geeAppToDate.setMinimumSize(new Dimension(250, 20));
-        propertyToComponent.put(EarthProperty.GEEAPP_TO_DATE, new JComponent[] { geeAppToDate });
     }
     
     /**

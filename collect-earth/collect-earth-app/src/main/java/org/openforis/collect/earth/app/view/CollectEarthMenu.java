@@ -498,13 +498,34 @@ public class CollectEarthMenu extends JMenuBar implements InitializingBean {
 
 	public ActionListener getPropertiesAction(final JFrame owner) {
 		Objects.requireNonNull(owner, "Owner frame cannot be null");
-		
+
 		return e -> {
-			final JDialog dialog = new PropertiesDialog(owner, localPropertiesService, earthProjectsService,
-					backupSqlLiteService.getAutomaticBackUpFolder().getPath(), analysisSaikuService,
-					earthSurveyService.getCollectSurvey());
-			dialog.setVisible(true);
-			dialog.pack();
+			try {
+				final JDialog dialog = new PropertiesDialog(owner, localPropertiesService, earthProjectsService,
+						backupSqlLiteService.getAutomaticBackUpFolder().getPath(), analysisSaikuService,
+						earthSurveyService.getCollectSurvey());
+				dialog.setVisible(true);
+				dialog.pack();
+			} catch (Exception ex) {
+				logger.error("Failed to open Properties dialog", ex);
+				JOptionPane.showMessageDialog(owner,
+					"Failed to open Properties dialog.\n\n" +
+					"Error: " + ex.getClass().getSimpleName() + "\n" +
+					"Message: " + (ex.getMessage() != null ? ex.getMessage() : "No details available") + "\n\n" +
+					"Please check the log file for more details.",
+					"Properties Dialog Error",
+					JOptionPane.ERROR_MESSAGE);
+			} catch (Error err) {
+				logger.error("Critical error opening Properties dialog", err);
+				JOptionPane.showMessageDialog(owner,
+					"Critical error opening Properties dialog.\n\n" +
+					"Error: " + err.getClass().getName() + "\n" +
+					"Message: " + (err.getMessage() != null ? err.getMessage() : "No details available") + "\n\n" +
+					"This may be due to missing or incompatible Java runtime components.\n" +
+					"Please check the log file and ensure you're using a compatible JRE.",
+					"Properties Dialog Critical Error",
+					JOptionPane.ERROR_MESSAGE);
+			}
 		};
 	}
 
