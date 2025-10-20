@@ -57,7 +57,7 @@ public class FileDividerToolDlg extends JDialog{
 		this.setModal(true);
 		this.setSize( new Dimension(700,  350));
 		this.setLocationRelativeTo( owner );
-		this.setTitle("Tool for dividing large CSV into smaller ones");
+		this.setTitle(Messages.getString("FileDivider.0"));
 		initLayout();
 	}
 
@@ -78,7 +78,7 @@ public class FileDividerToolDlg extends JDialog{
 
 		c.gridx = 0;
 
-		panel.add( new JLabel("Number of files to split the CSV into"), c );
+		panel.add( new JLabel(Messages.getString("FileDivider.1")), c );
 
 		c.gridx = 1;
 		panel.add( getNumberOfFilesSelector(), c );
@@ -91,7 +91,7 @@ public class FileDividerToolDlg extends JDialog{
 		c.gridy = row++;
 		c.gridx = 0;
 		c.gridwidth = 1;
-		panel.add( new JLabel("Split files by strata (values of the column i.e : region )"), c );
+		panel.add( new JLabel(Messages.getString("FileDivider.2")), c );
 
 		c.gridx = 1;
 		panel.add( getColumnSelector(), c );
@@ -111,7 +111,7 @@ public class FileDividerToolDlg extends JDialog{
 
 	private JButton getGenerateButton() {
 		if( generateGrids == null ){
-			generateGrids = new JButton("Divide file");
+			generateGrids = new JButton(Messages.getString("FileDivider.3"));
 			generateGrids.setEnabled( false );
 			generateGrids.addActionListener( e -> {
 				String sourceCsvFile = getCsvFilePicker().getSelectedFilePath();
@@ -137,7 +137,7 @@ public class FileDividerToolDlg extends JDialog{
 
 	private JFilePicker getOutputFolder() {
 		if( outputFolder == null ){
-			outputFolder = new JFilePicker("Select the output folder" , null, "Select...", DlgMode.MODE_SAVE);
+			outputFolder = new JFilePicker(Messages.getString("FileDivider.4") , null, Messages.getString("FileDivider.5"), DlgMode.MODE_SAVE);
 			outputFolder.getFileChooser().setFileSelectionMode(JFileChooser.DIRECTORIES_ONLY);
 			outputFolder.setEnabled(false);
 
@@ -180,12 +180,12 @@ public class FileDividerToolDlg extends JDialog{
 
 			List<String> expectedHeaders = cegtg.getExpectedHeaders(survey);
 			CsvColumn[] columns = new CsvColumn[ expectedHeaders.size()+1 ];
-			CsvColumn column = new CsvColumn(null,"DO NOT STRATIFY");
+			CsvColumn column = new CsvColumn(null,Messages.getString("FileDivider.6"));
 			columns[0] = column;
 
 			int i = 0;
 			for (String header : expectedHeaders) {
-				column = new CsvColumn(i++,"Use :" + header);
+				column = new CsvColumn(i++,Messages.getString("FileDivider.7") + header);
 				columns[i] = column;
 			}
 
@@ -206,7 +206,7 @@ public class FileDividerToolDlg extends JDialog{
 
 	private JCheckBox getRandomSelector() {
 		if( randomSelector == null ){
-			randomSelector = new JCheckBox("Randomize the order of the lines from the source CSV file" , false);
+			randomSelector = new JCheckBox(Messages.getString("FileDivider.8") , false);
 			randomSelector.setEnabled( false);
 		}
 		return randomSelector;
@@ -226,10 +226,10 @@ public class FileDividerToolDlg extends JDialog{
 
 	private JFilePicker getCsvFilePicker() {
 		if( filePicker == null ){
-			filePicker = new JFilePicker("Choose the CSV file with the sampling design (plots)", null, "Explore", DlgMode.MODE_OPEN);
+			filePicker = new JFilePicker(Messages.getString("FileDivider.9"), null, Messages.getString("FileDivider.10"), DlgMode.MODE_OPEN);
 
 			filePicker.getFileChooser().setAcceptAllFileFilterUsed(false);
-			filePicker.addFileTypeFilter("csv", " CSV file with plot (sampling design)", true);
+			filePicker.addFileTypeFilter("csv", Messages.getString("FileDivider.11"), true);
 
 			filePicker.addChangeListener( new DocumentListener() {
 
@@ -276,20 +276,20 @@ public class FileDividerToolDlg extends JDialog{
 								switch (  validationResults.getErrorType() ) {
 								case INVALID_FILE_TYPE:
 									filePicker.setTextBackground( Color.red);
-									JOptionPane.showMessageDialog( FileDividerToolDlg.this.getParent(), "The expected file type is CSV", "Expected File Type", JOptionPane.ERROR_MESSAGE);
+									JOptionPane.showMessageDialog( FileDividerToolDlg.this.getParent(), Messages.getString("FileDivider.12"), Messages.getString("FileDivider.13"), JOptionPane.ERROR_MESSAGE);
 									break;
 
 								case INVALID_HEADERS:
-									JOptionPane.showMessageDialog( FileDividerToolDlg.this.getParent(),  String.format("The expected columns in the CSV for the survey %s are %s", survey.getName(), validationResults.getExpectedHeaders() ) , "Columns in CSV do not match survey", JOptionPane.ERROR_MESSAGE);
+									JOptionPane.showMessageDialog( FileDividerToolDlg.this.getParent(),  String.format(Messages.getString("FileDivider.14"), survey.getName(), validationResults.getExpectedHeaders() ) , Messages.getString("FileDivider.15"), JOptionPane.ERROR_MESSAGE);
 									break;
 
 								case INVALID_NUMBER_OF_COLUMNS:
-									JOptionPane.showMessageDialog( FileDividerToolDlg.this.getParent(), String.format("The number of columns in the CSV file do not coincide with the expercted columns expected for the survey %s /n%s", survey.getName(), validationResults.getExpectedHeaders() ), "Expected File Type", JOptionPane.ERROR_MESSAGE);
+									JOptionPane.showMessageDialog( FileDividerToolDlg.this.getParent(), String.format(Messages.getString("FileDivider.16"), survey.getName(), validationResults.getExpectedHeaders() ), Messages.getString("FileDivider.13"), JOptionPane.ERROR_MESSAGE);
 									break;
 
 								case INVALID_VALUES_IN_CSV:
 									// IN THIS CASE THE CELL RENDERER TAKES CARE OF HIGHLIGHTING THE CELLS!!!
-									JOptionPane.showMessageDialog( FileDividerToolDlg.this.getParent(), "The content of the CSV file is not correct!! The values on some cells are incorrect for the survey " + survey.getName() , "CSV content is not correct", JOptionPane.ERROR_MESSAGE); //$NON-NLS-1$
+									JOptionPane.showMessageDialog( FileDividerToolDlg.this.getParent(), String.format(Messages.getString("FileDivider.17"), survey.getName()) , Messages.getString("FileDivider.18"), JOptionPane.ERROR_MESSAGE); //$NON-NLS-1$
 									break;
 
 								default:
@@ -301,11 +301,11 @@ public class FileDividerToolDlg extends JDialog{
 
 						}else{
 
-							JOptionPane.showMessageDialog(FileDividerToolDlg.this, String.format("The file in %s is NOT A CSV file ", filePath) );
+							JOptionPane.showMessageDialog(FileDividerToolDlg.this, String.format(Messages.getString("FileDivider.19"), filePath) );
 							filePicker.setTextBackground( Color.red);
 						}
 					} catch (Exception e) {
-						JOptionPane.showMessageDialog(FileDividerToolDlg.this, String.format("The file in %s is NOT A CSV file ", filePath) );
+						JOptionPane.showMessageDialog(FileDividerToolDlg.this, String.format(Messages.getString("FileDivider.19"), filePath) );
 						logger.error( "Error while validating the CSV file", e);
 						validFile = false;
 					}

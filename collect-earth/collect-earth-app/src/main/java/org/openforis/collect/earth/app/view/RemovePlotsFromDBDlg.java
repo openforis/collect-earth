@@ -87,7 +87,7 @@ public class RemovePlotsFromDBDlg {
 		this.dlg.setModal(true);
 		this.dlg.setSize(new Dimension(700, 350));
 		this.dlg.setLocationRelativeTo(owner);
-		this.dlg.setTitle("Tool for removing plots from DB using a CSV with plot IDs");
+		this.dlg.setTitle(Messages.getString("RemovePlotsDialog.0"));
 		initLayout();
 		dlg.setVisible(true);
 	}
@@ -101,12 +101,7 @@ public class RemovePlotsFromDBDlg {
 
 		c.gridx = 0;
 		c.gridwidth = 2;
-		panel.add(new JLabel("<html>"
-				+ "This utility deletes plots that are already collected and present in the Collect Earth Database. <br/>"
-				+ "<b>Make sure to backup the data in your DB before attempting to delete plots ( use the <i>Tools->Data Import/Export->Export data to Collect Backup</i> function).<b>"
-				+ "<br/>"
-				+ "The next field expects a CSV file for which the IDs of the plots to be deleted are present.The headers of the columns should be the names of the key attributes of the survey (usually just one, called ID, but it could be more)."
-				+ "</html>"), c);
+		panel.add(new JLabel(Messages.getString("RemovePlotsDialog.1")), c);
 		c.gridy = row++;
 
 		c.gridx = 0;
@@ -121,12 +116,12 @@ public class RemovePlotsFromDBDlg {
 
 	private JButton getDeleteButton() {
 		if (deleteFromDB == null) {
-			deleteFromDB = new JButton("Delete plots with IDs in the CSV from the database");
+			deleteFromDB = new JButton(Messages.getString("RemovePlotsDialog.2"));
 			deleteFromDB.setEnabled(false);
 			deleteFromDB.addActionListener( e -> {
 				if (JOptionPane.showConfirmDialog(RemovePlotsFromDBDlg.this.dlg,
-						"Are you sure you want to remove the plots with the IDs that are specified in the CSV file??",
-						"Confirm deletion of plots in DB", JOptionPane.YES_NO_OPTION,
+						Messages.getString("RemovePlotsDialog.3"),
+						Messages.getString("RemovePlotsDialog.4"), JOptionPane.YES_NO_OPTION,
 						JOptionPane.QUESTION_MESSAGE) == JOptionPane.YES_OPTION) {
 					deletePlotsFromDB();
 				}
@@ -149,7 +144,7 @@ public class RemovePlotsFromDBDlg {
 				String[] expectedHeaders = getKeyAttributesName();
 				if (!Arrays.equals(expectedHeaders, csvHeaders)) {
 					JOptionPane.showMessageDialog(RemovePlotsFromDBDlg.this.dlg,
-							String.format("The Headers of the CSV file used should be %s, instead they are %s",
+							String.format(Messages.getString("RemovePlotsDialog.5"),
 									Arrays.toString(expectedHeaders),
 									StringUtils.abbreviate(Arrays.toString(csvHeaders), 35)));
 					filePicker.setTextBackground(Color.red);
@@ -159,13 +154,13 @@ public class RemovePlotsFromDBDlg {
 			} else {
 
 				JOptionPane.showMessageDialog(RemovePlotsFromDBDlg.this.dlg,
-						String.format("The file in %s is NOT A CSV file ", filePath));
+						String.format(Messages.getString("RemovePlotsDialog.6"), filePath));
 				validFile = false;
 				filePicker.setTextBackground(Color.red);
 			}
 		} catch (Exception e) {
 			JOptionPane.showMessageDialog(RemovePlotsFromDBDlg.this.dlg,
-					String.format("Error opening file at %s.  %s ", filePath, e.getMessage()));
+					String.format(Messages.getString("RemovePlotsDialog.7"), filePath, e.getMessage()));
 			logger.error("Error while validating the CSV file", e);
 			validFile = false;
 		}
@@ -175,8 +170,8 @@ public class RemovePlotsFromDBDlg {
 	}
 
 	private void deletePlotsFromDB() {
-		InfiniteProgressMonitor progressDeletion = new InfiniteProgressMonitor(this.dlg, "Deleting plots",
-				"Wait while the plots are deleted from the database");
+		InfiniteProgressMonitor progressDeletion = new InfiniteProgressMonitor(this.dlg, Messages.getString("RemovePlotsDialog.8"),
+				Messages.getString("RemovePlotsDialog.9"));
 
 		Thread treadDeleting = new Thread("Deleting plots from Database") {
 			int plotsDeleted = 0;
@@ -205,7 +200,7 @@ public class RemovePlotsFromDBDlg {
 						CollectRecord record = earthSurveyService.loadRecord(csvRow);
 						if (record == null) {
 							plotsNotFoundInDB++;
-							messages.add(String.format(" Could not find plot with ID %s in the Database",
+							messages.add(String.format(Messages.getString("RemovePlotsDialog.10"),
 									Arrays.toString(csvRow)));
 						} else {
 							deleteRecord(csvRow, record);
@@ -214,7 +209,7 @@ public class RemovePlotsFromDBDlg {
 
 				} catch (Exception e) {
 					JOptionPane.showMessageDialog(RemovePlotsFromDBDlg.this.dlg,
-							"Error reading CSV file or CSV File too big!");
+							Messages.getString("RemovePlotsDialog.11"));
 					logger.error("Error while validating the CSV file", e);
 					success = false;
 				} finally {
@@ -227,17 +222,17 @@ public class RemovePlotsFromDBDlg {
 
 				DeleteResults deleteResults = new DeleteResults(success, plotsDeleted, plotsNotFoundInDB,
 						plotsCouldNotBeDeleted, messages);
-				String result = "Plots Deleted : " + deleteResults.plotsDeleted + "<br/>" +
-						"Plots Not Found :</br>" + deleteResults.plotsNotFoundInDB + "<br/>"
-						+ "Plots that could not be deleted because a exception : " + deleteResults.plotsErrorWhenDeleting + "<br/>" +
-						" Messages : <br/> " + StringUtils.join(deleteResults.messages, "<br/>");
+				String result = Messages.getString("RemovePlotsDialog.12") + deleteResults.plotsDeleted + "<br/>" +
+						Messages.getString("RemovePlotsDialog.13") + deleteResults.plotsNotFoundInDB + "<br/>"
+						+ Messages.getString("RemovePlotsDialog.14") + deleteResults.plotsErrorWhenDeleting + "<br/>" +
+						Messages.getString("RemovePlotsDialog.15") + "<br/> " + StringUtils.join(deleteResults.messages, "<br/>");
 				if( success ) {
 					result = "<html>"
-							+ "<b>Results of the deletion process:</b><br/>"
+							+ Messages.getString("RemovePlotsDialog.16") + "<br/>"
 							+ result + "</html>";
 				}else {
 					result = "<html>"
-							+ "<b>There was an error while deleting the plots. Review the Collect Earth Log file in the Help menu.</b></br>"
+							+ Messages.getString("RemovePlotsDialog.17") + "</br>"
 							+ result + "</html>";
 				}
 
@@ -256,10 +251,10 @@ public class RemovePlotsFromDBDlg {
 
 				SwingUtilities.invokeLater( () -> {
 					if (deleteResults.success) {
-						JOptionPane.showMessageDialog(RemovePlotsFromDBDlg.this.dlg, scrollPane, "Success deleting plots", JOptionPane.INFORMATION_MESSAGE);
+						JOptionPane.showMessageDialog(RemovePlotsFromDBDlg.this.dlg, scrollPane, Messages.getString("RemovePlotsDialog.18"), JOptionPane.INFORMATION_MESSAGE);
 					} else {
 
-						JOptionPane.showMessageDialog(RemovePlotsFromDBDlg.this.dlg, scrollPane, "Error deleting plots", JOptionPane.WARNING_MESSAGE);
+						JOptionPane.showMessageDialog(RemovePlotsFromDBDlg.this.dlg, scrollPane, Messages.getString("RemovePlotsDialog.19"), JOptionPane.WARNING_MESSAGE);
 					}
 				});
 			}
@@ -267,11 +262,11 @@ public class RemovePlotsFromDBDlg {
 			private void deleteRecord(String[] csvRow, CollectRecord record) {
 				try {
 					recordManager.delete(record.getId());
-					messages.add(String.format("Deleted plot with ID %s ", Arrays.toString(csvRow)));
+					messages.add(String.format(Messages.getString("RemovePlotsDialog.20"), Arrays.toString(csvRow)));
 					plotsDeleted++;
 				} catch (RecordPersistenceException e) {
 					plotsCouldNotBeDeleted++;
-					messages.add(String.format("Error when deleting plot with ID %s. Error Message: %s",
+					messages.add(String.format(Messages.getString("RemovePlotsDialog.21"),
 							Arrays.toString(csvRow), e.getMessage()));
 					logger.error("Error deleting plot with ID " + Arrays.toString(csvRow));
 					success = false;
@@ -296,11 +291,11 @@ public class RemovePlotsFromDBDlg {
 
 	private JFilePicker getCsvFilePicker() {
 		if (filePicker == null) {
-			filePicker = new JFilePicker("Choose the CSV file containing the IDs of the plots to remove", null,
-					"Explore", DlgMode.MODE_OPEN);
+			filePicker = new JFilePicker(Messages.getString("RemovePlotsDialog.22"), null,
+					Messages.getString("RemovePlotsDialog.23"), DlgMode.MODE_OPEN);
 
 			filePicker.getFileChooser().setAcceptAllFileFilterUsed(false);
-			filePicker.addFileTypeFilter("csv", " CSV file with plot IDs", true);
+			filePicker.addFileTypeFilter("csv", Messages.getString("RemovePlotsDialog.24"), true);
 
 			filePicker.addChangeListener(new DocumentListener() {
 
