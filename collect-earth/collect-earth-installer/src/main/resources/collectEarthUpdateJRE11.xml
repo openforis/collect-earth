@@ -31,7 +31,7 @@
     </platformFileList>
     <downloadLocationList>
         <downloadLocation>
-            <url>https://oss.sonatype.org/service/local/repositories/releases/content/org/openforis/collect/earth/collect-earth-installer/PROJECT_VERSION/</url>
+            <url>https://repo1.maven.org/maven2/org/openforis/collect/earth/collect-earth-installer/PROJECT_VERSION/</url>
         </downloadLocation>
     </downloadLocationList>
 </installerInformation>

@@ -463,6 +463,14 @@ public class BrowserService implements InitializingBean, Observer {
 		synchronized (lock) {
 			if (!StringUtils.isBlank(localPropertiesService.getExtraMap())) {
 				webDriverExtraMap = navigateTo( getUrlBaseIntegration(placemarkObject, localPropertiesService.getExtraMap() ) , webDriverExtraMap );
+				// If the extra map is a GEE App, then we need to make sure the borwser is refreshed
+				if (localPropertiesService.getExtraMap().contains("earthengine")) {
+					try {
+						webDriverExtraMap.navigate().refresh(); // FORCE REFRESH - OTHERWISE WINDOW IS NOT REFRESHED
+					} catch (final Exception e) {
+						logger.error("Error refreshing the GEE App browser window", e);
+					}
+				}
 			}
 		}
 	}
@@ -475,11 +483,20 @@ public class BrowserService implements InitializingBean, Observer {
 			String id = placemarkObject.getPlacemarkId().split(",")[0]; // for cases where ID also has round, then
 			// the id string would be something like
 			// "plotId,round", we only want the ID
+			String geojson = "";
+			try{
+				geojson = URLEncoder.encode(getGeoJson(placemarkObject, "MultiLineString"), StandardCharsets.UTF_8.toString());
+			}catch (Exception e) {
+                logger.error("Error encoding geojson", e);
+            }
 
-			temp = url.replace("LATITUDE", latitude).replace("LONGITUDE", longitude).replace("PLOT_ID", id);
+			temp = url.replace("LATITUDE", latitude)
+					.replace("LONGITUDE", longitude)
+					.replace("GEOJSON", geojson)
+					.replace("PLOT_ID", id);
 
-		} catch (final Exception e) {
-			logger.error("Problems Getting the URL filling for " + url, e);
+		} catch (final Exception e1) {
+			logger.error("Problems Getting the URL filling for " + url, e1);
 		}
 		return temp;
 	}

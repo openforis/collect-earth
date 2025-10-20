@@ -3,6 +3,12 @@ package org.openforis.collect.earth.ipcc.model;
 public class SoilStratumObject extends StratumObject{
 
 	private SoilTypeEnum soilType;
+	
+	public static SoilStratumObject NODATA = getNoDataSoilStratumObject();
+	
+	private static SoilStratumObject getNoDataSoilStratumObject() {
+		return new SoilStratumObject(SoilTypeEnum.NO_DATA.getName(), "NO_DATA", "No Data");
+	}
 
 	public SoilStratumObject(String value, String label , String description ) {
 		super(value, label, description);

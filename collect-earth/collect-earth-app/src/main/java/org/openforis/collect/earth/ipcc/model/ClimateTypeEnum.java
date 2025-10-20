@@ -18,7 +18,7 @@ public enum ClimateTypeEnum {
 	
 	POM("Polar Moist", 13, ClimateDomainEnum.POLAR),
 	POD("Polar Dry", 14, ClimateDomainEnum.POLAR),
-	NO_DATA("NO_DATA", 14, ClimateDomainEnum.NO_DATA);
+	NO_DATA("NO_DATA", 15, ClimateDomainEnum.NO_DATA);
 	
 	private final String name;
 	private int id;
