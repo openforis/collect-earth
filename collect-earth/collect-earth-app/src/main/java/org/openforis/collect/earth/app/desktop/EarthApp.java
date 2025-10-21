@@ -41,6 +41,7 @@ import org.openforis.collect.earth.app.service.UpdateIniUtils;
 import org.openforis.collect.earth.app.view.AnnouncementManager;
 import org.openforis.collect.earth.app.view.CheckForUpdatesListener;
 import org.openforis.collect.earth.app.view.CollectEarthWindow;
+import org.openforis.collect.earth.app.view.DataFormat;
 import org.openforis.collect.earth.app.view.Messages;
 import org.openforis.collect.earth.app.view.PropertiesDialog;
 import org.openforis.collect.earth.sampler.utils.KmlGenerationException;
@@ -78,6 +79,60 @@ public class EarthApp {
 	}
 
 	/**
+	 * Initialize SwingX components and UI classes early in the application lifecycle
+	 * to prevent classloading issues that can occur when components are lazily loaded later.
+	 * This pre-loads critical SwingX classes, UI components, and UIManager settings.
+	 */
+	private static void initializeSwingXComponents() {
+		try {
+			// Ensure we're using the correct classloader
+			ClassLoader originalClassLoader = Thread.currentThread().getContextClassLoader();
+			try {
+				// Set the context classloader to this class's classloader to ensure
+				// proper resolution of SwingX dependencies
+				Thread.currentThread().setContextClassLoader(EarthApp.class.getClassLoader());
+
+				// Pre-load SwingX calendar handler classes to ensure they're available
+				// when date pickers are created later
+				Class.forName("org.jdesktop.swingx.plaf.basic.CalendarHeaderHandler");
+				Class.forName("org.jdesktop.swingx.plaf.basic.SpinningCalendarHeaderHandler");
+				Class.forName("org.jdesktop.swingx.JXDatePicker");
+
+				// Pre-load UI classes that are commonly used and may have classloading issues
+				Class.forName("org.openforis.collect.earth.app.view.Messages");
+				Class.forName("org.openforis.collect.earth.app.view.DataFormat");
+				Class.forName("org.openforis.collect.earth.app.view.JFileChooserExistsAware");
+
+				// Force initialization of DataFormat enum to load Messages resources early
+				// This prevents classloading issues when file choosers are opened later
+				@SuppressWarnings("unused")
+				DataFormat[] formats = DataFormat.values();
+
+				// Set the UIManager property for calendar header handler
+				// This must be done before any JXDatePicker instances are created
+				UIManager.put("CalendarHeaderHandler.uiControllerID",
+						"org.jdesktop.swingx.plaf.basic.SpinningCalendarHeaderHandler");
+
+				System.out.println("UI components pre-loaded successfully");
+			} finally {
+				// Restore original classloader
+				Thread.currentThread().setContextClassLoader(originalClassLoader);
+			}
+		} catch (ClassNotFoundException e) {
+			System.err.println("Warning: Failed to pre-load UI components. " +
+					"Some dialogs may not work correctly.");
+			System.err.println("Error: " + e.getMessage());
+			System.err.println("Missing class: " + e.getMessage());
+			System.err.println("Make sure all required JAR files are in the classpath.");
+			// Don't fail startup - just log the warning
+			// The error handling we added earlier will catch any issues when dialogs open
+		} catch (Exception e) {
+			System.err.println("Unexpected error during UI initialization: " + e.getMessage());
+			e.printStackTrace();
+		}
+	}
+
+	/**
 	 * Start the application, opening Google Earth and starting the Jetty server.
 	 *
 	 * @param args No arguments are used by this method.
@@ -100,6 +155,9 @@ public class EarthApp {
 			// OpenForis.org do not return with a 403 http error
 			System.setProperty("http.agent",
 					"Mozilla/5.0 (Macintosh; U; Intel Mac OS X 10.4; en-US; rv:1.9.2.2) Gecko/20100316 Firefox/3.6.2");
+
+			// Initialize SwingX components early to prevent classloading issues
+			initializeSwingXComponents();
 
 			initializeSentry();
 

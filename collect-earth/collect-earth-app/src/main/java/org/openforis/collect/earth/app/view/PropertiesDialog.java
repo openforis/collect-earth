@@ -1491,7 +1491,8 @@ public class PropertiesDialog extends JDialog {
     private void initializeDatePickers() {
         try {
             logger.info("Initializing date pickers (SwingX components)...");
-            //Allows year selection in JXDatePicker
+            //Allows year selection in JXDatePicker - this is now set globally in EarthApp.initializeSwingXComponents()
+            // but we set it again here as a safety measure in case this dialog is opened before that initialization
             UIManager.put(CalendarHeaderHandler.uiControllerID, SpinningCalendarHeaderHandler.class.getName());
 
             SimpleDateFormat dateFormat = new SimpleDateFormat("yyyy-MM-dd");
