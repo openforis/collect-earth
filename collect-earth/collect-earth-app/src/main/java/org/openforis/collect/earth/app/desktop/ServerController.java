@@ -258,7 +258,9 @@ public class ServerController extends Observable {
 			// Force the local properties to be loaded before the browserservice is instantiated!! DO NOT REMOVE
 			if( getContext() != null ) {
 				getContext().getBean(LocalPropertiesService.class);
-				this.addObserver(getContext().getBean(BrowserService.class));
+				// BrowserService now uses Spring lifecycle events (ApplicationListener<ContextClosedEvent>)
+				// instead of Observer pattern, so no need to register it here
+				getContext().getBean(BrowserService.class);
 			}
 
 		} catch (final IOException e) {

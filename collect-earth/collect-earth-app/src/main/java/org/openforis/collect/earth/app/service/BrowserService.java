@@ -4,22 +4,17 @@ import java.io.BufferedWriter;
 import java.io.File;
 import java.io.IOException;
 import java.io.StringWriter;
-import java.io.Writer;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
-import java.util.Observable;
-import java.util.Observer;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.concurrent.TimeUnit;
 
 import org.apache.commons.lang3.StringUtils;
 import org.openforis.collect.earth.app.EarthConstants;
 import org.openforis.collect.earth.app.desktop.ServerController;
-import org.openforis.collect.earth.app.desktop.ServerController.ServerInitializationEvent;
 import org.openforis.collect.earth.app.service.LocalPropertiesService.EarthProperty;
 import org.openforis.collect.earth.sampler.model.SimpleCoordinate;
 import org.openforis.collect.earth.sampler.model.SimplePlacemarkObject;
@@ -29,31 +24,50 @@ import org.openqa.selenium.WebElement;
 import org.openqa.selenium.remote.RemoteWebDriver;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.DisposableBean;
 import org.springframework.beans.factory.InitializingBean;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.ApplicationListener;
+import org.springframework.context.event.ContextClosedEvent;
 import org.springframework.stereotype.Component;
 
 import freemarker.cache.FileTemplateLoader;
 import freemarker.template.Configuration;
 import freemarker.template.Template;
 import freemarker.template.TemplateException;
-import freemarker.template.Version;
 import io.github.bonigarcia.wdm.WebDriverManager;
 
 /**
  * This class contains methods that allow Collect Earth to open browser windows
  * that allow the user to have a better understanding of the plot. So far there
- * are integrations with Google Earth Engine, Google Earth Engine and Erth Map. 
+ * are integrations with Google Earth Engine and Earth Map.
  * When a user clicks on a plot Collect Earth will check if the
  * program is set to open any of these integrations, and if it is so it will
  * open each one in its own window. These windows are closed when the program
  * is closed.
- *s
+ *
  * @author Alfonso Sanchez-Paus Diaz
  *
  */
 @Component
-public class BrowserService implements InitializingBean, Observer {
+public class BrowserService implements InitializingBean, DisposableBean, ApplicationListener<ContextClosedEvent> {
+
+	// Browser type enumeration for thread-safe lock management
+	private enum BrowserType {
+		PLANET, SECUREWATCH, EXTRA, STREET_VIEW, GEEAPP, EARTH_MAP, TIMELAPSE
+	}
+
+	// Constants for timeouts and wait durations
+	private static final int ELEMENT_WAIT_TIMEOUT_SECONDS = 60;
+	private static final int XPATH_WAIT_TIMEOUT_SECONDS = 30;
+	private static final int WAIT_POLL_INTERVAL_MILLIS = 1000;
+	private static final int PLOT_LOAD_SLEEP_MILLIS = 1000;
+
+	// CSS selectors
+	private static final String CSS_LOCK_ON = ".lock.on";
+
+	// Template paths
+	private static final String TEMPLATE_FOR_DGMAP_JS = "resources/javascript_dgmap.fmt";
 
 
 	@Autowired
@@ -65,17 +79,34 @@ public class BrowserService implements InitializingBean, Observer {
 	@Autowired
 	private EarthSurveyService earthSurveyService;
 
-	private final ArrayList<RemoteWebDriver> drivers = new ArrayList<>();
+	private final CopyOnWriteArrayList<RemoteWebDriver> drivers = new CopyOnWriteArrayList<>();
 	private final Logger logger = LoggerFactory.getLogger(BrowserService.class);
-	private static final String TEMPLATE_FOR_DGMAP_JS = "resources/javascript_dgmap.fmt";
-	private static final Configuration cfg = new Configuration(new Version("2.3.23"));
-	private RemoteWebDriver webDriverTimelapse, webDriverStreetView, webDriverPlanetHtml, webDriverExtraMap, webDriverSecureWatch, webDriverGEEMap, webDriverEarthMap;
+	private final Configuration freemarkerConfig = createFreemarkerConfiguration();
 
-	Map<String,String> locks = new HashMap<String,String>();
+	private RemoteWebDriver webDriverTimelapse, webDriverStreetView, webDriverPlanetHtml,
+	                        webDriverExtraMap, webDriverSecureWatch, webDriverGEEMap, webDriverEarthMap;
 
-	private static boolean geeMethodUpdated = false;
+	private final Map<BrowserType, Object> locks = new ConcurrentHashMap<>();
 
-	private boolean isClosing = false;
+	private volatile boolean geeMethodUpdated = false;
+	private volatile boolean isClosing = false;
+
+	/**
+	 * Creates and configures the Freemarker Configuration instance.
+	 * Using instance-level configuration for thread safety.
+	 *
+	 * @return Configured Freemarker Configuration
+	 */
+	private Configuration createFreemarkerConfiguration() {
+		Configuration cfg = new Configuration(Configuration.VERSION_2_3_34);
+		cfg.setDefaultEncoding(StandardCharsets.UTF_8.name());
+		try {
+			cfg.setTemplateLoader(new FileTemplateLoader(new File(System.getProperty("user.dir"))));
+		} catch (IOException e) {
+			logger.error("Failed to initialize Freemarker template loader", e);
+		}
+		return cfg;
+	}
 
 	public void closeBrowsers() {
 		synchronized (this) {
@@ -86,6 +117,16 @@ public class BrowserService implements InitializingBean, Observer {
 	@Override
 	public void afterPropertiesSet() throws Exception {
 		Runtime.getRuntime().addShutdownHook(getClosingBrowsersThread());
+	}
+
+	@Override
+	public void destroy() throws Exception {
+		closeBrowsers();
+	}
+
+	@Override
+	public void onApplicationEvent(ContextClosedEvent event) {
+		closeBrowsers();
 	}
 
 	private RemoteWebDriver chooseDriver() throws BrowserNotFoundException {
@@ -99,31 +140,21 @@ public class BrowserService implements InitializingBean, Observer {
 		} else if (browserSetInProperties.equalsIgnoreCase(EarthConstants.EDGE_BROWSER)) {
 			driver = tryStartEdge();
 		}
-		/* SAFARI support removed! 7/12/22
-		else if (browserSetInProperties.equalsIgnoreCase(EarthConstants.SAFARI_BROWSER)) {
-			driver = tryStartSafari();
-		}
-		*/
 
-		// If the browser chosen is not installed try to find and installed browser in the computer
-		if( driver== null ) {
+		// If the browser chosen is not installed try to find an installed browser in the computer
+		if (driver == null) {
 			driver = tryStartChrome();
-			if( driver== null ) {
+			if (driver == null) {
 				driver = tryStartFirefox();
 			}
-			if( driver== null ) {
+			if (driver == null) {
 				driver = tryStartEdge();
 			}
-			/* SAFARI support removed! 7/12/22
-			if( driver== null ) {
-				driver = tryStartSafari();
-			}
-			*/
 		}
 
 		if (driver == null) {
 			throw new BrowserNotFoundException(
-					"Neither Chrome, Edege or Firefox could be opened. You need to have one of them installed in order to use GEE, Earth Map or Saiku.");
+					"Neither Chrome, Edge or Firefox could be opened. You need to have one of them installed in order to use GEE, Earth Map or Saiku.");
 		}
 
 		return driver;
@@ -146,26 +177,10 @@ public class BrowserService implements InitializingBean, Observer {
 		try {
 			driver = (RemoteWebDriver) WebDriverManager.edgedriver().create();
 		} catch (final Exception e) {
-			logger.warn(
-					"Problem starting Edge browser",
-							e);
+			logger.warn("Problem starting Edge browser", e);
 		}
 		return driver;
 	}
-
-	/* SAFARI support removed! 7/12/22
-	private RemoteWebDriver tryStartSafari() {
-		RemoteWebDriver driver = null;
-		try {
-			driver = (RemoteWebDriver) WebDriverManager.safaridriver().create();
-		} catch (final WebDriverException e) {
-			logger.warn(
-					"Problem starting Safari browser",
-							e);
-		}
-		return driver;
-	}
-	*/
 
 	private RemoteWebDriver tryStartChrome() {
 		RemoteWebDriver driver = null;
@@ -188,27 +203,16 @@ public class BrowserService implements InitializingBean, Observer {
 	}
 
 	private String processJavascriptTemplate(final Map<String, Object> data, String templateName) {
-		Writer out;
 		String result = null;
-		try (StringWriter fw = new StringWriter();) {
-			// Load template from source folder
-			cfg.setTemplateLoader(new FileTemplateLoader(new File(System.getProperty("user.dir"))));
-			final Template template = cfg.getTemplate(templateName);
-
-			// Console output
-			out = new BufferedWriter(fw);
-
-			// Add date to avoid caching
+		try (StringWriter fw = new StringWriter(); BufferedWriter out = new BufferedWriter(fw)) {
+			final Template template = freemarkerConfig.getTemplate(templateName);
 			template.process(data, out);
-
 			out.flush();
-
 			result = fw.toString();
-
 		} catch (final TemplateException e) {
-			logger.error("Error when generating the javascript commands", e);
+			logger.error("Error when generating the javascript commands from template: {}", templateName, e);
 		} catch (final IOException e) {
-			logger.error("Error when reading/writing the template information", e);
+			logger.error("Error when reading/writing the template information: {}", templateName, e);
 		}
 		return result;
 	}
@@ -226,62 +230,92 @@ public class BrowserService implements InitializingBean, Observer {
 		return driver;
 	}
 
+	/**
+	 * Checks if an element is present and displayed by ID or name.
+	 *
+	 * @param elementId The ID or name of the element to find
+	 * @param driver The WebDriver instance
+	 * @return true if element is found and displayed, false otherwise
+	 */
+	public static boolean isElementPresentByIdOrName(String elementId, RemoteWebDriver driver) {
+		try {
+			return driver.findElement(By.id(elementId)).isDisplayed() ||
+			       driver.findElement(By.name(elementId)).isDisplayed();
+		} catch (final Exception e) {
+			// Element not found - this is expected behavior, not an error
+			return false;
+		}
+	}
+
+	/**
+	 * @deprecated Use {@link #isElementPresentByIdOrName(String, RemoteWebDriver)} instead
+	 */
+	@Deprecated
 	public static boolean isIdOrNamePresent(String elementId, RemoteWebDriver driver) {
-		boolean found = false;
-
-		try {
-			if (driver.findElement(By.id(elementId)).isDisplayed() || driver.findElement(By.name(elementId)).isDisplayed()) {
-				found = true;
-			}
-		} catch (final Exception e) {
-			// Not found
-		}
-
-		return found;
+		return isElementPresentByIdOrName(elementId, driver);
 	}
 
+	/**
+	 * Checks if an element is present by CSS selector.
+	 *
+	 * @param cssElement The CSS selector
+	 * @param driver The WebDriver instance
+	 * @return true if element is found, false otherwise
+	 */
 	public static boolean isCssElementPresent(String cssElement, RemoteWebDriver driver) {
-		boolean found = false;
-
 		try {
-			WebElement elementByCssSelector = driver.findElement(By.cssSelector(cssElement));
-			found = elementByCssSelector != null;
+			driver.findElement(By.cssSelector(cssElement));
+			return true;
 		} catch (final Exception e) {
-			// Not found
+			// Element not found - this is expected behavior, not an error
+			return false;
 		}
-
-		return found;
 	}
 
+	/**
+	 * Checks if an element is present and displayed by XPath.
+	 *
+	 * @param xpath The XPath expression
+	 * @param driver The WebDriver instance
+	 * @return true if element is found and displayed, false otherwise
+	 */
 	private boolean isXPathPresent(String xpath, RemoteWebDriver driver) {
-		boolean found = false;
-
 		try {
-			if (driver.findElement(By.xpath(xpath)).isDisplayed()) {
-				found = true;
+			boolean found = driver.findElement(By.xpath(xpath)).isDisplayed();
+			if (found) {
+				logger.debug("Found element by XPath: {}", xpath);
 			}
-			logger.debug(String.format("Found %s", xpath));
+			return found;
 		} catch (final Exception e) {
-			logger.debug(String.format("Not Found %s", xpath));
+			logger.debug("Element not found by XPath: {}", xpath);
+			return false;
 		}
-
-		return found;
 	}
 
+	/**
+	 * Loads a plot into the DGMap interface with JavaScript execution.
+	 *
+	 * @param placemarkObject The placemark data to load
+	 * @param driver The WebDriver instance
+	 * @return true if successful, false otherwise
+	 */
 	private boolean loadPlotInDGMap(SimplePlacemarkObject placemarkObject, RemoteWebDriver driver) {
-
 		boolean success = true;
 		if (driver != null && waitFor("mainContent", driver) && driver instanceof JavascriptExecutor) {
 			try {
 				String dgmapJs = getDGMapJavascript(placemarkObject);
 				driver.executeScript(dgmapJs);
 
-				Thread.sleep( 1000 );
+				Thread.sleep(PLOT_LOAD_SLEEP_MILLIS);
 				// Unlock the view if it is locked
-				if( isCssElementPresent(".lock.on",  driver)  ) {
-					driver.findElement(By.cssSelector(".lock.on")).click(); // UNLOCK
+				if (isCssElementPresent(CSS_LOCK_ON, driver)) {
+					driver.findElement(By.cssSelector(CSS_LOCK_ON)).click(); // UNLOCK
 				}
 
+			} catch (final InterruptedException e) {
+				Thread.currentThread().interrupt();
+				logger.warn("Thread interrupted while loading plot in DGMap", e);
+				success = false;
 			} catch (final Exception e) {
 				processSeleniumError(e);
 				success = false;
@@ -299,12 +333,12 @@ public class BrowserService implements InitializingBean, Observer {
 		}
 	}
 
-	public static boolean isGeeMethodUpdated() {
+	public boolean isGeeMethodUpdated() {
 		return geeMethodUpdated;
 	}
 
-	public static void setGeeMethodUpdated(boolean geeMethosUpdated) {
-		BrowserService.geeMethodUpdated = geeMethosUpdated;
+	public void setGeeMethodUpdated(boolean geeMethodUpdated) {
+		this.geeMethodUpdated = geeMethodUpdated;
 	}
 
 	private void processSeleniumError(final Exception e) {
@@ -375,27 +409,25 @@ public class BrowserService implements InitializingBean, Observer {
 	}
 
 
-	private Object getLock(String key) {
-		String lock = locks.get(key);
-		if( lock !=null ) {
-			return lock;
-		}else{
-			locks.put(key, key);
-			return key;
-		}
+	/**
+	 * Gets or creates a lock object for the specified browser type.
+	 * Thread-safe using ConcurrentHashMap.
+	 *
+	 * @param type The browser type
+	 * @return A lock object for synchronization
+	 */
+	private Object getOrCreateLock(BrowserType type) {
+		return locks.computeIfAbsent(type, k -> new Object());
 	}
 
 	/**
 	 * Opens a browser window with the Planet Basemaps representation of the plot.
 	 *
-	 * @param placemarkObject
-	 *            The data of the plot.
-	 * @throws BrowserNotFoundException
-	 *             In case the browser could not be found
-	 *
+	 * @param placemarkObject The data of the plot.
+	 * @throws BrowserNotFoundException In case the browser could not be found
 	 */
 	public void openPlanetMaps(SimplePlacemarkObject placemarkObject) throws BrowserNotFoundException {
-		Object lock = getLock("PLANET");
+		Object lock = getOrCreateLock(BrowserType.PLANET);
 		synchronized (lock) {
 			if (localPropertiesService.isPlanetMapsSupported()) {
 
@@ -427,14 +459,11 @@ public class BrowserService implements InitializingBean, Observer {
 	/**
 	 * Opens a browser window with a map representation of the plot in SecureWatch.
 	 *
-	 * @param placemarkObject
-	 *            The data of the plot.
-	 * @throws BrowserNotFoundException
-	 *             In case the browser could not be found
-	 *
+	 * @param placemarkObject The data of the plot.
+	 * @throws BrowserNotFoundException In case the browser could not be found
 	 */
 	public void openSecureWatch(SimplePlacemarkObject placemarkObject) throws BrowserNotFoundException {
-		Object lock = getLock("SECUREWATCH");
+		Object lock = getOrCreateLock(BrowserType.SECUREWATCH);
 		synchronized (lock) {
 			if ( localPropertiesService.isSecureWatchSupported() ) {
 				String url = getUrlBaseIntegration(placemarkObject, localPropertiesService.getSecureWatchURL() + "/#18/LATITUDE/LONGITUDE" );
@@ -452,68 +481,61 @@ public class BrowserService implements InitializingBean, Observer {
 	/**
 	 * Opens a browser window with a map representation of the plot.
 	 *
-	 * @param placemarkObject
-	 *            The data of the plot.
-	 * @throws BrowserNotFoundException
-	 *             In case the browser could not be found
-	 *
+	 * @param placemarkObject The data of the plot.
+	 * @throws BrowserNotFoundException In case the browser could not be found
 	 */
 	public void openExtraMap(SimplePlacemarkObject placemarkObject) throws BrowserNotFoundException {
-		Object lock = getLock("EXTRA");
+		Object lock = getOrCreateLock(BrowserType.EXTRA);
 		synchronized (lock) {
 			if (!StringUtils.isBlank(localPropertiesService.getExtraMap())) {
 				webDriverExtraMap = navigateTo( getUrlBaseIntegration(placemarkObject, localPropertiesService.getExtraMap() ) , webDriverExtraMap );
-				// If the extra map is a GEE App, then we need to make sure the borwser is refreshed
-				if (localPropertiesService.getExtraMap().contains("earthengine")) {
-					try {
-						webDriverExtraMap.navigate().refresh(); // FORCE REFRESH - OTHERWISE WINDOW IS NOT REFRESHED
-					} catch (final Exception e) {
-						logger.error("Error refreshing the GEE App browser window", e);
-					}
+				// Refresh to make sure it loads the new plot
+				try {
+					webDriverExtraMap.navigate().refresh(); // FORCE REFRESH - OTHERWISE WINDOW IS NOT REFRESHED
+				} catch (final Exception e) {
+					logger.error("Error refreshing the GEE App browser window", e);
 				}
 			}
 		}
 	}
 
+	/**
+	 * Creates a URL by replacing placeholders with actual placemark data.
+	 * Supports LATITUDE, LONGITUDE, GEOJSON, and PLOT_ID placeholders.
+	 *
+	 * @param placemarkObject The placemark containing the data
+	 * @param url The URL template with placeholders
+	 * @return The URL with placeholders replaced, or null if an error occurs
+	 */
 	private String getUrlBaseIntegration(SimplePlacemarkObject placemarkObject, String url) {
-		String temp = null;
 		try {
 			String latitude = placemarkObject.getCoord().getLatitude();
 			String longitude = placemarkObject.getCoord().getLongitude();
-			String id = placemarkObject.getPlacemarkId().split(",")[0]; // for cases where ID also has round, then
-			// the id string would be something like
-			// "plotId,round", we only want the ID
-			String geojson = "";
-			try{
-				geojson = URLEncoder.encode(getGeoJson(placemarkObject, "MultiLineString"), StandardCharsets.UTF_8.toString());
-			}catch (Exception e) {
-                logger.error("Error encoding geojson", e);
-            }
+			// For cases where ID also has round, the id string would be "plotId,round", we only want the ID
+			String id = placemarkObject.getPlacemarkId().split(",")[0];
 
-			temp = url.replace("LATITUDE", latitude)
+			// URLEncoder.encode with UTF-8 never throws UnsupportedEncodingException
+			String geojson = URLEncoder.encode(getGeoJson(placemarkObject, "MultiLineString"), StandardCharsets.UTF_8.toString());
+
+			return url.replace("LATITUDE", latitude)
 					.replace("LONGITUDE", longitude)
 					.replace("GEOJSON", geojson)
 					.replace("PLOT_ID", id);
 
-		} catch (final Exception e1) {
-			logger.error("Problems Getting the URL filling for " + url, e1);
+		} catch (final Exception e) {
+			logger.error("Error constructing URL from template: {}", url, e);
+			return null;
 		}
-		return temp;
 	}
 
 	/**
-	 * Opens a browser window with the Google Street View representation of the
-	 * plot.
-	 * https://www.google.com/maps/@43.7815661,11.1484876,3a,75y,210.23h,82.32t/data=!3m6!1e1!3m4!1sEz7NiCbaIYzTJkP_RMBiqw!2e0!7i13312!8i6656?hl=en
+	 * Opens a browser window with the Google Street View representation of the plot.
 	 *
-	 * @param placemarkObject
-	 *            The data of the plot.
-	 * @throws BrowserNotFoundException
-	 *             In case the browser could not be found
-	 *
+	 * @param placemarkObject The data of the plot.
+	 * @throws BrowserNotFoundException In case the browser could not be found
 	 */
 	public void openStreetView(SimplePlacemarkObject placemarkObject) throws BrowserNotFoundException {
-		Object lock = getLock("STREET_VIEW");
+		Object lock = getOrCreateLock(BrowserType.STREET_VIEW);
 		synchronized (lock) {
 			if (localPropertiesService.isStreetViewSupported()) {
 				try {
@@ -564,18 +586,13 @@ public class BrowserService implements InitializingBean, Observer {
 	}
 
 	/**
-	 * Opens a browser window with the Google Earth Engine Code Editor and runs the
-	 * freemarker template found in resources/eeCodeEditorScript.fmt on the main
-	 * editor of GEE.
+	 * Opens a browser window with the Google Earth Engine App URL.
 	 *
-	 * @param placemarkObject
-	 *            The center point of the plot.
-	 * @throws BrowserNotFoundException
-	 *             If the browser cannot be found
-	 *
+	 * @param placemarkObject The center point of the plot.
+	 * @throws BrowserNotFoundException If the browser cannot be found
 	 */
 	public void openGEEAppURL(SimplePlacemarkObject placemarkObject) throws BrowserNotFoundException {
-		Object lock = getLock("GEEAPP");
+		Object lock = getOrCreateLock(BrowserType.GEEAPP);
 		synchronized (lock) {
 			if (localPropertiesService.isGEEAppSupported()) {
 
@@ -612,8 +629,14 @@ public class BrowserService implements InitializingBean, Observer {
 	}
 
 
+	/**
+	 * Opens a browser window with the Earth Map URL.
+	 *
+	 * @param placemarkObject The placemark data
+	 * @throws BrowserNotFoundException If the browser cannot be found
+	 */
 	public void openEarthMapURL(SimplePlacemarkObject placemarkObject) throws BrowserNotFoundException {
-		Object lock = getLock("EARTH_MAP");
+		Object lock = getOrCreateLock(BrowserType.EARTH_MAP);
 		synchronized (lock) {
 			if (localPropertiesService.isEarthMapSupported()) {
 
@@ -655,18 +678,13 @@ public class BrowserService implements InitializingBean, Observer {
 	}
 
 	/**
-	 * Opens a browser window with the Google Earth Engine Timelapse representation
-	 * of the plot.
+	 * Opens a browser window with the Google Earth Engine Timelapse representation of the plot.
 	 *
-	 * @param placemarkObject
-	 *            The center point of the plot.
-	 * @throws BrowserNotFoundException
-	 *             If the browser cannot be found
-	 *
+	 * @param placemarkObject The center point of the plot.
+	 * @throws BrowserNotFoundException If the browser cannot be found
 	 */
-	public void openTimelapse(final SimplePlacemarkObject placemarkObject)
-			throws BrowserNotFoundException {
-		Object lock = getLock("TIMELAPSE");
+	public void openTimelapse(final SimplePlacemarkObject placemarkObject) throws BrowserNotFoundException {
+		Object lock = getOrCreateLock(BrowserType.TIMELAPSE);
 		synchronized (lock) {
 			if (localPropertiesService.isTimelapseSupported()) {
 				try {
@@ -682,64 +700,76 @@ public class BrowserService implements InitializingBean, Observer {
 		}
 	}
 
+	/**
+	 * Waits for an element to be present by ID or name.
+	 * Polls at regular intervals until element appears or timeout is reached.
+	 *
+	 * @param elementId The element ID to wait for
+	 * @param driver The WebDriver instance
+	 * @return true if element appears within timeout, false otherwise
+	 */
 	public boolean waitFor(String elementId, RemoteWebDriver driver) {
-		int i = 0;
-		while (!isIdOrNamePresent(elementId, driver)) {
-			try {
-				Thread.sleep(1000);
-			} catch (final InterruptedException e) {
-				return false;
+		long endTime = System.currentTimeMillis() + TimeUnit.SECONDS.toMillis(ELEMENT_WAIT_TIMEOUT_SECONDS);
+
+		while (System.currentTimeMillis() < endTime) {
+			if (isElementPresentByIdOrName(elementId, driver)) {
+				return true;
 			}
-			i++;
-			if (i > 60) {
+			try {
+				Thread.sleep(WAIT_POLL_INTERVAL_MILLIS);
+			} catch (InterruptedException e) {
+				Thread.currentThread().interrupt();
+				logger.debug("Interrupted while waiting for element: {}", elementId);
 				return false;
 			}
 		}
-		return true;
+
+		logger.debug("Timeout waiting for element: {}", elementId);
+		return false;
 	}
 
+	/**
+	 * Waits for an element to be present by XPath.
+	 * Polls at regular intervals until element appears or timeout is reached.
+	 *
+	 * @param xpath The XPath expression to wait for
+	 * @param driver The WebDriver instance
+	 * @return true if element appears within timeout, false otherwise
+	 */
 	public boolean waitForXPath(String xpath, RemoteWebDriver driver) {
-		int i = 0;
-		while (!isXPathPresent(xpath, driver)) {
-			try {
-				Thread.sleep(1000);
-			} catch (final InterruptedException e) {
-				return false;
+		long endTime = System.currentTimeMillis() + TimeUnit.SECONDS.toMillis(XPATH_WAIT_TIMEOUT_SECONDS);
 
+		while (System.currentTimeMillis() < endTime) {
+			if (isXPathPresent(xpath, driver)) {
+				return true;
 			}
-			i++;
-			if (i > 30) {
+			try {
+				Thread.sleep(WAIT_POLL_INTERVAL_MILLIS);
+			} catch (InterruptedException e) {
+				Thread.currentThread().interrupt();
+				logger.debug("Interrupted while waiting for XPath: {}", xpath);
 				return false;
 			}
 		}
-		return true;
+
+		logger.debug("Timeout waiting for XPath: {}", xpath);
+		return false;
 	}
 
 	private Thread getClosingBrowsersThread() {
-
 		return new Thread("Quit the open browsers") {
 			@Override
 			public void run() {
 				isClosing = true;
-				CopyOnWriteArrayList<RemoteWebDriver> driversCopy = new CopyOnWriteArrayList<>(drivers);
-				for (Iterator<RemoteWebDriver> iterator = driversCopy.iterator(); iterator.hasNext();) {
-					RemoteWebDriver remoteWebDriver = iterator.next();
+				for (RemoteWebDriver remoteWebDriver : drivers) {
 					try {
 						remoteWebDriver.quit();
 					} catch (final Exception e) {
 						logger.error("Error quitting the browser", e);
 					}
 				}
-
 			}
 		};
-	}
-
-	@Override
-	public void update(Observable o, Object arg) {
-		if (ServerInitializationEvent.SERVER_STOPPED_EVENT.equals(arg)) {
-			this.closeBrowsers();
-		}
 	}
 
 }
