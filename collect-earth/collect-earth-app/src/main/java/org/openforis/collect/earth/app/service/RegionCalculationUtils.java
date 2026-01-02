@@ -4,8 +4,10 @@ import java.io.File;
 import java.io.FileNotFoundException;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 
 import org.openforis.collect.earth.app.EarthConstants;
 import org.openforis.collect.earth.core.utils.CsvReaderUtils;
@@ -270,9 +272,8 @@ public class RegionCalculationUtils{
 				}
 				String attributeWhereConditions = attributeWhereConditionsSB.toString();
 
-				StringBuilder selectQuerySB = new StringBuilder();
-				selectQuerySB.append("SELECT count(  DISTINCT ").append(EarthConstants.PLOT_ID).append(") FROM ").append(schemaName).append("plot  WHERE ").append(attributeWhereConditions);
-				String plotCountSelectQuery = selectQuerySB.toString();
+				// Pre-compute all plot counts with a single GROUP BY query (optimization: avoids N+1 queries)
+				Map<String, Integer> plotCountCache = preComputePlotCounts(schemaName, attributeNames);
 
 				// Build the update query
 				StringBuilder updateQuerySB = new StringBuilder();
@@ -290,7 +291,9 @@ public class RegionCalculationUtils{
 
 						List<Object> attributeValues = extractAttributeValues(csvLine, attributeNames);
 
-						Integer plotCountPerAttributes = getJdbcTemplate().queryForObject(plotCountSelectQuery,  Integer.class, attributeValues.toArray()); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$ //$NON-NLS-4$
+						// Lookup count from pre-computed cache instead of querying database
+						String cacheKey = buildCacheKey(attributeValues);
+						Integer plotCountPerAttributes = plotCountCache.getOrDefault(cacheKey, 0);
 
 						// Calculate the expansion factor: simply the division of the area for the selected attributes by the amount of plots that match the attribute values
 						Float expansionFactorHectaresCalc = 0f;
@@ -372,5 +375,81 @@ public class RegionCalculationUtils{
 		this.jdbcTemplate = jdbcTemplate;
 	}
 
+	/**
+	 * Pre-computes plot counts for all attribute combinations in a single query.
+	 * This replaces N individual queries with one GROUP BY query.
+	 *
+	 * @param schemaName The schema prefix
+	 * @param attributeNames The list of attribute names to group by
+	 * @return A map from cache key (attribute values joined by |) to plot count
+	 */
+	private Map<String, Integer> preComputePlotCounts(String schemaName, List<String> attributeNames) {
+		Map<String, Integer> cache = new HashMap<>();
+
+		// Build GROUP BY query: SELECT attr1, attr2, ..., count(DISTINCT id) FROM plot GROUP BY attr1, attr2, ...
+		StringBuilder querySB = new StringBuilder();
+		querySB.append("SELECT ");
+
+		for (int i = 0; i < attributeNames.size(); i++) {
+			querySB.append(attributeNames.get(i));
+			querySB.append(", ");
+		}
+		querySB.append("count(DISTINCT ").append(EarthConstants.PLOT_ID).append(") as cnt ");
+		querySB.append("FROM ").append(schemaName).append("plot ");
+		querySB.append("GROUP BY ");
+		for (int i = 0; i < attributeNames.size(); i++) {
+			if (i > 0) {
+				querySB.append(", ");
+			}
+			querySB.append(attributeNames.get(i));
+		}
+
+		String groupByQuery = querySB.toString();
+
+		try {
+			List<Map<String, Object>> results = getJdbcTemplate().queryForList(groupByQuery);
+			for (Map<String, Object> row : results) {
+				List<Object> keyParts = new ArrayList<>();
+				for (String attrName : attributeNames) {
+					Object value = row.get(attrName);
+					// Handle case-insensitive column name lookup
+					if (value == null) {
+						value = row.get(attrName.toUpperCase());
+					}
+					if (value == null) {
+						value = row.get(attrName.toLowerCase());
+					}
+					keyParts.add(value);
+				}
+				String cacheKey = buildCacheKey(keyParts);
+				Object countObj = row.get("cnt");
+				if (countObj == null) {
+					countObj = row.get("CNT");
+				}
+				Integer count = countObj != null ? ((Number) countObj).intValue() : 0;
+				cache.put(cacheKey, count);
+			}
+		} catch (Exception e) {
+			logger.error("Error pre-computing plot counts with GROUP BY query", e);
+		}
+
+		return cache;
+	}
+
+	/**
+	 * Builds a cache key from a list of attribute values.
+	 * Uses "|" as delimiter since it's unlikely to appear in attribute values.
+	 */
+	private String buildCacheKey(List<Object> attributeValues) {
+		StringBuilder sb = new StringBuilder();
+		for (int i = 0; i < attributeValues.size(); i++) {
+			if (i > 0) {
+				sb.append("|");
+			}
+			Object value = attributeValues.get(i);
+			sb.append(value != null ? value.toString() : "");
+		}
+		return sb.toString();
+	}
 
 }
