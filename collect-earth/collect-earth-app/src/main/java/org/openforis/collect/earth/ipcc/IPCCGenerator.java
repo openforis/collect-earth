@@ -14,7 +14,7 @@ import org.openforis.collect.earth.app.service.LocalPropertiesService;
 import org.openforis.collect.earth.app.service.SchemaService;
 import org.openforis.collect.earth.app.view.DataFormat;
 import org.openforis.collect.earth.app.view.InfiniteProgressMonitor;
-import org.openforis.collect.earth.app.view.JFileChooserExistsAware;
+import org.openforis.collect.earth.app.view.FileChooserUtils;
 import org.openforis.collect.earth.ipcc.controller.LandUseSubdivisionUtils;
 import org.openforis.collect.earth.ipcc.controller.StratumUtils;
 import org.openforis.collect.earth.ipcc.view.AssignSubdivisionTypesWizard;
@@ -112,7 +112,7 @@ public class IPCCGenerator {
 				return;
 			}
 
-			File[] exportToFile = JFileChooserExistsAware.getFileChooserResults(DataFormat.GHGI_ZIP_FILE, true, false,
+			File[] exportToFile = FileChooserUtils.getFileChooserResults(DataFormat.GHGI_ZIP_FILE, true, false,
 					"LandUseForGHGi", localPropertiesService, null);
 			if (exportToFile == null || exportToFile.length != 1) {
 				logger.info(
