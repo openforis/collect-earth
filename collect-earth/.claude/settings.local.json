@@ -1,0 +1,42 @@
+{
+  "permissions": {
+    "allow": [
+      "Read(//mnt/c/Users/**)",
+      "Bash(cd /mnt/c/Users/Alfonso\\ Sanchez-Paus/workspace/maven.1480939002496/collect-earth && mvn clean compile:*)",
+      "Read(//usr/**)",
+      "Bash(cd /mnt/c/Users/Alfonso\\ Sanchez-Paus/workspace/maven.1480939002496/collect-earth:*)",
+      "Bash(cd:*)",
+      "Bash(export JAVA_HOME=\"C:\\\\opt\\\\jdk-23.0.2\")",
+      "Bash(mvn clean compile:*)",
+      "Bash(export JAVA_HOME=\"/c/opt/jdk-23.0.2\")",
+      "Bash(\"$JAVA_HOME/bin/java\" -version)",
+      "Bash(cmd.exe /c \"set JAVA_HOME=C:\\\\opt\\\\jdk-23.0.2 && mvn clean compile -pl collect-earth-app -am -q\")",
+      "Bash(cmd.exe /c \"set JAVA_HOME=C:\\\\opt\\\\jdk-11.0.19+7 && mvn clean compile -pl collect-earth-app -am -q\")",
+      "Bash(powershell.exe -Command \"$env:JAVA_HOME=''C:\\\\opt\\\\jdk-11.0.19+7''; mvn clean compile -pl collect-earth-app -am -q\")",
+      "Bash(powershell.exe -Command '$env:JAVA_HOME=\"\"C:\\\\opt\\\\jdk-11.0.19+7\"\"; mvn clean compile -pl collect-earth-app -am -q')",
+      "Bash(powershell.exe -Command '$env:JAVA_HOME=\"\"C:\\\\opt\\\\jdk-11.0.19+7\"\"; mvn compile -pl collect-earth-app -am -q')",
+      "Bash(cmd.exe /c \"cd /d \\\\\"C:\\\\Users\\\\Alfonso Sanchez-Paus\\\\workspace\\\\maven.1480939002496\\\\collect-earth\\\\\" && mvn compile -pl collect-earth-app -am -q\":*)",
+      "Bash(cmd.exe /c \"set JAVA_HOME=C:\\\\opt\\\\jdk-11.0.19+7 && cd /d \"\"C:\\\\Users\\\\Alfonso Sanchez-Paus\\\\workspace\\\\maven.1480939002496\\\\collect-earth\"\" && mvn compile -pl collect-earth-app -am\")",
+      "Bash(powershell.exe -Command '$env:JAVA_HOME=\"\"C:\\\\opt\\\\jdk-11.0.19+7\"\"; cd \"\"C:\\\\Users\\\\Alfonso Sanchez-Paus\\\\workspace\\\\maven.1480939002496\\\\collect-earth\"\"; mvn compile -pl collect-earth-app -am 2>&1')",
+      "Bash(cmd.exe /c \"set JAVA_HOME=C:\\\\opt\\\\jdk-11.0.19+7 && cd /d \"\"C:\\\\Users\\\\Alfonso Sanchez-Paus\\\\workspace\\\\maven.1480939002496\\\\collect-earth\"\" && mvn compile -pl collect-earth-app -am -q\")",
+      "Bash(powershell.exe -Command '$env:JAVA_HOME=\"\"C:\\\\opt\\\\jdk-11.0.19+7\"\"; cd \"\"C:\\\\Users\\\\Alfonso Sanchez-Paus\\\\workspace\\\\maven.1480939002496\\\\collect-earth\"\"; mvn compile -pl collect-earth-app -am -q 2>&1')",
+      "Bash(git add:*)",
+      "Bash(git commit -m \"$\\(cat <<''EOF''\nFix resource leaks using try-with-resources\n\n- CollectEarthUtils: Wrap FileInputStream in try-with-resources for MD5 calculation\n- EarthSurveyService: Fix FileInputStream leak when loading survey model\n- RDBExporter: Fix database connection leak with proper try-with-resources\n\n🤖 Generated with [Claude Code]\\(https://claude.com/claude-code\\)\n\nCo-Authored-By: Claude Opus 4.5 <noreply@anthropic.com>\nEOF\n\\)\")",
+      "Bash(git commit:*)",
+      "Skill(superpowers:write-plan)",
+      "Bash(cmd.exe /c \"set JAVA_HOME=C:\\\\\\\\opt\\\\\\\\jdk-11.0.19+7 && cd /d \\\\\"C:\\\\\\\\Users\\\\\\\\Alfonso Sanchez-Paus\\\\\\\\workspace\\\\\\\\maven.1480939002496\\\\\\\\collect-earth\\\\\" && mvn compile -pl collect-earth-core,collect-earth-app -am -q\":*)",
+      "Bash(powershell.exe -Command '$env:JAVA_HOME=\"\"C:\\\\\\\\opt\\\\\\\\jdk-11.0.19+7\"\"; cd \"\"C:\\\\\\\\Users\\\\\\\\Alfonso Sanchez-Paus\\\\\\\\workspace\\\\\\\\maven.1480939002496\\\\\\\\collect-earth\"\"; mvn compile -pl collect-earth-core,collect-earth-app -am -q 2>&1')",
+      "Bash(powershell.exe -Command '$env:JAVA_HOME=\"\"C:\\\\\\\\opt\\\\\\\\jdk-11.0.19+7\"\"; cd \"\"C:\\\\\\\\Users\\\\\\\\Alfonso Sanchez-Paus\\\\\\\\workspace\\\\\\\\maven.1480939002496\\\\\\\\collect-earth\"\"; mvn compile -pl collect-earth-core -am -q 2>&1')",
+      "Bash(powershell.exe -Command 'cd \"\"C:\\\\\\\\Users\\\\\\\\Alfonso Sanchez-Paus\\\\\\\\workspace\\\\\\\\maven.1480939002496\\\\\\\\collect-earth\\\\\\\\collect-earth-app\"\"; javac -version 2>&1')",
+      "Bash(powershell.exe -Command '$env:JAVA_HOME=\"\"C:\\\\\\\\opt\\\\\\\\jdk-11.0.19+7\"\"; cd \"\"C:\\\\\\\\Users\\\\\\\\Alfonso Sanchez-Paus\\\\\\\\workspace\\\\\\\\maven.1480939002496\\\\\\\\collect-earth\\\\\\\\collect-earth-app\"\"; & \"\"$env:JAVA_HOME\\\\\\\\bin\\\\\\\\javac.exe\"\" -version 2>&1')",
+      "Bash(cmd.exe /c \"cd /d \"\"C:\\\\Users\\\\Alfonso Sanchez-Paus\\\\workspace\\\\maven.1480939002496\\\\collect-earth\"\" && git status\")",
+      "Bash(cmd.exe /c \"cd /d \"\"C:\\\\Users\\\\Alfonso Sanchez-Paus\\\\workspace\\\\maven.1480939002496\\\\collect-earth\"\" && git diff --stat\")",
+      "Bash(cmd.exe /c \"cd /d \"\"C:\\\\Users\\\\Alfonso Sanchez-Paus\\\\workspace\\\\maven.1480939002496\\\\collect-earth\"\" && git log -3 --oneline\")",
+      "Bash(cmd.exe /c \"cd /d \"\"C:\\\\Users\\\\Alfonso Sanchez-Paus\\\\workspace\\\\maven.1480939002496\\\\collect-earth\"\" && git add collect-earth-app/resources/planet.html collect-earth-app/resources/planet_new.html collect-earth-app/src/main/java/org/openforis/collect/earth/app/service/BrowserService.java collect-earth-app/src/main/java/org/openforis/collect/earth/app/view/properties/ExternalServicesPanel.java collect-earth-app/src/main/resources/org/openforis/collect/earth/app/view/Messages.properties collect-earth-core/src/main/java/org/openforis/collect/earth/app/service/LocalPropertiesService.java\")",
+      "Bash(cmd.exe /c \"cd /d \"\"C:\\\\Users\\\\Alfonso Sanchez-Paus\\\\workspace\\\\maven.1480939002496\\\\collect-earth\"\" && git log -1\")",
+      "Bash(cmd.exe /c \"cd /d \"\"C:\\\\Users\\\\Alfonso Sanchez-Paus\\\\workspace\\\\maven.1480939002496\\\\collect-earth\"\" && git add collect-earth-app/src/main/java/org/openforis/collect/earth/app/server/PlacemarkBrowserServlet.java collect-earth-app/src/main/java/org/openforis/collect/earth/app/service/BrowserService.java collect-earth-app/src/main/java/org/openforis/collect/earth/app/view/properties/ExternalServicesPanel.java collect-earth-app/src/main/resources/org/openforis/collect/earth/app/view/Messages.properties collect-earth-core/src/main/java/org/openforis/collect/earth/app/service/LocalPropertiesService.java\")"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}
