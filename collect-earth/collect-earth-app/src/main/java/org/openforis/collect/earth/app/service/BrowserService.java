@@ -424,6 +424,9 @@ public class BrowserService implements InitializingBean, DisposableBean, Applica
 
 	/**
 	 * Opens a browser window with the Planet Basemaps representation of the plot.
+	 * Supports two modes:
+	 * - TFO mode: Opens the hosted planet.html page with NICFI monthly basemaps
+	 * - Daily mode: Uses local Freemarker template with Planet Daily API
 	 *
 	 * @param placemarkObject The data of the plot.
 	 * @throws BrowserNotFoundException In case the browser could not be found
@@ -432,30 +435,106 @@ public class BrowserService implements InitializingBean, DisposableBean, Applica
 		Object lock = getOrCreateLock(BrowserType.PLANET);
 		synchronized (lock) {
 			if (localPropertiesService.isPlanetMapsSupported()) {
-
-				
-				String template = GeolocalizeMapService.FREEMARKER_PLANET_DAILY_HTML_TEMPLATE;
-				String key = localPropertiesService.getValue( EarthProperty.PLANET_MAPS_KEY );
-
 				try {
-
-					String processTemplate = geoLocalizeTemplateService.getUrlToFreemarkerOutput(
-							placemarkObject,
-							template,
-							"planetMapsKey",
-							key,
-							"urlPlanetEndpointPrefix",
-							ServerController.getHostAddress(localPropertiesService.getHost(),localPropertiesService.getPort())
-						).toString();
-
-
-					webDriverPlanetHtml = navigateTo( processTemplate, webDriverPlanetHtml );
-
+					if (localPropertiesService.isPlanetMapsUseTfo()) {
+						// TFO mode: Use hosted planet.html with NICFI monthly basemaps
+						openPlanetTfoMode(placemarkObject);
+					} else {
+						// Daily mode: Use local Freemarker template with Planet Daily API
+						openPlanetDailyMode(placemarkObject);
+					}
 				} catch (final Exception e) {
 					logger.error("Problems loading Planet", e);
 				}
 			}
 		}
+	}
+
+	/**
+	 * Opens Planet imagery using the Tropical Forest Observatory (TFO) monthly basemaps.
+	 * Opens the hosted planet.html page at openforis.org with URL parameters.
+	 * Uses the same API key as Daily mode (PLANET_MAPS_KEY).
+	 */
+	private void openPlanetTfoMode(SimplePlacemarkObject placemarkObject) throws BrowserNotFoundException {
+		String apiKey = localPropertiesService.getValue(EarthProperty.PLANET_MAPS_KEY);
+		if (StringUtils.isBlank(apiKey)) {
+			logger.warn("Planet API key not configured for TFO mode");
+			return;
+		}
+
+		try {
+			StringBuilder url = new StringBuilder("https://openforis.org/fileadmin/planet.html?");
+
+			// Add latlngs parameter (polygon coordinates)
+			String latlngs = getLatLngsForPlanetHtml(placemarkObject);
+			url.append("latlngs=").append(URLEncoder.encode(latlngs, StandardCharsets.UTF_8.toString()));
+
+			// Add API key
+			url.append("&planet_api_key=").append(URLEncoder.encode(apiKey, StandardCharsets.UTF_8.toString()));
+
+			// Add optional date parameters (skip if "Oldest"/"Latest" which represent default/empty values)
+			String dateFrom = localPropertiesService.getPlanetTfoDateFrom();
+			if (StringUtils.isNotBlank(dateFrom) && !"Oldest".equals(dateFrom)) {
+				url.append("&planet_date_from=").append(URLEncoder.encode(dateFrom, StandardCharsets.UTF_8.toString()));
+			}
+
+			String dateTo = localPropertiesService.getPlanetTfoDateTo();
+			if (StringUtils.isNotBlank(dateTo) && !"Latest".equals(dateTo)) {
+				url.append("&planet_date_to=").append(URLEncoder.encode(dateTo, StandardCharsets.UTF_8.toString()));
+			}
+
+			webDriverPlanetHtml = navigateTo(url.toString(), webDriverPlanetHtml);
+
+		} catch (final Exception e) {
+			logger.error("Problems loading Planet TFO mode", e);
+		}
+	}
+
+	/**
+	 * Opens Planet imagery using the Daily API via local Freemarker template.
+	 */
+	private void openPlanetDailyMode(SimplePlacemarkObject placemarkObject) throws BrowserNotFoundException {
+		String template = GeolocalizeMapService.FREEMARKER_PLANET_DAILY_HTML_TEMPLATE;
+		String key = localPropertiesService.getValue(EarthProperty.PLANET_MAPS_KEY);
+
+		try {
+			String processTemplate = geoLocalizeTemplateService.getUrlToFreemarkerOutput(
+					placemarkObject,
+					template,
+					"planetMapsKey",
+					key,
+					"urlPlanetEndpointPrefix",
+					ServerController.getHostAddress(localPropertiesService.getHost(), localPropertiesService.getPort())
+			).toString();
+
+			webDriverPlanetHtml = navigateTo(processTemplate, webDriverPlanetHtml);
+
+		} catch (final Exception e) {
+			logger.error("Problems loading Planet Daily mode", e);
+		}
+	}
+
+	/**
+	 * Generates the latlngs JSON array parameter for the planet.html page.
+	 * Format: [[[lat,lng],[lat,lng],...],[[lat,lng],...]]
+	 */
+	private String getLatLngsForPlanetHtml(SimplePlacemarkObject placemarkObject) {
+		StringBuilder latlngs = new StringBuilder("[");
+
+		// Add outer shape
+		List<SimpleCoordinate> shape = placemarkObject.getShape();
+		if (shape != null && !shape.isEmpty()) {
+			latlngs.append("[");
+			StringJoiner joiner = new StringJoiner(",");
+			for (SimpleCoordinate coord : shape) {
+				joiner.add("[" + coord.getLatitude() + "," + coord.getLongitude() + "]");
+			}
+			latlngs.append(joiner.toString());
+			latlngs.append("]");
+		}
+
+		latlngs.append("]");
+		return latlngs.toString();
 	}
 
 	/**

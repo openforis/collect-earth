@@ -1,12 +1,19 @@
 package org.openforis.collect.earth.app.view.properties;
 
 import java.awt.GridBagConstraints;
+import java.awt.GridBagLayout;
+import java.awt.Insets;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
+import java.util.ArrayList;
+import java.util.Calendar;
 import java.util.Date;
 import java.util.HashMap;
+import java.util.List;
 
+import javax.swing.BorderFactory;
 import javax.swing.JCheckBox;
+import javax.swing.JComboBox;
 import javax.swing.JComponent;
 import javax.swing.JLabel;
 import javax.swing.JPanel;
@@ -38,8 +45,16 @@ public class ExternalServicesPanel extends AbstractPropertyPanel {
 
     // Other services
     private JCheckBox openEarthMapCheckbox;
+
+    // Planet Maps panel and components
+    private JPanel planetPanel;
     private JCheckBox openPlanetCheckbox;
     private JPasswordField planetApiKeyField;
+    private JCheckBox useTfoCheckbox;
+    private JComboBox<String> planetTfoFromMonth;
+    private JComboBox<String> planetTfoToMonth;
+    private JPanel planetTfoMonthPanel;
+
     private JCheckBox openSecureWatchCheckbox;
     private JTextField secureWatchUrlField;
     private JTextField extraUrlField;
@@ -88,13 +103,64 @@ public class ExternalServicesPanel extends AbstractPropertyPanel {
         openEarthMapCheckbox = componentFactory.createCheckbox("OptionWizard.105", EarthProperty.OPEN_EARTH_MAP);
         registerComponent(EarthProperty.OPEN_EARTH_MAP, openEarthMapCheckbox);
 
-        // Planet Maps
+        // Planet Maps - create components
         openPlanetCheckbox = componentFactory.createCheckbox("OptionWizard.100", EarthProperty.OPEN_PLANET_MAPS);
         registerComponent(EarthProperty.OPEN_PLANET_MAPS, openPlanetCheckbox);
 
         planetApiKeyField = componentFactory.createPasswordField(EarthProperty.PLANET_MAPS_KEY);
         planetApiKeyField.setEnabled(openPlanetCheckbox.isSelected());
         registerComponent(EarthProperty.PLANET_MAPS_KEY, planetApiKeyField);
+
+        // Planet TFO (Tropical Forest Observatory) mode - uses same API key as Daily
+        useTfoCheckbox = componentFactory.createCheckbox("OptionWizard.140", EarthProperty.PLANET_MAPS_USE_TFO);
+        useTfoCheckbox.setEnabled(openPlanetCheckbox.isSelected());
+        registerComponent(EarthProperty.PLANET_MAPS_USE_TFO, useTfoCheckbox);
+
+        // Month selectors for Planet TFO (September 2020 to previous month, format YYYY-MM)
+        String[] availableMonths = generateTfoMonthOptions();
+
+        // From month: "Oldest" as default (empty value), then all months
+        planetTfoFromMonth = new JComboBox<>();
+        planetTfoFromMonth.addItem("Oldest");
+        for (String month : availableMonths) {
+            planetTfoFromMonth.addItem(month);
+        }
+        planetTfoFromMonth.setToolTipText("Sets the starting month for Planet TFO comparison (Oldest = earliest available)");
+        planetTfoFromMonth.setEnabled(openPlanetCheckbox.isSelected() && useTfoCheckbox.isSelected());
+        planetTfoFromMonth.setSelectedIndex(0); // Default to "Oldest"
+        // Set saved value if exists
+        String savedFromMonth = localPropertiesService.getPlanetTfoDateFrom();
+        if (StringUtils.isNotBlank(savedFromMonth)) {
+            planetTfoFromMonth.setSelectedItem(savedFromMonth);
+        }
+        registerComponent(EarthProperty.PLANET_TFO_DATE_FROM, planetTfoFromMonth);
+
+        // To month: "Latest" as default (empty value), then all months
+        planetTfoToMonth = new JComboBox<>();
+        planetTfoToMonth.addItem("Latest");
+        for (String month : availableMonths) {
+            planetTfoToMonth.addItem(month);
+        }
+        planetTfoToMonth.setToolTipText("Sets the end month for Planet TFO comparison (Latest = most recent available)");
+        planetTfoToMonth.setEnabled(openPlanetCheckbox.isSelected() && useTfoCheckbox.isSelected());
+        planetTfoToMonth.setSelectedIndex(0); // Default to "Latest"
+        // Set saved value if exists
+        String savedToMonth = localPropertiesService.getPlanetTfoDateTo();
+        if (StringUtils.isNotBlank(savedToMonth)) {
+            planetTfoToMonth.setSelectedItem(savedToMonth);
+        }
+        registerComponent(EarthProperty.PLANET_TFO_DATE_TO, planetTfoToMonth);
+
+        // TFO month panel container
+        planetTfoMonthPanel = new JPanel();
+        planetTfoMonthPanel.add(new JLabel(Messages.getString("OptionWizard.142")));
+        planetTfoMonthPanel.add(planetTfoFromMonth);
+        planetTfoMonthPanel.add(new JLabel(Messages.getString("OptionWizard.143")));
+        planetTfoMonthPanel.add(planetTfoToMonth);
+        planetTfoMonthPanel.setVisible(openPlanetCheckbox.isSelected() && useTfoCheckbox.isSelected());
+
+        // Create Planet panel with titled border to group all Planet-related components
+        planetPanel = createPlanetPanel();
 
         // Maxar SecureWatch
         openSecureWatchCheckbox = componentFactory.createCheckbox("OptionWizard.102", EarthProperty.OPEN_MAXAR_SECUREWATCH);
@@ -152,30 +218,19 @@ public class ExternalServicesPanel extends AbstractPropertyPanel {
                 .build();
         add(openEarthMapCheckbox, constraints);
 
-        // Planet Maps
+        // Planet Maps panel (contains all Planet-related components)
         constraints = new GridBagConstraintsBuilder()
                 .gridx(0)
                 .gridy(3)
+                .gridwidth(4)
+                .fill(GridBagConstraints.HORIZONTAL)
                 .build();
-        add(openPlanetCheckbox, constraints);
-
-        // Planet API Key
-        constraints = new GridBagConstraintsBuilder()
-                .gridx(0)
-                .gridy(4)
-                .build();
-        add(new JLabel(Messages.getString("OptionWizard.101")), constraints);
-
-        constraints = new GridBagConstraintsBuilder()
-                .gridx(1)
-                .gridy(4)
-                .build();
-        add(planetApiKeyField, constraints);
+        add(planetPanel, constraints);
 
         // Maxar SecureWatch
         constraints = new GridBagConstraintsBuilder()
                 .gridx(0)
-                .gridy(5)
+                .gridy(4)
                 .gridwidth(2)
                 .build();
         add(openSecureWatchCheckbox, constraints);
@@ -183,20 +238,20 @@ public class ExternalServicesPanel extends AbstractPropertyPanel {
         // Maxar URL
         constraints = new GridBagConstraintsBuilder()
                 .gridx(0)
-                .gridy(6)
+                .gridy(5)
                 .build();
         add(new JLabel(Messages.getString("OptionWizard.1021")), constraints);
 
         constraints = new GridBagConstraintsBuilder()
                 .gridx(1)
-                .gridy(6)
+                .gridy(5)
                 .build();
         add(secureWatchUrlField, constraints);
 
         // Extra Map URL label
         constraints = new GridBagConstraintsBuilder()
                 .gridx(0)
-                .gridy(7)
+                .gridy(6)
                 .gridwidth(2)
                 .build();
         JLabel extraLabel = new JLabel(Messages.getString("OptionWizard.103"));
@@ -206,7 +261,7 @@ public class ExternalServicesPanel extends AbstractPropertyPanel {
         // Extra Map URL field
         constraints = new GridBagConstraintsBuilder()
                 .gridx(0)
-                .gridy(8)
+                .gridy(7)
                 .gridwidth(2)
                 .build();
         add(extraUrlField, constraints);
@@ -237,9 +292,32 @@ public class ExternalServicesPanel extends AbstractPropertyPanel {
             }
         });
 
-        // Planet checkbox toggles API key field
-        openPlanetCheckbox.addActionListener(e ->
-                planetApiKeyField.setEnabled(openPlanetCheckbox.isSelected()));
+        // Planet checkbox toggles API key field and TFO options
+        openPlanetCheckbox.addActionListener(e -> {
+            boolean planetSelected = openPlanetCheckbox.isSelected();
+            boolean tfoSelected = useTfoCheckbox.isSelected();
+
+            planetApiKeyField.setEnabled(planetSelected);
+            useTfoCheckbox.setEnabled(planetSelected);
+            planetTfoFromMonth.setEnabled(planetSelected && tfoSelected);
+            planetTfoToMonth.setEnabled(planetSelected && tfoSelected);
+            planetTfoMonthPanel.setVisible(planetSelected && tfoSelected);
+
+            if (!planetSelected) {
+                useTfoCheckbox.setSelected(false);
+            }
+        });
+
+        // TFO checkbox toggles between Daily and TFO mode
+        useTfoCheckbox.addActionListener(e -> {
+            boolean tfoSelected = useTfoCheckbox.isSelected();
+            boolean planetSelected = openPlanetCheckbox.isSelected();
+
+            // Month panel visible only when TFO is selected
+            planetTfoFromMonth.setEnabled(planetSelected && tfoSelected);
+            planetTfoToMonth.setEnabled(planetSelected && tfoSelected);
+            planetTfoMonthPanel.setVisible(planetSelected && tfoSelected);
+        });
 
         // SecureWatch checkbox toggles URL field
         openSecureWatchCheckbox.addActionListener(e ->
@@ -263,6 +341,98 @@ public class ExternalServicesPanel extends AbstractPropertyPanel {
     private void clearDatePickers() {
         geeAppFromDate.setDate(null);
         geeAppToDate.setDate(null);
+    }
+
+    /**
+     * Generates an array of month options for the TFO date selectors.
+     * Range: September 2020 to the previous month, format YYYY-MM
+     */
+    private String[] generateTfoMonthOptions() {
+        List<String> months = new ArrayList<>();
+
+        // TFO imagery starts from September 2020
+        final int startYear = 2020;
+        final int startMonth = 9; // September
+
+        // Get current date to calculate end (previous month)
+        Calendar now = Calendar.getInstance();
+        int currentYear = now.get(Calendar.YEAR);
+        int currentMonth = now.get(Calendar.MONTH) + 1; // Calendar.MONTH is 0-based
+
+        // Calculate previous month
+        int endYear = currentYear;
+        int endMonth = currentMonth - 1;
+        if (endMonth < 1) {
+            endMonth = 12;
+            endYear--;
+        }
+
+        // Generate all months from start to end
+        int year = startYear;
+        int month = startMonth;
+
+        while (year < endYear || (year == endYear && month <= endMonth)) {
+            // Format as YYYY-MM
+            String monthStr = String.format("%d-%02d", year, month);
+            months.add(monthStr);
+
+            // Move to next month
+            month++;
+            if (month > 12) {
+                month = 1;
+                year++;
+            }
+        }
+
+        return months.toArray(new String[0]);
+    }
+
+    /**
+     * Creates a bordered panel containing all Planet-related components.
+     */
+    private JPanel createPlanetPanel() {
+        JPanel panel = new JPanel(new GridBagLayout());
+        panel.setBorder(BorderFactory.createTitledBorder(
+                BorderFactory.createEtchedBorder(),
+                "Planet NICFI"));
+
+        GridBagConstraints gbc = new GridBagConstraints();
+        gbc.insets = new Insets(2, 5, 2, 5);
+        gbc.anchor = GridBagConstraints.WEST;
+
+        // Row 0: Enable Planet checkbox
+        gbc.gridx = 0;
+        gbc.gridy = 0;
+        gbc.gridwidth = 2;
+        panel.add(openPlanetCheckbox, gbc);
+
+        // Row 1: API Key label and field
+        gbc.gridx = 0;
+        gbc.gridy = 1;
+        gbc.gridwidth = 1;
+        panel.add(new JLabel(Messages.getString("OptionWizard.101")), gbc);
+
+        gbc.gridx = 1;
+        gbc.gridy = 1;
+        gbc.fill = GridBagConstraints.HORIZONTAL;
+        gbc.weightx = 1.0;
+        panel.add(planetApiKeyField, gbc);
+
+        // Row 2: TFO checkbox
+        gbc.gridx = 0;
+        gbc.gridy = 2;
+        gbc.gridwidth = 2;
+        gbc.fill = GridBagConstraints.NONE;
+        gbc.weightx = 0;
+        panel.add(useTfoCheckbox, gbc);
+
+        // Row 3: TFO month panel
+        gbc.gridx = 0;
+        gbc.gridy = 3;
+        gbc.gridwidth = 2;
+        panel.add(planetTfoMonthPanel, gbc);
+
+        return panel;
     }
 
     // ========== Getters ==========

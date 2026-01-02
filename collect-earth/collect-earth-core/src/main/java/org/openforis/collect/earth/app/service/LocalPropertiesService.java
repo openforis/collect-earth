@@ -87,7 +87,11 @@ public class LocalPropertiesService extends Observable {
 				"large_central_plot_side"), DISTANCE_TO_BUFFERS(
 				"distance_to_buffers"), OPEN_PLANET_MAPS(
 				"open_planet_maps"), PLANET_MAPS_KEY(
-				"planet_maps_key"),  PLANET_MAPS_CE_KEY("planet_maps_ce_key"), OPEN_GEE_APP(
+				"planet_maps_key"),  PLANET_MAPS_CE_KEY("planet_maps_ce_key"),
+				PLANET_MAPS_USE_TFO("planet_maps_use_tfo"),
+				PLANET_TFO_DATE_FROM("planet_tfo_date_from"),
+				PLANET_TFO_DATE_TO("planet_tfo_date_to"),
+				OPEN_GEE_APP(
 				"open_gee_app"), GEE_MAP_URL(
 				"gee_app_url"), OPEN_MAXAR_SECUREWATCH(
 				"open_maxar_securewatch"),MAXAR_SECUREWATCH_URL("secure_watch_url"), EARTH_MAP_URL("earth_map_url"),
@@ -201,6 +205,18 @@ public class LocalPropertiesService extends Observable {
 
 	public String getPlanetMapsCeKey() {
 		return getValue(EarthProperty.PLANET_MAPS_CE_KEY);
+	}
+
+	public boolean isPlanetMapsUseTfo() {
+		return isPropertyActivated(EarthProperty.PLANET_MAPS_USE_TFO);
+	}
+
+	public String getPlanetTfoDateFrom() {
+		return getValue(EarthProperty.PLANET_TFO_DATE_FROM);
+	}
+
+	public String getPlanetTfoDateTo() {
+		return getValue(EarthProperty.PLANET_TFO_DATE_TO);
 	}
 
 	public String getGeneratedOn() {
