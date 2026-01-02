@@ -63,23 +63,23 @@ public class SaveEarthDataServlet extends JsonPocessorServlet {
 	 */
 	private void replaceTestVariables(Map<String, String> collectedData) {
 		// REMOVE THIS!!!!
-		if (collectedData.get(EarthConstants.PLACEMARK_ID_PARAMETER).equals("$[id]")) { //$NON-NLS-1$ //$NON-NLS-2$
-			collectedData.put(EarthConstants.PLACEMARK_ID_PARAMETER, "testPlacemark"); //$NON-NLS-1$ //$NON-NLS-2$
+		if ("$[id]".equals(collectedData.get(EarthConstants.PLACEMARK_ID_PARAMETER))) { //$NON-NLS-1$
+			collectedData.put(EarthConstants.PLACEMARK_ID_PARAMETER, "testPlacemark"); //$NON-NLS-1$
 		}
 
-		if (collectedData.get("collect_integer_elevation") != null && collectedData.get("collect_integer_elevation").equals("$[elevation]")) { //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$
+		if ("$[elevation]".equals(collectedData.get("collect_integer_elevation"))) { //$NON-NLS-1$ //$NON-NLS-2$
 			collectedData.put("collect_integer_elevation", "0"); //$NON-NLS-1$ //$NON-NLS-2$
 		}
 
-		if (collectedData.get("collect_real_slope") != null && collectedData.get("collect_real_slope").equals("$[slope]")) { //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$
+		if ("$[slope]".equals(collectedData.get("collect_real_slope"))) { //$NON-NLS-1$ //$NON-NLS-2$
 			collectedData.put("collect_real_slope", "0"); //$NON-NLS-1$ //$NON-NLS-2$
 		}
 
-		if (collectedData.get("collect_real_aspect") != null && collectedData.get("collect_real_aspect").equals("$[aspect]")) { //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$
+		if ("$[aspect]".equals(collectedData.get("collect_real_aspect"))) { //$NON-NLS-1$ //$NON-NLS-2$
 			collectedData.put("collect_real_aspect", "0"); //$NON-NLS-1$ //$NON-NLS-2$
 		}
 
-		if (collectedData.get("collect_coord_location").equals("$[latitude],$[longitude]")) { //$NON-NLS-1$ //$NON-NLS-2$
+		if ("$[latitude],$[longitude]".equals(collectedData.get("collect_coord_location"))) { //$NON-NLS-1$ //$NON-NLS-2$
 			collectedData.put("collect_coord_location", "0,0"); //$NON-NLS-1$ //$NON-NLS-2$
 		}
 	}
