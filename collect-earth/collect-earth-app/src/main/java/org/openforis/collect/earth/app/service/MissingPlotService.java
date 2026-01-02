@@ -17,6 +17,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Set;
+import java.util.StringJoiner;
 
 import org.apache.commons.lang3.ArrayUtils;
 import org.openforis.collect.earth.app.EarthConstants;
@@ -59,19 +60,16 @@ public class MissingPlotService {
 			try( BufferedWriter fw = new BufferedWriter(new OutputStreamWriter(  new FileOutputStream( tempFile ), StandardCharsets.UTF_8 ) ) ){
 				Set<String> files = missingPlotData.keySet();
 				for (String plotFile : files) {
-
 					List<String[]> missingPlots = missingPlotData.get(plotFile);
-					StringBuilder csvRow = new StringBuilder("");
 					for (String[] plotData : missingPlots) {
-						csvRow = new StringBuilder("");
+						StringJoiner csvRow = new StringJoiner(",");
 						for (String data : plotData) {
-
-							data = data.replaceAll("\"", "\\\"");
-
-							csvRow.append("\"").append(data).append("\"").append(",");
+							// Use replace() instead of replaceAll() for literal string replacement
+							data = data.replace("\"", "\\\"");
+							csvRow.add("\"" + data + "\"");
 						}
-						csvRow.delete(csvRow.length()-1, csvRow.length()).append("\n");
 						fw.write(csvRow.toString());
+						fw.write("\n");
 					}
 				}
 			}
@@ -105,24 +103,23 @@ public class MissingPlotService {
 	}
 
 	private String getTextMissingPlots(Map<String, List<String[]>> missingPlotDataPerFile) {
-		StringBuilder missingPlots = new StringBuilder(""); //$NON-NLS-1$
+		StringBuilder missingPlots = new StringBuilder();
 
 		Set<String> files = missingPlotDataPerFile.keySet();
 		for (String fileToBeChecked : files) {
-
-			missingPlots.append("\n").append(Messages.getString("MissingPlotsListener.5")).append( fileToBeChecked ).append(" : \n"); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$
+			missingPlots.append("\n").append(Messages.getString("MissingPlotsListener.5")).append(fileToBeChecked).append(" : \n"); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$
 
 			List<String[]> missingIds = missingPlotDataPerFile.get(fileToBeChecked);
-			if( missingIds.isEmpty() ){
+			if (missingIds.isEmpty()) {
 				missingPlots.append("COMPLETE "); //$NON-NLS-1$
+			} else {
+				StringJoiner idJoiner = new StringJoiner(",");
+				for (String[] missingPlotData : missingIds) {
+					idJoiner.add(missingPlotData[0]);
+				}
+				missingPlots.append(idJoiner.toString());
 			}
-
-			for (String[] missingPlotData : missingIds) {
-				missingPlots.append( missingPlotData[0] ).append(","); //$NON-NLS-1$
-			}
-
-			missingPlots = missingPlots.delete(missingPlots.length() - 1, missingPlots.length() ).append("\n"); //$NON-NLS-1$
-
+			missingPlots.append("\n"); //$NON-NLS-1$
 		}
 		return missingPlots.toString();
 	}
