@@ -238,23 +238,7 @@
     		<plugin>
 			  <groupId>org.apache.maven.plugins</groupId>
 			  <artifactId>maven-compiler-plugin</artifactId>
-			  
-			      <configuration>
-			        
-			        <annotationProcessorPaths>
-			          <!-- Use the Log4j plugin processor to generate `Log4j2Plugins.dat` -->
-			          <path>
-			            <groupId>org.apache.logging.log4j</groupId>
-			            <artifactId>log4j-plugin-processor</artifactId>
-			            <version>${log4j.version}</version>
-			          </path>
-			        </annotationProcessorPaths>
-			        <annotationProcessors>
-			          <!-- Process sources using `org.apache.logging.log4j.core.config.plugins.processor.PluginProcessor` to generate `Log4j2Plugins.dat` -->
-			          <processor>org.apache.logging.log4j.core.config.plugins.processor.PluginProcessor</processor>
-			        </annotationProcessors>
-			      </configuration>
-			    
+ 
 			</plugin>
     
     
