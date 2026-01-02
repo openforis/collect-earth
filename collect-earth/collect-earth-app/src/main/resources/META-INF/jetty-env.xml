@@ -15,11 +15,11 @@
 	<New id="myds" class="org.eclipse.jetty.plus.jndi.Resource">
 		<Arg>jdbc/collectDs</Arg>
 		<Arg>
-			<New class="org.apache.commons.dbcp.BasicDataSource">
+			<New class="org.apache.commons.dbcp2.BasicDataSource">
 				<Set name="url">jdbc:sqlite::memory:</Set>
 				<Set name="driverClassName">org.sqlite.JDBC</Set>
 			</New>
-			
+
 		</Arg>
 	</New>
 	

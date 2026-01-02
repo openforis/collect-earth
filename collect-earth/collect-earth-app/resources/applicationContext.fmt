@@ -47,28 +47,28 @@
 <!-- 		<property name="jndiName" value="java:comp/env/jdbc/collectDs" /> -->
 <!-- 		<property name="resourceRef" value="true" /> -->
 <!-- 	</bean> -->
-	<!--  <bean id="dataSource" class="org.apache.commons.dbcp.BasicDataSource" destroy-method="close">
+	<!--  <bean id="dataSource" class="org.apache.commons.dbcp2.BasicDataSource" destroy-method="close">
 		<property name="driverClassName" value="org.sqlite.JDBC" />
 		<property name="url" value="jdbc:sqlite:collectEarthDatabase.db"/>
 	</bean> --> 
 	
-	<bean id="dataSource" class="org.apache.commons.dbcp.BasicDataSource" destroy-method="close">
+	<bean id="dataSource" class="org.apache.commons.dbcp2.BasicDataSource" destroy-method="close">
 		<property name="driverClassName" value="${driver}" />
 		<property name="url" value="${url}"/>
 		<property name="username" value="${username}"/>
         <property name="password" value="${password}"/>
-		<property name="maxActive" value="1" />
+		<property name="maxTotal" value="1" />
 	</bean>
 	
 	<!-- RDB DataSource -->
-	<bean id="rdbDataSource" class="org.apache.commons.dbcp.BasicDataSource" destroy-method="close">
+	<bean id="rdbDataSource" class="org.apache.commons.dbcp2.BasicDataSource" destroy-method="close">
 		<property name="driverClassName" value="${driver}" />
 		<property name="url" value="${urlSaiku}"/>
 		<property name="username" value="${username}"/>
         <property name="password" value="${password}"/>
 	</bean>
 	
-	<bean id="rdbDataSourceIpcc" class="org.apache.commons.dbcp.BasicDataSource" destroy-method="close">
+	<bean id="rdbDataSourceIpcc" class="org.apache.commons.dbcp2.BasicDataSource" destroy-method="close">
 		<property name="driverClassName" value="${driver}" />
 		<property name="url" value="${urlIpcc}"/>
 		<property name="username" value="${username}"/>
