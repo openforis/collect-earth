@@ -55,7 +55,7 @@ public class BrowserService implements InitializingBean, DisposableBean, Applica
 
 	// Browser type enumeration for thread-safe lock management
 	private enum BrowserType {
-		PLANET, SECUREWATCH, EXTRA, STREET_VIEW, GEEAPP, EARTH_MAP, TIMELAPSE
+		PLANET, SECUREWATCH, EXTRA, STREET_VIEW, GEEAPP, EARTH_MAP, TIMELAPSE, ESRI_WAYBACK
 	}
 
 	// Constants for timeouts and wait durations
@@ -86,7 +86,8 @@ public class BrowserService implements InitializingBean, DisposableBean, Applica
 
 	// Volatile to ensure visibility across threads when modified within synchronized blocks
 	private volatile RemoteWebDriver webDriverTimelapse, webDriverStreetView, webDriverPlanetHtml,
-	                        webDriverExtraMap, webDriverSecureWatch, webDriverGEEMap, webDriverEarthMap;
+	                        webDriverExtraMap, webDriverSecureWatch, webDriverGEEMap, webDriverEarthMap,
+	                        webDriverEsriWayback;
 
 	private final Map<BrowserType, Object> locks = new ConcurrentHashMap<>();
 
@@ -779,6 +780,31 @@ public class BrowserService implements InitializingBean, DisposableBean, Applica
 									webDriverTimelapse);
 				} catch (final Exception e) {
 					logger.error("Problems loading Timelapse", e);
+				}
+			}
+		}
+	}
+
+	/**
+	 * Opens a browser window with ESRI World Imagery Wayback centered on the plot.
+	 *
+	 * @param placemarkObject The center point of the plot.
+	 * @throws BrowserNotFoundException If the browser cannot be found
+	 */
+	public void openEsriWayback(SimplePlacemarkObject placemarkObject) throws BrowserNotFoundException {
+		Object lock = getOrCreateLock(BrowserType.ESRI_WAYBACK);
+		synchronized (lock) {
+			if (localPropertiesService.isEsriWaybackSupported()) {
+				try {
+					String longitude = placemarkObject.getCoord().getLongitude();
+					String latitude = placemarkObject.getCoord().getLatitude();
+					// URL format: https://livingatlas.arcgis.com/wayback/#mapCenter=LONGITUDE%2CLATITUDE%2C16&mode=explore
+					String url = "https://livingatlas.arcgis.com/wayback/#mapCenter=" +
+							URLEncoder.encode(longitude + "," + latitude + ",19", StandardCharsets.UTF_8.toString()) +
+							"&mode=explore";
+					webDriverEsriWayback = navigateTo(url, webDriverEsriWayback);
+				} catch (final Exception e) {
+					logger.error("Problems loading ESRI Wayback", e);
 				}
 			}
 		}

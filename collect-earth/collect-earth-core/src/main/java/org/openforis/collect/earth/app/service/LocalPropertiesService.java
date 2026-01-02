@@ -100,7 +100,8 @@ public class LocalPropertiesService extends Observable {
 				EARTH_MAP_SCRIPTS("earth_map_scripts"),
 				EARTH_MAP_AOI("earth_map_aoi"),
 				GEEAPP_FROM_DATE("geeapp_date_from"),
-				GEEAPP_TO_DATE("geeapp_date_to"),;
+				GEEAPP_TO_DATE("geeapp_date_to"),
+				OPEN_ESRI_WAYBACK("open_esri_wayback"),;
 
 		private String name;
 
@@ -432,6 +433,9 @@ public class LocalPropertiesService extends Observable {
 		return isPropertyActivated(EarthProperty.OPEN_EARTH_MAP);
 	}
 
+	public boolean isEsriWaybackSupported() {
+		return isPropertyActivated(EarthProperty.OPEN_ESRI_WAYBACK);
+	}
 
 	public boolean isExplorerSupported() {
 		return isPropertyActivated(EarthProperty.OPEN_GEE_EXPLORER);
