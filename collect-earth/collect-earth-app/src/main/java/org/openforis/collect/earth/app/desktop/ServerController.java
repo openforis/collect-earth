@@ -6,9 +6,9 @@ import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.ResultSet;
 import java.sql.Statement;
+import java.beans.PropertyChangeListener;
+import java.beans.PropertyChangeSupport;
 import java.util.Map;
-import java.util.Observable;
-import java.util.Observer;
 
 import org.eclipse.jetty.server.Connector;
 import org.eclipse.jetty.server.Server;
@@ -36,9 +36,11 @@ import freemarker.template.TemplateException;
  * @author Alfonso Sanchez-Paus Diaz
  *
  */
-public class ServerController extends Observable {
+public class ServerController {
 
 	private static final String EARTH_SUBDOMAIN = "earth"; //$NON-NLS-1$
+	public static final String SERVER_EVENT_PROPERTY = "serverEvent"; //$NON-NLS-1$
+	private final PropertyChangeSupport propertyChangeSupport = new PropertyChangeSupport(this);
 
 
 	public static final String SAIKU_RDB_SUFFIX = "Saiku"; //$NON-NLS-1$
@@ -187,11 +189,13 @@ public class ServerController extends Observable {
 		return urlIpccDB;
 	}
 	
-	public void startServer(Observer observeInitialization) throws Exception {
+	public void startServer(PropertyChangeListener listener) throws Exception {
 
 		localPropertiesService = new LocalPropertiesService();
 
-		this.addObserver(observeInitialization);
+		if (listener != null) {
+			this.addPropertyChangeListener(listener);
+		}
 
 		boolean postgresConnectionSwitchedtoSqlite = initilizeDataSources();
 		try {
@@ -240,18 +244,17 @@ public class ServerController extends Observable {
 			server.setHandler(getRoot());
 			server.setStopAtShutdown(true);
 			server.start();
-			setChanged();
 
 			Object attribute = getRoot().getServletContext().getAttribute(WebApplicationContext.ROOT_WEB_APPLICATION_CONTEXT_ATTRIBUTE);
 			if (attribute instanceof BeanCreationException) {
 				( (BeanCreationException) attribute).printStackTrace(System.out);
 				logger.error("Error creating the database connection", attribute); //$NON-NLS-1$
-				notifyObservers(ServerInitializationEvent.SERVER_STARTED_NO_DB_CONNECTION_EVENT);
+				fireServerEvent(ServerInitializationEvent.SERVER_STARTED_NO_DB_CONNECTION_EVENT);
 			} else {
 				if (postgresConnectionSwitchedtoSqlite){
-					notifyObservers(ServerInitializationEvent.SERVER_STARTED_WITH_DATABASE_CHANGE_EVENT);
+					fireServerEvent(ServerInitializationEvent.SERVER_STARTED_WITH_DATABASE_CHANGE_EVENT);
 				}else{
-					notifyObservers(ServerInitializationEvent.SERVER_STARTED_EVENT);
+					fireServerEvent(ServerInitializationEvent.SERVER_STARTED_EVENT);
 				}
 			}
 
@@ -278,8 +281,37 @@ public class ServerController extends Observable {
 	public void stopServer() throws Exception {
 		if (server != null && server.isRunning()) {
 			server.stop();
-			setChanged();
-			notifyObservers(ServerInitializationEvent.SERVER_STOPPED_EVENT);
+			fireServerEvent(ServerInitializationEvent.SERVER_STOPPED_EVENT);
+		}
+	}
+
+	/**
+	 * Fires a property change event to all registered listeners.
+	 */
+	private void fireServerEvent(ServerInitializationEvent event) {
+		propertyChangeSupport.firePropertyChange(SERVER_EVENT_PROPERTY, null, event);
+	}
+
+	/**
+	 * Adds a property change listener.
+	 */
+	public void addPropertyChangeListener(PropertyChangeListener listener) {
+		propertyChangeSupport.addPropertyChangeListener(listener);
+	}
+
+	/**
+	 * Removes a property change listener.
+	 */
+	public void removePropertyChangeListener(PropertyChangeListener listener) {
+		propertyChangeSupport.removePropertyChangeListener(listener);
+	}
+
+	/**
+	 * Removes all property change listeners.
+	 */
+	public void removeAllPropertyChangeListeners() {
+		for (PropertyChangeListener listener : propertyChangeSupport.getPropertyChangeListeners()) {
+			propertyChangeSupport.removePropertyChangeListener(listener);
 		}
 	}
 

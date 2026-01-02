@@ -18,8 +18,8 @@ import java.net.URISyntaxException;
 import java.net.URL;
 import java.net.URLConnection;
 import java.net.URLEncoder;
+import java.beans.PropertyChangeListener;
 import java.nio.charset.StandardCharsets;
-import java.util.Observer;
 
 import javax.swing.ImageIcon;
 import javax.swing.JOptionPane;
@@ -493,12 +493,13 @@ public class EarthApp {
 		// the server start-up
 		earthApp.loadProjectIfDoubleClicked(doubleClickedProjectFile);
 
-		final Observer observeInitialization = getServerObserver();
-		serverStartAndOpenGe(observeInitialization);
+		final PropertyChangeListener listener = getServerPropertyChangeListener();
+		serverStartAndOpenGe(listener);
 	}
 
-	private static Observer getServerObserver() {
-		return (observable, initializationEvent) -> {
+	private static PropertyChangeListener getServerPropertyChangeListener() {
+		return evt -> {
+			Object initializationEvent = evt.getNewValue();
 			if (initializationEvent.equals(ServerInitializationEvent.SERVER_STARTED_NO_DB_CONNECTION_EVENT)) {
 				serverController = null;
 			}
@@ -647,10 +648,10 @@ public class EarthApp {
 		}
 	}
 
-	private static void serverStartAndOpenGe(Observer observeInitialization) throws Exception {
+	private static void serverStartAndOpenGe(PropertyChangeListener listener) throws Exception {
 		serverController = new ServerController();
-		serverController.deleteObservers();
-		serverController.startServer(observeInitialization);
+		serverController.removeAllPropertyChangeListeners();
+		serverController.startServer(listener);
 
 		// Inform Mac OS users of the issues about opening CEP files in the Mac version
 		// of CE
