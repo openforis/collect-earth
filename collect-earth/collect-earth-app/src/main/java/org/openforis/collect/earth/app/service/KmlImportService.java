@@ -83,69 +83,79 @@ public class KmlImportService {
 		//factory.setAttribute(XMLConstants.ACCESS_EXTERNAL_DTD, ""); // Compliant
 		//factory.setAttribute(XMLConstants.ACCESS_EXTERNAL_SCHEMA, ""); // compliant
         DocumentBuilder builder = factory.newDocumentBuilder();
-        InputSource is = new InputSource(new FileReader(kmlFile));
-        Document doc = builder.parse(is);
+        Document doc;
+        try (FileReader fileReader = new FileReader(kmlFile)) {
+            InputSource is = new InputSource(fileReader);
+            doc = builder.parse(is);
+        }
 
         NodeList placemarks = doc.getElementsByTagName("Placemark"); //$NON-NLS-1$
 
-        StringBuilder sb = new StringBuilder();
+        File tempFile = File.createTempFile("kmlExtractedPointsTemplate", ".csv");
+        tempFile.deleteOnExit();
 
-        sb.append( CollectEarthProjectFileCreator.PLACEHOLDER_ID_COLUMNS_HEADER ).append(",").append( "YCoordinate" ).append(",").append( "XCoordinate" ).append(CollectEarthProjectFileCreator.PLACEHOLDER_FOR_EXTRA_COLUMNS_HEADER).append( "\r\n"); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$
+        // Write directly to file instead of building large StringBuilder in memory
+        try (BufferedWriter bw = new BufferedWriter(new OutputStreamWriter(new FileOutputStream(tempFile), StandardCharsets.UTF_8))) {
+            // Write header
+            bw.write(CollectEarthProjectFileCreator.PLACEHOLDER_ID_COLUMNS_HEADER);
+            bw.write(",YCoordinate,XCoordinate"); //$NON-NLS-1$
+            bw.write(CollectEarthProjectFileCreator.PLACEHOLDER_FOR_EXTRA_COLUMNS_HEADER);
+            bw.write("\r\n"); //$NON-NLS-1$
 
+            for (int i = 0; i < placemarks.getLength(); i++) {
+                Node placemark = placemarks.item(i);
 
-        for (int i = 0; i < placemarks.getLength(); i++) {
-            Node placemark = placemarks.item(i);
+                if (placemark.hasChildNodes()) {
+                    NodeList childNodes = placemark.getChildNodes();
+                    String longitude = ""; //$NON-NLS-1$
+                    String latitude = ""; //$NON-NLS-1$
+                    for (int j = 0; j < childNodes.getLength(); j++) {
 
-            if (placemark.hasChildNodes()) {
-            	NodeList childNodes = placemark.getChildNodes();
-            	String longitude = "",latitude = "",name = "Placemark";  //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$
-            	name = "placemark_" + i;
-            	for (int j=0; j<childNodes.getLength(); j++){
+                        Node placemarkChild = childNodes.item(j);
 
-            		Node placemarkChild = childNodes.item(j);
+                        if (placemarkChild.getNodeName().equalsIgnoreCase("Point")) { //$NON-NLS-1$
+                            String coordinates = processPoint(placemarkChild);
 
-            		if ( placemarkChild.getNodeName().equalsIgnoreCase("Point")){ //$NON-NLS-1$
-            			String coordinates = processPoint(placemarkChild);
+                            String[] splitCoords = coordinates.split(","); //$NON-NLS-1$
+                            longitude = splitCoords[0];
+                            latitude = splitCoords[1];
 
-                    	String[] splitCoords = coordinates.split(","); //$NON-NLS-1$
-            			longitude = splitCoords[0];
-            			latitude = splitCoords[1];
-            			
-            		}else if ( placemarkChild.getNodeName().equalsIgnoreCase("Multigeometry")){ //$NON-NLS-1$ // Special case forQGis generatedKML
+                        } else if (placemarkChild.getNodeName().equalsIgnoreCase("Multigeometry")) { //$NON-NLS-1$ // Special case for QGis generated KML
 
-            			NodeList childMultigemoetryNodes = placemarkChild.getChildNodes();
+                            NodeList childMultigemoetryNodes = placemarkChild.getChildNodes();
 
-                    	for (int t=0; t<childMultigemoetryNodes.getLength(); t++){
+                            for (int t = 0; t < childMultigemoetryNodes.getLength(); t++) {
 
-                    		Node multigeometryChild = childMultigemoetryNodes.item(t);
-                    		 if ( multigeometryChild.getNodeName().equals("Point")){ //$NON-NLS-1$
-                     			String coordinates = processPoint(multigeometryChild);
+                                Node multigeometryChild = childMultigemoetryNodes.item(t);
+                                if (multigeometryChild.getNodeName().equals("Point")) { //$NON-NLS-1$
+                                    String coordinates = processPoint(multigeometryChild);
 
-                             	String[] splitCoords = coordinates.split(","); //$NON-NLS-1$
+                                    String[] splitCoords = coordinates.split(","); //$NON-NLS-1$
 
-                     			longitude = splitCoords[0];
-                     			latitude = splitCoords[1];
-                    		 }
-                    	}
-            		}else if ( placemarkChild.getNodeName().equalsIgnoreCase("name")){ //$NON-NLS-1$
-            			name = placemarkChild.getFirstChild().getNodeValue();
-            		}
-            	}
-            	sb.append( CollectEarthProjectFileCreator.PLACEHOLDER_ID_COLUMNS_VALUES ).append("_").append( i+1 ).append(",").append( latitude ).append(",").append( longitude ).append(CollectEarthProjectFileCreator.PLACEHOLDER_FOR_EXTRA_COLUMNS_VALUES).append( "\r\n"); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$
+                                    longitude = splitCoords[0];
+                                    latitude = splitCoords[1];
+                                }
+                            }
+                        }
+                    }
+                    // Write row directly to file
+                    bw.write(CollectEarthProjectFileCreator.PLACEHOLDER_ID_COLUMNS_VALUES);
+                    bw.write("_"); //$NON-NLS-1$
+                    bw.write(String.valueOf(i + 1));
+                    bw.write(","); //$NON-NLS-1$
+                    bw.write(latitude);
+                    bw.write(","); //$NON-NLS-1$
+                    bw.write(longitude);
+                    bw.write(CollectEarthProjectFileCreator.PLACEHOLDER_FOR_EXTRA_COLUMNS_VALUES);
+                    bw.write("\r\n"); //$NON-NLS-1$
+                }
             }
         }
 
-        File tempFile = File.createTempFile("kmlExtractedPointsTemplate", ".csv");
-        tempFile.deleteOnExit();
-		try ( OutputStreamWriter osw = new OutputStreamWriter(  new FileOutputStream( tempFile ), StandardCharsets.UTF_8 )){
-			BufferedWriter bw = new BufferedWriter(osw);
-			bw.write(sb.toString());
-			bw.close();
+		try (BufferedInputStream bis = new BufferedInputStream( new FileInputStream(tempFile) )) {
+			CollectEarthGridTemplateGenerator generator = new CollectEarthGridTemplateGenerator();
+			return generator.generateTemplateCSVFile(earthSurveyService.getCollectSurvey(), bis);
 		}
-
-		BufferedInputStream bis = new BufferedInputStream( new FileInputStream(tempFile) );
-		CollectEarthGridTemplateGenerator generator = new CollectEarthGridTemplateGenerator();
-		return generator.generateTemplateCSVFile(earthSurveyService.getCollectSurvey(), bis);
 	}
 
 	public String processPoint(Node placemarkChild) {
