@@ -81,7 +81,7 @@ public final class MissingPlotsListener implements ActionListener {
 				currentFolder = file.getParentFile();
 		}
 
-		final File[] selectedPlotFiles = JFileChooserExistsAware.getFileChooserResults(
+		final File[] selectedPlotFiles = FileChooserUtils.getFileChooserResults(
 				DataFormat.COLLECT_COORDS, false, true, null, localPropertiesService, frame, currentFolder);
 		if( selectedPlotFiles != null && selectedPlotFiles.length > 0 ) {
 			new Thread("Finding Missing plots") {
@@ -178,7 +178,7 @@ public final class MissingPlotsListener implements ActionListener {
 	private ActionListener getSaveAsListener(File tempFile) {
 
 		return e -> {
-			final File[] saveToCsvFile = JFileChooserExistsAware.getFileChooserResults(DataFormat.COLLECT_COORDS,
+			final File[] saveToCsvFile = FileChooserUtils.getFileChooserResults(DataFormat.COLLECT_COORDS,
 					true, false, "plotsWithMissingInfo.csv", //$NON-NLS-1$ //$NON-NLS-2$
 					localPropertiesService, frame);
 

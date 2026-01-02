@@ -109,7 +109,7 @@ public final class ExportActionListener implements ActionListener {
 
         String preselectedName = getPreselectedName(exportType, recordsModifiedSince);
 
-        File[] exportToFile = JFileChooserExistsAware.getFileChooserResults(exportType, true, false, preselectedName,
+        File[] exportToFile = FileChooserUtils.getFileChooserResults(exportType, true, false, preselectedName,
                 localPropertiesService, frame);
 
         File exportedFile = null;

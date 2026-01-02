@@ -31,7 +31,7 @@ public class SaikuToolExportListener extends SaikuAnalysisListener {
 	public void actionPerformed(ActionEvent e) {
 		try {
 
-			File[] exportToFile = JFileChooserExistsAware.getFileChooserResults(DataFormat.SAIKU_ZIP, true, false, "SaikuTool",	localPropertiesService, frame);
+			File[] exportToFile = FileChooserUtils.getFileChooserResults(DataFormat.SAIKU_ZIP, true, false, "SaikuTool",	localPropertiesService, frame);
 
 			if (exportToFile != null && exportToFile.length > 0) {
 				CollectEarthWindow.startWaiting(frame);

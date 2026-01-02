@@ -1,15 +1,16 @@
 package org.openforis.collect.earth.app.view;
 
 /**
- * @author Alfonso Sanchez-Paus Diaz
+ * Represents an item in a combo box with a numeric value and display label.
  *
+ * @author Alfonso Sanchez-Paus Diaz
  */
-class ComboBoxItem {
+public class ComboBoxItem {
 
 	private Integer numberOfPoints;
 	private String label;
 
-	protected ComboBoxItem(int numberOfPoints, String label) {
+	public ComboBoxItem(int numberOfPoints, String label) {
 		super();
 		this.numberOfPoints = numberOfPoints;
 		this.label = label;

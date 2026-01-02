@@ -99,7 +99,7 @@ public final class ImportActionListener implements ActionListener {
 	}
 
 	private void importDataFrom(final ActionEvent e, final DataFormat importType) {
-		File[] filesToImport = JFileChooserExistsAware.getFileChooserResults(importType, false, true, null,
+		File[] filesToImport = FileChooserUtils.getFileChooserResults(importType, false, true, null,
 				localPropertiesService, frame);
 		final ImportXMLDialogProcessMonitor importDialogProcessMonitor = new ImportXMLDialogProcessMonitor();
 		if (filesToImport != null) {

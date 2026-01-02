@@ -331,7 +331,7 @@ public class CollectEarthMenu extends JMenuBar implements InitializingBean {
 
 			@Override
 			protected void applyProperties() {
-				final File[] selectedProjectFile = JFileChooserExistsAware.getFileChooserResults(
+				final File[] selectedProjectFile = FileChooserUtils.getFileChooserResults(
 						DataFormat.PROJECT_DEFINITION_FILE, false, false, null, localPropertiesService,
 						getFrame() );
 
