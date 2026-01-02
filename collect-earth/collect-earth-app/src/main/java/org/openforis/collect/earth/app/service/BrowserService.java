@@ -386,6 +386,12 @@ public class BrowserService implements InitializingBean, DisposableBean, Applica
 		if (driver != null) {
 			try {
 				driver.navigate().to(url);
+				// Refresh to make sure it loads the new plot
+				try {
+					driver.navigate().refresh(); // FORCE REFRESH - OTHERWISE WINDOW IS NOT REFRESHED
+				} catch (final Exception e) {
+					logger.error("Error refreshing the browser window", e);
+				}
 			} catch (final Exception e) {
 				if (retry && (e.getCause() != null && e.getCause().getMessage() != null
 						&& e.getCause().getMessage().contains("Session not found"))) {
@@ -571,12 +577,6 @@ public class BrowserService implements InitializingBean, DisposableBean, Applica
 		synchronized (lock) {
 			if (!StringUtils.isBlank(localPropertiesService.getExtraMap())) {
 				webDriverExtraMap = navigateTo( getUrlBaseIntegration(placemarkObject, localPropertiesService.getExtraMap() ) , webDriverExtraMap );
-				// Refresh to make sure it loads the new plot
-				try {
-					webDriverExtraMap.navigate().refresh(); // FORCE REFRESH - OTHERWISE WINDOW IS NOT REFRESHED
-				} catch (final Exception e) {
-					logger.error("Error refreshing the GEE App browser window", e);
-				}
 			}
 		}
 	}
@@ -705,7 +705,6 @@ public class BrowserService implements InitializingBean, DisposableBean, Applica
 			        }
 					
 					webDriverGEEMap = navigateTo(url.toString(), webDriverGEEMap);
-					webDriverGEEMap.navigate().refresh();  // FORCE REFRESH - OTHERWISE WINDOW IS NOT REFRESHED FOR SOME STRANGE REASON
 				} catch (final Exception e) {
 					logger.error("Problems loading GEE APP window", e);
 				}
@@ -753,8 +752,6 @@ public class BrowserService implements InitializingBean, DisposableBean, Applica
 							.append("&embed=true"); // Set the EMBED parameter to true so that the user does not need to log in.
 
 					webDriverEarthMap = navigateTo(url.toString(), webDriverEarthMap);
-					//Desktop.getDesktop().browse( new URI( url.toString() ) );
-					//webDriverEarthMap.navigate().refresh();  // FORCE REFRESH - OTHERWISE WINDOW IS NOT REFRESHED FOR SOME STRANGE REASON
 				} catch (final Exception e) {
 					logger.error("Problems loading Earth Map window", e);
 				}
