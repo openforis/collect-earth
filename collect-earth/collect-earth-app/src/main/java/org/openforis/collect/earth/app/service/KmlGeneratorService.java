@@ -398,21 +398,32 @@ public class KmlGeneratorService {
 			throw new KmlGenerationException("Error while generating KML");
 		}
 
-		File csvTempFile = File.createTempFile("surveyData",  "csv");
-		csvTempFile.deleteOnExit();
-		dataImportExportService.exportSurveyAsCsv(csvTempFile, false).startProcessing(); // Get the CSV with the data
-																							// collected!
-		
-		try( BufferedReader brCsvReader = new BufferedReader(new FileReader(csvTempFile)) ){
-			String headerLine = brCsvReader.readLine();
-			headerLine = headerLine.replaceAll("\"", ""); // remove the quotes that are used in the CSV
-			String[] headers = headerLine.split(",");
-			File balloonFile = generateKmlExportBallonFile(headers); // get an HTML balloon template that matches the survey
-	
-			// Using all of the files that compose the final KML it is generated and stores
-			// in KML_RESULTING_TEMP_FILE
-			kmlGenerator.generateKmlFile(exportToFile.getAbsolutePath(), csvTempFile.getAbsolutePath(), balloonFile.getAbsolutePath(), FREEMARKER_KML_OUTPUT_TEMPLATE_KML,
-					earthSurveyService.getCollectSurvey(), true);
+		File csvTempFile = null;
+		File balloonFile = null;
+		try {
+			csvTempFile = File.createTempFile("surveyData",  "csv");
+			dataImportExportService.exportSurveyAsCsv(csvTempFile, false).startProcessing(); // Get the CSV with the data
+																								// collected!
+
+			try (BufferedReader brCsvReader = new BufferedReader(new FileReader(csvTempFile))) {
+				String headerLine = brCsvReader.readLine();
+				headerLine = headerLine.replaceAll("\"", ""); // remove the quotes that are used in the CSV
+				String[] headers = headerLine.split(",");
+				balloonFile = generateKmlExportBallonFile(headers); // get an HTML balloon template that matches the survey
+
+				// Using all of the files that compose the final KML it is generated and stores
+				// in KML_RESULTING_TEMP_FILE
+				kmlGenerator.generateKmlFile(exportToFile.getAbsolutePath(), csvTempFile.getAbsolutePath(), balloonFile.getAbsolutePath(), FREEMARKER_KML_OUTPUT_TEMPLATE_KML,
+						earthSurveyService.getCollectSurvey(), true);
+			}
+		} finally {
+			// Clean up temp files
+			if (csvTempFile != null && csvTempFile.exists() && !csvTempFile.delete()) {
+				logger.warn("Failed to delete temp CSV file: {}", csvTempFile.getAbsolutePath());
+			}
+			if (balloonFile != null && balloonFile.exists() && !balloonFile.delete()) {
+				logger.warn("Failed to delete temp balloon file: {}", balloonFile.getAbsolutePath());
+			}
 		}
 	}
 
