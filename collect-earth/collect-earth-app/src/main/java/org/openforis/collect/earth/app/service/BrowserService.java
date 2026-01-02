@@ -797,7 +797,7 @@ public class BrowserService implements InitializingBean, DisposableBean, Applica
 					String latitude = placemarkObject.getCoord().getLatitude();
 					// URL format: https://livingatlas.arcgis.com/wayback/#mapCenter=LONGITUDE%2CLATITUDE%2C16&mode=explore
 					String url = "https://livingatlas.arcgis.com/wayback/#mapCenter=" +
-							URLEncoder.encode(longitude + "," + latitude + ",19", StandardCharsets.UTF_8.toString()) +
+							URLEncoder.encode(longitude + "," + latitude + ",18", StandardCharsets.UTF_8.toString()) +
 							"&mode=explore";
 					webDriverEsriWayback = navigateTo(url, webDriverEsriWayback);
 				} catch (final Exception e) {
