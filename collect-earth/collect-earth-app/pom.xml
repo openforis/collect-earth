@@ -242,10 +242,10 @@
 			      <configuration>
 			        
 			        <annotationProcessorPaths>
-			          <!-- Include `log4j-core` providing `org.apache.logging.log4j.core.config.plugins.processor.PluginProcessor` that generates `Log4j2Plugins.dat` -->
+			          <!-- Use the Log4j plugin processor to generate `Log4j2Plugins.dat` -->
 			          <path>
 			            <groupId>org.apache.logging.log4j</groupId>
-			            <artifactId>log4j-core</artifactId>
+			            <artifactId>log4j-plugin-processor</artifactId>
 			            <version>${log4j.version}</version>
 			          </path>
 			        </annotationProcessorPaths>

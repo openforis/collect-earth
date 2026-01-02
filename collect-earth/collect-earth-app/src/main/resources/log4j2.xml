@@ -19,11 +19,6 @@
 			<!-- Optional: You may define filters here -->
 		</Console>
 
-		<JSwingAppender name="jswing-log">
-			<RegexFilter regex=".*JSwingAppender.*" onMatch="DENY"
-				onMismatch="ACCEPT" />
-			<PatternLayout pattern="%-5p %d [%t] %c: %m%n" />
-		</JSwingAppender>
 
 		<Sentry name="SENTRY" dsn="https://24dd6a90c1e4461484712db99c3b3bb7:831e42661c5c4ff3aa5eca270db3f619@sentry.io/299626">
 			<!-- If specific filtering needed, define here -->
@@ -48,7 +43,6 @@
 		<Root level="INFO">
 			<AppenderRef ref="file" level="ERROR" />
 			<AppenderRef ref="STDOUT" level="INFO" />
-			<AppenderRef ref="jswing-log" level="ERROR" />
 			<AppenderRef ref="SENTRY" level="ERROR" />
 		</Root>
 	</Loggers>

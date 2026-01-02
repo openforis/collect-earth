@@ -20,8 +20,10 @@ import javax.swing.SwingUtilities;
 
 import org.apache.commons.lang3.SystemUtils;
 import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Level;
 import org.apache.logging.log4j.core.LoggerContext;
 import org.apache.logging.log4j.core.config.Configuration;
+import org.apache.logging.log4j.core.layout.PatternLayout;
 import org.kordamp.ikonli.materialdesign.MaterialDesign;
 import org.kordamp.ikonli.swing.FontIcon;
 import org.openforis.collect.earth.app.CollectEarthUtils;
@@ -104,6 +106,7 @@ public class CollectEarthMenu extends JMenuBar implements InitializingBean {
 
 	protected void init() {
 		setFrame(collectEarthWindow.getFrame());
+		ensureJSwingAppender();
 
 		// Build file menu in the menu bar.
 		this.add( getFileMenu() );
@@ -186,9 +189,11 @@ public class CollectEarthMenu extends JMenuBar implements InitializingBean {
 			final LoggerContext ctx = (LoggerContext) LogManager.getContext(false);
 			final Configuration config = ctx.getConfiguration();
 
-			JSwingAppender jSwingAppender = config.getAppender(JSWING_APPENDER_NAME);
+			JSwingAppender jSwingAppender = ensureJSwingAppender();
 
-			jSwingAppender.setExceptionShown( showException );
+			if (jSwingAppender != null) {
+				jSwingAppender.setExceptionShown( showException );
+			}
 		}
 
 				); 
@@ -559,6 +564,25 @@ public class CollectEarthMenu extends JMenuBar implements InitializingBean {
 		String displayMessage = ex.getMessage() != null ? ex.getMessage() : UNKNOWN_ERROR_MESSAGE;
 		JOptionPane.showMessageDialog(frame, displayMessage, 
 			Messages.getString("CollectEarthWindow.63"), JOptionPane.ERROR_MESSAGE);
+	}
+
+	private JSwingAppender ensureJSwingAppender() {
+		final LoggerContext ctx = (LoggerContext) LogManager.getContext(false);
+		final Configuration config = ctx.getConfiguration();
+		JSwingAppender appender = (JSwingAppender) config.getAppender(JSWING_APPENDER_NAME);
+		if (appender == null) {
+			PatternLayout layout = PatternLayout.newBuilder()
+					.withPattern("%-5p %d [%t] %c: %m%n")
+					.build();
+			appender = JSwingAppender.createAppender(JSWING_APPENDER_NAME, layout, null, true);
+			if (appender != null) {
+				appender.start();
+				config.addAppender(appender);
+				config.getRootLogger().addAppender(appender, Level.ERROR, null);
+				ctx.updateLoggers();
+			}
+		}
+		return appender;
 	}
 	
 	public List<JMenuItem> getServerMenuItems() {
