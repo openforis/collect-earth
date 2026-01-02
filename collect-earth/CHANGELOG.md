@@ -4,6 +4,30 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+### Changed
+- Refactored PropertiesDialog into modular panel components for better maintainability
+- Planet NICFI integration now uses a single API key field for both Daily and TFO modes
+- Planet date selectors include static biannual mosaics (Dec 2015 - Aug 2020) alongside monthly mosaics
+
+### Added
+- Planet NICFI Tropical Forest Observatory (TFO) monthly basemaps integration with configurable date range
+- ESRI World Imagery Wayback integration for historical satellite imagery comparison
+- Planet panel UI grouped in bordered panel for better organization
+- "Oldest" and "Latest" default options in Planet TFO date selectors
+
+### Fixed
+- Thread safety improvements in BrowserService WebDriver fields
+- Fixed N+1 query performance issue in RegionCalculationUtils
+- Fixed null pointer vulnerabilities in servlet layer
+- Fixed unsafe list access in AbstractEarthSurveyService
+- Fixed temp file cleanup in KmlGeneratorService
+- Optimized CSV generation in KmlImportService
+- Optimized string building in MissingPlotService
+- Replaced deprecated Observable with PropertyChangeSupport
+- Upgraded Apache Commons DBCP from 1.4 to 2.9.0
+
+
 ## [1.22.2] - 2025-06-15
 ### Changed
 - Updated libraries
