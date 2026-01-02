@@ -582,6 +582,13 @@ public abstract class AbstractEarthSurveyService {
 			CollectRecord record = loadRecord(plotKeyAttributes);
 			Entity rootEntity = record.getRootEntity();
 			List<Node<? extends NodeDefinition>> entities = rootEntity.getChildren(entityName);
+			if (entities == null || entities.isEmpty()) {
+				logger.warn("No entities found with name '{}' to delete", entityName);
+				PlacemarkLoadResult result = new PlacemarkLoadResult();
+				result.setSuccess(false);
+				result.setMessage("No entity found to delete");
+				return result;
+			}
 			Entity entityToDelete = (Entity) entities.get(entities.size() - 1);
 			NodeChangeSet changeSet = recordUpdater.deleteNode(entityToDelete);
 			recordManager.save(record, sessionId);
@@ -601,6 +608,13 @@ public abstract class AbstractEarthSurveyService {
 		// populate preview record using parameters
 		collectParametersHandler.saveToEntity(parameters, rootEntity);
 		List<Node<? extends NodeDefinition>> entities = rootEntity.getChildren(entityName);
+		if (entities == null || entities.isEmpty()) {
+			logger.warn("No preview entities found with name '{}' to delete", entityName);
+			PlacemarkLoadResult result = new PlacemarkLoadResult();
+			result.setSuccess(false);
+			result.setMessage("No entity found to delete");
+			return result;
+		}
 		Entity entityToDelete = (Entity) entities.get(entities.size() - 1);
 		NodeChangeSet changeSet = recordUpdater.deleteNode(entityToDelete);
 		return createPlacemarkLoadSuccessResult(record, changeSet);
@@ -639,8 +653,12 @@ public abstract class AbstractEarthSurveyService {
 	}
 
 	private void updateKeyAttributeValues(CollectRecord record, String[] keyAttributeValues) {
-		List<AttributeDefinition> keyAttributeDefinitions = getCollectSurvey().getSchema().getRootEntityDefinitions()
-				.get(0).getKeyAttributeDefinitions();
+		List<EntityDefinition> rootEntityDefinitions = getCollectSurvey().getSchema().getRootEntityDefinitions();
+		if (rootEntityDefinitions == null || rootEntityDefinitions.isEmpty()) {
+			logger.error("No root entity definitions found in survey schema");
+			return;
+		}
+		List<AttributeDefinition> keyAttributeDefinitions = rootEntityDefinitions.get(0).getKeyAttributeDefinitions();
 		for (int i = 0; i < keyAttributeValues.length; i++) {
 			String keyValue = keyAttributeValues[i];
 			AttributeDefinition keyAttrDef = keyAttributeDefinitions.get(i);
