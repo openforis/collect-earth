@@ -8,6 +8,7 @@ import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.Map;
+import java.util.StringJoiner;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.TimeUnit;
@@ -83,7 +84,8 @@ public class BrowserService implements InitializingBean, DisposableBean, Applica
 	private final Logger logger = LoggerFactory.getLogger(BrowserService.class);
 	private final Configuration freemarkerConfig = createFreemarkerConfiguration();
 
-	private RemoteWebDriver webDriverTimelapse, webDriverStreetView, webDriverPlanetHtml,
+	// Volatile to ensure visibility across threads when modified within synchronized blocks
+	private volatile RemoteWebDriver webDriverTimelapse, webDriverStreetView, webDriverPlanetHtml,
 	                        webDriverExtraMap, webDriverSecureWatch, webDriverGEEMap, webDriverEarthMap;
 
 	private final Map<BrowserType, Object> locks = new ConcurrentHashMap<>();
@@ -554,15 +556,14 @@ public class BrowserService implements InitializingBean, DisposableBean, Applica
 
 	private StringBuilder getGeoJsonSegment(List<SimpleCoordinate> coordinates) {
 		StringBuilder geoJson = new StringBuilder("[");
-		if (coordinates != null) {
+		if (coordinates != null && !coordinates.isEmpty()) {
+			StringJoiner joiner = new StringJoiner(",");
 			for (SimpleCoordinate coord : coordinates) {
-				geoJson = geoJson.append("[").append(coord.getLongitude()).append(",").append(coord.getLatitude())
-						.append("],");
+				joiner.add("[" + coord.getLongitude() + "," + coord.getLatitude() + "]");
 			}
-			// remove last character
-			geoJson = geoJson.deleteCharAt(geoJson.length() - 1);
+			geoJson.append(joiner.toString());
 		}
-		geoJson = geoJson.append("],");
+		geoJson.append("],");
 		return geoJson;
 	}
 
@@ -570,18 +571,22 @@ public class BrowserService implements InitializingBean, DisposableBean, Applica
 
 
 	private String getFeature(SimplePlacemarkObject placemarkObject, String shapeType, String name ) {
-		StringBuilder feature = new StringBuilder("{\"type\":\"Feature\",\"properties\":{\"name\":\"").append( name).append("\"},\"geometry\":");
-		feature= feature.append(   getGeoJson(placemarkObject, shapeType )).append("}");
+		StringBuilder feature = new StringBuilder("{\"type\":\"Feature\",\"properties\":{\"name\":\"");
+		feature.append(name).append("\"},\"geometry\":");
+		feature.append(getGeoJson(placemarkObject, shapeType)).append("}");
 		return feature.toString();
 	}
 
 	private String getGeoJson(SimplePlacemarkObject placemarkObject, String shapeType ) {
-
-		StringBuilder geoJson = new StringBuilder("{\"type\":\"" ).append( shapeType).append("\",\"coordinates\":[");
+		StringBuilder geoJson = new StringBuilder("{\"type\":\"");
+		geoJson.append(shapeType).append("\",\"coordinates\":[");
 		List<SimpleCoordinate> shape = placemarkObject.getShape();
-		geoJson = geoJson.append(getGeoJsonSegment(shape));
-		geoJson = geoJson.deleteCharAt(geoJson.length() - 1);
-		geoJson = geoJson.append("]}");
+		StringBuilder segment = getGeoJsonSegment(shape);
+		// Remove the trailing comma from the segment
+		if (segment.length() > 0 && segment.charAt(segment.length() - 1) == ',') {
+			segment.deleteCharAt(segment.length() - 1);
+		}
+		geoJson.append(segment).append("]}");
 		return geoJson.toString();
 	}
 
