@@ -106,12 +106,14 @@ public class RDBExporter extends RDBConnector{
 					final String viewName = (String) entry.get("name"); //$NON-NLS-1$
 					getJdbcTemplate().execute("DROP VIEW IF EXISTS " + viewName); //$NON-NLS-1$
 				}
-				try {
-					if( getJdbcTemplate().getDataSource() != null && getJdbcTemplate().getDataSource().getConnection() != null){
-						getJdbcTemplate().getDataSource().getConnection().close();
+				// Close any existing connection from the datasource
+				if (getJdbcTemplate().getDataSource() != null) {
+					try (Connection conn = getJdbcTemplate().getDataSource().getConnection()) {
+						// Connection will be auto-closed by try-with-resources
+						logger.debug("Closing database connection");
+					} catch (CannotGetJdbcConnectionException | SQLException e2) {
+						logger.error("Error closing the DB connection", e2);
 					}
-				} catch (CannotGetJdbcConnectionException | SQLException e2) {
-					logger.error("Error closing the DB connection", e2);
 				}
 				// Now we can remove the SQLite file so that a completely new connection is open
 				try {

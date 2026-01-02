@@ -24,8 +24,10 @@ public class EarthSurveyService extends AbstractEarthSurveyService implements In
 			try {
 				File idmSurveyModel = new File(getIdmFilePath());
 				if (idmSurveyModel.exists()) {
-					survey = surveyManager.unmarshalSurvey(new FileInputStream(idmSurveyModel), true, true);
-					if (surveyManager.getByUri(survey.getUri()) == null) { // NOT
+					try (FileInputStream fis = new FileInputStream(idmSurveyModel)) {
+						survey = surveyManager.unmarshalSurvey(fis, true, true);
+					}
+					if (survey != null && surveyManager.getByUri(survey.getUri()) == null) { // NOT
 																			// IN
 						// THE DB
 						String surveyName = EARTH_SURVEY_NAME

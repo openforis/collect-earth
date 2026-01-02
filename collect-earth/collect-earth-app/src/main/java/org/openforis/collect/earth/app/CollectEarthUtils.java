@@ -51,11 +51,13 @@ public class CollectEarthUtils {
 		}
 		StringBuilder md5Hex = new StringBuilder();
 
-		try( Stream<Path> paths = Files.walk(Paths.get(folder.toURI()), 3); ) {
+		try( Stream<Path> paths = Files.walk(Paths.get(folder.toURI()), 3) ) {
 			List<File> listFiles = paths.filter(Files::isRegularFile).map(Path::toFile)
 					.collect(Collectors.toList());
 			for (File file : listFiles) {
-				md5Hex.append(DigestUtils.md5Hex(new FileInputStream(file)));
+				try (FileInputStream fis = new FileInputStream(file)) {
+					md5Hex.append(DigestUtils.md5Hex(fis));
+				}
 			}
 			return DigestUtils.md5Hex(md5Hex.toString().getBytes());
 		}
