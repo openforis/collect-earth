@@ -356,13 +356,27 @@ public class ExternalServicesPanel extends AbstractPropertyPanel {
     }
 
     /**
-     * Generates an array of month options for the TFO date selectors.
-     * Range: September 2020 to the previous month, format YYYY-MM
+     * Generates an array of date options for the TFO date selectors.
+     * Includes:
+     * - Static biannual mosaics (Dec 2015 - Aug 2020)
+     * - Monthly mosaics (September 2020 to previous month)
      */
     private String[] generateTfoMonthOptions() {
-        List<String> months = new ArrayList<>();
+        List<String> dates = new ArrayList<>();
 
-        // TFO imagery starts from September 2020
+        // Static biannual mosaics (these are the only bimonthly images available)
+        dates.add("2015-12_2016-05");
+        dates.add("2016-06_2016-11");
+        dates.add("2016-12_2017-05");
+        dates.add("2017-06_2017-11");
+        dates.add("2017-12_2018-05");
+        dates.add("2018-06_2018-11");
+        dates.add("2018-12_2019-05");
+        dates.add("2019-06_2019-11");
+        dates.add("2019-12_2020-05");
+        dates.add("2020-06_2020-08");
+
+        // Monthly mosaics start from September 2020
         final int startYear = 2020;
         final int startMonth = 9; // September
 
@@ -379,14 +393,14 @@ public class ExternalServicesPanel extends AbstractPropertyPanel {
             endYear--;
         }
 
-        // Generate all months from start to end
+        // Generate monthly mosaics from September 2020 to previous month
         int year = startYear;
         int month = startMonth;
 
         while (year < endYear || (year == endYear && month <= endMonth)) {
             // Format as YYYY-MM
             String monthStr = String.format("%d-%02d", year, month);
-            months.add(monthStr);
+            dates.add(monthStr);
 
             // Move to next month
             month++;
@@ -396,7 +410,7 @@ public class ExternalServicesPanel extends AbstractPropertyPanel {
             }
         }
 
-        return months.toArray(new String[0]);
+        return dates.toArray(new String[0]);
     }
 
     /**
