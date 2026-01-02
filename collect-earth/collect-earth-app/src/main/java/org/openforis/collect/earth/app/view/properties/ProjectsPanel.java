@@ -27,7 +27,7 @@ import javax.swing.border.TitledBorder;
 import org.openforis.collect.earth.app.service.EarthProjectsService;
 import org.openforis.collect.earth.app.service.LocalPropertiesService;
 import org.openforis.collect.earth.app.view.DataFormat;
-import org.openforis.collect.earth.app.view.JFileChooserExistsAware;
+import org.openforis.collect.earth.app.view.FileChooserUtils;
 import org.openforis.collect.earth.app.view.Messages;
 
 /**
@@ -109,7 +109,7 @@ public class ProjectsPanel extends AbstractPropertyPanel {
         Window parentWindow = (Window) getTopLevelAncestor();
         JFrame parentFrame = parentWindow instanceof JFrame ? (JFrame) parentWindow : null;
 
-        File[] selectedProjectFile = JFileChooserExistsAware.getFileChooserResults(
+        File[] selectedProjectFile = FileChooserUtils.getFileChooserResults(
                 DataFormat.PROJECT_DEFINITION_FILE, false, false, null,
                 localPropertiesService, parentFrame);
 

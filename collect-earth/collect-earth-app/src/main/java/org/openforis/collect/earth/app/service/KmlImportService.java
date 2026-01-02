@@ -21,7 +21,7 @@ import javax.xml.parsers.ParserConfigurationException;
 import org.apache.commons.io.FileUtils;
 import org.openforis.collect.earth.app.service.LocalPropertiesService.EarthProperty;
 import org.openforis.collect.earth.app.view.DataFormat;
-import org.openforis.collect.earth.app.view.JFileChooserExistsAware;
+import org.openforis.collect.earth.app.view.FileChooserUtils;
 import org.openforis.collect.earth.app.view.Messages;
 import org.openforis.collect.io.metadata.collectearth.CollectEarthGridTemplateGenerator;
 import org.openforis.collect.io.metadata.collectearth.CollectEarthProjectFileCreator;
@@ -205,7 +205,7 @@ public class KmlImportService {
 	}
 
 	private File selectAndSaveToCsv(File convertedCsvFile, String name) throws IOException {
-		final File[] saveToCsvFile = JFileChooserExistsAware.getFileChooserResults(DataFormat.COLLECT_COORDS, true, false, "importedFromKml_" + name + ".csv", //$NON-NLS-1$ //$NON-NLS-2$
+		final File[] saveToCsvFile = FileChooserUtils.getFileChooserResults(DataFormat.COLLECT_COORDS, true, false, "importedFromKml_" + name + ".csv", //$NON-NLS-1$ //$NON-NLS-2$
 				localPropertiesService, frame);
 
 		if( saveToCsvFile != null && saveToCsvFile.length == 1 ){
@@ -223,7 +223,7 @@ public class KmlImportService {
 	}*/
 
 	private File chooseKmlFile() {
-		final File[] selectedPlotFiles = JFileChooserExistsAware.getFileChooserResults(DataFormat.KML_FILE, false, false, null,
+		final File[] selectedPlotFiles = FileChooserUtils.getFileChooserResults(DataFormat.KML_FILE, false, false, null,
 				localPropertiesService, frame);
 
 		if( selectedPlotFiles != null && selectedPlotFiles.length == 1 ){

@@ -19,7 +19,7 @@ import org.openforis.collect.earth.app.EarthConstants;
 import org.openforis.collect.earth.app.service.EarthSurveyService;
 import org.openforis.collect.earth.app.service.LocalPropertiesService;
 import org.openforis.collect.earth.app.view.DataFormat;
-import org.openforis.collect.earth.app.view.JFileChooserExistsAware;
+import org.openforis.collect.earth.app.view.FileChooserUtils;
 import org.openforis.collect.manager.RecordManager;
 import org.openforis.collect.model.CollectRecord;
 import org.openforis.collect.model.CollectRecord.Step;
@@ -55,7 +55,7 @@ public final class FixMissingPlotsFileInfo {
 
 
 	public void findMissingPlots(JFrame frame) {
-		final File[] selectedPlotFiles = JFileChooserExistsAware.getFileChooserResults(DataFormat.COLLECT_COORDS, false, true, null,
+		final File[] selectedPlotFiles = FileChooserUtils.getFileChooserResults(DataFormat.COLLECT_COORDS, false, true, null,
 				localPropertiesService, frame);
 
 		final Map<String, List<String>> plotIdsByFile = getPlotIdsByFile(selectedPlotFiles);
