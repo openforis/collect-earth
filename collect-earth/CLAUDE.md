@@ -6,7 +6,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 Collect Earth is a desktop application for augmented visual interpretation that integrates with Google Earth to enable data collection through satellite imagery. It's a Maven multi-module Java project that combines a Swing desktop UI with an embedded Jetty web server to communicate with Google Earth via dynamically generated KML files.
 
-**Key Technologies**: Java 8, Spring 5.3.27, Jetty 9.4.58, GeoTools 24.4, Collect Framework 4.0.101
+**Key Technologies**: Java 8, Spring 5.3.27, Jetty 9.4.58, GeoTools 24.4, Collect Framework 4.0.102
 
 ## Build Commands
 
@@ -42,27 +42,31 @@ mvn test -Dtest=YourTestClass#testMethod
 ```
 
 ### Release Process
-The project uses Maven Release Plugin with Bitrock InstallBuilder for creating installers:
+The project uses Maven Release Plugin with Bitrock InstallBuilder for creating installers. Release commands must be run from the `collect-earth-app` module directory (not the repo root) and activate the `assembly` profile defined in `maven_settings.xml`:
 
 ```bash
+cd collect-earth-app
+
 # Prepare release (updates versions, creates git tags)
-mvn release:clean release:prepare
+mvn -P assembly release:clean release:prepare
 
 # Rollback if preparation fails
 mvn release:rollback
 
 # Perform release (builds and deploys installers)
-mvn release:perform
+mvn -P assembly release:perform
 
 # Resume failed perform from specific module
-mvn release:perform -rf:collect-earth-installer
+mvn -P assembly release:perform -rf:collect-earth-installer
 ```
 
-Note: Requires Bitrock InstallBuilder and configured `maven_settings.xml` with installer paths and credentials.
+Notes:
+- Requires Bitrock InstallBuilder and a configured `maven_settings.xml` (root of repo) with installer paths and Nexus/GitHub credentials.
+- After `release:perform`, manually upload the generated `collectEarthUpdater.xml` to the openforis.org location referenced by `collect-earth-installer/src/main/resources/update.ini` so the in-app updater detects the new version.
 
 ## Module Architecture
 
-The project is organized into 5 Maven modules with clear separation of concerns:
+The project is organized into **4 Maven modules** in the reactor build (`collect-earth-core`, `collect-earth-app`, `collect-earth-sampler`, `collect-earth-installer` — see `<modules>` in the root `pom.xml`), plus a **detached `collect-earth-grid` module** on disk that is not part of the reactor and must be built separately.
 
 ### 1. collect-earth-core
 Core business logic and data handling. Contains:
@@ -91,11 +95,16 @@ Geospatial utilities for sampling and KML generation. Contains:
 - **Template Processing**: `FreemarkerTemplateUtils` for generating KML/HTML from templates
 - **KMZ Compression**: `KmzGenerator` for creating compressed KML files
 
-### 4. collect-earth-grid
-Grid generation utilities for systematic global sampling. Contains implementations for creating systematic grids with different storage backends (Hibernate, JDBC, CSV).
-
-### 5. collect-earth-installer
+### 4. collect-earth-installer
 Packaging and installer generation using Bitrock InstallBuilder. Produces Windows .exe, Linux .run, and macOS .dmg installers with bundled JRE.
+
+### Detached: collect-earth-grid
+Grid generation utilities for systematic global sampling (Hibernate, JDBC, CSV backends). This module exists on disk but is **not listed in the root pom's `<modules>`**, so `mvn install` at the root will not build it. Its `<parent>` version may lag behind the root version. Build it on its own when needed:
+
+```bash
+cd collect-earth-grid
+mvn install
+```
 
 ## Application Flow
 
@@ -211,7 +220,7 @@ The application supports 9 languages through resource bundles:
 Key dependencies are managed in parent `pom.xml`:
 - Java version: 1.8
 - Spring: 5.3.27
-- Collect Framework: 4.0.101 (provides survey schema and record management)
+- Collect Framework: 4.0.102 (provides survey schema and record management)
 - GeoTools: 24.4 (geospatial operations)
 - Jetty: 9.4.58 (embedded server)
 - Jackson: 2.15.2 (JSON processing)
