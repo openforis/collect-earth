@@ -4,18 +4,17 @@
 	<parent>
 		<groupId>org.openforis.collect.earth</groupId>
 		<artifactId>collect-earth</artifactId>
-		<version>1.23.0-SNAPSHOT</version>
+		<version>1.23.1-SNAPSHOT</version>
 	</parent>
 	<name>Collect Earth Application</name>
 	<artifactId>collect-earth-app</artifactId>
-  <version>1</version>
 	<packaging>jar</packaging>
 
 	<properties>
 		<jetty.version>9.4.58.v20250814</jetty.version>
 		<selenium.version>4.39.0</selenium.version>
 		<classpath.prefix>earth-libs</classpath.prefix>
-		<log4j.version>2.25.3</log4j.version>
+		<log4j.version>2.25.4</log4j.version>
 	</properties>
 
 	<dependencies>
@@ -248,6 +247,6 @@
 
 
   <scm>
-    <tag>collect-earth-1</tag>
+    <tag>collect-earth-1.23.0</tag>
   </scm>
 </project>
