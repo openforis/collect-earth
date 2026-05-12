@@ -69,6 +69,10 @@ public class BrowserService implements InitializingBean, DisposableBean, Applica
 
 	// Template paths
 	private static final String TEMPLATE_FOR_DGMAP_JS = "resources/javascript_dgmap.fmt";
+	private static final String TEMPLATE_FOR_ESRI_WAYBACK_JS = "resources/javascript_esri_wayback.fmt";
+
+	// Element ID used to detect that the ESRI Wayback SPA has rendered its map view.
+	private static final String ESRI_WAYBACK_READY_CSS = ".esri-view";
 
 
 	@Autowired
@@ -205,6 +209,13 @@ public class BrowserService implements InitializingBean, DisposableBean, Applica
 		return processJavascriptTemplate(data, TEMPLATE_FOR_DGMAP_JS);
 	}
 
+	private String getEsriWaybackJavascript(SimplePlacemarkObject placemarkObject) {
+		final Map<String, Object> data = geoLocalizeTemplateService.getPlacemarkData(placemarkObject);
+		data.put("latitude", placemarkObject.getCoord().getLatitude());
+		data.put("longitude", placemarkObject.getCoord().getLongitude());
+		return processJavascriptTemplate(data, TEMPLATE_FOR_ESRI_WAYBACK_JS);
+	}
+
 	private String processJavascriptTemplate(final Map<String, Object> data, String templateName) {
 		String result = null;
 		try (StringWriter fw = new StringWriter(); BufferedWriter out = new BufferedWriter(fw)) {
@@ -325,6 +336,50 @@ public class BrowserService implements InitializingBean, DisposableBean, Applica
 			}
 		}
 		return success;
+	}
+
+	/**
+	 * Injects the plot polygon overlay and an auto cookie-consent click into
+	 * ESRI Living Atlas Wayback. The Wayback app is a React SPA built on the
+	 * ArcGIS Maps SDK for JavaScript; the injected script locates the MapView
+	 * via React fibers and adds the plot as a Graphic.
+	 *
+	 * @param placemarkObject The placemark data to overlay
+	 * @param driver The WebDriver instance
+	 * @return true if the script was injected, false otherwise
+	 */
+	private boolean loadPlotInEsriWayback(SimplePlacemarkObject placemarkObject, RemoteWebDriver driver) {
+		boolean success = true;
+		if (driver != null && driver instanceof JavascriptExecutor) {
+			try {
+				// Wait for the ArcGIS MapView DOM container to be present before injecting.
+				if (!waitForCssElement(ESRI_WAYBACK_READY_CSS, driver)) {
+					logger.debug("ESRI Wayback view container not detected before timeout - injecting anyway");
+				}
+				String waybackJs = getEsriWaybackJavascript(placemarkObject);
+				driver.executeScript(waybackJs);
+			} catch (final Exception e) {
+				processSeleniumError(e);
+				success = false;
+			}
+		}
+		return success;
+	}
+
+	private boolean waitForCssElement(String cssSelector, RemoteWebDriver driver) {
+		long endTime = System.currentTimeMillis() + TimeUnit.SECONDS.toMillis(ELEMENT_WAIT_TIMEOUT_SECONDS);
+		while (System.currentTimeMillis() < endTime) {
+			if (isCssElementPresent(cssSelector, driver)) {
+				return true;
+			}
+			try {
+				Thread.sleep(WAIT_POLL_INTERVAL_MILLIS);
+			} catch (InterruptedException e) {
+				Thread.currentThread().interrupt();
+				return false;
+			}
+		}
+		return false;
 	}
 
 	public void clickOnElements(RemoteWebDriver driver, String cssSelector) {
@@ -800,6 +855,7 @@ public class BrowserService implements InitializingBean, DisposableBean, Applica
 							URLEncoder.encode(longitude + "," + latitude + ",18", StandardCharsets.UTF_8.toString()) +
 							"&mode=explore";
 					webDriverEsriWayback = navigateTo(url, webDriverEsriWayback);
+					loadPlotInEsriWayback(placemarkObject, webDriverEsriWayback);
 				} catch (final Exception e) {
 					logger.error("Problems loading ESRI Wayback", e);
 				}

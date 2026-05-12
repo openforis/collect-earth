@@ -1,0 +1,228 @@
+(function () {
+    // ===== Plot geometry from Collect Earth (lon, lat pairs in WGS84) =====
+    // Outer rings = the plot polygon and any buffers (placemark.multiShape).
+    // Inner rings = the sample squares (placemark.points[].shape).
+    var rings = [
+        <#list placemark.multiShape as shp>
+        [
+            <#list shp as coord>
+            [${coord.longitude}, ${coord.latitude}]<#if coord?has_next>,</#if>
+            </#list>
+        ]<#if shp?has_next>,</#if>
+        </#list>
+        <#if placemark.points??>
+            <#list placemark.points as square>
+            ,[
+                <#list square.shape as sc>
+                [${sc.longitude}, ${sc.latitude}]<#if sc?has_next>,</#if>
+                </#list>
+            ]
+            </#list>
+        </#if>
+    ];
+    var plotCenter = [${longitude}, ${latitude}];
+    var PLOT_TAG = "collectEarthPlot";
+
+    // ===== 1) Auto-accept cookie banners (idempotent, fire-and-forget) =====
+    function clickCookieBanners() {
+        var selectors = [
+            "#onetrust-accept-btn-handler",
+            "button#onetrust-accept-btn-handler",
+            ".onetrust-close-btn-handler",
+            "button.optanon-allow-all",
+            "#accept-recommended-btn-handler",
+            ".esri-cookie-banner__button",
+            "button[aria-label*='Accept' i]",
+            "button[title*='Accept' i]"
+        ];
+        for (var i = 0; i < selectors.length; i++) {
+            var btn = document.querySelector(selectors[i]);
+            if (btn && btn.offsetParent !== null) {
+                try { btn.click(); console.log("[CE] cookies accepted via " + selectors[i]); return true; }
+                catch (e) { /* try next */ }
+            }
+        }
+        // Fallback: text-based match
+        var buttons = document.querySelectorAll("button, a");
+        for (var j = 0; j < buttons.length; j++) {
+            var t = (buttons[j].textContent || "").trim().toLowerCase();
+            if (t === "accept all cookies" || t === "accept all" || t === "i accept" || t === "accept") {
+                try { buttons[j].click(); console.log("[CE] cookies accepted via text match"); return true; }
+                catch (e) { /* keep going */ }
+            }
+        }
+        return false;
+    }
+
+    // Try once now, then poll for up to ~10s in case the banner appears late.
+    clickCookieBanners();
+    var cookieTries = 0;
+    var cookiePoll = setInterval(function () {
+        if (clickCookieBanners() || ++cookieTries > 20) clearInterval(cookiePoll);
+    }, 500);
+
+    // ===== 2) Find the ArcGIS MapView via React fibers on .esri-view =====
+    function getReactInstance(el) {
+        if (!el) return null;
+        var key = Object.keys(el).find(function (k) {
+            return k.indexOf("__reactFiber") === 0 || k.indexOf("__reactInternalInstance") === 0;
+        });
+        return key ? el[key] : null;
+    }
+
+    function looksLikeMapView(v) {
+        return v && v.declaredClass && /MapView/.test(v.declaredClass)
+               && v.map && typeof v.goTo === "function";
+    }
+
+    function findMapView() {
+        // Try a quick well-known global first.
+        if (window.view && looksLikeMapView(window.view)) return window.view;
+
+        // Walk React fibers from any .esri-view container.
+        var hosts = document.querySelectorAll(".esri-view, .esri-view-root");
+        for (var i = 0; i < hosts.length; i++) {
+            var fiber = getReactInstance(hosts[i]);
+            // Walk up & sideways through stateNode / memoizedProps / return chain.
+            var seen = new Set();
+            var stack = [fiber];
+            var hops = 0;
+            while (stack.length && hops++ < 500) {
+                var node = stack.pop();
+                if (!node || seen.has(node)) continue;
+                seen.add(node);
+                var candidates = [node.stateNode, node.memoizedState, node.memoizedProps];
+                for (var c = 0; c < candidates.length; c++) {
+                    var cand = candidates[c];
+                    if (looksLikeMapView(cand)) return cand;
+                    if (cand && typeof cand === "object") {
+                        for (var k in cand) {
+                            try { if (looksLikeMapView(cand[k])) return cand[k]; } catch (e) {}
+                        }
+                    }
+                }
+                if (node.return) stack.push(node.return);
+                if (node.child) stack.push(node.child);
+                if (node.sibling) stack.push(node.sibling);
+            }
+        }
+
+        // Last resort: scan window for any MapView-shaped object.
+        for (var prop in window) {
+            try { if (looksLikeMapView(window[prop])) return window[prop]; } catch (e) {}
+        }
+        return null;
+    }
+
+    // ===== 3) Draw the plot as an SVG overlay positioned via view.toScreen() =====
+    // The modern Wayback bundle does not expose Dojo require(), so instead of
+    // creating esri/Graphic objects we project lon/lat -> screen pixels with
+    // the MapView's toScreen() and draw the rings as SVG polygons. The overlay
+    // is re-projected on every extent/size change so it stays glued to the map.
+    function makePointFactory(view) {
+        // view.center is a Point instance; cloning is the safest way to get
+        // a typed Point without needing access to the bundled Point class.
+        if (view.center && typeof view.center.clone === "function") {
+            return function (lon, lat) {
+                var p = view.center.clone();
+                p.longitude = lon;
+                p.latitude = lat;
+                return p;
+            };
+        }
+        // Fallback: plain object — toScreen tolerates this in most builds.
+        return function (lon, lat) {
+            return { x: lon, y: lat, spatialReference: { wkid: 4326 } };
+        };
+    }
+
+    function ensureOverlay(view) {
+        var host = view.container;
+        if (!host) return null;
+        // Make sure the host is a positioning context.
+        var hostStyle = window.getComputedStyle(host);
+        if (hostStyle.position === "static") host.style.position = "relative";
+
+        var existing = host.querySelector("svg[data-ce-overlay='" + PLOT_TAG + "']");
+        if (existing) existing.parentNode.removeChild(existing);
+
+        var svgNS = "http://www.w3.org/2000/svg";
+        var svg = document.createElementNS(svgNS, "svg");
+        svg.setAttribute("data-ce-overlay", PLOT_TAG);
+        svg.style.position = "absolute";
+        svg.style.top = "0";
+        svg.style.left = "0";
+        svg.style.width = "100%";
+        svg.style.height = "100%";
+        svg.style.pointerEvents = "none";
+        svg.style.zIndex = "5";
+        host.appendChild(svg);
+        return svg;
+    }
+
+    function drawPlot(view) {
+        var svg = ensureOverlay(view);
+        if (!svg) {
+            console.warn("[CE] no view.container to attach overlay to");
+            return;
+        }
+        var svgNS = "http://www.w3.org/2000/svg";
+        var toPoint = makePointFactory(view);
+
+        function redraw() {
+            // Clear children
+            while (svg.firstChild) svg.removeChild(svg.firstChild);
+
+            rings.forEach(function (ring) {
+                if (!ring || ring.length < 3) return;
+                var pts = [];
+                for (var i = 0; i < ring.length; i++) {
+                    var sp;
+                    try { sp = view.toScreen(toPoint(ring[i][0], ring[i][1])); }
+                    catch (e) { sp = null; }
+                    if (sp) pts.push(sp.x.toFixed(1) + "," + sp.y.toFixed(1));
+                }
+                if (pts.length < 3) return;
+                var poly = document.createElementNS(svgNS, "polygon");
+                poly.setAttribute("points", pts.join(" "));
+                poly.setAttribute("fill", "none");
+                poly.setAttribute("stroke", "#FFFF00");
+                poly.setAttribute("stroke-width", "2");
+                poly.setAttribute("vector-effect", "non-scaling-stroke");
+                svg.appendChild(poly);
+            });
+        }
+
+        // Initial draw, then keep in sync with pan/zoom/resize.
+        redraw();
+        try { view.watch("extent", redraw); } catch (e) {}
+        try { view.watch("size", redraw); } catch (e) {}
+        try { view.watch("rotation", redraw); } catch (e) {}
+
+        // Center on the plot once.
+        try {
+            view.goTo({ target: [plotCenter[0], plotCenter[1]], zoom: 18 }, { animate: false });
+        } catch (e) { /* ignore */ }
+
+        console.log("[CE] plot drawn on ESRI Wayback (" + rings.length + " ring(s))");
+    }
+
+    // Wait for the MapView to be present and ready before drawing.
+    var attempts = 0;
+    var maxAttempts = 60; // ~30s
+    var poll = setInterval(function () {
+        var view = findMapView();
+        if (view) {
+            clearInterval(poll);
+            if (view.ready) {
+                drawPlot(view);
+            } else {
+                view.when(function () { drawPlot(view); },
+                          function (err) { console.warn("[CE] view.when error", err); });
+            }
+        } else if (++attempts > maxAttempts) {
+            clearInterval(poll);
+            console.warn("[CE] Could not locate the ArcGIS MapView on this page");
+        }
+    }, 500);
+})();
