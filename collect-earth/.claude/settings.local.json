@@ -36,7 +36,11 @@
       "Bash(cmd.exe /c \"cd /d \"\"C:\\\\Users\\\\Alfonso Sanchez-Paus\\\\workspace\\\\maven.1480939002496\\\\collect-earth\"\" && git log -1\")",
       "Bash(cmd.exe /c \"cd /d \"\"C:\\\\Users\\\\Alfonso Sanchez-Paus\\\\workspace\\\\maven.1480939002496\\\\collect-earth\"\" && git add collect-earth-app/src/main/java/org/openforis/collect/earth/app/server/PlacemarkBrowserServlet.java collect-earth-app/src/main/java/org/openforis/collect/earth/app/service/BrowserService.java collect-earth-app/src/main/java/org/openforis/collect/earth/app/view/properties/ExternalServicesPanel.java collect-earth-app/src/main/resources/org/openforis/collect/earth/app/view/Messages.properties collect-earth-core/src/main/java/org/openforis/collect/earth/app/service/LocalPropertiesService.java\")",
       "Bash(cmd.exe /c \"cd /d \"\"C:\\\\Users\\\\Alfonso Sanchez-Paus\\\\workspace\\\\maven.1480939002496\\\\collect-earth\"\" && git log --oneline -10\")",
-      "Bash(cmd.exe /c \"cd /d \"\"C:\\\\Users\\\\Alfonso Sanchez-Paus\\\\workspace\\\\maven.1480939002496\\\\collect-earth\"\" && git log --oneline -20\")"
+      "Bash(cmd.exe /c \"cd /d \"\"C:\\\\Users\\\\Alfonso Sanchez-Paus\\\\workspace\\\\maven.1480939002496\\\\collect-earth\"\" && git log --oneline -20\")",
+      "Bash(git fetch *)",
+      "Skill(sentry:seer)",
+      "mcp__plugin_sentry_sentry__find_organizations",
+      "mcp__plugin_sentry_sentry__search_issues"
     ],
     "deny": [],
     "ask": []
