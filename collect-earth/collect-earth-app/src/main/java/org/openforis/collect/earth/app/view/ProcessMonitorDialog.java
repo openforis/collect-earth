@@ -32,20 +32,23 @@ public abstract class ProcessMonitorDialog<V,S extends ProcessStatus> extends Th
 			public void run() {
 				boolean keepRunning = true;
 				while (keepRunning) {
-					if (process.getStatus() != null) {
+					final AbstractProcess<V, S> currentProcess = process;
+					final S status = currentProcess == null ? null : currentProcess.getStatus();
+					final ProgressMonitor monitor = progressMonitor;
+					if (status != null && monitor != null) {
 						SwingUtilities.invokeLater( () -> {
-								progressMonitor.setProgress(process.getStatus().getProgressPercent());
-								progressMonitor.setNote(getProcessActionMessage() + process.getStatus().getProcessed() + "/" //$NON-NLS-1$ //$NON-NLS-2$
-										+ process.getStatus().getTotal());
+								monitor.setProgress(status.getProgressPercent());
+								monitor.setNote(getProcessActionMessage() + status.getProcessed() + "/" //$NON-NLS-1$ //$NON-NLS-2$
+										+ status.getTotal());
 						});
 
-						if (progressMonitor.isCanceled() || process.getStatus().isComplete() || process.getStatus().isError() ) {
+						if (monitor.isCanceled() || status.isComplete() || status.isError() ) {
 							SwingUtilities.invokeLater( () -> {
-									progressMonitor.close();
-									if( process.getStatus().isError() ){
+									monitor.close();
+									if( status.isError() ){
 										StringBuilder parsisngErrorMsg = new StringBuilder("\r\n"); //$NON-NLS-1$
-										if( process instanceof CSVDataImportProcess ){
-											List<ParsingError> errors = ((CSVDataImportProcess) process ).getStatus().getErrors();
+										if( currentProcess instanceof CSVDataImportProcess ){
+											List<ParsingError> errors = ((CSVDataImportProcess) currentProcess ).getStatus().getErrors();
 
 											int numberOfErrors = 0;
 											for (ParsingError parsingError : errors) {
@@ -62,13 +65,13 @@ public abstract class ProcessMonitorDialog<V,S extends ProcessStatus> extends Th
 
 										}
 
-										String primaryErrorMsg = process.getStatus().getErrorMessage();
+										String primaryErrorMsg = status.getErrorMessage();
 										JOptionPane.showMessageDialog(null, "Attention : " + ( primaryErrorMsg!=null?primaryErrorMsg:"") + parsisngErrorMsg.toString() ); //$NON-NLS-1$ //$NON-NLS-2$
 									}
 							});
 							Toolkit.getDefaultToolkit().beep();
-							if ( !process.getStatus().isComplete() && !process.getStatus().isError() ) {
-								process.cancel();
+							if ( !status.isComplete() && !status.isError() ) {
+								currentProcess.cancel();
 								logger.warn("Task canceled.\n"); //$NON-NLS-1$
 							}
 							keepRunning = false;
