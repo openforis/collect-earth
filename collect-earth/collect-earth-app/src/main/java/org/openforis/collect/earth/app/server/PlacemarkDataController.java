@@ -1,10 +1,14 @@
 package org.openforis.collect.earth.app.server;
 
 import java.io.IOException;
+import java.util.Map;
 
 import javax.servlet.http.HttpServletResponse;
 
 import org.openforis.collect.earth.app.logging.GAlogger;
+import org.openforis.collect.earth.app.service.sync.PlotSyncJournalService;
+import org.openforis.collect.earth.core.model.PlacemarkLoadResult;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -19,6 +23,10 @@ import org.springframework.web.bind.annotation.RequestParam;
  */
 @Controller
 public class PlacemarkDataController extends AbstractPlacemarkDataController {
+
+	@Autowired
+	private PlotSyncJournalService plotSyncJournalService;
+
 	@Override
 	@GetMapping(value="/placemark-info-expanded")
 	public void placemarkInfoExpanded(@RequestParam("id") String placemarkId, HttpServletResponse response) throws IOException {
@@ -40,6 +48,16 @@ public class PlacemarkDataController extends AbstractPlacemarkDataController {
 		}catch(Exception e){
 			logger.error("Error saving data" , e);
 		}
+	}
+
+	@Override
+	public PlacemarkLoadResult processCollectedData(PlacemarkUpdateRequest updateRequest,
+			Map<String, String> collectedData, String placemarkKey) {
+		PlacemarkLoadResult result = super.processCollectedData(updateRequest, collectedData, placemarkKey);
+		if (result.isSuccess()) {
+			plotSyncJournalService.enqueuePlacemarkSave(placemarkKey, collectedData, result);
+		}
+		return result;
 	}
 
 }

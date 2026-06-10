@@ -47,9 +47,12 @@ public class EarthConstants {
 	}
 
 	public static final String COLLECT_EARTH_DATABASE_FILE_NAME = "collectEarthDatabase.db";
+	public static final String COLLECT_EARTH_SYNC_DATABASE_FILE_NAME = "collectEarthSync.db";
 
 	public static final String COLLECT_EARTH_DATABASE_SQLITE_DB = FolderFinder.getCollectEarthDataFolder()
 			+ File.separator + COLLECT_EARTH_DATABASE_FILE_NAME;
+	public static final String COLLECT_EARTH_SYNC_DATABASE_SQLITE_DB = FolderFinder.getCollectEarthDataFolder()
+			+ File.separator + COLLECT_EARTH_SYNC_DATABASE_FILE_NAME;
 
 	public static final String COLLECT_REASON_BLANK_NOT_SPECIFIED_MESSAGE = "Reason blank not specified";
 

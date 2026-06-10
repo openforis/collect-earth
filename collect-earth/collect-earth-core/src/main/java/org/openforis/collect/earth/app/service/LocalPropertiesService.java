@@ -101,7 +101,12 @@ public class LocalPropertiesService extends Observable {
 				EARTH_MAP_AOI("earth_map_aoi"),
 				GEEAPP_FROM_DATE("geeapp_date_from"),
 				GEEAPP_TO_DATE("geeapp_date_to"),
-				OPEN_ESRI_WAYBACK("open_esri_wayback"),;
+				OPEN_ESRI_WAYBACK("open_esri_wayback"),
+				SYNC_ENABLED("sync_enabled"),
+				SYNC_SERVER_URL("sync_server_url"),
+				SYNC_PROJECT_ID("sync_project_id"),
+				SYNC_CLIENT_ID("sync_client_id"),
+				SYNC_INTERVAL_SECONDS("sync_interval_seconds"),;
 
 		private String name;
 
@@ -469,6 +474,22 @@ public class LocalPropertiesService extends Observable {
 
 	public boolean isTimelapseSupported() {
 		return isPropertyActivated(EarthProperty.OPEN_TIMELAPSE);
+	}
+
+	public boolean isSyncEnabled() {
+		return isPropertyActivated(EarthProperty.SYNC_ENABLED);
+	}
+
+	public String getSyncProjectId() {
+		return getValue(EarthProperty.SYNC_PROJECT_ID);
+	}
+
+	public String getSyncClientId() {
+		return getValue(EarthProperty.SYNC_CLIENT_ID);
+	}
+
+	public String getSyncServerUrl() {
+		return getValue(EarthProperty.SYNC_SERVER_URL);
 	}
 
 	public boolean isUsingPostgreSqlDB() {
