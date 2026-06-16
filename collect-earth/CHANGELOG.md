@@ -5,14 +5,29 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
+### Added
+- CSV data export now supports multiple entities (#52)
+
+### Changed
+- Updated Collect framework to the latest version
+- Added Sentry Seer plugin for AI-assisted error analysis
+- Pinned commons-lang3 / commons-text dependency versions
+
+### Fixed
+- Fixed a NullPointerException in the process monitor dialog
+
+
+## [1.23.7] - 2026-05-12
 ### Changed
 - Refactored PropertiesDialog into modular panel components for better maintainability
 - Planet NICFI integration now uses a single API key field for both Daily and TFO modes
 - Planet date selectors include static biannual mosaics (Dec 2015 - Aug 2020) alongside monthly mosaics
+- Updated Google Earth Engine app to a new, faster URL
 
 ### Added
 - Planet NICFI Tropical Forest Observatory (TFO) monthly basemaps integration with configurable date range
 - ESRI World Imagery Wayback integration for historical satellite imagery comparison
+- ESRI Wayback now overlays the plot polygon on historical imagery and auto-accepts cookies
 - Planet panel UI grouped in bordered panel for better organization
 - "Oldest" and "Latest" default options in Planet TFO date selectors
 
