@@ -500,6 +500,12 @@ public class EarthApp {
 	private static PropertyChangeListener getServerPropertyChangeListener() {
 		return evt -> {
 			Object initializationEvent = evt.getNewValue();
+
+			if (initializationEvent.equals(ServerInitializationEvent.SERVER_FAILED_TO_RESTART_EVENT)) {
+				handleFatalRestartFailure();
+				return;
+			}
+
 			if (initializationEvent.equals(ServerInitializationEvent.SERVER_STARTED_NO_DB_CONNECTION_EVENT)) {
 				serverController = null;
 			}
@@ -522,6 +528,21 @@ public class EarthApp {
 				}
 			}
 		};
+	}
+
+	/**
+	 * Called when the embedded server could not be restarted (typically because the Spring web context cannot
+	 * be reloaded in-process after a project/configuration change). Informs the user and shuts Collect Earth
+	 * down in a controlled manner instead of leaving an orphan process running with no window.
+	 */
+	private static void handleFatalRestartFailure() {
+		closeSplash();
+		logger.error("Collect Earth could not restart after a configuration/project change. Exiting in a controlled manner."); //$NON-NLS-1$
+		SwingUtilities.invokeLater(() -> {
+			JOptionPane.showMessageDialog(null, Messages.getString("EarthApp.restartFailed"), //$NON-NLS-1$
+					Messages.getString("EarthApp.restartFailedTitle"), JOptionPane.ERROR_MESSAGE); //$NON-NLS-1$
+			System.exit(1);
+		});
 	}
 
 	private void openKmlOnGoogleEarth() {

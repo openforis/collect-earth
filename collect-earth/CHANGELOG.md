@@ -15,6 +15,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 - Fixed a NullPointerException in the process monitor dialog
+- Changing the project (or applying property changes) now fails gracefully: if the internal server cannot be reloaded, Collect Earth shows a clear message and closes cleanly instead of leaving an orphan window-less process running
 
 
 ## [1.23.7] - 2026-05-12
