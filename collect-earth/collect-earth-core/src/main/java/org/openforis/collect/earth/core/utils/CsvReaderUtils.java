@@ -49,15 +49,16 @@ public class CsvReaderUtils {
 		CSVReader csvReader = null;
 		for (char c : possibleSeparators) {
 			CSVReader commaSeparatedReader = getCsvReader(csvFile, c, skipHeader);
-			if (!checkContainsCoordinates) {
-				return commaSeparatedReader;
-			} else if (checkCsvReaderWorks(commaSeparatedReader)) {
-				csvReader = getCsvReader(csvFile, c, skipHeader); // Get the reader again so that it starts from the
-																	// first column
-				break;
-			} else {
-				commaSeparatedReader.close();
-			}
+                       if (!checkContainsCoordinates) {
+                               return commaSeparatedReader;
+                       } else if (checkCsvReaderWorks(commaSeparatedReader)) {
+                               commaSeparatedReader.close();
+                               csvReader = getCsvReader(csvFile, c, skipHeader); // Get the reader again so that it starts from the
+                                                                               // first column
+                               break;
+                       } else {
+                               commaSeparatedReader.close();
+                       }
 		}
 
 		if (csvReader == null) {
