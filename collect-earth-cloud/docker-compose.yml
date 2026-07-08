@@ -1,0 +1,16 @@
+# Local development stack: Postgres for the "postgres" store backend.
+# Run `docker compose up -d`, then `npm run migrate`, then `STORE_BACKEND=postgres npm run dev`.
+services:
+  postgres:
+    image: postgres:16
+    environment:
+      POSTGRES_USER: ce
+      POSTGRES_PASSWORD: ce
+      POSTGRES_DB: collect_earth_cloud
+    ports:
+      - "5432:5432"
+    volumes:
+      - ce_pgdata:/var/lib/postgresql/data
+
+volumes:
+  ce_pgdata:
