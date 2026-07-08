@@ -27,6 +27,7 @@ import javax.swing.border.TitledBorder;
 import org.openforis.collect.earth.app.service.EarthProjectsService;
 import org.openforis.collect.earth.app.service.LocalPropertiesService;
 import org.openforis.collect.earth.app.view.DataFormat;
+import org.openforis.collect.earth.app.view.Messages;
 import org.openforis.collect.earth.app.view.FileChooserUtils;
 import org.openforis.collect.earth.app.view.Messages;
 
@@ -169,7 +170,7 @@ public class ProjectsPanel extends AbstractPropertyPanel {
         list.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
         list.setLayoutOrientation(JList.VERTICAL);
         list.setVisibleRowCount(-1);
-        list.setToolTipText("Double-click a project to load it, or select and use the button below");
+        list.setToolTipText(Messages.getString("ProjectsPanel.listTooltip"));
 
         // Add double-click listener to load project
         list.addMouseListener(new MouseAdapter() {

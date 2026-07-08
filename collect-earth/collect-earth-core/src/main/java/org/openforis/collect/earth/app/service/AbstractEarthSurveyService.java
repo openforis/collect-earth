@@ -19,6 +19,10 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
+import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
 
 import javax.swing.JOptionPane;
 
@@ -96,6 +100,172 @@ public abstract class AbstractEarthSurveyService {
 		recordUpdater = new RecordUpdater();
 		recordUpdater.setClearDependentCodeAttributes(true);
 		recordUpdater.setClearNotRelevantAttributes(true);
+	}
+
+	// ==================================================================================
+	// Working-record cache + write-behind persistence.
+	//
+	// Rationale: every value change in the Google Earth balloon used to trigger three
+	// remote database round-trips (load summaries + load full record + save). Against a
+	// remote (e.g. AWS RDS) PostgreSQL this made data entry feel very slow. We now keep
+	// the currently-edited record in memory, apply changes to it directly, and persist
+	// asynchronously (write-behind) shortly after the last change, on explicit "submit &
+	// validate", on plot switch (LRU eviction) and on application shutdown.
+	// The behaviour can be disabled via the "deferred_save_disabled" property.
+	// ==================================================================================
+
+	/** Milliseconds of inactivity after the last change before a dirty record is flushed. */
+	private static final long FLUSH_DEBOUNCE_MS = 1000;
+	/** How often the background flusher checks for dirty records that are due to be saved. */
+	private static final long FLUSH_POLL_MS = 500;
+	/** Maximum number of records kept in memory at once (LRU-evicted, flushed on eviction). */
+	private static final int MAX_WORKING_RECORDS = 200;
+
+	private static class WorkingRecord {
+		private final CollectRecord record;
+		private boolean dirty;
+		private long lastChangeAtMs;
+		private String sessionId;
+
+		WorkingRecord(CollectRecord record) {
+			this.record = record;
+		}
+	}
+
+	// Access-ordered map so that the eldest (least-recently-used) plot is evicted first.
+	private final Map<String, WorkingRecord> workingRecords = new LinkedHashMap<String, WorkingRecord>(64, 0.75f, true) {
+		private static final long serialVersionUID = 1L;
+
+		@Override
+		protected boolean removeEldestEntry(Map.Entry<String, WorkingRecord> eldest) {
+			if (size() > MAX_WORKING_RECORDS) {
+				flush(eldest.getValue());
+				// Only evict if it was persisted successfully; never drop unsaved data.
+				return !eldest.getValue().dirty;
+			}
+			return false;
+		}
+	};
+
+	private ScheduledExecutorService flushExecutor;
+
+	/**
+	 * Callback invoked right after a record has been successfully persisted to the
+	 * local database. Implementations MUST return quickly and MUST NOT throw: the
+	 * callback runs while this service's monitor is held (e.g. during the
+	 * write-behind flush and on LRU eviction). Intended for cheap bookkeeping such
+	 * as enqueueing the record for background cloud synchronization.
+	 */
+	public interface RecordSavedListener {
+		void recordSaved(String recordKeyCsv, CollectRecord record);
+	}
+
+	private final List<RecordSavedListener> recordSavedListeners = new CopyOnWriteArrayList<>();
+
+	public void addRecordSavedListener(RecordSavedListener listener) {
+		recordSavedListeners.add(listener);
+	}
+
+	private void notifyRecordSaved(CollectRecord record) {
+		if (recordSavedListeners.isEmpty()) {
+			return;
+		}
+		List<String> keyValues = record.getRootEntityKeyValues();
+		String recordKeyCsv = keyValues == null ? "" : String.join(",", keyValues); //$NON-NLS-1$ //$NON-NLS-2$
+		for (RecordSavedListener listener : recordSavedListeners) {
+			try {
+				listener.recordSaved(recordKeyCsv, record);
+			} catch (Exception e) {
+				logger.error("RecordSavedListener failed for record key " + recordKeyCsv, e); //$NON-NLS-1$
+			}
+		}
+	}
+
+	private boolean isDeferredSaveEnabled() {
+		return localPropertiesService.isDeferredSaveEnabled();
+	}
+
+	private static String cacheKey(String[] keyAttributes) {
+		return String.join(",", keyAttributes);
+	}
+
+	/**
+	 * Returns the in-memory working copy of the record for the given plot, loading it
+	 * from the database (and caching it) the first time it is requested. Returns
+	 * {@code null} if no record exists yet for the plot.
+	 */
+	private CollectRecord getWorkingRecord(String key, String[] keyAttributes) {
+		WorkingRecord wr = workingRecords.get(key);
+		if (wr != null) {
+			return wr.record;
+		}
+		CollectRecord record = loadRecord(keyAttributes);
+		if (record != null) {
+			workingRecords.put(key, new WorkingRecord(record));
+		}
+		return record;
+	}
+
+	/**
+	 * Persist a record change. When deferred save is enabled and the change is not an
+	 * explicit "submit &amp; validate", the record is only marked dirty and a background
+	 * flush is scheduled; otherwise it is saved synchronously right away.
+	 */
+	private void persistOrDefer(String key, CollectRecord record, String sessionId, boolean saveNow) {
+		WorkingRecord wr = workingRecords.get(key);
+		if (wr == null) {
+			wr = new WorkingRecord(record);
+			workingRecords.put(key, wr);
+		}
+		wr.sessionId = sessionId;
+		wr.dirty = true;
+		wr.lastChangeAtMs = System.currentTimeMillis();
+		if (saveNow || !isDeferredSaveEnabled()) {
+			flush(wr);
+		} else {
+			scheduleBackgroundFlusher();
+		}
+	}
+
+	/** Save a single dirty record to the database. Callers must hold this service's monitor. */
+	private void flush(WorkingRecord wr) {
+		if (wr == null || !wr.dirty) {
+			return;
+		}
+		try {
+			recordManager.save(wr.record, wr.sessionId);
+			wr.dirty = false;
+			notifyRecordSaved(wr.record);
+		} catch (Exception e) {
+			logger.error("Error flushing record to the database", e); //$NON-NLS-1$
+		}
+	}
+
+	private synchronized void scheduleBackgroundFlusher() {
+		if (flushExecutor == null) {
+			flushExecutor = Executors.newSingleThreadScheduledExecutor(r -> {
+				Thread t = new Thread(r, "CollectEarth-record-flusher"); //$NON-NLS-1$
+				t.setDaemon(true);
+				return t;
+			});
+			flushExecutor.scheduleWithFixedDelay(this::flushDueRecords, FLUSH_POLL_MS, FLUSH_POLL_MS, TimeUnit.MILLISECONDS);
+		}
+	}
+
+	private synchronized void flushDueRecords() {
+		long now = System.currentTimeMillis();
+		for (WorkingRecord wr : workingRecords.values()) {
+			if (wr.dirty && now - wr.lastChangeAtMs >= FLUSH_DEBOUNCE_MS) {
+				flush(wr);
+			}
+		}
+	}
+
+	/** Persist all pending (dirty) records. Called on shutdown and on survey/project change. */
+	public synchronized void flushAll() {
+		for (WorkingRecord wr : workingRecords.values()) {
+			flush(wr);
+		}
 	}
 
 	private void addLocalProperties(Map<String, String> placemarkParameters) {
@@ -200,7 +370,7 @@ public abstract class AbstractEarthSurveyService {
 		return placemarkParameters;
 	}
 
-	public PlacemarkLoadResult loadPlacemarkExpanded(String[] keyAttributeValues) {
+	public synchronized PlacemarkLoadResult loadPlacemarkExpanded(String[] keyAttributeValues) {
 		CollectRecord record;
 		if (isPreviewRecordID(keyAttributeValues)) {
 			try {
@@ -210,7 +380,9 @@ public abstract class AbstractEarthSurveyService {
 				record = null;
 			}
 		} else {
-			record = loadRecord(keyAttributeValues);
+			// Serve (and cache) the in-memory working copy so that any not-yet-flushed
+			// edits are shown when the balloon is reopened.
+			record = getWorkingRecord(cacheKey(keyAttributeValues), keyAttributeValues);
 		}
 		if (record == null) {
 			PlacemarkLoadResult result = new PlacemarkLoadResult();
@@ -324,7 +496,11 @@ public abstract class AbstractEarthSurveyService {
 		return parameters != null && "true".equals(parameters.get(ACTIVELY_SAVED_PARAMETER)); //$NON-NLS-1$
 	}
 
-	public void setCollectSurvey(CollectSurvey collectSurvey) {
+	public synchronized void setCollectSurvey(CollectSurvey collectSurvey) {
+		// Persist any pending changes and drop cached records: they belong to the
+		// previous survey/project and must not leak into the new one.
+		flushAll();
+		workingRecords.clear();
 		this.collectSurvey = collectSurvey;
 		this.collectSurvey.setSurveyContext(createCollectEarthSurveyContext(collectSurvey.getContext()));
 	}
@@ -427,6 +603,7 @@ public abstract class AbstractEarthSurveyService {
 
 			ceRecord.setModifiedDate(new Date());
 			recordManager.save(ceRecord);
+			notifyRecordSaved(ceRecord);
 
 			success = true;
 		} catch (Exception e) {
@@ -444,11 +621,12 @@ public abstract class AbstractEarthSurveyService {
 			if (isPreviewRecordID(plotKeyAttributes)) {
 				return updatePreviewPlacemarkData(plotKeyAttributes, parameters);
 			} else {
-				CollectRecord record = loadRecord(plotKeyAttributes);
+				String key = cacheKey(plotKeyAttributes);
+				CollectRecord record = getWorkingRecord(key, plotKeyAttributes);
 				if (record == null) {
-					return updatePlacemarkDataNewRecord(plotKeyAttributes, parameters, sessionId);
+					return updatePlacemarkDataNewRecord(plotKeyAttributes, parameters, sessionId, key);
 				} else {
-					return updatePlacemarkDataExistingRecord(parameters, sessionId, partialUpdate, record);
+					return updatePlacemarkDataExistingRecord(parameters, sessionId, partialUpdate, record, key);
 				}
 			}
 		} catch (Exception e) {
@@ -476,7 +654,7 @@ public abstract class AbstractEarthSurveyService {
 
 
 	private PlacemarkLoadResult updatePlacemarkDataNewRecord(String[] plotKeyAttributes, Map<String, String> parameters,
-			String sessionId) throws RecordPersistenceException {
+			String sessionId, String key) throws RecordPersistenceException {
 		CollectRecord record = createRecord();
 
 		collectParametersHandler.saveToEntity(parameters, record.getRootEntity(), true);
@@ -488,13 +666,13 @@ public abstract class AbstractEarthSurveyService {
 
 		updateKeyAttributeValues(record, plotKeyAttributes);
 		record.setModifiedDate(new Date());
-		recordManager.save(record, sessionId);
+		persistOrDefer(key, record, sessionId, isPlacemarkSavedActively(parameters));
 		return createPlacemarkLoadSuccessResult(record);
 	}
 
 
 	private PlacemarkLoadResult updatePlacemarkDataExistingRecord(Map<String, String> parameters, String sessionId,
-			boolean partialUpdate, CollectRecord record) throws RecordPersistenceException {
+			boolean partialUpdate, CollectRecord record, String key) throws RecordPersistenceException {
 		// Populate the data of the record using the HTTP parameters
 		// received
 		Entity plotEntity = record.getRootEntity();
@@ -526,7 +704,9 @@ public abstract class AbstractEarthSurveyService {
 			record.setModifiedDate(new Date());
 		}
 
-		recordManager.save(record, sessionId);
+		// Persisted synchronously when the user explicitly submits & validates, otherwise
+		// deferred (write-behind) to keep interactive field changes fast on a remote DB.
+		persistOrDefer(key, record, sessionId, userClickOnSubmitAndValidate);
 
 		if (partialUpdate) {
 			return createPlacemarkLoadSuccessResult(record, changeSet);
@@ -546,10 +726,11 @@ public abstract class AbstractEarthSurveyService {
 
 	private PlacemarkLoadResult updatePlacemarkAddNewEntityToExistingRecord(String[] plotKeyAttributes, String entityName, String sessionId) {
 		try {
-			CollectRecord record = loadRecord(plotKeyAttributes);
+			String key = cacheKey(plotKeyAttributes);
+			CollectRecord record = getWorkingRecord(key, plotKeyAttributes);
 			Entity rootEntity = record.getRootEntity();
 			NodeChangeSet changeSet = recordUpdater.addEntity(rootEntity, entityName);
-			recordManager.save(record, sessionId);
+			persistOrDefer(key, record, sessionId, true);
 			return createPlacemarkLoadSuccessResult(record, changeSet);
 		} catch (Exception e) {
 			logger.error("Error creating new entity: " + e.getMessage(), e); //$NON-NLS-1$
@@ -579,7 +760,8 @@ public abstract class AbstractEarthSurveyService {
 
 	private PlacemarkLoadResult updatePlacemarkDeleteEntityToExistingRecord(String[] plotKeyAttributes, String entityName, String sessionId) {
 		try {
-			CollectRecord record = loadRecord(plotKeyAttributes);
+			String key = cacheKey(plotKeyAttributes);
+			CollectRecord record = getWorkingRecord(key, plotKeyAttributes);
 			Entity rootEntity = record.getRootEntity();
 			List<Node<? extends NodeDefinition>> entities = rootEntity.getChildren(entityName);
 			if (entities == null || entities.isEmpty()) {
@@ -591,7 +773,7 @@ public abstract class AbstractEarthSurveyService {
 			}
 			Entity entityToDelete = (Entity) entities.get(entities.size() - 1);
 			NodeChangeSet changeSet = recordUpdater.deleteNode(entityToDelete);
-			recordManager.save(record, sessionId);
+			persistOrDefer(key, record, sessionId, true);
 			return createPlacemarkLoadSuccessResult(record, changeSet);
 		} catch (Exception e) {
 			logger.error("Error creating new entity: " + e.getMessage(), e); //$NON-NLS-1$

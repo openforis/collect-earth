@@ -101,7 +101,12 @@ public class LocalPropertiesService extends Observable {
 				EARTH_MAP_AOI("earth_map_aoi"),
 				GEEAPP_FROM_DATE("geeapp_date_from"),
 				GEEAPP_TO_DATE("geeapp_date_to"),
-				OPEN_ESRI_WAYBACK("open_esri_wayback"),;
+				OPEN_ESRI_WAYBACK("open_esri_wayback"),
+				DEFERRED_SAVE_DISABLED("deferred_save_disabled"),
+				CLOUD_SYNC_ENABLED("cloud_sync_enabled"),
+				CLOUD_SYNC_URL("cloud_sync_url"),
+				CLOUD_PROJECT_ID("cloud_project_id"),
+				CLOUD_SYNC_TOKEN("cloud_sync_token"),;
 
 		private String name;
 
@@ -210,6 +215,16 @@ public class LocalPropertiesService extends Observable {
 
 	public boolean isPlanetMapsUseTfo() {
 		return isPropertyActivated(EarthProperty.PLANET_MAPS_USE_TFO);
+	}
+
+	/**
+	 * Whether balloon field changes are persisted to the database in a deferred
+	 * (write-behind) manner instead of on every single change. Enabled by default;
+	 * set {@code deferred_save_disabled=true} in earth.properties to force the
+	 * previous synchronous-save-on-every-change behaviour.
+	 */
+	public boolean isDeferredSaveEnabled() {
+		return !Boolean.parseBoolean(getValue(EarthProperty.DEFERRED_SAVE_DISABLED));
 	}
 
 	public String getPlanetTfoDateFrom() {
@@ -475,8 +490,63 @@ public class LocalPropertiesService extends Observable {
 		return getCollectDBDriver().equals(CollectDBDriver.POSTGRESQL);
 	}
 
+	/**
+	 * Whether the collected records should be synchronized in the background to a
+	 * Collect Earth cloud project (local SQLite remains the working store). Sync is
+	 * driven by the {@link CollectDBDriver#CLOUD} database mode; the
+	 * {@code cloud_sync_enabled} property acts only as an emergency kill-switch
+	 * (sync runs unless it is explicitly set to {@code false}).
+	 */
+	public boolean isCloudSyncEnabled() {
+		if (!getCollectDBDriver().equals(CollectDBDriver.CLOUD)) {
+			return false;
+		}
+		String killSwitch = getValue(EarthProperty.CLOUD_SYNC_ENABLED);
+		return StringUtils.isBlank(killSwitch) || Boolean.parseBoolean(killSwitch);
+	}
+
+	public boolean isUsingCloudDB() {
+		return getCollectDBDriver().equals(CollectDBDriver.CLOUD);
+	}
+
+	/** Base URL of the Collect Earth cloud service, e.g. https://ce-cloud.example.org */
+	public String getCloudSyncUrl() {
+		return getValue(EarthProperty.CLOUD_SYNC_URL);
+	}
+
+	public String getCloudProjectId() {
+		return getValue(EarthProperty.CLOUD_PROJECT_ID);
+	}
+
+	public String getCloudSyncToken() {
+		return getValue(EarthProperty.CLOUD_SYNC_TOKEN);
+	}
+
+	public void setCloudSyncEnabled(boolean enabled) {
+		setValue(EarthProperty.CLOUD_SYNC_ENABLED, Boolean.toString(enabled));
+	}
+
+	public void saveCloudSyncUrl(String url) {
+		setValue(EarthProperty.CLOUD_SYNC_URL, url);
+	}
+
+	public void saveCloudProjectId(String projectId) {
+		setValue(EarthProperty.CLOUD_PROJECT_ID, projectId);
+	}
+
+	public void saveCloudSyncToken(String token) {
+		setValue(EarthProperty.CLOUD_SYNC_TOKEN, token);
+	}
+
+	public void saveCollectDBDriver(CollectDBDriver driver) {
+		setValue(EarthProperty.DB_DRIVER, driver.name());
+	}
+
 	public boolean isUsingSqliteDB() {
-		return getCollectDBDriver().equals(CollectDBDriver.SQLITE);
+		// CLOUD mode also stores data in the local SQLite database (it only adds
+		// background sync), so it shares all SQLite-specific behaviour.
+		CollectDBDriver driver = getCollectDBDriver();
+		return driver.equals(CollectDBDriver.SQLITE) || driver.equals(CollectDBDriver.CLOUD);
 	}
 
 

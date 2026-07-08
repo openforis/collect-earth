@@ -27,6 +27,7 @@ import org.apache.logging.log4j.core.layout.PatternLayout;
 import org.kordamp.ikonli.materialdesign.MaterialDesign;
 import org.kordamp.ikonli.swing.FontIcon;
 import org.openforis.collect.earth.app.CollectEarthUtils;
+import org.openforis.collect.earth.app.EarthConstants.CollectDBDriver;
 import org.openforis.collect.earth.app.EarthConstants.UI_LANGUAGE;
 import org.openforis.collect.earth.app.logging.JSwingAppender;
 import org.openforis.collect.earth.app.service.AnalysisSaikuService;
@@ -40,6 +41,8 @@ import org.openforis.collect.earth.app.service.KmlGeneratorService;
 import org.openforis.collect.earth.app.service.KmlImportService;
 import org.openforis.collect.earth.app.service.LocalPropertiesService;
 import org.openforis.collect.earth.app.service.MissingPlotService;
+import org.openforis.collect.earth.app.service.cloud.CloudApiClient;
+import org.openforis.collect.earth.app.service.cloud.CloudSyncService;
 import org.openforis.collect.earth.app.view.ExportActionListener.RecordsToExport;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.InitializingBean;
@@ -84,6 +87,12 @@ public class CollectEarthMenu extends JMenuBar implements InitializingBean {
 
 	@Autowired
 	private transient RemovePlotsFromDBDlg removePlotsFromDBDlg;
+
+	@Autowired
+	private transient CloudSyncService cloudSyncService;
+
+	@Autowired
+	private transient CloudApiClient cloudApiClient;
 
 	private static final long serialVersionUID = -2457052260968029351L;
 	private static final String USER_MANUAL_FILENAME = "UserManual.pdf";
@@ -160,9 +169,9 @@ public class CollectEarthMenu extends JMenuBar implements InitializingBean {
 					showErrorDialog("Error opening user manual", ex);
 				}
 			} else {
-				JOptionPane.showMessageDialog(frame, 
-					"User manual not found: " + USER_MANUAL_FILENAME,
-					"File Not Found", JOptionPane.WARNING_MESSAGE);
+				JOptionPane.showMessageDialog(frame,
+					String.format(Messages.getString("CollectEarthMenu.userManualNotFound"), USER_MANUAL_FILENAME),
+					Messages.getString("CollectEarthMenu.fileNotFoundTitle"), JOptionPane.WARNING_MESSAGE);
 			}
 		});
 		menuHelp.add(menuItem);
@@ -257,6 +266,15 @@ public class CollectEarthMenu extends JMenuBar implements InitializingBean {
 		settingsItem.addActionListener(getPropertiesAction(frame));
 		settingsItem.setIcon(FontIcon.of(MaterialDesign.MDI_SETTINGS));
 		toolsMenu.add(settingsItem);
+
+		if (localPropertiesService.isCloudSyncEnabled()) {
+			JMenuItem cloudStatusItem = new JMenuItem(Messages.getString("CloudSyncStatusDialog.menuItem")); //$NON-NLS-1$
+			cloudStatusItem.setIcon(FontIcon.of(MaterialDesign.MDI_CLOUD_SYNC));
+			cloudStatusItem.addActionListener(e ->
+				new CloudSyncStatusDialog(frame, cloudSyncService, localPropertiesService).setVisible(true));
+			toolsMenu.add(cloudStatusItem);
+		}
+
 		toolsMenu.add(getUtilitiesMenu());
 
 		toolsMenu.addSeparator();
@@ -287,14 +305,14 @@ public class CollectEarthMenu extends JMenuBar implements InitializingBean {
 					if (folder.exists() && folder.isDirectory()) {
 						CollectEarthUtils.openFolderInExplorer(dataFolder);
 					} else {
-						JOptionPane.showMessageDialog(frame, 
-							"Data folder not found: " + dataFolder,
-							"Folder Not Found", JOptionPane.WARNING_MESSAGE);
+						JOptionPane.showMessageDialog(frame,
+							String.format(Messages.getString("CollectEarthMenu.dataFolderNotFound"), dataFolder),
+							Messages.getString("CollectEarthMenu.folderNotFoundTitle"), JOptionPane.WARNING_MESSAGE);
 					}
 				} else {
-					JOptionPane.showMessageDialog(frame, 
-						"Could not determine data folder location",
-						"Error", JOptionPane.ERROR_MESSAGE);
+					JOptionPane.showMessageDialog(frame,
+						Messages.getString("CollectEarthMenu.dataFolderUnknown"),
+						Messages.getString("CollectEarthMenu.errorTitle"), JOptionPane.ERROR_MESSAGE);
 				}
 			} catch (IOException e1) {
 				showErrorDialog("Could not open the data folder", e1);
@@ -361,12 +379,112 @@ public class CollectEarthMenu extends JMenuBar implements InitializingBean {
 		});
 		fileMenu.add(menuItem);
 		this.add(fileMenu);
+
+		JMenuItem joinCloudItem = new JMenuItem(Messages.getString("CollectEarthMenu.joinCloudProject")); //$NON-NLS-1$
+		joinCloudItem.setIcon(FontIcon.of(MaterialDesign.MDI_CLOUD_DOWNLOAD));
+		joinCloudItem.addActionListener(createJoinCloudProjectListener());
+		fileMenu.add(joinCloudItem);
+
 		fileMenu.addSeparator();
 		menuItem = new JMenuItem(Messages.getString("CollectEarthWindow.11")); //$NON-NLS-1$
 		menuItem.addActionListener(collectEarthWindow.getCloseActionListener());
 		menuItem.setIcon( FontIcon.of( MaterialDesign.MDI_LOGOUT ) );
 		fileMenu.add(menuItem);
 		return fileMenu;
+	}
+
+	private ActionListener createJoinCloudProjectListener() {
+		return new ApplyOptionChangesListener(this.getFrame(), localPropertiesService) {
+			@Override
+			protected void applyProperties() {
+				joinCloudProject(this);
+			}
+		};
+	}
+
+	/**
+	 * Full "Join cloud project" flow: paste an invite URL, preview the project,
+	 * log in (or register), download the CEP, load it via the existing project
+	 * import path, switch to CLOUD mode and restart. Any failure is reported and
+	 * leaves the current configuration untouched.
+	 */
+	private void joinCloudProject(ApplyOptionChangesListener listener) {
+		String url = (String) JOptionPane.showInputDialog(frame,
+				Messages.getString("CloudJoin.urlPrompt"), //$NON-NLS-1$
+				Messages.getString("CloudJoin.urlPromptTitle"), //$NON-NLS-1$
+				JOptionPane.QUESTION_MESSAGE, null, null, "");
+		if (url == null || url.trim().isEmpty()) {
+			return;
+		}
+		url = url.trim();
+		final String marker = "/join/";
+		int joinIdx = url.indexOf(marker);
+		if (joinIdx < 0) {
+			showJoinError(Messages.getString("CloudJoin.invalidUrl")); //$NON-NLS-1$
+			return;
+		}
+		String baseUrl = url.substring(0, joinIdx);
+		String inviteToken = url.substring(joinIdx + marker.length());
+		int queryIdx = inviteToken.indexOf('?');
+		if (queryIdx >= 0) {
+			inviteToken = inviteToken.substring(0, queryIdx);
+		}
+		while (inviteToken.endsWith("/")) {
+			inviteToken = inviteToken.substring(0, inviteToken.length() - 1);
+		}
+		if (inviteToken.isEmpty()) {
+			showJoinError(Messages.getString("CloudJoin.invalidUrl")); //$NON-NLS-1$
+			return;
+		}
+
+		try {
+			CloudApiClient.JoinPreview preview = cloudApiClient.getJoinPreview(baseUrl, inviteToken);
+			if (preview == null || !preview.isValid()) {
+				showJoinError(Messages.getString("CloudJoin.inviteInvalid")); //$NON-NLS-1$
+				return;
+			}
+			int confirm = JOptionPane.showConfirmDialog(frame,
+					String.format(Messages.getString("CloudJoin.previewMessage"), //$NON-NLS-1$
+							preview.getProjectName(), preview.getRole()),
+					Messages.getString("CloudJoin.previewTitle"), JOptionPane.OK_CANCEL_OPTION); //$NON-NLS-1$
+			if (confirm != JOptionPane.OK_OPTION) {
+				return;
+			}
+
+			CloudLoginDialog loginDialog = new CloudLoginDialog(frame, cloudApiClient, baseUrl, inviteToken);
+			loginDialog.setVisible(true);
+			if (!loginDialog.isSucceeded()) {
+				return;
+			}
+			String token = loginDialog.getResultToken();
+			String username = loginDialog.getResultUsername();
+
+			File cepFile = cloudApiClient.downloadCep(baseUrl, preview.getProjectId(), token);
+			try {
+				earthProjectsService.loadCompressedProjectFile(cepFile);
+			} finally {
+				if (!cepFile.delete()) {
+					cepFile.deleteOnExit();
+				}
+			}
+
+			localPropertiesService.saveCloudSyncUrl(baseUrl);
+			localPropertiesService.saveCloudProjectId(preview.getProjectId());
+			localPropertiesService.saveCloudSyncToken(token);
+			localPropertiesService.saveOperator(username);
+			localPropertiesService.setCloudSyncEnabled(true);
+			localPropertiesService.saveCollectDBDriver(CollectDBDriver.CLOUD);
+
+			listener.restartEarth();
+		} catch (Exception ex) {
+			logger.error("Error joining cloud project", ex);
+			showJoinError(ex.getMessage() == null ? UNKNOWN_ERROR_MESSAGE : ex.getMessage());
+		}
+	}
+
+	private void showJoinError(String message) {
+		JOptionPane.showMessageDialog(frame, message,
+				Messages.getString("CloudJoin.errorTitle"), JOptionPane.ERROR_MESSAGE); //$NON-NLS-1$
 	}
 
 	private void addImportExportMenu(JMenu menu) {
@@ -508,7 +626,7 @@ public class CollectEarthMenu extends JMenuBar implements InitializingBean {
 			try {
 				final JDialog dialog = new PropertiesDialog(owner, localPropertiesService, earthProjectsService,
 						backupSqlLiteService.getAutomaticBackUpFolder().getPath(), analysisSaikuService,
-						earthSurveyService.getCollectSurvey());
+						earthSurveyService.getCollectSurvey(), cloudApiClient);
 				dialog.setVisible(true);
 				dialog.pack();
 			} catch (Exception ex) {

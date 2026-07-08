@@ -9,6 +9,8 @@ import javax.swing.JComponent;
 import javax.swing.JOptionPane;
 import javax.swing.JTextField;
 
+import org.openforis.collect.earth.app.view.Messages;
+
 /**
  * Collection of input validators for property dialog fields.
  * Provides reusable validation logic with visual feedback.
@@ -162,7 +164,7 @@ public final class PropertyValidators {
             }
 
             input.setBackground(ERROR_COLOR);
-            input.setToolTipText("Port must be a number between 1 and 65535");
+            input.setToolTipText(Messages.getString("PropertyValidators.portRange"));
             return false;
         }
     }
@@ -176,7 +178,7 @@ public final class PropertyValidators {
             String text = ((JTextField) input).getText().trim();
             if (text.isEmpty()) {
                 input.setBackground(ERROR_COLOR);
-                input.setToolTipText("This field is required");
+                input.setToolTipText(Messages.getString("PropertyValidators.required"));
                 return false;
             }
             resetValidation(input);
@@ -215,7 +217,7 @@ public final class PropertyValidators {
             }
 
             input.setBackground(ERROR_COLOR);
-            input.setToolTipText("Value must be between " + min + " and " + max);
+            input.setToolTipText(String.format(Messages.getString("PropertyValidators.valueRange"), min, max));
             return false;
         }
     }
@@ -245,7 +247,7 @@ public final class PropertyValidators {
             }
 
             input.setBackground(ERROR_COLOR);
-            input.setToolTipText("Invalid URL format. Must start with http:// or https://");
+            input.setToolTipText(Messages.getString("PropertyValidators.invalidUrl"));
             return false;
         }
     }

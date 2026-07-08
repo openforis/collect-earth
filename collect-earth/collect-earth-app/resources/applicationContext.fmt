@@ -57,7 +57,16 @@
 		<property name="url" value="${url}"/>
 		<property name="username" value="${username}"/>
         <property name="password" value="${password}"/>
-		<property name="maxTotal" value="1" />
+		<!-- Pool size is driver-aware: 1 for SQLite (single-writer file DB), several for PostgreSQL. -->
+		<property name="maxTotal" value="${maxTotal}" />
+		<property name="maxIdle" value="${maxTotal}" />
+		<property name="maxWaitMillis" value="30000" />
+		<!-- Keep remote (e.g. AWS RDS) connections alive without adding latency to each borrow. -->
+		<property name="testWhileIdle" value="true" />
+		<property name="validationQuery" value="SELECT 1" />
+		<property name="timeBetweenEvictionRunsMillis" value="30000" />
+		<property name="minEvictableIdleTimeMillis" value="60000" />
+		<property name="poolPreparedStatements" value="true" />
 	</bean>
 	
 	<!-- RDB DataSource -->

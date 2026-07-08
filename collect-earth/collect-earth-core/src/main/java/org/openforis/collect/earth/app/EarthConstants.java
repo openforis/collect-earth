@@ -116,7 +116,11 @@ public class EarthConstants {
 
 	public enum CollectDBDriver {
 		SQLITE("org.sqlite.JDBC", "jdbc:sqlite:" + COLLECT_EARTH_DATABASE_SQLITE_DB), //$NON-NLS-1$ //$NON-NLS-2$
-		POSTGRESQL("org.postgresql.Driver", "jdbc:postgresql://REPLACE_HOSTNAME:REPLACE_PORT/REPLACE_DBNAME"); //$NON-NLS-1$ //$NON-NLS-2$
+		POSTGRESQL("org.postgresql.Driver", "jdbc:postgresql://REPLACE_HOSTNAME:REPLACE_PORT/REPLACE_DBNAME"), //$NON-NLS-1$ //$NON-NLS-2$
+		// CLOUD is local SQLite plus background synchronization to a Collect Earth cloud
+		// project: same embedded database, the difference is the CloudSyncService pushing
+		// records to the server. It therefore shares SQLite's JDBC driver and URL.
+		CLOUD("org.sqlite.JDBC", "jdbc:sqlite:" + COLLECT_EARTH_DATABASE_SQLITE_DB); //$NON-NLS-1$ //$NON-NLS-2$
 
 		private String driverClass;
 		private String url;

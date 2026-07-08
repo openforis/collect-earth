@@ -209,6 +209,45 @@ public class CollectEarthUtils {
 		return success;
 	}
 
+	/**
+	 * Tests whether a Collect Earth cloud project is reachable and the token accepted,
+	 * by issuing a GET to {@code {baseUrl}/v1/projects/{projectId}}. Returns a
+	 * human-readable message suitable for a dialog.
+	 */
+	public static String testCloudConnection(String baseUrl, String projectId, String token) {
+		if (baseUrl == null || baseUrl.trim().isEmpty()) {
+			return "Please enter the cloud server URL";
+		}
+		String url = baseUrl.trim();
+		while (url.endsWith("/")) {
+			url = url.substring(0, url.length() - 1);
+		}
+		url = url + "/v1/projects/" + (projectId == null ? "" : projectId.trim());
+		try {
+			java.net.HttpURLConnection connection = (java.net.HttpURLConnection) new URI(url).toURL().openConnection();
+			connection.setRequestMethod("GET");
+			connection.setConnectTimeout(15000);
+			connection.setReadTimeout(15000);
+			if (token != null && !token.trim().isEmpty()) {
+				connection.setRequestProperty("Authorization", "Bearer " + token.trim());
+			}
+			int status = connection.getResponseCode();
+			connection.disconnect();
+			if (status >= 200 && status < 300) {
+				return "Connection OK!";
+			} else if (status == 401 || status == 403) {
+				return "The server was reached but the token was rejected (HTTP " + status
+						+ "). Please log in again.";
+			} else if (status == 404) {
+				return "The server was reached but the project was not found (HTTP 404). Check the project id.";
+			}
+			return "Unexpected response from the cloud server: HTTP " + status;
+		} catch (Exception e) {
+			logger.error("Error testing the cloud connection", e);
+			return "Could not reach the cloud server: " + e.getMessage();
+		}
+	}
+
 	public static String testPostgreSQLConnection(String host, String port, String dbName, String username,
 			String password) {
 		String message = "Connection OK!";

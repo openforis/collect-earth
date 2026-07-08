@@ -36,7 +36,7 @@ public class ImportProcessMonitorDialog extends ProcessMonitorDialog<Void, Refer
 			monitorProgress();
 			process.call();
 			if( process.getStatus().isComplete() ) {
-				JOptionPane.showMessageDialog( parentFrame, "Update finished", "CSV Update", JOptionPane.INFORMATION_MESSAGE);
+				JOptionPane.showMessageDialog( parentFrame, Messages.getString("ImportProcessMonitorDialog.updateFinished"), Messages.getString("ImportProcessMonitorDialog.csvUpdateTitle"), JOptionPane.INFORMATION_MESSAGE);
 			}
 		} catch (final Exception e) {
 			logger.error("Error starting the process", e); //$NON-NLS-1$

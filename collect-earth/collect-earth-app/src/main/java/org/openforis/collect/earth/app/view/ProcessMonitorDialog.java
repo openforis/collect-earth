@@ -60,13 +60,13 @@ public abstract class ProcessMonitorDialog<V,S extends ProcessStatus> extends Th
 											}
 
 											if( errors.size() > MAX_ERRORS_SHOWN ){
-												parsisngErrorMsg.append( "More lines not shown . Total warnings : " + errors.size() );
+												parsisngErrorMsg.append( Messages.getString("ProcessMonitorDialog.moreWarnings") + errors.size() ); //$NON-NLS-1$
 											}
 
 										}
 
 										String primaryErrorMsg = status.getErrorMessage();
-										JOptionPane.showMessageDialog(null, "Attention : " + ( primaryErrorMsg!=null?primaryErrorMsg:"") + parsisngErrorMsg.toString() ); //$NON-NLS-1$ //$NON-NLS-2$
+										JOptionPane.showMessageDialog(null, Messages.getString("ProcessMonitorDialog.attention") + ( primaryErrorMsg!=null?primaryErrorMsg:"") + parsisngErrorMsg.toString() ); //$NON-NLS-1$ //$NON-NLS-2$
 									}
 							});
 							Toolkit.getDefaultToolkit().beep();

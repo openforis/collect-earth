@@ -37,6 +37,7 @@ import org.openforis.collect.earth.app.EarthConstants.OperationMode;
 import org.openforis.collect.earth.app.desktop.EarthApp;
 import org.openforis.collect.earth.app.service.EarthSurveyService;
 import org.openforis.collect.earth.app.service.LocalPropertiesService;
+import org.openforis.collect.earth.app.service.cloud.CloudApiClient;
 import org.openforis.collect.earth.app.view.ExportActionListener.RecordsToExport;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -65,6 +66,9 @@ public class CollectEarthWindow implements InitializingBean, DisposableBean{
 
 	@Autowired
 	private CollectEarthMenu collectEarthMenu;
+
+	@Autowired
+	private CloudApiClient cloudApiClient;
 
 	public static void endWaiting(Window frame) {
 		frame.setCursor(java.awt.Cursor.getPredefinedCursor(java.awt.Cursor.DEFAULT_CURSOR));
@@ -189,6 +193,9 @@ public class CollectEarthWindow implements InitializingBean, DisposableBean{
 	}
 
 	private void updateOperatorName() {
+		if (localPropertiesService.isCloudSyncEnabled()) {
+			return; // the operator is fixed by the cloud login in cloud mode
+		}
 		final String operatorName = operatorTextField.getText().trim();
 		if( !operatorName.equals(localPropertiesService.getOperator() ) ) {
 			if (operatorName.length() > 5 && operatorName.length() < 50 ) {
@@ -215,8 +222,14 @@ public class CollectEarthWindow implements InitializingBean, DisposableBean{
 
 		final GridBagConstraints c = new GridBagConstraints();
 
+		final boolean cloudMode = localPropertiesService.isCloudSyncEnabled();
 		operatorTextField = new JTextField(getOperator(), 30);
-		if (StringUtils.isBlank(getOperator())) {
+		if (cloudMode) {
+			// In cloud mode the operator identity comes from the cloud login, not free
+			// text: show it read-only and greyed. A blank value means "not logged in".
+			operatorTextField.setEditable(false);
+			operatorTextField.setBackground(new Color(230, 230, 230));
+		} else if (StringUtils.isBlank(getOperator())) {
 			operatorTextField.setBackground(ERROR_COLOR);
 		}
 
@@ -261,15 +274,19 @@ public class CollectEarthWindow implements InitializingBean, DisposableBean{
 
 		getFrame().getContentPane().add(pane);
 
-		// Three seconds after the last key is typed on hte text field the operator name changes on the properties service
-		Timer timerOperatorChanged = new Timer(3000, e-> updateOperatorName() );
+		// In cloud mode the operator is fixed by the login, so the free-text debounce
+		// and length validation are not wired up.
+		if (!cloudMode) {
+			// Three seconds after the last key is typed on hte text field the operator name changes on the properties service
+			Timer timerOperatorChanged = new Timer(3000, e-> updateOperatorName() );
 
-		operatorTextField.addKeyListener( new KeyAdapter() {
-			@Override
-			public void keyTyped(KeyEvent e) {
-				timerOperatorChanged.restart();
-			}
-		});
+			operatorTextField.addKeyListener( new KeyAdapter() {
+				@Override
+				public void keyTyped(KeyEvent e) {
+					timerOperatorChanged.restart();
+				}
+			});
+		}
 	}
 
 	private void initializeWindow() {
@@ -295,11 +312,39 @@ public class CollectEarthWindow implements InitializingBean, DisposableBean{
 		displayWindow();
 
 		if (StringUtils.isBlank(getOperator())) {
-			JOptionPane.showMessageDialog(getFrame(), Messages.getString("CollectEarthWindow.35"), //$NON-NLS-1$
-					Messages.getString("CollectEarthWindow.36"), JOptionPane.ERROR_MESSAGE); //$NON-NLS-1$
+			if (localPropertiesService.isCloudSyncEnabled()) {
+				promptCloudLogin();
+			} else {
+				JOptionPane.showMessageDialog(getFrame(), Messages.getString("CollectEarthWindow.35"), //$NON-NLS-1$
+						Messages.getString("CollectEarthWindow.36"), JOptionPane.ERROR_MESSAGE); //$NON-NLS-1$
+			}
 		}
 
 		changeFrameTitle();
+	}
+
+	/**
+	 * In cloud mode with no operator set, the user has not logged in to the cloud
+	 * project. Offer to log in; on success seed the operator from the username and
+	 * refresh the session token.
+	 */
+	private void promptCloudLogin() {
+		int choice = JOptionPane.showConfirmDialog(getFrame(),
+				Messages.getString("CollectEarthWindow.cloudNotLoggedIn"), //$NON-NLS-1$
+				Messages.getString("CloudLoginDialog.title"), JOptionPane.OK_CANCEL_OPTION, //$NON-NLS-1$
+				JOptionPane.WARNING_MESSAGE);
+		if (choice != JOptionPane.OK_OPTION) {
+			return;
+		}
+		CloudLoginDialog dialog = new CloudLoginDialog(getFrame(), cloudApiClient,
+				localPropertiesService.getCloudSyncUrl(), null);
+		dialog.setVisible(true);
+		if (dialog.isSucceeded()) {
+			localPropertiesService.saveCloudSyncToken(dialog.getResultToken());
+			localPropertiesService.saveOperator(dialog.getResultUsername());
+			operatorTextField.setText(dialog.getResultUsername());
+			changeFrameTitle();
+		}
 	}
 
 	public void changeFrameTitle() {
@@ -315,6 +360,9 @@ public class CollectEarthWindow implements InitializingBean, DisposableBean{
 				name = " - " + earthSurveyService.getCollectSurvey()
 				.getDescription(localPropertiesService.getUiLanguage().getLocale().getLanguage());
 			}
+		}
+		if (localPropertiesService.isCloudSyncEnabled()) {
+			name = name + Messages.getString("CollectEarthWindow.cloudTitleSuffix"); //$NON-NLS-1$
 		}
 		getFrame().setTitle(Messages.getString("CollectEarthWindow.19") + name);
 	}

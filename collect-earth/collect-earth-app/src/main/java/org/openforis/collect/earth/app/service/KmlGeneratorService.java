@@ -470,6 +470,10 @@ public class KmlGeneratorService {
 		data.put("kmlGeneratedOn", getLocalProperties().getGeneratedOn()); //$NON-NLS-1$
 		data.put("surveyName", getLocalProperties().getValue(EarthProperty.SURVEY_NAME)); //$NON-NLS-1$
 		data.put("plotFileName", KmlGenerator.getCsvFileName(getLocalProperties().getValue(EarthProperty.SAMPLE_FILE))); //$NON-NLS-1$
+		// Placemark-status polling interval (seconds): keep the responsive 5s for the local
+		// SQLite database, but poll less often for PostgreSQL (typically remote) to reduce the
+		// number of round-trips to the database server.
+		data.put("refreshInterval", getLocalProperties().isUsingSqliteDB() ? "5" : "10"); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$
 
 		FreemarkerTemplateUtils.applyTemplate(new File(KML_NETWORK_LINK_TEMPLATE), new File(KML_NETWORK_LINK_STARTER),
 				data);

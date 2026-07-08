@@ -125,7 +125,7 @@ public final class ExportActionListener implements ActionListener {
         boolean includeLabels = false;
 
         if (exportType.equals(DataFormat.CSV)) {
-            int result = JOptionPane.showConfirmDialog(frame, "Include labels for code attributes", "Include labels",
+            int result = JOptionPane.showConfirmDialog(frame, Messages.getString("ExportActionListener.includeLabelsQuestion"), Messages.getString("ExportActionListener.includeLabelsTitle"),
                     JOptionPane.YES_NO_OPTION, JOptionPane.QUESTION_MESSAGE);
             includeLabels = (result == JOptionPane.YES_OPTION);
         }

@@ -28,7 +28,7 @@ public class JFileChooserExistsAware extends JFileChooser {
 	public void approveSelection(){
 		File f = getSelectedFile();
 		if( f!=null && f.exists() && getDialogType() == SAVE_DIALOG){
-			int result = JOptionPane.showConfirmDialog(this,"The file exists, overwrite?","Existing file",JOptionPane.YES_NO_CANCEL_OPTION); //$NON-NLS-1$ //$NON-NLS-2$
+			int result = JOptionPane.showConfirmDialog(this,Messages.getString("JFileChooserExistsAware.overwriteQuestion"),Messages.getString("JFileChooserExistsAware.existingFileTitle"),JOptionPane.YES_NO_CANCEL_OPTION); //$NON-NLS-1$ //$NON-NLS-2$
 			switch(result){
 				case JOptionPane.YES_OPTION:
 					super.approveSelection();

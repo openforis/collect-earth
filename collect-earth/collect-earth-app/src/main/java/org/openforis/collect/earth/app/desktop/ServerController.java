@@ -17,10 +17,12 @@ import org.eclipse.jetty.util.thread.ExecutorThreadPool;
 import org.eclipse.jetty.webapp.WebAppContext;
 import org.openforis.collect.earth.app.EarthConstants;
 import org.openforis.collect.earth.app.EarthConstants.CollectDBDriver;
+import org.openforis.collect.earth.app.service.AbstractEarthSurveyService;
 import org.openforis.collect.earth.app.service.BrowserService;
 import org.openforis.collect.earth.app.service.FolderFinder;
 import org.openforis.collect.earth.app.service.LocalPropertiesService;
 import org.openforis.collect.earth.app.service.LocalPropertiesService.EarthProperty;
+import org.openforis.collect.earth.app.service.cloud.CloudSyncService;
 import org.openforis.collect.earth.sampler.utils.FreemarkerTemplateUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -137,6 +139,12 @@ public class ServerController {
 		data.put("urlIpcc", getIpccDbURL(collectDBDriver)); //$NON-NLS-1$
 		data.put("username", localPropertiesService.getValue(EarthProperty.DB_USERNAME)); //$NON-NLS-1$
 		data.put("password", localPropertiesService.getValue(EarthProperty.DB_PASSWORD)); //$NON-NLS-1$
+		// SQLite is a single-writer file database, so it must keep a single pooled connection.
+		// PostgreSQL (typically remote) benefits from several connections so requests and the
+		// background write-behind flusher do not serialize on a single connection.
+		// CLOUD mode uses the same local SQLite file (plus background sync), so it is also single-writer.
+		boolean singleWriter = collectDBDriver == CollectDBDriver.SQLITE || collectDBDriver == CollectDBDriver.CLOUD;
+		data.put("maxTotal", singleWriter ? "1" : "10"); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$
 		data.put("collectEarthExecutionFolder", System.getProperty("user.dir") + File.separator); //$NON-NLS-1$ //$NON-NLS-2$
 
 		FreemarkerTemplateUtils.applyTemplate(jettyAppCtxTemplateSrc, jettyAppCtxDst, data);
@@ -294,8 +302,41 @@ public class ServerController {
 
 	public void stopServer() throws Exception {
 		if (server != null && server.isRunning()) {
+			flushPendingRecords();
 			server.stop();
 			fireServerEvent(ServerInitializationEvent.SERVER_STOPPED_EVENT);
+		}
+	}
+
+	/**
+	 * Persist any balloon changes that are still buffered in memory (write-behind) before
+	 * the server and its database connection pool are shut down, so no data entered by the
+	 * user is lost when Collect Earth closes or restarts.
+	 */
+	private void flushPendingRecords() {
+		try {
+			if (getContext() != null) {
+				getContext().getBean(AbstractEarthSurveyService.class).flushAll();
+			}
+		} catch (Exception e) {
+			logger.error("Error flushing pending records before stopping the server", e); //$NON-NLS-1$
+		}
+		flushCloudSync();
+	}
+
+	/**
+	 * Best-effort final push of any records still queued for the cloud project before the
+	 * database connection pool is torn down. Runs after {@link AbstractEarthSurveyService#flushAll()}
+	 * so that records just written to SQLite are already enqueued. Bounded so shutdown is not delayed
+	 * when the network is unavailable; unsent records simply remain queued for the next launch.
+	 */
+	private void flushCloudSync() {
+		try {
+			if (getContext() != null) {
+				getContext().getBean(CloudSyncService.class).shutdownAndFlush(10000);
+			}
+		} catch (Exception e) {
+			logger.error("Error flushing pending cloud sync records before stopping the server", e); //$NON-NLS-1$
 		}
 	}
 
@@ -326,6 +367,7 @@ public class ServerController {
 	private void stopServerQuietly() {
 		try {
 			if (server != null && server.isRunning()) {
+				flushPendingRecords();
 				server.stop();
 			}
 		} catch (Exception e) {

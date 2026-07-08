@@ -54,7 +54,7 @@ public class JPlotCsvTable extends JTable{
 		} catch (Exception e) {
 			logger.error("Error loading plot file");
 			this.setBackground(Color.RED);
-			this.setToolTipText("The file chosen does not contain plot information");
+			this.setToolTipText(Messages.getString("JPlotCsvTable.noPlotInfo")); //$NON-NLS-1$
 
 		}
 	}
@@ -191,29 +191,29 @@ public class JPlotCsvTable extends JTable{
 			case INVALID_FILE_TYPE:
 			case INVALID_NUMBER_OF_COLUMNS:
 				JPlotCsvTable.this.setBackground( ERROR_BG_COLOR);
-				JOptionPane.showMessageDialog( JPlotCsvTable.this.getParent(), "The expected file type is CSV ", "Expected File Type", JOptionPane.ERROR_MESSAGE);
+				JOptionPane.showMessageDialog( JPlotCsvTable.this.getParent(), Messages.getString("JPlotCsvTable.expectedFileType"), Messages.getString("JPlotCsvTable.expectedFileTypeTitle"), JOptionPane.ERROR_MESSAGE); //$NON-NLS-1$ //$NON-NLS-2$
 				break;
 
 			case INVALID_HEADERS:
 				JPlotCsvTable.this.setBackground( ERROR_BG_COLOR);
-				JOptionPane.showMessageDialog( JPlotCsvTable.this.getParent(), "The expected columns in the CSV are " + validation.getExpectedHeaders(), "Columns in CSV do not match survey", JOptionPane.ERROR_MESSAGE);
+				JOptionPane.showMessageDialog( JPlotCsvTable.this.getParent(), String.format(Messages.getString("JPlotCsvTable.expectedColumns"), validation.getExpectedHeaders()), Messages.getString("JPlotCsvTable.columnsMismatchTitle"), JOptionPane.ERROR_MESSAGE); //$NON-NLS-1$ //$NON-NLS-2$
 				validation = null; // not bad enough to stop the user from loading the CSV file
 				break;
 			case INVALID_NUMBER_OF_PLOTS_TOO_LARGE:
 				JPlotCsvTable.this.setBackground( ERROR_BG_COLOR);
-				JOptionPane.showMessageDialog( JPlotCsvTable.this.getParent(), "Using CSV files that are too large makes Google Earth extremely slow.\nPlease divide this CSV file into smaller file (reccomended less than 2000 plots per CSV file.\nNumber of plots in this file : " + validation.getNumberOfRows() , "File too large", JOptionPane.ERROR_MESSAGE); //$NON-NLS-1$
+				JOptionPane.showMessageDialog( JPlotCsvTable.this.getParent(), String.format(Messages.getString("JPlotCsvTable.tooLargeError"), validation.getNumberOfRows()) , Messages.getString("JPlotCsvTable.tooLargeTitle"), JOptionPane.ERROR_MESSAGE); //$NON-NLS-1$ //$NON-NLS-2$
 				validation = null; // not bad enough to stop the user from loading the CSV file
 				break;
 
 			case INVALID_NUMBER_OF_PLOTS_WARNING:
 				JPlotCsvTable.this.setBackground( WARNING_BG_COLOR);
-				JOptionPane.showMessageDialog( JPlotCsvTable.this.getParent(), "Using CSV files that are too large makes Google Earth slow.\n Please divide this CSV file into smaller file (reccomended size is less than 2000 plots per CSV file.\nNumber of plots in this file : " + validation.getNumberOfRows() ,  "File too large", JOptionPane.WARNING_MESSAGE); //$NON-NLS-1$
+				JOptionPane.showMessageDialog( JPlotCsvTable.this.getParent(), String.format(Messages.getString("JPlotCsvTable.tooLargeWarning"), validation.getNumberOfRows()) ,  Messages.getString("JPlotCsvTable.tooLargeTitle"), JOptionPane.WARNING_MESSAGE); //$NON-NLS-1$ //$NON-NLS-2$
 				validation = null; // not bad enough to stop the user from loading the CSV file
 				break;
 
 			case INVALID_VALUES_IN_CSV:
 				// IN THIS CASE THE CELL RENDERER TAKES CARE OF HIGHLIGHTING THE CELLS!!!
-				JOptionPane.showMessageDialog( JPlotCsvTable.this.getParent(), "The content of the CSV file is not correct!! The values on the cells highlighted are incorrect " , "CSV content is not correct", JOptionPane.ERROR_MESSAGE); //$NON-NLS-1$
+				JOptionPane.showMessageDialog( JPlotCsvTable.this.getParent(), Messages.getString("JPlotCsvTable.contentIncorrect") , Messages.getString("JPlotCsvTable.contentIncorrectTitle"), JOptionPane.ERROR_MESSAGE); //$NON-NLS-1$ //$NON-NLS-2$
 				break;
 
 			default:

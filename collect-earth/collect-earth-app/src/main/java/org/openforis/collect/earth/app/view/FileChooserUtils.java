@@ -138,8 +138,8 @@ public final class FileChooserUtils {
     private static File handleSaveSelection(File selectedFile, JFileChooser chooser, DataFormat dataFormat) {
         if (selectedFile.exists()) {
             int result = JOptionPane.showConfirmDialog(chooser,
-                    "The file exists, overwrite?",
-                    "Existing file",
+                    Messages.getString("JFileChooserExistsAware.overwriteQuestion"),
+                    Messages.getString("JFileChooserExistsAware.existingFileTitle"),
                     JOptionPane.YES_NO_CANCEL_OPTION);
             if (result != JOptionPane.YES_OPTION) {
                 return null;

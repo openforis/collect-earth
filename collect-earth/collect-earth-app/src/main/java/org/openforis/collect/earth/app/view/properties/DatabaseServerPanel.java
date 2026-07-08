@@ -3,6 +3,7 @@ package org.openforis.collect.earth.app.view.properties;
 import java.awt.Component;
 import java.awt.GridBagConstraints;
 import java.awt.GridBagLayout;
+import java.awt.Window;
 import java.awt.event.ActionListener;
 import java.io.IOException;
 import java.util.HashMap;
@@ -21,6 +22,7 @@ import javax.swing.JRadioButton;
 import javax.swing.JScrollPane;
 import javax.swing.JTextField;
 import javax.swing.ScrollPaneConstants;
+import javax.swing.SwingUtilities;
 import javax.swing.border.BevelBorder;
 import javax.swing.border.Border;
 import javax.swing.border.TitledBorder;
@@ -29,6 +31,8 @@ import org.openforis.collect.earth.app.CollectEarthUtils;
 import org.openforis.collect.earth.app.EarthConstants.CollectDBDriver;
 import org.openforis.collect.earth.app.service.LocalPropertiesService;
 import org.openforis.collect.earth.app.service.LocalPropertiesService.EarthProperty;
+import org.openforis.collect.earth.app.service.cloud.CloudApiClient;
+import org.openforis.collect.earth.app.view.CloudLoginDialog;
 import org.openforis.collect.earth.app.view.Messages;
 
 /**
@@ -59,9 +63,17 @@ public class DatabaseServerPanel extends AbstractPropertyPanel {
     private JPanel sqlitePanel;
     private JCheckBox automaticBackup;
 
+    // Cloud components
+    private JRadioButton cloudDbType;
+    private JPanel cloudPanel;
+    private JTextField cloudUrl;
+    private JTextField cloudProjectId;
+    private JPasswordField cloudToken;
+
     // Callback for restart notification
     private Runnable restartRequiredCallback;
     private String backupFolder;
+    private final transient CloudApiClient cloudApiClient;
 
     /**
      * Creates a new database server panel.
@@ -69,9 +81,11 @@ public class DatabaseServerPanel extends AbstractPropertyPanel {
     public DatabaseServerPanel(LocalPropertiesService localPropertiesService,
                                HashMap<Enum<?>, JComponent[]> propertyToComponent,
                                HashMap<JComponent, JLabel> componentToRowLabel,
-                               String backupFolder) {
+                               String backupFolder,
+                               CloudApiClient cloudApiClient) {
         super(localPropertiesService, propertyToComponent, componentToRowLabel);
         this.backupFolder = backupFolder;
+        this.cloudApiClient = cloudApiClient;
         buildPanel();
     }
 
@@ -108,33 +122,44 @@ public class DatabaseServerPanel extends AbstractPropertyPanel {
 
     private void initializeComponents() {
         // Server port
-        serverPort = componentFactory.createTextField(EarthProperty.HOST_PORT_KEY);
+        serverPort = componentFactory.createValidatedTextField(
+                EarthProperty.HOST_PORT_KEY,
+                PropertyValidators.portValidator(),
+                Messages.getString("PropertyValidators.portRange"));
         registerComponent(EarthProperty.HOST_PORT_KEY, serverPort);
 
         // Database types
-        boolean usingPostgreSQL = localPropertiesService.getCollectDBDriver().equals(CollectDBDriver.POSTGRESQL);
+        CollectDBDriver currentDriver = localPropertiesService.getCollectDBDriver();
+        boolean usingPostgreSQL = currentDriver.equals(CollectDBDriver.POSTGRESQL);
+        boolean usingCloud = currentDriver.equals(CollectDBDriver.CLOUD);
+        boolean usingSqlite = !usingPostgreSQL && !usingCloud;
 
         sqliteDbType = componentFactory.createRadioButton(
                 Messages.getString("OptionWizard.93"),
                 CollectDBDriver.SQLITE.name(),
-                !usingPostgreSQL);
+                usingSqlite);
 
         postgresDbType = componentFactory.createRadioButton(
                 Messages.getString("OptionWizard.94"),
                 CollectDBDriver.POSTGRESQL.name(),
                 usingPostgreSQL);
 
-        registerComponent(EarthProperty.DB_DRIVER, sqliteDbType, postgresDbType);
+        cloudDbType = componentFactory.createRadioButton(
+                Messages.getString("DatabaseServerPanel.cloudOption"),
+                CollectDBDriver.CLOUD.name(),
+                usingCloud);
+
+        registerComponent(EarthProperty.DB_DRIVER, sqliteDbType, postgresDbType, cloudDbType);
 
         // PostgreSQL fields
         dbUsername = componentFactory.createValidatedTextField(
                 EarthProperty.DB_USERNAME,
                 PropertyValidators.requiredFieldValidator(),
-                "Database username for PostgreSQL connection");
+                Messages.getString("DatabaseServerPanel.usernameTooltip"));
         registerComponent(EarthProperty.DB_USERNAME, dbUsername);
 
         dbPassword = componentFactory.createPasswordField(EarthProperty.DB_PASSWORD);
-        dbPassword.setToolTipText("Database password for PostgreSQL connection");
+        dbPassword.setToolTipText(Messages.getString("DatabaseServerPanel.passwordTooltip"));
         registerComponent(EarthProperty.DB_PASSWORD, dbPassword);
 
         dbName = componentFactory.createValidatedTextField(
@@ -159,12 +184,28 @@ public class DatabaseServerPanel extends AbstractPropertyPanel {
         automaticBackup = componentFactory.createCheckbox("OptionWizard.44", EarthProperty.AUTOMATIC_BACKUP);
         registerComponent(EarthProperty.AUTOMATIC_BACKUP, automaticBackup);
 
+        // Cloud fields
+        cloudUrl = componentFactory.createTextField(
+                EarthProperty.CLOUD_SYNC_URL,
+                Messages.getString("DatabaseServerPanel.cloudUrlTooltip"));
+        registerComponent(EarthProperty.CLOUD_SYNC_URL, cloudUrl);
+
+        cloudProjectId = componentFactory.createTextField(
+                EarthProperty.CLOUD_PROJECT_ID,
+                Messages.getString("DatabaseServerPanel.cloudProjectTooltip"));
+        registerComponent(EarthProperty.CLOUD_PROJECT_ID, cloudProjectId);
+
+        cloudToken = componentFactory.createPasswordField(EarthProperty.CLOUD_SYNC_TOKEN);
+        cloudToken.setToolTipText(Messages.getString("DatabaseServerPanel.cloudTokenTooltip"));
+        registerComponent(EarthProperty.CLOUD_SYNC_TOKEN, cloudToken);
+
         // Create sub-panels
         postgresPanel = createPostgreSqlPanel();
         sqlitePanel = createSqlitePanel();
+        cloudPanel = createCloudPanel();
 
         // Initialize enabled state
-        enableDBOptions(usingPostgreSQL);
+        enableDBOptions(currentDriver);
     }
 
     private JPanel createServerPanel() {
@@ -190,11 +231,11 @@ public class DatabaseServerPanel extends AbstractPropertyPanel {
         ButtonGroup buttonGroup = new ButtonGroup();
         buttonGroup.add(sqliteDbType);
         buttonGroup.add(postgresDbType);
+        buttonGroup.add(cloudDbType);
 
         ActionListener dbTypeListener = e -> {
             JRadioButton source = (JRadioButton) e.getSource();
-            boolean isPostgreDb = source.getName().equals(CollectDBDriver.POSTGRESQL.name());
-            enableDBOptions(isPostgreDb);
+            enableDBOptions(CollectDBDriver.valueOf(source.getName()));
         };
 
         ActionListener restartListener = e -> {
@@ -207,6 +248,8 @@ public class DatabaseServerPanel extends AbstractPropertyPanel {
         sqliteDbType.addActionListener(restartListener);
         postgresDbType.addActionListener(dbTypeListener);
         postgresDbType.addActionListener(restartListener);
+        cloudDbType.addActionListener(dbTypeListener);
+        cloudDbType.addActionListener(restartListener);
 
         // Add SQLite option
         constraints = new GridBagConstraintsBuilder()
@@ -238,7 +281,102 @@ public class DatabaseServerPanel extends AbstractPropertyPanel {
                 .build();
         panel.add(postgresPanel, constraints);
 
+        // Add Cloud option
+        constraints = new GridBagConstraintsBuilder()
+                .gridx(0)
+                .gridy(6)
+                .gridwidth(GridBagConstraints.REMAINDER)
+                .build();
+        panel.add(cloudDbType, constraints);
+
+        constraints = new GridBagConstraintsBuilder()
+                .gridx(0)
+                .gridy(7)
+                .gridwidth(GridBagConstraints.REMAINDER)
+                .build();
+        panel.add(cloudPanel, constraints);
+
         return panel;
+    }
+
+    private JPanel createCloudPanel() {
+        JPanel panel = new JPanel(new GridBagLayout());
+        Border border = new TitledBorder(new BevelBorder(BevelBorder.RAISED),
+                Messages.getString("DatabaseServerPanel.cloudPanelTitle"));
+        panel.setBorder(border);
+
+        GridBagConstraints constraints;
+
+        // Server URL
+        constraints = GridBagConstraintsBuilder.createLabel(0, 0);
+        panel.add(new JLabel(Messages.getString("DatabaseServerPanel.cloudUrlLabel")), constraints);
+        constraints = GridBagConstraintsBuilder.createField(1, 0);
+        panel.add(cloudUrl, constraints);
+
+        // Project id
+        constraints = GridBagConstraintsBuilder.createLabel(0, 1);
+        panel.add(new JLabel(Messages.getString("DatabaseServerPanel.cloudProjectLabel")), constraints);
+        constraints = GridBagConstraintsBuilder.createField(1, 1);
+        panel.add(cloudProjectId, constraints);
+
+        // Sync token
+        constraints = GridBagConstraintsBuilder.createLabel(0, 2);
+        panel.add(new JLabel(Messages.getString("DatabaseServerPanel.cloudTokenLabel")), constraints);
+        constraints = GridBagConstraintsBuilder.createField(1, 2);
+        panel.add(cloudToken, constraints);
+
+        // Login + Test connection buttons
+        JPanel buttonRow = new JPanel();
+        buttonRow.add(createCloudLoginButton());
+        buttonRow.add(createTestCloudConnectionButton());
+        constraints = new GridBagConstraintsBuilder()
+                .gridx(1)
+                .gridy(3)
+                .build();
+        panel.add(buttonRow, constraints);
+
+        return panel;
+    }
+
+    /**
+     * Opens the shared login dialog against the configured server URL and, on
+     * success, fills the token field with the returned session token. This gives a
+     * re-login path without re-joining; manual token entry remains available.
+     */
+    private JButton createCloudLoginButton() {
+        JButton button = new JButton(Messages.getString("DatabaseServerPanel.cloudLoginButton"));
+        button.addActionListener(e -> {
+            String baseUrl = cloudUrl.getText().trim();
+            if (baseUrl.isEmpty()) {
+                JOptionPane.showMessageDialog(getTopLevelAncestor(),
+                        Messages.getString("DatabaseServerPanel.cloudUrlRequired"),
+                        Messages.getString("DatabaseServerPanel.cloudTestTitle"), JOptionPane.WARNING_MESSAGE);
+                return;
+            }
+            Window owner = SwingUtilities.getWindowAncestor(DatabaseServerPanel.this);
+            CloudLoginDialog dialog = new CloudLoginDialog(owner, cloudApiClient, baseUrl, null);
+            dialog.setVisible(true);
+            if (dialog.isSucceeded()) {
+                cloudToken.setText(dialog.getResultToken());
+            }
+        });
+        return button;
+    }
+
+    private JButton createTestCloudConnectionButton() {
+        JButton button = new JButton(Messages.getString("DatabaseServerPanel.cloudTestButton"));
+        button.addActionListener(e -> {
+            String message = CollectEarthUtils.testCloudConnection(
+                    cloudUrl.getText(),
+                    cloudProjectId.getText(),
+                    new String(cloudToken.getPassword()));
+            JOptionPane.showMessageDialog(
+                    DatabaseServerPanel.this.getTopLevelAncestor(),
+                    message,
+                    Messages.getString("DatabaseServerPanel.cloudTestTitle"),
+                    JOptionPane.INFORMATION_MESSAGE);
+        });
+        return button;
     }
 
     private JPanel createPostgreSqlPanel() {
@@ -348,11 +486,12 @@ public class DatabaseServerPanel extends AbstractPropertyPanel {
     }
 
     /**
-     * Enable or disable database options based on database type.
+     * Enable or disable the database sub-panels based on the selected database type.
      */
-    private void enableDBOptions(boolean isPostgreDb) {
-        enableContainer(postgresPanel, isPostgreDb);
-        enableContainer(sqlitePanel, !isPostgreDb);
+    private void enableDBOptions(CollectDBDriver selectedDriver) {
+        enableContainer(postgresPanel, selectedDriver == CollectDBDriver.POSTGRESQL);
+        enableContainer(sqlitePanel, selectedDriver == CollectDBDriver.SQLITE);
+        enableContainer(cloudPanel, selectedDriver == CollectDBDriver.CLOUD);
     }
 
     // ========== Getters ==========
@@ -375,5 +514,13 @@ public class DatabaseServerPanel extends AbstractPropertyPanel {
 
     public JPanel getSqlitePanel() {
         return sqlitePanel;
+    }
+
+    public JRadioButton getCloudDbType() {
+        return cloudDbType;
+    }
+
+    public JPanel getCloudPanel() {
+        return cloudPanel;
     }
 }

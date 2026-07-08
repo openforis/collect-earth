@@ -130,7 +130,7 @@ public class ExternalServicesPanel extends AbstractPropertyPanel {
         for (String month : availableMonths) {
             planetTfoFromMonth.addItem(month);
         }
-        planetTfoFromMonth.setToolTipText("Sets the starting month for Planet TFO comparison (Oldest = earliest available)");
+        planetTfoFromMonth.setToolTipText(Messages.getString("ExternalServicesPanel.tfoFromTooltip"));
         planetTfoFromMonth.setEnabled(openPlanetCheckbox.isSelected() && useTfoCheckbox.isSelected());
         planetTfoFromMonth.setSelectedIndex(0); // Default to "Oldest"
         // Set saved value if exists
@@ -146,7 +146,7 @@ public class ExternalServicesPanel extends AbstractPropertyPanel {
         for (String month : availableMonths) {
             planetTfoToMonth.addItem(month);
         }
-        planetTfoToMonth.setToolTipText("Sets the end month for Planet TFO comparison (Latest = most recent available)");
+        planetTfoToMonth.setToolTipText(Messages.getString("ExternalServicesPanel.tfoToTooltip"));
         planetTfoToMonth.setEnabled(openPlanetCheckbox.isSelected() && useTfoCheckbox.isSelected());
         planetTfoToMonth.setSelectedIndex(0); // Default to "Latest"
         // Set saved value if exists
@@ -171,7 +171,10 @@ public class ExternalServicesPanel extends AbstractPropertyPanel {
         openSecureWatchCheckbox = componentFactory.createCheckbox("OptionWizard.102", EarthProperty.OPEN_MAXAR_SECUREWATCH);
         registerComponent(EarthProperty.OPEN_MAXAR_SECUREWATCH, openSecureWatchCheckbox);
 
-        secureWatchUrlField = componentFactory.createTextField(EarthProperty.MAXAR_SECUREWATCH_URL);
+        secureWatchUrlField = componentFactory.createValidatedTextField(
+                EarthProperty.MAXAR_SECUREWATCH_URL,
+                PropertyValidators.urlValidator(),
+                Messages.getString("PropertyValidators.invalidUrl"));
         secureWatchUrlField.setEnabled(localPropertiesService.isSecureWatchSupported());
         registerComponent(EarthProperty.MAXAR_SECUREWATCH_URL, secureWatchUrlField);
 
@@ -267,7 +270,7 @@ public class ExternalServicesPanel extends AbstractPropertyPanel {
                 .gridwidth(2)
                 .build();
         JLabel extraLabel = new JLabel(Messages.getString("OptionWizard.103"));
-        extraLabel.setToolTipText("Custom map service URL with placeholders for LATITUDE, LONGITUDE, PLOT_ID, or GEOJSON");
+        extraLabel.setToolTipText(Messages.getString("ExternalServicesPanel.extraMapTooltip"));
         add(extraLabel, constraints);
 
         // Extra Map URL field

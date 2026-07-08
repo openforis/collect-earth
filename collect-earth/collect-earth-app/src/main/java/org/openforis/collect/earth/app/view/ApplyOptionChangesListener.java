@@ -71,10 +71,14 @@ public abstract class ApplyOptionChangesListener implements ActionListener {
 			if( !component.isVisible() ) {
 				setPropertyValue(propertyKey, "");
 			}else {
-				if (component instanceof JTextComponent) {
-					setPropertyValue(propertyKey, ((JTextComponent) component).getText());
-				} else if (component instanceof JPasswordField) {
+				if (component instanceof JPasswordField) {
+					// Passwords may legitimately contain leading/trailing spaces, so they are not trimmed.
+					// (JPasswordField must be checked before JTextComponent, since it is a JTextComponent.)
 					setPropertyValue(propertyKey, new String( ((JPasswordField) component).getPassword()) );
+				} else if (component instanceof JTextComponent) {
+					// Trim leading/trailing spaces from editable text fields before saving them.
+					String text = ((JTextComponent) component).getText();
+					setPropertyValue(propertyKey, text == null ? "" : text.trim());
 				}else if (component instanceof JCheckBox) {
 					setPropertyValue(propertyKey, ((JCheckBox) component).isSelected() + ""); //$NON-NLS-1$
 				} else if (component instanceof JComboBox) {

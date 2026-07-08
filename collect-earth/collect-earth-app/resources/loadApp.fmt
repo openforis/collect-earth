@@ -18,7 +18,7 @@
 	  <Link>
 	    <href>${host}placemarkUpdate</href>
 	    <refreshMode>onInterval</refreshMode>
-    	<refreshInterval>5</refreshInterval>
+    	<refreshInterval>${refreshInterval}</refreshInterval>
 	  </Link>
 	</NetworkLink>
 	</Document>

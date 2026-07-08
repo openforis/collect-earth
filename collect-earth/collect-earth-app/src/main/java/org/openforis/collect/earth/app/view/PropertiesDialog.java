@@ -58,6 +58,7 @@ public class PropertiesDialog extends JDialog {
     // Configuration
     private final String backupFolder;
     private final CollectSurvey surveyLoaded;
+    private final transient org.openforis.collect.earth.app.service.cloud.CloudApiClient cloudApiClient;
 
     // State
     private boolean restartRequired;
@@ -76,13 +77,15 @@ public class PropertiesDialog extends JDialog {
      */
     public PropertiesDialog(JFrame frame, LocalPropertiesService localPropertiesService,
                             EarthProjectsService projectsService, String backupFolder,
-                            AnalysisSaikuService saikuService, CollectSurvey surveyLoaded) {
+                            AnalysisSaikuService saikuService, CollectSurvey surveyLoaded,
+                            org.openforis.collect.earth.app.service.cloud.CloudApiClient cloudApiClient) {
         super(frame, Messages.getString("OptionWizard.0"));
         this.localPropertiesService = localPropertiesService;
         this.projectsService = projectsService;
         this.backupFolder = backupFolder;
         this.saikuService = saikuService;
         this.surveyLoaded = surveyLoaded;
+        this.cloudApiClient = cloudApiClient;
 
         initializeDialog();
     }
@@ -119,7 +122,7 @@ public class PropertiesDialog extends JDialog {
         // Sample Data Panel
         sampleDataPanel = new SampleDataPanel(
                 localPropertiesService, surveyLoaded,
-                propertyToComponent, componentToRowLabel);
+                propertyToComponent, componentToRowLabel, cloudApiClient);
         sampleDataPanel.setApplyButtonEnabler(() ->
                 getApplyChangesButton().setEnabled(sampleDataPanel.isDataValid()));
 
@@ -133,7 +136,7 @@ public class PropertiesDialog extends JDialog {
 
         // Database Server Panel
         databaseServerPanel = new DatabaseServerPanel(
-                localPropertiesService, propertyToComponent, componentToRowLabel, backupFolder);
+                localPropertiesService, propertyToComponent, componentToRowLabel, backupFolder, cloudApiClient);
         databaseServerPanel.setRestartRequiredCallback(() -> setRestartRequired(true));
 
         // Browser Display Panel
@@ -212,7 +215,7 @@ public class PropertiesDialog extends JDialog {
                     new ApplyOptionChangesListener(this, localPropertiesService, propertyToComponent) {
                         @Override
                         protected void applyProperties() {
-                            applyChanges.setText("Applying Changes...");
+                            applyChanges.setText(Messages.getString("PropertiesDialog.applyingChanges"));
                             applyChanges.setEnabled(false);
                             setCursor(java.awt.Cursor.getPredefinedCursor(java.awt.Cursor.WAIT_CURSOR));
 
@@ -276,12 +279,12 @@ public class PropertiesDialog extends JDialog {
      * Shows a success message when properties are applied successfully.
      */
     private void showSuccessMessage() {
-        String message = "Settings have been applied successfully.";
+        String message = Messages.getString("PropertiesDialog.settingsApplied");
         if (isRestartRequired()) {
-            message += "\n\nThe application will restart to apply some changes.";
+            message += Messages.getString("PropertiesDialog.settingsAppliedRestart");
         }
         JOptionPane.showMessageDialog(this, message,
-                "Settings Applied", JOptionPane.INFORMATION_MESSAGE);
+                Messages.getString("PropertiesDialog.settingsAppliedTitle"), JOptionPane.INFORMATION_MESSAGE);
     }
 
     /**
@@ -289,22 +292,19 @@ public class PropertiesDialog extends JDialog {
      */
     private void showValidationErrorMessage() {
         JOptionPane.showMessageDialog(this,
-                "Please correct the validation errors before applying changes.\n\n" +
-                        "Look for fields highlighted in red and check their tooltips for guidance.",
-                "Validation Error", JOptionPane.WARNING_MESSAGE);
+                Messages.getString("PropertiesDialog.validationErrors"),
+                Messages.getString("PropertiesDialog.validationErrorTitle"), JOptionPane.WARNING_MESSAGE);
     }
 
     /**
      * Shows an error message when an exception occurs.
      */
     private void showErrorMessage(Exception e) {
-        String userMessage = "An error occurred while applying settings.";
         String technicalDetails = e.getMessage() != null ? e.getMessage() : e.getClass().getSimpleName();
 
         JOptionPane.showMessageDialog(this,
-                userMessage + "\n\nTechnical details: " + technicalDetails +
-                        "\n\nPlease check your settings and try again.",
-                "Error Applying Settings", JOptionPane.ERROR_MESSAGE);
+                String.format(Messages.getString("PropertiesDialog.applyError"), technicalDetails),
+                Messages.getString("PropertiesDialog.applyErrorTitle"), JOptionPane.ERROR_MESSAGE);
 
         logger.error("Error applying properties", e);
     }

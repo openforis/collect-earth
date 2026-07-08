@@ -23,6 +23,8 @@ import javax.swing.event.DocumentListener;
 import org.apache.commons.lang3.StringUtils;
 import org.openforis.collect.earth.app.desktop.EarthApp;
 import org.openforis.collect.earth.app.service.EarthSurveyService;
+import org.openforis.collect.earth.app.service.LocalPropertiesService;
+import org.openforis.collect.earth.app.service.cloud.CloudSyncQueueDao;
 import org.openforis.collect.earth.app.view.JFilePicker.DlgMode;
 import org.openforis.collect.earth.core.utils.CsvReaderUtils;
 import org.openforis.collect.manager.RecordManager;
@@ -47,6 +49,12 @@ public class RemovePlotsFromDBDlg {
 
 	@Autowired
 	private EarthSurveyService earthSurveyService;
+
+	@Autowired
+	private LocalPropertiesService localPropertiesService;
+
+	@Autowired
+	private CloudSyncQueueDao cloudSyncQueueDao;
 
 	@SuppressWarnings("unused")
 	private static final long serialVersionUID = 5175096170385736616L;
@@ -262,6 +270,7 @@ public class RemovePlotsFromDBDlg {
 			private void deleteRecord(String[] csvRow, CollectRecord record) {
 				try {
 					recordManager.delete(record.getId());
+					enqueueTombstone(csvRow);
 					messages.add(String.format(Messages.getString("RemovePlotsDialog.20"), Arrays.toString(csvRow)));
 					plotsDeleted++;
 				} catch (RecordPersistenceException e) {
@@ -276,6 +285,24 @@ public class RemovePlotsFromDBDlg {
 
 		treadDeleting.start();
 
+	}
+
+	/**
+	 * When cloud sync is enabled, records a deletion tombstone in the sync queue so
+	 * the plot is soft-deleted on the server too. No-op in local-only mode. Never
+	 * throws: a failed enqueue must not abort the local deletion.
+	 */
+	private void enqueueTombstone(String[] csvRow) {
+		if (!localPropertiesService.isCloudSyncEnabled()) {
+			return;
+		}
+		try {
+			String recordKey = String.join(",", csvRow);
+			cloudSyncQueueDao.enqueue(recordKey, survey.getUri(), localPropertiesService.getOperator(),
+					new java.util.Date(), true);
+		} catch (Exception e) {
+			logger.warn("Could not enqueue deletion tombstone for {}: {}", Arrays.toString(csvRow), e.getMessage());
+		}
 	}
 
 	private String[] getKeyAttributesName() {

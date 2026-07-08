@@ -22,6 +22,7 @@ import java.beans.PropertyChangeListener;
 import java.nio.charset.StandardCharsets;
 
 import javax.swing.ImageIcon;
+import javax.swing.JDialog;
 import javax.swing.JOptionPane;
 import javax.swing.SwingUtilities;
 import javax.swing.UIManager;
@@ -693,13 +694,26 @@ public class EarthApp {
 	}
 
 	public static void showMessage(String message, String title) {
-		try {
-			SwingUtilities.invokeLater(
-					() -> JOptionPane.showMessageDialog(null, message, title, JOptionPane.WARNING_MESSAGE));
-		} catch (Exception e) {
-			logger.error("Error showing message", e);
-		}
-
+		SwingUtilities.invokeLater(() -> {
+			try {
+				// Build the dialog explicitly (instead of JOptionPane.showMessageDialog) so it can be
+				// forced always-on-top and brought to front. Otherwise, at start-up it can be painted
+				// behind the always-on-top splash screen / Google Earth window: only its middle shows,
+				// the OK button and title bar are covered, and because it is modal the whole application
+				// freezes with no way to dismiss it.
+				JOptionPane pane = new JOptionPane(message, JOptionPane.WARNING_MESSAGE);
+				JDialog dialog = pane.createDialog(null, title);
+				dialog.setDefaultCloseOperation(JDialog.DISPOSE_ON_CLOSE);
+				dialog.setModal(true);
+				dialog.setAlwaysOnTop(true);
+				dialog.setLocationRelativeTo(null);
+				dialog.toFront();
+				dialog.setVisible(true);
+				dialog.dispose();
+			} catch (Exception e) {
+				logger.error("Error showing message", e);
+			}
+		});
 	}
 
 	private void simulateClickKmz() {
