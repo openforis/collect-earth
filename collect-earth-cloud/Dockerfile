@@ -3,8 +3,10 @@ FROM node:20-slim
 
 WORKDIR /app
 
-COPY package.json ./
-RUN npm install --omit=dev
+# Install production deps from the lockfile for reproducible builds. tsx is a
+# production dependency (the CMD runs the TypeScript entrypoint through it).
+COPY package.json package-lock.json ./
+RUN npm ci --omit=dev
 
 COPY tsconfig.json ./
 COPY src ./src

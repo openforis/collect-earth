@@ -7,6 +7,8 @@ export interface Config {
   adminApiKey?: string;
   /** Public base URL (e.g. https://ce-cloud.example.org) for building invite/join links. */
   publicBaseUrl?: string;
+  /** When true (and postgres), apply pending SQL migrations on boot before listening. */
+  migrateOnBoot?: boolean;
 }
 
 export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
@@ -24,5 +26,6 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
     databaseUrl: env.DATABASE_URL,
     adminApiKey: env.ADMIN_API_KEY && env.ADMIN_API_KEY.length > 0 ? env.ADMIN_API_KEY : undefined,
     publicBaseUrl: env.PUBLIC_BASE_URL && env.PUBLIC_BASE_URL.length > 0 ? env.PUBLIC_BASE_URL : undefined,
+    migrateOnBoot: env.MIGRATE_ON_BOOT === 'true' || env.MIGRATE_ON_BOOT === '1',
   };
 }

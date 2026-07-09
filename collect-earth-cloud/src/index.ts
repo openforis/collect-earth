@@ -2,10 +2,23 @@ import { loadConfig } from './config.js';
 import { buildServer } from './server.js';
 import { InMemoryStore } from './store/memory.js';
 import { PostgresStore } from './store/postgres.js';
+import { runMigrations } from './store/migrate.js';
 import type { Store } from './store/store.js';
 
 async function main(): Promise<void> {
   const config = loadConfig();
+
+  // Optional self-initialising deploy: apply pending migrations before listening.
+  // Migrations are idempotent, so this is safe to leave on for every boot. On a
+  // multi-instance deploy prefer running `npm run migrate` as a one-off release
+  // step instead, to avoid concurrent migration races on cold start.
+  if (config.migrateOnBoot) {
+    if (config.storeBackend !== 'postgres' || !config.databaseUrl) {
+      throw new Error('MIGRATE_ON_BOOT requires STORE_BACKEND=postgres and DATABASE_URL');
+    }
+    await runMigrations(config.databaseUrl, (msg) => process.stdout.write(`${msg}\n`));
+  }
+
   const store: Store =
     config.storeBackend === 'postgres'
       ? new PostgresStore(config.databaseUrl!)

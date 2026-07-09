@@ -28,6 +28,11 @@ npm test          # isolation + sync behaviour, against the in-memory store
 npm run dev       # STORE_BACKEND defaults to "memory"
 ```
 
+## Deployment
+
+For production (Cloud Run + Cloud SQL, or any Docker host + managed Postgres),
+required env vars, and how to onboard projects, see [`DEPLOY.md`](DEPLOY.md).
+
 ## With PostgreSQL
 
 ```bash
