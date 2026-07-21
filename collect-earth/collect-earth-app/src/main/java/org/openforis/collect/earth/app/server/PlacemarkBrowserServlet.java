@@ -86,6 +86,7 @@ public class PlacemarkBrowserServlet {
 					openWindowAsync("Earth Engine APP", () -> browserService.openGEEAppURL(placemarkObject));
 					openWindowAsync("Earth Map", () -> browserService.openEarthMapURL(placemarkObject));
 					openWindowAsync("ESRI Wayback", () -> browserService.openEsriWayback(placemarkObject));
+					openWindowAsync("Google Earth Web", () -> browserService.openGoogleEarthWeb(placemarkObject));
 					openWindowAsync("Extra Map", () -> browserService.openExtraMap(placemarkObject));
 					openWindowAsync("Street View", () -> browserService.openStreetView(placemarkObject));
 					openWindowAsync("Planet Maps", () -> browserService.openPlanetMaps(placemarkObject));

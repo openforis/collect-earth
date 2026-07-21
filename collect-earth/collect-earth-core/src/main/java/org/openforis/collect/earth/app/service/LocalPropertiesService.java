@@ -102,6 +102,7 @@ public class LocalPropertiesService extends Observable {
 				GEEAPP_FROM_DATE("geeapp_date_from"),
 				GEEAPP_TO_DATE("geeapp_date_to"),
 				OPEN_ESRI_WAYBACK("open_esri_wayback"),
+				OPEN_GOOGLE_EARTH_WEB("open_google_earth_web"),
 				DEFERRED_SAVE_DISABLED("deferred_save_disabled"),
 				CLOUD_SYNC_ENABLED("cloud_sync_enabled"),
 				CLOUD_SYNC_URL("cloud_sync_url"),
@@ -450,6 +451,10 @@ public class LocalPropertiesService extends Observable {
 
 	public boolean isEsriWaybackSupported() {
 		return isPropertyActivated(EarthProperty.OPEN_ESRI_WAYBACK);
+	}
+
+	public boolean isGoogleEarthWebSupported() {
+		return isPropertyActivated(EarthProperty.OPEN_GOOGLE_EARTH_WEB);
 	}
 
 	public boolean isExplorerSupported() {

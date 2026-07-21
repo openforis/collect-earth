@@ -1,0 +1,148 @@
+(function () {
+    // ===== Plot geometry from Collect Earth (lon, lat pairs in WGS84) =====
+    // Outer rings = the plot polygon and any buffers (placemark.multiShape).
+    // Inner rings = the sample squares (placemark.points[].shape).
+    var rings = [
+        <#list placemark.multiShape as shp>
+        [
+            <#list shp as coord>
+            [${coord.longitude}, ${coord.latitude}]<#if coord?has_next>,</#if>
+            </#list>
+        ]<#if shp?has_next>,</#if>
+        </#list>
+        <#if placemark.points??>
+            <#list placemark.points as square>
+            ,[
+                <#list square.shape as sc>
+                [${sc.longitude}, ${sc.latitude}]<#if sc?has_next>,</#if>
+                </#list>
+            ]
+            </#list>
+        </#if>
+    ];
+    var CE_TAG = "__collectEarthGewOverlay";
+
+    // ===== Cleanup from any previous injection (driver reuses the tab) =====
+    if (window[CE_TAG] && window[CE_TAG].stop) {
+        try { window[CE_TAG].stop(); } catch (e) { /* ignore */ }
+    }
+
+    // ===== Camera state from the GEW URL =====
+    // Format: https://earth.google.com/web/@LAT,LON,ALTa,DISTd,FOVy,HEADINGh,TILTt,ROLLr
+    // GEW keeps this up to date as the camera settles; there is no public API,
+    // so the URL is the only reliable camera source. All maths below assume a
+    // (near-)nadir view, which Collect Earth enforces by flying with 0h,0t,0r.
+    function parseCamera() {
+        var m = window.location.href.match(
+            /@(-?[0-9.]+),(-?[0-9.]+),(-?[0-9.]+)a,(-?[0-9.]+)d,(-?[0-9.]+)y,(-?[0-9.]+)h,(-?[0-9.]+)t,(-?[0-9.]+)r/);
+        if (!m) return null;
+        return {
+            lat: parseFloat(m[1]), lon: parseFloat(m[2]), alt: parseFloat(m[3]),
+            dist: parseFloat(m[4]), fov: parseFloat(m[5]),
+            heading: parseFloat(m[6]), tilt: parseFloat(m[7])
+        };
+    }
+
+    // ===== Full-viewport SVG overlay (attached to body, ignores GEW's DOM) =====
+    function ensureOverlay() {
+        var svgNS = "http://www.w3.org/2000/svg";
+        var existing = document.querySelector("svg[data-ce-overlay]");
+        if (existing) existing.parentNode.removeChild(existing);
+        var svg = document.createElementNS(svgNS, "svg");
+        svg.setAttribute("data-ce-overlay", "1");
+        svg.style.position = "fixed";
+        svg.style.top = "0";
+        svg.style.left = "0";
+        svg.style.width = "100vw";
+        svg.style.height = "100vh";
+        svg.style.pointerEvents = "none";
+        svg.style.zIndex = "2147483000";
+        svg.style.display = "none";
+        document.body.appendChild(svg);
+        return svg;
+    }
+    var svg = ensureOverlay();
+
+    // ===== Project lon/lat -> screen pixels from the nadir camera =====
+    // Ground meters per screen pixel from camera distance and vertical FOV,
+    // then a local flat-earth offset from the camera target (fine at plot
+    // scale, a few hundred metres). Heading rotates the offsets; tilt makes
+    // the projection invalid, so the overlay hides when tilted.
+    function project(cam, lon, lat) {
+        var rad = Math.PI / 180;
+        var mPerDegLat = 111320;
+        var mPerDegLon = 111320 * Math.cos(cam.lat * rad);
+        var e = (lon - cam.lon) * mPerDegLon;
+        var n = (lat - cam.lat) * mPerDegLat;
+        var h = cam.heading * rad;
+        var x = e * Math.cos(h) - n * Math.sin(h);
+        var yUp = n * Math.cos(h) + e * Math.sin(h);
+        var mpp = 2 * cam.dist * Math.tan((cam.fov * rad) / 2) / window.innerHeight;
+        return {
+            x: window.innerWidth / 2 + x / mpp,
+            y: window.innerHeight / 2 - yUp / mpp
+        };
+    }
+
+    function hide() { svg.style.display = "none"; }
+
+    function draw() {
+        var cam = parseCamera();
+        if (!cam || Math.abs(cam.tilt) > 5) { hide(); return; }
+        var svgNS = "http://www.w3.org/2000/svg";
+        while (svg.firstChild) svg.removeChild(svg.firstChild);
+        var drawn = 0;
+        rings.forEach(function (ring) {
+            if (!ring || ring.length < 3) return;
+            var pts = [];
+            for (var i = 0; i < ring.length; i++) {
+                var sp = project(cam, ring[i][0], ring[i][1]);
+                pts.push(sp.x.toFixed(1) + "," + sp.y.toFixed(1));
+            }
+            var poly = document.createElementNS(svgNS, "polygon");
+            poly.setAttribute("points", pts.join(" "));
+            poly.setAttribute("fill", "none");
+            poly.setAttribute("stroke", "#FFFF00");
+            poly.setAttribute("stroke-width", "2");
+            svg.appendChild(poly);
+            drawn++;
+        });
+        svg.style.display = drawn > 0 ? "block" : "none";
+    }
+
+    // ===== Redraw when the camera settles, hide while it moves =====
+    // GEW rewrites the URL as the camera comes to rest; poll it and draw only
+    // after two identical consecutive reads. Any interaction hides the overlay
+    // immediately so a stale projection is never shown over moving imagery.
+    var lastHref = null;
+    var stableCount = 0;
+    var timer = setInterval(function () {
+        var href = window.location.href;
+        if (href !== lastHref) {
+            lastHref = href;
+            stableCount = 0;
+            hide();
+            return;
+        }
+        stableCount++;
+        if (stableCount === 2) draw();
+    }, 400);
+
+    function onInteract() { hide(); stableCount = 0; }
+    window.addEventListener("mousedown", onInteract, true);
+    window.addEventListener("wheel", onInteract, true);
+    window.addEventListener("touchstart", onInteract, true);
+    window.addEventListener("resize", onInteract, true);
+
+    window[CE_TAG] = {
+        stop: function () {
+            clearInterval(timer);
+            window.removeEventListener("mousedown", onInteract, true);
+            window.removeEventListener("wheel", onInteract, true);
+            window.removeEventListener("touchstart", onInteract, true);
+            window.removeEventListener("resize", onInteract, true);
+            if (svg && svg.parentNode) svg.parentNode.removeChild(svg);
+        }
+    };
+    console.log("[CE] Google Earth Web plot overlay armed (" + rings.length + " ring(s))");
+})();

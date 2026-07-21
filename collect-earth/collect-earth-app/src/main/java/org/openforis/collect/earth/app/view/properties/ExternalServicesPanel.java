@@ -46,6 +46,7 @@ public class ExternalServicesPanel extends AbstractPropertyPanel {
     // Other services
     private JCheckBox openEarthMapCheckbox;
     private JCheckBox openEsriWaybackCheckbox;
+    private JCheckBox openGoogleEarthWebCheckbox;
 
     // Planet Maps panel and components
     private JPanel planetPanel;
@@ -107,6 +108,10 @@ public class ExternalServicesPanel extends AbstractPropertyPanel {
         // ESRI World Imagery Wayback
         openEsriWaybackCheckbox = componentFactory.createCheckbox("OptionWizard.144", EarthProperty.OPEN_ESRI_WAYBACK);
         registerComponent(EarthProperty.OPEN_ESRI_WAYBACK, openEsriWaybackCheckbox);
+
+        // Google Earth Web
+        openGoogleEarthWebCheckbox = componentFactory.createCheckbox("OptionWizard.145", EarthProperty.OPEN_GOOGLE_EARTH_WEB);
+        registerComponent(EarthProperty.OPEN_GOOGLE_EARTH_WEB, openGoogleEarthWebCheckbox);
 
         // Planet Maps - create components
         openPlanetCheckbox = componentFactory.createCheckbox("OptionWizard.100", EarthProperty.OPEN_PLANET_MAPS);
@@ -233,10 +238,17 @@ public class ExternalServicesPanel extends AbstractPropertyPanel {
                 .build();
         add(openEsriWaybackCheckbox, constraints);
 
-        // Planet Maps panel (contains all Planet-related components)
+        // Google Earth Web
         constraints = new GridBagConstraintsBuilder()
                 .gridx(0)
                 .gridy(4)
+                .build();
+        add(openGoogleEarthWebCheckbox, constraints);
+
+        // Planet Maps panel (contains all Planet-related components)
+        constraints = new GridBagConstraintsBuilder()
+                .gridx(0)
+                .gridy(5)
                 .gridwidth(4)
                 .fill(GridBagConstraints.HORIZONTAL)
                 .build();
@@ -245,7 +257,7 @@ public class ExternalServicesPanel extends AbstractPropertyPanel {
         // Maxar SecureWatch
         constraints = new GridBagConstraintsBuilder()
                 .gridx(0)
-                .gridy(5)
+                .gridy(6)
                 .gridwidth(2)
                 .build();
         add(openSecureWatchCheckbox, constraints);
@@ -253,20 +265,20 @@ public class ExternalServicesPanel extends AbstractPropertyPanel {
         // Maxar URL
         constraints = new GridBagConstraintsBuilder()
                 .gridx(0)
-                .gridy(6)
+                .gridy(7)
                 .build();
         add(new JLabel(Messages.getString("OptionWizard.1021")), constraints);
 
         constraints = new GridBagConstraintsBuilder()
                 .gridx(1)
-                .gridy(6)
+                .gridy(7)
                 .build();
         add(secureWatchUrlField, constraints);
 
         // Extra Map URL label
         constraints = new GridBagConstraintsBuilder()
                 .gridx(0)
-                .gridy(7)
+                .gridy(8)
                 .gridwidth(2)
                 .build();
         JLabel extraLabel = new JLabel(Messages.getString("OptionWizard.103"));
@@ -276,7 +288,7 @@ public class ExternalServicesPanel extends AbstractPropertyPanel {
         // Extra Map URL field
         constraints = new GridBagConstraintsBuilder()
                 .gridx(0)
-                .gridy(8)
+                .gridy(9)
                 .gridwidth(2)
                 .build();
         add(extraUrlField, constraints);
@@ -476,6 +488,10 @@ public class ExternalServicesPanel extends AbstractPropertyPanel {
 
     public JCheckBox getOpenEsriWaybackCheckbox() {
         return openEsriWaybackCheckbox;
+    }
+
+    public JCheckBox getOpenGoogleEarthWebCheckbox() {
+        return openGoogleEarthWebCheckbox;
     }
 
     public JCheckBox getOpenPlanetCheckbox() {

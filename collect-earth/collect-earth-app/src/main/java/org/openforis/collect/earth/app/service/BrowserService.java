@@ -7,6 +7,7 @@ import java.io.StringWriter;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.StringJoiner;
 import java.util.concurrent.ConcurrentHashMap;
@@ -55,7 +56,7 @@ public class BrowserService implements InitializingBean, DisposableBean, Applica
 
 	// Browser type enumeration for thread-safe lock management
 	private enum BrowserType {
-		PLANET, SECUREWATCH, EXTRA, STREET_VIEW, GEEAPP, EARTH_MAP, TIMELAPSE, ESRI_WAYBACK
+		PLANET, SECUREWATCH, EXTRA, STREET_VIEW, GEEAPP, EARTH_MAP, TIMELAPSE, ESRI_WAYBACK, GOOGLE_EARTH_WEB
 	}
 
 	// Constants for timeouts and wait durations
@@ -70,6 +71,7 @@ public class BrowserService implements InitializingBean, DisposableBean, Applica
 	// Template paths
 	private static final String TEMPLATE_FOR_DGMAP_JS = "resources/javascript_dgmap.fmt";
 	private static final String TEMPLATE_FOR_ESRI_WAYBACK_JS = "resources/javascript_esri_wayback.fmt";
+	private static final String TEMPLATE_FOR_GOOGLE_EARTH_WEB_JS = "resources/javascript_google_earth_web.fmt";
 
 	// Element ID used to detect that the ESRI Wayback SPA has rendered its map view.
 	private static final String ESRI_WAYBACK_READY_CSS = ".esri-view";
@@ -91,7 +93,7 @@ public class BrowserService implements InitializingBean, DisposableBean, Applica
 	// Volatile to ensure visibility across threads when modified within synchronized blocks
 	private volatile RemoteWebDriver webDriverTimelapse, webDriverStreetView, webDriverPlanetHtml,
 	                        webDriverExtraMap, webDriverSecureWatch, webDriverGEEMap, webDriverEarthMap,
-	                        webDriverEsriWayback;
+	                        webDriverEsriWayback, webDriverGoogleEarthWeb;
 
 	private final Map<BrowserType, Object> locks = new ConcurrentHashMap<>();
 
@@ -214,6 +216,11 @@ public class BrowserService implements InitializingBean, DisposableBean, Applica
 		data.put("latitude", placemarkObject.getCoord().getLatitude());
 		data.put("longitude", placemarkObject.getCoord().getLongitude());
 		return processJavascriptTemplate(data, TEMPLATE_FOR_ESRI_WAYBACK_JS);
+	}
+
+	private String getGoogleEarthWebJavascript(SimplePlacemarkObject placemarkObject) {
+		final Map<String, Object> data = geoLocalizeTemplateService.getPlacemarkData(placemarkObject);
+		return processJavascriptTemplate(data, TEMPLATE_FOR_GOOGLE_EARTH_WEB_JS);
 	}
 
 	private String processJavascriptTemplate(final Map<String, Object> data, String templateName) {
@@ -358,6 +365,31 @@ public class BrowserService implements InitializingBean, DisposableBean, Applica
 				}
 				String waybackJs = getEsriWaybackJavascript(placemarkObject);
 				driver.executeScript(waybackJs);
+			} catch (final Exception e) {
+				processSeleniumError(e);
+				success = false;
+			}
+		}
+		return success;
+	}
+
+	/**
+	 * Injects the plot polygon overlay into Google Earth Web. GEW has no public
+	 * API, so the injected script projects the plot rings to screen pixels from
+	 * the camera parameters that GEW keeps in the page URL (valid for the
+	 * nadir view Collect Earth flies to) and draws them as an SVG overlay that
+	 * hides itself while the camera is moving or tilted.
+	 *
+	 * @param placemarkObject The placemark data to overlay
+	 * @param driver The WebDriver instance
+	 * @return true if the script was injected, false otherwise
+	 */
+	private boolean loadPlotInGoogleEarthWeb(SimplePlacemarkObject placemarkObject, RemoteWebDriver driver) {
+		boolean success = true;
+		if (driver instanceof JavascriptExecutor) {
+			try {
+				String gewJs = getGoogleEarthWebJavascript(placemarkObject);
+				driver.executeScript(gewJs);
 			} catch (final Exception e) {
 				processSeleniumError(e);
 				success = false;
@@ -858,6 +890,31 @@ public class BrowserService implements InitializingBean, DisposableBean, Applica
 					loadPlotInEsriWayback(placemarkObject, webDriverEsriWayback);
 				} catch (final Exception e) {
 					logger.error("Problems loading ESRI Wayback", e);
+				}
+			}
+		}
+	}
+
+	/**
+	 * Opens a browser window with Google Earth Web centered on the plot.
+	 *
+	 * @param placemarkObject The center point of the plot.
+	 * @throws BrowserNotFoundException If the browser cannot be found
+	 */
+	public void openGoogleEarthWeb(SimplePlacemarkObject placemarkObject) throws BrowserNotFoundException {
+		Object lock = getOrCreateLock(BrowserType.GOOGLE_EARTH_WEB);
+		synchronized (lock) {
+			if (localPropertiesService.isGoogleEarthWebSupported()) {
+				try {
+					String url = String.format(Locale.ENGLISH,
+							"https://earth.google.com/web/@%s,%s,%da,400d,35y,0h,0t,0r",
+							placemarkObject.getCoord().getLatitude(),
+							placemarkObject.getCoord().getLongitude(),
+							placemarkObject.getElevation());
+					webDriverGoogleEarthWeb = navigateTo(url, webDriverGoogleEarthWeb);
+					loadPlotInGoogleEarthWeb(placemarkObject, webDriverGoogleEarthWeb);
+				} catch (final Exception e) {
+					logger.error("Problems loading Google Earth Web", e);
 				}
 			}
 		}
