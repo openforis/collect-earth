@@ -56,7 +56,7 @@ public class BrowserService implements InitializingBean, DisposableBean, Applica
 
 	// Browser type enumeration for thread-safe lock management
 	private enum BrowserType {
-		PLANET, SECUREWATCH, EXTRA, STREET_VIEW, GEEAPP, EARTH_MAP, TIMELAPSE, ESRI_WAYBACK, GOOGLE_EARTH_WEB
+		PLANET, SECUREWATCH, EXTRA, STREET_VIEW, GEEAPP, EARTH_MAP, TIMELAPSE, ESRI_WAYBACK, GOOGLE_EARTH_WEB, LEAFLET_MAP
 	}
 
 	// Constants for timeouts and wait durations
@@ -93,7 +93,7 @@ public class BrowserService implements InitializingBean, DisposableBean, Applica
 	// Volatile to ensure visibility across threads when modified within synchronized blocks
 	private volatile RemoteWebDriver webDriverTimelapse, webDriverStreetView, webDriverPlanetHtml,
 	                        webDriverExtraMap, webDriverSecureWatch, webDriverGEEMap, webDriverEarthMap,
-	                        webDriverEsriWayback, webDriverGoogleEarthWeb;
+	                        webDriverEsriWayback, webDriverGoogleEarthWeb, webDriverLeafletMap;
 
 	private final Map<BrowserType, Object> locks = new ConcurrentHashMap<>();
 
@@ -916,6 +916,23 @@ public class BrowserService implements InitializingBean, DisposableBean, Applica
 				} catch (final Exception e) {
 					logger.error("Problems loading Google Earth Web", e);
 				}
+			}
+		}
+	}
+
+	/**
+	 * Opens the Collect Earth Leaflet plots map (served by the embedded server)
+	 * in a Selenium-driven browser window.
+	 */
+	public void openLeafletMap() {
+		Object lock = getOrCreateLock(BrowserType.LEAFLET_MAP);
+		synchronized (lock) {
+			try {
+				String url = ServerController.getHostAddress(localPropertiesService.getHost(),
+						localPropertiesService.getLocalPort()) + "map";
+				webDriverLeafletMap = navigateTo(url, webDriverLeafletMap);
+			} catch (final Exception e) {
+				logger.error("Problems loading the Leaflet plots map", e);
 			}
 		}
 	}
