@@ -104,6 +104,7 @@ public class LocalPropertiesService extends Observable {
 				OPEN_ESRI_WAYBACK("open_esri_wayback"),
 				OPEN_GOOGLE_EARTH_WEB("open_google_earth_web"),
 				OPEN_IN_LEAFLET_MAP("open_in_leaflet_map"),
+				MAP_ENGINE("map_engine"),
 				DEFERRED_SAVE_DISABLED("deferred_save_disabled"),
 				CLOUD_SYNC_ENABLED("cloud_sync_enabled"),
 				CLOUD_SYNC_URL("cloud_sync_url"),
@@ -464,6 +465,14 @@ public class LocalPropertiesService extends Observable {
 
 	public boolean isLeafletMapSupported() {
 		return isPropertyActivated(EarthProperty.OPEN_IN_LEAFLET_MAP);
+	}
+
+	public static final String MAP_ENGINE_LEAFLET = "leaflet";
+	public static final String MAP_ENGINE_GOOGLE = "google_maps";
+
+	public String getMapEngine() {
+		String engine = getValue(EarthProperty.MAP_ENGINE);
+		return MAP_ENGINE_GOOGLE.equals(engine) ? MAP_ENGINE_GOOGLE : MAP_ENGINE_LEAFLET;
 	}
 
 	public boolean isExplorerSupported() {

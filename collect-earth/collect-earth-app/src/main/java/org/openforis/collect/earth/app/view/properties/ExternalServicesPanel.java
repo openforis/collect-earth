@@ -1,5 +1,6 @@
 package org.openforis.collect.earth.app.view.properties;
 
+import java.awt.Component;
 import java.awt.GridBagConstraints;
 import java.awt.GridBagLayout;
 import java.awt.Insets;
@@ -12,10 +13,12 @@ import java.util.HashMap;
 import java.util.List;
 
 import javax.swing.BorderFactory;
+import javax.swing.DefaultListCellRenderer;
 import javax.swing.JCheckBox;
 import javax.swing.JComboBox;
 import javax.swing.JComponent;
 import javax.swing.JLabel;
+import javax.swing.JList;
 import javax.swing.JPanel;
 import javax.swing.JPasswordField;
 import javax.swing.JTextField;
@@ -48,6 +51,7 @@ public class ExternalServicesPanel extends AbstractPropertyPanel {
     private JCheckBox openEsriWaybackCheckbox;
     private JCheckBox openGoogleEarthWebCheckbox;
     private JCheckBox openInLeafletMapCheckbox;
+    private JComboBox<String> mapEngineCombo;
 
     // Planet Maps panel and components
     private JPanel planetPanel;
@@ -117,6 +121,25 @@ public class ExternalServicesPanel extends AbstractPropertyPanel {
         // Open plots in Leaflet map window
         openInLeafletMapCheckbox = componentFactory.createCheckbox("OptionWizard.146", EarthProperty.OPEN_IN_LEAFLET_MAP);
         registerComponent(EarthProperty.OPEN_IN_LEAFLET_MAP, openInLeafletMapCheckbox);
+
+        // Map imagery engine selector: items are the raw property values (leaflet/google_maps),
+        // a renderer shows friendly product labels. Enabled only when the Leaflet map window is on.
+        mapEngineCombo = new JComboBox<>(new String[] {
+                LocalPropertiesService.MAP_ENGINE_LEAFLET,
+                LocalPropertiesService.MAP_ENGINE_GOOGLE });
+        mapEngineCombo.setRenderer(new DefaultListCellRenderer() {
+            private static final long serialVersionUID = 1L;
+            @Override
+            public Component getListCellRendererComponent(JList<?> list, Object value, int index,
+                    boolean isSelected, boolean cellHasFocus) {
+                String label = LocalPropertiesService.MAP_ENGINE_GOOGLE.equals(value)
+                        ? "Google Maps" : "Leaflet (ESRI imagery)";
+                return super.getListCellRendererComponent(list, label, index, isSelected, cellHasFocus);
+            }
+        });
+        mapEngineCombo.setSelectedItem(localPropertiesService.getMapEngine());
+        mapEngineCombo.setEnabled(openInLeafletMapCheckbox.isSelected());
+        registerComponent(EarthProperty.MAP_ENGINE, mapEngineCombo);
 
         // Planet Maps - create components
         openPlanetCheckbox = componentFactory.createCheckbox("OptionWizard.100", EarthProperty.OPEN_PLANET_MAPS);
@@ -257,10 +280,23 @@ public class ExternalServicesPanel extends AbstractPropertyPanel {
                 .build();
         add(openInLeafletMapCheckbox, constraints);
 
-        // Planet Maps panel (contains all Planet-related components)
+        // Map imagery engine selector (below the Leaflet checkbox)
         constraints = new GridBagConstraintsBuilder()
                 .gridx(0)
                 .gridy(6)
+                .build();
+        add(new JLabel(Messages.getString("OptionWizard.147")), constraints);
+
+        constraints = new GridBagConstraintsBuilder()
+                .gridx(1)
+                .gridy(6)
+                .build();
+        add(mapEngineCombo, constraints);
+
+        // Planet Maps panel (contains all Planet-related components)
+        constraints = new GridBagConstraintsBuilder()
+                .gridx(0)
+                .gridy(7)
                 .gridwidth(4)
                 .fill(GridBagConstraints.HORIZONTAL)
                 .build();
@@ -269,7 +305,7 @@ public class ExternalServicesPanel extends AbstractPropertyPanel {
         // Maxar SecureWatch
         constraints = new GridBagConstraintsBuilder()
                 .gridx(0)
-                .gridy(7)
+                .gridy(8)
                 .gridwidth(2)
                 .build();
         add(openSecureWatchCheckbox, constraints);
@@ -277,20 +313,20 @@ public class ExternalServicesPanel extends AbstractPropertyPanel {
         // Maxar URL
         constraints = new GridBagConstraintsBuilder()
                 .gridx(0)
-                .gridy(8)
+                .gridy(9)
                 .build();
         add(new JLabel(Messages.getString("OptionWizard.1021")), constraints);
 
         constraints = new GridBagConstraintsBuilder()
                 .gridx(1)
-                .gridy(8)
+                .gridy(9)
                 .build();
         add(secureWatchUrlField, constraints);
 
         // Extra Map URL label
         constraints = new GridBagConstraintsBuilder()
                 .gridx(0)
-                .gridy(9)
+                .gridy(10)
                 .gridwidth(2)
                 .build();
         JLabel extraLabel = new JLabel(Messages.getString("OptionWizard.103"));
@@ -300,7 +336,7 @@ public class ExternalServicesPanel extends AbstractPropertyPanel {
         // Extra Map URL field
         constraints = new GridBagConstraintsBuilder()
                 .gridx(0)
-                .gridy(10)
+                .gridy(11)
                 .gridwidth(2)
                 .build();
         add(extraUrlField, constraints);
@@ -357,6 +393,10 @@ public class ExternalServicesPanel extends AbstractPropertyPanel {
             planetTfoToMonth.setEnabled(planetSelected && tfoSelected);
             planetTfoMonthPanel.setVisible(planetSelected && tfoSelected);
         });
+
+        // Leaflet map checkbox toggles the map imagery engine selector
+        openInLeafletMapCheckbox.addActionListener(e ->
+                mapEngineCombo.setEnabled(openInLeafletMapCheckbox.isSelected()));
 
         // SecureWatch checkbox toggles URL field
         openSecureWatchCheckbox.addActionListener(e ->

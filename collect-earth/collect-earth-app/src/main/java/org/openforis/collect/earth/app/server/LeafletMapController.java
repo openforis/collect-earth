@@ -14,6 +14,7 @@ import org.apache.commons.io.IOUtils;
 import org.openforis.collect.earth.app.service.EarthSurveyService;
 import org.openforis.collect.earth.app.service.KmlGeneratorService;
 import org.openforis.collect.earth.app.service.LocalPropertiesService;
+import org.openforis.collect.earth.app.service.LocalPropertiesService.EarthProperty;
 import org.openforis.collect.earth.app.service.PlotGeoJsonBuilder;
 import org.openforis.collect.earth.core.utils.CsvReaderUtils;
 import org.openforis.collect.earth.sampler.model.SimplePlacemarkObject;
@@ -170,6 +171,16 @@ public class LeafletMapController {
 		cachedCsvLastModified = csv.lastModified();
 		cachedFeatureCollection = sb.toString();
 		return cachedFeatureCollection;
+	}
+
+	@GetMapping("/mapConfig")
+	public void mapConfig(HttpServletResponse response) throws IOException {
+		response.setHeader("Content-Type", "application/json; charset=UTF-8");
+		Map<String, Object> config = new LinkedHashMap<>();
+		config.put("engine", localPropertiesService.getMapEngine());
+		String apiKey = localPropertiesService.getValue(EarthProperty.GOOGLE_MAPS_API_KEY);
+		config.put("googleMapsApiKey", apiKey == null ? "" : apiKey);
+		json.writeValue(response.getOutputStream(), config);
 	}
 
 	@GetMapping("/plotStatuses")
