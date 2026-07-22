@@ -1,5 +1,6 @@
 package org.openforis.collect.earth.app.server;
 
+import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.Date;
@@ -102,10 +103,20 @@ public class LeafletMapController {
 	public void plotsGeoJson(HttpServletResponse response) throws IOException {
 		response.setHeader("Content-Type", "application/json; charset=UTF-8");
 		try {
+			String csvFile = localPropertiesService.getCsvFile();
+			if (csvFile == null || csvFile.trim().isEmpty() || !new File(csvFile).exists()) {
+				// No survey plot file loaded yet: this is a valid, final state (not an error).
+				// Return an empty FeatureCollection with a warning so the page shows a banner
+				// instead of NPEing into a 500 and entering an endless retry loop.
+				response.getOutputStream().write(
+						("{\"type\":\"FeatureCollection\",\"features\":[],\"warning\":\"No survey plot file loaded\"}")
+								.getBytes("UTF-8"));
+				return;
+			}
 			KmlGenerator kmlGenerator = kmlGeneratorService.getKmlGenerator();
 			StringBuilder sb = new StringBuilder("{\"type\":\"FeatureCollection\",\"features\":[");
 			boolean first = true;
-			try (CSVReader reader = CsvReaderUtils.getCsvReader(localPropertiesService.getCsvFile())) {
+			try (CSVReader reader = CsvReaderUtils.getCsvReader(csvFile)) {
 				String[] csvRow;
 				while ((csvRow = reader.readNext()) != null) {
 					try {

@@ -29,7 +29,9 @@
     }).then(function (fc) {
       if (!fc.features || fc.features.length === 0) {
         map.setView([0, 0], 3);
-        banner("No survey plots loaded - import a CEP file / CSV grid in Collect Earth first.");
+        // A warning is a valid, final state (e.g. no survey file loaded) - show the
+        // server's message and do NOT enter the retry path; the page must be reloaded.
+        banner(fc.warning || "No survey plots loaded - import a CEP file / CSV grid in Collect Earth first.");
         return;
       }
       banner(null);
