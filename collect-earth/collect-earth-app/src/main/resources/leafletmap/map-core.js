@@ -61,15 +61,21 @@
     });
   }
 
-  function addPlot(feature) {
-    var id = feature.properties.id;
-    var center = [parseFloat(feature.properties.latitude), parseFloat(feature.properties.longitude)];
+  // GeoJSON MultiPolygon -> array of [lat,lng] rings (swap lng/lat). Shared by the
+  // initial load and the runtime fallback that re-adds plots to a fresh engine.
+  function ringsOf(feature) {
     var rings = [];
     feature.geometry.geometries.forEach(function (g) {
       if (g.type !== "Polygon") return;
       rings.push(g.coordinates[0].map(function (c) { return [c[1], c[0]]; }));
     });
-    engine.addPlot(id, rings, center);
+    return rings;
+  }
+
+  function addPlot(feature) {
+    var id = feature.properties.id;
+    var center = [parseFloat(feature.properties.latitude), parseFloat(feature.properties.longitude)];
+    engine.addPlot(id, ringsOf(feature), center);
     plots[id] = { feature: feature, status: "empty", listItem: null, center: center };
   }
 
@@ -223,10 +229,37 @@
     return null;
   }
 
+  // ---------- runtime engine failure -> live Leaflet fallback ----------
+  // Fired by an engine (Google) that fails at runtime: key rejected, script load
+  // failure, or ready-timeout. Guarded so it runs exactly once, even if the engine
+  // reports failure twice or after its own teardown.
+  var fellBack = false;
+  function handleEngineFailure(reason) {
+    if (fellBack) return;
+    fellBack = true;
+    if (engine && engine.destroy) engine.destroy();
+    engine = (window.CEMapEngines || {}).leaflet;
+    engine.init("mapdiv",
+      { zoomThreshold: ZOOM_THRESHOLD, emptyColor: STATUS_COLORS.empty, apiKey: "", onEngineFailure: handleEngineFailure },
+      { onPlotClick: selectPlot, onZoomChange: updateVisibility });
+    // Re-add every already-loaded plot with its CURRENT color (active plot stays cyan).
+    var centers = [];
+    Object.keys(plots).forEach(function (id) {
+      var p = plots[id];
+      engine.addPlot(id, ringsOf(p.feature), p.center);
+      centers.push(p.center);
+      var color = (id === activeId) ? "#00e5ff" : (STATUS_COLORS[p.status] || STATUS_COLORS.empty);
+      engine.setPlotColor(id, color);
+    });
+    if (centers.length) engine.fitAll(centers);
+    updateVisibility();
+    fallbackNotice(reason + " - using Leaflet/ESRI. Check GOOGLE_MAPS_API_KEY in Properties (the key needs the Maps JavaScript API enabled).");
+  }
+
   function boot(config) {
     var notice = selectEngine(config);
     engine.init("mapdiv",
-      { zoomThreshold: ZOOM_THRESHOLD, emptyColor: STATUS_COLORS.empty, apiKey: (config.googleMapsApiKey || "") },
+      { zoomThreshold: ZOOM_THRESHOLD, emptyColor: STATUS_COLORS.empty, apiKey: (config.googleMapsApiKey || ""), onEngineFailure: handleEngineFailure },
       { onPlotClick: selectPlot, onZoomChange: updateVisibility });
     if (notice) fallbackNotice(notice);
     loadPlots();
