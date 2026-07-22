@@ -32,6 +32,7 @@ import org.openforis.collect.earth.app.EarthConstants.UI_LANGUAGE;
 import org.openforis.collect.earth.app.logging.JSwingAppender;
 import org.openforis.collect.earth.app.service.AnalysisSaikuService;
 import org.openforis.collect.earth.app.service.BackupSqlLiteService;
+import org.openforis.collect.earth.app.service.BrowserService;
 import org.openforis.collect.earth.app.service.DataImportExportService;
 import org.openforis.collect.earth.app.service.EarthProjectsService;
 import org.openforis.collect.earth.app.service.EarthSurveyService;
@@ -93,6 +94,9 @@ public class CollectEarthMenu extends JMenuBar implements InitializingBean {
 
 	@Autowired
 	private transient CloudApiClient cloudApiClient;
+
+	@Autowired
+	private transient BrowserService browserService;
 
 	private static final long serialVersionUID = -2457052260968029351L;
 	private static final String USER_MANUAL_FILENAME = "UserManual.pdf";
@@ -257,6 +261,25 @@ public class CollectEarthMenu extends JMenuBar implements InitializingBean {
 		dataFolderItem.addActionListener(createDataFolderActionListener());
 		serverMenuItems.add(dataFolderItem);
 		toolsMenu.add(dataFolderItem);
+
+		JMenuItem openPlotsMapItem = new JMenuItem(Messages.getString("CollectEarthMenu.openPlotsMap")); //$NON-NLS-1$
+		openPlotsMapItem.setIcon(FontIcon.of(MaterialDesign.MDI_MAP));
+		openPlotsMapItem.addActionListener(createOpenPlotsMapActionListener());
+		serverMenuItems.add(openPlotsMapItem);
+		toolsMenu.add(openPlotsMapItem);
+	}
+
+	private ActionListener createOpenPlotsMapActionListener() {
+		return e -> new Thread("Open Leaflet plots map") {
+			@Override
+			public void run() {
+				try {
+					browserService.openLeafletMap();
+				} catch (Exception ex) {
+					logger.error("Error opening the Leaflet plots map", ex);
+				}
+			}
+		}.start();
 	}
 	
 	private void addSettingsAndUtilityMenuItems(JMenu toolsMenu) {
