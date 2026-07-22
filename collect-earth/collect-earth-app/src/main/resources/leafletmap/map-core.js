@@ -1,24 +1,32 @@
 (function () {
   "use strict";
   var HOST = window.location.origin + "/earth/";
-  var map = L.map("mapdiv");
-  L.tileLayer("https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}", {
-    maxZoom: 19,
-    attribution: "Tiles &copy; Esri &mdash; Source: Esri, Maxar, Earthstar Geographics, and the GIS User Community"
-  }).addTo(map);
 
   var STATUS_COLORS = { empty: "#e53935", partial: "#fdd835", saved: "#43a047" };
-  var ZOOM_THRESHOLD = 14; // below: circle markers; above: polygons
+  var ZOOM_THRESHOLD = 14; // below: circle markers; above: polygons (engines report zoom relative to this)
 
-  var plots = {};        // id -> {feature, layerGroup, marker, status, listItem, center}
+  var plots = {};        // id -> {feature, status, listItem, center} (the engine owns its own layer handles keyed by id)
   var activeId = null;
   var lastStatusPoll = null; // server "now" from previous /plotStatuses
+  var engine = null;         // the active map engine (Leaflet or Google), chosen from /mapConfig
 
   function banner(msg) {
     var el = document.getElementById("banner");
     if (!msg) { el.className = "hidden"; return; }
     el.textContent = msg;
     el.className = "";
+  }
+
+  // Non-fatal, dismissible notice shown when the requested engine is unavailable and
+  // the page falls back to Leaflet. Kept separate from banner() so the existing
+  // load/warning banners keep behaving exactly as before.
+  function fallbackNotice(msg) {
+    var el = document.getElementById("banner");
+    el.textContent = msg;
+    el.className = "";
+    el.style.cursor = "pointer";
+    el.title = "Click to dismiss";
+    el.onclick = function () { el.className = "hidden"; el.onclick = null; el.style.cursor = ""; el.title = ""; };
   }
 
   // ---------- load plots ----------
@@ -28,16 +36,16 @@
       return r.json();
     }).then(function (fc) {
       if (!fc.features || fc.features.length === 0) {
-        map.setView([0, 0], 3);
+        engine.flyTo([0, 0], 3);
         // A warning is a valid, final state (e.g. no survey file loaded) - show the
         // server's message and do NOT enter the retry path; the page must be reloaded.
         banner(fc.warning || "No survey plots loaded - import a CEP file / CSV grid in Collect Earth first.");
         return;
       }
       banner(null);
-      var bounds = [];
-      fc.features.forEach(function (f) { addPlot(f); bounds.push(plots[f.properties.id].center); });
-      map.fitBounds(bounds, { padding: [30, 30] });
+      var centers = [];
+      fc.features.forEach(function (f) { addPlot(f); centers.push(plots[f.properties.id].center); });
+      engine.fitAll(centers);
       renderList();
       updateVisibility();
       pollStatuses();
@@ -51,28 +59,19 @@
   function addPlot(feature) {
     var id = feature.properties.id;
     var center = [parseFloat(feature.properties.latitude), parseFloat(feature.properties.longitude)];
-    var group = L.layerGroup();
+    var rings = [];
     feature.geometry.geometries.forEach(function (g) {
       if (g.type !== "Polygon") return;
-      var latlngs = g.coordinates[0].map(function (c) { return [c[1], c[0]]; });
-      group.addLayer(L.polygon(latlngs, { color: STATUS_COLORS.empty, weight: 2, fill: false }));
+      rings.push(g.coordinates[0].map(function (c) { return [c[1], c[0]]; }));
     });
-    var marker = L.circleMarker(center, { radius: 5, color: STATUS_COLORS.empty, fillOpacity: 0.9 });
-    group.on("click", function () { selectPlot(id); });
-    marker.on("click", function () { selectPlot(id); });
-    plots[id] = { feature: feature, layerGroup: group, marker: marker, status: "empty", listItem: null, center: center };
+    engine.addPlot(id, rings, center);
+    plots[id] = { feature: feature, status: "empty", listItem: null, center: center };
   }
 
-  // Zoom-dependent rendering: polygons above threshold, markers below
+  // Zoom-dependent rendering: polygons above threshold, markers below (engine swaps them)
   function updateVisibility() {
-    var showPolys = map.getZoom() >= ZOOM_THRESHOLD;
-    Object.keys(plots).forEach(function (id) {
-      var p = plots[id];
-      if (showPolys) { map.removeLayer(p.marker); p.layerGroup.addTo(map); }
-      else { map.removeLayer(p.layerGroup); p.marker.addTo(map); }
-    });
+    engine.setZoomVisibilityMode(engine.isAboveThreshold());
   }
-  map.on("zoomend", updateVisibility);
 
   // ---------- status ----------
   function pollStatuses() {
@@ -91,8 +90,7 @@
     if (p.listItem) p.listItem.querySelector(".status-dot").className = "status-dot status-" + status;
     if (id === activeId) return; // active plot keeps the cyan highlight
     var color = STATUS_COLORS[status] || STATUS_COLORS.empty;
-    p.layerGroup.eachLayer(function (l) { l.setStyle({ color: color }); });
-    p.marker.setStyle({ color: color });
+    engine.setPlotColor(id, color);
   }
 
   // ---------- list ----------
@@ -124,7 +122,7 @@
   document.getElementById("only-pending").onchange = renderList;
   document.getElementById("collapse-btn").onclick = function () {
     document.getElementById("sidebar").classList.toggle("collapsed");
-    setTimeout(function () { map.invalidateSize(); }, 50);
+    setTimeout(function () { engine.invalidateSize(); }, 50);
   };
   function goToNextUnfinished() {
     var ids = Object.keys(plots);
@@ -167,10 +165,9 @@
       if (plots[previous].listItem) plots[previous].listItem.className = "";
     }
     var p = plots[id];
-    p.layerGroup.eachLayer(function (l) { l.setStyle({ color: "#00e5ff" }); });
-    p.marker.setStyle({ color: "#00e5ff" });
+    engine.setPlotColor(id, "#00e5ff");
     if (p.listItem) { p.listItem.className = "active"; p.listItem.scrollIntoView({ block: "nearest" }); }
-    map.setView(p.center, Math.max(map.getZoom(), 17));
+    engine.flyTo(p.center, 17);
 
     // form iframe: /balloon does server-side $[...] substitution with these params
     var props = p.feature.properties;
@@ -184,7 +181,7 @@
     document.getElementById("form-frame").src = HOST + "balloon?" + params.join("&") + "&web=true";
     document.getElementById("form-title").textContent = "Plot " + id;
     document.getElementById("form-panel").className = "";
-    setTimeout(function () { map.invalidateSize(); }, 50);
+    setTimeout(function () { engine.invalidateSize(); }, 50);
 
     // fire the auxiliary windows (GEE App, Google Earth Web, ...) like a balloon would;
     // plotId is needed because the coordinates-only path leaves placemarkId null (GEE App URL needs it)
@@ -196,8 +193,45 @@
   document.getElementById("form-close").onclick = function () {
     document.getElementById("form-panel").className = "hidden";
     document.getElementById("form-frame").src = "about:blank";
-    setTimeout(function () { map.invalidateSize(); }, 50);
+    setTimeout(function () { engine.invalidateSize(); }, 50);
   };
 
-  loadPlots();
+  // ---------- engine selection ----------
+  // Chooses google only when the property asks for it AND a non-blank key is present
+  // AND the Google engine file is loaded. Otherwise Leaflet, with a dismissible notice
+  // when we fell back from an explicit google_maps request (never for a plain leaflet
+  // config). Returns the notice text, or null when no notice is warranted.
+  function selectEngine(config) {
+    var engineName = config.engine;
+    var key = config.googleMapsApiKey || "";
+    var engines = window.CEMapEngines || {};
+    if (engineName === "google_maps" && key !== "" && engines.google) {
+      engine = engines.google;
+      return null;
+    }
+    engine = engines.leaflet;
+    if (engineName === "google_maps") {
+      var suffix = " - using Leaflet/ESRI. Check GOOGLE_MAPS_API_KEY in Properties (the key needs the Maps JavaScript API enabled).";
+      if (key === "") return "Google Maps selected but the API key is blank" + suffix;
+      return "Google Maps engine is unavailable" + suffix;
+    }
+    return null;
+  }
+
+  function boot(config) {
+    var notice = selectEngine(config);
+    engine.init("mapdiv",
+      { zoomThreshold: ZOOM_THRESHOLD, emptyColor: STATUS_COLORS.empty, apiKey: (config.googleMapsApiKey || "") },
+      { onPlotClick: selectPlot, onZoomChange: updateVisibility });
+    if (notice) fallbackNotice(notice);
+    loadPlots();
+  }
+
+  // Fetch the engine choice FIRST, then instantiate the map and load plots.
+  fetch(HOST + "mapConfig").then(function (r) { return r.json(); }).then(function (config) {
+    boot(config || {});
+  }).catch(function () {
+    // Config endpoint unreachable - default to Leaflet so collection still works.
+    boot({ engine: "leaflet", googleMapsApiKey: "" });
+  });
 })();
