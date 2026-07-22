@@ -288,7 +288,11 @@
 		dirtyMessageSent = false;
 
 		if (activelySaved) {
-			if (isAnyErrorInForm()) {
+			// The server's validData verdict is authoritative. The local error cache
+			// (stateByFieldName) accumulates inError marks from PARTIAL echoes that
+			// never clear fields absent from a later diff response, so it must not
+			// decide the submit outcome - it produced false "Save failed" states.
+			if (json.validData === false || isAnyErrorInResponse(json)) {
 				// Validation failed: stay on the form, surface the errors, and
 				// reset the actively-saved flag so a later autosave is not
 				// mistaken for a resubmit.
@@ -297,12 +301,40 @@
 				setSaveState('error');
 				goToFirstErrorStep();
 			} else {
+				clearAllValidationErrors();
 				setSaveState('saved');
 				postToParent('ce:saved');
 			}
 		} else {
 			setSaveState('saved');
 		}
+	}
+
+	// True only if THIS response reports a visible field in error.
+	function isAnyErrorInResponse(json) {
+		var infos = json.inputFieldInfoByParameterName || {};
+		for (var name in infos) {
+			if (Object.prototype.hasOwnProperty.call(infos, name)) {
+				var info = infos[name];
+				if (info && info.visible && info.inError) { return true; }
+			}
+		}
+		return false;
+	}
+
+	// The server declared the record valid: drop every stale error mark, both in
+	// the response cache and in the DOM (field styling + step badges).
+	function clearAllValidationErrors() {
+		for (var name in stateByFieldName) {
+			if (Object.prototype.hasOwnProperty.call(stateByFieldName, name) && stateByFieldName[name]) {
+				stateByFieldName[name].inError = false;
+			}
+		}
+		var marked = document.querySelectorAll('.ce-field.is-invalid');
+		for (var i = 0; i < marked.length; i++) {
+			marked[i].classList.remove('is-invalid');
+		}
+		updateStepBadges();
 	}
 
 	/* ------------------------------------------------------------------ *

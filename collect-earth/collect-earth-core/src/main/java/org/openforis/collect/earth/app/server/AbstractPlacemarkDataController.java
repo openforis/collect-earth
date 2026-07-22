@@ -57,7 +57,9 @@ public class AbstractPlacemarkDataController extends JsonPocessorServlet {
 					result.setCurrentStep(lastPlacemarkStep);
 				}
 			} else {
-				getLogger().info("No placemark found with id: {%s}", placemarkId);
+				// Normal first-touch flow: the record is created when the form first
+			// edits/saves the plot, so an unknown id here is expected, not an error.
+			getLogger().info("No record yet for plot id: {} - it will be created on first save", placemarkId);
 			}
 		}
 		setJsonResponse(response, result);
@@ -153,8 +155,12 @@ public class AbstractPlacemarkDataController extends JsonPocessorServlet {
 			String key = entry.getKey();
 			String value = entry.getValue();
 			if( key.equals( EarthConstants.PLACEMARK_ID_PARAMETER ) ){
-				// If there are multiple keys this value will be the combination of the keys, with the first value actually containing the plot id
-				entry.setValue( value.split(",")[0]);
+				// If there are multiple keys this value will be the combination of the keys, with the first value actually containing the plot id.
+				// The split value MUST be the one put into the result map: reusing the unsplit
+				// value made every save on an existing record look like a plot-id change and
+				// corrupted the record's key attribute (compound web-form ids exposed this).
+				value = value.split(",")[0];
+				entry.setValue( value );
 			}
 
 			//decode parameter name, it was previously encoded by the client
