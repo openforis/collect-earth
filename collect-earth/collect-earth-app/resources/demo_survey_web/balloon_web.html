@@ -14,6 +14,11 @@
 	-->
 	<script type="text/javascript">
 		var HOST = "$[host]";
+		// The Leaflet map passes the COMPOUND placemark id (all key attribute
+		// values comma-joined, e.g. "12,2025") as the "id" parameter - use it
+		// verbatim as the record key. Do NOT rebuild it from the individual
+		// key fields: in the web path $[EXTRA_id] is itself the compound id.
+		var PLACEMARK_ID = "$[id]";
 		// By default every Collect Earth survey has the "id" key attribute (collect_text_id).
 		// This demo survey adds a second key attribute "round" (collect_code_round), so the
 		// placemark id sent to the server is the two values comma-joined, e.g. "12,2025".

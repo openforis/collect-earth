@@ -90,6 +90,16 @@
 	 * Placemark id & serialization
 	 * ------------------------------------------------------------------ */
 	function getPlacemarkId() {
+		// In the Leaflet/web path the server hands us the COMPOUND placemark id
+		// (all key values already comma-joined) as PLACEMARK_ID / $[id]. Joining
+		// the EXTRA_ID_ATTRIBUTES values on top of it would duplicate the extra
+		// keys ("1,2025" + "," + "2025") and crash the server-side key mapping.
+		if (typeof window.PLACEMARK_ID === 'string'
+				&& window.PLACEMARK_ID.length > 0
+				&& window.PLACEMARK_ID.indexOf('$[') === -1) {
+			return window.PLACEMARK_ID;
+		}
+		// Fallback (legacy/GEP-style substitution where each token is a raw value)
 		var parts = [];
 		for (var i = 0; i < EXTRA_ID_ATTRIBUTES.length; i++) {
 			var el = fieldByName(EXTRA_ID_ATTRIBUTES[i]);
