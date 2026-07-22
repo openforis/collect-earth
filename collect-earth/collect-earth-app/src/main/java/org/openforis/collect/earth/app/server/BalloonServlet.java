@@ -16,6 +16,7 @@ import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 
 import org.apache.commons.io.FileUtils;
+import org.apache.commons.lang3.StringUtils;
 import org.openforis.collect.earth.app.EarthConstants;
 import org.openforis.collect.earth.app.desktop.ServerController;
 import org.openforis.collect.earth.app.service.BrowserNotFoundException;
@@ -25,6 +26,7 @@ import org.openqa.selenium.remote.RemoteWebDriver;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 
 /**
  * This servlet is called by the balloon (KML pop-up form) when it is open and the user has chosen to see the form in a separate browser
@@ -87,17 +89,22 @@ public class BalloonServlet extends DataAccessingServlet {
 	}
 
 	@GetMapping("/"+BALLOON_EXTERNAL_URL)
-	public void returnBalloon(HttpServletResponse response, HttpServletRequest request, String imageName) throws IOException {
+	public void returnBalloon(HttpServletResponse response, HttpServletRequest request, String imageName,
+			@RequestParam(value = "web", required = false) Boolean web) throws IOException {
 		response.setHeader("Content-Type", "text/html"); //$NON-NLS-1$ //$NON-NLS-2$
 		response.setHeader("Content-Disposition", "inline; filename=\"" + imageName + "\""); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$
 		response.setHeader("Cache-Control", "max-age=30"); //$NON-NLS-1$ //$NON-NLS-2$
 		response.setHeader("Date", new SimpleDateFormat(EarthConstants.DATE_FORMAT_HTTP, Locale.ENGLISH).format(new Date())); //$NON-NLS-1$
 
-		String balloonContents = FileUtils.readFileToString( new File(localPropertiesService.getBalloonFile()), StandardCharsets.UTF_8 );
+		final File balloonFile = resolveBalloonFile(web);
+
+		String balloonContents = FileUtils.readFileToString( balloonFile, StandardCharsets.UTF_8 );
 
 		if (balloonContents != null) {
 			balloonContents = balloonContents.replace(EarthConstants.FOLDER_COPIED_TO_KMZ + "/", EarthConstants.GENERATED_FOLDER_SUFFIX + "/" //$NON-NLS-1$ //$NON-NLS-2$
 					+ EarthConstants.FOLDER_COPIED_TO_KMZ + "/"); //$NON-NLS-1$
+			balloonContents = balloonContents.replace(EarthConstants.FOLDER_WEB_FILES + "/", EarthConstants.GENERATED_FOLDER_SUFFIX + "/" //$NON-NLS-1$ //$NON-NLS-2$
+					+ EarthConstants.FOLDER_WEB_FILES + "/"); //$NON-NLS-1$
 			balloonContents = replaceGoalsWithParameters(balloonContents, request.getParameterMap());
 
 			final byte[] bytes = balloonContents.getBytes();
@@ -106,6 +113,26 @@ public class BalloonServlet extends DataAccessingServlet {
 		} else {
 			getLogger().error("There was a problem fetching the balloon html, please check the name!"); //$NON-NLS-1$
 		}
+	}
+
+	/**
+	 * Resolves which balloon HTML file to serve. When the request asks for the web
+	 * variant ({@code web=true}) and the CEP defines a {@code balloon_web} file that
+	 * exists on disk, that modern web form is served. Otherwise (old CEPs without the
+	 * property, or GEP-era requests) the legacy balloon file is used so that old
+	 * projects degrade gracefully.
+	 */
+	private File resolveBalloonFile(Boolean web) {
+		if (Boolean.TRUE.equals(web)) {
+			final String webBalloonPath = localPropertiesService.getBalloonFileWeb();
+			if (StringUtils.isNotBlank(webBalloonPath)) {
+				final File webBalloonFile = new File(webBalloonPath);
+				if (webBalloonFile.exists()) {
+					return webBalloonFile;
+				}
+			}
+		}
+		return new File(localPropertiesService.getBalloonFile());
 	}
 
 	private void writeToResponse(HttpServletResponse response, byte[] fileContents) throws IOException {

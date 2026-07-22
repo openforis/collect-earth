@@ -544,6 +544,15 @@ public class KmlGeneratorService {
 
 			copyContentsToGeneratedFolder(folderToInclude);
 
+			// Copy the optional webFiles/ folder (assets for the modern web balloon) to the
+			// generated folder that Jetty serves. Old CEPs do not ship this folder, so guard
+			// against it being missing.
+			final File webFilesFolder = new File(balloonFile.getParent() + File.separator
+					+ EarthConstants.FOLDER_WEB_FILES);
+			if (webFilesFolder.exists() && webFilesFolder.isDirectory()) {
+				copyContentsToGeneratedFolder(webFilesFolder.getAbsolutePath());
+			}
+
 			final File kmlFile = new File(KML_RESULTING_TEMP_FILE);
 			if (kmlFile.exists()) {
 				final boolean deleted = kmlFile.delete();

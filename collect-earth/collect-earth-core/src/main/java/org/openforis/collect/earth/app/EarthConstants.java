@@ -28,6 +28,8 @@ public class EarthConstants {
 
 	public static final String FOLDER_COPIED_TO_KMZ = "earthFiles"; //$NON-NLS-1$
 
+	public static final String FOLDER_WEB_FILES = "webFiles"; //$NON-NLS-1$
+
 	public static final String PLACEMARK_FOUND_PARAMETER = "placemark_found"; //$NON-NLS-1$
 
 	public static final String ROOT_ENTITY_NAME = "plot"; //$NON-NLS-1$
