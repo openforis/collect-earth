@@ -33,6 +33,7 @@ import org.openforis.collect.earth.app.CollectEarthUtils;
 import org.openforis.collect.earth.app.desktop.ServerController.ServerInitializationEvent;
 import org.openforis.collect.earth.app.logging.GAlogger;
 import org.openforis.collect.earth.app.server.LoadProjectFileServlet;
+import org.openforis.collect.earth.app.service.BrowserService;
 import org.openforis.collect.earth.app.service.EarthProjectsService;
 import org.openforis.collect.earth.app.service.FolderFinder;
 import org.openforis.collect.earth.app.service.KmlGeneratorService;
@@ -718,12 +719,36 @@ public class EarthApp {
 
 	private void simulateClickKmz() {
 		try {
-			getKmlGeneratorService().generateLoaderKmlFile();
-			openKmlOnGoogleEarth();
+			if (getLocalProperties().isLeafletMapSupported()) {
+				// Leaflet viewer mode: no KML handoff to Google Earth Pro;
+				// open the plots map served by the embedded server instead.
+				openLeafletMap();
+			} else {
+				getKmlGeneratorService().generateLoaderKmlFile();
+				openKmlOnGoogleEarth();
+			}
 		} catch (final Exception e) {
 			showMessage(Messages.getString("EarthApp.61")); //$NON-NLS-1$
 			logger.error("The KMZ file could not be found", e); //$NON-NLS-1$
 		}
+	}
+
+	private void openLeafletMap() {
+		new Thread("Open Leaflet plots map") {
+			@Override
+			public void run() {
+				try {
+					if (serverController == null || serverController.getContext() == null) {
+						logger.error("Cannot open the Leaflet plots map: the server is not initialized"); //$NON-NLS-1$
+						return;
+					}
+					BrowserService browserService = serverController.getContext().getBean(BrowserService.class);
+					browserService.openLeafletMap();
+				} catch (final Exception e) {
+					logger.error("Error opening the Leaflet plots map", e); //$NON-NLS-1$
+				}
+			}
+		}.start();
 	}
 
 	public static void executeKmlLoadAsynchronously(Window windowShowingTimer) {
