@@ -60,6 +60,15 @@ Reused untouched: `/balloon` (server-side `$[...]` form rendering, BalloonServle
 - Failures: no CSV → "no survey plots loaded"; tiles offline → gray tiles, forms still
   work; `/plotsGeoJson` error → red banner.
 
+## Known limitations
+
+- **Live status coloring assumes CODE-typed plot key attributes.** The GeoJSON `id`
+  is the raw CSV key text while `/plotStatuses` keys come from Collect record key
+  values, which are parsed and reformatted for NUMBER/REAL attributes ("007"→"7",
+  "10"→"10.0"). Numeric keys therefore silently break the red/yellow/green sync.
+  Same latent gap exists in the GEP path (`getPlacemarksId`); fix by deriving both
+  sides from one key-formatting path if a numerically-keyed survey ever needs this.
+
 ## Verification
 
 - JUnit golden-file tests for `/plotsGeoJson` per shape generator (demo survey CSV).
