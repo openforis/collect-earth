@@ -128,7 +128,8 @@ public class PlacemarkBrowserServlet {
 	@GetMapping(path = "/openAuxiliaryWindows")
 	public void openAuxiliaryWindows(
 			HttpServletResponse response,
-			@RequestParam(value = "latLongCoordinates", required = false) final String latLongCoordinates)
+			@RequestParam(value = "latLongCoordinates", required = false) final String latLongCoordinates,
+			@RequestParam(value = "plotId", required = false) final String plotId)
 	{
 		if (latLongCoordinates == null || latLongCoordinates.isEmpty()) {
 			response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
@@ -138,6 +139,11 @@ public class PlacemarkBrowserServlet {
 		try {
 			kmlGenerator = kmlGeneratorService.getKmlGenerator();
 			SimplePlacemarkObject placemarkObject = new SimplePlacemarkObject(latLongCoordinates.split(","));
+			if (plotId != null && !plotId.isEmpty()) {
+				// The coordinates-only constructor leaves placemarkId null; integrations
+				// like the GEE App URL require it (see BrowserService.openGEEAppURL).
+				placemarkObject.setPlacemarkId(plotId);
+			}
 			OpenBrowserThread browserThread = new OpenBrowserThread("Open auxiliary windows " + latLongCoordinates, placemarkObject);
 			browserThread.start();
 			response.setStatus(HttpServletResponse.SC_OK);

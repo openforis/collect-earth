@@ -773,8 +773,11 @@ public class BrowserService implements InitializingBean, DisposableBean, Applica
 					url = url.append("#geoJson=")
 							.append(URLEncoder.encode(getGeoJson(placemarkObject, "MultiLineString"), StandardCharsets.UTF_8.toString()))
 							.append(";");
+					// placemarkId is null when the plot was built from coordinates only
+					// (e.g. legacy /openAuxiliaryWindows callers without a plotId param)
+					String plotId = placemarkObject.getPlacemarkId() == null ? "" : placemarkObject.getPlacemarkId();
 					url = url.append("plotId=")
-							.append(URLEncoder.encode(placemarkObject.getPlacemarkId(), StandardCharsets.UTF_8.toString()))
+							.append(URLEncoder.encode(plotId, StandardCharsets.UTF_8.toString()))
 							.append(";");
 					url = url.append("survey=")
 							.append(URLEncoder.encode( earthSurveyService.getCollectSurvey().getName() , StandardCharsets.UTF_8.toString()))

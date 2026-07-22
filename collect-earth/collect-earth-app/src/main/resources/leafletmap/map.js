@@ -163,8 +163,10 @@
     document.getElementById("form-panel").className = "";
     setTimeout(function () { map.invalidateSize(); }, 50);
 
-    // fire the auxiliary windows (GEE App, Google Earth Web, ...) like a balloon would
-    fetch(HOST + "openAuxiliaryWindows?latLongCoordinates=" + props.latitude + "," + props.longitude)
+    // fire the auxiliary windows (GEE App, Google Earth Web, ...) like a balloon would;
+    // plotId is needed because the coordinates-only path leaves placemarkId null (GEE App URL needs it)
+    fetch(HOST + "openAuxiliaryWindows?latLongCoordinates=" + props.latitude + "," + props.longitude
+        + "&plotId=" + encodeURIComponent(id))
       .catch(function () { /* non-fatal */ });
   }
 
