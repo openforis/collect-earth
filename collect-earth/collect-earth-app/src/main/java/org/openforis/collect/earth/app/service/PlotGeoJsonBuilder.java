@@ -88,7 +88,11 @@ public class PlotGeoJsonBuilder {
 		props.put("elevation", plot.getElevation());
 		props.put("aspect", plot.getAspect());
 		props.put("slope", plot.getSlope());
-		props.put("region", plot.getRegion() == null ? "" : plot.getRegion());
+		// $[region] balloon token: GEP never puts region in ExtendedData either
+		// (getRegion() is the LOD bounding box, not balloon data), so an empty
+		// string preserves parity and blanks the token instead of leaking
+		// "[object Object]" through the form URL.
+		props.put("region", "");
 		if (plot.getValuesByColumn() != null) {
 			// CSV columns must not overwrite id/coordinates used as the plot join key.
 			for (Map.Entry<String, String> entry : plot.getValuesByColumn().entrySet()) {
