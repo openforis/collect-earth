@@ -43,7 +43,7 @@ public class LocalPropertiesService extends Observable {
 	public enum EarthProperty {
 		ACTIVE_PROJECT_DEFINITION("active_project_definition"), ALTERNATIVE_BALLOON_FOR_BROWSER(
 				"alternative_balloon_for_browser"), AUTOMATIC_BACKUP("automatic_backup"), BALLOON_TEMPLATE_KEY(
-				"balloon"), BALLOON_TEMPLATE_KEY_CHECKSUM("balloon_checksum"), BROWSER_TO_USE("use_browser"), CHROME_BINARY_PATH(
+				"balloon"), BALLOON_TEMPLATE_KEY_WEB("balloon_web"), BALLOON_TEMPLATE_KEY_CHECKSUM("balloon_checksum"), BROWSER_TO_USE("use_browser"), CHROME_BINARY_PATH(
 				"chrome_exe_path"), CRS_KEY("coordinates_reference_system"), CSV_KEY_CHECKSUM(
 				"csv_checksum"), DB_DRIVER("db_driver"), DB_HOST(
 				"db_host"), DB_NAME("db_name"), DB_PASSWORD(
@@ -151,6 +151,10 @@ public class LocalPropertiesService extends Observable {
 
 	public String getBalloonFile() {
 		return convertToOSPath(getValue(EarthProperty.BALLOON_TEMPLATE_KEY));
+	}
+
+	public String getBalloonFileWeb() {
+		return convertToOSPath(getValue(EarthProperty.BALLOON_TEMPLATE_KEY_WEB));
 	}
 
 	public String getBalloonFileChecksum() {
