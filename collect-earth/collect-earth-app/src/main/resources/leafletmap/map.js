@@ -126,14 +126,37 @@
     document.getElementById("sidebar").classList.toggle("collapsed");
     setTimeout(function () { map.invalidateSize(); }, 50);
   };
-  document.getElementById("next-unfinished").onclick = function () {
+  function goToNextUnfinished() {
     var ids = Object.keys(plots);
     var start = activeId ? ids.indexOf(activeId) + 1 : 0;
     for (var i = 0; i < ids.length; i++) {
       var id = ids[(start + i) % ids.length];
       if (plots[id].status !== "saved") { selectPlot(id); return; }
     }
-  };
+  }
+  document.getElementById("next-unfinished").onclick = goToNextUnfinished;
+
+  // ---------- web form <-> map messages (same-origin postMessage) ----------
+  window.addEventListener("message", function (event) {
+    if (event.origin !== window.location.origin) return; // ignore cross-origin messages
+    var data = event.data;
+    if (!data || !data.type) return;
+    var plotId = data.plotId;
+    // ignore messages for anything but the active plot (stale iframe race)
+    if (plotId == null || plotId !== activeId) return;
+    var p = plots[plotId];
+    if (!p) return;
+    if (data.type === "ce:saved") {
+      // Active plot keeps its cyan highlight: only record the status and update the
+      // list dot (not the map polygon color), then advance to the next unfinished plot.
+      p.status = "saved";
+      if (p.listItem) p.listItem.querySelector(".status-dot").className = "status-dot status-saved";
+      goToNextUnfinished();
+    } else if (data.type === "ce:dirty") {
+      p.status = "partial";
+      if (p.listItem) p.listItem.querySelector(".status-dot").className = "status-dot status-partial";
+    }
+  });
 
   // ---------- selection / form / aux windows ----------
   function selectPlot(id) {
@@ -158,7 +181,7 @@
     params.push("host=" + encodeURIComponent(HOST));
     params.push("local_port=" + encodeURIComponent(window.location.port));
     params.push("randomNumber=" + Date.now());
-    document.getElementById("form-frame").src = HOST + "balloon?" + params.join("&");
+    document.getElementById("form-frame").src = HOST + "balloon?" + params.join("&") + "&web=true";
     document.getElementById("form-title").textContent = "Plot " + id;
     document.getElementById("form-panel").className = "";
     setTimeout(function () { map.invalidateSize(); }, 50);
