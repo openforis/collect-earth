@@ -12,6 +12,11 @@
 
   function banner(msg) {
     var el = document.getElementById("banner");
+    // A fallbackNotice() may have made the element dismissible - reset that
+    // state so regular banners are never accidentally click-to-hide.
+    el.onclick = null;
+    el.style.cursor = "";
+    el.title = "";
     if (!msg) { el.className = "hidden"; return; }
     el.textContent = msg;
     el.className = "";
