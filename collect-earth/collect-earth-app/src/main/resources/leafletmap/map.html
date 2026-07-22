@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>Collect Earth - Plots Map</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link rel="stylesheet" href="map/assets/vendor/leaflet.css">
+<link rel="stylesheet" href="map/assets/map.css">
+</head>
+<body>
+<div id="banner" class="hidden"></div>
+<div id="layout">
+  <div id="sidebar">
+    <div id="sidebar-header">
+      <button id="collapse-btn" title="Collapse">&#9776;</button>
+      <span>Plots</span>
+      <button id="next-unfinished">Next unfinished</button>
+    </div>
+    <input id="filter" type="text" placeholder="Filter by id...">
+    <label id="only-pending-label"><input type="checkbox" id="only-pending"> only pending</label>
+    <ul id="plot-list"></ul>
+  </div>
+  <div id="mapdiv"></div>
+  <div id="form-panel" class="hidden">
+    <div id="form-header">
+      <span id="form-title"></span>
+      <button id="form-close">&times;</button>
+    </div>
+    <iframe id="form-frame" src="about:blank"></iframe>
+  </div>
+</div>
+<script src="map/assets/vendor/leaflet.js"></script>
+<script src="map/assets/map.js"></script>
+</body>
+</html>
