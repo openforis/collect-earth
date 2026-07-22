@@ -2,7 +2,6 @@ package org.openforis.collect.earth.app.server;
 
 import java.io.IOException;
 import java.io.InputStream;
-import java.text.SimpleDateFormat;
 import java.util.Date;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -46,6 +45,10 @@ public class LeafletMapController {
 	@Autowired
 	private KmlGeneratorService kmlGeneratorService;
 
+	/** Overlap window for the /plotStatuses incremental cursor; must exceed the
+	 *  deferred-save flush delay (FLUSH_DEBOUNCE_MS + FLUSH_POLL_MS = 1.5s) with headroom. */
+	private static final long STATUS_CURSOR_OVERLAP_MILLIS = 10_000L;
+
 	private final Logger logger = LoggerFactory.getLogger(LeafletMapController.class);
 	private final PlotGeoJsonBuilder geoJsonBuilder = new PlotGeoJsonBuilder();
 	private final com.fasterxml.jackson.databind.ObjectMapper json = new com.fasterxml.jackson.databind.ObjectMapper();
@@ -77,7 +80,8 @@ public class LeafletMapController {
 	}
 
 	private void serveClasspath(String path, String contentType, HttpServletResponse response) throws IOException {
-		// {file:.+} path variables cannot contain '/', so traversal is not possible; belt and braces:
+		// {file:.+} DOES match across '/' (that is how vendor/images/*.png resolves),
+		// so this '..' check is the actual traversal guard - do not remove it.
 		if (path.contains("..")) {
 			response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
 			return;
@@ -133,7 +137,11 @@ public class LeafletMapController {
 		response.setHeader("Content-Type", "application/json; charset=UTF-8");
 		try {
 			Date since = sinceMillis == null ? new Date(0) : new Date(sinceMillis);
-			long now = System.currentTimeMillis();
+			// The next-poll cursor must lag behind the wall clock: records saved through
+			// the deferred/write-behind path get their modifiedDate stamped up to ~1.5s
+			// before the DB write lands, so an exact "now" cursor would skip them forever.
+			// Same overlap-window pattern as PlacemarkUpdateServlet.getTwoMinutesAgo().
+			long now = System.currentTimeMillis() - STATUS_CURSOR_OVERLAP_MILLIS;
 			Map<String, String> statuses = new LinkedHashMap<>();
 			List<CollectRecordSummary> summaries = earthSurveyService.getRecordSummariesSavedSince(since);
 			if (summaries != null) {
