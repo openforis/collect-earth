@@ -24,7 +24,11 @@ public class PlotGeoJsonBuilder {
 	public String toFeature(SimplePlacemarkObject plot) throws Exception {
 		Map<String, Object> feature = new LinkedHashMap<>();
 		feature.put("type", "Feature");
-		feature.put("geometry", geometry(plot));
+		try {
+			feature.put("geometry", geometry(plot));
+		} catch (RuntimeException e) {
+			throw new IllegalArgumentException("Invalid geometry for plot " + plot.getPlacemarkId(), e);
+		}
 		feature.put("properties", properties(plot));
 		return mapper.writeValueAsString(feature);
 	}
@@ -33,13 +37,17 @@ public class PlotGeoJsonBuilder {
 		List<Map<String, Object>> geometries = new ArrayList<>();
 		if (plot.getMultiShape() != null) {
 			for (List<SimpleCoordinate> ring : plot.getMultiShape()) {
-				geometries.add(polygon(ring));
+				Map<String, Object> poly = polygon(ring);
+				if (poly != null) {
+					geometries.add(poly);
+				}
 			}
 		}
 		if (plot.getPoints() != null) {
 			for (SimplePlacemarkObject sample : plot.getPoints()) {
-				if (sample.getShape() != null && !sample.getShape().isEmpty()) {
-					geometries.add(polygon(sample.getShape()));
+				Map<String, Object> poly = polygon(sample.getShape());
+				if (poly != null) {
+					geometries.add(poly);
 				}
 			}
 		}
@@ -50,17 +58,19 @@ public class PlotGeoJsonBuilder {
 	}
 
 	private Map<String, Object> polygon(List<SimpleCoordinate> ring) {
+		// Skip degenerate rings: a Polygon needs at least 3 vertices.
+		if (ring == null || ring.size() < 3) {
+			return null;
+		}
 		List<double[]> coords = new ArrayList<>();
 		for (SimpleCoordinate c : ring) {
 			coords.add(new double[] { Double.parseDouble(c.getLongitude()), Double.parseDouble(c.getLatitude()) });
 		}
 		// GeoJSON polygons must be closed
-		if (!coords.isEmpty()) {
-			double[] first = coords.get(0);
-			double[] last = coords.get(coords.size() - 1);
-			if (first[0] != last[0] || first[1] != last[1]) {
-				coords.add(first);
-			}
+		double[] first = coords.get(0);
+		double[] last = coords.get(coords.size() - 1);
+		if (first[0] != last[0] || first[1] != last[1]) {
+			coords.add(first);
 		}
 		Map<String, Object> poly = new LinkedHashMap<>();
 		poly.put("type", "Polygon");
@@ -79,7 +89,12 @@ public class PlotGeoJsonBuilder {
 		props.put("aspect", plot.getAspect());
 		props.put("slope", plot.getSlope());
 		if (plot.getValuesByColumn() != null) {
-			props.putAll(plot.getValuesByColumn());
+			// CSV columns must not overwrite id/coordinates used as the plot join key.
+			for (Map.Entry<String, String> entry : plot.getValuesByColumn().entrySet()) {
+				if (!props.containsKey(entry.getKey())) {
+					props.put(entry.getKey(), entry.getValue());
+				}
+			}
 		}
 		return props;
 	}
