@@ -1,0 +1,422 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+	<title>Collect Earth — Plot data entry</title>
+
+	<!--
+		Configuration injected by the Collect Earth server through the $[...] token
+		substitution (same mechanism used by the legacy balloon.html).
+		$[host]      -> http://127.0.0.1:8028/earth/
+		$[EXTRA_id]  -> the plot id
+		$[EXTRA_...] -> per-plot ExtendedData values coming from the CSV
+	-->
+	<script type="text/javascript">
+		var HOST = "$[host]";
+		// By default every Collect Earth survey has the "id" key attribute (collect_text_id).
+		// This demo survey adds a second key attribute "round" (collect_code_round), so the
+		// placemark id sent to the server is the two values comma-joined, e.g. "12,2025".
+		var EXTRA_ID_ATTRIBUTES = ['collect_text_id', 'collect_code_round'];
+	</script>
+
+	<link href="webFiles/bootstrap/bootstrap.min.css" rel="stylesheet" />
+	<link href="webFiles/css/earth_web.css" rel="stylesheet" />
+
+	<!--
+		Handle the fonts for languages that don't have their own glyphs in the standard
+		interface. Right now we only have Lao ('lo'). The TTF file needs to be loaded
+		through the same URL as the balloon to avoid cross-referencing issues.
+		Use the two character code of the language as the name of the font.
+	-->
+	<style type="text/css">
+		@font-face {
+			font-family: 'lo';
+			src: url('$[host]generated/webFiles/fonts/Phetsarath_OT.ttf');
+		}
+		body {
+			font-family: "en", "Trebuchet MS", "Helvetica", "Arial", "Verdana", "sans-serif";
+		}
+	</style>
+</head>
+
+<body>
+
+<!-- ===================== HEADER BAR (sticky) ===================== -->
+<header class="ce-header">
+	<div class="ce-header-inner">
+		<img class="ce-banner" src="webFiles/img/of_collectEarth_banner.jpg" alt="Open Foris Collect Earth" />
+		<div class="ce-header-meta">
+			<span class="ce-plot-badge" title="Plot identifier">
+				<span class="ce-plot-badge-label">Plot</span>
+				<span id="cePlotId">$[EXTRA_id]</span>
+				<span class="ce-plot-round" id="cePlotRound">$[EXTRA_round]</span>
+			</span>
+			<span class="ce-operator" id="ceOperator" style="display:none"></span>
+		</div>
+		<span class="ce-save-pill ce-save-idle" id="ceSavePill" role="status" aria-live="polite">
+			<span class="ce-save-dot"></span><span id="ceSaveText">Idle</span>
+		</span>
+	</div>
+</header>
+
+<!-- ===================== SERVER-UNREACHABLE BANNER ===================== -->
+<div class="ce-banner-warning" id="ceServerWarning" style="display:none">
+	<span>The Collect Earth server could not be reached.</span>
+	<button type="button" class="btn btn-sm btn-warning" id="ceRetryBtn">Retry</button>
+</div>
+
+<!-- ===================== LOADING ===================== -->
+<div class="ce-loading" id="ceLoadingPanel">
+	<div class="spinner-border text-primary" role="status" aria-hidden="true"></div>
+	<span>Loading plot data…</span>
+</div>
+
+<!-- ===================== ALREADY-FILLED SUMMARY ===================== -->
+<div class="ce-container" id="ceFilledPanel" style="display:none">
+	<div class="card ce-card ce-filled-card">
+		<div class="card-body">
+			<h2 class="ce-filled-title">This plot has already been submitted</h2>
+			<p class="text-muted">The data below has been actively saved. You can review it or edit it again.</p>
+			<div id="ceFilledSummary" class="ce-summary"></div>
+			<button type="button" class="btn btn-outline-primary mt-3" id="ceEditAnywayBtn">Edit anyway</button>
+		</div>
+	</div>
+</div>
+
+<!-- ===================== MAIN FORM ===================== -->
+<div class="ce-container" id="ceMainPanel" style="display:none">
+
+	<!-- nav-pills stepper -->
+	<nav class="ce-stepper" id="ceStepper" aria-label="Form sections">
+		<ul class="nav nav-pills" id="ceStepPills" role="tablist"></ul>
+	</nav>
+
+	<form id="formAll" action="$[host]save-data-expanded" novalidate>
+
+		<!-- Hidden / extra fields (outside the visible steps), same names & $[...] tokens as legacy -->
+		<input type="hidden" id="collect_coord_location" name="collect_coord_location" value="$[latitude],$[longitude]" class="extra" />
+		<input type="hidden" id="collect_text_plot_file" name="collect_text_plot_file" value="$[plot_file]" class="extra" />
+		<input type="hidden" id="collect_boolean_actively_saved" name="collect_boolean_actively_saved" value="false" />
+		<!-- START OF EXTRA CSV DATA -->
+		<input type="hidden" id="collect_text_id" name="collect_text_id" value="$[EXTRA_id]" class="extra" />
+		<input type="hidden" id="collect_code_round" name="collect_code_round" value="$[EXTRA_round]" class="extra" />
+		<input type="hidden" id="collect_integer_elevation" name="collect_integer_elevation" value="$[EXTRA_elevation]" class="extra" />
+		<input type="hidden" id="collect_real_slope" name="collect_real_slope" value="$[EXTRA_slope]" class="extra" />
+		<input type="hidden" id="collect_real_aspect" name="collect_real_aspect" value="$[EXTRA_aspect]" class="extra" />
+		<input type="hidden" id="collect_code_climate" name="collect_code_climate" value="$[EXTRA_climate]" class="extra" />
+		<input type="hidden" id="collect_code_soil" name="collect_code_soil" value="$[EXTRA_soil]" class="extra" />
+		<input type="hidden" id="collect_code_gez" name="collect_code_gez" value="$[EXTRA_gez]" class="extra" />
+		<input type="hidden" id="collect_text_country" name="collect_text_country" value="$[EXTRA_country]" class="extra" />
+		<input type="hidden" id="collect_text_province" name="collect_text_province" value="$[EXTRA_province]" class="extra" />
+		<input type="hidden" id="collect_text_district" name="collect_text_district" value="$[EXTRA_district]" class="extra" />
+		<!-- END OF EXTRA CSV DATA -->
+
+		<!-- ============ STEP 0: Land Cover ============ -->
+		<section class="ce-step" data-step-title="Land Cover" data-step-short="Land Cover">
+			<div class="card ce-card">
+				<div class="card-header">
+					<h2 class="ce-section-title">Land cover (latest VHR image)</h2>
+					<p class="ce-section-sub">Use the most recent Google Earth image.</p>
+				</div>
+				<div class="card-body">
+					<table class="table ce-entity-table align-middle">
+						<thead><tr><th>Element</th><th class="ce-col-input">Coverage</th></tr></thead>
+						<tbody>
+							<tr><td>Trees (in forest/grassland)</td><td><select class="form-select coverage-select" data-field-type="CODE_SELECT" id="collect_entity_land_cover[trees].code_coverage" name="collect_entity_land_cover[trees].code_coverage"></select></td></tr>
+							<tr><td>Trees (in agriculture/settlement)</td><td><select class="form-select coverage-select" data-field-type="CODE_SELECT" id="collect_entity_land_cover[tof].code_coverage" name="collect_entity_land_cover[tof].code_coverage"></select></td></tr>
+							<tr><td>Crops<span class="ce-help" title="Annual or permanent crops"></span></td><td><select class="form-select coverage-select" data-field-type="CODE_SELECT" id="collect_entity_land_cover[crops].code_coverage" name="collect_entity_land_cover[crops].code_coverage"></select></td></tr>
+							<tr><td>Grass<span class="ce-help" title="Herbaceous cover that is expected to grow even only during the rainy season."></span></td><td><select class="form-select coverage-select" data-field-type="CODE_SELECT" id="collect_entity_land_cover[grass].code_coverage" name="collect_entity_land_cover[grass].code_coverage"></select></td></tr>
+							<tr><td>Bushes/Shrubs<span class="ce-help" title="Steppe rangelands, cactus, pastoral plantations, maquis, etc."></span></td><td><select class="form-select coverage-select" data-field-type="CODE_SELECT" id="collect_entity_land_cover[shrubs].code_coverage" name="collect_entity_land_cover[shrubs].code_coverage"></select></td></tr>
+							<tr><td>Built up<span class="ce-help" title="Urban areas, villages, hamlets, farms, single-family homes"></span></td><td><select class="form-select coverage-select" data-field-type="CODE_SELECT" id="collect_entity_land_cover[housing].code_coverage" name="collect_entity_land_cover[housing].code_coverage"></select></td></tr>
+							<tr><td>Infrastructures<span class="ce-help" title="Roads, railways, airports, ports, power generation, mining."></span></td><td><select class="form-select coverage-select" data-field-type="CODE_SELECT" id="collect_entity_land_cover[infrastucture].code_coverage" name="collect_entity_land_cover[infrastucture].code_coverage"></select></td></tr>
+							<tr><td>Water Body<span class="ce-help" title="Rivers, lakes, reservoirs, dams, lagoons, marshes"></span></td><td><select class="form-select coverage-select" data-field-type="CODE_SELECT" id="collect_entity_land_cover[water_body].code_coverage" name="collect_entity_land_cover[water_body].code_coverage"></select></td></tr>
+							<tr><td>Bare Soil<span class="ce-help" title="Unproductive soil without vegetation year-round: rock, sand, or hardened/eroded soil."></span></td><td><select class="form-select coverage-select" data-field-type="CODE_SELECT" id="collect_entity_land_cover[bareSoil].code_coverage" name="collect_entity_land_cover[bareSoil].code_coverage"></select></td></tr>
+						</tbody>
+					</table>
+					<div class="ce-field" data-field-name="collect_integer_lc_points_summed">
+						<label class="form-label" for="collect_integer_lc_points_summed">% of land cover assessed</label>
+						<input class="form-control extra" disabled id="collect_integer_lc_points_summed" name="collect_integer_lc_points_summed" type="text" value="0">
+					</div>
+				</div>
+			</div>
+		</section>
+
+		<!-- ============ STEP 1: LU 2025 ============ -->
+		<section class="ce-step" data-step-title="Land Use 2025" data-step-short="LU 2025">
+			<div class="card ce-card">
+				<div class="card-body">
+					<div class="ce-field" data-field-name="collect_code_plot_distribution">
+						<label class="form-label">Land Use Distribution in the plot<span class="ce-help" title="If the plot is entirely covered by the same use, choose Single; if there are several uses, choose Multiple."></span></label>
+						<div class="code-items-group" data-field-type="CODE_BUTTON_GROUP">
+							<input type="hidden" data-field-type="CODE_BUTTON_GROUP" id="collect_code_plot_distribution" name="collect_code_plot_distribution">
+							<div class="code-items btn-wrap" data-toggle="buttons-radio">
+								<button class="btn btn-outline-primary code-item" data-code-item-id="2012486" type="button" value="single">Single Land Use</button>
+								<button class="btn btn-outline-primary code-item" data-code-item-id="2012487" type="button" value="multiple">Multiple Land Uses</button>
+							</div>
+							<div class="ce-invalid-feedback"></div>
+						</div>
+					</div>
+				</div>
+			</div>
+
+			<div class="card ce-card">
+				<div class="card-header"><h2 class="ce-section-title">Land Uses in the plot 2025</h2></div>
+				<div class="card-body">
+					<table class="table ce-entity-table align-middle">
+						<thead><tr><th>Land Use</th><th class="ce-col-input">Control points</th><th class="ce-col-pct">%</th></tr></thead>
+						<tbody>
+							<tr><td>Forest<span class="ce-help" title="Land &gt;0.5 ha with trees &gt;5 m and canopy cover &gt;10%."></span></td><td><select class="form-select coverage-select" data-field-type="CODE_SELECT" id="collect_entity_land_use[F].code_coverage" name="collect_entity_land_use[F].code_coverage"></select></td><td><input class="form-control extra ce-pct" disabled id="collect_entity_land_use[F].integer_percentage" name="collect_entity_land_use[F].integer_percentage" type="text" value="0"></td></tr>
+							<tr><td>Cropland<span class="ce-help" title="Annual and perennial crops, fallow land, agroforestry, temporary grassland."></span></td><td><select class="form-select coverage-select" data-field-type="CODE_SELECT" id="collect_entity_land_use[C].code_coverage" name="collect_entity_land_use[C].code_coverage"></select></td><td><input class="form-control extra ce-pct" disabled id="collect_entity_land_use[C].integer_percentage" name="collect_entity_land_use[C].integer_percentage" type="text" value="0"></td></tr>
+							<tr><td>Grassland<span class="ce-help" title="Herbaceous vegetation, managed or unmanaged, grazed or idle."></span></td><td><select class="form-select coverage-select" data-field-type="CODE_SELECT" id="collect_entity_land_use[G].code_coverage" name="collect_entity_land_use[G].code_coverage"></select></td><td><input class="form-control extra ce-pct" disabled id="collect_entity_land_use[G].integer_percentage" name="collect_entity_land_use[G].integer_percentage" type="text" value="0"></td></tr>
+							<tr><td>Settlement<span class="ce-help" title="Built-up or degraded land with &lt;10% vegetation cover."></span></td><td><select class="form-select coverage-select" data-field-type="CODE_SELECT" id="collect_entity_land_use[S].code_coverage" name="collect_entity_land_use[S].code_coverage"></select></td><td><input class="form-control extra ce-pct" disabled id="collect_entity_land_use[S].integer_percentage" name="collect_entity_land_use[S].integer_percentage" type="text" value="0"></td></tr>
+							<tr><td>Wetland<span class="ce-help" title="Land covered or saturated by water permanently or seasonally."></span></td><td><select class="form-select coverage-select" data-field-type="CODE_SELECT" id="collect_entity_land_use[W].code_coverage" name="collect_entity_land_use[W].code_coverage"></select></td><td><input class="form-control extra ce-pct" disabled id="collect_entity_land_use[W].integer_percentage" name="collect_entity_land_use[W].integer_percentage" type="text" value="0"></td></tr>
+							<tr><td>Otherland<span class="ce-help" title="Permanent snow, ice, or unproductive desert."></span></td><td><select class="form-select coverage-select" data-field-type="CODE_SELECT" id="collect_entity_land_use[O].code_coverage" name="collect_entity_land_use[O].code_coverage"></select></td><td><input class="form-control extra ce-pct" disabled id="collect_entity_land_use[O].integer_percentage" name="collect_entity_land_use[O].integer_percentage" type="text" value="0"></td></tr>
+						</tbody>
+					</table>
+					<div class="ce-field" data-field-name="collect_integer_lu_points_summed">
+						<label class="form-label" for="collect_integer_lu_points_summed">% of land use assessed</label>
+						<input class="form-control extra" disabled id="collect_integer_lu_points_summed" name="collect_integer_lu_points_summed" type="text" value="0">
+					</div>
+					<div class="ce-field" data-field-name="collect_code_land_use_whole_plot">
+						<label class="form-label">Land Use (Whole Plot)<span class="ce-help" title="Land Use that covers the whole plot when no other Land Uses are present."></span></label>
+						<div class="code-items-group" data-field-type="CODE_BUTTON_GROUP">
+							<input type="hidden" data-field-type="CODE_BUTTON_GROUP" id="collect_code_land_use_whole_plot" name="collect_code_land_use_whole_plot">
+							<div class="code-items btn-wrap" data-toggle="buttons-radio">
+								<button class="btn btn-outline-primary code-item" data-code-item-id="2012980" type="button" value="F">Forest</button>
+								<button class="btn btn-outline-primary code-item" data-code-item-id="2012994" type="button" value="C">Cropland</button>
+								<button class="btn btn-outline-primary code-item" data-code-item-id="2013002" type="button" value="G">Grassland</button>
+								<button class="btn btn-outline-primary code-item" data-code-item-id="2013010" type="button" value="S">Settlement</button>
+								<button class="btn btn-outline-primary code-item" data-code-item-id="2013017" type="button" value="W">Wetland</button>
+								<button class="btn btn-outline-primary code-item" data-code-item-id="2013028" type="button" value="O">Otherland</button>
+							</div>
+							<div class="ce-invalid-feedback"></div>
+						</div>
+					</div>
+				</div>
+			</div>
+		</section>
+
+		<!-- ============ STEP 2: LULUC ============ -->
+		<section class="ce-step" data-step-title="Land Use / Land Use Change" data-step-short="LULUC">
+			<div class="card ce-card">
+				<div class="card-body">
+					<div class="ce-field" data-field-name="collect_code_land_use_subcategory">
+						<label class="form-label">Land Use Change (2000-2025)<span class="ce-help" title="Has the land use of the plot changed since 2000 or remained the same?"></span></label>
+						<div class="code-items-group" data-field-type="CODE_BUTTON_GROUP">
+							<input type="hidden" data-field-type="CODE_BUTTON_GROUP" data-parent-id-field-id="collect_code_land_use_category_alias" id="collect_code_land_use_subcategory" name="collect_code_land_use_subcategory">
+							<div class="code-items btn-wrap" data-parent-id="2012719" style="display:none">
+								<button class="btn btn-outline-primary code-item" data-code-item-id="2012720" type="button" value="WW">W › W</button><button class="btn btn-outline-primary code-item" data-code-item-id="2012721" type="button" value="SW">S › W</button><button class="btn btn-outline-primary code-item" data-code-item-id="2012722" type="button" value="CW">C › W</button><button class="btn btn-outline-primary code-item" data-code-item-id="2012723" type="button" value="FW">F › W</button><button class="btn btn-outline-primary code-item" data-code-item-id="2012724" type="button" value="GW">G › W</button><button class="btn btn-outline-primary code-item" data-code-item-id="2012725" type="button" value="OW">O › W</button>
+							</div>
+							<div class="code-items btn-wrap" data-parent-id="2012698" style="display:none">
+								<button class="btn btn-outline-primary code-item" data-code-item-id="2012699" type="button" value="CC">C › C</button><button class="btn btn-outline-primary code-item" data-code-item-id="2012700" type="button" value="SC">S › C</button><button class="btn btn-outline-primary code-item" data-code-item-id="2012701" type="button" value="FC">F › C</button><button class="btn btn-outline-primary code-item" data-code-item-id="2012702" type="button" value="GC">G › C</button><button class="btn btn-outline-primary code-item" data-code-item-id="2012703" type="button" value="WC">W › C</button><button class="btn btn-outline-primary code-item" data-code-item-id="2012704" type="button" value="OC">O › C</button>
+							</div>
+							<div class="code-items btn-wrap" data-parent-id="2012712" style="display:none">
+								<button class="btn btn-outline-primary code-item" data-code-item-id="2012713" type="button" value="GG">G › G</button><button class="btn btn-outline-primary code-item" data-code-item-id="2012714" type="button" value="SG">S › G</button><button class="btn btn-outline-primary code-item" data-code-item-id="2012715" type="button" value="CG">C › G</button><button class="btn btn-outline-primary code-item" data-code-item-id="2012716" type="button" value="FG">F › G</button><button class="btn btn-outline-primary code-item" data-code-item-id="2012717" type="button" value="WG">W › G</button><button class="btn btn-outline-primary code-item" data-code-item-id="2012718" type="button" value="OG">O › G</button>
+							</div>
+							<div class="code-items btn-wrap" data-parent-id="2012726" style="display:none">
+								<button class="btn btn-outline-primary code-item" data-code-item-id="2012727" type="button" value="OO">O › O</button><button class="btn btn-outline-primary code-item" data-code-item-id="2012728" type="button" value="SO">S › O</button><button class="btn btn-outline-primary code-item" data-code-item-id="2012729" type="button" value="CO">C › O</button><button class="btn btn-outline-primary code-item" data-code-item-id="2012730" type="button" value="FO">F › O</button><button class="btn btn-outline-primary code-item" data-code-item-id="2012731" type="button" value="GO">G › O</button><button class="btn btn-outline-primary code-item" data-code-item-id="2012732" type="button" value="WO">W › O</button>
+							</div>
+							<div class="code-items btn-wrap" data-parent-id="2012691" style="display:none">
+								<button class="btn btn-outline-primary code-item" data-code-item-id="2012692" type="button" value="SS">S › S</button><button class="btn btn-outline-primary code-item" data-code-item-id="2012693" type="button" value="CS">C › S</button><button class="btn btn-outline-primary code-item" data-code-item-id="2012694" type="button" value="FS">F › S</button><button class="btn btn-outline-primary code-item" data-code-item-id="2012695" type="button" value="GS">G › S</button><button class="btn btn-outline-primary code-item" data-code-item-id="2012696" type="button" value="WS">W › S</button><button class="btn btn-outline-primary code-item" data-code-item-id="2012697" type="button" value="OS">O › S</button>
+							</div>
+							<div class="code-items btn-wrap" data-parent-id="2012705" style="display:none">
+								<button class="btn btn-outline-primary code-item" data-code-item-id="2012706" type="button" value="FF">F › F</button><button class="btn btn-outline-primary code-item" data-code-item-id="2012707" type="button" value="SF">S › F</button><button class="btn btn-outline-primary code-item" data-code-item-id="2012708" type="button" value="CF">C › F</button><button class="btn btn-outline-primary code-item" data-code-item-id="2012709" type="button" value="GF">G › F</button><button class="btn btn-outline-primary code-item" data-code-item-id="2012710" type="button" value="WF">W › F</button><button class="btn btn-outline-primary code-item" data-code-item-id="2012711" type="button" value="OF">O › F</button>
+							</div>
+							<div class="ce-invalid-feedback"></div>
+						</div>
+					</div>
+
+					<div class="ce-field" data-field-name="collect_code_land_use_subcategory_year_of_change">
+						<label class="form-label" for="collect_code_land_use_subcategory_year_of_change">Land Use Change - Year of change<span class="ce-help" title="In which year can you first appreciate the change of Land Use?"></span></label>
+						<select class="form-select year-select" data-field-type="CODE_SELECT" id="collect_code_land_use_subcategory_year_of_change" name="collect_code_land_use_subcategory_year_of_change"></select>
+					</div>
+
+					<div class="ce-field" data-field-name="collect_code_land_use_subdivision">
+						<label class="form-label">Land Use Subdivision 2025<span class="ce-help" title="Country specific Land Use"></span></label>
+						<div class="code-items-group" data-field-type="CODE_BUTTON_GROUP">
+							<input type="hidden" data-field-type="CODE_BUTTON_GROUP" data-parent-id-field-id="collect_code_land_use_category" id="collect_code_land_use_subdivision" name="collect_code_land_use_subdivision">
+							<div class="code-items btn-wrap" data-parent-id="2013002" style="display:none">
+								<button class="btn btn-outline-primary code-item" data-code-item-id="2013003" type="button" value="grassland">Grassland</button><button class="btn btn-outline-primary code-item" data-code-item-id="2013004" type="button" value="grassland_trees">Grassland with trees</button><button class="btn btn-outline-primary code-item" data-code-item-id="2013005" type="button" value="grassland_shrubs">Grassland with shrubs</button><button class="btn btn-outline-primary code-item" data-code-item-id="2013006" type="button" value="grassland_trees_shrubs">Grassland with trees and shrubs</button><button class="btn btn-outline-primary code-item" data-code-item-id="2013007" type="button" value="shrubland">Shrubland</button><button class="btn btn-outline-primary code-item" data-code-item-id="2013008" type="button" value="shrubland_trees">Shrubland with trees</button><button class="btn btn-outline-primary code-item" data-code-item-id="2013009" type="button" value="lichens_mosses">Lichens and mosses</button>
+							</div>
+							<div class="code-items btn-wrap" data-parent-id="2013017" style="display:none">
+								<button class="btn btn-outline-primary code-item" data-code-item-id="2013018" type="button" value="permanent_lake">Permanent lake</button><button class="btn btn-outline-primary code-item" data-code-item-id="2013019" type="button" value="seasonal_lake">Seasonal lake</button><button class="btn btn-outline-primary code-item" data-code-item-id="2013020" type="button" value="permanent_river">Permanent River</button><button class="btn btn-outline-primary code-item" data-code-item-id="2013021" type="button" value="seasonal_river">Seasonal river</button><button class="btn btn-outline-primary code-item" data-code-item-id="2013022" type="button" value="swamp">Swamp</button><button class="btn btn-outline-primary code-item" data-code-item-id="2013023" type="button" value="lagoon">Lagoon</button><button class="btn btn-outline-primary code-item" data-code-item-id="2013024" type="button" value="peatland">Peatland</button><button class="btn btn-outline-primary code-item" data-code-item-id="2013025" type="button" value="salt_extraction">Salt extraction</button><button class="btn btn-outline-primary code-item" data-code-item-id="2013026" type="button" value="other_wetlands">Other</button><button class="btn btn-outline-primary code-item" data-code-item-id="2013027" type="button" value="art_water_body">Artificial Water Bodies</button>
+							</div>
+							<div class="code-items btn-wrap" data-parent-id="2012980" style="display:none">
+								<button class="btn btn-outline-primary code-item" data-code-item-id="2012981" type="button" value="broadleaf_dec">Broadleaf deciduous</button><button class="btn btn-outline-primary code-item" data-code-item-id="2012982" type="button" value="broadleaf_ever">Broadleaf evergreen</button><button class="btn btn-outline-primary code-item" data-code-item-id="2012983" type="button" value="broadleaf_mix">Broadleaf mixed</button><button class="btn btn-outline-primary code-item" data-code-item-id="2012984" type="button" value="coniferous_dec">Coniferous deciduous</button><button class="btn btn-outline-primary code-item" data-code-item-id="2012985" type="button" value="coniferous_ever">Coniferous evergreen</button><button class="btn btn-outline-primary code-item" data-code-item-id="2012986" type="button" value="coniferous_mix">Coniferous mixed</button><button class="btn btn-outline-primary code-item" data-code-item-id="2012987" type="button" value="mixed_forest">Mixed forest (brod-con)</button><button class="btn btn-outline-primary code-item" data-code-item-id="2012988" type="button" value="riparian">Riparian forest</button><button class="btn btn-outline-primary code-item" data-code-item-id="2012989" type="button" value="mangrove">Mangrove forest</button><button class="btn btn-outline-primary code-item" data-code-item-id="2012990" type="button" value="coniferous_plant">Coniferous plantation</button><button class="btn btn-outline-primary code-item" data-code-item-id="2012991" type="button" value="acacia_plant">Acacia plantation</button><button class="btn btn-outline-primary code-item" data-code-item-id="2012992" type="button" value="eucalyptus_plant">Eucalyptus plantation</button><button class="btn btn-outline-primary code-item" data-code-item-id="2012993" type="button" value="other_plant">Other plantation</button>
+							</div>
+							<div class="code-items btn-wrap" data-parent-id="2013028" style="display:none">
+								<button class="btn btn-outline-primary code-item" data-code-item-id="2013029" type="button" value="rock_stone">Rocks / Stone</button><button class="btn btn-outline-primary code-item" data-code-item-id="2013030" type="button" value="sand_dunes">Sand / Dunes</button><button class="btn btn-outline-primary code-item" data-code-item-id="2013031" type="button" value="snow">Permanent Snow / Glaciers / Ice</button><button class="btn btn-outline-primary code-item" data-code-item-id="2013032" type="button" value="barren_soil">Barren soil</button><button class="btn btn-outline-primary code-item" data-code-item-id="2013033" type="button" value="other_otherland">Other</button>
+							</div>
+							<div class="code-items btn-wrap" data-parent-id="2012994" style="display:none">
+								<button class="btn btn-outline-primary code-item" data-code-item-id="2012995" type="button" value="annual_crops">Annual crops</button><button class="btn btn-outline-primary code-item" data-code-item-id="2012996" type="button" value="perennial_crops">Perennial crops</button><button class="btn btn-outline-primary code-item" data-code-item-id="2012997" type="button" value="shifting_agriculture">Shifting Agriculture</button><button class="btn btn-outline-primary code-item" data-code-item-id="2012998" type="button" value="garden">Garden</button><button class="btn btn-outline-primary code-item" data-code-item-id="2012999" type="button" value="rice">Rice paddy</button><button class="btn btn-outline-primary code-item" data-code-item-id="2013000" type="button" value="palm">Palm Oil</button><button class="btn btn-outline-primary code-item" data-code-item-id="2013001" type="button" value="greenhouse">Greenhouse</button>
+							</div>
+							<div class="code-items btn-wrap" data-parent-id="2013010" style="display:none">
+								<button class="btn btn-outline-primary code-item" data-code-item-id="2013011" type="button" value="city">City</button><button class="btn btn-outline-primary code-item" data-code-item-id="2013012" type="button" value="village">Village</button><button class="btn btn-outline-primary code-item" data-code-item-id="2013013" type="button" value="mining">Mining</button><button class="btn btn-outline-primary code-item" data-code-item-id="2013014" type="button" value="infrastructure">Infrastructure</button><button class="btn btn-outline-primary code-item" data-code-item-id="2013015" type="button" value="built_up">Built up</button><button class="btn btn-outline-primary code-item" data-code-item-id="2013016" type="button" value="urban_park">Urban park</button>
+							</div>
+							<div class="ce-invalid-feedback"></div>
+						</div>
+					</div>
+
+					<div class="ce-field" data-field-name="collect_boolean_land_use_subdivision_change">
+						<label class="form-label">Land use subdivision changed 2000/2025<span class="ce-help" title="The plot changed at subdivision level but not its use category (e.g. Native Forest to Forest Plantation)."></span></label>
+						<div class="boolean-group btn-wrap" data-field-type="BOOLEAN">
+							<input type="hidden" data-field-type="BOOLEAN" id="collect_boolean_land_use_subdivision_change" name="collect_boolean_land_use_subdivision_change">
+							<button class="btn btn-outline-primary" type="button" value="true">Yes</button><button class="btn btn-outline-primary" type="button" value="false">No</button>
+						</div>
+						<div class="ce-invalid-feedback"></div>
+					</div>
+
+					<div class="ce-field" data-field-name="collect_boolean_land_use_assessment_confidence">
+						<label class="form-label">Land Use / Land Use Change - Confidence<span class="ce-help" title="Is the interpreter confident about the assessed Land Use category and subdivision?"></span></label>
+						<div class="boolean-group btn-wrap" data-field-type="BOOLEAN">
+							<input type="hidden" data-field-type="BOOLEAN" id="collect_boolean_land_use_assessment_confidence" name="collect_boolean_land_use_assessment_confidence">
+							<button class="btn btn-outline-primary" type="button" value="true">Yes</button><button class="btn btn-outline-primary" type="button" value="false">No</button>
+						</div>
+						<div class="ce-invalid-feedback"></div>
+					</div>
+
+					<div class="ce-field" data-field-name="collect_code_land_use_subdivision_year_of_change">
+						<label class="form-label" for="collect_code_land_use_subdivision_year_of_change">Year of the Subdivision change</label>
+						<select class="form-select year-select" data-field-type="CODE_SELECT" id="collect_code_land_use_subdivision_year_of_change" name="collect_code_land_use_subdivision_year_of_change"></select>
+					</div>
+
+					<div class="ce-field" data-field-name="collect_code_land_use_initial_subdivision">
+						<label class="form-label" for="collect_code_land_use_initial_subdivision">Previous Land Use Subdivision</label>
+						<select class="form-select" data-field-type="CODE_SELECT" data-parent-id-field-id="collect_code_calculated_initial_land_use" id="collect_code_land_use_initial_subdivision" name="collect_code_land_use_initial_subdivision"></select>
+					</div>
+
+					<div class="ce-field" data-field-name="collect_boolean_second_lu_change">
+						<label class="form-label">Has there been a previous land use?<span class="ce-help" title="Has the land use changed more than once since 2000?"></span></label>
+						<div class="boolean-group btn-wrap" data-field-type="BOOLEAN">
+							<input type="hidden" data-field-type="BOOLEAN" id="collect_boolean_second_lu_change" name="collect_boolean_second_lu_change">
+							<button class="btn btn-outline-primary" type="button" value="true">Yes</button><button class="btn btn-outline-primary" type="button" value="false">No</button>
+						</div>
+						<div class="ce-invalid-feedback"></div>
+					</div>
+
+					<div class="ce-field" data-field-name="collect_code_second_lu_conversion">
+						<label class="form-label">Oldest Land Use<span class="ce-help" title="What is the precedent Land Use? For Forest→Cropland→Settlement the oldest is Forest."></span></label>
+						<div class="code-items-group" data-field-type="CODE_BUTTON_GROUP">
+							<input type="hidden" data-field-type="CODE_BUTTON_GROUP" id="collect_code_second_lu_conversion" name="collect_code_second_lu_conversion">
+							<div class="code-items btn-wrap" data-toggle="buttons-radio">
+								<button class="btn btn-outline-primary code-item" data-code-item-id="2012980" type="button" value="F">Forest</button><button class="btn btn-outline-primary code-item" data-code-item-id="2012994" type="button" value="C">Cropland</button><button class="btn btn-outline-primary code-item" data-code-item-id="2013002" type="button" value="G">Grassland</button><button class="btn btn-outline-primary code-item" data-code-item-id="2013010" type="button" value="S">Settlement</button><button class="btn btn-outline-primary code-item" data-code-item-id="2013017" type="button" value="W">Wetland</button><button class="btn btn-outline-primary code-item" data-code-item-id="2013028" type="button" value="O">Otherland</button>
+							</div>
+							<div class="ce-invalid-feedback"></div>
+						</div>
+					</div>
+
+					<div class="ce-field" data-field-name="collect_code_second_lu_conversion_year">
+						<label class="form-label" for="collect_code_second_lu_conversion_year">Year of the conversion from the oldest land use</label>
+						<select class="form-select year-select" data-field-type="CODE_SELECT" id="collect_code_second_lu_conversion_year" name="collect_code_second_lu_conversion_year"></select>
+					</div>
+
+					<div class="ce-field" data-field-name="collect_code_second_lu_subdivision">
+						<label class="form-label" for="collect_code_second_lu_subdivision">Oldest Land Use Subdivision<span class="ce-help" title="The subdivision (e.g. type of Forest) that this plot initially was."></span></label>
+						<select class="form-select" data-field-type="CODE_SELECT" data-parent-id-field-id="collect_code_second_lu_conversion" id="collect_code_second_lu_subdivision" name="collect_code_second_lu_subdivision"></select>
+					</div>
+				</div>
+			</div>
+		</section>
+
+		<!-- ============ STEP 3: Delta Forest Cover ============ -->
+		<section class="ce-step" data-step-title="&#x0394; Forest Cover" data-step-short="&#x0394; Forest">
+			<div class="card ce-card">
+				<div class="card-body">
+					<div class="ce-field" data-field-name="collect_code_deforestation_driver">
+						<label class="form-label">Deforestation driver</label>
+						<div class="code-items-group" data-field-type="CODE_BUTTON_GROUP">
+							<input type="hidden" data-field-type="CODE_BUTTON_GROUP" id="collect_code_deforestation_driver" name="collect_code_deforestation_driver">
+							<div class="code-items btn-wrap" data-toggle="buttons-radio">
+								<button class="btn btn-outline-primary code-item" data-code-item-id="2012534" type="button" value="logging">Logging</button><button class="btn btn-outline-primary code-item" data-code-item-id="2012535" type="button" value="agro_burning">Agricultural burning</button><button class="btn btn-outline-primary code-item" data-code-item-id="2012536" type="button" value="forest_fire">Forest fire</button>
+							</div>
+							<div class="ce-invalid-feedback"></div>
+						</div>
+					</div>
+
+					<div class="ce-field" data-field-name="collect_code_forest_dynamics">
+						<label class="form-label">Forest Dynamics</label>
+						<div class="code-items-group" data-field-type="CODE_BUTTON_GROUP">
+							<input type="hidden" data-field-type="CODE_BUTTON_GROUP" id="collect_code_forest_dynamics" name="collect_code_forest_dynamics">
+							<div class="code-items btn-wrap" data-toggle="buttons-radio">
+								<button class="btn btn-outline-primary code-item" data-code-item-id="2012537" type="button" value="none">No Changes</button><button class="btn btn-outline-primary code-item" data-code-item-id="2012538" type="button" value="degradation">Degradation</button><button class="btn btn-outline-primary code-item" data-code-item-id="2012547" type="button" value="reforestation">Recovery/Reforestation</button>
+							</div>
+							<div class="ce-invalid-feedback"></div>
+						</div>
+					</div>
+
+					<div class="ce-field" data-field-name="collect_code_forest_dynamics_type">
+						<label class="form-label">Type of change dynamics</label>
+						<div class="code-items-group" data-field-type="CODE_BUTTON_GROUP">
+							<input type="hidden" data-field-type="CODE_BUTTON_GROUP" data-parent-id-field-id="collect_code_forest_dynamics" id="collect_code_forest_dynamics_type" name="collect_code_forest_dynamics_type">
+							<div class="code-items btn-wrap" data-parent-id="2012538" style="display:none">
+								<button class="btn btn-outline-primary code-item" data-code-item-id="2012539" type="button" value="fire">Fires</button><button class="btn btn-outline-primary code-item" data-code-item-id="2012540" type="button" value="logging">Logging</button><button class="btn btn-outline-primary code-item" data-code-item-id="2012541" type="button" value="pests">Pests</button><button class="btn btn-outline-primary code-item" data-code-item-id="2012542" type="button" value="cattle">Cattle raising</button><button class="btn btn-outline-primary code-item" data-code-item-id="2012543" type="button" value="agriculture">Agriculture</button><button class="btn btn-outline-primary code-item" data-code-item-id="2012544" type="button" value="paths">Roads</button><button class="btn btn-outline-primary code-item" data-code-item-id="2012545" type="button" value="settlements">Settlements</button><button class="btn btn-outline-primary code-item" data-code-item-id="2012546" type="button" value="climate">Cyclone / Flood / Weather Events</button>
+							</div>
+							<div class="code-items btn-wrap" data-parent-id="2012547" style="display:none">
+								<button class="btn btn-outline-primary code-item" data-code-item-id="2012548" type="button" value="natural">Natural</button><button class="btn btn-outline-primary code-item" data-code-item-id="2012549" type="button" value="antropogenic">Anthropogenic</button>
+							</div>
+							<div class="ce-invalid-feedback"></div>
+						</div>
+					</div>
+
+					<div class="ce-field" data-field-name="collect_code_previous_tree_cover">
+						<label class="form-label" for="collect_code_previous_tree_cover">Tree cover before disturbance<span class="ce-help" title="Consider only the impact of forest degradation, not the seasonality of the vegetation."></span></label>
+						<select class="form-select coverage-select" data-field-type="CODE_SELECT" id="collect_code_previous_tree_cover" name="collect_code_previous_tree_cover"></select>
+					</div>
+
+					<div class="ce-field" data-field-name="collect_code_degradation_year">
+						<label class="form-label" for="collect_code_degradation_year">Year of degradation</label>
+						<select class="form-select year-select" data-field-type="CODE_SELECT" id="collect_code_degradation_year" name="collect_code_degradation_year"></select>
+					</div>
+
+					<div class="ce-field" data-field-name="collect_code_increase_year">
+						<label class="form-label" for="collect_code_increase_year">Year of recovery</label>
+						<select class="form-select year-select" data-field-type="CODE_SELECT" id="collect_code_increase_year" name="collect_code_increase_year"></select>
+					</div>
+				</div>
+			</div>
+		</section>
+
+		<!-- ============ STEP 4: Comments ============ -->
+		<section class="ce-step" data-step-title="Comments" data-step-short="Comm.">
+			<div class="card ce-card">
+				<div class="card-body">
+					<div class="ce-field" data-field-name="collect_text_comments">
+						<label class="form-label" for="collect_text_comments">Comments<span class="ce-help" title="Leave a comment if this plot was difficult to assess."></span></label>
+						<textarea class="form-control" id="collect_text_comments" name="collect_text_comments" rows="3"></textarea>
+					</div>
+				</div>
+			</div>
+		</section>
+
+		<!-- ============ STEP 5: Review & submit ============ -->
+		<section class="ce-step ce-review-step" data-step-title="Review &amp; submit" data-step-short="Review">
+			<div class="card ce-card">
+				<div class="card-header"><h2 class="ce-section-title">Review &amp; submit</h2>
+					<p class="ce-section-sub">Check the values entered, then submit the plot.</p></div>
+				<div class="card-body">
+					<div id="ceReviewSummary" class="ce-summary"></div>
+					<div class="ce-submit-row">
+						<button type="button" class="btn btn-success btn-lg" id="ceSubmitBtn">Submit plot</button>
+					</div>
+				</div>
+			</div>
+		</section>
+
+	</form>
+
+	<!-- step navigation buttons -->
+	<div class="ce-step-nav">
+		<button type="button" class="btn btn-outline-secondary" id="cePrevBtn">Previous</button>
+		<button type="button" class="btn btn-primary" id="ceNextBtn">Next</button>
+	</div>
+
+	<footer class="ce-footer">
+		<img src="webFiles/img/bottombanner.png" alt="" />
+	</footer>
+</div>
+
+<script src="webFiles/bootstrap/bootstrap.bundle.min.js"></script>
+<script src="webFiles/js/earth_web.js"></script>
+</body>
+</html>

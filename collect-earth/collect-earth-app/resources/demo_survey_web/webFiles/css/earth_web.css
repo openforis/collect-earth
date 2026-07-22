@@ -1,0 +1,328 @@
+/*
+ * earth_web.css — modern web balloon for the Leaflet viewer.
+ * Complements Bootstrap 5.3. Status colors match the map:
+ *   error #e53935 · unsaved/partial #fdd835 · saved #43a047
+ */
+
+:root {
+	--ce-red: #e53935;
+	--ce-yellow: #fdd835;
+	--ce-green: #43a047;
+	--ce-blue: #1976d2;
+	--ce-header-h: 64px;
+	--ce-bg: #f4f6f8;
+	--ce-ink: #263238;
+	--ce-muted: #607d8b;
+}
+
+html, body {
+	background: var(--ce-bg);
+	color: var(--ce-ink);
+	font-size: 14px;
+}
+
+/* ---------- Header (sticky) ---------- */
+.ce-header {
+	position: sticky;
+	top: 0;
+	z-index: 1030;
+	background: #fff;
+	border-bottom: 1px solid #e0e0e0;
+	box-shadow: 0 1px 4px rgba(0, 0, 0, .08);
+}
+.ce-header-inner {
+	display: flex;
+	align-items: center;
+	gap: 12px;
+	padding: 8px 14px;
+	min-height: var(--ce-header-h);
+}
+.ce-banner {
+	height: 40px;
+	width: auto;
+	border-radius: 4px;
+}
+.ce-header-meta {
+	display: flex;
+	flex-direction: column;
+	gap: 2px;
+	flex: 1 1 auto;
+	min-width: 0;
+}
+.ce-plot-badge {
+	display: inline-flex;
+	align-items: baseline;
+	gap: 6px;
+	font-weight: 600;
+	font-size: 15px;
+}
+.ce-plot-badge-label {
+	text-transform: uppercase;
+	font-size: 10px;
+	letter-spacing: .08em;
+	color: var(--ce-muted);
+	font-weight: 700;
+}
+.ce-plot-round {
+	font-size: 11px;
+	color: #fff;
+	background: var(--ce-blue);
+	border-radius: 10px;
+	padding: 1px 8px;
+	font-weight: 600;
+}
+.ce-plot-round:empty { display: none; }
+.ce-operator {
+	font-size: 12px;
+	color: var(--ce-muted);
+}
+
+/* ---------- Save-state pill ---------- */
+.ce-save-pill {
+	display: inline-flex;
+	align-items: center;
+	gap: 6px;
+	font-size: 12px;
+	font-weight: 600;
+	padding: 4px 12px;
+	border-radius: 999px;
+	white-space: nowrap;
+	transition: background .25s, color .25s;
+}
+.ce-save-dot {
+	width: 9px;
+	height: 9px;
+	border-radius: 50%;
+	background: currentColor;
+}
+.ce-save-idle    { background: #eceff1; color: var(--ce-muted); }
+.ce-save-unsaved { background: #fff8e1; color: #f9a825; }
+.ce-save-saving  { background: #e3f2fd; color: var(--ce-blue); }
+.ce-save-saved   { background: #e8f5e9; color: var(--ce-green); }
+.ce-save-error   { background: #ffebee; color: var(--ce-red); }
+
+/* ---------- Warning banner ---------- */
+.ce-banner-warning {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 12px;
+	background: #fff8e1;
+	border-bottom: 1px solid #ffe082;
+	color: #8d6e00;
+	padding: 8px 14px;
+	font-size: 13px;
+}
+
+/* ---------- Loading ---------- */
+.ce-loading {
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	gap: 12px;
+	padding: 60px 20px;
+	color: var(--ce-muted);
+}
+
+/* ---------- Layout ---------- */
+.ce-container {
+	max-width: 720px;
+	margin: 0 auto;
+	padding: 14px 14px 40px;
+}
+
+/* ---------- Stepper (nav-pills) ---------- */
+.ce-stepper {
+	position: sticky;
+	top: var(--ce-header-h);
+	z-index: 1020;
+	background: var(--ce-bg);
+	padding: 8px 0;
+	margin-bottom: 8px;
+}
+.ce-stepper .nav-pills {
+	flex-wrap: nowrap;
+	overflow-x: auto;
+	gap: 6px;
+	padding-bottom: 4px;
+}
+.ce-stepper .nav-link {
+	white-space: nowrap;
+	font-size: 12.5px;
+	font-weight: 600;
+	padding: 6px 12px;
+	color: var(--ce-ink);
+	background: #fff;
+	border: 1px solid #e0e0e0;
+	display: inline-flex;
+	align-items: center;
+	gap: 6px;
+}
+.ce-stepper .nav-link.active {
+	background: var(--ce-blue);
+	border-color: var(--ce-blue);
+	color: #fff;
+}
+.ce-stepper .nav-link.ce-done:not(.active) {
+	border-color: var(--ce-green);
+	color: var(--ce-green);
+}
+.ce-step-badge {
+	display: none;
+	min-width: 18px;
+	height: 18px;
+	line-height: 18px;
+	text-align: center;
+	font-size: 11px;
+	font-weight: 700;
+	color: #fff;
+	background: var(--ce-red);
+	border-radius: 999px;
+	padding: 0 5px;
+}
+.ce-step-badge.show { display: inline-block; }
+
+/* ---------- Steps / transitions ---------- */
+.ce-step { display: none; }
+.ce-step.active {
+	display: block;
+	animation: ceFade .25s ease;
+}
+@keyframes ceFade {
+	from { opacity: 0; transform: translateY(6px); }
+	to   { opacity: 1; transform: translateY(0); }
+}
+
+/* ---------- Cards ---------- */
+.ce-card {
+	border: 1px solid #e3e7ea;
+	border-radius: 10px;
+	margin-bottom: 14px;
+	box-shadow: 0 1px 3px rgba(0, 0, 0, .05);
+}
+.ce-card .card-header {
+	background: #fafbfc;
+	border-bottom: 1px solid #eceff1;
+	border-radius: 10px 10px 0 0;
+}
+.ce-section-title {
+	font-size: 16px;
+	font-weight: 700;
+	margin: 0;
+	color: var(--ce-ink);
+}
+.ce-section-sub {
+	font-size: 12px;
+	color: var(--ce-muted);
+	margin: 4px 0 0;
+}
+
+/* ---------- Fields ---------- */
+.ce-field { margin-bottom: 16px; }
+.ce-field:last-child { margin-bottom: 0; }
+.ce-field .form-label {
+	font-weight: 600;
+	font-size: 13.5px;
+	margin-bottom: 6px;
+}
+.ce-field.notrelevant { display: none; }
+
+.ce-help {
+	display: inline-block;
+	width: 15px;
+	height: 15px;
+	line-height: 15px;
+	text-align: center;
+	font-size: 11px;
+	font-weight: 700;
+	color: #fff;
+	background: var(--ce-muted);
+	border-radius: 50%;
+	margin-left: 6px;
+	cursor: help;
+	vertical-align: middle;
+}
+.ce-help::before { content: "i"; font-style: italic; }
+
+/* ---------- Button groups (code items / boolean) ---------- */
+.btn-wrap {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 6px;
+}
+.btn-wrap .btn { font-size: 13px; }
+.btn-wrap .btn.active {
+	background: var(--ce-blue);
+	border-color: var(--ce-blue);
+	color: #fff;
+}
+
+/* ---------- Entity tables ---------- */
+.ce-entity-table { margin-bottom: 16px; }
+.ce-entity-table th {
+	font-size: 12px;
+	text-transform: uppercase;
+	letter-spacing: .03em;
+	color: var(--ce-muted);
+}
+.ce-entity-table td { vertical-align: middle; }
+.ce-col-input { width: 190px; }
+.ce-col-pct { width: 70px; }
+.ce-pct { text-align: right; }
+
+/* ---------- Validation ---------- */
+.is-invalid .btn-wrap .btn,
+.ce-field.is-invalid .form-select,
+.ce-field.is-invalid .form-control {
+	border-color: var(--ce-red);
+}
+.ce-invalid-feedback,
+.ce-field .invalid-feedback { display: none; }
+.ce-field.is-invalid .ce-invalid-feedback,
+.ce-field.is-invalid .invalid-feedback {
+	display: block;
+	width: 100%;
+	margin-top: 4px;
+	font-size: 12px;
+	color: var(--ce-red);
+}
+
+/* ---------- Review / summary ---------- */
+.ce-summary { display: block; }
+.ce-summary-row {
+	display: flex;
+	justify-content: space-between;
+	gap: 16px;
+	padding: 6px 0;
+	border-bottom: 1px solid #eceff1;
+	font-size: 13px;
+}
+.ce-summary-row .ce-summary-label { color: var(--ce-muted); }
+.ce-summary-row .ce-summary-value { font-weight: 600; text-align: right; }
+.ce-summary-empty { color: var(--ce-muted); font-style: italic; padding: 8px 0; }
+.ce-submit-row {
+	margin-top: 18px;
+	display: flex;
+	justify-content: flex-end;
+}
+
+/* ---------- Step nav ---------- */
+.ce-step-nav {
+	display: flex;
+	justify-content: space-between;
+	margin-top: 6px;
+}
+
+/* ---------- Filled card ---------- */
+.ce-filled-card { border-color: var(--ce-green); }
+.ce-filled-title { font-size: 18px; font-weight: 700; color: var(--ce-green); }
+
+/* ---------- Footer ---------- */
+.ce-footer { text-align: center; margin-top: 22px; opacity: .85; }
+.ce-footer img { max-width: 100%; height: auto; }
+
+/* ---------- Small screens ---------- */
+@media (max-width: 520px) {
+	.ce-col-input { width: auto; }
+	.ce-banner { height: 32px; }
+}
