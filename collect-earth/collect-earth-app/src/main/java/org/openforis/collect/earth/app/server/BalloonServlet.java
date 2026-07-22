@@ -5,6 +5,7 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.text.SimpleDateFormat;
 import java.util.Date;
+import java.util.HashMap;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Map.Entry;
@@ -105,7 +106,10 @@ public class BalloonServlet extends DataAccessingServlet {
 					+ EarthConstants.FOLDER_COPIED_TO_KMZ + "/"); //$NON-NLS-1$
 			balloonContents = balloonContents.replace(EarthConstants.FOLDER_WEB_FILES + "/", EarthConstants.GENERATED_FOLDER_SUFFIX + "/" //$NON-NLS-1$ //$NON-NLS-2$
 					+ EarthConstants.FOLDER_WEB_FILES + "/"); //$NON-NLS-1$
-			balloonContents = replaceGoalsWithParameters(balloonContents, request.getParameterMap());
+			final Map<String, String[]> substitutionParams = Boolean.TRUE.equals(web)
+					? buildWebSubstitutionParams(request.getParameterMap())
+					: request.getParameterMap();
+			balloonContents = replaceGoalsWithParameters(balloonContents, substitutionParams);
 
 			final byte[] bytes = balloonContents.getBytes();
 			response.setHeader("Content-Length", Integer.toString( bytes.length ) ); //$NON-NLS-1$ //$NON-NLS-2$
@@ -113,6 +117,41 @@ public class BalloonServlet extends DataAccessingServlet {
 		} else {
 			getLogger().error("There was a problem fetching the balloon html, please check the name!"); //$NON-NLS-1$
 		}
+	}
+
+	/**
+	 * Builds the parameter map used to substitute the {@code $[...]} tokens for the
+	 * web (Leaflet panel) balloon.
+	 *
+	 * <p>In the Google Earth path the KML template emits each placemark attribute as a
+	 * {@code <Data name="EXTRA_id">...</Data>} element, so Google Earth substitutes
+	 * {@code $[EXTRA_id]}, {@code $[EXTRA_round]}, etc. The web request, however, arrives
+	 * with those same attributes as <b>unprefixed</b> query parameters ({@code id},
+	 * {@code round}, {@code elevation}, {@code climate}, {@code soil}, {@code gez},
+	 * {@code country}, {@code province}, {@code district}, {@code latitude},
+	 * {@code longitude}, ...). To make the shared balloon HTML work unchanged in the web
+	 * panel, we alias every request parameter under an additional {@code EXTRA_}-prefixed
+	 * key, emulating the KML-template {@code EXTRA_} convention so that legacy balloons
+	 * referencing {@code $[EXTRA_*]} resolve correctly.</p>
+	 *
+	 * <p>We also supply {@code $[plot_file]} (a token the KML template sources but that has
+	 * no web-request equivalent) from the configured sample CSV file so it does not remain
+	 * an unsubstituted literal in the served HTML.</p>
+	 */
+	private Map<String, String[]> buildWebSubstitutionParams(Map<String, String[]> requestParams) {
+		final Map<String, String[]> augmented = new HashMap<>(requestParams);
+		for (final Entry<String, String[]> entry : requestParams.entrySet()) {
+			final String extraKey = "EXTRA_" + entry.getKey(); //$NON-NLS-1$
+			// Do not overwrite an EXTRA_-prefixed param that was already sent explicitly.
+			if (!augmented.containsKey(extraKey)) {
+				augmented.put(extraKey, entry.getValue());
+			}
+		}
+		if (!augmented.containsKey("plot_file")) { //$NON-NLS-1$
+			final String csvFile = localPropertiesService.getCsvFile();
+			augmented.put("plot_file", new String[] { csvFile != null ? csvFile : "" }); //$NON-NLS-1$ //$NON-NLS-2$
+		}
+		return augmented;
 	}
 
 	/**

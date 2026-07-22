@@ -68,6 +68,8 @@
 	var currentStepIndex = 0;
 	var stateByFieldName = {}; // last known server field info
 	var autosaveTimer = null;
+	var saveController = null; // AbortController of the currently in-flight save request
+	var saveSeq = 0; // monotonically increasing id; only the latest save's response is honored
 	var dirtyMessageSent = false;
 	var loadedOnce = false;
 	var suppressChange = false; // true while programmatically filling the form
@@ -134,9 +136,9 @@
 	/* ------------------------------------------------------------------ *
 	 * Networking (fetch with timeout)
 	 * ------------------------------------------------------------------ */
-	function fetchWithTimeout(url, options) {
+	function fetchWithTimeout(url, options, controller) {
 		options = options || {};
-		var controller = new AbortController();
+		controller = controller || new AbortController();
 		options.signal = controller.signal;
 		var timer = setTimeout(function () { controller.abort(); }, REQUEST_TIMEOUT);
 		return fetch(url, options).finally(function () { clearTimeout(timer); });
@@ -228,6 +230,15 @@
 
 	function save(activelySaved) {
 		if (autosaveTimer) { clearTimeout(autosaveTimer); autosaveTimer = null; }
+		// Cancel any still-in-flight save so its (older) response — in particular an
+		// autosave writing actively_saved=false — cannot land after this newer save
+		// and silently revert the record. The aborted request rejects with
+		// AbortError and is guaranteed stale (its seq is behind), so its handlers
+		// bail out below without touching UI state.
+		if (saveController) { saveController.abort(); }
+		saveController = new AbortController();
+		var mySeq = ++saveSeq;
+
 		setSaveState('saving');
 		var body = buildBody(activelySaved);
 
@@ -235,9 +246,10 @@
 			method: 'POST',
 			headers: { 'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8', 'Accept': 'application/json' },
 			body: body.toString()
-		})
+		}, saveController)
 			.then(function (resp) { return resp.json(); })
 			.then(function (json) {
+				if (mySeq !== saveSeq) { return; } // superseded by a newer save; ignore
 				showServerWarning(false);
 				if (json && json.success) {
 					handleSaveSuccess(json, activelySaved);
@@ -247,6 +259,11 @@
 				}
 			})
 			.catch(function () {
+				// A superseded save (aborted by a newer one) always fails the seq
+				// check and its AbortError is expected — stay silent and never flag
+				// the server as unreachable for it. Only the latest request's genuine
+				// failure (network error / timeout) surfaces the warning banner.
+				if (mySeq !== saveSeq) { return; }
 				setSaveState('error');
 				showServerWarning(true);
 			});
@@ -254,6 +271,11 @@
 
 	function handleSaveSuccess(json, activelySaved) {
 		applyResponse(json, activelySaved);
+
+		// Re-arm the dirty notification: after a successful save the record is in
+		// sync with the server, so the next user edit must send ce:dirty to the map
+		// again. Applies to both the actively-saved (Submit) and autosave branches.
+		dirtyMessageSent = false;
 
 		if (activelySaved) {
 			if (isAnyErrorInForm()) {
