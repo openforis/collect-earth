@@ -38,7 +38,9 @@ New `LeafletMapController` (collect-earth-app `.../app/server/`):
   `KmlGeneratorService.getKmlGenerator().getPlotObject(...)` + `fillSamplePoints()` +
   `fillExternalLine()` per CSV row (same calls as `PlacemarkBrowserServlet`). Feature
   properties carry plot id, center lat/long, elevation and all CSV extra columns (the
-  `$[...]` substitution set). Cached; invalidated via `updateFilesUsedChecksum()`.
+  `$[...]` substitution set). Not cached: rebuilt per request — acceptable because the
+  page fetches it once per load (the 5s poll hits only /plotStatuses), and a survey
+  change restarts the server/page anyway.
 - `GET /plotStatuses` — `{plotId: empty|partial|saved}` via
   `EarthSurveyService.isPlacemarkSavedActively()` / `isPlacemarkEdited()`. Polled every 5 s.
 
