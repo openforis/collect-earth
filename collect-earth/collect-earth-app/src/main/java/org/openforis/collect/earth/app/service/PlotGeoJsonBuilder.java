@@ -88,6 +88,7 @@ public class PlotGeoJsonBuilder {
 		props.put("elevation", plot.getElevation());
 		props.put("aspect", plot.getAspect());
 		props.put("slope", plot.getSlope());
+		props.put("region", plot.getRegion() == null ? "" : plot.getRegion());
 		if (plot.getValuesByColumn() != null) {
 			// CSV columns must not overwrite id/coordinates used as the plot join key.
 			for (Map.Entry<String, String> entry : plot.getValuesByColumn().entrySet()) {

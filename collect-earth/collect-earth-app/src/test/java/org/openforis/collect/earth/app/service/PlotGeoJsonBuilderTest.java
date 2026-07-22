@@ -61,6 +61,7 @@ public class PlotGeoJsonBuilderTest {
 		assertEquals(12.449, first.get(0).asDouble(), 1e-9);
 		assertEquals(41.899, first.get(1).asDouble(), 1e-9);
 		assertTrue(f.get("properties").has("elevation"));
+		assertTrue(f.get("properties").has("region"));
 	}
 
 	@Test

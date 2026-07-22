@@ -28,6 +28,7 @@
       return r.json();
     }).then(function (fc) {
       if (!fc.features || fc.features.length === 0) {
+        map.setView([0, 0], 3);
         banner("No survey plots loaded - import a CEP file / CSV grid in Collect Earth first.");
         return;
       }
@@ -85,10 +86,11 @@
   function setStatus(id, status) {
     var p = plots[id];
     p.status = status;
-    var color = STATUS_COLORS[status] || STATUS_COLORS.empty;
-    p.layerGroup.eachLayer(function (l) { if (id !== activeId) l.setStyle({ color: color }); });
-    p.marker.setStyle({ color: color });
     if (p.listItem) p.listItem.querySelector(".status-dot").className = "status-dot status-" + status;
+    if (id === activeId) return; // active plot keeps the cyan highlight
+    var color = STATUS_COLORS[status] || STATUS_COLORS.empty;
+    p.layerGroup.eachLayer(function (l) { l.setStyle({ color: color }); });
+    p.marker.setStyle({ color: color });
   }
 
   // ---------- list ----------
@@ -97,6 +99,7 @@
     ul.innerHTML = "";
     var filter = document.getElementById("filter").value.toLowerCase();
     var onlyPending = document.getElementById("only-pending").checked;
+    Object.keys(plots).forEach(function (k) { plots[k].listItem = null; });
     Object.keys(plots).forEach(function (id) {
       var p = plots[id];
       if (filter && id.toLowerCase().indexOf(filter) === -1) return;
@@ -132,13 +135,15 @@
 
   // ---------- selection / form / aux windows ----------
   function selectPlot(id) {
-    if (activeId && plots[activeId]) {
-      setStatus(activeId, plots[activeId].status); // restore color
-      if (plots[activeId].listItem) plots[activeId].listItem.className = "";
-    }
+    var previous = activeId;
     activeId = id;
+    if (previous && plots[previous]) {
+      setStatus(previous, plots[previous].status); // restore color now that activeId points elsewhere
+      if (plots[previous].listItem) plots[previous].listItem.className = "";
+    }
     var p = plots[id];
     p.layerGroup.eachLayer(function (l) { l.setStyle({ color: "#00e5ff" }); });
+    p.marker.setStyle({ color: "#00e5ff" });
     if (p.listItem) { p.listItem.className = "active"; p.listItem.scrollIntoView({ block: "nearest" }); }
     map.setView(p.center, Math.max(map.getZoom(), 17));
 
