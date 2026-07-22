@@ -131,9 +131,14 @@
       // Clear the shared map div (no innerHTML with data) so Leaflet can reuse it.
       var el = this._containerId ? document.getElementById(this._containerId) : null;
       if (el) { while (el.firstChild) el.removeChild(el.firstChild); }
-      // Detach globals so a late gm_authFailure / ready callback cannot re-enter core.
-      window.gm_authFailure = null;
-      window.__ceGmapsReady = null;
+      // Remove the (possibly still in-flight) bootstrap script tag and replace the
+      // globals with no-ops - Google's script invokes them by name when it finishes
+      // loading, and a nulled global would throw an uncaught TypeError if a slow
+      // download completes after a timeout-triggered fallback.
+      if (this._script && this._script.parentNode) { this._script.parentNode.removeChild(this._script); }
+      this._script = null;
+      window.gm_authFailure = function () {};
+      window.__ceGmapsReady = function () {};
     },
 
     // ---------- internals ----------

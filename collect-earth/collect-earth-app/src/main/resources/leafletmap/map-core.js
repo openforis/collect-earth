@@ -251,7 +251,13 @@
       var color = (id === activeId) ? "#00e5ff" : (STATUS_COLORS[p.status] || STATUS_COLORS.empty);
       engine.setPlotColor(id, color);
     });
-    if (centers.length) engine.fitAll(centers);
+    // If the user was working on a plot when the engine died, stay on it
+    // instead of zooming out to the whole grid.
+    if (activeId && plots[activeId]) {
+      engine.flyTo(plots[activeId].center, 17);
+    } else if (centers.length) {
+      engine.fitAll(centers);
+    }
     updateVisibility();
     fallbackNotice(reason + " - using Leaflet/ESRI. Check GOOGLE_MAPS_API_KEY in Properties (the key needs the Maps JavaScript API enabled).");
   }
