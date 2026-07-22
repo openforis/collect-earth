@@ -52,6 +52,12 @@ public class LeafletMapController {
 
 	private final Logger logger = LoggerFactory.getLogger(LeafletMapController.class);
 	private final PlotGeoJsonBuilder geoJsonBuilder = new PlotGeoJsonBuilder();
+
+	// /plotsGeoJson result cached against the CSV path + lastModified (guarded by
+	// the synchronized builder method; volatile for the fast-path read).
+	private volatile String cachedFeatureCollection;
+	private volatile String cachedCsvPath;
+	private volatile long cachedCsvLastModified;
 	private final com.fasterxml.jackson.databind.ObjectMapper json = new com.fasterxml.jackson.databind.ObjectMapper();
 
 	// ---------- static page ----------
@@ -102,44 +108,68 @@ public class LeafletMapController {
 	@GetMapping("/plotsGeoJson")
 	public void plotsGeoJson(HttpServletResponse response) throws IOException {
 		response.setHeader("Content-Type", "application/json; charset=UTF-8");
+		String body;
 		try {
 			String csvFile = localPropertiesService.getCsvFile();
 			if (csvFile == null || csvFile.trim().isEmpty() || !new File(csvFile).exists()) {
 				// No survey plot file loaded yet: this is a valid, final state (not an error).
 				// Return an empty FeatureCollection with a warning so the page shows a banner
 				// instead of NPEing into a 500 and entering an endless retry loop.
-				response.getOutputStream().write(
-						("{\"type\":\"FeatureCollection\",\"features\":[],\"warning\":\"No survey plot file loaded\"}")
-								.getBytes("UTF-8"));
-				return;
+				body = "{\"type\":\"FeatureCollection\",\"features\":[],\"warning\":\"No survey plot file loaded\"}";
+			} else {
+				body = getOrBuildFeatureCollection(csvFile);
 			}
-			KmlGenerator kmlGenerator = kmlGeneratorService.getKmlGenerator();
-			StringBuilder sb = new StringBuilder("{\"type\":\"FeatureCollection\",\"features\":[");
-			boolean first = true;
-			try (CSVReader reader = CsvReaderUtils.getCsvReader(csvFile)) {
-				String[] csvRow;
-				while ((csvRow = reader.readNext()) != null) {
-					try {
-						SimplePlacemarkObject plot = kmlGenerator.getPlotObject(csvRow, null,
-								earthSurveyService.getCollectSurvey(), false);
-						kmlGenerator.fillSamplePoints(plot);
-						kmlGenerator.fillExternalLine(plot);
-						if (!first) sb.append(',');
-						sb.append(geoJsonBuilder.toFeature(plot));
-						first = false;
-					} catch (Exception rowError) {
-						// header row or malformed row - skip (same tolerance as the KML generation)
-						logger.debug("Skipping CSV row: {}", (Object) csvRow);
-					}
-				}
-			}
-			sb.append("]}");
-			response.getOutputStream().write(sb.toString().getBytes("UTF-8"));
 		} catch (Exception e) {
 			logger.error("Error generating plots GeoJSON", e);
 			response.setStatus(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
-			response.getOutputStream().write(("{\"error\":\"" + e.getMessage() + "\"}").getBytes("UTF-8"));
+			body = "{\"error\":\"" + e.getMessage() + "\"}";
 		}
+		try {
+			response.getOutputStream().write(body.getBytes("UTF-8"));
+		} catch (IOException clientAbort) {
+			// The browser navigated away / reloaded while the (potentially large)
+			// response was streaming - routine, not a server error.
+			logger.debug("Client aborted the plots GeoJSON download", clientAbort);
+		}
+	}
+
+	/**
+	 * Builds the FeatureCollection, cached against the CSV file path + lastModified
+	 * so page reloads and racing startup requests do not redo the per-plot
+	 * coordinate transforms for the whole grid. Synchronized: concurrent first
+	 * requests would otherwise each rebuild the full collection.
+	 */
+	private synchronized String getOrBuildFeatureCollection(String csvFile) throws Exception {
+		File csv = new File(csvFile);
+		if (cachedFeatureCollection != null && csvFile.equals(cachedCsvPath)
+				&& csv.lastModified() == cachedCsvLastModified) {
+			return cachedFeatureCollection;
+		}
+		KmlGenerator kmlGenerator = kmlGeneratorService.getKmlGenerator();
+		StringBuilder sb = new StringBuilder("{\"type\":\"FeatureCollection\",\"features\":[");
+		boolean first = true;
+		try (CSVReader reader = CsvReaderUtils.getCsvReader(csvFile)) {
+			String[] csvRow;
+			while ((csvRow = reader.readNext()) != null) {
+				try {
+					SimplePlacemarkObject plot = kmlGenerator.getPlotObject(csvRow, null,
+							earthSurveyService.getCollectSurvey(), false);
+					kmlGenerator.fillSamplePoints(plot);
+					kmlGenerator.fillExternalLine(plot);
+					if (!first) sb.append(',');
+					sb.append(geoJsonBuilder.toFeature(plot));
+					first = false;
+				} catch (Exception rowError) {
+					// header row or malformed row - skip (same tolerance as the KML generation)
+					logger.debug("Skipping CSV row: {}", (Object) csvRow);
+				}
+			}
+		}
+		sb.append("]}");
+		cachedCsvPath = csvFile;
+		cachedCsvLastModified = csv.lastModified();
+		cachedFeatureCollection = sb.toString();
+		return cachedFeatureCollection;
 	}
 
 	@GetMapping("/plotStatuses")
