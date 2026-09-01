@@ -19,10 +19,17 @@
 		<url>www.openforis.org</url>
 	</organization>
 	<properties>
-		<java.version>1.8</java.version>
+		<java.release>8</java.release>
 		<project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
 		<collect.version>4.0.109</collect.version>
 		<spring.version>5.3.27</spring.version>
+		<!-- Versions for families that must move as a set. Managed centrally in
+		     dependencyManagement below so a transitive dependency cannot drag in
+		     a mismatched module (log4j-jcl was arriving at 2.20.0 against a
+		     2.26.1 core, and poi-ooxml at 5.2.3 against a 5.5.1 poi). -->
+		<log4j.version>2.26.1</log4j.version>
+		<poi.version>5.5.1</poi.version>
+		<jackson.version>2.15.2</jackson.version>
 		<project.scm.id>github.com</project.scm.id>
 		<sonar.language>java</sonar.language>
 		<sonar.organization>openforis</sonar.organization>
@@ -41,10 +48,10 @@
 	</distributionManagement>
 
 	<scm>
-		<url>scm:git:git@github.com:openforis/collect-earth.git</url>
+		<url>https://github.com/openforis/collect-earth</url>
 		<connection>scm:git:git@github.com:openforis/collect-earth.git</connection>
 		<developerConnection>scm:git:git@github.com:openforis/collect-earth.git</developerConnection>
-		<tag>collect-earth-1.23.0</tag>	
+		<tag>HEAD</tag>
 	</scm>
 	<licenses>
 		<license>
@@ -70,31 +77,6 @@
 
 	<build>
 		<plugins>
-			<plugin>
-					<artifactId>maven-gpg-plugin</artifactId>
-					<version>3.2.4</version>
-					<executions>
-						<execution>
-							<id>sign-artifacts</id>
-							<phase>install</phase>
-							<goals>
-								<goal>sign</goal>
-							</goals>
-						</execution>
-					</executions>
-				</plugin>
-				<plugin>
-					<groupId>org.sonatype.plugins</groupId>
-					<artifactId>nexus-staging-maven-plugin</artifactId>
-					<version>1.6.14</version>
-					<extensions>true</extensions>
-					<configuration>
-						<serverId>ossrh-staging-api</serverId>
-						<nexusUrl>https://ossrh-staging-api.central.sonatype.com</nexusUrl>
-						<stagingProgressTimeoutMinutes>120</stagingProgressTimeoutMinutes>
-						<autoReleaseAfterClose>true</autoReleaseAfterClose>
-					</configuration>
-				</plugin>
 				<plugin>
 				  <groupId>org.apache.maven.plugins</groupId>
 				  <artifactId>maven-enforcer-plugin</artifactId>
@@ -123,8 +105,19 @@
 					<artifactId>maven-compiler-plugin</artifactId>
 					<version>3.13.0</version>
 					<configuration>
-						<source>${java.version}</source>
-						<target>${java.version}</target>
+						<!-- <release> rather than <source>/<target>: the latter pair does
+						     not validate API usage against the target JDK, so a Java 9+
+						     method could compile into Java 8 bytecode and fail only at
+						     runtime. Verified: the tree compiles clean under release 8,
+						     so nothing depends on a newer API today.
+
+						     NOTE: this 8 does not reflect what the app actually needs.
+						     Selenium 4.48's classes are major version 55 (Java 11) and
+						     the installer bundles JRE 11, so a real Java 8 runtime would
+						     throw UnsupportedClassVersionError as soon as Selenium loads.
+						     Raising java.release to 11 would make the declared baseline
+						     honest; left at 8 pending that decision. -->
+						<release>${java.release}</release>
 						<encoding>${project.build.sourceEncoding}</encoding>
 					</configuration>
 				</plugin>
@@ -198,6 +191,25 @@
 			    		<groupId>org.apache.commons</groupId>
 						<artifactId>commons-lang3</artifactId>
 			    	</exclusion>
+					<!-- Managed here rather than on individual dependencies because
+					     collect-core reaches the app through several paths (directly,
+					     via collect-rdb, and via our own core/sampler modules); an
+					     exclusion on any single one leaves the others open. -->
+					<exclusion>
+						<!-- A second SLF4J binding. Inert under slf4j-api 2.x, but it
+						     ships in earth-libs and misleads diagnosis. -->
+						<groupId>org.slf4j</groupId>
+						<artifactId>slf4j-jdk14</artifactId>
+					</exclusion>
+					<exclusion>
+						<!-- Duplicate javax.xml.bind API: jaxb-api 2.3.1 (via
+						     liquibase-core) collides with jakarta.xml.bind-api 2.3.3
+						     pulled by jaxb-impl. The jakarta 2.3.x artifact still
+						     provides the javax.xml.bind package, so it is the one to
+						     keep. -->
+						<groupId>javax.xml.bind</groupId>
+						<artifactId>jaxb-api</artifactId>
+					</exclusion>
 		    	</exclusions>
 			</dependency>
 			<dependency>
@@ -215,7 +227,89 @@
 				<artifactId>commons-text</artifactId>
 				<version>1.15.0</version>
 			</dependency>
+
+			<!-- Log4j2 requires every module at one version. log4j-jcl was arriving
+			     transitively at 2.20.0 while the rest of the stack was 2.26.1. -->
+			<dependency>
+				<groupId>org.apache.logging.log4j</groupId>
+				<artifactId>log4j-bom</artifactId>
+				<version>${log4j.version}</version>
+				<type>pom</type>
+				<scope>import</scope>
+			</dependency>
+
+			<!-- Jackson was version-managed in a leaf module and enforced by ad-hoc
+			     exclusions scattered across two poms; the BOM covers every module,
+			     including jackson-core, which the exclusions missed. -->
+			<dependency>
+				<groupId>com.fasterxml.jackson</groupId>
+				<artifactId>jackson-bom</artifactId>
+				<version>${jackson.version}</version>
+				<type>pom</type>
+				<scope>import</scope>
+			</dependency>
+
+			<!-- poi was pinned to 5.5.1 while poi-ooxml/-lite arrived transitively
+			     at 5.2.3. The XSSF classes the IPCC exporters use span that split. -->
+			<dependency>
+				<groupId>org.apache.poi</groupId>
+				<artifactId>poi</artifactId>
+				<version>${poi.version}</version>
+			</dependency>
+			<dependency>
+				<groupId>org.apache.poi</groupId>
+				<artifactId>poi-ooxml</artifactId>
+				<version>${poi.version}</version>
+			</dependency>
+			<dependency>
+				<groupId>org.apache.poi</groupId>
+				<artifactId>poi-ooxml-lite</artifactId>
+				<version>${poi.version}</version>
+			</dependency>
 		</dependencies>
 	</dependencyManagement>
+
+	<profiles>
+		<!-- Signing and staging run only for a release. Previously both plugins sat
+		     in the root <build>, inherited by all four modules: the gpg plugin was
+		     bound to `install`, so `mvn clean install` failed for any contributor
+		     without a GPG key, and nexus-staging hijacked deploy for every module.
+		     The gpg phase is also corrected to `verify` - default lifecycle bindings
+		     run before POM-declared executions in the same phase, so signing at
+		     `install` produced .asc files after install:install had already copied
+		     the artifacts. -->
+		<profile>
+			<id>release</id>
+			<build>
+				<plugins>
+					<plugin>
+						<artifactId>maven-gpg-plugin</artifactId>
+						<version>3.2.4</version>
+						<executions>
+							<execution>
+								<id>sign-artifacts</id>
+								<phase>verify</phase>
+								<goals>
+									<goal>sign</goal>
+								</goals>
+							</execution>
+						</executions>
+					</plugin>
+					<plugin>
+						<groupId>org.sonatype.plugins</groupId>
+						<artifactId>nexus-staging-maven-plugin</artifactId>
+						<version>1.6.14</version>
+						<extensions>true</extensions>
+						<configuration>
+							<serverId>ossrh-staging-api</serverId>
+							<nexusUrl>https://ossrh-staging-api.central.sonatype.com</nexusUrl>
+							<stagingProgressTimeoutMinutes>120</stagingProgressTimeoutMinutes>
+							<autoReleaseAfterClose>true</autoReleaseAfterClose>
+						</configuration>
+					</plugin>
+				</plugins>
+			</build>
+		</profile>
+	</profiles>
 
 </project>

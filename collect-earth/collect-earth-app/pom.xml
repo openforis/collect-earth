@@ -14,7 +14,7 @@
 		<jetty.version>9.4.58.v20250814</jetty.version>
 		<selenium.version>4.48.0</selenium.version>
 		<classpath.prefix>earth-libs</classpath.prefix>
-		<log4j.version>2.26.1</log4j.version>
+		
 	</properties>
 
 	<dependencies>
@@ -30,16 +30,9 @@
 		    <groupId>io.github.bonigarcia</groupId>
 		    <artifactId>webdrivermanager</artifactId>
 		    <version>6.3.4</version>
-		    <exclusions>
-		    	<exclusion>
-		    		<groupId>com.fasterxml.jackson.core</groupId>
-		    		<artifactId>jackson-annotations</artifactId>
-		    	</exclusion>
-		    	<exclusion>
-		    		<groupId>com.fasterxml.jackson.core</groupId>
-		    		<artifactId>jackson-databind</artifactId>
-		    	</exclusion>
-		    </exclusions>
+		    <!-- The jackson-annotations/jackson-databind exclusions that used to sit
+		         here are gone: jackson-bom in the parent pins the whole family,
+		         including jackson-core, which those exclusions missed. -->
 		</dependency>
 		<!-- Jetty -->
 		<dependency>
@@ -61,6 +54,14 @@
 			<groupId>org.openforis.collect</groupId>
 			<artifactId>collect-rdb</artifactId>
 			<version>${collect.version}</version>
+			<exclusions>
+				<!-- Third SLF4J binding (1.7-era, inert under slf4j-api 2.x but it
+				     ships in earth-libs and confuses diagnosis). -->
+				<exclusion>
+					<groupId>org.slf4j</groupId>
+					<artifactId>slf4j-jdk14</artifactId>
+				</exclusion>
+			</exclusions>
 		</dependency>
 
 		<!-- Spring dependencies -->
@@ -109,20 +110,21 @@
 			<artifactId>zip4j</artifactId>
 			<version>2.11.6</version>
 		</dependency>
+		<!-- slf4j-api resolves to 2.0.17, which only loads providers implementing
+		     SLF4JServiceProvider. log4j-slf4j-impl is the SLF4J 1.7 binding and is
+		     therefore ignored; log4j-slf4j2-impl is its SLF4J 2 equivalent. With
+		     the 1.7 binding in place the only registered provider was slf4j-simple,
+		     so every SLF4J call bypassed Log4j2 and log4j2.xml was never read -
+		     silently disabling the earth_error.log appender, the Sentry appender
+		     and CollectEarthMenu.ensureJSwingAppender()'s in-app error viewer.
+		     Versions come from log4j-bom in the parent. -->
 		<dependency>
 			<groupId>org.apache.logging.log4j</groupId>
-			<artifactId>log4j-slf4j-impl</artifactId>
-			<version>${log4j.version}</version>
+			<artifactId>log4j-slf4j2-impl</artifactId>
 		</dependency>
 		<dependency>
 			<groupId>org.apache.logging.log4j</groupId>
 			<artifactId>log4j-web</artifactId>
-			<version>${log4j.version}</version>
-		</dependency>
-		<dependency>
-	    	<groupId>org.slf4j</groupId>
-	    	<artifactId>slf4j-simple</artifactId>
-	    	<version>2.0.17</version>
 		</dependency>
 		<dependency>
 			<groupId>io.sentry</groupId>
@@ -135,11 +137,9 @@
 			<version>4.5.14</version>
 		</dependency>
 
-		<dependency>
-		    <groupId>com.sun.xml.bind</groupId>
-		    <artifactId>jaxb-core</artifactId>
-		    <version>2.3.0.1</version>
-		</dependency>
+		<!-- jaxb-impl 2.3.8 is self-contained. jaxb-core 2.3.0.1 used to sit
+		     alongside it and the two shared 178 identically-named classes, with
+		     classpath order deciding which won. -->
 		<dependency>
 		    <groupId>com.sun.xml.bind</groupId>
 		    <artifactId>jaxb-impl</artifactId>
@@ -152,10 +152,16 @@
             <artifactId>xstream</artifactId>
             <version>1.4.21</version>
         </dependency>
+        <!-- Versions come from the parent so poi and poi-ooxml cannot drift apart.
+             poi-ooxml is declared explicitly because the IPCC exporters use
+             org.apache.poi.xssf directly; it used to arrive only transitively. -->
         <dependency>
 		    <groupId>org.apache.poi</groupId>
 		    <artifactId>poi</artifactId>
-		    <version>5.5.1</version>
+		</dependency>
+		<dependency>
+		    <groupId>org.apache.poi</groupId>
+		    <artifactId>poi-ooxml</artifactId>
 		</dependency>
 		
 		<dependency>
@@ -247,6 +253,6 @@
 
 
   <scm>
-    <tag>collect-earth-1.23.0</tag>
+    <tag>HEAD</tag>
   </scm>
 </project>
