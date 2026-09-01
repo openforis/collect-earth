@@ -180,7 +180,10 @@ public class PropertyComponentFactory {
                 new ComboBoxItem(16, "4x4"),
                 new ComboBoxItem(25, "5x5"),
                 new ComboBoxItem(36, "6x6"),
-                new ComboBoxItem(49, "7x7")
+                new ComboBoxItem(49, "7x7"),
+                new ComboBoxItem(64, "8x8"),
+                new ComboBoxItem(81, "9x9"),
+                new ComboBoxItem(100, "10x10")
         };
 
         JComboBox<ComboBoxItem> comboBox = new JComboBox<>(items);
