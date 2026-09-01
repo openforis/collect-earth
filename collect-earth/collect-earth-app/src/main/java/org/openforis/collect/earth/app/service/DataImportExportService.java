@@ -15,10 +15,14 @@ import org.openforis.collect.io.data.XMLDataExportProcess;
 import org.openforis.collect.io.data.XMLDataImportProcess;
 import org.openforis.collect.io.data.csv.CSVDataExportParameters;
 import org.openforis.collect.io.data.csv.CSVDataImportSettings;
+import org.openforis.collect.manager.RecordFileManager;
+import org.openforis.collect.manager.RecordManager;
+import org.openforis.collect.manager.SurveyManager;
 import org.openforis.collect.manager.process.AbstractProcess;
 import org.openforis.collect.model.CollectRecord;
 import org.openforis.collect.model.CollectRecord.Step;
 import org.openforis.collect.model.RecordFilter;
+import org.openforis.collect.persistence.xml.DataMarshaller;
 import org.openforis.commons.collection.Predicate;
 import org.openforis.idm.model.BooleanAttribute;
 import org.slf4j.Logger;
@@ -42,6 +46,23 @@ public class DataImportExportService {
 	
 	@Autowired
 	private KmlGeneratorService kmlGeneratorService;
+
+	/*
+	 * Injected the same way ( and with the same names ) as Collect's own XMLDataExportProcess does,
+	 * so that they are resolved to the same beans. They are used by FilteredXmlDataExportProcess,
+	 * which is created by hand and therefore gets no injection of its own.
+	 */
+	@Autowired
+	private RecordManager recordManager;
+
+	@Autowired
+	private RecordFileManager recordFileManager;
+
+	@Autowired
+	private SurveyManager surveyManager;
+
+	@Autowired
+	private DataMarshaller dataMarshaller;
 
 	private final Logger logger = LoggerFactory.getLogger(DataImportExportService.class);
 	/**
@@ -108,10 +129,62 @@ public class DataImportExportService {
 		xmlDataExportProcess.setModifiedSince(modifiedSince);
 		xmlDataExportProcess.setIncludeIdm(true);
 		xmlDataExportProcess.setSteps(new Step[] { Step.ENTRY });
-		
-		xmlDataExportProcess.setIncludeIdm(includeIdm);
-		
+
 		return xmlDataExportProcess;
+	}
+
+	/**
+	 * Exports the records of the survey to a ZIP file containing the data as XML, keeping only the
+	 * records that have the given values for the key or the summary attributes of the plot.
+	 *
+	 * Both lists are positional : the values match the order of the key ( or summary ) attributes of
+	 * the root entity, the blank ones match any value and a value containing * is used as a wildcard.
+	 * When no value is given at all the export falls back to Collect's own export process, so that
+	 * the unfiltered exports keep behaving exactly as before.
+	 *
+	 * @param exportToFile the file to export the data to
+	 * @param modifiedSince if not null, only the records modified after this date are exported
+	 * @param keyValues the values that the key attributes of the exported records must have
+	 * @param summaryValues the values that the summary attributes of the exported records must have
+	 */
+	public AbstractProcess<Void, DataExportStatus> exportSurveyAsZipWithXml(File exportToFile, Date modifiedSince,
+			List<String> keyValues, List<String> summaryValues) throws Exception {
+
+		if (isEmpty(keyValues) && isEmpty(summaryValues)) {
+			return exportSurveyAsZipWithXml(exportToFile, modifiedSince);
+		}
+
+		RecordFilter recordFilter = new RecordFilter(earthSurveyService.getCollectSurvey(),
+				earthSurveyService.getRootEntityDefinition().getId());
+		recordFilter.setModifiedSince(modifiedSince);
+		if (!isEmpty(keyValues)) {
+			recordFilter.setKeyValues(keyValues);
+		}
+		if (!isEmpty(summaryValues)) {
+			recordFilter.setSummaryValues(summaryValues);
+		}
+
+		final FilteredXmlDataExportProcess exportProcess = new FilteredXmlDataExportProcess(recordManager,
+				recordFileManager, surveyManager, dataMarshaller);
+		exportProcess.setOutputFile(exportToFile);
+		exportProcess.setSurvey(earthSurveyService.getCollectSurvey());
+		exportProcess.setIncludeIdm(true);
+		exportProcess.setSteps(new Step[] { Step.ENTRY });
+		exportProcess.setRecordFilter(recordFilter);
+
+		return exportProcess;
+	}
+
+	private boolean isEmpty(List<String> values) {
+		if (values == null || values.isEmpty()) {
+			return true;
+		}
+		for (String value : values) {
+			if (value != null && value.trim().length() > 0) {
+				return false;
+			}
+		}
+		return true;
 	}
 
 
