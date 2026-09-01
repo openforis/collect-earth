@@ -8,7 +8,11 @@ import java.text.Normalizer;
 import java.text.SimpleDateFormat;
 import java.util.Calendar;
 import java.util.Date;
+import java.util.Iterator;
+import java.util.List;
 
+import javax.swing.ComboBoxModel;
+import javax.swing.JComboBox;
 import javax.swing.JFrame;
 import javax.swing.JOptionPane;
 import javax.swing.JPanel;
@@ -20,12 +24,20 @@ import org.openforis.collect.earth.app.service.DataImportExportService;
 import org.openforis.collect.earth.app.service.EarthSurveyService;
 import org.openforis.collect.earth.app.service.KmlGeneratorService;
 import org.openforis.collect.earth.app.service.LocalPropertiesService;
+import org.openforis.collect.earth.app.view.ExportActionListener.FilterAttribute;
 import org.openforis.collect.io.data.DataExportStatus;
 import org.openforis.collect.manager.process.AbstractProcess;
+import org.openforis.idm.metamodel.AttributeDefinition;
+import org.openforis.idm.model.Attribute;
+import org.openforis.idm.model.Value;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 public final class ExportActionListener implements ActionListener {
+	public class FilterAttribute {
+
+	}
+
     private final DataFormat exportFormat;
     private JFrame frame;
     private LocalPropertiesService localPropertiesService;
@@ -36,7 +48,7 @@ public final class ExportActionListener implements ActionListener {
     private KmlGeneratorService kmlGeneratorService;
 
     public enum RecordsToExport {
-        ALL, MODIFIED_SINCE_LAST_EXPORT, PICK_FROM_DATE
+		ALL, MODIFIED_SINCE_LAST_EXPORT, PICK_FROM_DATE, USE_SUMMARY_ATTRIBUTE
     }
 
     public ExportActionListener(DataFormat exportFormat, RecordsToExport recordsToExport, JFrame frame,
@@ -57,6 +69,8 @@ public final class ExportActionListener implements ActionListener {
             CollectEarthWindow.startWaiting(frame);
 
             Date recordsModifiedSince = null;
+			AttributeDefinition filterMe
+			
             if (recordsToExport.equals(RecordsToExport.MODIFIED_SINCE_LAST_EXPORT)) {
                 String surveyName = ""; //$NON-NLS-1$
                 if (earthSurveyService.getCollectSurvey() != null) {
@@ -69,6 +83,12 @@ public final class ExportActionListener implements ActionListener {
                     // No date chosen, do not proceed with the export
                     return;
                 }
+			} else if (recordsToExport.equals(RecordsToExport.USE_SUMMARY_ATTRIBUTE)) {
+				recordsModifiedSince = getSummaryAttributeDlg();
+				if (recordsModifiedSince == null) {
+					// No date chosen, do not proceed with the export
+					return;
+				}
             }
 
             exportDataTo(exportFormat, recordsModifiedSince);
@@ -97,7 +117,37 @@ public final class ExportActionListener implements ActionListener {
         }
     }
 
-    private File exportDataTo(DataFormat exportType, Date recordsModifiedSince) {
+	private AttributeDefinition getSummaryAttributeDlg() {
+
+		JPanel panel = new JPanel();
+		
+		
+		List<AttributeDefinition> summaryAttrDefs = earthSurveyService.getCollectSurvey().getSchema().getRootEntitySummaryAttributeDefinitions();
+		
+		for (AttributeDefinition attributeDefinition : summaryAttrDefs) {
+			String attrLabel = attributeDefinition.getFailSafeLabel( localPropertiesService.getUiLanguage().getLocale().getLanguage());
+//			Attribute<?, Value> keyAttr = record.findNodeByPath(attributeDefinition.getPath());
+		}
+		
+		
+		JComboBox attributes = new JComboBox( (ComboBoxModel) summaryAttrDefs );
+
+		panel.add(attributes);
+
+		int result = JOptionPane.showConfirmDialog(frame, panel, "Attribute to divide by",
+				JOptionPane.OK_CANCEL_OPTION, JOptionPane.PLAIN_MESSAGE);
+		if (result == JOptionPane.OK_OPTION) {
+			
+			attributes.getSelectedItem();
+			
+			
+			return picker.getDate();
+		} else {
+			return null;
+		}
+	}
+
+	private File exportDataTo(DataFormat exportType, Date recordsModifiedSince, FilterAttribute filterAttribute) {
         // Informational warning for CSV exports
         if (exportType.equals(DataFormat.CSV)) {
             // Warn the user that CSV is for visualization but not shareable across Collect Earth instances
@@ -114,7 +164,7 @@ public final class ExportActionListener implements ActionListener {
 
         File exportedFile = null;
         if (exportToFile != null && exportToFile.length > 0) {
-            startExportingData(exportType, recordsModifiedSince, exportToFile[0]);
+			startExportingData(exportType, recordsModifiedSince, exportToFile[0], filterAttribute);
             exportedFile = exportToFile[0];
         }
 
@@ -133,10 +183,10 @@ public final class ExportActionListener implements ActionListener {
         return includeLabels;
     }
 
-    private void startExportingData(DataFormat exportType, Date recordsModifiedSince, File exportToFile) {
+	private void startExportingData(DataFormat exportType, Date recordsModifiedSince, File exportToFile, FilterAttribute filterAttribute) {
         AbstractProcess<Void, DataExportStatus> exportProcess = null;
         try {
-            exportProcess = getExportProcess(exportType, recordsModifiedSince, exportToFile);
+			exportProcess = getExportProcess(exportType, recordsModifiedSince, exportToFile, filterAttribute);
             if (exportProcess != null) {
                 ExportProcessMonitorDialog exportProcessWorker = new ExportProcessMonitorDialog(exportProcess, frame,
                         recordsToExport, exportType, earthSurveyService, exportToFile, localPropertiesService);
@@ -154,7 +204,7 @@ public final class ExportActionListener implements ActionListener {
     }
 
     private AbstractProcess<Void, DataExportStatus> getExportProcess(DataFormat exportType, Date recordsModifiedSince,
-            File exportToFile) throws Exception {
+			File exportToFile, FilterAttribute filterAttribute) throws Exception {
         AbstractProcess<Void, DataExportStatus> exportProcess = null;
         boolean addLabels = false;
         switch (exportType) {

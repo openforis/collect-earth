@@ -108,6 +108,9 @@ public class DataImportExportService {
 		xmlDataExportProcess.setModifiedSince(modifiedSince);
 		xmlDataExportProcess.setIncludeIdm(true);
 		xmlDataExportProcess.setSteps(new Step[] { Step.ENTRY });
+		
+		xmlDataExportProcess.setIncludeIdm(includeIdm);
+		
 		return xmlDataExportProcess;
 	}
 
