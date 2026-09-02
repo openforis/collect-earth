@@ -213,6 +213,11 @@ public class ServerController {
 			//server = new Server(new ExecutorThreadPool(50, 50, 5, TimeUnit.MILLISECONDS) ); // For JEtty 9, different parameters for the constructor
 			server = new Server(new ExecutorThreadPool() ); // For JEtty 9.4, different parameters for the constructor
 
+			// Jetty 9 declared setStopTimeout on AbstractLifeCycle, so it could be set on the
+			// connector. Jetty 10 keeps it only on the Server, where it bounds the graceful stop
+			// of the connectors as well.
+			server.setStopTimeout(1000);
+
 			// // Use blocking-IO connector to improve throughput
 			final ServerConnector connector = new ServerConnector(server);
 			connector.setName( LocalPropertiesService.LOCAL_HOST + ":" + getPort()); //$NON-NLS-1$
@@ -220,8 +225,6 @@ public class ServerController {
 			//connector.setHost( LocalPropertiesService.LOCAL_HOST );
 
 			connector.setPort(getPort());
-
-			connector.setStopTimeout(1000);
 
 			server.setConnectors(new Connector[] { connector });
 
