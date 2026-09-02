@@ -6,7 +6,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 Collect Earth is a desktop application for augmented visual interpretation that integrates with Google Earth to enable data collection through satellite imagery. It's a Maven multi-module Java project that combines a Swing desktop UI with an embedded Jetty web server to communicate with Google Earth via dynamically generated KML files.
 
-**Key Technologies**: Java 8, Spring 5.3.27, Jetty 9.4.58, GeoTools 24.4, Collect Framework 4.0.102
+**Key Technologies**: Java 11, Spring 5.3.27, Jetty 9.4.58, GeoTools 24.4, Collect Framework 4.0.109
 
 ## Build Commands
 
@@ -54,15 +54,67 @@ mvn -P assembly release:clean release:prepare
 mvn release:rollback
 
 # Perform release (builds and deploys installers)
-mvn -P assembly release:perform
+# The retry handler matters: the installers are ~1 GB in total and a single
+# dropped connection otherwise throws away the whole 35-minute upload.
+mvn -P assembly release:perform -Dmaven.wagon.http.retryHandler.count=3
 
-# Resume failed perform from specific module
-mvn -P assembly release:perform -rf:collect-earth-installer
+# Resume failed perform from a specific module.
+# NOTE: release:perform forks a new Maven run inside target/checkout, so a bare
+# -rf applies to the outer invocation and does nothing. It has to be passed
+# through with -Darguments.
+mvn -P assembly release:perform -Darguments="-rf :collect-earth-installer"
 ```
 
 Notes:
 - Requires Bitrock InstallBuilder and a configured `maven_settings.xml` (root of repo) with installer paths and Nexus/GitHub credentials.
 - After `release:perform`, manually upload the generated `collectEarthUpdater.xml` to the openforis.org location referenced by `collect-earth-installer/src/main/resources/update.ini` so the in-app updater detects the new version.
+
+#### Recovering a `release:perform` that failed during the upload
+
+Artifacts are deployed to the Sonatype Central Portal through the OSSRH Staging API
+bridge (`ossrh-staging-api.central.sonatype.com`, server id `ossrh-staging-api` in
+`~/.m2/maven_settings.xml`). The upload takes ~35 minutes, so **never re-run
+`release:perform` or `deploy` before checking what actually failed** — doing so
+rebuilds all three installers and uploads a second gigabyte into a *new* staging
+repository, leaving the first one orphaned. Two open repositories for the same
+version make validation fail later.
+
+Read the tail of the log first:
+
+- `Upload of locally staged artifacts finished.` followed by `Closing staging
+  repository with ID "..."` means **every file already uploaded** and only the
+  close failed. Nothing needs re-uploading — just redo the close (below).
+- A failure while an individual artifact is being uploaded is the only case that
+  needs a re-deploy, and even then build from the existing `target/checkout` (the
+  installers are already built and signed there) rather than via `release:perform`:
+  `cd target/checkout/collect-earth && mvn -P assembly deploy -DskipTests`
+
+To inspect and finish a staging repository without re-uploading:
+
+```bash
+# What state is it in? ("open" = close never took effect, "closed" = handed to the Portal)
+curl -u "$USER:$PASS" \
+  https://ossrh-staging-api.central.sonatype.com/manual/search/repositories
+
+# Close it (works with the bridge). Use the repository id from the failed build.
+mvn org.sonatype.plugins:nexus-staging-maven-plugin:1.6.14:rc-close \
+  -DnexusUrl=https://ossrh-staging-api.central.sonatype.com/ \
+  -DserverId=ossrh-staging-api \
+  -DstagingRepositoryId=<org.openforis--...> \
+  -s ~/.m2/maven_settings.xml
+```
+
+Gotchas found the hard way:
+- `rc-list` and `rc-release` return **400 Bad Request** — the Portal bridge does not
+  implement those legacy Nexus endpoints. Only `rc-close` works.
+- Run the `rc-*` goals with **JDK 11**. On JDK 17+ the plugin's bundled XStream
+  fails with `No converter available ... module java.base does not "opens
+  java.util"`.
+- `rc-close` hands the repository to the Central Portal, which then reports a
+  `portal_deployment_id`. Publishing is a **separate, irreversible** step done from
+  https://central.sonatype.com/publishing/deployments (or
+  `POST https://central.sonatype.com/api/v1/publisher/deployment/{deploymentId}`).
+  Check `deploymentState` is `VALIDATED` with no errors before publishing.
 
 ## Module Architecture
 
