@@ -39,7 +39,7 @@
 		     2.26.1 core, and poi-ooxml at 5.2.3 against a 5.5.1 poi). -->
 		<log4j.version>2.26.1</log4j.version>
 		<poi.version>5.5.1</poi.version>
-		<jackson.version>2.15.2</jackson.version>
+		<jackson.version>2.18.9</jackson.version>
 		<project.scm.id>github.com</project.scm.id>
 		<sonar.language>java</sonar.language>
 		<sonar.organization>openforis</sonar.organization>

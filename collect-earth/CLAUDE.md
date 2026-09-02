@@ -118,7 +118,7 @@ Gotchas found the hard way:
 
 ## Module Architecture
 
-The project is organized into **4 Maven modules** in the reactor build (`collect-earth-core`, `collect-earth-app`, `collect-earth-sampler`, `collect-earth-installer` — see `<modules>` in the root `pom.xml`), plus a **detached `collect-earth-grid` module** on disk that is not part of the reactor and must be built separately.
+The project is organized into **5 Maven modules** in the reactor build — `collect-earth-core`, `collect-earth-app`, `collect-earth-sampler`, `collect-earth-grid` and `collect-earth-installer` (see `<modules>` in the root `pom.xml`).
 
 ### 1. collect-earth-core
 Core business logic and data handling. Contains:
@@ -150,13 +150,12 @@ Geospatial utilities for sampling and KML generation. Contains:
 ### 4. collect-earth-installer
 Packaging and installer generation using Bitrock InstallBuilder. Produces Windows .exe, Linux .run, and macOS .dmg installers with bundled JRE.
 
-### Detached: collect-earth-grid
-Grid generation utilities for systematic global sampling (Hibernate, JDBC, CSV backends). This module exists on disk but is **not listed in the root pom's `<modules>`**, so `mvn install` at the root will not build it. Its `<parent>` version may lag behind the root version. Build it on its own when needed:
+### 5. collect-earth-grid
+Grid generation utilities for systematic global sampling (Hibernate, JDBC, CSV backends). It is built with the rest of the reactor, but **nothing ships it**: neither `collect-earth-app` nor `collect-earth-installer` depends on it, so it is a developer tool rather than part of the application.
 
-```bash
-cd collect-earth-grid
-mvn install
-```
+It used to sit outside `<modules>`, which meant the release plugin never moved its `<parent>` version. It stayed pinned at `1.22.5-SNAPSHOT`, that snapshot was superseded by the `1.22.5` release and never installed again, and the module quietly stopped building. Keep it in the reactor so its parent version stays in step.
+
+Because it is not shipped, its dependencies (Hibernate, the JDBC drivers) lag behind the ones of the application and are reported separately by Dependabot. Weigh those alerts as build-time only.
 
 ## Application Flow
 
@@ -270,12 +269,12 @@ The application supports 9 languages through resource bundles:
 ## Dependencies and Version Management
 
 Key dependencies are managed in parent `pom.xml`:
-- Java version: 1.8
+- Java release: 11 (`java.release` in the root `pom.xml`, compiled with `<release>` so it is checked against the real Java 11 API)
 - Spring: 5.3.27
-- Collect Framework: 4.0.102 (provides survey schema and record management)
+- Collect Framework: 4.0.109 (provides survey schema and record management)
 - GeoTools: 24.4 (geospatial operations)
 - Jetty: 9.4.58 (embedded server)
-- Jackson: 2.15.2 (JSON processing)
+- Jackson: 2.18.9 (JSON processing) — set in BOTH the root `pom.xml` and `collect-earth-sampler/pom.xml`, which declares its own `jackson.version`; bump the two together
 - Freemarker: 2.3.34 (template engine)
 
 Maven enforces minimum version 3.9.3.
