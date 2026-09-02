@@ -141,15 +141,19 @@ public class EarthApp {
 
 		try {
 
+			// Must come before anything that may log : log4j2.xml interpolates this property to
+			// place earth_error.log, and log4j configures itself the first time a logger is used.
+			// If that happens first the property is still unset, the appender gets a path
+			// containing a literal ${sys:...} and the error log is never written.
+			// System property used in the web.xml configuration as well
+			System.setProperty("collectEarth.userFolder", FolderFinder.getCollectEarthDataFolder()); //$NON-NLS-1$
+
 			FlatLightLaf.setup();
 			try {
 				UIManager.setLookAndFeel(new FlatIntelliJLaf());
 			} catch (Exception ex) {
 				System.err.println("Failed to initialize LaF");
 			}
-
-			// System property used in the web.xml configuration
-			System.setProperty("collectEarth.userFolder", FolderFinder.getCollectEarthDataFolder()); //$NON-NLS-1$
 
 			// Specify a browser as http.agent so that calls to CloudFlare hosted
 			// OpenForis.org do not return with a 403 http error

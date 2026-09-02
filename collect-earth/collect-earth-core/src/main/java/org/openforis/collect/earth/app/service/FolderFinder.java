@@ -9,7 +9,16 @@ import org.slf4j.LoggerFactory;
 
 public class FolderFinder {
 
-	private static final Logger logger = LoggerFactory.getLogger(FolderFinder.class);
+	/*
+	 * Deliberately NOT a static field. EarthApp asks this class for the data folder in order to set
+	 * the collectEarth.userFolder system property, and log4j2.xml interpolates that property to
+	 * place earth_error.log. A static logger would be initialised while this class is loaded, which
+	 * happens before the property is set, and log4j would then configure itself with an unresolved
+	 * ${sys:collectEarth.userFolder} and fail to create the file appender.
+	 */
+	private static Logger logger() {
+		return LoggerFactory.getLogger(FolderFinder.class);
+	}
 
 	private FolderFinder(){
 
@@ -30,7 +39,7 @@ public class FolderFinder {
 			localFolder.mkdirs();
 			absolutePath = localFolder.getAbsolutePath();
 		} catch (Exception e) {
-			logger.error("Error getting Collect Earth data folder", e);
+			logger().error("Error getting Collect Earth data folder", e);
 		}
 		return absolutePath;
 	}
