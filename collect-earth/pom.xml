@@ -19,7 +19,12 @@
 		<url>www.openforis.org</url>
 	</organization>
 	<properties>
-		<java.release>8</java.release>
+		<!-- 11, matching what is actually shipped. The installer bundles JRE
+		     ${jre.version} (11.0.19+7), and Selenium 4.48's classes are major
+		     version 55, so a real Java 8 runtime would fail with
+		     UnsupportedClassVersionError as soon as Selenium loaded. The previous
+		     value of 8 described a baseline that no released build ever ran on. -->
+		<java.release>11</java.release>
 		<project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
 		<collect.version>4.0.109</collect.version>
 		<spring.version>5.3.27</spring.version>
@@ -92,6 +97,12 @@
 				          <requireMavenVersion>
 				            <version>3.9.3</version>
 				          </requireMavenVersion>
+				          <!-- <release>11</release> cannot be honoured by a JDK 8
+				               compiler. Without this the failure is an obscure
+				               compiler error; with it, the reason is stated. -->
+				          <requireJavaVersion>
+				            <version>[11,)</version>
+				          </requireJavaVersion>
 				        </rules>
 				      </configuration>
 				    </execution>
@@ -108,15 +119,8 @@
 						<!-- <release> rather than <source>/<target>: the latter pair does
 						     not validate API usage against the target JDK, so a Java 9+
 						     method could compile into Java 8 bytecode and fail only at
-						     runtime. Verified: the tree compiles clean under release 8,
-						     so nothing depends on a newer API today.
-
-						     NOTE: this 8 does not reflect what the app actually needs.
-						     Selenium 4.48's classes are major version 55 (Java 11) and
-						     the installer bundles JRE 11, so a real Java 8 runtime would
-						     throw UnsupportedClassVersionError as soon as Selenium loads.
-						     Raising java.release to 11 would make the declared baseline
-						     honest; left at 8 pending that decision. -->
+						     runtime. <release> checks against the real API surface, so
+						     the declared baseline is now enforced rather than asserted. -->
 						<release>${java.release}</release>
 						<encoding>${project.build.sourceEncoding}</encoding>
 					</configuration>
