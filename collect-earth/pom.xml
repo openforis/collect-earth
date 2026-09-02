@@ -12,6 +12,11 @@
 		<module>collect-earth-core</module>
 		<module>collect-earth-app</module>
 		<module>collect-earth-sampler</module>
+		<!-- In the reactor so the release plugin keeps its parent version in step.
+		     While it sat outside, its parent stayed pinned at 1.22.5-SNAPSHOT: that
+		     snapshot was superseded by the 1.22.5 release and never installed again,
+		     so the module stopped building entirely and went unnoticed. -->
+		<module>collect-earth-grid</module>
 		<module>collect-earth-installer</module>
 	</modules>
 	<organization>

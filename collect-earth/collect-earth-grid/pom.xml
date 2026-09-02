@@ -5,13 +5,23 @@
 	<parent>
 		<groupId>org.openforis.collect.earth</groupId>
 		<artifactId>collect-earth</artifactId>
-		<version>1.22.5-SNAPSHOT</version>
+		<version>1.23.14-SNAPSHOT</version>
 	</parent>
 
 	<artifactId>collect-earth-grid</artifactId>
 	<packaging>jar</packaging>
 	<name>Open Foris Collect Earth Grid</name>
 	<description>Module to create Collect Earth Global Grids</description>
+
+	<properties>
+		<!-- This module has never been published: no collect-earth-grid artifact
+		     exists in any repository. Now that it is in the reactor it would be
+		     deployed along with everything else, and a first publication to Maven
+		     Central cannot be withdrawn. It is a grid-generation tool rather than
+		     part of the shipped application, so deployment stays off. Remove this
+		     property if it should be published. -->
+		<maven.deploy.skip>true</maven.deploy.skip>
+	</properties>
 	<dependencies>
 		<dependency>
 			<groupId>org.openforis.collect.earth</groupId>
