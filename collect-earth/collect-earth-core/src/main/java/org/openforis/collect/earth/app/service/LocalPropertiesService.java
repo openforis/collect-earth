@@ -13,6 +13,7 @@ import java.util.Properties;
 import java.util.TreeSet;
 
 import org.apache.commons.lang3.StringUtils;
+import org.openforis.collect.earth.app.EarthConstants.BUFFER_SHAPE;
 import org.openforis.collect.earth.app.EarthConstants.CollectDBDriver;
 import org.openforis.collect.earth.app.EarthConstants.OperationMode;
 import org.openforis.collect.earth.app.EarthConstants.SAMPLE_SHAPE;
@@ -85,7 +86,8 @@ public class LocalPropertiesService extends Observable {
 				"survey_name"), UI_LANGUAGE(
 				"ui_language"), LARGE_CENTRAL_PLOT_SIDE(
 				"large_central_plot_side"), DISTANCE_TO_BUFFERS(
-				"distance_to_buffers"), OPEN_PLANET_MAPS(
+				"distance_to_buffers"), BUFFER_SHAPE(
+				"buffer_shape"), OPEN_PLANET_MAPS(
 				"open_planet_maps"), PLANET_MAPS_KEY(
 				"planet_maps_key"),  PLANET_MAPS_CE_KEY("planet_maps_ce_key"),
 				PLANET_MAPS_USE_TFO("planet_maps_use_tfo"),
@@ -307,6 +309,18 @@ public class LocalPropertiesService extends Observable {
 			return SAMPLE_SHAPE.SQUARE;
 		} else {
 			return SAMPLE_SHAPE.valueOf(value);
+		}
+	}
+
+	public BUFFER_SHAPE getBufferShape() {
+		final String value = getValue(EarthProperty.BUFFER_SHAPE);
+		if (StringUtils.isBlank(value)) {
+			return BUFFER_SHAPE.SQUARE;
+		}
+		try {
+			return BUFFER_SHAPE.valueOf(value);
+		} catch (IllegalArgumentException e) {
+			return BUFFER_SHAPE.SQUARE;
 		}
 	}
 
@@ -565,6 +579,10 @@ public class LocalPropertiesService extends Observable {
 
 	public void setSampleShape(SAMPLE_SHAPE shape) {
 		setValue(EarthProperty.SAMPLE_SHAPE, shape.name());
+	}
+
+	public void setBufferShape(BUFFER_SHAPE shape) {
+		setValue(EarthProperty.BUFFER_SHAPE, shape.name());
 	}
 
 	public void setUiLanguage(UI_LANGUAGE language) {

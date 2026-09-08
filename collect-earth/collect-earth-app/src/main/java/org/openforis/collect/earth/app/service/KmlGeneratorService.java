@@ -213,6 +213,7 @@ public class KmlGeneratorService {
 		final Integer largeCentralPlotSide = parseInt(
 				getLocalProperties().getValue(EarthProperty.LARGE_CENTRAL_PLOT_SIDE));
 		final String distanceToBuffers = getLocalProperties().getValue(EarthProperty.DISTANCE_TO_BUFFERS);
+		final String bufferShape = getLocalProperties().getBufferShape().name();
 		SAMPLE_SHAPE plotShape = getLocalProperties().getSampleShape();
 		final String hostAddress = ServerController.getHostAddress(getLocalProperties().getHost(),
 				getLocalProperties().getPort());
@@ -314,7 +315,7 @@ public class KmlGeneratorService {
 				generateKml = new PolygonWktGenerator(crsSystem, hostAddress, localPort);
 			} else {
 				generateKml = new SquareKmlGenerator(crsSystem, hostAddress, localPort, innerPointSide, numberOfPoints,
-						distanceBetweenSamplePoints, distanceToPlotBoundaries, largeCentralPlotSide, distanceToBuffers);
+						distanceBetweenSamplePoints, distanceToPlotBoundaries, largeCentralPlotSide, distanceToBuffers, bufferShape);
 			}
 		} catch (IOException e) {
 			logger.error("Error generating KML", e);
