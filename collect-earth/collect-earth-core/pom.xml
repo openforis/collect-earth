@@ -4,7 +4,7 @@
 	<parent>
 		<groupId>org.openforis.collect.earth</groupId>
 		<artifactId>collect-earth</artifactId>
-		<version>1.23.8-SNAPSHOT</version>
+		<version>1.23.14-SNAPSHOT</version>
 	</parent>
 
 	<name>Collect Earth Core</name>
@@ -44,9 +44,13 @@
 			<version>${spring.version}</version>
 		</dependency>
 		<dependency>
+			<!-- Must match what actually ships at runtime. Jetty 9.4 implements
+			     Servlet 3.1 and earth-libs carries javax.servlet-api-3.1.0, so
+			     compiling against 4.0.1 let Servlet 4-only calls compile green and
+			     fail at runtime. -->
 			<groupId>javax.servlet</groupId>
 		    <artifactId>javax.servlet-api</artifactId>
-		    <version>4.0.1</version>
+		    <version>3.1.0</version>
 		    <scope>provided</scope>
 		</dependency>
 		<dependency>
@@ -62,9 +66,10 @@
 			<plugin>
 				<groupId>org.apache.maven.plugins</groupId>
 				<artifactId>maven-compiler-plugin</artifactId>
+				<!-- source/target come from the parent's pluginManagement. Hardcoding
+				     1.8 here silently overrode ${java.version}, so this module ignored
+				     any change made there. -->
 				<configuration>
-					<source>1.8</source>
-					<target>1.8</target>
 					<encoding>${project.build.sourceEncoding}</encoding>
 				</configuration>
 			</plugin>

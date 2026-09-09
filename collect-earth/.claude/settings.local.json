@@ -40,7 +40,10 @@
       "Bash(git fetch *)",
       "Skill(sentry:seer)",
       "mcp__plugin_sentry_sentry__find_organizations",
-      "mcp__plugin_sentry_sentry__search_issues"
+      "mcp__plugin_sentry_sentry__search_issues",
+      "mcp__plugin_sentry_sentry__get_sentry_resource",
+      "PowerShell(mvn clean *)",
+      "PowerShell(Get-Command *)"
     ],
     "deny": [],
     "ask": []

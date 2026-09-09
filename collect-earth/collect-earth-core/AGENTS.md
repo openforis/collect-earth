@@ -19,4 +19,4 @@ Add new tests under `src/test/java` when introducing reusable logic or fixing re
 
 ## Change Guidance
 
-Keep this module independent from desktop UI concerns. Do not add Swing, installer, or application-launch behavior here. Preserve Java 8 compatibility and use existing package boundaries when adding services or utilities. Public methods used by other modules should remain stable unless the dependent modules are updated in the same change.
+Keep this module independent from desktop UI concerns. Do not add Swing, installer, or application-launch behavior here. Preserve Java 11 compatibility and use existing package boundaries when adding services or utilities. Public methods used by other modules should remain stable unless the dependent modules are updated in the same change.

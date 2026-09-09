@@ -382,17 +382,20 @@ public class CollectEarthMenu extends JMenuBar implements InitializingBean {
 		xmlExportSubmenu.add(menuItem);
 
 		final JMenuItem exportModifiedRecords = new JMenuItem(Messages.getString("CollectEarthWindow.61")); //$NON-NLS-1$
-		exportModifiedRecords.addActionListener(
-				getExportActionListener(DataFormat.ZIP_WITH_XML, RecordsToExport.MODIFIED_SINCE_LAST_EXPORT));
+		exportModifiedRecords.addActionListener( getExportActionListener(DataFormat.ZIP_WITH_XML, RecordsToExport.MODIFIED_SINCE_LAST_EXPORT));
 		xmlExportSubmenu.add(exportModifiedRecords);
 
 		final JMenuItem exportDataRangeRecords = new JMenuItem(Messages.getString("CollectEarthMenu.4")); //$NON-NLS-1$
-		exportDataRangeRecords
-		.addActionListener(getExportActionListener(DataFormat.ZIP_WITH_XML, RecordsToExport.PICK_FROM_DATE));
+		exportDataRangeRecords.addActionListener(getExportActionListener(DataFormat.ZIP_WITH_XML, RecordsToExport.PICK_FROM_DATE));
 		xmlExportSubmenu.add(exportDataRangeRecords);
-
+		
+		final JMenuItem exportBySummaryAttibuteRecords = new JMenuItem(Messages.getString("CollectEarthMenu.8")); //$NON-NLS-1$
+		exportBySummaryAttibuteRecords.addActionListener(getExportActionListener(DataFormat.ZIP_WITH_XML, RecordsToExport.USE_SUMMARY_ATTRIBUTE));
+		xmlExportSubmenu.add(exportBySummaryAttibuteRecords);
+		
+		// Add the XML submenu to the main menu
 		ieSubmenu.add(xmlExportSubmenu);
-
+		
 		final JMenu backupExportSubmenu = new JMenu(Messages.getString("CollectEarthMenu.5")); //$NON-NLS-1$
 
 		final JMenuItem exportDataBackup = new JMenuItem(Messages.getString("CollectEarthMenu.6")); //$NON-NLS-1$

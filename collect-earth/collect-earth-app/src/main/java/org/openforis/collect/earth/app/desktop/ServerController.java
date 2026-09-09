@@ -53,7 +53,8 @@ public class ServerController {
 		SERVER_STOPPED_EVENT("The Server has stopped"),
 		SERVER_STARTED_EVENT("The server started without problems"),
 		SERVER_STARTED_NO_DB_CONNECTION_EVENT("Collect Earth could not start due to a DB connection issue"),
-		SERVER_STARTED_WITH_DATABASE_CHANGE_EVENT( "Collect Earth started but the PostgreSQL DB could not be reached (SQLite used instead until problems are fixed)");
+		SERVER_STARTED_WITH_DATABASE_CHANGE_EVENT( "Collect Earth started but the PostgreSQL DB could not be reached (SQLite used instead until problems are fixed)"),
+		SERVER_FAILED_TO_RESTART_EVENT("Collect Earth could not restart its internal server after a configuration or project change");
 
 		private String message;
 
@@ -246,6 +247,19 @@ public class ServerController {
 			server.start();
 
 			Object attribute = getRoot().getServletContext().getAttribute(WebApplicationContext.ROOT_WEB_APPLICATION_CONTEXT_ATTRIBUTE);
+
+			// When the Spring web context is re-created on a restart (e.g. after changing the project or
+			// properties), CGLIB cannot redefine its proxy classes in the same classloader and the context
+			// fails to start with a LinkageError. Jetty only logs this as a WARN and keeps the HTTP connector
+			// running, which would otherwise leave Collect Earth as an orphan headless process with no window.
+			// This is not recoverable in-process, so shut down in a controlled manner instead of limping along.
+			if (isContextReloadFailure(attribute)) {
+				logger.error("The Collect Earth server context could not be re-created after a configuration/project change. Shutting down to avoid leaving an orphan process.", (Throwable) attribute); //$NON-NLS-1$
+				stopServerQuietly();
+				fireServerEvent(ServerInitializationEvent.SERVER_FAILED_TO_RESTART_EVENT);
+				return;
+			}
+
 			if (attribute instanceof BeanCreationException) {
 				( (BeanCreationException) attribute).printStackTrace(System.out);
 				logger.error("Error creating the database connection", attribute); //$NON-NLS-1$
@@ -282,6 +296,40 @@ public class ServerController {
 		if (server != null && server.isRunning()) {
 			server.stop();
 			fireServerEvent(ServerInitializationEvent.SERVER_STOPPED_EVENT);
+		}
+	}
+
+	/**
+	 * Detects whether the web application context failed to start because its Spring proxy classes could not
+	 * be regenerated when the context was reloaded. This happens on a restart because CGLIB cannot define a
+	 * proxy class with the same name twice in the same classloader, surfacing as a {@link LinkageError} in the
+	 * cause chain. Such a failure is not recoverable in-process, so Collect Earth must shut down cleanly.
+	 */
+	private boolean isContextReloadFailure(Object contextAttribute) {
+		if (!(contextAttribute instanceof Throwable)) {
+			return false;
+		}
+		Throwable cause = (Throwable) contextAttribute;
+		while (cause != null) {
+			if (cause instanceof LinkageError) {
+				return true;
+			}
+			cause = cause.getCause();
+		}
+		return false;
+	}
+
+	/**
+	 * Stops the embedded server without firing a {@link ServerInitializationEvent#SERVER_STOPPED_EVENT}, used
+	 * during a controlled shutdown so the HTTP port is released and no orphan process remains.
+	 */
+	private void stopServerQuietly() {
+		try {
+			if (server != null && server.isRunning()) {
+				server.stop();
+			}
+		} catch (Exception e) {
+			logger.error("Error stopping the server during controlled shutdown", e); //$NON-NLS-1$
 		}
 	}
 
