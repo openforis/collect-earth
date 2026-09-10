@@ -63,7 +63,7 @@ import io.sentry.protocol.User;
  */
 public class EarthApp {
 
-	private static Logger logger;
+	private static Logger logger = LoggerFactory.getLogger(EarthApp.class);
 	private static ServerController serverController;
 	private static EarthApp earthApp;
 
@@ -164,8 +164,6 @@ public class EarthApp {
 			// Change of font so that Lao and Thao glyphs are supported
 			CollectEarthUtils.setFontDependingOnLanguaue(getLocalProperties().getUiLanguage());
 
-			logger = LoggerFactory.getLogger(EarthApp.class);
-
 			String doubleClickedProjectFile = null;
 
 			if (args != null && args.length == 1) {
@@ -181,11 +179,7 @@ public class EarthApp {
 			}
 
 		} catch (final Exception e) {
-			// The logger factory has not been initialized, this will not work, just output
-			// to console
-			if (logger != null) {
-				logger.error("The server could not start", e); //$NON-NLS-1$
-			}
+			logger.error("The server could not start", e); //$NON-NLS-1$
 			System.exit(1);
 		} finally {
 			closeSplash();

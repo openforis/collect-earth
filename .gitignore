@@ -18,3 +18,4 @@ generated
 *_files
 *.db
 /pom.xml.releaseBackup
+${sys:collectEarth.userFolder}
