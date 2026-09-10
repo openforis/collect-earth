@@ -416,11 +416,60 @@ public class EarthApp {
 		try {
 
 			serverController.stopServer();
-			startServer(null);
+			relaunch();
 
 		} catch (final Exception e) {
-			logger.error("Error while stopping server", e); //$NON-NLS-1$
+			logger.error("Error while restarting Collect Earth", e); //$NON-NLS-1$
 		}
+	}
+
+	/**
+	 * Re-creating the embedded Jetty/Spring web context in-process (as {@link #restart()} used
+	 * to do by calling {@link #startServer(String)} again) fails: Spring proxies non-interface
+	 * DAOs (e.g. {@code CodeListItemDao}) with CGLIB, which cannot redefine the same generated
+	 * proxy class a second time in the same classloader and throws a {@link LinkageError} (see
+	 * {@code ServerController#isContextReloadFailure}). So instead of reloading in-process,
+	 * restarting relaunches Collect Earth as a brand-new JVM process using the same command line
+	 * that started this one, then exits this process. Whatever project/property change triggered
+	 * the restart has already been persisted to disk by that point, so the new process picks it
+	 * up on normal startup exactly as if Collect Earth had just been launched.
+	 */
+	private static void relaunch() throws IOException {
+		final String javaBin = System.getProperty("java.home") + File.separator + "bin" + File.separator //$NON-NLS-1$ //$NON-NLS-2$
+				+ (SystemUtils.IS_OS_WINDOWS ? "java.exe" : "java"); //$NON-NLS-1$ //$NON-NLS-2$
+
+		final java.util.List<String> command = new java.util.ArrayList<>();
+		command.add(javaBin);
+		for (String jvmArg : java.lang.management.ManagementFactory.getRuntimeMXBean().getInputArguments()) {
+			// Debug-agent flags (e.g. added by an IDE launch) must not be propagated: the relaunched
+			// process would try to reuse the same JDWP transport socket as this one and fail with
+			// "JDWP Transport dt_socket failed to initialize" instead of starting.
+			if (!jvmArg.startsWith("-agentlib:jdwp") && !jvmArg.startsWith("-Xrunjdwp")) { //$NON-NLS-1$ //$NON-NLS-2$
+				command.add(jvmArg);
+			}
+		}
+
+		final String classpath = System.getProperty("java.class.path"); //$NON-NLS-1$
+		if (classpath != null && classpath.endsWith(".jar") && !classpath.contains(File.pathSeparator)) { //$NON-NLS-1$
+			// Launched with "java -jar CollectEarth.jar": relaunch the same way so the jar's
+			// manifest Class-Path entries (the lib/ dependencies) are honored again, which the
+			// JVM only does for -jar launches and not for -cp launches.
+			command.add("-jar"); //$NON-NLS-1$
+			command.add(classpath);
+		} else {
+			command.add("-cp"); //$NON-NLS-1$
+			command.add(classpath);
+			command.add(EarthApp.class.getName());
+		}
+
+		logger.info("Relaunching Collect Earth: {}", command); //$NON-NLS-1$
+
+		new ProcessBuilder(command)
+				.directory(new File(System.getProperty("user.dir"))) //$NON-NLS-1$
+				.inheritIO()
+				.start();
+
+		System.exit(0);
 	}
 
 	private static LocalPropertiesService nonManagedPropertiesService;

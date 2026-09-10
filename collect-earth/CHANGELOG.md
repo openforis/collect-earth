@@ -15,7 +15,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 - Fixed a NullPointerException in the process monitor dialog
-- Changing the project (or applying property changes) now fails gracefully: if the internal server cannot be reloaded, Collect Earth shows a clear message and closes cleanly instead of leaving an orphan window-less process running
+- Changing the project (or applying property changes) no longer crashes the internal server: instead of reloading the Spring web context in-process (which always failed with a CGLIB `LinkageError` on the second load), Collect Earth now relaunches itself as a fresh process
 
 
 ## [1.23.7] - 2026-05-12
