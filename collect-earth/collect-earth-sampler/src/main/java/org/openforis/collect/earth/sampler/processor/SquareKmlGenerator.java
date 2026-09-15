@@ -13,6 +13,10 @@ public class SquareKmlGenerator extends AbstractPolygonKmlGenerator {
 	public SquareKmlGenerator(String epsgCode, String hostAddress, String localPort,Integer innerPointSide,  Integer numberOfPoints,  double distanceBetweenSamplePoints, double distancePlotBoundary, int largeCentralPlotSide, String distanceToBuffers) {
 		super(epsgCode, hostAddress, localPort, innerPointSide, numberOfPoints, distanceBetweenSamplePoints, distancePlotBoundary, largeCentralPlotSide, distanceToBuffers);
 	}
+
+	public SquareKmlGenerator(String epsgCode, String hostAddress, String localPort,Integer innerPointSide,  Integer numberOfPoints,  double distanceBetweenSamplePoints, double distancePlotBoundary, int largeCentralPlotSide, String distanceToBuffers, String bufferShape) {
+		super(epsgCode, hostAddress, localPort, innerPointSide, numberOfPoints, distanceBetweenSamplePoints, distancePlotBoundary, largeCentralPlotSide, distanceToBuffers, bufferShape);
+	}
 	
 	protected void addMiniPlacemarks(int numberOfPlacemarks, double[] coordOriginal, SimplePlacemarkObject parentPlacemark) {
 

@@ -25,6 +25,8 @@ import com.opencsv.exceptions.CsvValidationException;
 public abstract class AbstractPolygonKmlGenerator extends KmlGenerator {
 
 	private static final Integer DEFAULT_INNER_POINT_SIDE = 2;
+	private static final int BUFFER_CIRCLE_VERTICES = 60;
+	private static final int BUFFER_HEXAGON_VERTICES = 6;
 	protected Integer innerPointSide;
 	protected final String localPort;
 	protected final Logger logger = LoggerFactory.getLogger(this.getClass());
@@ -33,8 +35,13 @@ public abstract class AbstractPolygonKmlGenerator extends KmlGenerator {
 	protected int numberOfSamplePoints;
 	protected Integer largeCentralPlotSide;
 	private String distanceToBuffers;
+	private String bufferShape;
 
 	public AbstractPolygonKmlGenerator(String epsgCode, String hostAddress, String localPort, Integer innerPointSide, Integer numberOfPoints, double distanceBetweenSamplePoints, double distancePlotBoundary, Integer largeCentralPlotSide, String distanceToBuffers) {
+		this(epsgCode, hostAddress, localPort, innerPointSide, numberOfPoints, distanceBetweenSamplePoints, distancePlotBoundary, largeCentralPlotSide, distanceToBuffers, null);
+	}
+
+	public AbstractPolygonKmlGenerator(String epsgCode, String hostAddress, String localPort, Integer innerPointSide, Integer numberOfPoints, double distanceBetweenSamplePoints, double distancePlotBoundary, Integer largeCentralPlotSide, String distanceToBuffers, String bufferShape) {
 		super(epsgCode);
 		this.hostAddress = hostAddress;
 		this.localPort = localPort;
@@ -42,6 +49,7 @@ public abstract class AbstractPolygonKmlGenerator extends KmlGenerator {
 		this.distanceBetweenSamplePoints = distanceBetweenSamplePoints;
 		this.distancePlotBoundary = distancePlotBoundary;
 		this.distanceToBuffers = distanceToBuffers;
+		this.bufferShape = bufferShape;
 		this.setNumberOfSamplePoints(numberOfPoints);
 		this.setLargeCentralPlotSide(largeCentralPlotSide);
 	}
@@ -175,28 +183,12 @@ public abstract class AbstractPolygonKmlGenerator extends KmlGenerator {
 		if( StringUtils.isNotBlank( distanceToBuffers )) {
 			String[] distances =  StringUtils.split( distanceToBuffers, ',' );
 
-
 			try {
 				for (String bufDistStr : distances) {
 
-					List<SimpleCoordinate> bufferPoints = new ArrayList<>();
+					int bufDist = Integer.parseInt( bufDistStr.trim() );
 
-					Integer bufDist = Integer.parseInt( bufDistStr );
-
-					// TOP LEFT
-					bufferPoints.add(new SimpleCoordinate( getPointWithOffset( currentPlacemark.getCoord().getCoordinates(), -bufDist, bufDist) ) );
-
-					// TOP RIGHT
-					bufferPoints.add(new SimpleCoordinate( getPointWithOffset( currentPlacemark.getCoord().getCoordinates(), bufDist, bufDist) ));
-
-					// BOTTOM RIGHT
-					bufferPoints.add( new SimpleCoordinate( getPointWithOffset( currentPlacemark.getCoord().getCoordinates(), bufDist, -bufDist) ) );
-
-					// BOTTOM LEFT
-					bufferPoints.add(new SimpleCoordinate(  getPointWithOffset( currentPlacemark.getCoord().getCoordinates(), -bufDist, -bufDist) ) ) ;
-
-					// TOP LEFT -- CLOSE RECTANGLE
-					bufferPoints.add( new SimpleCoordinate( getPointWithOffset( currentPlacemark.getCoord().getCoordinates(), -bufDist, bufDist) ) );
+					List<SimpleCoordinate> bufferPoints = buildBufferShape( currentPlacemark.getCoord().getCoordinates(), bufDist );
 
 					SimplePlacemarkObject spo = new SimplePlacemarkObject();
 
@@ -212,10 +204,55 @@ public abstract class AbstractPolygonKmlGenerator extends KmlGenerator {
 			}
 		}
 
-		// TOP LEFT -- CLOSE RECTANGLE
 		currentPlacemark.setBuffers( buffers );
 	}
 
+	private List<SimpleCoordinate> buildBufferShape(double[] centerCoord, int distance) throws TransformException {
+		if ("CIRCLE".equalsIgnoreCase(bufferShape)) {
+			return buildRegularPolygonRing(centerCoord, distance, BUFFER_CIRCLE_VERTICES);
+		} else if ("HEXAGON".equalsIgnoreCase(bufferShape)) {
+			return buildRegularPolygonRing(centerCoord, distance, BUFFER_HEXAGON_VERTICES);
+		} else {
+			return buildSquareRing(centerCoord, distance);
+		}
+	}
+
+	private List<SimpleCoordinate> buildSquareRing(double[] centerCoord, int distance) throws TransformException {
+		final List<SimpleCoordinate> bufferPoints = new ArrayList<>();
+
+		// TOP LEFT
+		bufferPoints.add(new SimpleCoordinate( getPointWithOffset( centerCoord, -distance, distance) ) );
+
+		// TOP RIGHT
+		bufferPoints.add(new SimpleCoordinate( getPointWithOffset( centerCoord, distance, distance) ));
+
+		// BOTTOM RIGHT
+		bufferPoints.add( new SimpleCoordinate( getPointWithOffset( centerCoord, distance, -distance) ) );
+
+		// BOTTOM LEFT
+		bufferPoints.add(new SimpleCoordinate(  getPointWithOffset( centerCoord, -distance, -distance) ) ) ;
+
+		// TOP LEFT -- CLOSE RECTANGLE
+		bufferPoints.add( new SimpleCoordinate( getPointWithOffset( centerCoord, -distance, distance) ) );
+
+		return bufferPoints;
+	}
+
+	// same construction used for the plot's own CIRCLE/HEXAGON shapes (see CircleKmlGenerator):
+	// distance is the radius, i.e. the distance from the plot center to each vertex
+	private List<SimpleCoordinate> buildRegularPolygonRing(double[] centerCoord, double radius, int numberOfVertices) throws TransformException {
+		final List<SimpleCoordinate> ringPoints = new ArrayList<>();
+		final double arc = (double) 360 / numberOfVertices;
+
+		for (int i = 0; i <= numberOfVertices; i++) {
+			final double t = (i % numberOfVertices) * arc;
+			final double offsetLong = radius * Math.cos(Math.toRadians(t));
+			final double offsetLat = radius * Math.sin(Math.toRadians(t));
+			ringPoints.add(new SimpleCoordinate( getPointWithOffset( centerCoord, offsetLong, offsetLat) ));
+		}
+
+		return ringPoints;
+	}
 
 	protected int getNumberOfSamplePoints() {
 		return numberOfSamplePoints;
