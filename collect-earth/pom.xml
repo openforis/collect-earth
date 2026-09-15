@@ -222,6 +222,28 @@
 		    	</exclusions>
 			</dependency>
 			<dependency>
+				<groupId>org.openforis.collect</groupId>
+				<artifactId>collect-rdb</artifactId>
+				<version>${collect.version}</version>
+				<exclusions>
+					<exclusion>
+						<!-- xml-apis 1.4.01 (via xercesImpl) re-declares javax.xml.parsers,
+						     javax.xml.transform, org.w3c.dom and org.xml.sax, which the JDK
+						     owns in the java.xml module. On Java 11 that is a split package:
+						     Eclipse refuses to compile any file importing them ("accessible
+						     from more than one module"), and at runtime java.xml wins anyway,
+						     so the jar is dead weight. xercesImpl itself is kept: it only
+						     carries org.apache.* and org.w3c.dom.html, which java.xml does
+						     not export.
+						     Managed here rather than on the individual dependencies because
+						     collect-rdb is declared in both collect-earth-core and
+						     collect-earth-app. -->
+						<groupId>xml-apis</groupId>
+						<artifactId>xml-apis</artifactId>
+					</exclusion>
+				</exclusions>
+			</dependency>
+			<dependency>
 				<groupId>commons-io</groupId>
 				<artifactId>commons-io</artifactId>
 				<version>2.22.0</version>
