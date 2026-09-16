@@ -3,6 +3,7 @@ package org.openforis.collect.earth.sampler.processor;
 import java.util.ArrayList;
 import java.util.List;
 
+import org.openforis.collect.earth.app.EarthConstants.BUFFER_SHAPE;
 import org.openforis.collect.earth.sampler.model.SimpleCoordinate;
 import org.openforis.collect.earth.sampler.model.SimplePlacemarkObject;
 import org.openforis.collect.earth.sampler.model.SimpleRegion;
@@ -10,11 +11,7 @@ import org.opengis.referencing.operation.TransformException;
 
 public class SquareKmlGenerator extends AbstractPolygonKmlGenerator {
 
-	public SquareKmlGenerator(String epsgCode, String hostAddress, String localPort,Integer innerPointSide,  Integer numberOfPoints,  double distanceBetweenSamplePoints, double distancePlotBoundary, int largeCentralPlotSide, String distanceToBuffers) {
-		super(epsgCode, hostAddress, localPort, innerPointSide, numberOfPoints, distanceBetweenSamplePoints, distancePlotBoundary, largeCentralPlotSide, distanceToBuffers);
-	}
-
-	public SquareKmlGenerator(String epsgCode, String hostAddress, String localPort,Integer innerPointSide,  Integer numberOfPoints,  double distanceBetweenSamplePoints, double distancePlotBoundary, int largeCentralPlotSide, String distanceToBuffers, String bufferShape) {
+	public SquareKmlGenerator(String epsgCode, String hostAddress, String localPort,Integer innerPointSide,  Integer numberOfPoints,  double distanceBetweenSamplePoints, double distancePlotBoundary, Integer largeCentralPlotSide, String distanceToBuffers, BUFFER_SHAPE bufferShape) {
 		super(epsgCode, hostAddress, localPort, innerPointSide, numberOfPoints, distanceBetweenSamplePoints, distancePlotBoundary, largeCentralPlotSide, distanceToBuffers, bufferShape);
 	}
 	

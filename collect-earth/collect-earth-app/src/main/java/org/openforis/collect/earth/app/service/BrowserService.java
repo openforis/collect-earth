@@ -534,7 +534,8 @@ public class BrowserService implements InitializingBean, DisposableBean, Applica
 			// Add API key
 			url.append("&planet_api_key=").append(URLEncoder.encode(apiKey, StandardCharsets.UTF_8.toString()));
 
-			// Add optional date parameters (skip if "Oldest"/"Latest" which represent default/empty values)
+			// Add optional date parameters. The "first / latest available" choices of the options dialog are saved as
+			// empty values; properties written by older versions hold the words "Oldest" / "Latest" for the same thing
 			String dateFrom = localPropertiesService.getPlanetTfoDateFrom();
 			if (StringUtils.isNotBlank(dateFrom) && !"Oldest".equals(dateFrom)) {
 				url.append("&planet_date_from=").append(URLEncoder.encode(dateFrom, StandardCharsets.UTF_8.toString()));

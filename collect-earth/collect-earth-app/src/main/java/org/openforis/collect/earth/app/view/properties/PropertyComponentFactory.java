@@ -24,6 +24,7 @@ import org.jdesktop.swingx.JXDatePicker;
 import org.jdesktop.swingx.plaf.basic.CalendarHeaderHandler;
 import org.jdesktop.swingx.plaf.basic.SpinningCalendarHeaderHandler;
 import org.jdesktop.swingx.prompt.PromptSupport;
+import org.openforis.collect.earth.app.EarthConstants.BUFFER_SHAPE;
 import org.openforis.collect.earth.app.EarthConstants.SAMPLE_SHAPE;
 import org.openforis.collect.earth.app.service.LocalPropertiesService;
 import org.openforis.collect.earth.app.service.LocalPropertiesService.EarthProperty;
@@ -164,6 +165,20 @@ public class PropertyComponentFactory {
             comboBox.setSelectedItem(SAMPLE_SHAPE.valueOf(localPropertiesService.getValue(property)));
         } catch (Exception e) {
             logger.warn("Invalid sample shape value: {}", localPropertiesService.getValue(property));
+        }
+        return comboBox;
+    }
+
+    /**
+     * Creates the combo box for the shape of the outer frame drawn around the plot.
+     * Without a frame distance there is no frame, whatever shape the properties hold.
+     */
+    public JComboBox<BUFFER_SHAPE> createBufferShapeComboBox() {
+        JComboBox<BUFFER_SHAPE> comboBox = new JComboBox<>(BUFFER_SHAPE.values());
+        if (StringUtils.isBlank(localPropertiesService.getValue(EarthProperty.DISTANCE_TO_BUFFERS))) {
+            comboBox.setSelectedItem(BUFFER_SHAPE.NONE);
+        } else {
+            comboBox.setSelectedItem(localPropertiesService.getBufferShape());
         }
         return comboBox;
     }

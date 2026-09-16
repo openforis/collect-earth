@@ -196,7 +196,7 @@ ${html_for_balloon}
 		       </innerBoundaryIs>
    		</Polygon>
 
-		<#-- One extra, unfilled outer square per configured buffer/outer-square distance -- START -->
+		<#-- One extra, unfilled outer frame (square, circle or hexagon) per distance in distance_to_buffers -- START -->
 		<#list placemark.buffers as buffer>
 		<Polygon id="poly_${placemark.placemarkId}_buffer_${buffer_index}">
 			<outerBoundaryIs>
@@ -211,7 +211,7 @@ ${html_for_balloon}
 			</outerBoundaryIs>
 		</Polygon>
 		</#list>
-		<#-- One extra, unfilled outer square per configured buffer/outer-square distance -- END -->
+		<#-- One extra, unfilled outer frame (square, circle or hexagon) per distance in distance_to_buffers -- END -->
    		</MultiGeometry>
 
    		</#if>

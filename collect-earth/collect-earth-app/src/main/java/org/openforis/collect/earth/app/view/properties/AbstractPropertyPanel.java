@@ -2,7 +2,6 @@ package org.openforis.collect.earth.app.view.properties;
 
 import java.awt.Component;
 import java.awt.Container;
-import java.awt.GridBagConstraints;
 import java.awt.GridBagLayout;
 import java.util.HashMap;
 
@@ -16,6 +15,7 @@ import javax.swing.border.TitledBorder;
 
 import org.openforis.collect.earth.app.service.LocalPropertiesService;
 import org.openforis.collect.earth.app.service.LocalPropertiesService.EarthProperty;
+import org.openforis.collect.earth.app.view.Messages;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -34,8 +34,6 @@ public abstract class AbstractPropertyPanel extends JPanel {
     protected final transient PropertyComponentFactory componentFactory;
     protected final HashMap<Enum<?>, JComponent[]> propertyToComponent;
     protected final HashMap<JComponent, JLabel> componentToRowLabel;
-
-    private int currentRow = 0;
 
     /**
      * Creates a new property panel.
@@ -86,85 +84,25 @@ public abstract class AbstractPropertyPanel extends JPanel {
     // ========== Layout Helpers ==========
 
     /**
-     * Adds a component spanning the full width at the current row.
+     * Adds a "label : component" row to a container laid out with GridBagLayout and registers the label, so that
+     * {@link #setRowState(JComponent, boolean)} hides and shows both together.
+     *
+     * @param labelKey key of the label text in the Messages bundle
+     * @return the label, for the rare case where its text changes later
      */
-    protected void addFullWidthComponent(JComponent component) {
-        GridBagConstraints constraints = GridBagConstraintsBuilder.createFullWidth(currentRow++);
-        add(component, constraints);
-    }
-
-    /**
-     * Adds a labeled component as a form row.
-     */
-    protected void addLabeledComponent(String labelText, JComponent component) {
-        GridBagConstraints labelConstraints = GridBagConstraintsBuilder.createLabel(0, currentRow);
-        JLabel label = new JLabel(labelText);
-        add(label, labelConstraints);
-
-        GridBagConstraints fieldConstraints = GridBagConstraintsBuilder.createField(1, currentRow);
-        add(component, fieldConstraints);
-
+    protected JLabel addLabeledRow(Container target, int row, String labelKey, JComponent component) {
+        JLabel label = new JLabel(Messages.getString(labelKey));
+        target.add(label, GridBagConstraintsBuilder.createLabel(0, row));
+        target.add(component, GridBagConstraintsBuilder.createField(1, row));
         componentToRowLabel.put(component, label);
-        currentRow++;
+        return label;
     }
 
     /**
-     * Adds a labeled component with a specific width.
+     * Adds a component spanning all the columns of a container laid out with GridBagLayout.
      */
-    protected void addLabeledComponent(String labelText, JComponent component, int gridWidth) {
-        GridBagConstraints labelConstraints = GridBagConstraintsBuilder.createLabel(0, currentRow);
-        JLabel label = new JLabel(labelText);
-        add(label, labelConstraints);
-
-        GridBagConstraints fieldConstraints = new GridBagConstraintsBuilder()
-                .gridx(1)
-                .gridy(currentRow)
-                .gridwidth(gridWidth)
-                .weightx(1.0)
-                .build();
-        add(component, fieldConstraints);
-
-        componentToRowLabel.put(component, label);
-        currentRow++;
-    }
-
-    /**
-     * Adds a component at a specific position.
-     */
-    protected void addComponent(JComponent component, int gridx, int gridy) {
-        GridBagConstraints constraints = new GridBagConstraintsBuilder()
-                .gridx(gridx)
-                .gridy(gridy)
-                .build();
-        add(component, constraints);
-    }
-
-    /**
-     * Adds a component with custom constraints.
-     */
-    protected void addComponent(JComponent component, GridBagConstraints constraints) {
-        add(component, constraints);
-    }
-
-    /**
-     * Increments the current row counter.
-     */
-    protected void nextRow() {
-        currentRow++;
-    }
-
-    /**
-     * Gets the current row number.
-     */
-    protected int getCurrentRow() {
-        return currentRow;
-    }
-
-    /**
-     * Sets the current row number.
-     */
-    protected void setCurrentRow(int row) {
-        this.currentRow = row;
+    protected void addFullWidthRow(Container target, int row, JComponent component) {
+        target.add(component, GridBagConstraintsBuilder.createFullWidth(row));
     }
 
     // ========== Component Registration ==========
@@ -176,21 +114,7 @@ public abstract class AbstractPropertyPanel extends JPanel {
         propertyToComponent.put(property, components);
     }
 
-    /**
-     * Registers a component with its label for visibility toggling.
-     */
-    protected void registerComponentLabel(JComponent component, JLabel label) {
-        componentToRowLabel.put(component, label);
-    }
-
     // ========== Border Helpers ==========
-
-    /**
-     * Creates a titled border with bevel effect.
-     */
-    protected Border createTitledBorder(String title) {
-        return new TitledBorder(new BevelBorder(BevelBorder.LOWERED), title);
-    }
 
     /**
      * Creates a raised titled border.

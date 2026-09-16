@@ -7,6 +7,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 ### Added
 - CSV data export now supports multiple entities (#52)
+- Optional outer frame (square, circle or hexagon) drawn around square, circle and hexagon plots to give context on the surroundings during the assessment; configured from the plot options panel (`buffer_shape` / `distance_to_buffers`), which warns when the frame covers less than 10 times the plot area
 
 ### Changed
 - Updated Collect framework to the latest version

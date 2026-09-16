@@ -18,6 +18,7 @@ import javax.swing.SwingUtilities;
 import javax.swing.text.JTextComponent;
 
 import org.jdesktop.swingx.JXDatePicker;
+import org.openforis.collect.earth.app.EarthConstants.BUFFER_SHAPE;
 import org.openforis.collect.earth.app.EarthConstants.SAMPLE_SHAPE;
 import org.openforis.collect.earth.app.desktop.EarthApp;
 import org.openforis.collect.earth.app.service.LocalPropertiesService;
@@ -88,6 +89,8 @@ public abstract class ApplyOptionChangesListener implements ActionListener {
 						setPropertyValue(propertyKey, ((String) ((JComboBox) component).getSelectedItem() ) ); //$NON-NLS-1$
 					} else if (((JComboBox) component).getItemAt(0) instanceof SAMPLE_SHAPE) {
 						setPropertyValue(propertyKey,  ( (SAMPLE_SHAPE) ((JComboBox) component).getSelectedItem() ).name() );
+					} else if (((JComboBox) component).getItemAt(0) instanceof BUFFER_SHAPE) {
+						setPropertyValue(propertyKey,  ( (BUFFER_SHAPE) ((JComboBox) component).getSelectedItem() ).name() );
 					}
 				} else if (component instanceof JXDatePicker) {
 					if(  ((JXDatePicker) component).getDate() == null ) {

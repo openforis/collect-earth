@@ -212,7 +212,7 @@ public class PropertiesDialog extends JDialog {
                     new ApplyOptionChangesListener(this, localPropertiesService, propertyToComponent) {
                         @Override
                         protected void applyProperties() {
-                            applyChanges.setText("Applying Changes...");
+                            applyChanges.setText(Messages.getString("OptionWizard.1043"));
                             applyChanges.setEnabled(false);
                             setCursor(java.awt.Cursor.getPredefinedCursor(java.awt.Cursor.WAIT_CURSOR));
 
@@ -276,12 +276,12 @@ public class PropertiesDialog extends JDialog {
      * Shows a success message when properties are applied successfully.
      */
     private void showSuccessMessage() {
-        String message = "Settings have been applied successfully.";
+        String message = Messages.getString("OptionWizard.1044");
         if (isRestartRequired()) {
-            message += "\n\nThe application will restart to apply some changes.";
+            message += "\n\n" + Messages.getString("OptionWizard.1045");
         }
         JOptionPane.showMessageDialog(this, message,
-                "Settings Applied", JOptionPane.INFORMATION_MESSAGE);
+                Messages.getString("OptionWizard.1046"), JOptionPane.INFORMATION_MESSAGE);
     }
 
     /**
@@ -289,22 +289,20 @@ public class PropertiesDialog extends JDialog {
      */
     private void showValidationErrorMessage() {
         JOptionPane.showMessageDialog(this,
-                "Please correct the validation errors before applying changes.\n\n" +
-                        "Look for fields highlighted in red and check their tooltips for guidance.",
-                "Validation Error", JOptionPane.WARNING_MESSAGE);
+                Messages.getString("OptionWizard.1047"),
+                Messages.getString("OptionWizard.1048"), JOptionPane.WARNING_MESSAGE);
     }
 
     /**
      * Shows an error message when an exception occurs.
      */
     private void showErrorMessage(Exception e) {
-        String userMessage = "An error occurred while applying settings.";
         String technicalDetails = e.getMessage() != null ? e.getMessage() : e.getClass().getSimpleName();
 
         JOptionPane.showMessageDialog(this,
-                userMessage + "\n\nTechnical details: " + technicalDetails +
-                        "\n\nPlease check your settings and try again.",
-                "Error Applying Settings", JOptionPane.ERROR_MESSAGE);
+                Messages.getString("OptionWizard.1049") + "\n\n" + Messages.getString("OptionWizard.1050") + " "
+                        + technicalDetails + "\n\n" + Messages.getString("OptionWizard.1051"),
+                Messages.getString("OptionWizard.1052"), JOptionPane.ERROR_MESSAGE);
 
         logger.error("Error applying properties", e);
     }

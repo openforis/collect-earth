@@ -1,15 +1,20 @@
 package org.openforis.collect.earth.app.view.properties;
 
-import java.awt.GridBagConstraints;
-import java.awt.Insets;
+import java.awt.Color;
 import java.text.DecimalFormat;
+import java.text.MessageFormat;
 import java.util.HashMap;
 
+import javax.swing.InputVerifier;
 import javax.swing.JComboBox;
 import javax.swing.JComponent;
 import javax.swing.JLabel;
 import javax.swing.JSpinner;
+import javax.swing.JTextField;
+import javax.swing.SpinnerNumberModel;
 
+import org.apache.commons.lang3.StringUtils;
+import org.openforis.collect.earth.app.EarthConstants.BUFFER_SHAPE;
 import org.openforis.collect.earth.app.EarthConstants.SAMPLE_SHAPE;
 import org.openforis.collect.earth.app.service.LocalPropertiesService;
 import org.openforis.collect.earth.app.service.LocalPropertiesService.EarthProperty;
@@ -25,6 +30,20 @@ public class PlotOptionsPanel extends AbstractPropertyPanel {
 
     private static final long serialVersionUID = 1L;
 
+    /** Below this ratio between the frame area and the plot area the frame shows too little of the surroundings. */
+    private static final double MIN_FRAME_TO_PLOT_AREA_RATIO = 10d;
+    /** Margin that CircleKmlGenerator adds to the radius when drawing the outline of circle and hexagon plots. */
+    private static final double CIRCLE_PLOT_MARGIN = 5d;
+    private static final int MIN_FRAME_DISTANCE = 1;
+    private static final int MAX_FRAME_DISTANCE = 10000;
+    private static final int DEFAULT_FRAME_DISTANCE = 100;
+    private static final double COS_30 = Math.cos(Math.toRadians(30));
+    /** Area of a regular hexagon = factor * (distance from the center to a vertex)^2 */
+    private static final double HEXAGON_AREA_FACTOR = 3 * Math.sqrt(3) / 2;
+    private static final double SQUARE_METERS_PER_HECTARE = 10000d;
+    private static final Color WARNING_TEXT_COLOR = new Color(180, 90, 0);
+    private static final DecimalFormat HECTARES_FORMAT = new DecimalFormat("###.##");
+
     // UI Components
     private JComboBox<SAMPLE_SHAPE> plotShape;
     private JComboBox<ComboBoxItem> numberPoints;
@@ -33,18 +52,18 @@ public class PlotOptionsPanel extends AbstractPropertyPanel {
     private JSpinner dotsSide;
     private JSpinner largeCentralPlotSide;
     private JSpinner distanceBetweenPlots;
+    private JComboBox<BUFFER_SHAPE> frameShape;
+    private JSpinner frameDistance;
+    private JLabel frameWarningLabel;
     private JLabel areaLabel;
-
-    // Labels for visibility control
-    private JLabel numberPointsLabel;
+    /** The same field is the distance between points of a square plot and the radius of a round one. */
     private JLabel distanceOrRadiusLabel;
-    private JLabel distanceToFrameLabel;
-    private JLabel dotsSideLabel;
-    private JLabel largeCentralPlotSideLabel;
-    private JLabel plotDistanceInClusterLabel;
 
     // State
-    private String oldSelectedDistance;
+    /** True until the user types a frame distance, when none was stored in the properties: the panel proposes one. */
+    private boolean frameDistanceNeverSet;
+    /** Guards the change listener of the spinner against the values set by the panel itself. */
+    private boolean settingFrameDistance;
 
     /**
      * Creates a new plot options panel.
@@ -77,130 +96,98 @@ public class PlotOptionsPanel extends AbstractPropertyPanel {
         // Distance spinners
         distanceBetweenPoints = componentFactory.createIntegerSpinner(
                 EarthProperty.DISTANCE_BETWEEN_SAMPLE_POINTS, 10, 2, 1000,
-                "Distance between sampling points in meters (2-1000)");
+                Messages.getString("OptionWizard.1027"));
         registerComponent(EarthProperty.DISTANCE_BETWEEN_SAMPLE_POINTS, distanceBetweenPoints);
 
         distanceToFrame = componentFactory.createIntegerSpinner(
                 EarthProperty.DISTANCE_TO_PLOT_BOUNDARIES, 0, 0, 500,
-                "Distance to plot boundaries in meters (0-500)");
+                Messages.getString("OptionWizard.1028"));
         registerComponent(EarthProperty.DISTANCE_TO_PLOT_BOUNDARIES, distanceToFrame);
 
         dotsSide = componentFactory.createIntegerSpinner(
                 EarthProperty.INNER_SUBPLOT_SIDE, 2, 2, 100,
-                "Size of inner subplot side in meters (2-100)");
+                Messages.getString("OptionWizard.1029"));
         registerComponent(EarthProperty.INNER_SUBPLOT_SIDE, dotsSide);
 
         largeCentralPlotSide = componentFactory.createIntegerSpinner(
                 EarthProperty.LARGE_CENTRAL_PLOT_SIDE, 20, 2, 200,
-                "Size of large central plot side in meters (2-200)");
+                Messages.getString("OptionWizard.1030"));
         registerComponent(EarthProperty.LARGE_CENTRAL_PLOT_SIDE, largeCentralPlotSide);
 
         distanceBetweenPlots = componentFactory.createIntegerSpinner(
                 EarthProperty.DISTANCE_BETWEEN_PLOTS, 100, 2, 1000,
-                "Distance between plots in cluster in meters (2-1000)");
+                Messages.getString("OptionWizard.1031"));
         registerComponent(EarthProperty.DISTANCE_BETWEEN_PLOTS, distanceBetweenPlots);
 
-        // Area display label
-        areaLabel = new JLabel(Messages.getString("OptionWizard.131") + calculateArea());
+        // Outer frame drawn around the plot to give an idea of the surroundings (not part of the plot itself)
+        frameShape = componentFactory.createBufferShapeComboBox();
+        registerComponent(EarthProperty.BUFFER_SHAPE, frameShape);
+
+        frameDistanceNeverSet = StringUtils.isBlank(localPropertiesService.getValue(EarthProperty.DISTANCE_TO_BUFFERS));
+        frameDistance = new JSpinner(new SpinnerNumberModel(getStoredFrameDistance(), MIN_FRAME_DISTANCE, MAX_FRAME_DISTANCE, 1));
+        frameDistance.setToolTipText(Messages.getString("OptionWizard.1023"));
+        frameDistance.setInputVerifier(new FrameDistanceVerifier());
+        registerComponent(EarthProperty.DISTANCE_TO_BUFFERS, frameDistance);
+
+        frameWarningLabel = new JLabel("<html><body style='width: 380px'>" + Messages.getString("OptionWizard.1024") + "</body></html>");
+        frameWarningLabel.setForeground(WARNING_TEXT_COLOR);
+
+        // Area display label, filled by updateAreaLabel()
+        areaLabel = new JLabel();
+    }
+
+    /**
+     * distance_to_buffers may hold several comma separated distances when it was edited by hand in earth.properties;
+     * the panel edits (and saves back) only the first one.
+     */
+    private int getStoredFrameDistance() {
+        String stored = localPropertiesService.getValue(EarthProperty.DISTANCE_TO_BUFFERS);
+        String first = StringUtils.substringBefore(stored, ",").trim();
+        return PropertyComponentFactory.parseIntWithinRange(first, DEFAULT_FRAME_DISTANCE, MIN_FRAME_DISTANCE, MAX_FRAME_DISTANCE);
     }
 
     private void layoutComponents() {
-        GridBagConstraints constraints = new GridBagConstraints();
-        constraints.gridx = 0;
-        constraints.gridy = 0;
-        constraints.ipady = 5;
-        constraints.ipadx = 5;
-        constraints.anchor = GridBagConstraints.LINE_START;
-        constraints.insets = new Insets(5, 5, 5, 15);
-        constraints.fill = GridBagConstraints.HORIZONTAL;
-
-        // Plot shape
-        JLabel plotShapeLabel = new JLabel(Messages.getString("OptionWizard.128"));
-        add(plotShapeLabel, constraints);
-        constraints.gridx = 1;
-        add(plotShape, constraints);
-
-        // Number of points
-        constraints.gridx = 0;
-        constraints.gridy++;
-        numberPointsLabel = new JLabel(Messages.getString("OptionWizard.35"));
-        add(numberPointsLabel, constraints);
-        constraints.gridx = 1;
-        add(numberPoints, constraints);
-        componentToRowLabel.put(numberPoints, numberPointsLabel);
-
-        // Distance between points
-        constraints.gridx = 0;
-        constraints.gridy++;
-        distanceOrRadiusLabel = new JLabel(Messages.getString("OptionWizard.36"));
-        add(distanceOrRadiusLabel, constraints);
-        constraints.gridx = 1;
-        add(distanceBetweenPoints, constraints);
-        componentToRowLabel.put(distanceBetweenPoints, distanceOrRadiusLabel);
-
-        // Distance to frame
-        constraints.gridx = 0;
-        constraints.gridy++;
-        distanceToFrameLabel = new JLabel(Messages.getString("OptionWizard.37"));
-        add(distanceToFrameLabel, constraints);
-        constraints.gridx = 1;
-        add(distanceToFrame, constraints);
-        componentToRowLabel.put(distanceToFrame, distanceToFrameLabel);
-
-        // Dots side
-        constraints.gridx = 0;
-        constraints.gridy++;
-        dotsSideLabel = new JLabel(Messages.getString("OptionWizard.95"));
-        add(dotsSideLabel, constraints);
-        constraints.gridx = 1;
-        add(dotsSide, constraints);
-        componentToRowLabel.put(dotsSide, dotsSideLabel);
-
-        // Large central plot side
-        constraints.gridx = 0;
-        constraints.gridy++;
-        largeCentralPlotSideLabel = new JLabel(Messages.getString("OptionWizard.129"));
-        add(largeCentralPlotSideLabel, constraints);
-        constraints.gridx = 1;
-        add(largeCentralPlotSide, constraints);
-        componentToRowLabel.put(largeCentralPlotSide, largeCentralPlotSideLabel);
-
-        // Distance between plots in cluster
-        constraints.gridx = 0;
-        constraints.gridy++;
-        plotDistanceInClusterLabel = new JLabel(Messages.getString("OptionWizard.130"));
-        add(plotDistanceInClusterLabel, constraints);
-        constraints.gridx = 1;
-        add(distanceBetweenPlots, constraints);
-        componentToRowLabel.put(distanceBetweenPlots, plotDistanceInClusterLabel);
-
-        // Area display
-        constraints.gridx = 0;
-        constraints.gridy++;
-        add(areaLabel, constraints);
+        int row = 0;
+        addLabeledRow(this, row++, "OptionWizard.128", plotShape);
+        addLabeledRow(this, row++, "OptionWizard.35", numberPoints);
+        distanceOrRadiusLabel = addLabeledRow(this, row++, "OptionWizard.36", distanceBetweenPoints);
+        addLabeledRow(this, row++, "OptionWizard.37", distanceToFrame);
+        addLabeledRow(this, row++, "OptionWizard.95", dotsSide);
+        addLabeledRow(this, row++, "OptionWizard.129", largeCentralPlotSide);
+        addLabeledRow(this, row++, "OptionWizard.130", distanceBetweenPlots);
+        addLabeledRow(this, row++, "OptionWizard.1022", frameShape);
+        addLabeledRow(this, row++, "OptionWizard.1023", frameDistance);
+        addFullWidthRow(this, row++, frameWarningLabel);
+        addFullWidthRow(this, row, areaLabel);
     }
 
     private void setupListeners() {
-        // Update area calculation when values change
-        javax.swing.event.ChangeListener areaListener = e -> updateAreaLabel();
-
-        plotShape.addActionListener(e -> {
-            handleVisibilityPlotLayout();
-            updateAreaLabel();
+        plotShape.addActionListener(e -> handleVisibilityPlotLayout());
+        numberPoints.addActionListener(e -> {
+            syncRowsWithNumberOfPoints();
+            refreshDerivedInfo();
         });
-        numberPoints.addActionListener(e -> updateAreaLabel());
-        distanceBetweenPoints.addChangeListener(areaListener);
-        distanceToFrame.addChangeListener(areaListener);
-    }
+        // The plot geometry moves the area and the thresholds of the frame checks
+        distanceBetweenPoints.addChangeListener(e -> refreshDerivedInfo());
+        distanceToFrame.addChangeListener(e -> refreshDerivedInfo());
 
-    private void updateAreaLabel() {
-        areaLabel.setText(Messages.getString("OptionWizard.131") + calculateArea());
+        frameShape.addActionListener(e -> {
+            handleFrameVisibility();
+            proposeFrameDistanceIfNeeded();
+            refreshDerivedInfo();
+        });
+        frameDistance.addChangeListener(e -> {
+            if (!settingFrameDistance) {
+                frameDistanceNeverSet = false;
+            }
+            refreshDerivedInfo();
+        });
     }
 
     /**
      * Handles visibility of plot layout components based on selected shape.
      */
-    public void handleVisibilityPlotLayout() {
+    private void handleVisibilityPlotLayout() {
         // First, disable all components
         setRowState(numberPoints, false);
         setRowState(distanceBetweenPoints, false);
@@ -208,26 +195,26 @@ public class PlotOptionsPanel extends AbstractPropertyPanel {
         setRowState(dotsSide, false);
         setRowState(distanceBetweenPlots, false);
         setRowState(largeCentralPlotSide, false);
+        setRowState(frameShape, false);
         areaLabel.setVisible(false);
 
         // Then enable specific components based on the selected shape
-        SAMPLE_SHAPE selectedShape = (SAMPLE_SHAPE) plotShape.getSelectedItem();
+        SAMPLE_SHAPE selectedShape = selectedPlotShape();
 
-        if (selectedShape == SAMPLE_SHAPE.SQUARE || selectedShape == SAMPLE_SHAPE.SQUARE_WITH_LARGE_CENTRAL_PLOT) {
+        if (isSquarePlot()) {
             setRowState(numberPoints, true);
-            setRowState(distanceBetweenPoints, true);
             setRowState(distanceToFrame, true);
-            setRowState(dotsSide, true);
+            setRowState(frameShape, true);
             areaLabel.setVisible(true);
             distanceOrRadiusLabel.setText(Messages.getString("OptionWizard.36"));
 
             if (selectedShape == SAMPLE_SHAPE.SQUARE_WITH_LARGE_CENTRAL_PLOT) {
                 setRowState(largeCentralPlotSide, true);
             }
-        } else if (selectedShape == SAMPLE_SHAPE.CIRCLE || selectedShape == SAMPLE_SHAPE.HEXAGON) {
-            setRowState(distanceBetweenPoints, true);
-            setRowState(dotsSide, true);
+        } else if (isRoundPlot()) {
             setRowState(numberPoints, true);
+            setRowState(frameShape, true);
+            areaLabel.setVisible(true);
             distanceOrRadiusLabel.setText(Messages.getString("OptionWizard.132"));
         } else if (selectedShape == SAMPLE_SHAPE.NFI_THREE_CIRCLES || selectedShape == SAMPLE_SHAPE.NFI_FOUR_CIRCLES) {
             setRowState(dotsSide, true);
@@ -236,75 +223,224 @@ public class PlotOptionsPanel extends AbstractPropertyPanel {
             distanceOrRadiusLabel.setText(Messages.getString("OptionWizard.133"));
         }
 
+        syncRowsWithNumberOfPoints();
+        handleFrameVisibility();
+        refreshDerivedInfo();
+
         revalidate();
         repaint();
     }
 
     /**
-     * Calculates the area based on current plot parameters.
+     * Rows whose meaning depends on the number of sample points, an option only square and round plots have.
+     * Hidden rows are saved as empty properties; KmlGeneratorService reads those as 0.
      */
-    private String calculateArea() {
-        double side = 0;
-        try {
-            int numberOfPointsI = ((ComboBoxItem) numberPoints.getSelectedItem()).getNumberOfPoints();
-            int distanceBetweenPointsI = (Integer) distanceBetweenPoints.getValue();
-            int distanceToFrameI = (Integer) distanceToFrame.getValue();
-
-            SAMPLE_SHAPE selectedShape = (SAMPLE_SHAPE) plotShape.getSelectedItem();
-            boolean squareVariant = selectedShape == SAMPLE_SHAPE.SQUARE
-                    || selectedShape == SAMPLE_SHAPE.SQUARE_WITH_LARGE_CENTRAL_PLOT;
-            boolean circleVariant = selectedShape == SAMPLE_SHAPE.CIRCLE || selectedShape == SAMPLE_SHAPE.HEXAGON;
-            boolean nfiVariant = selectedShape == SAMPLE_SHAPE.NFI_THREE_CIRCLES
-                    || selectedShape == SAMPLE_SHAPE.NFI_FOUR_CIRCLES;
-            boolean manageLayoutControls = squareVariant || circleVariant || nfiVariant;
-
-            if (numberOfPointsI == 0 || numberOfPointsI == 1) {
-                // Single point or no points
-                side = 2d * distanceToFrameI;
-                if (oldSelectedDistance == null) {
-                    oldSelectedDistance = distanceBetweenPointsI + "";
-                }
-                distanceBetweenPoints.setValue(0);
-
-                if (manageLayoutControls) {
-                    setRowState(distanceBetweenPoints, false);
-                    setRowState(dotsSide, numberOfPointsI == 1);
-                } else {
-                    distanceBetweenPoints.setEnabled(false);
-                    dotsSide.setEnabled(numberOfPointsI == 1);
-                }
-            } else {
-                // Multiple points
-                if (oldSelectedDistance != null) {
-                    try {
-                        distanceBetweenPoints.setValue(Integer.parseInt(oldSelectedDistance));
-                    } catch (NumberFormatException e) {
-                        distanceBetweenPoints.setValue(10);
-                    }
-                    oldSelectedDistance = null;
-                }
-
-                if (manageLayoutControls) {
-                    setRowState(distanceBetweenPoints, true);
-                    setRowState(dotsSide, true);
-                    if (squareVariant) {
-                        setRowState(distanceToFrame, true);
-                    }
-                } else {
-                    distanceBetweenPoints.setEnabled(true);
-                    distanceToFrame.setEnabled(true);
-                    dotsSide.setEnabled(true);
-                }
-
-                double pointsByLines = Math.sqrt(numberOfPointsI);
-                side = 2d * distanceToFrameI + (pointsByLines - 1) * distanceBetweenPointsI;
-            }
-        } catch (RuntimeException e) {
-            logger.error("Error calculating area of the plot", e);
+    private void syncRowsWithNumberOfPoints() {
+        boolean roundPlot = isRoundPlot();
+        if (!isSquarePlot() && !roundPlot) {
+            return;
         }
+        int points = numberOfPoints();
+        // A square plot with one point or none is sized by its margin alone; for round plots the field is the radius
+        setRowState(distanceBetweenPoints, roundPlot || points > 1);
+        // Without sample points there are no dots to size
+        setRowState(dotsSide, points >= 1);
+    }
 
-        DecimalFormat df = new DecimalFormat("###.##");
-        return df.format(side * side / 10000d); // Convert to hectares
+    /**
+     * The frame distance only makes sense when a frame shape is selected for a plot shape that supports frames.
+     * Hidden rows are saved as empty properties, so "no frame" ends up as an empty distance_to_buffers.
+     */
+    private void handleFrameVisibility() {
+        boolean frameOn = frameShape.isVisible() && selectedFrameShape() != BUFFER_SHAPE.NONE;
+        setRowState(frameDistance, frameOn);
+    }
+
+    /**
+     * Until the user sets a distance, turning the frame on (or changing its shape) proposes the distance that gives
+     * enough context; a distance that would not enclose the plot is replaced by that same proposal.
+     */
+    private void proposeFrameDistanceIfNeeded() {
+        if (frameDistance.isVisible()
+                && (frameDistanceNeverSet || (Integer) frameDistance.getValue() < minimumFrameDistance())) {
+            setFrameDistance(recommendedFrameDistance());
+        }
+    }
+
+    private void setFrameDistance(int distance) {
+        settingFrameDistance = true;
+        try {
+            frameDistance.setValue(distance);
+        } finally {
+            settingFrameDistance = false;
+        }
+    }
+
+    private void refreshDerivedInfo() {
+        updateAreaLabel();
+        updateFrameWarning();
+    }
+
+    private void updateAreaLabel() {
+        String text = Messages.getString("OptionWizard.131") + formatHectares(plotArea());
+        if (frameDistance.isVisible()) {
+            text += "      " + Messages.getString("OptionWizard.1026")
+                    + formatHectares(frameArea((Integer) frameDistance.getValue()));
+        }
+        areaLabel.setText(text);
+    }
+
+    private static String formatHectares(double squareMeters) {
+        return HECTARES_FORMAT.format(squareMeters / SQUARE_METERS_PER_HECTARE);
+    }
+
+    private void updateFrameWarning() {
+        boolean frameOn = frameDistance.isVisible();
+        boolean tooSmall = frameOn
+                && frameArea((Integer) frameDistance.getValue()) < MIN_FRAME_TO_PLOT_AREA_RATIO * plotArea();
+        frameWarningLabel.setVisible(tooSmall);
+        if (frameOn) {
+            // Re-run the verifier so the field colour follows changes of the plot geometry, not only of the spinner
+            frameDistance.getInputVerifier().verify(frameDistance);
+        }
+        revalidate();
+        repaint();
+    }
+
+    // ========== Plot and frame geometry ==========
+
+    private SAMPLE_SHAPE selectedPlotShape() {
+        return (SAMPLE_SHAPE) plotShape.getSelectedItem();
+    }
+
+    private BUFFER_SHAPE selectedFrameShape() {
+        return (BUFFER_SHAPE) frameShape.getSelectedItem();
+    }
+
+    private boolean isSquarePlot() {
+        SAMPLE_SHAPE selectedShape = selectedPlotShape();
+        return selectedShape == SAMPLE_SHAPE.SQUARE || selectedShape == SAMPLE_SHAPE.SQUARE_WITH_LARGE_CENTRAL_PLOT;
+    }
+
+    private boolean isRoundPlot() {
+        SAMPLE_SHAPE selectedShape = selectedPlotShape();
+        return selectedShape == SAMPLE_SHAPE.CIRCLE || selectedShape == SAMPLE_SHAPE.HEXAGON;
+    }
+
+    private int numberOfPoints() {
+        return ((ComboBoxItem) numberPoints.getSelectedItem()).getNumberOfPoints();
+    }
+
+    /**
+     * Half of the side of a square plot (the side is the sample point grid plus the margin on both ends, as laid out
+     * by SquareKmlGenerator), or the radius of a round plot, in meters.
+     */
+    private double plotHalfExtent() {
+        int distanceBetweenPointsI = (Integer) distanceBetweenPoints.getValue();
+        if (isRoundPlot()) {
+            return distanceBetweenPointsI;
+        }
+        int points = numberOfPoints();
+        int margin = (Integer) distanceToFrame.getValue();
+        double side = points <= 1
+                ? 2d * margin
+                : 2d * margin + (Math.sqrt(points) - 1) * distanceBetweenPointsI;
+        return side / 2d;
+    }
+
+    /**
+     * Half extent of the outline actually drawn in Google Earth: round plots are drawn CIRCLE_PLOT_MARGIN meters
+     * beyond their radius.
+     */
+    private double plotOutlineHalfExtent() {
+        return isRoundPlot() ? plotHalfExtent() + CIRCLE_PLOT_MARGIN : plotHalfExtent();
+    }
+
+    private double plotArea() {
+        double halfExtent = plotHalfExtent();
+        SAMPLE_SHAPE selectedShape = selectedPlotShape();
+        if (selectedShape == SAMPLE_SHAPE.CIRCLE) {
+            return Math.PI * halfExtent * halfExtent;
+        } else if (selectedShape == SAMPLE_SHAPE.HEXAGON) {
+            return HEXAGON_AREA_FACTOR * halfExtent * halfExtent;
+        }
+        return 4 * halfExtent * halfExtent;
+    }
+
+    /**
+     * Area enclosed by a frame at the given distance from the plot center. The distance means what
+     * AbstractPolygonKmlGenerator draws: half side of a square frame, radius of a circle frame and distance from the
+     * center to a vertex of a hexagon frame.
+     */
+    private double frameArea(double distance) {
+        switch (selectedFrameShape()) {
+        case CIRCLE:
+            return Math.PI * distance * distance;
+        case HEXAGON:
+            return HEXAGON_AREA_FACTOR * distance * distance;
+        default:
+            return 4 * distance * distance;
+        }
+    }
+
+    /**
+     * Smallest frame distance at which the frame still encloses the whole plot outline, so that the frame is always
+     * larger than the plot.
+     */
+    private int minimumFrameDistance() {
+        double halfExtent = plotOutlineHalfExtent();
+        boolean roundPlot = isRoundPlot();
+        double minimum;
+        switch (selectedFrameShape()) {
+        case CIRCLE:
+            // The circle has to reach the corners of a square plot
+            minimum = roundPlot ? halfExtent : halfExtent * Math.sqrt(2);
+            break;
+        case HEXAGON:
+            // The flat sides of the hexagon lie at distance * cos(30) from the center. The corner (h, h) of a square
+            // plot leans against a slanted side, at h * (cos(30) + sin(30)) from the center
+            minimum = roundPlot ? halfExtent / COS_30 : halfExtent * (COS_30 + 0.5) / COS_30;
+            break;
+        default:
+            minimum = halfExtent;
+        }
+        return Math.max(MIN_FRAME_DISTANCE, (int) Math.ceil(minimum) + 1);
+    }
+
+    /**
+     * Frame distance at which the frame area is {@link #MIN_FRAME_TO_PLOT_AREA_RATIO} times the plot area.
+     */
+    private int recommendedFrameDistance() {
+        double targetArea = MIN_FRAME_TO_PLOT_AREA_RATIO * plotArea();
+        double distance;
+        switch (selectedFrameShape()) {
+        case CIRCLE:
+            distance = Math.sqrt(targetArea / Math.PI);
+            break;
+        case HEXAGON:
+            distance = Math.sqrt(targetArea / HEXAGON_AREA_FACTOR);
+            break;
+        default:
+            distance = Math.sqrt(targetArea) / 2d;
+        }
+        return Math.min(MAX_FRAME_DISTANCE, Math.max((int) Math.ceil(distance), minimumFrameDistance()));
+    }
+
+    /**
+     * Blocks applying the options while the frame would not enclose the plot.
+     */
+    private class FrameDistanceVerifier extends InputVerifier {
+        @Override
+        public boolean verify(JComponent input) {
+            int minimum = minimumFrameDistance();
+            boolean valid = (Integer) frameDistance.getValue() >= minimum;
+            JTextField editor = ((JSpinner.DefaultEditor) frameDistance.getEditor()).getTextField();
+            editor.setBackground(valid ? PropertyValidators.VALID_COLOR : PropertyValidators.ERROR_COLOR);
+            frameDistance.setToolTipText(valid
+                    ? Messages.getString("OptionWizard.1023")
+                    : MessageFormat.format(Messages.getString("OptionWizard.1025"), minimum));
+            return valid;
+        }
     }
 
     // ========== Getters for Components ==========
@@ -335,5 +471,13 @@ public class PlotOptionsPanel extends AbstractPropertyPanel {
 
     public JSpinner getDistanceBetweenPlots() {
         return distanceBetweenPlots;
+    }
+
+    public JComboBox<BUFFER_SHAPE> getFrameShape() {
+        return frameShape;
+    }
+
+    public JSpinner getFrameDistance() {
+        return frameDistance;
     }
 }

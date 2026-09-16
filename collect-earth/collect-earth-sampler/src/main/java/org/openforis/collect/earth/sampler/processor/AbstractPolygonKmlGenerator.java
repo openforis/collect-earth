@@ -10,6 +10,7 @@ import java.util.List;
 import java.util.Map;
 
 import org.apache.commons.lang3.StringUtils;
+import org.openforis.collect.earth.app.EarthConstants.BUFFER_SHAPE;
 import org.openforis.collect.earth.core.utils.CsvReaderUtils;
 import org.openforis.collect.earth.sampler.model.SimpleCoordinate;
 import org.openforis.collect.earth.sampler.model.SimplePlacemarkObject;
@@ -34,24 +35,49 @@ public abstract class AbstractPolygonKmlGenerator extends KmlGenerator {
 	protected double distancePlotBoundary;
 	protected int numberOfSamplePoints;
 	protected Integer largeCentralPlotSide;
-	private String distanceToBuffers;
-	private String bufferShape;
+	private final List<Integer> bufferDistances;
+	private final BUFFER_SHAPE bufferShape;
 
 	public AbstractPolygonKmlGenerator(String epsgCode, String hostAddress, String localPort, Integer innerPointSide, Integer numberOfPoints, double distanceBetweenSamplePoints, double distancePlotBoundary, Integer largeCentralPlotSide, String distanceToBuffers) {
 		this(epsgCode, hostAddress, localPort, innerPointSide, numberOfPoints, distanceBetweenSamplePoints, distancePlotBoundary, largeCentralPlotSide, distanceToBuffers, null);
 	}
 
-	public AbstractPolygonKmlGenerator(String epsgCode, String hostAddress, String localPort, Integer innerPointSide, Integer numberOfPoints, double distanceBetweenSamplePoints, double distancePlotBoundary, Integer largeCentralPlotSide, String distanceToBuffers, String bufferShape) {
+	/**
+	 * @param distanceToBuffers comma separated distances in meters from the plot center to each outer frame
+	 *        (the earth.properties value of distance_to_buffers, e.g. "70,112,194"); blank for no frame
+	 * @param bufferShape shape of the frames; null keeps the historical square frames, NONE draws none
+	 */
+	public AbstractPolygonKmlGenerator(String epsgCode, String hostAddress, String localPort, Integer innerPointSide, Integer numberOfPoints, double distanceBetweenSamplePoints, double distancePlotBoundary, Integer largeCentralPlotSide, String distanceToBuffers, BUFFER_SHAPE bufferShape) {
 		super(epsgCode);
 		this.hostAddress = hostAddress;
 		this.localPort = localPort;
 		this.innerPointSide = innerPointSide;
 		this.distanceBetweenSamplePoints = distanceBetweenSamplePoints;
 		this.distancePlotBoundary = distancePlotBoundary;
-		this.distanceToBuffers = distanceToBuffers;
-		this.bufferShape = bufferShape;
+		this.bufferDistances = parseBufferDistances(distanceToBuffers);
+		this.bufferShape = bufferShape == null ? BUFFER_SHAPE.SQUARE : bufferShape;
 		this.setNumberOfSamplePoints(numberOfPoints);
 		this.setLargeCentralPlotSide(largeCentralPlotSide);
+	}
+
+	private List<Integer> parseBufferDistances(String distanceToBuffers) {
+		final List<Integer> distances = new ArrayList<>();
+		if (StringUtils.isBlank(distanceToBuffers)) {
+			return distances;
+		}
+		for (String bufDistStr : StringUtils.split(distanceToBuffers, ',')) {
+			final String trimmed = bufDistStr.trim();
+			if (trimmed.isEmpty()) {
+				continue;
+			}
+			try {
+				distances.add(Integer.parseInt(trimmed));
+			} catch (NumberFormatException e) {
+				// Parsed once per generator so that a typo is reported once, not once per plot, and the valid distances are kept
+				logger.warn("Ignoring frame distance '{}' in distance_to_buffers={} : it is not a whole number of meters", trimmed, distanceToBuffers);
+			}
+		}
+		return distances;
 	}
 
 	public Integer getLargeCentralPlotSide() {
@@ -179,40 +205,27 @@ public abstract class AbstractPolygonKmlGenerator extends KmlGenerator {
 
 	private void fillBuffersAroundPlot(SimplePlacemarkObject currentPlacemark) {
 		final List<SimplePlacemarkObject> buffers = new ArrayList<>();
-		// when there is a property in the earth.properties like this : distance_to_buffers=70,112,194
-		if( StringUtils.isNotBlank( distanceToBuffers )) {
-			String[] distances =  StringUtils.split( distanceToBuffers, ',' );
-
-			try {
-				for (String bufDistStr : distances) {
-
-					int bufDist = Integer.parseInt( bufDistStr.trim() );
-
-					List<SimpleCoordinate> bufferPoints = buildBufferShape( currentPlacemark.getCoord().getCoordinates(), bufDist );
-
-					SimplePlacemarkObject spo = new SimplePlacemarkObject();
-
-					spo.setShape(bufferPoints);
-
-					buffers.add( spo );
-
+		if (bufferShape != BUFFER_SHAPE.NONE) {
+			for (Integer bufDist : bufferDistances) {
+				try {
+					final SimplePlacemarkObject spo = new SimplePlacemarkObject();
+					spo.setShape(buildBufferShape(currentPlacemark.getCoord().getCoordinates(), bufDist));
+					buffers.add(spo);
+				} catch (TransformException e) {
+					logger.error("Error transforming the coordinates of the frame at " + bufDist + " meters around plot " + currentPlacemark.getPlacemarkId(), e);
 				}
-			} catch (NumberFormatException e) {
-				logger.error("Error reading number", e);
-			} catch (TransformException e) {
-				logger.error("Error transforming coordinate", e);
 			}
 		}
-
 		currentPlacemark.setBuffers( buffers );
 	}
 
 	private List<SimpleCoordinate> buildBufferShape(double[] centerCoord, int distance) throws TransformException {
-		if ("CIRCLE".equalsIgnoreCase(bufferShape)) {
+		switch (bufferShape) {
+		case CIRCLE:
 			return buildRegularPolygonRing(centerCoord, distance, BUFFER_CIRCLE_VERTICES);
-		} else if ("HEXAGON".equalsIgnoreCase(bufferShape)) {
+		case HEXAGON:
 			return buildRegularPolygonRing(centerCoord, distance, BUFFER_HEXAGON_VERTICES);
-		} else {
+		default:
 			return buildSquareRing(centerCoord, distance);
 		}
 	}

@@ -21,9 +21,6 @@ import javax.swing.JRadioButton;
 import javax.swing.JScrollPane;
 import javax.swing.JTextField;
 import javax.swing.ScrollPaneConstants;
-import javax.swing.border.BevelBorder;
-import javax.swing.border.Border;
-import javax.swing.border.TitledBorder;
 
 import org.openforis.collect.earth.app.CollectEarthUtils;
 import org.openforis.collect.earth.app.EarthConstants.CollectDBDriver;
@@ -130,29 +127,29 @@ public class DatabaseServerPanel extends AbstractPropertyPanel {
         dbUsername = componentFactory.createValidatedTextField(
                 EarthProperty.DB_USERNAME,
                 PropertyValidators.requiredFieldValidator(),
-                "Database username for PostgreSQL connection");
+                Messages.getString("OptionWizard.1032"));
         registerComponent(EarthProperty.DB_USERNAME, dbUsername);
 
         dbPassword = componentFactory.createPasswordField(EarthProperty.DB_PASSWORD);
-        dbPassword.setToolTipText("Database password for PostgreSQL connection");
+        dbPassword.setToolTipText(Messages.getString("OptionWizard.1033"));
         registerComponent(EarthProperty.DB_PASSWORD, dbPassword);
 
         dbName = componentFactory.createValidatedTextField(
                 EarthProperty.DB_NAME,
                 PropertyValidators.requiredFieldValidator(),
-                "Name of the PostgreSQL database to connect to");
+                Messages.getString("OptionWizard.1034"));
         registerComponent(EarthProperty.DB_NAME, dbName);
 
         dbHost = componentFactory.createValidatedTextField(
                 EarthProperty.DB_HOST,
                 PropertyValidators.requiredFieldValidator(),
-                "Hostname or IP address of the PostgreSQL server");
+                Messages.getString("OptionWizard.1035"));
         registerComponent(EarthProperty.DB_HOST, dbHost);
 
         dbPort = componentFactory.createValidatedTextField(
                 EarthProperty.DB_PORT,
                 PropertyValidators.portValidator(),
-                "Port number for PostgreSQL connection (default: 5432)");
+                Messages.getString("OptionWizard.1036"));
         registerComponent(EarthProperty.DB_PORT, dbPort);
 
         // SQLite backup
@@ -169,22 +166,13 @@ public class DatabaseServerPanel extends AbstractPropertyPanel {
 
     private JPanel createServerPanel() {
         JPanel panel = new JPanel(new GridBagLayout());
-        Border border = new TitledBorder(new BevelBorder(BevelBorder.RAISED),
-                Messages.getString("OptionWizard.3"));
-        panel.setBorder(border);
-
-        GridBagConstraints constraints = GridBagConstraintsBuilder.createDefault();
+        panel.setBorder(createRaisedTitledBorder(Messages.getString("OptionWizard.3")));
 
         // Server information
         JLabel serverInfo = new JLabel(Messages.getString("OptionWizard.4") + CollectEarthUtils.getComputerIp());
-        panel.add(serverInfo, constraints);
+        panel.add(serverInfo, GridBagConstraintsBuilder.createDefault());
 
-        // Port
-        constraints = GridBagConstraintsBuilder.createLabel(0, 1);
-        panel.add(new JLabel(Messages.getString("OptionWizard.5")), constraints);
-
-        constraints = GridBagConstraintsBuilder.createField(1, 1);
-        panel.add(serverPort, constraints);
+        addLabeledRow(panel, 1, "OptionWizard.5", serverPort);
 
         // Database type radio buttons
         ButtonGroup buttonGroup = new ButtonGroup();
@@ -208,106 +196,38 @@ public class DatabaseServerPanel extends AbstractPropertyPanel {
         postgresDbType.addActionListener(dbTypeListener);
         postgresDbType.addActionListener(restartListener);
 
-        // Add SQLite option
-        constraints = new GridBagConstraintsBuilder()
-                .gridx(0)
-                .gridy(2)
-                .gridwidth(GridBagConstraints.REMAINDER)
-                .build();
-        panel.add(sqliteDbType, constraints);
-
-        constraints = new GridBagConstraintsBuilder()
-                .gridx(0)
-                .gridy(3)
-                .gridwidth(GridBagConstraints.REMAINDER)
-                .build();
-        panel.add(sqlitePanel, constraints);
-
-        // Add PostgreSQL option
-        constraints = new GridBagConstraintsBuilder()
-                .gridx(0)
-                .gridy(4)
-                .gridwidth(GridBagConstraints.REMAINDER)
-                .build();
-        panel.add(postgresDbType, constraints);
-
-        constraints = new GridBagConstraintsBuilder()
-                .gridx(0)
-                .gridy(5)
-                .gridwidth(GridBagConstraints.REMAINDER)
-                .build();
-        panel.add(postgresPanel, constraints);
+        addFullWidthRow(panel, 2, sqliteDbType);
+        addFullWidthRow(panel, 3, sqlitePanel);
+        addFullWidthRow(panel, 4, postgresDbType);
+        addFullWidthRow(panel, 5, postgresPanel);
 
         return panel;
     }
 
     private JPanel createPostgreSqlPanel() {
         JPanel panel = new JPanel(new GridBagLayout());
-        Border border = new TitledBorder(new BevelBorder(BevelBorder.RAISED),
-                Messages.getString("OptionWizard.6"));
-        panel.setBorder(border);
+        panel.setBorder(createRaisedTitledBorder(Messages.getString("OptionWizard.6")));
 
-        GridBagConstraints constraints;
+        addLabeledRow(panel, 0, "OptionWizard.7", dbUsername);
+        addLabeledRow(panel, 1, "OptionWizard.8", dbPassword);
+        addLabeledRow(panel, 2, "OptionWizard.9", dbName);
+        addLabeledRow(panel, 3, "OptionWizard.26", dbHost);
+        addLabeledRow(panel, 4, "OptionWizard.29", dbPort);
+        // Default port hint next to the port field
+        panel.add(new JLabel(Messages.getString("OptionWizard.134")),
+                new GridBagConstraintsBuilder().gridx(2).gridy(4).build());
 
-        // Username
-        constraints = GridBagConstraintsBuilder.createLabel(0, 0);
-        panel.add(new JLabel(Messages.getString("OptionWizard.7")), constraints);
-        constraints = GridBagConstraintsBuilder.createField(1, 0);
-        panel.add(dbUsername, constraints);
-
-        // Password
-        constraints = GridBagConstraintsBuilder.createLabel(0, 1);
-        panel.add(new JLabel(Messages.getString("OptionWizard.8")), constraints);
-        constraints = GridBagConstraintsBuilder.createField(1, 1);
-        panel.add(dbPassword, constraints);
-
-        // Database name
-        constraints = GridBagConstraintsBuilder.createLabel(0, 2);
-        panel.add(new JLabel(Messages.getString("OptionWizard.9")), constraints);
-        constraints = GridBagConstraintsBuilder.createField(1, 2);
-        panel.add(dbName, constraints);
-
-        // Host
-        constraints = GridBagConstraintsBuilder.createLabel(0, 3);
-        panel.add(new JLabel(Messages.getString("OptionWizard.26")), constraints);
-        constraints = GridBagConstraintsBuilder.createField(1, 3);
-        panel.add(dbHost, constraints);
-
-        // Port
-        constraints = GridBagConstraintsBuilder.createLabel(0, 4);
-        panel.add(new JLabel(Messages.getString("OptionWizard.29")), constraints);
-        constraints = GridBagConstraintsBuilder.createField(1, 4);
-        panel.add(dbPort, constraints);
-        constraints = new GridBagConstraintsBuilder()
-                .gridx(2)
-                .gridy(4)
-                .build();
-        panel.add(new JLabel(Messages.getString("OptionWizard.134")), constraints);
-
-        // Test connection button
-        constraints = new GridBagConstraintsBuilder()
-                .gridx(1)
-                .gridy(5)
-                .build();
-        panel.add(createTestConnectionButton(), constraints);
+        panel.add(createTestConnectionButton(), new GridBagConstraintsBuilder().gridx(1).gridy(5).build());
 
         return panel;
     }
 
     private JPanel createSqlitePanel() {
         JPanel panel = new JPanel(new GridBagLayout());
-        Border border = new TitledBorder(new BevelBorder(BevelBorder.RAISED),
-                Messages.getString("OptionWizard.30"));
-        panel.setBorder(border);
+        panel.setBorder(createRaisedTitledBorder(Messages.getString("OptionWizard.30")));
 
-        GridBagConstraints constraints = GridBagConstraintsBuilder.createDefault();
-        panel.add(automaticBackup, constraints);
-
-        constraints = new GridBagConstraintsBuilder()
-                .gridx(1)
-                .gridy(0)
-                .build();
-        panel.add(createOpenBackupFolderButton(), constraints);
+        panel.add(automaticBackup, GridBagConstraintsBuilder.createDefault());
+        panel.add(createOpenBackupFolderButton(), new GridBagConstraintsBuilder().gridx(1).gridy(0).build());
 
         return panel;
     }
@@ -325,7 +245,7 @@ public class DatabaseServerPanel extends AbstractPropertyPanel {
             JOptionPane.showMessageDialog(
                     DatabaseServerPanel.this.getTopLevelAncestor(),
                     message,
-                    "PostgreSQL Connection test",
+                    Messages.getString("OptionWizard.1037"),
                     JOptionPane.INFORMATION_MESSAGE);
         });
         return button;

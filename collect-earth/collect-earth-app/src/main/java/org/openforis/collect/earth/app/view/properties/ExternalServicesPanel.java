@@ -1,8 +1,6 @@
 package org.openforis.collect.earth.app.view.properties;
 
-import java.awt.GridBagConstraints;
 import java.awt.GridBagLayout;
-import java.awt.Insets;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
@@ -25,6 +23,7 @@ import org.jdesktop.swingx.JXDatePicker;
 import org.openforis.collect.earth.app.service.LocalPropertiesService;
 import org.openforis.collect.earth.app.service.LocalPropertiesService.EarthProperty;
 import org.openforis.collect.earth.app.view.Messages;
+import org.openforis.collect.earth.app.view.PlanetMonthlyObject;
 
 /**
  * Panel for configuring external mapping services and integrations.
@@ -52,8 +51,8 @@ public class ExternalServicesPanel extends AbstractPropertyPanel {
     private JCheckBox openPlanetCheckbox;
     private JPasswordField planetApiKeyField;
     private JCheckBox useTfoCheckbox;
-    private JComboBox<String> planetTfoFromMonth;
-    private JComboBox<String> planetTfoToMonth;
+    private JComboBox<PlanetMonthlyObject> planetTfoFromMonth;
+    private JComboBox<PlanetMonthlyObject> planetTfoToMonth;
     private JPanel planetTfoMonthPanel;
 
     private JCheckBox openSecureWatchCheckbox;
@@ -86,11 +85,11 @@ public class ExternalServicesPanel extends AbstractPropertyPanel {
 
         // Date pickers for GEE App
         geeAppFromDate = componentFactory.createDatePicker(EarthProperty.GEEAPP_FROM_DATE,
-                "Sets the starting date to analyze imagery in the GEE App");
+                Messages.getString("OptionWizard.1038"));
         registerComponent(EarthProperty.GEEAPP_FROM_DATE, geeAppFromDate);
 
         geeAppToDate = componentFactory.createDatePicker(EarthProperty.GEEAPP_TO_DATE,
-                "Sets the end date to analyze imagery in the GEE App");
+                Messages.getString("OptionWizard.1039"));
         registerComponent(EarthProperty.GEEAPP_TO_DATE, geeAppToDate);
 
         // Date panel container
@@ -124,36 +123,12 @@ public class ExternalServicesPanel extends AbstractPropertyPanel {
         // Month selectors for Planet TFO (September 2020 to previous month, format YYYY-MM)
         String[] availableMonths = generateTfoMonthOptions();
 
-        // From month: "Oldest" as default (empty value), then all months
-        planetTfoFromMonth = new JComboBox<>();
-        planetTfoFromMonth.addItem("Oldest");
-        for (String month : availableMonths) {
-            planetTfoFromMonth.addItem(month);
-        }
-        planetTfoFromMonth.setToolTipText("Sets the starting month for Planet TFO comparison (Oldest = earliest available)");
-        planetTfoFromMonth.setEnabled(openPlanetCheckbox.isSelected() && useTfoCheckbox.isSelected());
-        planetTfoFromMonth.setSelectedIndex(0); // Default to "Oldest"
-        // Set saved value if exists
-        String savedFromMonth = localPropertiesService.getPlanetTfoDateFrom();
-        if (StringUtils.isNotBlank(savedFromMonth)) {
-            planetTfoFromMonth.setSelectedItem(savedFromMonth);
-        }
+        planetTfoFromMonth = createTfoMonthComboBox(PlanetMonthlyObject.STARTING_DATE, availableMonths,
+                localPropertiesService.getPlanetTfoDateFrom(), Messages.getString("OptionWizard.1040"));
         registerComponent(EarthProperty.PLANET_TFO_DATE_FROM, planetTfoFromMonth);
 
-        // To month: "Latest" as default (empty value), then all months
-        planetTfoToMonth = new JComboBox<>();
-        planetTfoToMonth.addItem("Latest");
-        for (String month : availableMonths) {
-            planetTfoToMonth.addItem(month);
-        }
-        planetTfoToMonth.setToolTipText("Sets the end month for Planet TFO comparison (Latest = most recent available)");
-        planetTfoToMonth.setEnabled(openPlanetCheckbox.isSelected() && useTfoCheckbox.isSelected());
-        planetTfoToMonth.setSelectedIndex(0); // Default to "Latest"
-        // Set saved value if exists
-        String savedToMonth = localPropertiesService.getPlanetTfoDateTo();
-        if (StringUtils.isNotBlank(savedToMonth)) {
-            planetTfoToMonth.setSelectedItem(savedToMonth);
-        }
+        planetTfoToMonth = createTfoMonthComboBox(PlanetMonthlyObject.PRESENT_DATE, availableMonths,
+                localPropertiesService.getPlanetTfoDateTo(), Messages.getString("OptionWizard.1041"));
         registerComponent(EarthProperty.PLANET_TFO_DATE_TO, planetTfoToMonth);
 
         // TFO month panel container
@@ -179,13 +154,34 @@ public class ExternalServicesPanel extends AbstractPropertyPanel {
         extraUrlField = componentFactory.createTextFieldWithPlaceholder(
                 EarthProperty.EXTRA_MAP_URL,
                 "https://www.extramap.org/lat=LATITUDE&long=LONGITUDE&id=PLOT_ID",
-                "Custom map service URL with placeholders for LATITUDE, LONGITUDE, PLOT_ID, or GEOJSON"
+                Messages.getString("OptionWizard.1042")
         );
         extraUrlField.setInputVerifier(PropertyValidators.urlPlaceholderVerifier());
         registerComponent(EarthProperty.EXTRA_MAP_URL, extraUrlField);
 
         // Initialize visibility based on saved properties
         initializeVisibility();
+    }
+
+    /**
+     * Month selector whose first entry is the localized "first / latest available" sentinel, saved as an empty
+     * value. Older versions saved the English words "Oldest" / "Latest" instead: they match no month, so they
+     * select the sentinel as well.
+     */
+    private JComboBox<PlanetMonthlyObject> createTfoMonthComboBox(PlanetMonthlyObject sentinel, String[] months,
+            String savedValue, String tooltip) {
+        JComboBox<PlanetMonthlyObject> comboBox = new JComboBox<>();
+        comboBox.addItem(sentinel);
+        for (String month : months) {
+            PlanetMonthlyObject item = new PlanetMonthlyObject(month, month);
+            comboBox.addItem(item);
+            if (month.equals(savedValue)) {
+                comboBox.setSelectedItem(item);
+            }
+        }
+        comboBox.setToolTipText(tooltip);
+        comboBox.setEnabled(openPlanetCheckbox.isSelected() && useTfoCheckbox.isSelected());
+        return comboBox;
     }
 
     private void initializeVisibility() {
@@ -196,87 +192,26 @@ public class ExternalServicesPanel extends AbstractPropertyPanel {
     }
 
     private void layoutComponents() {
-        GridBagConstraints constraints = GridBagConstraintsBuilder.createDefault();
+        // GEE App checkbox with the date range checkbox next to it
+        add(openGeeAppCheckbox, GridBagConstraintsBuilder.createDefault());
+        add(specifyStartAndEndGeeApp, new GridBagConstraintsBuilder().gridx(1).gridy(0).build());
+        addFullWidthRow(this, 1, geeAppDatePanel);
 
-        // GEE App checkbox
-        add(openGeeAppCheckbox, constraints);
-
-        // Specify date range checkbox
-        constraints = new GridBagConstraintsBuilder()
-                .gridx(1)
-                .gridy(0)
-                .build();
-        add(specifyStartAndEndGeeApp, constraints);
-
-        // GEE App date panel
-        constraints = new GridBagConstraintsBuilder()
-                .gridx(0)
-                .gridy(1)
-                .gridwidth(4)
-                .build();
-        add(geeAppDatePanel, constraints);
-
-        // Earth Map
-        constraints = new GridBagConstraintsBuilder()
-                .gridx(0)
-                .gridy(2)
-                .build();
-        add(openEarthMapCheckbox, constraints);
-
-        // ESRI World Imagery Wayback
-        constraints = new GridBagConstraintsBuilder()
-                .gridx(0)
-                .gridy(3)
-                .build();
-        add(openEsriWaybackCheckbox, constraints);
+        addFullWidthRow(this, 2, openEarthMapCheckbox);
+        addFullWidthRow(this, 3, openEsriWaybackCheckbox);
 
         // Planet Maps panel (contains all Planet-related components)
-        constraints = new GridBagConstraintsBuilder()
-                .gridx(0)
-                .gridy(4)
-                .gridwidth(4)
-                .fill(GridBagConstraints.HORIZONTAL)
-                .build();
-        add(planetPanel, constraints);
+        addFullWidthRow(this, 4, planetPanel);
 
         // Maxar SecureWatch
-        constraints = new GridBagConstraintsBuilder()
-                .gridx(0)
-                .gridy(5)
-                .gridwidth(2)
-                .build();
-        add(openSecureWatchCheckbox, constraints);
+        addFullWidthRow(this, 5, openSecureWatchCheckbox);
+        addLabeledRow(this, 6, "OptionWizard.1021", secureWatchUrlField);
 
-        // Maxar URL
-        constraints = new GridBagConstraintsBuilder()
-                .gridx(0)
-                .gridy(6)
-                .build();
-        add(new JLabel(Messages.getString("OptionWizard.1021")), constraints);
-
-        constraints = new GridBagConstraintsBuilder()
-                .gridx(1)
-                .gridy(6)
-                .build();
-        add(secureWatchUrlField, constraints);
-
-        // Extra Map URL label
-        constraints = new GridBagConstraintsBuilder()
-                .gridx(0)
-                .gridy(7)
-                .gridwidth(2)
-                .build();
+        // Extra Map URL
         JLabel extraLabel = new JLabel(Messages.getString("OptionWizard.103"));
-        extraLabel.setToolTipText("Custom map service URL with placeholders for LATITUDE, LONGITUDE, PLOT_ID, or GEOJSON");
-        add(extraLabel, constraints);
-
-        // Extra Map URL field
-        constraints = new GridBagConstraintsBuilder()
-                .gridx(0)
-                .gridy(8)
-                .gridwidth(2)
-                .build();
-        add(extraUrlField, constraints);
+        extraLabel.setToolTipText(Messages.getString("OptionWizard.1042"));
+        addFullWidthRow(this, 7, extraLabel);
+        addFullWidthRow(this, 8, extraUrlField);
     }
 
     private void setupListeners() {
@@ -422,41 +357,10 @@ public class ExternalServicesPanel extends AbstractPropertyPanel {
                 BorderFactory.createEtchedBorder(),
                 "Planet NICFI"));
 
-        GridBagConstraints gbc = new GridBagConstraints();
-        gbc.insets = new Insets(2, 5, 2, 5);
-        gbc.anchor = GridBagConstraints.WEST;
-
-        // Row 0: Enable Planet checkbox
-        gbc.gridx = 0;
-        gbc.gridy = 0;
-        gbc.gridwidth = 2;
-        panel.add(openPlanetCheckbox, gbc);
-
-        // Row 1: API Key label and field
-        gbc.gridx = 0;
-        gbc.gridy = 1;
-        gbc.gridwidth = 1;
-        panel.add(new JLabel(Messages.getString("OptionWizard.101")), gbc);
-
-        gbc.gridx = 1;
-        gbc.gridy = 1;
-        gbc.fill = GridBagConstraints.HORIZONTAL;
-        gbc.weightx = 1.0;
-        panel.add(planetApiKeyField, gbc);
-
-        // Row 2: TFO checkbox
-        gbc.gridx = 0;
-        gbc.gridy = 2;
-        gbc.gridwidth = 2;
-        gbc.fill = GridBagConstraints.NONE;
-        gbc.weightx = 0;
-        panel.add(useTfoCheckbox, gbc);
-
-        // Row 3: TFO month panel
-        gbc.gridx = 0;
-        gbc.gridy = 3;
-        gbc.gridwidth = 2;
-        panel.add(planetTfoMonthPanel, gbc);
+        addFullWidthRow(panel, 0, openPlanetCheckbox);
+        addLabeledRow(panel, 1, "OptionWizard.101", planetApiKeyField);
+        addFullWidthRow(panel, 2, useTfoCheckbox);
+        addFullWidthRow(panel, 3, planetTfoMonthPanel);
 
         return panel;
     }

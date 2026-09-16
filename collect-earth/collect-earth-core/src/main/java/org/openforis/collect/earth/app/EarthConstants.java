@@ -90,8 +90,23 @@ public class EarthConstants {
 		}
 	}
 
+	/**
+	 * Shape of the optional outer frame drawn around each plot (see distance_to_buffers / buffer_shape in earth.properties).
+	 * The frame is not part of the plot: it only gives the interpreter an idea of the surroundings.
+	 */
 	public enum BUFFER_SHAPE {
-		SQUARE, CIRCLE, HEXAGON
+		NONE("No frame"), SQUARE("Square"), CIRCLE("Circle"), HEXAGON("Hexagon");
+
+		private String label;
+
+		private BUFFER_SHAPE(String label) {
+			this.label = label;
+		}
+
+		@Override
+		public String toString() {
+			return label;
+		}
 	}
 
 	public enum UI_LANGUAGE {

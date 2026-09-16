@@ -3,6 +3,7 @@ package org.openforis.collect.earth.sampler.processor;
 import java.util.ArrayList;
 import java.util.List;
 
+import org.openforis.collect.earth.app.EarthConstants.BUFFER_SHAPE;
 import org.openforis.collect.earth.sampler.model.SimpleCoordinate;
 import org.openforis.collect.earth.sampler.model.SimplePlacemarkObject;
 import org.opengis.referencing.operation.TransformException;
@@ -10,8 +11,8 @@ import org.opengis.referencing.operation.TransformException;
 public class SquareWithCirclesKmlGenerator extends SquareKmlGenerator {
 	private static final int NUMBER_OF_EXTERNAL_POINTS = 4;
 
-	public SquareWithCirclesKmlGenerator(String epsgCode, String hostAddress, String localPort, Integer innerPointSide, int numberOfPoints,  double distanceBetweenSamplePoints, double distancePlotBoundary) {
-		super(epsgCode, hostAddress, localPort, innerPointSide, numberOfPoints, distanceBetweenSamplePoints, distancePlotBoundary, (Integer)null, null);
+	public SquareWithCirclesKmlGenerator(String epsgCode, String hostAddress, String localPort, Integer innerPointSide, int numberOfPoints,  double distanceBetweenSamplePoints, double distancePlotBoundary, String distanceToBuffers, BUFFER_SHAPE bufferShape) {
+		super(epsgCode, hostAddress, localPort, innerPointSide, numberOfPoints, distanceBetweenSamplePoints, distancePlotBoundary, (Integer)null, distanceToBuffers, bufferShape);
 	}
 
 	@Override
