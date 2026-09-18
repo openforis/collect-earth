@@ -88,14 +88,16 @@ public class SamplingUncertaintyGenerator extends RDBConnector {
 
 			try (OutputStream bw = new BufferedOutputStream(new FileOutputStream(tempFile))) {
 				templateWorkbook.write(bw);
-			} catch (Exception e) {
-				logger.error("Impossile to write Sampling uncertainty workbook data into temp file", e);
 			}
 			return tempFile;
 		} catch (Exception e) {
-			logger.error("Error creating temp file", e);
+			logger.error("Error writing the Sampling uncertainty workbook", e);
+			// Do not hand back a half-written workbook, the caller cannot tell it apart from a good one
+			if (tempFile != null && tempFile.exists() && !tempFile.delete()) {
+				logger.warn("Could not delete the incomplete Sampling uncertainty workbook {}", tempFile.getAbsolutePath());
+			}
 		}
-		return tempFile;
+		return null;
 	}
 
 	private void updateTemplate(Workbook templateWorkbook, List<LandUseCategoryConversion> luConversions,

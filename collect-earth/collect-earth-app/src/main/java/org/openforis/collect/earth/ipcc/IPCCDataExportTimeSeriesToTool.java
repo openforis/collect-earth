@@ -393,9 +393,6 @@ public class IPCCDataExportTimeSeriesToTool extends AbstractIPCCDataExport {
 		setSubdivisionsStrata( new ArrayList<>() );
 		initSchemaName();
 
-		File zipFileWithInventoryData = new File("ghgi_timeseries_ipcc_tool.xml");
-		zipFileWithInventoryData.deleteOnExit();
-
 		IPCC2006Export ipcc2006Export = new IPCC2006Export();
 		ipcc2006Export.setCountryCode(getCountryCode());
 		ipcc2006Export.setVersion(XSL_VERSION);
@@ -759,8 +756,10 @@ public class IPCCDataExportTimeSeriesToTool extends AbstractIPCCDataExport {
 	}
 
 	protected File generateXMLFile(IPCC2006Export ipcc2006Export) throws IOException, IPCCGeneratorException {
-		File xmlFileDestination = new File("ImportIntoGHGiTool.xml");
-		File xmlFileDestinationSigned = new File("ImportIntoGHGiTool_with_MD5.xml");
+		// Temporary files : these used to resolve against the working directory, which on a normal Windows installation is the
+		// installation folder, often not writable, and two runs collided on the same name
+		File xmlFileDestination = File.createTempFile("ImportIntoGHGiTool", ".xml");
+		File xmlFileDestinationSigned = File.createTempFile("ImportIntoGHGiTool_with_MD5", ".xml");
 		xmlFileDestination.deleteOnExit();
 		xmlFileDestinationSigned.deleteOnExit();
 
@@ -784,7 +783,7 @@ public class IPCCDataExportTimeSeriesToTool extends AbstractIPCCDataExport {
 	}
 
 	private void marshallXMLToFile(IPCC2006Export ipcc2006Export, File xmlFileDestination, Class<?> classToMarshall)
-			throws IOException, FileNotFoundException {
+			throws IOException, IPCCGeneratorException {
 		JAXBContext jc;
 		try {
 			//jc = JAXBContext.newInstance(ObjectFactory.class.getPackage().getName(), ObjectFactory.class.getClassLoader());
@@ -795,8 +794,12 @@ public class IPCCDataExportTimeSeriesToTool extends AbstractIPCCDataExport {
 				m.marshal(ipcc2006Export, os);
 			}
 
+		} catch (IOException e) {
+			throw e;
 		} catch (Exception e1) {
-			logger.error("Error marshalling data to " + xmlFileDestination.getAbsolutePath(), e1);
+			// This used to be logged only, and generateXMLFile returned the file anyway : the export reported success while the
+			// file it delivered was empty, or was the one left by the previous run
+			throw new IPCCGeneratorException("Error marshalling data to " + xmlFileDestination.getAbsolutePath(), e1);
 		}
 	}
 

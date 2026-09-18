@@ -3,6 +3,7 @@ package org.openforis.collect.earth.ipcc;
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
+import java.nio.file.Files;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -197,11 +198,13 @@ public class IPCCDataExportMatrixExtendedExcel extends AbstractIPCCDataExportTim
 			// Write the output to a file
 			try (FileOutputStream fileOut = new FileOutputStream(excelDestination)) {
 				workbook.write(fileOut);
-			} catch (IOException e) {
-				logger.error("Error generating Excel file", e);
 			}
+		} catch (IOException e) {
+			throw e;
 		} catch (Exception e) {
-			logger.error("Error generating Excel data", e);
+			// Do not hand back a half-written workbook : it used to be packaged and delivered as a finished file
+			Files.deleteIfExists(excelDestination.toPath());
+			throw new IOException("Error generating the Excel file " + excelDestination.getAbsolutePath(), e);
 		}
 		return excelDestination;
 	}

@@ -3,6 +3,7 @@ package org.openforis.collect.earth.ipcc;
 import java.io.File;
 import java.io.FileWriter;
 import java.io.IOException;
+import java.nio.file.Files;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.List;
@@ -49,8 +50,10 @@ public abstract class AbstractIPCCDataExportCSV extends RDBConnector {
 				csvWriter.writeNext(row);
 			}
 
-		} catch (Exception e) {
-			logger.error("Error generating CSV", e);
+		} catch (IOException e) {
+			// Do not hand back a half-written CSV : it used to be packaged and delivered as a finished file
+			Files.deleteIfExists(csvDestination.toPath());
+			throw e;
 		}
 		return csvDestination;
 	}
