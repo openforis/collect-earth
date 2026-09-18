@@ -177,13 +177,20 @@ public final class ImportActionListener implements ActionListener {
 								if (importSurveyAsCsv != null) {
 									importSurveyAsCsv.init();
 									ProcessStatus status = importSurveyAsCsv.getStatus();
-									status.setTotal(getTotalNumberOfLines(importedFile));
-									if (status != null && !importSurveyAsCsv.getStatus().isError()) {
+									if (status != null && !status.isError()) {
+										status.setTotal(getTotalNumberOfLines(importedFile));
 										ImportProcessMonitorDialog importProcessWorker = new ImportProcessMonitorDialog(
 												importSurveyAsCsv, frame);
 										importProcessWorker.start();
+										// Wait for this file before starting the next one : every import writes the records of the same survey,
+										// and selecting several CSV files used to run all of the imports at the same time against one database
+										importProcessWorker.join();
 									}
 								}
+							} catch (InterruptedException ie) {
+								logger.warn("Interrupted while importing " + importedFile.getAbsolutePath(), ie); //$NON-NLS-1$
+								Thread.currentThread().interrupt();
+								break;
 							} catch (Exception e1) {
 								JOptionPane.showMessageDialog(frame,
 										Messages.getString("CollectEarthWindow.7") + "\n" + e1.getMessage(), //$NON-NLS-1$ //$NON-NLS-2$
