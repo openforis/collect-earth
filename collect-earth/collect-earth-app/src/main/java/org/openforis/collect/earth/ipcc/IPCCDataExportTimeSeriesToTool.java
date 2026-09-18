@@ -441,6 +441,7 @@ public class IPCCDataExportTimeSeriesToTool extends AbstractIPCCDataExport {
 		// Collect the regions in the country
 		String selectDiferentRegions = "select " + getStratifyByRegion() + ", SUM(" + RegionCalculationUtils.EXPANSION_FACTOR + ") AS " + SUM_EXPANSION_FACTOR 
 		+ " from " + getSchemaName() + PLOT_TABLE 
+		+ " where " + getPlotFilterClause()
 		+ " GROUP BY "	+ getStratifyByRegion();
 				
 		Collection<LrtRegion> regionList = getJdbcTemplate().query(
@@ -712,6 +713,7 @@ public class IPCCDataExportTimeSeriesToTool extends AbstractIPCCDataExport {
 					+ IPCCSurveyAdapter.ATTR_CURRENT_CATEGORY + " = ? and "
 					+ IPCCSurveyAdapter.ATTR_CURRENT_SUBDIVISION + " = ? and "
 					+ getStratifyByRegion() + " = ? "
+					+ " and " + getPlotFilterClause()
 
 					+ " GROUP BY " + sqlGrouping + " ORDER BY " + AREAS_SUM
 					+ " DESC";
@@ -736,7 +738,8 @@ public class IPCCDataExportTimeSeriesToTool extends AbstractIPCCDataExport {
 
 	private Double getTotalArea() {
 		return getJdbcTemplate().queryForObject(
-				"select SUM(" + RegionCalculationUtils.EXPANSION_FACTOR + ") from " + getSchemaName() + PLOT_TABLE, 
+				"select SUM(" + RegionCalculationUtils.EXPANSION_FACTOR + ") from " + getSchemaName() + PLOT_TABLE
+					+ " where " + getPlotFilterClause(), 
 				Double.class
 		);
 	}
@@ -807,14 +810,14 @@ public class IPCCDataExportTimeSeriesToTool extends AbstractIPCCDataExport {
 						+ "DISTINCT " + IPCCSurveyAdapter.ATTR_CURRENT_SUBDIVISION + " AS " + SUBDIVISION_AUX +", " + CLIMATE_COLUMN + ", " + SOIL_COLUMN + ", "+ GEZ_COLUMN
 						+ " from " + getSchemaName() + PLOT_TABLE 
 						+ " where " + IPCCSurveyAdapter.ATTR_CURRENT_CATEGORY + " = ? "
-						+ " AND " + SUBDIVISION_AUX + "!= ?";
+						+ " AND " + IPCCSurveyAdapter.ATTR_CURRENT_SUBDIVISION + " != ?"; // The real column : PostgreSQL does not accept the alias of the SELECT in the WHERE
 			}else {
 				selectDistincts = "select " 
 						+ "DISTINCT " 
 						+ IPCCSurveyAdapter.ATTR_CURRENT_SUBDIVISION + " AS " + SUBDIVISION_AUX +", " + CLIMATE_COLUMN + ", "	+ SOIL_COLUMN 
 						+ " from " + getSchemaName() + PLOT_TABLE 
 						+ " where " + IPCCSurveyAdapter.ATTR_CURRENT_CATEGORY + " = ? "
-						+ " AND " + SUBDIVISION_AUX + "!= ?";
+						+ " AND " + IPCCSurveyAdapter.ATTR_CURRENT_SUBDIVISION + " != ?"; // The real column : PostgreSQL does not accept the alias of the SELECT in the WHERE
 			}
 			
 			List<LandUseSubdivisionStratified<?>> substratasInLastYear = getJdbcTemplate().query(
@@ -835,13 +838,13 @@ public class IPCCDataExportTimeSeriesToTool extends AbstractIPCCDataExport {
 						+ "DISTINCT " + IPCCSurveyAdapter.TEMPLATE_LAND_USE_INITIAL_SUBDIVISION + " AS " + SUBDIVISION_AUX +", " + CLIMATE_COLUMN + ", " + SOIL_COLUMN + ", "+ GEZ_COLUMN
 						+ " from " + getSchemaName() + PLOT_TABLE 
 						+ " where " + IPCCSurveyAdapter.ATTR_PREVIOUS_CATEGORY + " = '" + luCategory.getCode() + "'"
-						+ " AND " + SUBDIVISION_AUX + "!='-1'";
+						+ " AND " + IPCCSurveyAdapter.TEMPLATE_LAND_USE_INITIAL_SUBDIVISION + " != '-1'"; // The real column : PostgreSQL does not accept the alias of the SELECT in the WHERE
 			}else {
 				selectDistincts = "select " 
 						+ "DISTINCT "  + IPCCSurveyAdapter.TEMPLATE_LAND_USE_INITIAL_SUBDIVISION + " AS " + SUBDIVISION_AUX +", " + CLIMATE_COLUMN + ", "	+ SOIL_COLUMN 
 						+ " from " + getSchemaName() + PLOT_TABLE 
 						+ " where " + IPCCSurveyAdapter.ATTR_PREVIOUS_CATEGORY + " = '" + luCategory.getCode() + "'" 
-						+ " AND " + SUBDIVISION_AUX + "!='-1'";
+						+ " AND " + IPCCSurveyAdapter.TEMPLATE_LAND_USE_INITIAL_SUBDIVISION + " != '-1'"; // The real column : PostgreSQL does not accept the alias of the SELECT in the WHERE
 			}
 			
 			List<LandUseSubdivisionStratified<?>> substratasInFirstYear = getJdbcTemplate().query(

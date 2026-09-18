@@ -45,6 +45,7 @@ public class IPCCDataExportLandUnitsCSV extends AbstractIPCCDataExportCSV {
 					+ AbstractIPCCDataExportTimeSeries.CLIMATE_COLUMN_IN_PLOT + " = " +  AbstractIPCCDataExportTimeSeries.CLIMATE_COLUMN_ID
 					+ " and "
 					+ AbstractIPCCDataExportTimeSeries.GEZ_COLUMN_IN_PLOT + " = " +  AbstractIPCCDataExportTimeSeries.GEZ_COLUMN_ID
+					+ " and " + AbstractIPCCDataExport.getPlotFilterClause() // Same plots as LU_Timeseries_per_plot.csv, otherwise the two files do not add up
 				
 				+ " GROUP BY "
 				+ selectedYears.substring(0, selectedYears.length()-1)
