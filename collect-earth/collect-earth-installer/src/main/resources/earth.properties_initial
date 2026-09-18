@@ -27,6 +27,9 @@ open_gee_app=true
 open_separate_browser_form=false
 open_timelapse=false
 open_gee_playground=false
+# The embedded server listens only to this computer. Set it to 0.0.0.0 to accept the Collect Earth instances running in CLIENT_MODE
+# ( its endpoints have no authentication, so anybody in the network could then save records and load project files )
+server_bind_address=127.0.0.1
 operation_mode=SERVER_MODE
 operator=
 port=8028
@@ -36,3 +39,4 @@ secure_watch_url=https\://access.maxar.com/myDigitalGlobe
 ui_language=INSTALLATION_LANGUAGE
 use_browser=firefox
 google_maps_api_key=GOOGLE_MAPS_API_KEY
+ga_api_secret=GA_API_SECRET

@@ -16,3 +16,4 @@ earth_map_aoi=global
 earth_map_url=https://earthmap.org
 secure_watch_url=https\://access.maxar.com/myDigitalGlobe
 planet_nicfi_url=https://openforis.org/fileadmin/planet.html
+ga_api_secret=GA_API_SECRET

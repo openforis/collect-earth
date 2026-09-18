@@ -221,8 +221,14 @@ public class ServerController {
 			// // Use blocking-IO connector to improve throughput
 			final ServerConnector connector = new ServerConnector(server);
 			connector.setName( LocalPropertiesService.LOCAL_HOST + ":" + getPort()); //$NON-NLS-1$
-			connector.setHost("0.0.0.0"); //$NON-NLS-1$
-			//connector.setHost( LocalPropertiesService.LOCAL_HOST );
+			// Listen only to this computer unless the server_bind_address property says otherwise : the endpoints published here have no
+			// authentication, so on 0.0.0.0 anybody in the network can save records, load project files and restart the application.
+			// Set server_bind_address=0.0.0.0 in earth.properties to serve the instances that run in CLIENT_MODE
+			final String bindAddress = localPropertiesService.getServerBindAddress();
+			if( !LocalPropertiesService.LOCAL_HOST.equals( bindAddress ) ){
+				logger.warn("The Collect Earth server listens on {} : its endpoints are not authenticated and can be reached from other computers", bindAddress); //$NON-NLS-1$
+			}
+			connector.setHost( bindAddress );
 
 			connector.setPort(getPort());
 

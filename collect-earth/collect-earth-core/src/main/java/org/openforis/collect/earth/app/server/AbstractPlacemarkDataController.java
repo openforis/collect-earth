@@ -152,9 +152,10 @@ public class AbstractPlacemarkDataController extends JsonPocessorServlet {
 		for (Entry<String, String> entry : originalCollectedData.entrySet()) {
 			String key = entry.getKey();
 			String value = entry.getValue();
-			if( key.equals( EarthConstants.PLACEMARK_ID_PARAMETER ) ){
+			if( value != null && key.equals( EarthConstants.PLACEMARK_ID_PARAMETER ) ){
 				// If there are multiple keys this value will be the combination of the keys, with the first value actually containing the plot id
-				entry.setValue( value.split(",")[0]);
+				// Change the value that is copied to the result : setting it on the entry left the combined keys in the result
+				value = value.split(",")[0];
 			}
 
 			//decode parameter name, it was previously encoded by the client

@@ -23,7 +23,8 @@ import com.formdev.flatlaf.util.StringUtils;
 public class GAlogger {
 
 	private static final Logger logger = LoggerFactory.getLogger(GAlogger.class);
-	private static final String API_SECRET = "E11gVKqxSamFWwCswJPKIQ";
+	// Placeholder left in earth.properties when the installer was built without a ga_api_secret
+	private static final String API_SECRET_TOKEN = "GA_API_SECRET";
 	private static final String MEASUREMENT_ID = "G-8K943HZKJZ";
 	private static String clientId;
 	
@@ -32,12 +33,17 @@ public class GAlogger {
 
 			@Override
 			public void run() {
+				final String apiSecret = getApiSecret();
+				if( apiSecret == null ) {
+					logger.debug("Analytics are disabled : there is no ga_api_secret in the properties");
+					return;
+				}
+
 				try( CloseableHttpClient httpclient = HttpClients.createDefault() ) {
 					// Following instruction from https://developers.google.com/analytics/devguides/collection/protocol/ga4/sending-events?hl=en&client_type=gtag
-					//  See https://ga-dev-tools.google/ga4/event-builder/?p=2&d=0&f=1&c=custom_event&j=PlotSaved&n=CollectEarth&k=E11gVKqxSamFWwCswJPKIQ&i=G-8K943HZKJZ&e=1687947214291000&m=W10&b=W1tdXQ
 					// Request parameters and other properties.
 					
-					URL url = new URL ("https://www.google-analytics.com/mp/collect?api_secret="+API_SECRET+"&measurement_id="+ MEASUREMENT_ID);
+					URL url = new URL ("https://www.google-analytics.com/mp/collect?api_secret="+apiSecret+"&measurement_id="+ MEASUREMENT_ID);
 					HttpURLConnection con = (HttpURLConnection)url.openConnection();
 					con.setRequestMethod("POST");
 					con.setRequestProperty("Content-Type", "application/json");
@@ -78,6 +84,24 @@ public class GAlogger {
 					logger.error("Error generating URL for Analytics", e);
 				}
 
+			}
+
+			/**
+			 * The secret is not kept in the source code ( this is a public repository ). It is injected into earth.properties
+			 * when the installer is built, from the ga_api_secret property of the Maven settings.
+			 * @return The secret, or null when the build did not provide one
+			 */
+			private String getApiSecret() {
+				String secret = new LocalPropertiesService().getGaApiSecret();
+				if( secret == null ) {
+					return null;
+				}
+				secret = secret.trim();
+				// Not replaced when building : the placeholder itself, or a Maven property that was never defined
+				if( secret.isEmpty() || secret.equals(API_SECRET_TOKEN) || secret.startsWith("${") ) {
+					return null;
+				}
+				return secret;
 			}
 
 			private String getClientId() {

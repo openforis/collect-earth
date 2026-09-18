@@ -59,7 +59,8 @@ public class LocalPropertiesService extends Observable {
 				"firefox_exe_path"), GEE_EXPLORER_URL(
 				"gee_explorer_url"), GENERATED_KEY(
 				"generated_on"), GOOGLE_MAPS_API_KEY(
-				"google_maps_api_key"), HOST_KEY(
+				"google_maps_api_key"), SERVER_BIND_ADDRESS(
+				"server_bind_address"), HOST_KEY(
 				"host"), HOST_PORT_KEY(
 				"port"), INNER_SUBPLOT_SIDE(
 				"inner_point_side"), JUMP_TO_NEXT(
@@ -89,7 +90,7 @@ public class LocalPropertiesService extends Observable {
 				"distance_to_buffers"), BUFFER_SHAPE(
 				"buffer_shape"), OPEN_PLANET_MAPS(
 				"open_planet_maps"), PLANET_MAPS_KEY(
-				"planet_maps_key"),  PLANET_MAPS_CE_KEY("planet_maps_ce_key"),
+				"planet_maps_key"),  PLANET_MAPS_CE_KEY("planet_maps_ce_key"), GA_API_SECRET("ga_api_secret"),
 				PLANET_MAPS_USE_TFO("planet_maps_use_tfo"),
 				PLANET_TFO_DATE_FROM("planet_tfo_date_from"),
 				PLANET_TFO_DATE_TO("planet_tfo_date_to"),
@@ -210,6 +211,14 @@ public class LocalPropertiesService extends Observable {
 		return getValue(EarthProperty.PLANET_MAPS_CE_KEY);
 	}
 
+	/**
+	 * The Google Analytics Measurement Protocol secret. It is written into earth.properties when the installer is built
+	 * ( from the ga_api_secret property of the Maven settings ) so that it never has to be stored in the source code.
+	 */
+	public String getGaApiSecret() {
+		return getValue(EarthProperty.GA_API_SECRET);
+	}
+
 	public boolean isPlanetMapsUseTfo() {
 		return isPropertyActivated(EarthProperty.PLANET_MAPS_USE_TFO);
 	}
@@ -224,6 +233,16 @@ public class LocalPropertiesService extends Observable {
 
 	public String getGeneratedOn() {
 		return getValue(EarthProperty.GENERATED_KEY);
+	}
+
+	/**
+	 * The network interface that the embedded server listens on. The endpoints it publishes are not authenticated : they save records,
+	 * load project files and restart the application, so it only listens to this computer unless the server_bind_address property
+	 * says otherwise. Set it to 0.0.0.0 to accept the connections of the Collect Earth instances that run in CLIENT_MODE.
+	 */
+	public String getServerBindAddress() {
+		final String bindAddress = getValue(EarthProperty.SERVER_BIND_ADDRESS);
+		return StringUtils.isBlank(bindAddress) ? LOCAL_HOST : bindAddress.trim();
 	}
 
 	public String getHost() {

@@ -22,7 +22,6 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
 import net.lingala.zip4j.ZipFile;
-import net.lingala.zip4j.exception.ZipException;
 
 
 
@@ -162,7 +161,13 @@ public class EarthProjectsService {
 			Collection<File> saikuFiles = getSaikuFiles( projectFolder );
 
 			String repoDirectory = "tomcat/webapps/saiku/WEB-INF/classes/saiku-repository";
-			File saikuRepo = new File( localPropertiesService.getSaikuFolder() + File.separator + repoDirectory  + File.separator + surveyName );
+			final File saikuRepositoryRoot = new File( localPropertiesService.getSaikuFolder() + File.separator + repoDirectory ).getCanonicalFile();
+			final File saikuRepo = new File( saikuRepositoryRoot, StringUtils.defaultString( surveyName ) ).getCanonicalFile();
+			// The survey name comes from the project file, do not let it point outside of the Saiku repository
+			if( !saikuRepositoryRoot.equals( saikuRepo.getParentFile() ) ){
+				logger.error("The survey name {} is not a valid folder name, the Saiku queries are not copied", surveyName); //$NON-NLS-1$
+				return;
+			}
 
 			for (File saikuFile : saikuFiles) {
 				FileUtils.copyFileToDirectory(saikuFile, saikuRepo, true);
@@ -321,7 +326,7 @@ public class EarthProjectsService {
 			}
 			return projectName;
 		}catch(Exception e ) {
-			logger.error("Error opening project folder", projectZipFile.getAbsolutePath() );
+			logger.error("Error reading the project name from " + projectZipFile.getAbsolutePath(), e ); //$NON-NLS-1$
 			return null;
 		}
 
@@ -331,14 +336,26 @@ public class EarthProjectsService {
 		return FolderFinder.getCollectEarthDataFolder() + File.separator + PROJECTS;
 	}
 
-	private File unzipContents(File projectZipFile, String projectName) throws ZipException {
-		File projectFolder = new File( getProjectsFolder() + File.separator  + projectName );
-		if( projectFolder.exists() || projectFolder.mkdirs() ){
-			try( ZipFile zipFile = new ZipFile(projectZipFile) ){
-				zipFile.extractAll( projectFolder.getAbsolutePath() );
-			}catch(Exception e) {
-				logger.error("Error unzipping contents " + projectZipFile.getAbsolutePath(), e);
-			}
+	private File unzipContents(File projectZipFile, String projectName) throws IOException {
+		if( StringUtils.isBlank( projectName ) ){
+			throw new IOException("The project file " + projectZipFile.getAbsolutePath() + " does not define a survey_name"); //$NON-NLS-1$ //$NON-NLS-2$
+		}
+
+		final File projectsFolder = new File( getProjectsFolder() ).getCanonicalFile();
+		final File projectFolder = new File( projectsFolder, projectName ).getCanonicalFile();
+		// The name comes from inside the archive ( survey_name ) : it has to be a single folder directly under the projects folder,
+		// otherwise a name like ".." would extract the archive somewhere else
+		if( !projectsFolder.equals( projectFolder.getParentFile() ) ){
+			throw new IOException("The survey_name '" + projectName + "' of " + projectZipFile.getAbsolutePath() + " is not a valid folder name"); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$
+		}
+
+		if( !projectFolder.exists() && !projectFolder.mkdirs() ){
+			throw new IOException("Could not create the project folder " + projectFolder.getAbsolutePath()); //$NON-NLS-1$
+		}
+
+		// Let a failed extraction reach the caller, otherwise the ( possibly stale ) folder would be loaded as if the import had worked
+		try( ZipFile zipFile = new ZipFile(projectZipFile) ){
+			zipFile.extractAll( projectFolder.getAbsolutePath() );
 		}
 		return projectFolder;
 	}

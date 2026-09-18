@@ -5,7 +5,6 @@ import java.io.BufferedWriter;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
-import java.io.FileReader;
 import java.io.IOException;
 import java.io.OutputStreamWriter;
 import java.nio.charset.StandardCharsets;
@@ -30,7 +29,6 @@ import org.springframework.stereotype.Component;
 import org.w3c.dom.Document;
 import org.w3c.dom.Node;
 import org.w3c.dom.NodeList;
-import org.xml.sax.InputSource;
 import org.xml.sax.SAXException;
 
 @Component
@@ -73,21 +71,16 @@ public class KmlImportService {
 	 */
 
 	private File createTempCsv( File kmlFile) throws ParserConfigurationException, SAXException, IOException{
-		// Fixing error with Xerces implementation
-		//https://stackoverflow.com/a/62261587/4499235
-		//System.setProperty("javax.xml.parsers.DocumentBuilderFactory",
-		//        "com.sun.org.apache.xerces.internal.jaxp.DocumentBuilderFactoryImpl");
-		DocumentBuilderFactory factory = DocumentBuilderFactory.newInstance();
-		// Not sure why the XML Parser used switched to Xerced
-		// The factory misses these attributes, but commenting them out seems to make no difference importing KMLs
-		//factory.setAttribute(XMLConstants.ACCESS_EXTERNAL_DTD, ""); // Compliant
-		//factory.setAttribute(XMLConstants.ACCESS_EXTERNAL_SCHEMA, ""); // compliant
-        DocumentBuilder builder = factory.newDocumentBuilder();
-        Document doc;
-        try (FileReader fileReader = new FileReader(kmlFile)) {
-            InputSource is = new InputSource(fileReader);
-            doc = builder.parse(is);
-        }
+		final DocumentBuilderFactory factory = DocumentBuilderFactory.newInstance();
+		// The KML comes from somebody else. A KML never needs a DOCTYPE, and refusing it blocks the external entities (XXE)
+		// that would let the file read other local files, like earth.properties with the database password.
+		// ( This feature is understood both by the JDK parser and by Xerces, unlike the ACCESS_EXTERNAL_DTD attribute )
+		factory.setFeature("http://apache.org/xml/features/disallow-doctype-decl", true); //$NON-NLS-1$
+		factory.setXIncludeAware(false);
+		factory.setExpandEntityReferences(false);
+		final DocumentBuilder builder = factory.newDocumentBuilder();
+		// Parsing the File ( not a Reader ) lets the parser honour the encoding declared in the KML, and a byte-order mark
+		final Document doc = builder.parse(kmlFile);
 
         NodeList placemarks = doc.getElementsByTagName("Placemark"); //$NON-NLS-1$
 

@@ -9,6 +9,7 @@
 			<installbuilder-home>PATH TO THE INSTALLBUILDER ROOT FOLDER</installbuilder-home>
 			<installbuilder-output-directory>PATH TO THE INSTALLBUILDER INSTALLERS OUTPUT FOLDER</installbuilder-output-directory>
 			<planet_maps_ce_key>PLANET MAPS API KEY</planet_maps_ce_key>
+			<ga_api_secret>GOOGLE ANALYTICS MEASUREMENT PROTOCOL API SECRET</ga_api_secret>
 		</properties>
 	</profile>
   </profiles>

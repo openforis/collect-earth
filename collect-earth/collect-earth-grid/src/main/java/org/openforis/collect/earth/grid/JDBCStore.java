@@ -30,15 +30,25 @@ public class JDBCStore extends AbstractStore {
 
 	private static final String SQLITE_URL = "jdbc:sqlite:";
 	private static final String POSTGRESQL_URL = "jdbc:postgresql://localhost/sigrid";
+	private static final String DB_USER_PROPERTY = "sigrid.db.user";
+	private static final String DB_PASSWORD_PROPERTY = "sigrid.db.password";
 
 	private Connection getConnection() throws SQLException {
 		if (connection == null || connection.isClosed() ) {
 			try {
 				Class.forName("org.sqlite.JDBC");
 				File sigridDBFile = new File("sigrid.db");
-				connection = DriverManager.getConnection(
-						Boolean.TRUE.equals(USE_SQLITE) ? SQLITE_URL + sigridDBFile.getAbsolutePath() : POSTGRESQL_URL,
-						"collectearth", "collectearth");
+				if (Boolean.TRUE.equals(USE_SQLITE)) {
+					connection = DriverManager.getConnection(SQLITE_URL + sigridDBFile.getAbsolutePath());
+				} else {
+					// The credentials are not kept in the source code ( this is a public repository )
+					final String user = System.getProperty(DB_USER_PROPERTY);
+					final String password = System.getProperty(DB_PASSWORD_PROPERTY);
+					if (user == null || password == null) {
+						throw new SQLException("Set the database credentials when launching : -D" + DB_USER_PROPERTY + "=... -D" + DB_PASSWORD_PROPERTY + "=...");
+					}
+					connection = DriverManager.getConnection(POSTGRESQL_URL, user, password);
+				}
 			} catch (Exception e) {
 				logger.error("Error loading JDBC driver", e);
 			}

@@ -5,9 +5,9 @@
 <hibernate-configuration>
     <session-factory>
         <property name="hibernate.connection.driver_class">org.postgresql.Driver</property>
-        <property name="hibernate.connection.password">pankaj123</property>
         <property name="hibernate.connection.url">jdbc:postgresql://localhost/globalgrid</property>
-        <property name="hibernate.connection.username">collectearth</property>
+        <!-- The user name and the password are not kept in the repository : HibernateUtil reads them from the
+             globalgrid.db.user and globalgrid.db.password system properties -->
         <property name="hibernate.dialect">org.hibernate.dialect.PostgreSQLDialect</property>
         <property name="hbm2ddl.auto">create</property> <!-- create / create-drop / update -->
         <property name="hibernate.current_session_context_class">thread</property>

@@ -5,6 +5,7 @@ import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.List;
 
+import org.openforis.collect.earth.app.EarthConstants;
 import org.openforis.collect.earth.app.service.ExportType;
 import org.openforis.collect.earth.app.service.RDBConnector;
 import org.openforis.collect.earth.app.service.SchemaService;
@@ -68,6 +69,16 @@ public abstract class AbstractIPCCDataExport extends RDBConnector {
 	
 	@Autowired
 	private SchemaService schemaService;
+
+	/**
+	 * The condition that every query summing plot areas has to carry : only the plots actively saved by the user, and only
+	 * the first assessment round. The quality control plots ( round 2 ) cover the same locations, so counting them would
+	 * inflate the areas by the number of assessment rounds.
+	 */
+	protected static String getPlotFilterClause() {
+		return " " + EarthConstants.ACTIVELY_SAVED_ATTRIBUTE_NAME + " = " + EarthConstants.ACTIVELY_SAVED_BY_USER_VALUE
+				+ " and " + EarthConstants.ROUND_ATTRIBUTE_NAME + " = " + EarthConstants.ROUND_FIRST_ASSESSMENT_VALUE + " ";
+	}
 
 	public AbstractIPCCDataExport() {
 		setExportTypeUsed(ExportType.IPCC);

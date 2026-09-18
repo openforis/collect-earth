@@ -38,13 +38,9 @@ public abstract class NfiCirclesKmlGenerator extends PolygonKmlGenerator {
 
 	@Override
 	protected void processPolygonProperties(SimplePlacemarkObject plotProperties, String[] csvValuesInLine) {
-		String polygon;
-		try {
-			polygon = getKmlForTract(plotProperties);
-			processKmlPolygonProperties(plotProperties, polygon);
-		} catch (TransformException e) {
-			logger.error("Error gettting polygon for Tract", e);
-		}
+		// Do nothing! The coordinate of the CSV is the location of the tract, and processKmlPolygonProperties replaced it with the
+		// centroid of the centre square, moving the tract and its stored original coordinates about 5.7 m ( with a radius of 20 ).
+		// The tract is generated in fillExternalLine, once the coordinate has been transformed, as NfmaKmlGenerator already does
 
 	}
 
