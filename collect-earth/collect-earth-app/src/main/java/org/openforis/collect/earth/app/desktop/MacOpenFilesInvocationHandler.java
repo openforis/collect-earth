@@ -47,7 +47,8 @@ public class MacOpenFilesInvocationHandler implements java.lang.reflect.Invocati
   }
 
   private void openFilesImplmentation(Object openFilesEventObject) throws Exception {
-	  Class openFilesEventClass = Class.forName("com.apple.eawt.AppEvent.OpenFilesEvent");
+	  // The binary name of a nested class uses $, the dotted name never resolved
+	  Class openFilesEventClass = Class.forName("com.apple.eawt.AppEvent$OpenFilesEvent");
 	  Method getFilesMethod = openFilesEventClass.getMethod("getFiles");
 
 	  List<File> files = (List<File>) getFilesMethod.invoke( openFilesEventClass.cast( openFilesEventObject ) );
