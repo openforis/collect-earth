@@ -343,9 +343,10 @@ public abstract class AbstractEarthSurveyService {
 				org.openforis.idm.model.Date date = org.openforis.idm.model.Date.parse(new Date());
 				recordUpdater.updateAttribute((DateAttribute) attr, date);
 			} else if (attr instanceof TextAttribute) {
-				SimpleDateFormat sdf = new SimpleDateFormat("yyyy/MM/dd hh:mm");
-				org.openforis.idm.model.Date date = org.openforis.idm.model.Date.parse(new Date());
-				recordUpdater.updateAttribute((TextAttribute) attr, new TextValue(sdf.format(date)));
+				// Format the java.util.Date : the Collect Date is a value object that SimpleDateFormat cannot format ( it throws IllegalArgumentException )
+				// HH is the 24-hour clock, hh would need an AM/PM marker
+				final String savedOn = new SimpleDateFormat("yyyy/MM/dd HH:mm").format(new Date());
+				recordUpdater.updateAttribute((TextAttribute) attr, new TextValue(savedOn));
 			} else {
 				logger.error("Attribute {} is expected to be of type Text or Date", path);
 			}
