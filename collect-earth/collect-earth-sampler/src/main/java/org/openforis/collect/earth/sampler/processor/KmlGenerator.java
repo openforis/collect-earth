@@ -171,7 +171,7 @@ public abstract class KmlGenerator extends AbstractCoordinateCalculation {
 			FreemarkerTemplateUtils.applyTemplate(templateFile, destinationFile, data);
 		} catch (Exception e) {
 			throw new KmlGenerationException("Error generating the KML file to open in Google Earth "
-					+ freemarkerKmlTemplateFile + " with data " + Arrays.toString(data.values().toArray()), e);
+					+ freemarkerKmlTemplateFile + " with data keys " + data.keySet(), e);
 		}
 	}
 

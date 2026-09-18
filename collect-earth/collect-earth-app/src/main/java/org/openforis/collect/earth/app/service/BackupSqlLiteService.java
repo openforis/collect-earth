@@ -17,7 +17,6 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Lazy;
 import org.springframework.stereotype.Component;
 
-import net.lingala.zip4j.ZipFile;
 
 
 /**
@@ -72,9 +71,9 @@ public class BackupSqlLiteService implements InitializingBean{
 
 				pathToBackupZip = getBackupZipFilename();
 
-				try( ZipFile zipFile = CollectEarthUtils.addFileToZip(pathToBackupZip, originalDBFile, EarthConstants.COLLECT_EARTH_DATABASE_FILE_NAME) ){
-					removeExtraBackups();
-				}
+				CollectEarthUtils.addFileToZip(pathToBackupZip, originalDBFile, EarthConstants.COLLECT_EARTH_DATABASE_FILE_NAME);
+				// Only rotate the older copies away once this backup really exists
+				removeExtraBackups();
 
 			} catch (IOException e) {
 				logger.error("Error when create backup of the Collect Earth Database from " + nameCollectDB + " to " + pathToBackupZip, e); //$NON-NLS-1$ //$NON-NLS-2$

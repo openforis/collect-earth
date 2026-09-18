@@ -87,12 +87,11 @@ public abstract class GenerateDatabase {
 
 	protected void replaceZippedProjectDB(ExportType type) throws IOException {
 		if ( getLocalPropertiesService().isUsingSqliteDB()) {
-			ZipFile zippedSaiku = CollectEarthUtils.addFileToZip(
+			CollectEarthUtils.addFileToZip(
 					getZippedProjectDB( type ), 
 					getRdbExporter().getRdbFile( type ),
 					getRdbExporter().getRdbFile( type ).getName()
 				);
-			zippedSaiku.close();
 		}
 	}
 	

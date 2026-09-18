@@ -28,25 +28,21 @@ public class FreemarkerTemplateUtils {
 	private FreemarkerTemplateUtils() {}
 
 	public static boolean applyTemplate(File sourceTemplate, File destinationFile, Map<?, ?> data) throws IOException, TemplateException{
-		boolean success = false;
+
+		// Process the template file using the data in the "data" Map
+		final Configuration cfg = new Configuration( new Version("2.3.23"));
+		cfg.setDirectoryForTemplateLoading(sourceTemplate.getParentFile());
+
+		// Load the template from the source folder BEFORE opening the destination file : opening it truncates it, so a template that
+		// cannot be read used to leave an empty KML behind that was reported as generated
+		final Template template = cfg.getTemplate(sourceTemplate.getName());
 
 		// Console output
 		try ( BufferedWriter fw = new BufferedWriter(new OutputStreamWriter(new FileOutputStream(destinationFile), StandardCharsets.UTF_8 ) ) ) {
-
-			// Process the template file using the data in the "data" Map
-			final Configuration cfg = new Configuration( new Version("2.3.23"));
-			cfg.setDirectoryForTemplateLoading(sourceTemplate.getParentFile());
-
-			// Load template from source folder
-			final Template template = cfg.getTemplate(sourceTemplate.getName());
-
 			template.process(data, fw);
-			success = true;
-			logger.info("Kml file processed", destinationFile);
-		}catch (Exception e) {
-			logger.error("Error reading FreeMarker template", e);
 		}
-		return success;
+		logger.info("Kml file processed {}", destinationFile);
+		return true;
 
 	}
 
