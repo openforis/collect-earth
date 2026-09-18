@@ -63,6 +63,19 @@ import io.sentry.protocol.User;
  */
 public class EarthApp {
 
+	private static final String COLLECT_EARTH_USER_FOLDER_PROPERTY = "collectEarth.userFolder"; //$NON-NLS-1$
+
+	static {
+		// This has to happen before the logger below is created, so it cannot wait until main() runs : loading this class already
+		// initialises that field, log4j configures itself the first time a logger is used, and log4j2.xml interpolates this
+		// property to place earth_error.log. Setting it in main() was too late, the appender received a path with a literal
+		// ${sys:collectEarth.userFolder} in it and the error log was never written.
+		// The property is used by web.xml as well
+		if (System.getProperty(COLLECT_EARTH_USER_FOLDER_PROPERTY) == null) {
+			System.setProperty(COLLECT_EARTH_USER_FOLDER_PROPERTY, FolderFinder.getCollectEarthDataFolder());
+		}
+	}
+
 	private static Logger logger = LoggerFactory.getLogger(EarthApp.class);
 	private static ServerController serverController;
 	private static EarthApp earthApp;
@@ -141,12 +154,7 @@ public class EarthApp {
 
 		try {
 
-			// Must come before anything that may log : log4j2.xml interpolates this property to
-			// place earth_error.log, and log4j configures itself the first time a logger is used.
-			// If that happens first the property is still unset, the appender gets a path
-			// containing a literal ${sys:...} and the error log is never written.
-			// System property used in the web.xml configuration as well
-			System.setProperty("collectEarth.userFolder", FolderFinder.getCollectEarthDataFolder()); //$NON-NLS-1$
+			// collectEarth.userFolder is set in the static block above, before the first logger of this class is created
 
 			FlatLightLaf.setup();
 			try {
