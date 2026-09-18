@@ -398,18 +398,23 @@ public class AnalysisSaikuService extends GenerateDatabase implements Disposable
 					// The user clicked on the option to refresh the database, or there is no
 					// previous copy of the Saiku DB
 					// Generate the DB file
-					rdbExporter.exportDataToRDB(
+					boolean exported = rdbExporter.exportDataToRDB(
 							earthSurveyService.getCollectSurvey(), 
 							ExportType.SAIKU, 
 							progressListener, 
 							this::processQuantityData
 						);
 			
-					try {
-						// Save the DB file in a zipped file to extends GenerateDatabase keep for the next usages
-						replaceZippedProjectDB( ExportType.SAIKU );
-					} catch (Exception e) {
-						logger.error("Error while refreshing the Zipped content of the project Saiku DB", e);
+					if (exported) {
+						try {
+							// Save the DB file in a zipped file to extends GenerateDatabase keep for the next usages
+							replaceZippedProjectDB( ExportType.SAIKU );
+						} catch (Exception e) {
+							logger.error("Error while refreshing the Zipped content of the project Saiku DB", e);
+						}
+					} else {
+						// Do not keep a database whose expansion factors were not calculated : it would be reused by the next runs
+						logger.warn("The Saiku database was not post-processed, it is not kept for the next runs");
 					}
 
 				} else if (getZippedProjectDB(ExportType.SAIKU).exists() && localPropertiesService.isUsingSqliteDB()) {
