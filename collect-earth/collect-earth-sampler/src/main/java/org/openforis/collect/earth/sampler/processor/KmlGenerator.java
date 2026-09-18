@@ -47,11 +47,17 @@ public abstract class KmlGenerator extends AbstractCoordinateCalculation {
 		double centroidX = 0;
 		double centroidY = 0;
 
-		for (SimpleCoordinate knot : shape) {
-			centroidX += knot.getCoordinates()[1];
-			centroidY += knot.getCoordinates()[0];
+		int vertices = shape.size();
+		// A closed ring repeats its first vertex at the end : counting it twice pulls the centre towards it
+		if (vertices > 1 && shape.get(0).equals(shape.get(vertices - 1))) {
+			vertices--;
 		}
-		return new SimpleCoordinate(centroidY / shape.size(), centroidX / shape.size());
+		for (int i = 0; i < vertices; i++) {
+			final double[] latLong = shape.get(i).getCoordinates();
+			centroidX += latLong[1];
+			centroidY += latLong[0];
+		}
+		return new SimpleCoordinate(centroidY / vertices, centroidX / vertices);
 
 	}
 
