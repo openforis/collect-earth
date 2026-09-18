@@ -153,8 +153,10 @@ public class UpdateIniUtils {
 		String onlineVersion = "0";  //$NON-NLS-1$
 		try {
 			DocumentBuilderFactory factory = DocumentBuilderFactory.newInstance();
-			//factory.setAttribute(XMLConstants.ACCESS_EXTERNAL_DTD, ""); // Compliant
-			//factory.setAttribute(XMLConstants.ACCESS_EXTERNAL_SCHEMA, ""); // compliant
+			// The updater XML has no DOCTYPE : refusing it blocks the external entities (XXE)
+			factory.setFeature("http://apache.org/xml/features/disallow-doctype-decl", true); //$NON-NLS-1$
+			factory.setXIncludeAware(false);
+			factory.setExpandEntityReferences(false);
 
 			factory.setNamespaceAware(true);
 			Document parse = factory.newDocumentBuilder().parse(new URL(urlXmlUpdate).openStream());
