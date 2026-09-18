@@ -183,6 +183,10 @@
 									<value>${planet_maps_ce_key}</value> <!-- This value comes from the maven_settings.xml file in the computer that fires the build -->
 								</replacement>
 								<replacement>
+									<token>GA_API_SECRET</token>
+									<value>${ga_api_secret}</value> <!-- This value comes from the maven_settings.xml file in the computer that fires the build -->
+								</replacement>
+								<replacement>
 									<token>JAVA_VERSION_SET_POM</token>
 									<value>${jre.version}</value>
 								</replacement>
