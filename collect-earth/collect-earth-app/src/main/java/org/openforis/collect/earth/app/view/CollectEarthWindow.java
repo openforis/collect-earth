@@ -254,9 +254,12 @@ public class CollectEarthWindow implements InitializingBean, DisposableBean{
 
 		c.gridx = 0;
 		c.gridy++;
-		c.gridwidth = GridBagConstraints.HORIZONTAL;
-		pane.add(new JLabel(Messages.getString("CollectEarthWindow.28") + "<br>" //$NON-NLS-1$ //$NON-NLS-2$
-				+ Messages.getString("CollectEarthWindow.30")), c); //$NON-NLS-1$
+		// gridwidth counts columns : HORIZONTAL is a value of the fill constant and happens to be 2, which is what this
+		// label needs, but it says something else
+		c.gridwidth = 2;
+		// Wrapped in html, otherwise the <br> between the two lines is shown as it is written
+		pane.add(new JLabel("<html>" + Messages.getString("CollectEarthWindow.28") + "<br>" //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$
+				+ Messages.getString("CollectEarthWindow.30") + "</html>"), c); //$NON-NLS-1$ //$NON-NLS-2$
 
 		c.gridx = 0;
 		c.gridy++;
