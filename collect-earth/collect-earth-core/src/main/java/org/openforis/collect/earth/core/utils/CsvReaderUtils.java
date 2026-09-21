@@ -23,15 +23,13 @@ public class CsvReaderUtils {
 	}
 
 	public static boolean isCsvFile(String csvFile) throws IOException {
-		boolean isCsvFile = true;
-		try {
-			getCsvReader(csvFile, false);
+		// Ask for the check : without it the file was only opened, so every readable file passed as a CSV and the reader leaked
+		try ( CSVReader reader = getCsvReader(csvFile, true) ) {
+			return reader != null;
 		} catch (IllegalArgumentException e) {
 			// The CSV reader could not read the file, thus it is not a CSVReader
-			isCsvFile = false;
+			return false;
 		}
-
-		return isCsvFile;
 	}
 
 	public static CSVReader getCsvReader(String csvFile) throws IOException {
@@ -46,17 +44,20 @@ public class CsvReaderUtils {
 			throws IOException {
 
 		char[] possibleSeparators = new char[] { ',', ';', '\t', '|' };
+		if (!checkContainsCoordinates) {
+			return getCsvReader(csvFile, possibleSeparators[0], skipHeader);
+		}
+
 		CSVReader csvReader = null;
 		for (char c : possibleSeparators) {
-			CSVReader commaSeparatedReader = getCsvReader(csvFile, c, skipHeader);
-			if (!checkContainsCoordinates) {
-				return commaSeparatedReader;
-			} else if (checkCsvReaderWorks(commaSeparatedReader)) {
-				csvReader = getCsvReader(csvFile, c, skipHeader); // Get the reader again so that it starts from the
-																	// first column
+			boolean separatorWorks;
+			// Close the reader that was used for the test : the one that worked used to be left open
+			try ( CSVReader testReader = getCsvReader(csvFile, c, skipHeader) ) {
+				separatorWorks = checkCsvReaderWorks(testReader);
+			}
+			if (separatorWorks) {
+				csvReader = getCsvReader(csvFile, c, skipHeader); // Get the reader again so that it starts from the first column
 				break;
-			} else {
-				commaSeparatedReader.close();
 			}
 		}
 

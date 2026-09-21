@@ -12,7 +12,9 @@ import static org.openforis.collect.earth.app.EarthConstants.ROOT_ENTITY_NAME;
 import static org.openforis.collect.earth.app.EarthConstants.SKIP_FILLED_PLOT_PARAMETER;
 
 import java.io.File;
+import java.awt.GraphicsEnvironment;
 import java.text.SimpleDateFormat;
+import java.util.Arrays;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
@@ -261,13 +263,8 @@ public abstract class AbstractEarthSurveyService {
 		final String[] placemarkIds = new String[listOfRecords.size()];
 		for (int i = 0; i < listOfRecords.size(); i++) {
 			CollectRecordSummary recordSummary = listOfRecords.get(i);
-			List<String> rootEntityKeyValues = recordSummary.getRootEntityKeyValues();
-			StringBuilder keyValues = new StringBuilder();
-			for (String key : rootEntityKeyValues) {
-				keyValues.append(key).append(",");
-			}
-
-			placemarkIds[i] = keyValues.substring(0,keyValues.length()-1); // return the keys minus the last comma
+			// A record with no key values used to throw here : substring(0, -1)
+			placemarkIds[i] = String.join(",", recordSummary.getRootEntityKeyValues());
 		}
 
 		return placemarkIds;
@@ -306,10 +303,22 @@ public abstract class AbstractEarthSurveyService {
 			else {
 
 				// Choose one of the versions
-				ModelVersion chosenVersion = (ModelVersion) JOptionPane.showInputDialog(null,
-						"Choose one survey version to work with", "Choose version", JOptionPane.QUESTION_MESSAGE, null,
-						loadedCollectSurvey.getVersions().toArray(),
-						loadedCollectSurvey.getVersions().get(loadedCollectSurvey.getVersions().size() - 1));
+				List<ModelVersion> versions = loadedCollectSurvey.getVersions();
+				ModelVersion latestVersion = versions.get(versions.size() - 1);
+
+				ModelVersion chosenVersion = null;
+				// A server with no display cannot show this dialog, it would throw a HeadlessException
+				if (!GraphicsEnvironment.isHeadless()) {
+					chosenVersion = (ModelVersion) JOptionPane.showInputDialog(null,
+							"Choose one survey version to work with", "Choose version", JOptionPane.QUESTION_MESSAGE, null,
+							versions.toArray(), latestVersion);
+				}
+
+				if (chosenVersion == null) {
+					// The user closed the dialog, or there is no display : keep the survey usable with its most recent version
+					logger.warn("No survey version was chosen, using {}", latestVersion.getName());
+					chosenVersion = latestVersion;
+				}
 				localPropertiesService.setModelVersionName(chosenVersion.getName());
 
 			}
@@ -660,15 +669,23 @@ public abstract class AbstractEarthSurveyService {
 			return;
 		}
 		List<AttributeDefinition> keyAttributeDefinitions = rootEntityDefinitions.get(0).getKeyAttributeDefinitions();
-		for (int i = 0; i < keyAttributeValues.length; i++) {
-			String keyValue = keyAttributeValues[i];
+		boolean preview = isPreviewRecordID(keyAttributeValues);
+		// The loop used to be driven by the supplied values : too many of them threw an IndexOutOfBoundsException, and too few
+		// left part of the identity of the record unset
+		if (!preview && keyAttributeValues.length != keyAttributeDefinitions.size()) {
+			throw new IllegalArgumentException(String.format(
+					"The root entity of the survey has %d key attribute(s) but the placemark id supplied %d : %s",
+					keyAttributeDefinitions.size(), keyAttributeValues.length, Arrays.toString(keyAttributeValues)));
+		}
+
+		for (int i = 0; i < keyAttributeDefinitions.size(); i++) {
 			AttributeDefinition keyAttrDef = keyAttributeDefinitions.get(i);
 			Attribute<?, Value> keyAttr = record.findNodeByPath(keyAttrDef.getPath());
 			Value keyVal;
-			if (isPreviewRecordID(keyAttributeValues)) {
-				keyVal = keyAttr.getDefinition().createValue(i == 0 ? PREVIEW_PLACEMARK_ID : "1");
+			if (preview) {
+				keyVal = keyAttrDef.createValue(i == 0 ? PREVIEW_PLACEMARK_ID : "1");
 			} else {
-				keyVal = keyAttr.getDefinition().createValue(keyValue);
+				keyVal = keyAttrDef.createValue(keyAttributeValues[i]);
 			}
 			recordUpdater.updateAttribute(keyAttr, keyVal);
 

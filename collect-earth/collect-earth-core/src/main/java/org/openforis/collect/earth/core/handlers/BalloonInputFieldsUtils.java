@@ -147,6 +147,11 @@ public class BalloonInputFieldsUtils {
 
 		ModelVersion recordVersion = record.getSurvey().getVersion(modelVersionName);
 		List<Attribute<?, ?>> attributes = handler.getAttributeNodesFromParameter(cleanName, rootEntity);
+		if (attributes.isEmpty()) {
+			// A multiple attribute with no instances in this record : there is nothing to show yet, and get(0) used to throw
+			info.setVisible(false);
+			return info;
+		}
 		Attribute<?, ?> firstAttribute = attributes.get(0);
 
 		String value = handler.getValueFromParameter(cleanName, rootEntity);

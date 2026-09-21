@@ -35,11 +35,8 @@ public class PlacemarkLoadResult {
 	}
 
 	public PlacemarkInputFieldInfo getPlacemarkInfo(String parameterName) {
-		PlacemarkInputFieldInfo placemarkInputFieldInfo = inputFieldInfoByParameterName.get(parameterName);
-		if (placemarkInputFieldInfo == null) {
-			placemarkInputFieldInfo = new PlacemarkInputFieldInfo();
-		}
-		return placemarkInputFieldInfo;
+		// Keep the new info in the map : it used to be returned detached, so setFieldErrorMessage wrote into an object nobody read
+		return inputFieldInfoByParameterName.computeIfAbsent(parameterName, name -> new PlacemarkInputFieldInfo());
 	}
 	
 	private void updateCalculatedFields() {
