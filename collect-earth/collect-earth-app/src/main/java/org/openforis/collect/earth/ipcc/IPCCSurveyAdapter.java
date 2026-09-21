@@ -151,7 +151,8 @@ public class IPCCSurveyAdapter {
 																											// LU conversion
 																											// was FS then
 																											// it becomes F
-					"idm:blank(" + TEMPLATE_SECOND_LU_CHANGE + ") or " + TEMPLATE_SECOND_LU_CHANGE + " = true() "));
+					"idm:blank(" + TEMPLATE_SECOND_LU_CHANGE + ") or " + TEMPLATE_SECOND_LU_CHANGE + " != true() ")); // The default
+					// above covers "= true()" : repeating it here left the attribute empty whenever second_lu_change is false
 	
 			oldestLu.setAttributeDefaults(calculation);
 			oldestLu.setAnnotation( new QName("ui:hide"), "true" );

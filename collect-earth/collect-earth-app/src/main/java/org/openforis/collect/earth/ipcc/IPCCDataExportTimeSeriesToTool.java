@@ -1,5 +1,8 @@
 package org.openforis.collect.earth.ipcc;
 
+import java.util.Objects;
+import java.util.Map;
+import java.util.IdentityHashMap;
 import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
@@ -93,6 +96,12 @@ public class IPCCDataExportTimeSeriesToTool extends AbstractIPCCDataExport {
 	private static final String SUM_EXPANSION_FACTOR = "SUM_EXPANSION_FACTOR";
 
 	private static final String SUBDIVISION_AUX = "SUBDIV_AUX";
+
+	/**
+	 * The value that the database holds for the region of each LrtRegion. The name of the region is cleaned up for the export
+	 * ( quotes removed, "Unknown" when there is none ), so it cannot be used to find the plots of that region again
+	 */
+	private final Map<LrtRegion, String> regionKeyByRegion = new IdentityHashMap<>();
 	
 	private static final String NO_SUBDIVISION = "-1";
 	
@@ -434,6 +443,7 @@ public class IPCCDataExportTimeSeriesToTool extends AbstractIPCCDataExport {
 
 	private LrtRegions getLrtRegions() {
 		LrtRegions regions = new LrtRegions();
+		regionKeyByRegion.clear();
 
 		// Collect the regions in the country
 		String selectDiferentRegions = "select " + getStratifyByRegion() + ", SUM(" + RegionCalculationUtils.EXPANSION_FACTOR + ") AS " + SUM_EXPANSION_FACTOR 
@@ -449,8 +459,11 @@ public class IPCCDataExportTimeSeriesToTool extends AbstractIPCCDataExport {
 					@Override
 					public LrtRegion mapRow(ResultSet rs, int rowNum) throws SQLException {
 
-						String regionName = rs.getString( getStratifyByRegion() );
-						
+						// What the database really holds, kept for the queries below : the name is cleaned up for the export, and
+						// looking the plots up by the cleaned name found nothing for a region such as O'Brien, or for no region
+						final String regionKey = rs.getString( getStratifyByRegion() );
+
+						String regionName = regionKey;
 						if( regionName == null || regionName.trim().isEmpty() ) {
                             regionName = UNKNOWN_REGION;
                         }
@@ -462,6 +475,7 @@ public class IPCCDataExportTimeSeriesToTool extends AbstractIPCCDataExport {
 						lrtRegion.setGuid( UUID.randomUUID().toString()  );
 						lrtRegion.setName(regionName);
 						lrtRegion.setApproachId( LAND_REPRESENTATION_APPROACH_USED ); // defaults to IPCC Approach 2
+						regionKeyByRegion.put( lrtRegion, regionKey );
 
 						return lrtRegion;
 					}
@@ -582,10 +596,14 @@ public class IPCCDataExportTimeSeriesToTool extends AbstractIPCCDataExport {
 						
 						// Set the initial Land Use subdivision
 						AbstractLandUseSubdivision<?> previous = LandUseSubdivisionUtils.getSubdivision(luInitial.getCode(), initialSubdivision);
-						if( previous == null || LandUseManagementEnum.find(luInitial, previous.getManagementType()) == null ) {
-							logger.warn( "Error getting the LU subdivison ", luInitial.toString() + "  -  " + secondLUSubdivision );
+						LandUseManagementEnum previousManagement = previous == null ? null
+								: LandUseManagementEnum.find(luInitial, previous.getManagementType());
+						if( previousManagement == null ) {
+							// This used to log and then read the same null, which ended the export of every remaining land unit
+							logger.warn( "No land use subdivision for " + luInitial + " - " + initialSubdivision + " , the land unit is skipped" );
+							return null;
 						}
-						landUnit.setLtIdPrev(LandUseManagementEnum.find(luInitial, previous.getManagementType()).getId());
+						landUnit.setLtIdPrev(previousManagement.getId());
 						
 						landUnit.setCltIdPrev(
 							findStrataLandRepresentation( luInitial, initialSubdivision, landUseSubdivisionStratified.getClimate(), landUseSubdivisionStratified.getSoil(), landUseSubdivisionStratified.getEcozone() ).getId()
@@ -684,6 +702,9 @@ public class IPCCDataExportTimeSeriesToTool extends AbstractIPCCDataExport {
 	
 	private List<LrtLandUnit> generateLandUnits(LrtRegion lrtRegion, LandUseSubdivisionStratified<?> landUseSubdivisionStratified) {
 
+		// The value of the database for this region, null for the plots that have none
+		final String regionKey = regionKeyByRegion.get( lrtRegion );
+
 		// Generate Land Units no change FF/CC/SS/OO/WW/GG throughout the whole period
 		
 		// For each year generate the pre and post land unit
@@ -702,14 +723,14 @@ public class IPCCDataExportTimeSeriesToTool extends AbstractIPCCDataExport {
 		
 		String sqlSelectPreparedStatement = 
 				"select " + sqlGrouping + ", sum( " + RegionCalculationUtils.EXPANSION_FACTOR + ") AS " + AREAS_SUM 
-					+ " FROM " + PLOT_TABLE 
+					+ " FROM " + getSchemaName() + PLOT_TABLE 
 					+ " where " 
 					+ SOIL + " = ? and " 
 					+ CLIMATE + " = ? and "
-					+ ( landUseSubdivisionStratified.getEcozone() !=null? GEZ + "= " +  landUseSubdivisionStratified.getEcozone().getValue() + " and " : "" )
+					+ ( landUseSubdivisionStratified.getEcozone() != null ? GEZ + " = ? and " : "" )
 					+ IPCCSurveyAdapter.ATTR_CURRENT_CATEGORY + " = ? and "
 					+ IPCCSurveyAdapter.ATTR_CURRENT_SUBDIVISION + " = ? and "
-					+ getStratifyByRegion() + " = ? "
+					+ ( regionKey == null ? getStratifyByRegion() + " IS NULL " : getStratifyByRegion() + " = ? " )
 					+ " and " + getPlotFilterClause()
 
 					+ " GROUP BY " + sqlGrouping + " ORDER BY " + AREAS_SUM
@@ -717,19 +738,28 @@ public class IPCCDataExportTimeSeriesToTool extends AbstractIPCCDataExport {
 
 		
 		
+		// The parameters follow the order of the question marks above
+		final List<Object> queryParameters = new ArrayList<>();
+		queryParameters.add( landUseSubdivisionStratified.getSoil().getValue() );
+		queryParameters.add( landUseSubdivisionStratified.getClimate().getValue() );
+		if( landUseSubdivisionStratified.getEcozone() != null ) {
+			queryParameters.add( landUseSubdivisionStratified.getEcozone().getValue() );
+		}
+		queryParameters.add( landUseSubdivisionStratified.getLandUseCategory().getCode() );
+		queryParameters.add( landUseSubdivisionStratified.getLandUseSubdivision().getCode() );
+		if( regionKey != null ) {
+			queryParameters.add( regionKey );
+		}
+
 		List<LrtLandUnit> luData = getJdbcTemplate().query(
 				sqlSelectPreparedStatement, 
-				new ArgumentPreparedStatementSetter( new Object[] {
-						landUseSubdivisionStratified.getSoil().getValue(),
-						landUseSubdivisionStratified.getClimate().getValue(),
-						landUseSubdivisionStratified.getLandUseCategory().getCode(), 
-						landUseSubdivisionStratified.getLandUseSubdivision().getCode(),
-						lrtRegion.getName()
-					} ),			
+				new ArgumentPreparedStatementSetter( queryParameters.toArray() ),			
 				getLandUnitsRowMapper(landUseSubdivisionStratified)
 				
 			);
 		
+		// The mapper answers null for a land unit it cannot build, and those must not reach the exported file
+		luData.removeIf( Objects::isNull );
 		return luData;
 	}
 
@@ -870,9 +900,12 @@ public class IPCCDataExportTimeSeriesToTool extends AbstractIPCCDataExport {
 			@Override
 			public LandUseSubdivisionStratified<?> mapRow(ResultSet rs, int rowNum) throws SQLException {
 				String landUseSubdivision = rs.getString( SUBDIVISION_AUX );
+				// Category and code : the codes are reused between the land use categories, so looking only at the code could
+				// return the subdivision of another category
 				AbstractLandUseSubdivision<?> luSubItem = landUses.getLandUseSubdivisions().stream()
-						.filter(luSubElem -> luSubElem.getCode().equals(landUseSubdivision)).findFirst()
-						.orElseThrow(() -> new IllegalArgumentException( "No LU Subdivisions found for " + landUseSubdivision));
+						.filter(luSubElem -> luSubElem.getCode().equals(landUseSubdivision)
+								&& luSubElem.getCategory() == luCategory).findFirst()
+						.orElseThrow(() -> new IllegalArgumentException( "No LU Subdivisions found for " + luCategory + " - " + landUseSubdivision));
 
 				Integer climateCode = rs.getInt(CLIMATE_COLUMN);
 				ClimateStratumObject climateItem = getStrataClimate().stream()

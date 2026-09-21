@@ -1,5 +1,6 @@
 package org.openforis.collect.earth.ipcc;
 
+import java.io.IOException;
 import java.io.BufferedOutputStream;
 import java.io.File;
 import java.io.FileOutputStream;
@@ -54,7 +55,8 @@ public class SamplingUncertaintyGenerator extends RDBConnector {
 	public Workbook getSamplingUncertainityTemplate() {
 		try {
 			templateFile = new File(TEMPLATE_PATH);
-			return WorkbookFactory.create(templateFile);
+			// Read only : opened for writing the workbook kept the template file locked, and it is never written back
+			return WorkbookFactory.create(templateFile, null, true);
 		} catch (Exception e) {
 			logger.error(TEMPLATE_PATH + " not accessible, problems reading Sampling Uncertainty Template", e);
 			return null;
@@ -74,9 +76,18 @@ public class SamplingUncertaintyGenerator extends RDBConnector {
 			return null;
 		}
 
-		updateTemplate(templateWorkbook, luConversions, initialYear, finalYear);
+		// Closed after use : one workbook, with its native buffers, was leaked on every export
+		try {
+			updateTemplate(templateWorkbook, luConversions, initialYear, finalYear);
 
-		return writeToFile(templateWorkbook, initialYear, finalYear);
+			return writeToFile(templateWorkbook, initialYear, finalYear);
+		} finally {
+			try {
+				templateWorkbook.close();
+			} catch (IOException e) {
+				logger.warn("Error closing the Sampling uncertainty template", e);
+			}
+		}
 
 	}
 
