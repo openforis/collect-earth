@@ -169,6 +169,12 @@ public abstract class AbstractIPCCDataExport extends RDBConnector {
 
 	protected void initSchemaName() {
 		this.schemaName = schemaService.getSchemaPrefix(getExportTypeUsed());
+		// The strata belong to the survey they were read from. These are singletons and the user switches surveys without
+		// restarting, so a second export used to reuse the climates, ecozones and soils of the first one
+		this.climates = null;
+		this.ecozones = null;
+		this.soils = null;
+		this.gezs = null;
 	}
 
 }

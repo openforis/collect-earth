@@ -19,6 +19,7 @@ import org.apache.poi.ss.usermodel.Font;
 import org.apache.poi.ss.usermodel.IndexedColors;
 import org.apache.poi.ss.usermodel.Row;
 import org.apache.poi.ss.usermodel.Sheet;
+import org.apache.poi.ss.util.CellUtil;
 import org.apache.poi.ss.usermodel.Workbook;
 import org.apache.poi.ss.usermodel.WorkbookFactory;
 import org.openforis.collect.earth.app.EarthConstants;
@@ -168,6 +169,12 @@ public class SamplingUncertaintyGenerator extends RDBConnector {
 		// Land Use Conversion data should be set starting at row 6, columns A,B, C
 		int rowTowWriteTo = 5; // the first row is 0 instead of 1
 		for (LandUseCategoryConversion conversion : luConversions) {
+			if (conversion.getLuInitial() == null || conversion.getLuFinal() == null) {
+				// A plot whose category could not be mapped : it has no conversion to write, and the comparisons below threw
+				logger.warn("A land use conversion has no category : {} to {} , it is left out of the uncertainty analysis",
+						conversion.getLuInitial(), conversion.getLuFinal());
+				continue;
+			}
 			CellStyle styleToUse = null;
 			if( conversion.getLuInitial().equals( conversion.getLuFinal()) && conversion.getLuFinal().equals( "F")) {
 				styleToUse = stableForestCellStyle;
@@ -181,15 +188,17 @@ public class SamplingUncertaintyGenerator extends RDBConnector {
 				styleToUse = stableNonForestCellStyle;
 			}
 			
-			Row row = sheet.getRow(rowTowWriteTo);
-			Cell cellConversion = row.getCell(0);
+			// CellUtil creates the row and the cell when the template does not have them : a template edited by hand used to
+			// end the export here with a NullPointerException
+			Row row = CellUtil.getRow(rowTowWriteTo, sheet);
+			Cell cellConversion = CellUtil.getCell(row, 0);
 			cellConversion.setCellValue(conversion.getLuInitial() + " > " + conversion.getLuFinal());
 			cellConversion.setCellStyle(styleToUse);
 
-			Cell cellPlotCount = row.getCell(1);
+			Cell cellPlotCount = CellUtil.getCell(row, 1);
 			cellPlotCount.setCellValue(conversion.getPlotCount());
 
-			Cell cellArea = row.getCell(2);
+			Cell cellArea = CellUtil.getCell(row, 2);
 			cellArea.setCellValue(conversion.getAreaHa());
 
 			rowTowWriteTo++;
@@ -197,13 +206,8 @@ public class SamplingUncertaintyGenerator extends RDBConnector {
 		// Initial year cell 58B
 		// Final Year cell 59B
 
-		Row rowIY = sheet.getRow(57);
-		Cell cellIY = rowIY.getCell(1);
-		cellIY.setCellValue(initialYear);
-
-		Row rowFY = sheet.getRow(58);
-		Cell cellFY = rowFY.getCell(1);
-		cellFY.setCellValue(finalYear);
+		CellUtil.getCell(CellUtil.getRow(57, sheet), 1).setCellValue(initialYear);
+		CellUtil.getCell(CellUtil.getRow(58, sheet), 1).setCellValue(finalYear);
 		
 		BaseFormulaEvaluator.evaluateAllFormulaCells(templateWorkbook);
 	}

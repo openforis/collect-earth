@@ -418,10 +418,10 @@ public class IPCCSurveyAdapter {
 		luCodeLists.add(landUses.CODE_LIST_LAND_USE_SUBCATEGORY);
 
 		for (String codeList : luCodeLists) {
-			try {
-				survey.getCodeList(codeList);
-			} catch (InvalidPathException e) {
-				throw new IPCCGeneratorException("Missing Code List in Survey : " + codeList, e);
+			// The result used to be discarded, so this check passed for every survey and the real failure arrived later as a
+			// confusing SQL error
+			if (codeList == null || survey.getCodeList(codeList) == null) {
+				throw new IPCCGeneratorException("Missing Code List in Survey : " + codeList);
 			}
 		}
 	}
