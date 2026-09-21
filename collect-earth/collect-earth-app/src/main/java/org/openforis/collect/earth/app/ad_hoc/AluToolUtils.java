@@ -80,9 +80,19 @@ public class AluToolUtils {
 	 * @return the lowest bracket of the range. So for "0-100" it would return 0
 	 */
 	public Integer getPrecipitationFromRange(String precipitationRange){
-		String lowerBracket = precipitationRange.substring(0, precipitationRange.indexOf('-')).trim();
+		// -1 is the value used for "unknown". Blank input, and input without a dash, used to throw here
+		if( StringUtils.isBlank( precipitationRange ) ){
+			return -1;
+		}
+		int dash = precipitationRange.indexOf('-');
+		String lowerBracket = ( dash < 0 ? precipitationRange : precipitationRange.substring(0, dash) ).trim();
 		if( lowerBracket.length() > 0 ){
-			return Integer.parseInt(lowerBracket);
+			try{
+				return Integer.parseInt(lowerBracket);
+			}catch( NumberFormatException e ){
+				// Not a number : "unknown", as for a blank range
+				return -1;
+			}
 		}else{
 			return -1;
 		}

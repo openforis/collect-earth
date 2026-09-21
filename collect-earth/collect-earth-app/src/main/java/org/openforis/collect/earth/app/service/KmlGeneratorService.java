@@ -405,12 +405,16 @@ public class KmlGeneratorService {
 		File csvTempFile = null;
 		File balloonFile = null;
 		try {
-			csvTempFile = File.createTempFile("surveyData",  "csv");
+			csvTempFile = File.createTempFile("surveyData",  ".csv");
 			dataImportExportService.exportSurveyAsCsv(csvTempFile, false).startProcessing(); // Get the CSV with the data
 																								// collected!
 
 			try (BufferedReader brCsvReader = new BufferedReader(new FileReader(csvTempFile))) {
 				String headerLine = brCsvReader.readLine();
+				if (headerLine == null) {
+					// An export of a survey with no data used to throw a NullPointerException on the line below
+					throw new KmlGenerationException("There is no data to export : the CSV generated from the survey is empty");
+				}
 				headerLine = headerLine.replaceAll("\"", ""); // remove the quotes that are used in the CSV
 				String[] headers = headerLine.split(",");
 				balloonFile = generateKmlExportBallonFile(headers); // get an HTML balloon template that matches the survey
@@ -439,7 +443,7 @@ public class KmlGeneratorService {
 		File destniationFileTemp = null;
 		try {
 
-			destniationFileTemp = File.createTempFile("TempBalloonForKML", "html");
+			destniationFileTemp = File.createTempFile("TempBalloonForKML", ".html");
 
 			// Process the template file using the data in the "data" Map
 			final File templateFile = new File(FREEMARKER_KML_OUTPUT_TEMPLATE_BALLOON);

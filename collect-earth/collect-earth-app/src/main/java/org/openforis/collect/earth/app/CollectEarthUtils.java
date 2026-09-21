@@ -87,9 +87,14 @@ public class CollectEarthUtils {
 	}
 
 	public static void setUiFont(String ttfFileName) {
-		try {
+		// Closed after use : one stream was leaked on every switch to a language that needs its own font
+		try ( InputStream fontStream = CollectEarthUtils.class.getResourceAsStream(ttfFileName) ) {
+			if (fontStream == null) {
+				// A missing font used to throw a NullPointerException, which is not caught below and ends the application
+				logger.error("The font {} is not present, the interface keeps the font it has", ttfFileName);
+				return;
+			}
 			// create the font to use. Specify the size!
-			InputStream fontStream = CollectEarthUtils.class.getResourceAsStream(ttfFileName);
 			Font laoFont = Font.createFont(Font.TRUETYPE_FONT, fontStream).deriveFont(12f);
 			GraphicsEnvironment ge = GraphicsEnvironment.getLocalGraphicsEnvironment();
 			// register the font

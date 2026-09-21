@@ -12,6 +12,7 @@ import javax.servlet.ServletOutputStream;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 
+import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.ArrayUtils;
 import org.openforis.collect.earth.app.EarthConstants;
 import org.openforis.collect.earth.app.service.EarthSurveyService;
@@ -68,11 +69,17 @@ public class PlacemarkImageServlet extends JsonPocessorServlet {
 	 */
 	@GetMapping("/placemarkIconExtd")
 	public void getImageExt(HttpServletResponse response, HttpServletRequest request, @RequestParam(value = "id", required = false) String id, @RequestParam(value = "listView", required = false) Boolean listView) throws IOException, URISyntaxException {
-		String[] keys = id.split(",");
-
 		if( listView == null ){
 			throw new IllegalArgumentException("This servlet only responds to listView type of requests where the status icons for the placemarks are the expected result"); //$NON-NLS-1$
 		}
+
+		// The id is optional in the signature and was used before this check, so a request without it answered 500 instead of 400
+		if( StringUtils.isBlank( id ) ){
+			response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
+			return;
+		}
+
+		String[] keys = id.split(",");
 
 		// If there is an exception while we get the record info (problem that might happen when using SQLite due to concurrency) return the yellow icon.
 		String imageName = EarthConstants.LIST_NOT_FINISHED_IMAGE;

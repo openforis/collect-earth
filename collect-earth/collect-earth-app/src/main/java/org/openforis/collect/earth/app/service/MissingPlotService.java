@@ -134,8 +134,8 @@ public class MissingPlotService {
 
 	private List<String[]> getPlotDataFromFile(String plotCoordinateFile) {
 		final List<String[]> plotData = new ArrayList<>();
-		try {
-			final CSVReader plotCsvReader = getCsvReader(plotCoordinateFile);
+		// Closed after use : one file handle was leaked for every file the user selected
+		try ( CSVReader plotCsvReader = getCsvReader(plotCoordinateFile) ) {
 			String[] csvRow;
 			while ((csvRow = plotCsvReader.readNext()) != null) {
 				plotData.add(csvRow);
@@ -170,9 +170,13 @@ public class MissingPlotService {
 			for (final String[] plotData : plotDataInFile) {
 
 				String[] plotKeys = getKeys(plotData);
-				// If the plot ID is not contained in the DB
-				// And if the latitude cell (second column) actually contains a number (so it is not a header row)
-				if (!isIdActivelySavedInDB(plotKeys) && isLatitudeANumber(plotData[ plotKeys.length ]) ) {
+				// A blank or short row used to throw here and end the check of every remaining plot
+				if ( plotData.length <= plotKeys.length ) {
+					continue;
+				}
+				// If the latitude cell (second column) actually contains a number (so it is not a header row)
+				// And if the plot ID is not contained in the DB. The cheap check goes first, the other one queries the database
+				if (isLatitudeANumber(plotData[ plotKeys.length ]) && !isIdActivelySavedInDB(plotKeys) ) {
 					missingPlotIdsByFile.get(plotFile).add(plotData);
 				}
 			}

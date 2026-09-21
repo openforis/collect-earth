@@ -17,6 +17,7 @@ import javax.xml.parsers.DocumentBuilder;
 import javax.xml.parsers.DocumentBuilderFactory;
 import javax.xml.parsers.ParserConfigurationException;
 
+import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.io.FileUtils;
 import org.openforis.collect.earth.app.service.LocalPropertiesService.EarthProperty;
 import org.openforis.collect.earth.app.view.DataFormat;
@@ -109,9 +110,12 @@ public class KmlImportService {
                         if (placemarkChild.getNodeName().equalsIgnoreCase("Point")) { //$NON-NLS-1$
                             String coordinates = processPoint(placemarkChild);
 
-                            String[] splitCoords = coordinates.split(","); //$NON-NLS-1$
-                            longitude = splitCoords[0];
-                            latitude = splitCoords[1];
+                            // A point with no coordinates, or with a single value, used to end the import of the whole file
+                            String[] splitCoords = coordinates == null ? new String[0] : coordinates.split(","); //$NON-NLS-1$
+                            if (splitCoords.length > 1) {
+                                longitude = splitCoords[0];
+                                latitude = splitCoords[1];
+                            }
 
                         } else if (placemarkChild.getNodeName().equalsIgnoreCase("Multigeometry")) { //$NON-NLS-1$ // Special case for QGis generated KML
 
@@ -123,10 +127,12 @@ public class KmlImportService {
                                 if (multigeometryChild.getNodeName().equals("Point")) { //$NON-NLS-1$
                                     String coordinates = processPoint(multigeometryChild);
 
-                                    String[] splitCoords = coordinates.split(","); //$NON-NLS-1$
+                                    String[] splitCoords = coordinates == null ? new String[0] : coordinates.split(","); //$NON-NLS-1$
 
-                                    longitude = splitCoords[0];
-                                    latitude = splitCoords[1];
+                                    if (splitCoords.length > 1) {
+                                        longitude = splitCoords[0];
+                                        latitude = splitCoords[1];
+                                    }
                                 }
                             }
                         }
@@ -151,13 +157,21 @@ public class KmlImportService {
 		}
 	}
 
+	/**
+	 * @return The "longitude,latitude[,elevation]" text of the point, or null when the KML has no usable coordinates for it
+	 */
 	public String processPoint(Node placemarkChild) {
 		NodeList lookAtNodes  = placemarkChild.getChildNodes();
 		String coordinates = null;
 		for (int h=0; h<lookAtNodes.getLength(); h++){
 			Node lookAtChild = lookAtNodes.item(h);
 			if( lookAtChild.getNodeName().equalsIgnoreCase("coordinates" ) ){ //$NON-NLS-1$
-				 coordinates = lookAtChild.getFirstChild().getNodeValue();
+				// An empty <coordinates/> element has no child, which used to throw here
+				Node coordinatesText = lookAtChild.getFirstChild();
+				if( coordinatesText != null ){
+					// A KML written with indentation puts newlines and spaces around the coordinates, and they ended up inside the CSV
+					coordinates = StringUtils.trimToNull( coordinatesText.getNodeValue() );
+				}
 			}
 		}
 		return coordinates;

@@ -345,9 +345,10 @@ public class EarthApp {
 			getKmlGeneratorService().generateKmlFile();
 		} catch (final KmlGenerationException e) {
 			logger.error("Problems while generating the KML file ", e); //$NON-NLS-1$
+			// An exception with no message used to throw here, so the failure of the KML was never reported
 			showMessage("<html>Problems while generating the KML file: <br/> " //$NON-NLS-1$
 					+ (e.getCause() != null ? (e.getCause() + "<br/>") : "")
-					+ (e.getMessage().length() > 300 ? e.getMessage().substring(0, 300) : e.getMessage()) + "</html>");
+					+ StringUtils.abbreviate(StringUtils.defaultString(e.getMessage(), e.toString()), 300) + "</html>");
 		} catch (final Exception e) {
 			logger.error("Could not generate KML file", e); //$NON-NLS-1$
 			showMessage("<html>Error generating KML file : <br/> " + e.getMessage()); //$NON-NLS-1$
@@ -366,6 +367,10 @@ public class EarthApp {
 					+ LoadProjectFileServlet.PROJECT_FILE_PARAMETER + "=" + //$NON-NLS-1$
 					URLEncoder.encode(doubleClickedProjecFile, StandardCharsets.UTF_8.name()));
 			URLConnection urlConn = loadProjectFileInRunningCE.openConnection();
+			// Without these the process that is starting waited for ever when the running instance does not answer,
+			// with nothing on screen but the splash
+			urlConn.setConnectTimeout(5000);
+			urlConn.setReadTimeout(5000);
 
 			try (BufferedReader in = new BufferedReader(new InputStreamReader(urlConn.getInputStream()))) {
 				String inputLine;
