@@ -72,10 +72,12 @@ public abstract class ApplyOptionChangesListener implements ActionListener {
 			if( !component.isVisible() ) {
 				setPropertyValue(propertyKey, "");
 			}else {
-				if (component instanceof JTextComponent) {
-					setPropertyValue(propertyKey, ((JTextComponent) component).getText());
-				} else if (component instanceof JPasswordField) {
+				if (component instanceof JPasswordField) {
+					// Before JTextComponent : a JPasswordField is one, so the branch below used to catch it and the deprecated
+					// getText() was the one really used
 					setPropertyValue(propertyKey, new String( ((JPasswordField) component).getPassword()) );
+				} else if (component instanceof JTextComponent) {
+					setPropertyValue(propertyKey, ((JTextComponent) component).getText());
 				}else if (component instanceof JCheckBox) {
 					setPropertyValue(propertyKey, ((JCheckBox) component).isSelected() + ""); //$NON-NLS-1$
 				} else if (component instanceof JComboBox) {

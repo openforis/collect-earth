@@ -105,6 +105,9 @@ public class CollectEarthMenu extends JMenuBar implements InitializingBean {
 	}
 
 	protected void init() {
+		// init() runs again on every change of language, and the menus are built again : start from an empty list, it used to
+		// keep the items of every language that had been chosen
+		serverMenuItems.clear();
 		setFrame(collectEarthWindow.getFrame());
 		ensureJSwingAppender();
 
@@ -360,7 +363,7 @@ public class CollectEarthMenu extends JMenuBar implements InitializingBean {
 			}
 		});
 		fileMenu.add(menuItem);
-		this.add(fileMenu);
+		// init() adds this menu to the bar, it used to be added here as well
 		fileMenu.addSeparator();
 		menuItem = new JMenuItem(Messages.getString("CollectEarthWindow.11")); //$NON-NLS-1$
 		menuItem.addActionListener(collectEarthWindow.getCloseActionListener());
@@ -512,8 +515,10 @@ public class CollectEarthMenu extends JMenuBar implements InitializingBean {
 				final JDialog dialog = new PropertiesDialog(owner, localPropertiesService, earthProjectsService,
 						backupSqlLiteService.getAutomaticBackUpFolder().getPath(), analysisSaikuService,
 						earthSurveyService.getCollectSurvey());
-				dialog.setVisible(true);
+				// pack() before showing it : the dialog is modal, so setVisible only returns once it is closed and the
+				// dialog was shown with no size of its own
 				dialog.pack();
+				dialog.setVisible(true);
 			} catch (Exception ex) {
 				logger.error("Failed to open Properties dialog", ex);
 				JOptionPane.showMessageDialog(owner,

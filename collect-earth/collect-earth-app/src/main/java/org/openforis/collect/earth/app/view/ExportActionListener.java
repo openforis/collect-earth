@@ -435,7 +435,13 @@ public final class ExportActionListener implements ActionListener {
 
         String preselectName = operator + "_collectedData_"; //$NON-NLS-1$
 
-        preselectName += earthSurveyService.getCollectSurvey().getName();
+        // Guarded as it already is where the date of the last export is read : pressing Export with no survey loaded used to
+        // throw a NullPointerException here, and the user saw nothing but a line in the log
+        if (earthSurveyService.getCollectSurvey() == null) {
+            logger.warn("Exporting with no survey loaded, the name of the file carries no survey name"); //$NON-NLS-1$
+        } else {
+            preselectName += earthSurveyService.getCollectSurvey().getName();
+        }
 
 		if (filterAttribute != null) {
 			// Make the exports of the different attribute values distinguishable from each other

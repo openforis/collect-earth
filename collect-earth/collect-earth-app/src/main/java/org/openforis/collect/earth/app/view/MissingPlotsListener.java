@@ -193,7 +193,7 @@ public final class MissingPlotsListener implements ActionListener {
 					FileUtils.copyFile(tempFile, saveToCsvFile[0]);
 				} catch (IOException e1) {
 					logger.error("Error when copying temporary file with missing plots to final destination " //$NON-NLS-1$
-							+ tempFile.getAbsolutePath() + " to " + saveToCsvFile[0].getAbsolutePath(), e); //$NON-NLS-1$
+							+ tempFile.getAbsolutePath() + " to " + saveToCsvFile[0].getAbsolutePath(), e1); //$NON-NLS-1$
 				}
 			}
 		};

@@ -53,8 +53,7 @@ public abstract class ProcessMonitorDialog<V,S extends ProcessStatus> extends Th
 											int numberOfErrors = 0;
 											for (ParsingError parsingError : errors) {
 												parsisngErrorMsg.append(Messages.getString("ProcessMonitorDialog.1")).append( parsingError.getRow() ).append(" - ").append( parsingError.getMessage() ).append(", ").append( parsingError.getErrorType() ).append(Messages.getString("ProcessMonitorDialog.4")).append( ArrayUtils.toString(parsingError.getColumns()) ).append(Messages.getString("ProcessMonitorDialog.5")).append( ArrayUtils.toString(parsingError.getMessageArgs()) ).append("\r\n"); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$ //$NON-NLS-4$ //$NON-NLS-5$ //$NON-NLS-6$
-												numberOfErrors ++;
-												if( numberOfErrors > MAX_ERRORS_SHOWN ){
+												if( ++numberOfErrors >= MAX_ERRORS_SHOWN ){
 													break;
 												}
 											}

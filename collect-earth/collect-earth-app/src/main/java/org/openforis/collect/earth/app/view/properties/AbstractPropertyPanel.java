@@ -156,26 +156,4 @@ public abstract class AbstractPropertyPanel extends JPanel {
             parent.repaint();
         }
     }
-
-    // ========== Validation ==========
-
-    /**
-     * Validates all components in this panel.
-     * @return true if all validations pass
-     */
-    public boolean validateFields() {
-        for (JComponent[] comps : propertyToComponent.values()) {
-            if (comps != null && comps.length > 0) {
-                JComponent comp = comps[0];
-                if (!comp.isVisible() || !comp.isEnabled()) {
-                    continue;
-                }
-                javax.swing.InputVerifier verifier = comp.getInputVerifier();
-                if (verifier != null && !verifier.verify(comp)) {
-                    return false;
-                }
-            }
-        }
-        return true;
-    }
 }
