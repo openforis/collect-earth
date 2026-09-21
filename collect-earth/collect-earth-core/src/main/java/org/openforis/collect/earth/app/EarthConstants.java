@@ -91,11 +91,11 @@ public class EarthConstants {
 	}
 
 	/**
-	 * Shape of the optional outer frame drawn around each plot (see distance_to_buffers / buffer_shape in earth.properties).
-	 * The frame is not part of the plot: it only gives the interpreter an idea of the surroundings.
+	 * Shape of the optional reference area drawn around each plot (see distance_to_buffers / buffer_shape in earth.properties).
+	 * The reference area is not part of the plot: it only gives the interpreter an idea of the surroundings.
 	 */
 	public enum BUFFER_SHAPE {
-		NONE("No frame"), SQUARE("Square"), CIRCLE("Circle"), HEXAGON("Hexagon");
+		NONE("No reference area"), SQUARE("Square"), CIRCLE("Circle"), HEXAGON("Hexagon");
 
 		private String label;
 

@@ -334,13 +334,13 @@ public class LocalPropertiesService extends Observable {
 	public BUFFER_SHAPE getBufferShape() {
 		final String value = getValue(EarthProperty.BUFFER_SHAPE);
 		if (StringUtils.isBlank(value)) {
-			// Projects that set distance_to_buffers before the shape became configurable expect square frames
+			// Projects that set distance_to_buffers before the shape became configurable expect square reference areas
 			return BUFFER_SHAPE.SQUARE;
 		}
 		try {
 			return BUFFER_SHAPE.valueOf(value.trim().toUpperCase());
 		} catch (IllegalArgumentException e) {
-			logger.warn("Unknown buffer_shape '{}' in the properties, drawing {} frames instead", value, BUFFER_SHAPE.SQUARE.name());
+			logger.warn("Unknown buffer_shape '{}' in the properties, drawing {} reference areas instead", value, BUFFER_SHAPE.SQUARE.name());
 			return BUFFER_SHAPE.SQUARE;
 		}
 	}

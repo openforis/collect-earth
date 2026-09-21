@@ -30,13 +30,13 @@ public class PlotOptionsPanel extends AbstractPropertyPanel {
 
     private static final long serialVersionUID = 1L;
 
-    /** Below this ratio between the frame area and the plot area the frame shows too little of the surroundings. */
-    private static final double MIN_FRAME_TO_PLOT_AREA_RATIO = 10d;
+    /** Below this ratio between the reference area and the plot area the reference area shows too little of the surroundings. */
+    private static final double MIN_REFERENCE_AREA_TO_PLOT_AREA_RATIO = 10d;
     /** Margin that CircleKmlGenerator adds to the radius when drawing the outline of circle and hexagon plots. */
     private static final double CIRCLE_PLOT_MARGIN = 5d;
-    private static final int MIN_FRAME_DISTANCE = 1;
-    private static final int MAX_FRAME_DISTANCE = 10000;
-    private static final int DEFAULT_FRAME_DISTANCE = 100;
+    private static final int MIN_REFERENCE_AREA_DISTANCE = 1;
+    private static final int MAX_REFERENCE_AREA_DISTANCE = 10000;
+    private static final int DEFAULT_REFERENCE_AREA_DISTANCE = 100;
     private static final double COS_30 = Math.cos(Math.toRadians(30));
     /** Area of a regular hexagon = factor * (distance from the center to a vertex)^2 */
     private static final double HEXAGON_AREA_FACTOR = 3 * Math.sqrt(3) / 2;
@@ -52,18 +52,18 @@ public class PlotOptionsPanel extends AbstractPropertyPanel {
     private JSpinner dotsSide;
     private JSpinner largeCentralPlotSide;
     private JSpinner distanceBetweenPlots;
-    private JComboBox<BUFFER_SHAPE> frameShape;
-    private JSpinner frameDistance;
-    private JLabel frameWarningLabel;
+    private JComboBox<BUFFER_SHAPE> referenceAreaShape;
+    private JSpinner referenceAreaDistance;
+    private JLabel referenceAreaWarningLabel;
     private JLabel areaLabel;
     /** The same field is the distance between points of a square plot and the radius of a round one. */
     private JLabel distanceOrRadiusLabel;
 
     // State
-    /** True until the user types a frame distance, when none was stored in the properties: the panel proposes one. */
-    private boolean frameDistanceNeverSet;
+    /** True until the user types a reference area distance, when none was stored in the properties: the panel proposes one. */
+    private boolean referenceAreaDistanceNeverSet;
     /** Guards the change listener of the spinner against the values set by the panel itself. */
-    private boolean settingFrameDistance;
+    private boolean settingReferenceAreaDistance;
 
     /**
      * Creates a new plot options panel.
@@ -119,18 +119,18 @@ public class PlotOptionsPanel extends AbstractPropertyPanel {
                 Messages.getString("OptionWizard.1031"));
         registerComponent(EarthProperty.DISTANCE_BETWEEN_PLOTS, distanceBetweenPlots);
 
-        // Outer frame drawn around the plot to give an idea of the surroundings (not part of the plot itself)
-        frameShape = componentFactory.createBufferShapeComboBox();
-        registerComponent(EarthProperty.BUFFER_SHAPE, frameShape);
+        // Reference area drawn around the plot to give an idea of the surroundings (not part of the plot itself)
+        referenceAreaShape = componentFactory.createBufferShapeComboBox();
+        registerComponent(EarthProperty.BUFFER_SHAPE, referenceAreaShape);
 
-        frameDistanceNeverSet = StringUtils.isBlank(localPropertiesService.getValue(EarthProperty.DISTANCE_TO_BUFFERS));
-        frameDistance = new JSpinner(new SpinnerNumberModel(getStoredFrameDistance(), MIN_FRAME_DISTANCE, MAX_FRAME_DISTANCE, 1));
-        frameDistance.setToolTipText(Messages.getString("OptionWizard.1023"));
-        frameDistance.setInputVerifier(new FrameDistanceVerifier());
-        registerComponent(EarthProperty.DISTANCE_TO_BUFFERS, frameDistance);
+        referenceAreaDistanceNeverSet = StringUtils.isBlank(localPropertiesService.getValue(EarthProperty.DISTANCE_TO_BUFFERS));
+        referenceAreaDistance = new JSpinner(new SpinnerNumberModel(getStoredReferenceAreaDistance(), MIN_REFERENCE_AREA_DISTANCE, MAX_REFERENCE_AREA_DISTANCE, 1));
+        referenceAreaDistance.setToolTipText(Messages.getString("OptionWizard.1023"));
+        referenceAreaDistance.setInputVerifier(new ReferenceAreaDistanceVerifier());
+        registerComponent(EarthProperty.DISTANCE_TO_BUFFERS, referenceAreaDistance);
 
-        frameWarningLabel = new JLabel("<html><body style='width: 380px'>" + Messages.getString("OptionWizard.1024") + "</body></html>");
-        frameWarningLabel.setForeground(WARNING_TEXT_COLOR);
+        referenceAreaWarningLabel = new JLabel("<html><body style='width: 380px'>" + Messages.getString("OptionWizard.1024") + "</body></html>");
+        referenceAreaWarningLabel.setForeground(WARNING_TEXT_COLOR);
 
         // Area display label, filled by updateAreaLabel()
         areaLabel = new JLabel();
@@ -140,10 +140,10 @@ public class PlotOptionsPanel extends AbstractPropertyPanel {
      * distance_to_buffers may hold several comma separated distances when it was edited by hand in earth.properties;
      * the panel edits (and saves back) only the first one.
      */
-    private int getStoredFrameDistance() {
+    private int getStoredReferenceAreaDistance() {
         String stored = localPropertiesService.getValue(EarthProperty.DISTANCE_TO_BUFFERS);
         String first = StringUtils.substringBefore(stored, ",").trim();
-        return PropertyComponentFactory.parseIntWithinRange(first, DEFAULT_FRAME_DISTANCE, MIN_FRAME_DISTANCE, MAX_FRAME_DISTANCE);
+        return PropertyComponentFactory.parseIntWithinRange(first, DEFAULT_REFERENCE_AREA_DISTANCE, MIN_REFERENCE_AREA_DISTANCE, MAX_REFERENCE_AREA_DISTANCE);
     }
 
     private void layoutComponents() {
@@ -155,9 +155,9 @@ public class PlotOptionsPanel extends AbstractPropertyPanel {
         addLabeledRow(this, row++, "OptionWizard.95", dotsSide);
         addLabeledRow(this, row++, "OptionWizard.129", largeCentralPlotSide);
         addLabeledRow(this, row++, "OptionWizard.130", distanceBetweenPlots);
-        addLabeledRow(this, row++, "OptionWizard.1022", frameShape);
-        addLabeledRow(this, row++, "OptionWizard.1023", frameDistance);
-        addFullWidthRow(this, row++, frameWarningLabel);
+        addLabeledRow(this, row++, "OptionWizard.1022", referenceAreaShape);
+        addLabeledRow(this, row++, "OptionWizard.1023", referenceAreaDistance);
+        addFullWidthRow(this, row++, referenceAreaWarningLabel);
         addFullWidthRow(this, row, areaLabel);
     }
 
@@ -167,18 +167,18 @@ public class PlotOptionsPanel extends AbstractPropertyPanel {
             syncRowsWithNumberOfPoints();
             refreshDerivedInfo();
         });
-        // The plot geometry moves the area and the thresholds of the frame checks
+        // The plot geometry moves the area and the thresholds of the reference area checks
         distanceBetweenPoints.addChangeListener(e -> refreshDerivedInfo());
         distanceToFrame.addChangeListener(e -> refreshDerivedInfo());
 
-        frameShape.addActionListener(e -> {
-            handleFrameVisibility();
-            proposeFrameDistanceIfNeeded();
+        referenceAreaShape.addActionListener(e -> {
+            handleReferenceAreaVisibility();
+            proposeReferenceAreaDistanceIfNeeded();
             refreshDerivedInfo();
         });
-        frameDistance.addChangeListener(e -> {
-            if (!settingFrameDistance) {
-                frameDistanceNeverSet = false;
+        referenceAreaDistance.addChangeListener(e -> {
+            if (!settingReferenceAreaDistance) {
+                referenceAreaDistanceNeverSet = false;
             }
             refreshDerivedInfo();
         });
@@ -195,7 +195,7 @@ public class PlotOptionsPanel extends AbstractPropertyPanel {
         setRowState(dotsSide, false);
         setRowState(distanceBetweenPlots, false);
         setRowState(largeCentralPlotSide, false);
-        setRowState(frameShape, false);
+        setRowState(referenceAreaShape, false);
         areaLabel.setVisible(false);
 
         // Then enable specific components based on the selected shape
@@ -204,7 +204,7 @@ public class PlotOptionsPanel extends AbstractPropertyPanel {
         if (isSquarePlot()) {
             setRowState(numberPoints, true);
             setRowState(distanceToFrame, true);
-            setRowState(frameShape, true);
+            setRowState(referenceAreaShape, true);
             areaLabel.setVisible(true);
             distanceOrRadiusLabel.setText(Messages.getString("OptionWizard.36"));
 
@@ -213,7 +213,7 @@ public class PlotOptionsPanel extends AbstractPropertyPanel {
             }
         } else if (isRoundPlot()) {
             setRowState(numberPoints, true);
-            setRowState(frameShape, true);
+            setRowState(referenceAreaShape, true);
             areaLabel.setVisible(true);
             distanceOrRadiusLabel.setText(Messages.getString("OptionWizard.132"));
         } else if (selectedShape == SAMPLE_SHAPE.NFI_THREE_CIRCLES || selectedShape == SAMPLE_SHAPE.NFI_FOUR_CIRCLES) {
@@ -224,7 +224,7 @@ public class PlotOptionsPanel extends AbstractPropertyPanel {
         }
 
         syncRowsWithNumberOfPoints();
-        handleFrameVisibility();
+        handleReferenceAreaVisibility();
         refreshDerivedInfo();
 
         revalidate();
@@ -248,44 +248,44 @@ public class PlotOptionsPanel extends AbstractPropertyPanel {
     }
 
     /**
-     * The frame distance only makes sense when a frame shape is selected for a plot shape that supports frames.
-     * Hidden rows are saved as empty properties, so "no frame" ends up as an empty distance_to_buffers.
+     * The reference area distance only makes sense when a shape is selected for a plot shape that supports one.
+     * Hidden rows are saved as empty properties, so "no reference area" ends up as an empty distance_to_buffers.
      */
-    private void handleFrameVisibility() {
-        boolean frameOn = frameShape.isVisible() && selectedFrameShape() != BUFFER_SHAPE.NONE;
-        setRowState(frameDistance, frameOn);
+    private void handleReferenceAreaVisibility() {
+        boolean referenceAreaOn = referenceAreaShape.isVisible() && selectedReferenceAreaShape() != BUFFER_SHAPE.NONE;
+        setRowState(referenceAreaDistance, referenceAreaOn);
     }
 
     /**
-     * Until the user sets a distance, turning the frame on (or changing its shape) proposes the distance that gives
+     * Until the user sets a distance, turning the reference area on (or changing its shape) proposes the distance that gives
      * enough context; a distance that would not enclose the plot is replaced by that same proposal.
      */
-    private void proposeFrameDistanceIfNeeded() {
-        if (frameDistance.isVisible()
-                && (frameDistanceNeverSet || (Integer) frameDistance.getValue() < minimumFrameDistance())) {
-            setFrameDistance(recommendedFrameDistance());
+    private void proposeReferenceAreaDistanceIfNeeded() {
+        if (referenceAreaDistance.isVisible()
+                && (referenceAreaDistanceNeverSet || (Integer) referenceAreaDistance.getValue() < minimumReferenceAreaDistance())) {
+            setReferenceAreaDistance(recommendedReferenceAreaDistance());
         }
     }
 
-    private void setFrameDistance(int distance) {
-        settingFrameDistance = true;
+    private void setReferenceAreaDistance(int distance) {
+        settingReferenceAreaDistance = true;
         try {
-            frameDistance.setValue(distance);
+            referenceAreaDistance.setValue(distance);
         } finally {
-            settingFrameDistance = false;
+            settingReferenceAreaDistance = false;
         }
     }
 
     private void refreshDerivedInfo() {
         updateAreaLabel();
-        updateFrameWarning();
+        updateReferenceAreaWarning();
     }
 
     private void updateAreaLabel() {
         String text = Messages.getString("OptionWizard.131") + formatHectares(plotArea());
-        if (frameDistance.isVisible()) {
+        if (referenceAreaDistance.isVisible()) {
             text += "      " + Messages.getString("OptionWizard.1026")
-                    + formatHectares(frameArea((Integer) frameDistance.getValue()));
+                    + formatHectares(referenceArea((Integer) referenceAreaDistance.getValue()));
         }
         areaLabel.setText(text);
     }
@@ -294,27 +294,27 @@ public class PlotOptionsPanel extends AbstractPropertyPanel {
         return HECTARES_FORMAT.format(squareMeters / SQUARE_METERS_PER_HECTARE);
     }
 
-    private void updateFrameWarning() {
-        boolean frameOn = frameDistance.isVisible();
-        boolean tooSmall = frameOn
-                && frameArea((Integer) frameDistance.getValue()) < MIN_FRAME_TO_PLOT_AREA_RATIO * plotArea();
-        frameWarningLabel.setVisible(tooSmall);
-        if (frameOn) {
+    private void updateReferenceAreaWarning() {
+        boolean referenceAreaOn = referenceAreaDistance.isVisible();
+        boolean tooSmall = referenceAreaOn
+                && referenceArea((Integer) referenceAreaDistance.getValue()) < MIN_REFERENCE_AREA_TO_PLOT_AREA_RATIO * plotArea();
+        referenceAreaWarningLabel.setVisible(tooSmall);
+        if (referenceAreaOn) {
             // Re-run the verifier so the field colour follows changes of the plot geometry, not only of the spinner
-            frameDistance.getInputVerifier().verify(frameDistance);
+            referenceAreaDistance.getInputVerifier().verify(referenceAreaDistance);
         }
         revalidate();
         repaint();
     }
 
-    // ========== Plot and frame geometry ==========
+    // ========== Plot and reference area geometry ==========
 
     private SAMPLE_SHAPE selectedPlotShape() {
         return (SAMPLE_SHAPE) plotShape.getSelectedItem();
     }
 
-    private BUFFER_SHAPE selectedFrameShape() {
-        return (BUFFER_SHAPE) frameShape.getSelectedItem();
+    private BUFFER_SHAPE selectedReferenceAreaShape() {
+        return (BUFFER_SHAPE) referenceAreaShape.getSelectedItem();
     }
 
     private boolean isSquarePlot() {
@@ -368,12 +368,12 @@ public class PlotOptionsPanel extends AbstractPropertyPanel {
     }
 
     /**
-     * Area enclosed by a frame at the given distance from the plot center. The distance means what
-     * AbstractPolygonKmlGenerator draws: half side of a square frame, radius of a circle frame and distance from the
-     * center to a vertex of a hexagon frame.
+     * Area enclosed by a reference area at the given distance from the plot center. The distance means what
+     * AbstractPolygonKmlGenerator draws: half side of a square one, radius of a circular one and distance from the
+     * center to a vertex of a hexagonal one.
      */
-    private double frameArea(double distance) {
-        switch (selectedFrameShape()) {
+    private double referenceArea(double distance) {
+        switch (selectedReferenceAreaShape()) {
         case CIRCLE:
             return Math.PI * distance * distance;
         case HEXAGON:
@@ -384,14 +384,14 @@ public class PlotOptionsPanel extends AbstractPropertyPanel {
     }
 
     /**
-     * Smallest frame distance at which the frame still encloses the whole plot outline, so that the frame is always
+     * Smallest distance at which the reference area still encloses the whole plot outline, so that it is always
      * larger than the plot.
      */
-    private int minimumFrameDistance() {
+    private int minimumReferenceAreaDistance() {
         double halfExtent = plotOutlineHalfExtent();
         boolean roundPlot = isRoundPlot();
         double minimum;
-        switch (selectedFrameShape()) {
+        switch (selectedReferenceAreaShape()) {
         case CIRCLE:
             // The circle has to reach the corners of a square plot
             minimum = roundPlot ? halfExtent : halfExtent * Math.sqrt(2);
@@ -404,16 +404,16 @@ public class PlotOptionsPanel extends AbstractPropertyPanel {
         default:
             minimum = halfExtent;
         }
-        return Math.max(MIN_FRAME_DISTANCE, (int) Math.ceil(minimum) + 1);
+        return Math.max(MIN_REFERENCE_AREA_DISTANCE, (int) Math.ceil(minimum) + 1);
     }
 
     /**
-     * Frame distance at which the frame area is {@link #MIN_FRAME_TO_PLOT_AREA_RATIO} times the plot area.
+     * Distance at which the reference area is {@link #MIN_REFERENCE_AREA_TO_PLOT_AREA_RATIO} times the plot area.
      */
-    private int recommendedFrameDistance() {
-        double targetArea = MIN_FRAME_TO_PLOT_AREA_RATIO * plotArea();
+    private int recommendedReferenceAreaDistance() {
+        double targetArea = MIN_REFERENCE_AREA_TO_PLOT_AREA_RATIO * plotArea();
         double distance;
-        switch (selectedFrameShape()) {
+        switch (selectedReferenceAreaShape()) {
         case CIRCLE:
             distance = Math.sqrt(targetArea / Math.PI);
             break;
@@ -423,20 +423,20 @@ public class PlotOptionsPanel extends AbstractPropertyPanel {
         default:
             distance = Math.sqrt(targetArea) / 2d;
         }
-        return Math.min(MAX_FRAME_DISTANCE, Math.max((int) Math.ceil(distance), minimumFrameDistance()));
+        return Math.min(MAX_REFERENCE_AREA_DISTANCE, Math.max((int) Math.ceil(distance), minimumReferenceAreaDistance()));
     }
 
     /**
-     * Blocks applying the options while the frame would not enclose the plot.
+     * Blocks applying the options while the reference area would not enclose the plot.
      */
-    private class FrameDistanceVerifier extends InputVerifier {
+    private class ReferenceAreaDistanceVerifier extends InputVerifier {
         @Override
         public boolean verify(JComponent input) {
-            int minimum = minimumFrameDistance();
-            boolean valid = (Integer) frameDistance.getValue() >= minimum;
-            JTextField editor = ((JSpinner.DefaultEditor) frameDistance.getEditor()).getTextField();
+            int minimum = minimumReferenceAreaDistance();
+            boolean valid = (Integer) referenceAreaDistance.getValue() >= minimum;
+            JTextField editor = ((JSpinner.DefaultEditor) referenceAreaDistance.getEditor()).getTextField();
             editor.setBackground(valid ? PropertyValidators.VALID_COLOR : PropertyValidators.ERROR_COLOR);
-            frameDistance.setToolTipText(valid
+            referenceAreaDistance.setToolTipText(valid
                     ? Messages.getString("OptionWizard.1023")
                     : MessageFormat.format(Messages.getString("OptionWizard.1025"), minimum));
             return valid;
@@ -473,11 +473,11 @@ public class PlotOptionsPanel extends AbstractPropertyPanel {
         return distanceBetweenPlots;
     }
 
-    public JComboBox<BUFFER_SHAPE> getFrameShape() {
-        return frameShape;
+    public JComboBox<BUFFER_SHAPE> getReferenceAreaShape() {
+        return referenceAreaShape;
     }
 
-    public JSpinner getFrameDistance() {
-        return frameDistance;
+    public JSpinner getReferenceAreaDistance() {
+        return referenceAreaDistance;
     }
 }

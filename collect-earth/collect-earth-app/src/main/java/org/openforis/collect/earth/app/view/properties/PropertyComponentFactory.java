@@ -170,8 +170,8 @@ public class PropertyComponentFactory {
     }
 
     /**
-     * Creates the combo box for the shape of the outer frame drawn around the plot.
-     * Without a frame distance there is no frame, whatever shape the properties hold.
+     * Creates the combo box for the shape of the reference area drawn around the plot.
+     * Without a distance there is no reference area, whatever shape the properties hold.
      */
     public JComboBox<BUFFER_SHAPE> createBufferShapeComboBox() {
         JComboBox<BUFFER_SHAPE> comboBox = new JComboBox<>(BUFFER_SHAPE.values());

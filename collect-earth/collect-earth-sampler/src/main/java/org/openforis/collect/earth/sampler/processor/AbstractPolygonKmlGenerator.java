@@ -43,9 +43,9 @@ public abstract class AbstractPolygonKmlGenerator extends KmlGenerator {
 	}
 
 	/**
-	 * @param distanceToBuffers comma separated distances in meters from the plot center to each outer frame
-	 *        (the earth.properties value of distance_to_buffers, e.g. "70,112,194"); blank for no frame
-	 * @param bufferShape shape of the frames; null keeps the historical square frames, NONE draws none
+	 * @param distanceToBuffers comma separated distances in meters from the plot center to each reference area
+	 *        (the earth.properties value of distance_to_buffers, e.g. "70,112,194"); blank for no reference area
+	 * @param bufferShape shape of the reference areas; null keeps the historical square ones, NONE draws none
 	 */
 	public AbstractPolygonKmlGenerator(String epsgCode, String hostAddress, String localPort, Integer innerPointSide, Integer numberOfPoints, double distanceBetweenSamplePoints, double distancePlotBoundary, Integer largeCentralPlotSide, String distanceToBuffers, BUFFER_SHAPE bufferShape) {
 		super(epsgCode);
@@ -74,7 +74,7 @@ public abstract class AbstractPolygonKmlGenerator extends KmlGenerator {
 				distances.add(Integer.parseInt(trimmed));
 			} catch (NumberFormatException e) {
 				// Parsed once per generator so that a typo is reported once, not once per plot, and the valid distances are kept
-				logger.warn("Ignoring frame distance '{}' in distance_to_buffers={} : it is not a whole number of meters", trimmed, distanceToBuffers);
+				logger.warn("Ignoring reference area distance '{}' in distance_to_buffers={} : it is not a whole number of meters", trimmed, distanceToBuffers);
 			}
 		}
 		return distances;
@@ -212,7 +212,7 @@ public abstract class AbstractPolygonKmlGenerator extends KmlGenerator {
 					spo.setShape(buildBufferShape(currentPlacemark.getCoord().getCoordinates(), bufDist));
 					buffers.add(spo);
 				} catch (TransformException e) {
-					logger.error("Error transforming the coordinates of the frame at " + bufDist + " meters around plot " + currentPlacemark.getPlacemarkId(), e);
+					logger.error("Error transforming the coordinates of the reference area at " + bufDist + " meters around plot " + currentPlacemark.getPlacemarkId(), e);
 				}
 			}
 		}

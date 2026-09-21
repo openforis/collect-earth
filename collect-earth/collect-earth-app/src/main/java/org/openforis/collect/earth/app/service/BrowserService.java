@@ -15,8 +15,10 @@ import java.util.concurrent.TimeUnit;
 
 import org.apache.commons.lang3.StringUtils;
 import org.openforis.collect.earth.app.EarthConstants;
+import org.openforis.collect.earth.app.desktop.EarthApp;
 import org.openforis.collect.earth.app.desktop.ServerController;
 import org.openforis.collect.earth.app.service.LocalPropertiesService.EarthProperty;
+import org.openforis.collect.earth.app.view.Messages;
 import org.openforis.collect.earth.sampler.model.SimpleCoordinate;
 import org.openforis.collect.earth.sampler.model.SimplePlacemarkObject;
 import org.openqa.selenium.By;
@@ -83,6 +85,9 @@ public class BrowserService implements InitializingBean, DisposableBean, Applica
 
 	@Autowired
 	private EarthSurveyService earthSurveyService;
+
+	/** The interpreter is told once per run that the Planet API key is missing, not once per plot */
+	private boolean planetApiKeyWarningShown;
 
 	private final CopyOnWriteArrayList<RemoteWebDriver> drivers = new CopyOnWriteArrayList<>();
 	private final Logger logger = LoggerFactory.getLogger(BrowserService.class);
@@ -497,6 +502,11 @@ public class BrowserService implements InitializingBean, DisposableBean, Applica
 		Object lock = getOrCreateLock(BrowserType.PLANET);
 		synchronized (lock) {
 			if (localPropertiesService.isPlanetMapsSupported()) {
+				// both modes are opened with the same key, and neither of them shows anything without it
+				if (StringUtils.isBlank(localPropertiesService.getPlanetMapsKey())) {
+					warnAboutMissingPlanetApiKey();
+					return;
+				}
 				try {
 					if (localPropertiesService.isPlanetMapsUseTfo()) {
 						// TFO mode: Use hosted planet.html with NICFI monthly basemaps
@@ -513,16 +523,26 @@ public class BrowserService implements InitializingBean, DisposableBean, Applica
 	}
 
 	/**
+	 * Planet is opened for every plot, so the interpreter is told once per run: a dialog on each plot would
+	 * get in the way of the assessment, and the key is entered in the options dialog, not here.
+	 */
+	private void warnAboutMissingPlanetApiKey() {
+		logger.warn("Planet is switched on but no Planet API key is configured");
+		if (!planetApiKeyWarningShown) {
+			planetApiKeyWarningShown = true;
+			EarthApp.showMessage(Messages.getString("BrowserService.planetApiKeyMissing"), //$NON-NLS-1$
+					Messages.getString("BrowserService.planetApiKeyMissingTitle")); //$NON-NLS-1$
+		}
+	}
+
+	/**
 	 * Opens Planet imagery using the Tropical Forest Observatory (TFO) monthly basemaps.
 	 * Opens the hosted planet.html page at openforis.org with URL parameters.
 	 * Uses the same API key as Daily mode (PLANET_MAPS_KEY).
 	 */
 	private void openPlanetTfoMode(SimplePlacemarkObject placemarkObject) throws BrowserNotFoundException {
+		// openPlanetMaps has already checked that there is a key
 		String apiKey = localPropertiesService.getValue(EarthProperty.PLANET_MAPS_KEY);
-		if (StringUtils.isBlank(apiKey)) {
-			logger.warn("Planet API key not configured for TFO mode");
-			return;
-		}
 
 		try {
 			StringBuilder url = new StringBuilder("https://openforis.org/fileadmin/planet.html?");
