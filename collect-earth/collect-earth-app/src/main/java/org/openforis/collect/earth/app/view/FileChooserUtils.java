@@ -2,7 +2,6 @@ package org.openforis.collect.earth.app.view;
 
 import java.io.File;
 import java.lang.reflect.Method;
-import java.util.Arrays;
 
 import javax.swing.JFileChooser;
 import javax.swing.JFrame;
@@ -26,6 +25,25 @@ public final class FileChooserUtils {
     private static final Logger logger = LoggerFactory.getLogger(FileChooserUtils.class);
     private static final String EXISTS_AWARE_CLASS =
             "org.openforis.collect.earth.app.view.JFileChooserExistsAware";
+    /** Resolved once. Null means the class is really absent, so a null result can only mean that the user cancelled */
+    private static final Method EXISTS_AWARE_METHOD = resolveExistsAwareMethod();
+
+    private static Method resolveExistsAwareMethod() {
+        try {
+            return Class.forName(EXISTS_AWARE_CLASS).getMethod(
+                    "getFileChooserResults",
+                    DataFormat.class,
+                    boolean.class,
+                    boolean.class,
+                    String.class,
+                    LocalPropertiesService.class,
+                    JFrame.class,
+                    File.class);
+        } catch (ClassNotFoundException | NoSuchMethodException e) {
+            logger.warn("JFileChooserExistsAware missing at runtime, using fallback chooser.");
+            return null;
+        }
+    }
 
     private FileChooserUtils() {
         // Utility class
@@ -42,38 +60,17 @@ public final class FileChooserUtils {
                                                boolean multipleSelect, String preselectedName,
                                                LocalPropertiesService localPropertiesService, JFrame frame,
                                                File preSelectedFolder) {
-        File[] result = tryExistsAwareChooser(dataFormat, isSaveDlg, multipleSelect, preselectedName,
-                localPropertiesService, frame, preSelectedFolder);
-        if (result != null) {
-            return result;
+        if (EXISTS_AWARE_METHOD != null) {
+            try {
+                // A null here means that the user cancelled : return it, do not open a second dialog
+                return (File[]) EXISTS_AWARE_METHOD.invoke(null, dataFormat, isSaveDlg, multipleSelect,
+                        preselectedName, localPropertiesService, frame, preSelectedFolder);
+            } catch (Exception e) {
+                logger.warn("Failed to invoke existence-aware file chooser, using fallback chooser.", e);
+            }
         }
         return fallbackChooser(dataFormat, isSaveDlg, multipleSelect, preselectedName,
                 localPropertiesService, frame, preSelectedFolder);
-    }
-
-    private static File[] tryExistsAwareChooser(final DataFormat dataFormat, boolean isSaveDlg,
-                                                boolean multipleSelect, String preselectedName,
-                                                LocalPropertiesService localPropertiesService, JFrame frame,
-                                                File preSelectedFolder) {
-        try {
-            Class<?> chooserClass = Class.forName(EXISTS_AWARE_CLASS);
-            Method method = chooserClass.getMethod(
-                    "getFileChooserResults",
-                    DataFormat.class,
-                    boolean.class,
-                    boolean.class,
-                    String.class,
-                    LocalPropertiesService.class,
-                    JFrame.class,
-                    File.class);
-            return (File[]) method.invoke(null, dataFormat, isSaveDlg, multipleSelect, preselectedName,
-                    localPropertiesService, frame, preSelectedFolder);
-        } catch (ClassNotFoundException e) {
-            logger.warn("JFileChooserExistsAware missing at runtime, using fallback chooser.");
-        } catch (Exception e) {
-            logger.warn("Failed to invoke existence-aware file chooser, using fallback chooser.", e);
-        }
-        return null;
     }
 
     private static File[] fallbackChooser(final DataFormat dataFormat, boolean isSaveDlg,
@@ -136,6 +133,8 @@ public final class FileChooserUtils {
     }
 
     private static File handleSaveSelection(File selectedFile, JFileChooser chooser, DataFormat dataFormat) {
+        // The name that will really be written, before asking about overwriting it
+        selectedFile = dataFormat.withDefaultExtension(selectedFile);
         if (selectedFile.exists()) {
             int result = JOptionPane.showConfirmDialog(chooser,
                     "The file exists, overwrite?",
@@ -144,18 +143,6 @@ public final class FileChooserUtils {
             if (result != JOptionPane.YES_OPTION) {
                 return null;
             }
-        }
-
-        String fileName = selectedFile.getAbsolutePath();
-        String fileExtension = null;
-        if (fileName.lastIndexOf('.') != -1) {
-            fileExtension = fileName.substring(fileName.lastIndexOf('.') + 1).toLowerCase();
-        }
-
-        if (fileExtension == null
-                || Arrays.binarySearch(dataFormat.getPossibleFileExtensions(), fileExtension) < 0) {
-            fileName += "." + dataFormat.getDefaultExtension();
-            return new File(fileName);
         }
 
         return selectedFile;

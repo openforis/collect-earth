@@ -1,7 +1,6 @@
 package org.openforis.collect.earth.app.view;
 
 import java.io.File;
-import java.util.Arrays;
 
 import javax.swing.JFileChooser;
 import javax.swing.JFrame;
@@ -16,17 +15,22 @@ public class JFileChooserExistsAware extends JFileChooser {
 
 	private static final long serialVersionUID = 2571562963995019882L;
 
-	private JFileChooserExistsAware(File lastFolder) {
-		super(lastFolder);
-	}
+	private final transient DataFormat saveDataFormat;
 
-	private JFileChooserExistsAware(){
-		super();
+	private JFileChooserExistsAware(File lastFolder, DataFormat saveDataFormat) {
+		super(lastFolder);
+		this.saveDataFormat = saveDataFormat;
 	}
 
 	@Override
 	public void approveSelection(){
 		File f = getSelectedFile();
+		if( f!=null && getDialogType() == SAVE_DIALOG && saveDataFormat != null ){
+			// Work out the name that will really be written before asking about overwriting : typing "export" where "export.zip"
+			// exists used to overwrite it without a word, because the extension was added after this question
+			f = saveDataFormat.withDefaultExtension( f );
+			setSelectedFile( f );
+		}
 		if( f!=null && f.exists() && getDialogType() == SAVE_DIALOG){
 			int result = JOptionPane.showConfirmDialog(this,"The file exists, overwrite?","Existing file",JOptionPane.YES_NO_CANCEL_OPTION); //$NON-NLS-1$ //$NON-NLS-2$
 			switch(result){
@@ -63,7 +67,7 @@ public class JFileChooserExistsAware extends JFileChooser {
 			}
 		}
 
-		fc = new JFileChooserExistsAware( preSelectedFolder );
+		fc = new JFileChooserExistsAware( preSelectedFolder, isSaveDlg ? dataFormat : null );
 
 		if( preselectedName != null ){
 			File selectedFile = new File( fc.getCurrentDirectory().getAbsolutePath() + File.separatorChar + preselectedName );
@@ -98,19 +102,8 @@ public class JFileChooserExistsAware extends JFileChooser {
 			
 			if( selectedFiles != null && selectedFiles.length > 0 ) {
 				if( isSaveDlg ){
-					String fileName = selectedFiles[0].getAbsolutePath();
-	
-					String fileExtension = null;
-	
-					if( fileName.lastIndexOf('.') != -1){
-						fileExtension = fileName.substring( fileName.lastIndexOf('.') + 1 ).toLowerCase();
-					}
-	
-					// If the chose file has no extension or the extension is not one of the default extensions for the dataformat
-					if ( fileExtension == null || Arrays.binarySearch( dataFormat.getPossibleFileExtensions(), fileExtension ) < 0 ) { //$NON-NLS-1$
-						fileName += "." + dataFormat.getDefaultExtension(); //$NON-NLS-1$
-						selectedFiles[0] = new File(fileName);
-					}
+					// approveSelection has already done this for the file the user typed, this covers the other ways in
+					selectedFiles[0] = dataFormat.withDefaultExtension( selectedFiles[0] );
 				}
 				
 				localPropertiesService.setValue(EarthProperty.LAST_USED_FOLDER, selectedFiles[0].getParent());
