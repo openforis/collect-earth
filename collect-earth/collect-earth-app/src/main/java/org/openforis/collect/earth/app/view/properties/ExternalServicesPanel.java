@@ -225,6 +225,8 @@ public class ExternalServicesPanel extends AbstractPropertyPanel {
 
             if (!geeAppSelected) {
                 specifyStartAndEndGeeApp.setSelected(false);
+                // setSelected does not fire the listener of the other checkbox, so the dates it holds used to be saved anyway
+                clearDatePickers();
             }
         });
 

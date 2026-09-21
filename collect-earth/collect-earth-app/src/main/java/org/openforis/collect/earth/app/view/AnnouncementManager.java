@@ -1,5 +1,8 @@
 package org.openforis.collect.earth.app.view;
 
+import org.openforis.collect.earth.app.service.FolderFinder;
+import java.time.ZoneId;
+import java.time.LocalDate;
 import javax.swing.*;
 
 import org.slf4j.Logger;
@@ -15,7 +18,12 @@ import com.google.gson.*; // Include a JSON library like Gson or Jackson
 public class AnnouncementManager {
 
     private static final String ANNOUNCEMENTS_URL = "https://www.openforis.org/fileadmin/installer/announcements.json";
-    private static final String SHOWN_ANNOUNCEMENTS_FILE = "shown_announcements.txt";
+    /**
+     * Kept in the data folder of the user : this used to resolve against the folder the process was started in, which under a
+     * normal Windows installation is not writable, so the save failed silently and every announcement came back on each start
+     */
+    private static final String SHOWN_ANNOUNCEMENTS_FILE = FolderFinder.getCollectEarthDataFolder() + File.separator
+            + "shown_announcements.txt";
     private final Set<String> shownAnnouncements = new HashSet<>();
     private static Logger logger = LoggerFactory.getLogger(AnnouncementManager.class);
 
@@ -29,7 +37,7 @@ public class AnnouncementManager {
             List<Announcement> announcements = parseAnnouncements(jsonResponse);
             displayAnnouncementsInDialog(announcements);
         } catch (Exception e) {
-            System.out.println("Error fetching announcements from: " + ANNOUNCEMENTS_URL + " " + e.getMessage());
+            logger.warn("Error fetching the announcements from {}", ANNOUNCEMENTS_URL, e);
             logger.error("Error fetching or displaying announcements from : " + ANNOUNCEMENTS_URL  + " " +  e.getMessage(), e);
         }
     }
@@ -76,7 +84,7 @@ public class AnnouncementManager {
 	        	}
         	} catch (Exception e) {
         		logger.error("Error parsing announcement: " + e.getMessage(), e);
-        		System.out.println("Error parsing announcement: " + element+ " " + e.getMessage());
+        		logger.warn("Error reading the announcement {}", element, e);
         	}
         }
 
@@ -164,8 +172,7 @@ public class AnnouncementManager {
                     shownAnnouncements.add(line.trim());
                 }
             } catch (IOException e) {
-                e.printStackTrace();
-                System.out.println("Error loading shown announcements: " + e.getMessage());
+                logger.error("Error loading the announcements that were already shown", e);
             }
         }
     }
@@ -177,8 +184,7 @@ public class AnnouncementManager {
                 writer.newLine();
             }
         } catch (IOException e) {
-            e.printStackTrace();
-            logger.error("Error saving shown announcements: " + e.getMessage(), e);
+            logger.error("Error saving the announcements that were already shown", e);
         }
     }
 
@@ -187,14 +193,16 @@ public class AnnouncementManager {
         private final String title;
         private final String message;
         private final String severity;
-        private final Date startDate;
-        private final Date endDate;
+        private boolean datesAreMalformed;
+        private final LocalDate startDate;
+        private final LocalDate endDate;
 
         public Announcement(String id, String title, String message, String severity, String startDate, String endDate) {
             this.id = id;
             this.title = title;
             this.message = message;
             this.severity = severity;
+            // The dates are parsed after the id, its warning names it
             this.startDate = parseDate(startDate);
             this.endDate = parseDate(endDate);
         }
@@ -216,14 +224,26 @@ public class AnnouncementManager {
         }
 
         public boolean isValidForDate(Date date) {
-            return (startDate == null || !date.before(startDate)) &&
-                   (endDate == null || !date.after(endDate));
+            if (datesAreMalformed) {
+                // A mistyped date used to be read as "no limit", which left the announcement on screen for ever
+                return false;
+            }
+            LocalDate day = date.toInstant().atZone(ZoneId.systemDefault()).toLocalDate();
+            // The end date includes the whole of its day : it used to be parsed as midnight, so the announcement disappeared
+            // a day early
+            return (startDate == null || !day.isBefore(startDate)) &&
+                   (endDate == null || !day.isAfter(endDate));
         }
 
-        private Date parseDate(String dateStr) {
+        private LocalDate parseDate(String dateStr) {
+            if (dateStr == null || dateStr.trim().isEmpty()) {
+                return null;
+            }
             try {
-                return new SimpleDateFormat("yyyy-MM-dd").parse(dateStr);
+                return LocalDate.parse(dateStr.trim());
             } catch (Exception e) {
+                datesAreMalformed = true;
+                logger.warn("The announcement {} has a date that cannot be read : {}", id, dateStr);
                 return null;
             }
         }

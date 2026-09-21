@@ -1,5 +1,7 @@
 package org.openforis.collect.earth.app;
 
+import java.nio.charset.StandardCharsets;
+import java.util.Comparator;
 import java.awt.Desktop;
 import java.awt.Font;
 import java.awt.FontFormatException;
@@ -51,15 +53,22 @@ public class CollectEarthUtils {
 		}
 		StringBuilder md5Hex = new StringBuilder();
 
-		try( Stream<Path> paths = Files.walk(Paths.get(folder.toURI()), 3) ) {
-			List<File> listFiles = paths.filter(Files::isRegularFile).map(Path::toFile)
+		final Path root = Paths.get(folder.toURI());
+		// The whole tree, in a defined order, and with the names of the files in the digest. Walking three levels deep in
+		// whatever order the file system answers, and hashing only the contents, meant that a renamed or a deeply nested file
+		// left the checksum unchanged, so the project was not reloaded, while a different walk order forced a reload of a
+		// project that had not changed at all
+		try( Stream<Path> paths = Files.walk(root) ) {
+			List<Path> listFiles = paths.filter(Files::isRegularFile)
+					.sorted(Comparator.comparing(path -> root.relativize(path).toString().replace(File.separatorChar, '/')))
 					.collect(Collectors.toList());
-			for (File file : listFiles) {
-				try (FileInputStream fis = new FileInputStream(file)) {
+			for (Path file : listFiles) {
+				md5Hex.append(root.relativize(file).toString().replace(File.separatorChar, '/'));
+				try (InputStream fis = Files.newInputStream(file)) {
 					md5Hex.append(DigestUtils.md5Hex(fis));
 				}
 			}
-			return DigestUtils.md5Hex(md5Hex.toString().getBytes());
+			return DigestUtils.md5Hex(md5Hex.toString().getBytes(StandardCharsets.UTF_8));
 		}
 	}
 

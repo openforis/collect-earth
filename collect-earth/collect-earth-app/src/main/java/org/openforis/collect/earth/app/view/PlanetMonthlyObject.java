@@ -34,7 +34,8 @@ public class PlanetMonthlyObject {
 		int nowDay = c.get(Calendar.DAY_OF_MONTH);
 		
 		for( int y = 2021; y<= nowYear-1; y++ ) {
-			for( int m = 1; m<12; m++ ) {
+			// December was missing from every completed year : the loop stopped before the twelfth month
+			for( int m = 1; m<=12; m++ ) {
 				String monthStr = m+"";
 				if( m<10) {
 					monthStr = "0"+m;
