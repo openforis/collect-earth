@@ -86,7 +86,7 @@ public class SquareKmlGenerator extends AbstractPolygonKmlGenerator {
 			buildPointsInsidePlot(placemark, topLeftCoord, pointsInPlacemark, distanceBetweenSamplePoints, getPointSide());
 		
 		}else if( getNumberOfSamplePoints() == 1 ){
-			final double[] centerPosition = getPointWithOffset(placemark.getCoord().getCoordinates(), -1* getPointSide() / 2, -1 * getPointSide() / 2);
+			final double[] centerPosition = getPointWithOffset(placemark.getCoord().getCoordinates(), -1 * getPointSide() / 2d, -1 * getPointSide() / 2d);
 			final SimplePlacemarkObject centralPoint = new SimplePlacemarkObject(centerPosition, placemark.getPlacemarkId() + "center");
 			centralPoint.setShape(getSamplePointPolygon(centerPosition, getPointSide()));
 			pointsInPlacemark.add(centralPoint);
@@ -101,28 +101,34 @@ public class SquareKmlGenerator extends AbstractPolygonKmlGenerator {
 		if( getLargeCentralPlotSide() != null && getLargeCentralPlotSide() > getPointSide()) {
 
 			
-			final double[] centerPosition = getPointWithOffset(placemark.getCoord().getCoordinates(), -1* getLargeCentralPlotSide() / 2, -1 * getLargeCentralPlotSide() / 2);
+			final double[] centerPosition = getPointWithOffset(placemark.getCoord().getCoordinates(), -1 * getLargeCentralPlotSide() / 2d, -1 * getLargeCentralPlotSide() / 2d);
 			final SimplePlacemarkObject centralPoint = new SimplePlacemarkObject(centerPosition, placemark.getPlacemarkId() + "largeCentralPlot");
 			centralPoint.setShape(getSamplePointPolygon(centerPosition, getLargeCentralPlotSide()));
 			
 			int centralPlotPointsSide = 2;
-			int distanceBetweenCentralPlotPoints = getLargeCentralPlotSide() / (getNumOfRows()-1) ;
+			// With a single row there is no grid to draw inside the central plot, and the division below was by zero
+			if (getNumOfRows() > 1) {
+				int distanceBetweenCentralPlotPoints = getLargeCentralPlotSide() / (getNumOfRows()-1) ;
 			
-			final double originalCoordGeneralOffsetX = (-1d * getNumOfRows() * distanceBetweenCentralPlotPoints / 2d) - centralPlotPointsSide / 2d;
-			final double originalCoordGeneralOffsetY = (getNumOfRows() * distanceBetweenCentralPlotPoints / 2d) - centralPlotPointsSide / 2d;
+				final double originalCoordGeneralOffsetX = (-1d * getNumOfRows() * distanceBetweenCentralPlotPoints / 2d) - centralPlotPointsSide / 2d;
+				final double originalCoordGeneralOffsetY = (getNumOfRows() * distanceBetweenCentralPlotPoints / 2d) - centralPlotPointsSide / 2d;
 
 			
-			final double[] topLeftCoord = getPointWithOffset(
-					placemark.getCoord().getCoordinates(), 
-					originalCoordGeneralOffsetX, 
-					originalCoordGeneralOffsetY
-				);
+				final double[] topLeftCoord = getPointWithOffset(
+						placemark.getCoord().getCoordinates(), 
+						originalCoordGeneralOffsetX, 
+						originalCoordGeneralOffsetY
+					);
 			
-			buildPointsInsidePlot(centralPoint, topLeftCoord, pointsInPlacemark, distanceBetweenCentralPlotPoints, centralPlotPointsSide);
+				buildPointsInsidePlot(centralPoint, topLeftCoord, pointsInPlacemark, distanceBetweenCentralPlotPoints, centralPlotPointsSide);
+			}
 
-			//remove previous central point
-			int positionOfCentralPoint = (int) Math.ceil(getNumberOfSamplePoints() / 2d) - 1;
-			pointsInPlacemark.remove( positionOfCentralPoint );
+			//remove previous central point, it only exists in the odd grids ( 3x3, 5x5 ... ). In an even grid this
+			//used to delete one of the real sample points
+			if (getNumberOfSamplePoints() % 2 == 1) {
+				int positionOfCentralPoint = (int) Math.ceil(getNumberOfSamplePoints() / 2d) - 1;
+				pointsInPlacemark.remove( positionOfCentralPoint );
+			}
 			
 			pointsInPlacemark.add(centralPoint);
 			ArrayList<SimplePlacemarkObject> subplots = new ArrayList<>();

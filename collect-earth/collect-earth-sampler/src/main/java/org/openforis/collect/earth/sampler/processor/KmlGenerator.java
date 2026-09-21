@@ -5,6 +5,7 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
+import java.util.regex.Pattern;
 import java.util.Arrays;
 import java.util.Date;
 import java.util.HashMap;
@@ -76,25 +77,11 @@ public abstract class KmlGenerator extends AbstractCoordinateCalculation {
 	 * @param string The String to check
 	 * @return True if the string is a number
 	 */
+	private static final Pattern NUMBER_PATTERN = Pattern.compile("[+-]?(\\d+([.,]\\d*)?|[.,]\\d+)([eE][+-]?\\d+)?");
+
 	public static boolean isNumber(String string) {
-		if (string == null || string.isEmpty()) {
-			return false;
-		}
-		int i = 0;
-		if (string.charAt(0) == '-') {
-			if (string.length() > 1) {
-				i++;
-			} else {
-				return false;
-			}
-		}
-		for (; i < string.length(); i++) {
-			char charAt = string.charAt(i);
-			if (charAt != '.' && charAt != ',' && !Character.isDigit(charAt)) {
-				return false;
-			}
-		}
-		return true;
+		// A comma is accepted as the decimal separator, the callers replace it before parsing
+		return string != null && NUMBER_PATTERN.matcher(string.trim()).matches();
 	}
 
 	private static String[] removeTrailingSpaces(String[] csvValuesInLine) {
@@ -121,8 +108,12 @@ public abstract class KmlGenerator extends AbstractCoordinateCalculation {
 	public void generateKmlFile(String destinationKmlFile, String csvFile, String balloonFile,
 			String freemarkerKmlTemplateFile, CollectSurvey collectSurvey, boolean kmlExport) throws KmlGenerationException {
 
-		final File destinationFile = new File(destinationKmlFile);
-		destinationFile.getParentFile().mkdirs();
+		final File destinationFile = new File(destinationKmlFile).getAbsoluteFile();
+		final File destinationFolder = destinationFile.getParentFile();
+		// A destination with no folder in it used to throw here, and a folder that cannot be created was ignored
+		if (destinationFolder != null && !destinationFolder.isDirectory() && !destinationFolder.mkdirs()) {
+			throw new KmlGenerationException("Cannot create the folder " + destinationFolder.getAbsolutePath());
+		}
 		getKmlCode(csvFile, balloonFile, freemarkerKmlTemplateFile, destinationFile, collectSurvey, kmlExport);
 	}
 
@@ -201,8 +192,10 @@ public abstract class KmlGenerator extends AbstractCoordinateCalculation {
 			}
 		}
 
-		plotProperties.setPlacemarkId(keys.substring(0, keys.lastIndexOf(",")));
-		plotProperties.setVisiblePlacemarkId(visibleKeys.substring(0, visibleKeys.lastIndexOf(",")));
+		// Remove the trailing comma. The visible keys are empty when every key is hidden ( blind quality control plots ), and
+		// substring(0, -1) used to throw there
+		plotProperties.setPlacemarkId(StringUtils.removeEnd(keys.toString(), ","));
+		plotProperties.setVisiblePlacemarkId(StringUtils.removeEnd(visibleKeys.toString(), ","));
 
 		int leadingColumns = 0;
 
@@ -267,17 +260,20 @@ public abstract class KmlGenerator extends AbstractCoordinateCalculation {
 
 		// Adds a map ( coulmnName,cellValue) so that the values can also be added to
 		// the KML by column name (for the newer versions)
-		HashMap<String, String> valuesByColumn;
-		try {
-			valuesByColumn = new HashMap<>();
-			if (possibleColumnNames != null) {
-				for (int i = 0; i < possibleColumnNames.length; i++) {
-					valuesByColumn.put(possibleColumnNames[i], csvValuesInLine[i] == null ? "" : csvValuesInLine[i]);
-				}
+		HashMap<String, String> valuesByColumn = new HashMap<>();
+		if (possibleColumnNames != null) {
+			for (int i = 0; i < possibleColumnNames.length; i++) {
+				// A row with fewer cells than the header used to throw here, and the whole map was then left unset
+				String value = i < csvValuesInLine.length ? csvValuesInLine[i] : null;
+				valuesByColumn.put(possibleColumnNames[i], value == null ? "" : value);
 			}
-			plotProperties.setValuesByColumn(valuesByColumn);
-		} catch (Exception e) {
-			logger.error( "Error generating map with values", e);
+		}
+		plotProperties.setValuesByColumn(valuesByColumn);
+
+		if (plotProperties.getCoord() == null) {
+			// Without this the NullPointerException below said nothing about the real problem
+			throw new KmlGenerationException("The latitude and longitude columns of this plot are not numbers ( LAT : " + latitude
+					+ " , LONG : " + longitude + " ) and there is no polygon column to place the plot with");
 		}
 
 		// Handle teh calculation of different SRSs that EPSG:3264
