@@ -24,6 +24,18 @@ public class AssignSubdivisionTypesWizard {
 	private String regionAttribute;
 	
 	public void initializeTypes(List<AbstractLandUseSubdivision> landUseSubdivisions, List<String> attributeNames ) {
+		// Called from the thread that generates the database : the wizard is built and shown on the event thread, and this
+		// call waits for it because the export continues with what the user chose here
+		if (!SwingUtilities.isEventDispatchThread()) {
+			try {
+				SwingUtilities.invokeAndWait( () -> initializeTypes(landUseSubdivisions, attributeNames) );
+			} catch (InterruptedException e) {
+				Thread.currentThread().interrupt();
+			} catch (Exception e) {
+				logger.error("Error showing the wizard that assigns the management types", e);
+			}
+			return;
+		}
 
 		LandUseSubdivisionUtils.setLandUseSubdivisions(landUseSubdivisions);
 		

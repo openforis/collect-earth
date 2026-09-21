@@ -17,7 +17,7 @@ import org.springframework.stereotype.Component;
 import com.thoughtworks.xstream.XStream;
 
 @Component
-public class IPCCDataExportTimeSeriesXML extends AbstractIPCCDataExportTimeSeries<LUSubdivisionDataPerYear> {
+public class IPCCDataExportTimeSeriesXML extends AbstractIPCCDataExportTimeSeries {
 	private static final String XML_DECLARATION = "<?xml version=" + (char) 34 + "1.0" + (char) 34 + " encoding=" + (char) 34 + "UTF-8" + (char) 34 + "?>\n";
 
 	@Override
@@ -41,7 +41,7 @@ public class IPCCDataExportTimeSeriesXML extends AbstractIPCCDataExportTimeSerie
 	}
 
 	@Override
-	protected File generateFile( List<LUSubdivisionDataPerYear> strataData) throws IOException {
+	protected File generateFile( List<StratumPerYearData> strataData) throws IOException {
 		File xmlFileDestination = File.createTempFile("landUsesTimeseries", ".xml");
 		xmlFileDestination.deleteOnExit();
 		XStream xStream = new XStream();

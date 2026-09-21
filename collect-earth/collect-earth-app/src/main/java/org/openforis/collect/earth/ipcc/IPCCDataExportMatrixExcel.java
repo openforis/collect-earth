@@ -114,17 +114,23 @@ public class IPCCDataExportMatrixExcel extends RDBConnector {
 	}
 
 	protected static LUSubdivisionDataPerYear findLuData( AbstractLandUseSubdivision initialSubdivision, AbstractLandUseSubdivision finalSubdivision, List<LUSubdivisionDataPerYear> luData ) {
-		if( luData.removeIf(Objects::isNull) ) { // TODO Why are there null values here??
-			logger.info("A Why do we have a null LU category here?");
+		// A null here is a plot whose subdivision code is not one of the subdivisions of the survey. Its area disappears from
+		// the matrix, so say so rather than asking the question in the log. The list of the caller is left alone
+		List<LUSubdivisionDataPerYear> knownSubdivisions = new ArrayList<>(luData);
+		int unmapped = knownSubdivisions.size();
+		knownSubdivisions.removeIf(Objects::isNull);
+		unmapped -= knownSubdivisions.size();
+		if( unmapped > 0 ) {
+			logger.warn("{} plot group(s) have a land use subdivision that is not in the survey, their area is not in the matrix", unmapped);
 		}
 
-		Collection<?> result = CollectionUtils.select(luData, new Predicate() {
+		Collection<?> result = CollectionUtils.select(knownSubdivisions, new Predicate() {
 			public boolean evaluate(Object a) {
 				if(  ( (LUSubdivisionDataPerYear) a ).getLu() == null ) {
-					logger.info("B Why do we have a null LU category here? " + a.toString());
+					logger.warn("A plot group has no land use subdivision, its area is not in the matrix : " + a);
 					return false;
 				}else if( ( (LUSubdivisionDataPerYear) a ).getLuNextYear() == null) {
-					logger.info("C Why do we have a null LU Next Year category here?" + a.toString());
+					logger.warn("A plot group has no land use subdivision for the following year, its area is not in the matrix : " + a);
 					return false;
 				}
 				

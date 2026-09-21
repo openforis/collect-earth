@@ -22,7 +22,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 
 @Component
-public class IPCCDataExportMatrixExtendedExcel extends AbstractIPCCDataExportTimeSeries<StratumPerYearData> {
+public class IPCCDataExportMatrixExtendedExcel extends AbstractIPCCDataExportTimeSeries {
 
 	Logger logger = LoggerFactory.getLogger(IPCCDataExportMatrixExtendedExcel.class);
 
