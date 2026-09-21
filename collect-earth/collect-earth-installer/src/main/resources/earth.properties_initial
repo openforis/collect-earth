@@ -15,7 +15,6 @@ earth_map_scripts={"burnedArea"\:{"aggregation"\:"annual"}, "hansen"\:{"dateRang
 earth_map_aoi=global
 earth_map_url=https://earthmap.org
 gee_initial_zoom=15
-gee_playground_url=https://code.earthengine.google.com/
 gee_app_url=https://fao-earth-map.projects.earthengine.app/view/collect-earth-plot
 generated_on=1403519225818
 host=127.0.0.1
@@ -25,8 +24,6 @@ local_port=8090
 open_earth_map=false
 open_gee_app=true
 open_separate_browser_form=false
-open_timelapse=false
-open_gee_playground=false
 # The embedded server listens only to this computer. Set it to 0.0.0.0 to accept the Collect Earth instances running in CLIENT_MODE
 # ( its endpoints have no authentication, so anybody in the network could then save records and load project files )
 server_bind_address=127.0.0.1

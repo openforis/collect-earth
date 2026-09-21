@@ -56,8 +56,7 @@ public class LocalPropertiesService extends Observable {
 				"elevation_geotif_directory"), EXCEPTION_SHOWN(
 				"exception_shown"), EXTRA_MAP_URL(
 				"extra_map_url"), FIREFOX_BINARY_PATH(
-				"firefox_exe_path"), GEE_EXPLORER_URL(
-				"gee_explorer_url"), GENERATED_KEY(
+				"firefox_exe_path"), GENERATED_KEY(
 				"generated_on"), GOOGLE_MAPS_API_KEY(
 				"google_maps_api_key"), SERVER_BIND_ADDRESS(
 				"server_bind_address"), HOST_KEY(
@@ -75,10 +74,8 @@ public class LocalPropertiesService extends Observable {
 				"metadata_file"), MODEL_VERSION_NAME(
 				"model_version_name"), NUMBER_OF_SAMPLING_POINTS_IN_PLOT(
 				"number_of_sampling_points_in_plot"), OPEN_BALLOON_IN_BROWSER(
-				"open_separate_browser_form"), OPEN_GEE_EXPLORER(
-				"open_earth_engine"),OPEN_STREET_VIEW(
-				"open_street_view"), OPEN_TIMELAPSE(
-				"open_timelapse"), OPERATION_MODE(
+				"open_separate_browser_form"), OPEN_STREET_VIEW(
+				"open_street_view"), OPERATION_MODE(
 				"operation_mode"), OPERATOR_KEY(
 				"operator"), SAIKU_SERVER_FOLDER(
 				"saiku_server_folder"), SAMPLE_FILE(
@@ -487,10 +484,6 @@ public class LocalPropertiesService extends Observable {
 		return isPropertyActivated(EarthProperty.OPEN_ESRI_WAYBACK);
 	}
 
-	public boolean isExplorerSupported() {
-		return isPropertyActivated(EarthProperty.OPEN_GEE_EXPLORER);
-	}
-
 	public Boolean isExceptionShown() {
 		return isPropertyActivated(EarthProperty.EXCEPTION_SHOWN);
 	}
@@ -515,10 +508,6 @@ public class LocalPropertiesService extends Observable {
 
 	public boolean isStreetViewSupported() {
 		return isPropertyActivated(EarthProperty.OPEN_STREET_VIEW);
-	}
-
-	public boolean isTimelapseSupported() {
-		return isPropertyActivated(EarthProperty.OPEN_TIMELAPSE);
 	}
 
 	public boolean isUsingPostgreSqlDB() {

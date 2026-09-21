@@ -1,14 +1,7 @@
-gee_explorer_url=https://explorer.earthengine.google.com/#workspace
-gee_js_library_url=https://explorer.earthengine.google.com/javascript/ee_js.js
-gee_playground_url=https://code.earthengine.google.com/
 gee_app_url=https://fao-earth-map.projects.earthengine.app/view/collect-earth-plot
-bing_maps_key=NA
-open_gee_playground=false
 open_gee_app=true
 open_earth_map=false
-open_bing_maps=false
 open_here_maps=false
-open_yandex_maps=false
 open_baidu_maps=false
 earth_map_layers={"Sentinel2AnnualMosaic"\:{"opacity"\:1}}
 earth_map_scripts={"burnedArea"\:{"aggregation"\:"annual"}, "hansen"\:{"dateRange"\:[null,null]} }

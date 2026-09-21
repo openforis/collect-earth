@@ -57,7 +57,7 @@ public class BrowserService implements InitializingBean, DisposableBean, Applica
 
 	// Browser type enumeration for thread-safe lock management
 	private enum BrowserType {
-		PLANET, SECUREWATCH, EXTRA, STREET_VIEW, GEEAPP, EARTH_MAP, TIMELAPSE, ESRI_WAYBACK
+		PLANET, SECUREWATCH, EXTRA, STREET_VIEW, GEEAPP, EARTH_MAP, ESRI_WAYBACK
 	}
 
 	// Constants for timeouts and wait durations
@@ -94,7 +94,7 @@ public class BrowserService implements InitializingBean, DisposableBean, Applica
 	private final Configuration freemarkerConfig = createFreemarkerConfiguration();
 
 	// Volatile to ensure visibility across threads when modified within synchronized blocks
-	private volatile RemoteWebDriver webDriverTimelapse, webDriverStreetView, webDriverPlanetHtml,
+	private volatile RemoteWebDriver webDriverStreetView, webDriverPlanetHtml,
 	                        webDriverExtraMap, webDriverSecureWatch, webDriverGEEMap, webDriverEarthMap,
 	                        webDriverEsriWayback;
 
@@ -845,29 +845,6 @@ public class BrowserService implements InitializingBean, DisposableBean, Applica
 					webDriverEarthMap = navigateTo(url.toString(), webDriverEarthMap);
 				} catch (final Exception e) {
 					logger.error("Problems loading Earth Map window", e);
-				}
-			}
-		}
-	}
-
-	/**
-	 * Opens a browser window with the Google Earth Engine Timelapse representation of the plot.
-	 *
-	 * @param placemarkObject The center point of the plot.
-	 * @throws BrowserNotFoundException If the browser cannot be found
-	 */
-	public void openTimelapse(final SimplePlacemarkObject placemarkObject) throws BrowserNotFoundException {
-		Object lock = getOrCreateLock(BrowserType.TIMELAPSE);
-		synchronized (lock) {
-			if (localPropertiesService.isTimelapseSupported()) {
-				try {
-					String coordinates = placemarkObject.getCoord().toString();
-					webDriverTimelapse = navigateTo(
-							"https://earthengine.google.org/timelapse/timelapseplayer_v2.html?timelapseclient=http://earthengine.google.org/timelapse/data&v="
-									+ coordinates + ",10.812,latLng&t=0.08",
-									webDriverTimelapse);
-				} catch (final Exception e) {
-					logger.error("Problems loading Timelapse", e);
 				}
 			}
 		}

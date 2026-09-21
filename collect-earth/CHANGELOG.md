@@ -9,6 +9,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - CSV data export now supports multiple entities (#52)
 - Optional reference area (square, circle or hexagon) drawn around square, circle and hexagon plots to give context on the surroundings during the assessment; configured from the plot options panel (`buffer_shape` / `distance_to_buffers`), which warns when the reference area covers less than 10 times the plot area. It is drawn with a fainter, thinner line than the plot boundary, so that the two are not confused
 
+### Removed
+- The integrations that are not supported any more: Earth Engine Timelapse, Earth Engine Explorer, the Earth Engine code editor, Bing Maps and Yandex Maps. Their properties are gone from earth.properties and a project file that still carries them is simply ignored
+
 ### Changed
 - Updated Collect framework to the latest version
 - Added Sentry Seer plugin for AI-assisted error analysis
