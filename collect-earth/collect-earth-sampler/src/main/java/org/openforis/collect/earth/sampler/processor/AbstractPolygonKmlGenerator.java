@@ -3,6 +3,8 @@ package org.openforis.collect.earth.sampler.processor;
 import java.awt.geom.Rectangle2D;
 import java.io.IOException;
 import java.text.DecimalFormat;
+import java.util.Locale;
+import java.text.DecimalFormatSymbols;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
@@ -71,7 +73,13 @@ public abstract class AbstractPolygonKmlGenerator extends KmlGenerator {
 				continue;
 			}
 			try {
-				distances.add(Integer.parseInt(trimmed));
+				final int distance = Integer.parseInt(trimmed);
+				if (distance <= 0) {
+					// Zero collapses the ring onto the centre of the plot, a negative distance mirrors it
+					logger.warn("Ignoring reference area distance '{}' in distance_to_buffers={} : it has to be greater than zero", trimmed, distanceToBuffers);
+					continue;
+				}
+				distances.add(distance);
 			} catch (NumberFormatException e) {
 				// Parsed once per generator so that a typo is reported once, not once per plot, and the valid distances are kept
 				logger.warn("Ignoring reference area distance '{}' in distance_to_buffers={} : it is not a whole number of meters", trimmed, distanceToBuffers);
@@ -113,7 +121,8 @@ public abstract class AbstractPolygonKmlGenerator extends KmlGenerator {
 
 		SimplePlacemarkObject previousPlacemark = null;
 
-		Rectangle2D viewFrame = new Rectangle2D.Float();
+		// Double : the single precision of Float loses about 1e-5 degrees beyond longitude 100, which is metres on the ground
+		Rectangle2D viewFrame = new Rectangle2D.Double();
 		boolean firstPoint = true;
 		// Read CSV file so that we can store the information in a Map that can
 		// be used by freemarker to do the "goal-replacement"
@@ -151,7 +160,7 @@ public abstract class AbstractPolygonKmlGenerator extends KmlGenerator {
 						viewFrame.setRect(X, Y, 0, 0);
 						firstPoint = false;
 					} else {
-						final Rectangle2D rectTemp = new Rectangle2D.Float();
+						final Rectangle2D rectTemp = new Rectangle2D.Double();
 						rectTemp.setRect(X, Y, 0, 0);
 						viewFrame = viewFrame.createUnion(rectTemp);
 					}
@@ -178,7 +187,10 @@ public abstract class AbstractPolygonKmlGenerator extends KmlGenerator {
 						logger.error( "Error on the CSV file ", e );
 						throw new KmlGenerationException("Error in the CSV " + csvFile + " \r\n for row " + rowNumber + " = " + Arrays.toString( csvRow ), e);
 					}else{
-						logger.info("Error while reading the first line of the CSV fle, probably cause by the column header names");
+						// Assumed to be the header. If the file has none, this is a plot and it is missing from Google Earth,
+						// so say which row was skipped and why
+						logger.warn("The first row of " + csvFile + " was skipped as a header. If it is a plot it will be MISSING in Google Earth : "
+								+ Arrays.toString( csvRow ), e);
 					}
 				}finally{
 					rowNumber++;
@@ -188,7 +200,9 @@ public abstract class AbstractPolygonKmlGenerator extends KmlGenerator {
 			throw new KmlGenerationException("Error reading CSV " + csvFile , e);
 		}
 
-		final DecimalFormat df = new DecimalFormat("#.###");
+		// Locale.ROOT : with the locale of the machine this wrote "12,345" on a Spanish, French or Portuguese computer, and a
+		// comma is not a decimal separator in a KML
+		final DecimalFormat df = new DecimalFormat("#.###", DecimalFormatSymbols.getInstance(Locale.ROOT));
 
 		data.put("placemarks", placemarks);
 		data.put("region_north", Double.toString( viewFrame.getMaxY() ) );

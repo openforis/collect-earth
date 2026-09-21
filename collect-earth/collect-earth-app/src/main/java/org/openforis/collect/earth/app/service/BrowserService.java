@@ -258,12 +258,23 @@ public class BrowserService implements InitializingBean, DisposableBean, Applica
 	 */
 	public static boolean isElementPresentByIdOrName(String elementId, RemoteWebDriver driver) {
 		try {
-			return driver.findElement(By.id(elementId)).isDisplayed() ||
-			       driver.findElement(By.name(elementId)).isDisplayed();
+			// findElement throws when there is no such element, so the lookup by name was never reached for a page whose
+			// field carries a name and no id, and every wait for it ran to its full timeout
+			return isAnyDisplayed(driver.findElements(By.id(elementId)))
+					|| isAnyDisplayed(driver.findElements(By.name(elementId)));
 		} catch (final Exception e) {
 			// Element not found - this is expected behavior, not an error
 			return false;
 		}
+	}
+
+	private static boolean isAnyDisplayed(List<WebElement> elements) {
+		for (WebElement element : elements) {
+			if (element.isDisplayed()) {
+				return true;
+			}
+		}
+		return false;
 	}
 
 	/**
@@ -458,7 +469,11 @@ public class BrowserService implements InitializingBean, DisposableBean, Applica
 					// Browser closed, restart it!
 					logger.error("Browser was closed, restaring it...", e);
 					driver = initBrowser();
-					navigateTo(url, driver, false); // only try to re-open one
+					// Keep what the retry returns : the driver of the window that was just opened
+					driver = navigateTo(url, driver, false); // only try to re-open one
+				} else {
+					// Every other failure used to be swallowed here, so a page that does not load left no trace at all
+					logger.error("Error loading the page in the browser", e);
 				}
 			}
 		} else {

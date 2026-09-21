@@ -41,9 +41,17 @@ public class FolderFinder {
 		} catch (Exception e) {
 			logger().error("Error getting Collect Earth data folder", e);
 		}
+		if (absolutePath == null) {
+			// Saying it here rather than letting "null" travel into every path that is built from this
+			throw new IllegalStateException("Cannot determine the Collect Earth data folder ( user home : " + getUserHome() + " )");
+		}
 		return absolutePath;
 	}
 
+	/**
+	 * @return The data folder with its ampersands escaped. Only for a path that is written inside XML or KML, where a name
+	 *         like "Romeo&Giulietta" would be read as an entity. For a path on the disk use {@link #getCollectEarthDataFolder()}
+	 */
 	public static String getCollectEarthDataFolderNoAmpersad() {
 		String dataFolder = getCollectEarthDataFolder();
 		// Remove ampersands from the URL (like in case a username is something like "Romeo&Giulietta") so that the SAX parser does not confuse it with an XML entity
@@ -55,7 +63,9 @@ public class FolderFinder {
 		String userHome = "" ;
 
 		if (SystemUtils.IS_OS_WINDOWS){
-			userHome = System.getenv("APPDATA") + File.separatorChar;
+			// Without the fallback an unset APPDATA gave a folder called "null" next to wherever the process was started
+			final String appData = System.getenv("APPDATA");
+			userHome = ( appData != null ? appData : System.getProperty("user.home") ) + File.separatorChar;
 		}else if (SystemUtils.IS_OS_MAC){
 			userHome = System.getProperty("user.home") + "/Library/Application Support/";
 		}else if ( SystemUtils.IS_OS_UNIX){

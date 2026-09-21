@@ -156,10 +156,16 @@ public class LocalPropertiesService extends Observable {
 	public CollectDBDriver getCollectDBDriver() {
 
 		final String collectDbDriver = getValue(EarthProperty.DB_DRIVER);
-		if (collectDbDriver.length() == 0) {
+		if (StringUtils.isBlank(collectDbDriver)) {
 			return CollectDBDriver.SQLITE;
 		}
-		return CollectDBDriver.valueOf(collectDbDriver);
+		try {
+			return CollectDBDriver.valueOf(collectDbDriver.trim().toUpperCase());
+		} catch (IllegalArgumentException e) {
+			// A typo in earth.properties used to end the start of the application, wherever the driver was first needed
+			logger.warn("Unknown " + EarthProperty.DB_DRIVER + " '{}' in the properties, using {}", collectDbDriver, CollectDBDriver.SQLITE.name());
+			return CollectDBDriver.SQLITE;
+		}
 
 	}
 
@@ -289,10 +295,15 @@ public class LocalPropertiesService extends Observable {
 
 	public OperationMode getOperationMode() {
 		final String instanceType = getValue(EarthProperty.OPERATION_MODE);
-		if (instanceType.length() == 0) {
+		if (StringUtils.isBlank(instanceType)) {
 			return OperationMode.SERVER_MODE;
 		}
-		return OperationMode.valueOf(instanceType);
+		try {
+			return OperationMode.valueOf(instanceType.trim().toUpperCase());
+		} catch (IllegalArgumentException e) {
+			logger.warn("Unknown " + EarthProperty.OPERATION_MODE + " '{}' in the properties, using {}", instanceType, OperationMode.SERVER_MODE.name());
+			return OperationMode.SERVER_MODE;
+		}
 	}
 
 	public String getOperator() {
@@ -326,8 +337,12 @@ public class LocalPropertiesService extends Observable {
 		final String value = getValue(EarthProperty.SAMPLE_SHAPE);
 		if (StringUtils.isBlank(value)) {
 			return SAMPLE_SHAPE.SQUARE;
-		} else {
-			return SAMPLE_SHAPE.valueOf(value);
+		}
+		try {
+			return SAMPLE_SHAPE.valueOf(value.trim().toUpperCase());
+		} catch (IllegalArgumentException e) {
+			logger.warn("Unknown " + EarthProperty.SAMPLE_SHAPE + " '{}' in the properties, drawing {} plots instead", value, SAMPLE_SHAPE.SQUARE.name());
+			return SAMPLE_SHAPE.SQUARE;
 		}
 	}
 
