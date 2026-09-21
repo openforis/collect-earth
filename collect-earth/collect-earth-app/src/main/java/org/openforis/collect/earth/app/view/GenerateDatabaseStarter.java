@@ -72,6 +72,8 @@ final class GenerateDatabaseStarter {
 				}
 
 			};
+			// Registered before the dialog is shown : asking the monitor after showLater() returned always answered false
+			progressMonitor.setOnUserCancelled( () -> generateDatabase.setUserCancelledOperation(true) );
 			threadGeneratingDB.start();
 			progressMonitor.showLater();		
 		}else {
@@ -80,9 +82,7 @@ final class GenerateDatabaseStarter {
 		}
 
 		
-		if( progressMonitor.isUserCancelled() ){
-			generateDatabase.setUserCancelledOperation(true);
-		}
+
 	}
 
 	public void setStarting(boolean starting) {

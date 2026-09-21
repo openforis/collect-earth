@@ -111,6 +111,8 @@ public class InfiniteProgressMonitor implements ProgressListener {
 		return getDialog().isShowing();
 	}
 
+	private transient Runnable onUserCancelled;
+
 	public boolean isUserCancelled() {
 		return userCancelled;
 	}
@@ -121,6 +123,19 @@ public class InfiniteProgressMonitor implements ProgressListener {
 
 	public void setUserCancelled(boolean userCancelled) {
 		this.userCancelled = userCancelled;
+		if (userCancelled && onUserCancelled != null) {
+			onUserCancelled.run();
+		}
+	}
+
+	/**
+	 * Registers what to do when the user dismisses this dialog. show() and showLater() only queue the dialog on the event
+	 * thread and return, so asking isUserCancelled() on the next line always answered false and the cancel was ignored.
+	 *
+	 * @param onUserCancelled Called on the event thread, once, when the user closes the dialog or clicks on cancel
+	 */
+	public void setOnUserCancelled(Runnable onUserCancelled) {
+		this.onUserCancelled = onUserCancelled;
 	}
 	
 	public void show() {
@@ -163,7 +178,14 @@ public class InfiniteProgressMonitor implements ProgressListener {
 
 	@Override
 	public void progressMade(Progress progress) {
-		updateProgress((int) progress.getProcessedItems());
+		long total = progress.getTotalItems();
+		if (total <= 0) {
+			// Nothing to measure against : leave the bar as it is rather than showing a wrong percentage
+			return;
+		}
+		// The processed items were passed to updateProgress(int), which labels its argument as a percentage and caps the bar
+		// at 100 : a survey of 4000 plots showed "100%" from the hundredth record on
+		updateProgress((int) progress.getProcessedItems(), (int) total);
 	}
 
 }

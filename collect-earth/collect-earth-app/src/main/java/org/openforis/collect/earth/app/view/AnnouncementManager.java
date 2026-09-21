@@ -122,6 +122,11 @@ public class AnnouncementManager {
     }
 
     private void showAnnouncementDialog(String message, String severity) {
+        // Built and shown on the event thread : this runs on the thread that fetched the announcements
+        javax.swing.SwingUtilities.invokeLater( () -> buildAndShowAnnouncementDialog(message, severity) );
+    }
+
+    private void buildAndShowAnnouncementDialog(String message, String severity) {
         int messageType = JOptionPane.INFORMATION_MESSAGE; // Default to info
         if ("warning".equalsIgnoreCase(severity)) {
             messageType = JOptionPane.WARNING_MESSAGE;
