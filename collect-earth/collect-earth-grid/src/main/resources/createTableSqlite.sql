@@ -4,8 +4,8 @@
 
 CREATE TABLE IF NOT EXISTS plot
 (
-  row smallint NOT NULL,
-  griddistance smallint NOT NULL,
+  row integer NOT NULL,
+  griddistance integer NOT NULL,
   col integer NOT NULL,
   gridflags integer,
   xcoordinate integer,

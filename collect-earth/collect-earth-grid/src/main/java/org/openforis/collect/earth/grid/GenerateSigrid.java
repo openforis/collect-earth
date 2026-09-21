@@ -3,7 +3,6 @@ package org.openforis.collect.earth.grid;
 import org.openforis.collect.earth.sampler.utils.CoordinateUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.sqlite.SQLiteException;
 
 public class GenerateSigrid{
 
@@ -70,10 +69,10 @@ public class GenerateSigrid{
 				latitude = pointWithOffset[0];
 			}
 
-		}  catch (SQLiteException e) {
-			logger.error(" Error with SQL query ", e );
-		}catch (Exception e) {
-			logger.error(" Error transforming the point coordinates ", e );
+		}  catch (Exception e) {
+			// One message that does not name a cause : the store is a CSV file, there is no SQL and no coordinate
+			// transformation behind most of what can fail here
+			logger.error(" The grid could not be generated ", e );
 		} finally {
 			logger.info( "Total time millis " + (System.currentTimeMillis() - startTime ));
 			store.closeStore();

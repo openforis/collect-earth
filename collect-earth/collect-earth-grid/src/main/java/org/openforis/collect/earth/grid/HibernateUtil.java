@@ -47,7 +47,8 @@ public class HibernateUtil {
         }
     }
 	
-	public static SessionFactory getSessionFactory() {
+	// Synchronized : two threads asking at once each built a factory, and each opened its own pool of connections
+	public static synchronized SessionFactory getSessionFactory() {
 		if(sessionFactory == null) sessionFactory = buildSessionFactory();
         return sessionFactory;
     }

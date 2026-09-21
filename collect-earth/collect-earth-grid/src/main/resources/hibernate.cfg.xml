@@ -9,7 +9,9 @@
         <!-- The user name and the password are not kept in the repository : HibernateUtil reads them from the
              globalgrid.db.user and globalgrid.db.password system properties -->
         <property name="hibernate.dialect">org.hibernate.dialect.PostgreSQLDialect</property>
-        <property name="hbm2ddl.auto">create</property> <!-- create / create-drop / update -->
+        <!-- "update" rather than "create" : create drops the plot table and every grid already in it each time the
+             generator starts. The name is the full one, the short "hbm2ddl.auto" is not read by Hibernate 5. -->
+        <property name="hibernate.hbm2ddl.auto">update</property> <!-- create / create-drop / update -->
         <property name="hibernate.current_session_context_class">thread</property>
         <property name="hibernate.show_sql">false</property>
         

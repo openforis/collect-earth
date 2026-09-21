@@ -15,14 +15,16 @@ public class QuerySigrid {
 	private static final int OFFSET_DEGREES = 10;
 
 	public ResultSet getSigridForShapefile(File shapefile, Integer gridDistance, Integer grid) {
-		return null;
+		// It used to return null, which every caller read straight away : better to say that it was never written
+		throw new UnsupportedOperationException("Querying the grid by shapefile is not implemented");
 	}
 
-	public ResultSet getSigridForBoundingBox(Double[] boundingBox, Integer gridDistance, Integer grid) {
+	public ResultSet getSigridForBoundingBox(Double[] boundingBox, Integer gridDistance, Integer grid)
+			throws SQLException {
 		return database.getPlots(grid, boundingBox[0], boundingBox[1], boundingBox[2], boundingBox[3], gridDistance);
 	}
 
-	public ResultSet getSigridAll(Integer gridDistance, Integer grid) {
+	public ResultSet getSigridAll(Integer gridDistance, Integer grid) throws SQLException {
 		return database.getAllPlots(grid, gridDistance);
 	}
 
@@ -30,24 +32,35 @@ public class QuerySigrid {
 	public void writeCsvFromBoundingBox(Double[] boundingBox, Integer gridDistance, Integer grid, String prefix,
 			boolean zipOutput) {
 
-		ResultSet results = getSigridForBoundingBox(boundingBox, gridDistance, grid);
 		try {
 			csv.initializeStore(gridDistance, prefix, zipOutput);
-
-			while (results.next()) {
-				csv.savePlot(results.getInt("ycoordinate") * 1d / JDBCStore.SCALING_FACTOR * 1d,
-						results.getInt("xcoordinate") * 1d / JDBCStore.SCALING_FACTOR * 1d, results.getInt("row"),
-						results.getInt("col"));
+			// In a try-with-resources : a failure part way through the rows left the cursor open on the server
+			try (ResultSet results = getSigridForBoundingBox(boundingBox, gridDistance, grid)) {
+				writeResults(results);
 			}
-			results.close();
-
-		} catch (SQLException e) {
-			logger.error("Error readig results from DB", e);
+		} catch (Exception e) {
+			logger.error("Error reading results from DB", e);
 		} finally {
-			csv.closeStore();
-			database.closeStore();
+			closeStores();
 		}
 
+	}
+
+	private void writeResults(ResultSet results) throws SQLException {
+		while (results.next()) {
+			csv.savePlot(results.getInt("ycoordinate") * 1d / JDBCStore.SCALING_FACTOR * 1d,
+					results.getInt("xcoordinate") * 1d / JDBCStore.SCALING_FACTOR * 1d, results.getInt("row"),
+					results.getInt("col"));
+		}
+	}
+
+	private void closeStores() {
+		// Nested : a failure closing the CSV file used to leave the database connection open
+		try {
+			csv.closeStore();
+		} finally {
+			database.closeStore();
+		}
 	}
 
 	public void generateTiledOffsetDegreeGrids(int latitude, int longitude, Integer gridDistance, Integer grid,
@@ -93,23 +106,17 @@ public class QuerySigrid {
 
 	public void writeCsvForAll(Integer gridDistance, Integer grid, String prefix, boolean zipOutput) {
 
-		ResultSet results = getSigridAll(gridDistance, grid);
 		try {
 			csv.initializeStore(gridDistance, prefix, zipOutput);
 
-			while (results.next()) {
-				csv.savePlot(results.getInt("ycoordinate") * 1d / JDBCStore.SCALING_FACTOR * 1d,
-						results.getInt("xcoordinate") * 1d / JDBCStore.SCALING_FACTOR * 1d, results.getInt("row"),
-						results.getInt("col"));
+			try (ResultSet results = getSigridAll(gridDistance, grid)) {
+				writeResults(results);
 			}
 
-			results.close();
-
-		} catch (SQLException e) {
-			logger.error("Error readig results from DB", e);
+		} catch (Exception e) {
+			logger.error("Error reading results from DB", e);
 		} finally {
-			csv.closeStore();
-			database.closeStore();
+			closeStores();
 		}
 
 	}

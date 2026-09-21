@@ -88,19 +88,19 @@ public class Plot implements Serializable{
 	}
 
 	
+	/*
+	 * The identifier only. The three @Id fields with no @IdClass make the entity its own composite identifier, so Hibernate
+	 * compares plots with these two methods when it looks one up. They also took the coordinates and the flags into account,
+	 * which are not part of the key : two instances of the same row that differed in a coordinate were treated as different
+	 * plots, and changing a coordinate on a loaded plot changed its hash while it sat in the session.
+	 */
 	@Override
 	public int hashCode() {
 		final int prime = 31;
 		int result = 1;
 		result = prime * result + col;
 		result = prime * result + gridDistance;
-		result = prime * result + gridFlags;
 		result = prime * result + row;
-		long temp;
-		temp = Double.doubleToLongBits(xCoordinate);
-		result = prime * result + (int) (temp ^ (temp >>> 32));
-		temp = Double.doubleToLongBits(yCoordinate);
-		result = prime * result + (int) (temp ^ (temp >>> 32));
 		return result;
 	}
 
@@ -117,15 +117,7 @@ public class Plot implements Serializable{
 			return false;
 		if (gridDistance != other.gridDistance)
 			return false;
-		if (gridFlags != other.gridFlags)
-			return false;
-		if (row != other.row)
-			return false;
-		if (Double.doubleToLongBits(xCoordinate) != Double.doubleToLongBits(other.xCoordinate))
-			return false;
-		if (Double.doubleToLongBits(yCoordinate) != Double.doubleToLongBits(other.yCoordinate))
-			return false;
-		return true;
+		return row == other.row;
 	}
 
 	

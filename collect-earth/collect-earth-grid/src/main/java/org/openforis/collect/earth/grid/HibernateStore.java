@@ -28,18 +28,13 @@ public class HibernateStore extends AbstractStore{
 		plot.setxCoordinate(longitude);
 		plot.setyCoordinate(latitude);
 
-		int gridFlags = 0;
-		for (Integer d : getDistances()) {
-			if (column%d + row%d == 0) {
-				gridFlags = gridFlags | (1<<d);
-			}
-		}
-		plot.setGridFlags(gridFlags);
+		plot.setGridFlags(getGridFlags(row, column));
 
-		//Save employee
 		session.save(plot);
 
-		if(lastRow.equals( row) ) {
+		// Flush when the row changes : the test was inverted, so row 0 flushed after every plot and no later row ever did,
+		// which kept every plot of the run in memory
+		if(!lastRow.equals( row) ) {
 			lastRow = row;
 			session.flush();
 	        session.clear();
@@ -49,8 +44,24 @@ public class HibernateStore extends AbstractStore{
 
 	@Override
 	public void closeStore() {
-		session.getTransaction().commit();
-		sessionFactory.close();
+		// Guarded and in a finally : the store is closed from a finally block, so it is also reached when opening it failed,
+		// and a commit that threw used to leave the session factory and its connections open
+		try {
+			if( session != null && session.getTransaction() != null ) {
+				try {
+					session.getTransaction().commit();
+				} catch (RuntimeException e) {
+					session.getTransaction().rollback();
+					throw e;
+				}
+			}
+		} finally {
+			if( sessionFactory != null ) {
+				sessionFactory.close();
+			}
+			session = null;
+			sessionFactory = null;
+		}
 	}
 
 

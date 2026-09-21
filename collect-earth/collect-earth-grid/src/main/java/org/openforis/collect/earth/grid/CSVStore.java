@@ -4,10 +4,10 @@ import java.io.BufferedOutputStream;
 import java.io.BufferedWriter;
 import java.io.File;
 import java.io.FileOutputStream;
-import java.io.FileWriter;
 import java.io.IOException;
 import java.io.OutputStreamWriter;
 import java.io.Writer;
+import java.nio.charset.StandardCharsets;
 import java.util.Vector;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipOutputStream;
@@ -31,16 +31,28 @@ public class CSVStore extends AbstractStore{
 	private Logger logger = LoggerFactory.getLogger(CSVStore.class);
 
 	public void closeStore() {
+		// Guarded : the store is closed in a finally block, so it is reached even when opening the files failed
+		if( writers == null ) {
+			return;
+		}
 		for (CSVWriter w : writers) {
+			if( w == null ) {
+				continue;
+			}
 			try {
+				// CSVWriter keeps its write failures to itself, a full disk is only visible through checkError()
+				if( w.checkError() ) {
+					logger.error("The CSV file could not be written completely");
+				}
 				w.close();
 			} catch (IOException e) {
 				logger.error("error closing the file", e);
 			}
 		}
+		writers = null;
 	}
 
-	public void initializeStore( int distanceBetweenPlots, boolean zipOutput ) {
+	public void initializeStore( int distanceBetweenPlots, boolean zipOutput ) throws IOException {
 		initializeStore( distanceBetweenPlots, "global", zipOutput );
 	}
 
@@ -49,7 +61,7 @@ public class CSVStore extends AbstractStore{
 		initializeStore( distanceBetweenPlots, false );
 	}
 
-	public void initializeStore( int distanceBetweenPlots, String prefix, boolean zipOutput ) {
+	public void initializeStore( int distanceBetweenPlots, String prefix, boolean zipOutput ) throws IOException {
 
 		Vector<String> headers = new Vector<String>();
 		headers.add("CE_ID");
@@ -61,8 +73,10 @@ public class CSVStore extends AbstractStore{
 		}
 
 		File outputDir = new File( "output" );
-		if( !outputDir.isDirectory() )
-			outputDir.mkdir();
+		if( !outputDir.isDirectory() && !outputDir.mkdirs() ) {
+			// Checked : when the directory could not be created every file below failed one by one instead
+			throw new IOException( "The output directory could not be created : " + outputDir.getAbsolutePath() );
+		}
 
 		headerArray =  new String[headers.size()];
 		headers.toArray(headerArray);
@@ -74,43 +88,44 @@ public class CSVStore extends AbstractStore{
 
 		CSVWriter w;
 
-		try {
-			int i=0;
-			for (Integer d : getDistances()) {
-				File fileOutput = new File(outputDir,  prefix +"_" + distanceBetweenPlots+ "m_"+ d +"_subgrid.csv" + ( zipOutput?".zip":"" ) );
-				logger.info( fileOutput.getAbsolutePath() );
+		// The failure reaches the caller : it used to be logged and the writers left null, so the first plot saved died on a
+		// NullPointerException instead
+		int i=0;
+		for (Integer d : getDistances()) {
+			File fileOutput = new File(outputDir,  prefix +"_" + distanceBetweenPlots+ "m_"+ d +"_subgrid.csv" + ( zipOutput?".zip":"" ) );
+			logger.info( fileOutput.getAbsolutePath() );
 
-				Writer writer;
-				FileWriter file = new FileWriter( fileOutput );
-				writer = new BufferedWriter(file);
-				if( zipOutput ) {
-					FileOutputStream fos =  new FileOutputStream( fileOutput );
-					BufferedOutputStream bos = new BufferedOutputStream(fos);
-					ZipOutputStream zos = new ZipOutputStream(bos);
-					namePrefix[i] = prefix +"_" + distanceBetweenPlots+ "m_"+ d;
-					zos.putNextEntry( new ZipEntry( namePrefix[i] +"_subgrid_0.csv" ) );
-					zosForWriterOutputStreams[i] = zos;
-					writer = new OutputStreamWriter( zos );
-				}
-
-				w =  new CSVWriter(  writer );
-				w.writeNext( headerArray );
-
-				writers[i] = w;
-				rowCounters[i] = 0;
-
-				i++;
-
+			Writer writer;
+			if( zipOutput ) {
+				// Only one of the two : the plain FileWriter was opened in both cases, and when zipping it was left open on a
+				// file that the stream below then truncated
+				FileOutputStream fos =  new FileOutputStream( fileOutput );
+				BufferedOutputStream bos = new BufferedOutputStream(fos);
+				ZipOutputStream zos = new ZipOutputStream(bos);
+				namePrefix[i] = prefix +"_" + distanceBetweenPlots+ "m_"+ d;
+				zos.putNextEntry( new ZipEntry( namePrefix[i] +"_subgrid_0.csv" ) );
+				zosForWriterOutputStreams[i] = zos;
+				writer = new OutputStreamWriter( zos, StandardCharsets.UTF_8 );
+			} else {
+				writer = new BufferedWriter( new OutputStreamWriter( new FileOutputStream( fileOutput ), StandardCharsets.UTF_8 ) );
 			}
-		} catch (IOException e) {
-			logger.error("Error writing to CSV", e);
+
+			w =  new CSVWriter(  writer );
+			w.writeNext( headerArray );
+
+			writers[i] = w;
+			rowCounters[i] = 0;
+
+			i++;
+
 		}
 	}
 
 	public void savePlot( Double latitude, Double longitude, Integer row, Integer column ) {
 
 
-		String[] csvContents  = new String[ 5 + getDistances().length ];
+		// As wide as the header : it was two longer, so every row ended with two empty columns that no header named
+		String[] csvContents  = new String[ 3 + getDistances().length ];
 		csvContents[0] = Integer.toString( row ) + "_" + Integer.toString( column );
 		csvContents[1] = Double.toString(latitude);
 		csvContents[2] = Double.toString(longitude);
