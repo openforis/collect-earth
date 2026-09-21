@@ -208,8 +208,9 @@ public class RemovePlotsFromDBDlg {
 					}
 
 				} catch (Exception e) {
-					JOptionPane.showMessageDialog(RemovePlotsFromDBDlg.this.dlg,
-							Messages.getString("RemovePlotsDialog.11"));
+					// Shown from the thread that validates the file, so it has to be queued on the event thread
+					SwingUtilities.invokeLater( () -> JOptionPane.showMessageDialog(RemovePlotsFromDBDlg.this.dlg,
+							Messages.getString("RemovePlotsDialog.11")) );
 					logger.error("Error while validating the CSV file", e);
 					success = false;
 				} finally {

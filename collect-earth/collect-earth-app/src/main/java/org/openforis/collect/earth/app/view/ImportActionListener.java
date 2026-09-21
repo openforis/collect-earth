@@ -11,6 +11,7 @@ import java.util.Arrays;
 
 import javax.swing.JFrame;
 import javax.swing.JOptionPane;
+import javax.swing.SwingUtilities;
 
 import org.apache.commons.io.IOUtils;
 import org.openforis.collect.earth.app.desktop.EarthApp;
@@ -59,7 +60,34 @@ public final class ImportActionListener implements ActionListener {
 
 	}
 
+	/** Shows a message dialog from the import threads, on the event thread */
+	private void showMessageLater(Object message, String title, int messageType) {
+		SwingUtilities.invokeLater( () -> JOptionPane.showMessageDialog(frame, message, title, messageType) );
+	}
+
+	/**
+	 * Asks the user what to import. Called from the import threads, so the dialog is built and shown on the event thread and
+	 * the caller waits for the answer it needs.
+	 */
 	private Integer shouldImportNonFinishedRecords(boolean moreThanOneFiles) {
+		if (!SwingUtilities.isEventDispatchThread()) {
+			final Integer[] answer = new Integer[1];
+			try {
+				SwingUtilities.invokeAndWait( () -> answer[0] = shouldImportNonFinishedRecords(moreThanOneFiles) );
+			} catch (InterruptedException e) {
+				Thread.currentThread().interrupt();
+				return JOptionPane.CLOSED_OPTION;
+			} catch (Exception e) {
+				logger.error("Error asking about the records that are not finished", e); //$NON-NLS-1$
+				return JOptionPane.CLOSED_OPTION;
+			}
+			return answer[0];
+		}
+
+		return askAboutNonFinishedRecords(moreThanOneFiles);
+	}
+
+	private Integer askAboutNonFinishedRecords(boolean moreThanOneFiles) {
 		String message = "<html>" //$NON-NLS-1$
 				+ Messages.getString("ImportActionListener.0") //$NON-NLS-1$
 				+ "<br/>" //$NON-NLS-1$
@@ -136,7 +164,8 @@ public final class ImportActionListener implements ActionListener {
 							} catch (Exception e1) {
 								logger.error("Error importing data", e1); //$NON-NLS-1$
 								importDialogProcessMonitor.closeProgressmonitor();
-								JOptionPane.showMessageDialog(frame,
+								showMessageLater(
+
 										importedFile.getName() + " - " + Messages.getString("CollectEarthWindow.3"), //$NON-NLS-1$ //$NON-NLS-2$
 										importedFile.getName() + " - " + Messages.getString("CollectEarthWindow.7"), //$NON-NLS-1$ //$NON-NLS-2$
 										JOptionPane.ERROR_MESSAGE);
@@ -161,7 +190,7 @@ public final class ImportActionListener implements ActionListener {
 						String[] ids = dataImportService.getEarthSurveyService().getKeyNamesForSurvey();
 						String keyAttributesForSurvey = Arrays.toString(ids);
 
-						JOptionPane.showMessageDialog(frame,
+						showMessageLater(
 								"The CSV files used must have columns with at least the headers for the key attributes " //$NON-NLS-1$
 										+ keyAttributesForSurvey
 										+ " followed by one or more attribute names ( see https://www.openforis.support/questions/80/changing-plot-attributes-in-the-collect-earth-database ) ", //$NON-NLS-1$ //$NON-NLS-3$

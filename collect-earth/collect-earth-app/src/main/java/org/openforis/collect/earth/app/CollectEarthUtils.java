@@ -25,6 +25,7 @@ import java.util.stream.Stream;
 
 import javax.swing.UIManager;
 
+import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.codec.digest.DigestUtils;
 import org.apache.commons.lang3.SystemUtils;
 import org.openforis.collect.earth.app.EarthConstants.UI_LANGUAGE;
@@ -73,9 +74,11 @@ public class CollectEarthUtils {
 	}
 
 	public static String getMd5FromFile(String filePath) throws IOException {
+		// Only the failures of the file : catching everything made the declared IOException misleading, while the callers
+		// depend on the null that is returned for a file that cannot be read
 		try (FileInputStream fis = new FileInputStream(new File(filePath))) {
 			return DigestUtils.md5Hex(fis);
-		} catch (Exception e) {
+		} catch (IOException e) {
 			logger.error("Error getting MD5 from file", e);
 			return null;
 		}
@@ -230,19 +233,22 @@ public class CollectEarthUtils {
 
 	public static String testPostgreSQLConnection(String host, String port, String dbName, String username,
 			String password) {
-		String message = "Connection OK!";
 		try {
-			Driver postgresDriver = new Driver();
-			DriverManager.registerDriver(postgresDriver, null);
+			// The driver registers itself, the extra registration only made the list of drivers grow on every click
 			String url = "jdbc:postgresql://" + host + ":" + port + "/" + dbName;
+			// Without a timeout an unreachable host kept the dialog waiting for as long as the operating system allows
+			DriverManager.setLoginTimeout(10);
 			try( Connection conn = DriverManager.getConnection(url, username, password) ){
-				logger.debug("PostgreSQL Connection is valid! {}", conn.isValid(10) );// 10 sec
+				boolean valid = conn.isValid(10);// 10 sec
+				logger.debug("PostgreSQL Connection is valid! {}", valid );
+				// This used to answer "Connection OK!" even when the connection was not valid
+				return valid ? "Connection OK!" : "The database answered but the connection is not usable";
 			}
 		} catch (Exception e) {
 			logger.error("Error connecting to DB while testing", e);
-			message = e.getMessage();
+			// Some failures carry no message, and the dialog was then empty
+			return StringUtils.defaultIfBlank(e.getMessage(), e.toString());
 		}
-		return message;
 	}
 	
 }

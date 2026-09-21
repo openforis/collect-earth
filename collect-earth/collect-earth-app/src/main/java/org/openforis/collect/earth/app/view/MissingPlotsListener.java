@@ -108,10 +108,7 @@ public final class MissingPlotsListener implements ActionListener {
 						File tempFile = missingPlotService.getMissingPlotFile(missingPlotData);
 						SwingUtilities.invokeLater( infiniteProgressMonitor::close );
 
-						JDialog missingDlg = buildDialog(missingPlotsText, tempFile);
-
-						Runnable setVisible =() -> missingDlg.setVisible(true);
-						SwingUtilities.invokeLater( setVisible );
+						SwingUtilities.invokeLater( () -> buildDialog(missingPlotsText, tempFile).setVisible(true) );
 					} catch (Exception e) {
 						logger.error("Error while finding missing plots", e);
 					} finally {

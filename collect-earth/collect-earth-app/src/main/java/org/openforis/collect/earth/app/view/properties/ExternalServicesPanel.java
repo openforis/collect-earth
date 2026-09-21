@@ -1,5 +1,7 @@
 package org.openforis.collect.earth.app.view.properties;
 
+import java.awt.Color;
+import java.awt.Font;
 import java.awt.GridBagLayout;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
@@ -17,6 +19,8 @@ import javax.swing.JLabel;
 import javax.swing.JPanel;
 import javax.swing.JPasswordField;
 import javax.swing.JTextField;
+import javax.swing.event.DocumentEvent;
+import javax.swing.event.DocumentListener;
 
 import org.apache.commons.lang3.StringUtils;
 import org.jdesktop.swingx.JXDatePicker;
@@ -34,6 +38,8 @@ public class ExternalServicesPanel extends AbstractPropertyPanel {
 
     private static final long serialVersionUID = 1L;
     private static final String START_OF_LANDSAT_AND_MODIS = "2000-01-01";
+    private static final Color WARNING_TEXT_COLOR = new Color(180, 90, 0);
+    private static final Color HINT_TEXT_COLOR = new Color(90, 90, 90);
 
     // GEE App components
     private JCheckBox openGeeAppCheckbox;
@@ -50,6 +56,7 @@ public class ExternalServicesPanel extends AbstractPropertyPanel {
     private JPanel planetPanel;
     private JCheckBox openPlanetCheckbox;
     private JPasswordField planetApiKeyField;
+    private JLabel planetApiKeyNote;
     private JCheckBox useTfoCheckbox;
     private JComboBox<PlanetMonthlyObject> planetTfoFromMonth;
     private JComboBox<PlanetMonthlyObject> planetTfoToMonth;
@@ -113,9 +120,14 @@ public class ExternalServicesPanel extends AbstractPropertyPanel {
 
         planetApiKeyField = componentFactory.createPasswordField(EarthProperty.PLANET_MAPS_KEY);
         planetApiKeyField.setEnabled(openPlanetCheckbox.isSelected());
+        planetApiKeyField.setToolTipText(Messages.getString("OptionWizard.1043"));
         registerComponent(EarthProperty.PLANET_MAPS_KEY, planetApiKeyField);
 
-        // Planet TFO (Tropical Forest Observatory) mode - uses same API key as Daily
+        // Says that the key below serves both modes, and asks for it while it is missing
+        planetApiKeyNote = new JLabel();
+        planetApiKeyNote.setFont(planetApiKeyNote.getFont().deriveFont(Font.PLAIN));
+
+        // Planet TFO (Tropical Forest Observatory) mode - uses the same API key as Daily
         useTfoCheckbox = componentFactory.createCheckbox("OptionWizard.140", EarthProperty.PLANET_MAPS_USE_TFO);
         useTfoCheckbox.setEnabled(openPlanetCheckbox.isSelected());
         registerComponent(EarthProperty.PLANET_MAPS_USE_TFO, useTfoCheckbox);
@@ -184,7 +196,22 @@ public class ExternalServicesPanel extends AbstractPropertyPanel {
         return comboBox;
     }
 
+    /**
+     * The daily imagery and the mosaics of the Tropical Forest Observatory are opened with the same key,
+     * so the note sits above both of them and turns into a warning while no key has been entered.
+     */
+    private void updatePlanetApiKeyNote() {
+        boolean planetSelected = openPlanetCheckbox.isSelected();
+        boolean hasKey = planetApiKeyField.getPassword().length > 0;
+        planetApiKeyNote.setVisible(planetSelected);
+        planetApiKeyNote.setText(Messages.getString(hasKey ? "OptionWizard.1044" : "OptionWizard.1045"));
+        planetApiKeyNote.setForeground(hasKey ? HINT_TEXT_COLOR : WARNING_TEXT_COLOR);
+        revalidate();
+        repaint();
+    }
+
     private void initializeVisibility() {
+        updatePlanetApiKeyNote();
         boolean hasFromDate = StringUtils.isNotBlank(localPropertiesService.getValue(EarthProperty.GEEAPP_FROM_DATE));
         specifyStartAndEndGeeApp.setSelected(hasFromDate);
         geeAppDatePanel.setVisible(hasFromDate && openGeeAppCheckbox.isSelected());
@@ -255,6 +282,26 @@ public class ExternalServicesPanel extends AbstractPropertyPanel {
             if (!planetSelected) {
                 useTfoCheckbox.setSelected(false);
             }
+
+            updatePlanetApiKeyNote();
+        });
+
+        // the note follows the key as it is typed, so that it stops asking for it as soon as there is one
+        planetApiKeyField.getDocument().addDocumentListener(new DocumentListener() {
+            @Override
+            public void insertUpdate(DocumentEvent e) {
+                updatePlanetApiKeyNote();
+            }
+
+            @Override
+            public void removeUpdate(DocumentEvent e) {
+                updatePlanetApiKeyNote();
+            }
+
+            @Override
+            public void changedUpdate(DocumentEvent e) {
+                updatePlanetApiKeyNote();
+            }
         });
 
         // TFO checkbox toggles between Daily and TFO mode
@@ -270,7 +317,8 @@ public class ExternalServicesPanel extends AbstractPropertyPanel {
 
         // SecureWatch checkbox toggles URL field
         openSecureWatchCheckbox.addActionListener(e ->
-                secureWatchUrlField.setEnabled(openSecureWatchCheckbox.isSelected()));
+                secureWatchUrlField.setEnabled(openSecureWatchCheckbox.isSelected()
+                        && localPropertiesService.isSecureWatchSupported()));
     }
 
     private void initializeDatePickersWithDefaults() {
@@ -329,6 +377,15 @@ public class ExternalServicesPanel extends AbstractPropertyPanel {
             endMonth = 12;
             endYear--;
         }
+        // There is no imagery for the latest month until the 10th of the next one. PlanetMonthlyObject already stops there,
+        // this list used to offer a month with nothing behind it during the first nine days
+        if (now.get(Calendar.DAY_OF_MONTH) < 10) {
+            endMonth--;
+            if (endMonth < 1) {
+                endMonth = 12;
+                endYear--;
+            }
+        }
 
         // Generate monthly mosaics from September 2020 to previous month
         int year = startYear;
@@ -361,8 +418,9 @@ public class ExternalServicesPanel extends AbstractPropertyPanel {
 
         addFullWidthRow(panel, 0, openPlanetCheckbox);
         addLabeledRow(panel, 1, "OptionWizard.101", planetApiKeyField);
-        addFullWidthRow(panel, 2, useTfoCheckbox);
-        addFullWidthRow(panel, 3, planetTfoMonthPanel);
+        addFullWidthRow(panel, 2, planetApiKeyNote);
+        addFullWidthRow(panel, 3, useTfoCheckbox);
+        addFullWidthRow(panel, 4, planetTfoMonthPanel);
 
         return panel;
     }

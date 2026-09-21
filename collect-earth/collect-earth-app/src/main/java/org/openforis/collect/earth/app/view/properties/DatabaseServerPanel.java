@@ -1,5 +1,7 @@
 package org.openforis.collect.earth.app.view.properties;
 
+import javax.swing.SwingWorker;
+import java.util.Arrays;
 import java.awt.Component;
 import java.awt.GridBagConstraints;
 import java.awt.GridBagLayout;
@@ -239,14 +241,38 @@ public class DatabaseServerPanel extends AbstractPropertyPanel {
             String port = dbPort.getText();
             String database = dbName.getText();
             String username = dbUsername.getText();
-            String password = dbPassword.getText();
+            // getPassword() rather than the deprecated getText() of the text field it extends
+            char[] passwordChars = dbPassword.getPassword();
+            String password = new String(passwordChars);
+            Arrays.fill(passwordChars, ' ');
 
-            String message = CollectEarthUtils.testPostgreSQLConnection(host, port, database, username, password);
-            JOptionPane.showMessageDialog(
-                    DatabaseServerPanel.this.getTopLevelAncestor(),
-                    message,
-                    Messages.getString("OptionWizard.1037"),
-                    JOptionPane.INFORMATION_MESSAGE);
+            // Off the event thread : testing an unreachable host used to freeze the whole interface until the network gave up
+            button.setEnabled(false);
+            new SwingWorker<String, Void>() {
+                @Override
+                protected String doInBackground() {
+                    return CollectEarthUtils.testPostgreSQLConnection(host, port, database, username, password);
+                }
+
+                @Override
+                protected void done() {
+                    button.setEnabled(true);
+                    String message;
+                    try {
+                        message = get();
+                    } catch (InterruptedException ie) {
+                        Thread.currentThread().interrupt();
+                        return;
+                    } catch (Exception ex) {
+                        message = ex.getMessage();
+                    }
+                    JOptionPane.showMessageDialog(
+                            DatabaseServerPanel.this.getTopLevelAncestor(),
+                            message,
+                            Messages.getString("OptionWizard.1037"),
+                            JOptionPane.INFORMATION_MESSAGE);
+                }
+            }.execute();
         });
         return button;
     }

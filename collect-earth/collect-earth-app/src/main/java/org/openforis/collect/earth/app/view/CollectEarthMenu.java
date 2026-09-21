@@ -189,9 +189,6 @@ public class CollectEarthMenu extends JMenuBar implements InitializingBean {
 			Boolean showException = checkboxErrors.isSelected();
 			localPropertiesService.setExceptionShown( showException );
 
-			final LoggerContext ctx = (LoggerContext) LogManager.getContext(false);
-			final Configuration config = ctx.getConfiguration();
-
 			JSwingAppender jSwingAppender = ensureJSwingAppender();
 
 			if (jSwingAppender != null) {

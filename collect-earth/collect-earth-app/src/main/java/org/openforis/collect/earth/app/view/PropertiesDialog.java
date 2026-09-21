@@ -220,9 +220,17 @@ public class PropertiesDialog extends JDialog {
                                 @Override
                                 public void run() {
                                     try {
-                                        if (validateAllFields()) {
-                                            savePropertyValues();
+                                        // Both of these read the state of the components, and the verifiers of the fields open
+                                        // dialogs of their own, so they belong on the event thread
+                                        final boolean[] valid = new boolean[1];
+                                        javax.swing.SwingUtilities.invokeAndWait(() -> {
+                                            valid[0] = validateAllFields();
+                                            if (valid[0]) {
+                                                savePropertyValues();
+                                            }
+                                        });
 
+                                        if (valid[0]) {
                                             javax.swing.SwingUtilities.invokeLater(() -> {
                                                 if (isRestartRequired()) {
                                                     restartEarth();
@@ -236,6 +244,8 @@ public class PropertiesDialog extends JDialog {
                                             javax.swing.SwingUtilities.invokeLater(
                                                     PropertiesDialog.this::showValidationErrorMessage);
                                         }
+                                    } catch (InterruptedException ie) {
+                                        Thread.currentThread().interrupt();
                                     } catch (Exception e) {
                                         javax.swing.SwingUtilities.invokeLater(() -> showErrorMessage(e));
                                     } finally {
