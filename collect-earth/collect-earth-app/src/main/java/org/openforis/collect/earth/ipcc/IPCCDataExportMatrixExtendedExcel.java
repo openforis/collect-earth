@@ -156,6 +156,8 @@ public class IPCCDataExportMatrixExtendedExcel extends AbstractIPCCDataExportTim
 					}
 
 					int colNum = 0;
+					List<LUSubdivisionDataPerYear> luDataInMatrix = IPCCDataExportMatrixExcel
+							.getLuDataInMatrix(matrix.getYearData().getLuData());
 					for (AbstractLandUseSubdivision<?> subdivisionH : matrix.getSubdivisions()) {
 						colNum = 0;
 						Row row = sheet.createRow(rowNum++);
@@ -169,7 +171,7 @@ public class IPCCDataExportMatrixExtendedExcel extends AbstractIPCCDataExportTim
 
 							cell = row.createCell(colNum++);
 							cell.setCellValue(IPCCDataExportMatrixExcel
-									.findLuData(subdivisionH, subdivisionV, matrix.getYearData().getLuData())
+									.findLuData(subdivisionH, subdivisionV, luDataInMatrix)
 									.getAreaHa());
 							if (subdivisionH.equals(subdivisionV)) {
 								cell.setCellStyle(diagonalCellStyle);
