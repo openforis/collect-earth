@@ -26,6 +26,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - No credentials are shipped in the code: the analysis database and the grid tools read theirs from the launch properties
 - Imported project and data files are no longer trusted blindly: an archive entry cannot be written outside the folder it is extracted into, and the XML parsers do not resolve external entities
 - The servlet that loads a project file only accepts requests that Google Earth itself makes
+- The grid tools use the same database drivers as the application (PostgreSQL 42.7.13, SQLite 3.53.4.0), clearing the SQL injection reported for the driver they had pinned since 2022
 
 ### Fixed
 - Fixed a NullPointerException in the process monitor dialog

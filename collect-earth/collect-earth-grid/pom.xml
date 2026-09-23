@@ -30,18 +30,25 @@
 		<dependency>
 			<groupId>org.hibernate</groupId>
 			<artifactId>hibernate-core</artifactId>
+			<!-- GHSA-2p5w-cvg5-gc5c reports a second-order SQL injection for every 5.x, with no fixed 5.x to move to. It
+			     needs InlineIdsOrClauseBuilder, which this module cannot reach: HibernateStore only saves Plot entities and
+			     every query in the module is written by hand in JDBCStore. Moving to Hibernate 6 for a tool that persists a
+			     single entity is the change to make when this module is next touched. -->
 			<version>5.4.24.Final</version>
 		</dependency>
 		<dependency>
 			<groupId>org.postgresql</groupId>
 			<artifactId>postgresql</artifactId>
-			<version>42.5.1</version>
+			<!-- 42.5.1 carried GHSA-24rp-q3w6-vc56 (SQL injection through a line comment) and GHSA-98qh-xjc8-98pq.
+			     The same version the application resolves, so the whole build agrees on one driver. -->
+			<version>42.7.13</version>
 		</dependency>
 		<dependency>
 			<groupId>org.xerial</groupId>
 			<artifactId>sqlite-jdbc</artifactId>
-			<version>3.36.0.3</version>
-			<!-- This latest version provokes an exception in Linux! <version>3.8.7</version> -->
+			<!-- 3.36.0.3 carried GHSA-6phf-6h5g-97j2. The comment that used to sit here warned that "the latest version"
+			     threw on Linux; it was about 3.8.7, and the application has been shipping this one for a while. -->
+			<version>3.53.4.0</version>
 		</dependency>
 	</dependencies>
 </project>
