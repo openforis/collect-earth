@@ -5,14 +5,21 @@ import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.OutputStreamWriter;
+import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
 import java.security.SecureRandom;
 import java.util.Map;
 import java.util.Random;
+import java.util.function.UnaryOperator;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import freemarker.cache.FileTemplateLoader;
+import freemarker.cache.MultiTemplateLoader;
+import freemarker.cache.StringTemplateLoader;
+import freemarker.cache.TemplateLoader;
 import freemarker.template.Configuration;
 import freemarker.template.Template;
 import freemarker.template.TemplateException;
@@ -28,10 +35,19 @@ public class FreemarkerTemplateUtils {
 	private FreemarkerTemplateUtils() {}
 
 	public static boolean applyTemplate(File sourceTemplate, File destinationFile, Map<?, ?> data) throws IOException, TemplateException{
+		return applyTemplate(sourceTemplate, destinationFile, data, null);
+	}
+
+	/**
+	 * @param transformSource applied to the text of the template before it is processed, or null to process the file as it
+	 *        is. The file itself is never written to: a template that the transformation changed is processed from memory,
+	 *        with the folder of the original behind it so that whatever it includes still resolves.
+	 */
+	public static boolean applyTemplate(File sourceTemplate, File destinationFile, Map<?, ?> data, UnaryOperator<String> transformSource) throws IOException, TemplateException{
 
 		// Process the template file using the data in the "data" Map
 		final Configuration cfg = new Configuration( new Version("2.3.23"));
-		cfg.setDirectoryForTemplateLoading(sourceTemplate.getParentFile());
+		cfg.setTemplateLoader(buildTemplateLoader(sourceTemplate, transformSource));
 
 		// Load the template from the source folder BEFORE opening the destination file : opening it truncates it, so a template that
 		// cannot be read used to leave an empty KML behind that was reported as generated
@@ -44,6 +60,26 @@ public class FreemarkerTemplateUtils {
 		logger.info("Kml file processed {}", destinationFile);
 		return true;
 
+	}
+
+	private static TemplateLoader buildTemplateLoader(File sourceTemplate, UnaryOperator<String> transformSource) throws IOException {
+		final FileTemplateLoader fromFolder = new FileTemplateLoader(sourceTemplate.getParentFile());
+		if (transformSource == null) {
+			return fromFolder;
+		}
+
+		// Read with the charset Freemarker itself would use for the file, so that a template written in the encoding of the
+		// machine keeps rendering exactly as it did before
+		final String source = new String(Files.readAllBytes(sourceTemplate.toPath()), Charset.defaultCharset());
+		final String transformed = transformSource.apply(source);
+		if (transformed.equals(source)) {
+			return fromFolder;
+		}
+
+		final StringTemplateLoader inMemory = new StringTemplateLoader();
+		inMemory.putTemplate(sourceTemplate.getName(), transformed);
+		// The folder stays behind it: only this one template comes from memory, everything it includes is still read from disk
+		return new MultiTemplateLoader(new TemplateLoader[] { inMemory, fromFolder });
 	}
 
 	/**

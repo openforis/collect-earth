@@ -21,6 +21,7 @@ import org.openforis.collect.earth.sampler.model.SimplePlacemarkObject;
 import org.openforis.collect.earth.sampler.utils.FreemarkerTemplateUtils;
 import org.openforis.collect.earth.sampler.utils.GeoUtils;
 import org.openforis.collect.earth.sampler.utils.KmlGenerationException;
+import org.openforis.collect.earth.sampler.utils.KmlTemplateUpgrader;
 import org.openforis.collect.metamodel.CollectAnnotations;
 import org.openforis.collect.model.CollectSurvey;
 import org.openforis.idm.metamodel.AttributeDefinition;
@@ -159,7 +160,11 @@ public abstract class KmlGenerator extends AbstractCoordinateCalculation {
 			// Process the template file using the data in the "data" Map
 			final File templateFile = new File(freemarkerKmlTemplateFile);
 
-			FreemarkerTemplateUtils.applyTemplate(templateFile, destinationFile, data);
+			// The template of a project made before September 2026 draws the reference areas into the plot's own boundary,
+			// which makes Google Earth show a reference area where the plot frame should be. Only the copy that is processed
+			// is repaired; the template in the project folder is left exactly as its author wrote it
+			FreemarkerTemplateUtils.applyTemplate(templateFile, destinationFile, data,
+					source -> KmlTemplateUpgrader.repairReferenceAreas(source, templateFile.getName()));
 		} catch (Exception e) {
 			throw new KmlGenerationException("Error generating the KML file to open in Google Earth "
 					+ freemarkerKmlTemplateFile + " with data keys " + data.keySet(), e);
