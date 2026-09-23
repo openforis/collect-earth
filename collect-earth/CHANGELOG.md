@@ -9,6 +9,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - CSV data export now supports multiple entities (#52)
 - Optional reference area (square, circle or hexagon) drawn around square, circle and hexagon plots to give context on the surroundings during the assessment; configured from the plot options panel (`buffer_shape` / `distance_to_buffers`), which warns when the reference area covers less than 10 times the plot area. It is drawn with a fainter, thinner line than the plot boundary, so that the two are not confused
 
+- The grid module (`collect-earth-grid`) builds again and is part of the Maven reactor
+
 ### Removed
 - The integrations that are not supported any more: Earth Engine Timelapse, Earth Engine Explorer, the Earth Engine code editor, Bing Maps and Yandex Maps. Their properties are gone from earth.properties and a project file that still carries them is simply ignored
 
@@ -16,10 +18,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Updated Collect framework to the latest version
 - Added Sentry Seer plugin for AI-assisted error analysis
 - Pinned commons-lang3 / commons-text dependency versions
+- Updated Jetty to 10.0.26 and Jackson to 2.18.9
+- An operation that fails now says so instead of reporting a finished file: a KMZ, a project archive, a template, an IPCC export or a Saiku database that could not be written is reported as failed, and a half-written file is not left behind to be opened later
+
+### Security
+- Collect Earth's internal server listens on this computer only. Its endpoints have no authentication, so on the previous `0.0.0.0` anybody on the same network could save records, load project files and restart the application. An installation that serves clients in CLIENT_MODE opts back in with `server_bind_address=0.0.0.0` in earth.properties, and is warned in the log when it does
+- No credentials are shipped in the code: the analysis database and the grid tools read theirs from the launch properties
+- Imported project and data files are no longer trusted blindly: an archive entry cannot be written outside the folder it is extracted into, and the XML parsers do not resolve external entities
+- The servlet that loads a project file only accepts requests that Google Earth itself makes
 
 ### Fixed
 - Fixed a NullPointerException in the process monitor dialog
 - Changing the project (or applying property changes) no longer crashes the internal server: instead of reloading the Spring web context in-process (which always failed with a CGLIB `LinkageError` on the second load), Collect Earth now relaunches itself as a fresh process
+- `earth_error.log` is written again: the user folder is now set before logging starts, so the log no longer ends up in a folder named after the unresolved property
+- If Collect Earth cannot restart itself after a change of project, it says why instead of disappearing
+- The reference areas of a project made before September 2026 are drawn around the plot instead of in place of its boundary. Those templates wrote them into the plot's own outer boundary, which left Google Earth showing a reference area where the plot frame should be; the template file in the project folder is not modified
+- Plot data that used to end the save with an error is handled: a coordinate, a date or a value the survey does not expect is reported on its own field instead of losing the whole record
+- KML is generated for the plots that used to break it, and NFI three- and four-circle plots are drawn where they belong
+- Plots carry their expansion factor again, so the areas computed from them are right
+- The IPCC export runs on PostgreSQL as well as SQLite, counts the plots of the right survey, is written as UTF-8, and stops with a message when it cannot produce a valid workbook
+- One bad plot no longer aborts the whole Saiku export, and several CSV files can be imported in one go
+- The desktop interface: the file dialogs, the progress dialogs and the menus no longer act on stale information, no longer block the interface thread, and no longer end an operation because of what was typed in a field
+- The grid tools: the subgrids of 50 and 100 are stored and queried correctly (their flags used to overwrite those of other grids), a failed insert stops the run instead of silently leaving holes, the CSV output is not truncated by a second writer on the same file, and the plot table is no longer dropped and recreated at every start
 
 
 ## [1.23.7] - 2026-05-12
