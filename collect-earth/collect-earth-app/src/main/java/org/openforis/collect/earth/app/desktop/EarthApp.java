@@ -8,6 +8,9 @@ import java.io.BufferedReader;
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStreamReader;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.util.concurrent.TimeUnit;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.lang.reflect.Proxy;
@@ -64,6 +67,10 @@ import io.sentry.protocol.User;
 public class EarthApp {
 
 	private static final String COLLECT_EARTH_USER_FOLDER_PROPERTY = "collectEarth.userFolder"; //$NON-NLS-1$
+	/** What the process that replaces this one writes before it has a log of its own */
+	private static final String RELAUNCH_LOG_FILE = "relaunch.log"; //$NON-NLS-1$
+	/** A new process that the JVM refuses is gone well within this; a new Collect Earth is still starting */
+	private static final int RELAUNCH_GRACE_SECONDS = 5;
 
 	static {
 		// This has to happen before the logger below is created, so it cannot wait until main() runs : loading this class already
@@ -467,7 +474,7 @@ public class EarthApp {
 		}
 
 		final String classpath = System.getProperty("java.class.path"); //$NON-NLS-1$
-		if (classpath != null && classpath.endsWith(".jar") && !classpath.contains(File.pathSeparator)) { //$NON-NLS-1$
+		if (isExecutableJar(classpath)) {
 			// Launched with "java -jar CollectEarth.jar": relaunch the same way so the jar's
 			// manifest Class-Path entries (the lib/ dependencies) are honored again, which the
 			// JVM only does for -jar launches and not for -cp launches.
@@ -481,12 +488,75 @@ public class EarthApp {
 
 		logger.info("Relaunching Collect Earth: {}", command); //$NON-NLS-1$
 
-		new ProcessBuilder(command)
+		// The output of the new process goes to a file of its own : it used to be inherited, and this process, which is the
+		// only thing holding that console, exits a line later, so a new process that refused to start said so to nobody
+		final File relaunchLog = new File(FolderFinder.getCollectEarthDataFolder(), RELAUNCH_LOG_FILE);
+		final Process relaunched = new ProcessBuilder(command)
 				.directory(new File(System.getProperty("user.dir"))) //$NON-NLS-1$
-				.inheritIO()
+				.redirectErrorStream(true)
+				.redirectOutput(relaunchLog)
 				.start();
 
+		if (hasEndedAlready(relaunched)) {
+			// A command line that the JVM refuses ( a jar with no main class, a class path that is too long for Windows )
+			// fails in the first moment. Say so : the window of this process is gone by now, so without this the user is
+			// left with no Collect Earth and no reason
+			logger.error("Collect Earth could not be restarted, the new process ended with code {} : {}", //$NON-NLS-1$
+					relaunched.exitValue(), readRelaunchLog(relaunchLog));
+			showMessageAndWait(Messages.getString("EarthApp.relaunchFailed"), //$NON-NLS-1$
+					Messages.getString("EarthApp.relaunchFailedTitle")); //$NON-NLS-1$
+		}
+
 		System.exit(0);
+	}
+
+	/**
+	 * A class path of a single jar is only worth a -jar launch when that jar can be started : the temporary jar that some
+	 * IDEs pass to work around the length limit of the Windows command line holds a Class-Path and no Main-Class, and
+	 * "java -jar" of it ends with "no main manifest attribute".
+	 */
+	private static boolean isExecutableJar(String classpath) {
+		if (classpath == null || !classpath.endsWith(".jar") || classpath.contains(File.pathSeparator)) { //$NON-NLS-1$
+			return false;
+		}
+		try (java.util.jar.JarFile jar = new java.util.jar.JarFile(classpath)) {
+			return jar.getManifest() != null
+					&& jar.getManifest().getMainAttributes().getValue(java.util.jar.Attributes.Name.MAIN_CLASS) != null;
+		} catch (IOException e) {
+			logger.warn("Could not read the manifest of " + classpath + ", relaunching with the class path instead", e); //$NON-NLS-1$ //$NON-NLS-2$
+			return false;
+		}
+	}
+
+	private static boolean hasEndedAlready(Process relaunched) {
+		try {
+			return relaunched.waitFor(RELAUNCH_GRACE_SECONDS, TimeUnit.SECONDS);
+		} catch (InterruptedException e) {
+			Thread.currentThread().interrupt();
+			return false;
+		}
+	}
+
+	private static String readRelaunchLog(File relaunchLog) {
+		try {
+			return new String(Files.readAllBytes(relaunchLog.toPath()), StandardCharsets.UTF_8).trim();
+		} catch (IOException e) {
+			return "the output of the new process could not be read from " + relaunchLog.getAbsolutePath(); //$NON-NLS-1$
+		}
+	}
+
+	/**
+	 * showMessage posts the dialog and returns, which System.exit would then cut short
+	 */
+	private static void showMessageAndWait(String message, String title) {
+		try {
+			SwingUtilities.invokeAndWait(
+					() -> JOptionPane.showMessageDialog(null, message, title, JOptionPane.ERROR_MESSAGE));
+		} catch (InterruptedException e) {
+			Thread.currentThread().interrupt();
+		} catch (Exception e) {
+			logger.error("Error showing message", e); //$NON-NLS-1$
+		}
 	}
 
 	private static LocalPropertiesService nonManagedPropertiesService;
