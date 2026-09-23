@@ -1,3 +1,10 @@
+<!-- Template for the Maven settings this project needs. Copy it to ~/.m2/settings.xml and fill in the values.
+
+     The name matters: Maven reads ~/.m2/settings.xml by itself, and any other name only takes effect when it is
+     named with -s on every invocation, including the build that release:perform forks. A deploy with no settings
+     Maven can see is an anonymous one, and Central answers 401 Unauthorized.
+
+     Nothing here belongs in the repository: keep the filled-in copy outside it. -->
 <settings xmlns="http://maven.apache.org/SETTINGS/1.0.0"
   xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
   xsi:schemaLocation="http://maven.apache.org/SETTINGS/1.0.0
@@ -12,8 +19,35 @@
 			<ga_api_secret>GOOGLE ANALYTICS MEASUREMENT PROTOCOL API SECRET</ga_api_secret>
 		</properties>
 	</profile>
+	<profile>
+		<!-- Signing a release. The release profile of the pom runs maven-gpg-plugin, which needs the passphrase
+		     from here unless the key is unprotected or served by an agent. Keep this profile active during a
+		     release: settings profiles are not activated by -P of the build, so give it an activation or name it. -->
+		<id>gpg</id>
+		<activation>
+			<activeByDefault>true</activeByDefault>
+		</activation>
+		<properties>
+			<gpg.executable>gpg</gpg.executable>
+			<gpg.passphrase>PASSPHRASE OF THE SIGNING KEY</gpg.passphrase>
+		</properties>
+	</profile>
   </profiles>
   <servers>
+    <!-- Publishing to Maven Central. The id has to match distributionManagement and the serverId of
+         nexus-staging-maven-plugin in the pom, which are both ossrh-staging-api.
+
+         The username and password are a Central Portal USER TOKEN, not the account password: generate it at
+         central.sonatype.com under Account, View Account, Generate User Token. An account password is refused
+         with 401 by this endpoint.
+
+         A tag released before this id was aligned declares the id "ossrh" instead. To deploy such a tag, repeat
+         the same token under that id as well. -->
+    <server>
+      <id>ossrh-staging-api</id>
+      <username>CENTRAL PORTAL USER TOKEN USERNAME</username>
+      <password>CENTRAL PORTAL USER TOKEN PASSWORD</password>
+    </server>
     <server>
       <id>openforis-releases</id>
       <username>NEXUS SERVER USERNAME</username>
