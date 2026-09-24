@@ -346,19 +346,26 @@
 							<serverId>ossrh-staging-api</serverId>
 							<nexusUrl>https://ossrh-staging-api.central.sonatype.com</nexusUrl>
 							<stagingProgressTimeoutMinutes>120</stagingProgressTimeoutMinutes>
-							<!-- The build closes the staging repository and stops there. Publishing is a separate step at
-							     https://central.sonatype.com/publishing/deployments, once deploymentState is VALIDATED.
+							<!-- The build uploads and stops. Closing and publishing are both done afterwards, from
+							     https://central.sonatype.com/publishing/deployments or with rc-close.
 
-							     It used to be true, which made the build POST
-							     /service/local/staging/profiles/org.openforis/finish at the very end. That call asks the
-							     Central Portal bridge to validate and publish while the connection is held open for
-							     minutes, and it has now twice ended in "Remote staging finished with a failure:
-							     java.net.SocketException: Connection reset" after a 35 minute upload had already
-							     succeeded. Publishing is irreversible and worth looking at before it happens anyway.
+							     skipStagingRepositoryClose is what keeps the build off
+							     POST /service/local/staging/profiles/org.openforis/finish - which is the CLOSE call, not
+							     the release: "finish" ends a staging repository in the Nexus staging API, "promote"
+							     releases it. Closing asks the Central Portal bridge to validate the whole bundle while
+							     the connection is held open, and for a bundle that is about a gigabyte of installers that
+							     has ended three times in "Remote staging finished with a failure:
+							     java.net.SocketException: Connection reset", each time after a 35 minute upload had
+							     already succeeded. Taking the call out of the build is the only thing that stops a
+							     release failing on it.
 
-							     If the close itself fails, the artifacts are already uploaded : do not re-run
-							     release:perform, redo only the close, on JDK 11 because the plugin's XStream needs it.
-							     rc-release answers 400, the bridge does not implement it.
+							     autoReleaseAfterClose is the release step and the plugin evaluates it "only if the
+							     repository has been successfully closed", so it was never reached. It stays false so that
+							     publishing, which cannot be undone, is never something a green build does by itself.
+
+							     After a failed close the artifacts are already uploaded : do not re-run release:perform.
+							     Close it on its own, on JDK 11 because the plugin's XStream needs it. rc-release answers
+							     400, the bridge does not implement it.
 
 							       mvn org.sonatype.plugins:nexus-staging-maven-plugin:1.6.14:rc-close \
 							         -DnexusUrl=https://ossrh-staging-api.central.sonatype.com/ \
@@ -366,7 +373,9 @@
 							         -DstagingRepositoryId=THE_ID_FROM_THE_LOG \
 							         -s ~/.m2/settings.xml
 
-							     CLAUDE.md, "Recovering a release:perform that failed during the upload", has the rest. -->
+							     The real cure is not to send a gigabyte of installers to a Maven repository at all; see
+							     CLAUDE.md, "Recovering a release:perform that failed during the upload". -->
+							<skipStagingRepositoryClose>true</skipStagingRepositoryClose>
 							<autoReleaseAfterClose>false</autoReleaseAfterClose>
 						</configuration>
 					</plugin>
