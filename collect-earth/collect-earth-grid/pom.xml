@@ -16,9 +16,20 @@
 		     exists in any repository. Now that it is in the reactor it would be
 		     deployed along with everything else, and a first publication to Maven
 		     Central cannot be withdrawn. It is a grid-generation tool rather than
-		     part of the shipped application, so deployment stays off. Remove this
-		     property if it should be published. -->
+		     part of the shipped application, so deployment stays off. Remove both
+		     properties if it should be published, and declare maven-source-plugin
+		     and maven-javadoc-plugin here as the other three modules do: Central
+		     rejects a component that has no sources jar and no javadoc jar.
+
+		     Both properties are needed. maven.deploy.skip only stops
+		     maven-deploy-plugin, and the release profile gives
+		     nexus-staging-maven-plugin extensions=true, which takes the deploy
+		     lifecycle over from it. 1.23.14 was therefore staged with this module
+		     in the bundle, and the Central Portal failed the whole deployment on
+		     it: "7 out of 8 Components Validated", the eighth being
+		     collect-earth-grid with neither jar. -->
 		<maven.deploy.skip>true</maven.deploy.skip>
+		<skipNexusStagingDeployMojo>true</skipNexusStagingDeployMojo>
 	</properties>
 	<dependencies>
 		<dependency>
