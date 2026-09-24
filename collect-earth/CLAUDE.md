@@ -72,12 +72,25 @@ Notes:
 #### Recovering a `release:perform` that failed during the upload
 
 Artifacts are deployed to the Sonatype Central Portal through the OSSRH Staging API
-bridge (`ossrh-staging-api.central.sonatype.com`, server id `ossrh-staging-api` in
-`~/.m2/maven_settings.xml`). The upload takes ~35 minutes, so **never re-run
-`release:perform` or `deploy` before checking what actually failed** — doing so
-rebuilds all three installers and uploads a second gigabyte into a *new* staging
-repository, leaving the first one orphaned. Two open repositories for the same
-version make validation fail later.
+bridge (`ossrh-staging-api.central.sonatype.com`, server id `ossrh-staging-api`).
+Maven reads `~/.m2/settings.xml` by that name; a copy called anything else is only
+read when `-s` names it on **every** invocation, including the build that
+`release:perform` forks — a deploy with no settings Maven can see is an anonymous
+one, and the bridge answers `401 Unauthorized`. The credential is a Central Portal
+**user token**, not the account password.
+
+The upload takes ~35 minutes, so **never re-run `release:perform` or `deploy`
+before checking what actually failed** — doing so rebuilds all three installers and
+uploads a second gigabyte into a *new* staging repository, leaving the first one
+orphaned. Two open repositories for the same version make validation fail later.
+
+`autoReleaseAfterClose` is **false**, so a successful `release:perform` ends with the
+staging repository closed and nothing published: publishing is always the separate
+Portal step below. It was true until 1.23.14, which made the build hold a connection
+open for minutes on `/staging/profiles/org.openforis/finish` while the bridge
+validated and published; that ended twice in `Remote staging finished with a failure:
+java.net.SocketException: Connection reset` after the upload had already succeeded.
+A reset at that point never means the upload has to be redone.
 
 Read the tail of the log first:
 
@@ -101,7 +114,7 @@ mvn org.sonatype.plugins:nexus-staging-maven-plugin:1.6.14:rc-close \
   -DnexusUrl=https://ossrh-staging-api.central.sonatype.com/ \
   -DserverId=ossrh-staging-api \
   -DstagingRepositoryId=<org.openforis--...> \
-  -s ~/.m2/maven_settings.xml
+  -s ~/.m2/settings.xml
 ```
 
 Gotchas found the hard way:

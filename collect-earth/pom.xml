@@ -346,7 +346,28 @@
 							<serverId>ossrh-staging-api</serverId>
 							<nexusUrl>https://ossrh-staging-api.central.sonatype.com</nexusUrl>
 							<stagingProgressTimeoutMinutes>120</stagingProgressTimeoutMinutes>
-							<autoReleaseAfterClose>true</autoReleaseAfterClose>
+							<!-- The build closes the staging repository and stops there. Publishing is a separate step at
+							     https://central.sonatype.com/publishing/deployments, once deploymentState is VALIDATED.
+
+							     It used to be true, which made the build POST
+							     /service/local/staging/profiles/org.openforis/finish at the very end. That call asks the
+							     Central Portal bridge to validate and publish while the connection is held open for
+							     minutes, and it has now twice ended in "Remote staging finished with a failure:
+							     java.net.SocketException: Connection reset" after a 35 minute upload had already
+							     succeeded. Publishing is irreversible and worth looking at before it happens anyway.
+
+							     If the close itself fails, the artifacts are already uploaded : do not re-run
+							     release:perform, redo only the close, on JDK 11 because the plugin's XStream needs it.
+							     rc-release answers 400, the bridge does not implement it.
+
+							       mvn org.sonatype.plugins:nexus-staging-maven-plugin:1.6.14:rc-close \
+							         -DnexusUrl=https://ossrh-staging-api.central.sonatype.com/ \
+							         -DserverId=ossrh-staging-api \
+							         -DstagingRepositoryId=THE_ID_FROM_THE_LOG \
+							         -s ~/.m2/settings.xml
+
+							     CLAUDE.md, "Recovering a release:perform that failed during the upload", has the rest. -->
+							<autoReleaseAfterClose>false</autoReleaseAfterClose>
 						</configuration>
 					</plugin>
 				</plugins>
