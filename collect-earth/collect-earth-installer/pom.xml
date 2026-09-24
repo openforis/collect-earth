@@ -27,6 +27,30 @@
 		<osx-autoupdater-file-name>CollectEarthUpdater-${project.version}-osx-installer.app.zip</osx-autoupdater-file-name>
 
 		<autoupdater-xml-file-name>collectEarthUpdateJRE11.xml</autoupdater-xml-file-name>
+
+		<!-- Where the installers are published.
+		     ===================================
+		     Set this to true, here or with -Dinstaller.deploy.skip=true, once the installers are distributed from
+		     GitHub Releases and an installed client has been seen to update through it. The release then carries
+		     four small Java components instead of a gigabyte of .exe/.run/.dmg, and the staging repository closes in
+		     seconds instead of resetting the connection after 35 minutes.
+
+		     It is false until then, because turning it on is not reversible for a version that has already shipped.
+		     The autoupdater reads collectEarthUpdateJRE11.xml on openforis.org, and that file's <downloadLocation>
+		     still names repo1.maven.org. A version published with no installers on Central, while clients are still
+		     pointed there, is a version nobody can update to. The order is: publish the installers to GitHub
+		     Releases, repoint <downloadLocation>, watch a real client update, then set this.
+
+		     What this does not change: collect-earth-core, -sampler and -app keep going to Maven Central, which is
+		     what a Maven repository is for. Only the installers stop.
+
+		     Both properties are needed. maven.deploy.skip alone is ignored, because the release profile gives
+		     nexus-staging-maven-plugin extensions=true and it takes the deploy lifecycle over from
+		     maven-deploy-plugin - which is how collect-earth-grid ended up in the 1.23.14 bundle and failed the
+		     whole deployment. -->
+		<installer.deploy.skip>false</installer.deploy.skip>
+		<maven.deploy.skip>${installer.deploy.skip}</maven.deploy.skip>
+		<skipNexusStagingDeployMojo>${installer.deploy.skip}</skipNexusStagingDeployMojo>
 	</properties>
 
 	<profiles>
