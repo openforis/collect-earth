@@ -37,8 +37,11 @@ public class AnnouncementManager {
             List<Announcement> announcements = parseAnnouncements(jsonResponse);
             displayAnnouncementsInDialog(announcements);
         } catch (Exception e) {
-            logger.warn("Error fetching the announcements from {}", ANNOUNCEMENTS_URL, e);
-            logger.error("Error fetching or displaying announcements from : " + ANNOUNCEMENTS_URL  + " " +  e.getMessage(), e);
+            // Once, and at warn. The Sentry appender is bound at ERROR, and an announcement that cannot be fetched
+            // is a network condition rather than a defect: nothing an interpreter reads changes because of it. The
+            // same failure used to be logged three times, twice at ERROR, which put it among the most frequent
+            // errors reported.
+            logger.warn("The announcements could not be fetched from {} : {}", ANNOUNCEMENTS_URL, e.getMessage());
         }
     }
 
@@ -57,7 +60,8 @@ public class AnnouncementManager {
             }
             return response.toString();
         } catch (IOException e) {
-            logger.error("Error fetching announcements from server: " + e.getMessage(), e);
+            // Not logged here : it is rethrown and the caller reports it. Logging both places reported one failure
+            // twice, and this copy was at ERROR.
             throw e;
         } finally {
             connection.disconnect();

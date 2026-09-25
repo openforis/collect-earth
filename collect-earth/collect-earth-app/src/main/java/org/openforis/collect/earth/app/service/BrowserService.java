@@ -23,6 +23,8 @@ import org.openforis.collect.earth.sampler.model.SimpleCoordinate;
 import org.openforis.collect.earth.sampler.model.SimplePlacemarkObject;
 import org.openqa.selenium.By;
 import org.openqa.selenium.JavascriptExecutor;
+import org.openqa.selenium.NoSuchSessionException;
+import org.openqa.selenium.NoSuchWindowException;
 import org.openqa.selenium.WebElement;
 import org.openqa.selenium.remote.RemoteWebDriver;
 import org.slf4j.Logger;
@@ -461,16 +463,23 @@ public class BrowserService implements InitializingBean, DisposableBean, Applica
 				try {
 					driver.navigate().refresh(); // FORCE REFRESH - OTHERWISE WINDOW IS NOT REFRESHED
 				} catch (final Exception e) {
-					logger.error("Error refreshing the browser window", e);
+					if (windowWasClosed(e)) {
+						logger.warn("The browser window was closed before it could be refreshed");
+					} else {
+						logger.error("Error refreshing the browser window", e);
+					}
 				}
 			} catch (final Exception e) {
-				if (retry && (e.getCause() != null && e.getCause().getMessage() != null
-						&& e.getCause().getMessage().contains("Session not found"))) {
-					// Browser closed, restart it!
-					logger.error("Browser was closed, restaring it...", e);
+				if (retry && windowWasClosed(e)) {
+					// The interpreter closed the window. Opening another one is the normal answer to that, not a
+					// failure, and it was logged at ERROR - the level the Sentry appender is bound at - so closing a
+					// window was reported as a fault in Collect Earth.
+					logger.warn("The browser window was closed, opening a new one");
 					driver = initBrowser();
 					// Keep what the retry returns : the driver of the window that was just opened
 					driver = navigateTo(url, driver, false); // only try to re-open one
+				} else if (windowWasClosed(e)) {
+					logger.warn("The browser window was closed while {} was loading", url);
 				} else {
 					// Every other failure used to be swallowed here, so a page that does not load left no trace at all
 					logger.error("Error loading the page in the browser", e);
@@ -480,6 +489,26 @@ public class BrowserService implements InitializingBean, DisposableBean, Applica
 			logger.error("No Selenium driver available, Is Firefox or Chrome installed?");
 		}
 		return driver;
+	}
+
+	/**
+	 * Did this failure happen because the browser window is gone? The interpreter closing the Google Earth window
+	 * mid-operation is ordinary use, so it is reported as a warning rather than an error. Selenium says so with a
+	 * typed exception, but wraps it often enough that the whole cause chain and the message are both worth checking.
+	 */
+	private boolean windowWasClosed(Throwable failure) {
+		for (Throwable t = failure; t != null; t = t.getCause()) {
+			if (t instanceof NoSuchWindowException || t instanceof NoSuchSessionException) {
+				return true;
+			}
+			final String message = t.getMessage();
+			if (message != null && (message.contains("Session not found") //$NON-NLS-1$
+					|| message.contains("target window already closed") //$NON-NLS-1$
+					|| message.contains("no such window"))) { //$NON-NLS-1$
+				return true;
+			}
+		}
+		return false;
 	}
 
 	protected boolean isDriverWorking(RemoteWebDriver driver) {

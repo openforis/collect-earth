@@ -81,7 +81,10 @@ public class GAlogger {
 										
 					logger.info(event + " GA Logged - Response http " + con.getResponseCode() );
 				} catch (IOException e) {
-					logger.error("Error generating URL for Analytics", e);
+					// warn, not error : the Sentry appender is bound at ERROR, and analytics failing to send is not a
+					// defect in Collect Earth. A read timeout to google-analytics.com on a slow connection was among
+					// the most frequent errors reported, ahead of anything an interpreter could act on.
+					logger.warn("Analytics could not be sent : {}", e.getMessage()); //$NON-NLS-1$
 				}
 
 			}
