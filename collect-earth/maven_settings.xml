@@ -17,6 +17,18 @@
 			<installbuilder-output-directory>PATH TO THE INSTALLBUILDER INSTALLERS OUTPUT FOLDER</installbuilder-output-directory>
 			<planet_maps_ce_key>PLANET MAPS API KEY</planet_maps_ce_key>
 			<ga_api_secret>GOOGLE ANALYTICS MEASUREMENT PROTOCOL API SECRET</ga_api_secret>
+
+			<!-- Where the autoupdate manifest is uploaded at the end of a release. The installed clients read
+			     collectEarthUpdateJRE11.xml from https://www.openforis.org/fileadmin/installer/, so the folder
+			     below is whatever directory on the server that URL is served from.
+
+			     The key file is a path on this machine and never belongs in the repository. Leave the passphrase
+			     out for an unencrypted .pem. Build with -Dautoupdate.upload.skip=true to skip the upload. -->
+			<openforis-update-host>THE WEB SERVER, e.g. 3.65.44.68</openforis-update-host>
+			<openforis-update-user>SSH USER, e.g. ubuntu</openforis-update-user>
+			<openforis-update-keyfile>PATH TO THE PRIVATE KEY, e.g. C:/opt/webopenforis.pem</openforis-update-keyfile>
+			<openforis-update-folder>REMOTE FOLDER SERVING /fileadmin/installer/</openforis-update-folder>
+			<!-- <openforis-update-passphrase>ONLY IF THE KEY IS ENCRYPTED</openforis-update-passphrase> -->
 		</properties>
 	</profile>
 	<profile>
