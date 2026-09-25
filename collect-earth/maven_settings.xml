@@ -26,9 +26,9 @@
 			     path on this machine and never belongs in the repository. Leave the passphrase out for an
 			     unencrypted .pem, which is what an AWS key file normally is. Build with
 			     -Dautoupdate.upload.skip=true to make the installers without touching the server. -->
-			<openforis-update-host>THE WEB SERVER, e.g. 3.65.44.68</openforis-update-host>
-			<openforis-update-user>SSH USER, e.g. ubuntu</openforis-update-user>
-			<openforis-update-keyfile>PATH TO THE PRIVATE KEY, e.g. C:/opt/webopenforis.pem</openforis-update-keyfile>
+			<openforis-update-host>ADDRESS OF THE WEB SERVER</openforis-update-host>
+			<openforis-update-user>SSH USER ON IT</openforis-update-user>
+			<openforis-update-keyfile>PATH TO THE PRIVATE KEY ON THIS MACHINE, WITH FORWARD SLASHES</openforis-update-keyfile>
 			<!-- <openforis-update-folder>ONLY IF IT IS NOT THE DEFAULT IN THE POM</openforis-update-folder> -->
 			<!-- <openforis-update-passphrase>ONLY IF THE KEY IS ENCRYPTED</openforis-update-passphrase> -->
 		</properties>
