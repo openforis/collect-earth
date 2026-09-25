@@ -18,16 +18,18 @@
 			<planet_maps_ce_key>PLANET MAPS API KEY</planet_maps_ce_key>
 			<ga_api_secret>GOOGLE ANALYTICS MEASUREMENT PROTOCOL API SECRET</ga_api_secret>
 
-			<!-- Where the autoupdate manifest is uploaded at the end of a release. The installed clients read
-			     collectEarthUpdateJRE11.xml from https://www.openforis.org/fileadmin/installer/, so the folder
-			     below is whatever directory on the server that URL is served from.
+			<!-- Where the autoupdate manifest is uploaded at the end of a release: the server the installed
+			     clients read collectEarthUpdateJRE11.xml from. The remote folder has a default in
+			     collect-earth-installer/pom.xml and only belongs here if the server layout changes.
 
-			     The key file is a path on this machine and never belongs in the repository. Leave the passphrase
-			     out for an unencrypted .pem. Build with -Dautoupdate.upload.skip=true to skip the upload. -->
+			     Use forward slashes in the key path: a backslash is an escape character to Ant. The key file is a
+			     path on this machine and never belongs in the repository. Leave the passphrase out for an
+			     unencrypted .pem, which is what an AWS key file normally is. Build with
+			     -Dautoupdate.upload.skip=true to make the installers without touching the server. -->
 			<openforis-update-host>THE WEB SERVER, e.g. 3.65.44.68</openforis-update-host>
 			<openforis-update-user>SSH USER, e.g. ubuntu</openforis-update-user>
 			<openforis-update-keyfile>PATH TO THE PRIVATE KEY, e.g. C:/opt/webopenforis.pem</openforis-update-keyfile>
-			<openforis-update-folder>REMOTE FOLDER SERVING /fileadmin/installer/</openforis-update-folder>
+			<!-- <openforis-update-folder>ONLY IF IT IS NOT THE DEFAULT IN THE POM</openforis-update-folder> -->
 			<!-- <openforis-update-passphrase>ONLY IF THE KEY IS ENCRYPTED</openforis-update-passphrase> -->
 		</properties>
 	</profile>

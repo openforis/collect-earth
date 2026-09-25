@@ -58,6 +58,12 @@
 		     settings.xml if the key is protected. -->
 		<autoupdate.upload.skip>false</autoupdate.upload.skip>
 		<openforis-update-passphrase></openforis-update-passphrase>
+		<!-- The directory that https://www.openforis.org/fileadmin/installer/ is served from. A default here rather
+		     than in settings.xml: it is a path with no host or credential attached, it changes only if the site is
+		     rebuilt, and having it in the build is how the release records where the manifest goes - until now that
+		     was known only to whoever had the folder bookmarked in FileZilla. Override it in settings.xml if the
+		     server layout changes. The host, the user and the key file stay out of the repository. -->
+		<openforis-update-folder>/opt/fileadmin/installer</openforis-update-folder>
 	</properties>
 
 	<profiles>

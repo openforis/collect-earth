@@ -68,11 +68,13 @@ mvn -P assembly release:perform -Darguments="-rf :collect-earth-installer"
 Notes:
 - Requires Bitrock InstallBuilder and a configured `maven_settings.xml` (root of repo) with installer paths and Nexus/GitHub credentials.
 - The generated `collectEarthUpdateJRE11.xml` is uploaded to the web server by the build, at the `deploy`
-  phase, by the `upload-autoupdate-manifest` execution of maven-antrun-plugin. It goes to the folder the
-  `update.ini` URL is served from, over scp with a key. The four values it needs -
-  `openforis-update-host`, `-user`, `-keyfile` and `-folder` - are machine-specific and belong in the
-  `assembly` profile of your own `settings.xml`; `maven_settings.xml` documents them. Build with
-  `-Dautoupdate.upload.skip=true` to produce installers without touching the server.
+  phase, by the `upload-autoupdate-manifest` execution of maven-antrun-plugin. It goes over scp with a key to
+  `/opt/fileadmin/installer`, which is what `https://www.openforis.org/fileadmin/installer/` is served from
+  and is the default in `collect-earth-installer/pom.xml`. The three values that are not in the repository -
+  `openforis-update-host`, `-user` and `-keyfile` - belong in the `assembly` profile of your own
+  `settings.xml`; `maven_settings.xml` documents them. Use forward slashes in the key path, since Ant reads a
+  backslash as an escape. Build with `-Dautoupdate.upload.skip=true` to produce installers without touching
+  the server.
 
   This file is what tells an installed Collect Earth that a new version exists. It used to be copied up by
   hand and was forgotten twice in a row: the live manifest still advertised 1.23.13 while 1.23.14 and
