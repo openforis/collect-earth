@@ -3,7 +3,7 @@
 	<parent>
 		<groupId>org.openforis.collect.earth</groupId>
 		<artifactId>collect-earth</artifactId>
-		<version>1.23.16-SNAPSHOT</version>
+		<version>1.23.16</version>
 	</parent>
 	<artifactId>collect-earth-installer</artifactId>
 	<packaging>pom</packaging>
@@ -57,7 +57,7 @@
 		     passphrase is empty for an unencrypted .pem, which is what an AWS key file normally is; override it in
 		     settings.xml if the key is protected. -->
 		<autoupdate.upload.skip>false</autoupdate.upload.skip>
-		<openforis-update-passphrase></openforis-update-passphrase>
+		<openforis-update-passphrase />
 		<!-- The directory that https://www.openforis.org/fileadmin/installer/ is served from. A default here rather
 		     than in settings.xml: it is a path with no host or credential attached, it changes only if the site is
 		     rebuilt, and having it in the build is how the release records where the manifest goes - until now that
@@ -462,10 +462,7 @@
 									<skip>${autoupdate.upload.skip}</skip>
 									<target>
 										<echo message="Uploading ${autoupdater-xml-file-name} (version ${project.version}, build ${buildNumber}) to ${openforis-update-user}@${openforis-update-host}:${openforis-update-folder}" />
-										<scp todir="${openforis-update-user}@${openforis-update-host}:${openforis-update-folder}"
-										     keyfile="${openforis-update-keyfile}"
-										     passphrase="${openforis-update-passphrase}"
-										     trust="yes" verbose="true" failonerror="true">
+										<scp todir="${openforis-update-user}@${openforis-update-host}:${openforis-update-folder}" keyfile="${openforis-update-keyfile}" passphrase="${openforis-update-passphrase}" trust="yes" verbose="true" failonerror="true">
 											<fileset dir="${installer-build-path}">
 												<include name="${autoupdater-xml-file-name}" />
 											</fileset>
