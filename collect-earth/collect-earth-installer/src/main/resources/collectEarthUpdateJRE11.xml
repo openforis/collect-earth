@@ -16,10 +16,8 @@
             <filename>collect-earth-installer-PROJECT_VERSION-windows-updater.exe</filename>
             <platform>windows</platform>
         </platformFile>
-         <platformFile>
-            <filename>collect-earth-installer-PROJECT_VERSION-linux-updater.run</filename>
-            <platform>linux</platform>
-        </platformFile>
+        <!-- There is no 32-bit linux updater and there never has been: the build produces linux-x64 only, so the
+             entry that used to be here sent every 32-bit client to a file that did not exist. -->
         <platformFile>
             <filename>collect-earth-installer-PROJECT_VERSION-linux-x64-updater.run</filename>
             <platform>linux-x64</platform>
@@ -29,7 +27,21 @@
             <platform>osx</platform>
         </platformFile>
     </platformFileList>
+    <!-- The installers come from the GitHub release for the tag, which is named collect-earth-<version>. They used
+         to come from Maven Central, which is a repository for Java artifacts that build tools resolve, not a place
+         for a gigabyte of desktop installers: publishing them there is what made every release a 35 minute upload
+         that ended in a connection reset while the Central Portal validated the bundle.
+
+         GitHub answers with a 302 to a signed URL on release-assets.githubusercontent.com. The autoupdater follows
+         redirects - InstallBuilder added that in 8.0.0, and the installers are built with 25.3.1.
+
+         Central is kept as a second location only while it still holds installers, for 1.23.15 and earlier. It can
+         go once installer.deploy.skip has been true for a release; the autoupdater tries the locations in order,
+         so a stale one costs a 404 and nothing more. -->
     <downloadLocationList>
+        <downloadLocation>
+            <url>https://github.com/openforis/collect-earth/releases/download/collect-earth-PROJECT_VERSION/</url>
+        </downloadLocation>
         <downloadLocation>
             <url>https://repo1.maven.org/maven2/org/openforis/collect/earth/collect-earth-installer/PROJECT_VERSION/</url>
         </downloadLocation>
