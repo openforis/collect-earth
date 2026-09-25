@@ -7,6 +7,7 @@ import java.awt.Window;
 import java.io.BufferedReader;
 import java.io.File;
 import java.io.IOException;
+import java.text.MessageFormat;
 import java.io.InputStreamReader;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
@@ -599,7 +600,21 @@ public class EarthApp {
 			// If the user double clicked on a project file while Collect Earth is running
 			// then load the project in the running Collect Earth
 			if (doubleClickedProjectFile != null) {
-				openProjectFileInRunningCollectEarth(doubleClickedProjectFile);
+				// isAnotherCollectEarthRunning only proves that something accepted a TCP connection on the port; it
+				// cannot tell Collect Earth from any other program, and a dying instance still answers the socket
+				// while refusing the request. When the hand-over failed the IOException used to reach main, which
+				// logged "The server could not start" and exited with the splash already closed: the interpreter saw
+				// nothing at all and the report named the wrong cause. The 503 seen in the field is this case.
+				try {
+					openProjectFileInRunningCollectEarth(doubleClickedProjectFile);
+				} catch (IOException e) {
+					final String port = getLocalProperties().getPort();
+					logger.warn("Port {} is in use but the project file was not accepted : {}", port, e.getMessage()); //$NON-NLS-1$
+					JOptionPane.showMessageDialog(null,
+							MessageFormat.format(Messages.getString("EarthApp.74"), port, e.getMessage()), //$NON-NLS-1$
+							"Collect Earth", JOptionPane.WARNING_MESSAGE); //$NON-NLS-1$
+					System.exit(1);
+				}
 			} else {
 				JOptionPane.showMessageDialog(null, Messages.getString("EarthApp.11"), "Collect Earth",
 						JOptionPane.WARNING_MESSAGE);
