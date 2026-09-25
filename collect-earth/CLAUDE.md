@@ -80,6 +80,18 @@ Notes:
   hand and was forgotten twice in a row: the live manifest still advertised 1.23.13 while 1.23.14 and
   1.23.15 had been released, so no existing installation was ever offered them.
 
+  **`<versionId>` must equal the build number of the release it describes.** `UpdateIniUtils` offers the
+  update when `onlineBuild > installedBuild`, comparing the manifest's `<versionId>` against `version_id`
+  in the installed `update.ini` — nothing else, not the version name. Set it higher than the build it
+  describes and everyone who installs that build is offered it again on the next start, downloads ~110 MB,
+  reinstalls the same thing and is offered it again: a permanent loop. A hand-edited manifest for 1.23.15
+  carried `202609241540` against an installed `202609241140` and did exactly that until it was corrected.
+
+  Let the build substitute `BUILD_NUMBER`, which is the only way to be sure it matches. If you must write
+  one by hand, the installed number is in `update.ini` next to the application, and Sentry carries it as
+  the `ReleaseDate` tag on every event — `search_events` with `fields=["release","ReleaseDate","count()"]`
+  gives the number that release is really reporting from the field.
+
 #### Recovering a `release:perform` that failed during the upload
 
 Artifacts are deployed to the Sonatype Central Portal through the OSSRH Staging API
