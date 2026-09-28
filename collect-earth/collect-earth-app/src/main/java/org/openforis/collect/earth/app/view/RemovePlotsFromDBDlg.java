@@ -137,11 +137,12 @@ public class RemovePlotsFromDBDlg {
 
 			filePicker.setTextBackground(Color.white);
 
-			if (CsvReaderUtils.isCsvFile(filePath)) {
+			String[] expectedHeaders = getKeyAttributesName();
+			// The file only lists the plot keys, so it has as many columns as keys and not the three of a plot file
+			if (CsvReaderUtils.isCsvFile(filePath, expectedHeaders.length)) {
 
 				// Get the first line
 				String[] csvHeaders = csvReader.readNext();
-				String[] expectedHeaders = getKeyAttributesName();
 				if (!Arrays.equals(expectedHeaders, csvHeaders)) {
 					JOptionPane.showMessageDialog(RemovePlotsFromDBDlg.this.dlg,
 							String.format(Messages.getString("RemovePlotsDialog.5"),
