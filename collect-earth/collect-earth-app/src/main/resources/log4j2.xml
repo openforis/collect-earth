@@ -23,18 +23,33 @@
 		<Sentry name="SENTRY" dsn="https://24dd6a90c1e4461484712db99c3b3bb7:831e42661c5c4ff3aa5eca270db3f619@sentry.io/299626">
 			<!-- If specific filtering needed, define here -->
 			
-			<!-- Wrap all filters here -->
+			<!-- Wrap all filters here.
+
+			     NEUTRAL is what lets the next filter run. CompositeFilter returns as soon as a filter answers
+			     ACCEPT or DENY, so the ACCEPT that used to be on the regex below ended the chain for every event
+			     that was not a ConnectionException - which is every normal error - and the BurstFilter after it was
+			     never consulted at all. -->
 			<Filters>
 				<RegexFilter
 					regex=".*io.sentry.connection.ConnectionException.*" onMatch="DENY"
-					onMismatch="ACCEPT" />
+					onMismatch="NEUTRAL" />
 
-				<!-- now BurstFilter will be recognized -->
-				<BurstFilter level="ERROR"     
-					rate="1"          
-					maxBurst="5"       
-					onMatch="DENY"      
-					onMismatch="NEUTRAL"/>
+				<!-- Rate limit, so one failing loop cannot empty itself into Sentry.
+
+				     onMatch is the event that is ALLOWED: BurstFilter returns onMatch while it still has an event
+				     left in its allowance, and onMismatch once the allowance is spent. The pair used to be the
+				     other way round, which would have dropped the first five errors and reported every one after
+				     them - suppressing the first sight of a problem and keeping the repeats. It never actually ran,
+				     because of the ACCEPT above, so nothing was rate limited either.
+
+				     rate=1 with maxBurst=5 lets five errors through at once, then one per second. FATAL is never
+				     limited: its level is less specific than the configured ERROR, so it returns onMatch without
+				     touching the allowance, and an uncaught crash is always reported. -->
+				<BurstFilter level="ERROR"
+					rate="1"
+					maxBurst="5"
+					onMatch="NEUTRAL"
+					onMismatch="DENY"/>
 			</Filters>
 		</Sentry>
 	</Appenders>
