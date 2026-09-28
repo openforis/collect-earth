@@ -411,6 +411,17 @@
 								<groupId>org.apache.ant</groupId>
 								<artifactId>ant-jsch</artifactId>
 								<version>1.10.15</version>
+								<exclusions>
+									<!-- ant-jsch depends on com.jcraft:jsch:0.1.55 at compile scope, and the fork below
+									     uses the same com.jcraft.jsch package names. Without this exclusion both are on
+									     the plugin classpath and the 2018 one can win, which is what kept the upload
+									     failing with "Auth fail" after the fork was added - silently, since the step
+									     does not fail the build. -->
+									<exclusion>
+										<groupId>com.jcraft</groupId>
+										<artifactId>jsch</artifactId>
+									</exclusion>
+								</exclusions>
 							</dependency>
 							<!-- The maintained fork, not com.jcraft:jsch. Same packages, so Ant picks it up unchanged.
 							     com.jcraft's last release was 0.1.55 in 2018 and signs RSA keys with SHA-1 only;
