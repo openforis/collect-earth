@@ -27,6 +27,10 @@
 		<osx-autoupdater-file-name>CollectEarthUpdater-${project.version}-osx-installer.app.zip</osx-autoupdater-file-name>
 
 		<autoupdater-xml-file-name>collectEarthUpdateJRE11.xml</autoupdater-xml-file-name>
+		<!-- download.html guesses the platform and offers all three; download-windows.html, -osx.html and
+		     -linux.html redirect straight to one installer with no JavaScript. They are uploaded with the manifest,
+		     so https://www.openforis.org/fileadmin/installer/download.html is a link that never needs editing. -->
+		<download-page-pattern>download*.html</download-page-pattern>
 
 		<!-- Where the installers are published.
 		     ===================================
@@ -199,6 +203,9 @@
 								<include>${installbuilder-file-name-updater}</include>
 								<include>update.ini</include>
 								<include>${autoupdater-xml-file-name}</include>
+								<!-- The download pages, so that the links on openforis.org point at this release
+								     without anyone editing WordPress. -->
+								<include>${download-page-pattern}</include>
 							</includes>
 							<regex>false</regex>
 							<replacements>
@@ -490,6 +497,9 @@
 										<scp todir="${openforis-update-user}@${openforis-update-host}:${openforis-update-folder}" keyfile="${openforis-update-keyfile}" passphrase="${openforis-update-passphrase}" trust="yes" verbose="true" failonerror="false">
 											<fileset dir="${installer-build-path}">
 												<include name="${autoupdater-xml-file-name}" />
+												<!-- Beside the manifest, so that openforis.org can link to a URL that
+												     never changes and this release repoints it. -->
+												<include name="${download-page-pattern}" />
 											</fileset>
 										</scp>
 										<echo message=" If the upload above failed the release is unaffected : copy ${installer-build-path}/${autoupdater-xml-file-name} to ${openforis-update-folder} by hand and the new version becomes visible to installed clients." />

@@ -1,0 +1,122 @@
+<!doctype html>
+<!--
+     Stable download page for Collect Earth. Link to this from openforis.org and it never has to be edited
+     again: the build substitutes PROJECT_VERSION and uploads it beside the autoupdate manifest, so every
+     release repoints it at its own installers.
+
+     It guesses the platform and starts that download, and always shows all three, because guessing from a user
+     agent is not something to rely on alone. With no JavaScript the links still work.
+
+     ?os= overrides the guess, for a link that should always offer the same platform:
+
+         download.html                 guess, then start that download
+         download.html?os=windows     always Windows   (win, windows)
+         download.html?os=mac         always macOS     (mac, macos, osx, darwin)
+         download.html?os=linux       always Linux     (lin, linux)
+         download.html?os=ask         guess nothing, just list all three
+
+     An unrecognised value falls back to guessing. The no-JavaScript pages download-windows.html,
+     download-osx.html and download-linux.html do the same job with a meta refresh.
+-->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Download Collect Earth PROJECT_VERSION</title>
+<style>
+  :root {
+    --paper: #f4f6f2; --ink: #17211c; --muted: #5d6b63; --rule: #dadfd7;
+    --accent: #1c6b57; --surface: #fdfdfb;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --paper: #11160f; --ink: #e6ebe4; --muted: #9aa69d; --rule: #2b342d;
+      --accent: #5cbb9e; --surface: #181f1a;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--paper); color: var(--ink);
+    font: 16px/1.6 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    display: flex; justify-content: center;
+  }
+  main { width: 100%; max-width: 40rem; padding: 3rem 16px 4rem; }
+  h1 { font-size: 1.55rem; line-height: 1.2; margin: 0 0 .4rem; }
+  .version { color: var(--muted); font-size: .95rem; margin: 0 0 2rem; }
+  .starting { background: var(--surface); border: 1px solid var(--rule); border-radius: 8px;
+              padding: .9rem 1.1rem; margin: 0 0 2rem; font-size: .95rem; }
+  .starting[hidden] { display: none; }
+  ul { list-style: none; margin: 0; padding: 0; display: grid; gap: .6rem; }
+  a.dl { display: flex; justify-content: space-between; align-items: baseline; gap: 1rem;
+         background: var(--surface); border: 1px solid var(--rule); border-radius: 8px;
+         padding: .85rem 1.1rem; text-decoration: none; color: var(--ink); }
+  a.dl:hover { border-color: var(--accent); }
+  a.dl b { font-weight: 600; }
+  a.dl span { color: var(--muted); font-size: .85rem; font-family: ui-monospace, monospace; }
+  p.note { color: var(--muted); font-size: .9rem; margin: 2rem 0 0; }
+  p.note a { color: var(--accent); }
+</style>
+</head>
+<body>
+<main>
+  <h1>Download Collect Earth</h1>
+  <p class="version">Version PROJECT_VERSION</p>
+
+  <p class="starting" id="starting" hidden></p>
+
+  <ul>
+    <li><a class="dl" id="win" href="https://github.com/openforis/collect-earth/releases/download/collect-earth-PROJECT_VERSION/collect-earth-installer-PROJECT_VERSION-windows.exe"><b>Windows</b> <span>.exe</span></a></li>
+    <li><a class="dl" id="mac" href="https://github.com/openforis/collect-earth/releases/download/collect-earth-PROJECT_VERSION/collect-earth-installer-PROJECT_VERSION-osx.dmg"><b>macOS</b> <span>.dmg</span></a></li>
+    <li><a class="dl" id="lin" href="https://github.com/openforis/collect-earth/releases/download/collect-earth-PROJECT_VERSION/collect-earth-installer-PROJECT_VERSION-linux-x64.run"><b>Linux 64-bit</b> <span>.run</span></a></li>
+  </ul>
+
+  <p class="note">All versions and release notes are on
+    <a href="https://github.com/openforis/collect-earth/releases">GitHub</a>.
+    Collect Earth already installed? Use <em>Check for updates</em> inside the application instead.</p>
+</main>
+
+<script>
+(function () {
+  "use strict";
+  var NAMES = { win: "Windows", mac: "macOS", lin: "Linux" };
+  // What ?os= accepts. Anything else, including a typo, falls through to guessing rather than showing nothing.
+  var ALIASES = {
+    win: "win", windows: "win",
+    mac: "mac", macos: "mac", osx: "mac", darwin: "mac",
+    lin: "lin", linux: "lin"
+  };
+
+  function requested() {
+    // Not URLSearchParams: this page is linked from anywhere, including older browsers.
+    var m = /[?&]os=([^&#]*)/.exec(window.location.search);
+    return m ? decodeURIComponent(m[1]).trim().toLowerCase() : "";
+  }
+
+  function guessed() {
+    // navigator.platform is deprecated but still the most widely supported of the three; userAgentData is
+    // Chromium-only and userAgent lies often enough that the links above stay visible whatever this decides.
+    var ua = (navigator.userAgent || "") + " " + (navigator.platform || "");
+    return /Win/i.test(ua) ? "win"
+         : /Mac|iPhone|iPad/i.test(ua) ? "mac"
+         : /Linux|X11|Android/i.test(ua) ? "lin"
+         : null;
+  }
+
+  var asked = requested();
+  // ?os=ask means "do not choose for me": list the three and redirect nowhere.
+  if (asked === "ask" || asked === "none" || asked === "choose") { return; }
+
+  var pick = ALIASES[asked] || guessed();
+  if (!pick) { return; }
+
+  var link = document.getElementById(pick);
+  var note = document.getElementById("starting");
+  note.textContent = "Starting the " + NAMES[pick] + " download. If nothing happens, choose your system below.";
+  note.hidden = false;
+
+  // A navigation rather than a click, so the browser treats it as a download and this page stays put.
+  setTimeout(function () { window.location.href = link.href; }, 600);
+})();
+</script>
+</body>
+</html>
