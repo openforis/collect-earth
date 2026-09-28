@@ -409,10 +409,16 @@
 								<artifactId>ant-jsch</artifactId>
 								<version>1.10.15</version>
 							</dependency>
+							<!-- The maintained fork, not com.jcraft:jsch. Same packages, so Ant picks it up unchanged.
+							     com.jcraft's last release was 0.1.55 in 2018 and signs RSA keys with SHA-1 only;
+							     OpenSSH has refused ssh-rsa/SHA-1 by default since 8.8, and the server is 9.6, so the
+							     upload failed with "com.jcraft.jsch.JSchException: Auth fail" against a key that
+							     works perfectly with scp. The fork adds rsa-sha2-256/512 and reads the newer OpenSSH
+							     key format as well as the PEM one. -->
 							<dependency>
-								<groupId>com.jcraft</groupId>
+								<groupId>com.github.mwiede</groupId>
 								<artifactId>jsch</artifactId>
-								<version>0.1.55</version>
+								<version>0.2.25</version>
 							</dependency>
 						</dependencies>
 						<executions>
@@ -462,11 +468,17 @@
 									<skip>${autoupdate.upload.skip}</skip>
 									<target>
 										<echo message="Uploading ${autoupdater-xml-file-name} (version ${project.version}, build ${buildNumber}) to ${openforis-update-user}@${openforis-update-host}:${openforis-update-folder}" />
-										<scp todir="${openforis-update-user}@${openforis-update-host}:${openforis-update-folder}" keyfile="${openforis-update-keyfile}" passphrase="${openforis-update-passphrase}" trust="yes" verbose="true" failonerror="true">
+										<!-- failonerror is false, and deliberately. The release itself is finished by the
+										     time this runs : the artifacts are uploaded and the tag is pushed. Failing
+										     the build here would fail a release that has already succeeded, over a file
+										     that can be copied up afterwards in a second. The upload is announced when
+										     it does not happen, loudly enough to be seen in the log. -->
+										<scp todir="${openforis-update-user}@${openforis-update-host}:${openforis-update-folder}" keyfile="${openforis-update-keyfile}" passphrase="${openforis-update-passphrase}" trust="yes" verbose="true" failonerror="false">
 											<fileset dir="${installer-build-path}">
 												<include name="${autoupdater-xml-file-name}" />
 											</fileset>
 										</scp>
+										<echo message="  If the upload above failed the release is unaffected : copy ${installer-build-path}/${autoupdater-xml-file-name} to ${openforis-update-folder} by hand and the new version becomes visible to installed clients." />
 									</target>
 								</configuration>
 							</execution>
