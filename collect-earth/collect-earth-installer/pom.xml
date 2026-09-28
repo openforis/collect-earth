@@ -3,7 +3,7 @@
 	<parent>
 		<groupId>org.openforis.collect.earth</groupId>
 		<artifactId>collect-earth</artifactId>
-		<version>1.23.18-SNAPSHOT</version>
+		<version>1.23.18</version>
 	</parent>
 	<artifactId>collect-earth-installer</artifactId>
 	<packaging>pom</packaging>
@@ -513,12 +513,12 @@
 										<property name="gh.dir" value="${project.build.directory}/github-release" />
 										<mkdir dir="${gh.dir}" />
 
-										<copy file="${project.build.directory}/${windows-installer-file-name}"          tofile="${gh.dir}/collect-earth-installer-${project.version}-windows.exe" failonerror="false" />
-										<copy file="${project.build.directory}/${windows-autoupdater-file-name}"        tofile="${gh.dir}/collect-earth-installer-${project.version}-windows-updater.exe" failonerror="false" />
-										<copy file="${project.build.directory}/${linux-x64-installer-file-name}"        tofile="${gh.dir}/collect-earth-installer-${project.version}-linux-x64.run" failonerror="false" />
-										<copy file="${project.build.directory}/${linux-x64-autoupdater-file-name}"      tofile="${gh.dir}/collect-earth-installer-${project.version}-linux-x64-updater.run" failonerror="false" />
-										<copy file="${project.build.directory}/${osx-installer-file-name}"              tofile="${gh.dir}/collect-earth-installer-${project.version}-osx.dmg" failonerror="false" />
-										<copy file="${project.build.directory}/${osx-autoupdater-file-name}"            tofile="${gh.dir}/collect-earth-installer-${project.version}-osx-updater.zip" failonerror="false" />
+										<copy file="${project.build.directory}/${windows-installer-file-name}" tofile="${gh.dir}/collect-earth-installer-${project.version}-windows.exe" failonerror="false" />
+										<copy file="${project.build.directory}/${windows-autoupdater-file-name}" tofile="${gh.dir}/collect-earth-installer-${project.version}-windows-updater.exe" failonerror="false" />
+										<copy file="${project.build.directory}/${linux-x64-installer-file-name}" tofile="${gh.dir}/collect-earth-installer-${project.version}-linux-x64.run" failonerror="false" />
+										<copy file="${project.build.directory}/${linux-x64-autoupdater-file-name}" tofile="${gh.dir}/collect-earth-installer-${project.version}-linux-x64-updater.run" failonerror="false" />
+										<copy file="${project.build.directory}/${osx-installer-file-name}" tofile="${gh.dir}/collect-earth-installer-${project.version}-osx.dmg" failonerror="false" />
+										<copy file="${project.build.directory}/${osx-autoupdater-file-name}" tofile="${gh.dir}/collect-earth-installer-${project.version}-osx-updater.zip" failonerror="false" />
 										<!-- The detached signatures, if the release profile produced them. Best effort:
 										     a missing one must not stop the installers being published. -->
 										<copy todir="${gh.dir}" failonerror="false">
