@@ -67,6 +67,21 @@ mvn -P assembly release:perform -Darguments="-rf :collect-earth-installer"
 
 Notes:
 - Requires Bitrock InstallBuilder and a configured `maven_settings.xml` (root of repo) with installer paths and Nexus/GitHub credentials.
+- **Where a release goes.** The Java artifacts — `collect-earth-core`, `-sampler`, `-app` and the parent pom —
+  go to Maven Central, which is what a Maven repository is for and where Collect resolves
+  `collect-earth-core` from. The installers do **not**: they are attached as assets of the GitHub release
+  for the tag, by the `publish-installers-to-github` execution, and that is where the autoupdate manifest
+  points. `gh` has to be on the PATH and authenticated; the step never fails the build, and says what to
+  upload by hand when it cannot.
+
+  Sending the installers to Central is what made every release a 35-minute upload that then failed while the
+  Portal validated a gigabyte — three times running, and once it took the whole release with it, leaving
+  1.23.16 tagged but published nowhere. `-Dinstaller.deploy.skip=false` puts them back on Central for one
+  release if ever needed; the manifest keeps Central as a second download location, so versions published
+  either way stay reachable.
+
+  The asset names must be the Maven ones (`collect-earth-installer-<version>-windows-updater.exe`), not the
+  InstallBuilder ones, because that is what the manifest asks for. The step renames them on the way.
 - The generated `collectEarthUpdateJRE11.xml` is uploaded to the web server by the build, at the `deploy`
   phase, by the `upload-autoupdate-manifest` execution of maven-antrun-plugin. It goes over scp with a key to
   `/opt/fileadmin/installer`, which is what `https://www.openforis.org/fileadmin/installer/` is served from

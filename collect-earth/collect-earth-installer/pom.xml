@@ -30,27 +30,30 @@
 
 		<!-- Where the installers are published.
 		     ===================================
-		     Set this to true, here or with -Dinstaller.deploy.skip=true, once the installers are distributed from
-		     GitHub Releases and an installed client has been seen to update through it. The release then carries
-		     four small Java components instead of a gigabyte of .exe/.run/.dmg, and the staging repository closes in
-		     seconds instead of resetting the connection after 35 minutes.
+		     Not to Maven Central. They are end-user binaries that no Maven build resolves, and the gigabyte of them
+		     is what made every release a 35 minute upload that then failed while the Central Portal validated the
+		     bundle - three times in a row, and once it took a whole release with it. They are published as assets of
+		     the GitHub release for the tag, by publish-installers-to-github below, which is also where the
+		     autoupdate manifest points.
 
-		     It is false until then, because turning it on is not reversible for a version that has already shipped.
-		     The autoupdater reads collectEarthUpdateJRE11.xml on openforis.org, and that file's <downloadLocation>
-		     still names repo1.maven.org. A version published with no installers on Central, while clients are still
-		     pointed there, is a version nobody can update to. The order is: publish the installers to GitHub
-		     Releases, repoint <downloadLocation>, watch a real client update, then set this.
+		     What this does not change: collect-earth-core, -sampler and -app keep going to Central. That is what a
+		     Maven repository is for, and Collect resolves collect-earth-core from it.
 
-		     What this does not change: collect-earth-core, -sampler and -app keep going to Maven Central, which is
-		     what a Maven repository is for. Only the installers stop.
+		     Set -Dinstaller.deploy.skip=false for one release to put the installers back on Central as well; the
+		     manifest keeps Central as a second download location, so versions published either way stay reachable.
 
 		     Both properties are needed. maven.deploy.skip alone is ignored, because the release profile gives
 		     nexus-staging-maven-plugin extensions=true and it takes the deploy lifecycle over from
 		     maven-deploy-plugin - which is how collect-earth-grid ended up in the 1.23.14 bundle and failed the
 		     whole deployment. -->
-		<installer.deploy.skip>false</installer.deploy.skip>
+		<installer.deploy.skip>true</installer.deploy.skip>
 		<maven.deploy.skip>${installer.deploy.skip}</maven.deploy.skip>
 		<skipNexusStagingDeployMojo>${installer.deploy.skip}</skipNexusStagingDeployMojo>
+
+		<!-- The GitHub release the installers are attached to. -Dinstaller.github.skip=true builds them without
+		     publishing; the step never fails the build either way. -->
+		<installer.github.skip>false</installer.github.skip>
+		<github.repo>openforis/collect-earth</github.repo>
 
 		<!-- The autoupdate manifest is uploaded at deploy; see the upload-autoupdate-manifest execution below.
 		     Set -Dautoupdate.upload.skip=true to build the installers without touching the web server. The
@@ -479,6 +482,69 @@
 											</fileset>
 										</scp>
 										<echo message=" If the upload above failed the release is unaffected : copy ${installer-build-path}/${autoupdater-xml-file-name} to ${openforis-update-folder} by hand and the new version becomes visible to installed clients." />
+									</target>
+								</configuration>
+							</execution>
+
+							<!-- Publish the installers as assets of the GitHub release for this tag.
+							     =============================================================
+							     This is where the installers live now: they are end-user binaries that no Maven build
+							     resolves, and sending a gigabyte of them to Maven Central is what made every release a
+							     35 minute upload that ended in a connection reset while the Portal validated the
+							     bundle. The Java artifacts still go to Central, which is what a Maven repository is
+							     for and what Collect resolves collect-earth-core from.
+
+							     The asset names have to be the ones the autoupdate manifest asks for, which are the
+							     Maven names rather than the InstallBuilder ones, so each file is copied to its Maven
+							     name first. The mapping is the classifier list of build-helper above.
+
+							     Nothing here can fail the build: by this point the release is done. gh must be on the
+							     PATH and authenticated; when it is not, the step says what to upload by hand. -->
+							<execution>
+								<id>publish-installers-to-github</id>
+								<phase>deploy</phase>
+								<goals>
+									<goal>run</goal>
+								</goals>
+								<configuration>
+									<skip>${installer.github.skip}</skip>
+									<target>
+										<property name="gh.tag" value="collect-earth-${project.version}" />
+										<property name="gh.dir" value="${project.build.directory}/github-release" />
+										<mkdir dir="${gh.dir}" />
+
+										<copy file="${project.build.directory}/${windows-installer-file-name}"          tofile="${gh.dir}/collect-earth-installer-${project.version}-windows.exe" failonerror="false" />
+										<copy file="${project.build.directory}/${windows-autoupdater-file-name}"        tofile="${gh.dir}/collect-earth-installer-${project.version}-windows-updater.exe" failonerror="false" />
+										<copy file="${project.build.directory}/${linux-x64-installer-file-name}"        tofile="${gh.dir}/collect-earth-installer-${project.version}-linux-x64.run" failonerror="false" />
+										<copy file="${project.build.directory}/${linux-x64-autoupdater-file-name}"      tofile="${gh.dir}/collect-earth-installer-${project.version}-linux-x64-updater.run" failonerror="false" />
+										<copy file="${project.build.directory}/${osx-installer-file-name}"              tofile="${gh.dir}/collect-earth-installer-${project.version}-osx.dmg" failonerror="false" />
+										<copy file="${project.build.directory}/${osx-autoupdater-file-name}"            tofile="${gh.dir}/collect-earth-installer-${project.version}-osx-updater.zip" failonerror="false" />
+										<!-- The detached signatures, if the release profile produced them. Best effort:
+										     a missing one must not stop the installers being published. -->
+										<copy todir="${gh.dir}" failonerror="false">
+											<fileset dir="${project.build.directory}" includes="*.asc" />
+										</copy>
+
+										<echo message="Publishing the installers of ${project.version} to the GitHub release ${gh.tag} of ${github.repo}" />
+										<!-- create first; it fails harmlessly when the release already exists -->
+										<exec executable="gh" failonerror="false" dir="${gh.dir}">
+											<arg value="release" /><arg value="create" /><arg value="${gh.tag}" />
+											<arg value="--repo" /><arg value="${github.repo}" />
+											<arg value="--title" /><arg value="Collect Earth ${project.version}" />
+											<arg value="--notes" /><arg value="Installers for Collect Earth ${project.version}. The Java artifacts of this version are on Maven Central; the installers are here, because a Maven repository is not a place for a gigabyte of desktop installers." />
+										</exec>
+										<exec executable="gh" failonerror="false" dir="${gh.dir}" resultproperty="gh.upload.result">
+											<arg value="release" /><arg value="upload" /><arg value="${gh.tag}" />
+											<arg value="--repo" /><arg value="${github.repo}" />
+											<arg value="--clobber" />
+											<arg value="collect-earth-installer-${project.version}-windows.exe" />
+											<arg value="collect-earth-installer-${project.version}-windows-updater.exe" />
+											<arg value="collect-earth-installer-${project.version}-linux-x64.run" />
+											<arg value="collect-earth-installer-${project.version}-linux-x64-updater.run" />
+											<arg value="collect-earth-installer-${project.version}-osx.dmg" />
+											<arg value="collect-earth-installer-${project.version}-osx-updater.zip" />
+										</exec>
+										<echo message=" gh upload exit code ${gh.upload.result}. If it is not 0, nothing about the release is broken : the files are in ${gh.dir} and 'gh release upload ${gh.tag} --repo ${github.repo} --clobber *' publishes them. Until they are published the autoupdate manifest names files that are not there, so do it before announcing the version." />
 									</target>
 								</configuration>
 							</execution>
