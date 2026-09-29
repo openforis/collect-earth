@@ -46,13 +46,14 @@
 		     Set -Dinstaller.deploy.skip=false for one release to put the installers back on Central as well; the
 		     manifest keeps Central as a second download location, so versions published either way stay reachable.
 
-		     Both properties are needed. maven.deploy.skip alone is ignored, because the release profile gives
-		     nexus-staging-maven-plugin extensions=true and it takes the deploy lifecycle over from
-		     maven-deploy-plugin - which is how collect-earth-grid ended up in the 1.23.14 bundle and failed the
-		     whole deployment. -->
+		     The switch works by not attaching the installers (skipAttach of attach-installer-artifacts below), so
+		     this module deploys its pom and nothing else. It must NOT skip the deploy itself, through
+		     skipNexusStagingDeployMojo or maven.deploy.skip. nexus-staging-maven-plugin gathers the artifacts of
+		     every module locally and uploads them all from the last module of the reactor, and this module is the
+		     last one: its DeployMojo checks the skip flag before anything else and returns, so the upload of core,
+		     sampler and app never happens either. That is what 1.23.18 did - released, tagged, installers on
+		     GitHub, and nothing at all on Central. collect-earth-grid can skip because it is not last. -->
 		<installer.deploy.skip>true</installer.deploy.skip>
-		<maven.deploy.skip>${installer.deploy.skip}</maven.deploy.skip>
-		<skipNexusStagingDeployMojo>${installer.deploy.skip}</skipNexusStagingDeployMojo>
 
 		<!-- The GitHub release the installers are attached to. -Dinstaller.github.skip=true builds them without
 		     publishing; the step never fails the build either way. -->
@@ -363,6 +364,9 @@
 									<goal>attach-artifact</goal>
 								</goals>
 								<configuration>
+									<!-- Unattached, the installers are neither signed nor deployed to Central; they are
+									     still built, and publish-installers-to-github takes them from target. -->
+									<skipAttach>${installer.deploy.skip}</skipAttach>
 									<artifacts>
 										<artifact>
 											<file>${project.build.directory}/${windows-installer-file-name}</file>

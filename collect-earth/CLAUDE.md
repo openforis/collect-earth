@@ -80,6 +80,15 @@ Notes:
   release if ever needed; the manifest keeps Central as a second download location, so versions published
   either way stay reachable.
 
+  **Never skip the deploy of `collect-earth-installer`** (`skipNexusStagingDeployMojo`, `maven.deploy.skip`).
+  `nexus-staging-maven-plugin` uploads the staged artifacts of every module from the *last* module of the
+  reactor, which is the installer one, and it checks the skip flag before doing that. Skipping it there
+  silently skips the upload of core, sampler and app too: that is how 1.23.18 was released with nothing on
+  Central. The installers are kept off Central by not attaching them (`skipAttach`), so the module deploys
+  only its pom. After a release, check
+  `https://repo1.maven.org/maven2/org/openforis/collect/earth/collect-earth-core/maven-metadata.xml` (once the
+  Portal deployment is published), or the log for `Uploading locally staged artifacts`.
+
   The asset names must be the Maven ones (`collect-earth-installer-<version>-windows-updater.exe`), not the
   InstallBuilder ones, because that is what the manifest asks for. The step renames them on the way.
 - The generated `collectEarthUpdateJRE11.xml` is uploaded to the web server by the build, at the `deploy`
