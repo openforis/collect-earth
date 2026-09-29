@@ -55,6 +55,21 @@
 	</Appenders>
 
 	<Loggers>
+		<!-- Libraries that report at ERROR something that does not stop Collect Earth. It stays in the log file, and is
+		     kept away from Sentry and from the error dialog, which both hang from the root logger (the dialog is added
+		     to it by CollectEarthMenu) - additivity="false" is what keeps them out.
+		     - SQLiteJDBCLoader cannot delete the copy of its DLL that an earlier run left in the temporary folder,
+		       because another process - an antivirus, another Collect Earth - still holds it. The database works.
+		     - WebDriverManager could not download a browser driver and falls back to one it already has. When that
+		       fails too, BrowserService reports that no browser could be started. -->
+		<Logger name="org.sqlite.SQLiteJDBCLoader" level="INFO" additivity="false">
+			<AppenderRef ref="file" level="ERROR" />
+			<AppenderRef ref="STDOUT" level="INFO" />
+		</Logger>
+		<Logger name="io.github.bonigarcia.wdm" level="INFO" additivity="false">
+			<AppenderRef ref="file" level="ERROR" />
+			<AppenderRef ref="STDOUT" level="INFO" />
+		</Logger>
 		<Root level="INFO">
 			<AppenderRef ref="file" level="ERROR" />
 			<AppenderRef ref="STDOUT" level="INFO" />

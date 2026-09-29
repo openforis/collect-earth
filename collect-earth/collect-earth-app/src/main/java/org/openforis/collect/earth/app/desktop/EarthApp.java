@@ -88,7 +88,7 @@ public class EarthApp {
 	private static ServerController serverController;
 	private static EarthApp earthApp;
 
-	private static void closeSplash() {
+	static void closeSplash() {
 		try {
 			final SplashScreen splash = SplashScreen.getSplashScreen();
 			if (splash != null) {

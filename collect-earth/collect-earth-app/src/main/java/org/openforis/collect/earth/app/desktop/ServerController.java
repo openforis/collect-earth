@@ -2,13 +2,17 @@ package org.openforis.collect.earth.app.desktop;
 
 import java.io.File;
 import java.io.IOException;
+import java.net.BindException;
 import java.sql.Connection;
+import java.text.MessageFormat;
 import java.sql.DriverManager;
 import java.sql.ResultSet;
 import java.sql.Statement;
 import java.beans.PropertyChangeListener;
 import java.beans.PropertyChangeSupport;
 import java.util.Map;
+
+import javax.swing.JOptionPane;
 
 import org.eclipse.jetty.server.Connector;
 import org.eclipse.jetty.server.Server;
@@ -21,6 +25,7 @@ import org.openforis.collect.earth.app.service.BrowserService;
 import org.openforis.collect.earth.app.service.FolderFinder;
 import org.openforis.collect.earth.app.service.LocalPropertiesService;
 import org.openforis.collect.earth.app.service.LocalPropertiesService.EarthProperty;
+import org.openforis.collect.earth.app.view.Messages;
 import org.openforis.collect.earth.sampler.utils.FreemarkerTemplateUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -92,6 +97,27 @@ public class ServerController {
 		url = url.replace("REPLACE_PORT", localPropertiesService.getValue(EarthProperty.DB_PORT)); //$NON-NLS-1$
 		url = url.replace("REPLACE_DBNAME", localPropertiesService.getValue(EarthProperty.DB_NAME)); //$NON-NLS-1$
 		return url;
+	}
+
+	static boolean isPortInUse(Throwable failure) {
+		for (Throwable t = failure; t != null; t = t.getCause()) {
+			if (t instanceof BindException) {
+				return true;
+			}
+		}
+		return false;
+	}
+
+	private void showPortInUseMessage(IOException e) {
+		try {
+			EarthApp.closeSplash();
+			// The port as text : MessageFormat would print the number 8028 as "8,028"
+			JOptionPane.showMessageDialog(null,
+					MessageFormat.format(Messages.getString("EarthApp.75"), String.valueOf(getPort()), e.getMessage()), //$NON-NLS-1$
+					"Collect Earth", JOptionPane.WARNING_MESSAGE); //$NON-NLS-1$
+		} catch (Exception noScreen) {
+			logger.debug("The port-in-use message could not be shown", noScreen); //$NON-NLS-1$
+		}
 	}
 
 	private int getPort() {
@@ -290,7 +316,15 @@ public class ServerController {
 			}
 
 		} catch (final IOException e) {
-			logger.error("Error initializing local properties", e); //$NON-NLS-1$
+			if (isPortInUse(e)) {
+				// Something took the port after EarthApp found it free : a second Collect Earth started at the same moment,
+				// or one that is still closing. This used to exit at once with "Error initializing local properties" in the
+				// log and nothing on screen, so Collect Earth simply vanished (JAVA-COLLECT-EARTH-557)
+				logger.warn("Port {} is already in use, Collect Earth cannot start : {}", getPort(), e.getMessage()); //$NON-NLS-1$
+				showPortInUseMessage(e);
+			} else {
+				logger.error("Error starting the server", e); //$NON-NLS-1$
+			}
 			System.exit(1);
 		} catch (Exception e) {
 			logger.error("Error staring the server", e); //$NON-NLS-1$

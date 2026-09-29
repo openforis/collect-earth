@@ -480,6 +480,9 @@ public class BrowserService implements InitializingBean, DisposableBean, Applica
 					driver = navigateTo(url, driver, false); // only try to re-open one
 				} else if (windowWasClosed(e)) {
 					logger.warn("The browser window was closed while {} was loading", url);
+				} else if (timedOut(e)) {
+					// A slow connection, not a defect : Earth Engine apps in particular can take minutes to load
+					logger.warn("The page {} did not load in time : {}", url, e.getMessage());
 				} else {
 					// Every other failure used to be swallowed here, so a page that does not load left no trace at all
 					logger.error("Error loading the page in the browser", e);
@@ -496,6 +499,15 @@ public class BrowserService implements InitializingBean, DisposableBean, Applica
 	 * mid-operation is ordinary use, so it is reported as a warning rather than an error. Selenium says so with a
 	 * typed exception, but wraps it often enough that the whole cause chain and the message are both worth checking.
 	 */
+	private boolean timedOut(Throwable failure) {
+		for (Throwable t = failure; t != null; t = t.getCause()) {
+			if (t instanceof org.openqa.selenium.TimeoutException || t instanceof java.util.concurrent.TimeoutException) {
+				return true;
+			}
+		}
+		return false;
+	}
+
 	private boolean windowWasClosed(Throwable failure) {
 		for (Throwable t = failure; t != null; t = t.getCause()) {
 			if (t instanceof NoSuchWindowException || t instanceof NoSuchSessionException) {
@@ -970,7 +982,9 @@ public class BrowserService implements InitializingBean, DisposableBean, Applica
 					try {
 						remoteWebDriver.quit();
 					} catch (final Exception e) {
-						logger.error("Error quitting the browser", e);
+						// Collect Earth is closing : a browser that is already gone - the interpreter closed it, or its
+						// driver stopped first - is the expected case, not a failure to report
+						logger.warn("A browser could not be quit, it had probably been closed already : {}", e.getMessage());
 					}
 				}
 			}

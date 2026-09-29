@@ -11,6 +11,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - The grid module (`collect-earth-grid`) builds again and is part of the Maven reactor
 
+### Fixed
+- The tool that removes plots from the database accepts a CSV with only the plot keys again; a survey with fewer than three key attributes had every file rejected as "not a CSV file". A path that does not lead to a file is marked instead of opening an error dialog on every keystroke
+- A burst of errors can no longer crash Collect Earth: the error dialogs open one at a time, and the ones logged meanwhile are counted, where they used to open inside each other until the application ran out of stack
+- When port 8028 is taken, Collect Earth says so and what to do, instead of closing without a word
+- Importing a file that is not a project (.cep) says so, instead of reporting a project with no survey_name
+
+### Changed
+- Conditions that are not faults in Collect Earth are logged as warnings, so they no longer open an error dialog or reach the error reports: a browser already closed when Collect Earth quits, a page that takes too long to load, a browser driver that could not be downloaded, a copy of the SQLite library that another program still holds, a file that is not a project
+
 ### Removed
 - The integrations that are not supported any more: Earth Engine Timelapse, Earth Engine Explorer, the Earth Engine code editor, Bing Maps and Yandex Maps. Their properties are gone from earth.properties and a project file that still carries them is simply ignored
 

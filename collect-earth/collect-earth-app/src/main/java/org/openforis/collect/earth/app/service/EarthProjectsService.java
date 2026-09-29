@@ -325,9 +325,11 @@ public class EarthProjectsService {
 				}
 			}
 			return projectName;
-		}catch(Exception e ) {
-			logger.error("Error reading the project name from " + projectZipFile.getAbsolutePath(), e ); //$NON-NLS-1$
-			return null;
+		}catch(IOException e ) {
+			// Usually not a project at all : a CSV or a KML chosen by mistake. This used to be logged here at ERROR and
+			// turned into null, which the caller then reported as a project with no survey_name - so one wrong file gave
+			// two errors in Sentry and a message that did not say what was wrong (JAVA-COLLECT-EARTH-55N, 55P)
+			throw new IOException(projectZipFile.getName() + " is not a Collect Earth project file (.cep) : " + e.getMessage(), e); //$NON-NLS-1$
 		}
 
 	}

@@ -6,6 +6,7 @@ import java.awt.Window;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
 import java.io.File;
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
@@ -117,16 +118,24 @@ public class ProjectsPanel extends AbstractPropertyPanel {
             try {
                 projectsService.loadCompressedProjectFile(selectedProjectFile[0]);
                 return true;
+            } catch (IOException e) {
+                // A file that is not a valid project : the user is told why, and it is not a fault of Collect Earth
+                showImportError(e);
+                logger.warn("The project file {} could not be imported : {}", selectedProjectFile[0].getAbsolutePath(), e.getMessage());
             } catch (Exception e) {
-                JOptionPane.showMessageDialog(
-                        this,
-                        e.getMessage(),
-                        Messages.getString("OptionWizard.51"),
-                        JOptionPane.ERROR_MESSAGE);
+                showImportError(e);
                 logger.error("Error importing project file " + selectedProjectFile[0].getAbsolutePath(), e);
             }
         }
         return false;
+    }
+
+    private void showImportError(Exception e) {
+        JOptionPane.showMessageDialog(
+                this,
+                e.getMessage(),
+                Messages.getString("OptionWizard.51"),
+                JOptionPane.ERROR_MESSAGE);
     }
 
     private JPanel createProjectsListPanel() {

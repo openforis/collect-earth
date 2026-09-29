@@ -5,6 +5,7 @@ import java.awt.Dimension;
 import java.awt.Frame;
 import java.awt.GridBagConstraints;
 import java.awt.GridBagLayout;
+import java.io.File;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -131,6 +132,15 @@ public class RemovePlotsFromDBDlg {
 	}
 
 	private boolean validateCsv(String filePath) {
+		// This runs on every change of the path, so also while it is being typed. A path that does not lead to a file
+		// is only unusable : it is marked and the button stays disabled. It used to open an error dialog - once per
+		// keystroke when typed - and report a FileNotFoundException as a fault (JAVA-COLLECT-EARTH-55H)
+		if (StringUtils.isBlank(filePath) || !new File(filePath).isFile()) {
+			filePicker.setTextBackground(Color.red);
+			getDeleteButton().setEnabled(false);
+			return false;
+		}
+
 		boolean validFile = true;
 
 		try ( CSVReader csvReader = CsvReaderUtils.getCsvReader(filePath, false) ){

@@ -354,7 +354,12 @@ public class CollectEarthMenu extends JMenuBar implements InitializingBean {
 						String errorMessage = e1.getMessage() != null ? e1.getMessage() : "Unknown error occurred";
 						JOptionPane.showMessageDialog( getFrame(), errorMessage,
 								Messages.getString("OptionWizard.51"), JOptionPane.ERROR_MESSAGE);
-						logger.error("Error importing project file " + selectedProjectFile[0].getAbsolutePath(), e1);
+						if (e1 instanceof IOException) {
+							// A file that is not a valid project : the user has just been told why, it is not a fault
+							logger.warn("The project file {} could not be imported : {}", selectedProjectFile[0].getAbsolutePath(), e1.getMessage());
+						} else {
+							logger.error("Error importing project file " + selectedProjectFile[0].getAbsolutePath(), e1);
+						}
 					}
 				}
 			}
