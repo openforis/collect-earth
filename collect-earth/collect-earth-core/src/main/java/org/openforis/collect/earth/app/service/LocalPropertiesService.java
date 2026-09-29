@@ -502,8 +502,14 @@ public class LocalPropertiesService extends Observable {
 		return supported;
 	}
 
+	/**
+	 * Maxar SecureWatch is disabled, whatever open_maxar_securewatch says. Its address, access.maxar.com/myDigitalGlobe, no
+	 * longer resolves, so every plot opened with it enabled failed to load a page (JAVA-COLLECT-EARTH-55F). Answering false
+	 * here also covers the project files that still carry open_maxar_securewatch=true. The rest of the integration is kept
+	 * so that it can be switched back on here once Maxar has an address that works.
+	 */
 	public boolean isSecureWatchSupported() {
-		return isPropertyActivated(EarthProperty.OPEN_MAXAR_SECUREWATCH);
+		return false;
 	}
 
 	public boolean isStreetViewSupported() {

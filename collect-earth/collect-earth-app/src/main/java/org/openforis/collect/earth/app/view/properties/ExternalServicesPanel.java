@@ -230,9 +230,8 @@ public class ExternalServicesPanel extends AbstractPropertyPanel {
         // Planet Maps panel (contains all Planet-related components)
         addFullWidthRow(this, 4, planetPanel);
 
-        // Maxar SecureWatch
-        addFullWidthRow(this, 5, openSecureWatchCheckbox);
-        addLabeledRow(this, 6, "OptionWizard.1021", secureWatchUrlField);
+        // Maxar SecureWatch (rows 5 and 6) is not shown while it is disabled : see LocalPropertiesService.isSecureWatchSupported.
+        // The components are still created and registered, so the property keeps whatever value it has.
 
         // Extra Map URL
         JLabel extraLabel = new JLabel(Messages.getString("OptionWizard.103"));

@@ -21,6 +21,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Conditions that are not faults in Collect Earth are logged as warnings, so they no longer open an error dialog or reach the error reports: a browser already closed when Collect Earth quits, a page that takes too long to load, a browser driver that could not be downloaded, a copy of the SQLite library that another program still holds, a file that is not a project
 
 ### Removed
+- Maxar SecureWatch is disabled: its address no longer exists, so every plot opened with it failed to load. The option is hidden and switched off on update, and a project file cannot turn it back on. The integration itself is kept, to be switched back on if Maxar publishes an address that works
 - The integrations that are not supported any more: Earth Engine Timelapse, Earth Engine Explorer, the Earth Engine code editor, Bing Maps and Yandex Maps. Their properties are gone from earth.properties and a project file that still carries them is simply ignored
 
 ### Changed

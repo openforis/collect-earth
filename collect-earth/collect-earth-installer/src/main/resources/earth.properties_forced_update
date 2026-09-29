@@ -7,6 +7,6 @@ earth_map_layers={"Sentinel2AnnualMosaic"\:{"opacity"\:1}}
 earth_map_scripts={"burnedArea"\:{"aggregation"\:"annual"}, "hansen"\:{"dateRange"\:[null,null]} }
 earth_map_aoi=global
 earth_map_url=https://earthmap.org
-secure_watch_url=https\://access.maxar.com/myDigitalGlobe
+open_maxar_securewatch=false
 planet_nicfi_url=https://openforis.org/fileadmin/planet.html
 ga_api_secret=GA_API_SECRET
