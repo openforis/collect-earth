@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Picked up instead of log4j2.xml in the tests : that one writes to ${collectEarth.userFolder}, which is only set
+     when the application starts. -->
+<Configuration status="WARN">
+	<Appenders>
+		<Console name="console" target="SYSTEM_OUT">
+			<PatternLayout pattern="%d{HH:mm:ss} %-5level %logger{36} - %msg%n" />
+		</Console>
+	</Appenders>
+	<Loggers>
+		<Root level="warn">
+			<AppenderRef ref="console" />
+		</Root>
+	</Loggers>
+</Configuration>
