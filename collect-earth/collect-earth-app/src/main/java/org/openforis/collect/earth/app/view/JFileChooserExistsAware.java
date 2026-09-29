@@ -85,12 +85,8 @@ public class JFileChooserExistsAware extends JFileChooser {
 		fc.setFileFilter(addedFilter);
 
 		// Handle open button action.
-		int returnVal ;
-		if( isSaveDlg ){
-			returnVal = fc.showSaveDialog( frame );
-		}else{
-			returnVal = fc.showOpenDialog( frame);
-		}
+		int returnVal = ShellFolderFallback.showDialog(fc,
+				chooser -> isSaveDlg ? chooser.showSaveDialog( frame ) : chooser.showOpenDialog( frame ));
 
 		if ( returnVal == JFileChooser.APPROVE_OPTION) {
 

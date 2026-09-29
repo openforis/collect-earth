@@ -93,7 +93,8 @@ public final class FileChooserUtils {
         chooser.setAcceptAllFileFilterUsed(true);
         chooser.setFileFilter(addedFilter);
 
-        int returnVal = isSaveDlg ? chooser.showSaveDialog(frame) : chooser.showOpenDialog(frame);
+        int returnVal = ShellFolderFallback.showDialog(chooser,
+                c -> isSaveDlg ? c.showSaveDialog(frame) : c.showOpenDialog(frame));
         if (returnVal != JFileChooser.APPROVE_OPTION) {
             return null;
         }

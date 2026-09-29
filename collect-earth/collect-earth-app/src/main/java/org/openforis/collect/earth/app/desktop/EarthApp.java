@@ -48,6 +48,7 @@ import org.openforis.collect.earth.app.view.CollectEarthWindow;
 import org.openforis.collect.earth.app.view.DataFormat;
 import org.openforis.collect.earth.app.view.Messages;
 import org.openforis.collect.earth.app.view.PropertiesDialog;
+import org.openforis.collect.earth.app.view.ShellFolderFallback;
 import org.openforis.collect.earth.sampler.utils.KmlGenerationException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -180,6 +181,8 @@ public class EarthApp {
 			initializeSwingXComponents();
 
 			initializeSentry();
+			// After Sentry, whose handler it wraps : a file chooser broken by the Windows shell falls back to plain folders
+			ShellFolderFallback.installUncaughtExceptionHandler();
 
 			// Change of font so that Lao and Thao glyphs are supported
 			CollectEarthUtils.setFontDependingOnLanguaue(getLocalProperties().getUiLanguage());
