@@ -472,7 +472,8 @@ public abstract class AbstractEarthSurveyService {
 	private PlacemarkLoadResult updatePreviewPlacemarkData(String[] plotKeyAttributes, Map<String, String> parameters) {
 		CollectRecord record = createRecord();
 
-		collectParametersHandler.saveToEntity(parameters, record.getRootEntity());
+		Map<String, String> invalidValues = new LinkedHashMap<>();
+		collectParametersHandler.saveToEntity(parameters, record.getRootEntity(), false, invalidValues);
 
 		// update actively_saved_on attribute now, otherwise if it's empty
 		// it counts as an error
@@ -481,7 +482,7 @@ public abstract class AbstractEarthSurveyService {
 
 		updateKeyAttributeValues(record, plotKeyAttributes);
 		record.setModifiedDate(new Date());
-		return createPlacemarkLoadSuccessResult(record);
+		return withInvalidValues(createPlacemarkLoadSuccessResult(record), invalidValues);
 	}
 
 
@@ -489,7 +490,8 @@ public abstract class AbstractEarthSurveyService {
 			String sessionId) throws RecordPersistenceException {
 		CollectRecord record = createRecord();
 
-		collectParametersHandler.saveToEntity(parameters, record.getRootEntity(), true);
+		Map<String, String> invalidValues = new LinkedHashMap<>();
+		collectParametersHandler.saveToEntity(parameters, record.getRootEntity(), true, invalidValues);
 
 		// update actively_saved_on attribute now, otherwise if it's empty
 		// it counts as an error
@@ -499,7 +501,7 @@ public abstract class AbstractEarthSurveyService {
 		updateKeyAttributeValues(record, plotKeyAttributes);
 		record.setModifiedDate(new Date());
 		recordManager.save(record, sessionId);
-		return createPlacemarkLoadSuccessResult(record);
+		return withInvalidValues(createPlacemarkLoadSuccessResult(record), invalidValues);
 	}
 
 
@@ -515,13 +517,16 @@ public abstract class AbstractEarthSurveyService {
 
 		boolean userClickOnSubmitAndValidate = isPlacemarkSavedActively(parameters);
 
-		NodeChangeSet changeSet = collectParametersHandler.saveToEntity(changedParameters, plotEntity);
+		Map<String, String> invalidValues = new LinkedHashMap<>();
+		NodeChangeSet changeSet = collectParametersHandler.saveToEntity(changedParameters, plotEntity, false, invalidValues);
 
 		// update actively_saved_on attribute now, otherwise if it's empty
 		// it counts as an error
 		setPlacemarkSavedOn(record);
 
-		boolean noErrors = record.getErrors() == 0 && record.getSkipped() == 0;
+		// A value that could not be read left its attribute as it was, so the record alone can look valid : the plot is not
+		// submitted while one is pending
+		boolean noErrors = record.getErrors() == 0 && record.getSkipped() == 0 && invalidValues.isEmpty();
 
 		if (userClickOnSubmitAndValidate && !noErrors) {
 			// if the user clicks on submit and validate but the data is not
@@ -539,9 +544,9 @@ public abstract class AbstractEarthSurveyService {
 		recordManager.save(record, sessionId);
 
 		if (partialUpdate) {
-			return createPlacemarkLoadSuccessResult(record, changeSet);
+			return withInvalidValues(createPlacemarkLoadSuccessResult(record, changeSet), invalidValues);
 		} else {
-			return createPlacemarkLoadSuccessResult(record);
+			return withInvalidValues(createPlacemarkLoadSuccessResult(record), invalidValues);
 		}
 	}
 	
@@ -628,6 +633,16 @@ public abstract class AbstractEarthSurveyService {
 		Entity entityToDelete = (Entity) entities.get(entities.size() - 1);
 		NodeChangeSet changeSet = recordUpdater.deleteNode(entityToDelete);
 		return createPlacemarkLoadSuccessResult(record, changeSet);
+	}
+
+	/**
+	 * Puts on their fields the values that the interpreter typed and that could not be read (JAVA-COLLECT-EARTH-55W)
+	 */
+	private static PlacemarkLoadResult withInvalidValues(PlacemarkLoadResult result, Map<String, String> invalidValues) {
+		for (Entry<String, String> invalidValue : invalidValues.entrySet()) {
+			result.setInvalidValue(invalidValue.getKey(), invalidValue.getValue());
+		}
+		return result;
 	}
 
 	private PlacemarkLoadResult createPlacemarkLoadSuccessResult(CollectRecord record) {

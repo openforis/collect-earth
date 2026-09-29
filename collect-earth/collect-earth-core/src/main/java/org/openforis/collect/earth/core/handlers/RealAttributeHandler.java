@@ -4,8 +4,6 @@ import org.openforis.idm.metamodel.NodeDefinition;
 import org.openforis.idm.metamodel.NumberAttributeDefinition;
 import org.openforis.idm.metamodel.NumericAttributeDefinition.Type;
 import org.openforis.idm.model.RealValue;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 
 /**
@@ -15,7 +13,6 @@ import org.springframework.stereotype.Component;
 @Component
 public class RealAttributeHandler extends AbstractAttributeHandler<RealValue> {
 
-	private final Logger logger = LoggerFactory.getLogger(RealAttributeHandler.class);
 	private static final String PREFIX = "real_";
 
 	public RealAttributeHandler() {
@@ -29,13 +26,13 @@ public class RealAttributeHandler extends AbstractAttributeHandler<RealValue> {
 
 	@Override
 	public RealValue createValue(String parameterValue) {
-		Double value = null;
 		try {
-			value = Double.parseDouble(parameterValue.replace(',', '.'));
+			return new RealValue(Double.parseDouble(parameterValue.replace(',', '.')), null);
 		}catch(NumberFormatException e) {
-			logger.warn( "The number format is not correct for : " + parameterValue, e);
-		}		
-		return value!=null?new RealValue(value, null):null;
+			// Thrown, as the integer handler does, so that the value is kept and the interpreter is told on the field. Returning
+			// null here erased the value that was stored, without a word, whenever a number was mistyped
+			throw new NumberFormatException( "Parameter value '" + parameterValue + "' is not a number");
+		}
 	}
 
 	@Override

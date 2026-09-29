@@ -17,6 +17,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - A file chooser that the Windows shell makes fail - a broken shortcut in the Recent folder - is shown again with plain folders, and the file choosers keep to plain folders until Collect Earth is restarted, instead of failing every time
 - When port 8028 is taken, Collect Earth says so and what to do, instead of closing without a word
 - Importing a file that is not a project (.cep) says so, instead of reporting a project with no survey_name
+- A number or a time that is mistyped in the balloon - "07/2024" in a year - is reported under its field, and the plot cannot be submitted until it is corrected. It used to be dropped without a word, and a mistyped decimal number erased the value that had been saved
 
 ### Changed
 - Conditions that are not faults in Collect Earth are logged as warnings, so they no longer open an error dialog or reach the error reports: a browser already closed when Collect Earth quits, a page that takes too long to load, a browser driver that could not be downloaded, a copy of the SQLite library that another program still holds, a file that is not a project

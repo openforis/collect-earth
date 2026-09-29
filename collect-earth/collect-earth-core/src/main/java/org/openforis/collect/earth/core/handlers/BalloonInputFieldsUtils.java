@@ -1,5 +1,6 @@
 package org.openforis.collect.earth.core.handlers;
 
+import java.text.MessageFormat;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
@@ -20,6 +21,7 @@ import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
 import org.apache.commons.lang3.StringUtils;
+import org.openforis.collect.earth.app.view.Messages;
 import org.openforis.collect.earth.core.model.PlacemarkCodedItem;
 import org.openforis.collect.earth.core.model.PlacemarkInputFieldInfo;
 import org.openforis.collect.earth.core.utils.CollectSurveyUtils;
@@ -588,6 +590,16 @@ public class BalloonInputFieldsUtils {
 	}
 
 	public NodeChangeSet saveToEntity(Map<String, String> parameters, Entity entity, boolean newRecord) {
+		return saveToEntity(parameters, entity, newRecord, null);
+	}
+
+	/**
+	 * @param invalidValues
+	 *            when not null, receives the values that the interpreter typed and that cannot be read - "07/2024" in a whole
+	 *            number - with the message to show on their field, by parameter name. Their attribute keeps the value it had.
+	 */
+	public NodeChangeSet saveToEntity(Map<String, String> parameters, Entity entity, boolean newRecord,
+			Map<String, String> invalidValues) {
 		CollectSurvey survey = (CollectSurvey) entity.getSurvey();
 		List<Entry<String, String>> sortedParameters = new ArrayList<>(parameters.entrySet()); 
 //				entity.isRoot() ? sortParameters(survey, parameters): new ArrayList<>(parameters.entrySet());
@@ -622,13 +634,50 @@ public class BalloonInputFieldsUtils {
 						}
 					}
 				} catch (Exception e) {
-					logger.error("Error while parsing parameter " + cleanName + " with value " + parameterValue, e);
+					if (isTypedByInterpreter(handler) && e instanceof IllegalArgumentException) {
+						// A mistyped number or time is not a fault of Collect Earth. It was logged at ERROR and nothing else : the
+						// old value stayed, the interpreter was not told, and the error went to Sentry and to the error dialog
+						// (JAVA-COLLECT-EARTH-55W). Now it goes back to its field
+						logger.warn("The value " + parameterValue + " of " + cleanName + " cannot be read : " + e.getMessage()); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$
+						if (invalidValues != null) {
+							invalidValues.put(parameterName, getInvalidValueMessage(handler, parameterValue));
+						}
+					} else {
+						logger.error("Error while parsing parameter " + cleanName + " with value " + parameterValue, e);
+					}
 				}
 			} else {
 				logger.error("Handler not found for parameter: ", cleanName);
 			}
 		}
 		return result;
+	}
+
+	/**
+	 * The values that the interpreter types by hand and that can therefore be unreadable. A date is not one of them : it comes
+	 * from a date picker, and one that cannot be read is stored as invalid for the validation of Collect to report. Nor is a
+	 * coordinate, which is filled by the balloon itself.
+	 */
+	static boolean isTypedByInterpreter(AbstractAttributeHandler<?> handler) {
+		return handler instanceof IntegerAttributeHandler || handler instanceof RealAttributeHandler
+				|| handler instanceof TimeAttributeHandler;
+	}
+
+	static String getInvalidValueMessage(AbstractAttributeHandler<?> handler, String value) {
+		final String key;
+		if (handler instanceof IntegerAttributeHandler) {
+			key = "BalloonInputFieldsUtils.0"; //$NON-NLS-1$
+		} else if (handler instanceof TimeAttributeHandler) {
+			key = "BalloonInputFieldsUtils.2"; //$NON-NLS-1$
+		} else {
+			key = "BalloonInputFieldsUtils.1"; //$NON-NLS-1$
+		}
+		// The balloon shows the message as HTML, and the value is whatever was typed
+		return MessageFormat.format(Messages.getString(key), escapeHtml(value));
+	}
+
+	private static String escapeHtml(String text) {
+		return text.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;").replace("\"", "&quot;"); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$ //$NON-NLS-4$ //$NON-NLS-5$ //$NON-NLS-6$ //$NON-NLS-7$ //$NON-NLS-8$
 	}
 
 	public Attribute<?, ?> getAttributeNodeFromParameter(Entity entity, String parameterName, int index) {

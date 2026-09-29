@@ -34,6 +34,23 @@ public class PlacemarkLoadResult {
 		placemarkInfo.setErrorMessage(errorMessage);
 	}
 
+	/**
+	 * Reports on its field a value that the interpreter typed and that could not be read. The balloon shows the message under
+	 * the field, and does not let the plot be submitted while it is there.
+	 */
+	public void setInvalidValue(String parameterName, String errorMessage) {
+		// A partial update only returns the fields that changed, and this one did not : an info created here would be read by
+		// the balloon as a field that is not relevant, and hidden. The interpreter has just typed into it, so it is relevant
+		boolean newInfo = !inputFieldInfoByParameterName.containsKey(parameterName);
+		PlacemarkInputFieldInfo placemarkInfo = getPlacemarkInfo(parameterName);
+		if (newInfo) {
+			placemarkInfo.setVisible(true);
+		}
+		placemarkInfo.setInError(true);
+		placemarkInfo.setErrorMessage(errorMessage);
+		updateCalculatedFields();
+	}
+
 	public PlacemarkInputFieldInfo getPlacemarkInfo(String parameterName) {
 		// Keep the new info in the map : it used to be returned detached, so setFieldErrorMessage wrote into an object nobody read
 		return inputFieldInfoByParameterName.computeIfAbsent(parameterName, name -> new PlacemarkInputFieldInfo());
