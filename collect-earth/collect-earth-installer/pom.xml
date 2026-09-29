@@ -523,8 +523,16 @@
 							     Maven names rather than the InstallBuilder ones, so each file is copied to its Maven
 							     name first. The mapping is the classifier list of build-helper above.
 
-							     Nothing here can fail the build: by this point the release is done. gh must be on the
-							     PATH and authenticated; when it is not, the step says what to upload by hand. -->
+							     They go up with SHA256SUMS, the SHA-256 of each installer, and SHA256SUMS.asc, its
+							     detached signature made with the key that signs the artifacts on Central (gpg.executable,
+							     gpg.passphrase and optionally gpg.keyname, from settings.xml). One signature over the sums
+							     covers all six files with one passphrase. A download is checked by verifying SHA256SUMS.asc
+							     against SHA256SUMS with gpg, then SHA256SUMS against the file with sha256sum (the release
+							     notes carry the exact commands). The installers are not attached to the Maven build any more, so maven-gpg-plugin does
+							     not sign them; this is the only signature they get.
+
+							     Nothing here can fail the build: by this point the release is done. gh and gpg must be on
+							     the PATH, and gh authenticated; when one is not, the step says what to do by hand. -->
 							<execution>
 								<id>publish-installers-to-github</id>
 								<phase>deploy</phase>
@@ -533,9 +541,12 @@
 								</goals>
 								<configuration>
 									<skip>${installer.github.skip}</skip>
-									<target>
+									<target xmlns:if="ant:if" xmlns:unless="ant:unless">
 										<property name="gh.tag" value="collect-earth-${project.version}" />
 										<property name="gh.dir" value="${project.build.directory}/github-release" />
+										<property name="gh.sums" value="SHA256SUMS" />
+										<!-- From scratch, so that a retry never hashes or signs what a previous run left -->
+										<delete dir="${gh.dir}" quiet="true" />
 										<mkdir dir="${gh.dir}" />
 
 										<copy file="${project.build.directory}/${windows-installer-file-name}" tofile="${gh.dir}/collect-earth-installer-${project.version}-windows.exe" failonerror="false" />
@@ -544,21 +555,76 @@
 										<copy file="${project.build.directory}/${linux-x64-autoupdater-file-name}" tofile="${gh.dir}/collect-earth-installer-${project.version}-linux-x64-updater.run" failonerror="false" />
 										<copy file="${project.build.directory}/${osx-installer-file-name}" tofile="${gh.dir}/collect-earth-installer-${project.version}-osx.dmg" failonerror="false" />
 										<copy file="${project.build.directory}/${osx-autoupdater-file-name}" tofile="${gh.dir}/collect-earth-installer-${project.version}-osx-updater.zip" failonerror="false" />
-										<!-- The detached signatures, if the release profile produced them. Best effort:
-										     a missing one must not stop the installers being published. -->
-										<copy todir="${gh.dir}" failonerror="false">
-											<fileset dir="${project.build.directory}" includes="*.asc" />
-										</copy>
+										<!-- SHA256SUMS, in the format sha256sum -c reads : one "hash *name" line per
+										     installer, LF line ends whatever system builds it. -->
+										<checksum algorithm="SHA-256" format="MD5SUM" fileext=".sha256" todir="${gh.dir}/sums" forceoverwrite="yes">
+											<fileset dir="${gh.dir}" includes="collect-earth-installer-${project.version}-*" />
+										</checksum>
+										<concat destfile="${gh.dir}/${gh.sums}" fixlastline="yes">
+											<sort><fileset dir="${gh.dir}/sums" includes="*.sha256" /></sort>
+											<!-- each checksum file ends in its own line break : without this every
+											     other line is empty, which sha256sum reports as improperly formatted -->
+											<filterchain><ignoreblank /></filterchain>
+										</concat>
+										<fixcrlf file="${gh.dir}/${gh.sums}" eol="lf" eof="remove" />
+										<delete dir="${gh.dir}/sums" quiet="true" />
+
+										<!-- Sign SHA256SUMS. Best effort : an unsigned release is still a release. The
+										     passphrase goes through standard input, never on the command line. -->
+										<property name="gpg.executable" value="gpg" />
+										<condition property="gpg.passphrase.given">
+											<and>
+												<isset property="gpg.passphrase" />
+												<not><equals arg1="${gpg.passphrase}" arg2="" /></not>
+											</and>
+										</condition>
+										<condition property="gpg.passphrase.args" value="--passphrase-fd 0" else="">
+											<isset property="gpg.passphrase.given" />
+										</condition>
+										<condition property="gpg.passphrase.input" value="${gpg.passphrase}" else="">
+											<isset property="gpg.passphrase.given" />
+										</condition>
+										<condition property="gpg.key.args" value="--local-user ${gpg.keyname}" else="">
+											<isset property="gpg.keyname" />
+										</condition>
+										<!-- GnuPG 2.1 and later only read a passphrase from standard input in loopback
+										     mode, and GnuPG 1.4 and 2.0 reject the option, so loopback is tried first and
+										     the plain form after it. The plain form is also the one for a key that has no
+										     passphrase or is served by an agent. -->
+										<exec executable="${gpg.executable}" dir="${gh.dir}" failonerror="false" failifexecutionfails="false" inputstring="${gpg.passphrase.input}" resultproperty="gpg.loopback.result" if:set="gpg.passphrase.given">
+											<arg value="--batch" /><arg value="--yes" />
+											<arg value="--pinentry-mode" /><arg value="loopback" />
+											<arg line="${gpg.passphrase.args} ${gpg.key.args}" />
+											<arg value="--armor" /><arg value="--detach-sign" /><arg value="${gh.sums}" />
+										</exec>
+										<condition property="gh.sums.signed">
+											<equals arg1="${gpg.loopback.result}" arg2="0" />
+										</condition>
+										<exec executable="${gpg.executable}" dir="${gh.dir}" failonerror="false" failifexecutionfails="false" inputstring="${gpg.passphrase.input}" unless:set="gh.sums.signed">
+											<arg value="--batch" /><arg value="--yes" />
+											<arg line="${gpg.passphrase.args} ${gpg.key.args}" />
+											<arg value="--armor" /><arg value="--detach-sign" /><arg value="${gh.sums}" />
+										</exec>
+										<!-- Publish the signature only if it verifies, so a failed attempt can never leave a
+										     broken one on the release -->
+										<exec executable="${gpg.executable}" dir="${gh.dir}" failonerror="false" failifexecutionfails="false" resultproperty="gpg.verify.result">
+											<arg value="--batch" /><arg value="--verify" /><arg value="${gh.sums}.asc" /><arg value="${gh.sums}" />
+										</exec>
+										<condition property="gh.sums.verified">
+											<equals arg1="${gpg.verify.result}" arg2="0" />
+										</condition>
+										<delete file="${gh.dir}/${gh.sums}.asc" quiet="true" unless:set="gh.sums.verified" />
 
 										<echo message="Publishing the installers of ${project.version} to the GitHub release ${gh.tag} of ${github.repo}" />
-										<!-- create first; it fails harmlessly when the release already exists -->
-										<exec executable="gh" failonerror="false" dir="${gh.dir}">
+										<!-- create first; it fails harmlessly when the release already exists. Neither call
+										     can fail the build, not even when gh is not installed. -->
+										<exec executable="gh" failonerror="false" failifexecutionfails="false" dir="${gh.dir}">
 											<arg value="release" /><arg value="create" /><arg value="${gh.tag}" />
 											<arg value="--repo" /><arg value="${github.repo}" />
 											<arg value="--title" /><arg value="Collect Earth ${project.version}" />
-											<arg value="--notes" /><arg value="Installers for Collect Earth ${project.version}. The Java artifacts of this version are on Maven Central; the installers are here, because a Maven repository is not a place for a gigabyte of desktop installers." />
+											<arg value="--notes" /><arg value="Installers for Collect Earth ${project.version}. The Java artifacts of this version are on Maven Central; the installers are here, because a Maven repository is not a place for a gigabyte of desktop installers. To check a download: gpg --verify SHA256SUMS.asc SHA256SUMS, then sha256sum -c SHA256SUMS --ignore-missing." />
 										</exec>
-										<exec executable="gh" failonerror="false" dir="${gh.dir}" resultproperty="gh.upload.result">
+										<exec executable="gh" failonerror="false" failifexecutionfails="false" dir="${gh.dir}" resultproperty="gh.upload.result">
 											<arg value="release" /><arg value="upload" /><arg value="${gh.tag}" />
 											<arg value="--repo" /><arg value="${github.repo}" />
 											<arg value="--clobber" />
@@ -568,8 +634,18 @@
 											<arg value="collect-earth-installer-${project.version}-linux-x64-updater.run" />
 											<arg value="collect-earth-installer-${project.version}-osx.dmg" />
 											<arg value="collect-earth-installer-${project.version}-osx-updater.zip" />
+											<arg value="${gh.sums}" />
 										</exec>
+										<exec executable="gh" failonerror="false" failifexecutionfails="false" dir="${gh.dir}" if:set="gh.sums.verified">
+											<arg value="release" /><arg value="upload" /><arg value="${gh.tag}" />
+											<arg value="--repo" /><arg value="${github.repo}" />
+											<arg value="--clobber" />
+											<arg value="${gh.sums}.asc" />
+										</exec>
+										<!-- Only takes effect when gh could not be started at all, which sets no result -->
+										<property name="gh.upload.result" value="none, gh could not be run" />
 										<echo message=" gh upload exit code ${gh.upload.result}. If it is not 0, nothing about the release is broken : the files are in ${gh.dir} and 'gh release upload ${gh.tag} --repo ${github.repo} --clobber *' publishes them. Until they are published the autoupdate manifest names files that are not there, so do it before announcing the version." />
+										<echo message=" WARNING : ${gh.sums} could not be signed, so the release has checksums but no signature. Check gpg.executable, gpg.passphrase and gpg.keyname in settings.xml, then in ${gh.dir} run 'gpg --armor --detach-sign ${gh.sums}' and 'gh release upload ${gh.tag} --repo ${github.repo} --clobber ${gh.sums}.asc'." unless:set="gh.sums.verified" />
 									</target>
 								</configuration>
 							</execution>

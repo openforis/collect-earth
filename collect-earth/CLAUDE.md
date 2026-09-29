@@ -91,6 +91,11 @@ Notes:
 
   The asset names must be the Maven ones (`collect-earth-installer-<version>-windows-updater.exe`), not the
   InstallBuilder ones, because that is what the manifest asks for. The step renames them on the way.
+
+  The release also carries `SHA256SUMS` and `SHA256SUMS.asc`, signed with the same key and settings
+  (`gpg.executable`, `gpg.passphrase`, optionally `gpg.keyname`) that sign the artifacts on Central — the
+  installers are not attached to the Maven build, so this is their only signature. If signing fails, the
+  installers and checksums are still published and the log says how to sign and upload `SHA256SUMS.asc` by hand.
 - The generated `collectEarthUpdateJRE11.xml` is uploaded to the web server by the build, at the `deploy`
   phase, by the `upload-autoupdate-manifest` execution of maven-antrun-plugin. It goes over scp with a key to
   `/opt/fileadmin/installer`, which is what `https://www.openforis.org/fileadmin/installer/` is served from
