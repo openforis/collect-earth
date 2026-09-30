@@ -5,11 +5,15 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
-### Added
-- CSV data export now supports multiple entities (#52)
-- Optional reference area (square, circle or hexagon) drawn around square, circle and hexagon plots to give context on the surroundings during the assessment; configured from the plot options panel (`buffer_shape` / `distance_to_buffers`), which warns when the reference area covers less than 10 times the plot area. It is drawn with a fainter, thinner line than the plot boundary, so that the two are not confused
+### Changed
+- Releases: a new version is only announced to the installed copies, and on the download page, once its installers can really be downloaded from GitHub. Each installer is uploaded on its own and retried, so one dropped connection no longer loses the release
 
-- The grid module (`collect-earth-grid`) builds again and is part of the Maven reactor
+## [1.23.19] - 2026-09-29
+### Added
+- The installers of a release come with `SHA256SUMS`, the checksum of each one, and `SHA256SUMS.asc`, its signature, so that a download can be verified
+
+### Changed
+- Conditions that are not faults in Collect Earth are logged as warnings, so they no longer open an error dialog or reach the error reports: a browser already closed when Collect Earth quits, a page that takes too long to load, a browser driver that could not be downloaded, a copy of the SQLite library that another program still holds, a file that is not a project
 
 ### Fixed
 - The tool that removes plots from the database accepts a CSV with only the plot keys again; a survey with fewer than three key attributes had every file rejected as "not a CSV file". A path that does not lead to a file is marked instead of opening an error dialog on every keystroke
@@ -19,29 +23,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Importing a file that is not a project (.cep) says so, instead of reporting a project with no survey_name
 - A number or a time that is mistyped in the balloon - "07/2024" in a year - is reported under its field, and the plot cannot be submitted until it is corrected. It used to be dropped without a word, and a mistyped decimal number erased the value that had been saved
 
-### Changed
-- Conditions that are not faults in Collect Earth are logged as warnings, so they no longer open an error dialog or reach the error reports: a browser already closed when Collect Earth quits, a page that takes too long to load, a browser driver that could not be downloaded, a copy of the SQLite library that another program still holds, a file that is not a project
-
 ### Removed
 - Maxar SecureWatch is disabled: its address no longer exists, so every plot opened with it failed to load. The option is hidden and switched off on update, and a project file cannot turn it back on. The integration itself is kept, to be switched back on if Maxar publishes an address that works
-- The integrations that are not supported any more: Earth Engine Timelapse, Earth Engine Explorer, the Earth Engine code editor, Bing Maps and Yandex Maps. Their properties are gone from earth.properties and a project file that still carries them is simply ignored
+
+## [1.23.18] - 2026-09-28
+### Changed
+- The installers are downloaded from the GitHub release of each version instead of Maven Central, and https://www.openforis.org/fileadmin/installer/download.html always offers the latest one
+
+## [1.23.14] - 2026-09-23
+### Added
+- Optional reference area (square, circle or hexagon) drawn around square, circle and hexagon plots to give context on the surroundings during the assessment; configured from the plot options panel (`buffer_shape` / `distance_to_buffers`), which warns when the reference area covers less than 10 times the plot area. It is drawn with a fainter, thinner line than the plot boundary, so that the two are not confused
+- The grid module (`collect-earth-grid`) builds again and is part of the Maven reactor
 
 ### Changed
-- Updated Collect framework to the latest version
-- Added Sentry Seer plugin for AI-assisted error analysis
-- Pinned commons-lang3 / commons-text dependency versions
 - Updated Jetty to 10.0.26 and Jackson to 2.18.9
 - An operation that fails now says so instead of reporting a finished file: a KMZ, a project archive, a template, an IPCC export or a Saiku database that could not be written is reported as failed, and a half-written file is not left behind to be opened later
 
-### Security
-- Collect Earth's internal server listens on this computer only. Its endpoints have no authentication, so on the previous `0.0.0.0` anybody on the same network could save records, load project files and restart the application. An installation that serves clients in CLIENT_MODE opts back in with `server_bind_address=0.0.0.0` in earth.properties, and is warned in the log when it does
-- No credentials are shipped in the code: the analysis database and the grid tools read theirs from the launch properties
-- Imported project and data files are no longer trusted blindly: an archive entry cannot be written outside the folder it is extracted into, and the XML parsers do not resolve external entities
-- The servlet that loads a project file only accepts requests that Google Earth itself makes
-- The grid tools use the same database drivers as the application (PostgreSQL 42.7.13, SQLite 3.53.4.0), clearing the SQL injection reported for the driver they had pinned since 2022
-
 ### Fixed
-- Fixed a NullPointerException in the process monitor dialog
 - Changing the project (or applying property changes) no longer crashes the internal server: instead of reloading the Spring web context in-process (which always failed with a CGLIB `LinkageError` on the second load), Collect Earth now relaunches itself as a fresh process
 - `earth_error.log` is written again: the user folder is now set before logging starts, so the log no longer ends up in a folder named after the unresolved property
 - If Collect Earth cannot restart itself after a change of project, it says why instead of disappearing
@@ -54,6 +52,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - The desktop interface: the file dialogs, the progress dialogs and the menus no longer act on stale information, no longer block the interface thread, and no longer end an operation because of what was typed in a field
 - The grid tools: the subgrids of 50 and 100 are stored and queried correctly (their flags used to overwrite those of other grids), a failed insert stops the run instead of silently leaving holes, the CSV output is not truncated by a second writer on the same file, and the plot table is no longer dropped and recreated at every start
 
+### Removed
+- The integrations that are not supported any more: Earth Engine Timelapse, Earth Engine Explorer, the Earth Engine code editor, Bing Maps and Yandex Maps. Their properties are gone from earth.properties and a project file that still carries them is simply ignored
+
+### Security
+- Collect Earth's internal server listens on this computer only. Its endpoints have no authentication, so on the previous `0.0.0.0` anybody on the same network could save records, load project files and restart the application. An installation that serves clients in CLIENT_MODE opts back in with `server_bind_address=0.0.0.0` in earth.properties, and is warned in the log when it does
+- No credentials are shipped in the code: the analysis database and the grid tools read theirs from the launch properties
+- Imported project and data files are no longer trusted blindly: an archive entry cannot be written outside the folder it is extracted into, and the XML parsers do not resolve external entities
+- The servlet that loads a project file only accepts requests that Google Earth itself makes
+- The grid tools use the same database drivers as the application (PostgreSQL 42.7.13, SQLite 3.53.4.0), clearing the SQL injection reported for the driver they had pinned since 2022
+
+## [1.23.8] - 2026-06-16
+### Added
+- CSV data export now supports multiple entities (#52)
+
+### Changed
+- Updated Collect framework to the latest version
+- Added Sentry Seer plugin for AI-assisted error analysis
+- Pinned commons-lang3 / commons-text dependency versions
+
+### Fixed
+- Fixed a NullPointerException in the process monitor dialog
 
 ## [1.23.7] - 2026-05-12
 ### Changed
