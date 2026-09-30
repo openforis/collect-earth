@@ -162,14 +162,48 @@ Read the tail of the log first:
   installers are already built and signed there) rather than via `release:perform`:
   `cd target/checkout/collect-earth && mvn -P assembly deploy -DskipTests`
 
-To inspect and finish a staging repository without re-uploading:
+#### Finishing a release: close, check, publish
+
+Every release ends here, not only a failed one: the build uploads and stops. The bridge's own
+REST API does all of it with `curl` and the `ossrh-staging-api` credentials from `settings.xml`
+(`$USER:$PASS` below, the Central Portal user token). This is what finished 1.23.19.
 
 ```bash
-# What state is it in? ("open" = close never took effect, "closed" = handed to the Portal)
-curl -u "$USER:$PASS" \
-  https://ossrh-staging-api.central.sonatype.com/manual/search/repositories
+BRIDGE=https://ossrh-staging-api.central.sonatype.com
 
-# Close it (works with the bridge). Use the repository id from the failed build.
+# 1. What is there. "description" names the version, "state" is open (uploaded, not closed),
+#    closed (handed to the Portal, portal_deployment_id set) or released. Read the warnings:
+#    they carry the organisation's publishing-size limit notices.
+curl -s -u "$USER:$PASS" $BRIDGE/manual/search/repositories | python -m json.tool
+
+# 2. Close the repository of the version being released: hands it to the Portal as a
+#    deployment and publishes NOTHING (user_managed). The key is the full "key" value from
+#    step 1, slashes included. The answer carries the new portal_deployment_id (step 1
+#    shows it afterwards too).
+curl -s -u "$USER:$PASS" -X POST \
+  "$BRIDGE/manual/upload/repository/eBm0csMA/any/org.openforis--<uuid>?publishing_type=user_managed"
+
+# 3. Check the deployment: deploymentState must be VALIDATED with errors {} and purls
+#    listing the four Java artifacts only (parent, core, sampler, app, plus the installer
+#    module's pom). The Portal API takes the same token, base64 of "user:token".
+TOKEN=$(printf '%s:%s' "$USER" "$PASS" | base64 -w0)
+curl -s -X POST -H "Authorization: Bearer $TOKEN" \
+  "https://central.sonatype.com/api/v1/publisher/status?id=<portal_deployment_id>" | python -m json.tool
+
+# 4. Publish, which is irreversible: press Publish on
+#    https://central.sonatype.com/publishing/deployments, or
+#    curl -s -X POST -H "Authorization: Bearer $TOKEN" \
+#      https://central.sonatype.com/api/v1/publisher/deployment/<portal_deployment_id>
+#    Central lists the version some time later; the maven-metadata.xml above is the check.
+
+# 5. Drop a repository that will never be published - an open one left by a failed or
+#    abandoned release. Irreversible, and answers 204.
+curl -s -u "$USER:$PASS" -X DELETE "$BRIDGE/manual/drop/repository/eBm0csMA/any/org.openforis--<uuid>"
+```
+
+The Maven way still works and is what the earlier releases used, with its gotchas:
+
+```bash
 mvn org.sonatype.plugins:nexus-staging-maven-plugin:1.6.14:rc-close \
   -DnexusUrl=https://ossrh-staging-api.central.sonatype.com/ \
   -DserverId=ossrh-staging-api \
@@ -177,17 +211,17 @@ mvn org.sonatype.plugins:nexus-staging-maven-plugin:1.6.14:rc-close \
   -s ~/.m2/settings.xml
 ```
 
-Gotchas found the hard way:
 - `rc-list` and `rc-release` return **400 Bad Request** — the Portal bridge does not
-  implement those legacy Nexus endpoints. Only `rc-close` works.
+  implement those legacy Nexus endpoints. Only `rc-close` works, and it is the same call
+  as step 2.
 - Run the `rc-*` goals with **JDK 11**. On JDK 17+ the plugin's bundled XStream
   fails with `No converter available ... module java.base does not "opens
-  java.util"`.
-- `rc-close` hands the repository to the Central Portal, which then reports a
-  `portal_deployment_id`. Publishing is a **separate, irreversible** step done from
-  https://central.sonatype.com/publishing/deployments (or
-  `POST https://central.sonatype.com/api/v1/publisher/deployment/{deploymentId}`).
-  Check `deploymentState` is `VALIDATED` with no errors before publishing.
+  java.util"`. The `curl` calls above have no such constraint.
+- Leaving a repository open is not free: 1.23.16 and 1.23.17 sat open for a week, one of
+  them with a gigabyte of installers, until they were dropped. Close or drop after every
+  release, and read the warnings in step 1 — Central enforces a monthly publishing-size
+  limit per organisation from October 2026, and the installers that used to go there are
+  what exhausted it.
 
 ## Module Architecture
 
