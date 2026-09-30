@@ -89,6 +89,14 @@ Notes:
   `https://repo1.maven.org/maven2/org/openforis/collect/earth/collect-earth-core/maven-metadata.xml` (once the
   Portal deployment is published), or the log for `Uploading locally staged artifacts`.
 
+  Each installer goes up in its own `gh` call with three attempts, updaters first. The manifest and the download
+  pages are uploaded only after that step, and only once each updater answers a `HEAD` request from its GitHub
+  address: 1.23.19 was announced as `major` while its GitHub upload had failed in a network outage, so every
+  installation was sent to files that were not there. When the build says the updaters cannot be downloaded,
+  upload the files from `target/checkout/collect-earth/collect-earth-installer/target/github-release` with
+  `gh release upload <tag> --repo openforis/collect-earth --clobber <file>`, one file at a time, then copy the
+  manifest and `download*.html` from `target/installer` to `/opt/fileadmin/installer` by hand.
+
   The asset names must be the Maven ones (`collect-earth-installer-<version>-windows-updater.exe`), not the
   InstallBuilder ones, because that is what the manifest asks for. The step renames them on the way.
 

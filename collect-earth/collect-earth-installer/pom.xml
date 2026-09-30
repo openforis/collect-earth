@@ -469,48 +469,6 @@
 								</configuration>
 							</execution>
 
-							<!-- Put the autoupdate manifest where the installed clients look for it.
-							     ================================================================
-							     This is the file update.ini names. Until now it was copied up by hand after every
-							     release, which is why the live one still advertised 1.23.13 two releases later. An
-							     installed Collect Earth only learns a new version exists when this file says so, so a
-							     release that skips this step reaches nobody who already has the application.
-
-							     It runs at deploy, after the installers are built, and it sends the generated file -
-							     the one with the version and build number already substituted - not the template with
-							     its PROJECT_VERSION placeholders.
-
-							     The host, user, key and remote folder are machine-specific and must not be in this
-							     repository: put them in the assembly profile of your own settings.xml, as
-							     maven_settings.xml shows. Build with -Dautoupdate.upload.skip=true to do without. -->
-							<execution>
-								<id>upload-autoupdate-manifest</id>
-								<phase>deploy</phase>
-								<goals>
-									<goal>run</goal>
-								</goals>
-								<configuration>
-									<skip>${autoupdate.upload.skip}</skip>
-									<target>
-										<echo message="Uploading ${autoupdater-xml-file-name} (version ${project.version}, build ${buildNumber}) to ${openforis-update-user}@${openforis-update-host}:${openforis-update-folder}" />
-										<!-- failonerror is false, and deliberately. The release itself is finished by the
-										     time this runs : the artifacts are uploaded and the tag is pushed. Failing
-										     the build here would fail a release that has already succeeded, over a file
-										     that can be copied up afterwards in a second. The upload is announced when
-										     it does not happen, loudly enough to be seen in the log. -->
-										<scp todir="${openforis-update-user}@${openforis-update-host}:${openforis-update-folder}" keyfile="${openforis-update-keyfile}" passphrase="${openforis-update-passphrase}" trust="yes" verbose="true" failonerror="false">
-											<fileset dir="${installer-build-path}">
-												<include name="${autoupdater-xml-file-name}" />
-												<!-- Beside the manifest, so that openforis.org can link to a URL that
-												     never changes and this release repoints it. -->
-												<include name="${download-page-pattern}" />
-											</fileset>
-										</scp>
-										<echo message=" If the upload above failed the release is unaffected : copy ${installer-build-path}/${autoupdater-xml-file-name} to ${openforis-update-folder} by hand and the new version becomes visible to installed clients." />
-									</target>
-								</configuration>
-							</execution>
-
 							<!-- Publish the installers as assets of the GitHub release for this tag.
 							     =============================================================
 							     This is where the installers live now: they are end-user binaries that no Maven build
@@ -624,28 +582,119 @@
 											<arg value="--title" /><arg value="Collect Earth ${project.version}" />
 											<arg value="--notes" /><arg value="Installers for Collect Earth ${project.version}. The Java artifacts of this version are on Maven Central; the installers are here, because a Maven repository is not a place for a gigabyte of desktop installers. To check a download: gpg --verify SHA256SUMS.asc SHA256SUMS, then sha256sum -c SHA256SUMS --ignore-missing." />
 										</exec>
-										<exec executable="gh" failonerror="false" failifexecutionfails="false" dir="${gh.dir}" resultproperty="gh.upload.result">
-											<arg value="release" /><arg value="upload" /><arg value="${gh.tag}" />
-											<arg value="--repo" /><arg value="${github.repo}" />
-											<arg value="--clobber" />
-											<arg value="collect-earth-installer-${project.version}-windows.exe" />
-											<arg value="collect-earth-installer-${project.version}-windows-updater.exe" />
-											<arg value="collect-earth-installer-${project.version}-linux-x64.run" />
-											<arg value="collect-earth-installer-${project.version}-linux-x64-updater.run" />
-											<arg value="collect-earth-installer-${project.version}-osx.dmg" />
-											<arg value="collect-earth-installer-${project.version}-osx-updater.zip" />
-											<arg value="${gh.sums}" />
-										</exec>
+										<!-- One call per file, up to three attempts each. All the files used to go in a single call,
+										     and one dropped connection lost the whole gigabyte : 1.23.19 was published with nothing
+										     but its signature, and had to be uploaded by hand. A retry now sends only the file that
+										     failed. gh.upload.failed is set when a file could not be sent at all. -->
+										<macrodef name="gh-upload">
+											<attribute name="file" />
+											<sequential>
+												<local name="attempt1" />
+												<local name="attempt2" />
+												<local name="attempt3" />
+												<local name="uploaded" />
+												<exec executable="gh" failonerror="false" failifexecutionfails="false" dir="${gh.dir}" resultproperty="attempt1">
+													<arg value="release" /><arg value="upload" /><arg value="${gh.tag}" />
+													<arg value="--repo" /><arg value="${github.repo}" /><arg value="--clobber" /><arg value="@{file}" />
+												</exec>
+												<condition property="uploaded"><equals arg1="${attempt1}" arg2="0" /></condition>
+												<sleep seconds="10" unless:set="uploaded" />
+												<exec executable="gh" failonerror="false" failifexecutionfails="false" dir="${gh.dir}" resultproperty="attempt2" unless:set="uploaded">
+													<arg value="release" /><arg value="upload" /><arg value="${gh.tag}" />
+													<arg value="--repo" /><arg value="${github.repo}" /><arg value="--clobber" /><arg value="@{file}" />
+												</exec>
+												<condition property="uploaded"><equals arg1="${attempt2}" arg2="0" /></condition>
+												<sleep seconds="30" unless:set="uploaded" />
+												<exec executable="gh" failonerror="false" failifexecutionfails="false" dir="${gh.dir}" resultproperty="attempt3" unless:set="uploaded">
+													<arg value="release" /><arg value="upload" /><arg value="${gh.tag}" />
+													<arg value="--repo" /><arg value="${github.repo}" /><arg value="--clobber" /><arg value="@{file}" />
+												</exec>
+												<condition property="uploaded"><equals arg1="${attempt3}" arg2="0" /></condition>
+												<echo message=" Uploaded @{file}" if:set="uploaded" />
+												<echo message=" FAILED to upload @{file} after three attempts" unless:set="uploaded" />
+												<property name="gh.upload.failed" value="true" unless:set="uploaded" />
+											</sequential>
+										</macrodef>
+										<!-- The updaters first : they are what the autoupdate manifest sends installed copies to -->
+										<gh-upload file="collect-earth-installer-${project.version}-windows-updater.exe" />
+										<gh-upload file="collect-earth-installer-${project.version}-osx-updater.zip" />
+										<gh-upload file="collect-earth-installer-${project.version}-linux-x64-updater.run" />
+										<gh-upload file="collect-earth-installer-${project.version}-windows.exe" />
+										<gh-upload file="collect-earth-installer-${project.version}-osx.dmg" />
+										<gh-upload file="collect-earth-installer-${project.version}-linux-x64.run" />
+										<gh-upload file="${gh.sums}" />
 										<exec executable="gh" failonerror="false" failifexecutionfails="false" dir="${gh.dir}" if:set="gh.sums.verified">
 											<arg value="release" /><arg value="upload" /><arg value="${gh.tag}" />
 											<arg value="--repo" /><arg value="${github.repo}" />
 											<arg value="--clobber" />
 											<arg value="${gh.sums}.asc" />
 										</exec>
-										<!-- Only takes effect when gh could not be started at all, which sets no result -->
-										<property name="gh.upload.result" value="none, gh could not be run" />
-										<echo message=" gh upload exit code ${gh.upload.result}. If it is not 0, nothing about the release is broken : the files are in ${gh.dir} and 'gh release upload ${gh.tag} --repo ${github.repo} --clobber *' publishes them. Until they are published the autoupdate manifest names files that are not there, so do it before announcing the version." />
+										<echo message=" WARNING : not every installer reached the GitHub release ${gh.tag}. Nothing else about the release is broken : the files are in ${gh.dir}, and 'gh release upload ${gh.tag} --repo ${github.repo} --clobber FILE' publishes each missing one. The autoupdate manifest is only uploaded once the updaters can be downloaded from GitHub, so after uploading them copy it up by hand (see upload-autoupdate-manifest)." if:set="gh.upload.failed" />
 										<echo message=" WARNING : ${gh.sums} could not be signed, so the release has checksums but no signature. Check gpg.executable, gpg.passphrase and gpg.keyname in settings.xml, then in ${gh.dir} run 'gpg --armor --detach-sign ${gh.sums}' and 'gh release upload ${gh.tag} --repo ${github.repo} --clobber ${gh.sums}.asc'." unless:set="gh.sums.verified" />
+									</target>
+								</configuration>
+							</execution>
+
+							<!-- Put the autoupdate manifest where the installed clients look for it.
+							     ================================================================
+							     This is the file update.ini names. Until now it was copied up by hand after every
+							     release, which is why the live one still advertised 1.23.13 two releases later. An
+							     installed Collect Earth only learns a new version exists when this file says so, so a
+							     release that skips this step reaches nobody who already has the application.
+
+							     It sends the generated file - the one with the version and build number already
+							     substituted - not the template with its PROJECT_VERSION placeholders, together with the
+							     download pages.
+
+							     It has to come AFTER publish-installers-to-github : executions of one plugin in one phase
+							     run in the order they are declared, and it used to be declared first. For 1.23.19 the
+							     manifest - marked major, so every installation asks to update - and the download pages
+							     went up, the GitHub upload then failed, and both pointed at files that were not there.
+							     Being second is not enough either, since the GitHub step never fails the build : the
+							     upload only happens once each updater really answers from its GitHub address. A HEAD
+							     request, so nothing is downloaded.
+
+							     The host, user, key and remote folder are machine-specific and must not be in this
+							     repository: put them in the assembly profile of your own settings.xml, as
+							     maven_settings.xml shows. Build with -Dautoupdate.upload.skip=true to do without. -->
+							<execution>
+								<id>upload-autoupdate-manifest</id>
+								<phase>deploy</phase>
+								<goals>
+									<goal>run</goal>
+								</goals>
+								<configuration>
+									<skip>${autoupdate.upload.skip}</skip>
+									<target xmlns:if="ant:if" xmlns:unless="ant:unless">
+										<property name="gh.download" value="https://github.com/${github.repo}/releases/download/collect-earth-${project.version}" />
+										<condition property="updaters.downloadable">
+											<or>
+												<!-- Published somewhere else on purpose : the manifest lists Central as well -->
+												<istrue value="${installer.github.skip}" />
+												<and>
+													<http url="${gh.download}/collect-earth-installer-${project.version}-windows-updater.exe" requestMethod="HEAD" followRedirects="true" readTimeout="60000" />
+													<http url="${gh.download}/collect-earth-installer-${project.version}-osx-updater.zip" requestMethod="HEAD" followRedirects="true" readTimeout="60000" />
+													<http url="${gh.download}/collect-earth-installer-${project.version}-linux-x64-updater.run" requestMethod="HEAD" followRedirects="true" readTimeout="60000" />
+												</and>
+											</or>
+										</condition>
+										<echo message=" WARNING : the updaters of ${project.version} cannot be downloaded from ${gh.download}, so ${autoupdater-xml-file-name} and the download pages were NOT uploaded - they would send every installation to files that are not there. Once the installers are on the GitHub release, copy ${installer-build-path}/${autoupdater-xml-file-name} and ${installer-build-path}/${download-page-pattern} to ${openforis-update-folder} by hand." unless:set="updaters.downloadable" />
+
+										<echo message="Uploading ${autoupdater-xml-file-name} (version ${project.version}, build ${buildNumber}) to ${openforis-update-user}@${openforis-update-host}:${openforis-update-folder}" if:set="updaters.downloadable" />
+										<!-- failonerror is false, and deliberately. The release itself is finished by the
+										     time this runs : the artifacts are uploaded and the tag is pushed. Failing
+										     the build here would fail a release that has already succeeded, over a file
+										     that can be copied up afterwards in a second. The upload is announced when
+										     it does not happen, loudly enough to be seen in the log. -->
+										<scp todir="${openforis-update-user}@${openforis-update-host}:${openforis-update-folder}" keyfile="${openforis-update-keyfile}" passphrase="${openforis-update-passphrase}" trust="yes" verbose="true" failonerror="false" if:set="updaters.downloadable">
+											<fileset dir="${installer-build-path}">
+												<include name="${autoupdater-xml-file-name}" />
+												<!-- Beside the manifest, so that openforis.org can link to a URL that
+												     never changes and this release repoints it. -->
+												<include name="${download-page-pattern}" />
+											</fileset>
+										</scp>
+										<echo message=" If the upload above failed the release is unaffected : copy ${installer-build-path}/${autoupdater-xml-file-name} to ${openforis-update-folder} by hand and the new version becomes visible to installed clients." if:set="updaters.downloadable" />
 									</target>
 								</configuration>
 							</execution>
