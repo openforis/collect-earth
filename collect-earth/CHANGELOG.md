@@ -6,6 +6,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 ### Changed
+- The download pages count each download, by operating system, in the Google Analytics of openforis.org (the event `CE_Download` with the parameter `os`). The pages that download one installer directly start it after one second instead of at once, to leave the count the time to be sent
 - Releases: a new version is only announced to the installed copies, and on the download page, once its installers can really be downloaded from GitHub. Each installer is uploaded on its own and retried, so one dropped connection no longer loses the release
 
 ## [1.23.19] - 2026-09-29

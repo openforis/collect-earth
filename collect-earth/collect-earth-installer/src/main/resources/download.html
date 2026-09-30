@@ -17,12 +17,26 @@
 
      An unrecognised value falls back to guessing. The no-JavaScript pages download-windows.html,
      download-osx.html and download-linux.html do the same job with a meta refresh.
+
+     Each download started from this page is counted in Google Analytics, in the property of openforis.org
+     (G-8K943HZKJZ), as the event CE_Download with the parameter os = windows, macos or linux. Both ways of
+     starting one are counted: the automatic start and a click on a link. The same system is counted once per
+     visit of the page, so the automatic start followed by a click on the same link is one download, not two.
+     Nothing here waits for Analytics: when it is blocked or slow the download starts all the same. To see the
+     parameter in the reports, "os" has to be registered in Analytics as an event-scoped custom dimension.
 -->
 <html lang="en">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Download Collect Earth PROJECT_VERSION</title>
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-8K943HZKJZ"></script>
+<script>
+  window.dataLayer = window.dataLayer || [];
+  function gtag() { dataLayer.push(arguments); }
+  gtag("js", new Date());
+  gtag("config", "G-8K943HZKJZ");
+</script>
 <style>
   :root {
     --paper: #f4f6f2; --ink: #17211c; --muted: #5d6b63; --rule: #dadfd7;
@@ -102,6 +116,30 @@
          : null;
   }
 
+  // The value of the "os" parameter of the CE_Download event, by link.
+  var OS = { win: "windows", mac: "macos", lin: "linux" };
+  var counted = {};
+
+  function track(id) {
+    // Once per system and per visit: the automatic start followed by a click on the same link is one download.
+    if (counted[id]) { return; }
+    counted[id] = true;
+    try {
+      // beacon, so that the event is sent even if the browser leaves the page for the download.
+      gtag("event", "CE_Download", { os: OS[id], transport_type: "beacon" });
+    } catch (e) {
+      // Analytics blocked or broken: the download matters, the count does not.
+    }
+  }
+
+  function countClicks(id) {
+    document.getElementById(id).addEventListener("click", function () { track(id); });
+  }
+  // Before anything below returns: the links are there with ?os=ask and with a system that was not recognised.
+  countClicks("win");
+  countClicks("mac");
+  countClicks("lin");
+
   var asked = requested();
   // ?os=ask means "do not choose for me": list the three and redirect nowhere.
   if (asked === "ask" || asked === "none" || asked === "choose") { return; }
@@ -113,6 +151,7 @@
   var note = document.getElementById("starting");
   note.textContent = "Starting the " + NAMES[pick] + " download. If nothing happens, choose your system below.";
   note.hidden = false;
+  track(pick);
 
   // A navigation rather than a click, so the browser treats it as a download and this page stays put.
   setTimeout(function () { window.location.href = link.href; }, 600);
