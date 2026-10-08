@@ -9,6 +9,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - The download pages count each download, by operating system, in the Google Analytics of openforis.org (the event `CE_Download` with the parameter `os`). The pages that download one installer directly start it after one second instead of at once, to leave the count the time to be sent
 - Releases: a new version is only announced to the installed copies, and on the download page, once its installers can really be downloaded from GitHub. Each installer is uploaded on its own and retried, so one dropped connection no longer loses the release
 
+### Fixed
+- A value that the balloon fills by itself and that cannot be read - the id of the plot where its coordinate goes - is reported as an error once, instead of on every save of every plot. The repeats used up the quota of the error reports, so that no report from any user was received for nine days
+
 ## [1.23.19] - 2026-09-29
 ### Added
 - The installers of a release come with `SHA256SUMS`, the checksum of each one, and `SHA256SUMS.asc`, its signature, so that a download can be verified

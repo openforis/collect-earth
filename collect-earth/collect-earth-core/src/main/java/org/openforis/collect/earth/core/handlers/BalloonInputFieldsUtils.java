@@ -15,6 +15,7 @@ import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Queue;
 import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
@@ -73,6 +74,8 @@ public class BalloonInputFieldsUtils {
 	private static final int MAX_MULTIPLE_ENTITIES_COUNT = 10;
 
 	private static final String COLLECT_PREFIX = "collect_";
+	// The parameters whose unreadable value has already been logged as an error since Collect Earth started
+	static final Set<String> UNREADABLE_PARAMETERS_REPORTED = ConcurrentHashMap.newKeySet();
 	private final Logger logger = LoggerFactory.getLogger(BalloonInputFieldsUtils.class);
 
 	private final List<AbstractAttributeHandler<?>> handlers = Arrays.<AbstractAttributeHandler<?>>asList(
@@ -642,6 +645,12 @@ public class BalloonInputFieldsUtils {
 						if (invalidValues != null) {
 							invalidValues.put(parameterName, getInvalidValueMessage(handler, parameterValue));
 						}
+					} else if (e instanceof IllegalArgumentException && !UNREADABLE_PARAMETERS_REPORTED.add(cleanName)) {
+						// A value that the balloon fills by itself and that cannot be read - the id of the plot where the
+						// coordinate goes - comes back with every save of every plot of that survey. Logged at ERROR each time,
+						// two interpreters sent 1600 reports in six hours and used up the quota of Sentry, which then dropped
+						// every report of every user for nine days (JAVA-COLLECT-EARTH-55T). It is an error the first time only
+						logger.warn("The value " + parameterValue + " of " + cleanName + " cannot be read : " + e.getMessage()); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$
 					} else {
 						logger.error("Error while parsing parameter " + cleanName + " with value " + parameterValue, e);
 					}

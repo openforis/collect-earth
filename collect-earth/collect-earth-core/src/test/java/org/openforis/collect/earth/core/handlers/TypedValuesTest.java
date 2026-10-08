@@ -9,6 +9,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.Map;
+import java.util.Set;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -123,6 +124,20 @@ class TypedValuesTest {
 	@Test
 	void aCoordinateThatCannotBeReadIsNotReportedOnTheField() {
 		assertTrue(save(LOCATION, "plot_473").isEmpty());
+	}
+
+	// Every save of every plot sends it again : 1600 reports in six hours used up the quota of Sentry (JAVA-COLLECT-EARTH-55T)
+	@Test
+	void aCoordinateThatCannotBeReadIsAnErrorOnlyTheFirstTime() {
+		BalloonInputFieldsUtils.UNREADABLE_PARAMETERS_REPORTED.clear();
+
+		save(LOCATION, "plot_4545");
+		save(LOCATION, "plot_4545");
+		save(LOCATION, "plot_4546");
+		save(YEAR, "07/2024");
+
+		// What decides between error and warning : the parameter, whatever the plot, and not what the interpreter typed
+		assertEquals(Set.of("coord_location"), BalloonInputFieldsUtils.UNREADABLE_PARAMETERS_REPORTED);
 	}
 
 	@Test
