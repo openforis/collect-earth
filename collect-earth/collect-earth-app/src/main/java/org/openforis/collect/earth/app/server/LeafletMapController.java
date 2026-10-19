@@ -31,7 +31,8 @@ import org.springframework.web.bind.annotation.RequestParam;
 import com.opencsv.CSVReader;
 
 /**
- * Serves the Leaflet map page (classpath assets under /leafletmap) and the two
+ * Serves the plots map page (classpath assets under /leafletmap, built from the React
+ * project in src/main/frontend) and the two
  * JSON endpoints it consumes: /plotsGeoJson (all plot geometries+properties)
  * and /plotStatuses (incremental id->status map for the live coloring).
  */
@@ -83,6 +84,9 @@ public class LeafletMapController {
 		if (file.endsWith(".js")) return "application/javascript";
 		if (file.endsWith(".css")) return "text/css";
 		if (file.endsWith(".png")) return "image/png";
+		if (file.endsWith(".svg")) return "image/svg+xml";
+		if (file.endsWith(".woff2")) return "font/woff2";
+		if (file.endsWith(".woff")) return "font/woff";
 		if (file.endsWith(".html")) return "text/html; charset=UTF-8";
 		return "application/octet-stream";
 	}

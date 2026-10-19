@@ -1,0 +1,3 @@
+node_modules/
+# Node/npm installed locally by frontend-maven-plugin
+node/

@@ -209,6 +209,51 @@
 				</executions>
 			</plugin>
 
+			<!-- Plots map web UI (React + MUI, src/main/frontend). Downloads a local Node into
+			     src/main/frontend/node, runs `npm ci` and builds into target/classes/leafletmap,
+			     served by LeafletMapController at /earth/map. The build runs after
+			     process-resources so the generated files are not overwritten.
+			     Skip with -Dskip.npm (e.g. Java-only builds without network access). -->
+			<plugin>
+				<groupId>com.github.eirslett</groupId>
+				<artifactId>frontend-maven-plugin</artifactId>
+				<version>2.0.2</version>
+				<configuration>
+					<workingDirectory>src/main/frontend</workingDirectory>
+					<nodeVersion>v22.22.0</nodeVersion>
+				</configuration>
+				<executions>
+					<execution>
+						<?m2e ignore?>
+						<id>install-node-and-npm</id>
+						<goals>
+							<goal>install-node-and-npm</goal>
+						</goals>
+					</execution>
+					<execution>
+						<?m2e ignore?>
+						<id>npm-ci</id>
+						<goals>
+							<goal>npm</goal>
+						</goals>
+						<configuration>
+							<arguments>ci</arguments>
+						</configuration>
+					</execution>
+					<execution>
+						<?m2e ignore?>
+						<id>npm-build</id>
+						<phase>process-classes</phase>
+						<goals>
+							<goal>npm</goal>
+						</goals>
+						<configuration>
+							<arguments>run build</arguments>
+						</configuration>
+					</execution>
+				</executions>
+			</plugin>
+
 			<plugin>
 				<groupId>org.apache.maven.plugins</groupId>
 				<artifactId>maven-jar-plugin</artifactId>

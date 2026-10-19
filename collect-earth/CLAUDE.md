@@ -131,6 +131,10 @@ mvn install
    - `PlacemarkDataController.saveDataExpanded()` validates and saves to database via `EarthSurveyService`
    - Response includes validation messages and updated field information
 
+## Plots Map Web UI
+
+The plots map (used instead of Google Earth Pro when `viewer_type` is `plots_map` or `google_earth_web`) is a React + MUI + Vite app in `collect-earth-app/src/main/frontend`. The `collect-earth-app` Maven build compiles it into `target/classes/leafletmap` via `frontend-maven-plugin` (skip with `-Dskip.npm`); `LeafletMapController` serves it at `/earth/map`. See that folder's README for `npm run dev` / `npm test`.
+
 ## Spring Configuration
 
 - **Runtime Generation**: `applicationContext.xml` is generated at startup from `resources/applicationContext.fmt` template
