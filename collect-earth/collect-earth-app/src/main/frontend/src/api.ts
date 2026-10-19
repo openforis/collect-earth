@@ -1,4 +1,4 @@
-import type { MapConfig, PlotFeature, PlotStatus } from "./types";
+import type { GewStatus, LatLng, MapConfig, PlotFeature, PlotStatus } from "./types";
 
 /** Base URL of the Collect Earth embedded server (the page is served from it). */
 export const HOST = window.location.origin + "/earth/";
@@ -35,4 +35,28 @@ export function openAuxiliaryWindows(feature: PlotFeature): void {
   const p = feature.properties;
   fetch(HOST + "openAuxiliaryWindows?latLongCoordinates=" + p.latitude + "," + p.longitude
     + "&plotId=" + encodeURIComponent(p.id)).catch(() => { /* non-fatal */ });
+}
+
+// ---------- Google Earth Web window (plot viewer "Plots map + Google Earth Web") ----------
+
+export async function fetchGewStatus(): Promise<GewStatus> {
+  const r = await fetch(HOST + "googleEarthWeb/status");
+  if (!r.ok) throw new Error("googleEarthWeb/status HTTP " + r.status);
+  return r.json();
+}
+
+/** Shows the plot even if it was the last one opened (reopens a closed window). */
+export function gewShowPlot(feature: PlotFeature): void {
+  const p = feature.properties;
+  fetch(HOST + "googleEarthWeb/show?latLongCoordinates=" + p.latitude + "," + p.longitude
+    + "&plotId=" + encodeURIComponent(p.id)).catch(() => { /* reported through the status */ });
+}
+
+/** Opens the window over the survey area before any plot is selected (no-op if open). */
+export function gewOpenOverview(center: LatLng): void {
+  fetch(HOST + "googleEarthWeb/open?latLongCoordinates=" + center[0] + "," + center[1]).catch(() => {});
+}
+
+export function gewArrangeWindows(): void {
+  fetch(HOST + "googleEarthWeb/arrange").catch(() => {});
 }

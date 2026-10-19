@@ -1,8 +1,9 @@
 (function () {
     // ===== Plot geometry from Collect Earth (lon, lat pairs in WGS84) =====
     // Outer rings = the plot polygon and any buffers (placemark.multiShape).
-    // Inner rings = the sample squares (placemark.points[].shape).
-    var rings = [
+    // Sample rings = the sample squares (placemark.points[].shape).
+    var plotRings = [
+        <#if placemark.multiShape??>
         <#list placemark.multiShape as shp>
         [
             <#list shp as coord>
@@ -10,16 +11,24 @@
             </#list>
         ]<#if shp?has_next>,</#if>
         </#list>
+        </#if>
+    ];
+    var sampleRings = [
         <#if placemark.points??>
             <#list placemark.points as square>
-            ,[
+            [
                 <#list square.shape as sc>
                 [${sc.longitude}, ${sc.latitude}]<#if sc?has_next>,</#if>
                 </#list>
-            ]
+            ]<#if square?has_next>,</#if>
             </#list>
         </#if>
     ];
+    var PLOT_ID = "${plotId?js_string}";
+    // Top-down view of the plot, used by the "Top-down view" button
+    var PLOT_URL = "${plotUrl?js_string}";
+    // Whether Google Earth Web follows in-page navigation: "true", "false" or "null" (not tried yet)
+    var IN_PAGE_NAVIGATION = "${inPageNavigation}";
     var CE_TAG = "__collectEarthGewOverlay";
 
     // ===== Cleanup from any previous injection (driver reuses the tab) =====
@@ -43,25 +52,70 @@
         };
     }
 
+    var svgNS = "http://www.w3.org/2000/svg";
+
     // ===== Full-viewport SVG overlay (attached to body, ignores GEW's DOM) =====
     function ensureOverlay() {
-        var svgNS = "http://www.w3.org/2000/svg";
         var existing = document.querySelector("svg[data-ce-overlay]");
         if (existing) existing.parentNode.removeChild(existing);
-        var svg = document.createElementNS(svgNS, "svg");
-        svg.setAttribute("data-ce-overlay", "1");
-        svg.style.position = "fixed";
-        svg.style.top = "0";
-        svg.style.left = "0";
-        svg.style.width = "100vw";
-        svg.style.height = "100vh";
-        svg.style.pointerEvents = "none";
-        svg.style.zIndex = "2147483000";
-        svg.style.display = "none";
-        document.body.appendChild(svg);
-        return svg;
+        var el = document.createElementNS(svgNS, "svg");
+        el.setAttribute("data-ce-overlay", "1");
+        el.style.cssText = "position:fixed;top:0;left:0;width:100vw;height:100vh;pointer-events:none;"
+            + "z-index:2147483000;display:none";
+        document.body.appendChild(el);
+        return el;
     }
     var svg = ensureOverlay();
+
+    // ===== Information bar: which plot this is, and why the outline is hidden =====
+    // Built with DOM APIs only (the plot id comes from the survey CSV).
+    function ensureInfoBar() {
+        var existing = document.querySelector("div[data-ce-infobar]");
+        if (existing) existing.parentNode.removeChild(existing);
+        var bar = document.createElement("div");
+        bar.setAttribute("data-ce-infobar", "1");
+        bar.style.cssText = "position:fixed;top:12px;left:50%;transform:translateX(-50%);z-index:2147483001;"
+            + "display:flex;align-items:center;gap:10px;padding:6px 8px 6px 14px;border-radius:18px;"
+            + "background:rgba(32,33,36,.92);color:#fff;font:500 13px/1.3 Roboto,Arial,sans-serif;"
+            + "box-shadow:0 2px 8px rgba(0,0,0,.4);white-space:nowrap;pointer-events:auto";
+        var title = document.createElement("span");
+        title.setAttribute("data-ce-title", "1");
+        title.style.fontWeight = "700";
+        title.textContent = PLOT_ID ? "Collect Earth \u00b7 Plot " + PLOT_ID : "Collect Earth";
+        var hint = document.createElement("span");
+        hint.setAttribute("data-ce-hint", "1");
+        hint.style.cssText = "color:#ffe082;display:none";
+        var button = document.createElement("button");
+        button.setAttribute("data-ce-topdown", "1");
+        button.textContent = "Top-down view";
+        button.title = "Fly back to a top-down view of the plot";
+        button.style.cssText = "border:0;border-radius:14px;padding:5px 12px;cursor:pointer;display:none;"
+            + "background:#8ab4f8;color:#202124;font:600 12px Roboto,Arial,sans-serif";
+        button.onclick = flyToPlot;
+        bar.appendChild(title);
+        bar.appendChild(hint);
+        bar.appendChild(button);
+        document.body.appendChild(bar);
+        return { bar: bar, hint: hint, button: button };
+    }
+    var info = ensureInfoBar();
+
+    function setHint(text, showButton) {
+        info.hint.textContent = text || "";
+        info.hint.style.display = text ? "inline" : "none";
+        info.button.style.display = showButton ? "inline-block" : "none";
+    }
+
+    // Back to the top-down plot view. In-page when GEW follows it (no reload); otherwise a
+    // page load - Collect Earth then re-draws the outline within a few seconds.
+    function flyToPlot() {
+        if (IN_PAGE_NAVIGATION === "true") {
+            history.pushState(null, "", PLOT_URL);
+            window.dispatchEvent(new PopStateEvent("popstate", { state: null }));
+        } else {
+            window.location.assign(PLOT_URL);
+        }
+    }
 
     // ===== Project lon/lat -> screen pixels from the nadir camera =====
     // Ground meters per screen pixel from camera distance and vertical FOV,
@@ -84,30 +138,46 @@
         };
     }
 
-    function hide() { svg.style.display = "none"; }
+    function hide(reason, showButton) {
+        svg.style.display = "none";
+        setHint(reason, showButton);
+    }
 
-    function draw() {
-        var cam = parseCamera();
-        if (!cam || Math.abs(cam.tilt) > 5) { hide(); return; }
-        var svgNS = "http://www.w3.org/2000/svg";
-        while (svg.firstChild) svg.removeChild(svg.firstChild);
-        var drawn = 0;
-        rings.forEach(function (ring) {
-            if (!ring || ring.length < 3) return;
-            var pts = [];
-            for (var i = 0; i < ring.length; i++) {
-                var sp = project(cam, ring[i][0], ring[i][1]);
-                pts.push(sp.x.toFixed(1) + "," + sp.y.toFixed(1));
-            }
+    // A dark halo under each line keeps it readable on bright imagery (sand, clouds, roofs).
+    function addRing(cam, ring, color, width, kind) {
+        if (!ring || ring.length < 3) return false;
+        var pts = [];
+        for (var i = 0; i < ring.length; i++) {
+            var sp = project(cam, ring[i][0], ring[i][1]);
+            pts.push(sp.x.toFixed(1) + "," + sp.y.toFixed(1));
+        }
+        [["rgba(0,0,0,.55)", width + 2], [color, width]].forEach(function (style) {
             var poly = document.createElementNS(svgNS, "polygon");
             poly.setAttribute("points", pts.join(" "));
             poly.setAttribute("fill", "none");
-            poly.setAttribute("stroke", "#FFFF00");
-            poly.setAttribute("stroke-width", "2");
+            poly.setAttribute("stroke", style[0]);
+            poly.setAttribute("stroke-width", String(style[1]));
+            poly.setAttribute("stroke-linejoin", "round");
+            poly.setAttribute("data-ce-ring", kind);
             svg.appendChild(poly);
-            drawn++;
         });
+        return true;
+    }
+
+    function draw() {
+        var cam = parseCamera();
+        if (!cam) { hide("Plot outline unavailable on this page", true); return; }
+        if (Math.abs(cam.tilt) > 5) { hide("Plot outline hidden: the view is tilted", true); return; }
+        while (svg.firstChild) svg.removeChild(svg.firstChild);
+        var drawn = 0;
+        plotRings.forEach(function (ring) { if (addRing(cam, ring, "#ffeb3b", 2.5, "plot")) drawn++; });
+        sampleRings.forEach(function (ring) { if (addRing(cam, ring, "#ffffff", 1.5, "sample")) drawn++; });
         svg.style.display = drawn > 0 ? "block" : "none";
+        // A far-away camera (user zoomed/panned out) is not an error; offer the way back.
+        var c = project(cam, plotRings.length && plotRings[0].length ? plotRings[0][0][0] : cam.lon,
+            plotRings.length && plotRings[0].length ? plotRings[0][0][1] : cam.lat);
+        var offScreen = c.x < 0 || c.y < 0 || c.x > window.innerWidth || c.y > window.innerHeight;
+        setHint(offScreen ? "The plot is out of view" : "", offScreen);
     }
 
     // ===== Redraw when the camera settles, hide while it moves =====
@@ -121,20 +191,25 @@
         if (href !== lastHref) {
             lastHref = href;
             stableCount = 0;
-            hide();
+            hide("", false);
             return;
         }
         stableCount++;
         if (stableCount === 2) draw();
     }, 400);
 
-    function onInteract() { hide(); stableCount = 0; }
+    function onInteract(e) {
+        if (e && e.target && info.bar.contains(e.target)) return; // clicks on the information bar
+        hide("", false);
+        stableCount = 0;
+    }
     window.addEventListener("mousedown", onInteract, true);
     window.addEventListener("wheel", onInteract, true);
     window.addEventListener("touchstart", onInteract, true);
     window.addEventListener("resize", onInteract, true);
 
     window[CE_TAG] = {
+        plotId: PLOT_ID,
         stop: function () {
             clearInterval(timer);
             window.removeEventListener("mousedown", onInteract, true);
@@ -142,7 +217,10 @@
             window.removeEventListener("touchstart", onInteract, true);
             window.removeEventListener("resize", onInteract, true);
             if (svg && svg.parentNode) svg.parentNode.removeChild(svg);
+            if (info.bar.parentNode) info.bar.parentNode.removeChild(info.bar);
+            delete window[CE_TAG];
         }
     };
-    console.log("[CE] Google Earth Web plot overlay armed (" + rings.length + " ring(s))");
+    console.log("[CE] Google Earth Web plot overlay armed for plot " + PLOT_ID
+        + " (" + plotRings.length + " plot ring(s), " + sampleRings.length + " sample(s))");
 })();

@@ -14,6 +14,15 @@ export interface MapConfig {
   viewerType?: string;
 }
 
+export type GewState = "CLOSED" | "OPENING" | "MOVING" | "READY" | "ERROR";
+
+/** What the Google Earth Web window is doing (/googleEarthWeb/status). */
+export interface GewStatus {
+  state: GewState;
+  plotId: string | null;
+  message: string | null;
+}
+
 export const STATUS_COLORS: Record<PlotStatus, string> = {
   empty: "#e53935",
   partial: "#fdd835",

@@ -1,15 +1,20 @@
 import { flushSync } from "react-dom";
-import { fetchMapConfig, fetchPlots, fetchStatuses, formUrl, openAuxiliaryWindows } from "./api";
+import { fetchGewStatus, fetchMapConfig, fetchPlots, fetchStatuses, formUrl, gewArrangeWindows, gewOpenOverview,
+  gewShowPlot, openAuxiliaryWindows } from "./api";
 import { GoogleEngine } from "./engines/GoogleEngine";
 import { LeafletEngine } from "./engines/LeafletEngine";
 import type { EngineConfig, MapEngine } from "./engines/MapEngine";
 import { neighbour, nextUnfinished, normalizeStatus, visibleIds } from "./plots";
 import { loadPrefs, savePrefs, type Prefs } from "./prefs";
-import { ACTIVE_COLOR, STATUS_COLORS, type LatLng, type ListFilter, type MapConfig, type PlotFeature, type PlotStatus } from "./types";
+import { ACTIVE_COLOR, STATUS_COLORS, type GewStatus, type LatLng, type ListFilter, type MapConfig, type PlotFeature,
+  type PlotStatus } from "./types";
 
 const ZOOM_THRESHOLD = 14; // below: dot markers; above: polygons
 const PLOT_ZOOM = 17;
 const POLL_MILLIS = 5000;
+/** Google Earth Web status polling: fast while it is loading/moving, slow otherwise. */
+const GEW_BUSY_POLL_MILLIS = 700;
+const GEW_IDLE_POLL_MILLIS = 3000;
 
 export interface Banner { severity: "error" | "warning"; text: string; dismissible: boolean }
 
@@ -27,6 +32,8 @@ export interface UiState {
   viewerType: string;
   baseLayers: string[];
   baseLayer: string;
+  /** Google Earth Web window state; null unless the viewer is "Plots map + Google Earth Web". */
+  gew: GewStatus | null;
 }
 
 interface Plot { feature: PlotFeature; center: LatLng; rings: LatLng[][] }
@@ -58,7 +65,7 @@ export class MapController {
       order: [], statuses: {}, loaded: false, activeId: null, formUrl: null,
       filter: this.prefs.filter ?? "all", query: "",
       sidebarCollapsed: !!this.prefs.sidebarCollapsed, formWidth: this.prefs.formWidth ?? 560,
-      banner: null, viewerType: "", baseLayers: [], baseLayer: "",
+      banner: null, viewerType: "", baseLayers: [], baseLayer: "", gew: null,
     };
   }
 
@@ -91,6 +98,7 @@ export class MapController {
       config = { engine: "leaflet", googleMapsApiKey: "" }; // collection must still work
     }
     this.set({ viewerType: config.viewerType ?? "" });
+    if (this.usesGoogleEarthWeb()) this.pollGew();
     const notice = this.createEngine(config);
     if (notice) this.set({ banner: { severity: "warning", text: notice, dismissible: true } });
     this.loadPlots();
@@ -166,6 +174,12 @@ export class MapController {
       this.updateVisibility();
       this.pollStatuses();
       window.setInterval(() => this.pollStatuses(), POLL_MILLIS);
+      // Warm up Google Earth Web over the survey area so the first plot appears quickly
+      if (this.usesGoogleEarthWeb() && !this.state.activeId) {
+        gewOpenOverview(gridCenter(this.allCenters()));
+        if (!this.state.gew || this.state.gew.state === "CLOSED") this.set({ gew: { state: "OPENING", plotId: null, message: null } });
+        this.pollGew();
+      }
     } catch (e) {
       this.set({ banner: { severity: "error", dismissible: false,
         text: "Could not load plots: " + (e as Error).message + " - retrying in 5s" } });
@@ -238,6 +252,10 @@ export class MapController {
     if (wasClosed) this.engine.invalidateSize();
     this.engine.flyTo(plot.center, PLOT_ZOOM);
     openAuxiliaryWindows(plot.feature);
+    if (this.usesGoogleEarthWeb()) {
+      this.set({ gew: { state: "MOVING", plotId: id, message: null } });
+      this.pollGew();
+    }
   };
 
   goToNextUnfinished = (): void => {
@@ -262,6 +280,37 @@ export class MapController {
     flushSync(() => this.set({ formUrl: null }));
     this.engine?.invalidateSize();
   };
+
+  // ---------- Google Earth Web ----------
+  private usesGoogleEarthWeb(): boolean {
+    return this.state.viewerType === "google_earth_web";
+  }
+
+  private gewTimer = 0;
+
+  /** Poll the window state; quickly while it is opening/moving so the map shows progress. */
+  private pollGew = async (): Promise<void> => {
+    window.clearTimeout(this.gewTimer);
+    let busy = false;
+    try {
+      const gew = await fetchGewStatus();
+      busy = gew.state === "OPENING" || gew.state === "MOVING";
+      const old = this.state.gew;
+      if (!old || old.state !== gew.state || old.plotId !== gew.plotId || old.message !== gew.message) this.set({ gew });
+    } catch { /* server busy or restarting - retry */ }
+    this.gewTimer = window.setTimeout(this.pollGew, busy ? GEW_BUSY_POLL_MILLIS : GEW_IDLE_POLL_MILLIS);
+  };
+
+  /** Show the selected plot in Google Earth Web again (reopens a closed window). */
+  showActiveInGoogleEarthWeb = (): void => {
+    const id = this.state.activeId;
+    if (!id) return;
+    gewShowPlot(this.plots[id].feature);
+    this.set({ gew: { state: "MOVING", plotId: id, message: null } });
+    this.pollGew();
+  };
+
+  arrangeWindows = (): void => gewArrangeWindows();
 
   // ---------- list / layout ----------
   setFilter = (filter: ListFilter): void => { this.set({ filter }); this.savePref("filter", filter); };
@@ -289,6 +338,16 @@ export class MapController {
     this.set({ baseLayer: name });
     this.savePref("baseLayer", name);
   };
+}
+
+/** Centre of the plots' bounding box. */
+function gridCenter(centers: LatLng[]): LatLng {
+  let minLat = 90, maxLat = -90, minLng = 180, maxLng = -180;
+  for (const [lat, lng] of centers) {
+    minLat = Math.min(minLat, lat); maxLat = Math.max(maxLat, lat);
+    minLng = Math.min(minLng, lng); maxLng = Math.max(maxLng, lng);
+  }
+  return [(minLat + maxLat) / 2, (minLng + maxLng) / 2];
 }
 
 const FALLBACK_SUFFIX = " - using Leaflet/ESRI. Check GOOGLE_MAPS_API_KEY in Properties (the key needs the Maps JavaScript API enabled).";

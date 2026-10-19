@@ -1,7 +1,6 @@
 import { useEffect, useRef, useState, type MouseEvent, type ReactNode } from "react";
 import Alert from "@mui/material/Alert";
 import Box from "@mui/material/Box";
-import Chip from "@mui/material/Chip";
 import CircularProgress from "@mui/material/CircularProgress";
 import Divider from "@mui/material/Divider";
 import IconButton from "@mui/material/IconButton";
@@ -14,10 +13,10 @@ import AddIcon from "@mui/icons-material/Add";
 import CheckIcon from "@mui/icons-material/Check";
 import LayersOutlinedIcon from "@mui/icons-material/LayersOutlined";
 import MyLocationIcon from "@mui/icons-material/MyLocation";
-import PublicIcon from "@mui/icons-material/Public";
 import RemoveIcon from "@mui/icons-material/Remove";
 import ZoomOutMapIcon from "@mui/icons-material/ZoomOutMap";
 import type { MapController, UiState } from "../controller";
+import { GewChip } from "./GewChip";
 
 export function MapArea({ controller, state }: { controller: MapController; state: UiState }) {
   const mapRef = useRef<HTMLDivElement>(null);
@@ -76,11 +75,7 @@ export function MapArea({ controller, state }: { controller: MapController; stat
         ))}
       </Menu>
 
-      {state.viewerType === "google_earth_web" && (
-        <Chip icon={<PublicIcon />} label="Google Earth Web follows the selected plot" data-testid="gew-badge"
-          sx={{ position: "absolute", bottom: 36, left: "50%", transform: "translateX(-50%)", zIndex: 1000,
-            bgcolor: "background.paper", boxShadow: 3, "& .MuiChip-icon": { color: "primary.main" } }} />
-      )}
+      {state.viewerType === "google_earth_web" && <GewChip controller={controller} state={state} />}
     </Box>
   );
 }

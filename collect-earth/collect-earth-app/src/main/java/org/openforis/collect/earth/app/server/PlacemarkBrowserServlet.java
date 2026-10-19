@@ -1,5 +1,6 @@
 package org.openforis.collect.earth.app.server;
 
+import java.io.IOException;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -13,6 +14,7 @@ import javax.servlet.http.HttpServletResponse;
 
 import org.openforis.collect.earth.app.service.BrowserService;
 import org.openforis.collect.earth.app.service.EarthSurveyService;
+import org.openforis.collect.earth.app.service.GoogleEarthWebService;
 import org.openforis.collect.earth.app.service.KmlGeneratorService;
 import org.openforis.collect.earth.app.service.LocalPropertiesService;
 import org.openforis.collect.earth.core.utils.CsvReaderUtils;
@@ -27,6 +29,8 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestParam;
+
+import com.fasterxml.jackson.databind.ObjectMapper;
 
 import com.opencsv.CSVReader;
 
@@ -44,6 +48,9 @@ public class PlacemarkBrowserServlet {
 
 	@Autowired
 	private EarthSurveyService earthSurveyService;
+
+	@Autowired
+	private GoogleEarthWebService googleEarthWebService;
 
 	@Autowired
 	private LocalPropertiesService localPropertiesService;
@@ -86,7 +93,7 @@ public class PlacemarkBrowserServlet {
 					openWindowAsync("Earth Engine APP", () -> browserService.openGEEAppURL(placemarkObject));
 					openWindowAsync("Earth Map", () -> browserService.openEarthMapURL(placemarkObject));
 					openWindowAsync("ESRI Wayback", () -> browserService.openEsriWayback(placemarkObject));
-					openWindowAsync("Google Earth Web", () -> browserService.openGoogleEarthWeb(placemarkObject));
+					openWindowAsync("Google Earth Web", () -> googleEarthWebService.showPlot(placemarkObject));
 					openWindowAsync("Extra Map", () -> browserService.openExtraMap(placemarkObject));
 					openWindowAsync("Street View", () -> browserService.openStreetView(placemarkObject));
 					openWindowAsync("Planet Maps", () -> browserService.openPlanetMaps(placemarkObject));
@@ -151,6 +158,59 @@ public class PlacemarkBrowserServlet {
 			logger.error("Error loading browsers", e);
 			response.setStatus(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
 		}
+	}
+
+	// ---------- Google Earth Web (plot viewer "Plots map + Google Earth Web") ----------
+
+	/** What the Google Earth Web window is doing, shown in the plots map. */
+	@GetMapping(path = "/googleEarthWeb/status")
+	public void googleEarthWebStatus(HttpServletResponse response) throws IOException {
+		response.setHeader("Content-Type", "application/json; charset=UTF-8");
+		new ObjectMapper().writeValue(response.getOutputStream(), googleEarthWebService.getStatus());
+	}
+
+	/**
+	 * Shows the plot in Google Earth Web even if it is the plot opened last (unlike
+	 * /openAuxiliaryWindows): used to reopen a closed window or re-sync it.
+	 */
+	@GetMapping(path = "/googleEarthWeb/show")
+	public void showInGoogleEarthWeb(HttpServletResponse response,
+			@RequestParam("latLongCoordinates") String latLongCoordinates,
+			@RequestParam("plotId") String plotId) {
+		try {
+			kmlGenerator = kmlGeneratorService.getKmlGenerator();
+			SimplePlacemarkObject placemarkObject = new SimplePlacemarkObject(latLongCoordinates.split(","));
+			placemarkObject.setPlacemarkId(plotId);
+			executor.submit(() -> {
+				try {
+					kmlGenerator.fillSamplePoints(placemarkObject);
+					kmlGenerator.fillExternalLine(placemarkObject);
+					googleEarthWebService.showPlot(placemarkObject);
+				} catch (Exception e) {
+					logger.error("Error showing the plot in Google Earth Web", e);
+				}
+			});
+			response.setStatus(HttpServletResponse.SC_OK);
+		} catch (Exception e) {
+			logger.error("Error showing the plot in Google Earth Web", e);
+			response.setStatus(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
+		}
+	}
+
+	/** Opens Google Earth Web over the survey area before a plot is selected (no-op if open). */
+	@GetMapping(path = "/googleEarthWeb/open")
+	public void openGoogleEarthWeb(HttpServletResponse response,
+			@RequestParam("latLongCoordinates") String latLongCoordinates) {
+		SimplePlacemarkObject center = new SimplePlacemarkObject(latLongCoordinates.split(","));
+		executor.submit(() -> googleEarthWebService.openOverview(center));
+		response.setStatus(HttpServletResponse.SC_OK);
+	}
+
+	/** Places the plots map and Google Earth Web side by side (or on two screens). */
+	@GetMapping(path = "/googleEarthWeb/arrange")
+	public void arrangeGoogleEarthWebWindows(HttpServletResponse response) {
+		executor.submit(googleEarthWebService::arrangeWindows);
+		response.setStatus(HttpServletResponse.SC_OK);
 	}
 
 	@GetMapping(path = "/ancillaryWindows")

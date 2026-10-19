@@ -96,3 +96,24 @@ GEW flag on → `google_earth_web`; only the Leaflet flag on → `plots_map`; ot
 `google_earth_pro`. Callers use `isPlotsMapViewer()` / `isGoogleEarthWebViewer()`. The map
 imagery engine selector is enabled for both map modes. Google Earth Web is no longer offered
 as an extra window in Google Earth Pro mode.
+
+## Update 2026-10-19 — Google Earth Web interaction
+
+`GoogleEarthWebService` (moved out of `BrowserService`) drives the Google Earth Web window:
+
+- **One page load per plot, not two:** Google Earth Web is navigated without the forced
+  `refresh()` other viewers need (its URL path changes, so navigation already loads it).
+- **In-page moves when supported:** once loaded, the next plot URL is pushed onto the history
+  with a `popstate` event. Google Earth Web rewrites its URL as the camera moves, so if the URL
+  is still exactly the pushed one after 4 s it ignored the request: Collect Earth loads the page
+  instead and stops trying for the session. Unverified against the live site (blocked in the
+  development environment) — check the log line "does not follow in-page navigation".
+- **Coalescing:** only the latest requested plot is shown; quick "next" presses never queue.
+- **Watchdog (3 s):** re-draws the outline after a page reload; reports a closed window.
+- **Information bar** in the Google Earth Web page: plot id, why the outline is hidden
+  (tilted view, plot out of view) and a "Top-down view" button.
+- **Window layout:** on first open, plots map left / Google Earth Web right, or each on its
+  own screen with two monitors; "Arrange windows" in the map repeats it.
+- **Map feedback:** `/googleEarthWeb/status` drives a chip in the plots map (opening, moving
+  to plot X, plot X, closed → reopen, other plot → re-sync, error); `/googleEarthWeb/show`
+  re-sends the plot, `/googleEarthWeb/open` warms the window up over the survey area on load.
