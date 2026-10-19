@@ -907,7 +907,7 @@ public class BrowserService implements InitializingBean, DisposableBean, Applica
 	public void openGoogleEarthWeb(SimplePlacemarkObject placemarkObject) throws BrowserNotFoundException {
 		Object lock = getOrCreateLock(BrowserType.GOOGLE_EARTH_WEB);
 		synchronized (lock) {
-			if (localPropertiesService.isGoogleEarthWebSupported()) {
+			if (localPropertiesService.isGoogleEarthWebViewer()) {
 				try {
 					String url = String.format(Locale.ENGLISH,
 							"https://earth.google.com/web/@%s,%s,%da,400d,35y,0h,0t,0r",

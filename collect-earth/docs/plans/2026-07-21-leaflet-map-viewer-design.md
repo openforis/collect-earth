@@ -79,3 +79,20 @@ Reused untouched: `/balloon` (server-side `$[...]` form rendering, BalloonServle
   panel + GEE/GEW fly-to → save → green ≤5 s → next-unfinished/filter/collapse →
   Tools-menu relaunch. Regression: option off → classic GEP flow untouched.
 - Performance: 5,000-plot CSV pans smoothly.
+
+## Update 2026-10-19 — single `VIEWER_TYPE` switch
+
+The two POC checkboxes (`OPEN_IN_LEAFLET_MAP`, `OPEN_GOOGLE_EARTH_WEB`) are replaced by one
+"Plot viewer" selector backed by `EarthProperty.VIEWER_TYPE` (`viewer_type`):
+
+| Value | Behaviour |
+|---|---|
+| `google_earth_pro` (default) | Legacy KML handoff to Google Earth Pro. |
+| `plots_map` | Plots map window replaces Google Earth Pro. |
+| `google_earth_web` | Plots map window + a Google Earth Web window that flies to each selected plot. |
+
+`LocalPropertiesService.getViewerType()` migrates old settings when `viewer_type` is unset:
+GEW flag on → `google_earth_web`; only the Leaflet flag on → `plots_map`; otherwise
+`google_earth_pro`. Callers use `isPlotsMapViewer()` / `isGoogleEarthWebViewer()`. The map
+imagery engine selector is enabled for both map modes. Google Earth Web is no longer offered
+as an extra window in Google Earth Pro mode.

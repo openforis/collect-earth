@@ -719,8 +719,8 @@ public class EarthApp {
 
 	private void simulateClickKmz() {
 		try {
-			if (getLocalProperties().isLeafletMapSupported()) {
-				// Leaflet viewer mode: no KML handoff to Google Earth Pro;
+			if (getLocalProperties().isPlotsMapViewer()) {
+				// Plots map / Google Earth Web viewer: no KML handoff to Google Earth Pro;
 				// open the plots map served by the embedded server instead.
 				openLeafletMap();
 			} else {

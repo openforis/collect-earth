@@ -102,8 +102,13 @@ public class LocalPropertiesService extends Observable {
 				GEEAPP_FROM_DATE("geeapp_date_from"),
 				GEEAPP_TO_DATE("geeapp_date_to"),
 				OPEN_ESRI_WAYBACK("open_esri_wayback"),
+				/** Legacy POC flag, superseded by {@link #VIEWER_TYPE}; only read to migrate old settings. */
+				@Deprecated
 				OPEN_GOOGLE_EARTH_WEB("open_google_earth_web"),
+				/** Legacy POC flag, superseded by {@link #VIEWER_TYPE}; only read to migrate old settings. */
+				@Deprecated
 				OPEN_IN_LEAFLET_MAP("open_in_leaflet_map"),
+				VIEWER_TYPE("viewer_type"),
 				MAP_ENGINE("map_engine"),
 				DEFERRED_SAVE_DISABLED("deferred_save_disabled"),
 				CLOUD_SYNC_ENABLED("cloud_sync_enabled"),
@@ -459,12 +464,47 @@ public class LocalPropertiesService extends Observable {
 		return isPropertyActivated(EarthProperty.OPEN_ESRI_WAYBACK);
 	}
 
-	public boolean isGoogleEarthWebSupported() {
-		return isPropertyActivated(EarthProperty.OPEN_GOOGLE_EARTH_WEB);
+	/** Legacy mode: plots are handed to Google Earth Pro as KML (balloon forms, NetworkLink status icons). */
+	public static final String VIEWER_TYPE_GOOGLE_EARTH_PRO = "google_earth_pro";
+	/** Plots map window (Leaflet/Google Maps engine) with the plot list and web form; no Google Earth. */
+	public static final String VIEWER_TYPE_PLOTS_MAP = "plots_map";
+	/** Plots map window as the navigator plus a Google Earth Web window that flies to each plot. */
+	public static final String VIEWER_TYPE_GOOGLE_EARTH_WEB = "google_earth_web";
+
+	/**
+	 * The plot viewer mode. When {@code viewer_type} is not set (or holds an unknown
+	 * value) the mode is derived from the legacy POC flags so existing installations
+	 * keep their behaviour.
+	 */
+	@SuppressWarnings("deprecation")
+	public String getViewerType() {
+		return resolveViewerType(getValue(EarthProperty.VIEWER_TYPE),
+				isPropertyActivated(EarthProperty.OPEN_IN_LEAFLET_MAP),
+				isPropertyActivated(EarthProperty.OPEN_GOOGLE_EARTH_WEB));
 	}
 
-	public boolean isLeafletMapSupported() {
-		return isPropertyActivated(EarthProperty.OPEN_IN_LEAFLET_MAP);
+	public static String resolveViewerType(String viewerType, boolean legacyLeafletMap, boolean legacyGoogleEarthWeb) {
+		if (VIEWER_TYPE_GOOGLE_EARTH_PRO.equals(viewerType) || VIEWER_TYPE_PLOTS_MAP.equals(viewerType)
+				|| VIEWER_TYPE_GOOGLE_EARTH_WEB.equals(viewerType)) {
+			return viewerType;
+		}
+		if (legacyGoogleEarthWeb) {
+			return VIEWER_TYPE_GOOGLE_EARTH_WEB;
+		}
+		if (legacyLeafletMap) {
+			return VIEWER_TYPE_PLOTS_MAP;
+		}
+		return VIEWER_TYPE_GOOGLE_EARTH_PRO;
+	}
+
+	/** Whether the plots map window replaces the KML handoff to Google Earth Pro. */
+	public boolean isPlotsMapViewer() {
+		return !VIEWER_TYPE_GOOGLE_EARTH_PRO.equals(getViewerType());
+	}
+
+	/** Whether a Google Earth Web window follows the plot selected in the plots map. */
+	public boolean isGoogleEarthWebViewer() {
+		return VIEWER_TYPE_GOOGLE_EARTH_WEB.equals(getViewerType());
 	}
 
 	public static final String MAP_ENGINE_LEAFLET = "leaflet";

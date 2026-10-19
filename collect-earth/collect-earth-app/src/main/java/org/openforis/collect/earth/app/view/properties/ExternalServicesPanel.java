@@ -49,8 +49,7 @@ public class ExternalServicesPanel extends AbstractPropertyPanel {
     // Other services
     private JCheckBox openEarthMapCheckbox;
     private JCheckBox openEsriWaybackCheckbox;
-    private JCheckBox openGoogleEarthWebCheckbox;
-    private JCheckBox openInLeafletMapCheckbox;
+    private JComboBox<String> viewerTypeCombo;
     private JComboBox<String> mapEngineCombo;
 
     // Planet Maps panel and components
@@ -114,16 +113,26 @@ public class ExternalServicesPanel extends AbstractPropertyPanel {
         openEsriWaybackCheckbox = componentFactory.createCheckbox("OptionWizard.144", EarthProperty.OPEN_ESRI_WAYBACK);
         registerComponent(EarthProperty.OPEN_ESRI_WAYBACK, openEsriWaybackCheckbox);
 
-        // Google Earth Web
-        openGoogleEarthWebCheckbox = componentFactory.createCheckbox("OptionWizard.145", EarthProperty.OPEN_GOOGLE_EARTH_WEB);
-        registerComponent(EarthProperty.OPEN_GOOGLE_EARTH_WEB, openGoogleEarthWebCheckbox);
-
-        // Open plots in Leaflet map window
-        openInLeafletMapCheckbox = componentFactory.createCheckbox("OptionWizard.146", EarthProperty.OPEN_IN_LEAFLET_MAP);
-        registerComponent(EarthProperty.OPEN_IN_LEAFLET_MAP, openInLeafletMapCheckbox);
+        // Plot viewer selector: items are the raw property values (google_earth_pro/plots_map/
+        // google_earth_web), a renderer shows the localized labels.
+        viewerTypeCombo = new JComboBox<>(new String[] {
+                LocalPropertiesService.VIEWER_TYPE_GOOGLE_EARTH_PRO,
+                LocalPropertiesService.VIEWER_TYPE_PLOTS_MAP,
+                LocalPropertiesService.VIEWER_TYPE_GOOGLE_EARTH_WEB });
+        viewerTypeCombo.setRenderer(new DefaultListCellRenderer() {
+            private static final long serialVersionUID = 1L;
+            @Override
+            public Component getListCellRendererComponent(JList<?> list, Object value, int index,
+                    boolean isSelected, boolean cellHasFocus) {
+                String label = Messages.getString("ExternalServicesPanel.viewerType." + value);
+                return super.getListCellRendererComponent(list, label, index, isSelected, cellHasFocus);
+            }
+        });
+        viewerTypeCombo.setSelectedItem(localPropertiesService.getViewerType());
+        registerComponent(EarthProperty.VIEWER_TYPE, viewerTypeCombo);
 
         // Map imagery engine selector: items are the raw property values (leaflet/google_maps),
-        // a renderer shows friendly product labels. Enabled only when the Leaflet map window is on.
+        // a renderer shows friendly product labels. Enabled only when the plots map window is used.
         mapEngineCombo = new JComboBox<>(new String[] {
                 LocalPropertiesService.MAP_ENGINE_LEAFLET,
                 LocalPropertiesService.MAP_ENGINE_GOOGLE });
@@ -138,7 +147,7 @@ public class ExternalServicesPanel extends AbstractPropertyPanel {
             }
         });
         mapEngineCombo.setSelectedItem(localPropertiesService.getMapEngine());
-        mapEngineCombo.setEnabled(openInLeafletMapCheckbox.isSelected());
+        mapEngineCombo.setEnabled(isPlotsMapSelected());
         registerComponent(EarthProperty.MAP_ENGINE, mapEngineCombo);
 
         // Planet Maps - create components
@@ -266,37 +275,38 @@ public class ExternalServicesPanel extends AbstractPropertyPanel {
                 .build();
         add(openEsriWaybackCheckbox, constraints);
 
-        // Google Earth Web
+        // Plot viewer selector
         constraints = new GridBagConstraintsBuilder()
                 .gridx(0)
                 .gridy(4)
                 .build();
-        add(openGoogleEarthWebCheckbox, constraints);
+        JLabel viewerTypeLabel = new JLabel(Messages.getString("ExternalServicesPanel.viewerType"));
+        viewerTypeLabel.setToolTipText(Messages.getString("ExternalServicesPanel.viewerTypeTooltip"));
+        add(viewerTypeLabel, constraints);
 
-        // Open plots in Leaflet map window
+        constraints = new GridBagConstraintsBuilder()
+                .gridx(1)
+                .gridy(4)
+                .build();
+        add(viewerTypeCombo, constraints);
+
+        // Map imagery engine selector (below the plot viewer selector)
         constraints = new GridBagConstraintsBuilder()
                 .gridx(0)
                 .gridy(5)
-                .build();
-        add(openInLeafletMapCheckbox, constraints);
-
-        // Map imagery engine selector (below the Leaflet checkbox)
-        constraints = new GridBagConstraintsBuilder()
-                .gridx(0)
-                .gridy(6)
                 .build();
         add(new JLabel(Messages.getString("OptionWizard.147")), constraints);
 
         constraints = new GridBagConstraintsBuilder()
                 .gridx(1)
-                .gridy(6)
+                .gridy(5)
                 .build();
         add(mapEngineCombo, constraints);
 
         // Planet Maps panel (contains all Planet-related components)
         constraints = new GridBagConstraintsBuilder()
                 .gridx(0)
-                .gridy(7)
+                .gridy(6)
                 .gridwidth(4)
                 .fill(GridBagConstraints.HORIZONTAL)
                 .build();
@@ -305,7 +315,7 @@ public class ExternalServicesPanel extends AbstractPropertyPanel {
         // Maxar SecureWatch
         constraints = new GridBagConstraintsBuilder()
                 .gridx(0)
-                .gridy(8)
+                .gridy(7)
                 .gridwidth(2)
                 .build();
         add(openSecureWatchCheckbox, constraints);
@@ -313,20 +323,20 @@ public class ExternalServicesPanel extends AbstractPropertyPanel {
         // Maxar URL
         constraints = new GridBagConstraintsBuilder()
                 .gridx(0)
-                .gridy(9)
+                .gridy(8)
                 .build();
         add(new JLabel(Messages.getString("OptionWizard.1021")), constraints);
 
         constraints = new GridBagConstraintsBuilder()
                 .gridx(1)
-                .gridy(9)
+                .gridy(8)
                 .build();
         add(secureWatchUrlField, constraints);
 
         // Extra Map URL label
         constraints = new GridBagConstraintsBuilder()
                 .gridx(0)
-                .gridy(10)
+                .gridy(9)
                 .gridwidth(2)
                 .build();
         JLabel extraLabel = new JLabel(Messages.getString("OptionWizard.103"));
@@ -336,7 +346,7 @@ public class ExternalServicesPanel extends AbstractPropertyPanel {
         // Extra Map URL field
         constraints = new GridBagConstraintsBuilder()
                 .gridx(0)
-                .gridy(11)
+                .gridy(10)
                 .gridwidth(2)
                 .build();
         add(extraUrlField, constraints);
@@ -394,13 +404,16 @@ public class ExternalServicesPanel extends AbstractPropertyPanel {
             planetTfoMonthPanel.setVisible(planetSelected && tfoSelected);
         });
 
-        // Leaflet map checkbox toggles the map imagery engine selector
-        openInLeafletMapCheckbox.addActionListener(e ->
-                mapEngineCombo.setEnabled(openInLeafletMapCheckbox.isSelected()));
+        // The map imagery engine only applies to the plots map window
+        viewerTypeCombo.addActionListener(e -> mapEngineCombo.setEnabled(isPlotsMapSelected()));
 
         // SecureWatch checkbox toggles URL field
         openSecureWatchCheckbox.addActionListener(e ->
                 secureWatchUrlField.setEnabled(openSecureWatchCheckbox.isSelected()));
+    }
+
+    private boolean isPlotsMapSelected() {
+        return !LocalPropertiesService.VIEWER_TYPE_GOOGLE_EARTH_PRO.equals(viewerTypeCombo.getSelectedItem());
     }
 
     private void initializeDatePickersWithDefaults() {
@@ -542,12 +555,8 @@ public class ExternalServicesPanel extends AbstractPropertyPanel {
         return openEsriWaybackCheckbox;
     }
 
-    public JCheckBox getOpenGoogleEarthWebCheckbox() {
-        return openGoogleEarthWebCheckbox;
-    }
-
-    public JCheckBox getOpenInLeafletMapCheckbox() {
-        return openInLeafletMapCheckbox;
+    public JComboBox<String> getViewerTypeCombo() {
+        return viewerTypeCombo;
     }
 
     public JCheckBox getOpenPlanetCheckbox() {
