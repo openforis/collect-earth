@@ -1,10 +1,10 @@
 import { flushSync } from "react-dom";
 import { fetchGewStatus, fetchMapConfig, fetchPlots, fetchStatuses, formUrl, gewArrangeWindows, gewOpenOverview,
-  gewShowPlot, openAuxiliaryWindows } from "./api";
+  gewShowPlot, openAuxiliaryWindows, postGewContext } from "./api";
 import { GoogleEngine } from "./engines/GoogleEngine";
 import { LeafletEngine } from "./engines/LeafletEngine";
 import type { EngineConfig, MapEngine } from "./engines/MapEngine";
-import { neighbour, nextUnfinished, normalizeStatus, visibleIds } from "./plots";
+import { footprintCorners, neighbour, nextUnfinished, normalizeStatus, plotsNear, visibleIds } from "./plots";
 import { loadPrefs, savePrefs, type Prefs } from "./prefs";
 import { ACTIVE_COLOR, STATUS_COLORS, type GewStatus, type LatLng, type ListFilter, type MapConfig, type PlotFeature,
   type PlotStatus } from "./types";
@@ -14,7 +14,10 @@ const PLOT_ZOOM = 17;
 const POLL_MILLIS = 5000;
 /** Google Earth Web status polling: fast while it is loading/moving, slow otherwise. */
 const GEW_BUSY_POLL_MILLIS = 700;
-const GEW_IDLE_POLL_MILLIS = 3000;
+const GEW_IDLE_POLL_MILLIS = 2000;
+/** Neighbouring plots drawn in Google Earth Web around the current one. */
+const GEW_CONTEXT_RADIUS_METERS = 3000;
+const GEW_CONTEXT_MAX_PLOTS = 300;
 
 export interface Banner { severity: "error" | "warning"; text: string; dismissible: boolean }
 
@@ -251,6 +254,7 @@ export class MapController {
     this.engine.setPlotColor(id, ACTIVE_COLOR);
     if (wasClosed) this.engine.invalidateSize();
     this.engine.flyTo(plot.center, PLOT_ZOOM);
+    if (this.usesGoogleEarthWeb()) this.sendGewContext(id);
     openAuxiliaryWindows(plot.feature);
     if (this.usesGoogleEarthWeb()) {
       this.set({ gew: { state: "MOVING", plotId: id, message: null } });
@@ -297,14 +301,30 @@ export class MapController {
       busy = gew.state === "OPENING" || gew.state === "MOVING";
       const old = this.state.gew;
       if (!old || old.state !== gew.state || old.plotId !== gew.plotId || old.message !== gew.message) this.set({ gew });
+      // Where Google Earth Web is looking, outlined on the map
+      this.engine?.setFootprint(gew.state === "READY" && gew.view ? footprintCorners(gew.view) : null);
     } catch { /* server busy or restarting - retry */ }
     this.gewTimer = window.setTimeout(this.pollGew, busy ? GEW_BUSY_POLL_MILLIS : GEW_IDLE_POLL_MILLIS);
   };
+
+  /** Neighbouring plots and their statuses, drawn by Google Earth Web around the plot. */
+  private sendGewContext(id: string): void {
+    const centers: Record<string, LatLng> = {};
+    for (const plotId of this.state.order) centers[plotId] = this.plots[plotId].center;
+    const near = plotsNear(centers, this.plots[id].center, GEW_CONTEXT_RADIUS_METERS, GEW_CONTEXT_MAX_PLOTS);
+    postGewContext(id, near.map((plotId) => ({
+      id: plotId,
+      status: this.state.statuses[plotId] ?? "empty",
+      // outline only (the first ring); neighbours' sample points would just add clutter
+      rings: this.plots[plotId].rings.slice(0, 1).map((ring) => ring.map(([lat, lng]) => [lng, lat] as [number, number])),
+    })));
+  }
 
   /** Show the selected plot in Google Earth Web again (reopens a closed window). */
   showActiveInGoogleEarthWeb = (): void => {
     const id = this.state.activeId;
     if (!id) return;
+    this.sendGewContext(id);
     gewShowPlot(this.plots[id].feature);
     this.set({ gew: { state: "MOVING", plotId: id, message: null } });
     this.pollGew();

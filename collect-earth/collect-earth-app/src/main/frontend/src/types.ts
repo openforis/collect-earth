@@ -14,13 +14,23 @@ export interface MapConfig {
   viewerType?: string;
 }
 
-export type GewState = "CLOSED" | "OPENING" | "MOVING" | "READY" | "ERROR";
+export type GewState = "CLOSED" | "OPENING" | "MOVING" | "READY" | "WAITING" | "ERROR";
+
+/** Ground area shown by a top-down Google Earth Web view (heading: degrees clockwise from north). */
+export interface GewView {
+  latitude: number;
+  longitude: number;
+  widthMeters: number;
+  heightMeters: number;
+  heading: number;
+}
 
 /** What the Google Earth Web window is doing (/googleEarthWeb/status). */
 export interface GewStatus {
   state: GewState;
   plotId: string | null;
   message: string | null;
+  view?: GewView | null;
 }
 
 export const STATUS_COLORS: Record<PlotStatus, string> = {

@@ -39,6 +39,7 @@ export class GoogleEngine implements MapEngine {
   private zoomListener: google.maps.MapsEventListener | null = null;
   private script: HTMLScriptElement | null = null;
   private baseName = "Satellite + labels";
+  private footprint: google.maps.Polygon | null = null;
 
   init(container: HTMLElement, config: EngineConfig, callbacks: EngineCallbacks): void {
     this.container = container;
@@ -103,6 +104,17 @@ export class GoogleEngine implements MapEngine {
     if (center) this.map.setCenter(center);
   }
 
+  setFootprint(corners: LatLng[] | null): void {
+    if (!this.map) return;
+    if (!corners) { this.footprint?.setMap(null); this.footprint = null; return; }
+    const path = corners.map(([lat, lng]) => ({ lat, lng }));
+    if (this.footprint) { this.footprint.setPath(path); return; }
+    this.footprint = new google.maps.Polygon({
+      paths: path, strokeColor: "#ffffff", strokeWeight: 2, fillColor: "#8ab4f8", fillOpacity: 0.08,
+      clickable: false, map: this.map,
+    });
+  }
+
   baseLayers(): string[] { return Object.keys(MAP_TYPES); }
   currentBaseLayer(): string { return this.baseName; }
 
@@ -123,6 +135,8 @@ export class GoogleEngine implements MapEngine {
     }
     this.layers = {};
     this.defs = {};
+    this.footprint?.setMap(null);
+    this.footprint = null;
     this.map = null;
     this.ready = false;
     // Clear the shared map container so Leaflet can reuse it.

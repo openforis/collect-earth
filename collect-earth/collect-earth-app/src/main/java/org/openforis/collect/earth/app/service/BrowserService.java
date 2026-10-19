@@ -6,6 +6,7 @@ import java.io.IOException;
 import java.io.StringWriter;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -23,6 +24,8 @@ import org.openforis.collect.earth.sampler.model.SimplePlacemarkObject;
 import org.openqa.selenium.By;
 import org.openqa.selenium.JavascriptExecutor;
 import org.openqa.selenium.WebElement;
+import org.openqa.selenium.chrome.ChromeOptions;
+import org.openqa.selenium.edge.EdgeOptions;
 import org.openqa.selenium.remote.RemoteWebDriver;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -230,6 +233,46 @@ public class BrowserService implements InitializingBean, DisposableBean, Applica
 			logger.error("Error when reading/writing the template information: {}", templateName, e);
 		}
 		return result;
+	}
+
+	/**
+	 * Starts Chrome (or else Edge) keeping its profile in {@code profileDir}, so that cookie
+	 * consent, Google sign-in and site settings survive restarts instead of being asked for
+	 * again in a fresh temporary profile each time. Returns null when Firefox is the chosen
+	 * browser or the profile cannot be used (e.g. another Collect Earth has it open); the
+	 * caller then falls back to a normal window.
+	 */
+	RemoteWebDriver initBrowserWithProfile(File profileDir) {
+		if (localPropertiesService.getValue(EarthProperty.BROWSER_TO_USE).trim().equalsIgnoreCase(EarthConstants.FIREFOX_BROWSER)) {
+			return null;
+		}
+		List<String> arguments = Arrays.asList("--user-data-dir=" + profileDir.getAbsolutePath(), "--no-first-run",
+				"--no-default-browser-check");
+		RemoteWebDriver driver = null;
+		try {
+			ChromeOptions options = new ChromeOptions();
+			options.addArguments(arguments);
+			driver = (RemoteWebDriver) WebDriverManager.chromedriver().capabilities(options).create();
+		} catch (final Exception e) {
+			logger.warn("Could not start Chrome with the profile in {}", profileDir, e);
+		}
+		if (driver == null) {
+			try {
+				EdgeOptions options = new EdgeOptions();
+				options.addArguments(arguments);
+				driver = (RemoteWebDriver) WebDriverManager.edgedriver().capabilities(options).create();
+			} catch (final Exception e) {
+				logger.warn("Could not start Edge with the profile in {}", profileDir, e);
+			}
+		}
+		if (driver != null) {
+			if (isClosing) {
+				driver.quit();
+				return null;
+			}
+			drivers.add(driver);
+		}
+		return driver;
 	}
 
 	private RemoteWebDriver initBrowser() throws BrowserNotFoundException {

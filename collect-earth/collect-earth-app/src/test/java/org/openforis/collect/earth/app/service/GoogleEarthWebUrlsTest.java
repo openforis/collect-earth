@@ -6,6 +6,8 @@ import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
 
+import java.util.Map;
+
 import org.junit.Test;
 
 public class GoogleEarthWebUrlsTest {
@@ -38,5 +40,23 @@ public class GoogleEarthWebUrlsTest {
 	public void recognisesGoogleEarthWebPages() {
 		assertTrue(GoogleEarthWebUrls.isGoogleEarthWeb("https://earth.google.com/web/@1,2,3a,4d,35y,0h,0t,0r"));
 		assertFalse(GoogleEarthWebUrls.isGoogleEarthWeb("https://accounts.google.com/signin"));
+	}
+
+	@Test
+	public void computesTheGroundAreaOfATopDownView() {
+		// 400 m away with a 35 degree vertical field of view: 2 * 400 * tan(17.5) = 252.2 m high
+		Map<String, Object> view = GoogleEarthWebUrls.cameraView(
+				"https://earth.google.com/web/@-1.95,30.06,1500a,400d,35y,30h,0t,0r", 1600, 800);
+		assertEquals(-1.95, (Double) view.get("latitude"), 1e-9);
+		assertEquals(252.2, (Double) view.get("heightMeters"), 0.1);
+		assertEquals(504.5, (Double) view.get("widthMeters"), 0.1);
+		assertEquals(30.0, (Double) view.get("heading"), 1e-9);
+	}
+
+	@Test
+	public void noGroundAreaForTiltedViewsOrOtherPages() {
+		assertNull(GoogleEarthWebUrls.cameraView("https://earth.google.com/web/@-1.95,30.06,1500a,400d,35y,0h,45t,0r", 1600, 800));
+		assertNull(GoogleEarthWebUrls.cameraView("https://consent.google.com/ml?continue=x", 1600, 800));
+		assertNull(GoogleEarthWebUrls.cameraView(null, 1600, 800));
 	}
 }

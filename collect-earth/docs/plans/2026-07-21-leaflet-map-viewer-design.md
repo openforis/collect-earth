@@ -117,3 +117,15 @@ as an extra window in Google Earth Pro mode.
 - **Map feedback:** `/googleEarthWeb/status` drives a chip in the plots map (opening, moving
   to plot X, plot X, closed → reopen, other plot → re-sync, error); `/googleEarthWeb/show`
   re-sends the plot, `/googleEarthWeb/open` warms the window up over the survey area on load.
+- **Persistent profile:** the Google Earth Web window uses its own Chrome/Edge profile in
+  `<CE data folder>/browser_profiles/google_earth_web`, so Google's cookie consent, sign-in and
+  Google Earth Web settings survive restarts (other windows keep temporary profiles; Chrome
+  cannot share one profile between processes). Falls back to a normal window if unavailable.
+- **WAITING state:** while Google shows a consent or sign-in page the map says so; the plot is
+  shown as soon as Google Earth Web is reached.
+- **Status colours in Google Earth Web:** with each selection the map POSTs the plots within
+  3 km (max 300, outlines only, with statuses) to `/googleEarthWeb/context`; the server rebuilds
+  the JSON from typed values before it is embedded in the injected script. The current plot is
+  drawn in the map's selection cyan (yellow means "in progress").
+- **Linked views:** the watchdog (every 2 s) reports the ground area shown by Google Earth Web
+  (`view` in `/googleEarthWeb/status`); the map outlines it as a dashed rectangle.

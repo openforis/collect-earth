@@ -35,6 +35,8 @@ export interface MapEngine {
   isAboveThreshold(): boolean;
   /** The container was resized: re-measure, keeping the same geographic center. */
   invalidateSize(): void;
+  /** Outline of the area shown in Google Earth Web (null hides it). */
+  setFootprint(corners: LatLng[] | null): void;
   baseLayers(): string[];
   currentBaseLayer(): string;
   setBaseLayer(name: string): void;

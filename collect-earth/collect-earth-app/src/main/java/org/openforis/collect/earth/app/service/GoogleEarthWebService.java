@@ -6,7 +6,9 @@ import java.awt.GraphicsEnvironment;
 import java.awt.Insets;
 import java.awt.Rectangle;
 import java.awt.Toolkit;
+import java.io.File;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
@@ -36,20 +38,31 @@ import org.springframework.stereotype.Component;
  * <li>Once loaded, the window is moved to the next plot without reloading when Google Earth
  * Web supports it (detected at run time), otherwise with a single page load.</li>
  * <li>A watchdog re-draws the outline if the page was reloaded and notices a closed window.</li>
- * <li>The state is reported to the plots map (/googleEarthWeb/status).</li>
+ * <li>The window keeps its own browser profile, so Google's cookie consent, sign-in and the
+ * user's Google Earth Web settings survive restarts; while Google waits for the user (consent,
+ * sign-in) the state is WAITING and the plot is shown as soon as Google Earth Web is reached.</li>
+ * <li>The state, and where the camera looks, are reported to the plots map
+ * (/googleEarthWeb/status); the map sends the neighbouring plots and their statuses
+ * (/googleEarthWeb/context), drawn around the current plot.</li>
  * </ul>
  */
 @Component
 public class GoogleEarthWebService {
 
-	public enum State { CLOSED, OPENING, MOVING, READY, ERROR }
+	public enum State { CLOSED, OPENING, MOVING, READY, WAITING, ERROR }
 
 	private static final String OVERLAY_TEMPLATE = "resources/javascript_google_earth_web.fmt";
 	private static final String OVERLAY_TAG = "__collectEarthGewOverlay";
 
 	/** How long to wait for Google Earth Web to follow an in-page navigation. */
 	private static final long IN_PAGE_NAVIGATION_TIMEOUT_MILLIS = 4000;
-	private static final long WATCHDOG_PERIOD_SECONDS = 3;
+	private static final long WATCHDOG_PERIOD_MILLIS = 2000;
+	private static final String WAITING_MESSAGE = "Google needs you in the Google Earth Web window (accept the notice or sign in)";
+	private static final String PROFILE_FOLDER = "browser_profiles" + File.separator + "google_earth_web";
+
+	/** Camera URL, window size and whether the overlay is armed, in one round trip. */
+	private static final String PAGE_STATE_SCRIPT = "return [location.href, window.innerWidth, window.innerHeight, !!window."
+			+ OVERLAY_TAG + "];";
 	private static final int MIN_MAP_WINDOW_WIDTH = 760;
 
 	/**
@@ -85,6 +98,11 @@ public class GoogleEarthWebService {
 	private volatile State state = State.CLOSED;
 	private volatile String statePlotId;
 	private volatile String stateMessage;
+	/** Where the Google Earth Web camera looks (null when unknown or not top-down). */
+	private volatile Map<String, Object> view;
+	/** Neighbouring plots sent by the plots map for the plot {@link #contextPlotId}, as JSON. */
+	private volatile String contextJson = "[]";
+	private volatile String contextPlotId;
 
 	private ScheduledExecutorService watchdog;
 
@@ -119,6 +137,23 @@ public class GoogleEarthWebService {
 		synchronized (lock) {
 			if (driver == null && pending.get() == null && current == null) {
 				show(center, true);
+			}
+		}
+	}
+
+	/**
+	 * Neighbouring plots (id, status, rings) to draw around {@code plotId}, sent by the plots
+	 * map with each selection. Redraws at once if that plot is already shown.
+	 */
+	public void setContext(String plotId, String plotsJson) {
+		contextPlotId = plotId;
+		contextJson = plotsJson;
+		SimplePlacemarkObject shown = current;
+		if (state == State.READY && shown != null && plotId != null && plotId.equals(shown.getPlacemarkId())) {
+			synchronized (lock) {
+				if (driver != null && current == shown) {
+					injectOverlay(shown);
+				}
 			}
 		}
 	}
@@ -168,6 +203,7 @@ public class GoogleEarthWebService {
 		status.put("state", state.name());
 		status.put("plotId", statePlotId);
 		status.put("message", stateMessage);
+		status.put("view", view);
 		return status;
 	}
 
@@ -196,7 +232,8 @@ public class GoogleEarthWebService {
 			}
 			if (!moved) {
 				setState(windowOpen ? State.MOVING : State.OPENING, plotId, null);
-				driver = browserService.navigateTo(url, windowOpen ? driver : null, true, false);
+				RemoteWebDriver window = windowOpen ? driver : browserService.initBrowserWithProfile(profileFolder());
+				driver = browserService.navigateTo(url, window, true, false);
 				if (driver == null) {
 					setState(State.ERROR, plotId, "No browser available - install Chrome, Firefox or Edge");
 					return;
@@ -209,6 +246,11 @@ public class GoogleEarthWebService {
 				}
 			}
 			current = overview ? null : target;
+			if (!isOnGoogleEarthWeb()) {
+				// Cookie consent, sign-in...: the watchdog shows the plot once the user is through
+				setState(State.WAITING, plotId, WAITING_MESSAGE);
+				return;
+			}
 			if (overview || injectOverlay(target)) {
 				setState(State.READY, plotId, null);
 			} else {
@@ -276,6 +318,7 @@ public class GoogleEarthWebService {
 			data.put("plotUrl", GoogleEarthWebUrls.cameraUrl(plot.getCoord().getLatitude(),
 					plot.getCoord().getLongitude(), plot.getElevation(), GoogleEarthWebUrls.PLOT_DISTANCE));
 			data.put("inPageNavigation", String.valueOf(inPageNavigation));
+			data.put("neighboursJson", plot.getPlacemarkId() != null && plot.getPlacemarkId().equals(contextPlotId) ? contextJson : "[]");
 			String script = browserService.processJavascriptTemplate(data, OVERLAY_TEMPLATE);
 			if (script == null) {
 				return false;
@@ -299,35 +342,55 @@ public class GoogleEarthWebService {
 			t.setDaemon(true);
 			return t;
 		});
-		watchdog.scheduleWithFixedDelay(this::checkWindow, WATCHDOG_PERIOD_SECONDS, WATCHDOG_PERIOD_SECONDS, TimeUnit.SECONDS);
+		watchdog.scheduleWithFixedDelay(this::checkWindow, WATCHDOG_PERIOD_MILLIS, WATCHDOG_PERIOD_MILLIS, TimeUnit.MILLISECONDS);
 	}
 
 	/**
-	 * Notices a window closed by the user (reported as CLOSED, so the map offers to reopen
-	 * it) and re-draws the outline when the page lost it (F5, or a page load started from
-	 * the information bar).
+	 * Every 2 s while the window shows a plot or waits for the user: notices a window closed
+	 * by the user (CLOSED, so the map offers to reopen it), tracks where the camera looks (for
+	 * the map), shows the plot once Google lets the user through (WAITING -> READY) and
+	 * re-draws the outline when the page lost it (F5, a page load from the information bar).
 	 */
 	private void checkWindow() {
-		if (state != State.READY || driver == null) {
+		if ((state != State.READY && state != State.WAITING) || driver == null) {
 			return;
 		}
 		synchronized (lock) {
-			if (state != State.READY || driver == null) {
+			if ((state != State.READY && state != State.WAITING) || driver == null) {
 				return;
 			}
 			if (!browserService.isDriverWorking(driver)) {
 				driver = null;
 				current = null;
+				view = null;
 				setState(State.CLOSED, null, null);
 				return;
 			}
-			SimplePlacemarkObject plot = current;
-			if (plot == null || !isOnGoogleEarthWeb()) {
-				return;
-			}
 			try {
-				Object armed = driver.executeScript("return !!window." + OVERLAY_TAG + ";");
-				if (!Boolean.TRUE.equals(armed)) {
+				List<?> page = (List<?>) driver.executeScript(PAGE_STATE_SCRIPT);
+				String href = String.valueOf(page.get(0));
+				boolean armed = Boolean.TRUE.equals(page.get(3));
+				SimplePlacemarkObject plot = current;
+				String plotId = plot == null ? null : plot.getPlacemarkId();
+				if (!GoogleEarthWebUrls.isGoogleEarthWeb(href)) {
+					view = null;
+					if (state == State.READY) {
+						setState(State.WAITING, plotId, WAITING_MESSAGE);
+					}
+					return;
+				}
+				view = GoogleEarthWebUrls.cameraView(href, ((Number) page.get(1)).doubleValue(), ((Number) page.get(2)).doubleValue());
+				if (state == State.WAITING) {
+					// Through consent / sign-in: Google may have dropped the camera position
+					if (plot != null && !GoogleEarthWebUrls.isCameraAt(href, Double.parseDouble(plot.getCoord().getLatitude()),
+							Double.parseDouble(plot.getCoord().getLongitude()))) {
+						driver = browserService.navigateTo(GoogleEarthWebUrls.cameraUrl(plot.getCoord().getLatitude(),
+								plot.getCoord().getLongitude(), plot.getElevation(), GoogleEarthWebUrls.PLOT_DISTANCE), driver, true, false);
+					}
+					if (plot == null || injectOverlay(plot)) {
+						setState(State.READY, plotId, null);
+					}
+				} else if (plot != null && !armed) {
 					injectOverlay(plot);
 				}
 			} catch (Exception e) {
@@ -342,6 +405,15 @@ public class GoogleEarthWebService {
 		state = newState;
 		statePlotId = plotId;
 		stateMessage = message;
+	}
+
+	/** Profile of the Google Earth Web window, in the Collect Earth data folder. */
+	private static File profileFolder() {
+		File folder = new File(FolderFinder.getCollectEarthDataFolder(), PROFILE_FOLDER);
+		if (!folder.isDirectory() && !folder.mkdirs()) {
+			LoggerFactory.getLogger(GoogleEarthWebService.class).warn("Could not create {}", folder);
+		}
+		return folder;
 	}
 
 	/** Screen bounds minus the task bar / dock. */

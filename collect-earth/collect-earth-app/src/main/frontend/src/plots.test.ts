@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { countStatuses, matchesFilter, neighbour, nextUnfinished, normalizeStatus, visibleIds } from "./plots";
+import { countStatuses, footprintCorners, matchesFilter, neighbour, nextUnfinished, normalizeStatus, plotsNear, visibleIds } from "./plots";
 import type { PlotStatus } from "./types";
 
 const order = ["p1", "p2", "p3", "p4", "p10"];
@@ -49,5 +49,31 @@ describe("counts and statuses", () => {
     expect(normalizeStatus("saved")).toBe("saved");
     expect(normalizeStatus("bogus")).toBe("empty");
     expect(normalizeStatus(undefined)).toBe("empty");
+  });
+});
+
+describe("Google Earth Web footprint", () => {
+  const view = { latitude: 0, longitude: 0, widthMeters: 2000, heightMeters: 1000, heading: 0 };
+  const m = 1 / 111320; // degrees per metre at the equator
+  it("is the camera rectangle when looking north", () => {
+    const [tl, tr, br, bl] = footprintCorners(view);
+    expect(tl[0]).toBeCloseTo(500 * m, 9); expect(tl[1]).toBeCloseTo(-1000 * m, 9);
+    expect(tr[1]).toBeCloseTo(1000 * m, 9);
+    expect(br[0]).toBeCloseTo(-500 * m, 9); expect(bl[1]).toBeCloseTo(-1000 * m, 9);
+  });
+  it("rotates with the heading (90 = looking east: screen-up points east)", () => {
+    const [tl] = footprintCorners({ ...view, heading: 90 });
+    // top-left of the screen is then north-east of the centre
+    expect(tl[0]).toBeCloseTo(1000 * m, 9);
+    expect(tl[1]).toBeCloseTo(500 * m, 9);
+  });
+});
+
+describe("plotsNear", () => {
+  it("keeps plots within the radius, nearest first, up to the limit", () => {
+    const m = 1 / 111320;
+    const centers: Record<string, [number, number]> = { a: [0, 0], far: [0, 5000 * m], b: [0, 300 * m], c: [0, 100 * m] };
+    expect(plotsNear(centers, [0, 0], 1000, 10)).toEqual(["a", "c", "b"]);
+    expect(plotsNear(centers, [0, 0], 1000, 2)).toEqual(["a", "c"]);
   });
 });

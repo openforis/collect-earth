@@ -39,6 +39,7 @@ export class LeafletEngine implements MapEngine {
   private pending: (() => void) | null = null;
   /** Target of the last flyTo, used to re-center correctly if a resize lands mid-pan. */
   private viewTarget: L.LatLng | null = null;
+  private footprint: L.Polygon | null = null;
 
   init(container: HTMLElement, config: EngineConfig, callbacks: EngineCallbacks): void {
     this.callbacks = callbacks;
@@ -124,6 +125,18 @@ export class LeafletEngine implements MapEngine {
     map.setView(center, map.getZoom(), { animate: false });
   }
 
+  setFootprint(corners: LatLng[] | null): void {
+    const map = this.map;
+    if (!map) return;
+    if (!corners) { this.footprint?.remove(); this.footprint = null; return; }
+    if (this.footprint) { this.footprint.setLatLngs(corners); return; }
+    this.footprint = L.polygon(corners, {
+      className: "gew-footprint",
+      color: "#ffffff", weight: 2, dashArray: "6 6", fill: true, fillColor: "#8ab4f8", fillOpacity: 0.08,
+      interactive: false, renderer: L.svg(), // own SVG layer: crisp dashes above the canvas plots
+    }).addTo(map);
+  }
+
   baseLayers(): string[] { return Object.keys(this.base); }
   currentBaseLayer(): string { return this.baseName; }
 
@@ -140,6 +153,7 @@ export class LeafletEngine implements MapEngine {
     this.map = null;
     this.layers = {};
     this.pending = null;
+    this.footprint = null;
   }
 
   // Leaflet finishes a running zoom animation by moving to ITS target, overriding any

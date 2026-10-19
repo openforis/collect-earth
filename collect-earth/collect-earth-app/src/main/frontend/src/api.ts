@@ -60,3 +60,12 @@ export function gewOpenOverview(center: LatLng): void {
 export function gewArrangeWindows(): void {
   fetch(HOST + "googleEarthWeb/arrange").catch(() => {});
 }
+
+/** Neighbouring plots (with statuses) that Google Earth Web draws around the plot. */
+export interface GewContextPlot { id: string; status: PlotStatus; rings: [number, number][][] }
+
+export function postGewContext(plotId: string, plots: GewContextPlot[]): void {
+  fetch(HOST + "googleEarthWeb/context", {
+    method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ plotId, plots }),
+  }).catch(() => {});
+}

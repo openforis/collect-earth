@@ -1,6 +1,9 @@
 package org.openforis.collect.earth.app.server;
 
 import java.io.IOException;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -28,6 +31,8 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestParam;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -204,6 +209,76 @@ public class PlacemarkBrowserServlet {
 		SimplePlacemarkObject center = new SimplePlacemarkObject(latLongCoordinates.split(","));
 		executor.submit(() -> googleEarthWebService.openOverview(center));
 		response.setStatus(HttpServletResponse.SC_OK);
+	}
+
+	/**
+	 * Neighbouring plots to draw around the plot shown in Google Earth Web, sent by the plots
+	 * map: {"plotId": "...", "plots": [{"id": "...", "status": "saved", "rings": [[[lon, lat], ...]]}]}.
+	 * The JSON is embedded in the script run in the Google Earth Web page, so it is rebuilt
+	 * from typed values here instead of being passed through.
+	 */
+	@PostMapping(path = "/googleEarthWeb/context")
+	public void googleEarthWebContext(HttpServletResponse response, @RequestBody String body) {
+		try {
+			ObjectMapper json = new ObjectMapper();
+			Map<?, ?> request = json.readValue(body, Map.class);
+			List<Map<String, Object>> plots = new ArrayList<>();
+			Object requested = request.get("plots");
+			if (requested instanceof List) {
+				for (Object item : (List<?>) requested) {
+					if (plots.size() >= MAX_CONTEXT_PLOTS) {
+						break;
+					}
+					Map<String, Object> plot = sanitizeContextPlot(item);
+					if (plot != null) {
+						plots.add(plot);
+					}
+				}
+			}
+			Object plotId = request.get("plotId");
+			googleEarthWebService.setContext(plotId == null ? null : String.valueOf(plotId), json.writeValueAsString(plots));
+			response.setStatus(HttpServletResponse.SC_OK);
+		} catch (Exception e) {
+			logger.warn("Invalid Google Earth Web context", e);
+			response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
+		}
+	}
+
+	private static final int MAX_CONTEXT_PLOTS = 300;
+	private static final List<String> CONTEXT_STATUSES = Arrays.asList("empty", "partial", "saved");
+
+	private static Map<String, Object> sanitizeContextPlot(Object item) {
+		if (!(item instanceof Map)) {
+			return null;
+		}
+		Map<?, ?> source = (Map<?, ?>) item;
+		Object status = source.get("status");
+		List<List<double[]>> rings = new ArrayList<>();
+		if (source.get("rings") instanceof List) {
+			for (Object ring : (List<?>) source.get("rings")) {
+				List<double[]> points = new ArrayList<>();
+				if (ring instanceof List) {
+					for (Object point : (List<?>) ring) {
+						if (point instanceof List && ((List<?>) point).size() >= 2
+								&& ((List<?>) point).get(0) instanceof Number && ((List<?>) point).get(1) instanceof Number) {
+							points.add(new double[] { ((Number) ((List<?>) point).get(0)).doubleValue(),
+									((Number) ((List<?>) point).get(1)).doubleValue() });
+						}
+					}
+				}
+				if (points.size() >= 3) {
+					rings.add(points);
+				}
+			}
+		}
+		if (source.get("id") == null || rings.isEmpty()) {
+			return null;
+		}
+		Map<String, Object> plot = new LinkedHashMap<>();
+		plot.put("id", String.valueOf(source.get("id")));
+		plot.put("status", CONTEXT_STATUSES.contains(status) ? status : "empty");
+		plot.put("rings", rings);
+		return plot;
 	}
 
 	/** Places the plots map and Google Earth Web side by side (or on two screens). */

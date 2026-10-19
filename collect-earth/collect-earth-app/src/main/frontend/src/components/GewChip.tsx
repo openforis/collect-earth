@@ -61,6 +61,8 @@ function describe(gew: UiState["gew"], activeId: string | null): {
       return { label: "Opening Google Earth Web…", icon: busy, color: "default", attention: false };
     case "MOVING":
       return { label: gew.plotId ? `Google Earth Web: moving to plot ${gew.plotId}…` : "Google Earth Web: moving…", icon: busy, color: "default", attention: false };
+    case "WAITING":
+      return { label: gew.message ?? "Google Earth Web is waiting for you in its window", icon: <PublicOffIcon />, color: "warning", attention: true };
     case "ERROR":
       return { label: "Google Earth Web: " + (gew.message ?? "error") + " - click to retry", icon: <ErrorOutlineIcon />, color: "error", attention: true };
     case "CLOSED":

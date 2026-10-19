@@ -1,6 +1,8 @@
 package org.openforis.collect.earth.app.service;
 
+import java.util.LinkedHashMap;
 import java.util.Locale;
+import java.util.Map;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -22,6 +24,11 @@ public final class GoogleEarthWebUrls {
 	private static final double TOLERANCE_DEGREES = 0.001;
 
 	private static final Pattern CAMERA = Pattern.compile("/web/@(-?[0-9.]+),(-?[0-9.]+),");
+	private static final Pattern FULL_CAMERA = Pattern.compile(
+			"/web/@(-?[0-9.]+),(-?[0-9.]+),(-?[0-9.]+)a,(-?[0-9.]+)d,(-?[0-9.]+)y,(-?[0-9.]+)h,(-?[0-9.]+)t");
+
+	/** Beyond this tilt the view is not top-down and its ground footprint is not a rectangle. */
+	private static final double MAX_TOP_DOWN_TILT = 5;
 
 	private GoogleEarthWebUrls() {
 	}
@@ -52,6 +59,36 @@ public final class GoogleEarthWebUrls {
 		double[] camera = cameraPosition(url);
 		return camera != null && Math.abs(camera[0] - latitude) < TOLERANCE_DEGREES
 				&& Math.abs(camera[1] - longitude) < TOLERANCE_DEGREES / Math.max(0.1, Math.cos(Math.toRadians(latitude)));
+	}
+
+	/**
+	 * The ground area shown by a top-down Google Earth Web view: centre, size in metres
+	 * (from the camera distance, the vertical field of view and the window aspect ratio) and
+	 * heading in degrees clockwise from north. Null for other URLs or tilted views.
+	 */
+	public static Map<String, Object> cameraView(String url, double windowWidth, double windowHeight) {
+		Matcher m = url == null ? null : FULL_CAMERA.matcher(url);
+		if (m == null || !m.find() || windowWidth <= 0 || windowHeight <= 0) {
+			return null;
+		}
+		try {
+			double distance = Double.parseDouble(m.group(4));
+			double fov = Double.parseDouble(m.group(5));
+			double tilt = Double.parseDouble(m.group(7));
+			if (Math.abs(tilt) > MAX_TOP_DOWN_TILT) {
+				return null;
+			}
+			double height = 2 * distance * Math.tan(Math.toRadians(fov) / 2);
+			Map<String, Object> view = new LinkedHashMap<>();
+			view.put("latitude", Double.parseDouble(m.group(1)));
+			view.put("longitude", Double.parseDouble(m.group(2)));
+			view.put("widthMeters", height * windowWidth / windowHeight);
+			view.put("heightMeters", height);
+			view.put("heading", Double.parseDouble(m.group(6)));
+			return view;
+		} catch (NumberFormatException e) {
+			return null;
+		}
 	}
 
 	public static boolean isGoogleEarthWeb(String url) {

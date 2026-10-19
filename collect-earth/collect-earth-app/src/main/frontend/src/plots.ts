@@ -1,4 +1,4 @@
-import type { ListFilter, PlotStatus } from "./types";
+import type { GewView, LatLng, ListFilter, PlotStatus } from "./types";
 
 // Pure plot-list logic shared by the store and the UI (unit tested in plots.test.ts).
 
@@ -49,4 +49,31 @@ export function countStatuses(order: string[], statuses: Record<string, PlotStat
 
 export function normalizeStatus(value: unknown): PlotStatus {
   return value === "saved" || value === "partial" ? value : "empty";
+}
+
+const METERS_PER_DEGREE = 111320;
+
+/** Corners of the ground rectangle shown by Google Earth Web (rotated by its heading). */
+export function footprintCorners(view: GewView): LatLng[] {
+  const h = (view.heading * Math.PI) / 180;
+  const cosLat = Math.cos((view.latitude * Math.PI) / 180);
+  const hw = view.widthMeters / 2, hh = view.heightMeters / 2;
+  return ([[-hw, hh], [hw, hh], [hw, -hh], [-hw, -hh]] as const).map(([x, y]) => {
+    // screen offset (x right, y up) -> east/north for a camera rotated clockwise by `heading`
+    const east = x * Math.cos(h) + y * Math.sin(h);
+    const north = -x * Math.sin(h) + y * Math.cos(h);
+    return [view.latitude + north / METERS_PER_DEGREE, view.longitude + east / (METERS_PER_DEGREE * cosLat)] as LatLng;
+  });
+}
+
+/** Ids of the plots within `radiusMeters` of `center`, nearest first, at most `limit`. */
+export function plotsNear(centers: Record<string, LatLng>, center: LatLng, radiusMeters: number, limit: number): string[] {
+  const cosLat = Math.cos((center[0] * Math.PI) / 180);
+  const near: [string, number][] = [];
+  for (const [id, [lat, lng]] of Object.entries(centers)) {
+    const dy = (lat - center[0]) * METERS_PER_DEGREE, dx = (lng - center[1]) * METERS_PER_DEGREE * cosLat;
+    const d = Math.hypot(dx, dy);
+    if (d <= radiusMeters) near.push([id, d]);
+  }
+  return near.sort((a, b) => a[1] - b[1]).slice(0, limit).map(([id]) => id);
 }
