@@ -109,6 +109,7 @@ public class LocalPropertiesService extends Observable {
 				@Deprecated
 				OPEN_IN_LEAFLET_MAP("open_in_leaflet_map"),
 				VIEWER_TYPE("viewer_type"),
+				GEW_TRIAL_PROMPT_DISABLED("gew_trial_prompt_disabled"),
 				MAP_ENGINE("map_engine"),
 				DEFERRED_SAVE_DISABLED("deferred_save_disabled"),
 				CLOUD_SYNC_ENABLED("cloud_sync_enabled"),
@@ -495,6 +496,22 @@ public class LocalPropertiesService extends Observable {
 			return VIEWER_TYPE_PLOTS_MAP;
 		}
 		return VIEWER_TYPE_GOOGLE_EARTH_PRO;
+	}
+
+	public void saveViewerType(String viewerType) {
+		setValue(EarthProperty.VIEWER_TYPE, viewerType);
+	}
+
+	/**
+	 * Whether the start-up dialog asking the user to try Google Earth Web instead of
+	 * Google Earth Pro has been switched off ("Don't ask me again").
+	 */
+	public boolean isGoogleEarthWebTrialPromptDisabled() {
+		return isPropertyActivated(EarthProperty.GEW_TRIAL_PROMPT_DISABLED);
+	}
+
+	public void setGoogleEarthWebTrialPromptDisabled(boolean disabled) {
+		setValue(EarthProperty.GEW_TRIAL_PROMPT_DISABLED, Boolean.toString(disabled));
 	}
 
 	/** Whether the plots map window replaces the KML handoff to Google Earth Pro. */

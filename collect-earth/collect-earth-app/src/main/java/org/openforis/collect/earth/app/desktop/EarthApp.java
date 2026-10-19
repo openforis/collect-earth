@@ -22,7 +22,9 @@ import java.beans.PropertyChangeListener;
 import java.nio.charset.StandardCharsets;
 
 import javax.swing.ImageIcon;
+import javax.swing.JCheckBox;
 import javax.swing.JDialog;
+import javax.swing.JLabel;
 import javax.swing.JOptionPane;
 import javax.swing.SwingUtilities;
 import javax.swing.UIManager;
@@ -481,11 +483,63 @@ public class EarthApp {
 			}
 		} else {
 
+			askToTryGoogleEarthWeb();
+
 			startServer(doubleClickedProjectFile);
 
 		}
 
 		GAlogger.logGAnalytics("StartCollectEarth");
+	}
+
+	/**
+	 * While Google Earth Web is being tested as a replacement for Google Earth Pro, ask the user at
+	 * start-up which one to use and store the answer as the plot viewer. Runs before the server starts so
+	 * the choice is already in earth.properties when the server-side properties service loads it.
+	 */
+	private static void askToTryGoogleEarthWeb() {
+		final LocalPropertiesService localProperties = getLocalProperties();
+		if (localProperties.isGoogleEarthWebTrialPromptDisabled()) {
+			return;
+		}
+		try {
+			SwingUtilities.invokeAndWait(() -> {
+				String settingsPath = Messages.getString("CollectEarthWindow.12") + " > " //$NON-NLS-1$ //$NON-NLS-2$
+						+ Messages.getString("CollectEarthWindow.15") + " > " //$NON-NLS-1$ //$NON-NLS-2$
+						+ Messages.getString("OptionWizard.125") + " > " //$NON-NLS-1$ //$NON-NLS-2$
+						+ Messages.getString("ExternalServicesPanel.viewerType"); //$NON-NLS-1$
+				JCheckBox dontAskAgain = new JCheckBox(Messages.getString("EarthApp.gewTrialDontAsk")); //$NON-NLS-1$
+				Object[] message = {
+						new JLabel(Messages.getString("EarthApp.gewTrialMessage").replace("{settingsPath}", settingsPath)), //$NON-NLS-1$ //$NON-NLS-2$
+						dontAskAgain };
+				String useGoogleEarthWeb = Messages.getString("EarthApp.gewTrialAccept"); //$NON-NLS-1$
+				String keepGoogleEarthPro = Messages.getString("EarthApp.gewTrialDecline"); //$NON-NLS-1$
+
+				// Always-on-top dialog so it is not hidden behind the splash screen (see showMessage)
+				JOptionPane pane = new JOptionPane(message, JOptionPane.QUESTION_MESSAGE, JOptionPane.YES_NO_OPTION,
+						null, new Object[] { useGoogleEarthWeb, keepGoogleEarthPro }, keepGoogleEarthPro);
+				JDialog dialog = pane.createDialog(null, Messages.getString("EarthApp.gewTrialTitle")); //$NON-NLS-1$
+				dialog.setAlwaysOnTop(true);
+				dialog.setLocationRelativeTo(null);
+				dialog.toFront();
+				dialog.setVisible(true);
+				dialog.dispose();
+
+				// Closing the dialog counts as declining: Google Earth Pro stays the viewer
+				boolean accepted = useGoogleEarthWeb.equals(pane.getValue());
+				localProperties.saveViewerType(accepted ? LocalPropertiesService.VIEWER_TYPE_GOOGLE_EARTH_WEB
+						: LocalPropertiesService.VIEWER_TYPE_GOOGLE_EARTH_PRO);
+				if (dontAskAgain.isSelected()) {
+					localProperties.setGoogleEarthWebTrialPromptDisabled(true);
+				}
+				logger.info("Google Earth Web trial prompt answered: {}", accepted ? "accepted" : "declined"); //$NON-NLS-1$
+			});
+		} catch (InterruptedException e) {
+			Thread.currentThread().interrupt();
+			logger.error("Interrupted while asking the user to try Google Earth Web", e); //$NON-NLS-1$
+		} catch (InvocationTargetException e) {
+			logger.error("Error asking the user to try Google Earth Web", e); //$NON-NLS-1$
+		}
 	}
 
 	public static void startServer(final String doubleClickedProjectFile) throws Exception {
