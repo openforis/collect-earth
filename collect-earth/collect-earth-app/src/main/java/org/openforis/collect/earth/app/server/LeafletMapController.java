@@ -180,6 +180,7 @@ public class LeafletMapController {
 		config.put("engine", localPropertiesService.getMapEngine());
 		String apiKey = localPropertiesService.getValue(EarthProperty.GOOGLE_MAPS_API_KEY);
 		config.put("googleMapsApiKey", apiKey == null ? "" : apiKey);
+		config.put("viewerType", localPropertiesService.getViewerType());
 		json.writeValue(response.getOutputStream(), config);
 	}
 
