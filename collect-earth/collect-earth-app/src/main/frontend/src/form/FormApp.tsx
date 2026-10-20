@@ -142,13 +142,25 @@ function ReadyForm({ store, state, model }: { store: FormStore; state: FormState
       </Box>
 
       <Divider />
-      <Stack direction="row" spacing={1} sx={{ alignItems: "center", px: 1.5, py: 1 }}>
-        <Button size="small" startIcon={<ChevronLeftIcon />} disabled={back < 0} onClick={() => goTo(back)} data-testid="entry-back">{t("entry.back")}</Button>
-        <Button size="small" endIcon={<ChevronRightIcon />} disabled={next < 0} onClick={() => goTo(next)} data-testid="entry-next">{t("entry.next")}</Button>
+      {/* Back and Next only where there is a step to go to; Submit takes Next's place on the last step */}
+      <Stack direction="row" spacing={1} sx={{ alignItems: "center", px: 1.5, py: 1, minHeight: 52 }}>
+        <Box sx={{ minWidth: 88 }}>
+          {back >= 0 && (
+            <Button size="small" startIcon={<ChevronLeftIcon />} onClick={() => goTo(back)} data-testid="entry-back">{t("entry.back")}</Button>
+          )}
+        </Box>
         <Box sx={{ flex: 1, minWidth: 0, display: "flex", justifyContent: "center" }}>
           <SaveStatus state={state.saveState} />
         </Box>
-        <SubmitButton store={store} state={state} />
+        <Box sx={{ minWidth: 88, display: "flex", justifyContent: "flex-end" }}>
+          {next >= 0 ? (
+            <Tooltip title="Alt+→">
+              <Button variant="contained" disableElevation endIcon={<ChevronRightIcon />} onClick={() => goTo(next)} data-testid="entry-next">
+                {t("entry.next")}
+              </Button>
+            </Tooltip>
+          ) : <SubmitButton store={store} state={state} />}
+        </Box>
       </Stack>
     </Stack>
   );
