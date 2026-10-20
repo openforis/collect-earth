@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useSyncExternalStore } from "react";
+import { useCallback, useEffect, useMemo, useRef, useSyncExternalStore } from "react";
 import Alert from "@mui/material/Alert";
 import Badge from "@mui/material/Badge";
 import Box from "@mui/material/Box";
@@ -103,7 +103,7 @@ function ReadyForm({ store, state, model }: { store: FormStore; state: FormState
           {visibleTabs.map(({ tb, i }) => (
             <Tab key={tb.id} value={i} data-testid={`entry-tab-${i}`} label={
               errorTabs.has(i)
-                ? <Tooltip title={t("entry.tabErrors")}><Badge color="error" variant="dot" sx={{ "& .MuiBadge-badge": { right: -6 } }}>{tb.label}</Badge></Tooltip>
+                ? <Tooltip title={t("entry.tabErrors")} describeChild><Badge color="error" variant="dot" sx={{ "& .MuiBadge-badge": { right: -6 } }}>{tb.label}</Badge></Tooltip>
                 : tb.label} />
           ))}
         </Tabs>
@@ -260,6 +260,9 @@ function Group({ store, state, item }: { store: FormStore; state: FormState; ite
 
 /** Enumerated entity: one row per code list item, as in the balloon. */
 function EntityTable({ store, state, item }: { store: FormStore; state: FormState; item: TableItem }) {
+  // A cell shows no label: its control is named after its row and column, or every row would read the same
+  const cellFields = useMemo(() => new Map(item.rows.flatMap((r) =>
+    r.fields.map((f): [string, Field] => [f.name, { ...f, label: `${r.label} – ${f.label}` }]))), [item]);
   const rows = item.rows.filter((r) => r.fields.some((f) => isVisible(state.infos, f.name)));
   if (!rows.length) return null;
   return (
@@ -281,7 +284,7 @@ function EntityTable({ store, state, item }: { store: FormStore; state: FormStat
                 <TableCell component="th" scope="row" sx={{ fontWeight: 500 }} title={row.description}>{row.label}</TableCell>
                 {row.fields.map((f) => (
                   <TableCell key={f.name} sx={{ minWidth: 140 }}>
-                    <BoundField store={store} state={state} field={f} dense />
+                    <BoundField store={store} state={state} field={cellFields.get(f.name) ?? f} dense />
                   </TableCell>
                 ))}
               </TableRow>

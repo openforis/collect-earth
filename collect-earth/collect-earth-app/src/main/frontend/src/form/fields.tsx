@@ -148,6 +148,8 @@ function CodeSelect({ field, value, items, parentLabel, onChange, error, dense }
     getOptionLabel: (o: CodeItem) => o.label,
     isOptionEqualToValue: (a: CodeItem, b: CodeItem) => a.code === b.code,
     noOptionsText: t("entry.noOptions"),
+    // Typing part of a label then Enter picks the first match
+    autoHighlight: true,
     renderOption: (p: HTMLAttributes<HTMLLIElement> & { key: Key }, o: CodeItem) => {
       const { key, ...rest } = p;
       return <li key={key} {...rest} title={o.description} data-code={o.code}>{o.label}</li>;
