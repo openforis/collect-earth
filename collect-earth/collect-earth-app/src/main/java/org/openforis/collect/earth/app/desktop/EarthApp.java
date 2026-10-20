@@ -647,6 +647,14 @@ public class EarthApp {
 	 */
 	private static void askToTryGoogleEarthWeb() {
 		final LocalPropertiesService localProperties = getLocalProperties();
+		// Unattended runs ( automated tests ) choose the viewer with -Dcollectearth.viewerType=google_earth_web, since
+		// the dialog blocks the start-up until someone answers it. The "do not ask again" choice of the user is kept
+		String forcedViewerType = System.getProperty("collectearth.viewerType"); //$NON-NLS-1$
+		if (StringUtils.isNotBlank(forcedViewerType)) {
+			localProperties.saveViewerType(forcedViewerType.trim());
+			logger.info("Plot viewer set from the command line : {}", forcedViewerType); //$NON-NLS-1$
+			return;
+		}
 		if (localProperties.isGoogleEarthWebTrialPromptDisabled()) {
 			return;
 		}
