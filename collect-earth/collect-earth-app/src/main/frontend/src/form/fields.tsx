@@ -12,6 +12,7 @@ import ToggleButton from "@mui/material/ToggleButton";
 import ToggleButtonGroup from "@mui/material/ToggleButtonGroup";
 import Tooltip from "@mui/material/Tooltip";
 import Typography from "@mui/material/Typography";
+import CheckIcon from "@mui/icons-material/Check";
 import InfoOutlinedIcon from "@mui/icons-material/InfoOutlined";
 import { useT } from "../i18n";
 import {
@@ -124,15 +125,33 @@ function CodeButtons({ field, value, items, parentLabel, onChange, error }: Fiel
         const on = selected.includes(item.code);
         const chip = (
           <Chip key={item.id} label={item.label} clickable onClick={() => toggle(item.code)}
-            color={on ? "primary" : "default"} variant={on ? "filled" : "outlined"}
+            icon={on ? <CheckIcon /> : undefined}
             role={field.multiple ? "checkbox" : "radio"} aria-checked={on} data-code={item.code}
-            sx={{ height: "auto", minHeight: 32, py: 0.5, "& .MuiChip-label": { whiteSpace: "normal" }, fontWeight: on ? 600 : 400 }} />
+            sx={on ? CODE_ON_SX : CODE_SX} />
         );
         return item.description ? <Tooltip key={item.id} title={item.description}>{chip}</Tooltip> : chip;
       })}
     </Box>
   );
 }
+
+// The balloon's code buttons: cyan Bootstrap "info" buttons, dark teal once chosen
+const CODE_SX = {
+  height: "auto", minHeight: 32, py: 0.5, borderRadius: 1, border: 1, fontWeight: 500,
+  bgcolor: "balloon.code", borderColor: "balloon.codeBorder", color: "balloon.codeText",
+  "& .MuiChip-label": { whiteSpace: "normal" },
+  "&:hover, &.Mui-focusVisible": { bgcolor: "balloon.codeHover" },
+} as const;
+const CODE_ON_SX = {
+  ...CODE_SX, fontWeight: 600,
+  bgcolor: "balloon.codeOn", borderColor: "balloon.codeOnBorder", color: "balloon.codeOnText",
+  "& .MuiChip-icon": { color: "inherit", fontSize: 18 },
+  "&:hover, &.Mui-focusVisible": { bgcolor: "balloon.codeOn", filter: "brightness(1.1)" },
+} as const;
+const TOGGLE_SX = {
+  ...CODE_SX, px: 2.5, fontWeight: 600, minHeight: 0, py: 0.75,
+  "&.Mui-selected, &.Mui-selected:hover": { bgcolor: "balloon.codeOn", borderColor: "balloon.codeOnBorder", color: "balloon.codeOnText" },
+} as const;
 
 /** Long lists: a searchable dropdown. */
 function CodeSelect({ field, value, items, parentLabel, onChange, error, dense }: FieldProps & { error: boolean }) {
@@ -148,11 +167,13 @@ function CodeSelect({ field, value, items, parentLabel, onChange, error, dense }
     getOptionLabel: (o: CodeItem) => o.label,
     isOptionEqualToValue: (a: CodeItem, b: CodeItem) => a.code === b.code,
     noOptionsText: t("entry.noOptions"),
+    // Typing part of a label then Enter picks the first match
+    autoHighlight: true,
     renderOption: (p: HTMLAttributes<HTMLLIElement> & { key: Key }, o: CodeItem) => {
       const { key, ...rest } = p;
       return <li key={key} {...rest} title={o.description} data-code={o.code}>{o.label}</li>;
     },
-    sx: { minWidth: dense ? 160 : undefined },
+    sx: { minWidth: dense ? 220 : undefined },
   };
   if (field.multiple) {
     return (
@@ -205,8 +226,8 @@ function BooleanInput({ field, value, onChange, error }: FieldProps & { error: b
     <ToggleButtonGroup exclusive size="small" value={value || null} id={field.name} aria-label={field.label}
       onChange={(_, v: string | null) => onChange(field.name, v ?? "")}
       sx={error ? { outline: 1, outlineColor: "error.main", borderRadius: 1 } : undefined}>
-      <ToggleButton value="true" color="primary" sx={{ px: 2.5 }}>{t("entry.yes")}</ToggleButton>
-      <ToggleButton value="false" color="primary" sx={{ px: 2.5 }}>{t("entry.no")}</ToggleButton>
+      <ToggleButton value="true" sx={TOGGLE_SX}>{t("entry.yes")}</ToggleButton>
+      <ToggleButton value="false" sx={TOGGLE_SX}>{t("entry.no")}</ToggleButton>
     </ToggleButtonGroup>
   );
 }

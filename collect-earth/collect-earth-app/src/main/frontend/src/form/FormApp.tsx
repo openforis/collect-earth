@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useSyncExternalStore } from "react";
+import { useCallback, useEffect, useMemo, useRef, useSyncExternalStore } from "react";
 import Alert from "@mui/material/Alert";
 import Badge from "@mui/material/Badge";
 import Box from "@mui/material/Box";
@@ -7,7 +7,6 @@ import Card from "@mui/material/Card";
 import CardContent from "@mui/material/CardContent";
 import Chip from "@mui/material/Chip";
 import CircularProgress from "@mui/material/CircularProgress";
-import Divider from "@mui/material/Divider";
 import Link from "@mui/material/Link";
 import Stack from "@mui/material/Stack";
 import Tab from "@mui/material/Tab";
@@ -29,6 +28,7 @@ import DeleteOutlineIcon from "@mui/icons-material/DeleteOutlineOutlined";
 import EditOutlinedIcon from "@mui/icons-material/EditOutlined";
 import SendIcon from "@mui/icons-material/Send";
 import { type MessageKey, useT } from "../i18n";
+import logo from "./collect-earth-logo.png";
 import { FieldView } from "./fields";
 import {
   type Field, type FormModel, type GroupItem, type InfoItem, type Item, type MultipleItem, type TableItem,
@@ -96,20 +96,21 @@ function ReadyForm({ store, state, model }: { store: FormStore; state: FormState
   const visibleTabs = model.tabs.map((tb, i) => ({ tb, i })).filter(({ tb, i }) => i === state.tab || isTabVisible(tb, state.infos));
 
   return (
-    <Stack sx={{ height: "100vh", bgcolor: "background.paper" }} data-testid="entry-form">
+    <Stack sx={{ height: "100vh", bgcolor: "background.default" }} data-testid="entry-form">
       {visibleTabs.length > 1 && (
-        <Tabs value={state.tab} onChange={(_, v: number) => goTo(v)} variant="scrollable" scrollButtons="auto" allowScrollButtonsMobile
-          sx={{ borderBottom: 1, borderColor: "divider", minHeight: 44, "& .MuiTab-root": { minHeight: 44, py: 1 } }}>
+        <Tabs value={state.tab} onChange={(_, v: number) => goTo(v)} sx={{ px: 1, pt: 1, pb: 0.75 }}>
           {visibleTabs.map(({ tb, i }) => (
             <Tab key={tb.id} value={i} data-testid={`entry-tab-${i}`} label={
               errorTabs.has(i)
-                ? <Tooltip title={t("entry.tabErrors")}><Badge color="error" variant="dot" sx={{ "& .MuiBadge-badge": { right: -6 } }}>{tb.label}</Badge></Tooltip>
+                ? <Tooltip title={t("entry.tabErrors")} describeChild><Badge color="error" variant="dot" sx={{ "& .MuiBadge-badge": { right: -8, top: 2, boxShadow: "0 0 0 1.5px #fff" } }}>{tb.label}</Badge></Tooltip>
                 : tb.label} />
           ))}
         </Tabs>
       )}
 
-      <Box ref={content} sx={{ flex: 1, overflowY: "auto", px: 2, pt: 1.5, pb: 2 }}>
+      {/* the balloon's grey panel around the questions */}
+      <Box ref={content} sx={{ flex: 1, overflowY: "auto", mx: 1, mt: visibleTabs.length > 1 ? 0 : 1, px: 2, pt: 1.5, pb: 2,
+        bgcolor: "balloon.panel", borderRadius: 1.5 }}>
         <Stack spacing={1.5}>
           {state.serverDown && (
             <Alert severity="warning" icon={<CloudOffOutlinedIcon />} data-testid="entry-server-down"
@@ -141,12 +142,13 @@ function ReadyForm({ store, state, model }: { store: FormStore; state: FormState
         </Stack>
       </Box>
 
-      <Divider />
       {/* Back and Next only where there is a step to go to; Submit takes Next's place on the last step */}
-      <Stack direction="row" spacing={1} sx={{ alignItems: "center", px: 1.5, py: 1, minHeight: 52 }}>
+      <Stack direction="row" spacing={1} sx={{ alignItems: "center", px: 1, py: 1, minHeight: 52 }}>
+        {/* the balloon's footer: the Collect Earth logo, then the step buttons */}
+        <Box component="img" src={logo} alt="Open Foris Collect Earth" sx={{ height: 34, mr: 0.5, px: 0.75, py: "2px", bgcolor: "#fff", borderRadius: 1, "@media (max-width: 460px)": { display: "none" } }} />
         <Box sx={{ minWidth: 88 }}>
           {back >= 0 && (
-            <Button size="small" startIcon={<ChevronLeftIcon />} onClick={() => goTo(back)} data-testid="entry-back">{t("entry.back")}</Button>
+            <Button size="small" variant="outlined" startIcon={<ChevronLeftIcon />} onClick={() => goTo(back)} data-testid="entry-back">{t("entry.back")}</Button>
           )}
         </Box>
         <Box sx={{ flex: 1, minWidth: 0, display: "flex", justifyContent: "center" }}>
@@ -208,7 +210,8 @@ function HeaderInfo({ items, store }: { items: InfoItem[]; store: FormStore }) {
   return (
     <Stack direction="row" sx={{ flexWrap: "wrap", gap: 0.75 }} data-testid="entry-header">
       {shown.map((i) => (
-        <Chip key={i.name} size="small" label={<><Box component="span" sx={{ color: "text.secondary" }}>{i.label}:</Box> {i.value}</>} />
+        <Chip key={i.name} size="small" sx={{ bgcolor: "balloon.capsule", fontWeight: 600 }}
+          label={<><Box component="span" sx={{ color: "text.secondary", fontWeight: 400 }}>{i.label}:</Box> {i.value}</>} />
       ))}
     </Stack>
   );
@@ -272,12 +275,15 @@ function Group({ store, state, item }: { store: FormStore; state: FormState; ite
 
 /** Enumerated entity: one row per code list item, as in the balloon. */
 function EntityTable({ store, state, item }: { store: FormStore; state: FormState; item: TableItem }) {
+  // A cell shows no label: its control is named after its row and column, or every row would read the same
+  const cellFields = useMemo(() => new Map(item.rows.flatMap((r) =>
+    r.fields.map((f): [string, Field] => [f.name, { ...f, label: `${r.label} – ${f.label}` }]))), [item]);
   const rows = item.rows.filter((r) => r.fields.some((f) => isVisible(state.infos, f.name)));
   if (!rows.length) return null;
   return (
     <Box>
       <SectionTitle label={item.label} description={item.description} />
-      <Box sx={{ overflowX: "auto", mt: 1, border: 1, borderColor: "divider", borderRadius: 2 }}>
+      <Box sx={{ overflowX: "auto", mt: 1, border: 1, borderColor: "divider", borderRadius: 2, bgcolor: "background.paper" }}>
         <Table size="small" sx={{ "& td, & th": { borderColor: "divider" } }}>
           <TableHead>
             <TableRow>
@@ -293,7 +299,7 @@ function EntityTable({ store, state, item }: { store: FormStore; state: FormStat
                 <TableCell component="th" scope="row" sx={{ fontWeight: 500 }} title={row.description}>{row.label}</TableCell>
                 {row.fields.map((f) => (
                   <TableCell key={f.name} sx={{ minWidth: 140 }}>
-                    <BoundField store={store} state={state} field={f} dense />
+                    <BoundField store={store} state={state} field={cellFields.get(f.name) ?? f} dense />
                   </TableCell>
                 ))}
               </TableRow>

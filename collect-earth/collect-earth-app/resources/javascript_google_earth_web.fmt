@@ -33,6 +33,8 @@
     var PLOT_URL = "${plotUrl?js_string}";
     // Whether Google Earth Web follows in-page navigation: "true", "false" or "null" (not tried yet)
     var IN_PAGE_NAVIGATION = "${inPageNavigation}";
+    // Camera URL Collect Earth has just sent Google Earth Web flying to, "" if none (see expectFlight)
+    var FLIGHT_URL = "${(flightUrl!"")?js_string}";
     var CE_TAG = "__collectEarthGewOverlay";
     // Texts in the Collect Earth UI language
     var LABELS = {
@@ -42,6 +44,8 @@
     };
 
     // ===== Cleanup from any previous injection (driver reuses the tab) =====
+    // A redraw with new neighbours during a flight keeps waiting for the camera to arrive
+    var inheritedFlight = window[CE_TAG] && window[CE_TAG].flight ? window[CE_TAG].flight() : null;
     if (window[CE_TAG] && window[CE_TAG].stop) {
         try { window[CE_TAG].stop(); } catch (e) { /* ignore */ }
     }
@@ -51,13 +55,13 @@
     // GEW keeps this up to date as the camera settles; there is no public API,
     // so the URL is the only reliable camera source. All maths below assume a
     // (near-)nadir view, which Collect Earth enforces by flying with 0h,0t,0r.
-    function parseCamera() {
-        var m = window.location.href.match(
+    function parseCamera(href) {
+        var m = (href || window.location.href).match(
             /@(-?[0-9.]+),(-?[0-9.]+),(-?[0-9.]+)a,(-?[0-9.]+)d,(-?[0-9.]+)y,(-?[0-9.]+)h,(-?[0-9.]+)t,(-?[0-9.]+)r/);
         if (!m) return null;
         return {
             lat: parseFloat(m[1]), lon: parseFloat(m[2]), alt: parseFloat(m[3]),
-            dist: parseFloat(m[4]), fov: parseFloat(m[5]),
+            dist: parseFloat(m[4]), distText: m[4], fov: parseFloat(m[5]),
             heading: parseFloat(m[6]), tilt: parseFloat(m[7])
         };
     }
@@ -122,6 +126,7 @@
         if (IN_PAGE_NAVIGATION === "true") {
             history.pushState(null, "", PLOT_URL);
             window.dispatchEvent(new PopStateEvent("popstate", { state: null }));
+            expectFlight(PLOT_URL);
         } else {
             window.location.assign(PLOT_URL);
         }
@@ -196,13 +201,58 @@
         setHint(offScreen ? LABELS.hintOutOfView : "", offScreen);
     }
 
+    // ===== Hidden while Google Earth Web flies to a camera Collect Earth sent =====
+    // During an in-page flight the URL keeps the camera that was pushed (GEW only appends its
+    // /data= suffix at once) for the ~4 s of the animation, then GEW writes the camera it arrived
+    // at (e.g. 400d becomes 400.00468618d). A URL that does not change would otherwise count as
+    // settled, and the plot would be drawn over the imagery still moving under it.
+    var FLIGHT_TIMEOUT_MILLIS = 8000;
+    var flight = null;
+    // the user grabbed the camera during the flight: then it has to settle like any user move
+    var userMoved = false;
+
+    // GEW may reformat the numbers it was given (-16.322392999999998 -> -16.322393), but it keeps the
+    // distance as written until the camera arrives, then writes the one it computed (400 -> 400.00453096)
+    function sameCamera(a, b) {
+        return a.distText === b.distText && Math.abs(a.lat - b.lat) < 1e-5 && Math.abs(a.lon - b.lon) < 1e-5
+            && a.heading === b.heading && a.tilt === b.tilt;
+    }
+
+    function expectFlight(url) {
+        var cam = parseCamera(url);
+        flight = cam ? { cam: cam, until: Date.now() + FLIGHT_TIMEOUT_MILLIS } : null;
+        userMoved = false;
+        hide("", false);
+        stableCount = 0;
+    }
+
+    // Over once GEW writes a camera of its own (arrived, or the user took over), or after the timeout
+    function inFlight() {
+        if (!flight) return false;
+        var cam = parseCamera();
+        if (cam && sameCamera(cam, flight.cam) && Date.now() <= flight.until) return true;
+        var arrived = cam && Date.now() <= flight.until && !userMoved;
+        flight = null;
+        if (arrived) {
+            // GEW writes the camera once it is at rest: no need to wait for it to stay the same
+            lastHref = window.location.href;
+            stableCount = 2;
+            draw();
+            return true;
+        }
+        return false;
+    }
+
     // ===== Redraw when the camera settles, hide while it moves =====
     // GEW rewrites the URL as the camera comes to rest; poll it and draw only
     // after two identical consecutive reads. Any interaction hides the overlay
     // immediately so a stale projection is never shown over moving imagery.
     var lastHref = null;
     var stableCount = 0;
+    if (FLIGHT_URL) expectFlight(FLIGHT_URL);
+    else if (inheritedFlight) flight = inheritedFlight;
     var timer = setInterval(function () {
+        if (inFlight()) return;
         var href = window.location.href;
         if (href !== lastHref) {
             lastHref = href;
@@ -216,6 +266,7 @@
 
     function onInteract(e) {
         if (e && e.target && info.bar.contains(e.target)) return; // clicks on the information bar
+        if (flight) userMoved = true;
         hide("", false);
         stableCount = 0;
     }
@@ -226,6 +277,9 @@
 
     window[CE_TAG] = {
         plotId: PLOT_ID,
+        // the plots map moved the camera (GoogleEarthWebService.CAMERA_MOVE_SCRIPT)
+        expectFlight: expectFlight,
+        flight: function () { return inFlight() ? flight : null; },
         stop: function () {
             clearInterval(timer);
             window.removeEventListener("mousedown", onInteract, true);
