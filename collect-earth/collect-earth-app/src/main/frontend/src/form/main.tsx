@@ -6,7 +6,7 @@ import { createRoot } from "react-dom/client";
 import CssBaseline from "@mui/material/CssBaseline";
 import { ThemeProvider } from "@mui/material/styles";
 import { I18nContext, translator } from "../i18n";
-import { theme } from "../theme";
+import { formTheme } from "./formTheme";
 import { FormApp } from "./FormApp";
 import { FormStore } from "./store";
 
@@ -18,7 +18,7 @@ const store = new FormStore(params.get("id") ?? "");
 
 createRoot(document.getElementById("root")!).render(
   <StrictMode>
-    <ThemeProvider theme={theme}>
+    <ThemeProvider theme={formTheme}>
       <CssBaseline />
       <I18nContext.Provider value={translator(language)}>
         <FormApp store={store} />
