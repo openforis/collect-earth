@@ -120,7 +120,7 @@ public class ExternalServicesPanel extends AbstractPropertyPanel {
 
         planetApiKeyField = componentFactory.createPasswordField(EarthProperty.PLANET_MAPS_KEY);
         planetApiKeyField.setEnabled(openPlanetCheckbox.isSelected());
-        planetApiKeyField.setToolTipText(Messages.getString("OptionWizard.1043"));
+        planetApiKeyField.setToolTipText(Messages.getString("OptionWizard.1053"));
         registerComponent(EarthProperty.PLANET_MAPS_KEY, planetApiKeyField);
 
         // Says that the key below serves both modes, and asks for it while it is missing
@@ -204,7 +204,7 @@ public class ExternalServicesPanel extends AbstractPropertyPanel {
         boolean planetSelected = openPlanetCheckbox.isSelected();
         boolean hasKey = planetApiKeyField.getPassword().length > 0;
         planetApiKeyNote.setVisible(planetSelected);
-        planetApiKeyNote.setText(Messages.getString(hasKey ? "OptionWizard.1044" : "OptionWizard.1045"));
+        planetApiKeyNote.setText(Messages.getString(hasKey ? "OptionWizard.1054" : "OptionWizard.1055"));
         planetApiKeyNote.setForeground(hasKey ? HINT_TEXT_COLOR : WARNING_TEXT_COLOR);
         revalidate();
         repaint();
