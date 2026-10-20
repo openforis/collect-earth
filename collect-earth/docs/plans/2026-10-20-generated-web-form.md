@@ -84,7 +84,8 @@ the plots map.
    - ~~Range attributes~~ — done: `RangeAttributeHandler` saves integer (`integer_range_`) and real
      (`real_range_`) ranges as `FROM-TO`, handlers are matched on their longest prefix, and the form shows
      From / To.
-   - Qualifiable code items ("other, specify"): add the qualifier to the code parameter format.
+   - ~~Qualifiable code items~~ — done: the value of a qualifiable item carries its text after `::`
+     (`other::Eucalyptus`), both ways, in `CodeAttributeHandler`; the form shows a "Specify" box.
    - Code item images: serve `earthFiles/img/code_list/...` from the project folder and show them in the item
      tooltip.
    - Nested entities deeper than one level, with a parameter format for them.

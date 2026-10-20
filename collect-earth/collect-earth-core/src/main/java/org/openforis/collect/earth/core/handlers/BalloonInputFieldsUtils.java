@@ -50,6 +50,7 @@ import org.openforis.idm.metamodel.NodeDefinition;
 import org.openforis.idm.metamodel.NodeDefinitionVisitor;
 import org.openforis.idm.metamodel.NumericAttributeDefinition.Type;
 import org.openforis.idm.model.Attribute;
+import org.openforis.idm.model.Code;
 import org.openforis.idm.model.CodeAttribute;
 import org.openforis.idm.model.Entity;
 import org.openforis.idm.model.Node;
@@ -184,7 +185,10 @@ public class BalloonInputFieldsUtils {
 			List<CodeListItem> validCodeListItems = codeListService.loadValidItems(firstAttribute.getParent(),
 					(CodeAttributeDefinition) attrDef);
 
-			CodeListItem selectedCodeListItem = getCodeListItem(validCodeListItems, value);
+			// Matched on the code of the first value : the value of a qualifiable item carries its qualifier too
+			Object firstValue = firstAttribute.getValue();
+			String selectedCode = firstValue instanceof Code ? ((Code) firstValue).getCode() : null;
+			CodeListItem selectedCodeListItem = getCodeListItem(validCodeListItems, selectedCode);
 			info.setCodeItemId(selectedCodeListItem == null ? null : selectedCodeListItem.getId());
 			List<PlacemarkCodedItem> possibleCodedItems = new ArrayList<>(validCodeListItems.size() + 1);
 			possibleCodedItems.add(new PlacemarkCodedItem(NOT_APPLICABLE_ITEM_CODE, NOT_APPLICABLE_ITEM_LABEL));

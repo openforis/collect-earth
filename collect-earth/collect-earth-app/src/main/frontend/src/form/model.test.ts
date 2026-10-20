@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest";
 import {
   type Field, type FormModel, availableItems, dateFromInput, dateToInput, entityCount, errorList, fieldsByName,
-  indexedField, isTabVisible, joinValues, mergeInfos, rangeFromInput, rangeToInput, saveBody, splitValues, tabsWithErrors,
-  timeToInput,
+  indexedField, isTabVisible, joinValues, mergeInfos, parseCodes, qualify, rangeFromInput, rangeToInput, saveBody, selectCodes,
+  splitValues, tabsWithErrors, timeToInput,
 } from "./model";
 
 const category: Field = {
@@ -51,6 +51,27 @@ describe("value formats", () => {
     expect(splitValues("a===b")).toEqual(["a", "b"]);
     expect(splitValues("")).toEqual([]);
     expect(joinValues(["a", "b"])).toBe("a===b");
+  });
+});
+
+describe("qualifiable items (Other, specify)", () => {
+  it("reads each code with its qualifier", () => {
+    expect(parseCodes("pine===other::Eucalyptus")).toEqual([{ code: "pine", qualifier: "" }, { code: "other", qualifier: "Eucalyptus" }]);
+    expect(parseCodes("other::a :: b")).toEqual([{ code: "other", qualifier: "a :: b" }]);
+  });
+  it("keeps the qualifier of a code that stays selected, and drops the others", () => {
+    expect(selectCodes("other::Teak", ["other", "pine"])).toBe("other::Teak===pine");
+    expect(selectCodes("other::Teak", ["pine"])).toBe("pine");
+    expect(selectCodes("other::Teak", [])).toBe("");
+  });
+  it("writes the qualifier of one code; an empty one is no qualifier", () => {
+    expect(qualify("pine===other", "other", "Teak")).toBe("pine===other::Teak");
+    expect(qualify("other::Teak", "other", "  ")).toBe("other");
+  });
+  it("a qualified parent still selects its children", () => {
+    const byName = fieldsByName(model, {});
+    const items = availableItems(subdivision, {}, { collect_code_lu: "F::planted" }, byName).map((i) => i.code);
+    expect(items).toEqual(["dec", "ever"]);
   });
 });
 

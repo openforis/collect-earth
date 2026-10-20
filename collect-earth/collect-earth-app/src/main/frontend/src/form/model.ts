@@ -87,6 +87,34 @@ export function joinValues(values: string[]): string {
   return values.join(SEPARATOR);
 }
 
+/** Between a code and the text of a qualifiable item ("other::Eucalyptus"), as CodeAttributeHandler reads it */
+export const QUALIFIER_SEPARATOR = "::";
+
+export interface CodeValue { code: string; qualifier: string }
+
+/** The codes of a code field, each with its qualifier ("" when none) */
+export function parseCodes(value: string | null | undefined): CodeValue[] {
+  return splitValues(value).map((v) => {
+    const at = v.indexOf(QUALIFIER_SEPARATOR);
+    return at < 0 ? { code: v, qualifier: "" } : { code: v.slice(0, at), qualifier: v.slice(at + QUALIFIER_SEPARATOR.length) };
+  });
+}
+
+export function formatCodes(codes: CodeValue[]): string {
+  return joinValues(codes.map((c) => (c.qualifier.trim() ? c.code + QUALIFIER_SEPARATOR + c.qualifier : c.code)));
+}
+
+/** A new selection of codes, keeping the qualifiers of the codes that stay selected */
+export function selectCodes(value: string | null | undefined, codes: string[]): string {
+  const current = parseCodes(value);
+  return formatCodes(codes.map((code) => ({ code, qualifier: current.find((c) => c.code === code)?.qualifier ?? "" })));
+}
+
+/** The value with the qualifier of one of its codes changed */
+export function qualify(value: string | null | undefined, code: string, qualifier: string): string {
+  return formatCodes(parseCodes(value).map((c) => (c.code === code ? { code, qualifier } : c)));
+}
+
 // ---------- value formats: the server's (DateAttributeHandler, TimeAttributeHandler) <-> the inputs' ----------
 
 /** MM/dd/yyyy (server) -> yyyy-MM-dd (input type=date) */
@@ -248,7 +276,7 @@ export function selectedItemId(name: string, infos: Record<string, FieldInfo>, v
   const f = fieldsByName[name];
   const local = values[name];
   if (local != null && f?.code) {
-    const code = splitValues(local)[0];
+    const code = parseCodes(local)[0]?.code;
     if (code == null) return null; // cleared
     const parentId = f.code.parent ? selectedItemId(f.code.parent, infos, values, fieldsByName) : null;
     const item = f.code.items.find((i) => i.code === code && (parentId == null || i.parentId == null || i.parentId === parentId));

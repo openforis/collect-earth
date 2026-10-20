@@ -99,6 +99,7 @@ const en = {
   "entry.longitude": "Longitude",
   "entry.from": "From",
   "entry.to": "To",
+  "entry.specify": "Specify “{item}”",
   "entry.calculated": "Calculated",
   "entry.empty": "Nothing to fill in on this tab for this plot.",
 };
@@ -202,6 +203,7 @@ const es: Catalogue = {
   "entry.longitude": "Longitud",
   "entry.from": "Desde",
   "entry.to": "Hasta",
+  "entry.specify": "Especifique «{item}»",
   "entry.calculated": "Calculado",
   "entry.empty": "No hay nada que rellenar en esta pestaña para esta parcela.",
 };
@@ -302,6 +304,7 @@ const fr: Catalogue = {
   "entry.longitude": "Longitude",
   "entry.from": "De",
   "entry.to": "À",
+  "entry.specify": "Précisez « {item} »",
   "entry.calculated": "Calculé",
   "entry.empty": "Rien à remplir dans cet onglet pour cette parcelle.",
 };
@@ -402,6 +405,7 @@ const pt: Catalogue = {
   "entry.longitude": "Longitude",
   "entry.from": "De",
   "entry.to": "Até",
+  "entry.specify": "Especifique «{item}»",
   "entry.calculated": "Calculado",
   "entry.empty": "Nada a preencher neste separador para esta parcela.",
 };

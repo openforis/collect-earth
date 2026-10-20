@@ -16,7 +16,7 @@ import InfoOutlinedIcon from "@mui/icons-material/InfoOutlined";
 import { useT } from "../i18n";
 import {
   type CodeItem, type Field, type FieldInfo, coordinateFromInput, coordinateToInput, dateFromInput,
-  dateToInput, joinValues, normalizeNumber, rangeFromInput, rangeToInput, splitValues, timeToInput,
+  dateToInput, normalizeNumber, parseCodes, qualify, rangeFromInput, rangeToInput, selectCodes, timeToInput,
 } from "./model";
 import { TYPING_DELAY } from "./store";
 
@@ -61,7 +61,12 @@ function Control(props: FieldProps & { error: boolean }) {
   const { field } = props;
   if (field.readOnly) return <ReadOnlyValue {...props} />;
   switch (field.type) {
-    case "code": return field.code?.layout === "dropdown" ? <CodeSelect {...props} /> : <CodeButtons {...props} />;
+    case "code": return (
+      <>
+        {field.code?.layout === "dropdown" ? <CodeSelect {...props} /> : <CodeButtons {...props} />}
+        <Qualifiers {...props} />
+      </>
+    );
     case "boolean": return <BooleanInput {...props} />;
     case "integer":
     case "real": return <TextInput {...props} numeric />;
@@ -85,8 +90,8 @@ function ReadOnlyValue({ field, value, info }: FieldProps) {
   const t = useT();
   let text = value;
   if (field.type === "code" && field.code) {
-    text = splitValues(value).map((c) => field.code!.items.find((i) => i.code === c)?.label
-      ?? info?.possibleCodedItems?.find((i) => i.code === c)?.label ?? c).join(", ");
+    text = parseCodes(value).map(({ code: c, qualifier }) => (field.code!.items.find((i) => i.code === c)?.label
+      ?? info?.possibleCodedItems?.find((i) => i.code === c)?.label ?? c) + (qualifier ? `: ${qualifier}` : "")).join(", ");
   } else if (field.type === "boolean") {
     text = value === "true" ? t("entry.yes") : value === "false" ? t("entry.no") : "";
   }
@@ -101,15 +106,15 @@ function ReadOnlyValue({ field, value, info }: FieldProps) {
 /** Items as chips that wrap: every option visible at once, one click to answer (the balloon's buttons). */
 function CodeButtons({ field, value, items, parentLabel, onChange, error }: FieldProps & { error: boolean }) {
   const t = useT();
-  const selected = splitValues(value);
+  const selected = parseCodes(value).map((c) => c.code);
   if (!items.length) {
     return <Typography variant="body2" color="text.secondary">{parentLabel ? t("entry.chooseParent", { parent: parentLabel }) : t("entry.noOptions")}</Typography>;
   }
   const toggle = (code: string) => {
     if (field.multiple) {
-      onChange(field.name, joinValues(selected.includes(code) ? selected.filter((c) => c !== code) : [...selected, code]));
+      onChange(field.name, selectCodes(value, selected.includes(code) ? selected.filter((c) => c !== code) : [...selected, code]));
     } else {
-      onChange(field.name, selected[0] === code ? "" : code);
+      onChange(field.name, selectCodes(value, selected[0] === code ? [] : [code]));
     }
   };
   return (
@@ -132,7 +137,7 @@ function CodeButtons({ field, value, items, parentLabel, onChange, error }: Fiel
 /** Long lists: a searchable dropdown. */
 function CodeSelect({ field, value, items, parentLabel, onChange, error, dense }: FieldProps & { error: boolean }) {
   const t = useT();
-  const codes = splitValues(value);
+  const codes = parseCodes(value).map((c) => c.code);
   const byCode = (c: string) => items.find((i) => i.code === c) ?? { id: -1, code: c, label: c };
   const placeholder = !items.length && parentLabel ? t("entry.chooseParent", { parent: parentLabel }) : t("entry.select");
   const common = {
@@ -152,14 +157,42 @@ function CodeSelect({ field, value, items, parentLabel, onChange, error, dense }
   if (field.multiple) {
     return (
       <Autocomplete multiple {...common} value={codes.map(byCode)} disableCloseOnSelect
-        onChange={(_, v) => onChange(field.name, joinValues(v.map((i) => i.code)))}
+        onChange={(_, v) => onChange(field.name, selectCodes(value, v.map((i) => i.code)))}
         renderInput={(params) => <TextField {...params} error={error} placeholder={codes.length ? undefined : placeholder} slotProps={{ ...params.slotProps, htmlInput: { ...params.slotProps.htmlInput, "aria-label": field.label } }} />} />
     );
   }
   return (
     <Autocomplete {...common} value={codes.length ? byCode(codes[0]) : null}
-      onChange={(_, v) => onChange(field.name, v ? v.code : "")}
+      onChange={(_, v) => onChange(field.name, selectCodes(value, v ? [v.code] : []))}
       renderInput={(params) => <TextField {...params} error={error} placeholder={placeholder} slotProps={{ ...params.slotProps, htmlInput: { ...params.slotProps.htmlInput, "aria-label": field.label } }} />} />
+  );
+}
+
+/** "Other, specify": the text of each selected item that is qualifiable */
+function Qualifiers({ field, value, items, onChange, dense }: FieldProps & { error: boolean }) {
+  const t = useT();
+  const qualifiable = parseCodes(value).filter((c) => items.find((i) => i.code === c.code)?.qualifiable
+    ?? field.code?.items.find((i) => i.code === c.code)?.qualifiable);
+  if (!qualifiable.length) return null;
+  return (
+    <Stack spacing={1} sx={{ mt: 1 }}>
+      {qualifiable.map((c) => {
+        const item = field.code!.items.find((i) => i.code === c.code);
+        return <QualifierInput key={c.code} label={t("entry.specify", { item: item?.label ?? c.code })} name={field.name}
+          qualifier={c.qualifier} dense={dense} onChange={(q, delay) => onChange(field.name, qualify(value, c.code, q), delay)} />;
+      })}
+    </Stack>
+  );
+}
+
+function QualifierInput({ label, name, qualifier, dense, onChange }: { label: string; name: string; qualifier: string; dense?: boolean;
+  onChange: (qualifier: string, delay: number) => void }) {
+  const [draft, setDraft] = useDraft(qualifier, (d, v) => d.trim() === v.trim());
+  const typing = useRef(false);
+  return (
+    <TextField size="small" label={label} value={draft} fullWidth={!dense} data-qualifier-of={name}
+      onChange={(e) => { setDraft(e.target.value); typing.current = true; onChange(e.target.value, TYPING_DELAY); }}
+      onBlur={() => { if (typing.current) { typing.current = false; onChange(draft, 0); } }} />
   );
 }
 
