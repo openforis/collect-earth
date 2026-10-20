@@ -189,8 +189,13 @@ public abstract class AbstractPolygonKmlGenerator extends KmlGenerator {
 					}else{
 						// Assumed to be the header. If the file has none, this is a plot and it is missing from Google Earth,
 						// so say which row was skipped and why
-						logger.warn("The first row of " + csvFile + " was skipped as a header. If it is a plot it will be MISSING in Google Earth : "
-								+ Arrays.toString( csvRow ), e);
+						if (e instanceof KmlGenerationException) {
+							// The usual header : the coordinate cells hold the column names, no need for a stack trace on every start
+							logger.info("The first row of " + csvFile + " was skipped as a header : " + Arrays.toString( csvRow ) + " ( " + e.getMessage() + " )");
+						} else {
+							logger.warn("The first row of " + csvFile + " was skipped as a header. If it is a plot it will be MISSING in Google Earth : "
+									+ Arrays.toString( csvRow ), e);
+						}
 					}
 				}finally{
 					rowNumber++;
