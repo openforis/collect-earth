@@ -41,29 +41,28 @@ public class CoordinateAttributeHandler extends AbstractAttributeHandler<Coordin
 	@Override
 	public Coordinate createValue(String parameterValue) {
 		String[] coordinatesCSV = parameterValue.split(",");
+		// A value with no comma used to throw here, reading coordinatesCSV[1]
+		if (coordinatesCSV.length < 2) {
+			throw new IllegalArgumentException("Expected \"latitude,longitude[,srs]\" but received : " + parameterValue);
+		}
+
 		String srs = GOOGLE_EARTH_SRS;
 		if (coordinatesCSV.length > 2) {
-			srs = coordinatesCSV[2];
+			srs = coordinatesCSV[2].trim();
 		}
-		// REMOVE THIS!!
-		// -----------------------
-		String latitude = coordinatesCSV[0];
-		if (latitude.equals("$[latitude]") || latitude.equals("null")) {
-			latitude = "0";
-		}
-		String longitude = coordinatesCSV[1];
-		if (longitude.equals("$[longitude]") || latitude.equals("longitude")) {
-			longitude = "0";
-		}
-		// -----------------------
 
-		//TODO : VERY IMPORTANT!!!!
-		// THE ORDER OF THE COORDINATES IS CHANGED HERE SO THAT THE PNG BUG IS CONSISTENT THROUGHOUT THEIR ASSESSMENT!!
-		// CHANGE BACK WHEN THEY ARE FINIHSED!!!!!!
-		
-		Coordinate coord = new Coordinate(Double.parseDouble(longitude), Double.parseDouble(latitude), srs);
-		//Coordinate coord = new Coordinate(Double.parseDouble(coordinatesCSV[0]), Double.parseDouble(coordinatesCSV[1]), srs); PNG BUG IN THIS LINE!!
-		return coord;
+		// Google Earth sends the unsubstituted placeholder, or "null", when it has no value for the coordinate
+		String latitude = defaultToZero(coordinatesCSV[0], "$[latitude]");
+		String longitude = defaultToZero(coordinatesCSV[1], "$[longitude]");
+
+		// Coordinate takes ( x, y ), which is ( longitude, latitude )
+		return new Coordinate(Double.parseDouble(longitude), Double.parseDouble(latitude), srs);
+	}
+
+	private static String defaultToZero(String coordinate, String placeholder) {
+		String value = coordinate.trim();
+		// The longitude used to be tested against the latitude variable here, so it was never defaulted
+		return value.isEmpty() || value.equals(placeholder) || value.equalsIgnoreCase("null") ? "0" : value;
 	}
 
 

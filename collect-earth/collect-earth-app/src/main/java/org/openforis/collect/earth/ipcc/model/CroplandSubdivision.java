@@ -8,6 +8,8 @@ public class CroplandSubdivision extends AbstractLandUseSubdivision<CroplandType
 	public CroplandSubdivision( String code, String name, CroplandTypeEnum type, Integer id) {
 		super(LandUseCategoryEnum.C, code, name, id);
 		setManagementType(type);
+		this.perennialCropType = PerennialCropTypesEnum.ALL; // As grassland sets its vegetation type : without it a subdivision
+		// switched to PERENNIAL without touching its combo reached the export with no crop type and ended it
 	}
 
 	public CroplandTypeEnum getManagementType() {
@@ -23,7 +25,6 @@ public class CroplandSubdivision extends AbstractLandUseSubdivision<CroplandType
 	}
 
 	public PerennialCropTypesEnum getPerennialCropType() {
-		// TODO Auto-generated method stub
 		return perennialCropType;
 	};
 	

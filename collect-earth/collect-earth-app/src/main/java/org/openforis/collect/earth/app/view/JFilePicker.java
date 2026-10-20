@@ -110,9 +110,12 @@ public class JFilePicker extends JPanel {
 	}
 
 	private void buttonActionPerformed(ActionEvent evt) {
+			// In save mode this used to open the dialog of the Open mode, so its button said "Open"
+			int returnValue = ShellFolderFallback.showDialog(fileChooser,
+					chooser -> mode == DlgMode.MODE_SAVE ? chooser.showSaveDialog(this) : chooser.showOpenDialog(this));
 			if (
 					( mode == DlgMode.MODE_OPEN || mode == DlgMode.MODE_SAVE)  &&
-					fileChooser.showOpenDialog(this) == JFileChooser.APPROVE_OPTION &&
+					returnValue == JFileChooser.APPROVE_OPTION &&
 					fileChooser.getSelectedFile() != null
 				) {
 					getTextField().setText( fileChooser.getSelectedFile().getAbsolutePath() );

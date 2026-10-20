@@ -3,6 +3,8 @@ package org.openforis.collect.earth.sampler.processor;
 import java.awt.geom.Rectangle2D;
 import java.io.IOException;
 import java.text.DecimalFormat;
+import java.util.Locale;
+import java.text.DecimalFormatSymbols;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
@@ -10,6 +12,7 @@ import java.util.List;
 import java.util.Map;
 
 import org.apache.commons.lang3.StringUtils;
+import org.openforis.collect.earth.app.EarthConstants.BUFFER_SHAPE;
 import org.openforis.collect.earth.core.utils.CsvReaderUtils;
 import org.openforis.collect.earth.sampler.model.SimpleCoordinate;
 import org.openforis.collect.earth.sampler.model.SimplePlacemarkObject;
@@ -25,6 +28,8 @@ import com.opencsv.exceptions.CsvValidationException;
 public abstract class AbstractPolygonKmlGenerator extends KmlGenerator {
 
 	private static final Integer DEFAULT_INNER_POINT_SIDE = 2;
+	private static final int BUFFER_CIRCLE_VERTICES = 60;
+	private static final int BUFFER_HEXAGON_VERTICES = 6;
 	protected Integer innerPointSide;
 	protected final String localPort;
 	protected final Logger logger = LoggerFactory.getLogger(this.getClass());
@@ -32,18 +37,55 @@ public abstract class AbstractPolygonKmlGenerator extends KmlGenerator {
 	protected double distancePlotBoundary;
 	protected int numberOfSamplePoints;
 	protected Integer largeCentralPlotSide;
-	private String distanceToBuffers;
+	private final List<Integer> bufferDistances;
+	private final BUFFER_SHAPE bufferShape;
 
 	public AbstractPolygonKmlGenerator(String epsgCode, String hostAddress, String localPort, Integer innerPointSide, Integer numberOfPoints, double distanceBetweenSamplePoints, double distancePlotBoundary, Integer largeCentralPlotSide, String distanceToBuffers) {
+		this(epsgCode, hostAddress, localPort, innerPointSide, numberOfPoints, distanceBetweenSamplePoints, distancePlotBoundary, largeCentralPlotSide, distanceToBuffers, null);
+	}
+
+	/**
+	 * @param distanceToBuffers comma separated distances in meters from the plot center to each reference area
+	 *        (the earth.properties value of distance_to_buffers, e.g. "70,112,194"); blank for no reference area
+	 * @param bufferShape shape of the reference areas; null keeps the historical square ones, NONE draws none
+	 */
+	public AbstractPolygonKmlGenerator(String epsgCode, String hostAddress, String localPort, Integer innerPointSide, Integer numberOfPoints, double distanceBetweenSamplePoints, double distancePlotBoundary, Integer largeCentralPlotSide, String distanceToBuffers, BUFFER_SHAPE bufferShape) {
 		super(epsgCode);
 		this.hostAddress = hostAddress;
 		this.localPort = localPort;
 		this.innerPointSide = innerPointSide;
 		this.distanceBetweenSamplePoints = distanceBetweenSamplePoints;
 		this.distancePlotBoundary = distancePlotBoundary;
-		this.distanceToBuffers = distanceToBuffers;
+		this.bufferDistances = parseBufferDistances(distanceToBuffers);
+		this.bufferShape = bufferShape == null ? BUFFER_SHAPE.SQUARE : bufferShape;
 		this.setNumberOfSamplePoints(numberOfPoints);
 		this.setLargeCentralPlotSide(largeCentralPlotSide);
+	}
+
+	private List<Integer> parseBufferDistances(String distanceToBuffers) {
+		final List<Integer> distances = new ArrayList<>();
+		if (StringUtils.isBlank(distanceToBuffers)) {
+			return distances;
+		}
+		for (String bufDistStr : StringUtils.split(distanceToBuffers, ',')) {
+			final String trimmed = bufDistStr.trim();
+			if (trimmed.isEmpty()) {
+				continue;
+			}
+			try {
+				final int distance = Integer.parseInt(trimmed);
+				if (distance <= 0) {
+					// Zero collapses the ring onto the centre of the plot, a negative distance mirrors it
+					logger.warn("Ignoring reference area distance '{}' in distance_to_buffers={} : it has to be greater than zero", trimmed, distanceToBuffers);
+					continue;
+				}
+				distances.add(distance);
+			} catch (NumberFormatException e) {
+				// Parsed once per generator so that a typo is reported once, not once per plot, and the valid distances are kept
+				logger.warn("Ignoring reference area distance '{}' in distance_to_buffers={} : it is not a whole number of meters", trimmed, distanceToBuffers);
+			}
+		}
+		return distances;
 	}
 
 	public Integer getLargeCentralPlotSide() {
@@ -79,7 +121,8 @@ public abstract class AbstractPolygonKmlGenerator extends KmlGenerator {
 
 		SimplePlacemarkObject previousPlacemark = null;
 
-		Rectangle2D viewFrame = new Rectangle2D.Float();
+		// Double : the single precision of Float loses about 1e-5 degrees beyond longitude 100, which is metres on the ground
+		Rectangle2D viewFrame = new Rectangle2D.Double();
 		boolean firstPoint = true;
 		// Read CSV file so that we can store the information in a Map that can
 		// be used by freemarker to do the "goal-replacement"
@@ -117,7 +160,7 @@ public abstract class AbstractPolygonKmlGenerator extends KmlGenerator {
 						viewFrame.setRect(X, Y, 0, 0);
 						firstPoint = false;
 					} else {
-						final Rectangle2D rectTemp = new Rectangle2D.Float();
+						final Rectangle2D rectTemp = new Rectangle2D.Double();
 						rectTemp.setRect(X, Y, 0, 0);
 						viewFrame = viewFrame.createUnion(rectTemp);
 					}
@@ -144,7 +187,10 @@ public abstract class AbstractPolygonKmlGenerator extends KmlGenerator {
 						logger.error( "Error on the CSV file ", e );
 						throw new KmlGenerationException("Error in the CSV " + csvFile + " \r\n for row " + rowNumber + " = " + Arrays.toString( csvRow ), e);
 					}else{
-						logger.info("Error while reading the first line of the CSV fle, probably cause by the column header names");
+						// Assumed to be the header. If the file has none, this is a plot and it is missing from Google Earth,
+						// so say which row was skipped and why
+						logger.warn("The first row of " + csvFile + " was skipped as a header. If it is a plot it will be MISSING in Google Earth : "
+								+ Arrays.toString( csvRow ), e);
 					}
 				}finally{
 					rowNumber++;
@@ -154,7 +200,9 @@ public abstract class AbstractPolygonKmlGenerator extends KmlGenerator {
 			throw new KmlGenerationException("Error reading CSV " + csvFile , e);
 		}
 
-		final DecimalFormat df = new DecimalFormat("#.###");
+		// Locale.ROOT : with the locale of the machine this wrote "12,345" on a Spanish, French or Portuguese computer, and a
+		// comma is not a decimal separator in a KML
+		final DecimalFormat df = new DecimalFormat("#.###", DecimalFormatSymbols.getInstance(Locale.ROOT));
 
 		data.put("placemarks", placemarks);
 		data.put("region_north", Double.toString( viewFrame.getMaxY() ) );
@@ -171,51 +219,67 @@ public abstract class AbstractPolygonKmlGenerator extends KmlGenerator {
 
 	private void fillBuffersAroundPlot(SimplePlacemarkObject currentPlacemark) {
 		final List<SimplePlacemarkObject> buffers = new ArrayList<>();
-		// when there is a property in the earth.properties like this : distance_to_buffers=70,112,194
-		if( StringUtils.isNotBlank( distanceToBuffers )) {
-			String[] distances =  StringUtils.split( distanceToBuffers, ',' );
-
-
-			try {
-				for (String bufDistStr : distances) {
-
-					List<SimpleCoordinate> bufferPoints = new ArrayList<>();
-
-					Integer bufDist = Integer.parseInt( bufDistStr );
-
-					// TOP LEFT
-					bufferPoints.add(new SimpleCoordinate( getPointWithOffset( currentPlacemark.getCoord().getCoordinates(), -bufDist, bufDist) ) );
-
-					// TOP RIGHT
-					bufferPoints.add(new SimpleCoordinate( getPointWithOffset( currentPlacemark.getCoord().getCoordinates(), bufDist, bufDist) ));
-
-					// BOTTOM RIGHT
-					bufferPoints.add( new SimpleCoordinate( getPointWithOffset( currentPlacemark.getCoord().getCoordinates(), bufDist, -bufDist) ) );
-
-					// BOTTOM LEFT
-					bufferPoints.add(new SimpleCoordinate(  getPointWithOffset( currentPlacemark.getCoord().getCoordinates(), -bufDist, -bufDist) ) ) ;
-
-					// TOP LEFT -- CLOSE RECTANGLE
-					bufferPoints.add( new SimpleCoordinate( getPointWithOffset( currentPlacemark.getCoord().getCoordinates(), -bufDist, bufDist) ) );
-
-					SimplePlacemarkObject spo = new SimplePlacemarkObject();
-
-					spo.setShape(bufferPoints);
-
-					buffers.add( spo );
-
+		if (bufferShape != BUFFER_SHAPE.NONE) {
+			for (Integer bufDist : bufferDistances) {
+				try {
+					final SimplePlacemarkObject spo = new SimplePlacemarkObject();
+					spo.setShape(buildBufferShape(currentPlacemark.getCoord().getCoordinates(), bufDist));
+					buffers.add(spo);
+				} catch (TransformException e) {
+					logger.error("Error transforming the coordinates of the reference area at " + bufDist + " meters around plot " + currentPlacemark.getPlacemarkId(), e);
 				}
-			} catch (NumberFormatException e) {
-				logger.error("Error reading number", e);
-			} catch (TransformException e) {
-				logger.error("Error transforming coordinate", e);
 			}
 		}
-
-		// TOP LEFT -- CLOSE RECTANGLE
 		currentPlacemark.setBuffers( buffers );
 	}
 
+	private List<SimpleCoordinate> buildBufferShape(double[] centerCoord, int distance) throws TransformException {
+		switch (bufferShape) {
+		case CIRCLE:
+			return buildRegularPolygonRing(centerCoord, distance, BUFFER_CIRCLE_VERTICES);
+		case HEXAGON:
+			return buildRegularPolygonRing(centerCoord, distance, BUFFER_HEXAGON_VERTICES);
+		default:
+			return buildSquareRing(centerCoord, distance);
+		}
+	}
+
+	private List<SimpleCoordinate> buildSquareRing(double[] centerCoord, int distance) throws TransformException {
+		final List<SimpleCoordinate> bufferPoints = new ArrayList<>();
+
+		// TOP LEFT
+		bufferPoints.add(new SimpleCoordinate( getPointWithOffset( centerCoord, -distance, distance) ) );
+
+		// TOP RIGHT
+		bufferPoints.add(new SimpleCoordinate( getPointWithOffset( centerCoord, distance, distance) ));
+
+		// BOTTOM RIGHT
+		bufferPoints.add( new SimpleCoordinate( getPointWithOffset( centerCoord, distance, -distance) ) );
+
+		// BOTTOM LEFT
+		bufferPoints.add(new SimpleCoordinate(  getPointWithOffset( centerCoord, -distance, -distance) ) ) ;
+
+		// TOP LEFT -- CLOSE RECTANGLE
+		bufferPoints.add( new SimpleCoordinate( getPointWithOffset( centerCoord, -distance, distance) ) );
+
+		return bufferPoints;
+	}
+
+	// same construction used for the plot's own CIRCLE/HEXAGON shapes (see CircleKmlGenerator):
+	// distance is the radius, i.e. the distance from the plot center to each vertex
+	private List<SimpleCoordinate> buildRegularPolygonRing(double[] centerCoord, double radius, int numberOfVertices) throws TransformException {
+		final List<SimpleCoordinate> ringPoints = new ArrayList<>();
+		final double arc = (double) 360 / numberOfVertices;
+
+		for (int i = 0; i <= numberOfVertices; i++) {
+			final double t = (i % numberOfVertices) * arc;
+			final double offsetLong = radius * Math.cos(Math.toRadians(t));
+			final double offsetLat = radius * Math.sin(Math.toRadians(t));
+			ringPoints.add(new SimpleCoordinate( getPointWithOffset( centerCoord, offsetLong, offsetLat) ));
+		}
+
+		return ringPoints;
+	}
 
 	protected int getNumberOfSamplePoints() {
 		return numberOfSamplePoints;

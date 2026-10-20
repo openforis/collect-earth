@@ -1,12 +1,12 @@
 package org.openforis.collect.earth.app.service;
 
-import static org.junit.Assert.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.openforis.collect.earth.app.service.LocalPropertiesService.VIEWER_TYPE_GOOGLE_EARTH_PRO;
 import static org.openforis.collect.earth.app.service.LocalPropertiesService.VIEWER_TYPE_GOOGLE_EARTH_WEB;
 import static org.openforis.collect.earth.app.service.LocalPropertiesService.VIEWER_TYPE_PLOTS_MAP;
 import static org.openforis.collect.earth.app.service.LocalPropertiesService.resolveViewerType;
 
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
 public class ViewerTypeResolutionTest {
 

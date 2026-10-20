@@ -23,7 +23,12 @@ public class EarthConstants {
 
 	public static final String LIST_NOT_FINISHED_IMAGE = "images/list_not_finished.png"; //$NON-NLS-1$
 	public static final String GENERATED_FOLDER_SUFFIX = "generated"; //$NON-NLS-1$
-	public static final String GENERATED_FOLDER = FolderFinder.getCollectEarthDataFolderNoAmpersad() + File.separator
+	/**
+	 * Every use of this is a path on the disk : new File(...) or a path handed to the KML generation. It used to be built from
+	 * the escaped form of the folder, so a user called "Romeo&Giulietta" worked in a parallel "Romeo&amp;Giulietta" tree, while
+	 * the collectEarth.userFolder property that web.xml resolves carries the real name
+	 */
+	public static final String GENERATED_FOLDER = FolderFinder.getCollectEarthDataFolder() + File.separator
 			+ GENERATED_FOLDER_SUFFIX;
 
 	public static final String FOLDER_COPIED_TO_KMZ = "earthFiles"; //$NON-NLS-1$
@@ -83,6 +88,25 @@ public class EarthConstants {
 		private String label;
 
 		private SAMPLE_SHAPE(String label) {
+			this.label = label;
+		}
+
+		@Override
+		public String toString() {
+			return label;
+		}
+	}
+
+	/**
+	 * Shape of the optional reference area drawn around each plot (see distance_to_buffers / buffer_shape in earth.properties).
+	 * The reference area is not part of the plot: it only gives the interpreter an idea of the surroundings.
+	 */
+	public enum BUFFER_SHAPE {
+		NONE("No reference area"), SQUARE("Square"), CIRCLE("Circle"), HEXAGON("Hexagon");
+
+		private String label;
+
+		private BUFFER_SHAPE(String label) {
 			this.label = label;
 		}
 

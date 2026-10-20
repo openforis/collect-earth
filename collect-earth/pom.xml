@@ -2,7 +2,7 @@
 	<modelVersion>4.0.0</modelVersion>
 	<groupId>org.openforis.collect.earth</groupId>
 	<artifactId>collect-earth</artifactId>
-	<version>1.23.13-SNAPSHOT</version>
+	<version>1.23.20-SNAPSHOT</version>
 	<packaging>pom</packaging>
 
 	<name>Collect Earth</name>
@@ -12,6 +12,11 @@
 		<module>collect-earth-core</module>
 		<module>collect-earth-app</module>
 		<module>collect-earth-sampler</module>
+		<!-- In the reactor so the release plugin keeps its parent version in step.
+		     While it sat outside, its parent stayed pinned at 1.22.5-SNAPSHOT: that
+		     snapshot was superseded by the 1.22.5 release and never installed again,
+		     so the module stopped building entirely and went unnoticed. -->
+		<module>collect-earth-grid</module>
 		<module>collect-earth-installer</module>
 	</modules>
 	<organization>
@@ -19,32 +24,47 @@
 		<url>www.openforis.org</url>
 	</organization>
 	<properties>
-		<java.version>1.8</java.version>
+		<!-- 11, matching what is actually shipped. The installer bundles JRE
+		     ${jre.version} (11.0.19+7), and Selenium 4.48's classes are major
+		     version 55, so a real Java 8 runtime would fail with
+		     UnsupportedClassVersionError as soon as Selenium loaded. The previous
+		     value of 8 described a baseline that no released build ever ran on. -->
+		<java.release>11</java.release>
 		<project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
 		<collect.version>4.0.109</collect.version>
 		<spring.version>5.3.27</spring.version>
+		<!-- Versions for families that must move as a set. Managed centrally in
+		     dependencyManagement below so a transitive dependency cannot drag in
+		     a mismatched module (log4j-jcl was arriving at 2.20.0 against a
+		     2.26.1 core, and poi-ooxml at 5.2.3 against a 5.5.1 poi). -->
+		<log4j.version>2.26.1</log4j.version>
+		<poi.version>5.5.1</poi.version>
+		<jackson.version>2.18.9</jackson.version>
 		<project.scm.id>github.com</project.scm.id>
 		<sonar.language>java</sonar.language>
 		<sonar.organization>openforis</sonar.organization>
   		<sonar.host.url>https://sonarcloud.io</sonar.host.url>
 	</properties>
 
+	<!-- The id has to be the one the credentials are stored under in settings.xml, and it has to be the same one
+	     nexus-staging-maven-plugin uses in the release profile: with two different ids, whichever plugin performs the
+	     deploy looks up a server that is not there and Central answers 401. -->
 	<distributionManagement>
 		<snapshotRepository>
-			<id>ossrh</id>
+			<id>ossrh-staging-api</id>
 			<url>https://central.sonatype.com/repository/maven-snapshots/</url>
 		</snapshotRepository>
 		<repository>
-			<id>ossrh</id>
+			<id>ossrh-staging-api</id>
 			<url>https://ossrh-staging-api.central.sonatype.com/service/local/staging/deploy/maven2/</url>
 		</repository>
 	</distributionManagement>
 
 	<scm>
-		<url>scm:git:git@github.com:openforis/collect-earth.git</url>
+		<url>https://github.com/openforis/collect-earth</url>
 		<connection>scm:git:git@github.com:openforis/collect-earth.git</connection>
 		<developerConnection>scm:git:git@github.com:openforis/collect-earth.git</developerConnection>
-		<tag>collect-earth-1.23.0</tag>	
+		<tag>HEAD</tag>
 	</scm>
 	<licenses>
 		<license>
@@ -70,31 +90,6 @@
 
 	<build>
 		<plugins>
-			<plugin>
-					<artifactId>maven-gpg-plugin</artifactId>
-					<version>3.2.4</version>
-					<executions>
-						<execution>
-							<id>sign-artifacts</id>
-							<phase>install</phase>
-							<goals>
-								<goal>sign</goal>
-							</goals>
-						</execution>
-					</executions>
-				</plugin>
-				<plugin>
-					<groupId>org.sonatype.plugins</groupId>
-					<artifactId>nexus-staging-maven-plugin</artifactId>
-					<version>1.6.14</version>
-					<extensions>true</extensions>
-					<configuration>
-						<serverId>ossrh-staging-api</serverId>
-						<nexusUrl>https://ossrh-staging-api.central.sonatype.com</nexusUrl>
-						<stagingProgressTimeoutMinutes>120</stagingProgressTimeoutMinutes>
-						<autoReleaseAfterClose>true</autoReleaseAfterClose>
-					</configuration>
-				</plugin>
 				<plugin>
 				  <groupId>org.apache.maven.plugins</groupId>
 				  <artifactId>maven-enforcer-plugin</artifactId>
@@ -110,6 +105,12 @@
 				          <requireMavenVersion>
 				            <version>3.9.3</version>
 				          </requireMavenVersion>
+				          <!-- <release>11</release> cannot be honoured by a JDK 8
+				               compiler. Without this the failure is an obscure
+				               compiler error; with it, the reason is stated. -->
+				          <requireJavaVersion>
+				            <version>[11,)</version>
+				          </requireJavaVersion>
 				        </rules>
 				      </configuration>
 				    </execution>
@@ -123,8 +124,12 @@
 					<artifactId>maven-compiler-plugin</artifactId>
 					<version>3.13.0</version>
 					<configuration>
-						<source>${java.version}</source>
-						<target>${java.version}</target>
+						<!-- <release> rather than <source>/<target>: the latter pair does
+						     not validate API usage against the target JDK, so a Java 9+
+						     method could compile into Java 8 bytecode and fail only at
+						     runtime. <release> checks against the real API surface, so
+						     the declared baseline is now enforced rather than asserted. -->
+						<release>${java.release}</release>
 						<encoding>${project.build.sourceEncoding}</encoding>
 					</configuration>
 				</plugin>
@@ -132,6 +137,14 @@
 					<groupId>org.apache.maven.plugins</groupId>
 					<artifactId>maven-release-plugin</artifactId>
 					<version>3.1.1</version>
+					<configuration>
+						<!-- release:perform runs "mvn deploy" on the tag, and without this it runs it with no profile:
+						     maven-gpg-plugin never signs, so Central rejects the artifacts, and
+						     nexus-staging-maven-plugin never takes over the deploy, so maven-deploy-plugin uploads
+						     straight to distributionManagement instead of staging. Both plugins live in the release
+						     profile, so the release has to ask for it. -->
+						<releaseProfiles>release</releaseProfiles>
+					</configuration>
 				</plugin>
 				
 				<plugin>
@@ -198,7 +211,48 @@
 			    		<groupId>org.apache.commons</groupId>
 						<artifactId>commons-lang3</artifactId>
 			    	</exclusion>
+					<!-- Managed here rather than on individual dependencies because
+					     collect-core reaches the app through several paths (directly,
+					     via collect-rdb, and via our own core/sampler modules); an
+					     exclusion on any single one leaves the others open. -->
+					<exclusion>
+						<!-- A second SLF4J binding. Inert under slf4j-api 2.x, but it
+						     ships in earth-libs and misleads diagnosis. -->
+						<groupId>org.slf4j</groupId>
+						<artifactId>slf4j-jdk14</artifactId>
+					</exclusion>
+					<exclusion>
+						<!-- Duplicate javax.xml.bind API: jaxb-api 2.3.1 (via
+						     liquibase-core) collides with jakarta.xml.bind-api 2.3.3
+						     pulled by jaxb-impl. The jakarta 2.3.x artifact still
+						     provides the javax.xml.bind package, so it is the one to
+						     keep. -->
+						<groupId>javax.xml.bind</groupId>
+						<artifactId>jaxb-api</artifactId>
+					</exclusion>
 		    	</exclusions>
+			</dependency>
+			<dependency>
+				<groupId>org.openforis.collect</groupId>
+				<artifactId>collect-rdb</artifactId>
+				<version>${collect.version}</version>
+				<exclusions>
+					<exclusion>
+						<!-- xml-apis 1.4.01 (via xercesImpl) re-declares javax.xml.parsers,
+						     javax.xml.transform, org.w3c.dom and org.xml.sax, which the JDK
+						     owns in the java.xml module. On Java 11 that is a split package:
+						     Eclipse refuses to compile any file importing them ("accessible
+						     from more than one module"), and at runtime java.xml wins anyway,
+						     so the jar is dead weight. xercesImpl itself is kept: it only
+						     carries org.apache.* and org.w3c.dom.html, which java.xml does
+						     not export.
+						     Managed here rather than on the individual dependencies because
+						     collect-rdb is declared in both collect-earth-core and
+						     collect-earth-app. -->
+						<groupId>xml-apis</groupId>
+						<artifactId>xml-apis</artifactId>
+					</exclusion>
+				</exclusions>
 			</dependency>
 			<dependency>
 				<groupId>commons-io</groupId>
@@ -215,7 +269,119 @@
 				<artifactId>commons-text</artifactId>
 				<version>1.15.0</version>
 			</dependency>
+
+			<!-- Log4j2 requires every module at one version. log4j-jcl was arriving
+			     transitively at 2.20.0 while the rest of the stack was 2.26.1. -->
+			<dependency>
+				<groupId>org.apache.logging.log4j</groupId>
+				<artifactId>log4j-bom</artifactId>
+				<version>${log4j.version}</version>
+				<type>pom</type>
+				<scope>import</scope>
+			</dependency>
+
+			<!-- Jackson was version-managed in a leaf module and enforced by ad-hoc
+			     exclusions scattered across two poms; the BOM covers every module,
+			     including jackson-core, which the exclusions missed. -->
+			<dependency>
+				<groupId>com.fasterxml.jackson</groupId>
+				<artifactId>jackson-bom</artifactId>
+				<version>${jackson.version}</version>
+				<type>pom</type>
+				<scope>import</scope>
+			</dependency>
+
+			<!-- poi was pinned to 5.5.1 while poi-ooxml/-lite arrived transitively
+			     at 5.2.3. The XSSF classes the IPCC exporters use span that split. -->
+			<dependency>
+				<groupId>org.apache.poi</groupId>
+				<artifactId>poi</artifactId>
+				<version>${poi.version}</version>
+			</dependency>
+			<dependency>
+				<groupId>org.apache.poi</groupId>
+				<artifactId>poi-ooxml</artifactId>
+				<version>${poi.version}</version>
+			</dependency>
+			<dependency>
+				<groupId>org.apache.poi</groupId>
+				<artifactId>poi-ooxml-lite</artifactId>
+				<version>${poi.version}</version>
+			</dependency>
 		</dependencies>
 	</dependencyManagement>
+
+	<profiles>
+		<!-- Signing and staging run only for a release. Previously both plugins sat
+		     in the root <build>, inherited by all four modules: the gpg plugin was
+		     bound to `install`, so `mvn clean install` failed for any contributor
+		     without a GPG key, and nexus-staging hijacked deploy for every module.
+		     The gpg phase is also corrected to `verify` - default lifecycle bindings
+		     run before POM-declared executions in the same phase, so signing at
+		     `install` produced .asc files after install:install had already copied
+		     the artifacts. -->
+		<profile>
+			<id>release</id>
+			<build>
+				<plugins>
+					<plugin>
+						<artifactId>maven-gpg-plugin</artifactId>
+						<version>3.2.4</version>
+						<executions>
+							<execution>
+								<id>sign-artifacts</id>
+								<phase>verify</phase>
+								<goals>
+									<goal>sign</goal>
+								</goals>
+							</execution>
+						</executions>
+					</plugin>
+					<plugin>
+						<groupId>org.sonatype.plugins</groupId>
+						<artifactId>nexus-staging-maven-plugin</artifactId>
+						<version>1.6.14</version>
+						<extensions>true</extensions>
+						<configuration>
+							<serverId>ossrh-staging-api</serverId>
+							<nexusUrl>https://ossrh-staging-api.central.sonatype.com</nexusUrl>
+							<stagingProgressTimeoutMinutes>120</stagingProgressTimeoutMinutes>
+							<!-- The build uploads and stops. Closing and publishing are both done afterwards, from
+							     https://central.sonatype.com/publishing/deployments or with rc-close.
+
+							     skipStagingRepositoryClose is what keeps the build off
+							     POST /service/local/staging/profiles/org.openforis/finish - which is the CLOSE call, not
+							     the release: "finish" ends a staging repository in the Nexus staging API, "promote"
+							     releases it. Closing asks the Central Portal bridge to validate the whole bundle while
+							     the connection is held open, and for a bundle that is about a gigabyte of installers that
+							     has ended three times in "Remote staging finished with a failure:
+							     java.net.SocketException: Connection reset", each time after a 35 minute upload had
+							     already succeeded. Taking the call out of the build is the only thing that stops a
+							     release failing on it.
+
+							     autoReleaseAfterClose is the release step and the plugin evaluates it "only if the
+							     repository has been successfully closed", so it was never reached. It stays false so that
+							     publishing, which cannot be undone, is never something a green build does by itself.
+
+							     After a failed close the artifacts are already uploaded : do not re-run release:perform.
+							     Close it on its own, on JDK 11 because the plugin's XStream needs it. rc-release answers
+							     400, the bridge does not implement it.
+
+							       mvn org.sonatype.plugins:nexus-staging-maven-plugin:1.6.14:rc-close \
+							         -DnexusUrl=https://ossrh-staging-api.central.sonatype.com/ \
+							         -DserverId=ossrh-staging-api \
+							         -DstagingRepositoryId=THE_ID_FROM_THE_LOG \
+							         -s ~/.m2/settings.xml
+
+							     The real cure is not to send a gigabyte of installers to a Maven repository at all; see
+							     CLAUDE.md, "Recovering a release:perform that failed during the upload". -->
+							<skipStagingRepositoryClose>true</skipStagingRepositoryClose>
+							<autoReleaseAfterClose>false</autoReleaseAfterClose>
+						</configuration>
+					</plugin>
+				</plugins>
+			</build>
+		</profile>
+	</profiles>
 
 </project>

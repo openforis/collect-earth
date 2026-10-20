@@ -1,9 +1,12 @@
 package org.openforis.collect.earth.ipcc.model;
 
 import java.io.File;
+import java.io.FileInputStream;
 import java.io.FileNotFoundException;
-import java.io.FileReader;
 import java.io.IOException;
+import java.io.InputStreamReader;
+import java.io.Reader;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -20,7 +23,9 @@ public class CountryUtils {
 	public static CountryCode[] getCountryList(){
 		File csvCountries= new File("resources/CountryList.csv");
 		List<CountryCode> countries = new ArrayList<>();
-		try( FileReader csvFileReader = new FileReader(csvCountries)){
+		// UTF-8 : the file holds Curaçao, Côte d'Ivoire, Réunion, Saint-Barthélemy and Åland Islands, and with the charset
+		// of the machine their names reached the wizard, and the exports, unreadable
+		try( Reader csvFileReader = new InputStreamReader(new FileInputStream(csvCountries), StandardCharsets.UTF_8)){
 			CSVReader reader = new CSVReader(csvFileReader);
 			reader.skip(1);
 			reader.forEach(t -> countries.add( new CountryCode(t[0], t[1])) );

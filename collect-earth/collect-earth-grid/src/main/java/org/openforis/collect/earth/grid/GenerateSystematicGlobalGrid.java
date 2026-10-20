@@ -60,7 +60,7 @@ public class GenerateSystematicGlobalGrid{
 					moveToNextRow = !firstPass && (  STARTING_LONGITUDE > longitude ); 
 					column ++;
 				}
-				System.out.println( "Finished row - " + row);
+				logger.info( "Finished row - {}", row);
 				row++;
 				column = 0;
 				yOffset += DISTANCE_BETWEEN_PLOTS_IN_METERS;
@@ -70,9 +70,10 @@ public class GenerateSystematicGlobalGrid{
 			}
 
 		}  catch (Exception e) {
-			logger.error(" Error transforming the point coordinates ", e );
+			// One message that does not name a cause : most of what fails here is the store, not a coordinate transformation
+			logger.error(" The grid could not be generated ", e );
 		} finally {
-			System.out.println( "Total time millis " + (System.currentTimeMillis() - startTime ));
+			logger.info( "Total time millis {}", System.currentTimeMillis() - startTime );
 			store.closeStore();
 		}
 

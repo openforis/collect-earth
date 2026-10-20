@@ -47,7 +47,8 @@ public class MacOpenFilesInvocationHandlerNewIos implements java.lang.reflect.In
   }
 
   private void openFilesImplmentation(Object openFilesEventObject) throws Exception {
-	  Class openFilesEventClass = Class.forName("java.awt.dektop.OpenFilesEvent");
+	  // "dektop" was misspelled, so the lookup always failed and double-clicking a CEP file did nothing on Java 9+
+	  Class openFilesEventClass = Class.forName("java.awt.desktop.OpenFilesEvent");
 	  Method getFilesMethod = openFilesEventClass.getMethod("getFiles");
 
 	  List<File> files = (List<File>) getFilesMethod.invoke( openFilesEventClass.cast( openFilesEventObject ) );

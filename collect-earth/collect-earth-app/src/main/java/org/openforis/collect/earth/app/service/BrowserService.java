@@ -17,12 +17,16 @@ import java.util.concurrent.TimeUnit;
 
 import org.apache.commons.lang3.StringUtils;
 import org.openforis.collect.earth.app.EarthConstants;
+import org.openforis.collect.earth.app.desktop.EarthApp;
 import org.openforis.collect.earth.app.desktop.ServerController;
 import org.openforis.collect.earth.app.service.LocalPropertiesService.EarthProperty;
+import org.openforis.collect.earth.app.view.Messages;
 import org.openforis.collect.earth.sampler.model.SimpleCoordinate;
 import org.openforis.collect.earth.sampler.model.SimplePlacemarkObject;
 import org.openqa.selenium.By;
 import org.openqa.selenium.JavascriptExecutor;
+import org.openqa.selenium.NoSuchSessionException;
+import org.openqa.selenium.NoSuchWindowException;
 import org.openqa.selenium.WebElement;
 import org.openqa.selenium.chrome.ChromeOptions;
 import org.openqa.selenium.edge.EdgeOptions;
@@ -59,7 +63,7 @@ public class BrowserService implements InitializingBean, DisposableBean, Applica
 
 	// Browser type enumeration for thread-safe lock management
 	private enum BrowserType {
-		PLANET, SECUREWATCH, EXTRA, STREET_VIEW, GEEAPP, EARTH_MAP, TIMELAPSE, ESRI_WAYBACK, LEAFLET_MAP
+		PLANET, SECUREWATCH, EXTRA, STREET_VIEW, GEEAPP, EARTH_MAP, ESRI_WAYBACK, LEAFLET_MAP
 	}
 
 	// Constants for timeouts and wait durations
@@ -88,12 +92,15 @@ public class BrowserService implements InitializingBean, DisposableBean, Applica
 	@Autowired
 	private EarthSurveyService earthSurveyService;
 
+	/** The interpreter is told once per run that the Planet API key is missing, not once per plot */
+	private boolean planetApiKeyWarningShown;
+
 	private final CopyOnWriteArrayList<RemoteWebDriver> drivers = new CopyOnWriteArrayList<>();
 	private final Logger logger = LoggerFactory.getLogger(BrowserService.class);
 	private final Configuration freemarkerConfig = createFreemarkerConfiguration();
 
 	// Volatile to ensure visibility across threads when modified within synchronized blocks
-	private volatile RemoteWebDriver webDriverTimelapse, webDriverStreetView, webDriverPlanetHtml,
+	private volatile RemoteWebDriver webDriverStreetView, webDriverPlanetHtml,
 	                        webDriverExtraMap, webDriverSecureWatch, webDriverGEEMap, webDriverEarthMap,
 	                        webDriverEsriWayback, webDriverLeafletMap;
 
@@ -297,12 +304,23 @@ public class BrowserService implements InitializingBean, DisposableBean, Applica
 	 */
 	public static boolean isElementPresentByIdOrName(String elementId, RemoteWebDriver driver) {
 		try {
-			return driver.findElement(By.id(elementId)).isDisplayed() ||
-			       driver.findElement(By.name(elementId)).isDisplayed();
+			// findElement throws when there is no such element, so the lookup by name was never reached for a page whose
+			// field carries a name and no id, and every wait for it ran to its full timeout
+			return isAnyDisplayed(driver.findElements(By.id(elementId)))
+					|| isAnyDisplayed(driver.findElements(By.name(elementId)));
 		} catch (final Exception e) {
 			// Element not found - this is expected behavior, not an error
 			return false;
 		}
+	}
+
+	private static boolean isAnyDisplayed(List<WebElement> elements) {
+		for (WebElement element : elements) {
+			if (element.isDisplayed()) {
+				return true;
+			}
+		}
+		return false;
 	}
 
 	/**
@@ -501,22 +519,65 @@ public class BrowserService implements InitializingBean, DisposableBean, Applica
 					try {
 						driver.navigate().refresh(); // FORCE REFRESH - OTHERWISE WINDOW IS NOT REFRESHED
 					} catch (final Exception e) {
-						logger.error("Error refreshing the browser window", e);
+						if (windowWasClosed(e)) {
+							logger.warn("The browser window was closed before it could be refreshed");
+						} else {
+							logger.error("Error refreshing the browser window", e);
+						}
 					}
 				}
 			} catch (final Exception e) {
-				if (retry && (e.getCause() != null && e.getCause().getMessage() != null
-						&& e.getCause().getMessage().contains("Session not found"))) {
-					// Browser closed, restart it!
-					logger.error("Browser was closed, restaring it...", e);
+				if (retry && windowWasClosed(e)) {
+					// The interpreter closed the window. Opening another one is the normal answer to that, not a
+					// failure, and it was logged at ERROR - the level the Sentry appender is bound at - so closing a
+					// window was reported as a fault in Collect Earth.
+					logger.warn("The browser window was closed, opening a new one");
 					driver = initBrowser();
-					navigateTo(url, driver, false, refresh); // only try to re-open one
+					// Keep what the retry returns : the driver of the window that was just opened
+					driver = navigateTo(url, driver, false, refresh); // only try to re-open one
+				} else if (windowWasClosed(e)) {
+					logger.warn("The browser window was closed while {} was loading", url);
+				} else if (timedOut(e)) {
+					// A slow connection, not a defect : Earth Engine apps in particular can take minutes to load
+					logger.warn("The page {} did not load in time : {}", url, e.getMessage());
+				} else {
+					// Every other failure used to be swallowed here, so a page that does not load left no trace at all
+					logger.error("Error loading the page in the browser", e);
 				}
 			}
 		} else {
 			logger.error("No Selenium driver available, Is Firefox or Chrome installed?");
 		}
 		return driver;
+	}
+
+	/**
+	 * Did this failure happen because the browser window is gone? The interpreter closing the Google Earth window
+	 * mid-operation is ordinary use, so it is reported as a warning rather than an error. Selenium says so with a
+	 * typed exception, but wraps it often enough that the whole cause chain and the message are both worth checking.
+	 */
+	private boolean timedOut(Throwable failure) {
+		for (Throwable t = failure; t != null; t = t.getCause()) {
+			if (t instanceof org.openqa.selenium.TimeoutException || t instanceof java.util.concurrent.TimeoutException) {
+				return true;
+			}
+		}
+		return false;
+	}
+
+	private boolean windowWasClosed(Throwable failure) {
+		for (Throwable t = failure; t != null; t = t.getCause()) {
+			if (t instanceof NoSuchWindowException || t instanceof NoSuchSessionException) {
+				return true;
+			}
+			final String message = t.getMessage();
+			if (message != null && (message.contains("Session not found") //$NON-NLS-1$
+					|| message.contains("target window already closed") //$NON-NLS-1$
+					|| message.contains("no such window"))) { //$NON-NLS-1$
+				return true;
+			}
+		}
+		return false;
 	}
 
 	protected boolean isDriverWorking(RemoteWebDriver driver) {
@@ -554,6 +615,11 @@ public class BrowserService implements InitializingBean, DisposableBean, Applica
 		Object lock = getOrCreateLock(BrowserType.PLANET);
 		synchronized (lock) {
 			if (localPropertiesService.isPlanetMapsSupported()) {
+				// both modes are opened with the same key, and neither of them shows anything without it
+				if (StringUtils.isBlank(localPropertiesService.getPlanetMapsKey())) {
+					warnAboutMissingPlanetApiKey();
+					return;
+				}
 				try {
 					if (localPropertiesService.isPlanetMapsUseTfo()) {
 						// TFO mode: Use hosted planet.html with NICFI monthly basemaps
@@ -570,16 +636,26 @@ public class BrowserService implements InitializingBean, DisposableBean, Applica
 	}
 
 	/**
+	 * Planet is opened for every plot, so the interpreter is told once per run: a dialog on each plot would
+	 * get in the way of the assessment, and the key is entered in the options dialog, not here.
+	 */
+	private void warnAboutMissingPlanetApiKey() {
+		logger.warn("Planet is switched on but no Planet API key is configured");
+		if (!planetApiKeyWarningShown) {
+			planetApiKeyWarningShown = true;
+			EarthApp.showMessage(Messages.getString("BrowserService.planetApiKeyMissing"), //$NON-NLS-1$
+					Messages.getString("BrowserService.planetApiKeyMissingTitle")); //$NON-NLS-1$
+		}
+	}
+
+	/**
 	 * Opens Planet imagery using the Tropical Forest Observatory (TFO) monthly basemaps.
 	 * Opens the hosted planet.html page at openforis.org with URL parameters.
 	 * Uses the same API key as Daily mode (PLANET_MAPS_KEY).
 	 */
 	private void openPlanetTfoMode(SimplePlacemarkObject placemarkObject) throws BrowserNotFoundException {
+		// openPlanetMaps has already checked that there is a key
 		String apiKey = localPropertiesService.getValue(EarthProperty.PLANET_MAPS_KEY);
-		if (StringUtils.isBlank(apiKey)) {
-			logger.warn("Planet API key not configured for TFO mode");
-			return;
-		}
 
 		try {
 			StringBuilder url = new StringBuilder("https://openforis.org/fileadmin/planet.html?");
@@ -591,7 +667,8 @@ public class BrowserService implements InitializingBean, DisposableBean, Applica
 			// Add API key
 			url.append("&planet_api_key=").append(URLEncoder.encode(apiKey, StandardCharsets.UTF_8.toString()));
 
-			// Add optional date parameters (skip if "Oldest"/"Latest" which represent default/empty values)
+			// Add optional date parameters. The "first / latest available" choices of the options dialog are saved as
+			// empty values; properties written by older versions hold the words "Oldest" / "Latest" for the same thing
 			String dateFrom = localPropertiesService.getPlanetTfoDateFrom();
 			if (StringUtils.isNotBlank(dateFrom) && !"Oldest".equals(dateFrom)) {
 				url.append("&planet_date_from=").append(URLEncoder.encode(dateFrom, StandardCharsets.UTF_8.toString()));
@@ -875,29 +952,6 @@ public class BrowserService implements InitializingBean, DisposableBean, Applica
 	}
 
 	/**
-	 * Opens a browser window with the Google Earth Engine Timelapse representation of the plot.
-	 *
-	 * @param placemarkObject The center point of the plot.
-	 * @throws BrowserNotFoundException If the browser cannot be found
-	 */
-	public void openTimelapse(final SimplePlacemarkObject placemarkObject) throws BrowserNotFoundException {
-		Object lock = getOrCreateLock(BrowserType.TIMELAPSE);
-		synchronized (lock) {
-			if (localPropertiesService.isTimelapseSupported()) {
-				try {
-					String coordinates = placemarkObject.getCoord().toString();
-					webDriverTimelapse = navigateTo(
-							"https://earthengine.google.org/timelapse/timelapseplayer_v2.html?timelapseclient=http://earthengine.google.org/timelapse/data&v="
-									+ coordinates + ",10.812,latLng&t=0.08",
-									webDriverTimelapse);
-				} catch (final Exception e) {
-					logger.error("Problems loading Timelapse", e);
-				}
-			}
-		}
-	}
-
-	/**
 	 * Opens a browser window with ESRI World Imagery Wayback centered on the plot.
 	 *
 	 * @param placemarkObject The center point of the plot.
@@ -1011,7 +1065,9 @@ public class BrowserService implements InitializingBean, DisposableBean, Applica
 					try {
 						remoteWebDriver.quit();
 					} catch (final Exception e) {
-						logger.error("Error quitting the browser", e);
+						// Collect Earth is closing : a browser that is already gone - the interpreter closed it, or its
+						// driver stopped first - is the expected case, not a failure to report
+						logger.warn("A browser could not be quit, it had probably been closed already : {}", e.getMessage());
 					}
 				}
 			}

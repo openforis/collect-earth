@@ -5,6 +5,7 @@ import java.awt.Dimension;
 import java.awt.Frame;
 import java.awt.GridBagConstraints;
 import java.awt.GridBagLayout;
+import java.io.File;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -139,17 +140,27 @@ public class RemovePlotsFromDBDlg {
 	}
 
 	private boolean validateCsv(String filePath) {
+		// This runs on every change of the path, so also while it is being typed. A path that does not lead to a file
+		// is only unusable : it is marked and the button stays disabled. It used to open an error dialog - once per
+		// keystroke when typed - and report a FileNotFoundException as a fault (JAVA-COLLECT-EARTH-55H)
+		if (StringUtils.isBlank(filePath) || !new File(filePath).isFile()) {
+			filePicker.setTextBackground(Color.red);
+			getDeleteButton().setEnabled(false);
+			return false;
+		}
+
 		boolean validFile = true;
 
 		try ( CSVReader csvReader = CsvReaderUtils.getCsvReader(filePath, false) ){
 
 			filePicker.setTextBackground(Color.white);
 
-			if (CsvReaderUtils.isCsvFile(filePath)) {
+			String[] expectedHeaders = getKeyAttributesName();
+			// The file only lists the plot keys, so it has as many columns as keys and not the three of a plot file
+			if (CsvReaderUtils.isCsvFile(filePath, expectedHeaders.length)) {
 
 				// Get the first line
 				String[] csvHeaders = csvReader.readNext();
-				String[] expectedHeaders = getKeyAttributesName();
 				if (!Arrays.equals(expectedHeaders, csvHeaders)) {
 					JOptionPane.showMessageDialog(RemovePlotsFromDBDlg.this.dlg,
 							String.format(Messages.getString("RemovePlotsDialog.5"),
@@ -216,8 +227,9 @@ public class RemovePlotsFromDBDlg {
 					}
 
 				} catch (Exception e) {
-					JOptionPane.showMessageDialog(RemovePlotsFromDBDlg.this.dlg,
-							Messages.getString("RemovePlotsDialog.11"));
+					// Shown from the thread that validates the file, so it has to be queued on the event thread
+					SwingUtilities.invokeLater( () -> JOptionPane.showMessageDialog(RemovePlotsFromDBDlg.this.dlg,
+							Messages.getString("RemovePlotsDialog.11")) );
 					logger.error("Error while validating the CSV file", e);
 					success = false;
 				} finally {

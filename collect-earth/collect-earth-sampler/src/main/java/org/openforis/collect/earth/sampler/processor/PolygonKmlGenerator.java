@@ -35,7 +35,7 @@ public class PolygonKmlGenerator extends AbstractPolygonGeometryKmlGenerator {
 	}
 
 	private static boolean isKmlPolygon(String value) {
-		return value.toLowerCase().contains(KML_POLYGON);
+		return value != null && value.toLowerCase().contains(KML_POLYGON);
 	}
 
 	/*
@@ -98,10 +98,9 @@ public class PolygonKmlGenerator extends AbstractPolygonGeometryKmlGenerator {
 		// Coordinates look like this : lat,long,elev lat,long,elev ...
 		// -15.805135,16.389028,0.0 -15.804454,16.388447,0.0
 
-		String[] splitGroup = valueAttr.split(" ");
-		if (splitGroup.length == 1) {
-			splitGroup = valueAttr.split("\n");
-		}
+		// Split on any whitespace : splitting on a single space left tabs, carriage returns and the indentation of a
+		// formatted KML inside the coordinates that are written to the KML
+		final String[] splitGroup = valueAttr.trim().split("\\s+");
 
 		for (final String coordsWithElev : splitGroup) {
 			final String[] splitCoord = coordsWithElev.split(",");

@@ -151,7 +151,8 @@ public class IPCCSurveyAdapter {
 																											// LU conversion
 																											// was FS then
 																											// it becomes F
-					"idm:blank(" + TEMPLATE_SECOND_LU_CHANGE + ") or " + TEMPLATE_SECOND_LU_CHANGE + " = true() "));
+					"idm:blank(" + TEMPLATE_SECOND_LU_CHANGE + ") or " + TEMPLATE_SECOND_LU_CHANGE + " != true() ")); // The default
+					// above covers "= true()" : repeating it here left the attribute empty whenever second_lu_change is false
 	
 			oldestLu.setAttributeDefaults(calculation);
 			oldestLu.setAnnotation( new QName("ui:hide"), "true" );
@@ -417,10 +418,10 @@ public class IPCCSurveyAdapter {
 		luCodeLists.add(landUses.CODE_LIST_LAND_USE_SUBCATEGORY);
 
 		for (String codeList : luCodeLists) {
-			try {
-				survey.getCodeList(codeList);
-			} catch (InvalidPathException e) {
-				throw new IPCCGeneratorException("Missing Code List in Survey : " + codeList, e);
+			// The result used to be discarded, so this check passed for every survey and the real failure arrived later as a
+			// confusing SQL error
+			if (codeList == null || survey.getCodeList(codeList) == null) {
+				throw new IPCCGeneratorException("Missing Code List in Survey : " + codeList);
 			}
 		}
 	}

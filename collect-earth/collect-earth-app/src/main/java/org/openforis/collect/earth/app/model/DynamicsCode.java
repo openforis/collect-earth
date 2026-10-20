@@ -39,6 +39,10 @@ public enum DynamicsCode {
 	}
 
 	public static Integer getDynamicsCode(String landUseSubcategory) {
+		// A plot with no subcategory ( a NULL in the database ) has no dynamics : it used to throw, and one such plot aborted the whole export
+		if( StringUtils.isBlank( landUseSubcategory ) ){
+			return NA.getId();
+		}
 		if( landUseSubcategory.startsWith("FLto") ){ //$NON-NLS-1$
 			return FROM_FOREST.getId();
 		}else if( landUseSubcategory.startsWith("CLto") ){ //$NON-NLS-1$
@@ -51,8 +55,6 @@ public enum DynamicsCode {
 			return FROM_GRASSLAND.getId();
 		}else if( landUseSubcategory.startsWith("OLto") || landUseSubcategory.startsWith("OTto")){ //$NON-NLS-1$ //$NON-NLS-2$
 			return FROM_OTHERLAND.getId();
-		}else if ( StringUtils.isBlank( landUseSubcategory )) {
-			throw new IllegalArgumentException("The land use subcategory " + landUseSubcategory + " is not recognizable."); //$NON-NLS-1$ //$NON-NLS-2$
 		}else{
 			return NA.getId();
 		}

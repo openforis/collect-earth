@@ -1,17 +1,17 @@
 package org.openforis.collect.earth.app.service.cloud;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertNotNull;
-import static org.junit.Assert.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.io.InputStream;
 import java.util.Collections;
 import java.util.Date;
 import java.util.List;
 
-import org.junit.BeforeClass;
-import org.junit.Test;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Test;
 import org.openforis.collect.earth.app.service.cloud.CloudRecordSerializer.RecordEnvelope;
 import org.openforis.collect.model.CollectRecord;
 import org.openforis.collect.model.CollectSurvey;
@@ -45,10 +45,10 @@ public class CloudRecordSerializerTest {
 	private static CollectSurvey survey;
 	private static RecordUpdater recordUpdater;
 
-	@BeforeClass
+	@BeforeAll
 	public static void loadSurvey() throws Exception {
 		try (InputStream is = CloudRecordSerializerTest.class.getResourceAsStream("/test_survey.idm.xml")) {
-			assertNotNull("test_survey.idm.xml fixture missing", is);
+			assertNotNull(is, "test_survey.idm.xml fixture missing");
 			// Provide a stub CodeListService so that initializeNewRecord() can apply
 			// code-list default values without a backing database (the default no-arg
 			// CollectSurveyContext leaves codeListService null, which NPEs on loadRootItems).
@@ -68,7 +68,7 @@ public class CloudRecordSerializerTest {
 		recordUpdater.initializeNewRecord(record);
 
 		List<AttributeDefinition> keyDefs = record.getRootEntity().getDefinition().getKeyAttributeDefinitions();
-		assertFalse("survey has no key attributes", keyDefs.isEmpty());
+		assertFalse(keyDefs.isEmpty(), "survey has no key attributes");
 		for (AttributeDefinition keyDef : keyDefs) {
 			@SuppressWarnings("unchecked")
 			Attribute<?, Value> keyAttr = (Attribute<?, Value>) record.findNodeByPath(keyDef.getPath());
@@ -77,7 +77,7 @@ public class CloudRecordSerializerTest {
 		}
 
 		TextAttribute operator = (TextAttribute) record.findNodeByPath("plot/operator");
-		assertNotNull("demo survey should have plot/operator", operator);
+		assertNotNull(operator, "demo survey should have plot/operator");
 		recordUpdater.updateAttribute(operator, new TextValue(OPERATOR_NAME));
 
 		record.setModifiedDate(new Date());
@@ -98,8 +98,8 @@ public class CloudRecordSerializerTest {
 		assertEquals(survey.getUri(), envelope.getSurveyUri());
 		assertEquals(OPERATOR_NAME, envelope.getOperator());
 		assertNotNull(envelope.getModifiedOn());
-		assertTrue("XML should contain the root entity", envelope.getXml().contains("<plot"));
-		assertFalse("summary map should not be empty", envelope.getSummary().isEmpty());
+		assertTrue(envelope.getXml().contains("<plot"), "XML should contain the root entity");
+		assertFalse(envelope.getSummary().isEmpty(), "summary map should not be empty");
 		assertEquals(OPERATOR_NAME, envelope.getSummary().get("collect_text_operator"));
 		assertFalse(envelope.isDeleted());
 	}

@@ -148,7 +148,11 @@ public class RDBExporter extends RDBConnector{
 		}
 	}
 	
-	public void exportDataToRDB(
+	/**
+	 * @return True when the data was exported and post-processed, false when the user cancelled it or the post-processing failed.
+	 *         A false means the database is half-processed : do not keep it for the next run
+	 */
+	public boolean exportDataToRDB(
 			Survey survey, 
 			ExportType exportType, 
 			InfiniteProgressMonitor progressListener,
@@ -183,14 +187,18 @@ public class RDBExporter extends RDBConnector{
 			logger.error("Error with DB connection", e1);
 		}
 		
-		if (!isUserCancelledOperation()) {
-			System.currentTimeMillis();
-			try {
-				setJDBCDefaultSchema( exportType);
-				callbackProcessor.processRDBData(progressListener);
-			} catch (final Exception e) {
-				logger.error("Error processing quantity data", e); //$NON-NLS-1$
-			}
+		if (isUserCancelledOperation()) {
+			return false;
+		}
+
+		try {
+			setJDBCDefaultSchema( exportType);
+			callbackProcessor.processRDBData(progressListener);
+			return true;
+		} catch (final Exception e) {
+			// The caller has to know : a half-processed database used to be kept and reused by the following runs
+			logger.error("Error processing quantity data", e); //$NON-NLS-1$
+			return false;
 		}
 	}
 	

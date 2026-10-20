@@ -1,5 +1,6 @@
 package org.openforis.collect.earth.ipcc.controller;
 
+import java.nio.charset.StandardCharsets;
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
@@ -15,6 +16,7 @@ import org.slf4j.LoggerFactory;
 import com.thoughtworks.xstream.XStream;
 
 public class StratumUtils {
+	private static final String XML_DECLARATION = "<?xml version=" + (char) 34 + "1.0" + (char) 34 + " encoding=" + (char) 34 + "UTF-8" + (char) 34 + "?>\n";
 
 	public static final String CODE_LIST_CLIMATE = "climate_zones";
 	public static final String CODE_LIST_SOIL = "soil_types";
@@ -55,8 +57,10 @@ public class StratumUtils {
 		File xmlFileDestination = File.createTempFile( "codeListInSurvey", ".xml" );
 		xmlFileDestination.deleteOnExit();
 		try (FileOutputStream outputStream = new FileOutputStream( xmlFileDestination ) ) {
-			byte[] strToBytes = xmlSchema.getBytes();
-			outputStream.write(strToBytes);
+			// UTF-8, and say so in the file : with the charset of the machine an accented label of a code list was written in
+			// one encoding and read as another, which makes the XML unreadable
+			outputStream.write(XML_DECLARATION.getBytes(StandardCharsets.UTF_8));
+			outputStream.write(xmlSchema.getBytes(StandardCharsets.UTF_8));
 		} catch (Exception e) {
 			logger.error("Error saving data to file", e);
 		}

@@ -126,68 +126,69 @@ public class IPCCGenerator {
 			int currentStep = 1;
 
 			progressListener.show();
-
-			progressListener.updateProgress(currentStep++, STEPS, "Generating CSV aggregated time-series");
-			// Extract data from the Relational Database into an excel file of transition
-			// Matrixes per year
-			File landUnitsCSVFile = dataExportLandUnitsCSV.generateTimeseriesData(START_YEAR, END_YEAR);
-			if (progressListener.isUserCancelled())
-				return;
-
-			progressListener.updateProgress(currentStep++, STEPS, "Generating CSV per plot time-series");
-			// Extract data from the Relational Database into an excel file of transition
-			// Matrixes per year
-			File perPlotCSVFile = dataExportPerPlotCSV.generateTimeseriesData(START_YEAR, END_YEAR);
-			if (progressListener.isUserCancelled())
-				return;
-			
-			progressListener.updateProgress(currentStep++, STEPS, "Generating sampling uncertainty analysis");
-			// Extract data from the Relational Database into an excel file of transition
-			// Matrixes per year
-			File samplingUncertainty = sampligUncertaintyGenerator.getSamplingUncertainty(START_YEAR, END_YEAR);
-			if (progressListener.isUserCancelled())
-				return;
-
-			progressListener.updateProgress(currentStep++, STEPS, "Generating survey setup files");
-			// Generate list of subdivisions in survey
-			File subdivisionsFile = LandUseSubdivisionUtils.getSubdivisionsXML();
-			File climateZones = StratumUtils.getClimateZonesXML(survey);
-			File ecologicalZones = StratumUtils.getEcologicalZonesXML(survey);
-			File soilTypes = StratumUtils.getSoilTypesXML(survey);
-			if (progressListener.isUserCancelled())
-				return;
-
-			progressListener.updateProgress(currentStep++, STEPS, "Generating XML timeseries file");
-			// Extract data from the Relational Database into an XML File with information
-			// per year
-			File timeseriesXMLFile = ipccDataExportToXML.generateTimeseriesData(IPCCGenerator.START_YEAR,
-					IPCCGenerator.END_YEAR);
-			if (progressListener.isUserCancelled())
-				return;
-
-			progressListener.updateProgress(currentStep++, STEPS, "Generating Excel LU Matrixes per year");
-			// Extract data from the Relational Database into an excel file of transition
-			// Matrixes per year
-			File matrixXLSFile = dataExportMatrixExcel.generateTimeseriesData(START_YEAR, END_YEAR);
-			if (progressListener.isUserCancelled())
-				return;
-
-			progressListener.updateProgress(currentStep++, STEPS, "Generating Excel LU Matrixes per year STRATIFIED");
-			// Extract data from the Relational Database into an excel file of transition
-			// Matrixes per year
-			File matrixXLSExtendedFile = dataExportMatrixExtendedExcel.generateTimeseriesData(START_YEAR, END_YEAR);
-			if (progressListener.isUserCancelled())
-				return;
-
-			progressListener.updateProgress(currentStep++, STEPS, "Generating GHGi activity data files");
-			// Extract data from the Relational Database into an excel file of transition
-			// Matrixes per year
-			File xmlWithDataToImportGhgTool = dataExportTimeSeriesToTool.generateTimeseriesData(START_YEAR, START_YEAR,
-					END_YEAR, wizard.getCountryCode().getCode(), wizard.getRegionAttribute());
-			if (progressListener.isUserCancelled())
-				return;
-
+			// Hide it whatever happens next : the eight cancel returns below, and any failure, used to leave the monitor on screen
 			try {
+
+				progressListener.updateProgress(currentStep++, STEPS, "Generating CSV aggregated time-series");
+				// Extract data from the Relational Database into an excel file of transition
+				// Matrixes per year
+				File landUnitsCSVFile = dataExportLandUnitsCSV.generateTimeseriesData(START_YEAR, END_YEAR);
+				if (progressListener.isUserCancelled())
+					return;
+
+				progressListener.updateProgress(currentStep++, STEPS, "Generating CSV per plot time-series");
+				// Extract data from the Relational Database into an excel file of transition
+				// Matrixes per year
+				File perPlotCSVFile = dataExportPerPlotCSV.generateTimeseriesData(START_YEAR, END_YEAR);
+				if (progressListener.isUserCancelled())
+					return;
+			
+				progressListener.updateProgress(currentStep++, STEPS, "Generating sampling uncertainty analysis");
+				// Extract data from the Relational Database into an excel file of transition
+				// Matrixes per year
+				File samplingUncertainty = sampligUncertaintyGenerator.getSamplingUncertainty(START_YEAR, END_YEAR);
+				if (progressListener.isUserCancelled())
+					return;
+
+				progressListener.updateProgress(currentStep++, STEPS, "Generating survey setup files");
+				// Generate list of subdivisions in survey
+				File subdivisionsFile = LandUseSubdivisionUtils.getSubdivisionsXML();
+				File climateZones = StratumUtils.getClimateZonesXML(survey);
+				File ecologicalZones = StratumUtils.getEcologicalZonesXML(survey);
+				File soilTypes = StratumUtils.getSoilTypesXML(survey);
+				if (progressListener.isUserCancelled())
+					return;
+
+				progressListener.updateProgress(currentStep++, STEPS, "Generating XML timeseries file");
+				// Extract data from the Relational Database into an XML File with information
+				// per year
+				File timeseriesXMLFile = ipccDataExportToXML.generateTimeseriesData(IPCCGenerator.START_YEAR,
+						IPCCGenerator.END_YEAR);
+				if (progressListener.isUserCancelled())
+					return;
+
+				progressListener.updateProgress(currentStep++, STEPS, "Generating Excel LU Matrixes per year");
+				// Extract data from the Relational Database into an excel file of transition
+				// Matrixes per year
+				File matrixXLSFile = dataExportMatrixExcel.generateTimeseriesData(START_YEAR, END_YEAR);
+				if (progressListener.isUserCancelled())
+					return;
+
+				progressListener.updateProgress(currentStep++, STEPS, "Generating Excel LU Matrixes per year STRATIFIED");
+				// Extract data from the Relational Database into an excel file of transition
+				// Matrixes per year
+				File matrixXLSExtendedFile = dataExportMatrixExtendedExcel.generateTimeseriesData(START_YEAR, END_YEAR);
+				if (progressListener.isUserCancelled())
+					return;
+
+				progressListener.updateProgress(currentStep++, STEPS, "Generating GHGi activity data files");
+				// Extract data from the Relational Database into an excel file of transition
+				// Matrixes per year
+				File xmlWithDataToImportGhgTool = dataExportTimeSeriesToTool.generateTimeseriesData(START_YEAR, START_YEAR,
+						END_YEAR, wizard.getCountryCode().getCode(), wizard.getRegionAttribute());
+				if (progressListener.isUserCancelled())
+					return;
+
 				progressListener.updateProgress(currentStep++, STEPS, "Compressing files into selected destination");
 				CollectEarthUtils.addFileToZip(destinationZip, timeseriesXMLFile, "LU_Timeseries.xml");
 				CollectEarthUtils.addFileToZip(destinationZip, matrixXLSFile, "LU_Matrixes.xls");
@@ -199,16 +200,19 @@ public class IPCCGenerator {
 				CollectEarthUtils.addFileToZip(destinationZip, landUnitsCSVFile, "LU_Timeseries_grouped.csv");
 				CollectEarthUtils.addFileToZip(destinationZip, perPlotCSVFile, "LU_Timeseries_per_plot.csv");
 				CollectEarthUtils.addFileToZip(destinationZip, xmlWithDataToImportGhgTool, "GHGi_tool_data.xml");
-				CollectEarthUtils.addFileToZip(destinationZip, samplingUncertainty, "SamplingUncertainty.xlsx");
-				progressListener.hide();
-			} catch (IOException e) {
-				logger.error("Error when creating ZIP file with timeseries content " + destinationZip, e); //$NON-NLS-1$ //$NON-NLS-2$
-			} catch (Exception e) {
-				logger.error("Error when zipping the timeseries content into " + destinationZip, e); //$NON-NLS-1$ //$NON-NLS-2$
-			}
+				if (samplingUncertainty != null) {
+					CollectEarthUtils.addFileToZip(destinationZip, samplingUncertainty, "SamplingUncertainty.xlsx");
+				} else {
+					logger.error("The sampling uncertainty analysis could not be generated, it is missing from {}", destinationZip); //$NON-NLS-1$
+				}
 
-			// Open the ZIP file automatically to inspect the output
-			CollectEarthUtils.openFile(destinationZip);
+				// Open the ZIP file automatically to inspect the output. A failure while compressing now reaches the catch below
+				// instead of being logged and opening an incomplete archive as if the export had worked
+				CollectEarthUtils.openFile(destinationZip);
+
+			} finally {
+				progressListener.hide();
+			}
 
 		} catch (IOException e) {
 			logger.error("Error generating file", e);

@@ -87,15 +87,13 @@ public class ImportXMLDialogProcessMonitor implements Observer{
 
 				progressMonitor = new InfiniteProgressMonitor(parentFrame, Messages.getString("ImportDialogProcessMonitor.8") + "(" //$NON-NLS-1$ //$NON-NLS-2$
 						+ importedFile.getName() + ")", Messages.getString("ImportDialogProcessMonitor.11") + Messages.getString("ImportDialogProcessMonitor.0")); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$
-				progressMonitor.showLater();
-
-				if (progressMonitor != null && progressMonitor.isUserCancelled()) {
-
+				// Registered before the dialog is shown : asking the monitor after showLater() returned always answered false
+				progressMonitor.setOnUserCancelled( () -> {
 					Toolkit.getDefaultToolkit().beep();
 					importProcess.cancel();
 					logger.warn("Import Task canceled.\n"); //$NON-NLS-1$
-
-				}
+				});
+				progressMonitor.showLater();
 			}
 					);
 
@@ -166,7 +164,8 @@ public class ImportXMLDialogProcessMonitor implements Observer{
 				String surveyDefinitonName = "idml.xml";
 				File definition = new File(tempFolder, surveyDefinitonName);
 
-				try( ZipFile transformedCollectData = CollectEarthUtils.addFileToZip(dst , definition , surveyDefinitonName) ){
+				try( ZipFile transformedCollectData = new ZipFile(dst) ){
+					CollectEarthUtils.addFileToZip(transformedCollectData, definition, surveyDefinitonName);
 					addStepToZip(tempFolder, transformedCollectData, "1");
 					addStepToZip(tempFolder, transformedCollectData, "2");
 					addStepToZip(tempFolder, transformedCollectData, "3");

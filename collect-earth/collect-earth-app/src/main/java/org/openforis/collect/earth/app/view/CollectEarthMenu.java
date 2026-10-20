@@ -118,6 +118,9 @@ public class CollectEarthMenu extends JMenuBar implements InitializingBean {
 	}
 
 	protected void init() {
+		// init() runs again on every change of language, and the menus are built again : start from an empty list, it used to
+		// keep the items of every language that had been chosen
+		serverMenuItems.clear();
 		setFrame(collectEarthWindow.getFrame());
 		ensureJSwingAppender();
 
@@ -198,9 +201,6 @@ public class CollectEarthMenu extends JMenuBar implements InitializingBean {
 
 			Boolean showException = checkboxErrors.isSelected();
 			localPropertiesService.setExceptionShown( showException );
-
-			final LoggerContext ctx = (LoggerContext) LogManager.getContext(false);
-			final Configuration config = ctx.getConfiguration();
 
 			JSwingAppender jSwingAppender = ensureJSwingAppender();
 
@@ -395,13 +395,18 @@ public class CollectEarthMenu extends JMenuBar implements InitializingBean {
 						String errorMessage = e1.getMessage() != null ? e1.getMessage() : "Unknown error occurred";
 						JOptionPane.showMessageDialog( getFrame(), errorMessage,
 								Messages.getString("OptionWizard.51"), JOptionPane.ERROR_MESSAGE);
-						logger.error("Error importing project file " + selectedProjectFile[0].getAbsolutePath(), e1);
+						if (e1 instanceof IOException) {
+							// A file that is not a valid project : the user has just been told why, it is not a fault
+							logger.warn("The project file {} could not be imported : {}", selectedProjectFile[0].getAbsolutePath(), e1.getMessage());
+						} else {
+							logger.error("Error importing project file " + selectedProjectFile[0].getAbsolutePath(), e1);
+						}
 					}
 				}
 			}
 		});
 		fileMenu.add(menuItem);
-		this.add(fileMenu);
+		// init() adds this menu to the bar, it used to be added here as well
 
 		JMenuItem joinCloudItem = new JMenuItem(Messages.getString("CollectEarthMenu.joinCloudProject")); //$NON-NLS-1$
 		joinCloudItem.setIcon(FontIcon.of(MaterialDesign.MDI_CLOUD_DOWNLOAD));
@@ -523,17 +528,20 @@ public class CollectEarthMenu extends JMenuBar implements InitializingBean {
 		xmlExportSubmenu.add(menuItem);
 
 		final JMenuItem exportModifiedRecords = new JMenuItem(Messages.getString("CollectEarthWindow.61")); //$NON-NLS-1$
-		exportModifiedRecords.addActionListener(
-				getExportActionListener(DataFormat.ZIP_WITH_XML, RecordsToExport.MODIFIED_SINCE_LAST_EXPORT));
+		exportModifiedRecords.addActionListener( getExportActionListener(DataFormat.ZIP_WITH_XML, RecordsToExport.MODIFIED_SINCE_LAST_EXPORT));
 		xmlExportSubmenu.add(exportModifiedRecords);
 
 		final JMenuItem exportDataRangeRecords = new JMenuItem(Messages.getString("CollectEarthMenu.4")); //$NON-NLS-1$
-		exportDataRangeRecords
-		.addActionListener(getExportActionListener(DataFormat.ZIP_WITH_XML, RecordsToExport.PICK_FROM_DATE));
+		exportDataRangeRecords.addActionListener(getExportActionListener(DataFormat.ZIP_WITH_XML, RecordsToExport.PICK_FROM_DATE));
 		xmlExportSubmenu.add(exportDataRangeRecords);
-
+		
+		final JMenuItem exportBySummaryAttibuteRecords = new JMenuItem(Messages.getString("CollectEarthMenu.8")); //$NON-NLS-1$
+		exportBySummaryAttibuteRecords.addActionListener(getExportActionListener(DataFormat.ZIP_WITH_XML, RecordsToExport.USE_SUMMARY_ATTRIBUTE));
+		xmlExportSubmenu.add(exportBySummaryAttibuteRecords);
+		
+		// Add the XML submenu to the main menu
 		ieSubmenu.add(xmlExportSubmenu);
-
+		
 		final JMenu backupExportSubmenu = new JMenu(Messages.getString("CollectEarthMenu.5")); //$NON-NLS-1$
 
 		final JMenuItem exportDataBackup = new JMenuItem(Messages.getString("CollectEarthMenu.6")); //$NON-NLS-1$
@@ -650,8 +658,10 @@ public class CollectEarthMenu extends JMenuBar implements InitializingBean {
 				final JDialog dialog = new PropertiesDialog(owner, localPropertiesService, earthProjectsService,
 						backupSqlLiteService.getAutomaticBackUpFolder().getPath(), analysisSaikuService,
 						earthSurveyService.getCollectSurvey(), cloudApiClient);
-				dialog.setVisible(true);
+				// pack() before showing it : the dialog is modal, so setVisible only returns once it is closed and the
+				// dialog was shown with no size of its own
 				dialog.pack();
+				dialog.setVisible(true);
 			} catch (Exception ex) {
 				logger.error("Failed to open Properties dialog", ex);
 				JOptionPane.showMessageDialog(owner,

@@ -61,7 +61,7 @@ public class CheckForUpdatesListener implements ActionListener {
 				autoUpdateExecutable += ".exe"; //$NON-NLS-1$
 			}else if (SystemUtils.IS_OS_MAC){
 				autoUpdateExecutable += ".app"; //$NON-NLS-1$
-			}else if ( SystemUtils.IS_OS_UNIX && System.getProperty("sun.arch.data.model").equals("64")){
+			}else if ( SystemUtils.IS_OS_UNIX && "64".equals(System.getProperty("sun.arch.data.model"))){
 				autoUpdateExecutable += "-x64.run"; //$NON-NLS-1$
 			}else if ( SystemUtils.IS_OS_UNIX ) {
 				autoUpdateExecutable += ".run"; //$NON-NLS-1$

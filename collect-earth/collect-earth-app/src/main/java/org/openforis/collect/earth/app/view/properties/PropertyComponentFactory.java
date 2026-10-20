@@ -24,6 +24,7 @@ import org.jdesktop.swingx.JXDatePicker;
 import org.jdesktop.swingx.plaf.basic.CalendarHeaderHandler;
 import org.jdesktop.swingx.plaf.basic.SpinningCalendarHeaderHandler;
 import org.jdesktop.swingx.prompt.PromptSupport;
+import org.openforis.collect.earth.app.EarthConstants.BUFFER_SHAPE;
 import org.openforis.collect.earth.app.EarthConstants.SAMPLE_SHAPE;
 import org.openforis.collect.earth.app.service.LocalPropertiesService;
 import org.openforis.collect.earth.app.service.LocalPropertiesService.EarthProperty;
@@ -169,6 +170,20 @@ public class PropertyComponentFactory {
     }
 
     /**
+     * Creates the combo box for the shape of the reference area drawn around the plot.
+     * Without a distance there is no reference area, whatever shape the properties hold.
+     */
+    public JComboBox<BUFFER_SHAPE> createBufferShapeComboBox() {
+        JComboBox<BUFFER_SHAPE> comboBox = new JComboBox<>(BUFFER_SHAPE.values());
+        if (StringUtils.isBlank(localPropertiesService.getValue(EarthProperty.DISTANCE_TO_BUFFERS))) {
+            comboBox.setSelectedItem(BUFFER_SHAPE.NONE);
+        } else {
+            comboBox.setSelectedItem(localPropertiesService.getBufferShape());
+        }
+        return comboBox;
+    }
+
+    /**
      * Creates the number of sampling points combo box.
      */
     public JComboBox<ComboBoxItem> createSamplingPointsComboBox(EarthProperty property) {
@@ -180,7 +195,10 @@ public class PropertyComponentFactory {
                 new ComboBoxItem(16, "4x4"),
                 new ComboBoxItem(25, "5x5"),
                 new ComboBoxItem(36, "6x6"),
-                new ComboBoxItem(49, "7x7")
+                new ComboBoxItem(49, "7x7"),
+                new ComboBoxItem(64, "8x8"),
+                new ComboBoxItem(81, "9x9"),
+                new ComboBoxItem(100, "10x10")
         };
 
         JComboBox<ComboBoxItem> comboBox = new JComboBox<>(items);

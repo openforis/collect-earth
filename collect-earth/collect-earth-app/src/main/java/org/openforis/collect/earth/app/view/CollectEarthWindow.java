@@ -84,6 +84,9 @@ public class CollectEarthWindow implements InitializingBean, DisposableBean{
 
 	public static final Color ERROR_COLOR = new Color(225, 124, 124);
 
+	private boolean windowClosingListenerAdded;
+	private transient Timer timerOperatorChanged;
+
 	public CollectEarthWindow() throws IOException {
 		// Create and set up the window.
 		JFrame framePriv = new JFrame(Messages.getString("CollectEarthWindow.19"));//$NON-NLS-1$
@@ -113,6 +116,13 @@ public class CollectEarthWindow implements InitializingBean, DisposableBean{
 	}
 
 	private void addWindowClosingListener() {
+		// Added once : openWindow() runs again on every change of language, and each run used to add another listener, so the
+		// user was asked to confirm the exit once per language they had chosen
+		if (windowClosingListenerAdded) {
+			return;
+		}
+		windowClosingListenerAdded = true;
+
 		getFrame().addWindowListener(new WindowAdapter() {
 
 			@Override
@@ -141,14 +151,22 @@ public class CollectEarthWindow implements InitializingBean, DisposableBean{
 
 						getFrame().setVisible(false);
 						getFrame().dispose();
-						stopServer.start();
-						Thread.sleep(5000);
-
-						System.exit(0);
+						// Wait for the server off the event thread : the interface used to freeze for five seconds while it closed,
+						// and the process exited whether the server had stopped or not
+						new Thread("Waiting for the server to stop") { //$NON-NLS-1$
+							@Override
+							public void run() {
+								try {
+									stopServer.start();
+									stopServer.join(5000);
+								} catch (final InterruptedException e2) {
+									logger.error("Interrupted while waiting for the server to stop", e2); //$NON-NLS-1$
+									Thread.currentThread().interrupt();
+								}
+								System.exit(0);
+							}
+						}.start();
 					}
-				}catch (final InterruptedException e1) {
-					logger.error("Error when interupting thread", e1); //$NON-NLS-1$
-					Thread.currentThread().interrupt();
 				} catch (final Exception e1) {
 					logger.error("Error when trying to shutdown the server when window is closed", e1); //$NON-NLS-1$
 				}
@@ -249,9 +267,12 @@ public class CollectEarthWindow implements InitializingBean, DisposableBean{
 
 		c.gridx = 0;
 		c.gridy++;
-		c.gridwidth = GridBagConstraints.HORIZONTAL;
-		pane.add(new JLabel(Messages.getString("CollectEarthWindow.28") + "<br>" //$NON-NLS-1$ //$NON-NLS-2$
-				+ Messages.getString("CollectEarthWindow.30")), c); //$NON-NLS-1$
+		// gridwidth counts columns : HORIZONTAL is a value of the fill constant and happens to be 2, which is what this
+		// label needs, but it says something else
+		c.gridwidth = 2;
+		// Wrapped in html, otherwise the <br> between the two lines is shown as it is written
+		pane.add(new JLabel("<html>" + Messages.getString("CollectEarthWindow.28") + "<br>" //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$
+				+ Messages.getString("CollectEarthWindow.30") + "</html>"), c); //$NON-NLS-1$ //$NON-NLS-2$
 
 		c.gridx = 0;
 		c.gridy++;
@@ -278,12 +299,19 @@ public class CollectEarthWindow implements InitializingBean, DisposableBean{
 		// and length validation are not wired up.
 		if (!cloudMode) {
 			// Three seconds after the last key is typed on hte text field the operator name changes on the properties service
-			Timer timerOperatorChanged = new Timer(3000, e-> updateOperatorName() );
+			if (timerOperatorChanged != null) {
+				// The panel is rebuilt on every change of language : stop the timer of the previous one
+				timerOperatorChanged.stop();
+			}
+			timerOperatorChanged = new Timer(3000, e-> updateOperatorName() );
+			// Once : a repeating timer stacked another modal dialog every three seconds while the name was invalid
+			timerOperatorChanged.setRepeats(false);
 
+			final Timer operatorTimer = timerOperatorChanged;
 			operatorTextField.addKeyListener( new KeyAdapter() {
 				@Override
 				public void keyTyped(KeyEvent e) {
-					timerOperatorChanged.restart();
+					operatorTimer.restart();
 				}
 			});
 		}

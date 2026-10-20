@@ -87,7 +87,9 @@ public class LandUseSubdivisionStratified<E> {
 
 	@Override
 	public int hashCode() {
-		return Objects.hash(climate, ecozone, id, landUseCategory, landUseSubdivision, soil);
+		// The same fields that equals compares : the id is deliberately left out of both, and hashing it made two strata that
+		// are equal land in different buckets of a set or a map
+		return Objects.hash(climate, ecozone, landUseCategory, landUseSubdivision, soil);
 	}
 
 	@Override

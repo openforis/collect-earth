@@ -1,15 +1,15 @@
 package org.openforis.collect.earth.app.service;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertTrue;
-import static org.junit.Assert.fail;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.fail;
 
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.Map;
 
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 import org.openforis.collect.earth.sampler.model.SimpleCoordinate;
 import org.openforis.collect.earth.sampler.model.SimplePlacemarkObject;
 
@@ -145,8 +145,8 @@ public class PlotGeoJsonBuilderTest {
 			new PlotGeoJsonBuilder().toFeature(p);
 			fail("Expected IllegalArgumentException for unparseable coordinate");
 		} catch (IllegalArgumentException e) {
-			assertTrue("message should contain plot id, was: " + e.getMessage(),
-					e.getMessage().contains("plot_bad"));
+			assertTrue(e.getMessage().contains("plot_bad"),
+					"message should contain plot id, was: " + e.getMessage());
 		} catch (Exception e) {
 			fail("Expected IllegalArgumentException but got " + e.getClass().getName());
 		}

@@ -128,7 +128,7 @@ public class FileDividerToolDlg extends JDialog{
 				try {
 					CollectEarthUtils.openFolderInExplorer( dest.getAbsolutePath() );
 				} catch (IOException e1) {
-					logger.error(" Error opening the destination folder", e);
+					logger.error(" Error opening the destination folder", e1);
 				}
 			});
 		}

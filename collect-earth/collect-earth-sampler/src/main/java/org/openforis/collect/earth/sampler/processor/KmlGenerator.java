@@ -5,6 +5,7 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
+import java.util.regex.Pattern;
 import java.util.Arrays;
 import java.util.Date;
 import java.util.HashMap;
@@ -20,6 +21,7 @@ import org.openforis.collect.earth.sampler.model.SimplePlacemarkObject;
 import org.openforis.collect.earth.sampler.utils.FreemarkerTemplateUtils;
 import org.openforis.collect.earth.sampler.utils.GeoUtils;
 import org.openforis.collect.earth.sampler.utils.KmlGenerationException;
+import org.openforis.collect.earth.sampler.utils.KmlTemplateUpgrader;
 import org.openforis.collect.metamodel.CollectAnnotations;
 import org.openforis.collect.model.CollectSurvey;
 import org.openforis.idm.metamodel.AttributeDefinition;
@@ -47,11 +49,17 @@ public abstract class KmlGenerator extends AbstractCoordinateCalculation {
 		double centroidX = 0;
 		double centroidY = 0;
 
-		for (SimpleCoordinate knot : shape) {
-			centroidX += knot.getCoordinates()[1];
-			centroidY += knot.getCoordinates()[0];
+		int vertices = shape.size();
+		// A closed ring repeats its first vertex at the end : counting it twice pulls the centre towards it
+		if (vertices > 1 && shape.get(0).equals(shape.get(vertices - 1))) {
+			vertices--;
 		}
-		return new SimpleCoordinate(centroidY / shape.size(), centroidX / shape.size());
+		for (int i = 0; i < vertices; i++) {
+			final double[] latLong = shape.get(i).getCoordinates();
+			centroidX += latLong[1];
+			centroidY += latLong[0];
+		}
+		return new SimpleCoordinate(centroidY / vertices, centroidX / vertices);
 
 	}
 
@@ -70,25 +78,11 @@ public abstract class KmlGenerator extends AbstractCoordinateCalculation {
 	 * @param string The String to check
 	 * @return True if the string is a number
 	 */
+	private static final Pattern NUMBER_PATTERN = Pattern.compile("[+-]?(\\d+([.,]\\d*)?|[.,]\\d+)([eE][+-]?\\d+)?");
+
 	public static boolean isNumber(String string) {
-		if (string == null || string.isEmpty()) {
-			return false;
-		}
-		int i = 0;
-		if (string.charAt(0) == '-') {
-			if (string.length() > 1) {
-				i++;
-			} else {
-				return false;
-			}
-		}
-		for (; i < string.length(); i++) {
-			char charAt = string.charAt(i);
-			if (charAt != '.' && charAt != ',' && !Character.isDigit(charAt)) {
-				return false;
-			}
-		}
-		return true;
+		// A comma is accepted as the decimal separator, the callers replace it before parsing
+		return string != null && NUMBER_PATTERN.matcher(string.trim()).matches();
 	}
 
 	private static String[] removeTrailingSpaces(String[] csvValuesInLine) {
@@ -115,8 +109,12 @@ public abstract class KmlGenerator extends AbstractCoordinateCalculation {
 	public void generateKmlFile(String destinationKmlFile, String csvFile, String balloonFile,
 			String freemarkerKmlTemplateFile, CollectSurvey collectSurvey, boolean kmlExport) throws KmlGenerationException {
 
-		final File destinationFile = new File(destinationKmlFile);
-		destinationFile.getParentFile().mkdirs();
+		final File destinationFile = new File(destinationKmlFile).getAbsoluteFile();
+		final File destinationFolder = destinationFile.getParentFile();
+		// A destination with no folder in it used to throw here, and a folder that cannot be created was ignored
+		if (destinationFolder != null && !destinationFolder.isDirectory() && !destinationFolder.mkdirs()) {
+			throw new KmlGenerationException("Cannot create the folder " + destinationFolder.getAbsolutePath());
+		}
 		getKmlCode(csvFile, balloonFile, freemarkerKmlTemplateFile, destinationFile, collectSurvey, kmlExport);
 	}
 
@@ -162,10 +160,14 @@ public abstract class KmlGenerator extends AbstractCoordinateCalculation {
 			// Process the template file using the data in the "data" Map
 			final File templateFile = new File(freemarkerKmlTemplateFile);
 
-			FreemarkerTemplateUtils.applyTemplate(templateFile, destinationFile, data);
+			// The template of a project made before September 2026 draws the reference areas into the plot's own boundary,
+			// which makes Google Earth show a reference area where the plot frame should be. Only the copy that is processed
+			// is repaired; the template in the project folder is left exactly as its author wrote it
+			FreemarkerTemplateUtils.applyTemplate(templateFile, destinationFile, data,
+					source -> KmlTemplateUpgrader.repairReferenceAreas(source, templateFile.getName()));
 		} catch (Exception e) {
 			throw new KmlGenerationException("Error generating the KML file to open in Google Earth "
-					+ freemarkerKmlTemplateFile + " with data " + Arrays.toString(data.values().toArray()), e);
+					+ freemarkerKmlTemplateFile + " with data keys " + data.keySet(), e);
 		}
 	}
 
@@ -195,8 +197,10 @@ public abstract class KmlGenerator extends AbstractCoordinateCalculation {
 			}
 		}
 
-		plotProperties.setPlacemarkId(keys.substring(0, keys.lastIndexOf(",")));
-		plotProperties.setVisiblePlacemarkId(visibleKeys.substring(0, visibleKeys.lastIndexOf(",")));
+		// Remove the trailing comma. The visible keys are empty when every key is hidden ( blind quality control plots ), and
+		// substring(0, -1) used to throw there
+		plotProperties.setPlacemarkId(StringUtils.removeEnd(keys.toString(), ","));
+		plotProperties.setVisiblePlacemarkId(StringUtils.removeEnd(visibleKeys.toString(), ","));
 
 		int leadingColumns = 0;
 
@@ -261,17 +265,20 @@ public abstract class KmlGenerator extends AbstractCoordinateCalculation {
 
 		// Adds a map ( coulmnName,cellValue) so that the values can also be added to
 		// the KML by column name (for the newer versions)
-		HashMap<String, String> valuesByColumn;
-		try {
-			valuesByColumn = new HashMap<>();
-			if (possibleColumnNames != null) {
-				for (int i = 0; i < possibleColumnNames.length; i++) {
-					valuesByColumn.put(possibleColumnNames[i], csvValuesInLine[i] == null ? "" : csvValuesInLine[i]);
-				}
+		HashMap<String, String> valuesByColumn = new HashMap<>();
+		if (possibleColumnNames != null) {
+			for (int i = 0; i < possibleColumnNames.length; i++) {
+				// A row with fewer cells than the header used to throw here, and the whole map was then left unset
+				String value = i < csvValuesInLine.length ? csvValuesInLine[i] : null;
+				valuesByColumn.put(possibleColumnNames[i], value == null ? "" : value);
 			}
-			plotProperties.setValuesByColumn(valuesByColumn);
-		} catch (Exception e) {
-			logger.error( "Error generating map with values", e);
+		}
+		plotProperties.setValuesByColumn(valuesByColumn);
+
+		if (plotProperties.getCoord() == null) {
+			// Without this the NullPointerException below said nothing about the real problem
+			throw new KmlGenerationException("The latitude and longitude columns of this plot are not numbers ( LAT : " + latitude
+					+ " , LONG : " + longitude + " ) and there is no polygon column to place the plot with");
 		}
 
 		// Handle teh calculation of different SRSs that EPSG:3264

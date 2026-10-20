@@ -1,5 +1,7 @@
 package org.openforis.collect.earth.app;
 
+import java.nio.charset.StandardCharsets;
+import java.util.Comparator;
 import java.awt.Desktop;
 import java.awt.Font;
 import java.awt.FontFormatException;
@@ -23,6 +25,7 @@ import java.util.stream.Stream;
 
 import javax.swing.UIManager;
 
+import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.codec.digest.DigestUtils;
 import org.apache.commons.lang3.SystemUtils;
 import org.openforis.collect.earth.app.EarthConstants.UI_LANGUAGE;
@@ -51,22 +54,31 @@ public class CollectEarthUtils {
 		}
 		StringBuilder md5Hex = new StringBuilder();
 
-		try( Stream<Path> paths = Files.walk(Paths.get(folder.toURI()), 3) ) {
-			List<File> listFiles = paths.filter(Files::isRegularFile).map(Path::toFile)
+		final Path root = Paths.get(folder.toURI());
+		// The whole tree, in a defined order, and with the names of the files in the digest. Walking three levels deep in
+		// whatever order the file system answers, and hashing only the contents, meant that a renamed or a deeply nested file
+		// left the checksum unchanged, so the project was not reloaded, while a different walk order forced a reload of a
+		// project that had not changed at all
+		try( Stream<Path> paths = Files.walk(root) ) {
+			List<Path> listFiles = paths.filter(Files::isRegularFile)
+					.sorted(Comparator.comparing(path -> root.relativize(path).toString().replace(File.separatorChar, '/')))
 					.collect(Collectors.toList());
-			for (File file : listFiles) {
-				try (FileInputStream fis = new FileInputStream(file)) {
+			for (Path file : listFiles) {
+				md5Hex.append(root.relativize(file).toString().replace(File.separatorChar, '/'));
+				try (InputStream fis = Files.newInputStream(file)) {
 					md5Hex.append(DigestUtils.md5Hex(fis));
 				}
 			}
-			return DigestUtils.md5Hex(md5Hex.toString().getBytes());
+			return DigestUtils.md5Hex(md5Hex.toString().getBytes(StandardCharsets.UTF_8));
 		}
 	}
 
 	public static String getMd5FromFile(String filePath) throws IOException {
+		// Only the failures of the file : catching everything made the declared IOException misleading, while the callers
+		// depend on the null that is returned for a file that cannot be read
 		try (FileInputStream fis = new FileInputStream(new File(filePath))) {
 			return DigestUtils.md5Hex(fis);
-		} catch (Exception e) {
+		} catch (IOException e) {
 			logger.error("Error getting MD5 from file", e);
 			return null;
 		}
@@ -87,9 +99,14 @@ public class CollectEarthUtils {
 	}
 
 	public static void setUiFont(String ttfFileName) {
-		try {
+		// Closed after use : one stream was leaked on every switch to a language that needs its own font
+		try ( InputStream fontStream = CollectEarthUtils.class.getResourceAsStream(ttfFileName) ) {
+			if (fontStream == null) {
+				// A missing font used to throw a NullPointerException, which is not caught below and ends the application
+				logger.error("The font {} is not present, the interface keeps the font it has", ttfFileName);
+				return;
+			}
 			// create the font to use. Specify the size!
-			InputStream fontStream = CollectEarthUtils.class.getResourceAsStream(ttfFileName);
 			Font laoFont = Font.createFont(Font.TRUETYPE_FONT, fontStream).deriveFont(12f);
 			GraphicsEnvironment ge = GraphicsEnvironment.getLocalGraphicsEnvironment();
 			// register the font
@@ -111,25 +128,30 @@ public class CollectEarthUtils {
 		}
 	}
 
-	public static ZipFile addFileToZip(String pathToDestinationZip, File fileToAdd, String fileNameInZip) throws IOException {
-		File destinationZip = new File(pathToDestinationZip);
-		return addFileToZip(destinationZip, fileToAdd, fileNameInZip);
+	public static void addFileToZip(String pathToDestinationZip, File fileToAdd, String fileNameInZip) throws IOException {
+		addFileToZip(new File(pathToDestinationZip), fileToAdd, fileNameInZip);
 	}
-	
-	public static ZipFile addFileToZip(File destinationZip, File fileToAdd, String fileNameInZip) throws IOException {
+
+	public static void addFileToZip(File destinationZip, File fileToAdd, String fileNameInZip) throws IOException {
 		try( ZipFile zipFile = new ZipFile(destinationZip) ){
-			ZipParameters zipParameters = new ZipParameters();
-			// COMP_DEFLATE is for compression
-			zipParameters.setCompressionMethod(CompressionMethod.DEFLATE);
-			// DEFLATE_LEVEL_ULTRA = maximum compression
-			zipParameters.setCompressionLevel(CompressionLevel.ULTRA);
-			zipParameters.setFileNameInZip(fileNameInZip);
-			zipFile.addFile(fileToAdd, zipParameters);
-			return zipFile;
-		}catch(Exception e) {
-			logger.error("Error adding file to ZIP", e);
-			return null;
+			addFileToZip(zipFile, fileToAdd, fileNameInZip);
 		}
+	}
+
+	/**
+	 * Adds a file to an archive that the caller opens and closes.
+	 *
+	 * A failure is not swallowed here any more : it used to be logged and reported as a null archive, so the callers either failed
+	 * later with a NullPointerException or, in the case of the IPCC export, delivered an incomplete ZIP without telling the user
+	 */
+	public static void addFileToZip(ZipFile zipFile, File fileToAdd, String fileNameInZip) throws ZipException {
+		ZipParameters zipParameters = new ZipParameters();
+		// COMP_DEFLATE is for compression
+		zipParameters.setCompressionMethod(CompressionMethod.DEFLATE);
+		// DEFLATE_LEVEL_ULTRA = maximum compression
+		zipParameters.setCompressionLevel(CompressionLevel.ULTRA);
+		zipParameters.setFileNameInZip(fileNameInZip);
+		zipFile.addFile(fileToAdd, zipParameters);
 	}
 
 	public static String getComputerIp() {
@@ -250,19 +272,22 @@ public class CollectEarthUtils {
 
 	public static String testPostgreSQLConnection(String host, String port, String dbName, String username,
 			String password) {
-		String message = "Connection OK!";
 		try {
-			Driver postgresDriver = new Driver();
-			DriverManager.registerDriver(postgresDriver, null);
+			// The driver registers itself, the extra registration only made the list of drivers grow on every click
 			String url = "jdbc:postgresql://" + host + ":" + port + "/" + dbName;
+			// Without a timeout an unreachable host kept the dialog waiting for as long as the operating system allows
+			DriverManager.setLoginTimeout(10);
 			try( Connection conn = DriverManager.getConnection(url, username, password) ){
-				logger.debug("PostgreSQL Connection is valid! {}", conn.isValid(10) );// 10 sec
+				boolean valid = conn.isValid(10);// 10 sec
+				logger.debug("PostgreSQL Connection is valid! {}", valid );
+				// This used to answer "Connection OK!" even when the connection was not valid
+				return valid ? "Connection OK!" : "The database answered but the connection is not usable";
 			}
 		} catch (Exception e) {
 			logger.error("Error connecting to DB while testing", e);
-			message = e.getMessage();
+			// Some failures carry no message, and the dialog was then empty
+			return StringUtils.defaultIfBlank(e.getMessage(), e.toString());
 		}
-		return message;
 	}
 	
 }

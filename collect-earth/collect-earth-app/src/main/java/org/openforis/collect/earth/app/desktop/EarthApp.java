@@ -7,7 +7,11 @@ import java.awt.Window;
 import java.io.BufferedReader;
 import java.io.File;
 import java.io.IOException;
+import java.text.MessageFormat;
 import java.io.InputStreamReader;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.util.concurrent.TimeUnit;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.lang.reflect.Proxy;
@@ -48,6 +52,7 @@ import org.openforis.collect.earth.app.view.CollectEarthWindow;
 import org.openforis.collect.earth.app.view.DataFormat;
 import org.openforis.collect.earth.app.view.Messages;
 import org.openforis.collect.earth.app.view.PropertiesDialog;
+import org.openforis.collect.earth.app.view.ShellFolderFallback;
 import org.openforis.collect.earth.sampler.utils.KmlGenerationException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -67,11 +72,28 @@ import io.sentry.protocol.User;
  */
 public class EarthApp {
 
-	private static Logger logger;
+	private static final String COLLECT_EARTH_USER_FOLDER_PROPERTY = "collectEarth.userFolder"; //$NON-NLS-1$
+	/** What the process that replaces this one writes before it has a log of its own */
+	private static final String RELAUNCH_LOG_FILE = "relaunch.log"; //$NON-NLS-1$
+	/** A new process that the JVM refuses is gone well within this; a new Collect Earth is still starting */
+	private static final int RELAUNCH_GRACE_SECONDS = 5;
+
+	static {
+		// This has to happen before the logger below is created, so it cannot wait until main() runs : loading this class already
+		// initialises that field, log4j configures itself the first time a logger is used, and log4j2.xml interpolates this
+		// property to place earth_error.log. Setting it in main() was too late, the appender received a path with a literal
+		// ${sys:collectEarth.userFolder} in it and the error log was never written.
+		// The property is used by web.xml as well
+		if (System.getProperty(COLLECT_EARTH_USER_FOLDER_PROPERTY) == null) {
+			System.setProperty(COLLECT_EARTH_USER_FOLDER_PROPERTY, FolderFinder.getCollectEarthDataFolder());
+		}
+	}
+
+	private static Logger logger = LoggerFactory.getLogger(EarthApp.class);
 	private static ServerController serverController;
 	private static EarthApp earthApp;
 
-	private static void closeSplash() {
+	static void closeSplash() {
 		try {
 			final SplashScreen splash = SplashScreen.getSplashScreen();
 			if (splash != null) {
@@ -145,15 +167,14 @@ public class EarthApp {
 
 		try {
 
+			// collectEarth.userFolder is set in the static block above, before the first logger of this class is created
+
 			FlatLightLaf.setup();
 			try {
 				UIManager.setLookAndFeel(new FlatIntelliJLaf());
 			} catch (Exception ex) {
 				System.err.println("Failed to initialize LaF");
 			}
-
-			// System property used in the web.xml configuration
-			System.setProperty("collectEarth.userFolder", FolderFinder.getCollectEarthDataFolder()); //$NON-NLS-1$
 
 			// Specify a browser as http.agent so that calls to CloudFlare hosted
 			// OpenForis.org do not return with a 403 http error
@@ -164,11 +185,11 @@ public class EarthApp {
 			initializeSwingXComponents();
 
 			initializeSentry();
+			// After Sentry, whose handler it wraps : a file chooser broken by the Windows shell falls back to plain folders
+			ShellFolderFallback.installUncaughtExceptionHandler();
 
 			// Change of font so that Lao and Thao glyphs are supported
 			CollectEarthUtils.setFontDependingOnLanguaue(getLocalProperties().getUiLanguage());
-
-			logger = LoggerFactory.getLogger(EarthApp.class);
 
 			String doubleClickedProjectFile = null;
 
@@ -185,11 +206,7 @@ public class EarthApp {
 			}
 
 		} catch (final Exception e) {
-			// The logger factory has not been initialized, this will not work, just output
-			// to console
-			if (logger != null) {
-				logger.error("The server could not start", e); //$NON-NLS-1$
-			}
+			logger.error("The server could not start", e); //$NON-NLS-1$
 			System.exit(1);
 		} finally {
 			closeSplash();
@@ -343,9 +360,10 @@ public class EarthApp {
 			getKmlGeneratorService().generateKmlFile();
 		} catch (final KmlGenerationException e) {
 			logger.error("Problems while generating the KML file ", e); //$NON-NLS-1$
+			// An exception with no message used to throw here, so the failure of the KML was never reported
 			showMessage("<html>Problems while generating the KML file: <br/> " //$NON-NLS-1$
 					+ (e.getCause() != null ? (e.getCause() + "<br/>") : "")
-					+ (e.getMessage().length() > 300 ? e.getMessage().substring(0, 300) : e.getMessage()) + "</html>");
+					+ StringUtils.abbreviate(StringUtils.defaultString(e.getMessage(), e.toString()), 300) + "</html>");
 		} catch (final Exception e) {
 			logger.error("Could not generate KML file", e); //$NON-NLS-1$
 			showMessage("<html>Error generating KML file : <br/> " + e.getMessage()); //$NON-NLS-1$
@@ -364,6 +382,10 @@ public class EarthApp {
 					+ LoadProjectFileServlet.PROJECT_FILE_PARAMETER + "=" + //$NON-NLS-1$
 					URLEncoder.encode(doubleClickedProjecFile, StandardCharsets.UTF_8.name()));
 			URLConnection urlConn = loadProjectFileInRunningCE.openConnection();
+			// Without these the process that is starting waited for ever when the running instance does not answer,
+			// with nothing on screen but the splash
+			urlConn.setConnectTimeout(5000);
+			urlConn.setReadTimeout(5000);
 
 			try (BufferedReader in = new BufferedReader(new InputStreamReader(urlConn.getInputStream()))) {
 				String inputLine;
@@ -426,10 +448,122 @@ public class EarthApp {
 		try {
 
 			serverController.stopServer();
-			startServer(null);
+			relaunch();
 
 		} catch (final Exception e) {
-			logger.error("Error while stopping server", e); //$NON-NLS-1$
+			logger.error("Error while restarting Collect Earth", e); //$NON-NLS-1$
+		}
+	}
+
+	/**
+	 * Re-creating the embedded Jetty/Spring web context in-process (as {@link #restart()} used
+	 * to do by calling {@link #startServer(String)} again) fails: Spring proxies non-interface
+	 * DAOs (e.g. {@code CodeListItemDao}) with CGLIB, which cannot redefine the same generated
+	 * proxy class a second time in the same classloader and throws a {@link LinkageError} (see
+	 * {@code ServerController#isContextReloadFailure}). So instead of reloading in-process,
+	 * restarting relaunches Collect Earth as a brand-new JVM process using the same command line
+	 * that started this one, then exits this process. Whatever project/property change triggered
+	 * the restart has already been persisted to disk by that point, so the new process picks it
+	 * up on normal startup exactly as if Collect Earth had just been launched.
+	 */
+	private static void relaunch() throws IOException {
+		final String javaBin = System.getProperty("java.home") + File.separator + "bin" + File.separator //$NON-NLS-1$ //$NON-NLS-2$
+				+ (SystemUtils.IS_OS_WINDOWS ? "java.exe" : "java"); //$NON-NLS-1$ //$NON-NLS-2$
+
+		final java.util.List<String> command = new java.util.ArrayList<>();
+		command.add(javaBin);
+		for (String jvmArg : java.lang.management.ManagementFactory.getRuntimeMXBean().getInputArguments()) {
+			// Debug-agent flags (e.g. added by an IDE launch) must not be propagated: the relaunched
+			// process would try to reuse the same JDWP transport socket as this one and fail with
+			// "JDWP Transport dt_socket failed to initialize" instead of starting.
+			if (!jvmArg.startsWith("-agentlib:jdwp") && !jvmArg.startsWith("-Xrunjdwp")) { //$NON-NLS-1$ //$NON-NLS-2$
+				command.add(jvmArg);
+			}
+		}
+
+		final String classpath = System.getProperty("java.class.path"); //$NON-NLS-1$
+		if (isExecutableJar(classpath)) {
+			// Launched with "java -jar CollectEarth.jar": relaunch the same way so the jar's
+			// manifest Class-Path entries (the lib/ dependencies) are honored again, which the
+			// JVM only does for -jar launches and not for -cp launches.
+			command.add("-jar"); //$NON-NLS-1$
+			command.add(classpath);
+		} else {
+			command.add("-cp"); //$NON-NLS-1$
+			command.add(classpath);
+			command.add(EarthApp.class.getName());
+		}
+
+		logger.info("Relaunching Collect Earth: {}", command); //$NON-NLS-1$
+
+		// The output of the new process goes to a file of its own : it used to be inherited, and this process, which is the
+		// only thing holding that console, exits a line later, so a new process that refused to start said so to nobody
+		final File relaunchLog = new File(FolderFinder.getCollectEarthDataFolder(), RELAUNCH_LOG_FILE);
+		final Process relaunched = new ProcessBuilder(command)
+				.directory(new File(System.getProperty("user.dir"))) //$NON-NLS-1$
+				.redirectErrorStream(true)
+				.redirectOutput(relaunchLog)
+				.start();
+
+		if (hasEndedAlready(relaunched)) {
+			// A command line that the JVM refuses ( a jar with no main class, a class path that is too long for Windows )
+			// fails in the first moment. Say so : the window of this process is gone by now, so without this the user is
+			// left with no Collect Earth and no reason
+			logger.error("Collect Earth could not be restarted, the new process ended with code {} : {}", //$NON-NLS-1$
+					relaunched.exitValue(), readRelaunchLog(relaunchLog));
+			showMessageAndWait(Messages.getString("EarthApp.relaunchFailed"), //$NON-NLS-1$
+					Messages.getString("EarthApp.relaunchFailedTitle")); //$NON-NLS-1$
+		}
+
+		System.exit(0);
+	}
+
+	/**
+	 * A class path of a single jar is only worth a -jar launch when that jar can be started : the temporary jar that some
+	 * IDEs pass to work around the length limit of the Windows command line holds a Class-Path and no Main-Class, and
+	 * "java -jar" of it ends with "no main manifest attribute".
+	 */
+	private static boolean isExecutableJar(String classpath) {
+		if (classpath == null || !classpath.endsWith(".jar") || classpath.contains(File.pathSeparator)) { //$NON-NLS-1$
+			return false;
+		}
+		try (java.util.jar.JarFile jar = new java.util.jar.JarFile(classpath)) {
+			return jar.getManifest() != null
+					&& jar.getManifest().getMainAttributes().getValue(java.util.jar.Attributes.Name.MAIN_CLASS) != null;
+		} catch (IOException e) {
+			logger.warn("Could not read the manifest of " + classpath + ", relaunching with the class path instead", e); //$NON-NLS-1$ //$NON-NLS-2$
+			return false;
+		}
+	}
+
+	private static boolean hasEndedAlready(Process relaunched) {
+		try {
+			return relaunched.waitFor(RELAUNCH_GRACE_SECONDS, TimeUnit.SECONDS);
+		} catch (InterruptedException e) {
+			Thread.currentThread().interrupt();
+			return false;
+		}
+	}
+
+	private static String readRelaunchLog(File relaunchLog) {
+		try {
+			return new String(Files.readAllBytes(relaunchLog.toPath()), StandardCharsets.UTF_8).trim();
+		} catch (IOException e) {
+			return "the output of the new process could not be read from " + relaunchLog.getAbsolutePath(); //$NON-NLS-1$
+		}
+	}
+
+	/**
+	 * showMessage posts the dialog and returns, which System.exit would then cut short
+	 */
+	private static void showMessageAndWait(String message, String title) {
+		try {
+			SwingUtilities.invokeAndWait(
+					() -> JOptionPane.showMessageDialog(null, message, title, JOptionPane.ERROR_MESSAGE));
+		} catch (InterruptedException e) {
+			Thread.currentThread().interrupt();
+		} catch (Exception e) {
+			logger.error("Error showing message", e); //$NON-NLS-1$
 		}
 	}
 
@@ -473,7 +607,21 @@ public class EarthApp {
 			// If the user double clicked on a project file while Collect Earth is running
 			// then load the project in the running Collect Earth
 			if (doubleClickedProjectFile != null) {
-				openProjectFileInRunningCollectEarth(doubleClickedProjectFile);
+				// isAnotherCollectEarthRunning only proves that something accepted a TCP connection on the port; it
+				// cannot tell Collect Earth from any other program, and a dying instance still answers the socket
+				// while refusing the request. When the hand-over failed the IOException used to reach main, which
+				// logged "The server could not start" and exited with the splash already closed: the interpreter saw
+				// nothing at all and the report named the wrong cause. The 503 seen in the field is this case.
+				try {
+					openProjectFileInRunningCollectEarth(doubleClickedProjectFile);
+				} catch (IOException e) {
+					final String port = getLocalProperties().getPort();
+					logger.warn("Port {} is in use but the project file was not accepted : {}", port, e.getMessage()); //$NON-NLS-1$
+					JOptionPane.showMessageDialog(null,
+							MessageFormat.format(Messages.getString("EarthApp.74"), port, e.getMessage()), //$NON-NLS-1$
+							"Collect Earth", JOptionPane.WARNING_MESSAGE); //$NON-NLS-1$
+					System.exit(1);
+				}
 			} else {
 				JOptionPane.showMessageDialog(null, Messages.getString("EarthApp.11"), "Collect Earth",
 						JOptionPane.WARNING_MESSAGE);

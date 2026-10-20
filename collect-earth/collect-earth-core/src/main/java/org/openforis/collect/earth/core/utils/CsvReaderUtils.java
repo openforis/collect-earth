@@ -18,20 +18,32 @@ import com.opencsv.exceptions.CsvValidationException;
 public class CsvReaderUtils {
 	private static final Logger logger = LoggerFactory.getLogger(CsvReaderUtils.class);
 
+	// A plot file has at least the ID, the latitude and the longitude
+	private static final int PLOT_FILE_MINIMUM_COLUMNS = 3;
+
 	private CsvReaderUtils() {
 
 	}
 
+	/**
+	 * Checks that the file is a plot CSV : values separated by one of the known separators, with at least ID, latitude and longitude.
+	 */
 	public static boolean isCsvFile(String csvFile) throws IOException {
-		boolean isCsvFile = true;
-		try {
-			getCsvReader(csvFile, false);
+		return isCsvFile(csvFile, PLOT_FILE_MINIMUM_COLUMNS);
+	}
+
+	/**
+	 * Checks that the file is a CSV whose first line with data has at least <code>minimumColumns</code> values.
+	 * Files that are not plot files, like the list of plot keys used to remove plots, can have fewer than the three columns of a plot file.
+	 */
+	public static boolean isCsvFile(String csvFile, int minimumColumns) throws IOException {
+		// Ask for the check : without it the file was only opened, so every readable file passed as a CSV and the reader leaked
+		try ( CSVReader reader = detectCsvReader(csvFile, minimumColumns, false) ) {
+			return reader != null;
 		} catch (IllegalArgumentException e) {
 			// The CSV reader could not read the file, thus it is not a CSVReader
-			isCsvFile = false;
+			return false;
 		}
-
-		return isCsvFile;
 	}
 
 	public static CSVReader getCsvReader(String csvFile) throws IOException {
@@ -45,18 +57,26 @@ public class CsvReaderUtils {
 	public static CSVReader getCsvReader(String csvFile, boolean checkContainsCoordinates, boolean skipHeader)
 			throws IOException {
 
+		if (!checkContainsCoordinates) {
+			return getCsvReader(csvFile, ',', skipHeader);
+		}
+		return detectCsvReader(csvFile, PLOT_FILE_MINIMUM_COLUMNS, skipHeader);
+	}
+
+	private static CSVReader detectCsvReader(String csvFile, int minimumColumns, boolean skipHeader) throws IOException {
+
 		char[] possibleSeparators = new char[] { ',', ';', '\t', '|' };
+
 		CSVReader csvReader = null;
 		for (char c : possibleSeparators) {
-			CSVReader commaSeparatedReader = getCsvReader(csvFile, c, skipHeader);
-			if (!checkContainsCoordinates) {
-				return commaSeparatedReader;
-			} else if (checkCsvReaderWorks(commaSeparatedReader)) {
-				csvReader = getCsvReader(csvFile, c, skipHeader); // Get the reader again so that it starts from the
-																	// first column
+			boolean separatorWorks;
+			// Close the reader that was used for the test : the one that worked used to be left open
+			try ( CSVReader testReader = getCsvReader(csvFile, c, skipHeader) ) {
+				separatorWorks = checkCsvReaderWorks(testReader, minimumColumns);
+			}
+			if (separatorWorks) {
+				csvReader = getCsvReader(csvFile, c, skipHeader); // Get the reader again so that it starts from the first column
 				break;
-			} else {
-				commaSeparatedReader.close();
 			}
 		}
 
@@ -77,7 +97,7 @@ public class CsvReaderUtils {
 		return true;
 	}
 
-	private static boolean checkCsvReaderWorks(CSVReader csvReader) throws IOException {
+	private static boolean checkCsvReaderWorks(CSVReader csvReader, int minimumColumns) throws IOException {
 
 		String[] csvRow = null;
 
@@ -86,13 +106,9 @@ public class CsvReaderUtils {
 				if (csvRow.length == 1 && csvRow[0].trim().length() == 0) {
 					// This would be an empty line
 					continue;
-				} else if (csvRow.length == 1 && csvRow[0].trim().length() > 0) {
-
-					return false;
-				} else if (csvRow.length < 3) {
-					return false;
 				} else {
-					return true;
+					// With the wrong separator the whole line comes back as a single value
+					return csvRow.length >= minimumColumns;
 				}
 			}
 		} catch (CsvValidationException | IOException e) {

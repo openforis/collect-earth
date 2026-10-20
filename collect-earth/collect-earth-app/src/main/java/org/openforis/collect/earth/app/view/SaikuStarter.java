@@ -66,10 +66,8 @@ final class SaikuStarter {
 		
 		threadInitializingSaiku.start();
 
-		progressStartSaiku.showLater();		
-		
-		if( progressStartSaiku.isUserCancelled() ){
-			saikuService.setUserCancelledOperation(true);
-		}
+		// Registered before the dialog is shown : asking the monitor after showLater() returned always answered false
+		progressStartSaiku.setOnUserCancelled( () -> saikuService.setUserCancelledOperation(true) );
+		progressStartSaiku.showLater();
 	}
 }

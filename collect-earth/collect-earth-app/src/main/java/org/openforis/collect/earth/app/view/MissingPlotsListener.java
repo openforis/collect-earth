@@ -108,10 +108,7 @@ public final class MissingPlotsListener implements ActionListener {
 						File tempFile = missingPlotService.getMissingPlotFile(missingPlotData);
 						SwingUtilities.invokeLater( infiniteProgressMonitor::close );
 
-						JDialog missingDlg = buildDialog(missingPlotsText, tempFile);
-
-						Runnable setVisible =() -> missingDlg.setVisible(true);
-						SwingUtilities.invokeLater( setVisible );
+						SwingUtilities.invokeLater( () -> buildDialog(missingPlotsText, tempFile).setVisible(true) );
 					} catch (Exception e) {
 						logger.error("Error while finding missing plots", e);
 					} finally {
@@ -143,16 +140,22 @@ public final class MissingPlotsListener implements ActionListener {
 		panel.add(scrollPane, BorderLayout.CENTER);
 		scrollPane.setPreferredSize(new Dimension(250, 250));
 
-		final JButton close = new JButton(Messages.getString("CollectEarthWindow.5")); //$NON-NLS-1$
-		close.addActionListener(e -> dialog.setVisible(false));
-		panel.add(close, BorderLayout.SOUTH);
+		// Both buttons in one panel : they used to be added to the same BorderLayout position, so the export button replaced
+		// the close button and there was no way to close the dialog whenever there was something to export
+		final JPanel buttonPanel = new JPanel();
 
 		if (tempFile != null) {
 			final JButton export = new JButton(Messages.getString(Messages.getString("MissingPlotsListener.6"))); //$NON-NLS-1$
 			ActionListener exportListener = getSaveAsListener(tempFile);
 			export.addActionListener(exportListener);
-			panel.add(export, BorderLayout.SOUTH);
+			buttonPanel.add(export);
 		}
+
+		final JButton close = new JButton(Messages.getString("CollectEarthWindow.5")); //$NON-NLS-1$
+		close.addActionListener(e -> dialog.setVisible(false));
+		buttonPanel.add(close);
+
+		panel.add(buttonPanel, BorderLayout.SOUTH);
 
 		disclaimerTextArea.addMouseListener(new MouseAdapter() {
 			@Override
@@ -187,7 +190,7 @@ public final class MissingPlotsListener implements ActionListener {
 					FileUtils.copyFile(tempFile, saveToCsvFile[0]);
 				} catch (IOException e1) {
 					logger.error("Error when copying temporary file with missing plots to final destination " //$NON-NLS-1$
-							+ tempFile.getAbsolutePath() + " to " + saveToCsvFile[0].getAbsolutePath(), e); //$NON-NLS-1$
+							+ tempFile.getAbsolutePath() + " to " + saveToCsvFile[0].getAbsolutePath(), e1); //$NON-NLS-1$
 				}
 			}
 		};

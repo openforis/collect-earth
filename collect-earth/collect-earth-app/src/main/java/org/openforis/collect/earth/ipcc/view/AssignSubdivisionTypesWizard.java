@@ -2,6 +2,7 @@ package org.openforis.collect.earth.ipcc.view;
 
 import java.awt.event.WindowAdapter;
 import java.awt.event.WindowEvent;
+import java.lang.reflect.InvocationTargetException;
 import java.util.List;
 
 import javax.swing.JOptionPane;
@@ -24,6 +25,21 @@ public class AssignSubdivisionTypesWizard {
 	private String regionAttribute;
 	
 	public void initializeTypes(List<AbstractLandUseSubdivision> landUseSubdivisions, List<String> attributeNames ) {
+		// Called from the thread that generates the database : the wizard is built and shown on the event thread, and this
+		// call waits for it because the export continues with what the user chose here
+		if (!SwingUtilities.isEventDispatchThread()) {
+			try {
+				SwingUtilities.invokeAndWait( () -> initializeTypes(landUseSubdivisions, attributeNames) );
+			} catch (InterruptedException e) {
+				Thread.currentThread().interrupt();
+				// Saying nothing would let the caller read isWizardFinished() of a wizard that was never built and take a
+				// NullPointerException for an answer, with the real cause buried in the log
+				throw new IllegalStateException("Interrupted while the management types were being assigned", e);
+			} catch (InvocationTargetException e) {
+				throw new IllegalStateException("The wizard that assigns the management types could not be shown", e.getCause());
+			}
+			return;
+		}
 
 		LandUseSubdivisionUtils.setLandUseSubdivisions(landUseSubdivisions);
 		
@@ -61,7 +77,7 @@ public class AssignSubdivisionTypesWizard {
 	}
 	
 	public boolean isWizardFinished() {
-		return wizard.isWizardFinished();
+		return wizard != null && wizard.isWizardFinished();
 	}
 
 //	public static void main(String[] args) {

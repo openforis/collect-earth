@@ -13,6 +13,7 @@ import java.util.Properties;
 import java.util.TreeSet;
 
 import org.apache.commons.lang3.StringUtils;
+import org.openforis.collect.earth.app.EarthConstants.BUFFER_SHAPE;
 import org.openforis.collect.earth.app.EarthConstants.CollectDBDriver;
 import org.openforis.collect.earth.app.EarthConstants.OperationMode;
 import org.openforis.collect.earth.app.EarthConstants.SAMPLE_SHAPE;
@@ -55,10 +56,10 @@ public class LocalPropertiesService extends Observable {
 				"elevation_geotif_directory"), EXCEPTION_SHOWN(
 				"exception_shown"), EXTRA_MAP_URL(
 				"extra_map_url"), FIREFOX_BINARY_PATH(
-				"firefox_exe_path"), GEE_EXPLORER_URL(
-				"gee_explorer_url"), GENERATED_KEY(
+				"firefox_exe_path"), GENERATED_KEY(
 				"generated_on"), GOOGLE_MAPS_API_KEY(
-				"google_maps_api_key"), HOST_KEY(
+				"google_maps_api_key"), SERVER_BIND_ADDRESS(
+				"server_bind_address"), HOST_KEY(
 				"host"), HOST_PORT_KEY(
 				"port"), INNER_SUBPLOT_SIDE(
 				"inner_point_side"), JUMP_TO_NEXT(
@@ -73,10 +74,8 @@ public class LocalPropertiesService extends Observable {
 				"metadata_file"), MODEL_VERSION_NAME(
 				"model_version_name"), NUMBER_OF_SAMPLING_POINTS_IN_PLOT(
 				"number_of_sampling_points_in_plot"), OPEN_BALLOON_IN_BROWSER(
-				"open_separate_browser_form"), OPEN_GEE_EXPLORER(
-				"open_earth_engine"),OPEN_STREET_VIEW(
-				"open_street_view"), OPEN_TIMELAPSE(
-				"open_timelapse"), OPERATION_MODE(
+				"open_separate_browser_form"), OPEN_STREET_VIEW(
+				"open_street_view"), OPERATION_MODE(
 				"operation_mode"), OPERATOR_KEY(
 				"operator"), SAIKU_SERVER_FOLDER(
 				"saiku_server_folder"), SAMPLE_FILE(
@@ -85,9 +84,10 @@ public class LocalPropertiesService extends Observable {
 				"survey_name"), UI_LANGUAGE(
 				"ui_language"), LARGE_CENTRAL_PLOT_SIDE(
 				"large_central_plot_side"), DISTANCE_TO_BUFFERS(
-				"distance_to_buffers"), OPEN_PLANET_MAPS(
+				"distance_to_buffers"), BUFFER_SHAPE(
+				"buffer_shape"), OPEN_PLANET_MAPS(
 				"open_planet_maps"), PLANET_MAPS_KEY(
-				"planet_maps_key"),  PLANET_MAPS_CE_KEY("planet_maps_ce_key"),
+				"planet_maps_key"),  PLANET_MAPS_CE_KEY("planet_maps_ce_key"), GA_API_SECRET("ga_api_secret"),
 				PLANET_MAPS_USE_TFO("planet_maps_use_tfo"),
 				PLANET_TFO_DATE_FROM("planet_tfo_date_from"),
 				PLANET_TFO_DATE_TO("planet_tfo_date_to"),
@@ -171,10 +171,16 @@ public class LocalPropertiesService extends Observable {
 	public CollectDBDriver getCollectDBDriver() {
 
 		final String collectDbDriver = getValue(EarthProperty.DB_DRIVER);
-		if (collectDbDriver.length() == 0) {
+		if (StringUtils.isBlank(collectDbDriver)) {
 			return CollectDBDriver.SQLITE;
 		}
-		return CollectDBDriver.valueOf(collectDbDriver);
+		try {
+			return CollectDBDriver.valueOf(collectDbDriver.trim().toUpperCase());
+		} catch (IllegalArgumentException e) {
+			// A typo in earth.properties used to end the start of the application, wherever the driver was first needed
+			logger.warn("Unknown " + EarthProperty.DB_DRIVER + " '{}' in the properties, using {}", collectDbDriver, CollectDBDriver.SQLITE.name());
+			return CollectDBDriver.SQLITE;
+		}
 
 	}
 
@@ -226,6 +232,14 @@ public class LocalPropertiesService extends Observable {
 		return getValue(EarthProperty.PLANET_MAPS_CE_KEY);
 	}
 
+	/**
+	 * The Google Analytics Measurement Protocol secret. It is written into earth.properties when the installer is built
+	 * ( from the ga_api_secret property of the Maven settings ) so that it never has to be stored in the source code.
+	 */
+	public String getGaApiSecret() {
+		return getValue(EarthProperty.GA_API_SECRET);
+	}
+
 	public boolean isPlanetMapsUseTfo() {
 		return isPropertyActivated(EarthProperty.PLANET_MAPS_USE_TFO);
 	}
@@ -250,6 +264,16 @@ public class LocalPropertiesService extends Observable {
 
 	public String getGeneratedOn() {
 		return getValue(EarthProperty.GENERATED_KEY);
+	}
+
+	/**
+	 * The network interface that the embedded server listens on. The endpoints it publishes are not authenticated : they save records,
+	 * load project files and restart the application, so it only listens to this computer unless the server_bind_address property
+	 * says otherwise. Set it to 0.0.0.0 to accept the connections of the Collect Earth instances that run in CLIENT_MODE.
+	 */
+	public String getServerBindAddress() {
+		final String bindAddress = getValue(EarthProperty.SERVER_BIND_ADDRESS);
+		return StringUtils.isBlank(bindAddress) ? LOCAL_HOST : bindAddress.trim();
 	}
 
 	public String getHost() {
@@ -296,10 +320,15 @@ public class LocalPropertiesService extends Observable {
 
 	public OperationMode getOperationMode() {
 		final String instanceType = getValue(EarthProperty.OPERATION_MODE);
-		if (instanceType.length() == 0) {
+		if (StringUtils.isBlank(instanceType)) {
 			return OperationMode.SERVER_MODE;
 		}
-		return OperationMode.valueOf(instanceType);
+		try {
+			return OperationMode.valueOf(instanceType.trim().toUpperCase());
+		} catch (IllegalArgumentException e) {
+			logger.warn("Unknown " + EarthProperty.OPERATION_MODE + " '{}' in the properties, using {}", instanceType, OperationMode.SERVER_MODE.name());
+			return OperationMode.SERVER_MODE;
+		}
 	}
 
 	public String getOperator() {
@@ -333,8 +362,26 @@ public class LocalPropertiesService extends Observable {
 		final String value = getValue(EarthProperty.SAMPLE_SHAPE);
 		if (StringUtils.isBlank(value)) {
 			return SAMPLE_SHAPE.SQUARE;
-		} else {
-			return SAMPLE_SHAPE.valueOf(value);
+		}
+		try {
+			return SAMPLE_SHAPE.valueOf(value.trim().toUpperCase());
+		} catch (IllegalArgumentException e) {
+			logger.warn("Unknown " + EarthProperty.SAMPLE_SHAPE + " '{}' in the properties, drawing {} plots instead", value, SAMPLE_SHAPE.SQUARE.name());
+			return SAMPLE_SHAPE.SQUARE;
+		}
+	}
+
+	public BUFFER_SHAPE getBufferShape() {
+		final String value = getValue(EarthProperty.BUFFER_SHAPE);
+		if (StringUtils.isBlank(value)) {
+			// Projects that set distance_to_buffers before the shape became configurable expect square reference areas
+			return BUFFER_SHAPE.SQUARE;
+		}
+		try {
+			return BUFFER_SHAPE.valueOf(value.trim().toUpperCase());
+		} catch (IllegalArgumentException e) {
+			logger.warn("Unknown buffer_shape '{}' in the properties, drawing {} reference areas instead", value, BUFFER_SHAPE.SQUARE.name());
+			return BUFFER_SHAPE.SQUARE;
 		}
 	}
 
@@ -532,10 +579,6 @@ public class LocalPropertiesService extends Observable {
 		return MAP_ENGINE_GOOGLE.equals(engine) ? MAP_ENGINE_GOOGLE : MAP_ENGINE_LEAFLET;
 	}
 
-	public boolean isExplorerSupported() {
-		return isPropertyActivated(EarthProperty.OPEN_GEE_EXPLORER);
-	}
-
 	public Boolean isExceptionShown() {
 		return isPropertyActivated(EarthProperty.EXCEPTION_SHOWN);
 	}
@@ -554,16 +597,18 @@ public class LocalPropertiesService extends Observable {
 		return supported;
 	}
 
+	/**
+	 * Maxar SecureWatch is disabled, whatever open_maxar_securewatch says. Its address, access.maxar.com/myDigitalGlobe, no
+	 * longer resolves, so every plot opened with it enabled failed to load a page (JAVA-COLLECT-EARTH-55F). Answering false
+	 * here also covers the project files that still carry open_maxar_securewatch=true. The rest of the integration is kept
+	 * so that it can be switched back on here once Maxar has an address that works.
+	 */
 	public boolean isSecureWatchSupported() {
-		return isPropertyActivated(EarthProperty.OPEN_MAXAR_SECUREWATCH);
+		return false;
 	}
 
 	public boolean isStreetViewSupported() {
 		return isPropertyActivated(EarthProperty.OPEN_STREET_VIEW);
-	}
-
-	public boolean isTimelapseSupported() {
-		return isPropertyActivated(EarthProperty.OPEN_TIMELAPSE);
 	}
 
 	public boolean isUsingPostgreSqlDB() {
@@ -715,6 +760,10 @@ public class LocalPropertiesService extends Observable {
 
 	public void setSampleShape(SAMPLE_SHAPE shape) {
 		setValue(EarthProperty.SAMPLE_SHAPE, shape.name());
+	}
+
+	public void setBufferShape(BUFFER_SHAPE shape) {
+		setValue(EarthProperty.BUFFER_SHAPE, shape.name());
 	}
 
 	public void setUiLanguage(UI_LANGUAGE language) {

@@ -39,7 +39,8 @@ public class GenerateRDBAnalysisListener implements ActionListener {
 
 			int shouldRefreshDb = JOptionPane.YES_OPTION;
 
-			if( saikuStarter.shouldShowRdbGenerationOption( ExportType.IPCC ) ){
+			// The Saiku database is the one this listener refreshes : asking about the IPCC one let a stale Saiku database be reused
+			if( saikuStarter.shouldShowRdbGenerationOption( ExportType.SAIKU ) ){
 
 				String refresh = Messages.getString("SaikuAnalysisListener.0"); //$NON-NLS-1$
 				String close = Messages.getString("SaikuAnalysisListener.1"); //$NON-NLS-1$

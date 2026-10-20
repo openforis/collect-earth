@@ -1,10 +1,10 @@
 package org.openforis.collect.earth.sampler.processor;
 
 import java.io.File;
-import java.io.FileInputStream;
-import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Paths;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipOutputStream;
 
@@ -21,36 +21,30 @@ public class KmzGenerator {
 		if (file.isDirectory()) {
 			addFolderToZip(path, srcFile, zip);
 		} else {
-			final byte[] buf = new byte[1024];
-			int len;
-
-			try (
-					FileInputStream in = new FileInputStream(srcFile); 
-					){
-
-				String filePathName = path + "/" + file.getName();
-				// if in root folder no / necessary
-				if (path.length() == 0) {
-					filePathName = file.getName();
-				}
-				zip.putNextEntry(new ZipEntry(filePathName));
-				while ((len = in.read(buf)) > 0) {
-					zip.write(buf, 0, len);
-				}
-
-			} catch (final IOException e) {
-				logger.error("Error while writing to " + srcFile, e);
+			String filePathName = path + "/" + file.getName();
+			// if in root folder no / necessary
+			if (path.length() == 0) {
+				filePathName = file.getName();
+			}
+			zip.putNextEntry(new ZipEntry(filePathName));
+			try {
+				// A failure used to be logged here and the truncated entry kept, so the KMZ looked complete
+				Files.copy(file.toPath(), zip);
 			} finally {
 				zip.closeEntry();
 			}
-
 		}
 	}
 
 	private void addFolderToZip(String path, String srcFolder, ZipOutputStream zip) throws IOException {
 		final File folder = new File(srcFolder);
 
-		for (final String fileName : folder.list()) {
+		final String[] fileNames = folder.list();
+		if (fileNames == null) {
+			throw new IOException("Cannot list the contents of the folder " + srcFolder);
+		}
+
+		for (final String fileName : fileNames) {
 			if (path.equals("")) {
 				addFileToZip(folder.getName(), srcFolder + "/" + fileName, zip);
 			} else {
@@ -74,12 +68,10 @@ public class KmzGenerator {
 			if (dependantFolder != null) {
 				addFolderToZip("", dependantFolder, zip);
 			}
-		} catch (final FileNotFoundException e) {
-			logger.error("Could not find file " + e.getMessage(), e);
 		} catch (final IOException e) {
-			logger.error(e.getMessage(), e);
-		} catch (final Exception e) {
-			logger.error(e.getMessage(), e);
+			// Do not leave a partial KMZ behind that Google Earth would open as if it were complete
+			Files.deleteIfExists(Paths.get(kmzFilename));
+			throw e;
 		}
 	}
 }

@@ -12,6 +12,7 @@ import org.apache.commons.io.FileUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.openforis.collect.earth.app.CollectEarthUtils;
 import org.openforis.collect.earth.app.EarthConstants;
+import org.openforis.collect.earth.app.EarthConstants.BUFFER_SHAPE;
 import org.openforis.collect.earth.app.EarthConstants.SAMPLE_SHAPE;
 import org.openforis.collect.earth.app.desktop.EarthApp;
 import org.openforis.collect.earth.app.desktop.ServerController;
@@ -213,15 +214,18 @@ public class KmlGeneratorService {
 		final Integer largeCentralPlotSide = parseInt(
 				getLocalProperties().getValue(EarthProperty.LARGE_CENTRAL_PLOT_SIDE));
 		final String distanceToBuffers = getLocalProperties().getValue(EarthProperty.DISTANCE_TO_BUFFERS);
+		final BUFFER_SHAPE bufferShape = getLocalProperties().getBufferShape();
 		SAMPLE_SHAPE plotShape = getLocalProperties().getSampleShape();
 		final String hostAddress = ServerController.getHostAddress(getLocalProperties().getHost(),
 				getLocalProperties().getPort());
 
 		final float distanceBetweenSamplePoints;
 		final float distanceToPlotBoundaries;
+		// The plot options panel saves the rows a plot shape does not use (e.g. the distance between points of a
+		// square plot with a single point, or the margin of a round plot) as empty properties
 		String dBSP = getLocalProperties().getValue(EarthProperty.DISTANCE_BETWEEN_SAMPLE_POINTS);
 		try {
-			distanceBetweenSamplePoints = Float.parseFloat(dBSP);
+			distanceBetweenSamplePoints = StringUtils.isBlank(dBSP) ? 0 : Float.parseFloat(dBSP);
 		} catch (Exception e) {
 			logger.error("Error parsing distance between sample points , wrong value : " + dBSP, e);
 			EarthApp.showMessage(
@@ -232,7 +236,7 @@ public class KmlGeneratorService {
 
 		String dToPlotB = getLocalProperties().getValue(EarthProperty.DISTANCE_TO_PLOT_BOUNDARIES);
 		try {
-			distanceToPlotBoundaries = Float.parseFloat(dToPlotB);
+			distanceToPlotBoundaries = StringUtils.isBlank(dToPlotB) ? 0 : Float.parseFloat(dToPlotB);
 		} catch (Exception e) {
 			logger.error("Error parsing distance between plots , wrong value : " + dToPlotB, e);
 			EarthApp.showMessage(
@@ -263,7 +267,7 @@ public class KmlGeneratorService {
 
 			if (plotShape.equals(SAMPLE_SHAPE.CIRCLE)) {
 				generateKml = new CircleKmlGenerator(crsSystem, hostAddress, localPort, innerPointSide, numberOfPoints,
-						distanceBetweenSamplePoints);
+						distanceBetweenSamplePoints, distanceToBuffers, bufferShape);
 			} else if (plotShape.equals(SAMPLE_SHAPE.NFMA)) {
 				generateKml = new NfmaKmlGenerator(crsSystem, hostAddress, localPort, 150, false);
 			} else if (plotShape.equals(SAMPLE_SHAPE.NFMA_250)) {
@@ -302,10 +306,10 @@ public class KmlGeneratorService {
 						distanceBetweenSamplePoints, distanceBetweenPlots);
 			} else if (plotShape.equals(SAMPLE_SHAPE.HEXAGON)) {
 				generateKml = new HexagonKmlGenerator(crsSystem, hostAddress, localPort, innerPointSide, numberOfPoints,
-						distanceBetweenSamplePoints);
+						distanceBetweenSamplePoints, distanceToBuffers, bufferShape);
 			} else if (plotShape.equals(SAMPLE_SHAPE.SQUARE_CIRCLE)) {
 				generateKml = new SquareWithCirclesKmlGenerator(crsSystem, hostAddress, localPort, innerPointSide,
-						numberOfPoints, distanceBetweenSamplePoints, distanceToPlotBoundaries);
+						numberOfPoints, distanceBetweenSamplePoints, distanceToPlotBoundaries, distanceToBuffers, bufferShape);
 			} else if (plotShape.equals(SAMPLE_SHAPE.KML_POLYGON)) {
 				generateKml = new PolygonKmlGenerator(crsSystem, hostAddress, localPort);
 			} else if (plotShape.equals(SAMPLE_SHAPE.GEOJSON_POLYGON)) {
@@ -314,7 +318,7 @@ public class KmlGeneratorService {
 				generateKml = new PolygonWktGenerator(crsSystem, hostAddress, localPort);
 			} else {
 				generateKml = new SquareKmlGenerator(crsSystem, hostAddress, localPort, innerPointSide, numberOfPoints,
-						distanceBetweenSamplePoints, distanceToPlotBoundaries, largeCentralPlotSide, distanceToBuffers);
+						distanceBetweenSamplePoints, distanceToPlotBoundaries, largeCentralPlotSide, distanceToBuffers, bufferShape);
 			}
 		} catch (IOException e) {
 			logger.error("Error generating KML", e);
@@ -401,12 +405,16 @@ public class KmlGeneratorService {
 		File csvTempFile = null;
 		File balloonFile = null;
 		try {
-			csvTempFile = File.createTempFile("surveyData",  "csv");
+			csvTempFile = File.createTempFile("surveyData",  ".csv");
 			dataImportExportService.exportSurveyAsCsv(csvTempFile, false).startProcessing(); // Get the CSV with the data
 																								// collected!
 
 			try (BufferedReader brCsvReader = new BufferedReader(new FileReader(csvTempFile))) {
 				String headerLine = brCsvReader.readLine();
+				if (headerLine == null) {
+					// An export of a survey with no data used to throw a NullPointerException on the line below
+					throw new KmlGenerationException("There is no data to export : the CSV generated from the survey is empty");
+				}
 				headerLine = headerLine.replaceAll("\"", ""); // remove the quotes that are used in the CSV
 				String[] headers = headerLine.split(",");
 				balloonFile = generateKmlExportBallonFile(headers); // get an HTML balloon template that matches the survey
@@ -435,7 +443,7 @@ public class KmlGeneratorService {
 		File destniationFileTemp = null;
 		try {
 
-			destniationFileTemp = File.createTempFile("TempBalloonForKML", "html");
+			destniationFileTemp = File.createTempFile("TempBalloonForKML", ".html");
 
 			// Process the template file using the data in the "data" Map
 			final File templateFile = new File(FREEMARKER_KML_OUTPUT_TEMPLATE_BALLOON);

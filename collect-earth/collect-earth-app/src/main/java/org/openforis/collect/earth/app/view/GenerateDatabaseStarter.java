@@ -47,7 +47,8 @@ final class GenerateDatabaseStarter {
 		try {
 			generateDatabase.prepareDataForAnalysis(progressMonitor, startSaikuAfterDBExport);
 		}catch ( RdbExportException e1) {
-			JOptionPane.showMessageDialog(  frame , "<html>" + Messages.getString("CollectEarthWindow.29") + "<br>" +Messages.getString("CollectEarthWindow.40") + "<br/>" + e1.getMessage() + "</html>", Messages.getString("CollectEarthWindow.47"), JOptionPane.INFORMATION_MESSAGE); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$ //$NON-NLS-4$ //$NON-NLS-5$ //$NON-NLS-6$ //$NON-NLS-7$
+			// This runs on the thread that generates the database, so the dialog has to be queued on the event thread
+			SwingUtilities.invokeLater( () -> JOptionPane.showMessageDialog(  frame , "<html>" + Messages.getString("CollectEarthWindow.29") + "<br>" +Messages.getString("CollectEarthWindow.40") + "<br/>" + e1.getMessage() + "</html>", Messages.getString("CollectEarthWindow.47"), JOptionPane.INFORMATION_MESSAGE) ); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$ //$NON-NLS-4$ //$NON-NLS-5$ //$NON-NLS-6$ //$NON-NLS-7$
 			logger.warn("The saiku server is not configured", e1); //$NON-NLS-1$ 
 		} catch ( RuntimeException e) {
 			logger.error("Error starting Saiku", e); //$NON-NLS-1$ 
@@ -72,6 +73,8 @@ final class GenerateDatabaseStarter {
 				}
 
 			};
+			// Registered before the dialog is shown : asking the monitor after showLater() returned always answered false
+			progressMonitor.setOnUserCancelled( () -> generateDatabase.setUserCancelledOperation(true) );
 			threadGeneratingDB.start();
 			progressMonitor.showLater();		
 		}else {
@@ -80,9 +83,7 @@ final class GenerateDatabaseStarter {
 		}
 
 		
-		if( progressMonitor.isUserCancelled() ){
-			generateDatabase.setUserCancelledOperation(true);
-		}
+
 	}
 
 	public void setStarting(boolean starting) {

@@ -154,13 +154,10 @@ public class AbstractPlacemarkDataController extends JsonPocessorServlet {
 		for (Entry<String, String> entry : originalCollectedData.entrySet()) {
 			String key = entry.getKey();
 			String value = entry.getValue();
-			if( key.equals( EarthConstants.PLACEMARK_ID_PARAMETER ) ){
-				// If there are multiple keys this value will be the combination of the keys, with the first value actually containing the plot id.
-				// The split value MUST be the one put into the result map: reusing the unsplit
-				// value made every save on an existing record look like a plot-id change and
-				// corrupted the record's key attribute (compound web-form ids exposed this).
+			if( value != null && key.equals( EarthConstants.PLACEMARK_ID_PARAMETER ) ){
+				// If there are multiple keys this value will be the combination of the keys, with the first value actually containing the plot id
+				// Change the value that is copied to the result : setting it on the entry left the combined keys in the result
 				value = value.split(",")[0];
-				entry.setValue( value );
 			}
 
 			//decode parameter name, it was previously encoded by the client

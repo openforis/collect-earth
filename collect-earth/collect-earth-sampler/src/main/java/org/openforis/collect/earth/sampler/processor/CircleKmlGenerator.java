@@ -5,6 +5,7 @@ import java.security.SecureRandom;
 import java.util.ArrayList;
 import java.util.List;
 
+import org.openforis.collect.earth.app.EarthConstants.BUFFER_SHAPE;
 import org.openforis.collect.earth.sampler.model.SimpleCoordinate;
 import org.openforis.collect.earth.sampler.model.SimplePlacemarkObject;
 import org.openforis.collect.earth.sampler.model.SimpleRegion;
@@ -15,13 +16,13 @@ public class CircleKmlGenerator extends AbstractPolygonKmlGenerator {
 	private static final int NUMBER_OF_POINTS_TO_DRAW_CIRCLE = 130;
 
 	private double radiusOfCircle;
-	
+
 	private SecureRandom random = new SecureRandom();
 
 	private static final int MARGIN_CIRCLE = 5;
 
-	public CircleKmlGenerator(String epsgCode, String hostAddress, String localPort,  Integer numberOfPoints, Integer innerPointSide, double radius ) {
-		super(epsgCode, hostAddress, localPort, numberOfPoints, innerPointSide, 0, 0, (Integer)null, null);
+	public CircleKmlGenerator(String epsgCode, String hostAddress, String localPort, Integer innerPointSide, Integer numberOfPoints, double radius, String distanceToBuffers, BUFFER_SHAPE bufferShape) {
+		super(epsgCode, hostAddress, localPort, innerPointSide, numberOfPoints, 0, 0, (Integer)null, distanceToBuffers, bufferShape);
 		setRadiusOfCircle(radius);
 	}
 

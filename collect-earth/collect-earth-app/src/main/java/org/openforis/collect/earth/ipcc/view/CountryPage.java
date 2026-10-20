@@ -59,6 +59,10 @@ public class CountryPage extends AbstractWizardPage {
 		JComboBox<CountryCode> countryList = new JComboBox(CountryUtils.getCountryList());
 		countryList.addActionListener( e -> {assignSubdivisionTypesWizard.setCountryCode( ( (CountryCode) countryList.getSelectedItem() ) );} );
 	
+		// The combo starts on its first entry without firing its listener, so a user who accepts the country that is offered
+		// used to leave it unset, and the export failed at its last step with nothing but a line in the log
+		assignSubdivisionTypesWizard.setCountryCode( (CountryCode) countryList.getSelectedItem() );
+
 		contentPane.add(countryList, constraints);
 
 		constraints.gridy++;
@@ -85,6 +89,10 @@ public class CountryPage extends AbstractWizardPage {
 		else if( attributeNames.contains( RegionColumnEnum.DISTRICT.getColumnName() ) ){
 			attributeList.setSelectedItem( RegionColumnEnum.DISTRICT.getColumnName() );
 		}
+
+		// Same for the region attribute : the selection above does not fire the listener either, and a survey that has none of
+		// these three attributes left it unset, which reached the queries as a column called "null"
+		assignSubdivisionTypesWizard.setRegionAttribute( (String) attributeList.getSelectedItem() );
 
 		contentPane.add(attributeList, constraints);
 

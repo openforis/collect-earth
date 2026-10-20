@@ -102,6 +102,13 @@ public class IPCCLandUses extends RDBConnector {
 			}
 		}
 
+		if (LU_TABLE == null) {
+			// Without this the names of the tables and the columns were built from a null, and the queries asked for a table
+			// called "null_code" and a column called "null_id"
+			throw new IllegalArgumentException(
+					"No land use category level ( category / use ) found in the code list " + CODE_LIST_LAND_USE);
+		}
+
 		LU_CATEGORY_ID = LU_TABLE + "_id";
 		
 		LU_SUBDIVISION = CODE_LIST_LAND_USE + "_subdivision";

@@ -18,7 +18,9 @@ import org.springframework.jdbc.core.RowMapper;
 import org.springframework.stereotype.Component;
 
 @Component
-public abstract class AbstractIPCCDataExportTimeSeries<E> extends AbstractIPCCDataExport {
+// No type parameter : the rows are always StratumPerYearData, and the cast that hid it let a subclass declare another
+// element type for a list that never holds it
+public abstract class AbstractIPCCDataExportTimeSeries extends AbstractIPCCDataExport {
 
 	Logger logger = LoggerFactory.getLogger(AbstractIPCCDataExportTimeSeries.class);
 
@@ -27,13 +29,13 @@ public abstract class AbstractIPCCDataExportTimeSeries<E> extends AbstractIPCCDa
 
 		initSchemaName();
 
-		List<E> strataData = new ArrayList<E>();
+		List<StratumPerYearData> strataData = new ArrayList<>();
 
 		for (int year = startYear; year < endYear; year++) {
 			for (StratumObject gez : getStrataGEZ() ) {
 				for (StratumObject climate : getStrataClimate()) {
 					for (StratumObject soil : getStrataSoil() ) {
-						E yearLuData = (E) generateLUTimeseriesForStrata(year, gez, climate, soil);
+						StratumPerYearData yearLuData = generateLUTimeseriesForStrata(year, gez, climate, soil);
 						if (yearLuData != null)
 							strataData.add(yearLuData);
 					}
@@ -45,7 +47,7 @@ public abstract class AbstractIPCCDataExportTimeSeries<E> extends AbstractIPCCDa
 
 	}
 
-	protected abstract File generateFile( List<E> strataData) throws IOException;
+	protected abstract File generateFile( List<StratumPerYearData> strataData) throws IOException;
 
 	private StratumPerYearData generateLUTimeseriesForStrata(int year, StratumObject gez, StratumObject climate,StratumObject soil) {
 

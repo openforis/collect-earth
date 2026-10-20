@@ -9,11 +9,15 @@ import org.openforis.collect.earth.app.service.RegionCalculationUtils;
 import org.openforis.collect.earth.app.view.InfiniteProgressMonitor;
 import org.openforis.concurrency.Progress;
 import org.openforis.idm.metamodel.Survey;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
 @Component
 public class IPCCRDBGenerator  {
+
+	private static final Logger logger = LoggerFactory.getLogger(IPCCRDBGenerator.class);
 	
 	@Autowired
 	RDBExporter rdbExporter;
@@ -23,7 +27,9 @@ public class IPCCRDBGenerator  {
 	
 	public void generateRelationalDatabase(Survey modifiedSurvey, InfiniteProgressMonitor infiniteProgressMonitor) {
 		RDBPostProcessor ipccCallback = postProcessIpccData();
-		rdbExporter.exportDataToRDB(modifiedSurvey, ExportType.IPCC, infiniteProgressMonitor, ipccCallback);
+		if (!rdbExporter.exportDataToRDB(modifiedSurvey, ExportType.IPCC, infiniteProgressMonitor, ipccCallback)) {
+			logger.warn("The IPCC database was not post-processed, the expansion factors of its plots may be missing");
+		}
 	}
 
 	private RDBPostProcessor postProcessIpccData() {

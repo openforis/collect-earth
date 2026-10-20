@@ -3,7 +3,7 @@
 	<parent>
 		<groupId>org.openforis.collect.earth</groupId>
 		<artifactId>collect-earth</artifactId>
-		<version>1.23.13-SNAPSHOT</version>
+		<version>1.23.20-SNAPSHOT</version>
 	</parent>
 	<artifactId>collect-earth-installer</artifactId>
 	<packaging>pom</packaging>
@@ -27,6 +27,51 @@
 		<osx-autoupdater-file-name>CollectEarthUpdater-${project.version}-osx-installer.app.zip</osx-autoupdater-file-name>
 
 		<autoupdater-xml-file-name>collectEarthUpdateJRE11.xml</autoupdater-xml-file-name>
+		<!-- download.html guesses the platform and offers all three; download-windows.html, -osx.html and
+		     -linux.html redirect straight to one installer with no JavaScript. They are uploaded with the manifest,
+		     so https://www.openforis.org/fileadmin/installer/download.html is a link that never needs editing. -->
+		<download-page-pattern>download*.html</download-page-pattern>
+
+		<!-- Where the installers are published.
+		     ===================================
+		     Not to Maven Central. They are end-user binaries that no Maven build resolves, and the gigabyte of them
+		     is what made every release a 35 minute upload that then failed while the Central Portal validated the
+		     bundle - three times in a row, and once it took a whole release with it. They are published as assets of
+		     the GitHub release for the tag, by publish-installers-to-github below, which is also where the
+		     autoupdate manifest points.
+
+		     What this does not change: collect-earth-core, -sampler and -app keep going to Central. That is what a
+		     Maven repository is for, and Collect resolves collect-earth-core from it.
+
+		     Set -Dinstaller.deploy.skip=false for one release to put the installers back on Central as well; the
+		     manifest keeps Central as a second download location, so versions published either way stay reachable.
+
+		     The switch works by not attaching the installers (skipAttach of attach-installer-artifacts below), so
+		     this module deploys its pom and nothing else. It must NOT skip the deploy itself, through
+		     skipNexusStagingDeployMojo or maven.deploy.skip. nexus-staging-maven-plugin gathers the artifacts of
+		     every module locally and uploads them all from the last module of the reactor, and this module is the
+		     last one: its DeployMojo checks the skip flag before anything else and returns, so the upload of core,
+		     sampler and app never happens either. That is what 1.23.18 did - released, tagged, installers on
+		     GitHub, and nothing at all on Central. collect-earth-grid can skip because it is not last. -->
+		<installer.deploy.skip>true</installer.deploy.skip>
+
+		<!-- The GitHub release the installers are attached to. -Dinstaller.github.skip=true builds them without
+		     publishing; the step never fails the build either way. -->
+		<installer.github.skip>false</installer.github.skip>
+		<github.repo>openforis/collect-earth</github.repo>
+
+		<!-- The autoupdate manifest is uploaded at deploy; see the upload-autoupdate-manifest execution below.
+		     Set -Dautoupdate.upload.skip=true to build the installers without touching the web server. The
+		     passphrase is empty for an unencrypted .pem, which is what an AWS key file normally is; override it in
+		     settings.xml if the key is protected. -->
+		<autoupdate.upload.skip>false</autoupdate.upload.skip>
+		<openforis-update-passphrase />
+		<!-- The directory that https://www.openforis.org/fileadmin/installer/ is served from. A default here rather
+		     than in settings.xml: it is a path with no host or credential attached, it changes only if the site is
+		     rebuilt, and having it in the build is how the release records where the manifest goes - until now that
+		     was known only to whoever had the folder bookmarked in FileZilla. Override it in settings.xml if the
+		     server layout changes. The host, the user and the key file stay out of the repository. -->
+		<openforis-update-folder>/opt/fileadmin/installer</openforis-update-folder>
 	</properties>
 
 	<profiles>
@@ -159,6 +204,9 @@
 								<include>${installbuilder-file-name-updater}</include>
 								<include>update.ini</include>
 								<include>${autoupdater-xml-file-name}</include>
+								<!-- The download pages, so that the links on openforis.org point at this release
+								     without anyone editing WordPress. -->
+								<include>${download-page-pattern}</include>
 							</includes>
 							<regex>false</regex>
 							<replacements>
@@ -181,6 +229,10 @@
 								<replacement>
 									<token>PLANET_MAPS_CE_KEY</token>
 									<value>${planet_maps_ce_key}</value> <!-- This value comes from the maven_settings.xml file in the computer that fires the build -->
+								</replacement>
+								<replacement>
+									<token>GA_API_SECRET</token>
+									<value>${ga_api_secret}</value> <!-- This value comes from the maven_settings.xml file in the computer that fires the build -->
 								</replacement>
 								<replacement>
 									<token>JAVA_VERSION_SET_POM</token>
@@ -312,6 +364,9 @@
 									<goal>attach-artifact</goal>
 								</goals>
 								<configuration>
+									<!-- Unattached, the installers are neither signed nor deployed to Central; they are
+									     still built, and publish-installers-to-github takes them from target. -->
+									<skipAttach>${installer.deploy.skip}</skipAttach>
 									<artifacts>
 										<artifact>
 											<file>${project.build.directory}/${windows-installer-file-name}</file>
@@ -355,11 +410,42 @@
 						</executions>
 					</plugin>
 
-					<!-- 7 Upload the XML file that defines the presence of updates to the FTP directory -->
+					<!-- 7 Upload the XML file that defines the presence of updates to the web server -->
 					<plugin>
 						<groupId>org.apache.maven.plugins</groupId>
 						<artifactId>maven-antrun-plugin</artifactId>
 						<version>3.1.0</version>
+						<dependencies>
+							<!-- Ant's <scp> lives in ant-jsch and needs jsch itself; neither is on the plugin's own
+							     classpath. -->
+							<dependency>
+								<groupId>org.apache.ant</groupId>
+								<artifactId>ant-jsch</artifactId>
+								<version>1.10.15</version>
+								<exclusions>
+									<!-- ant-jsch depends on com.jcraft:jsch:0.1.55 at compile scope, and the fork below
+									     uses the same com.jcraft.jsch package names. Without this exclusion both are on
+									     the plugin classpath and the 2018 one can win, which is what kept the upload
+									     failing with "Auth fail" after the fork was added - silently, since the step
+									     does not fail the build. -->
+									<exclusion>
+										<groupId>com.jcraft</groupId>
+										<artifactId>jsch</artifactId>
+									</exclusion>
+								</exclusions>
+							</dependency>
+							<!-- The maintained fork, not com.jcraft:jsch. Same packages, so Ant picks it up unchanged.
+							     com.jcraft's last release was 0.1.55 in 2018 and signs RSA keys with SHA-1 only;
+							     OpenSSH has refused ssh-rsa/SHA-1 by default since 8.8, and the server is 9.6, so the
+							     upload failed with "com.jcraft.jsch.JSchException: Auth fail" against a key that
+							     works perfectly with scp. The fork adds rsa-sha2-256/512 and reads the newer OpenSSH
+							     key format as well as the PEM one. -->
+							<dependency>
+								<groupId>com.github.mwiede</groupId>
+								<artifactId>jsch</artifactId>
+								<version>0.2.25</version>
+							</dependency>
+						</dependencies>
 						<executions>
 							<!-- 5. move generated installers into the target folder -->
 							<execution>
@@ -379,6 +465,236 @@
 										<move file="${installbuilder-output-directory}/${osx-installer-file-name}" tofile="${project.build.directory}/${osx-installer-file-name}" failonerror="true" />
 										<move file="${installbuilder-output-directory}/${osx-autoupdater-file-name}" tofile="${project.build.directory}/${osx-autoupdater-file-name}" failonerror="true" />
 
+									</target>
+								</configuration>
+							</execution>
+
+							<!-- Publish the installers as assets of the GitHub release for this tag.
+							     =============================================================
+							     This is where the installers live now: they are end-user binaries that no Maven build
+							     resolves, and sending a gigabyte of them to Maven Central is what made every release a
+							     35 minute upload that ended in a connection reset while the Portal validated the
+							     bundle. The Java artifacts still go to Central, which is what a Maven repository is
+							     for and what Collect resolves collect-earth-core from.
+
+							     The asset names have to be the ones the autoupdate manifest asks for, which are the
+							     Maven names rather than the InstallBuilder ones, so each file is copied to its Maven
+							     name first. The mapping is the classifier list of build-helper above.
+
+							     They go up with SHA256SUMS, the SHA-256 of each installer, and SHA256SUMS.asc, its
+							     detached signature made with the key that signs the artifacts on Central (gpg.executable,
+							     gpg.passphrase and optionally gpg.keyname, from settings.xml). One signature over the sums
+							     covers all six files with one passphrase. A download is checked by verifying SHA256SUMS.asc
+							     against SHA256SUMS with gpg, then SHA256SUMS against the file with sha256sum (the release
+							     notes carry the exact commands). The installers are not attached to the Maven build any more, so maven-gpg-plugin does
+							     not sign them; this is the only signature they get.
+
+							     Nothing here can fail the build: by this point the release is done. gh and gpg must be on
+							     the PATH, and gh authenticated; when one is not, the step says what to do by hand. -->
+							<execution>
+								<id>publish-installers-to-github</id>
+								<phase>deploy</phase>
+								<goals>
+									<goal>run</goal>
+								</goals>
+								<configuration>
+									<skip>${installer.github.skip}</skip>
+									<target xmlns:if="ant:if" xmlns:unless="ant:unless">
+										<property name="gh.tag" value="collect-earth-${project.version}" />
+										<property name="gh.dir" value="${project.build.directory}/github-release" />
+										<property name="gh.sums" value="SHA256SUMS" />
+										<!-- From scratch, so that a retry never hashes or signs what a previous run left -->
+										<delete dir="${gh.dir}" quiet="true" />
+										<mkdir dir="${gh.dir}" />
+
+										<copy file="${project.build.directory}/${windows-installer-file-name}" tofile="${gh.dir}/collect-earth-installer-${project.version}-windows.exe" failonerror="false" />
+										<copy file="${project.build.directory}/${windows-autoupdater-file-name}" tofile="${gh.dir}/collect-earth-installer-${project.version}-windows-updater.exe" failonerror="false" />
+										<copy file="${project.build.directory}/${linux-x64-installer-file-name}" tofile="${gh.dir}/collect-earth-installer-${project.version}-linux-x64.run" failonerror="false" />
+										<copy file="${project.build.directory}/${linux-x64-autoupdater-file-name}" tofile="${gh.dir}/collect-earth-installer-${project.version}-linux-x64-updater.run" failonerror="false" />
+										<copy file="${project.build.directory}/${osx-installer-file-name}" tofile="${gh.dir}/collect-earth-installer-${project.version}-osx.dmg" failonerror="false" />
+										<copy file="${project.build.directory}/${osx-autoupdater-file-name}" tofile="${gh.dir}/collect-earth-installer-${project.version}-osx-updater.zip" failonerror="false" />
+										<!-- SHA256SUMS, in the format sha256sum -c reads : one "hash *name" line per
+										     installer, LF line ends whatever system builds it. -->
+										<checksum algorithm="SHA-256" format="MD5SUM" fileext=".sha256" todir="${gh.dir}/sums" forceoverwrite="yes">
+											<fileset dir="${gh.dir}" includes="collect-earth-installer-${project.version}-*" />
+										</checksum>
+										<concat destfile="${gh.dir}/${gh.sums}" fixlastline="yes">
+											<sort><fileset dir="${gh.dir}/sums" includes="*.sha256" /></sort>
+											<!-- each checksum file ends in its own line break : without this every
+											     other line is empty, which sha256sum reports as improperly formatted -->
+											<filterchain><ignoreblank /></filterchain>
+										</concat>
+										<fixcrlf file="${gh.dir}/${gh.sums}" eol="lf" eof="remove" />
+										<delete dir="${gh.dir}/sums" quiet="true" />
+
+										<!-- Sign SHA256SUMS. Best effort : an unsigned release is still a release. The
+										     passphrase goes through standard input, never on the command line. -->
+										<property name="gpg.executable" value="gpg" />
+										<condition property="gpg.passphrase.given">
+											<and>
+												<isset property="gpg.passphrase" />
+												<not><equals arg1="${gpg.passphrase}" arg2="" /></not>
+											</and>
+										</condition>
+										<condition property="gpg.passphrase.args" value="--passphrase-fd 0" else="">
+											<isset property="gpg.passphrase.given" />
+										</condition>
+										<condition property="gpg.passphrase.input" value="${gpg.passphrase}" else="">
+											<isset property="gpg.passphrase.given" />
+										</condition>
+										<condition property="gpg.key.args" value="--local-user ${gpg.keyname}" else="">
+											<isset property="gpg.keyname" />
+										</condition>
+										<!-- GnuPG 2.1 and later only read a passphrase from standard input in loopback
+										     mode, and GnuPG 1.4 and 2.0 reject the option, so loopback is tried first and
+										     the plain form after it. The plain form is also the one for a key that has no
+										     passphrase or is served by an agent. -->
+										<exec executable="${gpg.executable}" dir="${gh.dir}" failonerror="false" failifexecutionfails="false" inputstring="${gpg.passphrase.input}" resultproperty="gpg.loopback.result" if:set="gpg.passphrase.given">
+											<arg value="--batch" /><arg value="--yes" />
+											<arg value="--pinentry-mode" /><arg value="loopback" />
+											<arg line="${gpg.passphrase.args} ${gpg.key.args}" />
+											<arg value="--armor" /><arg value="--detach-sign" /><arg value="${gh.sums}" />
+										</exec>
+										<condition property="gh.sums.signed">
+											<equals arg1="${gpg.loopback.result}" arg2="0" />
+										</condition>
+										<exec executable="${gpg.executable}" dir="${gh.dir}" failonerror="false" failifexecutionfails="false" inputstring="${gpg.passphrase.input}" unless:set="gh.sums.signed">
+											<arg value="--batch" /><arg value="--yes" />
+											<arg line="${gpg.passphrase.args} ${gpg.key.args}" />
+											<arg value="--armor" /><arg value="--detach-sign" /><arg value="${gh.sums}" />
+										</exec>
+										<!-- Publish the signature only if it verifies, so a failed attempt can never leave a
+										     broken one on the release -->
+										<exec executable="${gpg.executable}" dir="${gh.dir}" failonerror="false" failifexecutionfails="false" resultproperty="gpg.verify.result">
+											<arg value="--batch" /><arg value="--verify" /><arg value="${gh.sums}.asc" /><arg value="${gh.sums}" />
+										</exec>
+										<condition property="gh.sums.verified">
+											<equals arg1="${gpg.verify.result}" arg2="0" />
+										</condition>
+										<delete file="${gh.dir}/${gh.sums}.asc" quiet="true" unless:set="gh.sums.verified" />
+
+										<echo message="Publishing the installers of ${project.version} to the GitHub release ${gh.tag} of ${github.repo}" />
+										<!-- create first; it fails harmlessly when the release already exists. Neither call
+										     can fail the build, not even when gh is not installed. -->
+										<exec executable="gh" failonerror="false" failifexecutionfails="false" dir="${gh.dir}">
+											<arg value="release" /><arg value="create" /><arg value="${gh.tag}" />
+											<arg value="--repo" /><arg value="${github.repo}" />
+											<arg value="--title" /><arg value="Collect Earth ${project.version}" />
+											<arg value="--notes" /><arg value="Installers for Collect Earth ${project.version}. The Java artifacts of this version are on Maven Central; the installers are here, because a Maven repository is not a place for a gigabyte of desktop installers. To check a download: gpg --verify SHA256SUMS.asc SHA256SUMS, then sha256sum -c SHA256SUMS --ignore-missing." />
+										</exec>
+										<!-- One call per file, up to three attempts each. All the files used to go in a single call,
+										     and one dropped connection lost the whole gigabyte : 1.23.19 was published with nothing
+										     but its signature, and had to be uploaded by hand. A retry now sends only the file that
+										     failed. gh.upload.failed is set when a file could not be sent at all. -->
+										<macrodef name="gh-upload">
+											<attribute name="file" />
+											<sequential>
+												<local name="attempt1" />
+												<local name="attempt2" />
+												<local name="attempt3" />
+												<local name="uploaded" />
+												<exec executable="gh" failonerror="false" failifexecutionfails="false" dir="${gh.dir}" resultproperty="attempt1">
+													<arg value="release" /><arg value="upload" /><arg value="${gh.tag}" />
+													<arg value="--repo" /><arg value="${github.repo}" /><arg value="--clobber" /><arg value="@{file}" />
+												</exec>
+												<condition property="uploaded"><equals arg1="${attempt1}" arg2="0" /></condition>
+												<sleep seconds="10" unless:set="uploaded" />
+												<exec executable="gh" failonerror="false" failifexecutionfails="false" dir="${gh.dir}" resultproperty="attempt2" unless:set="uploaded">
+													<arg value="release" /><arg value="upload" /><arg value="${gh.tag}" />
+													<arg value="--repo" /><arg value="${github.repo}" /><arg value="--clobber" /><arg value="@{file}" />
+												</exec>
+												<condition property="uploaded"><equals arg1="${attempt2}" arg2="0" /></condition>
+												<sleep seconds="30" unless:set="uploaded" />
+												<exec executable="gh" failonerror="false" failifexecutionfails="false" dir="${gh.dir}" resultproperty="attempt3" unless:set="uploaded">
+													<arg value="release" /><arg value="upload" /><arg value="${gh.tag}" />
+													<arg value="--repo" /><arg value="${github.repo}" /><arg value="--clobber" /><arg value="@{file}" />
+												</exec>
+												<condition property="uploaded"><equals arg1="${attempt3}" arg2="0" /></condition>
+												<echo message=" Uploaded @{file}" if:set="uploaded" />
+												<echo message=" FAILED to upload @{file} after three attempts" unless:set="uploaded" />
+												<property name="gh.upload.failed" value="true" unless:set="uploaded" />
+											</sequential>
+										</macrodef>
+										<!-- The updaters first : they are what the autoupdate manifest sends installed copies to -->
+										<gh-upload file="collect-earth-installer-${project.version}-windows-updater.exe" />
+										<gh-upload file="collect-earth-installer-${project.version}-osx-updater.zip" />
+										<gh-upload file="collect-earth-installer-${project.version}-linux-x64-updater.run" />
+										<gh-upload file="collect-earth-installer-${project.version}-windows.exe" />
+										<gh-upload file="collect-earth-installer-${project.version}-osx.dmg" />
+										<gh-upload file="collect-earth-installer-${project.version}-linux-x64.run" />
+										<gh-upload file="${gh.sums}" />
+										<exec executable="gh" failonerror="false" failifexecutionfails="false" dir="${gh.dir}" if:set="gh.sums.verified">
+											<arg value="release" /><arg value="upload" /><arg value="${gh.tag}" />
+											<arg value="--repo" /><arg value="${github.repo}" />
+											<arg value="--clobber" />
+											<arg value="${gh.sums}.asc" />
+										</exec>
+										<echo message=" WARNING : not every installer reached the GitHub release ${gh.tag}. Nothing else about the release is broken : the files are in ${gh.dir}, and 'gh release upload ${gh.tag} --repo ${github.repo} --clobber FILE' publishes each missing one. The autoupdate manifest is only uploaded once the updaters can be downloaded from GitHub, so after uploading them copy it up by hand (see upload-autoupdate-manifest)." if:set="gh.upload.failed" />
+										<echo message=" WARNING : ${gh.sums} could not be signed, so the release has checksums but no signature. Check gpg.executable, gpg.passphrase and gpg.keyname in settings.xml, then in ${gh.dir} run 'gpg --armor --detach-sign ${gh.sums}' and 'gh release upload ${gh.tag} --repo ${github.repo} --clobber ${gh.sums}.asc'." unless:set="gh.sums.verified" />
+									</target>
+								</configuration>
+							</execution>
+
+							<!-- Put the autoupdate manifest where the installed clients look for it.
+							     ================================================================
+							     This is the file update.ini names. Until now it was copied up by hand after every
+							     release, which is why the live one still advertised 1.23.13 two releases later. An
+							     installed Collect Earth only learns a new version exists when this file says so, so a
+							     release that skips this step reaches nobody who already has the application.
+
+							     It sends the generated file - the one with the version and build number already
+							     substituted - not the template with its PROJECT_VERSION placeholders, together with the
+							     download pages.
+
+							     It has to come AFTER publish-installers-to-github : executions of one plugin in one phase
+							     run in the order they are declared, and it used to be declared first. For 1.23.19 the
+							     manifest - marked major, so every installation asks to update - and the download pages
+							     went up, the GitHub upload then failed, and both pointed at files that were not there.
+							     Being second is not enough either, since the GitHub step never fails the build : the
+							     upload only happens once each updater really answers from its GitHub address. A HEAD
+							     request, so nothing is downloaded.
+
+							     The host, user, key and remote folder are machine-specific and must not be in this
+							     repository: put them in the assembly profile of your own settings.xml, as
+							     maven_settings.xml shows. Build with -Dautoupdate.upload.skip=true to do without. -->
+							<execution>
+								<id>upload-autoupdate-manifest</id>
+								<phase>deploy</phase>
+								<goals>
+									<goal>run</goal>
+								</goals>
+								<configuration>
+									<skip>${autoupdate.upload.skip}</skip>
+									<target xmlns:if="ant:if" xmlns:unless="ant:unless">
+										<property name="gh.download" value="https://github.com/${github.repo}/releases/download/collect-earth-${project.version}" />
+										<condition property="updaters.downloadable">
+											<or>
+												<!-- Published somewhere else on purpose : the manifest lists Central as well -->
+												<istrue value="${installer.github.skip}" />
+												<and>
+													<http url="${gh.download}/collect-earth-installer-${project.version}-windows-updater.exe" requestMethod="HEAD" followRedirects="true" readTimeout="60000" />
+													<http url="${gh.download}/collect-earth-installer-${project.version}-osx-updater.zip" requestMethod="HEAD" followRedirects="true" readTimeout="60000" />
+													<http url="${gh.download}/collect-earth-installer-${project.version}-linux-x64-updater.run" requestMethod="HEAD" followRedirects="true" readTimeout="60000" />
+												</and>
+											</or>
+										</condition>
+										<echo message=" WARNING : the updaters of ${project.version} cannot be downloaded from ${gh.download}, so ${autoupdater-xml-file-name} and the download pages were NOT uploaded - they would send every installation to files that are not there. Once the installers are on the GitHub release, copy ${installer-build-path}/${autoupdater-xml-file-name} and ${installer-build-path}/${download-page-pattern} to ${openforis-update-folder} by hand." unless:set="updaters.downloadable" />
+
+										<echo message="Uploading ${autoupdater-xml-file-name} (version ${project.version}, build ${buildNumber}) to ${openforis-update-user}@${openforis-update-host}:${openforis-update-folder}" if:set="updaters.downloadable" />
+										<!-- failonerror is false, and deliberately. The release itself is finished by the
+										     time this runs : the artifacts are uploaded and the tag is pushed. Failing
+										     the build here would fail a release that has already succeeded, over a file
+										     that can be copied up afterwards in a second. The upload is announced when
+										     it does not happen, loudly enough to be seen in the log. -->
+										<scp todir="${openforis-update-user}@${openforis-update-host}:${openforis-update-folder}" keyfile="${openforis-update-keyfile}" passphrase="${openforis-update-passphrase}" trust="yes" verbose="true" failonerror="false" if:set="updaters.downloadable">
+											<fileset dir="${installer-build-path}">
+												<include name="${autoupdater-xml-file-name}" />
+												<!-- Beside the manifest, so that openforis.org can link to a URL that
+												     never changes and this release repoints it. -->
+												<include name="${download-page-pattern}" />
+											</fileset>
+										</scp>
+										<echo message=" If the upload above failed the release is unaffected : copy ${installer-build-path}/${autoupdater-xml-file-name} to ${openforis-update-folder} by hand and the new version becomes visible to installed clients." if:set="updaters.downloadable" />
 									</target>
 								</configuration>
 							</execution>

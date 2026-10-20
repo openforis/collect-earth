@@ -1,5 +1,6 @@
 package org.openforis.collect.earth.app.view;
 
+import java.io.File;
 import java.util.Arrays;
 
 public enum DataFormat{
@@ -35,6 +36,24 @@ public enum DataFormat{
 		return description;
 	}
 	
+	/**
+	 * Appends the default extension of this format to a file that does not already carry one of its possible extensions.
+	 *
+	 * @param file The file chosen by the user
+	 * @return The file that will really be written
+	 */
+	public File withDefaultExtension( File file ){
+		String fileName = file.getAbsolutePath();
+		int lastDot = fileName.lastIndexOf('.');
+		String extensionOfFile = lastDot == -1 ? null : fileName.substring( lastDot + 1 );
+		// checkFileExtensionMatches compares every possible extension, ignoring case. A binary search was used here, over an
+		// unsorted array, so a valid ".collect-data" file was renamed to ".zip"
+		if( extensionOfFile == null || !checkFileExtensionMatches( extensionOfFile ) ){
+			return new File( fileName + "." + getDefaultExtension() ); //$NON-NLS-1$
+		}
+		return file;
+	}
+
 	public boolean checkFileExtensionMatches( String fileExtensionToCheck){
 		for (String ext : fileExtension) {
 			if( ext.equalsIgnoreCase( fileExtensionToCheck)){

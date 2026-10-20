@@ -28,7 +28,10 @@ public class CroplandPage extends AbstractSubdivisionPage {
 	protected void getMoreInfo(GridBagConstraints constraints, JPanel contentPane, AbstractLandUseSubdivision<?> subdiv, JComboBox<Object> mgmtType) {
 		constraints.gridx = 4;
 		JComboBox<Object> perennialCropTypes = new JComboBox( PerennialCropTypesEnum.values() );
-		perennialCropTypes.setSelectedItem( ( (CroplandSubdivision) subdiv ).getPerennialCropType() );
+		// The listener is registered below, so this selection does not reach the model : the constructor of the subdivision
+		// supplies the default, and a null here would leave the combo on its first entry without saying so
+		PerennialCropTypesEnum selectedCropType = ( (CroplandSubdivision) subdiv ).getPerennialCropType();
+		perennialCropTypes.setSelectedItem( selectedCropType == null ? PerennialCropTypesEnum.ALL : selectedCropType );
 		contentPane.add(perennialCropTypes, constraints);
 		perennialCropTypes.addActionListener( e-> {
 				CroplandSubdivision croplandSud =  (CroplandSubdivision) LandUseSubdivisionUtils.getLandUseSubdivisions().get( LandUseSubdivisionUtils.getLandUseSubdivisions().indexOf(subdiv));

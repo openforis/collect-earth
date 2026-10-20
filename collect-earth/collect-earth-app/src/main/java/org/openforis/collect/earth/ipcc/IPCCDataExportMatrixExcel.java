@@ -3,12 +3,12 @@ package org.openforis.collect.earth.ipcc;
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
+import java.nio.file.Files;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
-import java.util.Objects;
 
 import org.apache.commons.collections.CollectionUtils;
 import org.apache.commons.collections.Predicate;
@@ -112,21 +112,37 @@ public class IPCCDataExportMatrixExcel extends RDBConnector {
 		};
 	}
 
-	protected static LUSubdivisionDataPerYear findLuData( AbstractLandUseSubdivision initialSubdivision, AbstractLandUseSubdivision finalSubdivision, List<LUSubdivisionDataPerYear> luData ) {
-		if( luData.removeIf(Objects::isNull) ) { // TODO Why are there null values here??
-			logger.info("A Why do we have a null LU category here?");
+	/**
+	 * The plot groups of a matrix that can be placed in it : those with a land use subdivision, of the survey, for both
+	 * years. What is left out is counted here and not in findLuData, which runs once per cell of the matrix.
+	 * The list of the caller is left alone.
+	 */
+	protected static List<LUSubdivisionDataPerYear> getLuDataInMatrix( List<LUSubdivisionDataPerYear> luData ) {
+		List<LUSubdivisionDataPerYear> inMatrix = new ArrayList<>();
+		int unknownSubdivision = 0;
+		int noSubdivision = 0;
+		for (LUSubdivisionDataPerYear luDataPerYear : luData) {
+			// a null is a plot whose subdivision code is not one of the subdivisions of the survey
+			if (luDataPerYear == null) {
+				unknownSubdivision++;
+			} else if (luDataPerYear.getLu() == null || luDataPerYear.getLuNextYear() == null) {
+				noSubdivision++;
+			} else {
+				inMatrix.add(luDataPerYear);
+			}
 		}
+		if (unknownSubdivision > 0) {
+			logger.warn("{} plot group(s) have a land use subdivision that is not in the survey, their area is not in the matrix", unknownSubdivision);
+		}
+		if (noSubdivision > 0) {
+			logger.warn("{} plot group(s) have no land use subdivision for one of the two years, their area is not in the matrix", noSubdivision);
+		}
+		return inMatrix;
+	}
 
-		Collection<?> result = CollectionUtils.select(luData, new Predicate() {
+	protected static LUSubdivisionDataPerYear findLuData( AbstractLandUseSubdivision initialSubdivision, AbstractLandUseSubdivision finalSubdivision, List<LUSubdivisionDataPerYear> luDataInMatrix ) {
+		Collection<?> result = CollectionUtils.select(luDataInMatrix, new Predicate() {
 			public boolean evaluate(Object a) {
-				if(  ( (LUSubdivisionDataPerYear) a ).getLu() == null ) {
-					logger.info("B Why do we have a null LU category here? " + a.toString());
-					return false;
-				}else if( ( (LUSubdivisionDataPerYear) a ).getLuNextYear() == null) {
-					logger.info("C Why do we have a null LU Next Year category here?" + a.toString());
-					return false;
-				}
-				
 				return 
 						( (LUSubdivisionDataPerYear) a ).getLu().equals(initialSubdivision) 
 						&& 
@@ -205,6 +221,7 @@ public class IPCCDataExportMatrixExcel extends RDBConnector {
 				
 				int rowNum = 1;
 				int colNum = 0;
+				List<LUSubdivisionDataPerYear> luDataInMatrix = getLuDataInMatrix( matrix.getYearData().getLuData() );
 				for (AbstractLandUseSubdivision<?> subdivisionH : matrix.getSubdivisions()) {
 					colNum = 0;
 					Row row = sheet.createRow(rowNum++);
@@ -217,7 +234,7 @@ public class IPCCDataExportMatrixExcel extends RDBConnector {
 					for (AbstractLandUseSubdivision<?> subdivisionV : matrix.getSubdivisions()) {
 
 						cell = row.createCell(colNum++);
-						cell.setCellValue( findLuData( subdivisionH, subdivisionV, matrix.getYearData().getLuData() ).getAreaHa() );
+						cell.setCellValue( findLuData( subdivisionH, subdivisionV, luDataInMatrix ).getAreaHa() );
 						if( subdivisionH.equals( subdivisionV ) ) {
 							cell.setCellStyle(diagonalCellStyle);
 						}else {
@@ -237,11 +254,13 @@ public class IPCCDataExportMatrixExcel extends RDBConnector {
 			// Write the output to a file
 			try( FileOutputStream fileOut = new FileOutputStream(excelDestination) ){
 				workbook.write(fileOut);
-			} catch (IOException e) {
-				logger.error("Error generating Excel file", e);
 			}
+		} catch (IOException e) {
+			throw e;
 		} catch (Exception e) {
-			logger.error("Error generating Excel data", e);
+			// Do not hand back a half-written workbook : it used to be packaged and delivered as a finished file
+			Files.deleteIfExists(excelDestination.toPath());
+			throw new IOException("Error generating the Excel file " + excelDestination.getAbsolutePath(), e);
 		}
 		return excelDestination;
 	}

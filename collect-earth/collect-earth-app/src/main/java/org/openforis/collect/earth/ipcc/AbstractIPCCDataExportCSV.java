@@ -1,8 +1,12 @@
 package org.openforis.collect.earth.ipcc;
 
+import java.nio.charset.StandardCharsets;
+import java.io.Writer;
+import java.io.OutputStreamWriter;
+import java.io.FileOutputStream;
 import java.io.File;
-import java.io.FileWriter;
 import java.io.IOException;
+import java.nio.file.Files;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.List;
@@ -43,14 +47,19 @@ public abstract class AbstractIPCCDataExportCSV extends RDBConnector {
 	protected File createCsv(List<String[]> luData) throws IOException {
 		File csvDestination = File.createTempFile("TimeSeriesData", ".csv");
 		csvDestination.deleteOnExit();
-		try (FileWriter fw = new FileWriter(csvDestination); CSVWriter csvWriter = new CSVWriter(fw)) {
+		// UTF-8 : with the charset of the machine the accented labels of the Italian, French and Vietnamese surveys that this
+		// feature is for came out unreadable
+		try (Writer fw = new OutputStreamWriter(new FileOutputStream(csvDestination), StandardCharsets.UTF_8);
+				CSVWriter csvWriter = new CSVWriter(fw)) {
 
 			for (String[] row : luData) {
 				csvWriter.writeNext(row);
 			}
 
-		} catch (Exception e) {
-			logger.error("Error generating CSV", e);
+		} catch (IOException e) {
+			// Do not hand back a half-written CSV : it used to be packaged and delivered as a finished file
+			Files.deleteIfExists(csvDestination.toPath());
+			throw e;
 		}
 		return csvDestination;
 	}
