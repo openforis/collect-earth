@@ -87,9 +87,13 @@ public class GoogleEarthWebService {
 			+ "history.pushState(null, '', arguments[0]);"
 			+ "window.dispatchEvent(new PopStateEvent('popstate', { state: null }));";
 
-	/** The same, keeping the overlay: the plot does not change, only where the camera looks. */
+	/**
+	 * The same, keeping the overlay: the plot does not change, only where the camera looks. The overlay
+	 * hides until the camera has flown there.
+	 */
 	private static final String CAMERA_MOVE_SCRIPT = "history.pushState(null, '', arguments[0]);"
-			+ "window.dispatchEvent(new PopStateEvent('popstate', { state: null }));";
+			+ "window.dispatchEvent(new PopStateEvent('popstate', { state: null }));"
+			+ "var o = window." + OVERLAY_TAG + "; if (o && o.expectFlight) { o.expectFlight(arguments[0]); }";
 
 	private final Logger logger = LoggerFactory.getLogger(GoogleEarthWebService.class);
 
@@ -315,7 +319,8 @@ public class GoogleEarthWebService {
 				setState(State.WAITING, plotId, null);
 				return;
 			}
-			if (overview || injectOverlay(target)) {
+			// After an in-page move the camera is still flying: the outline waits for it to arrive
+			if (overview || injectOverlay(target, moved ? url : null)) {
 				setState(State.READY, plotId, null);
 			} else {
 				setState(State.ERROR, plotId, MESSAGE_OUTLINE_FAILED);
@@ -376,11 +381,20 @@ public class GoogleEarthWebService {
 
 	/** Injects the plot outline and the information bar (see javascript_google_earth_web.fmt). */
 	private boolean injectOverlay(SimplePlacemarkObject plot) {
+		return injectOverlay(plot, null);
+	}
+
+	/**
+	 * @param flightUrl camera URL Google Earth Web was just sent flying to in-page: nothing is drawn before it
+	 *                  arrives, or the plot would show over the moving imagery. Null when the camera is there.
+	 */
+	private boolean injectOverlay(SimplePlacemarkObject plot, String flightUrl) {
 		try {
 			Map<String, Object> data = geolocalizeMapService.getPlacemarkData(plot);
 			data.put("plotId", plot.getPlacemarkId() == null ? "" : plot.getPlacemarkId());
 			data.put("plotUrl", plotUrl(plot, GoogleEarthWebUrls.PLOT_DISTANCE));
 			data.put("inPageNavigation", String.valueOf(inPageNavigation));
+			data.put("flightUrl", flightUrl == null ? "" : flightUrl);
 			Map<String, String> labels = new LinkedHashMap<>();
 			for (String key : LABEL_KEYS) {
 				labels.put(key, Messages.getString("GoogleEarthWeb." + key));
