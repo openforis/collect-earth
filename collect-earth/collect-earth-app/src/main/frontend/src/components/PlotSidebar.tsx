@@ -170,7 +170,7 @@ function PlotList({ ids, statuses, activeId, onSelect }: {
           const active = id === activeId;
           return (
             <ListItemButton key={id} role="option" aria-selected={active} selected={active}
-              data-id={id} data-active={active || undefined} onClick={() => onSelect(id)}
+              data-id={id} data-status={status} data-active={active || undefined} onClick={() => onSelect(id)}
               sx={{
                 position: "absolute", top: 0, left: 0, right: 0, height: ROW_HEIGHT,
                 transform: `translateY(${row.start}px)`, gap: 1.5, pl: 2,

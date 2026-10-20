@@ -291,7 +291,7 @@ Because it is not shipped, its dependencies (Hibernate, the JDBC drivers) lag be
 
 ## Plots Map Web UI
 
-The plots map (used instead of Google Earth Pro when `viewer_type` is `plots_map` or `google_earth_web`) is a React + MUI + Vite app in `collect-earth-app/src/main/frontend`. The `collect-earth-app` Maven build compiles it into `target/classes/leafletmap` via `frontend-maven-plugin` (skip with `-Dskip.npm`); `LeafletMapController` serves it at `/earth/map`. See that folder's README for `npm run dev` / `npm test`.
+The plots map (used instead of Google Earth Pro when `viewer_type` is `plots_map` or `google_earth_web`) is a React + MUI + Vite app in `collect-earth-app/src/main/frontend`. The `collect-earth-app` Maven build compiles it into `target/classes/leafletmap` via `frontend-maven-plugin` (skip with `-Dskip.npm`); `LeafletMapController` serves it at `/earth/map`. The data entry form next to the map (`/earth/form`, a second page of the same app) is generated at runtime from the survey by `SurveyFormModelBuilder` / `SurveyFormController` (`/surveyForm`), and saves through the balloon endpoints; `web_form=balloon` brings back the CEP balloon. See that folder's README for `npm run dev` / `npm test`.
 
 ## Spring Configuration
 

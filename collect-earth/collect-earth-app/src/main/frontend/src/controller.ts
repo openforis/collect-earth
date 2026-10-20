@@ -71,6 +71,8 @@ export class MapController {
   private prefs: Prefs = loadPrefs();
   private engine: MapEngine | null = null;
   private container: HTMLElement | null = null;
+  /** "generated" (the form built from the survey) or "balloon" (the CEP's HTML) */
+  private webForm = "generated";
   private lastStatusPoll: number | null = null;
   private fellBack = false;
 
@@ -111,6 +113,7 @@ export class MapController {
     try { config = await fetchMapConfig(); } catch {
       config = { engine: "leaflet", googleMapsApiKey: "" }; // collection must still work
     }
+    this.webForm = config.webForm ?? "generated";
     this.set({ viewerType: config.viewerType ?? "", language: config.language ?? "en" });
     if (this.usesGoogleEarthWeb()) this.pollGew();
     const notice = this.createEngine(config);
@@ -261,7 +264,7 @@ export class MapController {
     const wasClosed = this.state.formUrl == null;
     // Render the form panel synchronously, then resize the map BEFORE moving it, so the
     // plot ends up centered in the remaining map area.
-    flushSync(() => this.set({ activeId: id, formUrl: formUrl(plot.feature) }));
+    flushSync(() => this.set({ activeId: id, formUrl: formUrl(plot.feature, this.webForm, this.state.language) }));
     if (previous && previous !== id) this.engine.setPlotColor(previous, STATUS_COLORS[this.state.statuses[previous]]);
     this.engine.setPlotColor(id, ACTIVE_COLOR);
     if (wasClosed) this.engine.invalidateSize();

@@ -1,0 +1,28 @@
+import "@fontsource/roboto/400.css";
+import "@fontsource/roboto/500.css";
+import "@fontsource/roboto/700.css";
+import { StrictMode } from "react";
+import { createRoot } from "react-dom/client";
+import CssBaseline from "@mui/material/CssBaseline";
+import { ThemeProvider } from "@mui/material/styles";
+import { I18nContext, translator } from "../i18n";
+import { theme } from "../theme";
+import { FormApp } from "./FormApp";
+import { FormStore } from "./store";
+
+// /earth/form?id=<placemark id>&lang=<UI language>: the plots map opens it next to the map
+const params = new URLSearchParams(window.location.search);
+const language = params.get("lang") ?? "en";
+document.documentElement.lang = language;
+const store = new FormStore(params.get("id") ?? "");
+
+createRoot(document.getElementById("root")!).render(
+  <StrictMode>
+    <ThemeProvider theme={theme}>
+      <CssBaseline />
+      <I18nContext.Provider value={translator(language)}>
+        <FormApp store={store} />
+      </I18nContext.Provider>
+    </ThemeProvider>
+  </StrictMode>,
+);

@@ -68,7 +68,7 @@ export function FormPanel({ controller, state }: { controller: MapController; st
       </Stack>
       {/* key: a fresh iframe per plot, so a stale form can never post into the next one */}
       <Box component="iframe" key={state.formUrl} src={state.formUrl!} title={t("form.frame")} data-testid="form-frame"
-        sx={{ flex: 1, border: 0, bgcolor: "#fff", ".ce-resizing &": { pointerEvents: "none" } }} />
+        sx={{ flex: 1, border: 0, bgcolor: "background.paper", ".ce-resizing &": { pointerEvents: "none" } }} />
     </Paper>
   );
 }

@@ -111,6 +111,7 @@ public class LocalPropertiesService extends Observable {
 				VIEWER_TYPE("viewer_type"),
 				GEW_TRIAL_PROMPT_DISABLED("gew_trial_prompt_disabled"),
 				MAP_ENGINE("map_engine"),
+				WEB_FORM("web_form"),
 				DEFERRED_SAVE_DISABLED("deferred_save_disabled"),
 				CLOUD_SYNC_ENABLED("cloud_sync_enabled"),
 				CLOUD_SYNC_URL("cloud_sync_url"),
@@ -577,6 +578,16 @@ public class LocalPropertiesService extends Observable {
 	public String getMapEngine() {
 		String engine = getValue(EarthProperty.MAP_ENGINE);
 		return MAP_ENGINE_GOOGLE.equals(engine) ? MAP_ENGINE_GOOGLE : MAP_ENGINE_LEAFLET;
+	}
+
+	/** The plots map form generated at runtime from the survey (the default). */
+	public static final String WEB_FORM_GENERATED = "generated";
+	/** The balloon HTML of the CEP (balloon_web when the CEP has one), as in the first plots map versions. */
+	public static final String WEB_FORM_BALLOON = "balloon";
+
+	/** Which data entry form the plots map shows next to the map. */
+	public String getWebForm() {
+		return WEB_FORM_BALLOON.equals(getValue(EarthProperty.WEB_FORM)) ? WEB_FORM_BALLOON : WEB_FORM_GENERATED;
 	}
 
 	public Boolean isExceptionShown() {

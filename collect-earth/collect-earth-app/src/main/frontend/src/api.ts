@@ -19,8 +19,15 @@ export async function fetchStatuses(since: number | null): Promise<{ now: number
   return r.json();
 }
 
-/** /balloon does server-side $[...] substitution with the plot's CSV properties. */
-export function formUrl(feature: PlotFeature): string {
+/**
+ * The form next to the map: by default the one Collect Earth generates from the survey (/form, which
+ * reads the plot file values itself), or the CEP's balloon, where /balloon substitutes the $[...]
+ * tokens with the plot's properties.
+ */
+export function formUrl(feature: PlotFeature, webForm = "generated", language = "en"): string {
+  if (webForm !== "balloon") {
+    return HOST + "form?id=" + encodeURIComponent(feature.properties.id) + "&lang=" + encodeURIComponent(language);
+  }
   const params = Object.entries(feature.properties).map(
     ([k, v]) => encodeURIComponent(k) + "=" + encodeURIComponent(v ?? ""));
   params.push("host=" + encodeURIComponent(HOST));

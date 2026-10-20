@@ -31,7 +31,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 import com.opencsv.CSVReader;
 
 /**
- * Serves the plots map page (classpath assets under /leafletmap, built from the React
+ * Serves the plots map and web form pages (classpath assets under /leafletmap, built from the React
  * project in src/main/frontend) and the two
  * JSON endpoints it consumes: /plotsGeoJson (all plot geometries+properties)
  * and /plotStatuses (incremental id->status map for the live coloring).
@@ -67,6 +67,12 @@ public class LeafletMapController {
 	@GetMapping("/map")
 	public void mapPage(HttpServletResponse response) throws IOException {
 		serveClasspath("leafletmap/map.html", "text/html; charset=UTF-8", response);
+	}
+
+	/** The data entry form generated from the survey (see SurveyFormController), shown next to the map. */
+	@GetMapping("/form")
+	public void formPage(HttpServletResponse response) throws IOException {
+		serveClasspath("leafletmap/form.html", "text/html; charset=UTF-8", response);
 	}
 
 	@GetMapping("/map/assets/{folder}/{file:.+}")
@@ -186,6 +192,7 @@ public class LeafletMapController {
 		config.put("googleMapsApiKey", apiKey == null ? "" : apiKey);
 		config.put("viewerType", localPropertiesService.getViewerType());
 		config.put("language", localPropertiesService.getUiLanguage().getLocale().getLanguage());
+		config.put("webForm", localPropertiesService.getWebForm());
 		json.writeValue(response.getOutputStream(), config);
 	}
 

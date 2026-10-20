@@ -14,6 +14,8 @@ export interface MapConfig {
   viewerType?: string;
   /** Collect Earth UI language (ISO code, e.g. "es") */
   language?: string;
+  /** "generated" (from the survey, the default) or "balloon" (the CEP's balloon HTML) */
+  webForm?: string;
 }
 
 export type GewState = "CLOSED" | "OPENING" | "MOVING" | "READY" | "WAITING" | "ERROR";
