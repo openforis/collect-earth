@@ -32,14 +32,16 @@
 		<java.release>11</java.release>
 		<project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
 		<collect.version>4.0.109</collect.version>
-		<spring.version>5.3.27</spring.version>
+		<!-- 5.3.39 is the last open source release of Spring 5.3. Spring 6, where the remaining
+		     advisories are fixed, needs Java 17 and the Jakarta servlet API. -->
+		<spring.version>5.3.39</spring.version>
 		<!-- Versions for families that must move as a set. Managed centrally in
 		     dependencyManagement below so a transitive dependency cannot drag in
 		     a mismatched module (log4j-jcl was arriving at 2.20.0 against a
 		     2.26.1 core, and poi-ooxml at 5.2.3 against a 5.5.1 poi). -->
 		<log4j.version>2.26.1</log4j.version>
 		<poi.version>5.5.1</poi.version>
-		<jackson.version>2.18.9</jackson.version>
+		<jackson.version>2.18.12</jackson.version>
 		<project.scm.id>github.com</project.scm.id>
 		<sonar.language>java</sonar.language>
 		<sonar.organization>openforis</sonar.organization>
@@ -307,6 +309,45 @@
 				<groupId>org.apache.poi</groupId>
 				<artifactId>poi-ooxml-lite</artifactId>
 				<version>${poi.version}</version>
+			</dependency>
+
+			<!-- Every Spring module at the same version, including the ones Collect brings -->
+			<dependency>
+				<groupId>org.springframework</groupId>
+				<artifactId>spring-framework-bom</artifactId>
+				<version>${spring.version}</version>
+				<type>pom</type>
+				<scope>import</scope>
+			</dependency>
+
+			<!-- Transitive dependencies held at the releases that fix their security advisories
+			     (Dependabot). opencsv brings commons-beanutils 1.9.4, of-commons-io (Collect)
+			     commons-compress 1.21 - the application already ran 1.28.0 through webdrivermanager -
+			     and webdrivermanager the HttpComponents 5 client and core. -->
+			<dependency>
+				<groupId>commons-beanutils</groupId>
+				<artifactId>commons-beanutils</artifactId>
+				<version>1.11.0</version>
+			</dependency>
+			<dependency>
+				<groupId>org.apache.commons</groupId>
+				<artifactId>commons-compress</artifactId>
+				<version>1.28.0</version>
+			</dependency>
+			<dependency>
+				<groupId>org.apache.httpcomponents.client5</groupId>
+				<artifactId>httpclient5</artifactId>
+				<version>5.6.5</version>
+			</dependency>
+			<dependency>
+				<groupId>org.apache.httpcomponents.core5</groupId>
+				<artifactId>httpcore5</artifactId>
+				<version>5.4.4</version>
+			</dependency>
+			<dependency>
+				<groupId>org.apache.httpcomponents.core5</groupId>
+				<artifactId>httpcore5-h2</artifactId>
+				<version>5.4.4</version>
 			</dependency>
 		</dependencies>
 	</dependencyManagement>
