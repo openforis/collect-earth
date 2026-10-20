@@ -20,13 +20,15 @@ import SearchIcon from "@mui/icons-material/Search";
 import SkipNextIcon from "@mui/icons-material/SkipNext";
 import type { MapController, UiState } from "../controller";
 import { countStatuses, visibleIds } from "../plots";
-import { STATUS_LABELS, type ListFilter, type PlotStatus } from "../types";
+import { useT } from "../i18n";
+import type { ListFilter, PlotStatus } from "../types";
 import { Kbd, StatusDot } from "./common";
 
 const WIDTH = 300;
 const ROW_HEIGHT = 40;
 
 export function PlotSidebar({ controller, state }: { controller: MapController; state: UiState }) {
+  const t = useT();
   const { order, statuses, filter, query, activeId, sidebarCollapsed, loaded } = state;
   const counts = useMemo(() => countStatuses(order, statuses), [order, statuses]);
   const visible = useMemo(() => visibleIds(order, statuses, filter, query), [order, statuses, filter, query]);
@@ -41,8 +43,8 @@ export function PlotSidebar({ controller, state }: { controller: MapController; 
   if (sidebarCollapsed) {
     return (
       <Paper square elevation={0} sx={{ width: 56, flexShrink: 0, borderRight: 1, borderColor: "divider", pt: 1, textAlign: "center", zIndex: 1100 }}>
-        <Tooltip title="Show the plot list" placement="right">
-          <IconButton onClick={() => controller.setSidebarCollapsed(false)} aria-label="Show the plot list"><MenuIcon /></IconButton>
+        <Tooltip title={t("showList")} placement="right">
+          <IconButton onClick={() => controller.setSidebarCollapsed(false)} aria-label={t("showList")}><MenuIcon /></IconButton>
         </Tooltip>
       </Paper>
     );
@@ -50,24 +52,24 @@ export function PlotSidebar({ controller, state }: { controller: MapController; 
 
   const pct = counts.total ? Math.round((counts.saved * 100) / counts.total) : 0;
   return (
-    <Paper square elevation={0} component="aside" aria-label="Plots" sx={{
+    <Paper square elevation={0} component="aside" aria-label={t("plots")} sx={{
       width: WIDTH, flexShrink: 0, display: "flex", flexDirection: "column",
       borderRight: 1, borderColor: "divider", zIndex: 1100,
     }}>
       <Stack direction="row" spacing={1} sx={{ alignItems: "center", px: 1, pt: 1.5, pb: 1 }}>
-        <Tooltip title="Hide the plot list">
-          <IconButton onClick={() => controller.setSidebarCollapsed(true)} aria-label="Hide the plot list"><MenuOpenIcon /></IconButton>
+        <Tooltip title={t("hideList")}>
+          <IconButton onClick={() => controller.setSidebarCollapsed(true)} aria-label={t("hideList")}><MenuOpenIcon /></IconButton>
         </Tooltip>
         <Box sx={{ minWidth: 0 }}>
-          <Typography variant="h6" component="h1" sx={{ lineHeight: 1.2 }}>Plots</Typography>
+          <Typography variant="h6" component="h1" sx={{ lineHeight: 1.2 }}>{t("plots")}</Typography>
           <Typography variant="caption" color="text.secondary" data-testid="progress-text">
-            {!loaded ? "Loading…" : counts.total ? `${counts.saved} of ${counts.total} completed (${pct}%)` : "No plots"}
+            {!loaded ? t("loading") : counts.total ? t("progress", { saved: counts.saved, total: counts.total, pct }) : t("noPlots")}
           </Typography>
         </Box>
       </Stack>
 
       <Stack spacing={1.5} sx={{ px: 2, pb: 1.5 }}>
-        <LinearProgress variant="buffer" aria-label="Completed plots"
+        <LinearProgress variant="buffer" aria-label={t("completedPlots")}
           value={counts.total ? (counts.saved * 100) / counts.total : 0}
           valueBuffer={counts.total ? ((counts.saved + counts.partial) * 100) / counts.total : 0}
           sx={{
@@ -77,37 +79,37 @@ export function PlotSidebar({ controller, state }: { controller: MapController; 
             "& .MuiLinearProgress-bar2": { bgcolor: "warning.light" },
           }} />
 
-        <TextField id="plot-search" size="small" placeholder="Search plot id" value={text}
+        <TextField id="plot-search" size="small" placeholder={t("search")} value={text}
           onChange={(e) => setText(e.target.value)}
           onKeyDown={(e) => {
             if (e.key === "Enter" && visible.length) controller.selectPlot(visible[0]);
           }}
           slotProps={{
-            htmlInput: { "aria-label": "Search plot id", autoComplete: "off", spellCheck: false },
+            htmlInput: { "aria-label": t("search"), autoComplete: "off", spellCheck: false },
             input: {
               startAdornment: <InputAdornment position="start"><SearchIcon fontSize="small" /></InputAdornment>,
               endAdornment: <InputAdornment position="end"><Kbd>/</Kbd></InputAdornment>,
             },
           }} />
 
-        <ToggleButtonGroup exclusive fullWidth size="small" value={filter} aria-label="Show plots"
+        <ToggleButtonGroup exclusive fullWidth size="small" value={filter} aria-label={t("filter.label")}
           onChange={(_, value: ListFilter | null) => value && controller.setFilter(value)}>
-          <ToggleButton value="all" data-filter="all">All&nbsp;<Count n={counts.total} /></ToggleButton>
-          <ToggleButton value="pending" data-filter="pending">To do&nbsp;<Count n={counts.pending} /></ToggleButton>
-          <ToggleButton value="saved" data-filter="saved">Done&nbsp;<Count n={counts.saved} /></ToggleButton>
+          <ToggleButton value="all" data-filter="all">{t("filter.all")}&nbsp;<Count n={counts.total} /></ToggleButton>
+          <ToggleButton value="pending" data-filter="pending">{t("filter.pending")}&nbsp;<Count n={counts.pending} /></ToggleButton>
+          <ToggleButton value="saved" data-filter="saved">{t("filter.saved")}&nbsp;<Count n={counts.saved} /></ToggleButton>
         </ToggleButtonGroup>
 
         <Button variant="contained" disableElevation fullWidth startIcon={<SkipNextIcon />}
           endIcon={<Kbd>N</Kbd>} onClick={controller.goToNextUnfinished} disabled={!counts.total}
           data-testid="next-unfinished">
-          Next unfinished plot
+          {t("nextUnfinished")}
         </Button>
       </Stack>
 
       <Divider />
       <PlotList ids={visible} statuses={statuses} activeId={activeId} onSelect={controller.selectPlot} />
       {loaded && order.length > 0 && visible.length === 0 && (
-        <Typography color="text.secondary" align="center" sx={{ p: 2 }} data-testid="list-empty">No plots match.</Typography>
+        <Typography color="text.secondary" align="center" sx={{ p: 2 }} data-testid="list-empty">{t("noMatch")}</Typography>
       )}
 
       <Divider />
@@ -115,7 +117,7 @@ export function PlotSidebar({ controller, state }: { controller: MapController; 
         {(["empty", "partial", "saved"] as PlotStatus[]).map((s) => (
           <Stack key={s} direction="row" spacing={0.75} sx={{ alignItems: "center" }}>
             <StatusDot status={s} size={8} />
-            <Typography variant="caption" color="text.secondary">{STATUS_LABELS[s]}</Typography>
+            <Typography variant="caption" color="text.secondary">{t(`status.${s}`)}</Typography>
           </Stack>
         ))}
       </Stack>
@@ -131,6 +133,7 @@ function Count({ n }: { n: number }) {
 function PlotList({ ids, statuses, activeId, onSelect }: {
   ids: string[]; statuses: Record<string, PlotStatus>; activeId: string | null; onSelect: (id: string) => void;
 }) {
+  const t = useT();
   const scrollRef = useRef<HTMLDivElement>(null);
   const [cursor, setCursor] = useState<number | null>(null);
   const virtualizer = useVirtualizer({
@@ -158,7 +161,7 @@ function PlotList({ ids, statuses, activeId, onSelect }: {
   };
 
   return (
-    <Box ref={scrollRef} role="listbox" aria-label="Plot list" tabIndex={0} onKeyDown={onKeyDown}
+    <Box ref={scrollRef} role="listbox" aria-label={t("plotList")} tabIndex={0} onKeyDown={onKeyDown}
       data-testid="plot-list" sx={{ flex: 1, minHeight: 0, overflowY: "auto", outline: "none" }}>
       <Box sx={{ height: virtualizer.getTotalSize(), position: "relative" }}>
         {virtualizer.getVirtualItems().map((row) => {
@@ -176,7 +179,7 @@ function PlotList({ ids, statuses, activeId, onSelect }: {
               }}>
               <StatusDot status={status} />
               <Typography noWrap sx={{ flex: 1, fontWeight: active ? 600 : 400, fontVariantNumeric: "tabular-nums" }} title={id}>{id}</Typography>
-              <Typography variant="caption" color="text.secondary" data-testid="plot-status">{STATUS_LABELS[status]}</Typography>
+              <Typography variant="caption" color="text.secondary" data-testid="plot-status">{t(`status.${status}`)}</Typography>
             </ListItemButton>
           );
         })}

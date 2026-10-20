@@ -5,6 +5,7 @@ import { GoogleEngine } from "./engines/GoogleEngine";
 import { LeafletEngine } from "./engines/LeafletEngine";
 import type { EngineConfig, MapEngine } from "./engines/MapEngine";
 import { footprintCorners, neighbour, nextUnfinished, normalizeStatus, plotsNear, visibleIds } from "./plots";
+import type { MessageKey } from "./i18n";
 import { loadPrefs, savePrefs, type Prefs } from "./prefs";
 import { ACTIVE_COLOR, STATUS_COLORS, type GewStatus, type LatLng, type ListFilter, type MapConfig, type PlotFeature,
   type PlotStatus } from "./types";
@@ -15,11 +16,19 @@ const POLL_MILLIS = 5000;
 /** Google Earth Web status polling: fast while it is loading/moving, slow otherwise. */
 const GEW_BUSY_POLL_MILLIS = 700;
 const GEW_IDLE_POLL_MILLIS = 2000;
+const GEW_EXPECT_MILLIS = 5000;
 /** Neighbouring plots drawn in Google Earth Web around the current one. */
 const GEW_CONTEXT_RADIUS_METERS = 3000;
 const GEW_CONTEXT_MAX_PLOTS = 300;
 
-export interface Banner { severity: "error" | "warning"; text: string; dismissible: boolean }
+/** A message over the map: a translatable key (with params), or a server text as is. */
+export interface Banner {
+  severity: "error" | "warning";
+  dismissible: boolean;
+  key?: MessageKey;
+  params?: Record<string, string>;
+  text?: string;
+}
 
 export interface UiState {
   order: string[];
@@ -33,6 +42,8 @@ export interface UiState {
   formWidth: number;
   banner: Banner | null;
   viewerType: string;
+  /** Collect Earth UI language (catalogues in i18n.ts; others fall back to English) */
+  language: string;
   baseLayers: string[];
   baseLayer: string;
   /** Google Earth Web window state; null unless the viewer is "Plots map + Google Earth Web". */
@@ -68,7 +79,7 @@ export class MapController {
       order: [], statuses: {}, loaded: false, activeId: null, formUrl: null,
       filter: this.prefs.filter ?? "all", query: "",
       sidebarCollapsed: !!this.prefs.sidebarCollapsed, formWidth: this.prefs.formWidth ?? 560,
-      banner: null, viewerType: "", baseLayers: [], baseLayer: "", gew: null,
+      banner: null, viewerType: "", language: "en", baseLayers: [], baseLayer: "", gew: null,
     };
   }
 
@@ -100,21 +111,21 @@ export class MapController {
     try { config = await fetchMapConfig(); } catch {
       config = { engine: "leaflet", googleMapsApiKey: "" }; // collection must still work
     }
-    this.set({ viewerType: config.viewerType ?? "" });
+    this.set({ viewerType: config.viewerType ?? "", language: config.language ?? "en" });
     if (this.usesGoogleEarthWeb()) this.pollGew();
     const notice = this.createEngine(config);
-    if (notice) this.set({ banner: { severity: "warning", text: notice, dismissible: true } });
+    if (notice) this.set({ banner: fallbackBanner(notice) });
     this.loadPlots();
   }
 
   // Google only when requested AND a key is present; otherwise Leaflet, with a notice
   // when we fell back from an explicit google_maps request.
-  private createEngine(config: MapConfig): string | null {
+  private createEngine(config: MapConfig): MessageKey | null {
     const key = config.googleMapsApiKey ?? "";
     const wantsGoogle = config.engine === "google_maps";
     this.engine = wantsGoogle && key !== "" ? new GoogleEngine() : new LeafletEngine();
     this.initEngine(this.engine.name === "google" ? key : "");
-    if (wantsGoogle && key === "") return "Google Maps selected but the API key is blank" + FALLBACK_SUFFIX;
+    if (wantsGoogle && key === "") return "gmaps.keyBlank";
     return null;
   }
 
@@ -134,7 +145,7 @@ export class MapController {
 
   // Runtime engine failure (Google key rejected, script blocked, timeout): swap in a
   // fresh Leaflet engine and re-add every plot with its current color. Runs once.
-  private onEngineFailure(reason: string): void {
+  private onEngineFailure(reason: MessageKey): void {
     if (this.fellBack) return;
     this.fellBack = true;
     this.engine?.destroy();
@@ -145,7 +156,7 @@ export class MapController {
     if (activeId) this.engine.flyTo(this.plots[activeId].center, PLOT_ZOOM);
     else if (order.length) this.engine.fitAll(this.allCenters());
     this.updateVisibility();
-    this.set({ banner: { severity: "warning", text: reason + FALLBACK_SUFFIX, dismissible: true } });
+    this.set({ banner: fallbackBanner(reason) });
   }
 
   private async loadPlots(): Promise<void> {
@@ -155,8 +166,9 @@ export class MapController {
       if (!fc.features || fc.features.length === 0) {
         engine.flyTo([0, 0], 3);
         // A warning is a final state (e.g. no survey loaded): no retry, the page is reloaded.
-        this.set({ loaded: true, banner: { severity: "error", dismissible: false,
-          text: fc.warning || "No survey plots loaded - import a CEP file / CSV grid in Collect Earth first." } });
+        this.set({ loaded: true, banner: fc.warning
+          ? { severity: "error", dismissible: false, text: fc.warning }
+          : { severity: "error", dismissible: false, key: "banner.noSurvey" } });
         return;
       }
       const order: string[] = [];
@@ -180,12 +192,12 @@ export class MapController {
       // Warm up Google Earth Web over the survey area so the first plot appears quickly
       if (this.usesGoogleEarthWeb() && !this.state.activeId) {
         gewOpenOverview(gridCenter(this.allCenters()));
-        if (!this.state.gew || this.state.gew.state === "CLOSED") this.set({ gew: { state: "OPENING", plotId: null, message: null } });
+        if (!this.state.gew || this.state.gew.state === "CLOSED") this.setGewOptimistic({ state: "OPENING", plotId: null, message: null });
         this.pollGew();
       }
     } catch (e) {
-      this.set({ banner: { severity: "error", dismissible: false,
-        text: "Could not load plots: " + (e as Error).message + " - retrying in 5s" } });
+      this.set({ banner: { severity: "error", dismissible: false, key: "banner.loadFailed",
+        params: { error: (e as Error).message } } });
       window.setTimeout(() => this.loadPlots(), 5000);
     }
   }
@@ -257,7 +269,7 @@ export class MapController {
     if (this.usesGoogleEarthWeb()) this.sendGewContext(id);
     openAuxiliaryWindows(plot.feature);
     if (this.usesGoogleEarthWeb()) {
-      this.set({ gew: { state: "MOVING", plotId: id, message: null } });
+      this.setGewOptimistic({ state: "MOVING", plotId: id, message: null });
       this.pollGew();
     }
   };
@@ -291,18 +303,49 @@ export class MapController {
   }
 
   private gewTimer = 0;
+  /** Bumped on every local (optimistic) state change: older poll responses are stale. */
+  private gewEpoch = 0;
+  /**
+   * After a user action the server handles the request asynchronously, so for a moment it
+   * still reports the previous state. Until it reports the expected plot (or needs the user,
+   * or fails) the immediate feedback is kept; after GEW_EXPECT_MILLIS the server wins.
+   */
+  private gewExpected: { plotId: string | null; until: number } | null = null;
+
+  private setGewOptimistic(gew: GewStatus): void {
+    this.gewEpoch++;
+    this.gewExpected = { plotId: gew.plotId, until: Date.now() + GEW_EXPECT_MILLIS };
+    this.set({ gew });
+  }
+
+  private serverCaughtUp(gew: GewStatus): boolean {
+    const expected = this.gewExpected;
+    if (!expected) return true;
+    const caughtUp = (gew.plotId === expected.plotId && gew.state !== "CLOSED")
+      || gew.state === "WAITING" || gew.state === "ERROR" || Date.now() > expected.until;
+    if (caughtUp) this.gewExpected = null;
+    return caughtUp;
+  }
 
   /** Poll the window state; quickly while it is opening/moving so the map shows progress. */
   private pollGew = async (): Promise<void> => {
     window.clearTimeout(this.gewTimer);
     let busy = false;
+    const epoch = this.gewEpoch;
     try {
       const gew = await fetchGewStatus();
-      busy = gew.state === "OPENING" || gew.state === "MOVING";
-      const old = this.state.gew;
-      if (!old || old.state !== gew.state || old.plotId !== gew.plotId || old.message !== gew.message) this.set({ gew });
-      // Where Google Earth Web is looking, outlined on the map
-      this.engine?.setFootprint(gew.state === "READY" && gew.view ? footprintCorners(gew.view) : null);
+      // The user acted while this request was in flight: its answer predates that action.
+      // No reschedule here - the action started its own poll, which keeps the chain going.
+      if (epoch !== this.gewEpoch) return;
+      if (!this.serverCaughtUp(gew)) {
+        busy = true; // keep the immediate feedback and ask again soon
+      } else {
+        busy = gew.state === "OPENING" || gew.state === "MOVING";
+        const old = this.state.gew;
+        if (!old || old.state !== gew.state || old.plotId !== gew.plotId || old.message !== gew.message) this.set({ gew });
+        // Where Google Earth Web is looking, outlined on the map
+        this.engine?.setFootprint(gew.state === "READY" && gew.view ? footprintCorners(gew.view) : null);
+      }
     } catch { /* server busy or restarting - retry */ }
     this.gewTimer = window.setTimeout(this.pollGew, busy ? GEW_BUSY_POLL_MILLIS : GEW_IDLE_POLL_MILLIS);
   };
@@ -326,7 +369,7 @@ export class MapController {
     if (!id) return;
     this.sendGewContext(id);
     gewShowPlot(this.plots[id].feature);
-    this.set({ gew: { state: "MOVING", plotId: id, message: null } });
+    this.setGewOptimistic({ state: "MOVING", plotId: id, message: null });
     this.pollGew();
   };
 
@@ -370,4 +413,7 @@ function gridCenter(centers: LatLng[]): LatLng {
   return [(minLat + maxLat) / 2, (minLng + maxLng) / 2];
 }
 
-const FALLBACK_SUFFIX = " - using Leaflet/ESRI. Check GOOGLE_MAPS_API_KEY in Properties (the key needs the Maps JavaScript API enabled).";
+/** Dismissible notice after falling back from Google Maps to Leaflet. */
+function fallbackBanner(reason: MessageKey): Banner {
+  return { severity: "warning", dismissible: true, key: "banner.googleFallback", params: { reason } };
+}

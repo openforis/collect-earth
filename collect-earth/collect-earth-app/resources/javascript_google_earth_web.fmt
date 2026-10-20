@@ -34,6 +34,12 @@
     // Whether Google Earth Web follows in-page navigation: "true", "false" or "null" (not tried yet)
     var IN_PAGE_NAVIGATION = "${inPageNavigation}";
     var CE_TAG = "__collectEarthGewOverlay";
+    // Texts in the Collect Earth UI language
+    var LABELS = {
+        <#list labels as key, text>
+        "${key}": "${text?js_string}"<#sep>,</#sep>
+        </#list>
+    };
 
     // ===== Cleanup from any previous injection (driver reuses the tab) =====
     if (window[CE_TAG] && window[CE_TAG].stop) {
@@ -85,14 +91,14 @@
         var title = document.createElement("span");
         title.setAttribute("data-ce-title", "1");
         title.style.fontWeight = "700";
-        title.textContent = PLOT_ID ? "Collect Earth \u00b7 Plot " + PLOT_ID : "Collect Earth";
+        title.textContent = PLOT_ID ? "Collect Earth \u00b7 " + LABELS.plot + " " + PLOT_ID : "Collect Earth";
         var hint = document.createElement("span");
         hint.setAttribute("data-ce-hint", "1");
         hint.style.cssText = "color:#ffe082;display:none";
         var button = document.createElement("button");
         button.setAttribute("data-ce-topdown", "1");
-        button.textContent = "Top-down view";
-        button.title = "Fly back to a top-down view of the plot";
+        button.textContent = LABELS.topDown;
+        button.title = LABELS.topDownTooltip;
         button.style.cssText = "border:0;border-radius:14px;padding:5px 12px;cursor:pointer;display:none;"
             + "background:#8ab4f8;color:#202124;font:600 12px Roboto,Arial,sans-serif";
         button.onclick = flyToPlot;
@@ -170,8 +176,8 @@
 
     function draw() {
         var cam = parseCamera();
-        if (!cam) { hide("Plot outline unavailable on this page", true); return; }
-        if (Math.abs(cam.tilt) > 5) { hide("Plot outline hidden: the view is tilted", true); return; }
+        if (!cam) { hide(LABELS.hintUnavailable, true); return; }
+        if (Math.abs(cam.tilt) > 5) { hide(LABELS.hintTilted, true); return; }
         while (svg.firstChild) svg.removeChild(svg.firstChild);
         var drawn = 0;
         // Neighbours first (underneath), in their status colours, so the grid reads like the map
@@ -187,7 +193,7 @@
         var c = project(cam, plotRings.length && plotRings[0].length ? plotRings[0][0][0] : cam.lon,
             plotRings.length && plotRings[0].length ? plotRings[0][0][1] : cam.lat);
         var offScreen = c.x < 0 || c.y < 0 || c.x > window.innerWidth || c.y > window.innerHeight;
-        setHint(offScreen ? "The plot is out of view" : "", offScreen);
+        setHint(offScreen ? LABELS.hintOutOfView : "", offScreen);
     }
 
     // ===== Redraw when the camera settles, hide while it moves =====

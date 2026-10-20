@@ -17,8 +17,10 @@ import RemoveIcon from "@mui/icons-material/Remove";
 import ZoomOutMapIcon from "@mui/icons-material/ZoomOutMap";
 import type { MapController, UiState } from "../controller";
 import { GewChip } from "./GewChip";
+import { isMessageKey, useT, type Translate } from "../i18n";
 
 export function MapArea({ controller, state }: { controller: MapController; state: UiState }) {
+  const t = useT();
   const mapRef = useRef<HTMLDivElement>(null);
   const [layersAnchor, setLayersAnchor] = useState<HTMLElement | null>(null);
 
@@ -43,7 +45,7 @@ export function MapArea({ controller, state }: { controller: MapController; stat
       <Box ref={mapRef} data-testid="map" sx={{ position: "absolute", inset: 0, bgcolor: "#1b2026" }} />
 
       {!state.loaded && !state.banner && (
-        <CircularProgress aria-label="Loading plots" sx={{ position: "absolute", top: "50%", left: "50%", mt: -2.5, ml: -2.5, zIndex: 1000 }} />
+        <CircularProgress aria-label={t("map.loading")} sx={{ position: "absolute", top: "50%", left: "50%", mt: -2.5, ml: -2.5, zIndex: 1000 }} />
       )}
 
       {state.banner && (
@@ -51,18 +53,18 @@ export function MapArea({ controller, state }: { controller: MapController; stat
           onClose={state.banner.dismissible ? controller.dismissBanner : undefined}
           sx={{ position: "absolute", top: 12, left: "50%", transform: "translateX(-50%)", zIndex: 1000,
             width: "max-content", maxWidth: "min(640px, calc(100% - 140px))", boxShadow: 3 }}>
-          {state.banner.text}
+          {bannerText(state.banner, t)}
         </Alert>
       )}
 
       <Paper elevation={3} sx={{ position: "absolute", top: 12, right: 12, zIndex: 1000, display: "flex", flexDirection: "column" }}>
-        <MapButton title="Zoom in" onClick={() => controller.zoomBy(1)}><AddIcon /></MapButton>
-        <MapButton title="Zoom out" onClick={() => controller.zoomBy(-1)}><RemoveIcon /></MapButton>
+        <MapButton title={t("map.zoomIn")} onClick={() => controller.zoomBy(1)}><AddIcon /></MapButton>
+        <MapButton title={t("map.zoomOut")} onClick={() => controller.zoomBy(-1)}><RemoveIcon /></MapButton>
         <Divider />
-        <MapButton title="Show all plots" onClick={controller.fitAll} testId="fit-all"><ZoomOutMapIcon /></MapButton>
-        <MapButton title="Center on the selected plot" onClick={controller.centerActive} disabled={!state.activeId} testId="center-active"><MyLocationIcon /></MapButton>
+        <MapButton title={t("map.fitAll")} onClick={controller.fitAll} testId="fit-all"><ZoomOutMapIcon /></MapButton>
+        <MapButton title={t("map.centerActive")} onClick={controller.centerActive} disabled={!state.activeId} testId="center-active"><MyLocationIcon /></MapButton>
         <Divider />
-        <MapButton title="Map layers" onClick={(e) => setLayersAnchor(e.currentTarget)} testId="layers"><LayersOutlinedIcon /></MapButton>
+        <MapButton title={t("map.layers")} onClick={(e) => setLayersAnchor(e.currentTarget)} testId="layers"><LayersOutlinedIcon /></MapButton>
       </Paper>
       <Menu anchorEl={layersAnchor} open={!!layersAnchor} onClose={() => setLayersAnchor(null)}
         anchorOrigin={{ vertical: "top", horizontal: "left" }} transformOrigin={{ vertical: "top", horizontal: "right" }}>
@@ -70,7 +72,7 @@ export function MapArea({ controller, state }: { controller: MapController; stat
           <MenuItem key={name} selected={name === state.baseLayer}
             onClick={() => { controller.setBaseLayer(name); setLayersAnchor(null); }}>
             <ListItemIcon>{name === state.baseLayer && <CheckIcon fontSize="small" />}</ListItemIcon>
-            {name}
+            {isMessageKey("layer." + name) ? t(("layer." + name) as Parameters<Translate>[0]) : name}
           </MenuItem>
         ))}
       </Menu>
@@ -91,4 +93,12 @@ function MapButton({ title, onClick, disabled, testId, children }: {
       </span>
     </Tooltip>
   );
+}
+
+/** Banner text: a translated key (params that are keys are translated too), or a server text. */
+function bannerText(banner: NonNullable<UiState["banner"]>, t: Translate): string {
+  if (!banner.key) return banner.text ?? "";
+  const params: Record<string, string> = {};
+  for (const [name, value] of Object.entries(banner.params ?? {})) params[name] = isMessageKey(value) ? t(value) : value;
+  return t(banner.key, params);
 }

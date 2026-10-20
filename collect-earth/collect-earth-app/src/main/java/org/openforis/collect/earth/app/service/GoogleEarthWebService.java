@@ -17,6 +17,7 @@ import java.util.concurrent.atomic.AtomicReference;
 
 import javax.annotation.PreDestroy;
 
+import org.openforis.collect.earth.app.view.Messages;
 import org.openforis.collect.earth.sampler.model.SimplePlacemarkObject;
 import org.openqa.selenium.Dimension;
 import org.openqa.selenium.Point;
@@ -57,7 +58,14 @@ public class GoogleEarthWebService {
 	/** How long to wait for Google Earth Web to follow an in-page navigation. */
 	private static final long IN_PAGE_NAVIGATION_TIMEOUT_MILLIS = 4000;
 	private static final long WATCHDOG_PERIOD_MILLIS = 2000;
-	private static final String WAITING_MESSAGE = "Google needs you in the Google Earth Web window (accept the notice or sign in)";
+	// Message codes for the plots map, which shows them translated (gew.msg.* in i18n.ts)
+	private static final String MESSAGE_NO_BROWSER = "no_browser";
+	private static final String MESSAGE_OUTLINE_FAILED = "outline_failed";
+	private static final String MESSAGE_OPEN_FAILED = "open_failed";
+
+	/** Information bar texts in the Collect Earth UI language (Messages*.properties). */
+	private static final String[] LABEL_KEYS = { "plot", "hintTilted", "hintOutOfView", "hintUnavailable", "topDown",
+			"topDownTooltip" };
 	private static final String PROFILE_FOLDER = "browser_profiles" + File.separator + "google_earth_web";
 
 	/** Camera URL, window size and whether the overlay is armed, in one round trip. */
@@ -235,7 +243,7 @@ public class GoogleEarthWebService {
 				RemoteWebDriver window = windowOpen ? driver : browserService.initBrowserWithProfile(profileFolder());
 				driver = browserService.navigateTo(url, window, true, false);
 				if (driver == null) {
-					setState(State.ERROR, plotId, "No browser available - install Chrome, Firefox or Edge");
+					setState(State.ERROR, plotId, MESSAGE_NO_BROWSER);
 					return;
 				}
 				if (!windowOpen) {
@@ -248,17 +256,17 @@ public class GoogleEarthWebService {
 			current = overview ? null : target;
 			if (!isOnGoogleEarthWeb()) {
 				// Cookie consent, sign-in...: the watchdog shows the plot once the user is through
-				setState(State.WAITING, plotId, WAITING_MESSAGE);
+				setState(State.WAITING, plotId, null);
 				return;
 			}
 			if (overview || injectOverlay(target)) {
 				setState(State.READY, plotId, null);
 			} else {
-				setState(State.ERROR, plotId, "The plot outline could not be drawn");
+				setState(State.ERROR, plotId, MESSAGE_OUTLINE_FAILED);
 			}
 		} catch (Exception e) {
 			logger.error("Problems showing the plot in Google Earth Web", e);
-			setState(State.ERROR, plotId, "Google Earth Web could not be opened");
+			setState(State.ERROR, plotId, MESSAGE_OPEN_FAILED);
 		}
 	}
 
@@ -318,6 +326,11 @@ public class GoogleEarthWebService {
 			data.put("plotUrl", GoogleEarthWebUrls.cameraUrl(plot.getCoord().getLatitude(),
 					plot.getCoord().getLongitude(), plot.getElevation(), GoogleEarthWebUrls.PLOT_DISTANCE));
 			data.put("inPageNavigation", String.valueOf(inPageNavigation));
+			Map<String, String> labels = new LinkedHashMap<>();
+			for (String key : LABEL_KEYS) {
+				labels.put(key, Messages.getString("GoogleEarthWeb." + key));
+			}
+			data.put("labels", labels);
 			data.put("neighboursJson", plot.getPlacemarkId() != null && plot.getPlacemarkId().equals(contextPlotId) ? contextJson : "[]");
 			String script = browserService.processJavascriptTemplate(data, OVERLAY_TEMPLATE);
 			if (script == null) {
@@ -375,7 +388,7 @@ public class GoogleEarthWebService {
 				if (!GoogleEarthWebUrls.isGoogleEarthWeb(href)) {
 					view = null;
 					if (state == State.READY) {
-						setState(State.WAITING, plotId, WAITING_MESSAGE);
+						setState(State.WAITING, plotId, null);
 					}
 					return;
 				}

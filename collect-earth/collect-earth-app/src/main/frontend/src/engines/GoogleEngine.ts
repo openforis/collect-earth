@@ -1,3 +1,4 @@
+import type { MessageKey } from "../i18n";
 import type { LatLng } from "../types";
 import type { EngineCallbacks, EngineConfig, MapEngine } from "./MapEngine";
 
@@ -47,16 +48,16 @@ export class GoogleEngine implements MapEngine {
     this.callbacks = callbacks;
     if (config.baseLayer && MAP_TYPES[config.baseLayer]) this.baseName = config.baseLayer;
     // Google calls this global on an invalid/unauthorized key at runtime.
-    window.gm_authFailure = () => this.fail("Google rejected the API key");
+    window.gm_authFailure = () => this.fail("gmaps.rejected");
     window.__ceGmapsReady = () => this.onReady();
     const s = document.createElement("script");
     s.src = "https://maps.googleapis.com/maps/api/js?key=" + encodeURIComponent(config.apiKey)
       + "&v=weekly&loading=async&callback=__ceGmapsReady";
     s.async = true;
-    s.onerror = () => this.fail("Google Maps script failed to load");
+    s.onerror = () => this.fail("gmaps.scriptFailed");
     this.script = s;
     // If the ready callback never runs (network blocked, silent stall), fall back.
-    this.timeoutId = window.setTimeout(() => this.fail("Google Maps took too long to load"), 15000);
+    this.timeoutId = window.setTimeout(() => this.fail("gmaps.timeout"), 15000);
     document.head.appendChild(s);
   }
 
@@ -149,7 +150,7 @@ export class GoogleEngine implements MapEngine {
     window.__ceGmapsReady = () => {};
   }
 
-  private fail(reason: string): void {
+  private fail(reason: MessageKey): void {
     // authFailure + onerror + timeout can all race; report once, never after teardown.
     if (this.failed || this.destroyed) return;
     this.failed = true;
@@ -160,7 +161,7 @@ export class GoogleEngine implements MapEngine {
   private onReady(): void {
     if (this.failed || this.destroyed) return;
     if (this.timeoutId) { window.clearTimeout(this.timeoutId); this.timeoutId = null; }
-    if (typeof google === "undefined" || !google.maps) { this.fail("Google Maps failed to initialize"); return; }
+    if (typeof google === "undefined" || !google.maps) { this.fail("gmaps.initFailed"); return; }
     const map = new google.maps.Map(this.container!, {
       mapTypeId: MAP_TYPES[this.baseName],
       tilt: 0,

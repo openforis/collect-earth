@@ -129,3 +129,11 @@ as an extra window in Google Earth Pro mode.
   drawn in the map's selection cyan (yellow means "in progress").
 - **Linked views:** the watchdog (every 2 s) reports the ground area shown by Google Earth Web
   (`view` in `/googleEarthWeb/status`); the map outlines it as a dashed rectangle.
+- **Languages:** the plots map follows Collect Earth's UI language (`language` in `/mapConfig`),
+  with catalogues for en/es/fr/pt in `src/main/frontend/src/i18n.ts` (other languages fall back
+  to English; a unit test checks placeholders). The Google Earth Web information bar uses the
+  `GoogleEarthWeb.*` keys of `Messages*.properties`; `/googleEarthWeb/status` sends message
+  codes, not English text.
+- **Immediate feedback without flicker:** after a selection the chip shows "moving to plot X"
+  at once and keeps it until the server reports that plot (the server handles requests
+  asynchronously, so it briefly still reports the previous state).

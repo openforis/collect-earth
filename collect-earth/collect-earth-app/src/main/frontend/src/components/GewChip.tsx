@@ -11,16 +11,18 @@ import PublicOffIcon from "@mui/icons-material/PublicOff";
 import SyncIcon from "@mui/icons-material/Sync";
 import ViewQuiltIcon from "@mui/icons-material/ViewQuilt";
 import type { MapController, UiState } from "../controller";
+import { isMessageKey, useT, type Translate } from "../i18n";
 
 /**
  * Live state of the Google Earth Web window ("Plots map + Google Earth Web" viewer), with
  * the actions a user needs when it is out of step: reopen / re-sync it, arrange windows.
  */
 export function GewChip({ controller, state }: { controller: MapController; state: UiState }) {
+  const t = useT();
   const [anchor, setAnchor] = useState<HTMLElement | null>(null);
   const gew = state.gew;
   const active = state.activeId;
-  const { label, icon, color, attention } = describe(gew, active);
+  const { label, icon, color, attention } = describe(gew, active, t);
 
   return (
     <>
@@ -38,43 +40,46 @@ export function GewChip({ controller, state }: { controller: MapController; stat
         <MenuItem disabled={!active} data-testid="gew-show"
           onClick={() => { controller.showActiveInGoogleEarthWeb(); setAnchor(null); }}>
           <ListItemIcon><SyncIcon fontSize="small" /></ListItemIcon>
-          <ListItemText primary={active ? `Show plot ${active} in Google Earth Web` : "Select a plot first"}
-            secondary={gew?.state === "CLOSED" ? "Reopens the window" : undefined} />
+          <ListItemText primary={active ? t("gew.show", { id: active }) : t("gew.selectFirst")}
+            secondary={gew?.state === "CLOSED" ? t("gew.reopens") : undefined} />
         </MenuItem>
         <MenuItem data-testid="gew-arrange" disabled={!gew || gew.state === "CLOSED"}
           onClick={() => { controller.arrangeWindows(); setAnchor(null); }}>
           <ListItemIcon><ViewQuiltIcon fontSize="small" /></ListItemIcon>
-          <ListItemText primary="Arrange windows" secondary="Side by side, or on a second screen" />
+          <ListItemText primary={t("gew.arrange")} secondary={t("gew.arrangeHint")} />
         </MenuItem>
       </Menu>
     </>
   );
 }
 
-function describe(gew: UiState["gew"], activeId: string | null): {
+function describe(gew: UiState["gew"], activeId: string | null, t: Translate): {
   label: string; icon: ReactElement; color: "default" | "warning" | "error"; attention: boolean;
 } {
   const busy = <CircularProgress size={14} sx={{ ml: "8px !important" }} />;
-  if (!gew) return { label: "Google Earth Web", icon: <PublicIcon />, color: "default", attention: false };
+  if (!gew) return { label: t("gew.title"), icon: <PublicIcon />, color: "default", attention: false };
   switch (gew.state) {
     case "OPENING":
-      return { label: "Opening Google Earth Web…", icon: busy, color: "default", attention: false };
+      return { label: t("gew.opening"), icon: busy, color: "default", attention: false };
     case "MOVING":
-      return { label: gew.plotId ? `Google Earth Web: moving to plot ${gew.plotId}…` : "Google Earth Web: moving…", icon: busy, color: "default", attention: false };
+      return { label: gew.plotId ? t("gew.moving", { id: gew.plotId }) : t("gew.movingNoPlot"), icon: busy, color: "default", attention: false };
     case "WAITING":
-      return { label: gew.message ?? "Google Earth Web is waiting for you in its window", icon: <PublicOffIcon />, color: "warning", attention: true };
-    case "ERROR":
-      return { label: "Google Earth Web: " + (gew.message ?? "error") + " - click to retry", icon: <ErrorOutlineIcon />, color: "error", attention: true };
+      return { label: t("gew.waiting"), icon: <PublicOffIcon />, color: "warning", attention: true };
+    case "ERROR": {
+      // the server sends a message code (see GoogleEarthWebService); unknown codes are shown as is
+      const code = "gew.msg." + (gew.message ?? "open_failed");
+      return { label: t("gew.error", { message: isMessageKey(code) ? t(code) : gew.message ?? "" }), icon: <ErrorOutlineIcon />, color: "error", attention: true };
+    }
     case "CLOSED":
       return activeId
-        ? { label: "Google Earth Web window is closed - click to reopen", icon: <PublicOffIcon />, color: "warning", attention: true }
-        : { label: "Google Earth Web opens when you select a plot", icon: <PublicIcon />, color: "default", attention: false };
+        ? { label: t("gew.closed"), icon: <PublicOffIcon />, color: "warning", attention: true }
+        : { label: t("gew.opensOnSelect"), icon: <PublicIcon />, color: "default", attention: false };
     case "READY":
     default:
-      if (!gew.plotId) return { label: "Google Earth Web ready - select a plot", icon: <PublicIcon />, color: "default", attention: false };
+      if (!gew.plotId) return { label: t("gew.readyNoPlot"), icon: <PublicIcon />, color: "default", attention: false };
       if (activeId && gew.plotId !== activeId) {
-        return { label: `Google Earth Web shows plot ${gew.plotId} - click to show ${activeId}`, icon: <SyncIcon />, color: "warning", attention: true };
+        return { label: t("gew.otherPlot", { shown: gew.plotId, active: activeId }), icon: <SyncIcon />, color: "warning", attention: true };
       }
-      return { label: `Google Earth Web: plot ${gew.plotId}`, icon: <PublicIcon />, color: "default", attention: false };
+      return { label: t("gew.plot", { id: gew.plotId }), icon: <PublicIcon />, color: "default", attention: false };
   }
 }

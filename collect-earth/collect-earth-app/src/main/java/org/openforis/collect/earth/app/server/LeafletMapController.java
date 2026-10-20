@@ -185,6 +185,7 @@ public class LeafletMapController {
 		String apiKey = localPropertiesService.getValue(EarthProperty.GOOGLE_MAPS_API_KEY);
 		config.put("googleMapsApiKey", apiKey == null ? "" : apiKey);
 		config.put("viewerType", localPropertiesService.getViewerType());
+		config.put("language", localPropertiesService.getUiLanguage().getLocale().getLanguage());
 		json.writeValue(response.getOutputStream(), config);
 	}
 

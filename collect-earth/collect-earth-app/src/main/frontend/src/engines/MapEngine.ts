@@ -1,3 +1,4 @@
+import type { MessageKey } from "../i18n";
 import type { LatLng } from "../types";
 
 export interface EngineCallbacks {
@@ -11,7 +12,7 @@ export interface EngineConfig {
   emptyColor: string;
   apiKey: string;
   /** Runtime failure (e.g. Google key rejected): the controller swaps in Leaflet. */
-  onEngineFailure(reason: string): void;
+  onEngineFailure(reason: MessageKey): void;
   /** Preferred base layer name (from the viewer's saved preferences). */
   baseLayer?: string;
 }

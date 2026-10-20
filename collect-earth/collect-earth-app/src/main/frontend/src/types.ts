@@ -12,6 +12,8 @@ export interface MapConfig {
   engine?: string;
   googleMapsApiKey?: string;
   viewerType?: string;
+  /** Collect Earth UI language (ISO code, e.g. "es") */
+  language?: string;
 }
 
 export type GewState = "CLOSED" | "OPENING" | "MOVING" | "READY" | "WAITING" | "ERROR";
@@ -39,8 +41,3 @@ export const STATUS_COLORS: Record<PlotStatus, string> = {
   saved: "#43a047",
 };
 export const ACTIVE_COLOR = "#00e5ff";
-export const STATUS_LABELS: Record<PlotStatus, string> = {
-  empty: "Not started",
-  partial: "In progress",
-  saved: "Completed",
-};

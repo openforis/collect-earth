@@ -1,7 +1,8 @@
-import { useEffect, useSyncExternalStore } from "react";
+import { useEffect, useMemo, useSyncExternalStore } from "react";
 import Box from "@mui/material/Box";
 import GlobalStyles from "@mui/material/GlobalStyles";
 import type { MapController } from "./controller";
+import { I18nContext, translator } from "./i18n";
 import { FormPanel } from "./components/FormPanel";
 import { MapArea } from "./components/MapArea";
 import { PlotSidebar } from "./components/PlotSidebar";
@@ -9,8 +10,11 @@ import { PlotSidebar } from "./components/PlotSidebar";
 export function App({ controller }: { controller: MapController }) {
   const state = useSyncExternalStore(controller.subscribe, controller.getSnapshot);
   useShortcuts(controller);
+  const t = useMemo(() => translator(state.language), [state.language]);
+  useEffect(() => { document.documentElement.lang = state.language; }, [state.language]);
 
   return (
+    <I18nContext.Provider value={t}>
     <Box sx={{ display: "flex", height: "100vh", overflow: "hidden", bgcolor: "background.default" }}>
       <GlobalStyles styles={{
         ".leaflet-container": { fontFamily: "inherit" },
@@ -24,6 +28,7 @@ export function App({ controller }: { controller: MapController }) {
       <MapArea controller={controller} state={state} />
       {state.formUrl && <FormPanel controller={controller} state={state} />}
     </Box>
+    </I18nContext.Provider>
   );
 }
 
