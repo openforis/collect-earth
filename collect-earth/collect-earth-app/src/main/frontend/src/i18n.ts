@@ -97,6 +97,8 @@ const en = {
   "entry.noEntities": "None yet",
   "entry.latitude": "Latitude",
   "entry.longitude": "Longitude",
+  "entry.from": "From",
+  "entry.to": "To",
   "entry.calculated": "Calculated",
   "entry.empty": "Nothing to fill in on this tab for this plot.",
 };
@@ -198,6 +200,8 @@ const es: Catalogue = {
   "entry.noEntities": "Ninguno todavía",
   "entry.latitude": "Latitud",
   "entry.longitude": "Longitud",
+  "entry.from": "Desde",
+  "entry.to": "Hasta",
   "entry.calculated": "Calculado",
   "entry.empty": "No hay nada que rellenar en esta pestaña para esta parcela.",
 };
@@ -296,6 +300,8 @@ const fr: Catalogue = {
   "entry.noEntities": "Aucun pour l'instant",
   "entry.latitude": "Latitude",
   "entry.longitude": "Longitude",
+  "entry.from": "De",
+  "entry.to": "À",
   "entry.calculated": "Calculé",
   "entry.empty": "Rien à remplir dans cet onglet pour cette parcelle.",
 };
@@ -394,6 +400,8 @@ const pt: Catalogue = {
   "entry.noEntities": "Nenhum ainda",
   "entry.latitude": "Latitude",
   "entry.longitude": "Longitude",
+  "entry.from": "De",
+  "entry.to": "Até",
   "entry.calculated": "Calculado",
   "entry.empty": "Nada a preencher neste separador para esta parcela.",
 };

@@ -59,7 +59,8 @@ the plots map.
 - The endpoints, the model builder, the React form, the map wiring and the property.
 - Supported:
   - every type the balloon saves: code as buttons or a searchable dropdown, single or multiple; boolean;
-    integer and real with units and decimal comma; text; memo; date; time; coordinate;
+    integer and real with units and decimal comma; integer and real ranges; text; memo; date; time;
+    coordinate;
   - read-only "show in CE" CSV fields and calculated fields;
   - hierarchical codes, groups, enumerated tables, multiple-entity forms.
 - Form behaviour:
@@ -80,8 +81,9 @@ the plots map.
    - multi-key surveys (compound ids);
    - `collect_text_plot_file`.
 2. **Close the gaps the balloon also has**, in collect-earth-core:
-   - Range attributes: `integer_range_` parameters are parsed by the integer handler (handler order in
-     `BalloonInputFieldsUtils`), and real ranges have no handler. Fix both, then render them as two numbers.
+   - ~~Range attributes~~ — done: `RangeAttributeHandler` saves integer (`integer_range_`) and real
+     (`real_range_`) ranges as `FROM-TO`, handlers are matched on their longest prefix, and the form shows
+     From / To.
    - Qualifiable code items ("other, specify"): add the qualifier to the code parameter format.
    - Code item images: serve `earthFiles/img/code_list/...` from the project folder and show them in the item
      tooltip.

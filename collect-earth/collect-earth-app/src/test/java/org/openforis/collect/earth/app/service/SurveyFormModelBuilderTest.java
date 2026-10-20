@@ -17,6 +17,9 @@ import org.junit.jupiter.api.Test;
 import org.openforis.collect.model.CollectSurvey;
 import org.openforis.collect.model.CollectSurveyContext;
 import org.openforis.collect.persistence.xml.CollectSurveyIdmlBinder;
+import org.openforis.idm.metamodel.NumericAttributeDefinition;
+import org.openforis.idm.metamodel.RangeAttributeDefinition;
+import org.openforis.idm.metamodel.Schema;
 
 /**
  * The web form model built from the IPCC test survey (test_survey.idm.xml), checked against what the
@@ -137,6 +140,18 @@ public class SurveyFormModelBuilderTest {
 		}
 		assertEquals("memo", field("collect_text_comments").get("type"));
 		assertEquals("date", field("collect_date_rs_date").get("type"));
+	}
+
+	@Test
+	public void rangesAreFieldsOfTheirOwnType() {
+		Schema schema = survey.getSchema();
+		RangeAttributeDefinition integerRange = schema.createRangeAttributeDefinition();
+		integerRange.setType(NumericAttributeDefinition.Type.INTEGER);
+		RangeAttributeDefinition realRange = schema.createRangeAttributeDefinition();
+		realRange.setType(NumericAttributeDefinition.Type.REAL);
+
+		assertEquals("integerRange", SurveyFormModelBuilder.fieldType(integerRange));
+		assertEquals("realRange", SurveyFormModelBuilder.fieldType(realRange));
 	}
 
 	@Test

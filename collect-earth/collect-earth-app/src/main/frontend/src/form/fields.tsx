@@ -16,7 +16,7 @@ import InfoOutlinedIcon from "@mui/icons-material/InfoOutlined";
 import { useT } from "../i18n";
 import {
   type CodeItem, type Field, type FieldInfo, coordinateFromInput, coordinateToInput, dateFromInput,
-  dateToInput, joinValues, normalizeNumber, splitValues, timeToInput,
+  dateToInput, joinValues, normalizeNumber, rangeFromInput, rangeToInput, splitValues, timeToInput,
 } from "./model";
 import { TYPING_DELAY } from "./store";
 
@@ -70,6 +70,8 @@ function Control(props: FieldProps & { error: boolean }) {
     case "date": return <DateTimeInput {...props} kind="date" />;
     case "time": return <DateTimeInput {...props} kind="time" />;
     case "coordinate": return <CoordinateInput {...props} />;
+    case "integerRange":
+    case "realRange": return <RangeInput {...props} />;
     default: return <UnsupportedNotice />;
   }
 }
@@ -212,6 +214,27 @@ function DateTimeInput({ field, value, onChange, error, kind }: FieldProps & { e
   );
 }
 
+function RangeInput({ field, value, onChange, error }: FieldProps & { error: boolean }) {
+  const t = useT();
+  const [from, to] = rangeToInput(value);
+  const sameNumber = (d: string, v: string) => normalizeNumber(d) === v;
+  const [dFrom, setFrom] = useDraft(from, sameNumber);
+  const [dTo, setTo] = useDraft(to, sameNumber);
+  const commit = (a: string, b: string, delay: number) => onChange(field.name, rangeFromInput(normalizeNumber(a), normalizeNumber(b)), delay);
+  const inputMode = field.type === "integerRange" ? "numeric" : "decimal";
+  const unit = field.unit ? { endAdornment: <InputAdornment position="end">{field.unit}</InputAdornment> } : undefined;
+  return (
+    <Stack direction="row" spacing={1} sx={{ maxWidth: 360, pt: 0.75 }}>
+      <TextField id={field.name} size="small" label={t("entry.from")} value={dFrom} error={error}
+        slotProps={{ htmlInput: { inputMode, "aria-label": `${field.label} - ${t("entry.from")}` }, input: unit }}
+        onChange={(e) => { setFrom(e.target.value); commit(e.target.value, dTo, TYPING_DELAY); }} />
+      <TextField size="small" label={t("entry.to")} value={dTo} error={error}
+        slotProps={{ htmlInput: { inputMode, "aria-label": `${field.label} - ${t("entry.to")}` }, input: unit }}
+        onChange={(e) => { setTo(e.target.value); commit(dFrom, e.target.value, TYPING_DELAY); }} />
+    </Stack>
+  );
+}
+
 function CoordinateInput({ field, value, onChange, error }: FieldProps & { error: boolean }) {
   const t = useT();
   const [lat, lon] = coordinateToInput(value);
@@ -220,7 +243,7 @@ function CoordinateInput({ field, value, onChange, error }: FieldProps & { error
   const [dLon, setLon] = useDraft(lon, sameNumber);
   const commit = (a: string, b: string, delay: number) => onChange(field.name, coordinateFromInput(normalizeNumber(a), normalizeNumber(b)), delay);
   return (
-    <Stack direction="row" spacing={1}>
+    <Stack direction="row" spacing={1} sx={{ pt: 0.75 }}>
       <TextField size="small" label={t("entry.latitude")} value={dLat} error={error} slotProps={{ htmlInput: { inputMode: "decimal" } }}
         onChange={(e) => { setLat(e.target.value); commit(e.target.value, dLon, TYPING_DELAY); }} />
       <TextField size="small" label={t("entry.longitude")} value={dLon} error={error} slotProps={{ htmlInput: { inputMode: "decimal" } }}

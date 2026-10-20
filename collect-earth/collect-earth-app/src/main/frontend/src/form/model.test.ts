@@ -1,7 +1,8 @@
 import { describe, expect, it } from "vitest";
 import {
   type Field, type FormModel, availableItems, dateFromInput, dateToInput, entityCount, errorList, fieldsByName,
-  indexedField, isTabVisible, joinValues, mergeInfos, saveBody, splitValues, tabsWithErrors, timeToInput,
+  indexedField, isTabVisible, joinValues, mergeInfos, rangeFromInput, rangeToInput, saveBody, splitValues, tabsWithErrors,
+  timeToInput,
 } from "./model";
 
 const category: Field = {
@@ -34,6 +35,17 @@ describe("value formats", () => {
     expect(dateFromInput("2021-03-07")).toBe("03/07/2021");
     expect(dateToInput("")).toBe("");
     expect(timeToInput("7:05")).toBe("07:05");
+  });
+  it("reads and writes ranges as FROM-TO, negative numbers included", () => {
+    expect(rangeToInput("10-20")).toEqual(["10", "20"]);
+    expect(rangeToInput("8")).toEqual(["8", "8"]);
+    expect(rangeToInput("-5--2.5")).toEqual(["-5", "-2.5"]);
+    expect(rangeToInput("")).toEqual(["", ""]);
+    expect(rangeFromInput("10", "20")).toBe("10-20");
+    expect(rangeFromInput("-5", "-2")).toBe("-5--2");
+    expect(rangeFromInput("8", "8")).toBe("8");
+    expect(rangeFromInput("8", "")).toBe("8");
+    expect(rangeFromInput("", "")).toBe("");
   });
   it("splits and joins multiple values with ===", () => {
     expect(splitValues("a===b")).toEqual(["a", "b"]);

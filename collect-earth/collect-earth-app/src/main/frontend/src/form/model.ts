@@ -2,7 +2,8 @@
 // SurveyFormModelBuilder.java) and the pure logic around the balloon save protocol
 // (placemark-info-expanded / save-data-expanded), kept apart from React so it can be unit tested.
 
-export type FieldType = "boolean" | "code" | "coordinate" | "date" | "time" | "integer" | "real" | "text" | "memo" | "unsupported";
+export type FieldType = "boolean" | "code" | "coordinate" | "date" | "time" | "integer" | "real" | "integerRange" | "realRange"
+  | "text" | "memo" | "unsupported";
 
 export interface CodeItem {
   id: number;
@@ -114,6 +115,19 @@ export function coordinateToInput(value: string | null | undefined): [string, st
 
 export function coordinateFromInput(lat: string, lon: string): string {
   return lat.trim() || lon.trim() ? `${lat.trim()},${lon.trim()}` : "";
+}
+
+/** "FROM-TO", or one number for a range of one value (RangeAttributeHandler); negative numbers keep their sign. */
+export function rangeToInput(value: string | null | undefined): [string, string] {
+  const m = /^(-?[\d.]+)(?:-(-?[\d.]+))?$/.exec((value ?? "").replace(/\s/g, ""));
+  return m ? [m[1], m[2] ?? m[1]] : ["", ""];
+}
+
+export function rangeFromInput(from: string, to: string): string {
+  const a = from.trim();
+  const b = to.trim();
+  if (!a || !b) return a || b;
+  return a === b ? a : `${a}-${b}`;
 }
 
 /** Decimal comma typed on a Spanish/French/Portuguese keyboard: the server wants a dot. */

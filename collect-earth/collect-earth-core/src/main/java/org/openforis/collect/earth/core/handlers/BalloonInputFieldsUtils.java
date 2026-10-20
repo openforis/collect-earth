@@ -48,6 +48,7 @@ import org.openforis.idm.metamodel.EntityDefinition;
 import org.openforis.idm.metamodel.ModelVersion;
 import org.openforis.idm.metamodel.NodeDefinition;
 import org.openforis.idm.metamodel.NodeDefinitionVisitor;
+import org.openforis.idm.metamodel.NumericAttributeDefinition.Type;
 import org.openforis.idm.model.Attribute;
 import org.openforis.idm.model.CodeAttribute;
 import org.openforis.idm.model.Entity;
@@ -81,7 +82,8 @@ public class BalloonInputFieldsUtils {
 	private final List<AbstractAttributeHandler<?>> handlers = Arrays.<AbstractAttributeHandler<?>>asList(
 			new BooleanAttributeHandler(), new CodeAttributeHandler(), new CoordinateAttributeHandler(),
 			new DateAttributeHandler(), new EntityHandler(this), new IntegerAttributeHandler(),
-			new RangeAttributeHandler(), new RealAttributeHandler(), new TextAttributeHandler(),
+			new RangeAttributeHandler(Type.INTEGER), new RangeAttributeHandler(Type.REAL), new RealAttributeHandler(),
+			new TextAttributeHandler(),
 			new TimeAttributeHandler());
 
 	public LinkedHashMap<String, PlacemarkInputFieldInfo> extractFieldInfoByParameterName(CollectRecord record,
@@ -225,14 +227,22 @@ public class BalloonInputFieldsUtils {
 		return validationMessageByPath;
 	}
 
-	private AbstractAttributeHandler<?> findHandler(String cleanParameterName) {
+	/**
+	 * The handler of the longest prefix that the parameter starts with : "integer_range_x" also starts with "integer_", and
+	 * the integer handler, first in the list, took range parameters and found no attribute "range_x" to save them into.
+	 */
+	AbstractAttributeHandler<?> findHandler(String cleanParameterName) {
+		AbstractAttributeHandler<?> result = null;
 		for (AbstractAttributeHandler<?> handler : handlers) {
-			if (handler.isParameterParseable(cleanParameterName)) {
-				return handler;
+			if (handler.isParameterParseable(cleanParameterName)
+					&& (result == null || handler.getPrefix().length() > result.getPrefix().length())) {
+				result = handler;
 			}
 		}
-		logger.warn("Handler not found for the given parameter name: ", cleanParameterName);
-		return null;
+		if (result == null) {
+			logger.warn("Handler not found for the given parameter name: ", cleanParameterName);
+		}
+		return result;
 	}
 
 	private AbstractAttributeHandler<?> findHandler(Node<?> node) {
@@ -669,7 +679,7 @@ public class BalloonInputFieldsUtils {
 	 */
 	static boolean isTypedByInterpreter(AbstractAttributeHandler<?> handler) {
 		return handler instanceof IntegerAttributeHandler || handler instanceof RealAttributeHandler
-				|| handler instanceof TimeAttributeHandler;
+				|| handler instanceof RangeAttributeHandler || handler instanceof TimeAttributeHandler;
 	}
 
 	static String getInvalidValueMessage(AbstractAttributeHandler<?> handler, String value) {
@@ -678,6 +688,8 @@ public class BalloonInputFieldsUtils {
 			key = "BalloonInputFieldsUtils.0"; //$NON-NLS-1$
 		} else if (handler instanceof TimeAttributeHandler) {
 			key = "BalloonInputFieldsUtils.2"; //$NON-NLS-1$
+		} else if (handler instanceof RangeAttributeHandler) {
+			key = "BalloonInputFieldsUtils.3"; //$NON-NLS-1$
 		} else {
 			key = "BalloonInputFieldsUtils.1"; //$NON-NLS-1$
 		}

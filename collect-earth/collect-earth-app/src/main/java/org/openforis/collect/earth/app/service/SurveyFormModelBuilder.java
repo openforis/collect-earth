@@ -35,6 +35,7 @@ import org.openforis.idm.metamodel.NodeDefinition;
 import org.openforis.idm.metamodel.NodeLabel.Type;
 import org.openforis.idm.metamodel.NumberAttributeDefinition;
 import org.openforis.idm.metamodel.NumericAttributeDefinition;
+import org.openforis.idm.metamodel.RangeAttributeDefinition;
 import org.openforis.idm.metamodel.TextAttributeDefinition;
 import org.openforis.idm.metamodel.TimeAttributeDefinition;
 import org.openforis.idm.metamodel.Unit;
@@ -359,8 +360,10 @@ public class SurveyFormModelBuilder {
 		if (def instanceof TextAttributeDefinition) {
 			return ((TextAttributeDefinition) def).getType() == TextAttributeDefinition.Type.MEMO ? "memo" : "text";
 		}
-		// Ranges: "integer_range_" parameters are read by the integer handler, so they cannot be saved yet.
-		// Taxon and file attributes have no handler at all.
+		if (def instanceof RangeAttributeDefinition) {
+			return ((RangeAttributeDefinition) def).isInteger() ? "integerRange" : "realRange";
+		}
+		// Taxon and file attributes have no handler at all
 		return null;
 	}
 
