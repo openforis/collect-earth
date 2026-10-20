@@ -215,6 +215,12 @@ public class EarthProjectsService {
 
 	private void applyPropertiesToCollectEarth(Properties projectProperties, File projectFolder) {
 
+		// Only the keys of the project are overwritten, so a project without a web form kept the one of the project
+		// loaded before it, and the plots map showed the form of another survey
+		if (!projectProperties.containsKey(EarthProperty.BALLOON_TEMPLATE_KEY_WEB.toString())) {
+			localPropertiesService.setValue(EarthProperty.BALLOON_TEMPLATE_KEY_WEB, ""); //$NON-NLS-1$
+		}
+
 		for (Object key : projectProperties.keySet()) {
 			String value = projectProperties.getProperty((String) key);
 			value = value.replace("${project_path}", projectFolder.getAbsolutePath()); //$NON-NLS-1$

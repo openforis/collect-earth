@@ -3,10 +3,13 @@ package org.openforis.collect.earth.app.server;
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
+import java.util.Collections;
 import java.util.Date;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 import javax.servlet.http.HttpServletResponse;
 
@@ -60,6 +63,8 @@ public class LeafletMapController {
 	private volatile String cachedFeatureCollection;
 	private volatile String cachedCsvPath;
 	private volatile long cachedCsvLastModified;
+	/** Ids of the plots in {@link #cachedFeatureCollection}: the only ones the map asks the status of. */
+	private volatile Set<String> cachedPlotIds = Collections.emptySet();
 	private final com.fasterxml.jackson.databind.ObjectMapper json = new com.fasterxml.jackson.databind.ObjectMapper();
 
 	// ---------- static page ----------
@@ -152,17 +157,25 @@ public class LeafletMapController {
 		}
 		KmlGenerator kmlGenerator = kmlGeneratorService.getKmlGenerator();
 		StringBuilder sb = new StringBuilder("{\"type\":\"FeatureCollection\",\"features\":[");
+		Set<String> plotIds = new HashSet<>();
 		boolean first = true;
 		try (CSVReader reader = CsvReaderUtils.getCsvReader(csvFile)) {
 			String[] csvRow;
+			String[] headerRow = null;
 			while ((csvRow = reader.readNext()) != null) {
+				// The first row names the columns, as in the KML generation. Without it the plot properties carried no
+				// CSV column ( round, climate, ... ) and the $[EXTRA_*] of the form stayed unsubstituted
+				if (headerRow == null) {
+					headerRow = csvRow;
+				}
 				try {
-					SimplePlacemarkObject plot = kmlGenerator.getPlotObject(csvRow, null,
+					SimplePlacemarkObject plot = kmlGenerator.getPlotObject(csvRow, headerRow,
 							earthSurveyService.getCollectSurvey(), false);
 					kmlGenerator.fillSamplePoints(plot);
 					kmlGenerator.fillExternalLine(plot);
 					if (!first) sb.append(',');
 					sb.append(geoJsonBuilder.toFeature(plot));
+					plotIds.add(plot.getPlacemarkId());
 					first = false;
 				} catch (Exception rowError) {
 					// header row or malformed row - skip (same tolerance as the KML generation)
@@ -173,8 +186,14 @@ public class LeafletMapController {
 		sb.append("]}");
 		cachedCsvPath = csvFile;
 		cachedCsvLastModified = csv.lastModified();
+		cachedPlotIds = plotIds;
 		cachedFeatureCollection = sb.toString();
 		return cachedFeatureCollection;
+	}
+
+	private Set<String> plotIdsOf(String csvFile) throws Exception {
+		getOrBuildFeatureCollection(csvFile);
+		return cachedPlotIds;
 	}
 
 	@GetMapping("/mapConfig")
@@ -201,11 +220,16 @@ public class LeafletMapController {
 			// Same overlap-window pattern as PlacemarkUpdateServlet.getTwoMinutesAgo().
 			long now = System.currentTimeMillis() - STATUS_CURSOR_OVERLAP_MILLIS;
 			Map<String, String> statuses = new LinkedHashMap<>();
-			List<CollectRecordSummary> summaries = earthSurveyService.getRecordSummariesSavedSince(since);
+			// Each status loads a whole record. A survey database holds records of many more plots than the
+			// plot file on the map ( 17,968 for 15 plots ): loading all of them took minutes, and the polls
+			// piled up until the browser had no connection left to load the page with
+			String csvFile = localPropertiesService.getCsvFile();
+			Set<String> plotIds = csvFile != null && new File(csvFile).exists() ? plotIdsOf(csvFile) : Collections.emptySet();
+			List<CollectRecordSummary> summaries = plotIds.isEmpty() ? null : earthSurveyService.getRecordSummariesSavedSince(since);
 			if (summaries != null) {
 				for (CollectRecordSummary summary : summaries) {
 					List<String> keys = summary.getRootEntityKeyValues();
-					if (keys == null || keys.isEmpty()) continue;
+					if (keys == null || keys.isEmpty() || !plotIds.contains(String.join(",", keys))) continue;
 					String[] keyArray = keys.toArray(new String[0]);
 					try {
 						Map<String, String> placemark = earthSurveyService.getPlacemark(keyArray, false);

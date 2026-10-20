@@ -1,16 +1,12 @@
 package org.openforis.collect.earth.app.service;
 
 import java.util.ArrayList;
-import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 
 import org.openforis.collect.earth.sampler.model.SimpleCoordinate;
 import org.openforis.collect.earth.sampler.model.SimplePlacemarkObject;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 
@@ -23,10 +19,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
  */
 public class PlotGeoJsonBuilder {
 
-	private final Logger logger = LoggerFactory.getLogger(PlotGeoJsonBuilder.class);
 	private final ObjectMapper mapper = new ObjectMapper();
-	/** Reserved-key collisions already warned about, to avoid spamming the log once per plot. */
-	private final Set<String> warnedCollisions = new HashSet<>();
 
 	public String toFeature(SimplePlacemarkObject plot) throws Exception {
 		Map<String, Object> feature = new LinkedHashMap<>();
@@ -105,11 +98,10 @@ public class PlotGeoJsonBuilder {
 			for (Map.Entry<String, String> entry : plot.getValuesByColumn().entrySet()) {
 				if (!props.containsKey(entry.getKey())) {
 					props.put(entry.getKey(), entry.getValue());
-				} else if (warnedCollisions.add(entry.getKey())) {
-					// Warn only once per distinct column name for this builder instance:
-					// properties() runs once per plot, so warning per plot would spam N times per request.
-					logger.warn("Survey CSV column '{}' collides with a reserved plot property "
-							+ "and is ignored in the map form URL", entry.getKey());
+				} else {
+					// The form still needs the CSV value: $[EXTRA_id] is the id column alone, as in Google Earth, and the
+					// forms join it with the other keys. BalloonServlet keeps an EXTRA_ parameter that is sent explicitly
+					props.putIfAbsent("EXTRA_" + entry.getKey(), entry.getValue()); //$NON-NLS-1$
 				}
 			}
 		}
