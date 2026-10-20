@@ -1,4 +1,4 @@
-import type { GewStatus, LatLng, MapConfig, PlotFeature, PlotStatus } from "./types";
+import type { GewStatus, GroundView, LatLng, MapConfig, PlotFeature, PlotStatus } from "./types";
 
 /** Base URL of the Collect Earth embedded server (the page is served from it). */
 export const HOST = window.location.origin + "/earth/";
@@ -55,6 +55,12 @@ export function gewShowPlot(feature: PlotFeature): void {
 /** Opens the window over the survey area before any plot is selected (no-op if open). */
 export function gewOpenOverview(center: LatLng): void {
   fetch(HOST + "googleEarthWeb/open?latLongCoordinates=" + center[0] + "," + center[1]).catch(() => {});
+}
+
+/** The user moved the map: Google Earth Web looks at the same place, with as much ground in view. */
+export function gewMoveCamera(view: GroundView): void {
+  fetch(HOST + "googleEarthWeb/camera?latitude=" + view.center[0] + "&longitude=" + view.center[1]
+    + "&heightMeters=" + view.heightMeters).catch(() => {});
 }
 
 export function gewArrangeWindows(): void {

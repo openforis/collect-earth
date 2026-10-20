@@ -33,6 +33,14 @@ export interface GewStatus {
   plotId: string | null;
   message: string | null;
   view?: GewView | null;
+  /** Whether the camera can follow the plots map (false when Google Earth Web needs page loads). */
+  cameraSync?: boolean;
+}
+
+/** Where a map or Google Earth Web looks: the centre and the height of ground in view (metres). */
+export interface GroundView {
+  center: LatLng;
+  heightMeters: number;
 }
 
 export const STATUS_COLORS: Record<PlotStatus, string> = {

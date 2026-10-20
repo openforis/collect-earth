@@ -54,6 +54,37 @@ public class GoogleEarthWebUrlsTest {
 	}
 
 	@Test
+	public void groundAreaOfAViewAimedBelowTheGround() {
+		// Aimed at sea level ( 0a ) over ground at 257 m: the camera is 400 - 257 = 143 m above the ground
+		Map<String, Object> view = GoogleEarthWebUrls.cameraView(
+				"https://earth.google.com/web/@-4.99,151.35,0a,400d,35y,0h,0t,0r", 1600, 800, 257.0);
+		assertEquals(2 * 143 * Math.tan(Math.toRadians(17.5)), (Double) view.get("heightMeters"), 0.1);
+		// Once Google Earth Web aims at the ground itself the distance is already above the ground
+		view = GoogleEarthWebUrls.cameraView(
+				"https://earth.google.com/web/@-4.99,151.35,257.1a,400d,35y,0h,0t,0r", 1600, 800, 257.0);
+		assertEquals(252.2, (Double) view.get("heightMeters"), 0.1);
+	}
+
+	@Test
+	public void readsTheAltitudeTheCameraAimsAt() {
+		assertEquals(257.13735021, GoogleEarthWebUrls.cameraAltitude(
+				"https://earth.google.com/web/@-4.99849986,151.35881491,257.13735021a,343.06d,35y,0h,0t,0r/data=CgRC"), 1e-9);
+		assertNull(GoogleEarthWebUrls.cameraAltitude("https://earth.google.com/web/"));
+	}
+
+	@Test
+	public void movesTheCameraKeepingItsHeadingAndTilt() {
+		// 252.2 m of ground in view from a 35 degree field of view is 400 m away
+		assertEquals("https://earth.google.com/web/@-4.5,151.25,257a,400d,35y,30h,0t,0r",
+				GoogleEarthWebUrls.movedCameraUrl("https://earth.google.com/web/@-4.99,151.35,257.1a,343d,35y,30h,0t,0r/data=Cg",
+						-4.5, 151.25, 2 * 400 * Math.tan(Math.toRadians(17.5)), 257));
+		// Not a camera URL yet ( consent page... ): a top-down view
+		assertEquals("https://earth.google.com/web/@-4.5,151.25,0a,400d,35y,0h,0t,0r",
+				GoogleEarthWebUrls.movedCameraUrl("https://consent.google.com/", -4.5, 151.25,
+						2 * 400 * Math.tan(Math.toRadians(17.5)), 0));
+	}
+
+	@Test
 	public void noGroundAreaForTiltedViewsOrOtherPages() {
 		assertNull(GoogleEarthWebUrls.cameraView("https://earth.google.com/web/@-1.95,30.06,1500a,400d,35y,0h,45t,0r", 1600, 800));
 		assertNull(GoogleEarthWebUrls.cameraView("https://consent.google.com/ml?continue=x", 1600, 800));

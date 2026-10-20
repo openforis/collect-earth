@@ -13,6 +13,7 @@ import java.util.Map;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 
 import javax.annotation.PreDestroy;
@@ -57,7 +58,10 @@ public class GoogleEarthWebService {
 
 	/** How long to wait for Google Earth Web to follow an in-page navigation. */
 	private static final long IN_PAGE_NAVIGATION_TIMEOUT_MILLIS = 4000;
-	private static final long WATCHDOG_PERIOD_MILLIS = 2000;
+	/** Also how often the camera is read for the plots map, which follows it. */
+	private static final long WATCHDOG_PERIOD_MILLIS = 500;
+	/** The ground altitude learnt at one place is used for camera URLs up to this far away. */
+	private static final double GROUND_ALTITUDE_RANGE_METERS = 50000;
 	// Message codes for the plots map, which shows them translated (gew.msg.* in i18n.ts)
 	private static final String MESSAGE_NO_BROWSER = "no_browser";
 	private static final String MESSAGE_OUTLINE_FAILED = "outline_failed";
@@ -81,6 +85,10 @@ public class GoogleEarthWebService {
 	private static final String IN_PAGE_NAVIGATION_SCRIPT =
 			"var o = window." + OVERLAY_TAG + "; if (o && o.stop) { o.stop(); }"
 			+ "history.pushState(null, '', arguments[0]);"
+			+ "window.dispatchEvent(new PopStateEvent('popstate', { state: null }));";
+
+	/** The same, keeping the overlay: the plot does not change, only where the camera looks. */
+	private static final String CAMERA_MOVE_SCRIPT = "history.pushState(null, '', arguments[0]);"
 			+ "window.dispatchEvent(new PopStateEvent('popstate', { state: null }));";
 
 	private final Logger logger = LoggerFactory.getLogger(GoogleEarthWebService.class);
@@ -111,6 +119,18 @@ public class GoogleEarthWebService {
 	/** Neighbouring plots sent by the plots map for the plot {@link #contextPlotId}, as JSON. */
 	private volatile String contextJson = "[]";
 	private volatile String contextPlotId;
+	/** Camera position requested by the plots map, latest only: {latitude, longitude, heightMeters}. */
+	private final AtomicReference<double[]> pendingCamera = new AtomicReference<>();
+	/** Counts the plots shown: a camera move asked for before a plot was shown is dropped. */
+	private final AtomicLong showCount = new AtomicLong();
+	/**
+	 * Altitude of the ground where the camera looked last, from the URLs Google Earth Web writes
+	 * ( it aims at the ground ), with where it was learnt. Null until then.
+	 */
+	private volatile Double groundAltitude;
+	private volatile double[] groundAltitudePosition;
+	/** Altitude of the last camera URL Collect Earth wrote. */
+	private volatile Double writtenAltitude;
 
 	private ScheduledExecutorService watchdog;
 
@@ -166,6 +186,40 @@ public class GoogleEarthWebService {
 		}
 	}
 
+	/**
+	 * Moves the Google Earth Web camera to where the user moved the plots map: over that point, with
+	 * the same height of ground in view. Only in-page ( a page load per map move would be unusable ),
+	 * only while a plot or the overview is shown, and never over a plot shown since it was asked for.
+	 * Requests are coalesced like the plots: the latest one wins.
+	 */
+	public void moveCamera(double latitude, double longitude, double heightMeters) {
+		if (!localPropertiesService.isGoogleEarthWebViewer() || Boolean.FALSE.equals(inPageNavigation)) {
+			return;
+		}
+		long requestedAfterShow = showCount.get();
+		pendingCamera.set(new double[] { latitude, longitude, heightMeters });
+		synchronized (lock) {
+			double[] target = pendingCamera.getAndSet(null);
+			if (target == null || showCount.get() != requestedAfterShow || state != State.READY || driver == null) {
+				return;
+			}
+			try {
+				String href = driver.getCurrentUrl();
+				if (!GoogleEarthWebUrls.isGoogleEarthWeb(href)) {
+					return;
+				}
+				// Aimed at the ground: the distance is then the height above it, as the map assumes
+				Double current = GoogleEarthWebUrls.cameraAltitude(href);
+				double altitude = Math.round(altitudeAt(target[0], target[1], current == null ? 0 : current));
+				writtenAltitude = altitude;
+				driver.executeScript(CAMERA_MOVE_SCRIPT,
+						GoogleEarthWebUrls.movedCameraUrl(href, target[0], target[1], target[2], altitude));
+			} catch (Exception e) {
+				logger.debug("Could not move the Google Earth Web camera", e);
+			}
+		}
+	}
+
 	/** Places the plots map and Google Earth Web windows side by side (or on two screens). */
 	public boolean arrangeWindows() {
 		RemoteWebDriver gew = driver;
@@ -212,6 +266,8 @@ public class GoogleEarthWebService {
 		status.put("plotId", statePlotId);
 		status.put("message", stateMessage);
 		status.put("view", view);
+		// Whether the camera can follow the plots map ( only without page loads )
+		status.put("cameraSync", !Boolean.FALSE.equals(inPageNavigation));
 		return status;
 	}
 
@@ -229,8 +285,8 @@ public class GoogleEarthWebService {
 		if (!overview && isShowing(target)) {
 			return;
 		}
-		String url = GoogleEarthWebUrls.cameraUrl(target.getCoord().getLatitude(), target.getCoord().getLongitude(),
-				target.getElevation(), overview ? GoogleEarthWebUrls.OVERVIEW_DISTANCE : GoogleEarthWebUrls.PLOT_DISTANCE);
+		showCount.incrementAndGet();
+		String url = plotUrl(target, overview ? GoogleEarthWebUrls.OVERVIEW_DISTANCE : GoogleEarthWebUrls.PLOT_DISTANCE);
 		try {
 			boolean windowOpen = driver != null && browserService.isDriverWorking(driver);
 			boolean moved = false;
@@ -323,8 +379,7 @@ public class GoogleEarthWebService {
 		try {
 			Map<String, Object> data = geolocalizeMapService.getPlacemarkData(plot);
 			data.put("plotId", plot.getPlacemarkId() == null ? "" : plot.getPlacemarkId());
-			data.put("plotUrl", GoogleEarthWebUrls.cameraUrl(plot.getCoord().getLatitude(),
-					plot.getCoord().getLongitude(), plot.getElevation(), GoogleEarthWebUrls.PLOT_DISTANCE));
+			data.put("plotUrl", plotUrl(plot, GoogleEarthWebUrls.PLOT_DISTANCE));
 			data.put("inPageNavigation", String.valueOf(inPageNavigation));
 			Map<String, String> labels = new LinkedHashMap<>();
 			for (String key : LABEL_KEYS) {
@@ -359,9 +414,9 @@ public class GoogleEarthWebService {
 	}
 
 	/**
-	 * Every 2 s while the window shows a plot or waits for the user: notices a window closed
-	 * by the user (CLOSED, so the map offers to reopen it), tracks where the camera looks (for
-	 * the map), shows the plot once Google lets the user through (WAITING -> READY) and
+	 * Every 0.5 s while the window shows a plot or waits for the user: notices a window closed
+	 * by the user (CLOSED, so the map offers to reopen it), tracks where the camera looks (the
+	 * map follows it), shows the plot once Google lets the user through (WAITING -> READY) and
 	 * re-draws the outline when the page lost it (F5, a page load from the information bar).
 	 */
 	private void checkWindow() {
@@ -392,13 +447,15 @@ public class GoogleEarthWebService {
 					}
 					return;
 				}
-				view = GoogleEarthWebUrls.cameraView(href, ((Number) page.get(1)).doubleValue(), ((Number) page.get(2)).doubleValue());
+				learnGroundAltitude(href);
+				double[] camera = GoogleEarthWebUrls.cameraPosition(href);
+				view = GoogleEarthWebUrls.cameraView(href, ((Number) page.get(1)).doubleValue(), ((Number) page.get(2)).doubleValue(),
+						camera == null ? null : groundAltitudeNear(camera[0], camera[1]));
 				if (state == State.WAITING) {
 					// Through consent / sign-in: Google may have dropped the camera position
 					if (plot != null && !GoogleEarthWebUrls.isCameraAt(href, Double.parseDouble(plot.getCoord().getLatitude()),
 							Double.parseDouble(plot.getCoord().getLongitude()))) {
-						driver = browserService.navigateTo(GoogleEarthWebUrls.cameraUrl(plot.getCoord().getLatitude(),
-								plot.getCoord().getLongitude(), plot.getElevation(), GoogleEarthWebUrls.PLOT_DISTANCE), driver, true, false);
+						driver = browserService.navigateTo(plotUrl(plot, GoogleEarthWebUrls.PLOT_DISTANCE), driver, true, false);
 					}
 					if (plot == null || injectOverlay(plot)) {
 						setState(State.READY, plotId, null);
@@ -413,6 +470,57 @@ public class GoogleEarthWebService {
 	}
 
 	// ---------- helpers ----------
+
+	/**
+	 * Camera URL of a plot, aimed at the ground: at the elevation of the plot, or else at the ground
+	 * altitude learnt nearby. Aimed at sea level over hills the camera is hundreds of metres nearer
+	 * to the ground than the distance says, and the plot fills the window.
+	 */
+	private String plotUrl(SimplePlacemarkObject plot, int distance) {
+		String latitude = plot.getCoord().getLatitude();
+		String longitude = plot.getCoord().getLongitude();
+		int altitude = plot.getElevation();
+		if (altitude <= 0) {
+			try {
+				altitude = (int) Math.round(altitudeAt(Double.parseDouble(latitude), Double.parseDouble(longitude), 0));
+			} catch (NumberFormatException e) {
+				altitude = 0;
+			}
+		}
+		writtenAltitude = (double) altitude;
+		return GoogleEarthWebUrls.cameraUrl(latitude, longitude, altitude, distance);
+	}
+
+	private double altitudeAt(double latitude, double longitude, double fallback) {
+		Double ground = groundAltitudeNear(latitude, longitude);
+		return ground == null ? fallback : ground;
+	}
+
+	private Double groundAltitudeNear(double latitude, double longitude) {
+		Double ground = groundAltitude;
+		double[] at = groundAltitudePosition;
+		if (ground == null || at == null) {
+			return null;
+		}
+		double north = (latitude - at[0]) * 111320;
+		double east = (longitude - at[1]) * 111320 * Math.cos(Math.toRadians(latitude));
+		return Math.hypot(north, east) <= GROUND_ALTITUDE_RANGE_METERS ? ground : null;
+	}
+
+	/**
+	 * Once the user moved it, Google Earth Web aims the camera at the ground and writes its altitude.
+	 * After a flight Collect Earth asked for it keeps the altitude it was given, which is not learnt:
+	 * a guess would otherwise be carried from plot to plot.
+	 */
+	private void learnGroundAltitude(String href) {
+		Double altitude = GoogleEarthWebUrls.cameraAltitude(href);
+		double[] camera = GoogleEarthWebUrls.cameraPosition(href);
+		Double written = writtenAltitude;
+		if (altitude != null && camera != null && (written == null || Math.abs(altitude - written) > 0.5)) {
+			groundAltitude = altitude;
+			groundAltitudePosition = camera;
+		}
+	}
 
 	private void setState(State newState, String plotId, String message) {
 		state = newState;

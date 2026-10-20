@@ -281,6 +281,18 @@ public class PlacemarkBrowserServlet {
 		return plot;
 	}
 
+	/** The user moved the plots map: Google Earth Web looks at the same place, with the same height of ground in view. */
+	@GetMapping(path = "/googleEarthWeb/camera")
+	public void moveGoogleEarthWebCamera(HttpServletResponse response, @RequestParam("latitude") double latitude,
+			@RequestParam("longitude") double longitude, @RequestParam("heightMeters") double heightMeters) {
+		if (Math.abs(latitude) > 90 || Math.abs(longitude) > 180 || !(heightMeters > 0) || heightMeters > 2.0e7) {
+			response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
+			return;
+		}
+		executor.submit(() -> googleEarthWebService.moveCamera(latitude, longitude, heightMeters));
+		response.setStatus(HttpServletResponse.SC_OK);
+	}
+
 	/** Places the plots map and Google Earth Web side by side (or on two screens). */
 	@GetMapping(path = "/googleEarthWeb/arrange")
 	public void arrangeGoogleEarthWebWindows(HttpServletResponse response) {

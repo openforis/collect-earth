@@ -1,14 +1,14 @@
 import { flushSync } from "react-dom";
-import { fetchGewStatus, fetchMapConfig, fetchPlots, fetchStatuses, formUrl, gewArrangeWindows, gewOpenOverview,
-  gewShowPlot, openAuxiliaryWindows, postGewContext } from "./api";
+import { fetchGewStatus, fetchMapConfig, fetchPlots, fetchStatuses, formUrl, gewArrangeWindows, gewMoveCamera,
+  gewOpenOverview, gewShowPlot, openAuxiliaryWindows, postGewContext } from "./api";
 import { GoogleEngine } from "./engines/GoogleEngine";
 import { LeafletEngine } from "./engines/LeafletEngine";
 import type { EngineConfig, MapEngine } from "./engines/MapEngine";
-import { footprintCorners, neighbour, nextUnfinished, normalizeStatus, plotsNear, visibleIds } from "./plots";
+import { footprintCorners, neighbour, nextUnfinished, normalizeStatus, plotsNear, sameView, visibleIds } from "./plots";
 import type { MessageKey } from "./i18n";
 import { loadPrefs, savePrefs, type Prefs } from "./prefs";
-import { ACTIVE_COLOR, STATUS_COLORS, type GewStatus, type LatLng, type ListFilter, type MapConfig, type PlotFeature,
-  type PlotStatus } from "./types";
+import { ACTIVE_COLOR, STATUS_COLORS, type GewStatus, type GewView, type GroundView, type LatLng, type ListFilter,
+  type MapConfig, type PlotFeature, type PlotStatus } from "./types";
 
 const ZOOM_THRESHOLD = 14; // below: dot markers; above: polygons
 const PLOT_ZOOM = 17;
@@ -16,6 +16,10 @@ const POLL_MILLIS = 5000;
 /** Google Earth Web status polling: fast while it is loading/moving, slow otherwise. */
 const GEW_BUSY_POLL_MILLIS = 700;
 const GEW_IDLE_POLL_MILLIS = 2000;
+/** While Google Earth Web shows a plot the map follows its camera, so it is read often. */
+const GEW_READY_POLL_MILLIS = 500;
+/** How long Google Earth Web may take to fly to where the map sent it (its flights take ~3 s). */
+const GEW_LEAD_MILLIS = 6000;
 const GEW_EXPECT_MILLIS = 5000;
 /** Neighbouring plots drawn in Google Earth Web around the current one. */
 const GEW_CONTEXT_RADIUS_METERS = 3000;
@@ -139,6 +143,7 @@ export class MapController {
     engine.init(this.container!, config, {
       onPlotClick: (id) => this.selectPlot(id),
       onZoomChange: () => this.updateVisibility(),
+      onUserViewChange: (view) => this.onMapMovedByUser(view),
     });
     this.set({ baseLayers: engine.baseLayers(), baseLayer: engine.currentBaseLayer() });
   }
@@ -188,7 +193,6 @@ export class MapController {
       engine.fitAll(this.allCenters());
       this.updateVisibility();
       this.pollStatuses();
-      window.setInterval(() => this.pollStatuses(), POLL_MILLIS);
       // Warm up Google Earth Web over the survey area so the first plot appears quickly
       if (this.usesGoogleEarthWeb() && !this.state.activeId) {
         gewOpenOverview(gridCenter(this.allCenters()));
@@ -217,6 +221,7 @@ export class MapController {
   }
 
   // ---------- statuses ----------
+  /** The next poll starts once this one is answered: on a slow server, polls on a timer piled up. */
   private async pollStatuses(): Promise<void> {
     try {
       const data = await fetchStatuses(this.lastStatusPoll);
@@ -227,6 +232,7 @@ export class MapController {
       }
       this.applyStatuses(updates);
     } catch { /* transient - the next poll retries */ }
+    window.setTimeout(() => this.pollStatuses(), POLL_MILLIS);
   }
 
   private applyStatuses(updates: Record<string, PlotStatus>): void {
@@ -269,6 +275,7 @@ export class MapController {
     if (this.usesGoogleEarthWeb()) this.sendGewContext(id);
     openAuxiliaryWindows(plot.feature);
     if (this.usesGoogleEarthWeb()) {
+      this.leadGewTo(plot.center);
       this.setGewOptimistic({ state: "MOVING", plotId: id, message: null });
       this.pollGew();
     }
@@ -331,6 +338,7 @@ export class MapController {
   private pollGew = async (): Promise<void> => {
     window.clearTimeout(this.gewTimer);
     let busy = false;
+    let ready = false;
     const epoch = this.gewEpoch;
     try {
       const gew = await fetchGewStatus();
@@ -345,10 +353,64 @@ export class MapController {
         if (!old || old.state !== gew.state || old.plotId !== gew.plotId || old.message !== gew.message) this.set({ gew });
         // Where Google Earth Web is looking, outlined on the map
         this.engine?.setFootprint(gew.state === "READY" && gew.view ? footprintCorners(gew.view) : null);
+        ready = gew.state === "READY";
+        if (ready) this.followGew(gew.view ?? null);
       }
     } catch { /* server busy or restarting - retry */ }
-    this.gewTimer = window.setTimeout(this.pollGew, busy ? GEW_BUSY_POLL_MILLIS : GEW_IDLE_POLL_MILLIS);
+    this.gewTimer = window.setTimeout(this.pollGew,
+      busy ? GEW_BUSY_POLL_MILLIS : ready ? GEW_READY_POLL_MILLIS : GEW_IDLE_POLL_MILLIS);
   };
+
+  // ---------- linked views: the map and Google Earth Web look at the same place ----------
+  /**
+   * Off until the user selects a plot or moves the map: before that Google Earth Web shows the
+   * survey area from afar while the map shows every plot, and neither should drag the other.
+   */
+  private viewsLinked = false;
+  /** Google Earth Web's view at the last poll: the map follows it only when it changes. */
+  private lastGewView: GroundView | null = null;
+  /**
+   * Where the map sent Google Earth Web. Until it gets there (or GEW_LEAD_MILLIS pass) its camera
+   * still reports the old place, which the map must not go back to. `centerOnly`: a plot was
+   * selected, and how far Google Earth Web frames it is for it to decide; the map then follows.
+   */
+  private gewLead: { view: GroundView; centerOnly: boolean; until: number } | null = null;
+
+  private leadGewTo(center: LatLng): void {
+    this.viewsLinked = true;
+    this.gewLead = { view: { center, heightMeters: 0 }, centerOnly: true, until: Date.now() + GEW_LEAD_MILLIS };
+  }
+
+  /** The user moved or zoomed the map: Google Earth Web looks at the same ground. */
+  private onMapMovedByUser(view: GroundView): void {
+    const gew = this.state.gew;
+    if (!this.usesGoogleEarthWeb() || !gew || gew.state !== "READY" || gew.cameraSync === false) return;
+    this.viewsLinked = true;
+    this.gewLead = { view, centerOnly: false, until: Date.now() + GEW_LEAD_MILLIS };
+    gewMoveCamera(view);
+  }
+
+  /** The user moved Google Earth Web (or it framed a plot): the map looks at the same ground. */
+  private followGew(gewView: GewView | null): void {
+    if (!gewView || !this.engine) return; // tilted or not known: nothing to follow
+    const view: GroundView = { center: [gewView.latitude, gewView.longitude], heightMeters: gewView.heightMeters };
+    const lead = this.gewLead;
+    if (lead) {
+      const reached = sameView(view, lead.centerOnly ? { ...lead.view, heightMeters: view.heightMeters } : lead.view, 0.05);
+      if (!reached && Date.now() < lead.until) return;
+      this.gewLead = null;
+      if (!lead.centerOnly) { this.lastGewView = view; return; } // it caught up with the map
+    }
+    if (!this.viewsLinked || (this.lastGewView && sameView(this.lastGewView, view))) {
+      this.lastGewView = view;
+      return;
+    }
+    // Not under the user's fingers: the next poll tries again
+    if (this.engine.isUserInteracting()) return;
+    this.lastGewView = view;
+    const current = this.engine.getView();
+    if (!current || !sameView(current, view)) this.engine.showView(view);
+  }
 
   /** Neighbouring plots and their statuses, drawn by Google Earth Web around the plot. */
   private sendGewContext(id: string): void {
@@ -369,6 +431,7 @@ export class MapController {
     if (!id) return;
     this.sendGewContext(id);
     gewShowPlot(this.plots[id].feature);
+    this.leadGewTo(this.plots[id].center);
     this.setGewOptimistic({ state: "MOVING", plotId: id, message: null });
     this.pollGew();
   };

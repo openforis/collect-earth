@@ -1,6 +1,8 @@
 import type { MessageKey } from "../i18n";
-import type { LatLng } from "../types";
+import type { GroundView, LatLng } from "../types";
+import { heightForZoom, zoomForHeight } from "../plots";
 import type { EngineCallbacks, EngineConfig, MapEngine } from "./MapEngine";
+import { UserIntent } from "./userIntent";
 
 type PendingView = { type: "fit"; centers: LatLng[] } | { type: "fly"; center: LatLng; minZoom: number };
 
@@ -41,6 +43,8 @@ export class GoogleEngine implements MapEngine {
   private script: HTMLScriptElement | null = null;
   private baseName = "Satellite + labels";
   private footprint: google.maps.Polygon | null = null;
+  private idleListener: google.maps.MapsEventListener | null = null;
+  private intent = new UserIntent();
 
   init(container: HTMLElement, config: EngineConfig, callbacks: EngineCallbacks): void {
     this.container = container;
@@ -86,6 +90,7 @@ export class GoogleEngine implements MapEngine {
   }
 
   zoomBy(delta: number): void {
+    this.intent.gesture();
     if (this.map) this.map.setZoom((this.map.getZoom() ?? 3) + delta);
   }
 
@@ -102,7 +107,29 @@ export class GoogleEngine implements MapEngine {
   invalidateSize(): void {
     if (!this.map) return;
     const center = this.map.getCenter();
+    this.intent.programmatic();
     if (center) this.map.setCenter(center);
+  }
+
+  getView(): GroundView | null {
+    const map = this.map;
+    const center = map?.getCenter();
+    if (!map || !center || !this.container) return null;
+    return { center: [center.lat(), center.lng()],
+      heightMeters: heightForZoom(map.getZoom() ?? 0, this.container.clientHeight, center.lat()) };
+  }
+
+  showView(view: GroundView): void {
+    const map = this.map;
+    if (!map || !this.container || this.container.clientHeight <= 0) return;
+    this.intent.programmatic();
+    map.setCenter({ lat: view.center[0], lng: view.center[1] });
+    // Raster Google maps round the zoom: the views then match to within a zoom level
+    map.setZoom(zoomForHeight(view.heightMeters, this.container.clientHeight, view.center[0]));
+  }
+
+  isUserInteracting(): boolean {
+    return this.intent.isUsers();
   }
 
   setFootprint(corners: LatLng[] | null): void {
@@ -130,6 +157,9 @@ export class GoogleEngine implements MapEngine {
     if (this.timeoutId) { window.clearTimeout(this.timeoutId); this.timeoutId = null; }
     this.zoomListener?.remove();
     this.zoomListener = null;
+    this.idleListener?.remove();
+    this.idleListener = null;
+    this.intent.detach();
     for (const l of Object.values(this.layers)) {
       l.polygons.forEach((p) => p.setMap(null));
       l.marker.setMap(null);
@@ -170,6 +200,11 @@ export class GoogleEngine implements MapEngine {
     });
     this.map = map;
     this.zoomListener = map.addListener("zoom_changed", () => this.callbacks.onZoomChange());
+    this.idleListener = map.addListener("idle", () => {
+      const view = this.getView();
+      if (view && this.intent.isUsers()) this.callbacks.onUserViewChange(view);
+    });
+    this.intent.attach(this.container!);
     this.ready = true;
     Object.keys(this.defs).forEach((id) => this.createPlot(id));
     if (this.pendingView) {
@@ -213,6 +248,7 @@ export class GoogleEngine implements MapEngine {
   }
 
   private doFitAll(centers: LatLng[]): void {
+    this.intent.programmatic();
     const bounds = new google.maps.LatLngBounds();
     centers.forEach(([lat, lng]) => bounds.extend({ lat, lng }));
     this.map!.fitBounds(bounds, 40);
@@ -220,6 +256,7 @@ export class GoogleEngine implements MapEngine {
 
   private doFlyTo(center: LatLng, minZoom: number): void {
     const map = this.map!;
+    this.intent.programmatic();
     map.setCenter({ lat: center[0], lng: center[1] });
     map.setZoom(Math.max(map.getZoom() || minZoom, minZoom));
   }

@@ -1,4 +1,4 @@
-import type { GewView, LatLng, ListFilter, PlotStatus } from "./types";
+import type { GewView, GroundView, LatLng, ListFilter, PlotStatus } from "./types";
 
 // Pure plot-list logic shared by the store and the UI (unit tested in plots.test.ts).
 
@@ -76,4 +76,28 @@ export function plotsNear(centers: Record<string, LatLng>, center: LatLng, radiu
     if (d <= radiusMeters) near.push([id, d]);
   }
   return near.sort((a, b) => a[1] - b[1]).slice(0, limit).map(([id]) => id);
+}
+
+// ---------- linked plots map and Google Earth Web views ----------
+
+/** Web Mercator metres per pixel at zoom 0 on the equator (256 px tiles). */
+const MERCATOR_METERS_PER_PIXEL = 156543.03392;
+
+/** Height of ground (metres) a map `heightPx` high shows at `zoom`, around `latitude`. */
+export function heightForZoom(zoom: number, heightPx: number, latitude: number): number {
+  return (MERCATOR_METERS_PER_PIXEL * Math.cos((latitude * Math.PI) / 180) * heightPx) / 2 ** zoom;
+}
+
+/** Zoom at which a map `heightPx` high shows `heightMeters` of ground around `latitude`. */
+export function zoomForHeight(heightMeters: number, heightPx: number, latitude: number): number {
+  return Math.log2((MERCATOR_METERS_PER_PIXEL * Math.cos((latitude * Math.PI) / 180) * heightPx) / heightMeters);
+}
+
+/** Moved by less than `tolerance` of the view height and zoomed by less than `tolerance`. */
+export function sameView(a: GroundView, b: GroundView, tolerance = 0.03): boolean {
+  const cosLat = Math.cos((a.center[0] * Math.PI) / 180);
+  const moved = Math.hypot((a.center[0] - b.center[0]) * METERS_PER_DEGREE,
+    (a.center[1] - b.center[1]) * METERS_PER_DEGREE * cosLat);
+  return moved < tolerance * Math.min(a.heightMeters, b.heightMeters)
+    && Math.abs(Math.log(a.heightMeters / b.heightMeters)) < tolerance;
 }
