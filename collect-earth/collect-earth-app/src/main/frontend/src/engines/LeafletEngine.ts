@@ -1,22 +1,31 @@
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
-import type { LatLng } from "../types";
+import type { GroundView, LatLng } from "../types";
+import { heightForZoom, zoomForHeight } from "../plots";
 import type { EngineCallbacks, EngineConfig, MapEngine } from "./MapEngine";
+import { UserIntent } from "./userIntent";
 
 const ESRI_ATTRIBUTION = "&copy; Esri, Maxar, Earthstar Geographics";
+/**
+ * Google Earth Web frames a plot from a few hundred metres, closer than map tiles go: beyond their
+ * last zoom the tiles are enlarged. Esri's imagery stops at 18 in much of the world (its zoom 19
+ * tiles there say "Map data not yet available"), and plots are often in remote areas.
+ */
+const MAX_ZOOM = 22;
+const IMAGERY_NATIVE_ZOOM = 18;
 
 function createBaseLayers(): Record<string, L.Layer> {
   const imagery = () => L.tileLayer(
     "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
-    { maxZoom: 19, attribution: ESRI_ATTRIBUTION });
+    { maxZoom: MAX_ZOOM, maxNativeZoom: IMAGERY_NATIVE_ZOOM, attribution: ESRI_ATTRIBUTION });
   const labels = L.tileLayer(
     "https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}",
-    { maxZoom: 19, attribution: ESRI_ATTRIBUTION });
+    { maxZoom: MAX_ZOOM, maxNativeZoom: IMAGERY_NATIVE_ZOOM, attribution: ESRI_ATTRIBUTION });
   return {
     "Satellite": imagery(),
     "Satellite + labels": L.layerGroup([imagery(), labels]),
     "Streets": L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png",
-      { maxZoom: 19, attribution: "&copy; OpenStreetMap contributors" }),
+      { maxZoom: MAX_ZOOM, maxNativeZoom: 19, attribution: "&copy; OpenStreetMap contributors" }),
   };
 }
 
@@ -40,6 +49,7 @@ export class LeafletEngine implements MapEngine {
   /** Target of the last flyTo, used to re-center correctly if a resize lands mid-pan. */
   private viewTarget: L.LatLng | null = null;
   private footprint: L.Polygon | null = null;
+  private intent = new UserIntent();
 
   init(container: HTMLElement, config: EngineConfig, callbacks: EngineCallbacks): void {
     this.callbacks = callbacks;
@@ -48,7 +58,8 @@ export class LeafletEngine implements MapEngine {
     this.emptyColor = config.emptyColor;
     // Canvas rendering: one <canvas> instead of thousands of SVG nodes for large grids.
     // Zoom buttons are part of the React UI, so Leaflet's own control is off.
-    const map = L.map(container, { preferCanvas: true, zoomControl: false });
+    // Fractional zoom, so the map can show exactly the ground Google Earth Web shows.
+    const map = L.map(container, { preferCanvas: true, zoomControl: false, zoomSnap: 0 });
     this.base = createBaseLayers();
     const names = Object.keys(this.base);
     this.baseName = config.baseLayer && names.includes(config.baseLayer) ? config.baseLayer : names[0];
@@ -56,6 +67,11 @@ export class LeafletEngine implements MapEngine {
     L.control.scale({ position: "bottomleft", imperial: false }).addTo(map);
     map.on("zoomend", () => this.callbacks.onZoomChange());
     map.on("dragstart", () => { this.viewTarget = null; });
+    map.on("moveend", () => {
+      const view = this.getView();
+      if (view && this.intent.isUsers()) this.callbacks.onUserViewChange(view);
+    });
+    this.intent.attach(container);
     this.map = map;
   }
 
@@ -85,16 +101,19 @@ export class LeafletEngine implements MapEngine {
   flyTo(center: LatLng, minZoom: number): void {
     const map = this.map!;
     this.viewTarget = L.latLng(center);
+    this.intent.programmatic();
     this.whenIdle(() => map.setView(center, Math.max(map.getZoom() || minZoom, minZoom)));
   }
 
   fitAll(centers: LatLng[]): void {
     const map = this.map!;
     this.viewTarget = null;
+    this.intent.programmatic();
     this.whenIdle(() => map.fitBounds(L.latLngBounds(centers), { padding: [40, 40], maxZoom: 17 }));
   }
 
   zoomBy(delta: number): void {
+    this.intent.gesture();
     this.map?.setZoom(this.map.getZoom() + delta);
   }
 
@@ -122,7 +141,27 @@ export class LeafletEngine implements MapEngine {
     const center = panning && this.viewTarget ? this.viewTarget : map.getCenter();
     map.invalidateSize({ pan: false });
     if (before.equals(map.getSize()) || internals._animatingZoom) return;
+    this.intent.programmatic();
     map.setView(center, map.getZoom(), { animate: false });
+  }
+
+  getView(): GroundView | null {
+    const map = this.map;
+    if (!map || !(map as unknown as LeafletMapInternals)._loaded) return null;
+    const center = map.getCenter();
+    return { center: [center.lat, center.lng], heightMeters: heightForZoom(map.getZoom(), map.getSize().y, center.lat) };
+  }
+
+  showView(view: GroundView): void {
+    const map = this.map;
+    if (!map || map.getSize().y <= 0) return;
+    this.viewTarget = L.latLng(view.center);
+    this.intent.programmatic();
+    this.whenIdle(() => map.setView(view.center, zoomForHeight(view.heightMeters, map.getSize().y, view.center[0])));
+  }
+
+  isUserInteracting(): boolean {
+    return this.intent.isUsers();
   }
 
   setFootprint(corners: LatLng[] | null): void {
@@ -149,6 +188,7 @@ export class LeafletEngine implements MapEngine {
   }
 
   destroy(): void {
+    this.intent.detach();
     this.map?.remove();
     this.map = null;
     this.layers = {};

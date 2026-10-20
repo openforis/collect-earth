@@ -94,6 +94,21 @@ public class PlotGeoJsonBuilderTest {
 	}
 
 	@Test
+	public void collidingCsvColumnIsKeptAsExtraForTheForm() throws Exception {
+		SimplePlacemarkObject p = squarePlot();
+		p.setPlacemarkId("id_1,1");
+		Map<String, String> values = new LinkedHashMap<>();
+		values.put("id", "id_1");
+		values.put("round", "1");
+		p.setValuesByColumn(values);
+		JsonNode props = new ObjectMapper().readTree(new PlotGeoJsonBuilder().toFeature(p)).get("properties");
+		assertEquals("id_1,1", props.get("id").asText());
+		// The forms join $[EXTRA_id],$[EXTRA_round] into the placemark id, the compound id there gave id_1,1,1
+		assertEquals("id_1", props.get("EXTRA_id").asText());
+		assertEquals("1", props.get("round").asText());
+	}
+
+	@Test
 	public void openRingIsClosed() throws Exception {
 		SimplePlacemarkObject p = new SimplePlacemarkObject();
 		p.setPlacemarkId("plot_open");

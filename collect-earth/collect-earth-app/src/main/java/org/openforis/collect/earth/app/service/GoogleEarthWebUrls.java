@@ -1,5 +1,7 @@
 package org.openforis.collect.earth.app.service;
 
+import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.util.LinkedHashMap;
 import java.util.Locale;
 import java.util.Map;
@@ -29,6 +31,8 @@ public final class GoogleEarthWebUrls {
 
 	/** Beyond this tilt the view is not top-down and its ground footprint is not a rectangle. */
 	private static final double MAX_TOP_DOWN_TILT = 5;
+	/** Vertical field of view of the camera URLs built by Collect Earth. */
+	private static final String DEFAULT_FOV = "35";
 
 	private GoogleEarthWebUrls() {
 	}
@@ -62,11 +66,50 @@ public final class GoogleEarthWebUrls {
 	}
 
 	/**
+	 * The camera moved over another point with {@code heightMeters} of ground in view, aimed at
+	 * {@code altitude}. The heading and tilt the user gave Google Earth Web are kept: only where it
+	 * looks and how far changes.
+	 */
+	public static String movedCameraUrl(String currentUrl, double latitude, double longitude, double heightMeters,
+			double altitude) {
+		Matcher m = currentUrl == null ? null : FULL_CAMERA.matcher(currentUrl);
+		boolean camera = m != null && m.find();
+		String fov = camera ? m.group(5) : DEFAULT_FOV;
+		String heading = camera ? m.group(6) : "0";
+		String tilt = camera ? m.group(7) : "0";
+		double distance = heightMeters / (2 * Math.tan(Math.toRadians(Double.parseDouble(fov)) / 2));
+		return String.format(Locale.ENGLISH, "%s/@%s,%s,%sa,%sd,%sy,%sh,%st,0r", BASE, number(latitude, 7),
+				number(longitude, 7), number(altitude, 0), number(Math.max(1, distance), 1), fov, heading, tilt);
+	}
+
+	/** The altitude (metres) of the point the camera aims at, or null if it is not a camera URL. */
+	public static Double cameraAltitude(String url) {
+		Matcher m = url == null ? null : FULL_CAMERA.matcher(url);
+		if (m == null || !m.find()) {
+			return null;
+		}
+		try {
+			return Double.parseDouble(m.group(3));
+		} catch (NumberFormatException e) {
+			return null;
+		}
+	}
+
+	/**
 	 * The ground area shown by a top-down Google Earth Web view: centre, size in metres
 	 * (from the camera distance, the vertical field of view and the window aspect ratio) and
 	 * heading in degrees clockwise from north. Null for other URLs or tilted views.
 	 */
 	public static Map<String, Object> cameraView(String url, double windowWidth, double windowHeight) {
+		return cameraView(url, windowWidth, windowHeight, null);
+	}
+
+	/**
+	 * As {@link #cameraView(String, double, double)}, for ground at {@code groundAltitude} metres (null if
+	 * unknown). A camera aimed below the ground ( 0a over hills, as in the URLs built from the plot
+	 * elevation ) is that much nearer to the ground than its distance says.
+	 */
+	public static Map<String, Object> cameraView(String url, double windowWidth, double windowHeight, Double groundAltitude) {
 		Matcher m = url == null ? null : FULL_CAMERA.matcher(url);
 		if (m == null || !m.find() || windowWidth <= 0 || windowHeight <= 0) {
 			return null;
@@ -77,6 +120,9 @@ public final class GoogleEarthWebUrls {
 			double tilt = Double.parseDouble(m.group(7));
 			if (Math.abs(tilt) > MAX_TOP_DOWN_TILT) {
 				return null;
+			}
+			if (groundAltitude != null) {
+				distance = Math.max(1, distance - Math.max(0, groundAltitude - Double.parseDouble(m.group(3))));
 			}
 			double height = 2 * distance * Math.tan(Math.toRadians(fov) / 2);
 			Map<String, Object> view = new LinkedHashMap<>();
@@ -93,5 +139,10 @@ public final class GoogleEarthWebUrls {
 
 	public static boolean isGoogleEarthWeb(String url) {
 		return url != null && url.startsWith(BASE);
+	}
+
+	/** At most {@code decimals} decimals, without trailing zeros. */
+	private static String number(double value, int decimals) {
+		return BigDecimal.valueOf(value).setScale(decimals, RoundingMode.HALF_UP).stripTrailingZeros().toPlainString();
 	}
 }

@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { countStatuses, footprintCorners, matchesFilter, neighbour, nextUnfinished, normalizeStatus, plotsNear, visibleIds } from "./plots";
+import { countStatuses, footprintCorners, heightForZoom, matchesFilter, neighbour, nextUnfinished, normalizeStatus, plotsNear, sameView,
+  visibleIds, zoomForHeight } from "./plots";
 import type { PlotStatus } from "./types";
 
 const order = ["p1", "p2", "p3", "p4", "p10"];
@@ -75,5 +76,22 @@ describe("plotsNear", () => {
     const centers: Record<string, [number, number]> = { a: [0, 0], far: [0, 5000 * m], b: [0, 300 * m], c: [0, 100 * m] };
     expect(plotsNear(centers, [0, 0], 1000, 10)).toEqual(["a", "c", "b"]);
     expect(plotsNear(centers, [0, 0], 1000, 2)).toEqual(["a", "c"]);
+  });
+});
+
+describe("map zoom and Google Earth Web camera", () => {
+  it("converts both ways between the zoom and the height of ground in view", () => {
+    // Web Mercator zoom 17 at the equator: 1.194 m per pixel, 800 px high
+    expect(heightForZoom(17, 800, 0)).toBeCloseTo(955.46, 1);
+    expect(zoomForHeight(heightForZoom(16.3, 640, -4.99), 640, -4.99)).toBeCloseTo(16.3, 9);
+    // Twice the ground in view is one zoom level out
+    expect(zoomForHeight(2000, 800, 45) - zoomForHeight(4000, 800, 45)).toBeCloseTo(1, 9);
+  });
+  it("treats views within a few per cent as the same", () => {
+    const a = { center: [-4.99, 151.35] as [number, number], heightMeters: 1000 };
+    expect(sameView(a, { center: [-4.99 + 10 / 111320, 151.35], heightMeters: 1010 })).toBe(true);
+    // moved by a tenth of the view, or zoomed by a fifth
+    expect(sameView(a, { center: [-4.99 + 100 / 111320, 151.35], heightMeters: 1000 })).toBe(false);
+    expect(sameView(a, { ...a, heightMeters: 1200 })).toBe(false);
   });
 });
