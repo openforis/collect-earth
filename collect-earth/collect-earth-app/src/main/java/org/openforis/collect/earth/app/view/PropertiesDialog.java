@@ -194,7 +194,10 @@ public class PropertiesDialog extends JDialog {
         // Add tabs
         tabbedPane.addTab(Messages.getString("OptionWizard.31"), sampleDataPanel);
         tabbedPane.addTab(Messages.getString("OptionWizard.32"), plotOptionsPanel);
-        tabbedPane.addTab(Messages.getString("OptionWizard.125"), externalServicesPanel);
+        tabbedPane.addTab(Messages.getString("OptionWizard.125"),
+                new JScrollPane(externalServicesPanel,
+                        ScrollPaneConstants.VERTICAL_SCROLLBAR_AS_NEEDED,
+                        ScrollPaneConstants.HORIZONTAL_SCROLLBAR_NEVER));
         tabbedPane.addTab(Messages.getString("OptionWizard.126"), databaseServerPanel);
         tabbedPane.addTab(Messages.getString("OptionWizard.127"), browserDisplayPanel);
         tabbedPane.addTab(Messages.getString("OptionWizard.40"),

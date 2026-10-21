@@ -1,9 +1,14 @@
 package org.openforis.collect.earth.app.view.properties;
 
+import java.awt.BorderLayout;
 import java.awt.Color;
 import java.awt.Component;
+import java.awt.Dimension;
 import java.awt.Font;
 import java.awt.GridBagLayout;
+import java.awt.Rectangle;
+import java.awt.event.ComponentAdapter;
+import java.awt.event.ComponentEvent;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
@@ -21,12 +26,18 @@ import javax.swing.JLabel;
 import javax.swing.JList;
 import javax.swing.JPanel;
 import javax.swing.JPasswordField;
+import javax.swing.JTextArea;
 import javax.swing.JTextField;
+import javax.swing.Scrollable;
+import javax.swing.SwingConstants;
+import javax.swing.UIManager;
 import javax.swing.event.DocumentEvent;
 import javax.swing.event.DocumentListener;
 
 import org.apache.commons.lang3.StringUtils;
 import org.jdesktop.swingx.JXDatePicker;
+import org.kordamp.ikonli.materialdesign.MaterialDesign;
+import org.kordamp.ikonli.swing.FontIcon;
 import org.openforis.collect.earth.app.service.LocalPropertiesService;
 import org.openforis.collect.earth.app.service.LocalPropertiesService.EarthProperty;
 import org.openforis.collect.earth.app.view.Messages;
@@ -37,12 +48,15 @@ import org.openforis.collect.earth.app.view.PlanetMonthlyObject;
  *
  * @author Alfonso Sanchez-Paus Diaz
  */
-public class ExternalServicesPanel extends AbstractPropertyPanel {
+public class ExternalServicesPanel extends AbstractPropertyPanel implements Scrollable {
 
     private static final long serialVersionUID = 1L;
     private static final String START_OF_LANDSAT_AND_MODIS = "2000-01-01";
     private static final Color WARNING_TEXT_COLOR = new Color(180, 90, 0);
     private static final Color HINT_TEXT_COLOR = new Color(90, 90, 90);
+    private static final Color HELP_BACKGROUND = new Color(238, 245, 250);
+    private static final Color HELP_BORDER = new Color(190, 215, 232);
+    private static final Color HELP_ICON_COLOR = new Color(33, 132, 190);
 
     // GEE App components
     private JCheckBox openGeeAppCheckbox;
@@ -55,6 +69,8 @@ public class ExternalServicesPanel extends AbstractPropertyPanel {
     private JCheckBox openEarthMapCheckbox;
     private JCheckBox openEsriWaybackCheckbox;
     private JComboBox<String> viewerTypeCombo;
+    private JPanel viewerTypeHelp;
+    private JTextArea viewerTypeHelpText;
     private JComboBox<String> mapEngineCombo;
 
     // Planet Maps panel and components
@@ -136,6 +152,40 @@ public class ExternalServicesPanel extends AbstractPropertyPanel {
         });
         viewerTypeCombo.setSelectedItem(localPropertiesService.getViewerType());
         registerComponent(EarthProperty.VIEWER_TYPE, viewerTypeCombo);
+
+        // What the chosen viewer means for the operator: what opens, where the form is, what it needs.
+        // A text area, so that it wraps to the width of the dialog
+        viewerTypeHelpText = new JTextArea();
+        viewerTypeHelpText.setLineWrap(true);
+        viewerTypeHelpText.setWrapStyleWord(true);
+        viewerTypeHelpText.setEditable(false);
+        viewerTypeHelpText.setFocusable(false);
+        viewerTypeHelpText.setOpaque(false);
+        viewerTypeHelpText.setFont(UIManager.getFont("Label.font"));
+        // its preferred width is then small, so the layout gives it the width of the row
+        viewerTypeHelpText.setColumns(1);
+        // the height it needs is only known once it has a width
+        viewerTypeHelpText.addComponentListener(new ComponentAdapter() {
+            @Override
+            public void componentResized(ComponentEvent e) {
+                if (viewerTypeHelpText.getPreferredSize().height != viewerTypeHelpText.getHeight()) {
+                    viewerTypeHelp.revalidate();
+                }
+            }
+        });
+
+        JLabel helpIcon = new JLabel(FontIcon.of(MaterialDesign.MDI_INFORMATION_OUTLINE, 18, HELP_ICON_COLOR));
+        helpIcon.setVerticalAlignment(SwingConstants.TOP);
+        helpIcon.setBorder(BorderFactory.createEmptyBorder(0, 0, 0, 8));
+
+        viewerTypeHelp = new JPanel(new BorderLayout());
+        viewerTypeHelp.setBackground(HELP_BACKGROUND);
+        viewerTypeHelp.setBorder(BorderFactory.createCompoundBorder(
+                BorderFactory.createLineBorder(HELP_BORDER),
+                BorderFactory.createEmptyBorder(8, 10, 8, 10)));
+        viewerTypeHelp.add(helpIcon, BorderLayout.WEST);
+        viewerTypeHelp.add(viewerTypeHelpText, BorderLayout.CENTER);
+        updateViewerTypeHelp();
 
         // Map imagery engine selector: items are the raw property values (leaflet/google_maps),
         // a renderer shows friendly product labels. Enabled only when the plots map window is used.
@@ -255,6 +305,10 @@ public class ExternalServicesPanel extends AbstractPropertyPanel {
         repaint();
     }
 
+    private void updateViewerTypeHelp() {
+        viewerTypeHelpText.setText(Messages.getString("ExternalServicesPanel.viewerHelp." + viewerTypeCombo.getSelectedItem()));
+    }
+
     private void initializeVisibility() {
         updatePlanetApiKeyNote();
         boolean hasFromDate = StringUtils.isNotBlank(localPropertiesService.getValue(EarthProperty.GEEAPP_FROM_DATE));
@@ -272,18 +326,19 @@ public class ExternalServicesPanel extends AbstractPropertyPanel {
         addFullWidthRow(this, 2, openEarthMapCheckbox);
         addFullWidthRow(this, 3, openEsriWaybackCheckbox);
 
-        // Plot viewer selector, then the map imagery engine (only used by the plots map)
+        // Plot viewer selector and the help for the chosen viewer, then the map imagery engine (only used by the plots map)
         JLabel viewerTypeLabel = new JLabel(Messages.getString("ExternalServicesPanel.viewerType"));
         viewerTypeLabel.setToolTipText(Messages.getString("ExternalServicesPanel.viewerTypeTooltip"));
         add(viewerTypeLabel, new GridBagConstraintsBuilder().gridx(0).gridy(4).build());
         add(viewerTypeCombo, new GridBagConstraintsBuilder().gridx(1).gridy(4).build());
-        add(new JLabel(Messages.getString("OptionWizard.147")), new GridBagConstraintsBuilder().gridx(0).gridy(5).build());
-        add(mapEngineCombo, new GridBagConstraintsBuilder().gridx(1).gridy(5).build());
+        addFullWidthRow(this, 5, viewerTypeHelp);
+        add(new JLabel(Messages.getString("OptionWizard.147")), new GridBagConstraintsBuilder().gridx(0).gridy(6).build());
+        add(mapEngineCombo, new GridBagConstraintsBuilder().gridx(1).gridy(6).build());
 
         // Planet Maps panel (contains all Planet-related components)
-        addFullWidthRow(this, 6, planetPanel);
+        addFullWidthRow(this, 7, planetPanel);
 
-        // Maxar SecureWatch (rows 7 and 8) is not shown while it is disabled : see LocalPropertiesService.isSecureWatchSupported.
+        // Maxar SecureWatch is not shown while it is disabled : see LocalPropertiesService.isSecureWatchSupported.
         // The components are still created and registered, so the property keeps whatever value it has.
 
         // Extra Map URL
@@ -368,7 +423,10 @@ public class ExternalServicesPanel extends AbstractPropertyPanel {
         });
 
         // The map imagery engine only applies to the plots map window
-        viewerTypeCombo.addActionListener(e -> mapEngineCombo.setEnabled(isPlotsMapSelected()));
+        viewerTypeCombo.addActionListener(e -> {
+            mapEngineCombo.setEnabled(isPlotsMapSelected());
+            updateViewerTypeHelp();
+        });
 
         // SecureWatch checkbox toggles URL field
         openSecureWatchCheckbox.addActionListener(e ->
@@ -482,6 +540,36 @@ public class ExternalServicesPanel extends AbstractPropertyPanel {
         addFullWidthRow(panel, 4, planetTfoMonthPanel);
 
         return panel;
+    }
+
+    // ========== Scrollable ==========
+    // The dialog shows this tab in a scroll pane, for when Planet's options make it taller than the dialog.
+    // It follows the width of the dialog, so that the help text wraps instead of being cut off.
+
+    @Override
+    public Dimension getPreferredScrollableViewportSize() {
+        return getPreferredSize();
+    }
+
+    @Override
+    public int getScrollableUnitIncrement(Rectangle visibleRect, int orientation, int direction) {
+        return 16;
+    }
+
+    @Override
+    public int getScrollableBlockIncrement(Rectangle visibleRect, int orientation, int direction) {
+        return visibleRect.height;
+    }
+
+    @Override
+    public boolean getScrollableTracksViewportWidth() {
+        return true;
+    }
+
+    @Override
+    public boolean getScrollableTracksViewportHeight() {
+        // fills the tab when it is shorter than it, scrolls when it is taller
+        return getParent() != null && getParent().getHeight() > getPreferredSize().height;
     }
 
     // ========== Getters ==========
