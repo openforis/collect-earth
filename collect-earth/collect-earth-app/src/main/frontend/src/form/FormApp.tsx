@@ -68,6 +68,8 @@ function ReadyForm({ store, state, model }: { store: FormStore; state: FormState
   const back = store.neighbourTab(-1);
   const next = store.neighbourTab(1);
   const info = model.tabs.flatMap((tb) => tb.items.filter((i): i is InfoItem => i.kind === "info"));
+  // the header goes on the first step, which is not tab 0 when that one has nothing to fill in
+  const firstStep = Math.max(0, model.tabs.findIndex((tb) => isTabVisible(tb, state.infos)));
   const goTo = useCallback((index: number) => {
     store.setTab(index);
     content.current?.scrollTo({ top: 0 });
@@ -134,10 +136,10 @@ function ReadyForm({ store, state, model }: { store: FormStore; state: FormState
               </Box>
             </Alert>
           )}
-          {model.unsupported.length > 0 && state.tab === 0 && (
+          {model.unsupported.length > 0 && state.tab === firstStep && (
             <Alert severity="warning" variant="outlined">{t("entry.unsupportedSome", { names: model.unsupported.map((u) => u.name).join(", ") })}</Alert>
           )}
-          {info.length > 0 && state.tab === 0 && <HeaderInfo items={info} store={store} />}
+          {info.length > 0 && state.tab === firstStep && <HeaderInfo items={info} store={store} />}
           <TabContent store={store} state={state} items={tab.items} />
         </Stack>
       </Box>
@@ -156,7 +158,7 @@ function ReadyForm({ store, state, model }: { store: FormStore; state: FormState
         </Box>
         <Box sx={{ minWidth: 88, display: "flex", justifyContent: "flex-end" }}>
           {next >= 0 ? (
-            <Tooltip title="Alt+→">
+            <Tooltip title="Alt+→" describeChild>
               <Button variant="contained" disableElevation endIcon={<ChevronRightIcon />} onClick={() => goTo(next)} data-testid="entry-next">
                 {t("entry.next")}
               </Button>

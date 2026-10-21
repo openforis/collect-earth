@@ -134,6 +134,11 @@ describe("errors and tabs", () => {
     expect(isTabVisible(model.tabs[0], { collect_code_lu: { visible: false }, collect_code_sub: { visible: false } })).toBe(false);
     expect(isTabVisible(model.tabs[0], {})).toBe(true);
   });
+  it("hides a tab with only plot file data, which the header shows instead", () => {
+    const tab = { id: "csv", label: "From CSV", items: [{ kind: "info" as const, name: "collect_text_region", label: "Region" }, category] };
+    expect(isTabVisible(tab, { collect_code_lu: { visible: false } })).toBe(false);
+    expect(isTabVisible(tab, {})).toBe(true);
+  });
 });
 
 describe("save request", () => {

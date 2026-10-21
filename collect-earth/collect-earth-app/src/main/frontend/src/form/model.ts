@@ -326,10 +326,14 @@ export function errorList(model: FormModel, infos: Record<string, FieldInfo>): {
   return result;
 }
 
-/** A tab with nothing visible on it (every field not relevant) is skipped, as in the balloon. */
+/**
+ * A tab with nothing visible on it (every field not relevant) is skipped, as in the balloon. Plot file data does
+ * not count: the header shows it, not its tab.
+ */
 export function isTabVisible(tab: Tab, infos: Record<string, FieldInfo>): boolean {
   return tab.items.some((item) => {
-    if (item.kind === "info" || item.kind === "multiple") return true;
+    if (item.kind === "info") return false;
+    if (item.kind === "multiple") return true;
     return itemFields(item).some((f) => isVisible(infos, f.name));
   });
 }
