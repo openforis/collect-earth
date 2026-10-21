@@ -3,6 +3,7 @@ package org.openforis.collect.earth.app.view;
 import java.awt.Color;
 import java.awt.GridBagConstraints;
 import java.awt.GridBagLayout;
+import java.awt.GridLayout;
 import java.awt.Insets;
 import java.awt.Window;
 import java.awt.event.ActionListener;
@@ -15,6 +16,7 @@ import java.io.IOException;
 import java.net.MalformedURLException;
 
 import javax.swing.BorderFactory;
+import javax.swing.ButtonGroup;
 import javax.swing.ImageIcon;
 import javax.swing.JButton;
 import javax.swing.JFrame;
@@ -23,6 +25,7 @@ import javax.swing.JMenuItem;
 import javax.swing.JOptionPane;
 import javax.swing.JPanel;
 import javax.swing.JTextField;
+import javax.swing.JToggleButton;
 import javax.swing.SwingConstants;
 import javax.swing.SwingUtilities;
 import javax.swing.Timer;
@@ -83,8 +86,12 @@ public class CollectEarthWindow implements InitializingBean, DisposableBean{
 	private JTextField operatorTextField;
 
 	public static final Color ERROR_COLOR = new Color(225, 124, 124);
+	private static final Color SELECTED_VIEWER_COLOR = new Color(33, 132, 190);
 
 	private boolean windowClosingListenerAdded;
+	private ButtonGroup viewerButtons;
+	private JToggleButton classicViewerButton;
+	private JToggleButton newViewerButton;
 	private transient Timer timerOperatorChanged;
 
 	public CollectEarthWindow() throws IOException {
@@ -124,6 +131,12 @@ public class CollectEarthWindow implements InitializingBean, DisposableBean{
 		windowClosingListenerAdded = true;
 
 		getFrame().addWindowListener(new WindowAdapter() {
+
+			@Override
+			public void windowActivated(WindowEvent e) {
+				// back from the options dialog, where the plot viewer can be changed too
+				showViewerType();
+			}
 
 			@Override
 			public void windowClosing(WindowEvent e) {
@@ -279,6 +292,11 @@ public class CollectEarthWindow implements InitializingBean, DisposableBean{
 		c.gridwidth = 2;
 		c.fill = GridBagConstraints.HORIZONTAL;
 
+		pane.add(createViewerChoicePanel(), c);
+
+		c.gridx = 0;
+		c.gridy++;
+
 		JPanel panelButton = new JPanel();
 		final JButton propertiesButton = new JButton(Messages.getString("CollectEarthWindow.15")); //$NON-NLS-1$
 		propertiesButton.addActionListener( collectEarthMenu.getPropertiesAction( frame ) );
@@ -314,6 +332,71 @@ public class CollectEarthWindow implements InitializingBean, DisposableBean{
 					operatorTimer.restart();
 				}
 			});
+		}
+	}
+
+	/**
+	 * The choice between the classic way of working, with Google Earth Desktop, and the new Google Earth Web one, which is in
+	 * beta. It is the same setting as the plot viewer of the options dialog, which also offers the plots map alone: while that
+	 * one is chosen neither button is selected.
+	 */
+	private JPanel createViewerChoicePanel() {
+		classicViewerButton = createViewerButton(LocalPropertiesService.VIEWER_TYPE_GOOGLE_EARTH_PRO, MaterialDesign.MDI_EARTH,
+				"<html><b>" + Messages.getString("CollectEarthWindow.viewerClassic") + "</b><br>" //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$
+						+ Messages.getString("CollectEarthWindow.viewerClassicDetail") + "</html>"); //$NON-NLS-1$ //$NON-NLS-2$
+		newViewerButton = createViewerButton(LocalPropertiesService.VIEWER_TYPE_GOOGLE_EARTH_WEB, MaterialDesign.MDI_WEB,
+				"<html><b>" + Messages.getString("CollectEarthWindow.viewerNew") + "</b> <font color='#c05a00'><b>" //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$
+						+ Messages.getString("CollectEarthWindow.viewerBeta") + "</b></font><br>" //$NON-NLS-1$ //$NON-NLS-2$
+						+ Messages.getString("CollectEarthWindow.viewerNewDetail") + "</html>"); //$NON-NLS-1$ //$NON-NLS-2$
+
+		viewerButtons = new ButtonGroup();
+		viewerButtons.add(classicViewerButton);
+		viewerButtons.add(newViewerButton);
+		showViewerType();
+
+		final JPanel panel = new JPanel(new GridLayout(1, 2, 8, 0));
+		panel.setBorder(BorderFactory.createCompoundBorder(
+				BorderFactory.createTitledBorder(Messages.getString("CollectEarthWindow.viewerChoice")), //$NON-NLS-1$
+				BorderFactory.createEmptyBorder(2, 6, 6, 6)));
+		panel.add(classicViewerButton);
+		panel.add(newViewerButton);
+		return panel;
+	}
+
+	private JToggleButton createViewerButton(String viewerType, MaterialDesign icon, String text) {
+		final JToggleButton button = new JToggleButton(text, FontIcon.of(icon, 24));
+		// the look and feel shows the selected one in grey, which reads as switched off: blue with a tick instead
+		button.setSelectedIcon(FontIcon.of(MaterialDesign.MDI_CHECK_CIRCLE, 24, SELECTED_VIEWER_COLOR));
+		button.putClientProperty("FlatLaf.style", "selectedBackground: #d6e9f7; selectedForeground: #0d3a5c"); //$NON-NLS-1$ //$NON-NLS-2$
+		button.setHorizontalAlignment(SwingConstants.LEFT);
+		button.setIconTextGap(10);
+		// what this way of working means, as the options dialog explains it
+		button.setToolTipText("<html><div style='width:300px'>" //$NON-NLS-1$
+				+ Messages.getString("ExternalServicesPanel.viewerHelp." + viewerType) + "</div></html>"); //$NON-NLS-1$ //$NON-NLS-2$
+		// only a click by the user fires it, not the selection that follows the setting in showViewerType
+		button.addActionListener(e -> {
+			if (!viewerType.equals(localPropertiesService.getViewerType())) {
+				localPropertiesService.saveViewerType(viewerType);
+				logger.info("Plot viewer changed from the main window to {}", viewerType); //$NON-NLS-1$
+				// opens the plots in the chosen viewer, as applying the options dialog does
+				EarthApp.executeKmlLoadAsynchronously(getFrame());
+			}
+		});
+		return button;
+	}
+
+	/** Selects the button of the viewer in the settings, which the options dialog may have changed. */
+	private void showViewerType() {
+		if (viewerButtons == null) {
+			return;
+		}
+		final String viewerType = localPropertiesService.getViewerType();
+		if (LocalPropertiesService.VIEWER_TYPE_GOOGLE_EARTH_PRO.equals(viewerType)) {
+			classicViewerButton.setSelected(true);
+		} else if (LocalPropertiesService.VIEWER_TYPE_GOOGLE_EARTH_WEB.equals(viewerType)) {
+			newViewerButton.setSelected(true);
+		} else {
+			viewerButtons.clearSelection();
 		}
 	}
 
