@@ -42,7 +42,7 @@ import org.slf4j.LoggerFactory;
  * <p>
  * Errors: a tab or browser that is gone gives {@link TabClosedException}; a script that throws in the page, or that
  * runs while the page is replacing its document, {@link PageScriptException}; any other failure of a BiDi command an
- * {@link IllegalStateException}, a fault for the worker to report.
+ * {@link BidiCommandException}, a fault for the worker to report.
  */
 public class BidiTabDriver implements TabDriver {
 
@@ -52,6 +52,7 @@ public class BidiTabDriver implements TabDriver {
 	 * driver is built; it cannot be changed afterwards. It must be shorter than
 	 * {@link ImageryBrowser#COMMAND_TIMEOUT_SECONDS}, so that a command with no answer fails on the worker, as a fault
 	 * of that command, rather than at the same moment as the caller gives up and quits the whole browser as hung.
+	 * A command of the worker can send several BiDi commands, each with this limit.
 	 */
 	public static final Duration BIDI_TIMEOUT = Duration.ofSeconds(20);
 
@@ -121,6 +122,7 @@ public class BidiTabDriver implements TabDriver {
 	/** Starts listening to the browser and installs the visibility script; quits the driver if that fails. */
 	public BidiTabDriver(RemoteWebDriver driver) {
 		this.driver = driver;
+		warnIfNotBuiltWithClientConfig(driver);
 		try {
 			Capabilities capabilities = driver.getCapabilities();
 			browserName = capabilities.getBrowserName();
@@ -140,6 +142,21 @@ public class BidiTabDriver implements TabDriver {
 		} catch (RuntimeException e) {
 			quit();
 			throw e;
+		}
+	}
+
+	/**
+	 * A driver built without {@link #clientConfig()} waits 30 s for a BiDi answer, as long as {@code ImageryBrowser}
+	 * waits for the whole command: a command with no answer is then taken as a hung browser and quits it, instead of
+	 * failing on its own. Not a reason to refuse the driver, which works otherwise.
+	 */
+	private void warnIfNotBuiltWithClientConfig(RemoteWebDriver driver) {
+		ClientConfig config = driver.getClientConfig();
+		Duration wsTimeout = config == null ? null : config.wsTimeout();
+		if (wsTimeout == null || wsTimeout.compareTo(Duration.ofSeconds(ImageryBrowser.COMMAND_TIMEOUT_SECONDS)) >= 0) {
+			logger.warn("Imagery window: the browser was started with a BiDi timeout of {}, not below the {} s of a "
+					+ "command: build it with BidiTabDriver.clientConfig()", wsTimeout,
+					ImageryBrowser.COMMAND_TIMEOUT_SECONDS);
 		}
 	}
 
@@ -173,7 +190,7 @@ public class BidiTabDriver implements TabDriver {
 			throw new PageScriptException(((EvaluateResultExceptionValue) result).getExceptionDetails().getText());
 		}
 		if (!(result instanceof EvaluateResultSuccess)) {
-			throw new IllegalStateException("Unexpected result of a script in tab " + tab + ": " + result);
+			throw new BidiCommandException("Unexpected result of a script in tab " + tab + ": " + result, null);
 		}
 		Object value = ((EvaluateResultSuccess) result).getResult().getValue().orElse(null);
 		return value == null ? "null" : String.valueOf(value);
@@ -295,7 +312,7 @@ public class BidiTabDriver implements TabDriver {
 	 * Runs a BiDi command and sorts out its failure: a tab or browser that is gone gives {@link TabClosedException}
 	 * (and a browser gone is no longer {@link #alive}); for a script ({@code script}), a document being replaced gives
 	 * {@link PageScriptException}, for {@code ImageryTab.waitUntil} to try again; anything else is a fault of the
-	 * command, an {@link IllegalStateException}. Selenium wraps the errors often, and BiDi errors come as a plain
+	 * command, a {@link BidiCommandException}. Selenium wraps the errors often, and BiDi errors come as a plain
 	 * {@code WebDriverException} with the JSON of the error as message, so the whole cause chain and the messages are
 	 * looked at.
 	 */
@@ -321,9 +338,9 @@ public class BidiTabDriver implements TabDriver {
 				throw new TabClosedException("The tab " + tab + " is closed", e);
 			}
 			if (script && contains(messages, DOCUMENT_REPLACED)) {
-				throw new PageScriptException("The page was replacing its document: " + firstLine(e));
+				throw new PageScriptException("The page was replacing its document: " + firstLine(e), true);
 			}
-			throw new IllegalStateException("A BiDi command failed in tab " + tab + ": " + firstLine(e), e);
+			throw new BidiCommandException("A BiDi command failed in tab " + tab + ": " + firstLine(e), e);
 		}
 	}
 

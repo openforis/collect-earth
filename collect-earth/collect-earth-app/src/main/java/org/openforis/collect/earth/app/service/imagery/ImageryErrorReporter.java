@@ -65,6 +65,14 @@ public class ImageryErrorReporter {
 	 * @return whether it was sent
 	 */
 	public boolean report(ImagerySource source, String kind, Throwable error) {
+		return report(source, kind, error, SentryLevel.ERROR);
+	}
+
+	/**
+	 * As {@link #report(ImagerySource, String, Throwable)}, at another level: {@link SentryLevel#WARNING} for what is
+	 * worth knowing about in the field but is not a fault as such (a browser that takes minutes to start).
+	 */
+	public boolean report(ImagerySource source, String kind, Throwable error, SentryLevel level) {
 		if (!reported.add(source + "/" + kind)) {
 			logger.warn("Imagery window, {}: {} (again): {}", source, kind, String.valueOf(error));
 			return false;
@@ -77,13 +85,14 @@ public class ImageryErrorReporter {
 		tags.put("browser.version", browserVersion);
 		tags.put("bidi", "true");
 		tags.put("viewer_type", viewerType);
-		send(tags, error);
+		send(tags, error, level);
 		return true;
 	}
 
 	/** Overridden by the tests. */
-	void send(Map<String, String> tags, Throwable error) {
+	void send(Map<String, String> tags, Throwable error, SentryLevel level) {
 		Sentry.withScope(scope -> {
+			scope.setLevel(level);
 			tags.forEach(scope::setTag);
 			Sentry.captureException(error);
 		});

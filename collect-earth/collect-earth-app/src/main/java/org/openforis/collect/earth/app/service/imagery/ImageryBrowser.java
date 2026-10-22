@@ -23,11 +23,17 @@ import java.util.concurrent.locks.Condition;
 import java.util.concurrent.locks.ReentrantLock;
 import java.util.function.BiConsumer;
 
+import javax.annotation.PostConstruct;
 import javax.annotation.PreDestroy;
 
+import org.openforis.collect.earth.app.service.BrowserService;
+import org.openforis.collect.earth.app.service.LocalPropertiesService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
+
+import io.sentry.SentryLevel;
 
 /**
  * The one browser that shows the imagery of the plots, with a tab per {@link ImagerySource}, instead of a browser per
@@ -40,7 +46,11 @@ import org.springframework.stereotype.Component;
  * {@link #loadLatest}, a source that is still loading a plot skips the plots the user went past meanwhile.
  * <p>
  * A command that does not answer in time quits the browser: one hung command would otherwise hold up every tab for
- * good. The next command starts a new browser.
+ * good. The next command starts a new browser. Starting the browser is not a hang: it has its own, longer limit
+ * ({@link #START_TIMEOUT_SECONDS}), as a cold start on a loaded machine takes about as long as a command may.
+ * <p>
+ * Faults of Collect Earth met by a command (a script of ours that throws in a page, a BiDi command that fails) are
+ * reported here, once per kind and source; a tab or browser the user closed is not a fault.
  */
 @Component
 public class ImageryBrowser {
@@ -64,6 +74,7 @@ public class ImageryBrowser {
 		final TabCommand<T> command;
 		/** Its own, taken when it was sent: how long it may run before its browser is taken as hung. */
 		final long timeoutNanos;
+		final long sentNanos = System.nanoTime();
 		final CompletableFuture<T> result = new CompletableFuture<>();
 		/** The browser the worker runs it on, as soon as it is known: a hang quits only that one. */
 		volatile TabDriver runningOn;
@@ -91,6 +102,13 @@ public class ImageryBrowser {
 
 	/** Long enough for a slow BiDi command, short enough not to leave the caller waiting for a browser that hung. */
 	static final long COMMAND_TIMEOUT_SECONDS = 30;
+	/**
+	 * How long starting the browser may take before the callers give up on it. Firefox took 28 s to start on a loaded
+	 * machine, close to {@link #COMMAND_TIMEOUT_SECONDS}: a cold start must not be taken as a hung browser.
+	 */
+	static final long START_TIMEOUT_SECONDS = 120;
+	/** How often a caller waiting for a browser to start looks whether the start is over, to get its own time again. */
+	private static final long START_POLL_NANOS = TimeUnit.MILLISECONDS.toNanos(100);
 	/** How long {@link #shutdown()} lets the command being run finish before quitting the browser under it. */
 	private static final long SHUTDOWN_WAIT_MILLIS = 5000;
 
@@ -130,15 +148,31 @@ public class ImageryBrowser {
 	private final Object driverLock = new Object();
 	private volatile long commandTimeoutMillis = TimeUnit.SECONDS.toMillis(COMMAND_TIMEOUT_SECONDS);
 	private volatile long shutdownWaitMillis = SHUTDOWN_WAIT_MILLIS;
+	private volatile long startTimeoutNanos = TimeUnit.SECONDS.toNanos(START_TIMEOUT_SECONDS);
 	private volatile Starter starter;
+	@Autowired
 	private volatile ImageryErrorReporter reporter;
+	@Autowired
+	private BrowserService browserService;
+	@Autowired
+	private LocalPropertiesService localPropertiesService;
 	private volatile TabDriver driver;
 	private volatile ImagerySource visible;
 	/** What the worker runs now, and since when (set first): a caller that gives up looks here for a hang. */
 	private volatile Command<?> running;
 	private volatile long runningSinceNanos;
+	/**
+	 * Whether the worker is starting the browser, and since when (set first): the callers then wait for the start, up
+	 * to {@link #startTimeoutNanos}, and nothing is taken as hung. When the start ends, {@link #startEndedNanos} is set
+	 * first: the commands that waited for it get their own time again from then.
+	 */
+	private volatile boolean starting;
+	private volatile long startingSinceNanos;
+	private volatile long startEndedNanos = System.nanoTime();
+	/** The visible state each tab reported last: the listeners hear of changes only, not of every page load. */
+	private final Map<String, Boolean> reportedVisibility = new HashMap<>();
 
-	/** For Spring: the starter and the reporter are set in {@code @PostConstruct} (a later task). */
+	/** For Spring, which sets the starter and the reporter in {@link #init()}. */
 	public ImageryBrowser() {
 		for (ImagerySource source : ImagerySource.values()) {
 			queues.put(source, new ArrayDeque<>());
@@ -156,8 +190,26 @@ public class ImageryBrowser {
 		this.reporter = reporter;
 	}
 
+	/**
+	 * Only keeps a reference to the browser service: the two beans refer to each other, and this runs while the other
+	 * may still be being set up. The viewer type is set again at every start, as it can change in the options.
+	 */
+	@PostConstruct
+	void init() {
+		BrowserService service = browserService;
+		starter = () -> {
+			reporter.setViewerType(localPropertiesService.getViewerType());
+			return service.startImageryBrowser();
+		};
+		reporter.setViewerType(localPropertiesService.getViewerType());
+	}
+
 	void setStarter(Starter starter) {
 		this.starter = starter;
+	}
+
+	void setStartTimeout(Duration timeout) {
+		startTimeoutNanos = timeout.toNanos();
 	}
 
 	/** The timeout of the commands sent from now on; one already sent keeps its own. */
@@ -323,8 +375,20 @@ public class ImageryBrowser {
 		return new OpenTab(d, tab);
 	}
 
+	/** Publishes that the browser is starting while it does, so that the callers wait for it and judge no hang. */
 	private TabDriver startBrowser() throws Exception {
-		TabDriver d = starter.start();
+		TabDriver d;
+		startingSinceNanos = System.nanoTime();
+		starting = true;
+		try {
+			d = starter.start();
+		} finally {
+			long ended = System.nanoTime();
+			startEndedNanos = ended;
+			// The command that needed the browser gets its full time from now, as do those behind it
+			runningSinceNanos = ended;
+			starting = false;
+		}
 		queueLock.lock();
 		try {
 			if (stopped) {
@@ -339,6 +403,7 @@ public class ImageryBrowser {
 			tabOfSource.clear();
 			sourceOfTab.clear();
 			openingOrder.clear();
+			reportedVisibility.clear();
 			initialTab = d.initialTab();
 			initialTabFree = true;
 		}
@@ -370,8 +435,11 @@ public class ImageryBrowser {
 			return;
 		}
 		ImagerySource source;
+		boolean changed;
 		synchronized (tabsLock) {
 			source = sourceOfTab.get(tab);
+			// The preload script reports on every page load as well, mostly the same as before
+			changed = source != null && !Boolean.valueOf(isVisible).equals(reportedVisibility.put(tab, isVisible));
 		}
 		if (source == null) {
 			return; // a tab that is not ours
@@ -381,7 +449,7 @@ public class ImageryBrowser {
 		} else if (visible == source) {
 			visible = null;
 		}
-		if (visibilityListeners.isEmpty()) {
+		if (!changed || visibilityListeners.isEmpty()) {
 			return;
 		}
 		try {
@@ -401,6 +469,7 @@ public class ImageryBrowser {
 
 	/** Called holding {@link #tabsLock}. */
 	private void forget(String tab) {
+		reportedVisibility.remove(tab);
 		ImagerySource source = sourceOfTab.remove(tab);
 		if (source != null) {
 			tabOfSource.remove(source);
@@ -423,41 +492,43 @@ public class ImageryBrowser {
 	 * it; the next command starts a new browser. A worker that is merely busy is left alone, and the caller only gives
 	 * up: quitting then could end a healthy browser. A command that started late, behind others, gets its full time to
 	 * run before it is taken as hung.
+	 * <p>
+	 * While the worker starts the browser, the callers wait for it up to {@link #START_TIMEOUT_SECONDS} from the
+	 * beginning of the start, and get their own time again once it is over. A start that takes longer fails them and is
+	 * reported, but is not taken as a hang: there is no browser to quit yet.
 	 */
 	<T> T call(ImagerySource source, TabCommand<T> command) {
 		if (Thread.currentThread() == worker) {
 			throw new IllegalStateException("A command of the imagery browser sent from its own worker would wait forever");
 		}
 		Command<T> queuedCommand = enqueue(source, command, TimeUnit.MILLISECONDS.toNanos(commandTimeoutMillis));
-		long timeoutNanos = queuedCommand.timeoutNanos;
 		try {
 			try {
 				try {
-					return queuedCommand.result.get(timeoutNanos, TimeUnit.NANOSECONDS);
+					return await(queuedCommand);
 				} catch (TimeoutException e) {
-					if (running == queuedCommand) {
-						// It started late, behind others: it gets its full time to run
-						long remaining = timeoutNanos - (System.nanoTime() - runningSinceNanos);
-						if (remaining > 0) {
-							try {
-								return queuedCommand.result.get(remaining, TimeUnit.NANOSECONDS);
-							} catch (TimeoutException again) {
-								// hung
-							}
-						}
-					}
+					// given up below
 				}
 				if (!queuedCommand.result.cancel(false)) {
 					return queuedCommand.result.get(); // it answered just now
 				}
 				drop(queuedCommand);
-				Command<?> current = running;
-				long runningFor = System.nanoTime() - runningSinceNanos;
-				if (current != null && runningFor >= current.timeoutNanos) {
-					throw hang(current);
+				long now = System.nanoTime();
+				if (starting) {
+					long startingFor = now - startingSinceNanos;
+					if (startingFor >= startTimeoutNanos) {
+						throw slowStart(source, startingFor);
+					}
+				} else {
+					Command<?> current = running;
+					long runningFor = now - runningSinceNanos;
+					if (current != null && runningFor >= current.timeoutNanos) {
+						throw hang(current);
+					}
 				}
 				throw new IllegalStateException("The imagery browser was busy for "
-						+ TimeUnit.NANOSECONDS.toMillis(timeoutNanos) + " ms with other commands, for " + source);
+						+ TimeUnit.NANOSECONDS.toMillis(now - queuedCommand.sentNanos) + " ms with other commands, for "
+						+ source);
 			} catch (InterruptedException e) {
 				Thread.currentThread().interrupt();
 				if (!queuedCommand.result.cancel(false)) {
@@ -473,6 +544,55 @@ public class ImageryBrowser {
 			Thread.currentThread().interrupt();
 			throw new IllegalStateException(e);
 		}
+	}
+
+	/**
+	 * Waits for the result of the command for as long as it is entitled to, and throws {@link TimeoutException} once it
+	 * is not: its own timeout from when it was sent, or from the end of the last start of the browser if that came
+	 * later, or from when it began to run if it is running (it started late, behind others); and while the browser is
+	 * starting, until the limit of the start.
+	 */
+	private <T> T await(Command<T> command) throws InterruptedException, ExecutionException, TimeoutException {
+		while (true) {
+			long now = System.nanoTime();
+			long until;
+			if (starting) {
+				until = startingSinceNanos + startTimeoutNanos;
+				if (now - until >= 0) {
+					throw new TimeoutException();
+				}
+				// Looks again soon: once the start is over, the command has its own time, not what is left of the start's
+				if (until - now > START_POLL_NANOS) {
+					until = now + START_POLL_NANOS;
+				}
+			} else {
+				until = later(command.sentNanos, startEndedNanos) + command.timeoutNanos;
+				if (running == command) {
+					until = later(until, runningSinceNanos + command.timeoutNanos);
+				}
+				if (now - until >= 0) {
+					throw new TimeoutException();
+				}
+			}
+			try {
+				return command.result.get(until - now, TimeUnit.NANOSECONDS);
+			} catch (TimeoutException e) {
+				// looked at again
+			}
+		}
+	}
+
+	/** The later of two {@link System#nanoTime()} values, which may overflow. */
+	private static long later(long a, long b) {
+		return a - b >= 0 ? a : b;
+	}
+
+	/** A start of the browser that went over its limit: reported, as a warning, and there is nothing to quit yet. */
+	private IllegalStateException slowStart(ImagerySource source, long startingForNanos) {
+		IllegalStateException slow = new IllegalStateException("The imagery browser did not start in "
+				+ TimeUnit.NANOSECONDS.toMillis(startingForNanos) + " ms, for " + source);
+		reporter.report(null, "browser_start_slow", slow, SentryLevel.WARNING);
+		return slow;
 	}
 
 	/** Reports the hang of the browser the command is stuck in and quits it, unless another caller did already. */
@@ -594,6 +714,17 @@ public class ImageryBrowser {
 					forget(open.tab);
 				}
 			}
+			// The user closed it: not a fault
+			logger.warn("Imagery window, {}: {}", queuedCommand.source, e.getMessage());
+			reporter.breadcrumb(queuedCommand.source, "tab closed");
+			queuedCommand.result.completeExceptionally(e);
+		} catch (PageScriptException e) {
+			if (!e.isDocumentReplaced()) {
+				reporter.report(queuedCommand.source, "page_script", e);
+			}
+			queuedCommand.result.completeExceptionally(e);
+		} catch (BidiCommandException e) {
+			reporter.report(queuedCommand.source, "bidi_command", e);
 			queuedCommand.result.completeExceptionally(e);
 		} catch (Throwable e) { // NOSONAR the worker must survive whatever a command throws
 			queuedCommand.result.completeExceptionally(e);

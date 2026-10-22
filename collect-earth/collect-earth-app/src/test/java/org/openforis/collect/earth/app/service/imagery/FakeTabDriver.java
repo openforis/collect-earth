@@ -85,7 +85,7 @@ class FakeTabDriver implements TabDriver {
 		calls.add("evaluate " + tab);
 		if (failNextEvaluates > 0) {
 			failNextEvaluates--;
-			throw new PageScriptException("the document is being replaced");
+			throw new PageScriptException("the document is being replaced", true);
 		}
 		for (String failing : failingScripts) {
 			if (expression.contains(failing)) {

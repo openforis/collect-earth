@@ -4,21 +4,25 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.CopyOnWriteArrayList;
 
 import org.junit.jupiter.api.Test;
+
+import io.sentry.SentryLevel;
 
 public class ImageryErrorReporterTest {
 
 	/** Records what would be sent to Sentry. */
 	static class RecordingReporter extends ImageryErrorReporter {
-		final List<Map<String, String>> sent = new ArrayList<>();
+		final List<Map<String, String>> sent = new CopyOnWriteArrayList<>();
+		final List<SentryLevel> levels = new CopyOnWriteArrayList<>();
 
 		@Override
-		void send(Map<String, String> tags, Throwable error) {
+		void send(Map<String, String> tags, Throwable error, SentryLevel level) {
 			sent.add(tags);
+			levels.add(level);
 		}
 	}
 

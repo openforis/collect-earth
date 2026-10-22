@@ -19,6 +19,8 @@ import java.util.function.BooleanSupplier;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 
+import io.sentry.SentryLevel;
+
 public class ImageryBrowserTest {
 
 	private final FakeTabDriver browser = new FakeTabDriver();
@@ -211,6 +213,113 @@ public class ImageryBrowserTest {
 		browser.failNextEvaluates = 1;
 		browser.answers.put("ready", "true");
 		assertTrue(imagery.tab(ImagerySource.PLANET).waitUntil("return ready;", Duration.ofSeconds(5)));
+		// Every page load does that: not a fault
+		assertTrue(reporter.sent.isEmpty(), reporter.sent.toString());
+	}
+
+	@Test
+	public void aScriptThatThrowsInThePageIsReportedOnce() {
+		browser.failingScripts.add("overlay()");
+		ImageryTab tab = imagery.tab(ImagerySource.GOOGLE_EARTH_WEB);
+		assertThrows(PageScriptException.class, () -> tab.evaluate("return overlay();"));
+		assertThrows(PageScriptException.class, () -> tab.evaluate("return overlay();"));
+		assertEquals(1, reporter.sent.size(), reporter.sent.toString());
+		assertEquals("page_script", reporter.sent.get(0).get("imagery.error"));
+		assertEquals("GOOGLE_EARTH_WEB", reporter.sent.get(0).get("imagery.source"));
+	}
+
+	@Test
+	public void aFailedBidiCommandIsReported() {
+		assertThrows(BidiCommandException.class, () -> imagery.call(ImagerySource.ESRI_WAYBACK, (d, tab) -> {
+			throw new BidiCommandException("no answer", null);
+		}));
+		assertEquals(1, reporter.sent.size(), reporter.sent.toString());
+		assertEquals("bidi_command", reporter.sent.get(0).get("imagery.error"));
+		assertEquals("ESRI_WAYBACK", reporter.sent.get(0).get("imagery.source"));
+	}
+
+	@Test
+	public void aClosedTabIsNotReported() {
+		assertThrows(TabClosedException.class, () -> imagery.call(ImagerySource.PLANET, (d, tab) -> {
+			throw new TabClosedException("closed by the user", null);
+		}));
+		assertTrue(reporter.sent.isEmpty(), reporter.sent.toString());
+		assertFalse(imagery.openSources().contains(ImagerySource.PLANET));
+	}
+
+	@Test
+	public void aSlowStartOfTheBrowserIsNotAHang() throws Exception {
+		CountDownLatch started = new CountDownLatch(1);
+		CountDownLatch starting = new CountDownLatch(1);
+		imagery.setStarter(() -> {
+			starting.countDown();
+			started.await();
+			return browser;
+		});
+		imagery.setCommandTimeout(Duration.ofMillis(200));
+		Thread slowStart = new Thread(() -> {
+			try {
+				starting.await();
+				Thread.sleep(1000);
+			} catch (InterruptedException e) {
+				Thread.currentThread().interrupt();
+			}
+			started.countDown();
+		});
+		slowStart.start();
+		imagery.tab(ImagerySource.PLANET).navigate("https://planet/1");
+		slowStart.join();
+		assertEquals(Arrays.asList("navigate tab0 https://planet/1"), browser.calls);
+		assertTrue(reporter.sent.isEmpty(), reporter.sent.toString());
+	}
+
+	@Test
+	public void aStartOverItsLimitFailsTheCallersAndIsReportedOnce() throws Exception {
+		CountDownLatch started = new CountDownLatch(1);
+		CountDownLatch starting = new CountDownLatch(1);
+		imagery.setStarter(() -> {
+			starting.countDown();
+			started.await();
+			return browser;
+		});
+		imagery.setCommandTimeout(Duration.ofMillis(100));
+		imagery.setStartTimeout(Duration.ofMillis(500));
+		AtomicReference<RuntimeException> otherFailure = new AtomicReference<>();
+		Thread other = new Thread(() -> {
+			try {
+				starting.await();
+				imagery.tab(ImagerySource.ESRI_WAYBACK).navigate("https://wayback/1");
+			} catch (InterruptedException e) {
+				Thread.currentThread().interrupt();
+			} catch (RuntimeException e) {
+				otherFailure.set(e);
+			}
+		});
+		other.start();
+		IllegalStateException failure = assertThrows(IllegalStateException.class,
+				() -> imagery.tab(ImagerySource.PLANET).navigate("https://planet/1"));
+		other.join();
+		started.countDown();
+		assertTrue(failure.getMessage().contains("did not start"), failure.getMessage());
+		assertTrue(otherFailure.get().getMessage().contains("did not start"), String.valueOf(otherFailure.get()));
+		assertEquals(1, reporter.sent.size(), reporter.sent.toString());
+		assertEquals("browser_start_slow", reporter.sent.get(0).get("imagery.error"));
+		assertEquals(SentryLevel.WARNING, reporter.levels.get(0));
+		assertFalse(browser.calls.contains("quit"), browser.calls.toString());
+	}
+
+	@Test
+	public void theListenersHearOfChangesOfTheVisibleTabOnly() throws Exception {
+		imagery.openTabs(EnumSet.of(ImagerySource.GOOGLE_EARTH_WEB, ImagerySource.ESRI_WAYBACK));
+		List<String> heard = Collections.synchronizedList(new ArrayList<>());
+		imagery.onVisibilityChange((source, visible) -> heard.add(source + " " + visible));
+		browser.select("tab1");
+		browser.select("tab1"); // a page load in a tab reports the same again
+		browser.select("tab0");
+		waitFor(() -> heard.size() >= 4);
+		Thread.sleep(50); // nothing more is coming
+		assertEquals(Arrays.asList("GOOGLE_EARTH_WEB false", "ESRI_WAYBACK true", "GOOGLE_EARTH_WEB true",
+				"ESRI_WAYBACK false"), heard);
 	}
 
 	@Test

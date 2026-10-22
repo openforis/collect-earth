@@ -9,9 +9,11 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Set;
 import java.util.StringJoiner;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
@@ -22,6 +24,9 @@ import org.openforis.collect.earth.app.EarthConstants;
 import org.openforis.collect.earth.app.desktop.EarthApp;
 import org.openforis.collect.earth.app.desktop.ServerController;
 import org.openforis.collect.earth.app.service.LocalPropertiesService.EarthProperty;
+import org.openforis.collect.earth.app.service.imagery.BidiTabDriver;
+import org.openforis.collect.earth.app.service.imagery.ImageryErrorReporter;
+import org.openforis.collect.earth.app.service.imagery.TabDriver;
 import org.openforis.collect.earth.app.view.Messages;
 import org.openforis.collect.earth.sampler.model.SimpleCoordinate;
 import org.openforis.collect.earth.sampler.model.SimplePlacemarkObject;
@@ -30,11 +35,15 @@ import org.openqa.selenium.JavascriptExecutor;
 import org.openqa.selenium.NoSuchSessionException;
 import org.openqa.selenium.NoSuchWindowException;
 import org.openqa.selenium.WebElement;
+import org.openqa.selenium.chrome.ChromeDriver;
 import org.openqa.selenium.chrome.ChromeOptions;
+import org.openqa.selenium.edge.EdgeDriver;
 import org.openqa.selenium.edge.EdgeOptions;
+import org.openqa.selenium.firefox.FirefoxDriver;
 import org.openqa.selenium.firefox.FirefoxOptions;
 import org.openqa.selenium.firefox.FirefoxProfile;
 import org.openqa.selenium.remote.RemoteWebDriver;
+import org.openqa.selenium.remote.http.ClientConfig;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.DisposableBean;
@@ -96,6 +105,9 @@ public class BrowserService implements InitializingBean, DisposableBean, Applica
 	@Autowired
 	private EarthSurveyService earthSurveyService;
 
+	@Autowired
+	private ImageryErrorReporter imageryErrorReporter;
+
 	/** The interpreter is told once per run that the Planet API key is missing, not once per plot */
 	private boolean planetApiKeyWarningShown;
 
@@ -110,6 +122,14 @@ public class BrowserService implements InitializingBean, DisposableBean, Applica
 	private static final String FIREFOX_APP_WINDOW_CSS = "#TabsToolbar, #nav-bar, #PersonalToolbar { visibility: collapse !important; }"
 			// the minimum width Firefox keeps for its toolbars, which are gone
 			+ " :root { min-width: 0 !important; }";
+	/** The profile of Chrome and Edge in the imagery window; see {@link #imageryChromiumProfile()}. */
+	private static final String IMAGERY_PROFILE_FOLDER = "browser_profiles" + File.separator + "imagery";
+	/** What {@link #IMAGERY_PROFILE_FOLDER} was called when it was the profile of the Google Earth Web window. */
+	private static final String GOOGLE_EARTH_WEB_PROFILE_FOLDER = "browser_profiles" + File.separator + "google_earth_web";
+	private static final String IMAGERY_FIREFOX_PROFILE_FOLDER = "browser_profiles" + File.separator + "imagery_firefox";
+	/** Firefox with its tabs, without address bar or bookmarks: see {@link #imageryFirefoxProfile()}. */
+	private static final String IMAGERY_FIREFOX_CSS = "#nav-bar, #PersonalToolbar { visibility: collapse !important; }\n";
+	private static final String IMAGERY_FIREFOX_USER_JS = "user_pref(\"toolkit.legacyUserProfileCustomizations.stylesheets\", true);\n";
 	private final Configuration freemarkerConfig = createFreemarkerConfiguration();
 
 	// Volatile to ensure visibility across threads when modified within synchronized blocks
@@ -343,6 +363,156 @@ public class BrowserService implements InitializingBean, DisposableBean, Applica
 		} catch (final Exception e) {
 			logger.warn("Could not open a Firefox window without toolbars", e);
 			return null;
+		}
+	}
+
+	/**
+	 * Starts the one browser of the imagery window, a tab per source, driven over WebDriver BiDi. The browser chosen in
+	 * the options first, then Firefox, Edge and Chrome; a browser that does not start, or not with BiDi, is skipped for
+	 * the next one. Each keeps a profile of its own in the Collect Earth data folder, so the sign-ins to Google, Planet
+	 * and Earth Engine are kept across sessions; when a browser does not start with it (another Collect Earth has it
+	 * open), it is started with a temporary profile, where those are asked for again.
+	 * <p>
+	 * The drivers are Selenium's own, not WebDriverManager's {@code create()}, which cannot take the {@link ClientConfig}
+	 * that limits how long a BiDi command waits ({@link BidiTabDriver#clientConfig()}). WebDriverManager still finds
+	 * the driver executable, as for the other windows: Selenium Manager, which Selenium would use otherwise, downloads
+	 * a browser that is not installed, and Firefox would then be downloaded rather than Edge used.
+	 * <p>
+	 * The browser is quit with the others when Collect Earth closes.
+	 *
+	 * @throws BrowserNotFoundException when no browser starts with BiDi (reported to Sentry)
+	 */
+	public TabDriver startImageryBrowser() throws BrowserNotFoundException {
+		for (String browser : imageryBrowserOrder()) {
+			RemoteWebDriver driver = startImageryDriver(browser, true);
+			if (driver == null) {
+				driver = startImageryDriver(browser, false);
+			}
+			if (driver == null) {
+				continue;
+			}
+			drivers.add(driver); // before the check: either the closing thread quits it, or it is seen closing here
+			if (isClosing) {
+				drivers.remove(driver);
+				quietlyQuit(driver);
+				throw new IllegalStateException("Collect Earth is closing, the imagery browser is not needed");
+			}
+			try {
+				return new BidiTabDriver(driver); // which quits the driver if it fails
+			} catch (RuntimeException e) {
+				drivers.remove(driver);
+				imageryErrorReporter.report(null, "bidi_setup", e);
+			}
+		}
+		BrowserNotFoundException notFound = new BrowserNotFoundException(
+				"Neither Firefox, Edge nor Chrome could be started with WebDriver BiDi for the imagery window");
+		imageryErrorReporter.report(null, "no_bidi_browser", notFound);
+		throw notFound;
+	}
+
+	/** The browser chosen in the options, then Firefox, Edge and Chrome, each once. */
+	private List<String> imageryBrowserOrder() {
+		Set<String> order = new LinkedHashSet<>();
+		String chosen = StringUtils.trimToEmpty(localPropertiesService.getValue(EarthProperty.BROWSER_TO_USE))
+				.toLowerCase(Locale.ROOT);
+		if (chosen.equals(EarthConstants.FIREFOX_BROWSER) || chosen.equals(EarthConstants.EDGE_BROWSER)
+				|| chosen.equals(EarthConstants.CHROME_BROWSER)) {
+			order.add(chosen);
+		}
+		order.addAll(Arrays.asList(EarthConstants.FIREFOX_BROWSER, EarthConstants.EDGE_BROWSER, EarthConstants.CHROME_BROWSER));
+		return new ArrayList<>(order);
+	}
+
+	/** One browser for the imagery window, with BiDi, with its profile or a temporary one; null when it does not start. */
+	private RemoteWebDriver startImageryDriver(String browser, boolean withProfile) {
+		File profile = null;
+		try {
+			if (EarthConstants.FIREFOX_BROWSER.equals(browser)) {
+				FirefoxOptions options = new FirefoxOptions();
+				options.enableBiDi();
+				if (withProfile) {
+					profile = imageryFirefoxProfile();
+					// Used where it is, not copied to a temporary folder as a FirefoxProfile would be: the sign-ins stay
+					options.addArguments("-profile", profile.getAbsolutePath());
+				}
+				findDriver(WebDriverManager.firefoxdriver());
+				return new FirefoxDriver(options, BidiTabDriver.clientConfig());
+			}
+			List<String> arguments = new ArrayList<>(Arrays.asList("--no-first-run", "--no-default-browser-check"));
+			if (withProfile) {
+				profile = imageryChromiumProfile();
+				arguments.add("--user-data-dir=" + profile.getAbsolutePath());
+			}
+			// A normal window, not an --app one, which has no tabs
+			if (EarthConstants.EDGE_BROWSER.equals(browser)) {
+				EdgeOptions options = new EdgeOptions();
+				options.enableBiDi();
+				options.addArguments(arguments);
+				findDriver(WebDriverManager.edgedriver());
+				return new EdgeDriver(options, BidiTabDriver.clientConfig());
+			}
+			ChromeOptions options = new ChromeOptions();
+			options.enableBiDi();
+			options.addArguments(arguments);
+			findDriver(WebDriverManager.chromedriver());
+			return new ChromeDriver(options, BidiTabDriver.clientConfig());
+		} catch (final Exception e) {
+			// Not installed, or its profile is in use: not a fault, the next try follows
+			logger.warn("Could not start {} for the imagery window ({})", browser,
+					withProfile ? "profile " + profile : "temporary profile", e);
+			return null;
+		}
+	}
+
+	/**
+	 * Finds the driver executable and sets it in the system property Selenium reads, so that Selenium Manager is not
+	 * used: see {@link #startImageryBrowser()}. When it cannot be found (offline, first run), Selenium Manager tries.
+	 */
+	private void findDriver(WebDriverManager manager) {
+		try {
+			manager.setup();
+		} catch (RuntimeException e) {
+			logger.warn("WebDriverManager could not find the driver, Selenium Manager will try: {}", e.getMessage());
+		}
+	}
+
+	/**
+	 * The Firefox profile of the imagery window: the tab strip stays, it is how the sources are switched; the address
+	 * and bookmarks bars go. Firefox reads userChrome.css only when user.js allows it.
+	 */
+	private File imageryFirefoxProfile() throws IOException {
+		File folder = new File(FolderFinder.getCollectEarthDataFolder(), IMAGERY_FIREFOX_PROFILE_FOLDER);
+		File chrome = new File(folder, "chrome");
+		Files.createDirectories(chrome.toPath());
+		Files.write(new File(chrome, "userChrome.css").toPath(), IMAGERY_FIREFOX_CSS.getBytes(StandardCharsets.UTF_8));
+		Files.write(new File(folder, "user.js").toPath(), IMAGERY_FIREFOX_USER_JS.getBytes(StandardCharsets.UTF_8));
+		return folder;
+	}
+
+	/**
+	 * The Chrome and Edge profile of the imagery window. It used to be the one of the Google Earth Web window: that
+	 * folder is taken over the first time, so the Google sign-in in it is kept.
+	 */
+	private File imageryChromiumProfile() throws IOException {
+		File folder = new File(FolderFinder.getCollectEarthDataFolder(), IMAGERY_PROFILE_FOLDER);
+		File googleEarthWeb = new File(FolderFinder.getCollectEarthDataFolder(), GOOGLE_EARTH_WEB_PROFILE_FOLDER);
+		if (!folder.exists() && googleEarthWeb.isDirectory()) {
+			if (googleEarthWeb.renameTo(folder)) {
+				logger.info("The profile of the Google Earth Web window is now the one of the imagery window: {}", folder);
+			} else {
+				// A browser has it open: a new profile, where the sign-ins are asked for again
+				logger.warn("Could not rename {} to {}, a new profile is used", googleEarthWeb, folder);
+			}
+		}
+		Files.createDirectories(folder.toPath());
+		return folder;
+	}
+
+	private void quietlyQuit(RemoteWebDriver driver) {
+		try {
+			driver.quit();
+		} catch (final Exception e) {
+			logger.warn("A browser could not be quit, it had probably been closed already : {}", e.getMessage());
 		}
 	}
 
