@@ -87,6 +87,39 @@ public class ImageryBrowserTest {
 	}
 
 	@Test
+	public void aCheckOfAClosedBrowserDoesNotStartANewOne() {
+		imagery.tab(ImagerySource.GOOGLE_EARTH_WEB).navigate("https://gew/1");
+		browser.alive = false;
+		assertThrows(TabClosedException.class,
+				() -> imagery.tab(ImagerySource.GOOGLE_EARTH_WEB).evaluateIfOpen("return 1;"));
+		assertEquals(1, starts);
+		assertFalse(browser.calls.contains("evaluate tab0"), browser.calls.toString());
+	}
+
+	@Test
+	public void aCheckOfASourceWithoutATabNeitherStartsTheBrowserNorOpensTheTab() {
+		assertThrows(TabClosedException.class, () -> imagery.tab(ImagerySource.PLANET).evaluateIfOpen("return 1;"));
+		assertEquals(0, starts);
+		imagery.tab(ImagerySource.GOOGLE_EARTH_WEB).navigate("https://gew/1");
+		assertThrows(TabClosedException.class, () -> imagery.tab(ImagerySource.PLANET).evaluateIfOpen("return 1;"));
+		assertFalse(browser.calls.stream().anyMatch(call -> call.startsWith("create")), browser.calls.toString());
+	}
+
+	@Test
+	public void aCheckOfAnOpenTabRunsInIt() {
+		imagery.tab(ImagerySource.GOOGLE_EARTH_WEB).navigate("https://gew/1");
+		imagery.tab(ImagerySource.GOOGLE_EARTH_WEB).evaluateIfOpen("return 1;");
+		assertTrue(browser.calls.contains("evaluate tab0"), browser.calls.toString());
+	}
+
+	@Test
+	public void theSourcesOfAClosedBrowserAreNotListedAsOpen() {
+		imagery.openTabs(EnumSet.of(ImagerySource.GOOGLE_EARTH_WEB, ImagerySource.PLANET));
+		browser.alive = false;
+		assertEquals(Collections.emptyList(), imagery.openSources());
+	}
+
+	@Test
 	public void aClosedBrowserIsQuitBeforeANewOneStarts() {
 		imagery.tab(ImagerySource.PLANET).navigate("https://planet/1");
 		browser.alive = false; // the user closed the window: its driver service is still running

@@ -438,6 +438,8 @@ public class WindowLayoutService {
 	}
 
 	private void bringForwardLocked(RemoteWebDriver window) {
+		// Side effect: minimized, the page is hidden for a moment and then visible again, so its visibility listeners
+		// fire (Google Earth Web redraws its plot once). The imagery browser takes it as the tab shown again.
 		try {
 			WebDriver.Window w = window.manage().window();
 			Point position = w.getPosition();

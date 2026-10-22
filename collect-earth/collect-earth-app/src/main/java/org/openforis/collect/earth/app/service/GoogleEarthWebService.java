@@ -244,10 +244,15 @@ public class GoogleEarthWebService {
 	 * one is kept, and applied when it is shown.
 	 */
 	public void moveCamera(double latitude, double longitude, double heightMeters) {
-		if (!localPropertiesService.isGoogleEarthWebViewer() || Boolean.FALSE.equals(inPageNavigation)) {
+		if (!canMoveCamera()) {
 			return;
 		}
 		moveCamera(latitude, longitude, heightMeters, showCount.get());
+	}
+
+	/** Whether the camera can follow the plots map at all: in Google Earth Web, and only by in-page navigation. */
+	private boolean canMoveCamera() {
+		return localPropertiesService.isGoogleEarthWebViewer() && !Boolean.FALSE.equals(inPageNavigation);
 	}
 
 	/**
@@ -524,7 +529,8 @@ public class GoogleEarthWebService {
 			}
 			hiddenTicks = 0;
 			try {
-				List<?> page = (List<?>) tab().evaluate(PAGE_STATE_SCRIPT);
+				// Never starts a browser: a window closed since the check above is seen as closed
+				List<?> page = (List<?>) tab().evaluateIfOpen(PAGE_STATE_SCRIPT);
 				String href = String.valueOf(page.get(0));
 				boolean armed = Boolean.TRUE.equals(page.get(3));
 				SimplePlacemarkObject plot = current;
@@ -572,7 +578,8 @@ public class GoogleEarthWebService {
 		}
 		hiddenTicks = 0;
 		try {
-			tab().evaluate(LIVENESS_SCRIPT);
+			// Asking with a command that opens the tab would start a new window to find out that the last one closed
+			tab().evaluateIfOpen(LIVENESS_SCRIPT);
 		} catch (TabClosedException e) {
 			logger.warn("Google Earth Web: {}", e.getMessage());
 			closed();
@@ -606,8 +613,7 @@ public class GoogleEarthWebService {
 				}
 			}
 			double[] camera = cameraWhileHidden.getAndSet(null);
-			if (camera != null && localPropertiesService.isGoogleEarthWebViewer()
-					&& !Boolean.FALSE.equals(inPageNavigation)) {
+			if (camera != null && canMoveCamera()) {
 				moveCamera(camera[0], camera[1], camera[2], shownAt);
 			}
 		} catch (TabClosedException e) {

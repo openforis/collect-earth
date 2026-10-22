@@ -74,6 +74,8 @@ public class ImageryBrowser {
 		final long sequence;
 		final ImagerySource source;
 		final TabCommand<T> command;
+		/** Whether it runs only on a tab that is open already, failing rather than starting a browser or opening one. */
+		final boolean ifOpen;
 		/** Its own, taken when it was sent: how long it may run before its browser is taken as hung. */
 		final long timeoutNanos;
 		final long sentNanos = System.nanoTime();
@@ -83,10 +85,11 @@ public class ImageryBrowser {
 		/** Whether its hang was reported and its browser quit, which only one of the callers that see it does. */
 		final AtomicBoolean hangHandled = new AtomicBoolean();
 
-		Command(long sequence, ImagerySource source, TabCommand<T> command, long timeoutNanos) {
+		Command(long sequence, ImagerySource source, TabCommand<T> command, boolean ifOpen, long timeoutNanos) {
 			this.sequence = sequence;
 			this.source = source;
 			this.command = command;
+			this.ifOpen = ifOpen;
 			this.timeoutNanos = timeoutNanos;
 		}
 	}
@@ -255,8 +258,16 @@ public class ImageryBrowser {
 		}
 	}
 
-	/** The sources that have a tab, in the order their tabs were opened (the tab strip). */
+	/**
+	 * The sources that have a tab in a browser that is running, in the order their tabs were opened (the tab strip).
+	 * Empty once the user closed the window: closing it sends no tab events, so the tabs of that browser are only
+	 * forgotten when the next one starts.
+	 */
 	public List<ImagerySource> openSources() {
+		TabDriver d = driver;
+		if (d == null || !d.isAlive()) {
+			return new ArrayList<>();
+		}
 		synchronized (tabsLock) {
 			return new ArrayList<>(openingOrder);
 		}
@@ -402,6 +413,25 @@ public class ImageryBrowser {
 	/** The tab of the source, starting the browser and opening the tab when needed. Called on the worker only. */
 	String tabOf(ImagerySource source) throws Exception {
 		return open(source, null).tab;
+	}
+
+	/**
+	 * The tab of the source as it is, for a command sent with {@link #callIfOpen}: {@link TabClosedException} when the
+	 * browser is not running or the source has no tab, instead of starting the one or opening the other.
+	 */
+	private OpenTab existing(ImagerySource source, Command<?> command) {
+		TabDriver d = driver;
+		command.runningOn = d;
+		if (d == null || !d.isAlive()) {
+			throw new TabClosedException("The imagery window was closed, for " + source, null);
+		}
+		synchronized (tabsLock) {
+			String tab = tabOfSource.get(source);
+			if (tab == null) {
+				throw new TabClosedException("The tab of " + source + " was closed", null);
+			}
+			return new OpenTab(d, tab);
+		}
 	}
 
 	/** {@code command}, if any, learns the browser it runs on as soon as it is known, as opening a tab can hang too. */
@@ -590,10 +620,27 @@ public class ImageryBrowser {
 	 * reported, but is not taken as a hang: there is no browser to quit yet.
 	 */
 	<T> T call(ImagerySource source, TabCommand<T> command) {
+		return call(source, command, false);
+	}
+
+	/**
+	 * Like {@link #call}, but only on a tab that is open already: with no browser running, or no tab of the source, it
+	 * throws {@link TabClosedException} instead of starting a browser or opening a tab. For the checks that look
+	 * whether a tab is still there, which would otherwise bring up a new window with a blank tab when it is not.
+	 */
+	<T> T callIfOpen(ImagerySource source, TabCommand<T> command) {
+		if (!isOpen(source)) {
+			// Known without the worker, so a check of a closed window does not wait behind the commands of the others
+			throw new TabClosedException("The tab of " + source + " is not open", null);
+		}
+		return call(source, command, true);
+	}
+
+	private <T> T call(ImagerySource source, TabCommand<T> command, boolean ifOpen) {
 		if (Thread.currentThread() == worker) {
 			throw new IllegalStateException("A command of the imagery browser sent from its own worker would wait forever");
 		}
-		Command<T> queuedCommand = enqueue(source, command, TimeUnit.MILLISECONDS.toNanos(commandTimeoutMillis));
+		Command<T> queuedCommand = enqueue(source, command, ifOpen, TimeUnit.MILLISECONDS.toNanos(commandTimeoutMillis));
 		try {
 			try {
 				try {
@@ -701,13 +748,13 @@ public class ImageryBrowser {
 		return hung;
 	}
 
-	private <T> Command<T> enqueue(ImagerySource source, TabCommand<T> command, long timeoutNanos) {
+	private <T> Command<T> enqueue(ImagerySource source, TabCommand<T> command, boolean ifOpen, long timeoutNanos) {
 		queueLock.lock();
 		try {
 			if (stopped) {
 				throw new IllegalStateException("The imagery browser was shut down");
 			}
-			Command<T> queuedCommand = new Command<>(nextSequence++, source, command, timeoutNanos);
+			Command<T> queuedCommand = new Command<>(nextSequence++, source, command, ifOpen, timeoutNanos);
 			queues.get(source).add(queuedCommand);
 			queued.signal();
 			return queuedCommand;
@@ -795,7 +842,9 @@ public class ImageryBrowser {
 		running = queuedCommand;
 		OpenTab open = null;
 		try {
-			open = open(queuedCommand.source, queuedCommand);
+			// Checked again here: the browser may have closed while the command waited
+			open = queuedCommand.ifOpen ? existing(queuedCommand.source, queuedCommand)
+					: open(queuedCommand.source, queuedCommand);
 			if (queuedCommand.result.isDone()) {
 				return; // its caller gave up while the tab opened
 			}

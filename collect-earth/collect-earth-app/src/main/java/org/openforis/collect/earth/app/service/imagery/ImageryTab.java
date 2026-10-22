@@ -68,6 +68,16 @@ public final class ImageryTab {
 		return JSON.toType(json, Object.class);
 	}
 
+	/**
+	 * Like {@link #evaluate}, but only in a tab that is open already: throws {@link TabClosedException} when the browser
+	 * is not running or the source has no tab, instead of starting a browser or opening the tab. For checks that a tab
+	 * is still there, which must not bring up a new window to find out.
+	 */
+	public Object evaluateIfOpen(String body, Object... args) {
+		String json = browser.callIfOpen(source, (d, tab) -> d.evaluate(tab, expression(body, args)));
+		return JSON.toType(json, Object.class);
+	}
+
 	/** The expression that runs {@code body} with {@code args} and gives its result as JSON text. */
 	static String expression(String body, Object... args) {
 		return "(() => { const r = (function () {" + body + "\n}).apply(null, " + compactJson(Arrays.asList(args))
