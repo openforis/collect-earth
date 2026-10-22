@@ -111,6 +111,7 @@ public class LocalPropertiesService extends Observable {
 				VIEWER_TYPE("viewer_type"),
 				GEW_TRIAL_PROMPT_DISABLED("gew_trial_prompt_disabled"),
 				MAP_ENGINE("map_engine"),
+				WINDOW_LAYOUT("window_layout"),
 				WEB_FORM("web_form"),
 				DEFERRED_SAVE_DISABLED("deferred_save_disabled"),
 				CLOUD_SYNC_ENABLED("cloud_sync_enabled"),
@@ -570,6 +571,22 @@ public class LocalPropertiesService extends Observable {
 	/** Whether a Google Earth Web window follows the plot selected in the plots map. */
 	public boolean isGoogleEarthWebViewer() {
 		return VIEWER_TYPE_GOOGLE_EARTH_WEB.equals(getViewerType());
+	}
+
+	/** Google Earth Web on another screen when there is a large enough one, else side by side with the form. */
+	public static final String WINDOW_LAYOUT_AUTO = "auto";
+	/** The form and Google Earth Web side by side on one screen, even when there are several. */
+	public static final String WINDOW_LAYOUT_SIDE_BY_SIDE = "side_by_side";
+	/** The plots map on one screen and Google Earth Web on another, however small the other screen is. */
+	public static final String WINDOW_LAYOUT_SEPARATE_SCREENS = "separate_screens";
+	/** As separate screens, with Google Earth Web full screen (no title bar); side by side on a single screen. */
+	public static final String WINDOW_LAYOUT_IMAGERY_FULL_SCREEN = "imagery_full_screen";
+
+	/** How the plots map and Google Earth Web windows are laid out on the screens. */
+	public String getWindowLayout() {
+		String layout = getValue(EarthProperty.WINDOW_LAYOUT);
+		return WINDOW_LAYOUT_SIDE_BY_SIDE.equals(layout) || WINDOW_LAYOUT_SEPARATE_SCREENS.equals(layout)
+				|| WINDOW_LAYOUT_IMAGERY_FULL_SCREEN.equals(layout) ? layout : WINDOW_LAYOUT_AUTO;
 	}
 
 	public static final String MAP_ENGINE_LEAFLET = "leaflet";

@@ -46,6 +46,7 @@ import org.openforis.collect.earth.app.service.KmlGeneratorService;
 import org.openforis.collect.earth.app.service.LocalPropertiesService;
 import org.openforis.collect.earth.app.service.LocalPropertiesService.EarthProperty;
 import org.openforis.collect.earth.app.service.UpdateIniUtils;
+import org.openforis.collect.earth.app.service.WindowLayoutService;
 import org.openforis.collect.earth.app.view.AnnouncementManager;
 import org.openforis.collect.earth.app.view.CheckForUpdatesListener;
 import org.openforis.collect.earth.app.view.CollectEarthWindow;
@@ -954,6 +955,8 @@ public class EarthApp {
 					}
 					BrowserService browserService = serverController.getContext().getBean(BrowserService.class);
 					browserService.openLeafletMap();
+					// Into its place next to Google Earth Web, also after the options changed the layout
+					serverController.getContext().getBean(WindowLayoutService.class).arrange();
 				} catch (final Exception e) {
 					logger.error("Error opening the Leaflet plots map", e); //$NON-NLS-1$
 				}

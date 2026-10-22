@@ -6,6 +6,8 @@ import java.io.IOException;
 import java.io.StringWriter;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Locale;
@@ -30,6 +32,8 @@ import org.openqa.selenium.NoSuchWindowException;
 import org.openqa.selenium.WebElement;
 import org.openqa.selenium.chrome.ChromeOptions;
 import org.openqa.selenium.edge.EdgeOptions;
+import org.openqa.selenium.firefox.FirefoxOptions;
+import org.openqa.selenium.firefox.FirefoxProfile;
 import org.openqa.selenium.remote.RemoteWebDriver;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -97,6 +101,15 @@ public class BrowserService implements InitializingBean, DisposableBean, Applica
 
 	private final CopyOnWriteArrayList<RemoteWebDriver> drivers = new CopyOnWriteArrayList<>();
 	private final Logger logger = LoggerFactory.getLogger(BrowserService.class);
+
+	/** The page an app window opens on, before it is sent where it belongs (a load there would be wasted). */
+	private static final String BLANK_PAGE = "about:blank";
+	private static final String APP_WINDOW_ARGUMENT = "--app=data:text/html,";
+	private static final String FIREFOX_APP_PROFILE_FOLDER = "browser_profiles" + File.separator + "firefox_app_window";
+	/** Firefox without tabs, address bar or bookmarks: see {@link #initAppWindow(File)}. */
+	private static final String FIREFOX_APP_WINDOW_CSS = "#TabsToolbar, #nav-bar, #PersonalToolbar { visibility: collapse !important; }"
+			// the minimum width Firefox keeps for its toolbars, which are gone
+			+ " :root { min-width: 0 !important; }";
 	private final Configuration freemarkerConfig = createFreemarkerConfiguration();
 
 	// Volatile to ensure visibility across threads when modified within synchronized blocks
@@ -243,43 +256,94 @@ public class BrowserService implements InitializingBean, DisposableBean, Applica
 	}
 
 	/**
-	 * Starts Chrome (or else Edge) keeping its profile in {@code profileDir}, so that cookie
-	 * consent, Google sign-in and site settings survive restarts instead of being asked for
-	 * again in a fresh temporary profile each time. Returns null when Firefox is the chosen
-	 * browser or the profile cannot be used (e.g. another Collect Earth has it open); the
-	 * caller then falls back to a normal window.
+	 * Opens a browser window without tabs, address bar or bookmarks bar (the plots map and Google Earth Web: every pixel
+	 * of their height goes to the imagery and the form), on a blank page. Chrome and Edge open it as an app window; with
+	 * {@code chromeProfileDir} they keep their profile there, so that cookie consent, Google sign-in and site settings
+	 * survive restarts instead of being asked for again in a fresh temporary profile each time. Firefox, which has no app
+	 * windows, hides its toolbars with a userChrome.css and keeps the title bar of the system, so the window can still be
+	 * moved and closed. The browser chosen in the options is tried first, then the others; a normal window when none of
+	 * them can open an app window (e.g. another Collect Earth has the profile open).
 	 */
-	RemoteWebDriver initBrowserWithProfile(File profileDir) {
-		if (localPropertiesService.getValue(EarthProperty.BROWSER_TO_USE).trim().equalsIgnoreCase(EarthConstants.FIREFOX_BROWSER)) {
-			return null;
-		}
-		List<String> arguments = Arrays.asList("--user-data-dir=" + profileDir.getAbsolutePath(), "--no-first-run",
-				"--no-default-browser-check");
+	RemoteWebDriver initAppWindow(File chromeProfileDir) throws BrowserNotFoundException {
+		String chosen = localPropertiesService.getValue(EarthProperty.BROWSER_TO_USE).trim();
 		RemoteWebDriver driver = null;
-		try {
-			ChromeOptions options = new ChromeOptions();
-			options.addArguments(arguments);
-			driver = (RemoteWebDriver) WebDriverManager.chromedriver().capabilities(options).create();
-		} catch (final Exception e) {
-			logger.warn("Could not start Chrome with the profile in {}", profileDir, e);
+		if (chosen.equalsIgnoreCase(EarthConstants.FIREFOX_BROWSER)) {
+			driver = tryStartFirefoxAppWindow();
+		} else if (chosen.equalsIgnoreCase(EarthConstants.EDGE_BROWSER)) {
+			driver = tryStartEdgeAppWindow(chromeProfileDir);
 		}
 		if (driver == null) {
-			try {
-				EdgeOptions options = new EdgeOptions();
-				options.addArguments(arguments);
-				driver = (RemoteWebDriver) WebDriverManager.edgedriver().capabilities(options).create();
-			} catch (final Exception e) {
-				logger.warn("Could not start Edge with the profile in {}", profileDir, e);
-			}
+			driver = tryStartChromeAppWindow(chromeProfileDir);
 		}
-		if (driver != null) {
-			if (isClosing) {
-				driver.quit();
-				return null;
-			}
-			drivers.add(driver);
+		if (driver == null) {
+			driver = tryStartEdgeAppWindow(chromeProfileDir);
 		}
+		if (driver == null) {
+			driver = tryStartFirefoxAppWindow();
+		}
+		if (driver == null) {
+			return initBrowser();
+		}
+		if (isClosing) {
+			driver.quit();
+			return null;
+		}
+		drivers.add(driver);
 		return driver;
+	}
+
+	private static List<String> appWindowArguments(File profileDir) {
+		List<String> arguments = new ArrayList<>(Arrays.asList(APP_WINDOW_ARGUMENT, "--no-first-run", "--no-default-browser-check"));
+		if (profileDir != null) {
+			arguments.add("--user-data-dir=" + profileDir.getAbsolutePath());
+		}
+		return arguments;
+	}
+
+	private RemoteWebDriver tryStartChromeAppWindow(File profileDir) {
+		try {
+			ChromeOptions options = new ChromeOptions();
+			options.addArguments(appWindowArguments(profileDir));
+			return (RemoteWebDriver) WebDriverManager.chromedriver().capabilities(options).create();
+		} catch (final Exception e) {
+			logger.warn("Could not open a Chrome app window (profile {})", profileDir, e);
+			return null;
+		}
+	}
+
+	private RemoteWebDriver tryStartEdgeAppWindow(File profileDir) {
+		try {
+			EdgeOptions options = new EdgeOptions();
+			options.addArguments(appWindowArguments(profileDir));
+			return (RemoteWebDriver) WebDriverManager.edgedriver().capabilities(options).create();
+		} catch (final Exception e) {
+			logger.warn("Could not open an Edge app window (profile {})", profileDir, e);
+			return null;
+		}
+	}
+
+	private RemoteWebDriver tryStartFirefoxAppWindow() {
+		try {
+			// The profile is copied from this folder for every window: only its chrome/userChrome.css matters
+			File template = new File(FolderFinder.getCollectEarthDataFolder(), FIREFOX_APP_PROFILE_FOLDER);
+			File css = new File(template, "chrome" + File.separator + "userChrome.css");
+			if (!css.getParentFile().isDirectory() && !css.getParentFile().mkdirs()) {
+				logger.warn("Could not create {}", css.getParentFile());
+			}
+			Files.write(css.toPath(), FIREFOX_APP_WINDOW_CSS.getBytes(StandardCharsets.UTF_8));
+			FirefoxProfile profile = new FirefoxProfile(template);
+			profile.setPreference("toolkit.legacyUserProfileCustomizations.stylesheets", true);
+			// The system title bar, since the tab strip that holds the window buttons is hidden
+			profile.setPreference("browser.tabs.inTitlebar", 0);
+			FirefoxOptions options = new FirefoxOptions();
+			options.setProfile(profile);
+			RemoteWebDriver driver = (RemoteWebDriver) WebDriverManager.firefoxdriver().capabilities(options).create();
+			driver.navigate().to(BLANK_PAGE);
+			return driver;
+		} catch (final Exception e) {
+			logger.warn("Could not open a Firefox window without toolbars", e);
+			return null;
+		}
 	}
 
 	private RemoteWebDriver initBrowser() throws BrowserNotFoundException {
@@ -983,7 +1047,7 @@ public class BrowserService implements InitializingBean, DisposableBean, Applica
 	 * in a Selenium-driven browser window.
 	 */
 	/** The plots map window, or null if it is not open (used to lay out the windows). */
-	RemoteWebDriver getLeafletMapDriver() {
+	public RemoteWebDriver getLeafletMapDriver() {
 		return webDriverLeafletMap;
 	}
 
@@ -993,6 +1057,9 @@ public class BrowserService implements InitializingBean, DisposableBean, Applica
 			try {
 				String url = ServerController.getHostAddress(localPropertiesService.getHost(),
 						localPropertiesService.getLocalPort()) + "map";
+				if (webDriverLeafletMap == null || !isDriverWorking(webDriverLeafletMap)) {
+					webDriverLeafletMap = initAppWindow(null);
+				}
 				webDriverLeafletMap = navigateTo(url, webDriverLeafletMap);
 			} catch (final Exception e) {
 				logger.error("Problems loading the Leaflet plots map", e);

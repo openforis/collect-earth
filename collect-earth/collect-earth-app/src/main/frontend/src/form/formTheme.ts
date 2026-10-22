@@ -78,7 +78,8 @@ export const formTheme = createTheme({
     MuiTab: {
       styleOverrides: {
         root: ({ theme }) => ({
-          minHeight: 30, minWidth: 0, padding: "5px 12px", borderRadius: 5, fontSize: 13, fontWeight: 500, lineHeight: 1.4,
+          // in rem and spacing, so that they get smaller with the rest in small windows (uiScale.ts)
+          minHeight: 0, minWidth: 0, padding: theme.spacing(0.625, 1.5), borderRadius: 5, fontSize: "0.8125rem", fontWeight: 500, lineHeight: 1.4,
           backgroundColor: theme.vars!.palette.balloon.tab, color: theme.vars!.palette.balloon.tabText, opacity: 1,
           "&.Mui-selected": { backgroundColor: theme.vars!.palette.primary.main, color: theme.vars!.palette.primary.contrastText },
           "&:hover:not(.Mui-selected)": { filter: "brightness(0.95)" },

@@ -19,7 +19,8 @@ import type { MapController, UiState } from "../controller";
 import { GewChip } from "./GewChip";
 import { isMessageKey, useT, type Translate } from "../i18n";
 
-export function MapArea({ controller, state }: { controller: MapController; state: UiState }) {
+/** {@code hidden}: kept mounted, so the map engine survives the one-pane layout of App. */
+export function MapArea({ controller, state, hidden }: { controller: MapController; state: UiState; hidden?: boolean }) {
   const t = useT();
   const mapRef = useRef<HTMLDivElement>(null);
   const [layersAnchor, setLayersAnchor] = useState<HTMLElement | null>(null);
@@ -41,7 +42,7 @@ export function MapArea({ controller, state }: { controller: MapController; stat
   }, [controller]);
 
   return (
-    <Box component="main" sx={{ position: "relative", flex: 1, minWidth: 0 }}>
+    <Box component="main" sx={{ position: "relative", flex: 1, minWidth: 0, display: hidden ? "none" : undefined }}>
       <Box ref={mapRef} data-testid="map" sx={{ position: "absolute", inset: 0, bgcolor: "#1b2026" }} />
 
       {!state.loaded && !state.banner && (

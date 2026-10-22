@@ -23,13 +23,27 @@ import { countStatuses, visibleIds } from "../plots";
 import { useT } from "../i18n";
 import type { ListFilter, PlotStatus } from "../types";
 import { Kbd, StatusDot } from "./common";
+import { useUiScale } from "../uiScale";
 
-const WIDTH = 300;
+export const SIDEBAR_WIDTH = 300;
+export const RAIL_WIDTH = 56;
 const ROW_HEIGHT = 40;
 
-export function PlotSidebar({ controller, state }: { controller: MapController; state: UiState }) {
+/**
+ * The plot list, or a rail with a button to show it. {@code collapsed} / {@code onCollapsedChange} override the
+ * remembered choice (with {@code collapsed} alone the list cannot be hidden) and {@code fill} makes the list take the
+ * whole window (the one-pane layout of App).
+ */
+export function PlotSidebar({ controller, state, collapsed, onCollapsedChange, fill }: {
+  controller: MapController; state: UiState;
+  collapsed?: boolean; onCollapsedChange?: (collapsed: boolean) => void; fill?: boolean;
+}) {
   const t = useT();
-  const { order, statuses, filter, query, activeId, sidebarCollapsed, loaded } = state;
+  const scale = useUiScale();
+  const { order, statuses, filter, query, activeId, loaded } = state;
+  const sidebarCollapsed = collapsed ?? state.sidebarCollapsed;
+  const setCollapsed = onCollapsedChange ?? controller.setSidebarCollapsed;
+  const canCollapse = collapsed === undefined || onCollapsedChange !== undefined;
   const counts = useMemo(() => countStatuses(order, statuses), [order, statuses]);
   const visible = useMemo(() => visibleIds(order, statuses, filter, query), [order, statuses, filter, query]);
 
@@ -42,9 +56,9 @@ export function PlotSidebar({ controller, state }: { controller: MapController; 
 
   if (sidebarCollapsed) {
     return (
-      <Paper square elevation={0} sx={{ width: 56, flexShrink: 0, borderRight: 1, borderColor: "divider", pt: 1, textAlign: "center", zIndex: 1100 }}>
+      <Paper square elevation={0} sx={{ width: RAIL_WIDTH * scale, flexShrink: 0, borderRight: 1, borderColor: "divider", pt: 1, textAlign: "center", zIndex: 1100 }}>
         <Tooltip title={t("showList")} placement="right">
-          <IconButton onClick={() => controller.setSidebarCollapsed(false)} aria-label={t("showList")}><MenuIcon /></IconButton>
+          <IconButton onClick={() => setCollapsed(false)} aria-label={t("showList")} data-testid="show-list"><MenuIcon /></IconButton>
         </Tooltip>
       </Paper>
     );
@@ -53,13 +67,15 @@ export function PlotSidebar({ controller, state }: { controller: MapController; 
   const pct = counts.total ? Math.round((counts.saved * 100) / counts.total) : 0;
   return (
     <Paper square elevation={0} component="aside" aria-label={t("plots")} sx={{
-      width: WIDTH, flexShrink: 0, display: "flex", flexDirection: "column",
+      width: fill ? "auto" : SIDEBAR_WIDTH * scale, flex: fill ? 1 : undefined, flexShrink: 0, display: "flex", flexDirection: "column",
       borderRight: 1, borderColor: "divider", zIndex: 1100,
     }}>
       <Stack direction="row" spacing={1} sx={{ alignItems: "center", px: 1, pt: 1.5, pb: 1 }}>
-        <Tooltip title={t("hideList")}>
-          <IconButton onClick={() => controller.setSidebarCollapsed(true)} aria-label={t("hideList")}><MenuOpenIcon /></IconButton>
-        </Tooltip>
+        {canCollapse && (
+          <Tooltip title={t("hideList")}>
+            <IconButton onClick={() => setCollapsed(true)} aria-label={t("hideList")} data-testid="hide-list"><MenuOpenIcon /></IconButton>
+          </Tooltip>
+        )}
         <Box sx={{ minWidth: 0 }}>
           <Typography variant="h6" component="h1" sx={{ lineHeight: 1.2 }}>{t("plots")}</Typography>
           <Typography variant="caption" color="text.secondary" data-testid="progress-text">
@@ -134,10 +150,11 @@ function PlotList({ ids, statuses, activeId, onSelect }: {
   ids: string[]; statuses: Record<string, PlotStatus>; activeId: string | null; onSelect: (id: string) => void;
 }) {
   const t = useT();
+  const rowHeight = Math.round(ROW_HEIGHT * useUiScale());
   const scrollRef = useRef<HTMLDivElement>(null);
   const [cursor, setCursor] = useState<number | null>(null);
   const virtualizer = useVirtualizer({
-    count: ids.length, getScrollElement: () => scrollRef.current, estimateSize: () => ROW_HEIGHT, overscan: 10,
+    count: ids.length, getScrollElement: () => scrollRef.current, estimateSize: () => rowHeight, overscan: 10,
   });
 
   // Keep the active plot in view when it changes (e.g. "next unfinished")
@@ -172,7 +189,7 @@ function PlotList({ ids, statuses, activeId, onSelect }: {
             <ListItemButton key={id} role="option" aria-selected={active} selected={active}
               data-id={id} data-status={status} data-active={active || undefined} onClick={() => onSelect(id)}
               sx={{
-                position: "absolute", top: 0, left: 0, right: 0, height: ROW_HEIGHT,
+                position: "absolute", top: 0, left: 0, right: 0, height: rowHeight,
                 transform: `translateY(${row.start}px)`, gap: 1.5, pl: 2,
                 borderLeft: 3, borderColor: active ? "info.main" : "transparent",
                 outline: row.index === cursor ? "1px solid" : "none", outlineColor: "primary.main", outlineOffset: -1,

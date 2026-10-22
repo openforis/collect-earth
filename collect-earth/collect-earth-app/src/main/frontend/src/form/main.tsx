@@ -4,11 +4,13 @@ import "@fontsource/roboto/700.css";
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import CssBaseline from "@mui/material/CssBaseline";
+import GlobalStyles from "@mui/material/GlobalStyles";
 import { ThemeProvider } from "@mui/material/styles";
 import { I18nContext, translator } from "../i18n";
 import { formTheme } from "./formTheme";
 import { FormApp } from "./FormApp";
 import { FormStore } from "./store";
+import { uiScaleStyles } from "../uiScale";
 
 // /earth/form?id=<placemark id>&lang=<UI language>: the plots map opens it next to the map
 const params = new URLSearchParams(window.location.search);
@@ -20,6 +22,7 @@ createRoot(document.getElementById("root")!).render(
   <StrictMode>
     <ThemeProvider theme={formTheme}>
       <CssBaseline />
+      <GlobalStyles styles={uiScaleStyles} />
       <I18nContext.Provider value={translator(language)}>
         <FormApp store={store} />
       </I18nContext.Provider>

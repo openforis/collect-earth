@@ -74,6 +74,11 @@ export function gewArrangeWindows(): void {
   fetch(HOST + "googleEarthWeb/arrange").catch(() => {});
 }
 
+/** This window was resized or moved: side by side, Google Earth Web takes the room left beside it. */
+export function gewFollowFormWindow(): void {
+  fetch(HOST + "googleEarthWeb/followForm").catch(() => {});
+}
+
 /** Neighbouring plots (with statuses) that Google Earth Web draws around the plot. */
 export interface GewContextPlot { id: string; status: PlotStatus; rings: [number, number][][] }
 

@@ -1,11 +1,5 @@
 package org.openforis.collect.earth.app.service;
 
-import java.awt.GraphicsConfiguration;
-import java.awt.GraphicsDevice;
-import java.awt.GraphicsEnvironment;
-import java.awt.Insets;
-import java.awt.Rectangle;
-import java.awt.Toolkit;
 import java.io.File;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -20,8 +14,6 @@ import javax.annotation.PreDestroy;
 
 import org.openforis.collect.earth.app.view.Messages;
 import org.openforis.collect.earth.sampler.model.SimplePlacemarkObject;
-import org.openqa.selenium.Dimension;
-import org.openqa.selenium.Point;
 import org.openqa.selenium.remote.RemoteWebDriver;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -75,7 +67,6 @@ public class GoogleEarthWebService {
 	/** Camera URL, window size and whether the overlay is armed, in one round trip. */
 	private static final String PAGE_STATE_SCRIPT = "return [location.href, window.innerWidth, window.innerHeight, !!window."
 			+ OVERLAY_TAG + "];";
-	private static final int MIN_MAP_WINDOW_WIDTH = 760;
 
 	/**
 	 * Pushes the plot URL onto the history and fires popstate, which Google Earth Web's
@@ -106,6 +97,9 @@ public class GoogleEarthWebService {
 	@Autowired
 	private LocalPropertiesService localPropertiesService;
 
+	@Autowired
+	private WindowLayoutService windowLayoutService;
+
 	private final Object lock = new Object();
 	private final AtomicReference<SimplePlacemarkObject> pending = new AtomicReference<>();
 	private volatile RemoteWebDriver driver;
@@ -113,7 +107,6 @@ public class GoogleEarthWebService {
 	private volatile SimplePlacemarkObject current;
 	/** Whether Google Earth Web follows in-page navigation; null until tried once. */
 	private volatile Boolean inPageNavigation;
-	private volatile boolean windowsArranged;
 
 	private volatile State state = State.CLOSED;
 	private volatile String statePlotId;
@@ -224,43 +217,9 @@ public class GoogleEarthWebService {
 		}
 	}
 
-	/** Places the plots map and Google Earth Web windows side by side (or on two screens). */
-	public boolean arrangeWindows() {
-		RemoteWebDriver gew = driver;
-		if (gew == null) {
-			return false;
-		}
-		try {
-			GraphicsEnvironment env = GraphicsEnvironment.getLocalGraphicsEnvironment();
-			if (GraphicsEnvironment.isHeadless()) {
-				return false;
-			}
-			GraphicsDevice primary = env.getDefaultScreenDevice();
-			Rectangle main = usableBounds(primary.getDefaultConfiguration());
-			RemoteWebDriver map = browserService.getLeafletMapDriver();
-			GraphicsDevice other = null;
-			for (GraphicsDevice screen : env.getScreenDevices()) {
-				if (!screen.equals(primary)) {
-					other = screen;
-					break;
-				}
-			}
-			if (other != null) {
-				// Two screens: plots map on the main one, Google Earth Web on the other
-				place(map, main);
-				place(gew, usableBounds(other.getDefaultConfiguration()));
-			} else {
-				// One screen: plots map (list + form) on the left, imagery gets the rest. The map
-				// window needs ~760 px for the plot list, the form and some map; never over 60%.
-				int mapWidth = (int) Math.min(Math.max(main.width * 0.45, MIN_MAP_WINDOW_WIDTH), main.width * 0.6);
-				place(map, new Rectangle(main.x, main.y, mapWidth, main.height));
-				place(gew, new Rectangle(main.x + mapWidth, main.y, main.width - mapWidth, main.height));
-			}
-			return true;
-		} catch (Exception e) {
-			logger.warn("Could not arrange the plots map and Google Earth Web windows", e);
-			return false;
-		}
+	/** The Google Earth Web window, or null if it is not open (used to lay out the windows). */
+	public RemoteWebDriver getDriver() {
+		return driver;
 	}
 
 	/** State reported to the plots map. */
@@ -300,7 +259,7 @@ public class GoogleEarthWebService {
 			}
 			if (!moved) {
 				setState(windowOpen ? State.MOVING : State.OPENING, plotId, null);
-				RemoteWebDriver window = windowOpen ? driver : browserService.initBrowserWithProfile(profileFolder());
+				RemoteWebDriver window = windowOpen ? driver : browserService.initAppWindow(profileFolder());
 				driver = browserService.navigateTo(url, window, true, false);
 				if (driver == null) {
 					setState(State.ERROR, plotId, MESSAGE_NO_BROWSER);
@@ -308,9 +267,8 @@ public class GoogleEarthWebService {
 				}
 				if (!windowOpen) {
 					startWatchdog();
-					if (!windowsArranged) {
-						windowsArranged = arrangeWindows();
-					}
+					// Every new window: the user may have closed the previous one, or moved things around since
+					windowLayoutService.arrange();
 				}
 			}
 			current = overview ? null : target;
@@ -549,21 +507,5 @@ public class GoogleEarthWebService {
 			LoggerFactory.getLogger(GoogleEarthWebService.class).warn("Could not create {}", folder);
 		}
 		return folder;
-	}
-
-	/** Screen bounds minus the task bar / dock. */
-	private static Rectangle usableBounds(GraphicsConfiguration configuration) {
-		Rectangle bounds = configuration.getBounds();
-		Insets insets = Toolkit.getDefaultToolkit().getScreenInsets(configuration);
-		return new Rectangle(bounds.x + insets.left, bounds.y + insets.top,
-				bounds.width - insets.left - insets.right, bounds.height - insets.top - insets.bottom);
-	}
-
-	private static void place(RemoteWebDriver window, Rectangle rectangle) {
-		if (window == null) {
-			return;
-		}
-		window.manage().window().setPosition(new Point(rectangle.x, rectangle.y));
-		window.manage().window().setSize(new Dimension(rectangle.width, rectangle.height));
 	}
 }

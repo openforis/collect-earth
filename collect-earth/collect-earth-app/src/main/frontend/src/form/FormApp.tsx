@@ -36,6 +36,9 @@ import {
 } from "./model";
 import type { FormState, FormStore, SaveState } from "./store";
 
+/** A narrow form, e.g. the plots map window narrowed next to Google Earth Web: every pixel goes to the questions. */
+const NARROW = "@media (max-width: 480px)";
+
 export function FormApp({ store }: { store: FormStore }) {
   const state = useSyncExternalStore(store.subscribe, store.getState);
   const t = useT();
@@ -100,7 +103,8 @@ function ReadyForm({ store, state, model }: { store: FormStore; state: FormState
   return (
     <Stack sx={{ height: "100vh", bgcolor: "background.default" }} data-testid="entry-form">
       {visibleTabs.length > 1 && (
-        <Tabs value={state.tab} onChange={(_, v: number) => goTo(v)} sx={{ px: 1, pt: 1, pb: 0.75 }}>
+        <Tabs value={state.tab} onChange={(_, v: number) => goTo(v)}
+          sx={{ px: 1, pt: 1, pb: 0.75, [NARROW]: { px: 0.5, pt: 0.5, pb: 0.5 } }}>
           {visibleTabs.map(({ tb, i }) => (
             <Tab key={tb.id} value={i} data-testid={`entry-tab-${i}`} label={
               errorTabs.has(i)
@@ -112,7 +116,7 @@ function ReadyForm({ store, state, model }: { store: FormStore; state: FormState
 
       {/* the balloon's grey panel around the questions */}
       <Box ref={content} sx={{ flex: 1, overflowY: "auto", mx: 1, mt: visibleTabs.length > 1 ? 0 : 1, px: 2, pt: 1.5, pb: 2,
-        bgcolor: "balloon.panel", borderRadius: 1.5 }}>
+        bgcolor: "balloon.panel", borderRadius: 1.5, [NARROW]: { mx: 0.5, px: 1.25, pt: 1, pb: 1.5 } }}>
         <Stack spacing={1.5}>
           {state.serverDown && (
             <Alert severity="warning" icon={<CloudOffOutlinedIcon />} data-testid="entry-server-down"
@@ -147,7 +151,7 @@ function ReadyForm({ store, state, model }: { store: FormStore; state: FormState
       {/* Back and Next only where there is a step to go to; Submit takes Next's place on the last step */}
       <Stack direction="row" spacing={1} sx={{ alignItems: "center", px: 1, py: 1, minHeight: 52 }}>
         {/* the balloon's footer: the Collect Earth logo, then the step buttons */}
-        <Box component="img" src={logo} alt="Open Foris Collect Earth" sx={{ height: 34, mr: 0.5, px: 0.75, py: "2px", bgcolor: "#fff", borderRadius: 1, "@media (max-width: 460px)": { display: "none" } }} />
+        <Box component="img" src={logo} alt="Open Foris Collect Earth" sx={{ height: 34, mr: 0.5, px: 0.75, py: "2px", bgcolor: "#fff", borderRadius: 1, [NARROW]: { display: "none" } }} />
         <Box sx={{ minWidth: 88 }}>
           {back >= 0 && (
             <Button size="small" variant="outlined" startIcon={<ChevronLeftIcon />} onClick={() => goTo(back)} data-testid="entry-back">{t("entry.back")}</Button>

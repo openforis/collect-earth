@@ -72,6 +72,7 @@ public class ExternalServicesPanel extends AbstractPropertyPanel implements Scro
     private JPanel viewerTypeHelp;
     private JTextArea viewerTypeHelpText;
     private JComboBox<String> mapEngineCombo;
+    private JComboBox<String> windowLayoutCombo;
 
     // Planet Maps panel and components
     private JPanel planetPanel;
@@ -206,6 +207,27 @@ public class ExternalServicesPanel extends AbstractPropertyPanel implements Scro
         mapEngineCombo.setEnabled(isPlotsMapSelected());
         registerComponent(EarthProperty.MAP_ENGINE, mapEngineCombo);
 
+        // How the plots map and Google Earth Web windows share the screens: items are the raw property values,
+        // a renderer shows the localized labels. Enabled only when Google Earth Web is the viewer.
+        windowLayoutCombo = new JComboBox<>(new String[] {
+                LocalPropertiesService.WINDOW_LAYOUT_AUTO,
+                LocalPropertiesService.WINDOW_LAYOUT_SIDE_BY_SIDE,
+                LocalPropertiesService.WINDOW_LAYOUT_SEPARATE_SCREENS,
+                LocalPropertiesService.WINDOW_LAYOUT_IMAGERY_FULL_SCREEN });
+        windowLayoutCombo.setRenderer(new DefaultListCellRenderer() {
+            private static final long serialVersionUID = 1L;
+            @Override
+            public Component getListCellRendererComponent(JList<?> list, Object value, int index,
+                    boolean isSelected, boolean cellHasFocus) {
+                String label = Messages.getString("ExternalServicesPanel.windowLayout." + value);
+                return super.getListCellRendererComponent(list, label, index, isSelected, cellHasFocus);
+            }
+        });
+        windowLayoutCombo.setToolTipText(Messages.getString("ExternalServicesPanel.windowLayoutTooltip"));
+        windowLayoutCombo.setSelectedItem(localPropertiesService.getWindowLayout());
+        windowLayoutCombo.setEnabled(isGoogleEarthWebSelected());
+        registerComponent(EarthProperty.WINDOW_LAYOUT, windowLayoutCombo);
+
         // Planet Maps - create components
         openPlanetCheckbox = componentFactory.createCheckbox("OptionWizard.100", EarthProperty.OPEN_PLANET_MAPS);
         registerComponent(EarthProperty.OPEN_PLANET_MAPS, openPlanetCheckbox);
@@ -334,9 +356,13 @@ public class ExternalServicesPanel extends AbstractPropertyPanel implements Scro
         addFullWidthRow(this, 5, viewerTypeHelp);
         add(new JLabel(Messages.getString("OptionWizard.147")), new GridBagConstraintsBuilder().gridx(0).gridy(6).build());
         add(mapEngineCombo, new GridBagConstraintsBuilder().gridx(1).gridy(6).build());
+        JLabel windowLayoutLabel = new JLabel(Messages.getString("ExternalServicesPanel.windowLayout"));
+        windowLayoutLabel.setToolTipText(Messages.getString("ExternalServicesPanel.windowLayoutTooltip"));
+        add(windowLayoutLabel, new GridBagConstraintsBuilder().gridx(0).gridy(7).build());
+        add(windowLayoutCombo, new GridBagConstraintsBuilder().gridx(1).gridy(7).build());
 
         // Planet Maps panel (contains all Planet-related components)
-        addFullWidthRow(this, 7, planetPanel);
+        addFullWidthRow(this, 8, planetPanel);
 
         // Maxar SecureWatch is not shown while it is disabled : see LocalPropertiesService.isSecureWatchSupported.
         // The components are still created and registered, so the property keeps whatever value it has.
@@ -425,6 +451,7 @@ public class ExternalServicesPanel extends AbstractPropertyPanel implements Scro
         // The map imagery engine only applies to the plots map window
         viewerTypeCombo.addActionListener(e -> {
             mapEngineCombo.setEnabled(isPlotsMapSelected());
+            windowLayoutCombo.setEnabled(isGoogleEarthWebSelected());
             updateViewerTypeHelp();
         });
 
@@ -432,6 +459,10 @@ public class ExternalServicesPanel extends AbstractPropertyPanel implements Scro
         openSecureWatchCheckbox.addActionListener(e ->
                 secureWatchUrlField.setEnabled(openSecureWatchCheckbox.isSelected()
                         && localPropertiesService.isSecureWatchSupported()));
+    }
+
+    private boolean isGoogleEarthWebSelected() {
+        return LocalPropertiesService.VIEWER_TYPE_GOOGLE_EARTH_WEB.equals(viewerTypeCombo.getSelectedItem());
     }
 
     private boolean isPlotsMapSelected() {
