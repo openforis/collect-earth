@@ -3,10 +3,12 @@ package org.openforis.collect.earth.app.server;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.EnumSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicReference;
@@ -21,6 +23,8 @@ import org.openforis.collect.earth.app.service.GoogleEarthWebService;
 import org.openforis.collect.earth.app.service.KmlGeneratorService;
 import org.openforis.collect.earth.app.service.LocalPropertiesService;
 import org.openforis.collect.earth.app.service.WindowLayoutService;
+import org.openforis.collect.earth.app.service.imagery.ImageryBrowser;
+import org.openforis.collect.earth.app.service.imagery.ImagerySource;
 import org.openforis.collect.earth.core.utils.CsvReaderUtils;
 import org.openforis.collect.earth.sampler.model.SimplePlacemarkObject;
 import org.openforis.collect.earth.sampler.processor.KmlGenerator;
@@ -57,6 +61,9 @@ public class PlacemarkBrowserServlet {
 
 	@Autowired
 	private GoogleEarthWebService googleEarthWebService;
+
+	@Autowired
+	private ImageryBrowser imageryBrowser;
 
 
 	@Autowired
@@ -101,10 +108,12 @@ public class PlacemarkBrowserServlet {
 					kmlGenerator.fillSamplePoints(placemarkObject);
 					kmlGenerator.fillExternalLine(placemarkObject);
 
+					// First, as it has a window of its own still: it does not wait for the imagery browser to start
+					openWindowAsync("Google Earth Web", () -> googleEarthWebService.showPlot(placemarkObject));
+					openImageryTabs();
 					openWindowAsync("Earth Engine APP", () -> browserService.openGEEAppURL(placemarkObject));
 					openWindowAsync("Earth Map", () -> browserService.openEarthMapURL(placemarkObject));
 					openWindowAsync("ESRI Wayback", () -> browserService.openEsriWayback(placemarkObject));
-					openWindowAsync("Google Earth Web", () -> googleEarthWebService.showPlot(placemarkObject));
 					openWindowAsync("Extra Map", () -> browserService.openExtraMap(placemarkObject));
 					openWindowAsync("Street View", () -> browserService.openStreetView(placemarkObject));
 					openWindowAsync("Planet Maps", () -> browserService.openPlanetMaps(placemarkObject));
@@ -116,6 +125,24 @@ public class PlacemarkBrowserServlet {
 			}
 
 			lastPlacemark.set(placemarkObject);
+		}
+	}
+
+	/**
+	 * Opens the tabs of the imagery sources switched on before their loads are sent, so that the tabs are in the order of
+	 * {@link ImagerySource} whatever order the loads arrive in. When there is no browser, a warning: the loads that
+	 * follow fail at once (a failed start is remembered for a while), and the other windows carry on.
+	 */
+	private void openImageryTabs() {
+		Set<ImagerySource> sources = EnumSet.noneOf(ImagerySource.class);
+		sources.addAll(browserService.enabledImagerySources());
+		// Google Earth Web keeps its own window until Task 9 of the tabbed imagery window moves it to its tab: opened
+		// here, its tab would stay empty meanwhile
+		sources.remove(ImagerySource.GOOGLE_EARTH_WEB);
+		try {
+			imageryBrowser.openTabs(sources);
+		} catch (RuntimeException e) {
+			logger.warn("The tabs of the imagery window could not be opened: {}", e.getMessage());
 		}
 	}
 

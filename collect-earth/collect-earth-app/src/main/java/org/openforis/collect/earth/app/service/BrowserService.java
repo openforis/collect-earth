@@ -7,8 +7,10 @@ import java.io.StringWriter;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.EnumSet;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
@@ -24,14 +26,19 @@ import org.openforis.collect.earth.app.EarthConstants;
 import org.openforis.collect.earth.app.desktop.EarthApp;
 import org.openforis.collect.earth.app.desktop.ServerController;
 import org.openforis.collect.earth.app.service.LocalPropertiesService.EarthProperty;
+import org.openforis.collect.earth.app.service.imagery.BidiCommandException;
 import org.openforis.collect.earth.app.service.imagery.BidiTabDriver;
+import org.openforis.collect.earth.app.service.imagery.ImageryBrowser;
 import org.openforis.collect.earth.app.service.imagery.ImageryErrorReporter;
+import org.openforis.collect.earth.app.service.imagery.ImagerySource;
+import org.openforis.collect.earth.app.service.imagery.ImageryTab;
+import org.openforis.collect.earth.app.service.imagery.PageScriptException;
+import org.openforis.collect.earth.app.service.imagery.TabClosedException;
 import org.openforis.collect.earth.app.service.imagery.TabDriver;
 import org.openforis.collect.earth.app.view.Messages;
 import org.openforis.collect.earth.sampler.model.SimpleCoordinate;
 import org.openforis.collect.earth.sampler.model.SimplePlacemarkObject;
 import org.openqa.selenium.By;
-import org.openqa.selenium.JavascriptExecutor;
 import org.openqa.selenium.NoSuchSessionException;
 import org.openqa.selenium.NoSuchWindowException;
 import org.openqa.selenium.WebElement;
@@ -74,26 +81,24 @@ import io.github.bonigarcia.wdm.WebDriverManager;
 @Component
 public class BrowserService implements InitializingBean, DisposableBean, ApplicationListener<ContextClosedEvent> {
 
-	// Browser type enumeration for thread-safe lock management
+	// Browser type enumeration for thread-safe lock management. The imagery sources need none: ImageryBrowser.loadLatest
+	// lets one plot at a time load in each of their tabs.
 	private enum BrowserType {
-		PLANET, SECUREWATCH, EXTRA, STREET_VIEW, GEEAPP, EARTH_MAP, ESRI_WAYBACK, LEAFLET_MAP
+		LEAFLET_MAP
 	}
 
 	// Constants for timeouts and wait durations
 	private static final int ELEMENT_WAIT_TIMEOUT_SECONDS = 60;
-	private static final int XPATH_WAIT_TIMEOUT_SECONDS = 30;
 	private static final int WAIT_POLL_INTERVAL_MILLIS = 1000;
 	private static final int PLOT_LOAD_SLEEP_MILLIS = 1000;
-
-	// CSS selectors
-	private static final String CSS_LOCK_ON = ".lock.on";
+	/** How long the page of a source may take to load in its tab; a slower site is a warning, not a fault. */
+	private static final Duration PAGE_LOAD_TIMEOUT = Duration.ofSeconds(60);
+	/** How long the script of a source waits for the map of its page (Wayback, SecureWatch) to be there. */
+	private static final Duration MAP_READY_TIMEOUT = Duration.ofSeconds(ELEMENT_WAIT_TIMEOUT_SECONDS);
 
 	// Template paths
 	private static final String TEMPLATE_FOR_DGMAP_JS = "resources/javascript_dgmap.fmt";
 	private static final String TEMPLATE_FOR_ESRI_WAYBACK_JS = "resources/javascript_esri_wayback.fmt";
-
-	// Element ID used to detect that the ESRI Wayback SPA has rendered its map view.
-	private static final String ESRI_WAYBACK_READY_CSS = ".esri-view";
 
 
 	@Autowired
@@ -107,6 +112,13 @@ public class BrowserService implements InitializingBean, DisposableBean, Applica
 
 	@Autowired
 	private ImageryErrorReporter imageryErrorReporter;
+
+	/**
+	 * Where the imagery sources load, a tab each. It refers to this service in turn (to start its browser): field
+	 * injection resolves the cycle, neither bean being proxied.
+	 */
+	@Autowired
+	private ImageryBrowser imageryBrowser;
 
 	/** Lets a plot change fail at once when no browser could start a moment ago; see {@link #startImageryBrowser()}. */
 	private final BrowserStartFailures imageryStartFailures = new BrowserStartFailures();
@@ -136,9 +148,7 @@ public class BrowserService implements InitializingBean, DisposableBean, Applica
 	private final Configuration freemarkerConfig = createFreemarkerConfiguration();
 
 	// Volatile to ensure visibility across threads when modified within synchronized blocks
-	private volatile RemoteWebDriver webDriverStreetView, webDriverPlanetHtml,
-	                        webDriverExtraMap, webDriverSecureWatch, webDriverGEEMap, webDriverEarthMap,
-	                        webDriverEsriWayback, webDriverLeafletMap;
+	private volatile RemoteWebDriver webDriverLeafletMap;
 
 	private final Map<BrowserType, Object> locks = new ConcurrentHashMap<>();
 
@@ -598,134 +608,140 @@ public class BrowserService implements InitializingBean, DisposableBean, Applica
 	}
 
 	/**
-	 * @deprecated Use {@link #isElementPresentByIdOrName(String, RemoteWebDriver)} instead
+	 * Draws the plot over the SecureWatch map of the tab, once the map is there, and unlocks the view if it is locked.
+	 * Everything in the page's own scripts: a classic WebDriver click would select the tab.
 	 */
-	@Deprecated
-	public static boolean isIdOrNamePresent(String elementId, RemoteWebDriver driver) {
-		return isElementPresentByIdOrName(elementId, driver);
-	}
-
-	/**
-	 * Checks if an element is present by CSS selector.
-	 *
-	 * @param cssElement The CSS selector
-	 * @param driver The WebDriver instance
-	 * @return true if element is found, false otherwise
-	 */
-	public static boolean isCssElementPresent(String cssElement, RemoteWebDriver driver) {
+	private void loadPlotInDGMap(SimplePlacemarkObject placemarkObject, ImageryTab tab) {
+		if (!tab.waitUntil(
+				"return !!(document.getElementById('mainContent') || document.getElementsByName('mainContent').length);",
+				MAP_READY_TIMEOUT)) {
+			logger.warn("{}: the map did not appear in time, the plot is not drawn", tab.source());
+			return;
+		}
+		String dgmapJs = getDGMapJavascript(placemarkObject);
+		if (dgmapJs == null) {
+			return; // logged where the template failed
+		}
+		tab.evaluate(dgmapJs);
 		try {
-			driver.findElement(By.cssSelector(cssElement));
-			return true;
-		} catch (final Exception e) {
-			// Element not found - this is expected behavior, not an error
-			return false;
+			Thread.sleep(PLOT_LOAD_SLEEP_MILLIS);
+		} catch (final InterruptedException e) {
+			Thread.currentThread().interrupt();
+			return;
 		}
-	}
-
-	/**
-	 * Checks if an element is present and displayed by XPath.
-	 *
-	 * @param xpath The XPath expression
-	 * @param driver The WebDriver instance
-	 * @return true if element is found and displayed, false otherwise
-	 */
-	private boolean isXPathPresent(String xpath, RemoteWebDriver driver) {
-		try {
-			boolean found = driver.findElement(By.xpath(xpath)).isDisplayed();
-			if (found) {
-				logger.debug("Found element by XPath: {}", xpath);
-			}
-			return found;
-		} catch (final Exception e) {
-			logger.debug("Element not found by XPath: {}", xpath);
-			return false;
-		}
-	}
-
-	/**
-	 * Loads a plot into the DGMap interface with JavaScript execution.
-	 *
-	 * @param placemarkObject The placemark data to load
-	 * @param driver The WebDriver instance
-	 * @return true if successful, false otherwise
-	 */
-	private boolean loadPlotInDGMap(SimplePlacemarkObject placemarkObject, RemoteWebDriver driver) {
-		boolean success = true;
-		if (driver != null && waitFor("mainContent", driver) && driver instanceof JavascriptExecutor) {
-			try {
-				String dgmapJs = getDGMapJavascript(placemarkObject);
-				driver.executeScript(dgmapJs);
-
-				Thread.sleep(PLOT_LOAD_SLEEP_MILLIS);
-				// Unlock the view if it is locked
-				if (isCssElementPresent(CSS_LOCK_ON, driver)) {
-					driver.findElement(By.cssSelector(CSS_LOCK_ON)).click(); // UNLOCK
-				}
-
-			} catch (final InterruptedException e) {
-				Thread.currentThread().interrupt();
-				logger.warn("Thread interrupted while loading plot in DGMap", e);
-				success = false;
-			} catch (final Exception e) {
-				processSeleniumError(e);
-				success = false;
-			}
-		}
-		return success;
+		tab.evaluate("var l = document.querySelector('.lock.on'); if (l) { l.click(); }");
 	}
 
 	/**
 	 * Injects the plot polygon overlay and an auto cookie-consent click into
 	 * ESRI Living Atlas Wayback. The Wayback app is a React SPA built on the
 	 * ArcGIS Maps SDK for JavaScript; the injected script locates the MapView
-	 * via React fibers and adds the plot as a Graphic.
-	 *
-	 * @param placemarkObject The placemark data to overlay
-	 * @param driver The WebDriver instance
-	 * @return true if the script was injected, false otherwise
+	 * via React fibers and draws the plot over it. It waits for the MapView by
+	 * itself, so it is injected even if its container is not there yet.
 	 */
-	private boolean loadPlotInEsriWayback(SimplePlacemarkObject placemarkObject, RemoteWebDriver driver) {
-		boolean success = true;
-		if (driver != null && driver instanceof JavascriptExecutor) {
-			try {
-				// Wait for the ArcGIS MapView DOM container to be present before injecting.
-				if (!waitForCssElement(ESRI_WAYBACK_READY_CSS, driver)) {
-					logger.debug("ESRI Wayback view container not detected before timeout - injecting anyway");
-				}
-				String waybackJs = getEsriWaybackJavascript(placemarkObject);
-				driver.executeScript(waybackJs);
-			} catch (final Exception e) {
-				processSeleniumError(e);
-				success = false;
-			}
+	private void loadPlotInEsriWayback(SimplePlacemarkObject placemarkObject, ImageryTab tab) {
+		if (!tab.waitUntil("return !!document.querySelector('.esri-view');", MAP_READY_TIMEOUT)) {
+			logger.debug("ESRI Wayback view container not detected before timeout - injecting anyway");
 		}
-		return success;
+		String waybackJs = getEsriWaybackJavascript(placemarkObject);
+		if (waybackJs != null) {
+			tab.evaluate(waybackJs);
+		}
 	}
 
+	/** What is done in the tab of a source once its page has loaded. */
+	@FunctionalInterface
+	private interface AfterLoad {
+		void run(ImageryTab tab);
+	}
 
-	private boolean waitForCssElement(String cssSelector, RemoteWebDriver driver) {
-		long endTime = System.currentTimeMillis() + TimeUnit.SECONDS.toMillis(ELEMENT_WAIT_TIMEOUT_SECONDS);
-		while (System.currentTimeMillis() < endTime) {
-			if (isCssElementPresent(cssSelector, driver)) {
-				return true;
-			}
+	/** Loads the URL in the tab of the source, the latest plot only; see {@link #loadInTab(ImagerySource, String, AfterLoad)}. */
+	private void loadInTab(ImagerySource source, String url) {
+		loadInTab(source, url, null);
+	}
+
+	/**
+	 * Loads the URL in the tab of the source, then runs {@code afterLoad} there, if any. Through
+	 * {@link ImageryBrowser#loadLatest}: when plots come faster than the source loads them, the ones in between are
+	 * skipped. The load is forced ({@code reload}) as {@link #navigateTo} did: Wayback and the Earth Engine app change
+	 * only the #fragment of their URL from plot to plot, which a navigation alone does not load again.
+	 * <p>
+	 * The load may run on the thread of another plot, so it handles its own errors. None of them is logged at ERROR,
+	 * which would open the error dialog on every plot: a slow site, a closed tab and a missing browser are not faults of
+	 * Collect Earth, and the faults (a script of ours that throws, a BiDi command that fails, a browser that hangs) are
+	 * reported to Sentry by {@link ImageryBrowser} already. Only an unexpected failure here is an error.
+	 */
+	private void loadInTab(ImagerySource source, String url, AfterLoad afterLoad) {
+		if (url == null) {
+			return; // logged where the URL failed
+		}
+		imageryBrowser.loadLatest(source, () -> {
 			try {
-				Thread.sleep(WAIT_POLL_INTERVAL_MILLIS);
-			} catch (InterruptedException e) {
-				Thread.currentThread().interrupt();
-				return false;
+				ImageryTab tab = imageryBrowser.tab(source);
+				if (!tab.load(url, true, PAGE_LOAD_TIMEOUT)) {
+					// A slow site is not a fault; the script after the load waits for its map by itself
+					logger.warn("{} did not load in time", source);
+				}
+				if (afterLoad != null) {
+					afterLoad.run(tab);
+				}
+			} catch (final TabClosedException e) {
+				logger.warn("{}: the tab was closed while the plot loaded", source);
+			} catch (final PageScriptException | BidiCommandException e) {
+				logger.warn("{}: the plot could not be shown: {}", source, e.getMessage()); // reported by ImageryBrowser
+			} catch (final RuntimeException e) {
+				if (isCausedBy(e, BrowserNotFoundException.class)) {
+					logger.warn("{}: no browser for the imagery window: {}", source, e.getMessage());
+				} else if (e instanceof IllegalStateException) {
+					// The browser was busy, hung, slow to start or shut down: reported by ImageryBrowser when a fault
+					logger.warn("{}: the plot could not be shown: {}", source, e.getMessage());
+				} else {
+					logger.error("Problems loading {}", source, e);
+				}
+			}
+		});
+	}
+
+	private static boolean isCausedBy(Throwable failure, Class<? extends Throwable> type) {
+		for (Throwable t = failure; t != null; t = t.getCause()) {
+			if (type.isInstance(t)) {
+				return true;
 			}
 		}
 		return false;
 	}
 
-	public void clickOnElements(RemoteWebDriver driver, String cssSelector) {
-		final List<WebElement> dataLayerVisibility = driver.findElements(By.cssSelector(cssSelector));
-		for (final WebElement webElement : dataLayerVisibility) {
-			if (webElement.isDisplayed()) {
-				webElement.click();
-			}
+	/**
+	 * The imagery sources switched on, in the order of their tabs: Google Earth Web when it is the viewer, and each
+	 * source whose {@code openX} method below would load the plot (the same checks).
+	 */
+	public Set<ImagerySource> enabledImagerySources() {
+		Set<ImagerySource> sources = EnumSet.noneOf(ImagerySource.class);
+		if (localPropertiesService.isGoogleEarthWebViewer()) {
+			sources.add(ImagerySource.GOOGLE_EARTH_WEB);
 		}
+		if (localPropertiesService.isEsriWaybackSupported()) {
+			sources.add(ImagerySource.ESRI_WAYBACK);
+		}
+		if (localPropertiesService.isPlanetMapsSupported() && StringUtils.isNotBlank(localPropertiesService.getPlanetMapsKey())) {
+			sources.add(ImagerySource.PLANET);
+		}
+		if (localPropertiesService.isGEEAppSupported()) {
+			sources.add(ImagerySource.GEE_APP);
+		}
+		if (localPropertiesService.isEarthMapSupported()) {
+			sources.add(ImagerySource.EARTH_MAP);
+		}
+		if (localPropertiesService.isStreetViewSupported()) {
+			sources.add(ImagerySource.STREET_VIEW);
+		}
+		if (StringUtils.isNotBlank(localPropertiesService.getExtraMap())) {
+			sources.add(ImagerySource.EXTRA_MAP);
+		}
+		if (localPropertiesService.isSecureWatchSupported()) {
+			sources.add(ImagerySource.SECURE_WATCH);
+		}
+		return sources;
 	}
 
 	public boolean isGeeMethodUpdated() {
@@ -734,15 +750,6 @@ public class BrowserService implements InitializingBean, DisposableBean, Applica
 
 	public void setGeeMethodUpdated(boolean geeMethodUpdated) {
 		this.geeMethodUpdated = geeMethodUpdated;
-	}
-
-	private void processSeleniumError(final Exception e) {
-		if (e.getCause() != null && e.getCause().getMessage() != null
-				&& !e.getCause().getMessage().contains("latitude")) {
-			logger.warn("Error in the selenium driver", e);
-		} else {
-			logger.info("Error in the selenium driver provoked by known bug", e);
-		}
 	}
 
 	public RemoteWebDriver navigateTo(String url, RemoteWebDriver driver) throws BrowserNotFoundException {
@@ -877,34 +884,30 @@ public class BrowserService implements InitializingBean, DisposableBean, Applica
 	}
 
 	/**
-	 * Opens a browser window with the Planet Basemaps representation of the plot.
+	 * Shows the Planet Basemaps representation of the plot in the Planet tab of the imagery window.
 	 * Supports two modes:
 	 * - TFO mode: Opens the hosted planet.html page with NICFI monthly basemaps
 	 * - Daily mode: Uses local Freemarker template with Planet Daily API
 	 *
 	 * @param placemarkObject The data of the plot.
-	 * @throws BrowserNotFoundException In case the browser could not be found
 	 */
-	public void openPlanetMaps(SimplePlacemarkObject placemarkObject) throws BrowserNotFoundException {
-		Object lock = getOrCreateLock(BrowserType.PLANET);
-		synchronized (lock) {
-			if (localPropertiesService.isPlanetMapsSupported()) {
-				// both modes are opened with the same key, and neither of them shows anything without it
-				if (StringUtils.isBlank(localPropertiesService.getPlanetMapsKey())) {
-					warnAboutMissingPlanetApiKey();
-					return;
+	public void openPlanetMaps(SimplePlacemarkObject placemarkObject) {
+		if (localPropertiesService.isPlanetMapsSupported()) {
+			// both modes are opened with the same key, and neither of them shows anything without it
+			if (StringUtils.isBlank(localPropertiesService.getPlanetMapsKey())) {
+				warnAboutMissingPlanetApiKey();
+				return;
+			}
+			try {
+				if (localPropertiesService.isPlanetMapsUseTfo()) {
+					// TFO mode: Use hosted planet.html with NICFI monthly basemaps
+					openPlanetTfoMode(placemarkObject);
+				} else {
+					// Daily mode: Use local Freemarker template with Planet Daily API
+					openPlanetDailyMode(placemarkObject);
 				}
-				try {
-					if (localPropertiesService.isPlanetMapsUseTfo()) {
-						// TFO mode: Use hosted planet.html with NICFI monthly basemaps
-						openPlanetTfoMode(placemarkObject);
-					} else {
-						// Daily mode: Use local Freemarker template with Planet Daily API
-						openPlanetDailyMode(placemarkObject);
-					}
-				} catch (final Exception e) {
-					logger.error("Problems loading Planet", e);
-				}
+			} catch (final Exception e) {
+				logger.error("Problems loading Planet", e);
 			}
 		}
 	}
@@ -927,7 +930,7 @@ public class BrowserService implements InitializingBean, DisposableBean, Applica
 	 * Opens the hosted planet.html page at openforis.org with URL parameters.
 	 * Uses the same API key as Daily mode (PLANET_MAPS_KEY).
 	 */
-	private void openPlanetTfoMode(SimplePlacemarkObject placemarkObject) throws BrowserNotFoundException {
+	private void openPlanetTfoMode(SimplePlacemarkObject placemarkObject) {
 		// openPlanetMaps has already checked that there is a key
 		String apiKey = localPropertiesService.getValue(EarthProperty.PLANET_MAPS_KEY);
 
@@ -953,7 +956,7 @@ public class BrowserService implements InitializingBean, DisposableBean, Applica
 				url.append("&planet_date_to=").append(URLEncoder.encode(dateTo, StandardCharsets.UTF_8.toString()));
 			}
 
-			webDriverPlanetHtml = navigateTo(url.toString(), webDriverPlanetHtml);
+			loadInTab(ImagerySource.PLANET, url.toString());
 
 		} catch (final Exception e) {
 			logger.error("Problems loading Planet TFO mode", e);
@@ -963,7 +966,7 @@ public class BrowserService implements InitializingBean, DisposableBean, Applica
 	/**
 	 * Opens Planet imagery using the Daily API via local Freemarker template.
 	 */
-	private void openPlanetDailyMode(SimplePlacemarkObject placemarkObject) throws BrowserNotFoundException {
+	private void openPlanetDailyMode(SimplePlacemarkObject placemarkObject) {
 		String template = GeolocalizeMapService.FREEMARKER_PLANET_DAILY_HTML_TEMPLATE;
 		String key = localPropertiesService.getValue(EarthProperty.PLANET_MAPS_KEY);
 
@@ -977,7 +980,7 @@ public class BrowserService implements InitializingBean, DisposableBean, Applica
 					ServerController.getHostAddress(localPropertiesService.getHost(), localPropertiesService.getPort())
 			).toString();
 
-			webDriverPlanetHtml = navigateTo(processTemplate, webDriverPlanetHtml);
+			loadInTab(ImagerySource.PLANET, processTemplate);
 
 		} catch (final Exception e) {
 			logger.error("Problems loading Planet Daily mode", e);
@@ -1008,39 +1011,26 @@ public class BrowserService implements InitializingBean, DisposableBean, Applica
 	}
 
 	/**
-	 * Opens a browser window with a map representation of the plot in SecureWatch.
+	 * Shows the plot in SecureWatch, in its tab of the imagery window.
 	 *
 	 * @param placemarkObject The data of the plot.
-	 * @throws BrowserNotFoundException In case the browser could not be found
 	 */
-	public void openSecureWatch(SimplePlacemarkObject placemarkObject) throws BrowserNotFoundException {
-		Object lock = getOrCreateLock(BrowserType.SECUREWATCH);
-		synchronized (lock) {
-			if ( localPropertiesService.isSecureWatchSupported() ) {
-				String url = getUrlBaseIntegration(placemarkObject, localPropertiesService.getSecureWatchURL() + "/#18/LATITUDE/LONGITUDE" );
-				webDriverSecureWatch = navigateTo(url, webDriverSecureWatch);
-				try {
-					logger.warn("Loading layers - {}", placemarkObject);
-					loadPlotInDGMap(placemarkObject, webDriverSecureWatch);
-				} catch (final Exception e) {
-					logger.error("Error when opening Secure Watch browser window", e);
-				}
-			}
+	public void openSecureWatch(SimplePlacemarkObject placemarkObject) {
+		if ( localPropertiesService.isSecureWatchSupported() ) {
+			String url = getUrlBaseIntegration(placemarkObject, localPropertiesService.getSecureWatchURL() + "/#18/LATITUDE/LONGITUDE" );
+			logger.info("Loading layers - {}", placemarkObject);
+			loadInTab(ImagerySource.SECURE_WATCH, url, tab -> loadPlotInDGMap(placemarkObject, tab));
 		}
 	}
 
 	/**
-	 * Opens a browser window with a map representation of the plot.
+	 * Shows the plot in the extra map of the options, in its tab of the imagery window.
 	 *
 	 * @param placemarkObject The data of the plot.
-	 * @throws BrowserNotFoundException In case the browser could not be found
 	 */
-	public void openExtraMap(SimplePlacemarkObject placemarkObject) throws BrowserNotFoundException {
-		Object lock = getOrCreateLock(BrowserType.EXTRA);
-		synchronized (lock) {
-			if (!StringUtils.isBlank(localPropertiesService.getExtraMap())) {
-				webDriverExtraMap = navigateTo( getUrlBaseIntegration(placemarkObject, localPropertiesService.getExtraMap() ) , webDriverExtraMap );
-			}
+	public void openExtraMap(SimplePlacemarkObject placemarkObject) {
+		if (!StringUtils.isBlank(localPropertiesService.getExtraMap())) {
+			loadInTab(ImagerySource.EXTRA_MAP, getUrlBaseIntegration(placemarkObject, localPropertiesService.getExtraMap()));
 		}
 	}
 
@@ -1074,28 +1064,22 @@ public class BrowserService implements InitializingBean, DisposableBean, Applica
 	}
 
 	/**
-	 * Opens a browser window with the Google Street View representation of the plot.
+	 * Shows the Google Street View representation of the plot, in its tab of the imagery window.
 	 *
 	 * @param placemarkObject The data of the plot.
-	 * @throws BrowserNotFoundException In case the browser could not be found
 	 */
-	public void openStreetView(SimplePlacemarkObject placemarkObject) throws BrowserNotFoundException {
-		Object lock = getOrCreateLock(BrowserType.STREET_VIEW);
-		synchronized (lock) {
-			if (localPropertiesService.isStreetViewSupported()) {
-				try {
-					webDriverStreetView = navigateTo(
-							geoLocalizeTemplateService.getUrlToFreemarkerOutput(placemarkObject,
-									GeolocalizeMapService.FREEMARKER_STREET_VIEW_HTML_TEMPLATE, "googleMapsApiKey",
-									localPropertiesService.getValue(EarthProperty.GOOGLE_MAPS_API_KEY)).toString(),
-							webDriverStreetView);
-				} catch (final Exception e) {
-					logger.error("Problems loading Street View", e);
-				}
+	public void openStreetView(SimplePlacemarkObject placemarkObject) {
+		if (localPropertiesService.isStreetViewSupported()) {
+			try {
+				loadInTab(ImagerySource.STREET_VIEW,
+						geoLocalizeTemplateService.getUrlToFreemarkerOutput(placemarkObject,
+								GeolocalizeMapService.FREEMARKER_STREET_VIEW_HTML_TEMPLATE, "googleMapsApiKey",
+								localPropertiesService.getValue(EarthProperty.GOOGLE_MAPS_API_KEY)).toString());
+			} catch (final Exception e) {
+				logger.error("Problems loading Street View", e);
 			}
 		}
 	}
-
 
 	private StringBuilder getGeoJsonSegment(List<SimpleCoordinate> coordinates) {
 		StringBuilder geoJson = new StringBuilder("[");
@@ -1134,119 +1118,106 @@ public class BrowserService implements InitializingBean, DisposableBean, Applica
 	}
 
 	/**
-	 * Opens a browser window with the Google Earth Engine App URL.
+	 * Shows the plot in the Google Earth Engine App, in its tab of the imagery window.
 	 *
 	 * @param placemarkObject The center point of the plot.
-	 * @throws BrowserNotFoundException If the browser cannot be found
 	 */
-	public void openGEEAppURL(SimplePlacemarkObject placemarkObject) throws BrowserNotFoundException {
-		Object lock = getOrCreateLock(BrowserType.GEEAPP);
-		synchronized (lock) {
-			if (localPropertiesService.isGEEAppSupported()) {
+	public void openGEEAppURL(SimplePlacemarkObject placemarkObject) {
+		if (localPropertiesService.isGEEAppSupported()) {
 
-				try {
-					StringBuilder url = new StringBuilder(localPropertiesService.getGEEAppURL());
-					url = url.append("#geoJson=")
-							.append(URLEncoder.encode(getGeoJson(placemarkObject, "MultiLineString"), StandardCharsets.UTF_8.toString()))
+			try {
+				StringBuilder url = new StringBuilder(localPropertiesService.getGEEAppURL());
+				url = url.append("#geoJson=")
+						.append(URLEncoder.encode(getGeoJson(placemarkObject, "MultiLineString"), StandardCharsets.UTF_8.toString()))
+						.append(";");
+				// placemarkId is null when the plot was built from coordinates only
+				// (e.g. legacy /openAuxiliaryWindows callers without a plotId param)
+				String plotId = placemarkObject.getPlacemarkId() == null ? "" : placemarkObject.getPlacemarkId();
+				url = url.append("plotId=")
+						.append(URLEncoder.encode(plotId, StandardCharsets.UTF_8.toString()))
+						.append(";");
+				url = url.append("survey=")
+						.append(URLEncoder.encode( earthSurveyService.getCollectSurvey().getName() , StandardCharsets.UTF_8.toString()))
+						.append(";");
+
+				if( StringUtils.isNotBlank( localPropertiesService.getValue( EarthProperty.GEEAPP_FROM_DATE) ) ) {
+					url = url.append("startTime=")
+							.append( localPropertiesService.getValue( EarthProperty.GEEAPP_FROM_DATE) )
 							.append(";");
-					// placemarkId is null when the plot was built from coordinates only
-					// (e.g. legacy /openAuxiliaryWindows callers without a plotId param)
-					String plotId = placemarkObject.getPlacemarkId() == null ? "" : placemarkObject.getPlacemarkId();
-					url = url.append("plotId=")
-							.append(URLEncoder.encode(plotId, StandardCharsets.UTF_8.toString()))
-							.append(";");
-					url = url.append("survey=")
-							.append(URLEncoder.encode( earthSurveyService.getCollectSurvey().getName() , StandardCharsets.UTF_8.toString()))
-							.append(";");
-					
-			        if( StringUtils.isNotBlank( localPropertiesService.getValue( EarthProperty.GEEAPP_FROM_DATE) ) ) {
-			        	url = url.append("startTime=")
-								.append( localPropertiesService.getValue( EarthProperty.GEEAPP_FROM_DATE) )
-								.append(";");
-			        }
-			        if( StringUtils.isNotBlank( localPropertiesService.getValue( EarthProperty.GEEAPP_TO_DATE) ) ) {
-			        	url = url.append("endTime=")
-								.append( localPropertiesService.getValue( EarthProperty.GEEAPP_TO_DATE) )
-								.append(";");			        	
-			        }
-					
-					webDriverGEEMap = navigateTo(url.toString(), webDriverGEEMap);
-				} catch (final Exception e) {
-					logger.error("Problems loading GEE APP window", e);
 				}
+				if( StringUtils.isNotBlank( localPropertiesService.getValue( EarthProperty.GEEAPP_TO_DATE) ) ) {
+					url = url.append("endTime=")
+							.append( localPropertiesService.getValue( EarthProperty.GEEAPP_TO_DATE) )
+							.append(";");
+				}
+
+				loadInTab(ImagerySource.GEE_APP, url.toString());
+			} catch (final Exception e) {
+				logger.error("Problems loading GEE APP window", e);
 			}
 		}
 	}
 
 
 	/**
-	 * Opens a browser window with the Earth Map URL.
+	 * Shows the plot in Earth Map, in its tab of the imagery window.
 	 *
 	 * @param placemarkObject The placemark data
-	 * @throws BrowserNotFoundException If the browser cannot be found
 	 */
-	public void openEarthMapURL(SimplePlacemarkObject placemarkObject) throws BrowserNotFoundException {
-		Object lock = getOrCreateLock(BrowserType.EARTH_MAP);
-		synchronized (lock) {
-			if (localPropertiesService.isEarthMapSupported()) {
+	public void openEarthMapURL(SimplePlacemarkObject placemarkObject) {
+		if (localPropertiesService.isEarthMapSupported()) {
 
+			try {
+				StringBuilder url = new StringBuilder(localPropertiesService.getEarthMapURL()).append("?");
+				url = url.append("polygon=")
+						.append(URLEncoder.encode(getFeature(placemarkObject, "Polygon", placemarkObject.getPlacemarkId()), StandardCharsets.UTF_8.toString()))
+						.append("&");
 
-				try {
-					StringBuilder url = new StringBuilder(localPropertiesService.getEarthMapURL()).append("?");
-					url = url.append("polygon=")
-							.append(URLEncoder.encode(getFeature(placemarkObject, "Polygon", placemarkObject.getPlacemarkId()), StandardCharsets.UTF_8.toString()))
+				if( StringUtils.isNotBlank(localPropertiesService.getEarthMapLayers()) ) {
+					url = url.append("layers=")
+							.append(URLEncoder.encode(localPropertiesService.getEarthMapLayers(), StandardCharsets.UTF_8.toString()))
 							.append("&");
-
-					if( StringUtils.isNotBlank(localPropertiesService.getEarthMapLayers()) ) {
-						url = url.append("layers=")
-								.append(URLEncoder.encode(localPropertiesService.getEarthMapLayers(), StandardCharsets.UTF_8.toString()))
-								.append("&");
-					}
-
-					if( StringUtils.isNotBlank(localPropertiesService.getEarthMapScripts()) ) {
-						url = url.append("scripts=")
-								.append(URLEncoder.encode(localPropertiesService.getEarthMapScripts(), StandardCharsets.UTF_8.toString()))
-								.append("&");
-					}
-
-					String aoi = localPropertiesService.getEarthMapAOI();
-					if( StringUtils.isBlank(aoi) ) {
-						aoi = "global";
-					}
-					url = url.append("aoi=")
-							.append(URLEncoder.encode( aoi, StandardCharsets.UTF_8.toString() ))
-							.append("&embed=true"); // Set the EMBED parameter to true so that the user does not need to log in.
-
-					webDriverEarthMap = navigateTo(url.toString(), webDriverEarthMap);
-				} catch (final Exception e) {
-					logger.error("Problems loading Earth Map window", e);
 				}
+
+				if( StringUtils.isNotBlank(localPropertiesService.getEarthMapScripts()) ) {
+					url = url.append("scripts=")
+							.append(URLEncoder.encode(localPropertiesService.getEarthMapScripts(), StandardCharsets.UTF_8.toString()))
+							.append("&");
+				}
+
+				String aoi = localPropertiesService.getEarthMapAOI();
+				if( StringUtils.isBlank(aoi) ) {
+					aoi = "global";
+				}
+				url = url.append("aoi=")
+						.append(URLEncoder.encode( aoi, StandardCharsets.UTF_8.toString() ))
+						.append("&embed=true"); // Set the EMBED parameter to true so that the user does not need to log in.
+
+				loadInTab(ImagerySource.EARTH_MAP, url.toString());
+			} catch (final Exception e) {
+				logger.error("Problems loading Earth Map window", e);
 			}
 		}
 	}
 
 	/**
-	 * Opens a browser window with ESRI World Imagery Wayback centered on the plot.
+	 * Shows ESRI World Imagery Wayback centered on the plot, with the plot drawn over it, in its tab of the imagery
+	 * window.
 	 *
 	 * @param placemarkObject The center point of the plot.
-	 * @throws BrowserNotFoundException If the browser cannot be found
 	 */
-	public void openEsriWayback(SimplePlacemarkObject placemarkObject) throws BrowserNotFoundException {
-		Object lock = getOrCreateLock(BrowserType.ESRI_WAYBACK);
-		synchronized (lock) {
-			if (localPropertiesService.isEsriWaybackSupported()) {
-				try {
-					String longitude = placemarkObject.getCoord().getLongitude();
-					String latitude = placemarkObject.getCoord().getLatitude();
-					// URL format: https://livingatlas.arcgis.com/wayback/#mapCenter=LONGITUDE%2CLATITUDE%2C16&mode=explore
-					String url = "https://livingatlas.arcgis.com/wayback/#mapCenter=" +
-							URLEncoder.encode(longitude + "," + latitude + ",18", StandardCharsets.UTF_8.toString()) +
-							"&mode=explore";
-					webDriverEsriWayback = navigateTo(url, webDriverEsriWayback);
-					loadPlotInEsriWayback(placemarkObject, webDriverEsriWayback);
-				} catch (final Exception e) {
-					logger.error("Problems loading ESRI Wayback", e);
-				}
+	public void openEsriWayback(SimplePlacemarkObject placemarkObject) {
+		if (localPropertiesService.isEsriWaybackSupported()) {
+			try {
+				String longitude = placemarkObject.getCoord().getLongitude();
+				String latitude = placemarkObject.getCoord().getLatitude();
+				// URL format: https://livingatlas.arcgis.com/wayback/#mapCenter=LONGITUDE%2CLATITUDE%2C16&mode=explore
+				String url = "https://livingatlas.arcgis.com/wayback/#mapCenter=" +
+						URLEncoder.encode(longitude + "," + latitude + ",18", StandardCharsets.UTF_8.toString()) +
+						"&mode=explore";
+				loadInTab(ImagerySource.ESRI_WAYBACK, url, tab -> loadPlotInEsriWayback(placemarkObject, tab));
+			} catch (final Exception e) {
+				logger.error("Problems loading ESRI Wayback", e);
 			}
 		}
 	}
@@ -1259,21 +1230,6 @@ public class BrowserService implements InitializingBean, DisposableBean, Applica
 	/** The plots map window, or null if it is not open (used to lay out the windows). */
 	public RemoteWebDriver getLeafletMapDriver() {
 		return webDriverLeafletMap;
-	}
-
-	/**
-	 * The other windows opened with imagery for the plot (extra map, ESRI Wayback, Planet, Earth Engine, Earth Map,
-	 * Street View, SecureWatch) that are still open, to bring them forward next to the plots map.
-	 */
-	public List<RemoteWebDriver> getOtherImageryWindows() {
-		List<RemoteWebDriver> open = new ArrayList<>();
-		for (RemoteWebDriver driver : Arrays.asList(webDriverExtraMap, webDriverEsriWayback, webDriverPlanetHtml,
-				webDriverGEEMap, webDriverEarthMap, webDriverStreetView, webDriverSecureWatch)) {
-			if (driver != null && isDriverWorking(driver)) {
-				open.add(driver);
-			}
-		}
-		return open;
 	}
 
 	public void openLeafletMap() {
@@ -1317,34 +1273,6 @@ public class BrowserService implements InitializingBean, DisposableBean, Applica
 		}
 
 		logger.debug("Timeout waiting for element: {}", elementId);
-		return false;
-	}
-
-	/**
-	 * Waits for an element to be present by XPath.
-	 * Polls at regular intervals until element appears or timeout is reached.
-	 *
-	 * @param xpath The XPath expression to wait for
-	 * @param driver The WebDriver instance
-	 * @return true if element appears within timeout, false otherwise
-	 */
-	public boolean waitForXPath(String xpath, RemoteWebDriver driver) {
-		long endTime = System.currentTimeMillis() + TimeUnit.SECONDS.toMillis(XPATH_WAIT_TIMEOUT_SECONDS);
-
-		while (System.currentTimeMillis() < endTime) {
-			if (isXPathPresent(xpath, driver)) {
-				return true;
-			}
-			try {
-				Thread.sleep(WAIT_POLL_INTERVAL_MILLIS);
-			} catch (InterruptedException e) {
-				Thread.currentThread().interrupt();
-				logger.debug("Interrupted while waiting for XPath: {}", xpath);
-				return false;
-			}
-		}
-
-		logger.debug("Timeout waiting for XPath: {}", xpath);
 		return false;
 	}
 

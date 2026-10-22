@@ -45,8 +45,8 @@ import org.springframework.stereotype.Component;
  * or resized (e.g. a laptop docked or undocked) while the windows are open. Side by side, Google Earth Web follows the
  * plots map window: when the user resizes or moves it, Google Earth Web takes the room left beside it.</p>
  *
- * <p>{@link #arrangeAll()} also brings forward the other imagery windows opened for the plot (extra map, ESRI
- * Wayback...), side by side over the room of Google Earth Web.</p>
+ * <p>The other imagery sources (extra map, ESRI Wayback...) are tabs of the one imagery window, which
+ * {@link #arrangeAll()} does not place yet.</p>
  */
 @Component
 public class WindowLayoutService {
@@ -181,49 +181,13 @@ public class WindowLayoutService {
 	}
 
 	/**
-	 * Lays out the plots map and Google Earth Web, then brings forward the other imagery windows opened for the plot
-	 * (extra map, ESRI Wayback, Planet...), side by side over the room of Google Earth Web: over the imagery, never over
-	 * the form. Returns how many other windows there were.
+	 * Lays out the plots map and Google Earth Web. The other imagery sources (extra map, ESRI Wayback, Planet...) are
+	 * tabs of the imagery window now, not windows of their own to bring forward: there are none, hence 0.
+	 * Task 10 of the tabbed imagery window replaces this with showing the imagery window.
 	 */
 	public int arrangeAll() {
 		arrange(true);
-		List<RemoteWebDriver> others = browserService.getOtherImageryWindows();
-		if (others.isEmpty()) {
-			return 0;
-		}
-		synchronized (lock) {
-			try {
-				List<Rectangle> tiles = tile(imageryRoom(others.get(0)), others.size());
-				for (int i = 0; i < others.size(); i++) {
-					raise(others.get(i));
-					placeExactly(others.get(i), tiles.get(i));
-				}
-			} catch (Exception e) {
-				logger.warn("Could not bring the other imagery windows forward", e);
-			}
-		}
-		return others.size();
-	}
-
-	/**
-	 * Where the other imagery windows go: where Google Earth Web is, or else the room beside the plots map, or else the
-	 * screen of the first of them.
-	 */
-	private Rectangle imageryRoom(RemoteWebDriver firstOther) {
-		RemoteWebDriver imagery = googleEarthWebService.getDriver();
-		if (imagery != null) {
-			return rectangleOf(imagery);
-		}
-		RemoteWebDriver map = browserService.getLeafletMapDriver();
-		if (map != null) {
-			Rectangle work = readWorkArea(map);
-			if (work != null) {
-				Rectangle room = besideForm(work, rectangleOf(map));
-				return room != null ? room : work;
-			}
-		}
-		Rectangle work = readWorkArea(firstOther);
-		return work != null ? work : rectangleOf(firstOther);
+		return 0;
 	}
 
 	/**
