@@ -108,6 +108,9 @@ public class BrowserService implements InitializingBean, DisposableBean, Applica
 	@Autowired
 	private ImageryErrorReporter imageryErrorReporter;
 
+	/** Lets a plot change fail at once when no browser could start a moment ago; see {@link #startImageryBrowser()}. */
+	private final BrowserStartFailures imageryStartFailures = new BrowserStartFailures();
+
 	/** The interpreter is told once per run that the Planet API key is missing, not once per plot */
 	private boolean planetApiKeyWarningShown;
 
@@ -371,7 +374,11 @@ public class BrowserService implements InitializingBean, DisposableBean, Applica
 	 * the options first, then Firefox, Edge and Chrome; a browser that does not start, or not with BiDi, is skipped for
 	 * the next one. Each keeps a profile of its own in the Collect Earth data folder, so the sign-ins to Google, Planet
 	 * and Earth Engine are kept across sessions; when a browser does not start with it (another Collect Earth has it
-	 * open), it is started with a temporary profile, where those are asked for again.
+	 * open), it is started with a temporary profile, where those are asked for again. Not when it failed for not being
+	 * installed ({@link BrowserStartFailures#isNotInstalled}): that would only fail again.
+	 * <p>
+	 * When no browser starts, the starts asked for during the next {@link BrowserStartFailures#RETRY_AFTER} fail at
+	 * once, without a search or a report of their own: each tab asks on every plot.
 	 * <p>
 	 * The drivers are Selenium's own, not WebDriverManager's {@code create()}, which cannot take the {@link ClientConfig}
 	 * that limits how long a BiDi command waits ({@link BidiTabDriver#clientConfig()}). WebDriverManager still finds
@@ -380,14 +387,15 @@ public class BrowserService implements InitializingBean, DisposableBean, Applica
 	 * <p>
 	 * The browser is quit with the others when Collect Earth closes.
 	 *
-	 * @throws BrowserNotFoundException when no browser starts with BiDi (reported to Sentry)
+	 * @throws BrowserNotFoundException when no browser starts with BiDi (reported to Sentry), or none did a moment ago
 	 */
 	public TabDriver startImageryBrowser() throws BrowserNotFoundException {
+		if (imageryStartFailures.failedRecently()) {
+			throw new BrowserNotFoundException("No browser could be started for the imagery window less than "
+					+ BrowserStartFailures.RETRY_AFTER.getSeconds() + " s ago, not tried again yet");
+		}
 		for (String browser : imageryBrowserOrder()) {
-			RemoteWebDriver driver = startImageryDriver(browser, true);
-			if (driver == null) {
-				driver = startImageryDriver(browser, false);
-			}
+			RemoteWebDriver driver = startImageryDriver(browser);
 			if (driver == null) {
 				continue;
 			}
@@ -398,12 +406,15 @@ public class BrowserService implements InitializingBean, DisposableBean, Applica
 				throw new IllegalStateException("Collect Earth is closing, the imagery browser is not needed");
 			}
 			try {
-				return new BidiTabDriver(driver); // which quits the driver if it fails
+				TabDriver tabDriver = new BidiTabDriver(driver); // which quits the driver if it fails
+				imageryStartFailures.started();
+				return tabDriver;
 			} catch (RuntimeException e) {
 				drivers.remove(driver);
 				imageryErrorReporter.report(null, "bidi_setup", e);
 			}
 		}
+		imageryStartFailures.failed();
 		BrowserNotFoundException notFound = new BrowserNotFoundException(
 				"Neither Firefox, Edge nor Chrome could be started with WebDriver BiDi for the imagery window");
 		imageryErrorReporter.report(null, "no_bidi_browser", notFound);
@@ -423,45 +434,70 @@ public class BrowserService implements InitializingBean, DisposableBean, Applica
 		return new ArrayList<>(order);
 	}
 
-	/** One browser for the imagery window, with BiDi, with its profile or a temporary one; null when it does not start. */
-	private RemoteWebDriver startImageryDriver(String browser, boolean withProfile) {
+	/**
+	 * One browser for the imagery window, with its profile, else with a temporary one (see
+	 * {@link #startImageryBrowser()}); null when it does not start. Not a fault, the next browser is tried: a warning.
+	 */
+	private RemoteWebDriver startImageryDriver(String browser) {
 		File profile = null;
 		try {
-			if (EarthConstants.FIREFOX_BROWSER.equals(browser)) {
-				FirefoxOptions options = new FirefoxOptions();
-				options.enableBiDi();
-				if (withProfile) {
-					profile = imageryFirefoxProfile();
-					// Used where it is, not copied to a temporary folder as a FirefoxProfile would be: the sign-ins stay
-					options.addArguments("-profile", profile.getAbsolutePath());
-				}
-				findDriver(WebDriverManager.firefoxdriver());
-				return new FirefoxDriver(options, BidiTabDriver.clientConfig());
-			}
-			List<String> arguments = new ArrayList<>(Arrays.asList("--no-first-run", "--no-default-browser-check"));
-			if (withProfile) {
-				profile = imageryChromiumProfile();
-				arguments.add("--user-data-dir=" + profile.getAbsolutePath());
-			}
-			// A normal window, not an --app one, which has no tabs
-			if (EarthConstants.EDGE_BROWSER.equals(browser)) {
-				EdgeOptions options = new EdgeOptions();
-				options.enableBiDi();
-				options.addArguments(arguments);
-				findDriver(WebDriverManager.edgedriver());
-				return new EdgeDriver(options, BidiTabDriver.clientConfig());
-			}
-			ChromeOptions options = new ChromeOptions();
-			options.enableBiDi();
-			options.addArguments(arguments);
-			findDriver(WebDriverManager.chromedriver());
-			return new ChromeDriver(options, BidiTabDriver.clientConfig());
+			profile = imageryProfile(browser);
+		} catch (final IOException e) {
+			logger.warn("Could not prepare the profile of {} for the imagery window, a temporary one is used", browser, e);
+		}
+		try {
+			return startImageryDriver(browser, profile);
 		} catch (final Exception e) {
-			// Not installed, or its profile is in use: not a fault, the next try follows
-			logger.warn("Could not start {} for the imagery window ({})", browser,
-					withProfile ? "profile " + profile : "temporary profile", e);
+			if (profile == null || BrowserStartFailures.isNotInstalled(e)) {
+				logger.warn("Could not start {} for the imagery window", browser, e);
+				return null;
+			}
+			// Its profile may be in use by another Collect Earth
+			logger.warn("Could not start {} for the imagery window with the profile {}, trying a temporary profile",
+					browser, profile, e);
+		}
+		try {
+			return startImageryDriver(browser, null);
+		} catch (final Exception e) {
+			logger.warn("Could not start {} for the imagery window with a temporary profile", browser, e);
 			return null;
 		}
+	}
+
+	/** The profile folder of the browser in the imagery window, or null for a temporary profile. */
+	private File imageryProfile(String browser) throws IOException {
+		return EarthConstants.FIREFOX_BROWSER.equals(browser) ? imageryFirefoxProfile() : imageryChromiumProfile();
+	}
+
+	/** One browser for the imagery window, with BiDi, using {@code profile}, or a temporary profile when null. */
+	private RemoteWebDriver startImageryDriver(String browser, File profile) {
+		if (EarthConstants.FIREFOX_BROWSER.equals(browser)) {
+			FirefoxOptions options = new FirefoxOptions();
+			options.enableBiDi();
+			if (profile != null) {
+				// Used where it is, not copied to a temporary folder as a FirefoxProfile would be: the sign-ins stay
+				options.addArguments("-profile", profile.getAbsolutePath());
+			}
+			findDriver(WebDriverManager.firefoxdriver());
+			return new FirefoxDriver(options, BidiTabDriver.clientConfig());
+		}
+		List<String> arguments = new ArrayList<>(Arrays.asList("--no-first-run", "--no-default-browser-check"));
+		if (profile != null) {
+			arguments.add("--user-data-dir=" + profile.getAbsolutePath());
+		}
+		// A normal window, not an --app one, which has no tabs
+		if (EarthConstants.EDGE_BROWSER.equals(browser)) {
+			EdgeOptions options = new EdgeOptions();
+			options.enableBiDi();
+			options.addArguments(arguments);
+			findDriver(WebDriverManager.edgedriver());
+			return new EdgeDriver(options, BidiTabDriver.clientConfig());
+		}
+		ChromeOptions options = new ChromeOptions();
+		options.enableBiDi();
+		options.addArguments(arguments);
+		findDriver(WebDriverManager.chromedriver());
+		return new ChromeDriver(options, BidiTabDriver.clientConfig());
 	}
 
 	/**
@@ -492,17 +528,21 @@ public class BrowserService implements InitializingBean, DisposableBean, Applica
 	/**
 	 * The Chrome and Edge profile of the imagery window. It used to be the one of the Google Earth Web window: that
 	 * folder is taken over the first time, so the Google sign-in in it is kept.
+	 * <p>
+	 * When the old folder cannot be renamed (a browser has it open, another Collect Earth mostly), null: a temporary
+	 * profile for this run. Not a new, empty folder under the new name, which would stop the rename from being tried
+	 * again and leave the sign-in behind for good; the next start tries again.
 	 */
 	private File imageryChromiumProfile() throws IOException {
 		File folder = new File(FolderFinder.getCollectEarthDataFolder(), IMAGERY_PROFILE_FOLDER);
 		File googleEarthWeb = new File(FolderFinder.getCollectEarthDataFolder(), GOOGLE_EARTH_WEB_PROFILE_FOLDER);
 		if (!folder.exists() && googleEarthWeb.isDirectory()) {
-			if (googleEarthWeb.renameTo(folder)) {
-				logger.info("The profile of the Google Earth Web window is now the one of the imagery window: {}", folder);
-			} else {
-				// A browser has it open: a new profile, where the sign-ins are asked for again
-				logger.warn("Could not rename {} to {}, a new profile is used", googleEarthWeb, folder);
+			if (!googleEarthWeb.renameTo(folder)) {
+				logger.warn("Could not rename {} to {} (in use?), a temporary profile is used until it can be",
+						googleEarthWeb, folder);
+				return null;
 			}
+			logger.info("The profile of the Google Earth Web window is now the one of the imagery window: {}", folder);
 		}
 		Files.createDirectories(folder.toPath());
 		return folder;
