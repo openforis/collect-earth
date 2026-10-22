@@ -13,11 +13,13 @@ import java.util.Collections;
 import java.util.EnumSet;
 import java.util.List;
 import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.BooleanSupplier;
 
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.Timeout;
 
 import io.sentry.SentryLevel;
 
@@ -90,12 +92,13 @@ public class ImageryBrowserTest {
 	}
 
 	@Test
+	@Timeout(10)
 	public void aBrowserStillStartingAtShutdownIsQuit() throws Exception {
 		CountDownLatch starting = new CountDownLatch(1);
 		CountDownLatch started = new CountDownLatch(1);
 		imagery.setStarter(() -> {
 			starting.countDown();
-			started.await();
+			await(started);
 			return browser;
 		});
 		imagery.setShutdownWait(Duration.ofMillis(100));
@@ -108,7 +111,7 @@ public class ImageryBrowserTest {
 			}
 		});
 		caller.start();
-		starting.await();
+		await(starting);
 		imagery.shutdown(); // gives up waiting for the start
 		started.countDown();
 		caller.join();
@@ -118,6 +121,7 @@ public class ImageryBrowserTest {
 	}
 
 	@Test
+	@Timeout(10)
 	public void aHungBrowserIsQuitReportedAndStartedAgain() {
 		imagery.setCommandTimeout(Duration.ofMillis(300));
 		imagery.tab(ImagerySource.PLANET).navigate("https://planet/0");
@@ -132,6 +136,7 @@ public class ImageryBrowserTest {
 	}
 
 	@Test
+	@Timeout(10)
 	public void aBrowserHungOpeningATabIsQuitByTheNextCallerThatGivesUp() throws Exception {
 		imagery.tab(ImagerySource.PLANET).navigate("https://planet/0");
 		browser.holdCreateTab = new CountDownLatch(1); // never released: the browser hangs
@@ -145,7 +150,7 @@ public class ImageryBrowserTest {
 			}
 		});
 		opening.start();
-		browser.enteredHeldCreateTab.await();
+		await(browser.enteredHeldCreateTab);
 		waitFor(() -> opening.getState() == Thread.State.TIMED_WAITING);
 		opening.interrupt();
 		opening.join();
@@ -164,6 +169,7 @@ public class ImageryBrowserTest {
 	}
 
 	@Test
+	@Timeout(10)
 	public void aCommandThatTimesOutWaitingBehindAHungOneQuitsNothing() throws Exception {
 		imagery.tab(ImagerySource.PLANET).navigate("https://planet/0");
 		CountDownLatch hold = new CountDownLatch(1);
@@ -177,7 +183,7 @@ public class ImageryBrowserTest {
 			}
 		});
 		hung.start();
-		browser.enteredHeldNavigate.await();
+		await(browser.enteredHeldNavigate);
 		imagery.setCommandTimeout(Duration.ofMillis(200)); // the one behind gives up first
 		assertThrows(IllegalStateException.class,
 				() -> imagery.tab(ImagerySource.GOOGLE_EARTH_WEB).navigate("https://gew/1"));
@@ -248,49 +254,67 @@ public class ImageryBrowserTest {
 	}
 
 	@Test
+	@Timeout(10)
 	public void aSlowStartOfTheBrowserIsNotAHang() throws Exception {
 		CountDownLatch started = new CountDownLatch(1);
 		CountDownLatch starting = new CountDownLatch(1);
 		imagery.setStarter(() -> {
 			starting.countDown();
-			started.await();
+			await(started);
 			return browser;
 		});
-		imagery.setCommandTimeout(Duration.ofMillis(200));
+		// The command that starts the browser keeps the default timeout: with a short one it could be given up while
+		// still queued, and the browser would never start
+		AtomicReference<RuntimeException> firstFailure = new AtomicReference<>();
+		Thread first = new Thread(() -> {
+			try {
+				imagery.tab(ImagerySource.PLANET).navigate("https://planet/1");
+			} catch (RuntimeException e) {
+				firstFailure.set(e);
+			}
+		});
+		first.start();
+		await(starting);
+		// Sent during the start, with a timeout well below how long the start takes
+		imagery.setCommandTimeout(Duration.ofMillis(500));
 		Thread slowStart = new Thread(() -> {
 			try {
-				starting.await();
-				Thread.sleep(1000);
+				Thread.sleep(1500);
 			} catch (InterruptedException e) {
 				Thread.currentThread().interrupt();
 			}
 			started.countDown();
 		});
 		slowStart.start();
-		imagery.tab(ImagerySource.PLANET).navigate("https://planet/1");
+		imagery.tab(ImagerySource.ESRI_WAYBACK).navigate("https://wayback/1");
+		first.join();
 		slowStart.join();
-		assertEquals(Arrays.asList("navigate tab0 https://planet/1"), browser.calls);
+		assertNull(firstFailure.get());
+		assertEquals(Arrays.asList("navigate tab0 https://planet/1", "create tab1", "navigate tab1 https://wayback/1"),
+				browser.calls);
 		assertTrue(reporter.sent.isEmpty(), reporter.sent.toString());
 	}
 
 	@Test
+	@Timeout(10)
 	public void aStartOverItsLimitFailsTheCallersAndIsReportedOnce() throws Exception {
 		CountDownLatch started = new CountDownLatch(1);
 		CountDownLatch starting = new CountDownLatch(1);
 		imagery.setStarter(() -> {
 			starting.countDown();
-			started.await();
+			await(started);
 			return browser;
 		});
-		imagery.setCommandTimeout(Duration.ofMillis(100));
+		// The limit of the start is what fails the callers. The first command's timeout is not short, or it could be
+		// given up while still queued and the browser would never start; nor the default, as a caller that sent its
+		// command before the start began only looks at the start once its own timeout has passed
+		imagery.setCommandTimeout(Duration.ofSeconds(2));
 		imagery.setStartTimeout(Duration.ofMillis(500));
 		AtomicReference<RuntimeException> otherFailure = new AtomicReference<>();
 		Thread other = new Thread(() -> {
 			try {
-				starting.await();
+				await(starting);
 				imagery.tab(ImagerySource.ESRI_WAYBACK).navigate("https://wayback/1");
-			} catch (InterruptedException e) {
-				Thread.currentThread().interrupt();
 			} catch (RuntimeException e) {
 				otherFailure.set(e);
 			}
@@ -309,6 +333,7 @@ public class ImageryBrowserTest {
 	}
 
 	@Test
+	@Timeout(10)
 	public void theListenersHearOfChangesOfTheVisibleTabOnly() throws Exception {
 		imagery.openTabs(EnumSet.of(ImagerySource.GOOGLE_EARTH_WEB, ImagerySource.ESRI_WAYBACK));
 		List<String> heard = Collections.synchronizedList(new ArrayList<>());
@@ -323,6 +348,7 @@ public class ImageryBrowserTest {
 	}
 
 	@Test
+	@Timeout(10)
 	public void theVisibleTabIsServedFirst() throws Exception {
 		imagery.openTabs(EnumSet.of(ImagerySource.GOOGLE_EARTH_WEB, ImagerySource.ESRI_WAYBACK, ImagerySource.PLANET));
 		browser.select("tab1"); // Wayback shown
@@ -331,7 +357,7 @@ public class ImageryBrowserTest {
 		browser.holdFirstNavigate = hold;
 		Thread first = new Thread(() -> imagery.tab(ImagerySource.GOOGLE_EARTH_WEB).navigate("gew/0"));
 		first.start();
-		browser.enteredHeldNavigate.await(); // the worker is now inside that navigate
+		await(browser.enteredHeldNavigate); // the worker is now inside that navigate
 		Thread planet = new Thread(() -> imagery.tab(ImagerySource.PLANET).navigate("planet/1"));
 		planet.start();
 		waitFor(() -> imagery.queuedCount() == 1);
@@ -347,6 +373,7 @@ public class ImageryBrowserTest {
 	}
 
 	@Test
+	@Timeout(10)
 	public void onlyTheLatestPlotOfASourceIsLoaded() throws Exception {
 		List<String> loaded = Collections.synchronizedList(new ArrayList<>());
 		CountDownLatch inFirst = new CountDownLatch(1);
@@ -357,7 +384,7 @@ public class ImageryBrowserTest {
 			await(release);
 		}));
 		a.start();
-		inFirst.await();
+		await(inFirst);
 		// Plots 2 and 3 arrive while 1 is loading: their callers return at once
 		Thread b = new Thread(() -> imagery.loadLatest(ImagerySource.PLANET, () -> loaded.add("2")));
 		b.start();
@@ -371,6 +398,7 @@ public class ImageryBrowserTest {
 	}
 
 	@Test
+	@Timeout(10)
 	public void aLoadThatFailsDoesNotStrandTheNextPlot() throws Exception {
 		List<String> loaded = Collections.synchronizedList(new ArrayList<>());
 		CountDownLatch inFirst = new CountDownLatch(1);
@@ -388,7 +416,7 @@ public class ImageryBrowserTest {
 			}
 		});
 		a.start();
-		inFirst.await();
+		await(inFirst);
 		Thread b = new Thread(() -> imagery.loadLatest(ImagerySource.PLANET, () -> loaded.add("2")));
 		b.start();
 		b.join();
@@ -398,9 +426,12 @@ public class ImageryBrowserTest {
 		assertEquals("plot 1 failed", firstFailure.get().getMessage());
 	}
 
+	/** Bounded, so that a race in a test fails it instead of leaving a thread waiting for good. */
 	private static void await(CountDownLatch latch) {
 		try {
-			latch.await();
+			if (!latch.await(5, TimeUnit.SECONDS)) {
+				throw new AssertionError("timed out waiting for a latch");
+			}
 		} catch (InterruptedException e) {
 			Thread.currentThread().interrupt();
 		}

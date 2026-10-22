@@ -139,6 +139,11 @@ public class PlacemarkBrowserServlet {
 		// Google Earth Web keeps its own window until Task 9 of the tabbed imagery window moves it to its tab: opened
 		// here, its tab would stay empty meanwhile
 		sources.remove(ImagerySource.GOOGLE_EARTH_WEB);
+		// Mostly they are open already: no command per source for the worker on every plot. Asked of each source rather
+		// than of openSources(), which still lists the tabs of a browser the user closed until a new one starts
+		if (sources.stream().allMatch(imageryBrowser::isOpen)) {
+			return;
+		}
 		try {
 			imageryBrowser.openTabs(sources);
 		} catch (RuntimeException e) {
