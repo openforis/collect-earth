@@ -62,6 +62,8 @@ public class ImageryBrowser {
 		final ImagerySource source;
 		final TabCommand<T> command;
 		final CompletableFuture<T> result = new CompletableFuture<>();
+		/** The browser the worker runs it on, once it started: a command that times out quits only that one. */
+		volatile TabDriver runningOn;
 
 		Command(long sequence, ImagerySource source, TabCommand<T> command) {
 			this.sequence = sequence;
@@ -235,26 +237,36 @@ public class ImageryBrowser {
 	 * Runs on the calling thread (the load calls the methods of {@link ImageryTab}, which go through the worker). A call
 	 * that finds a load running returns at once, leaving its plot to the thread of that load, which runs the latest plot
 	 * when it is done: a request thread does not wait for a page load of another plot. As the thread that runs a load
-	 * may not be the one of its plot, a load should handle its own errors; one that escapes reaches that other caller.
+	 * may not be the one of its plot, a load should handle its own errors; one that escapes reaches that other caller,
+	 * after the plots that came meanwhile were loaded.
 	 */
 	public void loadLatest(ImagerySource source, Runnable load) {
 		AtomicReference<Runnable> pending = pendingLoads.get(source);
 		ReentrantLock lock = loadLocks.get(source);
+		RuntimeException failure = null;
 		pending.set(load);
 		do {
 			if (!lock.tryLock()) {
-				return; // the thread loading now loads this plot after
+				break; // the thread loading now loads this plot after
 			}
 			try {
 				Runnable latest = pending.getAndSet(null);
 				if (latest != null) {
 					latest.run();
 				}
+			} catch (RuntimeException e) {
+				// Kept for later: leaving now would strand a plot that came while this one loaded
+				if (failure == null) {
+					failure = e;
+				}
 			} finally {
 				lock.unlock();
 			}
 			// A plot that came after the check above, while the lock was held, would otherwise be left behind
 		} while (pending.get() != null);
+		if (failure != null) {
+			throw failure;
+		}
 	}
 
 	/** The tab of the source, starting the browser and opening the tab when needed. Called on the worker only. */
@@ -387,7 +399,9 @@ public class ImageryBrowser {
 	 * so the next command of its source opens it again, and the {@link TabClosedException} reaches the caller as it is.
 	 * Runtime exceptions reach the caller as they are; a checked one (no browser to start, mostly) wrapped in an
 	 * {@link IllegalStateException}. A command that takes longer than the timeout is taken as a hung browser: it is
-	 * reported and the browser quit, which fails the command stuck in it, and the next command starts a new one.
+	 * reported and the browser it runs on quit, which fails the command stuck in it, and the next command starts a new
+	 * one. A command that times out before it started, waiting behind a hung one, only gives up: the caller of the hung
+	 * command deals with the hang, and quitting here could end the healthy browser started after it.
 	 */
 	<T> T call(ImagerySource source, TabCommand<T> command) {
 		if (Thread.currentThread() == worker) {
@@ -401,22 +415,29 @@ public class ImageryBrowser {
 				if (!queuedCommand.result.cancel(false)) {
 					return queuedCommand.result.get(); // it answered just now
 				}
-				drop(queuedCommand);
+				TabDriver stuck = queuedCommand.runningOn;
+				if (stuck == null) {
+					drop(queuedCommand);
+					throw new IllegalStateException("The imagery browser was busy for " + commandTimeoutMillis
+							+ " ms with other commands, for " + source, e);
+				}
 				IllegalStateException hung = new IllegalStateException("The imagery browser did not answer in "
 						+ commandTimeoutMillis + " ms, for " + source, e);
 				reporter.report(source, "command_timeout", hung);
-				quitDriver();
+				quitDriver(stuck);
 				throw hung;
 			} catch (InterruptedException e) {
 				Thread.currentThread().interrupt();
-				queuedCommand.result.cancel(false);
+				if (!queuedCommand.result.cancel(false)) {
+					return queuedCommand.result.get(); // it answered just now; a done future does not wait
+				}
 				drop(queuedCommand);
 				throw new IllegalStateException("Interrupted waiting for the imagery browser, for " + source, e);
 			}
 		} catch (ExecutionException e) {
 			throw unchecked(e.getCause());
 		} catch (InterruptedException e) {
-			// Not reached: get() of a completed future does not wait
+			// Not reached: get() of a completed future does not wait, even interrupted
 			Thread.currentThread().interrupt();
 			throw new IllegalStateException(e);
 		}
@@ -515,6 +536,7 @@ public class ImageryBrowser {
 		OpenTab open = null;
 		try {
 			open = open(queuedCommand.source);
+			queuedCommand.runningOn = open.driver;
 			queuedCommand.result.complete(queuedCommand.command.run(open.driver, open.tab));
 		} catch (TabClosedException e) {
 			if (open != null) {
@@ -548,6 +570,16 @@ public class ImageryBrowser {
 		if (d != null) {
 			quietlyQuit(d);
 		}
+	}
+
+	/** Quits this browser, and forgets it if it is still the current one (not if a new one replaced it meanwhile). */
+	private void quitDriver(TabDriver stuck) {
+		synchronized (driverLock) {
+			if (driver == stuck) {
+				driver = null;
+			}
+		}
+		quietlyQuit(stuck);
 	}
 
 	private void quietlyQuit(TabDriver d) {

@@ -130,6 +130,34 @@ public class ImageryBrowserTest {
 	}
 
 	@Test
+	public void aCommandThatTimesOutWaitingBehindAHungOneQuitsNothing() throws Exception {
+		imagery.tab(ImagerySource.PLANET).navigate("https://planet/0");
+		CountDownLatch hold = new CountDownLatch(1);
+		browser.holdFirstNavigate = hold;
+		AtomicReference<RuntimeException> hungFailure = new AtomicReference<>();
+		Thread hung = new Thread(() -> {
+			try {
+				imagery.tab(ImagerySource.PLANET).navigate("https://planet/1");
+			} catch (RuntimeException e) {
+				hungFailure.set(e);
+			}
+		});
+		hung.start();
+		browser.enteredHeldNavigate.await();
+		imagery.setCommandTimeout(Duration.ofMillis(200)); // the one behind gives up first
+		assertThrows(IllegalStateException.class,
+				() -> imagery.tab(ImagerySource.GOOGLE_EARTH_WEB).navigate("https://gew/1"));
+		// It never ran: the browser it would have quit is not the one to blame, nor is it reported
+		assertFalse(browser.calls.contains("quit"), browser.calls.toString());
+		assertTrue(reporter.sent.isEmpty(), reporter.sent.toString());
+		hold.countDown();
+		hung.join();
+		assertNull(hungFailure.get());
+		assertTrue(browser.calls.contains("navigate tab0 https://planet/1"), browser.calls.toString());
+		assertFalse(browser.calls.contains("navigate tab1 https://gew/1"), browser.calls.toString());
+	}
+
+	@Test
 	public void aScriptGetsItsArgumentsAndReturnsJson() {
 		assertEquals("(() => { const r = (function () {return arguments[0] + 1;\n}).apply(null, [41]); "
 				+ "return JSON.stringify(r === undefined ? null : r); })()",
@@ -199,6 +227,34 @@ public class ImageryBrowserTest {
 		release.countDown();
 		a.join();
 		assertEquals(Arrays.asList("1", "3"), loaded);
+	}
+
+	@Test
+	public void aLoadThatFailsDoesNotStrandTheNextPlot() throws Exception {
+		List<String> loaded = Collections.synchronizedList(new ArrayList<>());
+		CountDownLatch inFirst = new CountDownLatch(1);
+		CountDownLatch release = new CountDownLatch(1);
+		AtomicReference<RuntimeException> firstFailure = new AtomicReference<>();
+		Thread a = new Thread(() -> {
+			try {
+				imagery.loadLatest(ImagerySource.PLANET, () -> {
+					inFirst.countDown();
+					await(release);
+					throw new IllegalStateException("plot 1 failed");
+				});
+			} catch (RuntimeException e) {
+				firstFailure.set(e);
+			}
+		});
+		a.start();
+		inFirst.await();
+		Thread b = new Thread(() -> imagery.loadLatest(ImagerySource.PLANET, () -> loaded.add("2")));
+		b.start();
+		b.join();
+		release.countDown();
+		a.join();
+		assertEquals(Arrays.asList("2"), loaded);
+		assertEquals("plot 1 failed", firstFailure.get().getMessage());
 	}
 
 	private static void await(CountDownLatch latch) {
