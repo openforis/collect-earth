@@ -63,6 +63,13 @@ public class GoogleEarthWebService {
 	private static final long IN_PAGE_NAVIGATION_TIMEOUT_MILLIS = 4000;
 	/** Also how often the camera is read for the plots map, which follows it. */
 	private static final long WATCHDOG_PERIOD_MILLIS = 500;
+	/**
+	 * While the tab is hidden, the watchdog asks the browser whether it is still there every this many checks (10 s): a
+	 * window closed whole sends no event, and is otherwise noticed only at the next plot.
+	 */
+	private static final int HIDDEN_LIVENESS_CHECK_TICKS = 20;
+	/** As cheap a command as there is: only whether the tab answers matters. */
+	private static final String LIVENESS_SCRIPT = "return 1;";
 	/** The ground altitude learnt at one place is used for camera URLs up to this far away. */
 	private static final double GROUND_ALTITUDE_RANGE_METERS = 50000;
 	// Message codes for the plots map, which shows them translated (gew.msg.* in i18n.ts)
@@ -146,6 +153,8 @@ public class GoogleEarthWebService {
 	private volatile Double writtenAltitude;
 
 	private volatile ScheduledExecutorService watchdog;
+	/** Watchdog checks since the tab was last seen visible, or since the last liveness check; watchdog thread only. */
+	private int hiddenTicks;
 
 	/**
 	 * The tab being shown again redraws the outline at once (the page's timers were slowed down
@@ -242,11 +251,19 @@ public class GoogleEarthWebService {
 		if (!localPropertiesService.isGoogleEarthWebViewer() || Boolean.FALSE.equals(inPageNavigation)) {
 			return;
 		}
+		moveCamera(latitude, longitude, heightMeters, showCount.get());
+	}
+
+	/**
+	 * @param requestedAfterShow the {@link #showCount} the move belongs to: dropped once another plot was shown, which
+	 *                           flew the camera to itself. A move kept while the tab was hidden carries the count from
+	 *                           when the tab was shown again, so that it never lands on a plot shown since.
+	 */
+	private void moveCamera(double latitude, double longitude, double heightMeters, long requestedAfterShow) {
 		if (!tab().isVisible()) {
 			cameraWhileHidden.set(new double[] { latitude, longitude, heightMeters });
 			return;
 		}
-		long requestedAfterShow = showCount.get();
 		pendingCamera.set(new double[] { latitude, longitude, heightMeters });
 		synchronized (lock) {
 			double[] target = pendingCamera.getAndSet(null);
@@ -502,7 +519,8 @@ public class GoogleEarthWebService {
 	 * map follows it), shows the plot once Google lets the user through (WAITING -> READY) and
 	 * re-draws the outline when the page lost it (F5, a page load from the information bar).
 	 * Nothing of that while another tab is shown: see the class comment. Whether the tab is open
-	 * and visible is known without asking the browser, so a hidden tab costs nothing here.
+	 * and visible is known without asking the browser, so a hidden tab costs only a trivial command
+	 * every 10 s, to notice the whole window being closed (see {@link #checkStillThere()}).
 	 */
 	private void checkWindow() {
 		if (state != State.READY && state != State.WAITING) {
@@ -517,8 +535,10 @@ public class GoogleEarthWebService {
 				return;
 			}
 			if (!tab().isVisible()) {
+				checkStillThere();
 				return;
 			}
+			hiddenTicks = 0;
 			try {
 				List<?> page = (List<?>) tab().evaluate(PAGE_STATE_SCRIPT);
 				String href = String.valueOf(page.get(0));
@@ -556,6 +576,27 @@ public class GoogleEarthWebService {
 		}
 	}
 
+	/**
+	 * While the tab is hidden, every {@link #HIDDEN_LIVENESS_CHECK_TICKS} checks: sends the browser a trivial command,
+	 * which fails with {@link TabClosedException} when the user closed the whole window from another tab. That sends
+	 * no event, so the tab still looks open; without asking, Google Earth Web would stay READY and the plots map would
+	 * not offer to open it again until the next plot. Called holding {@link #lock}, on the watchdog's thread.
+	 */
+	private void checkStillThere() {
+		if (++hiddenTicks < HIDDEN_LIVENESS_CHECK_TICKS) {
+			return;
+		}
+		hiddenTicks = 0;
+		try {
+			tab().evaluate(LIVENESS_SCRIPT);
+		} catch (TabClosedException e) {
+			logger.warn("Google Earth Web: {}", e.getMessage());
+			closed();
+		} catch (RuntimeException e) {
+			logger.debug("Google Earth Web: the hidden tab did not answer", e);
+		}
+	}
+
 	/** The user closed the tab or the window: the plots map offers to open it again. */
 	private void closed() {
 		current = null;
@@ -563,18 +604,27 @@ public class GoogleEarthWebService {
 		setState(State.CLOSED, null, null);
 	}
 
-	/** The tab is shown again: see {@link #listenToTheImageryWindow()}. On the watchdog's thread. */
+	/**
+	 * The tab is shown again: see {@link #listenToTheImageryWindow()}. On the watchdog's thread. A plot shown while this
+	 * waited for {@link #lock} drew its own outline and flew the camera to itself: then neither the outline is redrawn
+	 * nor the camera move kept while hidden applied, which would move the camera away from the new plot.
+	 */
 	private void shown() {
+		long shownAt = showCount.get();
 		try {
 			synchronized (lock) {
+				if (showCount.get() != shownAt) {
+					return;
+				}
 				SimplePlacemarkObject plot = current;
 				if (state == State.READY && plot != null && tab().isOpen()) {
 					injectOverlay(plot);
 				}
 			}
 			double[] camera = cameraWhileHidden.getAndSet(null);
-			if (camera != null) {
-				moveCamera(camera[0], camera[1], camera[2]);
+			if (camera != null && localPropertiesService.isGoogleEarthWebViewer()
+					&& !Boolean.FALSE.equals(inPageNavigation)) {
+				moveCamera(camera[0], camera[1], camera[2], shownAt);
 			}
 		} catch (TabClosedException e) {
 			// closed right after it was shown: the watchdog sees it
