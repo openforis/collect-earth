@@ -41,6 +41,8 @@ class FakeTabDriver implements TabDriver {
 	/** The next evaluates throw in the page, as when the document is being replaced. */
 	volatile int failNextEvaluates;
 	private int created;
+	/** What {@link #window()} returns. */
+	volatile RemoteWebDriver classic;
 
 	FakeTabDriver() {
 		tabs.add("tab0");
@@ -112,7 +114,7 @@ class FakeTabDriver implements TabDriver {
 	}
 	@Override public void onTabClosed(Consumer<String> listener) { closedListeners.add(listener); }
 	@Override public void onVisibilityChange(BiConsumer<String, Boolean> listener) { visibilityListeners.add(listener); }
-	@Override public RemoteWebDriver window() { return null; }
+	@Override public RemoteWebDriver window() { return classic; }
 	@Override public String browserName() { return "fake"; }
 	@Override public String browserVersion() { return "1"; }
 

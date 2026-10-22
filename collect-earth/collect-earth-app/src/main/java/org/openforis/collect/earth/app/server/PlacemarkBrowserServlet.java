@@ -330,21 +330,14 @@ public class PlacemarkBrowserServlet {
 		response.setStatus(HttpServletResponse.SC_OK);
 	}
 
-	/** Lays out the plots map and Google Earth Web windows again (the layout chosen in the options). */
+	/** Lays out the plots map and imagery windows again (the layout chosen in the options). */
 	@GetMapping(path = "/googleEarthWeb/arrange")
 	public void arrangeGoogleEarthWebWindows(HttpServletResponse response) {
 		executor.submit(windowLayoutService::arrangeAndBringForward);
 		response.setStatus(HttpServletResponse.SC_OK);
 	}
 
-	/** Lays out the windows, then brings forward the other imagery windows (extra map, ESRI Wayback...) too. */
-	@GetMapping(path = "/googleEarthWeb/arrangeAll")
-	public void arrangeAllWindows(HttpServletResponse response) {
-		executor.submit(windowLayoutService::arrangeAll);
-		response.setStatus(HttpServletResponse.SC_OK);
-	}
-
-	/** The plots map window was resized or moved: side by side, Google Earth Web takes the room left beside it. */
+	/** The plots map window was resized or moved: side by side, the imagery window takes the room left beside it. */
 	@GetMapping(path = "/googleEarthWeb/followForm")
 	public void followFormWindow(HttpServletResponse response) {
 		executor.submit(windowLayoutService::followFormWindow);

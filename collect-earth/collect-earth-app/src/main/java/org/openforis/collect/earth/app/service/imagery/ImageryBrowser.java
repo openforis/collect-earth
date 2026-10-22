@@ -28,6 +28,7 @@ import javax.annotation.PreDestroy;
 
 import org.openforis.collect.earth.app.service.BrowserService;
 import org.openforis.collect.earth.app.service.LocalPropertiesService;
+import org.openqa.selenium.WebDriverException;
 import org.openqa.selenium.remote.RemoteWebDriver;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -132,13 +133,19 @@ public class ImageryBrowser {
 	private String initialTab;
 	/** Whether {@link #initialTab} still waits for a source. */
 	private boolean initialTabFree;
+	/**
+	 * The tab the classic WebDriver session of {@link #window()} is on, null once it was closed: the session then
+	 * points at nothing, and every window command fails until it is switched to a tab that exists.
+	 */
+	private String classicTab;
 
 	/** The plot each source is to load next, if any; see {@link #loadLatest}. */
 	private final Map<ImagerySource, AtomicReference<Runnable>> pendingLoads = new EnumMap<>(ImagerySource.class);
 	private final Map<ImagerySource, ReentrantLock> loadLocks = new EnumMap<>(ImagerySource.class);
 
 	private final List<BiConsumer<ImagerySource, Boolean>> visibilityListeners = new CopyOnWriteArrayList<>();
-	/** Runs the visibility listeners, so that they never hold up the thread of the browser's events. */
+	private final List<Runnable> startListeners = new CopyOnWriteArrayList<>();
+	/** Runs the visibility and start listeners, so that they never hold up the thread of the browser's events. */
 	private final ExecutorService events = Executors.newSingleThreadExecutor(runnable -> {
 		Thread thread = new Thread(runnable, "Imagery browser events");
 		thread.setDaemon(true);
@@ -267,12 +274,54 @@ public class ImageryBrowser {
 	}
 
 	/**
-	 * The classic WebDriver of the imagery window, to move and size it; null when no browser runs. Its handle is the
-	 * window's, whichever tab is shown. Task 10 of the tabbed imagery window switches it to the visible tab first.
+	 * The classic WebDriver of the imagery window, to move and size it; null when no browser runs, or when it cannot be
+	 * addressed yet (see below).
+	 * <p>
+	 * Window commands go to the window of the session's current tab, which is the tab the browser opened with until
+	 * this switches it. Once the user closed that tab, every command would fail with "no such window", so the session
+	 * is switched first to the tab that is visible: in Firefox switching to a tab also selects it, and switching to any
+	 * other would bring it to the front under the user. With no visible tab known (the moment after it closed), null:
+	 * the window is placed the next time. Whether the current tab is gone is known from the tab events, so this makes
+	 * no call to the browser except for that switch (BiDi tab ids are the window handles of the classic session).
+	 * <p>
+	 * Threads: a {@link RemoteWebDriver} is not safe to use from two threads at once. The worker drives the tabs over
+	 * BiDi only, so the classic session is left to the window layout: call this, and use what it returns, only from
+	 * WindowLayoutService's code that holds its lock, which keeps the classic calls to one thread at a time.
 	 */
 	public RemoteWebDriver window() {
 		TabDriver d = driver;
-		return d == null || !d.isAlive() ? null : d.window();
+		if (d == null || !d.isAlive()) {
+			return null;
+		}
+		RemoteWebDriver window = d.window();
+		if (window == null) {
+			return null;
+		}
+		String switchTo;
+		synchronized (tabsLock) {
+			if (classicTab != null) {
+				return window;
+			}
+			ImagerySource shown = visible;
+			switchTo = shown == null ? null : tabOfSource.get(shown);
+		}
+		if (switchTo == null) {
+			logger.debug("Imagery window: its first tab was closed and no tab is known to be shown, not placed now");
+			return null;
+		}
+		try {
+			window.switchTo().window(switchTo);
+		} catch (WebDriverException e) {
+			logger.debug("Imagery window: could not switch the window commands to the tab shown", e);
+			return null;
+		}
+		synchronized (tabsLock) {
+			// Unless it closed meanwhile, which forgot it
+			if (d == driver && sourceOfTab.containsKey(switchTo)) {
+				classicTab = switchTo;
+			}
+		}
+		return window;
 	}
 
 	/** The source of the tab shown in the imagery window, or null. */
@@ -291,6 +340,15 @@ public class ImageryBrowser {
 			visible = source;
 			return null;
 		});
+	}
+
+	/**
+	 * Called after a browser for the imagery window started, each time one does (the first time, after the user closed
+	 * the window, after a hang): a new window, to be laid out. On the thread of the listeners, as
+	 * {@link #onVisibilityChange}; the browser may show only its blank first tab yet.
+	 */
+	public void onBrowserStarted(Runnable listener) {
+		startListeners.add(listener);
 	}
 
 	/**
@@ -416,6 +474,7 @@ public class ImageryBrowser {
 			reportedVisibility.clear();
 			initialTab = d.initialTab();
 			initialTabFree = true;
+			classicTab = initialTab;
 		}
 		visible = null;
 		driver = d;
@@ -423,7 +482,27 @@ public class ImageryBrowser {
 		d.onVisibilityChange((tab, isVisible) -> visibilityChanged(d, tab, isVisible));
 		reporter.setBrowser(d.browserName(), d.browserVersion());
 		reporter.breadcrumb(null, "browser started");
+		tellStarted();
 		return d;
+	}
+
+	private void tellStarted() {
+		if (startListeners.isEmpty()) {
+			return;
+		}
+		try {
+			events.execute(() -> {
+				for (Runnable listener : startListeners) {
+					try {
+						listener.run();
+					} catch (RuntimeException e) {
+						logger.warn("Imagery window: a listener of the browser start failed", e);
+					}
+				}
+			});
+		} catch (RejectedExecutionException e) {
+			// shut down
+		}
 	}
 
 	/** The user closed a tab: its source gets a new one the next time it needs it. */
@@ -479,6 +558,9 @@ public class ImageryBrowser {
 
 	/** Called holding {@link #tabsLock}. */
 	private void forget(String tab) {
+		if (tab.equals(classicTab)) {
+			classicTab = null;
+		}
 		reportedVisibility.remove(tab);
 		ImagerySource source = sourceOfTab.remove(tab);
 		if (source != null) {

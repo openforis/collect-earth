@@ -207,8 +207,9 @@ public class ExternalServicesPanel extends AbstractPropertyPanel implements Scro
         mapEngineCombo.setEnabled(isPlotsMapSelected());
         registerComponent(EarthProperty.MAP_ENGINE, mapEngineCombo);
 
-        // How the plots map and Google Earth Web windows share the screens: items are the raw property values,
-        // a renderer shows the localized labels. Enabled only when Google Earth Web is the viewer.
+        // How the plots map and the imagery window share the screens: items are the raw property values,
+        // a renderer shows the localized labels. Enabled only with the plots map as the viewer (with or without
+        // Google Earth Web): the classic viewer leaves the browser windows where they open.
         windowLayoutCombo = new JComboBox<>(new String[] {
                 LocalPropertiesService.WINDOW_LAYOUT_AUTO,
                 LocalPropertiesService.WINDOW_LAYOUT_SIDE_BY_SIDE,
@@ -225,7 +226,7 @@ public class ExternalServicesPanel extends AbstractPropertyPanel implements Scro
         });
         windowLayoutCombo.setToolTipText(Messages.getString("ExternalServicesPanel.windowLayoutTooltip"));
         windowLayoutCombo.setSelectedItem(localPropertiesService.getWindowLayout());
-        windowLayoutCombo.setEnabled(isGoogleEarthWebSelected());
+        windowLayoutCombo.setEnabled(isPlotsMapSelected());
         registerComponent(EarthProperty.WINDOW_LAYOUT, windowLayoutCombo);
 
         // Planet Maps - create components
@@ -451,7 +452,7 @@ public class ExternalServicesPanel extends AbstractPropertyPanel implements Scro
         // The map imagery engine only applies to the plots map window
         viewerTypeCombo.addActionListener(e -> {
             mapEngineCombo.setEnabled(isPlotsMapSelected());
-            windowLayoutCombo.setEnabled(isGoogleEarthWebSelected());
+            windowLayoutCombo.setEnabled(isPlotsMapSelected());
             updateViewerTypeHelp();
         });
 
@@ -459,10 +460,6 @@ public class ExternalServicesPanel extends AbstractPropertyPanel implements Scro
         openSecureWatchCheckbox.addActionListener(e ->
                 secureWatchUrlField.setEnabled(openSecureWatchCheckbox.isSelected()
                         && localPropertiesService.isSecureWatchSupported()));
-    }
-
-    private boolean isGoogleEarthWebSelected() {
-        return LocalPropertiesService.VIEWER_TYPE_GOOGLE_EARTH_WEB.equals(viewerTypeCombo.getSelectedItem());
     }
 
     private boolean isPlotsMapSelected() {

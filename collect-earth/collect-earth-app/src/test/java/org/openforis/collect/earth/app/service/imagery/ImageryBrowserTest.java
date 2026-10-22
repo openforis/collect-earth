@@ -3,9 +3,11 @@ package org.openforis.collect.earth.app.service.imagery;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.lang.reflect.Proxy;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -20,6 +22,8 @@ import java.util.function.BooleanSupplier;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.Timeout;
+import org.openqa.selenium.WebDriver;
+import org.openqa.selenium.remote.RemoteWebDriver;
 
 import io.sentry.SentryLevel;
 
@@ -424,6 +428,80 @@ public class ImageryBrowserTest {
 		a.join();
 		assertEquals(Arrays.asList("2"), loaded);
 		assertEquals("plot 1 failed", firstFailure.get().getMessage());
+	}
+
+	@Test
+	public void theWindowCommandsStayOnTheTabTheBrowserOpenedWithWhileItIsOpen() {
+		List<String> switches = classicSession();
+		imagery.tab(ImagerySource.PLANET).navigate("https://planet/1");
+		imagery.tab(ImagerySource.GOOGLE_EARTH_WEB).navigate("https://earth/1");
+		browser.select("tab1");
+		assertSame(browser.classic, imagery.window());
+		assertEquals(Collections.emptyList(), switches);
+	}
+
+	@Test
+	public void theWindowCommandsMoveToTheVisibleTabOnceTheirTabIsClosed() {
+		List<String> switches = classicSession();
+		imagery.tab(ImagerySource.PLANET).navigate("https://planet/1");
+		imagery.tab(ImagerySource.GOOGLE_EARTH_WEB).navigate("https://earth/1");
+		browser.select("tab1");
+		browser.close("tab0");
+		assertSame(browser.classic, imagery.window());
+		assertSame(browser.classic, imagery.window());
+		// Once only, and to the tab in front: switching selects the tab in Firefox
+		assertEquals(Arrays.asList("tab1"), switches);
+	}
+
+	@Test
+	public void theWindowCannotBeAddressedWhileNoTabIsKnownToBeShown() {
+		List<String> switches = classicSession();
+		imagery.tab(ImagerySource.PLANET).navigate("https://planet/1");
+		browser.close("tab0");
+		imagery.tab(ImagerySource.GOOGLE_EARTH_WEB).navigate("https://earth/1");
+		assertNull(imagery.window());
+		assertEquals(Collections.emptyList(), switches);
+	}
+
+	@Test
+	@Timeout(10)
+	public void everyBrowserStartIsAnnounced() throws Exception {
+		CountDownLatch first = new CountDownLatch(1);
+		CountDownLatch second = new CountDownLatch(2);
+		imagery.onBrowserStarted(() -> {
+			first.countDown();
+			second.countDown();
+		});
+		imagery.tab(ImagerySource.PLANET).navigate("https://planet/1");
+		await(first);
+		browser.alive = false;
+		imagery.setStarter(FakeTabDriver::new);
+		imagery.tab(ImagerySource.PLANET).navigate("https://planet/2");
+		await(second);
+	}
+
+	/**
+	 * Gives the fake browser a classic session that records the tabs it is switched to. RemoteWebDriver's own
+	 * constructor without a session is protected: an anonymous subclass reaches it.
+	 */
+	private List<String> classicSession() {
+		List<String> switches = Collections.synchronizedList(new ArrayList<>());
+		WebDriver.TargetLocator locator = (WebDriver.TargetLocator) Proxy.newProxyInstance(
+				WebDriver.TargetLocator.class.getClassLoader(), new Class<?>[] { WebDriver.TargetLocator.class },
+				(proxy, method, args) -> {
+					if (!"window".equals(method.getName())) {
+						throw new UnsupportedOperationException(method.getName());
+					}
+					switches.add((String) args[0]);
+					return null;
+				});
+		browser.classic = new RemoteWebDriver() {
+			@Override
+			public TargetLocator switchTo() {
+				return locator;
+			}
+		};
+		return switches;
 	}
 
 	/** Bounded, so that a race in a test fails it instead of leaving a thread waiting for good. */

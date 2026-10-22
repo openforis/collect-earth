@@ -21,7 +21,6 @@ import org.openforis.collect.earth.app.service.imagery.PageScriptException;
 import org.openforis.collect.earth.app.service.imagery.TabClosedException;
 import org.openforis.collect.earth.app.view.Messages;
 import org.openforis.collect.earth.sampler.model.SimplePlacemarkObject;
-import org.openqa.selenium.remote.RemoteWebDriver;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -115,9 +114,6 @@ public class GoogleEarthWebService {
 
 	@Autowired
 	private LocalPropertiesService localPropertiesService;
-
-	@Autowired
-	private WindowLayoutService windowLayoutService;
 
 	@Autowired
 	private ImageryBrowser imageryBrowser;
@@ -287,15 +283,6 @@ public class GoogleEarthWebService {
 		}
 	}
 
-	/**
-	 * The imagery window, which Google Earth Web is a tab of, or null when it is not open (used to
-	 * lay out the windows). Task 10 of the tabbed imagery window has WindowLayoutService ask
-	 * {@link ImageryBrowser} itself and removes this.
-	 */
-	public RemoteWebDriver getDriver() {
-		return imageryBrowser.window();
-	}
-
 	/** State reported to the plots map. */
 	public Map<String, Object> getStatus() {
 		Map<String, Object> status = new LinkedHashMap<>();
@@ -358,7 +345,8 @@ public class GoogleEarthWebService {
 	private void showIn(SimplePlacemarkObject target, boolean overview, String plotId, String url) {
 		boolean tabOpen = tab().isOpen();
 		String href = tabOpen ? pageUrl() : null;
-		// A tab opened blank by the plot change (PlacemarkBrowserServlet opens the tabs first) is new all the same
+		// A tab opened blank by the plot change (PlacemarkBrowserServlet opens the tabs first) is new all the same: the
+		// plots map says "opening", not "moving". A new window is laid out by WindowLayoutService when its browser starts.
 		boolean newTab = !tabOpen || (href != null && href.startsWith("about:"));
 		boolean moved = false;
 		if (tabOpen && !Boolean.FALSE.equals(inPageNavigation) && GoogleEarthWebUrls.isGoogleEarthWeb(href)) {
@@ -370,10 +358,6 @@ public class GoogleEarthWebService {
 			// The camera URL changes the path, so a navigation loads the page: no reload needed
 			if (!tab().load(url, false, PAGE_LOAD_TIMEOUT)) {
 				logger.warn("Google Earth Web did not load in time");
-			}
-			if (newTab) {
-				// Every new tab: the user may have closed the previous window, or moved things around since
-				windowLayoutService.arrange();
 			}
 		}
 		startWatchdog();

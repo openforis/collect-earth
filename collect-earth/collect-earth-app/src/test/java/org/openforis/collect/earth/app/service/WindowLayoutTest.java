@@ -5,13 +5,12 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
 
 import java.awt.Rectangle;
-import java.util.Arrays;
 
 import org.junit.jupiter.api.Test;
 import org.openforis.collect.earth.app.service.WindowLayoutService.Mode;
 import org.openforis.collect.earth.app.service.WindowLayoutService.Plan;
 
-/** Which screens the plots map and Google Earth Web windows go to ({@link WindowLayoutService}). */
+/** Which screens the plots map and imagery windows go to ({@link WindowLayoutService}). */
 public class WindowLayoutTest {
 
 	private static final Rectangle LAPTOP = new Rectangle(0, 0, 1366, 768);
@@ -98,21 +97,6 @@ public class WindowLayoutTest {
 		assertNull(WindowLayoutService.besideForm(work, new Rectangle(0, 0, 1100, 720)));
 		// Dragged to another screen
 		assertNull(WindowLayoutService.besideForm(work, new Rectangle(1400, 0, 420, 720)));
-	}
-
-	@Test
-	public void theOtherImageryWindowsShareTheRoomOfGoogleEarthWeb() {
-		Rectangle room = new Rectangle(420, 0, 946, 720);
-		assertEquals(Arrays.asList(room), WindowLayoutService.tile(room, 1));
-		// Wider than tall: side by side
-		assertEquals(Arrays.asList(new Rectangle(420, 0, 473, 720), new Rectangle(893, 0, 473, 720)),
-				WindowLayoutService.tile(room, 2));
-		// Three: two above, the third alone and as wide as the room below
-		assertEquals(Arrays.asList(new Rectangle(420, 0, 473, 360), new Rectangle(893, 0, 473, 360),
-				new Rectangle(420, 360, 946, 360)), WindowLayoutService.tile(room, 3));
-		// Taller than wide: one above the other
-		assertEquals(Arrays.asList(new Rectangle(0, 0, 600, 500), new Rectangle(0, 500, 600, 500)),
-				WindowLayoutService.tile(new Rectangle(0, 0, 600, 1000), 2));
 	}
 
 	private static void assertPlan(Mode mode, int imageryScreen, int formScreen, String layout, Rectangle... screens) {

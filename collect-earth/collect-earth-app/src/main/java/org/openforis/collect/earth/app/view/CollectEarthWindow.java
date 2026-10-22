@@ -403,9 +403,9 @@ public class CollectEarthWindow implements InitializingBean, DisposableBean{
 	}
 
 	/**
-	 * How the plots map and Google Earth Web windows share the screens (the setting of the options dialog), and buttons to
-	 * put them back in place and to bring forward the other imagery windows (extra map, ESRI Wayback...): here, where it
-	 * is easy to find while working, rather than only in the options.
+	 * How the plots map and the imagery window share the screens (the setting of the options dialog), and a button to put
+	 * them back in place: here, where it is easy to find while working, rather than only in the options. The imagery
+	 * sources are tabs of the one imagery window, so there are no other windows to bring forward.
 	 */
 	private JPanel createBrowserWindowsPanel() {
 		windowLayoutCombo = new JComboBox<>(new String[] { LocalPropertiesService.WINDOW_LAYOUT_AUTO,
@@ -439,12 +439,6 @@ public class CollectEarthWindow implements InitializingBean, DisposableBean{
 		arrangeButton.addActionListener(e -> inBackground("Arrange the browser windows", //$NON-NLS-1$
 				windowLayoutService::arrangeAndBringForward));
 
-		final JButton showAllButton = new JButton(Messages.getString("CollectEarthWindow.showAllWindows"), //$NON-NLS-1$
-				FontIcon.of(MaterialDesign.MDI_FLIP_TO_FRONT, 18));
-		showAllButton.setToolTipText(Messages.getString("CollectEarthWindow.showAllWindowsTooltip")); //$NON-NLS-1$
-		showAllButton.addActionListener(e -> inBackground("Bring all the browser windows forward", //$NON-NLS-1$
-				windowLayoutService::arrangeAll));
-
 		browserWindowsPanel = new JPanel(new FlowLayout(FlowLayout.LEFT, 6, 2));
 		browserWindowsPanel.setBorder(BorderFactory.createCompoundBorder(
 				BorderFactory.createTitledBorder(Messages.getString("CollectEarthWindow.browserWindows")), //$NON-NLS-1$
@@ -452,7 +446,6 @@ public class CollectEarthWindow implements InitializingBean, DisposableBean{
 		browserWindowsPanel.add(new JLabel(Messages.getString("ExternalServicesPanel.windowLayout"))); //$NON-NLS-1$
 		browserWindowsPanel.add(windowLayoutCombo);
 		browserWindowsPanel.add(arrangeButton);
-		browserWindowsPanel.add(showAllButton);
 		return browserWindowsPanel;
 	}
 
@@ -469,7 +462,8 @@ public class CollectEarthWindow implements InitializingBean, DisposableBean{
 
 	/**
 	 * Selects the button of the viewer in the settings, which the options dialog may have changed, and shows the browser
-	 * windows panel only while Google Earth Web is the viewer.
+	 * windows panel only while the plots map is the viewer (with or without Google Earth Web: there is an imagery window
+	 * to place either way).
 	 */
 	private void showViewerType() {
 		if (viewerButtons == null) {
@@ -477,10 +471,10 @@ public class CollectEarthWindow implements InitializingBean, DisposableBean{
 		}
 		final String viewerType = localPropertiesService.getViewerType();
 		if (browserWindowsPanel != null) {
-			final boolean googleEarthWeb = LocalPropertiesService.VIEWER_TYPE_GOOGLE_EARTH_WEB.equals(viewerType);
+			final boolean plotsMap = localPropertiesService.isPlotsMapViewer();
 			windowLayoutCombo.setSelectedItem(localPropertiesService.getWindowLayout());
-			if (browserWindowsPanel.isVisible() != googleEarthWeb) {
-				browserWindowsPanel.setVisible(googleEarthWeb);
+			if (browserWindowsPanel.isVisible() != plotsMap) {
+				browserWindowsPanel.setVisible(plotsMap);
 				// the window cannot be resized by the user: it takes the size of what it shows
 				getFrame().pack();
 			}
