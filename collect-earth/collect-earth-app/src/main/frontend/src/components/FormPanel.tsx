@@ -12,6 +12,7 @@ import CloseIcon from "@mui/icons-material/Close";
 import MenuIcon from "@mui/icons-material/Menu";
 import type { MapController, UiState } from "../controller";
 import { useT } from "../i18n";
+import { ImageryBar } from "./ImageryBar";
 import { useUiScale } from "../uiScale";
 import type { PlotStatus } from "../types";
 
@@ -82,6 +83,7 @@ export function FormPanel({ controller, state, fill, hidden, onShowList }: {
           <IconButton onClick={controller.closeForm} aria-label={t("form.close")} data-testid="form-close"><CloseIcon /></IconButton>
         </Tooltip>
       </Stack>
+      <ImageryBar controller={controller} state={state} />
       {/* key: a fresh iframe per plot, so a stale form can never post into the next one */}
       <Box component="iframe" key={state.formUrl} src={state.formUrl!} title={t("form.frame")} data-testid="form-frame"
         sx={{ flex: 1, border: 0, bgcolor: "background.paper", ".ce-resizing &": { pointerEvents: "none" } }} />

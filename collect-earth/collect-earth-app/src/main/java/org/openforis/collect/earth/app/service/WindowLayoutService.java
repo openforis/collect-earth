@@ -437,6 +437,19 @@ public class WindowLayoutService {
 		}
 	}
 
+	/**
+	 * Brings the imagery window in front of the others, if it is open: the user picked one of its sources in the plots
+	 * map, which is in front then. The window is asked for holding {@link #lock}, see {@link ImageryBrowser#window()}.
+	 */
+	public void bringImageryWindowForward() {
+		synchronized (lock) {
+			RemoteWebDriver imagery = imageryBrowser.window();
+			if (imagery != null) {
+				bringForwardLocked(imagery);
+			}
+		}
+	}
+
 	private void bringForwardLocked(RemoteWebDriver window) {
 		// Side effect: minimized, the page is hidden for a moment and then visible again, so its visibility listeners
 		// fire (Google Earth Web redraws its plot once). The imagery browser takes it as the tab shown again.

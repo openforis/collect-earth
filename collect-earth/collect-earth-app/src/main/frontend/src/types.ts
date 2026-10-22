@@ -39,6 +39,12 @@ export interface GewStatus {
   cameraSync?: boolean;
 }
 
+export type ImagerySource = "GOOGLE_EARTH_WEB" | "ESRI_WAYBACK" | "PLANET" | "GEE_APP" | "EARTH_MAP"
+  | "STREET_VIEW" | "EXTRA_MAP" | "SECURE_WATCH";
+
+/** The tabs of the imagery window (/imagery/status). */
+export interface ImageryStatus { sources: ImagerySource[]; visible: ImagerySource | null }
+
 /** Where a map or Google Earth Web looks: the centre and the height of ground in view (metres). */
 export interface GroundView {
   center: LatLng;

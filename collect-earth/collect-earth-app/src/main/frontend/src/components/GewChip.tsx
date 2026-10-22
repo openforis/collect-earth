@@ -6,7 +6,6 @@ import ListItemText from "@mui/material/ListItemText";
 import Menu from "@mui/material/Menu";
 import MenuItem from "@mui/material/MenuItem";
 import ErrorOutlineIcon from "@mui/icons-material/ErrorOutlineOutlined";
-import FlipToFrontIcon from "@mui/icons-material/FlipToFront";
 import PublicIcon from "@mui/icons-material/Public";
 import PublicOffIcon from "@mui/icons-material/PublicOff";
 import SyncIcon from "@mui/icons-material/Sync";
@@ -48,11 +47,6 @@ export function GewChip({ controller, state }: { controller: MapController; stat
           onClick={() => { controller.arrangeWindows(); setAnchor(null); }}>
           <ListItemIcon><ViewQuiltIcon fontSize="small" /></ListItemIcon>
           <ListItemText primary={t("gew.arrange")} secondary={t("gew.arrangeHint")} />
-        </MenuItem>
-        <MenuItem data-testid="gew-show-all" disabled={!gew || gew.state === "CLOSED"}
-          onClick={() => { controller.showAllWindows(); setAnchor(null); }}>
-          <ListItemIcon><FlipToFrontIcon fontSize="small" /></ListItemIcon>
-          <ListItemText primary={t("gew.showAll")} secondary={t("gew.showAllHint")} />
         </MenuItem>
       </Menu>
     </>

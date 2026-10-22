@@ -1,4 +1,4 @@
-import type { GewStatus, GroundView, LatLng, MapConfig, PlotFeature, PlotStatus } from "./types";
+import type { GewStatus, GroundView, ImagerySource, ImageryStatus, LatLng, MapConfig, PlotFeature, PlotStatus } from "./types";
 
 /** Base URL of the Collect Earth embedded server (the page is served from it). */
 export const HOST = window.location.origin + "/earth/";
@@ -74,14 +74,23 @@ export function gewArrangeWindows(): void {
   fetch(HOST + "googleEarthWeb/arrange").catch(() => {});
 }
 
-/** Arrange, then bring forward the other imagery windows (extra map, ESRI Wayback...) over Google Earth Web. */
-export function gewShowAllWindows(): void {
-  fetch(HOST + "googleEarthWeb/arrangeAll").catch(() => {});
-}
-
 /** This window was resized or moved: side by side, Google Earth Web takes the room left beside it. */
 export function gewFollowFormWindow(): void {
   fetch(HOST + "googleEarthWeb/followForm").catch(() => {});
+}
+
+// ---------- The imagery window: a tab per source ----------
+
+/** The tabs open in the imagery window, in their order, and the one shown. */
+export async function fetchImageryStatus(): Promise<ImageryStatus> {
+  const r = await fetch(HOST + "imagery/status");
+  if (!r.ok) throw new Error("imagery/status HTTP " + r.status);
+  return r.json();
+}
+
+/** Brings the tab of the source to the front, and the imagery window over the others. */
+export function showImagerySource(source: ImagerySource): void {
+  fetch(HOST + "imagery/show?source=" + encodeURIComponent(source)).catch(() => { /* the next status shows what is open */ });
 }
 
 /** Neighbouring plots (with statuses) that Google Earth Web draws around the plot. */

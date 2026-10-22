@@ -1,14 +1,15 @@
 import { flushSync } from "react-dom";
-import { fetchGewStatus, fetchMapConfig, fetchPlots, fetchStatuses, formUrl, gewArrangeWindows, gewMoveCamera, gewShowAllWindows,
-  gewOpenOverview, gewShowPlot, openAuxiliaryWindows, postGewContext } from "./api";
+import { fetchGewStatus, fetchImageryStatus, fetchMapConfig, fetchPlots, fetchStatuses, formUrl, gewArrangeWindows, gewMoveCamera,
+  gewOpenOverview, gewShowPlot, openAuxiliaryWindows, postGewContext, showImagerySource } from "./api";
 import { GoogleEngine } from "./engines/GoogleEngine";
 import { LeafletEngine } from "./engines/LeafletEngine";
 import type { EngineConfig, MapEngine } from "./engines/MapEngine";
 import { footprintCorners, neighbour, nextUnfinished, normalizeStatus, plotsNear, sameView, visibleIds } from "./plots";
 import type { MessageKey } from "./i18n";
+import { reconcileImagery, sameImageryStatus, type ImageryExpectation } from "./imagery";
 import { loadPrefs, savePrefs, type Prefs } from "./prefs";
-import { ACTIVE_COLOR, STATUS_COLORS, type GewStatus, type GewView, type GroundView, type LatLng, type ListFilter,
-  type MapConfig, type PlotFeature, type PlotStatus } from "./types";
+import { ACTIVE_COLOR, STATUS_COLORS, type GewStatus, type GewView, type GroundView, type ImagerySource, type ImageryStatus,
+  type LatLng, type ListFilter, type MapConfig, type PlotFeature, type PlotStatus } from "./types";
 
 const ZOOM_THRESHOLD = 14; // below: dot markers; above: polygons
 const PLOT_ZOOM = 17;
@@ -24,6 +25,10 @@ const GEW_EXPECT_MILLIS = 5000;
 /** Neighbouring plots drawn in Google Earth Web around the current one. */
 const GEW_CONTEXT_RADIUS_METERS = 3000;
 const GEW_CONTEXT_MAX_PLOTS = 300;
+/** The tabs of the imagery window: the user opens and closes them, so they are read now and then. */
+const IMAGERY_POLL_MILLIS = 2000;
+/** How long a source the user picked is shown pressed before the server's answer wins (it shows it in ~1 s). */
+const IMAGERY_EXPECT_MILLIS = 5000;
 
 /** A message over the map: a translatable key (with params), or a server text as is. */
 export interface Banner {
@@ -52,6 +57,8 @@ export interface UiState {
   baseLayer: string;
   /** Google Earth Web window state; null unless the viewer is "Plots map + Google Earth Web". */
   gew: GewStatus | null;
+  /** The tabs of the imagery window and the one shown: the source buttons. */
+  imagery: ImageryStatus;
 }
 
 interface Plot { feature: PlotFeature; center: LatLng; rings: LatLng[][] }
@@ -86,6 +93,7 @@ export class MapController {
       filter: this.prefs.filter ?? "all", query: "",
       sidebarCollapsed: !!this.prefs.sidebarCollapsed, formWidth: this.prefs.formWidth ?? 560,
       banner: null, viewerType: "", language: "en", baseLayers: [], baseLayer: "", gew: null,
+      imagery: { sources: [], visible: null },
     };
   }
 
@@ -120,6 +128,7 @@ export class MapController {
     this.webForm = config.webForm ?? "generated";
     this.set({ viewerType: config.viewerType ?? "", language: config.language ?? "en" });
     if (this.usesGoogleEarthWeb()) this.pollGew();
+    this.pollImagery();
     const notice = this.createEngine(config);
     if (notice) this.set({ banner: fallbackBanner(notice) });
     this.loadPlots();
@@ -440,7 +449,37 @@ export class MapController {
   };
 
   arrangeWindows = (): void => gewArrangeWindows();
-  showAllWindows = (): void => gewShowAllWindows();
+
+  // ---------- the imagery window: a tab per source ----------
+  private imageryTimer = 0;
+  /** Bumped on every click on a source: a poll answer sent before it predates the click. */
+  private imageryEpoch = 0;
+  /** The source the user picked, kept as the one shown until the server shows it too: see reconcileImagery. */
+  private imageryExpected: ImageryExpectation | null = null;
+
+  /** The next poll starts once this one is answered, as for the statuses. */
+  private pollImagery = async (): Promise<void> => {
+    window.clearTimeout(this.imageryTimer);
+    const epoch = this.imageryEpoch;
+    try {
+      const server = await fetchImageryStatus();
+      if (epoch === this.imageryEpoch) {
+        const { status, expected } = reconcileImagery(server, this.imageryExpected, Date.now());
+        this.imageryExpected = expected;
+        if (!sameImageryStatus(status, this.state.imagery)) this.set({ imagery: status });
+      }
+    } catch { /* server busy or restarting - retry */ }
+    // Also after a stale answer: unlike the Google Earth Web poll, a click starts no poll of its own
+    this.imageryTimer = window.setTimeout(this.pollImagery, IMAGERY_POLL_MILLIS);
+  };
+
+  /** Brings the tab of the source to the front; its button is shown pressed at once. */
+  showImagery = (source: ImagerySource): void => {
+    showImagerySource(source);
+    this.imageryEpoch++;
+    this.imageryExpected = { source, until: Date.now() + IMAGERY_EXPECT_MILLIS };
+    this.set({ imagery: { ...this.state.imagery, visible: source } });
+  };
 
   // ---------- list / layout ----------
   setFilter = (filter: ListFilter): void => { this.set({ filter }); this.savePref("filter", filter); };

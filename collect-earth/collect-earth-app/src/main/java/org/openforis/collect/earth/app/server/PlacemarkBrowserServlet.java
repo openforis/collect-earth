@@ -344,6 +344,48 @@ public class PlacemarkBrowserServlet {
 		response.setStatus(HttpServletResponse.SC_OK);
 	}
 
+	// ---------- The imagery window (a tab per source) ----------
+
+	/**
+	 * The sources open in the imagery window, in tab order, and the one shown: the source buttons of the plots map. The
+	 * one shown is null unless it is among the open ones (the window was closed, or the tab shown is not ours).
+	 */
+	@GetMapping(path = "/imagery/status")
+	public void imageryStatus(HttpServletResponse response) throws IOException {
+		Map<String, Object> status = new LinkedHashMap<>();
+		List<ImagerySource> sources = imageryBrowser.openSources();
+		status.put("sources", sources);
+		ImagerySource visible = imageryBrowser.visibleSource();
+		status.put("visible", visible == null || !sources.contains(visible) ? null : visible.name());
+		response.setHeader("Content-Type", "application/json; charset=UTF-8");
+		new ObjectMapper().writeValue(response.getOutputStream(), status);
+	}
+
+	/**
+	 * Brings the tab of a source to the front, and the imagery window over the others. Answers at once: bringing the
+	 * window forward takes a few WebDriver calls, and the plots map shows the button pressed meanwhile.
+	 */
+	@GetMapping(path = "/imagery/show")
+	public void showImagery(HttpServletResponse response, @RequestParam("source") String source) {
+		ImagerySource chosen;
+		try {
+			chosen = ImagerySource.valueOf(source);
+		} catch (IllegalArgumentException e) {
+			response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
+			return;
+		}
+		executor.submit(() -> {
+			try {
+				imageryBrowser.show(chosen);
+				windowLayoutService.bringImageryWindowForward();
+			} catch (RuntimeException e) {
+				// No browser to start, or the tab closed meanwhile: the next status shows what is open
+				logger.warn("Could not show the imagery of {}: {}", chosen, e.getMessage());
+			}
+		});
+		response.setStatus(HttpServletResponse.SC_OK);
+	}
+
 	@GetMapping(path = "/ancillaryWindows")
 	public void openAuxiliaryWindowsNew(HttpServletResponse response, HttpServletRequest request) {
 
