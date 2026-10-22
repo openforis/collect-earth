@@ -7,6 +7,7 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import java.awt.Rectangle;
 
 import org.junit.jupiter.api.Test;
+import org.openforis.collect.earth.app.service.WindowLayoutService.ImageryPlacement;
 import org.openforis.collect.earth.app.service.WindowLayoutService.Mode;
 import org.openforis.collect.earth.app.service.WindowLayoutService.Plan;
 
@@ -16,6 +17,13 @@ public class WindowLayoutTest {
 	private static final Rectangle LAPTOP = new Rectangle(0, 0, 1366, 768);
 	private static final Rectangle MONITOR = new Rectangle(1366, 0, 2560, 1440);
 	private static final Rectangle SAME_SIZE = new Rectangle(1366, 0, 1366, 768);
+
+	@Test
+	public void theImageryWindowKeepsHowEachLayoutPlacedIt() {
+		assertEquals(ImageryPlacement.NORMAL, WindowLayoutService.imageryPlacement(Mode.SIDE_BY_SIDE));
+		assertEquals(ImageryPlacement.MAXIMIZED, WindowLayoutService.imageryPlacement(Mode.SEPARATE_SCREENS));
+		assertEquals(ImageryPlacement.FULL_SCREEN, WindowLayoutService.imageryPlacement(Mode.IMAGERY_FULL_SCREEN));
+	}
 
 	@Test
 	public void oneScreenLeavesThePlotsMapNextToGoogleEarthWeb() {

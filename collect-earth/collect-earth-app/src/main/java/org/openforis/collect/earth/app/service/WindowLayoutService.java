@@ -59,6 +59,21 @@ public class WindowLayoutService {
 
 	enum Mode { SIDE_BY_SIDE, SEPARATE_SCREENS, IMAGERY_FULL_SCREEN }
 
+	/** How the imagery window was placed last, so that bringing it forward can put it back so. */
+	enum ImageryPlacement { NORMAL, MAXIMIZED, FULL_SCREEN }
+
+	/** How a layout places the imagery window: see {@link #arrange(boolean)}. */
+	static ImageryPlacement imageryPlacement(Mode mode) {
+		switch (mode) {
+		case SEPARATE_SCREENS:
+			return ImageryPlacement.MAXIMIZED;
+		case IMAGERY_FULL_SCREEN:
+			return ImageryPlacement.FULL_SCREEN;
+		default:
+			return ImageryPlacement.NORMAL;
+		}
+	}
+
 	/** Where the windows go: the mode, and the screen of each window (the same one side by side). */
 	static final class Plan {
 		final Mode mode;
@@ -117,6 +132,11 @@ public class WindowLayoutService {
 	private String lastSeen;
 	/** Side by side: the work area the windows share, in the browser's coordinates; null in the other layouts. */
 	private volatile Rectangle sideBySideWorkArea;
+	/**
+	 * How {@link #arrange(boolean)} placed the imagery window last; NORMAL until it does (headless, the classic viewer)
+	 * and again for a new window, which the layout of its start sets anew. Guarded by {@link #lock}.
+	 */
+	private ImageryPlacement imageryPlacement = ImageryPlacement.NORMAL;
 
 	/**
 	 * Lays out every new imagery window. Not on the thread that tells of it, which also tells the imagery services
@@ -125,6 +145,9 @@ public class WindowLayoutService {
 	@PostConstruct
 	void layOutNewImageryWindows() {
 		imageryBrowser.onBrowserStarted(() -> {
+			synchronized (lock) {
+				imageryPlacement = ImageryPlacement.NORMAL;
+			}
 			Thread thread = new Thread(this::arrange, "Imagery window layout");
 			thread.setDaemon(true);
 			thread.start();
@@ -176,6 +199,9 @@ public class WindowLayoutService {
 				Plan plan = plan(localPropertiesService.getWindowLayout(), workAreas, primaryIndex);
 				logger.info("Arranging the plots map and imagery windows: {} ({} screens)", plan, screens.length);
 				sideBySideWorkArea = null;
+				if (imagery != null) {
+					imageryPlacement = imageryPlacement(plan.mode);
+				}
 				switch (plan.mode) {
 				case SIDE_BY_SIDE:
 					sideBySideWorkArea = placeSideBySide(map, imagery, workAreas[plan.imageryScreen], bringForward);
@@ -444,8 +470,20 @@ public class WindowLayoutService {
 	public void bringImageryWindowForward() {
 		synchronized (lock) {
 			RemoteWebDriver imagery = imageryBrowser.window();
-			if (imagery != null) {
-				bringForwardLocked(imagery);
+			if (imagery == null) {
+				return;
+			}
+			// Restored as a normal window, which would leave a maximized or full-screen one covering its old place with
+			// its borders and title bar showing: put back as the layout placed it (restored first, as maximizeOn does)
+			bringForwardLocked(imagery);
+			try {
+				if (imageryPlacement == ImageryPlacement.MAXIMIZED) {
+					imagery.manage().window().maximize();
+				} else if (imageryPlacement == ImageryPlacement.FULL_SCREEN) {
+					imagery.manage().window().fullscreen();
+				}
+			} catch (Exception e) {
+				logger.debug("Could not put the imagery window back as it was placed", e);
 			}
 		}
 	}
