@@ -4,6 +4,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.CountDownLatch;
@@ -27,6 +28,14 @@ class FakeTabDriver implements TabDriver {
 	volatile boolean alive = true;
 	/** When set, the first navigate waits for it: the test queues more work behind it. */
 	volatile CountDownLatch holdFirstNavigate;
+	/** Counted down when a navigate starts waiting for {@link #holdFirstNavigate}. */
+	final CountDownLatch enteredHeldNavigate = new CountDownLatch(1);
+	/** The latch a navigate is waiting for: quitting releases it, as a real browser fails the command it was running. */
+	private volatile CountDownLatch holding;
+	/** An evaluate whose expression contains one of these throws in the page. */
+	final Set<String> failingScripts = ConcurrentHashMap.newKeySet();
+	/** The next evaluates throw in the page, as when the document is being replaced. */
+	volatile int failNextEvaluates;
 	private int created;
 
 	FakeTabDriver() {
@@ -47,6 +56,8 @@ class FakeTabDriver implements TabDriver {
 		CountDownLatch hold = holdFirstNavigate;
 		if (hold != null) {
 			holdFirstNavigate = null;
+			holding = hold;
+			enteredHeldNavigate.countDown();
 			try { hold.await(); } catch (InterruptedException e) { Thread.currentThread().interrupt(); }
 			check(tab); // a real browser fails a navigation of a tab closed meanwhile
 		}
@@ -58,6 +69,15 @@ class FakeTabDriver implements TabDriver {
 	@Override public String evaluate(String tab, String expression) {
 		check(tab);
 		calls.add("evaluate " + tab);
+		if (failNextEvaluates > 0) {
+			failNextEvaluates--;
+			throw new PageScriptException("the document is being replaced");
+		}
+		for (String failing : failingScripts) {
+			if (expression.contains(failing)) {
+				throw new PageScriptException("cannot run " + failing);
+			}
+		}
 		for (Map.Entry<String, String> answer : answers.entrySet()) {
 			if (expression.contains(answer.getKey())) {
 				return answer.getValue();
@@ -68,7 +88,14 @@ class FakeTabDriver implements TabDriver {
 
 	@Override public void activate(String tab) { check(tab); calls.add("activate " + tab); }
 	@Override public boolean isAlive() { return alive; }
-	@Override public void quit() { alive = false; calls.add("quit"); }
+	@Override public void quit() {
+		alive = false;
+		calls.add("quit");
+		CountDownLatch held = holding;
+		if (held != null) {
+			held.countDown();
+		}
+	}
 	@Override public void onTabClosed(Consumer<String> listener) { closedListeners.add(listener); }
 	@Override public void onVisibilityChange(BiConsumer<String, Boolean> listener) { visibilityListeners.add(listener); }
 	@Override public RemoteWebDriver window() { return null; }

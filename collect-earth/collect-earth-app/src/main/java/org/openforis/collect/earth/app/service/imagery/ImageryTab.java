@@ -38,10 +38,18 @@ public final class ImageryTab {
 	 * Loads the URL and waits for the new page to have loaded, or {@code timeout}. {@code reload}: for pages whose URL
 	 * only changes in the #fragment, which a navigation alone does not load again. Returns whether it loaded in time.
 	 * The wait is a series of short commands, so the other tabs are served meanwhile.
+	 * <p>
+	 * A navigation that fails (no network, a site that is down) lands on a new, complete error document, so this
+	 * returns true then too: whether the page is the one wanted is for the caller to judge. A page that does not take
+	 * scripts (an error page, a privileged page) is navigated away from all the same, without the mark.
 	 */
 	public boolean load(String url, boolean reload, Duration timeout) {
 		browser.call(source, (d, tab) -> {
-			d.evaluate(tab, LEAVING_MARK + " = true");
+			try {
+				d.evaluate(tab, LEAVING_MARK + " = true");
+			} catch (PageScriptException e) {
+				// Not marked: the wait may then see the old document as loaded, which is still better than not loading
+			}
 			d.navigate(tab, url);
 			if (reload) {
 				d.reload(tab);
@@ -76,12 +84,20 @@ public final class ImageryTab {
 		return text.toString();
 	}
 
-	/** Polls {@code body} until it returns true or the timeout passes. */
+	/**
+	 * Polls {@code body} until it returns true or the timeout passes. A script that fails counts as "not yet": while a
+	 * page loads, its document is being replaced and does not run scripts. A closed tab ends the wait with
+	 * {@link TabClosedException}.
+	 */
 	public boolean waitUntil(String body, Duration timeout) {
 		long end = System.nanoTime() + timeout.toNanos();
 		while (System.nanoTime() < end) {
-			if (Boolean.TRUE.equals(evaluate(body))) {
-				return true;
+			try {
+				if (Boolean.TRUE.equals(evaluate(body))) {
+					return true;
+				}
+			} catch (PageScriptException e) {
+				// the document is being replaced: poll again
 			}
 			try {
 				Thread.sleep(POLL.toMillis());
