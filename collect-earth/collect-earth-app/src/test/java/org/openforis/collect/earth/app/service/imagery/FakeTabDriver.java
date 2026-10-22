@@ -30,7 +30,11 @@ class FakeTabDriver implements TabDriver {
 	volatile CountDownLatch holdFirstNavigate;
 	/** Counted down when a navigate starts waiting for {@link #holdFirstNavigate}. */
 	final CountDownLatch enteredHeldNavigate = new CountDownLatch(1);
-	/** The latch a navigate is waiting for: quitting releases it, as a real browser fails the command it was running. */
+	/** When set, the next createTab waits for it, as a browser that hangs opening a tab. */
+	volatile CountDownLatch holdCreateTab;
+	/** Counted down when a createTab starts waiting for {@link #holdCreateTab}. */
+	final CountDownLatch enteredHeldCreateTab = new CountDownLatch(1);
+	/** The latch a command is waiting for: quitting releases it, as a real browser fails the command it was running. */
 	private volatile CountDownLatch holding;
 	/** An evaluate whose expression contains one of these throws in the page. */
 	final Set<String> failingScripts = ConcurrentHashMap.newKeySet();
@@ -45,6 +49,16 @@ class FakeTabDriver implements TabDriver {
 	@Override public String initialTab() { return "tab0"; }
 
 	@Override public synchronized String createTab() {
+		CountDownLatch hold = holdCreateTab;
+		if (hold != null) {
+			holdCreateTab = null;
+			holding = hold;
+			enteredHeldCreateTab.countDown();
+			try { hold.await(); } catch (InterruptedException e) { Thread.currentThread().interrupt(); }
+			if (!alive) {
+				throw new TabClosedException("the browser was closed", null);
+			}
+		}
 		String tab = "tab" + (++created);
 		tabs.add(tab);
 		calls.add("create " + tab);

@@ -17,6 +17,7 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.concurrent.locks.Condition;
 import java.util.concurrent.locks.ReentrantLock;
@@ -61,14 +62,19 @@ public class ImageryBrowser {
 		final long sequence;
 		final ImagerySource source;
 		final TabCommand<T> command;
+		/** Its own, taken when it was sent: how long it may run before its browser is taken as hung. */
+		final long timeoutNanos;
 		final CompletableFuture<T> result = new CompletableFuture<>();
-		/** The browser the worker runs it on, once it started: a command that times out quits only that one. */
+		/** The browser the worker runs it on, as soon as it is known: a hang quits only that one. */
 		volatile TabDriver runningOn;
+		/** Whether its hang was reported and its browser quit, which only one of the callers that see it does. */
+		final AtomicBoolean hangHandled = new AtomicBoolean();
 
-		Command(long sequence, ImagerySource source, TabCommand<T> command) {
+		Command(long sequence, ImagerySource source, TabCommand<T> command, long timeoutNanos) {
 			this.sequence = sequence;
 			this.source = source;
 			this.command = command;
+			this.timeoutNanos = timeoutNanos;
 		}
 	}
 
@@ -128,6 +134,9 @@ public class ImageryBrowser {
 	private volatile ImageryErrorReporter reporter;
 	private volatile TabDriver driver;
 	private volatile ImagerySource visible;
+	/** What the worker runs now, and since when (set first): a caller that gives up looks here for a hang. */
+	private volatile Command<?> running;
+	private volatile long runningSinceNanos;
 
 	/** For Spring: the starter and the reporter are set in {@code @PostConstruct} (a later task). */
 	public ImageryBrowser() {
@@ -151,6 +160,7 @@ public class ImageryBrowser {
 		this.starter = starter;
 	}
 
+	/** The timeout of the commands sent from now on; one already sent keeps its own. */
 	void setCommandTimeout(Duration timeout) {
 		commandTimeoutMillis = timeout.toMillis();
 	}
@@ -271,17 +281,24 @@ public class ImageryBrowser {
 
 	/** The tab of the source, starting the browser and opening the tab when needed. Called on the worker only. */
 	String tabOf(ImagerySource source) throws Exception {
-		return open(source).tab;
+		return open(source, null).tab;
 	}
 
-	private OpenTab open(ImagerySource source) throws Exception {
+	/** {@code command}, if any, learns the browser it runs on as soon as it is known, as opening a tab can hang too. */
+	private OpenTab open(ImagerySource source, Command<?> command) throws Exception {
 		TabDriver d = driver;
+		if (command != null) {
+			command.runningOn = d; // quitting a closed browser can hang as well
+		}
 		if (d == null || !d.isAlive()) {
 			if (d != null) {
 				// The user closed the window: its driver service and connection are still there
 				quitDriver();
 			}
 			d = startBrowser();
+			if (command != null) {
+				command.runningOn = d;
+			}
 		}
 		boolean useInitial;
 		String tab;
@@ -398,34 +415,49 @@ public class ImageryBrowser {
 	 * Runs the command on the tab of the source, on the worker, and waits for its result. A tab found closed is forgotten,
 	 * so the next command of its source opens it again, and the {@link TabClosedException} reaches the caller as it is.
 	 * Runtime exceptions reach the caller as they are; a checked one (no browser to start, mostly) wrapped in an
-	 * {@link IllegalStateException}. A command that takes longer than the timeout is taken as a hung browser: it is
-	 * reported and the browser it runs on quit, which fails the command stuck in it, and the next command starts a new
-	 * one. A command that times out before it started, waiting behind a hung one, only gives up: the caller of the hung
-	 * command deals with the hang, and quitting here could end the healthy browser started after it.
+	 * {@link IllegalStateException}.
+	 * <p>
+	 * Each command has its own timeout, the one set when it was sent. A caller that runs out of time looks at what the
+	 * worker is doing, whichever command that is: one that has run for longer than its own timeout means a hung
+	 * browser, which is reported and quit (once, by whichever caller sees it first), and that fails the command stuck in
+	 * it; the next command starts a new browser. A worker that is merely busy is left alone, and the caller only gives
+	 * up: quitting then could end a healthy browser. A command that started late, behind others, gets its full time to
+	 * run before it is taken as hung.
 	 */
 	<T> T call(ImagerySource source, TabCommand<T> command) {
 		if (Thread.currentThread() == worker) {
 			throw new IllegalStateException("A command of the imagery browser sent from its own worker would wait forever");
 		}
-		Command<T> queuedCommand = enqueue(source, command);
+		Command<T> queuedCommand = enqueue(source, command, TimeUnit.MILLISECONDS.toNanos(commandTimeoutMillis));
+		long timeoutNanos = queuedCommand.timeoutNanos;
 		try {
 			try {
-				return queuedCommand.result.get(commandTimeoutMillis, TimeUnit.MILLISECONDS);
-			} catch (TimeoutException e) {
+				try {
+					return queuedCommand.result.get(timeoutNanos, TimeUnit.NANOSECONDS);
+				} catch (TimeoutException e) {
+					if (running == queuedCommand) {
+						// It started late, behind others: it gets its full time to run
+						long remaining = timeoutNanos - (System.nanoTime() - runningSinceNanos);
+						if (remaining > 0) {
+							try {
+								return queuedCommand.result.get(remaining, TimeUnit.NANOSECONDS);
+							} catch (TimeoutException again) {
+								// hung
+							}
+						}
+					}
+				}
 				if (!queuedCommand.result.cancel(false)) {
 					return queuedCommand.result.get(); // it answered just now
 				}
-				TabDriver stuck = queuedCommand.runningOn;
-				if (stuck == null) {
-					drop(queuedCommand);
-					throw new IllegalStateException("The imagery browser was busy for " + commandTimeoutMillis
-							+ " ms with other commands, for " + source, e);
+				drop(queuedCommand);
+				Command<?> current = running;
+				long runningFor = System.nanoTime() - runningSinceNanos;
+				if (current != null && runningFor >= current.timeoutNanos) {
+					throw hang(current);
 				}
-				IllegalStateException hung = new IllegalStateException("The imagery browser did not answer in "
-						+ commandTimeoutMillis + " ms, for " + source, e);
-				reporter.report(source, "command_timeout", hung);
-				quitDriver(stuck);
-				throw hung;
+				throw new IllegalStateException("The imagery browser was busy for "
+						+ TimeUnit.NANOSECONDS.toMillis(timeoutNanos) + " ms with other commands, for " + source);
 			} catch (InterruptedException e) {
 				Thread.currentThread().interrupt();
 				if (!queuedCommand.result.cancel(false)) {
@@ -443,13 +475,27 @@ public class ImageryBrowser {
 		}
 	}
 
-	private <T> Command<T> enqueue(ImagerySource source, TabCommand<T> command) {
+	/** Reports the hang of the browser the command is stuck in and quits it, unless another caller did already. */
+	private IllegalStateException hang(Command<?> stuck) {
+		IllegalStateException hung = new IllegalStateException("The imagery browser did not answer in "
+				+ TimeUnit.NANOSECONDS.toMillis(stuck.timeoutNanos) + " ms, for " + stuck.source);
+		if (stuck.hangHandled.compareAndSet(false, true)) {
+			reporter.report(stuck.source, "command_timeout", hung);
+			TabDriver d = stuck.runningOn;
+			if (d != null) {
+				quitDriver(d);
+			}
+		}
+		return hung;
+	}
+
+	private <T> Command<T> enqueue(ImagerySource source, TabCommand<T> command, long timeoutNanos) {
 		queueLock.lock();
 		try {
 			if (stopped) {
 				throw new IllegalStateException("The imagery browser was shut down");
 			}
-			Command<T> queuedCommand = new Command<>(nextSequence++, source, command);
+			Command<T> queuedCommand = new Command<>(nextSequence++, source, command, timeoutNanos);
 			queues.get(source).add(queuedCommand);
 			queued.signal();
 			return queuedCommand;
@@ -533,10 +579,14 @@ public class ImageryBrowser {
 		if (queuedCommand.result.isDone()) {
 			return; // its caller gave up waiting
 		}
+		runningSinceNanos = System.nanoTime();
+		running = queuedCommand;
 		OpenTab open = null;
 		try {
-			open = open(queuedCommand.source);
-			queuedCommand.runningOn = open.driver;
+			open = open(queuedCommand.source, queuedCommand);
+			if (queuedCommand.result.isDone()) {
+				return; // its caller gave up while the tab opened
+			}
 			queuedCommand.result.complete(queuedCommand.command.run(open.driver, open.tab));
 		} catch (TabClosedException e) {
 			if (open != null) {
@@ -547,6 +597,8 @@ public class ImageryBrowser {
 			queuedCommand.result.completeExceptionally(e);
 		} catch (Throwable e) { // NOSONAR the worker must survive whatever a command throws
 			queuedCommand.result.completeExceptionally(e);
+		} finally {
+			running = null;
 		}
 	}
 

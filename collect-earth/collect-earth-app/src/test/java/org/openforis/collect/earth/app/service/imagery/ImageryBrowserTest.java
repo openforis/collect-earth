@@ -130,6 +130,36 @@ public class ImageryBrowserTest {
 	}
 
 	@Test
+	public void aBrowserHungOpeningATabIsQuitByTheNextCallerThatGivesUp() throws Exception {
+		imagery.tab(ImagerySource.PLANET).navigate("https://planet/0");
+		browser.holdCreateTab = new CountDownLatch(1); // never released: the browser hangs
+		imagery.setCommandTimeout(Duration.ofMillis(300)); // its caller is interrupted well before
+		Thread opening = new Thread(() -> {
+			try {
+				imagery.tab(ImagerySource.GOOGLE_EARTH_WEB).navigate("https://gew/1");
+			} catch (RuntimeException e) {
+				// interrupted: this caller leaves without dealing with the hang
+			}
+		});
+		opening.start();
+		browser.enteredHeldCreateTab.await();
+		opening.interrupt();
+		opening.join();
+		FakeTabDriver second = new FakeTabDriver();
+		imagery.setStarter(() -> second);
+		imagery.setCommandTimeout(Duration.ofMillis(1000));
+		// Queued behind the hung command, which by then has run for longer than its own timeout
+		assertThrows(IllegalStateException.class,
+				() -> imagery.tab(ImagerySource.ESRI_WAYBACK).navigate("https://wayback/1"));
+		assertEquals(1, Collections.frequency(browser.calls, "quit"), browser.calls.toString());
+		assertEquals(1, reporter.sent.size(), reporter.sent.toString());
+		assertEquals("command_timeout", reporter.sent.get(0).get("imagery.error"));
+		assertEquals("GOOGLE_EARTH_WEB", reporter.sent.get(0).get("imagery.source"));
+		imagery.tab(ImagerySource.PLANET).navigate("https://planet/2");
+		assertEquals(Arrays.asList("navigate tab0 https://planet/2"), second.calls);
+	}
+
+	@Test
 	public void aCommandThatTimesOutWaitingBehindAHungOneQuitsNothing() throws Exception {
 		imagery.tab(ImagerySource.PLANET).navigate("https://planet/0");
 		CountDownLatch hold = new CountDownLatch(1);
