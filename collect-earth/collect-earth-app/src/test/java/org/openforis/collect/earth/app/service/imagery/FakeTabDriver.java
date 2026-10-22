@@ -2,23 +2,28 @@ package org.openforis.collect.earth.app.service.imagery;
 
 import java.util.ArrayList;
 import java.util.Collections;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.CountDownLatch;
 import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 
 import org.openqa.selenium.remote.RemoteWebDriver;
 
-/** A browser in memory: which calls were made, in which order, and pages that answer what the test says. */
+/**
+ * A browser in memory: which calls were made, in which order, and pages that answer what the test says. Safe across
+ * threads, as the worker of {@code ImageryBrowser} and the test thread both use it.
+ */
 class FakeTabDriver implements TabDriver {
 
 	final List<String> calls = Collections.synchronizedList(new ArrayList<>());
-	final Map<String, String> answers = new HashMap<>();
+	/** Answer of an evaluate whose expression contains the key; no two keys may match one expression. */
+	final Map<String, String> answers = new ConcurrentHashMap<>();
 	final List<String> tabs = Collections.synchronizedList(new ArrayList<>());
-	private final List<Consumer<String>> closedListeners = new ArrayList<>();
-	private final List<BiConsumer<String, Boolean>> visibilityListeners = new ArrayList<>();
+	private final List<Consumer<String>> closedListeners = new CopyOnWriteArrayList<>();
+	private final List<BiConsumer<String, Boolean>> visibilityListeners = new CopyOnWriteArrayList<>();
 	volatile boolean alive = true;
 	/** When set, the first navigate waits for it: the test queues more work behind it. */
 	volatile CountDownLatch holdFirstNavigate;
@@ -43,6 +48,7 @@ class FakeTabDriver implements TabDriver {
 		if (hold != null) {
 			holdFirstNavigate = null;
 			try { hold.await(); } catch (InterruptedException e) { Thread.currentThread().interrupt(); }
+			check(tab); // a real browser fails a navigation of a tab closed meanwhile
 		}
 		calls.add("navigate " + tab + " " + url);
 	}

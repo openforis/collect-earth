@@ -57,16 +57,19 @@ public class ImageryErrorReporter {
 	}
 
 	/**
-	 * Logs the error as a warning and sends it to Sentry the first time this kind of error happens for this source.
+	 * Logs the error as a warning and sends it to Sentry the first time this kind of error happens for this source. The
+	 * stack trace is logged that first time only: a repeat gets one line, so a fault on every plot does not fill the log.
 	 *
+	 * @param source the source of the tab, or null for a fault of the browser as a whole
 	 * @param kind a short code of what failed: {@code page_script}, {@code bidi_command}, {@code no_bidi_browser}...
 	 * @return whether it was sent
 	 */
 	public boolean report(ImagerySource source, String kind, Throwable error) {
-		logger.warn("Imagery window, {}: {}", source, kind, error);
 		if (!reported.add(source + "/" + kind)) {
+			logger.warn("Imagery window, {}: {} (again): {}", source, kind, String.valueOf(error));
 			return false;
 		}
+		logger.warn("Imagery window, {}: {}", source, kind, error);
 		Map<String, String> tags = new LinkedHashMap<>();
 		tags.put("imagery.source", String.valueOf(source));
 		tags.put("imagery.error", kind);
