@@ -74,6 +74,11 @@ export function gewArrangeWindows(): void {
   fetch(HOST + "googleEarthWeb/arrange").catch(() => {});
 }
 
+/** Arrange, then bring forward the other imagery windows (extra map, ESRI Wayback...) over Google Earth Web. */
+export function gewShowAllWindows(): void {
+  fetch(HOST + "googleEarthWeb/arrangeAll").catch(() => {});
+}
+
 /** This window was resized or moved: side by side, Google Earth Web takes the room left beside it. */
 export function gewFollowFormWindow(): void {
   fetch(HOST + "googleEarthWeb/followForm").catch(() => {});

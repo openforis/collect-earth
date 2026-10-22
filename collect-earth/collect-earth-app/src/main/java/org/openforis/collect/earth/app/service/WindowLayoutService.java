@@ -6,6 +6,7 @@ import java.awt.GraphicsEnvironment;
 import java.awt.Insets;
 import java.awt.Rectangle;
 import java.awt.Toolkit;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.concurrent.Executors;
@@ -43,6 +44,9 @@ import org.springframework.stereotype.Component;
  * <p>The layout is kept: it is applied again whenever either window is (re)opened, and when screens are added, removed
  * or resized (e.g. a laptop docked or undocked) while the windows are open. Side by side, Google Earth Web follows the
  * plots map window: when the user resizes or moves it, Google Earth Web takes the room left beside it.</p>
+ *
+ * <p>{@link #arrangeAll()} also brings forward the other imagery windows opened for the plot (extra map, ESRI
+ * Wayback...), side by side over the room of Google Earth Web.</p>
  */
 @Component
 public class WindowLayoutService {
@@ -111,10 +115,25 @@ public class WindowLayoutService {
 	private volatile Rectangle sideBySideWorkArea;
 
 	/**
-	 * Lays out the windows that are open. Does nothing unless Google Earth Web is the plot viewer: the plots map alone is
-	 * left where the user put it.
+	 * Lays out the windows that are open, where they are in the stack of windows (when one opens, when the screens
+	 * change). Does nothing unless Google Earth Web is the plot viewer: the plots map alone is left where the user put it.
 	 */
 	public boolean arrange() {
+		return arrange(false);
+	}
+
+	/** As {@link #arrange()}, and brings the windows in front of the others: the user asked for them. */
+	public boolean arrangeAndBringForward() {
+		return arrange(true);
+	}
+
+	/**
+	 * @param bringForward whether to raise the windows above the others. WebDriver has no call for that, and Windows does
+	 *                     not let a program in the background (the browser) put itself in front; restoring a minimized
+	 *                     window does, so each window is minimized and restored before it is placed. It blinks: only
+	 *                     when the user asks.
+	 */
+	private boolean arrange(boolean bringForward) {
 		if (!localPropertiesService.isGoogleEarthWebViewer() || GraphicsEnvironment.isHeadless()) {
 			return false;
 		}
@@ -141,15 +160,15 @@ public class WindowLayoutService {
 				sideBySideWorkArea = null;
 				switch (plan.mode) {
 				case SIDE_BY_SIDE:
-					sideBySideWorkArea = placeSideBySide(map, imagery, workAreas[plan.imageryScreen]);
+					sideBySideWorkArea = placeSideBySide(map, imagery, workAreas[plan.imageryScreen], bringForward);
 					break;
 				case IMAGERY_FULL_SCREEN:
-					maximizeOn(map, workAreas[plan.formScreen], false);
-					maximizeOn(imagery, workAreas[plan.imageryScreen], true);
+					maximizeOn(map, workAreas[plan.formScreen], false, bringForward);
+					maximizeOn(imagery, workAreas[plan.imageryScreen], true, bringForward);
 					break;
 				default:
-					maximizeOn(map, workAreas[plan.formScreen], false);
-					maximizeOn(imagery, workAreas[plan.imageryScreen], false);
+					maximizeOn(map, workAreas[plan.formScreen], false, bringForward);
+					maximizeOn(imagery, workAreas[plan.imageryScreen], false, bringForward);
 				}
 				arrangedOn = screensSignature();
 				startScreenWatcher();
@@ -159,6 +178,52 @@ public class WindowLayoutService {
 				return false;
 			}
 		}
+	}
+
+	/**
+	 * Lays out the plots map and Google Earth Web, then brings forward the other imagery windows opened for the plot
+	 * (extra map, ESRI Wayback, Planet...), side by side over the room of Google Earth Web: over the imagery, never over
+	 * the form. Returns how many other windows there were.
+	 */
+	public int arrangeAll() {
+		arrange(true);
+		List<RemoteWebDriver> others = browserService.getOtherImageryWindows();
+		if (others.isEmpty()) {
+			return 0;
+		}
+		synchronized (lock) {
+			try {
+				List<Rectangle> tiles = tile(imageryRoom(others.get(0)), others.size());
+				for (int i = 0; i < others.size(); i++) {
+					raise(others.get(i));
+					placeExactly(others.get(i), tiles.get(i));
+				}
+			} catch (Exception e) {
+				logger.warn("Could not bring the other imagery windows forward", e);
+			}
+		}
+		return others.size();
+	}
+
+	/**
+	 * Where the other imagery windows go: where Google Earth Web is, or else the room beside the plots map, or else the
+	 * screen of the first of them.
+	 */
+	private Rectangle imageryRoom(RemoteWebDriver firstOther) {
+		RemoteWebDriver imagery = googleEarthWebService.getDriver();
+		if (imagery != null) {
+			return rectangleOf(imagery);
+		}
+		RemoteWebDriver map = browserService.getLeafletMapDriver();
+		if (map != null) {
+			Rectangle work = readWorkArea(map);
+			if (work != null) {
+				Rectangle room = besideForm(work, rectangleOf(map));
+				return room != null ? room : work;
+			}
+		}
+		Rectangle work = readWorkArea(firstOther);
+		return work != null ? work : rectangleOf(firstOther);
 	}
 
 	/**
@@ -269,6 +334,32 @@ public class WindowLayoutService {
 		return room.width >= MIN_IMAGERY_WIDTH ? room : null;
 	}
 
+	/**
+	 * Splits the room into {@code count} windows as alike as possible: a grid with as many columns as rows (more columns
+	 * when the room is wider than tall), the last row maybe shorter and its windows wider.
+	 */
+	static List<Rectangle> tile(Rectangle room, int count) {
+		int across = (int) Math.ceil(Math.sqrt(count));
+		int down = (int) Math.ceil((double) count / across);
+		if (room.height > room.width) {
+			int swap = across;
+			across = down;
+			down = swap;
+		}
+		List<Rectangle> tiles = new ArrayList<>();
+		for (int row = 0; row < down; row++) {
+			int inRow = Math.min(across, count - row * across);
+			int top = room.y + room.height * row / down;
+			int bottom = room.y + room.height * (row + 1) / down;
+			for (int column = 0; column < inRow; column++) {
+				int left = room.x + room.width * column / inRow;
+				int right = room.x + room.width * (column + 1) / inRow;
+				tiles.add(new Rectangle(left, top, right - left, bottom - top));
+			}
+		}
+		return tiles;
+	}
+
 	private static long area(Rectangle bounds) {
 		return (long) bounds.width * bounds.height;
 	}
@@ -279,15 +370,21 @@ public class WindowLayoutService {
 	 * The form on the left of the screen, the imagery on the rest; each measured by its own browser. Returns the work area
 	 * they share, in the browser's coordinates.
 	 */
-	private Rectangle placeSideBySide(RemoteWebDriver map, RemoteWebDriver imagery, Rectangle screen) {
+	private Rectangle placeSideBySide(RemoteWebDriver map, RemoteWebDriver imagery, Rectangle screen, boolean bringForward) {
 		RemoteWebDriver measuring = map != null ? map : imagery;
 		Rectangle work = measureWorkArea(measuring, screen);
 		int formWidth = formWindowWidth(work.width);
 		if (map != null) {
+			if (bringForward) {
+				raise(map);
+			}
 			placeExactly(map, new Rectangle(work.x, work.y, formWidth, work.height));
 		}
 		if (imagery != null) {
 			Rectangle imageryWork = imagery == measuring ? work : measureWorkArea(imagery, screen);
+			if (bringForward) {
+				raise(imagery);
+			}
 			placeExactly(imagery, new Rectangle(imageryWork.x + formWidth, imageryWork.y, imageryWork.width - formWidth,
 					imageryWork.height));
 		}
@@ -298,11 +395,14 @@ public class WindowLayoutService {
 	 * Moves the window onto the screen and maximizes it (or makes it full screen) there: the browser then fits it to that
 	 * screen itself.
 	 */
-	private void maximizeOn(RemoteWebDriver window, Rectangle screen, boolean fullScreen) {
+	private void maximizeOn(RemoteWebDriver window, Rectangle screen, boolean fullScreen, boolean bringForward) {
 		if (window == null) {
 			return;
 		}
 		Rectangle work = measureWorkArea(window, screen);
+		if (bringForward) {
+			raise(window);
+		}
 		WebDriver.Window w = window.manage().window();
 		if (fullScreen) {
 			w.fullscreen();
@@ -327,17 +427,71 @@ public class WindowLayoutService {
 		// Setting the size first also brings a maximized or full screen window back to normal before it moves
 		w.setSize(new Dimension(Math.min(800, screen.width / 2), Math.min(600, screen.height / 2)));
 		w.setPosition(new Point(screen.x + screen.width / 4, screen.y + screen.height / 4));
+		Rectangle work = readWorkArea(window);
+		if (work == null) {
+			return screen;
+		}
+		logger.debug("Screen work area {} in Java is {} in the browser", screen, work);
+		return work;
+	}
+
+	/**
+	 * The work area of the screen the window is on, in the browser's coordinates; null when the browser gives none.
+	 * Firefox gives the work area of a screen that is not the main one from 0,0: when the area does not hold the window,
+	 * its size is kept and its corner is taken from the screen Java sees under the window.
+	 */
+	private Rectangle readWorkArea(RemoteWebDriver window) {
 		try {
 			List<?> area = (List<?>) window.executeScript(WORK_AREA_SCRIPT);
 			Rectangle work = new Rectangle(intAt(area, 0), intAt(area, 1), intAt(area, 2), intAt(area, 3));
-			if (work.width > 0 && work.height > 0) {
-				logger.debug("Screen work area {} in Java is {} in the browser", screen, work);
-				return work;
+			if (work.width <= 0 || work.height <= 0) {
+				return null;
 			}
+			Rectangle placed = rectangleOf(window);
+			int centerX = placed.x + placed.width / 2;
+			int centerY = placed.y + placed.height / 2;
+			if (!work.contains(centerX, centerY)) {
+				Rectangle screen = javaWorkAreaAt(centerX, centerY);
+				if (screen != null) {
+					logger.debug("The browser gave the work area {} away from its window at {}: on the screen at {}", work,
+							placed, screen);
+					work.setLocation(screen.x, screen.y);
+				}
+			}
+			return work;
 		} catch (Exception e) {
 			logger.debug("The browser did not say which screen it is on", e);
+			return null;
 		}
-		return screen;
+	}
+
+	/** The work area, as Java sees it, of the screen holding this point; null when none does. */
+	private static Rectangle javaWorkAreaAt(int x, int y) {
+		for (GraphicsDevice screen : GraphicsEnvironment.getLocalGraphicsEnvironment().getScreenDevices()) {
+			GraphicsConfiguration configuration = screen.getDefaultConfiguration();
+			if (configuration.getBounds().contains(x, y)) {
+				return workArea(configuration);
+			}
+		}
+		return null;
+	}
+
+	/**
+	 * Brings the window in front of the others: minimizes it and restores it where it was (see
+	 * {@link #arrange(boolean)}). Restored by moving it back, which WebDriver does by restoring the window first: asked to
+	 * maximize a minimized window, Firefox can leave it minimized.
+	 */
+	private void raise(RemoteWebDriver window) {
+		try {
+			WebDriver.Window w = window.manage().window();
+			Point position = w.getPosition();
+			Dimension size = w.getSize();
+			w.minimize();
+			w.setPosition(position);
+			w.setSize(size);
+		} catch (Exception e) {
+			logger.debug("Could not bring the window forward", e);
+		}
 	}
 
 	/** Places the window, reads back where it went and corrects once by the difference. */

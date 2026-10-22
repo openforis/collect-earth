@@ -589,6 +589,10 @@ public class LocalPropertiesService extends Observable {
 				|| WINDOW_LAYOUT_IMAGERY_FULL_SCREEN.equals(layout) ? layout : WINDOW_LAYOUT_AUTO;
 	}
 
+	public void saveWindowLayout(String windowLayout) {
+		setValue(EarthProperty.WINDOW_LAYOUT, windowLayout);
+	}
+
 	public static final String MAP_ENGINE_LEAFLET = "leaflet";
 	public static final String MAP_ENGINE_GOOGLE = "google_maps";
 

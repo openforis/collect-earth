@@ -1,6 +1,7 @@
 package org.openforis.collect.earth.app.view;
 
 import java.awt.Color;
+import java.awt.FlowLayout;
 import java.awt.GridBagConstraints;
 import java.awt.GridBagLayout;
 import java.awt.GridLayout;
@@ -18,9 +19,12 @@ import java.net.MalformedURLException;
 import javax.swing.BorderFactory;
 import javax.swing.ButtonGroup;
 import javax.swing.ImageIcon;
+import javax.swing.DefaultListCellRenderer;
 import javax.swing.JButton;
+import javax.swing.JComboBox;
 import javax.swing.JFrame;
 import javax.swing.JLabel;
+import javax.swing.JList;
 import javax.swing.JMenuItem;
 import javax.swing.JOptionPane;
 import javax.swing.JPanel;
@@ -40,6 +44,7 @@ import org.openforis.collect.earth.app.EarthConstants.OperationMode;
 import org.openforis.collect.earth.app.desktop.EarthApp;
 import org.openforis.collect.earth.app.service.EarthSurveyService;
 import org.openforis.collect.earth.app.service.LocalPropertiesService;
+import org.openforis.collect.earth.app.service.WindowLayoutService;
 import org.openforis.collect.earth.app.service.cloud.CloudApiClient;
 import org.openforis.collect.earth.app.view.ExportActionListener.RecordsToExport;
 import org.slf4j.Logger;
@@ -73,6 +78,9 @@ public class CollectEarthWindow implements InitializingBean, DisposableBean{
 	@Autowired
 	private CloudApiClient cloudApiClient;
 
+	@Autowired
+	private WindowLayoutService windowLayoutService;
+
 	public static void endWaiting(Window frame) {
 		frame.setCursor(java.awt.Cursor.getPredefinedCursor(java.awt.Cursor.DEFAULT_CURSOR));
 	}
@@ -92,6 +100,9 @@ public class CollectEarthWindow implements InitializingBean, DisposableBean{
 	private ButtonGroup viewerButtons;
 	private JToggleButton classicViewerButton;
 	private JToggleButton newViewerButton;
+	/** The layout of the browser windows and the buttons to put them back, shown while Google Earth Web is the viewer. */
+	private JPanel browserWindowsPanel;
+	private JComboBox<String> windowLayoutCombo;
 	private transient Timer timerOperatorChanged;
 
 	public CollectEarthWindow() throws IOException {
@@ -296,6 +307,11 @@ public class CollectEarthWindow implements InitializingBean, DisposableBean{
 
 		c.gridx = 0;
 		c.gridy++;
+		pane.add(createBrowserWindowsPanel(), c);
+		showViewerType();
+
+		c.gridx = 0;
+		c.gridy++;
 
 		JPanel panelButton = new JPanel();
 		final JButton propertiesButton = new JButton(Messages.getString("CollectEarthWindow.15")); //$NON-NLS-1$
@@ -378,6 +394,7 @@ public class CollectEarthWindow implements InitializingBean, DisposableBean{
 			if (!viewerType.equals(localPropertiesService.getViewerType())) {
 				localPropertiesService.saveViewerType(viewerType);
 				logger.info("Plot viewer changed from the main window to {}", viewerType); //$NON-NLS-1$
+				showViewerType();
 				// opens the plots in the chosen viewer, as applying the options dialog does
 				EarthApp.executeKmlLoadAsynchronously(getFrame());
 			}
@@ -385,12 +402,89 @@ public class CollectEarthWindow implements InitializingBean, DisposableBean{
 		return button;
 	}
 
-	/** Selects the button of the viewer in the settings, which the options dialog may have changed. */
+	/**
+	 * How the plots map and Google Earth Web windows share the screens (the setting of the options dialog), and buttons to
+	 * put them back in place and to bring forward the other imagery windows (extra map, ESRI Wayback...): here, where it
+	 * is easy to find while working, rather than only in the options.
+	 */
+	private JPanel createBrowserWindowsPanel() {
+		windowLayoutCombo = new JComboBox<>(new String[] { LocalPropertiesService.WINDOW_LAYOUT_AUTO,
+				LocalPropertiesService.WINDOW_LAYOUT_SIDE_BY_SIDE, LocalPropertiesService.WINDOW_LAYOUT_SEPARATE_SCREENS,
+				LocalPropertiesService.WINDOW_LAYOUT_IMAGERY_FULL_SCREEN });
+		windowLayoutCombo.setRenderer(new DefaultListCellRenderer() {
+			private static final long serialVersionUID = 1L;
+
+			@Override
+			public java.awt.Component getListCellRendererComponent(JList<?> list, Object value, int index, boolean isSelected,
+					boolean cellHasFocus) {
+				String label = Messages.getString("ExternalServicesPanel.windowLayout." + value); //$NON-NLS-1$
+				return super.getListCellRendererComponent(list, label, index, isSelected, cellHasFocus);
+			}
+		});
+		windowLayoutCombo.setToolTipText(Messages.getString("ExternalServicesPanel.windowLayoutTooltip")); //$NON-NLS-1$
+		windowLayoutCombo.setSelectedItem(localPropertiesService.getWindowLayout());
+		// only a choice of the user fires it, not the selection that follows the setting in showViewerType
+		windowLayoutCombo.addActionListener(e -> {
+			final String layout = (String) windowLayoutCombo.getSelectedItem();
+			if (layout != null && !layout.equals(localPropertiesService.getWindowLayout())) {
+				localPropertiesService.saveWindowLayout(layout);
+				logger.info("Window layout changed from the main window to {}", layout); //$NON-NLS-1$
+				inBackground("Arrange the browser windows", windowLayoutService::arrangeAndBringForward); //$NON-NLS-1$
+			}
+		});
+
+		final JButton arrangeButton = new JButton(Messages.getString("CollectEarthWindow.arrangeWindows"), //$NON-NLS-1$
+				FontIcon.of(MaterialDesign.MDI_VIEW_QUILT, 18));
+		arrangeButton.setToolTipText(Messages.getString("CollectEarthWindow.arrangeWindowsTooltip")); //$NON-NLS-1$
+		arrangeButton.addActionListener(e -> inBackground("Arrange the browser windows", //$NON-NLS-1$
+				windowLayoutService::arrangeAndBringForward));
+
+		final JButton showAllButton = new JButton(Messages.getString("CollectEarthWindow.showAllWindows"), //$NON-NLS-1$
+				FontIcon.of(MaterialDesign.MDI_FLIP_TO_FRONT, 18));
+		showAllButton.setToolTipText(Messages.getString("CollectEarthWindow.showAllWindowsTooltip")); //$NON-NLS-1$
+		showAllButton.addActionListener(e -> inBackground("Bring all the browser windows forward", //$NON-NLS-1$
+				windowLayoutService::arrangeAll));
+
+		browserWindowsPanel = new JPanel(new FlowLayout(FlowLayout.LEFT, 6, 2));
+		browserWindowsPanel.setBorder(BorderFactory.createCompoundBorder(
+				BorderFactory.createTitledBorder(Messages.getString("CollectEarthWindow.browserWindows")), //$NON-NLS-1$
+				BorderFactory.createEmptyBorder(0, 2, 4, 2)));
+		browserWindowsPanel.add(new JLabel(Messages.getString("ExternalServicesPanel.windowLayout"))); //$NON-NLS-1$
+		browserWindowsPanel.add(windowLayoutCombo);
+		browserWindowsPanel.add(arrangeButton);
+		browserWindowsPanel.add(showAllButton);
+		return browserWindowsPanel;
+	}
+
+	/** The browsers are driven through Selenium, which waits on them: never on the event thread. */
+	private void inBackground(String name, Runnable task) {
+		new Thread(() -> {
+			try {
+				task.run();
+			} catch (final Exception e) {
+				logger.warn("{} failed", name, e); //$NON-NLS-1$
+			}
+		}, name).start();
+	}
+
+	/**
+	 * Selects the button of the viewer in the settings, which the options dialog may have changed, and shows the browser
+	 * windows panel only while Google Earth Web is the viewer.
+	 */
 	private void showViewerType() {
 		if (viewerButtons == null) {
 			return;
 		}
 		final String viewerType = localPropertiesService.getViewerType();
+		if (browserWindowsPanel != null) {
+			final boolean googleEarthWeb = LocalPropertiesService.VIEWER_TYPE_GOOGLE_EARTH_WEB.equals(viewerType);
+			windowLayoutCombo.setSelectedItem(localPropertiesService.getWindowLayout());
+			if (browserWindowsPanel.isVisible() != googleEarthWeb) {
+				browserWindowsPanel.setVisible(googleEarthWeb);
+				// the window cannot be resized by the user: it takes the size of what it shows
+				getFrame().pack();
+			}
+		}
 		if (LocalPropertiesService.VIEWER_TYPE_GOOGLE_EARTH_PRO.equals(viewerType)) {
 			classicViewerButton.setSelected(true);
 		} else if (LocalPropertiesService.VIEWER_TYPE_GOOGLE_EARTH_WEB.equals(viewerType)) {

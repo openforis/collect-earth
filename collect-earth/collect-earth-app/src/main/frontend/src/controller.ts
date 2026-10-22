@@ -1,5 +1,5 @@
 import { flushSync } from "react-dom";
-import { fetchGewStatus, fetchMapConfig, fetchPlots, fetchStatuses, formUrl, gewArrangeWindows, gewMoveCamera,
+import { fetchGewStatus, fetchMapConfig, fetchPlots, fetchStatuses, formUrl, gewArrangeWindows, gewMoveCamera, gewShowAllWindows,
   gewOpenOverview, gewShowPlot, openAuxiliaryWindows, postGewContext } from "./api";
 import { GoogleEngine } from "./engines/GoogleEngine";
 import { LeafletEngine } from "./engines/LeafletEngine";
@@ -440,6 +440,7 @@ export class MapController {
   };
 
   arrangeWindows = (): void => gewArrangeWindows();
+  showAllWindows = (): void => gewShowAllWindows();
 
   // ---------- list / layout ----------
   setFilter = (filter: ListFilter): void => { this.set({ filter }); this.savePref("filter", filter); };

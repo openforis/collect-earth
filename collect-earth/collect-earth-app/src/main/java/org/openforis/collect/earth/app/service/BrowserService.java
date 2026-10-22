@@ -1051,6 +1051,21 @@ public class BrowserService implements InitializingBean, DisposableBean, Applica
 		return webDriverLeafletMap;
 	}
 
+	/**
+	 * The other windows opened with imagery for the plot (extra map, ESRI Wayback, Planet, Earth Engine, Earth Map,
+	 * Street View, SecureWatch) that are still open, to bring them forward next to the plots map.
+	 */
+	public List<RemoteWebDriver> getOtherImageryWindows() {
+		List<RemoteWebDriver> open = new ArrayList<>();
+		for (RemoteWebDriver driver : Arrays.asList(webDriverExtraMap, webDriverEsriWayback, webDriverPlanetHtml,
+				webDriverGEEMap, webDriverEarthMap, webDriverStreetView, webDriverSecureWatch)) {
+			if (driver != null && isDriverWorking(driver)) {
+				open.add(driver);
+			}
+		}
+		return open;
+	}
+
 	public void openLeafletMap() {
 		Object lock = getOrCreateLock(BrowserType.LEAFLET_MAP);
 		synchronized (lock) {
