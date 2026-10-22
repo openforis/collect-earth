@@ -1,17 +1,24 @@
 package org.openforis.collect.earth.app.service;
 
-import java.io.File;
+import java.time.Duration;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.Executors;
+import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 
+import javax.annotation.PostConstruct;
 import javax.annotation.PreDestroy;
 
+import org.openforis.collect.earth.app.service.imagery.ImageryBrowser;
+import org.openforis.collect.earth.app.service.imagery.ImagerySource;
+import org.openforis.collect.earth.app.service.imagery.ImageryTab;
+import org.openforis.collect.earth.app.service.imagery.PageScriptException;
+import org.openforis.collect.earth.app.service.imagery.TabClosedException;
 import org.openforis.collect.earth.app.view.Messages;
 import org.openforis.collect.earth.sampler.model.SimplePlacemarkObject;
 import org.openqa.selenium.remote.RemoteWebDriver;
@@ -21,9 +28,9 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
 /**
- * Drives the Google Earth Web window used as the imagery viewer when the plot viewer is
- * "Plots map + Google Earth Web". Google Earth Web has no API: the camera is moved through
- * the page URL and the plot outline is drawn by an injected script
+ * Drives Google Earth Web, the imagery viewer when the plot viewer is "Plots map + Google Earth
+ * Web", in its tab of the imagery window ({@link ImageryBrowser}). Google Earth Web has no API:
+ * the camera is moved through the page URL and the plot outline is drawn by an injected script
  * (resources/javascript_google_earth_web.fmt).
  *
  * <ul>
@@ -31,8 +38,12 @@ import org.springframework.stereotype.Component;
  * so stepping quickly through plots never replays a backlog.</li>
  * <li>Once loaded, the window is moved to the next plot without reloading when Google Earth
  * Web supports it (detected at run time), otherwise with a single page load.</li>
- * <li>A watchdog re-draws the outline if the page was reloaded and notices a closed window.</li>
- * <li>The window keeps its own browser profile, so Google's cookie consent, sign-in and the
+ * <li>A watchdog re-draws the outline if the page was reloaded and notices a closed tab.</li>
+ * <li>While another tab is shown, the camera is not read: nobody can move a hidden map, and the
+ * browser slows down the timers of hidden pages, which would report stale positions. A camera
+ * move from the plots map meanwhile waits for the tab to be shown, and the outline is redrawn
+ * then.</li>
+ * <li>The imagery window keeps its browser profile, so Google's cookie consent, sign-in and the
  * user's Google Earth Web settings survive restarts; while Google waits for the user (consent,
  * sign-in) the state is WAITING and the plot is shown as soon as Google Earth Web is reached.</li>
  * <li>The state, and where the camera looks, are reported to the plots map
@@ -62,7 +73,8 @@ public class GoogleEarthWebService {
 	/** Information bar texts in the Collect Earth UI language (Messages*.properties). */
 	private static final String[] LABEL_KEYS = { "plot", "hintTilted", "hintOutOfView", "hintUnavailable", "topDown",
 			"topDownTooltip" };
-	private static final String PROFILE_FOLDER = "browser_profiles" + File.separator + "google_earth_web";
+	/** How long a page load of Google Earth Web may take; its WebGL start is slow on a slow machine. */
+	private static final Duration PAGE_LOAD_TIMEOUT = Duration.ofSeconds(60);
 
 	/** Camera URL, window size and whether the overlay is armed, in one round trip. */
 	private static final String PAGE_STATE_SCRIPT = "return [location.href, window.innerWidth, window.innerHeight, !!window."
@@ -100,9 +112,11 @@ public class GoogleEarthWebService {
 	@Autowired
 	private WindowLayoutService windowLayoutService;
 
+	@Autowired
+	private ImageryBrowser imageryBrowser;
+
 	private final Object lock = new Object();
 	private final AtomicReference<SimplePlacemarkObject> pending = new AtomicReference<>();
-	private volatile RemoteWebDriver driver;
 	/** The plot currently shown (null: overview, or nothing yet). */
 	private volatile SimplePlacemarkObject current;
 	/** Whether Google Earth Web follows in-page navigation; null until tried once. */
@@ -118,6 +132,8 @@ public class GoogleEarthWebService {
 	private volatile String contextPlotId;
 	/** Camera position requested by the plots map, latest only: {latitude, longitude, heightMeters}. */
 	private final AtomicReference<double[]> pendingCamera = new AtomicReference<>();
+	/** The latest camera position asked for while the tab was hidden, applied when it is shown; null if none. */
+	private final AtomicReference<double[]> cameraWhileHidden = new AtomicReference<>();
 	/** Counts the plots shown: a camera move asked for before a plot was shown is dropped. */
 	private final AtomicLong showCount = new AtomicLong();
 	/**
@@ -129,7 +145,35 @@ public class GoogleEarthWebService {
 	/** Altitude of the last camera URL Collect Earth wrote. */
 	private volatile Double writtenAltitude;
 
-	private ScheduledExecutorService watchdog;
+	private volatile ScheduledExecutorService watchdog;
+
+	/**
+	 * The tab being shown again redraws the outline at once (the page's timers were slowed down
+	 * while hidden) and applies the camera move asked for meanwhile. On the watchdog's thread, not
+	 * the one of the listeners: that may wait for {@link #lock} for as long as a page load, and
+	 * would hold up the other listeners meanwhile.
+	 */
+	@PostConstruct
+	void listenToTheImageryWindow() {
+		imageryBrowser.onVisibilityChange((source, visible) -> {
+			if (source != ImagerySource.GOOGLE_EARTH_WEB || !visible) {
+				return;
+			}
+			ScheduledExecutorService thread = watchdog;
+			if (thread == null) {
+				return; // never opened: nothing to redraw
+			}
+			try {
+				thread.execute(this::shown);
+			} catch (RejectedExecutionException e) {
+				// shut down
+			}
+		});
+	}
+
+	private ImageryTab tab() {
+		return imageryBrowser.tab(ImagerySource.GOOGLE_EARTH_WEB);
+	}
 
 	// ---------- public API ----------
 
@@ -156,11 +200,11 @@ public class GoogleEarthWebService {
 	 * the window is already open or a plot is being shown.
 	 */
 	public void openOverview(SimplePlacemarkObject center) {
-		if (!localPropertiesService.isGoogleEarthWebViewer() || driver != null) {
+		if (!localPropertiesService.isGoogleEarthWebViewer() || tab().isOpen()) {
 			return;
 		}
 		synchronized (lock) {
-			if (driver == null && pending.get() == null && current == null) {
+			if (!tab().isOpen() && pending.get() == null && current == null) {
 				show(center, true);
 			}
 		}
@@ -176,8 +220,12 @@ public class GoogleEarthWebService {
 		SimplePlacemarkObject shown = current;
 		if (state == State.READY && shown != null && plotId != null && plotId.equals(shown.getPlacemarkId())) {
 			synchronized (lock) {
-				if (driver != null && current == shown) {
-					injectOverlay(shown);
+				try {
+					if (tab().isOpen() && current == shown) {
+						injectOverlay(shown);
+					}
+				} catch (TabClosedException e) {
+					// the watchdog sees it
 				}
 			}
 		}
@@ -187,21 +235,26 @@ public class GoogleEarthWebService {
 	 * Moves the Google Earth Web camera to where the user moved the plots map: over that point, with
 	 * the same height of ground in view. Only in-page ( a page load per map move would be unusable ),
 	 * only while a plot or the overview is shown, and never over a plot shown since it was asked for.
-	 * Requests are coalesced like the plots: the latest one wins.
+	 * Requests are coalesced like the plots: the latest one wins. While the tab is hidden the latest
+	 * one is kept, and applied when it is shown.
 	 */
 	public void moveCamera(double latitude, double longitude, double heightMeters) {
 		if (!localPropertiesService.isGoogleEarthWebViewer() || Boolean.FALSE.equals(inPageNavigation)) {
+			return;
+		}
+		if (!tab().isVisible()) {
+			cameraWhileHidden.set(new double[] { latitude, longitude, heightMeters });
 			return;
 		}
 		long requestedAfterShow = showCount.get();
 		pendingCamera.set(new double[] { latitude, longitude, heightMeters });
 		synchronized (lock) {
 			double[] target = pendingCamera.getAndSet(null);
-			if (target == null || showCount.get() != requestedAfterShow || state != State.READY || driver == null) {
+			if (target == null || showCount.get() != requestedAfterShow || state != State.READY || !tab().isOpen()) {
 				return;
 			}
 			try {
-				String href = driver.getCurrentUrl();
+				String href = tab().currentUrl();
 				if (!GoogleEarthWebUrls.isGoogleEarthWeb(href)) {
 					return;
 				}
@@ -209,7 +262,7 @@ public class GoogleEarthWebService {
 				Double current = GoogleEarthWebUrls.cameraAltitude(href);
 				double altitude = Math.round(altitudeAt(target[0], target[1], current == null ? 0 : current));
 				writtenAltitude = altitude;
-				driver.executeScript(CAMERA_MOVE_SCRIPT,
+				tab().evaluate(CAMERA_MOVE_SCRIPT,
 						GoogleEarthWebUrls.movedCameraUrl(href, target[0], target[1], target[2], altitude));
 			} catch (Exception e) {
 				logger.debug("Could not move the Google Earth Web camera", e);
@@ -217,9 +270,13 @@ public class GoogleEarthWebService {
 		}
 	}
 
-	/** The Google Earth Web window, or null if it is not open (used to lay out the windows). */
+	/**
+	 * The imagery window, which Google Earth Web is a tab of, or null when it is not open (used to
+	 * lay out the windows). Task 10 of the tabbed imagery window has WindowLayoutService ask
+	 * {@link ImageryBrowser} itself and removes this.
+	 */
 	public RemoteWebDriver getDriver() {
-		return driver;
+		return imageryBrowser.window();
 	}
 
 	/** State reported to the plots map. */
@@ -249,91 +306,139 @@ public class GoogleEarthWebService {
 			return;
 		}
 		showCount.incrementAndGet();
+		// A camera move asked for while the tab was hidden belongs to the plot shown before
+		cameraWhileHidden.set(null);
 		String url = plotUrl(target, overview ? GoogleEarthWebUrls.OVERVIEW_DISTANCE : GoogleEarthWebUrls.PLOT_DISTANCE);
 		try {
-			boolean windowOpen = driver != null && browserService.isDriverWorking(driver);
-			boolean moved = false;
-			if (windowOpen && !Boolean.FALSE.equals(inPageNavigation) && isOnGoogleEarthWeb()) {
-				setState(State.MOVING, plotId, null);
-				moved = navigateInPage(url, target);
+			try {
+				showIn(target, overview, plotId, url);
+			} catch (TabClosedException e) {
+				// The user closed the tab or the window while it loaded, or closed the whole window since the last
+				// plot, which the browser tells at the first command only: once more, in a tab opened anew
+				logger.warn("Google Earth Web: {}; opening it again", e.getMessage());
+				showIn(target, overview, plotId, url);
 			}
-			if (!moved) {
-				setState(windowOpen ? State.MOVING : State.OPENING, plotId, null);
-				RemoteWebDriver window = windowOpen ? driver : browserService.initAppWindow(profileFolder());
-				driver = browserService.navigateTo(url, window, true, false);
-				if (driver == null) {
-					setState(State.ERROR, plotId, MESSAGE_NO_BROWSER);
-					return;
-				}
-				if (!windowOpen) {
-					startWatchdog();
-					// Every new window: the user may have closed the previous one, or moved things around since
-					windowLayoutService.arrange();
-				}
-			}
-			current = overview ? null : target;
-			if (!isOnGoogleEarthWeb()) {
-				// Cookie consent, sign-in...: the watchdog shows the plot once the user is through
-				setState(State.WAITING, plotId, null);
-				return;
-			}
-			// After an in-page move the camera is still flying: the outline waits for it to arrive
-			if (overview || injectOverlay(target, moved ? url : null)) {
-				setState(State.READY, plotId, null);
+		} catch (TabClosedException e) {
+			// Closed again: the user does not want it now, and the plots map offers to open it
+			logger.warn("Google Earth Web: {}", e.getMessage());
+			closed();
+		} catch (RuntimeException e) {
+			if (BrowserService.isCausedBy(e, BrowserNotFoundException.class)) {
+				logger.warn("Google Earth Web: no browser for the imagery window: {}", e.getMessage());
+				setState(State.ERROR, plotId, MESSAGE_NO_BROWSER);
+			} else if (e instanceof IllegalStateException || e instanceof PageScriptException) {
+				// A browser busy, hung or slow to start, a script that failed: reported by ImageryBrowser when a fault
+				logger.warn("Google Earth Web: the plot could not be shown: {}", e.getMessage());
+				setState(State.ERROR, plotId, MESSAGE_OPEN_FAILED);
 			} else {
-				setState(State.ERROR, plotId, MESSAGE_OUTLINE_FAILED);
+				logger.error("Problems showing the plot in Google Earth Web", e);
+				setState(State.ERROR, plotId, MESSAGE_OPEN_FAILED);
 			}
-		} catch (Exception e) {
-			logger.error("Problems showing the plot in Google Earth Web", e);
-			setState(State.ERROR, plotId, MESSAGE_OPEN_FAILED);
 		}
 	}
 
-	/** Already showing this plot in a working window (e.g. the same plot clicked twice). */
+	/** Moves the tab to the plot, in-page when it can, else with a page load that opens the tab if needed. */
+	private void showIn(SimplePlacemarkObject target, boolean overview, String plotId, String url) {
+		boolean tabOpen = tab().isOpen();
+		String href = tabOpen ? pageUrl() : null;
+		// A tab opened blank by the plot change (PlacemarkBrowserServlet opens the tabs first) is new all the same
+		boolean newTab = !tabOpen || (href != null && href.startsWith("about:"));
+		boolean moved = false;
+		if (tabOpen && !Boolean.FALSE.equals(inPageNavigation) && GoogleEarthWebUrls.isGoogleEarthWeb(href)) {
+			setState(State.MOVING, plotId, null);
+			moved = navigateInPage(url, target);
+		}
+		if (!moved) {
+			setState(newTab ? State.OPENING : State.MOVING, plotId, null);
+			// The camera URL changes the path, so a navigation loads the page: no reload needed
+			if (!tab().load(url, false, PAGE_LOAD_TIMEOUT)) {
+				logger.warn("Google Earth Web did not load in time");
+			}
+			if (newTab) {
+				// Every new tab: the user may have closed the previous window, or moved things around since
+				windowLayoutService.arrange();
+			}
+		}
+		startWatchdog();
+		current = overview ? null : target;
+		if (!isOnGoogleEarthWeb()) {
+			// Cookie consent, sign-in...: the watchdog shows the plot once the user is through
+			setState(State.WAITING, plotId, null);
+			return;
+		}
+		// After an in-page move the camera is still flying: the outline waits for it to arrive
+		if (overview || injectOverlay(target, moved ? url : null)) {
+			setState(State.READY, plotId, null);
+		} else {
+			setState(State.ERROR, plotId, MESSAGE_OUTLINE_FAILED);
+		}
+	}
+
+	/** Already showing this plot in an open tab (e.g. the same plot clicked twice). */
 	private boolean isShowing(SimplePlacemarkObject target) {
 		SimplePlacemarkObject shown = current;
-		return shown != null && state == State.READY && target.getPlacemarkId() != null
-				&& target.getPlacemarkId().equals(shown.getPlacemarkId())
-				&& driver != null && browserService.isDriverWorking(driver) && isOnGoogleEarthWeb();
+		try {
+			return shown != null && state == State.READY && target.getPlacemarkId() != null
+					&& target.getPlacemarkId().equals(shown.getPlacemarkId())
+					&& tab().isOpen() && isOnGoogleEarthWeb();
+		} catch (TabClosedException e) {
+			return false; // shown again, in a new tab
+		}
 	}
 
 	/**
 	 * Moves the loaded page to the plot without reloading it (a reload costs several seconds
 	 * of WebGL start-up and imagery loading). Google Earth Web rewrites the URL while its
 	 * camera moves, so a URL that is still exactly the one pushed after a few seconds means
-	 * it ignored the request: the caller then loads the page, and this is not tried again.
+	 * it ignored the request: the caller then loads the page, and this is not tried again. Unless
+	 * the tab was hidden meanwhile: a hidden Google Earth Web may not fly until it is shown, which
+	 * says nothing about whether it follows in-page navigation.
 	 */
 	private boolean navigateInPage(String url, SimplePlacemarkObject target) {
 		try {
-			driver.executeScript(IN_PAGE_NAVIGATION_SCRIPT, url);
+			boolean visibleThroughout = tab().isVisible();
+			tab().evaluate(IN_PAGE_NAVIGATION_SCRIPT, url);
 			double latitude = Double.parseDouble(target.getCoord().getLatitude());
 			double longitude = Double.parseDouble(target.getCoord().getLongitude());
 			long end = System.currentTimeMillis() + IN_PAGE_NAVIGATION_TIMEOUT_MILLIS;
 			while (System.currentTimeMillis() < end) {
 				Thread.sleep(250);
-				String href = driver.getCurrentUrl();
+				visibleThroughout &= tab().isVisible();
+				String href = tab().currentUrl();
 				if (!url.equals(href) && GoogleEarthWebUrls.isCameraAt(href, latitude, longitude)) {
 					inPageNavigation = Boolean.TRUE;
 					return true;
 				}
 			}
-			if (inPageNavigation == null) {
+			if (inPageNavigation == null && visibleThroughout && tab().isVisible()) {
 				logger.info("Google Earth Web does not follow in-page navigation; plots will be loaded with a page load");
 				inPageNavigation = Boolean.FALSE;
 			}
 		} catch (InterruptedException e) {
 			Thread.currentThread().interrupt();
+		} catch (TabClosedException e) {
+			throw e; // for show(), which opens the tab again
 		} catch (Exception e) {
-			logger.warn("In-page navigation in Google Earth Web failed", e);
+			logger.warn("In-page navigation in Google Earth Web failed: {}", e.getMessage());
 		}
 		return false;
 	}
 
 	private boolean isOnGoogleEarthWeb() {
+		return GoogleEarthWebUrls.isGoogleEarthWeb(pageUrl());
+	}
+
+	/**
+	 * The URL of the page in the tab, or null when it cannot be read (the page is replacing its
+	 * document, the browser is busy). A closed tab is for {@link #show} to deal with.
+	 */
+	private String pageUrl() {
 		try {
-			return GoogleEarthWebUrls.isGoogleEarthWeb(driver.getCurrentUrl());
-		} catch (Exception e) {
-			return false;
+			return tab().currentUrl();
+		} catch (TabClosedException e) {
+			throw e;
+		} catch (RuntimeException e) {
+			return null;
 		}
 	}
 
@@ -363,8 +468,14 @@ public class GoogleEarthWebService {
 			if (script == null) {
 				return false;
 			}
-			driver.executeScript(script);
+			tab().evaluate(script);
 			return true;
+		} catch (TabClosedException e) {
+			throw e;
+		} catch (PageScriptException e) {
+			// Reported to Sentry by ImageryBrowser already
+			logger.warn("Could not draw the plot outline in Google Earth Web: {}", e.getMessage());
+			return false;
 		} catch (Exception e) {
 			logger.warn("Could not draw the plot outline in Google Earth Web", e);
 			return false;
@@ -386,28 +497,30 @@ public class GoogleEarthWebService {
 	}
 
 	/**
-	 * Every 0.5 s while the window shows a plot or waits for the user: notices a window closed
+	 * Every 0.5 s while the tab shows a plot or waits for the user: notices a tab or window closed
 	 * by the user (CLOSED, so the map offers to reopen it), tracks where the camera looks (the
 	 * map follows it), shows the plot once Google lets the user through (WAITING -> READY) and
 	 * re-draws the outline when the page lost it (F5, a page load from the information bar).
+	 * Nothing of that while another tab is shown: see the class comment. Whether the tab is open
+	 * and visible is known without asking the browser, so a hidden tab costs nothing here.
 	 */
 	private void checkWindow() {
-		if ((state != State.READY && state != State.WAITING) || driver == null) {
+		if (state != State.READY && state != State.WAITING) {
 			return;
 		}
 		synchronized (lock) {
-			if ((state != State.READY && state != State.WAITING) || driver == null) {
+			if (state != State.READY && state != State.WAITING) {
 				return;
 			}
-			if (!browserService.isDriverWorking(driver)) {
-				driver = null;
-				current = null;
-				view = null;
-				setState(State.CLOSED, null, null);
+			if (!tab().isOpen()) {
+				closed();
+				return;
+			}
+			if (!tab().isVisible()) {
 				return;
 			}
 			try {
-				List<?> page = (List<?>) driver.executeScript(PAGE_STATE_SCRIPT);
+				List<?> page = (List<?>) tab().evaluate(PAGE_STATE_SCRIPT);
 				String href = String.valueOf(page.get(0));
 				boolean armed = Boolean.TRUE.equals(page.get(3));
 				SimplePlacemarkObject plot = current;
@@ -427,7 +540,7 @@ public class GoogleEarthWebService {
 					// Through consent / sign-in: Google may have dropped the camera position
 					if (plot != null && !GoogleEarthWebUrls.isCameraAt(href, Double.parseDouble(plot.getCoord().getLatitude()),
 							Double.parseDouble(plot.getCoord().getLongitude()))) {
-						driver = browserService.navigateTo(plotUrl(plot, GoogleEarthWebUrls.PLOT_DISTANCE), driver, true, false);
+						tab().load(plotUrl(plot, GoogleEarthWebUrls.PLOT_DISTANCE), false, PAGE_LOAD_TIMEOUT);
 					}
 					if (plot == null || injectOverlay(plot)) {
 						setState(State.READY, plotId, null);
@@ -435,9 +548,38 @@ public class GoogleEarthWebService {
 				} else if (plot != null && !armed) {
 					injectOverlay(plot);
 				}
+			} catch (TabClosedException e) {
+				closed();
 			} catch (Exception e) {
 				logger.debug("Google Earth Web watchdog check failed", e);
 			}
+		}
+	}
+
+	/** The user closed the tab or the window: the plots map offers to open it again. */
+	private void closed() {
+		current = null;
+		view = null;
+		setState(State.CLOSED, null, null);
+	}
+
+	/** The tab is shown again: see {@link #listenToTheImageryWindow()}. On the watchdog's thread. */
+	private void shown() {
+		try {
+			synchronized (lock) {
+				SimplePlacemarkObject plot = current;
+				if (state == State.READY && plot != null && tab().isOpen()) {
+					injectOverlay(plot);
+				}
+			}
+			double[] camera = cameraWhileHidden.getAndSet(null);
+			if (camera != null) {
+				moveCamera(camera[0], camera[1], camera[2]);
+			}
+		} catch (TabClosedException e) {
+			// closed right after it was shown: the watchdog sees it
+		} catch (RuntimeException e) {
+			logger.warn("Google Earth Web: could not redraw the plot after its tab was shown: {}", e.getMessage());
 		}
 	}
 
@@ -498,14 +640,5 @@ public class GoogleEarthWebService {
 		state = newState;
 		statePlotId = plotId;
 		stateMessage = message;
-	}
-
-	/** Profile of the Google Earth Web window, in the Collect Earth data folder. */
-	private static File profileFolder() {
-		File folder = new File(FolderFinder.getCollectEarthDataFolder(), PROFILE_FOLDER);
-		if (!folder.isDirectory() && !folder.mkdirs()) {
-			LoggerFactory.getLogger(GoogleEarthWebService.class).warn("Could not create {}", folder);
-		}
-		return folder;
 	}
 }

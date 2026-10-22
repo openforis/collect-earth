@@ -702,7 +702,7 @@ public class BrowserService implements InitializingBean, DisposableBean, Applica
 		});
 	}
 
-	private static boolean isCausedBy(Throwable failure, Class<? extends Throwable> type) {
+	static boolean isCausedBy(Throwable failure, Class<? extends Throwable> type) {
 		for (Throwable t = failure; t != null; t = t.getCause()) {
 			if (type.isInstance(t)) {
 				return true;

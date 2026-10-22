@@ -28,6 +28,7 @@ import javax.annotation.PreDestroy;
 
 import org.openforis.collect.earth.app.service.BrowserService;
 import org.openforis.collect.earth.app.service.LocalPropertiesService;
+import org.openqa.selenium.remote.RemoteWebDriver;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -263,6 +264,15 @@ public class ImageryBrowser {
 		synchronized (tabsLock) {
 			return tabOfSource.containsKey(source);
 		}
+	}
+
+	/**
+	 * The classic WebDriver of the imagery window, to move and size it; null when no browser runs. Its handle is the
+	 * window's, whichever tab is shown. Task 10 of the tabbed imagery window switches it to the visible tab first.
+	 */
+	public RemoteWebDriver window() {
+		TabDriver d = driver;
+		return d == null || !d.isAlive() ? null : d.window();
 	}
 
 	/** The source of the tab shown in the imagery window, or null. */

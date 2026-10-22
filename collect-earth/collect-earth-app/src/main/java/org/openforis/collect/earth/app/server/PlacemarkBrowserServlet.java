@@ -108,7 +108,9 @@ public class PlacemarkBrowserServlet {
 					kmlGenerator.fillSamplePoints(placemarkObject);
 					kmlGenerator.fillExternalLine(placemarkObject);
 
-					// First, as it has a window of its own still: it does not wait for the imagery browser to start
+					// First, so that its load is queued early; on a thread of its own, as it waits for the page and its
+					// in-page move. In a browser that starts, its tab is the first whichever comes first, its
+					// own load or openImageryTabs(), which opens the tabs one by one in the order of ImagerySource
 					openWindowAsync("Google Earth Web", () -> googleEarthWebService.showPlot(placemarkObject));
 					openImageryTabs();
 					openWindowAsync("Earth Engine APP", () -> browserService.openGEEAppURL(placemarkObject));
@@ -136,9 +138,6 @@ public class PlacemarkBrowserServlet {
 	private void openImageryTabs() {
 		Set<ImagerySource> sources = EnumSet.noneOf(ImagerySource.class);
 		sources.addAll(browserService.enabledImagerySources());
-		// Google Earth Web keeps its own window until Task 9 of the tabbed imagery window moves it to its tab: opened
-		// here, its tab would stay empty meanwhile
-		sources.remove(ImagerySource.GOOGLE_EARTH_WEB);
 		// Mostly they are open already: no command per source for the worker on every plot. Asked of each source rather
 		// than of openSources(), which still lists the tabs of a browser the user closed until a new one starts
 		if (sources.stream().allMatch(imageryBrowser::isOpen)) {
