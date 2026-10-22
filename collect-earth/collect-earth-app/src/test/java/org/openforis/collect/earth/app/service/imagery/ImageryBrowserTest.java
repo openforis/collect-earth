@@ -133,7 +133,8 @@ public class ImageryBrowserTest {
 	public void aBrowserHungOpeningATabIsQuitByTheNextCallerThatGivesUp() throws Exception {
 		imagery.tab(ImagerySource.PLANET).navigate("https://planet/0");
 		browser.holdCreateTab = new CountDownLatch(1); // never released: the browser hangs
-		imagery.setCommandTimeout(Duration.ofMillis(300)); // its caller is interrupted well before
+		// Its caller is interrupted well before, however slow the machine: it is then waiting for the result
+		imagery.setCommandTimeout(Duration.ofSeconds(2));
 		Thread opening = new Thread(() -> {
 			try {
 				imagery.tab(ImagerySource.GOOGLE_EARTH_WEB).navigate("https://gew/1");
@@ -143,11 +144,12 @@ public class ImageryBrowserTest {
 		});
 		opening.start();
 		browser.enteredHeldCreateTab.await();
+		waitFor(() -> opening.getState() == Thread.State.TIMED_WAITING);
 		opening.interrupt();
 		opening.join();
 		FakeTabDriver second = new FakeTabDriver();
 		imagery.setStarter(() -> second);
-		imagery.setCommandTimeout(Duration.ofMillis(1000));
+		imagery.setCommandTimeout(Duration.ofSeconds(3));
 		// Queued behind the hung command, which by then has run for longer than its own timeout
 		assertThrows(IllegalStateException.class,
 				() -> imagery.tab(ImagerySource.ESRI_WAYBACK).navigate("https://wayback/1"));
