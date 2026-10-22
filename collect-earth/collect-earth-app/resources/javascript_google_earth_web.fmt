@@ -46,6 +46,8 @@
     // ===== Cleanup from any previous injection (driver reuses the tab) =====
     // A redraw with new neighbours during a flight keeps waiting for the camera to arrive
     var inheritedFlight = window[CE_TAG] && window[CE_TAG].flight ? window[CE_TAG].flight() : null;
+    // and so does one during a move of the user
+    var inheritedMove = window[CE_TAG] && window[CE_TAG].moving ? window[CE_TAG].moving() : null;
     if (window[CE_TAG] && window[CE_TAG].stop) {
         try { window[CE_TAG].stop(); } catch (e) { /* ignore */ }
     }
@@ -236,7 +238,38 @@
         if (arrived) {
             // GEW writes the camera once it is at rest: no need to wait for it to stay the same
             lastHref = window.location.href;
-            stableCount = 2;
+            stableCount = STABLE_READS;
+            draw();
+            return true;
+        }
+        return false;
+    }
+
+    // ===== Hidden while the user moves the camera =====
+    // The same holds for a zoom with the wheel, a drag or the keyboard: GEW writes the new camera
+    // only once it comes to rest, about a second later, and until then the URL still has the old
+    // one. Waiting for it to stay the same drew the outline where the camera had been, over imagery
+    // still moving, and hid it again as soon as the new camera was written.
+    var MOVE_TIMEOUT_MILLIS = 3000;
+    var moving = null;
+
+    function startMoving() {
+        moving = { from: window.location.href, until: Date.now() + MOVE_TIMEOUT_MILLIS };
+        if (flight) userMoved = true;
+        hide("", false);
+        stableCount = 0;
+    }
+
+    // Over once GEW writes the camera the move ended at; a move that did not change it (a zoom past
+    // the limit) falls back to waiting for the URL to stay the same
+    function inUserMove() {
+        if (!moving) return false;
+        var href = window.location.href;
+        if (href === moving.from && Date.now() <= moving.until) return true;
+        moving = null;
+        if (href !== lastHref) {
+            lastHref = href;
+            stableCount = STABLE_READS;
             draw();
             return true;
         }
@@ -244,15 +277,18 @@
     }
 
     // ===== Redraw when the camera settles, hide while it moves =====
-    // GEW rewrites the URL as the camera comes to rest; poll it and draw only
-    // after two identical consecutive reads. Any interaction hides the overlay
-    // immediately so a stale projection is never shown over moving imagery.
+    // Otherwise poll the URL and draw after it has stayed the same for STABLE_READS reads.
+    // Any interaction hides the overlay immediately so a stale projection is never shown
+    // over moving imagery.
+    var POLL_MILLIS = 200;
+    var STABLE_READS = 4;
     var lastHref = null;
     var stableCount = 0;
     if (FLIGHT_URL) expectFlight(FLIGHT_URL);
     else if (inheritedFlight) flight = inheritedFlight;
+    if (inheritedMove) moving = inheritedMove;
     var timer = setInterval(function () {
-        if (inFlight()) return;
+        if (inFlight() || inUserMove()) return;
         var href = window.location.href;
         if (href !== lastHref) {
             lastHref = href;
@@ -261,31 +297,53 @@
             return;
         }
         stableCount++;
-        if (stableCount === 2) draw();
-    }, 400);
+        if (stableCount === STABLE_READS) draw();
+    }, POLL_MILLIS);
 
-    function onInteract(e) {
-        if (e && e.target && info.bar.contains(e.target)) return; // clicks on the information bar
+    function onBar(e) {
+        return e && e.target && info.bar.contains(e.target);
+    }
+
+    // A press alone may be a click that moves nothing: it hides the outline until the URL is stable
+    // again, and turns into a move once the pointer drags
+    var pressed = false;
+    function onPress(e) {
+        if (onBar(e)) return;
+        pressed = true;
         if (flight) userMoved = true;
         hide("", false);
         stableCount = 0;
     }
-    window.addEventListener("mousedown", onInteract, true);
-    window.addEventListener("wheel", onInteract, true);
-    window.addEventListener("touchstart", onInteract, true);
-    window.addEventListener("resize", onInteract, true);
+    function onDrag(e) {
+        if (pressed && e.buttons && !moving) startMoving();
+    }
+    function onRelease() {
+        pressed = false;
+    }
+    function onMove(e) {
+        if (onBar(e)) return;
+        startMoving();
+    }
+    // the keyboard moves the camera too (arrows, Page Up/Down, +/-), except while typing in GEW's search box
+    function onKey(e) {
+        var t = e.target;
+        if (e.ctrlKey || e.metaKey || e.altKey) return;
+        if (t && (t.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName))) return;
+        startMoving();
+    }
+    var LISTENERS = [["mousedown", onPress], ["mousemove", onDrag], ["mouseup", onRelease], ["wheel", onMove],
+        ["touchstart", onMove], ["keydown", onKey], ["resize", onMove]];
+    LISTENERS.forEach(function (l) { window.addEventListener(l[0], l[1], true); });
 
     window[CE_TAG] = {
         plotId: PLOT_ID,
         // the plots map moved the camera (GoogleEarthWebService.CAMERA_MOVE_SCRIPT)
         expectFlight: expectFlight,
         flight: function () { return inFlight() ? flight : null; },
+        moving: function () { return moving; },
         stop: function () {
             clearInterval(timer);
-            window.removeEventListener("mousedown", onInteract, true);
-            window.removeEventListener("wheel", onInteract, true);
-            window.removeEventListener("touchstart", onInteract, true);
-            window.removeEventListener("resize", onInteract, true);
+            LISTENERS.forEach(function (l) { window.removeEventListener(l[0], l[1], true); });
             if (svg && svg.parentNode) svg.parentNode.removeChild(svg);
             if (info.bar.parentNode) info.bar.parentNode.removeChild(info.bar);
             delete window[CE_TAG];
