@@ -23,6 +23,24 @@
     var plotCenter = [${longitude}, ${latitude}];
     var PLOT_TAG = "collectEarthPlot";
 
+    // ===== 0) Stop what an earlier injection into this page left running =====
+    // Its cookie poll, its search for the map and its watchers, which would redraw the plot before this one
+    var CE_TAG = "__collectEarthWaybackOverlay";
+    if (window[CE_TAG] && window[CE_TAG].stop) {
+        try { window[CE_TAG].stop(); } catch (e) { /* ignore */ }
+    }
+    var stopped = false;
+    var watchHandles = [];
+    window[CE_TAG] = {
+        stop: function () {
+            stopped = true;
+            clearInterval(cookiePoll);
+            clearInterval(poll);
+            watchHandles.forEach(function (h) { try { h.remove(); } catch (e) { /* ignore */ } });
+            watchHandles = [];
+        }
+    };
+
     // ===== 1) Auto-accept cookie banners (idempotent, fire-and-forget) =====
     function clickCookieBanners() {
         var selectors = [
@@ -166,6 +184,7 @@
     }
 
     function drawPlot(view) {
+        if (stopped) return; // a later injection took over while the map got ready
         var svg = ensureOverlay(view);
         if (!svg) {
             console.warn("[CE] no view.container to attach overlay to");
@@ -200,9 +219,9 @@
 
         // Initial draw, then keep in sync with pan/zoom/resize.
         redraw();
-        try { view.watch("extent", redraw); } catch (e) {}
-        try { view.watch("size", redraw); } catch (e) {}
-        try { view.watch("rotation", redraw); } catch (e) {}
+        ["extent", "size", "rotation"].forEach(function (property) {
+            try { watchHandles.push(view.watch(property, redraw)); } catch (e) {}
+        });
 
         // Center on the plot once.
         try {
