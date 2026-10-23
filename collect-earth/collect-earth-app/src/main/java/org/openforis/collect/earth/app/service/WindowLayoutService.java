@@ -278,15 +278,8 @@ public class WindowLayoutService {
 		return plotsMapProbe.check(() -> windowState(map));
 	}
 
-	/** The imagery window, as {@link #plotsMapWindow()}: CLOSED when no browser runs. */
-	private WindowState imageryWindow() {
-		RemoteWebDriver imagery;
-		synchronized (lock) {
-			imagery = imageryBrowser.classicDriver();
-		}
-		if (imagery == null) {
-			return WindowState.CLOSED;
-		}
+	/** The window of this imagery browser, as {@link #plotsMapWindow()}. */
+	private WindowState imageryWindow(RemoteWebDriver imagery) {
 		return imageryProbe.check(() -> windowState(imagery));
 	}
 
@@ -298,17 +291,17 @@ public class WindowLayoutService {
 	 * imagery browser is told, and quits it: the next command starts a new browser at once, which opens the tabs in
 	 * their order, instead of taking the closed one for alive until a load finds it gone. Closed too when no browser
 	 * runs. Asked outside {@link #lock}, through a {@link WindowProbe}, as {@link #plotsMapWindow()}; and told outside it,
-	 * as quitting the browser may take seconds.
+	 * as quitting the browser may take seconds. The session is taken without the lock too: a hung placement holds it,
+	 * and "Arrange" would wait it out here, which is what the probe is for. Taking it is two field reads, and asking for
+	 * its windows switches no tab, unlike {@link ImageryBrowser#window()}, which needs the lock.
 	 */
 	private boolean isImageryWindowClosed() {
-		RemoteWebDriver imagery;
-		synchronized (lock) {
-			imagery = imageryBrowser.classicDriver();
-		}
+		RemoteWebDriver imagery = imageryBrowser.classicDriver();
 		if (imagery == null) {
 			return true;
 		}
-		if (!closedTwice(this::imageryWindow)) {
+		// The same browser both times: one started meanwhile is not taken for closed
+		if (!closedTwice(() -> imageryWindow(imagery))) {
 			return false;
 		}
 		// Only that browser: windowClosed leaves alone one started since

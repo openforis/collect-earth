@@ -363,8 +363,9 @@ public class ImageryBrowser {
 
 	/**
 	 * The classic WebDriver of the browser as it is, without switching it to a tab (see {@link #window()}); null when no
-	 * browser runs. Only to ask whether its window is still there ({@code getWindowHandles()}, which needs no tab), and
-	 * under the same rule as {@link #window()}: from WindowLayoutService's code that holds its lock.
+	 * browser runs. Only to ask whether its window is still there ({@code getWindowHandles()}, which needs no tab). Any
+	 * thread, unlike {@link #window()}: it reads two fields and switches nothing, and the question is served by the
+	 * driver after a placement under way, which it neither switches nor moves.
 	 */
 	public RemoteWebDriver classicDriver() {
 		TabDriver d = driver;
