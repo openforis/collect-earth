@@ -12,6 +12,7 @@ import java.time.Duration;
 import java.util.EnumSet;
 import java.util.List;
 import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.concurrent.TimeUnit;
 import java.util.function.BooleanSupplier;
 
 import org.junit.jupiter.api.AfterEach;
@@ -140,6 +141,21 @@ public class BidiTabDriverIT {
 				() -> tab.evaluate("throw new Error('boom');"));
 		assertTrue(thrown.getMessage().contains("boom"), thrown.getMessage());
 		assertTrue(tab.isOpen(), "a script error leaves the tab as it is");
+	}
+
+	@Test
+	public void aPageTooBusyToRunAScriptIsBusyNotAFault() {
+		ImageryTab tab = imagery.tab(ImagerySource.PLANET);
+		assertTrue(tab.load(page("busy"), false, LOAD));
+		// As Google Earth Web starting: the page keeps its thread for longer than a script may wait
+		long busyMillis = BidiTabDriver.SCRIPT_TIMEOUT.toMillis() + 5000;
+		tab.evaluate("setTimeout(function () { var end = Date.now() + " + busyMillis + "; while (Date.now() < end) {} }, 0);");
+		long start = System.nanoTime();
+		PageScriptException busy = assertThrows(PageScriptException.class, () -> tab.evaluate("return 1;"));
+		long waited = TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - start);
+		assertTrue(busy.isPageBusy(), busy.getMessage());
+		assertTrue(waited < BidiTabDriver.BIDI_TIMEOUT.toMillis(), "the worker waited " + waited + " ms");
+		assertTrue(tab.waitUntil("return true;", LOAD), "the page answers again once it is done");
 	}
 
 	@Test

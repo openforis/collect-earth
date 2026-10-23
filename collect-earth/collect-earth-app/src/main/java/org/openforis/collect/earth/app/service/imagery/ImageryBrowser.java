@@ -860,8 +860,11 @@ public class ImageryBrowser {
 			reporter.breadcrumb(queuedCommand.source, "tab closed");
 			queuedCommand.result.completeExceptionally(e);
 		} catch (PageScriptException e) {
-			if (!e.isDocumentReplaced()) {
+			if (e.isFault()) {
 				reporter.report(queuedCommand.source, "page_script", e);
+			} else if (e.isPageBusy()) {
+				// A page busy loading, not a fault; a warning, as it held up the other tabs meanwhile
+				logger.warn("Imagery window, {}: {}", queuedCommand.source, e.getMessage());
 			}
 			queuedCommand.result.completeExceptionally(e);
 		} catch (BidiCommandException e) {

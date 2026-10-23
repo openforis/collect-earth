@@ -67,6 +67,11 @@ public class GoogleEarthWebService {
 	 * window closed whole sends no event, and is otherwise noticed only at the next plot.
 	 */
 	private static final int HIDDEN_LIVENESS_CHECK_TICKS = 20;
+	/**
+	 * How long the watchdog leaves the page alone after it was too busy to run its check (Google Earth Web starting):
+	 * each check of a busy page holds up the commands of the other tabs for the timeout of a script.
+	 */
+	private static final long BUSY_PAGE_PAUSE_MILLIS = 5000;
 	/** As cheap a command as there is: only whether the tab answers matters. */
 	private static final String LIVENESS_SCRIPT = "return 1;";
 	/** The ground altitude learnt at one place is used for camera URLs up to this far away. */
@@ -160,6 +165,8 @@ public class GoogleEarthWebService {
 	private volatile ScheduledExecutorService watchdog;
 	/** Watchdog checks since the tab was last seen visible, or since the last liveness check; watchdog thread only. */
 	private int hiddenTicks;
+	/** Until when the watchdog leaves a page alone that was too busy to answer it; watchdog thread only. */
+	private long busyUntilNanos = System.nanoTime();
 
 	/**
 	 * The tab being shown again redraws the outline at once (the page's timers were slowed down
@@ -505,8 +512,8 @@ public class GoogleEarthWebService {
 		} catch (TabClosedException e) {
 			throw e;
 		} catch (PageScriptException e) {
-			if (e.isDocumentReplaced()) {
-				logger.warn("Google Earth Web: the page was being replaced, the plot outline is drawn later");
+			if (!e.isFault()) {
+				logger.warn("Google Earth Web: the page was being replaced or busy, the plot outline is drawn later");
 				return Outline.PAGE_NOT_READY;
 			}
 			// Reported to Sentry by ImageryBrowser already
@@ -558,6 +565,9 @@ public class GoogleEarthWebService {
 				return;
 			}
 			hiddenTicks = 0;
+			if (System.nanoTime() - busyUntilNanos < 0) {
+				return; // the page was too busy to answer just now: not asked again for a while
+			}
 			try {
 				// Never starts a browser: a window closed since the check above is seen as closed
 				List<?> page = (List<?>) tab().evaluateIfOpen(PAGE_STATE_SCRIPT);
@@ -590,6 +600,12 @@ public class GoogleEarthWebService {
 				}
 			} catch (TabClosedException e) {
 				closed();
+			} catch (PageScriptException e) {
+				if (e.isPageBusy()) {
+					// Google Earth Web starting: each check would hold up the imagery window for as long again
+					busyUntilNanos = System.nanoTime() + TimeUnit.MILLISECONDS.toNanos(BUSY_PAGE_PAUSE_MILLIS);
+				}
+				logger.debug("Google Earth Web watchdog check failed", e);
 			} catch (Exception e) {
 				logger.debug("Google Earth Web watchdog check failed", e);
 			}

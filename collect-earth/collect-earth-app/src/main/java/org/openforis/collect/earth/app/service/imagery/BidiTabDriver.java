@@ -2,8 +2,10 @@ package org.openforis.collect.earth.app.service.imagery;
 
 import java.time.Duration;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.Callable;
@@ -17,6 +19,9 @@ import org.openqa.selenium.Capabilities;
 import org.openqa.selenium.NoSuchSessionException;
 import org.openqa.selenium.NoSuchWindowException;
 import org.openqa.selenium.WindowType;
+import org.openqa.selenium.bidi.BiDi;
+import org.openqa.selenium.bidi.Command;
+import org.openqa.selenium.bidi.HasBiDi;
 import org.openqa.selenium.bidi.browsingcontext.BrowsingContext;
 import org.openqa.selenium.bidi.browsingcontext.BrowsingContextInfo;
 import org.openqa.selenium.bidi.browsingcontext.CreateContextParameters;
@@ -24,9 +29,6 @@ import org.openqa.selenium.bidi.browsingcontext.ReadinessState;
 import org.openqa.selenium.bidi.module.BrowsingContextInspector;
 import org.openqa.selenium.bidi.module.Script;
 import org.openqa.selenium.bidi.script.ChannelValue;
-import org.openqa.selenium.bidi.script.EvaluateResult;
-import org.openqa.selenium.bidi.script.EvaluateResultExceptionValue;
-import org.openqa.selenium.bidi.script.EvaluateResultSuccess;
 import org.openqa.selenium.bidi.script.Message;
 import org.openqa.selenium.remote.RemoteWebDriver;
 import org.openqa.selenium.remote.http.ClientConfig;
@@ -55,6 +57,15 @@ public class BidiTabDriver implements TabDriver {
 	 * A command of the worker can send several BiDi commands, each with this limit.
 	 */
 	public static final Duration BIDI_TIMEOUT = Duration.ofSeconds(20);
+
+	/**
+	 * How long a script waits for its answer, shorter than {@link #BIDI_TIMEOUT}: the scripts of Collect Earth take
+	 * milliseconds, so one with no answer by then is in a page too busy to run it (Google Earth Web starting took
+	 * Firefox over 20 s), and the worker should not wait for it while every other tab waits behind. It ends as a page
+	 * busy ({@link PageScriptException#isPageBusy()}), not a fault. Selenium's {@code BiDi.send} takes a timeout per
+	 * command.
+	 */
+	static final Duration SCRIPT_TIMEOUT = Duration.ofSeconds(8);
 
 	/** How long {@link #quit()} waits for the browser to end before leaving it to its own thread. */
 	private static final long QUIT_WAIT_MILLIS = 10_000;
@@ -85,7 +96,7 @@ public class BidiTabDriver implements TabDriver {
 	 * in Chrome 156 for a script waiting on a promise when the page navigated: {@code "error":"unknown error",
 	 * "message":"Inspected target navigated or closed"}. Firefox 158 queues a script sent during a navigation and runs
 	 * it in the new document, but a promise left pending by a navigation never answers there, so such a script ends
-	 * with the BiDi timeout instead ({@link #BIDI_TIMEOUT}). The others are the CDP and Firefox wordings of the same.
+	 * with the timeout of the script instead ({@link #SCRIPT_TIMEOUT}), as a page busy. The others are the CDP and Firefox wordings of the same.
 	 */
 	private static final String[] DOCUMENT_REPLACED = { "inspected target navigated or closed",
 			"execution context was destroyed", "cannot find context with specified id",
@@ -95,6 +106,8 @@ public class BidiTabDriver implements TabDriver {
 
 	private final RemoteWebDriver driver;
 	private final Script script;
+	/** To send the scripts with their own timeout ({@link #SCRIPT_TIMEOUT}), which {@link Script} does not take. */
+	private final BiDi bidi;
 	private final String initialTab;
 	private final String browserName;
 	private final String browserVersion;
@@ -130,6 +143,7 @@ public class BidiTabDriver implements TabDriver {
 			// The BiDi context id of the first tab: Firefox and Chrome use the same id for the window handle
 			initialTab = driver.getWindowHandle();
 			script = new Script(driver);
+			bidi = ((HasBiDi) driver).getBiDi(); // a driver without BiDi failed just above
 			BrowsingContextInspector inspector = new BrowsingContextInspector(driver);
 			inspector.onBrowsingContextCreated(this::contextCreated);
 			inspector.onBrowsingContextDestroyed(this::contextDestroyed);
@@ -184,15 +198,33 @@ public class BidiTabDriver implements TabDriver {
 
 	@Override
 	public String evaluate(String tab, String expression) {
-		EvaluateResult result = guard(tab, true,
-				() -> script.evaluateFunctionInBrowsingContext(tab, expression, true, Optional.empty()));
-		if (result instanceof EvaluateResultExceptionValue) {
-			throw new PageScriptException(((EvaluateResultExceptionValue) result).getExceptionDetails().getText());
+		// script.evaluate as Script.evaluateFunctionInBrowsingContext sends it, with a timeout of its own
+		Map<String, Object> params = new HashMap<>();
+		params.put("expression", expression);
+		params.put("awaitPromise", true);
+		params.put("target", Collections.singletonMap("context", tab));
+		Map<String, Object> answer = guard(tab, true,
+				() -> bidi.send(new Command<Map<String, Object>>("script.evaluate", params, Map.class), SCRIPT_TIMEOUT));
+		return scriptValue(tab, answer);
+	}
+
+	/**
+	 * The value of a script from the answer of {@code script.evaluate}: {@code {"type":"success","result":{"type":
+	 * "string","value":...}}}, or {@code {"type":"exception","exceptionDetails":{"text":...}}} when it threw in the
+	 * page. The expressions of {@code ImageryTab} give their value as JSON text, so a string.
+	 */
+	static String scriptValue(String tab, Map<String, Object> answer) {
+		Object type = answer == null ? null : answer.get("type");
+		if ("exception".equals(type)) {
+			Object details = answer.get("exceptionDetails");
+			Object text = details instanceof Map ? ((Map<?, ?>) details).get("text") : null;
+			throw new PageScriptException(String.valueOf(text));
 		}
-		if (!(result instanceof EvaluateResultSuccess)) {
-			throw new BidiCommandException("Unexpected result of a script in tab " + tab + ": " + result, null);
+		if (!"success".equals(type)) {
+			throw new BidiCommandException("Unexpected result of a script in tab " + tab + ": " + answer, null);
 		}
-		Object value = ((EvaluateResultSuccess) result).getResult().getValue().orElse(null);
+		Object result = answer.get("result");
+		Object value = result instanceof Map ? ((Map<?, ?>) result).get("value") : null;
 		return value == null ? "null" : String.valueOf(value);
 	}
 
@@ -311,10 +343,10 @@ public class BidiTabDriver implements TabDriver {
 	/**
 	 * Runs a BiDi command and sorts out its failure: a tab or browser that is gone gives {@link TabClosedException}
 	 * (and a browser gone is no longer {@link #alive}); for a script ({@code script}), a document being replaced gives
-	 * {@link PageScriptException}, for {@code ImageryTab.waitUntil} to try again; anything else is a fault of the
-	 * command, a {@link BidiCommandException}. Selenium wraps the errors often, and BiDi errors come as a plain
-	 * {@code WebDriverException} with the JSON of the error as message, so the whole cause chain and the messages are
-	 * looked at.
+	 * {@link PageScriptException}, for {@code ImageryTab.waitUntil} to try again, and so does a page too busy to
+	 * answer in time; anything else is a fault of the command, a {@link BidiCommandException}. Selenium wraps the
+	 * errors often, and BiDi errors come as a plain {@code WebDriverException} with the JSON of the error as message,
+	 * so the whole cause chain and the messages are looked at.
 	 */
 	private <T> T guard(String tab, boolean script, Callable<T> command) {
 		if (!alive) {
@@ -325,23 +357,36 @@ public class BidiTabDriver implements TabDriver {
 		} catch (PageScriptException e) {
 			throw e;
 		} catch (Exception e) {
-			String messages = messages(e);
-			if (has(e, NoSuchSessionException.class) || contains(messages, SESSION_GONE)) {
+			if (sessionGone(e)) {
 				alive = false;
-				throw new TabClosedException("The imagery browser has ended", e);
 			}
-			if (!alive) {
-				// The last tab closed while the command ran: whatever it says, the browser is gone
-				throw new TabClosedException("The imagery browser has ended", e);
-			}
-			if (has(e, NoSuchWindowException.class) || contains(messages, TAB_GONE)) {
-				throw new TabClosedException("The tab " + tab + " is closed", e);
-			}
-			if (script && contains(messages, DOCUMENT_REPLACED)) {
-				throw new PageScriptException("The page was replacing its document: " + firstLine(e), true);
-			}
-			throw new BidiCommandException("A BiDi command failed in tab " + tab + ": " + firstLine(e), e);
+			throw failure(tab, script, e, alive);
 		}
+	}
+
+	private static boolean sessionGone(Exception failure) {
+		return has(failure, NoSuchSessionException.class) || contains(messages(failure), SESSION_GONE);
+	}
+
+	/** What a failed BiDi command means, see {@link #guard}; {@code alive}: whether the browser was still running. */
+	static RuntimeException failure(String tab, boolean script, Exception e, boolean alive) {
+		String messages = messages(e);
+		if (!alive || sessionGone(e)) {
+			// Also when the last tab closed while the command ran: whatever it says, the browser is gone
+			return new TabClosedException("The imagery browser has ended", e);
+		}
+		if (has(e, NoSuchWindowException.class) || contains(messages, TAB_GONE)) {
+			return new TabClosedException("The tab " + tab + " is closed", e);
+		}
+		if (script && contains(messages, DOCUMENT_REPLACED)) {
+			return new PageScriptException("The page was replacing its document: " + firstLine(e), true);
+		}
+		if (script && (has(e, org.openqa.selenium.TimeoutException.class)
+				|| has(e, java.util.concurrent.TimeoutException.class))) {
+			// The browser did not answer before the timeout of the command: the page did not run the script yet
+			return PageScriptException.pageBusy("The page in tab " + tab + " was too busy to run a script in time");
+		}
+		return new BidiCommandException("A BiDi command failed in tab " + tab + ": " + firstLine(e), e);
 	}
 
 	private static boolean has(Throwable failure, Class<? extends Throwable> type) {

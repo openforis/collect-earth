@@ -261,6 +261,17 @@ public class ImageryBrowserTest {
 	}
 
 	@Test
+	public void aPageTooBusyToRunAScriptIsNotReported() {
+		// Google Earth Web starting: Firefox did not run the script before the BiDi answer was due
+		PageScriptException busy = assertThrows(PageScriptException.class, () -> imagery.call(ImagerySource.GOOGLE_EARTH_WEB,
+				(d, t) -> {
+					throw PageScriptException.pageBusy("no answer in time");
+				}));
+		assertTrue(busy.isPageBusy());
+		assertTrue(reporter.sent.isEmpty(), reporter.sent.toString());
+	}
+
+	@Test
 	public void aScriptThatThrowsInThePageIsReportedOnce() {
 		browser.failingScripts.add("overlay()");
 		ImageryTab tab = imagery.tab(ImagerySource.GOOGLE_EARTH_WEB);
