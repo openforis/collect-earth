@@ -10,6 +10,7 @@ import javax.annotation.PreDestroy;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.annotation.Lazy;
 import org.springframework.stereotype.Component;
 
 /**
@@ -24,7 +25,10 @@ import org.springframework.stereotype.Component;
  * checks in a row found it closed, as reopening a window that is in fact there reloads the form in it. "Arrange"
  * reopens it too, at once.
  */
+// Not lazy: the application context creates its beans lazily (applicationContext.fmt), and nothing asks for this one,
+// which only listens for the plots map to open
 @Component
+@Lazy(false)
 public class PlotsMapKeeper {
 
 	private static final long CHECK_PERIOD_SECONDS = 2;

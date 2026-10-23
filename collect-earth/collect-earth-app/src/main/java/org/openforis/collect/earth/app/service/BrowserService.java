@@ -1305,7 +1305,9 @@ public class BrowserService implements InitializingBean, DisposableBean, Applica
 				}
 				webDriverLeafletMap = initAppWindow(null);
 			}
-			webDriverLeafletMap = navigateTo(url, webDriverLeafletMap);
+			// No refresh after it: the page takes ?plot= out of its address as soon as it starts, so a refresh would load it
+			// again on no plot. Its address has no #fragment, so the navigation alone loads the page anew.
+			webDriverLeafletMap = navigateTo(url, webDriverLeafletMap, true, false);
 			if (webDriverLeafletMap == null) {
 				return false;
 			}
