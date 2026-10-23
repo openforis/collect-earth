@@ -31,11 +31,16 @@
     }
     var stopped = false;
     var watchHandles = [];
+    var extentPoll = null;
+    var drawnOn = null; // the view the plot was drawn on as graphics
     window[CE_TAG] = {
         stop: function () {
             stopped = true;
             clearInterval(cookiePoll);
             clearInterval(poll);
+            clearInterval(extentPoll);
+            // The plot before this one, which the page still shows if the next one cannot be drawn
+            if (drawnOn) removeGraphics(drawnOn);
             watchHandles.forEach(function (h) { try { h.remove(); } catch (e) { /* ignore */ } });
             watchHandles = [];
         }
@@ -137,25 +142,86 @@
         return null;
     }
 
-    // ===== 3) Draw the plot as an SVG overlay positioned via view.toScreen() =====
-    // The modern Wayback bundle does not expose Dojo require(), so instead of
-    // creating esri/Graphic objects we project lon/lat -> screen pixels with
-    // the MapView's toScreen() and draw the rings as SVG polygons. The overlay
-    // is re-projected on every extent/size change so it stays glued to the map.
-    function makePointFactory(view) {
-        // view.center is a Point instance; cloning is the safest way to get
-        // a typed Point without needing access to the bundled Point class.
-        if (view.center && typeof view.center.clone === "function") {
-            return function (lon, lat) {
-                var p = view.center.clone();
-                p.longitude = lon;
-                p.latitude = lat;
-                return p;
-            };
+    // ===== 3) Draw the plot as graphics of the map =====
+    // The Wayback bundle exposes no require(), so there is no Graphic class to call; the view's graphics collection
+    // makes Graphics of plain objects itself (autocast). A graphic is in map coordinates: the view projects the WGS84
+    // rings to its own spatial reference and keeps them on the ground through every pan, zoom and resize, with nothing
+    // to watch. Seen working on the live page in 2026-10 (Maps SDK, Web Mercator view).
+    var OUTLINE_SYMBOL = { type: "simple-fill", color: [0, 0, 0, 0], outline: { color: [255, 255, 0, 1], width: 2 } };
+
+    function isOurs(graphic) {
+        return graphic && graphic.attributes && graphic.attributes[PLOT_TAG] === true;
+    }
+
+    function removeGraphics(view) {
+        try {
+            var ours = view.graphics.toArray().filter(isOurs);
+            if (ours.length) view.graphics.removeMany(ours);
+        } catch (e) { console.warn("[CE] could not remove the plot drawn before", e); }
+    }
+
+    /** Whether the plot could be drawn as graphics; if not, nothing of it is left on the map. */
+    function drawGraphics(view) {
+        if (!view.graphics || typeof view.graphics.addMany !== "function") return false;
+        removeGraphics(view);
+        var graphics = [];
+        rings.forEach(function (ring) {
+            if (!ring || ring.length < 3) return;
+            var attributes = {};
+            attributes[PLOT_TAG] = true;
+            graphics.push({ geometry: { type: "polygon", rings: [ring], spatialReference: { wkid: 4326 } },
+                symbol: OUTLINE_SYMBOL, attributes: attributes });
+        });
+        try {
+            view.graphics.addMany(graphics);
+        } catch (e) {
+            console.warn("[CE] the map did not take the plot as graphics", e);
+            removeGraphics(view);
+            return false;
         }
-        // Fallback: plain object — toScreen tolerates this in most builds.
+        // Made Graphics of: a build that does not autocast keeps the plain objects, which draw nothing
+        var added = view.graphics.toArray().filter(isOurs);
+        var ok = added.length === graphics.length && added.every(function (g) {
+            return g.geometry && /Polygon/.test(g.geometry.declaredClass || "");
+        });
+        if (!ok) {
+            console.warn("[CE] the map did not make graphics of the plot; drawing it over the map instead");
+            removeGraphics(view);
+        }
+        return ok;
+    }
+
+    // ===== 4) Else draw the plot as an SVG overlay positioned via view.toScreen() =====
+    // Re-projected on every extent/size change so it stays glued to the map.
+    var WEB_MERCATOR_WKIDS = [102100, 102113, 3857, 900913];
+    var EARTH_RADIUS = 6378137;
+
+    /**
+     * The point in the view's own coordinates: toScreen() does not project, so a WGS84 point on a Web Mercator view
+     * would land near 0,0. Null when the view is in another spatial reference.
+     */
+    function makePointFactory(view) {
+        var sr = view.spatialReference || {};
+        var webMercator = sr.isWebMercator || WEB_MERCATOR_WKIDS.indexOf(sr.wkid) >= 0;
+        var wgs84 = sr.isWGS84 || sr.wkid === 4326;
+        if (!webMercator && !wgs84) {
+            console.warn("[CE] the map is in spatial reference " + sr.wkid + ", the plot cannot be placed on it");
+            return null;
+        }
         return function (lon, lat) {
-            return { x: lon, y: lat, spatialReference: { wkid: 4326 } };
+            var x = lon, y = lat;
+            if (webMercator) {
+                x = EARTH_RADIUS * lon * Math.PI / 180;
+                y = EARTH_RADIUS * Math.log(Math.tan(Math.PI / 4 + lat * Math.PI / 360));
+            }
+            // A Point of the view's own class when it can be had: toScreen() of some builds wants one
+            if (view.center && typeof view.center.clone === "function") {
+                var p = view.center.clone();
+                p.x = x;
+                p.y = y;
+                return p;
+            }
+            return { type: "point", x: x, y: y, spatialReference: view.spatialReference };
         };
     }
 
@@ -185,13 +251,34 @@
 
     function drawPlot(view) {
         if (stopped) return; // a later injection took over while the map got ready
+        // The SVG overlay of an earlier injection, which drew it that way
+        var old = view.container && view.container.querySelector("svg[data-ce-overlay='" + PLOT_TAG + "']");
+        if (old) old.parentNode.removeChild(old);
+        if (drawGraphics(view)) {
+            drawnOn = view;
+            centerOnPlot(view);
+            console.log("[CE] plot drawn on ESRI Wayback as graphics (" + rings.length + " ring(s))");
+            return;
+        }
+        drawOverlay(view);
+        centerOnPlot(view);
+    }
+
+    function centerOnPlot(view) {
+        try {
+            view.goTo({ target: [plotCenter[0], plotCenter[1]], zoom: 18 }, { animate: false });
+        } catch (e) { /* ignore */ }
+    }
+
+    function drawOverlay(view) {
+        var toPoint = makePointFactory(view);
+        if (!toPoint) return;
         var svg = ensureOverlay(view);
         if (!svg) {
             console.warn("[CE] no view.container to attach overlay to");
             return;
         }
         var svgNS = "http://www.w3.org/2000/svg";
-        var toPoint = makePointFactory(view);
 
         function redraw() {
             // Clear children
@@ -219,16 +306,29 @@
 
         // Initial draw, then keep in sync with pan/zoom/resize.
         redraw();
+        var watched = 0;
         ["extent", "size", "rotation"].forEach(function (property) {
-            try { watchHandles.push(view.watch(property, redraw)); } catch (e) {}
+            try {
+                watchHandles.push(view.watch(property, redraw));
+                watched++;
+            } catch (e) {
+                console.warn("[CE] cannot watch the map's " + property + "; the plot is redrawn by polling instead", e);
+            }
         });
+        if (watched < 3) {
+            // A build without watch(): the outline would stay where it was first drawn as the map moves
+            var last = "";
+            extentPoll = setInterval(function () {
+                var e = view.extent;
+                var now = e ? [e.xmin, e.ymin, e.xmax, e.ymax, view.width, view.height, view.rotation].join(",") : "";
+                if (now !== last) {
+                    last = now;
+                    redraw();
+                }
+            }, 250);
+        }
 
-        // Center on the plot once.
-        try {
-            view.goTo({ target: [plotCenter[0], plotCenter[1]], zoom: 18 }, { animate: false });
-        } catch (e) { /* ignore */ }
-
-        console.log("[CE] plot drawn on ESRI Wayback (" + rings.length + " ring(s))");
+        console.log("[CE] plot drawn on ESRI Wayback over the map (" + rings.length + " ring(s))");
     }
 
     // Wait for the MapView to be present and ready before drawing.
