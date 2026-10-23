@@ -679,13 +679,14 @@ public class BrowserService implements InitializingBean, DisposableBean, Applica
 		}
 		imageryBrowser.loadLatest(source, () -> {
 			try {
-				ImageryTab tab = imageryBrowser.tab(source);
-				if (!tab.load(url, true, PAGE_LOAD_TIMEOUT)) {
-					// A slow site is not a fault; the script after the load waits for its map by itself
-					logger.warn("{} did not load in time", source);
-				}
-				if (afterLoad != null) {
-					afterLoad.run(tab);
+				try {
+					loadOnce(source, url, afterLoad);
+				} catch (final TabClosedException e) {
+					// The user closed the tab while it loaded, or closed the whole window since the last plot, which
+					// the browser tells at the first command only: once more, in a tab (or a browser) opened anew, as
+					// GoogleEarthWebService does. Without it the source would miss this plot until the next one.
+					logger.warn("{}: {}; opening it again", source, e.getMessage());
+					loadOnce(source, url, afterLoad);
 				}
 			} catch (final TabClosedException e) {
 				logger.warn("{}: the tab was closed while the plot loaded", source);
@@ -702,6 +703,17 @@ public class BrowserService implements InitializingBean, DisposableBean, Applica
 				}
 			}
 		});
+	}
+
+	private void loadOnce(ImagerySource source, String url, AfterLoad afterLoad) {
+		ImageryTab tab = imageryBrowser.tab(source);
+		if (!tab.load(url, true, PAGE_LOAD_TIMEOUT)) {
+			// A slow site is not a fault; the script after the load waits for its map by itself
+			logger.warn("{} did not load in time", source);
+		}
+		if (afterLoad != null) {
+			afterLoad.run(tab);
+		}
 	}
 
 	static boolean isCausedBy(Throwable failure, Class<? extends Throwable> type) {
