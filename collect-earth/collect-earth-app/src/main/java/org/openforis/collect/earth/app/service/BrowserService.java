@@ -636,13 +636,15 @@ public class BrowserService implements InitializingBean, DisposableBean, Applica
 	 * Injects the plot polygon overlay and an auto cookie-consent click into
 	 * ESRI Living Atlas Wayback. The Wayback app is a React SPA built on the
 	 * ArcGIS Maps SDK for JavaScript; the injected script locates the MapView
-	 * via React fibers and draws the plot over it. It waits for the MapView by
-	 * itself, so it is injected even if its container is not there yet.
+	 * (the view of its arcgis-map element) and draws the plot over it. It waits
+	 * for the MapView by itself, so it is injected as soon as the page has loaded.
+	 * <p>
+	 * Not after waiting here for the map: that wait was for a {@code .esri-view}
+	 * element that the Wayback app no longer has, so it took its full minute on
+	 * every plot and held up the next plot of the tab as long ({@link #loadInTab}
+	 * loads the latest plot only once the one before is done).
 	 */
 	private void loadPlotInEsriWayback(SimplePlacemarkObject placemarkObject, ImageryTab tab) {
-		if (!tab.waitUntil("return !!document.querySelector('.esri-view');", MAP_READY_TIMEOUT)) {
-			logger.debug("ESRI Wayback view container not detected before timeout - injecting anyway");
-		}
 		String waybackJs = getEsriWaybackJavascript(placemarkObject);
 		if (waybackJs != null) {
 			tab.evaluate(waybackJs);

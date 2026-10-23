@@ -76,6 +76,11 @@
     }
 
     function findMapView() {
+        // The Wayback app shows its map with the <arcgis-map> component of the Maps SDK (seen in 2026-10), whose
+        // "view" is the MapView. The searches below are for the older builds, which had no such element.
+        var mapElement = document.querySelector("arcgis-map");
+        if (mapElement && looksLikeMapView(mapElement.view)) return mapElement.view;
+
         // Try a quick well-known global first.
         if (window.view && looksLikeMapView(window.view)) return window.view;
 
