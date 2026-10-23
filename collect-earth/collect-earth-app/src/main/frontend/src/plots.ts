@@ -2,6 +2,30 @@ import type { GewView, GroundView, LatLng, ListFilter, PlotStatus } from "./type
 
 // Pure plot-list logic shared by the store and the UI (unit tested in plots.test.ts).
 
+/**
+ * An empty dictionary keyed by plot id. It has no prototype: in a plain {} a plot id like "constructor" or "toString"
+ * finds the method of Object.prototype before it is put, and putting "__proto__" changes the prototype instead.
+ */
+export function byId<T>(): Record<string, T> {
+  return Object.create(null) as Record<string, T>;
+}
+
+/**
+ * The plots of a load keyed by id (see {@link byId}), and their ids in the order of the file: an id repeated keeps the
+ * place it first had, with its last data. Built from this load alone, so that loading again replaces the plots.
+ */
+export function indexPlots<F extends { properties: { id: string } }, P>(features: F[], toPlot: (feature: F) => P):
+    { order: string[]; plots: Record<string, P> } {
+  const plots = byId<P>();
+  const order: string[] = [];
+  for (const feature of features) {
+    const id = feature.properties.id;
+    if (!(id in plots)) order.push(id);
+    plots[id] = toPlot(feature);
+  }
+  return { order, plots };
+}
+
 export function matchesFilter(id: string, status: PlotStatus, filter: ListFilter, query: string): boolean {
   if (filter === "pending" && status === "saved") return false;
   if (filter === "saved" && status !== "saved") return false;

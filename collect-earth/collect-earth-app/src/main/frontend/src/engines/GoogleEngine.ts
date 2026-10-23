@@ -1,6 +1,6 @@
 import type { MessageKey } from "../i18n";
 import type { GroundView, LatLng } from "../types";
-import { heightForZoom, zoomForHeight } from "../plots";
+import { byId, heightForZoom, zoomForHeight } from "../plots";
 import type { EngineCallbacks, EngineConfig, MapEngine } from "./MapEngine";
 import { UserIntent } from "./userIntent";
 
@@ -28,8 +28,9 @@ const MAP_TYPES: Record<string, string> = {
 export class GoogleEngine implements MapEngine {
   readonly name = "google" as const;
   private map: google.maps.Map | null = null;
-  private defs: Record<string, { rings: LatLng[][]; center: LatLng; color: string }> = {};
-  private layers: Record<string, { polygons: google.maps.Polygon[]; marker: google.maps.Marker }> = {};
+  /** Keyed by plot id, without a prototype (see byId). */
+  private defs: Record<string, { rings: LatLng[][]; center: LatLng; color: string }> = byId();
+  private layers: Record<string, { polygons: google.maps.Polygon[]; marker: google.maps.Marker }> = byId();
   private callbacks!: EngineCallbacks;
   private config!: EngineConfig;
   private container: HTMLElement | null = null;
@@ -66,6 +67,13 @@ export class GoogleEngine implements MapEngine {
   }
 
   addPlot(id: string, rings: LatLng[][], center: LatLng): void {
+    // A plot added again (the plots loaded again) replaces the one there: two would be drawn, one of them for good
+    const existing = this.layers[id];
+    if (existing) {
+      existing.polygons.forEach((p) => p.setMap(null));
+      existing.marker.setMap(null);
+      delete this.layers[id];
+    }
     this.defs[id] = { rings, center, color: this.config.emptyColor };
     if (this.ready) this.createPlot(id);
   }
@@ -164,8 +172,8 @@ export class GoogleEngine implements MapEngine {
       l.polygons.forEach((p) => p.setMap(null));
       l.marker.setMap(null);
     }
-    this.layers = {};
-    this.defs = {};
+    this.layers = byId();
+    this.defs = byId();
     this.footprint?.setMap(null);
     this.footprint = null;
     this.map = null;

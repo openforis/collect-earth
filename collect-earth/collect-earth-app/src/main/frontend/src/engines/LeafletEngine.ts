@@ -1,7 +1,7 @@
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import type { GroundView, LatLng } from "../types";
-import { heightForZoom, zoomForHeight } from "../plots";
+import { byId, heightForZoom, zoomForHeight } from "../plots";
 import type { EngineCallbacks, EngineConfig, MapEngine } from "./MapEngine";
 import { UserIntent } from "./userIntent";
 
@@ -39,7 +39,8 @@ interface LeafletMapInternals {
 export class LeafletEngine implements MapEngine {
   readonly name = "leaflet" as const;
   private map: L.Map | null = null;
-  private layers: Record<string, { group: L.FeatureGroup; marker: L.CircleMarker }> = {};
+  /** Keyed by plot id, without a prototype (see byId). */
+  private layers: Record<string, { group: L.FeatureGroup; marker: L.CircleMarker }> = byId();
   private callbacks!: EngineCallbacks;
   private zoomThreshold = 14;
   private emptyColor = "#e53935";
@@ -53,7 +54,7 @@ export class LeafletEngine implements MapEngine {
 
   init(container: HTMLElement, config: EngineConfig, callbacks: EngineCallbacks): void {
     this.callbacks = callbacks;
-    this.layers = {};
+    this.layers = byId();
     this.zoomThreshold = config.zoomThreshold;
     this.emptyColor = config.emptyColor;
     // Canvas rendering: one <canvas> instead of thousands of SVG nodes for large grids.
@@ -76,6 +77,12 @@ export class LeafletEngine implements MapEngine {
   }
 
   addPlot(id: string, rings: LatLng[][], center: LatLng): void {
+    // A plot added again (the plots loaded again) replaces the one there: two would be drawn, one of them for good
+    const existing = this.layers[id];
+    if (existing) {
+      existing.group.remove();
+      existing.marker.remove();
+    }
     const group = L.featureGroup();
     for (const latlngs of rings) {
       // Faint fill makes the whole plot clickable, not only its outline
@@ -191,7 +198,7 @@ export class LeafletEngine implements MapEngine {
     this.intent.detach();
     this.map?.remove();
     this.map = null;
-    this.layers = {};
+    this.layers = byId();
     this.pending = null;
     this.footprint = null;
   }

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { countStatuses, footprintCorners, heightForZoom, matchesFilter, neighbour, nextUnfinished, normalizeStatus, plotParam, plotsNear,
+import { byId, countStatuses, footprintCorners, indexPlots, heightForZoom, matchesFilter, neighbour, nextUnfinished, normalizeStatus, plotParam, plotsNear,
   plotToRestore, sameView, withoutPlotParam,
   visibleIds, zoomForHeight } from "./plots";
 import type { PlotStatus } from "./types";
@@ -117,5 +117,35 @@ describe("a plots map reopened on a plot", () => {
   it("takes the plot out of the address and keeps the rest", () => {
     expect(withoutPlotParam("http://127.0.0.1:8028/earth/map?plot=710%2C1")).toBe("http://127.0.0.1:8028/earth/map");
     expect(withoutPlotParam("http://h/earth/map?a=1&plot=x#top")).toBe("http://h/earth/map?a=1#top");
+  });
+});
+
+describe("the plots of a load", () => {
+  const feature = (id: string, n: number) => ({ properties: { id }, n });
+
+  it("keeps the order of the file, an id repeated in the place it first had with its last data", () => {
+    const { order, plots } = indexPlots([feature("p1", 1), feature("p2", 2), feature("p1", 3)], (f) => f.n);
+    expect(order).toEqual(["p1", "p2"]);
+    expect(plots.p1).toBe(3);
+    expect(plots.p2).toBe(2);
+  });
+
+  it("has the plots named like the properties of an object", () => {
+    const ids = ["constructor", "toString", "__proto__", "hasOwnProperty", "p1"];
+    const { order, plots } = indexPlots(ids.map((id, i) => feature(id, i)), (f) => f.n);
+    expect(order).toEqual(ids);
+    ids.forEach((id, i) => expect(plots[id]).toBe(i));
+    expect(Object.keys(plots)).toEqual(ids);
+    expect(plots.valueOf).toBeUndefined();
+    expect(plotToRestore("__proto__", plots)).toBe("__proto__");
+    expect(plotToRestore("valueOf", plots)).toBeNull();
+  });
+
+  it("makes a dictionary by plot id where no id is there before it is put", () => {
+    const statuses = byId<PlotStatus>();
+    expect(statuses.constructor).toBeUndefined();
+    statuses["__proto__"] = "saved";
+    expect(Object.keys(statuses)).toEqual(["__proto__"]);
+    expect(visibleIds(["__proto__", "constructor"], statuses, "pending", "")).toEqual(["constructor"]);
   });
 });

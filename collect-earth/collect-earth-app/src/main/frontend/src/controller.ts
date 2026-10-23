@@ -4,8 +4,8 @@ import { fetchGewStatus, fetchImageryStatus, fetchMapConfig, fetchPlots, fetchSt
 import { GoogleEngine } from "./engines/GoogleEngine";
 import { LeafletEngine } from "./engines/LeafletEngine";
 import type { EngineConfig, MapEngine } from "./engines/MapEngine";
-import { footprintCorners, neighbour, nextUnfinished, normalizeStatus, plotParam, plotsNear, plotToRestore, sameView, visibleIds,
-  withoutPlotParam } from "./plots";
+import { byId, footprintCorners, indexPlots, neighbour, nextUnfinished, normalizeStatus, plotParam, plotsNear, plotToRestore,
+  sameView, visibleIds, withoutPlotParam } from "./plots";
 import type { MessageKey } from "./i18n";
 import { reconcileImagery, sameImageryStatus, type ImageryExpectation } from "./imagery";
 import { loadPrefs, savePrefs, type Prefs } from "./prefs";
@@ -79,20 +79,23 @@ function ringsOf(feature: PlotFeature): LatLng[][] {
 export class MapController {
   private state: UiState;
   private listeners = new Set<() => void>();
-  private plots: Record<string, Plot> = {};
+  /** Keyed by plot id, without a prototype (see byId), like every other dictionary of plots here. */
+  private plots: Record<string, Plot> = byId();
   private prefs: Prefs = loadPrefs();
   private engine: MapEngine | null = null;
   private container: HTMLElement | null = null;
   /** "generated" (the form built from the survey) or "balloon" (the CEP's HTML) */
   private webForm = "generated";
   private lastStatusPoll: number | null = null;
+  /** Whether the statuses are polled: started by the first load that succeeds, and only once. */
+  private statusPolling = false;
   private fellBack = false;
   /** The plot to select once the plots have loaded: the map was reopened on it (see plotParam). */
   private restorePlot: string | null = null;
 
   constructor() {
     this.state = {
-      order: [], statuses: {}, loaded: false, activeId: null, formUrl: null,
+      order: [], statuses: byId(), loaded: false, activeId: null, formUrl: null,
       filter: this.prefs.filter ?? "all", query: "",
       sidebarCollapsed: !!this.prefs.sidebarCollapsed, formWidth: this.prefs.formWidth ?? 560,
       banner: null, viewerType: "", language: "en", baseLayers: [], baseLayer: "", gew: null,
@@ -196,23 +199,28 @@ export class MapController {
           : { severity: "error", dismissible: false, key: "banner.noSurvey" } });
         return;
       }
-      const order: string[] = [];
-      for (const feature of fc.features) {
-        const id = feature.properties.id;
-        if (!this.plots[id]) order.push(id);
-        this.plots[id] = {
-          feature, rings: ringsOf(feature),
-          center: [parseFloat(feature.properties.latitude), parseFloat(feature.properties.longitude)],
-        };
-      }
-      const statuses: Record<string, PlotStatus> = {};
-      order.forEach((id) => { statuses[id] = "empty"; this.addToEngine(id); });
+      // From this answer alone, and put in place at once: a load tried again after one that failed half-way (below)
+      // would otherwise find its plots there already, and leave them out of the list
+      const { order, plots } = indexPlots(fc.features, (feature) => ({
+        feature, rings: ringsOf(feature),
+        center: [parseFloat(feature.properties.latitude), parseFloat(feature.properties.longitude)] as LatLng,
+      }));
+      this.plots = plots;
+      const statuses = byId<PlotStatus>();
+      // Those known already are kept: the polls ask only for the changes since the last one
+      for (const id of order) statuses[id] = this.state.statuses[id] ?? "empty";
       // keep a fallback notice; clear a previous load error
       const banner = this.state.banner?.dismissible ? this.state.banner : null;
       this.set({ order, statuses, loaded: true, banner });
+      // The engines replace a plot added again
+      order.forEach((id) => this.addToEngine(id));
       engine.fitAll(this.allCenters());
       this.updateVisibility();
-      this.pollStatuses();
+      // Each poll schedules the next: a second start would poll twice as often, for good
+      if (!this.statusPolling) {
+        this.statusPolling = true;
+        this.pollStatuses();
+      }
       // Reopened on the plot that was open: selected as a click would (the imagery skips a plot it shows already)
       const restore = plotToRestore(this.restorePlot, this.plots);
       this.restorePlot = null;
@@ -250,9 +258,9 @@ export class MapController {
     try {
       const data = await fetchStatuses(this.lastStatusPoll);
       this.lastStatusPoll = data.now;
-      const updates: Record<string, PlotStatus> = {};
+      const updates = byId<PlotStatus>();
       for (const [id, status] of Object.entries(data.statuses)) {
-        if (this.plots[id]) updates[id] = normalizeStatus(status);
+        if (id in this.plots) updates[id] = normalizeStatus(status);
       }
       this.applyStatuses(updates);
     } catch { /* transient - the next poll retries */ }
@@ -262,7 +270,7 @@ export class MapController {
   private applyStatuses(updates: Record<string, PlotStatus>): void {
     const changed = Object.keys(updates).filter((id) => this.state.statuses[id] !== updates[id]);
     if (!changed.length) return;
-    this.set({ statuses: { ...this.state.statuses, ...updates } });
+    this.set({ statuses: Object.assign(byId<PlotStatus>(), this.state.statuses, updates) });
     for (const id of changed) {
       // the active plot keeps its cyan highlight
       if (id !== this.state.activeId) this.engine?.setPlotColor(id, STATUS_COLORS[updates[id]]);
@@ -274,7 +282,7 @@ export class MapController {
     if (event.origin !== window.location.origin) return;
     const data = event.data as { type?: string; plotId?: string } | null;
     // ignore anything but the active plot (stale iframe race)
-    if (!data?.type || data.plotId == null || data.plotId !== this.state.activeId || !this.plots[data.plotId]) return;
+    if (!data?.type || data.plotId == null || data.plotId !== this.state.activeId || !(data.plotId in this.plots)) return;
     if (data.type === "ce:saved") {
       this.applyStatuses({ [data.plotId]: "saved" });
       this.goToNextUnfinished();
@@ -438,7 +446,7 @@ export class MapController {
 
   /** Neighbouring plots and their statuses, drawn by Google Earth Web around the plot. */
   private sendGewContext(id: string): void {
-    const centers: Record<string, LatLng> = {};
+    const centers = byId<LatLng>();
     for (const plotId of this.state.order) centers[plotId] = this.plots[plotId].center;
     const near = plotsNear(centers, this.plots[id].center, GEW_CONTEXT_RADIUS_METERS, GEW_CONTEXT_MAX_PLOTS);
     postGewContext(id, near.map((plotId) => ({
