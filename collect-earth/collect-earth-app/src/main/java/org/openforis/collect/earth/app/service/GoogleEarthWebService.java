@@ -73,6 +73,9 @@ public class GoogleEarthWebService {
 	 * each check of a busy page holds up the commands of the other tabs for the timeout of a script.
 	 */
 	private static final long BUSY_PAGE_PAUSE_MILLIS = 5000;
+	/** How often, and how many times, the watchdog draws again an outline that could not be drawn: see {@link #retryOutline()}. */
+	private static final long OUTLINE_RETRY_MILLIS = 5000;
+	private static final int OUTLINE_RETRIES = 12;
 	/** As cheap a command as there is: only whether the tab answers matters. */
 	private static final String LIVENESS_SCRIPT = "return 1;";
 	/** The ground altitude learnt at one place is used for camera URLs up to this far away. */
@@ -179,6 +182,9 @@ public class GoogleEarthWebService {
 	private int hiddenTicks;
 	/** Until when the watchdog leaves a page alone that was too busy to answer it; watchdog thread only. */
 	private long busyUntilNanos = System.nanoTime();
+	/** How many more times the watchdog draws an outline that failed, and not before when; guarded by {@link #lock}. */
+	private int outlineRetriesLeft;
+	private long nextOutlineRetryNanos = System.nanoTime();
 
 	/**
 	 * The tab being shown again redraws the outline at once (the page's timers were slowed down
@@ -479,7 +485,7 @@ public class GoogleEarthWebService {
 			// The watchdog draws it once the page is there
 			setState(State.WAITING, plotId, null);
 		} else {
-			setState(State.ERROR, plotId, MESSAGE_OUTLINE_FAILED);
+			outlineFailed(plotId);
 		}
 	}
 
@@ -628,12 +634,16 @@ public class GoogleEarthWebService {
 	 * Every 0.5 s while the tab shows a plot or waits for the user: notices a tab or window closed
 	 * by the user (CLOSED, so the map offers to reopen it), tracks where the camera looks (the
 	 * map follows it), shows the plot once Google lets the user through (WAITING -> READY) and
-	 * re-draws the outline when the page lost it (F5, a page load from the information bar).
-	 * Nothing of that while another tab is shown: see the class comment. Whether the tab is open
+	 * re-draws the outline when the page lost it (F5, a page load from the information bar), or
+	 * could not take it (see {@link #retryOutline()}). Nothing of that while another tab is shown: see the class comment. Whether the tab is open
 	 * and visible is known without asking the browser, so a hidden tab costs only a trivial command
 	 * every 10 s, to notice the whole window being closed (see {@link #checkStillThere()}).
 	 */
 	private void checkWindow() {
+		if (state == State.ERROR) {
+			retryOutline();
+			return;
+		}
 		if (state != State.READY && state != State.WAITING) {
 			return;
 		}
@@ -695,6 +705,58 @@ public class GoogleEarthWebService {
 				logger.debug("Google Earth Web watchdog check failed", e);
 			}
 		}
+	}
+
+	/**
+	 * The outline of the plot shown could not be drawn (ERROR, {@link #MESSAGE_OUTLINE_FAILED}): drawn again every
+	 * {@link #OUTLINE_RETRY_MILLIS}, {@link #OUTLINE_RETRIES} times at most, while the tab is visible and on Google Earth
+	 * Web. A failure can be passing (a page busy in a way that is not known as such, a document replaced as the script
+	 * ran), and the camera is on the plot: without this, the plot stayed without its outline until the next one. The
+	 * state stays ERROR meanwhile rather than WAITING, which tells the plots map that Google waits for the user, and
+	 * would hide a fault that does not pass; a fault is reported to Sentry once per session (see ImageryErrorReporter).
+	 * On the watchdog's thread.
+	 */
+	private void retryOutline() {
+		synchronized (lock) {
+			SimplePlacemarkObject plot = current;
+			if (state != State.ERROR || !MESSAGE_OUTLINE_FAILED.equals(stateMessage) || plot == null
+					|| outlineRetriesLeft <= 0 || System.nanoTime() - nextOutlineRetryNanos < 0) {
+				return;
+			}
+			try {
+				if (!tab().isOpen()) {
+					closed();
+					return;
+				}
+				if (!tab().isVisible()) {
+					return; // see the class comment; tried once it is shown
+				}
+				outlineRetriesLeft--;
+				nextOutlineRetryNanos = System.nanoTime() + TimeUnit.MILLISECONDS.toNanos(OUTLINE_RETRY_MILLIS);
+				if (!isOnGoogleEarthWeb()) {
+					return; // the user loaded another page meanwhile
+				}
+				Outline outline = injectOverlay(plot);
+				if (outline == Outline.DRAWN) {
+					setState(State.READY, plot.getPlacemarkId(), null);
+					redrawIfContextChanged();
+				} else if (outline == Outline.PAGE_NOT_READY) {
+					// The watchdog draws it once the page is there
+					setState(State.WAITING, plot.getPlacemarkId(), null);
+				}
+			} catch (TabClosedException e) {
+				closed();
+			} catch (RuntimeException e) {
+				logger.debug("Google Earth Web: the plot outline could not be drawn again", e);
+			}
+		}
+	}
+
+	/** The outline failed while the plot was shown: see {@link #retryOutline()}. Holding {@link #lock}. */
+	private void outlineFailed(String plotId) {
+		outlineRetriesLeft = OUTLINE_RETRIES;
+		nextOutlineRetryNanos = System.nanoTime() + TimeUnit.MILLISECONDS.toNanos(OUTLINE_RETRY_MILLIS);
+		setState(State.ERROR, plotId, MESSAGE_OUTLINE_FAILED);
 	}
 
 	/**
