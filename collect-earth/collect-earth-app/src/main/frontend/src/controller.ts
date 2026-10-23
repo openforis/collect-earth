@@ -424,7 +424,8 @@ export class MapController {
 
   /** The user moved Google Earth Web (or it framed a plot): the map looks at the same ground. */
   private followGew(gewView: GewView | null): void {
-    if (!gewView || !this.engine) return; // tilted or not known: nothing to follow
+    // Tilted, not known, or no ground in view (a height of 0 would be an infinite zoom): nothing to follow
+    if (!gewView || !(gewView.heightMeters > 0) || !this.engine) return;
     const view: GroundView = { center: [gewView.latitude, gewView.longitude], heightMeters: gewView.heightMeters };
     const lead = this.gewLead;
     if (lead) {

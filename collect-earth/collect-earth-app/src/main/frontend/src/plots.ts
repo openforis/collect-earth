@@ -117,11 +117,18 @@ export function zoomForHeight(heightMeters: number, heightPx: number, latitude: 
   return Math.log2((MERCATOR_METERS_PER_PIXEL * Math.cos((latitude * Math.PI) / 180) * heightPx) / heightMeters);
 }
 
-/** Moved by less than `tolerance` of the view height and zoomed by less than `tolerance`. */
+/**
+ * Moved by less than `tolerance` of the view height and zoomed by less than `tolerance`. A view of no height (the
+ * server may send 0) is the same as another of no height at the same place, within a metre: otherwise it would never be
+ * the same as anything, and the map following Google Earth Web would be moved on every poll.
+ */
 export function sameView(a: GroundView, b: GroundView, tolerance = 0.03): boolean {
   const cosLat = Math.cos((a.center[0] * Math.PI) / 180);
   const moved = Math.hypot((a.center[0] - b.center[0]) * METERS_PER_DEGREE,
     (a.center[1] - b.center[1]) * METERS_PER_DEGREE * cosLat);
+  if (!(a.heightMeters > 0) || !(b.heightMeters > 0)) {
+    return !(a.heightMeters > 0) && !(b.heightMeters > 0) && moved < 1;
+  }
   return moved < tolerance * Math.min(a.heightMeters, b.heightMeters)
     && Math.abs(Math.log(a.heightMeters / b.heightMeters)) < tolerance;
 }

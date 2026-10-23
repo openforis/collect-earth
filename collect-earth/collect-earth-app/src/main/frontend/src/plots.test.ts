@@ -95,6 +95,13 @@ describe("map zoom and Google Earth Web camera", () => {
     expect(sameView(a, { center: [-4.99 + 100 / 111320, 151.35], heightMeters: 1000 })).toBe(false);
     expect(sameView(a, { ...a, heightMeters: 1200 })).toBe(false);
   });
+  it("treats views of no height at the same place as the same", () => {
+    const flat = { center: [-4.99, 151.35] as [number, number], heightMeters: 0 };
+    expect(sameView(flat, { ...flat })).toBe(true);
+    expect(sameView(flat, { center: [-4.99 + 100 / 111320, 151.35], heightMeters: 0 })).toBe(false);
+    expect(sameView(flat, { ...flat, heightMeters: 1000 })).toBe(false);
+    expect(sameView({ ...flat, heightMeters: 1000 }, flat)).toBe(false);
+  });
 });
 
 describe("a plots map reopened on a plot", () => {
