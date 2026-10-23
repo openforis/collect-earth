@@ -87,6 +87,33 @@ public class ImageryBrowserTest {
 	}
 
 	@Test
+	public void aNewBrowserOpensTheTabsInTheOrderOfTheSourcesWhicheverCommandComesFirst() {
+		imagery.openTabs(EnumSet.of(ImagerySource.GOOGLE_EARTH_WEB, ImagerySource.ESRI_WAYBACK, ImagerySource.GEE_APP));
+		imagery.show(ImagerySource.ESRI_WAYBACK);
+		browser.alive = false; // the user closed the window with Wayback in front
+		FakeTabDriver second = new FakeTabDriver();
+		imagery.setStarter(() -> second);
+		// The next plot: the load of Wayback reaches the worker before the one of Google Earth Web
+		imagery.tab(ImagerySource.ESRI_WAYBACK).navigate("https://wayback/2");
+		imagery.tab(ImagerySource.GOOGLE_EARTH_WEB).navigate("https://gew/2");
+		assertEquals(Arrays.asList(ImagerySource.GOOGLE_EARTH_WEB, ImagerySource.ESRI_WAYBACK, ImagerySource.GEE_APP),
+				imagery.openSources());
+		assertEquals(ImagerySource.GOOGLE_EARTH_WEB, imagery.visibleSource());
+		assertEquals(Arrays.asList("create tab1", "create tab2", "navigate tab1 https://wayback/2",
+				"navigate tab0 https://gew/2"), second.calls);
+	}
+
+	@Test
+	public void theTabShownInABrowserThatEndedComesNoLongerFirst() {
+		imagery.openTabs(EnumSet.of(ImagerySource.GOOGLE_EARTH_WEB, ImagerySource.ESRI_WAYBACK));
+		imagery.show(ImagerySource.ESRI_WAYBACK);
+		browser.alive = false;
+		imagery.setStarter(FakeTabDriver::new);
+		// Not the source shown in a window that is gone: nothing is shown until a new one starts
+		assertNull(imagery.visibleSource());
+	}
+
+	@Test
 	public void aCheckOfAClosedBrowserDoesNotStartANewOne() {
 		imagery.tab(ImagerySource.GOOGLE_EARTH_WEB).navigate("https://gew/1");
 		browser.alive = false;

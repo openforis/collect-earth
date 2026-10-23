@@ -132,6 +132,8 @@ public class ImageryBrowser {
 	private final Map<ImagerySource, String> tabOfSource = new EnumMap<>(ImagerySource.class);
 	private final Map<String, ImagerySource> sourceOfTab = new HashMap<>();
 	private final List<ImagerySource> openingOrder = new ArrayList<>();
+	/** The sources last passed to {@link #openTabs}, whose tabs a new browser opens first; see there. */
+	private EnumSet<ImagerySource> tabSources = EnumSet.noneOf(ImagerySource.class);
 	/** The blank tab the browser opened with, kept so that the event threads do not ask the driver for it. */
 	private String initialTab;
 	/** Whether {@link #initialTab} still waits for a source. */
@@ -249,10 +251,17 @@ public class ImageryBrowser {
 	/**
 	 * Opens the tabs of these sources that are not open yet, in the order of {@link ImagerySource}. One at a time, so
 	 * that the visible tab going first cannot change the order of the tab strip.
+	 * <p>
+	 * The sources are kept: a browser started anew later (the user closed the window) opens their tabs, in that order,
+	 * before it serves the command that started it, whichever source that is. The commands of a plot race each other
+	 * to a new browser, and the first one would otherwise take its first tab, the one shown.
 	 */
 	public void openTabs(Collection<ImagerySource> sources) {
 		EnumSet<ImagerySource> ordered = EnumSet.noneOf(ImagerySource.class);
 		ordered.addAll(sources);
+		synchronized (tabsLock) {
+			tabSources = EnumSet.copyOf(ordered);
+		}
 		for (ImagerySource source : ordered) {
 			call(source, (d, tab) -> null);
 		}
@@ -335,8 +344,15 @@ public class ImageryBrowser {
 		return window;
 	}
 
-	/** The source of the tab shown in the imagery window, or null. */
+	/**
+	 * The source of the tab shown in the imagery window, or null; null too once the browser has ended, whose tab
+	 * shown is not shown any more, and whose commands then go ahead of the others for nothing.
+	 */
 	public ImagerySource visibleSource() {
+		TabDriver d = driver;
+		if (d == null || !d.isAlive()) {
+			return null;
+		}
 		return visible;
 	}
 
@@ -449,7 +465,20 @@ public class ImageryBrowser {
 			if (command != null) {
 				command.runningOn = d;
 			}
+			// The tabs of the sources switched on first, in their order: the first takes the tab shown
+			EnumSet<ImagerySource> sources;
+			synchronized (tabsLock) {
+				sources = EnumSet.copyOf(tabSources);
+			}
+			for (ImagerySource other : sources) {
+				openTab(d, other);
+			}
 		}
+		return openTab(d, source);
+	}
+
+	/** The tab of the source in this browser, opening it if it has none. */
+	private OpenTab openTab(TabDriver d, ImagerySource source) {
 		boolean useInitial;
 		String tab;
 		synchronized (tabsLock) {
@@ -814,7 +843,7 @@ public class ImageryBrowser {
 
 	/** The first command of the visible source, else the oldest of all. Called holding {@link #queueLock}. */
 	private Command<?> poll() {
-		ImagerySource shown = visible;
+		ImagerySource shown = visibleSource();
 		if (shown != null) {
 			Command<?> next = queues.get(shown).poll();
 			if (next != null) {
