@@ -40,6 +40,10 @@ class FakeTabDriver implements TabDriver {
 	final Set<String> failingScripts = ConcurrentHashMap.newKeySet();
 	/** The next evaluates throw in the page, as when the document is being replaced. */
 	volatile int failNextEvaluates;
+	/** The next createTabs fail, as a BiDi command the browser does not answer. */
+	volatile int failNextCreateTabs;
+	/** How long each createTab takes, as in a browser slow to open tabs. */
+	volatile long createTabMillis;
 	private int created;
 	/** What {@link #window()} returns. */
 	volatile RemoteWebDriver classic;
@@ -60,6 +64,13 @@ class FakeTabDriver implements TabDriver {
 			if (!alive) {
 				throw new TabClosedException("the browser was closed", null);
 			}
+		}
+		if (failNextCreateTabs > 0) {
+			failNextCreateTabs--;
+			throw new BidiCommandException("no answer to the new tab", null);
+		}
+		if (createTabMillis > 0) {
+			try { Thread.sleep(createTabMillis); } catch (InterruptedException e) { Thread.currentThread().interrupt(); }
 		}
 		String tab = "tab" + (++created);
 		tabs.add(tab);

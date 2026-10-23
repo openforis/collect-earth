@@ -104,6 +104,48 @@ public class ImageryBrowserTest {
 	}
 
 	@Test
+	@Timeout(10)
+	public void theTabsANewBrowserOpensCountAsItsStartNotAsTheCommandsTime() {
+		imagery.openTabs(EnumSet.of(ImagerySource.GOOGLE_EARTH_WEB, ImagerySource.ESRI_WAYBACK, ImagerySource.GEE_APP,
+				ImagerySource.EARTH_MAP));
+		browser.alive = false;
+		FakeTabDriver second = new FakeTabDriver();
+		second.createTabMillis = 250; // three tabs to open: longer than the command may take
+		imagery.setStarter(() -> second);
+		imagery.setCommandTimeout(Duration.ofMillis(400));
+		imagery.tab(ImagerySource.ESRI_WAYBACK).navigate("https://wayback/2");
+		assertFalse(second.calls.contains("quit"), second.calls.toString());
+		assertTrue(reporter.sent.isEmpty(), reporter.sent.toString());
+		assertTrue(second.calls.contains("navigate tab1 https://wayback/2"), second.calls.toString());
+	}
+
+	@Test
+	public void aRememberedTabThatCannotBeOpenedLeavesTheOthersAndTheCommand() {
+		imagery.openTabs(EnumSet.of(ImagerySource.GOOGLE_EARTH_WEB, ImagerySource.ESRI_WAYBACK, ImagerySource.GEE_APP));
+		browser.alive = false;
+		FakeTabDriver second = new FakeTabDriver();
+		second.failNextCreateTabs = 1; // the tab of Wayback
+		imagery.setStarter(() -> second);
+		imagery.tab(ImagerySource.PLANET).navigate("https://planet/2");
+		assertEquals(Arrays.asList(ImagerySource.GOOGLE_EARTH_WEB, ImagerySource.GEE_APP, ImagerySource.PLANET),
+				imagery.openSources());
+		assertTrue(second.calls.contains("navigate tab2 https://planet/2"), second.calls.toString());
+	}
+
+	@Test
+	public void aNewBrowserOpensOnlyTheTabsOfTheSourcesRememberedLast() {
+		imagery.openTabs(EnumSet.of(ImagerySource.GOOGLE_EARTH_WEB, ImagerySource.ESRI_WAYBACK));
+		// The user switched Wayback off; the tabs are all open, so the next plot opens none, but says which it wants
+		imagery.rememberTabs(EnumSet.of(ImagerySource.GOOGLE_EARTH_WEB));
+		browser.alive = false;
+		FakeTabDriver second = new FakeTabDriver();
+		imagery.setStarter(() -> second);
+		imagery.tab(ImagerySource.GOOGLE_EARTH_WEB).navigate("https://gew/2");
+		assertEquals(Arrays.asList(ImagerySource.GOOGLE_EARTH_WEB), imagery.openSources());
+		assertEquals(Arrays.asList("navigate tab0 https://gew/2"), second.calls);
+	}
+
+	@Test
 	public void theTabShownInABrowserThatEndedComesNoLongerFirst() {
 		imagery.openTabs(EnumSet.of(ImagerySource.GOOGLE_EARTH_WEB, ImagerySource.ESRI_WAYBACK));
 		imagery.show(ImagerySource.ESRI_WAYBACK);
@@ -288,14 +330,20 @@ public class ImageryBrowserTest {
 	}
 
 	@Test
-	public void aPageTooBusyToRunAScriptIsNotReported() {
-		// Google Earth Web starting: Firefox did not run the script before the BiDi answer was due
-		PageScriptException busy = assertThrows(PageScriptException.class, () -> imagery.call(ImagerySource.GOOGLE_EARTH_WEB,
-				(d, t) -> {
-					throw PageScriptException.pageBusy("no answer in time");
-				}));
-		assertTrue(busy.isPageBusy());
-		assertTrue(reporter.sent.isEmpty(), reporter.sent.toString());
+	public void aPageTooBusyToRunAScriptIsReportedOnceAsAWarning() {
+		// Google Earth Web starting: Firefox did not run the script before the BiDi answer was due. Not a fault, but a
+		// page that is always busy would otherwise go unseen in the field
+		for (int i = 0; i < 2; i++) {
+			PageScriptException busy = assertThrows(PageScriptException.class,
+					() -> imagery.call(ImagerySource.GOOGLE_EARTH_WEB, (d, t) -> {
+						throw PageScriptException.pageBusy("no answer in time");
+					}));
+			assertTrue(busy.isPageBusy());
+		}
+		assertEquals(1, reporter.sent.size(), reporter.sent.toString());
+		assertEquals("page_busy", reporter.sent.get(0).get("imagery.error"));
+		assertEquals("GOOGLE_EARTH_WEB", reporter.sent.get(0).get("imagery.source"));
+		assertEquals(SentryLevel.WARNING, reporter.levels.get(0));
 	}
 
 	@Test

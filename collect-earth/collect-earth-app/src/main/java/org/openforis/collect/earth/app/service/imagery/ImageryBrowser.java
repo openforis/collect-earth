@@ -257,13 +257,24 @@ public class ImageryBrowser {
 	 * to a new browser, and the first one would otherwise take its first tab, the one shown.
 	 */
 	public void openTabs(Collection<ImagerySource> sources) {
+		rememberTabs(sources);
+		EnumSet<ImagerySource> ordered = EnumSet.noneOf(ImagerySource.class);
+		ordered.addAll(sources);
+		for (ImagerySource source : ordered) {
+			call(source, (d, tab) -> null);
+		}
+	}
+
+	/**
+	 * The sources whose tabs a browser started anew opens first, in their order (see {@link #openTabs}), without
+	 * opening any now. Told on every plot, also when all their tabs are open and {@link #openTabs} is not called: a
+	 * source switched off in the options meanwhile would otherwise get a tab, an empty one, in the next browser.
+	 */
+	public void rememberTabs(Collection<ImagerySource> sources) {
 		EnumSet<ImagerySource> ordered = EnumSet.noneOf(ImagerySource.class);
 		ordered.addAll(sources);
 		synchronized (tabsLock) {
-			tabSources = EnumSet.copyOf(ordered);
-		}
-		for (ImagerySource source : ordered) {
-			call(source, (d, tab) -> null);
+			tabSources = ordered;
 		}
 	}
 
@@ -465,14 +476,6 @@ public class ImageryBrowser {
 			if (command != null) {
 				command.runningOn = d;
 			}
-			// The tabs of the sources switched on first, in their order: the first takes the tab shown
-			EnumSet<ImagerySource> sources;
-			synchronized (tabsLock) {
-				sources = EnumSet.copyOf(tabSources);
-			}
-			for (ImagerySource other : sources) {
-				openTab(d, other);
-			}
 		}
 		return openTab(d, source);
 	}
@@ -502,13 +505,44 @@ public class ImageryBrowser {
 		return new OpenTab(d, tab);
 	}
 
-	/** Publishes that the browser is starting while it does, so that the callers wait for it and judge no hang. */
+	/**
+	 * Publishes that the browser is starting while it does, so that the callers wait for it and judge no hang. The start
+	 * includes opening the tabs of the sources remembered (see {@link #openTabs}), a BiDi command each, which may take
+	 * seconds in a browser that just started: counted against the command that needed the browser, they could get the
+	 * new browser taken as hung and quit, and the next command would start it all again.
+	 */
 	private TabDriver startBrowser() throws Exception {
 		TabDriver d;
 		startingSinceNanos = System.nanoTime();
 		starting = true;
 		try {
 			d = starter.start();
+			queueLock.lock();
+			try {
+				if (stopped) {
+					// Shut down while it was starting: nobody else would quit it
+					quietlyQuit(d);
+					throw new IllegalStateException("The imagery browser was shut down while it started");
+				}
+			} finally {
+				queueLock.unlock();
+			}
+			synchronized (tabsLock) {
+				tabOfSource.clear();
+				sourceOfTab.clear();
+				openingOrder.clear();
+				reportedVisibility.clear();
+				initialTab = d.initialTab();
+				initialTabFree = true;
+				classicTab = initialTab;
+			}
+			visible = null;
+			driver = d;
+			d.onTabClosed(tab -> tabClosed(d, tab));
+			d.onVisibilityChange((tab, isVisible) -> visibilityChanged(d, tab, isVisible));
+			reporter.setBrowser(d.browserName(), d.browserVersion());
+			reporter.breadcrumb(null, "browser started");
+			openRememberedTabs(d);
 		} finally {
 			long ended = System.nanoTime();
 			startEndedNanos = ended;
@@ -516,33 +550,31 @@ public class ImageryBrowser {
 			runningSinceNanos = ended;
 			starting = false;
 		}
-		queueLock.lock();
-		try {
-			if (stopped) {
-				// Shut down while it was starting: nobody else would quit it
-				quietlyQuit(d);
-				throw new IllegalStateException("The imagery browser was shut down while it started");
-			}
-		} finally {
-			queueLock.unlock();
-		}
-		synchronized (tabsLock) {
-			tabOfSource.clear();
-			sourceOfTab.clear();
-			openingOrder.clear();
-			reportedVisibility.clear();
-			initialTab = d.initialTab();
-			initialTabFree = true;
-			classicTab = initialTab;
-		}
-		visible = null;
-		driver = d;
-		d.onTabClosed(tab -> tabClosed(d, tab));
-		d.onVisibilityChange((tab, isVisible) -> visibilityChanged(d, tab, isVisible));
-		reporter.setBrowser(d.browserName(), d.browserVersion());
-		reporter.breadcrumb(null, "browser started");
 		tellStarted();
 		return d;
+	}
+
+	/**
+	 * The tabs of the sources switched on first, in their order: the first takes the tab shown. One that cannot be
+	 * opened is left for its own next command, which opens it or fails by itself: it is no reason to fail the others,
+	 * nor the command that started the browser, which is of another source.
+	 */
+	private void openRememberedTabs(TabDriver d) {
+		EnumSet<ImagerySource> sources;
+		synchronized (tabsLock) {
+			sources = EnumSet.copyOf(tabSources);
+		}
+		for (ImagerySource source : sources) {
+			if (!d.isAlive()) {
+				return; // closed already: the command finds it so
+			}
+			try {
+				openTab(d, source);
+			} catch (RuntimeException e) {
+				logger.warn("Imagery window, {}: its tab could not be opened with the new browser: {}", source,
+						e.getMessage());
+			}
+		}
 	}
 
 	private void tellStarted() {
@@ -892,8 +924,9 @@ public class ImageryBrowser {
 			if (e.isFault()) {
 				reporter.report(queuedCommand.source, "page_script", e);
 			} else if (e.isPageBusy()) {
-				// A page busy loading, not a fault; a warning, as it held up the other tabs meanwhile
-				logger.warn("Imagery window, {}: {}", queuedCommand.source, e.getMessage());
+				// A page busy loading, not a fault, but it held up the other tabs meanwhile; reported once per source,
+				// as a warning, so that a page that is always busy is seen in the field
+				reporter.report(queuedCommand.source, "page_busy", e, SentryLevel.WARNING);
 			}
 			queuedCommand.result.completeExceptionally(e);
 		} catch (BidiCommandException e) {

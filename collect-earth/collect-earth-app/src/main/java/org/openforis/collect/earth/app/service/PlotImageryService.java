@@ -142,6 +142,9 @@ public class PlotImageryService {
 	private void openImageryTabs(boolean windowClosed) {
 		Set<ImagerySource> sources = EnumSet.noneOf(ImagerySource.class);
 		sources.addAll(browserService.enabledImagerySources());
+		// Told on every plot, so that a browser started anew opens the tabs of the sources switched on now, not of those
+		// on when a tab was last missing
+		imageryBrowser.rememberTabs(sources);
 		if (sources.isEmpty()) {
 			return;
 		}
