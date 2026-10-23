@@ -585,6 +585,19 @@ public class BrowserService implements InitializingBean, DisposableBean, Applica
 		}
 	}
 
+	/** Quits the driver of a window that is gone, and forgets it; nothing if null. */
+	private void discard(RemoteWebDriver driver) {
+		if (driver != null) {
+			drivers.remove(driver);
+			quietlyQuit(driver);
+		}
+	}
+
+	/** Whether the driver is one of those quit when Collect Earth closes; for the tests. */
+	boolean isKept(RemoteWebDriver driver) {
+		return drivers.contains(driver);
+	}
+
 	private void quietlyQuit(RemoteWebDriver driver) {
 		try {
 			driver.quit();
@@ -816,21 +829,32 @@ public class BrowserService implements InitializingBean, DisposableBean, Applica
 	 */
 	public RemoteWebDriver navigateTo(String url, RemoteWebDriver driverParam, boolean retry)
 			throws BrowserNotFoundException {
-		return navigateTo(url, driverParam, retry, true);
+		return navigateTo(url, driverParam, retry, true, this::initBrowser);
+	}
+
+	/** Opens the kind of browser window a caller of {@link #navigateTo} uses. */
+	@FunctionalInterface
+	interface WindowOpener {
+		RemoteWebDriver open() throws BrowserNotFoundException;
 	}
 
 	/**
 	 * As {@link #navigateTo(String, RemoteWebDriver, boolean)}; {@code refresh} forces a reload
 	 * after navigating, needed by pages whose URL only changes in the #fragment. Pages whose
 	 * path changes (Google Earth Web) already load on navigation and must not pay that twice.
+	 *
+	 * @param opener opens a window when there is none or it is gone: the kind of window the caller had (the plots map's
+	 *               is an app window). A window found gone is quit and forgotten first: its driver outlives it (and on
+	 *               macOS the browser too), and would otherwise stay until Collect Earth closes.
 	 */
-	RemoteWebDriver navigateTo(String url, RemoteWebDriver driverParam, boolean retry, boolean refresh)
-			throws BrowserNotFoundException {
+	RemoteWebDriver navigateTo(String url, RemoteWebDriver driverParam, boolean retry, boolean refresh,
+			WindowOpener opener) throws BrowserNotFoundException {
 
 		RemoteWebDriver driver = driverParam;
 
 		if (driver == null || !isDriverWorking(driver)) {
-			driver = initBrowser();
+			discard(driver);
+			driver = opener.open();
 		}
 
 		if (driver != null) {
@@ -854,9 +878,9 @@ public class BrowserService implements InitializingBean, DisposableBean, Applica
 					// failure, and it was logged at ERROR - the level the Sentry appender is bound at - so closing a
 					// window was reported as a fault in Collect Earth.
 					logger.warn("The browser window was closed, opening a new one");
-					driver = initBrowser();
-					// Keep what the retry returns : the driver of the window that was just opened
-					driver = navigateTo(url, driver, false, refresh); // only try to re-open one
+					discard(driver);
+					// Keep what the retry returns : the driver of the window it opens
+					driver = navigateTo(url, null, false, refresh, opener); // only try to re-open one
 				} else if (windowWasClosed(e)) {
 					logger.warn("The browser window was closed while {} was loading", url);
 				} else if (timedOut(e)) {
@@ -1328,19 +1352,11 @@ public class BrowserService implements InitializingBean, DisposableBean, Applica
 		synchronized (lock) {
 			String url = leafletMapUrl(ServerController.getHostAddress(localPropertiesService.getHost(),
 					localPropertiesService.getLocalPort()), plotId);
-			RemoteWebDriver previous = webDriverLeafletMap;
-			if (previous == null || !isDriverWorking(previous)) {
-				if (previous != null) {
-					// The user closed the window. Its driver outlives it (and on macOS the browser too, with no
-					// window): quit, so that every reopen does not leave one more behind until Collect Earth closes
-					drivers.remove(previous);
-					quietlyQuit(previous);
-				}
-				webDriverLeafletMap = initAppWindow(null);
-			}
-			// No refresh after it: the page takes ?plot= out of its address as soon as it starts, so a refresh would load it
-			// again on no plot. Its address has no #fragment, so the navigation alone loads the page anew.
-			webDriverLeafletMap = navigateTo(url, webDriverLeafletMap, true, false);
+			// A window the user closed is quit and an app window opened instead, there or when the window turns out to
+			// be gone as the page is loaded: see navigateTo. No refresh after it: the page takes ?plot= out of its
+			// address as soon as it starts, so a refresh would load it again on no plot. Its address has no #fragment,
+			// so the navigation alone loads the page anew.
+			webDriverLeafletMap = navigateTo(url, webDriverLeafletMap, true, false, () -> initAppWindow(null));
 			if (webDriverLeafletMap == null) {
 				return false;
 			}
