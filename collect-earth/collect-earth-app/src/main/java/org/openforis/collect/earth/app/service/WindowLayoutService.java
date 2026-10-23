@@ -8,15 +8,14 @@ import java.awt.Rectangle;
 import java.awt.Toolkit;
 import java.net.ConnectException;
 import java.net.SocketException;
+import java.time.Duration;
 import java.util.Arrays;
 import java.util.List;
-import java.util.concurrent.ExecutionException;
-import java.util.concurrent.ExecutorService;
+import java.util.Locale;
 import java.util.concurrent.Executors;
-import java.util.concurrent.Future;
-import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
+import java.util.function.Supplier;
 
 import javax.annotation.PostConstruct;
 import javax.annotation.PreDestroy;
@@ -140,16 +139,24 @@ public class WindowLayoutService {
 	private PlotImageryService plotImageryService;
 
 	private final Object lock = new Object();
-	/** How long a check of the plots map window waits for its browser: see {@link #plotsMapWindow()}. */
-	private static final long PROBE_TIMEOUT_SECONDS = 5;
-	private final ExecutorService prober = Executors.newSingleThreadExecutor(r -> {
-		Thread t = new Thread(r, "Plots map window check");
-		t.setDaemon(true);
-		return t;
-	});
-	private final Object probeLock = new Object();
-	/** The check of the plots map window last sent; guarded by {@link #probeLock}. */
-	private Future<WindowState> probe;
+	/** How long a check of a window waits for its browser: see {@link #plotsMapWindow()}. */
+	private static final Duration PROBE_TIMEOUT = Duration.ofSeconds(5);
+	/** How long "Arrange" waits to look again at a window found closed: see {@link #closedTwice}. */
+	private static final long CONFIRM_CLOSED_MILLIS = 500;
+	/**
+	 * What the drivers say, in lower case, when the browser or its window is gone in a way that has no exception of its
+	 * own: chromedriver and msedgedriver "chrome not reachable" / "msedge not reachable", "not connected to DevTools",
+	 * "session deleted because of page crash" / "...as the browser has closed the connection", "web view not found";
+	 * geckodriver "Failed to decode response from marionette", "Tried to run command without establishing a connection".
+	 * Not "disconnected" alone, which chromedriver also says when the user opens the developer tools ("disconnected:
+	 * received Inspector.detached event"), nor what a busy page gives ("unable to receive message from renderer",
+	 * "cannot determine loading status"): the window is there.
+	 */
+	private static final List<String> WINDOW_GONE = Arrays.asList("not reachable", "not connected to devtools",
+			"session deleted", "browser has closed the connection", "web view not found",
+			"failed to decode response from marionette", "tried to run command without establishing a connection");
+	private final WindowProbe plotsMapProbe = new WindowProbe("Plots map window check", PROBE_TIMEOUT);
+	private final WindowProbe imageryProbe = new WindowProbe("Imagery window check", PROBE_TIMEOUT);
 	private ScheduledExecutorService screenWatcher;
 	/** The screens the windows were last laid out on (see {@link #screensSignature}). */
 	private volatile String arrangedOn;
@@ -204,7 +211,7 @@ public class WindowLayoutService {
 
 	private void reopenClosedWindows() {
 		// Only a window that was open once: before that, there is nothing to open again
-		if (browserService.getLeafletMapDriver() != null && plotsMapWindow() == WindowState.CLOSED) {
+		if (browserService.getLeafletMapDriver() != null && closedTwice(this::plotsMapWindow)) {
 			logger.info("Arrange: the plots map window was closed, opening it again");
 			browserService.openLeafletMap(plotImageryService.getSelectedPlotId());
 		}
@@ -214,43 +221,53 @@ public class WindowLayoutService {
 	}
 
 	/**
+	 * Whether the window was found closed, and again {@link #CONFIRM_CLOSED_MILLIS} later: reopening a window that is in
+	 * fact there reloads it (the plots map: its form loses what was typed; the imagery window: its browser is quit), so
+	 * one odd answer of a browser is not enough. The keeper, which looks every 2 s, waits for two checks in a row in the
+	 * same way (see {@link PlotsMapReopening#foundClosed()}).
+	 */
+	private boolean closedTwice(Supplier<WindowState> check) {
+		if (check.get() != WindowState.CLOSED) {
+			return false;
+		}
+		try {
+			Thread.sleep(CONFIRM_CLOSED_MILLIS);
+		} catch (InterruptedException e) {
+			Thread.currentThread().interrupt();
+			return false;
+		}
+		return check.get() == WindowState.CLOSED;
+	}
+
+	/**
 	 * Whether the plots map window is open: a {@code getWindowHandles()} to its browser, which is cheap (the browser
 	 * answers it without the page, which may be busy). CLOSED also when it was never opened, and when the browser still
 	 * runs without a window (macOS).
 	 * <p>
 	 * Not under {@link #lock}, unlike the other classic calls on the windows: a hung browser would hold it, and the
-	 * layout, the imagery source buttons and "Arrange" with it, until Selenium gives up on the call (3 minutes). The call
-	 * runs on a thread of its own and is waited for {@link #PROBE_TIMEOUT_SECONDS}; one not answered by then is
-	 * NO_ANSWER, and the checks that come while it still waits are NO_ANSWER at once rather than piling up threads on a
-	 * hung browser. Alongside a placement it is harmless: it reads the list of windows, it neither switches nor moves
-	 * one, and the driver serves the two calls one after the other.
+	 * layout, the imagery source buttons and "Arrange" with it, until Selenium gives up on the call (3 minutes). It goes
+	 * through a {@link WindowProbe}, which waits for it {@link #PROBE_TIMEOUT} at most. Alongside a placement it is
+	 * harmless: it reads the list of windows, it neither switches nor moves one, and the driver serves the two calls one
+	 * after the other.
 	 */
 	public WindowState plotsMapWindow() {
 		RemoteWebDriver map = browserService.getLeafletMapDriver();
 		if (map == null) {
 			return WindowState.CLOSED;
 		}
-		Future<WindowState> check;
-		synchronized (probeLock) {
-			if (probe != null && !probe.isDone()) {
-				return WindowState.NO_ANSWER; // the one before still waits for the browser
-			}
-			try {
-				probe = prober.submit(() -> windowState(map));
-			} catch (RejectedExecutionException e) {
-				return WindowState.NO_ANSWER; // shut down
-			}
-			check = probe;
+		return plotsMapProbe.check(() -> windowState(map));
+	}
+
+	/** The imagery window, as {@link #plotsMapWindow()}: CLOSED when no browser runs. */
+	private WindowState imageryWindow() {
+		RemoteWebDriver imagery;
+		synchronized (lock) {
+			imagery = imageryBrowser.classicDriver();
 		}
-		try {
-			return check.get(PROBE_TIMEOUT_SECONDS, TimeUnit.SECONDS);
-		} catch (java.util.concurrent.TimeoutException | ExecutionException e) {
-			logger.debug("The plots map window did not say whether it is open", e);
-			return WindowState.NO_ANSWER;
-		} catch (InterruptedException e) {
-			Thread.currentThread().interrupt();
-			return WindowState.NO_ANSWER;
+		if (imagery == null) {
+			return WindowState.CLOSED;
 		}
+		return imageryProbe.check(() -> windowState(imagery));
 	}
 
 	/**
@@ -260,20 +277,23 @@ public class WindowLayoutService {
 	 * {@link ImageryBrowser#window()} may not have just after the tab of the window commands closed. Found closed, the
 	 * imagery browser is told, and quits it: the next command starts a new browser at once, which opens the tabs in
 	 * their order, instead of taking the closed one for alive until a load finds it gone. Closed too when no browser
-	 * runs.
+	 * runs. Asked outside {@link #lock}, through a {@link WindowProbe}, as {@link #plotsMapWindow()}; and told outside it,
+	 * as quitting the browser may take seconds.
 	 */
 	private boolean isImageryWindowClosed() {
+		RemoteWebDriver imagery;
 		synchronized (lock) {
-			RemoteWebDriver imagery = imageryBrowser.classicDriver();
-			if (imagery == null) {
-				return true;
-			}
-			if (windowState(imagery) != WindowState.CLOSED) {
-				return false;
-			}
-			imageryBrowser.windowClosed(imagery);
+			imagery = imageryBrowser.classicDriver();
+		}
+		if (imagery == null) {
 			return true;
 		}
+		if (!closedTwice(this::imageryWindow)) {
+			return false;
+		}
+		// Only that browser: windowClosed leaves alone one started since
+		imageryBrowser.windowClosed(imagery);
+		return true;
 	}
 
 	/**
@@ -299,10 +319,18 @@ public class WindowLayoutService {
 			if (t instanceof NoSuchSessionException || t instanceof NoSuchWindowException || t instanceof ConnectException) {
 				return true;
 			}
-			String message = t.getMessage();
-			if (t instanceof SocketException && message != null
-					&& (message.contains("Connection reset") || message.contains("Connection refused"))) {
+			String message = t.getMessage() == null ? null : t.getMessage().toLowerCase(Locale.ROOT);
+			if (message == null) {
+				continue;
+			}
+			if (t instanceof SocketException
+					&& (message.contains("connection reset") || message.contains("connection refused"))) {
 				return true;
+			}
+			for (String gone : WINDOW_GONE) {
+				if (message.contains(gone)) {
+					return true;
+				}
 			}
 		}
 		return false;
@@ -398,7 +426,8 @@ public class WindowLayoutService {
 
 	@PreDestroy
 	public void stopScreenWatcher() {
-		prober.shutdownNow();
+		plotsMapProbe.shutdown();
+		imageryProbe.shutdown();
 		if (screenWatcher != null) {
 			screenWatcher.shutdownNow();
 		}

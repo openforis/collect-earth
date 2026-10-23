@@ -32,6 +32,33 @@ public class WindowStateTest {
 	}
 
 	@Test
+	public void whatChromeEdgeAndFirefoxSayOfAWindowThatIsGoneIsClosed() {
+		String[] gone = { "chrome not reachable", "msedge not reachable",
+				"disconnected: not connected to DevTools",
+				"invalid session id: session deleted because of page crash",
+				"invalid session id: session deleted as the browser has closed the connection",
+				"no such window: web view not found",
+				"Failed to decode response from marionette",
+				"Tried to run command without establishing a connection" };
+		for (String message : gone) {
+			assertTrue(WindowLayoutService.meansClosed(new WebDriverException(message)), message);
+			// Wrapped, as Selenium often does
+			assertTrue(WindowLayoutService.meansClosed(new WebDriverException("outer", new WebDriverException(message))),
+					message);
+		}
+	}
+
+	@Test
+	public void theDeveloperToolsOpenedOrABusyPageAreNotClosed() {
+		assertFalse(WindowLayoutService.meansClosed(
+				new WebDriverException("disconnected: received Inspector.detached event")));
+		assertFalse(WindowLayoutService.meansClosed(
+				new WebDriverException("unknown error: unable to receive message from renderer")));
+		assertFalse(WindowLayoutService.meansClosed(
+				new WebDriverException("unknown error: cannot determine loading status")));
+	}
+
+	@Test
 	public void anyOtherFailureIsNotTakenAsClosed() {
 		assertFalse(WindowLayoutService.meansClosed(new WebDriverException("unknown error: cannot determine loading status")));
 		assertFalse(WindowLayoutService.meansClosed(new TimeoutException("no answer")));
