@@ -137,9 +137,12 @@ public class BrowserService implements InitializingBean, DisposableBean, Applica
 	private static final String FIREFOX_APP_WINDOW_CSS = "#TabsToolbar, #nav-bar, #PersonalToolbar { visibility: collapse !important; }"
 			// the minimum width Firefox keeps for its toolbars, which are gone
 			+ " :root { min-width: 0 !important; }";
-	/** The profile of Chrome and Edge in the imagery window; see {@link #imageryChromiumProfile()}. */
-	private static final String IMAGERY_PROFILE_FOLDER = "browser_profiles" + File.separator + "imagery";
-	/** What {@link #IMAGERY_PROFILE_FOLDER} was called when it was the profile of the Google Earth Web window. */
+	/**
+	 * The profiles of Chrome and Edge in the imagery window, one each: see {@link #imageryChromiumProfile(File, String)}.
+	 * Followed by the browser's name, as {@link #IMAGERY_FIREFOX_PROFILE_FOLDER} is.
+	 */
+	private static final String IMAGERY_PROFILE_FOLDER_PREFIX = "browser_profiles" + File.separator + "imagery_";
+	/** The profile of the Google Earth Web window, now {@code imagery_chrome}: Chrome was the browser it tried first. */
 	private static final String GOOGLE_EARTH_WEB_PROFILE_FOLDER = "browser_profiles" + File.separator + "google_earth_web";
 	private static final String IMAGERY_FIREFOX_PROFILE_FOLDER = "browser_profiles" + File.separator + "imagery_firefox";
 	/** Firefox with its tabs, without address bar or bookmarks: see {@link #imageryFirefoxProfile()}. */
@@ -477,7 +480,8 @@ public class BrowserService implements InitializingBean, DisposableBean, Applica
 
 	/** The profile folder of the browser in the imagery window, or null for a temporary profile. */
 	private File imageryProfile(String browser) throws IOException {
-		return EarthConstants.FIREFOX_BROWSER.equals(browser) ? imageryFirefoxProfile() : imageryChromiumProfile();
+		return EarthConstants.FIREFOX_BROWSER.equals(browser) ? imageryFirefoxProfile()
+				: imageryChromiumProfile(new File(FolderFinder.getCollectEarthDataFolder()), browser);
 	}
 
 	/** One browser for the imagery window, with BiDi, using {@code profile}, or a temporary profile when null. */
@@ -537,23 +541,31 @@ public class BrowserService implements InitializingBean, DisposableBean, Applica
 	}
 
 	/**
-	 * The Chrome and Edge profile of the imagery window. It used to be the one of the Google Earth Web window: that
-	 * folder is taken over the first time, so the Google sign-in in it is kept.
+	 * The Chrome or Edge profile of the imagery window, a folder each ({@code imagery_chrome}, {@code imagery_edge}):
+	 * a profile written by one is not one the other can be relied on to read, as each encrypts its cookies with a key
+	 * of its own and may refuse a profile of a newer version. Shared, the sign-ins to Google, Planet and Earth Engine
+	 * could be lost when the browser chosen changes, or when the other one is started because the first did not.
 	 * <p>
-	 * When the old folder cannot be renamed (a browser has it open, another Collect Earth mostly), null: a temporary
-	 * profile for this run. Not a new, empty folder under the new name, which would stop the rename from being tried
-	 * again and leave the sign-in behind for good; the next start tries again.
+	 * Chrome's used to be the profile of the Google Earth Web window, which tried Chrome first: that folder is taken
+	 * over the first time, so the Google sign-in in it is kept. When it cannot be renamed (a browser has it open,
+	 * another Collect Earth mostly), null: a temporary profile for this run. Not a new, empty folder under the new
+	 * name, which would stop the rename from being tried again and leave the sign-in behind for good; the next start
+	 * tries again.
+	 *
+	 * @param dataFolder the Collect Earth data folder
+	 * @param browser    {@link EarthConstants#CHROME_BROWSER} or {@link EarthConstants#EDGE_BROWSER}
 	 */
-	private File imageryChromiumProfile() throws IOException {
-		File folder = new File(FolderFinder.getCollectEarthDataFolder(), IMAGERY_PROFILE_FOLDER);
-		File googleEarthWeb = new File(FolderFinder.getCollectEarthDataFolder(), GOOGLE_EARTH_WEB_PROFILE_FOLDER);
-		if (!folder.exists() && googleEarthWeb.isDirectory()) {
+	static File imageryChromiumProfile(File dataFolder, String browser) throws IOException {
+		File folder = new File(dataFolder, IMAGERY_PROFILE_FOLDER_PREFIX + browser);
+		File googleEarthWeb = new File(dataFolder, GOOGLE_EARTH_WEB_PROFILE_FOLDER);
+		if (EarthConstants.CHROME_BROWSER.equals(browser) && !folder.exists() && googleEarthWeb.isDirectory()) {
+			Logger log = LoggerFactory.getLogger(BrowserService.class);
 			if (!googleEarthWeb.renameTo(folder)) {
-				logger.warn("Could not rename {} to {} (in use?), a temporary profile is used until it can be",
+				log.warn("Could not rename {} to {} (in use?), a temporary profile is used until it can be",
 						googleEarthWeb, folder);
 				return null;
 			}
-			logger.info("The profile of the Google Earth Web window is now the one of the imagery window: {}", folder);
+			log.info("The profile of the Google Earth Web window is now the one of Chrome in the imagery window: {}", folder);
 		}
 		Files.createDirectories(folder.toPath());
 		return folder;
