@@ -21,6 +21,8 @@ final class PlotsMapReopening {
 	private final LongSupplier clock;
 	private final long backOffNanos;
 	private boolean opened;
+	/** The checks in a row that found the window closed; see {@link #foundClosed()}. */
+	private int closedInARow;
 	private boolean failed;
 	/** When the last reopen failed, as {@link #clock} gives it; valid when {@link #failed} is set. */
 	private long failedAt;
@@ -38,6 +40,21 @@ final class PlotsMapReopening {
 	synchronized void opened() {
 		opened = true;
 		failed = false;
+		closedInARow = 0;
+	}
+
+	/**
+	 * A check found the window closed. Returns whether to reopen it: only the second check in a row that finds it so.
+	 * Reopening loads the plots map again, in the window if it is in fact still there, and the form loses what was
+	 * typed in it: one odd answer of a browser is not enough for that.
+	 */
+	synchronized boolean foundClosed() {
+		return ++closedInARow >= 2;
+	}
+
+	/** A check found the window open, or got no clear answer: the count of {@link #foundClosed()} starts again. */
+	synchronized void foundOpen() {
+		closedInARow = 0;
 	}
 
 	/**

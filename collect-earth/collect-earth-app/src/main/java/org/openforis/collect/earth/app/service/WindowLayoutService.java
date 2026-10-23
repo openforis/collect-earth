@@ -6,9 +6,15 @@ import java.awt.GraphicsEnvironment;
 import java.awt.Insets;
 import java.awt.Rectangle;
 import java.awt.Toolkit;
+import java.net.ConnectException;
+import java.net.SocketException;
 import java.util.Arrays;
 import java.util.List;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 
@@ -17,8 +23,9 @@ import javax.annotation.PreDestroy;
 
 import org.openforis.collect.earth.app.service.imagery.ImageryBrowser;
 import org.openqa.selenium.Dimension;
+import org.openqa.selenium.NoSuchSessionException;
+import org.openqa.selenium.NoSuchWindowException;
 import org.openqa.selenium.Point;
-import org.openqa.selenium.TimeoutException;
 import org.openqa.selenium.WebDriver;
 import org.openqa.selenium.WebDriverException;
 import org.openqa.selenium.remote.RemoteWebDriver;
@@ -60,6 +67,9 @@ import org.springframework.stereotype.Component;
 public class WindowLayoutService {
 
 	enum Mode { SIDE_BY_SIDE, SEPARATE_SCREENS, IMAGERY_FULL_SCREEN }
+
+	/** What a check of a window found: see {@link #windowState}. */
+	public enum WindowState { OPEN, CLOSED, NO_ANSWER }
 
 	/** How the imagery window was placed last, so that bringing it forward can put it back so. */
 	enum ImageryPlacement { NORMAL, MAXIMIZED, FULL_SCREEN }
@@ -130,6 +140,16 @@ public class WindowLayoutService {
 	private PlotImageryService plotImageryService;
 
 	private final Object lock = new Object();
+	/** How long a check of the plots map window waits for its browser: see {@link #plotsMapWindow()}. */
+	private static final long PROBE_TIMEOUT_SECONDS = 5;
+	private final ExecutorService prober = Executors.newSingleThreadExecutor(r -> {
+		Thread t = new Thread(r, "Plots map window check");
+		t.setDaemon(true);
+		return t;
+	});
+	private final Object probeLock = new Object();
+	/** The check of the plots map window last sent; guarded by {@link #probeLock}. */
+	private Future<WindowState> probe;
 	private ScheduledExecutorService screenWatcher;
 	/** The screens the windows were last laid out on (see {@link #screensSignature}). */
 	private volatile String arrangedOn;
@@ -184,7 +204,7 @@ public class WindowLayoutService {
 
 	private void reopenClosedWindows() {
 		// Only a window that was open once: before that, there is nothing to open again
-		if (browserService.getLeafletMapDriver() != null && !isPlotsMapOpen()) {
+		if (browserService.getLeafletMapDriver() != null && plotsMapWindow() == WindowState.CLOSED) {
 			logger.info("Arrange: the plots map window was closed, opening it again");
 			browserService.openLeafletMap(plotImageryService.getSelectedPlotId());
 		}
@@ -195,44 +215,97 @@ public class WindowLayoutService {
 
 	/**
 	 * Whether the plots map window is open: a {@code getWindowHandles()} to its browser, which is cheap (the browser
-	 * answers it without the page, which may be busy) and holds {@link #lock}, as every classic call on the windows
-	 * does, so that it never runs alongside a placement. False when it was never opened, when its browser ended (the
-	 * user closed its only window), or when the browser still runs without a window (macOS). A browser that does not
-	 * answer in time counts as open: it is hung, not closed, and another window would only be one more.
+	 * answers it without the page, which may be busy). CLOSED also when it was never opened, and when the browser still
+	 * runs without a window (macOS).
+	 * <p>
+	 * Not under {@link #lock}, unlike the other classic calls on the windows: a hung browser would hold it, and the
+	 * layout, the imagery source buttons and "Arrange" with it, until Selenium gives up on the call (3 minutes). The call
+	 * runs on a thread of its own and is waited for {@link #PROBE_TIMEOUT_SECONDS}; one not answered by then is
+	 * NO_ANSWER, and the checks that come while it still waits are NO_ANSWER at once rather than piling up threads on a
+	 * hung browser. Alongside a placement it is harmless: it reads the list of windows, it neither switches nor moves
+	 * one, and the driver serves the two calls one after the other.
 	 */
-	public boolean isPlotsMapOpen() {
-		synchronized (lock) {
-			RemoteWebDriver map = browserService.getLeafletMapDriver();
-			return map != null && hasWindow(map);
+	public WindowState plotsMapWindow() {
+		RemoteWebDriver map = browserService.getLeafletMapDriver();
+		if (map == null) {
+			return WindowState.CLOSED;
+		}
+		Future<WindowState> check;
+		synchronized (probeLock) {
+			if (probe != null && !probe.isDone()) {
+				return WindowState.NO_ANSWER; // the one before still waits for the browser
+			}
+			try {
+				probe = prober.submit(() -> windowState(map));
+			} catch (RejectedExecutionException e) {
+				return WindowState.NO_ANSWER; // shut down
+			}
+			check = probe;
+		}
+		try {
+			return check.get(PROBE_TIMEOUT_SECONDS, TimeUnit.SECONDS);
+		} catch (java.util.concurrent.TimeoutException | ExecutionException e) {
+			logger.debug("The plots map window did not say whether it is open", e);
+			return WindowState.NO_ANSWER;
+		} catch (InterruptedException e) {
+			Thread.currentThread().interrupt();
+			return WindowState.NO_ANSWER;
 		}
 	}
 
 	/**
 	 * Whether the imagery window was open and the user closed it. Closing it whole tells the imagery browser nothing (see
-	 * {@link ImageryBrowser#isOpen}), so its window is asked, as {@link #isPlotsMapOpen()} asks the plots map. With no
-	 * window to ask ({@link ImageryBrowser#window()} null), it is closed when it has no tab open: never opened, or ended.
+	 * {@link ImageryBrowser#isOpen}), so its window is asked, with the session as it is
+	 * ({@link ImageryBrowser#classicDriver()}): {@code getWindowHandles()} needs no current tab, which
+	 * {@link ImageryBrowser#window()} may not have just after the tab of the window commands closed. Found closed, the
+	 * imagery browser is told, and quits it: the next command starts a new browser at once, which opens the tabs in
+	 * their order, instead of taking the closed one for alive until a load finds it gone. Closed too when no browser
+	 * runs.
 	 */
 	private boolean isImageryWindowClosed() {
 		synchronized (lock) {
-			RemoteWebDriver imagery = imageryBrowser.window();
+			RemoteWebDriver imagery = imageryBrowser.classicDriver();
 			if (imagery == null) {
-				return imageryBrowser.openSources().isEmpty();
+				return true;
 			}
-			return !hasWindow(imagery);
+			if (windowState(imagery) != WindowState.CLOSED) {
+				return false;
+			}
+			imageryBrowser.windowClosed(imagery);
+			return true;
 		}
 	}
 
-	/** Called holding {@link #lock}. */
-	private boolean hasWindow(RemoteWebDriver driver) {
+	/**
+	 * What the browser says of its window. CLOSED only for what means that it is gone (see {@link #meansClosed}), or a
+	 * browser without a window; any other failure is NO_ANSWER: reopening a window that is in fact there would reload
+	 * the plots map in it, and lose what was typed in its form.
+	 */
+	static WindowState windowState(RemoteWebDriver driver) {
 		try {
-			return !driver.getWindowHandles().isEmpty();
-		} catch (TimeoutException e) {
-			logger.debug("The browser did not say whether its window is open", e);
-			return true;
+			return driver.getWindowHandles().isEmpty() ? WindowState.CLOSED : WindowState.OPEN;
 		} catch (WebDriverException e) {
-			logger.debug("The browser window is gone: {}", e.getMessage());
-			return false;
+			return meansClosed(e) ? WindowState.CLOSED : WindowState.NO_ANSWER;
 		}
+	}
+
+	/**
+	 * Whether a failed call to a browser means that its window or session is gone: the user closed the window (the
+	 * browser ended with it, or has no such window any more), or the driver is gone and refuses or drops the connection.
+	 * Read through the causes, as Selenium wraps them.
+	 */
+	static boolean meansClosed(Throwable failure) {
+		for (Throwable t = failure; t != null; t = t.getCause()) {
+			if (t instanceof NoSuchSessionException || t instanceof NoSuchWindowException || t instanceof ConnectException) {
+				return true;
+			}
+			String message = t.getMessage();
+			if (t instanceof SocketException && message != null
+					&& (message.contains("Connection reset") || message.contains("Connection refused"))) {
+				return true;
+			}
+		}
+		return false;
 	}
 
 	/**
@@ -325,6 +398,7 @@ public class WindowLayoutService {
 
 	@PreDestroy
 	public void stopScreenWatcher() {
+		prober.shutdownNow();
 		if (screenWatcher != null) {
 			screenWatcher.shutdownNow();
 		}

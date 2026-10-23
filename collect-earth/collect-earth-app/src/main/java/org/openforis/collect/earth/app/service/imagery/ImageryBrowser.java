@@ -356,6 +356,30 @@ public class ImageryBrowser {
 	}
 
 	/**
+	 * The classic WebDriver of the browser as it is, without switching it to a tab (see {@link #window()}); null when no
+	 * browser runs. Only to ask whether its window is still there ({@code getWindowHandles()}, which needs no tab), and
+	 * under the same rule as {@link #window()}: from WindowLayoutService's code that holds its lock.
+	 */
+	public RemoteWebDriver classicDriver() {
+		TabDriver d = driver;
+		return d == null || !d.isAlive() ? null : d.window();
+	}
+
+	/**
+	 * The window of this classic driver ({@link #classicDriver()}) was found closed. Closing the window whole sends no
+	 * event, and the browser would be taken for alive until a command failed in it: it is quit and forgotten now, so that
+	 * the next command starts a new one at once, which opens the tabs of the sources in their order. Nothing happens if
+	 * another browser was started since.
+	 */
+	public void windowClosed(RemoteWebDriver checked) {
+		TabDriver d = driver;
+		if (d != null && checked != null && d.window() == checked) {
+			reporter.breadcrumb(null, "window closed");
+			quitDriver(d);
+		}
+	}
+
+	/**
 	 * The source of the tab shown in the imagery window, or null; null too once the browser has ended, whose tab
 	 * shown is not shown any more, and whose commands then go ahead of the others for nothing.
 	 */

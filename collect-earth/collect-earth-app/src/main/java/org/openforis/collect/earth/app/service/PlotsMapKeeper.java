@@ -20,8 +20,9 @@ import org.springframework.stereotype.Component;
  * <p>
  * Watched from the moment the plots map first opens ({@link BrowserService#onLeafletMapOpened}), every
  * {@link #CHECK_PERIOD_SECONDS} seconds, with a {@code getWindowHandles()} to its browser (see
- * {@link WindowLayoutService#isPlotsMapOpen()}): a cheap call, which does not touch the page, made under the lock of
- * the window layout as its other classic calls are. "Arrange" reopens it too, at once.
+ * {@link WindowLayoutService#plotsMapWindow()}): a cheap call, which does not touch the page. Reopened only once two
+ * checks in a row found it closed, as reopening a window that is in fact there reloads the form in it. "Arrange"
+ * reopens it too, at once.
  */
 @Component
 public class PlotsMapKeeper {
@@ -69,9 +70,15 @@ public class PlotsMapKeeper {
 
 	private void check() {
 		try {
-			if (!reopening.shouldCheck(localPropertiesService.isPlotsMapViewer(), browserService.isClosing())
-					|| windowLayoutService.isPlotsMapOpen()) {
+			if (!reopening.shouldCheck(localPropertiesService.isPlotsMapViewer(), browserService.isClosing())) {
 				return;
+			}
+			if (windowLayoutService.plotsMapWindow() != WindowLayoutService.WindowState.CLOSED) {
+				reopening.foundOpen();
+				return;
+			}
+			if (!reopening.foundClosed()) {
+				return; // once more at the next check
 			}
 			logger.info("The plots map window was closed, opening it again: it holds the form");
 			boolean open;

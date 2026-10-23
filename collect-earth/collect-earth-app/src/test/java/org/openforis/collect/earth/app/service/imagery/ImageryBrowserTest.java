@@ -583,6 +583,49 @@ public class ImageryBrowserTest {
 	}
 
 	@Test
+	public void theRawWindowIsGivenWithoutSwitchingEvenWithNoTabKnownToBeShown() {
+		List<String> switches = classicSession();
+		assertNull(imagery.classicDriver()); // no browser yet
+		imagery.tab(ImagerySource.PLANET).navigate("https://planet/1");
+		browser.close("tab0");
+		imagery.tab(ImagerySource.GOOGLE_EARTH_WEB).navigate("https://earth/1");
+		assertSame(browser.classic, imagery.classicDriver());
+		assertEquals(Collections.emptyList(), switches);
+	}
+
+	@Test
+	public void aWindowFoundClosedEndsItsBrowserSoThatTheTabsOpenInANewOneAtOnce() {
+		classicSession();
+		imagery.openTabs(EnumSet.of(ImagerySource.GOOGLE_EARTH_WEB, ImagerySource.PLANET));
+		RemoteWebDriver checked = imagery.classicDriver();
+		FakeTabDriver second = new FakeTabDriver();
+		imagery.setStarter(() -> second);
+		// The user closed the window whole: no event, the browser still looks alive
+		imagery.windowClosed(checked);
+		assertTrue(browser.calls.contains("quit"), browser.calls.toString());
+		assertEquals(Collections.emptyList(), imagery.openSources());
+		imagery.openTabs(EnumSet.of(ImagerySource.GOOGLE_EARTH_WEB, ImagerySource.PLANET));
+		assertEquals(Arrays.asList(ImagerySource.GOOGLE_EARTH_WEB, ImagerySource.PLANET), imagery.openSources());
+		assertEquals(Arrays.asList("create tab1"), second.calls);
+	}
+
+	@Test
+	public void aWindowFoundClosedDoesNotEndABrowserStartedSince() {
+		classicSession();
+		imagery.tab(ImagerySource.PLANET).navigate("https://planet/1");
+		RemoteWebDriver checked = imagery.classicDriver();
+		browser.alive = false;
+		FakeTabDriver second = new FakeTabDriver();
+		second.classic = new RemoteWebDriver() {
+		};
+		imagery.setStarter(() -> second);
+		imagery.tab(ImagerySource.PLANET).navigate("https://planet/2");
+		imagery.windowClosed(checked);
+		assertFalse(second.calls.contains("quit"), second.calls.toString());
+		assertEquals(Arrays.asList(ImagerySource.PLANET), imagery.openSources());
+	}
+
+	@Test
 	@Timeout(10)
 	public void everyBrowserStartIsAnnounced() throws Exception {
 		CountDownLatch first = new CountDownLatch(1);

@@ -11,7 +11,6 @@ import javax.annotation.PreDestroy;
 
 import org.openforis.collect.earth.app.service.imagery.ImageryBrowser;
 import org.openforis.collect.earth.app.service.imagery.ImagerySource;
-import org.openforis.collect.earth.app.service.imagery.TabClosedException;
 import org.openforis.collect.earth.sampler.model.SimplePlacemarkObject;
 import org.openforis.collect.earth.sampler.processor.KmlGenerator;
 import org.openforis.collect.earth.sampler.utils.KmlGenerationException;
@@ -86,7 +85,7 @@ public class PlotImageryService {
 		// its in-page move. In a browser that starts, its tab is the first whichever comes first, its own load or
 		// openImageryTabs(), which opens the tabs one by one in the order of ImagerySource
 		showInGoogleEarthWeb(placemark);
-		openImageryTabs(false);
+		openImageryTabs();
 		loadInOtherSources(placemark);
 	}
 
@@ -112,15 +111,17 @@ public class PlotImageryService {
 	 * The user closed the imagery window, and asked for the windows back: opens it again on the plot shown last, or
 	 * before any plot over the survey area in Google Earth Web; nothing when neither was ever shown (there is nothing to
 	 * show in it yet: the first plot opens it). Returns once its tabs are open, so that the window can be laid out right
-	 * after; the plot loads in them on threads of their own.
+	 * after; the plot loads in them on threads of their own. The imagery browser must know the window is gone (see
+	 * {@link ImageryBrowser#windowClosed}, which the window layout tells when it finds it closed): it would otherwise take
+	 * the tabs of the closed window for open.
 	 *
 	 * @return whether a window was asked for
 	 */
 	public boolean reopenImagery() {
 		SimplePlacemarkObject placemark = lastPlacemark.get();
 		if (placemark != null) {
-			// The tabs first, here: the first command finds the closed window, and opening them starts the new one
-			openImageryTabs(true);
+			// The tabs first, here: opening them starts the new browser, so that the window exists when this returns
+			openImageryTabs();
 			showInGoogleEarthWeb(placemark);
 			loadInOtherSources(placemark);
 			return true;
@@ -152,12 +153,8 @@ public class PlotImageryService {
 	 * Opens the tabs of the imagery sources switched on before their loads are sent, so that the tabs are in the order of
 	 * {@link ImagerySource} whatever order the loads arrive in. When there is no browser, a warning: the loads that
 	 * follow fail at once (a failed start is remembered for a while), and the other windows carry on.
-	 *
-	 * @param windowClosed the window is known to be closed: its tabs still look open (closing the window whole tells
-	 *                     nothing until the next command, which fails), so they are opened without asking, and once more
-	 *                     after that first failure, in a new browser
 	 */
-	private void openImageryTabs(boolean windowClosed) {
+	private void openImageryTabs() {
 		Set<ImagerySource> sources = EnumSet.noneOf(ImagerySource.class);
 		sources.addAll(browserService.enabledImagerySources());
 		// Told on every plot, so that a browser started anew opens the tabs of the sources switched on now, not of those
@@ -168,18 +165,11 @@ public class PlotImageryService {
 		}
 		// Mostly they are open already: no command per source for the worker on every plot. Asked of each source rather
 		// than of openSources(), which still lists the tabs of a browser the user closed until a new one starts
-		if (!windowClosed && sources.stream().allMatch(imageryBrowser::isOpen)) {
+		if (sources.stream().allMatch(imageryBrowser::isOpen)) {
 			return;
 		}
 		try {
-			try {
-				imageryBrowser.openTabs(sources);
-			} catch (TabClosedException e) {
-				if (!windowClosed) {
-					throw e;
-				}
-				imageryBrowser.openTabs(sources);
-			}
+			imageryBrowser.openTabs(sources);
 		} catch (RuntimeException e) {
 			logger.warn("The tabs of the imagery window could not be opened: {}", e.getMessage());
 		}

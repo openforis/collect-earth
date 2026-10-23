@@ -57,6 +57,25 @@ public class PlotsMapReopeningTest {
 	}
 
 	@Test
+	public void aWindowIsReopenedOnlyOnceTwoChecksInARowFoundItClosed() {
+		reopening.opened();
+		// A browser that answers oddly once must not get a live window, and its form, reloaded
+		assertFalse(reopening.foundClosed());
+		reopening.foundOpen();
+		assertFalse(reopening.foundClosed());
+		assertTrue(reopening.foundClosed());
+	}
+
+	@Test
+	public void aReopenStartsTheCountAgain() {
+		reopening.opened();
+		reopening.foundClosed();
+		assertTrue(reopening.foundClosed());
+		reopening.opened();
+		assertFalse(reopening.foundClosed());
+	}
+
+	@Test
 	public void aWindowOpenedMeanwhileEndsTheBackOff() {
 		reopening.opened();
 		reopening.failed();
