@@ -23,6 +23,11 @@
 		<listener-class>org.springframework.web.context.ContextLoaderListener</listener-class>
 	</listener>
 
+	<!-- Only Collect Earth's own pages may drive the imagery window and Google Earth Web: see OwnPagesOnlyFilter -->
+	<filter>
+		<filter-name>ownPagesOnlyFilter</filter-name>
+		<filter-class>org.openforis.collect.earth.app.server.OwnPagesOnlyFilter</filter-class>
+	</filter>
 	<filter>
 		<filter-name>localizationFilter</filter-name>
 		<filter-class>org.springframework.web.filter.RequestContextFilter</filter-class>
@@ -60,6 +65,12 @@
 		</init-param>
 	</filter>
 
+	<!-- First: googleEarthHeaderFilter answers "*" for a missing Origin -->
+	<filter-mapping>
+		<filter-name>ownPagesOnlyFilter</filter-name>
+		<url-pattern>/googleEarthWeb/*</url-pattern>
+		<url-pattern>/imagery/*</url-pattern>
+	</filter-mapping>
 	<filter-mapping>
 		<filter-name>localizationFilter</filter-name>
 		<url-pattern>/*</url-pattern>
