@@ -68,14 +68,23 @@ export class GoogleEngine implements MapEngine {
 
   addPlot(id: string, rings: LatLng[][], center: LatLng): void {
     // A plot added again (the plots loaded again) replaces the one there: two would be drawn, one of them for good
+    this.removeLayers(id);
+    this.defs[id] = { rings, center, color: this.config.emptyColor };
+    if (this.ready) this.createPlot(id);
+  }
+
+  removePlot(id: string): void {
+    this.removeLayers(id);
+    delete this.defs[id];
+  }
+
+  private removeLayers(id: string): void {
     const existing = this.layers[id];
     if (existing) {
       existing.polygons.forEach((p) => p.setMap(null));
       existing.marker.setMap(null);
       delete this.layers[id];
     }
-    this.defs[id] = { rings, center, color: this.config.emptyColor };
-    if (this.ready) this.createPlot(id);
   }
 
   setPlotColor(id: string, color: string): void {

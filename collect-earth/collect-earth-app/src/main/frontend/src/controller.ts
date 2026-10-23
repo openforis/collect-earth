@@ -4,7 +4,7 @@ import { fetchGewStatus, fetchImageryStatus, fetchMapConfig, fetchPlots, fetchSt
 import { GoogleEngine } from "./engines/GoogleEngine";
 import { LeafletEngine } from "./engines/LeafletEngine";
 import type { EngineConfig, MapEngine } from "./engines/MapEngine";
-import { byId, footprintCorners, indexPlots, neighbour, nextUnfinished, normalizeStatus, plotParam, plotsNear, plotToRestore,
+import { byId, footprintCorners, indexPlots, neighbour, nextUnfinished, normalizeStatus, plotParam, plotsGone, plotsNear, plotToRestore,
   sameView, visibleIds, withoutPlotParam } from "./plots";
 import type { MessageKey } from "./i18n";
 import { reconcileImagery, sameImageryStatus, type ImageryExpectation } from "./imagery";
@@ -205,13 +205,18 @@ export class MapController {
         feature, rings: ringsOf(feature),
         center: [parseFloat(feature.properties.latitude), parseFloat(feature.properties.longitude)] as LatLng,
       }));
+      // Those a load that failed half-way put on the map and this one no longer has: a click on one would find no plot
+      const gone = plotsGone(this.plots, plots);
+      gone.forEach((id) => engine.removePlot(id));
       this.plots = plots;
       const statuses = byId<PlotStatus>();
       // Those known already are kept: the polls ask only for the changes since the last one
       for (const id of order) statuses[id] = this.state.statuses[id] ?? "empty";
       // keep a fallback notice; clear a previous load error
       const banner = this.state.banner?.dismissible ? this.state.banner : null;
-      this.set({ order, statuses, loaded: true, banner });
+      // The plot open, if it is gone, is closed: nothing could be done with it
+      const activeGone = this.state.activeId !== null && !(this.state.activeId in plots);
+      this.set({ order, statuses, loaded: true, banner, ...(activeGone ? { activeId: null, formUrl: null } : {}) });
       // The engines replace a plot added again
       order.forEach((id) => this.addToEngine(id));
       engine.fitAll(this.allCenters());

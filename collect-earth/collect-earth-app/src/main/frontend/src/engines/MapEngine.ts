@@ -28,6 +28,8 @@ export interface MapEngine {
   init(container: HTMLElement, config: EngineConfig, callbacks: EngineCallbacks): void;
   /** rings: [lat,lng] arrays; center: [lat,lng] */
   addPlot(id: string, rings: LatLng[][], center: LatLng): void;
+  /** Takes the plot off the map (no longer in the plots loaded); nothing if it is not there. */
+  removePlot(id: string): void;
   /** Applies to both the polygons and the dot marker. */
   setPlotColor(id: string, color: string): void;
   /** Center on `center`, zooming in to at least `minZoom` (never zooming out). */

@@ -26,6 +26,14 @@ export function indexPlots<F extends { properties: { id: string } }, P>(features
   return { order, plots };
 }
 
+/**
+ * The ids of the plots of a load before (see {@link indexPlots}) that are not in this one: a load tried again after one
+ * that failed half-way takes them off the map, where a click on one would find no plot.
+ */
+export function plotsGone(before: Record<string, unknown>, now: Record<string, unknown>): string[] {
+  return Object.keys(before).filter((id) => !(id in now));
+}
+
 export function matchesFilter(id: string, status: PlotStatus, filter: ListFilter, query: string): boolean {
   if (filter === "pending" && status === "saved") return false;
   if (filter === "saved" && status !== "saved") return false;

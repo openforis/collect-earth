@@ -78,11 +78,7 @@ export class LeafletEngine implements MapEngine {
 
   addPlot(id: string, rings: LatLng[][], center: LatLng): void {
     // A plot added again (the plots loaded again) replaces the one there: two would be drawn, one of them for good
-    const existing = this.layers[id];
-    if (existing) {
-      existing.group.remove();
-      existing.marker.remove();
-    }
+    this.removePlot(id);
     const group = L.featureGroup();
     for (const latlngs of rings) {
       // Faint fill makes the whole plot clickable, not only its outline
@@ -96,6 +92,15 @@ export class LeafletEngine implements MapEngine {
     group.on("click", () => this.callbacks.onPlotClick(id));
     marker.on("click", () => this.callbacks.onPlotClick(id));
     this.layers[id] = { group, marker };
+  }
+
+  removePlot(id: string): void {
+    const existing = this.layers[id];
+    if (existing) {
+      existing.group.remove();
+      existing.marker.remove();
+      delete this.layers[id];
+    }
   }
 
   setPlotColor(id: string, color: string): void {

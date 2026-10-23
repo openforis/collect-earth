@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { byId, countStatuses, footprintCorners, indexPlots, heightForZoom, matchesFilter, neighbour, nextUnfinished, normalizeStatus, plotParam, plotsNear,
-  plotToRestore, sameView, withoutPlotParam,
+  plotToRestore, plotsGone, sameView, withoutPlotParam,
   visibleIds, zoomForHeight } from "./plots";
 import type { PlotStatus } from "./types";
 
@@ -135,6 +135,13 @@ describe("the plots of a load", () => {
     expect(order).toEqual(["p1", "p2"]);
     expect(plots.p1).toBe(3);
     expect(plots.p2).toBe(2);
+  });
+
+  it("tells the plots of the load before that this load no longer has", () => {
+    const before = indexPlots([feature("p1", 1), feature("p2", 2), feature("__proto__", 3)], (f) => f.n).plots;
+    const now = indexPlots([feature("p2", 2), feature("p3", 3)], (f) => f.n).plots;
+    expect(plotsGone(before, now)).toEqual(["p1", "__proto__"]);
+    expect(plotsGone(byId<number>(), now)).toEqual([]);
   });
 
   it("has the plots named like the properties of an object", () => {
