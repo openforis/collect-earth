@@ -3,6 +3,7 @@ package org.openforis.collect.earth.app.service;
 import java.util.EnumSet;
 import java.util.Objects;
 import java.util.Set;
+import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicReference;
@@ -70,6 +71,8 @@ public class PlotImageryService {
 		thread.setDaemon(true);
 		return thread;
 	});
+	/** Where the loads run: {@link #executor}, or the calling thread in the tests. */
+	Executor async = executor;
 
 	@PreDestroy
 	public void shutdown() {
@@ -105,10 +108,14 @@ public class PlotImageryService {
 			latestSelection = selection;
 		}
 		try {
-			kmlGenerator.fillSamplePoints(placemark);
-			kmlGenerator.fillExternalLine(placemark);
+			fillPlot(placemark, kmlGenerator);
 		} catch (TransformException | KmlGenerationException e) {
 			logger.error("Error generating polygon", e);
+			synchronized (selectionLock) {
+				if (selection == latestSelection) {
+					requested = null; // selected again, it is tried again
+				}
+			}
 			return;
 		}
 		synchronized (selectionLock) {
@@ -135,10 +142,15 @@ public class PlotImageryService {
 			selection = ++selections;
 		}
 		openAsync("Google Earth Web", () -> {
-			kmlGenerator.fillSamplePoints(placemark);
-			kmlGenerator.fillExternalLine(placemark);
-			googleEarthWebService.showPlot(placemark, selection);
+			fillPlot(placemark, kmlGenerator);
+			sendToGoogleEarthWeb(placemark, selection);
 		});
+	}
+
+	/** Fills in the sample points and the outline of the plot. */
+	void fillPlot(SimplePlacemarkObject placemark, KmlGenerator kmlGenerator) throws TransformException, KmlGenerationException {
+		kmlGenerator.fillSamplePoints(placemark);
+		kmlGenerator.fillExternalLine(placemark);
 	}
 
 	/** The plots map selected this plot (null or blank: an id is not known, the one before is kept). */
@@ -170,13 +182,26 @@ public class PlotImageryService {
 	 * @return whether a window was asked for
 	 */
 	public boolean reopenImagery() {
-		Shown shown = lastShown;
+		Shown shown;
+		long selection = 0;
+		synchronized (selectionLock) {
+			shown = lastShown;
+			// A number of its own, as a selection: Google Earth Web may have been shown since with a number after the
+			// plot's (see showInGoogleEarthWeb), and would take the plot's for an older one. Not when a plot selected
+			// since is being filled in: that one shows itself, in the window opened here
+			if (shown != null && latestSelection == shown.selection) {
+				selection = ++selections;
+				latestSelection = selection;
+				lastShown = new Shown(shown.placemark, selection);
+			}
+		}
 		if (shown != null) {
 			// The tabs first, here: opening them starts the new browser, so that the window exists when this returns
 			openImageryTabs();
-			// With the number of its selection: shown again, and never over a plot selected since, which comes after it
-			showInGoogleEarthWeb(shown.placemark, shown.selection);
-			loadInOtherSources(shown.placemark, shown.selection);
+			if (selection != 0) {
+				showInGoogleEarthWeb(shown.placemark, selection);
+				loadInOtherSources(shown.placemark, selection);
+			}
 			return true;
 		}
 		SimplePlacemarkObject overview = lastOverview.get();
@@ -188,11 +213,16 @@ public class PlotImageryService {
 	}
 
 	private void showInGoogleEarthWeb(SimplePlacemarkObject placemark, long selection) {
-		openAsync("Google Earth Web", () -> googleEarthWebService.showPlot(placemark, selection));
+		openAsync("Google Earth Web", () -> sendToGoogleEarthWeb(placemark, selection));
+	}
+
+	/** Shows the plot in Google Earth Web, on the calling thread. */
+	void sendToGoogleEarthWeb(SimplePlacemarkObject placemark, long selection) {
+		googleEarthWebService.showPlot(placemark, selection);
 	}
 
 	/** Sends the plot to each source but Google Earth Web, on threads of their own: each waits for its page. */
-	private void loadInOtherSources(SimplePlacemarkObject placemark, long selection) {
+	void loadInOtherSources(SimplePlacemarkObject placemark, long selection) {
 		openAsync("Earth Engine APP", () -> browserService.openGEEAppURL(placemark, selection));
 		openAsync("Earth Map", () -> browserService.openEarthMapURL(placemark, selection));
 		openAsync("ESRI Wayback", () -> browserService.openEsriWayback(placemark, selection));
@@ -207,7 +237,7 @@ public class PlotImageryService {
 	 * {@link ImagerySource} whatever order the loads arrive in. When there is no browser, a warning: the loads that
 	 * follow fail at once (a failed start is remembered for a while), and the other windows carry on.
 	 */
-	private void openImageryTabs() {
+	void openImageryTabs() {
 		Set<ImagerySource> sources = EnumSet.noneOf(ImagerySource.class);
 		sources.addAll(browserService.enabledImagerySources());
 		// Told on every plot, so that a browser started anew opens the tabs of the sources switched on now, not of those
@@ -234,7 +264,7 @@ public class PlotImageryService {
 	}
 
 	private void openAsync(String windowName, BrowserAction action) {
-		executor.submit(() -> {
+		async.execute(() -> {
 			try {
 				action.execute();
 			} catch (Exception e) {

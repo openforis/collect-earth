@@ -152,6 +152,8 @@ public class GoogleEarthWebService {
 	 * be read as the id of one plot with the neighbours of the one before.
 	 */
 	private volatile Context context = new Context(null, "[]");
+	/** The context the outline was drawn with last; guarded by {@link #lock}. See {@link #contextChangedFor}. */
+	private Context drawnContext;
 	/** Camera position requested by the plots map, latest only: {latitude, longitude, heightMeters}. */
 	private final AtomicReference<double[]> pendingCamera = new AtomicReference<>();
 	/** The latest camera position asked for while the tab was hidden, applied when it is shown; null if none. */
@@ -223,7 +225,7 @@ public class GoogleEarthWebService {
 	 *                  {@code PlotImageryService}); the plot of the selection shown last is shown again
 	 */
 	public void showPlot(SimplePlacemarkObject plot, long selection) {
-		if (!localPropertiesService.isGoogleEarthWebViewer()) {
+		if (!isTheViewer()) {
 			return;
 		}
 		// The waiting plot of a later selection is not replaced by the one of an earlier selection
@@ -233,9 +235,19 @@ public class GoogleEarthWebService {
 			Selection target = pending.getAndSet(null);
 			if (target != null && target.number >= shownSelection) {
 				shownSelection = target.number;
-				show(target.plot, false);
+				showSelected(target.plot);
 			}
 		}
+	}
+
+	/** Whether Google Earth Web is the plot viewer. */
+	boolean isTheViewer() {
+		return localPropertiesService.isGoogleEarthWebViewer();
+	}
+
+	/** Shows the plot of the latest selection; holding {@link #lock}. */
+	void showSelected(SimplePlacemarkObject plot) {
+		show(plot, false);
 	}
 
 	/**
@@ -255,29 +267,49 @@ public class GoogleEarthWebService {
 	}
 
 	/**
-	 * Neighbouring plots (id, status, rings) to draw around {@code plotId}, sent by the plots
-	 * map with each selection. Redraws at once if that plot is already shown.
+	 * Neighbouring plots (id, status, rings) to draw around {@code plotId}, sent by the plots map with each selection.
+	 * Returns at once: the outline is redrawn with them on the watchdog's thread if that plot is shown, by the plot being
+	 * shown once it is (see {@link #showIn}), or by the watchdog's next check. Never waiting for {@link #lock} here, which
+	 * a plot being shown holds for as long as a page load: the request threads of the plots map would wait as long, and
+	 * a few of them would take every connection the browser opens to Collect Earth.
 	 */
 	public void setContext(String plotId, String plotsJson) {
 		context = new Context(plotId, plotsJson);
-		if (plotId == null) {
-			return;
-		}
-		// The state is checked holding the lock: a plot being shown now (which holds it until READY) may have drawn its
-		// outline with the context before this one, and is redrawn once it is shown
-		synchronized (lock) {
-			SimplePlacemarkObject shown = current;
-			if (state != State.READY || shown == null || !plotId.equals(shown.getPlacemarkId())) {
-				return;
-			}
+		ScheduledExecutorService thread = watchdog;
+		if (thread != null) {
 			try {
-				if (tab().isOpen()) {
-					injectOverlay(shown);
-				}
-			} catch (TabClosedException e) {
-				// the watchdog sees it
+				thread.execute(this::redrawForNewContext);
+			} catch (RejectedExecutionException e) {
+				// shut down
 			}
 		}
+	}
+
+	/** On the watchdog's thread: see {@link #setContext}. */
+	private void redrawForNewContext() {
+		try {
+			synchronized (lock) {
+				redrawIfContextChanged();
+			}
+		} catch (TabClosedException e) {
+			// the watchdog sees it
+		} catch (RuntimeException e) {
+			logger.debug("Google Earth Web: could not redraw the plot with its neighbours", e);
+		}
+	}
+
+	/** Redraws the outline of the plot shown if the plots map sent its neighbours since it was drawn. Holding the lock. */
+	private void redrawIfContextChanged() {
+		SimplePlacemarkObject plot = current;
+		if (state == State.READY && plot != null && contextChangedFor(plot) && tab().isOpen()) {
+			injectOverlay(plot);
+		}
+	}
+
+	/** Whether the neighbours of the plot came after its outline was drawn. Holding the lock. */
+	private boolean contextChangedFor(SimplePlacemarkObject plot) {
+		Context sent = context;
+		return sent != drawnContext && plot.getPlacemarkId() != null && plot.getPlacemarkId().equals(sent.plotId);
 	}
 
 	/** Neighbouring plots of a plot, as JSON. */
@@ -431,6 +463,9 @@ public class GoogleEarthWebService {
 		Outline outline = overview ? Outline.DRAWN : injectOverlay(target, moved ? url : null);
 		if (outline == Outline.DRAWN) {
 			setState(State.READY, plotId, null);
+			// Neighbours sent while the plot was being shown, after its outline read them (setContext leaves the redraw to
+			// the watchdog, which may not have started yet)
+			redrawIfContextChanged();
 		} else if (outline == Outline.PAGE_NOT_READY) {
 			// The watchdog draws it once the page is there
 			setState(State.WAITING, plotId, null);
@@ -548,6 +583,7 @@ public class GoogleEarthWebService {
 				logger.warn("Google Earth Web: the page was replaced by one with no body yet, the plot outline is drawn later");
 				return Outline.PAGE_NOT_READY;
 			}
+			drawnContext = neighbours;
 			return Outline.DRAWN;
 		} catch (TabClosedException e) {
 			throw e;
@@ -635,7 +671,7 @@ public class GoogleEarthWebService {
 					if (plot == null || injectOverlay(plot) == Outline.DRAWN) {
 						setState(State.READY, plotId, null);
 					}
-				} else if (plot != null && !armed) {
+				} else if (plot != null && (!armed || contextChangedFor(plot))) {
 					injectOverlay(plot);
 				}
 			} catch (TabClosedException e) {
