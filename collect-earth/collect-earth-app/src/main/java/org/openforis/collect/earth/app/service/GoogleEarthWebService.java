@@ -82,6 +82,15 @@ public class GoogleEarthWebService {
 	/** How long a page load of Google Earth Web may take; its WebGL start is slow on a slow machine. */
 	private static final Duration PAGE_LOAD_TIMEOUT = Duration.ofSeconds(60);
 
+	/** What injecting the plot outline came to. */
+	private enum Outline { DRAWN, PAGE_NOT_READY, FAILED }
+
+	/** Whether the document can take the outline; cannot throw, so a page not ready is never taken as a fault. */
+	private static final String BODY_READY_SCRIPT = "return !!document.body;";
+	private static final Duration BODY_READY_TIMEOUT = Duration.ofSeconds(5);
+	/** What the overlay template returns when the document had no body to draw in. */
+	private static final String OVERLAY_NO_BODY = "no_body";
+
 	/** Camera URL, window size and whether the overlay is armed, in one round trip. */
 	private static final String PAGE_STATE_SCRIPT = "return [location.href, window.innerWidth, window.innerHeight, !!window."
 			+ OVERLAY_TAG + "];";
@@ -373,8 +382,12 @@ public class GoogleEarthWebService {
 			return;
 		}
 		// After an in-page move the camera is still flying: the outline waits for it to arrive
-		if (overview || injectOverlay(target, moved ? url : null)) {
+		Outline outline = overview ? Outline.DRAWN : injectOverlay(target, moved ? url : null);
+		if (outline == Outline.DRAWN) {
 			setState(State.READY, plotId, null);
+		} else if (outline == Outline.PAGE_NOT_READY) {
+			// The watchdog draws it once the page is there
+			setState(State.WAITING, plotId, null);
 		} else {
 			setState(State.ERROR, plotId, MESSAGE_OUTLINE_FAILED);
 		}
@@ -449,16 +462,26 @@ public class GoogleEarthWebService {
 	}
 
 	/** Injects the plot outline and the information bar (see javascript_google_earth_web.fmt). */
-	private boolean injectOverlay(SimplePlacemarkObject plot) {
+	private Outline injectOverlay(SimplePlacemarkObject plot) {
 		return injectOverlay(plot, null);
 	}
 
 	/**
+	 * Injects the outline only into a document that has a body: Google Earth Web redirects on its way to the app, so a
+	 * page that just loaded may be a new document still being built, and the outline would have nowhere to go. That
+	 * is waited for a few seconds (with a script that cannot throw), and the template checks it again itself, as the
+	 * document may be replaced once more in between. A page not ready is not a fault, and not reported: the watchdog
+	 * draws the outline once the page is there.
+	 *
 	 * @param flightUrl camera URL Google Earth Web was just sent flying to in-page: nothing is drawn before it
 	 *                  arrives, or the plot would show over the moving imagery. Null when the camera is there.
 	 */
-	private boolean injectOverlay(SimplePlacemarkObject plot, String flightUrl) {
+	private Outline injectOverlay(SimplePlacemarkObject plot, String flightUrl) {
 		try {
+			if (!tab().waitUntil(BODY_READY_SCRIPT, BODY_READY_TIMEOUT)) {
+				logger.warn("Google Earth Web: the page has no body yet, the plot outline is drawn later");
+				return Outline.PAGE_NOT_READY;
+			}
 			Map<String, Object> data = geolocalizeMapService.getPlacemarkData(plot);
 			data.put("plotId", plot.getPlacemarkId() == null ? "" : plot.getPlacemarkId());
 			data.put("plotUrl", plotUrl(plot, GoogleEarthWebUrls.PLOT_DISTANCE));
@@ -472,19 +495,26 @@ public class GoogleEarthWebService {
 			data.put("neighboursJson", plot.getPlacemarkId() != null && plot.getPlacemarkId().equals(contextPlotId) ? contextJson : "[]");
 			String script = browserService.processJavascriptTemplate(data, OVERLAY_TEMPLATE);
 			if (script == null) {
-				return false;
+				return Outline.FAILED;
 			}
-			tab().evaluate(script);
-			return true;
+			if (OVERLAY_NO_BODY.equals(tab().evaluate(script))) {
+				logger.warn("Google Earth Web: the page was replaced by one with no body yet, the plot outline is drawn later");
+				return Outline.PAGE_NOT_READY;
+			}
+			return Outline.DRAWN;
 		} catch (TabClosedException e) {
 			throw e;
 		} catch (PageScriptException e) {
+			if (e.isDocumentReplaced()) {
+				logger.warn("Google Earth Web: the page was being replaced, the plot outline is drawn later");
+				return Outline.PAGE_NOT_READY;
+			}
 			// Reported to Sentry by ImageryBrowser already
 			logger.warn("Could not draw the plot outline in Google Earth Web: {}", e.getMessage());
-			return false;
+			return Outline.FAILED;
 		} catch (Exception e) {
 			logger.warn("Could not draw the plot outline in Google Earth Web", e);
-			return false;
+			return Outline.FAILED;
 		}
 	}
 
@@ -552,7 +582,7 @@ public class GoogleEarthWebService {
 							Double.parseDouble(plot.getCoord().getLongitude()))) {
 						tab().load(plotUrl(plot, GoogleEarthWebUrls.PLOT_DISTANCE), false, PAGE_LOAD_TIMEOUT);
 					}
-					if (plot == null || injectOverlay(plot)) {
+					if (plot == null || injectOverlay(plot) == Outline.DRAWN) {
 						setState(State.READY, plotId, null);
 					}
 				} else if (plot != null && !armed) {

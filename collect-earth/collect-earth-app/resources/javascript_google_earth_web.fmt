@@ -1,4 +1,5 @@
-(function () {
+// Runs as the body of a function (ImageryTab.evaluate): says "armed", or "no_body" when it could not draw yet
+return (function () {
     // ===== Plot geometry from Collect Earth (lon, lat pairs in WGS84) =====
     // Outer rings = the plot polygon and any buffers (placemark.multiShape).
     // Sample rings = the sample squares (placemark.points[].shape).
@@ -42,6 +43,11 @@
         "${key}": "${text?js_string}"<#sep>,</#sep>
         </#list>
     };
+
+    // A document still being built has no body to draw in: Google Earth Web redirects on its way to the app
+    // (/web/@... to /static/.../index.html#@...), and a script can land in the new document before its body is
+    // there. Nothing is drawn, and Collect Earth tries again (GoogleEarthWebService.injectOverlay).
+    if (!document.body) return "no_body";
 
     // ===== Cleanup from any previous injection (driver reuses the tab) =====
     // A redraw with new neighbours during a flight keeps waiting for the camera to arrive
@@ -351,4 +357,5 @@
     };
     console.log("[CE] Google Earth Web plot overlay armed for plot " + PLOT_ID
         + " (" + plotRings.length + " plot ring(s), " + sampleRings.length + " sample(s))");
+    return "armed";
 })();
