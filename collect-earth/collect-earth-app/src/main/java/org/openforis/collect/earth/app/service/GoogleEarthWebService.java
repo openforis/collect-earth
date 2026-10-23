@@ -133,7 +133,10 @@ public class GoogleEarthWebService {
 	private ImageryBrowser imageryBrowser;
 
 	private final Object lock = new Object();
-	private final AtomicReference<SimplePlacemarkObject> pending = new AtomicReference<>();
+	/** The plot to show next, the one of the latest selection that arrived; see {@link #showPlot}. */
+	private final AtomicReference<Selection> pending = new AtomicReference<>();
+	/** The selection number of the plot shown last (see {@link #showPlot}); guarded by {@link #lock}. */
+	private long shownSelection = Long.MIN_VALUE;
 	/** The plot currently shown (null: overview, or nothing yet). */
 	private volatile SimplePlacemarkObject current;
 	/** Whether Google Earth Web follows in-page navigation; null until tried once. */
@@ -198,19 +201,37 @@ public class GoogleEarthWebService {
 
 	// ---------- public API ----------
 
+	/** A plot to show, with the number of its selection. */
+	private static final class Selection {
+		final SimplePlacemarkObject plot;
+		final long number;
+
+		Selection(SimplePlacemarkObject plot, long number) {
+			this.plot = plot;
+			this.number = number;
+		}
+	}
+
 	/**
-	 * Shows the plot in Google Earth Web (opening the window if needed). Returns at once if
-	 * a newer request arrived while this one waited for the window.
+	 * Shows the plot in Google Earth Web (opening the window if needed). Returns at once if a newer request arrived
+	 * while this one waited for the window, or if a plot selected after this one was shown already: each selection
+	 * comes on a thread of its own, so the plot of an earlier one can arrive here last.
+	 *
+	 * @param selection the number of the plot selection, increasing from one selection to the next (see
+	 *                  {@code PlotImageryService}); the plot of the selection shown last is shown again
 	 */
-	public void showPlot(SimplePlacemarkObject plot) {
+	public void showPlot(SimplePlacemarkObject plot, long selection) {
 		if (!localPropertiesService.isGoogleEarthWebViewer()) {
 			return;
 		}
-		pending.set(plot);
+		// The waiting plot of a later selection is not replaced by the one of an earlier selection
+		pending.accumulateAndGet(new Selection(plot, selection),
+				(waiting, arrived) -> waiting != null && waiting.number > arrived.number ? waiting : arrived);
 		synchronized (lock) {
-			SimplePlacemarkObject target = pending.getAndSet(null);
-			if (target != null) {
-				show(target, false);
+			Selection target = pending.getAndSet(null);
+			if (target != null && target.number >= shownSelection) {
+				shownSelection = target.number;
+				show(target.plot, false);
 			}
 		}
 	}

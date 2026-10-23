@@ -153,18 +153,13 @@ public class PlacemarkBrowserServlet {
 			@RequestParam("latLongCoordinates") String latLongCoordinates,
 			@RequestParam("plotId") String plotId) {
 		try {
-			kmlGenerator = kmlGeneratorService.getKmlGenerator();
+			// This request's generator: the field is replaced by every request, each on a thread of its own
+			KmlGenerator generator = kmlGeneratorService.getKmlGenerator();
+			kmlGenerator = generator;
 			SimplePlacemarkObject placemarkObject = new SimplePlacemarkObject(latLongCoordinates.split(","));
 			placemarkObject.setPlacemarkId(plotId);
-			executor.submit(() -> {
-				try {
-					kmlGenerator.fillSamplePoints(placemarkObject);
-					kmlGenerator.fillExternalLine(placemarkObject);
-					googleEarthWebService.showPlot(placemarkObject);
-				} catch (Exception e) {
-					logger.error("Error showing the plot in Google Earth Web", e);
-				}
-			});
+			// Numbered like a plot selection, so that it never shows over a plot selected after it, nor under one before
+			plotImageryService.showInGoogleEarthWeb(placemarkObject, generator);
 			response.setStatus(HttpServletResponse.SC_OK);
 		} catch (Exception e) {
 			logger.error("Error showing the plot in Google Earth Web", e);

@@ -658,9 +658,9 @@ public class BrowserService implements InitializingBean, DisposableBean, Applica
 		void run(ImageryTab tab);
 	}
 
-	/** Loads the URL in the tab of the source, the latest plot only; see {@link #loadInTab(ImagerySource, String, AfterLoad)}. */
-	private void loadInTab(ImagerySource source, String url) {
-		loadInTab(source, url, null);
+	/** Loads the URL in the tab of the source, the latest plot only; see {@link #loadInTab(ImagerySource, long, String, AfterLoad)}. */
+	private void loadInTab(ImagerySource source, long selection, String url) {
+		loadInTab(source, selection, url, null);
 	}
 
 	/**
@@ -674,11 +674,11 @@ public class BrowserService implements InitializingBean, DisposableBean, Applica
 	 * Collect Earth, and the faults (a script of ours that throws, a BiDi command that fails, a browser that hangs) are
 	 * reported to Sentry by {@link ImageryBrowser} already. Only an unexpected failure here is an error.
 	 */
-	private void loadInTab(ImagerySource source, String url, AfterLoad afterLoad) {
+	private void loadInTab(ImagerySource source, long selection, String url, AfterLoad afterLoad) {
 		if (url == null) {
 			return; // logged where the URL failed
 		}
-		imageryBrowser.loadLatest(source, () -> {
+		imageryBrowser.loadLatest(source, selection, () -> {
 			try {
 				try {
 					loadOnce(source, url, afterLoad);
@@ -905,8 +905,9 @@ public class BrowserService implements InitializingBean, DisposableBean, Applica
 	 * - Daily mode: Uses local Freemarker template with Planet Daily API
 	 *
 	 * @param placemarkObject The data of the plot.
+	 * @param selection       the number of the plot selection, see {@link ImageryBrowser#loadLatest}
 	 */
-	public void openPlanetMaps(SimplePlacemarkObject placemarkObject) {
+	public void openPlanetMaps(SimplePlacemarkObject placemarkObject, long selection) {
 		if (localPropertiesService.isPlanetMapsSupported()) {
 			// both modes are opened with the same key, and neither of them shows anything without it
 			if (StringUtils.isBlank(localPropertiesService.getPlanetMapsKey())) {
@@ -916,10 +917,10 @@ public class BrowserService implements InitializingBean, DisposableBean, Applica
 			try {
 				if (localPropertiesService.isPlanetMapsUseTfo()) {
 					// TFO mode: Use hosted planet.html with NICFI monthly basemaps
-					openPlanetTfoMode(placemarkObject);
+					openPlanetTfoMode(placemarkObject, selection);
 				} else {
 					// Daily mode: Use local Freemarker template with Planet Daily API
-					openPlanetDailyMode(placemarkObject);
+					openPlanetDailyMode(placemarkObject, selection);
 				}
 			} catch (final Exception e) {
 				logger.error("Problems loading Planet", e);
@@ -945,7 +946,7 @@ public class BrowserService implements InitializingBean, DisposableBean, Applica
 	 * Opens the hosted planet.html page at openforis.org with URL parameters.
 	 * Uses the same API key as Daily mode (PLANET_MAPS_KEY).
 	 */
-	private void openPlanetTfoMode(SimplePlacemarkObject placemarkObject) {
+	private void openPlanetTfoMode(SimplePlacemarkObject placemarkObject, long selection) {
 		// openPlanetMaps has already checked that there is a key
 		String apiKey = localPropertiesService.getValue(EarthProperty.PLANET_MAPS_KEY);
 
@@ -971,7 +972,7 @@ public class BrowserService implements InitializingBean, DisposableBean, Applica
 				url.append("&planet_date_to=").append(URLEncoder.encode(dateTo, StandardCharsets.UTF_8.toString()));
 			}
 
-			loadInTab(ImagerySource.PLANET, url.toString());
+			loadInTab(ImagerySource.PLANET, selection, url.toString());
 
 		} catch (final Exception e) {
 			logger.error("Problems loading Planet TFO mode", e);
@@ -981,7 +982,7 @@ public class BrowserService implements InitializingBean, DisposableBean, Applica
 	/**
 	 * Opens Planet imagery using the Daily API via local Freemarker template.
 	 */
-	private void openPlanetDailyMode(SimplePlacemarkObject placemarkObject) {
+	private void openPlanetDailyMode(SimplePlacemarkObject placemarkObject, long selection) {
 		String template = GeolocalizeMapService.FREEMARKER_PLANET_DAILY_HTML_TEMPLATE;
 		String key = localPropertiesService.getValue(EarthProperty.PLANET_MAPS_KEY);
 
@@ -995,7 +996,7 @@ public class BrowserService implements InitializingBean, DisposableBean, Applica
 					ServerController.getHostAddress(localPropertiesService.getHost(), localPropertiesService.getPort())
 			).toString();
 
-			loadInTab(ImagerySource.PLANET, processTemplate);
+			loadInTab(ImagerySource.PLANET, selection, processTemplate);
 
 		} catch (final Exception e) {
 			logger.error("Problems loading Planet Daily mode", e);
@@ -1029,12 +1030,13 @@ public class BrowserService implements InitializingBean, DisposableBean, Applica
 	 * Shows the plot in SecureWatch, in its tab of the imagery window.
 	 *
 	 * @param placemarkObject The data of the plot.
+	 * @param selection       the number of the plot selection, see {@link ImageryBrowser#loadLatest}
 	 */
-	public void openSecureWatch(SimplePlacemarkObject placemarkObject) {
+	public void openSecureWatch(SimplePlacemarkObject placemarkObject, long selection) {
 		if ( localPropertiesService.isSecureWatchSupported() ) {
 			String url = getUrlBaseIntegration(placemarkObject, localPropertiesService.getSecureWatchURL() + "/#18/LATITUDE/LONGITUDE" );
 			logger.info("Loading layers - {}", placemarkObject);
-			loadInTab(ImagerySource.SECURE_WATCH, url, tab -> loadPlotInDGMap(placemarkObject, tab));
+			loadInTab(ImagerySource.SECURE_WATCH, selection, url, tab -> loadPlotInDGMap(placemarkObject, tab));
 		}
 	}
 
@@ -1042,10 +1044,11 @@ public class BrowserService implements InitializingBean, DisposableBean, Applica
 	 * Shows the plot in the extra map of the options, in its tab of the imagery window.
 	 *
 	 * @param placemarkObject The data of the plot.
+	 * @param selection       the number of the plot selection, see {@link ImageryBrowser#loadLatest}
 	 */
-	public void openExtraMap(SimplePlacemarkObject placemarkObject) {
+	public void openExtraMap(SimplePlacemarkObject placemarkObject, long selection) {
 		if (!StringUtils.isBlank(localPropertiesService.getExtraMap())) {
-			loadInTab(ImagerySource.EXTRA_MAP, getUrlBaseIntegration(placemarkObject, localPropertiesService.getExtraMap()));
+			loadInTab(ImagerySource.EXTRA_MAP, selection, getUrlBaseIntegration(placemarkObject, localPropertiesService.getExtraMap()));
 		}
 	}
 
@@ -1082,11 +1085,12 @@ public class BrowserService implements InitializingBean, DisposableBean, Applica
 	 * Shows the Google Street View representation of the plot, in its tab of the imagery window.
 	 *
 	 * @param placemarkObject The data of the plot.
+	 * @param selection       the number of the plot selection, see {@link ImageryBrowser#loadLatest}
 	 */
-	public void openStreetView(SimplePlacemarkObject placemarkObject) {
+	public void openStreetView(SimplePlacemarkObject placemarkObject, long selection) {
 		if (localPropertiesService.isStreetViewSupported()) {
 			try {
-				loadInTab(ImagerySource.STREET_VIEW,
+				loadInTab(ImagerySource.STREET_VIEW, selection,
 						geoLocalizeTemplateService.getUrlToFreemarkerOutput(placemarkObject,
 								GeolocalizeMapService.FREEMARKER_STREET_VIEW_HTML_TEMPLATE, "googleMapsApiKey",
 								localPropertiesService.getValue(EarthProperty.GOOGLE_MAPS_API_KEY)).toString());
@@ -1136,8 +1140,9 @@ public class BrowserService implements InitializingBean, DisposableBean, Applica
 	 * Shows the plot in the Google Earth Engine App, in its tab of the imagery window.
 	 *
 	 * @param placemarkObject The center point of the plot.
+	 * @param selection       the number of the plot selection, see {@link ImageryBrowser#loadLatest}
 	 */
-	public void openGEEAppURL(SimplePlacemarkObject placemarkObject) {
+	public void openGEEAppURL(SimplePlacemarkObject placemarkObject, long selection) {
 		if (localPropertiesService.isGEEAppSupported()) {
 
 			try {
@@ -1166,7 +1171,7 @@ public class BrowserService implements InitializingBean, DisposableBean, Applica
 							.append(";");
 				}
 
-				loadInTab(ImagerySource.GEE_APP, url.toString());
+				loadInTab(ImagerySource.GEE_APP, selection, url.toString());
 			} catch (final Exception e) {
 				logger.error("Problems loading GEE APP window", e);
 			}
@@ -1178,8 +1183,9 @@ public class BrowserService implements InitializingBean, DisposableBean, Applica
 	 * Shows the plot in Earth Map, in its tab of the imagery window.
 	 *
 	 * @param placemarkObject The placemark data
+	 * @param selection       the number of the plot selection, see {@link ImageryBrowser#loadLatest}
 	 */
-	public void openEarthMapURL(SimplePlacemarkObject placemarkObject) {
+	public void openEarthMapURL(SimplePlacemarkObject placemarkObject, long selection) {
 		if (localPropertiesService.isEarthMapSupported()) {
 
 			try {
@@ -1208,7 +1214,7 @@ public class BrowserService implements InitializingBean, DisposableBean, Applica
 						.append(URLEncoder.encode( aoi, StandardCharsets.UTF_8.toString() ))
 						.append("&embed=true"); // Set the EMBED parameter to true so that the user does not need to log in.
 
-				loadInTab(ImagerySource.EARTH_MAP, url.toString());
+				loadInTab(ImagerySource.EARTH_MAP, selection, url.toString());
 			} catch (final Exception e) {
 				logger.error("Problems loading Earth Map window", e);
 			}
@@ -1220,8 +1226,9 @@ public class BrowserService implements InitializingBean, DisposableBean, Applica
 	 * window.
 	 *
 	 * @param placemarkObject The center point of the plot.
+	 * @param selection       the number of the plot selection, see {@link ImageryBrowser#loadLatest}
 	 */
-	public void openEsriWayback(SimplePlacemarkObject placemarkObject) {
+	public void openEsriWayback(SimplePlacemarkObject placemarkObject, long selection) {
 		if (localPropertiesService.isEsriWaybackSupported()) {
 			try {
 				String longitude = placemarkObject.getCoord().getLongitude();
@@ -1230,7 +1237,7 @@ public class BrowserService implements InitializingBean, DisposableBean, Applica
 				String url = "https://livingatlas.arcgis.com/wayback/#mapCenter=" +
 						URLEncoder.encode(longitude + "," + latitude + ",18", StandardCharsets.UTF_8.toString()) +
 						"&mode=explore";
-				loadInTab(ImagerySource.ESRI_WAYBACK, url, tab -> loadPlotInEsriWayback(placemarkObject, tab));
+				loadInTab(ImagerySource.ESRI_WAYBACK, selection, url, tab -> loadPlotInEsriWayback(placemarkObject, tab));
 			} catch (final Exception e) {
 				logger.error("Problems loading ESRI Wayback", e);
 			}

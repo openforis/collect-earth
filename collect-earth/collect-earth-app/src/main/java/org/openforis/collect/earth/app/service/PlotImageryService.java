@@ -41,11 +41,24 @@ public class PlotImageryService {
 	@Autowired
 	private ImageryBrowser imageryBrowser;
 
-	/** The plot shown last, its sample points and outline filled in; null before the first plot. */
-	private final AtomicReference<SimplePlacemarkObject> lastPlacemark = new AtomicReference<>();
+	/**
+	 * Guards the numbering of the selections, {@link #requested}, {@link #latestSelection} and {@link #lastShown}.
+	 * Each selection runs on a thread of its own, and each of its source loads on another: the number a selection takes
+	 * when it starts tells the imagery sources which plot is the latest whatever order its loads reach them in (see
+	 * {@link ImageryBrowser#loadLatest}).
+	 */
+	private final Object selectionLock = new Object();
+	/** The number of the latest selection, or of the latest Google Earth Web show (see {@link #showInGoogleEarthWeb}). */
+	private long selections;
+	/** The number of the latest {@link #showPlot}: one that finds a later one started when its plot is filled in stops. */
+	private long latestSelection;
+	/** The plot asked for last by {@link #showPlot}, before it is filled in: asked for again, it is not shown again. */
+	private SimplePlacemarkObject requested;
+	/** The plot shown last, its sample points and outline filled in, with its selection; null before the first plot. */
+	private volatile Shown lastShown;
 	/**
 	 * The plot selected last in the plots map, which tells every selection (/openAuxiliaryWindows): a plots map the user
-	 * closed comes back on it. Kept apart from {@link #lastPlacemark}, which is set on another thread, after the plot is
+	 * closed comes back on it. Kept apart from {@link #lastShown}, which is set on another thread, after the plot is
 	 * filled in, and not when the plot equals the one before.
 	 */
 	private volatile String selectedPlotId;
@@ -63,30 +76,69 @@ public class PlotImageryService {
 		executor.shutdownNow();
 	}
 
+	/** A plot shown, with the number of its selection. */
+	private static final class Shown {
+		final SimplePlacemarkObject placemark;
+		final long selection;
+
+		Shown(SimplePlacemarkObject placemark, long selection) {
+			this.placemark = placemark;
+			this.selection = selection;
+		}
+	}
+
 	/**
-	 * Shows the plot in every imagery source switched on, unless it is the plot shown last. Returns once the tabs are
-	 * open; the loads of the sources run on threads of their own.
+	 * Shows the plot in every imagery source switched on, unless it is the plot asked for last. Returns once the tabs
+	 * are open; the loads of the sources run on threads of their own. Nothing is shown when another plot is selected
+	 * while this one is filled in.
 	 */
 	public void showPlot(SimplePlacemarkObject placemark, KmlGenerator kmlGenerator) {
-		// If this is the first plot or the plot is different from the last one opened
-		if (Objects.equals(lastPlacemark.get(), placemark)) {
-			return;
+		long selection;
+		synchronized (selectionLock) {
+			// If this is the first plot or the plot is different from the last one asked for. Checked against the plot
+			// asked for, not the one shown: going A, B, A quickly, the second A is shown although B was not shown yet
+			if (Objects.equals(requested, placemark)) {
+				return;
+			}
+			requested = placemark;
+			selection = ++selections;
+			latestSelection = selection;
 		}
 		try {
 			kmlGenerator.fillSamplePoints(placemark);
 			kmlGenerator.fillExternalLine(placemark);
 		} catch (TransformException | KmlGenerationException e) {
 			logger.error("Error generating polygon", e);
-			lastPlacemark.set(placemark);
 			return;
 		}
-		lastPlacemark.set(placemark);
+		synchronized (selectionLock) {
+			if (selection != latestSelection) {
+				return; // another plot was selected meanwhile
+			}
+			lastShown = new Shown(placemark, selection);
+		}
 		// Google Earth Web first, so that its load is queued early; on a thread of its own, as it waits for the page and
 		// its in-page move. In a browser that starts, its tab is the first whichever comes first, its own load or
 		// openImageryTabs(), which opens the tabs one by one in the order of ImagerySource
-		showInGoogleEarthWeb(placemark);
+		showInGoogleEarthWeb(placemark, selection);
 		openImageryTabs();
-		loadInOtherSources(placemark);
+		loadInOtherSources(placemark, selection);
+	}
+
+	/**
+	 * Shows the plot in Google Earth Web even if it is the plot shown last, as a selection of its own: the plots map
+	 * asks for it to open a closed Google Earth Web again, or to set it back on its plot. Returns at once.
+	 */
+	public void showInGoogleEarthWeb(SimplePlacemarkObject placemark, KmlGenerator kmlGenerator) {
+		long selection;
+		synchronized (selectionLock) {
+			selection = ++selections;
+		}
+		openAsync("Google Earth Web", () -> {
+			kmlGenerator.fillSamplePoints(placemark);
+			kmlGenerator.fillExternalLine(placemark);
+			googleEarthWebService.showPlot(placemark, selection);
+		});
 	}
 
 	/** The plots map selected this plot (null or blank: an id is not known, the one before is kept). */
@@ -118,12 +170,13 @@ public class PlotImageryService {
 	 * @return whether a window was asked for
 	 */
 	public boolean reopenImagery() {
-		SimplePlacemarkObject placemark = lastPlacemark.get();
-		if (placemark != null) {
+		Shown shown = lastShown;
+		if (shown != null) {
 			// The tabs first, here: opening them starts the new browser, so that the window exists when this returns
 			openImageryTabs();
-			showInGoogleEarthWeb(placemark);
-			loadInOtherSources(placemark);
+			// With the number of its selection: shown again, and never over a plot selected since, which comes after it
+			showInGoogleEarthWeb(shown.placemark, shown.selection);
+			loadInOtherSources(shown.placemark, shown.selection);
 			return true;
 		}
 		SimplePlacemarkObject overview = lastOverview.get();
@@ -134,19 +187,19 @@ public class PlotImageryService {
 		return false;
 	}
 
-	private void showInGoogleEarthWeb(SimplePlacemarkObject placemark) {
-		openAsync("Google Earth Web", () -> googleEarthWebService.showPlot(placemark));
+	private void showInGoogleEarthWeb(SimplePlacemarkObject placemark, long selection) {
+		openAsync("Google Earth Web", () -> googleEarthWebService.showPlot(placemark, selection));
 	}
 
 	/** Sends the plot to each source but Google Earth Web, on threads of their own: each waits for its page. */
-	private void loadInOtherSources(SimplePlacemarkObject placemark) {
-		openAsync("Earth Engine APP", () -> browserService.openGEEAppURL(placemark));
-		openAsync("Earth Map", () -> browserService.openEarthMapURL(placemark));
-		openAsync("ESRI Wayback", () -> browserService.openEsriWayback(placemark));
-		openAsync("Extra Map", () -> browserService.openExtraMap(placemark));
-		openAsync("Street View", () -> browserService.openStreetView(placemark));
-		openAsync("Planet Maps", () -> browserService.openPlanetMaps(placemark));
-		openAsync("SecureWatch", () -> browserService.openSecureWatch(placemark));
+	private void loadInOtherSources(SimplePlacemarkObject placemark, long selection) {
+		openAsync("Earth Engine APP", () -> browserService.openGEEAppURL(placemark, selection));
+		openAsync("Earth Map", () -> browserService.openEarthMapURL(placemark, selection));
+		openAsync("ESRI Wayback", () -> browserService.openEsriWayback(placemark, selection));
+		openAsync("Extra Map", () -> browserService.openExtraMap(placemark, selection));
+		openAsync("Street View", () -> browserService.openStreetView(placemark, selection));
+		openAsync("Planet Maps", () -> browserService.openPlanetMaps(placemark, selection));
+		openAsync("SecureWatch", () -> browserService.openSecureWatch(placemark, selection));
 	}
 
 	/**

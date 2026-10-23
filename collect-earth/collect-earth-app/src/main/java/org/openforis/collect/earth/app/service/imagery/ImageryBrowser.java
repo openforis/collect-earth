@@ -146,6 +146,11 @@ public class ImageryBrowser {
 
 	/** The plot each source is to load next, if any; see {@link #loadLatest}. */
 	private final Map<ImagerySource, AtomicReference<Runnable>> pendingLoads = new EnumMap<>(ImagerySource.class);
+	/**
+	 * The selection number of the latest plot each source was given, see {@link #loadLatest}; set together with its
+	 * pending load, holding that load's {@link AtomicReference}.
+	 */
+	private final Map<ImagerySource, long[]> acceptedSelections = new EnumMap<>(ImagerySource.class);
 	private final Map<ImagerySource, ReentrantLock> loadLocks = new EnumMap<>(ImagerySource.class);
 
 	private final List<BiConsumer<ImagerySource, Boolean>> visibilityListeners = new CopyOnWriteArrayList<>();
@@ -190,6 +195,7 @@ public class ImageryBrowser {
 		for (ImagerySource source : ImagerySource.values()) {
 			queues.put(source, new ArrayDeque<>());
 			pendingLoads.put(source, new AtomicReference<>());
+			acceptedSelections.put(source, new long[] { Long.MIN_VALUE });
 			loadLocks.put(source, new ReentrantLock());
 		}
 		worker = new Thread(this::work, "Imagery browser");
@@ -431,12 +437,26 @@ public class ImageryBrowser {
 	 * when it is done: a request thread does not wait for a page load of another plot. As the thread that runs a load
 	 * may not be the one of its plot, a load should handle its own errors; one that escapes reaches that other caller,
 	 * after the plots that came meanwhile were loaded.
+	 * <p>
+	 * The latest plot is the one selected last, not the one whose load arrives last: each plot selection runs on a
+	 * thread of its own, and each source load on another, so the load of a plot can reach here after the one of the
+	 * plot selected after it. Such a load is dropped, as it would leave the tab on a plot the form is no longer on.
+	 *
+	 * @param selection the number of the plot selection, increasing from one selection to the next (see
+	 *                  {@code PlotImageryService}); a load of the same selection as the latest is loaded again
 	 */
-	public void loadLatest(ImagerySource source, Runnable load) {
+	public void loadLatest(ImagerySource source, long selection, Runnable load) {
 		AtomicReference<Runnable> pending = pendingLoads.get(source);
 		ReentrantLock lock = loadLocks.get(source);
 		RuntimeException failure = null;
-		pending.set(load);
+		long[] accepted = acceptedSelections.get(source);
+		synchronized (pending) {
+			if (selection < accepted[0]) {
+				return; // a plot selected before the one this source was given last
+			}
+			accepted[0] = selection;
+			pending.set(load);
+		}
 		do {
 			if (!lock.tryLock()) {
 				break; // the thread loading now loads this plot after

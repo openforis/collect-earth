@@ -501,7 +501,7 @@ public class ImageryBrowserTest {
 		List<String> loaded = Collections.synchronizedList(new ArrayList<>());
 		CountDownLatch inFirst = new CountDownLatch(1);
 		CountDownLatch release = new CountDownLatch(1);
-		Thread a = new Thread(() -> imagery.loadLatest(ImagerySource.PLANET, () -> {
+		Thread a = new Thread(() -> imagery.loadLatest(ImagerySource.PLANET, 1, () -> {
 			loaded.add("1");
 			inFirst.countDown();
 			await(release);
@@ -509,15 +509,51 @@ public class ImageryBrowserTest {
 		a.start();
 		await(inFirst);
 		// Plots 2 and 3 arrive while 1 is loading: their callers return at once
-		Thread b = new Thread(() -> imagery.loadLatest(ImagerySource.PLANET, () -> loaded.add("2")));
+		Thread b = new Thread(() -> imagery.loadLatest(ImagerySource.PLANET, 2, () -> loaded.add("2")));
 		b.start();
 		b.join();
-		Thread c = new Thread(() -> imagery.loadLatest(ImagerySource.PLANET, () -> loaded.add("3")));
+		Thread c = new Thread(() -> imagery.loadLatest(ImagerySource.PLANET, 3, () -> loaded.add("3")));
 		c.start();
 		c.join();
 		release.countDown();
 		a.join();
 		assertEquals(Arrays.asList("1", "3"), loaded);
+	}
+
+	@Test
+	@Timeout(10)
+	public void aPlotSelectedBeforeTheOneLoadedIsNotLoadedAfterIt() throws Exception {
+		List<String> loaded = Collections.synchronizedList(new ArrayList<>());
+		// The load of plot 1 reaches the source after the one of plot 2, which was selected after it
+		imagery.loadLatest(ImagerySource.PLANET, 2, () -> loaded.add("2"));
+		imagery.loadLatest(ImagerySource.PLANET, 1, () -> loaded.add("1"));
+		// The same plot again (the imagery window opened again on it) is loaded
+		imagery.loadLatest(ImagerySource.PLANET, 2, () -> loaded.add("2 again"));
+		// Each source keeps its own order
+		imagery.loadLatest(ImagerySource.ESRI_WAYBACK, 1, () -> loaded.add("wayback 1"));
+		assertEquals(Arrays.asList("2", "2 again", "wayback 1"), loaded);
+	}
+
+	@Test
+	@Timeout(10)
+	public void aPlotSelectedBeforeTheOneLoadingIsNotLoadedAfterIt() throws Exception {
+		List<String> loaded = Collections.synchronizedList(new ArrayList<>());
+		CountDownLatch inSecond = new CountDownLatch(1);
+		CountDownLatch release = new CountDownLatch(1);
+		Thread b = new Thread(() -> imagery.loadLatest(ImagerySource.PLANET, 2, () -> {
+			loaded.add("2");
+			inSecond.countDown();
+			await(release);
+		}));
+		b.start();
+		await(inSecond);
+		// Plot 1 arrives late, while 2 is loading: it is not left for after it
+		Thread a = new Thread(() -> imagery.loadLatest(ImagerySource.PLANET, 1, () -> loaded.add("1")));
+		a.start();
+		a.join();
+		release.countDown();
+		b.join();
+		assertEquals(Arrays.asList("2"), loaded);
 	}
 
 	@Test
@@ -529,7 +565,7 @@ public class ImageryBrowserTest {
 		AtomicReference<RuntimeException> firstFailure = new AtomicReference<>();
 		Thread a = new Thread(() -> {
 			try {
-				imagery.loadLatest(ImagerySource.PLANET, () -> {
+				imagery.loadLatest(ImagerySource.PLANET, 1, () -> {
 					inFirst.countDown();
 					await(release);
 					throw new IllegalStateException("plot 1 failed");
@@ -540,7 +576,7 @@ public class ImageryBrowserTest {
 		});
 		a.start();
 		await(inFirst);
-		Thread b = new Thread(() -> imagery.loadLatest(ImagerySource.PLANET, () -> loaded.add("2")));
+		Thread b = new Thread(() -> imagery.loadLatest(ImagerySource.PLANET, 2, () -> loaded.add("2")));
 		b.start();
 		b.join();
 		release.countDown();
