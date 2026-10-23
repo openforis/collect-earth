@@ -171,6 +171,8 @@ public class GoogleEarthWebService {
 	private volatile double[] groundAltitudePosition;
 	/** Altitude of the last camera URL Collect Earth wrote. */
 	private volatile Double writtenAltitude;
+	/** Altitude of the top-down view the overlay drawn last loads with its button; see {@link #topDownUrl}. */
+	private volatile Double topDownAltitude;
 
 	private volatile ScheduledExecutorService watchdog;
 	/** Watchdog checks since the tab was last seen visible, or since the last liveness check; watchdog thread only. */
@@ -375,12 +377,7 @@ public class GoogleEarthWebService {
 				if (!GoogleEarthWebUrls.isGoogleEarthWeb(href)) {
 					return;
 				}
-				// Aimed at the ground: the distance is then the height above it, as the map assumes
-				Double current = GoogleEarthWebUrls.cameraAltitude(href);
-				double altitude = Math.round(altitudeAt(target[0], target[1], current == null ? 0 : current));
-				writtenAltitude = altitude;
-				tab().evaluate(CAMERA_MOVE_SCRIPT,
-						GoogleEarthWebUrls.movedCameraUrl(href, target[0], target[1], target[2], altitude));
+				tab().evaluate(CAMERA_MOVE_SCRIPT, movedCameraUrl(href, target[0], target[1], target[2]));
 			} catch (Exception e) {
 				logger.debug("Could not move the Google Earth Web camera", e);
 			}
@@ -577,7 +574,7 @@ public class GoogleEarthWebService {
 			}
 			Map<String, Object> data = geolocalizeMapService.getPlacemarkData(plot);
 			data.put("plotId", plot.getPlacemarkId() == null ? "" : plot.getPlacemarkId());
-			data.put("plotUrl", plotUrl(plot, GoogleEarthWebUrls.PLOT_DISTANCE));
+			data.put("plotUrl", topDownUrl(plot));
 			data.put("inPageNavigation", String.valueOf(inPageNavigation));
 			data.put("flightUrl", flightUrl == null ? "" : flightUrl);
 			Map<String, String> labels = new LinkedHashMap<>();
@@ -764,19 +761,48 @@ public class GoogleEarthWebService {
 	 * altitude learnt nearby. Aimed at sea level over hills the camera is hundreds of metres nearer
 	 * to the ground than the distance says, and the plot fills the window.
 	 */
-	private String plotUrl(SimplePlacemarkObject plot, int distance) {
-		String latitude = plot.getCoord().getLatitude();
-		String longitude = plot.getCoord().getLongitude();
+	String plotUrl(SimplePlacemarkObject plot, int distance) {
+		int altitude = plotAltitude(plot);
+		writtenAltitude = (double) altitude;
+		return GoogleEarthWebUrls.cameraUrl(plot.getCoord().getLatitude(), plot.getCoord().getLongitude(), altitude,
+				distance);
+	}
+
+	/**
+	 * The top-down view of the plot that the overlay's button loads (see javascript_google_earth_web.fmt). Not loaded
+	 * now, so it leaves {@link #writtenAltitude} alone: the outline is drawn again after a camera move, and the altitude
+	 * of that move would then be learnt as ground. Its own altitude is not learnt either, once the button loads it.
+	 */
+	String topDownUrl(SimplePlacemarkObject plot) {
+		int altitude = plotAltitude(plot);
+		topDownAltitude = (double) altitude;
+		return GoogleEarthWebUrls.cameraUrl(plot.getCoord().getLatitude(), plot.getCoord().getLongitude(), altitude,
+				GoogleEarthWebUrls.PLOT_DISTANCE);
+	}
+
+	/** The altitude a camera URL of the plot aims at: its elevation, or else the ground learnt nearby, or else 0. */
+	private int plotAltitude(SimplePlacemarkObject plot) {
 		int altitude = plot.getElevation();
 		if (altitude <= 0) {
 			try {
-				altitude = (int) Math.round(altitudeAt(Double.parseDouble(latitude), Double.parseDouble(longitude), 0));
+				altitude = (int) Math.round(altitudeAt(Double.parseDouble(plot.getCoord().getLatitude()),
+						Double.parseDouble(plot.getCoord().getLongitude()), 0));
 			} catch (NumberFormatException e) {
 				altitude = 0;
 			}
 		}
-		writtenAltitude = (double) altitude;
-		return GoogleEarthWebUrls.cameraUrl(latitude, longitude, altitude, distance);
+		return altitude;
+	}
+
+	/**
+	 * The camera URL that moves Google Earth Web from {@code href} to where the plots map looks, aimed at the ground: the
+	 * distance is then the height above it, as the map assumes. Its altitude is written, so not learnt.
+	 */
+	String movedCameraUrl(String href, double latitude, double longitude, double heightMeters) {
+		Double current = GoogleEarthWebUrls.cameraAltitude(href);
+		double altitude = Math.round(altitudeAt(latitude, longitude, current == null ? 0 : current));
+		writtenAltitude = altitude;
+		return GoogleEarthWebUrls.movedCameraUrl(href, latitude, longitude, heightMeters, altitude);
 	}
 
 	private double altitudeAt(double latitude, double longitude, double fallback) {
@@ -784,7 +810,7 @@ public class GoogleEarthWebService {
 		return ground == null ? fallback : ground;
 	}
 
-	private Double groundAltitudeNear(double latitude, double longitude) {
+	Double groundAltitudeNear(double latitude, double longitude) {
 		Double ground = groundAltitude;
 		double[] at = groundAltitudePosition;
 		if (ground == null || at == null) {
@@ -798,16 +824,20 @@ public class GoogleEarthWebService {
 	/**
 	 * Once the user moved it, Google Earth Web aims the camera at the ground and writes its altitude.
 	 * After a flight Collect Earth asked for it keeps the altitude it was given, which is not learnt:
-	 * a guess would otherwise be carried from plot to plot.
+	 * a guess would otherwise be carried from plot to plot. Nor the altitude of the overlay's top-down view, which the
+	 * user loads with its button.
 	 */
-	private void learnGroundAltitude(String href) {
+	void learnGroundAltitude(String href) {
 		Double altitude = GoogleEarthWebUrls.cameraAltitude(href);
 		double[] camera = GoogleEarthWebUrls.cameraPosition(href);
-		Double written = writtenAltitude;
-		if (altitude != null && camera != null && (written == null || Math.abs(altitude - written) > 0.5)) {
+		if (altitude != null && camera != null && !isAbout(altitude, writtenAltitude) && !isAbout(altitude, topDownAltitude)) {
 			groundAltitude = altitude;
 			groundAltitudePosition = camera;
 		}
+	}
+
+	private static boolean isAbout(double altitude, Double written) {
+		return written != null && Math.abs(altitude - written) <= 0.5;
 	}
 
 	private void setState(State newState, String plotId, String message) {
