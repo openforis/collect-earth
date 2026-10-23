@@ -333,6 +333,15 @@ return (function () {
         pressed = false;
         if (moving) moving.until = Date.now() + MOVE_TIMEOUT_MILLIS;
     }
+    // The page losing the mouse mid-drag (the window minimized and restored, another one brought forward, the tab
+    // hidden) sends no mouseup: the press ends there, or the outline would stay hidden until the mouse came back.
+    // Only the window's own blur: an element's, captured here too, comes with the press that moves the focus
+    function onFocusLost(e) {
+        if (!pressed) return;
+        if (e.type === "blur" && e.target !== window) return;
+        if (e.type === "visibilitychange" && !document.hidden) return;
+        onRelease();
+    }
     function onMove(e) {
         if (onBar(e)) return;
         startMoving();
@@ -353,7 +362,8 @@ return (function () {
         startMoving();
     }
     var LISTENERS = [["mousedown", onPress], ["mousemove", onDrag], ["mouseup", onRelease], ["wheel", onMove],
-        ["touchstart", onMove], ["keydown", onKey], ["resize", onResize]];
+        ["touchstart", onMove], ["keydown", onKey], ["resize", onResize],
+        ["blur", onFocusLost], ["pointercancel", onFocusLost], ["visibilitychange", onFocusLost]];
     LISTENERS.forEach(function (l) { window.addEventListener(l[0], l[1], true); });
 
     window[CE_TAG] = {

@@ -184,6 +184,27 @@ public class WindowLayoutTest {
 				new Dimension(1920, 1080), bounds, new Rectangle(0, 0, 1920, 1000)));
 	}
 
+	@Test
+	public void aTaskBarOnTheTopOrTheLeftIsNotReachedPast() {
+		Rectangle bounds = new Rectangle(0, 0, 1920, 1080);
+		// Task bar of 40 px on the top: the browser starting the work area where Java does is corrected as at the bottom
+		Rectangle javaTop = new Rectangle(0, 40, 1920, 1040);
+		assertEquals(javaTop, WindowLayoutService.correctedWorkArea(new Rectangle(0, 40, 1920, 1032),
+				new Dimension(1920, 1080), bounds, javaTop));
+		// but one starting it lower is not made taller, which would reach past the bottom of the screen
+		assertEquals(new Rectangle(0, 48, 1920, 1032), WindowLayoutService.correctedWorkArea(new Rectangle(0, 48, 1920, 1032),
+				new Dimension(1920, 1080), bounds, javaTop));
+		// Task bar of 60 px on the left, alike
+		Rectangle javaLeft = new Rectangle(60, 0, 1860, 1080);
+		assertEquals(javaLeft, WindowLayoutService.correctedWorkArea(new Rectangle(60, 0, 1852, 1080),
+				new Dimension(1920, 1080), bounds, javaLeft));
+		assertEquals(new Rectangle(68, 0, 1852, 1080), WindowLayoutService.correctedWorkArea(new Rectangle(68, 0, 1852, 1080),
+				new Dimension(1920, 1080), bounds, javaLeft));
+		// At 150 %, Java's origin scaled alike
+		assertEquals(new Rectangle(0, 27, 1280, 693), WindowLayoutService.correctedWorkArea(new Rectangle(0, 27, 1280, 688),
+				new Dimension(1280, 720), bounds, javaTop));
+	}
+
 	private static int border(double outerWidth, double innerWidth, double outerHeight, double innerHeight, double screenX,
 			double screenY, Double pageX, Double pageY, double pixelRatio) {
 		return WindowLayoutService.invisibleBorder(Arrays.asList(outerWidth, innerWidth, outerHeight, innerHeight, screenX,

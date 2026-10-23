@@ -159,4 +159,23 @@ public class GoogleEarthWebOverlayIT {
 		tab.evaluate(mouse, "mousemove", 0);
 		assertTrue(outlineBecomes(tab, "block", 6000), "drawn once released");
 	}
+
+	@Test
+	public void aDragEndsWhenTheWindowLosesTheMouse() throws Exception {
+		imagery.setCommandTimeout(Duration.ofSeconds(120));
+		ImageryTab tab = imagery.tab(ImagerySource.GOOGLE_EARTH_WEB);
+		assertTrue(tab.load(pageWithCamera(1.0005, 1.0005), false, Duration.ofSeconds(20)));
+		assertEquals("armed", tab.evaluate(overlayScript(Arrays.asList(coord(1, 1), coord(1.001, 1), coord(1.001, 1.001), coord(1, 1)))));
+		assertTrue(outlineBecomes(tab, "block", 5000), "drawn once the camera is still");
+		String mouse = "document.body.dispatchEvent(new MouseEvent(arguments[0], { bubbles: true, buttons: arguments[1] }));";
+		tab.evaluate(mouse, "mousedown", 1);
+		tab.evaluate(mouse, "mousemove", 1);
+		assertTrue(outlineBecomes(tab, "none", 1000), "hidden while dragged");
+		// An element losing the focus does not end it
+		tab.evaluate("document.body.dispatchEvent(new FocusEvent('blur'));");
+		assertTrue(!outlineBecomes(tab, "block", 4500), "not drawn while the button is held");
+		// The window losing it (minimized, another one in front) does: no mouseup comes
+		tab.evaluate("window.dispatchEvent(new FocusEvent('blur'));");
+		assertTrue(outlineBecomes(tab, "block", 6000), "drawn once the window lost the mouse");
+	}
 }

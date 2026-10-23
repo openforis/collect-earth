@@ -20,6 +20,7 @@ import java.util.StringJoiner;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.TimeUnit;
+import java.util.function.BooleanSupplier;
 
 import org.apache.commons.lang3.StringUtils;
 import org.openforis.collect.earth.app.EarthConstants;
@@ -481,7 +482,7 @@ public class BrowserService implements InitializingBean, DisposableBean, Applica
 	/** The profile folder of the browser in the imagery window, or null for a temporary profile. */
 	private File imageryProfile(String browser) throws IOException {
 		return EarthConstants.FIREFOX_BROWSER.equals(browser) ? imageryFirefoxProfile()
-				: imageryChromiumProfile(new File(FolderFinder.getCollectEarthDataFolder()), browser);
+				: imageryChromiumProfile(new File(FolderFinder.getCollectEarthDataFolder()), browser, this::isChromeInstalled);
 	}
 
 	/** One browser for the imagery window, with BiDi, using {@code profile}, or a temporary profile when null. */
@@ -547,28 +548,41 @@ public class BrowserService implements InitializingBean, DisposableBean, Applica
 	 * could be lost when the browser chosen changes, or when the other one is started because the first did not.
 	 * <p>
 	 * Chrome's used to be the profile of the Google Earth Web window, which tried Chrome first: that folder is taken
-	 * over the first time, so the Google sign-in in it is kept. When it cannot be renamed (a browser has it open,
+	 * over the first time, so the Google sign-in in it is kept. By Edge when Chrome is not installed, which then wrote
+	 * it (and has no profile of its own yet). When it cannot be renamed (a browser has it open,
 	 * another Collect Earth mostly), null: a temporary profile for this run. Not a new, empty folder under the new
 	 * name, which would stop the rename from being tried again and leave the sign-in behind for good; the next start
 	 * tries again.
 	 *
 	 * @param dataFolder the Collect Earth data folder
 	 * @param browser    {@link EarthConstants#CHROME_BROWSER} or {@link EarthConstants#EDGE_BROWSER}
+	 * @param chromeInstalled whether Chrome is installed; asked only when Edge could take the old profile over
 	 */
-	static File imageryChromiumProfile(File dataFolder, String browser) throws IOException {
+	static File imageryChromiumProfile(File dataFolder, String browser, BooleanSupplier chromeInstalled) throws IOException {
 		File folder = new File(dataFolder, IMAGERY_PROFILE_FOLDER_PREFIX + browser);
 		File googleEarthWeb = new File(dataFolder, GOOGLE_EARTH_WEB_PROFILE_FOLDER);
-		if (EarthConstants.CHROME_BROWSER.equals(browser) && !folder.exists() && googleEarthWeb.isDirectory()) {
+		if (!folder.exists() && googleEarthWeb.isDirectory() && (EarthConstants.CHROME_BROWSER.equals(browser)
+				|| EarthConstants.EDGE_BROWSER.equals(browser) && !chromeInstalled.getAsBoolean())) {
 			Logger log = LoggerFactory.getLogger(BrowserService.class);
 			if (!googleEarthWeb.renameTo(folder)) {
 				log.warn("Could not rename {} to {} (in use?), a temporary profile is used until it can be",
 						googleEarthWeb, folder);
 				return null;
 			}
-			log.info("The profile of the Google Earth Web window is now the one of Chrome in the imagery window: {}", folder);
+			log.info("The profile of the Google Earth Web window is now the one of {} in the imagery window: {}", browser, folder);
 		}
 		Files.createDirectories(folder.toPath());
 		return folder;
+	}
+
+	/** Whether Chrome is installed, as WebDriverManager finds it; taken as installed when that cannot be told. */
+	private boolean isChromeInstalled() {
+		try {
+			return WebDriverManager.chromedriver().getBrowserPath().isPresent();
+		} catch (RuntimeException e) {
+			logger.debug("Could not tell whether Chrome is installed", e);
+			return true;
+		}
 	}
 
 	private void quietlyQuit(RemoteWebDriver driver) {

@@ -582,7 +582,9 @@ public class WindowLayoutService {
 	/**
 	 * The browser's work area, as large as Java's when Java's is a little larger: Firefox gives one 8 px short of the
 	 * task bar. Only when the browser and Java agree on the size of the screen (the browser's px may be Java's scaled:
-	 * Java's work area is then scaled alike), and by {@link #MAX_WORK_AREA_CORRECTION} at most.
+	 * Java's work area is then scaled alike), and by {@link #MAX_WORK_AREA_CORRECTION} at most. A side is corrected only
+	 * when the browser's work area starts where Java's does on that axis: with a task bar on the top or the left, one
+	 * that starts elsewhere would otherwise be made to reach past the screen.
 	 *
 	 * @param work         the work area the browser gives
 	 * @param screen       the size of the screen the browser gives
@@ -600,11 +602,15 @@ public class WindowLayoutService {
 		}
 		int width = (int) Math.round(javaWorkArea.width * scale);
 		int height = (int) Math.round(javaWorkArea.height * scale);
+		// Where Java's work area starts, in the browser's px (on a screen that is not the main one, scaled, the browser's
+		// coordinates may not be Java's scaled: then they do not agree, and nothing is corrected)
+		boolean sameLeft = Math.abs(work.x - Math.round(javaWorkArea.x * scale)) <= 1;
+		boolean sameTop = Math.abs(work.y - Math.round(javaWorkArea.y * scale)) <= 1;
 		Rectangle corrected = new Rectangle(work);
-		if (width > work.width && width - work.width <= MAX_WORK_AREA_CORRECTION) {
+		if (sameLeft && width > work.width && width - work.width <= MAX_WORK_AREA_CORRECTION) {
 			corrected.width = width;
 		}
-		if (height > work.height && height - work.height <= MAX_WORK_AREA_CORRECTION) {
+		if (sameTop && height > work.height && height - work.height <= MAX_WORK_AREA_CORRECTION) {
 			corrected.height = height;
 		}
 		return corrected;
@@ -735,7 +741,10 @@ public class WindowLayoutService {
 
 	/**
 	 * The invisible borders of the window as it is now (see {@link #invisibleBorder(List)}): none but on Windows, and
-	 * none when the browser does not say.
+	 * none when the browser does not say. That is 0 too when the window cannot be asked (its tab was closed, its page is
+	 * busy or being replaced): the window is then placed as before the borders were measured, 7 px off at 100 %. Under
+	 * a page zoom in Firefox the measure comes out in the page's px, about 7 / zoom of them, and the window is placed a
+	 * few px off the same way.
 	 */
 	private Insets invisibleBorders(RemoteWebDriver window) {
 		if (!WINDOWS) {

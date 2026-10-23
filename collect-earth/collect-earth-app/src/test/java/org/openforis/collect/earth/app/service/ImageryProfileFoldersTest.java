@@ -12,6 +12,7 @@ import java.io.FileOutputStream;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.function.BooleanSupplier;
 
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
@@ -20,9 +21,12 @@ import org.openforis.collect.earth.app.EarthConstants;
 /**
  * The Chrome and Edge profiles of the imagery window: one folder each, as a profile written by one of them is not one
  * the other can be relied on to read (its cookies are encrypted with a key of its own, and a newer version's profile
- * may be refused). Chrome takes over the profile of the old Google Earth Web window, which Chrome had first.
+ * may be refused). Chrome takes over the profile of the old Google Earth Web window, which Chrome had first; Edge
+ * does when Chrome is not installed.
  */
 public class ImageryProfileFoldersTest {
+
+	private static final BooleanSupplier INSTALLED = () -> true;
 
 	@TempDir
 	Path data;
@@ -40,8 +44,8 @@ public class ImageryProfileFoldersTest {
 
 	@Test
 	public void chromeAndEdgeHaveAFolderEach() throws Exception {
-		File chrome = BrowserService.imageryChromiumProfile(data.toFile(), EarthConstants.CHROME_BROWSER);
-		File edge = BrowserService.imageryChromiumProfile(data.toFile(), EarthConstants.EDGE_BROWSER);
+		File chrome = BrowserService.imageryChromiumProfile(data.toFile(), EarthConstants.CHROME_BROWSER, INSTALLED);
+		File edge = BrowserService.imageryChromiumProfile(data.toFile(), EarthConstants.EDGE_BROWSER, INSTALLED);
 		assertEquals(new File(profiles(), "imagery_chrome"), chrome);
 		assertEquals(new File(profiles(), "imagery_edge"), edge);
 		assertNotEquals(chrome, edge);
@@ -52,7 +56,7 @@ public class ImageryProfileFoldersTest {
 	@Test
 	public void chromeTakesOverTheProfileOfTheGoogleEarthWebWindow() throws Exception {
 		File old = oldGoogleEarthWeb();
-		File chrome = BrowserService.imageryChromiumProfile(data.toFile(), EarthConstants.CHROME_BROWSER);
+		File chrome = BrowserService.imageryChromiumProfile(data.toFile(), EarthConstants.CHROME_BROWSER, INSTALLED);
 		assertFalse(old.exists());
 		assertEquals("signed in", new String(Files.readAllBytes(new File(chrome, "Cookies").toPath()), StandardCharsets.UTF_8));
 	}
@@ -60,18 +64,18 @@ public class ImageryProfileFoldersTest {
 	@Test
 	public void edgeLeavesTheProfileOfTheGoogleEarthWebWindowToChrome() throws Exception {
 		File old = oldGoogleEarthWeb();
-		File edge = BrowserService.imageryChromiumProfile(data.toFile(), EarthConstants.EDGE_BROWSER);
+		File edge = BrowserService.imageryChromiumProfile(data.toFile(), EarthConstants.EDGE_BROWSER, INSTALLED);
 		assertTrue(old.isDirectory());
 		assertFalse(new File(edge, "Cookies").exists());
-		File chrome = BrowserService.imageryChromiumProfile(data.toFile(), EarthConstants.CHROME_BROWSER);
+		File chrome = BrowserService.imageryChromiumProfile(data.toFile(), EarthConstants.CHROME_BROWSER, INSTALLED);
 		assertTrue(new File(chrome, "Cookies").exists());
 	}
 
 	@Test
 	public void aChromeProfileThereAlreadyIsKept() throws Exception {
-		File chrome = BrowserService.imageryChromiumProfile(data.toFile(), EarthConstants.CHROME_BROWSER);
+		File chrome = BrowserService.imageryChromiumProfile(data.toFile(), EarthConstants.CHROME_BROWSER, INSTALLED);
 		File old = oldGoogleEarthWeb();
-		assertEquals(chrome, BrowserService.imageryChromiumProfile(data.toFile(), EarthConstants.CHROME_BROWSER));
+		assertEquals(chrome, BrowserService.imageryChromiumProfile(data.toFile(), EarthConstants.CHROME_BROWSER, INSTALLED));
 		assertTrue(old.isDirectory());
 		assertFalse(new File(chrome, "Cookies").exists());
 	}
@@ -82,11 +86,26 @@ public class ImageryProfileFoldersTest {
 		assumeTrue(System.getProperty("os.name", "").startsWith("Windows"));
 		File old = oldGoogleEarthWeb();
 		try (FileOutputStream open = new FileOutputStream(new File(old, "Cookies"), true)) {
-			assertNull(BrowserService.imageryChromiumProfile(data.toFile(), EarthConstants.CHROME_BROWSER));
+			assertNull(BrowserService.imageryChromiumProfile(data.toFile(), EarthConstants.CHROME_BROWSER, INSTALLED));
 			// Not created under the new name, which would stop the rename from being tried again
 			assertFalse(new File(profiles(), "imagery_chrome").exists());
 		}
-		File chrome = BrowserService.imageryChromiumProfile(data.toFile(), EarthConstants.CHROME_BROWSER);
+		File chrome = BrowserService.imageryChromiumProfile(data.toFile(), EarthConstants.CHROME_BROWSER, INSTALLED);
 		assertTrue(new File(chrome, "Cookies").exists());
+	}
+
+	@Test
+	public void edgeTakesOverTheProfileOfTheGoogleEarthWebWindowWithoutChrome() throws Exception {
+		File old = oldGoogleEarthWeb();
+		File edge = BrowserService.imageryChromiumProfile(data.toFile(), EarthConstants.EDGE_BROWSER, () -> false);
+		assertFalse(old.exists());
+		assertTrue(new File(edge, "Cookies").exists());
+	}
+
+	@Test
+	public void chromeInstalledIsNotAskedForWhenThereIsNothingToTakeOver() throws Exception {
+		BrowserService.imageryChromiumProfile(data.toFile(), EarthConstants.EDGE_BROWSER, () -> {
+			throw new AssertionError("asked");
+		});
 	}
 }
