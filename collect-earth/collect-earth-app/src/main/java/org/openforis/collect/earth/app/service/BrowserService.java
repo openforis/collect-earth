@@ -154,6 +154,7 @@ public class BrowserService implements InitializingBean, DisposableBean, Applica
 
 	private volatile boolean geeMethodUpdated = false;
 	private volatile boolean isClosing = false;
+	private final List<Runnable> leafletMapOpenedListeners = new CopyOnWriteArrayList<>();
 
 	/**
 	 * Creates and configures the Freemarker Configuration instance.
@@ -1246,20 +1247,62 @@ public class BrowserService implements InitializingBean, DisposableBean, Applica
 		return webDriverLeafletMap;
 	}
 
+	/** Opens the plots map window, or loads the plots map again in it if it is open. A failure is logged. */
 	public void openLeafletMap() {
+		try {
+			showLeafletMap();
+		} catch (final Exception e) {
+			logger.error("Problems loading the Leaflet plots map", e);
+		}
+	}
+
+	/**
+	 * As {@link #openLeafletMap()}, but failing instead of logging an error: {@link PlotsMapKeeper} reopens the window
+	 * by itself every few seconds while no browser can start, and says so once, as a warning.
+	 *
+	 * @return whether the plots map window is open now
+	 */
+	boolean reopenLeafletMap() throws BrowserNotFoundException {
+		return showLeafletMap();
+	}
+
+	private boolean showLeafletMap() throws BrowserNotFoundException {
 		Object lock = getOrCreateLock(BrowserType.LEAFLET_MAP);
 		synchronized (lock) {
-			try {
-				String url = ServerController.getHostAddress(localPropertiesService.getHost(),
-						localPropertiesService.getLocalPort()) + "map";
-				if (webDriverLeafletMap == null || !isDriverWorking(webDriverLeafletMap)) {
-					webDriverLeafletMap = initAppWindow(null);
+			String url = ServerController.getHostAddress(localPropertiesService.getHost(),
+					localPropertiesService.getLocalPort()) + "map";
+			RemoteWebDriver previous = webDriverLeafletMap;
+			if (previous == null || !isDriverWorking(previous)) {
+				if (previous != null) {
+					// The user closed the window. Its driver outlives it (and on macOS the browser too, with no
+					// window): quit, so that every reopen does not leave one more behind until Collect Earth closes
+					drivers.remove(previous);
+					quietlyQuit(previous);
 				}
-				webDriverLeafletMap = navigateTo(url, webDriverLeafletMap);
-			} catch (final Exception e) {
-				logger.error("Problems loading the Leaflet plots map", e);
+				webDriverLeafletMap = initAppWindow(null);
+			}
+			webDriverLeafletMap = navigateTo(url, webDriverLeafletMap);
+			if (webDriverLeafletMap == null) {
+				return false;
 			}
 		}
+		for (Runnable listener : leafletMapOpenedListeners) {
+			listener.run();
+		}
+		return true;
+	}
+
+	/**
+	 * Called after the plots map window opened or loaded again, on the thread that opened it: {@link PlotsMapKeeper}
+	 * keeps it open from then on.
+	 */
+	public void onLeafletMapOpened(Runnable listener) {
+		leafletMapOpenedListeners.add(listener);
+	}
+
+	/** Whether Collect Earth is closing its browsers: no window is to be opened again then. */
+	public boolean isClosing() {
+		return isClosing;
 	}
 
 	/**

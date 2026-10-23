@@ -18,7 +18,9 @@ import javax.annotation.PreDestroy;
 import org.openforis.collect.earth.app.service.imagery.ImageryBrowser;
 import org.openqa.selenium.Dimension;
 import org.openqa.selenium.Point;
+import org.openqa.selenium.TimeoutException;
 import org.openqa.selenium.WebDriver;
+import org.openqa.selenium.WebDriverException;
 import org.openqa.selenium.remote.RemoteWebDriver;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -124,6 +126,9 @@ public class WindowLayoutService {
 	@Autowired
 	private LocalPropertiesService localPropertiesService;
 
+	@Autowired
+	private PlotImageryService plotImageryService;
+
 	private final Object lock = new Object();
 	private ScheduledExecutorService screenWatcher;
 	/** The screens the windows were last laid out on (see {@link #screensSignature}). */
@@ -163,9 +168,71 @@ public class WindowLayoutService {
 		return arrange(false);
 	}
 
-	/** As {@link #arrange()}, and brings the windows in front of the others: the user asked for them. */
+	/**
+	 * As {@link #arrange()}, and brings the windows in front of the others: the user asked for them ("Arrange" in the
+	 * main window and in the plots map). First opens again the windows the user closed: the plots map, which holds the
+	 * form (it is reopened by itself too, see {@link PlotsMapKeeper}, but this does not wait for its next check), and
+	 * the imagery window, on the plot shown last (see {@link PlotImageryService#reopenImagery()}). The windows are of no
+	 * use closed, and asking for them back is what the user does when one is lost.
+	 */
 	public boolean arrangeAndBringForward() {
+		if (localPropertiesService.isPlotsMapViewer() && !browserService.isClosing()) {
+			reopenClosedWindows();
+		}
 		return arrange(true);
+	}
+
+	private void reopenClosedWindows() {
+		// Only a window that was open once: before that, there is nothing to open again
+		if (browserService.getLeafletMapDriver() != null && !isPlotsMapOpen()) {
+			logger.info("Arrange: the plots map window was closed, opening it again");
+			browserService.openLeafletMap();
+		}
+		if (isImageryWindowClosed() && plotImageryService.reopenImagery()) {
+			logger.info("Arrange: the imagery window was closed, opening it again");
+		}
+	}
+
+	/**
+	 * Whether the plots map window is open: a {@code getWindowHandles()} to its browser, which is cheap (the browser
+	 * answers it without the page, which may be busy) and holds {@link #lock}, as every classic call on the windows
+	 * does, so that it never runs alongside a placement. False when it was never opened, when its browser ended (the
+	 * user closed its only window), or when the browser still runs without a window (macOS). A browser that does not
+	 * answer in time counts as open: it is hung, not closed, and another window would only be one more.
+	 */
+	public boolean isPlotsMapOpen() {
+		synchronized (lock) {
+			RemoteWebDriver map = browserService.getLeafletMapDriver();
+			return map != null && hasWindow(map);
+		}
+	}
+
+	/**
+	 * Whether the imagery window was open and the user closed it. Closing it whole tells the imagery browser nothing (see
+	 * {@link ImageryBrowser#isOpen}), so its window is asked, as {@link #isPlotsMapOpen()} asks the plots map. With no
+	 * window to ask ({@link ImageryBrowser#window()} null), it is closed when it has no tab open: never opened, or ended.
+	 */
+	private boolean isImageryWindowClosed() {
+		synchronized (lock) {
+			RemoteWebDriver imagery = imageryBrowser.window();
+			if (imagery == null) {
+				return imageryBrowser.openSources().isEmpty();
+			}
+			return !hasWindow(imagery);
+		}
+	}
+
+	/** Called holding {@link #lock}. */
+	private boolean hasWindow(RemoteWebDriver driver) {
+		try {
+			return !driver.getWindowHandles().isEmpty();
+		} catch (TimeoutException e) {
+			logger.debug("The browser did not say whether its window is open", e);
+			return true;
+		} catch (WebDriverException e) {
+			logger.debug("The browser window is gone: {}", e.getMessage());
+			return false;
+		}
 	}
 
 	/**

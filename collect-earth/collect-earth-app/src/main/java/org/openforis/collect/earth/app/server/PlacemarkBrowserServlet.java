@@ -3,34 +3,28 @@ package org.openforis.collect.earth.app.server;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.EnumSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
-import java.util.Set;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
-import java.util.concurrent.atomic.AtomicReference;
 
 import javax.annotation.PreDestroy;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 
-import org.openforis.collect.earth.app.service.BrowserService;
 import org.openforis.collect.earth.app.service.EarthSurveyService;
 import org.openforis.collect.earth.app.service.GoogleEarthWebService;
 import org.openforis.collect.earth.app.service.KmlGeneratorService;
 import org.openforis.collect.earth.app.service.LocalPropertiesService;
+import org.openforis.collect.earth.app.service.PlotImageryService;
 import org.openforis.collect.earth.app.service.WindowLayoutService;
 import org.openforis.collect.earth.app.service.imagery.ImageryBrowser;
 import org.openforis.collect.earth.app.service.imagery.ImagerySource;
 import org.openforis.collect.earth.core.utils.CsvReaderUtils;
 import org.openforis.collect.earth.sampler.model.SimplePlacemarkObject;
 import org.openforis.collect.earth.sampler.processor.KmlGenerator;
-import org.openforis.collect.earth.sampler.utils.KmlGenerationException;
 import org.openforis.idm.metamodel.AttributeDefinition;
-import org.opengis.referencing.operation.TransformException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -54,9 +48,6 @@ import com.opencsv.CSVReader;
 @Controller
 public class PlacemarkBrowserServlet {
 	@Autowired
-	private BrowserService browserService;
-
-	@Autowired
 	private EarthSurveyService earthSurveyService;
 
 	@Autowired
@@ -65,9 +56,10 @@ public class PlacemarkBrowserServlet {
 	@Autowired
 	private ImageryBrowser imageryBrowser;
 
+	@Autowired
+	private PlotImageryService plotImageryService;
 
 	@Autowired
-
 	private WindowLayoutService windowLayoutService;
 
 	@Autowired
@@ -78,8 +70,6 @@ public class PlacemarkBrowserServlet {
 
 	private volatile KmlGenerator kmlGenerator;
 
-	private final AtomicReference<SimplePlacemarkObject> lastPlacemark = new AtomicReference<>();
-
 	private final Logger logger = LoggerFactory.getLogger( PlacemarkBrowserServlet.class );
 
 	private final ExecutorService executor = Executors.newCachedThreadPool();
@@ -89,80 +79,22 @@ public class PlacemarkBrowserServlet {
 		executor.shutdownNow();
 	}
 
+	/** Shows the plot in the imagery window, on a thread of its own: opening the tabs may start a browser. */
 	private final class OpenBrowserThread extends Thread {
 
 		private final SimplePlacemarkObject placemarkObject;
+		private final KmlGenerator generator;
 
 		private OpenBrowserThread(String name, SimplePlacemarkObject placemarkObject) {
 			super(name);
 			this.placemarkObject = placemarkObject;
+			this.generator = kmlGenerator;
 		}
 
 		@Override
 		public void run() {
-			// If this is the first plot or the plot is different from the last one opened
-			SimplePlacemarkObject previous = lastPlacemark.get();
-			if (!Objects.equals(previous, placemarkObject)) {
-
-				try {
-					kmlGenerator.fillSamplePoints(placemarkObject);
-					kmlGenerator.fillExternalLine(placemarkObject);
-
-					// First, so that its load is queued early; on a thread of its own, as it waits for the page and its
-					// in-page move. In a browser that starts, its tab is the first whichever comes first, its
-					// own load or openImageryTabs(), which opens the tabs one by one in the order of ImagerySource
-					openWindowAsync("Google Earth Web", () -> googleEarthWebService.showPlot(placemarkObject));
-					openImageryTabs();
-					openWindowAsync("Earth Engine APP", () -> browserService.openGEEAppURL(placemarkObject));
-					openWindowAsync("Earth Map", () -> browserService.openEarthMapURL(placemarkObject));
-					openWindowAsync("ESRI Wayback", () -> browserService.openEsriWayback(placemarkObject));
-					openWindowAsync("Extra Map", () -> browserService.openExtraMap(placemarkObject));
-					openWindowAsync("Street View", () -> browserService.openStreetView(placemarkObject));
-					openWindowAsync("Planet Maps", () -> browserService.openPlanetMaps(placemarkObject));
-					openWindowAsync("SecureWatch", () -> browserService.openSecureWatch(placemarkObject));
-
-				} catch (TransformException | KmlGenerationException e) {
-					logger.error("Error generating polygon", e);
-				}
-			}
-
-			lastPlacemark.set(placemarkObject);
+			plotImageryService.showPlot(placemarkObject, generator);
 		}
-	}
-
-	/**
-	 * Opens the tabs of the imagery sources switched on before their loads are sent, so that the tabs are in the order of
-	 * {@link ImagerySource} whatever order the loads arrive in. When there is no browser, a warning: the loads that
-	 * follow fail at once (a failed start is remembered for a while), and the other windows carry on.
-	 */
-	private void openImageryTabs() {
-		Set<ImagerySource> sources = EnumSet.noneOf(ImagerySource.class);
-		sources.addAll(browserService.enabledImagerySources());
-		// Mostly they are open already: no command per source for the worker on every plot. Asked of each source rather
-		// than of openSources(), which still lists the tabs of a browser the user closed until a new one starts
-		if (sources.stream().allMatch(imageryBrowser::isOpen)) {
-			return;
-		}
-		try {
-			imageryBrowser.openTabs(sources);
-		} catch (RuntimeException e) {
-			logger.warn("The tabs of the imagery window could not be opened: {}", e.getMessage());
-		}
-	}
-
-	@FunctionalInterface
-	private interface BrowserAction {
-		void execute() throws Exception;
-	}
-
-	private void openWindowAsync(String windowName, BrowserAction action) {
-		executor.submit(() -> {
-			try {
-				action.execute();
-			} catch (Exception e) {
-				logger.error("Exception opening " + windowName + " window", e);
-			}
-		});
 	}
 
 
@@ -244,7 +176,7 @@ public class PlacemarkBrowserServlet {
 	public void openGoogleEarthWeb(HttpServletResponse response,
 			@RequestParam("latLongCoordinates") String latLongCoordinates) {
 		SimplePlacemarkObject center = new SimplePlacemarkObject(latLongCoordinates.split(","));
-		executor.submit(() -> googleEarthWebService.openOverview(center));
+		plotImageryService.openOverview(center);
 		response.setStatus(HttpServletResponse.SC_OK);
 	}
 
@@ -330,7 +262,10 @@ public class PlacemarkBrowserServlet {
 		response.setStatus(HttpServletResponse.SC_OK);
 	}
 
-	/** Lays out the plots map and imagery windows again (the layout chosen in the options). */
+	/**
+	 * Lays out the plots map and imagery windows again (the layout chosen in the options), opening again those the user
+	 * closed.
+	 */
 	@GetMapping(path = "/googleEarthWeb/arrange")
 	public void arrangeGoogleEarthWebWindows(HttpServletResponse response) {
 		executor.submit(windowLayoutService::arrangeAndBringForward);
