@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { countStatuses, footprintCorners, heightForZoom, matchesFilter, neighbour, nextUnfinished, normalizeStatus, plotsNear, sameView,
+import { countStatuses, footprintCorners, heightForZoom, matchesFilter, neighbour, nextUnfinished, normalizeStatus, plotParam, plotsNear,
+  plotToRestore, sameView, withoutPlotParam,
   visibleIds, zoomForHeight } from "./plots";
 import type { PlotStatus } from "./types";
 
@@ -93,5 +94,28 @@ describe("map zoom and Google Earth Web camera", () => {
     // moved by a tenth of the view, or zoomed by a fifth
     expect(sameView(a, { center: [-4.99 + 100 / 111320, 151.35], heightMeters: 1000 })).toBe(false);
     expect(sameView(a, { ...a, heightMeters: 1200 })).toBe(false);
+  });
+});
+
+describe("a plots map reopened on a plot", () => {
+  it("reads the plot from the address, decoded as Collect Earth encodes it", () => {
+    expect(plotParam("?plot=710%2C1")).toBe("710,1");
+    expect(plotParam("?plot=a+b%26c%3Dd")).toBe("a b&c=d");
+    expect(plotParam("")).toBeNull();
+    expect(plotParam("?plot=")).toBeNull();
+    expect(plotParam("?other=1")).toBeNull();
+  });
+
+  it("selects it only if the survey has it", () => {
+    const plots = { "710,1": {}, p2: {} };
+    expect(plotToRestore("710,1", plots)).toBe("710,1");
+    expect(plotToRestore("gone", plots)).toBeNull();
+    expect(plotToRestore("toString", plots)).toBeNull();
+    expect(plotToRestore(null, plots)).toBeNull();
+  });
+
+  it("takes the plot out of the address and keeps the rest", () => {
+    expect(withoutPlotParam("http://127.0.0.1:8028/earth/map?plot=710%2C1")).toBe("http://127.0.0.1:8028/earth/map");
+    expect(withoutPlotParam("http://h/earth/map?a=1&plot=x#top")).toBe("http://h/earth/map?a=1#top");
   });
 });

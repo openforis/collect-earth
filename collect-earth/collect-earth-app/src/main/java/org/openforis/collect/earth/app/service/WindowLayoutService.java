@@ -186,7 +186,7 @@ public class WindowLayoutService {
 		// Only a window that was open once: before that, there is nothing to open again
 		if (browserService.getLeafletMapDriver() != null && !isPlotsMapOpen()) {
 			logger.info("Arrange: the plots map window was closed, opening it again");
-			browserService.openLeafletMap();
+			browserService.openLeafletMap(plotImageryService.getSelectedPlotId());
 		}
 		if (isImageryWindowClosed() && plotImageryService.reopenImagery()) {
 			logger.info("Arrange: the imagery window was closed, opening it again");

@@ -39,6 +39,9 @@ public class PlotsMapKeeper {
 	@Autowired
 	private LocalPropertiesService localPropertiesService;
 
+	@Autowired
+	private PlotImageryService plotImageryService;
+
 	private final PlotsMapReopening reopening = new PlotsMapReopening();
 	private ScheduledExecutorService watcher;
 	private boolean stopped;
@@ -73,7 +76,8 @@ public class PlotsMapKeeper {
 			logger.info("The plots map window was closed, opening it again: it holds the form");
 			boolean open;
 			try {
-				open = browserService.reopenLeafletMap();
+				// On the plot that was open: the form comes back where the user was
+				open = browserService.reopenLeafletMap(plotImageryService.getSelectedPlotId());
 			} catch (BrowserNotFoundException | RuntimeException e) {
 				if (reopening.failed()) {
 					logger.warn("The plots map window could not be opened again, trying again in {} s: {}",

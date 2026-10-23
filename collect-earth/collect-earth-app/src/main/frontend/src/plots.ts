@@ -101,3 +101,23 @@ export function sameView(a: GroundView, b: GroundView, tolerance = 0.03): boolea
   return moved < tolerance * Math.min(a.heightMeters, b.heightMeters)
     && Math.abs(Math.log(a.heightMeters / b.heightMeters)) < tolerance;
 }
+
+// ---------- a plots map reopened on the plot that was open ----------
+
+/** The `plot` parameter of the address: Collect Earth reopens a plots map the user closed on the plot that was open. */
+export function plotParam(search: string): string | null {
+  const id = new URLSearchParams(search).get("plot");
+  return id && id.trim() ? id : null;
+}
+
+/** The plot to select once the plots have loaded: the one asked for, if the survey has it (else none, silently). */
+export function plotToRestore(requested: string | null, plots: Record<string, unknown>): string | null {
+  return requested != null && Object.prototype.hasOwnProperty.call(plots, requested) ? requested : null;
+}
+
+/** The address without its `plot` parameter, so that reloading the page does not select that plot again. */
+export function withoutPlotParam(href: string): string {
+  const url = new URL(href);
+  url.searchParams.delete("plot");
+  return url.toString();
+}

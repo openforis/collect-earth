@@ -125,6 +125,7 @@ public class PlacemarkBrowserServlet {
 				// like the GEE App URL require it (see BrowserService.openGEEAppURL).
 				placemarkObject.setPlacemarkId(plotId);
 			}
+			plotImageryService.plotSelected(plotId);
 			OpenBrowserThread browserThread = new OpenBrowserThread("Open auxiliary windows " + latLongCoordinates, placemarkObject);
 			browserThread.start();
 			response.setStatus(HttpServletResponse.SC_OK);

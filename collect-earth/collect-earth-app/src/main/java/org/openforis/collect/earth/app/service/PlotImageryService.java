@@ -44,6 +44,12 @@ public class PlotImageryService {
 
 	/** The plot shown last, its sample points and outline filled in; null before the first plot. */
 	private final AtomicReference<SimplePlacemarkObject> lastPlacemark = new AtomicReference<>();
+	/**
+	 * The plot selected last in the plots map, which tells every selection (/openAuxiliaryWindows): a plots map the user
+	 * closed comes back on it. Kept apart from {@link #lastPlacemark}, which is set on another thread, after the plot is
+	 * filled in, and not when the plot equals the one before.
+	 */
+	private volatile String selectedPlotId;
 	/** Where Google Earth Web was opened before any plot was selected; see {@link #openOverview}. */
 	private final AtomicReference<SimplePlacemarkObject> lastOverview = new AtomicReference<>();
 
@@ -82,6 +88,18 @@ public class PlotImageryService {
 		showInGoogleEarthWeb(placemark);
 		openImageryTabs(false);
 		loadInOtherSources(placemark);
+	}
+
+	/** The plots map selected this plot (null or blank: an id is not known, the one before is kept). */
+	public void plotSelected(String plotId) {
+		if (plotId != null && !plotId.trim().isEmpty()) {
+			selectedPlotId = plotId;
+		}
+	}
+
+	/** The plot selected last in the plots map, or null before the first. */
+	public String getSelectedPlotId() {
+		return selectedPlotId;
 	}
 
 	/** Opens Google Earth Web over the survey area before a plot is selected (a no-op if it is open). */

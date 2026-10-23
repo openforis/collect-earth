@@ -4,7 +4,8 @@ import { fetchGewStatus, fetchImageryStatus, fetchMapConfig, fetchPlots, fetchSt
 import { GoogleEngine } from "./engines/GoogleEngine";
 import { LeafletEngine } from "./engines/LeafletEngine";
 import type { EngineConfig, MapEngine } from "./engines/MapEngine";
-import { footprintCorners, neighbour, nextUnfinished, normalizeStatus, plotsNear, sameView, visibleIds } from "./plots";
+import { footprintCorners, neighbour, nextUnfinished, normalizeStatus, plotParam, plotsNear, plotToRestore, sameView, visibleIds,
+  withoutPlotParam } from "./plots";
 import type { MessageKey } from "./i18n";
 import { reconcileImagery, sameImageryStatus, type ImageryExpectation } from "./imagery";
 import { loadPrefs, savePrefs, type Prefs } from "./prefs";
@@ -86,6 +87,8 @@ export class MapController {
   private webForm = "generated";
   private lastStatusPoll: number | null = null;
   private fellBack = false;
+  /** The plot to select once the plots have loaded: the map was reopened on it (see plotParam). */
+  private restorePlot: string | null = null;
 
   constructor() {
     this.state = {
@@ -120,6 +123,11 @@ export class MapController {
   async start(container: HTMLElement): Promise<void> {
     if (this.container) return;
     this.container = container;
+    this.restorePlot = plotParam(window.location.search);
+    if (this.restorePlot != null) {
+      // Out of the address at once: a reload by the user starts afresh
+      try { window.history.replaceState(window.history.state, "", withoutPlotParam(window.location.href)); } catch { /* kept */ }
+    }
     window.addEventListener("message", this.onFormMessage);
     let config: MapConfig;
     try { config = await fetchMapConfig(); } catch {
@@ -205,6 +213,10 @@ export class MapController {
       engine.fitAll(this.allCenters());
       this.updateVisibility();
       this.pollStatuses();
+      // Reopened on the plot that was open: selected as a click would (the imagery skips a plot it shows already)
+      const restore = plotToRestore(this.restorePlot, this.plots);
+      this.restorePlot = null;
+      if (restore) this.selectPlot(restore);
       // Warm up Google Earth Web over the survey area so the first plot appears quickly
       if (this.usesGoogleEarthWeb() && !this.state.activeId) {
         gewOpenOverview(gridCenter(this.allCenters()));

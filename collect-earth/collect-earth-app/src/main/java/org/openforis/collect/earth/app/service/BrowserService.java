@@ -1249,8 +1249,18 @@ public class BrowserService implements InitializingBean, DisposableBean, Applica
 
 	/** Opens the plots map window, or loads the plots map again in it if it is open. A failure is logged. */
 	public void openLeafletMap() {
+		openLeafletMap(null);
+	}
+
+	/**
+	 * As {@link #openLeafletMap()}, on a plot: the window the user closed comes back on the plot that was open in it
+	 * (see {@link #leafletMapUrl}).
+	 *
+	 * @param plotId the plot to select in the plots map, or null for none
+	 */
+	public void openLeafletMap(String plotId) {
 		try {
-			showLeafletMap();
+			showLeafletMap(plotId);
 		} catch (final Exception e) {
 			logger.error("Problems loading the Leaflet plots map", e);
 		}
@@ -1262,15 +1272,29 @@ public class BrowserService implements InitializingBean, DisposableBean, Applica
 	 *
 	 * @return whether the plots map window is open now
 	 */
-	boolean reopenLeafletMap() throws BrowserNotFoundException {
-		return showLeafletMap();
+	boolean reopenLeafletMap(String plotId) throws BrowserNotFoundException {
+		return showLeafletMap(plotId);
 	}
 
-	private boolean showLeafletMap() throws BrowserNotFoundException {
+	/**
+	 * The address of the plots map, on the plot {@code plotId} if not null: the page selects it once its plots have
+	 * loaded, as a click would, and takes the parameter out of its address (see App's controller).
+	 *
+	 * @param base the address of the embedded server, ending with /
+	 */
+	static String leafletMapUrl(String base, String plotId) {
+		String url = base + "map";
+		if (StringUtils.isBlank(plotId)) {
+			return url;
+		}
+		return url + "?plot=" + URLEncoder.encode(plotId, StandardCharsets.UTF_8);
+	}
+
+	private boolean showLeafletMap(String plotId) throws BrowserNotFoundException {
 		Object lock = getOrCreateLock(BrowserType.LEAFLET_MAP);
 		synchronized (lock) {
-			String url = ServerController.getHostAddress(localPropertiesService.getHost(),
-					localPropertiesService.getLocalPort()) + "map";
+			String url = leafletMapUrl(ServerController.getHostAddress(localPropertiesService.getHost(),
+					localPropertiesService.getLocalPort()), plotId);
 			RemoteWebDriver previous = webDriverLeafletMap;
 			if (previous == null || !isDriverWorking(previous)) {
 				if (previous != null) {
