@@ -50,6 +50,12 @@ import org.springframework.stereotype.Component;
  * with screens of different scalings, Java's and the browser's coordinates do not agree, and the system may move or
  * resize a window on its own (snapping, minimum sizes).
  *
+ * <p>On Windows, a window that is not maximized has invisible resize borders on its left, right and bottom (7 px at
+ * 100 %), which the rectangle WebDriver sets and reads includes. Placed by that rectangle, the windows would stand 14 px
+ * apart and 7 px above the task bar: each window's borders are measured by its browser (see
+ * {@link #invisibleBorders(RemoteWebDriver)}) and its rectangle widened by them, so that what shows of it fills its
+ * place.</p>
+ *
  * <p>The layout is kept: it is applied again whenever a browser for the imagery window starts (the first time, or
  * after the user closed it), when the plots map asks (it opened, or the user chose "Arrange"), and when screens are
  * added, removed or resized (e.g. a laptop docked or undocked) while the windows are open. Side by side, the imagery
@@ -121,8 +127,22 @@ public class WindowLayoutService {
 	/** Side by side, the imagery window is not squeezed narrower than this to follow the plots map window. */
 	private static final int MIN_IMAGERY_WIDTH = 320;
 
-	/** The work area (screen minus task bar / dock) of the screen the window is on, in the browser's coordinates. */
-	private static final String WORK_AREA_SCRIPT = "return [screen.availLeft || 0, screen.availTop || 0, screen.availWidth, screen.availHeight];";
+	/**
+	 * The work area (screen minus task bar / dock) of the screen the window is on, in the browser's coordinates, then the
+	 * size of that screen.
+	 */
+	private static final String WORK_AREA_SCRIPT = "return [screen.availLeft || 0, screen.availTop || 0, screen.availWidth, screen.availHeight, screen.width, screen.height];";
+	/**
+	 * Most a work area of the browser is made larger to match Java's (see {@link #correctedWorkArea}): Firefox (158, on
+	 * Windows 10) gives one 8 px shorter than the screen's; a larger difference is something else.
+	 */
+	private static final int MAX_WORK_AREA_CORRECTION = 16;
+	/** What a window measures of its frame, see {@link #invisibleBorder(List)}. */
+	private static final String FRAME_SCRIPT = "return [window.outerWidth, window.innerWidth, window.outerHeight, window.innerHeight,"
+			+ " window.screenX, window.screenY, window.mozInnerScreenX, window.mozInnerScreenY, window.devicePixelRatio];";
+	/** Larger than any invisible border (7 px at 100 %, about as many of the browser's px at other scalings). */
+	private static final int MAX_INVISIBLE_BORDER = 16;
+	private static final boolean WINDOWS = System.getProperty("os.name", "").toLowerCase(Locale.ROOT).startsWith("windows");
 
 	private final Logger logger = LoggerFactory.getLogger(WindowLayoutService.class);
 
@@ -409,12 +429,13 @@ public class WindowLayoutService {
 				return;
 			}
 			try {
-				Rectangle form = rectangleOf(map);
-				Rectangle target = besideForm(work, form);
-				if (target == null) {
+				Rectangle form = visiblePart(rectangleOf(map), invisibleBorders(map));
+				Rectangle room = besideForm(work, form);
+				if (room == null) {
 					logger.debug("No room for the imagery window beside the plots map at {}", form);
 					return;
 				}
+				Rectangle target = withInvisibleBorders(room, invisibleBorders(imagery));
 				if (!isAt(rectangleOf(imagery), target)) {
 					placeExactly(imagery, target);
 				}
@@ -487,11 +508,12 @@ public class WindowLayoutService {
 	}
 
 	/**
-	 * The room left in the work area beside the form window, on its wider side, the whole height; null when the form is
-	 * mostly off that screen or the room is narrower than {@link #MIN_IMAGERY_WIDTH}.
+	 * The room left in the work area beside the form window (what shows of it, see {@link #visiblePart}), on its wider
+	 * side, the whole height; null when the form is mostly off that screen or the room is narrower than
+	 * {@link #MIN_IMAGERY_WIDTH}.
 	 */
 	static Rectangle besideForm(Rectangle work, Rectangle form) {
-		// A window's rectangle includes its invisible borders: only being mostly elsewhere means it left the screen
+		// A maximized window overhangs the work area: only being mostly elsewhere means it left the screen
 		Rectangle shared = work.intersection(form);
 		if (shared.isEmpty() || (long) shared.width * shared.height * 2 < (long) form.width * form.height) {
 			return null;
@@ -509,6 +531,85 @@ public class WindowLayoutService {
 		return (long) bounds.width * bounds.height;
 	}
 
+	/**
+	 * The rectangle to give a window so that what shows of it is {@code visible}: widened by its invisible borders (left,
+	 * right and bottom on Windows; the top edge of the title bar shows).
+	 */
+	static Rectangle withInvisibleBorders(Rectangle visible, Insets border) {
+		return new Rectangle(visible.x - border.left, visible.y - border.top, visible.width + border.left + border.right,
+				visible.height + border.top + border.bottom);
+	}
+
+	/** What shows of a window at this rectangle with these invisible borders: the reverse of {@link #withInvisibleBorders}. */
+	static Rectangle visiblePart(Rectangle window, Insets border) {
+		return new Rectangle(window.x + border.left, window.y + border.top, window.width - border.left - border.right,
+				window.height - border.top - border.bottom);
+	}
+
+	/**
+	 * The invisible border of a window that is not maximized (each of left, right and bottom: Windows makes them alike),
+	 * in the browser's px, from what {@link #FRAME_SCRIPT} measured. Outer minus inner width, halved, is the border of a
+	 * side plus the frame that shows, 1 px of the screen; Firefox also says where the page starts on the screen
+	 * (mozInnerScreenX/Y), which gives the left border and the bottom one each by itself. The smallest of these is taken:
+	 * a side bar or docked developer tools only make one of them larger. 0 when it cannot be told: nothing measured, a
+	 * page zoom (the inner size is then in other px), or a figure larger than any border.
+	 */
+	static int invisibleBorder(List<?> measured) {
+		double outerWidth = numberAt(measured, 0);
+		double innerWidth = numberAt(measured, 1);
+		double outerHeight = numberAt(measured, 2);
+		double innerHeight = numberAt(measured, 3);
+		double screenX = numberAt(measured, 4);
+		double screenY = numberAt(measured, 5);
+		double pageX = numberAt(measured, 6);
+		double pageY = numberAt(measured, 7);
+		double pixelRatio = numberAt(measured, 8);
+		double border = (outerWidth - innerWidth) / 2;
+		if (!Double.isNaN(pageX) && !Double.isNaN(screenX)) {
+			border = Math.min(border, pageX - screenX);
+		}
+		if (!Double.isNaN(pageY) && !Double.isNaN(screenY)) {
+			border = Math.min(border, outerHeight - innerHeight - (pageY - screenY));
+		}
+		if (Double.isNaN(border) || border > MAX_INVISIBLE_BORDER) {
+			return 0;
+		}
+		// Less the frame that shows: 1 px of the screen
+		double shown = pixelRatio > 0 ? 1 / pixelRatio : 1;
+		return (int) Math.max(0, Math.round(border - shown));
+	}
+
+	/**
+	 * The browser's work area, as large as Java's when Java's is a little larger: Firefox gives one 8 px short of the
+	 * task bar. Only when the browser and Java agree on the size of the screen (the browser's px may be Java's scaled:
+	 * Java's work area is then scaled alike), and by {@link #MAX_WORK_AREA_CORRECTION} at most.
+	 *
+	 * @param work         the work area the browser gives
+	 * @param screen       the size of the screen the browser gives
+	 * @param javaBounds   the bounds of that screen in Java
+	 * @param javaWorkArea its work area in Java
+	 */
+	static Rectangle correctedWorkArea(Rectangle work, java.awt.Dimension screen, Rectangle javaBounds,
+			Rectangle javaWorkArea) {
+		if (screen.width <= 0 || screen.height <= 0 || javaBounds.width <= 0 || javaBounds.height <= 0) {
+			return work;
+		}
+		double scale = (double) screen.width / javaBounds.width;
+		if (Math.abs(javaBounds.height * scale - screen.height) > 1) {
+			return work;
+		}
+		int width = (int) Math.round(javaWorkArea.width * scale);
+		int height = (int) Math.round(javaWorkArea.height * scale);
+		Rectangle corrected = new Rectangle(work);
+		if (width > work.width && width - work.width <= MAX_WORK_AREA_CORRECTION) {
+			corrected.width = width;
+		}
+		if (height > work.height && height - work.height <= MAX_WORK_AREA_CORRECTION) {
+			corrected.height = height;
+		}
+		return corrected;
+	}
+
 	// ---------- placing the windows ----------
 
 	/**
@@ -520,18 +621,21 @@ public class WindowLayoutService {
 		Rectangle work = measureWorkArea(measuring, screen);
 		int formWidth = formWindowWidth(work.width);
 		if (map != null) {
+			// Measured as it will be placed: not maximized (measureWorkArea made it a normal window)
+			Insets border = invisibleBorders(map);
 			if (bringForward) {
 				bringForwardLocked(map);
 			}
-			placeExactly(map, new Rectangle(work.x, work.y, formWidth, work.height));
+			placeExactly(map, withInvisibleBorders(new Rectangle(work.x, work.y, formWidth, work.height), border));
 		}
 		if (imagery != null) {
 			Rectangle imageryWork = imagery == measuring ? work : measureWorkArea(imagery, screen);
+			Insets border = invisibleBorders(imagery);
 			if (bringForward) {
 				bringForwardLocked(imagery);
 			}
-			placeExactly(imagery, new Rectangle(imageryWork.x + formWidth, imageryWork.y, imageryWork.width - formWidth,
-					imageryWork.height));
+			placeExactly(imagery, withInvisibleBorders(new Rectangle(imageryWork.x + formWidth, imageryWork.y,
+					imageryWork.width - formWidth, imageryWork.height), border));
 		}
 		return work;
 	}
@@ -595,13 +699,21 @@ public class WindowLayoutService {
 			Rectangle placed = rectangleOf(window);
 			int centerX = placed.x + placed.width / 2;
 			int centerY = placed.y + placed.height / 2;
-			if (!work.contains(centerX, centerY)) {
-				Rectangle screen = javaWorkAreaAt(centerX, centerY);
-				if (screen != null) {
-					logger.debug("The browser gave the work area {} away from its window at {}: on the screen at {}", work,
-							placed, screen);
-					work.setLocation(screen.x, screen.y);
+			GraphicsConfiguration javaScreen = javaScreenAt(centerX, centerY);
+			if (!work.contains(centerX, centerY) && javaScreen != null) {
+				Rectangle screen = workArea(javaScreen);
+				logger.debug("The browser gave the work area {} away from its window at {}: on the screen at {}", work,
+						placed, screen);
+				work.setLocation(screen.x, screen.y);
+			}
+			if (javaScreen != null && area.size() >= 6) {
+				Rectangle corrected = correctedWorkArea(work, new java.awt.Dimension(intAt(area, 4), intAt(area, 5)),
+						javaScreen.getBounds(), workArea(javaScreen));
+				if (!corrected.equals(work)) {
+					logger.debug("The browser gave the work area {}, Java {}: taken as {}", work, workArea(javaScreen),
+							corrected);
 				}
+				work = corrected;
 			}
 			return work;
 		} catch (Exception e) {
@@ -610,15 +722,32 @@ public class WindowLayoutService {
 		}
 	}
 
-	/** The work area, as Java sees it, of the screen holding this point; null when none does. */
-	private static Rectangle javaWorkAreaAt(int x, int y) {
+	/** The screen, as Java sees it, holding this point; null when none does. */
+	private static GraphicsConfiguration javaScreenAt(int x, int y) {
 		for (GraphicsDevice screen : GraphicsEnvironment.getLocalGraphicsEnvironment().getScreenDevices()) {
 			GraphicsConfiguration configuration = screen.getDefaultConfiguration();
 			if (configuration.getBounds().contains(x, y)) {
-				return workArea(configuration);
+				return configuration;
 			}
 		}
 		return null;
+	}
+
+	/**
+	 * The invisible borders of the window as it is now (see {@link #invisibleBorder(List)}): none but on Windows, and
+	 * none when the browser does not say.
+	 */
+	private Insets invisibleBorders(RemoteWebDriver window) {
+		if (!WINDOWS) {
+			return new Insets(0, 0, 0, 0);
+		}
+		try {
+			int border = invisibleBorder((List<?>) window.executeScript(FRAME_SCRIPT));
+			return new Insets(0, border, border, border);
+		} catch (Exception e) {
+			logger.debug("The browser did not measure its window", e);
+			return new Insets(0, 0, 0, 0);
+		}
 	}
 
 	/**
@@ -705,6 +834,11 @@ public class WindowLayoutService {
 		return Math.abs(current.x - target.x) <= PLACEMENT_TOLERANCE && Math.abs(current.y - target.y) <= PLACEMENT_TOLERANCE
 				&& Math.abs(current.width - target.width) <= PLACEMENT_TOLERANCE
 				&& Math.abs(current.height - target.height) <= PLACEMENT_TOLERANCE;
+	}
+
+	private static double numberAt(List<?> values, int index) {
+		Object value = values != null && index < values.size() ? values.get(index) : null;
+		return value instanceof Number ? ((Number) value).doubleValue() : Double.NaN;
 	}
 
 	private static int intAt(List<?> values, int index) {
