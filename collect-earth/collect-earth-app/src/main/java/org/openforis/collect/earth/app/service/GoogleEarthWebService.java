@@ -8,6 +8,7 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 
@@ -154,6 +155,8 @@ public class GoogleEarthWebService {
 	private volatile Context context = new Context(null, "[]");
 	/** The context the outline was drawn with last; guarded by {@link #lock}. See {@link #contextChangedFor}. */
 	private Context drawnContext;
+	/** Whether a redraw for new neighbours is queued on the watchdog's thread and has not started: see {@link #setContext}. */
+	private final AtomicBoolean redrawQueued = new AtomicBoolean();
 	/** Camera position requested by the plots map, latest only: {latitude, longitude, heightMeters}. */
 	private final AtomicReference<double[]> pendingCamera = new AtomicReference<>();
 	/** The latest camera position asked for while the tab was hidden, applied when it is shown; null if none. */
@@ -272,21 +275,26 @@ public class GoogleEarthWebService {
 	 * shown once it is (see {@link #showIn}), or by the watchdog's next check. Never waiting for {@link #lock} here, which
 	 * a plot being shown holds for as long as a page load: the request threads of the plots map would wait as long, and
 	 * a few of them would take every connection the browser opens to Collect Earth.
+	 * <p>
+	 * One redraw queued at most: while it waits (for the lock held through a page load, say), the neighbours sent
+	 * meanwhile are all drawn by it, as it reads the latest when it runs. A redraw queued while it runs is queued anew.
 	 */
 	public void setContext(String plotId, String plotsJson) {
 		context = new Context(plotId, plotsJson);
 		ScheduledExecutorService thread = watchdog;
-		if (thread != null) {
+		if (thread != null && redrawQueued.compareAndSet(false, true)) {
 			try {
 				thread.execute(this::redrawForNewContext);
 			} catch (RejectedExecutionException e) {
-				// shut down
+				redrawQueued.set(false); // shut down
 			}
 		}
 	}
 
 	/** On the watchdog's thread: see {@link #setContext}. */
 	private void redrawForNewContext() {
+		// Before reading the neighbours: those sent from now on queue a redraw of their own
+		redrawQueued.set(false);
 		try {
 			synchronized (lock) {
 				redrawIfContextChanged();
@@ -298,10 +306,14 @@ public class GoogleEarthWebService {
 		}
 	}
 
-	/** Redraws the outline of the plot shown if the plots map sent its neighbours since it was drawn. Holding the lock. */
+	/**
+	 * Redraws the outline of the plot shown if the plots map sent its neighbours since it was drawn. Holding the lock.
+	 * Not while the tab is hidden (see the class comment): {@link #shown()} redraws the outline, with the latest
+	 * neighbours, when it is shown again.
+	 */
 	private void redrawIfContextChanged() {
 		SimplePlacemarkObject plot = current;
-		if (state == State.READY && plot != null && contextChangedFor(plot) && tab().isOpen()) {
+		if (state == State.READY && plot != null && contextChangedFor(plot) && tab().isOpen() && tab().isVisible()) {
 			injectOverlay(plot);
 		}
 	}
