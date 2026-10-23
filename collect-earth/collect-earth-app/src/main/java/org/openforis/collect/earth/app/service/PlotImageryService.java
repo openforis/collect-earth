@@ -51,7 +51,10 @@ public class PlotImageryService {
 	private final Object selectionLock = new Object();
 	/** The number of the latest selection, or of the latest Google Earth Web show (see {@link #showInGoogleEarthWeb}). */
 	private long selections;
-	/** The number of the latest {@link #showPlot}: one that finds a later one started when its plot is filled in stops. */
+	/**
+	 * The number of the latest {@link #showPlot}: one that finds a later one started when its plot is filled in stops.
+	 * Back to the number of the plot shown when the latest could not be filled in.
+	 */
 	private long latestSelection;
 	/** The plot asked for last by {@link #showPlot}, before it is filled in: asked for again, it is not shown again. */
 	private SimplePlacemarkObject requested;
@@ -114,6 +117,10 @@ public class PlotImageryService {
 			synchronized (selectionLock) {
 				if (selection == latestSelection) {
 					requested = null; // selected again, it is tried again
+					// The plot shown is the latest again: a window opened again loads it (see reopenImagery) instead of
+					// leaving it to this selection, which shows nothing
+					Shown shown = lastShown;
+					latestSelection = shown == null ? 0 : shown.selection;
 				}
 			}
 			return;

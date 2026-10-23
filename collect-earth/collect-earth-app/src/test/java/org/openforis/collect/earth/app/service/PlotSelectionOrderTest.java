@@ -145,6 +145,18 @@ public class PlotSelectionOrderTest {
 	}
 
 	@Test
+	public void theImageryWindowOpenedAgainAfterAPlotThatCouldNotBeFilledInShowsThePlotShown() {
+		RecordingPlotImagery imagery = new RecordingPlotImagery();
+		imagery.showPlot(plot("A"), null);
+		imagery.failingFills.add("B");
+		imagery.showPlot(plot("B"), null);
+		// B never showed: the window opened again loads A, the plot it shows, instead of waiting for B
+		assertTrue(imagery.reopenImagery());
+		assertEquals(Arrays.asList("A", "A"), imagery.gew.shown);
+		assertEquals(Arrays.asList("A", "A"), imagery.otherSources);
+	}
+
+	@Test
 	public void theImageryWindowOpenedAgainLeavesItToAPlotBeingSelected() throws Exception {
 		RecordingPlotImagery imagery = new RecordingPlotImagery();
 		imagery.showPlot(plot("A"), null);
