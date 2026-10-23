@@ -149,7 +149,8 @@ return (function () {
         var rad = Math.PI / 180;
         var mPerDegLat = 111320;
         var mPerDegLon = 111320 * Math.cos(cam.lat * rad);
-        var e = (lon - cam.lon) * mPerDegLon;
+        // Across the antimeridian the shorter way round: 179.999 seen from -179.999 is 0.002 degrees east, not 360 west
+        var e = (((lon - cam.lon + 540) % 360) - 180) * mPerDegLon;
         var n = (lat - cam.lat) * mPerDegLat;
         var h = cam.heading * rad;
         var x = e * Math.cos(h) - n * Math.sin(h);
@@ -270,6 +271,8 @@ return (function () {
     // the limit) falls back to waiting for the URL to stay the same
     function inUserMove() {
         if (!moving) return false;
+        // A drag held still: GEW may write the camera only once it is released, which starts the timeout
+        if (pressed) return true;
         var href = window.location.href;
         if (href === moving.from && Date.now() <= moving.until) return true;
         moving = null;
@@ -306,8 +309,9 @@ return (function () {
         if (stableCount === STABLE_READS) draw();
     }, POLL_MILLIS);
 
+    // Only a node can be on the bar: the target of a resize is the window, which contains() does not take
     function onBar(e) {
-        return e && e.target && info.bar.contains(e.target);
+        return !!e && e.target instanceof Node && info.bar.contains(e.target);
     }
 
     // A press alone may be a click that moves nothing: it hides the outline until the URL is stable
@@ -321,24 +325,35 @@ return (function () {
         stableCount = 0;
     }
     function onDrag(e) {
+        // Released outside the window, where no mouseup came: the move ends as with one
+        if (pressed && !e.buttons) { onRelease(); return; }
         if (pressed && e.buttons && !moving) startMoving();
     }
     function onRelease() {
         pressed = false;
+        if (moving) moving.until = Date.now() + MOVE_TIMEOUT_MILLIS;
     }
     function onMove(e) {
         if (onBar(e)) return;
         startMoving();
     }
+    // A window resized keeps its camera, but the outline is projected for the old size: drawn again once the size
+    // and the URL have stayed the same for STABLE_READS reads
+    function onResize() {
+        hide("", false);
+        stableCount = 0;
+    }
     // the keyboard moves the camera too (arrows, Page Up/Down, +/-), except while typing in GEW's search box
     function onKey(e) {
+        // Tab or Enter on the bar's own button moves nothing (Enter on it flies, which hides the outline by itself)
+        if (onBar(e)) return;
         var t = e.target;
         if (e.ctrlKey || e.metaKey || e.altKey) return;
         if (t && (t.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName))) return;
         startMoving();
     }
     var LISTENERS = [["mousedown", onPress], ["mousemove", onDrag], ["mouseup", onRelease], ["wheel", onMove],
-        ["touchstart", onMove], ["keydown", onKey], ["resize", onMove]];
+        ["touchstart", onMove], ["keydown", onKey], ["resize", onResize]];
     LISTENERS.forEach(function (l) { window.addEventListener(l[0], l[1], true); });
 
     window[CE_TAG] = {
