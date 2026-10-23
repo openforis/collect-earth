@@ -147,9 +147,11 @@ public class GoogleEarthWebService {
 	private volatile String stateMessage;
 	/** Where the Google Earth Web camera looks (null when unknown or not top-down). */
 	private volatile Map<String, Object> view;
-	/** Neighbouring plots sent by the plots map for the plot {@link #contextPlotId}, as JSON. */
-	private volatile String contextJson = "[]";
-	private volatile String contextPlotId;
+	/**
+	 * Neighbouring plots sent by the plots map for one plot, replaced as a whole: the id and the JSON written apart could
+	 * be read as the id of one plot with the neighbours of the one before.
+	 */
+	private volatile Context context = new Context(null, "[]");
 	/** Camera position requested by the plots map, latest only: {latitude, longitude, heightMeters}. */
 	private final AtomicReference<double[]> pendingCamera = new AtomicReference<>();
 	/** The latest camera position asked for while the tab was hidden, applied when it is shown; null if none. */
@@ -257,19 +259,35 @@ public class GoogleEarthWebService {
 	 * map with each selection. Redraws at once if that plot is already shown.
 	 */
 	public void setContext(String plotId, String plotsJson) {
-		contextPlotId = plotId;
-		contextJson = plotsJson;
-		SimplePlacemarkObject shown = current;
-		if (state == State.READY && shown != null && plotId != null && plotId.equals(shown.getPlacemarkId())) {
-			synchronized (lock) {
-				try {
-					if (tab().isOpen() && current == shown) {
-						injectOverlay(shown);
-					}
-				} catch (TabClosedException e) {
-					// the watchdog sees it
-				}
+		context = new Context(plotId, plotsJson);
+		if (plotId == null) {
+			return;
+		}
+		// The state is checked holding the lock: a plot being shown now (which holds it until READY) may have drawn its
+		// outline with the context before this one, and is redrawn once it is shown
+		synchronized (lock) {
+			SimplePlacemarkObject shown = current;
+			if (state != State.READY || shown == null || !plotId.equals(shown.getPlacemarkId())) {
+				return;
 			}
+			try {
+				if (tab().isOpen()) {
+					injectOverlay(shown);
+				}
+			} catch (TabClosedException e) {
+				// the watchdog sees it
+			}
+		}
+	}
+
+	/** Neighbouring plots of a plot, as JSON. */
+	private static final class Context {
+		final String plotId;
+		final String json;
+
+		Context(String plotId, String json) {
+			this.plotId = plotId;
+			this.json = json;
 		}
 	}
 
@@ -520,7 +538,8 @@ public class GoogleEarthWebService {
 				labels.put(key, Messages.getString("GoogleEarthWeb." + key));
 			}
 			data.put("labels", labels);
-			data.put("neighboursJson", plot.getPlacemarkId() != null && plot.getPlacemarkId().equals(contextPlotId) ? contextJson : "[]");
+			Context neighbours = context;
+			data.put("neighboursJson", plot.getPlacemarkId() != null && plot.getPlacemarkId().equals(neighbours.plotId) ? neighbours.json : "[]");
 			String script = browserService.processJavascriptTemplate(data, OVERLAY_TEMPLATE);
 			if (script == null) {
 				return Outline.FAILED;
