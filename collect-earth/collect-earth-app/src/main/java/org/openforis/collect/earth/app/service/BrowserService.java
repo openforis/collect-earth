@@ -585,9 +585,14 @@ public class BrowserService implements InitializingBean, DisposableBean, Applica
 		}
 	}
 
-	/** Quits the driver of a window that is gone, and forgets it; nothing if null. */
-	private void discard(RemoteWebDriver driver) {
-		if (driver != null) {
+	/**
+	 * Quits the driver of a window that is gone, and forgets it; nothing if null, or if its browser still has a window.
+	 * Only gone as {@link WindowLayoutService#windowState} tells it: no window left, or a failure that means the window
+	 * or the session is gone. A page that merely does not answer {@link #isDriverWorking} (an alert open, no body yet)
+	 * is a window the user still has, and is left alone, as it always was.
+	 */
+	private void discardIfGone(RemoteWebDriver driver) {
+		if (driver != null && WindowLayoutService.windowState(driver) == WindowLayoutService.WindowState.CLOSED) {
 			drivers.remove(driver);
 			quietlyQuit(driver);
 		}
@@ -844,8 +849,9 @@ public class BrowserService implements InitializingBean, DisposableBean, Applica
 	 * path changes (Google Earth Web) already load on navigation and must not pay that twice.
 	 *
 	 * @param opener opens a window when there is none or it is gone: the kind of window the caller had (the plots map's
-	 *               is an app window). A window found gone is quit and forgotten first: its driver outlives it (and on
-	 *               macOS the browser too), and would otherwise stay until Collect Earth closes.
+	 *               is an app window). A window that is gone is quit and forgotten first: its driver outlives it (and on
+	 *               macOS the browser too), and would otherwise stay until Collect Earth closes. One that is there but
+	 *               does not answer (an alert open) is left to the user.
 	 */
 	RemoteWebDriver navigateTo(String url, RemoteWebDriver driverParam, boolean retry, boolean refresh,
 			WindowOpener opener) throws BrowserNotFoundException {
@@ -853,7 +859,7 @@ public class BrowserService implements InitializingBean, DisposableBean, Applica
 		RemoteWebDriver driver = driverParam;
 
 		if (driver == null || !isDriverWorking(driver)) {
-			discard(driver);
+			discardIfGone(driver);
 			driver = opener.open();
 		}
 
@@ -878,7 +884,7 @@ public class BrowserService implements InitializingBean, DisposableBean, Applica
 					// failure, and it was logged at ERROR - the level the Sentry appender is bound at - so closing a
 					// window was reported as a fault in Collect Earth.
 					logger.warn("The browser window was closed, opening a new one");
-					discard(driver);
+					discardIfGone(driver);
 					// Keep what the retry returns : the driver of the window it opens
 					driver = navigateTo(url, null, false, refresh, opener); // only try to re-open one
 				} else if (windowWasClosed(e)) {
