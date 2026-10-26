@@ -29,6 +29,7 @@ return (function () {
     // (rebuilt from typed values by Collect Earth, see PlacemarkBrowserServlet.googleEarthWebContext)
     var neighbours = ${neighboursJson!"[]"};
     var STATUS_COLORS = { empty: "#e53935", partial: "#fdd835", saved: "#43a047" };
+    var PLOT_COLOR = "#ffff00";
     var PLOT_ID = "${plotId?js_string}";
     // Top-down view of the plot, used by the "Top-down view" button
     var PLOT_URL = "${plotUrl?js_string}";
@@ -202,9 +203,9 @@ return (function () {
             if (n.id === PLOT_ID) return;
             n.rings.forEach(function (ring) { addRing(cam, ring, STATUS_COLORS[n.status] || STATUS_COLORS.empty, 2, "neighbour"); });
         });
-        // Current plot in the plots map's selection cyan: yellow already means "in progress"
-        plotRings.forEach(function (ring) { if (addRing(cam, ring, "#00e5ff", 3, "plot")) drawn++; });
-        sampleRings.forEach(function (ring) { if (addRing(cam, ring, "#ffffff", 1.5, "sample")) drawn++; });
+        // The plot and its sample points in yellow, as Google Earth Pro showed them; thicker than a neighbour in progress
+        plotRings.forEach(function (ring) { if (addRing(cam, ring, PLOT_COLOR, 3, "plot")) drawn++; });
+        sampleRings.forEach(function (ring) { if (addRing(cam, ring, PLOT_COLOR, 1.5, "sample")) drawn++; });
         svg.style.display = drawn > 0 ? "block" : "none";
         // A far-away camera (user zoomed/panned out) is not an error; offer the way back.
         var c = project(cam, plotRings.length && plotRings[0].length ? plotRings[0][0][0] : cam.lon,
