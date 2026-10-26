@@ -123,6 +123,8 @@ public class BrowserService implements InitializingBean, DisposableBean, Applica
 
 	/** Lets a plot change fail at once when no browser could start a moment ago; see {@link #startImageryBrowser()}. */
 	private final BrowserStartFailures imageryStartFailures = new BrowserStartFailures();
+	/** A satellite on the task bar, so that the imagery window is not taken for the interpreter's own browser */
+	private final BrowserWindowIcon imageryWindowIcon = new BrowserWindowIcon("/images/imageryWindow.ico");
 
 	/** The interpreter is told once per run that the Planet API key is missing, not once per plot */
 	private boolean planetApiKeyWarningShown;
@@ -410,6 +412,7 @@ public class BrowserService implements InitializingBean, DisposableBean, Applica
 					+ BrowserStartFailures.RETRY_AFTER.getSeconds() + " s ago, not tried again yet");
 		}
 		for (String browser : imageryBrowserOrder()) {
+			Set<Long> processesBefore = BrowserWindowIcon.processes();
 			RemoteWebDriver driver = startImageryDriver(browser);
 			if (driver == null) {
 				continue;
@@ -423,6 +426,7 @@ public class BrowserService implements InitializingBean, DisposableBean, Applica
 			try {
 				TabDriver tabDriver = new BidiTabDriver(driver); // which quits the driver if it fails
 				imageryStartFailures.started();
+				imageryWindowIcon.apply(processesBefore);
 				return tabDriver;
 			} catch (RuntimeException e) {
 				drivers.remove(driver);

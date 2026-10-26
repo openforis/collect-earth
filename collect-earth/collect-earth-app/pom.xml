@@ -179,6 +179,13 @@
 			<artifactId>g-wiz</artifactId>
 			<version>1.0.1</version>
 		</dependency>
+		<!-- The icon of the imagery window on the Windows task bar (BrowserWindowIcon). The version docker-java
+		     brings through WebDriverManager, declared because it is now used directly. -->
+		<dependency>
+			<groupId>net.java.dev.jna</groupId>
+			<artifactId>jna</artifactId>
+			<version>5.18.1</version>
+		</dependency>
 		<dependency>
 	        <groupId>org.kordamp.ikonli</groupId>
 	        <artifactId>ikonli-swing</artifactId>
