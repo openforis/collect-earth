@@ -77,39 +77,20 @@ public class WindowLayoutTest {
 	}
 
 	@Test
-	public void autoPutsGoogleEarthWebBesideTheFormAndTheOtherSourcesOnTheOtherScreen() {
-		Plan plan = WindowLayoutService.plan(LocalPropertiesService.WINDOW_LAYOUT_AUTO,
-				new Rectangle[] { LAPTOP, MONITOR }, 0, true);
-		assertEquals(Mode.EARTH_BESIDE_FORM, plan.mode);
-		assertEquals(1, plan.imageryScreen);
-		assertEquals(1, plan.formScreen);
-		assertEquals(0, plan.othersScreen);
-		// Screens of the same size: the main one, with the task bar and Collect Earth
-		plan = WindowLayoutService.plan(LocalPropertiesService.WINDOW_LAYOUT_AUTO, new Rectangle[] { LAPTOP, SAME_SIZE }, 1,
-				true);
-		assertEquals(1, plan.imageryScreen);
-		assertEquals(0, plan.othersScreen);
-		// Even a small second screen takes the other sources
-		Rectangle tiny = new Rectangle(1366, 0, 800, 480);
-		plan = WindowLayoutService.plan(LocalPropertiesService.WINDOW_LAYOUT_AUTO, new Rectangle[] { LAPTOP, tiny }, 0, true);
-		assertEquals(Mode.EARTH_BESIDE_FORM, plan.mode);
-		assertEquals(0, plan.imageryScreen);
-		assertEquals(1, plan.othersScreen);
-	}
-
-	@Test
 	public void theOtherSourcesShareThePlaceOfGoogleEarthWebInTheOtherLayouts() {
-		Plan plan = WindowLayoutService.plan(LocalPropertiesService.WINDOW_LAYOUT_AUTO, new Rectangle[] { LAPTOP }, 0, true);
+		Plan plan = WindowLayoutService.plan(LocalPropertiesService.WINDOW_LAYOUT_SIDE_BY_SIDE, new Rectangle[] { LAPTOP }, 0,
+				true);
 		assertEquals(Mode.SIDE_BY_SIDE, plan.mode);
 		assertEquals(0, plan.othersScreen);
+		assertEquals(ImageryPlacement.NORMAL, WindowLayoutService.othersPlacement(plan));
 		plan = WindowLayoutService.plan(LocalPropertiesService.WINDOW_LAYOUT_SEPARATE_SCREENS,
 				new Rectangle[] { LAPTOP, MONITOR }, 0, true);
 		assertEquals(Mode.SEPARATE_SCREENS, plan.mode);
 		assertEquals(plan.imageryScreen, plan.othersScreen);
-		assertEquals(ImageryPlacement.MAXIMIZED, WindowLayoutService.othersPlacement(Mode.EARTH_BESIDE_FORM));
-		assertEquals(ImageryPlacement.NORMAL, WindowLayoutService.imageryPlacement(Mode.EARTH_BESIDE_FORM));
-		assertEquals(ImageryPlacement.NORMAL, WindowLayoutService.othersPlacement(Mode.SIDE_BY_SIDE));
-		assertEquals(ImageryPlacement.FULL_SCREEN, WindowLayoutService.othersPlacement(Mode.IMAGERY_FULL_SCREEN));
+		assertEquals(ImageryPlacement.MAXIMIZED, WindowLayoutService.othersPlacement(plan));
+		plan = WindowLayoutService.plan(LocalPropertiesService.WINDOW_LAYOUT_IMAGERY_FULL_SCREEN,
+				new Rectangle[] { LAPTOP, MONITOR }, 0, true);
+		assertEquals(ImageryPlacement.FULL_SCREEN, WindowLayoutService.othersPlacement(plan));
 	}
 
 	@Test
@@ -121,12 +102,26 @@ public class WindowLayoutTest {
 		assertEquals(0, plan.othersScreen);
 		// Whether or not the other sources have their window yet
 		assertEquals(Mode.PLOTS_MAP_IN_EARTH, WindowLayoutService.plan(layout, new Rectangle[] { LAPTOP, MONITOR }, 0).mode);
-		// One screen: the other sources under Google Earth Web
+		assertEquals(ImageryPlacement.MAXIMIZED, WindowLayoutService.othersPlacement(plan));
+		// Screens of the same size: the main one, with the task bar and Collect Earth
+		plan = WindowLayoutService.plan(layout, new Rectangle[] { LAPTOP, SAME_SIZE }, 1, true);
+		assertEquals(1, plan.imageryScreen);
+		assertEquals(0, plan.othersScreen);
+		// One screen: the other sources over Google Earth Web, beside the panel
 		plan = WindowLayoutService.plan(layout, new Rectangle[] { LAPTOP }, 0, true);
 		assertEquals(0, plan.imageryScreen);
 		assertEquals(0, plan.othersScreen);
 		assertEquals(ImageryPlacement.MAXIMIZED, WindowLayoutService.imageryPlacement(Mode.PLOTS_MAP_IN_EARTH));
-		assertEquals(ImageryPlacement.MAXIMIZED, WindowLayoutService.othersPlacement(Mode.PLOTS_MAP_IN_EARTH));
+		assertEquals(ImageryPlacement.NORMAL, WindowLayoutService.othersPlacement(plan));
+	}
+
+	@Test
+	public void onASingleScreenTheOtherSourcesLeaveThePanelInSight() {
+		assertEquals(420, WindowLayoutService.othersLeftOfPanel(420, 1366));
+		// Not there yet: where it opens
+		assertEquals(560, WindowLayoutService.othersLeftOfPanel(0, 1920));
+		// A wide panel leaves the other sources half of the screen
+		assertEquals(683, WindowLayoutService.othersLeftOfPanel(900, 1366));
 	}
 
 	@Test

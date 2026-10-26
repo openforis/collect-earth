@@ -574,8 +574,8 @@ public class LocalPropertiesService extends Observable {
 	}
 
 	/**
-	 * With two screens or more, Google Earth Web beside the form on the largest and the other imagery on another; without
-	 * Google Earth Web, the imagery on another screen when there is a large enough one; else side by side with the form.
+	 * With Google Earth Web as the viewer, as {@link #WINDOW_LAYOUT_PLOTS_MAP_IN_EARTH}; with the plots map alone, the
+	 * imagery on another screen when there is a large enough one, else side by side with the form.
 	 */
 	public static final String WINDOW_LAYOUT_AUTO = "auto";
 	/** The form and Google Earth Web side by side on one screen, even when there are several. */
@@ -596,6 +596,16 @@ public class LocalPropertiesService extends Observable {
 		return WINDOW_LAYOUT_SIDE_BY_SIDE.equals(layout) || WINDOW_LAYOUT_SEPARATE_SCREENS.equals(layout)
 				|| WINDOW_LAYOUT_IMAGERY_FULL_SCREEN.equals(layout) || WINDOW_LAYOUT_PLOTS_MAP_IN_EARTH.equals(layout) ? layout
 						: WINDOW_LAYOUT_AUTO;
+	}
+
+	/**
+	 * Whether the plots map is a panel of the Google Earth Web window, instead of a window of its own: Google Earth Web
+	 * as the viewer, with that layout chosen or the automatic one.
+	 */
+	public boolean isPlotsMapInGoogleEarthWeb() {
+		String layout = getWindowLayout();
+		return isGoogleEarthWebViewer()
+				&& (WINDOW_LAYOUT_PLOTS_MAP_IN_EARTH.equals(layout) || WINDOW_LAYOUT_AUTO.equals(layout));
 	}
 
 	public void saveWindowLayout(String windowLayout) {

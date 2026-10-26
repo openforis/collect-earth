@@ -1340,6 +1340,26 @@ public class BrowserService implements InitializingBean, DisposableBean, Applica
 	 * Opens the Collect Earth Leaflet plots map (served by the embedded server)
 	 * in a Selenium-driven browser window.
 	 */
+	/**
+	 * Closes the plots map window, if it is open: with the plots map inside Google Earth Web it has no use (see
+	 * {@link #plotsMapInGoogleEarthWeb()}). Quit on a thread of its own, as a browser may take seconds to end; another
+	 * layout opens it again (see {@link PlotsMapKeeper}).
+	 */
+	public void closeLeafletMap() {
+		RemoteWebDriver driver;
+		synchronized (getOrCreateLock(BrowserType.LEAFLET_MAP)) {
+			driver = webDriverLeafletMap;
+			webDriverLeafletMap = null;
+		}
+		if (driver == null) {
+			return;
+		}
+		drivers.remove(driver);
+		Thread quit = new Thread(() -> quietlyQuit(driver), "Close the plots map window");
+		quit.setDaemon(true);
+		quit.start();
+	}
+
 	/** The plots map window, or null if it is not open (used to lay out the windows). */
 	public RemoteWebDriver getLeafletMapDriver() {
 		return webDriverLeafletMap;
@@ -1384,8 +1404,7 @@ public class BrowserService implements InitializingBean, DisposableBean, Applica
 	 * {@link #showPlotsMapInGoogleEarthWebWith}.
 	 */
 	public boolean plotsMapInGoogleEarthWeb() {
-		return localPropertiesService.isGoogleEarthWebViewer() && LocalPropertiesService.WINDOW_LAYOUT_PLOTS_MAP_IN_EARTH
-				.equals(localPropertiesService.getWindowLayout()) && plotsMapInGoogleEarthWebOpener != null;
+		return localPropertiesService.isPlotsMapInGoogleEarthWeb() && plotsMapInGoogleEarthWebOpener != null;
 	}
 
 	/**

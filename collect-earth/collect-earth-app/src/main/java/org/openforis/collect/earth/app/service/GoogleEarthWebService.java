@@ -668,7 +668,7 @@ public class GoogleEarthWebService {
 	 * only the plot list and the form there (panel.ts), Google Earth Web being the map.
 	 */
 	private String panelUrl() {
-		if (!LocalPropertiesService.WINDOW_LAYOUT_PLOTS_MAP_IN_EARTH.equals(localPropertiesService.getWindowLayout())) {
+		if (!localPropertiesService.isPlotsMapInGoogleEarthWeb()) {
 			return null;
 		}
 		return BrowserService.leafletMapUrl(ServerController.getHostAddress(localPropertiesService.getHost(),

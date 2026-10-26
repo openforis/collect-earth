@@ -47,12 +47,13 @@ import org.springframework.stereotype.Component;
  * layout), the plots map maximized on another one - the main screen, unless the imagery window took it.</li>
  * <li>Side by side: the plots map narrowed to the width of the form on the left, which it then shows on its own (the
  * page switches to that layout when it is too narrow for its map, see App.tsx), the imagery window on the rest.</li>
- * <li>Google Earth Web beside the form ("auto" with two screens or more): the form and Google Earth Web side by side on
- * the largest screen, the main one when another is as large, and the other sources maximized on another screen.</li>
- * <li>Plots map inside Google Earth Web: the window of Google Earth Web maximized on the largest screen, with the plots
- * map in a panel of its page (see GoogleEarthWebService), and the other sources maximized in their own window on
- * another screen, or under it on a single screen. The plots map window is minimized once Google Earth Web is open: it
- * is where the first plot is chosen.</li>
+ * <li>Plots map inside Google Earth Web (also "auto" with Google Earth Web as the viewer, see
+ * LocalPropertiesService#isPlotsMapInGoogleEarthWeb): the window of Google Earth Web maximized on the largest screen,
+ * the main one when another is as large, with the plots map in a panel of its page (see GoogleEarthWebService), and
+ * the other sources maximized in their own window on another screen. On a single screen their window covers Google
+ * Earth Web beside the panel, which stays in sight: a click in it brings Google Earth Web back. There is no plots map
+ * window: Google Earth Web opens in its place (see BrowserService#plotsMapInGoogleEarthWeb), and one left from another
+ * layout is closed.</li>
  * </ul>
  *
  * With Google Earth Web as the viewer, the imagery browser shows Google Earth Web in a window of its own and the other
@@ -85,7 +86,7 @@ import org.springframework.stereotype.Component;
 @Component
 public class WindowLayoutService {
 
-	enum Mode { SIDE_BY_SIDE, SEPARATE_SCREENS, IMAGERY_FULL_SCREEN, EARTH_BESIDE_FORM, PLOTS_MAP_IN_EARTH }
+	enum Mode { SIDE_BY_SIDE, SEPARATE_SCREENS, IMAGERY_FULL_SCREEN, PLOTS_MAP_IN_EARTH }
 
 	/** What a check of a window found: see {@link #windowState}. */
 	public enum WindowState { OPEN, CLOSED, NO_ANSWER }
@@ -94,11 +95,15 @@ public class WindowLayoutService {
 	enum ImageryPlacement { NORMAL, MAXIMIZED, FULL_SCREEN }
 
 	/**
-	 * How a layout places the window of the other sources, when they have one ({@link ImageryWindow#OTHERS}): on a screen
-	 * of its own as the imagery window would be, else over the window of Google Earth Web, placed as it is.
+	 * How a plan places the window of the other sources, when they have one ({@link ImageryWindow#OTHERS}): as the window
+	 * of Google Earth Web, over it; with the plots map inside Google Earth Web, maximized on a screen of their own, and
+	 * on a single screen beside the panel (NORMAL).
 	 */
-	static ImageryPlacement othersPlacement(Mode mode) {
-		return mode == Mode.EARTH_BESIDE_FORM ? ImageryPlacement.MAXIMIZED : imageryPlacement(mode);
+	static ImageryPlacement othersPlacement(Plan plan) {
+		if (plan.mode == Mode.PLOTS_MAP_IN_EARTH && plan.othersScreen == plan.imageryScreen) {
+			return ImageryPlacement.NORMAL;
+		}
+		return imageryPlacement(plan.mode);
 	}
 
 	/** How a layout places the imagery window: see {@link #arrange(boolean)}. */
@@ -154,6 +159,10 @@ public class WindowLayoutService {
 	/** "auto" puts the imagery window on a screen of its own only when the other screen can hold the plots map. */
 	private static final int MIN_FORM_SCREEN_WIDTH = 1024;
 	private static final int MIN_FORM_SCREEN_HEIGHT = 600;
+	/** The width the plots map's panel opens with (javascript_plots_map_panel.fmt). */
+	private static final int DEFAULT_PANEL_WIDTH = 560;
+	private static final String PANEL_WIDTH_SCRIPT = "var panel = document.querySelector('div[data-ce-panel]');"
+			+ " return panel ? Math.round(panel.getBoundingClientRect().width) : 0;";
 	/** A window this far from where it was asked to go (in px) is moved once more. */
 	private static final int PLACEMENT_TOLERANCE = 2;
 	private static final long SCREEN_CHECK_PERIOD_SECONDS = 2;
@@ -216,10 +225,14 @@ public class WindowLayoutService {
 	/** The screens at the previous check of the watcher. */
 	private String lastSeen;
 	/**
-	 * Side by side, and Google Earth Web beside the form: the work area the windows share, in the browser's coordinates;
-	 * null in the other layouts.
+	 * Side by side: the work area the windows share, in the browser's coordinates; null in the other layouts.
 	 */
 	private volatile Rectangle sideBySideWorkArea;
+	/**
+	 * Whether the window of the other sources is on a screen of its own, where it is in sight: picking one of them then
+	 * only selects its tab, without bringing the window forward, which blinks (see {@link #bringImageryWindowForward}).
+	 */
+	private volatile boolean othersOnOwnScreen;
 	/** Whether the window of the other sources is over the one of Google Earth Web, and follows the form with it. */
 	private volatile boolean othersFollowForm;
 	/**
@@ -451,10 +464,15 @@ public class WindowLayoutService {
 					}
 				}
 				boolean othersApart = imageryBrowser.hasOthersWindow();
-				Plan plan = plan(localPropertiesService.getWindowLayout(), workAreas, primaryIndex, othersApart);
+				// "auto" with Google Earth Web is the plots map inside it
+				String layout = localPropertiesService.isPlotsMapInGoogleEarthWeb()
+						? LocalPropertiesService.WINDOW_LAYOUT_PLOTS_MAP_IN_EARTH
+						: localPropertiesService.getWindowLayout();
+				Plan plan = plan(layout, workAreas, primaryIndex, othersApart);
 				logger.info("Arranging the plots map and imagery windows: {} ({} screens)", plan, screens.length);
 				sideBySideWorkArea = null;
 				othersFollowForm = false;
+				othersOnOwnScreen = othersApart && plan.othersScreen != plan.imageryScreen;
 				// The other sources first: the classic session of the imagery browser addresses one window at a time, and
 				// the window of Google Earth Web, placed after, comes over theirs where they share a place
 				if (othersApart) {
@@ -466,7 +484,6 @@ public class WindowLayoutService {
 				}
 				switch (plan.mode) {
 				case SIDE_BY_SIDE:
-				case EARTH_BESIDE_FORM:
 					sideBySideWorkArea = placeSideBySide(map, imagery, workAreas[plan.imageryScreen], bringForward);
 					break;
 				case PLOTS_MAP_IN_EARTH:
@@ -474,7 +491,10 @@ public class WindowLayoutService {
 						// Google Earth Web not open yet: the first plot is chosen in the plots map
 						maximizeOn(map, workAreas[plan.formScreen], false, bringForward);
 					} else {
-						minimize(map);
+						// The plots map is in Google Earth Web's panel: its window, from another layout, is of no use
+						if (map != null) {
+							browserService.closeLeafletMap();
+						}
 						maximizeOn(imagery, workAreas[plan.imageryScreen], false, bringForward);
 					}
 					break;
@@ -505,25 +525,53 @@ public class WindowLayoutService {
 	 * the form along with the window of Google Earth Web.
 	 */
 	private void placeOthers(Plan plan, Rectangle[] workAreas, boolean bringForward) {
+		ImageryPlacement placement = othersPlacement(plan);
+		boolean besidePanel = plan.mode == Mode.PLOTS_MAP_IN_EARTH;
+		// Measured before the window of the other sources is asked for: the classic session addresses one at a time
+		int panel = besidePanel && placement == ImageryPlacement.NORMAL ? panelWidth() : 0;
 		RemoteWebDriver others = imageryBrowser.window(ImageryWindow.OTHERS);
 		if (others == null) {
 			return;
 		}
-		ImageryPlacement placement = othersPlacement(plan.mode);
 		imageryPlacements.put(ImageryWindow.OTHERS, placement);
 		if (placement != ImageryPlacement.NORMAL) {
 			maximizeOn(others, workAreas[plan.othersScreen], placement == ImageryPlacement.FULL_SCREEN, bringForward);
 			return;
 		}
 		Rectangle work = measureWorkArea(others, workAreas[plan.othersScreen]);
-		int formWidth = formWindowWidth(work.width);
+		int left = besidePanel ? othersLeftOfPanel(panel, work.width) : formWindowWidth(work.width);
 		Insets border = invisibleBorders(others);
 		if (bringForward) {
 			bringForwardLocked(others);
 		}
 		placeExactly(others, withInvisibleBorders(
-				new Rectangle(work.x + formWidth, work.y, work.width - formWidth, work.height), border));
-		othersFollowForm = true;
+				new Rectangle(work.x + left, work.y, work.width - left, work.height), border));
+		othersFollowForm = !besidePanel;
+	}
+
+	/**
+	 * How far from the left of the screen the window of the other sources starts on a single screen with the plots map
+	 * inside Google Earth Web: at the right edge of the panel, which stays in sight, or where the panel opens when it is
+	 * not there yet; always leaving the other sources half of the screen.
+	 */
+	static int othersLeftOfPanel(int panelWidth, int screenWidth) {
+		int left = panelWidth > 0 ? panelWidth : DEFAULT_PANEL_WIDTH;
+		return Math.min(left, screenWidth / 2);
+	}
+
+	/** The width of the plots map's panel in Google Earth Web's page (javascript_plots_map_panel.fmt), 0 if none. */
+	private int panelWidth() {
+		RemoteWebDriver earth = imageryBrowser.window();
+		if (earth == null) {
+			return 0;
+		}
+		try {
+			Object width = earth.executeScript(PANEL_WIDTH_SCRIPT);
+			return width instanceof Number ? ((Number) width).intValue() : 0;
+		} catch (WebDriverException e) {
+			logger.debug("Could not measure the plots map panel", e);
+			return 0;
+		}
 	}
 
 	/**
@@ -597,10 +645,6 @@ public class WindowLayoutService {
 			int earth = largestScreen(screens, primary);
 			int others = largestOther(screens, earth);
 			return new Plan(Mode.PLOTS_MAP_IN_EARTH, earth, earth, others < 0 ? earth : others);
-		}
-		if (othersApart && screens.length >= 2 && LocalPropertiesService.WINDOW_LAYOUT_AUTO.equals(layout)) {
-			int earth = largestScreen(screens, primary);
-			return new Plan(Mode.EARTH_BESIDE_FORM, earth, earth, largestOther(screens, earth));
 		}
 		int[] chosen = chooseScreens(screens, primary);
 		int imagery = chosen[0];
@@ -838,15 +882,13 @@ public class WindowLayoutService {
 		}
 	}
 
-	/** Minimizes the window, if there is one: its page goes on (the plots map, which keeps the form's state). */
-	private void minimize(RemoteWebDriver window) {
-		if (window == null) {
-			return;
-		}
+	/** Whether the window is minimized: Windows puts a minimized window at -32000, -32000. */
+	private static boolean isMinimized(RemoteWebDriver window) {
 		try {
-			window.manage().window().minimize();
+			Point position = window.manage().window().getPosition();
+			return position.x <= -30000 && position.y <= -30000;
 		} catch (WebDriverException e) {
-			logger.debug("Could not minimize the window", e);
+			return false;
 		}
 	}
 
@@ -959,6 +1001,9 @@ public class WindowLayoutService {
 			RemoteWebDriver imagery = imageryBrowser.window(which);
 			if (imagery == null) {
 				return;
+			}
+			if (which == ImageryWindow.OTHERS && othersOnOwnScreen && !isMinimized(imagery)) {
+				return; // in sight on its screen: the tab selected is enough
 			}
 			// Restored as a normal window, which would leave a maximized or full-screen one covering its old place with
 			// its borders and title bar showing: put back as the layout placed it (restored first, as maximizeOn does)
