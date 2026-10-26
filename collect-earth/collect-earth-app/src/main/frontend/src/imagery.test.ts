@@ -2,6 +2,12 @@ import { describe, expect, it } from "vitest";
 import { imageryChoices, reconcileImagery } from "./imagery";
 
 describe("imageryChoices", () => {
+  it("leaves Google Earth Web out in its own panel, and keeps a single other source there", () => {
+    expect(imageryChoices({ sources: ["GOOGLE_EARTH_WEB", "ESRI_WAYBACK"], visible: "ESRI_WAYBACK" }, true)).toEqual([
+      { source: "ESRI_WAYBACK", shown: true },
+    ]);
+    expect(imageryChoices({ sources: ["GOOGLE_EARTH_WEB"], visible: "GOOGLE_EARTH_WEB" }, true)).toEqual([]);
+  });
   it("offers nothing to switch with one tab or none", () => {
     expect(imageryChoices({ sources: [], visible: null })).toEqual([]);
     expect(imageryChoices({ sources: ["GOOGLE_EARTH_WEB"], visible: "GOOGLE_EARTH_WEB" })).toEqual([]);

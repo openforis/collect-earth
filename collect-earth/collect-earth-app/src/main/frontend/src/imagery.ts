@@ -1,9 +1,14 @@
 import type { ImagerySource, ImageryStatus } from "./types";
 
-/** The source buttons: one per tab, none when there is nothing to switch between. */
-export function imageryChoices(status: ImageryStatus): { source: ImagerySource; shown: boolean }[] {
-  if (status.sources.length < 2) return [];
-  return status.sources.map((source) => ({ source, shown: source === status.visible }));
+/**
+ * The source buttons: one per tab, none when there is nothing to switch between. In Google Earth Web's panel
+ * ({@code inPanel}) none for Google Earth Web, which is the page around it, and one even for a single other source:
+ * its button brings the window of the other sources forward.
+ */
+export function imageryChoices(status: ImageryStatus, inPanel = false): { source: ImagerySource; shown: boolean }[] {
+  const sources = inPanel ? status.sources.filter((source) => source !== "GOOGLE_EARTH_WEB") : status.sources;
+  if (sources.length < (inPanel ? 1 : 2)) return [];
+  return sources.map((source) => ({ source, shown: source === status.visible }));
 }
 
 /** The source the user picked, and until when it is shown pressed whatever the server says. */

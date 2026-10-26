@@ -4,6 +4,7 @@ import ToggleButtonGroup from "@mui/material/ToggleButtonGroup";
 import type { MapController, UiState } from "../controller";
 import { useT } from "../i18n";
 import { imageryChoices } from "../imagery";
+import { IN_PANEL } from "../panel";
 import type { ImagerySource } from "../types";
 
 /**
@@ -13,7 +14,7 @@ import type { ImagerySource } from "../types";
  */
 export function ImageryBar({ controller, state }: { controller: MapController; state: UiState }) {
   const t = useT();
-  const choices = imageryChoices(state.imagery);
+  const choices = imageryChoices(state.imagery, IN_PANEL);
   if (!choices.length) return null;
   const shown = choices.find((choice) => choice.shown)?.source ?? null;
   return (
