@@ -584,12 +584,18 @@ public class LocalPropertiesService extends Observable {
 	public static final String WINDOW_LAYOUT_SEPARATE_SCREENS = "separate_screens";
 	/** As separate screens, with Google Earth Web full screen (no title bar); side by side on a single screen. */
 	public static final String WINDOW_LAYOUT_IMAGERY_FULL_SCREEN = "imagery_full_screen";
+	/**
+	 * The plots map in a panel of the Google Earth Web window, which fills the largest screen; the other imagery in a
+	 * window of its own, on another screen when there is one.
+	 */
+	public static final String WINDOW_LAYOUT_PLOTS_MAP_IN_EARTH = "plots_map_in_earth";
 
 	/** How the plots map and Google Earth Web windows are laid out on the screens. */
 	public String getWindowLayout() {
 		String layout = getValue(EarthProperty.WINDOW_LAYOUT);
 		return WINDOW_LAYOUT_SIDE_BY_SIDE.equals(layout) || WINDOW_LAYOUT_SEPARATE_SCREENS.equals(layout)
-				|| WINDOW_LAYOUT_IMAGERY_FULL_SCREEN.equals(layout) ? layout : WINDOW_LAYOUT_AUTO;
+				|| WINDOW_LAYOUT_IMAGERY_FULL_SCREEN.equals(layout) || WINDOW_LAYOUT_PLOTS_MAP_IN_EARTH.equals(layout) ? layout
+						: WINDOW_LAYOUT_AUTO;
 	}
 
 	public void saveWindowLayout(String windowLayout) {

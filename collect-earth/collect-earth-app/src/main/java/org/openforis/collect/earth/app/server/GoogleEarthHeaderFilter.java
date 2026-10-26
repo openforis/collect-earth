@@ -34,6 +34,13 @@ public class GoogleEarthHeaderFilter implements Filter{
 	public void doFilter(ServletRequest request, ServletResponse response, FilterChain chain)
 			throws IOException, ServletException {
 
+			// The plots map in a panel of Google Earth Web's page, which is cross-origin isolated (COEP credentialless):
+			// a frame in it loads only if it allows it, and is isolated itself
+			if ("iframe".equals(((HttpServletRequest) request).getHeader("Sec-Fetch-Dest"))) {
+				((HttpServletResponse) response).setHeader("Cross-Origin-Resource-Policy", "cross-origin");
+				((HttpServletResponse) response).setHeader("Cross-Origin-Embedder-Policy", "credentialless");
+			}
+
 	        chain.doFilter(new HttpServletRequestWrapper( (HttpServletRequest) request) {
 	        	@Override
 	        	public long getDateHeader(String name){

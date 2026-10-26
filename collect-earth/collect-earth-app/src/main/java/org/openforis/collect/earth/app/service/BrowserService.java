@@ -10,6 +10,7 @@ import java.nio.file.Files;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.EnumSet;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -43,6 +44,8 @@ import org.openqa.selenium.By;
 import org.openqa.selenium.NoSuchSessionException;
 import org.openqa.selenium.NoSuchWindowException;
 import org.openqa.selenium.WebElement;
+import org.openqa.selenium.bidi.module.Permission;
+import org.openqa.selenium.bidi.permissions.PermissionState;
 import org.openqa.selenium.chrome.ChromeDriver;
 import org.openqa.selenium.chrome.ChromeOptions;
 import org.openqa.selenium.edge.EdgeDriver;
@@ -124,6 +127,7 @@ public class BrowserService implements InitializingBean, DisposableBean, Applica
 	/** Lets a plot change fail at once when no browser could start a moment ago; see {@link #startImageryBrowser()}. */
 	private final BrowserStartFailures imageryStartFailures = new BrowserStartFailures();
 	/** A satellite on the task bar, so that the imagery window is not taken for the interpreter's own browser */
+	private static final String GOOGLE_EARTH_WEB_ORIGIN = "https://earth.google.com";
 	private final BrowserWindowIcon imageryWindowIcon = new BrowserWindowIcon("/images/imageryWindow.ico");
 
 	/** The interpreter is told once per run that the Planet API key is missing, not once per plot */
@@ -407,6 +411,22 @@ public class BrowserService implements InitializingBean, DisposableBean, Applica
 	 * @throws BrowserNotFoundException when no browser starts with BiDi (reported to Sentry), or none did a moment ago
 	 */
 	/**
+	 * Lets Google Earth Web's page show the plots map, which this computer serves, in a panel ("plots map inside Google
+	 * Earth Web" layout): Chrome and Edge refuse a public site the pages of the local network unless the user allows it,
+	 * and a browser under automation refuses without asking. Granted in every imagery browser, as the layout can be
+	 * chosen while it runs. Firefox does not know the permission, which it does not need: the failure is only logged.
+	 */
+	private void allowPlotsMapInGoogleEarthWeb(RemoteWebDriver driver) {
+		try {
+			new Permission(driver).setPermission(Collections.singletonMap("name", "local-network-access"),
+					PermissionState.GRANTED, GOOGLE_EARTH_WEB_ORIGIN);
+		} catch (RuntimeException e) {
+			logger.debug("Imagery window: local network access not granted to {} ({}): {}", GOOGLE_EARTH_WEB_ORIGIN,
+					driver.getCapabilities().getBrowserName(), e.getMessage());
+		}
+	}
+
+	/**
 	 * Gives the satellite icon to the windows the imagery browser opened after it started (the window of the other
 	 * sources, see {@link ImageryBrowser#separateWindowsWhen}): called once they are shown, by the window layout.
 	 */
@@ -433,6 +453,7 @@ public class BrowserService implements InitializingBean, DisposableBean, Applica
 			}
 			try {
 				TabDriver tabDriver = new BidiTabDriver(driver); // which quits the driver if it fails
+				allowPlotsMapInGoogleEarthWeb(driver);
 				imageryStartFailures.started();
 				imageryWindowIcon.apply(processesBefore);
 				return tabDriver;

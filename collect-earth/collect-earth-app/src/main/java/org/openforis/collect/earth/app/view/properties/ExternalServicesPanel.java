@@ -214,7 +214,8 @@ public class ExternalServicesPanel extends AbstractPropertyPanel implements Scro
                 LocalPropertiesService.WINDOW_LAYOUT_AUTO,
                 LocalPropertiesService.WINDOW_LAYOUT_SIDE_BY_SIDE,
                 LocalPropertiesService.WINDOW_LAYOUT_SEPARATE_SCREENS,
-                LocalPropertiesService.WINDOW_LAYOUT_IMAGERY_FULL_SCREEN });
+                LocalPropertiesService.WINDOW_LAYOUT_IMAGERY_FULL_SCREEN,
+                LocalPropertiesService.WINDOW_LAYOUT_PLOTS_MAP_IN_EARTH });
         windowLayoutCombo.setRenderer(new DefaultListCellRenderer() {
             private static final long serialVersionUID = 1L;
             @Override

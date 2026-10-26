@@ -1,0 +1,132 @@
+// Runs as the body of a function (ImageryTab.evaluate) in Google Earth Web's page. arguments[0]: the address of the
+// plots map, to show it in a panel on the left of the page; null to take the panel away. Says "shown", "kept",
+// "removed" or "no_body" (a document still being built: tried again with the outline).
+//
+// Google Earth Web is a Flutter app that sizes itself from the window (innerWidth, visualViewport.width), not from its
+// element: so that it lays itself out beside the panel instead of under it, the page is told a window narrower by the
+// width of the panel, and Flutter's view is moved right by as much. The outline (javascript_google_earth_web.fmt) draws
+// in the same narrower window, from --ce-panel-width.
+//
+// The panel is resized by dragging its right edge; its width is kept in this browser profile (localStorage).
+return (function (url) {
+    var TAG = "__collectEarthPlotsMapPanel";
+    var WIDTH_KEY = "collectEarthPlotsMapPanelWidth";
+    var DEFAULT_WIDTH = 560;
+    var MIN_WIDTH = 320;
+    var MIN_EARTH_WIDTH = 400;
+
+    var current = window[TAG];
+    if (!url) {
+        if (current) current.remove();
+        return "removed";
+    }
+    if (current && current.url === url && document.querySelector("div[data-ce-panel]")) return "kept";
+    if (current) current.remove();
+    if (!document.body || !document.head) return "no_body";
+
+    var innerWidthOf = Object.getOwnPropertyDescriptor(Window.prototype, "innerWidth")
+        || Object.getOwnPropertyDescriptor(window, "innerWidth");
+    var viewport = window.visualViewport;
+    var viewportWidthOf = viewport ? Object.getOwnPropertyDescriptor(VisualViewport.prototype, "width") : null;
+    function realWidth() { return innerWidthOf.get.call(window); }
+
+    // The width the user chose, and the one the window leaves room for: a page injected before its window is maximized
+    // gets the panel it wants once it is
+    var preferred = DEFAULT_WIDTH;
+    try {
+        var stored = parseInt(window.localStorage.getItem(WIDTH_KEY), 10);
+        if (stored > 0) preferred = stored;
+    } catch (e) { /* storage blocked: the default */ }
+    function clamp(w) { return Math.round(Math.max(MIN_WIDTH, Math.min(w, realWidth() - MIN_EARTH_WIDTH))); }
+    var width = clamp(preferred);
+
+    Object.defineProperty(window, "innerWidth", { configurable: true, get: function () { return realWidth() - width; } });
+    if (viewport && viewportWidthOf) {
+        Object.defineProperty(viewport, "width", { configurable: true,
+            get: function () { return viewportWidthOf.get.call(viewport) - width; } });
+    }
+
+    var style = document.createElement("style");
+    style.setAttribute("data-ce-panel-style", "1");
+    document.head.appendChild(style);
+
+    var panel = document.createElement("div");
+    panel.setAttribute("data-ce-panel", "1");
+    panel.style.cssText = "position:fixed;left:0;top:0;bottom:0;z-index:2147483002;background:#121212;"
+        + "box-shadow:2px 0 6px rgba(0,0,0,.4)";
+    var frame = document.createElement("iframe");
+    frame.src = url;
+    frame.title = "Collect Earth";
+    frame.style.cssText = "border:0;width:100%;height:100%;display:block";
+    var handle = document.createElement("div");
+    handle.title = "Drag to resize";
+    handle.style.cssText = "position:absolute;top:0;bottom:0;right:-4px;width:8px;cursor:ew-resize;z-index:1;"
+        + "touch-action:none";
+    panel.appendChild(frame);
+    panel.appendChild(handle);
+    document.body.appendChild(panel);
+
+    var resizeQueued = false;
+    function tellResized() {
+        if (resizeQueued) return;
+        resizeQueued = true;
+        requestAnimationFrame(function () {
+            resizeQueued = false;
+            window.dispatchEvent(new Event("resize"));
+            if (viewport) viewport.dispatchEvent(new Event("resize"));
+        });
+    }
+    function apply(w) {
+        width = clamp(w);
+        panel.style.width = width + "px";
+        style.textContent = ":root{--ce-panel-width:" + width + "px}"
+            + "flutter-view{left:" + width + "px !important;width:calc(100vw - " + width + "px) !important}";
+        tellResized();
+    }
+    apply(preferred);
+
+    // While dragging, the frame would take the pointer from the handle
+    var dragging = false;
+    handle.addEventListener("pointerdown", function (e) {
+        dragging = true;
+        handle.setPointerCapture(e.pointerId);
+        frame.style.pointerEvents = "none";
+        e.preventDefault();
+        e.stopPropagation();
+    });
+    handle.addEventListener("pointermove", function (e) {
+        if (!dragging) return;
+        apply(e.clientX);
+        preferred = width;
+        e.stopPropagation();
+    });
+    function endDrag(e) {
+        if (!dragging) return;
+        dragging = false;
+        frame.style.pointerEvents = "";
+        try { window.localStorage.setItem(WIDTH_KEY, String(width)); } catch (err) { /* not kept */ }
+        if (e) e.stopPropagation();
+    }
+    handle.addEventListener("pointerup", endDrag);
+    handle.addEventListener("pointercancel", endDrag);
+    // A window made narrower leaves Google Earth Web its room; made wider, the panel gets back the width chosen
+    function onWindowResize(e) {
+        if (e.isTrusted && clamp(preferred) !== width) apply(preferred);
+    }
+    window.addEventListener("resize", onWindowResize);
+
+    window[TAG] = {
+        url: url,
+        remove: function () {
+            window.removeEventListener("resize", onWindowResize);
+            delete window.innerWidth;
+            if (viewport) delete viewport.width;
+            if (panel.parentNode) panel.parentNode.removeChild(panel);
+            if (style.parentNode) style.parentNode.removeChild(style);
+            delete window[TAG];
+            window.dispatchEvent(new Event("resize"));
+            if (viewport) viewport.dispatchEvent(new Event("resize"));
+        }
+    };
+    return "shown";
+})(arguments[0]);

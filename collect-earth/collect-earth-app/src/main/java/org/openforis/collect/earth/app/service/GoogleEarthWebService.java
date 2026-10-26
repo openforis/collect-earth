@@ -1,9 +1,11 @@
 package org.openforis.collect.earth.app.service;
 
 import java.time.Duration;
+import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.concurrent.Executors;
 import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.ScheduledExecutorService;
@@ -15,6 +17,7 @@ import java.util.concurrent.atomic.AtomicReference;
 import javax.annotation.PostConstruct;
 import javax.annotation.PreDestroy;
 
+import org.openforis.collect.earth.app.desktop.ServerController;
 import org.openforis.collect.earth.app.service.imagery.ImageryBrowser;
 import org.openforis.collect.earth.app.service.imagery.ImagerySource;
 import org.openforis.collect.earth.app.service.imagery.ImageryTab;
@@ -57,6 +60,8 @@ public class GoogleEarthWebService {
 	public enum State { CLOSED, OPENING, MOVING, READY, WAITING, ERROR }
 
 	private static final String OVERLAY_TEMPLATE = "resources/javascript_google_earth_web.fmt";
+	/** The plots map in a panel of the page, with the "plots map inside Google Earth Web" layout. */
+	private static final String PANEL_TEMPLATE = "resources/javascript_plots_map_panel.fmt";
 	private static final String OVERLAY_TAG = "__collectEarthGewOverlay";
 
 	/** How long to wait for Google Earth Web to follow an in-page navigation. */
@@ -135,6 +140,10 @@ public class GoogleEarthWebService {
 
 	@Autowired
 	private ImageryBrowser imageryBrowser;
+
+	/** The address of the plots map in the panel of the page, null when it has none; see {@link #syncPanel()}. */
+	private volatile String panelShown;
+	private volatile String panelScript;
 
 	private final Object lock = new Object();
 	/** The plot to show next, the one of the latest selection that arrived; see {@link #showPlot}. */
@@ -594,6 +603,8 @@ public class GoogleEarthWebService {
 			if (script == null) {
 				return Outline.FAILED;
 			}
+			// First, as the outline is drawn beside it
+			syncPanel();
 			if (OVERLAY_NO_BODY.equals(tab().evaluate(script))) {
 				logger.warn("Google Earth Web: the page was replaced by one with no body yet, the plot outline is drawn later");
 				return Outline.PAGE_NOT_READY;
@@ -614,6 +625,43 @@ public class GoogleEarthWebService {
 			logger.warn("Could not draw the plot outline in Google Earth Web", e);
 			return Outline.FAILED;
 		}
+	}
+
+	/**
+	 * Shows the plots map in a panel on the left of the page, or takes it away, as the window layout wants (see
+	 * javascript_plots_map_panel.fmt): with the outline, as a page loaded anew lost both, and when the layout changes.
+	 * A failure leaves Google Earth Web as it is, with the plots map in its own window.
+	 */
+	private void syncPanel() {
+		String url = panelUrl();
+		try {
+			String script = panelScript;
+			if (script == null) {
+				script = browserService.processJavascriptTemplate(new HashMap<>(), PANEL_TEMPLATE);
+				if (script == null) {
+					return;
+				}
+				panelScript = script;
+			}
+			Object result = tab().evaluateIfOpen(script, url);
+			if (!"no_body".equals(result)) {
+				panelShown = url;
+			}
+		} catch (TabClosedException e) {
+			throw e;
+		} catch (Exception e) {
+			logger.warn("Google Earth Web: the plots map panel could not be {}: {}", url == null ? "removed" : "shown",
+					e.getMessage());
+		}
+	}
+
+	/** The address of the plots map for the panel, or null when the window layout wants none. */
+	private String panelUrl() {
+		if (!LocalPropertiesService.WINDOW_LAYOUT_PLOTS_MAP_IN_EARTH.equals(localPropertiesService.getWindowLayout())) {
+			return null;
+		}
+		return BrowserService.leafletMapUrl(ServerController.getHostAddress(localPropertiesService.getHost(),
+				localPropertiesService.getLocalPort()), null);
 	}
 
 	// ---------- watchdog ----------
@@ -678,6 +726,9 @@ public class GoogleEarthWebService {
 					return;
 				}
 				learnGroundAltitude(href);
+				if (!Objects.equals(panelUrl(), panelShown)) {
+					syncPanel(); // the window layout was changed
+				}
 				double[] camera = GoogleEarthWebUrls.cameraPosition(href);
 				view = GoogleEarthWebUrls.cameraView(href, ((Number) page.get(1)).doubleValue(), ((Number) page.get(2)).doubleValue(),
 						camera == null ? null : groundAltitudeNear(camera[0], camera[1]));

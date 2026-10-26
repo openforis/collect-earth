@@ -51,6 +51,10 @@ import org.springframework.stereotype.Component;
  * imagery browser shows Google Earth Web in a window of its own and the other sources in another (see
  * {@link ImageryBrowser#separateWindowsWhen}). The form and Google Earth Web go side by side on the largest screen, the
  * main one when another is as large, and the other sources maximized on another screen.</li>
+ * <li>Plots map inside Google Earth Web: the window of Google Earth Web maximized on the largest screen, with the plots
+ * map in a panel of its page (see GoogleEarthWebService), and the other sources maximized in their own window on
+ * another screen, or under it on a single screen. The plots map window is minimized once Google Earth Web is open: it
+ * is where the first plot is chosen.</li>
  * </ul>
  *
  * Java only says which screen is which. Where a window goes on a screen is measured by the browser itself, in its own
@@ -79,7 +83,7 @@ import org.springframework.stereotype.Component;
 @Component
 public class WindowLayoutService {
 
-	enum Mode { SIDE_BY_SIDE, SEPARATE_SCREENS, IMAGERY_FULL_SCREEN, EARTH_BESIDE_FORM }
+	enum Mode { SIDE_BY_SIDE, SEPARATE_SCREENS, IMAGERY_FULL_SCREEN, EARTH_BESIDE_FORM, PLOTS_MAP_IN_EARTH }
 
 	/** What a check of a window found: see {@link #windowState}. */
 	public enum WindowState { OPEN, CLOSED, NO_ANSWER }
@@ -99,6 +103,7 @@ public class WindowLayoutService {
 	static ImageryPlacement imageryPlacement(Mode mode) {
 		switch (mode) {
 		case SEPARATE_SCREENS:
+		case PLOTS_MAP_IN_EARTH:
 			return ImageryPlacement.MAXIMIZED;
 		case IMAGERY_FULL_SCREEN:
 			return ImageryPlacement.FULL_SCREEN;
@@ -245,15 +250,18 @@ public class WindowLayoutService {
 
 	/**
 	 * Whether the imagery browser should show Google Earth Web in a window of its own, beside the form, and the other
-	 * sources in another, on a screen of their own: "auto" with Google Earth Web as the viewer and two screens or more.
+	 * sources in another, on a screen of their own: "auto" with Google Earth Web as the viewer and two screens or more,
+	 * and "plots map inside Google Earth Web".
 	 * Asked as the imagery browser starts (see {@link ImageryBrowser#separateWindowsWhen}).
 	 */
 	boolean wantsSeparateImageryWindows() {
-		if (!localPropertiesService.isGoogleEarthWebViewer() || GraphicsEnvironment.isHeadless()
-				|| !LocalPropertiesService.WINDOW_LAYOUT_AUTO.equals(localPropertiesService.getWindowLayout())) {
+		if (!localPropertiesService.isGoogleEarthWebViewer() || GraphicsEnvironment.isHeadless()) {
 			return false;
 		}
-		return GraphicsEnvironment.getLocalGraphicsEnvironment().getScreenDevices().length >= 2;
+		String layout = localPropertiesService.getWindowLayout();
+		return LocalPropertiesService.WINDOW_LAYOUT_PLOTS_MAP_IN_EARTH.equals(layout)
+				|| LocalPropertiesService.WINDOW_LAYOUT_AUTO.equals(layout)
+						&& GraphicsEnvironment.getLocalGraphicsEnvironment().getScreenDevices().length >= 2;
 	}
 
 	/**
@@ -460,6 +468,15 @@ public class WindowLayoutService {
 				case EARTH_BESIDE_FORM:
 					sideBySideWorkArea = placeSideBySide(map, imagery, workAreas[plan.imageryScreen], bringForward);
 					break;
+				case PLOTS_MAP_IN_EARTH:
+					if (imagery == null) {
+						// Google Earth Web not open yet: the first plot is chosen in the plots map
+						maximizeOn(map, workAreas[plan.formScreen], false, bringForward);
+					} else {
+						minimize(map);
+						maximizeOn(imagery, workAreas[plan.imageryScreen], false, bringForward);
+					}
+					break;
 				case IMAGERY_FULL_SCREEN:
 					maximizeOn(map, workAreas[plan.formScreen], false, bringForward);
 					maximizeOn(imagery, workAreas[plan.imageryScreen], true, bringForward);
@@ -575,15 +592,14 @@ public class WindowLayoutService {
 	 * @param othersApart whether the other sources have a window of their own, apart from the one of Google Earth Web
 	 */
 	static Plan plan(String layout, Rectangle[] screens, int primary, boolean othersApart) {
+		if (LocalPropertiesService.WINDOW_LAYOUT_PLOTS_MAP_IN_EARTH.equals(layout)) {
+			int earth = largestScreen(screens, primary);
+			int others = largestOther(screens, earth);
+			return new Plan(Mode.PLOTS_MAP_IN_EARTH, earth, earth, others < 0 ? earth : others);
+		}
 		if (othersApart && screens.length >= 2 && LocalPropertiesService.WINDOW_LAYOUT_AUTO.equals(layout)) {
 			int earth = largestScreen(screens, primary);
-			int others = -1;
-			for (int i = 0; i < screens.length; i++) {
-				if (i != earth && (others < 0 || area(screens[i]) > area(screens[others]))) {
-					others = i;
-				}
-			}
-			return new Plan(Mode.EARTH_BESIDE_FORM, earth, earth, others);
+			return new Plan(Mode.EARTH_BESIDE_FORM, earth, earth, largestOther(screens, earth));
 		}
 		int[] chosen = chooseScreens(screens, primary);
 		int imagery = chosen[0];
@@ -633,6 +649,17 @@ public class WindowLayoutService {
 		int largest = primary;
 		for (int i = 0; i < screens.length; i++) {
 			if (area(screens[i]) > area(screens[largest])) {
+				largest = i;
+			}
+		}
+		return largest;
+	}
+
+	/** The largest screen but {@code except}, or -1 when there is no other. */
+	static int largestOther(Rectangle[] screens, int except) {
+		int largest = -1;
+		for (int i = 0; i < screens.length; i++) {
+			if (i != except && (largest < 0 || area(screens[i]) > area(screens[largest]))) {
 				largest = i;
 			}
 		}
@@ -807,6 +834,18 @@ public class WindowLayoutService {
 		// A maximized window overlaps the edges of the work area by its invisible borders: only being elsewhere matters
 		if (!work.intersects(new Rectangle(position.x, position.y, size.width, size.height))) {
 			logger.warn("The window was asked to fill the screen at {} but is at {} {}", work, position, size);
+		}
+	}
+
+	/** Minimizes the window, if there is one: its page goes on (the plots map, which keeps the form's state). */
+	private void minimize(RemoteWebDriver window) {
+		if (window == null) {
+			return;
+		}
+		try {
+			window.manage().window().minimize();
+		} catch (WebDriverException e) {
+			logger.debug("Could not minimize the window", e);
 		}
 	}
 

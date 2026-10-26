@@ -113,6 +113,23 @@ public class WindowLayoutTest {
 	}
 
 	@Test
+	public void thePlotsMapInsideGoogleEarthWebTakesTheLargestScreenAndTheOtherSourcesAnother() {
+		String layout = LocalPropertiesService.WINDOW_LAYOUT_PLOTS_MAP_IN_EARTH;
+		Plan plan = WindowLayoutService.plan(layout, new Rectangle[] { LAPTOP, MONITOR }, 0, true);
+		assertEquals(Mode.PLOTS_MAP_IN_EARTH, plan.mode);
+		assertEquals(1, plan.imageryScreen);
+		assertEquals(0, plan.othersScreen);
+		// Whether or not the other sources have their window yet
+		assertEquals(Mode.PLOTS_MAP_IN_EARTH, WindowLayoutService.plan(layout, new Rectangle[] { LAPTOP, MONITOR }, 0).mode);
+		// One screen: the other sources under Google Earth Web
+		plan = WindowLayoutService.plan(layout, new Rectangle[] { LAPTOP }, 0, true);
+		assertEquals(0, plan.imageryScreen);
+		assertEquals(0, plan.othersScreen);
+		assertEquals(ImageryPlacement.MAXIMIZED, WindowLayoutService.imageryPlacement(Mode.PLOTS_MAP_IN_EARTH));
+		assertEquals(ImageryPlacement.MAXIMIZED, WindowLayoutService.othersPlacement(Mode.PLOTS_MAP_IN_EARTH));
+	}
+
+	@Test
 	public void sideBySideStaysOnTheLargestScreen() {
 		assertPlan(Mode.SIDE_BY_SIDE, 1, 1, LocalPropertiesService.WINDOW_LAYOUT_SIDE_BY_SIDE, LAPTOP, MONITOR);
 	}
