@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { byId, countStatuses, footprintCorners, indexPlots, heightForZoom, matchesFilter, neighbour, nextUnfinished, normalizeStatus, plotParam, plotsNear,
-  plotToRestore, plotsGone, sameView, withoutPlotParam,
+  plotToRestore, plotsGone, sameView, surveyView, withoutPlotParam,
   visibleIds, zoomForHeight } from "./plots";
 import type { PlotStatus } from "./types";
 
@@ -161,5 +161,17 @@ describe("the plots of a load", () => {
     statuses["__proto__"] = "saved";
     expect(Object.keys(statuses)).toEqual(["__proto__"]);
     expect(visibleIds(["__proto__", "constructor"], statuses, "pending", "")).toEqual(["constructor"]);
+  });
+});
+
+describe("surveyView", () => {
+  it("looks at the middle of the plots from high enough to see them all", () => {
+    const view = surveyView([[0, 10], [0.2, 10.1], [0.1, 10.2]]);
+    expect(view.center[0]).toBeCloseTo(0.1);
+    expect(view.center[1]).toBeCloseTo(10.1);
+    expect(view.heightMeters).toBe(Math.round(0.2 * 111320 * 1.5));
+  });
+  it("is never closer than 5 km, for a single plot", () => {
+    expect(surveyView([[1, 2]]).heightMeters).toBe(5000);
   });
 });

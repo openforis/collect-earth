@@ -22,6 +22,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.TimeUnit;
 import java.util.function.BooleanSupplier;
+import java.util.function.Function;
 
 import org.apache.commons.lang3.StringUtils;
 import org.openforis.collect.earth.app.EarthConstants;
@@ -165,6 +166,7 @@ public class BrowserService implements InitializingBean, DisposableBean, Applica
 	private volatile boolean geeMethodUpdated = false;
 	private volatile boolean isClosing = false;
 	private final List<Runnable> leafletMapOpenedListeners = new CopyOnWriteArrayList<>();
+	private volatile Function<String, Boolean> plotsMapInGoogleEarthWebOpener;
 
 	/**
 	 * Creates and configures the Freemarker Configuration instance.
@@ -1356,6 +1358,10 @@ public class BrowserService implements InitializingBean, DisposableBean, Applica
 	 */
 	public void openLeafletMap(String plotId) {
 		try {
+			if (plotsMapInGoogleEarthWeb()) {
+				showPlotsMapInGoogleEarthWeb(plotId);
+				return;
+			}
 			showLeafletMap(plotId);
 		} catch (final Exception e) {
 			logger.error("Problems loading the Leaflet plots map", e);
@@ -1369,7 +1375,36 @@ public class BrowserService implements InitializingBean, DisposableBean, Applica
 	 * @return whether the plots map window is open now
 	 */
 	boolean reopenLeafletMap(String plotId) throws BrowserNotFoundException {
-		return showLeafletMap(plotId);
+		return plotsMapInGoogleEarthWeb() ? showPlotsMapInGoogleEarthWeb(plotId) : showLeafletMap(plotId);
+	}
+
+	/**
+	 * Whether the plots map is shown in a panel of Google Earth Web's window ("plots map inside Google Earth Web"
+	 * layout), instead of a window of its own: opening the plots map then opens Google Earth Web, see
+	 * {@link #showPlotsMapInGoogleEarthWebWith}.
+	 */
+	public boolean plotsMapInGoogleEarthWeb() {
+		return localPropertiesService.isGoogleEarthWebViewer() && LocalPropertiesService.WINDOW_LAYOUT_PLOTS_MAP_IN_EARTH
+				.equals(localPropertiesService.getWindowLayout()) && plotsMapInGoogleEarthWebOpener != null;
+	}
+
+	/**
+	 * How Google Earth Web is opened, with the plots map in its panel, where the plots map window would be (see
+	 * {@link PlotImageryService}): given the plot to show, or null, it answers whether Google Earth Web is opening.
+	 */
+	public void showPlotsMapInGoogleEarthWebWith(Function<String, Boolean> opener) {
+		plotsMapInGoogleEarthWebOpener = opener;
+	}
+
+	/** Opens Google Earth Web in place of the plots map window, which {@link PlotsMapKeeper} then keeps open. */
+	private boolean showPlotsMapInGoogleEarthWeb(String plotId) {
+		if (isClosing || !Boolean.TRUE.equals(plotsMapInGoogleEarthWebOpener.apply(plotId))) {
+			return false;
+		}
+		for (Runnable listener : leafletMapOpenedListeners) {
+			listener.run();
+		}
+		return true;
 	}
 
 	/**

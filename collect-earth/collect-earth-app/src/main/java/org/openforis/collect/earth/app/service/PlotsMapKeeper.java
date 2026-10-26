@@ -24,6 +24,10 @@ import org.springframework.stereotype.Component;
  * {@link WindowLayoutService#plotsMapWindow()}): a cheap call, which does not touch the page. Reopened only once two
  * checks in a row found it closed, as reopening a window that is in fact there reloads the form in it. "Arrange"
  * reopens it too, at once.
+ * <p>
+ * With the plots map inside Google Earth Web ({@link BrowserService#plotsMapInGoogleEarthWeb()}), the form is in Google
+ * Earth Web's window, which is kept open the same way: watched from what Google Earth Web knows of its tab, and opened
+ * again through {@link BrowserService#reopenLeafletMap}, which opens it in place of the plots map window.
  */
 // Not lazy: the application context creates its beans lazily (applicationContext.fmt), and nothing asks for this one,
 // which only listens for the plots map to open
@@ -46,6 +50,9 @@ public class PlotsMapKeeper {
 
 	@Autowired
 	private PlotImageryService plotImageryService;
+
+	@Autowired
+	private GoogleEarthWebService googleEarthWebService;
 
 	private final PlotsMapReopening reopening = new PlotsMapReopening();
 	private ScheduledExecutorService watcher;
@@ -77,14 +84,18 @@ public class PlotsMapKeeper {
 			if (!reopening.shouldCheck(localPropertiesService.isPlotsMapViewer(), browserService.isClosing())) {
 				return;
 			}
-			if (windowLayoutService.plotsMapWindow() != WindowLayoutService.WindowState.CLOSED) {
+			// With the plots map inside Google Earth Web, the window that holds the form is Google Earth Web's
+			boolean inGoogleEarthWeb = browserService.plotsMapInGoogleEarthWeb();
+			if (inGoogleEarthWeb ? !googleEarthWebService.isClosed()
+					: windowLayoutService.plotsMapWindow() != WindowLayoutService.WindowState.CLOSED) {
 				reopening.foundOpen();
 				return;
 			}
 			if (!reopening.foundClosed()) {
 				return; // once more at the next check
 			}
-			logger.info("The plots map window was closed, opening it again: it holds the form");
+			logger.info("The {} window was closed, opening it again: it holds the form",
+					inGoogleEarthWeb ? "Google Earth Web" : "plots map");
 			boolean open;
 			try {
 				// On the plot that was open: the form comes back where the user was

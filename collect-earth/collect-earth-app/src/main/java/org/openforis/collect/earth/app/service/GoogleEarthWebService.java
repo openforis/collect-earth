@@ -260,6 +260,14 @@ public class GoogleEarthWebService {
 		}
 	}
 
+	/**
+	 * Whether Google Earth Web is closed: never opened, or its tab or window closed by the user (the watchdog notices).
+	 * Not while it opens.
+	 */
+	public boolean isClosed() {
+		return state == State.CLOSED;
+	}
+
 	/** Whether Google Earth Web is the plot viewer. */
 	boolean isTheViewer() {
 		return localPropertiesService.isGoogleEarthWebViewer();

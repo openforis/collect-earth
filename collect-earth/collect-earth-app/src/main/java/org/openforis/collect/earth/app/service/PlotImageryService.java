@@ -8,6 +8,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicReference;
 
+import javax.annotation.PostConstruct;
 import javax.annotation.PreDestroy;
 
 import org.openforis.collect.earth.app.service.imagery.ImageryBrowser;
@@ -170,6 +171,32 @@ public class PlotImageryService {
 	/** The plot selected last in the plots map, or null before the first. */
 	public String getSelectedPlotId() {
 		return selectedPlotId;
+	}
+
+	/**
+	 * With the plots map inside Google Earth Web, Google Earth Web opens where the plots map window would (see
+	 * {@link BrowserService#plotsMapInGoogleEarthWeb()}).
+	 */
+	@PostConstruct
+	void openGoogleEarthWebForThePlotsMap() {
+		browserService.showPlotsMapInGoogleEarthWebWith(plotId -> openForThePlotsMap());
+	}
+
+	/**
+	 * Opens Google Earth Web for its panel to show the plots map: on the plot shown last, with the other sources, or
+	 * before any plot over the survey area, else from afar (the panel then moves it over the survey area, see panel.ts).
+	 * Returns at once; true unless there is no Google Earth Web to open.
+	 */
+	boolean openForThePlotsMap() {
+		if (!googleEarthWebService.isTheViewer()) {
+			return false;
+		}
+		if (reopenImagery()) {
+			return true;
+		}
+		SimplePlacemarkObject overview = lastOverview.get();
+		openOverview(overview != null ? overview : new SimplePlacemarkObject(new String[] { "0", "0" }));
+		return true;
 	}
 
 	/** Opens Google Earth Web over the survey area before a plot is selected (a no-op if it is open). */

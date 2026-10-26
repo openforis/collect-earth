@@ -305,7 +305,11 @@ public class WindowLayoutService {
 			logger.info("Arrange: the plots map window was closed, opening it again");
 			browserService.openLeafletMap(plotImageryService.getSelectedPlotId());
 		}
-		if (isImageryWindowClosed() && plotImageryService.reopenImagery()) {
+		if (browserService.plotsMapInGoogleEarthWeb() && imageryBrowser.classicDriver() == null) {
+			// The plots map is in Google Earth Web's window, which is not open: opened in place of the plots map window
+			logger.info("Arrange: Google Earth Web, with the plots map, is not open, opening it");
+			browserService.openLeafletMap(plotImageryService.getSelectedPlotId());
+		} else if (isImageryWindowClosed() && plotImageryService.reopenImagery()) {
 			logger.info("Arrange: the imagery window was closed, opening it again");
 		}
 	}

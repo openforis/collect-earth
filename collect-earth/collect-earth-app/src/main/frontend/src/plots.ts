@@ -160,3 +160,17 @@ export function withoutPlotParam(href: string): string {
   url.searchParams.delete("plot");
   return url.toString();
 }
+
+/** The survey area seen from above: the middle of the plots, from high enough to see them all (5 km at least). */
+export function surveyView(centers: LatLng[]): GroundView {
+  let minLat = 90, maxLat = -90, minLng = 180, maxLng = -180;
+  for (const [lat, lng] of centers) {
+    minLat = Math.min(minLat, lat); maxLat = Math.max(maxLat, lat);
+    minLng = Math.min(minLng, lng); maxLng = Math.max(maxLng, lng);
+  }
+  const center: LatLng = [(minLat + maxLat) / 2, (minLng + maxLng) / 2];
+  const metresPerDegree = 111320;
+  const span = Math.max((maxLat - minLat) * metresPerDegree,
+    (maxLng - minLng) * metresPerDegree * Math.cos((center[0] * Math.PI) / 180));
+  return { center, heightMeters: Math.max(5000, Math.round(span * 1.5)) };
+}

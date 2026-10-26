@@ -6,7 +6,7 @@ import { LeafletEngine } from "./engines/LeafletEngine";
 import { NoMapEngine } from "./engines/NoMapEngine";
 import { IN_PANEL } from "./panel";
 import type { EngineConfig, MapEngine } from "./engines/MapEngine";
-import { byId, footprintCorners, indexPlots, neighbour, nextUnfinished, normalizeStatus, plotParam, plotsGone, plotsNear, plotToRestore,
+import { byId, footprintCorners, indexPlots, neighbour, nextUnfinished, normalizeStatus, plotParam, plotsGone, plotsNear, plotToRestore, surveyView,
   sameView, visibleIds, withoutPlotParam } from "./plots";
 import type { MessageKey } from "./i18n";
 import { reconcileImagery, sameImageryStatus, type ImageryExpectation } from "./imagery";
@@ -401,11 +401,23 @@ export class MapController {
         this.engine?.setFootprint(gew.state === "READY" && gew.view ? footprintCorners(gew.view) : null);
         ready = gew.state === "READY";
         if (ready) this.followGew(gew.view ?? null);
+        if (ready) this.showSurveyAreaOnce();
       }
     } catch { /* server busy or restarting - retry */ }
     this.gewTimer = window.setTimeout(this.pollGew,
       busy ? GEW_BUSY_POLL_MILLIS : ready ? GEW_READY_POLL_MILLIS : GEW_IDLE_POLL_MILLIS);
   };
+
+  /**
+   * In Google Earth Web's panel, before any plot: Google Earth Web was opened without knowing where the plots are (there
+   * is no plots map window to tell it, see panel.ts), so the panel moves it over the survey area, once it is ready.
+   */
+  private surveyAreaShown = false;
+  private showSurveyAreaOnce(): void {
+    if (!IN_PANEL || this.surveyAreaShown || this.state.activeId || !this.state.order.length) return;
+    this.surveyAreaShown = true;
+    gewMoveCamera(surveyView(this.allCenters()));
+  }
 
   // ---------- linked views: the map and Google Earth Web look at the same place ----------
   /**
