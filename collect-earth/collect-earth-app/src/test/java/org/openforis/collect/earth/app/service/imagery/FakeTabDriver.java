@@ -54,7 +54,18 @@ class FakeTabDriver implements TabDriver {
 
 	@Override public String initialTab() { return "tab0"; }
 
-	@Override public synchronized String createTab() {
+	/** The tab each createTab was asked to open beside, in order ("-" for none). */
+	final List<String> besides = Collections.synchronizedList(new ArrayList<>());
+
+	@Override public synchronized String createWindow() {
+		String tab = "tab" + (++created);
+		tabs.add(tab);
+		calls.add("window " + tab);
+		return tab;
+	}
+
+	@Override public synchronized String createTab(String besideTab) {
+		besides.add(besideTab == null ? "-" : besideTab);
 		CountDownLatch hold = holdCreateTab;
 		if (hold != null) {
 			holdCreateTab = null;
@@ -133,6 +144,11 @@ class FakeTabDriver implements TabDriver {
 	void close(String tab) {
 		tabs.remove(tab);
 		closedListeners.forEach(l -> l.accept(tab));
+	}
+
+	/** The page of the tab says whether it is shown. */
+	void visibility(String tab, boolean visible) {
+		visibilityListeners.forEach(l -> l.accept(tab, visible));
 	}
 
 	/** The user selects the tab. */

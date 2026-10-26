@@ -49,6 +49,8 @@ final class BrowserWindowIcon {
 	private File iconFile;
 	private Pointer bigIcon;
 	private Pointer smallIcon;
+	/** The processes of the browser given the icon last, for the windows it opens later: see {@link #applyAgain()}. */
+	private Set<Long> browserProcesses = new HashSet<>();
 
 	/** @param resource the class path of the .ico file, with the sizes the task bar takes (16 to 64 pixels) */
 	BrowserWindowIcon(String resource) {
@@ -75,26 +77,50 @@ final class BrowserWindowIcon {
 		try {
 			Set<Long> started = processes();
 			started.removeAll(before);
-			if (started.isEmpty() || !loadIcons()) {
-				return 0;
-			}
-			int[] count = { 0 };
-			User32.INSTANCE.EnumWindows((window, data) -> {
-				IntByReference pid = new IntByReference();
-				User32.INSTANCE.GetWindowThreadProcessId(window, pid);
-				if (started.contains((long) pid.getValue()) && User32.INSTANCE.IsWindowVisible(window)
-						&& User32.INSTANCE.GetWindow(window, GW_OWNER) == null) {
-					User32.INSTANCE.SendMessageW(window, WM_SETICON, new Pointer(ICON_BIG), bigIcon);
-					User32.INSTANCE.SendMessageW(window, WM_SETICON, new Pointer(ICON_SMALL), smallIcon);
-					count[0]++;
-				}
-				return true;
-			}, null);
-			return count[0];
+			browserProcesses = started;
+			return applyTo(started);
 		} catch (RuntimeException | LinkageError e) {
 			logger.warn("Could not set the icon of the browser windows from {}", resource, e);
 			return 0;
 		}
+	}
+
+	/**
+	 * Sets the icon again on the windows of the browser of the last {@link #apply(Set)}: those it opened since, which
+	 * Windows shows with the browser's icon, get it too. The windows that have it keep it.
+	 *
+	 * @return how many windows got it
+	 */
+	synchronized int applyAgain() {
+		if (!Platform.isWindows()) {
+			return 0;
+		}
+		try {
+			return applyTo(browserProcesses);
+		} catch (RuntimeException | LinkageError e) {
+			logger.warn("Could not set the icon of the browser windows from {}", resource, e);
+			return 0;
+		}
+	}
+
+	/** Sets the icon on the visible top-level windows of these processes. */
+	private int applyTo(Set<Long> processes) {
+		if (processes.isEmpty() || !loadIcons()) {
+			return 0;
+		}
+		int[] count = { 0 };
+		User32.INSTANCE.EnumWindows((window, data) -> {
+			IntByReference pid = new IntByReference();
+			User32.INSTANCE.GetWindowThreadProcessId(window, pid);
+			if (processes.contains((long) pid.getValue()) && User32.INSTANCE.IsWindowVisible(window)
+					&& User32.INSTANCE.GetWindow(window, GW_OWNER) == null) {
+				User32.INSTANCE.SendMessageW(window, WM_SETICON, new Pointer(ICON_BIG), bigIcon);
+				User32.INSTANCE.SendMessageW(window, WM_SETICON, new Pointer(ICON_SMALL), smallIcon);
+				count[0]++;
+			}
+			return true;
+		}, null);
+		return count[0];
 	}
 
 	/** The icons at the sizes of the task bar for this screen, loaded once; false when they cannot be. */

@@ -128,8 +128,8 @@ public final class ImageryTab {
 		return browser.isOpen(source);
 	}
 
-	/** Whether it is the tab shown in the imagery window. */
+	/** Whether it is the tab shown in its window of the imagery browser. */
 	public boolean isVisible() {
-		return browser.visibleSource() == source;
+		return browser.isShown(source);
 	}
 }

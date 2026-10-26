@@ -180,10 +180,19 @@ public class BidiTabDriver implements TabDriver {
 	}
 
 	@Override
-	public String createTab() {
+	public String createTab(String besideTab) {
 		// background: a new BrowsingContext(driver, WindowType.TAB) selects the tab it opens
+		CreateContextParameters parameters = new CreateContextParameters(WindowType.TAB).background(true);
+		if (besideTab != null) {
+			parameters.referenceContext(besideTab);
+		}
+		return guard(besideTab, false, () -> new BrowsingContext(driver, parameters).getId());
+	}
+
+	@Override
+	public String createWindow() {
 		return guard(null, false,
-				() -> new BrowsingContext(driver, new CreateContextParameters(WindowType.TAB).background(true)).getId());
+				() -> new BrowsingContext(driver, new CreateContextParameters(WindowType.WINDOW).background(true)).getId());
 	}
 
 	@Override

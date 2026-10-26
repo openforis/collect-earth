@@ -18,8 +18,14 @@ public interface TabDriver {
 	/** The tab the browser opened with (blank), used for the first source instead of leaving it empty. */
 	String initialTab();
 
-	/** Opens a tab without selecting it, at the end of the tab strip. */
-	String createTab();
+	/**
+	 * Opens a tab without selecting it, at the end of the tab strip of the window of {@code besideTab}; of the window the
+	 * browser chooses (the last one used) when null.
+	 */
+	String createTab(String besideTab);
+
+	/** Opens a new window, without bringing it in front of the others, and returns its one tab. */
+	String createWindow();
 
 	/** Starts loading the page and returns without waiting for it. */
 	void navigate(String tab, String url);

@@ -586,6 +586,89 @@ public class ImageryBrowserTest {
 	}
 
 	@Test
+	public void separateWindowsGiveTheOtherSourcesAWindowOfTheirOwn() {
+		imagery.separateWindowsWhen(() -> true);
+		imagery.openTabs(EnumSet.of(ImagerySource.GOOGLE_EARTH_WEB, ImagerySource.ESRI_WAYBACK, ImagerySource.PLANET));
+		// Google Earth Web in the tab the browser opened with, the first other source in a new window, the next beside it
+		assertEquals(Arrays.asList("window tab1", "create tab2"), browser.calls);
+		assertEquals(Arrays.asList("tab1"), browser.besides);
+		assertEquals(ImageryWindow.MAIN, imagery.windowOf(ImagerySource.GOOGLE_EARTH_WEB));
+		assertEquals(ImageryWindow.OTHERS, imagery.windowOf(ImagerySource.PLANET));
+		assertTrue(imagery.hasOthersWindow());
+		assertTrue(imagery.windowsAsWanted());
+	}
+
+	@Test
+	public void theWindowsAreSeparateEvenWhenGoogleEarthWebStartsTheBrowserAlone() {
+		imagery.separateWindowsWhen(() -> true);
+		// Its load comes first, before the sources are known
+		imagery.tab(ImagerySource.GOOGLE_EARTH_WEB).navigate("https://earth/1");
+		imagery.openTabs(EnumSet.of(ImagerySource.GOOGLE_EARTH_WEB, ImagerySource.GEE_APP));
+		assertEquals(Arrays.asList("navigate tab0 https://earth/1", "window tab1"), browser.calls);
+	}
+
+	@Test
+	public void withoutSeparateWindowsTheSourcesShareOneWindow() {
+		imagery.openTabs(EnumSet.of(ImagerySource.GOOGLE_EARTH_WEB, ImagerySource.ESRI_WAYBACK, ImagerySource.PLANET));
+		assertEquals(Arrays.asList("create tab1", "create tab2"), browser.calls);
+		assertEquals(Arrays.asList("-", "-"), browser.besides);
+		assertFalse(imagery.hasOthersWindow());
+	}
+
+	@Test
+	public void googleEarthWebStaysShownWhileTheUserGoesThroughTheOtherTabs() {
+		imagery.separateWindowsWhen(() -> true);
+		imagery.openTabs(EnumSet.of(ImagerySource.GOOGLE_EARTH_WEB, ImagerySource.ESRI_WAYBACK, ImagerySource.PLANET));
+		// The user picks the tab of Planet in the window of the other sources
+		browser.visibility("tab2", true);
+		browser.visibility("tab1", false);
+		assertEquals(ImagerySource.PLANET, imagery.visibleSource());
+		assertTrue(imagery.tab(ImagerySource.GOOGLE_EARTH_WEB).isVisible());
+		assertTrue(imagery.tab(ImagerySource.PLANET).isVisible());
+		assertFalse(imagery.tab(ImagerySource.ESRI_WAYBACK).isVisible());
+	}
+
+	@Test
+	public void eachWindowIsAddressedThroughATabOfItsOwn() {
+		List<String> switches = classicSession();
+		imagery.separateWindowsWhen(() -> true);
+		imagery.openTabs(EnumSet.of(ImagerySource.GOOGLE_EARTH_WEB, ImagerySource.ESRI_WAYBACK, ImagerySource.PLANET));
+		assertSame(browser.classic, imagery.window(ImageryWindow.MAIN));
+		assertEquals(Collections.emptyList(), switches); // still on the tab the browser opened with
+		browser.visibility("tab2", true);
+		assertSame(browser.classic, imagery.window(ImageryWindow.OTHERS));
+		assertSame(browser.classic, imagery.window(ImageryWindow.OTHERS));
+		assertSame(browser.classic, imagery.window(ImageryWindow.MAIN));
+		assertEquals(Arrays.asList("tab2", "tab0"), switches);
+	}
+
+	@Test
+	public void theWindowOfTheOtherSourcesOpensAgainOnceClosed() throws Exception {
+		CountDownLatch opened = new CountDownLatch(1);
+		imagery.onWindowOpened(opened::countDown);
+		imagery.separateWindowsWhen(() -> true);
+		imagery.openTabs(EnumSet.of(ImagerySource.GOOGLE_EARTH_WEB, ImagerySource.PLANET));
+		browser.close("tab1");
+		assertFalse(imagery.hasOthersWindow());
+		imagery.tab(ImagerySource.PLANET).navigate("https://planet/2");
+		assertTrue(browser.calls.contains("window tab2"), browser.calls.toString());
+		await(opened);
+		assertTrue(imagery.hasOthersWindow());
+	}
+
+	@Test
+	public void theWindowsAreAsWantedOnlyAsTheBrowserStarted() {
+		boolean[] wanted = { false };
+		imagery.separateWindowsWhen(() -> wanted[0]);
+		imagery.openTabs(EnumSet.of(ImagerySource.GOOGLE_EARTH_WEB, ImagerySource.PLANET));
+		assertTrue(imagery.windowsAsWanted());
+		wanted[0] = true;
+		assertFalse(imagery.windowsAsWanted());
+		imagery.close();
+		assertTrue(imagery.windowsAsWanted()); // no browser
+	}
+
+	@Test
 	public void theWindowCommandsStayOnTheTabTheBrowserOpenedWithWhileItIsOpen() {
 		List<String> switches = classicSession();
 		imagery.tab(ImagerySource.PLANET).navigate("https://planet/1");

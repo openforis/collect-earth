@@ -406,6 +406,14 @@ public class BrowserService implements InitializingBean, DisposableBean, Applica
 	 *
 	 * @throws BrowserNotFoundException when no browser starts with BiDi (reported to Sentry), or none did a moment ago
 	 */
+	/**
+	 * Gives the satellite icon to the windows the imagery browser opened after it started (the window of the other
+	 * sources, see {@link ImageryBrowser#separateWindowsWhen}): called once they are shown, by the window layout.
+	 */
+	public void markImageryWindows() {
+		imageryWindowIcon.applyAgain();
+	}
+
 	public TabDriver startImageryBrowser() throws BrowserNotFoundException {
 		if (imageryStartFailures.failedRecently()) {
 			throw new BrowserNotFoundException("No browser could be started for the imagery window less than "

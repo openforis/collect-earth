@@ -308,7 +308,7 @@ public class PlacemarkBrowserServlet {
 		executor.submit(() -> {
 			try {
 				imageryBrowser.show(chosen);
-				windowLayoutService.bringImageryWindowForward();
+				windowLayoutService.bringImageryWindowForward(chosen);
 			} catch (RuntimeException e) {
 				// No browser to start, or the tab closed meanwhile: the next status shows what is open
 				logger.warn("Could not show the imagery of {}: {}", chosen, e.getMessage());

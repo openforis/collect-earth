@@ -77,6 +77,42 @@ public class WindowLayoutTest {
 	}
 
 	@Test
+	public void autoPutsGoogleEarthWebBesideTheFormAndTheOtherSourcesOnTheOtherScreen() {
+		Plan plan = WindowLayoutService.plan(LocalPropertiesService.WINDOW_LAYOUT_AUTO,
+				new Rectangle[] { LAPTOP, MONITOR }, 0, true);
+		assertEquals(Mode.EARTH_BESIDE_FORM, plan.mode);
+		assertEquals(1, plan.imageryScreen);
+		assertEquals(1, plan.formScreen);
+		assertEquals(0, plan.othersScreen);
+		// Screens of the same size: the main one, with the task bar and Collect Earth
+		plan = WindowLayoutService.plan(LocalPropertiesService.WINDOW_LAYOUT_AUTO, new Rectangle[] { LAPTOP, SAME_SIZE }, 1,
+				true);
+		assertEquals(1, plan.imageryScreen);
+		assertEquals(0, plan.othersScreen);
+		// Even a small second screen takes the other sources
+		Rectangle tiny = new Rectangle(1366, 0, 800, 480);
+		plan = WindowLayoutService.plan(LocalPropertiesService.WINDOW_LAYOUT_AUTO, new Rectangle[] { LAPTOP, tiny }, 0, true);
+		assertEquals(Mode.EARTH_BESIDE_FORM, plan.mode);
+		assertEquals(0, plan.imageryScreen);
+		assertEquals(1, plan.othersScreen);
+	}
+
+	@Test
+	public void theOtherSourcesShareThePlaceOfGoogleEarthWebInTheOtherLayouts() {
+		Plan plan = WindowLayoutService.plan(LocalPropertiesService.WINDOW_LAYOUT_AUTO, new Rectangle[] { LAPTOP }, 0, true);
+		assertEquals(Mode.SIDE_BY_SIDE, plan.mode);
+		assertEquals(0, plan.othersScreen);
+		plan = WindowLayoutService.plan(LocalPropertiesService.WINDOW_LAYOUT_SEPARATE_SCREENS,
+				new Rectangle[] { LAPTOP, MONITOR }, 0, true);
+		assertEquals(Mode.SEPARATE_SCREENS, plan.mode);
+		assertEquals(plan.imageryScreen, plan.othersScreen);
+		assertEquals(ImageryPlacement.MAXIMIZED, WindowLayoutService.othersPlacement(Mode.EARTH_BESIDE_FORM));
+		assertEquals(ImageryPlacement.NORMAL, WindowLayoutService.imageryPlacement(Mode.EARTH_BESIDE_FORM));
+		assertEquals(ImageryPlacement.NORMAL, WindowLayoutService.othersPlacement(Mode.SIDE_BY_SIDE));
+		assertEquals(ImageryPlacement.FULL_SCREEN, WindowLayoutService.othersPlacement(Mode.IMAGERY_FULL_SCREEN));
+	}
+
+	@Test
 	public void sideBySideStaysOnTheLargestScreen() {
 		assertPlan(Mode.SIDE_BY_SIDE, 1, 1, LocalPropertiesService.WINDOW_LAYOUT_SIDE_BY_SIDE, LAPTOP, MONITOR);
 	}

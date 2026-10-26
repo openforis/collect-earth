@@ -22,6 +22,7 @@ import java.util.concurrent.atomic.AtomicReference;
 import java.util.concurrent.locks.Condition;
 import java.util.concurrent.locks.ReentrantLock;
 import java.util.function.BiConsumer;
+import java.util.function.BooleanSupplier;
 
 import javax.annotation.PostConstruct;
 import javax.annotation.PreDestroy;
@@ -143,6 +144,20 @@ public class ImageryBrowser {
 	 * points at nothing, and every window command fails until it is switched to a tab that exists.
 	 */
 	private String classicTab;
+	/**
+	 * Whether this browser shows Google Earth Web in a window of its own and the other sources in another
+	 * ({@link ImageryWindow}), decided when it starts (see {@link #separateWindowsWhen}): tabs cannot move from one
+	 * window to another.
+	 */
+	private boolean separate;
+	/** The window of each tab of ours; all {@link ImageryWindow#MAIN} unless {@link #separate}. */
+	private final Map<String, ImageryWindow> windowOfTab = new HashMap<>();
+	/** The source of the tab shown in each window, from the tab events. */
+	private final Map<ImageryWindow, ImagerySource> shownIn = new EnumMap<>(ImageryWindow.class);
+	/** The sources of {@link #shownIn}, for the worker to read without {@link #tabsLock}. */
+	private volatile EnumSet<ImagerySource> shownSources = EnumSet.noneOf(ImagerySource.class);
+	/** Whether the next browser is to be {@link #separate}: asked when it starts. */
+	private volatile BooleanSupplier separateWindowsWanted = () -> false;
 
 	/** The plot each source is to load next, if any; see {@link #loadLatest}. */
 	private final Map<ImagerySource, AtomicReference<Runnable>> pendingLoads = new EnumMap<>(ImagerySource.class);
@@ -155,6 +170,7 @@ public class ImageryBrowser {
 
 	private final List<BiConsumer<ImagerySource, Boolean>> visibilityListeners = new CopyOnWriteArrayList<>();
 	private final List<Runnable> startListeners = new CopyOnWriteArrayList<>();
+	private final List<Runnable> windowListeners = new CopyOnWriteArrayList<>();
 	/** Runs the visibility and start listeners, so that they never hold up the thread of the browser's events. */
 	private final ExecutorService events = Executors.newSingleThreadExecutor(runnable -> {
 		Thread thread = new Thread(runnable, "Imagery browser events");
@@ -326,6 +342,16 @@ public class ImageryBrowser {
 	 * WindowLayoutService's code that holds its lock, which keeps the classic calls to one thread at a time.
 	 */
 	public RemoteWebDriver window() {
+		return window(ImageryWindow.MAIN);
+	}
+
+	/**
+	 * As {@link #window()}, for one of the windows when the other sources have one of their own (see
+	 * {@link #separateWindowsWhen}); null for {@link ImageryWindow#OTHERS} when they have none. The classic session
+	 * addresses one window at a time: what this returns addresses the window asked for until the next call, for the
+	 * other window, switches it.
+	 */
+	public RemoteWebDriver window(ImageryWindow which) {
 		TabDriver d = driver;
 		if (d == null || !d.isAlive()) {
 			return null;
@@ -336,14 +362,13 @@ public class ImageryBrowser {
 		}
 		String switchTo;
 		synchronized (tabsLock) {
-			if (classicTab != null) {
+			if (classicTab != null && windowOfTab.getOrDefault(classicTab, ImageryWindow.MAIN) == which) {
 				return window;
 			}
-			ImagerySource shown = visible;
-			switchTo = shown == null ? null : tabOfSource.get(shown);
+			switchTo = tabToAddress(which);
 		}
 		if (switchTo == null) {
-			logger.debug("Imagery window: its first tab was closed and no tab is known to be shown, not placed now");
+			logger.debug("Imagery window {}: no tab of it is known to be shown, not placed now", which);
 			return null;
 		}
 		try {
@@ -359,6 +384,87 @@ public class ImageryBrowser {
 			}
 		}
 		return window;
+	}
+
+	/**
+	 * The tab to switch the classic session to, to address the window: in one window, the tab shown (as known from the
+	 * tab events, or as asked for by {@link #show}), which Firefox would otherwise select by the switch; in a window of
+	 * their own, the tab shown in that window, or else the first one opened in it. Called holding {@link #tabsLock}.
+	 */
+	private String tabToAddress(ImageryWindow which) {
+		if (!separate) {
+			ImagerySource shown = visible;
+			return which == ImageryWindow.MAIN && shown != null ? tabOfSource.get(shown) : null;
+		}
+		ImagerySource shown = shownIn.get(which);
+		String tab = shown == null ? null : tabOfSource.get(shown);
+		if (tab != null && windowOfTab.get(tab) == which) {
+			return tab;
+		}
+		for (ImagerySource source : openingOrder) {
+			tab = tabOfSource.get(source);
+			if (windowOfTab.get(tab) == which) {
+				return tab;
+			}
+		}
+		return null;
+	}
+
+	/**
+	 * Whether the browsers started from now on are to show Google Earth Web in a window of their own and the other sources
+	 * in another (asked as each starts, before it knows the sources: Google Earth Web's load mostly starts it), so that
+	 * the window layout can put them on different screens.
+	 */
+	public void separateWindowsWhen(BooleanSupplier wanted) {
+		separateWindowsWanted = wanted;
+	}
+
+	/** Whether the browser running has its windows as {@link #separateWindowsWhen} wants them now; true when none runs. */
+	public boolean windowsAsWanted() {
+		TabDriver d = driver;
+		if (d == null || !d.isAlive()) {
+			return true;
+		}
+		boolean wanted = wantsSeparateWindows();
+		synchronized (tabsLock) {
+			return separate == wanted;
+		}
+	}
+
+	private boolean wantsSeparateWindows() {
+		return separateWindowsWanted.getAsBoolean();
+	}
+
+	/** The window the tab of the source is in, or would open in. */
+	public ImageryWindow windowOf(ImagerySource source) {
+		synchronized (tabsLock) {
+			return windowFor(source);
+		}
+	}
+
+	/** Called holding {@link #tabsLock}. */
+	private ImageryWindow windowFor(ImagerySource source) {
+		return separate && source != ImagerySource.GOOGLE_EARTH_WEB ? ImageryWindow.OTHERS : ImageryWindow.MAIN;
+	}
+
+	/** Whether the other sources have a window of their own, with a tab of ours in it. */
+	public boolean hasOthersWindow() {
+		TabDriver d = driver;
+		if (d == null || !d.isAlive()) {
+			return false;
+		}
+		synchronized (tabsLock) {
+			return windowOfTab.containsValue(ImageryWindow.OTHERS);
+		}
+	}
+
+	/**
+	 * Quits the browser, as if the user had closed it: the next command starts a new one, with its windows as wanted
+	 * then. For the window layout, when the layout chosen wants them otherwise.
+	 */
+	public void close() {
+		reporter.breadcrumb(null, "browser closed for the window layout");
+		quitDriver();
 	}
 
 	/**
@@ -398,6 +504,19 @@ public class ImageryBrowser {
 		return visible;
 	}
 
+	/**
+	 * Whether the tab of the source is shown: the one shown last ({@link #visibleSource()}), or, when the windows are
+	 * separate, the one shown in its own window (Google Earth Web stays in sight while the user goes through the tabs of
+	 * the others).
+	 */
+	public boolean isShown(ImagerySource source) {
+		if (visibleSource() == source) {
+			return true;
+		}
+		TabDriver d = driver;
+		return d != null && d.isAlive() && shownSources.contains(source);
+	}
+
 	/** Brings the tab of the source to the front, opening it if needed. */
 	public void show(ImagerySource source) {
 		// Taken as visible at once, so that its commands, this one first, go ahead of the others
@@ -418,6 +537,15 @@ public class ImageryBrowser {
 	 */
 	public void onBrowserStarted(Runnable listener) {
 		startListeners.add(listener);
+	}
+
+	/**
+	 * Called after the browser running opened a window of its own for the other sources (see
+	 * {@link #separateWindowsWhen}), the first of them opening, or one opening again after the user closed that window.
+	 * Not for one opened as the browser starts: {@link #onBrowserStarted} tells of it. On the thread of the listeners.
+	 */
+	public void onWindowOpened(Runnable listener) {
+		windowListeners.add(listener);
 	}
 
 	/**
@@ -525,29 +653,69 @@ public class ImageryBrowser {
 		return openTab(d, source);
 	}
 
-	/** The tab of the source in this browser, opening it if it has none. */
+	/**
+	 * The tab of the source in this browser, opening it if it has none. With the windows separate, a tab opens in the
+	 * window of its source (see {@link #windowFor}), beside a tab of ours there; in a new window when there is none: the
+	 * first of the other sources, or the user closed that window.
+	 */
 	private OpenTab openTab(TabDriver d, ImagerySource source) {
 		boolean useInitial;
+		boolean newWindow = false;
+		String beside = null;
+		ImageryWindow window;
 		String tab;
 		synchronized (tabsLock) {
 			tab = tabOfSource.get(source);
 			if (tab != null) {
 				return new OpenTab(d, tab);
 			}
+			window = windowFor(source);
 			useInitial = initialTabFree;
 			initialTabFree = false;
+			if (!useInitial && separate) {
+				beside = anyTabIn(window);
+				newWindow = beside == null;
+			}
 		}
-		tab = useInitial ? initialTab : d.createTab();
+		tab = useInitial ? initialTab : newWindow ? d.createWindow() : d.createTab(beside);
 		synchronized (tabsLock) {
 			tabOfSource.put(source, tab);
 			sourceOfTab.put(tab, source);
 			openingOrder.add(source);
+			windowOfTab.put(tab, window);
+			if (useInitial || newWindow) {
+				// The one tab of its window is the one shown, and says nothing until that changes
+				shownIn.put(window, source);
+				updateShownSources();
+			}
 		}
 		if (useInitial) {
-			visible = source; // the tab the browser opened with is the one shown, and says nothing until that changes
+			visible = source;
 		}
-		reporter.breadcrumb(source, "tab opened");
+		reporter.breadcrumb(source, newWindow ? "window opened" : "tab opened");
+		if (newWindow && !starting) {
+			tellWindowOpened();
+		}
 		return new OpenTab(d, tab);
+	}
+
+	/** A tab of ours in the window, or null. Called holding {@link #tabsLock}. */
+	private String anyTabIn(ImageryWindow window) {
+		for (Map.Entry<String, ImageryWindow> tab : windowOfTab.entrySet()) {
+			if (tab.getValue() == window) {
+				return tab.getKey();
+			}
+		}
+		return null;
+	}
+
+	/** In one window, none: the one shown is {@link #visible}. Called holding {@link #tabsLock}. */
+	private void updateShownSources() {
+		EnumSet<ImagerySource> shown = EnumSet.noneOf(ImagerySource.class);
+		if (separate) {
+			shown.addAll(shownIn.values());
+		}
+		shownSources = shown;
 	}
 
 	/**
@@ -572,11 +740,16 @@ public class ImageryBrowser {
 			} finally {
 				queueLock.unlock();
 			}
+			boolean separateWindows = wantsSeparateWindows();
 			synchronized (tabsLock) {
 				tabOfSource.clear();
 				sourceOfTab.clear();
 				openingOrder.clear();
 				reportedVisibility.clear();
+				windowOfTab.clear();
+				shownIn.clear();
+				updateShownSources();
+				separate = separateWindows;
 				initialTab = d.initialTab();
 				initialTabFree = true;
 				classicTab = initialTab;
@@ -623,16 +796,24 @@ public class ImageryBrowser {
 	}
 
 	private void tellStarted() {
-		if (startListeners.isEmpty()) {
+		tell(startListeners, "the browser start");
+	}
+
+	private void tellWindowOpened() {
+		tell(windowListeners, "a new window");
+	}
+
+	private void tell(List<Runnable> listeners, String what) {
+		if (listeners.isEmpty()) {
 			return;
 		}
 		try {
 			events.execute(() -> {
-				for (Runnable listener : startListeners) {
+				for (Runnable listener : listeners) {
 					try {
 						listener.run();
 					} catch (RuntimeException e) {
-						logger.warn("Imagery window: a listener of the browser start failed", e);
+						logger.warn("Imagery window: a listener of {} failed", what, e);
 					}
 				}
 			});
@@ -665,6 +846,15 @@ public class ImageryBrowser {
 			source = sourceOfTab.get(tab);
 			// The preload script reports on every page load as well, mostly the same as before
 			changed = source != null && !Boolean.valueOf(isVisible).equals(reportedVisibility.put(tab, isVisible));
+			if (source != null) {
+				ImageryWindow window = windowOfTab.getOrDefault(tab, ImageryWindow.MAIN);
+				if (isVisible) {
+					shownIn.put(window, source);
+				} else if (shownIn.get(window) == source) {
+					shownIn.remove(window);
+				}
+				updateShownSources();
+			}
 		}
 		if (source == null) {
 			return; // a tab that is not ours
@@ -698,7 +888,12 @@ public class ImageryBrowser {
 			classicTab = null;
 		}
 		reportedVisibility.remove(tab);
+		ImageryWindow window = windowOfTab.remove(tab);
 		ImagerySource source = sourceOfTab.remove(tab);
+		if (source != null && window != null && shownIn.get(window) == source) {
+			shownIn.remove(window);
+			updateShownSources();
+		}
 		if (source != null) {
 			tabOfSource.remove(source);
 			openingOrder.remove(source);
@@ -918,13 +1113,25 @@ public class ImageryBrowser {
 		}
 	}
 
-	/** The first command of the visible source, else the oldest of all. Called holding {@link #queueLock}. */
+	/**
+	 * The first command of the visible source, else of a source shown in its own window, else the oldest of all. Called
+	 * holding {@link #queueLock}.
+	 */
 	private Command<?> poll() {
 		ImagerySource shown = visibleSource();
 		if (shown != null) {
 			Command<?> next = queues.get(shown).poll();
 			if (next != null) {
 				return next;
+			}
+		}
+		TabDriver d = driver;
+		if (d != null && d.isAlive()) {
+			for (ImagerySource inSight : shownSources) {
+				Command<?> next = queues.get(inSight).poll();
+				if (next != null) {
+					return next;
+				}
 			}
 		}
 		Command<?> oldest = null;

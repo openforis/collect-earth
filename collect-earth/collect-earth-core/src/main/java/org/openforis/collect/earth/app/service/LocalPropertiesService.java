@@ -573,7 +573,10 @@ public class LocalPropertiesService extends Observable {
 		return VIEWER_TYPE_GOOGLE_EARTH_WEB.equals(getViewerType());
 	}
 
-	/** Google Earth Web on another screen when there is a large enough one, else side by side with the form. */
+	/**
+	 * With two screens or more, Google Earth Web beside the form on the largest and the other imagery on another; without
+	 * Google Earth Web, the imagery on another screen when there is a large enough one; else side by side with the form.
+	 */
 	public static final String WINDOW_LAYOUT_AUTO = "auto";
 	/** The form and Google Earth Web side by side on one screen, even when there are several. */
 	public static final String WINDOW_LAYOUT_SIDE_BY_SIDE = "side_by_side";
