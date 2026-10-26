@@ -6,7 +6,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 Collect Earth is a desktop application for augmented visual interpretation that integrates with Google Earth to enable data collection through satellite imagery. It's a Maven multi-module Java project that combines a Swing desktop UI with an embedded Jetty web server to communicate with Google Earth via dynamically generated KML files.
 
-**Key Technologies**: Java 11, Spring 5.3.39, Jetty 10.0.26, GeoTools 24.4, Collect Framework 4.0.109
+**Key Technologies**: Java 11, Spring 5.3.39, Jetty 10.0.26, GeoTools 24.7, Collect Framework 4.0.110
 
 ## Build Commands
 
@@ -382,13 +382,19 @@ The application supports 9 languages through resource bundles:
 Key dependencies are managed in parent `pom.xml`:
 - Java release: 11 (`java.release` in the root `pom.xml`, compiled with `<release>` so it is checked against the real Java 11 API)
 - Spring: 5.3.39 — the last open source 5.3 release. Its remaining advisories, and the ones of Jetty 10.0.26 (the last open source 10.x), are only fixed in versions that need Java 17 (Spring 6, Jetty 12)
-- Collect Framework: 4.0.109 (provides survey schema and record management)
-- GeoTools: 24.4 (geospatial operations)
+- Collect Framework: 4.0.110 (provides survey schema and record management)
+- GeoTools: 24.7 (geospatial operations) - the last 24.x; 25 and later need Java 17
 - Jetty: 10.0.26 (embedded server)
-- Jackson: 2.18.12 (JSON processing) — set in BOTH the root `pom.xml` and `collect-earth-sampler/pom.xml`, which declares its own `jackson.version`; bump the two together
+- Jackson: 2.22.4 (JSON processing) — `jackson.version` in the root `pom.xml`, through the Jackson BOM, for every module
 - Freemarker: 2.3.35 (template engine)
 
 Maven enforces minimum version 3.9.3.
+
+The installers and updaters ship the whole `collect-earth-app/target/earth-libs` folder, and the application
+loads the jars listed in the `Class-Path` of `CollectEarth.jar`. The two are the same set: the folder is emptied
+at `prepare-package` and filled with the runtime scope only. When changing a dependency, check that no jar ships
+below the version Collect (`collect-core`, `collect-rdb`) or another library asks for -
+`mvn dependency:tree -Dverbose` marks those as "omitted for conflict with" a lower version.
 
 ## Web Server Details
 
