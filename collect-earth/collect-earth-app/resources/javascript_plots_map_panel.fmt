@@ -1,6 +1,7 @@
 // Runs as the body of a function (ImageryTab.evaluate) in Google Earth Web's page. arguments[0]: the address of the
-// plots map, to show it in a panel on the left of the page; null to take the panel away. Says "shown", "kept",
-// "removed" or "no_body" (a document still being built: tried again with the outline).
+// plots map, to show it in a panel on the left of the page; null to take the panel away. arguments[1]: the title the
+// page keeps meanwhile, by which Collect Earth gives its window its own icon on the task bar (BrowserWindowIcon).
+// Says "shown", "kept", "removed" or "no_body" (a document still being built: tried again with the outline).
 //
 // Google Earth Web is a Flutter app that sizes itself from the window (innerWidth, visualViewport.width), not from its
 // element: so that it lays itself out beside the panel instead of under it, the page is told a window narrower by the
@@ -8,7 +9,7 @@
 // in the same narrower window, from --ce-panel-width.
 //
 // The panel is resized by dragging its right edge; its width is kept in this browser profile (localStorage).
-return (function (url) {
+return (function (url, title) {
     var TAG = "__collectEarthPlotsMapPanel";
     var WIDTH_KEY = "collectEarthPlotsMapPanelWidth";
     var DEFAULT_WIDTH = 560;
@@ -116,10 +117,24 @@ return (function (url) {
     }
     window.addEventListener("resize", onWindowResize);
 
+    // The page's own title is set by Google Earth Web as it pleases: put back whenever it changes
+    var ownTitle = document.title;
+    function keepTitle() {
+        if (title && document.title !== title) {
+            ownTitle = document.title;
+            document.title = title;
+        }
+    }
+    var titleWatch = new MutationObserver(keepTitle);
+    titleWatch.observe(document.head, { childList: true, subtree: true, characterData: true });
+    keepTitle();
+
     window[TAG] = {
         url: url,
         remove: function () {
             window.removeEventListener("resize", onWindowResize);
+            titleWatch.disconnect();
+            if (title && document.title === title) document.title = ownTitle;
             if (ownInnerWidth) Object.defineProperty(window, "innerWidth", ownInnerWidth);
             else delete window.innerWidth;
             if (viewport) delete viewport.width;
@@ -131,4 +146,4 @@ return (function (url) {
         }
     };
     return "shown";
-})(arguments[0]);
+})(arguments[0], arguments[1]);

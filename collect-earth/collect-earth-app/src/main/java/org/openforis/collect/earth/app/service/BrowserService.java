@@ -129,7 +129,13 @@ public class BrowserService implements InitializingBean, DisposableBean, Applica
 	private final BrowserStartFailures imageryStartFailures = new BrowserStartFailures();
 	/** A satellite on the task bar, so that the imagery window is not taken for the interpreter's own browser */
 	private static final String GOOGLE_EARTH_WEB_ORIGIN = "https://earth.google.com";
-	private final BrowserWindowIcon imageryWindowIcon = new BrowserWindowIcon("/images/imageryWindow.ico");
+	private final BrowserWindowIcon imageryWindowIcon = new BrowserWindowIcon("/images/imageryWindow.ico",
+			PLOTS_IN_GOOGLE_EARTH_WEB_TITLE, "/images/plotsWindow.ico");
+	/**
+	 * The title of Google Earth Web's page with the plots map in its panel (see GoogleEarthWebService), which gives its
+	 * window the icon of Collect Earth, apart from the satellite of the window of the other imagery.
+	 */
+	public static final String PLOTS_IN_GOOGLE_EARTH_WEB_TITLE = "Google Earth Web · Collect Earth";
 
 	/** The interpreter is told once per run that the Planet API key is missing, not once per plot */
 	private boolean planetApiKeyWarningShown;

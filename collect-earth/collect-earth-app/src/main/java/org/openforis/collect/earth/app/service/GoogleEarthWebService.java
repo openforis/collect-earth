@@ -60,6 +60,8 @@ public class GoogleEarthWebService {
 	public enum State { CLOSED, OPENING, MOVING, READY, WAITING, ERROR }
 
 	private static final String OVERLAY_TEMPLATE = "resources/javascript_google_earth_web.fmt";
+	/** How long Chrome may take to show the title of a page as the one of its window. */
+	private static final long WINDOW_TITLE_DELAY_MILLIS = 1000;
 	/** The plots map in a panel of the page, with the "plots map inside Google Earth Web" layout. */
 	private static final String PANEL_TEMPLATE = "resources/javascript_plots_map_panel.fmt";
 	private static final String OVERLAY_TAG = "__collectEarthGewOverlay";
@@ -651,9 +653,12 @@ public class GoogleEarthWebService {
 				}
 				panelScript = script;
 			}
-			Object result = tab().evaluateIfOpen(script, url);
+			Object result = tab().evaluateIfOpen(script, url, BrowserService.PLOTS_IN_GOOGLE_EARTH_WEB_TITLE);
 			if (!"no_body".equals(result)) {
 				panelShown = url;
+			}
+			if ("shown".equals(result) || "removed".equals(result)) {
+				markWindowsSoon(); // the page has another title, and its window another icon
 			}
 		} catch (TabClosedException e) {
 			throw e;
@@ -673,6 +678,24 @@ public class GoogleEarthWebService {
 		}
 		return BrowserService.leafletMapUrl(ServerController.getHostAddress(localPropertiesService.getHost(),
 				localPropertiesService.getLocalPort()), null) + "?panel";
+	}
+
+	/**
+	 * Gives the windows of the imagery browser their icons again once Chrome took the new title of the page as the one
+	 * of its window, which it does on its own time; on a thread of its own, not to hold up the watchdog.
+	 */
+	private void markWindowsSoon() {
+		Thread mark = new Thread(() -> {
+			try {
+				Thread.sleep(WINDOW_TITLE_DELAY_MILLIS);
+			} catch (InterruptedException e) {
+				Thread.currentThread().interrupt();
+				return;
+			}
+			browserService.markImageryWindows();
+		}, "Imagery window icons");
+		mark.setDaemon(true);
+		mark.start();
 	}
 
 	// ---------- watchdog ----------
