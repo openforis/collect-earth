@@ -12,7 +12,7 @@
 
 	<properties>
 		<jetty.version>10.0.26</jetty.version>
-		<selenium.version>4.48.0</selenium.version>
+		<selenium.version>4.51.0</selenium.version>
 		<classpath.prefix>earth-libs</classpath.prefix>
 		
 	</properties>
@@ -29,10 +29,20 @@
 		<dependency>
 		    <groupId>io.github.bonigarcia</groupId>
 		    <artifactId>webdrivermanager</artifactId>
-		    <version>6.3.4</version>
+		    <version>6.4.0</version>
 		    <!-- The jackson-annotations/jackson-databind exclusions that used to sit
 		         here are gone: jackson-bom in the parent pins the whole family,
 		         including jackson-core, which those exclusions missed. -->
+		    <exclusions>
+		    	<exclusion>
+		    		<!-- Brought by docker-java. It is built for SLF4J 1.7 while the application runs 2.0,
+		    		     and it carries org.apache.commons.logging, which commons-logging and spring-jcl
+		    		     already ship: being earlier on the classpath, it was the one that took over
+		    		     Commons Logging for Spring, Collect and the Apache libraries. -->
+		    		<groupId>org.slf4j</groupId>
+		    		<artifactId>jcl-over-slf4j</artifactId>
+		    	</exclusion>
+		    </exclusions>
 		</dependency>
 		<!-- Jetty -->
 		<dependency>
@@ -78,7 +88,7 @@
 		<dependency>
 			<groupId>org.postgresql</groupId>
 			<artifactId>postgresql</artifactId>
-			<version>42.7.13</version>
+			<version>42.7.14</version>
 		</dependency>
 		<dependency>
 			<groupId>org.seleniumhq.selenium</groupId>
@@ -129,7 +139,7 @@
 		<dependency>
 			<groupId>io.sentry</groupId>
 			<artifactId>sentry-log4j2</artifactId>
-			<version>8.54.0</version>
+			<version>8.61.1</version>
 		</dependency>
 		<dependency>
 			<groupId>org.apache.httpcomponents</groupId>
@@ -137,13 +147,13 @@
 			<version>4.5.14</version>
 		</dependency>
 
-		<!-- jaxb-impl 2.3.8 is self-contained. jaxb-core 2.3.0.1 used to sit
+		<!-- jaxb-impl 2.3.9 is self-contained. jaxb-core 2.3.0.1 used to sit
 		     alongside it and the two shared 178 identically-named classes, with
 		     classpath order deciding which won. -->
 		<dependency>
 		    <groupId>com.sun.xml.bind</groupId>
 		    <artifactId>jaxb-impl</artifactId>
-		    <version>2.3.8</version>
+		    <version>2.3.9</version>
 		</dependency>
 				
   
@@ -183,7 +193,7 @@
 		<dependency>
 		    <groupId>com.formdev</groupId>
 		    <artifactId>flatlaf</artifactId>
-		    <version>3.7</version>
+		    <version>3.7.2</version>
 		</dependency>
 
 		<dependency>
@@ -196,6 +206,31 @@
 	</dependencies>
 	<build>
 		<plugins>
+			<!-- The installers and the updaters ship the whole earth-libs folder, not only the jars of
+			     the manifest. Copying into it without emptying it first kept every version of every
+			     library from the builds before: an installer made without "mvn clean" carried them all. -->
+			<plugin>
+				<groupId>org.apache.maven.plugins</groupId>
+				<artifactId>maven-clean-plugin</artifactId>
+				<executions>
+					<execution>
+						<?m2e ignore?>
+						<id>empty-earth-libs</id>
+						<phase>prepare-package</phase>
+						<goals>
+							<goal>clean</goal>
+						</goals>
+						<configuration>
+							<excludeDefaultDirectories>true</excludeDefaultDirectories>
+							<filesets>
+								<fileset>
+									<directory>${project.build.directory}/${classpath.prefix}</directory>
+								</fileset>
+							</filesets>
+						</configuration>
+					</execution>
+				</executions>
+			</plugin>
 			<plugin>
 				<groupId>org.apache.maven.plugins</groupId>
 				<artifactId>maven-dependency-plugin</artifactId>
@@ -210,6 +245,10 @@
 						<configuration>
 							<outputDirectory>${project.build.directory}/${classpath.prefix}</outputDirectory>
 							<overWriteIfNewer>true</overWriteIfNewer>
+							<!-- The jars the application runs with, the ones the manifest lists. Without it
+							     the test ones (JUnit, opentest4j, apiguardian) were copied as well and went
+							     into the installers. -->
+							<includeScope>runtime</includeScope>
 						</configuration>
 					</execution>
 				</executions>

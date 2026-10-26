@@ -31,7 +31,7 @@
 		     value of 8 described a baseline that no released build ever ran on. -->
 		<java.release>11</java.release>
 		<project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-		<collect.version>4.0.109</collect.version>
+		<collect.version>4.0.110</collect.version>
 		<!-- 5.3.39 is the last open source release of Spring 5.3. Spring 6, where the remaining
 		     advisories are fixed, needs Java 17 and the Jakarta servlet API. -->
 		<spring.version>5.3.39</spring.version>
@@ -41,7 +41,7 @@
 		     2.26.1 core, and poi-ooxml at 5.2.3 against a 5.5.1 poi). -->
 		<log4j.version>2.26.1</log4j.version>
 		<poi.version>5.5.1</poi.version>
-		<jackson.version>2.18.12</jackson.version>
+		<jackson.version>2.22.4</jackson.version>
 		<project.scm.id>github.com</project.scm.id>
 		<sonar.language>java</sonar.language>
 		<sonar.organization>openforis</sonar.organization>
@@ -264,7 +264,7 @@
 			<dependency>
 				<groupId>org.apache.commons</groupId>
 				<artifactId>commons-lang3</artifactId>
-				<version>3.20.0</version>
+				<version>3.21.0</version>
 			</dependency>
 			<dependency>
 				<groupId>org.apache.commons</groupId>
@@ -348,6 +348,15 @@
 				<groupId>org.apache.httpcomponents.core5</groupId>
 				<artifactId>httpcore5-h2</artifactId>
 				<version>5.4.4</version>
+			</dependency>
+
+			<!-- httpclient 4.5.14, declared by the application, asks for commons-codec 1.11 and is
+			     nearer than the others, so 1.11 was the one shipped: older than Collect (1.15),
+			     commons-compress (1.19) and POI 5.5 (1.20) are built against. -->
+			<dependency>
+				<groupId>commons-codec</groupId>
+				<artifactId>commons-codec</artifactId>
+				<version>1.23.0</version>
 			</dependency>
 		</dependencies>
 	</dependencyManagement>
