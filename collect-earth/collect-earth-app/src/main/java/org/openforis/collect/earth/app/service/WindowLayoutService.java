@@ -47,15 +47,17 @@ import org.springframework.stereotype.Component;
  * layout), the plots map maximized on another one - the main screen, unless the imagery window took it.</li>
  * <li>Side by side: the plots map narrowed to the width of the form on the left, which it then shows on its own (the
  * page switches to that layout when it is too narrow for its map, see App.tsx), the imagery window on the rest.</li>
- * <li>Google Earth Web beside the form ("auto" with two screens or more, and Google Earth Web as the viewer): the
- * imagery browser shows Google Earth Web in a window of its own and the other sources in another (see
- * {@link ImageryBrowser#separateWindowsWhen}). The form and Google Earth Web go side by side on the largest screen, the
- * main one when another is as large, and the other sources maximized on another screen.</li>
+ * <li>Google Earth Web beside the form ("auto" with two screens or more): the form and Google Earth Web side by side on
+ * the largest screen, the main one when another is as large, and the other sources maximized on another screen.</li>
  * <li>Plots map inside Google Earth Web: the window of Google Earth Web maximized on the largest screen, with the plots
  * map in a panel of its page (see GoogleEarthWebService), and the other sources maximized in their own window on
  * another screen, or under it on a single screen. The plots map window is minimized once Google Earth Web is open: it
  * is where the first plot is chosen.</li>
  * </ul>
+ *
+ * With Google Earth Web as the viewer, the imagery browser shows Google Earth Web in a window of its own and the other
+ * sources in another (see {@link ImageryBrowser#separateWindowsWhen}): the layouts that have no screen of its own for
+ * that window put it where Google Earth Web's is, under it; a source picked in the plots map brings it forward.
  *
  * Java only says which screen is which. Where a window goes on a screen is measured by the browser itself, in its own
  * coordinates (the work area of the screen the window is on), and every placement is read back and corrected once:
@@ -249,19 +251,14 @@ public class WindowLayoutService {
 	}
 
 	/**
-	 * Whether the imagery browser should show Google Earth Web in a window of its own, beside the form, and the other
-	 * sources in another, on a screen of their own: "auto" with Google Earth Web as the viewer and two screens or more,
-	 * and "plots map inside Google Earth Web".
+	 * Whether the imagery browser should show Google Earth Web in a window of its own and the other sources in another:
+	 * always with Google Earth Web as the viewer, whatever the layout, so that Google Earth Web stays in sight while the
+	 * other sources are looked through. The layout puts the other sources on a screen of their own where it has one for
+	 * them ("auto" with two screens, "plots map inside Google Earth Web"), else where Google Earth Web is, under it.
 	 * Asked as the imagery browser starts (see {@link ImageryBrowser#separateWindowsWhen}).
 	 */
 	boolean wantsSeparateImageryWindows() {
-		if (!localPropertiesService.isGoogleEarthWebViewer() || GraphicsEnvironment.isHeadless()) {
-			return false;
-		}
-		String layout = localPropertiesService.getWindowLayout();
-		return LocalPropertiesService.WINDOW_LAYOUT_PLOTS_MAP_IN_EARTH.equals(layout)
-				|| LocalPropertiesService.WINDOW_LAYOUT_AUTO.equals(layout)
-						&& GraphicsEnvironment.getLocalGraphicsEnvironment().getScreenDevices().length >= 2;
+		return localPropertiesService.isGoogleEarthWebViewer() && !GraphicsEnvironment.isHeadless();
 	}
 
 	/**

@@ -8,6 +8,7 @@ import { MapArea } from "./components/MapArea";
 import { PlotSidebar, RAIL_WIDTH, SIDEBAR_WIDTH } from "./components/PlotSidebar";
 import { useUiScale } from "./uiScale";
 import { gewFollowFormWindow } from "./api";
+import { IN_PANEL } from "./panel";
 
 /**
  * Narrower than this, the map is not worth its room next to the form or the list: the window shows one pane at a
@@ -21,12 +22,15 @@ export function App({ controller }: { controller: MapController }) {
   const width = useWindowWidth();
   const scale = useUiScale();
   const formOpen = state.formUrl != null;
-  const onePane = width - (formOpen ? RAIL_WIDTH * scale + state.formWidth : SIDEBAR_WIDTH * scale) < MIN_MAP_WIDTH * scale;
+  // In Google Earth Web's panel there is no map: the list or the form, whatever the width
+  const onePane = IN_PANEL
+    || width - (formOpen ? RAIL_WIDTH * scale + state.formWidth : SIDEBAR_WIDTH * scale) < MIN_MAP_WIDTH * scale;
   // One pane: the form, or the plot list when there is no form or the user asked for it until a plot is chosen
   const [listShown, setListShown] = useState(false);
   useEffect(() => setListShown(false), [state.activeId, onePane]);
   const listPane = onePane && (!formOpen || listShown);
-  useFollowedByGoogleEarthWeb();
+  useFollowedByGoogleEarthWeb(!IN_PANEL);
+  useEffect(() => { if (IN_PANEL) controller.start(null); }, [controller]);
   useShortcuts(controller, onePane ? () => setListShown(true) : () => controller.setSidebarCollapsed(false));
   const t = useMemo(() => translator(state.language), [state.language]);
   useEffect(() => { document.documentElement.lang = state.language; }, [state.language]);
@@ -46,7 +50,7 @@ export function App({ controller }: { controller: MapController }) {
         ? listPane && <PlotSidebar controller={controller} state={state} collapsed={false} fill
             onCollapsedChange={formOpen ? () => setListShown(false) : undefined} />
         : <PlotSidebar controller={controller} state={state} />}
-      <MapArea controller={controller} state={state} hidden={onePane} />
+      {!IN_PANEL && <MapArea controller={controller} state={state} hidden={onePane} />}
       {formOpen && <FormPanel controller={controller} state={state} fill={onePane} hidden={listPane}
         onShowList={onePane ? () => setListShown(true) : undefined} />}
     </Box>
@@ -84,8 +88,10 @@ function useShortcuts(controller: MapController, showList: () => void) {
  * Tells the server when the user resized or moved this window, once they stop: next to Google Earth Web on one screen,
  * Google Earth Web is then fitted into the room left. Moves fire no event, so the position is checked every second.
  */
-function useFollowedByGoogleEarthWeb() {
+function useFollowedByGoogleEarthWeb(enabled: boolean) {
   useEffect(() => {
+    // A panel resized in Google Earth Web's page is no window of its own
+    if (!enabled) return;
     let timer = 0;
     let last = "";
     const changed = () => {
@@ -100,7 +106,7 @@ function useFollowedByGoogleEarthWeb() {
     window.addEventListener("resize", changed);
     const interval = window.setInterval(checkPosition, 1000);
     return () => { window.removeEventListener("resize", changed); window.clearInterval(interval); window.clearTimeout(timer); };
-  }, []);
+  }, [enabled]);
 }
 
 function subscribeToResize(onChange: () => void) {

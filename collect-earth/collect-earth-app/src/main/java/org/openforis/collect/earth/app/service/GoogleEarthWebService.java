@@ -655,13 +655,16 @@ public class GoogleEarthWebService {
 		}
 	}
 
-	/** The address of the plots map for the panel, or null when the window layout wants none. */
+	/**
+	 * The address of the plots map for the panel, or null when the window layout wants none: with ?panel, as it shows
+	 * only the plot list and the form there (panel.ts), Google Earth Web being the map.
+	 */
 	private String panelUrl() {
 		if (!LocalPropertiesService.WINDOW_LAYOUT_PLOTS_MAP_IN_EARTH.equals(localPropertiesService.getWindowLayout())) {
 			return null;
 		}
 		return BrowserService.leafletMapUrl(ServerController.getHostAddress(localPropertiesService.getHost(),
-				localPropertiesService.getLocalPort()), null);
+				localPropertiesService.getLocalPort()), null) + "?panel";
 	}
 
 	// ---------- watchdog ----------

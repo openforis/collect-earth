@@ -24,7 +24,7 @@ export interface EngineConfig {
  * their statuses; an engine only draws them and reports clicks/zoom changes.
  */
 export interface MapEngine {
-  readonly name: "leaflet" | "google";
+  readonly name: "leaflet" | "google" | "none";
   init(container: HTMLElement, config: EngineConfig, callbacks: EngineCallbacks): void;
   /** rings: [lat,lng] arrays; center: [lat,lng] */
   addPlot(id: string, rings: LatLng[][], center: LatLng): void;

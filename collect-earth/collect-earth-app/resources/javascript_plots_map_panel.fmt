@@ -24,8 +24,9 @@ return (function (url) {
     if (current) current.remove();
     if (!document.body || !document.head) return "no_body";
 
-    var innerWidthOf = Object.getOwnPropertyDescriptor(Window.prototype, "innerWidth")
-        || Object.getOwnPropertyDescriptor(window, "innerWidth");
+    // Chrome defines innerWidth on the window itself, Firefox on its prototype: what is replaced is put back on removal
+    var ownInnerWidth = Object.getOwnPropertyDescriptor(window, "innerWidth");
+    var innerWidthOf = ownInnerWidth || Object.getOwnPropertyDescriptor(Window.prototype, "innerWidth");
     var viewport = window.visualViewport;
     var viewportWidthOf = viewport ? Object.getOwnPropertyDescriptor(VisualViewport.prototype, "width") : null;
     function realWidth() { return innerWidthOf.get.call(window); }
@@ -119,7 +120,8 @@ return (function (url) {
         url: url,
         remove: function () {
             window.removeEventListener("resize", onWindowResize);
-            delete window.innerWidth;
+            if (ownInnerWidth) Object.defineProperty(window, "innerWidth", ownInnerWidth);
+            else delete window.innerWidth;
             if (viewport) delete viewport.width;
             if (panel.parentNode) panel.parentNode.removeChild(panel);
             if (style.parentNode) style.parentNode.removeChild(style);

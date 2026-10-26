@@ -3,6 +3,8 @@ import { fetchGewStatus, fetchImageryStatus, fetchMapConfig, fetchPlots, fetchSt
   gewOpenOverview, gewShowPlot, openAuxiliaryWindows, postGewContext, showImagerySource } from "./api";
 import { GoogleEngine } from "./engines/GoogleEngine";
 import { LeafletEngine } from "./engines/LeafletEngine";
+import { NoMapEngine } from "./engines/NoMapEngine";
+import { IN_PANEL } from "./panel";
 import type { EngineConfig, MapEngine } from "./engines/MapEngine";
 import { byId, footprintCorners, indexPlots, neighbour, nextUnfinished, normalizeStatus, plotParam, plotsGone, plotsNear, plotToRestore,
   sameView, visibleIds, withoutPlotParam } from "./plots";
@@ -84,6 +86,7 @@ export class MapController {
   private prefs: Prefs = loadPrefs();
   private engine: MapEngine | null = null;
   private container: HTMLElement | null = null;
+  private started = false;
   /** "generated" (the form built from the survey) or "balloon" (the CEP's HTML) */
   private webForm = "generated";
   private lastStatusPoll: number | null = null;
@@ -122,9 +125,10 @@ export class MapController {
   }
 
   // ---------- start-up ----------
-  /** Called once the map container is in the DOM. */
-  async start(container: HTMLElement): Promise<void> {
-    if (this.container) return;
+  /** Called once the map container is in the DOM; with none in Google Earth Web's panel (see panel.ts), which has no map. */
+  async start(container: HTMLElement | null): Promise<void> {
+    if (this.started) return;
+    this.started = true;
     this.container = container;
     this.restorePlot = plotParam(window.location.search);
     if (this.restorePlot != null) {
@@ -148,6 +152,10 @@ export class MapController {
   // Google only when requested AND a key is present; otherwise Leaflet, with a notice
   // when we fell back from an explicit google_maps request.
   private createEngine(config: MapConfig): MessageKey | null {
+    if (IN_PANEL || !this.container) {
+      this.engine = new NoMapEngine();
+      return null;
+    }
     const key = config.googleMapsApiKey ?? "";
     const wantsGoogle = config.engine === "google_maps";
     this.engine = wantsGoogle && key !== "" ? new GoogleEngine() : new LeafletEngine();
@@ -230,8 +238,9 @@ export class MapController {
       const restore = plotToRestore(this.restorePlot, this.plots);
       this.restorePlot = null;
       if (restore) this.selectPlot(restore);
-      // Warm up Google Earth Web over the survey area so the first plot appears quickly
-      if (this.usesGoogleEarthWeb() && !this.state.activeId) {
+      // Warm up Google Earth Web over the survey area so the first plot appears quickly; not from its own page, which
+      // that would load again, panel and all
+      if (this.usesGoogleEarthWeb() && !this.state.activeId && !IN_PANEL) {
         gewOpenOverview(gridCenter(this.allCenters()));
         if (!this.state.gew || this.state.gew.state === "CLOSED") this.setGewOptimistic({ state: "OPENING", plotId: null, message: null });
         this.pollGew();
