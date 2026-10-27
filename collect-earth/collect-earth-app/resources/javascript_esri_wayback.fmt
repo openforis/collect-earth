@@ -267,9 +267,35 @@
         centerOnPlot(view);
     }
 
+    // The scale of Google Earth Web's view of the plot: this much ground from the top to the bottom of the map
+    var VIEW_HEIGHT_METERS = ${viewHeightMeters};
+
+    // The zoom showing VIEW_HEIGHT_METERS over the height of the map: Web Mercator has 156543.03 m per pixel at zoom
+    // 0 on the equator, cos(latitude) times that on the ground elsewhere, half as many at each zoom level
+    function plotZoom(view) {
+        var height = view.height > 0 ? view.height : 800;
+        var zoom = Math.log2(156543.03392804097 * Math.cos(plotCenter[1] * Math.PI / 180) * height / VIEW_HEIGHT_METERS);
+        return isFinite(zoom) ? zoom : 18;
+    }
+
+    var sizeWatched = false;
+
     function centerOnPlot(view) {
         try {
-            view.goTo({ target: [plotCenter[0], plotCenter[1]], zoom: 18 }, { animate: false });
+            // Not rounded to a whole zoom level, which could show twice or half the ground of Google Earth Web
+            if (view.constraints) view.constraints.snapToZoom = false;
+            var zoom = plotZoom(view);
+            view.goTo({ target: [plotCenter[0], plotCenter[1]], zoom: zoom }, { animate: false });
+            if (!sizeWatched && typeof view.watch === "function") {
+                // A tab opened behind another has a small window until it is shown: zoomed again once the map has its
+                // size, unless the user zoomed meanwhile
+                sizeWatched = true;
+                watchHandles.push(view.watch("size", function () {
+                    if (stopped || Math.abs(view.zoom - zoom) > 0.01) return;
+                    zoom = plotZoom(view);
+                    view.goTo({ target: [plotCenter[0], plotCenter[1]], zoom: zoom }, { animate: false });
+                }));
+            }
         } catch (e) { /* ignore */ }
     }
 

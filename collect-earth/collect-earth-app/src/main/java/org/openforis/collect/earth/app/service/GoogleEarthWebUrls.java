@@ -37,6 +37,15 @@ public final class GoogleEarthWebUrls {
 	private GoogleEarthWebUrls() {
 	}
 
+	/**
+	 * The height of ground (metres) a plot's camera shows from the top to the bottom of the window: the camera is
+	 * {@link #PLOT_DISTANCE} above the ground, with a vertical field of view of {@link #DEFAULT_FOV}. The other sources
+	 * show the plot at this scale too (ESRI Wayback).
+	 */
+	public static double plotViewHeightMeters() {
+		return 2 * PLOT_DISTANCE * Math.tan(Math.toRadians(Double.parseDouble(DEFAULT_FOV)) / 2);
+	}
+
 	/** Top-down (no heading, no tilt) view of the given point. */
 	public static String cameraUrl(String latitude, String longitude, int elevation, int distance) {
 		return String.format(Locale.ENGLISH, "%s/@%s,%s,%da,%dd,35y,0h,0t,0r", BASE, latitude, longitude, elevation, distance);

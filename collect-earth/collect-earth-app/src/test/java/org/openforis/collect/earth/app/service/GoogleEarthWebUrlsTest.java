@@ -90,4 +90,13 @@ public class GoogleEarthWebUrlsTest {
 		assertNull(GoogleEarthWebUrls.cameraView("https://consent.google.com/ml?continue=x", 1600, 800));
 		assertNull(GoogleEarthWebUrls.cameraView(null, 1600, 800));
 	}
+
+	@Test
+	public void theOtherSourcesShowTheGroundOfThePlotView() {
+		// What Google Earth Web shows of a plot, top to bottom: ESRI Wayback is zoomed to show as much
+		Map<String, Object> view = GoogleEarthWebUrls.cameraView(GoogleEarthWebUrls.cameraUrl("-4.99", "151.35", 0,
+				GoogleEarthWebUrls.PLOT_DISTANCE), 1600, 800);
+		assertEquals((Double) view.get("heightMeters"), GoogleEarthWebUrls.plotViewHeightMeters(), 1e-9);
+		assertEquals(252.2, GoogleEarthWebUrls.plotViewHeightMeters(), 0.1);
+	}
 }

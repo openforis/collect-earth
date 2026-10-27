@@ -289,6 +289,8 @@ public class BrowserService implements InitializingBean, DisposableBean, Applica
 		final Map<String, Object> data = geoLocalizeTemplateService.getPlacemarkData(placemarkObject);
 		data.put("latitude", placemarkObject.getCoord().getLatitude());
 		data.put("longitude", placemarkObject.getCoord().getLongitude());
+		// The scale of Google Earth Web's view of the plot: the same ground from the top to the bottom of the map
+		data.put("viewHeightMeters", String.format(Locale.ENGLISH, "%.1f", GoogleEarthWebUrls.plotViewHeightMeters()));
 		return processJavascriptTemplate(data, TEMPLATE_FOR_ESRI_WAYBACK_JS);
 	}
 
