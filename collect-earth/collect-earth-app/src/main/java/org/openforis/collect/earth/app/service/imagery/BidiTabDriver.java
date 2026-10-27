@@ -1,6 +1,7 @@
 package org.openforis.collect.earth.app.service.imagery;
 
 import java.time.Duration;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
@@ -72,6 +73,16 @@ public class BidiTabDriver implements TabDriver {
 
 	/** How long {@link #createTab} waits for the tab a page opens before opening it the other way. */
 	private static final long OPEN_FROM_PAGE_MILLIS = 3_000;
+	private static final String OPEN_LINK_ID = "collectEarthOpenTab";
+	private static final int OPEN_LINK_SIZE = 20;
+	/** Puts the link that {@link #openFromPage} clicks over the top left corner of the page, above all of it. */
+	private static final String OPEN_LINK = "(() => { if (!document.documentElement) return 'false';"
+			+ " let a = document.getElementById('" + OPEN_LINK_ID + "');"
+			+ " if (!a) { a = document.createElement('a'); a.id = '" + OPEN_LINK_ID + "'; }"
+			+ " a.href = 'about:blank'; a.target = '_blank'; a.rel = 'noopener';"
+			+ " a.style.cssText = 'position:fixed;left:0;top:0;width:" + OPEN_LINK_SIZE + "px;height:" + OPEN_LINK_SIZE
+			+ "px;display:block;z-index:2147483647;opacity:0;pointer-events:auto';"
+			+ " document.documentElement.appendChild(a); return 'true'; })()";
 
 	/** How long {@link #quit()} waits for the browser to end before leaving it to its own thread. */
 	private static final long QUIT_WAIT_MILLIS = 10_000;
@@ -191,7 +202,7 @@ public class BidiTabDriver implements TabDriver {
 	 * A tab beside {@code besideTab} is opened by its page ({@link #openFromPage}): Chrome 156 opens the tab of
 	 * {@code browsingContext.create} in the window the user was in last, whatever its {@code referenceContext}, so the
 	 * Earth Engine app went into the window of Google Earth Web instead of beside Wayback. A page that does not open it
-	 * leaves it to {@code browsingContext.create}.
+	 * (one still loading, say) leaves it to {@code browsingContext.create}.
 	 */
 	@Override
 	public String createTab(String besideTab) {
@@ -210,29 +221,28 @@ public class BidiTabDriver implements TabDriver {
 	}
 
 	/**
-	 * Opens a blank tab from the page in {@code tab}, which the browser puts in the window of that page; null when no
-	 * tab opened in {@link #OPEN_FROM_PAGE_MILLIS}. {@code window.open} needs a user gesture, which BiDi gives the
-	 * script ({@code userActivation}), and no opener is kept, so the page and the source in the new tab stay apart.
+	 * Opens a blank tab from the page in {@code tab}, which the browser puts in the window of that page, behind the tab
+	 * shown there; null when no tab opened in {@link #OPEN_FROM_PAGE_MILLIS}. It is a Ctrl+click, as real input, on a
+	 * link put in the page for it ({@link #OPEN_LINK}): {@code window.open} and a click from a script open the tab in
+	 * front, over the source the user looks at, and bringing that one back with {@code browsingContext.activate} takes
+	 * the keyboard away from the window the user works in (Chrome 156). No opener is kept ({@code noopener}).
 	 */
 	private String openFromPage(String tab) {
 		BlockingQueue<String> created = new LinkedBlockingQueue<>();
 		Consumer<String> listener = created::add;
 		createdListeners.add(listener);
 		try {
-			Map<String, Object> params = new HashMap<>();
-			params.put("functionDeclaration", "() => { window.open('about:blank', '_blank', 'noopener'); }");
-			params.put("awaitPromise", false);
-			params.put("userActivation", true);
-			params.put("target", Collections.singletonMap("context", tab));
-			Map<String, Object> answer = guard(tab, true,
-					() -> bidi.send(new Command<Map<String, Object>>("script.callFunction", params, Map.class), SCRIPT_TIMEOUT));
-			scriptValue(tab, answer);
+			if (!"true".equals(evaluate(tab, OPEN_LINK))) {
+				return null;
+			}
+			guard(tab, false, () -> bidi.send(new Command<Map<String, Object>>("input.performActions",
+					ctrlClickAt(tab, OPEN_LINK_SIZE / 2), Map.class)));
 			String opened = created.poll(OPEN_FROM_PAGE_MILLIS, TimeUnit.MILLISECONDS);
 			if (opened == null) {
 				logger.debug("Imagery window: the page in tab {} opened no tab", tab);
 			}
 			return opened;
-		} catch (PageScriptException e) {
+		} catch (PageScriptException | BidiCommandException e) {
 			logger.debug("Imagery window: the page in tab {} could not open a tab: {}", tab, e.getMessage());
 			return null;
 		} catch (InterruptedException e) {
@@ -240,7 +250,61 @@ public class BidiTabDriver implements TabDriver {
 			return null;
 		} finally {
 			createdListeners.remove(listener);
+			try {
+				bidi.send(new Command<Map<String, Object>>("input.releaseActions",
+						Collections.singletonMap("context", tab), Map.class));
+				evaluate(tab, "(() => { const a = document.getElementById('" + OPEN_LINK_ID + "'); if (a) a.remove(); "
+						+ "return 'true'; })()");
+			} catch (RuntimeException e) {
+				logger.debug("Imagery window: could not tidy up the link opening a tab in {}: {}", tab, e.getMessage());
+			}
 		}
+	}
+
+	/**
+	 * The actions of {@code input.performActions} for a Ctrl+click at (x, x) of the viewport: Control is held down by
+	 * the key source while the pointer source moves there, presses and releases, tick by tick.
+	 */
+	static Map<String, Object> ctrlClickAt(String tab, int x) {
+		Map<String, Object> keys = new HashMap<>();
+		keys.put("type", "key");
+		keys.put("id", "collectEarthKeys");
+		keys.put("actions", Arrays.asList(key("keyDown"), pause(), pause(), pause(), key("keyUp")));
+		Map<String, Object> move = new HashMap<>();
+		move.put("type", "pointerMove");
+		move.put("x", x);
+		move.put("y", x);
+		move.put("origin", "viewport");
+		Map<String, Object> mouse = new HashMap<>();
+		mouse.put("type", "pointer");
+		mouse.put("id", "collectEarthMouse");
+		mouse.put("parameters", Collections.singletonMap("pointerType", "mouse"));
+		mouse.put("actions", Arrays.asList(pause(), move, button("pointerDown"), button("pointerUp"), pause()));
+		Map<String, Object> params = new HashMap<>();
+		params.put("context", tab);
+		params.put("actions", Arrays.asList(keys, mouse));
+		return params;
+	}
+
+	private static Map<String, Object> key(String type) {
+		Map<String, Object> action = new HashMap<>();
+		action.put("type", type);
+		action.put("value", ""); // Control
+		return action;
+	}
+
+	private static Map<String, Object> button(String type) {
+		Map<String, Object> action = new HashMap<>();
+		action.put("type", type);
+		action.put("button", 0);
+		return action;
+	}
+
+	private static Map<String, Object> pause() {
+		Map<String, Object> action = new HashMap<>();
+		action.put("type", "pause");
+		action.put("duration", 0);
+		return action;
 	}
 
 	@Override
