@@ -16,7 +16,14 @@
 		<installer-build-path>${project.build.directory}/installer</installer-build-path>
 		<installbuilder-file-name>CollectEarthWithSaiku.xml</installbuilder-file-name>
 		<installbuilder-file-name-updater>CollectEarthUpdater.xml</installbuilder-file-name-updater>
-		<jre.version>11.0.19+7</jre.version>
+		<!-- The Eclipse Temurin JRE bundled with the installers: a Temurin release name without its "jdk-". No
+		     repository serves it: ../utils/repack_jres.py downloads it from Adoptium and installs it in the local
+		     repository as net.java.openjdk:jre, and the assembly profile runs that script when it is not there yet
+		     (python.executable to run it with, -Djre.ensure.skip=true to leave it out). -->
+		<jre.version>21.0.12.1+1</jre.version>
+		<jre.major.version>21</jre.major.version>
+		<python.executable>python</python.executable>
+		<jre.ensure.skip>false</jre.ensure.skip>
 		<!-- installer file names -->
 		<windows-installer-file-name>CollectEarth-${project.version}-windows-installer.exe</windows-installer-file-name>
 		<linux-x64-installer-file-name>CollectEarth-${project.version}-linux-x64-installer.run</linux-x64-installer-file-name>
@@ -75,6 +82,18 @@
 	</properties>
 
 	<profiles>
+		<!-- Linux and macOS name it python3 (a bare python is often not there at all) -->
+		<profile>
+			<id>python3-on-unix</id>
+			<activation>
+				<os>
+					<family>unix</family>
+				</os>
+			</activation>
+			<properties>
+				<python.executable>python3</python.executable>
+			</properties>
+		</profile>
 		<profile>
 			<id>assembly</id>
 			<build>
@@ -238,6 +257,10 @@
 									<token>JAVA_VERSION_SET_POM</token>
 									<value>${jre.version}</value>
 								</replacement>
+								<replacement>
+									<token>JAVA_MAJOR_VERSION_SET_POM</token>
+									<value>${jre.major.version}</value>
+								</replacement>
 
 
 							</replacements>
@@ -250,6 +273,27 @@
 						<artifactId>exec-maven-plugin</artifactId>
 						<version>3.3.0</version>
 						<executions>
+							<!-- 0b. the bundled JREs in the local repository, before unpack-jre needs them: downloaded
+							     and repacked the first time a machine builds the installers, a quick check after -->
+							<execution>
+								<id>ensure-jres</id>
+								<phase>initialize</phase>
+								<goals>
+									<goal>exec</goal>
+								</goals>
+								<configuration>
+									<skip>${jre.ensure.skip}</skip>
+									<executable>${python.executable}</executable>
+									<arguments>
+										<argument>${project.basedir}/../utils/repack_jres.py</argument>
+										<argument>--release</argument>
+										<argument>jdk-${jre.version}</argument>
+										<argument>--repo</argument>
+										<argument>${settings.localRepository}</argument>
+										<argument>--if-missing</argument>
+									</arguments>
+								</configuration>
+							</execution>
 						    <!-- Windows -->
 							<execution>
 								<id>windows-installer</id>

@@ -126,8 +126,8 @@
     <readyToInstallActionList>
 		<if>
 		    <actionList>
-				<setInstallerVariable name="java_version_major" value="11" />
-				<setInstallerVariable name="java_version" value="11.0.19+7" />
+				<setInstallerVariable name="java_version_major" value="JAVA_MAJOR_VERSION_SET_POM" />
+				<setInstallerVariable name="java_version" value="JAVA_VERSION_SET_POM" />
 				<setInstallerVariable name="java_version_full" value="JAVA_VERSION_SET_POM" />
 				<setInstallerVariable name="java_version_vendor" value="Eclipse Adoptium Temurin" />
 				<setInstallerVariable name="java_bitness" value="64" />
