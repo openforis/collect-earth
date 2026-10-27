@@ -104,7 +104,8 @@ Notes:
   (`gpg.executable`, `gpg.passphrase`, optionally `gpg.keyname`) that sign the artifacts on Central — the
   installers are not attached to the Maven build, so this is their only signature. If signing fails, the
   installers and checksums are still published and the log says how to sign and upload `SHA256SUMS.asc` by hand.
-- The generated `collectEarthUpdateJRE11.xml` is uploaded to the web server by the build, at the `deploy`
+- The generated update manifest (`collectEarthUpdateJRE21.xml` from 2.0 on, `collectEarthUpdateJRE11.xml` before) is
+  uploaded to the web server by the build, at the `deploy`
   phase, by the `upload-autoupdate-manifest` execution of maven-antrun-plugin. It goes over scp with a key to
   `/opt/fileadmin/installer`, which is what `https://www.openforis.org/fileadmin/installer/` is served from
   and is the default in `collect-earth-installer/pom.xml`. The three values that are not in the repository -

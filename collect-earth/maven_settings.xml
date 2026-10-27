@@ -19,7 +19,7 @@
 			<ga_api_secret>GOOGLE ANALYTICS MEASUREMENT PROTOCOL API SECRET</ga_api_secret>
 
 			<!-- Where the autoupdate manifest is uploaded at the end of a release: the server the installed
-			     clients read collectEarthUpdateJRE11.xml from. The remote folder has a default in
+			     clients read collectEarthUpdateJRE21.xml (and, before 2.0, collectEarthUpdateJRE11.xml) from. The remote folder has a default in
 			     collect-earth-installer/pom.xml and only belongs here if the server layout changes.
 
 			     Use forward slashes in the key path: a backslash is an escape character to Ant. The key file is a

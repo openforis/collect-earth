@@ -33,7 +33,18 @@
 		<linux-x64-autoupdater-file-name>CollectEarthUpdater-${project.version}-linux-x64-installer.run</linux-x64-autoupdater-file-name>
 		<osx-autoupdater-file-name>CollectEarthUpdater-${project.version}-osx-installer.app.zip</osx-autoupdater-file-name>
 
-		<autoupdater-xml-file-name>collectEarthUpdateJRE11.xml</autoupdater-xml-file-name>
+		<!-- The manifest the installations of this release check (update.ini), one per bundled Java: 2.0 moves from
+		     Java 11 to 21, as 1.20.0 moved from 8 to 11.
+		     The move is made by one release, 2.0, published to both manifests. Through the old one, the 1.x
+		     installations get the 2.0 updater, which carries the JRE (CollectEarthUpdater.xml includes java.xml) and an
+		     update.ini that points them to the new one. From 2.0 on, installations check the new one only.
+
+		     AFTER 2.0 IS RELEASED: set autoupdate.previous-manifest.upload to false, and take java.xml out of
+		     CollectEarthUpdater.xml again (installations on 2.0+ have the JRE). The old manifest then stays at 2.0
+		     forever, for the 1.x installations that have not updated yet. -->
+		<autoupdater-xml-file-name>collectEarthUpdateJRE21.xml</autoupdater-xml-file-name>
+		<previous-autoupdater-xml-file-name>collectEarthUpdateJRE11.xml</previous-autoupdater-xml-file-name>
+		<autoupdate.previous-manifest.upload>true</autoupdate.previous-manifest.upload>
 		<!-- download.html guesses the platform and offers all three; download-windows.html, -osx.html and
 		     -linux.html redirect straight to one installer with no JavaScript. They are uploaded with the manifest,
 		     so https://www.openforis.org/fileadmin/installer/download.html is a link that never needs editing. -->
@@ -223,6 +234,7 @@
 								<include>${installbuilder-file-name-updater}</include>
 								<include>update.ini</include>
 								<include>${autoupdater-xml-file-name}</include>
+								<include>${previous-autoupdater-xml-file-name}</include>
 								<!-- The download pages, so that the links on openforis.org point at this release
 								     without anyone editing WordPress. -->
 								<include>${download-page-pattern}</include>
@@ -724,7 +736,11 @@
 										</condition>
 										<echo message=" WARNING : the updaters of ${project.version} cannot be downloaded from ${gh.download}, so ${autoupdater-xml-file-name} and the download pages were NOT uploaded - they would send every installation to files that are not there. Once the installers are on the GitHub release, copy ${installer-build-path}/${autoupdater-xml-file-name} and ${installer-build-path}/${download-page-pattern} to ${openforis-update-folder} by hand." unless:set="updaters.downloadable" />
 
+										<condition property="previous.manifest">
+											<istrue value="${autoupdate.previous-manifest.upload}" />
+										</condition>
 										<echo message="Uploading ${autoupdater-xml-file-name} (version ${project.version}, build ${buildNumber}) to ${openforis-update-user}@${openforis-update-host}:${openforis-update-folder}" if:set="updaters.downloadable" />
+										<echo message="Uploading ${previous-autoupdater-xml-file-name} too: the installations on the previous Java are offered ${project.version}, whose updater moves them to this one (see autoupdater-xml-file-name)" if:set="previous.manifest" />
 										<!-- failonerror is false, and deliberately. The release itself is finished by the
 										     time this runs : the artifacts are uploaded and the tag is pushed. Failing
 										     the build here would fail a release that has already succeeded, over a file
@@ -733,6 +749,7 @@
 										<scp todir="${openforis-update-user}@${openforis-update-host}:${openforis-update-folder}" keyfile="${openforis-update-keyfile}" passphrase="${openforis-update-passphrase}" trust="yes" verbose="true" failonerror="false" if:set="updaters.downloadable">
 											<fileset dir="${installer-build-path}">
 												<include name="${autoupdater-xml-file-name}" />
+												<include name="${previous-autoupdater-xml-file-name}" if="previous.manifest" />
 												<!-- Beside the manifest, so that openforis.org can link to a URL that
 												     never changes and this release repoints it. -->
 												<include name="${download-page-pattern}" />
