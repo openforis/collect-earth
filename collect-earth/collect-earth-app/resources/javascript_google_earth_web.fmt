@@ -223,6 +223,27 @@ return (function () {
     // the user grabbed the camera during the flight: then it has to settle like any user move
     var userMoved = false;
 
+    // With animations turned off in GEW's settings the camera jumps, and GEW never writes a camera of its own: the URL
+    // keeps the one sent, which looked like a flight that never arrived, and the outline waited out the timeout. A
+    // flight that times out so, untouched in a page shown throughout, means GEW jumps: remembered for the tab (the
+    // overlay is injected anew for each plot), so the next ones only wait for the jump to settle. A camera GEW writes
+    // of its own after one of those means it flies again (see afterJump). Kept in the window, which in-page navigation
+    // keeps, and in the session storage, which a page load keeps.
+    var JUMP_SETTLE_MILLIS = 800;
+    var JUMPS_KEY = "__collectEarthGewJumps";
+    function jumps() {
+        if (typeof window[JUMPS_KEY] === "boolean") return window[JUMPS_KEY];
+        try { return sessionStorage.getItem(JUMPS_KEY) === "1"; } catch (e) { return false; }
+    }
+    function rememberJumps(value) {
+        window[JUMPS_KEY] = value;
+        try {
+            if (value) sessionStorage.setItem(JUMPS_KEY, "1"); else sessionStorage.removeItem(JUMPS_KEY);
+        } catch (e) { /* no storage (an opaque origin): the window remembers it until the page is loaded again */ }
+    }
+    // The camera of a jump drawn at once, while GEW could still write one of its own for it (then it flew after all)
+    var afterJump = null;
+
     // GEW may reformat the numbers it was given (-16.322392999999998 -> -16.322393), but it keeps the
     // distance as written until the camera arrives, then writes the one it computed (400 -> 400.00453096)
     function sameCamera(a, b) {
@@ -232,8 +253,11 @@ return (function () {
 
     function expectFlight(url) {
         var cam = parseCamera(url);
-        flight = cam ? { cam: cam, until: Date.now() + FLIGHT_TIMEOUT_MILLIS } : null;
+        var jump = jumps();
+        flight = cam ? { cam: cam, until: Date.now() + (jump ? JUMP_SETTLE_MILLIS : FLIGHT_TIMEOUT_MILLIS), jump: jump,
+            visible: !document.hidden } : null;
         userMoved = false;
+        afterJump = null;
         hide("", false);
         stableCount = 0;
     }
@@ -242,10 +266,19 @@ return (function () {
     function inFlight() {
         if (!flight) return false;
         var cam = parseCamera();
-        if (cam && sameCamera(cam, flight.cam) && Date.now() <= flight.until) return true;
-        var arrived = cam && Date.now() <= flight.until && !userMoved;
+        var inTime = Date.now() <= flight.until;
+        if (cam && sameCamera(cam, flight.cam) && inTime) return true;
+        var arrived = cam && inTime && !userMoved;
+        // Still the camera sent when the time is up, untouched: GEW jumped there
+        var jumped = !inTime && cam && !userMoved && sameCamera(cam, flight.cam) && flight.visible && !document.hidden;
+        if (jumped) {
+            rememberJumps(true);
+            afterJump = { cam: flight.cam, until: Date.now() + FLIGHT_TIMEOUT_MILLIS };
+        } else if (arrived) {
+            rememberJumps(false);
+        }
         flight = null;
-        if (arrived) {
+        if (arrived || jumped) {
             // GEW writes the camera once it is at rest: no need to wait for it to stay the same
             lastHref = window.location.href;
             stableCount = STABLE_READS;
@@ -266,6 +299,7 @@ return (function () {
     function startMoving() {
         moving = { from: window.location.href, until: Date.now() + MOVE_TIMEOUT_MILLIS };
         if (flight) userMoved = true;
+        afterJump = null;
         hide("", false);
         stableCount = 0;
     }
@@ -302,6 +336,16 @@ return (function () {
     var timer = setInterval(function () {
         if (inFlight() || inUserMove()) return;
         var href = window.location.href;
+        if (afterJump && Date.now() > afterJump.until) afterJump = null;
+        if (afterJump && href !== lastHref) {
+            // GEW wrote the camera it arrived at, over the plot: it flew after all (animations turned on again)
+            var cam = parseCamera(href);
+            if (cam && !sameCamera(cam, afterJump.cam) && Math.abs(cam.lat - afterJump.cam.lat) < 1e-4
+                    && Math.abs(cam.lon - afterJump.cam.lon) < 1e-4) {
+                rememberJumps(false);
+            }
+            afterJump = null;
+        }
         if (href !== lastHref) {
             lastHref = href;
             stableCount = 0;
@@ -324,6 +368,7 @@ return (function () {
         if (onBar(e)) return;
         pressed = true;
         if (flight) userMoved = true;
+        afterJump = null;
         hide("", false);
         stableCount = 0;
     }
@@ -340,6 +385,8 @@ return (function () {
     // hidden) sends no mouseup: the press ends there, or the outline would stay hidden until the mouse came back.
     // Only the window's own blur: an element's, captured here too, comes with the press that moves the focus
     function onFocusLost(e) {
+        // A hidden GEW may not fly until it is shown: a flight that times out then says nothing about animations
+        if (e.type === "visibilitychange" && document.hidden && flight) flight.visible = false;
         if (!pressed) return;
         if (e.type === "blur" && e.target !== window) return;
         if (e.type === "visibilitychange" && !document.hidden) return;
