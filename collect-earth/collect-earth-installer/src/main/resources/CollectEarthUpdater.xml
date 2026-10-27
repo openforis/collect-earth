@@ -10,17 +10,27 @@
     <requireInstallationByRootUser>0</requireInstallationByRootUser>
     <requestedExecutionLevel>asInvoker</requestedExecutionLevel>
     <componentList>
-    	<!--  
-    	IN THE VERSION 1.20.0 (July 2023) the JRE was updated to version 11. We need to ass it to the updater
+    	<!-- ONLY IN THE UPDATER OF 2.0, which moves the 1.x installations from Java 11 to 21 (see autoupdater-xml-file-name
+    	     in pom.xml). Take java.xml out again, with the removal of the old JRE below and the launcher variables, once
+    	     2.0 is released: the installations on 2.0+ have Java 21, and their updaters need no JRE. 1.20.0 did the same
+    	     for the move from 8 to 11, undone in e02b243f.
+    	     The launcher runs ${installdir}/java/bin/java whatever its version, so it is kept (java_create_launcher is 0
+    	     below) and only the folder is replaced. -->
     	<include>
 			<file>java.xml</file>
 		</include>
-		PROBABLY REMOVE THIS AFTER A YEAR! 
-		-->
-		
+
         <component>
-     
-        
+			<!-- The old JRE goes first, or the files of Java 11 that 21 does not have would stay mixed in with it. Collect
+			     Earth has quit by now: java.xml waits for it before any component is installed. -->
+			<preInstallationActionList>
+		        <deleteFile>
+		        	<path>${installdir}/java</path>
+		        	<progressText>Removing old JRE</progressText>
+		        	<abortOnError>0</abortOnError>
+		        </deleteFile>
+		    </preInstallationActionList>
+
             <name>default</name>
             <description>Default Component</description>
             <canBeEdited>1</canBeEdited>
@@ -42,8 +52,14 @@
                         <distributionFile>
                             <origin>COLLECT_EARTH_MAIN_FOLDER/collect-earth-app/target/CollectEarth.jar</origin>
                         </distributionFile>
+                        <!-- Only the libraries and resources that differ from the baseline release, which every
+                             installation has (utils/updater_payload.py, run by the build into target/updater-payload):
+                             everything when there is no baseline. Nothing is deleted, so those of the baseline stay. -->
                         <distributionDirectory>
-                            <origin>COLLECT_EARTH_MAIN_FOLDER/collect-earth-app/target/earth-libs</origin>
+                            <origin>COLLECT_EARTH_MAIN_FOLDER/collect-earth-installer/target/updater-payload/earth-libs</origin>
+                        </distributionDirectory>
+                        <distributionDirectory>
+                            <origin>COLLECT_EARTH_MAIN_FOLDER/collect-earth-installer/target/updater-payload/resources</origin>
                         </distributionDirectory>
                         <distributionFile>
                             <origin>COLLECT_EARTH_MAIN_FOLDER/collect-earth-installer/target/installer/update.ini</origin>
@@ -61,50 +77,6 @@
 
 
 
-                <folder>
-		            <description>Resources Windows</description>
-		            <destination>${installdir}/resources</destination>
-		            <name>resourceswindows</name>
-		            <platforms>windows windows-x64</platforms>
-		            <distributionFileList>
-			         	<distributionDirectory  allowWildcards="1">
-			            	<origin>../../../collect-earth-app/resources/*</origin>
-			            </distributionDirectory>
-		            </distributionFileList>
-		        </folder>
-		        <folder>
-		            <description>Resources Linux 32</description>
-		            <destination>${installdir}/resources</destination>
-		            <name>resourceslinux32</name>
-		            <platforms>linux</platforms>
-		            <distributionFileList>
-			         	<distributionDirectory  allowWildcards="1">
-			            	<origin>../../../collect-earth-app/resources/*</origin>
-			            </distributionDirectory>
-		            </distributionFileList>
-		        </folder>
-		        <folder>
-		            <description>Resources Linux</description>
-		            <destination>${installdir}/resources</destination>
-		            <name>resourceslinux64</name>
-		            <platforms>linux-x64</platforms>
-		            <distributionFileList>
-			         	<distributionDirectory  allowWildcards="1">
-			            	<origin>../../../collect-earth-app/resources/*</origin>
-			            </distributionDirectory>
-		            </distributionFileList>
-		        </folder>
-		        <folder>
-		            <description>Resources Mac</description>
-		            <destination>${installdir}/resources</destination>
-		            <name>resourcesosx</name>
-		            <platforms>osx</platforms>
-		            <distributionFileList>
-			         	<distributionDirectory allowWildcards="1">
-			            	<origin>../../../collect-earth-app/resources/*</origin>
-			            </distributionDirectory>
-		            </distributionFileList>
-		        </folder>
 		         <folder>
 		            <description>Saiku new files for Windows TOMCAT bin</description>
 		            <destination>${installdir}/saiku-server_2.6/tomcat/bin</destination>
@@ -170,7 +142,7 @@
     
     <initializationActionList>
 
-		<!--  Not necessary anymore if java.xml component is not included
+		<!-- For java.xml: the launcher is not created again, and its name is the process waited for -->
         <setInstallerVariable>
             <name>java_launcher_jar</name>
             <progressText>Creating Launcher</progressText>
@@ -186,7 +158,6 @@
             <progressText>Set launcher name</progressText>
             <value>CollectEarth-launcher.${platform_exec_suffix}</value>
         </setInstallerVariable>
- 		-->
 
 		<if>
           <!-- The updater in osx comes as a ZIP that gets decompressed, so we need to go up an extra level -->

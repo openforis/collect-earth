@@ -8,7 +8,7 @@ This module builds platform installers and updater metadata. Treat it as release
 
 - Installer resources: `src/main/resources`
 - Main InstallBuilder definitions: `CollectEarthWithSaiku.xml`, `CollectEarthUpdater.xml`, and `CollectEarthMain.xml`
-- Update metadata: `collectEarthUpdateJRE11.xml`, `collectEarthUpdateMvn.xml`, and `update.ini`
+- Update metadata: `collectEarthUpdateJRE21.xml` (2.0 on), `collectEarthUpdateJRE11.xml`, `collectEarthUpdateMvn.xml`, and `update.ini`
 - Installer and launcher images: `*.ico`, `*.icns`, `*.png`, and `of-logo.svg`
 
 ## Build

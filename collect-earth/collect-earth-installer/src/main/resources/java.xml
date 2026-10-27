@@ -126,8 +126,8 @@
     <readyToInstallActionList>
 		<if>
 		    <actionList>
-				<setInstallerVariable name="java_version_major" value="11" />
-				<setInstallerVariable name="java_version" value="11.0.19+7" />
+				<setInstallerVariable name="java_version_major" value="JAVA_MAJOR_VERSION_SET_POM" />
+				<setInstallerVariable name="java_version" value="JAVA_VERSION_SET_POM" />
 				<setInstallerVariable name="java_version_full" value="JAVA_VERSION_SET_POM" />
 				<setInstallerVariable name="java_version_vendor" value="Eclipse Adoptium Temurin" />
 				<setInstallerVariable name="java_bitness" value="64" />
@@ -156,20 +156,21 @@
 		</if>
     </readyToInstallActionList>
 
-<!-- START - THIS IS ONLY NECESSARY WHEN MOVING FROM JRE8 to java -->
+	<!-- The JRE cannot be replaced under a running Collect Earth: on Windows its files are in use, so they would
+	     survive the removal of the old JRE (CollectEarthUpdater.xml) and be mixed in with the new one. Asked again
+	     until it has quit - a single warning, as in the move to Java 11, was easy to click past. -->
 	<preInstallationActionList>
-	  <actionGroup>
+	  <while>
 	    <actionList>
 	      <showWarning>
 	        <text>Please QUIT THE COLLECT EARTH WINDOW before proceeding with the update! The update will fail if Collect Earth is running!</text>
 	      </showWarning>
 	    </actionList>
-	    <ruleList>
+	    <conditionRuleList>
 	       <processTest name="${java_launcher_binary_name}" logic="is_running" />
-	    </ruleList>
-	  </actionGroup>
+	    </conditionRuleList>
+	  </while>
 	</preInstallationActionList>
-<!-- END -->
 
     <postInstallationActionList>
         <!-- change permissions of all binaries -->

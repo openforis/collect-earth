@@ -1,6 +1,7 @@
 package org.openforis.collect.earth.app.service.imagery;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.io.File;
@@ -56,6 +57,11 @@ public class GoogleEarthWebOverlayIT {
 
 	/** The overlay script for a plot of the given ring, as GoogleEarthWebService renders it. */
 	static String overlayScript(List<Map<String, Object>> ring) throws Exception {
+		return overlayScript(ring, "");
+	}
+
+	/** The same, injected right after Collect Earth sent Google Earth Web to {@code flightUrl} in-page. */
+	static String overlayScript(List<Map<String, Object>> ring, String flightUrl) throws Exception {
 		Configuration cfg = new Configuration(Configuration.VERSION_2_3_32);
 		cfg.setDirectoryForTemplateLoading(new File("."));
 		Map<String, Object> data = new HashMap<>();
@@ -65,7 +71,7 @@ public class GoogleEarthWebOverlayIT {
 		data.put("plotId", "p1");
 		data.put("plotUrl", "https://earth.google.com/web/@1,1,0a,500d,35y,0h,0t,0r");
 		data.put("inPageNavigation", "null");
-		data.put("flightUrl", "");
+		data.put("flightUrl", flightUrl);
 		Map<String, String> labels = new LinkedHashMap<>();
 		for (String k : new String[] { "plot", "hintTilted", "hintOutOfView", "hintUnavailable", "topDown", "topDownTooltip" }) {
 			labels.put(k, k);
@@ -109,6 +115,35 @@ public class GoogleEarthWebOverlayIT {
 		tab.evaluate("document.documentElement.appendChild(window.__savedBody);");
 		assertEquals("armed", tab.evaluate(script));
 		assertEquals(true, tab.evaluate("return !!window.__collectEarthGewOverlay && !!document.querySelector('svg[data-ce-overlay]');"));
+	}
+
+	/**
+	 * With animations off in its settings, Google Earth Web jumps to the camera it is sent and never writes one of its
+	 * own: the first flight waits out the timeout, and the plots after it are drawn once the jump has settled. A camera
+	 * it writes of its own over the plot afterwards means it flies again.
+	 */
+	@Test
+	public void aCameraThatJumpsIsLearntAndNotWaitedFor() throws Exception {
+		imagery.setCommandTimeout(Duration.ofSeconds(120));
+		List<Map<String, Object>> ring = Arrays.asList(coord(1, 1), coord(1.001, 1), coord(1.001, 1.001), coord(1, 1));
+		ImageryTab tab = imagery.tab(ImagerySource.GOOGLE_EARTH_WEB);
+		String camera = pageWithCamera(1.0005, 1.0005);
+		assertTrue(tab.load(camera, false, Duration.ofSeconds(20)));
+
+		assertEquals("armed", tab.evaluate(overlayScript(ring, camera)));
+		assertFalse(outlineBecomes(tab, "block", 5000), "the first flight is waited for");
+		assertTrue(outlineBecomes(tab, "block", 5000), "drawn when the flight times out on the camera sent");
+		assertEquals(true, tab.evaluate("return window.__collectEarthGewJumps;"));
+
+		// The next plot, in-page: only the jump settling is waited for
+		assertEquals("armed", tab.evaluate(overlayScript(ring, camera)));
+		assertTrue(outlineBecomes(tab, "none", 500), "hidden while the jump settles");
+		assertTrue(outlineBecomes(tab, "block", 2000), "drawn once the jump has settled");
+
+		// Animations turned on again: GEW writes the camera it arrived at, over the plot
+		tab.evaluate("location.hash = '#@1.0005,1.0005,0a,500.00453d,35y,0h,0t,0r';");
+		Thread.sleep(1000);
+		assertEquals(false, tab.evaluate("return window.__collectEarthGewJumps;"));
 	}
 
 	@Test
