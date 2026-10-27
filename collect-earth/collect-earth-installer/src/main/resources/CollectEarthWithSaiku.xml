@@ -108,6 +108,19 @@
 		</component>
 	</componentList>
 	<allowedLanguages>en es fr pt</allowedLanguages>
+	<!-- The installation stopped after java.xml set the old JRE aside: it goes back, in place of whatever of the
+	     new one was copied, or the installation would be left with no Java (there is no rollback) -->
+	<installationAbortedActionList>
+		<actionGroup>
+			<actionList>
+				<deleteFile path="${installdir}/java" abortOnError="0" showMessageOnError="0" />
+				<renameFile origin="${installdir}/java.old" destination="${installdir}/java" abortOnError="0" />
+			</actionList>
+			<ruleList>
+				<fileExists path="${installdir}/java.old" />
+			</ruleList>
+		</actionGroup>
+	</installationAbortedActionList>
 	<compressionAlgorithm>lzma</compressionAlgorithm>
 	<defaultUnixDirectoryPermissions>777</defaultUnixDirectoryPermissions>
 	<defaultUnixFilePermissions>777</defaultUnixFilePermissions>

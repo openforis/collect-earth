@@ -258,12 +258,8 @@
         </copyFile>
     </postBuildActionList>
     -->
+    <!-- The old JRE is replaced by java.xml, right before the files are copied -->
     <preInstallationActionList>
-        <deleteFile>
-        	<path>${installdir}/java</path>
-        	<progressText>Removing old JRE</progressText>
-        	<abortOnError>0</abortOnError>
-        </deleteFile>
         <deleteFile>
         	<path>${installdir}/tmp</path>
         	<progressText>Removing old updaters</progressText>

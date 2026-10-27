@@ -94,6 +94,23 @@
 		<openforis-update-folder>/opt/fileadmin/installer</openforis-update-folder>
 	</properties>
 
+	<!-- Only so that the reactor builds the application first, also with -T: the installers pack its target folder
+	     (CollectEarth.jar, earth-libs), which nothing else ties them to. None of its libraries is resolved here. -->
+	<dependencies>
+		<dependency>
+			<groupId>${project.groupId}</groupId>
+			<artifactId>collect-earth-app</artifactId>
+			<version>${project.version}</version>
+			<scope>provided</scope>
+			<exclusions>
+				<exclusion>
+					<groupId>*</groupId>
+					<artifactId>*</artifactId>
+				</exclusion>
+			</exclusions>
+		</dependency>
+	</dependencies>
+
 	<profiles>
 		<!-- Linux and macOS name it python3 (a bare python is often not there at all) -->
 		<profile>
@@ -311,7 +328,9 @@
 							<!-- 3b. what the updaters carry of the libraries and resources: only what differs from the
 							     baseline, the files every installation on this Java has (src/main/updater-baseline.txt, recorded
 							     after releasing the first release and pruned after each one since - see utils/updater_payload.py).
-							     Everything when there is none. -->
+							     Everything when there is none. It stops the build when earth-libs lacks a library of
+							     CollectEarth.jar's Class-Path, when the baseline was not pruned after the previous release, and
+							     when an updater published to the previous Java's manifest too would not carry everything. -->
 							<execution>
 								<id>updater-payload</id>
 								<phase>prepare-package</phase>
@@ -331,6 +350,12 @@
 										<argument>${project.basedir}/src/main/updater-baseline.txt</argument>
 										<argument>--out</argument>
 										<argument>${project.build.directory}/updater-payload</argument>
+										<argument>--jar</argument>
+										<argument>${project.basedir}/../collect-earth-app/target/CollectEarth.jar</argument>
+										<argument>--previous-manifest</argument>
+										<argument>${autoupdate.previous-manifest.upload}</argument>
+										<argument>--updater-project</argument>
+										<argument>${project.basedir}/src/main/resources/CollectEarthUpdater.xml</argument>
 									</arguments>
 								</configuration>
 							</execution>

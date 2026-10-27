@@ -154,25 +154,57 @@
 				<isTrue value="${java_install_jre}" />
 		    </conditionRuleList>
 		</if>
+
+		<!-- The old JRE is replaced here, right before the files are copied, never before the wizard: an installation
+		     cancelled on one of its pages keeps its Java. Replaced as a whole, or files of the old Java that the new one
+		     does not have would stay mixed in with it. -->
+		<actionGroup>
+		    <actionList>
+				<!-- Its files are in use while Collect Earth runs. Asked again until it has quit - a single warning, as
+				     in the move to Java 11, was easy to click past. Unattended, nobody can quit it, so it stops. -->
+				<while>
+				    <actionList>
+						<showWarning>
+						    <text>Please QUIT THE COLLECT EARTH WINDOW before proceeding with the update! The update will fail if Collect Earth is running!</text>
+						    <ruleList>
+							<compareText text="${installer_ui}" logic="does_not_equal" value="unattended" />
+						    </ruleList>
+						</showWarning>
+						<throwError>
+						    <text>Collect Earth is running: quit it, then run the installation again.</text>
+						    <ruleList>
+							<compareText text="${installer_ui}" logic="equals" value="unattended" />
+						    </ruleList>
+						</throwError>
+				    </actionList>
+				    <conditionRuleList>
+						<processTest name="${java_launcher_binary_name}" logic="is_running" />
+				    </conditionRuleList>
+				</while>
+				<deleteFile path="${installdir}/java.old" abortOnError="0" showMessageOnError="0" />
+				<!-- A rename, not a delete: it fails as a whole while any of the files is in use (Saiku's Tomcat runs
+				     this Java too, and may outlive a Collect Earth that crashed), so the old JRE is never left half
+				     deleted, and the installation stops with it intact. The project's installationAbortedActionList
+				     puts it back if the installation stops later. -->
+				<renameFile>
+				    <origin>${installdir}/java</origin>
+				    <destination>${installdir}/java.old</destination>
+				    <progressText>Removing old JRE</progressText>
+				    <abortOnError>1</abortOnError>
+				    <showMessageOnError>1</showMessageOnError>
+				    <customErrorMessage>The Java of Collect Earth is still in use. Close Collect Earth and Saiku, then run the installation again.</customErrorMessage>
+				</renameFile>
+		    </actionList>
+		    <ruleList>
+				<isTrue value="${java_install_jre}" />
+				<fileExists path="${installdir}/java" />
+		    </ruleList>
+		</actionGroup>
     </readyToInstallActionList>
 
-	<!-- The JRE cannot be replaced under a running Collect Earth: on Windows its files are in use, so they would
-	     survive the removal of the old JRE (CollectEarthUpdater.xml) and be mixed in with the new one. Asked again
-	     until it has quit - a single warning, as in the move to Java 11, was easy to click past. -->
-	<preInstallationActionList>
-	  <while>
-	    <actionList>
-	      <showWarning>
-	        <text>Please QUIT THE COLLECT EARTH WINDOW before proceeding with the update! The update will fail if Collect Earth is running!</text>
-	      </showWarning>
-	    </actionList>
-	    <conditionRuleList>
-	       <processTest name="${java_launcher_binary_name}" logic="is_running" />
-	    </conditionRuleList>
-	  </while>
-	</preInstallationActionList>
-
     <postInstallationActionList>
+        <!-- The old JRE, set aside before the files were copied -->
+        <deleteFile path="${installdir}/java.old" abortOnError="0" showMessageOnError="0" />
         <!-- change permissions of all binaries -->
         <changePermissions files="${installdir}/java/bin/*" permissions="0755" abortOnError="0" showMessageOnError="0">
             <ruleList>

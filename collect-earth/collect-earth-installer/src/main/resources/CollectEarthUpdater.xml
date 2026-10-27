@@ -11,9 +11,9 @@
     <requestedExecutionLevel>asInvoker</requestedExecutionLevel>
     <componentList>
     	<!-- ONLY IN THE UPDATER OF 2.0, which moves the 1.x installations from Java 11 to 21 (see autoupdater-xml-file-name
-    	     in pom.xml). Take java.xml out again, with the removal of the old JRE below and the launcher variables, once
-    	     2.0 is released: the installations on 2.0+ have Java 21, and their updaters need no JRE. 1.20.0 did the same
-    	     for the move from 8 to 11, undone in e02b243f.
+    	     in pom.xml). Take java.xml out again, with the launcher variables, once 2.0 is released: the installations on
+    	     2.0+ have Java 21, and their updaters need no JRE. java.xml also replaces the old JRE, so nothing of it is
+    	     left behind to remove. 1.20.0 did the same for the move from 8 to 11, undone in e02b243f.
     	     The launcher runs ${installdir}/java/bin/java whatever its version, so it is kept (java_create_launcher is 0
     	     below) and only the folder is replaced. -->
     	<include>
@@ -21,16 +21,6 @@
 		</include>
 
         <component>
-			<!-- The old JRE goes first, or the files of Java 11 that 21 does not have would stay mixed in with it. Collect
-			     Earth has quit by now: java.xml waits for it before any component is installed. -->
-			<preInstallationActionList>
-		        <deleteFile>
-		        	<path>${installdir}/java</path>
-		        	<progressText>Removing old JRE</progressText>
-		        	<abortOnError>0</abortOnError>
-		        </deleteFile>
-		    </preInstallationActionList>
-
             <name>default</name>
             <description>Default Component</description>
             <canBeEdited>1</canBeEdited>
@@ -254,6 +244,19 @@
         </showInfo>
     </postInstallationActionList>
      -->
+    <!-- The installation stopped after java.xml set the old JRE aside: it goes back, in place of whatever of the
+         new one was copied, or the installation would be left with no Java (there is no rollback) -->
+    <installationAbortedActionList>
+        <actionGroup>
+            <actionList>
+                <deleteFile path="${installdir}/java" abortOnError="0" showMessageOnError="0" />
+                <renameFile origin="${installdir}/java.old" destination="${installdir}/java" abortOnError="0" />
+            </actionList>
+            <ruleList>
+                <fileExists path="${installdir}/java.old" />
+            </ruleList>
+        </actionGroup>
+    </installationAbortedActionList>
     <compressionAlgorithm>lzma</compressionAlgorithm>
     <defaultUnixDirectoryPermissions>777</defaultUnixDirectoryPermissions>
     <defaultUnixFilePermissions>777</defaultUnixFilePermissions>

@@ -153,11 +153,14 @@ change.
 # the release checkout of collect-earth-app holds the libraries and resources 2.0.0 shipped
 C=collect-earth-app/target/checkout/collect-earth
 python utils/updater_payload.py record --libs $C/collect-earth-app/target/earth-libs \
-  --resources $C/collect-earth-app/resources --baseline collect-earth-installer/src/main/updater-baseline.txt
+  --resources $C/collect-earth-app/resources --baseline collect-earth-installer/src/main/updater-baseline.txt \
+  --version 2.0.0
 ```
 
 then, in `collect-earth-installer`, set `autoupdate.previous-manifest.upload` to `false` in the pom and take `java.xml`
-(with the removal of the old JRE and the launcher variables) out of `CollectEarthUpdater.xml`, and commit the three.
+(with the launcher variables) out of `CollectEarthUpdater.xml`, and commit the three. `java.xml` also replaces the old
+JRE, so nothing else of the move is left. The build stops if only some of this is done: an updater still published to
+the Java 11 manifest must carry everything, the JRE too.
 Without the baseline the updaters stay complete, which is safe but large. For the next Java move (3.0), delete the
 baseline, as that release has to be complete, and record it again after.
 
@@ -165,13 +168,16 @@ baseline, as that release has to be complete, and record it again after.
 
 ```bash
 python utils/updater_payload.py prune --libs $C/collect-earth-app/target/earth-libs \
-  --resources $C/collect-earth-app/resources --baseline collect-earth-installer/src/main/updater-baseline.txt
+  --resources $C/collect-earth-app/resources --baseline collect-earth-installer/src/main/updater-baseline.txt \
+  --version 2.0.1
 ```
 
 It drops the files that release did not ship, or shipped changed, and adds none. Left out, a library dropped by one
 release and back identical in a later one would be missing from the installations made by the first one's installer:
-its updater would take it for one they all have. The build of the updaters lists the baseline files the application
-does not ship anymore, which a missed prune leaves.
+its updater would take it for one they all have. The baseline records the release it was last recorded or pruned for,
+and the build of the updaters stops unless that is the release before it (the last `collect-earth-*` tag before
+`HEAD`), so a missed prune is found at the next release. It also stops when `earth-libs` lacks a library of
+`CollectEarth.jar`'s Class-Path.
 
 #### Recovering a `release:perform` that failed during the upload
 

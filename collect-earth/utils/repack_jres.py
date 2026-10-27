@@ -33,6 +33,7 @@ import subprocess
 import sys
 import tarfile
 import tempfile
+import time
 import urllib.parse
 import urllib.request
 import zipfile
@@ -100,7 +101,7 @@ def download(package, folder):
 
 
 def read_archive(archive):
-    """The files of a JRE archive as {path in the archive: (unix mode, content)}.
+    """The files of a JRE archive as {path in the archive: (unix mode, content, zip date_time)}.
 
     Read in memory, never extracted: the Linux and macOS archives hold symbolic links (legal/*), which Windows will not
     create without administrator rights. A link is stored as the file it points to, as the installers copy files."""
@@ -109,14 +110,16 @@ def read_archive(archive):
         with zipfile.ZipFile(archive) as z:
             for info in z.infolist():
                 if not info.is_dir():
-                    files[info.filename] = ((info.external_attr >> 16) & 0o777, z.read(info))
+                    files[info.filename] = ((info.external_attr >> 16) & 0o777, z.read(info), info.date_time)
         return files
     links = {}
     with tarfile.open(archive) as t:
         for member in t.getmembers():
             name = posixpath.normpath(member.name)
             if member.isfile():
-                files[name] = (member.mode & 0o777, t.extractfile(member).read())
+                # a zip cannot date a file before 1980
+                date_time = max(time.localtime(member.mtime)[:6], (1980, 1, 1, 0, 0, 0))
+                files[name] = (member.mode & 0o777, t.extractfile(member).read(), date_time)
             elif member.issym():
                 links[name] = posixpath.normpath(posixpath.join(posixpath.dirname(name), member.linkname))
             elif member.islnk():
@@ -157,12 +160,13 @@ def repack(archive, version, classifier, java_folder, target):
                 if folder not in folders:
                     folders.add(folder)
                     z.writestr(zipfile.ZipInfo(folder), b"")
-            mode, content = files[name]
+            mode, content, date_time = files[name]
             # Keep the executable bits (the Windows zip carries none): bin/* and lib/jspawnhelper must run
             if (relative.startswith("bin/") or parts[-1:] == ["lib"] and posixpath.basename(relative) in ("jspawnhelper", "jexec")) \
                     and not relative.endswith(".dll"):
                 mode |= 0o755
-            info = zipfile.ZipInfo(prefix + relative)
+            # The release's dates, not 1980: an updater that only overwrites older files must take them for new
+            info = zipfile.ZipInfo(prefix + relative, date_time)
             info.external_attr = ((mode or 0o644) | stat.S_IFREG) << 16
             info.compress_type = zipfile.ZIP_DEFLATED
             z.writestr(info, content)
