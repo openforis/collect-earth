@@ -18,6 +18,8 @@ import { IN_PANEL } from "./panel";
  * single screen (GoogleEarthWebService.formWindowWidth), leaving the imagery the rest of the screen.
  */
 const MIN_MAP_WIDTH = 360;
+/** How long the toast of a submitted plot stays. */
+const TOAST_MILLIS = 3000;
 
 export function App({ controller }: { controller: MapController }) {
   const state = useSyncExternalStore(controller.subscribe, controller.getSnapshot);
@@ -56,13 +58,20 @@ export function App({ controller }: { controller: MapController }) {
       {formOpen && <FormPanel controller={controller} state={state} fill={onePane} hidden={listPane}
         onShowList={onePane ? () => setListShown(true) : undefined} />}
       {state.submitted && (
-        <Snackbar key={state.submitted.key} open autoHideDuration={4000} onClose={(_, reason) => {
+        <Snackbar key={state.submitted.key} open autoHideDuration={TOAST_MILLIS} onClose={(_, reason) => {
           if (reason !== "clickaway") controller.dismissSubmitted();
         }} anchorOrigin={{ vertical: "bottom", horizontal: "center" }}>
-          <Alert severity="success" variant="filled" onClose={controller.dismissSubmitted} data-testid="submitted-toast">
+          <Alert severity="success" variant="filled" onClose={controller.dismissSubmitted} data-testid="submitted-toast"
+            sx={{ position: "relative", overflow: "hidden" }}>
             {state.submitted.next
               ? t("toast.submitted", { id: state.submitted.plotId, next: state.submitted.next })
               : t("toast.submittedLast", { id: state.submitted.plotId })}
+            {/* The time left before it goes, shrinking to nothing */}
+            <Box aria-hidden sx={{
+              position: "absolute", left: 0, bottom: 0, height: 3, width: "100%", bgcolor: "common.white", opacity: 0.7,
+              transformOrigin: "left", "@keyframes ce-toast-time": { from: { transform: "scaleX(1)" }, to: { transform: "scaleX(0)" } },
+              animation: `ce-toast-time ${TOAST_MILLIS}ms linear forwards`,
+            }} />
           </Alert>
         </Snackbar>
       )}
