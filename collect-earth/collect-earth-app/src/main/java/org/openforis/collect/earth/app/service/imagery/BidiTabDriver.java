@@ -8,9 +8,12 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.concurrent.LinkedBlockingQueue;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.BiConsumer;
 import java.util.function.Consumer;
@@ -66,6 +69,9 @@ public class BidiTabDriver implements TabDriver {
 	 * command.
 	 */
 	static final Duration SCRIPT_TIMEOUT = Duration.ofSeconds(8);
+
+	/** How long {@link #createTab} waits for the tab a page opens before opening it the other way. */
+	private static final long OPEN_FROM_PAGE_MILLIS = 3_000;
 
 	/** How long {@link #quit()} waits for the browser to end before leaving it to its own thread. */
 	private static final long QUIT_WAIT_MILLIS = 10_000;
@@ -126,6 +132,8 @@ public class BidiTabDriver implements TabDriver {
 	private final Set<String> openTabs = ConcurrentHashMap.newKeySet();
 	private final List<Consumer<String>> closedListeners = new CopyOnWriteArrayList<>();
 	private final List<BiConsumer<String, Boolean>> visibilityListeners = new CopyOnWriteArrayList<>();
+	/** Told of each tab the browser opens, for {@link #openFromPage}. */
+	private final List<Consumer<String>> createdListeners = new CopyOnWriteArrayList<>();
 
 	/** The client settings to build the driver with: a BiDi command waits no longer than {@link #BIDI_TIMEOUT}. */
 	public static ClientConfig clientConfig() {
@@ -179,14 +187,60 @@ public class BidiTabDriver implements TabDriver {
 		return initialTab;
 	}
 
+	/**
+	 * A tab beside {@code besideTab} is opened by its page ({@link #openFromPage}): Chrome 156 opens the tab of
+	 * {@code browsingContext.create} in the window the user was in last, whatever its {@code referenceContext}, so the
+	 * Earth Engine app went into the window of Google Earth Web instead of beside Wayback. A page that does not open it
+	 * leaves it to {@code browsingContext.create}.
+	 */
 	@Override
 	public String createTab(String besideTab) {
+		if (besideTab != null) {
+			String opened = openFromPage(besideTab);
+			if (opened != null) {
+				return opened;
+			}
+		}
 		// background: a new BrowsingContext(driver, WindowType.TAB) selects the tab it opens
 		CreateContextParameters parameters = new CreateContextParameters(WindowType.TAB).background(true);
 		if (besideTab != null) {
 			parameters.referenceContext(besideTab);
 		}
 		return guard(besideTab, false, () -> new BrowsingContext(driver, parameters).getId());
+	}
+
+	/**
+	 * Opens a blank tab from the page in {@code tab}, which the browser puts in the window of that page; null when no
+	 * tab opened in {@link #OPEN_FROM_PAGE_MILLIS}. {@code window.open} needs a user gesture, which BiDi gives the
+	 * script ({@code userActivation}), and no opener is kept, so the page and the source in the new tab stay apart.
+	 */
+	private String openFromPage(String tab) {
+		BlockingQueue<String> created = new LinkedBlockingQueue<>();
+		Consumer<String> listener = created::add;
+		createdListeners.add(listener);
+		try {
+			Map<String, Object> params = new HashMap<>();
+			params.put("functionDeclaration", "() => { window.open('about:blank', '_blank', 'noopener'); }");
+			params.put("awaitPromise", false);
+			params.put("userActivation", true);
+			params.put("target", Collections.singletonMap("context", tab));
+			Map<String, Object> answer = guard(tab, true,
+					() -> bidi.send(new Command<Map<String, Object>>("script.callFunction", params, Map.class), SCRIPT_TIMEOUT));
+			scriptValue(tab, answer);
+			String opened = created.poll(OPEN_FROM_PAGE_MILLIS, TimeUnit.MILLISECONDS);
+			if (opened == null) {
+				logger.debug("Imagery window: the page in tab {} opened no tab", tab);
+			}
+			return opened;
+		} catch (PageScriptException e) {
+			logger.debug("Imagery window: the page in tab {} could not open a tab: {}", tab, e.getMessage());
+			return null;
+		} catch (InterruptedException e) {
+			Thread.currentThread().interrupt();
+			return null;
+		} finally {
+			createdListeners.remove(listener);
+		}
 	}
 
 	@Override
@@ -309,6 +363,9 @@ public class BidiTabDriver implements TabDriver {
 	private void contextCreated(BrowsingContextInfo context) {
 		if (context.getParentBrowsingContext() == null) {
 			openTabs.add(context.getId());
+			for (Consumer<String> listener : createdListeners) {
+				listener.accept(context.getId());
+			}
 		}
 	}
 
