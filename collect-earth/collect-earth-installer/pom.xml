@@ -41,7 +41,9 @@
 
 		     AFTER 2.0 IS RELEASED: set autoupdate.previous-manifest.upload to false, and take java.xml out of
 		     CollectEarthUpdater.xml again (installations on 2.0+ have the JRE). The old manifest then stays at 2.0
-		     forever, for the 1.x installations that have not updated yet. -->
+		     forever, for the 1.x installations that have not updated yet. And record 2.0 as the baseline of the
+		     updaters, which then carry only what changed since (the updater-payload execution): CLAUDE.md, "After
+		     releasing 2.0.0", has the commands. -->
 		<autoupdater-xml-file-name>collectEarthUpdateJRE21.xml</autoupdater-xml-file-name>
 		<previous-autoupdater-xml-file-name>collectEarthUpdateJRE11.xml</previous-autoupdater-xml-file-name>
 		<autoupdate.previous-manifest.upload>true</autoupdate.previous-manifest.upload>
@@ -303,6 +305,31 @@
 										<argument>--repo</argument>
 										<argument>${settings.localRepository}</argument>
 										<argument>--if-missing</argument>
+									</arguments>
+								</configuration>
+							</execution>
+							<!-- 3b. what the updaters carry of the libraries and resources: only what differs from the
+							     baseline release, which every installation on this Java has (src/main/updater-baseline.txt,
+							     recorded after releasing it - see utils/updater_payload.py). Everything when there is none. -->
+							<execution>
+								<id>updater-payload</id>
+								<phase>prepare-package</phase>
+								<goals>
+									<goal>exec</goal>
+								</goals>
+								<configuration>
+									<executable>${python.executable}</executable>
+									<arguments>
+										<argument>${project.basedir}/../utils/updater_payload.py</argument>
+										<argument>build</argument>
+										<argument>--libs</argument>
+										<argument>${project.basedir}/../collect-earth-app/target/earth-libs</argument>
+										<argument>--resources</argument>
+										<argument>${project.basedir}/../collect-earth-app/resources</argument>
+										<argument>--baseline</argument>
+										<argument>${project.basedir}/src/main/updater-baseline.txt</argument>
+										<argument>--out</argument>
+										<argument>${project.build.directory}/updater-payload</argument>
 									</arguments>
 								</configuration>
 							</execution>

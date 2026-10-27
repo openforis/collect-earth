@@ -130,6 +130,36 @@ Notes:
   the `ReleaseDate` tag on every event — `search_events` with `fields=["release","ReleaseDate","count()"]`
   gives the number that release is really reporting from the field.
 
+#### Updaters, the bundled Java and the baseline
+
+The installers bundle an Eclipse Temurin JRE (`jre.version` in `collect-earth-installer/pom.xml`). No repository
+serves it: `utils/repack_jres.py` downloads it from Adoptium and installs it in the local repository, and the
+`assembly` profile runs it by itself when it is missing (Python on the PATH; `-Djre.ensure.skip=true` to leave it out).
+
+Each bundled Java has an update manifest of its own (`collectEarthUpdateJRE11.xml`, `collectEarthUpdateJRE21.xml`),
+and one release moves the installations from one to the next - 1.20.0 from Java 8 to 11, 2.0.0 from 11 to 21. That
+release is published to both manifests (`autoupdate.previous-manifest.upload`), and its updater carries the JRE
+(`CollectEarthUpdater.xml` includes `java.xml`) and everything else, as no baseline is recorded yet.
+
+The other updaters carry only the libraries and resources that differ from that release, the baseline
+(`collect-earth-installer/src/main/updater-baseline.txt`, applied by `utils/updater_payload.py`): every installation
+on the manifest has been through it, and the updaters never delete files. A full updater is ~110 MB, mostly
+libraries that rarely change.
+
+**After releasing 2.0.0**, in the repository (not the release checkout):
+
+```bash
+# the release checkout of collect-earth-app holds the libraries and resources 2.0.0 shipped
+C=collect-earth-app/target/checkout/collect-earth
+python utils/updater_payload.py record --libs $C/collect-earth-app/target/earth-libs \
+  --resources $C/collect-earth-app/resources --baseline collect-earth-installer/src/main/updater-baseline.txt
+```
+
+then, in `collect-earth-installer`, set `autoupdate.previous-manifest.upload` to `false` in the pom and take `java.xml`
+(with the removal of the old JRE and the launcher variables) out of `CollectEarthUpdater.xml`, and commit the three.
+Without the baseline the updaters stay complete, which is safe but large. For the next Java move (3.0), delete the
+baseline, as that release has to be complete, and record it again after.
+
 #### Recovering a `release:perform` that failed during the upload
 
 Artifacts are deployed to the Sonatype Central Portal through the OSSRH Staging API

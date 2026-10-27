@@ -52,8 +52,14 @@
                         <distributionFile>
                             <origin>COLLECT_EARTH_MAIN_FOLDER/collect-earth-app/target/CollectEarth.jar</origin>
                         </distributionFile>
+                        <!-- Only the libraries and resources that differ from the baseline release, which every
+                             installation has (utils/updater_payload.py, run by the build into target/updater-payload):
+                             everything when there is no baseline. Nothing is deleted, so those of the baseline stay. -->
                         <distributionDirectory>
-                            <origin>COLLECT_EARTH_MAIN_FOLDER/collect-earth-app/target/earth-libs</origin>
+                            <origin>COLLECT_EARTH_MAIN_FOLDER/collect-earth-installer/target/updater-payload/earth-libs</origin>
+                        </distributionDirectory>
+                        <distributionDirectory>
+                            <origin>COLLECT_EARTH_MAIN_FOLDER/collect-earth-installer/target/updater-payload/resources</origin>
                         </distributionDirectory>
                         <distributionFile>
                             <origin>COLLECT_EARTH_MAIN_FOLDER/collect-earth-installer/target/installer/update.ini</origin>
@@ -71,50 +77,6 @@
 
 
 
-                <folder>
-		            <description>Resources Windows</description>
-		            <destination>${installdir}/resources</destination>
-		            <name>resourceswindows</name>
-		            <platforms>windows windows-x64</platforms>
-		            <distributionFileList>
-			         	<distributionDirectory  allowWildcards="1">
-			            	<origin>../../../collect-earth-app/resources/*</origin>
-			            </distributionDirectory>
-		            </distributionFileList>
-		        </folder>
-		        <folder>
-		            <description>Resources Linux 32</description>
-		            <destination>${installdir}/resources</destination>
-		            <name>resourceslinux32</name>
-		            <platforms>linux</platforms>
-		            <distributionFileList>
-			         	<distributionDirectory  allowWildcards="1">
-			            	<origin>../../../collect-earth-app/resources/*</origin>
-			            </distributionDirectory>
-		            </distributionFileList>
-		        </folder>
-		        <folder>
-		            <description>Resources Linux</description>
-		            <destination>${installdir}/resources</destination>
-		            <name>resourceslinux64</name>
-		            <platforms>linux-x64</platforms>
-		            <distributionFileList>
-			         	<distributionDirectory  allowWildcards="1">
-			            	<origin>../../../collect-earth-app/resources/*</origin>
-			            </distributionDirectory>
-		            </distributionFileList>
-		        </folder>
-		        <folder>
-		            <description>Resources Mac</description>
-		            <destination>${installdir}/resources</destination>
-		            <name>resourcesosx</name>
-		            <platforms>osx</platforms>
-		            <distributionFileList>
-			         	<distributionDirectory allowWildcards="1">
-			            	<origin>../../../collect-earth-app/resources/*</origin>
-			            </distributionDirectory>
-		            </distributionFileList>
-		        </folder>
 		         <folder>
 		            <description>Saiku new files for Windows TOMCAT bin</description>
 		            <destination>${installdir}/saiku-server_2.6/tomcat/bin</destination>
