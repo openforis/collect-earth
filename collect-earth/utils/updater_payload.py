@@ -3,15 +3,19 @@
 Keeps the updaters small: they carry only the libraries and resources that differ from the release every
 installation is known to have, the baseline.
 
-Every installation that checks the update manifest of a Java version has been through the first release made
-for it (2.0.0 for Java 21): installed by it, or updated by its updater, which carries everything. The updaters
-never delete files, so those of the baseline are all still there, and an updater only needs what is new or has
-changed since. The libraries are most of an updater (107 MB of jars that rarely change), and the demo survey
-in resources another 8 MB.
+Every installation that checks the update manifest of a Java version was installed or updated by one of its
+releases: by the first one (2.0.0 for Java 21), whose updater carries everything, or by a later installer. The
+updaters never delete files, so an installation has all the files of the release it was installed with, and an
+updater only needs what is new or has changed since the files every release shipped: those of the first release
+that each later one shipped too, unchanged. The baseline is those, kept so by pruning it after each release. The
+libraries are most of an updater (107 MB of jars that rarely change), and the demo survey in resources another 8 MB.
 
     # after releasing the baseline (2.0.0), from the release checkout, then commit the file:
     python utils/updater_payload.py record --libs collect-earth-app/target/earth-libs \
         --resources collect-earth-app/resources --baseline collect-earth-installer/src/main/updater-baseline.txt
+
+    # after releasing each of the next ones (2.0.1, 2.1.0...), the same way, then commit the file:
+    python utils/updater_payload.py prune --libs ... --resources ... --baseline ...
 
     # what the assembly profile runs before InstallBuilder:
     python utils/updater_payload.py build --libs ... --resources ... --baseline ... --out target/updater-payload
@@ -19,9 +23,11 @@ in resources another 8 MB.
 With no baseline file, build copies everything: the updater of the baseline release itself is a full one, and
 deleting the file (for the next Java move, 3.0) makes the next updater full again.
 
-A file that leaves the application and comes back later identical to the baseline would be taken for one every
-installation has, although the installations made in between never had it. build warns about the baseline files
-that are not in the application anymore: if one of them comes back, delete its line from the baseline.
+prune drops from the baseline the files the release does not ship, or ships changed. Kept, a library that left
+the application in a release and came back later identical would be taken for one every installation has,
+although those installed by that release never had it: they would miss it from the class path. prune never adds
+files: the installations that skipped the release do not have its new ones. build warns about the baseline
+files that are not in the application anymore, which a release that has not been pruned after leaves.
 """
 import argparse
 import hashlib
@@ -65,13 +71,31 @@ def read_baseline(path):
     return baseline
 
 
+def write_baseline(path, digests):
+    with open(path, "w", encoding="utf-8", newline="\n") as f:
+        f.write("# Files every installation of this Java version has: see utils/updater_payload.py\n")
+        for name, digest in sorted(digests.items()):
+            f.write(f"{digest} {name}\n")
+
+
 def record(args):
     current = files(args)
-    with open(args.baseline, "w", encoding="utf-8", newline="\n") as f:
-        f.write("# Files every installation of this Java version has: see utils/updater_payload.py\n")
-        for name, path in sorted(current.items()):
-            f.write(f"{sha256(path)} {name}\n")
+    write_baseline(args.baseline, {name: sha256(path) for name, path in current.items()})
     print(f"Recorded {len(current)} files in {args.baseline}")
+
+
+def prune(args):
+    """Keeps in the baseline only the files this release ships unchanged; it never adds any."""
+    if not os.path.isfile(args.baseline):
+        sys.exit(f"No baseline at {args.baseline}: record the first release of this Java version first")
+    current = files(args)
+    baseline = read_baseline(args.baseline)
+    kept = {name: digest for name, digest in baseline.items()
+            if name in current and sha256(current[name]) == digest}
+    write_baseline(args.baseline, kept)
+    print(f"Kept {len(kept)} of {len(baseline)} files in {args.baseline}")
+    for name in sorted(set(baseline) - set(kept)):
+        print(f"  {'changed' if name in current else 'gone   '} {name}")
 
 
 def build(args):
@@ -100,15 +124,15 @@ def build(args):
     gone = sorted(set(baseline) - set(current))
     if gone:
         # Mostly the old versions of libraries that were upgraded, which is fine
-        print(f"Baseline files the application does not have anymore (should one of them come back identical, delete its"
-              f" line from {args.baseline}, or the installations made without it will not get it):")
+        print(f"Baseline files the application does not have anymore (prune {args.baseline} after each release, or"
+              f" should one of them come back identical, the installations made without it will not get it):")
         for name in gone:
             print(f"  {name}")
 
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    parser.add_argument("command", choices=("record", "build"))
+    parser.add_argument("command", choices=("record", "prune", "build"))
     parser.add_argument("--libs", required=True, help="the earth-libs folder of the build")
     parser.add_argument("--resources", required=True, help="the resources folder of collect-earth-app")
     parser.add_argument("--baseline", required=True, help="the baseline file")
@@ -116,6 +140,8 @@ def main():
     args = parser.parse_args()
     if args.command == "record":
         record(args)
+    elif args.command == "prune":
+        prune(args)
     else:
         if not args.out:
             parser.error("build needs --out")

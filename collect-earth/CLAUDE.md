@@ -141,10 +141,11 @@ and one release moves the installations from one to the next - 1.20.0 from Java 
 release is published to both manifests (`autoupdate.previous-manifest.upload`), and its updater carries the JRE
 (`CollectEarthUpdater.xml` includes `java.xml`) and everything else, as no baseline is recorded yet.
 
-The other updaters carry only the libraries and resources that differ from that release, the baseline
-(`collect-earth-installer/src/main/updater-baseline.txt`, applied by `utils/updater_payload.py`): every installation
-on the manifest has been through it, and the updaters never delete files. A full updater is ~110 MB, mostly
-libraries that rarely change.
+The other updaters carry only the libraries and resources that differ from the baseline
+(`collect-earth-installer/src/main/updater-baseline.txt`, applied by `utils/updater_payload.py`): the files of that
+release that every release since shipped too, unchanged. Every installation on the manifest has them, whichever
+release installed it, as the updaters never delete files. A full updater is ~110 MB, mostly libraries that rarely
+change.
 
 **After releasing 2.0.0**, in the repository (not the release checkout):
 
@@ -159,6 +160,18 @@ then, in `collect-earth-installer`, set `autoupdate.previous-manifest.upload` to
 (with the removal of the old JRE and the launcher variables) out of `CollectEarthUpdater.xml`, and commit the three.
 Without the baseline the updaters stay complete, which is safe but large. For the next Java move (3.0), delete the
 baseline, as that release has to be complete, and record it again after.
+
+**After releasing each of the next ones** (2.0.1, 2.1.0...), prune the baseline the same way and commit it:
+
+```bash
+python utils/updater_payload.py prune --libs $C/collect-earth-app/target/earth-libs \
+  --resources $C/collect-earth-app/resources --baseline collect-earth-installer/src/main/updater-baseline.txt
+```
+
+It drops the files that release did not ship, or shipped changed, and adds none. Left out, a library dropped by one
+release and back identical in a later one would be missing from the installations made by the first one's installer:
+its updater would take it for one they all have. The build of the updaters lists the baseline files the application
+does not ship anymore, which a missed prune leaves.
 
 #### Recovering a `release:perform` that failed during the upload
 
