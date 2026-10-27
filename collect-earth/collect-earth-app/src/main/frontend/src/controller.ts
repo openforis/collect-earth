@@ -62,6 +62,8 @@ export interface UiState {
   gew: GewStatus | null;
   /** The tabs of the imagery window and the one shown: the source buttons. */
   imagery: ImageryStatus;
+  /** The plot just submitted and the one the list moved to (null: none left), for a toast; key tells two apart. */
+  submitted: { key: number; plotId: string; next: string | null } | null;
 }
 
 interface Plot { feature: PlotFeature; center: LatLng; rings: LatLng[][] }
@@ -102,7 +104,7 @@ export class MapController {
       filter: this.prefs.filter ?? "all", query: "",
       sidebarCollapsed: !!this.prefs.sidebarCollapsed, formWidth: this.prefs.formWidth ?? 560,
       banner: null, viewerType: "", language: "en", baseLayers: [], baseLayer: "", gew: null,
-      imagery: { sources: [], visible: null },
+      imagery: { sources: [], visible: null }, submitted: null,
     };
   }
 
@@ -299,7 +301,8 @@ export class MapController {
     if (!data?.type || data.plotId == null || data.plotId !== this.state.activeId || !(data.plotId in this.plots)) return;
     if (data.type === "ce:saved") {
       this.applyStatuses({ [data.plotId]: "saved" });
-      this.goToNextUnfinished();
+      const next = this.goToNextUnfinished();
+      this.set({ submitted: { key: Date.now(), plotId: data.plotId, next } });
     } else if (data.type === "ce:dirty") {
       this.applyStatuses({ [data.plotId]: "partial" });
     }
@@ -327,9 +330,15 @@ export class MapController {
     }
   };
 
-  goToNextUnfinished = (): void => {
+  /** Selects the next plot not completed; returns it, null when there is none. */
+  goToNextUnfinished = (): string | null => {
     const id = nextUnfinished(this.state.order, this.state.statuses, this.state.activeId);
     if (id) this.selectPlot(id);
+    return id;
+  };
+
+  dismissSubmitted = (): void => {
+    if (this.state.submitted) this.set({ submitted: null });
   };
 
   /** Previous/next plot among those currently shown in the list (all plots if none). */

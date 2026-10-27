@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useState, useSyncExternalStore } from "react";
 import Box from "@mui/material/Box";
 import GlobalStyles from "@mui/material/GlobalStyles";
+import Snackbar from "@mui/material/Snackbar";
+import Alert from "@mui/material/Alert";
 import type { MapController } from "./controller";
 import { I18nContext, translator } from "./i18n";
 import { FormPanel } from "./components/FormPanel";
@@ -53,6 +55,17 @@ export function App({ controller }: { controller: MapController }) {
       {!IN_PANEL && <MapArea controller={controller} state={state} hidden={onePane} />}
       {formOpen && <FormPanel controller={controller} state={state} fill={onePane} hidden={listPane}
         onShowList={onePane ? () => setListShown(true) : undefined} />}
+      {state.submitted && (
+        <Snackbar key={state.submitted.key} open autoHideDuration={4000} onClose={(_, reason) => {
+          if (reason !== "clickaway") controller.dismissSubmitted();
+        }} anchorOrigin={{ vertical: "bottom", horizontal: "center" }}>
+          <Alert severity="success" variant="filled" onClose={controller.dismissSubmitted} data-testid="submitted-toast">
+            {state.submitted.next
+              ? t("toast.submitted", { id: state.submitted.plotId, next: state.submitted.next })
+              : t("toast.submittedLast", { id: state.submitted.plotId })}
+          </Alert>
+        </Snackbar>
+      )}
     </Box>
     </I18nContext.Provider>
   );
