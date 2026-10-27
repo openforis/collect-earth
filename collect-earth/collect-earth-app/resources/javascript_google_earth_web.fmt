@@ -202,9 +202,10 @@ return (function () {
             if (n.id === PLOT_ID) return;
             n.rings.forEach(function (ring) { addRing(cam, ring, STATUS_COLORS[n.status] || STATUS_COLORS.empty, 2, "neighbour"); });
         });
-        // Current plot in the plots map's selection cyan: yellow already means "in progress"
-        plotRings.forEach(function (ring) { if (addRing(cam, ring, "#00e5ff", 3, "plot")) drawn++; });
-        sampleRings.forEach(function (ring) { if (addRing(cam, ring, "#ffffff", 1.5, "sample")) drawn++; });
+        // Current plot and its sampling points in the yellow Collect Earth has always drawn them in, as the KML of the
+        // projects does for Google Earth Pro (FF00FFFF, 2 px)
+        plotRings.forEach(function (ring) { if (addRing(cam, ring, "#ffff00", 2, "plot")) drawn++; });
+        sampleRings.forEach(function (ring) { if (addRing(cam, ring, "#ffff00", 2, "sample")) drawn++; });
         svg.style.display = drawn > 0 ? "block" : "none";
         // A far-away camera (user zoomed/panned out) is not an error; offer the way back.
         var c = project(cam, plotRings.length && plotRings[0].length ? plotRings[0][0][0] : cam.lon,

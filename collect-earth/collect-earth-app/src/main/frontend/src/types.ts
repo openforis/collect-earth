@@ -56,4 +56,5 @@ export const STATUS_COLORS: Record<PlotStatus, string> = {
   partial: "#fdd835",
   saved: "#43a047",
 };
-export const ACTIVE_COLOR = "#00e5ff";
+/** The selected plot, in the yellow Collect Earth has always drawn plots in (as in Google Earth Web and Pro). */
+export const ACTIVE_COLOR = "#ffff00";
