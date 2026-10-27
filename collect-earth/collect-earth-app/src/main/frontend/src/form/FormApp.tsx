@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useSyncExternalStore } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import Alert from "@mui/material/Alert";
 import Badge from "@mui/material/Badge";
 import Box from "@mui/material/Box";
@@ -7,6 +7,8 @@ import Card from "@mui/material/Card";
 import CardContent from "@mui/material/CardContent";
 import Chip from "@mui/material/Chip";
 import CircularProgress from "@mui/material/CircularProgress";
+import IconButton from "@mui/material/IconButton";
+import LinearProgress from "@mui/material/LinearProgress";
 import Link from "@mui/material/Link";
 import Stack from "@mui/material/Stack";
 import Tab from "@mui/material/Tab";
@@ -99,24 +101,31 @@ function ReadyForm({ store, state, model }: { store: FormStore; state: FormState
   }, [store, next, back, goTo]);
 
   const visibleTabs = model.tabs.map((tb, i) => ({ tb, i })).filter(({ tb, i }) => i === state.tab || isTabVisible(tb, state.infos));
+  const stepsDone = visibleTabs.filter(({ i }) => !errorTabs.has(i)).length;
+  const stepsText = t("entry.stepsDone", { done: stepsDone, total: visibleTabs.length });
 
   return (
     <Stack sx={{ height: "100vh", bgcolor: "background.default" }} data-testid="entry-form">
       {visibleTabs.length > 1 && (
-        <Tabs value={state.tab} onChange={(_, v: number) => goTo(v)}
-          sx={{ px: 1, pt: 1, pb: 0.75, [NARROW]: { px: 0.5, pt: 0.5, pb: 0.5 } }}>
-          {visibleTabs.map(({ tb, i }) => (
-            <Tab key={tb.id} value={i} data-testid={`entry-tab-${i}`} label={
-              errorTabs.has(i)
-                ? <Tooltip title={t("entry.tabErrors")} describeChild><Badge color="error" variant="dot" sx={{ "& .MuiBadge-badge": { right: -8, top: 2, boxShadow: "0 0 0 1.5px #fff" } }}>{tb.label}</Badge></Tooltip>
-                : tb.label} />
-          ))}
-        </Tabs>
+        <Box sx={{ px: 1, pt: 1, [NARROW]: { px: 0.5, pt: 0.5 } }}>
+          {/* The steps share the row; each says whether anything is left to answer on it */}
+          <Tabs value={state.tab} onChange={(_, v: number) => goTo(v)} sx={{ "& .MuiTab-root": { flex: "1 1 auto" } }}>
+            {visibleTabs.map(({ tb, i }) => (
+              <Tab key={tb.id} value={i} data-testid={`entry-tab-${i}`} data-done={!errorTabs.has(i) || undefined}
+                label={<StepLabel label={tb.label} done={!errorTabs.has(i)} failed={state.attempted && errorTabs.has(i)} />} />
+            ))}
+          </Tabs>
+          <Tooltip title={stepsText}>
+            <LinearProgress variant="determinate" value={(100 * stepsDone) / visibleTabs.length} color="success"
+              aria-label={stepsText} data-testid="entry-steps-done"
+              sx={{ mt: 0.75, height: 3, borderRadius: 2, bgcolor: "balloon.tab" }} />
+          </Tooltip>
+        </Box>
       )}
 
-      {/* the balloon's grey panel around the questions */}
-      <Box ref={content} sx={{ flex: 1, overflowY: "auto", mx: 1, mt: visibleTabs.length > 1 ? 0 : 1, px: 2, pt: 1.5, pb: 2,
-        bgcolor: "balloon.panel", borderRadius: 1.5, [NARROW]: { mx: 0.5, px: 1.25, pt: 1, pb: 1.5 } }}>
+      {/* the balloon's grey panel around the questions, edge to edge in a narrow form */}
+      <Box ref={content} sx={{ flex: 1, overflowY: "auto", mx: 1, mt: 1, px: 2, pt: 1.5, pb: 2,
+        bgcolor: "balloon.panel", borderRadius: 1.5, [NARROW]: { mx: 0, mt: 0.75, px: 1.25, pt: 1.25, pb: 1.5, borderRadius: 0 } }}>
         <Stack spacing={1.5}>
           {state.serverDown && (
             <Alert severity="warning" icon={<CloudOffOutlinedIcon />} data-testid="entry-server-down"
@@ -149,21 +158,26 @@ function ReadyForm({ store, state, model }: { store: FormStore; state: FormState
       </Box>
 
       {/* Back and Next only where there is a step to go to; Submit takes Next's place on the last step */}
-      <Stack direction="row" spacing={1} sx={{ alignItems: "center", px: 1, py: 1, minHeight: 52 }}>
+      <Stack direction="row" spacing={1} sx={{ alignItems: "center", px: 1, py: 1, minHeight: 56,
+        [NARROW]: { px: 0.75, py: 0.75, minHeight: 52 } }}>
         {/* the balloon's footer: the Collect Earth logo, then the step buttons */}
         <Box component="img" src={logo} alt="Open Foris Collect Earth" sx={{ height: 34, mr: 0.5, px: 0.75, py: "2px", bgcolor: "#fff", borderRadius: 1, [NARROW]: { display: "none" } }} />
-        <Box sx={{ minWidth: 88 }}>
+        <Box sx={{ width: 40, flex: "none" }}>
           {back >= 0 && (
-            <Button size="small" variant="outlined" startIcon={<ChevronLeftIcon />} onClick={() => goTo(back)} data-testid="entry-back">{t("entry.back")}</Button>
+            <Tooltip title={`${t("entry.back")} (Alt+←)`}>
+              <IconButton onClick={() => goTo(back)} aria-label={t("entry.back")} data-testid="entry-back"
+                sx={{ border: 1, borderColor: "divider" }}><ChevronLeftIcon /></IconButton>
+            </Tooltip>
           )}
         </Box>
         <Box sx={{ flex: 1, minWidth: 0, display: "flex", justifyContent: "center" }}>
           <SaveStatus state={state.saveState} />
         </Box>
-        <Box sx={{ minWidth: 88, display: "flex", justifyContent: "flex-end" }}>
+        <Box sx={{ flex: "none", display: "flex", justifyContent: "flex-end" }}>
           {next >= 0 ? (
             <Tooltip title="Alt+→" describeChild>
-              <Button variant="contained" disableElevation endIcon={<ChevronRightIcon />} onClick={() => goTo(next)} data-testid="entry-next">
+              <Button variant="contained" disableElevation endIcon={<ChevronRightIcon />} onClick={() => goTo(next)} data-testid="entry-next"
+                sx={STEP_BUTTON_SX}>
                 {t("entry.next")}
               </Button>
             </Tooltip>
@@ -173,6 +187,9 @@ function ReadyForm({ store, state, model }: { store: FormStore; state: FormState
     </Stack>
   );
 }
+
+/** Next and Submit: the one button of the footer that moves the work on, big enough to hit without looking */
+const STEP_BUTTON_SX = { minWidth: 128, height: 40 } as const;
 
 const SAVE_LABEL: Record<SaveState, MessageKey> = {
   idle: "entry.save.idle", unsaved: "entry.save.unsaved", saving: "entry.save.saving", saved: "entry.save.saved", error: "entry.save.error",
@@ -201,7 +218,7 @@ function SubmitButton({ store, state }: { store: FormStore; state: FormState }) 
     <Tooltip title="Ctrl+Enter">
       <span>
         <Button variant="contained" disableElevation endIcon={state.submitting ? <CircularProgress size={16} color="inherit" /> : <SendIcon />}
-          disabled={state.submitting} onClick={() => void store.submit()} data-testid="entry-submit">
+          disabled={state.submitting} onClick={() => void store.submit()} data-testid="entry-submit" sx={STEP_BUTTON_SX}>
           {state.submitting ? t("entry.submitting") : t("entry.submit")}
         </Button>
       </span>
@@ -209,16 +226,67 @@ function SubmitButton({ store, state }: { store: FormStore; state: FormState }) 
   );
 }
 
-/** Plot file data the survey puts in the balloon header (country, region, ...). */
+/** How many rows of plot data show until the user asks for all of them. */
+const HEADER_ROWS = 2;
+const HEADER_OPEN_KEY = "collectEarthFormPlotDataOpen";
+
+/**
+ * Plot file data the survey puts in the balloon header (country, region, ...): a compact list of labels and values,
+ * the first rows only until the user asks for all of them, which is remembered.
+ */
 function HeaderInfo({ items, store }: { items: InfoItem[]; store: FormStore }) {
+  const t = useT();
+  const [open, setOpen] = useState(() => {
+    try { return localStorage.getItem(HEADER_OPEN_KEY) === "true"; } catch { return false; }
+  });
   const shown = items.map((i) => ({ ...i, value: store.value(i.name) || store.plotValue(i.name) })).filter((i) => i.value);
   if (!shown.length) return null;
+  const toggle = () => {
+    setOpen(!open);
+    try { localStorage.setItem(HEADER_OPEN_KEY, String(!open)); } catch { /* not remembered */ }
+  };
+  const rows = open ? shown : shown.slice(0, HEADER_ROWS);
   return (
-    <Stack direction="row" sx={{ flexWrap: "wrap", gap: 0.75 }} data-testid="entry-header">
-      {shown.map((i) => (
-        <Chip key={i.name} size="small" sx={{ bgcolor: "balloon.capsule", fontWeight: 600 }}
-          label={<><Box component="span" sx={{ color: "text.secondary", fontWeight: 400 }}>{i.label}:</Box> {i.value}</>} />
-      ))}
+    <Box data-testid="entry-header" aria-label={t("entry.plotData")} sx={{ bgcolor: "balloon.capsule", borderRadius: 1.5, px: 1.25, py: 0.75 }}>
+      <Box component="dl" sx={{ m: 0, display: "grid", gridTemplateColumns: "minmax(0, max-content) minmax(0, 1fr)",
+        columnGap: 1.25, rowGap: 0.25, fontSize: "0.8125rem", lineHeight: 1.45 }}>
+        {rows.map((i) => (
+          <Box key={i.name} sx={{ display: "contents" }}>
+            <Box component="dt" title={i.label}
+              sx={{ color: "text.secondary", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: 190 }}>{i.label}</Box>
+            <Box component="dd" sx={{ m: 0, fontWeight: 600, overflowWrap: "anywhere" }}>{i.value}</Box>
+          </Box>
+        ))}
+      </Box>
+      {shown.length > HEADER_ROWS && (
+        <Link component="button" type="button" variant="caption" onClick={toggle} data-testid="entry-header-toggle"
+          sx={{ mt: 0.25, fontWeight: 600 }}>
+          {open ? t("entry.showLess") : t("entry.showAll", { count: shown.length })}
+        </Link>
+      )}
+    </Box>
+  );
+}
+
+/** A step's label, with a check once nothing is left to answer on it, or a red dot once Submit found it unfinished. */
+function StepLabel({ label, done, failed }: { label: string; done: boolean; failed: boolean }) {
+  const t = useT();
+  if (failed) {
+    return (
+      <Tooltip title={t("entry.tabErrors")} describeChild>
+        <Badge color="error" variant="dot" sx={{ "& .MuiBadge-badge": { right: -8, top: 2 } }}>{label}</Badge>
+      </Tooltip>
+    );
+  }
+  return (
+    <Stack direction="row" spacing={0.5} sx={{ alignItems: "center" }}>
+      {done && (
+        <Tooltip title={t("entry.stepDone")}>
+          <CheckCircleIcon data-testid="entry-step-done"
+            sx={{ fontSize: 15, color: "success.main", ".Mui-selected &": { color: "inherit" } }} />
+        </Tooltip>
+      )}
+      <span>{label}</span>
     </Stack>
   );
 }
@@ -251,7 +319,7 @@ function BoundField({ store, state, field, dense }: { store: FormStore; state: F
   const items = field.code ? availableItems(field, state.infos, state.pending, byName) : NO_ITEMS;
   return (
     <FieldView field={field} value={store.value(field.name)} info={state.infos[field.name]} items={items}
-      parentLabel={parent?.label} onChange={store.setValue} dense={dense} />
+      parentLabel={parent?.label} onChange={store.setValue} dense={dense} quiet={!state.attempted && !store.value(field.name)} />
   );
 }
 const NO_ITEMS: never[] = [];
@@ -281,6 +349,9 @@ function Group({ store, state, item }: { store: FormStore; state: FormState; ite
 
 /** Enumerated entity: one row per code list item, as in the balloon. */
 function EntityTable({ store, state, item }: { store: FormStore; state: FormState; item: TableItem }) {
+  const t = useT();
+  // A column whose cells are all calculated says so once, in its header, not on every row
+  const calculated = item.columns.map((_, c) => item.rows.every((r) => r.fields[c]?.calculated));
   // A cell shows no label: its control is named after its row and column, or every row would read the same
   const cellFields = useMemo(() => new Map(item.rows.flatMap((r) =>
     r.fields.map((f): [string, Field] => [f.name, { ...f, label: `${r.label} – ${f.label}` }]))), [item]);
@@ -290,12 +361,15 @@ function EntityTable({ store, state, item }: { store: FormStore; state: FormStat
     <Box>
       <SectionTitle label={item.label} description={item.description} />
       <Box sx={{ overflowX: "auto", mt: 1, border: 1, borderColor: "divider", borderRadius: 2, bgcolor: "background.paper" }}>
-        <Table size="small" sx={{ "& td, & th": { borderColor: "divider" } }}>
+        <Table size="small" sx={{ "& td, & th": { borderColor: "divider", py: 0.75 }, "& tr:last-child > *": { borderBottom: 0 } }}>
           <TableHead>
             <TableRow>
               <TableCell />
               {item.columns.map((c, i) => (
-                <TableCell key={i} sx={{ fontWeight: 600, whiteSpace: "nowrap" }} title={c.description}>{c.label}</TableCell>
+                <TableCell key={i} sx={{ fontWeight: 600, whiteSpace: "nowrap" }} title={c.description}>
+                  {c.label}
+                  {calculated[i] && <Typography component="span" variant="caption" color="text.secondary" sx={{ ml: 0.75 }}>{t("entry.calculated")}</Typography>}
+                </TableCell>
               ))}
             </TableRow>
           </TableHead>
@@ -304,7 +378,7 @@ function EntityTable({ store, state, item }: { store: FormStore; state: FormStat
               <TableRow key={row.code} data-row={row.code}>
                 <TableCell component="th" scope="row" sx={{ fontWeight: 500 }} title={row.description}>{row.label}</TableCell>
                 {row.fields.map((f) => (
-                  <TableCell key={f.name} sx={{ minWidth: 140 }}>
+                  <TableCell key={f.name} sx={{ minWidth: f.calculated ? 0 : 140 }}>
                     <BoundField store={store} state={state} field={cellFields.get(f.name) ?? f} dense />
                   </TableCell>
                 ))}

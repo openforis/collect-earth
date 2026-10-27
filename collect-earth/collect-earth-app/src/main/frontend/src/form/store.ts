@@ -31,6 +31,8 @@ export interface FormState {
   /** the last Submit found errors: the list is shown until the next submit */
   submitErrors: { tab: number; field: Field; message: string }[] | null;
   submitting: boolean;
+  /** Submit was pressed on this plot: from then on, the questions not answered yet show as errors */
+  attempted: boolean;
   /** entity being added or deleted */
   entityBusy: string | null;
 }
@@ -81,7 +83,8 @@ export class FormStore {
   constructor(placemarkId: string) {
     this.state = {
       phase: "loading", failure: null, model: null, placemarkId, infos: {}, pending: {}, tab: 0, saveState: "idle",
-      serverDown: false, submitted: false, alreadyFilled: false, submitErrors: null, submitting: false, entityBusy: null,
+      serverDown: false, submitted: false, alreadyFilled: false, submitErrors: null, submitting: false, attempted: false,
+      entityBusy: null,
     };
   }
 
@@ -238,7 +241,7 @@ export class FormStore {
 
   submit = async (): Promise<boolean> => {
     if (this.state.submitting || !this.state.model) return false;
-    this.set({ submitting: true, submitErrors: null });
+    this.set({ submitting: true, submitErrors: null, attempted: true });
     if (this.timer) {
       clearTimeout(this.timer);
       this.timer = null;

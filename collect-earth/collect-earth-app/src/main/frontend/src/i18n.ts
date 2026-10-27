@@ -114,6 +114,11 @@ const en = {
   "entry.specify": "Specify “{item}”",
   "entry.calculated": "Calculated",
   "entry.empty": "Nothing to fill in on this tab for this plot.",
+  "entry.plotData": "Plot data",
+  "entry.showAll": "Show all ({count})",
+  "entry.showLess": "Show less",
+  "entry.stepDone": "Nothing left to answer",
+  "entry.stepsDone": "{done} of {total} steps done",
 };
 
 export type MessageKey = keyof typeof en;
@@ -229,6 +234,11 @@ const es: Catalogue = {
   "entry.specify": "Especifique «{item}»",
   "entry.calculated": "Calculado",
   "entry.empty": "No hay nada que rellenar en esta pestaña para esta parcela.",
+  "entry.plotData": "Datos de la parcela",
+  "entry.showAll": "Ver todo ({count})",
+  "entry.showLess": "Ver menos",
+  "entry.stepDone": "No queda nada por responder",
+  "entry.stepsDone": "{done} de {total} pasos completados",
 };
 
 const fr: Catalogue = {
@@ -341,6 +351,11 @@ const fr: Catalogue = {
   "entry.specify": "Précisez « {item} »",
   "entry.calculated": "Calculé",
   "entry.empty": "Rien à remplir dans cet onglet pour cette parcelle.",
+  "entry.plotData": "Données de la parcelle",
+  "entry.showAll": "Tout afficher ({count})",
+  "entry.showLess": "Afficher moins",
+  "entry.stepDone": "Plus rien à répondre",
+  "entry.stepsDone": "{done} étapes sur {total} terminées",
 };
 
 const pt: Catalogue = {
@@ -453,6 +468,11 @@ const pt: Catalogue = {
   "entry.specify": "Especifique «{item}»",
   "entry.calculated": "Calculado",
   "entry.empty": "Nada a preencher neste separador para esta parcela.",
+  "entry.plotData": "Dados da parcela",
+  "entry.showAll": "Ver tudo ({count})",
+  "entry.showLess": "Ver menos",
+  "entry.stepDone": "Nada mais a responder",
+  "entry.stepsDone": "{done} de {total} passos concluídos",
 };
 
 export const CATALOGUES: Record<string, Catalogue> = { en, es, fr, pt };

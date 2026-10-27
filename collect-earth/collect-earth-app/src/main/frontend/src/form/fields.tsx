@@ -31,13 +31,15 @@ export interface FieldProps {
   onChange: (name: string, value: string, delay?: number) => void;
   /** in a table cell: no label above the control */
   dense?: boolean;
+  /** not answered yet, and Submit not pressed: its error (the answer is required) is not shown yet */
+  quiet?: boolean;
 }
 
 /** Label, description, control and the server's error message of one field. */
 export const FieldView = memo(function FieldView(props: FieldProps) {
-  const { field, info, dense } = props;
+  const { field, info, dense, quiet } = props;
   if (info?.visible === false) return null;
-  const error = info?.inError ? info.errorMessage || " " : null;
+  const error = info?.inError && !quiet ? info.errorMessage || " " : null;
   return (
     <Box data-field={field.name} data-error={error ? "true" : undefined} sx={{ minWidth: 0 }}>
       {!dense && (
@@ -87,7 +89,7 @@ function UnsupportedNotice() {
   return <Typography variant="body2" color="text.secondary" sx={{ fontStyle: "italic" }}>{t("entry.unsupported")}</Typography>;
 }
 
-function ReadOnlyValue({ field, value, info }: FieldProps) {
+function ReadOnlyValue({ field, value, info, dense }: FieldProps) {
   const t = useT();
   let text = value;
   if (field.type === "code" && field.code) {
@@ -97,9 +99,10 @@ function ReadOnlyValue({ field, value, info }: FieldProps) {
     text = value === "true" ? t("entry.yes") : value === "false" ? t("entry.no") : "";
   }
   return (
-    <Stack direction="row" spacing={1} sx={{ alignItems: "center", minHeight: 32 }}>
+    <Stack direction="row" spacing={1} sx={{ alignItems: "center", minHeight: dense ? 0 : 32 }}>
       <Typography variant="body1" sx={{ fontWeight: 500 }}>{text || "—"}{text && field.unit ? ` ${field.unit}` : ""}</Typography>
-      {field.calculated && <Chip size="small" variant="outlined" label={t("entry.calculated")} />}
+      {/* in a table, the column says it once */}
+      {field.calculated && !dense && <Chip size="small" variant="outlined" label={t("entry.calculated")} />}
     </Stack>
   );
 }
