@@ -352,6 +352,7 @@ function EntityTable({ store, state, item }: { store: FormStore; state: FormStat
   const t = useT();
   // A column whose cells are all calculated says so once, in its header, not on every row
   const calculated = item.columns.map((_, c) => item.rows.every((r) => r.fields[c]?.calculated));
+  // In a narrow form the row labels wrap, down to their longest word, to leave the answers room to be read
   // A cell shows no label: its control is named after its row and column, or every row would read the same
   const cellFields = useMemo(() => new Map(item.rows.flatMap((r) =>
     r.fields.map((f): [string, Field] => [f.name, { ...f, label: `${r.label} – ${f.label}` }]))), [item]);
@@ -361,14 +362,15 @@ function EntityTable({ store, state, item }: { store: FormStore; state: FormStat
     <Box>
       <SectionTitle label={item.label} description={item.description} />
       <Box sx={{ overflowX: "auto", mt: 1, border: 1, borderColor: "divider", borderRadius: 2, bgcolor: "background.paper" }}>
-        <Table size="small" sx={{ "& td, & th": { borderColor: "divider", py: 0.75 }, "& tr:last-child > *": { borderBottom: 0 } }}>
+        <Table size="small" sx={{ "& td, & th": { borderColor: "divider", py: 0.75 }, "& tr:last-child > *": { borderBottom: 0 },
+          [NARROW]: { "& td, & th": { px: 1 } } }}>
           <TableHead>
             <TableRow>
               <TableCell />
               {item.columns.map((c, i) => (
-                <TableCell key={i} sx={{ fontWeight: 600, whiteSpace: "nowrap" }} title={c.description}>
+                <TableCell key={i} sx={{ fontWeight: 600, whiteSpace: "nowrap", [NARROW]: { whiteSpace: "normal" } }} title={c.description}>
                   {c.label}
-                  {calculated[i] && <Typography component="span" variant="caption" color="text.secondary" sx={{ ml: 0.75 }}>{t("entry.calculated")}</Typography>}
+                  {calculated[i] && <Typography component="span" variant="caption" color="text.secondary" sx={{ display: "block", fontWeight: 400 }}>{t("entry.calculated")}</Typography>}
                 </TableCell>
               ))}
             </TableRow>
@@ -376,9 +378,9 @@ function EntityTable({ store, state, item }: { store: FormStore; state: FormStat
           <TableBody>
             {rows.map((row) => (
               <TableRow key={row.code} data-row={row.code}>
-                <TableCell component="th" scope="row" sx={{ fontWeight: 500 }} title={row.description}>{row.label}</TableCell>
+                <TableCell component="th" scope="row" sx={{ fontWeight: 500, [NARROW]: { width: "1%" } }} title={row.description}>{row.label}</TableCell>
                 {row.fields.map((f) => (
-                  <TableCell key={f.name} sx={{ minWidth: f.calculated ? 0 : 140 }}>
+                  <TableCell key={f.name} sx={{ minWidth: f.calculated ? 0 : 140, [NARROW]: { minWidth: 0 } }}>
                     <BoundField store={store} state={state} field={cellFields.get(f.name) ?? f} dense />
                   </TableCell>
                 ))}

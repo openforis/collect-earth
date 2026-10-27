@@ -33,6 +33,8 @@ export function FormPanel({ controller, state, fill, hidden, onShowList }: {
   const status = state.statuses[id] ?? "empty";
   const prev = controller.neighbourOf(id, -1);
   const next = controller.neighbourOf(id, 1);
+  // In the one-pane layout (Google Earth Web's panel), a slimmer header leaves the room to the form
+  const size = fill ? "small" : "medium";
 
   // Drag the left edge to resize; the width is remembered per viewer.
   const startResize = (e: ReactMouseEvent) => {
@@ -66,21 +68,21 @@ export function FormPanel({ controller, state, fill, hidden, onShowList }: {
       <Stack direction="row" spacing={0.5} sx={{ alignItems: "center", p: fill ? 0.5 : 1, borderBottom: 1, borderColor: "divider" }}>
         {onShowList && (
           <Tooltip title={t("showList")}>
-            <IconButton onClick={onShowList} aria-label={t("showList")} data-testid="show-list"><MenuIcon /></IconButton>
+            <IconButton size={size} onClick={onShowList} aria-label={t("showList")} data-testid="show-list"><MenuIcon /></IconButton>
           </Tooltip>
         )}
         <Tooltip title={t("form.prev")}>
-          <span><IconButton onClick={() => controller.step(-1)} disabled={!prev} aria-label={t("form.prev")} data-testid="form-prev"><ChevronLeftIcon /></IconButton></span>
+          <span><IconButton size={size} onClick={() => controller.step(-1)} disabled={!prev} aria-label={t("form.prev")} data-testid="form-prev"><ChevronLeftIcon /></IconButton></span>
         </Tooltip>
         <Stack direction="row" spacing={1} sx={{ alignItems: "center", flex: 1, minWidth: 0, px: 0.5 }}>
           <Typography variant="subtitle1" noWrap sx={{ fontWeight: 600 }} data-testid="form-title">{t("form.title", { id })}</Typography>
           <Chip size="small" variant="outlined" color={STATUS_CHIP[status]} label={t(`status.${status}`)} data-testid="form-status" />
         </Stack>
         <Tooltip title={t("form.next")}>
-          <span><IconButton onClick={() => controller.step(1)} disabled={!next} aria-label={t("form.next")} data-testid="form-next"><ChevronRightIcon /></IconButton></span>
+          <span><IconButton size={size} onClick={() => controller.step(1)} disabled={!next} aria-label={t("form.next")} data-testid="form-next"><ChevronRightIcon /></IconButton></span>
         </Tooltip>
         <Tooltip title={t("form.close")}>
-          <IconButton onClick={controller.closeForm} aria-label={t("form.close")} data-testid="form-close"><CloseIcon /></IconButton>
+          <IconButton size={size} onClick={controller.closeForm} aria-label={t("form.close")} data-testid="form-close"><CloseIcon /></IconButton>
         </Tooltip>
       </Stack>
       <ImageryBar controller={controller} state={state} />

@@ -40,6 +40,18 @@ export const FieldView = memo(function FieldView(props: FieldProps) {
   const { field, info, dense, quiet } = props;
   if (info?.visible === false) return null;
   const error = info?.inError && !quiet ? info.errorMessage || " " : null;
+  // Nothing to answer: the value goes on the label's line, one row instead of two
+  if (field.readOnly && !dense) {
+    return (
+      <Box data-field={field.name} data-error={error ? "true" : undefined} sx={{ minWidth: 0 }}>
+        <Stack direction="row" sx={{ alignItems: "baseline", flexWrap: "wrap", columnGap: 1.25, rowGap: 0.25 }}>
+          <Typography variant="subtitle2" sx={{ fontWeight: 600, lineHeight: 1.3 }} title={field.description}>{field.label}</Typography>
+          <ReadOnlyValue {...props} />
+        </Stack>
+        {error && error.trim() && <FormHelperText error sx={{ mx: 0, mt: 0.5 }}>{error}</FormHelperText>}
+      </Box>
+    );
+  }
   return (
     <Box data-field={field.name} data-error={error ? "true" : undefined} sx={{ minWidth: 0 }}>
       {!dense && (
@@ -99,10 +111,10 @@ function ReadOnlyValue({ field, value, info, dense }: FieldProps) {
     text = value === "true" ? t("entry.yes") : value === "false" ? t("entry.no") : "";
   }
   return (
-    <Stack direction="row" spacing={1} sx={{ alignItems: "center", minHeight: dense ? 0 : 32 }}>
+    <Stack direction="row" spacing={0.75} sx={{ alignItems: "baseline" }}>
       <Typography variant="body1" sx={{ fontWeight: 500 }}>{text || "—"}{text && field.unit ? ` ${field.unit}` : ""}</Typography>
       {/* in a table, the column says it once */}
-      {field.calculated && !dense && <Chip size="small" variant="outlined" label={t("entry.calculated")} />}
+      {field.calculated && !dense && <Typography variant="caption" color="text.secondary">{t("entry.calculated")}</Typography>}
     </Stack>
   );
 }
@@ -176,7 +188,8 @@ function CodeSelect({ field, value, items, parentLabel, onChange, error, dense }
       const { key, ...rest } = p;
       return <li key={key} {...rest} title={o.description} data-code={o.code}>{o.label}</li>;
     },
-    sx: { minWidth: dense ? 220 : undefined },
+    // in a table: wide enough to read the item, narrower in a narrow form, so the table fits without scrolling
+    sx: dense ? { minWidth: 220, "@media (max-width: 480px)": { minWidth: 136 } } : undefined,
   };
   if (field.multiple) {
     return (
