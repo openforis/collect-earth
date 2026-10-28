@@ -259,7 +259,9 @@ export class FormStore {
     }
     const left = errorList(this.state.model, this.state.infos);
     if (left.length) {
-      this.set({ submitting: false, submitErrors: left, tab: left[0].tab });
+      // the check is a save that is not a submit: a plot submitted before is not anymore, on the map too
+      if (this.state.submitted) this.post("ce:dirty");
+      this.set({ submitting: false, submitted: false, submitErrors: left, tab: left[0].tab });
       return false;
     }
     const result = await this.save(true);

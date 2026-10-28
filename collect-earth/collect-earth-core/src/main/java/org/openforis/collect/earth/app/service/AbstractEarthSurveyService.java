@@ -318,6 +318,14 @@ public abstract class AbstractEarthSurveyService {
 
 	}
 
+	/**
+	 * Nothing in error, required questions included : getErrors leaves out the ones not answered (getMissingErrors), so a
+	 * plot was submitted with them empty while every form said it was not finished
+	 */
+	private static boolean isComplete(CollectRecord record) {
+		return record.getErrors() == 0 && record.getMissingErrors() == 0 && record.getSkipped() == 0;
+	}
+
 	protected String getAdaptedValidationMessage(String validationMessage) {
 		String message;
 		// The form's messages are in the language of the interface (BalloonInputFieldsUtils), the deprecated ones in English
@@ -610,7 +618,7 @@ public abstract class AbstractEarthSurveyService {
 
 				// Check that there is no validation errors so the tick doesn't
 				// turn green
-				if (ceRecord.getSkipped() != 0 || ceRecord.getErrors() != 0) {
+				if (!isComplete(ceRecord)) {
 					setPlacemarkSavedActively(parameters, false);
 					// Force saving again to remove the "actively saved"
 					// parameter!
@@ -711,7 +719,7 @@ public abstract class AbstractEarthSurveyService {
 
 		// A value that could not be read left its attribute as it was, so the record alone can look valid : the plot is not
 		// submitted while one is pending
-		boolean noErrors = record.getErrors() == 0 && record.getSkipped() == 0 && invalidValues.isEmpty();
+		boolean noErrors = isComplete(record) && invalidValues.isEmpty();
 
 		if (userClickOnSubmitAndValidate && !noErrors) {
 			// if the user clicks on submit and validate but the data is not
