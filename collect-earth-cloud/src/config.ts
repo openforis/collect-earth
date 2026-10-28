@@ -21,6 +21,12 @@ export interface Config {
    * Undefined = the default (60); 0 disables the limiters (tests).
    */
   rateLimitPerMinute?: number;
+  /**
+   * Proxies in front of the server that append to x-forwarded-for (TRUST_PROXY_HOPS,
+   * default 1). The client IP is taken that many entries from the right, so an
+   * address the client writes itself never counts.
+   */
+  trustProxyHops?: number;
 }
 
 export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
@@ -42,11 +48,23 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
     renderExternalUrl: nonEmpty(env.RENDER_EXTERNAL_URL),
     setupCode: nonEmpty(env.SETUP_CODE?.trim()),
     rateLimitPerMinute: rateLimitOf(env.RATE_LIMIT_PER_MINUTE),
+    trustProxyHops: trustProxyHopsOf(env.TRUST_PROXY_HOPS),
   };
 }
 
 function nonEmpty(value: string | undefined): string | undefined {
   return value && value.length > 0 ? value : undefined;
+}
+
+function trustProxyHopsOf(value: string | undefined): number | undefined {
+  if (value === undefined || value.trim() === '') {
+    return undefined;
+  }
+  const n = Number(value);
+  if (!Number.isInteger(n) || n < 1) {
+    throw new Error(`Invalid TRUST_PROXY_HOPS "${value}" (expected a whole number, at least 1)`);
+  }
+  return n;
 }
 
 function rateLimitOf(value: string | undefined): number | undefined {

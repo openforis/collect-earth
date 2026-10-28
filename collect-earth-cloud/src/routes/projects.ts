@@ -160,7 +160,7 @@ export async function registerProjectRoutes(
         store.getCepInfo(projectId),
         store.listMembers(projectId),
         store.listCsvFiles(projectId),
-        store.listRecords(projectId),
+        store.listRecordSummaries(projectId),
         storageSummary(store, projectId),
       ]);
       const byOperator = new Map<string, { operator: string; total: number; submitted: number; lastModifiedOn: number }>();
@@ -201,7 +201,7 @@ export async function registerProjectRoutes(
       if (!project) {
         return reply.code(404).send({ error: 'not_found' });
       }
-      const csv = recordsCsv(await store.listRecords(projectId));
+      const csv = recordsCsv(await store.listRecordSummaries(projectId));
       return reply
         .header('content-type', 'text/csv; charset=utf-8')
         .header('content-disposition', contentDisposition(project.name))

@@ -59,12 +59,17 @@ function AssignmentGrid({
   onGo: (tab: ProjectTab) => void;
 }) {
   const t = useT();
-  const saved = useMemo(() => toPairs(assignments), [assignments]);
+  // What the server holds: from the loaded assignments, then whatever was last saved.
+  const [saved, setSaved] = useState<Set<string>>(() => toPairs(assignments));
   const [pairs, setPairs] = useState<Set<string>>(saved);
   const [error, setError] = useState<unknown>(null);
   const [done, setDone] = useState(false);
   const [busy, setBusy] = useState(false);
-  useEffect(() => setPairs(saved), [saved]);
+  useEffect(() => {
+    const loaded = toPairs(assignments);
+    setSaved(loaded);
+    setPairs(loaded);
+  }, [assignments]);
 
   // Coordinators normally do not collect: show collectors and reviewers first.
   const people = useMemo(() => [...members].sort((a, b) => Number(a.role === "admin") - Number(b.role === "admin") || a.username.localeCompare(b.username)), [members]);
@@ -97,6 +102,7 @@ function AssignmentGrid({
     setBusy(true);
     try {
       await saveAssignments(projectId, fromPairs(pairs, files, members));
+      setSaved(new Set(pairs));
       setDone(true);
     } catch (err) {
       setError(err);

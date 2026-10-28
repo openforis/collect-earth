@@ -83,6 +83,7 @@ export interface Store {
   deleteSession(token: string): Promise<void>;
   /** Revokes every session of a user (password reset). */
   deleteUserSessions(userId: string): Promise<void>;
+  /** Also cancels every reset link of the user: an older, leaked one must not work afterwards. */
   setPassword(userId: string, passwordHash: string): Promise<void>;
   /**
    * Deletes an account: its sessions, memberships, assignments and reset links.
@@ -150,6 +151,8 @@ export interface Store {
 
   /** All records for a project (deleted excluded unless includeDeleted). For stats/export/tests. */
   listRecords(projectId: string, includeDeleted?: boolean): Promise<RecordRow[]>;
+  /** As listRecords without deleted ones and with xml left null: for the overview and the export. */
+  listRecordSummaries(projectId: string): Promise<RecordRow[]>;
 
   close(): Promise<void>;
 }

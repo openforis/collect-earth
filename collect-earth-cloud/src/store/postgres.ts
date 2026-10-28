@@ -228,6 +228,19 @@ export class PostgresStore implements Store {
     });
   }
 
+  async listRecordSummaries(projectId: string): Promise<RecordRow[]> {
+    return this.withProject(projectId, async (client) => {
+      const res = await client.query(
+        `SELECT project_id, record_key, operator, modified_on, received_at, actively_saved, step, NULL AS xml, summary,
+                deleted, deleted_on
+           FROM records
+          WHERE project_id = $1 AND NOT deleted`,
+        [projectId],
+      );
+      return res.rows.map(mapRecord);
+    });
+  }
+
   async putCep(projectId: string, cep: Buffer): Promise<void> {
     await this.withProject(projectId, async (client) => {
       await client.query(
@@ -326,7 +339,18 @@ export class PostgresStore implements Store {
   }
 
   async setPassword(userId: string, passwordHash: string): Promise<void> {
-    await this.pool.query('UPDATE users SET password_hash = $2 WHERE id = $1', [userId, passwordHash]);
+    const client = await this.pool.connect();
+    try {
+      await client.query('BEGIN');
+      await client.query('UPDATE users SET password_hash = $2 WHERE id = $1', [userId, passwordHash]);
+      await client.query('DELETE FROM password_resets WHERE user_id = $1', [userId]);
+      await client.query('COMMIT');
+    } catch (err) {
+      await client.query('ROLLBACK');
+      throw err;
+    } finally {
+      client.release();
+    }
   }
 
   async deleteUser(userId: string): Promise<void> {

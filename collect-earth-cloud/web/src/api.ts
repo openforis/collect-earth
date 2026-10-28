@@ -606,7 +606,8 @@ export async function saveAssignments(projectId: string, assignments: Assignment
 export async function downloadExport(projectId: string): Promise<{ blob: Blob; filename: string }> {
   const response = await send("GET", `${p(projectId)}/export.csv`);
   const disposition = response.headers.get("content-disposition") ?? "";
-  const match = /filename\*?=(?:UTF-8'')?"?([^";]+)"?/i.exec(disposition);
+  // Prefer the UTF-8 name (filename*) over the ASCII fallback the server sends first.
+  const match = /filename\*=UTF-8''([^;]+)/i.exec(disposition) ?? /filename="?([^";]+)"?/i.exec(disposition);
   let filename = "collect-earth-data.csv";
   if (match) {
     try {

@@ -213,6 +213,11 @@ describe('sign-up and project creation modes', () => {
       expect(res.statusCode, url).toBe(404);
     }
   });
+
+  it('a project id that is not a UUID is not found (not a server error)', async () => {
+    const res = await ctx.app.inject({ method: 'GET', url: '/v1/projects/foo/overview', headers: bearer(owner.token) });
+    expect(res.statusCode).toBe(404);
+  });
 });
 
 describe('password change and reset', () => {
@@ -284,6 +289,27 @@ describe('password change and reset', () => {
     expect(reused.statusCode).toBe(410);
     const unknown = await ctx.app.inject({ method: 'POST', url: '/v1/auth/reset', payload: { token: 'garbage', newPassword: 'another-password' } });
     expect(unknown.statusCode).toBe(410);
+  });
+
+  it('a reset or a password change cancels the other reset links of the user', async () => {
+    const first = (await issueReset(maria.userId)).resetUrl.split('/reset/')[1];
+    const second = (await issueReset(maria.userId)).resetUrl.split('/reset/')[1];
+    const ok = await ctx.app.inject({ method: 'POST', url: '/v1/auth/reset', payload: { token: first, newPassword: 'reset-password' } });
+    expect(ok.statusCode).toBe(204);
+    const other = await ctx.app.inject({ method: 'POST', url: '/v1/auth/reset', payload: { token: second, newPassword: 'taken-over' } });
+    expect(other.statusCode).toBe(410);
+
+    const third = (await issueReset(maria.userId)).resetUrl.split('/reset/')[1];
+    const session = (await login(ctx.app, 'maria', 'reset-password')).json().token as string;
+    const change = await ctx.app.inject({
+      method: 'PUT',
+      url: '/v1/me/password',
+      headers: bearer(session),
+      payload: { currentPassword: 'reset-password', newPassword: 'changed-password' },
+    });
+    expect(change.statusCode).toBe(204);
+    const afterChange = await ctx.app.inject({ method: 'POST', url: '/v1/auth/reset', payload: { token: third, newPassword: 'taken-over' } });
+    expect(afterChange.statusCode).toBe(410);
   });
 
   it('an expired reset link answers 410', async () => {
@@ -561,16 +587,22 @@ describe('rate limiting', () => {
     }
   });
 
-  it('limits failed logins per account, from any IP, without blocking other accounts', async () => {
+  it('limits failed logins per account and IP, so others cannot lock the real user out', async () => {
     const ctx = await makeContext({ rateLimitPerMinute: 1000 });
     try {
-      const attempt = (ip: string, username: string) =>
-        ctx.app.inject({ method: 'POST', url: '/v1/auth/login', remoteAddress: ip, payload: { username, password: 'wrong' } });
+      const owner = await setupPlatformAdmin(ctx.app);
+      await setSettings(ctx.app, owner.token, { signupOpen: true });
+      expect((await signup(ctx.app, 'maria', 'maria-password')).statusCode).toBe(201);
+      const attempt = (ip: string, username: string, password = 'wrong') =>
+        ctx.app.inject({ method: 'POST', url: '/v1/auth/login', remoteAddress: ip, payload: { username, password } });
       for (let i = 0; i < 10; i++) {
-        expect((await attempt(`10.0.1.${i}`, 'Maria')).statusCode).toBe(401);
+        expect((await attempt('10.0.1.1', 'Maria')).statusCode).toBe(401);
       }
-      expect((await attempt('10.0.2.1', 'maria')).statusCode).toBe(429);
-      expect((await attempt('10.0.2.1', 'jose')).statusCode).toBe(401);
+      // Blocked from that IP, even with the right password...
+      expect((await attempt('10.0.1.1', 'maria', 'maria-password')).statusCode).toBe(429);
+      expect((await attempt('10.0.1.1', 'jose')).statusCode).toBe(401);
+      // ...but Maria herself, from elsewhere, still logs in.
+      expect((await attempt('10.0.2.1', 'maria', 'maria-password')).statusCode).toBe(200);
     } finally {
       await ctx.app.close();
     }
@@ -584,6 +616,19 @@ describe('rate limiting', () => {
       expect((await attempt('203.0.113.1')).statusCode).toBe(403);
       expect((await attempt('203.0.113.1')).statusCode).toBe(429);
       expect((await attempt('203.0.113.2')).statusCode).toBe(403);
+    } finally {
+      await ctx.app.close();
+    }
+  });
+
+  it('ignores the addresses a client writes into x-forwarded-for itself', async () => {
+    const ctx = await makeContext({ rateLimitPerMinute: 1 });
+    try {
+      // The proxy appends the real client (203.0.113.1) after whatever the client sent.
+      const attempt = (spoofed: string) =>
+        ctx.app.inject({ method: 'POST', url: '/v1/auth/signup', headers: { 'x-forwarded-for': `${spoofed}, 203.0.113.1` }, payload: {} });
+      expect((await attempt('198.51.100.1')).statusCode).toBe(403);
+      expect((await attempt('198.51.100.2')).statusCode).toBe(429);
     } finally {
       await ctx.app.close();
     }

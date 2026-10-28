@@ -195,6 +195,10 @@ export class InMemoryStore implements Store {
     return [...entry.records.values()].filter((r) => includeDeleted || !r.deleted);
   }
 
+  async listRecordSummaries(projectId: string): Promise<RecordRow[]> {
+    return (await this.listRecords(projectId)).map((r) => ({ ...r, xml: null }));
+  }
+
   // --- Users & sessions ---
 
   async createUser(input: {
@@ -252,6 +256,11 @@ export class InMemoryStore implements Store {
     const user = this.users.get(userId);
     if (user) {
       user.passwordHash = passwordHash;
+    }
+    for (const [hash, reset] of this.resets) {
+      if (reset.userId === userId) {
+        this.resets.delete(hash);
+      }
     }
   }
 

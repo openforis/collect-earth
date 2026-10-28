@@ -45,9 +45,10 @@ export async function buildServer(options: BuildServerOptions): Promise<FastifyI
     logger: options.logger ?? false,
     // Record XML batches are small KBs each but a project sync can carry 50; allow headroom.
     bodyLimit: 32 * 1024 * 1024,
-    // Behind Render / Cloud Run / Caddy: take the client IP (rate limiting) and the
-    // public proto/host (derived join and reset links) from x-forwarded-*.
-    trustProxy: true,
+    // Behind Cloud Run / Caddy: take the client IP (rate limiting) and the public
+    // proto/host (derived join and reset links) from x-forwarded-*. Only the hops our
+    // own proxies add are trusted; `true` would let a client pick its IP.
+    trustProxy: config.trustProxyHops ?? 1,
   });
 
   // The Java client gzips the records:batch body (Content-Encoding: gzip). Fastify

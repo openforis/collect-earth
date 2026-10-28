@@ -8,6 +8,7 @@ const FIXED_COLUMNS = ['record_key', 'operator', 'actively_saved', 'modified_on'
  * keys (a record without a key leaves that cell empty). RFC 4180: CRLF line ends,
  * fields quoted when they hold a comma, quote, CR or LF. Starts with a UTF-8 BOM
  * so Excel detects the encoding (plot names and answers are often non-ASCII).
+ * A value that a spreadsheet would run as a formula gets a leading apostrophe.
  */
 export function recordsCsv(records: RecordRow[]): string {
   const rows = records
@@ -24,7 +25,11 @@ export function recordsCsv(records: RecordRow[]): string {
   return `﻿${lines.join('\r\n')}\r\n`;
 }
 
-function csvField(value: string): string {
+function csvField(raw: string): string {
+  // = + - @ start a formula in Excel and LibreOffice; tab and CR can hide one.
+  // Plain numbers stay as they are: negative coordinates are common.
+  const formula = /^[=+\-@\t\r]/.test(raw) && !/^[-+]?\d+(\.\d+)?([eE][-+]?\d+)?$/.test(raw);
+  const value = formula ? `'${raw}` : raw;
   return /[",\r\n]/.test(value) ? `"${value.replace(/"/g, '""')}"` : value;
 }
 

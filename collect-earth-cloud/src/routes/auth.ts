@@ -124,8 +124,9 @@ export async function registerAuthRoutes(
     if (!username || !password) {
       return reply.code(400).send({ error: 'bad_request', reason: 'username and password are required' });
     }
-    // Failed logins are counted per account, whatever IP they come from
-    const failureKey = username.toLowerCase();
+    // Failed logins are counted per account and client IP: guessing from one place
+    // stops, while someone else's wrong guesses never lock the real user out.
+    const failureKey = `${username.toLowerCase()} ${request.ip}`;
     if (loginFailures.blocked(failureKey)) {
       return reply.code(429).header('retry-after', '60').send(RATE_LIMITED);
     }

@@ -18,20 +18,24 @@ managed Postgres (Option B).
 | --- | --- | --- | --- |
 | `STORE_BACKEND` | yes (prod) | `postgres` | `memory` = no persistence; use `postgres` in production |
 | `DATABASE_URL` | when postgres | `postgres://ce:pw@host:5432/collect_earth_cloud` | Postgres connection string. On Cloud Run with the Cloud SQL connector: `postgres://ce:pw@/collect_earth_cloud?host=/cloudsql/PROJECT:REGION:INSTANCE` |
-| `SETUP_CODE` | advised | `K7QX-M3TB-WN` | Asked for once by the dashboard's first-run setup, which creates the platform admin. If unset, a random code is generated at boot and printed in the log (`Setup code: XXXX-XXXX-XX …`) while no platform admin exists. Case, spaces and hyphens are ignored when it is typed |
+| `SETUP_CODE` | advised | `K7QX-M3TB-WN` | Asked for once by the dashboard's first-run setup, which creates the platform admin. If unset, a random code is generated at boot and printed in the log (`Setup code: XXXX-XXXX-XX …`) while no platform admin exists. Set it when running more than one instance: each would otherwise generate its own. Case, spaces and hyphens are ignored when it is typed |
 | `ADMIN_API_KEY` | optional | `<random 32+ chars>` | Lets scripts provision projects with `x-admin-key` (returns the Phase-0 project tokens). Dashboard users create projects with their session instead. Without it, anonymous provisioning works **only** with `STORE_BACKEND=memory`; on Postgres it is refused (401) |
 | `PUBLIC_BASE_URL` | advised with a custom domain | `https://ce-cloud.example.org` | Base of the `/join/<token>` and `/reset/<token>` links. If unset: `RENDER_EXTERNAL_URL`, else the request's `x-forwarded-proto` + host (correct on Cloud Run's own `*.run.app` address) |
 | `RENDER_EXTERNAL_URL` | no | `https://ce-cloud.onrender.com` | Honoured only as an environment fallback for the link base when `PUBLIC_BASE_URL` is unset (some hosts set it automatically) |
 | `RATE_LIMIT_PER_MINUTE` | no | `60` | Requests per minute per client IP on login, register, signup, setup and reset (429 `rate_limited` above it). Kept generous because a training room joins from one office IP; failed logins are also limited to 10 per minute per account. `0` disables both. Per instance, in memory |
+| `TRUST_PROXY_HOPS` | no | `1` | Proxies in front of the server that add to `x-forwarded-for` (see below) |
 | `MIGRATE_ON_BOOT` | optional | `true` | Apply pending migrations on startup (see below) |
 | `PORT` | no | `8080` | Listen port (Cloud Run injects `8080`) |
 | `HOST` | no | `0.0.0.0` | Bind address |
 
 Generate a good admin key: `openssl rand -base64 32`.
 
-The server trusts `x-forwarded-*` headers (`trustProxy`): it is meant to run behind
-Cloud Run or a reverse proxy, which set them. Do not expose the container port
-directly to the internet without one.
+The server trusts `x-forwarded-*` headers from `TRUST_PROXY_HOPS` proxies (default
+1): it is meant to run behind Cloud Run or a reverse proxy, which set them. The
+client IP used for rate limiting is the entry that many places from the right of
+`x-forwarded-for`, so an address a client writes itself does not count. Behind two
+proxies (e.g. a load balancer in front of Caddy) set it to `2`. Do not expose the
+container port directly to the internet without one.
 
 ### First run
 
@@ -190,7 +194,8 @@ curl -fsS "$BASE/v1/server-info"
 ```
 
 Projects are created from the dashboard (logged in). Scripts can still use the
-admin key when `ADMIN_API_KEY` is set:
+admin key; on Postgres they need `ADMIN_API_KEY` set (before the dashboard, a
+server without a key let anyone create projects):
 
 ```bash
 curl -fsS -X POST "$BASE/v1/projects" \

@@ -15,7 +15,8 @@ interface Window {
  * Fixed-window, in-memory request counter keyed by (bucket, client IP). Good
  * enough against password guessing on a single instance; with several instances
  * each one counts on its own, which only loosens the limit, never blocks wrongly.
- * request.ip is the real client because the server runs with trustProxy.
+ * request.ip is the real client because the server trusts only its own proxies' hops
+ * (TRUST_PROXY_HOPS).
  */
 export class RateLimiter {
   private readonly windows = new Map<string, Window>();

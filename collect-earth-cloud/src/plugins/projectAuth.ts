@@ -1,4 +1,5 @@
 import type { FastifyReply, FastifyRequest, preHandlerHookHandler } from 'fastify';
+import { isUuid } from '../accountRules.js';
 import { bearerToken } from '../auth.js';
 import type { Store, TokenMembership } from '../store/store.js';
 import type { Role } from '../types.js';
@@ -109,6 +110,9 @@ async function resolveMembership(store: Store, token: string, pid: string): Prom
   const session = await store.resolveSession(token);
   if (!session) {
     return 'invalid';
+  }
+  if (!isUuid(pid)) {
+    return 'no_access';
   }
   const membership = await store.getMembership(pid, session.userId);
   if (!membership) {
