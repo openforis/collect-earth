@@ -147,6 +147,33 @@ public class GoogleEarthWebOverlayIT {
 	}
 
 	@Test
+	public void aCameraWrittenWhereGoogleEarthWebWasBeforeAJumpIsNotDrawnFrom() throws Exception {
+		imagery.setCommandTimeout(Duration.ofSeconds(120));
+		List<Map<String, Object>> ring = Arrays.asList(coord(1, 1), coord(1.001, 1), coord(1.001, 1.001), coord(1, 1));
+		ImageryTab tab = imagery.tab(ImagerySource.GOOGLE_EARTH_WEB);
+		String camera = pageWithCamera(1.0005, 1.0005);
+		assertTrue(tab.load(camera, false, Duration.ofSeconds(20)));
+		assertEquals("armed", tab.evaluate(overlayScript(ring, camera)));
+		assertTrue(outlineBecomes(tab, "block", 10000), "the jump is learnt");
+
+		// The next plot, 2 km away: sent there in-page, then GEW writes the camera it had over the previous one
+		List<Map<String, Object>> next = Arrays.asList(coord(1.02, 1), coord(1.021, 1), coord(1.021, 1.001), coord(1.02, 1));
+		String nextCamera = "#@1.0005,1.0205,0a,500d,35y,0h,0t,0r";
+		tab.evaluate("location.hash = arguments[0];", nextCamera);
+		assertEquals("armed", tab.evaluate(overlayScript(next, pageWithCamera(1.0005, 1.0205))));
+		tab.evaluate("location.hash = '#@1.0005,1.0005,0a,500.00453d,35y,0h,0t,0r';");
+		assertTrue(outlineBecomes(tab, "block", 2000), "drawn once the jump has settled");
+		String hint = "return document.querySelector('[data-ce-hint]').style.display;";
+		assertEquals("none", tab.evaluate(hint), "the plot is drawn in view, not from the camera written");
+		assertEquals(true, tab.evaluate("return window.__collectEarthGewJumps;"), "nor taken for a flight that arrived");
+
+		// Drawn again with its neighbours: still from the camera it jumped to
+		assertEquals("armed", tab.evaluate(overlayScript(next)));
+		assertTrue(outlineBecomes(tab, "block", 3000));
+		assertEquals("none", tab.evaluate(hint));
+	}
+
+	@Test
 	public void aResizedWindowHasItsOutlineRedrawn() throws Exception {
 		imagery.setCommandTimeout(Duration.ofSeconds(120));
 		ImageryTab tab = imagery.tab(ImagerySource.GOOGLE_EARTH_WEB);

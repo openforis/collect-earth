@@ -104,6 +104,19 @@ public final class GoogleEarthWebUrls {
 		}
 	}
 
+	/** The distance (metres) of the camera from the point it aims at, or null if it is not a camera URL. */
+	public static Double cameraDistance(String url) {
+		Matcher m = url == null ? null : FULL_CAMERA.matcher(url);
+		if (m == null || !m.find()) {
+			return null;
+		}
+		try {
+			return Double.parseDouble(m.group(4));
+		} catch (NumberFormatException e) {
+			return null;
+		}
+	}
+
 	/**
 	 * The ground area shown by a top-down Google Earth Web view: centre, size in metres
 	 * (from the camera distance, the vertical field of view and the window aspect ratio) and

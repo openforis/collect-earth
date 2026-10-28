@@ -187,6 +187,12 @@ public class GoogleEarthWebService {
 	private volatile Double writtenAltitude;
 	/** Altitude of the top-down view the overlay drawn last loads with its button; see {@link #topDownUrl}. */
 	private volatile Double topDownAltitude;
+	/** A camera this near (~1 cm) the point Collect Earth sent it to is still over it: see {@link #aimAtTheGround}. */
+	private static final double EXACT_DEGREES = 1e-7;
+	/** Google Earth Web stops a camera aimed below the ground 10 m from it: see {@link #aimAtTheGround}. */
+	private static final double STOPPED_SHORT_METERS = 20;
+	/** The {@link #showCount} of the plot flown to again aimed at the ground (see {@link #aimAtTheGround}). */
+	private long groundAimedFor = -1;
 
 	private volatile ScheduledExecutorService watchdog;
 	/** Watchdog checks since the tab was last seen visible, or since the last liveness check; watchdog thread only. */
@@ -760,6 +766,9 @@ public class GoogleEarthWebService {
 					return;
 				}
 				learnGroundAltitude(href);
+				if (state == State.READY && plot != null && aimAtTheGround(href, plot)) {
+					return;
+				}
 				if (!Objects.equals(panelUrl(), panelShown)) {
 					syncPanel(); // the window layout was changed
 				}
@@ -790,6 +799,58 @@ public class GoogleEarthWebService {
 				logger.debug("Google Earth Web watchdog check failed", e);
 			}
 		}
+	}
+
+	/**
+	 * A plot of no known elevation, with no ground learnt near it, is flown to aimed at sea level. Over hills Google Earth
+	 * Web then stops the camera as near to the ground as it lets it (10 m), and writes the distance cut short, with the
+	 * altitude of the ground or the one it was given: the plot fills the window many times over, and only its central
+	 * sample point is left in view, looking like the plot without its sample points. The ground is learnt, and the plot
+	 * flown to again aimed at it. Once per plot shown, and only for a camera still exactly over the point Collect Earth
+	 * sent it to (a zoom of the user moves it towards the pointer). Holding {@link #lock}.
+	 *
+	 * @return whether the camera was sent to the plot again
+	 */
+	private boolean aimAtTheGround(String href, SimplePlacemarkObject plot) {
+		long shown = showCount.get();
+		if (groundAimedFor == shown || !learnGroundUnderACameraStoppedShort(href, plot)) {
+			return false;
+		}
+		groundAimedFor = shown;
+		String url = plotUrl(plot, GoogleEarthWebUrls.PLOT_DISTANCE);
+		logger.info("Google Earth Web stopped the camera {} m from the ground of plot {}: flown there again aimed at {} m",
+				Math.round(GoogleEarthWebUrls.cameraDistance(href)), plot.getPlacemarkId(), Math.round(groundAltitude));
+		if (Boolean.TRUE.equals(inPageNavigation)) {
+			// The overlay hides until the camera has flown there
+			tab().evaluate(CAMERA_MOVE_SCRIPT, url);
+		} else {
+			tab().load(url, false, PAGE_LOAD_TIMEOUT);
+			injectOverlay(plot);
+		}
+		return true;
+	}
+
+	/**
+	 * Learns the ground under the plot from a camera Collect Earth sent to it that Google Earth Web stopped short of the
+	 * distance (see {@link #aimAtTheGround}): the altitude Google Earth Web aimed it at, or, when it kept the one it was
+	 * given, where the camera would have been. False, learning nothing, for any other.
+	 */
+	boolean learnGroundUnderACameraStoppedShort(String href, SimplePlacemarkObject plot) {
+		Double altitude = GoogleEarthWebUrls.cameraAltitude(href);
+		Double distance = GoogleEarthWebUrls.cameraDistance(href);
+		double[] camera = GoogleEarthWebUrls.cameraPosition(href);
+		if (altitude == null || distance == null || camera == null || distance > STOPPED_SHORT_METERS) {
+			return false;
+		}
+		double latitude = Double.parseDouble(plot.getCoord().getLatitude());
+		double longitude = Double.parseDouble(plot.getCoord().getLongitude());
+		// The URLs carry 8 decimals: still the point sent, not one the user zoomed towards
+		if (Math.abs(camera[0] - latitude) > EXACT_DEGREES || Math.abs(camera[1] - longitude) > EXACT_DEGREES) {
+			return false;
+		}
+		groundAltitude = isAbout(altitude, writtenAltitude) ? altitude + GoogleEarthWebUrls.PLOT_DISTANCE - distance : altitude;
+		groundAltitudePosition = new double[] { latitude, longitude };
+		return true;
 	}
 
 	/**

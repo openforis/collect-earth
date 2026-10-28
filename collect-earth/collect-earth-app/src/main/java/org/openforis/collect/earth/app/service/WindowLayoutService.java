@@ -861,7 +861,7 @@ public class WindowLayoutService {
 	 * screen itself.
 	 */
 	private void maximizeOn(RemoteWebDriver window, Rectangle screen, boolean fullScreen, boolean bringForward) {
-		if (window == null) {
+		if (window == null || (!fullScreen && !bringForward && fills(window, screen))) {
 			return;
 		}
 		Rectangle work = measureWorkArea(window, screen);
@@ -879,6 +879,30 @@ public class WindowLayoutService {
 		// A maximized window overlaps the edges of the work area by its invisible borders: only being elsewhere matters
 		if (!work.intersects(new Rectangle(position.x, position.y, size.width, size.height))) {
 			logger.warn("The window was asked to fill the screen at {} but is at {} {}", work, position, size);
+		}
+	}
+
+	/**
+	 * Whether the window already fills the work area of that screen, as a maximized one does (overlapping its edges by
+	 * its invisible borders): it is then left as it is. Placed all the same, it is first made small to find the screen it
+	 * is on (see {@link #measureWorkArea}) and maximized again, which the user sees as the whole window shrinking and
+	 * growing back, each time a window opens: Google Earth Web's, when the one of the other sources opens with the first
+	 * plot.
+	 */
+	private boolean fills(RemoteWebDriver window, Rectangle screen) {
+		try {
+			Rectangle placed = rectangleOf(window);
+			GraphicsConfiguration javaScreen = javaScreenAt(placed.x + placed.width / 2, placed.y + placed.height / 2);
+			if (javaScreen == null || !workArea(javaScreen).equals(screen)) {
+				return false;
+			}
+			Rectangle work = readWorkArea(window);
+			return work != null && Math.abs(placed.x - work.x) <= MAX_WORK_AREA_CORRECTION
+					&& Math.abs(placed.y - work.y) <= MAX_WORK_AREA_CORRECTION
+					&& Math.abs(placed.width - work.width) <= 2 * MAX_WORK_AREA_CORRECTION
+					&& Math.abs(placed.height - work.height) <= 2 * MAX_WORK_AREA_CORRECTION;
+		} catch (WebDriverException e) {
+			return false;
 		}
 	}
 

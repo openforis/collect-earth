@@ -73,6 +73,14 @@ public class GoogleEarthWebUrlsTest {
 	}
 
 	@Test
+	public void readsTheDistanceOfTheCamera() {
+		// Sent at 400 m aimed at sea level over a hill of 390 m: Google Earth Web stopped it 10 m from the ground
+		assertEquals(9.99999552, GoogleEarthWebUrls.cameraDistance(
+				"https://earth.google.com/web/@8.88748226,-10.85569105,0a,9.99999552d,35y,0h,0t,0r/data=CgRCAggB"), 1e-9);
+		assertNull(GoogleEarthWebUrls.cameraDistance("https://earth.google.com/web/"));
+	}
+
+	@Test
 	public void movesTheCameraKeepingItsHeadingAndTilt() {
 		// 252.2 m of ground in view from a 35 degree field of view is 400 m away
 		assertEquals("https://earth.google.com/web/@-4.5,151.25,257a,400d,35y,30h,0t,0r",

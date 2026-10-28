@@ -55,6 +55,8 @@ return (function () {
     var inheritedFlight = window[CE_TAG] && window[CE_TAG].flight ? window[CE_TAG].flight() : null;
     // and so does one during a move of the user
     var inheritedMove = window[CE_TAG] && window[CE_TAG].moving ? window[CE_TAG].moving() : null;
+    // and a redraw with the camera GEW jumped to, while the URL is behind (see nearCamera)
+    var inheritedHeld = window[CE_TAG] && window[CE_TAG].held ? window[CE_TAG].held() : null;
     if (window[CE_TAG] && window[CE_TAG].stop) {
         try { window[CE_TAG].stop(); } catch (e) { /* ignore */ }
     }
@@ -192,8 +194,10 @@ return (function () {
         return true;
     }
 
-    function draw() {
-        var cam = parseCamera();
+    // From the camera in the URL, or from the one given when the URL is known to be behind (see nearCamera)
+    function draw(at) {
+        if (at) heldCam = { cam: at, href: window.location.href };
+        var cam = at || (heldCam && heldCam.href === window.location.href ? heldCam.cam : parseCamera());
         if (!cam) { hide(LABELS.hintUnavailable, true); return; }
         if (Math.abs(cam.tilt) > 5) { hide(LABELS.hintTilted, true); return; }
         while (svg.firstChild) svg.removeChild(svg.firstChild);
@@ -227,30 +231,45 @@ return (function () {
 
     // With animations turned off in GEW's settings the camera jumps, and GEW never writes a camera of its own: the URL
     // keeps the one sent, which looked like a flight that never arrived, and the outline waited out the timeout. A
-    // flight that times out so, untouched in a page shown throughout, means GEW jumps: remembered for the tab (the
-    // overlay is injected anew for each plot), so the next ones only wait for the jump to settle. A camera GEW writes
-    // of its own after one of those means it flies again (see afterJump). Kept in the window, which in-page navigation
-    // keeps, and in the session storage, which a page load keeps.
+    // flight that times out so, untouched in a page shown throughout, means GEW jumps: remembered (the overlay is
+    // injected anew for each plot), so the next ones only wait for the jump to settle. A camera GEW writes of its own
+    // after one of those means it flies again (see afterJump). Kept in the window, which in-page navigation keeps, and
+    // in the local storage, which a page load and the browser profile from one start of Collect Earth to the next keep,
+    // as they keep GEW's settings: in the session storage only, the first plot of every start showed nothing for 8 s.
     var JUMP_SETTLE_MILLIS = 800;
     var JUMPS_KEY = "__collectEarthGewJumps";
     function jumps() {
         if (typeof window[JUMPS_KEY] === "boolean") return window[JUMPS_KEY];
-        try { return sessionStorage.getItem(JUMPS_KEY) === "1"; } catch (e) { return false; }
+        try { return localStorage.getItem(JUMPS_KEY) === "1"; } catch (e) { return false; }
     }
     function rememberJumps(value) {
         window[JUMPS_KEY] = value;
         try {
-            if (value) sessionStorage.setItem(JUMPS_KEY, "1"); else sessionStorage.removeItem(JUMPS_KEY);
+            if (value) localStorage.setItem(JUMPS_KEY, "1"); else localStorage.removeItem(JUMPS_KEY);
         } catch (e) { /* no storage (an opaque origin): the window remembers it until the page is loaded again */ }
     }
     // The camera of a jump drawn at once, while GEW could still write one of its own for it (then it flew after all)
     var afterJump = null;
+    // The camera GEW jumped to, drawn from while the URL still has the one it wrote before (see nearCamera): {cam, href},
+    // until the URL changes or the user moves
+    var heldCam = null;
 
     // GEW may reformat the numbers it was given (-16.322392999999998 -> -16.322393), but it keeps the
     // distance as written until the camera arrives, then writes the one it computed (400 -> 400.00453096)
     function sameCamera(a, b) {
         return a.distText === b.distText && Math.abs(a.lat - b.lat) < 1e-5 && Math.abs(a.lon - b.lon) < 1e-5
             && a.heading === b.heading && a.tilt === b.tilt;
+    }
+
+    // Whether a camera GEW wrote is over the one sent: arriving it recomputes the distance, but stays over the same
+    // point. A camera written elsewhere during a flight, untouched by the user, is not its arrival: GEW wrote where it
+    // still was (with animations off it does so, at times, right after the camera was sent), and drawing from it put
+    // the previous plot - a frame with no sample points - where the new one is, and the new one out of view.
+    function nearCamera(a, b) {
+        var rad = Math.PI / 180;
+        var e = (((a.lon - b.lon + 540) % 360) - 180) * 111320 * Math.cos(b.lat * rad);
+        var n = (a.lat - b.lat) * 111320;
+        return Math.sqrt(e * e + n * n) <= Math.max(10, b.dist * 0.05);
     }
 
     function expectFlight(url) {
@@ -260,6 +279,7 @@ return (function () {
             visible: !document.hidden } : null;
         userMoved = false;
         afterJump = null;
+        heldCam = null;
         hide("", false);
         stableCount = 0;
     }
@@ -269,14 +289,21 @@ return (function () {
         if (!flight) return false;
         var cam = parseCamera();
         var inTime = Date.now() <= flight.until;
-        if (cam && sameCamera(cam, flight.cam) && inTime) return true;
+        if (cam && inTime && (sameCamera(cam, flight.cam) || (!userMoved && !nearCamera(cam, flight.cam)))) return true;
+        // over the camera sent (see nearCamera)
         var arrived = cam && inTime && !userMoved;
         // Still the camera sent when the time is up, untouched: GEW jumped there
         var jumped = !inTime && cam && !userMoved && sameCamera(cam, flight.cam) && flight.visible && !document.hidden;
+        // or, GEW known to jump, it wrote where it was before (see nearCamera): drawn from the camera it jumped to
+        var jumpedStale = !inTime && cam && !userMoved && flight.jump && !nearCamera(cam, flight.cam) && !document.hidden;
+        var at = jumpedStale ? flight.cam : null;
+        jumped = jumped || jumpedStale;
         if (jumped) {
             rememberJumps(true);
             afterJump = { cam: flight.cam, until: Date.now() + FLIGHT_TIMEOUT_MILLIS };
-        } else if (arrived) {
+        } else if (arrived && cam.dist > flight.cam.dist / 2) {
+            // Not a camera stopped short at the ground of a hill, which GEW writes at once, jumping or flying: Collect
+            // Earth sends it there again (GoogleEarthWebService.aimAtTheGround)
             rememberJumps(false);
         }
         flight = null;
@@ -284,7 +311,7 @@ return (function () {
             // GEW writes the camera once it is at rest: no need to wait for it to stay the same
             lastHref = window.location.href;
             stableCount = STABLE_READS;
-            draw();
+            draw(at);
             return true;
         }
         return false;
@@ -302,6 +329,7 @@ return (function () {
         moving = { from: window.location.href, until: Date.now() + MOVE_TIMEOUT_MILLIS };
         if (flight) userMoved = true;
         afterJump = null;
+        heldCam = null;
         hide("", false);
         stableCount = 0;
     }
@@ -335,6 +363,7 @@ return (function () {
     if (FLIGHT_URL) expectFlight(FLIGHT_URL);
     else if (inheritedFlight) flight = inheritedFlight;
     if (inheritedMove) moving = inheritedMove;
+    if (!FLIGHT_URL && inheritedHeld) heldCam = inheritedHeld;
     var timer = setInterval(function () {
         if (inFlight() || inUserMove()) return;
         var href = window.location.href;
@@ -342,8 +371,14 @@ return (function () {
         if (afterJump && href !== lastHref) {
             // GEW wrote the camera it arrived at, over the plot: it flew after all (animations turned on again)
             var cam = parseCamera(href);
-            if (cam && !sameCamera(cam, afterJump.cam) && Math.abs(cam.lat - afterJump.cam.lat) < 1e-4
-                    && Math.abs(cam.lon - afterJump.cam.lon) < 1e-4) {
+            if (cam && !nearCamera(cam, afterJump.cam)) {
+                // Untouched by the user (that ends afterJump), so not a move: where GEW was before the jump, written
+                // late (see nearCamera). The plot stays drawn from the camera it jumped to.
+                heldCam = { cam: afterJump.cam, href: href };
+                lastHref = href;
+                return;
+            }
+            if (cam && !sameCamera(cam, afterJump.cam)) {
                 rememberJumps(false);
             }
             afterJump = null;
@@ -371,6 +406,7 @@ return (function () {
         pressed = true;
         if (flight) userMoved = true;
         afterJump = null;
+        heldCam = null;
         hide("", false);
         stableCount = 0;
     }
@@ -424,6 +460,7 @@ return (function () {
         expectFlight: expectFlight,
         flight: function () { return inFlight() ? flight : null; },
         moving: function () { return moving; },
+        held: function () { return heldCam; },
         stop: function () {
             clearInterval(timer);
             LISTENERS.forEach(function (l) { window.removeEventListener(l[0], l[1], true); });
