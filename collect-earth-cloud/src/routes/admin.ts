@@ -18,6 +18,7 @@ interface SignupBody {
   username?: string;
   password?: string;
   email?: string;
+  acceptTerms?: boolean;
 }
 
 interface ResetBody {
@@ -27,6 +28,41 @@ interface ResetBody {
 
 const PROJECT_CREATION_VALUES: ProjectCreation[] = ['anyone', 'platform-admins'];
 const RESET_TTL_MS = 7 * 24 * 60 * 60 * 1000;
+const MAX_LIMIT = 1_000_000;
+const MAX_TEXT_SETTING = 500;
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+/** An http(s) URL, or null if the text is not one. */
+function httpUrl(value: string): string | null {
+  try {
+    const url = new URL(value);
+    return url.protocol === 'http:' || url.protocol === 'https:' ? url.toString() : null;
+  } catch {
+    return null;
+  }
+}
+
+type SettingResult<T> = { ok: true; value: T } | { ok: false; reason: string };
+
+/** A whole number 0..MAX_LIMIT (0 = no limit). */
+function limitSetting(name: string, value: unknown): SettingResult<number> {
+  if (typeof value !== 'number' || !Number.isInteger(value) || value < 0 || value > MAX_LIMIT) {
+    return { ok: false, reason: `${name} must be a whole number from 0 (no limit) to ${MAX_LIMIT}` };
+  }
+  return { ok: true, value };
+}
+
+/** Optional text: null or "" clears it; otherwise checked by `check`, which returns the value to store or null. */
+function textSetting(name: string, value: unknown, check: (v: string) => string | null, what: string): SettingResult<string | null> {
+  if (value === null || (typeof value === 'string' && value.trim() === '')) {
+    return { ok: true, value: null };
+  }
+  if (typeof value !== 'string' || value.trim().length > MAX_TEXT_SETTING) {
+    return { ok: false, reason: `${name} must be ${what} (at most ${MAX_TEXT_SETTING} characters) or empty` };
+  }
+  const checked = check(value.trim());
+  return checked === null ? { ok: false, reason: `${name} must be ${what} or empty` } : { ok: true, value: checked };
+}
 
 export interface AdminRouteOptions {
   /** The setup code in force (SETUP_CODE, or the one generated at boot). */
@@ -55,6 +91,9 @@ export async function registerAdminRoutes(
       signupOpen: settings.signupOpen,
       projectCreation: settings.projectCreation,
       version: options.version,
+      termsUrl: settings.termsUrl,
+      contactEmail: settings.contactEmail,
+      serverName: settings.serverName,
     });
   });
 
@@ -95,7 +134,8 @@ export async function registerAdminRoutes(
   // Open sign-up (only when the platform admin turned it on). Accounts made through
   // an invite use /v1/auth/register and are always allowed.
   app.post('/v1/auth/signup', { preHandler: limiter.guard('signup') }, async (request: FastifyRequest, reply: FastifyReply) => {
-    if (!(await store.getSettings()).signupOpen) {
+    const settings = await store.getSettings();
+    if (!settings.signupOpen) {
       return reply.code(403).send({ error: 'signup_closed' });
     }
     const body = (request.body ?? {}) as SignupBody;
@@ -106,9 +146,14 @@ export async function registerAdminRoutes(
     if (rule) {
       return reply.code(400).send(rule);
     }
+    // When the server has terms of use, the person must accept them to sign up.
+    if (settings.termsUrl && body.acceptTerms !== true) {
+      return reply.code(400).send({ error: 'terms_not_accepted', reason: 'the terms of use must be accepted' });
+    }
+    const termsAcceptedAt = settings.termsUrl ? Date.now() : null;
     let userId: string;
     try {
-      userId = (await store.createUser({ username, passwordHash: await hashPassword(password), email })).id;
+      userId = (await store.createUser({ username, passwordHash: await hashPassword(password), email, termsAcceptedAt })).id;
     } catch (err) {
       if (err instanceof UsernameTakenError) {
         return reply.code(409).send({ error: 'username_taken' });
@@ -165,6 +210,29 @@ export async function registerAdminRoutes(
           return reply.code(400).send({ error: 'bad_request', reason: 'projectCreation must be "anyone" or "platform-admins"' });
         }
         patch.projectCreation = body.projectCreation as ProjectCreation;
+      }
+      for (const key of ['maxProjectsPerUser', 'maxProjectStorageMb'] as const) {
+        if (body[key] !== undefined) {
+          const r = limitSetting(key, body[key]);
+          if (!r.ok) {
+            return reply.code(400).send({ error: 'bad_request', reason: r.reason });
+          }
+          patch[key] = r.value;
+        }
+      }
+      const texts = [
+        ['termsUrl', httpUrl, 'an http:// or https:// address'],
+        ['contactEmail', (v: string) => (EMAIL_RE.test(v) ? v : null), 'an email address'],
+        ['serverName', (v: string) => v, 'a name'],
+      ] as const;
+      for (const [key, check, what] of texts) {
+        if (body[key] !== undefined) {
+          const r = textSetting(key, body[key], check, what);
+          if (!r.ok) {
+            return reply.code(400).send({ error: 'bad_request', reason: r.reason });
+          }
+          patch[key] = r.value;
+        }
       }
       return reply.send(await store.updateSettings(patch));
     },

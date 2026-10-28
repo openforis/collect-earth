@@ -18,9 +18,10 @@ import Radio from "@mui/material/Radio";
 import RadioGroup from "@mui/material/RadioGroup";
 import Stack from "@mui/material/Stack";
 import Switch from "@mui/material/Switch";
+import TextField from "@mui/material/TextField";
 import Typography from "@mui/material/Typography";
 import Key from "@mui/icons-material/Key";
-import { useState } from "react";
+import { useState, type FormEvent } from "react";
 import {
   getServerSettings,
   listUsers,
@@ -38,8 +39,76 @@ import { EmptyState } from "../components/EmptyState";
 import { ErrorAlert } from "../components/ErrorAlert";
 import { Loading } from "../components/Loading";
 import { formatDate } from "../format";
-import { useT } from "../i18n";
+import { useT, type MessageKey } from "../i18n";
+import { draftOf, readDraft, type DraftProblems, type SettingsDraft } from "../settingsForm";
 import { useLoad } from "../useLoad";
+
+/** Limits for each account and the server's name, terms and contact: typed, then saved together. */
+function DetailsForm({ settings, onSave }: { settings: ServerSettings; onSave: (changes: Partial<ServerSettings>) => Promise<void> }) {
+  const t = useT();
+  const [draft, setDraft] = useState<SettingsDraft>(() => draftOf(settings));
+  const [problems, setProblems] = useState<DraftProblems>({});
+  const [busy, setBusy] = useState(false);
+
+  const field = (key: keyof SettingsDraft, label: MessageKey, help: MessageKey, extra: { type?: string; inputMode?: "numeric" } = {}) => (
+    <TextField
+      label={t(label)}
+      value={draft[key]}
+      onChange={(e) => {
+        setDraft({ ...draft, [key]: e.target.value });
+        setProblems({ ...problems, [key]: undefined });
+      }}
+      error={problems[key] !== undefined}
+      helperText={problems[key] ? t(problems[key]!) : t(help)}
+      type={extra.type}
+      slotProps={extra.inputMode ? { htmlInput: { inputMode: extra.inputMode } } : undefined}
+    />
+  );
+
+  const submit = async (event: FormEvent) => {
+    event.preventDefault();
+    const { changes, problems: found } = readDraft(draft);
+    setProblems(found);
+    if (Object.keys(found).length > 0) return;
+    setBusy(true);
+    try {
+      await onSave(changes);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <Stack component="form" spacing={2} onSubmit={submit} noValidate>
+      <div>
+        <Typography variant="h3" component="h3" sx={{ fontSize: "1.1rem", fontWeight: 600 }}>
+          {t("server.limits")}
+        </Typography>
+        <Typography variant="body2" color="text.secondary">
+          {t("server.limitsIntro")}
+        </Typography>
+      </div>
+      {field("maxProjectsPerUser", "server.maxProjects", "server.maxProjectsHelp", { inputMode: "numeric" })}
+      {field("maxProjectStorageMb", "server.maxStorage", "server.maxStorageHelp", { inputMode: "numeric" })}
+      <div>
+        <Typography variant="h3" component="h3" sx={{ fontSize: "1.1rem", fontWeight: 600 }}>
+          {t("server.about")}
+        </Typography>
+        <Typography variant="body2" color="text.secondary">
+          {t("server.aboutIntro")}
+        </Typography>
+      </div>
+      {field("serverName", "server.serverName", "server.serverNameHelp")}
+      {field("termsUrl", "server.termsUrl", "server.termsUrlHelp", { type: "url" })}
+      {field("contactEmail", "server.contactEmail", "server.contactEmailHelp", { type: "email" })}
+      <div>
+        <Button type="submit" variant="contained" disabled={busy}>
+          {t("common.save")}
+        </Button>
+      </div>
+    </Stack>
+  );
+}
 
 function SettingsCard() {
   const t = useT();
@@ -48,17 +117,18 @@ function SettingsCard() {
   const [error, setError] = useState<unknown>(null);
   const [saved, setSaved] = useState(false);
 
-  const save = async (next: ServerSettings) => {
+  const save = async (changes: Partial<ServerSettings>) => {
     setError(null);
     setSaved(false);
     const before = settings.data;
-    settings.setData(next);
+    if (!before) return;
+    settings.setData({ ...before, ...changes });
     try {
-      settings.setData(await saveServerSettings(next));
+      settings.setData(await saveServerSettings(before, changes));
       setSaved(true);
       void refreshInfo();
     } catch (err) {
-      if (before) settings.setData(before);
+      settings.setData(before);
       setError(err);
     }
   };
@@ -76,7 +146,7 @@ function SettingsCard() {
         <Stack spacing={3}>
           <FormControl>
             <FormControlLabel
-              control={<Switch checked={settings.data.signupOpen} onChange={(e) => void save({ ...settings.data!, signupOpen: e.target.checked })} />}
+              control={<Switch checked={settings.data.signupOpen} onChange={(e) => void save({ signupOpen: e.target.checked })} />}
               label={t("server.signupOpen")}
             />
             <FormHelperText sx={{ ml: 0 }}>{t("server.signupHelp")}</FormHelperText>
@@ -86,12 +156,13 @@ function SettingsCard() {
             <RadioGroup
               aria-labelledby="project-creation"
               value={settings.data.projectCreation}
-              onChange={(e) => void save({ ...settings.data!, projectCreation: e.target.value as ProjectCreation })}
+              onChange={(e) => void save({ projectCreation: e.target.value as ProjectCreation })}
             >
               <FormControlLabel value="platform-admins" control={<Radio />} label={t("server.creationAdmins")} />
               <FormControlLabel value="anyone" control={<Radio />} label={t("server.creationAnyone")} />
             </RadioGroup>
           </FormControl>
+          <DetailsForm settings={settings.data} onSave={save} />
           {saved && (
             <Alert severity="success" role="status">
               {t("server.saved")}
@@ -149,7 +220,7 @@ function UsersCard() {
                     {user.isPlatformAdmin && <Chip size="small" color="primary" label={t("server.adminBadge")} />}
                   </Stack>
                 }
-                secondary={t("server.userProjects", { count: user.projects })}
+                secondary={t("server.userProjects", { count: user.projects, coordinated: user.coordinatedProjects })}
                 sx={{ flex: "1 1 200px" }}
               />
               <Button variant="outlined" startIcon={<Key />} onClick={() => void makeLink(user)} disabled={busy === user.userId}>

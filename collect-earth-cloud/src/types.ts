@@ -8,6 +8,8 @@ export interface User {
   email: string | null;
   /** Owns the server (first-run setup): edits server settings, issues reset links. Not a project role. */
   isPlatformAdmin: boolean;
+  /** When the account accepted the terms of use at sign-up (epoch ms); null if never asked. */
+  termsAcceptedAt?: number | null;
 }
 
 /** A user's membership of one project, with the project name for listings. */
@@ -52,16 +54,49 @@ export type ProjectCreation = 'anyone' | 'platform-admins';
 export interface ServerSettings {
   signupOpen: boolean;
   projectCreation: ProjectCreation;
+  /** Most projects one account may coordinate (be admin of); 0 = no limit. Platform admins are exempt. */
+  maxProjectsPerUser: number;
+  /** Most space one project may use, in MB (CEP + plot files + records); 0 = no limit. */
+  maxProjectStorageMb: number;
+  /** Terms of use (http/https). When set, sign-up asks people to accept them. */
+  termsUrl: string | null;
+  /** Shown on every page so people know whom to ask (forgotten password...). */
+  contactEmail: string | null;
+  /** Shown in the app bar instead of "Collect Earth Cloud". */
+  serverName: string | null;
 }
 
-export const DEFAULT_SETTINGS: ServerSettings = { signupOpen: false, projectCreation: 'platform-admins' };
+export const DEFAULT_SETTINGS: ServerSettings = {
+  signupOpen: false,
+  projectCreation: 'platform-admins',
+  maxProjectsPerUser: 0,
+  maxProjectStorageMb: 0,
+  termsUrl: null,
+  contactEmail: null,
+  serverName: null,
+};
 
 /** One account in the platform admin's user list: a project COUNT only, never names (§4b). */
 export interface UserSummary {
   userId: string;
   username: string;
   isPlatformAdmin: boolean;
+  /** Projects the account belongs to, in any role. */
   projects: number;
+  /** Projects the account coordinates (admin role): what maxProjectsPerUser counts. */
+  coordinatedProjects: number;
+}
+
+/** Bytes a project uses, by kind. Records count their XML and summary JSON. */
+export interface ProjectStorage {
+  cepBytes: number;
+  /** Bytes of each plot CSV, by filename (an upload with the same name replaces it). */
+  csvBytesByFilename: Record<string, number>;
+  recordBytes: number;
+}
+
+export function totalStorageBytes(s: ProjectStorage): number {
+  return s.cepBytes + Object.values(s.csvBytesByFilename).reduce((a, b) => a + b, 0) + s.recordBytes;
 }
 
 /** Size and last upload time (epoch ms) of a project's CEP. */

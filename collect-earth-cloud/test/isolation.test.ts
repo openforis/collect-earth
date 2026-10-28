@@ -98,12 +98,39 @@ describe('cross-tenant isolation', () => {
       { method: 'GET' as const, url: `/v1/projects/${b.projectId}/invites` },
       { method: 'DELETE' as const, url: `/v1/projects/${b.projectId}/invites/00000000-0000-0000-0000-000000000000` },
       { method: 'GET' as const, url: `/v1/projects/${b.projectId}/export.csv` },
+      { method: 'DELETE' as const, url: `/v1/projects/${b.projectId}`, payload: { confirmName: 'Project B' } },
     ];
     for (const c of cases) {
       const res = await ctx.app.inject({ method: c.method, url: c.url, headers: auth, payload: c.payload });
       expect(res.statusCode, `${c.method} ${c.url}`).toBe(404);
     }
     expect((await ctx.store.getProject(b.projectId))?.name).toBe('Project B');
+  });
+
+  it("deleting A leaves B whole, and A's admin cannot delete B even with B's name", async () => {
+    await batchRequest(ctx.app, b.projectId, b.projectToken, [{ recordKey: '1', surveyUri: 'x', operator: 'o' }]);
+    const cross = await ctx.app.inject({
+      method: 'DELETE',
+      url: `/v1/projects/${b.projectId}`,
+      headers: { authorization: `Bearer ${a.adminToken}` },
+      payload: { confirmName: 'Project B' },
+    });
+    expect(cross.statusCode).toBe(404);
+    const own = await ctx.app.inject({
+      method: 'DELETE',
+      url: `/v1/projects/${a.projectId}`,
+      headers: { authorization: `Bearer ${a.adminToken}` },
+      payload: { confirmName: 'Project A' },
+    });
+    expect(own.statusCode).toBe(204);
+    expect(await ctx.store.getProject(b.projectId)).not.toBeNull();
+    expect(await ctx.store.listRecords(b.projectId)).toHaveLength(1);
+    const ping = await ctx.app.inject({
+      method: 'GET',
+      url: `/v1/projects/${b.projectId}`,
+      headers: { authorization: `Bearer ${b.adminToken}` },
+    });
+    expect(ping.statusCode).toBe(200);
   });
 
   it("A's admin cannot revoke B's invite through A's path", async () => {

@@ -13,6 +13,7 @@ import {
   type Member,
   type Membership,
   type ProjectRow,
+  type ProjectStorage,
   type RecordRow,
   type ServerSettings,
   type Role,
@@ -102,6 +103,50 @@ export class PostgresStore implements Store {
   async renameProject(projectId: string, name: string): Promise<void> {
     await this.withProject(projectId, async (client) => {
       await client.query('UPDATE projects SET name = $2 WHERE id = $1', [projectId, name]);
+    });
+  }
+
+  async deleteProject(projectId: string): Promise<void> {
+    // One transaction with app.current_project set, so the RLS-fenced tables
+    // (records, project_ceps, csv_files, assignments, projects) are deleted through
+    // their policies. The global tables (tokens, invites, members) are matched by
+    // project_id. Children first, so nothing relies on ON DELETE CASCADE.
+    await this.withProject(projectId, async (client) => {
+      await client.query('DELETE FROM assignments WHERE project_id = $1', [projectId]);
+      await client.query('DELETE FROM csv_files WHERE project_id = $1', [projectId]);
+      await client.query('DELETE FROM records WHERE project_id = $1', [projectId]);
+      await client.query('DELETE FROM project_ceps WHERE project_id = $1', [projectId]);
+      await client.query('DELETE FROM invites WHERE project_id = $1', [projectId]);
+      await client.query('DELETE FROM project_members WHERE project_id = $1', [projectId]);
+      await client.query('DELETE FROM project_tokens WHERE project_id = $1', [projectId]);
+      await client.query('DELETE FROM projects WHERE id = $1', [projectId]);
+    });
+  }
+
+  async getProjectStorage(projectId: string): Promise<ProjectStorage> {
+    return this.withProject(projectId, async (client) => {
+      const cep = await client.query(
+        'SELECT octet_length(data)::bigint AS bytes FROM project_ceps WHERE project_id = $1',
+        [projectId],
+      );
+      const csv = await client.query(
+        'SELECT filename, octet_length(data)::bigint AS bytes FROM csv_files WHERE project_id = $1',
+        [projectId],
+      );
+      const rec = await client.query(
+        `SELECT COALESCE(SUM(COALESCE(octet_length(xml), 0) + octet_length(summary::text)), 0)::bigint AS bytes
+           FROM records WHERE project_id = $1`,
+        [projectId],
+      );
+      const csvBytesByFilename: Record<string, number> = {};
+      for (const r of csv.rows) {
+        csvBytesByFilename[r.filename as string] = Number(r.bytes);
+      }
+      return {
+        cepBytes: cep.rowCount === 0 ? 0 : Number(cep.rows[0].bytes),
+        csvBytesByFilename,
+        recordBytes: Number(rec.rows[0].bytes),
+      };
     });
   }
 
@@ -213,12 +258,18 @@ export class PostgresStore implements Store {
     });
   }
 
-  async createUser(input: { username: string; passwordHash: string; email: string | null }): Promise<User> {
+  async createUser(input: {
+    username: string;
+    passwordHash: string;
+    email: string | null;
+    termsAcceptedAt?: number | null;
+  }): Promise<User> {
     const id = randomUUID();
+    const termsAcceptedAt = input.termsAcceptedAt ?? null;
     try {
       await this.pool.query(
-        'INSERT INTO users (id, username, password_hash, email) VALUES ($1, $2, $3, $4)',
-        [id, input.username, input.passwordHash, input.email],
+        'INSERT INTO users (id, username, password_hash, email, terms_accepted_at) VALUES ($1, $2, $3, $4, $5)',
+        [id, input.username, input.passwordHash, input.email, termsAcceptedAt === null ? null : new Date(termsAcceptedAt)],
       );
     } catch (err) {
       if ((err as { code?: string }).code === '23505') {
@@ -226,12 +277,19 @@ export class PostgresStore implements Store {
       }
       throw err;
     }
-    return { id, username: input.username, passwordHash: input.passwordHash, email: input.email, isPlatformAdmin: false };
+    return {
+      id,
+      username: input.username,
+      passwordHash: input.passwordHash,
+      email: input.email,
+      isPlatformAdmin: false,
+      termsAcceptedAt,
+    };
   }
 
   async getUserByUsername(username: string): Promise<User | null> {
     const res = await this.pool.query(
-      'SELECT id, username, password_hash, email, is_platform_admin FROM users WHERE username = $1',
+      'SELECT id, username, password_hash, email, is_platform_admin, terms_accepted_at FROM users WHERE username = $1',
       [username],
     );
     return res.rowCount === 0 ? null : mapUser(res.rows[0]);
@@ -239,7 +297,7 @@ export class PostgresStore implements Store {
 
   async getUserById(userId: string): Promise<User | null> {
     const res = await this.pool.query(
-      'SELECT id, username, password_hash, email, is_platform_admin FROM users WHERE id = $1',
+      'SELECT id, username, password_hash, email, is_platform_admin, terms_accepted_at FROM users WHERE id = $1',
       [userId],
     );
     return res.rowCount === 0 ? null : mapUser(res.rows[0]);
@@ -271,12 +329,42 @@ export class PostgresStore implements Store {
     await this.pool.query('UPDATE users SET password_hash = $2 WHERE id = $1', [userId, passwordHash]);
   }
 
+  async deleteUser(userId: string): Promise<void> {
+    const client = await this.pool.connect();
+    try {
+      await client.query('BEGIN');
+      // Assignments are RLS-fenced project data: delete them project by project
+      // with app.current_project set, as every other project-scoped write does.
+      const projects = await client.query('SELECT project_id FROM project_members WHERE user_id = $1', [userId]);
+      for (const r of projects.rows) {
+        await client.query('SELECT set_config($1, $2, true)', ['app.current_project', r.project_id]);
+        await client.query('DELETE FROM assignments WHERE project_id = $1 AND user_id = $2', [r.project_id, userId]);
+      }
+      await client.query('DELETE FROM sessions WHERE user_id = $1', [userId]);
+      await client.query('DELETE FROM password_resets WHERE user_id = $1', [userId]);
+      await client.query('DELETE FROM project_members WHERE user_id = $1', [userId]);
+      // invites.created_by is ON DELETE SET NULL; records keep the operator name.
+      await client.query('DELETE FROM users WHERE id = $1', [userId]);
+      await client.query('COMMIT');
+    } catch (err) {
+      await client.query('ROLLBACK');
+      throw err;
+    } finally {
+      client.release();
+    }
+  }
+
   // --- Platform administration: global tables (users, server_settings,
   // password_resets), not under RLS, never returning project data. ---
 
   async hasPlatformAdmin(): Promise<boolean> {
     const res = await this.pool.query('SELECT 1 FROM users WHERE is_platform_admin LIMIT 1');
     return res.rowCount !== null && res.rowCount > 0;
+  }
+
+  async countPlatformAdmins(): Promise<number> {
+    const res = await this.pool.query('SELECT COUNT(*)::int AS n FROM users WHERE is_platform_admin');
+    return res.rows[0].n as number;
   }
 
   async createFirstPlatformAdmin(input: { username: string; passwordHash: string }): Promise<User | null> {
@@ -317,20 +405,29 @@ export class PostgresStore implements Store {
         settings.signupOpen = r.value === 'true';
       } else if (r.key === 'projectCreation' && (r.value === 'anyone' || r.value === 'platform-admins')) {
         settings.projectCreation = r.value;
+      } else if (r.key === 'maxProjectsPerUser' || r.key === 'maxProjectStorageMb') {
+        const n = Number(r.value);
+        settings[r.key as 'maxProjectsPerUser' | 'maxProjectStorageMb'] = Number.isInteger(n) && n >= 0 ? n : 0;
+      } else if (r.key === 'termsUrl' || r.key === 'contactEmail' || r.key === 'serverName') {
+        settings[r.key as 'termsUrl' | 'contactEmail' | 'serverName'] = r.value.length > 0 ? r.value : null;
       }
     }
     return settings;
   }
 
   async updateSettings(patch: Partial<ServerSettings>): Promise<ServerSettings> {
-    const entries: [string, string][] = [];
-    if (patch.signupOpen !== undefined) {
-      entries.push(['signupOpen', String(patch.signupOpen)]);
-    }
-    if (patch.projectCreation !== undefined) {
-      entries.push(['projectCreation', patch.projectCreation]);
+    // A null text setting is stored as a missing key (= the default: none).
+    const entries: [string, string | null][] = [];
+    for (const [key, value] of Object.entries(patch)) {
+      if (value !== undefined) {
+        entries.push([key, value === null ? null : String(value)]);
+      }
     }
     for (const [key, value] of entries) {
+      if (value === null) {
+        await this.pool.query('DELETE FROM server_settings WHERE key = $1', [key]);
+        continue;
+      }
       await this.pool.query(
         `INSERT INTO server_settings (key, value) VALUES ($1, $2)
          ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value`,
@@ -343,7 +440,8 @@ export class PostgresStore implements Store {
   async listUsers(): Promise<UserSummary[]> {
     // project_members is a global table (002); only a COUNT leaves this query.
     const res = await this.pool.query(
-      `SELECT u.id, u.username, u.is_platform_admin, COUNT(m.project_id)::int AS projects
+      `SELECT u.id, u.username, u.is_platform_admin, COUNT(m.project_id)::int AS projects,
+              (COUNT(m.project_id) FILTER (WHERE m.role = 'admin'))::int AS coordinated
          FROM users u LEFT JOIN project_members m ON m.user_id = u.id
         GROUP BY u.id, u.username, u.is_platform_admin
         ORDER BY u.username`,
@@ -353,6 +451,7 @@ export class PostgresStore implements Store {
       username: r.username,
       isPlatformAdmin: r.is_platform_admin,
       projects: r.projects,
+      coordinatedProjects: r.coordinated,
     }));
   }
 
@@ -429,6 +528,14 @@ export class PostgresStore implements Store {
     const res = await this.pool.query(
       "SELECT COUNT(*)::int AS n FROM project_members WHERE project_id = $1 AND role = 'admin'",
       [projectId],
+    );
+    return res.rows[0].n as number;
+  }
+
+  async countCoordinatedProjects(userId: string): Promise<number> {
+    const res = await this.pool.query(
+      "SELECT COUNT(*)::int AS n FROM project_members WHERE user_id = $1 AND role = 'admin'",
+      [userId],
     );
     return res.rows[0].n as number;
   }
@@ -630,6 +737,7 @@ function mapUser(r: Record<string, unknown>): User {
     passwordHash: r.password_hash as string,
     email: (r.email as string | null) ?? null,
     isPlatformAdmin: r.is_platform_admin === true,
+    termsAcceptedAt: r.terms_accepted_at ? (r.terms_accepted_at as Date).getTime() : null,
   };
 }
 

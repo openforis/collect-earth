@@ -60,6 +60,10 @@ export function App() {
     document.documentElement.lang = language;
   }, [language]);
 
+  useEffect(() => {
+    document.title = info?.serverName ?? t("app.title");
+  }, [info?.serverName, t]);
+
   // The server said our session is no longer valid: back to logging in, on the same page.
   useEffect(() => {
     setUnauthorizedHandler(() => {

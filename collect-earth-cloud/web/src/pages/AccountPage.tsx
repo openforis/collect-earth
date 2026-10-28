@@ -1,17 +1,22 @@
 import Alert from "@mui/material/Alert";
 import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
+import Link from "@mui/material/Link";
 import Stack from "@mui/material/Stack";
 import Typography from "@mui/material/Typography";
+import DeleteForever from "@mui/icons-material/DeleteForever";
 import Logout from "@mui/icons-material/Logout";
 import { useState } from "react";
-import { changePassword } from "../api";
+import { ApiError, changePassword, deleteAccount, getAccountDeletion, type ProjectRef } from "../api";
 import { useApp } from "../appContext";
 import { AppShell } from "../components/AppShell";
 import { ErrorAlert } from "../components/ErrorAlert";
 import { FormCard } from "../components/FormCard";
+import { Loading } from "../components/Loading";
 import { PasswordField } from "../components/PasswordField";
 import { useT, type MessageKey } from "../i18n";
+import { linkProps, pathFor, type ProjectTab } from "../router";
+import { useLoad } from "../useLoad";
 import { passwordProblem } from "../validation";
 
 export function AccountPage() {
@@ -99,7 +104,98 @@ export function AccountPage() {
             </Button>
           </Box>
         </FormCard>
+        <DeleteAccountCard />
       </Stack>
     </AppShell>
+  );
+}
+
+function ProjectLinks({ projects, tab }: { projects: ProjectRef[]; tab: ProjectTab }) {
+  return (
+    <Box component="ul" sx={{ my: 1, pl: 3 }}>
+      {projects.map((p) => (
+        <li key={p.projectId}>
+          <Link {...linkProps(pathFor({ name: "project", projectId: p.projectId, tab }))} sx={{ wordBreak: "break-word" }}>
+            {p.name}
+          </Link>
+        </li>
+      ))}
+    </Box>
+  );
+}
+
+/** Deleting one's own account, with what it would do said first. */
+function DeleteAccountCard() {
+  const t = useT();
+  const { logOut } = useApp();
+  const plan = useLoad(getAccountDeletion, []);
+  const [password, setPassword] = useState("");
+  const [missing, setMissing] = useState(false);
+  const [error, setError] = useState<unknown>(null);
+  const [busy, setBusy] = useState(false);
+
+  const submit = async () => {
+    setError(null);
+    if (!password) {
+      setMissing(true);
+      return;
+    }
+    setBusy(true);
+    try {
+      await deleteAccount(password);
+      await logOut();
+    } catch (err) {
+      setError(err);
+      setBusy(false);
+      // The projects may have changed since the page opened: show the refusal's reasons.
+      if (err instanceof ApiError && err.status === 409) plan.reload();
+    }
+  };
+
+  let body;
+  if (plan.loading && !plan.data) body = <Loading />;
+  else if (plan.error || !plan.data) body = <ErrorAlert error={plan.error} onRetry={plan.reload} />;
+  else if (plan.data.lastPlatformAdmin) body = <Alert severity="info">{t("account.deleteLastAdmin")}</Alert>;
+  else if (plan.data.soleCoordinator.length > 0)
+    body = (
+      <Alert severity="warning">
+        {t("account.deleteBlocked")}
+        <ProjectLinks projects={plan.data.soleCoordinator} tab="people" />
+      </Alert>
+    );
+  else
+    body = (
+      <>
+        {plan.data.deletedWithAccount.length > 0 && (
+          <Alert severity="warning">
+            {t("account.deleteWithProjects")}
+            <ProjectLinks projects={plan.data.deletedWithAccount} tab="data" />
+          </Alert>
+        )}
+        <PasswordField
+          label={t("account.deletePassword")}
+          value={password}
+          onChange={(e) => {
+            setPassword(e.target.value);
+            setMissing(false);
+          }}
+          autoComplete="current-password"
+          required
+          error={missing}
+          helperText={missing ? t("error.noCurrentPassword") : undefined}
+        />
+        <ErrorAlert error={error} />
+        <Box>
+          <Button type="submit" variant="contained" color="error" startIcon={<DeleteForever />} disabled={busy}>
+            {t("account.deleteSubmit")}
+          </Button>
+        </Box>
+      </>
+    );
+
+  return (
+    <FormCard title={t("account.deleteTitle")} intro={t("account.deleteText")} onSubmit={submit}>
+      {body}
+    </FormCard>
   );
 }

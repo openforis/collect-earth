@@ -15,6 +15,11 @@ export interface ServerInfo {
   signupOpen: boolean;
   projectCreation: ProjectCreation;
   version: string | null;
+  /** Terms of use: when set, sign-up asks people to accept them. */
+  termsUrl: string | null;
+  contactEmail: string | null;
+  /** Shown in the app bar instead of "Collect Earth Cloud". */
+  serverName: string | null;
 }
 
 export interface Session {
@@ -56,6 +61,8 @@ export interface Overview {
   csvFiles: number;
   plots: number;
   records: { total: number; submitted: number; byOperator: OperatorProgress[] };
+  /** Space the project uses; limitBytes null = no limit. Null from servers that do not report it. */
+  storage: { usedBytes: number; limitBytes: number | null } | null;
 }
 
 export interface Invite {
@@ -105,6 +112,13 @@ export interface Assignment {
 export interface ServerSettings {
   signupOpen: boolean;
   projectCreation: ProjectCreation;
+  /** 0 = no limit. */
+  maxProjectsPerUser: number;
+  /** 0 = no limit. */
+  maxProjectStorageMb: number;
+  termsUrl: string | null;
+  contactEmail: string | null;
+  serverName: string | null;
 }
 
 export interface AdminUser {
@@ -112,6 +126,23 @@ export interface AdminUser {
   username: string;
   isPlatformAdmin: boolean;
   projects: number;
+  /** Projects the person coordinates (what the per-account project limit counts). */
+  coordinatedProjects: number;
+}
+
+export interface ProjectRef {
+  projectId: string;
+  name: string;
+}
+
+/** What deleting one's own account would do. */
+export interface AccountDeletion {
+  /** Projects where the person is the only coordinator and others work: deleting is refused. */
+  soleCoordinator: ProjectRef[];
+  /** Projects with nobody else in them: deleted together with the account. */
+  deletedWithAccount: ProjectRef[];
+  /** The only server administrator cannot delete their account. */
+  lastPlatformAdmin: boolean;
 }
 
 export interface ResetLink {
@@ -124,12 +155,15 @@ export class ApiError extends Error {
   readonly status: number;
   readonly code: string;
   readonly reason: string | null;
-  constructor(status: number, code: string, reason: string | null = null) {
+  /** The whole error body, for codes that carry more (limit, usedBytes, projects...). */
+  readonly details: Record<string, unknown>;
+  constructor(status: number, code: string, reason: string | null = null, details: Record<string, unknown> = {}) {
     super(reason ? `${code}: ${reason}` : code);
     this.name = "ApiError";
     this.status = status;
     this.code = code;
     this.reason = reason;
+    this.details = details;
   }
 }
 
@@ -140,7 +174,7 @@ export function apiErrorFrom(status: number, body: unknown): ApiError {
   const record = body && typeof body === "object" ? (body as Record<string, unknown>) : {};
   const code = typeof record.error === "string" && record.error ? record.error : `http_${status}`;
   const reason = typeof record.reason === "string" ? record.reason : null;
-  return new ApiError(status, code, reason);
+  return new ApiError(status, code, reason, record);
 }
 
 const CODE_MESSAGES: Record<string, MessageKey> = {
@@ -163,6 +197,12 @@ const CODE_MESSAGES: Record<string, MessageKey> = {
   forbidden: "error.forbidden",
   not_found: "error.notFound",
   payload_too_large: "error.tooLarge",
+  project_limit_reached: "error.projectLimitReached",
+  storage_limit_reached: "error.storageLimitReached",
+  confirm_mismatch: "error.confirmMismatch",
+  sole_coordinator: "error.soleCoordinator",
+  last_platform_admin: "error.lastPlatformAdmin",
+  terms_not_accepted: "error.termsNotAccepted",
 };
 
 /** The sentence (message key) to show a person for any error thrown by this module. */
@@ -310,6 +350,17 @@ export function absoluteUrl(url: string | null | undefined, fallbackPath: string
   return `${origin.replace(/\/+$/, "")}${path.startsWith("/") ? "" : "/"}${path}`;
 }
 
+/** Optional text from the server: null when missing or empty. */
+function optionalText(value: unknown): string | null {
+  return typeof value === "string" && value.trim() ? value.trim() : null;
+}
+
+/** An http(s) link, or null: a terms link is put in an href, so nothing else gets through. */
+export function safeUrl(value: unknown): string | null {
+  const text = optionalText(value);
+  return text && /^https?:\/\//i.test(text) ? text : null;
+}
+
 function asRole(value: unknown): Role {
   return value === "admin" || value === "reviewer" ? value : "operator";
 }
@@ -320,17 +371,28 @@ const p = (projectId: string) => `/v1/projects/${encodeURIComponent(projectId)}`
 
 export async function getServerInfo(): Promise<ServerInfo> {
   try {
-    const info = await request<Partial<ServerInfo>>("GET", "/v1/server-info", { noSessionEnd: true });
+    const info = await request<Record<string, unknown>>("GET", "/v1/server-info", { noSessionEnd: true });
     return {
       needsSetup: info?.needsSetup === true,
       signupOpen: info?.signupOpen === true,
       projectCreation: info?.projectCreation === "anyone" ? "anyone" : "platform-admins",
       version: typeof info?.version === "string" ? info.version : null,
+      termsUrl: safeUrl(info?.termsUrl),
+      contactEmail: optionalText(info?.contactEmail),
+      serverName: optionalText(info?.serverName),
     };
   } catch (error) {
     // A server from before the dashboard existed: no setup, no sign-up.
     if (error instanceof ApiError && error.status === 404) {
-      return { needsSetup: false, signupOpen: false, projectCreation: "platform-admins", version: null };
+      return {
+        needsSetup: false,
+        signupOpen: false,
+        projectCreation: "platform-admins",
+        version: null,
+        termsUrl: null,
+        contactEmail: null,
+        serverName: null,
+      };
     }
     throw error;
   }
@@ -344,9 +406,10 @@ export function login(username: string, password: string): Promise<Session> {
   return request<Session>("POST", "/v1/auth/login", { json: { username, password }, noSessionEnd: true });
 }
 
-export function signup(username: string, password: string, email?: string): Promise<Session> {
-  const json: Record<string, string> = { username, password };
+export function signup(username: string, password: string, email?: string, acceptTerms?: boolean): Promise<Session> {
+  const json: Record<string, string | boolean> = { username, password };
   if (email) json.email = email;
+  if (acceptTerms) json.acceptTerms = true;
   return request<Session>("POST", "/v1/auth/signup", { json, noSessionEnd: true });
 }
 
@@ -369,6 +432,30 @@ export async function changePassword(currentPassword: string, newPassword: strin
     await send("PUT", "/v1/me/password", { json: { currentPassword, newPassword }, noSessionEnd: true });
   } catch (error) {
     // Here a 401 means the current password is wrong, not that the session ended.
+    if (error instanceof ApiError && error.status === 401) throw new ApiError(401, "wrong_password", error.reason);
+    throw error;
+  }
+}
+
+export async function getAccountDeletion(): Promise<AccountDeletion> {
+  const body = await request<Record<string, unknown>>("GET", "/v1/me/deletion");
+  const refs = (value: unknown): ProjectRef[] =>
+    Array.isArray(value)
+      ? value.map((p: Record<string, unknown>) => ({ projectId: String(p?.projectId ?? ""), name: String(p?.name ?? "") }))
+      : [];
+  return {
+    soleCoordinator: refs(body?.soleCoordinator),
+    deletedWithAccount: refs(body?.deletedWithAccount),
+    lastPlatformAdmin: body?.lastPlatformAdmin === true,
+  };
+}
+
+/** Deletes the logged-in person's account (the password confirms it). */
+export async function deleteAccount(password: string): Promise<void> {
+  try {
+    await send("DELETE", "/v1/me", { json: { password }, noSessionEnd: true });
+  } catch (error) {
+    // Here a 401 means the password is wrong, not that the session ended.
     if (error instanceof ApiError && error.status === 401) throw new ApiError(401, "wrong_password", error.reason);
     throw error;
   }
@@ -398,11 +485,17 @@ export async function renameProject(projectId: string, name: string): Promise<vo
   await send("PATCH", p(projectId), { json: { name } });
 }
 
+/** Deletes the project and everything in it; confirmName must be the project name. */
+export async function deleteProject(projectId: string, confirmName: string): Promise<void> {
+  await send("DELETE", p(projectId), { json: { confirmName } });
+}
+
 export async function getOverview(projectId: string): Promise<Overview> {
   const body = await request<Record<string, unknown>>("GET", `${p(projectId)}/overview`);
   const cep = body?.cep as Record<string, unknown> | null | undefined;
   const records = (body?.records ?? {}) as Record<string, unknown>;
   const byOperator = Array.isArray(records.byOperator) ? (records.byOperator as Record<string, unknown>[]) : [];
+  const storage = body?.storage as Record<string, unknown> | null | undefined;
   return {
     name: String(body?.name ?? ""),
     cep: cep ? { bytes: toCount(cep.bytes), updatedAt: toMillis(cep.updatedAt) } : null,
@@ -420,6 +513,9 @@ export async function getOverview(projectId: string): Promise<Overview> {
         lastModifiedOn: toMillis(o.lastModifiedOn) || null,
       })),
     },
+    storage: storage
+      ? { usedBytes: toCount(storage.usedBytes), limitBytes: storage.limitBytes == null ? null : toCount(storage.limitBytes) || null }
+      : null,
   };
 }
 
@@ -524,18 +620,40 @@ export async function downloadExport(projectId: string): Promise<{ blob: Blob; f
 
 // --- platform admin ---------------------------------------------------------------------
 
-export async function getServerSettings(): Promise<ServerSettings> {
-  const body = await request<Partial<ServerSettings>>("GET", "/v1/admin/settings");
-  return { signupOpen: body?.signupOpen === true, projectCreation: body?.projectCreation === "anyone" ? "anyone" : "platform-admins" };
+export const DEFAULT_SERVER_SETTINGS: ServerSettings = {
+  signupOpen: false,
+  projectCreation: "platform-admins",
+  maxProjectsPerUser: 0,
+  maxProjectStorageMb: 0,
+  termsUrl: null,
+  contactEmail: null,
+  serverName: null,
+};
+
+/** Settings from a server answer, keeping `fallback` for anything missing (older servers). */
+export function toServerSettings(body: unknown, fallback: ServerSettings = DEFAULT_SERVER_SETTINGS): ServerSettings {
+  const b = body && typeof body === "object" ? (body as Record<string, unknown>) : {};
+  const limit = (value: unknown, old: number) => (typeof value === "number" && Number.isInteger(value) && value >= 0 ? value : old);
+  const text = (key: string, old: string | null) => (key in b ? optionalText(b[key]) : old);
+  return {
+    signupOpen: typeof b.signupOpen === "boolean" ? b.signupOpen : fallback.signupOpen,
+    projectCreation: b.projectCreation === "anyone" || b.projectCreation === "platform-admins" ? b.projectCreation : fallback.projectCreation,
+    maxProjectsPerUser: limit(b.maxProjectsPerUser, fallback.maxProjectsPerUser),
+    maxProjectStorageMb: limit(b.maxProjectStorageMb, fallback.maxProjectStorageMb),
+    termsUrl: text("termsUrl", fallback.termsUrl),
+    contactEmail: text("contactEmail", fallback.contactEmail),
+    serverName: text("serverName", fallback.serverName),
+  };
 }
 
-export async function saveServerSettings(settings: ServerSettings): Promise<ServerSettings> {
-  const body = await request<Partial<ServerSettings> | null>("PUT", "/v1/admin/settings", { json: settings });
-  if (!body || typeof body !== "object") return settings;
-  return {
-    signupOpen: typeof body.signupOpen === "boolean" ? body.signupOpen : settings.signupOpen,
-    projectCreation: body.projectCreation === "anyone" || body.projectCreation === "platform-admins" ? body.projectCreation : settings.projectCreation,
-  };
+export async function getServerSettings(): Promise<ServerSettings> {
+  return toServerSettings(await request<unknown>("GET", "/v1/admin/settings"));
+}
+
+/** Saves some settings; returns all of them as the server now has them. */
+export async function saveServerSettings(current: ServerSettings, changes: Partial<ServerSettings>): Promise<ServerSettings> {
+  const body = await request<unknown>("PUT", "/v1/admin/settings", { json: changes });
+  return toServerSettings(body, { ...current, ...changes });
 }
 
 export async function listUsers(): Promise<AdminUser[]> {
@@ -545,6 +663,7 @@ export async function listUsers(): Promise<AdminUser[]> {
     username: String(u.username ?? ""),
     isPlatformAdmin: u.isPlatformAdmin === true,
     projects: toCount(u.projects),
+    coordinatedProjects: toCount(u.coordinatedProjects),
   }));
 }
 

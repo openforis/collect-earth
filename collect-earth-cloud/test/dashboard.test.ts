@@ -318,15 +318,23 @@ describe('password change and reset', () => {
     const res = await ctx.app.inject({ method: 'GET', url: '/v1/admin/users', headers: bearer(owner.token) });
     expect(res.json()).toEqual({
       users: [
-        { userId: maria.userId, username: 'maria', isPlatformAdmin: false, projects: 0 },
-        { userId: owner.userId, username: 'owner', isPlatformAdmin: true, projects: 1 },
+        { userId: maria.userId, username: 'maria', isPlatformAdmin: false, projects: 0, coordinatedProjects: 0 },
+        { userId: owner.userId, username: 'owner', isPlatformAdmin: true, projects: 1, coordinatedProjects: 1 },
       ],
     });
 
     const bad = await ctx.app.inject({ method: 'PUT', url: '/v1/admin/settings', headers: bearer(owner.token), payload: { projectCreation: 'everyone' } });
     expect(bad.statusCode).toBe(400);
     const read = await ctx.app.inject({ method: 'GET', url: '/v1/admin/settings', headers: bearer(owner.token) });
-    expect(read.json()).toEqual({ signupOpen: true, projectCreation: 'platform-admins' });
+    expect(read.json()).toEqual({
+      signupOpen: true,
+      projectCreation: 'platform-admins',
+      maxProjectsPerUser: 0,
+      maxProjectStorageMb: 0,
+      termsUrl: null,
+      contactEmail: null,
+      serverName: null,
+    });
 
     for (const uid of ['00000000-0000-0000-0000-000000000000', 'not-a-uuid']) {
       const missing = await ctx.app.inject({ method: 'POST', url: `/v1/admin/users/${uid}/password-reset`, headers: bearer(owner.token) });
@@ -443,6 +451,7 @@ describe('invites, overview and export', () => {
       csvFiles: 0,
       plots: 0,
       records: { total: 0, submitted: 0, byOperator: [] },
+      storage: { usedBytes: 0, limitBytes: null },
     });
 
     await ctx.app.inject({

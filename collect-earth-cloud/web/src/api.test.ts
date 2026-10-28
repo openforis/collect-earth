@@ -5,14 +5,22 @@ import {
   apiErrorFrom,
   changePassword,
   createInvite,
+  deleteAccount,
+  deleteProject,
   errorMessageKey,
+  getAccountDeletion,
   getOverview,
   getServerInfo,
   listProjects,
   login,
+  safeUrl,
+  saveServerSettings,
   setUnauthorizedHandler,
+  signup,
   toCount,
   toMillis,
+  toServerSettings,
+  DEFAULT_SERVER_SETTINGS,
 } from "./api";
 import { CATALOGUES } from "./i18n";
 import { setToken } from "./storage";
@@ -51,6 +59,12 @@ describe("error messages", () => {
     ["invalid_reset_token", 410, "error.linkUsedOrExpired"],
     ["rate_limited", 429, "error.rateLimited"],
     ["unauthorized", 401, "error.sessionEnded"],
+    ["project_limit_reached", 403, "error.projectLimitReached"],
+    ["storage_limit_reached", 413, "error.storageLimitReached"],
+    ["confirm_mismatch", 400, "error.confirmMismatch"],
+    ["sole_coordinator", 409, "error.soleCoordinator"],
+    ["last_platform_admin", 409, "error.lastPlatformAdmin"],
+    ["terms_not_accepted", 400, "error.termsNotAccepted"],
   ];
   it.each(cases)("%s becomes a sentence", (code, status, key) => {
     expect(errorMessageKey(apiErrorFrom(status, { error: code }))).toBe(key);
@@ -133,12 +147,103 @@ describe("transport", () => {
 describe("normalising responses", () => {
   it("server info from a server without the dashboard endpoints", async () => {
     fetchMock.mockResolvedValue(jsonResponse(404, { error: "not_found" }));
-    expect(await getServerInfo()).toEqual({ needsSetup: false, signupOpen: false, projectCreation: "platform-admins", version: null });
+    expect(await getServerInfo()).toEqual({
+      needsSetup: false,
+      signupOpen: false,
+      projectCreation: "platform-admins",
+      version: null,
+      termsUrl: null,
+      contactEmail: null,
+      serverName: null,
+    });
   });
 
   it("server info", async () => {
     fetchMock.mockResolvedValue(jsonResponse(200, { needsSetup: true, signupOpen: true, projectCreation: "anyone", version: "0.2.0" }));
-    expect(await getServerInfo()).toEqual({ needsSetup: true, signupOpen: true, projectCreation: "anyone", version: "0.2.0" });
+    expect(await getServerInfo()).toEqual({
+      needsSetup: true,
+      signupOpen: true,
+      projectCreation: "anyone",
+      version: "0.2.0",
+      termsUrl: null,
+      contactEmail: null,
+      serverName: null,
+    });
+  });
+
+  it("server info with terms, contact and name; only http(s) terms links get through", async () => {
+    fetchMock.mockResolvedValue(
+      jsonResponse(200, { needsSetup: false, termsUrl: "https://e.org/terms", contactEmail: " help@e.org ", serverName: "FAO Cloud" }),
+    );
+    expect(await getServerInfo()).toMatchObject({ termsUrl: "https://e.org/terms", contactEmail: "help@e.org", serverName: "FAO Cloud" });
+    fetchMock.mockResolvedValue(jsonResponse(200, { termsUrl: "javascript:alert(1)", serverName: "" }));
+    expect(await getServerInfo()).toMatchObject({ termsUrl: null, serverName: null });
+    expect(safeUrl("http://a.org")).toBe("http://a.org");
+    expect(safeUrl(42)).toBeNull();
+  });
+
+  it("overview storage, and none from older servers", async () => {
+    fetchMock.mockResolvedValue(jsonResponse(200, { name: "P", records: {}, storage: { usedBytes: 1200, limitBytes: null } }));
+    expect((await getOverview("p1")).storage).toEqual({ usedBytes: 1200, limitBytes: null });
+    fetchMock.mockResolvedValue(jsonResponse(200, { name: "P", records: {}, storage: { usedBytes: 5, limitBytes: 1048576 } }));
+    expect((await getOverview("p1")).storage).toEqual({ usedBytes: 5, limitBytes: 1048576 });
+    fetchMock.mockResolvedValue(jsonResponse(200, { name: "P", records: {} }));
+    expect((await getOverview("p1")).storage).toBeNull();
+  });
+
+  it("server settings keep what an older server does not send", () => {
+    expect(toServerSettings({ signupOpen: true, projectCreation: "anyone" })).toEqual({ ...DEFAULT_SERVER_SETTINGS, signupOpen: true, projectCreation: "anyone" });
+    const current = { ...DEFAULT_SERVER_SETTINGS, maxProjectsPerUser: 3, termsUrl: "https://e.org/t" };
+    expect(toServerSettings({ termsUrl: null, maxProjectsPerUser: -1 }, current)).toEqual({ ...current, termsUrl: null });
+  });
+
+  it("saving settings sends only the changes", async () => {
+    fetchMock.mockResolvedValue(jsonResponse(200, { ...DEFAULT_SERVER_SETTINGS, maxProjectStorageMb: 200 }));
+    const saved = await saveServerSettings(DEFAULT_SERVER_SETTINGS, { maxProjectStorageMb: 200 });
+    expect(JSON.parse(fetchMock.mock.calls[0][1]!.body as string)).toEqual({ maxProjectStorageMb: 200 });
+    expect(saved.maxProjectStorageMb).toBe(200);
+  });
+
+  it("sign-up sends acceptTerms only when accepted", async () => {
+    fetchMock.mockImplementation(async () => jsonResponse(201, { token: "t", userId: "u", username: "maria" }));
+    await signup("maria", "password1", undefined, true);
+    expect(JSON.parse(fetchMock.mock.calls[0][1]!.body as string)).toEqual({ username: "maria", password: "password1", acceptTerms: true });
+    await signup("juan", "password1");
+    expect(JSON.parse(fetchMock.mock.calls[1][1]!.body as string)).toEqual({ username: "juan", password: "password1" });
+  });
+
+  it("deletes a project with its name", async () => {
+    setToken("tok");
+    fetchMock.mockResolvedValue(new Response(null, { status: 204 }));
+    await deleteProject("p 1", "Bolivia NFI");
+    const [url, init] = fetchMock.mock.calls[0];
+    expect(url).toBe("/v1/projects/p%201");
+    expect(init!.method).toBe("DELETE");
+    expect(JSON.parse(init!.body as string)).toEqual({ confirmName: "Bolivia NFI" });
+  });
+
+  it("a wrong password when deleting the account does not end the session", async () => {
+    setToken("valid");
+    const ended = vi.fn();
+    setUnauthorizedHandler(ended);
+    fetchMock.mockResolvedValue(jsonResponse(401, { error: "invalid_credentials" }));
+    const error = await deleteAccount("bad").catch((e: unknown) => e);
+    expect(errorMessageKey(error)).toBe("error.wrongPassword");
+    expect(ended).not.toHaveBeenCalled();
+  });
+
+  it("a refused account deletion keeps the projects it names", async () => {
+    setToken("valid");
+    fetchMock.mockResolvedValue(jsonResponse(409, { error: "sole_coordinator", projects: [{ projectId: "p", name: "P" }] }));
+    const error = (await deleteAccount("good-password").catch((e: unknown) => e)) as ApiError;
+    expect(errorMessageKey(error)).toBe("error.soleCoordinator");
+    expect(error.details.projects).toEqual([{ projectId: "p", name: "P" }]);
+  });
+
+  it("reads what deleting the account would do", async () => {
+    setToken("valid");
+    fetchMock.mockResolvedValue(jsonResponse(200, { soleCoordinator: [], deletedWithAccount: [{ projectId: "p", name: "Mine" }], lastPlatformAdmin: false }));
+    expect(await getAccountDeletion()).toEqual({ soleCoordinator: [], deletedWithAccount: [{ projectId: "p", name: "Mine" }], lastPlatformAdmin: false });
   });
 
   it("builds the join link when the server does not know its address", async () => {

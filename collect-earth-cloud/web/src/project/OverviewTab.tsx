@@ -1,3 +1,4 @@
+import Alert from "@mui/material/Alert";
 import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
 import Chip from "@mui/material/Chip";
@@ -23,6 +24,7 @@ import { Loading } from "../components/Loading";
 import { formatDate, formatNumber } from "../format";
 import { useT } from "../i18n";
 import type { ProjectTab } from "../router";
+import { storageLevel, storagePercent, storageText, storageWarningKey } from "../storageUse";
 import { useLoad } from "../useLoad";
 
 async function loadOverview(projectId: string) {
@@ -42,6 +44,38 @@ function Stat({ label, value }: { label: string; value: string }) {
         {value}
       </Typography>
       <Typography color="text.secondary">{label}</Typography>
+    </Paper>
+  );
+}
+
+/** "Space used: 12 MB of 200 MB", a bar when there is a limit, and a warning when nearly full or over. */
+function StorageUse({ usedBytes, limitBytes }: { usedBytes: number; limitBytes: number | null }) {
+  const t = useT();
+  const { language } = useApp();
+  const level = storageLevel(usedBytes, limitBytes);
+  const percent = storagePercent(usedBytes, limitBytes);
+  const warning = storageWarningKey(level);
+  const text = storageText(usedBytes, limitBytes, t, language);
+  return (
+    <Paper variant="outlined" sx={{ p: { xs: 2, sm: 3 } }}>
+      <Typography sx={{ fontWeight: 500 }}>{text}</Typography>
+      {percent !== null && (
+        <LinearProgress
+          variant="determinate"
+          value={percent}
+          color={level === "over" ? "error" : level === "nearlyFull" ? "warning" : "primary"}
+          sx={{ my: 1, height: 8, borderRadius: 4 }}
+          aria-label={text}
+        />
+      )}
+      <Typography variant="body2" color="text.secondary">
+        {t("storage.explain")}
+      </Typography>
+      {warning && (
+        <Alert severity={level === "over" ? "error" : "warning"} sx={{ mt: 2 }}>
+          {t(warning)}
+        </Alert>
+      )}
     </Paper>
   );
 }
@@ -144,6 +178,8 @@ export function OverviewTab({ projectId, onGo }: { projectId: string; onGo: (tab
           <Stat label={t("overview.people")} value={n(overview.members)} />
         </Grid>
       </Grid>
+
+      {overview.storage && <StorageUse usedBytes={overview.storage.usedBytes} limitBytes={overview.storage.limitBytes} />}
 
       <Paper variant="outlined" sx={{ p: { xs: 2, sm: 3 } }}>
         <Typography variant="h2" gutterBottom>

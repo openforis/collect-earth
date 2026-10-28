@@ -3,6 +3,7 @@ import { secretsEqual } from '../accountRules.js';
 import { bearerToken } from '../auth.js';
 import type { Config } from '../config.js';
 import { recordsCsv } from '../export.js';
+import { storageSummary } from '../limits.js';
 import type { Store } from '../store/store.js';
 import { requireProjectMembership } from '../plugins/projectAuth.js';
 
@@ -47,6 +48,12 @@ export async function registerProjectRoutes(
       const settings = await store.getSettings();
       if (settings.projectCreation !== 'anyone' && !user.isPlatformAdmin) {
         return reply.code(403).send({ error: 'project_creation_restricted' });
+      }
+      // Per-account limit on the projects one coordinates (the hosted model).
+      // Platform admins own the server and are exempt.
+      const limit = settings.maxProjectsPerUser;
+      if (limit > 0 && !user.isPlatformAdmin && (await store.countCoordinatedProjects(user.id)) >= limit) {
+        return reply.code(403).send({ error: 'project_limit_reached', limit });
       }
       // The Phase-0 tokens are minted but not returned: the creator works with
       // their session, as a project admin member.
@@ -117,6 +124,27 @@ export async function registerProjectRoutes(
     },
   );
 
+  // Delete the project and all its data (admin). The body must repeat the project
+  // name, so a slip of the mouse cannot do it. Cannot be undone.
+  app.delete(
+    '/v1/projects/:pid',
+    { preHandler: requireProjectMembership(store, 'admin') },
+    async (request: FastifyRequest, reply: FastifyReply) => {
+      const projectId = request.membership!.projectId;
+      const project = await store.getProject(projectId);
+      if (!project) {
+        return reply.code(404).send({ error: 'not_found' });
+      }
+      const body = (request.body ?? {}) as { confirmName?: unknown };
+      const confirmName = typeof body.confirmName === 'string' ? body.confirmName.trim() : '';
+      if (confirmName !== project.name.trim()) {
+        return reply.code(400).send({ error: 'confirm_mismatch', reason: 'confirmName must be the project name' });
+      }
+      await store.deleteProject(projectId);
+      return reply.code(204).send();
+    },
+  );
+
   // Dashboard overview (admin): what has been set up and how collection is going.
   // Deleted records (tombstones) are not counted.
   app.get(
@@ -128,11 +156,12 @@ export async function registerProjectRoutes(
       if (!project) {
         return reply.code(404).send({ error: 'not_found' });
       }
-      const [cep, members, csvFiles, records] = await Promise.all([
+      const [cep, members, csvFiles, records, storage] = await Promise.all([
         store.getCepInfo(projectId),
         store.listMembers(projectId),
         store.listCsvFiles(projectId),
         store.listRecords(projectId),
+        storageSummary(store, projectId),
       ]);
       const byOperator = new Map<string, { operator: string; total: number; submitted: number; lastModifiedOn: number }>();
       let submitted = 0;
@@ -157,6 +186,7 @@ export async function registerProjectRoutes(
           submitted,
           byOperator: [...byOperator.values()].sort((a, b) => a.operator.localeCompare(b.operator)),
         },
+        storage,
       });
     },
   );

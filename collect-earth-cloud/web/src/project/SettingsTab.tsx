@@ -1,17 +1,20 @@
 import Alert from "@mui/material/Alert";
 import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
+import Link from "@mui/material/Link";
 import Paper from "@mui/material/Paper";
 import Stack from "@mui/material/Stack";
 import TextField from "@mui/material/TextField";
 import Typography from "@mui/material/Typography";
+import DeleteForever from "@mui/icons-material/DeleteForever";
 import { useState, type FormEvent } from "react";
-import { renameProject } from "../api";
+import { deleteProject, renameProject } from "../api";
 import { useApp } from "../appContext";
 import { ErrorAlert } from "../components/ErrorAlert";
 import { useT } from "../i18n";
+import { linkProps, navigate, pathFor } from "../router";
 
-export function SettingsTab({ projectId, name, onRenamed }: { projectId: string; name: string; onRenamed: (name: string) => void }) {
+function RenameCard({ projectId, name, onRenamed }: { projectId: string; name: string; onRenamed: (name: string) => void }) {
   const t = useT();
   const { refreshMe } = useApp();
   const [value, setValue] = useState(name);
@@ -71,5 +74,66 @@ export function SettingsTab({ projectId, name, onRenamed }: { projectId: string;
         </Box>
       </Stack>
     </Paper>
+  );
+}
+
+/** The danger zone: deleting the project, confirmed by typing its name. */
+function DeleteCard({ projectId, name }: { projectId: string; name: string }) {
+  const t = useT();
+  const { refreshMe } = useApp();
+  const [typed, setTyped] = useState("");
+  const [error, setError] = useState<unknown>(null);
+  const [busy, setBusy] = useState(false);
+  const matches = typed.trim() === name.trim();
+
+  const submit = async (event: FormEvent) => {
+    event.preventDefault();
+    if (!matches) return;
+    setError(null);
+    setBusy(true);
+    try {
+      await deleteProject(projectId, typed.trim());
+      await refreshMe();
+      navigate("/", { replace: true });
+    } catch (err) {
+      setError(err);
+      setBusy(false);
+    }
+  };
+
+  return (
+    <Paper variant="outlined" sx={{ p: { xs: 2, sm: 3 }, borderColor: "error.main" }}>
+      <Stack component="form" spacing={2} onSubmit={submit} noValidate>
+        <Typography variant="h2" color="error">
+          {t("settings.deleteTitle")}
+        </Typography>
+        <Typography>{t("settings.deleteText")}</Typography>
+        <Alert severity="warning">
+          {t("settings.deleteDataFirst")} <Link {...linkProps(pathFor({ name: "project", projectId, tab: "data" }))}>{t("settings.deleteGoData")}</Link>
+        </Alert>
+        <TextField
+          label={t("settings.deleteConfirm", { name })}
+          value={typed}
+          onChange={(e) => setTyped(e.target.value)}
+          autoComplete="off"
+          slotProps={{ htmlInput: { spellCheck: false } }}
+        />
+        <ErrorAlert error={error} />
+        <Box>
+          <Button type="submit" variant="contained" color="error" startIcon={<DeleteForever />} disabled={busy || !matches}>
+            {t("settings.deleteSubmit")}
+          </Button>
+        </Box>
+      </Stack>
+    </Paper>
+  );
+}
+
+export function SettingsTab({ projectId, name, onRenamed }: { projectId: string; name: string; onRenamed: (name: string) => void }) {
+  return (
+    <Stack spacing={3}>
+      <RenameCard projectId={projectId} name={name} onRenamed={onRenamed} />
+      <DeleteCard projectId={projectId} name={name} />
+    </Stack>
   );
 }

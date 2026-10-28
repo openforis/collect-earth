@@ -1,5 +1,10 @@
 import Alert from "@mui/material/Alert";
 import Button from "@mui/material/Button";
+import Checkbox from "@mui/material/Checkbox";
+import Collapse from "@mui/material/Collapse";
+import FormControl from "@mui/material/FormControl";
+import FormControlLabel from "@mui/material/FormControlLabel";
+import FormHelperText from "@mui/material/FormHelperText";
 import Link from "@mui/material/Link";
 import TextField from "@mui/material/TextField";
 import Typography from "@mui/material/Typography";
@@ -29,17 +34,23 @@ export function LoginPage({ mode, sessionEnded }: { mode: "login" | "signup"; se
   const [problem, setProblem] = useState<MessageKey | null>(null);
   const [error, setError] = useState<unknown>(null);
   const [busy, setBusy] = useState(false);
+  const [acceptTerms, setAcceptTerms] = useState(false);
+  const [forgotOpen, setForgotOpen] = useState(false);
+  const needsTerms = signingUp && info.termsUrl !== null;
 
   const submit = async () => {
     setError(null);
     let found: MessageKey | null;
-    if (signingUp) found = usernameProblem(username) ?? passwordProblem(password, repeated);
-    else found = !username.trim() || !password ? "error.fillBoth" : null;
+    if (signingUp) {
+      found = usernameProblem(username) ?? passwordProblem(password, repeated) ?? (needsTerms && !acceptTerms ? "error.termsNotAccepted" : null);
+    } else found = !username.trim() || !password ? "error.fillBoth" : null;
     setProblem(found);
     if (found) return;
     setBusy(true);
     try {
-      const session = signingUp ? await signup(username.trim(), password, email.trim() || undefined) : await login(username.trim(), password);
+      const session = signingUp
+        ? await signup(username.trim(), password, email.trim() || undefined, needsTerms && acceptTerms)
+        : await login(username.trim(), password);
       await loggedIn(session);
     } catch (err) {
       setError(err);
@@ -95,9 +106,26 @@ export function LoginPage({ mode, sessionEnded }: { mode: "login" | "signup"; se
               onChange={(e) => setEmail(e.target.value)}
               autoComplete="email"
             />
+            {needsTerms && (
+              <FormControl error={problem === "error.termsNotAccepted"} required>
+                <FormControlLabel
+                  control={<Checkbox checked={acceptTerms} onChange={(e) => setAcceptTerms(e.target.checked)} required />}
+                  label={t("signup.acceptTerms")}
+                />
+                <FormHelperText sx={{ ml: 0 }}>
+                  <Link href={info.termsUrl!} target="_blank" rel="noopener noreferrer">
+                    {t("signup.readTerms")}
+                  </Link>
+                </FormHelperText>
+              </FormControl>
+            )}
           </>
         )}
-        {problem === "error.fillBoth" && <Alert severity="warning" role="alert">{t(problem)}</Alert>}
+        {(problem === "error.fillBoth" || problem === "error.termsNotAccepted") && (
+          <Alert severity="warning" role="alert">
+            {t(problem)}
+          </Alert>
+        )}
         <ErrorAlert error={error} />
         <Button type="submit" variant="contained" size="large" disabled={busy}>
           {signingUp ? t("signup.submit") : t("login.submit")}
@@ -113,9 +141,22 @@ export function LoginPage({ mode, sessionEnded }: { mode: "login" | "signup"; se
                 {t("login.noAccount")} <Link {...linkProps("/signup")}>{t("login.createAccount")}</Link>
               </Typography>
             )}
-            <Typography variant="body2" color="text.secondary">
-              {t("login.forgot")}
-            </Typography>
+            <div>
+              <Link component="button" type="button" variant="body2" onClick={() => setForgotOpen((open) => !open)} aria-expanded={forgotOpen}>
+                {t("login.forgotLink")}
+              </Link>
+              <Collapse in={forgotOpen}>
+                <Alert severity="info" sx={{ mt: 1 }}>
+                  {t("login.forgotText")}
+                  {info.contactEmail && (
+                    <>
+                      {" "}
+                      <Link href={`mailto:${info.contactEmail}`}>{t("login.forgotContact", { email: info.contactEmail })}</Link>
+                    </>
+                  )}
+                </Alert>
+              </Collapse>
+            </div>
             <Typography variant="body2" color="text.secondary">
               {t("login.collectorHint")}
             </Typography>

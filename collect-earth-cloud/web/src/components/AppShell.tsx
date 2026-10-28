@@ -4,6 +4,7 @@ import Button from "@mui/material/Button";
 import Container from "@mui/material/Container";
 import Divider from "@mui/material/Divider";
 import IconButton from "@mui/material/IconButton";
+import Link from "@mui/material/Link";
 import ListItemIcon from "@mui/material/ListItemIcon";
 import Menu from "@mui/material/Menu";
 import MenuItem from "@mui/material/MenuItem";
@@ -110,16 +111,41 @@ function AccountMenu() {
   );
 }
 
-/** The app bar (name, language, account) and the page column. */
+/** Terms of use and the contact address, when the server administrator set them. */
+function Footer() {
+  const t = useT();
+  const { info } = useApp();
+  if (!info.termsUrl && !info.contactEmail) return null;
+  return (
+    <Box
+      component="footer"
+      sx={{ mt: "auto", py: 2, px: 2, display: "flex", gap: 3, justifyContent: "center", flexWrap: "wrap", color: "text.secondary" }}
+    >
+      {info.termsUrl && (
+        <Link href={info.termsUrl} target="_blank" rel="noopener noreferrer" variant="body2" color="inherit">
+          {t("footer.terms")}
+        </Link>
+      )}
+      {info.contactEmail && (
+        <Link href={`mailto:${info.contactEmail}`} variant="body2" color="inherit" sx={{ wordBreak: "break-word" }}>
+          {t("footer.contact", { email: info.contactEmail })}
+        </Link>
+      )}
+    </Box>
+  );
+}
+
+/** The app bar (name, language, account), the page column and the footer. */
 export function AppShell({ children, narrow }: { children: ReactNode; narrow?: boolean }) {
   const t = useT();
+  const { info } = useApp();
   return (
-    <Box sx={{ minHeight: "100vh", bgcolor: "background.default" }}>
+    <Box sx={{ minHeight: "100vh", bgcolor: "background.default", display: "flex", flexDirection: "column" }}>
       <AppBar position="sticky" color="primary">
         <Toolbar sx={{ gap: 1 }}>
           <Button color="inherit" {...linkProps("/")} startIcon={<Public />} sx={{ fontSize: "1.1rem", px: 1, mr: "auto", minWidth: 0 }}>
             <Typography component="span" variant="inherit" noWrap>
-              {t("app.title")}
+              {info.serverName ?? t("app.title")}
             </Typography>
           </Button>
           <LanguageMenu />
@@ -129,6 +155,7 @@ export function AppShell({ children, narrow }: { children: ReactNode; narrow?: b
       <Container component="main" maxWidth={narrow ? "sm" : "md"} sx={{ py: { xs: 2, sm: 4 }, px: { xs: 2, sm: 3 } }}>
         {children}
       </Container>
+      <Footer />
     </Box>
   );
 }

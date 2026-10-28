@@ -30,6 +30,9 @@ npm run dev       # STORE_BACKEND defaults to "memory"
 
 ## Deployment
 
+To run your own server on Google Cloud without technical knowledge, follow
+[`SELF-HOSTING.md`](SELF-HOSTING.md): one button and one script.
+
 For production (Cloud Run + Cloud SQL, or any Docker host + managed Postgres),
 required env vars, and how to onboard projects, see [`DEPLOY.md`](DEPLOY.md).
 
@@ -71,7 +74,7 @@ session tokens** (from login, access via `project_members`).
 | `GET`  | `/v1/projects` | session | The caller's projects (only) |
 | `POST` | `/v1/projects/:pid/invites` | admin | Mint a join invite `{role?, maxUses?, expiresInDays?}` → `{inviteToken, joinPath, joinUrl, role, maxUses, expiresAt}` (`joinUrl` always absolute, see below) |
 | `GET`  | `/v1/join/:token` | none | Invite preview `{projectId, projectName, role, valid}` (`valid:false` when expired, used up or revoked) |
-| `PUT`  | `/v1/projects/:pid/cep` | admin | Upload the CEP zip (raw `application/zip` body) |
+| `PUT`  | `/v1/projects/:pid/cep` | admin | Upload the CEP zip (raw `application/zip` body); 413 `storage_limit_reached` over the project's space limit |
 | `GET`  | `/v1/projects/:pid/cep` | member | Download the CEP zip (join bootstrap) |
 | `GET`  | `/v1/projects/:pid/members` | admin | List members |
 | `PUT`  | `/v1/projects/:pid/members/:uid` | admin | Change role (last-admin demotion refused) |
@@ -81,19 +84,22 @@ session tokens** (from login, access via `project_members`).
 
 | Method | Path | Auth | Purpose |
 | --- | --- | --- | --- |
-| `GET`  | `/v1/server-info` | none | `{needsSetup, signupOpen, projectCreation, version}` |
+| `GET`  | `/v1/server-info` | none | `{needsSetup, signupOpen, projectCreation, version, termsUrl, contactEmail, serverName}` (the last three `null` when not set) |
 | `POST` | `/v1/setup` | setup code in body | `{setupCode, username, password}` → 201 `{token, userId, username}` (the platform admin, logged in); 403 `bad_setup_code`; 409 `already_set_up` / `username_taken`; 400 `bad_username` / `weak_password` |
-| `POST` | `/v1/auth/signup` | none | `{username, password, email?}` → 201 `{token, userId, username}`; 403 `signup_closed`; 409 `username_taken`; 400 `bad_username` / `weak_password` |
+| `POST` | `/v1/auth/signup` | none | `{username, password, email?, acceptTerms?}` → 201 `{token, userId, username}`; 403 `signup_closed`; 409 `username_taken`; 400 `bad_username` / `weak_password` / `terms_not_accepted` (when `termsUrl` is set and `acceptTerms` is not `true`; the acceptance time is stored as `users.terms_accepted_at`) |
 | `POST` | `/v1/auth/reset` | reset token in body | `{token, newPassword}` → 204, revokes all the user's sessions; 410 `invalid_reset_token` (unknown, used or expired); 400 `weak_password` |
 | `PUT`  | `/v1/me/password` | session | `{currentPassword, newPassword}` → 204; 401 `invalid_credentials`; 400 `weak_password` |
-| `POST` | `/v1/projects` | session | Allowed when `projectCreation` is `anyone` or the caller is a platform admin (else 403 `project_creation_restricted`); the caller becomes its admin → 201 `{projectId, name}` |
+| `GET`  | `/v1/me/deletion` | session | What deleting the account would do: `{soleCoordinator: [{projectId, name}], deletedWithAccount: [{projectId, name}], lastPlatformAdmin}` |
+| `DELETE` | `/v1/me` | session | `{password}` → 204: deletes the account (sessions, memberships, assignments, reset links) and the projects where it is the only member and coordinator. Records it uploaded stay in their projects. 401 `invalid_credentials`; 409 `last_platform_admin`; 409 `sole_coordinator` `{projects: [{projectId, name}]}` (only coordinator of a project others are in: hand it over or delete it first) |
+| `POST` | `/v1/projects` | session | Allowed when `projectCreation` is `anyone` or the caller is a platform admin (else 403 `project_creation_restricted`); the caller becomes its admin → 201 `{projectId, name}`. 403 `project_limit_reached` `{limit}` when the caller already coordinates `maxProjectsPerUser` projects (platform admins exempt) |
 | `PATCH` | `/v1/projects/:pid` | admin | `{name}` → `{projectId, name}` |
-| `GET`  | `/v1/projects/:pid/overview` | admin | `{name, cep: {bytes, updatedAt} \| null, members, csvFiles, plots, records: {total, submitted, byOperator: [{operator, total, submitted, lastModifiedOn}]}}` — deleted records excluded, times in epoch ms |
+| `DELETE` | `/v1/projects/:pid` | admin | `{confirmName}` (must equal the project name, else 400 `confirm_mismatch`) → 204: deletes the project and all its data — records, CEP, plot CSVs, assignments, invites, memberships, Phase-0 tokens — in one transaction. Cannot be undone |
+| `GET`  | `/v1/projects/:pid/overview` | admin | `{name, cep: {bytes, updatedAt} \| null, members, csvFiles, plots, records: {total, submitted, byOperator: [{operator, total, submitted, lastModifiedOn}]}, storage: {usedBytes, limitBytes \| null}}` — deleted records excluded from the counts, times in epoch ms; `storage` = CEP + CSV bytes + stored record xml/summary bytes |
 | `GET`  | `/v1/projects/:pid/invites` | admin | Open invites (not revoked, expired or used up) `{invites: [{id, role, maxUses, usedCount, expiresAt, createdAt}]}` — the token is only shown at creation |
 | `DELETE` | `/v1/projects/:pid/invites/:id` | admin | Revoke → 204 (404 if not an open invite of this project) |
 | `GET`  | `/v1/projects/:pid/export.csv` | admin | One row per non-deleted `(recordKey, operator)`: `record_key, operator, actively_saved, modified_on` (ISO 8601) + the sorted union of summary keys; RFC 4180, UTF-8 BOM, `content-disposition: attachment` |
-| `GET` / `PUT` | `/v1/admin/settings` | platform admin | `{signupOpen, projectCreation: "anyone" \| "platform-admins"}` (PUT takes either field, returns the result) |
-| `GET`  | `/v1/admin/users` | platform admin | `{users: [{userId, username, isPlatformAdmin, projects}]}` — a project **count**, no names (§4b) |
+| `GET` / `PUT` | `/v1/admin/settings` | platform admin | `{signupOpen, projectCreation: "anyone" \| "platform-admins", maxProjectsPerUser, maxProjectStorageMb, termsUrl, contactEmail, serverName}` — limits are whole numbers, 0 = no limit; `termsUrl` http(s) only; text fields `null`/`""` clear them. PUT takes any subset, 400 `bad_request` on a bad value, returns the result |
+| `GET`  | `/v1/admin/users` | platform admin | `{users: [{userId, username, isPlatformAdmin, projects, coordinatedProjects}]}` — project **counts** (any role / as coordinator), no names (§4b) |
 | `POST` | `/v1/admin/users/:uid/password-reset` | platform admin | 201 `{resetUrl, expiresAt}` — single use, 7 days |
 
 `GET /v1/me` also returns `isPlatformAdmin`. A platform admin owns the server
@@ -109,7 +115,13 @@ it always did.
 `login`, `register`, `signup`, `setup` and `reset` are rate limited per client IP
 (`RATE_LIMIT_PER_MINUTE`, default 10) → 429 `rate_limited`. The server trusts
 `x-forwarded-*` (it runs behind a proxy). Join and reset links use
-`PUBLIC_BASE_URL`, else `RENDER_EXTERNAL_URL`, else the request's proto/host.
+`PUBLIC_BASE_URL`, else `RENDER_EXTERNAL_URL` (if the host sets it), else the request's proto/host.
+
+**Limits.** `maxProjectStorageMb` refuses coordinator uploads (`PUT …/cep`, `PUT …/csv-files/:filename`)
+that would take the project over the limit with 413 `storage_limit_reached` `{usedBytes, limitBytes}`
+(a replaced CEP or same-name CSV is not counted twice). Collectors' `records:batch` uploads are
+**never** refused because of it — losing field data is worse; the overview shows the space used
+and the dashboard warns from 90 % and above 100 %.
 
 The built dashboard (`web/dist`, built from [`web/`](web)) is served at `/`; any
 other `GET` that accepts HTML and is not under `/v1/` or `/health` returns its
@@ -120,7 +132,7 @@ other `GET` that accepts HTML and is not under `/v1/` or `/health` returns its
 
 | Method | Path | Auth | Purpose |
 | --- | --- | --- | --- |
-| `PUT`  | `/v1/projects/:pid/csv-files/:filename` | admin | Upload/replace a plot CSV (raw `text/csv`) → `{id,checksum,plotCount}` |
+| `PUT`  | `/v1/projects/:pid/csv-files/:filename` | admin | Upload/replace a plot CSV (raw `text/csv`) → `{id,checksum,plotCount}`; 413 `storage_limit_reached` over the project's space limit |
 | `GET`  | `/v1/projects/:pid/csv-files` | admin | List CSV files |
 | `GET`  | `/v1/projects/:pid/csv-files/:id/content` | member | Download CSV bytes (operator: only if assigned); checksum in `x-checksum-sha256` |
 | `PUT`  | `/v1/projects/:pid/assignments` | admin | Replace the csv↔operator assignment set |
@@ -187,6 +199,7 @@ src/
   accountRules.ts      username/password rules, setup code, public base URL
   rateLimit.ts         in-memory per-IP limiter for the auth endpoints
   export.ts            records -> CSV
+  limits.ts            per-project storage limit checks (projects-per-account is in routes/projects.ts)
   plugins/projectAuth  membership / session / platform-admin preHandlers (401 / 404 / 403)
   routes/projects.ts   provision, ping, survey upload, rename, overview, export
   routes/platform.ts   my projects, invites, CEP, members
@@ -195,13 +208,13 @@ src/
   routes/assignments.ts plot CSVs and assignments
   routes/records.ts    records:batch intake
   store/               Store interface + InMemoryStore + PostgresStore + migrate
-migrations/*.sql       schema + RLS (004: platform admin, settings, resets, invite revocation)
+migrations/*.sql       schema + RLS (004: platform admin, settings, resets, invite revocation; 005: terms_accepted_at)
 test/                  isolation, sync, accounts, dashboard (in-memory store)
 web/                   the React dashboard (own package.json; built into web/dist)
 ```
 
 ## Not yet implemented (later phases)
 
-Email (verification, self-service password reset), deleting a project, export of
+Email (verification, self-service password reset), export of
 record XML / a Collect backup, the Phase C review workflow, argon2id, GCS for
 artifacts.

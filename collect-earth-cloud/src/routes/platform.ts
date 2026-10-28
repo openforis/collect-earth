@@ -1,6 +1,7 @@
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import { publicBaseUrl } from '../accountRules.js';
 import type { Config } from '../config.js';
+import { checkUploadFits } from '../limits.js';
 import { requireProjectMembership, requireSession } from '../plugins/projectAuth.js';
 import type { Store } from '../store/store.js';
 import type { Role } from '../types.js';
@@ -115,6 +116,10 @@ export async function registerPlatformRoutes(app: FastifyInstance, store: Store,
       const cep = request.body;
       if (!Buffer.isBuffer(cep) || cep.length === 0) {
         return reply.code(400).send({ error: 'bad_request', reason: 'expected a non-empty zip body' });
+      }
+      const over = await checkUploadFits(store, request.membership!.projectId, { kind: 'cep' }, cep.length);
+      if (over) {
+        return reply.code(413).send(over);
       }
       await store.putCep(request.membership!.projectId, cep);
       return reply.send({ ok: true, bytes: cep.length });

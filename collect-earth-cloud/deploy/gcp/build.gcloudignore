@@ -1,0 +1,11 @@
+# Files NOT uploaded to Cloud Build by deploy.sh (the build context is collect-earth-cloud/).
+.gcloudignore
+.git
+.gitignore
+node_modules/
+web/node_modules/
+web/dist/
+coverage/
+*.log
+.env
+.env.local

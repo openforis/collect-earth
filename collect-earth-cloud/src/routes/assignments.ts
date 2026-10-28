@@ -1,5 +1,6 @@
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import type { Config } from '../config.js';
+import { checkUploadFits } from '../limits.js';
 import { requireProjectMembership } from '../plugins/projectAuth.js';
 import type { Store } from '../store/store.js';
 import type { Assignment } from '../types.js';
@@ -28,6 +29,10 @@ export async function registerAssignmentRoutes(app: FastifyInstance, store: Stor
       const data = request.body;
       if (!Buffer.isBuffer(data) || data.length === 0) {
         return reply.code(400).send({ error: 'bad_request', reason: 'expected a non-empty CSV body' });
+      }
+      const over = await checkUploadFits(store, request.membership!.projectId, { kind: 'csv', filename }, data.length);
+      if (over) {
+        return reply.code(413).send(over);
       }
       const meta = await store.putCsvFile(request.membership!.projectId, filename, data);
       return reply.code(201).send(meta);

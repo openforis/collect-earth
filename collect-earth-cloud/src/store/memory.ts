@@ -12,6 +12,7 @@ import {
   type Member,
   type Membership,
   type ProjectRow,
+  type ProjectStorage,
   type RecordRow,
   type Role,
   type ServerSettings,
@@ -109,6 +110,41 @@ export class InMemoryStore implements Store {
     this.requireProject(projectId).project.name = name;
   }
 
+  async deleteProject(projectId: string): Promise<void> {
+    this.projects.delete(projectId);
+    for (const [hash, t] of this.tokens) {
+      if (t.projectId === projectId) {
+        this.tokens.delete(hash);
+      }
+    }
+    for (const key of this.memberships.keys()) {
+      if (key.startsWith(`${projectId} `)) {
+        this.memberships.delete(key);
+      }
+    }
+    for (const [hash, invite] of this.invites) {
+      if (invite.projectId === projectId) {
+        this.invites.delete(hash);
+      }
+    }
+  }
+
+  async getProjectStorage(projectId: string): Promise<ProjectStorage> {
+    const entry = this.projects.get(projectId);
+    const storage: ProjectStorage = { cepBytes: 0, csvBytesByFilename: {}, recordBytes: 0 };
+    if (!entry) {
+      return storage;
+    }
+    storage.cepBytes = entry.cep?.length ?? 0;
+    for (const f of entry.csvFiles.values()) {
+      storage.csvBytesByFilename[f.filename] = f.data.length;
+    }
+    for (const r of entry.records.values()) {
+      storage.recordBytes += Buffer.byteLength(r.xml ?? '', 'utf8') + Buffer.byteLength(JSON.stringify(r.summary), 'utf8');
+    }
+    return storage;
+  }
+
   async resolveToken(token: string): Promise<TokenMembership | null> {
     return this.tokens.get(hashToken(token)) ?? null;
   }
@@ -161,8 +197,13 @@ export class InMemoryStore implements Store {
 
   // --- Users & sessions ---
 
-  async createUser(input: { username: string; passwordHash: string; email: string | null }): Promise<User> {
-    return this.insertUser({ ...input, isPlatformAdmin: false });
+  async createUser(input: {
+    username: string;
+    passwordHash: string;
+    email: string | null;
+    termsAcceptedAt?: number | null;
+  }): Promise<User> {
+    return this.insertUser({ ...input, termsAcceptedAt: input.termsAcceptedAt ?? null, isPlatformAdmin: false });
   }
 
   private insertUser(input: Omit<User, 'id'>): User {
@@ -214,10 +255,41 @@ export class InMemoryStore implements Store {
     }
   }
 
+  async deleteUser(userId: string): Promise<void> {
+    const user = this.users.get(userId);
+    if (!user) {
+      return;
+    }
+    await this.deleteUserSessions(userId);
+    for (const key of this.memberships.keys()) {
+      if (key.endsWith(` ${userId}`)) {
+        this.memberships.delete(key);
+      }
+    }
+    for (const entry of this.projects.values()) {
+      for (const a of entry.assignments) {
+        if (a.startsWith(`${userId} `)) {
+          entry.assignments.delete(a);
+        }
+      }
+    }
+    for (const [hash, reset] of this.resets) {
+      if (reset.userId === userId) {
+        this.resets.delete(hash);
+      }
+    }
+    this.usersByName.delete(user.username);
+    this.users.delete(userId);
+  }
+
   // --- Platform administration ---
 
   async hasPlatformAdmin(): Promise<boolean> {
     return [...this.users.values()].some((u) => u.isPlatformAdmin);
+  }
+
+  async countPlatformAdmins(): Promise<number> {
+    return [...this.users.values()].filter((u) => u.isPlatformAdmin).length;
   }
 
   async createFirstPlatformAdmin(input: { username: string; passwordHash: string }): Promise<User | null> {
@@ -225,7 +297,7 @@ export class InMemoryStore implements Store {
     if (await this.hasPlatformAdmin()) {
       return null;
     }
-    return this.insertUser({ ...input, email: null, isPlatformAdmin: true });
+    return this.insertUser({ ...input, email: null, termsAcceptedAt: null, isPlatformAdmin: true });
   }
 
   async getSettings(): Promise<ServerSettings> {
@@ -239,12 +311,22 @@ export class InMemoryStore implements Store {
 
   async listUsers(): Promise<UserSummary[]> {
     const counts = new Map<string, number>();
-    for (const key of this.memberships.keys()) {
+    const coordinated = new Map<string, number>();
+    for (const [key, role] of this.memberships) {
       const userId = key.split(' ')[1];
       counts.set(userId, (counts.get(userId) ?? 0) + 1);
+      if (role === 'admin') {
+        coordinated.set(userId, (coordinated.get(userId) ?? 0) + 1);
+      }
     }
     return [...this.users.values()]
-      .map((u) => ({ userId: u.id, username: u.username, isPlatformAdmin: u.isPlatformAdmin, projects: counts.get(u.id) ?? 0 }))
+      .map((u) => ({
+        userId: u.id,
+        username: u.username,
+        isPlatformAdmin: u.isPlatformAdmin,
+        projects: counts.get(u.id) ?? 0,
+        coordinatedProjects: coordinated.get(u.id) ?? 0,
+      }))
       .sort((a, b) => a.username.localeCompare(b.username));
   }
 
@@ -317,6 +399,16 @@ export class InMemoryStore implements Store {
     let count = 0;
     for (const [key, role] of this.memberships) {
       if (key.startsWith(`${projectId} `) && role === 'admin') {
+        count += 1;
+      }
+    }
+    return count;
+  }
+
+  async countCoordinatedProjects(userId: string): Promise<number> {
+    let count = 0;
+    for (const [key, role] of this.memberships) {
+      if (key.endsWith(` ${userId}`) && role === 'admin') {
         count += 1;
       }
     }

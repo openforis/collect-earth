@@ -8,6 +8,7 @@ import type {
   Member,
   Membership,
   ProjectRow,
+  ProjectStorage,
   RecordRow,
   Role,
   ServerSettings,
@@ -45,6 +46,13 @@ export interface Store {
   createProject(input: { name: string }): Promise<CreateProjectResult>;
   getProject(projectId: string): Promise<ProjectRow | null>;
   renameProject(projectId: string, name: string): Promise<void>;
+  /**
+   * Deletes a project and everything in it: records, CEP, plot files, assignments,
+   * invites, memberships and its Phase-0 tokens. One transaction (Postgres).
+   */
+  deleteProject(projectId: string): Promise<void>;
+  /** Bytes the project uses (CEP, plot files, stored records). */
+  getProjectStorage(projectId: string): Promise<ProjectStorage>;
 
   /**
    * Resolves a plaintext PROJECT-scoped token (Phase 0 admin/operator tokens) to
@@ -64,7 +72,7 @@ export interface Store {
   // --- Users & sessions (Phase A) ---
 
   /** Creates a user; rejects if the username already exists. */
-  createUser(input: { username: string; passwordHash: string; email: string | null }): Promise<User>;
+  createUser(input: { username: string; passwordHash: string; email: string | null; termsAcceptedAt?: number | null }): Promise<User>;
   getUserByUsername(username: string): Promise<User | null>;
   getUserById(userId: string): Promise<User | null>;
 
@@ -76,11 +84,17 @@ export interface Store {
   /** Revokes every session of a user (password reset). */
   deleteUserSessions(userId: string): Promise<void>;
   setPassword(userId: string, passwordHash: string): Promise<void>;
+  /**
+   * Deletes an account: its sessions, memberships, assignments and reset links.
+   * Records it uploaded stay in their projects (they belong to the project).
+   */
+  deleteUser(userId: string): Promise<void>;
 
   // --- Platform administration (dashboard) ---
   // Global, not project-scoped: none of these return project data.
 
   hasPlatformAdmin(): Promise<boolean>;
+  countPlatformAdmins(): Promise<number>;
   /**
    * Creates the first platform admin atomically: returns null (and creates nothing)
    * if a platform admin already exists. Throws UsernameTakenError on a duplicate.
@@ -104,6 +118,8 @@ export interface Store {
   setMemberRole(projectId: string, userId: string, role: Role): Promise<void>;
   removeMember(projectId: string, userId: string): Promise<void>;
   countAdmins(projectId: string): Promise<number>;
+  /** How many projects the user coordinates (admin role). */
+  countCoordinatedProjects(userId: string): Promise<number>;
 
   // --- Invites (Phase A) ---
 

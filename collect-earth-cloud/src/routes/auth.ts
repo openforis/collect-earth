@@ -23,6 +23,40 @@ interface PasswordChangeBody {
   newPassword?: string;
 }
 
+interface ProjectRef {
+  projectId: string;
+  name: string;
+}
+
+/** What deleting an account would do, worked out from its memberships. */
+interface AccountDeletionPlan {
+  /** Projects the user is the only coordinator of while others are in them: refusal. */
+  soleCoordinator: ProjectRef[];
+  /** Projects where the user is the only member and coordinator: deleted with the account. */
+  deletedWithAccount: ProjectRef[];
+  /** The last platform admin cannot leave: the server would have no owner. */
+  lastPlatformAdmin: boolean;
+}
+
+async function accountDeletionPlan(store: Store, userId: string, isPlatformAdmin: boolean): Promise<AccountDeletionPlan> {
+  const plan: AccountDeletionPlan = { soleCoordinator: [], deletedWithAccount: [], lastPlatformAdmin: false };
+  for (const m of await store.listMemberships(userId)) {
+    if (m.role !== 'admin') {
+      // Not a coordinator: leaving takes nothing away from the project.
+      continue;
+    }
+    const members = await store.listMembers(m.projectId);
+    const ref = { projectId: m.projectId, name: m.projectName };
+    if (members.length <= 1) {
+      plan.deletedWithAccount.push(ref);
+    } else if (members.filter((x) => x.role === 'admin').length <= 1) {
+      plan.soleCoordinator.push(ref);
+    }
+  }
+  plan.lastPlatformAdmin = isPlatformAdmin && (await store.countPlatformAdmins()) <= 1;
+  return plan;
+}
+
 /**
  * Account registration (invite-gated), login, logout, the /me profile and password
  * change. register/login are what the desktop client calls: their contract
@@ -131,6 +165,48 @@ export async function registerAuthRoutes(
         isPlatformAdmin: user.isPlatformAdmin,
         memberships,
       });
+    },
+  );
+
+  // What deleting the caller's account would do, so the dashboard can warn first.
+  app.get(
+    '/v1/me/deletion',
+    { preHandler: requireSession(store) },
+    async (request: FastifyRequest, reply: FastifyReply) => {
+      const user = await store.getUserById(request.userId!);
+      if (!user) {
+        return reply.code(401).send({ error: 'unauthorized' });
+      }
+      return reply.send(await accountDeletionPlan(store, user.id, user.isPlatformAdmin));
+    },
+  );
+
+  // Delete the caller's account (password required). Refused while the user is the
+  // only coordinator of a project others still work in, and for the last platform
+  // admin. Projects where the user is the only member go with the account. Records
+  // the user uploaded stay: they belong to the project.
+  app.delete(
+    '/v1/me',
+    { preHandler: requireSession(store) },
+    async (request: FastifyRequest, reply: FastifyReply) => {
+      const body = (request.body ?? {}) as { password?: unknown };
+      const password = typeof body.password === 'string' ? body.password : '';
+      const user = await store.getUserById(request.userId!);
+      if (!user || !(await verifyPassword(password, user.passwordHash))) {
+        return reply.code(401).send({ error: 'invalid_credentials' });
+      }
+      const plan = await accountDeletionPlan(store, user.id, user.isPlatformAdmin);
+      if (plan.lastPlatformAdmin) {
+        return reply.code(409).send({ error: 'last_platform_admin' });
+      }
+      if (plan.soleCoordinator.length > 0) {
+        return reply.code(409).send({ error: 'sole_coordinator', projects: plan.soleCoordinator });
+      }
+      for (const p of plan.deletedWithAccount) {
+        await store.deleteProject(p.projectId);
+      }
+      await store.deleteUser(user.id);
+      return reply.code(204).send();
     },
   );
 

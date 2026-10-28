@@ -9,9 +9,8 @@ async function main(): Promise<void> {
   const config = loadConfig();
 
   // Optional self-initialising deploy: apply pending migrations before listening.
-  // Migrations are idempotent, so this is safe to leave on for every boot. On a
-  // multi-instance deploy prefer running `npm run migrate` as a one-off release
-  // step instead, to avoid concurrent migration races on cold start.
+  // Migrations are idempotent and run under a Postgres advisory lock, so this is
+  // safe to leave on for every boot, also when several instances start at once.
   if (config.migrateOnBoot) {
     if (config.storeBackend !== 'postgres' || !config.databaseUrl) {
       throw new Error('MIGRATE_ON_BOOT requires STORE_BACKEND=postgres and DATABASE_URL');

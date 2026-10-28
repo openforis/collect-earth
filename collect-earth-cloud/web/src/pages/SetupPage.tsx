@@ -49,7 +49,7 @@ export function SetupPage() {
       <FormCard title={t("setup.title")} intro={t("setup.intro")} onSubmit={submit}>
         <Alert severity="info" icon={false}>
           <AlertTitle>{t("setup.whereTitle")}</AlertTitle>
-          <p style={{ margin: "0 0 8px" }}>{t("setup.whereRender")}</p>
+          <p style={{ margin: "0 0 8px" }}>{t("setup.whereGoogle")}</p>
           <p style={{ margin: 0 }}>{t("setup.whereOther")}</p>
         </Alert>
         <TextField
