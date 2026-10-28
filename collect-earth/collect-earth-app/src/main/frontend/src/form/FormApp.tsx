@@ -91,9 +91,9 @@ function ReadyForm({ store, state, model }: { store: FormStore; state: FormState
     }));
   }, [store, goTo]);
 
-  // Errors after a submit: to the first one, on the tab the submit moved to
+  // Errors after a submit: to the first one, on the tab the submit moved to (not those listed on opening the plot)
   useEffect(() => {
-    if (!state.submitErrors?.length) return;
+    if (!state.submitErrors?.length || store.getState().incomplete) return;
     const first = state.submitErrors.find((e) => e.tab === store.getState().tab) ?? state.submitErrors[0];
     goToField(first.tab, first.field.name);
   }, [state.submitErrors, store, goToField]);
@@ -198,7 +198,9 @@ function ErrorSummary({ store, state, model, onGo }: { store: FormStore; state: 
   return (
     <Alert severity="error" data-testid="entry-errors">
       <Typography variant="body2" sx={{ fontWeight: 600, mb: 0.5 }}>
-        {errors.length === 1 ? t("entry.errorsOne") : t("entry.errorsMany", { count: errors.length })}
+        {state.incomplete
+          ? errors.length === 1 ? t("entry.incompleteOne") : t("entry.incompleteMany", { count: errors.length })
+          : errors.length === 1 ? t("entry.errorsOne") : t("entry.errorsMany", { count: errors.length })}
       </Typography>
       {tabs.map((tab) => (
         <Box key={tab} sx={{ "& + &": { mt: 0.5 } }}>
@@ -433,6 +435,7 @@ function MultipleEntities({ store, state, item }: { store: FormStore; state: For
   const t = useT();
   const count = entityCount(item, state.infos);
   const busy = state.entityBusy === item.entity;
+  const failure = state.entityFailure?.entity === item.entity ? state.entityFailure : null;
   return (
     <Stack spacing={1.5} data-testid={`entry-multiple-${item.entity}`}>
       <SectionTitle label={item.label} description={item.description} />
@@ -450,6 +453,12 @@ function MultipleEntities({ store, state, item }: { store: FormStore; state: For
           </CardContent>
         </Card>
       ))}
+      {failure && (
+        <Alert severity="error" data-testid="entry-entity-failed"
+          action={<Button color="inherit" size="small" onClick={() => void (failure.action === "add" ? store.addEntity(item.entity) : store.deleteEntity(item.entity))}>{t("entry.retry")}</Button>}>
+          {t(failure.action === "add" ? "entry.addFailed" : "entry.deleteFailed", { label: item.label })}{failure.message ? `: ${failure.message}` : ""}
+        </Alert>
+      )}
       <Stack direction="row" spacing={1}>
         <Button size="small" variant="outlined" startIcon={<AddIcon />} disabled={busy} onClick={() => void store.addEntity(item.entity)}>{t("entry.add")}</Button>
         {count > 0 && (

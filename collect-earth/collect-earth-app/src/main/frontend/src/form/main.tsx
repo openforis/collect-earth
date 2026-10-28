@@ -17,6 +17,7 @@ const params = new URLSearchParams(window.location.search);
 const language = params.get("lang") ?? "en";
 document.documentElement.lang = language;
 const store = new FormStore(params.get("id") ?? "");
+window.addEventListener("pagehide", store.saveOnLeave);
 
 createRoot(document.getElementById("root")!).render(
   <StrictMode>

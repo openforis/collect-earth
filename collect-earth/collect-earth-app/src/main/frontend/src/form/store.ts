@@ -37,6 +37,13 @@ export interface FormState {
   attempted: boolean;
   /** entity being added or deleted */
   entityBusy: string | null;
+  /** the last add or delete that failed, with the server's reason when it gave one */
+  entityFailure: { entity: string; action: "add" | "delete"; message: string } | null;
+  /**
+   * opened on a plot submitted with questions left unanswered (before the server refused that): it lists them, and it
+   * is not shown as submitted
+   */
+  incomplete: boolean;
 }
 
 async function fetchWithTimeout(url: string, init?: RequestInit): Promise<Response> {
@@ -77,6 +84,8 @@ export class FormStore {
   /** values from the plot file sent with every save (keys, CSV columns, location) */
   private plotValues: Record<string, string> = {};
   private dirty = new Set<string>();
+  /** in the save in flight */
+  private sending = new Set<string>();
   private timer: ReturnType<typeof setTimeout> | null = null;
   private inFlight: Promise<void> | null = null;
   private dirtyNotified = false;
@@ -86,7 +95,7 @@ export class FormStore {
     this.state = {
       phase: "loading", failure: null, model: null, placemarkId, infos: {}, pending: {}, tab: 0, saveState: "idle",
       serverDown: false, submitted: false, alreadyFilled: false, submitErrors: null, submitting: false, attempted: false,
-      entityBusy: null,
+      entityBusy: null, entityFailure: null, incomplete: false,
     };
   }
 
@@ -132,9 +141,12 @@ export class FormStore {
       if (result.success) {
         const infos = mergeInfos({}, result, true);
         this.set({ model, infos });
+        const left = result.activelySaved ? errorList(model, infos) : [];
+        const incomplete = left.length > 0;
         this.set({
-          phase: "ready", alreadyFilled: !!result.activelySaved, submitted: !!result.activelySaved,
+          phase: "ready", alreadyFilled: !!result.activelySaved && !incomplete, submitted: !!result.activelySaved && !incomplete,
           tab: this.firstVisibleTab(0), saveState: result.activelySaved ? "saved" : "idle",
+          incomplete, attempted: incomplete, submitErrors: incomplete ? left : null,
         });
       } else {
         // No record yet: create it now, as the balloon does, so its relevance and defaults come back
@@ -199,6 +211,26 @@ export class FormStore {
     if (this.dirty.size) await this.save(false);
   };
 
+  /**
+   * The page is going away: the form closed, or another plot opened in its place. What is not saved yet, typed in the
+   * pause before a save or in a save that the page takes with it, goes in a request that outlives the page.
+   */
+  saveOnLeave = (): void => {
+    if (this.timer) {
+      clearTimeout(this.timer);
+      this.timer = null;
+    }
+    // a submit in flight is not sent again as a plain save, which would undo it
+    const names = new Set([...this.dirty, ...(this.state.submitting ? [] : this.sending)]);
+    if (!names.size) return;
+    const values: Record<string, string> = { ...this.plotValues };
+    for (const name of names) values[name] = this.state.pending[name] ?? this.state.infos[name]?.value ?? "";
+    values[ACTIVELY_SAVED] = "false";
+    if (navigator.sendBeacon(HOST + "save-data-expanded", saveBody(this.state.placemarkId, values, this.state.tab, true))) {
+      this.dirty.clear();
+    }
+  };
+
   /** check: the whole form back, its validation included, even with nothing to save */
   private async save(activelySaved: boolean, check = false): Promise<LoadResult | null> {
     while (this.inFlight) await this.inFlight;
@@ -206,6 +238,7 @@ export class FormStore {
     if (!activelySaved && !check && this.dirty.size === 0 && Object.keys(this.state.infos).length > 0) return null;
     const sending = [...this.dirty];
     this.dirty.clear();
+    this.sending = new Set(sending);
     const values: Record<string, string> = { ...this.plotValues };
     for (const name of sending) values[name] = this.state.pending[name] ?? "";
     values[ACTIVELY_SAVED] = String(activelySaved);
@@ -223,6 +256,7 @@ export class FormStore {
     this.inFlight = request;
     await request;
     this.inFlight = null;
+    this.sending = new Set();
     const response = result as LoadResult | null;
     if (!response || !response.success) {
       sending.forEach((n) => this.dirty.add(n));
@@ -244,7 +278,9 @@ export class FormStore {
 
   submit = async (): Promise<boolean> => {
     if (this.state.submitting || !this.state.model) return false;
-    this.set({ submitting: true, submitErrors: null, attempted: true });
+    // submitted on the map, if not complete
+    const wasSubmitted = this.state.submitted || this.state.incomplete;
+    this.set({ submitting: true, submitErrors: null, attempted: true, incomplete: false });
     if (this.timer) {
       clearTimeout(this.timer);
       this.timer = null;
@@ -260,7 +296,7 @@ export class FormStore {
     const left = errorList(this.state.model, this.state.infos);
     if (left.length) {
       // the check is a save that is not a submit: a plot submitted before is not anymore, on the map too
-      if (this.state.submitted) this.post("ce:dirty");
+      if (wasSubmitted) this.post("ce:dirty");
       this.set({ submitting: false, submitted: false, submitErrors: left, tab: left[0].tab });
       return false;
     }
@@ -286,7 +322,8 @@ export class FormStore {
 
   private async entityRequest(path: string, entity: string): Promise<void> {
     await this.flush();
-    this.set({ entityBusy: entity });
+    const action = path === "create-entity" ? "add" : "delete";
+    this.set({ entityBusy: entity, entityFailure: null });
     const body = saveBody(this.state.placemarkId, { ...this.plotValues }, this.state.tab, true);
     body.append("entityName", entity);
     try {
@@ -294,10 +331,10 @@ export class FormStore {
       if (result.success) {
         this.set({ infos: mergeInfos(this.state.infos, result, false), serverDown: false, submitted: false });
       } else {
-        this.set({ saveState: "error" });
+        this.set({ saveState: "error", entityFailure: { entity, action, message: result.message ?? "" } });
       }
     } catch {
-      this.set({ saveState: "error", serverDown: true });
+      this.set({ saveState: "error", serverDown: true, entityFailure: { entity, action, message: "" } });
     } finally {
       this.set({ entityBusy: null });
     }

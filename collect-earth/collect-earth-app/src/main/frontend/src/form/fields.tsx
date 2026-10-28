@@ -319,17 +319,23 @@ function RangeInput({ field, value, onChange, error, describedBy }: ControlProps
   const sameNumber = (d: string, v: string) => normalizeNumber(d) === v;
   const [dFrom, setFrom] = useDraft(from, sameNumber);
   const [dTo, setTo] = useDraft(to, sameNumber);
-  const commit = (a: string, b: string, delay: number) => onChange(field.name, rangeFromInput(normalizeNumber(a), normalizeNumber(b)), delay);
+  const typing = useRef(false);
+  const commit = (a: string, b: string, delay: number) => {
+    typing.current = delay > 0;
+    onChange(field.name, rangeFromInput(normalizeNumber(a), normalizeNumber(b)), delay);
+  };
+  // as in a text box, leaving one of the two saves at once what was typed
+  const onBlur = () => { if (typing.current) commit(dFrom, dTo, 0); };
   const inputMode = field.type === "integerRange" ? "numeric" : "decimal";
   const unit = field.unit ? { endAdornment: <InputAdornment position="end">{field.unit}</InputAdornment> } : undefined;
   return (
     <Stack direction="row" spacing={1} sx={{ maxWidth: 360, pt: 0.75 }}>
       <TextField id={field.name} size="small" label={t("entry.from")} value={dFrom} error={error}
         slotProps={{ htmlInput: { inputMode, "aria-label": `${field.label} - ${t("entry.from")}`, "aria-describedby": describedBy }, input: unit }}
-        onChange={(e) => { setFrom(e.target.value); commit(e.target.value, dTo, TYPING_DELAY); }} />
+        onChange={(e) => { setFrom(e.target.value); commit(e.target.value, dTo, TYPING_DELAY); }} onBlur={onBlur} />
       <TextField size="small" label={t("entry.to")} value={dTo} error={error}
         slotProps={{ htmlInput: { inputMode, "aria-label": `${field.label} - ${t("entry.to")}`, "aria-describedby": describedBy }, input: unit }}
-        onChange={(e) => { setTo(e.target.value); commit(dFrom, e.target.value, TYPING_DELAY); }} />
+        onChange={(e) => { setTo(e.target.value); commit(dFrom, e.target.value, TYPING_DELAY); }} onBlur={onBlur} />
     </Stack>
   );
 }
@@ -340,13 +346,18 @@ function CoordinateInput({ field, value, onChange, error, describedBy }: Control
   const sameNumber = (d: string, v: string) => normalizeNumber(d) === v;
   const [dLat, setLat] = useDraft(lat, sameNumber);
   const [dLon, setLon] = useDraft(lon, sameNumber);
-  const commit = (a: string, b: string, delay: number) => onChange(field.name, coordinateFromInput(normalizeNumber(a), normalizeNumber(b)), delay);
+  const typing = useRef(false);
+  const commit = (a: string, b: string, delay: number) => {
+    typing.current = delay > 0;
+    onChange(field.name, coordinateFromInput(normalizeNumber(a), normalizeNumber(b)), delay);
+  };
+  const onBlur = () => { if (typing.current) commit(dLat, dLon, 0); };
   return (
     <Stack direction="row" spacing={1} sx={{ pt: 0.75 }}>
       <TextField size="small" label={t("entry.latitude")} value={dLat} error={error} slotProps={{ htmlInput: { inputMode: "decimal", "aria-describedby": describedBy } }}
-        onChange={(e) => { setLat(e.target.value); commit(e.target.value, dLon, TYPING_DELAY); }} />
+        onChange={(e) => { setLat(e.target.value); commit(e.target.value, dLon, TYPING_DELAY); }} onBlur={onBlur} />
       <TextField size="small" label={t("entry.longitude")} value={dLon} error={error} slotProps={{ htmlInput: { inputMode: "decimal", "aria-describedby": describedBy } }}
-        onChange={(e) => { setLon(e.target.value); commit(dLat, e.target.value, TYPING_DELAY); }} />
+        onChange={(e) => { setLon(e.target.value); commit(dLat, e.target.value, TYPING_DELAY); }} onBlur={onBlur} />
     </Stack>
   );
 }
