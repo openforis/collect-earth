@@ -23,10 +23,15 @@
 		<listener-class>org.springframework.web.context.ContextLoaderListener</listener-class>
 	</listener>
 
-	<!-- Only Collect Earth's own pages may drive the imagery window and Google Earth Web: see OwnPagesOnlyFilter -->
+	<!-- Only Collect Earth's own pages may drive the imagery window and Google Earth Web, or call the API: see OwnPagesOnlyFilter -->
 	<filter>
 		<filter-name>ownPagesOnlyFilter</filter-name>
 		<filter-class>org.openforis.collect.earth.app.server.OwnPagesOnlyFilter</filter-class>
+	</filter>
+	<!-- The API (server.api) answers only Collect Earth's own pages: see ApiHeaderFilter -->
+	<filter>
+		<filter-name>apiHeaderFilter</filter-name>
+		<filter-class>org.openforis.collect.earth.app.server.api.ApiHeaderFilter</filter-class>
 	</filter>
 	<filter>
 		<filter-name>localizationFilter</filter-name>
@@ -70,6 +75,11 @@
 		<filter-name>ownPagesOnlyFilter</filter-name>
 		<url-pattern>/googleEarthWeb/*</url-pattern>
 		<url-pattern>/imagery/*</url-pattern>
+		<url-pattern>/api/*</url-pattern>
+	</filter-mapping>
+	<filter-mapping>
+		<filter-name>apiHeaderFilter</filter-name>
+		<url-pattern>/api/*</url-pattern>
 	</filter-mapping>
 	<filter-mapping>
 		<filter-name>localizationFilter</filter-name>
