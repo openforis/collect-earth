@@ -2,6 +2,8 @@
 // SurveyFormModelBuilder.java) and the pure logic around the balloon save protocol
 // (placemark-info-expanded / save-data-expanded), kept apart from React so it can be unit tested.
 
+import type { MessageKey } from "../i18n";
+
 export type FieldType = "boolean" | "code" | "coordinate" | "date" | "time" | "integer" | "real" | "integerRange" | "realRange"
   | "text" | "memo" | "unsupported";
 
@@ -312,18 +314,59 @@ export function tabsWithErrors(model: FormModel, infos: Record<string, FieldInfo
   return result;
 }
 
+export interface FieldError {
+  tab: number;
+  field: Field;
+  /** where it is when its label alone does not say: the row of a table, the entity of a multiple item */
+  context?: string;
+  /** the server's message */
+  message: string;
+}
+
 /** The visible fields in error, in form order, with the tab each one is on. */
-export function errorList(model: FormModel, infos: Record<string, FieldInfo>): { tab: number; field: Field; message: string }[] {
-  const result: { tab: number; field: Field; message: string }[] = [];
+export function errorList(model: FormModel, infos: Record<string, FieldInfo>): FieldError[] {
+  const result: FieldError[] = [];
   model.tabs.forEach((tab, index) => {
     for (const item of tab.items) {
       const count = item.kind === "multiple" ? entityCount(item, infos) : 0;
-      for (const field of itemFields(item, count)) {
-        if (hasError(infos, field.name)) result.push({ tab: index, field, message: infos[field.name].errorMessage ?? "" });
-      }
+      itemFields(item, count).forEach((field, k) => {
+        if (!hasError(infos, field.name)) return;
+        let context: string | undefined;
+        if (item.kind === "table") context = item.rows.find((r) => r.fields.some((f) => f.name === field.name))?.label;
+        else if (item.kind === "multiple") context = `${item.label} ${Math.floor(k / item.fields.length) + 1}`;
+        result.push({ tab: index, field, context, message: infos[field.name].errorMessage ?? "" });
+      });
     }
   });
   return result;
+}
+
+/**
+ * What to do about a question left unanswered, in the words of its control: the server only says it is required, in
+ * the same words for a list, a number or a date. A multiple field keeps the server's message, which says how many.
+ */
+export function requiredMessage(field: Field): MessageKey | null {
+  if (field.multiple) return null;
+  switch (field.type) {
+    case "code": return "entry.required.choose";
+    case "boolean": return field.affirmativeOnly ? "entry.required.tick" : "entry.required.yesNo";
+    case "integer":
+    case "real": return "entry.required.number";
+    case "text":
+    case "memo": return "entry.required.text";
+    case "date": return "entry.required.date";
+    case "time": return "entry.required.time";
+    case "coordinate": return "entry.required.coordinate";
+    case "integerRange":
+    case "realRange": return "entry.required.range";
+    default: return null;
+  }
+}
+
+/** The server's message as text: those about a value that could not be read are HTML, for the balloon. */
+export function plainMessage(message: string | null | undefined): string {
+  const entities: Record<string, string> = { lt: "<", gt: ">", quot: '"', "#39": "'", amp: "&" };
+  return (message ?? "").replace(/&(lt|gt|quot|#39|amp);/g, (_, e: string) => entities[e]);
 }
 
 /**

@@ -11,6 +11,7 @@ import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.LinkedList;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Queue;
@@ -92,7 +93,7 @@ public class BalloonInputFieldsUtils {
 		Collection<AttributeDefinition> changedDefs = extractChangedAttributeDefinitions(record, changeSet);
 		LinkedHashMap<String, String> htmlParameterNameByNodePath = generateAttributeHtmlParameterNameByNodePath(changedDefs);
 		Set<String> parameterNames = new LinkedHashSet<>(htmlParameterNameByNodePath.values());
-		Map<String, String> validationMessageByPath = generateValidationMessages(record);
+		Map<String, String> validationMessageByPath = generateValidationMessages(record, language);
 		Entity rootEntity = record.getRootEntity();
 
 		LinkedHashMap<String, PlacemarkInputFieldInfo> result = new LinkedHashMap<String, PlacemarkInputFieldInfo>(
@@ -221,9 +222,15 @@ public class BalloonInputFieldsUtils {
 		return null;
 	}
 
-	private Map<String, String> generateValidationMessages(CollectRecord record) {
+	/**
+	 * In the language of the interface, as the rest of the form : Collect writes them in English unless told otherwise, and
+	 * falls back to the survey's language, then to English, for the languages it has no messages in
+	 */
+	private Map<String, String> generateValidationMessages(CollectRecord record, String language) {
 		RecordValidationReportGenerator validationReportGenerator = new RecordValidationReportGenerator(record);
-		List<RecordValidationReportItem> validationItems = validationReportGenerator.generateValidationItems();
+		List<RecordValidationReportItem> validationItems = StringUtils.isBlank(language)
+				? validationReportGenerator.generateValidationItems()
+				: validationReportGenerator.generateValidationItems(new Locale(language));
 		Map<String, String> validationMessageByPath = new HashMap<>(validationItems.size());
 		for (RecordValidationReportItem validationItem : validationItems) {
 			validationMessageByPath.put(validationItem.getPath(), validationItem.getMessage());

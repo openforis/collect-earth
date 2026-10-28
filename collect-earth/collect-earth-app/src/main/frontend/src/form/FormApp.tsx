@@ -31,10 +31,10 @@ import EditOutlinedIcon from "@mui/icons-material/EditOutlined";
 import SendIcon from "@mui/icons-material/Send";
 import { type MessageKey, useT } from "../i18n";
 import logo from "./collect-earth-logo.png";
-import { FieldView } from "./fields";
+import { FieldView, errorText } from "./fields";
 import {
   type Field, type FormModel, type GroupItem, type InfoItem, type Item, type MultipleItem, type TableItem,
-  availableItems, entityCount, indexedField, isTabVisible, isVisible, itemFields, tabsWithErrors,
+  availableItems, entityCount, errorList, indexedField, isTabVisible, isVisible, itemFields, tabsWithErrors,
 } from "./model";
 import type { FormState, FormStore, SaveState } from "./store";
 
@@ -79,15 +79,24 @@ function ReadyForm({ store, state, model }: { store: FormStore; state: FormState
     store.setTab(index);
     content.current?.scrollTo({ top: 0 });
   }, [store]);
+  /** To a question, on its tab: in view, and ready to be answered from the keyboard */
+  const goToField = useCallback((index: number, name: string) => {
+    if (index !== store.getState().tab) goTo(index);
+    // once the tab is rendered
+    requestAnimationFrame(() => requestAnimationFrame(() => {
+      const box = content.current?.querySelector<HTMLElement>(`[data-field="${CSS.escape(name)}"]`);
+      if (!box) return;
+      box.scrollIntoView({ block: "center", behavior: "smooth" });
+      box.querySelector<HTMLElement>("input:not([disabled]), textarea, [role=radio], [role=checkbox], button")?.focus({ preventScroll: true });
+    }));
+  }, [store, goTo]);
 
-  // Errors after a submit: bring the first one into view on its tab
+  // Errors after a submit: to the first one, on the tab the submit moved to
   useEffect(() => {
     if (!state.submitErrors?.length) return;
-    const first = state.submitErrors.find((e) => e.tab === state.tab) ?? state.submitErrors[0];
-    requestAnimationFrame(() => {
-      content.current?.querySelector(`[data-field="${CSS.escape(first.field.name)}"]`)?.scrollIntoView({ block: "center", behavior: "smooth" });
-    });
-  }, [state.submitErrors, state.tab]);
+    const first = state.submitErrors.find((e) => e.tab === store.getState().tab) ?? state.submitErrors[0];
+    goToField(first.tab, first.field.name);
+  }, [state.submitErrors, store, goToField]);
 
   // Ctrl+Enter submits; Alt+Left/Right change tab
   useEffect(() => {
@@ -134,21 +143,7 @@ function ReadyForm({ store, state, model }: { store: FormStore; state: FormState
           {state.alreadyFilled && (
             <Alert severity="info" onClose={store.dismissAlreadyFilled} data-testid="entry-already-filled">{t("entry.alreadyFilled")}</Alert>
           )}
-          {state.submitErrors && state.submitErrors.length > 0 && (
-            <Alert severity="error" data-testid="entry-errors">
-              <Typography variant="body2" sx={{ fontWeight: 600, mb: 0.5 }}>{t("entry.errors")}</Typography>
-              <Box component="ul" sx={{ m: 0, pl: 2.5 }}>
-                {state.submitErrors.map((e) => (
-                  <li key={e.field.name}>
-                    <Link component="button" type="button" variant="body2" onClick={() => goTo(e.tab)} sx={{ textAlign: "left", verticalAlign: "baseline" }}>
-                      {e.field.label}
-                    </Link>
-                    {e.message ? `: ${e.message}` : ""}
-                  </li>
-                ))}
-              </Box>
-            </Alert>
-          )}
+          {state.submitErrors && state.submitErrors.length > 0 && <ErrorSummary store={store} state={state} model={model} onGo={goToField} />}
           {model.unsupported.length > 0 && state.tab === firstStep && (
             <Alert severity="warning" variant="outlined">{t("entry.unsupportedSome", { names: model.unsupported.map((u) => u.name).join(", ") })}</Alert>
           )}
@@ -185,6 +180,46 @@ function ReadyForm({ store, state, model }: { store: FormStore; state: FormState
         </Box>
       </Stack>
     </Stack>
+  );
+}
+
+/**
+ * What a Submit found unfinished, grouped by step, kept up to date as the questions are answered, until nothing is left
+ * and the plot can be submitted again. A click goes to the question.
+ */
+function ErrorSummary({ store, state, model, onGo }: { store: FormStore; state: FormState; model: FormModel;
+  onGo: (tab: number, name: string) => void }) {
+  const t = useT();
+  const errors = errorList(model, state.infos);
+  if (!errors.length) {
+    return <Alert severity="success" data-testid="entry-errors-fixed">{t("entry.errorsFixed")}</Alert>;
+  }
+  const tabs = [...new Set(errors.map((e) => e.tab))];
+  return (
+    <Alert severity="error" data-testid="entry-errors">
+      <Typography variant="body2" sx={{ fontWeight: 600, mb: 0.5 }}>
+        {errors.length === 1 ? t("entry.errorsOne") : t("entry.errorsMany", { count: errors.length })}
+      </Typography>
+      {tabs.map((tab) => (
+        <Box key={tab} sx={{ "& + &": { mt: 0.5 } }}>
+          {tabs.length > 1 && <Typography variant="caption" component="div" sx={{ fontWeight: 600, opacity: 0.85 }}>{model.tabs[tab].label}</Typography>}
+          <Box component="ul" sx={{ m: 0, pl: 2.5 }}>
+            {errors.filter((e) => e.tab === tab).map((e) => {
+              const text = errorText(t, e.field, store.value(e.field.name), e.message).trim();
+              return (
+                <li key={e.field.name} data-error-of={e.field.name}>
+                  <Link component="button" type="button" variant="body2" onClick={() => onGo(e.tab, e.field.name)}
+                    sx={{ textAlign: "left", verticalAlign: "baseline" }}>
+                    {e.context ? `${e.context} – ${e.field.label}` : e.field.label}
+                  </Link>
+                  {text ? `: ${text}` : ""}
+                </li>
+              );
+            })}
+          </Box>
+        </Box>
+      ))}
+    </Alert>
   );
 }
 

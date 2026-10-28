@@ -1,4 +1,4 @@
-import { ACTIVELY_SAVED, type Field, type FieldInfo, type FormModel, type LoadResult, errorList, fieldsByName,
+import { ACTIVELY_SAVED, type Field, type FieldError, type FieldInfo, type FormModel, type LoadResult, errorList, fieldsByName,
   isTabVisible, mergeInfos, saveBody } from "./model";
 
 /** Base URL of the Collect Earth embedded server (the page is served from it). */
@@ -28,8 +28,10 @@ export interface FormState {
   submitted: boolean;
   /** opened on a plot that had already been submitted */
   alreadyFilled: boolean;
-  /** the last Submit found errors: the list is shown until the next submit */
-  submitErrors: { tab: number; field: Field; message: string }[] | null;
+  /**
+   * what the last Submit found unfinished, as it found it: the form lists what is still left of it until the next submit
+   */
+  submitErrors: FieldError[] | null;
   submitting: boolean;
   /** Submit was pressed on this plot: from then on, the questions not answered yet show as errors */
   attempted: boolean;
@@ -159,7 +161,7 @@ export class FormStore {
 
   setValue = (name: string, value: string, delay = CLICK_DELAY): void => {
     this.dirty.add(name);
-    const patch: Partial<FormState> = { pending: { ...this.state.pending, [name]: value }, saveState: "unsaved", submitErrors: null };
+    const patch: Partial<FormState> = { pending: { ...this.state.pending, [name]: value }, saveState: "unsaved" };
     // clear the parent's dependants right away: their items no longer apply
     const dependants = Object.values(this.fields).filter((f) => f.code?.parent === name);
     if (dependants.length) {
@@ -197,17 +199,18 @@ export class FormStore {
     if (this.dirty.size) await this.save(false);
   };
 
-  private async save(activelySaved: boolean): Promise<LoadResult | null> {
+  /** check: the whole form back, its validation included, even with nothing to save */
+  private async save(activelySaved: boolean, check = false): Promise<LoadResult | null> {
     while (this.inFlight) await this.inFlight;
-    // nothing left to save (a flush got there first); a new record and a submit always go
-    if (!activelySaved && this.dirty.size === 0 && Object.keys(this.state.infos).length > 0) return null;
+    // nothing left to save (a flush got there first); a new record, a check and a submit always go
+    if (!activelySaved && !check && this.dirty.size === 0 && Object.keys(this.state.infos).length > 0) return null;
     const sending = [...this.dirty];
     this.dirty.clear();
     const values: Record<string, string> = { ...this.plotValues };
     for (const name of sending) values[name] = this.state.pending[name] ?? "";
     values[ACTIVELY_SAVED] = String(activelySaved);
     // A new record, and a submit, get the whole form back: errors of fields not touched by this save included
-    const full = activelySaved || Object.keys(this.state.infos).length === 0;
+    const full = activelySaved || check || Object.keys(this.state.infos).length === 0;
     this.set({ saveState: "saving" });
     let result: LoadResult | null = null;
     const request = (async () => {
@@ -245,6 +248,19 @@ export class FormStore {
     if (this.timer) {
       clearTimeout(this.timer);
       this.timer = null;
+    }
+    // The server submits a plot whose required questions are not answered (CollectRecord.getErrors leaves them out),
+    // and the balloon refuses it (earth_web.js): the plot is checked first, on the server's state of the whole form,
+    // and only submitted with nothing left in error
+    const checked = await this.save(false, true);
+    if (!checked || !checked.success) {
+      this.set({ submitting: false });
+      return false;
+    }
+    const left = errorList(this.state.model, this.state.infos);
+    if (left.length) {
+      this.set({ submitting: false, submitErrors: left, tab: left[0].tab });
+      return false;
     }
     const result = await this.save(true);
     this.set({ submitting: false });

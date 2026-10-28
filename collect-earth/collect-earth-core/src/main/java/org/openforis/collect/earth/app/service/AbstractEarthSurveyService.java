@@ -19,6 +19,7 @@ import java.util.Date;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.concurrent.CopyOnWriteArrayList;
@@ -28,6 +29,7 @@ import java.util.concurrent.TimeUnit;
 
 import javax.swing.JOptionPane;
 
+import org.apache.commons.lang3.StringUtils;
 import org.openforis.collect.earth.CollectEarthSurveyContext;
 import org.openforis.collect.earth.app.EarthConstants;
 import org.openforis.collect.earth.app.service.LocalPropertiesService.EarthProperty;
@@ -50,6 +52,7 @@ import org.openforis.collect.model.RecordUpdater;
 import org.openforis.collect.model.RecordValidationReportGenerator;
 import org.openforis.collect.model.RecordValidationReportItem;
 import org.openforis.collect.model.validation.CollectEarthValidator;
+import org.openforis.collect.model.validation.ValidationMessageBuilder;
 import org.openforis.collect.persistence.RecordPersistenceException;
 import org.openforis.idm.metamodel.AttributeDefinition;
 import org.openforis.idm.metamodel.EntityDefinition;
@@ -82,6 +85,7 @@ public abstract class AbstractEarthSurveyService {
 	protected final Logger logger = LoggerFactory.getLogger(this.getClass());
 
 	private static final String PREVIEW_PLACEMARK_ID = "testPlacemark";
+	private static final ValidationMessageBuilder VALIDATION_MESSAGES = ValidationMessageBuilder.createInstance();
 	private static final String PREVIEW_PLACEMARK_ID_PLACEHOLDER = "$[EXTRA_id]";
 
 	@Autowired
@@ -316,7 +320,10 @@ public abstract class AbstractEarthSurveyService {
 
 	protected String getAdaptedValidationMessage(String validationMessage) {
 		String message;
-		if (validationMessage.equals(COLLECT_REASON_BLANK_NOT_SPECIFIED_MESSAGE)) { // $NON-NLS-1$
+		// The form's messages are in the language of the interface (BalloonInputFieldsUtils), the deprecated ones in English
+		String language = localPropertiesService.getValue(EarthProperty.UI_LANGUAGE);
+		if (validationMessage.equals(COLLECT_REASON_BLANK_NOT_SPECIFIED_MESSAGE) || (StringUtils.isNotBlank(language)
+				&& validationMessage.equals(VALIDATION_MESSAGES.getReasonBlankNotSpecifiedMessage(new Locale(language))))) { // $NON-NLS-1$
 			message = Messages.getString("EarthSurveyService.9"); //$NON-NLS-1$
 		} else {
 			message = validationMessage;

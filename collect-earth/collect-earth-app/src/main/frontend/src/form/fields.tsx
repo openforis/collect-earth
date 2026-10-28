@@ -13,11 +13,13 @@ import ToggleButtonGroup from "@mui/material/ToggleButtonGroup";
 import Tooltip from "@mui/material/Tooltip";
 import Typography from "@mui/material/Typography";
 import CheckIcon from "@mui/icons-material/Check";
+import ErrorOutlineIcon from "@mui/icons-material/ErrorOutlineOutlined";
 import InfoOutlinedIcon from "@mui/icons-material/InfoOutlined";
-import { useT } from "../i18n";
+import { type Translate, useT } from "../i18n";
 import {
   type CodeItem, type Field, type FieldInfo, coordinateFromInput, coordinateToInput, dateFromInput,
-  dateToInput, normalizeNumber, parseCodes, qualify, rangeFromInput, rangeToInput, selectCodes, timeToInput,
+  dateToInput, normalizeNumber, parseCodes, plainMessage, qualify, rangeFromInput, rangeToInput, requiredMessage, selectCodes,
+  timeToInput,
 } from "./model";
 import { TYPING_DELAY } from "./store";
 
@@ -35,11 +37,34 @@ export interface FieldProps {
   quiet?: boolean;
 }
 
-/** Label, description, control and the server's error message of one field. */
+/** The message under a field in error: what to do when it is not answered yet, else the server's. */
+export function errorText(t: Translate, field: Field, value: string, message: string | null | undefined): string {
+  // a calculated field is not answered: the server's message says what is wrong with what it was calculated from
+  const required = value.trim() === "" && !field.readOnly ? requiredMessage(field) : null;
+  return required ? t(required) : plainMessage(message);
+}
+
+/** The id of the message under a field, which its control is described by */
+const errorId = (field: Field) => `${field.name}-error`;
+
+function ErrorMessage({ field, text }: { field: Field; text: string | null }) {
+  if (!text || !text.trim()) return null;
+  return (
+    <FormHelperText error id={errorId(field)} data-testid="entry-field-error"
+      sx={{ mx: 0, mt: 0.5, display: "flex", alignItems: "flex-start", gap: 0.5, fontWeight: 500 }}>
+      <ErrorOutlineIcon sx={{ fontSize: 15, mt: "1px", flex: "none" }} />
+      <span>{text}</span>
+    </FormHelperText>
+  );
+}
+
+/** Label, description, control and the error message of one field. */
 export const FieldView = memo(function FieldView(props: FieldProps) {
-  const { field, info, dense, quiet } = props;
+  const t = useT();
+  const { field, info, value, dense, quiet } = props;
   if (info?.visible === false) return null;
-  const error = info?.inError && !quiet ? info.errorMessage || " " : null;
+  // " ": in error, with nothing to say, the control is still outlined in red
+  const error = info?.inError && !quiet ? errorText(t, field, value, info.errorMessage) || " " : null;
   // Nothing to answer: the value goes on the label's line, one row instead of two
   if (field.readOnly && !dense) {
     return (
@@ -48,7 +73,7 @@ export const FieldView = memo(function FieldView(props: FieldProps) {
           <Typography variant="subtitle2" sx={{ fontWeight: 600, lineHeight: 1.3 }} title={field.description}>{field.label}</Typography>
           <ReadOnlyValue {...props} />
         </Stack>
-        {error && error.trim() && <FormHelperText error sx={{ mx: 0, mt: 0.5 }}>{error}</FormHelperText>}
+        <ErrorMessage field={field} text={error} />
       </Box>
     );
   }
@@ -66,13 +91,16 @@ export const FieldView = memo(function FieldView(props: FieldProps) {
           )}
         </Stack>
       )}
-      <Control {...props} error={!!error} />
-      {error && error.trim() && <FormHelperText error sx={{ mx: 0, mt: 0.5 }}>{error}</FormHelperText>}
+      <Control {...props} error={!!error} describedBy={error?.trim() ? errorId(field) : undefined} />
+      <ErrorMessage field={field} text={error} />
     </Box>
   );
 });
 
-function Control(props: FieldProps & { error: boolean }) {
+/** error: outlined in red; describedBy: the id of its error message */
+type ControlProps = FieldProps & { error: boolean; describedBy?: string };
+
+function Control(props: ControlProps) {
   const { field } = props;
   if (field.readOnly) return <ReadOnlyValue {...props} />;
   switch (field.type) {
@@ -120,7 +148,7 @@ function ReadOnlyValue({ field, value, info, dense }: FieldProps) {
 }
 
 /** Items as chips that wrap: every option visible at once, one click to answer (the balloon's buttons). */
-function CodeButtons({ field, value, items, parentLabel, onChange, error }: FieldProps & { error: boolean }) {
+function CodeButtons({ field, value, items, parentLabel, onChange, error, describedBy }: ControlProps) {
   const t = useT();
   const selected = parseCodes(value).map((c) => c.code);
   if (!items.length) {
@@ -135,6 +163,7 @@ function CodeButtons({ field, value, items, parentLabel, onChange, error }: Fiel
   };
   return (
     <Box role={field.multiple ? "group" : "radiogroup"} aria-label={field.label} id={field.name}
+      aria-invalid={error || undefined} aria-describedby={describedBy}
       sx={{ display: "flex", flexWrap: "wrap", gap: 0.75, ...(error && { p: 0.5, borderRadius: 2, outline: 1, outlineColor: "error.main" }) }}>
       {items.map((item) => {
         const on = selected.includes(item.code);
@@ -169,7 +198,7 @@ const TOGGLE_SX = {
 } as const;
 
 /** Long lists: a searchable dropdown. */
-function CodeSelect({ field, value, items, parentLabel, onChange, error, dense }: FieldProps & { error: boolean }) {
+function CodeSelect({ field, value, items, parentLabel, onChange, error, dense, describedBy }: ControlProps) {
   const t = useT();
   const codes = parseCodes(value).map((c) => c.code);
   const byCode = (c: string) => items.find((i) => i.code === c) ?? { id: -1, code: c, label: c };
@@ -195,18 +224,18 @@ function CodeSelect({ field, value, items, parentLabel, onChange, error, dense }
     return (
       <Autocomplete multiple {...common} value={codes.map(byCode)} disableCloseOnSelect
         onChange={(_, v) => onChange(field.name, selectCodes(value, v.map((i) => i.code)))}
-        renderInput={(params) => <TextField {...params} error={error} placeholder={codes.length ? undefined : placeholder} slotProps={{ ...params.slotProps, htmlInput: { ...params.slotProps.htmlInput, "aria-label": field.label } }} />} />
+        renderInput={(params) => <TextField {...params} error={error} placeholder={codes.length ? undefined : placeholder} slotProps={{ ...params.slotProps, htmlInput: { ...params.slotProps.htmlInput, "aria-label": field.label, "aria-describedby": describedBy } }} />} />
     );
   }
   return (
     <Autocomplete {...common} value={codes.length ? byCode(codes[0]) : null}
       onChange={(_, v) => onChange(field.name, selectCodes(value, v ? [v.code] : []))}
-      renderInput={(params) => <TextField {...params} error={error} placeholder={placeholder} slotProps={{ ...params.slotProps, htmlInput: { ...params.slotProps.htmlInput, "aria-label": field.label } }} />} />
+      renderInput={(params) => <TextField {...params} error={error} placeholder={placeholder} slotProps={{ ...params.slotProps, htmlInput: { ...params.slotProps.htmlInput, "aria-label": field.label, "aria-describedby": describedBy } }} />} />
   );
 }
 
 /** "Other, specify": the text of each selected item that is qualifiable */
-function Qualifiers({ field, value, items, onChange, dense }: FieldProps & { error: boolean }) {
+function Qualifiers({ field, value, items, onChange, dense }: ControlProps) {
   const t = useT();
   const qualifiable = parseCodes(value).filter((c) => items.find((i) => i.code === c.code)?.qualifiable
     ?? field.code?.items.find((i) => i.code === c.code)?.qualifiable);
@@ -233,13 +262,13 @@ function QualifierInput({ label, name, qualifier, dense, onChange }: { label: st
   );
 }
 
-function BooleanInput({ field, value, onChange, error }: FieldProps & { error: boolean }) {
+function BooleanInput({ field, value, onChange, error, describedBy }: ControlProps) {
   const t = useT();
   if (field.affirmativeOnly) {
-    return <FormControlLabel control={<Checkbox id={field.name} checked={value === "true"} onChange={(e) => onChange(field.name, e.target.checked ? "true" : "")} />} label={t("entry.yes")} />;
+    return <FormControlLabel control={<Checkbox id={field.name} checked={value === "true"} slotProps={{ input: { "aria-describedby": describedBy } }} onChange={(e) => onChange(field.name, e.target.checked ? "true" : "")} />} label={t("entry.yes")} />;
   }
   return (
-    <ToggleButtonGroup exclusive size="small" value={value || null} id={field.name} aria-label={field.label}
+    <ToggleButtonGroup exclusive size="small" value={value || null} id={field.name} aria-label={field.label} aria-describedby={describedBy}
       onChange={(_, v: string | null) => onChange(field.name, v ?? "")}
       sx={error ? { outline: 1, outlineColor: "error.main", borderRadius: 1 } : undefined}>
       <ToggleButton value="true" sx={TOGGLE_SX}>{t("entry.yes")}</ToggleButton>
@@ -258,7 +287,7 @@ function useDraft(value: string, same: (draft: string, value: string) => boolean
   return [draft, setDraft];
 }
 
-function TextInput({ field, value, onChange, error, dense, numeric, multiline }: FieldProps & { error: boolean; numeric?: boolean; multiline?: boolean }) {
+function TextInput({ field, value, onChange, error, describedBy, dense, numeric, multiline }: ControlProps & { numeric?: boolean; multiline?: boolean }) {
   const [draft, setDraft] = useDraft(value, numeric ? (d, v) => normalizeNumber(d) === v : undefined);
   // typed but still waiting for the typing pause: leaving the field saves at once
   const typing = useRef(false);
@@ -268,23 +297,23 @@ function TextInput({ field, value, onChange, error, dense, numeric, multiline }:
       onChange={(e) => { setDraft(e.target.value); typing.current = true; commit(e.target.value, TYPING_DELAY); }}
       onBlur={() => { if (typing.current) { typing.current = false; commit(draft, 0); } }}
       slotProps={{
-        htmlInput: { inputMode: numeric ? (field.type === "integer" ? "numeric" : "decimal") : undefined, "aria-label": field.label },
+        htmlInput: { inputMode: numeric ? (field.type === "integer" ? "numeric" : "decimal") : undefined, "aria-label": field.label, "aria-describedby": describedBy },
         input: field.unit ? { endAdornment: <InputAdornment position="end">{field.unit}</InputAdornment> } : undefined,
       }}
       sx={numeric && !dense ? { maxWidth: 240 } : undefined} />
   );
 }
 
-function DateTimeInput({ field, value, onChange, error, kind }: FieldProps & { error: boolean; kind: "date" | "time" }) {
+function DateTimeInput({ field, value, onChange, error, describedBy, kind }: ControlProps & { kind: "date" | "time" }) {
   const shown = kind === "date" ? dateToInput(value) : timeToInput(value);
   return (
     <TextField id={field.name} size="small" type={kind} value={shown} error={error} sx={{ maxWidth: 220 }}
-      slotProps={{ htmlInput: { "aria-label": field.label } }}
+      slotProps={{ htmlInput: { "aria-label": field.label, "aria-describedby": describedBy } }}
       onChange={(e) => onChange(field.name, kind === "date" ? dateFromInput(e.target.value) : e.target.value)} />
   );
 }
 
-function RangeInput({ field, value, onChange, error }: FieldProps & { error: boolean }) {
+function RangeInput({ field, value, onChange, error, describedBy }: ControlProps) {
   const t = useT();
   const [from, to] = rangeToInput(value);
   const sameNumber = (d: string, v: string) => normalizeNumber(d) === v;
@@ -296,16 +325,16 @@ function RangeInput({ field, value, onChange, error }: FieldProps & { error: boo
   return (
     <Stack direction="row" spacing={1} sx={{ maxWidth: 360, pt: 0.75 }}>
       <TextField id={field.name} size="small" label={t("entry.from")} value={dFrom} error={error}
-        slotProps={{ htmlInput: { inputMode, "aria-label": `${field.label} - ${t("entry.from")}` }, input: unit }}
+        slotProps={{ htmlInput: { inputMode, "aria-label": `${field.label} - ${t("entry.from")}`, "aria-describedby": describedBy }, input: unit }}
         onChange={(e) => { setFrom(e.target.value); commit(e.target.value, dTo, TYPING_DELAY); }} />
       <TextField size="small" label={t("entry.to")} value={dTo} error={error}
-        slotProps={{ htmlInput: { inputMode, "aria-label": `${field.label} - ${t("entry.to")}` }, input: unit }}
+        slotProps={{ htmlInput: { inputMode, "aria-label": `${field.label} - ${t("entry.to")}`, "aria-describedby": describedBy }, input: unit }}
         onChange={(e) => { setTo(e.target.value); commit(dFrom, e.target.value, TYPING_DELAY); }} />
     </Stack>
   );
 }
 
-function CoordinateInput({ field, value, onChange, error }: FieldProps & { error: boolean }) {
+function CoordinateInput({ field, value, onChange, error, describedBy }: ControlProps) {
   const t = useT();
   const [lat, lon] = coordinateToInput(value);
   const sameNumber = (d: string, v: string) => normalizeNumber(d) === v;
@@ -314,9 +343,9 @@ function CoordinateInput({ field, value, onChange, error }: FieldProps & { error
   const commit = (a: string, b: string, delay: number) => onChange(field.name, coordinateFromInput(normalizeNumber(a), normalizeNumber(b)), delay);
   return (
     <Stack direction="row" spacing={1} sx={{ pt: 0.75 }}>
-      <TextField size="small" label={t("entry.latitude")} value={dLat} error={error} slotProps={{ htmlInput: { inputMode: "decimal" } }}
+      <TextField size="small" label={t("entry.latitude")} value={dLat} error={error} slotProps={{ htmlInput: { inputMode: "decimal", "aria-describedby": describedBy } }}
         onChange={(e) => { setLat(e.target.value); commit(e.target.value, dLon, TYPING_DELAY); }} />
-      <TextField size="small" label={t("entry.longitude")} value={dLon} error={error} slotProps={{ htmlInput: { inputMode: "decimal" } }}
+      <TextField size="small" label={t("entry.longitude")} value={dLon} error={error} slotProps={{ htmlInput: { inputMode: "decimal", "aria-describedby": describedBy } }}
         onChange={(e) => { setLon(e.target.value); commit(dLat, e.target.value, TYPING_DELAY); }} />
     </Stack>
   );

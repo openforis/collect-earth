@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest";
 import {
   type Field, type FormModel, availableItems, dateFromInput, dateToInput, entityCount, errorList, fieldsByName,
-  indexedField, isTabVisible, joinValues, mergeInfos, parseCodes, qualify, rangeFromInput, rangeToInput, saveBody, selectCodes,
-  splitValues, tabsWithErrors, timeToInput,
+  indexedField, isTabVisible, joinValues, mergeInfos, parseCodes, plainMessage, qualify, rangeFromInput, rangeToInput,
+  requiredMessage, saveBody, selectCodes, splitValues, tabsWithErrors, timeToInput,
 } from "./model";
 
 const category: Field = {
@@ -129,6 +129,31 @@ describe("errors and tabs", () => {
     };
     expect(errorList(model, infos).map((e) => [e.tab, e.field.name, e.message])).toEqual([[1, "collect_text_comments", "Required"]]);
     expect([...tabsWithErrors(model, infos)]).toEqual([1]);
+  });
+  it("says where an error is when the label alone does not: the row of a table, the entity of a multiple item", () => {
+    const table: FormModel = { ...model, tabs: [{ id: "t", label: "T", items: [{ kind: "table", label: "Cover", columns: [{ label: "Percent" }],
+      rows: [
+        { code: "trees", label: "Trees", fields: [{ kind: "field", name: "collect_entity_cover[trees].real_pct", type: "real", label: "Percent" }] },
+        { code: "grass", label: "Grass", fields: [{ kind: "field", name: "collect_entity_cover[grass].real_pct", type: "real", label: "Percent" }] },
+      ] }] }, model.tabs[1]] };
+    const infos = {
+      "collect_entity_cover[grass].real_pct": { inError: true },
+      "collect_entity_tree[1].real_height": {},
+      "collect_entity_tree[2].real_height": { inError: true },
+    };
+    expect(errorList(table, infos).map((e) => [e.field.name, e.context])).toEqual([
+      ["collect_entity_cover[grass].real_pct", "Grass"], ["collect_entity_tree[2].real_height", "Tree 2"]]);
+  });
+  it("words an unanswered question after its control, and leaves a multiple one to the server", () => {
+    expect(requiredMessage(category)).toBe("entry.required.choose");
+    expect(requiredMessage(comments)).toBe("entry.required.text");
+    expect(requiredMessage({ ...comments, type: "boolean", affirmativeOnly: true })).toBe("entry.required.tick");
+    expect(requiredMessage({ ...comments, type: "integerRange" })).toBe("entry.required.range");
+    expect(requiredMessage({ ...category, multiple: true })).toBeNull();
+  });
+  it("reads the HTML of the messages about a value that could not be read", () => {
+    expect(plainMessage("'&lt;b&gt;1 &amp; &quot;2&quot;' is not a number")).toBe(`'<b>1 & "2"' is not a number`);
+    expect(plainMessage(null)).toBe("");
   });
   it("hides a tab whose fields are all not relevant", () => {
     expect(isTabVisible(model.tabs[0], { collect_code_lu: { visible: false }, collect_code_sub: { visible: false } })).toBe(false);
