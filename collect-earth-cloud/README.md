@@ -54,7 +54,7 @@ session tokens** (from login, access via `project_members`).
 
 | Method | Path | Auth | Purpose |
 | --- | --- | --- | --- |
-| `POST` | `/v1/projects` | `x-admin-key` (if configured) | Provision a project → `{projectId, adminToken, projectToken}` |
+| `POST` | `/v1/projects` | `x-admin-key`, session, or none (dev) | With `x-admin-key` = `ADMIN_API_KEY`: provision → `{projectId, adminToken, projectToken}`. With a session: see the dashboard table. With neither: only when `ADMIN_API_KEY` is unset **and** `STORE_BACKEND=memory`, else 401 |
 | `GET`  | `/v1/projects/:pid` | member | Ping / metadata (desktop "Test connection") |
 | `PUT`  | `/v1/projects/:pid/survey` | admin | Upload survey IDML `{surveyUri, surveyName?, idmlBase64}` |
 | `POST` | `/v1/projects/:pid/records:batch` | member | Upload record/tombstone envelopes (gzip body) → per-record `stored\|stale\|conflict\|error` |
@@ -69,13 +69,52 @@ session tokens** (from login, access via `project_members`).
 | `POST` | `/v1/auth/logout` | session | Revoke the session |
 | `GET`  | `/v1/me` | session | Profile + memberships |
 | `GET`  | `/v1/projects` | session | The caller's projects (only) |
-| `POST` | `/v1/projects/:pid/invites` | admin | Mint a join invite (role, maxUses, expiry) |
-| `GET`  | `/v1/join/:token` | none | Invite preview (project name, role, validity) |
+| `POST` | `/v1/projects/:pid/invites` | admin | Mint a join invite `{role?, maxUses?, expiresInDays?}` → `{inviteToken, joinPath, joinUrl, role, maxUses, expiresAt}` (`joinUrl` always absolute, see below) |
+| `GET`  | `/v1/join/:token` | none | Invite preview `{projectId, projectName, role, valid}` (`valid:false` when expired, used up or revoked) |
 | `PUT`  | `/v1/projects/:pid/cep` | admin | Upload the CEP zip (raw `application/zip` body) |
 | `GET`  | `/v1/projects/:pid/cep` | member | Download the CEP zip (join bootstrap) |
 | `GET`  | `/v1/projects/:pid/members` | admin | List members |
 | `PUT`  | `/v1/projects/:pid/members/:uid` | admin | Change role (last-admin demotion refused) |
 | `DELETE` | `/v1/projects/:pid/members/:uid` | admin | Remove member (last-admin removal refused) |
+
+**Web dashboard & server administration**
+
+| Method | Path | Auth | Purpose |
+| --- | --- | --- | --- |
+| `GET`  | `/v1/server-info` | none | `{needsSetup, signupOpen, projectCreation, version}` |
+| `POST` | `/v1/setup` | setup code in body | `{setupCode, username, password}` → 201 `{token, userId, username}` (the platform admin, logged in); 403 `bad_setup_code`; 409 `already_set_up` / `username_taken`; 400 `bad_username` / `weak_password` |
+| `POST` | `/v1/auth/signup` | none | `{username, password, email?}` → 201 `{token, userId, username}`; 403 `signup_closed`; 409 `username_taken`; 400 `bad_username` / `weak_password` |
+| `POST` | `/v1/auth/reset` | reset token in body | `{token, newPassword}` → 204, revokes all the user's sessions; 410 `invalid_reset_token` (unknown, used or expired); 400 `weak_password` |
+| `PUT`  | `/v1/me/password` | session | `{currentPassword, newPassword}` → 204; 401 `invalid_credentials`; 400 `weak_password` |
+| `POST` | `/v1/projects` | session | Allowed when `projectCreation` is `anyone` or the caller is a platform admin (else 403 `project_creation_restricted`); the caller becomes its admin → 201 `{projectId, name}` |
+| `PATCH` | `/v1/projects/:pid` | admin | `{name}` → `{projectId, name}` |
+| `GET`  | `/v1/projects/:pid/overview` | admin | `{name, cep: {bytes, updatedAt} \| null, members, csvFiles, plots, records: {total, submitted, byOperator: [{operator, total, submitted, lastModifiedOn}]}}` — deleted records excluded, times in epoch ms |
+| `GET`  | `/v1/projects/:pid/invites` | admin | Open invites (not revoked, expired or used up) `{invites: [{id, role, maxUses, usedCount, expiresAt, createdAt}]}` — the token is only shown at creation |
+| `DELETE` | `/v1/projects/:pid/invites/:id` | admin | Revoke → 204 (404 if not an open invite of this project) |
+| `GET`  | `/v1/projects/:pid/export.csv` | admin | One row per non-deleted `(recordKey, operator)`: `record_key, operator, actively_saved, modified_on` (ISO 8601) + the sorted union of summary keys; RFC 4180, UTF-8 BOM, `content-disposition: attachment` |
+| `GET` / `PUT` | `/v1/admin/settings` | platform admin | `{signupOpen, projectCreation: "anyone" \| "platform-admins"}` (PUT takes either field, returns the result) |
+| `GET`  | `/v1/admin/users` | platform admin | `{users: [{userId, username, isPlatformAdmin, projects}]}` — a project **count**, no names (§4b) |
+| `POST` | `/v1/admin/users/:uid/password-reset` | platform admin | 201 `{resetUrl, expiresAt}` — single use, 7 days |
+
+`GET /v1/me` also returns `isPlatformAdmin`. A platform admin owns the server
+(created by the first-run setup) but is **not** a member of any project and sees
+no project data. Admin routes answer 401 without a session and 403 for a
+non-platform-admin.
+
+Username/password rules (3–64 characters of `A-Z a-z 0-9 . _ - @`; passwords at
+least 8) apply to setup, signup, password change and reset — **not** to
+`/v1/auth/register`, which the desktop client uses and which keeps accepting what
+it always did.
+
+`login`, `register`, `signup`, `setup` and `reset` are rate limited per client IP
+(`RATE_LIMIT_PER_MINUTE`, default 10) → 429 `rate_limited`. The server trusts
+`x-forwarded-*` (it runs behind a proxy). Join and reset links use
+`PUBLIC_BASE_URL`, else `RENDER_EXTERNAL_URL`, else the request's proto/host.
+
+The built dashboard (`web/dist`, built from [`web/`](web)) is served at `/`; any
+other `GET` that accepts HTML and is not under `/v1/` or `/health` returns its
+`index.html`, so `/join/<token>`, `/setup`, `/reset/<token>` load the app. Without
+`web/dist` the server is API-only. Unknown routes answer JSON `{"error": "not_found"}`.
 
 **Plot CSVs & assignments (Phase B)**
 
@@ -145,16 +184,24 @@ src/
   auth.ts              token generate / sha256 hash / bearer parsing
   lww.ts               last-write-wins decision
   types.ts             wire + row types
-  plugins/projectAuth  membership preHandler (401 / 404 / 403)
-  routes/projects.ts   provision, ping, survey upload
+  accountRules.ts      username/password rules, setup code, public base URL
+  rateLimit.ts         in-memory per-IP limiter for the auth endpoints
+  export.ts            records -> CSV
+  plugins/projectAuth  membership / session / platform-admin preHandlers (401 / 404 / 403)
+  routes/projects.ts   provision, ping, survey upload, rename, overview, export
+  routes/platform.ts   my projects, invites, CEP, members
+  routes/admin.ts      server info, setup, signup, reset, /v1/admin/*
+  routes/auth.ts       register, login, logout, /me, password change
+  routes/assignments.ts plot CSVs and assignments
   routes/records.ts    records:batch intake
   store/               Store interface + InMemoryStore + PostgresStore + migrate
-migrations/001_init.sql  schema + RLS
-test/                  isolation + records behaviour (in-memory store)
+migrations/*.sql       schema + RLS (004: platform admin, settings, resets, invite revocation)
+test/                  isolation, sync, accounts, dashboard (in-memory store)
+web/                   the React dashboard (own package.json; built into web/dist)
 ```
 
 ## Not yet implemented (later phases)
 
-User accounts/login, invites & join-by-URL, assignments, stats/overview, export
-zip, review workflow, GCS for artifacts. Phase 0 uses project-scoped tokens; the
-resolve-by-hash auth contract is unchanged when per-user tokens arrive.
+Email (verification, self-service password reset), deleting a project, export of
+record XML / a Collect backup, the Phase C review workflow, argon2id, GCS for
+artifacts.

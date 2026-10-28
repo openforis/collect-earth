@@ -1,14 +1,18 @@
 import type {
   Assignment,
   AssignmentDetail,
+  CepInfo,
   CsvFile,
   Invite,
+  InviteSummary,
   Member,
   Membership,
   ProjectRow,
   RecordRow,
   Role,
+  ServerSettings,
   User,
+  UserSummary,
 } from '../types.js';
 
 export interface CreateProjectResult {
@@ -40,6 +44,7 @@ export interface CreateInviteInput {
 export interface Store {
   createProject(input: { name: string }): Promise<CreateProjectResult>;
   getProject(projectId: string): Promise<ProjectRow | null>;
+  renameProject(projectId: string, name: string): Promise<void>;
 
   /**
    * Resolves a plaintext PROJECT-scoped token (Phase 0 admin/operator tokens) to
@@ -53,6 +58,8 @@ export interface Store {
   /** Stores the raw CEP zip for a project (overwrites). */
   putCep(projectId: string, cep: Buffer): Promise<void>;
   getCep(projectId: string): Promise<Buffer | null>;
+  /** Size and last upload time of the CEP, without loading it; null if none uploaded. */
+  getCepInfo(projectId: string): Promise<CepInfo | null>;
 
   // --- Users & sessions (Phase A) ---
 
@@ -66,6 +73,27 @@ export interface Store {
   /** Resolves a session token to its user id, or null if unknown/expired. */
   resolveSession(token: string): Promise<{ userId: string } | null>;
   deleteSession(token: string): Promise<void>;
+  /** Revokes every session of a user (password reset). */
+  deleteUserSessions(userId: string): Promise<void>;
+  setPassword(userId: string, passwordHash: string): Promise<void>;
+
+  // --- Platform administration (dashboard) ---
+  // Global, not project-scoped: none of these return project data.
+
+  hasPlatformAdmin(): Promise<boolean>;
+  /**
+   * Creates the first platform admin atomically: returns null (and creates nothing)
+   * if a platform admin already exists. Throws UsernameTakenError on a duplicate.
+   */
+  createFirstPlatformAdmin(input: { username: string; passwordHash: string }): Promise<User | null>;
+  getSettings(): Promise<ServerSettings>;
+  updateSettings(patch: Partial<ServerSettings>): Promise<ServerSettings>;
+  /** All accounts with their project count (no project names: §4b). */
+  listUsers(): Promise<UserSummary[]>;
+  /** Issues a single-use password-reset token and returns the plaintext token. */
+  createPasswordReset(userId: string, expiresAt: number): Promise<string>;
+  /** Atomically marks a reset token used; returns its user id, or null if unknown/used/expired. */
+  consumePasswordReset(token: string, now: number): Promise<string | null>;
 
   // --- Memberships (Phase A, tenancy model §4b) ---
 
@@ -81,7 +109,11 @@ export interface Store {
 
   createInvite(input: CreateInviteInput): Promise<string>;
   getInvite(token: string): Promise<Invite | null>;
-  /** Atomically records one use of an invite; returns false if it is exhausted/expired. */
+  /** Open invites of one project: not revoked, not expired, not exhausted. */
+  listInvites(projectId: string, now: number): Promise<InviteSummary[]>;
+  /** Revokes an invite of THIS project; returns false if no such open invite in it. */
+  revokeInvite(projectId: string, inviteId: string): Promise<boolean>;
+  /** Atomically records one use of an invite; returns false if it is exhausted/expired/revoked. */
   consumeInvite(token: string, now: number): Promise<boolean>;
 
   // --- CSV files & assignments (Phase B) ---

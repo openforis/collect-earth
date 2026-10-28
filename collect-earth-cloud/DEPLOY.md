@@ -13,13 +13,29 @@ talks to a PostgreSQL database. It is designed for **Google Cloud Run + Cloud SQ
 | --- | --- | --- | --- |
 | `STORE_BACKEND` | yes (prod) | `postgres` | `memory` = no persistence; use `postgres` in production |
 | `DATABASE_URL` | when postgres | `postgres://ce:pw@host:5432/collect_earth_cloud` | Postgres connection string |
-| `ADMIN_API_KEY` | strongly advised | `<random 32+ chars>` | Required as `x-admin-key` to provision projects. **If unset, project creation is open to anyone.** |
-| `PUBLIC_BASE_URL` | advised | `https://ce-cloud.example.org` | Builds the `/join/<token>` links the desktop client opens |
+| `SETUP_CODE` | advised | `<random string>` | Asked for once by the dashboard's first-run setup, which creates the platform admin. If unset, a random code is generated at boot and printed in the log (`Setup code: XXXX-XXXX-XX …`) while no platform admin exists. Case, spaces and hyphens are ignored when it is typed |
+| `ADMIN_API_KEY` | optional | `<random 32+ chars>` | Lets scripts provision projects with `x-admin-key` (returns the Phase-0 project tokens). Dashboard users create projects with their session instead. Without it, anonymous provisioning works **only** with `STORE_BACKEND=memory`; on Postgres it is refused (401) |
+| `PUBLIC_BASE_URL` | advised | `https://ce-cloud.example.org` | Base of the `/join/<token>` and `/reset/<token>` links. If unset: `RENDER_EXTERNAL_URL`, else the request's `x-forwarded-proto` + host |
+| `RENDER_EXTERNAL_URL` | no (Render sets it) | `https://ce-cloud.onrender.com` | Fallback base for links when `PUBLIC_BASE_URL` is unset |
+| `RATE_LIMIT_PER_MINUTE` | no | `60` | Requests per minute per client IP on login, register, signup, setup and reset (429 `rate_limited` above it). Kept generous because a training room joins from one office IP; failed logins are also limited to 10 per minute per account. `0` disables both. Per instance, in memory |
 | `MIGRATE_ON_BOOT` | optional | `true` | Apply pending migrations on startup (see below) |
 | `PORT` | no | `8080` | Listen port (Cloud Run injects `8080`) |
 | `HOST` | no | `0.0.0.0` | Bind address |
 
-Generate a good admin key: `openssl rand -base64 32`.
+Generate a good admin key or setup code: `openssl rand -base64 32`.
+
+The server trusts `x-forwarded-*` headers (`trustProxy`): it is meant to run behind
+Cloud Run, Render or a reverse proxy, which set them. Do not expose the container
+port directly to the internet without one.
+
+### First run
+
+Open the server's URL in a browser. While no platform admin exists the dashboard
+shows the setup page: enter the setup code (`SETUP_CODE`, or the one in the log)
+and the admin's username and password. After that, setup answers 409. The
+platform admin edits the server settings (`signupOpen`, default off;
+`projectCreation`, default `platform-admins`) and issues password-reset links; it
+is not a member of any project.
 
 ## Database migrations
 
@@ -121,7 +137,7 @@ BASE=https://ce-cloud.example.org
 # 1. Liveness
 curl -fsS "$BASE/health"
 
-# 2. Provision a project (needs the admin key)
+# 2. Provision a project: from the dashboard (logged in), or with the admin key
 curl -fsS -X POST "$BASE/v1/projects" \
   -H "x-admin-key: <ADMIN_API_KEY>" -H 'content-type: application/json' \
   -d '{"name":"My project"}'

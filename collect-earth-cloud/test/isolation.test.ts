@@ -89,6 +89,52 @@ describe('cross-tenant isolation', () => {
     }
   });
 
+  // Same gate for the dashboard endpoints.
+  it("A's admin token gets 404 on every dashboard endpoint aimed at B", async () => {
+    const auth = { authorization: `Bearer ${a.adminToken}` };
+    const cases = [
+      { method: 'PATCH' as const, url: `/v1/projects/${b.projectId}`, payload: { name: 'hijacked' } },
+      { method: 'GET' as const, url: `/v1/projects/${b.projectId}/overview` },
+      { method: 'GET' as const, url: `/v1/projects/${b.projectId}/invites` },
+      { method: 'DELETE' as const, url: `/v1/projects/${b.projectId}/invites/00000000-0000-0000-0000-000000000000` },
+      { method: 'GET' as const, url: `/v1/projects/${b.projectId}/export.csv` },
+    ];
+    for (const c of cases) {
+      const res = await ctx.app.inject({ method: c.method, url: c.url, headers: auth, payload: c.payload });
+      expect(res.statusCode, `${c.method} ${c.url}`).toBe(404);
+    }
+    expect((await ctx.store.getProject(b.projectId))?.name).toBe('Project B');
+  });
+
+  it("A's admin cannot revoke B's invite through A's path", async () => {
+    await ctx.app.inject({
+      method: 'POST',
+      url: `/v1/projects/${b.projectId}/invites`,
+      headers: { authorization: `Bearer ${b.adminToken}` },
+      payload: { role: 'operator' },
+    });
+    const listB = await ctx.app.inject({
+      method: 'GET',
+      url: `/v1/projects/${b.projectId}/invites`,
+      headers: { authorization: `Bearer ${b.adminToken}` },
+    });
+    const inviteId = listB.json().invites[0].id as string;
+
+    // A's admin, on A's own path, naming B's invite id: not found, and nothing revoked.
+    const res = await ctx.app.inject({
+      method: 'DELETE',
+      url: `/v1/projects/${a.projectId}/invites/${inviteId}`,
+      headers: { authorization: `Bearer ${a.adminToken}` },
+    });
+    expect(res.statusCode).toBe(404);
+    const after = await ctx.app.inject({
+      method: 'GET',
+      url: `/v1/projects/${b.projectId}/invites`,
+      headers: { authorization: `Bearer ${b.adminToken}` },
+    });
+    expect(after.json().invites).toHaveLength(1);
+  });
+
   it('an unknown token is 401, an absent token is 401', async () => {
     const bad = await ctx.app.inject({
       method: 'GET',

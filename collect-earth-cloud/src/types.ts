@@ -6,6 +6,8 @@ export interface User {
   username: string;
   passwordHash: string;
   email: string | null;
+  /** Owns the server (first-run setup): edits server settings, issues reset links. Not a project role. */
+  isPlatformAdmin: boolean;
 }
 
 /** A user's membership of one project, with the project name for listings. */
@@ -29,6 +31,43 @@ export interface Invite {
   maxUses: number;
   usedCount: number;
   expiresAt: number | null;
+  /** A revoked invite answers like an unknown one on register, and previews as not valid. */
+  revoked: boolean;
+}
+
+/** An open invite as the project admin sees it (the token itself is only shown at creation). */
+export interface InviteSummary {
+  id: string;
+  role: Role;
+  maxUses: number;
+  usedCount: number;
+  expiresAt: number | null;
+  createdAt: number;
+}
+
+/** Who may create projects with a session: every logged-in user, or platform admins only. */
+export type ProjectCreation = 'anyone' | 'platform-admins';
+
+/** Server-wide settings edited by the platform admin. */
+export interface ServerSettings {
+  signupOpen: boolean;
+  projectCreation: ProjectCreation;
+}
+
+export const DEFAULT_SETTINGS: ServerSettings = { signupOpen: false, projectCreation: 'platform-admins' };
+
+/** One account in the platform admin's user list: a project COUNT only, never names (§4b). */
+export interface UserSummary {
+  userId: string;
+  username: string;
+  isPlatformAdmin: boolean;
+  projects: number;
+}
+
+/** Size and last upload time (epoch ms) of a project's CEP. */
+export interface CepInfo {
+  bytes: number;
+  updatedAt: number;
 }
 
 /** A plot CSV file belonging to a project (metadata; content fetched separately). */

@@ -4,3 +4,5 @@ dist/
 .env
 .env.local
 coverage/
+web/node_modules/
+web/dist/

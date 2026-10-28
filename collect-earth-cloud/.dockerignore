@@ -1,0 +1,8 @@
+# Keep host-built artefacts out of the image: npm ci installs Linux binaries inside.
+node_modules
+web/node_modules
+web/dist
+coverage
+.env
+.env.local
+*.log

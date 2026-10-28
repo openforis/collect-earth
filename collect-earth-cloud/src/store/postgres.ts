@@ -1,17 +1,23 @@
 import pg from 'pg';
 import { randomUUID } from 'node:crypto';
+import { isUuid } from '../accountRules.js';
 import { generateToken, hashToken } from '../auth.js';
-import type {
-  Assignment,
-  AssignmentDetail,
-  CsvFile,
-  Invite,
-  Member,
-  Membership,
-  ProjectRow,
-  RecordRow,
-  Role,
-  User,
+import {
+  DEFAULT_SETTINGS,
+  type Assignment,
+  type AssignmentDetail,
+  type CepInfo,
+  type CsvFile,
+  type Invite,
+  type InviteSummary,
+  type Member,
+  type Membership,
+  type ProjectRow,
+  type RecordRow,
+  type ServerSettings,
+  type Role,
+  type User,
+  type UserSummary,
 } from '../types.js';
 import type { CreateInviteInput, CreateProjectResult, Store, TokenMembership } from './store.js';
 import { UsernameTakenError } from './memory.js';
@@ -90,6 +96,12 @@ export class PostgresStore implements Store {
         surveyName: r.survey_name,
         idmlBase64: r.idml_base64,
       };
+    });
+  }
+
+  async renameProject(projectId: string, name: string): Promise<void> {
+    await this.withProject(projectId, async (client) => {
+      await client.query('UPDATE projects SET name = $2 WHERE id = $1', [projectId, name]);
     });
   }
 
@@ -175,7 +187,7 @@ export class PostgresStore implements Store {
     await this.withProject(projectId, async (client) => {
       await client.query(
         `INSERT INTO project_ceps (project_id, data) VALUES ($1, $2)
-         ON CONFLICT (project_id) DO UPDATE SET data = EXCLUDED.data`,
+         ON CONFLICT (project_id) DO UPDATE SET data = EXCLUDED.data, updated_at = now()`,
         [projectId, cep],
       );
     });
@@ -185,6 +197,19 @@ export class PostgresStore implements Store {
     return this.withProject(projectId, async (client) => {
       const res = await client.query('SELECT data FROM project_ceps WHERE project_id = $1', [projectId]);
       return res.rowCount === 0 ? null : (res.rows[0].data as Buffer);
+    });
+  }
+
+  async getCepInfo(projectId: string): Promise<CepInfo | null> {
+    return this.withProject(projectId, async (client) => {
+      const res = await client.query(
+        'SELECT octet_length(data)::int AS bytes, updated_at FROM project_ceps WHERE project_id = $1',
+        [projectId],
+      );
+      if (res.rowCount === 0) {
+        return null;
+      }
+      return { bytes: res.rows[0].bytes as number, updatedAt: (res.rows[0].updated_at as Date).getTime() };
     });
   }
 
@@ -201,12 +226,12 @@ export class PostgresStore implements Store {
       }
       throw err;
     }
-    return { id, username: input.username, passwordHash: input.passwordHash, email: input.email };
+    return { id, username: input.username, passwordHash: input.passwordHash, email: input.email, isPlatformAdmin: false };
   }
 
   async getUserByUsername(username: string): Promise<User | null> {
     const res = await this.pool.query(
-      'SELECT id, username, password_hash, email FROM users WHERE username = $1',
+      'SELECT id, username, password_hash, email, is_platform_admin FROM users WHERE username = $1',
       [username],
     );
     return res.rowCount === 0 ? null : mapUser(res.rows[0]);
@@ -214,7 +239,7 @@ export class PostgresStore implements Store {
 
   async getUserById(userId: string): Promise<User | null> {
     const res = await this.pool.query(
-      'SELECT id, username, password_hash, email FROM users WHERE id = $1',
+      'SELECT id, username, password_hash, email, is_platform_admin FROM users WHERE id = $1',
       [userId],
     );
     return res.rowCount === 0 ? null : mapUser(res.rows[0]);
@@ -236,6 +261,119 @@ export class PostgresStore implements Store {
 
   async deleteSession(token: string): Promise<void> {
     await this.pool.query('DELETE FROM sessions WHERE token_hash = $1', [hashToken(token)]);
+  }
+
+  async deleteUserSessions(userId: string): Promise<void> {
+    await this.pool.query('DELETE FROM sessions WHERE user_id = $1', [userId]);
+  }
+
+  async setPassword(userId: string, passwordHash: string): Promise<void> {
+    await this.pool.query('UPDATE users SET password_hash = $2 WHERE id = $1', [userId, passwordHash]);
+  }
+
+  // --- Platform administration: global tables (users, server_settings,
+  // password_resets), not under RLS, never returning project data. ---
+
+  async hasPlatformAdmin(): Promise<boolean> {
+    const res = await this.pool.query('SELECT 1 FROM users WHERE is_platform_admin LIMIT 1');
+    return res.rowCount !== null && res.rowCount > 0;
+  }
+
+  async createFirstPlatformAdmin(input: { username: string; passwordHash: string }): Promise<User | null> {
+    const id = randomUUID();
+    const client = await this.pool.connect();
+    try {
+      await client.query('BEGIN');
+      // Serialise concurrent first-run setups (several instances, double submit):
+      // the transaction-scoped advisory lock makes check-then-insert atomic.
+      await client.query("SELECT pg_advisory_xact_lock(hashtext('collect-earth-cloud:first-platform-admin'))");
+      const existing = await client.query('SELECT 1 FROM users WHERE is_platform_admin LIMIT 1');
+      if (existing.rowCount !== null && existing.rowCount > 0) {
+        await client.query('ROLLBACK');
+        return null;
+      }
+      await client.query(
+        'INSERT INTO users (id, username, password_hash, email, is_platform_admin) VALUES ($1, $2, $3, NULL, true)',
+        [id, input.username, input.passwordHash],
+      );
+      await client.query('COMMIT');
+    } catch (err) {
+      await client.query('ROLLBACK');
+      if ((err as { code?: string }).code === '23505') {
+        throw new UsernameTakenError(input.username);
+      }
+      throw err;
+    } finally {
+      client.release();
+    }
+    return { id, username: input.username, passwordHash: input.passwordHash, email: null, isPlatformAdmin: true };
+  }
+
+  async getSettings(): Promise<ServerSettings> {
+    const res = await this.pool.query('SELECT key, value FROM server_settings');
+    const settings: ServerSettings = { ...DEFAULT_SETTINGS };
+    for (const r of res.rows) {
+      if (r.key === 'signupOpen') {
+        settings.signupOpen = r.value === 'true';
+      } else if (r.key === 'projectCreation' && (r.value === 'anyone' || r.value === 'platform-admins')) {
+        settings.projectCreation = r.value;
+      }
+    }
+    return settings;
+  }
+
+  async updateSettings(patch: Partial<ServerSettings>): Promise<ServerSettings> {
+    const entries: [string, string][] = [];
+    if (patch.signupOpen !== undefined) {
+      entries.push(['signupOpen', String(patch.signupOpen)]);
+    }
+    if (patch.projectCreation !== undefined) {
+      entries.push(['projectCreation', patch.projectCreation]);
+    }
+    for (const [key, value] of entries) {
+      await this.pool.query(
+        `INSERT INTO server_settings (key, value) VALUES ($1, $2)
+         ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value`,
+        [key, value],
+      );
+    }
+    return this.getSettings();
+  }
+
+  async listUsers(): Promise<UserSummary[]> {
+    // project_members is a global table (002); only a COUNT leaves this query.
+    const res = await this.pool.query(
+      `SELECT u.id, u.username, u.is_platform_admin, COUNT(m.project_id)::int AS projects
+         FROM users u LEFT JOIN project_members m ON m.user_id = u.id
+        GROUP BY u.id, u.username, u.is_platform_admin
+        ORDER BY u.username`,
+    );
+    return res.rows.map((r) => ({
+      userId: r.id,
+      username: r.username,
+      isPlatformAdmin: r.is_platform_admin,
+      projects: r.projects,
+    }));
+  }
+
+  async createPasswordReset(userId: string, expiresAt: number): Promise<string> {
+    const token = generateToken();
+    await this.pool.query(
+      'INSERT INTO password_resets (token_hash, user_id, expires_at) VALUES ($1, $2, $3)',
+      [hashToken(token), userId, new Date(expiresAt)],
+    );
+    return token;
+  }
+
+  async consumePasswordReset(token: string, now: number): Promise<string | null> {
+    // One UPDATE = atomic single use, even with concurrent submits.
+    const res = await this.pool.query(
+      `UPDATE password_resets SET used_at = $2
+        WHERE token_hash = $1 AND used_at IS NULL AND expires_at > $2
+        RETURNING user_id`,
+      [hashToken(token), new Date(now)],
+    );
+    return res.rowCount === 0 ? null : (res.rows[0].user_id as string);
   }
 
   async addMembership(projectId: string, userId: string, role: Role): Promise<void> {
@@ -298,9 +436,10 @@ export class PostgresStore implements Store {
   async createInvite(input: CreateInviteInput): Promise<string> {
     const token = generateToken();
     await this.pool.query(
-      `INSERT INTO invites (token_hash, project_id, role, max_uses, expires_at, created_by)
-       VALUES ($1, $2, $3, $4, $5, $6)`,
+      `INSERT INTO invites (id, token_hash, project_id, role, max_uses, expires_at, created_by)
+       VALUES ($1, $2, $3, $4, $5, $6, $7)`,
       [
+        randomUUID(),
         hashToken(token),
         input.projectId,
         input.role,
@@ -314,7 +453,7 @@ export class PostgresStore implements Store {
 
   async getInvite(token: string): Promise<Invite | null> {
     const res = await this.pool.query(
-      `SELECT i.project_id, p.name, i.role, i.max_uses, i.used_count, i.expires_at
+      `SELECT i.project_id, p.name, i.role, i.max_uses, i.used_count, i.expires_at, i.revoked_at
          FROM invites i JOIN projects p ON p.id = i.project_id
         WHERE i.token_hash = $1`,
       [hashToken(token)],
@@ -330,13 +469,49 @@ export class PostgresStore implements Store {
       maxUses: r.max_uses,
       usedCount: r.used_count,
       expiresAt: r.expires_at === null ? null : (r.expires_at as Date).getTime(),
+      revoked: r.revoked_at !== null,
     };
+  }
+
+  async listInvites(projectId: string, now: number): Promise<InviteSummary[]> {
+    const res = await this.pool.query(
+      `SELECT id, role, max_uses, used_count, expires_at, created_at
+         FROM invites
+        WHERE project_id = $1
+          AND revoked_at IS NULL
+          AND used_count < max_uses
+          AND (expires_at IS NULL OR expires_at >= $2)
+        ORDER BY created_at`,
+      [projectId, new Date(now)],
+    );
+    return res.rows.map((r) => ({
+      id: r.id,
+      role: r.role,
+      maxUses: r.max_uses,
+      usedCount: r.used_count,
+      expiresAt: r.expires_at === null ? null : (r.expires_at as Date).getTime(),
+      createdAt: (r.created_at as Date).getTime(),
+    }));
+  }
+
+  async revokeInvite(projectId: string, inviteId: string): Promise<boolean> {
+    // The project_id predicate is the tenant fence: an id of another project matches
+    // nothing. A non-UUID id would make Postgres raise; it is simply "not found".
+    if (!isUuid(inviteId)) {
+      return false;
+    }
+    const res = await this.pool.query(
+      'UPDATE invites SET revoked_at = now() WHERE id = $1 AND project_id = $2 AND revoked_at IS NULL',
+      [inviteId, projectId],
+    );
+    return res.rowCount !== null && res.rowCount > 0;
   }
 
   async consumeInvite(token: string, now: number): Promise<boolean> {
     const res = await this.pool.query(
       `UPDATE invites SET used_count = used_count + 1
         WHERE token_hash = $1
+          AND revoked_at IS NULL
           AND used_count < max_uses
           AND (expires_at IS NULL OR expires_at > $2)
         RETURNING token_hash`,
@@ -454,6 +629,7 @@ function mapUser(r: Record<string, unknown>): User {
     username: r.username as string,
     passwordHash: r.password_hash as string,
     email: (r.email as string | null) ?? null,
+    isPlatformAdmin: r.is_platform_admin === true,
   };
 }
 

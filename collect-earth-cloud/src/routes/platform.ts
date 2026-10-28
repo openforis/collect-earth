@@ -1,4 +1,5 @@
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
+import { publicBaseUrl } from '../accountRules.js';
 import type { Config } from '../config.js';
 import { requireProjectMembership, requireSession } from '../plugins/projectAuth.js';
 import type { Store } from '../store/store.js';
@@ -32,8 +33,9 @@ export async function registerPlatformRoutes(app: FastifyInstance, store: Store,
     },
   );
 
-  // Create an invite (admin). Returns the token and a join URL (absolute if
-  // PUBLIC_BASE_URL is configured, otherwise a relative path the client resolves).
+  // Create an invite (admin). Returns the token, the relative joinPath and an
+  // absolute joinUrl (PUBLIC_BASE_URL, else RENDER_EXTERNAL_URL, else derived from
+  // this request's host). The token is shown only here; listings carry an id.
   app.post(
     '/v1/projects/:pid/invites',
     { preHandler: requireProjectMembership(store, 'admin') },
@@ -56,11 +58,34 @@ export async function registerPlatformRoutes(app: FastifyInstance, store: Store,
       return reply.code(201).send({
         inviteToken: token,
         joinPath,
-        joinUrl: config.publicBaseUrl ? `${config.publicBaseUrl.replace(/\/+$/, '')}${joinPath}` : null,
+        joinUrl: `${publicBaseUrl(config, request)}${joinPath}`,
         role,
         maxUses,
         expiresAt,
       });
+    },
+  );
+
+  // Open invites of the project (admin): not revoked, expired or used up.
+  app.get(
+    '/v1/projects/:pid/invites',
+    { preHandler: requireProjectMembership(store, 'admin') },
+    async (request: FastifyRequest, reply: FastifyReply) => {
+      return reply.send({ invites: await store.listInvites(request.membership!.projectId, Date.now()) });
+    },
+  );
+
+  // Revoke an invite (admin). The store matches the id within THIS project only, so
+  // an invite id of another project is a 404 like any unknown id.
+  app.delete(
+    '/v1/projects/:pid/invites/:id',
+    { preHandler: requireProjectMembership(store, 'admin') },
+    async (request: FastifyRequest, reply: FastifyReply) => {
+      const id = (request.params as { id: string }).id;
+      if (!(await store.revokeInvite(request.membership!.projectId, id))) {
+        return reply.code(404).send({ error: 'not_found' });
+      }
+      return reply.code(204).send();
     },
   );
 
@@ -78,7 +103,7 @@ export async function registerPlatformRoutes(app: FastifyInstance, store: Store,
       projectId: invite.projectId,
       projectName: invite.projectName,
       role: invite.role,
-      valid: !expired && !exhausted,
+      valid: !expired && !exhausted && !invite.revoked,
     });
   });
 

@@ -1,17 +1,22 @@
 import { randomUUID } from 'node:crypto';
 import { generateToken, hashToken } from '../auth.js';
 import { checksumOf, plotCountOf } from '../csv.js';
-import type {
-  Assignment,
-  AssignmentDetail,
-  CsvFile,
-  Invite,
-  Member,
-  Membership,
-  ProjectRow,
-  RecordRow,
-  Role,
-  User,
+import {
+  DEFAULT_SETTINGS,
+  type Assignment,
+  type AssignmentDetail,
+  type CepInfo,
+  type CsvFile,
+  type Invite,
+  type InviteSummary,
+  type Member,
+  type Membership,
+  type ProjectRow,
+  type RecordRow,
+  type Role,
+  type ServerSettings,
+  type User,
+  type UserSummary,
 } from '../types.js';
 import type { CreateInviteInput, CreateProjectResult, Store, TokenMembership } from './store.js';
 
@@ -23,16 +28,26 @@ interface ProjectEntry {
   project: ProjectRow;
   records: Map<string, RecordRow>; // key = recordKey + ' ' + operator
   cep: Buffer | null;
+  cepUpdatedAt: number | null;
   csvFiles: Map<string, CsvFileEntry>; // key = csvFileId
   assignments: Set<string>; // `${userId} ${csvFileId}`
 }
 
 interface InviteEntry {
+  id: string;
   projectId: string;
   role: Role;
   maxUses: number;
   usedCount: number;
   expiresAt: number | null;
+  createdAt: number;
+  revokedAt: number | null;
+}
+
+interface ResetEntry {
+  userId: string;
+  expiresAt: number;
+  usedAt: number | null;
 }
 
 /**
@@ -49,6 +64,8 @@ export class InMemoryStore implements Store {
   private readonly sessions = new Map<string, string>(); // session token hash -> userId
   private readonly memberships = new Map<string, Role>(); // `${projectId} ${userId}` -> role
   private readonly invites = new Map<string, InviteEntry>(); // invite token hash -> entry
+  private readonly resets = new Map<string, ResetEntry>(); // reset token hash -> entry
+  private settings: ServerSettings = { ...DEFAULT_SETTINGS };
 
   private static recordId(recordKey: string, operator: string): string {
     return `${recordKey} ${operator}`;
@@ -71,6 +88,7 @@ export class InMemoryStore implements Store {
       project,
       records: new Map(),
       cep: null,
+      cepUpdatedAt: null,
       csvFiles: new Map(),
       assignments: new Set(),
     });
@@ -87,6 +105,10 @@ export class InMemoryStore implements Store {
     return this.projects.get(projectId)?.project ?? null;
   }
 
+  async renameProject(projectId: string, name: string): Promise<void> {
+    this.requireProject(projectId).project.name = name;
+  }
+
   async resolveToken(token: string): Promise<TokenMembership | null> {
     return this.tokens.get(hashToken(token)) ?? null;
   }
@@ -99,7 +121,17 @@ export class InMemoryStore implements Store {
   }
 
   async putCep(projectId: string, cep: Buffer): Promise<void> {
-    this.requireProject(projectId).cep = Buffer.from(cep);
+    const entry = this.requireProject(projectId);
+    entry.cep = Buffer.from(cep);
+    entry.cepUpdatedAt = Date.now();
+  }
+
+  async getCepInfo(projectId: string): Promise<CepInfo | null> {
+    const entry = this.projects.get(projectId);
+    if (!entry?.cep) {
+      return null;
+    }
+    return { bytes: entry.cep.length, updatedAt: entry.cepUpdatedAt ?? 0 };
   }
 
   async getCep(projectId: string): Promise<Buffer | null> {
@@ -130,15 +162,14 @@ export class InMemoryStore implements Store {
   // --- Users & sessions ---
 
   async createUser(input: { username: string; passwordHash: string; email: string | null }): Promise<User> {
+    return this.insertUser({ ...input, isPlatformAdmin: false });
+  }
+
+  private insertUser(input: Omit<User, 'id'>): User {
     if (this.usersByName.has(input.username)) {
       throw new UsernameTakenError(input.username);
     }
-    const user: User = {
-      id: randomUUID(),
-      username: input.username,
-      passwordHash: input.passwordHash,
-      email: input.email,
-    };
+    const user: User = { id: randomUUID(), ...input };
     this.users.set(user.id, user);
     this.usersByName.set(user.username, user.id);
     return user;
@@ -166,6 +197,70 @@ export class InMemoryStore implements Store {
 
   async deleteSession(token: string): Promise<void> {
     this.sessions.delete(hashToken(token));
+  }
+
+  async deleteUserSessions(userId: string): Promise<void> {
+    for (const [hash, owner] of this.sessions) {
+      if (owner === userId) {
+        this.sessions.delete(hash);
+      }
+    }
+  }
+
+  async setPassword(userId: string, passwordHash: string): Promise<void> {
+    const user = this.users.get(userId);
+    if (user) {
+      user.passwordHash = passwordHash;
+    }
+  }
+
+  // --- Platform administration ---
+
+  async hasPlatformAdmin(): Promise<boolean> {
+    return [...this.users.values()].some((u) => u.isPlatformAdmin);
+  }
+
+  async createFirstPlatformAdmin(input: { username: string; passwordHash: string }): Promise<User | null> {
+    // Single-threaded: the check and the insert cannot interleave with another setup.
+    if (await this.hasPlatformAdmin()) {
+      return null;
+    }
+    return this.insertUser({ ...input, email: null, isPlatformAdmin: true });
+  }
+
+  async getSettings(): Promise<ServerSettings> {
+    return { ...this.settings };
+  }
+
+  async updateSettings(patch: Partial<ServerSettings>): Promise<ServerSettings> {
+    this.settings = { ...this.settings, ...patch };
+    return { ...this.settings };
+  }
+
+  async listUsers(): Promise<UserSummary[]> {
+    const counts = new Map<string, number>();
+    for (const key of this.memberships.keys()) {
+      const userId = key.split(' ')[1];
+      counts.set(userId, (counts.get(userId) ?? 0) + 1);
+    }
+    return [...this.users.values()]
+      .map((u) => ({ userId: u.id, username: u.username, isPlatformAdmin: u.isPlatformAdmin, projects: counts.get(u.id) ?? 0 }))
+      .sort((a, b) => a.username.localeCompare(b.username));
+  }
+
+  async createPasswordReset(userId: string, expiresAt: number): Promise<string> {
+    const token = generateToken();
+    this.resets.set(hashToken(token), { userId, expiresAt, usedAt: null });
+    return token;
+  }
+
+  async consumePasswordReset(token: string, now: number): Promise<string | null> {
+    const entry = this.resets.get(hashToken(token));
+    if (!entry || entry.usedAt !== null || entry.expiresAt <= now || !this.users.has(entry.userId)) {
+      return null;
+    }
+    entry.usedAt = now;
+    return entry.userId;
   }
 
   // --- Memberships ---
@@ -233,11 +328,14 @@ export class InMemoryStore implements Store {
   async createInvite(input: CreateInviteInput): Promise<string> {
     const token = generateToken();
     this.invites.set(hashToken(token), {
+      id: randomUUID(),
       projectId: input.projectId,
       role: input.role,
       maxUses: input.maxUses,
       usedCount: 0,
       expiresAt: input.expiresAt,
+      createdAt: Date.now(),
+      revokedAt: null,
     });
     return token;
   }
@@ -258,12 +356,38 @@ export class InMemoryStore implements Store {
       maxUses: entry.maxUses,
       usedCount: entry.usedCount,
       expiresAt: entry.expiresAt,
+      revoked: entry.revokedAt !== null,
     };
+  }
+
+  async listInvites(projectId: string, now: number): Promise<InviteSummary[]> {
+    return [...this.invites.values()]
+      .filter((e) => e.projectId === projectId && isOpen(e, now))
+      .sort((a, b) => a.createdAt - b.createdAt)
+      .map((e) => ({
+        id: e.id,
+        role: e.role,
+        maxUses: e.maxUses,
+        usedCount: e.usedCount,
+        expiresAt: e.expiresAt,
+        createdAt: e.createdAt,
+      }));
+  }
+
+  async revokeInvite(projectId: string, inviteId: string): Promise<boolean> {
+    for (const entry of this.invites.values()) {
+      // Matching on projectId too: an id from another project is "not found" here.
+      if (entry.id === inviteId && entry.projectId === projectId && entry.revokedAt === null) {
+        entry.revokedAt = Date.now();
+        return true;
+      }
+    }
+    return false;
   }
 
   async consumeInvite(token: string, now: number): Promise<boolean> {
     const entry = this.invites.get(hashToken(token));
-    if (!entry) {
+    if (!entry || entry.revokedAt !== null) {
       return false;
     }
     if (entry.expiresAt !== null && entry.expiresAt < now) {
@@ -382,6 +506,8 @@ export class InMemoryStore implements Store {
     this.sessions.clear();
     this.memberships.clear();
     this.invites.clear();
+    this.resets.clear();
+    this.settings = { ...DEFAULT_SETTINGS };
   }
 
   private requireProject(projectId: string): ProjectEntry {
@@ -391,6 +517,11 @@ export class InMemoryStore implements Store {
     }
     return entry;
   }
+}
+
+/** An invite still usable: not revoked, not expired, uses left. */
+function isOpen(e: InviteEntry, now: number): boolean {
+  return e.revokedAt === null && (e.expiresAt === null || e.expiresAt >= now) && e.usedCount < e.maxUses;
 }
 
 /** Thrown by createUser when the username is already registered. */

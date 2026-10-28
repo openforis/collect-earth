@@ -1,7 +1,9 @@
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import { bearerToken } from '../auth.js';
 import { hashPassword, verifyPassword } from '../password.js';
+import { checkPassword } from '../accountRules.js';
 import { requireSession } from '../plugins/projectAuth.js';
+import { RATE_LIMITED, type RateLimiter } from '../rateLimit.js';
 import { UsernameTakenError } from '../store/memory.js';
 import type { Store } from '../store/store.js';
 
@@ -16,9 +18,24 @@ interface LoginBody {
   password?: string;
 }
 
-/** Account registration (invite-gated), login, logout and the /me profile. */
-export async function registerAuthRoutes(app: FastifyInstance, store: Store): Promise<void> {
-  app.post('/v1/auth/register', async (request: FastifyRequest, reply: FastifyReply) => {
+interface PasswordChangeBody {
+  currentPassword?: string;
+  newPassword?: string;
+}
+
+/**
+ * Account registration (invite-gated), login, logout, the /me profile and password
+ * change. register/login are what the desktop client calls: their contract
+ * (accepted inputs, error codes, response shape) must not change — only the rate
+ * limit is added in front of them.
+ */
+export async function registerAuthRoutes(
+  app: FastifyInstance,
+  store: Store,
+  limiter: RateLimiter,
+  loginFailures: RateLimiter,
+): Promise<void> {
+  app.post('/v1/auth/register', { preHandler: limiter.guard('register') }, async (request: FastifyRequest, reply: FastifyReply) => {
     const body = (request.body ?? {}) as RegisterBody;
     const username = (body.username ?? '').trim();
     const password = body.password ?? '';
@@ -32,7 +49,8 @@ export async function registerAuthRoutes(app: FastifyInstance, store: Store): Pr
       return reply.code(409).send({ error: 'username_taken' });
     }
     const invite = await store.getInvite(inviteToken);
-    if (!invite) {
+    // A revoked invite answers exactly like an unknown one.
+    if (!invite || invite.revoked) {
       return reply.code(400).send({ error: 'invalid_invite' });
     }
     // Atomic gate: one use per successful registration. On a lost dup race below we
@@ -65,15 +83,21 @@ export async function registerAuthRoutes(app: FastifyInstance, store: Store): Pr
     });
   });
 
-  app.post('/v1/auth/login', async (request: FastifyRequest, reply: FastifyReply) => {
+  app.post('/v1/auth/login', { preHandler: limiter.guard('login') }, async (request: FastifyRequest, reply: FastifyReply) => {
     const body = (request.body ?? {}) as LoginBody;
     const username = (body.username ?? '').trim();
     const password = body.password ?? '';
     if (!username || !password) {
       return reply.code(400).send({ error: 'bad_request', reason: 'username and password are required' });
     }
+    // Failed logins are counted per account, whatever IP they come from
+    const failureKey = username.toLowerCase();
+    if (loginFailures.blocked(failureKey)) {
+      return reply.code(429).header('retry-after', '60').send(RATE_LIMITED);
+    }
     const user = await store.getUserByUsername(username);
     if (!user || !(await verifyPassword(password, user.passwordHash))) {
+      loginFailures.hit(failureKey);
       return reply.code(401).send({ error: 'invalid_credentials' });
     }
     const token = await store.createSession(user.id);
@@ -101,7 +125,34 @@ export async function registerAuthRoutes(app: FastifyInstance, store: Store): Pr
         return reply.code(401).send({ error: 'unauthorized' });
       }
       const memberships = await store.listMemberships(user.id);
-      return reply.send({ userId: user.id, username: user.username, memberships });
+      return reply.send({
+        userId: user.id,
+        username: user.username,
+        isPlatformAdmin: user.isPlatformAdmin,
+        memberships,
+      });
+    },
+  );
+
+  // Change the caller's own password. Other sessions stay valid (the desktop
+  // client's session is not logged out by a change made in the dashboard).
+  app.put(
+    '/v1/me/password',
+    { preHandler: requireSession(store) },
+    async (request: FastifyRequest, reply: FastifyReply) => {
+      const body = (request.body ?? {}) as PasswordChangeBody;
+      const currentPassword = typeof body.currentPassword === 'string' ? body.currentPassword : '';
+      const newPassword = typeof body.newPassword === 'string' ? body.newPassword : '';
+      const user = await store.getUserById(request.userId!);
+      if (!user || !(await verifyPassword(currentPassword, user.passwordHash))) {
+        return reply.code(401).send({ error: 'invalid_credentials' });
+      }
+      const rule = checkPassword(newPassword);
+      if (rule) {
+        return reply.code(400).send(rule);
+      }
+      await store.setPassword(user.id, await hashPassword(newPassword));
+      return reply.code(204).send();
     },
   );
 }

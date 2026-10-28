@@ -72,6 +72,31 @@ export function requireSession(store: Store): preHandlerHookHandler {
   };
 }
 
+/**
+ * preHandler for the server-administration routes (/v1/admin/*): a valid session
+ * whose user is a platform admin. Being a platform admin grants NO project access
+ * (§4b) — these routes never return project data, only accounts and settings.
+ *  - Missing / invalid session -> 401; a session of a non-admin -> 403.
+ */
+export function requirePlatformAdmin(store: Store): preHandlerHookHandler {
+  return async (request: FastifyRequest, reply: FastifyReply) => {
+    const token = bearerToken(request.headers.authorization);
+    const session = token ? await store.resolveSession(token) : null;
+    if (!session) {
+      return reply.code(401).send({ error: 'unauthorized' });
+    }
+    const user = await store.getUserById(session.userId);
+    if (!user) {
+      return reply.code(401).send({ error: 'unauthorized' });
+    }
+    if (!user.isPlatformAdmin) {
+      return reply.code(403).send({ error: 'forbidden' });
+    }
+    request.userId = user.id;
+    return undefined;
+  };
+}
+
 type MembershipResolution = RequestMembership | 'invalid' | 'no_access';
 
 async function resolveMembership(store: Store, token: string, pid: string): Promise<MembershipResolution> {

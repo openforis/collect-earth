@@ -1,5 +1,8 @@
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
+import { secretsEqual } from '../accountRules.js';
+import { bearerToken } from '../auth.js';
 import type { Config } from '../config.js';
+import { recordsCsv } from '../export.js';
 import type { Store } from '../store/store.js';
 import { requireProjectMembership } from '../plugins/projectAuth.js';
 
@@ -15,19 +18,47 @@ export async function registerProjectRoutes(
   store: Store,
   config: Config,
 ): Promise<void> {
-  // Provisioning. In the hosted model the platform operator calls this; guarded by
-  // x-admin-key when ADMIN_API_KEY is configured. Not a project-scoped route.
+  // Provisioning, three ways (not a project-scoped route):
+  //  1. `x-admin-key` matching ADMIN_API_KEY: the Phase-0 operator path, unchanged —
+  //     returns the project tokens.
+  //  2. A user session (dashboard): allowed when projectCreation is "anyone" or the
+  //     caller is a platform admin; the caller becomes the project's admin.
+  //  3. Neither: only on a throwaway dev/test server (no ADMIN_API_KEY AND the memory
+  //     store). A real deployment never hands out projects anonymously.
   app.post('/v1/projects', async (request: FastifyRequest, reply: FastifyReply) => {
-    if (config.adminApiKey) {
-      const provided = request.headers['x-admin-key'];
-      if (provided !== config.adminApiKey) {
-        return reply.code(401).send({ error: 'unauthorized' });
-      }
-    }
     const body = (request.body ?? {}) as { name?: string };
     const name = typeof body.name === 'string' && body.name.trim().length > 0 ? body.name.trim() : 'Untitled project';
-    const result = await store.createProject({ name });
-    return reply.code(201).send(result);
+
+    const adminKey = request.headers['x-admin-key'];
+    if (typeof adminKey === 'string' && adminKey.length > 0) {
+      if (!config.adminApiKey || !secretsEqual(adminKey, config.adminApiKey)) {
+        return reply.code(401).send({ error: 'unauthorized' });
+      }
+      return reply.code(201).send(await store.createProject({ name }));
+    }
+
+    const token = bearerToken(request.headers.authorization);
+    if (token) {
+      const session = await store.resolveSession(token);
+      const user = session ? await store.getUserById(session.userId) : null;
+      if (!user) {
+        return reply.code(401).send({ error: 'unauthorized' });
+      }
+      const settings = await store.getSettings();
+      if (settings.projectCreation !== 'anyone' && !user.isPlatformAdmin) {
+        return reply.code(403).send({ error: 'project_creation_restricted' });
+      }
+      // The Phase-0 tokens are minted but not returned: the creator works with
+      // their session, as a project admin member.
+      const { projectId } = await store.createProject({ name });
+      await store.addMembership(projectId, user.id, 'admin');
+      return reply.code(201).send({ projectId, name });
+    }
+
+    if (!config.adminApiKey && config.storeBackend === 'memory') {
+      return reply.code(201).send(await store.createProject({ name }));
+    }
+    return reply.code(401).send({ error: 'unauthorized' });
   });
 
   // Ping / metadata — used by the desktop "Test connection" button and by clients
@@ -70,4 +101,88 @@ export async function registerProjectRoutes(
       return reply.send({ ok: true });
     },
   );
+
+  // Rename (admin).
+  app.patch(
+    '/v1/projects/:pid',
+    { preHandler: requireProjectMembership(store, 'admin') },
+    async (request: FastifyRequest, reply: FastifyReply) => {
+      const body = (request.body ?? {}) as { name?: unknown };
+      const name = typeof body.name === 'string' ? body.name.trim() : '';
+      if (!name || name.length > 200) {
+        return reply.code(400).send({ error: 'bad_request', reason: 'name must be 1-200 characters' });
+      }
+      await store.renameProject(request.membership!.projectId, name);
+      return reply.send({ projectId: request.membership!.projectId, name });
+    },
+  );
+
+  // Dashboard overview (admin): what has been set up and how collection is going.
+  // Deleted records (tombstones) are not counted.
+  app.get(
+    '/v1/projects/:pid/overview',
+    { preHandler: requireProjectMembership(store, 'admin') },
+    async (request: FastifyRequest, reply: FastifyReply) => {
+      const projectId = request.membership!.projectId;
+      const project = await store.getProject(projectId);
+      if (!project) {
+        return reply.code(404).send({ error: 'not_found' });
+      }
+      const [cep, members, csvFiles, records] = await Promise.all([
+        store.getCepInfo(projectId),
+        store.listMembers(projectId),
+        store.listCsvFiles(projectId),
+        store.listRecords(projectId),
+      ]);
+      const byOperator = new Map<string, { operator: string; total: number; submitted: number; lastModifiedOn: number }>();
+      let submitted = 0;
+      for (const r of records) {
+        const entry = byOperator.get(r.operator) ?? { operator: r.operator, total: 0, submitted: 0, lastModifiedOn: 0 };
+        entry.total += 1;
+        if (r.activelySaved) {
+          entry.submitted += 1;
+          submitted += 1;
+        }
+        entry.lastModifiedOn = Math.max(entry.lastModifiedOn, r.modifiedOn);
+        byOperator.set(r.operator, entry);
+      }
+      return reply.send({
+        name: project.name,
+        cep,
+        members: members.length,
+        csvFiles: csvFiles.length,
+        plots: csvFiles.reduce((sum, f) => sum + f.plotCount, 0),
+        records: {
+          total: records.length,
+          submitted,
+          byOperator: [...byOperator.values()].sort((a, b) => a.operator.localeCompare(b.operator)),
+        },
+      });
+    },
+  );
+
+  // All collected data as one CSV (admin), for Excel / a spreadsheet.
+  app.get(
+    '/v1/projects/:pid/export.csv',
+    { preHandler: requireProjectMembership(store, 'admin') },
+    async (request: FastifyRequest, reply: FastifyReply) => {
+      const projectId = request.membership!.projectId;
+      const project = await store.getProject(projectId);
+      if (!project) {
+        return reply.code(404).send({ error: 'not_found' });
+      }
+      const csv = recordsCsv(await store.listRecords(projectId));
+      return reply
+        .header('content-type', 'text/csv; charset=utf-8')
+        .header('content-disposition', contentDisposition(project.name))
+        .send(csv);
+    },
+  );
+}
+
+/** `attachment` with an ASCII fallback name plus the UTF-8 name (RFC 6266 / 5987). */
+function contentDisposition(projectName: string): string {
+  const base = `${projectName}-data.csv`;
+  const ascii = base.replace(/[^A-Za-z0-9._ -]+/g, '_').replace(/\s+/g, '_') || 'export.csv';
+  return `attachment; filename="${ascii}"; filename*=UTF-8''${encodeURIComponent(base).replace(/['()*]/g, (c) => `%${c.charCodeAt(0).toString(16).toUpperCase()}`)}`;
 }
