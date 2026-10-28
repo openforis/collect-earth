@@ -47,7 +47,30 @@
 			</list>
 		</property>
 	</bean>
-	
+
+	<!-- The same converters for the answers of the @ExceptionHandler methods, so that the errors of /api
+	     (ApiExceptionHandler) are written as JSON: the resolver the DispatcherServlet makes by default has no Jackson.
+	     Declaring a resolver replaces the three the DispatcherServlet has by default, so the other two are declared too,
+	     in their default order, and @ResponseStatus exceptions and unmapped or bad requests answer as they always did. -->
+	<bean class="org.springframework.web.servlet.mvc.method.annotation.ExceptionHandlerExceptionResolver">
+		<property name="order" value="0" />
+		<property name="messageConverters">
+			<list>
+				<bean class="org.springframework.http.converter.ByteArrayHttpMessageConverter" />
+				<bean class="org.springframework.http.converter.StringHttpMessageConverter" />
+				<bean class="org.springframework.http.converter.xml.SourceHttpMessageConverter" />
+				<bean class="org.springframework.http.converter.support.AllEncompassingFormHttpMessageConverter" />
+				<bean class="org.springframework.http.converter.json.MappingJackson2HttpMessageConverter" />
+			</list>
+		</property>
+	</bean>
+	<bean class="org.springframework.web.servlet.mvc.annotation.ResponseStatusExceptionResolver">
+		<property name="order" value="1" />
+	</bean>
+	<bean class="org.springframework.web.servlet.mvc.support.DefaultHandlerExceptionResolver">
+		<property name="order" value="2" />
+	</bean>
+
 	<!-- Controllers -->
 	<!-- 	<bean id="fileNameViewController" class="org.springframework.web.servlet.mvc.UrlFilenameViewController" /> -->
 

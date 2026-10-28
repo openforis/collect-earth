@@ -18,4 +18,16 @@ public class ApplicationContextTemplateTest {
 		// the converters the adapter had by default stay first, so what the existing controllers answer does not change
 		assertTrue(template.indexOf("StringHttpMessageConverter") < template.indexOf("MappingJackson2HttpMessageConverter"));
 	}
+
+	@Test
+	public void theErrorsOfTheApiAreWrittenAndTheDefaultResolversKept() throws Exception {
+		String template = new String(Files.readAllBytes(Paths.get("resources/applicationContext.fmt")), StandardCharsets.UTF_8);
+		// declaring one resolver replaces the three the DispatcherServlet has by default, so all three are declared
+		int exceptionHandler = template.indexOf("org.springframework.web.servlet.mvc.method.annotation.ExceptionHandlerExceptionResolver");
+		int responseStatus = template.indexOf("org.springframework.web.servlet.mvc.annotation.ResponseStatusExceptionResolver");
+		int defaultHandler = template.indexOf("org.springframework.web.servlet.mvc.support.DefaultHandlerExceptionResolver");
+		assertTrue(exceptionHandler >= 0 && responseStatus > exceptionHandler && defaultHandler > responseStatus);
+		// and the first one writes JSON, as the body of ApiExceptionHandler's answers is
+		assertTrue(template.indexOf("MappingJackson2HttpMessageConverter", exceptionHandler) < responseStatus);
+	}
 }

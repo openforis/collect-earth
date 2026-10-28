@@ -220,6 +220,19 @@
 			<version>5.14.2</version>
 			<scope>test</scope>
 		</dependency>
+		<!-- MockMvc's jsonPath matchers need both, and spring-test does not bring them -->
+		<dependency>
+			<groupId>com.jayway.jsonpath</groupId>
+			<artifactId>json-path</artifactId>
+			<version>2.9.0</version>
+			<scope>test</scope>
+		</dependency>
+		<dependency>
+			<groupId>org.hamcrest</groupId>
+			<artifactId>hamcrest</artifactId>
+			<version>2.2</version>
+			<scope>test</scope>
+		</dependency>
 
 	</dependencies>
 	<build>
