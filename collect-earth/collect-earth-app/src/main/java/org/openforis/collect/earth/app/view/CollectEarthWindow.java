@@ -53,15 +53,15 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.DisposableBean;
 import org.springframework.beans.factory.InitializingBean;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.context.annotation.Lazy;
 import org.springframework.stereotype.Component;
 
 /**
  * @author Alfonso Sanchez-Paus Diaz
  *
  */
+// No longer created at start-up: the pages of the app are the main window (see AppShell). Lazy, as the whole context
+// is, so neither it nor its menu and transfer handler are created unless asked for, which nothing does any more.
 @Component
-@Lazy(false)
 public class CollectEarthWindow implements InitializingBean, DisposableBean{
 
 	@Autowired

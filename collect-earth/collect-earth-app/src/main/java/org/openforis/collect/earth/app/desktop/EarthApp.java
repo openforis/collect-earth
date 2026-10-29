@@ -12,6 +12,7 @@ import java.io.InputStreamReader;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.util.concurrent.TimeUnit;
+import java.util.function.Consumer;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.lang.reflect.Proxy;
@@ -57,6 +58,7 @@ import org.openforis.collect.earth.app.view.ShellFolderFallback;
 import org.openforis.collect.earth.sampler.utils.KmlGenerationException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.web.context.WebApplicationContext;
 
 import com.formdev.flatlaf.FlatIntelliJLaf;
 import com.formdev.flatlaf.FlatLightLaf;
@@ -937,6 +939,8 @@ public class EarthApp {
 			} else {
 				getKmlGeneratorService().generateLoaderKmlFile();
 				openKmlOnGoogleEarth();
+				// The main window of Collect Earth, which the Swing window was: Google Earth Pro shows the plots
+				openHomePage();
 			}
 		} catch (final Exception e) {
 			showMessage(Messages.getString("EarthApp.61")); //$NON-NLS-1$
@@ -945,20 +949,34 @@ public class EarthApp {
 	}
 
 	private void openLeafletMap() {
-		new Thread("Open Leaflet plots map") {
+		inServerContext("the Leaflet plots map", context -> { //$NON-NLS-1$
+			context.getBean(BrowserService.class).openLeafletMap();
+			// Into its place next to Google Earth Web, also after the options changed the layout
+			context.getBean(WindowLayoutService.class).arrange();
+		});
+	}
+
+	private void openHomePage() {
+		inServerContext("the home page", context -> context.getBean(BrowserService.class).openHomePage()); //$NON-NLS-1$
+	}
+
+	/**
+	 * Opens {@code what} with the beans of the server, on a thread of its own: a browser takes seconds to start, and
+	 * this runs on the thread that started the server or loaded the KML. A failure is logged.
+	 */
+	private void inServerContext(String what, Consumer<WebApplicationContext> opening) {
+		new Thread("Open " + what) { //$NON-NLS-1$
 			@Override
 			public void run() {
 				try {
-					if (serverController == null || serverController.getContext() == null) {
-						logger.error("Cannot open the Leaflet plots map: the server is not initialized"); //$NON-NLS-1$
+					WebApplicationContext context = serverController == null ? null : serverController.getContext();
+					if (context == null) {
+						logger.error("Cannot open {}: the server is not initialized", what); //$NON-NLS-1$
 						return;
 					}
-					BrowserService browserService = serverController.getContext().getBean(BrowserService.class);
-					browserService.openLeafletMap();
-					// Into its place next to Google Earth Web, also after the options changed the layout
-					serverController.getContext().getBean(WindowLayoutService.class).arrange();
+					opening.accept(context);
 				} catch (final Exception e) {
-					logger.error("Error opening the Leaflet plots map", e); //$NON-NLS-1$
+					logger.error("Error opening {}", what, e); //$NON-NLS-1$
 				}
 			}
 		}.start();
