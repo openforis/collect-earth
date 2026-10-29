@@ -137,6 +137,55 @@ describe('cross-tenant isolation', () => {
     }
   });
 
+  // Same gate for the quality routes; and A's admin, on A's own path, cannot reach B's
+  // decisions or notes, nor see them.
+  it("A's admin token gets 404 on every quality route aimed at B, and sees none of B's rows", async () => {
+    const authB = { authorization: `Bearer ${b.adminToken}` };
+    const noteB = await ctx.app.inject({
+      method: 'POST',
+      url: `/v1/projects/${b.projectId}/quality/notes`,
+      headers: authB,
+      payload: { questionKey: 'collect_code_land_use', text: 'B only' },
+    });
+    expect(noteB.statusCode).toBe(201);
+    const idB = noteB.json().id as string;
+    const decided = await ctx.app.inject({
+      method: 'PUT',
+      url: `/v1/projects/${b.projectId}/quality/decisions/17`,
+      headers: authB,
+      payload: { decision: 'first' },
+    });
+    expect(decided.statusCode).toBe(200);
+
+    const auth = { authorization: `Bearer ${a.adminToken}` };
+    const note = { questionKey: 'collect_code_land_use', text: 'x' };
+    const cases = [
+      { method: 'GET' as const, url: `/v1/projects/${b.projectId}/quality` },
+      { method: 'GET' as const, url: `/v1/projects/${b.projectId}/overlap` },
+      { method: 'PUT' as const, url: `/v1/projects/${b.projectId}/quality/settings`, payload: { margins: {} } },
+      { method: 'PUT' as const, url: `/v1/projects/${b.projectId}/quality/decisions/17`, payload: { decision: 'check' } },
+      { method: 'DELETE' as const, url: `/v1/projects/${b.projectId}/quality/decisions/17` },
+      { method: 'GET' as const, url: `/v1/projects/${b.projectId}/quality/notes` },
+      { method: 'POST' as const, url: `/v1/projects/${b.projectId}/quality/notes`, payload: note },
+      { method: 'PUT' as const, url: `/v1/projects/${b.projectId}/quality/notes/${idB}`, payload: note },
+      { method: 'DELETE' as const, url: `/v1/projects/${b.projectId}/quality/notes/${idB}` },
+      // B's note and decision through A's own path.
+      { method: 'PUT' as const, url: `/v1/projects/${a.projectId}/quality/notes/${idB}`, payload: note },
+      { method: 'DELETE' as const, url: `/v1/projects/${a.projectId}/quality/notes/${idB}` },
+      { method: 'DELETE' as const, url: `/v1/projects/${a.projectId}/quality/decisions/17` },
+    ];
+    for (const c of cases) {
+      const res = await ctx.app.inject({ method: c.method, url: c.url, headers: auth, payload: c.payload });
+      expect(res.statusCode, `${c.method} ${c.url}`).toBe(404);
+    }
+    const own = await ctx.app.inject({ method: 'GET', url: `/v1/projects/${a.projectId}/quality`, headers: auth });
+    expect(own.statusCode).toBe(200);
+    expect(own.json()).toMatchObject({ decisions: [], notes: [] });
+    // B's rows are untouched.
+    expect((await ctx.store.listGuidanceNotes(b.projectId)).map((n) => n.text)).toEqual(['B only']);
+    expect((await ctx.store.listQualityDecisions(b.projectId)).map((d) => [d.plot, d.decision])).toEqual([['17', 'first']]);
+  });
+
   it("deleting A leaves B whole, and A's admin cannot delete B even with B's name", async () => {
     await batchRequest(ctx.app, b.projectId, b.projectToken, [{ recordKey: '1', surveyUri: 'x', operator: 'o' }]);
     const cross = await ctx.app.inject({

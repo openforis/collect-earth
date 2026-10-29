@@ -7,6 +7,9 @@ import {
   type AssignmentDetail,
   type CepInfo,
   type CsvFile,
+  type DecisionKind,
+  type GuidanceNote,
+  type GuidanceNoteInput,
   type Invite,
   type InviteSummary,
   type Member,
@@ -14,6 +17,8 @@ import {
   type PlotAssignment,
   type ProjectRow,
   type ProjectStorage,
+  type QualityDecision,
+  type QualitySettings,
   type RecordRow,
   type RoundInfo,
   type Role,
@@ -40,6 +45,25 @@ interface ProjectEntry {
   csvFiles: Map<string, CsvFileEntry>; // key = csvFileId
   assignments: Set<string>; // `${userId} ${csvFileId}`
   plotAssignments: Map<string, PlotAssignment[]>; // key = csvFileId (divided files)
+  /** Bumped on every stored record / every change of the holdings (qualityVersion). */
+  recordsGeneration: number;
+  holdingsGeneration: number;
+  qualitySettings: QualitySettings | null;
+  decisions: Map<string, StoredDecision>; // key = plot
+  notes: Map<string, StoredNote>; // key = id
+}
+
+interface StoredDecision {
+  decision: DecisionKind;
+  comment: string | null;
+  decidedBy: string | null; // user id
+  decidedAt: number;
+}
+
+interface StoredNote extends GuidanceNoteInput {
+  id: string;
+  updatedBy: string | null; // user id
+  updatedAt: number;
 }
 
 interface InviteEntry {
@@ -103,6 +127,11 @@ export class InMemoryStore implements Store {
       csvFiles: new Map(),
       assignments: new Set(),
       plotAssignments: new Map(),
+      recordsGeneration: 0,
+      holdingsGeneration: 0,
+      qualitySettings: null,
+      decisions: new Map(),
+      notes: new Map(),
     });
 
     const adminToken = generateToken();
@@ -217,6 +246,7 @@ export class InMemoryStore implements Store {
   async putRecord(row: RecordRow): Promise<void> {
     const entry = this.requireProject(row.projectId);
     entry.records.set(InMemoryStore.recordId(row.recordKey, row.operator), { ...row });
+    entry.recordsGeneration += 1;
   }
 
   async listRecords(projectId: string, includeDeleted = false): Promise<RecordRow[]> {
@@ -314,6 +344,13 @@ export class InMemoryStore implements Store {
         }
       }
       InMemoryStore.dropPlotAssignments(entry, userId);
+      // decided_by / updated_by are ON DELETE SET NULL.
+      for (const d of entry.decisions.values()) {
+        if (d.decidedBy === userId) d.decidedBy = null;
+      }
+      for (const n of entry.notes.values()) {
+        if (n.updatedBy === userId) n.updatedBy = null;
+      }
     }
     for (const [hash, reset] of this.resets) {
       if (reset.userId === userId) {
@@ -450,6 +487,7 @@ export class InMemoryStore implements Store {
     for (const [csvFileId, list] of entry.plotAssignments) {
       entry.plotAssignments.set(csvFileId, list.filter((a) => a.userId !== userId));
     }
+    entry.holdingsGeneration += 1;
   }
 
   async countAdmins(projectId: string): Promise<number> {
@@ -581,6 +619,7 @@ export class InMemoryStore implements Store {
     if (held && plotKeys) {
       const keep = new Set(plotKeys);
       entry.plotAssignments.set(id, held.filter((a) => keep.has(a.plotKey)));
+      entry.holdingsGeneration += 1;
     }
     return InMemoryStore.csvMeta(meta);
   }
@@ -683,6 +722,7 @@ export class InMemoryStore implements Store {
       return;
     }
     file.distribution = distribution ? structuredClone(distribution) : null;
+    entry.holdingsGeneration += 1;
     if (distribution) {
       entry.plotAssignments.set(csvFileId, plots.map((a) => ({ ...a })));
       for (const a of entry.assignments) {
@@ -752,6 +792,111 @@ export class InMemoryStore implements Store {
     }
     const mine = (entry.plotAssignments.get(csvFileId) ?? []).filter((a) => a.userId === userId);
     return { plotKeys: mine.map((a) => a.plotKey), copyKeys: mine.filter((a) => a.overlap).map((a) => a.plotKey) };
+  }
+
+  // --- Quality review ---
+
+  async qualityVersion(projectId: string): Promise<string> {
+    const entry = this.projects.get(projectId);
+    return entry ? `${entry.records.size}:${entry.recordsGeneration}:${entry.holdingsGeneration}` : '';
+  }
+
+  recordsSource(): { databaseUrl: string } | null {
+    return null;
+  }
+
+  async getQualitySettings(projectId: string): Promise<QualitySettings> {
+    const settings = this.projects.get(projectId)?.qualitySettings;
+    return settings ? structuredClone(settings) : { margins: {} };
+  }
+
+  async setQualitySettings(projectId: string, settings: QualitySettings): Promise<void> {
+    this.requireProject(projectId).qualitySettings = structuredClone(settings);
+  }
+
+  async listQualityDecisions(projectId: string): Promise<QualityDecision[]> {
+    const entry = this.projects.get(projectId);
+    return [...(entry?.decisions ?? [])]
+      .map(([plot, d]) => this.decisionOf(plot, d))
+      .sort((a, b) => (a.plot < b.plot ? -1 : a.plot > b.plot ? 1 : 0));
+  }
+
+  async setQualityDecision(
+    projectId: string,
+    plot: string,
+    decision: DecisionKind,
+    comment: string | null,
+    userId: string | null,
+  ): Promise<QualityDecision> {
+    const entry = this.requireProject(projectId);
+    const stored: StoredDecision = { decision, comment, decidedBy: this.requireUserOrNull(userId), decidedAt: Date.now() };
+    entry.decisions.set(plot, stored);
+    return this.decisionOf(plot, stored);
+  }
+
+  async deleteQualityDecision(projectId: string, plot: string): Promise<boolean> {
+    return this.projects.get(projectId)?.decisions.delete(plot) ?? false;
+  }
+
+  async listGuidanceNotes(projectId: string): Promise<GuidanceNote[]> {
+    const entry = this.projects.get(projectId);
+    // By question, then pair, as Postgres orders them (code-point order).
+    const keyOf = (n: GuidanceNote) => [n.questionKey, n.firstValue ?? '', n.checkValue ?? '', n.id];
+    return [...(entry?.notes.values() ?? [])]
+      .map((n) => this.noteOf(n))
+      .sort((a, b) => {
+        const x = keyOf(a);
+        const y = keyOf(b);
+        for (let i = 0; i < x.length; i++) {
+          if (x[i] !== y[i]) return x[i] < y[i] ? -1 : 1;
+        }
+        return 0;
+      });
+  }
+
+  async createGuidanceNote(projectId: string, note: GuidanceNoteInput, userId: string | null): Promise<GuidanceNote> {
+    const entry = this.requireProject(projectId);
+    const stored: StoredNote = { ...InMemoryStore.noteInput(note), id: randomUUID(), updatedBy: this.requireUserOrNull(userId), updatedAt: Date.now() };
+    entry.notes.set(stored.id, stored);
+    return this.noteOf(stored);
+  }
+
+  async updateGuidanceNote(projectId: string, id: string, note: GuidanceNoteInput, userId: string | null): Promise<GuidanceNote | null> {
+    const entry = this.projects.get(projectId);
+    if (!entry?.notes.has(id)) {
+      return null;
+    }
+    const stored: StoredNote = { ...InMemoryStore.noteInput(note), id, updatedBy: this.requireUserOrNull(userId), updatedAt: Date.now() };
+    entry.notes.set(id, stored);
+    return this.noteOf(stored);
+  }
+
+  async deleteGuidanceNote(projectId: string, id: string): Promise<boolean> {
+    return this.projects.get(projectId)?.notes.delete(id) ?? false;
+  }
+
+  private static noteInput(n: GuidanceNoteInput): GuidanceNoteInput {
+    return { questionKey: n.questionKey, firstValue: n.firstValue, checkValue: n.checkValue, text: n.text };
+  }
+
+  private decisionOf(plot: string, d: StoredDecision): QualityDecision {
+    return { plot, decision: d.decision, comment: d.comment, decidedBy: this.usernameOf(d.decidedBy), decidedAt: d.decidedAt };
+  }
+
+  private noteOf(n: StoredNote): GuidanceNote {
+    return { ...InMemoryStore.noteInput(n), id: n.id, updatedBy: this.usernameOf(n.updatedBy), updatedAt: n.updatedAt };
+  }
+
+  private usernameOf(userId: string | null): string | null {
+    return userId === null ? null : (this.users.get(userId)?.username ?? null);
+  }
+
+  /** As the users foreign key in Postgres: a maker who is not a user is refused. */
+  private requireUserOrNull(userId: string | null): string | null {
+    if (userId !== null && !this.users.has(userId)) {
+      throw new Error(`Unknown user ${userId}`);
+    }
+    return userId;
   }
 
   async close(): Promise<void> {

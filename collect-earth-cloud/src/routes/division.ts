@@ -6,7 +6,6 @@ import {
   divide,
   hasSubmitted,
   moveUnfinished,
-  overlapReport,
   parseDivisionRequest,
   submittedByPlot,
   summarize,
@@ -239,9 +238,5 @@ export async function registerDivisionRoutes(app: FastifyInstance, store: Store)
       notMoved: result.notMoved,
       droppedChecks: result.droppedChecks,
     });
-  });
-
-  app.get('/v1/projects/:pid/overlap', admin, async (request: FastifyRequest, reply: FastifyReply) => {
-    return reply.send(overlapReport(await store.listRecordSummaries(request.membership!.projectId)));
   });
 }

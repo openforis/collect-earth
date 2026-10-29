@@ -360,21 +360,34 @@ describe('dividing plots between people', () => {
     expect(plotsOf(served.body)).toEqual(['2', '3', '4', '4', '5']);
   });
 
-  it('reports plots collected twice whose answers differ', async () => {
+  it('reports checked plots whose answers differ (the overlap report, now from the quality figures)', async () => {
+    // jose holds plots 1 and 2 as quality-check copies: his records are the checks.
+    await ctx.store.setDivision(pid, fileId, { mode: 'manual' }, [
+      { plotKey: '1', userId: maria.userId, overlap: false },
+      { plotKey: '1', userId: jose.userId, overlap: true },
+      { plotKey: '2', userId: maria.userId, overlap: false },
+      { plotKey: '2', userId: jose.userId, overlap: true },
+    ]);
     await batchRequest(ctx.app, pid, maria.token, [
-      envelope({ recordKey: '17', operator: 'maria', summary: { land_use: 'forest', saved_on: '1' } }),
-      envelope({ recordKey: '18', operator: 'maria', summary: { land_use: 'forest' } }),
+      envelope({ recordKey: '1', operator: 'maria', summary: { collect_code_land_use: 'forest', saved_on: '1' } }),
+      envelope({ recordKey: '2', operator: 'maria', summary: { collect_code_land_use: 'forest' } }),
     ]);
     await batchRequest(ctx.app, pid, jose.token, [
-      envelope({ recordKey: '17', operator: 'jose', summary: { land_use: 'grassland', saved_on: '2' } }),
-      envelope({ recordKey: '18', operator: 'jose', summary: { land_use: 'forest' } }),
+      envelope({ recordKey: '1', operator: 'jose', summary: { collect_code_land_use: 'grassland', saved_on: '2' } }),
+      envelope({ recordKey: '2', operator: 'jose', summary: { collect_code_land_use: 'forest' } }),
     ]);
     const res = await ctx.app.inject({ method: 'GET', url: `/v1/projects/${pid}/overlap`, headers: bearer(admin) });
     expect(res.statusCode).toBe(200);
     expect(res.json()).toEqual({
       plots: 2,
       differing: 1,
-      items: [{ recordKey: '17', operators: ['jose', 'maria'], fields: [{ key: 'land_use', values: { jose: 'grassland', maria: 'forest' } }] }],
+      items: [
+        {
+          recordKey: '1',
+          operators: ['maria', 'jose'],
+          fields: [{ key: 'collect_code_land_use', values: { maria: 'forest', jose: 'grassland' } }],
+        },
+      ],
     });
     const forbidden = await ctx.app.inject({ method: 'GET', url: `/v1/projects/${pid}/overlap`, headers: bearer(maria.token) });
     expect(forbidden.statusCode).toBe(403);

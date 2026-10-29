@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { RoundInfo } from '../src/cep.js';
-import { aiSafeValue, isoWeek, MIN_PLOTS, qualityReport, type QualityInput, type QualityRecord } from '../src/quality.js';
+import { aiSafeValue, finalAnswers, isoWeek, MIN_PLOTS, qualityReport, type QualityInput, type QualityRecord } from '../src/quality.js';
 import type { Question } from '../src/surveyOutline.js';
 
 const added: RoundInfo = {
@@ -491,5 +491,52 @@ describe('aiSafeValue', () => {
     expect(aiSafeValue('number', 'call 555-1234')).toBeNull();
     expect(aiSafeValue('text', 'anything')).toBeNull();
     expect(aiSafeValue('other', '2026-01-01')).toBeNull();
+  });
+});
+
+describe('finalAnswers: the final column of the export', () => {
+  const later = day + 60_000;
+  const records = [
+    rec('1,1', 'ana', {}),
+    rec('1,2', 'ben', {}),
+    rec('2,1', 'ana', {}),
+    rec('2,2', 'ben', {}),
+    rec('2,2', 'carl', {}, { modifiedOn: later }),
+    rec('3,1', 'ana', {}),
+    rec('3,2', 'ben', {}),
+    rec('4,1', 'ana', {}),
+    rec('4,2', 'ben', {}, { activelySaved: false }),
+    rec('5,1', 'ana', {}),
+  ];
+  const units = new Set(['1', '2', '3', '4', '5']);
+
+  it('yes for the answer taken, no for the other, recheck for both, blank without a decision', () => {
+    const final = finalAnswers(
+      { records, info: added, units, copyHolders: new Map() },
+      new Map([
+        ['1', 'first'],
+        ['2', 'check'],
+        ['3', 'recheck'],
+        ['4', 'first'],
+      ] as const),
+    );
+    const of = (recordKey: string, operator: string) => final({ recordKey, operator });
+    expect([of('1,1', 'ana'), of('1,2', 'ben')]).toEqual(['yes', 'no']);
+    // Several checks: the latest is the one taken.
+    expect([of('2,1', 'ana'), of('2,2', 'ben'), of('2,2', 'carl')]).toEqual(['no', 'no', 'yes']);
+    expect([of('3,1', 'ana'), of('3,2', 'ben')]).toEqual(['recheck', 'recheck']);
+    // A draft has no final answer; nor has a plot without a decision.
+    expect([of('4,1', 'ana'), of('4,2', 'ben')]).toEqual(['yes', '']);
+    expect(of('5,1', 'ana')).toBe('');
+    expect(of('9,1', 'nobody')).toBe('');
+  });
+
+  it('keys decisions by the plot unit, as the figures pair records (a virtual round, by copy holders)', () => {
+    const final = finalAnswers(
+      { records: [rec('7', 'ana', {}), rec('7', 'ben', {})], info: none, units: new Set(['7']), copyHolders: new Map([['7', new Set(['ben'])]]) },
+      new Map([['7', 'check']] as const),
+    );
+    expect(final({ recordKey: '7', operator: 'ana' })).toBe('no');
+    expect(final({ recordKey: '7', operator: 'ben' })).toBe('yes');
   });
 });

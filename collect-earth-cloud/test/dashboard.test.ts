@@ -542,9 +542,9 @@ describe('invites, overview and export', () => {
     const text = res.rawPayload.subarray(3).toString('utf8');
     expect(text).toBe(
       [
-        'record_key,plot,round,assessment,operator,actively_saved,modified_on,elevation,land_use,notes',
-        '1,1,1,main,maria,false,2026-10-02T00:00:00.000Z,1200,,"línea 1\nlínea 2"',
-        '2,2,1,main,maria,true,2026-10-01T00:00:00.000Z,,"forest, dense","said ""hi"""',
+        'record_key,plot,round,assessment,final,operator,actively_saved,modified_on,elevation,land_use,notes',
+        '1,1,1,main,,maria,false,2026-10-02T00:00:00.000Z,1200,,"línea 1\nlínea 2"',
+        '2,2,1,main,,maria,true,2026-10-01T00:00:00.000Z,,"forest, dense","said ""hi"""',
         '',
       ].join('\r\n'),
     );

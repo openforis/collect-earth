@@ -209,3 +209,37 @@ export interface RecordRow {
   deleted: boolean;
   deletedOn: number | null;
 }
+
+/** A project's quality-review settings: number margins (percent) by question key. */
+export interface QualitySettings {
+  margins: Record<string, number>;
+}
+
+/** Which answer of a differing plot is right: the first assessment, the check, or neither (look again). */
+export type DecisionKind = 'first' | 'check' | 'recheck';
+
+/** The coordinator's decision on one plot unit (the plot as the quality figures pair it). */
+export interface QualityDecision {
+  plot: string;
+  decision: DecisionKind;
+  comment: string | null;
+  /** Username of who decided; null when made with a project token or the account is gone. */
+  decidedBy: string | null;
+  decidedAt: number;
+}
+
+/** What a guidance note is about: a question and, for a mixed-up pair, both answers. */
+export interface GuidanceNoteInput {
+  questionKey: string;
+  firstValue: string | null;
+  checkValue: string | null;
+  text: string;
+}
+
+/** A note for collectors about a question (or one mix-up of its answers). */
+export interface GuidanceNote extends GuidanceNoteInput {
+  id: string;
+  /** Username of who last wrote it; null when made with a project token or the account is gone. */
+  updatedBy: string | null;
+  updatedAt: number;
+}

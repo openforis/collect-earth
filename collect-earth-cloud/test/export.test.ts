@@ -53,7 +53,7 @@ describe('recordsCsv', () => {
     );
     const values = csv.split('\r\n')[1];
     expect(values).toBe(
-      `1,1,1,main,maria,true,1970-01-01T00:00:00.000Z,"'=HYPERLINK(""http://x"",""y"")",'+1+1,'@SUM(A1),-70.25,'\t=1,'-x,1e5`,
+      `1,1,1,main,,maria,true,1970-01-01T00:00:00.000Z,"'=HYPERLINK(""http://x"",""y"")",'+1+1,'@SUM(A1),-70.25,'\t=1,'-x,1e5`,
     );
   });
 
@@ -63,10 +63,10 @@ describe('recordsCsv', () => {
       exportRoundOf(added, new Set(['17', '18']), noCopies),
     );
     expect(fixed(csv)).toEqual([
-      'record_key,plot,round,assessment,operator,actively_saved,modified_on',
-      '"17,1",17,1,main,maria,true,1970-01-01T00:00:00.000Z',
-      '"17,2",17,2,check,jose,true,1970-01-01T00:00:00.000Z',
-      '"18,3",18,3,other,maria,true,1970-01-01T00:00:00.000Z',
+      'record_key,plot,round,assessment,final,operator,actively_saved,modified_on',
+      '"17,1",17,1,main,,maria,true,1970-01-01T00:00:00.000Z',
+      '"17,2",17,2,check,,jose,true,1970-01-01T00:00:00.000Z',
+      '"18,3",18,3,other,,maria,true,1970-01-01T00:00:00.000Z',
     ]);
   });
 
@@ -76,8 +76,8 @@ describe('recordsCsv', () => {
       exportRoundOf(ownWithCode, new Set(['17,2025']), new Map([['17,2025', new Set(['jose'])]])),
     );
     const lines = csv.slice(1).split('\r\n');
-    expect(lines[1]).toMatch(/^"17,2",17,2,check,jose,/);
-    expect(lines[2]).toMatch(/^"17,2025",17,2025,main,maria,/);
+    expect(lines[1]).toMatch(/^"17,2",17,2,check,,jose,/);
+    expect(lines[2]).toMatch(/^"17,2025",17,2025,main,,maria,/);
   });
 
   it('an own round without a code: the person who holds the plot as a copy did the check', () => {
@@ -86,8 +86,8 @@ describe('recordsCsv', () => {
       exportRoundOf(ownYears, new Set(['17,2025']), new Map([['17,2025', new Set(['jose'])]])),
     );
     const lines = csv.slice(1).split('\r\n');
-    expect(lines[1]).toMatch(/^"17,2025",17,2025,check,jose,/);
-    expect(lines[2]).toMatch(/^"17,2025",17,2025,main,maria,/);
+    expect(lines[1]).toMatch(/^"17,2025",17,2025,check,,jose,/);
+    expect(lines[2]).toMatch(/^"17,2025",17,2025,main,,maria,/);
   });
 
   it('a project without round still gets round 1 or 2, from who holds the plot', () => {
@@ -97,10 +97,10 @@ describe('recordsCsv', () => {
         exportRoundOf(info, new Set(['17']), new Map([['17', new Set(['jose'])]])),
       );
       expect(fixed(csv).slice(1)).toEqual([
-        '17,17,2,check,jose,true,1970-01-01T00:00:00.000Z',
-        '17,17,1,main,maria,true,1970-01-01T00:00:00.000Z',
+        '17,17,2,check,,jose,true,1970-01-01T00:00:00.000Z',
+        '17,17,1,main,,maria,true,1970-01-01T00:00:00.000Z',
         // A plot in no file (or not divided) is a main assessment.
-        '99,99,1,main,jose,true,1970-01-01T00:00:00.000Z',
+        '99,99,1,main,,jose,true,1970-01-01T00:00:00.000Z',
       ]);
     }
   });
@@ -162,11 +162,11 @@ describe('GET export.csv', () => {
     await batchRequest(ctx.app, pid, maria.token, [envelope({ recordKey: '1', operator: 'maria', summary: {} }), envelope({ recordKey: '3', operator: 'maria', summary: {} })]);
     await batchRequest(ctx.app, pid, jose.token, [envelope({ recordKey: '1', operator: 'jose', summary: {} }), envelope({ recordKey: '2', operator: 'jose', summary: {} })]);
     expect(await exported()).toEqual([
-      'record_key,plot,round,assessment,operator,actively_saved,modified_on',
-      '1,1,2,check,jose,true,1970-01-01T00:00:01.000Z',
-      '1,1,1,main,maria,true,1970-01-01T00:00:01.000Z',
-      '2,2,1,main,jose,true,1970-01-01T00:00:01.000Z',
-      '3,3,1,main,maria,true,1970-01-01T00:00:01.000Z',
+      'record_key,plot,round,assessment,final,operator,actively_saved,modified_on',
+      '1,1,2,check,,jose,true,1970-01-01T00:00:01.000Z',
+      '1,1,1,main,,maria,true,1970-01-01T00:00:01.000Z',
+      '2,2,1,main,,jose,true,1970-01-01T00:00:01.000Z',
+      '3,3,1,main,,maria,true,1970-01-01T00:00:01.000Z',
     ]);
   });
 
@@ -184,9 +184,9 @@ describe('GET export.csv', () => {
     ]);
     await batchRequest(ctx.app, pid, maria.token, [envelope({ recordKey: '1', operator: 'maria', summary: {} }), envelope({ recordKey: '2', operator: 'maria', summary: {} })]);
     expect(await exported()).toEqual([
-      'record_key,plot,round,assessment,operator,actively_saved,modified_on',
-      '1,1,1,main,maria,true,1970-01-01T00:00:01.000Z',
-      '2,2,2,check,maria,true,1970-01-01T00:00:01.000Z',
+      'record_key,plot,round,assessment,final,operator,actively_saved,modified_on',
+      '1,1,1,main,,maria,true,1970-01-01T00:00:01.000Z',
+      '2,2,2,check,,maria,true,1970-01-01T00:00:01.000Z',
     ]);
   });
 
@@ -210,11 +210,11 @@ describe('GET export.csv', () => {
       envelope({ recordKey: '=1+1', operator: 'maria', summary: {} }),
     ]);
     expect(await exported()).toEqual([
-      'record_key,plot,round,assessment,operator,actively_saved,modified_on',
-      '1,1,2,check,maria,true,1970-01-01T00:00:01.000Z',
-      '99,99,1,main,maria,true,1970-01-01T00:00:01.000Z',
+      'record_key,plot,round,assessment,final,operator,actively_saved,modified_on',
+      '1,1,2,check,,maria,true,1970-01-01T00:00:01.000Z',
+      '99,99,1,main,,maria,true,1970-01-01T00:00:01.000Z',
       // A formula-like key is neutralised in both the record_key and plot columns.
-      "'=1+1,'=1+1,1,main,maria,true,1970-01-01T00:00:01.000Z",
+      "'=1+1,'=1+1,1,main,,maria,true,1970-01-01T00:00:01.000Z",
     ]);
   });
 
@@ -233,9 +233,9 @@ describe('GET export.csv', () => {
       envelope({ recordKey: '17,2', operator: 'maria', summary: {} }),
     ]);
     expect(await exported()).toEqual([
-      'record_key,plot,round,assessment,operator,actively_saved,modified_on',
-      '"17,1",17,1,main,maria,true,1970-01-01T00:00:01.000Z',
-      '"17,2",17,2,check,maria,true,1970-01-01T00:00:01.000Z',
+      'record_key,plot,round,assessment,final,operator,actively_saved,modified_on',
+      '"17,1",17,1,main,,maria,true,1970-01-01T00:00:01.000Z',
+      '"17,2",17,2,check,,maria,true,1970-01-01T00:00:01.000Z',
     ]);
   });
 });

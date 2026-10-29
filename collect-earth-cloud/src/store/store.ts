@@ -3,6 +3,9 @@ import type {
   AssignmentDetail,
   CepInfo,
   CsvFile,
+  DecisionKind,
+  GuidanceNote,
+  GuidanceNoteInput,
   Invite,
   InviteSummary,
   Member,
@@ -10,6 +13,8 @@ import type {
   PlotAssignment,
   ProjectRow,
   ProjectStorage,
+  QualityDecision,
+  QualitySettings,
   RecordRow,
   RoundInfo,
   Role,
@@ -203,6 +208,34 @@ export interface Store {
   listRecords(projectId: string, includeDeleted?: boolean): Promise<RecordRow[]>;
   /** As listRecords without deleted ones and with xml left null: for the overview and the export. */
   listRecordSummaries(projectId: string): Promise<RecordRow[]>;
+
+  // --- Quality review (decisions, notes, margins) ---
+
+  /**
+   * Changes whenever the records or the divided files' holdings change: with the round
+   * info, the CEP, the plot files and the settings, the version of the quality figures'
+   * inputs (their cache key). Cheap: no records are loaded.
+   */
+  qualityVersion(projectId: string): Promise<string>;
+  /**
+   * How another thread can read this store's records itself (a quality figures worker):
+   * the database URL, or null when only this thread holds them (the memory store).
+   */
+  recordsSource(): { databaseUrl: string } | null;
+  /** The settings, `{ margins: {} }` when none were saved. */
+  getQualitySettings(projectId: string): Promise<QualitySettings>;
+  setQualitySettings(projectId: string, settings: QualitySettings): Promise<void>;
+  listQualityDecisions(projectId: string): Promise<QualityDecision[]>;
+  /** Sets (or replaces) the decision on a plot unit. `userId` null for a project token. */
+  setQualityDecision(projectId: string, plot: string, decision: DecisionKind, comment: string | null, userId: string | null): Promise<QualityDecision>;
+  /** False when the plot had no decision. */
+  deleteQualityDecision(projectId: string, plot: string): Promise<boolean>;
+  listGuidanceNotes(projectId: string): Promise<GuidanceNote[]>;
+  createGuidanceNote(projectId: string, note: GuidanceNoteInput, userId: string | null): Promise<GuidanceNote>;
+  /** Null when the project has no note with that id. */
+  updateGuidanceNote(projectId: string, id: string, note: GuidanceNoteInput, userId: string | null): Promise<GuidanceNote | null>;
+  /** False when the project has no note with that id. */
+  deleteGuidanceNote(projectId: string, id: string): Promise<boolean>;
 
   close(): Promise<void>;
 }

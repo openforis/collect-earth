@@ -6,7 +6,6 @@ import {
   METADATA_KEY_PARTS,
   moveUnfinished,
   overlapPicks,
-  overlapReport,
   parseDivisionRequest,
   shareSizes,
   submittedByPlot,
@@ -527,22 +526,9 @@ describe('parseDivisionRequest', () => {
   });
 });
 
-describe('overlapReport', () => {
-  it('lists plots submitted by two or more people where non-metadata answers differ', () => {
-    const report = overlapReport([
-      record('17', 'maria', { summary: { land_use: 'forest', operator: 'maria', saved_on: '1', canopy: '50' } }),
-      record('17', 'jose', { summary: { land_use: 'grassland', operator: 'jose', saved_on: '2', canopy: '50' } }),
-      record('2', 'maria', { summary: { land_use: 'forest' } }),
-      record('2', 'jose', { summary: { land_use: 'forest', collect_time: 'x' } }),
-      record('3', 'maria', { summary: { land_use: 'forest' } }),
-      record('3', 'jose', { summary: { land_use: 'crop' }, activelySaved: false }),
-    ]);
-    expect(report.plots).toBe(2);
-    expect(report.differing).toBe(1);
-    expect(report.items).toEqual([
-      { recordKey: '17', operators: ['jose', 'maria'], fields: [{ key: 'land_use', values: { jose: 'grassland', maria: 'forest' } }] },
-    ]);
-    expect(METADATA_KEY_PARTS).toContain('_time');
+describe('METADATA_KEY_PARTS', () => {
+  it('names the bookkeeping parts a key unknown to the outline is never compared on', () => {
+    expect(METADATA_KEY_PARTS).toEqual(expect.arrayContaining(['operator', 'saved_on', '_time']));
   });
 });
 

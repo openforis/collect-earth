@@ -13,6 +13,7 @@ import { registerAssignmentRoutes } from './routes/assignments.js';
 import { registerAuthRoutes } from './routes/auth.js';
 import { registerPlatformRoutes } from './routes/platform.js';
 import { registerProjectRoutes } from './routes/projects.js';
+import { registerQualityRoutes } from './routes/quality.js';
 import { registerRecordRoutes } from './routes/records.js';
 
 export interface BuildServerOptions {
@@ -45,6 +46,9 @@ export async function buildServer(options: BuildServerOptions): Promise<FastifyI
     logger: options.logger ?? false,
     // Record XML batches are small KBs each but a project sync can carry 50; allow headroom.
     bodyLimit: 32 * 1024 * 1024,
+    // A plot id is a path parameter of the quality decisions (up to 1000 characters,
+    // more once URL-encoded); Fastify's default stops at 100.
+    maxParamLength: 4000,
     // Behind Cloud Run / Caddy: take the client IP (rate limiting) and the public
     // proto/host (derived join and reset links) from x-forwarded-*. Only the hops our
     // own proxies add are trusted; `true` would let a client pick its IP.
@@ -86,6 +90,7 @@ export async function buildServer(options: BuildServerOptions): Promise<FastifyI
   await registerProjectRoutes(app, store, config);
   await registerPlatformRoutes(app, store, config);
   await registerAssignmentRoutes(app, store, config);
+  await registerQualityRoutes(app, store);
   await registerRecordRoutes(app, store);
 
   await registerDashboard(app, options.webDir === undefined ? DEFAULT_WEB_DIR : options.webDir);

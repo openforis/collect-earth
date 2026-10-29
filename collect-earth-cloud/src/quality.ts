@@ -3,8 +3,9 @@
 // the records that do not fit. Pure functions; the routes (Task 10) load the inputs.
 import type { RoundInfo } from './cep.js';
 import { METADATA_KEY_PARTS } from './division.js';
-import { copyUnitsByUser, keyShape, recordRound, unitOfRecord } from './rounds.js';
+import { copyUnitsByUser, keyShape, recordRound, unitOfRecord, type RecordRound } from './rounds.js';
 import { BOOKKEEPING_KEYS, MAX_INDEXED_ENTITIES, QUALIFIER_SEPARATOR, SUMMARY_VALUES_SEPARATOR, type Question } from './surveyOutline.js';
+import type { DecisionKind } from './types.js';
 
 /** Below this many compared plots a rate says nothing: it is null ("too few plots to judge"). */
 export const MIN_PLOTS = 20;
@@ -159,11 +160,10 @@ interface DifferingPair {
  * and differences come from those in a second pass.
  */
 export function qualityReport(input: QualityInput): QualityReport {
-  const { info, units, copyHolders, outline } = input;
+  const { info, outline } = input;
   const margins = input.margins ?? {};
   const shape = keyShape(info);
-  const copyUnits = copyUnitsByUser(copyHolders);
-  const ownRound = info?.state === 'own' && shape.roundIndex !== null;
+  const resolve = recordResolver(input);
   const problems: DataProblem[] = [];
 
   // People by index, for typed-array tallies.
@@ -185,11 +185,7 @@ export function qualityReport(input: QualityInput): QualityReport {
     if (!r.activelySaved || r.deleted) {
       continue;
     }
-    const unit = unitOfRecord(r.recordKey, units, info, copyUnits.get(r.operator));
-    const rr = recordRound(r, info, copyHolders, unit);
-    // In no file: by plot, or for an own round by the whole key (its round tells the
-    // plots apart, and the reassessment code cannot be matched to a unit).
-    const group = unit ?? (ownRound ? r.recordKey : rr.plot);
+    const { unit, round: rr, group } = resolve(r);
     const problem = (kind: DataProblemKind) => problems.push({ kind, plot: group, recordKey: r.recordKey, operator: r.operator });
     if (unit === null) {
       problem('no_plot');
@@ -444,6 +440,79 @@ export function qualityReport(input: QualityInput): QualityReport {
 
 const EMPTY = new Int32Array(0);
 
+/** The records' resolution shared by the figures and the export's final column. */
+type ResolverInput = Pick<QualityInput, 'info' | 'units' | 'copyHolders'>;
+
+/**
+ * Resolves a record as the export and the division do (exportRoundOf): its unit among
+ * the files' plot ids (with the operator's copy units), its round, and the group it is
+ * paired in: the unit, or when in no file its plot, or for an own round its whole key
+ * (its round tells the plots apart, and the reassessment code cannot be matched to a
+ * unit). Decisions are keyed by that group.
+ */
+function recordResolver({ info, units, copyHolders }: ResolverInput) {
+  const shape = keyShape(info);
+  const copyUnits = copyUnitsByUser(copyHolders);
+  const ownRound = info?.state === 'own' && shape.roundIndex !== null;
+  return (r: { recordKey: string; operator: string }): { unit: string | null; round: RecordRound; group: string } => {
+    const unit = unitOfRecord(r.recordKey, units, info, copyUnits.get(r.operator));
+    const round = recordRound(r, info, copyHolders, unit);
+    return { unit, round, group: unit ?? (ownRound ? r.recordKey : round.plot) };
+  };
+}
+
+/** The export's final column: the answer the coordinator took, the one set aside, both to look at again, or none. */
+export type FinalAnswer = 'yes' | 'no' | 'recheck' | '';
+
+/**
+ * The final column of each record, from the coordinator's decisions (by plot unit, as
+ * the figures pair records; see recordResolver). Only submitted, not deleted records of
+ * a decided plot get a value:
+ * - "first": the main record the figures compare (the latest, as in qualityReport) is
+ *   yes, every other record of the plot no;
+ * - "check": the latest check record is yes, every other no;
+ * - "recheck": every record of the plot is recheck.
+ * Records of other plots, drafts, and records of an unknown round are blank.
+ */
+export function finalAnswers(
+  input: ResolverInput & { records: readonly QualityRecord[] },
+  decisions: ReadonlyMap<string, DecisionKind>,
+): (r: { recordKey: string; operator: string }) => FinalAnswer {
+  const answers = new Map<string, FinalAnswer>();
+  const id = (r: { recordKey: string; operator: string }) => `${r.recordKey}\u0000${r.operator}`;
+  if (decisions.size > 0) {
+    const resolve = recordResolver(input);
+    const groups = new Map<string, { decision: DecisionKind; main: QualityRecord[]; check: QualityRecord[] }>();
+    for (const r of input.records) {
+      if (!r.activelySaved || r.deleted) {
+        continue;
+      }
+      const { round, group } = resolve(r);
+      const decision = decisions.get(group);
+      if (decision === undefined || round.assessment === 'other') {
+        continue;
+      }
+      let g = groups.get(group);
+      if (!g) {
+        g = { decision, main: [], check: [] };
+        groups.set(group, g);
+      }
+      (round.assessment === 'main' ? g.main : g.check).push(r);
+    }
+    for (const g of groups.values()) {
+      const all = [...g.main, ...g.check];
+      if (g.decision === 'recheck') {
+        for (const r of all) answers.set(id(r), 'recheck');
+        continue;
+      }
+      const side = g.decision === 'first' ? g.main : g.check;
+      const taken = side.length > 0 ? side.reduce((a, b) => (later(b, a) ? b : a)) : null;
+      for (const r of all) answers.set(id(r), r === taken ? 'yes' : 'no');
+    }
+  }
+  return (r) => answers.get(id(r)) ?? '';
+}
+
 /**
  * An answer as it may be shown to the AI assistant (Task 14): never free text, names
  * or record keys. A choice gives its codes without qualifiers (the qualifier is free
@@ -471,7 +540,7 @@ function withinMargin(a: number, b: number, margin: number): boolean {
   return Math.abs(a - b) * 100 <= margin * Math.max(Math.abs(a), Math.abs(b)) * (1 + 1e-9);
 }
 
-/** Whether main record a is taken over b: the latest modifiedOn, then the lowest key, then operator. */
+/** Whether record a is taken over b (main, or check for a decision): the latest modifiedOn, then the lowest key, then operator. */
 function later(a: QualityRecord, b: QualityRecord): boolean {
   if (a.modifiedOn !== b.modifiedOn) {
     return a.modifiedOn > b.modifiedOn;

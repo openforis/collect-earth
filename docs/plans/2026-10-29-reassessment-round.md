@@ -957,6 +957,96 @@ parts than the survey has keys: Task 5 matches them on their first parts.
 
 Commit: "Collect Earth Cloud: coordinators decide which answer is right and write guidance notes".
 
+**As built**
+- **Routes** (`src/routes/quality.ts`, admin; another project's admin 404, an
+  operator 403):
+  - `GET /quality` → the `QualityReport` plus `decisions`, `notes` and `settings`
+    (`{ margins }`);
+  - `GET /overlap` keeps its old shape (`plots`, `differing`, `items` with
+    `recordKey`, `operators`, `fields[].values` by operator), so the Data tab works
+    until Task 17. It is now built from the report: checked plots, first assessment
+    against check, by unit. `overlapReport` is gone from `division.ts`;
+    `METADATA_KEY_PARTS` stays there for quality.ts;
+  - `PUT /quality/settings` replaces the margins. Each key must be a number question
+    of the served survey's outline that is not excluded, each value a number 0–100.
+    (The demo survey's `collect_real_slope` comes from the plot file, so it is
+    excluded and refused.)
+  - `PUT /quality/decisions/:plot` `{ decision, comment? }` (comment trimmed, ≤ 2000,
+    blank → null) and `DELETE` (204, or 404 when there was none). The plot is the unit
+    as Task 9 groups records (`Difference.plot`), URL-encoded, at most 1000
+    characters. `maxParamLength` is raised to 4000 in `server.ts`, since Fastify's
+    default (100) would 404 longer ids.
+  - `GET/POST /quality/notes` and `PUT/DELETE /quality/notes/:id`:
+    - `questionKey` 1–1000 characters;
+    - `firstValue` and `checkValue` text ≤ 1000, or null;
+    - `text` trimmed, 1–2000 characters.
+
+    Notes are listed by question, then pair (code-point order). `decidedBy` and
+    `updatedBy` are usernames: null with a project token, or once the account is
+    deleted (`ON DELETE SET NULL`; the memory store does the same).
+- **Migration 008** as above. Also: a CHECK of ≤ 2000 characters on the decision
+  comment, and an index on `guidance_notes(project_id)`. `deleteProject` deletes both
+  tables first.
+- **The export's `final` column** (after `assessment`) comes from `finalAnswers`
+  (`quality.ts`). It uses the same resolution as the figures (`recordResolver`:
+  unit, round, group), so a decision applies to exactly the records the report
+  pairs.
+  - `first`: the main record the report compares (the latest) is yes, the plot's
+    other records are no.
+  - `check`: the latest check is yes, the others no.
+  - `recheck`: every record of the plot.
+  - Drafts, an unknown round and undecided plots are blank.
+
+  `loadPlotContext` (`qualityService.ts`) now loads the plot ids and copy holders for
+  both the export and the figures.
+- **Speed: a cache, then a worker** (`src/qualityService.ts`, `src/qualityWorker.ts`).
+  - **The cache:** one report per project (4 projects, LRU) under a sha256 of:
+    - `store.qualityVersion`. Postgres: per table, the count and an
+      order-independent `sum(hashtextextended(...))` over the records (key, operator,
+      received_at, modified_on, actively_saved, deleted) and over the divided files'
+      holdings, with no rows sent. Memory: counters bumped on each stored record and
+      each change of the holdings.
+    - the round info, the CEP's size and time, the plot files' ids, checksums and
+      distribution, the members, and the settings.
+
+    A request for a version being computed waits for that computation. The outline is
+    read from the **served** CEP and cached by its sha256 (8 entries).
+  - **The worker, when the store gives a `recordsSource()` (Postgres):** one
+    `worker_threads` worker, started on first use and unref'd while idle, reads the
+    records itself (its own `PostgresStore`, pool of 2, RLS as usual) and computes. So
+    neither the JSON parsing of the summaries nor the figures run on the event loop.
+    - Under tsx (`npm start`, the Docker CMD) the worker inherits tsx's loader flags.
+      Elsewhere (vitest) `--import <tsx loader>` is added.
+    - A worker that cannot load makes the service compute in the request thread,
+      logged once.
+    - A failing job fails alone.
+  - **The memory store computes in the request thread**, after a `setImmediate`. Its
+    records live only in this thread, and posting them to a worker costs more than
+    computing: structured-cloning 100k records × 189 answers took about 15 s of the
+    main thread, and their JSON is over V8's 512 MB string limit.
+  - **Measured on this loaded laptop:**
+    - memory store, 100k records × 189 answers: about 1.7-2.5 s cold (all of it on
+      the event loop), 11-22 ms cached;
+    - Postgres in Docker, 100k × 189 written by SQL:
+      - cold 10.3-10.7 s, with the event loop never held more than 100 ms;
+      - cached 137 ms (the version query hashes every record);
+      - the same computed in the request thread: 9.0 s, with the event loop held
+        2 s;
+    - `npm start` on Postgres, 50k × 189: cold 14.9 s, while `/health` answered all
+      567 polls, the slowest in 225 ms; cached 484 ms.
+- **Postgres:** checked once on a throwaway `postgres:16` container:
+  - migrations run twice;
+  - every route on a `PostgresStore`, and the export's `final` column;
+  - `qualityVersion` changes on a new record and on a changed record;
+  - as a non-superuser under RLS:
+    - the store reads only the current project's rows;
+    - raw SELECTs see only the current project, and inserts for another project are
+      refused;
+    - `deleteUser` sets `decided_by` and `updated_by` to null;
+    - the worker reads only the given project's records;
+  - the table refuses a note over 2000 characters;
+  - `deleteProject` removes the project's decisions and notes.
+
 ### Task 11: reports for collectors and the team
 
 **Routes**

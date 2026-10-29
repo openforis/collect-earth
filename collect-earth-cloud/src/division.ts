@@ -665,63 +665,7 @@ export function summarize(
 }
 
 /**
- * Summary keys that are bookkeeping, not answers: never compared by the overlap
- * report. A key is one when its name contains any of these.
+ * Summary keys that are bookkeeping, not answers: a key the survey outline does not
+ * know is never compared by the quality figures when its name contains any of these.
  */
 export const METADATA_KEY_PARTS = ['operator', 'actively_saved', 'saved_on', 'modified', 'created', 'timestamp', 'skipped', '_time'];
-export const MAX_OVERLAP_ITEMS = 500;
-
-function isMetadataKey(key: string): boolean {
-  const k = key.toLowerCase();
-  return METADATA_KEY_PARTS.some((part) => k.includes(part));
-}
-
-export interface OverlapReport {
-  plots: number;
-  differing: number;
-  items: { recordKey: string; operators: string[]; fields: { key: string; values: Record<string, string> }[] }[];
-}
-
-/**
- * Plots submitted by two or more people, and those where their answers (summary
- * values) differ. A value missing for someone counts as "".
- */
-export function overlapReport(records: readonly RecordRow[]): OverlapReport {
-  const byKey = new Map<string, RecordRow[]>();
-  for (const r of records) {
-    if (!isSubmitted(r)) {
-      continue;
-    }
-    const list = byKey.get(r.recordKey);
-    if (list) {
-      list.push(r);
-    } else {
-      byKey.set(r.recordKey, [r]);
-    }
-  }
-  let plots = 0;
-  const items: OverlapReport['items'] = [];
-  for (const [recordKey, list] of byKey) {
-    if (new Set(list.map((r) => r.operator)).size < 2) {
-      continue;
-    }
-    plots += 1;
-    list.sort((x, y) => x.operator.localeCompare(y.operator));
-    const keys = [...new Set(list.flatMap((r) => Object.keys(r.summary)))].filter((k) => !isMetadataKey(k)).sort();
-    const fields: OverlapReport['items'][number]['fields'] = [];
-    for (const key of keys) {
-      const values: Record<string, string> = {};
-      for (const r of list) {
-        values[r.operator] = r.summary[key] ?? '';
-      }
-      if (new Set(Object.values(values)).size > 1) {
-        fields.push({ key, values });
-      }
-    }
-    if (fields.length > 0) {
-      items.push({ recordKey, operators: list.map((r) => r.operator), fields });
-    }
-  }
-  items.sort((x, y) => x.recordKey.localeCompare(y.recordKey, undefined, { numeric: true }));
-  return { plots, differing: items.length, items: items.slice(0, MAX_OVERLAP_ITEMS) };
-}

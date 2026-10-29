@@ -8,6 +8,9 @@ import {
   type AssignmentDetail,
   type CepInfo,
   type CsvFile,
+  type DecisionKind,
+  type GuidanceNote,
+  type GuidanceNoteInput,
   type Invite,
   type InviteSummary,
   type Member,
@@ -15,6 +18,8 @@ import {
   type PlotAssignment,
   type ProjectRow,
   type ProjectStorage,
+  type QualityDecision,
+  type QualitySettings,
   type RecordRow,
   type RoundInfo,
   type ServerSettings,
@@ -42,8 +47,12 @@ const PLOT_INSERT_CHUNK = 5000;
 export class PostgresStore implements Store {
   private readonly pool: pg.Pool;
 
-  constructor(databaseUrl: string) {
-    this.pool = new Pool({ connectionString: databaseUrl });
+  /** `max`: most connections in the pool (pg's default, 10, when not given). */
+  constructor(
+    private readonly databaseUrl: string,
+    options: { max?: number } = {},
+  ) {
+    this.pool = new Pool({ connectionString: databaseUrl, ...(options.max ? { max: options.max } : {}) });
   }
 
   /** Runs fn inside a transaction scoped to a project for RLS enforcement. */
@@ -118,6 +127,8 @@ export class PostgresStore implements Store {
     // their policies. The global tables (tokens, invites, members) are matched by
     // project_id. Children first, so nothing relies on ON DELETE CASCADE.
     await this.withProject(projectId, async (client) => {
+      await client.query('DELETE FROM quality_decisions WHERE project_id = $1', [projectId]);
+      await client.query('DELETE FROM guidance_notes WHERE project_id = $1', [projectId]);
       await client.query('DELETE FROM plot_assignments WHERE project_id = $1', [projectId]);
       await client.query('DELETE FROM assignments WHERE project_id = $1', [projectId]);
       await client.query('DELETE FROM csv_files WHERE project_id = $1', [projectId]);
@@ -930,9 +941,170 @@ export class PostgresStore implements Store {
     });
   }
 
+  // --- Quality review ---
+
+  async qualityVersion(projectId: string): Promise<string> {
+    return this.withProject(projectId, async (client) => {
+      // Order-independent sums of row hashes: no sort, no rows sent. A stored record
+      // always gets a new received_at (or other values), and every holding counts.
+      const res = await client.query(
+        `SELECT
+           (SELECT count(*) || ':' || COALESCE(sum(hashtextextended(
+                     record_key || ' ' || operator || ' ' || received_at::text || ' ' || modified_on::text
+                     || ' ' || actively_saved::text || ' ' || deleted::text, 0)), 0)
+              FROM records WHERE project_id = $1) AS records,
+           (SELECT count(*) || ':' || COALESCE(sum(hashtextextended(
+                     p.csv_file_id::text || ' ' || p.plot_key || ' ' || p.user_id::text || ' ' || p.overlap::text, 0)), 0)
+              FROM plot_assignments p JOIN csv_files c ON c.id = p.csv_file_id
+             WHERE p.project_id = $1 AND c.distribution IS NOT NULL) AS holdings`,
+        [projectId],
+      );
+      return `${res.rows[0].records}/${res.rows[0].holdings}`;
+    });
+  }
+
+  recordsSource(): { databaseUrl: string } | null {
+    return { databaseUrl: this.databaseUrl };
+  }
+
+  async getQualitySettings(projectId: string): Promise<QualitySettings> {
+    return this.withProject(projectId, async (client) => {
+      const res = await client.query('SELECT quality_settings FROM projects WHERE id = $1', [projectId]);
+      const stored = res.rows[0]?.quality_settings as QualitySettings | null | undefined;
+      return { margins: { ...(stored?.margins ?? {}) } };
+    });
+  }
+
+  async setQualitySettings(projectId: string, settings: QualitySettings): Promise<void> {
+    await this.withProject(projectId, async (client) => {
+      await client.query('UPDATE projects SET quality_settings = $2 WHERE id = $1', [projectId, JSON.stringify(settings)]);
+    });
+  }
+
+  async listQualityDecisions(projectId: string): Promise<QualityDecision[]> {
+    return this.withProject(projectId, async (client) => {
+      const res = await client.query(
+        `SELECT d.plot, d.decision, d.comment, u.username, d.decided_at
+           FROM quality_decisions d LEFT JOIN users u ON u.id = d.decided_by
+          WHERE d.project_id = $1
+          ORDER BY d.plot COLLATE "C"`,
+        [projectId],
+      );
+      return res.rows.map(mapDecision);
+    });
+  }
+
+  async setQualityDecision(
+    projectId: string,
+    plot: string,
+    decision: DecisionKind,
+    comment: string | null,
+    userId: string | null,
+  ): Promise<QualityDecision> {
+    return this.withProject(projectId, async (client) => {
+      const res = await client.query(
+        `WITH d AS (
+           INSERT INTO quality_decisions (project_id, plot, decision, comment, decided_by, decided_at)
+           VALUES ($1, $2, $3, $4, $5, now())
+           ON CONFLICT (project_id, plot) DO UPDATE SET
+             decision = EXCLUDED.decision, comment = EXCLUDED.comment,
+             decided_by = EXCLUDED.decided_by, decided_at = EXCLUDED.decided_at
+           RETURNING plot, decision, comment, decided_by, decided_at)
+         SELECT d.plot, d.decision, d.comment, u.username, d.decided_at FROM d LEFT JOIN users u ON u.id = d.decided_by`,
+        [projectId, plot, decision, comment, userId],
+      );
+      return mapDecision(res.rows[0]);
+    });
+  }
+
+  async deleteQualityDecision(projectId: string, plot: string): Promise<boolean> {
+    return this.withProject(projectId, async (client) => {
+      const res = await client.query('DELETE FROM quality_decisions WHERE project_id = $1 AND plot = $2', [projectId, plot]);
+      return (res.rowCount ?? 0) > 0;
+    });
+  }
+
+  async listGuidanceNotes(projectId: string): Promise<GuidanceNote[]> {
+    return this.withProject(projectId, async (client) => {
+      const res = await client.query(
+        `SELECT n.id, n.question_key, n.first_value, n.check_value, n.text, u.username, n.updated_at
+           FROM guidance_notes n LEFT JOIN users u ON u.id = n.updated_by
+          WHERE n.project_id = $1
+          ORDER BY n.question_key COLLATE "C", COALESCE(n.first_value, '') COLLATE "C",
+                   COALESCE(n.check_value, '') COLLATE "C", n.id::text COLLATE "C"`,
+        [projectId],
+      );
+      return res.rows.map(mapNote);
+    });
+  }
+
+  async createGuidanceNote(projectId: string, note: GuidanceNoteInput, userId: string | null): Promise<GuidanceNote> {
+    return this.withProject(projectId, async (client) => {
+      const res = await client.query(
+        `WITH n AS (
+           INSERT INTO guidance_notes (project_id, question_key, first_value, check_value, text, updated_by)
+           VALUES ($1, $2, $3, $4, $5, $6)
+           RETURNING id, question_key, first_value, check_value, text, updated_by, updated_at)
+         SELECT n.*, u.username FROM n LEFT JOIN users u ON u.id = n.updated_by`,
+        [projectId, note.questionKey, note.firstValue, note.checkValue, note.text, userId],
+      );
+      return mapNote(res.rows[0]);
+    });
+  }
+
+  async updateGuidanceNote(projectId: string, id: string, note: GuidanceNoteInput, userId: string | null): Promise<GuidanceNote | null> {
+    if (!isUuid(id)) {
+      return null;
+    }
+    return this.withProject(projectId, async (client) => {
+      const res = await client.query(
+        `WITH n AS (
+           UPDATE guidance_notes SET question_key = $3, first_value = $4, check_value = $5, text = $6,
+                  updated_by = $7, updated_at = now()
+            WHERE project_id = $1 AND id = $2
+           RETURNING id, question_key, first_value, check_value, text, updated_by, updated_at)
+         SELECT n.*, u.username FROM n LEFT JOIN users u ON u.id = n.updated_by`,
+        [projectId, id, note.questionKey, note.firstValue, note.checkValue, note.text, userId],
+      );
+      return res.rowCount === 0 ? null : mapNote(res.rows[0]);
+    });
+  }
+
+  async deleteGuidanceNote(projectId: string, id: string): Promise<boolean> {
+    if (!isUuid(id)) {
+      return false;
+    }
+    return this.withProject(projectId, async (client) => {
+      const res = await client.query('DELETE FROM guidance_notes WHERE project_id = $1 AND id = $2', [projectId, id]);
+      return (res.rowCount ?? 0) > 0;
+    });
+  }
+
   async close(): Promise<void> {
     await this.pool.end();
   }
+}
+
+function mapDecision(r: Record<string, unknown>): QualityDecision {
+  return {
+    plot: r.plot as string,
+    decision: r.decision as DecisionKind,
+    comment: (r.comment as string | null) ?? null,
+    decidedBy: (r.username as string | null) ?? null,
+    decidedAt: (r.decided_at as Date).getTime(),
+  };
+}
+
+function mapNote(r: Record<string, unknown>): GuidanceNote {
+  return {
+    id: r.id as string,
+    questionKey: r.question_key as string,
+    firstValue: (r.first_value as string | null) ?? null,
+    checkValue: (r.check_value as string | null) ?? null,
+    text: r.text as string,
+    updatedBy: (r.username as string | null) ?? null,
+    updatedAt: (r.updated_at as Date).getTime(),
+  };
 }
 
 function mapCsvFile(r: Record<string, unknown>): CsvFile {
