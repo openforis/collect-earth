@@ -86,6 +86,17 @@ describe('recordRound', () => {
     const twoKeys = new Map([['17,2020', new Set(['jose'])]]);
     expect(recordRound(rec('17,2020', 'jose'), none, twoKeys)).toEqual({ plot: '17,2020', round: '2', assessment: 'check' });
   });
+
+  it('finds the copy of a key with more parts than the survey has keys, or of the unit given', () => {
+    const copies = new Map([['17', new Set(['jose'])]]);
+    expect(recordRound(rec('17,x', 'jose'), null, copies)).toEqual({ plot: '17,x', round: '2', assessment: 'check' });
+    const twoKeys = new Map([['17,2020', new Set(['jose'])]]);
+    expect(recordRound(rec('17,2020,x', 'jose'), none, twoKeys).assessment).toBe('check');
+    // The unit the caller resolved is used first, and alone.
+    const ownCopies = new Map([['18,3', new Set(['jose'])]]);
+    expect(recordRound(rec('18,2025', 'jose'), ownYears, ownCopies, '18,3').assessment).toBe('check');
+    expect(recordRound(rec('17', 'jose'), null, copies, '18').assessment).toBe('main');
+  });
 });
 
 describe('unitOfRecord', () => {
@@ -124,6 +135,16 @@ describe('unitOfRecord', () => {
     expect(unitOfRecord('17,2', units, ownYears)).toBeNull();
     expect(unitOfRecord('170,2', units, ownWithCode)).toBeNull();
     expect(unitOfRecord('17,2025,x', units, ownWithCode)).toBe('17,2025');
+  });
+
+  it('own round: a check record of a plot with several rounds goes to the unit the operator holds as a copy', () => {
+    const units = new Set(['18,1', '18,3']);
+    const own: RoundInfo = { ...ownWithCode, roundCodes: phases };
+    expect(unitOfRecord('18,2', units, own)).toBe('18,1');
+    expect(unitOfRecord('18,2', units, own, new Set(['18,3']))).toBe('18,3');
+    expect(unitOfRecord('18,2', units, own, new Set(['17,1']))).toBe('18,1');
+    // A main record keeps its own round.
+    expect(unitOfRecord('18,1', units, own, new Set(['18,3']))).toBe('18,1');
   });
 });
 

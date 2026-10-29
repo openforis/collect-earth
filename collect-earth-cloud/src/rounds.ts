@@ -62,12 +62,15 @@ export interface RecordRound {
  *   file, else main; without round in the key, round is a virtual "1" or "2".
  *
  * `copyHolders` maps a plot unit key (as in the plot file) to the usernames that hold
- * it only as a quality-check copy.
+ * it only as a quality-check copy. `unit` is the record's unit when the caller has
+ * resolved it (unitOfRecord); otherwise the record key, its first key parts (a key
+ * with more parts than the survey has keys) and its plot are tried.
  */
 export function recordRound(
   r: { recordKey: string; operator: string },
   info: RoundInfo | null,
   copyHolders: ReadonlyMap<string, ReadonlySet<string>>,
+  unit?: string | null,
 ): RecordRound {
   const shape = keyShape(info);
   const { plot, round } = splitKey(r.recordKey, shape.count, shape.roundIndex);
@@ -78,11 +81,16 @@ export function recordRound(
     }
     return { plot, round, assessment: info!.state === 'added' && round !== '1' ? 'other' : 'main' };
   }
-  const isCopy = Boolean(copyHolders.get(r.recordKey)?.has(r.operator) || copyHolders.get(plot)?.has(r.operator));
+  const candidates =
+    unit !== undefined && unit !== null ? [unit] : [r.recordKey, leadingParts(r.recordKey, shape.count), plot];
+  const isCopy = candidates.some((key) => key !== null && copyHolders.get(key)?.has(r.operator) === true);
   return { plot, round: round ?? (isCopy ? '2' : '1'), assessment: isCopy ? 'check' : 'main' };
 }
 
-/** Units of an own-round file by plot: plot → round → unit (first unit for each). */
+/**
+ * Units of an own-round file by plot: plot → round → unit. Cached per units Set, so a
+ * Set passed to unitOfRecord must not be changed afterwards (callers build a new one).
+ */
 type UnitIndex = Map<string, Map<string, string>>;
 const unitIndexes = new WeakMap<ReadonlySet<string>, { shape: string; index: UnitIndex }>();
 
@@ -124,9 +132,16 @@ function leadingParts(key: string, count: number): string | null {
  * - units without a round part (added, none): the record's plot.
  * - units with one (own): the same key, or else the unit of the same plot whose round
  *   is the record's. A check record (the reassessment code) matches the unit of the
- *   same plot with any round: the served copy had its round replaced.
+ *   same plot with any round: the served copy had its round replaced. When the plot
+ *   has several, it is the one the operator holds as a copy (`copyUnits`, the units
+ *   they hold as quality-check copies), else the first in the file.
  */
-export function unitOfRecord(recordKey: string, units: ReadonlySet<string>, info: RoundInfo | null): string | null {
+export function unitOfRecord(
+  recordKey: string,
+  units: ReadonlySet<string>,
+  info: RoundInfo | null,
+  copyUnits?: ReadonlySet<string>,
+): string | null {
   const shape = keyShape(info);
   if (info?.state !== 'own' || shape.roundIndex === null) {
     const { plot } = splitKey(recordKey, shape.count, shape.roundIndex);
@@ -160,6 +175,13 @@ export function unitOfRecord(recordKey: string, units: ReadonlySet<string>, info
     return same;
   }
   if (round === info.reassessmentCode) {
+    if (copyUnits) {
+      for (const candidate of rounds.values()) {
+        if (copyUnits.has(candidate)) {
+          return candidate;
+        }
+      }
+    }
     return rounds.values().next().value ?? null;
   }
   return null;

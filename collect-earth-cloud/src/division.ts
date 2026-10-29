@@ -1,6 +1,6 @@
 import type { DivisionOrder, PlotAssignment, RecordRow, StoredDistribution } from './types.js';
 import type { RoundInfo } from './cep.js';
-import { unitOfRecord } from './rounds.js';
+import { recordRound, unitOfRecord } from './rounds.js';
 
 /**
  * Dividing one plot file's plots between people: validating a request, computing
@@ -9,6 +9,23 @@ import { unitOfRecord } from './rounds.js';
  */
 
 export const MAX_OVERLAP_PERCENT = 50;
+
+/**
+ * Who submitted one plot: `main` the main assessment, `check` the quality check
+ * (recordRound). Dealing keeps a plot with its main submitters; anything else that
+ * counts "submitted" takes either.
+ */
+export interface Submitters {
+  main: ReadonlySet<string>;
+  check: ReadonlySet<string>;
+}
+export type SubmittedBy = ReadonlyMap<string, Submitters>;
+
+/** Whether the user submitted the plot, main or check. */
+export function hasSubmitted(submittedBy: SubmittedBy, plot: string, userId: string): boolean {
+  const s = submittedBy.get(plot);
+  return s !== undefined && (s.main.has(userId) || s.check.has(userId));
+}
 
 /** A division request after validation, before the plots are dealt. */
 export type DivisionRequest = { mode: 'whole' } | Exclude<StoredDistribution, { mode: 'manual' }>;
@@ -157,16 +174,18 @@ export function shareSizes(pinned: readonly number[], free: number): number[] {
 }
 
 /**
- * Deals `plots` (in the order they are to be dealt) between `people`. A plot
- * submitted by one of them stays theirs (the first of them, if several; the others
- * keep it as a copy), and counts towards their share. The rest goes out in order:
+ * Deals `plots` (in the order they are to be dealt) between `people`. A plot whose
+ * main assessment one of them submitted stays theirs (the first of them, if several;
+ * the others keep it as a copy), and counts towards their share; those who submitted
+ * its check keep it as a copy. A plot with only check submitters among them stays
+ * with the first of those (the others get copies). The rest goes out in order:
  * person i the next chunk, so neighbouring plots stay together. Returns each
  * person's plots in dealing order, and the extra copies.
  */
 function deal(
   plots: readonly string[],
   people: readonly string[],
-  submittedBy: ReadonlyMap<string, ReadonlySet<string>>,
+  submittedBy: SubmittedBy,
 ): { lists: string[][]; copies: PlotAssignment[] } {
   const index = new Map(people.map((p, i) => [p, i]));
   const owner = new Map<string, number>();
@@ -177,11 +196,18 @@ function deal(
     if (!by) {
       continue;
     }
-    const holders = [...by].map((u) => index.get(u)).filter((i): i is number => i !== undefined).sort((x, y) => x - y);
+    const among = (users: ReadonlySet<string>) =>
+      [...users].map((u) => index.get(u)).filter((i): i is number => i !== undefined).sort((x, y) => x - y);
+    let holders = among(by.main);
+    let checkers = among(by.check).filter((i) => !holders.includes(i));
+    if (holders.length === 0) {
+      holders = checkers;
+      checkers = [];
+    }
     if (holders.length > 0) {
       owner.set(plot, holders[0]);
       pinned[holders[0]] += 1;
-      for (const other of holders.slice(1)) {
+      for (const other of [...holders.slice(1), ...checkers]) {
         copies.push({ plotKey: plot, userId: people[other], overlap: true });
       }
     }
@@ -226,7 +252,7 @@ export function divide(
   d: Exclude<StoredDistribution, { mode: 'manual' }>,
   plotIds: readonly string[],
   values: readonly string[] | null,
-  submittedBy: ReadonlyMap<string, ReadonlySet<string>>,
+  submittedBy: SubmittedBy,
 ): PlotAssignment[] {
   const position = new Map(plotIds.map((id, i) => [id, i]));
   const order = d.order === 'mixed' ? shuffled(plotIds, d.seed ?? 0) : [...plotIds];
@@ -278,20 +304,20 @@ export function divide(
 }
 
 /**
- * Moves the plots `from` has not submitted to `to`; if `to` holds one already,
- * `from` simply loses it. Returns the new holdings and how many plots `from` lost.
+ * Moves the plots `from` has not submitted (main or check) to `to`; if `to` holds one
+ * already, `from` simply loses it. Returns the new holdings and how many plots `from` lost.
  */
 export function moveUnfinished(
   holdings: readonly PlotAssignment[],
   from: string,
   to: string,
-  submittedBy: ReadonlyMap<string, ReadonlySet<string>>,
+  submittedBy: SubmittedBy,
 ): { plots: PlotAssignment[]; moved: number } {
   const toHolds = new Set(holdings.filter((a) => a.userId === to).map((a) => a.plotKey));
   const plots: PlotAssignment[] = [];
   let moved = 0;
   for (const a of holdings) {
-    if (a.userId !== from || submittedBy.get(a.plotKey)?.has(from)) {
+    if (a.userId !== from || hasSubmitted(submittedBy, a.plotKey, from)) {
       plots.push(a);
       continue;
     }
@@ -310,33 +336,74 @@ function isSubmitted(r: RecordRow): boolean {
 }
 
 /**
- * The user ids that submitted each plot of a file. A record is a person's when its
- * operator is their username (joining sets the Collect Earth operator name to it).
- * `plotIds` are the file's plot units and `info` the project's RoundInfo: a main
- * and a check record of one plot (keys "17,1" and "17,2") both count for it.
+ * The quality-check copy holders of a file's plots, for recordRound: plot -> the
+ * usernames holding it only as a copy (overlap, and not also as a main plot).
+ */
+export function copyHoldersOf(
+  holdings: readonly PlotAssignment[],
+  usernames: ReadonlyMap<string, string>,
+): Map<string, Set<string>> {
+  const pair = (a: PlotAssignment) => JSON.stringify([a.plotKey, a.userId]);
+  const main = new Set(holdings.filter((a) => !a.overlap).map(pair));
+  const result = new Map<string, Set<string>>();
+  for (const a of holdings) {
+    const username = usernames.get(a.userId);
+    if (!a.overlap || username === undefined || main.has(pair(a))) {
+      continue;
+    }
+    let set = result.get(a.plotKey);
+    if (!set) {
+      set = new Set();
+      result.set(a.plotKey, set);
+    }
+    set.add(username);
+  }
+  return result;
+}
+
+/**
+ * The user ids that submitted each plot of a file, the main assessment apart from
+ * the check. A record is a person's when its operator is their username (joining sets
+ * the Collect Earth operator name to it). `plotIds` are the file's plot units, `info`
+ * the project's RoundInfo and `copyHolders` the file's copyHoldersOf: records "17,1"
+ * and "17,2" both belong to plot 17, one main and one check.
  */
 export function submittedByPlot(
   records: readonly RecordRow[],
   plotIds: ReadonlySet<string>,
   userIdByUsername: ReadonlyMap<string, string>,
   info: RoundInfo | null,
-): Map<string, Set<string>> {
-  const result = new Map<string, Set<string>>();
+  copyHolders: ReadonlyMap<string, ReadonlySet<string>> = new Map(),
+): Map<string, { main: Set<string>; check: Set<string> }> {
+  // The units each username holds as a copy: a check record goes to that one.
+  const copyUnits = new Map<string, Set<string>>();
+  for (const [unit, users] of copyHolders) {
+    for (const u of users) {
+      let set = copyUnits.get(u);
+      if (!set) {
+        set = new Set();
+        copyUnits.set(u, set);
+      }
+      set.add(unit);
+    }
+  }
+  const result = new Map<string, { main: Set<string>; check: Set<string> }>();
   for (const r of records) {
     const userId = userIdByUsername.get(r.operator);
     if (!userId || !isSubmitted(r)) {
       continue;
     }
-    const plot = unitOfRecord(r.recordKey, plotIds, info);
+    const plot = unitOfRecord(r.recordKey, plotIds, info, copyUnits.get(r.operator));
     if (plot === null) {
       continue;
     }
-    let set = result.get(plot);
-    if (!set) {
-      set = new Set();
-      result.set(plot, set);
+    let entry = result.get(plot);
+    if (!entry) {
+      entry = { main: new Set(), check: new Set() };
+      result.set(plot, entry);
     }
-    set.add(userId);
+    const { assessment } = recordRound(r, info, copyHolders, plot);
+    (assessment === 'check' ? entry.check : entry.main).add(userId);
   }
   return result;
 }
@@ -365,7 +432,7 @@ export function summarize(
   distribution: StoredDistribution | null,
   plotIds: readonly string[],
   holdings: readonly PlotAssignment[],
-  submittedBy: ReadonlyMap<string, ReadonlySet<string>>,
+  submittedBy: SubmittedBy,
   usernames: ReadonlyMap<string, string>,
 ): DistributionSummary {
   const inFile = new Set(plotIds);
@@ -392,7 +459,7 @@ export function summarize(
     if (a.overlap) {
       s.overlap += 1;
     }
-    if (submittedBy.get(a.plotKey)?.has(a.userId)) {
+    if (hasSubmitted(submittedBy, a.plotKey, a.userId)) {
       s.submitted += 1;
     }
   }

@@ -2,7 +2,9 @@ import { randomInt } from 'node:crypto';
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import { isUuid } from '../accountRules.js';
 import {
+  copyHoldersOf,
   divide,
+  hasSubmitted,
   moveUnfinished,
   overlapReport,
   parseDivisionRequest,
@@ -60,15 +62,19 @@ async function loadFile(store: Store, projectId: string, csvFileId: string) {
   if (!file) {
     return null;
   }
-  const [members, records, info] = await Promise.all([
+  const [members, records, info, holdings] = await Promise.all([
     store.listMembers(projectId),
     store.listRecordSummaries(projectId),
     store.getRoundInfo(projectId),
+    file.distribution ? store.listPlotAssignments(projectId, file.id) : Promise.resolve([]),
   ]);
   const plotFile = plotFileOf(file, fileKeyCount(info));
   const usernames = new Map(members.map((m) => [m.userId, m.username]));
   const userIdByUsername = new Map(members.map((m) => [m.username, m.userId]));
-  const submitted = submittedByPlot(records, new Set(plotFile.plotIds), userIdByUsername, info);
+  // Who holds a plot as a quality-check copy tells the check from the main
+  // assessment when the key has no round (and picks the unit of a check record).
+  const copyHolders = copyHoldersOf(holdings, usernames);
+  const submitted = submittedByPlot(records, new Set(plotFile.plotIds), userIdByUsername, info, copyHolders);
   return { file, plotFile, usernames, submitted };
 }
 
@@ -84,8 +90,8 @@ function wholeSummary(loaded: Loaded, assignees: string[]): DistributionSummary 
   const { plotFile, usernames, submitted } = loaded;
   const people = assignees.map((userId) => {
     let done = 0;
-    for (const by of submitted.values()) {
-      if (by.has(userId)) {
+    for (const plot of submitted.keys()) {
+      if (hasSubmitted(submitted, plot, userId)) {
         done += 1;
       }
     }

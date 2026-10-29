@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  copyHoldersOf,
   divide,
   METADATA_KEY_PARTS,
   moveUnfinished,
@@ -9,12 +10,16 @@ import {
   shareSizes,
   submittedByPlot,
   summarize,
+  type SubmittedBy,
 } from '../src/division.js';
 import type { RoundInfo } from '../src/cep.js';
 import type { PlotAssignment, RecordRow, StoredDistribution } from '../src/types.js';
 
 const ids = (n: number) => Array.from({ length: n }, (_, i) => String(i + 1));
-const none = new Map<string, Set<string>>();
+const none: SubmittedBy = new Map();
+/** Plots whose main assessment these people submitted. */
+const mainBy = (entries: [string, string[]][]): SubmittedBy =>
+  new Map(entries.map(([plot, users]) => [plot, { main: new Set(users), check: new Set<string>() }]));
 
 /** Each person's plots: primary (not overlap) and copies. */
 function byPerson(plots: PlotAssignment[]) {
@@ -82,14 +87,27 @@ describe('divide: evenly', () => {
 
   it('keeps submitted plots with whoever submitted them and evens out the rest', () => {
     // b submitted 1..4; 9 plots between a, b, c: 3 each, b's are 1..4 -> b has 4.
-    const submitted = new Map(['1', '2', '3', '4'].map((k) => [k, new Set(['b'])]));
+    const submitted = mainBy(['1', '2', '3', '4'].map((k) => [k, ['b']]));
     const p = byPerson(divide(even(['a', 'b', 'c']), ids(9), null, submitted));
     expect(p.b.own).toEqual(['1', '2', '3', '4']);
     expect(p.a.own).toHaveLength(3);
     expect(p.c.own).toHaveLength(2);
     // Someone not among the people does not pin.
-    const outsider = new Map([['1', new Set(['z'])]]);
+    const outsider = mainBy([['1', ['z']]]);
     expect(byPerson(divide(even(['a', 'b']), ids(4), null, outsider)).a.own).toEqual(['1', '2']);
+  });
+
+  it('keeps a plot with whoever did its main assessment; the checker keeps a copy', () => {
+    // jose did plot 1's main assessment and maria its check: dividing again between
+    // [maria, jose] must not make maria the main holder.
+    const submitted: SubmittedBy = new Map([['1', { main: new Set(['jose']), check: new Set(['maria']) }]]);
+    const p = byPerson(divide(even(['maria', 'jose']), ids(4), null, submitted));
+    expect(p.jose.own).toContain('1');
+    expect(p.maria.own).not.toContain('1');
+    expect(p.maria.copies).toEqual(['1']);
+    // Only a check submitted: the plot stays with the checker, as before.
+    const onlyCheck: SubmittedBy = new Map([['1', { main: new Set<string>(), check: new Set(['jose']) }]]);
+    expect(byPerson(divide(even(['maria', 'jose']), ids(4), null, onlyCheck)).jose.own).toContain('1');
   });
 
   it('gives overlap copies: ceil(p%) of each list, spread through it, to the next person', () => {
@@ -146,7 +164,7 @@ describe('moveUnfinished', () => {
       { plotKey: '3', userId: 'b', overlap: false },
       { plotKey: '4', userId: 'c', overlap: false },
     ];
-    const { plots, moved } = moveUnfinished(holdings, 'a', 'b', new Map([['1', new Set(['a'])]]));
+    const { plots, moved } = moveUnfinished(holdings, 'a', 'b', mainBy([['1', ['a']]]));
     expect(moved).toBe(2);
     expect(plots).toEqual([
       { plotKey: '1', userId: 'a', overlap: false },
@@ -171,10 +189,10 @@ describe('submittedByPlot', () => {
       new Map([['maria', 'u1']]),
       null,
     );
-    expect([...map.entries()]).toEqual([['1', new Set(['u1'])]]);
+    expect([...map.entries()]).toEqual([['1', { main: new Set(['u1']), check: new Set() }]]);
   });
 
-  it('with the round the server added, the main record and the check record both count for the plot', () => {
+  it('with the round the server added, the main record and the check record both belong to the plot', () => {
     const added: RoundInfo = {
       state: 'added', refusal: null, keyCount: 2, roundIndex: 1,
       roundCodes: [{ code: '1', label: 'First' }, { code: '2', label: 'Again' }], reassessmentCode: '2',
@@ -185,7 +203,47 @@ describe('submittedByPlot', () => {
       new Map([['maria', 'u1'], ['jose', 'u2']]),
       added,
     );
-    expect([...map.entries()]).toEqual([['17', new Set(['u1', 'u2'])]]);
+    expect([...map.entries()]).toEqual([['17', { main: new Set(['u1']), check: new Set(['u2']) }]]);
+  });
+
+  it('without round in the key, the person holding a copy did the check', () => {
+    const holdings: PlotAssignment[] = [
+      { plotKey: '17', userId: 'u1', overlap: false },
+      { plotKey: '17', userId: 'u2', overlap: true },
+      // Holding a plot both ways is not a copy only.
+      { plotKey: '18', userId: 'u1', overlap: false },
+      { plotKey: '18', userId: 'u1', overlap: true },
+    ];
+    const copies = copyHoldersOf(holdings, new Map([['u1', 'maria'], ['u2', 'jose']]));
+    expect([...copies.entries()]).toEqual([['17', new Set(['jose'])]]);
+    const map = submittedByPlot(
+      [record('17', 'maria'), record('17', 'jose'), record('18', 'maria')],
+      new Set(['17', '18']),
+      new Map([['maria', 'u1'], ['jose', 'u2']]),
+      null,
+      copies,
+    );
+    expect(map.get('17')).toEqual({ main: new Set(['u1']), check: new Set(['u2']) });
+    expect(map.get('18')).toEqual({ main: new Set(['u1']), check: new Set() });
+  });
+
+  it('own round with a reassessment code: a check record goes to the round the checker holds as a copy', () => {
+    const own: RoundInfo = {
+      state: 'own', refusal: null, keyCount: 2, roundIndex: 1,
+      roundCodes: [{ code: '1', label: 'One' }, { code: '2', label: 'Two' }, { code: '3', label: 'Three' }],
+      reassessmentCode: '2',
+    };
+    const copies = copyHoldersOf([{ plotKey: '18,3', userId: 'u2', overlap: true }], new Map([['u2', 'jose']]));
+    const map = submittedByPlot(
+      [record('18,2', 'jose'), record('18,2', 'ana')],
+      new Set(['18,1', '18,3']),
+      new Map([['jose', 'u2'], ['ana', 'u3']]),
+      own,
+      copies,
+    );
+    expect(map.get('18,3')).toEqual({ main: new Set(), check: new Set(['u2']) });
+    // Someone holding no copy of the plot: the first round in the file.
+    expect(map.get('18,1')).toEqual({ main: new Set(), check: new Set(['u3']) });
   });
 });
 
