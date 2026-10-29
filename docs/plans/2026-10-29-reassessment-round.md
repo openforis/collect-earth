@@ -511,9 +511,10 @@ Commit: "Collect Earth Cloud: every record has a plot and a round, from its key 
   - plots kept with people outside the division get no new overlap copies (they are
     in nobody's list), and nor do plots everyone of their group checked: those have
     no main holder, keep only their checkers' copies and are counted unassigned;
-  - known limit: with an own round, someone in two column groups whose lists hold
-    units of the same plot may get fewer copies than ceil(p%) of both lists together
-    (the rule is applied list by list).
+  - known limit: with an own round and column groups that share people, a list may
+    get fewer new copies than ceil(p%) when its next person already got a copy of
+    another unit of the same plot from another group's list (the rule is applied
+    list by list, best effort).
 
 ### Task 6: plot files served with a round column
 
@@ -701,19 +702,32 @@ Commit: "Collect Earth Cloud: the server knows the survey's questions, answer op
   - multiple attribute: the same key, values joined by `===`;
   - code with a qualifier: the same key, value `code::qualifier`;
   - single entity: `collect_entity_<e>.<prefix><child>`;
-  - multiple entity with `collect:enumerate="true"`:
+  - enumerable multiple entity (`EntityDefinition.isEnumerable`: its **first**
+    key is a `code` whose list is not external, i.e. has no `lookup`;
+    `collect:enumerate` plays no part):
     `collect_entity_<e>[<key code>].<prefix><child>`, one per root item of the
     key's list (`land_use[F]`…). The key child (`…[F].code_lu`) is in the summary
-    too, and is excluded.
+    too, and is excluded. The bracket holds `Entity.getKeyValues()[0]`, which goes
+    through `Code.toInternalString`: the bare code, **never a qualifier**.
+  - a multiple entity whose first key is not a code (or whose key list is
+    external), or that has no key, is numbered as below.
   - other multiple entity: `collect_entity_<e>[<n>].<prefix><child>`, n from 1. The
     outline lists n = 1..10 (`MAX_MULTIPLE_ENTITIES_COUNT`).
   - Blank answers inside entities are left out of the summary.
   - Taxon and file attributes have no handler, and entities inside an entity fail
     on a cast: the desktop app cannot summarize them, so they get no question.
 - **`Question` has three more fields:**
-  - `excluded`: keys, `METADATA_KEY_PARTS`, and `collectearth:fromcsv` attributes,
-    which come from the plot file and are the same in both rounds. `_time` in
-    `METADATA_KEY_PARTS` also excludes every `collect_time_*` attribute.
+  - `excluded`: keys (of the root and of entities), any root attribute named
+    `round` whatever its type, the exact `BOOKKEEPING_KEYS`, and
+    `collectearth:fromcsv` attributes (they come from the plot file and are the
+    same in both rounds). `BOOKKEEPING_KEYS` (exported) are the keys the app fills
+    itself (EarthConstants, SurveyFormController): `collect_text_operator`,
+    `collect_boolean_actively_saved`, `collect_date_actively_saved_on`,
+    `collect_text_actively_saved_on` (older surveys), `collect_text_plot_file`,
+    `collect_coord_location`. `placemark_found` and `jump_to_next_plot` are balloon
+    parameters, not record attributes, so they never reach a summary. The outline
+    does **not** use the fuzzy `METADATA_KEY_PARTS` match, which would drop every
+    `collect_time_*` question and names like `collect_text_operator_notes`.
   - `multiple`;
   - `calculated`.
 - **Options:**
@@ -763,6 +777,17 @@ export function qualityReport(input: …): QualityReport;
 - A plot "agrees" on a question when the values are equal. For numbers, they
   agree when `|a-b| <= margin% × max(|a|,|b|)`, or when both are empty.
 - A missing value counts as `""`. Two empty values agree.
+- **Which keys are compared** (from Task 8): the outline's questions that are not
+  `excluded`, of kind `choice` or `number`. A summary key not in the outline falls
+  back to the fuzzy `METADATA_KEY_PARTS` rule; one that passes it is still never
+  compared as text.
+- **Keys beyond the outline**, such as `collect_entity_tree[11].real_height` (the
+  outline lists indexes 1 to 10), are handled explicitly: ignored, with a count in
+  the report, never compared as text.
+- **Code values** compare the part before `::`, dropping the qualifier
+  (`other::Eucalyptus` → `other`).
+- **Multiple attributes** of the root join their values with `===`, and a missing
+  one can come out as `a===null`: treat `null` parts as blank.
 - `no_plot` means the record's plot is in no uploaded file. Pass the set of all
   units from every file.
 
@@ -813,6 +838,10 @@ create, update and delete notes. Implement them in both stores.
 - `GET/POST/PUT/DELETE /v1/projects/:pid/quality/notes[/:id]`.
 - The export's `final` column: `yes` for the record the decision accepted, `no`
   for the other, `recheck`, or empty. Add it in `recordsCsv` after `assessment`.
+
+**Excluded keys:** comparisons use the outline's `excluded` (Task 8). Only a
+summary key the outline does not know falls back to the fuzzy
+`METADATA_KEY_PARTS` rule of `src/division.ts`, which the overlap report used.
 
 **Data problems** also list, as `extra_key_parts`, records whose key has more
 parts than the survey has keys: Task 5 matches them on their first parts.
