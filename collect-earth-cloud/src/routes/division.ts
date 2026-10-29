@@ -224,7 +224,7 @@ export async function registerDivisionRoutes(app: FastifyInstance, store: Store)
     if (!loaded) {
       return reply.code(404).send({ error: 'not_found' });
     }
-    const { file, plotFile, usernames, submitted } = loaded;
+    const { file, plotFile, usernames, submitted, plotOf } = loaded;
     const body = (request.body ?? {}) as { fromUserId?: unknown; toUserId?: unknown };
     const from = typeof body.fromUserId === 'string' ? body.fromUserId : '';
     const to = typeof body.toUserId === 'string' ? body.toUserId : '';
@@ -250,14 +250,15 @@ export async function registerDivisionRoutes(app: FastifyInstance, store: Store)
     if (!holdings.some((a) => a.userId === from)) {
       return reply.send({ ...(await currentSummary(store, projectId, loaded)), moved: 0, notMoved: 0, droppedChecks: 0 });
     }
-    const result = moveUnfinished(holdings, from, to, submitted);
+    const result = moveUnfinished(holdings, from, to, submitted, plotOf);
     const distribution = { mode: 'manual' as const };
     await store.setDivision(projectId, file.id, distribution, result.plots);
     return reply.send({
       ...summarize(distribution, plotFile.plotIds, result.plots, submitted, usernames),
       moved: result.moved,
-      // Plots `to` already checked stay with `from`; copies of `from` where `to` is the
-      // main holder are dropped.
+      // Plots `to` already checked (or assessed, for a copy, or holds a copy of another
+      // unit of) stay with `from`; copies of `from` where `to` is the main holder are
+      // dropped.
       notMoved: result.notMoved,
       droppedChecks: result.droppedChecks,
     });

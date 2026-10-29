@@ -260,7 +260,9 @@ describe('moveUnfinished', () => {
       { plotKey: '3', userId: 'a', overlap: false },
       { plotKey: '4', userId: 'a', overlap: true },
     ];
-    // a did the main of 1 (a copy) and the check of 2 (a main plot): neither is done.
+    // a did the check of 2 (a main plot): not done. a did the main of 1 (a copy, e.g.
+    // both had it on a whole file before it was divided): that is done, a second main
+    // assessment, not a check to do again.
     const submitted: SubmittedBy = new Map([
       ['1', { main: new Set(['a']), check: new Set<string>() }],
       ['2', { main: new Set<string>(), check: new Set(['a']) }],
@@ -268,10 +270,140 @@ describe('moveUnfinished', () => {
       ['4', { main: new Set<string>(), check: new Set(['a']) }],
     ]);
     const { plots, moved } = moveUnfinished(holdings, 'a', 'b', submitted);
-    expect(moved).toBe(2);
-    expect(plots.filter((x) => x.userId === 'a').map((x) => x.plotKey)).toEqual(['3', '4']);
+    expect(moved).toBe(1);
+    expect(plots.filter((x) => x.userId === 'a').map((x) => x.plotKey)).toEqual(['1', '3', '4']);
     const s = summarize(null, ids(4), holdings, submitted, new Map([['a', 'ana']]));
-    expect(s.people[0]).toMatchObject({ plots: 4, overlap: 2, submitted: 2 });
+    expect(s.people[0]).toMatchObject({ plots: 4, overlap: 2, submitted: 3 });
+  });
+
+  it('keeps with `from` a main plot `to` already checked, though `to` no longer holds it', () => {
+    // From the property test: b checked p7 (then lost the copy); a holds it as main.
+    const holdings: PlotAssignment[] = [
+      { plotKey: 'p2', userId: 'a', overlap: false },
+      { plotKey: 'p3', userId: 'b', overlap: false },
+      { plotKey: 'p7', userId: 'a', overlap: false },
+    ];
+    const submitted: SubmittedBy = new Map([
+      ['p3', { main: new Set(['b']), check: new Set<string>() }],
+      ['p7', { main: new Set<string>(), check: new Set(['b']) }],
+    ]);
+    const result = moveUnfinished(holdings, 'a', 'b', submitted);
+    expect(result).toEqual({
+      plots: [
+        { plotKey: 'p2', userId: 'b', overlap: false },
+        { plotKey: 'p3', userId: 'b', overlap: false },
+        { plotKey: 'p7', userId: 'a', overlap: false },
+      ],
+      moved: 1,
+      notMoved: 1,
+      droppedChecks: 0,
+    });
+  });
+
+  it('never gives `to` a copy of a plot whose main assessment `to` did', () => {
+    const holdings: PlotAssignment[] = [
+      { plotKey: '1', userId: 'a', overlap: true },
+      { plotKey: '1', userId: 'c', overlap: false },
+    ];
+    const submitted: SubmittedBy = new Map([['1', { main: new Set(['b']), check: new Set<string>() }]]);
+    const result = moveUnfinished(holdings, 'a', 'b', submitted);
+    expect(result).toEqual({ plots: holdings, moved: 0, notMoved: 1, droppedChecks: 0 });
+  });
+
+  it('never moves the copy of someone who did its main assessment', () => {
+    // From the property test: c and d both did p8's main assessment; c holds a copy.
+    const holdings: PlotAssignment[] = [
+      { plotKey: 'p6', userId: 'c', overlap: false },
+      { plotKey: 'p8', userId: 'c', overlap: true },
+      { plotKey: 'p8', userId: 'd', overlap: false },
+    ];
+    const submitted = mainBy([['p8', ['c', 'd']]]);
+    const result = moveUnfinished(holdings, 'c', 'a', submitted);
+    expect(result.plots).toEqual([
+      { plotKey: 'p6', userId: 'a', overlap: false },
+      { plotKey: 'p8', userId: 'c', overlap: true },
+      { plotKey: 'p8', userId: 'd', overlap: false },
+    ]);
+    expect(result).toMatchObject({ moved: 1, notMoved: 0, droppedChecks: 0 });
+    // Moved to d, its main holder, it is not dropped either.
+    expect(moveUnfinished(holdings, 'c', 'd', submitted).plots).toContainEqual({ plotKey: 'p8', userId: 'c', overlap: true });
+  });
+
+  it('never gives `to` copies of two units of one plot (own round)', () => {
+    const holdings: PlotAssignment[] = [
+      { plotKey: '18,1', userId: 'b', overlap: true },
+      { plotKey: '18,1', userId: 'c', overlap: false },
+      { plotKey: '18,3', userId: 'a', overlap: true },
+      { plotKey: '18,3', userId: 'c', overlap: false },
+      { plotKey: '19,1', userId: 'a', overlap: true },
+      { plotKey: '19,1', userId: 'c', overlap: false },
+    ];
+    const plotOf = (unit: string) => unit.split(',')[0];
+    const result = moveUnfinished(holdings, 'a', 'b', none, plotOf);
+    expect(result.plots).toEqual([
+      { plotKey: '18,1', userId: 'b', overlap: true },
+      { plotKey: '18,1', userId: 'c', overlap: false },
+      { plotKey: '18,3', userId: 'a', overlap: true },
+      { plotKey: '18,3', userId: 'c', overlap: false },
+      { plotKey: '19,1', userId: 'b', overlap: true },
+      { plotKey: '19,1', userId: 'c', overlap: false },
+    ]);
+    expect(result).toMatchObject({ moved: 1, notMoved: 1, droppedChecks: 0 });
+    // Without plotOf every unit is its own plot.
+    expect(moveUnfinished(holdings, 'a', 'b', none).moved).toBe(2);
+  });
+});
+
+describe('divide: copies kept for what people submitted', () => {
+  const plotOf = (unit: string) => unit.split(',')[0];
+
+  it('keeps a checker`s copy though they hold a copy of another unit of the plot (own round)', () => {
+    // From the property test: b did the main of 5,1 with c (c keeps it), and checked 5,3.
+    const submitted: SubmittedBy = new Map([
+      ['5,1', { main: new Set(['b', 'c']), check: new Set<string>() }],
+      ['5,3', { main: new Set(['c']), check: new Set(['b']) }],
+    ]);
+    const p = byPerson(divide(even(['c', 'b'], { overlapPercent: 10 }), ['5,1', '5,3'], null, submitted, plotOf));
+    expect(p.c.own).toEqual(['5,1', '5,3']);
+    expect(p.b.copies).toEqual(['5,1', '5,3']);
+  });
+
+  it('picks the overlap copies among units of different plots, so the share is met (own round)', () => {
+    const units = ['1,1', '1,2', '1,3', '2,1'];
+    const submitted = mainBy(units.map((u) => [u, ['a']]));
+    const p = byPerson(divide(even(['a', 'b'], { overlapPercent: 50 }), units, null, submitted, plotOf));
+    expect(p.a.own).toEqual(units);
+    expect(p.b.copies).toEqual(['1,1', '2,1']);
+  });
+
+  it('keeps a second main submitter`s copy of each unit they assessed (own round)', () => {
+    // From the property test: e did the main of 2,1 (with c) and of 2,2 (with d).
+    const submitted = mainBy([
+      ['2,1', ['c', 'e']],
+      ['2,2', ['d', 'e']],
+    ]);
+    const p = byPerson(divide(even(['c', 'd', 'a', 'e']), ['2,1', '2,2'], null, submitted, plotOf));
+    expect(p.e.copies).toEqual(['2,1', '2,2']);
+  });
+
+  it('gives no new copy of a unit to someone who keeps a copy of another unit of the plot, in any group', () => {
+    // x checked 18,3 (group y): that copy stays, and the overlap of group x, where x is
+    // the next person after a, gets no copy of 18,1.
+    const d = {
+      mode: 'column',
+      column: 0,
+      groups: [
+        { value: 'x', people: ['a', 'x'] },
+        { value: 'y', people: ['c', 'x'] },
+      ],
+      order: 'file',
+      overlapPercent: 50,
+    } satisfies StoredDistribution;
+    const submitted: SubmittedBy = new Map([['18,3', { main: new Set<string>(), check: new Set(['x']) }]]);
+    const p = byPerson(divide(d, ['18,1', '18,3'], ['x', 'y'], submitted, plotOf));
+    expect(p.a.own).toEqual(['18,1']);
+    expect(p.c.own).toEqual(['18,3']);
+    expect(p.x.copies).toEqual(['18,3']);
   });
 });
 

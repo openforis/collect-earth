@@ -29,11 +29,13 @@ export function hasSubmitted(submittedBy: SubmittedBy, plot: string, userId: str
 
 /**
  * Whether a holding is done: a main holding when its holder submitted the main
- * assessment, a copy when they submitted the check.
+ * assessment; a copy when they submitted the check, or the main assessment (a second
+ * main submitter, e.g. two people had the plot on a whole file before it was divided:
+ * their work is done, and the quality figures list the plot as a data problem).
  */
 export function holdingDone(submittedBy: SubmittedBy, a: PlotAssignment): boolean {
   const s = submittedBy.get(a.plotKey);
-  return s !== undefined && (a.overlap ? s.check.has(a.userId) : s.main.has(a.userId));
+  return s !== undefined && (s.main.has(a.userId) || (a.overlap && s.check.has(a.userId)));
 }
 
 /** A division request after validation, before the plots are dealt. */
@@ -299,9 +301,13 @@ function overlapCount(count: number, percent: number): number {
  * ids that submitted each plot. Each person's plots are in file order.
  *
  * `plotOf` gives a unit's plot (without its round) for a survey with its own round,
- * where a plot may have several units ("18,1", "18,3"): nobody gets copies of two
- * units of the same plot. A plot that already has a copy (its checker's, or a second
- * main submitter's) gets no other one, and counts towards the overlap share.
+ * where a plot may have several units ("18,1", "18,3"): no new overlap copy gives
+ * anyone copies of two units of the same plot. That rule is only for the new picks:
+ * the copies kept for what people submitted (their check, or a second main
+ * assessment) are always kept, and are dealt in every group before any new pick. A
+ * plot that already has a copy gets no other one, and counts towards the overlap
+ * share. Plots kept with people outside the division, and plots everyone of their
+ * group checked (left unassigned), are in nobody's list and get no new copies.
  */
 export function divide(
   d: Exclude<StoredDistribution, { mode: 'manual' }>,
@@ -325,41 +331,57 @@ export function divide(
   }
   const everyone = divisionPeople(d);
   const result = new Map<string, PlotAssignment>();
-  // The plot each person holds a copy of, and through which unit.
-  const copyUnitOf = new Map<string, Map<string, string>>();
+  // The plots each person holds copies of, and through which units.
+  const copyUnitOf = new Map<string, Map<string, Set<string>>>();
   const copied = new Set<string>();
-  const add = (a: PlotAssignment): void => {
+  /**
+   * Adds a holding. A copy kept for what someone submitted (`isNew` false) is always
+   * added; a new overlap copy is not when the person already holds the plot, or a
+   * copy of another unit of the same plot.
+   */
+  const add = (a: PlotAssignment, isNew = false): void => {
     const key = `${a.plotKey}\u0000${a.userId}`;
     const existing = result.get(key);
     if (a.overlap) {
+      if (existing) {
+        return;
+      }
       let plots = copyUnitOf.get(a.userId);
       if (!plots) {
         plots = new Map();
         copyUnitOf.set(a.userId, plots);
       }
       const plot = plotOf(a.plotKey);
-      const unit = plots.get(plot);
-      if (existing || (unit !== undefined && unit !== a.plotKey)) {
+      let units = plots.get(plot);
+      if (isNew && units !== undefined && units.size > 0) {
         return;
       }
-      plots.set(plot, a.plotKey);
+      if (!units) {
+        units = new Set();
+        plots.set(plot, units);
+      }
+      units.add(a.plotKey);
       copied.add(a.plotKey);
     }
     if (!existing || (existing.overlap && !a.overlap)) {
       result.set(key, a);
     }
   };
-  for (const group of groups) {
-    const { lists, copies, kept } = deal(group.plots, group.people, submittedBy);
+  // First everything dealt (the main holdings and the copies kept for what people
+  // submitted, in every group), then the new overlap copies.
+  const dealt = groups.map((group) => ({ group, ...deal(group.plots, group.people, submittedBy) }));
+  for (const { group, lists, copies, kept } of dealt) {
     lists.forEach((list, i) => {
       list.sort((x, y) => position.get(x)! - position.get(y)!);
       for (const plot of list) {
         add({ plotKey: plot, userId: group.people[i], overlap: false });
       }
     });
-    kept.filter((a) => !a.overlap).forEach(add);
-    kept.filter((a) => a.overlap).forEach(add);
-    copies.forEach(add);
+    kept.filter((a) => !a.overlap).forEach((a) => add(a));
+    kept.filter((a) => a.overlap).forEach((a) => add(a));
+    copies.forEach((a) => add(a));
+  }
+  for (const { group, lists } of dealt) {
     lists.forEach((list, i) => {
       const userId = group.people[i];
       // Quality-check copies go to the next person of the group, or of everyone
@@ -376,8 +398,20 @@ export function divide(
       // Plots that already have a copy count towards the share and get no other.
       const free = list.filter((plot) => !copied.has(plot));
       const wanted = overlapCount(list.length, d.overlapPercent) - (list.length - free.length);
-      for (const pick of spread(free.length, Math.max(0, Math.min(free.length, wanted)))) {
-        add({ plotKey: free[pick], userId: next, overlap: true });
+      // The units `next` may get a new copy of: one per plot, and none of a plot they
+      // already hold a copy of (with plain ids, every free plot).
+      const held = copyUnitOf.get(next);
+      const plotsTaken = new Set<string>();
+      const candidates = free.filter((unit) => {
+        const plot = plotOf(unit);
+        if (plotsTaken.has(plot) || (held?.get(plot)?.size ?? 0) > 0) {
+          return false;
+        }
+        plotsTaken.add(plot);
+        return true;
+      });
+      for (const pick of spread(candidates.length, Math.max(0, Math.min(candidates.length, wanted)))) {
+        add({ plotKey: candidates[pick], userId: next, overlap: true }, true);
       }
     });
   }
@@ -386,22 +420,43 @@ export function divide(
 
 /**
  * Moves what `from` has not done (holdingDone) to `to`.
- * - `to` does not hold the plot: they get it, main or copy as `from` had it.
+ * - `to` does not hold the plot: they get it, main or copy as `from` had it. It stays
+ *   with `from` (`notMoved`) when it would make `to` the main holder of a plot they
+ *   checked, give them a copy of a plot whose main assessment they did, or (`plotOf`,
+ *   own round) a copy of a second unit of a plot they hold a copy of.
  * - `from` had it as main and `to` as a copy: `to`'s copy becomes main, unless `to`
  *   already submitted the check; then the plot stays with `from` (`notMoved`).
  * - `from` had a copy and `to` holds it as main: the copy goes (`droppedChecks`), as
  *   nobody checks their own plot.
  * - otherwise `to` already holds it the same way, and `from` simply loses it.
- * `moved` counts the plots `from` gave up, apart from the dropped checks.
+ * `moved` counts the plots `from` gave up, apart from the dropped checks. What is done
+ * (holdingDone) never moves: a copy whose main assessment `from` did stays theirs.
  */
 export function moveUnfinished(
   holdings: readonly PlotAssignment[],
   from: string,
   to: string,
   submittedBy: SubmittedBy,
+  plotOf: (unit: string) => string = (unit) => unit,
 ): { plots: PlotAssignment[]; moved: number; notMoved: number; droppedChecks: number } {
   const copiesOf = holdings.map((a) => ({ ...a }));
   const toRows = new Map(copiesOf.filter((a) => a.userId === to).map((a) => [a.plotKey, a]));
+  // The plots `to` holds copies of: through which units.
+  const toCopyUnits = new Map<string, Set<string>>();
+  const addCopyUnit = (unit: string) => {
+    const plot = plotOf(unit);
+    let units = toCopyUnits.get(plot);
+    if (!units) {
+      units = new Set();
+      toCopyUnits.set(plot, units);
+    }
+    units.add(unit);
+  };
+  for (const a of toRows.values()) {
+    if (a.overlap) {
+      addCopyUnit(a.plotKey);
+    }
+  }
   const plots: PlotAssignment[] = [];
   let moved = 0;
   let notMoved = 0;
@@ -412,19 +467,32 @@ export function moveUnfinished(
       continue;
     }
     const theirs = toRows.get(a.plotKey);
+    const by = submittedBy.get(a.plotKey);
     if (!theirs) {
+      const keep = a.overlap
+        ? by?.main.has(to) === true || [...(toCopyUnits.get(plotOf(a.plotKey)) ?? [])].some((u) => u !== a.plotKey)
+        : by?.check.has(to) === true && !by.main.has(to);
+      if (keep) {
+        plots.push(a);
+        notMoved += 1;
+        continue;
+      }
       const row = { plotKey: a.plotKey, userId: to, overlap: a.overlap };
       toRows.set(a.plotKey, row);
+      if (row.overlap) {
+        addCopyUnit(row.plotKey);
+      }
       plots.push(row);
       moved += 1;
     } else if (a.overlap && !theirs.overlap) {
       droppedChecks += 1;
     } else if (!a.overlap && theirs.overlap) {
-      if (submittedBy.get(a.plotKey)?.check.has(to)) {
+      if (by?.check.has(to) && !by.main.has(to)) {
         plots.push(a);
         notMoved += 1;
       } else {
         theirs.overlap = false;
+        toCopyUnits.get(plotOf(a.plotKey))?.delete(a.plotKey);
         moved += 1;
       }
     } else {
