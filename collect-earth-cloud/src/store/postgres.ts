@@ -365,10 +365,15 @@ export class PostgresStore implements Store {
     const id = randomUUID();
     const termsAcceptedAt = input.termsAcceptedAt ?? null;
     try {
-      await this.pool.query(
-        'INSERT INTO users (id, username, password_hash, email, terms_accepted_at) VALUES ($1, $2, $3, $4, $5)',
+      // A deleted account's username is retired (migration 010): taken, as a live one.
+      const res = await this.pool.query(
+        `INSERT INTO users (id, username, password_hash, email, terms_accepted_at)
+         SELECT $1, $2, $3, $4, $5 WHERE NOT EXISTS (SELECT 1 FROM retired_usernames WHERE username = $2)`,
         [id, input.username, input.passwordHash, input.email, termsAcceptedAt === null ? null : new Date(termsAcceptedAt)],
       );
+      if (res.rowCount === 0) {
+        throw new UsernameTakenError(input.username);
+      }
     } catch (err) {
       if ((err as { code?: string }).code === '23505') {
         throw new UsernameTakenError(input.username);
@@ -445,15 +450,27 @@ export class PostgresStore implements Store {
       // Assignments are RLS-fenced project data: delete them project by project
       // with app.current_project set, as every other project-scoped write does.
       const projects = await client.query('SELECT project_id FROM project_members WHERE user_id = $1', [userId]);
+      const named = await client.query('SELECT username FROM users WHERE id = $1', [userId]);
+      const username = named.rows[0]?.username as string | undefined;
+      let hasRecords = false;
       for (const r of projects.rows) {
         await client.query('SELECT set_config($1, $2, true)', ['app.current_project', r.project_id]);
+        if (username !== undefined && !hasRecords) {
+          const found = await client.query('SELECT 1 FROM records WHERE project_id = $1 AND operator = $2 LIMIT 1', [r.project_id, username]);
+          hasRecords = (found.rowCount ?? 0) > 0;
+        }
         await client.query('DELETE FROM assignments WHERE project_id = $1 AND user_id = $2', [r.project_id, userId]);
         await client.query('DELETE FROM plot_assignments WHERE project_id = $1 AND user_id = $2', [r.project_id, userId]);
       }
       await client.query('DELETE FROM sessions WHERE user_id = $1', [userId]);
       await client.query('DELETE FROM password_resets WHERE user_id = $1', [userId]);
       await client.query('DELETE FROM project_members WHERE user_id = $1', [userId]);
-      // invites.created_by is ON DELETE SET NULL; records keep the operator name.
+      // invites.created_by is ON DELETE SET NULL; records keep the operator name, so
+      // with records in one of the account's projects the username is retired: a new
+      // account under it would inherit their figures.
+      if (hasRecords) {
+        await client.query('INSERT INTO retired_usernames (username) VALUES ($1) ON CONFLICT DO NOTHING', [username]);
+      }
       await client.query('DELETE FROM users WHERE id = $1', [userId]);
       await client.query('COMMIT');
     } catch (err) {
@@ -490,10 +507,14 @@ export class PostgresStore implements Store {
         await client.query('ROLLBACK');
         return null;
       }
-      await client.query(
-        'INSERT INTO users (id, username, password_hash, email, is_platform_admin) VALUES ($1, $2, $3, NULL, true)',
+      const res = await client.query(
+        `INSERT INTO users (id, username, password_hash, email, is_platform_admin)
+         SELECT $1, $2, $3, NULL, true WHERE NOT EXISTS (SELECT 1 FROM retired_usernames WHERE username = $2)`,
         [id, input.username, input.passwordHash],
       );
+      if (res.rowCount === 0) {
+        throw new UsernameTakenError(input.username);
+      }
       await client.query('COMMIT');
     } catch (err) {
       await client.query('ROLLBACK');

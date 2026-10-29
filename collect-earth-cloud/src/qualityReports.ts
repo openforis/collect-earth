@@ -84,14 +84,17 @@ function confusionsOf(report: QualityReport, confusions: readonly Confusion[], n
   }));
 }
 
-/** The personal report of one collector (a member with a session): only their own figures as first assessor. */
+/**
+ * The personal report of one collector (a member with a session): only their own
+ * figures as first assessor, on the plots that are certainly theirs (PersonQuality.personal).
+ */
 export function personalReport(report: QualityReport, username: string, notes: readonly GuidanceNote[]): PersonalReport {
   const me = report.people.find((p) => p.username === username);
   return {
     username,
     minChecks: MIN_PLOTS,
-    asFirst: me ? { checks: me.asFirst.compared, agreeing: me.asFirst.agreeing, rate: me.asFirst.rate } : { checks: 0, agreeing: 0, rate: null },
-    confusions: me ? confusionsOf(report, me.confusions, notes, Infinity) : [],
+    asFirst: me ? { checks: me.personal.asFirst.compared, agreeing: me.personal.asFirst.agreeing, rate: me.personal.asFirst.rate } : { checks: 0, agreeing: 0, rate: null },
+    confusions: me ? confusionsOf(report, me.personal.confusions, notes, Infinity) : [],
   };
 }
 

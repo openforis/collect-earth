@@ -28,7 +28,8 @@ describe('quality reports for collectors and the team', () => {
   let ctx: TestContext;
   let project: Awaited<ReturnType<typeof createProject>>;
   let pid: string;
-  let users: Record<string, { token: string }>;
+  let users: Record<string, { token: string; userId: string }>;
+  let fileId: string;
   const url = (path: string, id = pid) => `/v1/projects/${id}${path}`;
   const get = (path: string, token: string, id = pid) => ctx.app.inject({ method: 'GET', url: url(path, id), headers: bearer(token) });
 
@@ -69,6 +70,7 @@ describe('quality reports for collectors and the team', () => {
     const csv = ['id,lat,lon', ...Array.from({ length: 30 }, (_, i) => `${i + 1},0,0`)].join('\n');
     const up = await ctx.app.inject({ method: 'PUT', url: url('/csv-files/plots.csv'), headers: { ...bearer(project.adminToken), 'content-type': 'text/csv' }, payload: csv });
     expect(up.statusCode, up.body).toBe(201);
+    fileId = up.json().id;
     users = {};
     for (const [name, role] of [[FIRST, 'operator'], [CHECKER, 'operator'], [REVIEWER, 'reviewer'], [COORDINATOR, 'admin'], [SECOND_CHECKER, 'operator']] as const) {
       users[name] = await registerUser(ctx.app, pid, project.adminToken, name, role);
@@ -214,5 +216,58 @@ describe('quality reports for collectors and the team', () => {
     expect((await get('/quality/team-report', project.projectToken)).statusCode).toBe(403);
     const other = await createProject(ctx.app, 'Other');
     expect((await get('/quality/team-report', other.adminToken)).statusCode).toBe(404);
+  });
+
+  it('a collector cannot read the checks of plots of others by posting a first assessment of them', async () => {
+    const alice = await registerUser(ctx.app, pid, project.adminToken, 'alice');
+    const bob = await registerUser(ctx.app, pid, project.adminToken, 'bob');
+    const carol = await registerUser(ctx.app, pid, project.adminToken, 'carol');
+    // Alice assesses 1-5, Carol checks them (G on 1-3), each syncing with their own session.
+    const aliceRecords = [];
+    const carolRecords = [];
+    for (let i = 1; i <= 5; i++) {
+      aliceRecords.push(record(`${i},1`, 'alice', 'F', '1'));
+      carolRecords.push(record(`${i},2`, 'carol', i <= 3 ? 'G' : 'F', '2', 5000));
+    }
+    expect((await batchRequest(ctx.app, pid, alice.token, aliceRecords)).statusCode).toBe(200);
+    expect((await batchRequest(ctx.app, pid, carol.token, carolRecords)).statusCode).toBe(200);
+    // Bob posts a later first assessment of each of Alice's plots (once as himself, once naming carol).
+    const probe = [];
+    for (let i = 1; i <= 5; i++) probe.push(record(`${i},1`, 'bob', 'X', '1', 9000));
+    probe.push(record('3,1', 'carol', 'Y', '1', 9000));
+    expect((await batchRequest(ctx.app, pid, bob.token, probe)).statusCode).toBe(200);
+
+    const mine = await get('/my-quality', bob.token);
+    expect(mine.statusCode, mine.body).toBe(200);
+    expect(mine.json()).toMatchObject({ username: 'bob', asFirst: { checks: 0, agreeing: 0, rate: null }, confusions: [] });
+    expect(mine.body).not.toMatch(/"G"|carol|alice/);
+    // The records were all stored as bob's: none as carol's main assessment.
+    const carolMain = (await ctx.store.listRecords(pid)).filter((r) => r.operator === 'carol' && r.recordKey.endsWith(',1'));
+    expect(carolMain).toEqual([]);
+    // Alice's plots now have two main assessments: hers are left out too, and the coordinator sees why.
+    expect((await get('/my-quality', alice.token)).json()).toMatchObject({ asFirst: { checks: 0 }, confusions: [] });
+    const quality = (await get('/quality', project.adminToken)).json();
+    expect(quality.problems.filter((p: { kind: string }) => p.kind === 'two_main')).toHaveLength(10);
+  });
+
+  it('in a divided file, a first assessment of a plot someone else holds is left out of the personal report', async () => {
+    const alice = await registerUser(ctx.app, pid, project.adminToken, 'alice');
+    const bob = await registerUser(ctx.app, pid, project.adminToken, 'bob');
+    const carol = await registerUser(ctx.app, pid, project.adminToken, 'carol');
+    const divided = await ctx.app.inject({
+      method: 'PUT',
+      url: url(`/csv-files/${fileId}/distribution`),
+      headers: bearer(project.adminToken),
+      payload: { mode: 'even', people: [alice.userId], order: 'file', overlapPercent: 0 },
+    });
+    expect(divided.statusCode, divided.body).toBe(200);
+    // Bob assesses Alice's plot 7 before her; Carol checks it.
+    await batchRequest(ctx.app, pid, bob.token, [record('7,1', 'bob', 'X', '1', 9000)]);
+    await batchRequest(ctx.app, pid, carol.token, [record('7,2', 'carol', 'G', '2', 9500)]);
+    const mine = (await get('/my-quality', bob.token)).json();
+    expect(mine).toMatchObject({ asFirst: { checks: 0, agreeing: 0, rate: null }, confusions: [] });
+    // The coordinator still sees the pair.
+    const quality = (await get('/quality', project.adminToken)).json();
+    expect(quality.people.find((p: { username: string }) => p.username === 'bob').asFirst.compared).toBe(1);
   });
 });

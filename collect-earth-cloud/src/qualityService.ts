@@ -34,6 +34,8 @@ export interface PlotContext {
   units: Set<string>;
   /** unit -> usernames holding it only as a quality-check copy, across the divided files. */
   copyHolders: Map<string, Set<string>>;
+  /** unit -> usernames holding it as a main plot, for every plot of a divided file (empty when no one does). */
+  mainHolders: Map<string, Set<string>>;
 }
 
 /**
@@ -55,14 +57,19 @@ export async function loadPlotContext(
   ]);
   const keyCount = fileKeyCount(info);
   const units = new Set<string>();
+  const mainHolders = new Map<string, Set<string>>();
   for (const meta of files) {
     try {
       const file = await store.getCsvFile(projectId, meta.id);
       if (!file) {
         continue;
       }
+      const divided = meta.distribution != null;
       for (const id of plotIdsOf(file, keyCount)) {
         units.add(id);
+        if (divided && !mainHolders.has(id)) {
+          mainHolders.set(id, new Set());
+        }
       }
     } catch (err) {
       log.error({ err, csvFileId: meta.id }, 'could not read the plot file');
@@ -71,7 +78,18 @@ export async function loadPlotContext(
   // Main holdings too: someone holding a plot as main in one file and as a copy in
   // another is not taken for its checker.
   const usernames = new Map(members.map((m) => [m.userId, m.username]));
-  return { info, units, copyHolders: copyHoldersOf(holdings, usernames) };
+  for (const a of holdings) {
+    const username = usernames.get(a.userId);
+    if (!a.overlap && username !== undefined) {
+      let set = mainHolders.get(a.plotKey);
+      if (!set) {
+        set = new Set();
+        mainHolders.set(a.plotKey, set);
+      }
+      set.add(username);
+    }
+  }
+  return { info, units, copyHolders: copyHoldersOf(holdings, usernames), mainHolders };
 }
 
 /** Thrown by QualityWorker.run when no worker can be started (the job never ran). */

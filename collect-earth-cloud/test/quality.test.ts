@@ -213,17 +213,51 @@ describe('qualityReport: people', () => {
     records.push(rec('20,1', 'ana', { collect_code_land_use: 'grassland' }), rec('20,2', 'ben', { collect_code_land_use: 'shrubland' }), rec('20,2', 'cid', { collect_code_land_use: 'shrubland' }));
     const { people } = qualityReport(input(records));
     const ana = people.find((p) => p.username === 'ana')!;
-    expect(ana.confusions.map((c) => [c.key, c.first, c.check, c.count])).toEqual([
+    expect(ana.personal.confusions.map((c) => [c.key, c.first, c.check, c.count])).toEqual([
       ['collect_code_land_use', 'grassland', 'shrubland', 14],
       ['collect_code_land_use', 'forest', 'crop', 3],
       ['collect_code_land_use', 'crop', 'forest', 2],
     ]);
-    expect(ana.confusions[0].plots).toEqual(['1', '2', '3', '4', '5', '6', '7', '8', '9', '10']);
-    expect(ana.confusions[1].plots).toEqual(['13', '14', '15']);
-    expect(people.find((p) => p.username === 'ben')!.confusions).toEqual([
+    expect(ana.personal.confusions[0].plots).toEqual(['1', '2', '3', '4', '5', '6', '7', '8', '9', '10']);
+    expect(ana.personal.confusions[1].plots).toEqual(['13', '14', '15']);
+    expect(people.find((p) => p.username === 'ben')!.personal.confusions).toEqual([
       { key: 'collect_code_land_use', first: 'water', check: 'forest', count: 1, plots: ['19'] },
     ]);
-    expect(people.find((p) => p.username === 'cid')!.confusions).toEqual([]);
+    expect(people.find((p) => p.username === 'cid')!.personal.confusions).toEqual([]);
+    expect(ana.personal.asFirst).toEqual(ana.asFirst);
+  });
+
+  it('leaves plots that are not certainly theirs out of the personal figures: two main assessments, or not their main plot', () => {
+    const records: QualityRecord[] = [];
+    for (let i = 1; i <= 4; i++) {
+      records.push(rec(`${i},1`, 'ana', { collect_code_land_use: 'forest' }), rec(`${i},2`, 'cid', { collect_code_land_use: 'crop' }));
+    }
+    // Bob posts a later first assessment of ana's plots 1 and 2: two_main, so his is compared.
+    records.push(rec('1,1', 'bob', { collect_code_land_use: 'water' }, { modifiedOn: day + 1 }), rec('2,1', 'bob', { collect_code_land_use: 'water' }, { modifiedOn: day + 1 }));
+    // In a divided file, plot 3 is held by ben as main and plot 4 by no one.
+    const mainHolders = new Map([
+      ['3', new Set(['ben'])],
+      ['4', new Set<string>()],
+    ]);
+    const report = qualityReport(input(records, { mainHolders }));
+    const bob = report.people.find((p) => p.username === 'bob')!;
+    const ana = report.people.find((p) => p.username === 'ana')!;
+    // The coordinator's figures are unchanged.
+    expect(bob.asFirst).toEqual({ compared: 2, agreeing: 0, rate: null });
+    expect(ana.asFirst).toEqual({ compared: 2, agreeing: 0, rate: null });
+    // The personal ones leave all of them out.
+    expect(bob.personal).toEqual({ asFirst: { compared: 0, agreeing: 0, rate: null }, confusions: [] });
+    expect(ana.personal).toEqual({ asFirst: { compared: 0, agreeing: 0, rate: null }, confusions: [] });
+    expect(report.confusions.map((c) => [c.first, c.check, c.count])).toEqual([
+      ['forest', 'crop', 2],
+      ['water', 'crop', 2],
+    ]);
+    // With ana as the holder of 3 and 4, they count again.
+    const held = qualityReport(input(records, { mainHolders: new Map([['3', new Set(['ana'])], ['4', new Set(['ana', 'ben'])]]) }));
+    expect(held.people.find((p) => p.username === 'ana')!.personal).toEqual({
+      asFirst: { compared: 2, agreeing: 0, rate: null },
+      confusions: [{ key: 'collect_code_land_use', first: 'forest', check: 'crop', count: 2, plots: ['3', '4'] }],
+    });
   });
 });
 

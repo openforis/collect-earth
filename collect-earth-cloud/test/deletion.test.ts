@@ -257,5 +257,10 @@ describe('deleting my account', () => {
     expect(await ctx.store.listAssignments(pid)).toEqual([]);
     expect(await ctx.store.listRecords(pid)).toHaveLength(1);
     expect(await ctx.store.listMembers(pid)).toEqual([{ userId: coord.userId, username: 'coord', role: 'admin' }]);
+    // Their records keep the name, so it is not given out again: a new juan would see
+    // the old one's quality figures as his.
+    const again = await signup(ctx.app, 'juan');
+    expect(again.statusCode).toBe(409);
+    expect(again.json().error).toBe('username_taken');
   });
 });

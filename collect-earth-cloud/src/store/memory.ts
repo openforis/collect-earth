@@ -94,6 +94,8 @@ export class InMemoryStore implements Store {
 
   private readonly users = new Map<string, User>(); // key = userId
   private readonly usersByName = new Map<string, string>(); // username -> userId
+  /** Usernames of deleted accounts with records in one of their projects: never given out again (records keep the name). */
+  private readonly retiredUsernames = new Set<string>();
   private readonly sessions = new Map<string, string>(); // session token hash -> userId
   private readonly memberships = new Map<string, Role>(); // `${projectId} ${userId}` -> role
   private readonly invites = new Map<string, InviteEntry>(); // invite token hash -> entry
@@ -273,7 +275,7 @@ export class InMemoryStore implements Store {
   }
 
   private insertUser(input: Omit<User, 'id'>): User {
-    if (this.usersByName.has(input.username)) {
+    if (this.usersByName.has(input.username) || this.retiredUsernames.has(input.username)) {
       throw new UsernameTakenError(input.username);
     }
     const user: User = { id: randomUUID(), ...input };
@@ -332,8 +334,11 @@ export class InMemoryStore implements Store {
       return;
     }
     await this.deleteUserSessions(userId);
+    let hasRecords = false;
     for (const key of this.memberships.keys()) {
       if (key.endsWith(` ${userId}`)) {
+        const entry = this.projects.get(key.slice(0, -userId.length - 1));
+        hasRecords ||= [...(entry?.records.values() ?? [])].some((r) => r.operator === user.username);
         this.memberships.delete(key);
       }
     }
@@ -358,6 +363,9 @@ export class InMemoryStore implements Store {
       }
     }
     this.usersByName.delete(user.username);
+    if (hasRecords) {
+      this.retiredUsernames.add(user.username);
+    }
     this.users.delete(userId);
   }
 

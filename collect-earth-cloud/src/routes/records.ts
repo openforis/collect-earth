@@ -13,6 +13,14 @@ interface BatchBody {
  * last-write-wins per (project, recordKey, operator), and returns a per-record
  * status the client uses to advance or retry its local sync queue.
  *
+ * With a user session the records are stored under the session's username, whatever
+ * operator the envelope names: the quality figures and the personal report go by the
+ * operator, so no one may write records as someone else. The envelope's operator is
+ * not refused when it differs (the collector may have changed the operator name in
+ * Collect Earth's settings, and refusing would lose their work); it is logged once per
+ * request. Collect Earth matches the results by recordKey only. A project token is no
+ * person: its envelopes keep their operator.
+ *
  * The request body is gzip-compressed by the Java client; the gunzip preParsing
  * hook in buildServer() decompresses it before this handler runs. The route path
  * contains a literal ':batch' segment (Collect Earth posts to `records:batch`).
@@ -23,6 +31,15 @@ export async function registerRecordRoutes(app: FastifyInstance, store: Store): 
     { preHandler: requireProjectMembership(store) },
     async (request: FastifyRequest, reply: FastifyReply) => {
       const projectId = request.membership!.projectId;
+      let sessionUsername: string | null = null;
+      if (request.membership!.userId) {
+        const user = await store.getUserById(request.membership!.userId);
+        if (!user) {
+          return reply.code(401).send({ error: 'unauthorized' });
+        }
+        sessionUsername = user.username;
+      }
+      let warned = false;
       const body = (request.body ?? {}) as BatchBody;
       const envelopes = Array.isArray(body.records) ? body.records : [];
 
@@ -36,6 +53,13 @@ export async function registerRecordRoutes(app: FastifyInstance, store: Store): 
           continue;
         }
         try {
+          if (sessionUsername !== null && envelope.operator !== sessionUsername) {
+            if (!warned) {
+              warned = true;
+              request.log.warn({ sent: envelope.operator, username: sessionUsername }, 'records stored under the signed-in username, not the operator sent');
+            }
+            envelope.operator = sessionUsername;
+          }
           const operator = envelope.operator ?? '';
           const existing = await store.getRecord(projectId, envelope.recordKey, operator);
           const { row, status } = applyLww(envelope, existing, receivedAt);

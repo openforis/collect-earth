@@ -1125,7 +1125,7 @@ Commit: "Collect Earth Cloud: coordinators decide which answer is right and writ
 Commit: "Collect Earth Cloud: a personal quality report for each collector and a team report for training, without names".
 
 **As built**
-- **Per-person mix-ups come from the figures** (`quality.ts`): `PersonQuality` has
+- **Per-person mix-ups come from the figures** (`quality.ts`): `PersonQuality.personal` has
   `confusions`, up to `MAX_PERSON_CONFUSIONS` (3) of the person's mix-ups as first
   assessor, each with up to `MAX_PERSON_CONFUSION_PLOTS` (10) plots, in the same order
   as the report's confusions. They are counted in the second pass that already builds
@@ -1133,7 +1133,36 @@ Commit: "Collect Earth Cloud: a personal quality report for each collector and a
   extra memory is one small entry per (person, mix-up) and the cost is one map lookup
   per differing choice. The cached report could not give them otherwise: its
   `differences` stop at 500 and its confusions have no people. The other results are
-  unchanged; `GET /quality` now also shows `people[].confusions` to coordinators.
+  unchanged; `GET /quality` now also shows `people[].personal` to coordinators.
+- **After the review: only plots certainly the caller's** (`PersonQuality.personal`,
+  `{ asFirst, confusions }`). Otherwise anyone could post a later first assessment of
+  someone else's plot (the latest main is compared) and read its check. Left out of
+  the personal figures, not of the coordinator's:
+  - a plot with two main assessments (`two_main`), for both people;
+  - in a divided file, a plot whose first assessor is not its main holder
+    (`QualityInput.mainHolders`: every plot of a divided file, with the usernames
+    holding it as main, from `loadPlotContext`), including a plot no one holds.
+- **After the review: records go by the session's username** (`routes/records.ts`).
+  With a user session, `records:batch` stores every record under the session's
+  username, whatever `operator` it names (last-write-wins too), and logs once per
+  request when they differ. It does not refuse them: the collector may have changed
+  the operator name in Collect Earth's settings. Collect Earth matches the results by
+  `recordKey` alone (`CloudSyncService`: a map by `result.getRecordKey()`; its queue
+  is keyed by record key and survey), so its sync queue is unaffected. A project
+  token is no person, and its envelopes keep their operator.
+- **After the review: a deleted account's name.** Records keep their operator name,
+  so a new account under the same username would inherit the old figures. When the
+  deleted account has records in one of its projects, its username is retired
+  (migration 010, `retired_usernames`): `createUser` and `createFirstPlatformAdmin`
+  refuse it as taken. A name without records is free again, as before.
+- **What the reports still let one infer** (known limits, not names):
+  - a confusion whose `checks` is more than its plots shows that a plot was checked
+    more than once;
+  - when only one person checks a collector's plots, the collector can tell who
+    that is by elimination; the report names no one, but it cannot hide that;
+  - records sent with a project token carry whatever operator they name. A new
+    account named like such an operator, or like a deleted account whose records are
+    only in projects it had left, sees those records as its own.
 - **Both reports are built field by field** (`src/qualityReports.ts`:
   `personalReport`, `teamReport`) from the cached report (`QualityService.report`, so
   the same cache, `stale`/`computedAt` and busy 503 as `/quality`). Nothing is copied

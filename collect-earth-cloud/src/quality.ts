@@ -41,6 +41,12 @@ export interface QualityInput {
   copyHolders: ReadonlyMap<string, ReadonlySet<string>>;
   /** The served survey's outline, or null when there is none (keys are then judged by their name). */
   outline: ReadonlyMap<string, Question> | null;
+  /**
+   * unit -> usernames holding it as a main plot, for every plot of a divided file (an
+   * empty set for a plot no one holds). Only the personal figures use it: a plot of a
+   * divided file whose first assessor is not its main holder is left out of them.
+   */
+  mainHolders?: ReadonlyMap<string, ReadonlySet<string>>;
   /** Number margins in percent, by question key; DEFAULT_MARGIN for the others and for any that is no number >= 0. */
   margins?: Readonly<Record<string, number>>;
 }
@@ -79,11 +85,21 @@ export interface PersonQuality {
   /** Up to MAX_WEAKEST questions where their plots (in either role) differ most; only questions that differed. */
   weakest: { key: string; rate: number | null; compared: number; differing: number }[];
   /**
-   * Up to MAX_PERSON_CONFUSIONS mix-ups of a choice between their first assessment and
-   * a check of it, ordered as the report's confusions; count is checks, with up to
-   * MAX_PERSON_CONFUSION_PLOTS plots (in plot order).
+   * For the person's own report: only the plots that are certainly theirs as first
+   * assessor. A plot with two main assessments (two_main) is left out, and so is a plot
+   * of a divided file they do not hold as main: anyone could otherwise post a first
+   * assessment of someone else's plot and read its check in their report.
    */
-  confusions: Confusion[];
+  personal: {
+    /** The checks of those plots, as asFirst. */
+    asFirst: Rate;
+    /**
+     * Up to MAX_PERSON_CONFUSIONS mix-ups of a choice between their first assessment and
+     * a check of it, ordered as the report's confusions; count is checks, with up to
+     * MAX_PERSON_CONFUSION_PLOTS plots (in plot order).
+     */
+    confusions: Confusion[];
+  };
 }
 
 export interface WeekAgreement {
@@ -155,6 +171,8 @@ interface DifferingPair {
   check: QualityRecord;
   /** The slot ids of the differing questions, in the order they were compared. */
   slots: Uint32Array;
+  /** Whether the plot is certainly the first assessor's (see PersonQuality.personal). */
+  own: boolean;
 }
 
 /**
@@ -244,6 +262,9 @@ export function qualityReport(input: QualityInput): QualityReport {
   const firstAgreeing = new Int32Array(people);
   const checkerCompared = new Int32Array(people);
   const checkerAgreeing = new Int32Array(people);
+  const ownCompared = new Int32Array(people);
+  const ownAgreeing = new Int32Array(people);
+  const mainHolders = input.mainHolders;
   const weeks = new Map<string, Tally>();
   const weekOfDay = new Map<number, string>();
   const differingPairs: DifferingPair[] = [];
@@ -266,6 +287,8 @@ export function qualityReport(input: QualityInput): QualityReport {
     const fs = first.summary;
     const firstKeys = Object.keys(fs);
     const fi = personIndex.get(first.operator)!;
+    const holders = mainHolders?.get(plot);
+    const own = g.main.length === 1 && (holders === undefined || holders.has(first.operator));
     for (const check of g.check) {
       const cs = check.summary;
       const ci = personIndex.get(check.operator)!;
@@ -316,12 +339,18 @@ export function qualityReport(input: QualityInput): QualityReport {
       const agrees = differs.length === 0;
       firstCompared[fi] += 1;
       checkerCompared[ci] += 1;
+      if (own) {
+        ownCompared[fi] += 1;
+        if (agrees) {
+          ownAgreeing[fi] += 1;
+        }
+      }
       if (agrees) {
         firstAgreeing[fi] += 1;
         checkerAgreeing[ci] += 1;
       } else {
         plotDiffers = true;
-        differingPairs.push({ plot, first, check, slots: Uint32Array.from(differs) });
+        differingPairs.push({ plot, first, check, slots: Uint32Array.from(differs), own });
       }
       const day = Math.floor(check.modifiedOn / 86_400_000);
       let week = weekOfDay.get(day);
@@ -379,19 +408,21 @@ export function qualityReport(input: QualityInput): QualityReport {
         if (c.plots.length < MAX_CONFUSION_PLOTS && c.plots[c.plots.length - 1] !== plot) {
           c.plots.push(plot);
         }
-        let mine = personConfusions.get(fi);
-        if (!mine) {
+        let mine = pair.own ? personConfusions.get(fi) : undefined;
+        if (pair.own && !mine) {
           mine = new Map();
           personConfusions.set(fi, mine);
         }
-        let pc = mine.get(c);
-        if (!pc) {
-          pc = { key: c.key, first: c.first, check: c.check, count: 0, plots: [] };
-          mine.set(c, pc);
-        }
-        pc.count += 1;
-        if (pc.plots.length < MAX_PERSON_CONFUSION_PLOTS && pc.plots[pc.plots.length - 1] !== plot) {
-          pc.plots.push(plot);
+        if (mine) {
+          let pc = mine.get(c);
+          if (!pc) {
+            pc = { key: c.key, first: c.first, check: c.check, count: 0, plots: [] };
+            mine.set(c, pc);
+          }
+          pc.count += 1;
+          if (pc.plots.length < MAX_PERSON_CONFUSION_PLOTS && pc.plots[pc.plots.length - 1] !== plot) {
+            pc.plots.push(plot);
+          }
         }
       }
       if (listed) {
@@ -454,7 +485,10 @@ export function qualityReport(input: QualityInput): QualityReport {
             )
             .slice(0, MAX_WEAKEST)
             .map((t) => ({ key: t.key, rate: rateOf(t), compared: t.compared, differing: t.compared - t.agreeing })),
-          confusions: [...(personConfusions.get(i)?.values() ?? [])].sort(confusionOrder).slice(0, MAX_PERSON_CONFUSIONS),
+          personal: {
+            asFirst: { compared: ownCompared[i], agreeing: ownAgreeing[i], rate: rateOf({ compared: ownCompared[i], agreeing: ownAgreeing[i] }) },
+            confusions: [...(personConfusions.get(i)?.values() ?? [])].sort(confusionOrder).slice(0, MAX_PERSON_CONFUSIONS),
+          },
         };
       }),
     weeks: [...weeks].sort(([a], [b]) => order(a, b)).map(([week, t]) => ({ week, compared: t.compared, agreeing: t.agreeing })),
