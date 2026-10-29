@@ -2,7 +2,7 @@ import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import { requireProjectMembership } from '../plugins/projectAuth.js';
 import { checkMargins, type QualityReport } from '../quality.js';
 import { personalReport, teamReport } from '../qualityReports.js';
-import { QualityService, WorkerBusyError, type ServedReport } from '../qualityService.js';
+import { QualityService, WorkerBusyError, WorkerRestartedError, type ServedReport } from '../qualityService.js';
 import type { Store } from '../store/store.js';
 import type { DecisionKind, GuidanceNoteInput } from '../types.js';
 
@@ -91,16 +91,28 @@ function overlapShape(report: QualityReport) {
   };
 }
 
-/** The figures, or a 503 when the worker already has as many jobs as it takes. */
+/** What a client is told when the figures fail: the details (a stack, a query) are only logged. */
+export const QUALITY_FAILED = {
+  error: 'quality_failed',
+  reason: 'The quality figures could not be worked out. Try again in a few minutes.',
+} as const;
+
+/**
+ * The figures; or a 503 when the worker already has as many jobs as it takes, or was
+ * restarted under this job because of another; or a 500 with a plain message when
+ * they failed (logged with the details).
+ */
 async function served(quality: QualityService, projectId: string, request: FastifyRequest, reply: FastifyReply): Promise<ServedReport | null> {
   try {
     return await quality.report(projectId, request.log);
   } catch (err) {
-    if (err instanceof WorkerBusyError) {
+    if (err instanceof WorkerBusyError || err instanceof WorkerRestartedError) {
       void reply.code(503).header('retry-after', '10').send({ error: 'busy', reason: 'the quality figures of other projects are being computed; try again in a moment' });
       return null;
     }
-    throw err;
+    request.log.error({ err, projectId }, 'quality: the figures could not be worked out');
+    void reply.code(500).send(QUALITY_FAILED);
+    return null;
   }
 }
 

@@ -131,6 +131,18 @@ export class WorkerBusyError extends Error {
   }
 }
 
+/**
+ * Thrown by QualityWorker.run for a job that failed through no fault of its own: the
+ * worker it ran on was restarted because another job took too long or ran out of
+ * memory. Trying again shortly is fine (the routes answer 503 busy).
+ */
+export class WorkerRestartedError extends Error {
+  constructor(why: string) {
+    super(`the quality worker was restarted: ${why}`);
+    this.name = 'WorkerRestartedError';
+  }
+}
+
 export interface QualityWorkerOptions {
   /** The worker's module (tests use a stand-in). */
   url?: URL;
@@ -144,6 +156,8 @@ interface PendingJob {
   resolve: (r: QualityReport) => void;
   reject: (e: unknown) => void;
   timer: NodeJS.Timeout;
+  /** Its records are read and the figures (which hold the worker's thread) are being computed. */
+  computing: boolean;
 }
 
 /**
@@ -172,6 +186,11 @@ export class QualityWorker {
     this.maxMb = options.maxOldGenerationSizeMb ?? DEFAULT_WORKER_MAX_MB;
   }
 
+  /** Whether a job would not be refused as busy now (a worker that cannot start or is closed fails it otherwise). */
+  hasRoom(): boolean {
+    return this.unavailable !== null || this.closed || this.pending.size < MAX_WORKER_JOBS;
+  }
+
   run(job: WorkerJob): Promise<QualityReport> {
     if (this.unavailable !== null) {
       return Promise.reject(new WorkerUnavailableError(this.unavailable));
@@ -193,7 +212,7 @@ export class QualityWorker {
     return new Promise<QualityReport>((resolve, reject) => {
       const timer = setTimeout(() => this.timedOut(worker, id), this.timeoutMs);
       timer.unref();
-      this.pending.set(id, { resolve, reject, timer });
+      this.pending.set(id, { resolve, reject, timer, computing: false });
       worker.ref();
       worker.postMessage({ id, job });
     });
@@ -218,6 +237,13 @@ export class QualityWorker {
         ready = true;
         return;
       }
+      if ('computing' in message) {
+        const job = this.pending.get(message.id);
+        if (job) {
+          job.computing = true;
+        }
+        return;
+      }
       const job = this.take(message.id);
       if (!job) {
         return;
@@ -233,7 +259,7 @@ export class QualityWorker {
     });
     worker.on('error', (err: Error & { code?: string }) => {
       if (err.code === 'ERR_WORKER_OUT_OF_MEMORY') {
-        this.stopped(worker, new Error(`the quality figures needed more memory than the ${this.maxMb} MB allowed (QUALITY_WORKER_MAX_MB)`));
+        this.outOfMemory(worker);
         return;
       }
       if (!ready) {
@@ -271,9 +297,28 @@ export class QualityWorker {
     job.reject(new Error(`the quality figures took longer than ${this.timeoutMs / 1000} s`));
     if (this.worker === worker) {
       this.worker = null;
-      this.failAll(new Error('the quality worker was restarted: another job took too long'));
+      this.failAll(new WorkerRestartedError('another job took too long'));
     }
     void worker.terminate();
+  }
+
+  /**
+   * The worker ran out of memory. The figures hold its thread, so the job computing
+   * them (it said so) is the one that did; the others (still reading their records)
+   * fail as restarted. When that cannot be told (none or several computing), a lone
+   * job is the one, and with several all fail as restarted.
+   */
+  private outOfMemory(worker: Worker): void {
+    if (this.worker !== worker) {
+      return;
+    }
+    this.worker = null;
+    const computing = [...this.pending].filter(([, job]) => job.computing).map(([id]) => id);
+    const guilty = computing.length === 1 ? computing[0] : this.pending.size === 1 ? [...this.pending.keys()][0] : null;
+    if (guilty !== null) {
+      this.take(guilty)!.reject(new Error(`the quality figures needed more memory than the ${this.maxMb} MB allowed (QUALITY_WORKER_MAX_MB)`));
+    }
+    this.failAll(new WorkerRestartedError('another job ran out of memory'));
   }
 
   private stopped(worker: Worker, err: unknown): void {
@@ -288,6 +333,8 @@ export class QualityWorker {
 /** What a QualityService needs of a worker (QualityWorker, or a stand-in in tests). */
 export interface QualityRunner {
   run(job: WorkerJob): Promise<QualityReport>;
+  /** Whether a job would be taken now; when false the service answers busy before loading anything. Absent: always. */
+  hasRoom?(): boolean;
   close(): Promise<void>;
 }
 
@@ -304,11 +351,13 @@ const sha256 = (data: string | Uint8Array) => createHash('sha256').update(data).
 
 /** A report served younger than this, when its inputs have changed since, is served as it is (stale) while a new one is computed. */
 export const STALE_MS = 2 * 60_000;
+/** A computation that failed is not tried again for the same inputs for this long (the error is given again, or a stale report). */
+export const FAILURE_MEMO_MS = 2 * 60_000;
 
 /** The figures as served: when they were computed, and whether the inputs have changed since. */
 export interface ServedReport {
   report: QualityReport;
-  /** ms since the epoch. */
+  /** ms since the epoch: when the inputs it was computed from were read. */
   computedAt: number;
   /** True when records (or other inputs) changed after computedAt; newer figures are being computed. */
   stale: boolean;
@@ -322,6 +371,8 @@ interface CachedReport {
 
 interface Snapshot {
   version: string;
+  /** When it was read: the computedAt of a report computed from it. */
+  at: number;
   known: { info: RoundInfo | null; files: CsvFile[]; members: Member[]; settings: QualitySettings };
 }
 
@@ -357,6 +408,8 @@ export class QualityService {
   private readonly reports = new Map<string, CachedReport>();
   private readonly runs = new Map<string, ProjectRuns>();
   private readonly outlines = new Map<string, ReadonlyMap<string, Question> | null>();
+  /** The last failed computation of each project, by the version of its inputs. */
+  private readonly failures = new Map<string, { version: string; error: unknown; at: number }>();
   private readonly now: () => number;
   private warnedUnavailable = false;
   /** How many reports were computed (for tests). */
@@ -376,6 +429,14 @@ export class QualityService {
     if (cached?.version === snapshot.version) {
       remember(this.reports, projectId, cached, MAX_CACHED_REPORTS);
       return { report: cached.report, computedAt: cached.computedAt, stale: false };
+    }
+    // The same inputs failed a moment ago: not tried again yet.
+    const failure = this.failures.get(projectId);
+    if (failure && failure.version === snapshot.version && this.now() - failure.at < FAILURE_MEMO_MS) {
+      if (cached) {
+        return { report: cached.report, computedAt: cached.computedAt, stale: true };
+      }
+      throw failure.error;
     }
     const pending = this.schedule(projectId, log, snapshot);
     if (cached && this.now() - cached.computedAt < STALE_MS) {
@@ -425,8 +486,18 @@ export class QualityService {
       if (cached?.version === s.version) {
         return cached;
       }
-      const report = await this.compute(projectId, log, s.known);
-      const entry = { version: s.version, report, computedAt: this.now() };
+      let report: QualityReport;
+      try {
+        report = await this.compute(projectId, log, s.known);
+      } catch (err) {
+        // Busy or restarted is no fault of these inputs: tried again on the next request.
+        if (!(err instanceof WorkerBusyError || err instanceof WorkerRestartedError)) {
+          remember(this.failures, projectId, { version: s.version, error: err, at: this.now() }, MAX_CACHED_REPORTS * 4);
+        }
+        throw err;
+      }
+      this.failures.delete(projectId);
+      const entry = { version: s.version, report, computedAt: s.at };
       remember(this.reports, projectId, entry, MAX_CACHED_REPORTS);
       return entry;
     })();
@@ -450,6 +521,7 @@ export class QualityService {
 
   /** The inputs' version, from a few small queries (no records), and what was read for it. */
   private async snapshot(projectId: string): Promise<Snapshot> {
+    const at = this.now();
     const [inputs, info, cep, files, members, settings] = await Promise.all([
       this.store.qualityVersion(projectId),
       this.store.getRoundInfo(projectId),
@@ -468,7 +540,7 @@ export class QualityService {
         settings,
       ]),
     );
-    return { version, known: { info, files, members, settings } };
+    return { version, at, known: { info, files, members, settings } };
   }
 
   /** The outline of the served project file's survey (cached by its sha256), or null without a readable one. */
@@ -503,10 +575,14 @@ export class QualityService {
     log: Log,
     known: { info: RoundInfo | null; files: CsvFile[]; members: Member[]; settings: QualitySettings },
   ): Promise<QualityReport> {
+    const source = this.store.recordsSource();
+    // No room on the worker: say so before reading the plot files.
+    if (source && this.runner?.hasRoom && !this.runner.hasRoom()) {
+      throw new WorkerBusyError();
+    }
     const [context, outline] = await Promise.all([loadPlotContext(this.store, projectId, log, known), this.outline(projectId, log)]);
     const input: Omit<QualityInput, 'records'> = { ...context, outline, margins: known.settings.margins };
     this.computed += 1;
-    const source = this.store.recordsSource();
     if (source && this.runner) {
       try {
         return await this.runner.run({ input, source: { ...source, projectId } });

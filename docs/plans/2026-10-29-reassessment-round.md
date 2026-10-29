@@ -1163,6 +1163,49 @@ Commit: "Collect Earth Cloud: a personal quality report for each collector and a
   - records sent with a project token carry whatever operator they name. A new
     account named like such an operator, or like a deleted account whose records are
     only in projects it had left, sees those records as its own.
+- **After the review: the figures' service** (`qualityService.ts`, `qualityWorker.ts`,
+  `routes/quality.ts`; it serves `/quality`, `/overlap` and both reports):
+  - **Errors stay on the server.** The worker logs a failing job's stack itself and
+    sends back only its message (at most 300 characters). The routes log any failure
+    with its details and answer 500
+    `{ error: 'quality_failed', reason: 'The quality figures could not be worked out. Try again in a few minutes.' }`,
+    so no stack, path or query reaches a client. (Other routes still use Fastify's
+    default 500, which shows the error's message.)
+  - **A job that fails because of another** gets `WorkerRestartedError`, which the
+    routes answer as 503 busy with `Retry-After: 10`. This happens when the other job
+    took too long, or when the other job ran out of memory. The worker says
+    `computing` once a job's records are read, because the figures then hold its
+    thread. So running out of memory is put on the job that was computing (or on a
+    lone job), and the jobs still reading their records get the restart. When that
+    cannot be told, every job gets the restart.
+  - **A failure is remembered** per project, `{ version, error, at }`, for
+    `FAILURE_MEMO_MS` (2 minutes). Within it, the same inputs are not computed again:
+    the last report is served as stale if there is one, otherwise the error is given
+    again. New inputs are computed at once. Busy and restarted are not remembered.
+  - **`computedAt` is when the inputs were read** (the snapshot), not when the
+    figures were done. It could otherwise be later than the records it counts.
+  - **No room on the worker is seen before the plot files are read.** `hasRoom()` is
+    checked first, so a 503 costs no CSV reads.
+- **After the review: `deleteProject` (Postgres) locks the project's row first**
+  (`SELECT 1 FROM projects WHERE id = $1 FOR UPDATE`).
+  - Before, it deleted the records first. A sync locks its record, then its trigger
+    updates the projects row, so the two took the locks in opposite orders and
+    deadlocked.
+  - A sync's foreign-key check can still share the row just before the deletion
+    locks it. So a deadlock (40P01) is still possible, rarely: the deletion is then
+    tried again, up to 3 times. A sync that loses gets an `error` result for that
+    record, and the project is being deleted anyway.
+  - **Checked on a throwaway `postgres:16`** (`ce-pg-fix11`, the app role under RLS):
+    - migrations ran twice;
+    - the reviewer's raw case: in the old order the sync's insert deadlocked; with
+      the row locked first the deletion commits and the insert fails cleanly on the
+      foreign key;
+    - the real `deleteProject` during 10 collectors' syncs, 50 times in all: one
+      deadlock in the first 10, before the retry was added, and none in the 40
+      after (so the retry was never needed there). About 20 syncs per 10 deletions failed because the project was gone,
+      and no records were left behind;
+    - a deleted `juan` with records stays taken, for `createUser` and
+      `createFirstPlatformAdmin`, while a deleted `rosa` without records is free.
 - **Both reports are built field by field** (`src/qualityReports.ts`:
   `personalReport`, `teamReport`) from the cached report (`QualityService.report`, so
   the same cache, `stale`/`computedAt` and busy 503 as `/quality`). Nothing is copied

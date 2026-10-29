@@ -154,7 +154,27 @@ export class PostgresStore implements Store {
     // (records, project_ceps, csv_files, assignments, projects) are deleted through
     // their policies. The global tables (tokens, invites, members) are matched by
     // project_id. Children first, so nothing relies on ON DELETE CASCADE.
+    for (let attempt = 1; ; attempt++) {
+      try {
+        await this.deleteProjectOnce(projectId);
+        return;
+      } catch (err) {
+        // A sync of the project can still meet it in a deadlock (its foreign-key check
+        // shares the project's row before its trigger updates it); one of the two is
+        // cancelled, and the deletion is simply tried again.
+        if ((err as { code?: string }).code !== '40P01' || attempt >= 3) {
+          throw err;
+        }
+      }
+    }
+  }
+
+  private async deleteProjectOnce(projectId: string): Promise<void> {
     await this.withProject(projectId, async (client) => {
+      // The project's row first: a sync running meanwhile bumps it (records_version,
+      // migration 009) after locking its records, and taking the locks the other way
+      // round deadlocked. Now the sync mostly waits for the deletion, or the deletion for it.
+      await client.query('SELECT 1 FROM projects WHERE id = $1 FOR UPDATE', [projectId]);
       await client.query('DELETE FROM quality_decisions WHERE project_id = $1', [projectId]);
       await client.query('DELETE FROM guidance_notes WHERE project_id = $1', [projectId]);
       await client.query('DELETE FROM plot_assignments WHERE project_id = $1', [projectId]);

@@ -1,7 +1,16 @@
 import { afterEach, describe, expect, it } from 'vitest';
 import type { RoundInfo } from '../src/cep.js';
 import { qualityReport, type QualityRecord } from '../src/quality.js';
-import { QualityService, QualityWorker, STALE_MS, WorkerBusyError, WorkerUnavailableError, type QualityRunner } from '../src/qualityService.js';
+import {
+  FAILURE_MEMO_MS,
+  QualityService,
+  QualityWorker,
+  STALE_MS,
+  WorkerBusyError,
+  WorkerRestartedError,
+  WorkerUnavailableError,
+  type QualityRunner,
+} from '../src/qualityService.js';
 import type { WorkerJob } from '../src/qualityWorker.js';
 import { InMemoryStore } from '../src/store/memory.js';
 import type { Question } from '../src/surveyOutline.js';
@@ -54,7 +63,11 @@ describe('QualityWorker', () => {
     worker = new QualityWorker();
     const input = { info: added, units: new Set<string>(), copyHolders: new Map(), outline: null, margins: {} };
     // No database listens there: the worker's read of the records fails.
-    await expect(worker.run({ input, source: { databaseUrl: 'postgres://nobody:x@127.0.0.1:1/none', projectId: 'p' } })).rejects.toThrow();
+    const failed = await worker.run({ input, source: { databaseUrl: 'postgres://nobody:x@127.0.0.1:1/none', projectId: 'p' } }).catch((e: Error) => e);
+    expect(failed).toBeInstanceOf(Error);
+    // Only a short message comes back: the stack stays in the worker's log.
+    expect((failed as Error).message).not.toMatch(/\n|\s+at\s|\.ts|node_modules/);
+    expect((failed as Error).message.length).toBeLessThanOrEqual(301);
     const report = await worker.run({ input, records: records(2) });
     expect(report.plotsChecked).toBe(2);
   }, 30_000);
@@ -105,6 +118,37 @@ describe('QualityWorker limits', () => {
     await worker.close();
     await failed;
     await expect(worker.run(fake('echo'))).rejects.toThrow(/closed/);
+  }, 30_000);
+
+  it('a job running beside one that takes too long fails as restarted', async () => {
+    worker = new QualityWorker({ url: FAKE_WORKER, timeoutMs: 1500 });
+    const slow = worker.run(fake('busy'));
+    await new Promise((resolve) => setTimeout(resolve, 300));
+    const innocent = worker.run(fake('echo'));
+    await Promise.all([expect(slow).rejects.toThrow(/took longer than/), expect(innocent).rejects.toBeInstanceOf(WorkerRestartedError)]);
+    expect(((await worker.run(fake('echo'))) as unknown as Echo).echo).toBe('echo');
+  }, 30_000);
+
+  it('when a job runs out of memory, the one beside it fails as restarted, not out of memory', async () => {
+    worker = new QualityWorker({ url: FAKE_WORKER, timeoutMs: 60_000, maxOldGenerationSizeMb: 32 });
+    const innocent = worker.run(fake('hang'));
+    const hungry = worker.run(fake('oom'));
+    await Promise.all([
+      expect(hungry).rejects.toThrow('the quality figures needed more memory than the 32 MB allowed (QUALITY_WORKER_MAX_MB)'),
+      expect(innocent).rejects.toBeInstanceOf(WorkerRestartedError),
+    ]);
+    expect(((await worker.run(fake('echo'))) as unknown as Echo).echo).toBe('echo');
+  }, 60_000);
+
+  it('says whether it has room for another job', async () => {
+    worker = new QualityWorker({ url: FAKE_WORKER, timeoutMs: 60_000 });
+    expect(worker.hasRoom()).toBe(true);
+    const a = worker.run(fake('hang'));
+    const b = worker.run(fake('hang'));
+    expect(worker.hasRoom()).toBe(false);
+    const failed = Promise.all([expect(a).rejects.toThrow(/closed/), expect(b).rejects.toThrow(/closed/)]);
+    await worker.close();
+    await failed;
   }, 30_000);
 
   it('a job that runs out of memory fails with a plain message, and the next one runs', async () => {
@@ -338,5 +382,109 @@ describe('QualityService', () => {
     const { report } = await service.report(projectId, log);
     expect(report).toMatchObject({ plotsChecked: 1, plotsDiffering: 1, problems: [] });
     expect(service.computed).toBe(2);
+  });
+
+  const record = (projectId: string, recordKey: string) => ({
+    projectId, recordKey, operator: 'ana', modifiedOn: 1, receivedAt: 1, activelySaved: true, step: 1, xml: null, summary: {}, deleted: false, deletedOn: null,
+  });
+
+  it('a failed computation is not tried again for the same inputs for two minutes', async () => {
+    const store = new SourcedStore();
+    const { projectId } = await store.createProject({ name: 'p' });
+    let t = 0;
+    let runs = 0;
+    const runner: QualityRunner = {
+      async run() {
+        runs += 1;
+        throw new Error('boom');
+      },
+      async close() {},
+    };
+    const service = new QualityService(store, runner, { now: () => t });
+    const log = { warn() {}, error() {} };
+    await expect(service.report(projectId, log)).rejects.toThrow('boom');
+    t += FAILURE_MEMO_MS - 1;
+    await expect(service.report(projectId, log)).rejects.toThrow('boom');
+    expect(runs).toBe(1);
+    // New inputs are tried at once; and the same ones after two minutes.
+    await store.putRecord(record(projectId, '1'));
+    await expect(service.report(projectId, log)).rejects.toThrow('boom');
+    expect(runs).toBe(2);
+    t += FAILURE_MEMO_MS;
+    await expect(service.report(projectId, log)).rejects.toThrow('boom');
+    expect(runs).toBe(3);
+  });
+
+  it('within those two minutes the last report is served as stale; busy and restarted are not remembered', async () => {
+    const store = new SourcedStore();
+    const { projectId } = await store.createProject({ name: 'p' });
+    let t = 0;
+    let runs = 0;
+    let failWith: Error | null = null;
+    const runner: QualityRunner = {
+      async run(job) {
+        runs += 1;
+        if (failWith) {
+          throw failWith;
+        }
+        return qualityReport({ ...job.input, records: [] });
+      },
+      async close() {},
+    };
+    const service = new QualityService(store, runner, { now: () => t });
+    const log = { warn() {}, error() {} };
+    const first = await service.report(projectId, log);
+    t += STALE_MS + 1;
+    await store.putRecord(record(projectId, '1'));
+    failWith = new Error('boom');
+    await expect(service.report(projectId, log)).rejects.toThrow('boom');
+    expect(await service.report(projectId, log)).toEqual({ report: first.report, computedAt: first.computedAt, stale: true });
+    expect(runs).toBe(2);
+
+    for (const err of [new WorkerBusyError(), new WorkerRestartedError('another job took too long')]) {
+      await store.putRecord(record(projectId, `${runs + 10}`));
+      failWith = err;
+      await expect(service.report(projectId, log)).rejects.toBe(err);
+      const before = runs;
+      await expect(service.report(projectId, log)).rejects.toBe(err);
+      expect(runs).toBe(before + 1);
+    }
+  });
+
+  it('answers busy before reading the plot files when the worker has no room', async () => {
+    const store = new SourcedStore();
+    const { projectId } = await store.createProject({ name: 'p' });
+    await store.putCsvFile(projectId, 'plots.csv', Buffer.from('id,lat,lon\n1,0,0\n'), ['1']);
+    let reads = 0;
+    const getCsvFile = store.getCsvFile.bind(store);
+    store.getCsvFile = async (...args) => {
+      reads += 1;
+      return getCsvFile(...args);
+    };
+    const runner: QualityRunner = {
+      hasRoom: () => false,
+      async run() {
+        throw new Error('not called');
+      },
+      async close() {},
+    };
+    const service = new QualityService(store, runner, { now: neverStale() });
+    await expect(service.report(projectId, { warn() {}, error() {} })).rejects.toBeInstanceOf(WorkerBusyError);
+    expect(reads).toBe(0);
+  });
+
+  it('computedAt is when the inputs were read, not when the figures were done', async () => {
+    const store = new SourcedStore();
+    const { projectId } = await store.createProject({ name: 'p' });
+    let t = 1000;
+    const runner: QualityRunner = {
+      async run(job) {
+        t = 9000;
+        return qualityReport({ ...job.input, records: [] });
+      },
+      async close() {},
+    };
+    const service = new QualityService(store, runner, { now: () => t });
+    expect((await service.report(projectId, { warn() {}, error() {} })).computedAt).toBe(1000);
   });
 });

@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { batchRequest, bearer, createProject, envelope, makeContext, type TestContext } from './helpers.js';
 import { idOnlyCep } from './fixtures/cep.js';
+import { WorkerRestartedError } from '../src/qualityService.js';
 
 const LAND_USE = 'collect_code_land_use_category';
 const FOREST = 'collect_integer_forest_percentage';
@@ -318,5 +319,31 @@ describe('quality routes', () => {
     }
     expect(await ctx.store.listQualityDecisions(pid)).toEqual([]);
     expect(await ctx.store.listGuidanceNotes(pid)).toEqual([]);
+  });
+
+  it('figures that fail give a plain message: no stack, path or query reaches the client', async () => {
+    await collect(2, 1);
+    const leaky = new Error('relation "records" does not exist: SELECT summary FROM records WHERE project_id = $1');
+    leaky.stack = `${leaky.message}\n    at listRecordSummaries (C:\\srv\\collect-earth-cloud\\src\\store\\postgres.ts:812:11)`;
+    ctx.store.listRecordSummaries = async () => {
+      throw leaky;
+    };
+    for (const path of ['/quality', '/overlap', '/quality/team-report']) {
+      const res = await get(path);
+      expect(res.statusCode, path).toBe(500);
+      expect(res.json()).toEqual({ error: 'quality_failed', reason: 'The quality figures could not be worked out. Try again in a few minutes.' });
+      expect(res.body).not.toMatch(/SELECT|relation|postgres\.ts|\bat\b|\\/);
+    }
+  });
+
+  it('a job whose worker was restarted because of another is answered busy, to try again', async () => {
+    await collect(2, 1);
+    ctx.store.listRecordSummaries = async () => {
+      throw new WorkerRestartedError('another job took too long');
+    };
+    const res = await get('/quality');
+    expect(res.statusCode).toBe(503);
+    expect(res.headers['retry-after']).toBe('10');
+    expect(res.json().error).toBe('busy');
   });
 });
