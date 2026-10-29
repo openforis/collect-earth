@@ -44,6 +44,7 @@ import org.openforis.collect.earth.app.EarthConstants.OperationMode;
 import org.openforis.collect.earth.app.desktop.EarthApp;
 import org.openforis.collect.earth.app.service.EarthSurveyService;
 import org.openforis.collect.earth.app.service.LocalPropertiesService;
+import org.openforis.collect.earth.app.service.QuitService;
 import org.openforis.collect.earth.app.service.WindowLayoutService;
 import org.openforis.collect.earth.app.service.cloud.CloudApiClient;
 import org.openforis.collect.earth.app.view.ExportActionListener.RecordsToExport;
@@ -80,6 +81,9 @@ public class CollectEarthWindow implements InitializingBean, DisposableBean{
 
 	@Autowired
 	private WindowLayoutService windowLayoutService;
+
+	@Autowired
+	private QuitService quitService;
 
 	public static void endWaiting(Window frame) {
 		frame.setCursor(java.awt.Cursor.getPredefinedCursor(java.awt.Cursor.DEFAULT_CURSOR));
@@ -162,34 +166,11 @@ public class CollectEarthWindow implements InitializingBean, DisposableBean{
 							JOptionPane.YES_NO_OPTION, JOptionPane.QUESTION_MESSAGE, null, options, keepOpen);
 
 					if (confirmation == JOptionPane.YES_OPTION) {
-						final Thread stopServer = new Thread("Stopping server") {
-							@Override
-							public void run() {
-								try {
-									EarthApp.quitServer();
-								} catch (final Exception e) {
-									logger.error("Error when trying to closing the server", e); //$NON-NLS-1$
-								}
-							}
-						};
-
 						getFrame().setVisible(false);
 						getFrame().dispose();
-						// Wait for the server off the event thread : the interface used to freeze for five seconds while it closed,
-						// and the process exited whether the server had stopped or not
-						new Thread("Waiting for the server to stop") { //$NON-NLS-1$
-							@Override
-							public void run() {
-								try {
-									stopServer.start();
-									stopServer.join(5000);
-								} catch (final InterruptedException e2) {
-									logger.error("Interrupted while waiting for the server to stop", e2); //$NON-NLS-1$
-									Thread.currentThread().interrupt();
-								}
-								System.exit(0);
-							}
-						}.start();
+						// The same quit as the pages': the server stopped off the event thread, for at most five seconds, then
+						// the process exits whether it has stopped or not
+						quitService.run();
 					}
 				} catch (final Exception e1) {
 					logger.error("Error when trying to shutdown the server when window is closed", e1); //$NON-NLS-1$
