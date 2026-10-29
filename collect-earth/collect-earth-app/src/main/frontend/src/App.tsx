@@ -11,6 +11,9 @@ import { PlotSidebar, RAIL_WIDTH, SIDEBAR_WIDTH } from "./components/PlotSidebar
 import { useUiScale } from "./uiScale";
 import { gewFollowFormWindow } from "./api";
 import { IN_PANEL } from "./panel";
+import { useAppInfo } from "./appInfo";
+import { AppBar } from "./components/AppBar";
+import { useServerTexts } from "./serverTexts";
 
 /**
  * Narrower than this, the map is not worth its room next to the form or the list: the window shows one pane at a
@@ -18,6 +21,8 @@ import { IN_PANEL } from "./panel";
  * single screen (GoogleEarthWebService.formWindowWidth), leaving the imagery the rest of the screen.
  */
 const MIN_MAP_WIDTH = 360;
+/** Narrower than this, the menus of the app bar go under one button: their labels would not fit side by side. */
+const COMPACT_BAR_WIDTH = 760;
 /** How long the toast of a submitted plot stays. */
 const TOAST_MILLIS = 3000;
 
@@ -38,10 +43,16 @@ export function App({ controller }: { controller: MapController }) {
   useShortcuts(controller, onePane ? () => setListShown(true) : () => controller.setSidebarCollapsed(false));
   const t = useMemo(() => translator(state.language), [state.language]);
   useEffect(() => { document.documentElement.lang = state.language; }, [state.language]);
+  const [info, reloadInfo] = useAppInfo();
+  const texts = useServerTexts(state.language);
 
   return (
     <I18nContext.Provider value={t}>
-    <Box sx={{ display: "flex", height: "100vh", overflow: "hidden", bgcolor: "background.default" }}>
+    <Box sx={{ display: "flex", flexDirection: "column", height: "100vh", bgcolor: "background.default" }}>
+    {/* Once /api/app is read: until then the bar would have no project, operator or menus to show */}
+    {info && <AppBar info={info} texts={texts} reload={reloadInfo} compact={IN_PANEL || width < COMPACT_BAR_WIDTH * scale} />}
+    <Box sx={{ flex: 1, minHeight: 0 }}>
+    <Box sx={{ display: "flex", height: "100%", overflow: "hidden" }}>
       <GlobalStyles styles={{
         ".leaflet-container": { fontFamily: "inherit" },
         ".leaflet-tooltip.plot-tooltip": {
@@ -75,6 +86,8 @@ export function App({ controller }: { controller: MapController }) {
           </Alert>
         </Snackbar>
       )}
+    </Box>
+    </Box>
     </Box>
     </I18nContext.Provider>
   );

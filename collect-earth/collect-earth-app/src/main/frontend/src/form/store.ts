@@ -1,8 +1,7 @@
+import { earthBase } from "../api";
 import { ACTIVELY_SAVED, type Field, type FieldError, type FieldInfo, type FormModel, type LoadResult, errorList, fieldsByName,
   isTabVisible, mergeInfos, saveBody } from "./model";
 
-/** Base URL of the Collect Earth embedded server (the page is served from it). */
-const HOST = window.location.origin + "/earth/";
 const REQUEST_TIMEOUT = 20000;
 /** Typing is saved once the operator pauses; a click right away (the balloon uses the same delays). */
 export const TYPING_DELAY = 1500;
@@ -58,12 +57,12 @@ async function fetchWithTimeout(url: string, init?: RequestInit): Promise<Respon
 
 async function getJson<T>(url: string): Promise<T> {
   const r = await fetchWithTimeout(url, { headers: { Accept: "application/json" } });
-  if (!r.ok) throw new Error(`${url.replace(HOST, "")} HTTP ${r.status}`);
+  if (!r.ok) throw new Error(`${url.replace(earthBase(), "")} HTTP ${r.status}`);
   return r.json() as Promise<T>;
 }
 
 async function postForm(path: string, body: URLSearchParams): Promise<LoadResult> {
-  const r = await fetchWithTimeout(HOST + path, {
+  const r = await fetchWithTimeout(earthBase() + path, {
     method: "POST",
     headers: { "Content-Type": "application/x-www-form-urlencoded; charset=UTF-8", Accept: "application/json" },
     body: body.toString(),
@@ -127,8 +126,8 @@ export class FormStore {
     let model: FormModel;
     try {
       const [m, plot] = await Promise.all([
-        getJson<FormModel>(HOST + "surveyForm"),
-        getJson<{ values: Record<string, string> }>(HOST + "surveyForm/plot?id=" + encodeURIComponent(id)),
+        getJson<FormModel>(earthBase() + "surveyForm"),
+        getJson<{ values: Record<string, string> }>(earthBase() + "surveyForm/plot?id=" + encodeURIComponent(id)),
       ]);
       model = m;
       this.plotValues = Object.fromEntries(Object.entries(plot.values ?? {}).filter(([, v]) => v != null)) as Record<string, string>;
@@ -137,7 +136,7 @@ export class FormStore {
       return;
     }
     try {
-      const result = await getJson<LoadResult>(HOST + "placemark-info-expanded?id=" + encodeURIComponent(id));
+      const result = await getJson<LoadResult>(earthBase() + "placemark-info-expanded?id=" + encodeURIComponent(id));
       if (result.success) {
         const infos = mergeInfos({}, result, true);
         this.set({ model, infos });
@@ -226,7 +225,7 @@ export class FormStore {
     const values: Record<string, string> = { ...this.plotValues };
     for (const name of names) values[name] = this.state.pending[name] ?? this.state.infos[name]?.value ?? "";
     values[ACTIVELY_SAVED] = "false";
-    if (navigator.sendBeacon(HOST + "save-data-expanded", saveBody(this.state.placemarkId, values, this.state.tab, true))) {
+    if (navigator.sendBeacon(earthBase() + "save-data-expanded", saveBody(this.state.placemarkId, values, this.state.tab, true))) {
       this.dirty.clear();
     }
   };

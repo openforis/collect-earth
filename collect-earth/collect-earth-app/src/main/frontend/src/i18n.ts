@@ -134,6 +134,10 @@ const en = {
   "entry.showLess": "Show less",
   "entry.stepDone": "Nothing left to answer",
   "entry.stepsDone": "{done} of {total} steps done",
+  "appBar.menu": "Menu",
+  "appBar.comingSoon": "Coming soon",
+  "appBar.cancel": "Cancel",
+  "appBar.closed": "Collect Earth has been closed. You can close this window.",
 };
 
 export type MessageKey = keyof typeof en;
@@ -269,6 +273,10 @@ const es: Catalogue = {
   "entry.showLess": "Ver menos",
   "entry.stepDone": "No queda nada por responder",
   "entry.stepsDone": "{done} de {total} pasos completados",
+  "appBar.menu": "Menú",
+  "appBar.comingSoon": "Próximamente",
+  "appBar.cancel": "Cancelar",
+  "appBar.closed": "Collect Earth se ha cerrado. Puede cerrar esta ventana.",
 };
 
 const fr: Catalogue = {
@@ -401,6 +409,10 @@ const fr: Catalogue = {
   "entry.showLess": "Afficher moins",
   "entry.stepDone": "Plus rien à répondre",
   "entry.stepsDone": "{done} étapes sur {total} terminées",
+  "appBar.menu": "Menu",
+  "appBar.comingSoon": "Bientôt disponible",
+  "appBar.cancel": "Annuler",
+  "appBar.closed": "Collect Earth a été fermé. Vous pouvez fermer cette fenêtre.",
 };
 
 const pt: Catalogue = {
@@ -533,6 +545,10 @@ const pt: Catalogue = {
   "entry.showLess": "Ver menos",
   "entry.stepDone": "Nada mais a responder",
   "entry.stepsDone": "{done} de {total} passos concluídos",
+  "appBar.menu": "Menu",
+  "appBar.comingSoon": "Em breve",
+  "appBar.cancel": "Cancelar",
+  "appBar.closed": "O Collect Earth foi fechado. Pode fechar esta janela.",
 };
 
 export const CATALOGUES: Record<string, Catalogue> = { en, es, fr, pt };
