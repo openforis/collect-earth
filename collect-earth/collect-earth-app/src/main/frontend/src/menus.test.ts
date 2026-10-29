@@ -19,6 +19,18 @@ describe("appMenus", () => {
     expect(ids(true)).not.toContain("openPlotsMap");
   });
 
+  it("has Show exception errors in Help, as a toggle, disabled until it is built", () => {
+    const help = appMenus({ plotsMap: true }).find((m) => m.id === "help")!;
+    const toggles = appMenus({ plotsMap: true }).flatMap((m) => m.items).filter((i) => i.kind === "toggle");
+    expect(toggles.map((i) => i.id)).toEqual(["showExceptions"]);
+    expect(help.items).toContainEqual({ id: "showExceptions", label: "CollectEarthMenu.9", enabled: false, kind: "toggle" });
+  });
+
+  it("opens the properties from the Settings menu", () => {
+    const settings = appMenus({ plotsMap: true }).find((m) => m.id === "settings")!;
+    expect(settings.items.map((i) => i.id)).toEqual(["properties"]);
+  });
+
   it("has no entry twice", () => {
     const ids = appMenus({ plotsMap: false }).flatMap((m) => [m.id, ...m.items.map((i) => "item." + i.id)]);
     expect(new Set(ids).size).toBe(ids.length);

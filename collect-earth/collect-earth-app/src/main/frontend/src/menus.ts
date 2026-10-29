@@ -1,11 +1,15 @@
-/** An entry of the app bar's menus. `label` is a key of Messages*.properties (serverTexts.ts). */
-export interface MenuItem { id: string; label: string; enabled: boolean }
+/**
+ * An entry of the app bar's menus. `label` is a key of Messages*.properties (serverTexts.ts). A "toggle" is an
+ * entry with a check mark, whose state comes from the server once it is built.
+ */
+export interface MenuItem { id: string; label: string; enabled: boolean; kind?: "toggle" }
 export interface Menu { id: string; label: string; items: MenuItem[] }
 
 // The entries built so far: the others show, disabled, until their stage of docs/plans/2026-10-28-html-ui-design.md
 const BUILT = new Set(["quit"]);
 
 const item = (id: string, label: string): MenuItem => ({ id, label, enabled: BUILT.has(id) });
+const toggle = (id: string, label: string): MenuItem => ({ ...item(id, label), kind: "toggle" });
 
 /**
  * The menus of the app bar, in the order of the Swing menu bar (CollectEarthMenu), so users find things where they
@@ -40,12 +44,13 @@ export function appMenus(app: { plotsMap: boolean }): Menu[] {
       item("divideCsv", "CollectEarthMenu.3"),
       item("deletePlots", "CollectEarthMenu.10"),
     ] },
-    { id: "settings", label: "CollectEarthWindow.15", items: [item("settings", "CollectEarthWindow.15")] },
+    { id: "settings", label: "CollectEarthWindow.15", items: [item("properties", "CollectEarthWindow.15")] },
     { id: "help", label: "CollectEarthWindow.16", items: [
       item("surveyGuide", "CollectEarthWindow.70"),
       item("manual", "CollectEarthWindow.50"),
       item("support", "CollectEarthWindow.64"),
       item("log", "CollectEarthWindow.52"),
+      toggle("showExceptions", "CollectEarthMenu.9"),
       item("updates", "CollectEarthWindow.51"),
       item("disclaimer", "CollectEarthWindow.17"),
       item("about", "CollectEarthWindow.56"),
