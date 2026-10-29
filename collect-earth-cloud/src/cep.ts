@@ -54,6 +54,8 @@ export class CepError extends Error {
 }
 
 const PROPERTIES_PATH = 'project_definition.properties';
+/** Values in the properties file look like `${project_path}/placemark.idm.xml`. */
+const PROJECT_PATH_PREFIX = /^\$\{project_path\}[/\\]/;
 
 /** Where each file is named in project_definition.properties, and its usual name. */
 const LOCATIONS = {
@@ -65,27 +67,48 @@ const LOCATIONS = {
 
 /** Opens a CEP and finds its survey, balloons and KML template. */
 export function readCep(zip: Buffer): CepFiles {
+  // unzipSync hands back a plain object, which puts names like "1" first and cannot hold
+  // "__proto__". The filter sees every entry in zip order, so the names are taken from it
+  // and the entries map is built in that order. A served CEP is re-zipped from this map,
+  // so nothing may be lost: a "__proto__" entry or a repeated name is refused.
+  const names: string[] = [];
+  const seen = new Set<string>();
+  let refusal: string | null = null;
   let unzipped: Record<string, Uint8Array>;
   try {
-    unzipped = unzipSync(new Uint8Array(zip.buffer, zip.byteOffset, zip.byteLength));
+    unzipped = unzipSync(new Uint8Array(zip.buffer, zip.byteOffset, zip.byteLength), {
+      filter: ({ name }) => {
+        if (name === '__proto__') refusal = 'it has a file named __proto__';
+        else if (seen.has(name)) refusal = `it has two files named ${name}`;
+        if (refusal) return false;
+        seen.add(name);
+        names.push(name);
+        return true;
+      },
+    });
   } catch {
     throw new CepError('not_a_zip', 'The project file is not a zip file.');
   }
-  const entries = new Map(Object.entries(unzipped));
+  if (refusal) throw new CepError('not_a_zip', `The project file is not a zip file Collect Earth can use: ${refusal}.`);
+  const entries = new Map(names.map((name) => [name, unzipped[name]] as const));
 
   const propertiesBytes = entries.get(PROPERTIES_PATH);
   const properties = propertiesBytes ? parseProperties(strFromU8(propertiesBytes)) : new Map<string, string>();
   const locate = ({ key, fallback }: { key: string; fallback: string }): string | null => {
     const named = properties.get(key);
     if (named !== undefined) {
-      const path = named.replace(/^\$\{project_path\}[/\\]/, '');
+      const path = named.replace(PROJECT_PATH_PREFIX, '');
       if (entries.has(path)) return path;
     }
     return entries.has(fallback) ? fallback : null;
   };
 
   const surveyPath = locate(LOCATIONS.survey);
-  if (!surveyPath) throw new CepError('no_survey', 'The project file has no survey (placemark.idm.xml).');
+  if (!surveyPath) {
+    const named = properties.get(LOCATIONS.survey.key);
+    const where = named === undefined ? LOCATIONS.survey.fallback : named.replace(PROJECT_PATH_PREFIX, '');
+    throw new CepError('no_survey', `The project file has no survey (${where}).`);
+  }
   return {
     entries,
     surveyPath,
@@ -136,6 +159,9 @@ const parser = new XMLParser({
   // Codes such as "01" stay as written.
   parseTagValue: false,
   parseAttributeValue: false,
+  // Collect writes accents as character references (caf&#233;, &#x2019;): decode them.
+  // DOCTYPE entities would be expanded too, so surveyInfo refuses any DOCTYPE first.
+  htmlEntities: true,
 });
 
 const tagOf = (node: XmlNode): string | null => {
@@ -159,9 +185,16 @@ const textOf = (node: XmlNode): string =>
     .join('')
     .trim();
 
-/** Reads what the server needs to know about a survey (placemark.idm.xml). */
+/**
+ * Reads what the server needs to know about a survey (placemark.idm.xml).
+ *
+ * Element names are matched without a prefix: Collect writes IDML with its namespace as
+ * the default one (xmlns="http://www.openforis.org/idml/3.0"), and this assumes it.
+ */
 export function surveyInfo(idmXml: string): SurveyInfo {
   const unreadable = (why: string) => new CepError('survey_unreadable', `The survey cannot be read: ${why}.`);
+  // A survey has no DOCTYPE. Refusing one means no entity it declares is ever expanded.
+  if (/<!DOCTYPE/i.test(idmXml)) throw unreadable('it has a DOCTYPE');
   if (XMLValidator.validate(idmXml) !== true) throw unreadable('it is not valid XML');
   let document: XmlNode[];
   try {
@@ -189,6 +222,13 @@ export function surveyInfo(idmXml: string): SurveyInfo {
     else if (name === 'round') hasNonKeyRound = true;
   }
 
+  const languages = elements(surveyChildren, 'language').map(textOf).filter((l) => l !== '');
+  // The label without xml:lang, else the one in the survey's default language, else the first.
+  const pickLabel = (labels: XmlNode[]): XmlNode | undefined =>
+    labels.find((l) => attr(l, 'xml:lang') === undefined) ??
+    (languages.length > 0 ? labels.find((l) => attr(l, 'xml:lang') === languages[0]) : undefined) ??
+    labels[0];
+
   const codeLists = new Map<string, CodeItem[]>();
   for (const codeListsNode of elements(surveyChildren, 'codeLists')) {
     for (const list of elements(childrenOf(codeListsNode), 'list')) {
@@ -200,8 +240,7 @@ export function surveyInfo(idmXml: string): SurveyInfo {
           const itemChildren = childrenOf(item);
           const code = elements(itemChildren, 'code')[0];
           if (!code) continue;
-          const labels = elements(itemChildren, 'label');
-          const label = labels.find((l) => attr(l, 'xml:lang') === undefined) ?? labels[0];
+          const label = pickLabel(elements(itemChildren, 'label'));
           items.push({ code: textOf(code), label: label ? textOf(label) : '' });
         }
       }
@@ -209,7 +248,6 @@ export function surveyInfo(idmXml: string): SurveyInfo {
     }
   }
 
-  const languages = elements(surveyChildren, 'language').map(textOf).filter((l) => l !== '');
   const lastId = Number.parseInt(attr(survey, 'lastId') ?? '', 10);
 
   return {
