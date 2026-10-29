@@ -137,7 +137,8 @@ export function surveyInfo(idmXml: string): SurveyInfo;
 **Tests**
 - On `demoCep()`:
   - `keys` are `[{name:'id',type:'text'}, {name:'round',type:'code',list:'assessment_phases'}]`;
-  - `codeLists.get('assessment_phases')` has codes `1`, `2`, `2025` and `2024`;
+  - `codeLists.get('assessment_phases')` has codes `1` and `2` (the years are a
+    separate `years` list);
   - `lastId` is 2013037.
 - On `idOnlyCep()`: one key, `id`.
 - A plain text buffer throws `CepError('not_a_zip')`.
@@ -252,7 +253,7 @@ indentation of the neighbouring line.
   - the template has `EXTRA_round` once;
   - all other entries are byte-equal.
 - `addRound(addRound(idOnly).cep)` gives `state: 'own'` and unchanged bytes.
-- `demoCep()` gives `'own'`, codes including 2024 and 2025, and
+- `demoCep()` gives `'own'`, codes `1` and `2`, and
   `reassessmentCode: '2'`.
 - An id-only survey whose `assessment_phases` lacks code 2 gets a new
   `assessment_phases_2` with ids above the old `lastId`.
@@ -294,6 +295,12 @@ the new columns next to it.
   new file would make "17". Otherwise store it, with
   `state = own | none` and `refusal: null`.
 - The response adds `round: RoundInfo`.
+
+**Zip bombs.** `readCep` takes limits: at most 2,000 entries, and at most
+200 MB unzipped in total (or 20 × the zip size, whichever is smaller). It checks
+each entry's declared size before inflating, and stops inflating at the limit.
+Above a limit → `CepError('too_large')`, and the upload gets 413 with a plain
+reason. Test it with a small zip that unzips to more than the limit.
 
 **GET `/v1/projects/:pid/cep`** is unchanged: it serves `getCep`. Add
 `GET /v1/projects/:pid/cep/original` (admin) to download the upload.

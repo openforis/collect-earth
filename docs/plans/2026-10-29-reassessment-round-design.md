@@ -39,8 +39,8 @@ its own version, which collectors download when they join. Four files change:
   next to `EXTRA_id`. Positional `extraColumns[n]` entries are unaffected: extras
   start after the keys and the coordinates.
 
-**Surveys that already have `round`** are left alone (some use it for years, as
-the demo survey does with 2024/2025). The Project file page lists the round codes
+**Surveys that already have `round`** are left alone (the demo survey's has 1 First
+assessment and 2 Re-assessment; other surveys may use it for years). The Project file page lists the round codes
 and asks which one marks re-assessments (2 when it exists, else the coordinator
 picks one, or none).
 
