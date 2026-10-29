@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { buildPlotFile, parsePlotFile, type RoundColumn } from '../src/plots.js';
-import { PARSED_OVERHEAD, ParsedCache, parsedFileCount, plotFileOf, plotIdsOf } from '../src/plotFileCache.js';
+import { IdsCache, PARSED_OVERHEAD, ParsedCache, parsedFileCount, plotFileOf, plotIdsOf } from '../src/plotFileCache.js';
 import { unitOfRecord } from '../src/rounds.js';
 
 const parse = (text: string | Buffer) => parsePlotFile(Buffer.isBuffer(text) ? text : Buffer.from(text, 'utf8'));
@@ -188,6 +188,27 @@ describe('plotFileOf cache', () => {
     const cached = { checksum: 'ids-from-parsed', data: Buffer.from('id,lat,lon\n9,0,0\n') };
     const parsed = plotFileOf(cached, 1);
     expect(plotIdsOf(cached, 1)).toBe(parsed.plotIds);
+  });
+
+  it('keeps plot id lists bounded by their total number of ids, besides their number', () => {
+    const cache = new IdsCache(8, 10);
+    const four = () => ['1', '2', '3', '4'];
+    const a = cache.get('a', four);
+    cache.get('b', four);
+    expect(cache.get('a', four)).toBe(a);
+    expect(cache.ids).toBe(8);
+    cache.get('c', four); // 12 ids: b, the least recently used, goes
+    expect(cache.size).toBe(2);
+    expect(cache.ids).toBe(8);
+    expect(cache.get('a', four)).toBe(a);
+    // A list over half the ids is given but not kept.
+    cache.get('big', () => ['1', '2', '3', '4', '5', '6']);
+    expect(cache.size).toBe(2);
+    const entries = new IdsCache(2, 100);
+    entries.get('x', four);
+    entries.get('y', four);
+    entries.get('z', four);
+    expect(entries.size).toBe(2);
   });
 
   it('is bounded by the estimated memory of the parsed files, besides their number', () => {

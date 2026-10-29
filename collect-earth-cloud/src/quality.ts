@@ -4,7 +4,7 @@
 import type { RoundInfo } from './cep.js';
 import { METADATA_KEY_PARTS } from './division.js';
 import { copyUnitsByUser, keyShape, recordRound, unitOfRecord } from './rounds.js';
-import { MAX_INDEXED_ENTITIES, QUALIFIER_SEPARATOR, SUMMARY_VALUES_SEPARATOR, type Question } from './surveyOutline.js';
+import { BOOKKEEPING_KEYS, MAX_INDEXED_ENTITIES, QUALIFIER_SEPARATOR, SUMMARY_VALUES_SEPARATOR, type Question } from './surveyOutline.js';
 
 /** Below this many compared plots a rate says nothing: it is null ("too few plots to judge"). */
 export const MIN_PLOTS = 20;
@@ -37,7 +37,7 @@ export interface QualityInput {
   copyHolders: ReadonlyMap<string, ReadonlySet<string>>;
   /** The served survey's outline, or null when there is none (keys are then judged by their name). */
   outline: ReadonlyMap<string, Question> | null;
-  /** Number margins in percent, by question key; DEFAULT_MARGIN for the others. */
+  /** Number margins in percent, by question key; DEFAULT_MARGIN for the others and for any that is no number >= 0. */
   margins?: Readonly<Record<string, number>>;
 }
 
@@ -163,6 +163,7 @@ export function qualityReport(input: QualityInput): QualityReport {
   const margins = input.margins ?? {};
   const shape = keyShape(info);
   const copyUnits = copyUnitsByUser(copyHolders);
+  const ownRound = info?.state === 'own' && shape.roundIndex !== null;
   const problems: DataProblem[] = [];
 
   // People by index, for typed-array tallies.
@@ -186,7 +187,9 @@ export function qualityReport(input: QualityInput): QualityReport {
     }
     const unit = unitOfRecord(r.recordKey, units, info, copyUnits.get(r.operator));
     const rr = recordRound(r, info, copyHolders, unit);
-    const group = unit ?? rr.plot;
+    // In no file: by plot, or for an own round by the whole key (its round tells the
+    // plots apart, and the reassessment code cannot be matched to a unit).
+    const group = unit ?? (ownRound ? r.recordKey : rr.plot);
     const problem = (kind: DataProblemKind) => problems.push({ kind, plot: group, recordKey: r.recordKey, operator: r.operator });
     if (unit === null) {
       problem('no_plot');
@@ -218,7 +221,7 @@ export function qualityReport(input: QualityInput): QualityReport {
         id: slotList.length,
         key,
         rule,
-        margin: margins[key] ?? DEFAULT_MARGIN,
+        margin: marginOf(margins, key),
         compared: 0,
         agreeing: 0,
         personCompared: rule.compare ? new Int32Array(people) : EMPTY,
@@ -254,7 +257,7 @@ export function qualityReport(input: QualityInput): QualityReport {
     }
     plotsChecked += 1;
     let plotDiffers = false;
-    const first = g.main.reduce((a, b) => (b.modifiedOn > a.modifiedOn ? b : a));
+    const first = g.main.reduce((a, b) => (later(b, a) ? b : a));
     const fs = first.summary;
     const firstKeys = Object.keys(fs);
     const fi = personIndex.get(first.operator)!;
@@ -419,7 +422,14 @@ export function qualityReport(input: QualityInput): QualityReport {
           weakest: compared
             .map((s) => ({ key: s.key, compared: s.personCompared[i], agreeing: s.personAgreeing[i] }))
             .filter((t) => t.agreeing < t.compared)
-            .sort((a, b) => a.agreeing / a.compared - b.agreeing / b.compared || b.compared - a.compared || rank(a.key) - rank(b.key) || order(a.key, b.key))
+            .sort(
+              (a, b) =>
+                Number(b.compared >= MIN_PLOTS) - Number(a.compared >= MIN_PLOTS) ||
+                b.compared - b.agreeing - (a.compared - a.agreeing) ||
+                a.agreeing / a.compared - b.agreeing / b.compared ||
+                rank(a.key) - rank(b.key) ||
+                order(a.key, b.key),
+            )
             .slice(0, MAX_WEAKEST)
             .map((t) => ({ key: t.key, rate: rateOf(t), compared: t.compared, differing: t.compared - t.agreeing })),
         };
@@ -433,6 +443,41 @@ export function qualityReport(input: QualityInput): QualityReport {
 }
 
 const EMPTY = new Int32Array(0);
+
+/**
+ * An answer as it may be shown to the AI assistant (Task 14): never free text, names
+ * or record keys. A choice gives its codes without qualifiers (the qualifier is free
+ * text); a number its values when all are numbers; anything else null.
+ */
+export function aiSafeValue(kind: Question['kind'], value: string): string | null {
+  if (kind === 'choice') {
+    return choiceText(value);
+  }
+  if (kind === 'number') {
+    const values = valuesOf(value);
+    return values.every((v) => Number.isFinite(Number(v))) ? values.map((v) => String(Number(v))).join(', ') : null;
+  }
+  return null;
+}
+
+/** The margin of a number question: the one set when it is a number >= 0, else DEFAULT_MARGIN. */
+function marginOf(margins: Readonly<Record<string, number>>, key: string): number {
+  const m: unknown = margins[key];
+  return typeof m === 'number' && Number.isFinite(m) && m >= 0 ? m : DEFAULT_MARGIN;
+}
+
+/** |a-b| <= margin% of the larger magnitude, with a relative tolerance for rounding (100 vs 90 at 10 %). */
+function withinMargin(a: number, b: number, margin: number): boolean {
+  return Math.abs(a - b) * 100 <= margin * Math.max(Math.abs(a), Math.abs(b)) * (1 + 1e-9);
+}
+
+/** Whether main record a is taken over b: the latest modifiedOn, then the lowest key, then operator. */
+function later(a: QualityRecord, b: QualityRecord): boolean {
+  if (a.modifiedOn !== b.modifiedOn) {
+    return a.modifiedOn > b.modifiedOn;
+  }
+  return a.recordKey !== b.recordKey ? a.recordKey < b.recordKey : a.operator < b.operator;
+}
 
 /** A summary value, or blank when missing (or not a string, e.g. an inherited property). */
 function text(v: unknown): string {
@@ -471,6 +516,11 @@ function keyRule(key: string, outline: ReadonlyMap<string, Question> | null): Ke
     if (indexed && Number(indexed[2]) > MAX_INDEXED_ENTITIES && outline.has(`collect_entity_${indexed[1]}[1].${indexed[3]}`)) {
       return { compare: false, beyond: true };
     }
+  }
+  // Bookkeeping and round are never answers, also when the outline does not know them
+  // (an outline of another survey, or none): a root key named round, of any type.
+  if (BOOKKEEPING_KEYS.has(key) || /^collect_(?:[a-z]+_)+round$/.test(key)) {
+    return { compare: false, beyond: false };
   }
   const lower = key.toLowerCase();
   if (METADATA_KEY_PARTS.some((part) => lower.includes(part))) {
@@ -525,7 +575,7 @@ function numbersAgree(a: string, b: string, margin: number): boolean {
       const nx = Number(a);
       const ny = Number(b);
       if (Number.isFinite(nx) && Number.isFinite(ny)) {
-        return Math.abs(nx - ny) * 100 <= margin * Math.max(Math.abs(nx), Math.abs(ny));
+        return withinMargin(nx, ny, margin);
       }
     }
     const x = a.trim();
@@ -538,7 +588,7 @@ function numbersAgree(a: string, b: string, margin: number): boolean {
     const nx = Number(x);
     const ny = Number(y);
     if (Number.isFinite(nx) && Number.isFinite(ny)) {
-      return Math.abs(nx - ny) * 100 <= margin * Math.max(Math.abs(nx), Math.abs(ny));
+      return withinMargin(nx, ny, margin);
     }
     return x === y;
   }
@@ -548,7 +598,7 @@ function numbersAgree(a: string, b: string, margin: number): boolean {
     const x = Number(va[0]);
     const y = Number(vb[0]);
     if (Number.isFinite(x) && Number.isFinite(y)) {
-      return Math.abs(x - y) * 100 <= margin * Math.max(Math.abs(x), Math.abs(y));
+      return withinMargin(x, y, margin);
     }
   }
   const set = (v: string[]) => [...new Set(v)].sort(order).join('\n');

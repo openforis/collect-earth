@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { RoundInfo } from '../src/cep.js';
-import { isoWeek, MIN_PLOTS, qualityReport, type QualityInput, type QualityRecord } from '../src/quality.js';
+import { aiSafeValue, isoWeek, MIN_PLOTS, qualityReport, type QualityInput, type QualityRecord } from '../src/quality.js';
 import type { Question } from '../src/surveyOutline.js';
 
 const added: RoundInfo = {
@@ -382,4 +382,114 @@ describe('qualityReport: speed', () => {
     expect(report.plotsChecked).toBe(50_000);
     expect(took).toBeLessThan(5_000);
   }, 60_000);
+});
+
+describe('qualityReport: after the review', () => {
+  it('pairs one main record with each of several checks: counts are checks, not plots', () => {
+    const report = qualityReport(
+      input(
+        [
+          rec('1', 'ana', { collect_code_land_use: 'forest' }),
+          rec('1', 'ben', { collect_code_land_use: 'forest' }),
+          rec('1', 'carl', { collect_code_land_use: 'crop' }),
+        ],
+        { info: none, units: new Set(['1']), copyHolders: new Map([['1', new Set(['ben', 'carl'])]]) },
+      ),
+    );
+    expect(report.plotsChecked).toBe(1);
+    expect(report.plotsDiffering).toBe(1);
+    expect(report.questions[0]).toMatchObject({ compared: 2, agreeing: 1 });
+    expect(report.people.find((p) => p.username === 'ana')!.asFirst).toEqual({ compared: 2, agreeing: 1, rate: null });
+    expect(report.differences.map((d) => d.check.operator)).toEqual(['carl']);
+  });
+
+  it('does not pair a check without a main record, nor list it as a problem', () => {
+    const report = qualityReport(input([rec('1,2', 'ben', { collect_code_land_use: 'forest' })]));
+    expect(report.plotsChecked).toBe(0);
+    expect(report.people).toEqual([]);
+    expect(report.problems).toEqual([]);
+  });
+
+  it('compares an answer only one record gives against blank', () => {
+    const report = qualityReport(input([rec('1,1', 'ana', {}), rec('1,2', 'ben', { collect_real_canopy: '5' })]));
+    expect(report.differences[0].fields).toEqual([{ key: 'collect_real_canopy', first: '', check: '5' }]);
+  });
+
+  it('never compares round or bookkeeping answers, with or without an outline that knows them', () => {
+    for (const o of [null, new Map<string, Question>()]) {
+      const report = qualityReport(
+        input(
+          [
+            rec('1,1', 'ana', { collect_code_round: '1', collect_integer_round: '1', collect_text_plot_file: 'a.csv', collect_coord_location: '1,2', collect_code_lu: 'a' }),
+            rec('1,2', 'ben', { collect_code_round: '2', collect_integer_round: '2', collect_text_plot_file: 'b.csv', collect_coord_location: '1,3', collect_code_lu: 'a' }),
+          ],
+          { outline: o },
+        ),
+      );
+      expect(report.questions.map((q) => q.key)).toEqual(['collect_code_lu']);
+      expect(report.plotsDiffering).toBe(0);
+    }
+  });
+
+  it('uses the default margin for a margin that is no number >= 0', () => {
+    for (const bad of [NaN, -5, Infinity, '20' as unknown as number]) {
+      const q = qualityReport(
+        input([rec('1,1', 'ana', { collect_real_canopy: '100' }), rec('1,2', 'ben', { collect_real_canopy: '109' })], { margins: { collect_real_canopy: bad } }),
+      ).questions[0];
+      expect(q).toMatchObject({ agreeing: 1, margin: 10 });
+    }
+  });
+
+  it('agrees right at the margin despite rounding', () => {
+    const q = qualityReport(
+      input([rec('1,1', 'ana', { collect_real_canopy: '0.063' }), rec('1,2', 'ben', { collect_real_canopy: '0.07' })], { margins: { collect_real_canopy: 10 } }),
+    ).questions[0];
+    expect(q.agreeing).toBe(1);
+  });
+
+  it('takes the same main record whatever the order, when two have the same modifiedOn', () => {
+    const records = [
+      rec('1,1', 'carl', { collect_code_land_use: 'crop' }),
+      rec('1,1', 'ana', { collect_code_land_use: 'forest' }),
+      rec('1,2', 'ben', { collect_code_land_use: 'forest' }),
+    ];
+    const a = qualityReport(input(records));
+    const b = qualityReport(input([...records].reverse()));
+    expect(a.plotsDiffering).toBe(0);
+    expect(b).toEqual(a);
+  });
+
+  it('ranks the weakest questions with enough checks first, then by how often they differ', () => {
+    const records: QualityRecord[] = [];
+    for (let i = 1; i <= 25; i++) {
+      // land use: 25 checks, 5 differ; canopy: only on 2 plots, both differ.
+      records.push(rec(`${i},1`, 'ana', { collect_code_land_use: 'forest', ...(i <= 2 ? { collect_real_canopy: '1' } : {}) }));
+      records.push(rec(`${i},2`, 'ben', { collect_code_land_use: i <= 5 ? 'crop' : 'forest', ...(i <= 2 ? { collect_real_canopy: '50' } : {}) }));
+    }
+    const ana = qualityReport(input(records)).people.find((p) => p.username === 'ana')!;
+    expect(ana.weakest).toEqual([
+      { key: 'collect_code_land_use', rate: 0.8, compared: 25, differing: 5 },
+      { key: 'collect_real_canopy', rate: null, compared: 2, differing: 2 },
+    ]);
+  });
+
+  it('with an own round, keeps records in no file apart by their whole key', () => {
+    const report = qualityReport(
+      input([rec('18,2020', 'ana', {}), rec('18,2021', 'ben', {})], { info: ownYears, units: new Set(), copyHolders: new Map() }),
+    );
+    expect(report.problems.map((p) => [p.kind, p.plot])).toEqual([
+      ['no_plot', '18,2020'],
+      ['no_plot', '18,2021'],
+    ]);
+  });
+});
+
+describe('aiSafeValue', () => {
+  it('gives codes without qualifiers, numbers only when numeric, and never text', () => {
+    expect(aiSafeValue('choice', 'other::Juan Perez===a')).toBe('a, other');
+    expect(aiSafeValue('number', '5===null=== 7')).toBe('5, 7');
+    expect(aiSafeValue('number', 'call 555-1234')).toBeNull();
+    expect(aiSafeValue('text', 'anything')).toBeNull();
+    expect(aiSafeValue('other', '2026-01-01')).toBeNull();
+  });
 });

@@ -75,10 +75,54 @@ export function plotFileOf(file: { checksum: string; data: Buffer }, keyCount: n
   return parsedFiles.get(cacheKey(file, keyCount), file.data, () => parsePlotFile(file.data, keyCount));
 }
 
+/**
+ * Recently used plot id lists (least recently used out first), bounded by entries and
+ * by the number of ids they hold together. A list over half the ids is not kept.
+ */
+export class IdsCache {
+  private readonly entries = new Map<string, readonly string[]>();
+  private total = 0;
+
+  constructor(
+    private readonly maxEntries: number,
+    private readonly maxIds: number,
+  ) {}
+
+  /** How many ids are cached now. */
+  get ids(): number {
+    return this.total;
+  }
+
+  get size(): number {
+    return this.entries.size;
+  }
+
+  get(key: string, load: () => readonly string[]): readonly string[] {
+    const hit = this.entries.get(key);
+    if (hit) {
+      this.entries.delete(key);
+      this.entries.set(key, hit);
+      return hit;
+    }
+    const ids = load();
+    if (ids.length > this.maxIds / 2) {
+      return ids;
+    }
+    this.entries.set(key, ids);
+    this.total += ids.length;
+    while (this.entries.size > this.maxEntries || this.total > this.maxIds) {
+      const [oldest, list] = this.entries.entries().next().value as [string, readonly string[]];
+      this.entries.delete(oldest);
+      this.total -= list.length;
+    }
+    return ids;
+  }
+}
+
 // Only the plot ids of files (the export reads every file of a project): small, so
-// more of them, and they never push the parsed files above out.
-const PLOT_IDS_ENTRIES = 64;
-const plotIdsCache = new Map<string, readonly string[]>();
+// more of them, and they never push the parsed files above out. At most 64 files and
+// 2M ids (some 100-150 MB of short strings).
+const plotIdsCache = new IdsCache(64, 2_000_000);
 
 /**
  * The plot ids of stored content. Taken from the parsed-file cache when the file is
@@ -86,17 +130,7 @@ const plotIdsCache = new Map<string, readonly string[]>();
  */
 export function plotIdsOf(file: { checksum: string; data: Buffer }, keyCount: number): readonly string[] {
   const key = cacheKey(file, keyCount);
-  let ids = plotIdsCache.get(key);
-  if (ids) {
-    plotIdsCache.delete(key);
-  } else {
-    ids = parsedFiles.peek(key)?.plotIds ?? parsePlotFile(file.data, keyCount).plotIds;
-  }
-  plotIdsCache.set(key, ids);
-  while (plotIdsCache.size > PLOT_IDS_ENTRIES) {
-    plotIdsCache.delete(plotIdsCache.keys().next().value as string);
-  }
-  return ids;
+  return plotIdsCache.get(key, () => parsedFiles.peek(key)?.plotIds ?? parsePlotFile(file.data, keyCount).plotIds);
 }
 
 /** How many files the parsed-file cache holds now (for tests). */
