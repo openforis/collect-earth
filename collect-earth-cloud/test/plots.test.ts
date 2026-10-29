@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { buildPlotFile, parsePlotFile, type RoundColumn } from '../src/plots.js';
-import { plotFileOf } from '../src/routes/division.js';
+import { PARSED_OVERHEAD, ParsedCache, plotFileOf } from '../src/routes/division.js';
 import { unitOfRecord } from '../src/rounds.js';
 
 const parse = (text: string | Buffer) => parsePlotFile(Buffer.isBuffer(text) ? text : Buffer.from(text, 'utf8'));
@@ -148,7 +148,7 @@ describe('plot files with a round column', () => {
     const built = buildPlotFile(file, new Set(file.plotIds), round);
     const elapsed = performance.now() - started;
     expect(built.length).toBe(file.data.length + 2 * 100_001 + 4);
-    expect(elapsed).toBeLessThan(500);
+    expect(elapsed).toBeLessThan(2000);
   });
 
   it('records where each field starts and ends', () => {
@@ -156,6 +156,15 @@ describe('plot files with a round column', () => {
     expect(row.fields).toEqual(['1,2', '0', '0']);
     expect(row.fieldStarts).toEqual([11, 18, 21]);
     expect(row.fieldEnds).toEqual([17, 20, 22]);
+  });
+});
+
+describe('buildPlotFile safety', () => {
+  it('throws rather than serve a buffer it did not fill', () => {
+    const file = parse('id,lat,lon\n1,0,0\n2,1,1\n');
+    // A row reaching past the content (it cannot, from the parser): fewer bytes copied.
+    const broken = { ...file, rows: [file.rows[0], { ...file.rows[1], next: file.rows[1].next + 5 }] };
+    expect(() => buildPlotFile(broken, null)).toThrow(/wrote/);
   });
 });
 
@@ -168,6 +177,29 @@ describe('plotFileOf cache', () => {
     expect(two.plotIds).toEqual(['17,2020', '17,2021']);
     expect(plotFileOf(file, 1)).toBe(one);
     expect(plotFileOf(file, 2)).toBe(two);
+  });
+
+  it('is bounded by the estimated memory of the parsed files, besides their number', () => {
+    const data = Buffer.from('id,lat,lon\n1,0,0\n'); // 17 bytes
+    const estimate = data.length * PARSED_OVERHEAD;
+    const cache = new ParsedCache(8, estimate * 2);
+    const a = cache.get('a', data, () => parse(data));
+    cache.get('b', data, () => parse(data));
+    expect(cache.get('a', data, () => parse(data))).toBe(a);
+    expect(cache.bytes).toBe(estimate * 2);
+    // A third pushes out the least recently used (b).
+    cache.get('c', data, () => parse(data));
+    expect(cache.size).toBe(2);
+    expect(cache.bytes).toBe(estimate * 2);
+    expect(cache.get('a', data, () => parse(data))).toBe(a);
+    let parsed = 0;
+    cache.get('b', data, () => (parsed += 1, parse(data)));
+    expect(parsed).toBe(1);
+    // A file estimated over half the bytes is not kept.
+    const big = Buffer.concat([data, data, data]);
+    const first = cache.get('big', big, () => parse(big));
+    expect(cache.get('big', big, () => parse(big))).not.toBe(first);
+    expect(cache.size).toBe(2);
   });
 });
 

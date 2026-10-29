@@ -305,5 +305,9 @@ export function buildPlotFile(file: PlotFile, plotKeys: ReadonlySet<string> | nu
       at += lineEnding.copy(out, at);
     }
   }
+  // allocUnsafe: a size computed wrong would serve leftover memory.
+  if (at !== size) {
+    throw new Error(`buildPlotFile: wrote ${at} bytes of ${size}`);
+  }
   return out;
 }
