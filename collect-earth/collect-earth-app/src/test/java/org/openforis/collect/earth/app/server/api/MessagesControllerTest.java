@@ -42,6 +42,14 @@ public class MessagesControllerTest {
 	}
 
 	@Test
+	public void aLanguageWrittenWithAnUnderscoreIsUnderstood() throws Exception {
+		// es_AR is how Java writes a Locale, but it is not a language tag: Locale.forLanguageTag would give English
+		mvc.perform(get("/api/messages").param("lang", "es_AR"))
+				.andExpect(jsonPath("$.language").value("es"))
+				.andExpect(jsonPath("$.texts['CollectEarthMenu.0']").value("Importar archivo CEP"));
+	}
+
+	@Test
 	public void anUnknownLanguageGetsEnglish() throws Exception {
 		mvc.perform(get("/api/messages").param("lang", "xx"))
 				.andExpect(jsonPath("$.language").value("en"))

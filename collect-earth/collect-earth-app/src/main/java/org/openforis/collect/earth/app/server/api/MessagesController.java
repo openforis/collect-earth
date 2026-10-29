@@ -28,7 +28,10 @@ public class MessagesController {
 
 	@GetMapping("/api/messages")
 	public Map<String, Object> messages(@RequestParam("lang") String lang) {
-		ResourceBundle bundle = ResourceBundle.getBundle(Messages.BUNDLE_NAME, Locale.forLanguageTag(lang), NO_FALLBACK);
+		// es_AR is how Locale.toString() writes a locale, but it is not a language tag: forLanguageTag would silently
+		// answer the root locale for it, and so English
+		Locale locale = Locale.forLanguageTag(lang.replace('_', '-'));
+		ResourceBundle bundle = ResourceBundle.getBundle(Messages.BUNDLE_NAME, locale, NO_FALLBACK);
 		Map<String, String> texts = new TreeMap<>();
 		for (String key : bundle.keySet()) {
 			texts.put(key, bundle.getString(key));

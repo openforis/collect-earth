@@ -30,8 +30,11 @@ public class AppInfoController {
 
 	@Autowired
 	public AppInfoController(LocalPropertiesService properties, EarthSurveyService surveys) {
-		this(properties, () -> projectName(surveys.getCollectSurvey(), properties),
-				UpdateIniUtils::getVersionNameInstalled);
+		this(properties, () -> {
+			CollectSurvey survey = surveys.getCollectSurvey();
+			// the UI language is only read when there is a survey, as before
+			return survey == null ? null : projectName(survey, properties.getUiLanguage().getLocale().getLanguage());
+		}, UpdateIniUtils::getVersionNameInstalled);
 	}
 
 	/** For the tests, which have no survey to load nor update.ini to read */
@@ -43,13 +46,15 @@ public class AppInfoController {
 
 	/**
 	 * The name the title of the Swing main window shows (CollectEarthWindow.changeFrameTitle): in the UI language if the
-	 * survey has it in that language, else in its default one, else the survey's description.
+	 * survey has it in that language, else in its default one, else the survey's description. Null when there is no
+	 * survey. Package-private for the tests, which stub the supplier that calls it.
+	 *
+	 * @param language the UI language, as a two-letter code
 	 */
-	private static String projectName(CollectSurvey survey, LocalPropertiesService properties) {
+	static String projectName(CollectSurvey survey, String language) {
 		if (survey == null) {
 			return null;
 		}
-		String language = properties.getUiLanguage().getLocale().getLanguage();
 		if (StringUtils.isNotBlank(survey.getProjectName(language))) {
 			return survey.getProjectName(language);
 		} else if (StringUtils.isNotBlank(survey.getProjectName())) {
@@ -73,7 +78,8 @@ public class AppInfoController {
 	/**
 	 * The installed version, read from update.ini the first time it is asked for: it does not change while the
 	 * application runs, and when the file is missing, as when running from the IDE, every read logs an error, which goes
-	 * to Sentry. "unknown" then. Two first requests at once may both read it, which does no harm.
+	 * to Sentry. UpdateIniUtils then answers "unknown", which is kept like any other value. Two first requests at once
+	 * may both read it, which does no harm.
 	 */
 	private String version() {
 		if (version == null) {

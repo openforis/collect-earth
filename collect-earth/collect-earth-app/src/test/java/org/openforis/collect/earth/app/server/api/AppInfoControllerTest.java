@@ -3,6 +3,7 @@ package org.openforis.collect.earth.app.server.api;
 import static org.hamcrest.Matchers.not;
 import static org.hamcrest.Matchers.startsWith;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
@@ -20,6 +21,7 @@ import org.openforis.collect.earth.app.EarthConstants.UI_LANGUAGE;
 import org.openforis.collect.earth.app.service.LocalPropertiesService;
 import org.openforis.collect.earth.app.service.LocalPropertiesService.EarthProperty;
 import org.openforis.collect.earth.app.view.Messages;
+import org.openforis.collect.model.CollectSurvey;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
 
@@ -100,5 +102,33 @@ public class AppInfoControllerTest {
 				// Messages answers !key! for a key no bundle has
 				.andExpect(jsonPath("$.message").value(not(startsWith("!"))));
 		verify(properties, never()).saveOperator(anyString());
+	}
+
+	@Test
+	public void theProjectNameIsTheOneOfTheUiLanguage() {
+		CollectSurvey survey = mock(CollectSurvey.class);
+		when(survey.getProjectName("es")).thenReturn("Sierra Leona 2026");
+		when(survey.getProjectName()).thenReturn("Sierra Leone 2026");
+		assertEquals("Sierra Leona 2026", AppInfoController.projectName(survey, "es"));
+	}
+
+	@Test
+	public void withNoNameInTheUiLanguageTheProjectNameIsTheOneOfTheDefaultLanguage() {
+		CollectSurvey survey = mock(CollectSurvey.class);
+		when(survey.getProjectName("es")).thenReturn(" ");
+		when(survey.getProjectName()).thenReturn("Sierra Leone 2026");
+		assertEquals("Sierra Leone 2026", AppInfoController.projectName(survey, "es"));
+	}
+
+	@Test
+	public void withNoNameTheProjectNameIsTheDescription() {
+		CollectSurvey survey = mock(CollectSurvey.class);
+		when(survey.getDescription("es")).thenReturn("Inventario de Sierra Leona");
+		assertEquals("Inventario de Sierra Leona", AppInfoController.projectName(survey, "es"));
+	}
+
+	@Test
+	public void withNoSurveyThereIsNoProjectName() {
+		assertNull(AppInfoController.projectName(null, "es"));
 	}
 }
