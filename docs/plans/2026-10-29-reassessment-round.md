@@ -40,7 +40,8 @@ it gives the why behind every rule below.
     `web/src/api.test.ts`, `web/src/App.tsx`.
   - LF: the other `src` files.
   - New files are LF.
-  - Check before editing: `file <path>`, or look for `\r` with `grep -c $'\r'`.
+  - Check before editing with `git ls-files --eol <path>` (`grep -c $'\r'`
+    gives wrong counts in this environment's Bash tool).
 - **Use the Edit/Write tools for regex-heavy code**, never shell heredocs: they
   turn `\r`, `\t` and `\n` escapes into control characters.
 - **TDD:** write the test, see it fail, implement, see it pass, commit.
