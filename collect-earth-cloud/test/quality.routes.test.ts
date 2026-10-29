@@ -16,6 +16,17 @@ describe('quality routes', () => {
   const get = (path: string, headers = admin()) => ctx.app.inject({ method: 'GET', url: url(path), headers });
   const send = (method: 'PUT' | 'POST' | 'DELETE', path: string, payload?: unknown, headers = admin()) =>
     ctx.app.inject({ method, url: url(path), headers, payload: payload as object });
+  /** GET /quality until it is no longer stale (the newer figures are computed behind a stale answer). */
+  const fresh = async () => {
+    for (let i = 0; i < 200; i++) {
+      const body = (await get('/quality')).json();
+      if (!body.stale) {
+        return body;
+      }
+      await new Promise((resolve) => setTimeout(resolve, 10));
+    }
+    throw new Error('the figures stayed stale');
+  };
 
   /** n plots of the added round: ana's first assessment and ben's check; land use differs on the last `differ`. */
   const collect = async (n: number, differ: number, slope = (_i: number) => ['10', '10']) => {
@@ -71,6 +82,33 @@ describe('quality routes', () => {
     });
   });
 
+  it('GET /quality says when the figures were computed, and that they are not stale', async () => {
+    await collect(2, 1);
+    const before = Date.now();
+    const body = (await get('/quality')).json();
+    expect(body.stale).toBe(false);
+    expect(body.computedAt).toBeGreaterThanOrEqual(before);
+    expect(body.computedAt).toBeLessThanOrEqual(Date.now());
+  });
+
+  it('GET /overlap lists each differing plot once, with every check of it', async () => {
+    await collect(3, 1);
+    // Plot 3 has a second check, by carl, and plot 2 one by ana herself.
+    await batchRequest(ctx.app, pid, project.projectToken, [
+      envelope({ recordKey: '3,2', operator: 'carl', modifiedOn: Date.UTC(2026, 9, 29), summary: { [LAND_USE]: 'C', [FOREST]: '10', collect_code_round: '2' } }),
+      envelope({ recordKey: '2,2', operator: 'ana', modifiedOn: Date.UTC(2026, 9, 29), summary: { [LAND_USE]: 'S', [FOREST]: '10', collect_code_round: '2' } }),
+    ]);
+    const res = await get('/overlap');
+    expect(res.statusCode, res.body).toBe(200);
+    const body = res.json();
+    expect(body.differing).toBe(2);
+    expect(body.items.length).toBeLessThanOrEqual(body.differing);
+    expect(body.items).toEqual([
+      { recordKey: '2', operators: ['ana', 'ana (check)'], fields: [{ key: LAND_USE, values: { ana: 'F', 'ana (check)': 'S' } }] },
+      { recordKey: '3', operators: ['ana', 'ben', 'carl'], fields: [{ key: LAND_USE, values: { ana: 'F', ben: 'G', carl: 'C' } }] },
+    ]);
+  });
+
   it('data problems: a plot in no file, a key with more parts than the survey, two main assessments', async () => {
     await batchRequest(ctx.app, pid, project.projectToken, [
       envelope({ recordKey: '99,1', operator: 'ana', summary: {} }),
@@ -99,11 +137,15 @@ describe('quality routes', () => {
       envelope({ recordKey: '21,1', operator: 'ana', summary: { [LAND_USE]: 'F' } }),
       envelope({ recordKey: '21,2', operator: 'ben', summary: { [LAND_USE]: 'C' } }),
     ]);
-    const second = (await get('/quality')).json();
+    // Computed under two minutes ago: served at once, marked stale, and brought up to date behind.
+    const stale = (await get('/quality')).json();
+    expect(stale).toMatchObject({ stale: true, plotsChecked: 20, computedAt: first.computedAt });
+    const second = await fresh();
     expect(second).toMatchObject({ plotsChecked: 21, plotsDiffering: 1 });
+    expect(second.computedAt).toBeGreaterThanOrEqual(first.computedAt);
 
     expect((await send('PUT', '/quality/settings', { margins: { [FOREST]: 5 } })).statusCode).toBe(200);
-    const third = (await get('/quality')).json();
+    const third = await fresh();
     expect(third.settings).toEqual({ margins: { [FOREST]: 5 } });
     expect(third.questions.find((q: { key: string }) => q.key === FOREST)).toMatchObject({ agreeing: 19, margin: 5 });
     expect(third.plotsDiffering).toBe(2);
@@ -112,7 +154,7 @@ describe('quality routes', () => {
     await batchRequest(ctx.app, pid, project.projectToken, [
       envelope({ recordKey: '21,2', operator: 'ben', modifiedOn: 5000, summary: { [LAND_USE]: 'F' } }),
     ]);
-    expect((await get('/quality')).json().plotsDiffering).toBe(1);
+    expect((await fresh()).plotsDiffering).toBe(1);
   });
 
   it('PUT /quality/settings: margins 0-100, only for number questions of the served survey', async () => {
@@ -172,6 +214,16 @@ describe('quality routes', () => {
       expect(res.statusCode, JSON.stringify(payload)).toBe(400);
     }
     expect((await send('PUT', '/quality/decisions/3', { decision: 'first', comment: 'x'.repeat(2000) })).statusCode).toBe(200);
+    // DELETE checks the plot the same way.
+    expect((await send('DELETE', `/quality/decisions/${'x'.repeat(1001)}`)).statusCode).toBe(400);
+  });
+
+  it('a plot id of 1000 three-byte characters still reaches the route', async () => {
+    const plot = '€'.repeat(1000); // 9000 characters once URL-encoded
+    const res = await send('PUT', `/quality/decisions/${encodeURIComponent(plot)}`, { decision: 'first' });
+    expect(res.statusCode, res.body).toBe(200);
+    expect(res.json().plot).toBe(plot);
+    expect((await send('DELETE', `/quality/decisions/${encodeURIComponent(plot)}`)).statusCode).toBe(204);
   });
 
   it('a decision made with a session names who made it', async () => {

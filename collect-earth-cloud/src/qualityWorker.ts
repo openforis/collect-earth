@@ -15,7 +15,10 @@ export type WorkerRequest = { id: number; job: WorkerJob };
 /** `ready` once, when the module has loaded (so a worker that cannot load is told apart from a failing job). */
 export type WorkerReply = { ready: true } | { id: number; report: ReturnType<typeof qualityReport> } | { id: number; error: string };
 
-/** One pool per database, kept between jobs; two connections are plenty for one job at a time. */
+/** The longest a read of the records may take (the job itself fails after 120 s, see QualityWorker). */
+export const WORKER_STATEMENT_TIMEOUT_MS = 90_000;
+
+/** One pool per database, kept between jobs; two connections are plenty for the two jobs the worker takes. */
 const stores = new Map<string, PostgresStore>();
 
 async function recordsOf(job: WorkerJob): Promise<QualityRecord[]> {
@@ -25,7 +28,15 @@ async function recordsOf(job: WorkerJob): Promise<QualityRecord[]> {
   const { databaseUrl, projectId } = job.source;
   let store = stores.get(databaseUrl);
   if (!store) {
-    store = new PostgresStore(databaseUrl, { max: 2 });
+    store = new PostgresStore(databaseUrl, {
+      max: 2,
+      connectionTimeoutMillis: 10_000,
+      statementTimeoutMs: WORKER_STATEMENT_TIMEOUT_MS,
+      onPoolError: (err) => {
+        // eslint-disable-next-line no-console
+        console.error('quality worker: an idle connection of the pool failed:', err.message);
+      },
+    });
     stores.set(databaseUrl, store);
   }
   return store.listRecordSummaries(projectId);

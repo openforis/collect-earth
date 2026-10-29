@@ -6,6 +6,7 @@ import fastifyStatic from '@fastify/static';
 import Fastify, { type FastifyInstance, type FastifyReply, type FastifyRequest } from 'fastify';
 import { generateSetupCode } from './accountRules.js';
 import type { Config } from './config.js';
+import { QualityService, QualityWorker } from './qualityService.js';
 import { RateLimiter } from './rateLimit.js';
 import type { Store } from './store/store.js';
 import { registerAdminRoutes } from './routes/admin.js';
@@ -47,8 +48,9 @@ export async function buildServer(options: BuildServerOptions): Promise<FastifyI
     // Record XML batches are small KBs each but a project sync can carry 50; allow headroom.
     bodyLimit: 32 * 1024 * 1024,
     // A plot id is a path parameter of the quality decisions (up to 1000 characters,
-    // more once URL-encoded); Fastify's default stops at 100.
-    maxParamLength: 4000,
+    // up to 9000 once URL-encoded as three-byte UTF-8); Fastify's default stops at 100.
+    // find-my-way measures the decoded parameter, so this leaves room either way.
+    maxParamLength: 9000,
     // Behind Cloud Run / Caddy: take the client IP (rate limiting) and the public
     // proto/host (derived join and reset links) from x-forwarded-*. Only the hops our
     // own proxies add are trusted; `true` would let a client pick its IP.
@@ -90,7 +92,7 @@ export async function buildServer(options: BuildServerOptions): Promise<FastifyI
   await registerProjectRoutes(app, store, config);
   await registerPlatformRoutes(app, store, config);
   await registerAssignmentRoutes(app, store, config);
-  await registerQualityRoutes(app, store);
+  await registerQualityRoutes(app, store, new QualityService(store, new QualityWorker({ maxOldGenerationSizeMb: config.qualityWorkerMaxMb })));
   await registerRecordRoutes(app, store);
 
   await registerDashboard(app, options.webDir === undefined ? DEFAULT_WEB_DIR : options.webDir);

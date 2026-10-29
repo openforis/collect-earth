@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { RoundInfo } from '../src/cep.js';
-import { aiSafeValue, finalAnswers, isoWeek, MIN_PLOTS, qualityReport, type QualityInput, type QualityRecord } from '../src/quality.js';
+import { aiSafeValue, checkMargins, finalAnswers, marginKey, isoWeek, MIN_PLOTS, qualityReport, type QualityInput, type QualityRecord } from '../src/quality.js';
 import type { Question } from '../src/surveyOutline.js';
 
 const added: RoundInfo = {
@@ -429,6 +429,48 @@ describe('qualityReport: after the review', () => {
       expect(report.questions.map((q) => q.key)).toEqual(['collect_code_lu']);
       expect(report.plotsDiffering).toBe(0);
     }
+  });
+
+  it('a margin of an indexed entity question, keyed [*], applies to every index of it', () => {
+    const tree = (i: number) => `collect_entity_tree[${i}].real_height`;
+    const report = qualityReport(
+      input([rec('1,1', 'ana', { [tree(1)]: '100', [tree(10)]: '100' }), rec('1,2', 'ben', { [tree(1)]: '75', [tree(10)]: '75' })], {
+        margins: { 'collect_entity_tree[*].real_height': 30 },
+      }),
+    );
+    expect(report.questions.map((q) => [q.key, q.agreeing, q.margin])).toEqual([
+      [tree(1), 1, 30],
+      [tree(10), 1, 30],
+    ]);
+    expect(marginKey(tree(1))).toBe('collect_entity_tree[*].real_height');
+    expect(marginKey(tree(11))).toBe('collect_entity_tree[*].real_height');
+    // A keyed entity (by code) is a question of its own; a root question is its own key.
+    expect(marginKey('collect_entity_land_use[F].real_coverage')).toBe('collect_entity_land_use[F].real_coverage');
+    expect(marginKey('collect_real_canopy')).toBe('collect_real_canopy');
+  });
+
+  it('checkMargins: number questions of the outline, an indexed one by its [*] form, 0-100', () => {
+    const tree1 = 'collect_entity_tree[1].real_height';
+    expect(checkMargins({ collect_real_canopy: 5, 'collect_entity_tree[*].real_height': 0 }, outline)).toEqual({
+      margins: { collect_real_canopy: 5, 'collect_entity_tree[*].real_height': 0 },
+    });
+    // An index is stored as the [*] form.
+    expect(checkMargins({ [tree1]: 12 }, outline)).toEqual({ margins: { 'collect_entity_tree[*].real_height': 12 } });
+    for (const bad of [
+      null,
+      [],
+      5,
+      { collect_code_land_use: 5 },
+      { collect_text_notes: 5 },
+      { 'collect_entity_tree[*].real_width': 5 },
+      { collect_real_canopy: 101 },
+      { collect_real_canopy: -1 },
+      { collect_real_canopy: '5' },
+      { collect_real_canopy: Number.NaN },
+    ]) {
+      expect(checkMargins(bad, outline), JSON.stringify(bad)).toHaveProperty('reason');
+    }
+    expect(checkMargins({ collect_real_canopy: 5 }, null)).toHaveProperty('reason');
   });
 
   it('uses the default margin for a margin that is no number >= 0', () => {

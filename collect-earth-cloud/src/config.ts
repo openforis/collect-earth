@@ -27,6 +27,8 @@ export interface Config {
    * address the client writes itself never counts.
    */
   trustProxyHops?: number;
+  /** The quality worker's heap in MB (QUALITY_WORKER_MAX_MB); undefined = the default (512). */
+  qualityWorkerMaxMb?: number;
 }
 
 export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
@@ -49,7 +51,19 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
     setupCode: nonEmpty(env.SETUP_CODE?.trim()),
     rateLimitPerMinute: rateLimitOf(env.RATE_LIMIT_PER_MINUTE),
     trustProxyHops: trustProxyHopsOf(env.TRUST_PROXY_HOPS),
+    qualityWorkerMaxMb: qualityWorkerMaxMbOf(env.QUALITY_WORKER_MAX_MB),
   };
+}
+
+function qualityWorkerMaxMbOf(value: string | undefined): number | undefined {
+  if (value === undefined || value.trim() === '') {
+    return undefined;
+  }
+  const n = Number(value);
+  if (!Number.isInteger(n) || n < 64) {
+    throw new Error(`Invalid QUALITY_WORKER_MAX_MB "${value}" (expected a whole number of MB, at least 64)`);
+  }
+  return n;
 }
 
 function nonEmpty(value: string | undefined): string | undefined {

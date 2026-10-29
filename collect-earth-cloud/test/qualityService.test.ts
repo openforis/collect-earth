@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it } from 'vitest';
 import type { RoundInfo } from '../src/cep.js';
 import { qualityReport, type QualityRecord } from '../src/quality.js';
-import { QualityService, QualityWorker, WorkerUnavailableError, type QualityRunner } from '../src/qualityService.js';
+import { QualityService, QualityWorker, STALE_MS, WorkerBusyError, WorkerUnavailableError, type QualityRunner } from '../src/qualityService.js';
 import type { WorkerJob } from '../src/qualityWorker.js';
 import { InMemoryStore } from '../src/store/memory.js';
 import type { Question } from '../src/surveyOutline.js';
@@ -60,6 +60,66 @@ describe('QualityWorker', () => {
   }, 30_000);
 });
 
+const FAKE_WORKER = new URL('./fixtures/fakeQualityWorker.mjs', import.meta.url);
+/** A job for the fake worker: how it should behave. */
+const fake = (mode: 'echo' | 'hang' | 'busy' | 'oom') => ({ mode }) as unknown as WorkerJob;
+type Echo = { echo: string; threadId: number };
+
+describe('QualityWorker limits', () => {
+  let worker: QualityWorker | null = null;
+  afterEach(async () => {
+    await worker?.close();
+    worker = null;
+  });
+
+  it('a job that never answers fails after the time limit, and the next job gets a fresh worker', async () => {
+    worker = new QualityWorker({ url: FAKE_WORKER, timeoutMs: 1500 });
+    const first = (await worker.run(fake('echo'))) as unknown as Echo;
+    await expect(worker.run(fake('hang'))).rejects.toThrow(/took longer than 1.5 s/);
+    const next = (await worker.run(fake('echo'))) as unknown as Echo;
+    expect(next.echo).toBe('echo');
+    expect(next.threadId).not.toBe(first.threadId);
+  }, 30_000);
+
+  it('a job that holds its thread in a loop fails after the time limit too', async () => {
+    worker = new QualityWorker({ url: FAKE_WORKER, timeoutMs: 1500 });
+    await expect(worker.run(fake('busy'))).rejects.toThrow(/took longer than/);
+    expect(((await worker.run(fake('echo'))) as unknown as Echo).echo).toBe('echo');
+  }, 30_000);
+
+  it('takes at most two jobs at a time', async () => {
+    worker = new QualityWorker({ url: FAKE_WORKER, timeoutMs: 60_000 });
+    const a = worker.run(fake('hang'));
+    const b = worker.run(fake('hang'));
+    await expect(worker.run(fake('echo'))).rejects.toBeInstanceOf(WorkerBusyError);
+    const failed = Promise.all([expect(a).rejects.toThrow(/closed/), expect(b).rejects.toThrow(/closed/)]);
+    await worker.close();
+    await failed;
+  }, 30_000);
+
+  it('close() fails the jobs still running', async () => {
+    worker = new QualityWorker({ url: FAKE_WORKER, timeoutMs: 60_000 });
+    const job = worker.run(fake('hang'));
+    const failed = expect(job).rejects.toThrow('the quality worker is closed');
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    await worker.close();
+    await failed;
+    await expect(worker.run(fake('echo'))).rejects.toThrow(/closed/);
+  }, 30_000);
+
+  it('a job that runs out of memory fails with a plain message, and the next one runs', async () => {
+    worker = new QualityWorker({ url: FAKE_WORKER, timeoutMs: 60_000, maxOldGenerationSizeMb: 32 });
+    await expect(worker.run(fake('oom'))).rejects.toThrow('the quality figures needed more memory than the 32 MB allowed (QUALITY_WORKER_MAX_MB)');
+    expect(((await worker.run(fake('echo'))) as unknown as Echo).echo).toBe('echo');
+  }, 60_000);
+});
+
+/** A clock on which every report is older than STALE_MS by the next request: always computed afresh. */
+function neverStale(): () => number {
+  let t = 0;
+  return () => (t += STALE_MS);
+}
+
 /** A memory store that claims another thread can read its records, for the worker path. */
 class SourcedStore extends InMemoryStore {
   override recordsSource() {
@@ -79,7 +139,7 @@ describe('QualityService', () => {
       },
       async close() {},
     };
-    const service = new QualityService(store, runner);
+    const service = new QualityService(store, runner, { now: neverStale() });
     const log = { warn() {}, error() {} };
     await service.report(projectId, log);
     await service.report(projectId, log);
@@ -104,11 +164,11 @@ describe('QualityService', () => {
       async close() {},
     };
     const warned: unknown[] = [];
-    const service = new QualityService(store, runner);
+    const service = new QualityService(store, runner, { now: neverStale() });
     const log = { warn: (o: unknown) => warned.push(o), error() {} };
-    expect((await service.report(projectId, log)).plotsChecked).toBe(0);
+    expect((await service.report(projectId, log)).report.plotsChecked).toBe(0);
     await store.setQualitySettings(projectId, { margins: { x: 5 } });
-    expect((await service.report(projectId, log)).plotsChecked).toBe(0);
+    expect((await service.report(projectId, log)).report.plotsChecked).toBe(0);
     expect(service.computed).toBe(2);
     expect(warned).toHaveLength(1);
   });
@@ -134,8 +194,123 @@ describe('QualityService', () => {
     release();
     const [a, b, c] = await all;
     expect(runs).toBe(1);
-    expect(a).toBe(b);
-    expect(b).toBe(c);
+    expect(a.report).toBe(b.report);
+    expect(b.report).toBe(c.report);
+  });
+
+  /** A store with a records source, a runner whose jobs wait for release(), and a clock. */
+  async function gated() {
+    const store = new SourcedStore();
+    const { projectId } = await store.createProject({ name: 'p' });
+    const gates: (() => void)[] = [];
+    let runs = 0;
+    const runner: QualityRunner = {
+      async run(job) {
+        runs += 1;
+        await new Promise<void>((resolve) => gates.push(resolve));
+        return qualityReport({ ...job.input, records: [] });
+      },
+      async close() {},
+    };
+    const clock = { now: 1_000_000 };
+    const service = new QualityService(store, runner, { now: () => clock.now });
+    let n = 0;
+    const addRecord = () =>
+      store.putRecord({
+        projectId, recordKey: String(++n), operator: 'ana', modifiedOn: n, receivedAt: n, activelySaved: true, step: 1, xml: null, summary: {}, deleted: false, deletedOn: null,
+      });
+    const settle = () => new Promise((resolve) => setTimeout(resolve, 20));
+    return { store, projectId, service, gates, runs: () => runs, clock, addRecord, settle, log: { warn() {}, error() {} } };
+  }
+
+  it('while a computation runs, newer requests wait for it and then share one follow-up', async () => {
+    const t = await gated();
+    const first = t.service.report(t.projectId, t.log);
+    await t.settle();
+    expect(t.runs()).toBe(1);
+    // Records keep coming in while it runs: each request has a new version.
+    await t.addRecord();
+    const a = t.service.report(t.projectId, t.log);
+    await t.addRecord();
+    const b = t.service.report(t.projectId, t.log);
+    await t.addRecord();
+    const c = t.service.report(t.projectId, t.log);
+    await t.settle();
+    expect(t.runs()).toBe(1);
+    t.gates[0]();
+    expect((await first).stale).toBe(false);
+    await t.settle();
+    // One follow-up, for the latest version.
+    expect(t.runs()).toBe(2);
+    t.gates[1]();
+    const [ra, rb, rc] = await Promise.all([a, b, c]);
+    expect(ra.report).toBe(rb.report);
+    expect(rb.report).toBe(rc.report);
+    // It was computed for the latest version: asking again is cached.
+    expect((await t.service.report(t.projectId, t.log)).report).toBe(rc.report);
+    expect(t.runs()).toBe(2);
+  });
+
+  it('a report computed under two minutes ago is served at once as stale, and refreshed behind', async () => {
+    const t = await gated();
+    const first = t.service.report(t.projectId, t.log);
+    await t.settle();
+    t.gates[0]();
+    const fresh = await first;
+    expect(fresh).toMatchObject({ stale: false, computedAt: 1_000_000 });
+
+    await t.addRecord();
+    t.clock.now += STALE_MS - 1;
+    const stale = await t.service.report(t.projectId, t.log);
+    expect(stale).toMatchObject({ stale: true, computedAt: 1_000_000 });
+    expect(stale.report).toBe(fresh.report);
+    await t.settle();
+    expect(t.runs()).toBe(2);
+    // Asking again meanwhile does not start another computation.
+    expect((await t.service.report(t.projectId, t.log)).stale).toBe(true);
+    expect(t.runs()).toBe(2);
+    t.gates[1]();
+    await t.settle();
+    const refreshed = await t.service.report(t.projectId, t.log);
+    expect(refreshed).toMatchObject({ stale: false, computedAt: 1_000_000 + STALE_MS - 1 });
+    expect(refreshed.report).not.toBe(fresh.report);
+
+    // Older than two minutes: the request waits for the new figures.
+    await t.addRecord();
+    t.clock.now += STALE_MS;
+    let done = false;
+    const waiting = t.service.report(t.projectId, t.log).then((r) => {
+      done = true;
+      return r;
+    });
+    await t.settle();
+    expect(done).toBe(false);
+    t.gates[2]();
+    expect((await waiting).stale).toBe(false);
+  });
+
+  it('a refresh behind a stale report that fails is logged, and the stale report still served', async () => {
+    const store = new SourcedStore();
+    const { projectId } = await store.createProject({ name: 'p' });
+    let fail = false;
+    const runner: QualityRunner = {
+      async run(job) {
+        if (fail) {
+          throw new WorkerBusyError();
+        }
+        return qualityReport({ ...job.input, records: [] });
+      },
+      async close() {},
+    };
+    const warned: unknown[] = [];
+    const service = new QualityService(store, runner, { now: () => 0 });
+    const log = { warn: (o: unknown) => warned.push(o), error() {} };
+    await service.report(projectId, log);
+    fail = true;
+    await store.setQualitySettings(projectId, { margins: { x: 5 } });
+    expect((await service.report(projectId, log)).stale).toBe(true);
+    await new Promise((resolve) => setTimeout(resolve, 20));
+    expect(warned).toHaveLength(1);
   });
 
   it('computes on this thread with the memory store, and a new division is a new version', async () => {
@@ -152,15 +327,15 @@ describe('QualityService', () => {
         summary: { collect_code_land_use: operator === 'maria' ? 'F' : 'G' }, deleted: false, deletedOn: null,
       });
     }
-    const service = new QualityService(store, null);
+    const service = new QualityService(store, null, { now: neverStale() });
     const log = { warn() {}, error() {} };
     // Two main assessments: nobody holds plot 1 as a copy.
-    expect((await service.report(projectId, log)).problems.map((p) => p.kind)).toEqual(['two_main', 'two_main']);
+    expect((await service.report(projectId, log)).report.problems.map((p) => p.kind)).toEqual(['two_main', 'two_main']);
     await store.setDivision(projectId, file.id, { mode: 'manual' }, [
       { plotKey: '1', userId: maria.id, overlap: false },
       { plotKey: '1', userId: jose.id, overlap: true },
     ]);
-    const report = await service.report(projectId, log);
+    const { report } = await service.report(projectId, log);
     expect(report).toMatchObject({ plotsChecked: 1, plotsDiffering: 1, problems: [] });
     expect(service.computed).toBe(2);
   });

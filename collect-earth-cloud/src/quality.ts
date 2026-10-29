@@ -529,10 +529,46 @@ export function aiSafeValue(kind: Question['kind'], value: string): string | nul
   return null;
 }
 
-/** The margin of a number question: the one set when it is a number >= 0, else DEFAULT_MARGIN. */
+const INDEXED_ENTITY = /^(collect_entity_[^[.]+)\[\d+\]\./;
+
+/**
+ * The key a margin is set under: an indexed entity's question with its index as `[*]`
+ * (`collect_entity_tree[3].real_height` → `collect_entity_tree[*].real_height`), so one
+ * margin covers every tree; any other key as it is (a keyed entity, `land_use[F]`, is a
+ * question of its own).
+ */
+export function marginKey(key: string): string {
+  return key.replace(INDEXED_ENTITY, '$1[*].');
+}
+
+/** The margin of a number question: the one set (under its marginKey) when it is a number >= 0, else DEFAULT_MARGIN. */
 function marginOf(margins: Readonly<Record<string, number>>, key: string): number {
-  const m: unknown = margins[key];
+  const m: unknown = margins[marginKey(key)];
   return typeof m === 'number' && Number.isFinite(m) && m >= 0 ? m : DEFAULT_MARGIN;
+}
+
+/**
+ * The margins a coordinator sends, checked against the served survey's outline: each key
+ * a number question that is not excluded (an indexed entity's by any index or `[*]`, kept
+ * as `[*]`), each value a number from 0 to 100. Gives the margins to store, or why not.
+ */
+export function checkMargins(margins: unknown, outline: ReadonlyMap<string, Question> | null): { margins: Record<string, number> } | { reason: string } {
+  if (!margins || typeof margins !== 'object' || Array.isArray(margins)) {
+    return { reason: 'margins must be an object of question key to percent' };
+  }
+  const numbers = new Set([...(outline?.values() ?? [])].filter((q) => q.kind === 'number' && !q.excluded).map((q) => marginKey(q.key)));
+  const clean: Record<string, number> = {};
+  for (const [key, value] of Object.entries(margins as Record<string, unknown>)) {
+    const k = marginKey(key);
+    if (!numbers.has(k)) {
+      return { reason: `${key} is not a number question of the survey` };
+    }
+    if (typeof value !== 'number' || !Number.isFinite(value) || value < 0 || value > 100) {
+      return { reason: `the margin of ${key} must be a number from 0 to 100` };
+    }
+    clean[k] = value;
+  }
+  return { margins: clean };
 }
 
 /** |a-b| <= margin% of the larger magnitude, with a relative tolerance for rounding (100 vs 90 at 10 %). */

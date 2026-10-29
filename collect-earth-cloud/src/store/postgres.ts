@@ -44,15 +44,40 @@ const PLOT_INSERT_CHUNK = 5000;
  * defined in migrations/001_init.sql act as a hard second fence against any query
  * that forgets its project_id filter.
  */
+export interface PostgresStoreOptions {
+  /** Most connections in the pool (pg's default, 10, when not given). */
+  max?: number;
+  /** How long to wait for a connection before failing (pg's default: for ever). */
+  connectionTimeoutMillis?: number;
+  /** When set, every project transaction runs with this statement_timeout (SET LOCAL). */
+  statementTimeoutMs?: number;
+  /** Called when an idle connection of the pool fails (the database restarts, the network drops); logged by default. */
+  onPoolError?: (err: Error) => void;
+}
+
 export class PostgresStore implements Store {
   private readonly pool: pg.Pool;
+  private readonly statementTimeout: string | null;
 
-  /** `max`: most connections in the pool (pg's default, 10, when not given). */
   constructor(
     private readonly databaseUrl: string,
-    options: { max?: number } = {},
+    options: PostgresStoreOptions = {},
   ) {
-    this.pool = new Pool({ connectionString: databaseUrl, ...(options.max ? { max: options.max } : {}) });
+    this.pool = new Pool({
+      connectionString: databaseUrl,
+      ...(options.max ? { max: options.max } : {}),
+      ...(options.connectionTimeoutMillis ? { connectionTimeoutMillis: options.connectionTimeoutMillis } : {}),
+    });
+    // Without a listener, an idle connection that fails is an uncaught 'error' event,
+    // which ends the process. pg drops the connection itself; the next query gets a new one.
+    const onPoolError =
+      options.onPoolError ??
+      ((err: Error) => {
+        // eslint-disable-next-line no-console
+        console.error('postgres: an idle connection of the pool failed:', err.message);
+      });
+    this.pool.on('error', onPoolError);
+    this.statementTimeout = options.statementTimeoutMs ? String(Math.round(options.statementTimeoutMs)) : null;
   }
 
   /** Runs fn inside a transaction scoped to a project for RLS enforcement. */
@@ -61,6 +86,9 @@ export class PostgresStore implements Store {
     try {
       await client.query('BEGIN');
       await client.query('SELECT set_config($1, $2, true)', ['app.current_project', projectId]);
+      if (this.statementTimeout !== null) {
+        await client.query("SELECT set_config('statement_timeout', $1, true)", [this.statementTimeout]);
+      }
       const result = await fn(client);
       await client.query('COMMIT');
       return result;
@@ -945,21 +973,10 @@ export class PostgresStore implements Store {
 
   async qualityVersion(projectId: string): Promise<string> {
     return this.withProject(projectId, async (client) => {
-      // Order-independent sums of row hashes: no sort, no rows sent. A stored record
-      // always gets a new received_at (or other values), and every holding counts.
-      const res = await client.query(
-        `SELECT
-           (SELECT count(*) || ':' || COALESCE(sum(hashtextextended(
-                     record_key || ' ' || operator || ' ' || received_at::text || ' ' || modified_on::text
-                     || ' ' || actively_saved::text || ' ' || deleted::text, 0)), 0)
-              FROM records WHERE project_id = $1) AS records,
-           (SELECT count(*) || ':' || COALESCE(sum(hashtextextended(
-                     p.csv_file_id::text || ' ' || p.plot_key || ' ' || p.user_id::text || ' ' || p.overlap::text, 0)), 0)
-              FROM plot_assignments p JOIN csv_files c ON c.id = p.csv_file_id
-             WHERE p.project_id = $1 AND c.distribution IS NOT NULL) AS holdings`,
-        [projectId],
-      );
-      return `${res.rows[0].records}/${res.rows[0].holdings}`;
+      // A counter the triggers of migration 009 bump on every INSERT, UPDATE and
+      // DELETE statement on records and plot_assignments, whatever wrote it.
+      const res = await client.query('SELECT records_version FROM projects WHERE id = $1', [projectId]);
+      return res.rows.length === 0 ? '' : String(res.rows[0].records_version);
     });
   }
 

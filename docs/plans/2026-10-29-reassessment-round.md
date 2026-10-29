@@ -960,22 +960,31 @@ Commit: "Collect Earth Cloud: coordinators decide which answer is right and writ
 **As built**
 - **Routes** (`src/routes/quality.ts`, admin; another project's admin 404, an
   operator 403):
-  - `GET /quality` → the `QualityReport` plus `decisions`, `notes` and `settings`
-    (`{ margins }`);
+  - `GET /quality` → the `QualityReport` plus `decisions`, `notes`, `settings`
+    (`{ margins }`), `computedAt` (ms) and `stale` (see the cache below). When
+    the worker already has its two jobs (other projects) and there is no stale
+    report to give, 503 `{ error: 'busy' }` with `Retry-After: 10`;
   - `GET /overlap` keeps its old shape (`plots`, `differing`, `items` with
     `recordKey`, `operators`, `fields[].values` by operator), so the Data tab works
     until Task 17. It is now built from the report: checked plots, first assessment
-    against check, by unit. `overlapReport` is gone from `division.ts`;
+    against check, by unit, one item per plot (the first assessor and every check
+    that differs, values by operator), so `items.length <= differing` and the
+    Data tab's React key (the plot) is unique. `overlapReport` is gone from `division.ts`;
     `METADATA_KEY_PARTS` stays there for quality.ts;
   - `PUT /quality/settings` replaces the margins. Each key must be a number question
     of the served survey's outline that is not excluded, each value a number 0–100.
     (The demo survey's `collect_real_slope` comes from the plot file, so it is
-    excluded and refused.)
+    excluded and refused.) An indexed entity's question is keyed by `marginKey`:
+    `collect_entity_tree[*].real_height`, which covers `[1]` to `[10]` and beyond;
+    `[3]` is accepted and stored as `[*]`. A keyed entity (`land_use[F]`) keeps its
+    key. The check is `checkMargins` (`quality.ts`).
   - `PUT /quality/decisions/:plot` `{ decision, comment? }` (comment trimmed, ≤ 2000,
-    blank → null) and `DELETE` (204, or 404 when there was none). The plot is the unit
+    blank → null) and `DELETE` (204, or 404 when there was none; both 400 for a plot
+    over 1000 characters). The plot is the unit
     as Task 9 groups records (`Difference.plot`), URL-encoded, at most 1000
-    characters. `maxParamLength` is raised to 4000 in `server.ts`, since Fastify's
-    default (100) would 404 longer ids.
+    characters. `maxParamLength` is raised to 9000 in `server.ts`, since Fastify's
+    default (100) would 404 longer ids. (find-my-way measures the decoded parameter,
+    so 4000 was already enough; 9000 also covers 1000 three-byte characters encoded.)
   - `GET/POST /quality/notes` and `PUT/DELETE /quality/notes/:id`:
     - `questionKey` 1–1000 characters;
     - `firstValue` and `checkValue` text ≤ 1000, or null;
@@ -1001,16 +1010,28 @@ Commit: "Collect Earth Cloud: coordinators decide which answer is right and writ
   both the export and the figures.
 - **Speed: a cache, then a worker** (`src/qualityService.ts`, `src/qualityWorker.ts`).
   - **The cache:** one report per project (4 projects, LRU) under a sha256 of:
-    - `store.qualityVersion`. Postgres: per table, the count and an
-      order-independent `sum(hashtextextended(...))` over the records (key, operator,
-      received_at, modified_on, actively_saved, deleted) and over the divided files'
-      holdings, with no rows sent. Memory: counters bumped on each stored record and
-      each change of the holdings.
+    - `store.qualityVersion`. Postgres (after the review): `projects.records_version`
+      (migration 009), bumped by statement-level triggers (with transition tables,
+      one UPDATE per statement and project) on every INSERT, UPDATE and DELETE of
+      `records` and `plot_assignments`, so a direct SQL fix of a summary counts
+      too; one indexed lookup (2.6-3.4 ms on 100k records). The trigger functions
+      are SECURITY INVOKER: they update `projects` as the role that changed the
+      rows, under the same RLS, so they can only bump the project the statement
+      could touch; SECURITY DEFINER would bypass RLS for any project id in the
+      changed rows. The plot files' distribution is in the key below. Memory:
+      counters bumped on each stored record and each change of the holdings.
     - the round info, the CEP's size and time, the plot files' ids, checksums and
       distribution, the members, and the settings.
 
-    A request for a version being computed waits for that computation. The outline is
-    read from the **served** CEP and cached by its sha256 (8 entries).
+    The outline is read from the **served** CEP and cached by its sha256 (8 entries).
+  - **During collection** (after the review) the version changes with every record,
+    so computations are coalesced per project: one runs at a time; a request for
+    its version waits for it; a request for any other version waits for ONE
+    follow-up, which starts when the running one ends and reads the inputs as they
+    are then. And a report computed less than `STALE_MS` (2 minutes) ago is served
+    at once with `stale: true` and its `computedAt`, while the new one is computed
+    behind it (coalesced the same way; a failure there is logged). `report()`
+    returns `{ report, computedAt, stale }`.
   - **The worker, when the store gives a `recordsSource()` (Postgres):** one
     `worker_threads` worker, started on first use and unref'd while idle, reads the
     records itself (its own `PostgresStore`, pool of 2, RLS as usual) and computes. So
@@ -1020,6 +1041,27 @@ Commit: "Collect Earth Cloud: coordinators decide which answer is right and writ
     - A worker that cannot load makes the service compute in the request thread,
       logged once.
     - A failing job fails alone.
+    - After the review:
+      - each job has a time limit (`WORKER_JOB_TIMEOUT_MS`, 120 s): past it the
+        job fails ("took longer than 120 s") and the worker is terminated (with
+        the other job on it, if any), so the next job gets a fresh one. This also
+        stops a worker stuck in a loop;
+      - at most `MAX_WORKER_JOBS` (2) jobs at a time; another is refused with
+        `WorkerBusyError`;
+      - the heap is `resourceLimits.maxOldGenerationSizeMb`, from
+        `QUALITY_WORKER_MAX_MB` (config `qualityWorkerMaxMb`, default 512, at
+        least 64). Running out fails the job with "the quality figures needed more
+        memory than the 512 MB allowed (QUALITY_WORKER_MAX_MB)", and the next job
+        gets a new worker;
+      - `close()` fails the jobs still running;
+      - the worker's pool: `{ max: 2, connectionTimeoutMillis: 10_000 }`, and every
+        transaction of it runs `set_config('statement_timeout', '90000', true)`
+        (`PostgresStore` option `statementTimeoutMs`);
+      - both pools (the server's and the worker's) log an idle connection's
+        `error` instead of crashing the process (`onPoolError`, `console.error`
+        by default);
+      - tests use a stand-in worker (`test/fixtures/fakeQualityWorker.mjs`) that
+        hangs, loops, runs out of memory or echoes.
   - **The memory store computes in the request thread**, after a `setImmediate`. Its
     records live only in this thread, and posting them to a worker costs more than
     computing: structured-cloning 100k records × 189 answers took about 15 s of the
@@ -1029,7 +1071,8 @@ Commit: "Collect Earth Cloud: coordinators decide which answer is right and writ
       the event loop), 11-22 ms cached;
     - Postgres in Docker, 100k × 189 written by SQL:
       - cold 10.3-10.7 s, with the event loop never held more than 100 ms;
-      - cached 137 ms (the version query hashes every record);
+      - cached 137 ms (the version query hashed every record; with the counter of
+        migration 009 the version takes 2.6-3.4 ms);
       - the same computed in the request thread: 9.0 s, with the event loop held
         2 s;
     - `npm start` on Postgres, 50k × 189: cold 14.9 s, while `/health` answered all
@@ -1046,6 +1089,19 @@ Commit: "Collect Earth Cloud: coordinators decide which answer is right and writ
     - the worker reads only the given project's records;
   - the table refuses a note over 2000 characters;
   - `deleteProject` removes the project's decisions and notes.
+- **Postgres, after the review** (another throwaway `postgres:16`):
+  - migrations twice (six triggers, once each);
+  - as the non-superuser under RLS, the version moves on: a stored record, an upsert
+    of it, a direct SQL `UPDATE` of `summary` only (also as the superuser), a
+    `DELETE`, a division, a replaced plot file dropping holdings, a direct
+    `UPDATE` of `plot_assignments`, and deleting an account that holds plots;
+  - it does not move for an UPDATE of no rows, nor for another project: with
+    project B set, the app role's UPDATEs of A's records and of A's counter change
+    0 rows;
+  - a 100k-row INSERT bumps it once;
+  - `statementTimeoutMs` cancels a slow query, and the setting is local to that
+    transaction;
+  - the worker computes as the app role; `deleteProject` works with the triggers.
 
 ### Task 11: reports for collectors and the team
 
@@ -1089,7 +1145,7 @@ Commit: "Collect Earth Cloud: a personal quality report for each collector and a
 - `aiFollowUpsPerDay` (default 30);
 - `aiMonthlyTokens` (default 2,000,000; 0 = none allowed).
 
-**Migration 009**
+**Migration 010** (009 is the quality version counter, Task 10 "As built")
 - Add `projects.ai_enabled BOOLEAN NOT NULL DEFAULT false`.
 - Add an `ai_runs` table, with RLS:
   - columns: `id, project_id, kind ('report'|'follow_up'|'question'), started_by,
@@ -1274,7 +1330,7 @@ with a reason):
 (`setImmediate`), writing progress and tokens to `ai_runs`. Each request also
 stops at a token cap: input above 200k for the run → stop as `failed`.
 
-**Logging.** `ai_runs` already holds who, when, tools and tokens. Refused
+**Logging.** `ai_runs` (migration 010, Task 12) already holds who, when, tools and tokens. Refused
 questions are stored as runs with `status='refused'`.
 
 **Platform admin.** `GET /v1/admin/ai-usage` returns per-project totals for the
@@ -1329,7 +1385,15 @@ link in its place.
 2. **Agreement by question:** a table, with a bar per row in the dashboard's
    chart style, readable in light and dark. "Too few plots to judge (12 of 20)"
    when the rate is null. Number questions have an editable margin (%) that saves
-   with `PUT /quality/settings`.
+   with `PUT /quality/settings`. An indexed entity's question (`tree[1]` to
+   `tree[10]` of the same answer) has ONE margin, keyed `collect_entity_tree[*].real_height`
+   (`marginKey`, Task 10 "As built"): show it once, on the first row of that question
+   or in a small "Margins" list, saying it applies to every tree, and read the
+   current value from `settings.margins` under that key.
+   When the answer says `stale: true`, show "Figures from <time of computedAt>;
+   newer ones are being worked out" and fetch again after a few seconds; a 503
+   `busy` says "The figures are being worked out for other projects; try again in a
+   moment".
 3. **Mixed-up answers:** pick a question, then a table of first answer → check
    answer → count, with "Show plots".
 4. **Agreement by person:** as first assessor and as checker, plus the weakest
@@ -1406,7 +1470,8 @@ Commit: "Collect Earth Cloud dashboard: the AI assistant panel, printable report
   4. a billing budget alert;
   5. switch it on in Server settings, then in each project.
 - **DEPLOY.md:** what "round" means for coordinators, in a few lines.
-- **`.env.example`:** the four `AI_*` variables, commented out.
+- **`.env.example`:** the four `AI_*` variables, commented out, and
+  `QUALITY_WORKER_MAX_MB` (default 512, already there since Task 10), commented out.
 - **Postgres smoke** (Docker, as before, container name `ce-pg-round`):
   1. Run the migrations on a fresh database and on one at 006.
   2. Upload `idOnlyCep` and two plot files, divide one with 20 % copies, and post

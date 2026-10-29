@@ -98,18 +98,61 @@ function workerExecArgv(): string[] {
 
 const WORKER_URL = new URL(import.meta.url.endsWith('.ts') ? './qualityWorker.ts' : './qualityWorker.js', import.meta.url);
 
+/** How long one job may take before it fails and its worker is replaced. */
+export const WORKER_JOB_TIMEOUT_MS = 120_000;
+/** Jobs the worker takes at once; one more is refused with WorkerBusyError. */
+export const MAX_WORKER_JOBS = 2;
+/** The worker's heap, in MB, unless QUALITY_WORKER_MAX_MB says otherwise. */
+export const DEFAULT_WORKER_MAX_MB = 512;
+
+/** Thrown by QualityWorker.run when it already has MAX_WORKER_JOBS jobs (the job never ran). */
+export class WorkerBusyError extends Error {
+  constructor() {
+    super('the quality worker is busy with other projects');
+    this.name = 'WorkerBusyError';
+  }
+}
+
+export interface QualityWorkerOptions {
+  /** The worker's module (tests use a stand-in). */
+  url?: URL;
+  /** Per job; WORKER_JOB_TIMEOUT_MS by default. */
+  timeoutMs?: number;
+  /** The worker's heap limit (resourceLimits.maxOldGenerationSizeMb); DEFAULT_WORKER_MAX_MB by default. */
+  maxOldGenerationSizeMb?: number;
+}
+
+interface PendingJob {
+  resolve: (r: QualityReport) => void;
+  reject: (e: unknown) => void;
+  timer: NodeJS.Timeout;
+}
+
 /**
  * One worker thread for the quality figures, started on first use and kept (unref'd
- * while idle, so it never holds the process open). A worker that stops takes its jobs
- * with it (they fail) and the next job starts a new one. A worker that cannot even load
- * makes every later run fail with WorkerUnavailableError.
+ * while idle, so it never holds the process open). It takes MAX_WORKER_JOBS jobs at a
+ * time. A job that takes longer than the time limit fails, and its worker is stopped
+ * (with any other job on it) so the next job starts a new one: a computation stuck in
+ * a loop or a query cannot hold the thread for ever. A worker that stops (out of
+ * memory, a crash) takes its jobs with it (they fail) and the next job starts a new
+ * one. A worker that cannot even load makes every later run fail with
+ * WorkerUnavailableError.
  */
 export class QualityWorker {
   private worker: Worker | null = null;
   private unavailable: unknown = null;
   private closed = false;
   private nextId = 1;
-  private readonly pending = new Map<number, { resolve: (r: QualityReport) => void; reject: (e: unknown) => void }>();
+  private readonly pending = new Map<number, PendingJob>();
+  private readonly url: URL;
+  private readonly timeoutMs: number;
+  private readonly maxMb: number;
+
+  constructor(options: QualityWorkerOptions = {}) {
+    this.url = options.url ?? WORKER_URL;
+    this.timeoutMs = options.timeoutMs ?? WORKER_JOB_TIMEOUT_MS;
+    this.maxMb = options.maxOldGenerationSizeMb ?? DEFAULT_WORKER_MAX_MB;
+  }
 
   run(job: WorkerJob): Promise<QualityReport> {
     if (this.unavailable !== null) {
@@ -117,6 +160,9 @@ export class QualityWorker {
     }
     if (this.closed) {
       return Promise.reject(new Error('the quality worker is closed'));
+    }
+    if (this.pending.size >= MAX_WORKER_JOBS) {
+      return Promise.reject(new WorkerBusyError());
     }
     let worker: Worker;
     try {
@@ -127,34 +173,37 @@ export class QualityWorker {
     }
     const id = this.nextId++;
     return new Promise<QualityReport>((resolve, reject) => {
-      this.pending.set(id, { resolve, reject });
+      const timer = setTimeout(() => this.timedOut(worker, id), this.timeoutMs);
+      timer.unref();
+      this.pending.set(id, { resolve, reject, timer });
       worker.ref();
       worker.postMessage({ id, job });
     });
   }
 
+  /** Fails the jobs still running and stops the worker; later runs fail. */
   async close(): Promise<void> {
     this.closed = true;
     const worker = this.worker;
     this.worker = null;
+    this.failAll(new Error('the quality worker is closed'));
     if (worker) {
       await worker.terminate();
     }
   }
 
   private start(): Worker {
-    const worker = new Worker(WORKER_URL, { execArgv: workerExecArgv() });
+    const worker = new Worker(this.url, { execArgv: workerExecArgv(), resourceLimits: { maxOldGenerationSizeMb: this.maxMb } });
     let ready = false;
     worker.on('message', (message: WorkerReply) => {
       if ('ready' in message) {
         ready = true;
         return;
       }
-      const job = this.pending.get(message.id);
+      const job = this.take(message.id);
       if (!job) {
         return;
       }
-      this.pending.delete(message.id);
       if (this.pending.size === 0) {
         worker.unref();
       }
@@ -164,7 +213,11 @@ export class QualityWorker {
         job.resolve(message.report);
       }
     });
-    worker.on('error', (err) => {
+    worker.on('error', (err: Error & { code?: string }) => {
+      if (err.code === 'ERR_WORKER_OUT_OF_MEMORY') {
+        this.stopped(worker, new Error(`the quality figures needed more memory than the ${this.maxMb} MB allowed (QUALITY_WORKER_MAX_MB)`));
+        return;
+      }
       if (!ready) {
         this.unavailable = err;
       }
@@ -176,17 +229,41 @@ export class QualityWorker {
     return worker;
   }
 
+  private take(id: number): PendingJob | undefined {
+    const job = this.pending.get(id);
+    if (job) {
+      clearTimeout(job.timer);
+      this.pending.delete(id);
+    }
+    return job;
+  }
+
+  private failAll(reason: unknown): void {
+    for (const id of [...this.pending.keys()]) {
+      this.take(id)!.reject(reason);
+    }
+  }
+
+  /** A job over the time limit fails, and so does its worker, with whatever else runs on it. */
+  private timedOut(worker: Worker, id: number): void {
+    const job = this.take(id);
+    if (!job) {
+      return;
+    }
+    job.reject(new Error(`the quality figures took longer than ${this.timeoutMs / 1000} s`));
+    if (this.worker === worker) {
+      this.worker = null;
+      this.failAll(new Error('the quality worker was restarted: another job took too long'));
+    }
+    void worker.terminate();
+  }
+
   private stopped(worker: Worker, err: unknown): void {
     if (this.worker !== worker) {
       return;
     }
     this.worker = null;
-    const jobs = [...this.pending.values()];
-    this.pending.clear();
-    const reason = this.unavailable !== null ? new WorkerUnavailableError(this.unavailable) : err;
-    for (const job of jobs) {
-      job.reject(reason);
-    }
+    this.failAll(this.unavailable !== null ? new WorkerUnavailableError(this.unavailable) : err);
   }
 }
 
@@ -207,14 +284,49 @@ function remember<K, V>(map: Map<K, V>, key: K, value: V, max: number): void {
 
 const sha256 = (data: string | Uint8Array) => createHash('sha256').update(data).digest('hex');
 
+/** A report served younger than this, when its inputs have changed since, is served as it is (stale) while a new one is computed. */
+export const STALE_MS = 2 * 60_000;
+
+/** The figures as served: when they were computed, and whether the inputs have changed since. */
+export interface ServedReport {
+  report: QualityReport;
+  /** ms since the epoch. */
+  computedAt: number;
+  /** True when records (or other inputs) changed after computedAt; newer figures are being computed. */
+  stale: boolean;
+}
+
+interface CachedReport {
+  version: string;
+  report: QualityReport;
+  computedAt: number;
+}
+
+interface Snapshot {
+  version: string;
+  known: { info: RoundInfo | null; files: CsvFile[]; members: Member[]; settings: QualitySettings };
+}
+
+/** One project's computations: the one running, and at most one waiting to follow it. */
+interface ProjectRuns {
+  running: { version: string | null; promise: Promise<CachedReport> } | null;
+  followUp: { promise: Promise<CachedReport>; resolve: (r: CachedReport) => void; reject: (e: unknown) => void; log: Log } | null;
+}
+
 /**
  * The quality figures of each project. A report is cached (MAX_CACHED_REPORTS projects)
  * under the version of its inputs: the store's qualityVersion (records and divided
  * holdings), the round info, the served project file's size and time, the plot files'
  * checksums, the members and the settings. Reading those takes a few small queries and
  * no records, so an unchanged project is answered at once, and any change (a new
- * record, a division, a margin) gives a new version. Requests for the same version
- * share one computation.
+ * record, a division, a margin) gives a new version.
+ *
+ * During collection the version changes all the time, so computations are coalesced
+ * per project: one runs at a time; requests for its version wait for it; requests for
+ * any other version wait for ONE follow-up computation, which starts when the running
+ * one ends and reads the inputs as they are then. And a report computed less than
+ * STALE_MS ago is served at once, marked stale, while the new one is computed behind
+ * it.
  *
  * Computing: with a store whose records another thread can read (Postgres), the worker
  * reads them and computes, so neither the JSON parsing of 100k summaries nor the
@@ -224,9 +336,10 @@ const sha256 = (data: string | Uint8Array) => createHash('sha256').update(data).
  * computed here. A worker that cannot start falls back to computing here, logged once.
  */
 export class QualityService {
-  private readonly reports = new Map<string, { version: string; report: QualityReport }>();
-  private readonly running = new Map<string, { version: string; promise: Promise<QualityReport> }>();
+  private readonly reports = new Map<string, CachedReport>();
+  private readonly runs = new Map<string, ProjectRuns>();
   private readonly outlines = new Map<string, ReadonlyMap<string, Question> | null>();
+  private readonly now: () => number;
   private warnedUnavailable = false;
   /** How many reports were computed (for tests). */
   computed = 0;
@@ -234,9 +347,91 @@ export class QualityService {
   constructor(
     private readonly store: Store,
     private readonly runner: QualityRunner | null = new QualityWorker(),
-  ) {}
+    options: { now?: () => number } = {},
+  ) {
+    this.now = options.now ?? Date.now;
+  }
 
-  async report(projectId: string, log: Log): Promise<QualityReport> {
+  async report(projectId: string, log: Log): Promise<ServedReport> {
+    const snapshot = await this.snapshot(projectId);
+    const cached = this.reports.get(projectId);
+    if (cached?.version === snapshot.version) {
+      remember(this.reports, projectId, cached, MAX_CACHED_REPORTS);
+      return { report: cached.report, computedAt: cached.computedAt, stale: false };
+    }
+    const pending = this.schedule(projectId, log, snapshot);
+    if (cached && this.now() - cached.computedAt < STALE_MS) {
+      pending.catch((err: unknown) => log.warn({ err }, 'quality: the figures could not be brought up to date'));
+      return { report: cached.report, computedAt: cached.computedAt, stale: true };
+    }
+    const fresh = await pending;
+    return { report: fresh.report, computedAt: fresh.computedAt, stale: false };
+  }
+
+  /** The computation that will answer this snapshot: the running one for its version, or the one follow-up. */
+  private schedule(projectId: string, log: Log, snapshot: Snapshot): Promise<CachedReport> {
+    let runs = this.runs.get(projectId);
+    if (!runs) {
+      runs = { running: null, followUp: null };
+      this.runs.set(projectId, runs);
+    }
+    if (!runs.running) {
+      return this.start(projectId, runs, log, snapshot);
+    }
+    if (runs.running.version === snapshot.version) {
+      return runs.running.promise;
+    }
+    if (runs.followUp) {
+      runs.followUp.log = log;
+      return runs.followUp.promise;
+    }
+    let resolve!: (r: CachedReport) => void;
+    let reject!: (e: unknown) => void;
+    const promise = new Promise<CachedReport>((res, rej) => {
+      resolve = res;
+      reject = rej;
+    });
+    // Waiters are attached by the caller; a stale request may have none.
+    promise.catch(() => {});
+    runs.followUp = { promise, resolve, reject, log };
+    return promise;
+  }
+
+  /** Runs one computation (reading the inputs first when no snapshot is given), then the follow-up if one waits. */
+  private start(projectId: string, runs: ProjectRuns, log: Log, snapshot: Snapshot | null): Promise<CachedReport> {
+    const running: NonNullable<ProjectRuns['running']> = { version: snapshot?.version ?? null, promise: null as unknown as Promise<CachedReport> };
+    running.promise = (async () => {
+      const s = snapshot ?? (await this.snapshot(projectId));
+      running.version = s.version;
+      const cached = this.reports.get(projectId);
+      if (cached?.version === s.version) {
+        return cached;
+      }
+      const report = await this.compute(projectId, log, s.known);
+      const entry = { version: s.version, report, computedAt: this.now() };
+      remember(this.reports, projectId, entry, MAX_CACHED_REPORTS);
+      return entry;
+    })();
+    runs.running = running;
+    const done = () => {
+      if (runs.running !== running) {
+        return;
+      }
+      runs.running = null;
+      const next = runs.followUp;
+      runs.followUp = null;
+      if (next) {
+        this.start(projectId, runs, next.log, null).then(next.resolve, next.reject);
+      } else if (this.runs.get(projectId) === runs) {
+        this.runs.delete(projectId);
+      }
+    };
+    running.promise.then(done, done);
+    return running.promise;
+  }
+
+  /** The inputs' version, from a few small queries (no records), and what was read for it. */
+  private async snapshot(projectId: string): Promise<Snapshot> {
     const [inputs, info, cep, files, members, settings] = await Promise.all([
       this.store.qualityVersion(projectId),
       this.store.getRoundInfo(projectId),
@@ -255,27 +450,7 @@ export class QualityService {
         settings,
       ]),
     );
-    const cached = this.reports.get(projectId);
-    if (cached?.version === version) {
-      remember(this.reports, projectId, cached, MAX_CACHED_REPORTS);
-      return cached.report;
-    }
-    const running = this.running.get(projectId);
-    if (running?.version === version) {
-      return running.promise;
-    }
-    const promise = this.compute(projectId, log, { info, files, members, settings }).then((report) => {
-      remember(this.reports, projectId, { version, report }, MAX_CACHED_REPORTS);
-      return report;
-    });
-    this.running.set(projectId, { version, promise });
-    const forget = () => {
-      if (this.running.get(projectId)?.promise === promise) {
-        this.running.delete(projectId);
-      }
-    };
-    promise.then(forget, forget);
-    return promise;
+    return { version, known: { info, files, members, settings } };
   }
 
   /** The outline of the served project file's survey (cached by its sha256), or null without a readable one. */
