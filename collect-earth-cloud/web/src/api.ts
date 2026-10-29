@@ -102,11 +102,75 @@ export interface CsvFile {
   filename: string;
   checksum: string;
   plotCount: number;
+  /** Its plots are divided between people (see the file's distribution). */
+  divided?: boolean;
+  /** People holding at least one of its plots; 0 for a whole file. */
+  dividedPeople?: number;
 }
 
 export interface Assignment {
   userId: string;
   csvFileId: string;
+}
+
+/** One column of a plot file, for dividing its plots by the column's values. */
+export interface CsvColumn {
+  /** 0-based. */
+  index: number;
+  /** From the header row; null when the file has none. */
+  name: string | null;
+  distinctCount: number;
+  /** Sorted by value; null when the column has too many different values (more than 200). */
+  values: { value: string; count: number }[] | null;
+}
+
+export interface CsvColumns {
+  plotCount: number;
+  hasHeader: boolean;
+  separator: string;
+  columns: CsvColumn[];
+}
+
+export type DivisionOrder = "file" | "mixed";
+
+/** How a plot file's plots are divided between people (what the server stores and applies). */
+export type Distribution =
+  | { mode: "whole" }
+  | { mode: "manual" }
+  | { mode: "even"; people: string[]; order: DivisionOrder; overlapPercent?: number; seed?: number }
+  | {
+      mode: "column";
+      column: number;
+      groups: { value: string; people: string[] }[];
+      order: DivisionOrder;
+      overlapPercent?: number;
+      seed?: number;
+    };
+
+export interface PersonShare {
+  userId: string;
+  username: string;
+  /** Includes the quality-check copies. */
+  plots: number;
+  /** Quality-check copies: plots someone else also has. */
+  overlap: number;
+  /** Plots this person has submitted, among the ones they hold. */
+  submitted: number;
+}
+
+/** Who holds a file's plots. distribution null = the whole file goes to the people ticked in the grid. */
+export interface DistributionState {
+  distribution: Distribution | null;
+  plotCount: number;
+  unassigned: number;
+  people: PersonShare[];
+}
+
+/** Plots collected by two or more people, and where their answers differ. */
+export interface OverlapReport {
+  plots: number;
+  differing: number;
+  items: { recordKey: string; operators: string[]; fields: { key: string; values: Record<string, string> }[] }[];
 }
 
 export interface ServerSettings {
@@ -598,6 +662,117 @@ export async function listAssignments(projectId: string): Promise<Assignment[]> 
 
 export async function saveAssignments(projectId: string, assignments: Assignment[]): Promise<void> {
   await send("PUT", `${p(projectId)}/assignments`, { json: { assignments } });
+}
+
+// --- dividing a plot file between people ---------------------------------------------
+
+const f = (projectId: string, csvFileId: string) => `${p(projectId)}/csv-files/${encodeURIComponent(csvFileId)}`;
+
+const strings = (value: unknown): string[] => (Array.isArray(value) ? value.map((v) => String(v ?? "")) : []);
+
+/** A stored division from the server; null for a whole file (or anything unreadable). */
+export function toDistribution(value: unknown): Distribution | null {
+  if (!value || typeof value !== "object") return null;
+  const d = value as Record<string, unknown>;
+  const order: DivisionOrder = d.order === "mixed" ? "mixed" : "file";
+  const extra: { overlapPercent?: number; seed?: number } = {};
+  if (typeof d.overlapPercent === "number" && d.overlapPercent > 0) extra.overlapPercent = d.overlapPercent;
+  if (typeof d.seed === "number") extra.seed = d.seed;
+  switch (d.mode) {
+    case "manual":
+      return { mode: "manual" };
+    case "even":
+      return { mode: "even", people: strings(d.people), order, ...extra };
+    case "column":
+      return {
+        mode: "column",
+        column: toCount(d.column),
+        groups: Array.isArray(d.groups)
+          ? d.groups.map((g: Record<string, unknown>) => ({ value: String(g?.value ?? ""), people: strings(g?.people) }))
+          : [],
+        order,
+        ...extra,
+      };
+  }
+  return null;
+}
+
+export function toDistributionState(body: unknown): DistributionState {
+  const b = body && typeof body === "object" ? (body as Record<string, unknown>) : {};
+  const people = Array.isArray(b.people) ? (b.people as Record<string, unknown>[]) : [];
+  return {
+    distribution: toDistribution(b.distribution),
+    plotCount: toCount(b.plotCount),
+    unassigned: toCount(b.unassigned),
+    people: people.map((person) => ({
+      userId: String(person.userId ?? ""),
+      username: String(person.username ?? ""),
+      plots: toCount(person.plots),
+      overlap: toCount(person.overlap),
+      submitted: toCount(person.submitted),
+    })),
+  };
+}
+
+export async function getCsvColumns(projectId: string, csvFileId: string): Promise<CsvColumns> {
+  const body = await request<Record<string, unknown>>("GET", `${f(projectId, csvFileId)}/columns`);
+  const columns = Array.isArray(body?.columns) ? (body.columns as Record<string, unknown>[]) : [];
+  return {
+    plotCount: toCount(body?.plotCount),
+    hasHeader: body?.hasHeader === true,
+    separator: typeof body?.separator === "string" ? body.separator : ",",
+    columns: columns.map((c) => ({
+      index: toCount(c.index),
+      name: typeof c.name === "string" ? c.name : null,
+      distinctCount: toCount(c.distinctCount),
+      values: Array.isArray(c.values)
+        ? c.values.map((v: Record<string, unknown>) => ({ value: String(v?.value ?? ""), count: toCount(v?.count) }))
+        : null,
+    })),
+  };
+}
+
+export async function getDistribution(projectId: string, csvFileId: string): Promise<DistributionState> {
+  return toDistributionState(await request<unknown>("GET", `${f(projectId, csvFileId)}/distribution`));
+}
+
+/** Divides the file's plots (or, with dryRun, only says what the result would be). */
+export async function saveDistribution(projectId: string, csvFileId: string, distribution: Distribution, dryRun = false): Promise<DistributionState> {
+  const json = dryRun ? { ...distribution, dryRun: true } : distribution;
+  return toDistributionState(await request<unknown>("PUT", `${f(projectId, csvFileId)}/distribution`, { json }));
+}
+
+/** Gives every plot `fromUserId` has not submitted to `toUserId`. */
+export async function moveUnfinished(
+  projectId: string,
+  csvFileId: string,
+  fromUserId: string,
+  toUserId: string,
+): Promise<DistributionState & { moved: number }> {
+  const body = await request<Record<string, unknown>>("POST", `${f(projectId, csvFileId)}/move-unfinished`, { json: { fromUserId, toUserId } });
+  return { ...toDistributionState(body), moved: toCount(body?.moved) };
+}
+
+export async function getOverlap(projectId: string): Promise<OverlapReport> {
+  const body = await request<Record<string, unknown>>("GET", `${p(projectId)}/overlap`);
+  const items = Array.isArray(body?.items) ? (body.items as Record<string, unknown>[]) : [];
+  return {
+    plots: toCount(body?.plots),
+    differing: toCount(body?.differing),
+    items: items.map((item) => ({
+      recordKey: String(item.recordKey ?? ""),
+      operators: strings(item.operators),
+      fields: Array.isArray(item.fields)
+        ? item.fields.map((field: Record<string, unknown>) => {
+            const values = field?.values && typeof field.values === "object" ? (field.values as Record<string, unknown>) : {};
+            return {
+              key: String(field?.key ?? ""),
+              values: Object.fromEntries(Object.entries(values).map(([who, v]) => [who, v == null ? "" : String(v)])),
+            };
+          })
+        : [],
+    })),
+  };
 }
 
 // --- data ------------------------------------------------------------------------------------

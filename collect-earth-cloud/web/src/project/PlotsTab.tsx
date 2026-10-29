@@ -2,6 +2,7 @@ import Alert from "@mui/material/Alert";
 import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
 import Checkbox from "@mui/material/Checkbox";
+import Chip from "@mui/material/Chip";
 import LinearProgress from "@mui/material/LinearProgress";
 import Paper from "@mui/material/Paper";
 import Stack from "@mui/material/Stack";
@@ -13,6 +14,7 @@ import TableHead from "@mui/material/TableHead";
 import TableRow from "@mui/material/TableRow";
 import Typography from "@mui/material/Typography";
 import ArrowForward from "@mui/icons-material/ArrowForward";
+import CallSplit from "@mui/icons-material/CallSplit";
 import { useEffect, useMemo, useState } from "react";
 import {
   listAssignments,
@@ -31,18 +33,34 @@ import { FileDrop } from "../components/FileDrop";
 import { Loading } from "../components/Loading";
 import { formatNumber } from "../format";
 import { useT } from "../i18n";
-import type { ProjectTab } from "../router";
+import { linkProps, pathFor, type ProjectTab } from "../router";
 import { useLoad } from "../useLoad";
 import { fromPairs, hasChanges, pairKey, toPairs } from "../assignmentGrid";
+import { sortPeople } from "../division";
 
 interface UploadState {
   name: string;
   progress: number;
 }
 
+/** For each divided file (its plots shared out between people): how many people have plots. */
+type Divided = Map<string, number>;
+
+function dividedOf(files: CsvFile[]): Divided {
+  return new Map(files.filter((file) => file.divided).map((file) => [file.id, file.dividedPeople ?? 0]));
+}
+
 async function loadPlots(projectId: string) {
   const [files, members, assignments] = await Promise.all([listCsvFiles(projectId), listMembers(projectId), listAssignments(projectId)]);
-  return { files, members, assignments };
+  return { files, members, assignments, divided: dividedOf(files) };
+}
+
+const filePath = (projectId: string, fileId: string) => pathFor({ name: "plotFile", projectId, fileId });
+
+function DividedChip({ projectId, fileId, count }: { projectId: string; fileId: string; count: number }) {
+  const t = useT();
+  const label = count === 0 ? t("plots.dividedNone") : count === 1 ? t("plots.dividedOne") : t("plots.dividedChip", { count });
+  return <Chip icon={<CallSplit />} label={label} clickable component="a" color="primary" variant="outlined" {...linkProps(filePath(projectId, fileId))} />;
 }
 
 function AssignmentGrid({
@@ -50,12 +68,14 @@ function AssignmentGrid({
   files,
   members,
   assignments,
+  divided,
   onGo,
 }: {
   projectId: string;
   files: CsvFile[];
   members: Member[];
   assignments: Assignment[];
+  divided: Divided;
   onGo: (tab: ProjectTab) => void;
 }) {
   const t = useT();
@@ -72,7 +92,7 @@ function AssignmentGrid({
   }, [assignments]);
 
   // Coordinators normally do not collect: show collectors and reviewers first.
-  const people = useMemo(() => [...members].sort((a, b) => Number(a.role === "admin") - Number(b.role === "admin") || a.username.localeCompare(b.username)), [members]);
+  const people = useMemo(() => sortPeople(members), [members]);
   const changed = useMemo(() => hasChanges(pairs, saved), [pairs, saved]);
 
   if (members.length <= 1) {
@@ -101,7 +121,8 @@ function AssignmentGrid({
     setError(null);
     setBusy(true);
     try {
-      await saveAssignments(projectId, fromPairs(pairs, files, members));
+      // Divided files have their own page; the server ignores them here anyway.
+      await saveAssignments(projectId, fromPairs(pairs, files.filter((f) => !divided.has(f.id)), members));
       setSaved(new Set(pairs));
       setDone(true);
     } catch (err) {
@@ -131,23 +152,34 @@ function AssignmentGrid({
                 <TableCell component="th" scope="row" sx={{ wordBreak: "break-word" }}>
                   {file.filename}
                 </TableCell>
-                {people.map((person) => {
-                  const key = pairKey(file.id, person.userId);
-                  return (
-                    <TableCell key={person.userId} align="center" padding="checkbox">
-                      <Checkbox
-                        checked={pairs.has(key)}
-                        onChange={() => toggle(key)}
-                        slotProps={{ input: { "aria-label": t("plots.assignLabel", { file: file.filename, person: person.username }) } }}
-                      />
-                    </TableCell>
-                  );
-                })}
+                {divided.has(file.id) ? (
+                  <TableCell colSpan={people.length}>
+                    <DividedChip projectId={projectId} fileId={file.id} count={divided.get(file.id) ?? 0} />
+                  </TableCell>
+                ) : (
+                  people.map((person) => {
+                    const key = pairKey(file.id, person.userId);
+                    return (
+                      <TableCell key={person.userId} align="center" padding="checkbox">
+                        <Checkbox
+                          checked={pairs.has(key)}
+                          onChange={() => toggle(key)}
+                          slotProps={{ input: { "aria-label": t("plots.assignLabel", { file: file.filename, person: person.username }) } }}
+                        />
+                      </TableCell>
+                    );
+                  })
+                )}
               </TableRow>
             ))}
           </TableBody>
         </Table>
       </TableContainer>
+      {divided.size > 0 && (
+        <Typography variant="body2" color="text.secondary">
+          {t("plots.gridDividedHelp")}
+        </Typography>
+      )}
       {changed && <Alert severity="warning">{t("plots.unsaved")}</Alert>}
       {done && !changed && (
         <Alert severity="success" role="status">
@@ -247,6 +279,7 @@ export function PlotsTab({ projectId, onGo }: { projectId: string; onGo: (tab: P
                 <TableRow>
                   <TableCell>{t("plots.file")}</TableCell>
                   <TableCell align="right">{t("plots.count")}</TableCell>
+                  <TableCell align="right">{t("plots.divideHeader")}</TableCell>
                 </TableRow>
               </TableHead>
               <TableBody>
@@ -254,6 +287,17 @@ export function PlotsTab({ projectId, onGo }: { projectId: string; onGo: (tab: P
                   <TableRow key={file.id}>
                     <TableCell sx={{ wordBreak: "break-word" }}>{file.filename}</TableCell>
                     <TableCell align="right">{formatNumber(file.plotCount, language)}</TableCell>
+                    <TableCell align="right">
+                      <Button
+                        size="small"
+                        startIcon={<CallSplit />}
+                        aria-label={t("plots.divideLabel", { file: file.filename })}
+                        sx={{ whiteSpace: "nowrap" }}
+                        {...linkProps(filePath(projectId, file.id))}
+                      >
+                        {t("plots.divide")}
+                      </Button>
+                    </TableCell>
                   </TableRow>
                 ))}
               </TableBody>
@@ -266,7 +310,14 @@ export function PlotsTab({ projectId, onGo }: { projectId: string; onGo: (tab: P
             <Typography color="text.secondary" sx={{ mb: 2 }}>
               {t("plots.gridHelp")}
             </Typography>
-            <AssignmentGrid projectId={projectId} files={state.data.files} members={state.data.members} assignments={state.data.assignments} onGo={onGo} />
+            <AssignmentGrid
+              projectId={projectId}
+              files={state.data.files}
+              members={state.data.members}
+              assignments={state.data.assignments}
+              divided={state.data.divided}
+              onGo={onGo}
+            />
           </Paper>
         </>
       )}

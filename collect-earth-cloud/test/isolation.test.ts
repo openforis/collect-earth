@@ -107,6 +107,33 @@ describe('cross-tenant isolation', () => {
     expect((await ctx.store.getProject(b.projectId))?.name).toBe('Project B');
   });
 
+  // Same gate for dividing plots: aimed at B, or at B's file through A's path.
+  it("A's admin token gets 404 on every plot-division endpoint aimed at B or at B's file", async () => {
+    const upload = await ctx.app.inject({
+      method: 'PUT',
+      url: `/v1/projects/${b.projectId}/csv-files/plots.csv`,
+      headers: { authorization: `Bearer ${b.adminToken}`, 'content-type': 'text/csv' },
+      payload: 'id,lat,lon\n1,0,0\n2,1,1\n',
+    });
+    const fileB = upload.json().id as string;
+    const auth = { authorization: `Bearer ${a.adminToken}` };
+    const nobody = '00000000-0000-0000-0000-000000000000';
+    const cases = [b.projectId, a.projectId].flatMap((pid) => [
+      { method: 'GET' as const, url: `/v1/projects/${pid}/csv-files/${fileB}/columns` },
+      { method: 'GET' as const, url: `/v1/projects/${pid}/csv-files/${fileB}/distribution` },
+      { method: 'PUT' as const, url: `/v1/projects/${pid}/csv-files/${fileB}/distribution`, payload: { mode: 'whole' } },
+      { method: 'POST' as const, url: `/v1/projects/${pid}/csv-files/${fileB}/move-unfinished`,
+        payload: { fromUserId: nobody, toUserId: nobody } },
+      { method: 'GET' as const, url: `/v1/projects/${pid}/csv-files/${fileB}/content` },
+      { method: 'GET' as const, url: `/v1/projects/${pid}/csv-files/${fileB}/content?mine=1` },
+    ]);
+    cases.push({ method: 'GET' as const, url: `/v1/projects/${b.projectId}/overlap` });
+    for (const c of cases) {
+      const res = await ctx.app.inject({ method: c.method, url: c.url, headers: auth, payload: c.payload });
+      expect(res.statusCode, `${c.method} ${c.url}`).toBe(404);
+    }
+  });
+
   it("deleting A leaves B whole, and A's admin cannot delete B even with B's name", async () => {
     await batchRequest(ctx.app, b.projectId, b.projectToken, [{ recordKey: '1', surveyUri: 'x', operator: 'o' }]);
     const cross = await ctx.app.inject({

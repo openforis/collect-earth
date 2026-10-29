@@ -14,6 +14,7 @@ import { DataTab } from "../project/DataTab";
 import { FileTab } from "../project/FileTab";
 import { OverviewTab } from "../project/OverviewTab";
 import { PeopleTab } from "../project/PeopleTab";
+import { PlotFilePage } from "../project/PlotFilePage";
 import { PlotsTab } from "../project/PlotsTab";
 import { SettingsTab } from "../project/SettingsTab";
 import { linkProps, navigate, pathFor, PROJECT_TABS, type ProjectTab } from "../router";
@@ -28,7 +29,8 @@ const TAB_LABELS = {
   settings: "tab.settings",
 } as const;
 
-export function ProjectPage({ projectId, tab }: { projectId: string; tab: ProjectTab }) {
+/** fileId: one plot file's page, shown under the Plot files tab. */
+export function ProjectPage({ projectId, tab, fileId }: { projectId: string; tab: ProjectTab; fileId?: string }) {
   const t = useT();
   const project = useLoad(() => getProject(projectId), [projectId]);
 
@@ -80,7 +82,7 @@ export function ProjectPage({ projectId, tab }: { projectId: string; tab: Projec
     overview: <OverviewTab projectId={projectId} onGo={go} />,
     file: <FileTab projectId={projectId} />,
     people: <PeopleTab projectId={projectId} />,
-    plots: <PlotsTab projectId={projectId} onGo={go} />,
+    plots: fileId ? <PlotFilePage key={fileId} projectId={projectId} fileId={fileId} onGo={go} /> : <PlotsTab projectId={projectId} onGo={go} />,
     data: <DataTab projectId={projectId} />,
     settings: <SettingsTab projectId={projectId} name={info.name} onRenamed={(name) => project.setData({ ...info, name })} />,
   }[tab];
@@ -100,7 +102,15 @@ export function ProjectPage({ projectId, tab }: { projectId: string; tab: Projec
         sx={{ mb: 3, borderBottom: 1, borderColor: "divider" }}
       >
         {PROJECT_TABS.map((id) => (
-          <Tab key={id} value={id} label={t(TAB_LABELS[id])} id={`tab-${id}`} aria-controls={`panel-${id}`} />
+          <Tab
+            key={id}
+            value={id}
+            label={t(TAB_LABELS[id])}
+            id={`tab-${id}`}
+            aria-controls={`panel-${id}`}
+            // On a plot file's page the Plot files tab is already selected: clicking it goes back to the list.
+            onClick={fileId && id === tab ? () => go(id) : undefined}
+          />
         ))}
       </Tabs>
       <div role="tabpanel" id={`panel-${tab}`} aria-labelledby={`tab-${tab}`}>

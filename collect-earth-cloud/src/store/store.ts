@@ -7,11 +7,13 @@ import type {
   InviteSummary,
   Member,
   Membership,
+  PlotAssignment,
   ProjectRow,
   ProjectStorage,
   RecordRow,
   Role,
   ServerSettings,
+  StoredDistribution,
   User,
   UserSummary,
 } from '../types.js';
@@ -117,6 +119,7 @@ export interface Store {
   listMemberships(userId: string): Promise<Membership[]>;
   listMembers(projectId: string): Promise<Member[]>;
   setMemberRole(projectId: string, userId: string, role: Role): Promise<void>;
+  /** Also drops the member's assignments and plot holdings in the project. */
   removeMember(projectId: string, userId: string): Promise<void>;
   countAdmins(projectId: string): Promise<number>;
   /** How many projects the user coordinates (admin role). */
@@ -135,16 +138,34 @@ export interface Store {
 
   // --- CSV files & assignments (Phase B) ---
 
-  /** Stores (or replaces, by filename) a plot CSV and returns its metadata. */
-  putCsvFile(projectId: string, filename: string, data: Buffer): Promise<CsvFile>;
+  /**
+   * Stores (or replaces, by filename) a plot CSV and returns its metadata. A replaced
+   * file keeps its division; given `plotKeys` (the new content's plot ids), holdings
+   * of plots no longer in it are dropped.
+   */
+  putCsvFile(projectId: string, filename: string, data: Buffer, plotKeys?: string[]): Promise<CsvFile>;
   listCsvFiles(projectId: string): Promise<CsvFile[]>;
   getCsvFile(projectId: string, csvFileId: string): Promise<(CsvFile & { data: Buffer }) | null>;
 
-  /** Replaces the project's whole assignment set with the given pairs. */
+  /** Replaces the project's whole assignment set with the given pairs (pairs of divided files are ignored). */
   setAssignments(projectId: string, assignments: Assignment[]): Promise<void>;
   listAssignments(projectId: string): Promise<AssignmentDetail[]>;
   listAssignmentsForUser(projectId: string, userId: string): Promise<CsvFile[]>;
   isAssigned(projectId: string, csvFileId: string, userId: string): Promise<boolean>;
+
+  /**
+   * Divides a file (distribution set): its holdings become `plots` and its whole-file
+   * assignments are deleted. With null the file is whole again and its holdings go.
+   */
+  setDivision(projectId: string, csvFileId: string, distribution: StoredDistribution | null, plots: PlotAssignment[]): Promise<void>;
+  /** Who holds which plot of a file. */
+  listPlotAssignments(projectId: string, csvFileId: string): Promise<PlotAssignment[]>;
+  /** The divided files where the user holds plots, with those plots, by filename. */
+  listPlotHoldings(projectId: string, userId: string): Promise<{ csvFileId: string; plotKeys: string[] }[]>;
+  /** How many people hold at least one plot, by csv file id (divided files only). */
+  countPlotHolders(projectId: string): Promise<Map<string, number>>;
+  /** The user's plots of one divided file (none for a whole file). */
+  listUserPlotKeys(projectId: string, csvFileId: string, userId: string): Promise<string[]>;
 
   getRecord(projectId: string, recordKey: string, operator: string): Promise<RecordRow | null>;
   putRecord(row: RecordRow): Promise<void>;

@@ -9,6 +9,11 @@ import {
   deleteProject,
   errorMessageKey,
   getAccountDeletion,
+  getCsvColumns,
+  getDistribution,
+  getOverlap,
+  moveUnfinished,
+  saveDistribution,
   getOverview,
   getServerInfo,
   listProjects,
@@ -287,5 +292,66 @@ describe("normalising responses", () => {
     expect(absoluteUrl("/reset/x", "/", "https://a.org/")).toBe("https://a.org/reset/x");
     expect(absoluteUrl(null, "/join/y", "https://a.org")).toBe("https://a.org/join/y");
     expect(absoluteUrl("http://b.org/r", "/", "https://a.org")).toBe("http://b.org/r");
+  });
+});
+
+describe("dividing plots", () => {
+  const call = (i = 0) => {
+    const [url, init] = fetchMock.mock.calls[i];
+    return { url, method: init?.method, body: init?.body ? JSON.parse(init.body as string) : undefined };
+  };
+  const state = { distribution: null, plotCount: 3, unassigned: 0, people: [] };
+
+  it("reads a file's columns", async () => {
+    fetchMock.mockResolvedValue(
+      jsonResponse(200, {
+        plotCount: 120,
+        hasHeader: true,
+        separator: ";",
+        columns: [
+          { index: 0, name: "id", distinctCount: 120, values: null },
+          { index: 4, name: null, distinctCount: 1, values: [{ value: "Oruro", count: "40" }] },
+        ],
+      }),
+    );
+    expect(await getCsvColumns("p 1", "f1")).toEqual({
+      plotCount: 120,
+      hasHeader: true,
+      separator: ";",
+      columns: [
+        { index: 0, name: "id", distinctCount: 120, values: null },
+        { index: 4, name: null, distinctCount: 1, values: [{ value: "Oruro", count: 40 }] },
+      ],
+    });
+    expect(call()).toEqual({ url: "/v1/projects/p%201/csv-files/f1/columns", method: "GET", body: undefined });
+  });
+
+  it("gets, previews, applies and moves", async () => {
+    fetchMock.mockImplementation(async () => jsonResponse(200, { ...state, moved: 5 }));
+    await getDistribution("p1", "f1");
+    expect(call(0)).toEqual({ url: "/v1/projects/p1/csv-files/f1/distribution", method: "GET", body: undefined });
+    const even = { mode: "even" as const, people: ["u1"], order: "file" as const };
+    await saveDistribution("p1", "f1", even, true);
+    expect(call(1)).toEqual({ url: "/v1/projects/p1/csv-files/f1/distribution", method: "PUT", body: { ...even, dryRun: true } });
+    await saveDistribution("p1", "f1", even);
+    expect(call(2).body).toEqual(even);
+    expect(await moveUnfinished("p1", "f1", "u1", "u2")).toMatchObject({ moved: 5, plotCount: 3 });
+    expect(call(3)).toEqual({ url: "/v1/projects/p1/csv-files/f1/move-unfinished", method: "POST", body: { fromUserId: "u1", toUserId: "u2" } });
+  });
+
+  it("reads the quality check", async () => {
+    fetchMock.mockResolvedValue(
+      jsonResponse(200, {
+        plots: 12,
+        differing: 1,
+        items: [{ recordKey: "17", operators: ["maria", "jose"], fields: [{ key: "land_use", values: { maria: "forest", jose: null } }] }],
+      }),
+    );
+    expect(await getOverlap("p1")).toEqual({
+      plots: 12,
+      differing: 1,
+      items: [{ recordKey: "17", operators: ["maria", "jose"], fields: [{ key: "land_use", values: { maria: "forest", jose: "" } }] }],
+    });
+    expect(call().url).toBe("/v1/projects/p1/overlap");
   });
 });

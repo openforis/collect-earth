@@ -13,6 +13,8 @@ export type Route =
   | { name: "login" }
   | { name: "signup" }
   | { name: "project"; projectId: string; tab: ProjectTab }
+  /** One plot file of a project, where its plots are divided between people (under the Plot files tab). */
+  | { name: "plotFile"; projectId: string; fileId: string }
   | { name: "join"; token: string }
   | { name: "reset"; token: string }
   | { name: "account" }
@@ -31,7 +33,7 @@ function decode(segment: string): string | null {
 export function matchRoute(pathname: string): Route {
   const path = pathname.split(/[?#]/)[0];
   const parts = path.split("/").filter((p) => p.length > 0);
-  const [first, second, third] = parts;
+  const [first, second, third, fourth] = parts;
   if (parts.length === 0) return { name: "home" };
   if (parts.length === 1) {
     switch (first) {
@@ -62,6 +64,11 @@ export function matchRoute(pathname: string): Route {
     const tab = (third ?? "overview") as ProjectTab;
     if (projectId && PROJECT_TABS.includes(tab)) return { name: "project", projectId, tab };
   }
+  if (first === "projects" && parts.length === 4 && third === "plots") {
+    const projectId = decode(second);
+    const fileId = decode(fourth);
+    if (projectId && fileId) return { name: "plotFile", projectId, fileId };
+  }
   return { name: "notFound", path };
 }
 
@@ -72,6 +79,8 @@ export function pathFor(route: Route): string {
       return "/";
     case "project":
       return `/projects/${encodeURIComponent(route.projectId)}${route.tab === "overview" ? "" : `/${route.tab}`}`;
+    case "plotFile":
+      return `/projects/${encodeURIComponent(route.projectId)}/plots/${encodeURIComponent(route.fileId)}`;
     case "join":
       return `/join/${encodeURIComponent(route.token)}`;
     case "reset":

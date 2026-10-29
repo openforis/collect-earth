@@ -28,6 +28,8 @@ function RoutePage({ route }: { route: Route }) {
       return <ProjectsPage />;
     case "project":
       return <ProjectPage key={route.projectId} projectId={route.projectId} tab={route.tab} />;
+    case "plotFile":
+      return <ProjectPage key={route.projectId} projectId={route.projectId} tab="plots" fileId={route.fileId} />;
     case "join":
       return <JoinPage token={route.token} />;
     case "reset":

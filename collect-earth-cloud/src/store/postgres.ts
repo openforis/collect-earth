@@ -12,10 +12,12 @@ import {
   type InviteSummary,
   type Member,
   type Membership,
+  type PlotAssignment,
   type ProjectRow,
   type ProjectStorage,
   type RecordRow,
   type ServerSettings,
+  type StoredDistribution,
   type Role,
   type User,
   type UserSummary,
@@ -25,6 +27,9 @@ import { UsernameTakenError } from './memory.js';
 import { checksumOf, plotCountOf } from '../csv.js';
 
 const { Pool } = pg;
+
+/** Rows per INSERT when saving a division (a file can have ~100k plots). */
+const PLOT_INSERT_CHUNK = 5000;
 
 /**
  * PostgreSQL-backed Store. In addition to app-level project scoping (every query
@@ -112,6 +117,7 @@ export class PostgresStore implements Store {
     // their policies. The global tables (tokens, invites, members) are matched by
     // project_id. Children first, so nothing relies on ON DELETE CASCADE.
     await this.withProject(projectId, async (client) => {
+      await client.query('DELETE FROM plot_assignments WHERE project_id = $1', [projectId]);
       await client.query('DELETE FROM assignments WHERE project_id = $1', [projectId]);
       await client.query('DELETE FROM csv_files WHERE project_id = $1', [projectId]);
       await client.query('DELETE FROM records WHERE project_id = $1', [projectId]);
@@ -363,6 +369,7 @@ export class PostgresStore implements Store {
       for (const r of projects.rows) {
         await client.query('SELECT set_config($1, $2, true)', ['app.current_project', r.project_id]);
         await client.query('DELETE FROM assignments WHERE project_id = $1 AND user_id = $2', [r.project_id, userId]);
+        await client.query('DELETE FROM plot_assignments WHERE project_id = $1 AND user_id = $2', [r.project_id, userId]);
       }
       await client.query('DELETE FROM sessions WHERE user_id = $1', [userId]);
       await client.query('DELETE FROM password_resets WHERE user_id = $1', [userId]);
@@ -545,7 +552,11 @@ export class PostgresStore implements Store {
   }
 
   async removeMember(projectId: string, userId: string): Promise<void> {
-    await this.pool.query('DELETE FROM project_members WHERE project_id = $1 AND user_id = $2', [projectId, userId]);
+    await this.withProject(projectId, async (client) => {
+      await client.query('DELETE FROM assignments WHERE project_id = $1 AND user_id = $2', [projectId, userId]);
+      await client.query('DELETE FROM plot_assignments WHERE project_id = $1 AND user_id = $2', [projectId, userId]);
+      await client.query('DELETE FROM project_members WHERE project_id = $1 AND user_id = $2', [projectId, userId]);
+    });
   }
 
   async countAdmins(projectId: string): Promise<number> {
@@ -651,7 +662,7 @@ export class PostgresStore implements Store {
     return res.rowCount !== null && res.rowCount > 0;
   }
 
-  async putCsvFile(projectId: string, filename: string, data: Buffer): Promise<CsvFile> {
+  async putCsvFile(projectId: string, filename: string, data: Buffer, plotKeys?: string[]): Promise<CsvFile> {
     const checksum = checksumOf(data);
     const plotCount = plotCountOf(data);
     return this.withProject(projectId, async (client) => {
@@ -660,35 +671,45 @@ export class PostgresStore implements Store {
          VALUES ($1, $2, $3, $4, $5, $6)
          ON CONFLICT (project_id, filename) DO UPDATE SET
            checksum = EXCLUDED.checksum, plot_count = EXCLUDED.plot_count, data = EXCLUDED.data
-         RETURNING id, filename, checksum, plot_count`,
+         RETURNING id, filename, checksum, plot_count, distribution`,
         [randomUUID(), projectId, filename, checksum, plotCount, data],
       );
-      const r = res.rows[0];
-      return { id: r.id, filename: r.filename, checksum: r.checksum, plotCount: r.plot_count };
+      const meta = mapCsvFile(res.rows[0]);
+      if (plotKeys && meta.distribution) {
+        // A replaced file keeps the holdings of the plot ids it still has.
+        await client.query(
+          `DELETE FROM plot_assignments
+            WHERE project_id = $1 AND csv_file_id = $2 AND NOT (plot_key = ANY($3::text[]))`,
+          [projectId, meta.id, plotKeys],
+        );
+      }
+      return meta;
     });
   }
 
   async listCsvFiles(projectId: string): Promise<CsvFile[]> {
     return this.withProject(projectId, async (client) => {
       const res = await client.query(
-        'SELECT id, filename, checksum, plot_count FROM csv_files WHERE project_id = $1 ORDER BY filename',
+        'SELECT id, filename, checksum, plot_count, distribution FROM csv_files WHERE project_id = $1 ORDER BY filename',
         [projectId],
       );
-      return res.rows.map((r) => ({ id: r.id, filename: r.filename, checksum: r.checksum, plotCount: r.plot_count }));
+      return res.rows.map(mapCsvFile);
     });
   }
 
   async getCsvFile(projectId: string, csvFileId: string): Promise<(CsvFile & { data: Buffer }) | null> {
+    if (!isUuid(csvFileId)) {
+      return null;
+    }
     return this.withProject(projectId, async (client) => {
       const res = await client.query(
-        'SELECT id, filename, checksum, plot_count, data FROM csv_files WHERE project_id = $1 AND id = $2',
+        'SELECT id, filename, checksum, plot_count, distribution, data FROM csv_files WHERE project_id = $1 AND id = $2',
         [projectId, csvFileId],
       );
       if (res.rowCount === 0) {
         return null;
       }
-      const r = res.rows[0];
-      return { id: r.id, filename: r.filename, checksum: r.checksum, plotCount: r.plot_count, data: r.data as Buffer };
+      return { ...mapCsvFile(res.rows[0]), data: res.rows[0].data as Buffer };
     });
   }
 
@@ -697,8 +718,10 @@ export class PostgresStore implements Store {
       await client.query('DELETE FROM assignments WHERE project_id = $1', [projectId]);
       for (const a of assignments) {
         // ON CONFLICT DO NOTHING tolerates duplicate pairs; FK enforces valid csv/user.
+        // Divided files are skipped: their plots are given out one by one.
         await client.query(
-          `INSERT INTO assignments (project_id, csv_file_id, user_id) VALUES ($1, $2, $3)
+          `INSERT INTO assignments (project_id, csv_file_id, user_id)
+           SELECT $1, id, $3 FROM csv_files WHERE project_id = $1 AND id = $2 AND distribution IS NULL
            ON CONFLICT DO NOTHING`,
           [projectId, a.csvFileId, a.userId],
         );
@@ -740,6 +763,9 @@ export class PostgresStore implements Store {
   }
 
   async isAssigned(projectId: string, csvFileId: string, userId: string): Promise<boolean> {
+    if (!isUuid(csvFileId)) {
+      return false;
+    }
     return this.withProject(projectId, async (client) => {
       const res = await client.query(
         'SELECT 1 FROM assignments WHERE project_id = $1 AND csv_file_id = $2 AND user_id = $3',
@@ -749,9 +775,104 @@ export class PostgresStore implements Store {
     });
   }
 
+  async setDivision(
+    projectId: string,
+    csvFileId: string,
+    distribution: StoredDistribution | null,
+    plots: PlotAssignment[],
+  ): Promise<void> {
+    await this.withProject(projectId, async (client) => {
+      await client.query('UPDATE csv_files SET distribution = $3 WHERE project_id = $1 AND id = $2', [
+        projectId,
+        csvFileId,
+        distribution === null ? null : JSON.stringify(distribution),
+      ]);
+      await client.query('DELETE FROM plot_assignments WHERE project_id = $1 AND csv_file_id = $2', [projectId, csvFileId]);
+      if (distribution === null) {
+        return;
+      }
+      await client.query('DELETE FROM assignments WHERE project_id = $1 AND csv_file_id = $2', [projectId, csvFileId]);
+      for (let i = 0; i < plots.length; i += PLOT_INSERT_CHUNK) {
+        const chunk = plots.slice(i, i + PLOT_INSERT_CHUNK);
+        await client.query(
+          `INSERT INTO plot_assignments (project_id, csv_file_id, plot_key, user_id, overlap)
+           SELECT $1, $2, t.plot_key, t.user_id, t.overlap
+             FROM unnest($3::text[], $4::uuid[], $5::boolean[]) AS t(plot_key, user_id, overlap)
+           ON CONFLICT DO NOTHING`,
+          [projectId, csvFileId, chunk.map((a) => a.plotKey), chunk.map((a) => a.userId), chunk.map((a) => a.overlap)],
+        );
+      }
+    });
+  }
+
+  async listPlotAssignments(projectId: string, csvFileId: string): Promise<PlotAssignment[]> {
+    if (!isUuid(csvFileId)) {
+      return [];
+    }
+    return this.withProject(projectId, async (client) => {
+      const res = await client.query(
+        'SELECT plot_key, user_id, overlap FROM plot_assignments WHERE project_id = $1 AND csv_file_id = $2',
+        [projectId, csvFileId],
+      );
+      return res.rows.map((r) => ({ plotKey: r.plot_key, userId: r.user_id, overlap: r.overlap }));
+    });
+  }
+
+  async listPlotHoldings(projectId: string, userId: string): Promise<{ csvFileId: string; plotKeys: string[] }[]> {
+    return this.withProject(projectId, async (client) => {
+      const res = await client.query(
+        `SELECT c.id, array_agg(p.plot_key) AS plot_keys
+           FROM plot_assignments p JOIN csv_files c ON c.id = p.csv_file_id
+          WHERE p.project_id = $1 AND p.user_id = $2 AND c.distribution IS NOT NULL
+          GROUP BY c.id, c.filename
+          ORDER BY c.filename`,
+        [projectId, userId],
+      );
+      return res.rows.map((r) => ({ csvFileId: r.id, plotKeys: r.plot_keys as string[] }));
+    });
+  }
+
+  async countPlotHolders(projectId: string): Promise<Map<string, number>> {
+    return this.withProject(projectId, async (client) => {
+      const res = await client.query(
+        `SELECT p.csv_file_id, COUNT(DISTINCT p.user_id)::int AS n
+           FROM plot_assignments p JOIN csv_files c ON c.id = p.csv_file_id
+          WHERE p.project_id = $1 AND c.distribution IS NOT NULL
+          GROUP BY p.csv_file_id`,
+        [projectId],
+      );
+      return new Map(res.rows.map((r) => [r.csv_file_id as string, r.n as number]));
+    });
+  }
+
+  async listUserPlotKeys(projectId: string, csvFileId: string, userId: string): Promise<string[]> {
+    if (!isUuid(csvFileId)) {
+      return [];
+    }
+    return this.withProject(projectId, async (client) => {
+      const res = await client.query(
+        `SELECT p.plot_key
+           FROM plot_assignments p JOIN csv_files c ON c.id = p.csv_file_id
+          WHERE p.project_id = $1 AND p.csv_file_id = $2 AND p.user_id = $3 AND c.distribution IS NOT NULL`,
+        [projectId, csvFileId, userId],
+      );
+      return res.rows.map((r) => r.plot_key as string);
+    });
+  }
+
   async close(): Promise<void> {
     await this.pool.end();
   }
+}
+
+function mapCsvFile(r: Record<string, unknown>): CsvFile {
+  return {
+    id: r.id as string,
+    filename: r.filename as string,
+    checksum: r.checksum as string,
+    plotCount: r.plot_count as number,
+    distribution: (r.distribution as StoredDistribution | null) ?? null,
+  };
 }
 
 function mapUser(r: Record<string, unknown>): User {

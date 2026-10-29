@@ -132,12 +132,22 @@ other `GET` that accepts HTML and is not under `/v1/` or `/health` returns its
 
 | Method | Path | Auth | Purpose |
 | --- | --- | --- | --- |
-| `PUT`  | `/v1/projects/:pid/csv-files/:filename` | admin | Upload/replace a plot CSV (raw `text/csv`) → `{id,checksum,plotCount}`; 413 `storage_limit_reached` over the project's space limit |
-| `GET`  | `/v1/projects/:pid/csv-files` | admin | List CSV files |
-| `GET`  | `/v1/projects/:pid/csv-files/:id/content` | member | Download CSV bytes (operator: only if assigned); checksum in `x-checksum-sha256` |
-| `PUT`  | `/v1/projects/:pid/assignments` | admin | Replace the csv↔operator assignment set |
+| `PUT`  | `/v1/projects/:pid/csv-files/:filename` | admin | Upload/replace a plot CSV (raw `text/csv`) → `{id,checksum,plotCount,distribution}`; 413 `storage_limit_reached` over the project's space limit. A divided file keeps the holdings of the plot ids still in it |
+| `GET`  | `/v1/projects/:pid/csv-files` | admin | List CSV files `{csvFiles: [{id, filename, checksum, plotCount, distribution, divided, dividedPeople}]}` (`dividedPeople` = people holding ≥ 1 plot, 0 for a whole file) |
+| `GET`  | `/v1/projects/:pid/csv-files/:id/content` | member | Download CSV bytes; checksum of what is served in `x-checksum-sha256`. Whole file: operator only if assigned. Divided file: the caller's own file (header + their plots; 404 if they hold none) — an admin gets the full file unless `?mine=1` |
+| `PUT`  | `/v1/projects/:pid/assignments` | admin | Replace the csv↔operator assignment set (pairs of divided files are ignored) |
 | `GET`  | `/v1/projects/:pid/assignments` | admin | Full assignment matrix |
-| `GET`  | `/v1/projects/:pid/my-assignment` | member | The caller's assigned CSVs + download URLs + checksums |
+| `GET`  | `/v1/projects/:pid/my-assignment` | member | The caller's assigned CSVs + download URLs + checksums; also the divided files where they hold plots (`checksum`/`plotCount` of their own file, `downloadPath` `…/content?mine=1`) |
+
+**Dividing a plot file between people** (see `docs/plans/2026-10-29-dividing-plots.md`)
+
+| Method | Path | Auth | Purpose |
+| --- | --- | --- | --- |
+| `GET`  | `/v1/projects/:pid/csv-files/:id/columns` | admin | `{plotCount, hasHeader, separator, columns: [{index, name, distinctCount, values: [{value, count}] \| null}]}` — `values` (by value, `""` last) only up to 200 distinct values, never for the id column |
+| `GET`  | `/v1/projects/:pid/csv-files/:id/distribution` | admin | `{distribution \| null, plotCount, unassigned, people: [{userId, username, plots, overlap, submitted}]}` (`plots` includes the `overlap` copies) |
+| `PUT`  | `/v1/projects/:pid/csv-files/:id/distribution` | admin | `{mode: 'whole'}` \| `{mode: 'even', people, order: 'file'\|'mixed', overlapPercent?, seed?}` \| `{mode: 'column', column, groups: [{value, people}], order, overlapPercent?, seed?}`, optional `dryRun: true` → the GET shape (the `seed` used is in `distribution`); 400 `bad_request` `{reason}` |
+| `POST` | `/v1/projects/:pid/csv-files/:id/move-unfinished` | admin | `{fromUserId, toUserId}` → the GET shape + `moved`; plots `from` submitted stay; a whole file is divided first (mode `manual`) |
+| `GET`  | `/v1/projects/:pid/overlap` | admin | `{plots, differing, items: [{recordKey, operators, fields: [{key, values: {operator: value}}]}]}` — submitted plots of ≥ 2 operators, metadata keys ignored, at most 500 items |
 
 The record batch body is **gzip-compressed** (the Java `CloudApiClient` sends
 `Content-Encoding: gzip`); the server gunzips it in a `preParsing` hook.
@@ -199,6 +209,8 @@ src/
   accountRules.ts      username/password rules, setup code, public base URL
   rateLimit.ts         in-memory per-IP limiter for the auth endpoints
   export.ts            records -> CSV
+  plots.ts             plot file parser (as Collect Earth reads it) + one person's own file
+  division.ts          dividing a file's plots between people, move-unfinished, overlap report
   limits.ts            per-project storage limit checks (projects-per-account is in routes/projects.ts)
   plugins/projectAuth  membership / session / platform-admin preHandlers (401 / 404 / 403)
   routes/projects.ts   provision, ping, survey upload, rename, overview, export
@@ -206,9 +218,10 @@ src/
   routes/admin.ts      server info, setup, signup, reset, /v1/admin/*
   routes/auth.ts       register, login, logout, /me, password change
   routes/assignments.ts plot CSVs and assignments
+  routes/division.ts   columns, distribution, move-unfinished, overlap
   routes/records.ts    records:batch intake
   store/               Store interface + InMemoryStore + PostgresStore + migrate
-migrations/*.sql       schema + RLS (004: platform admin, settings, resets, invite revocation; 005: terms_accepted_at)
+migrations/*.sql       schema + RLS (004: platform admin, settings, resets, invite revocation; 005: terms_accepted_at; 006: plot_assignments, csv_files.distribution)
 test/                  isolation, sync, accounts, dashboard (in-memory store)
 web/                   the React dashboard (own package.json; built into web/dist)
 ```

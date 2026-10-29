@@ -111,6 +111,33 @@ export interface CsvFile {
   filename: string;
   checksum: string;
   plotCount: number;
+  /** How its plots are divided between people; null (or absent) = whole file, the assignments grid applies. */
+  distribution?: StoredDistribution | null;
+}
+
+export type DivisionOrder = 'file' | 'mixed';
+
+/**
+ * A divided plot file's rule (csv_files.distribution), as last applied. `seed` is the
+ * shuffle seed of order 'mixed'. 'manual' = changed by hand (move-unfinished).
+ */
+export type StoredDistribution =
+  | { mode: 'even'; people: string[]; order: DivisionOrder; overlapPercent: number; seed?: number }
+  | {
+      mode: 'column';
+      column: number;
+      groups: { value: string; people: string[] }[];
+      order: DivisionOrder;
+      overlapPercent: number;
+      seed?: number;
+    }
+  | { mode: 'manual' };
+
+/** One plot of a divided file held by one person; overlap = given as a quality-check copy. */
+export interface PlotAssignment {
+  plotKey: string;
+  userId: string;
+  overlap: boolean;
 }
 
 /** One csv-file ↔ user assignment. */

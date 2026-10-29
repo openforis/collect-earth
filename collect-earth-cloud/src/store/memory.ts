@@ -11,11 +11,13 @@ import {
   type InviteSummary,
   type Member,
   type Membership,
+  type PlotAssignment,
   type ProjectRow,
   type ProjectStorage,
   type RecordRow,
   type Role,
   type ServerSettings,
+  type StoredDistribution,
   type User,
   type UserSummary,
 } from '../types.js';
@@ -23,6 +25,7 @@ import type { CreateInviteInput, CreateProjectResult, Store, TokenMembership } f
 
 interface CsvFileEntry extends CsvFile {
   data: Buffer;
+  distribution: StoredDistribution | null;
 }
 
 interface ProjectEntry {
@@ -32,6 +35,7 @@ interface ProjectEntry {
   cepUpdatedAt: number | null;
   csvFiles: Map<string, CsvFileEntry>; // key = csvFileId
   assignments: Set<string>; // `${userId} ${csvFileId}`
+  plotAssignments: Map<string, PlotAssignment[]>; // key = csvFileId (divided files)
 }
 
 interface InviteEntry {
@@ -92,6 +96,7 @@ export class InMemoryStore implements Store {
       cepUpdatedAt: null,
       csvFiles: new Map(),
       assignments: new Set(),
+      plotAssignments: new Map(),
     });
 
     const adminToken = generateToken();
@@ -281,6 +286,7 @@ export class InMemoryStore implements Store {
           entry.assignments.delete(a);
         }
       }
+      InMemoryStore.dropPlotAssignments(entry, userId);
     }
     for (const [hash, reset] of this.resets) {
       if (reset.userId === userId) {
@@ -402,6 +408,21 @@ export class InMemoryStore implements Store {
 
   async removeMember(projectId: string, userId: string): Promise<void> {
     this.memberships.delete(InMemoryStore.memberId(projectId, userId));
+    const entry = this.projects.get(projectId);
+    if (entry) {
+      for (const a of entry.assignments) {
+        if (a.startsWith(`${userId} `)) {
+          entry.assignments.delete(a);
+        }
+      }
+      InMemoryStore.dropPlotAssignments(entry, userId);
+    }
+  }
+
+  private static dropPlotAssignments(entry: ProjectEntry, userId: string): void {
+    for (const [csvFileId, list] of entry.plotAssignments) {
+      entry.plotAssignments.set(csvFileId, list.filter((a) => a.userId !== userId));
+    }
   }
 
   async countAdmins(projectId: string): Promise<number> {
@@ -503,7 +524,7 @@ export class InMemoryStore implements Store {
 
   // --- CSV files & assignments ---
 
-  async putCsvFile(projectId: string, filename: string, data: Buffer): Promise<CsvFile> {
+  async putCsvFile(projectId: string, filename: string, data: Buffer, plotKeys?: string[]): Promise<CsvFile> {
     const entry = this.requireProject(projectId);
     // Replace by filename if it already exists, keeping a stable id.
     let existingId: string | null = null;
@@ -520,9 +541,26 @@ export class InMemoryStore implements Store {
       checksum: checksumOf(data),
       plotCount: plotCountOf(data),
       data: Buffer.from(data),
+      distribution: existingId ? entry.csvFiles.get(existingId)!.distribution : null,
     };
     entry.csvFiles.set(id, meta);
-    return { id: meta.id, filename: meta.filename, checksum: meta.checksum, plotCount: meta.plotCount };
+    // A replaced file keeps the holdings of the plot ids it still has.
+    const held = entry.plotAssignments.get(id);
+    if (held && plotKeys) {
+      const keep = new Set(plotKeys);
+      entry.plotAssignments.set(id, held.filter((a) => keep.has(a.plotKey)));
+    }
+    return InMemoryStore.csvMeta(meta);
+  }
+
+  private static csvMeta(f: CsvFileEntry): CsvFile {
+    return {
+      id: f.id,
+      filename: f.filename,
+      checksum: f.checksum,
+      plotCount: f.plotCount,
+      distribution: f.distribution ? structuredClone(f.distribution) : null,
+    };
   }
 
   async listCsvFiles(projectId: string): Promise<CsvFile[]> {
@@ -530,12 +568,7 @@ export class InMemoryStore implements Store {
     if (!entry) {
       return [];
     }
-    return [...entry.csvFiles.values()].map((f) => ({
-      id: f.id,
-      filename: f.filename,
-      checksum: f.checksum,
-      plotCount: f.plotCount,
-    }));
+    return [...entry.csvFiles.values()].map((f) => InMemoryStore.csvMeta(f));
   }
 
   async getCsvFile(projectId: string, csvFileId: string): Promise<(CsvFile & { data: Buffer }) | null> {
@@ -543,15 +576,16 @@ export class InMemoryStore implements Store {
     if (!file) {
       return null;
     }
-    return { id: file.id, filename: file.filename, checksum: file.checksum, plotCount: file.plotCount, data: file.data };
+    return { ...InMemoryStore.csvMeta(file), data: file.data };
   }
 
   async setAssignments(projectId: string, assignments: Assignment[]): Promise<void> {
     const entry = this.requireProject(projectId);
     entry.assignments.clear();
     for (const a of assignments) {
-      // Ignore pairs referencing unknown csv files, to keep the set consistent.
-      if (entry.csvFiles.has(a.csvFileId)) {
+      // Ignore pairs referencing unknown csv files, to keep the set consistent, and
+      // divided files: their plots are given out one by one (plotAssignments).
+      if (entry.csvFiles.has(a.csvFileId) && !entry.csvFiles.get(a.csvFileId)!.distribution) {
         entry.assignments.add(`${a.userId} ${a.csvFileId}`);
       }
     }
@@ -597,6 +631,70 @@ export class InMemoryStore implements Store {
 
   async isAssigned(projectId: string, csvFileId: string, userId: string): Promise<boolean> {
     return this.projects.get(projectId)?.assignments.has(`${userId} ${csvFileId}`) ?? false;
+  }
+
+  async setDivision(
+    projectId: string,
+    csvFileId: string,
+    distribution: StoredDistribution | null,
+    plots: PlotAssignment[],
+  ): Promise<void> {
+    const entry = this.requireProject(projectId);
+    const file = entry.csvFiles.get(csvFileId);
+    if (!file) {
+      return;
+    }
+    file.distribution = distribution ? structuredClone(distribution) : null;
+    if (distribution) {
+      entry.plotAssignments.set(csvFileId, plots.map((a) => ({ ...a })));
+      for (const a of entry.assignments) {
+        if (a.endsWith(` ${csvFileId}`)) {
+          entry.assignments.delete(a);
+        }
+      }
+    } else {
+      entry.plotAssignments.delete(csvFileId);
+    }
+  }
+
+  async listPlotAssignments(projectId: string, csvFileId: string): Promise<PlotAssignment[]> {
+    return (this.projects.get(projectId)?.plotAssignments.get(csvFileId) ?? []).map((a) => ({ ...a }));
+  }
+
+  async listPlotHoldings(projectId: string, userId: string): Promise<{ csvFileId: string; plotKeys: string[] }[]> {
+    const entry = this.projects.get(projectId);
+    if (!entry) {
+      return [];
+    }
+    const result: { csvFileId: string; filename: string; plotKeys: string[] }[] = [];
+    for (const [csvFileId, list] of entry.plotAssignments) {
+      const file = entry.csvFiles.get(csvFileId);
+      const plotKeys = list.filter((a) => a.userId === userId).map((a) => a.plotKey);
+      if (file?.distribution && plotKeys.length > 0) {
+        result.push({ csvFileId, filename: file.filename, plotKeys });
+      }
+    }
+    return result
+      .sort((a, b) => (a.filename < b.filename ? -1 : a.filename > b.filename ? 1 : 0))
+      .map(({ csvFileId, plotKeys }) => ({ csvFileId, plotKeys }));
+  }
+
+  async countPlotHolders(projectId: string): Promise<Map<string, number>> {
+    const result = new Map<string, number>();
+    for (const [csvFileId, list] of this.projects.get(projectId)?.plotAssignments ?? []) {
+      if (this.projects.get(projectId)!.csvFiles.get(csvFileId)?.distribution) {
+        result.set(csvFileId, new Set(list.map((a) => a.userId)).size);
+      }
+    }
+    return result;
+  }
+
+  async listUserPlotKeys(projectId: string, csvFileId: string, userId: string): Promise<string[]> {
+    const entry = this.projects.get(projectId);
+    if (!entry?.csvFiles.get(csvFileId)?.distribution) {
+      return [];
+    }
+    return (entry.plotAssignments.get(csvFileId) ?? []).filter((a) => a.userId === userId).map((a) => a.plotKey);
   }
 
   async close(): Promise<void> {
