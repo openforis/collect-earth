@@ -1,7 +1,8 @@
 // Test project files (CEPs) built in memory from the demo survey of the desktop app.
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
-import { strFromU8, strToU8, unzipSync, Zip, ZipDeflate } from 'fflate';
+import { strFromU8, strToU8, unzipSync } from 'fflate';
+import { zipCep } from '../../src/cep.js';
 
 const DEMO_PATH = fileURLToPath(
   new URL('../../../collect-earth/collect-earth-app/resources/demo_survey.cep', import.meta.url),
@@ -20,23 +21,17 @@ function demoFiles(): Record<string, Uint8Array> {
   return { ...demoEntries };
 }
 
+/** The demo CEP exactly as the desktop app ships it (made by Java), survey guide included. */
+export function realDemoCep(): Buffer {
+  return readFileSync(DEMO_PATH);
+}
+
 /**
- * Zips entries in exactly the given order (zipSync would put names like "1" first).
- * Level 1: real deflated entries, as in an uploaded CEP, but quick to build.
+ * Zips entries in exactly the given order (zipSync would put names like "1" first), with
+ * the server's own writer. The fixture tests unzip with fflate, which checks its output.
  */
 function zip(files: Record<string, Uint8Array> | Array<[string, Uint8Array]>): Buffer {
-  const chunks: Uint8Array[] = [];
-  const zipper = new Zip((error, chunk) => {
-    if (error) throw error;
-    chunks.push(chunk);
-  });
-  for (const [name, data] of Array.isArray(files) ? files : Object.entries(files)) {
-    const entry = new ZipDeflate(name, { level: 1 });
-    zipper.add(entry);
-    entry.push(data, true);
-  }
-  zipper.end();
-  return Buffer.concat(chunks);
+  return zipCep(new Map(Array.isArray(files) ? files : Object.entries(files)));
 }
 
 /** Replaces one match of `pattern`, failing loudly when the demo survey no longer matches. */
