@@ -1,6 +1,7 @@
 // Reading a Collect Earth project file (CEP): a zip holding the survey (an IDML file),
 // the balloons, the KML template and project_definition.properties.
-import { deflateSync, strFromU8, unzipSync } from 'fflate';
+import { deflateRawSync } from 'node:zlib';
+import { strFromU8, unzipSync } from 'fflate';
 import { XMLParser, XMLValidator } from 'fast-xml-parser';
 
 export interface CepFiles {
@@ -264,42 +265,49 @@ export function surveyInfo(idmXml: string): SurveyInfo {
 /**
  * Zips entries in the given order: what was read with readCep goes back as it came.
  *
- * Written here rather than with fflate's zipSync, which puts names like "1" first, or its
- * streaming Zip, whose ZipDeflate corrupts some binary files (the demo's fonts) at level 6.
- * Each entry is deflated with deflateSync, or stored when that is not smaller. The date is
- * fixed (1980-01-01), so the same entries always give the same bytes.
+ * Written here rather than with fflate: its zipSync puts names like "1" first, and its
+ * streaming ZipDeflate corrupts some binary files (the demo's fonts) at level 6. Each entry
+ * is deflated with node:zlib, or stored when that is not smaller.
+ *
+ * Every entry gets `date` (local time, as zip dates are). Collect Earth applies it when it
+ * extracts the file and caches the plot file by path and modification time, so a new
+ * upload must carry a new date: pass the upload time. The same entries and date always
+ * give the same bytes.
  */
-export function zipCep(entries: Map<string, Uint8Array>): Buffer {
-  if (entries.size > 0xffff) throw new Error('zipCep: too many entries for a zip without ZIP64');
+export function zipCep(entries: Map<string, Uint8Array>, date: Date): Buffer {
+  // 0xffff and 0xffffffff themselves mean "see the ZIP64 record", which this writer lacks.
+  const tooLarge = (what: string) =>
+    new Error(`zipCep: ${what} too large for a zip without ZIP64; the project file cannot be written`);
+  if (entries.size >= 0xffff) throw tooLarge('the number of files is');
+  const { dosDate, dosTime } = toDosDateTime(date);
   const locals: Buffer[] = [];
   const centrals: Buffer[] = [];
   let offset = 0;
   for (const [name, data] of entries) {
     const nameBytes = Buffer.from(name, 'utf8');
-    const deflated = data.length > 0 ? deflateSync(data, { level: 6 }) : data;
-    const stored = deflated.length >= data.length;
-    const body = stored ? data : deflated;
+    if (nameBytes.length >= 0xffff) throw tooLarge(`the name ${name.slice(0, 40)}... is`);
+    if (data.length >= 0xffffffff) throw tooLarge(`the file ${name} is`);
+    const deflated = data.length > 0 ? deflateRawSync(data, { level: 6 }) : null;
+    const stored = !deflated || deflated.length >= data.length;
+    const body = stored ? Buffer.from(data.buffer, data.byteOffset, data.byteLength) : deflated!;
+    if (offset >= 0xffffffff) throw tooLarge('the project file is');
     const crc = crc32(data);
-    if (offset + 30 + nameBytes.length + body.length > 0xffffffff) {
-      throw new Error('zipCep: too large for a zip without ZIP64');
-    }
     const flags = /[^\x00-\x7f]/.test(name) ? 0x0800 : 0; // bit 11: the name is UTF-8
     const method = stored ? 0 : 8;
-    const DOS_DATE_1980_01_01 = 0x21;
 
     const local = Buffer.alloc(30);
     local.writeUInt32LE(0x04034b50, 0);
     local.writeUInt16LE(20, 4);
     local.writeUInt16LE(flags, 6);
     local.writeUInt16LE(method, 8);
-    local.writeUInt16LE(0, 10);
-    local.writeUInt16LE(DOS_DATE_1980_01_01, 12);
+    local.writeUInt16LE(dosTime, 10);
+    local.writeUInt16LE(dosDate, 12);
     local.writeUInt32LE(crc, 14);
     local.writeUInt32LE(body.length, 18);
     local.writeUInt32LE(data.length, 22);
     local.writeUInt16LE(nameBytes.length, 26);
     local.writeUInt16LE(0, 28);
-    locals.push(local, nameBytes, Buffer.from(body.buffer, body.byteOffset, body.byteLength));
+    locals.push(local, nameBytes, body);
 
     const central = Buffer.alloc(46);
     central.writeUInt32LE(0x02014b50, 0);
@@ -307,8 +315,8 @@ export function zipCep(entries: Map<string, Uint8Array>): Buffer {
     central.writeUInt16LE(20, 6);
     central.writeUInt16LE(flags, 8);
     central.writeUInt16LE(method, 10);
-    central.writeUInt16LE(0, 12);
-    central.writeUInt16LE(DOS_DATE_1980_01_01, 14);
+    central.writeUInt16LE(dosTime, 12);
+    central.writeUInt16LE(dosDate, 14);
     central.writeUInt32LE(crc, 16);
     central.writeUInt32LE(body.length, 20);
     central.writeUInt32LE(data.length, 24);
@@ -321,6 +329,7 @@ export function zipCep(entries: Map<string, Uint8Array>): Buffer {
     offset += 30 + nameBytes.length + body.length;
   }
   const centralSize = centrals.reduce((n, b) => n + b.length, 0);
+  if (offset >= 0xffffffff || centralSize >= 0xffffffff) throw tooLarge('the project file is');
   const end = Buffer.alloc(22);
   end.writeUInt32LE(0x06054b50, 0);
   end.writeUInt16LE(entries.size, 8);
@@ -328,6 +337,18 @@ export function zipCep(entries: Map<string, Uint8Array>): Buffer {
   end.writeUInt32LE(centralSize, 12);
   end.writeUInt32LE(offset, 16);
   return Buffer.concat([...locals, ...centrals, end]);
+}
+
+/** A date as zip (MS-DOS) date and time fields: local time, two-second steps, 1980-2107. */
+function toDosDateTime(date: Date): { dosDate: number; dosTime: number } {
+  if (Number.isNaN(date.getTime())) throw new Error('zipCep: invalid date');
+  const year = date.getFullYear();
+  if (year < 1980) return { dosDate: (1 << 5) | 1, dosTime: 0 };
+  if (year > 2107) return { dosDate: (127 << 9) | (12 << 5) | 31, dosTime: (23 << 11) | (59 << 5) | 29 };
+  return {
+    dosDate: ((year - 1980) << 9) | ((date.getMonth() + 1) << 5) | date.getDate(),
+    dosTime: (date.getHours() << 11) | (date.getMinutes() << 5) | Math.floor(date.getSeconds() / 2),
+  };
 }
 
 let crcTable: Uint32Array | null = null;
@@ -399,8 +420,9 @@ const isLang = (l: string): l is Lang => l in ROUND_TEXTS.name;
 /**
  * Serves an id-only project file with a hidden `round` key added to its survey, balloons and
  * KML template. Hands back the original bytes, and why, in every other case.
+ * `date` stamps every entry of the served zip (see zipCep): the upload time.
  */
-export function addRound(zip: Buffer): { cep: Buffer; info: RoundInfo } {
+export function addRound(zip: Buffer, date: Date = new Date()): { cep: Buffer; info: RoundInfo } {
   const none = (refusal: RefusalCode, keyCount = 0) => ({
     cep: zip,
     info: { state: 'none', refusal, keyCount, roundIndex: null, roundCodes: [], reassessmentCode: null } as RoundInfo,
@@ -453,12 +475,19 @@ export function addRound(zip: Buffer): { cep: Buffer; info: RoundInfo } {
     return none('template_marker_missing', keyCount);
   }
 
-  const { survey: newSurvey, listName } = addRoundToSurvey(read(files.surveyPath), info);
+  let edited: { survey: string; listName: string };
+  try {
+    edited = addRoundToSurvey(read(files.surveyPath), info);
+  } catch (e) {
+    if (e instanceof CepError) return none('survey_unreadable', keyCount);
+    throw e;
+  }
+  const { survey: newSurvey, listName } = edited;
   const entries = new Map(files.entries);
   entries.set(files.surveyPath, fromLatin1(newSurvey));
   for (const path of balloons) entries.set(path, fromLatin1(addRoundToBalloon(read(path))));
   entries.set(files.templatePath, fromLatin1(addRoundToTemplate(template)));
-  const cep = zipCep(entries);
+  const cep = zipCep(entries, date);
 
   // The served file must read back as [key, round]: anything else is a bug, never handed out.
   const served = readCep(cep);
@@ -514,6 +543,8 @@ function addRoundToBalloon(html: string): string {
 }
 
 function addRoundToTemplate(template: string): string {
+  // An EXTRA_round already there is left alone. Surveys whose template has one normally
+  // have a non-key round too, and were refused (round_not_key) before getting here.
   if (template.includes('<Data name="EXTRA_round">')) return template;
   const marker = template.indexOf(TEMPLATE_MARKER);
   if (marker >= 0) {
@@ -602,9 +633,13 @@ function addRoundToSurvey(text: string, info: SurveyInfo): { survey: string; lis
       const indent = indentAt(text, anchor.start);
       const block = [`${indent}<codeLists>`, ...listLines(indent + unit), `${indent}</codeLists>`];
       if (codeLists) {
-        // <codeLists/>: replaced by the full section.
-        const edit = insertLinesBefore(text, codeLists.start, block);
-        edits.push({ ...edit, remove: codeLists.end - edit.at });
+        // <codeLists/>: replaced by the full section, in place (its line break stays its own).
+        const eol = eolAt(text, codeLists.start);
+        edits.push({
+          at: codeLists.start,
+          remove: codeLists.end - codeLists.start,
+          insert: block.join(eol).slice(indent.length),
+        });
       } else {
         edits.push(insertLinesBefore(text, anchor.start, block));
       }

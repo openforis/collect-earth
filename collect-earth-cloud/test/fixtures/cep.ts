@@ -8,7 +8,10 @@ const DEMO_PATH = fileURLToPath(
   new URL('../../../collect-earth/collect-earth-app/resources/demo_survey.cep', import.meta.url),
 );
 
-let demoEntries: Record<string, Uint8Array> | null = null;
+/** The entry date of every fixture zip, so a fixture always has the same bytes. */
+export const FIXTURE_DATE = new Date(2026, 0, 2, 3, 4, 6);
+
+let demoEntries:Record<string, Uint8Array> | null = null;
 
 /** The demo CEP's entries, read once, without the 8 MB survey guide. */
 function demoFiles(): Record<string, Uint8Array> {
@@ -31,7 +34,7 @@ export function realDemoCep(): Buffer {
  * the server's own writer. The fixture tests unzip with fflate, which checks its output.
  */
 function zip(files: Record<string, Uint8Array> | Array<[string, Uint8Array]>): Buffer {
-  return zipCep(new Map(Array.isArray(files) ? files : Object.entries(files)));
+  return zipCep(new Map(Array.isArray(files) ? files : Object.entries(files)), FIXTURE_DATE);
 }
 
 /** Replaces one match of `pattern`, failing loudly when the demo survey no longer matches. */

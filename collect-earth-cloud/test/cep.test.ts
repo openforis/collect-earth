@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { strFromU8, unzipSync } from 'fflate';
+import { inflateRawSync } from 'node:zlib';
 import { addRound, CepError, readCep, surveyInfo, zipCep } from '../src/cep.js';
 import { cepWith, demoCep, idOnlyCep, realDemoCep } from './fixtures/cep.js';
 
@@ -325,16 +326,74 @@ const miniCep = (over: Record<string, string | null> = {}): Buffer => {
 };
 
 describe('zipCep', () => {
+  const date = new Date(2026, 9, 29, 14, 37, 58);
+
   it('re-zips the real demo (made by Java) entry for entry, in order, readable by fflate', () => {
     const original = readCep(realDemoCep()).entries;
-    const again = zipCep(original);
+    const again = zipCep(original, date);
     const back = unzipSync(again);
     expect(Object.keys(back)).toEqual([...original.keys()]);
     for (const [name, bytes] of original) {
       expect(Buffer.from(back[name]).equals(Buffer.from(bytes)), name).toBe(true);
     }
-    // The same entries always give the same bytes.
-    expect(zipCep(original).equals(again)).toBe(true);
+    // The same entries and date always give the same bytes; another date, other bytes.
+    expect(zipCep(original, new Date(date)).equals(again)).toBe(true);
+    expect(zipCep(original, new Date(2026, 9, 29, 14, 38, 0)).equals(again)).toBe(false);
+  });
+
+  it('reads back with an independent reader: its own central directory walk and node:zlib', () => {
+    const original = readCep(realDemoCep()).entries;
+    const zip = zipCep(original, date);
+    const end = zip.length - 22;
+    expect(zip.readUInt32LE(end)).toBe(0x06054b50);
+    const count = zip.readUInt16LE(end + 10);
+    expect(count).toBe(original.size);
+    let at = zip.readUInt32LE(end + 16);
+    const names: string[] = [];
+    for (let i = 0; i < count; i++) {
+      expect(zip.readUInt32LE(at)).toBe(0x02014b50);
+      const method = zip.readUInt16LE(at + 10);
+      const dosTime = zip.readUInt16LE(at + 12);
+      const dosDate = zip.readUInt16LE(at + 14);
+      const compressedSize = zip.readUInt32LE(at + 20);
+      const size = zip.readUInt32LE(at + 24);
+      const nameLength = zip.readUInt16LE(at + 28);
+      const extraLength = zip.readUInt16LE(at + 30);
+      const commentLength = zip.readUInt16LE(at + 32);
+      const localAt = zip.readUInt32LE(at + 42);
+      const name = zip.toString('utf8', at + 46, at + 46 + nameLength);
+      names.push(name);
+      // 2026-10-29 14:37:58, local time.
+      expect(dosDate).toBe(((2026 - 1980) << 9) | (10 << 5) | 29);
+      expect(dosTime).toBe((14 << 11) | (37 << 5) | 29);
+
+      expect(zip.readUInt32LE(localAt)).toBe(0x04034b50);
+      const bodyAt = localAt + 30 + zip.readUInt16LE(localAt + 26) + zip.readUInt16LE(localAt + 28);
+      const body = zip.subarray(bodyAt, bodyAt + compressedSize);
+      const data = method === 8 ? inflateRawSync(body) : method === 0 ? body : null;
+      expect(data, name).not.toBeNull();
+      expect(data!.length).toBe(size);
+      expect(Buffer.from(data!).equals(Buffer.from(original.get(name)!)), name).toBe(true);
+      at += 46 + nameLength + extraLength + commentLength;
+    }
+    expect(names).toEqual([...original.keys()]);
+  });
+
+  it('refuses what would need ZIP64 with a clear message', () => {
+    const many = new Map<string, Uint8Array>();
+    for (let i = 0; i < 0xffff; i++) many.set(`f${i}`, new Uint8Array());
+    expect(() => zipCep(many, date)).toThrow(/too large for a zip without ZIP64/);
+    many.delete('f0');
+    const fits = zipCep(many, date);
+    expect(fits.readUInt16LE(fits.length - 12)).toBe(0xfffe);
+  });
+
+  it('stamps the served file with the date addRound is given', () => {
+    const { cep } = addRound(miniCep(), date);
+    // The first central directory entry follows all local entries; its date fields:
+    const centralAt = cep.readUInt32LE(cep.length - 22 + 16);
+    expect(cep.readUInt16LE(centralAt + 14)).toBe(((2026 - 1980) << 9) | (10 << 5) | 29);
+    expect(addRound(miniCep(), new Date(date)).cep.equals(cep)).toBe(true);
   });
 
   it('stores what does not shrink, and keeps empty entries and UTF-8 names', () => {
@@ -482,6 +541,26 @@ describe('addRound', () => {
     const idmText = text(cep, 'placemark.idm.xml');
     expect(idmText.indexOf('<codeLists>')).toBeLessThan(idmText.indexOf('<schema>'));
     expect(/<code id="\d+" name="round"[^>]*>/.exec(idmText)![0]).not.toContain('ui:tab');
+  });
+
+  it('replaces an empty <codeLists/> in place, without leaving an empty line', () => {
+    const empty = miniIdm({ codeLists: false }).replace('<language>es</language>', '<language>es</language>\n  <codeLists/>');
+    const { cep, info } = addRound(miniCep({ 'placemark.idm.xml': empty }));
+    expect(info.state).toBe('added');
+    const idmText = text(cep, 'placemark.idm.xml');
+    expect(idmText).not.toContain('<codeLists/>');
+    expect(idmText).not.toMatch(/\n[ \t]*\n/);
+    expect(idmText).toContain('<language>es</language>\n  <codeLists>\n    <list id="42" name="assessment_phases">');
+    expect(idmText).toContain('    </list>\n  </codeLists>\n  <schema>');
+  });
+
+  it('refuses as unreadable a survey whose key it cannot find in the text', () => {
+    // The parser decodes &#105; to "i"; the in-place editor matches names as written.
+    const odd = miniIdm({ children: '<text id="2" name="&#105;d" key="true"/>' });
+    const original = miniCep({ 'placemark.idm.xml': odd });
+    const { cep, info } = addRound(original);
+    expect(info).toMatchObject({ state: 'none', refusal: 'survey_unreadable', keyCount: 1 });
+    expect(cep.equals(original)).toBe(true);
   });
 
   it('puts round right after the id key, with its indentation', () => {

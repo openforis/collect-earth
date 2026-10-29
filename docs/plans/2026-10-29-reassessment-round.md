@@ -262,6 +262,27 @@ indentation of the neighbouring line.
 
 Commit: "Collect Earth Cloud: the server adds a hidden round key to an id-only project file, or says why it cannot".
 
+**As built (differs from the above)**
+- **Own zip writer, `zipCep(entries, date)`**, on `node:zlib` `deflateRawSync`
+  with its own CRC-32. fflate's `zipSync` puts names like "1" first, and its
+  streaming `ZipDeflate` corrupts some binary files (the demo's fonts) at level
+  6. No ZIP64: 65,535 entries or 4 GB refuse with a clear error. Java's
+  `java.util.zip` and zip4j read it byte-exactly.
+- **Entry dates = upload time.** `addRound(zip, date = now)` and Task 4 passes the
+  upload time. zip4j applies the dates on extract, and Collect Earth caches the
+  plot file by path and modification time, so a fixed date would keep stale plots.
+  The same entries and date give the same bytes.
+- **Labels in the survey's declared languages:** unmarked in the default language
+  (`languages[0]`, English when it is not en/es/fr/pt), marked for the other
+  declared ones. A survey that declares no languages gets English plus es/fr/pt.
+- **Ids above the highest id used** in the survey, not only above `lastId`.
+- **Line endings per line:** each insertion takes the ending of the line it goes
+  next to (the demo survey mixes CRLF and LF), else the file's own.
+- **Edits on latin1-decoded bytes**, inserting ASCII only (accents as `&#NNN;`), so
+  every byte not inserted stays as it was, whatever the file's encoding.
+- The single key keeps its own name (`[key, round]`); a key the in-place editor
+  cannot find gives `survey_unreadable`.
+
 ### Task 4: storing the original and the served CEP
 
 **Files:**
