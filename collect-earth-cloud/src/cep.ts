@@ -363,7 +363,7 @@ function unescapeProperty(value: string): string {
 // The survey
 
 /** One node of fast-xml-parser's preserveOrder output: { tag: children, ':@': attributes }. */
-type XmlNode = Record<string, unknown>;
+export type XmlNode = Record<string, unknown>;
 
 const parser = new XMLParser({
   ignoreAttributes: false,
@@ -377,34 +377,54 @@ const parser = new XMLParser({
   htmlEntities: true,
 });
 
-const tagOf = (node: XmlNode): string | null => {
+export const tagOf = (node: XmlNode): string | null => {
   for (const key of Object.keys(node)) if (key !== ':@') return key;
   return null;
 };
-const childrenOf = (node: XmlNode): XmlNode[] => {
+export const childrenOf = (node: XmlNode): XmlNode[] => {
   const tag = tagOf(node);
   const children = tag ? node[tag] : undefined;
   return Array.isArray(children) ? (children as XmlNode[]) : [];
 };
-const attr = (node: XmlNode, name: string): string | undefined => {
+export const attr = (node: XmlNode, name: string): string | undefined => {
   const attrs = node[':@'] as Record<string, unknown> | undefined;
   const value = attrs?.[`@_${name}`];
   return value === undefined ? undefined : String(value);
 };
-const elements = (nodes: XmlNode[], tag: string): XmlNode[] => nodes.filter((n) => tagOf(n) === tag);
-const textOf = (node: XmlNode): string =>
+export const elements = (nodes: XmlNode[], tag: string): XmlNode[] => nodes.filter((n) => tagOf(n) === tag);
+export const textOf = (node: XmlNode): string =>
   childrenOf(node)
     .map((c) => (c['#text'] === undefined ? '' : String(c['#text'])))
     .join('')
     .trim();
 
+/** A survey parsed for reading: its <survey> element, the root entity and the languages. */
+export interface ParsedSurvey {
+  survey: XmlNode;
+  /** The children of <survey>. */
+  surveyChildren: XmlNode[];
+  /** Every <entity> directly under <schema>; the first is the root entity. */
+  rootEntities: XmlNode[];
+  root: XmlNode;
+  rootEntity: string;
+  /** The <language> elements; empty means just the default language. */
+  languages: string[];
+  /**
+   * Of several <label> (or <description>) elements, the one in the survey's default
+   * language: the one without xml:lang, else the one in the first declared language, else
+   * the first.
+   */
+  pickLabel: (labels: XmlNode[]) => XmlNode | undefined;
+}
+
 /**
- * Reads what the server needs to know about a survey (placemark.idm.xml).
+ * Parses a survey (placemark.idm.xml), refusing a DOCTYPE, invalid XML, and a survey
+ * without <survey> or without an entity in its schema (CepError survey_unreadable).
  *
  * Element names are matched without a prefix: Collect writes IDML with its namespace as
  * the default one (xmlns="http://www.openforis.org/idml/3.0"), and this assumes it.
  */
-export function surveyInfo(idmXml: string): SurveyInfo {
+export function parseSurvey(idmXml: string): ParsedSurvey {
   const unreadable = (why: string) => new CepError('survey_unreadable', `The survey cannot be read: ${why}.`);
   // A survey has no DOCTYPE. Refusing one means no entity it declares is ever expanded.
   if (/<!DOCTYPE/i.test(idmXml)) throw unreadable('it has a DOCTYPE');
@@ -425,6 +445,20 @@ export function surveyInfo(idmXml: string): SurveyInfo {
   const rootEntity = root && attr(root, 'name');
   if (!root || !rootEntity) throw unreadable('it has no entity in its schema');
 
+  const languages = elements(surveyChildren, 'language').map(textOf).filter((l) => l !== '');
+  // The label without xml:lang, else the one in the survey's default language, else the first.
+  const pickLabel = (labels: XmlNode[]): XmlNode | undefined =>
+    labels.find((l) => attr(l, 'xml:lang') === undefined) ??
+    (languages.length > 0 ? labels.find((l) => attr(l, 'xml:lang') === languages[0]) : undefined) ??
+    labels[0];
+
+  return { survey, surveyChildren, rootEntities, root, rootEntity, languages, pickLabel };
+}
+
+/** Reads what the server needs to know about a survey (placemark.idm.xml). */
+export function surveyInfo(idmXml: string): SurveyInfo {
+  const { survey, surveyChildren, rootEntities, root, rootEntity, languages, pickLabel } = parseSurvey(idmXml);
+
   const keys: SurveyKey[] = [];
   let hasNonKeyRound = false;
   for (const child of childrenOf(root)) {
@@ -434,13 +468,6 @@ export function surveyInfo(idmXml: string): SurveyInfo {
     if (attr(child, 'key') === 'true') keys.push({ name, type, list: attr(child, 'list') ?? null });
     else if (name === 'round') hasNonKeyRound = true;
   }
-
-  const languages = elements(surveyChildren, 'language').map(textOf).filter((l) => l !== '');
-  // The label without xml:lang, else the one in the survey's default language, else the first.
-  const pickLabel = (labels: XmlNode[]): XmlNode | undefined =>
-    labels.find((l) => attr(l, 'xml:lang') === undefined) ??
-    (languages.length > 0 ? labels.find((l) => attr(l, 'xml:lang') === languages[0]) : undefined) ??
-    labels[0];
 
   const codeLists = new Map<string, CodeItem[]>();
   for (const codeListsNode of elements(surveyChildren, 'codeLists')) {

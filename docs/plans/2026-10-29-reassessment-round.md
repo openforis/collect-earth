@@ -653,6 +653,43 @@ labels, a `real` question is a number, and `collect_text_id` is excluded.
 
 Commit: "Collect Earth Cloud: the server knows the survey's questions, answer options and help texts".
 
+**As built**
+- **Summary keys**, read from `BalloonInputFieldsUtils.getValuesByHtmlParameters`
+  and its handlers (`collect-earth-core`):
+  - root attribute: `collect_<prefix><name>`. Prefixes: `text_`, `code_`,
+    `boolean_`, `coord_`, `date_`, `time_`; `<number>` gives `integer_` or
+    `real_` by its `type`, and `<range>` gives `integer_range_` or `real_range_`.
+    With no `type`, Collect reads both as real (`NumericAttributeDefinitionPR.DEFAULT_TYPE`).
+  - multiple attribute: the same key, values joined by `===`;
+  - code with a qualifier: the same key, value `code::qualifier`;
+  - single entity: `collect_entity_<e>.<prefix><child>`;
+  - multiple entity with `collect:enumerate="true"`:
+    `collect_entity_<e>[<key code>].<prefix><child>`, one per root item of the
+    key's list (`land_use[F]`…). The key child (`…[F].code_lu`) is in the summary
+    too, and is excluded.
+  - other multiple entity: `collect_entity_<e>[<n>].<prefix><child>`, n from 1. The
+    outline lists n = 1..10 (`MAX_MULTIPLE_ENTITIES_COUNT`).
+  - Blank answers inside entities are left out of the summary.
+  - Taxon and file attributes have no handler, and entities inside an entity fail
+    on a cast: the desktop app cannot summarize them, so they get no question.
+- **`Question` has three more fields:**
+  - `excluded`: keys, `METADATA_KEY_PARTS`, and `collectearth:fromcsv` attributes,
+    which come from the plot file and are the same in both rounds. `_time` in
+    `METADATA_KEY_PARTS` also excludes every `collect_time_*` attribute.
+  - `multiple`;
+  - `calculated`.
+- **Options:**
+  - a code takes the list's items at its level: one level down per `parent=` hop,
+    deduplicated by code;
+  - a boolean takes `true`/`false` ("Yes"/"No");
+  - an unknown list gives `[]`.
+- **Labels:**
+  - entity questions read "Entity: Child", "Entity (Item label): Child" or
+    "Entity 2: Child";
+  - an instance label is one with `type="instance"` or no type.
+- `src/cep.ts` exports `parseSurvey`, which `surveyInfo` now uses. It does the same
+  DOCTYPE refusal and validation. The XML helpers are exported too.
+
 ### Task 9: quality figures (`src/quality.ts`)
 
 **Inputs**
