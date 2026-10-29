@@ -8,6 +8,18 @@ const keysOf = (cep: Buffer) => {
   return surveyInfo(new TextDecoder().decode(files.entries.get(files.surveyPath)!)).keys.map((k) => k.name);
 };
 
+const BALLOON_MARKER = '<!-- START OF EXTRA CSV DATA -->';
+
+/** The project file with one entry's text changed (the test survey files are UTF-8). */
+const withEntry = (cep: Buffer, path: string, change: (text: string) => string) => {
+  const entries = new Map(readCep(cep).entries);
+  const before = new TextDecoder().decode(entries.get(path)!);
+  const after = change(before);
+  if (after === before) throw new Error(`withEntry: ${path} did not change`);
+  entries.set(path, new TextEncoder().encode(after));
+  return zipCep(entries, FIXTURE_DATE);
+};
+
 describe('project file and round routes', () => {
   let ctx: TestContext;
   let project: Awaited<ReturnType<typeof createProject>>;
@@ -66,7 +78,7 @@ describe('project file and round routes', () => {
     const centralAt = served.readUInt32LE(served.length - 22 + 16);
     const dosDate = served.readUInt16LE(centralAt + 14);
     const day = new Date(before);
-    expect(dosDate).toBe(((day.getFullYear() - 1980) << 9) | ((day.getMonth() + 1) << 5) | day.getDate());
+    expect(dosDate).toBe(((day.getUTCFullYear() - 1980) << 9) | ((day.getUTCMonth() + 1) << 5) | day.getUTCDate());
   });
 
   it('serves a survey with its own round as uploaded; /cep/original is the same file', async () => {
@@ -100,20 +112,74 @@ describe('project file and round routes', () => {
     expect(await ctx.store.hasRecords(project.projectId)).toBe(true);
   });
 
-  it('refuses, once records exist, a file without round for a project the server added round to', async () => {
+  it('adds round again, once records exist, to an id-only file for a project the server added round to', async () => {
+    await putCep(idOnlyCep());
+    await addRecord();
+    const upload = idOnlyCep();
+    const res = await putCep(upload);
+    expect(res.statusCode, res.body).toBe(200);
+    expect(res.json().round).toMatchObject({ state: 'added', keyCount: 2, roundIndex: 1, reassessmentCode: '2' });
+    expect(keysOf((await get('/cep')).rawPayload)).toEqual(['id', 'round']);
+    expect((await get('/cep/original')).rawPayload.equals(upload)).toBe(true);
+  });
+
+  it('keeps round as added when the coordinator uploads the served file again after records exist', async () => {
+    await putCep(idOnlyCep());
+    await addRecord();
+    const served = (await get('/cep')).rawPayload;
+    const res = await putCep(served);
+    expect(res.statusCode, res.body).toBe(200);
+    expect(res.json().round).toMatchObject({ state: 'added', refusal: null, keyCount: 2, roundIndex: 1, reassessmentCode: '2' });
+    expect((await get('/cep')).rawPayload.equals(served)).toBe(true);
+    expect((await get('/cep/original')).rawPayload.equals(served)).toBe(true);
+    expect((await get('/round')).json().state).toBe('added');
+  });
+
+  it('refuses, once records exist, a file without round the server cannot add it to', async () => {
     await putCep(idOnlyCep());
     await addRecord();
     const servedBefore = (await get('/cep')).rawPayload;
-    const res = await putCep(idOnlyCep());
+    const res = await putCep(withEntry(idOnlyCep(), 'balloon.html', (t) => t.replace(BALLOON_MARKER, '')));
     expect(res.statusCode).toBe(409);
     expect(res.json().error).toBe('round_removed');
-    expect(typeof res.json().reason).toBe('string');
+    expect(res.json().reason).toMatch(/balloon/);
     expect((await get('/cep')).rawPayload.equals(servedBefore)).toBe(true);
+    expect((await get('/round')).json().state).toBe('added');
+  });
 
-    // A file that has round is still taken.
-    const served = await putCep(servedBefore);
-    expect(served.statusCode).toBe(200);
-    expect(served.json().round).toMatchObject({ state: 'own', refusal: null, roundIndex: 1 });
+  it('refuses, once records exist, a file whose keys differ from the one collected with', async () => {
+    const extraKey = (cep: Buffer) =>
+      withEntry(cep, 'placemark.idm.xml', (t) =>
+        t.replace('<text id="4" name="operator" required="true"', '<text id="4" name="operator" required="true" key="true"'),
+      );
+    const refused = async (upload: Buffer) => {
+      const res = await putCep(upload);
+      expect(res.statusCode).toBe(409);
+      expect(res.json().error).toBe('key_shape_changed');
+      expect(typeof res.json().reason).toBe('string');
+    };
+
+    // Added round, then a file with a third key.
+    await putCep(idOnlyCep());
+    await addRecord();
+    const served = (await get('/cep')).rawPayload;
+    await refused(extraKey(served));
+    expect((await get('/cep')).rawPayload.equals(served)).toBe(true);
+
+    // Its own round, then id only, or a third key; the same keys are taken.
+    project = await createProject(ctx.app, 'Own');
+    await putCep(demoCep());
+    await addRecord();
+    await refused(idOnlyCep());
+    await refused(extraKey(demoCep()));
+    expect((await putCep(demoCep())).statusCode).toBe(200);
+
+    // No round (uploaded after records), then a file with round.
+    project = await createProject(ctx.app, 'None');
+    await addRecord();
+    expect((await putCep(idOnlyCep())).json().round).toMatchObject({ state: 'none', keyCount: 1 });
+    await refused(demoCep());
+    expect((await putCep(idOnlyCep())).statusCode).toBe(200);
   });
 
   it('sets the re-assessment code only for an own round, and only to one of its codes', async () => {
@@ -148,8 +214,14 @@ describe('project file and round routes', () => {
     const res = await putCep(bomb);
     expect(res.statusCode).toBe(413);
     expect(res.json().error).toBe('too_large');
-    expect(typeof res.json().reason).toBe('string');
+    // The limit this upload had: a small zip may unzip to 20 MB.
+    expect(res.json().reason).toMatch(/unzips to more than 20 MB/);
     expect(await ctx.store.getCep(project.projectId)).toBeNull();
+
+    await addRecord();
+    const again = await putCep(bomb);
+    expect(again.statusCode).toBe(413);
+    expect(again.json().reason).toMatch(/unzips to more than 20 MB/);
   });
 
   it('is for admins: a collector cannot read the original or the round, nor set it', async () => {

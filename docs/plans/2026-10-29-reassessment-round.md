@@ -318,18 +318,27 @@ the new columns next to it.
 **PUT `/v1/projects/:pid/cep`**
 - No records yet: `addRound(body)`. Store the result, with the original when
   `state === 'added'`.
-- Records exist: `surveyInfo` of the upload (no change to it). If the stored info
-  is `added` and the new survey has no `round` key, answer
-  `409 { error: 'round_removed', reason: … }`: collected keys are "17,1" and the
-  new file would make "17". Otherwise store it, with
-  `state = own | none` and `refusal: null`.
+- Records exist: the served survey's key shape (`keyCount`, `roundIndex`) must
+  stay, since collected keys are e.g. "17,1".
+  - Stored info `added`, upload id-only and `addRound` succeeds: serve the edited
+    file, keep the upload as original, state `added`.
+  - Stored info `added`, upload has `round` as the second key with codes 1 and 2
+    (e.g. the served file uploaded back): state stays `added`
+    (`reassessmentCode '2'`), served = upload, no separate original.
+  - Stored info `added`, upload without round that `addRound` cannot fix:
+    `409 { error: 'round_removed', reason }`, the reason saying why in plain words.
+  - Otherwise store the upload as it is (`own | none`, `refusal: null`), unless
+    its shape differs from the stored one: `409 { error: 'key_shape_changed',
+    reason }`. A stored info with no keys (unreadable survey) is not compared.
+  - The records check and the write are not one transaction; the window is
+    documented in the route.
 - The response adds `round: RoundInfo`.
 
 **Zip bombs.** `readCep` takes limits: at most 2,000 entries, and at most
 200 MB unzipped in total (or 20 × the zip size, whichever is smaller). It checks
 each entry's declared size before inflating, and stops inflating at the limit.
-Above a limit → `CepError('too_large')`, and the upload gets 413 with a plain
-reason. Test it with a small zip that unzips to more than the limit.
+Above a limit → `CepError('too_large')` (`addRound` throws it too), and the upload
+gets 413 whose reason names the limit it had. Test it with a small zip that unzips to more than the limit.
 
 **GET `/v1/projects/:pid/cep`** is unchanged: it serves `getCep`. Add
 `GET /v1/projects/:pid/cep/original` (admin) to download the upload.
@@ -344,7 +353,10 @@ It must be one of `roundCodes`, and works only when `state === 'own'`; otherwise
 - Upload `idOnlyCep` with no records: `added`; the GET returns the changed zip;
   `/cep/original` returns the upload byte-for-byte.
 - Upload after a record exists: unchanged.
-- An `added` project re-uploading an id-only file after records exist gets 409.
+- After records exist, an `added` project: an id-only re-upload gets round added
+  again; the served file uploaded back stays `added`; a file without round the
+  server cannot fix gets 409 `round_removed`; another key shape gets 409
+  `key_shape_changed` (as do `own` and `none` projects).
 - Setting the reassessment code works only for `own` surveys and only with a
   listed code.
 - Isolation: another project's admin gets 404 on all three routes.

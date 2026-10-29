@@ -436,10 +436,10 @@ export function surveyInfo(idmXml: string): SurveyInfo {
  * streaming ZipDeflate corrupts some binary files (the demo's fonts) at level 6. Each entry
  * is deflated with node:zlib, or stored when that is not smaller.
  *
- * Every entry gets `date` (local time, as zip dates are). Collect Earth applies it when it
- * extracts the file and caches the plot file by path and modification time, so a new
- * upload must carry a new date: pass the upload time. The same entries and date always
- * give the same bytes.
+ * Every entry gets `date`, written in UTC so the bytes do not depend on the server's time
+ * zone (zip dates carry no zone). Collect Earth applies it when it extracts the file and
+ * caches the plot file by path and modification time, so a new upload must carry a new
+ * date: pass the upload time. The same entries and date always give the same bytes.
  */
 export function zipCep(entries: Map<string, Uint8Array>, date: Date): Buffer {
   // 0xffff and 0xffffffff themselves mean "see the ZIP64 record", which this writer lacks.
@@ -506,15 +506,15 @@ export function zipCep(entries: Map<string, Uint8Array>, date: Date): Buffer {
   return Buffer.concat([...locals, ...centrals, end]);
 }
 
-/** A date as zip (MS-DOS) date and time fields: local time, two-second steps, 1980-2107. */
+/** A date as zip (MS-DOS) date and time fields: UTC, two-second steps, 1980-2107. */
 function toDosDateTime(date: Date): { dosDate: number; dosTime: number } {
   if (Number.isNaN(date.getTime())) throw new Error('zipCep: invalid date');
-  const year = date.getFullYear();
+  const year = date.getUTCFullYear();
   if (year < 1980) return { dosDate: (1 << 5) | 1, dosTime: 0 };
   if (year > 2107) return { dosDate: (127 << 9) | (12 << 5) | 31, dosTime: (23 << 11) | (59 << 5) | 29 };
   return {
-    dosDate: ((year - 1980) << 9) | ((date.getMonth() + 1) << 5) | date.getDate(),
-    dosTime: (date.getHours() << 11) | (date.getMinutes() << 5) | Math.floor(date.getSeconds() / 2),
+    dosDate: ((year - 1980) << 9) | ((date.getUTCMonth() + 1) << 5) | date.getUTCDate(),
+    dosTime: (date.getUTCHours() << 11) | (date.getUTCMinutes() << 5) | Math.floor(date.getUTCSeconds() / 2),
   };
 }
 
@@ -593,8 +593,13 @@ const isLang = (l: string): l is Lang => l in ROUND_TEXTS.name;
  * Serves an id-only project file with a hidden `round` key added to its survey, balloons and
  * KML template. Hands back the original bytes, and why, in every other case.
  * `date` stamps every entry of the served zip (see zipCep): the upload time.
+ * A zip above the limits throws CepError('too_large'), whose message names the limit.
  */
-export function addRound(zip: Buffer, date: Date = new Date()): { cep: Buffer; info: RoundInfo } {
+export function addRound(
+  zip: Buffer,
+  date: Date = new Date(),
+  limits: CepLimits = DEFAULT_CEP_LIMITS,
+): { cep: Buffer; info: RoundInfo } {
   const none = (refusal: RefusalCode, keyCount = 0) => ({
     cep: zip,
     info: { state: 'none', refusal, keyCount, roundIndex: null, roundCodes: [], reassessmentCode: null } as RoundInfo,
@@ -603,10 +608,11 @@ export function addRound(zip: Buffer, date: Date = new Date()): { cep: Buffer; i
   let files: CepFiles;
   let info: SurveyInfo;
   try {
-    files = readCep(zip);
+    files = readCep(zip, limits);
     info = surveyInfo(decodeUtf8(files.entries.get(files.surveyPath)!));
   } catch (e) {
-    if (e instanceof CepError) return none(e.code);
+    // too_large is thrown, so the upload is refused with the limit it had.
+    if (e instanceof CepError && e.code !== 'too_large') return none(e.code);
     throw e;
   }
   const keyCount = info.keys.length;
@@ -649,7 +655,11 @@ export function addRound(zip: Buffer, date: Date = new Date()): { cep: Buffer; i
   const cep = zipCep(entries, date);
 
   // The served file must read back as [key, round]: anything else is a bug, never handed out.
-  const served = readCep(cep);
+  // It is read within the limits the upload had, plus what was inserted: its own size
+  // (smaller or larger after re-deflating) must not change what fits.
+  const grown = [...entries.values()].reduce((n, d) => n + d.length, 0) -
+    [...files.entries.values()].reduce((n, d) => n + d.length, 0);
+  const served = readCepWithin(cep, limits.maxEntries, allowedBytes(zip.length, limits) + Math.max(grown, 0));
   const check = surveyInfo(decodeUtf8(served.entries.get(served.surveyPath)!));
   const roundCodes = check.codeLists.get(listName);
   if (

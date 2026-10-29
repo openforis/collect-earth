@@ -530,7 +530,7 @@ const miniCep = (over: Record<string, string | null> = {}): Buffer => {
 };
 
 describe('zipCep', () => {
-  const date = new Date(2026, 9, 29, 14, 37, 58);
+  const date = new Date(Date.UTC(2026, 9, 29, 14, 37, 58));
 
   it('re-zips the real demo (made by Java) entry for entry, in order, readable by fflate', () => {
     const original = readCep(realDemoCep()).entries;
@@ -542,7 +542,7 @@ describe('zipCep', () => {
     }
     // The same entries and date always give the same bytes; another date, other bytes.
     expect(zipCep(original, new Date(date)).equals(again)).toBe(true);
-    expect(zipCep(original, new Date(2026, 9, 29, 14, 38, 0)).equals(again)).toBe(false);
+    expect(zipCep(original, new Date(Date.UTC(2026, 9, 29, 14, 38, 0))).equals(again)).toBe(false);
   });
 
   it('reads back with an independent reader: its own central directory walk and node:zlib', () => {
@@ -567,7 +567,7 @@ describe('zipCep', () => {
       const localAt = zip.readUInt32LE(at + 42);
       const name = zip.toString('utf8', at + 46, at + 46 + nameLength);
       names.push(name);
-      // 2026-10-29 14:37:58, local time.
+      // 2026-10-29 14:37:58 UTC: the bytes do not depend on the time zone of the server.
       expect(dosDate).toBe(((2026 - 1980) << 9) | (10 << 5) | 29);
       expect(dosTime).toBe((14 << 11) | (37 << 5) | 29);
 
@@ -849,6 +849,22 @@ describe('addRound', () => {
       expect(cep.equals(original)).toBe(true);
     });
   }
+
+  it('reads the served file back within the limits the upload had, however small it zips', () => {
+    // Stored, the upload is as big as its contents; deflated, the served file is far smaller.
+    const files = readCep(miniCep({ 'notes.txt': 'x'.repeat(200_000) })).entries;
+    const stored = rawZip([...files].map(([name, data]): RawEntry => ({ name, data: Buffer.from(data) })));
+    const limits = { maxEntries: 2000, maxTotalBytes: 200 * 1024 * 1024, maxRatio: 1.1, minAllowanceBytes: 0 };
+    const { cep, info } = addRound(stored, new Date(), limits);
+    expect(info.state).toBe('added');
+    expect(cep.length * limits.maxRatio).toBeLessThan(200_000);
+  });
+
+  it('throws too_large, naming the limit, rather than handing back a refusal', () => {
+    const limits = { maxEntries: 2000, maxTotalBytes: 1000, maxRatio: 20, minAllowanceBytes: 0 };
+    expect(() => addRound(miniCep(), new Date(), limits)).toThrow(/unzips to more than 1000 bytes/);
+    expect(cepErrorCode(() => addRound(miniCep(), new Date(), limits))).toBe('too_large');
+  });
 
   it('reports the keys of a refused survey', () => {
     const { info } = addRound(

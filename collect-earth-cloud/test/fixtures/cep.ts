@@ -9,7 +9,7 @@ const DEMO_PATH = fileURLToPath(
 );
 
 /** The entry date of every fixture zip, so a fixture always has the same bytes. */
-export const FIXTURE_DATE = new Date(2026, 0, 2, 3, 4, 6);
+export const FIXTURE_DATE = new Date(Date.UTC(2026, 0, 2, 3, 4, 6));
 
 let demoEntries:Record<string, Uint8Array> | null = null;
 

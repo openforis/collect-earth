@@ -1,6 +1,6 @@
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import { publicBaseUrl } from '../accountRules.js';
-import { addRound, CepError, roundInfoOf } from '../cep.js';
+import { addRound, CepError, roundInfoOf, type RefusalCode } from '../cep.js';
 import type { Config } from '../config.js';
 import { checkUploadFits } from '../limits.js';
 import { requireProjectMembership, requireSession } from '../plugins/projectAuth.js';
@@ -17,10 +17,75 @@ interface RoleBody {
   role?: Role;
 }
 
-const TOO_LARGE = {
-  error: 'too_large',
-  reason: 'the project file unzips to more than the server accepts (at most 2,000 files and 200 MB)',
-} as const;
+/** Why the server could not add round to a file, in plain words. */
+const CANNOT_ADD_ROUND: Record<RefusalCode, string> = {
+  not_a_zip: 'it is not a zip file the server can read',
+  too_large: 'it unzips to more than the server accepts',
+  no_survey: 'it has no survey',
+  survey_unreadable: 'its survey cannot be read',
+  several_entities: 'its survey has more than one main entity',
+  several_keys: 'its survey has more than one key',
+  round_not_key: 'its survey has a round field that is not a key',
+  balloon_missing: 'it has no balloon',
+  balloon_marker_missing: 'its balloon lacks the line where the extra plot data goes',
+  balloon_ids_missing: 'its balloon lacks the list of id fields (EXTRA_ID_ATTRIBUTES)',
+  template_missing: 'it has no KML template',
+  template_marker_missing: 'its KML template lacks the line where the extra plot data goes',
+};
+
+/** A survey's keys in plain words, for the key_shape_changed reason. */
+function keysInWords(info: RoundInfo): string {
+  if (info.keyCount === 0) return 'a survey the server cannot read';
+  const keys = `${info.keyCount} key${info.keyCount === 1 ? '' : 's'}`;
+  return info.roundIndex === null ? `${keys} and no round key` : `${keys}, round being key ${info.roundIndex + 1}`;
+}
+
+type StoredUpload = { served: Buffer; original: Buffer | null; info: RoundInfo };
+type UploadRefusal = { error: 'round_removed' | 'key_shape_changed'; reason: string };
+
+/**
+ * What to store for an upload once the project has records. Their keys (e.g. "17,1") come
+ * from the served survey, so its key shape (how many keys, where round is) must stay:
+ * - the server added round: an id-only file gets it added again, and the served file
+ *   uploaded back (round as the second key, codes 1 and 2) keeps state 'added';
+ * - otherwise the file is stored as uploaded, unless its key shape differs.
+ * A previous file whose survey could not be read (no keys) is not compared.
+ */
+function uploadOnceRecordsExist(cep: Buffer, previous: RoundInfo | null, date: Date): StoredUpload | UploadRefusal {
+  let info: RoundInfo;
+  if (previous?.state === 'added') {
+    const result = addRound(cep, date);
+    if (result.info.state === 'added') return { served: result.cep, original: cep, info: result.info };
+    info = result.info;
+    if (info.state === 'none') {
+      return {
+        error: 'round_removed',
+        reason:
+          'records were collected with the round key the server added, and the server cannot add it to this ' +
+          `project file: ${CANNOT_ADD_ROUND[info.refusal ?? 'survey_unreadable']}. Upload a file whose survey ` +
+          'keeps the round key, or an id-only file the server can add it to',
+      };
+    }
+    const codes = new Set(info.roundCodes.map((c) => c.code));
+    if (info.keyCount === 2 && info.roundIndex === 1 && codes.has('1') && codes.has('2')) {
+      // The served file uploaded back, or one like it: round stays the one the server added.
+      return { served: cep, original: null, info: { ...info, state: 'added', reassessmentCode: '2' } };
+    }
+  } else {
+    info = roundInfoOf(cep);
+  }
+  const shapeChanged = info.keyCount !== previous?.keyCount || info.roundIndex !== previous.roundIndex;
+  if (previous && previous.keyCount > 0 && shapeChanged) {
+    return {
+      error: 'key_shape_changed',
+      reason:
+        `records were collected with a survey of ${keysInWords(previous)}, and this project file has ` +
+        `${keysInWords(info)}: the records would no longer match their plots. Upload a file whose survey ` +
+        'has the same keys',
+    };
+  }
+  return { served: cep, original: null, info };
+}
 
 const VALID_ROLES: Role[] = ['admin', 'reviewer', 'operator'];
 
@@ -117,8 +182,14 @@ export async function registerPlatformRoutes(app: FastifyInstance, store: Store,
   // CEP upload (admin). Raw zip body (application/zip or octet-stream).
   // Before collection (no records, deleted ones included), an id-only survey gets a
   // hidden round key: the project serves that copy and keeps the upload. Once records
-  // exist the file is stored as uploaded, but a project the server added round to
-  // cannot drop it: its records' keys are "17,1" and the new file would make "17".
+  // exist, the survey's key shape must stay (see uploadOnceRecordsExist): records keyed
+  // "17,1" would not match a file that makes "17".
+  //
+  // The records check and the write are not one transaction: a record that arrives in
+  // between (milliseconds) was collected with the previous served file, and the new one
+  // is stored as if there were none. Closing that window would mean every record write
+  // taking a per-project lock; it is left open, since records only come from Collect
+  // Earth after it has downloaded a file, and coordinators upload before collecting.
   app.put(
     '/v1/projects/:pid/cep',
     { preHandler: requireProjectMembership(store, 'admin') },
@@ -129,34 +200,27 @@ export async function registerPlatformRoutes(app: FastifyInstance, store: Store,
         return reply.code(400).send({ error: 'bad_request', reason: 'expected a non-empty zip body' });
       }
       const previous = await store.getRoundInfo(projectId);
+      const date = new Date();
       let served = cep;
       let original: Buffer | null = null;
       let info: RoundInfo;
       try {
         if (!(await store.hasRecords(projectId))) {
-          const result = addRound(cep, new Date());
-          if (result.info.refusal === 'too_large') {
-            return reply.code(413).send(TOO_LARGE);
-          }
+          const result = addRound(cep, date);
           info = result.info;
           if (info.state === 'added') {
             served = result.cep;
             original = cep;
           }
         } else {
-          info = roundInfoOf(cep);
-          if (previous?.state === 'added' && info.state !== 'own') {
-            return reply.code(409).send({
-              error: 'round_removed',
-              reason:
-                'records were collected with the round key the server added, and this project file has none: ' +
-                'upload a file whose survey keeps the round key',
-            });
-          }
+          const upload = uploadOnceRecordsExist(cep, previous, date);
+          if ('error' in upload) return reply.code(409).send(upload);
+          ({ served, original, info } = upload);
         }
       } catch (e) {
+        // The message names the limit this upload had.
         if (e instanceof CepError && e.code === 'too_large') {
-          return reply.code(413).send(TOO_LARGE);
+          return reply.code(413).send({ error: 'too_large', reason: e.message });
         }
         throw e;
       }
