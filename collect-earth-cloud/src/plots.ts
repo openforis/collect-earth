@@ -26,6 +26,9 @@ export interface PlotRow {
   next: number;
   /** Unquoted field values, trimmed. */
   fields: string[];
+  /** Each field's bytes are [fieldStarts[i], fieldEnds[i]): quotes and spaces included, separators not. */
+  fieldStarts: number[];
+  fieldEnds: number[];
   /** The plot id (assignment unit): the first keyCount fields joined by ",". */
   id: string;
 }
@@ -49,11 +52,18 @@ export interface PlotFile {
  * Reads one row from pos. Quotes work as in opencsv: a quote opens or closes a
  * quoted part anywhere in a field, and `""` inside one is a literal quote.
  */
-function readRow(buf: Buffer, pos: number, sep: number): { fields: string[]; end: number; next: number } {
+function readRow(
+  buf: Buffer,
+  pos: number,
+  sep: number,
+): { fields: string[]; fieldStarts: number[]; fieldEnds: number[]; end: number; next: number } {
   const n = buf.length;
   const fields: string[] = [];
+  const fieldStarts: number[] = [];
+  const fieldEnds: number[] = [];
   let i = pos;
   for (;;) {
+    fieldStarts.push(i);
     let value = '';
     let segStart = i;
     let inQuotes = false;
@@ -78,8 +88,9 @@ function readRow(buf: Buffer, pos: number, sep: number): { fields: string[]; end
     }
     value += buf.toString('utf8', segStart, i);
     fields.push(value.trim());
+    fieldEnds.push(i);
     if (i >= n) {
-      return { fields, end: n, next: n };
+      return { fields, fieldStarts, fieldEnds, end: n, next: n };
     }
     if (buf[i] === sep) {
       i += 1;
@@ -87,7 +98,7 @@ function readRow(buf: Buffer, pos: number, sep: number): { fields: string[]; end
     }
     const end = i;
     i += buf[i] === CR && i + 1 < n && buf[i + 1] === LF ? 2 : 1;
-    return { fields, end, next: i };
+    return { fields, fieldStarts, fieldEnds, end, next: i };
   }
 }
 
@@ -162,7 +173,15 @@ export function parsePlotFile(data: Buffer, keyCount = 1): PlotFile {
       continue;
     }
     const id = idFields === 1 ? r.fields[0] ?? '' : r.fields.slice(0, idFields).join(',');
-    const row: PlotRow = { start, end: r.end, next: r.next, fields: r.fields, id };
+    const row: PlotRow = {
+      start,
+      end: r.end,
+      next: r.next,
+      fields: r.fields,
+      fieldStarts: r.fieldStarts,
+      fieldEnds: r.fieldEnds,
+      id,
+    };
     columnCount = Math.max(columnCount, r.fields.length);
     // A header has no number in it; data rows always hold numeric coordinates.
     if (first && !r.fields.some(isNumber)) {
@@ -192,20 +211,69 @@ function isBlankRow(buf: Buffer, start: number, end: number, sep: number): boole
 }
 
 /**
- * One person's file: the BOM and header row of the original (if any), then the rows
- * of the given plots in file order, each with its exact bytes and line break. Linear
- * in the file size.
+ * The round column of a served plot file.
+ * - insert: a new column after the first (the round the server added to an id-only
+ *   survey); the header, if any, gets "round".
+ * - replace: the value of column `index` (a survey with its own round), the header left
+ *   as it is. A row whose value does not change keeps its bytes.
  */
-export function buildPlotFile(file: PlotFile, plotKeys: ReadonlySet<string>): Buffer {
+export type RoundColumn =
+  | { kind: 'insert'; value: (plotId: string) => string }
+  | { kind: 'replace'; index: number; value: (plotId: string, current: string) => string };
+
+/** A field's text as written in the file: quoted when it holds the separator, a quote or a line break. */
+function fieldText(value: string, separator: string): string {
+  if (value.includes(separator) || /["\r\n]/.test(value)) {
+    return `"${value.replace(/"/g, '""')}"`;
+  }
+  return value;
+}
+
+/** A row's bytes, with its line break, and the round column when there is one. */
+function rowBytes(file: PlotFile, row: PlotRow, isHeader: boolean, round: RoundColumn | undefined): Buffer[] {
+  const whole = file.data.subarray(row.start, row.next);
+  if (!round) {
+    return [whole];
+  }
+  if (round.kind === 'insert') {
+    const at = row.fieldEnds[0];
+    const value = isHeader ? 'round' : round.value(row.id);
+    return [
+      file.data.subarray(row.start, at),
+      Buffer.from(file.separator + fieldText(value, file.separator), 'utf8'),
+      file.data.subarray(at, row.next),
+    ];
+  }
+  if (isHeader || round.index < 0 || round.index >= row.fields.length) {
+    return [whole];
+  }
+  const current = row.fields[round.index];
+  const value = round.value(row.id, current);
+  if (value === current) {
+    return [whole];
+  }
+  return [
+    file.data.subarray(row.start, row.fieldStarts[round.index]),
+    Buffer.from(fieldText(value, file.separator), 'utf8'),
+    file.data.subarray(row.fieldEnds[round.index], row.next),
+  ];
+}
+
+/**
+ * One person's file: the BOM and header row of the original (if any), then the rows
+ * of the given plots (every plot with null) in file order, each with its exact bytes
+ * and line break, and the round column when one is given. Linear in the file size.
+ */
+export function buildPlotFile(file: PlotFile, plotKeys: ReadonlySet<string> | null, round?: RoundColumn): Buffer {
   const parts: Buffer[] = [];
   if (file.bom) {
     parts.push(BOM);
   }
   const lineEnding = Buffer.from(file.lineEnding, 'ascii');
-  const rows = file.rows.filter((row) => plotKeys.has(row.id));
+  const rows = plotKeys === null ? file.rows : file.rows.filter((row) => plotKeys.has(row.id));
   const all = file.header ? [file.header, ...rows] : rows;
   all.forEach((row, i) => {
-    parts.push(file.data.subarray(row.start, row.next));
+    parts.push(...rowBytes(file, row, row === file.header, round));
     // A row without a line break (the original's last) gets one if more follow.
     if (row.next === row.end && i < all.length - 1) {
       parts.push(lineEnding);

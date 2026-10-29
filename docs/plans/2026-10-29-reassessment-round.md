@@ -522,6 +522,29 @@ export function buildPlotFile(file: PlotFile, plotKeys: ReadonlySet<string> | nu
 
 Commit: "Collect Earth Cloud: collectors' plot files carry the round, 1 for the main assessment and 2 for quality-check copies".
 
+**As built (differs from the above)**
+- **Store:** `listUserPlotKeys` became `listUserPlots(projectId, csvFileId, userId)`
+  returning `UserPlots { plotKeys, copyKeys }`, and `listPlotHoldings` also returns
+  `copyKeys` (the overlap holdings), so the routes know a person's copies without
+  loading the whole file's holdings.
+- **Who gets the built whole file:** a collector (not admin) gets it with or without
+  `?mine=1`, so an old download path cannot hand out a file without the round column;
+  an admin gets it only with `?mine=1`.
+- **Own round with a reassessment code, whole file:** a whole file has no copies, so
+  nothing would change; it is served as uploaded (my-assignment still lists it with
+  `?mine=1` and the upload's checksum). In `replace`, a row whose value stays the same
+  keeps its bytes, and a row too short for the column is left alone.
+- **`roundColumnOf(info, copies)`** in `routes/assignments.ts` decides the column; the
+  added round's whole files (the same for everyone) are cached by checksum, 4 entries
+  like the parse cache.
+- **Postgres:** checked once on a throwaway `postgres:16` container (routes on a
+  `PostgresStore`, store reads also as a non-superuser under RLS): `recountPlots`
+  (1 → 2 → 1 key columns), `listUserPlots` / `listPlotHoldings` copies, my-assignment
+  checksums equal the served bytes for whole and divided files.
+  Found on the way (not changed here): on Postgres, an invite made with a Phase-0
+  project admin token fails with a 500, since `invites.created_by` references `users`
+  and the route puts the project id there.
+
 ### Task 7: the export gets `plot`, `round` and `assessment`
 
 **Files:**

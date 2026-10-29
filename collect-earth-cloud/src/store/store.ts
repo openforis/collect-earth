@@ -31,6 +31,12 @@ export interface TokenMembership {
   role: Role;
 }
 
+/** The plots one person holds in a divided file; copyKeys are those given as quality-check copies. */
+export interface UserPlots {
+  plotKeys: string[];
+  copyKeys: string[];
+}
+
 export interface CreateInviteInput {
   projectId: string;
   role: Role;
@@ -174,12 +180,15 @@ export interface Store {
   setDivision(projectId: string, csvFileId: string, distribution: StoredDistribution | null, plots: PlotAssignment[]): Promise<void>;
   /** Who holds which plot of a file. */
   listPlotAssignments(projectId: string, csvFileId: string): Promise<PlotAssignment[]>;
-  /** The divided files where the user holds plots, with those plots, by filename. */
-  listPlotHoldings(projectId: string, userId: string): Promise<{ csvFileId: string; plotKeys: string[] }[]>;
+  /**
+   * The divided files where the user holds plots, with those plots, by filename.
+   * `copyKeys` are the ones among them given as quality-check copies (overlap).
+   */
+  listPlotHoldings(projectId: string, userId: string): Promise<({ csvFileId: string } & UserPlots)[]>;
   /** How many people hold at least one plot, by csv file id (divided files only). */
   countPlotHolders(projectId: string): Promise<Map<string, number>>;
-  /** The user's plots of one divided file (none for a whole file). */
-  listUserPlotKeys(projectId: string, csvFileId: string, userId: string): Promise<string[]>;
+  /** The user's plots of one divided file (none for a whole file), and which of them are copies. */
+  listUserPlots(projectId: string, csvFileId: string, userId: string): Promise<UserPlots>;
 
   getRecord(projectId: string, recordKey: string, operator: string): Promise<RecordRow | null>;
   putRecord(row: RecordRow): Promise<void>;

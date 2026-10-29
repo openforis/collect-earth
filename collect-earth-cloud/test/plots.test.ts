@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { buildPlotFile, parsePlotFile } from '../src/plots.js';
+import { buildPlotFile, parsePlotFile, type RoundColumn } from '../src/plots.js';
 import { plotFileOf } from '../src/routes/division.js';
 import { unitOfRecord } from '../src/rounds.js';
 
@@ -63,6 +63,73 @@ describe('plot file parser', () => {
 
   it('counts the widest row as the columns', () => {
     expect(parse('id,lat,lon\n1,0,0,extra,more\n').columnCount).toBe(5);
+  });
+});
+
+describe('plot files with a round column', () => {
+  const BOM = Buffer.from([0xef, 0xbb, 0xbf]);
+  /** Round 2 on the plots in `copies`, 1 elsewhere. */
+  const insert = (copies: string[]): RoundColumn => ({ kind: 'insert', value: (id) => (copies.includes(id) ? '2' : '1') });
+
+  it('inserts round after the first column, with a header, for every separator', () => {
+    for (const sep of [',', ';', '\t', '|']) {
+      const j = (...fields: string[]) => fields.join(sep);
+      const text = `${j('id', 'lat', 'lon', 'wkt')}\n${j('1', '0', '0', `"POLYGON((0 0${sep} 1 1,\n 2 2))"`)}\n${j('2', '1', '1', 'x')}\n`;
+      const file = parse(text);
+      expect(file.separator).toBe(sep);
+      expect(buildPlotFile(file, null, insert(['2'])).toString('utf8')).toBe(
+        `${j('id', 'round', 'lat', 'lon', 'wkt')}\n${j('1', '1', '0', '0', `"POLYGON((0 0${sep} 1 1,\n 2 2))"`)}\n${j('2', '2', '1', '1', 'x')}\n`,
+      );
+      expect(buildPlotFile(file, new Set(['2']), insert(['2'])).toString('utf8')).toBe(
+        `${j('id', 'round', 'lat', 'lon', 'wkt')}\n${j('2', '2', '1', '1', 'x')}\n`,
+      );
+    }
+  });
+
+  it('inserts round without a header, after a quoted id, keeping a BOM, CRLF and a last row without a line break', () => {
+    const text = Buffer.concat([BOM, Buffer.from('"1",0,0\r\n\r\n2,1,1\r\n1,5,5')]);
+    const built = buildPlotFile(parse(text), null, insert(['1']));
+    expect(built.subarray(0, 3)).toEqual(BOM);
+    expect(built.subarray(3).toString('utf8')).toBe('"1",2,0,0\r\n2,1,1,1\r\n1,2,5,5');
+    // Only plot 1: its last row gets no line break, the one before keeps its own.
+    expect(buildPlotFile(parse(text), new Set(['1']), insert([])).subarray(3).toString('utf8')).toBe('"1",1,0,0\r\n1,1,5,5');
+    // With a header, the header gets the column too; the last row stays without a break.
+    const last = parse('id,lat,lon\r\n2,0,0\r\n1,1,1');
+    expect(buildPlotFile(last, null, insert([])).toString('utf8')).toBe('id,round,lat,lon\r\n2,1,0,0\r\n1,1,1,1');
+  });
+
+  it('keeps the other bytes of a row exactly (Latin-1, spaces, quotes)', () => {
+    const latin1 = Buffer.from('id,lat,lon,name\n 1 ,0,0,"Pe\xf1a ""x"""\n', 'latin1');
+    expect(buildPlotFile(parse(latin1), null, insert([]))).toEqual(
+      Buffer.from('id,round,lat,lon,name\n 1 ,1,0,0,"Pe\xf1a ""x"""\n', 'latin1'),
+    );
+  });
+
+  it('replaces a column, quoting the value when it needs it, and leaves other rows and the header alone', () => {
+    const text = 'id;round;lat;lon\n17;1;0;0\n17;"1";5;5\n18; 3 ;0;0\n19;1;0;0';
+    const file = parsePlotFile(Buffer.from(text), 2);
+    const replace = (value: string): RoundColumn => ({
+      kind: 'replace',
+      index: 1,
+      value: (id, current) => (id === '17,1' ? value : current),
+    });
+    expect(buildPlotFile(file, null, replace('2')).toString('utf8')).toBe('id;round;lat;lon\n17;2;0;0\n17;2;5;5\n18; 3 ;0;0\n19;1;0;0');
+    expect(buildPlotFile(file, null, replace('a;b')).toString('utf8')).toBe(
+      'id;round;lat;lon\n17;"a;b";0;0\n17;"a;b";5;5\n18; 3 ;0;0\n19;1;0;0',
+    );
+    expect(buildPlotFile(file, new Set(['17,1']), replace('say "x"\n')).toString('utf8')).toBe(
+      'id;round;lat;lon\n17;"say ""x""\n";0;0\n17;"say ""x""\n";5;5\n',
+    );
+    // A row too short for the column is left as it is.
+    const short = parsePlotFile(Buffer.from('1;0;0\n2\n'), 1);
+    expect(buildPlotFile(short, null, { kind: 'replace', index: 3, value: () => 'x' }).toString('utf8')).toBe('1;0;0\n2\n');
+  });
+
+  it('records where each field starts and ends', () => {
+    const row = parse('id,lat,lon\n"1,2" , 0,0\n').rows[0];
+    expect(row.fields).toEqual(['1,2', '0', '0']);
+    expect(row.fieldStarts).toEqual([11, 18, 21]);
+    expect(row.fieldEnds).toEqual([17, 20, 22]);
   });
 });
 

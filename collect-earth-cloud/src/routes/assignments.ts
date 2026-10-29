@@ -1,12 +1,13 @@
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import { isUuid } from '../accountRules.js';
+import type { RoundInfo } from '../cep.js';
 import type { Config } from '../config.js';
 import { checksumOf } from '../csv.js';
 import { checkUploadFits } from '../limits.js';
-import { buildPlotFile, parsePlotFile } from '../plots.js';
-import { fileKeyCount } from '../rounds.js';
+import { buildPlotFile, parsePlotFile, type RoundColumn } from '../plots.js';
+import { fileKeyCount, keyShape } from '../rounds.js';
 import { requireProjectMembership } from '../plugins/projectAuth.js';
-import type { Store } from '../store/store.js';
+import type { Store, UserPlots } from '../store/store.js';
 import type { Assignment } from '../types.js';
 import { plotFileOf, registerDivisionRoutes } from './division.js';
 
@@ -20,6 +21,12 @@ interface AssignmentsBody {
  * (my-assignment) plus the CSV content it is entitled to download. A divided file
  * (its plots shared out one by one, see division.ts) is served to each person as
  * their own file: the header row plus only their plots.
+ *
+ * While the survey has a round the server can fill in (roundColumnOf), every file a
+ * person gets carries it: Collect Earth reads the plot's keys from the first columns
+ * and the coordinates right after them, so a file without the round column would put
+ * the coordinates in the wrong place. Admins still get the uploaded file without
+ * ?mine=1.
  */
 export async function registerAssignmentRoutes(app: FastifyInstance, store: Store, config: Config): Promise<void> {
   // Upload / replace a plot CSV (admin). Raw CSV body (text/csv or octet-stream).
@@ -70,8 +77,9 @@ export async function registerAssignmentRoutes(app: FastifyInstance, store: Stor
 
   // Download a CSV's content. Admins may fetch any in full (without ?mine=1);
   // operators only files assigned to them. Of a divided file, everyone else (and an
-  // admin asking ?mine=1) gets their own file, 404 if they hold no plot in it. The
-  // checksum of what is served is in a header so the client can verify.
+  // admin asking ?mine=1) gets their own file, 404 if they hold no plot in it; of a
+  // whole file, the file with the round column when the survey has one to fill in.
+  // The checksum of what is served is in a header so the client can verify.
   app.get(
     '/v1/projects/:pid/csv-files/:id/content',
     { preHandler: requireProjectMembership(store) },
@@ -87,16 +95,18 @@ export async function registerAssignmentRoutes(app: FastifyInstance, store: Stor
       }
       let data = file.data;
       let checksum = file.checksum;
+      const info = await store.getRoundInfo(projectId);
       if (file.distribution && (mine || !isAdmin)) {
-        const keys = userId ? await store.listUserPlotKeys(projectId, id, userId) : [];
-        const keyCount = fileKeyCount(await store.getRoundInfo(projectId));
-        const own = keys.length > 0 ? ownFile(file, keys, keyCount) : null;
+        const plots = userId ? await store.listUserPlots(projectId, id, userId) : null;
+        const own = plots && plots.plotKeys.length > 0 ? ownFile(file, plots, info) : null;
         if (!own) {
           return reply.code(404).send({ error: 'not_found' });
         }
         ({ data, checksum } = own);
       } else if (!isAdmin && !(userId && (await store.isAssigned(projectId, id, userId)))) {
         return reply.code(404).send({ error: 'not_found' });
+      } else if (mine || !isAdmin) {
+        ({ data, checksum } = wholeFile(file, info));
       }
       return reply
         .header('content-type', 'text/csv')
@@ -155,13 +165,31 @@ export async function registerAssignmentRoutes(app: FastifyInstance, store: Stor
           downloadUrl: base ? `${base}${path}` : null,
         };
       };
-      const assignments = files.map((f) => entry(f));
+      const info = await store.getRoundInfo(projectId);
+      const withRound = roundColumnOf(info, new Set()) !== null;
+      const assignments: ReturnType<typeof entry>[] = [];
+      for (const f of files) {
+        if (!withRound) {
+          assignments.push(entry(f));
+          continue;
+        }
+        // The file as this person gets it (with the round column): its checksum and
+        // count, downloaded with ?mine=1.
+        let whole = cachedWholeFile(f, info);
+        if (!whole) {
+          const file = await store.getCsvFile(projectId, f.id);
+          if (!file) {
+            continue;
+          }
+          whole = wholeFile(file, info);
+        }
+        assignments.push(entry({ ...f, checksum: whole.checksum, plotCount: whole.plotCount }, '?mine=1'));
+      }
       // Divided files where the caller holds plots: their own file's checksum and count.
       const holdings = userId ? await store.listPlotHoldings(projectId, userId) : [];
-      const keyCount = holdings.length > 0 ? fileKeyCount(await store.getRoundInfo(projectId)) : 1;
       for (const holding of holdings) {
         const file = await store.getCsvFile(projectId, holding.csvFileId);
-        const own = file ? ownFile(file, holding.plotKeys, keyCount) : null;
+        const own = file ? ownFile(file, holding, info) : null;
         if (file && own) {
           assignments.push(entry({ ...file, checksum: own.checksum, plotCount: own.plotCount }, '?mine=1'));
         }
@@ -174,21 +202,87 @@ export async function registerAssignmentRoutes(app: FastifyInstance, store: Stor
 }
 
 /**
- * One person's file of a divided plot file, from the plots they hold; null when none
- * of them is in the file (any more). `keyCount` is fileKeyCount of the project's
- * RoundInfo: the plot keys are the file's first that many columns.
+ * The round column of the files one person gets, or null when files are served as
+ * uploaded. `copies` are the plot units they hold as quality-check copies.
+ * - round added by the server: inserted after the id, 2 on copies and 1 elsewhere;
+ * - the survey's own round with a reassessment code: that code on copies, the file's
+ *   own value elsewhere;
+ * - otherwise (no round, or own round without a reassessment code): none.
  */
-function ownFile(
-  file: { checksum: string; data: Buffer },
-  plotKeys: string[],
-  keyCount: number,
-): { data: Buffer; checksum: string; plotCount: number } | null {
+export function roundColumnOf(info: RoundInfo | null, copies: ReadonlySet<string>): RoundColumn | null {
+  if (info?.state === 'added') {
+    return { kind: 'insert', value: (plotId) => (copies.has(plotId) ? '2' : '1') };
+  }
+  const { roundIndex } = keyShape(info);
+  const code = info?.reassessmentCode ?? null;
+  if (info?.state === 'own' && code !== null && roundIndex !== null) {
+    return { kind: 'replace', index: roundIndex, value: (plotId, current) => (copies.has(plotId) ? code : current) };
+  }
+  return null;
+}
+
+interface ServedFile {
+  data: Buffer;
+  checksum: string;
+  plotCount: number;
+}
+
+/** Whole files with the round column inserted, by checksum and key count: the same for everyone. */
+const wholeFiles = new Map<string, ServedFile>();
+const WHOLE_CACHE_SIZE = 4;
+
+function cachedWholeFile(file: { checksum: string }, info: RoundInfo | null): ServedFile | null {
+  if (info?.state !== 'added') {
+    return null;
+  }
+  const cacheKey = `${file.checksum}:${fileKeyCount(info)}`;
+  const cached = wholeFiles.get(cacheKey);
+  if (!cached) {
+    return null;
+  }
+  wholeFiles.delete(cacheKey);
+  wholeFiles.set(cacheKey, cached);
+  return cached;
+}
+
+/**
+ * A whole (not divided) file as people get it. Only an inserted round changes it: a
+ * whole file has no quality-check copies, so a replaced round would keep every value,
+ * and the file is served as uploaded.
+ */
+function wholeFile(file: { checksum: string; data: Buffer; plotCount: number }, info: RoundInfo | null): ServedFile {
+  const round = roundColumnOf(info, new Set());
+  if (round?.kind !== 'insert') {
+    return { data: file.data, checksum: file.checksum, plotCount: file.plotCount };
+  }
+  const cached = cachedWholeFile(file, info);
+  if (cached) {
+    return cached;
+  }
+  const keyCount = fileKeyCount(info);
   const plotFile = plotFileOf(file, keyCount);
+  const data = buildPlotFile(plotFile, null, round);
+  const built = { data, checksum: checksumOf(data), plotCount: plotFile.plotIds.length };
+  wholeFiles.set(`${file.checksum}:${keyCount}`, built);
+  while (wholeFiles.size > WHOLE_CACHE_SIZE) {
+    wholeFiles.delete(wholeFiles.keys().next().value as string);
+  }
+  return built;
+}
+
+/**
+ * One person's file of a divided plot file, from the plots they hold, with the round
+ * column when the survey has one to fill in; null when none of their plots is in the
+ * file (any more). The plot keys are the file's first fileKeyCount(info) columns.
+ */
+function ownFile(file: { checksum: string; data: Buffer }, plots: UserPlots, info: RoundInfo | null): ServedFile | null {
+  const plotFile = plotFileOf(file, fileKeyCount(info));
   const inFile = new Set(plotFile.plotIds);
-  const keys = new Set(plotKeys.filter((k) => inFile.has(k)));
+  const keys = new Set(plots.plotKeys.filter((k) => inFile.has(k)));
   if (keys.size === 0) {
     return null;
   }
-  const data = buildPlotFile(plotFile, keys);
+  const round = roundColumnOf(info, new Set(plots.copyKeys)) ?? undefined;
+  const data = buildPlotFile(plotFile, keys, round);
   return { data, checksum: checksumOf(data), plotCount: keys.size };
 }

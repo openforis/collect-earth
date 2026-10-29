@@ -22,7 +22,7 @@ import {
   type User,
   type UserSummary,
 } from '../types.js';
-import type { CreateInviteInput, CreateProjectResult, Store, TokenMembership } from './store.js';
+import type { CreateInviteInput, CreateProjectResult, Store, TokenMembership, UserPlots } from './store.js';
 
 interface CsvFileEntry extends CsvFile {
   data: Buffer;
@@ -695,22 +695,27 @@ export class InMemoryStore implements Store {
     return (this.projects.get(projectId)?.plotAssignments.get(csvFileId) ?? []).map((a) => ({ ...a }));
   }
 
-  async listPlotHoldings(projectId: string, userId: string): Promise<{ csvFileId: string; plotKeys: string[] }[]> {
+  async listPlotHoldings(projectId: string, userId: string): Promise<({ csvFileId: string } & UserPlots)[]> {
     const entry = this.projects.get(projectId);
     if (!entry) {
       return [];
     }
-    const result: { csvFileId: string; filename: string; plotKeys: string[] }[] = [];
+    const result: ({ csvFileId: string; filename: string } & UserPlots)[] = [];
     for (const [csvFileId, list] of entry.plotAssignments) {
       const file = entry.csvFiles.get(csvFileId);
-      const plotKeys = list.filter((a) => a.userId === userId).map((a) => a.plotKey);
-      if (file?.distribution && plotKeys.length > 0) {
-        result.push({ csvFileId, filename: file.filename, plotKeys });
+      const mine = list.filter((a) => a.userId === userId);
+      if (file?.distribution && mine.length > 0) {
+        result.push({
+          csvFileId,
+          filename: file.filename,
+          plotKeys: mine.map((a) => a.plotKey),
+          copyKeys: mine.filter((a) => a.overlap).map((a) => a.plotKey),
+        });
       }
     }
     return result
       .sort((a, b) => (a.filename < b.filename ? -1 : a.filename > b.filename ? 1 : 0))
-      .map(({ csvFileId, plotKeys }) => ({ csvFileId, plotKeys }));
+      .map(({ csvFileId, plotKeys, copyKeys }) => ({ csvFileId, plotKeys, copyKeys }));
   }
 
   async countPlotHolders(projectId: string): Promise<Map<string, number>> {
@@ -723,12 +728,13 @@ export class InMemoryStore implements Store {
     return result;
   }
 
-  async listUserPlotKeys(projectId: string, csvFileId: string, userId: string): Promise<string[]> {
+  async listUserPlots(projectId: string, csvFileId: string, userId: string): Promise<UserPlots> {
     const entry = this.projects.get(projectId);
     if (!entry?.csvFiles.get(csvFileId)?.distribution) {
-      return [];
+      return { plotKeys: [], copyKeys: [] };
     }
-    return (entry.plotAssignments.get(csvFileId) ?? []).filter((a) => a.userId === userId).map((a) => a.plotKey);
+    const mine = (entry.plotAssignments.get(csvFileId) ?? []).filter((a) => a.userId === userId);
+    return { plotKeys: mine.map((a) => a.plotKey), copyKeys: mine.filter((a) => a.overlap).map((a) => a.plotKey) };
   }
 
   async close(): Promise<void> {

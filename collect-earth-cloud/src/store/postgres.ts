@@ -23,7 +23,7 @@ import {
   type User,
   type UserSummary,
 } from '../types.js';
-import type { CreateInviteInput, CreateProjectResult, Store, TokenMembership } from './store.js';
+import type { CreateInviteInput, CreateProjectResult, Store, TokenMembership, UserPlots } from './store.js';
 import { UsernameTakenError } from './memory.js';
 import { checksumOf, plotCountOf } from '../csv.js';
 
@@ -872,17 +872,18 @@ export class PostgresStore implements Store {
     });
   }
 
-  async listPlotHoldings(projectId: string, userId: string): Promise<{ csvFileId: string; plotKeys: string[] }[]> {
+  async listPlotHoldings(projectId: string, userId: string): Promise<({ csvFileId: string } & UserPlots)[]> {
     return this.withProject(projectId, async (client) => {
       const res = await client.query(
-        `SELECT c.id, array_agg(p.plot_key) AS plot_keys
+        `SELECT c.id, array_agg(p.plot_key) AS plot_keys,
+                COALESCE(array_agg(p.plot_key) FILTER (WHERE p.overlap), '{}') AS copy_keys
            FROM plot_assignments p JOIN csv_files c ON c.id = p.csv_file_id
           WHERE p.project_id = $1 AND p.user_id = $2 AND c.distribution IS NOT NULL
           GROUP BY c.id, c.filename
           ORDER BY c.filename`,
         [projectId, userId],
       );
-      return res.rows.map((r) => ({ csvFileId: r.id, plotKeys: r.plot_keys as string[] }));
+      return res.rows.map((r) => ({ csvFileId: r.id, plotKeys: r.plot_keys as string[], copyKeys: r.copy_keys as string[] }));
     });
   }
 
@@ -899,18 +900,21 @@ export class PostgresStore implements Store {
     });
   }
 
-  async listUserPlotKeys(projectId: string, csvFileId: string, userId: string): Promise<string[]> {
+  async listUserPlots(projectId: string, csvFileId: string, userId: string): Promise<UserPlots> {
     if (!isUuid(csvFileId)) {
-      return [];
+      return { plotKeys: [], copyKeys: [] };
     }
     return this.withProject(projectId, async (client) => {
       const res = await client.query(
-        `SELECT p.plot_key
+        `SELECT p.plot_key, p.overlap
            FROM plot_assignments p JOIN csv_files c ON c.id = p.csv_file_id
           WHERE p.project_id = $1 AND p.csv_file_id = $2 AND p.user_id = $3 AND c.distribution IS NOT NULL`,
         [projectId, csvFileId, userId],
       );
-      return res.rows.map((r) => r.plot_key as string);
+      return {
+        plotKeys: res.rows.map((r) => r.plot_key as string),
+        copyKeys: res.rows.filter((r) => r.overlap === true).map((r) => r.plot_key as string),
+      };
     });
   }
 
