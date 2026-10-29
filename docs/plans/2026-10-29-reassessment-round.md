@@ -1260,7 +1260,7 @@ Commit: "Collect Earth Cloud: a personal quality report for each collector and a
 - `aiFollowUpsPerDay` (default 30);
 - `aiMonthlyTokens` (default 2,000,000; 0 = none allowed).
 
-**Migration 010** (009 is the quality version counter, Task 10 "As built")
+**Migration 011** (009 is the quality version counter, Task 10 "As built"; 010 is retired usernames, Task 11)
 - Add `projects.ai_enabled BOOLEAN NOT NULL DEFAULT false`.
 - Add an `ai_runs` table, with RLS:
   - columns: `id, project_id, kind ('report'|'follow_up'|'question'), started_by,
@@ -1445,7 +1445,7 @@ with a reason):
 (`setImmediate`), writing progress and tokens to `ai_runs`. Each request also
 stops at a token cap: input above 200k for the run → stop as `failed`.
 
-**Logging.** `ai_runs` (migration 010, Task 12) already holds who, when, tools and tokens. Refused
+**Logging.** `ai_runs` (migration 011, Task 12) already holds who, when, tools and tokens. Refused
 questions are stored as runs with `status='refused'`.
 
 **Platform admin.** `GET /v1/admin/ai-usage` returns per-project totals for the
