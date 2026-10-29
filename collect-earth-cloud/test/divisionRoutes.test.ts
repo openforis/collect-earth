@@ -283,6 +283,36 @@ describe('dividing plots between people', () => {
     expect(bad.statusCode).toBe(400);
   });
 
+  it('moving to someone holding a copy makes it theirs, unless they already checked it', async () => {
+    // 50%: maria holds 1-5 and copies of 6, 7 and 9; jose holds 6-10 and copies of 1, 2 and 4.
+    await divideFile({ mode: 'even', people: [maria.userId, jose.userId], order: 'file', overlapPercent: 50 });
+    const before = await ctx.store.listPlotAssignments(pid, fileId);
+    const joseCopies = before.filter((a) => a.userId === jose.userId && a.overlap).map((a) => a.plotKey);
+    const mariaCopies = before.filter((a) => a.userId === maria.userId && a.overlap).map((a) => a.plotKey);
+    expect(joseCopies).toEqual(['1', '2', '4']);
+    expect(mariaCopies).toEqual(['6', '7', '9']);
+    // Jose checked plot 2 (he holds it as a copy, and the key has no round).
+    await batchRequest(ctx.app, pid, jose.token, [envelope({ recordKey: '2', operator: 'jose' })]);
+    const res = await ctx.app.inject({
+      method: 'POST',
+      url: `/v1/projects/${pid}/csv-files/${fileId}/move-unfinished`,
+      headers: bearer(admin),
+      payload: { fromUserId: maria.userId, toUserId: jose.userId },
+    });
+    expect(res.statusCode).toBe(200);
+    // 1, 3, 4, 5 move (1 and 4 were jose's copies: now his to assess); 2 stays with
+    // maria; her copies of 6, 7 and 9 go, as jose holds them as main.
+    expect(res.json()).toMatchObject({ moved: 4, notMoved: 1, droppedChecks: 3, unassigned: 0 });
+    const after = await ctx.store.listPlotAssignments(pid, fileId);
+    const of = (userId: string) =>
+      after
+        .filter((a) => a.userId === userId)
+        .sort((x, y) => Number(x.plotKey) - Number(y.plotKey))
+        .map((a) => `${a.plotKey}${a.overlap ? ' copy' : ''}`);
+    expect(of(maria.userId)).toEqual(['2']);
+    expect(of(jose.userId)).toEqual(['1', '2 copy', '3', '4', '5', '6', '7', '8', '9', '10']);
+  });
+
   it('moves unfinished plots on a whole file by dividing it first', async () => {
     await ctx.app.inject({
       method: 'PUT',
@@ -370,9 +400,13 @@ describe('dividing plots between people', () => {
       envelope({ recordKey: '1x,1', operator: 'jose' }),
     ]);
     const res = await divideFile({ mode: 'even', people: [maria.userId, jose.userId], order: 'file' });
-    expect(share(res.json(), 'jose')).toMatchObject({ plots: 5, submitted: 2 });
+    // Jose checked plot 2: he keeps it as a copy (round 2), and maria gets it to assess.
+    expect(share(res.json(), 'jose')).toMatchObject({ plots: 6, overlap: 1, submitted: 2 });
+    expect(share(res.json(), 'maria')).toMatchObject({ plots: 5, overlap: 0 });
     const joseFile = await download(jose.token, (await myAssignment(jose.token))[0].downloadPath);
-    expect(plotsOf(joseFile.body)).toEqual(['1', '2', '8', '9', '10']);
+    expect(plotsOf(joseFile.body)).toEqual(['1', '2', '7', '8', '9', '10']);
+    expect(joseFile.body).toContain('\n2,2,0,0,');
+    expect(joseFile.body).toContain('\n1,1,0,0,');
   });
 
   it('refuses a project file that reads plots with other key columns while a file is divided', async () => {
@@ -418,9 +452,12 @@ describe('dividing plots between people', () => {
     await batchRequest(ctx.app, pid, jose.token, [envelope({ recordKey: '18,2', operator: 'jose' })]);
     const res = await divideFile({ mode: 'even', people: [jose.userId, maria.userId], order: 'file' }, ownId);
     expect(res.json().plotCount).toBe(3);
-    expect(share(res.json(), 'jose')).toMatchObject({ plots: 2, submitted: 1 });
+    // Jose's check keeps 18,1 with him as a copy; maria gets it to assess.
+    expect(share(res.json(), 'jose')).toMatchObject({ plots: 3, overlap: 1, submitted: 1 });
     const holdings = await ctx.store.listPlotAssignments(pid, ownId);
-    expect(holdings.filter((a) => a.userId === jose.userId).map((a) => a.plotKey).sort()).toEqual(['17,1', '18,1']);
-    expect(holdings.filter((a) => a.userId === maria.userId).map((a) => a.plotKey)).toEqual(['18,3']);
+    const of = (userId: string) =>
+      holdings.filter((a) => a.userId === userId).map((a) => `${a.plotKey}${a.overlap ? ' copy' : ''}`).sort();
+    expect(of(jose.userId)).toEqual(['17,1', '18,1 copy', '18,3']);
+    expect(of(maria.userId)).toEqual(['18,1']);
   });
 });

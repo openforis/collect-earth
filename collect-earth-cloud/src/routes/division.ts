@@ -13,7 +13,7 @@ import {
   type DistributionSummary,
 } from '../division.js';
 import { parsePlotFile, type PlotFile } from '../plots.js';
-import { fileKeyCount } from '../rounds.js';
+import { fileKeyCount, keyShape, splitKey } from '../rounds.js';
 import { requireProjectMembership } from '../plugins/projectAuth.js';
 import type { Store } from '../store/store.js';
 import type { PlotAssignment } from '../types.js';
@@ -23,7 +23,7 @@ export const MAX_LISTED_VALUES = 200;
 
 // A few recently parsed files, by checksum and key count: my-assignment and the file
 // page read the same file again and again, and a big one takes a moment to parse.
-const PARSED_CACHE_SIZE = 4;
+const PARSED_CACHE_SIZE = 8;
 const parsedFiles = new Map<string, PlotFile>();
 
 /**
@@ -75,7 +75,13 @@ async function loadFile(store: Store, projectId: string, csvFileId: string) {
   // assessment when the key has no round (and picks the unit of a check record).
   const copyHolders = copyHoldersOf(holdings, usernames);
   const submitted = submittedByPlot(records, new Set(plotFile.plotIds), userIdByUsername, info, copyHolders);
-  return { file, plotFile, usernames, submitted };
+  // A survey with its own round may have several units (rounds) of one plot.
+  const shape = keyShape(info);
+  const plotOf =
+    info?.state === 'own' && shape.roundIndex !== null
+      ? (unit: string) => splitKey(unit, shape.count, shape.roundIndex).plot
+      : (unit: string) => unit;
+  return { file, plotFile, usernames, submitted, plotOf };
 }
 
 type Loaded = NonNullable<Awaited<ReturnType<typeof loadFile>>>;
@@ -187,7 +193,7 @@ export async function registerDivisionRoutes(app: FastifyInstance, store: Store)
     if (!loaded) {
       return reply.code(404).send({ error: 'not_found' });
     }
-    const { file, plotFile, usernames, submitted } = loaded;
+    const { file, plotFile, usernames, submitted, plotOf } = loaded;
     const dryRun = (request.body as { dryRun?: unknown } | null)?.dryRun === true;
     const parsed = parseDivisionRequest(request.body, new Set(usernames.keys()), plotFile.columnCount, () =>
       randomInt(0, 2 ** 31),
@@ -204,7 +210,7 @@ export async function registerDivisionRoutes(app: FastifyInstance, store: Store)
       return reply.send(wholeSummary(loaded, assignees));
     }
     const values = parsed.mode === 'column' ? columnValues(plotFile, parsed.column) : null;
-    const plots = divide(parsed, plotFile.plotIds, values, submitted);
+    const plots = divide(parsed, plotFile.plotIds, values, submitted, plotOf);
     if (!dryRun) {
       await store.setDivision(projectId, file.id, parsed, plots);
     }
@@ -242,7 +248,7 @@ export async function registerDivisionRoutes(app: FastifyInstance, store: Store)
     const inFile = new Set(plotFile.plotIds);
     holdings = holdings.filter((a) => inFile.has(a.plotKey));
     if (!holdings.some((a) => a.userId === from)) {
-      return reply.send({ ...(await currentSummary(store, projectId, loaded)), moved: 0 });
+      return reply.send({ ...(await currentSummary(store, projectId, loaded)), moved: 0, notMoved: 0, droppedChecks: 0 });
     }
     const result = moveUnfinished(holdings, from, to, submitted);
     const distribution = { mode: 'manual' as const };
@@ -250,6 +256,10 @@ export async function registerDivisionRoutes(app: FastifyInstance, store: Store)
     return reply.send({
       ...summarize(distribution, plotFile.plotIds, result.plots, submitted, usernames),
       moved: result.moved,
+      // Plots `to` already checked stay with `from`; copies of `from` where `to` is the
+      // main holder are dropped.
+      notMoved: result.notMoved,
+      droppedChecks: result.droppedChecks,
     });
   });
 

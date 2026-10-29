@@ -27,6 +27,15 @@ export function hasSubmitted(submittedBy: SubmittedBy, plot: string, userId: str
   return s !== undefined && (s.main.has(userId) || s.check.has(userId));
 }
 
+/**
+ * Whether a holding is done: a main holding when its holder submitted the main
+ * assessment, a copy when they submitted the check.
+ */
+export function holdingDone(submittedBy: SubmittedBy, a: PlotAssignment): boolean {
+  const s = submittedBy.get(a.plotKey);
+  return s !== undefined && (a.overlap ? s.check.has(a.userId) : s.main.has(a.userId));
+}
+
 /** A division request after validation, before the plots are dealt. */
 export type DivisionRequest = { mode: 'whole' } | Exclude<StoredDistribution, { mode: 'manual' }>;
 
@@ -174,45 +183,56 @@ export function shareSizes(pinned: readonly number[], free: number): number[] {
 }
 
 /**
- * Deals `plots` (in the order they are to be dealt) between `people`. A plot whose
- * main assessment one of them submitted stays theirs (the first of them, if several;
- * the others keep it as a copy), and counts towards their share; those who submitted
- * its check keep it as a copy. A plot with only check submitters among them stays
- * with the first of those (the others get copies). The rest goes out in order:
- * person i the next chunk, so neighbouring plots stay together. Returns each
- * person's plots in dealing order, and the extra copies.
+ * Deals `plots` (in the order they are to be dealt) between `people`.
+ * - A plot whose main assessment one of them submitted stays theirs (the first of
+ *   them, if several; the others keep it as a copy) and counts towards their share.
+ * - A plot whose main assessment only people outside `people` submitted is done: it
+ *   stays with them (the first as main, the others as copies) and is not dealt again.
+ * - Those who submitted a plot's check always keep it as a copy, never as main: the
+ *   plot goes to someone else (the next person with room who did not check it, or
+ *   else the one of them with the fewest plots). When everyone checked it, it is
+ *   left unassigned.
+ * The rest goes out in order: person i the next chunk, so neighbouring plots stay
+ * together. Returns each person's plots in dealing order, the copies and the
+ * holdings kept outside `people`.
  */
 function deal(
   plots: readonly string[],
   people: readonly string[],
   submittedBy: SubmittedBy,
-): { lists: string[][]; copies: PlotAssignment[] } {
+): { lists: string[][]; copies: PlotAssignment[]; kept: PlotAssignment[] } {
+  const n = people.length;
   const index = new Map(people.map((p, i) => [p, i]));
   const owner = new Map<string, number>();
+  const done = new Set<string>();
+  const checkedBy = new Map<string, Set<number>>();
   const copies: PlotAssignment[] = [];
+  const kept: PlotAssignment[] = [];
   const pinned = people.map(() => 0);
+  const among = (users: ReadonlySet<string>) =>
+    [...users].map((u) => index.get(u)).filter((i): i is number => i !== undefined).sort((x, y) => x - y);
   for (const plot of plots) {
     const by = submittedBy.get(plot);
     if (!by) {
       continue;
     }
-    const among = (users: ReadonlySet<string>) =>
-      [...users].map((u) => index.get(u)).filter((i): i is number => i !== undefined).sort((x, y) => x - y);
-    let holders = among(by.main);
-    let checkers = among(by.check).filter((i) => !holders.includes(i));
-    if (holders.length === 0) {
-      holders = checkers;
-      checkers = [];
+    const holders = among(by.main);
+    const checkers = among(by.check).filter((i) => !holders.includes(i));
+    for (const i of [...holders.slice(1), ...checkers]) {
+      copies.push({ plotKey: plot, userId: people[i], overlap: true });
     }
     if (holders.length > 0) {
       owner.set(plot, holders[0]);
       pinned[holders[0]] += 1;
-      for (const other of [...holders.slice(1), ...checkers]) {
-        copies.push({ plotKey: plot, userId: people[other], overlap: true });
-      }
+    } else if (by.main.size > 0) {
+      const outside = [...by.main].sort();
+      done.add(plot);
+      outside.forEach((userId, i) => kept.push({ plotKey: plot, userId, overlap: i > 0 }));
+    } else if (checkers.length > 0) {
+      checkedBy.set(plot, new Set(checkers));
     }
   }
-  const extra = shareSizes(pinned, plots.length - owner.size);
+  const extra = shareSizes(pinned, plots.length - owner.size - done.size);
   const lists: string[][] = people.map(() => []);
   let person = 0;
   for (const plot of plots) {
@@ -221,21 +241,38 @@ function deal(
       lists[pinnedTo].push(plot);
       continue;
     }
-    while (extra[person] === 0) {
+    if (done.has(plot)) {
+      continue;
+    }
+    while (person < n && extra[person] === 0) {
       person += 1;
     }
-    lists[person].push(plot);
-    extra[person] -= 1;
+    const checkers = checkedBy.get(plot);
+    let j = person;
+    while (j < n && (extra[j] === 0 || checkers?.has(j))) {
+      j += 1;
+    }
+    if (j < n) {
+      lists[j].push(plot);
+      extra[j] -= 1;
+      continue;
+    }
+    // Everyone with room checked it: the one who did not with the fewest plots.
+    let best = -1;
+    for (let i = 0; i < n; i += 1) {
+      if (!checkers?.has(i) && (best < 0 || lists[i].length < lists[best].length)) {
+        best = i;
+      }
+    }
+    if (best >= 0) {
+      lists[best].push(plot);
+    }
   }
-  return { lists, copies };
+  return { lists, copies, kept };
 }
 
-/** Which plots of a list of `count` become copies: ceil(percent) of them, spread evenly. */
-export function overlapPicks(count: number, percent: number): number[] {
-  if (count === 0 || percent <= 0) {
-    return [];
-  }
-  const m = Math.min(count, Math.ceil((percent * count) / 100 - 1e-9));
+/** `m` of `count` items, spread evenly: their indices. */
+function spread(count: number, m: number): number[] {
   const picks: number[] = [];
   for (let j = 0; j < m; j += 1) {
     picks.push(Math.floor((j * count) / m));
@@ -243,16 +280,35 @@ export function overlapPicks(count: number, percent: number): number[] {
   return picks;
 }
 
+/** Which plots of a list of `count` become copies: ceil(percent) of them, spread evenly. */
+export function overlapPicks(count: number, percent: number): number[] {
+  if (count === 0 || percent <= 0) {
+    return [];
+  }
+  return spread(count, overlapCount(count, percent));
+}
+
+/** ceil(percent of count), at most count. */
+function overlapCount(count: number, percent: number): number {
+  return count === 0 || percent <= 0 ? 0 : Math.min(count, Math.ceil((percent * count) / 100 - 1e-9));
+}
+
 /**
  * Computes a division. `plotIds` are the file's plots in file order, `values` (for
  * mode column) each plot's value in the chosen column, and `submittedBy` the user
  * ids that submitted each plot. Each person's plots are in file order.
+ *
+ * `plotOf` gives a unit's plot (without its round) for a survey with its own round,
+ * where a plot may have several units ("18,1", "18,3"): nobody gets copies of two
+ * units of the same plot. A plot that already has a copy (its checker's, or a second
+ * main submitter's) gets no other one, and counts towards the overlap share.
  */
 export function divide(
   d: Exclude<StoredDistribution, { mode: 'manual' }>,
   plotIds: readonly string[],
   values: readonly string[] | null,
   submittedBy: SubmittedBy,
+  plotOf: (unit: string) => string = (unit) => unit,
 ): PlotAssignment[] {
   const position = new Map(plotIds.map((id, i) => [id, i]));
   const order = d.order === 'mixed' ? shuffled(plotIds, d.seed ?? 0) : [...plotIds];
@@ -269,21 +325,43 @@ export function divide(
   }
   const everyone = divisionPeople(d);
   const result = new Map<string, PlotAssignment>();
+  // The plot each person holds a copy of, and through which unit.
+  const copyUnitOf = new Map<string, Map<string, string>>();
+  const copied = new Set<string>();
   const add = (a: PlotAssignment): void => {
     const key = `${a.plotKey}\u0000${a.userId}`;
     const existing = result.get(key);
+    if (a.overlap) {
+      let plots = copyUnitOf.get(a.userId);
+      if (!plots) {
+        plots = new Map();
+        copyUnitOf.set(a.userId, plots);
+      }
+      const plot = plotOf(a.plotKey);
+      const unit = plots.get(plot);
+      if (existing || (unit !== undefined && unit !== a.plotKey)) {
+        return;
+      }
+      plots.set(plot, a.plotKey);
+      copied.add(a.plotKey);
+    }
     if (!existing || (existing.overlap && !a.overlap)) {
       result.set(key, a);
     }
   };
   for (const group of groups) {
-    const { lists, copies } = deal(group.plots, group.people, submittedBy);
+    const { lists, copies, kept } = deal(group.plots, group.people, submittedBy);
     lists.forEach((list, i) => {
       list.sort((x, y) => position.get(x)! - position.get(y)!);
-      const userId = group.people[i];
       for (const plot of list) {
-        add({ plotKey: plot, userId, overlap: false });
+        add({ plotKey: plot, userId: group.people[i], overlap: false });
       }
+    });
+    kept.filter((a) => !a.overlap).forEach(add);
+    kept.filter((a) => a.overlap).forEach(add);
+    copies.forEach(add);
+    lists.forEach((list, i) => {
+      const userId = group.people[i];
       // Quality-check copies go to the next person of the group, or of everyone
       // when the group has one person; nobody when there is only one in all.
       const next =
@@ -292,42 +370,68 @@ export function divide(
           : everyone.length > 1
             ? everyone[(everyone.indexOf(userId) + 1) % everyone.length]
             : null;
-      if (next) {
-        for (const pick of overlapPicks(list.length, d.overlapPercent)) {
-          add({ plotKey: list[pick], userId: next, overlap: true });
-        }
+      if (!next) {
+        return;
+      }
+      // Plots that already have a copy count towards the share and get no other.
+      const free = list.filter((plot) => !copied.has(plot));
+      const wanted = overlapCount(list.length, d.overlapPercent) - (list.length - free.length);
+      for (const pick of spread(free.length, Math.max(0, Math.min(free.length, wanted)))) {
+        add({ plotKey: free[pick], userId: next, overlap: true });
       }
     });
-    copies.forEach(add);
   }
   return [...result.values()].sort((x, y) => position.get(x.plotKey)! - position.get(y.plotKey)! || (x.userId < y.userId ? -1 : 1));
 }
 
 /**
- * Moves the plots `from` has not submitted (main or check) to `to`; if `to` holds one
- * already, `from` simply loses it. Returns the new holdings and how many plots `from` lost.
+ * Moves what `from` has not done (holdingDone) to `to`.
+ * - `to` does not hold the plot: they get it, main or copy as `from` had it.
+ * - `from` had it as main and `to` as a copy: `to`'s copy becomes main, unless `to`
+ *   already submitted the check; then the plot stays with `from` (`notMoved`).
+ * - `from` had a copy and `to` holds it as main: the copy goes (`droppedChecks`), as
+ *   nobody checks their own plot.
+ * - otherwise `to` already holds it the same way, and `from` simply loses it.
+ * `moved` counts the plots `from` gave up, apart from the dropped checks.
  */
 export function moveUnfinished(
   holdings: readonly PlotAssignment[],
   from: string,
   to: string,
   submittedBy: SubmittedBy,
-): { plots: PlotAssignment[]; moved: number } {
-  const toHolds = new Set(holdings.filter((a) => a.userId === to).map((a) => a.plotKey));
+): { plots: PlotAssignment[]; moved: number; notMoved: number; droppedChecks: number } {
+  const copiesOf = holdings.map((a) => ({ ...a }));
+  const toRows = new Map(copiesOf.filter((a) => a.userId === to).map((a) => [a.plotKey, a]));
   const plots: PlotAssignment[] = [];
   let moved = 0;
-  for (const a of holdings) {
-    if (a.userId !== from || hasSubmitted(submittedBy, a.plotKey, from)) {
+  let notMoved = 0;
+  let droppedChecks = 0;
+  for (const a of copiesOf) {
+    if (a.userId !== from || holdingDone(submittedBy, a)) {
       plots.push(a);
       continue;
     }
-    moved += 1;
-    if (!toHolds.has(a.plotKey)) {
-      toHolds.add(a.plotKey);
-      plots.push({ plotKey: a.plotKey, userId: to, overlap: a.overlap });
+    const theirs = toRows.get(a.plotKey);
+    if (!theirs) {
+      const row = { plotKey: a.plotKey, userId: to, overlap: a.overlap };
+      toRows.set(a.plotKey, row);
+      plots.push(row);
+      moved += 1;
+    } else if (a.overlap && !theirs.overlap) {
+      droppedChecks += 1;
+    } else if (!a.overlap && theirs.overlap) {
+      if (submittedBy.get(a.plotKey)?.check.has(to)) {
+        plots.push(a);
+        notMoved += 1;
+      } else {
+        theirs.overlap = false;
+        moved += 1;
+      }
+    } else {
+      moved += 1;
     }
   }
-  return { plots, moved };
+  return { plots, moved, notMoved, droppedChecks };
 }
 
 /** A submitted record: saved with "Submit" in Collect Earth, not deleted. */
@@ -436,6 +540,7 @@ export function summarize(
   usernames: ReadonlyMap<string, string>,
 ): DistributionSummary {
   const inFile = new Set(plotIds);
+  // A plot is assigned when someone holds it as main: a copy alone leaves it unassigned.
   const held = new Set<string>();
   const people = new Map<string, PersonShare>();
   const share = (userId: string): PersonShare => {
@@ -453,13 +558,15 @@ export function summarize(
     if (!inFile.has(a.plotKey)) {
       continue;
     }
-    held.add(a.plotKey);
+    if (!a.overlap) {
+      held.add(a.plotKey);
+    }
     const s = share(a.userId);
     s.plots += 1;
     if (a.overlap) {
       s.overlap += 1;
     }
-    if (hasSubmitted(submittedBy, a.plotKey, a.userId)) {
+    if (holdingDone(submittedBy, a)) {
       s.submitted += 1;
     }
   }
