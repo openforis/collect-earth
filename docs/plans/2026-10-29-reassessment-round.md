@@ -282,6 +282,14 @@ Commit: "Collect Earth Cloud: the server adds a hidden round key to an id-only p
   every byte not inserted stays as it was, whatever the file's encoding.
 - The single key keeps its own name (`[key, round]`); a key the in-place editor
   cannot find gives `survey_unreadable`.
+- **Own zip reader too**, in `readCep`: fflate's `unzipSync` trusts the zip's
+  claims (overlapping entries, sizes, checksums). The reader walks the central
+  directory and refuses ZIP64, split zips, encryption and methods other than
+  stored/deflate; the files must follow one another without overlapping, with the
+  same name in the local header. Counts and declared sizes are checked before
+  anything is inflated; deflate never goes past the declared size
+  (`maxOutputLength`), and each file must come out at that size with its CRC.
+  fflate is now only a dev dependency (tests compare against it).
 
 ### Task 4: storing the original and the served CEP
 

@@ -1,7 +1,6 @@
 // Reading a Collect Earth project file (CEP): a zip holding the survey (an IDML file),
 // the balloons, the KML template and project_definition.properties.
-import { deflateRawSync } from 'node:zlib';
-import { strFromU8, unzipSync } from 'fflate';
+import * as zlib from 'node:zlib';
 import { XMLParser, XMLValidator } from 'fast-xml-parser';
 
 export interface CepFiles {
@@ -87,59 +86,27 @@ export const DEFAULT_CEP_LIMITS: CepLimits = {
   minAllowanceBytes: 20 * MB,
 };
 
+/** How many unzipped bytes a zip of this size may hold. */
+function allowedBytes(zipLength: number, limits: CepLimits): number {
+  return Math.min(limits.maxTotalBytes, Math.max(limits.maxRatio * zipLength, limits.minAllowanceBytes));
+}
+
+/** A byte count in plain words: "20 MB", "200 KB", "512 bytes". */
+function sizeInWords(bytes: number): string {
+  if (bytes >= MB) return `${Math.floor(bytes / MB).toLocaleString('en')} MB`;
+  if (bytes >= 1024) return `${Math.floor(bytes / 1024).toLocaleString('en')} KB`;
+  return `${bytes} bytes`;
+}
+
 /** Opens a CEP and finds its survey, balloons and KML template. */
 export function readCep(zip: Buffer, limits: CepLimits = DEFAULT_CEP_LIMITS): CepFiles {
-  // unzipSync hands back a plain object, which puts names like "1" first and cannot hold
-  // "__proto__". The filter sees every entry in zip order, so the names are taken from it
-  // and the entries map is built in that order. A served CEP is re-zipped from this map,
-  // so nothing may be lost: a "__proto__" entry or a repeated name is refused.
-  //
-  // The filter also sees each entry's declared size before it is inflated. fflate inflates
-  // into a buffer of exactly that size, so the declared sizes bound the memory used; once
-  // they pass the limit, nothing more is inflated. An entry that comes out shorter than it
-  // declares is refused below.
-  const allowed = Math.min(limits.maxTotalBytes, Math.max(limits.maxRatio * zip.length, limits.minAllowanceBytes));
-  const names: string[] = [];
-  const declared = new Map<string, number>();
-  let total = 0;
-  let refusal: CepError | null = null;
-  const refuse = (code: CepErrorCode, message: string) => {
-    refusal ??= new CepError(code, message);
-    return false;
-  };
-  let unzipped: Record<string, Uint8Array>;
-  try {
-    unzipped = unzipSync(new Uint8Array(zip.buffer, zip.byteOffset, zip.byteLength), {
-      filter: ({ name, originalSize }) => {
-        if (refusal) return false;
-        if (name === '__proto__') return refuse('not_a_zip', unusable('it has a file named __proto__'));
-        if (declared.has(name)) return refuse('not_a_zip', unusable(`it has two files named ${name}`));
-        if (names.length >= limits.maxEntries) {
-          return refuse('too_large', `The project file has more than ${limits.maxEntries.toLocaleString('en')} files.`);
-        }
-        total += originalSize;
-        if (total > allowed) {
-          return refuse(
-            'too_large',
-            `The project file unzips to more than ${Math.floor(allowed / MB)} MB, more than the server accepts.`,
-          );
-        }
-        declared.set(name, originalSize);
-        names.push(name);
-        return true;
-      },
-    });
-  } catch {
-    throw new CepError('not_a_zip', 'The project file is not a zip file.');
-  }
-  if (refusal) throw refusal;
-  const entries = new Map(names.map((name) => [name, unzipped[name]] as const));
-  for (const [name, data] of entries) {
-    if (data.length !== declared.get(name)) throw new CepError('not_a_zip', unusable(`${name} is damaged`));
-  }
+  return readCepWithin(zip, limits.maxEntries, allowedBytes(zip.length, limits));
+}
 
+function readCepWithin(zip: Buffer, maxEntries: number, allowed: number): CepFiles {
+  const entries = unzipEntries(zip, maxEntries, allowed);
   const propertiesBytes = entries.get(PROPERTIES_PATH);
-  const properties = propertiesBytes ? parseProperties(strFromU8(propertiesBytes)) : new Map<string, string>();
+  const properties = propertiesBytes ? parseProperties(decodeUtf8(propertiesBytes)) : new Map<string, string>();
   const locate = ({ key, fallback }: { key: string; fallback: string }): string | null => {
     const named = properties.get(key);
     if (named !== undefined) {
@@ -162,6 +129,161 @@ export function readCep(zip: Buffer, limits: CepLimits = DEFAULT_CEP_LIMITS): Ce
     balloonWebPath: locate(LOCATIONS.balloonWeb),
     templatePath: locate(LOCATIONS.template),
   };
+}
+
+const EOCD_SIGNATURE = 0x06054b50;
+const ZIP64_LOCATOR_SIGNATURE = 0x07064b50;
+const CENTRAL_SIGNATURE = 0x02014b50;
+const LOCAL_SIGNATURE = 0x04034b50;
+const FLAG_ENCRYPTED = 0x0001;
+const FLAG_STRONG_ENCRYPTION = 0x0040;
+const FLAG_UTF8 = 0x0800;
+
+interface CentralEntry {
+  name: string;
+  nameBytes: Buffer;
+  method: number;
+  crc: number;
+  compressedSize: number;
+  size: number;
+  localAt: number;
+}
+
+/**
+ * Every entry of a zip, in central directory order, read by hand so that nothing in the
+ * zip is trusted before it is checked. A zip is only a list of claims: where each file
+ * starts, how big it is packed and unpacked, its checksum. Before anything is inflated:
+ * - the end record and the central directory must lie inside the zip; ZIP64, zips split
+ *   over several parts, encrypted files and methods other than stored and deflate are
+ *   refused;
+ * - the files must follow one another without overlapping, each local header naming the
+ *   same file as the central directory, so no packed byte is counted twice;
+ * - the number of files and the unpacked sizes they declare must fit the limits.
+ * Then each file is inflated no further than its declared size, and must come out exactly
+ * that long and with its checksum. So the declared sizes bound the memory used.
+ * Names are UTF-8 when the zip says so (bit 11), else read one byte per character, as
+ * fflate did.
+ */
+function unzipEntries(zip: Buffer, maxEntries: number, allowed: number): Map<string, Uint8Array> {
+  const notAZip = () => new CepError('not_a_zip', 'The project file is not a zip file.');
+  const cannotUse = (why: string) => new CepError('not_a_zip', unusable(why));
+
+  // The end of central directory record: 22 bytes, then a comment of up to 64 KiB.
+  if (zip.length < 22) throw notAZip();
+  let end = -1;
+  for (let at = zip.length - 22; at >= Math.max(0, zip.length - 22 - 0xffff); at--) {
+    if (zip.readUInt32LE(at) === EOCD_SIGNATURE && at + 22 + zip.readUInt16LE(at + 20) <= zip.length) {
+      end = at;
+      break;
+    }
+  }
+  if (end < 0) throw notAZip();
+  const disk = zip.readUInt16LE(end + 4);
+  const centralDisk = zip.readUInt16LE(end + 6);
+  const countOnDisk = zip.readUInt16LE(end + 8);
+  const count = zip.readUInt16LE(end + 10);
+  const centralSize = zip.readUInt32LE(end + 12);
+  const centralAt = zip.readUInt32LE(end + 16);
+  const zip64 = () => cannotUse('it is in the zip format for very large files (ZIP64), which the server does not read');
+  if (
+    count === 0xffff ||
+    countOnDisk === 0xffff ||
+    centralSize === 0xffffffff ||
+    centralAt === 0xffffffff ||
+    (end >= 20 && zip.readUInt32LE(end - 20) === ZIP64_LOCATOR_SIGNATURE)
+  ) {
+    throw zip64();
+  }
+  if (disk !== 0 || centralDisk !== 0 || countOnDisk !== count) throw cannotUse('it is split over several parts');
+  if (centralAt + centralSize > end) throw notAZip();
+  if (count > maxEntries) {
+    throw new CepError('too_large', `The project file has more than ${maxEntries.toLocaleString('en')} files.`);
+  }
+
+  // The central directory: every claim, checked before anything is inflated.
+  const central: CentralEntry[] = [];
+  const names = new Set<string>();
+  let total = 0;
+  let at = centralAt;
+  const centralEnd = centralAt + centralSize;
+  for (let i = 0; i < count; i++) {
+    if (at + 46 > centralEnd || zip.readUInt32LE(at) !== CENTRAL_SIGNATURE) throw notAZip();
+    const flags = zip.readUInt16LE(at + 8);
+    const method = zip.readUInt16LE(at + 10);
+    const crc = zip.readUInt32LE(at + 16);
+    const compressedSize = zip.readUInt32LE(at + 20);
+    const size = zip.readUInt32LE(at + 24);
+    const nameLength = zip.readUInt16LE(at + 28);
+    const extraLength = zip.readUInt16LE(at + 30);
+    const commentLength = zip.readUInt16LE(at + 32);
+    const startDisk = zip.readUInt16LE(at + 34);
+    const localAt = zip.readUInt32LE(at + 42);
+    const next = at + 46 + nameLength + extraLength + commentLength;
+    if (next > centralEnd) throw notAZip();
+    if (compressedSize === 0xffffffff || size === 0xffffffff || localAt === 0xffffffff || startDisk === 0xffff) {
+      throw zip64();
+    }
+    if (startDisk !== 0) throw cannotUse('it is split over several parts');
+    if (flags & (FLAG_ENCRYPTED | FLAG_STRONG_ENCRYPTION)) throw cannotUse('it is password-protected');
+    if (method !== 0 && method !== 8) {
+      throw cannotUse('a file inside it is compressed in a way the server does not read');
+    }
+    const nameBytes = zip.subarray(at + 46, at + 46 + nameLength);
+    const name = flags & FLAG_UTF8 ? nameBytes.toString('utf8') : nameBytes.toString('latin1');
+    // A served CEP is re-zipped from the entries map, so nothing may be lost.
+    if (name === '__proto__') throw cannotUse('it has a file named __proto__');
+    if (names.has(name)) throw cannotUse(`it has two files named ${name}`);
+    names.add(name);
+    total += size;
+    if (total > allowed) {
+      throw new CepError(
+        'too_large',
+        `The project file unzips to more than ${sizeInWords(allowed)}, more than the server accepts.`,
+      );
+    }
+    central.push({ name, nameBytes, method, crc, compressedSize, size, localAt });
+    at = next;
+  }
+
+  // The files' bodies: in order, inside the zip, none overlapping another.
+  const bodies: number[] = [];
+  let packed = 0;
+  for (let i = 0; i < central.length; i++) {
+    const e = central[i];
+    const limit = i + 1 < central.length ? central[i + 1].localAt : centralAt;
+    if (e.localAt + 30 > limit || zip.readUInt32LE(e.localAt) !== LOCAL_SIGNATURE) throw notAZip();
+    const nameLength = zip.readUInt16LE(e.localAt + 26);
+    const extraLength = zip.readUInt16LE(e.localAt + 28);
+    const bodyAt = e.localAt + 30 + nameLength + extraLength;
+    if (bodyAt + e.compressedSize > limit) throw notAZip();
+    if (!zip.subarray(e.localAt + 30, e.localAt + 30 + nameLength).equals(e.nameBytes)) throw notAZip();
+    packed += e.compressedSize;
+    bodies.push(bodyAt);
+  }
+  if (packed > zip.length) throw notAZip();
+
+  // Inflating, never past the declared size, then the length and the checksum.
+  const entries = new Map<string, Uint8Array>();
+  for (let i = 0; i < central.length; i++) {
+    const e = central[i];
+    const damaged = () => cannotUse(`a file inside it (${e.name}) is damaged`);
+    const body = zip.subarray(bodies[i], bodies[i] + e.compressedSize);
+    let data: Uint8Array;
+    if (e.method === 0) {
+      if (e.compressedSize !== e.size) throw damaged();
+      data = new Uint8Array(body);
+    } else {
+      try {
+        // maxOutputLength must be at least 1: an empty file must then inflate to nothing.
+        data = zlib.inflateRawSync(body, { maxOutputLength: Math.max(e.size, 1) });
+      } catch {
+        throw damaged();
+      }
+    }
+    if (data.length !== e.size || crc32(data) !== e.crc) throw damaged();
+    entries.set(e.name, data);
+  }
+  return entries;
 }
 
 /**
@@ -332,7 +454,7 @@ export function zipCep(entries: Map<string, Uint8Array>, date: Date): Buffer {
     const nameBytes = Buffer.from(name, 'utf8');
     if (nameBytes.length >= 0xffff) throw tooLarge(`the name ${name.slice(0, 40)}... is`);
     if (data.length >= 0xffffffff) throw tooLarge(`the file ${name} is`);
-    const deflated = data.length > 0 ? deflateRawSync(data, { level: 6 }) : null;
+    const deflated = data.length > 0 ? zlib.deflateRawSync(data, { level: 6 }) : null;
     const stored = !deflated || deflated.length >= data.length;
     const body = stored ? Buffer.from(data.buffer, data.byteOffset, data.byteLength) : deflated!;
     if (offset >= 0xffffffff) throw tooLarge('the project file is');
@@ -396,8 +518,13 @@ function toDosDateTime(date: Date): { dosDate: number; dosTime: number } {
   };
 }
 
-let crcTable: Uint32Array | null = null;
+/** CRC-32 of zip entries: node:zlib's when it has one (Node 20.15 and 22.2 on), else ours. */
 function crc32(data: Uint8Array): number {
+  return typeof zlib.crc32 === 'function' ? zlib.crc32(data) >>> 0 : slowCrc32(data);
+}
+
+let crcTable: Uint32Array | null = null;
+function slowCrc32(data: Uint8Array): number {
   if (!crcTable) {
     crcTable = new Uint32Array(256);
     for (let n = 0; n < 256; n++) {

@@ -19,13 +19,13 @@
     "@fastify/static": "7.0.4",
     "fast-xml-parser": "5.11.2",
     "fastify": "^4.28.1",
-    "fflate": "0.8.3",
     "pg": "^8.12.0",
     "tsx": "^4.19.0"
   },
   "devDependencies": {
     "@types/node": "^20.14.0",
     "@types/pg": "^8.11.6",
+    "fflate": "0.8.3",
     "typescript": "^5.5.4",
     "vitest": "^2.0.5"
   }

@@ -1,8 +1,78 @@
 import { describe, expect, it } from 'vitest';
 import { strFromU8, unzipSync } from 'fflate';
+import * as zlib from 'node:zlib';
 import { inflateRawSync } from 'node:zlib';
 import { addRound, CepError, readCep, surveyInfo, zipCep } from '../src/cep.js';
 import { cepWith, demoCep, FIXTURE_DATE, idOnlyCep, realDemoCep } from './fixtures/cep.js';
+
+interface RawEntry {
+  /** A Buffer name is written as is, without the UTF-8 flag. */
+  name: string | Buffer;
+  /** The file's content, or with `packed` its body as written in the zip. */
+  data: string | Buffer;
+  packed?: boolean;
+  method?: number;
+  flags?: number;
+  crc?: number;
+  size?: number;
+  /** Point the central entry at an earlier local header instead of writing one. */
+  localAt?: number;
+  localName?: string;
+}
+
+/** A zip written by hand, saying whatever it is told to, for the reader's refusals. */
+function rawZip(entries: RawEntry[], opts: { zip64Locator?: boolean } = {}): Buffer {
+  const locals: Buffer[] = [];
+  const centrals: Buffer[] = [];
+  let offset = 0;
+  for (const e of entries) {
+    const name = Buffer.isBuffer(e.name) ? e.name : Buffer.from(e.name, 'utf8');
+    const data = Buffer.isBuffer(e.data) ? e.data : Buffer.from(e.data, 'utf8');
+    const method = e.method ?? 0;
+    const body = method === 8 && !e.packed ? zlib.deflateRawSync(data) : data;
+    const size = e.size ?? data.length;
+    const crc = e.crc ?? (e.packed ? 0 : zlib.crc32(data));
+    const flags = e.flags ?? 0;
+    let localAt = e.localAt;
+    if (localAt === undefined) {
+      localAt = offset;
+      const localName = e.localName === undefined ? name : Buffer.from(e.localName, 'utf8');
+      const local = Buffer.alloc(30);
+      local.writeUInt32LE(0x04034b50, 0);
+      local.writeUInt16LE(20, 4);
+      local.writeUInt16LE(flags, 6);
+      local.writeUInt16LE(method, 8);
+      local.writeUInt32LE(crc, 14);
+      local.writeUInt32LE(body.length, 18);
+      local.writeUInt32LE(size, 22);
+      local.writeUInt16LE(localName.length, 26);
+      locals.push(local, localName, body);
+      offset += 30 + localName.length + body.length;
+    }
+    const central = Buffer.alloc(46);
+    central.writeUInt32LE(0x02014b50, 0);
+    central.writeUInt16LE(20, 4);
+    central.writeUInt16LE(20, 6);
+    central.writeUInt16LE(flags, 8);
+    central.writeUInt16LE(method, 10);
+    central.writeUInt32LE(crc, 16);
+    central.writeUInt32LE(body.length, 20);
+    central.writeUInt32LE(size, 24);
+    central.writeUInt16LE(name.length, 28);
+    central.writeUInt32LE(localAt, 42);
+    centrals.push(central, name);
+  }
+  const centralSize = centrals.reduce((n, b) => n + b.length, 0);
+  const locator = Buffer.alloc(opts.zip64Locator ? 20 : 0);
+  if (opts.zip64Locator) locator.writeUInt32LE(0x07064b50, 0);
+  const end = Buffer.alloc(22);
+  end.writeUInt32LE(0x06054b50, 0);
+  end.writeUInt16LE(entries.length, 8);
+  end.writeUInt16LE(entries.length, 10);
+  end.writeUInt32LE(centralSize, 12);
+  end.writeUInt32LE(offset, 16);
+  return Buffer.concat([...locals, ...centrals, locator, end]);
+}
 
 const surveyOf = (cep: Buffer) => {
   const files = readCep(cep);
@@ -156,6 +226,108 @@ describe('readCep', () => {
     }
     zip.writeUInt32LE(6, at + 24);
     expect(cepErrorCode(() => readCep(zip))).toBe('not_a_zip');
+  });
+
+  it('reads the real demo (made by Java) exactly as fflate does, entry for entry and in order', () => {
+    const demo = realDemoCep();
+    const ours = readCep(demo).entries;
+    const theirs = unzipSync(demo);
+    expect([...ours.keys()]).toEqual(Object.keys(theirs));
+    for (const [name, bytes] of ours) expect(Buffer.from(bytes).equals(Buffer.from(theirs[name])), name).toBe(true);
+  });
+
+  it('reads names without the UTF-8 flag one byte per character, as fflate does', () => {
+    const zip = rawZip([
+      { name: 'placemark.idm.xml', data: idm('') },
+      { name: Buffer.from([0x63, 0xf1, 0x2e, 0x74]), data: 'x' },
+    ]);
+    expect([...readCep(zip).entries.keys()]).toEqual(['placemark.idm.xml', 'cñ.t']);
+    expect([...readCep(zip).entries.keys()]).toEqual(Object.keys(unzipSync(zip)));
+  });
+
+  describe('refuses zips that lie about their contents', () => {
+    const survey = { name: 'placemark.idm.xml', data: idm('') };
+    const refusal = (zip: Buffer) => {
+      try {
+        readCep(zip);
+      } catch (e) {
+        if (e instanceof CepError) return { code: e.code, message: e.message };
+        throw e;
+      }
+      return null;
+    };
+
+    it('many files pointing at one stored body: refused before anything is copied', () => {
+      const MB = 1024 * 1024;
+      const body = Buffer.alloc(MB);
+      const zip = rawZip([
+        { name: 'placemark.idm.xml', data: body },
+        ...Array.from({ length: 15 }, (_, i): RawEntry => ({ name: `copy${i}`, data: body, localAt: 0 })),
+      ]);
+      expect(zip.length).toBeLessThan(2 * MB);
+      const started = performance.now();
+      expect(refusal(zip)?.code).toBe('not_a_zip');
+      expect(performance.now() - started).toBeLessThan(200);
+    });
+
+    it('a stored file whose sizes disagree', () => {
+      expect(refusal(rawZip([survey, { name: 'b.txt', data: 'hello', size: 3 }]))).toMatchObject({
+        code: 'not_a_zip',
+        message: expect.stringMatching(/a file inside it \(b\.txt\) is damaged/),
+      });
+    });
+
+    it('a deflated file longer than it declares', () => {
+      const data = Buffer.from('hello world, hello world');
+      expect(
+        refusal(rawZip([survey, { name: 'b.txt', data, method: 8, size: 5, crc: zlib.crc32(data.subarray(0, 5)) }]))
+          ?.code,
+      ).toBe('not_a_zip');
+    });
+
+    it('a deflate bomb declared tiny fails fast', () => {
+      const bomb = zlib.deflateRawSync(Buffer.alloc(64 * 1024 * 1024));
+      for (const size of [10, 0]) {
+        const zip = rawZip([survey, { name: 'bomb', data: bomb, method: 8, size, packed: true }]);
+        const started = performance.now();
+        expect(refusal(zip)?.code).toBe('not_a_zip');
+        expect(performance.now() - started).toBeLessThan(250);
+      }
+    });
+
+    it('accepts an empty deflated file, but not one that inflates to something', () => {
+      const empty = zlib.deflateRawSync(Buffer.alloc(0));
+      expect(refusal(rawZip([survey, { name: 'e', data: empty, method: 8, size: 0, crc: 0, packed: true }]))).toBeNull();
+      const x = zlib.deflateRawSync(Buffer.from('x'));
+      expect(refusal(rawZip([survey, { name: 'e', data: x, method: 8, size: 0, crc: 0, packed: true }]))?.code).toBe(
+        'not_a_zip',
+      );
+    });
+
+    it('a file whose checksum is wrong', () => {
+      expect(refusal(rawZip([survey, { name: 'b.txt', data: 'hello', crc: 1234 }]))?.message).toMatch(/damaged/);
+    });
+
+    it('an encrypted file, a method other than stored or deflate, a local name unlike the central one', () => {
+      expect(refusal(rawZip([survey, { name: 'b.txt', data: 'hello', flags: 1 }]))?.message).toMatch(/password/);
+      expect(refusal(rawZip([survey, { name: 'b.txt', data: 'hello', method: 12 }]))?.message).toMatch(/compressed/);
+      expect(refusal(rawZip([survey, { name: 'b.txt', data: 'hello', localName: 'c.txt' }]))?.code).toBe('not_a_zip');
+    });
+
+    it('ZIP64 markers and zips split over several parts', () => {
+      expect(refusal(rawZip([survey, { name: 'b.txt', data: 'x', size: 0xffffffff }]))?.message).toMatch(/ZIP64/);
+      const withLocator = rawZip([survey], { zip64Locator: true });
+      expect(refusal(withLocator)?.message).toMatch(/ZIP64/);
+      const split = rawZip([survey]);
+      split.writeUInt16LE(1, split.length - 22 + 4);
+      expect(refusal(split)?.message).toMatch(/several parts/);
+    });
+
+    it('a central directory pointing outside the zip', () => {
+      const zip = rawZip([survey]);
+      zip.writeUInt32LE(zip.length, zip.length - 22 + 16);
+      expect(refusal(zip)?.code).toBe('not_a_zip');
+    });
   });
 
   it('names the survey file the properties point to when it is missing', () => {
