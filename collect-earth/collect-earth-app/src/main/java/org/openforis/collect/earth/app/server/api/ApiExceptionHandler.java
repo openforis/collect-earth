@@ -50,12 +50,16 @@ public class ApiExceptionHandler {
 		return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(body("bad-request", e.getMessage(), null));
 	}
 
-	/** A controller that answers a status of its own, such as 404 for a plot that is not there. */
+	/**
+	 * A controller that answers a status of its own, such as 404 for a plot that is not there. Read as a number, as a
+	 * ResponseStatusException can carry one HttpStatus has no constant for, and getStatus() throws for it.
+	 */
 	@ExceptionHandler(ResponseStatusException.class)
 	public ResponseEntity<Map<String, String>> withStatus(ResponseStatusException e) {
-		String error = e.getStatus().name().toLowerCase(Locale.ENGLISH).replace('_', '-');
-		return ResponseEntity.status(e.getStatus()).headers(e.getResponseHeaders())
-				.body(body(error, e.getReason(), null));
+		int code = e.getRawStatusCode();
+		HttpStatus status = HttpStatus.resolve(code);
+		String error = status != null ? status.name().toLowerCase(Locale.ENGLISH).replace('_', '-') : "status-" + code;
+		return ResponseEntity.status(code).headers(e.getResponseHeaders()).body(body(error, e.getReason(), null));
 	}
 
 	@ExceptionHandler(Exception.class)

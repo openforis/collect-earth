@@ -52,6 +52,11 @@ public class ApiExceptionHandlerTest {
 		public String missing() {
 			throw new ResponseStatusException(HttpStatus.NOT_FOUND, "No such plot");
 		}
+
+		@GetMapping("/api/unknownStatus")
+		public String unknownStatus() {
+			throw new ResponseStatusException(499, "Odd", null);
+		}
 	}
 
 	private final MockMvc mvc = TemplateWiring.mockMvc(new Failing(), new ApiExceptionHandler());
@@ -104,6 +109,13 @@ public class ApiExceptionHandlerTest {
 		mvc.perform(get("/api/missing")).andExpect(status().isNotFound())
 				.andExpect(jsonPath("$.error").value("not-found"))
 				.andExpect(jsonPath("$.message").value("No such plot"));
+	}
+
+	@Test
+	public void aStatusSpringDoesNotKnowIsStillAnswered() throws Exception {
+		mvc.perform(get("/api/unknownStatus")).andExpect(status().is(499))
+				.andExpect(jsonPath("$.error").value("status-499"))
+				.andExpect(jsonPath("$.message").value("Odd"));
 	}
 
 	@Test
