@@ -604,6 +604,22 @@ no `round` still gets round 1 or 2.
 
 Commit: "Collect Earth Cloud: the data download says, for every record, its plot, its round and whether it is a check".
 
+**As built**
+- `exportRoundOf(info, units, copyHolders)` in `export.ts` gives the `roundOf` of
+  `recordsCsv`: the record's unit is `unitOfRecord` over the plot ids of every plot
+  file (parsed with `fileKeyCount`, through the division's parse cache, one file at
+  a time; a file that cannot be read is logged and skipped), with the units the
+  operator holds as copies, and `recordRound` is called with that unit, as in
+  `submittedByPlot`. A record whose plot is in no file falls back to recordRound's
+  own lookup.
+- `listOverlapHoldings` is one query over the divided files (Postgres joins
+  `csv_files` on `distribution IS NOT NULL`); its rows go through `copyHoldersOf`.
+  The primary key `(file, plot, user)` means a pair is never both main and copy in
+  one file.
+- Postgres checked once on a throwaway `postgres:16` container: the helper under
+  RLS as a non-superuser, the export of an id-only project with copies and of an
+  added project.
+
 ---
 
 ## Part C: quality figures and decisions

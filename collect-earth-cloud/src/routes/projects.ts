@@ -2,8 +2,11 @@ import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import { secretsEqual } from '../accountRules.js';
 import { bearerToken } from '../auth.js';
 import type { Config } from '../config.js';
-import { recordsCsv } from '../export.js';
+import { copyHoldersOf } from '../division.js';
+import { exportRoundOf, recordsCsv } from '../export.js';
 import { storageSummary } from '../limits.js';
+import { fileKeyCount } from '../rounds.js';
+import { plotFileOf } from './division.js';
 import type { Store } from '../store/store.js';
 import { requireProjectMembership } from '../plugins/projectAuth.js';
 
@@ -201,7 +204,37 @@ export async function registerProjectRoutes(
       if (!project) {
         return reply.code(404).send({ error: 'not_found' });
       }
-      const csv = recordsCsv(await store.listRecordSummaries(projectId));
+      const [records, info, files, overlaps, members] = await Promise.all([
+        store.listRecordSummaries(projectId),
+        store.getRoundInfo(projectId),
+        store.listCsvFiles(projectId),
+        store.listOverlapHoldings(projectId),
+        store.listMembers(projectId),
+      ]);
+      // The plots of every plot file, read as the division reads them, so a record gets
+      // the same plot and round here as in the division and the plot files served.
+      // One file at a time: only its plot ids are kept.
+      const keyCount = fileKeyCount(info);
+      const units = new Set<string>();
+      for (const meta of files) {
+        const file = await store.getCsvFile(projectId, meta.id);
+        if (!file) {
+          continue;
+        }
+        try {
+          for (const id of plotFileOf(file, keyCount).plotIds) {
+            units.add(id);
+          }
+        } catch (err) {
+          request.log.error({ err, csvFileId: meta.id }, 'export: could not read the plot file');
+        }
+      }
+      const usernames = new Map(members.map((m) => [m.userId, m.username]));
+      const copyHolders = copyHoldersOf(
+        overlaps.map((a) => ({ ...a, overlap: true })),
+        usernames,
+      );
+      const csv = recordsCsv(records, exportRoundOf(info, units, copyHolders));
       return reply
         .header('content-type', 'text/csv; charset=utf-8')
         .header('content-disposition', contentDisposition(project.name))
