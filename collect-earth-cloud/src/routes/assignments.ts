@@ -198,7 +198,9 @@ export async function registerAssignmentRoutes(app: FastifyInstance, store: Stor
       const assignments: ReturnType<typeof entry>[] = [];
       for (const f of files) {
         if (!withRound) {
-          assignments.push(entry(f));
+          // Served as uploaded: its stored checksum, also as ?v= so a file replaced
+          // in between is refused (409) before the desktop app writes it.
+          assignments.push(entry(f, `?v=${f.checksum}`));
           continue;
         }
         // The file as this person gets it, with the round column.

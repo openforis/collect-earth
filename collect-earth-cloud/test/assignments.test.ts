@@ -318,11 +318,18 @@ describe('plot files served with a round column', () => {
     await assign(maria.userId, whole);
     expect((await myAssignment(maria.token))[0]).toMatchObject({
       checksum: sha256(csv),
-      downloadPath: contentPath(whole),
+      downloadPath: contentPath(whole, `?v=${sha256(csv)}`),
       plotCount: 3,
     });
     expect((await served(maria.token, whole)).body).toBe(csv);
-    expect((await download(admin, contentPath(whole, '?mine=1'))).body).toBe(csv);
+    // Replaced after it was listed: 409, nothing served.
+    const listed = (await myAssignment(maria.token))[0];
+    await upload('whole.csv', csv + '4,3,3\n');
+    const changed = await download(maria.token, listed.downloadPath);
+    expect(changed.statusCode).toBe(409);
+    expect(changed.json()).toMatchObject({ error: 'changed' });
+    expect((await served(maria.token, whole)).body).toBe(csv + '4,3,3\n');
+    expect((await download(admin, contentPath(whole, '?mine=1'))).body).toBe(csv + '4,3,3\n');
 
     const divided = await upload('divided.csv', csv);
     expect((await divide(divided, [maria.userId, jose.userId], 50)).statusCode).toBe(200);
@@ -420,7 +427,7 @@ describe('plot files served with a round column', () => {
     const csv = 'id,round,lat,lon\n17,1,0,0\n18,1,0,0\n';
     const id = await upload('own.csv', csv);
     await assign(maria.userId, id);
-    expect((await myAssignment(maria.token))[0]).toMatchObject({ checksum: sha256(csv), downloadPath: contentPath(id) });
+    expect((await myAssignment(maria.token))[0]).toMatchObject({ checksum: sha256(csv), downloadPath: contentPath(id, `?v=${sha256(csv)}`) });
     expect((await served(maria.token, id)).body).toBe(csv);
   });
 });

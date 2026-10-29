@@ -180,8 +180,8 @@ describe('dividing plots between people', () => {
     expect((await ctx.store.listAssignments(pid)).map((a) => a.csvFileId)).toEqual([other]);
     const joses = await myAssignment(jose.token);
     expect(joses.map((a: { filename: string }) => a.filename)).toEqual(['other.csv']);
-    // The whole-file entry keeps the exact contract: the stored checksum and path.
-    expect(joses[0].downloadPath).toBe(`/v1/projects/${pid}/csv-files/${other}/content`);
+    // The whole-file entry has the stored checksum, also in the path (?v=, no mine=1).
+    expect(joses[0].downloadPath).toBe(`/v1/projects/${pid}/csv-files/${other}/content?v=${joses[0].checksum}`);
 
     const whole = await divideFile({ mode: 'whole', people: ['ignored'] });
     expect(whole.statusCode).toBe(200);
