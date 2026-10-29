@@ -1,0 +1,354 @@
+import { describe, expect, it } from 'vitest';
+import type { RoundInfo } from '../src/cep.js';
+import { isoWeek, MIN_PLOTS, qualityReport, type QualityInput, type QualityRecord } from '../src/quality.js';
+import type { Question } from '../src/surveyOutline.js';
+
+const added: RoundInfo = {
+  state: 'added',
+  refusal: null,
+  keyCount: 2,
+  roundIndex: 1,
+  roundCodes: [
+    { code: '1', label: 'First assessment' },
+    { code: '2', label: 'Re-assessment' },
+  ],
+  reassessmentCode: '2',
+};
+const none: RoundInfo = { state: 'none', refusal: 'several_keys', keyCount: 1, roundIndex: null, roundCodes: [], reassessmentCode: null };
+const ownYears: RoundInfo = {
+  state: 'own',
+  refusal: null,
+  keyCount: 2,
+  roundIndex: 1,
+  roundCodes: [{ code: '2025', label: '2025' }],
+  reassessmentCode: null,
+};
+
+function question(key: string, kind: Question['kind'], extra: Partial<Question> = {}): Question {
+  return { key, label: key, kind, options: kind === 'choice' ? [] : null, help: null, excluded: false, multiple: false, calculated: false, ...extra };
+}
+
+const outline = new Map<string, Question>(
+  [
+    question('collect_code_land_use', 'choice', { label: 'Land use' }),
+    question('collect_real_canopy', 'number', { label: 'Canopy' }),
+    question('collect_text_notes', 'text'),
+    question('collect_text_id', 'text', { excluded: true }),
+    question('collect_code_species', 'choice', { multiple: true }),
+    question('collect_code_fromcsv', 'choice', { excluded: true }),
+    question('collect_entity_tree[1].real_height', 'number'),
+    question('collect_entity_tree[10].real_height', 'number'),
+  ].map((q) => [q.key, q]),
+);
+
+const day = Date.UTC(2026, 9, 28, 12);
+
+function rec(recordKey: string, operator: string, summary: Record<string, string>, extra: Partial<QualityRecord> = {}): QualityRecord {
+  return { recordKey, operator, summary, modifiedOn: day, activelySaved: true, deleted: false, ...extra };
+}
+
+function input(records: QualityRecord[], extra: Partial<QualityInput> = {}): QualityInput {
+  const units = new Set<string>();
+  for (const r of records) {
+    units.add(r.recordKey.split(',')[0]);
+  }
+  return { records, info: added, units, copyHolders: new Map(), outline, margins: {}, ...extra };
+}
+
+/** n checked plots of the added round, agreeing on land use for the first `agree`. */
+function plots(n: number, agree: number): QualityRecord[] {
+  const out: QualityRecord[] = [];
+  for (let i = 1; i <= n; i++) {
+    out.push(rec(`${i},1`, 'ana', { collect_code_land_use: 'forest' }));
+    out.push(rec(`${i},2`, 'ben', { collect_code_land_use: i <= agree ? 'forest' : 'grassland' }));
+  }
+  return out;
+}
+
+describe('qualityReport: agreement by question', () => {
+  it('pairs the main record with the check of each plot and gives a rate from MIN_PLOTS plots', () => {
+    const report = qualityReport(input(plots(MIN_PLOTS, 15)));
+    expect(report.plotsChecked).toBe(20);
+    expect(report.plotsDiffering).toBe(5);
+    const landUse = report.questions.find((q) => q.key === 'collect_code_land_use')!;
+    expect(landUse).toMatchObject({ label: 'Land use', kind: 'choice', compared: 20, agreeing: 15, rate: 0.75 });
+    expect(landUse.margin).toBeUndefined();
+  });
+
+  it('gives no rate below MIN_PLOTS checked plots', () => {
+    const report = qualityReport(input(plots(MIN_PLOTS - 1, 19)));
+    expect(report.questions[0]).toMatchObject({ compared: 19, agreeing: 19, rate: null });
+  });
+
+  it('compares only choice and number questions that are not excluded', () => {
+    const report = qualityReport(
+      input([
+        rec('1,1', 'ana', { collect_text_notes: 'a', collect_text_id: '1', collect_code_fromcsv: 'x', collect_code_land_use: 'forest' }),
+        rec('1,2', 'ben', { collect_text_notes: 'b', collect_text_id: '1', collect_code_fromcsv: 'y', collect_code_land_use: 'forest' }),
+      ]),
+    );
+    expect(report.questions.map((q) => q.key)).toEqual(['collect_code_land_use']);
+    expect(report.plotsDiffering).toBe(0);
+  });
+
+  it('counts a missing value as blank, two blanks agree, and a question on neither record is not compared', () => {
+    const report = qualityReport(
+      input([
+        rec('1,1', 'ana', { collect_code_land_use: '' }),
+        rec('1,2', 'ben', {}),
+        rec('2,1', 'ana', { collect_code_land_use: 'forest' }),
+        rec('2,2', 'ben', {}),
+      ]),
+    );
+    expect(report.questions).toHaveLength(1);
+    expect(report.questions[0]).toMatchObject({ compared: 2, agreeing: 1 });
+    expect(report.differences[0].fields).toEqual([{ key: 'collect_code_land_use', first: 'forest', check: '' }]);
+  });
+
+  it('compares codes without their qualifier', () => {
+    const report = qualityReport(
+      input([rec('1,1', 'ana', { collect_code_land_use: 'other::Eucalyptus' }), rec('1,2', 'ben', { collect_code_land_use: 'other::Pine' })]),
+    );
+    expect(report.questions[0]).toMatchObject({ compared: 1, agreeing: 1 });
+  });
+
+  it('compares multiple values as sets, with null parts blank, and counts one confusion for the two sets', () => {
+    const report = qualityReport(
+      input([
+        rec('1,1', 'ana', { collect_code_species: 'b===a===null' }),
+        rec('1,2', 'ben', { collect_code_species: 'a===b' }),
+        rec('2,1', 'ana', { collect_code_species: 'c===a' }),
+        rec('2,2', 'ben', { collect_code_species: 'a===null' }),
+      ]),
+    );
+    expect(report.questions[0]).toMatchObject({ key: 'collect_code_species', compared: 2, agreeing: 1 });
+    expect(report.confusions).toEqual([{ key: 'collect_code_species', first: 'a, c', check: 'a', count: 1, plots: ['2'] }]);
+  });
+});
+
+describe('qualityReport: numbers', () => {
+  const canopy = (a: string, b: string, margins: Record<string, number> = {}) =>
+    qualityReport(input([rec('1,1', 'ana', { collect_real_canopy: a }), rec('1,2', 'ben', { collect_real_canopy: b })], { margins })).questions[0];
+
+  it('agree within the margin, 10 % by default', () => {
+    expect(canopy('100', '110')).toMatchObject({ agreeing: 1, margin: 10 });
+    expect(canopy('100', '90')).toMatchObject({ agreeing: 1 });
+    expect(canopy('100', '89')).toMatchObject({ agreeing: 0 });
+    expect(canopy('0', '0')).toMatchObject({ agreeing: 1 });
+    expect(canopy('-5', '5')).toMatchObject({ agreeing: 0 });
+  });
+
+  it('use the margin set for the question', () => {
+    expect(canopy('100', '89', { collect_real_canopy: 20 })).toMatchObject({ agreeing: 1, margin: 20 });
+    expect(canopy('100', '100.5', { collect_real_canopy: 0 })).toMatchObject({ agreeing: 0, margin: 0 });
+    expect(canopy('1.0', '1', { collect_real_canopy: 0 })).toMatchObject({ agreeing: 1 });
+  });
+
+  it('blank against a number disagrees; texts that are no number agree only when equal', () => {
+    expect(canopy('', '5')).toMatchObject({ agreeing: 0 });
+    expect(canopy('', 'null')).toMatchObject({ agreeing: 1 });
+    expect(canopy('abc', 'abc')).toMatchObject({ agreeing: 1 });
+    expect(canopy('abc', 'abd')).toMatchObject({ agreeing: 0 });
+  });
+});
+
+describe('qualityReport: confusions', () => {
+  it('counts a→b apart from b→a, most frequent first, with up to 20 plots', () => {
+    const records: QualityRecord[] = [];
+    for (let i = 1; i <= 25; i++) {
+      records.push(rec(`${i},1`, 'ana', { collect_code_land_use: 'grassland' }), rec(`${i},2`, 'ben', { collect_code_land_use: 'shrubland' }));
+    }
+    records.push(rec('99,1', 'ana', { collect_code_land_use: 'shrubland' }), rec('99,2', 'ben', { collect_code_land_use: 'grassland' }));
+    const { confusions } = qualityReport(input(records));
+    expect(confusions.map((c) => [c.first, c.check, c.count])).toEqual([
+      ['grassland', 'shrubland', 25],
+      ['shrubland', 'grassland', 1],
+    ]);
+    expect(confusions[0].plots).toHaveLength(20);
+    expect(confusions[0].plots.slice(0, 3)).toEqual(['1', '2', '3']);
+  });
+
+  it('are not counted for numbers', () => {
+    const report = qualityReport(input([rec('1,1', 'ana', { collect_real_canopy: '1' }), rec('1,2', 'ben', { collect_real_canopy: '50' })]));
+    expect(report.confusions).toEqual([]);
+    expect(report.plotsDiffering).toBe(1);
+  });
+});
+
+describe('qualityReport: people', () => {
+  it('gives each person figures as first assessor and as checker, and their weakest questions', () => {
+    const records: QualityRecord[] = [];
+    for (let i = 1; i <= 4; i++) {
+      // ana first, ben checks: land use differs on plots 1 and 2, canopy on plot 1.
+      records.push(rec(`${i},1`, 'ana', { collect_code_land_use: 'forest', collect_real_canopy: '50' }));
+      records.push(rec(`${i},2`, 'ben', { collect_code_land_use: i <= 2 ? 'crop' : 'forest', collect_real_canopy: i === 1 ? '10' : '50' }));
+    }
+    // ben first, ana checks: agree.
+    records.push(rec('5,1', 'ben', { collect_code_land_use: 'forest' }), rec('5,2', 'ana', { collect_code_land_use: 'forest' }));
+    const { people } = qualityReport(input(records));
+    expect(people.map((p) => p.username)).toEqual(['ana', 'ben']);
+    const [ana, ben] = people;
+    expect(ana.asFirst).toEqual({ compared: 4, agreeing: 2, rate: null });
+    expect(ana.asChecker).toEqual({ compared: 1, agreeing: 1, rate: null });
+    expect(ben.asFirst).toEqual({ compared: 1, agreeing: 1, rate: null });
+    expect(ben.asChecker).toEqual({ compared: 4, agreeing: 2, rate: null });
+    expect(ana.weakest).toEqual([
+      { key: 'collect_code_land_use', rate: null, compared: 5, differing: 2 },
+      { key: 'collect_real_canopy', rate: null, compared: 4, differing: 1 },
+    ]);
+  });
+});
+
+describe('qualityReport: weeks', () => {
+  it('buckets by the ISO week of the check, in UTC, right at year ends', () => {
+    expect(isoWeek(Date.UTC(2026, 0, 1))).toBe('2026-W01');
+    expect(isoWeek(Date.UTC(2027, 0, 1))).toBe('2026-W53');
+    expect(isoWeek(Date.UTC(2024, 11, 30))).toBe('2025-W01');
+    expect(isoWeek(Date.UTC(2021, 0, 3, 23, 59))).toBe('2020-W53');
+    expect(isoWeek(Date.UTC(2021, 0, 4))).toBe('2021-W01');
+    const report = qualityReport(
+      input([
+        rec('1,1', 'ana', { collect_code_land_use: 'a' }, { modifiedOn: Date.UTC(2020, 0, 1) }),
+        rec('1,2', 'ben', { collect_code_land_use: 'a' }, { modifiedOn: Date.UTC(2024, 11, 31) }),
+        rec('2,1', 'ana', { collect_code_land_use: 'a' }),
+        rec('2,2', 'ben', { collect_code_land_use: 'b' }, { modifiedOn: Date.UTC(2024, 11, 29) }),
+      ]),
+    );
+    expect(report.weeks).toEqual([
+      { week: '2024-W52', compared: 1, agreeing: 0 },
+      { week: '2025-W01', compared: 1, agreeing: 1 },
+    ]);
+  });
+});
+
+describe('qualityReport: data problems', () => {
+  it('lists records of no plot, of an unknown round, with extra key parts, and plots with two main assessments', () => {
+    const report = qualityReport(
+      input(
+        [
+          rec('1,1', 'ana', { collect_code_land_use: 'forest' }, { modifiedOn: day - 1000 }),
+          rec('1,1', 'carl', { collect_code_land_use: 'crop' }),
+          rec('1,2', 'ben', { collect_code_land_use: 'crop' }),
+          rec('2,3', 'ana', {}),
+          rec('3,1,9', 'ana', {}),
+          rec('77,1', 'ana', {}),
+        ],
+        { units: new Set(['1', '2', '3']) },
+      ),
+    );
+    expect(report.problems).toEqual([
+      { kind: 'two_main', plot: '1', recordKey: '1,1', operator: 'ana' },
+      { kind: 'two_main', plot: '1', recordKey: '1,1', operator: 'carl' },
+      { kind: 'unknown_round', plot: '2', recordKey: '2,3', operator: 'ana' },
+      { kind: 'extra_key_parts', plot: '3', recordKey: '3,1,9', operator: 'ana' },
+      { kind: 'no_plot', plot: '77', recordKey: '77,1', operator: 'ana' },
+    ]);
+    expect(report.problemsTotal).toBe(5);
+    // The latest main record is the one compared: carl's crop agrees with the check.
+    expect(report.plotsDiffering).toBe(0);
+    expect(report.differences).toEqual([]);
+  });
+
+  it('leaves out drafts and deleted records', () => {
+    const report = qualityReport(
+      input([
+        rec('1,1', 'ana', { collect_code_land_use: 'forest' }),
+        rec('1,2', 'ben', { collect_code_land_use: 'crop' }, { activelySaved: false }),
+        rec('1,2', 'carl', { collect_code_land_use: 'crop' }, { deleted: true }),
+      ]),
+    );
+    expect(report.plotsChecked).toBe(0);
+  });
+});
+
+describe('qualityReport: rounds and keys', () => {
+  it('tells main and check apart by who holds the copy when the survey has no round', () => {
+    const report = qualityReport(
+      input([rec('1', 'ana', { collect_code_land_use: 'forest' }), rec('1', 'ben', { collect_code_land_use: 'crop' })], {
+        info: none,
+        units: new Set(['1']),
+        copyHolders: new Map([['1', new Set(['ben'])]]),
+      }),
+    );
+    expect(report.differences).toEqual([
+      {
+        plot: '1',
+        first: { operator: 'ana', recordKey: '1' },
+        check: { operator: 'ben', recordKey: '1' },
+        fields: [{ key: 'collect_code_land_use', first: 'forest', check: 'crop' }],
+      },
+    ]);
+  });
+
+  it('pairs by plot unit, so the years of an own round are separate plots', () => {
+    const report = qualityReport(
+      input(
+        [
+          rec('18,2020', 'ana', { collect_code_land_use: 'forest' }),
+          rec('18,2020', 'ben', { collect_code_land_use: 'crop' }),
+          rec('18,2021', 'carl', { collect_code_land_use: 'forest' }),
+        ],
+        { info: ownYears, units: new Set(['18,2020', '18,2021']), copyHolders: new Map([['18,2020', new Set(['ben'])]]) },
+      ),
+    );
+    expect(report.problems).toEqual([]);
+    expect(report.plotsChecked).toBe(1);
+    expect(report.differences[0].plot).toBe('18,2020');
+  });
+
+  it('ignores answers beyond the outline with a count, and falls back on the key for questions it does not know', () => {
+    const report = qualityReport(
+      input([
+        rec('1,1', 'ana', {
+          'collect_entity_tree[11].real_height': '5',
+          'collect_entity_tree[1].real_height': '5',
+          collect_code_new: 'a',
+          collect_text_free: 'x',
+          collect_text_operator_x: 'ana',
+          collect_integer_range_r: '1-2',
+        }),
+        rec('1,2', 'ben', {
+          'collect_entity_tree[11].real_height': '50',
+          'collect_entity_tree[12].real_height': '50',
+          'collect_entity_tree[1].real_height': '5',
+          collect_code_new: 'b',
+          collect_text_free: 'y',
+          collect_text_operator_x: 'ben',
+          collect_integer_range_r: '3-4',
+        }),
+      ]),
+    );
+    expect(report.questions.map((q) => [q.key, q.kind, q.agreeing])).toEqual([
+      ['collect_entity_tree[1].real_height', 'number', 1],
+      ['collect_code_new', 'choice', 0],
+    ]);
+    expect(report.beyondOutline).toEqual({ count: 2, keys: ['collect_entity_tree[11].real_height', 'collect_entity_tree[12].real_height'] });
+  });
+
+  it('without an outline compares by the key alone and leaves bookkeeping out', () => {
+    const report = qualityReport(
+      input([rec('1,1', 'ana', { collect_code_land_use: 'a', collect_date_modified_x: '1' }), rec('1,2', 'ben', { collect_code_land_use: 'b', collect_date_modified_x: '2' })], {
+        outline: null,
+      }),
+    );
+    expect(report.questions.map((q) => q.key)).toEqual(['collect_code_land_use']);
+  });
+});
+
+describe('qualityReport: caps', () => {
+  it('lists at most 500 differences and 500 problems', () => {
+    const records: QualityRecord[] = [];
+    for (let i = 1; i <= 600; i++) {
+      records.push(rec(`${i},1`, 'ana', { collect_code_land_use: 'a' }), rec(`${i},2`, 'ben', { collect_code_land_use: 'b' }));
+      records.push(rec(`x${i},1`, 'ana', {}));
+    }
+    const units = new Set(Array.from({ length: 600 }, (_, i) => String(i + 1)));
+    const report = qualityReport(input(records, { units }));
+    expect(report.plotsDiffering).toBe(600);
+    expect(report.differences).toHaveLength(500);
+    expect(report.differences[0].plot).toBe('1');
+    expect(report.differences[499].plot).toBe('500');
+    expect(report.problems).toHaveLength(500);
+    expect(report.problemsTotal).toBe(600);
+  });
+});

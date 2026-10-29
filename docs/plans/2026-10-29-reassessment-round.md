@@ -821,6 +821,53 @@ export function qualityReport(input: …): QualityReport;
 
 Commit: "Collect Earth Cloud: agreement between first assessments and checks, by question, by person and by week".
 
+**As built**
+- **Input** (`QualityInput`), all things Task 10 already loads for the export:
+  `records` (`listRecordSummaries` as is: drafts and deleted records are left out
+  inside), `info`, `units` (the plot ids of every file, as for `exportRoundOf`),
+  `copyHolders` (`copyHoldersOf` of the divided files), `outline` (or `null`: keys
+  are then judged by their name alone) and `margins`.
+- **Each record is resolved as the export does:** `unitOfRecord` with the operator's
+  copy units (`copyUnitsByUser`), then `recordRound` with that unit, as
+  `exportRoundOf`. That function does not give the unit, and the figures need it.
+- **Pairs are by unit** (the plot id as in the file, with its round part for an own
+  round), or by the record's `plot` when it is in no file. So the years of an own
+  round ("18,2020", "18,2021") are separate plots, not `two_main`. `Difference.plot`,
+  `Confusion.plots` and `DataProblem.plot` are that unit. A plot with several checks
+  gives one pair per check; question, person and week figures count pairs.
+- **A question is compared on a pair** only when at least one of the two records has
+  its key. Otherwise the ten indexed entities of the outline, which are mostly not
+  there, would all agree as two blanks. A missing value next to a given one is
+  blank, and two blanks (`""`, `null`) agree.
+- **Keys the outline does not know:** never compared when their name has a
+  `METADATA_KEY_PARTS` part. Otherwise they are judged by prefix: `code_`/`boolean_`
+  is a choice, `integer_`/`real_` (not ranges) a number, anything else is never
+  compared, and the label is the key. An indexed entity key past
+  `MAX_INDEXED_ENTITIES` whose `[1]` form is in the outline is in `beyondOutline`
+  (`count` of distinct keys, up to 20 `keys`), never compared.
+- **Values:** `===` parts are trimmed, and blank or `null` parts are left out. A
+  choice is the sorted set of its codes (before `::`) joined by ", ". A
+  multi-valued confusion is one pair of those strings. A number with one value on
+  each side is compared with `Number()` and the margin
+  (`|a-b|·100 <= margin·max(|a|,|b|)`, so 100 vs 90 agrees at 10 %). Text that is
+  not a number, or several values, agrees only with the same text (as a set).
+  `differences` show the answers with their qualifiers.
+- **People:** `asFirst`/`asChecker` count pairs, and a pair agrees when no compared
+  question differs. `weakest` takes the person's pairs in both roles: only
+  questions that differed, lowest share agreeing first, each with `compared` and
+  `differing` (its `rate` is null below `MIN_PLOTS`, like every rate).
+- **Weeks:** `isoWeek(time)` (exported), the ISO week of the check's `modifiedOn` in
+  UTC. The week's Thursday gives the year (2027-01-01 → 2026-W53, 2024-12-30 →
+  2025-W01).
+- **Data problems:** `no_plot`, `unknown_round` (assessment `other`, left out of the
+  pairs), `extra_key_parts` (Task 10's kind, done here), and `two_main` (one entry
+  for each main record of the plot, so both people are named; the latest
+  `modifiedOn` is compared). Each has a `plot`. They are sorted by plot, capped at
+  500, with `problemsTotal`. A check with no main record is not paired and is not a
+  problem.
+- **Caps:** 500 differences (in plot order), 500 confusions (most frequent first,
+  each with up to 20 plots), 3 weakest questions.
+
 ### Task 10: quality routes, settings, decisions and notes
 
 **Migration 008** (RLS like `plot_assignments`):
