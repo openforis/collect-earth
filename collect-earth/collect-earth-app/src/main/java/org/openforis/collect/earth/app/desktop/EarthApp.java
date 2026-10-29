@@ -444,7 +444,8 @@ public class EarthApp {
 	private static synchronized void loadKmlInGoogleEarth(boolean forceKmlRecreation)
 			throws IOException, KmlGenerationException, CsvValidationException {
 		earthApp.getKmlGeneratorService().generatePlacemarksKmzFile(forceKmlRecreation);
-		earthApp.simulateClickKmz();
+		// Not the server starting: the home page is open already, and loading it again would only make it flicker
+		earthApp.simulateClickKmz(false);
 	}
 
 	public static void restart() {
@@ -734,7 +735,7 @@ public class EarthApp {
 			if (!initializationEvent.equals(ServerInitializationEvent.SERVER_STOPPED_EVENT)) {
 				try {
 					earthApp.generateKml();
-					earthApp.simulateClickKmz();
+					earthApp.simulateClickKmz(true);
 					earthApp.checkForAnnouncements();
 					earthApp.checkForUpdates();
 					closeSplash();
@@ -930,7 +931,14 @@ public class EarthApp {
 		});
 	}
 
-	private void simulateClickKmz() {
+	/**
+	 * Opens the plots in the viewer.
+	 *
+	 * @param serverStarted whether the server has just started (Collect Earth started, or the server restarted for a
+	 *                      new project or settings, with a new Spring context and so no window of its own): only then
+	 *                      is the home page opened with the Google Earth Pro viewer, not on every reload of the KML
+	 */
+	private void simulateClickKmz(boolean serverStarted) {
 		try {
 			if (getLocalProperties().isPlotsMapViewer()) {
 				// Plots map / Google Earth Web viewer: no KML handoff to Google Earth Pro;
@@ -940,7 +948,9 @@ public class EarthApp {
 				getKmlGeneratorService().generateLoaderKmlFile();
 				openKmlOnGoogleEarth();
 				// The main window of Collect Earth, which the Swing window was: Google Earth Pro shows the plots
-				openHomePage();
+				if (serverStarted) {
+					openHomePage();
+				}
 			}
 		} catch (final Exception e) {
 			showMessage(Messages.getString("EarthApp.61")); //$NON-NLS-1$

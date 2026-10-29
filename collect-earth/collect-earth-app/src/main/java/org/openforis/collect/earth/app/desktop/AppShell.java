@@ -7,7 +7,9 @@ import java.awt.PopupMenu;
 import java.awt.SystemTray;
 import java.awt.Toolkit;
 import java.awt.TrayIcon;
+import java.net.URL;
 
+import org.openforis.collect.earth.app.logging.JSwingAppender;
 import org.openforis.collect.earth.app.service.BrowserService;
 import org.openforis.collect.earth.app.service.LocalPropertiesService;
 import org.openforis.collect.earth.app.service.QuitService;
@@ -37,6 +39,9 @@ public class AppShell implements InitializingBean, DisposableBean {
 
 	private static final String ICON_FILE = "images/smallOpenForisBanner.png"; //$NON-NLS-1$
 
+	/** The same image, in the jar (from src/main/resources): what the IDE runs, whose working directory may lack it. */
+	private static final String ICON_RESOURCE = "/" + ICON_FILE; //$NON-NLS-1$
+
 	private final Logger logger = LoggerFactory.getLogger(AppShell.class);
 
 	@Autowired
@@ -51,7 +56,8 @@ public class AppShell implements InitializingBean, DisposableBean {
 	@Autowired
 	private QuitService quitService;
 
-	private TrayIcon trayIcon;
+	// Set on the thread that creates the context, taken out on the one that closes it
+	private volatile TrayIcon trayIcon;
 
 	public AppShell() {
 		// For Spring
@@ -71,7 +77,14 @@ public class AppShell implements InitializingBean, DisposableBean {
 		// The Swing window did this first: the texts of the dialogs that still are Swing, and of the tray menu, are in
 		// the UI language of the settings, which may have changed since the previous context
 		Messages.setLocale(localPropertiesService.getUiLanguage().getLocale());
-		if (GraphicsEnvironment.isHeadless() || !SystemTray.isSupported()) {
+		if (GraphicsEnvironment.isHeadless()) {
+			logger.info("Headless: no error dialog and no tray icon"); //$NON-NLS-1$
+			return;
+		}
+		// The errors logged are shown in a dialog, as they were since the Swing menu set this up; whether it opens is
+		// the exception-shown setting, which the Help menu of the Swing window used to switch
+		JSwingAppender.ensureInstalled();
+		if (!SystemTray.isSupported()) {
 			logger.info("No system tray: Collect Earth has no icon to open its window again or to quit"); //$NON-NLS-1$
 			return;
 		}
@@ -95,13 +108,20 @@ public class AppShell implements InitializingBean, DisposableBean {
 		quit.addActionListener(e -> quitService.run());
 		menu.add(quit);
 
-		Image image = Toolkit.getDefaultToolkit().getImage(ICON_FILE);
+		Image image = iconImage();
 		TrayIcon icon = new TrayIcon(image, "Collect Earth", menu); //$NON-NLS-1$
 		icon.setImageAutoSize(true);
 		// The double click on the icon (or Enter on it), which users expect to bring the window back
 		icon.addActionListener(e -> openInBackground());
 		SystemTray.getSystemTray().add(icon);
 		trayIcon = icon;
+	}
+
+	/** From the classpath, else from the working directory, as the installed Collect Earth has it there too. */
+	private static Image iconImage() {
+		URL resource = AppShell.class.getResource(ICON_RESOURCE);
+		return resource != null ? Toolkit.getDefaultToolkit().getImage(resource)
+				: Toolkit.getDefaultToolkit().getImage(ICON_FILE);
 	}
 
 	/**
@@ -140,9 +160,10 @@ public class AppShell implements InitializingBean, DisposableBean {
 
 	@Override
 	public void destroy() {
-		if (trayIcon != null) {
-			SystemTray.getSystemTray().remove(trayIcon);
-			trayIcon = null;
+		TrayIcon icon = trayIcon;
+		trayIcon = null;
+		if (icon != null) {
+			SystemTray.getSystemTray().remove(icon);
 		}
 	}
 }

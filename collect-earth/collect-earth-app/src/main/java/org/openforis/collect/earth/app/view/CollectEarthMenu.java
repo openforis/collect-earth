@@ -19,11 +19,6 @@ import javax.swing.JRadioButtonMenuItem;
 import javax.swing.SwingUtilities;
 
 import org.apache.commons.lang3.SystemUtils;
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Level;
-import org.apache.logging.log4j.core.LoggerContext;
-import org.apache.logging.log4j.core.config.Configuration;
-import org.apache.logging.log4j.core.layout.PatternLayout;
 import org.kordamp.ikonli.materialdesign.MaterialDesign;
 import org.kordamp.ikonli.swing.FontIcon;
 import org.openforis.collect.earth.app.CollectEarthUtils;
@@ -105,7 +100,6 @@ public class CollectEarthMenu extends JMenuBar implements InitializingBean {
 	private static final String DISCLAIMER_FILENAME_SUFFIX = ".txt";
 	private static final String DISCLAIMER_DEFAULT = "disclaimer_en.txt";
 	private static final String RESOURCES_FOLDER = "resources";
-	private static final String JSWING_APPENDER_NAME = "jswing-log";
 	private static final String UNKNOWN_ERROR_MESSAGE = "Unknown error occurred";
 	
 	private final List<JMenuItem> serverMenuItems = new ArrayList<>();
@@ -122,7 +116,7 @@ public class CollectEarthMenu extends JMenuBar implements InitializingBean {
 		// keep the items of every language that had been chosen
 		serverMenuItems.clear();
 		setFrame(collectEarthWindow.getFrame());
-		ensureJSwingAppender();
+		JSwingAppender.ensureInstalled();
 
 		// Build file menu in the menu bar.
 		this.add( getFileMenu() );
@@ -202,7 +196,7 @@ public class CollectEarthMenu extends JMenuBar implements InitializingBean {
 			Boolean showException = checkboxErrors.isSelected();
 			localPropertiesService.setExceptionShown( showException );
 
-			JSwingAppender jSwingAppender = ensureJSwingAppender();
+			JSwingAppender jSwingAppender = JSwingAppender.ensureInstalled();
 
 			if (jSwingAppender != null) {
 				jSwingAppender.setExceptionShown( showException );
@@ -717,25 +711,6 @@ public class CollectEarthMenu extends JMenuBar implements InitializingBean {
 			Messages.getString("CollectEarthWindow.63"), JOptionPane.ERROR_MESSAGE);
 	}
 
-	private JSwingAppender ensureJSwingAppender() {
-		final LoggerContext ctx = (LoggerContext) LogManager.getContext(false);
-		final Configuration config = ctx.getConfiguration();
-		JSwingAppender appender = (JSwingAppender) config.getAppender(JSWING_APPENDER_NAME);
-		if (appender == null) {
-			PatternLayout layout = PatternLayout.newBuilder()
-					.withPattern("%-5p %d [%t] %c: %m%n")
-					.build();
-			appender = JSwingAppender.createAppender(JSWING_APPENDER_NAME, layout, null, true);
-			if (appender != null) {
-				appender.start();
-				config.addAppender(appender);
-				config.getRootLogger().addAppender(appender, Level.ERROR, null);
-				ctx.updateLoggers();
-			}
-		}
-		return appender;
-	}
-	
 	public List<JMenuItem> getServerMenuItems() {
 		return serverMenuItems;
 	}

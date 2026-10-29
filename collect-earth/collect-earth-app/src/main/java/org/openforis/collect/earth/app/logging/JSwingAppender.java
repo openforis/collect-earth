@@ -9,12 +9,16 @@ import javax.swing.JOptionPane;
 import javax.swing.JScrollPane;
 import javax.swing.SwingUtilities;
 
+import org.apache.logging.log4j.Level;
+import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.core.Appender;
 import org.apache.logging.log4j.core.Core;
 import org.apache.logging.log4j.core.Filter;
 import org.apache.logging.log4j.core.Layout;
 import org.apache.logging.log4j.core.LogEvent;
+import org.apache.logging.log4j.core.LoggerContext;
 import org.apache.logging.log4j.core.appender.AbstractAppender;
+import org.apache.logging.log4j.core.config.Configuration;
 import org.apache.logging.log4j.core.config.Property;
 import org.apache.logging.log4j.core.config.plugins.Plugin;
 import org.apache.logging.log4j.core.config.plugins.PluginAttribute;
@@ -36,6 +40,35 @@ public class JSwingAppender extends AbstractAppender {
 	private final AtomicInteger errorsWhileDialogOpen = new AtomicInteger(0);
 
 	private Logger logger = LoggerFactory.getLogger( JSwingAppender.class );
+
+	private static final String NAME = "jswing-log";
+
+	/**
+	 * Shows the errors logged from now on in a dialog (when the user wants them, see {@link #isExceptionShown()}): adds
+	 * this appender to the root logger, unless it is there already. The configuration of log4j outlives the Spring
+	 * contexts, which the server restart creates anew and each of which calls this, so the appender is looked for by
+	 * its name first: added once, every error would otherwise open one dialog per context created so far.
+	 *
+	 * @return the appender, or null if it could not be created
+	 */
+	public static synchronized JSwingAppender ensureInstalled() {
+		final LoggerContext ctx = (LoggerContext) LogManager.getContext(false);
+		final Configuration config = ctx.getConfiguration();
+		JSwingAppender appender = (JSwingAppender) config.getAppender(NAME);
+		if (appender == null) {
+			PatternLayout layout = PatternLayout.newBuilder()
+					.withPattern("%-5p %d [%t] %c: %m%n")
+					.build();
+			appender = createAppender(NAME, layout, null, true);
+			if (appender != null) {
+				appender.start();
+				config.addAppender(appender);
+				config.getRootLogger().addAppender(appender, Level.ERROR, null);
+				ctx.updateLoggers();
+			}
+		}
+		return appender;
+	}
 
 	public JSwingAppender(String name, Filter filter, Layout<?> layout, boolean ignoreExceptions, Property[] properties) {
 		super(name, filter, layout, ignoreExceptions, properties);
