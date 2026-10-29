@@ -24,16 +24,21 @@ public class AppInfoController {
 	private final LocalPropertiesService properties;
 	/** The project name, from the survey: a supplier, as the survey changes when another project is loaded */
 	private final Supplier<String> projectName;
+	/** Where the installed version is read from, once (see version()) */
+	private final Supplier<String> installedVersion;
+	private volatile String version;
 
 	@Autowired
 	public AppInfoController(LocalPropertiesService properties, EarthSurveyService surveys) {
-		this(properties, () -> projectName(surveys.getCollectSurvey(), properties));
+		this(properties, () -> projectName(surveys.getCollectSurvey(), properties),
+				UpdateIniUtils::getVersionNameInstalled);
 	}
 
-	/** For the tests, which have no survey to load */
-	AppInfoController(LocalPropertiesService properties, Supplier<String> projectName) {
+	/** For the tests, which have no survey to load nor update.ini to read */
+	AppInfoController(LocalPropertiesService properties, Supplier<String> projectName, Supplier<String> installedVersion) {
 		this.properties = properties;
 		this.projectName = projectName;
+		this.installedVersion = installedVersion;
 	}
 
 	/**
@@ -61,16 +66,27 @@ public class AppInfoController {
 		app.put("language", properties.getUiLanguage().getLocale().getLanguage());
 		app.put("viewer", properties.getValue(EarthProperty.VIEWER_TYPE));
 		app.put("plotsMap", properties.isPlotsMapViewer());
-		// "unknown" when there is no update.ini next to the application, as when it runs from the IDE
-		app.put("version", UpdateIniUtils.getVersionNameInstalled());
+		app.put("version", version());
 		return app;
+	}
+
+	/**
+	 * The installed version, read from update.ini the first time it is asked for: it does not change while the
+	 * application runs, and when the file is missing, as when running from the IDE, every read logs an error, which goes
+	 * to Sentry. "unknown" then. Two first requests at once may both read it, which does no harm.
+	 */
+	private String version() {
+		if (version == null) {
+			version = installedVersion.get();
+		}
+		return version;
 	}
 
 	@PutMapping("/api/app/operator")
 	public void operator(@RequestBody Map<String, String> body) {
 		// In cloud mode the operator is the user of the cloud login, as in the Swing main window, which ignores the field
 		if (properties.isCloudSyncEnabled()) {
-			throw new ApiException("operator.cloud", "The operator is the user logged in to the cloud");
+			throw new ApiException("operator.cloud", Messages.getString("AppInfoController.operatorCloud"));
 		}
 		String operator = body.get("operator") == null ? "" : body.get("operator").trim();
 		// The rule of the Swing main window (CollectEarthWindow.updateOperatorName), which CollectEarthWindow.33 states

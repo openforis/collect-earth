@@ -1,5 +1,8 @@
 package org.openforis.collect.earth.app.server.api;
 
+import static org.hamcrest.Matchers.not;
+import static org.hamcrest.Matchers.startsWith;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
@@ -10,10 +13,13 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import java.util.concurrent.atomic.AtomicInteger;
+
 import org.junit.jupiter.api.Test;
 import org.openforis.collect.earth.app.EarthConstants.UI_LANGUAGE;
 import org.openforis.collect.earth.app.service.LocalPropertiesService;
 import org.openforis.collect.earth.app.service.LocalPropertiesService.EarthProperty;
+import org.openforis.collect.earth.app.view.Messages;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
 
@@ -21,7 +27,11 @@ import org.springframework.test.web.servlet.MockMvc;
 public class AppInfoControllerTest {
 
 	private final LocalPropertiesService properties = mock(LocalPropertiesService.class);
-	private final AppInfoController controller = new AppInfoController(properties, () -> "Sierra Leone 2026");
+	private final AtomicInteger versionReads = new AtomicInteger();
+	private final AppInfoController controller = new AppInfoController(properties, () -> "Sierra Leone 2026", () -> {
+		versionReads.incrementAndGet();
+		return "1.23.20";
+	});
 	private final MockMvc mvc = TemplateWiring.mockMvc(controller, new ApiExceptionHandler());
 
 	public AppInfoControllerTest() throws Exception {
@@ -38,7 +48,17 @@ public class AppInfoControllerTest {
 				.andExpect(jsonPath("$.operator").value("alfonso"))
 				.andExpect(jsonPath("$.language").value("es"))
 				.andExpect(jsonPath("$.viewer").value("google_earth_web"))
-				.andExpect(jsonPath("$.plotsMap").value(true));
+				.andExpect(jsonPath("$.plotsMap").value(true))
+				.andExpect(jsonPath("$.version").value("1.23.20"));
+	}
+
+	@Test
+	public void theInstalledVersionIsReadOnce() throws Exception {
+		// reading update.ini logs an error when it is not there, as when running from the IDE, and errors go to Sentry
+		when(properties.getUiLanguage()).thenReturn(UI_LANGUAGE.EN);
+		mvc.perform(get("/api/app")).andExpect(status().isOk());
+		mvc.perform(get("/api/app")).andExpect(status().isOk());
+		assertEquals(1, versionReads.get());
 	}
 
 	@Test
@@ -75,7 +95,10 @@ public class AppInfoControllerTest {
 	public void theOperatorOfTheCloudLoginCannotBeChanged() throws Exception {
 		when(properties.isCloudSyncEnabled()).thenReturn(true);
 		mvc.perform(put("/api/app/operator").contentType(MediaType.APPLICATION_JSON).content("{\"operator\":\"maria.k\"}"))
-				.andExpect(status().isBadRequest()).andExpect(jsonPath("$.error").value("operator.cloud"));
+				.andExpect(status().isBadRequest()).andExpect(jsonPath("$.error").value("operator.cloud"))
+				.andExpect(jsonPath("$.message").value(Messages.getString("AppInfoController.operatorCloud")))
+				// Messages answers !key! for a key no bundle has
+				.andExpect(jsonPath("$.message").value(not(startsWith("!"))));
 		verify(properties, never()).saveOperator(anyString());
 	}
 }
