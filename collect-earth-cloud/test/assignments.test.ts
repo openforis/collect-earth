@@ -244,7 +244,7 @@ describe('plot files served with a round column', () => {
     const built = 'id,round,lat,lon,wkt\n1,1,0,0,"POLYGON((0 0,\n 1 1))"\n2,1,1,1,x\n';
 
     const { entry, body } = await served(maria.token, id);
-    expect(entry).toMatchObject({ plotCount: 2, downloadPath: contentPath(id, '?mine=1') });
+    expect(entry).toMatchObject({ plotCount: 2, downloadPath: contentPath(id, `?mine=1&v=${sha256(built)}`) });
     expect(body).toBe(built);
     // A collector gets the same file without ?mine=1.
     const plain = await download(maria.token, contentPath(id));
@@ -330,6 +330,42 @@ describe('plot files served with a round column', () => {
     const joseKeys = holdings.filter((h) => h.userId === jose.userId).map((h) => h.plotKey);
     const expected = 'id,lat,lon\n' + ['1,0,0\n', '2,1,1\n', '3,2,2\n'].filter((r) => joseKeys.includes(r[0])).join('');
     expect((await served(jose.token, divided)).body).toBe(expected);
+  });
+
+  it('answers 409 when the file changed after my-assignment listed it', async () => {
+    expect((await putCep(idOnlyCep())).state).toBe('added');
+    const id = await upload('plots.csv', 'id,lat,lon\n1,0,0\n2,1,1\n');
+    await assign(maria.userId, id);
+    const listed = (await myAssignment(maria.token))[0];
+    // The coordinator replaces the file in between.
+    await upload('plots.csv', 'id,lat,lon\n1,0,0\n2,1,1\n3,2,2\n');
+    const res = await download(maria.token, listed.downloadPath);
+    expect(res.statusCode).toBe(409);
+    expect(res.json()).toMatchObject({ error: 'changed' });
+    expect(res.json().reason).toContain('Refresh');
+    // Listed again, it downloads.
+    const again = await served(maria.token, id);
+    expect(again.body).toBe('id,round,lat,lon\n1,1,0,0\n2,1,1,1\n3,1,2,2\n');
+  });
+
+  it('leaves out of my-assignment a file that cannot be built, and lists the others', async () => {
+    expect((await putCep(idOnlyCep())).state).toBe('added');
+    const good = await upload('good.csv', 'id,lat,lon\n1,0,0\n');
+    const bad = await upload('bad.csv', 'id,lat,lon\n2,0,0\n');
+    await ctx.app.inject({
+      method: 'PUT',
+      url: `/v1/projects/${pid}/assignments`,
+      headers: bearer(admin),
+      payload: { assignments: [{ userId: maria.userId, csvFileId: good }, { userId: maria.userId, csvFileId: bad }] },
+    });
+    const getCsvFile = ctx.store.getCsvFile.bind(ctx.store);
+    ctx.store.getCsvFile = async (projectId: string, csvFileId: string) => {
+      if (csvFileId === bad) throw new Error('unreadable');
+      return getCsvFile(projectId, csvFileId);
+    };
+    const res = await ctx.app.inject({ method: 'GET', url: `/v1/projects/${pid}/my-assignment`, headers: bearer(maria.token) });
+    expect(res.statusCode).toBe(200);
+    expect(res.json().assignments.map((a: { csvFileId: string }) => a.csvFileId)).toEqual([good]);
   });
 
   it('a survey with its own round and no reassessment code serves plot files as uploaded', async () => {

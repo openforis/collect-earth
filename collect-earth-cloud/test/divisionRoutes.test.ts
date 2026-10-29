@@ -137,7 +137,7 @@ describe('dividing plots between people', () => {
       csvFileId: fileId,
       filename: 'plots.csv',
       plotCount: 5,
-      downloadPath: `/v1/projects/${pid}/csv-files/${fileId}/content?mine=1`,
+      downloadPath: `/v1/projects/${pid}/csv-files/${fileId}/content?mine=1&v=${mine[0].checksum}`,
     });
     const res = await download(maria.token, mine[0].downloadPath);
     expect(res.statusCode).toBe(200);

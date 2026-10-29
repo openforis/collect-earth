@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto';
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import { isUuid } from '../accountRules.js';
 import type { RoundInfo } from '../cep.js';
@@ -80,6 +81,9 @@ export async function registerAssignmentRoutes(app: FastifyInstance, store: Stor
   // admin asking ?mine=1) gets their own file, 404 if they hold no plot in it; of a
   // whole file, the file with the round column when the survey has one to fill in.
   // The checksum of what is served is in a header so the client can verify.
+  // my-assignment adds the checksum it listed as ?v=: when the file served now has
+  // another (it changed in between), the answer is 409 and nothing is served, so the
+  // desktop app does not overwrite its copy with a file it would then refuse.
   app.get(
     '/v1/projects/:pid/csv-files/:id/content',
     { preHandler: requireProjectMembership(store) },
@@ -87,7 +91,9 @@ export async function registerAssignmentRoutes(app: FastifyInstance, store: Stor
       const projectId = request.membership!.projectId;
       const id = (request.params as { id: string }).id;
       const isAdmin = request.membership!.role === 'admin';
-      const mine = (request.query as { mine?: string }).mine === '1';
+      const query = request.query as { mine?: string; v?: string };
+      const mine = query.mine === '1';
+      const expected = typeof query.v === 'string' && query.v.length > 0 ? query.v : null;
       const userId = request.userId;
       const file = isUuid(id) ? await store.getCsvFile(projectId, id) : null;
       if (!file) {
@@ -107,6 +113,12 @@ export async function registerAssignmentRoutes(app: FastifyInstance, store: Stor
         return reply.code(404).send({ error: 'not_found' });
       } else if (mine || !isAdmin) {
         ({ data, checksum } = wholeFile(file, info));
+      }
+      if (expected !== null && expected !== checksum) {
+        return reply.code(409).send({
+          error: 'changed',
+          reason: 'This plot file changed after the list of your plot files was read. Press Refresh to get the new list, then download it again.',
+        });
       }
       return reply
         .header('content-type', 'text/csv')
@@ -167,31 +179,55 @@ export async function registerAssignmentRoutes(app: FastifyInstance, store: Stor
       };
       const info = await store.getRoundInfo(projectId);
       const withRound = roundColumnOf(info, new Set()) !== null;
+      // Built files are downloaded with ?mine=1 and the checksum listed here (?v=).
+      const built = (f: Parameters<typeof entry>[0], served: ServedFile) =>
+        entry({ ...f, checksum: served.checksum, plotCount: served.plotCount }, `?mine=1&v=${served.checksum}`);
+      // A file that cannot be read or built is left out (and logged), never a 500.
+      const tryBuild = async <T>(csvFileId: string, build: () => Promise<T>): Promise<T | null> => {
+        try {
+          return await build();
+        } catch (err) {
+          request.log.error({ err, csvFileId }, 'my-assignment: could not build the plot file');
+          return null;
+        }
+      };
       const assignments: ReturnType<typeof entry>[] = [];
       for (const f of files) {
         if (!withRound) {
           assignments.push(entry(f));
           continue;
         }
-        // The file as this person gets it (with the round column): its checksum and
-        // count, downloaded with ?mine=1.
-        let whole = cachedWholeFile(f, info);
-        if (!whole) {
-          const file = await store.getCsvFile(projectId, f.id);
-          if (!file) {
-            continue;
+        // The file as this person gets it, with the round column.
+        const whole = await tryBuild(f.id, async () => {
+          const cached = cachedWholeFile(f, info);
+          if (cached) {
+            return cached;
           }
-          whole = wholeFile(file, info);
+          const file = await store.getCsvFile(projectId, f.id);
+          return file ? wholeFile(file, info) : null;
+        });
+        if (whole) {
+          assignments.push(built(f, whole));
         }
-        assignments.push(entry({ ...f, checksum: whole.checksum, plotCount: whole.plotCount }, '?mine=1'));
       }
       // Divided files where the caller holds plots: their own file's checksum and count.
       const holdings = userId ? await store.listPlotHoldings(projectId, userId) : [];
+      const metas = holdings.length > 0 ? new Map((await store.listCsvFiles(projectId)).map((f) => [f.id, f])) : new Map();
       for (const holding of holdings) {
-        const file = await store.getCsvFile(projectId, holding.csvFileId);
-        const own = file ? ownFile(file, holding, info) : null;
-        if (file && own) {
-          assignments.push(entry({ ...file, checksum: own.checksum, plotCount: own.plotCount }, '?mine=1'));
+        const meta = metas.get(holding.csvFileId);
+        if (!meta) {
+          continue;
+        }
+        const own = await tryBuild(holding.csvFileId, async () => {
+          const cached = cachedOwnFile(meta, holding, info);
+          if (cached !== undefined) {
+            return cached;
+          }
+          const file = await store.getCsvFile(projectId, holding.csvFileId);
+          return file ? ownFile(file, holding, info) : null;
+        });
+        if (own) {
+          assignments.push(built(meta, own));
         }
       }
       return reply.send({ assignments });
@@ -227,22 +263,67 @@ interface ServedFile {
   plotCount: number;
 }
 
-/** Whole files with the round column inserted, by checksum and key count: the same for everyone. */
-const wholeFiles = new Map<string, ServedFile>();
-const WHOLE_CACHE_SIZE = 4;
+/**
+ * Recently built files, the same for my-assignment and the download that follows it:
+ * at most 32, and 128 MB in all. A null entry is a person with no plot left in the file.
+ */
+const SERVED_CACHE_ENTRIES = 32;
+const SERVED_CACHE_BYTES = 128 * 1024 * 1024;
+const servedFiles = new Map<string, ServedFile | null>();
+let servedBytes = 0;
 
+function cacheGet(key: string): ServedFile | null | undefined {
+  if (!servedFiles.has(key)) {
+    return undefined;
+  }
+  const value = servedFiles.get(key)!;
+  servedFiles.delete(key);
+  servedFiles.set(key, value);
+  return value;
+}
+
+function cacheSet(key: string, value: ServedFile | null): void {
+  const old = servedFiles.get(key);
+  if (old) {
+    servedBytes -= old.data.length;
+  }
+  servedFiles.delete(key);
+  if (value && value.data.length > SERVED_CACHE_BYTES / 4) {
+    return; // a very big file is built each time rather than pushing everything out
+  }
+  servedFiles.set(key, value);
+  servedBytes += value?.data.length ?? 0;
+  while (servedFiles.size > SERVED_CACHE_ENTRIES || servedBytes > SERVED_CACHE_BYTES) {
+    const [oldest, entry] = servedFiles.entries().next().value as [string, ServedFile | null];
+    servedFiles.delete(oldest);
+    servedBytes -= entry?.data.length ?? 0;
+  }
+}
+
+/** What a built file depends on, apart from the plots: the content and the round. */
+function roundKey(file: { checksum: string }, info: RoundInfo | null): string {
+  return [file.checksum, fileKeyCount(info), info?.state ?? '-', info?.roundIndex ?? '-', info?.reassessmentCode ?? '-'].join(':');
+}
+
+function wholeKey(file: { checksum: string }, info: RoundInfo | null): string {
+  return `whole:${roundKey(file, info)}`;
+}
+
+function ownKey(file: { checksum: string }, plots: UserPlots, info: RoundInfo | null): string {
+  const hash = createHash('sha256')
+    .update(JSON.stringify([[...plots.plotKeys].sort(), [...plots.copyKeys].sort()]))
+    .digest('hex');
+  return `own:${roundKey(file, info)}:${hash}`;
+}
+
+/** The whole file with the round column inserted, when it was built recently. */
 function cachedWholeFile(file: { checksum: string }, info: RoundInfo | null): ServedFile | null {
-  if (info?.state !== 'added') {
-    return null;
-  }
-  const cacheKey = `${file.checksum}:${fileKeyCount(info)}`;
-  const cached = wholeFiles.get(cacheKey);
-  if (!cached) {
-    return null;
-  }
-  wholeFiles.delete(cacheKey);
-  wholeFiles.set(cacheKey, cached);
-  return cached;
+  return info?.state === 'added' ? cacheGet(wholeKey(file, info)) ?? null : null;
+}
+
+/** One person's built file when it was built recently (null: none of their plots), else undefined. */
+function cachedOwnFile(file: { checksum: string }, plots: UserPlots, info: RoundInfo | null): ServedFile | null | undefined {
+  return cacheGet(ownKey(file, plots, info));
 }
 
 /**
@@ -259,14 +340,10 @@ function wholeFile(file: { checksum: string; data: Buffer; plotCount: number }, 
   if (cached) {
     return cached;
   }
-  const keyCount = fileKeyCount(info);
-  const plotFile = plotFileOf(file, keyCount);
+  const plotFile = plotFileOf(file, fileKeyCount(info));
   const data = buildPlotFile(plotFile, null, round);
   const built = { data, checksum: checksumOf(data), plotCount: plotFile.plotIds.length };
-  wholeFiles.set(`${file.checksum}:${keyCount}`, built);
-  while (wholeFiles.size > WHOLE_CACHE_SIZE) {
-    wholeFiles.delete(wholeFiles.keys().next().value as string);
-  }
+  cacheSet(wholeKey(file, info), built);
   return built;
 }
 
@@ -276,13 +353,20 @@ function wholeFile(file: { checksum: string; data: Buffer; plotCount: number }, 
  * file (any more). The plot keys are the file's first fileKeyCount(info) columns.
  */
 function ownFile(file: { checksum: string; data: Buffer }, plots: UserPlots, info: RoundInfo | null): ServedFile | null {
+  const key = ownKey(file, plots, info);
+  const cached = cacheGet(key);
+  if (cached !== undefined) {
+    return cached;
+  }
   const plotFile = plotFileOf(file, fileKeyCount(info));
   const inFile = new Set(plotFile.plotIds);
   const keys = new Set(plots.plotKeys.filter((k) => inFile.has(k)));
-  if (keys.size === 0) {
-    return null;
+  let built: ServedFile | null = null;
+  if (keys.size > 0) {
+    const round = roundColumnOf(info, new Set(plots.copyKeys)) ?? undefined;
+    const data = buildPlotFile(plotFile, keys, round);
+    built = { data, checksum: checksumOf(data), plotCount: keys.size };
   }
-  const round = roundColumnOf(info, new Set(plots.copyKeys)) ?? undefined;
-  const data = buildPlotFile(plotFile, keys, round);
-  return { data, checksum: checksumOf(data), plotCount: keys.size };
+  cacheSet(key, built);
+  return built;
 }

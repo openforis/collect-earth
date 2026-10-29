@@ -472,6 +472,26 @@ Commit: "Collect Earth Cloud: every record has a plot and a round, from its key 
 - **Plot counts:** both stores count a csv file's plots from the `plotKeys` the
   route passes (parsed with the key count); `recountPlots` recounts them when the
   project file changes the key count (Task 4).
+- **Dividing again, after the Task 6 review** (`deal` in `division.ts`):
+  - check submitters always stay copies: a plot only checked goes to the next
+    person with room who did not check it, else to the one who did not with the
+    fewest plots; checked by everyone, it is left unassigned (counted: `summarize`
+    counts a plot as assigned only when someone holds it as main);
+  - a plot whose main assessment was done only by people outside the division's
+    people stays with them (the first as main, the others copies) and is not dealt
+    again; the summary lists them with the plot as submitted;
+  - duplicate main submitters (two people did the main assessment of one plot, e.g.
+    both had it on a whole file) keep it: the first as main, the others as copies,
+    so a whole → divided split turns the second one into a quality check;
+  - `divide(..., plotOf)`: with an own round, nobody gets copies of two units of one
+    plot ("18,1" and "18,3"); and a plot that already has a copy (its checker's, or
+    a second main submitter's) gets no overlap copy, and counts towards the share.
+- **Moving unfinished plots:** done means what the holding asks for
+  (`holdingDone`: the main assessment of a main plot, the check of a copy), also in
+  `summarize`'s `submitted`. A main plot moved to someone holding it as a copy
+  becomes their main plot, unless they already submitted the check: then it stays
+  (`notMoved`). A copy of `from` where `to` is main is dropped (`droppedChecks`).
+  The dashboard does not show the two new counts yet.
 
 ### Task 6: plot files served with a round column
 
@@ -541,9 +561,30 @@ Commit: "Collect Earth Cloud: collectors' plot files carry the round, 1 for the 
   `PostgresStore`, store reads also as a non-superuser under RLS): `recountPlots`
   (1 → 2 → 1 key columns), `listUserPlots` / `listPlotHoldings` copies, my-assignment
   checksums equal the served bytes for whole and divided files.
-  Found on the way (not changed here): on Postgres, an invite made with a Phase-0
-  project admin token fails with a 500, since `invites.created_by` references `users`
-  and the route puts the project id there.
+  Found on the way, fixed after (a8f00de7): on Postgres, an invite made with a
+  Phase-0 project admin token failed with a 500, since `invites.created_by`
+  references `users` and the route put the project id there. It is now null (the
+  column allowed it; no migration), and the memory store refuses a maker who is not
+  a user. A 403 for token callers would have broken the documented Phase-0 flow
+  (PHASE0_VERIFICATION.md) and the tests; the dashboard always uses sessions, and the
+  desktop app never makes invites.
+- **After the review:**
+  - `buildPlotFile` encodes each distinct inserted text once and copies the rows into
+    one buffer of the final size: about 25 ms for 100k rows with an insert.
+  - One cache of built files (whole and own) shared by my-assignment and content: at
+    most 32 entries and 128 MB, keyed by checksum, key count, state, round index,
+    reassessment code and (own files) a sha256 of the sorted plot and copy keys. A
+    file over a quarter of the cap is not cached. The parse cache holds 8.
+  - my-assignment lists built files as `?mine=1&v=<checksum>` and reads only the
+    file list (no contents) to find a cached own file; `content` answers 409
+    `{error: 'changed', reason}` when what it would serve has another checksum.
+    The desktop app (`CloudApiClient.downloadAssignedCsv`) builds the request as
+    `new HttpGet(baseUrl() + downloadPath)`, so the query string goes through
+    unchanged; a 409 is not 2xx, so it throws before writing the file and the plot
+    settings show their "could not download" message. Without `v`, a file changed
+    in between was written to disk and only then refused by the checksum.
+  - A file my-assignment cannot read or build is logged and left out, not a 500.
+  - CR-only line breaks are kept (`lineEnding` can be `'\r'`).
 
 ### Task 7: the export gets `plot`, `round` and `assessment`
 
@@ -1041,6 +1082,10 @@ Commit: "Collect Earth Cloud dashboard: the AI assistant panel, printable report
      isolation of the new tables.
 
   Stop the container afterwards.
+- **Known limitations** (Task 6 review, not fixed): plot ids are read as UTF-8, so
+  in a Latin-1 plot file an id with an accent does not match the record key Collect
+  Earth sends; and a header row whose names all look like numbers (e.g. "2020") is
+  taken for a data row, as Collect Earth itself does.
 - Run the full server and web suites, the typecheck and the web build. Record the
   counts in the final report.
 

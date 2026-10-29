@@ -125,6 +125,32 @@ describe('plot files with a round column', () => {
     expect(buildPlotFile(short, null, { kind: 'replace', index: 3, value: () => 'x' }).toString('utf8')).toBe('1;0;0\n2\n');
   });
 
+  it('keeps CR-only line breaks, and adds one after a last row that had none', () => {
+    const file = parse('id,lat,lon\r1,0,0\r2,1,1');
+    expect(file.lineEnding).toBe('\r');
+    expect(file.plotIds).toEqual(['1', '2']);
+    expect(buildPlotFile(file, null, insert(['2'])).toString('utf8')).toBe('id,round,lat,lon\r1,1,0,0\r2,2,1,1');
+    expect(buildPlotFile(file, new Set(['2']), insert([])).toString('utf8')).toBe('id,round,lat,lon\r2,1,1,1');
+    // A one-row file without a break after its header row: the header gets the file's break.
+    expect(buildPlotFile(parse('1,0,0\r'), null).toString('utf8')).toBe('1,0,0\r');
+  });
+
+  it('builds 100k rows with the round column quickly', () => {
+    const lines = ['id,lat,lon,wkt'];
+    for (let i = 1; i <= 100_000; i += 1) {
+      lines.push(`${i},${i / 1000},-${i / 1000},"POLYGON((0 0, 1 1, 2 2))"`);
+    }
+    const file = parse(lines.join('\n') + '\n');
+    const copies = new Set(file.plotIds.filter((_, i) => i % 10 === 0));
+    const round: RoundColumn = { kind: 'insert', value: (id) => (copies.has(id) ? '2' : '1') };
+    buildPlotFile(file, null, round); // warm up
+    const started = performance.now();
+    const built = buildPlotFile(file, new Set(file.plotIds), round);
+    const elapsed = performance.now() - started;
+    expect(built.length).toBe(file.data.length + 2 * 100_001 + 4);
+    expect(elapsed).toBeLessThan(500);
+  });
+
   it('records where each field starts and ends', () => {
     const row = parse('id,lat,lon\n"1,2" , 0,0\n').rows[0];
     expect(row.fields).toEqual(['1,2', '0', '0']);

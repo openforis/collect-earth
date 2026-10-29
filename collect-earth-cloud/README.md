@@ -134,10 +134,10 @@ other `GET` that accepts HTML and is not under `/v1/` or `/health` returns its
 | --- | --- | --- | --- |
 | `PUT`  | `/v1/projects/:pid/csv-files/:filename` | admin | Upload/replace a plot CSV (raw `text/csv`) → `{id,checksum,plotCount,distribution}`; 413 `storage_limit_reached` over the project's space limit. A divided file keeps the holdings of the plot ids still in it |
 | `GET`  | `/v1/projects/:pid/csv-files` | admin | List CSV files `{csvFiles: [{id, filename, checksum, plotCount, distribution, divided, dividedPeople}]}` (`dividedPeople` = people holding ≥ 1 plot, 0 for a whole file) |
-| `GET`  | `/v1/projects/:pid/csv-files/:id/content` | member | Download CSV bytes; checksum of what is served in `x-checksum-sha256`. Whole file: operator only if assigned. Divided file: the caller's own file (header + their plots; 404 if they hold none) — an admin gets the full file unless `?mine=1` |
+| `GET`  | `/v1/projects/:pid/csv-files/:id/content` | member | Download CSV bytes; checksum of what is served in `x-checksum-sha256`. Whole file: operator only if assigned. Divided file: the caller's own file (header + their plots; 404 if they hold none) — an admin gets the full file unless `?mine=1`. While the survey has a round the server fills in, every file a person gets has it (round added: a `round` column after the id, `1` main, `2` on quality-check copies; own round with a reassessment code: that code on copies). `?v=<checksum>`: 409 `changed` when what would be served now has another checksum |
 | `PUT`  | `/v1/projects/:pid/assignments` | admin | Replace the csv↔operator assignment set (pairs of divided files are ignored) |
 | `GET`  | `/v1/projects/:pid/assignments` | admin | Full assignment matrix |
-| `GET`  | `/v1/projects/:pid/my-assignment` | member | The caller's assigned CSVs + download URLs + checksums; also the divided files where they hold plots (`checksum`/`plotCount` of their own file, `downloadPath` `…/content?mine=1`) |
+| `GET`  | `/v1/projects/:pid/my-assignment` | member | The caller's assigned CSVs + download URLs + checksums; also the divided files where they hold plots (`checksum`/`plotCount` of their own file, `downloadPath` `…/content?mine=1&v=<checksum>`); with a round column, whole files are listed the same way. A file that cannot be built is left out (logged) |
 
 **Dividing a plot file between people** (see `docs/plans/2026-10-29-dividing-plots.md`)
 
@@ -146,7 +146,7 @@ other `GET` that accepts HTML and is not under `/v1/` or `/health` returns its
 | `GET`  | `/v1/projects/:pid/csv-files/:id/columns` | admin | `{plotCount, hasHeader, separator, columns: [{index, name, distinctCount, values: [{value, count}] \| null}]}` — `values` (by value, `""` last) only up to 200 distinct values, never for the id column |
 | `GET`  | `/v1/projects/:pid/csv-files/:id/distribution` | admin | `{distribution \| null, plotCount, unassigned, people: [{userId, username, plots, overlap, submitted}]}` (`plots` includes the `overlap` copies) |
 | `PUT`  | `/v1/projects/:pid/csv-files/:id/distribution` | admin | `{mode: 'whole'}` \| `{mode: 'even', people, order: 'file'\|'mixed', overlapPercent?, seed?}` \| `{mode: 'column', column, groups: [{value, people}], order, overlapPercent?, seed?}`, optional `dryRun: true` → the GET shape (the `seed` used is in `distribution`); 400 `bad_request` `{reason}` |
-| `POST` | `/v1/projects/:pid/csv-files/:id/move-unfinished` | admin | `{fromUserId, toUserId}` → the GET shape + `moved`; plots `from` submitted stay; a whole file is divided first (mode `manual`) |
+| `POST` | `/v1/projects/:pid/csv-files/:id/move-unfinished` | admin | `{fromUserId, toUserId}` → the GET shape + `moved`, `notMoved`, `droppedChecks`; plots `from` has done stay (a main plot when they did its main assessment, a copy when they did its check); a copy `to` holds becomes their main plot unless `to` already checked it (then it stays, `notMoved`); `from`'s copies of `to`'s main plots go (`droppedChecks`); a whole file is divided first (mode `manual`) |
 | `GET`  | `/v1/projects/:pid/overlap` | admin | `{plots, differing, items: [{recordKey, operators, fields: [{key, values: {operator: value}}]}]}` — submitted plots of ≥ 2 operators, metadata keys ignored, at most 500 items |
 
 The record batch body is **gzip-compressed** (the Java `CloudApiClient` sends
