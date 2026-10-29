@@ -1,5 +1,5 @@
 import type { RoundInfo } from './cep.js';
-import { recordRound, unitOfRecord, type RecordRound } from './rounds.js';
+import { copyUnitsByUser, recordRound, unitOfRecord, type RecordRound } from './rounds.js';
 import type { RecordRow } from './types.js';
 
 const FIXED_COLUMNS = ['record_key', 'plot', 'round', 'assessment', 'operator', 'actively_saved', 'modified_on'];
@@ -12,24 +12,15 @@ export type RoundOf = (r: RecordRow) => RecordRound;
  * unit is resolved among `units` (the plot ids of every plot file) with the units the
  * operator holds as copies, and its round comes from recordRound. `copyHolders` maps a
  * unit to the usernames holding it as a quality-check copy (copyHoldersOf over the
- * divided files' overlap holdings).
+ * divided files' holdings, main and copies, so a person who holds the plot as main
+ * in some file is not taken for its checker).
  */
 export function exportRoundOf(
   info: RoundInfo | null,
   units: ReadonlySet<string>,
   copyHolders: ReadonlyMap<string, ReadonlySet<string>>,
 ): RoundOf {
-  const copyUnits = new Map<string, Set<string>>();
-  for (const [unit, users] of copyHolders) {
-    for (const u of users) {
-      let set = copyUnits.get(u);
-      if (!set) {
-        set = new Set();
-        copyUnits.set(u, set);
-      }
-      set.add(unit);
-    }
-  }
+  const copyUnits = copyUnitsByUser(copyHolders);
   return (r) => recordRound(r, info, copyHolders, unitOfRecord(r.recordKey, units, info, copyUnits.get(r.operator)));
 }
 

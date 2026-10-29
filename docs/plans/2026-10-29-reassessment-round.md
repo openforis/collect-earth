@@ -599,7 +599,7 @@ Commit: "Collect Earth Cloud: collectors' plot files carry the round, 1 for the 
     most 32 entries and 128 MB, keyed by checksum, key count, state, round index,
     reassessment code and (own files) a sha256 of the sorted plot and copy keys. A
     file over a quarter of the cap is not cached. The parse cache holds 8 files and
-    about 384 MB (`ParsedCache` in `routes/division.ts`), estimated as
+    about 384 MB (`ParsedCache`, now in `src/plotFileCache.ts`), estimated as
     `PARSED_OVERHEAD` (12) × the content's size: measured at 9-11 for 13-22 MB files
     of 200k plots; a file estimated over half of that is parsed each time.
   - `buildPlotFile` throws when it did not write exactly the size it allocated
@@ -647,8 +647,8 @@ Commit: "Collect Earth Cloud: the data download says, for every record, its plot
 **As built**
 - `exportRoundOf(info, units, copyHolders)` in `export.ts` gives the `roundOf` of
   `recordsCsv`: the record's unit is `unitOfRecord` over the plot ids of every plot
-  file (parsed with `fileKeyCount`, through the division's parse cache, one file at
-  a time; a file that cannot be read is logged and skipped), with the units the
+  file (parsed with `fileKeyCount`, one file at a time; a file that cannot be read,
+  or whose stored content cannot be fetched, is logged and skipped), with the units the
   operator holds as copies, and `recordRound` is called with that unit, as in
   `submittedByPlot`. A record whose plot is in no file falls back to recordRound's
   own lookup.
@@ -659,6 +659,24 @@ Commit: "Collect Earth Cloud: the data download says, for every record, its plot
 - Postgres checked once on a throwaway `postgres:16` container: the helper under
   RLS as a non-superuser, the export of an id-only project with copies and of an
   added project.
+- **After the review:**
+  - The export reads plot ids with `plotIdsOf` (`src/plotFileCache.ts`): a cache of
+    64 id lists keyed by checksum and key count, taken from the parsed-file cache
+    when the file is there, otherwise parsed WITHOUT adding the whole parsed file to
+    it, so an export does not push out the files the division and the downloads use.
+    `ParsedCache`, `plotFileOf` and `plotIdsOf` moved from `routes/division.ts` to
+    `src/plotFileCache.ts`, so routes no longer import each other's caches.
+  - `listOverlapHoldings` became `listDividedHoldings`: every holding (main and copy)
+    of the divided files, still one query. `copyHoldersOf` then leaves out a person
+    who holds the plot as main in another file, so a record of someone holding P as
+    main in file A and as a copy in file B is `main` in the export, as in A's
+    division (B's division alone still calls it a check: the files are divided on
+    their own). Checked once more on a throwaway `postgres:16` container (superuser):
+    the holdings and the export of that case.
+  - `copyUnitsByUser` (`rounds.ts`) inverts a copyHolders map, for both
+    `exportRoundOf` and `submittedByPlot`.
+  - Tests: copy holders across two divided files, a record whose plot is in no file,
+    an unreadable plot file, a formula-like record key in the `plot` column.
 
 ---
 

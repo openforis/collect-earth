@@ -170,6 +170,54 @@ describe('GET export.csv', () => {
     ]);
   });
 
+  it('someone holding a plot as main in one divided file and as a copy in another did the main assessment', async () => {
+    const maria = await join('maria');
+    const jose = await join('jose');
+    const a = await uploadPlots('id,lat,lon\n1,0,0\n', 'a.csv');
+    const b = await uploadPlots('id,lat,lon\n1,0,0\n2,0,0\n', 'b.csv');
+    await ctx.store.setDivision(pid, a, { mode: 'manual' }, [{ plotKey: '1', userId: maria.userId, overlap: false }]);
+    await ctx.store.setDivision(pid, b, { mode: 'manual' }, [
+      { plotKey: '1', userId: jose.userId, overlap: false },
+      { plotKey: '1', userId: maria.userId, overlap: true },
+      { plotKey: '2', userId: jose.userId, overlap: false },
+      { plotKey: '2', userId: maria.userId, overlap: true },
+    ]);
+    await batchRequest(ctx.app, pid, maria.token, [envelope({ recordKey: '1', operator: 'maria', summary: {} }), envelope({ recordKey: '2', operator: 'maria', summary: {} })]);
+    expect(await exported()).toEqual([
+      'record_key,plot,round,assessment,operator,actively_saved,modified_on',
+      '1,1,1,main,maria,true,1970-01-01T00:00:01.000Z',
+      '2,2,2,check,maria,true,1970-01-01T00:00:01.000Z',
+    ]);
+  });
+
+  it('exports a record whose plot is in no plot file, and skips a plot file it cannot read', async () => {
+    const maria = await join('maria');
+    const jose = await join('jose');
+    const good = await uploadPlots('id,lat,lon\n1,0,0\n', 'good.csv');
+    const bad = await uploadPlots('id,lat,lon\n5,0,0\n', 'bad.csv');
+    await ctx.store.setDivision(pid, good, { mode: 'manual' }, [
+      { plotKey: '1', userId: jose.userId, overlap: false },
+      { plotKey: '1', userId: maria.userId, overlap: true },
+    ]);
+    const getCsvFile = ctx.store.getCsvFile.bind(ctx.store);
+    ctx.store.getCsvFile = async (projectId: string, csvFileId: string) => {
+      if (csvFileId === bad) throw new Error('unreadable');
+      return getCsvFile(projectId, csvFileId);
+    };
+    await batchRequest(ctx.app, pid, maria.token, [
+      envelope({ recordKey: '1', operator: 'maria', summary: {} }),
+      envelope({ recordKey: '99', operator: 'maria', summary: {} }),
+      envelope({ recordKey: '=1+1', operator: 'maria', summary: {} }),
+    ]);
+    expect(await exported()).toEqual([
+      'record_key,plot,round,assessment,operator,actively_saved,modified_on',
+      '1,1,2,check,maria,true,1970-01-01T00:00:01.000Z',
+      '99,99,1,main,maria,true,1970-01-01T00:00:01.000Z',
+      // A formula-like key is neutralised in both the record_key and plot columns.
+      "'=1+1,'=1+1,1,main,maria,true,1970-01-01T00:00:01.000Z",
+    ]);
+  });
+
   it('the round the server added: the key says the round', async () => {
     const put = await ctx.app.inject({
       method: 'PUT',

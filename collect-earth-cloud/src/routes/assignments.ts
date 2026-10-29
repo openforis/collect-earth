@@ -11,7 +11,8 @@ import { fileKeyCount, keyShape } from '../rounds.js';
 import { requireProjectMembership } from '../plugins/projectAuth.js';
 import type { Store, UserPlots } from '../store/store.js';
 import type { Assignment, RecordRow } from '../types.js';
-import { plotFileOf, registerDivisionRoutes } from './division.js';
+import { plotFileOf } from '../plotFileCache.js';
+import { registerDivisionRoutes } from './division.js';
 
 interface AssignmentsBody {
   assignments?: { userId?: string; csvFileId?: string }[];

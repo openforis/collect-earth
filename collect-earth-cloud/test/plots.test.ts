@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { buildPlotFile, parsePlotFile, type RoundColumn } from '../src/plots.js';
-import { PARSED_OVERHEAD, ParsedCache, plotFileOf } from '../src/routes/division.js';
+import { PARSED_OVERHEAD, ParsedCache, parsedFileCount, plotFileOf, plotIdsOf } from '../src/plotFileCache.js';
 import { unitOfRecord } from '../src/rounds.js';
 
 const parse = (text: string | Buffer) => parsePlotFile(Buffer.isBuffer(text) ? text : Buffer.from(text, 'utf8'));
@@ -177,6 +177,17 @@ describe('plotFileOf cache', () => {
     expect(two.plotIds).toEqual(['17,2020', '17,2021']);
     expect(plotFileOf(file, 1)).toBe(one);
     expect(plotFileOf(file, 2)).toBe(two);
+  });
+
+  it('plotIdsOf keeps only the ids, never adding the parsed file to the shared cache', () => {
+    const file = { checksum: 'ids-only-checksum', data: Buffer.from('id,lat,lon\n7,0,0\n8,1,1\n') };
+    const before = parsedFileCount();
+    expect(plotIdsOf(file, 1)).toEqual(['7', '8']);
+    expect(parsedFileCount()).toBe(before);
+    // Once the division parsed it, the ids come from that parse.
+    const cached = { checksum: 'ids-from-parsed', data: Buffer.from('id,lat,lon\n9,0,0\n') };
+    const parsed = plotFileOf(cached, 1);
+    expect(plotIdsOf(cached, 1)).toBe(parsed.plotIds);
   });
 
   it('is bounded by the estimated memory of the parsed files, besides their number', () => {

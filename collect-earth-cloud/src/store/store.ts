@@ -186,8 +186,11 @@ export interface Store {
    * `copyKeys` are the ones among them given as quality-check copies (overlap).
    */
   listPlotHoldings(projectId: string, userId: string): Promise<({ csvFileId: string } & UserPlots)[]>;
-  /** Every quality-check copy (overlap holding) of the project's divided files. */
-  listOverlapHoldings(projectId: string): Promise<{ plotKey: string; userId: string }[]>;
+  /**
+   * Every holding (main and quality-check copy) of the project's divided files, in
+   * one list: for copyHoldersOf across files (the export).
+   */
+  listDividedHoldings(projectId: string): Promise<PlotAssignment[]>;
   /** How many people hold at least one plot, by csv file id (divided files only). */
   countPlotHolders(projectId: string): Promise<Map<string, number>>;
   /** The user's plots of one divided file (none for a whole file), and which of them are copies. */

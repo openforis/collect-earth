@@ -88,6 +88,25 @@ export function recordRound(
 }
 
 /**
+ * The other way round of a copyHolders map (unit -> usernames holding it as a copy):
+ * username -> the units they hold as copies, for unitOfRecord's `copyUnits`.
+ */
+export function copyUnitsByUser(copyHolders: ReadonlyMap<string, ReadonlySet<string>>): Map<string, Set<string>> {
+  const result = new Map<string, Set<string>>();
+  for (const [unit, users] of copyHolders) {
+    for (const u of users) {
+      let set = result.get(u);
+      if (!set) {
+        set = new Set();
+        result.set(u, set);
+      }
+      set.add(unit);
+    }
+  }
+  return result;
+}
+
+/**
  * Units of an own-round file by plot: plot → round → unit. Cached per units Set, so a
  * Set passed to unitOfRecord must not be changed afterwards (callers build a new one).
  */

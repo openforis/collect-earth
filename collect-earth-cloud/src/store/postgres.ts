@@ -887,15 +887,15 @@ export class PostgresStore implements Store {
     });
   }
 
-  async listOverlapHoldings(projectId: string): Promise<{ plotKey: string; userId: string }[]> {
+  async listDividedHoldings(projectId: string): Promise<PlotAssignment[]> {
     return this.withProject(projectId, async (client) => {
       const res = await client.query(
-        `SELECT p.plot_key, p.user_id
+        `SELECT p.plot_key, p.user_id, p.overlap
            FROM plot_assignments p JOIN csv_files c ON c.id = p.csv_file_id
-          WHERE p.project_id = $1 AND p.overlap AND c.distribution IS NOT NULL`,
+          WHERE p.project_id = $1 AND c.distribution IS NOT NULL`,
         [projectId],
       );
-      return res.rows.map((r) => ({ plotKey: r.plot_key as string, userId: r.user_id as string }));
+      return res.rows.map((r) => ({ plotKey: r.plot_key as string, userId: r.user_id as string, overlap: r.overlap as boolean }));
     });
   }
 

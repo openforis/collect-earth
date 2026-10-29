@@ -722,15 +722,13 @@ export class InMemoryStore implements Store {
       .map(({ csvFileId, plotKeys, copyKeys }) => ({ csvFileId, plotKeys, copyKeys }));
   }
 
-  async listOverlapHoldings(projectId: string): Promise<{ plotKey: string; userId: string }[]> {
+  async listDividedHoldings(projectId: string): Promise<PlotAssignment[]> {
     const entry = this.projects.get(projectId);
-    const result: { plotKey: string; userId: string }[] = [];
+    const result: PlotAssignment[] = [];
     for (const [csvFileId, list] of entry?.plotAssignments ?? []) {
       if (entry!.csvFiles.get(csvFileId)?.distribution) {
         for (const a of list) {
-          if (a.overlap) {
-            result.push({ plotKey: a.plotKey, userId: a.userId });
-          }
+          result.push({ plotKey: a.plotKey, userId: a.userId, overlap: a.overlap });
         }
       }
     }

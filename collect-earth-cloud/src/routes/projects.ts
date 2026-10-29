@@ -5,8 +5,8 @@ import type { Config } from '../config.js';
 import { copyHoldersOf } from '../division.js';
 import { exportRoundOf, recordsCsv } from '../export.js';
 import { storageSummary } from '../limits.js';
+import { plotIdsOf } from '../plotFileCache.js';
 import { fileKeyCount } from '../rounds.js';
-import { plotFileOf } from './division.js';
 import type { Store } from '../store/store.js';
 import { requireProjectMembership } from '../plugins/projectAuth.js';
 
@@ -204,36 +204,37 @@ export async function registerProjectRoutes(
       if (!project) {
         return reply.code(404).send({ error: 'not_found' });
       }
-      const [records, info, files, overlaps, members] = await Promise.all([
+      const [records, info, files, holdings, members] = await Promise.all([
         store.listRecordSummaries(projectId),
         store.getRoundInfo(projectId),
         store.listCsvFiles(projectId),
-        store.listOverlapHoldings(projectId),
+        store.listDividedHoldings(projectId),
         store.listMembers(projectId),
       ]);
       // The plots of every plot file, read as the division reads them, so a record gets
       // the same plot and round here as in the division and the plot files served.
-      // One file at a time: only its plot ids are kept.
+      // One file at a time; plotIdsOf keeps only the ids (it does not add the whole
+      // parsed file to the cache the division and the downloads use). A file that
+      // cannot be read is logged and left out: its records still get a plot.
       const keyCount = fileKeyCount(info);
       const units = new Set<string>();
       for (const meta of files) {
-        const file = await store.getCsvFile(projectId, meta.id);
-        if (!file) {
-          continue;
-        }
         try {
-          for (const id of plotFileOf(file, keyCount).plotIds) {
+          const file = await store.getCsvFile(projectId, meta.id);
+          if (!file) {
+            continue;
+          }
+          for (const id of plotIdsOf(file, keyCount)) {
             units.add(id);
           }
         } catch (err) {
           request.log.error({ err, csvFileId: meta.id }, 'export: could not read the plot file');
         }
       }
+      // Main holdings too: someone holding a plot as main in one file and as a copy in
+      // another is not taken for its checker.
       const usernames = new Map(members.map((m) => [m.userId, m.username]));
-      const copyHolders = copyHoldersOf(
-        overlaps.map((a) => ({ ...a, overlap: true })),
-        usernames,
-      );
+      const copyHolders = copyHoldersOf(holdings, usernames);
       const csv = recordsCsv(records, exportRoundOf(info, units, copyHolders));
       return reply
         .header('content-type', 'text/csv; charset=utf-8')

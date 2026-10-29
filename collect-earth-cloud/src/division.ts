@@ -1,6 +1,6 @@
 import type { DivisionOrder, PlotAssignment, RecordRow, StoredDistribution } from './types.js';
 import type { RoundInfo } from './cep.js';
-import { recordRound, unitOfRecord } from './rounds.js';
+import { copyUnitsByUser, recordRound, unitOfRecord } from './rounds.js';
 
 /**
  * Dividing one plot file's plots between people: validating a request, computing
@@ -548,17 +548,7 @@ export function submittedByPlot(
   copyHolders: ReadonlyMap<string, ReadonlySet<string>> = new Map(),
 ): Map<string, { main: Set<string>; check: Set<string> }> {
   // The units each username holds as a copy: a check record goes to that one.
-  const copyUnits = new Map<string, Set<string>>();
-  for (const [unit, users] of copyHolders) {
-    for (const u of users) {
-      let set = copyUnits.get(u);
-      if (!set) {
-        set = new Set();
-        copyUnits.set(u, set);
-      }
-      set.add(unit);
-    }
-  }
+  const copyUnits = copyUnitsByUser(copyHolders);
   const result = new Map<string, { main: Set<string>; check: Set<string> }>();
   for (const r of records) {
     const userId = userIdByUsername.get(r.operator);

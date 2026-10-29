@@ -12,7 +12,8 @@ import {
   summarize,
   type DistributionSummary,
 } from '../division.js';
-import { parsePlotFile, type PlotFile } from '../plots.js';
+import { plotFileOf } from '../plotFileCache.js';
+import type { PlotFile } from '../plots.js';
 import { fileKeyCount, keyShape, splitKey } from '../rounds.js';
 import { requireProjectMembership } from '../plugins/projectAuth.js';
 import type { Store } from '../store/store.js';
@@ -20,72 +21,6 @@ import type { PlotAssignment } from '../types.js';
 
 /** Most distinct values a column may have for them to be listed (dividing by column). */
 export const MAX_LISTED_VALUES = 200;
-
-/**
- * Memory a parsed file takes, as a multiple of its size: the content plus the rows,
- * their fields and offsets. Measured at about 9 to 11 for 13-22 MB files of 200k
- * plots (heap and external memory after a full GC); rounded up.
- */
-export const PARSED_OVERHEAD = 12;
-
-/**
- * Recently parsed files (least recently used out first), bounded by entries and by
- * their estimated memory (PARSED_OVERHEAD times the content's size). A file estimated
- * over half the bytes is parsed each time rather than pushing everything out.
- */
-export class ParsedCache {
-  private readonly entries = new Map<string, { parsed: PlotFile; bytes: number }>();
-  private total = 0;
-
-  constructor(
-    private readonly maxEntries: number,
-    private readonly maxBytes: number,
-  ) {}
-
-  /** The estimated memory of what is cached now. */
-  get bytes(): number {
-    return this.total;
-  }
-
-  get size(): number {
-    return this.entries.size;
-  }
-
-  get(key: string, data: Buffer, parse: () => PlotFile): PlotFile {
-    const hit = this.entries.get(key);
-    if (hit) {
-      this.entries.delete(key);
-      this.entries.set(key, hit);
-      return hit.parsed;
-    }
-    const parsed = parse();
-    const bytes = data.length * PARSED_OVERHEAD;
-    if (bytes > this.maxBytes / 2) {
-      return parsed;
-    }
-    this.entries.set(key, { parsed, bytes });
-    this.total += bytes;
-    while (this.entries.size > this.maxEntries || this.total > this.maxBytes) {
-      const [oldest, entry] = this.entries.entries().next().value as [string, { bytes: number }];
-      this.entries.delete(oldest);
-      this.total -= entry.bytes;
-    }
-    return parsed;
-  }
-}
-
-// A few recently parsed files, by checksum and key count: my-assignment and the file
-// page read the same file again and again, and a big one takes a moment to parse.
-// At most 8, and about 384 MB of memory.
-const parsedFiles = new ParsedCache(8, 384 * 1024 * 1024);
-
-/**
- * The parsed plot file of stored content (cached by checksum and key count).
- * `keyCount` is fileKeyCount of the project's RoundInfo.
- */
-export function plotFileOf(file: { checksum: string; data: Buffer }, keyCount: number): PlotFile {
-  return parsedFiles.get(`${file.checksum}:${keyCount}`, file.data, () => parsePlotFile(file.data, keyCount));
-}
 
 /** Each plot's value in a column (of its first row), in plotIds order. */
 function columnValues(file: PlotFile, column: number): string[] {
