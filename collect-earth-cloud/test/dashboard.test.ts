@@ -380,6 +380,15 @@ describe('invites, overview and export', () => {
     await ctx.app.close();
   });
 
+  it('makes an invite with the project admin token (no user behind it)', async () => {
+    const res = await invite(ctx.app, project.projectId, project.adminToken, { role: 'operator' });
+    expect(res.statusCode, res.body).toBe(201);
+    // The store refuses a maker who is not a user, as the database does.
+    await expect(
+      ctx.store.createInvite({ projectId: project.projectId, role: 'operator', maxUses: 1, expiresAt: null, createdBy: project.projectId }),
+    ).rejects.toThrow();
+  });
+
   it('derives the join link from the request when no base URL is configured', async () => {
     const res = await ctx.app.inject({
       method: 'POST',

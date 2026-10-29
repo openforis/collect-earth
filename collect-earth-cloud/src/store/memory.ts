@@ -475,6 +475,10 @@ export class InMemoryStore implements Store {
   // --- Invites ---
 
   async createInvite(input: CreateInviteInput): Promise<string> {
+    // As Postgres' invites.created_by REFERENCES users(id): a user, or nobody.
+    if (input.createdBy !== null && !this.users.has(input.createdBy)) {
+      throw new Error('invites.created_by must be a user id or null');
+    }
     const token = generateToken();
     this.invites.set(hashToken(token), {
       id: randomUUID(),

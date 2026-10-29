@@ -42,7 +42,8 @@ export interface CreateInviteInput {
   role: Role;
   maxUses: number;
   expiresAt: number | null;
-  createdBy: string;
+  /** The user who made it; null when made with a Phase-0 project admin token (no user). */
+  createdBy: string | null;
 }
 
 /**

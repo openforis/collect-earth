@@ -139,7 +139,8 @@ export async function registerPlatformRoutes(app: FastifyInstance, store: Store,
         role,
         maxUses,
         expiresAt,
-        createdBy: request.userId ?? request.membership!.projectId,
+        // A Phase-0 project admin token has no user behind it: made by nobody.
+        createdBy: request.userId ?? null,
       });
       const joinPath = `/join/${token}`;
       return reply.code(201).send({
