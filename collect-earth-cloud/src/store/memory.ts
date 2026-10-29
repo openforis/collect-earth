@@ -566,7 +566,8 @@ export class InMemoryStore implements Store {
       id,
       filename,
       checksum: checksumOf(data),
-      plotCount: plotCountOf(data),
+      // The route passes the plot ids it read with the survey's key count.
+      plotCount: plotKeys ? plotKeys.length : plotCountOf(data),
       data: Buffer.from(data),
       distribution: existingId ? entry.csvFiles.get(existingId)!.distribution : null,
     };

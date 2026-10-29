@@ -26,7 +26,7 @@ export interface PlotRow {
   next: number;
   /** Unquoted field values, trimmed. */
   fields: string[];
-  /** The plot id: the first field. */
+  /** The plot id (assignment unit): the first keyCount fields joined by ",". */
   id: string;
 }
 
@@ -117,7 +117,13 @@ export function isNumber(value: string): boolean {
   return NUMBER_RE.test(value.trim());
 }
 
-export function parsePlotFile(data: Buffer): PlotFile {
+/**
+ * Reads a plot file. `keyCount` is how many of the first columns are the plot's key
+ * (fileKeyCount of the project's RoundInfo): they make the plot id, joined by ",",
+ * the way Collect Earth joins the key values of a record.
+ */
+export function parsePlotFile(data: Buffer, keyCount = 1): PlotFile {
+  const idFields = Math.max(1, Math.floor(keyCount));
   const bom = data.length >= 3 && data.subarray(0, 3).equals(BOM);
   let pos = bom ? 3 : 0;
 
@@ -155,7 +161,8 @@ export function parsePlotFile(data: Buffer): PlotFile {
     if (r.fields.every((f) => f.length === 0) && isBlankRow(data, start, r.end, sep)) {
       continue;
     }
-    const row: PlotRow = { start, end: r.end, next: r.next, fields: r.fields, id: r.fields[0] ?? '' };
+    const id = idFields === 1 ? r.fields[0] ?? '' : r.fields.slice(0, idFields).join(',');
+    const row: PlotRow = { start, end: r.end, next: r.next, fields: r.fields, id };
     columnCount = Math.max(columnCount, r.fields.length);
     // A header has no number in it; data rows always hold numeric coordinates.
     if (first && !r.fields.some(isNumber)) {
@@ -205,21 +212,4 @@ export function buildPlotFile(file: PlotFile, plotKeys: ReadonlySet<string>): Bu
     }
   });
   return Buffer.concat(parts);
-}
-
-/**
- * The plot a record belongs to. The client's record key is the survey's key values
- * joined by ",", the plot id first: so the key is the id, or starts with "id,".
- */
-export function plotOfRecordKey(recordKey: string, plotIds: ReadonlySet<string>): string | null {
-  if (plotIds.has(recordKey)) {
-    return recordKey;
-  }
-  for (let i = recordKey.indexOf(','); i >= 0; i = recordKey.indexOf(',', i + 1)) {
-    const prefix = recordKey.slice(0, i);
-    if (plotIds.has(prefix)) {
-      return prefix;
-    }
-  }
-  return null;
 }

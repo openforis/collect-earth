@@ -11,6 +11,7 @@ import {
   type DistributionSummary,
 } from '../division.js';
 import { parsePlotFile, type PlotFile } from '../plots.js';
+import { fileKeyCount } from '../rounds.js';
 import { requireProjectMembership } from '../plugins/projectAuth.js';
 import type { Store } from '../store/store.js';
 import type { PlotAssignment } from '../types.js';
@@ -18,20 +19,24 @@ import type { PlotAssignment } from '../types.js';
 /** Most distinct values a column may have for them to be listed (dividing by column). */
 export const MAX_LISTED_VALUES = 200;
 
-// A few recently parsed files, by checksum: my-assignment and the file page read the
-// same file again and again, and a big one takes a moment to parse.
+// A few recently parsed files, by checksum and key count: my-assignment and the file
+// page read the same file again and again, and a big one takes a moment to parse.
 const PARSED_CACHE_SIZE = 4;
 const parsedFiles = new Map<string, PlotFile>();
 
-/** The parsed plot file of stored content (cached by checksum). */
-export function plotFileOf(file: { checksum: string; data: Buffer }): PlotFile {
-  let parsed = parsedFiles.get(file.checksum);
+/**
+ * The parsed plot file of stored content (cached by checksum and key count).
+ * `keyCount` is fileKeyCount of the project's RoundInfo.
+ */
+export function plotFileOf(file: { checksum: string; data: Buffer }, keyCount: number): PlotFile {
+  const cacheKey = `${file.checksum}:${keyCount}`;
+  let parsed = parsedFiles.get(cacheKey);
   if (parsed) {
-    parsedFiles.delete(file.checksum);
+    parsedFiles.delete(cacheKey);
   } else {
-    parsed = parsePlotFile(file.data);
+    parsed = parsePlotFile(file.data, keyCount);
   }
-  parsedFiles.set(file.checksum, parsed);
+  parsedFiles.set(cacheKey, parsed);
   while (parsedFiles.size > PARSED_CACHE_SIZE) {
     parsedFiles.delete(parsedFiles.keys().next().value as string);
   }
@@ -55,11 +60,15 @@ async function loadFile(store: Store, projectId: string, csvFileId: string) {
   if (!file) {
     return null;
   }
-  const plotFile = plotFileOf(file);
-  const [members, records] = await Promise.all([store.listMembers(projectId), store.listRecordSummaries(projectId)]);
+  const [members, records, info] = await Promise.all([
+    store.listMembers(projectId),
+    store.listRecordSummaries(projectId),
+    store.getRoundInfo(projectId),
+  ]);
+  const plotFile = plotFileOf(file, fileKeyCount(info));
   const usernames = new Map(members.map((m) => [m.userId, m.username]));
   const userIdByUsername = new Map(members.map((m) => [m.username, m.userId]));
-  const submitted = submittedByPlot(records, new Set(plotFile.plotIds), userIdByUsername);
+  const submitted = submittedByPlot(records, new Set(plotFile.plotIds), userIdByUsername, info);
   return { file, plotFile, usernames, submitted };
 }
 
@@ -125,7 +134,7 @@ export async function registerDivisionRoutes(app: FastifyInstance, store: Store)
     if (!file) {
       return reply.code(404).send({ error: 'not_found' });
     }
-    const plotFile = plotFileOf(file);
+    const plotFile = plotFileOf(file, fileKeyCount(await store.getRoundInfo(projectId)));
     const columns = [];
     for (let index = 0; index < plotFile.columnCount; index += 1) {
       const counts = new Map<string, number>();

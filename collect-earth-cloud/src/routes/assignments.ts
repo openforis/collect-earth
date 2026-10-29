@@ -4,6 +4,7 @@ import type { Config } from '../config.js';
 import { checksumOf } from '../csv.js';
 import { checkUploadFits } from '../limits.js';
 import { buildPlotFile, parsePlotFile } from '../plots.js';
+import { fileKeyCount } from '../rounds.js';
 import { requireProjectMembership } from '../plugins/projectAuth.js';
 import type { Store } from '../store/store.js';
 import type { Assignment } from '../types.js';
@@ -40,8 +41,11 @@ export async function registerAssignmentRoutes(app: FastifyInstance, store: Stor
       if (over) {
         return reply.code(413).send(over);
       }
-      // The new content's plot ids: a divided file keeps the holdings of those.
-      const meta = await store.putCsvFile(request.membership!.projectId, filename, data, parsePlotFile(data).plotIds);
+      // The new content's plot ids (as many key columns as the survey has, less the
+      // round the server added): a divided file keeps the holdings of those.
+      const projectId = request.membership!.projectId;
+      const keyCount = fileKeyCount(await store.getRoundInfo(projectId));
+      const meta = await store.putCsvFile(projectId, filename, data, parsePlotFile(data, keyCount).plotIds);
       return reply.code(201).send(meta);
     },
   );
@@ -85,7 +89,8 @@ export async function registerAssignmentRoutes(app: FastifyInstance, store: Stor
       let checksum = file.checksum;
       if (file.distribution && (mine || !isAdmin)) {
         const keys = userId ? await store.listUserPlotKeys(projectId, id, userId) : [];
-        const own = keys.length > 0 ? ownFile(file, keys) : null;
+        const keyCount = fileKeyCount(await store.getRoundInfo(projectId));
+        const own = keys.length > 0 ? ownFile(file, keys, keyCount) : null;
         if (!own) {
           return reply.code(404).send({ error: 'not_found' });
         }
@@ -152,9 +157,11 @@ export async function registerAssignmentRoutes(app: FastifyInstance, store: Stor
       };
       const assignments = files.map((f) => entry(f));
       // Divided files where the caller holds plots: their own file's checksum and count.
-      for (const holding of userId ? await store.listPlotHoldings(projectId, userId) : []) {
+      const holdings = userId ? await store.listPlotHoldings(projectId, userId) : [];
+      const keyCount = holdings.length > 0 ? fileKeyCount(await store.getRoundInfo(projectId)) : 1;
+      for (const holding of holdings) {
         const file = await store.getCsvFile(projectId, holding.csvFileId);
-        const own = file ? ownFile(file, holding.plotKeys) : null;
+        const own = file ? ownFile(file, holding.plotKeys, keyCount) : null;
         if (file && own) {
           assignments.push(entry({ ...file, checksum: own.checksum, plotCount: own.plotCount }, '?mine=1'));
         }
@@ -168,13 +175,15 @@ export async function registerAssignmentRoutes(app: FastifyInstance, store: Stor
 
 /**
  * One person's file of a divided plot file, from the plots they hold; null when none
- * of them is in the file (any more).
+ * of them is in the file (any more). `keyCount` is fileKeyCount of the project's
+ * RoundInfo: the plot keys are the file's first that many columns.
  */
 function ownFile(
   file: { checksum: string; data: Buffer },
   plotKeys: string[],
+  keyCount: number,
 ): { data: Buffer; checksum: string; plotCount: number } | null {
-  const plotFile = plotFileOf(file);
+  const plotFile = plotFileOf(file, keyCount);
   const inFile = new Set(plotFile.plotIds);
   const keys = new Set(plotKeys.filter((k) => inFile.has(k)));
   if (keys.size === 0) {

@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { buildPlotFile, parsePlotFile, plotOfRecordKey } from '../src/plots.js';
+import { buildPlotFile, parsePlotFile } from '../src/plots.js';
+import { unitOfRecord } from '../src/rounds.js';
 
 const parse = (text: string | Buffer) => parsePlotFile(Buffer.isBuffer(text) ? text : Buffer.from(text, 'utf8'));
 const build = (text: string | Buffer, keys: string[]) =>
@@ -64,13 +65,13 @@ describe('plot file parser', () => {
   });
 });
 
-describe('plotOfRecordKey', () => {
+describe('unitOfRecord (id-only survey)', () => {
   const ids = new Set(['17', '17a', '2']);
   it('matches the id, or the id followed by more key values', () => {
-    expect(plotOfRecordKey('17', ids)).toBe('17');
-    expect(plotOfRecordKey('17,2020', ids)).toBe('17');
-    expect(plotOfRecordKey('17a,x,y', ids)).toBe('17a');
-    expect(plotOfRecordKey('171', ids)).toBeNull();
-    expect(plotOfRecordKey('3,17', ids)).toBeNull();
+    expect(unitOfRecord('17', ids, null)).toBe('17');
+    expect(unitOfRecord('17,2020', ids, null)).toBe('17');
+    expect(unitOfRecord('17a,x,y', ids, null)).toBe('17a');
+    expect(unitOfRecord('171', ids, null)).toBeNull();
+    expect(unitOfRecord('3,17', ids, null)).toBeNull();
   });
 });

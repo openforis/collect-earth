@@ -10,6 +10,7 @@ import {
   submittedByPlot,
   summarize,
 } from '../src/division.js';
+import type { RoundInfo } from '../src/cep.js';
 import type { PlotAssignment, RecordRow, StoredDistribution } from '../src/types.js';
 
 const ids = (n: number) => Array.from({ length: n }, (_, i) => String(i + 1));
@@ -168,8 +169,23 @@ describe('submittedByPlot', () => {
       ],
       new Set(['1', '2', '3', '4']),
       new Map([['maria', 'u1']]),
+      null,
     );
     expect([...map.entries()]).toEqual([['1', new Set(['u1'])]]);
+  });
+
+  it('with the round the server added, the main record and the check record both count for the plot', () => {
+    const added: RoundInfo = {
+      state: 'added', refusal: null, keyCount: 2, roundIndex: 1,
+      roundCodes: [{ code: '1', label: 'First' }, { code: '2', label: 'Again' }], reassessmentCode: '2',
+    };
+    const map = submittedByPlot(
+      [record('17,1', 'maria'), record('17,2', 'jose'), record('170,1', 'maria'), record('17x,1', 'jose')],
+      new Set(['17']),
+      new Map([['maria', 'u1'], ['jose', 'u2']]),
+      added,
+    );
+    expect([...map.entries()]).toEqual([['17', new Set(['u1', 'u2'])]]);
   });
 });
 

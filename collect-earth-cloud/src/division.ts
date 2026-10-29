@@ -1,5 +1,6 @@
 import type { DivisionOrder, PlotAssignment, RecordRow, StoredDistribution } from './types.js';
-import { plotOfRecordKey } from './plots.js';
+import type { RoundInfo } from './cep.js';
+import { unitOfRecord } from './rounds.js';
 
 /**
  * Dividing one plot file's plots between people: validating a request, computing
@@ -311,11 +312,14 @@ function isSubmitted(r: RecordRow): boolean {
 /**
  * The user ids that submitted each plot of a file. A record is a person's when its
  * operator is their username (joining sets the Collect Earth operator name to it).
+ * `plotIds` are the file's plot units and `info` the project's RoundInfo: a main
+ * and a check record of one plot (keys "17,1" and "17,2") both count for it.
  */
 export function submittedByPlot(
   records: readonly RecordRow[],
   plotIds: ReadonlySet<string>,
   userIdByUsername: ReadonlyMap<string, string>,
+  info: RoundInfo | null,
 ): Map<string, Set<string>> {
   const result = new Map<string, Set<string>>();
   for (const r of records) {
@@ -323,7 +327,7 @@ export function submittedByPlot(
     if (!userId || !isSubmitted(r)) {
       continue;
     }
-    const plot = plotOfRecordKey(r.recordKey, plotIds);
+    const plot = unitOfRecord(r.recordKey, plotIds, info);
     if (plot === null) {
       continue;
     }

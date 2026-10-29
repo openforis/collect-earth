@@ -2,6 +2,7 @@ import { createHash } from 'node:crypto';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import type { FastifyInstance } from 'fastify';
 import { batchRequest, bearer, createProject, envelope, makeContext, type TestContext } from './helpers.js';
+import { demoCep, idOnlyCep } from './fixtures/cep.js';
 
 // 10 plots: a header, a quoted WKT column holding the separator and a line break,
 // and a province column. Plot 4 has two rows.
@@ -347,5 +348,47 @@ describe('dividing plots between people', () => {
     });
     const forbidden = await ctx.app.inject({ method: 'GET', url: `/v1/projects/${pid}/overlap`, headers: bearer(maria.token) });
     expect(forbidden.statusCode).toBe(403);
+  });
+
+  const putCep = async (body: Buffer) => {
+    const res = await ctx.app.inject({
+      method: 'PUT',
+      url: `/v1/projects/${pid}/cep`,
+      headers: { ...bearer(admin), 'content-type': 'application/zip' },
+      payload: body,
+    });
+    expect(res.statusCode, res.body).toBe(200);
+    return res.json().round as { state: string };
+  };
+
+  it('with the round the server added, a check record counts as submitted by the person who made it', async () => {
+    expect((await putCep(idOnlyCep())).state).toBe('added');
+    await batchRequest(ctx.app, pid, jose.token, [
+      envelope({ recordKey: '1,1', operator: 'jose' }),
+      envelope({ recordKey: '2,2', operator: 'jose' }),
+      // Not plot 1: "1" never catches "10" or "1x".
+      envelope({ recordKey: '1x,1', operator: 'jose' }),
+    ]);
+    const res = await divideFile({ mode: 'even', people: [maria.userId, jose.userId], order: 'file' });
+    expect(share(res.json(), 'jose')).toMatchObject({ plots: 5, submitted: 2 });
+    const joseFile = await download(jose.token, (await myAssignment(jose.token))[0].downloadPath);
+    expect(plotsOf(joseFile.body)).toEqual(['1', '2', '8', '9', '10']);
+  });
+
+  it('with a survey of two keys, a plot is its first two columns', async () => {
+    expect((await putCep(demoCep())).state).toBe('own');
+    const put = await upload('id,round,lat,lon\n17,1,0,0\n17,1,5,5\n18,1,0,0\n18,3,0,0\n', 'own.csv');
+    expect(put.json().plotCount).toBe(3);
+    const ownId = put.json().id as string;
+    const columns = await ctx.app.inject({ method: 'GET', url: `/v1/projects/${pid}/csv-files/${ownId}/columns`, headers: bearer(admin) });
+    expect(columns.json().plotCount).toBe(3);
+    // A check record (round 2, the reassessment code) belongs to plot 18 whatever its round.
+    await batchRequest(ctx.app, pid, jose.token, [envelope({ recordKey: '18,2', operator: 'jose' })]);
+    const res = await divideFile({ mode: 'even', people: [jose.userId, maria.userId], order: 'file' }, ownId);
+    expect(res.json().plotCount).toBe(3);
+    expect(share(res.json(), 'jose')).toMatchObject({ plots: 2, submitted: 1 });
+    const holdings = await ctx.store.listPlotAssignments(pid, ownId);
+    expect(holdings.filter((a) => a.userId === jose.userId).map((a) => a.plotKey).sort()).toEqual(['17,1', '18,1']);
+    expect(holdings.filter((a) => a.userId === maria.userId).map((a) => a.plotKey)).toEqual(['18,3']);
   });
 });

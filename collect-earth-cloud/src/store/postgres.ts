@@ -704,7 +704,8 @@ export class PostgresStore implements Store {
 
   async putCsvFile(projectId: string, filename: string, data: Buffer, plotKeys?: string[]): Promise<CsvFile> {
     const checksum = checksumOf(data);
-    const plotCount = plotCountOf(data);
+    // The route passes the plot ids it read with the survey's key count.
+    const plotCount = plotKeys ? plotKeys.length : plotCountOf(data);
     return this.withProject(projectId, async (client) => {
       const res = await client.query(
         `INSERT INTO csv_files (id, project_id, filename, checksum, plot_count, data)
