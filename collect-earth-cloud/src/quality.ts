@@ -121,13 +121,30 @@ export interface QualityReport {
 type Kind = 'choice' | 'number';
 type KeyRule = { compare: false; beyond: boolean } | { compare: true; kind: Kind; label: string };
 
-interface Pair {
+/**
+ * One summary key, looked up once per pair key: its rule and, for a compared key, its
+ * tallies (overall and by person index, grown on demand).
+ */
+interface Slot {
+  id: number;
+  key: string;
+  rule: KeyRule;
+  margin: number;
+  compared: number;
+  agreeing: number;
+  personCompared: Int32Array;
+  personAgreeing: Int32Array;
+  /** Confusions of a choice: first answer -> check answer -> confusion. */
+  confusions: Map<string, Map<string, Confusion>>;
+}
+
+/** A pair with at least one differing question, for the second pass. */
+interface DifferingPair {
   plot: string;
   first: QualityRecord;
   check: QualityRecord;
-  /** Compared question keys and whether they agree. */
-  results: Map<string, boolean>;
-  agrees: boolean;
+  /** The slot ids of the differing questions, in the order they were compared. */
+  slots: Uint32Array;
 }
 
 /**
@@ -136,6 +153,10 @@ interface Pair {
  * the plot is listed as two_main. A question is compared on a pair when it is an
  * outline question (not excluded, choice or number) and at least one of the two
  * records has it in its summary; a missing value is then blank, and two blanks agree.
+ *
+ * Built for 100k records of ~200 answers: the first pass over the pairs only counts,
+ * with one lookup per key, and keeps the differing questions of each pair; confusions
+ * and differences come from those in a second pass.
  */
 export function qualityReport(input: QualityInput): QualityReport {
   const { info, units, copyHolders, outline } = input;
@@ -143,6 +164,19 @@ export function qualityReport(input: QualityInput): QualityReport {
   const shape = keyShape(info);
   const copyUnits = copyUnitsByUser(copyHolders);
   const problems: DataProblem[] = [];
+
+  // People by index, for typed-array tallies.
+  const personIndex = new Map<string, number>();
+  const usernames: string[] = [];
+  const indexOf = (username: string): number => {
+    let i = personIndex.get(username);
+    if (i === undefined) {
+      i = usernames.length;
+      usernames.push(username);
+      personIndex.set(username, i);
+    }
+    return i;
+  };
 
   // Resolve each record as the export and the division do (exportRoundOf).
   const groups = new Map<string, { main: QualityRecord[]; check: QualityRecord[] }>();
@@ -164,6 +198,7 @@ export function qualityReport(input: QualityInput): QualityReport {
       problem('unknown_round');
       continue;
     }
+    indexOf(r.operator);
     let g = groups.get(group);
     if (!g) {
       g = { main: [], check: [] };
@@ -171,19 +206,43 @@ export function qualityReport(input: QualityInput): QualityReport {
     }
     (rr.assessment === 'main' ? g.main : g.check).push(r);
   }
+  const people = usernames.length;
 
-  const rules = new Map<string, KeyRule>();
-  const ruleOf = (key: string): KeyRule => {
-    let rule = rules.get(key);
-    if (!rule) {
-      rule = keyRule(key, outline);
-      rules.set(key, rule);
+  const slots = new Map<string, Slot>();
+  const slotList: Slot[] = [];
+  const slotOf = (key: string): Slot => {
+    let slot = slots.get(key);
+    if (!slot) {
+      const rule = keyRule(key, outline);
+      slot = {
+        id: slotList.length,
+        key,
+        rule,
+        margin: margins[key] ?? DEFAULT_MARGIN,
+        compared: 0,
+        agreeing: 0,
+        personCompared: rule.compare ? new Int32Array(people) : EMPTY,
+        personAgreeing: rule.compare ? new Int32Array(people) : EMPTY,
+        confusions: new Map(),
+      };
+      slots.set(key, slot);
+      slotList.push(slot);
     }
-    return rule;
+    return slot;
   };
   const beyond = new Set<string>();
 
-  const pairs: Pair[] = [];
+  const firstCompared = new Int32Array(people);
+  const firstAgreeing = new Int32Array(people);
+  const checkerCompared = new Int32Array(people);
+  const checkerAgreeing = new Int32Array(people);
+  const weeks = new Map<string, Tally>();
+  const weekOfDay = new Map<number, string>();
+  const differingPairs: DifferingPair[] = [];
+  const differs: number[] = [];
+  let plotsChecked = 0;
+  let plotsDiffering = 0;
+
   for (const [plot, g] of groups) {
     if (g.main.length > 1) {
       for (const m of g.main) {
@@ -193,100 +252,134 @@ export function qualityReport(input: QualityInput): QualityReport {
     if (g.main.length === 0 || g.check.length === 0) {
       continue;
     }
+    plotsChecked += 1;
+    let plotDiffers = false;
     const first = g.main.reduce((a, b) => (b.modifiedOn > a.modifiedOn ? b : a));
+    const fs = first.summary;
+    const firstKeys = Object.keys(fs);
+    const fi = personIndex.get(first.operator)!;
     for (const check of g.check) {
-      const results = new Map<string, boolean>();
-      for (const key of new Set([...Object.keys(first.summary), ...Object.keys(check.summary)])) {
-        const rule = ruleOf(key);
+      const cs = check.summary;
+      const ci = personIndex.get(check.operator)!;
+      differs.length = 0;
+      const compare = (slot: Slot, a: string, b: string): void => {
+        const rule = slot.rule;
         if (!rule.compare) {
           if (rule.beyond) {
-            beyond.add(key);
+            beyond.add(slot.key);
           }
-          continue;
+          return;
         }
-        const a = first.summary[key] ?? '';
-        const b = check.summary[key] ?? '';
-        results.set(key, rule.kind === 'choice' ? choiceText(a) === choiceText(b) : numbersAgree(a, b, margins[key] ?? DEFAULT_MARGIN));
+        const agrees = a === b || (rule.kind === 'choice' ? choiceText(a) === choiceText(b) : numbersAgree(a, b, slot.margin));
+        slot.compared += 1;
+        slot.personCompared[fi] += 1;
+        if (ci !== fi) {
+          slot.personCompared[ci] += 1;
+        }
+        if (agrees) {
+          slot.agreeing += 1;
+          slot.personAgreeing[fi] += 1;
+          if (ci !== fi) {
+            slot.personAgreeing[ci] += 1;
+          }
+        } else {
+          differs.push(slot.id);
+        }
+      };
+      // The check's keys that the first record lacks: only walked when there are some.
+      let shared = 0;
+      for (let k = 0; k < firstKeys.length; k++) {
+        const key = firstKeys[k];
+        const b = cs[key];
+        if (typeof b === 'string') {
+          shared += 1;
+        }
+        compare(slotOf(key), text(fs[key]), text(b));
       }
-      pairs.push({ plot, first, check, results, agrees: [...results.values()].every(Boolean) });
+      const checkKeys = Object.keys(cs);
+      if (shared < checkKeys.length) {
+        for (let k = 0; k < checkKeys.length; k++) {
+          const key = checkKeys[k];
+          if (fs[key] === undefined) {
+            compare(slotOf(key), '', text(cs[key]));
+          }
+        }
+      }
+      const agrees = differs.length === 0;
+      firstCompared[fi] += 1;
+      checkerCompared[ci] += 1;
+      if (agrees) {
+        firstAgreeing[fi] += 1;
+        checkerAgreeing[ci] += 1;
+      } else {
+        plotDiffers = true;
+        differingPairs.push({ plot, first, check, slots: Uint32Array.from(differs) });
+      }
+      const day = Math.floor(check.modifiedOn / 86_400_000);
+      let week = weekOfDay.get(day);
+      if (week === undefined) {
+        week = isoWeek(check.modifiedOn);
+        weekOfDay.set(day, week);
+      }
+      let w = weeks.get(week);
+      if (!w) {
+        w = tally();
+        weeks.set(week, w);
+      }
+      count(w, agrees);
+    }
+    if (plotDiffers) {
+      plotsDiffering += 1;
     }
   }
-  pairs.sort((x, y) => plotOrder(x.plot, y.plot) || order(x.check.operator, y.check.operator));
 
-  // By question, in the outline's order, then the keys it does not know.
-  const questions = new Map<string, QuestionAgreement>();
-  const confusions = new Map<string, Confusion>();
-  const people = new Map<string, { asFirst: Tally; asChecker: Tally; byKey: Map<string, Tally> }>();
-  const person = (username: string) => {
-    let p = people.get(username);
-    if (!p) {
-      p = { asFirst: tally(), asChecker: tally(), byKey: new Map() };
-      people.set(username, p);
-    }
-    return p;
-  };
-  const weeks = new Map<string, Tally>();
-  const differing = new Set<string>();
+  differingPairs.sort((x, y) => plotOrder(x.plot, y.plot) || order(x.check.operator, y.check.operator));
+  const confusions: Confusion[] = [];
   const differences: Difference[] = [];
-
-  for (const pair of pairs) {
+  for (const pair of differingPairs) {
     const { first, check, plot } = pair;
-    for (const [key, agrees] of pair.results) {
-      const rule = ruleOf(key) as Extract<KeyRule, { compare: true }>;
-      let q = questions.get(key);
-      if (!q) {
-        q = { key, label: rule.label, kind: rule.kind, compared: 0, agreeing: 0, rate: null };
-        if (rule.kind === 'number') {
-          q.margin = margins[key] ?? DEFAULT_MARGIN;
-        }
-        questions.set(key, q);
+    const fs = first.summary;
+    const cs = check.summary;
+    const fields: Difference['fields'] = [];
+    const listed = differences.length < MAX_DIFFERENCES;
+    for (const id of pair.slots) {
+      const slot = slotList[id];
+      const choice = slot.rule.compare && slot.rule.kind === 'choice';
+      if (!choice && !listed) {
+        continue;
       }
-      count(q, agrees);
-      for (const username of new Set([first.operator, check.operator])) {
-        const byKey = person(username).byKey;
-        let t = byKey.get(key);
-        if (!t) {
-          t = tally();
-          byKey.set(key, t);
+      const a = text(fs[slot.key]);
+      const b = text(cs[slot.key]);
+      if (choice) {
+        const ta = choiceText(a);
+        const tb = choiceText(b);
+        let byFirst = slot.confusions.get(ta);
+        if (!byFirst) {
+          byFirst = new Map();
+          slot.confusions.set(ta, byFirst);
         }
-        count(t, agrees);
-      }
-      if (!agrees && rule.kind === 'choice') {
-        const a = choiceText(first.summary[key] ?? '');
-        const b = choiceText(check.summary[key] ?? '');
-        const id = JSON.stringify([key, a, b]);
-        let c = confusions.get(id);
+        let c = byFirst.get(tb);
         if (!c) {
-          c = { key, first: a, check: b, count: 0, plots: [] };
-          confusions.set(id, c);
+          c = { key: slot.key, first: ta, check: tb, count: 0, plots: [] };
+          byFirst.set(tb, c);
+          confusions.push(c);
         }
         c.count += 1;
         if (c.plots.length < MAX_CONFUSION_PLOTS && c.plots[c.plots.length - 1] !== plot) {
           c.plots.push(plot);
         }
       }
-    }
-    count(person(first.operator).asFirst, pair.agrees);
-    count(person(check.operator).asChecker, pair.agrees);
-    const week = isoWeek(check.modifiedOn);
-    let w = weeks.get(week);
-    if (!w) {
-      w = tally();
-      weeks.set(week, w);
-    }
-    count(w, pair.agrees);
-    if (!pair.agrees) {
-      differing.add(plot);
-      if (differences.length < MAX_DIFFERENCES) {
-        differences.push({
-          plot,
-          first: { operator: first.operator, recordKey: first.recordKey },
-          check: { operator: check.operator, recordKey: check.recordKey },
-          fields: [...pair.results]
-            .filter(([, agrees]) => !agrees)
-            .map(([key]) => ({ key, first: shownText(first.summary[key] ?? ''), check: shownText(check.summary[key] ?? '') })),
-        });
+      if (listed) {
+        fields.push({ key: slot.key, first: shownText(a), check: shownText(b) });
       }
+    }
+    if (listed) {
+      differences.push({
+        plot,
+        first: { operator: first.operator, recordKey: first.recordKey },
+        check: { operator: check.operator, recordKey: check.recordKey },
+        fields,
+      });
     }
   }
 
@@ -294,34 +387,56 @@ export function qualityReport(input: QualityInput): QualityReport {
   const outlineRank = new Map(outlineKeys.map((k, i) => [k, i]));
   const rank = (k: string) => outlineRank.get(k) ?? outlineKeys.length;
   problems.sort((x, y) => plotOrder(x.plot, y.plot) || order(x.recordKey, y.recordKey) || order(x.operator, y.operator));
+  const compared = slotList.filter((s) => s.compared > 0);
 
   return {
-    plotsChecked: new Set(pairs.map((p) => p.plot)).size,
-    plotsDiffering: differing.size,
-    questions: [...questions.values()]
-      .sort((x, y) => rank(x.key) - rank(y.key) || order(x.key, y.key))
-      .map((q) => ({ ...q, rate: rateOf(q) })),
-    confusions: [...confusions.values()]
+    plotsChecked,
+    plotsDiffering,
+    questions: compared
+      .map((s) => {
+        const rule = s.rule as Extract<KeyRule, { compare: true }>;
+        const q: QuestionAgreement = { key: s.key, label: rule.label, kind: rule.kind, compared: s.compared, agreeing: s.agreeing, rate: rateOf(s) };
+        if (rule.kind === 'number') {
+          q.margin = s.margin;
+        }
+        return q;
+      })
+      .sort((x, y) => rank(x.key) - rank(y.key) || order(x.key, y.key)),
+    confusions: confusions
       .sort((x, y) => y.count - x.count || rank(x.key) - rank(y.key) || order(x.key, y.key) || order(x.first, y.first) || order(x.check, y.check))
       .slice(0, MAX_CONFUSIONS),
-    people: [...people]
-      .sort(([a], [b]) => order(a, b))
-      .map(([username, p]) => ({
-        username,
-        asFirst: { ...p.asFirst, rate: rateOf(p.asFirst) },
-        asChecker: { ...p.asChecker, rate: rateOf(p.asChecker) },
-        weakest: [...p.byKey]
-          .filter(([, t]) => t.agreeing < t.compared)
-          .sort(([ka, a], [kb, b]) => a.agreeing / a.compared - b.agreeing / b.compared || b.compared - a.compared || rank(ka) - rank(kb) || order(ka, kb))
-          .slice(0, MAX_WEAKEST)
-          .map(([key, t]) => ({ key, rate: rateOf(t), compared: t.compared, differing: t.compared - t.agreeing })),
-      })),
+    people: usernames
+      .map((username, i) => ({ username, i }))
+      .filter(({ i }) => firstCompared[i] + checkerCompared[i] > 0)
+      .sort((x, y) => order(x.username, y.username))
+      .map(({ username, i }) => {
+        const asFirst = { compared: firstCompared[i], agreeing: firstAgreeing[i] };
+        const asChecker = { compared: checkerCompared[i], agreeing: checkerAgreeing[i] };
+        return {
+          username,
+          asFirst: { ...asFirst, rate: rateOf(asFirst) },
+          asChecker: { ...asChecker, rate: rateOf(asChecker) },
+          weakest: compared
+            .map((s) => ({ key: s.key, compared: s.personCompared[i], agreeing: s.personAgreeing[i] }))
+            .filter((t) => t.agreeing < t.compared)
+            .sort((a, b) => a.agreeing / a.compared - b.agreeing / b.compared || b.compared - a.compared || rank(a.key) - rank(b.key) || order(a.key, b.key))
+            .slice(0, MAX_WEAKEST)
+            .map((t) => ({ key: t.key, rate: rateOf(t), compared: t.compared, differing: t.compared - t.agreeing })),
+        };
+      }),
     weeks: [...weeks].sort(([a], [b]) => order(a, b)).map(([week, t]) => ({ week, compared: t.compared, agreeing: t.agreeing })),
     differences,
     problems: problems.slice(0, MAX_PROBLEMS),
     problemsTotal: problems.length,
     beyondOutline: { count: beyond.size, keys: [...beyond].sort(order).slice(0, MAX_BEYOND_OUTLINE_KEYS) },
   };
+}
+
+const EMPTY = new Int32Array(0);
+
+/** A summary value, or blank when missing (or not a string, e.g. an inherited property). */
+function text(v: unknown): string {
+  return typeof v === 'string' ? v : '';
 }
 
 /** The ISO 8601 week (yyyy-Www) of a time, in UTC: the week's Thursday gives the year. */
@@ -381,6 +496,10 @@ function valuesOf(text: string): string[] {
 
 /** A choice answer as compared: codes without their qualifier, as a sorted set joined by ", ". */
 function choiceText(text: string): string {
+  if (!text.includes(SUMMARY_VALUES_SEPARATOR) && !text.includes(QUALIFIER_SEPARATOR)) {
+    const v = text.trim();
+    return v === 'null' ? '' : v;
+  }
   const codes = valuesOf(text).map((v) => {
     const i = v.indexOf(QUALIFIER_SEPARATOR);
     return i < 0 ? v : v.slice(0, i);
@@ -399,6 +518,30 @@ function shownText(text: string): string {
  * text (several values as a set).
  */
 function numbersAgree(a: string, b: string, margin: number): boolean {
+  if (!a.includes(SUMMARY_VALUES_SEPARATOR) && !b.includes(SUMMARY_VALUES_SEPARATOR)) {
+    // One value (or none) on each side: the common case, without splitting.
+    if (a.length > 0 && b.length > 0 && a.charCodeAt(0) > 32 && b.charCodeAt(0) > 32 && a !== 'null' && b !== 'null') {
+      // Neither is blank (its first character is no space), and Number() trims itself.
+      const nx = Number(a);
+      const ny = Number(b);
+      if (Number.isFinite(nx) && Number.isFinite(ny)) {
+        return Math.abs(nx - ny) * 100 <= margin * Math.max(Math.abs(nx), Math.abs(ny));
+      }
+    }
+    const x = a.trim();
+    const y = b.trim();
+    const blankX = x === '' || x === 'null';
+    const blankY = y === '' || y === 'null';
+    if (blankX || blankY) {
+      return blankX && blankY;
+    }
+    const nx = Number(x);
+    const ny = Number(y);
+    if (Number.isFinite(nx) && Number.isFinite(ny)) {
+      return Math.abs(nx - ny) * 100 <= margin * Math.max(Math.abs(nx), Math.abs(ny));
+    }
+    return x === y;
+  }
   const va = valuesOf(a);
   const vb = valuesOf(b);
   if (va.length === 1 && vb.length === 1) {

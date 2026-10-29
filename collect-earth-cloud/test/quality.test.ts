@@ -352,3 +352,34 @@ describe('qualityReport: caps', () => {
     expect(report.problemsTotal).toBe(600);
   });
 });
+
+describe('qualityReport: speed', () => {
+  it('handles 50k checked plots of 60 answers in well under 5 s', () => {
+    const big = new Map<string, Question>();
+    const keys: string[] = [];
+    for (let i = 0; i < 60; i++) {
+      const key = i % 3 === 0 ? `collect_code_q${i}` : i % 3 === 1 ? `collect_real_q${i}` : `collect_text_q${i}`;
+      big.set(key, question(key, i % 3 === 0 ? 'choice' : i % 3 === 1 ? 'number' : 'text'));
+      keys.push(key);
+    }
+    const records: QualityRecord[] = [];
+    const units = new Set<string>();
+    let seed = 1;
+    const rnd = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
+    for (let p = 0; p < 50_000; p++) {
+      units.add(String(p));
+      for (const round of ['1', '2']) {
+        const summary: Record<string, string> = {};
+        for (const key of keys) {
+          summary[key] = key.includes('code') ? (rnd() < 0.9 ? 'a' : 'b') : key.includes('real') ? String(Math.floor(rnd() * 100)) : `t${p}`;
+        }
+        records.push(rec(`${p},${round}`, `u${p % 30}${round === '2' ? 'c' : ''}`, summary, { modifiedOn: day + p * 60_000 }));
+      }
+    }
+    const started = performance.now();
+    const report = qualityReport({ records, info: added, units, copyHolders: new Map(), outline: big, margins: {} });
+    const took = performance.now() - started;
+    expect(report.plotsChecked).toBe(50_000);
+    expect(took).toBeLessThan(5_000);
+  }, 60_000);
+});
