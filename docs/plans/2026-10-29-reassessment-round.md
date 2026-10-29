@@ -487,11 +487,33 @@ Commit: "Collect Earth Cloud: every record has a plot and a round, from its key 
     plot ("18,1" and "18,3"); and a plot that already has a copy (its checker's, or
     a second main submitter's) gets no overlap copy, and counts towards the share.
 - **Moving unfinished plots:** done means what the holding asks for
-  (`holdingDone`: the main assessment of a main plot, the check of a copy), also in
-  `summarize`'s `submitted`. A main plot moved to someone holding it as a copy
-  becomes their main plot, unless they already submitted the check: then it stays
-  (`notMoved`). A copy of `from` where `to` is main is dropped (`droppedChecks`).
-  The dashboard does not show the two new counts yet.
+  (`holdingDone`: the main assessment of a main plot; the check of a copy, or its
+  main assessment), also in `summarize`'s `submitted`. A main plot moved to someone
+  holding it as a copy becomes their main plot, unless they already submitted the
+  check: then it stays (`notMoved`). A copy of `from` where `to` is main is dropped
+  (`droppedChecks`). The dashboard does not show the two new counts yet.
+- **After the property test** (random divide / move / submit sequences, checking
+  that nobody loses work they did and nobody checks their own plot):
+  - a second main submitter holding the plot as a copy has done their work
+    (`holdingDone`, `summarize`): it is never moved or dropped; the served file
+    gives it the main round (Task 6), and Task 9/10 list the plot as `two_main`;
+  - `moveUnfinished(holdings, from, to, submittedBy, plotOf)`: when `to` does not
+    hold the plot, it stays with `from` (`notMoved`) if it would make `to` the main
+    holder of a plot `to` checked (and did not assess), give `to` a copy of a plot
+    whose main assessment `to` did, or (own round) a copy of a second unit of a plot
+    `to` holds a copy of. The route passes the file's `plotOf`;
+  - `divide`: the one-unit-per-plot rule applies only to NEW overlap copies. Copies
+    `deal` keeps for check submitters and duplicate main submitters are always kept
+    (even of two units of one plot), and every group is dealt before any new pick,
+    so a later group's kept copy cannot be refused by an earlier group's pick. New
+    picks are spread over the units `next` may take (one per plot, none of a plot
+    they hold a copy of), so the share is met when it can be;
+  - plots kept with people outside the division get no new overlap copies (they are
+    in nobody's list), and nor do plots everyone of their group checked: those have
+    no main holder, keep only their checkers' copies and are counted unassigned;
+  - known limit: with an own round, someone in two column groups whose lists hold
+    units of the same plot may get fewer copies than ceil(p%) of both lists together
+    (the rule is applied list by list).
 
 ### Task 6: plot files served with a round column
 
@@ -574,7 +596,23 @@ Commit: "Collect Earth Cloud: collectors' plot files carry the round, 1 for the 
   - One cache of built files (whole and own) shared by my-assignment and content: at
     most 32 entries and 128 MB, keyed by checksum, key count, state, round index,
     reassessment code and (own files) a sha256 of the sorted plot and copy keys. A
-    file over a quarter of the cap is not cached. The parse cache holds 8.
+    file over a quarter of the cap is not cached. The parse cache holds 8 files and
+    about 384 MB (`ParsedCache` in `routes/division.ts`), estimated as
+    `PARSED_OVERHEAD` (12) × the content's size: measured at 9-11 for 13-22 MB files
+    of 200k plots; a file estimated over half of that is parsed each time.
+  - `buildPlotFile` throws when it did not write exactly the size it allocated
+    (`allocUnsafe`), so leftover memory is never served.
+  - **Copies served as main:** a copy whose MAIN assessment the person submitted (a
+    second main submitter, Task 5) is served with the main round: 1 (added) or the
+    file's own value (own with a code), not the reassessment code, so the desktop
+    app shows the plot they already assessed. `copiesSubmittedAsMain` (`division.ts`)
+    finds them from the person's records; `ownFile(file, plots, info, asMain)` takes
+    them and they are part of the own-file cache key. my-assignment and content read
+    the project's records once per request, only when the person holds copies and
+    files get a round column.
+  - **Whole files without a round column** are listed as `?v=<checksum>` (no
+    `mine=1`), the stored checksum, so a file replaced in between gets 409 changed;
+    the bytes and checksum are the upload's, as before.
   - my-assignment lists built files as `?mine=1&v=<checksum>` and reads only the
     file list (no contents) to find a cached own file; `content` answers 409
     `{error: 'changed', reason}` when what it would serve has another checksum.
@@ -701,7 +739,11 @@ Commit: "Collect Earth Cloud: the server knows the survey's questions, answer op
 
 **Pairs.** For each plot, the main record and each check record, both
 submitted. With several main records, take the latest `modifiedOn` and list the
-plot under "data problems" as `two_main`.
+plot under "data problems" as `two_main`. This happens on purpose after a whole →
+divided split: both people did the main assessment, the second one keeps the plot as
+a copy, counts as done (`holdingDone`) and is served it with the main round (Task 6
+"As built"), so they never record a check of it. Task 10's data problems list these
+plots, naming both people.
 
 **API**
 ```ts
@@ -758,6 +800,10 @@ create, update and delete notes. Implement them in both stores.
 **Routes** (admin unless noted):
 - `GET /v1/projects/:pid/quality` → `QualityReport` plus `decisions` and `notes`.
   Replaces `GET /overlap`: keep that route for now, but make it call the new code.
+  Its `problems` include the `two_main` plots: a second main submitter holding the
+  plot as a copy (after a whole → divided split) is served it as main and counted
+  done, so the plot has two main assessments and no check from them (Task 5/6
+  "As built").
 - `PUT /v1/projects/:pid/quality/settings` `{ margins }`: each value 0–100, keys
   from the outline's number questions.
 - `PUT /v1/projects/:pid/quality/decisions/:plot` `{ decision, comment? }`, and
