@@ -57,12 +57,36 @@ describe("apiClient", () => {
 
   it("turns an error answer into an ApiError", async () => {
     vi.stubGlobal("fetch", answer(400, { error: "operator.length", message: "Too short" }));
-    await expect(apiPost("app/operator", {})).rejects.toEqual(new ApiError("operator.length", "Too short", 400));
-    vi.stubGlobal("fetch", answer(400, { error: "operator.length", message: "Too short" }));
     const e = await failure(apiPost("app/operator", {}));
     expect(e.code).toBe("operator.length");
     expect(e.message).toBe("Too short");
     expect(e.status).toBe(400);
+  });
+
+  it("shows the details of an internal error, which has no message", async () => {
+    vi.stubGlobal("fetch", answer(500, { error: "internal", message: null, details: "boom" }));
+    const e = await failure(apiGet("app"));
+    expect(e.code).toBe("internal");
+    expect(e.message).toBe("boom");
+    expect(e.status).toBe(500);
+  });
+
+  it("refuses a success whose body is not JSON", async () => {
+    vi.stubGlobal("fetch", respond(() => new Response("<html>a page</html>", { status: 200 })));
+    const e = await failure(apiGet("app"));
+    expect(e.code).toBe("parse");
+    expect(e.status).toBe(200);
+  });
+
+  it("passes the signal on, and lets an abort through as it is", async () => {
+    const fetchMock = respond(() => { throw new DOMException("The operation was aborted.", "AbortError"); });
+    vi.stubGlobal("fetch", fetchMock);
+    const controller = new AbortController();
+    const result = apiGet("messages?lang=es", controller.signal).then(() => undefined, (e: unknown) => e);
+    const e = await result;
+    expect(e).not.toBeInstanceOf(ApiError);
+    expect((e as Error).name).toBe("AbortError");
+    expect((fetchMock.mock.calls[0][1] as RequestInit).signal).toBe(controller.signal);
   });
 
   it("copes with the HTML error pages of Jetty", async () => {

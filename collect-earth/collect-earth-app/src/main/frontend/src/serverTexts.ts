@@ -10,10 +10,10 @@ const ENTITIES: Record<string, string> = { nbsp: " ", amp: "&", lt: "<", gt: ">
  * A text of Messages*.properties (MessagesController), as plain text: many carry the HTML of Swing labels (<html>,
  * <br>, <b>...), with tags misspelt (</hml>) or machine translated (</ Б> in Mongolian), and "&" could mark a mnemonic.
  * A missing one shows as "!key!", as Messages.getString does, so it is noticed; while the texts are still loading
- * (null) every text is empty, so the labels do not show their keys for a moment.
+ * (null or undefined) every text is empty, so the labels do not show their keys for a moment.
  */
-export function serverText(texts: Texts | null, key: string): string {
-  if (texts === null) return "";
+export function serverText(texts: Texts | null | undefined, key: string): string {
+  if (texts == null) return "";
   const text = texts[key];
   if (text === undefined) return "!" + key + "!";
   return text
@@ -27,10 +27,19 @@ export function serverText(texts: Texts | null, key: string): string {
     .replace(/[ \t]{2,}/g, " ")
     .trim()
     // Last, and in one pass, so that a decoded "&" or "<" is not read again
-    .replace(/&(#\d+|\w+);/g, (entity, name: string) => {
-      if (name.startsWith("#")) return String.fromCodePoint(Number(name.slice(1)));
-      return ENTITIES[name] ?? entity;
+    .replace(/&(#[xX][0-9a-fA-F]+|#\d+|\w+);/g, (entity, name: string) => {
+      if (!name.startsWith("#")) return ENTITIES[name] ?? entity;
+      const hex = name[1] === "x" || name[1] === "X";
+      const code = parseInt(name.slice(hex ? 2 : 1), hex ? 16 : 10);
+      // fromCodePoint throws beyond U+10FFFF: a stray character code stays as it was written rather than break the page
+      return code <= 0x10ffff ? String.fromCodePoint(code) : entity;
     });
+}
+
+/** The texts of a language from the server: none rather than a crash when the answer has no texts. */
+export async function loadServerTexts(language: string, signal?: AbortSignal): Promise<Texts> {
+  const r = await apiGet<{ texts?: Texts } | undefined>("messages?lang=" + encodeURIComponent(language), signal);
+  return r?.texts ?? {};
 }
 
 /**
@@ -41,11 +50,13 @@ export function serverText(texts: Texts | null, key: string): string {
 export function useServerTexts(language: string): Texts | null {
   const [texts, setTexts] = useState<Texts | null>(null);
   useEffect(() => {
-    let current = true;
-    apiGet<{ texts: Texts }>("messages?lang=" + encodeURIComponent(language))
-      .then((r) => { if (current) setTexts(r.texts); })
-      .catch(() => { if (current) setTexts((t) => t ?? {}); });
-    return () => { current = false; };
+    // Aborted when the language changes again or the page goes: the answer of a language no longer wanted is dropped
+    const controller = new AbortController();
+    loadServerTexts(language, controller.signal)
+      // An abort that comes once the answer is in does not stop the promise: the check drops it all the same
+      .then((t) => { if (!controller.signal.aborted) setTexts(t); })
+      .catch(() => { if (!controller.signal.aborted) setTexts((t) => t ?? {}); });
+    return () => controller.abort();
   }, [language]);
   return texts;
 }

@@ -1,21 +1,24 @@
 import type { GewStatus, GroundView, ImagerySource, ImageryStatus, LatLng, MapConfig, PlotFeature, PlotStatus } from "./types";
 
-/** Base URL of the Collect Earth embedded server (the page is served from it). */
-export const HOST = window.location.origin + "/earth/";
+/**
+ * Base URL of the Collect Earth embedded server (the page is served from it). Read at each call, not when the module
+ * is imported, so that the tests, which run in node without a window, can import the modules that use it.
+ */
+export const earthBase = () => window.location.origin + "/earth/";
 
 export async function fetchMapConfig(): Promise<MapConfig> {
-  const r = await fetch(HOST + "mapConfig");
+  const r = await fetch(earthBase() + "mapConfig");
   return (await r.json()) ?? {};
 }
 
 export async function fetchPlots(): Promise<{ features?: PlotFeature[]; warning?: string }> {
-  const r = await fetch(HOST + "plotsGeoJson");
+  const r = await fetch(earthBase() + "plotsGeoJson");
   if (!r.ok) throw new Error("plotsGeoJson HTTP " + r.status);
   return r.json();
 }
 
 export async function fetchStatuses(since: number | null): Promise<{ now: number; statuses: Record<string, PlotStatus> }> {
-  const r = await fetch(HOST + "plotStatuses" + (since ? "?since=" + since : ""));
+  const r = await fetch(earthBase() + "plotStatuses" + (since ? "?since=" + since : ""));
   return r.json();
 }
 
@@ -26,28 +29,28 @@ export async function fetchStatuses(since: number | null): Promise<{ now: number
  */
 export function formUrl(feature: PlotFeature, webForm = "generated", language = "en"): string {
   if (webForm !== "balloon") {
-    return HOST + "form?id=" + encodeURIComponent(feature.properties.id) + "&lang=" + encodeURIComponent(language);
+    return earthBase() + "form?id=" + encodeURIComponent(feature.properties.id) + "&lang=" + encodeURIComponent(language);
   }
   const params = Object.entries(feature.properties).map(
     ([k, v]) => encodeURIComponent(k) + "=" + encodeURIComponent(v ?? ""));
-  params.push("host=" + encodeURIComponent(HOST));
+  params.push("host=" + encodeURIComponent(earthBase()));
   params.push("local_port=" + encodeURIComponent(window.location.port));
   params.push("randomNumber=" + Date.now());
-  return HOST + "balloon?" + params.join("&") + "&web=true";
+  return earthBase() + "balloon?" + params.join("&") + "&web=true";
 }
 
 /** Opens the auxiliary windows (GEE App, Google Earth Web, ...) like a balloon would. The
  *  plotId is needed because the coordinates-only path leaves placemarkId null. */
 export function openAuxiliaryWindows(feature: PlotFeature): void {
   const p = feature.properties;
-  fetch(HOST + "openAuxiliaryWindows?latLongCoordinates=" + p.latitude + "," + p.longitude
+  fetch(earthBase() + "openAuxiliaryWindows?latLongCoordinates=" + p.latitude + "," + p.longitude
     + "&plotId=" + encodeURIComponent(p.id)).catch(() => { /* non-fatal */ });
 }
 
 // ---------- Google Earth Web window (plot viewer "Plots map + Google Earth Web") ----------
 
 export async function fetchGewStatus(): Promise<GewStatus> {
-  const r = await fetch(HOST + "googleEarthWeb/status");
+  const r = await fetch(earthBase() + "googleEarthWeb/status");
   if (!r.ok) throw new Error("googleEarthWeb/status HTTP " + r.status);
   return r.json();
 }
@@ -55,49 +58,49 @@ export async function fetchGewStatus(): Promise<GewStatus> {
 /** Shows the plot even if it was the last one opened (reopens a closed window). */
 export function gewShowPlot(feature: PlotFeature): void {
   const p = feature.properties;
-  fetch(HOST + "googleEarthWeb/show?latLongCoordinates=" + p.latitude + "," + p.longitude
+  fetch(earthBase() + "googleEarthWeb/show?latLongCoordinates=" + p.latitude + "," + p.longitude
     + "&plotId=" + encodeURIComponent(p.id)).catch(() => { /* reported through the status */ });
 }
 
 /** Opens the window over the survey area before any plot is selected (no-op if open). */
 export function gewOpenOverview(center: LatLng): void {
-  fetch(HOST + "googleEarthWeb/open?latLongCoordinates=" + center[0] + "," + center[1]).catch(() => {});
+  fetch(earthBase() + "googleEarthWeb/open?latLongCoordinates=" + center[0] + "," + center[1]).catch(() => {});
 }
 
 /** The user moved the map: Google Earth Web looks at the same place, with as much ground in view. */
 export function gewMoveCamera(view: GroundView): void {
-  fetch(HOST + "googleEarthWeb/camera?latitude=" + view.center[0] + "&longitude=" + view.center[1]
+  fetch(earthBase() + "googleEarthWeb/camera?latitude=" + view.center[0] + "&longitude=" + view.center[1]
     + "&heightMeters=" + view.heightMeters).catch(() => {});
 }
 
 export function gewArrangeWindows(): void {
-  fetch(HOST + "googleEarthWeb/arrange").catch(() => {});
+  fetch(earthBase() + "googleEarthWeb/arrange").catch(() => {});
 }
 
 /** This window was resized or moved: side by side, Google Earth Web takes the room left beside it. */
 export function gewFollowFormWindow(): void {
-  fetch(HOST + "googleEarthWeb/followForm").catch(() => {});
+  fetch(earthBase() + "googleEarthWeb/followForm").catch(() => {});
 }
 
 // ---------- The imagery window: a tab per source ----------
 
 /** The tabs open in the imagery window, in their order, and the one shown. */
 export async function fetchImageryStatus(): Promise<ImageryStatus> {
-  const r = await fetch(HOST + "imagery/status");
+  const r = await fetch(earthBase() + "imagery/status");
   if (!r.ok) throw new Error("imagery/status HTTP " + r.status);
   return r.json();
 }
 
 /** Brings the tab of the source to the front, and the imagery window over the others. */
 export function showImagerySource(source: ImagerySource): void {
-  fetch(HOST + "imagery/show?source=" + encodeURIComponent(source)).catch(() => { /* the next status shows what is open */ });
+  fetch(earthBase() + "imagery/show?source=" + encodeURIComponent(source)).catch(() => { /* the next status shows what is open */ });
 }
 
 /** Neighbouring plots (with statuses) that Google Earth Web draws around the plot. */
 export interface GewContextPlot { id: string; status: PlotStatus; rings: [number, number][][] }
 
 export function postGewContext(plotId: string, plots: GewContextPlot[]): void {
-  fetch(HOST + "googleEarthWeb/context", {
+  fetch(earthBase() + "googleEarthWeb/context", {
     method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ plotId, plots }),
   }).catch(() => {});
 }
