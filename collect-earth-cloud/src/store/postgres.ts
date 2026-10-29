@@ -16,6 +16,7 @@ import {
   type ProjectRow,
   type ProjectStorage,
   type RecordRow,
+  type RoundInfo,
   type ServerSettings,
   type StoredDistribution,
   type Role,
@@ -132,7 +133,8 @@ export class PostgresStore implements Store {
   async getProjectStorage(projectId: string): Promise<ProjectStorage> {
     return this.withProject(projectId, async (client) => {
       const cep = await client.query(
-        'SELECT octet_length(data)::bigint AS bytes FROM project_ceps WHERE project_id = $1',
+        `SELECT (octet_length(data) + COALESCE(octet_length(cep_original), 0))::bigint AS bytes
+           FROM project_ceps WHERE project_id = $1`,
         [projectId],
       );
       const csv = await client.query(
@@ -247,13 +249,51 @@ export class PostgresStore implements Store {
     });
   }
 
-  async putCep(projectId: string, cep: Buffer): Promise<void> {
+  async putCep(projectId: string, served: Buffer, info: RoundInfo, original: Buffer | null): Promise<void> {
     await this.withProject(projectId, async (client) => {
       await client.query(
-        `INSERT INTO project_ceps (project_id, data) VALUES ($1, $2)
-         ON CONFLICT (project_id) DO UPDATE SET data = EXCLUDED.data, updated_at = now()`,
-        [projectId, cep],
+        `INSERT INTO project_ceps (project_id, data, cep_original, round_info) VALUES ($1, $2, $3, $4)
+         ON CONFLICT (project_id) DO UPDATE SET
+           data = EXCLUDED.data,
+           cep_original = EXCLUDED.cep_original,
+           round_info = EXCLUDED.round_info,
+           updated_at = now()`,
+        [projectId, served, original, JSON.stringify(info)],
       );
+    });
+  }
+
+  async getOriginalCep(projectId: string): Promise<Buffer | null> {
+    return this.withProject(projectId, async (client) => {
+      const res = await client.query(
+        'SELECT COALESCE(cep_original, data) AS data FROM project_ceps WHERE project_id = $1',
+        [projectId],
+      );
+      return res.rowCount === 0 ? null : (res.rows[0].data as Buffer);
+    });
+  }
+
+  async getRoundInfo(projectId: string): Promise<RoundInfo | null> {
+    return this.withProject(projectId, async (client) => {
+      const res = await client.query('SELECT round_info FROM project_ceps WHERE project_id = $1', [projectId]);
+      return res.rowCount === 0 ? null : ((res.rows[0].round_info as RoundInfo | null) ?? null);
+    });
+  }
+
+  async setReassessmentCode(projectId: string, code: string | null): Promise<void> {
+    await this.withProject(projectId, async (client) => {
+      await client.query(
+        `UPDATE project_ceps SET round_info = jsonb_set(round_info, '{reassessmentCode}', $2::jsonb)
+          WHERE project_id = $1 AND round_info IS NOT NULL`,
+        [projectId, JSON.stringify(code)],
+      );
+    });
+  }
+
+  async hasRecords(projectId: string): Promise<boolean> {
+    return this.withProject(projectId, async (client) => {
+      const res = await client.query('SELECT EXISTS (SELECT 1 FROM records WHERE project_id = $1) AS found', [projectId]);
+      return res.rows[0].found as boolean;
     });
   }
 

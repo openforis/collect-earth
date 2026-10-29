@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { strFromU8, unzipSync } from 'fflate';
 import { inflateRawSync } from 'node:zlib';
 import { addRound, CepError, readCep, surveyInfo, zipCep } from '../src/cep.js';
-import { cepWith, demoCep, idOnlyCep, realDemoCep } from './fixtures/cep.js';
+import { cepWith, demoCep, FIXTURE_DATE, idOnlyCep, realDemoCep } from './fixtures/cep.js';
 
 const surveyOf = (cep: Buffer) => {
   const files = readCep(cep);
@@ -124,6 +124,38 @@ describe('readCep', () => {
 
   it('refuses a zip without the survey', () => {
     expect(cepErrorCode(() => readCep(cepWith({ 'balloon.html': '<html/>' })))).toBe('no_survey');
+  });
+
+  it('refuses a zip that unzips to more than the limits allow', () => {
+    const MB = 1024 * 1024;
+    const big = (bytes: number) =>
+      zipCep(new Map([['placemark.idm.xml', new Uint8Array(bytes)], ['b.txt', new Uint8Array(1)]]), FIXTURE_DATE);
+    // Zeros deflate about 1000 to 1: a small upload may still unzip to 20 MB.
+    expect(cepErrorCode(() => readCep(big(19 * MB)))).toBeNull();
+    expect(cepErrorCode(() => readCep(big(21 * MB)))).toBe('too_large');
+    // Explicit limits: total bytes, ratio (with its allowance), and the number of files.
+    const limits = { maxEntries: 2000, maxTotalBytes: 200 * MB, maxRatio: 20, minAllowanceBytes: 0 };
+    const text = cepWith({ 'placemark.idm.xml': 'x'.repeat(10_000) });
+    expect(cepErrorCode(() => readCep(text, limits))).toBe('too_large');
+    expect(cepErrorCode(() => readCep(text, { ...limits, maxRatio: 1000 }))).toBeNull();
+    expect(cepErrorCode(() => readCep(text, { ...limits, maxRatio: 1000, maxTotalBytes: 9_999 }))).toBe('too_large');
+    const many = cepWith(Array.from({ length: 2001 }, (_, i): [string, string] => [`f${i}`, '']));
+    expect(cepErrorCode(() => readCep(many))).toBe('too_large');
+    expect(() => readCep(many)).toThrow(/2,000 files/);
+  });
+
+  it('refuses a zip whose entries are shorter than the sizes it declares', () => {
+    const zip = cepWith({ 'placemark.idm.xml': idm(''), 'b.txt': 'hello' });
+    // Raise b.txt's declared size (central directory) from 5 to 6: its data comes up short.
+    const centralAt = zip.readUInt32LE(zip.length - 22 + 16);
+    let at = centralAt;
+    for (;;) {
+      const nameLength = zip.readUInt16LE(at + 28);
+      if (zip.toString('utf8', at + 46, at + 46 + nameLength) === 'b.txt') break;
+      at += 46 + nameLength;
+    }
+    zip.writeUInt32LE(6, at + 24);
+    expect(cepErrorCode(() => readCep(zip))).toBe('not_a_zip');
   });
 
   it('names the survey file the properties point to when it is missing', () => {

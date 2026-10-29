@@ -42,7 +42,9 @@ export interface SurveyInfo {
   lastId: number;
 }
 
-export type CepErrorCode = 'not_a_zip' | 'no_survey' | 'survey_unreadable';
+export type CepErrorCode = 'not_a_zip' | 'too_large' | 'no_survey' | 'survey_unreadable';
+
+const unusable = (why: string) => `The project file is not a zip file Collect Earth can use: ${why}.`;
 
 export class CepError extends Error {
   constructor(
@@ -66,23 +68,63 @@ const LOCATIONS = {
   template: { key: 'template', fallback: 'kml_template.fmt' },
 } as const;
 
+/** How much a project file may unzip to, so an upload cannot exhaust the server's memory. */
+export interface CepLimits {
+  maxEntries: number;
+  /** Unzipped bytes in total, whatever the zip's size. */
+  maxTotalBytes: number;
+  /** Unzipped bytes per byte of zip... */
+  maxRatio: number;
+  /** ...but a small zip may always unzip to this much (text compresses well). */
+  minAllowanceBytes: number;
+}
+
+const MB = 1024 * 1024;
+export const DEFAULT_CEP_LIMITS: CepLimits = {
+  maxEntries: 2000,
+  maxTotalBytes: 200 * MB,
+  maxRatio: 20,
+  minAllowanceBytes: 20 * MB,
+};
+
 /** Opens a CEP and finds its survey, balloons and KML template. */
-export function readCep(zip: Buffer): CepFiles {
+export function readCep(zip: Buffer, limits: CepLimits = DEFAULT_CEP_LIMITS): CepFiles {
   // unzipSync hands back a plain object, which puts names like "1" first and cannot hold
   // "__proto__". The filter sees every entry in zip order, so the names are taken from it
   // and the entries map is built in that order. A served CEP is re-zipped from this map,
   // so nothing may be lost: a "__proto__" entry or a repeated name is refused.
+  //
+  // The filter also sees each entry's declared size before it is inflated. fflate inflates
+  // into a buffer of exactly that size, so the declared sizes bound the memory used; once
+  // they pass the limit, nothing more is inflated. An entry that comes out shorter than it
+  // declares is refused below.
+  const allowed = Math.min(limits.maxTotalBytes, Math.max(limits.maxRatio * zip.length, limits.minAllowanceBytes));
   const names: string[] = [];
-  const seen = new Set<string>();
-  let refusal: string | null = null;
+  const declared = new Map<string, number>();
+  let total = 0;
+  let refusal: CepError | null = null;
+  const refuse = (code: CepErrorCode, message: string) => {
+    refusal ??= new CepError(code, message);
+    return false;
+  };
   let unzipped: Record<string, Uint8Array>;
   try {
     unzipped = unzipSync(new Uint8Array(zip.buffer, zip.byteOffset, zip.byteLength), {
-      filter: ({ name }) => {
-        if (name === '__proto__') refusal = 'it has a file named __proto__';
-        else if (seen.has(name)) refusal = `it has two files named ${name}`;
+      filter: ({ name, originalSize }) => {
         if (refusal) return false;
-        seen.add(name);
+        if (name === '__proto__') return refuse('not_a_zip', unusable('it has a file named __proto__'));
+        if (declared.has(name)) return refuse('not_a_zip', unusable(`it has two files named ${name}`));
+        if (names.length >= limits.maxEntries) {
+          return refuse('too_large', `The project file has more than ${limits.maxEntries.toLocaleString('en')} files.`);
+        }
+        total += originalSize;
+        if (total > allowed) {
+          return refuse(
+            'too_large',
+            `The project file unzips to more than ${Math.floor(allowed / MB)} MB, more than the server accepts.`,
+          );
+        }
+        declared.set(name, originalSize);
         names.push(name);
         return true;
       },
@@ -90,8 +132,11 @@ export function readCep(zip: Buffer): CepFiles {
   } catch {
     throw new CepError('not_a_zip', 'The project file is not a zip file.');
   }
-  if (refusal) throw new CepError('not_a_zip', `The project file is not a zip file Collect Earth can use: ${refusal}.`);
+  if (refusal) throw refusal;
   const entries = new Map(names.map((name) => [name, unzipped[name]] as const));
+  for (const [name, data] of entries) {
+    if (data.length !== declared.get(name)) throw new CepError('not_a_zip', unusable(`${name} is damaged`));
+  }
 
   const propertiesBytes = entries.get(PROPERTIES_PATH);
   const properties = propertiesBytes ? parseProperties(strFromU8(propertiesBytes)) : new Map<string, string>();
@@ -440,21 +485,8 @@ export function addRound(zip: Buffer, date: Date = new Date()): { cep: Buffer; i
   const keyCount = info.keys.length;
   if (info.rootEntityCount > 1) return none('several_entities', keyCount);
 
-  const roundIndex = info.keys.findIndex((k) => k.name === 'round');
-  if (roundIndex >= 0) {
-    const roundCodes = info.codeLists.get(info.keys[roundIndex].list ?? '') ?? [];
-    return {
-      cep: zip,
-      info: {
-        state: 'own',
-        refusal: null,
-        keyCount,
-        roundIndex,
-        roundCodes,
-        reassessmentCode: roundCodes.some((c) => c.code === '2') ? '2' : null,
-      },
-    };
-  }
+  const own = ownRoundInfo(info);
+  if (own) return { cep: zip, info: own };
   if (info.hasNonKeyRound) return none('round_not_key', keyCount);
   if (keyCount !== 1) return none('several_keys', keyCount);
 
@@ -506,6 +538,46 @@ export function addRound(zip: Buffer, date: Date = new Date()): { cep: Buffer; i
     cep,
     info: { state: 'added', refusal: null, keyCount: 2, roundIndex: 1, roundCodes, reassessmentCode: '2' },
   };
+}
+
+/** The info of a survey with a round key of its own, else null. */
+function ownRoundInfo(info: SurveyInfo): RoundInfo | null {
+  const roundIndex = info.keys.findIndex((k) => k.name === 'round');
+  if (roundIndex < 0) return null;
+  const roundCodes = info.codeLists.get(info.keys[roundIndex].list ?? '') ?? [];
+  return {
+    state: 'own',
+    refusal: null,
+    keyCount: info.keys.length,
+    roundIndex,
+    roundCodes,
+    reassessmentCode: roundCodes.some((c) => c.code === '2') ? '2' : null,
+  };
+}
+
+/**
+ * What a project file says about round, without changing it (once records exist):
+ * `own` when its survey has a round key, else `none` with no refusal. A file whose
+ * survey cannot be read is `none` too. Only `too_large` is thrown.
+ */
+export function roundInfoOf(zip: Buffer): RoundInfo {
+  let info: SurveyInfo | null = null;
+  try {
+    const files = readCep(zip);
+    info = surveyInfo(decodeUtf8(files.entries.get(files.surveyPath)!));
+  } catch (e) {
+    if (!(e instanceof CepError) || e.code === 'too_large') throw e;
+  }
+  return (
+    (info && ownRoundInfo(info)) ?? {
+      state: 'none',
+      refusal: null,
+      keyCount: info?.keys.length ?? 0,
+      roundIndex: null,
+      roundCodes: [],
+      reassessmentCode: null,
+    }
+  );
 }
 
 function balloonRefusal(html: string): RefusalCode | null {

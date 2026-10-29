@@ -11,6 +11,7 @@ import type {
   ProjectRow,
   ProjectStorage,
   RecordRow,
+  RoundInfo,
   Role,
   ServerSettings,
   StoredDistribution,
@@ -65,9 +66,20 @@ export interface Store {
 
   setSurvey(projectId: string, surveyUri: string, surveyName: string | null, idmlBase64: string): Promise<void>;
 
-  /** Stores the raw CEP zip for a project (overwrites). */
-  putCep(projectId: string, cep: Buffer): Promise<void>;
+  /**
+   * Stores the CEP the project serves (overwrites), what the server did about round,
+   * and the uploaded file when it differs from the served one (else null).
+   */
+  putCep(projectId: string, served: Buffer, info: RoundInfo, original: Buffer | null): Promise<void>;
+  /** The CEP the project serves. */
   getCep(projectId: string): Promise<Buffer | null>;
+  /** The CEP as uploaded: the original when the server changed it, else the served one. */
+  getOriginalCep(projectId: string): Promise<Buffer | null>;
+  getRoundInfo(projectId: string): Promise<RoundInfo | null>;
+  /** Sets the code that marks re-assessments in the stored round info (no-op without one). */
+  setReassessmentCode(projectId: string, code: string | null): Promise<void>;
+  /** Whether the project has any record, deleted ones included. */
+  hasRecords(projectId: string): Promise<boolean>;
   /** Size and last upload time of the CEP, without loading it; null if none uploaded. */
   getCepInfo(projectId: string): Promise<CepInfo | null>;
 

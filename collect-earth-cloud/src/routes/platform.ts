@@ -1,10 +1,11 @@
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import { publicBaseUrl } from '../accountRules.js';
+import { addRound, CepError, roundInfoOf } from '../cep.js';
 import type { Config } from '../config.js';
 import { checkUploadFits } from '../limits.js';
 import { requireProjectMembership, requireSession } from '../plugins/projectAuth.js';
 import type { Store } from '../store/store.js';
-import type { Role } from '../types.js';
+import type { Role, RoundInfo } from '../types.js';
 
 interface InviteBody {
   role?: Role;
@@ -15,6 +16,11 @@ interface InviteBody {
 interface RoleBody {
   role?: Role;
 }
+
+const TOO_LARGE = {
+  error: 'too_large',
+  reason: 'the project file unzips to more than the server accepts (at most 2,000 files and 200 MB)',
+} as const;
 
 const VALID_ROLES: Role[] = ['admin', 'reviewer', 'operator'];
 
@@ -109,20 +115,111 @@ export async function registerPlatformRoutes(app: FastifyInstance, store: Store,
   });
 
   // CEP upload (admin). Raw zip body (application/zip or octet-stream).
+  // Before collection (no records, deleted ones included), an id-only survey gets a
+  // hidden round key: the project serves that copy and keeps the upload. Once records
+  // exist the file is stored as uploaded, but a project the server added round to
+  // cannot drop it: its records' keys are "17,1" and the new file would make "17".
   app.put(
     '/v1/projects/:pid/cep',
     { preHandler: requireProjectMembership(store, 'admin') },
     async (request: FastifyRequest, reply: FastifyReply) => {
+      const projectId = request.membership!.projectId;
       const cep = request.body;
       if (!Buffer.isBuffer(cep) || cep.length === 0) {
         return reply.code(400).send({ error: 'bad_request', reason: 'expected a non-empty zip body' });
       }
-      const over = await checkUploadFits(store, request.membership!.projectId, { kind: 'cep' }, cep.length);
+      const previous = await store.getRoundInfo(projectId);
+      let served = cep;
+      let original: Buffer | null = null;
+      let info: RoundInfo;
+      try {
+        if (!(await store.hasRecords(projectId))) {
+          const result = addRound(cep, new Date());
+          if (result.info.refusal === 'too_large') {
+            return reply.code(413).send(TOO_LARGE);
+          }
+          info = result.info;
+          if (info.state === 'added') {
+            served = result.cep;
+            original = cep;
+          }
+        } else {
+          info = roundInfoOf(cep);
+          if (previous?.state === 'added' && info.state !== 'own') {
+            return reply.code(409).send({
+              error: 'round_removed',
+              reason:
+                'records were collected with the round key the server added, and this project file has none: ' +
+                'upload a file whose survey keeps the round key',
+            });
+          }
+        }
+      } catch (e) {
+        if (e instanceof CepError && e.code === 'too_large') {
+          return reply.code(413).send(TOO_LARGE);
+        }
+        throw e;
+      }
+      // A re-assessment code the coordinator chose stays while the new file still has it.
+      const chosen = previous?.state === 'own' ? previous.reassessmentCode : null;
+      if (info.state === 'own' && chosen !== null && info.roundCodes.some((c) => c.code === chosen)) {
+        info = { ...info, reassessmentCode: chosen };
+      }
+      const over = await checkUploadFits(store, projectId, { kind: 'cep' }, served.length + (original?.length ?? 0));
       if (over) {
         return reply.code(413).send(over);
       }
-      await store.putCep(request.membership!.projectId, cep);
-      return reply.send({ ok: true, bytes: cep.length });
+      await store.putCep(projectId, served, info, original);
+      return reply.send({ ok: true, bytes: cep.length, round: info });
+    },
+  );
+
+  // The project file as the coordinator uploaded it (admin), before the server added round.
+  app.get(
+    '/v1/projects/:pid/cep/original',
+    { preHandler: requireProjectMembership(store, 'admin') },
+    async (request: FastifyRequest, reply: FastifyReply) => {
+      const cep = await store.getOriginalCep(request.membership!.projectId);
+      if (!cep) {
+        return reply.code(404).send({ error: 'not_found' });
+      }
+      return reply.header('content-type', 'application/zip').send(cep);
+    },
+  );
+
+  // What the server did about round (admin): RoundInfo, or null before any upload.
+  app.get(
+    '/v1/projects/:pid/round',
+    { preHandler: requireProjectMembership(store, 'admin') },
+    async (request: FastifyRequest, reply: FastifyReply) => {
+      return reply.send(await store.getRoundInfo(request.membership!.projectId));
+    },
+  );
+
+  // Which code of a survey's own round marks re-assessments (admin): one of its codes,
+  // or null for none. Only for surveys with their own round; the added one is always 2.
+  app.put(
+    '/v1/projects/:pid/round',
+    { preHandler: requireProjectMembership(store, 'admin') },
+    async (request: FastifyRequest, reply: FastifyReply) => {
+      const projectId = request.membership!.projectId;
+      const body = (request.body ?? {}) as { reassessmentCode?: unknown };
+      const code = body.reassessmentCode;
+      if (code !== null && typeof code !== 'string') {
+        return reply.code(400).send({ error: 'bad_request', reason: 'reassessmentCode must be a code or null' });
+      }
+      const info = await store.getRoundInfo(projectId);
+      if (info?.state !== 'own') {
+        return reply.code(400).send({
+          error: 'bad_request',
+          reason: 'the re-assessment code can only be chosen for a survey with its own round',
+        });
+      }
+      if (code !== null && !info.roundCodes.some((c) => c.code === code)) {
+        return reply.code(400).send({ error: 'bad_request', reason: 'reassessmentCode is not one of the round codes' });
+      }
+      await store.setReassessmentCode(projectId, code);
+      return reply.send({ ...info, reassessmentCode: code });
     },
   );
 

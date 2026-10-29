@@ -99,6 +99,9 @@ export function totalStorageBytes(s: ProjectStorage): number {
   return s.cepBytes + Object.values(s.csvBytesByFilename).reduce((a, b) => a + b, 0) + s.recordBytes;
 }
 
+/** What the server did about the round key of a project's CEP (see src/cep.ts). */
+export type { RoundInfo } from './cep.js';
+
 /** Size and last upload time (epoch ms) of a project's CEP. */
 export interface CepInfo {
   bytes: number;

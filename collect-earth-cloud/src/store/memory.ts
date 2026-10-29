@@ -15,6 +15,7 @@ import {
   type ProjectRow,
   type ProjectStorage,
   type RecordRow,
+  type RoundInfo,
   type Role,
   type ServerSettings,
   type StoredDistribution,
@@ -33,6 +34,9 @@ interface ProjectEntry {
   records: Map<string, RecordRow>; // key = recordKey + ' ' + operator
   cep: Buffer | null;
   cepUpdatedAt: number | null;
+  /** The upload, when the server serves a changed copy of it. */
+  cepOriginal: Buffer | null;
+  roundInfo: RoundInfo | null;
   csvFiles: Map<string, CsvFileEntry>; // key = csvFileId
   assignments: Set<string>; // `${userId} ${csvFileId}`
   plotAssignments: Map<string, PlotAssignment[]>; // key = csvFileId (divided files)
@@ -94,6 +98,8 @@ export class InMemoryStore implements Store {
       records: new Map(),
       cep: null,
       cepUpdatedAt: null,
+      cepOriginal: null,
+      roundInfo: null,
       csvFiles: new Map(),
       assignments: new Set(),
       plotAssignments: new Map(),
@@ -140,7 +146,7 @@ export class InMemoryStore implements Store {
     if (!entry) {
       return storage;
     }
-    storage.cepBytes = entry.cep?.length ?? 0;
+    storage.cepBytes = (entry.cep?.length ?? 0) + (entry.cepOriginal?.length ?? 0);
     for (const f of entry.csvFiles.values()) {
       storage.csvBytesByFilename[f.filename] = f.data.length;
     }
@@ -161,10 +167,31 @@ export class InMemoryStore implements Store {
     entry.project.idmlBase64 = idmlBase64;
   }
 
-  async putCep(projectId: string, cep: Buffer): Promise<void> {
+  async putCep(projectId: string, served: Buffer, info: RoundInfo, original: Buffer | null): Promise<void> {
     const entry = this.requireProject(projectId);
-    entry.cep = Buffer.from(cep);
+    entry.cep = Buffer.from(served);
+    entry.cepOriginal = original === null ? null : Buffer.from(original);
+    entry.roundInfo = structuredClone(info);
     entry.cepUpdatedAt = Date.now();
+  }
+
+  async getOriginalCep(projectId: string): Promise<Buffer | null> {
+    const entry = this.projects.get(projectId);
+    return entry?.cepOriginal ?? entry?.cep ?? null;
+  }
+
+  async getRoundInfo(projectId: string): Promise<RoundInfo | null> {
+    const info = this.projects.get(projectId)?.roundInfo;
+    return info ? structuredClone(info) : null;
+  }
+
+  async setReassessmentCode(projectId: string, code: string | null): Promise<void> {
+    const entry = this.projects.get(projectId);
+    if (entry?.roundInfo) entry.roundInfo.reassessmentCode = code;
+  }
+
+  async hasRecords(projectId: string): Promise<boolean> {
+    return (this.projects.get(projectId)?.records.size ?? 0) > 0;
   }
 
   async getCepInfo(projectId: string): Promise<CepInfo | null> {
