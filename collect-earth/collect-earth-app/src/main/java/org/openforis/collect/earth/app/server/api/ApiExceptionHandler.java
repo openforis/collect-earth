@@ -32,7 +32,7 @@ public class ApiExceptionHandler {
 
 	@ExceptionHandler(ApiException.class)
 	public ResponseEntity<Map<String, String>> expected(ApiException e) {
-		return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(body(e.getCode(), e.getMessage(), null));
+		return ResponseEntity.status(e.getStatus()).body(body(e.getCode(), e.getMessage(), null));
 	}
 
 	/**

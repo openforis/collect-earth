@@ -7,15 +7,18 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 import java.util.Locale;
 
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.test.web.servlet.MockMvc;
 
 /** The texts of the Swing UI for the pages, as the server's own wiring writes them (see TemplateWiring). */
 public class MessagesControllerTest {
 
-	private final MockMvc mvc = TemplateWiring.mockMvc(new MessagesController(), new ApiExceptionHandler());
+	private MockMvc mvc;
 
-	public MessagesControllerTest() throws Exception {
+	@BeforeEach
+	public void wire() throws Exception {
+		mvc = TemplateWiring.mockMvc(new MessagesController(), new ApiExceptionHandler());
 	}
 
 	@Test

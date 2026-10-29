@@ -22,13 +22,34 @@ import org.springframework.stereotype.Service;
  * Runs the long actions of the pages (exports, imports, Saiku, IPCC...) on threads of their own and keeps what they
  * report, which the pages read (GET /api/jobs/{id}): the Swing UI blocked in a modal progress dialog instead. One job
  * of each kind at a time, as those dialogs allowed. A job is forgotten FORGET_AFTER_MINUTES after it ended.
+ * <p>
+ * When the Spring context is closed, as when Collect Earth restarts its server, shutdownNow interrupts the jobs of the
+ * old bean: one that ignores the interruption may still be running while the new bean lets another of its kind start.
  */
 @Service
 public class JobService {
 
 	static final long FORGET_AFTER_MINUTES = 30;
+	/**
+	 * The messages a job keeps, the last ones: an import that writes a line per plot would otherwise hold every line of
+	 * tens of thousands of plots in memory, and send them all to the page every time it reads the job.
+	 */
+	static final int MAX_MESSAGES = 500;
 
 	private static final String RUNNING = "RUNNING";
+	private static final String DONE = "DONE";
+	private static final String FAILED = "FAILED";
+	private static final String CANCELLED = "CANCELLED";
+
+	/** What cancel() did */
+	public enum Cancellation {
+		/** No job of that id, never or no longer */
+		UNKNOWN,
+		/** The job had ended already, and stays as it ended */
+		OVER,
+		/** The job was asked to stop, which it does at its next check of JobContext.isCancelled() */
+		REQUESTED
+	}
 
 	private final Logger logger = LoggerFactory.getLogger(JobService.class);
 	private final ExecutorService executor = Executors.newCachedThreadPool(r -> {
@@ -52,6 +73,7 @@ public class JobService {
 		volatile int progress;
 		volatile String step;
 		final List<String> messages = Collections.synchronizedList(new ArrayList<>());
+		/** What the job returned; when it was cancelled, what it had done until then, kept as the page may show it */
 		volatile Object result;
 		volatile String error;
 		volatile boolean cancelled;
@@ -70,7 +92,12 @@ public class JobService {
 
 		@Override
 		public void message(String line) {
-			messages.add(line);
+			synchronized (messages) {
+				messages.add(line);
+				if (messages.size() > MAX_MESSAGES) {
+					messages.remove(0);
+				}
+			}
 		}
 
 		@Override
@@ -101,33 +128,58 @@ public class JobService {
 		String id = UUID.randomUUID().toString();
 		Running running = new Running(kind);
 		jobs.put(id, running);
-		executor.execute(() -> run(kind, job, running));
+		try {
+			executor.execute(() -> run(kind, job, running));
+		} catch (RuntimeException | Error e) {
+			// Rejected after shutdown, or no thread could be created: the job never runs, and left in the map it would be
+			// RUNNING for ever and keep any other job of its kind from starting
+			jobs.remove(id);
+			throw e;
+		}
 		return id;
 	}
 
 	private void run(String kind, Job job, Running running) {
-		String state;
+		Thread thread = Thread.currentThread();
+		String threadName = thread.getName();
+		// so a thread dump, or the log, says which job the thread runs
+		thread.setName("Collect Earth job " + kind);
+		// FAILED unless the job says otherwise, so the finally ends it whatever escapes
+		String state = FAILED;
 		try {
 			running.result = job.run(running);
 			if (running.cancelled) {
-				state = "CANCELLED";
+				state = CANCELLED;
 			} else {
 				running.progress = 100;
-				state = "DONE";
+				state = DONE;
 			}
 		} catch (InterruptedException e) {
-			state = "CANCELLED";
+			state = CANCELLED;
 			Thread.currentThread().interrupt();
 		} catch (Throwable e) {
-			// Throwable, not Exception: a job ended by an Error (a class missing from earth-libs) would otherwise stay
-			// RUNNING for ever, and no other job of its kind could start until the application is restarted
-			logger.error("The job {} failed", kind, e);
 			// the class says something when the exception has no message, as in ApiExceptionHandler
 			running.error = e.getMessage() != null ? e.getMessage() : e.getClass().getName();
-			state = "FAILED";
+			if (e instanceof VirtualMachineError) {
+				// Out of memory and the like: rethrown below for the uncaught exception handler, Sentry's, which reports
+				// it, so it is not logged here as well
+				throw (VirtualMachineError) e;
+			}
+			if (running.cancelled) {
+				// services often say that they saw the flag by throwing: that is the cancellation, not a failure
+				state = CANCELLED;
+				logger.debug("The job {} stopped when cancelled", kind, e);
+			} else {
+				// Throwable, not Exception: a LinkageError, as when a library is missing from earth-libs, ends the job
+				// as a failure rather than its thread
+				logger.error("The job {} failed", kind, e);
+			}
+		} finally {
+			// endedAt before state: see Running
+			running.endedAt = now.getAsLong();
+			running.state = state;
+			thread.setName(threadName);
 		}
-		running.endedAt = now.getAsLong();
-		running.state = state;
 	}
 
 	/** The job as the page reads it, or null when there is none of that id (never, or forgotten). */
@@ -156,15 +208,18 @@ public class JobService {
 
 	/**
 	 * Asks the job to stop: it does at its next check of JobContext.isCancelled(), as its thread is not interrupted
-	 * (see JobContext). False when there is no such job.
+	 * (see JobContext). A job that ends just as it is asked may still end DONE or FAILED after REQUESTED.
 	 */
-	public boolean cancel(String id) {
+	public Cancellation cancel(String id) {
 		Running running = jobs.get(id);
 		if (running == null) {
-			return false;
+			return Cancellation.UNKNOWN;
+		}
+		if (!RUNNING.equals(running.state)) {
+			return Cancellation.OVER;
 		}
 		running.cancelled = true;
-		return true;
+		return Cancellation.REQUESTED;
 	}
 
 	private void forgetOld() {

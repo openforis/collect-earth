@@ -8,9 +8,9 @@ public interface JobContext {
 	void message(String line);
 
 	/**
-	 * True once the user asked the job to stop. Cancelling is cooperative: the thread of the job is not interrupted, as
-	 * the services it calls do not all handle an interruption well, so a job that wants to be cancellable checks this
-	 * between its steps and returns.
+	 * True once the user asked the job to stop. Cancelling is cooperative: the thread of the job is not interrupted,
+	 * except when Collect Earth shuts down (shutdownNow), as the services it calls do not all handle an interruption
+	 * well, so a job that wants to be cancellable checks this between its steps and returns, or throws.
 	 */
 	boolean isCancelled();
 }

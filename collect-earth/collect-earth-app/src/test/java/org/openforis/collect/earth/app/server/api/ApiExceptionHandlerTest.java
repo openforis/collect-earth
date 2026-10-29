@@ -7,6 +7,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 import java.util.Map;
 
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
@@ -26,6 +27,11 @@ public class ApiExceptionHandlerTest {
 		@GetMapping("/api/expected")
 		public String expected() {
 			throw new ApiException("project.unreadable", "The project file cannot be read");
+		}
+
+		@GetMapping("/api/conflict")
+		public String conflict() {
+			throw new ApiException(HttpStatus.CONFLICT, "job.over", "The job is over");
 		}
 
 		@GetMapping("/api/unexpected")
@@ -59,9 +65,11 @@ public class ApiExceptionHandlerTest {
 		}
 	}
 
-	private final MockMvc mvc = TemplateWiring.mockMvc(new Failing(), new ApiExceptionHandler());
+	private MockMvc mvc;
 
-	public ApiExceptionHandlerTest() throws Exception {
+	@BeforeEach
+	public void wire() throws Exception {
+		mvc = TemplateWiring.mockMvc(new Failing(), new ApiExceptionHandler());
 	}
 
 	@Test
@@ -69,6 +77,13 @@ public class ApiExceptionHandlerTest {
 		mvc.perform(get("/api/expected")).andExpect(status().isBadRequest())
 				.andExpect(jsonPath("$.error").value("project.unreadable"))
 				.andExpect(jsonPath("$.message").value("The project file cannot be read"));
+	}
+
+	@Test
+	public void anExpectedProblemCanAnswerAStatusOfItsOwn() throws Exception {
+		mvc.perform(get("/api/conflict")).andExpect(status().isConflict())
+				.andExpect(jsonPath("$.error").value("job.over"))
+				.andExpect(jsonPath("$.message").value("The job is over"));
 	}
 
 	@Test

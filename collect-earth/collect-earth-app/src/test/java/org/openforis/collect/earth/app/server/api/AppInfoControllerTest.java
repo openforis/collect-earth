@@ -16,6 +16,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 import java.util.concurrent.atomic.AtomicInteger;
 
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.openforis.collect.earth.app.EarthConstants.UI_LANGUAGE;
 import org.openforis.collect.earth.app.service.LocalPropertiesService;
@@ -34,9 +35,11 @@ public class AppInfoControllerTest {
 		versionReads.incrementAndGet();
 		return "1.23.20";
 	});
-	private final MockMvc mvc = TemplateWiring.mockMvc(controller, new ApiExceptionHandler());
+	private MockMvc mvc;
 
-	public AppInfoControllerTest() throws Exception {
+	@BeforeEach
+	public void wire() throws Exception {
+		mvc = TemplateWiring.mockMvc(controller, new ApiExceptionHandler());
 	}
 
 	@Test
