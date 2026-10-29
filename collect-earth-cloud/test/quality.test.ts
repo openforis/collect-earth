@@ -197,6 +197,34 @@ describe('qualityReport: people', () => {
       { key: 'collect_real_canopy', rate: null, compared: 4, differing: 1 },
     ]);
   });
+
+  it('gives each person their top 3 mix-ups as first assessor, with up to 10 plots each', () => {
+    const records: QualityRecord[] = [];
+    const pair = (plot: number, first: string, firstAnswer: string, checker: string, checkAnswer: string, key = 'collect_code_land_use') =>
+      records.push(rec(`${plot},1`, first, { [key]: firstAnswer }), rec(`${plot},2`, checker, { [key]: checkAnswer }));
+    // ana first: grassland→shrubland 12 times, forest→crop 3, crop→forest 2, species a→b once.
+    for (let i = 1; i <= 12; i++) pair(i, 'ana', 'grassland', i % 2 ? 'ben' : 'cid', 'shrubland');
+    for (let i = 13; i <= 15; i++) pair(i, 'ana', 'forest', 'ben', 'crop');
+    for (let i = 16; i <= 17; i++) pair(i, 'ana', 'crop', 'ben', 'forest');
+    pair(18, 'ana', 'a', 'ben', 'b', 'collect_code_species');
+    // ben first, ana checks: their mix-up is ben's, not ana's.
+    pair(19, 'ben', 'water', 'ana', 'forest');
+    // A plot checked twice by different people counts twice, the plot listed once.
+    records.push(rec('20,1', 'ana', { collect_code_land_use: 'grassland' }), rec('20,2', 'ben', { collect_code_land_use: 'shrubland' }), rec('20,2', 'cid', { collect_code_land_use: 'shrubland' }));
+    const { people } = qualityReport(input(records));
+    const ana = people.find((p) => p.username === 'ana')!;
+    expect(ana.confusions.map((c) => [c.key, c.first, c.check, c.count])).toEqual([
+      ['collect_code_land_use', 'grassland', 'shrubland', 14],
+      ['collect_code_land_use', 'forest', 'crop', 3],
+      ['collect_code_land_use', 'crop', 'forest', 2],
+    ]);
+    expect(ana.confusions[0].plots).toEqual(['1', '2', '3', '4', '5', '6', '7', '8', '9', '10']);
+    expect(ana.confusions[1].plots).toEqual(['13', '14', '15']);
+    expect(people.find((p) => p.username === 'ben')!.confusions).toEqual([
+      { key: 'collect_code_land_use', first: 'water', check: 'forest', count: 1, plots: ['19'] },
+    ]);
+    expect(people.find((p) => p.username === 'cid')!.confusions).toEqual([]);
+  });
 });
 
 describe('qualityReport: weeks', () => {

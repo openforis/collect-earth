@@ -1,6 +1,7 @@
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import { requireProjectMembership } from '../plugins/projectAuth.js';
 import { checkMargins, type QualityReport } from '../quality.js';
+import { personalReport, teamReport } from '../qualityReports.js';
 import { QualityService, WorkerBusyError, type ServedReport } from '../qualityService.js';
 import type { Store } from '../store/store.js';
 import type { DecisionKind, GuidanceNoteInput } from '../types.js';
@@ -115,6 +116,7 @@ export async function registerQualityRoutes(
   quality: QualityService = new QualityService(store),
 ): Promise<void> {
   const admin = { preHandler: requireProjectMembership(store, 'admin') };
+  const member = { preHandler: requireProjectMembership(store) };
   app.addHook('onClose', async () => {
     await quality.close();
   });
@@ -141,6 +143,31 @@ export async function registerQualityRoutes(
       return reply;
     }
     return reply.send(overlapShape(figures.report));
+  });
+
+  // A collector's own report (any member signed in as a person; a project token is no
+  // one): their checks as first assessor and their mix-ups, never who checked.
+  app.get('/v1/projects/:pid/my-quality', member, async (request: FastifyRequest, reply: FastifyReply) => {
+    const { projectId, userId } = request.membership!;
+    const user = userId ? await store.getUserById(userId) : null;
+    if (!user) {
+      return reply.code(403).send({ error: 'forbidden', reason: 'the personal report needs a signed-in person, not a project token' });
+    }
+    const [figures, notes] = await Promise.all([served(quality, projectId, request, reply), store.listGuidanceNotes(projectId)]);
+    if (!figures) {
+      return reply;
+    }
+    return reply.send({ ...personalReport(figures.report, user.username, notes), computedAt: figures.computedAt, stale: figures.stale });
+  });
+
+  // The team report for training (admin): mix-ups, examples, notes and agreement, no names.
+  app.get('/v1/projects/:pid/quality/team-report', admin, async (request: FastifyRequest, reply: FastifyReply) => {
+    const projectId = request.membership!.projectId;
+    const [figures, notes] = await Promise.all([served(quality, projectId, request, reply), store.listGuidanceNotes(projectId)]);
+    if (!figures) {
+      return reply;
+    }
+    return reply.send({ ...teamReport(figures.report, notes), computedAt: figures.computedAt, stale: figures.stale });
   });
 
   // Number margins (percent, 0-100), only for the number questions of the served survey.

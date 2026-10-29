@@ -16,6 +16,9 @@ export const MAX_PROBLEMS = 500;
 export const MAX_CONFUSIONS = 500;
 export const MAX_CONFUSION_PLOTS = 20;
 export const MAX_WEAKEST = 3;
+/** A person's own mix-ups as first assessor (the personal report, Task 11): how many, and plots each. */
+export const MAX_PERSON_CONFUSIONS = 3;
+export const MAX_PERSON_CONFUSION_PLOTS = 10;
 export const MAX_BEYOND_OUTLINE_KEYS = 20;
 
 /** What the store's listRecordSummaries gives, as far as the figures need it. */
@@ -75,6 +78,12 @@ export interface PersonQuality {
   asChecker: Rate;
   /** Up to MAX_WEAKEST questions where their plots (in either role) differ most; only questions that differed. */
   weakest: { key: string; rate: number | null; compared: number; differing: number }[];
+  /**
+   * Up to MAX_PERSON_CONFUSIONS mix-ups of a choice between their first assessment and
+   * a check of it, ordered as the report's confusions; count is checks, with up to
+   * MAX_PERSON_CONFUSION_PLOTS plots (in plot order).
+   */
+  confusions: Confusion[];
 }
 
 export interface WeekAgreement {
@@ -335,8 +344,11 @@ export function qualityReport(input: QualityInput): QualityReport {
   differingPairs.sort((x, y) => plotOrder(x.plot, y.plot) || order(x.check.operator, y.check.operator));
   const confusions: Confusion[] = [];
   const differences: Difference[] = [];
+  // Each first assessor's share of each confusion (same key, answers), by person index.
+  const personConfusions = new Map<number, Map<Confusion, Confusion>>();
   for (const pair of differingPairs) {
     const { first, check, plot } = pair;
+    const fi = personIndex.get(first.operator)!;
     const fs = first.summary;
     const cs = check.summary;
     const fields: Difference['fields'] = [];
@@ -367,6 +379,20 @@ export function qualityReport(input: QualityInput): QualityReport {
         if (c.plots.length < MAX_CONFUSION_PLOTS && c.plots[c.plots.length - 1] !== plot) {
           c.plots.push(plot);
         }
+        let mine = personConfusions.get(fi);
+        if (!mine) {
+          mine = new Map();
+          personConfusions.set(fi, mine);
+        }
+        let pc = mine.get(c);
+        if (!pc) {
+          pc = { key: c.key, first: c.first, check: c.check, count: 0, plots: [] };
+          mine.set(c, pc);
+        }
+        pc.count += 1;
+        if (pc.plots.length < MAX_PERSON_CONFUSION_PLOTS && pc.plots[pc.plots.length - 1] !== plot) {
+          pc.plots.push(plot);
+        }
       }
       if (listed) {
         fields.push({ key: slot.key, first: shownText(a), check: shownText(b) });
@@ -387,6 +413,8 @@ export function qualityReport(input: QualityInput): QualityReport {
   const rank = (k: string) => outlineRank.get(k) ?? outlineKeys.length;
   problems.sort((x, y) => plotOrder(x.plot, y.plot) || order(x.recordKey, y.recordKey) || order(x.operator, y.operator));
   const compared = slotList.filter((s) => s.compared > 0);
+  const confusionOrder = (x: Confusion, y: Confusion) =>
+    y.count - x.count || rank(x.key) - rank(y.key) || order(x.key, y.key) || order(x.first, y.first) || order(x.check, y.check);
 
   return {
     plotsChecked,
@@ -401,9 +429,7 @@ export function qualityReport(input: QualityInput): QualityReport {
         return q;
       })
       .sort((x, y) => rank(x.key) - rank(y.key) || order(x.key, y.key)),
-    confusions: confusions
-      .sort((x, y) => y.count - x.count || rank(x.key) - rank(y.key) || order(x.key, y.key) || order(x.first, y.first) || order(x.check, y.check))
-      .slice(0, MAX_CONFUSIONS),
+    confusions: confusions.sort(confusionOrder).slice(0, MAX_CONFUSIONS),
     people: usernames
       .map((username, i) => ({ username, i }))
       .filter(({ i }) => firstCompared[i] + checkerCompared[i] > 0)
@@ -428,6 +454,7 @@ export function qualityReport(input: QualityInput): QualityReport {
             )
             .slice(0, MAX_WEAKEST)
             .map((t) => ({ key: t.key, rate: rateOf(t), compared: t.compared, differing: t.compared - t.agreeing })),
+          confusions: [...(personConfusions.get(i)?.values() ?? [])].sort(confusionOrder).slice(0, MAX_PERSON_CONFUSIONS),
         };
       }),
     weeks: [...weeks].sort(([a], [b]) => order(a, b)).map(([week, t]) => ({ week, compared: t.compared, agreeing: t.agreeing })),

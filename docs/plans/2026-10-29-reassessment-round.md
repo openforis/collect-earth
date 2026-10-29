@@ -1124,6 +1124,49 @@ Commit: "Collect Earth Cloud: coordinators decide which answer is right and writ
 
 Commit: "Collect Earth Cloud: a personal quality report for each collector and a team report for training, without names".
 
+**As built**
+- **Per-person mix-ups come from the figures** (`quality.ts`): `PersonQuality` has
+  `confusions`, up to `MAX_PERSON_CONFUSIONS` (3) of the person's mix-ups as first
+  assessor, each with up to `MAX_PERSON_CONFUSION_PLOTS` (10) plots, in the same order
+  as the report's confusions. They are counted in the second pass that already builds
+  the confusions, keyed by the global confusion object per first assessor, so the
+  extra memory is one small entry per (person, mix-up) and the cost is one map lookup
+  per differing choice. The cached report could not give them otherwise: its
+  `differences` stop at 500 and its confusions have no people. The other results are
+  unchanged; `GET /quality` now also shows `people[].confusions` to coordinators.
+- **Both reports are built field by field** (`src/qualityReports.ts`:
+  `personalReport`, `teamReport`) from the cached report (`QualityService.report`, so
+  the same cache, `stale`/`computedAt` and busy 503 as `/quality`). Nothing is copied
+  from a record, a difference or a person's entry, so no username, record key,
+  operator or check time can come along. Counts are checks, so the fields are
+  `checks` (and `agreeing`); `minChecks` is `MIN_PLOTS`, and rates are null below it.
+- **Notes as shown:** `{ id, questionKey, firstValue, checkValue, text }`, without
+  `updatedBy`/`updatedAt` (the coordinator's name). A note matches a mix-up when its
+  question is the mix-up's (or the same entity question at another index, as
+  `marginKey`) and each answer it names is the mix-up's; a note with no answers is
+  about every mix-up of its question.
+- **`GET /v1/projects/:pid/my-quality`** (any member with a user session: operator,
+  reviewer or admin; a project token, even the admin's, 403; another project 404):
+  ```
+  { username, minChecks, asFirst: { checks, agreeing, rate },
+    confusions: [{ key, label, first, check, checks, plots /* ≤ 10 */, notes }] /* ≤ 3 */,
+    computedAt, stale }
+  ```
+  `asFirst` counts the checks of the plots the caller assessed first; a caller with
+  none gets zeros and an empty list.
+- **`GET /v1/projects/:pid/quality/team-report`** (admin; operator and reviewer 403):
+  ```
+  { minChecks, plotsChecked, plotsDiffering,
+    questions: [{ key, label, kind, checks, agreeing, rate, margin? }],
+    confusions: [{ key, label, first, check, checks, plots /* ≤ 5 */, notes }] /* ≤ 10 */,
+    notes, computedAt, stale }
+  ```
+- **Tests** (`test/quality.reports.test.ts`): five members with distinctive names;
+  the serialized JSON of each member's report contains no other member's name (also
+  not as part of another string), no check time, record key, `operator` or
+  `updatedBy`; the team report contains none of the names; another project's records
+  under the same operator name stay out.
+
 ---
 
 ## Part D: the AI assistant
