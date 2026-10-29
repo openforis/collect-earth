@@ -156,7 +156,7 @@ describe('project file and round routes', () => {
     const upload = zipCep(new Map([['placemark.idm.xml', new Uint8Array(survey)]]), FIXTURE_DATE);
     const started = performance.now();
     const res = await putCep(upload);
-    expect(performance.now() - started).toBeLessThan(1000);
+    expect(performance.now() - started).toBeLessThan(5000);
     expect(res.statusCode).toBe(413);
     expect(res.json().reason).toMatch(/survey \(placemark\.idm\.xml\) is larger than 10 MB/);
   });

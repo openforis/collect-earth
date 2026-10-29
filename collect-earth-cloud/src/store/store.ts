@@ -157,6 +157,8 @@ export interface Store {
    */
   putCsvFile(projectId: string, filename: string, data: Buffer, plotKeys?: string[]): Promise<CsvFile>;
   listCsvFiles(projectId: string): Promise<CsvFile[]>;
+  /** Counts every plot file's plots again with `keyCount` key columns (a new project file changed it). */
+  recountPlots(projectId: string, keyCount: number): Promise<void>;
   getCsvFile(projectId: string, csvFileId: string): Promise<(CsvFile & { data: Buffer }) | null>;
 
   /** Replaces the project's whole assignment set with the given pairs (pairs of divided files are ignored). */

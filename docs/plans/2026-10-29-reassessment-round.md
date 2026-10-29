@@ -339,6 +339,16 @@ the new columns next to it.
   - The records check and the write are not one transaction; the window is
     documented in the route.
 - The response adds `round: RoundInfo`.
+- **Divided plot files** (added with Task 5): plot files are read with
+  `fileKeyCount(info)` key columns, and divided plots are held by those ids. When
+  `fileKeyCount(previous) !== fileKeyCount(new)` (e.g. 1 → 2 for an own-round
+  survey, or 2 → 1), with or without records:
+  - any csv file divided → `409 { error: 'plots_divided', reason }`, nothing
+    stored. The reason: "This project file reads plots with N key column(s)
+    instead of M, which would undo how the plots are divided. Set the divided plot
+    files back to 'whole file' first, then upload it again."
+  - none divided → stored, and every csv file's `plot_count` is counted again
+    with the new key count (`store.recountPlots(projectId, keyCount)`).
 
 **Zip bombs.** `readCep` takes limits: at most 2,000 entries, and at most
 200 MB unzipped in total (or 20 × the zip size, whichever is smaller). It checks
@@ -432,6 +442,36 @@ export function recordRound(r: { recordKey: string; operator: string }, info: Ro
   `plotOfRecordKey` tests to `unitOfRecord`, keeping each case's meaning.
 
 Commit: "Collect Earth Cloud: every record has a plot and a round, from its key or from who held the plot".
+
+**As built (differs from the above)**
+- **Keys longer than the shape:** the extra parts stay in `plot` (`splitKey`), but
+  `unitOfRecord` and the copy lookup of `recordRound` also try the key's first
+  `keyShape.count` parts, so "1,2020" in an id-only project still belongs to plot 1.
+  Task 10 lists these records as data problems.
+- **Own round without a reassessment code:** `round` is the key's own value (e.g.
+  "2025"); main or check comes from the copy holders. A virtual "1"/"2" is only
+  used when the key has no round part.
+- **`recordRound(r, info, copyHolders, unit?)`:** `copyHolders` is keyed by unit
+  (plot_assignments' `plot_key`) and lists the usernames holding it only as a copy
+  (`copyHoldersOf(holdings, usernames)` in `division.ts`: overlap, and not also a
+  main holding). A resolved `unit` is looked up alone; otherwise the record key,
+  its first parts and its plot.
+- **`unitOfRecord(recordKey, units, info, copyUnits?)`:** for an own round with a
+  reassessment code, a check record of a plot with several rounds ("18,1",
+  "18,3") goes to the unit the operator holds as a copy (`copyUnits`), else the
+  first in the file. The per-Set index means a units Set must not be changed after
+  first use.
+- **`submittedByPlot(records, units, userIdByUsername, info, copyHolders)`** returns,
+  per unit, `{ main, check }` user ids (from `recordRound`). `deal` pins a plot to
+  its main submitters (the first is the owner, the other main submitters get
+  copies) and gives check submitters an overlap copy; only a plot with no main
+  submitter among the people falls back to the check submitters. `summarize`'s
+  `submitted`, the whole-file summary and `moveUnfinished` take either
+  (`hasSubmitted`). The division routes build `copyHolders` from the file's own
+  holdings.
+- **Plot counts:** both stores count a csv file's plots from the `plotKeys` the
+  route passes (parsed with the key count); `recountPlots` recounts them when the
+  project file changes the key count (Task 4).
 
 ### Task 6: plot files served with a round column
 
@@ -610,6 +650,9 @@ create, update and delete notes. Implement them in both stores.
 - `GET/POST/PUT/DELETE /v1/projects/:pid/quality/notes[/:id]`.
 - The export's `final` column: `yes` for the record the decision accepted, `no`
   for the other, `recheck`, or empty. Add it in `recordsCsv` after `assessment`.
+
+**Data problems** also list, as `extra_key_parts`, records whose key has more
+parts than the survey has keys: Task 5 matches them on their first parts.
 
 **Tests:** every route against the memory store; validation errors; isolation
 (another project's admin gets 404 and sees no rows); the `final` column.

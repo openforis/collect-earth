@@ -8,12 +8,12 @@ export function checksumOf(data: Buffer): string {
 
 /**
  * Plot count: the unique plot ids, read the way Collect Earth reads the file
- * (quoted polygon columns can span lines). Falls back to non-empty lines minus a
- * header row for a file the parser cannot read.
+ * (quoted polygon columns can span lines), with `keyCount` key columns. Falls back to
+ * non-empty lines minus a header row for a file the parser cannot read.
  */
-export function plotCountOf(data: Buffer): number {
+export function plotCountOf(data: Buffer, keyCount = 1): number {
   try {
-    return parsePlotFile(data).plotIds.length;
+    return parsePlotFile(data, keyCount).plotIds.length;
   } catch {
     const lines = data
       .toString('utf8')

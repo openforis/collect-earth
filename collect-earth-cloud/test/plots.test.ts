@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { buildPlotFile, parsePlotFile } from '../src/plots.js';
+import { plotFileOf } from '../src/routes/division.js';
 import { unitOfRecord } from '../src/rounds.js';
 
 const parse = (text: string | Buffer) => parsePlotFile(Buffer.isBuffer(text) ? text : Buffer.from(text, 'utf8'));
@@ -62,6 +63,18 @@ describe('plot file parser', () => {
 
   it('counts the widest row as the columns', () => {
     expect(parse('id,lat,lon\n1,0,0,extra,more\n').columnCount).toBe(5);
+  });
+});
+
+describe('plotFileOf cache', () => {
+  it('keeps one entry per checksum and key count', () => {
+    const file = { checksum: 'cache-test-checksum', data: Buffer.from('id,year,lat,lon\n17,2020,0,0\n17,2021,1,1\n') };
+    const one = plotFileOf(file, 1);
+    const two = plotFileOf(file, 2);
+    expect(one.plotIds).toEqual(['17']);
+    expect(two.plotIds).toEqual(['17,2020', '17,2021']);
+    expect(plotFileOf(file, 1)).toBe(one);
+    expect(plotFileOf(file, 2)).toBe(two);
   });
 });
 

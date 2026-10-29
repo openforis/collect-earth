@@ -599,6 +599,12 @@ export class InMemoryStore implements Store {
     return [...entry.csvFiles.values()].map((f) => InMemoryStore.csvMeta(f));
   }
 
+  async recountPlots(projectId: string, keyCount: number): Promise<void> {
+    for (const file of this.projects.get(projectId)?.csvFiles.values() ?? []) {
+      file.plotCount = plotCountOf(file.data, keyCount);
+    }
+  }
+
   async getCsvFile(projectId: string, csvFileId: string): Promise<(CsvFile & { data: Buffer }) | null> {
     const file = this.projects.get(projectId)?.csvFiles.get(csvFileId);
     if (!file) {

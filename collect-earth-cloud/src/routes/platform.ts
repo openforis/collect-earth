@@ -3,6 +3,7 @@ import { publicBaseUrl } from '../accountRules.js';
 import { addRound, CepError, roundInfoOf, type RefusalCode } from '../cep.js';
 import type { Config } from '../config.js';
 import { checkUploadFits } from '../limits.js';
+import { fileKeyCount } from '../rounds.js';
 import { requireProjectMembership, requireSession } from '../plugins/projectAuth.js';
 import type { Store } from '../store/store.js';
 import type { Role, RoundInfo } from '../types.js';
@@ -243,11 +244,32 @@ export async function registerPlatformRoutes(app: FastifyInstance, store: Store,
       if (info.state === 'own' && chosen !== null && info.roundCodes.some((c) => c.code === chosen)) {
         info = { ...info, reassessmentCode: chosen };
       }
+      // Plot files are read with as many key columns as the survey has (less the round
+      // the server added). A file that changes that would orphan the divided plots,
+      // held by their old ids: refused while any file is divided.
+      const keyCountBefore = fileKeyCount(previous);
+      const keyCountAfter = fileKeyCount(info);
+      if (keyCountBefore !== keyCountAfter) {
+        const files = await store.listCsvFiles(projectId);
+        if (files.some((f) => f.distribution)) {
+          const columns = (n: number) => `${n} key column${n === 1 ? '' : 's'}`;
+          return reply.code(409).send({
+            error: 'plots_divided',
+            reason:
+              `This project file reads plots with ${columns(keyCountAfter)} instead of ${keyCountBefore}, ` +
+              "which would undo how the plots are divided. Set the divided plot files back to 'whole file' first, " +
+              'then upload it again.',
+          });
+        }
+      }
       const over = await checkUploadFits(store, projectId, { kind: 'cep' }, served.length + (original?.length ?? 0));
       if (over) {
         return reply.code(413).send(over);
       }
       await store.putCep(projectId, served, info, original);
+      if (keyCountBefore !== keyCountAfter) {
+        await store.recountPlots(projectId, keyCountAfter);
+      }
       return reply.send({ ok: true, bytes: cep.length, round: info });
     },
   );

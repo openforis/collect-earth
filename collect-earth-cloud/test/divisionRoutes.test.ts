@@ -375,6 +375,38 @@ describe('dividing plots between people', () => {
     expect(plotsOf(joseFile.body)).toEqual(['1', '2', '8', '9', '10']);
   });
 
+  it('refuses a project file that reads plots with other key columns while a file is divided', async () => {
+    await divideFile({ mode: 'even', people: [maria.userId, jose.userId], order: 'file' });
+    const before = await ctx.store.listPlotAssignments(pid, fileId);
+    const res = await ctx.app.inject({
+      method: 'PUT',
+      url: `/v1/projects/${pid}/cep`,
+      headers: { ...bearer(admin), 'content-type': 'application/zip' },
+      payload: demoCep(),
+    });
+    expect(res.statusCode).toBe(409);
+    expect(res.json()).toMatchObject({ error: 'plots_divided' });
+    expect(res.json().reason).toContain('2 key columns instead of 1');
+    // Nothing changed.
+    expect(await ctx.store.getRoundInfo(pid)).toBeNull();
+    expect(await ctx.store.getCep(pid)).toBeNull();
+    expect(await ctx.store.listPlotAssignments(pid, fileId)).toEqual(before);
+    // The same key columns (the server adds round to an id-only file) are fine.
+    expect((await putCep(idOnlyCep())).state).toBe('added');
+  });
+
+  it('counts the plots of every file again when a new project file changes the key columns', async () => {
+    const plotCount = async () =>
+      (await ctx.app.inject({ method: 'GET', url: `/v1/projects/${pid}/csv-files`, headers: bearer(admin) })).json().csvFiles[0]
+        .plotCount;
+    expect(await plotCount()).toBe(10);
+    // Two key columns: id and lat. Plot 4's two rows are two plots now.
+    expect((await putCep(demoCep())).state).toBe('own');
+    expect(await plotCount()).toBe(11);
+    expect((await putCep(idOnlyCep())).state).toBe('added');
+    expect(await plotCount()).toBe(10);
+  });
+
   it('with a survey of two keys, a plot is its first two columns', async () => {
     expect((await putCep(demoCep())).state).toBe('own');
     const put = await upload('id,round,lat,lon\n17,1,0,0\n17,1,5,5\n18,1,0,0\n18,3,0,0\n', 'own.csv');

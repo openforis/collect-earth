@@ -738,6 +738,19 @@ export class PostgresStore implements Store {
     });
   }
 
+  async recountPlots(projectId: string, keyCount: number): Promise<void> {
+    await this.withProject(projectId, async (client) => {
+      const res = await client.query('SELECT id, data FROM csv_files WHERE project_id = $1', [projectId]);
+      for (const row of res.rows as { id: string; data: Buffer }[]) {
+        await client.query('UPDATE csv_files SET plot_count = $3 WHERE project_id = $1 AND id = $2', [
+          projectId,
+          row.id,
+          plotCountOf(row.data, keyCount),
+        ]);
+      }
+    });
+  }
+
   async getCsvFile(projectId: string, csvFileId: string): Promise<(CsvFile & { data: Buffer }) | null> {
     if (!isUuid(csvFileId)) {
       return null;
