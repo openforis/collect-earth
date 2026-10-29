@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { randomBytes } from 'node:crypto';
 import { readCep, surveyInfo, zipCep, type RoundInfo } from '../src/cep.js';
 import { batchRequest, bearer, createProject, envelope, makeContext, type TestContext } from './helpers.js';
 import { demoCep, FIXTURE_DATE, idOnlyCep } from './fixtures/cep.js';
@@ -132,6 +133,41 @@ describe('project file and round routes', () => {
     expect(res.json().round).toMatchObject({ state: 'added', refusal: null, keyCount: 2, roundIndex: 1, reassessmentCode: '2' });
     expect((await get('/cep')).rawPayload.equals(served)).toBe(true);
     expect((await get('/cep/original')).rawPayload.equals(served)).toBe(true);
+    expect((await get('/round')).json().state).toBe('added');
+  });
+
+  it('refuses, once records exist, the added round coming back without code 1 or 2', async () => {
+    await putCep(idOnlyCep());
+    await addRecord();
+    const served = (await get('/cep')).rawPayload;
+    const codes13 = withEntry(served, 'placemark.idm.xml', (t) =>
+      t.replace(/(name="assessment_phases"[\s\S]*?<code>)2(<\/code>)/, (_, a: string, b: string) => `${a}3${b}`),
+    );
+    const res = await putCep(codes13);
+    expect(res.statusCode).toBe(409);
+    expect(res.json().error).toBe('round_codes_changed');
+    expect(res.json().reason).toMatch(/must stay 1 First assessment and 2 Re-assessment/);
+    expect((await get('/cep')).rawPayload.equals(served)).toBe(true);
+  });
+
+  it('refuses with 413 a survey above its own cap, quickly, before parsing it', async () => {
+    // 20 MB that does not compress: within the zip's own allowance, above the survey's 10 MB.
+    const survey = randomBytes(20 * 1024 * 1024);
+    const upload = zipCep(new Map([['placemark.idm.xml', new Uint8Array(survey)]]), FIXTURE_DATE);
+    const started = performance.now();
+    const res = await putCep(upload);
+    expect(performance.now() - started).toBeLessThan(1000);
+    expect(res.statusCode).toBe(413);
+    expect(res.json().reason).toMatch(/survey \(placemark\.idm\.xml\) is larger than 10 MB/);
+  });
+
+  it('refuses with 413, once records exist, a too-large upload to a project the server added round to', async () => {
+    await putCep(idOnlyCep());
+    await addRecord();
+    const bomb = zipCep(new Map([['big.bin', new Uint8Array(25 * 1024 * 1024)]]), FIXTURE_DATE);
+    const res = await putCep(bomb);
+    expect(res.statusCode).toBe(413);
+    expect(res.json()).toMatchObject({ error: 'too_large', reason: expect.stringMatching(/more than 20 MB/) });
     expect((await get('/round')).json().state).toBe('added');
   });
 

@@ -41,13 +41,14 @@ function keysInWords(info: RoundInfo): string {
 }
 
 type StoredUpload = { served: Buffer; original: Buffer | null; info: RoundInfo };
-type UploadRefusal = { error: 'round_removed' | 'key_shape_changed'; reason: string };
+type UploadRefusal = { error: 'round_removed' | 'round_codes_changed' | 'key_shape_changed'; reason: string };
 
 /**
  * What to store for an upload once the project has records. Their keys (e.g. "17,1") come
  * from the served survey, so its key shape (how many keys, where round is) must stay:
  * - the server added round: an id-only file gets it added again, and the served file
- *   uploaded back (round as the second key, codes 1 and 2) keeps state 'added';
+ *   uploaded back (round as the second key, codes 1 and 2) keeps state 'added'; round as
+ *   the second key without code 1 or 2 is refused (round_codes_changed);
  * - otherwise the file is stored as uploaded, unless its key shape differs.
  * A previous file whose survey could not be read (no keys) is not compared.
  */
@@ -66,16 +67,29 @@ function uploadOnceRecordsExist(cep: Buffer, previous: RoundInfo | null, date: D
           'keeps the round key, or an id-only file the server can add it to',
       };
     }
-    const codes = new Set(info.roundCodes.map((c) => c.code));
-    if (info.keyCount === 2 && info.roundIndex === 1 && codes.has('1') && codes.has('2')) {
+    if (info.keyCount === 2 && info.roundIndex === 1) {
+      const codes = new Set(info.roundCodes.map((c) => c.code));
+      if (!codes.has('1') || !codes.has('2')) {
+        // The collected keys end in 1 or 2: they must keep meaning the same rounds.
+        return {
+          error: 'round_codes_changed',
+          reason:
+            'records were collected with the round key the server added, whose codes are 1 (First assessment) ' +
+            'and 2 (Re-assessment), and the round in this project file lacks one of them: the round codes must ' +
+            'stay 1 First assessment and 2 Re-assessment',
+        };
+      }
       // The served file uploaded back, or one like it: round stays the one the server added.
       return { served: cep, original: null, info: { ...info, state: 'added', reassessmentCode: '2' } };
     }
   } else {
     info = roundInfoOf(cep);
   }
-  const shapeChanged = info.keyCount !== previous?.keyCount || info.roundIndex !== previous.roundIndex;
-  if (previous && previous.keyCount > 0 && shapeChanged) {
+  const shapeChanged =
+    !!previous &&
+    previous.keyCount > 0 &&
+    (info.keyCount !== previous.keyCount || info.roundIndex !== previous.roundIndex);
+  if (previous && shapeChanged) {
     return {
       error: 'key_shape_changed',
       reason:

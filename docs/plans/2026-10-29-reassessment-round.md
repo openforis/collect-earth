@@ -286,7 +286,10 @@ Commit: "Collect Earth Cloud: the server adds a hidden round key to an id-only p
   claims (overlapping entries, sizes, checksums). The reader walks the central
   directory and refuses ZIP64, split zips, encryption and methods other than
   stored/deflate; the files must follow one another without overlapping, with the
-  same name in the local header. Counts and declared sizes are checked before
+  same name and method in the local header (and the same CRC and sizes unless
+  bit 3 puts them after the data); the overlap check goes by position in the
+  zip, the entries keep the central directory's order, and the central directory
+  must end exactly where the end record says. Counts and declared sizes are checked before
   anything is inflated; deflate never goes past the declared size
   (`maxOutputLength`), and each file must come out at that size with its CRC.
   fflate is now only a dev dependency (tests compare against it).
@@ -325,6 +328,9 @@ the new columns next to it.
   - Stored info `added`, upload has `round` as the second key with codes 1 and 2
     (e.g. the served file uploaded back): state stays `added`
     (`reassessmentCode '2'`), served = upload, no separate original.
+  - Stored info `added`, upload has `round` as the second of two keys but its codes
+    lack 1 or 2 (e.g. {1, 3}): `409 { error: 'round_codes_changed', reason }`,
+    since collected keys use 1 and 2.
   - Stored info `added`, upload without round that `addRound` cannot fix:
     `409 { error: 'round_removed', reason }`, the reason saying why in plain words.
   - Otherwise store the upload as it is (`own | none`, `refusal: null`), unless
@@ -337,8 +343,10 @@ the new columns next to it.
 **Zip bombs.** `readCep` takes limits: at most 2,000 entries, and at most
 200 MB unzipped in total (or 20 × the zip size, whichever is smaller). It checks
 each entry's declared size before inflating, and stops inflating at the limit.
+The survey has its own cap of 10 MB (parsing it holds up the server, about a
+quarter of a second per MB), and each balloon and the template 5 MB.
 Above a limit → `CepError('too_large')` (`addRound` throws it too), and the upload
-gets 413 whose reason names the limit it had. Test it with a small zip that unzips to more than the limit.
+gets 413 whose reason names the file or the limit it had. Test it with a small zip that unzips to more than the limit.
 
 **GET `/v1/projects/:pid/cep`** is unchanged: it serves `getCep`. Add
 `GET /v1/projects/:pid/cep/original` (admin) to download the upload.

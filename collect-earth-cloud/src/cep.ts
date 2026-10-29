@@ -76,14 +76,23 @@ export interface CepLimits {
   maxRatio: number;
   /** ...but a small zip may always unzip to this much (text compresses well). */
   minAllowanceBytes: number;
+  /**
+   * The survey is parsed in one go, which holds up the server (about a quarter of a second
+   * per MB), so it has a cap of its own. The demo survey is 379 KB. Default 10 MB.
+   */
+  maxSurveyBytes?: number;
+  /** Each balloon and the KML template, which are searched and edited as text. Default 5 MB. */
+  maxTextFileBytes?: number;
 }
 
 const MB = 1024 * 1024;
-export const DEFAULT_CEP_LIMITS: CepLimits = {
+export const DEFAULT_CEP_LIMITS: Required<CepLimits> = {
   maxEntries: 2000,
   maxTotalBytes: 200 * MB,
   maxRatio: 20,
   minAllowanceBytes: 20 * MB,
+  maxSurveyBytes: 10 * MB,
+  maxTextFileBytes: 5 * MB,
 };
 
 /** How many unzipped bytes a zip of this size may hold. */
@@ -99,12 +108,15 @@ function sizeInWords(bytes: number): string {
 }
 
 /** Opens a CEP and finds its survey, balloons and KML template. */
-export function readCep(zip: Buffer, limits: CepLimits = DEFAULT_CEP_LIMITS): CepFiles {
-  return readCepWithin(zip, limits.maxEntries, allowedBytes(zip.length, limits));
+export function readCep(zip: Uint8Array, limits: CepLimits = DEFAULT_CEP_LIMITS): CepFiles {
+  return readCepWithin(asBuffer(zip), limits, allowedBytes(zip.length, limits));
 }
 
-function readCepWithin(zip: Buffer, maxEntries: number, allowed: number): CepFiles {
-  const entries = unzipEntries(zip, maxEntries, allowed);
+const asBuffer = (bytes: Uint8Array): Buffer =>
+  Buffer.isBuffer(bytes) ? bytes : Buffer.from(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+
+function readCepWithin(zip: Buffer, limits: CepLimits, allowed: number): CepFiles {
+  const entries = unzipEntries(zip, limits.maxEntries, allowed);
   const propertiesBytes = entries.get(PROPERTIES_PATH);
   const properties = propertiesBytes ? parseProperties(decodeUtf8(propertiesBytes)) : new Map<string, string>();
   const locate = ({ key, fallback }: { key: string; fallback: string }): string | null => {
@@ -122,13 +134,27 @@ function readCepWithin(zip: Buffer, maxEntries: number, allowed: number): CepFil
     const where = named === undefined ? LOCATIONS.survey.fallback : named.replace(PROJECT_PATH_PREFIX, '');
     throw new CepError('no_survey', `The project file has no survey (${where}).`);
   }
-  return {
+  const files: CepFiles = {
     entries,
     surveyPath,
     balloonPath: locate(LOCATIONS.balloon),
     balloonWebPath: locate(LOCATIONS.balloonWeb),
     templatePath: locate(LOCATIONS.template),
   };
+  const cap = (path: string | null, what: string, max: number) => {
+    if (path !== null && entries.get(path)!.length > max) {
+      throw new CepError(
+        'too_large',
+        `The project file's ${what} (${path}) is larger than ${sizeInWords(max)}, more than the server accepts.`,
+      );
+    }
+  };
+  const maxText = limits.maxTextFileBytes ?? DEFAULT_CEP_LIMITS.maxTextFileBytes;
+  cap(files.surveyPath, 'survey', limits.maxSurveyBytes ?? DEFAULT_CEP_LIMITS.maxSurveyBytes);
+  cap(files.balloonPath, 'balloon', maxText);
+  cap(files.balloonWebPath, 'web balloon', maxText);
+  cap(files.templatePath, 'KML template', maxText);
+  return files;
 }
 
 const EOCD_SIGNATURE = 0x06054b50;
@@ -136,6 +162,7 @@ const ZIP64_LOCATOR_SIGNATURE = 0x07064b50;
 const CENTRAL_SIGNATURE = 0x02014b50;
 const LOCAL_SIGNATURE = 0x04034b50;
 const FLAG_ENCRYPTED = 0x0001;
+const FLAG_SIZES_AFTER_DATA = 0x0008;
 const FLAG_STRONG_ENCRYPTION = 0x0040;
 const FLAG_UTF8 = 0x0800;
 
@@ -156,8 +183,12 @@ interface CentralEntry {
  * - the end record and the central directory must lie inside the zip; ZIP64, zips split
  *   over several parts, encrypted files and methods other than stored and deflate are
  *   refused;
- * - the files must follow one another without overlapping, each local header naming the
- *   same file as the central directory, so no packed byte is counted twice;
+ * - the files must follow one another without overlapping (in the order they lie in the
+ *   zip, whatever the order of the central directory), so no packed byte is counted twice;
+ * - each local header must name the same file, with the same method, as the central
+ *   directory, and, unless sizes follow the data (bit 3), the same checksum and sizes, so
+ *   that a reader going by the local headers (Java's zip4j) sees the same files;
+ * - the central directory must end exactly where the end record says, hiding nothing;
  * - the number of files and the unpacked sizes they declare must fit the limits.
  * Then each file is inflated no further than its declared size, and must come out exactly
  * that long and with its checksum. So the declared sizes bound the memory used.
@@ -244,21 +275,35 @@ function unzipEntries(zip: Buffer, maxEntries: number, allowed: number): Map<str
     central.push({ name, nameBytes, method, crc, compressedSize, size, localAt });
     at = next;
   }
+  if (at !== centralEnd) throw notAZip();
 
-  // The files' bodies: in order, inside the zip, none overlapping another.
-  const bodies: number[] = [];
+  // The files' bodies: inside the zip, none overlapping another, taken in the order they
+  // lie in the zip; the entries keep the central directory's order.
+  const bodies: number[] = new Array(central.length);
+  const byPosition = central.map((_, i) => i).sort((a, b) => central[a].localAt - central[b].localAt);
   let packed = 0;
-  for (let i = 0; i < central.length; i++) {
+  for (let k = 0; k < byPosition.length; k++) {
+    const i = byPosition[k];
     const e = central[i];
-    const limit = i + 1 < central.length ? central[i + 1].localAt : centralAt;
+    const limit = k + 1 < byPosition.length ? central[byPosition[k + 1]].localAt : centralAt;
     if (e.localAt + 30 > limit || zip.readUInt32LE(e.localAt) !== LOCAL_SIGNATURE) throw notAZip();
+    const localFlags = zip.readUInt16LE(e.localAt + 6);
+    if (zip.readUInt16LE(e.localAt + 8) !== e.method) throw notAZip();
+    if (
+      !(localFlags & FLAG_SIZES_AFTER_DATA) &&
+      (zip.readUInt32LE(e.localAt + 14) !== e.crc ||
+        zip.readUInt32LE(e.localAt + 18) !== e.compressedSize ||
+        zip.readUInt32LE(e.localAt + 22) !== e.size)
+    ) {
+      throw notAZip();
+    }
     const nameLength = zip.readUInt16LE(e.localAt + 26);
     const extraLength = zip.readUInt16LE(e.localAt + 28);
     const bodyAt = e.localAt + 30 + nameLength + extraLength;
     if (bodyAt + e.compressedSize > limit) throw notAZip();
     if (!zip.subarray(e.localAt + 30, e.localAt + 30 + nameLength).equals(e.nameBytes)) throw notAZip();
     packed += e.compressedSize;
-    bodies.push(bodyAt);
+    bodies[i] = bodyAt;
   }
   if (packed > zip.length) throw notAZip();
 
@@ -659,7 +704,7 @@ export function addRound(
   // (smaller or larger after re-deflating) must not change what fits.
   const grown = [...entries.values()].reduce((n, d) => n + d.length, 0) -
     [...files.entries.values()].reduce((n, d) => n + d.length, 0);
-  const served = readCepWithin(cep, limits.maxEntries, allowedBytes(zip.length, limits) + Math.max(grown, 0));
+  const served = readCepWithin(cep, limits, allowedBytes(zip.length, limits) + Math.max(grown, 0));
   const check = surveyInfo(decodeUtf8(served.entries.get(served.surveyPath)!));
   const roundCodes = check.codeLists.get(listName);
   if (

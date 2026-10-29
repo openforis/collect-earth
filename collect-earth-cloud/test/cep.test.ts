@@ -18,10 +18,15 @@ interface RawEntry {
   /** Point the central entry at an earlier local header instead of writing one. */
   localAt?: number;
   localName?: string;
+  /** What the local header says, when it should differ from the central directory. */
+  localMethod?: number;
+  localCrc?: number;
+  /** Zero CRC and sizes in the local header, as with bit 3 (sizes after the data). */
+  localZeroes?: boolean;
 }
 
 /** A zip written by hand, saying whatever it is told to, for the reader's refusals. */
-function rawZip(entries: RawEntry[], opts: { zip64Locator?: boolean } = {}): Buffer {
+function rawZip(entries: RawEntry[], opts: { zip64Locator?: boolean; reverseCentral?: boolean } = {}): Buffer {
   const locals: Buffer[] = [];
   const centrals: Buffer[] = [];
   let offset = 0;
@@ -41,10 +46,12 @@ function rawZip(entries: RawEntry[], opts: { zip64Locator?: boolean } = {}): Buf
       local.writeUInt32LE(0x04034b50, 0);
       local.writeUInt16LE(20, 4);
       local.writeUInt16LE(flags, 6);
-      local.writeUInt16LE(method, 8);
-      local.writeUInt32LE(crc, 14);
-      local.writeUInt32LE(body.length, 18);
-      local.writeUInt32LE(size, 22);
+      local.writeUInt16LE(e.localMethod ?? method, 8);
+      if (!e.localZeroes) {
+        local.writeUInt32LE(e.localCrc ?? crc, 14);
+        local.writeUInt32LE(body.length, 18);
+        local.writeUInt32LE(size, 22);
+      }
       local.writeUInt16LE(localName.length, 26);
       locals.push(local, localName, body);
       offset += 30 + localName.length + body.length;
@@ -60,8 +67,9 @@ function rawZip(entries: RawEntry[], opts: { zip64Locator?: boolean } = {}): Buf
     central.writeUInt32LE(size, 24);
     central.writeUInt16LE(name.length, 28);
     central.writeUInt32LE(localAt, 42);
-    centrals.push(central, name);
+    centrals.push(Buffer.concat([central, name]));
   }
+  if (opts.reverseCentral) centrals.reverse();
   const centralSize = centrals.reduce((n, b) => n + b.length, 0);
   const locator = Buffer.alloc(opts.zip64Locator ? 20 : 0);
   if (opts.zip64Locator) locator.writeUInt32LE(0x07064b50, 0);
@@ -199,7 +207,7 @@ describe('readCep', () => {
   it('refuses a zip that unzips to more than the limits allow', () => {
     const MB = 1024 * 1024;
     const big = (bytes: number) =>
-      zipCep(new Map([['placemark.idm.xml', new Uint8Array(bytes)], ['b.txt', new Uint8Array(1)]]), FIXTURE_DATE);
+      zipCep(new Map([['placemark.idm.xml', new Uint8Array(1)], ['b.bin', new Uint8Array(bytes)]]), FIXTURE_DATE);
     // Zeros deflate about 1000 to 1: a small upload may still unzip to 20 MB.
     expect(cepErrorCode(() => readCep(big(19 * MB)))).toBeNull();
     expect(cepErrorCode(() => readCep(big(21 * MB)))).toBe('too_large');
@@ -234,6 +242,58 @@ describe('readCep', () => {
     const theirs = unzipSync(demo);
     expect([...ours.keys()]).toEqual(Object.keys(theirs));
     for (const [name, bytes] of ours) expect(Buffer.from(bytes).equals(Buffer.from(theirs[name])), name).toBe(true);
+  });
+
+  it('reads a central directory in another order than the files lie, keeping its order', () => {
+    const zip = rawZip(
+      [
+        { name: 'placemark.idm.xml', data: idm('') },
+        { name: 'a.txt', data: 'first', method: 8 },
+        { name: 'b.txt', data: 'second' },
+      ],
+      { reverseCentral: true },
+    );
+    const files = readCep(zip);
+    expect([...files.entries.keys()]).toEqual(['b.txt', 'a.txt', 'placemark.idm.xml']);
+    expect(strFromU8(files.entries.get('a.txt')!)).toBe('first');
+    expect(strFromU8(files.entries.get('b.txt')!)).toBe('second');
+  });
+
+  it('caps the survey, the balloons and the template, naming the file and the limit', () => {
+    const MB = 1024 * 1024;
+    const tooLarge = (cep: Buffer) => {
+      const started = performance.now();
+      const message = (() => {
+        try {
+          readCep(cep);
+        } catch (e) {
+          if (e instanceof CepError && e.code === 'too_large') return e.message;
+          throw e;
+        }
+        return null;
+      })();
+      expect(performance.now() - started).toBeLessThan(500);
+      return message;
+    };
+    const big = (bytes: number) => Buffer.alloc(bytes, 0x20);
+    expect(tooLarge(cepWith({ 'placemark.idm.xml': big(11 * MB) }))).toMatch(
+      /survey \(placemark\.idm\.xml\) is larger than 10 MB/,
+    );
+    expect(tooLarge(cepWith({ 'placemark.idm.xml': idm(''), 'balloon.html': big(6 * MB) }))).toMatch(
+      /balloon \(balloon\.html\) is larger than 5 MB/,
+    );
+    expect(tooLarge(cepWith({ 'placemark.idm.xml': idm(''), 'kml_template.fmt': big(6 * MB) }))).toMatch(
+      /KML template \(kml_template\.fmt\) is larger than 5 MB/,
+    );
+    // Any other file may be larger.
+    expect(tooLarge(cepWith({ 'placemark.idm.xml': idm(''), 'grid/plots.csv': big(12 * MB) }))).toBeNull();
+  });
+
+  it('takes a Uint8Array as well as a Buffer', () => {
+    const zip = demoCep();
+    const copy = new Uint8Array(zip.length + 8).subarray(4, 4 + zip.length);
+    copy.set(zip);
+    expect([...readCep(copy).entries.keys()]).toEqual([...readCep(zip).entries.keys()]);
   });
 
   it('reads names without the UTF-8 flag one byte per character, as fflate does', () => {
@@ -321,6 +381,22 @@ describe('readCep', () => {
       const split = rawZip([survey]);
       split.writeUInt16LE(1, split.length - 22 + 4);
       expect(refusal(split)?.message).toMatch(/several parts/);
+    });
+
+    it('a local header that disagrees with the central directory', () => {
+      const local = (e: Partial<RawEntry>) => refusal(rawZip([survey, { name: 'b.txt', data: 'hello', ...e }]))?.code ?? null;
+      expect(local({ method: 8, localMethod: 0 })).toBe('not_a_zip');
+      expect(local({ localCrc: 1234 })).toBe('not_a_zip');
+      expect(local({ localZeroes: true })).toBe('not_a_zip');
+      // With bit 3 the local header may leave them out, as Java writes deflated files.
+      expect(local({ method: 8, flags: 8, localZeroes: true })).toBeNull();
+    });
+
+    it('a central directory with more entries than the end record says', () => {
+      const zip = rawZip([survey, { name: 'hidden.txt', data: 'x' }]);
+      zip.writeUInt16LE(1, zip.length - 22 + 8);
+      zip.writeUInt16LE(1, zip.length - 22 + 10);
+      expect(refusal(zip)?.code).toBe('not_a_zip');
     });
 
     it('a central directory pointing outside the zip', () => {
