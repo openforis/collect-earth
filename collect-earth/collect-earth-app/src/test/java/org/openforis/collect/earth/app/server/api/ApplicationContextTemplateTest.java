@@ -11,6 +11,8 @@ import org.junit.jupiter.api.Test;
 /** The context the server starts with must let the API controllers read and write JSON. */
 public class ApplicationContextTemplateTest {
 
+	// The path is relative to the module folder, which Surefire runs the tests in
+
 	@Test
 	public void theHandlerAdapterConvertsJson() throws Exception {
 		String template = new String(Files.readAllBytes(Paths.get("resources/applicationContext.fmt")), StandardCharsets.UTF_8);

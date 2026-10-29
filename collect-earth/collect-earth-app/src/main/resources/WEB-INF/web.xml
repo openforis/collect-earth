@@ -70,7 +70,8 @@
 		</init-param>
 	</filter>
 
-	<!-- First: googleEarthHeaderFilter answers "*" for a missing Origin -->
+	<!-- First: googleEarthHeaderFilter answers "*" for a missing Origin. ownPagesOnlyFilter and apiHeaderFilter must stay
+	     before cross-origin too: they refuse the preflights of other sites' pages, which is what keeps them off /api/* -->
 	<filter-mapping>
 		<filter-name>ownPagesOnlyFilter</filter-name>
 		<url-pattern>/googleEarthWeb/*</url-pattern>
