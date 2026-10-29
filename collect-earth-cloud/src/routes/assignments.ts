@@ -4,12 +4,13 @@ import { isUuid } from '../accountRules.js';
 import type { RoundInfo } from '../cep.js';
 import type { Config } from '../config.js';
 import { checksumOf } from '../csv.js';
+import { copiesSubmittedAsMain } from '../division.js';
 import { checkUploadFits } from '../limits.js';
 import { buildPlotFile, parsePlotFile, type RoundColumn } from '../plots.js';
 import { fileKeyCount, keyShape } from '../rounds.js';
 import { requireProjectMembership } from '../plugins/projectAuth.js';
 import type { Store, UserPlots } from '../store/store.js';
-import type { Assignment } from '../types.js';
+import type { Assignment, RecordRow } from '../types.js';
 import { plotFileOf, registerDivisionRoutes } from './division.js';
 
 interface AssignmentsBody {
@@ -104,7 +105,10 @@ export async function registerAssignmentRoutes(app: FastifyInstance, store: Stor
       const info = await store.getRoundInfo(projectId);
       if (file.distribution && (mine || !isAdmin)) {
         const plots = userId ? await store.listUserPlots(projectId, id, userId) : null;
-        const own = plots && plots.plotKeys.length > 0 ? ownFile(file, plots, info) : null;
+        const own =
+          userId && plots && plots.plotKeys.length > 0
+            ? ownFile(file, plots, info, await copiesServedAsMain(store, projectId, userId, info)(plots))
+            : null;
         if (!own) {
           return reply.code(404).send({ error: 'not_found' });
         }
@@ -212,6 +216,7 @@ export async function registerAssignmentRoutes(app: FastifyInstance, store: Stor
       }
       // Divided files where the caller holds plots: their own file's checksum and count.
       const holdings = userId ? await store.listPlotHoldings(projectId, userId) : [];
+      const asMainOf = userId ? copiesServedAsMain(store, projectId, userId, info) : null;
       const metas = holdings.length > 0 ? new Map((await store.listCsvFiles(projectId)).map((f) => [f.id, f])) : new Map();
       for (const holding of holdings) {
         const meta = metas.get(holding.csvFileId);
@@ -219,12 +224,13 @@ export async function registerAssignmentRoutes(app: FastifyInstance, store: Stor
           continue;
         }
         const own = await tryBuild(holding.csvFileId, async () => {
-          const cached = cachedOwnFile(meta, holding, info);
+          const asMain = await asMainOf!(holding);
+          const cached = cachedOwnFile(meta, holding, info, asMain);
           if (cached !== undefined) {
             return cached;
           }
           const file = await store.getCsvFile(projectId, holding.csvFileId);
-          return file ? ownFile(file, holding, info) : null;
+          return file ? ownFile(file, holding, info, asMain) : null;
         });
         if (own) {
           assignments.push(built(meta, own));
@@ -255,6 +261,36 @@ export function roundColumnOf(info: RoundInfo | null, copies: ReadonlySet<string
     return { kind: 'replace', index: roundIndex, value: (plotId, current) => (copies.has(plotId) ? code : current) };
   }
   return null;
+}
+
+/**
+ * For one person: which of their copies (in a divided file) are served as main, as
+ * they submitted the plot's main assessment (copiesSubmittedAsMain). Only matters
+ * while files get a round column; the project's records are read once, on the first
+ * call that needs them.
+ */
+function copiesServedAsMain(
+  store: Store,
+  projectId: string,
+  userId: string,
+  info: RoundInfo | null,
+): (plots: UserPlots) => Promise<ReadonlySet<string>> {
+  let mine: Promise<{ username: string; records: RecordRow[] } | null> | null = null;
+  return async (plots) => {
+    if (plots.copyKeys.length === 0 || roundColumnOf(info, new Set()) === null) {
+      return new Set();
+    }
+    mine ??= (async () => {
+      const user = await store.getUserById(userId);
+      if (!user) {
+        return null;
+      }
+      const records = (await store.listRecordSummaries(projectId)).filter((r) => r.operator === user.username);
+      return { username: user.username, records };
+    })();
+    const loaded = await mine;
+    return loaded ? copiesSubmittedAsMain(loaded.records, userId, loaded.username, plots, info) : new Set();
+  };
 }
 
 interface ServedFile {
@@ -309,9 +345,9 @@ function wholeKey(file: { checksum: string }, info: RoundInfo | null): string {
   return `whole:${roundKey(file, info)}`;
 }
 
-function ownKey(file: { checksum: string }, plots: UserPlots, info: RoundInfo | null): string {
+function ownKey(file: { checksum: string }, plots: UserPlots, info: RoundInfo | null, asMain: ReadonlySet<string>): string {
   const hash = createHash('sha256')
-    .update(JSON.stringify([[...plots.plotKeys].sort(), [...plots.copyKeys].sort()]))
+    .update(JSON.stringify([[...plots.plotKeys].sort(), [...plots.copyKeys].sort(), [...asMain].sort()]))
     .digest('hex');
   return `own:${roundKey(file, info)}:${hash}`;
 }
@@ -322,8 +358,13 @@ function cachedWholeFile(file: { checksum: string }, info: RoundInfo | null): Se
 }
 
 /** One person's built file when it was built recently (null: none of their plots), else undefined. */
-function cachedOwnFile(file: { checksum: string }, plots: UserPlots, info: RoundInfo | null): ServedFile | null | undefined {
-  return cacheGet(ownKey(file, plots, info));
+function cachedOwnFile(
+  file: { checksum: string },
+  plots: UserPlots,
+  info: RoundInfo | null,
+  asMain: ReadonlySet<string>,
+): ServedFile | null | undefined {
+  return cacheGet(ownKey(file, plots, info, asMain));
 }
 
 /**
@@ -351,9 +392,16 @@ function wholeFile(file: { checksum: string; data: Buffer; plotCount: number }, 
  * One person's file of a divided plot file, from the plots they hold, with the round
  * column when the survey has one to fill in; null when none of their plots is in the
  * file (any more). The plot keys are the file's first fileKeyCount(info) columns.
+ * `asMain` are the copies served with the main round (copiesServedAsMain): the value
+ * 1 (added) or the file's own value, not the reassessment code.
  */
-function ownFile(file: { checksum: string; data: Buffer }, plots: UserPlots, info: RoundInfo | null): ServedFile | null {
-  const key = ownKey(file, plots, info);
+function ownFile(
+  file: { checksum: string; data: Buffer },
+  plots: UserPlots,
+  info: RoundInfo | null,
+  asMain: ReadonlySet<string>,
+): ServedFile | null {
+  const key = ownKey(file, plots, info, asMain);
   const cached = cacheGet(key);
   if (cached !== undefined) {
     return cached;
@@ -363,7 +411,7 @@ function ownFile(file: { checksum: string; data: Buffer }, plots: UserPlots, inf
   const keys = new Set(plots.plotKeys.filter((k) => inFile.has(k)));
   let built: ServedFile | null = null;
   if (keys.size > 0) {
-    const round = roundColumnOf(info, new Set(plots.copyKeys)) ?? undefined;
+    const round = roundColumnOf(info, new Set(plots.copyKeys.filter((k) => !asMain.has(k)))) ?? undefined;
     const data = buildPlotFile(plotFile, keys, round);
     built = { data, checksum: checksumOf(data), plotCount: keys.size };
   }

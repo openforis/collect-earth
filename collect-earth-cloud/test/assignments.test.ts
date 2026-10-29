@@ -368,6 +368,46 @@ describe('plot files served with a round column', () => {
     expect(res.json().assignments.map((a: { csvFileId: string }) => a.csvFileId)).toEqual([good]);
   });
 
+  it('serves a copy whose main assessment the person did with the main round, not as a check', async () => {
+    expect((await putCep(idOnlyCep())).state).toBe('added');
+    const id = await upload('plots.csv', 'id,lat,lon\n1,0,0\n2,1,1\n3,2,2\n');
+    // maria holds 1, and 2 as a copy; jose holds 2 and 3.
+    await ctx.store.setDivision(pid, id, { mode: 'manual' }, [
+      { plotKey: '1', userId: maria.userId, overlap: false },
+      { plotKey: '2', userId: maria.userId, overlap: true },
+      { plotKey: '2', userId: jose.userId, overlap: false },
+      { plotKey: '3', userId: jose.userId, overlap: false },
+    ]);
+    expect((await served(maria.token, id)).body).toBe('id,round,lat,lon\n1,1,0,0\n2,2,1,1\n');
+    // maria did plot 2's main assessment (both had it on the whole file before): she
+    // gets it with round 1, the plot she already assessed, not a check to do again.
+    const record = (recordKey: string, operator: string) => ({
+      projectId: pid,
+      recordKey,
+      operator,
+      modifiedOn: 1,
+      receivedAt: 1,
+      activelySaved: true,
+      step: 1,
+      xml: null,
+      summary: {},
+      deleted: false,
+      deletedOn: null,
+    });
+    await ctx.store.putRecord(record('2,1', 'maria'));
+    await ctx.store.putRecord(record('3,1', 'maria'));
+    expect((await served(maria.token, id)).body).toBe('id,round,lat,lon\n1,1,0,0\n2,1,1,1\n');
+    expect((await served(jose.token, id)).body).toBe('id,round,lat,lon\n2,1,1,1\n3,1,2,2\n');
+    // A check record leaves the copy a check.
+    const other = await upload('other.csv', 'id,lat,lon\n5,0,0\n');
+    await ctx.store.setDivision(pid, other, { mode: 'manual' }, [
+      { plotKey: '5', userId: maria.userId, overlap: true },
+      { plotKey: '5', userId: jose.userId, overlap: false },
+    ]);
+    await ctx.store.putRecord(record('5,2', 'maria'));
+    expect((await served(maria.token, other)).body).toBe('id,round,lat,lon\n5,2,0,0\n');
+  });
+
   it('a survey with its own round and no reassessment code serves plot files as uploaded', async () => {
     await putCep(demoCep());
     const setCode = await ctx.app.inject({

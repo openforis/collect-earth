@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  copiesSubmittedAsMain,
   copyHoldersOf,
   divide,
   METADATA_KEY_PARTS,
@@ -476,6 +477,26 @@ describe('submittedByPlot', () => {
     expect(map.get('18,3')).toEqual({ main: new Set(), check: new Set(['u2']) });
     // Someone holding no copy of the plot: the first round in the file.
     expect(map.get('18,1')).toEqual({ main: new Set(), check: new Set(['u3']) });
+  });
+});
+
+describe('copiesSubmittedAsMain', () => {
+  it('lists the copies whose main assessment the person submitted (own round with a code)', () => {
+    const own: RoundInfo = {
+      state: 'own', refusal: null, keyCount: 2, roundIndex: 1,
+      roundCodes: [{ code: '1', label: 'One' }, { code: '2', label: 'Two' }, { code: '3', label: 'Three' }],
+      reassessmentCode: '2',
+    };
+    const plots = { plotKeys: ['17,1', '18,1', '18,3', '19,1'], copyKeys: ['18,1', '18,3', '19,1'] };
+    const records = [
+      record('18,1', 'jose'), // main of a copy
+      record('18,2', 'jose'), // a check: goes to one of the copies of plot 18
+      record('19,1', 'ana'), // someone else's
+      record('17,1', 'jose'), // main of a main plot
+      record('19,1', 'jose', { activelySaved: false }), // not submitted
+    ];
+    expect(copiesSubmittedAsMain(records, 'u2', 'jose', plots, own)).toEqual(new Set(['18,1']));
+    expect(copiesSubmittedAsMain(records, 'u2', 'jose', { ...plots, copyKeys: [] }, own)).toEqual(new Set());
   });
 });
 

@@ -580,6 +580,29 @@ export function submittedByPlot(
   return result;
 }
 
+/**
+ * The copies one person is served as main: those whose MAIN assessment they submitted
+ * (a second main submitter, e.g. after a whole file was divided). Their file shows
+ * them the plot they already assessed instead of asking for a check. `records` may be
+ * anyone's: only the person's (operator = `username`) count.
+ */
+export function copiesSubmittedAsMain(
+  records: readonly RecordRow[],
+  userId: string,
+  username: string,
+  plots: { plotKeys: readonly string[]; copyKeys: readonly string[] },
+  info: RoundInfo | null,
+): Set<string> {
+  if (plots.copyKeys.length === 0) {
+    return new Set();
+  }
+  const mine = records.filter((r) => r.operator === username);
+  const copyHolders = new Map(plots.copyKeys.map((k) => [k, new Set([username])]));
+  const units = new Set([...plots.plotKeys, ...plots.copyKeys]);
+  const submitted = submittedByPlot(mine, units, new Map([[username, userId]]), info, copyHolders);
+  return new Set(plots.copyKeys.filter((k) => submitted.get(k)?.main.has(userId) === true));
+}
+
 export interface PersonShare {
   userId: string;
   username: string;
