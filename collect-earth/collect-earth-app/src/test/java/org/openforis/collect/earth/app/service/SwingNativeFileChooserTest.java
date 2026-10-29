@@ -15,6 +15,7 @@ import javax.swing.filechooser.FileFilter;
 
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
+import org.openforis.collect.earth.app.service.NativeFileChooser.Mode;
 
 /** What the dialog is set up with and what it answers; the dialog itself needs a display and is checked by hand. */
 public class SwingNativeFileChooserTest {
@@ -56,6 +57,23 @@ public class SwingNativeFileChooserTest {
 	public void aSavedFileOfAnyKindIsLeftAsTyped() {
 		File typed = new File("C:/data/export");
 		assertEquals(typed, SwingNativeFileChooser.withExtension(typed, Collections.emptyList()));
+	}
+
+	@Test
+	public void aChosenFolderIsRememberedItselfAndAFileByItsFolder() throws Exception {
+		File sub = Files.createDirectory(folder.resolve("sub")).toFile();
+		assertEquals(sub, SwingNativeFileChooser.folderToRemember(Mode.FOLDER, sub));
+		File plots = new File(sub, "plots.csv");
+		assertEquals(sub, SwingNativeFileChooser.folderToRemember(Mode.OPEN, plots));
+		assertEquals(sub, SwingNativeFileChooser.folderToRemember(Mode.SAVE, plots));
+	}
+
+	@Test
+	public void aDriveChosenAsFolderIsRemembered() {
+		// A root has no parent: remembering its parent used to set a null property, which threw
+		File root = File.listRoots()[0];
+		assertEquals(root, SwingNativeFileChooser.folderToRemember(Mode.FOLDER, root));
+		assertNull(SwingNativeFileChooser.folderToRemember(Mode.OPEN, root));
 	}
 
 	@Test

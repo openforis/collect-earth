@@ -1,5 +1,6 @@
 package org.openforis.collect.earth.app.service;
 
+import java.awt.Dialog;
 import java.awt.GraphicsEnvironment;
 import java.io.File;
 import java.lang.reflect.InvocationTargetException;
@@ -9,6 +10,7 @@ import java.util.Locale;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 
+import javax.swing.ImageIcon;
 import javax.swing.JFileChooser;
 import javax.swing.JFrame;
 import javax.swing.JOptionPane;
@@ -21,6 +23,8 @@ import org.apache.commons.lang3.StringUtils;
 import org.openforis.collect.earth.app.service.LocalPropertiesService.EarthProperty;
 import org.openforis.collect.earth.app.view.Messages;
 import org.openforis.collect.earth.app.view.ShellFolderFallback;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
@@ -37,6 +41,8 @@ import org.springframework.stereotype.Component;
 @Component
 public class SwingNativeFileChooser implements NativeFileChooser {
 
+	private static final String ICON = "images/smallOpenForisBanner.png"; //$NON-NLS-1$
+	private final Logger logger = LoggerFactory.getLogger(SwingNativeFileChooser.class);
 	private final LocalPropertiesService localPropertiesService;
 	private final AtomicBoolean open = new AtomicBoolean();
 
@@ -53,29 +59,52 @@ public class SwingNativeFileChooser implements NativeFileChooser {
 		if (!open.compareAndSet(false, true)) {
 			throw new BusyException();
 		}
-		try {
-			File chosen = onEventThread(() -> show(mode, extensions, suggested));
-			if (chosen == null) {
-				return null;
+		// The flag is cleared by the task on the event thread, once the dialog is gone: cleared here, a request whose
+		// wait was interrupted would let a second dialog open while the first is still on screen
+		File chosen = onEventThread(() -> {
+			try {
+				return show(mode, extensions, suggested);
+			} finally {
+				open.set(false);
 			}
-			localPropertiesService.setValue(EarthProperty.LAST_USED_FOLDER, chosen.getParent());
-			return chosen.getAbsolutePath();
-		} finally {
-			open.set(false);
+		});
+		if (chosen == null) {
+			return null;
 		}
+		File folder = folderToRemember(mode, chosen);
+		if (folder != null) {
+			// This runs on an HTTP thread, not the event thread: its observers are notified here, and no observer of
+			// LAST_USED_FOLDER touches Swing (LocalPropertiesService has none registered)
+			localPropertiesService.setValue(EarthProperty.LAST_USED_FOLDER, folder.getPath());
+		}
+		return chosen.getAbsolutePath();
+	}
+
+	/**
+	 * The folder the next dialog starts in: a folder chosen itself, the folder of a file chosen. Null when there is none,
+	 * for a root chosen as a file, as a null property would throw.
+	 */
+	static File folderToRemember(Mode mode, File chosen) {
+		return mode == Mode.FOLDER ? chosen : chosen.getParentFile();
 	}
 
 	private File show(Mode mode, List<String> extensions, String suggested) {
 		// The parent of the dialog: on top of every window and in the middle of the screen, so the dialog comes up in
-		// front of the browser the user is looking at, and not behind it as a dialog of a window-less process would
-		JFrame parent = new JFrame();
+		// front of the browser the user is looking at, and not behind it as a dialog of a window-less process would.
+		// Titled and with the icon, so its taskbar entry is not blank, and excluded from the modality of the Swing
+		// interface's dialogs, so one of them that is open cannot block it
+		JFrame parent = new JFrame("Collect Earth"); //$NON-NLS-1$
 		try {
 			parent.setUndecorated(true);
 			parent.setAlwaysOnTop(true);
+			parent.setModalExclusionType(Dialog.ModalExclusionType.APPLICATION_EXCLUDE);
+			setIcon(parent);
 			parent.setSize(0, 0);
 			parent.setLocationRelativeTo(null);
 			parent.setVisible(true);
+			// Windows hands the focus to a window of a process that is not in front only when asked
 			parent.toFront();
+			parent.requestFocus();
 
 			JFileChooser chooser = mode == Mode.SAVE ? new OverwriteAwareChooser(extensions) : new JFileChooser();
 			File start = start(suggested, localPropertiesService.getValue(EarthProperty.LAST_USED_FOLDER),
@@ -173,10 +202,21 @@ public class SwingNativeFileChooser implements NativeFileChooser {
 			}
 			throw new IllegalStateException(cause);
 		} catch (InterruptedException e) {
+			// The dialog may still be on screen: the user has not cancelled, so the page is not told they did
 			Thread.currentThread().interrupt();
-			return null;
+			throw new IllegalStateException("Interrupted while the file dialog was open", e);
 		}
 		return chosen.get();
+	}
+
+	/** The icon of the Swing window (CollectEarthWindow), read from the same place; without it, the default one. */
+	private void setIcon(JFrame frame) {
+		File icon = new File(ICON);
+		if (icon.isFile()) {
+			frame.setIconImage(new ImageIcon(icon.getPath()).getImage());
+		} else {
+			logger.debug("No icon for the file dialog at {}", icon.getAbsolutePath()); //$NON-NLS-1$
+		}
 	}
 
 	private static List<String> clean(List<String> extensions) {
