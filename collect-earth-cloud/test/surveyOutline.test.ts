@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { strFromU8, unzipSync } from 'fflate';
 import { CepError } from '../src/cep.js';
-import { surveyOutline } from '../src/surveyOutline.js';
+import { BOOKKEEPING_KEYS, surveyOutline } from '../src/surveyOutline.js';
 import { demoCep } from './fixtures/cep.js';
 
 const demoSurvey = () => strFromU8(unzipSync(demoCep())['placemark.idm.xml']);
@@ -23,6 +23,7 @@ const SURVEY = `<?xml version="1.0" encoding="UTF-8"?>
         </item>
       </items>
     </list>
+    <list id="9" name="lookup_list" lookup="ofc_sampling_design"/>
     <list id="6" name="covers">
       <items>
         <item id="7"><code>trees</code><label>Trees</label></item>
@@ -36,6 +37,10 @@ const SURVEY = `<?xml version="1.0" encoding="UTF-8"?>
       <text id="11" name="id" key="true"><label type="instance">Plot id</label></text>
       <code id="12" name="round" key="true" list="phases"/>
       <text id="13" name="operator"/>
+      <text id="40" name="operator_notes"/>
+      <boolean id="42" name="actively_saved"/>
+      <date id="43" name="actively_saved_on"/>
+      <text id="44" name="plot_file"/>
       <code id="14" name="land_use" list="uses">
         <label type="instance" xml:lang="es">Uso</label>
         <label type="instance">Land use</label>
@@ -63,10 +68,17 @@ const SURVEY = `<?xml version="1.0" encoding="UTF-8"?>
         <number id="31" name="age" type="integer"><label type="instance">Age</label></number>
         <entity id="32" name="deeper"><text id="33" name="x"/></entity>
       </entity>
-      <entity id="34" name="cover" multiple="true" collect:enumerate="true">
+      <entity id="34" name="cover" multiple="true">
         <label type="instance">Cover</label>
         <code id="35" name="element" key="true" list="covers"/>
         <number id="36" name="pct" type="real"><label type="instance">Percent</label></number>
+      </entity>
+      <entity id="45" name="patch" multiple="true" collect:enumerate="true">
+        <text id="46" name="label" key="true"/>
+        <code id="47" name="kind" key="true" list="covers"/>
+      </entity>
+      <entity id="48" name="sample" multiple="true" collect:enumerate="true">
+        <code id="49" name="source" key="true" list="lookup_list"/>
       </entity>
       <entity id="37" name="tree" multiple="true">
         <label type="instance">Tree</label>
@@ -83,7 +95,11 @@ describe('surveyOutline: summary keys, as BalloonInputFieldsUtils.getValuesByHtm
   const table: Array<[string, string, boolean]> = [
     ['collect_text_id', 'text', true], // a key
     ['collect_code_round', 'choice', true], // a key
-    ['collect_text_operator', 'text', true], // METADATA_KEY_PARTS
+    ['collect_text_operator', 'text', true], // bookkeeping (EarthConstants)
+    ['collect_text_operator_notes', 'text', false], // not bookkeeping, whatever its name
+    ['collect_boolean_actively_saved', 'choice', true], // bookkeeping
+    ['collect_date_actively_saved_on', 'other', true], // bookkeeping
+    ['collect_text_plot_file', 'text', true], // bookkeeping
     ['collect_code_land_use', 'choice', false],
     ['collect_code_sub_use', 'choice', false],
     ['collect_code_other_uses', 'choice', false], // multiple: values joined by "==="
@@ -93,17 +109,20 @@ describe('surveyOutline: summary keys, as BalloonInputFieldsUtils.getValuesByHtm
     ['collect_real_area', 'number', false], // <number> without a type is real
     ['collect_integer_range_age', 'other', false],
     ['collect_real_range_depth', 'other', false], // <range> without a type is real
-    ['collect_coord_location', 'other', false],
+    ['collect_coord_location', 'other', true], // bookkeeping: the plot's centre, set by the app
     ['collect_date_seen_on', 'other', false],
-    ['collect_time_seen_at', 'other', true], // METADATA_KEY_PARTS has "_time": every time attribute
+    ['collect_time_seen_at', 'other', false],
     ['collect_text_notes', 'text', false],
     ['collect_integer_elevation', 'number', true], // from the plot file (collectearth:fromcsv)
     ['collect_entity_stand.integer_age', 'number', false], // single entity
     ['collect_entity_cover[trees].code_element', 'choice', true], // key of an enumerated entity
-    ['collect_entity_cover[trees].real_pct', 'number', false], // enumerated: [code of the key]
+    ['collect_entity_cover[trees].real_pct', 'number', false], // first key a code: [code of the key]
     ['collect_entity_cover[grass].code_element', 'choice', true],
     ['collect_entity_cover[grass].real_pct', 'number', false],
-    ['collect_entity_tree[1].real_height', 'number', false], // not enumerated: [1..10]
+    ['collect_entity_patch[1].text_label', 'text', true], // first key a text: [1..10]
+    ['collect_entity_patch[1].code_kind', 'choice', true],
+    ['collect_entity_sample[1].code_source', 'choice', true], // key list external (lookup): [1..10]
+    ['collect_entity_tree[1].real_height', 'number', false], // no key: [1..10]
     ['collect_entity_tree[10].real_height', 'number', false],
   ];
 
@@ -117,7 +136,13 @@ describe('surveyOutline: summary keys, as BalloonInputFieldsUtils.getValuesByHtm
 
   it('has exactly the keys of the table: taxon, file and entities inside entities have none', () => {
     const expected = new Set(table.map(([k]) => k));
-    for (let i = 2; i <= 9; i++) expected.add(`collect_entity_tree[${i}].real_height`);
+    for (let i = 2; i <= 9; i++) {
+      expected.add(`collect_entity_tree[${i}].real_height`);
+      expected.add(`collect_entity_patch[${i}].text_label`).add(`collect_entity_patch[${i}].code_kind`);
+      expected.add(`collect_entity_sample[${i}].code_source`);
+    }
+    expected.add('collect_entity_patch[10].text_label').add('collect_entity_patch[10].code_kind');
+    expected.add('collect_entity_sample[10].code_source');
     expect(new Set(outline.keys())).toEqual(expected);
   });
 
@@ -126,7 +151,7 @@ describe('surveyOutline: summary keys, as BalloonInputFieldsUtils.getValuesByHtm
       'collect_text_id',
       'collect_code_round',
       'collect_text_operator',
-      'collect_code_land_use',
+      'collect_text_operator_notes',
     ]);
   });
 
@@ -171,6 +196,25 @@ describe('surveyOutline: summary keys, as BalloonInputFieldsUtils.getValuesByHtm
     expect(outline.get('collect_code_land_use')!.multiple).toBe(false);
     expect(outline.get('collect_real_height')!.calculated).toBe(true);
     expect(outline.get('collect_integer_trees')!.calculated).toBe(false);
+  });
+
+  it('excludes a root attribute named round even when it is not a key, whatever its type', () => {
+    const own = surveyOutline(SURVEY.replace('<code id="12" name="round" key="true" list="phases"/>', '<text id="12" name="round"/>'));
+    expect(own.get('collect_text_round')!.excluded).toBe(true);
+    // ...but not an entity child named round.
+    const child = surveyOutline(SURVEY.replace('<number id="31" name="age"', '<number id="31" name="round"'));
+    expect(child.get('collect_entity_stand.integer_round')!.excluded).toBe(false);
+  });
+
+  it('exports the exact bookkeeping keys the desktop app adds', () => {
+    expect([...BOOKKEEPING_KEYS].sort()).toEqual([
+      'collect_boolean_actively_saved',
+      'collect_coord_location',
+      'collect_date_actively_saved_on',
+      'collect_text_actively_saved_on',
+      'collect_text_operator',
+      'collect_text_plot_file',
+    ]);
   });
 
   it('refuses a DOCTYPE, like surveyInfo', () => {

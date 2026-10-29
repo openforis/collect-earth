@@ -1,7 +1,6 @@
 // The survey outline: each question of a survey, by the key the desktop app gives its
 // answer in a record summary, with its label, kind, answer options and help text.
 import { attr, childrenOf, elements, parseSurvey, tagOf, textOf, type CodeItem, type XmlNode } from './cep.js';
-import { METADATA_KEY_PARTS } from './division.js';
 
 export interface Question {
   /** The summary key, e.g. "collect_code_land_use" or "collect_entity_land_use[F].code_coverage". */
@@ -13,9 +12,9 @@ export interface Question {
   /** The <description>, in the survey's default language. */
   help: string | null;
   /**
-   * Never compared: key attributes (collect_text_id, collect_code_round, the key of an
-   * enumerated entity), metadata (METADATA_KEY_PARTS) and attributes filled from the plot
-   * file (collectearth:fromcsv), which are the same for every round.
+   * Never compared: key attributes (collect_text_id, the keys of entities), any root
+   * attribute named round, the BOOKKEEPING_KEYS, and attributes filled from the plot file
+   * (collectearth:fromcsv), which are the same for every round.
    */
   excluded: boolean;
   /** The attribute may hold several values; the summary joins them with "===". */
@@ -76,10 +75,22 @@ const BOOLEAN_OPTIONS: CodeItem[] = [
   { code: 'false', label: 'No' },
 ];
 
-const isMetadataKey = (key: string) => {
-  const k = key.toLowerCase();
-  return METADATA_KEY_PARTS.some((part) => k.includes(part));
-};
+/**
+ * Summary keys the desktop app fills itself, never answers (EarthConstants and
+ * SurveyFormController): who saved, whether and when it was saved (the date, and the
+ * text form of older surveys), the plot file, and the plot's centre.
+ */
+export const BOOKKEEPING_KEYS: ReadonlySet<string> = new Set([
+  'collect_text_operator',
+  'collect_boolean_actively_saved',
+  'collect_date_actively_saved_on',
+  'collect_text_actively_saved_on',
+  'collect_text_plot_file',
+  'collect_coord_location',
+]);
+
+/** The root attribute holding the round (EarthConstants.ROUND_ATTRIBUTE_NAME). */
+const ROUND_NAME = 'round';
 
 /**
  * Every question of a survey (placemark.idm.xml), by summary key, in the survey's order.
@@ -93,9 +104,11 @@ const isMetadataKey = (key: string) => {
  * - a multiple attribute: the same key, its values joined by "===";
  * - a code with a qualifier: the same key, the value "code::qualifier";
  * - a single entity: `collect_entity_<entity>.<prefix><child>`;
- * - a multiple entity marked collect:enumerate="true":
+ * - an enumerable multiple entity (EntityDefinition.isEnumerable: its first key is a code
+ *   whose list is not external, i.e. has no `lookup`; collect:enumerate plays no part):
  *   `collect_entity_<entity>[<key code>].<prefix><child>`, one entity per root item of
- *   its key's list (land_use[F], land_use[C]...);
+ *   its key's list (land_use[F], land_use[C]...). The key is Entity.getKeyValues()[0],
+ *   the bare code: Code.toInternalString leaves out the qualifier;
  * - another multiple entity: `collect_entity_<entity>[<n>].<prefix><child>`, n from 1;
  *   the outline has n = 1 to 10;
  * - inside an entity, a blank answer is left out of the summary;
@@ -107,6 +120,8 @@ export function surveyOutline(idmXml: string): Map<string, Question> {
 
   // Each list's items by level: [0] the root items, [1] their children...
   const listLevels = new Map<string, CodeItem[][]>();
+  /** Lists whose items live in a lookup table (CodeList.isExternal). */
+  const externalLists = new Set<string>();
   for (const codeListsNode of elements(surveyChildren, 'codeLists')) {
     for (const list of elements(childrenOf(codeListsNode), 'list')) {
       const name = attr(list, 'name');
@@ -126,6 +141,7 @@ export function surveyOutline(idmXml: string): Map<string, Question> {
       };
       for (const itemsNode of elements(childrenOf(list), 'items')) walk(elements(childrenOf(itemsNode), 'item'), 0);
       listLevels.set(name, levels);
+      if (attr(list, 'lookup') !== undefined) externalLists.add(name);
     }
   }
 
@@ -172,7 +188,7 @@ export function surveyOutline(idmXml: string): Map<string, Question> {
       kind,
       options: prefix === 'code_' ? optionsOf(node, siblings) : prefix === 'boolean_' ? BOOLEAN_OPTIONS : null,
       help: helpOf(node),
-      excluded: isKey || attr(node, 'collectearth:fromcsv') === 'true' || isMetadataKey(key),
+      excluded: isKey || attr(node, 'collectearth:fromcsv') === 'true' || BOOKKEEPING_KEYS.has(key),
       multiple: attr(node, 'multiple') === 'true',
       calculated: attr(node, 'calculated') === 'true',
     });
@@ -182,7 +198,8 @@ export function surveyOutline(idmXml: string): Map<string, Question> {
   for (const node of rootChildren) {
     const name = attr(node, 'name')!;
     if (tagOf(node) !== 'entity') {
-      add(`collect_${prefixOf(node)}${name}`, node, rootChildren, labelOf(node), attr(node, 'key') === 'true');
+      const isKey = attr(node, 'key') === 'true' || name === ROUND_NAME;
+      add(`collect_${prefixOf(node)}${name}`, node, rootChildren, labelOf(node), isKey);
       continue;
     }
     const base = `collect_entity_${name}`;
@@ -204,9 +221,10 @@ export function surveyOutline(idmXml: string): Map<string, Question> {
       addChildren(base, entityLabel);
       continue;
     }
-    const enumeratingKey = children.find((c) => tagOf(c) === 'code' && attr(c, 'key') === 'true');
-    if (attr(node, 'collect:enumerate') === 'true' && enumeratingKey) {
-      for (const item of listLevels.get(attr(enumeratingKey, 'list') ?? '')?.[0] ?? []) {
+    const firstKey = childrenOf(node).find((c) => attr(c, 'key') === 'true');
+    const keyList = firstKey && tagOf(firstKey) === 'code' ? attr(firstKey, 'list') : undefined;
+    if (keyList !== undefined && !externalLists.has(keyList)) {
+      for (const item of listLevels.get(keyList)?.[0] ?? []) {
         addChildren(`${base}[${item.code}]`, `${entityLabel} (${item.label || item.code})`);
       }
     } else {
