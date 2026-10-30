@@ -3,7 +3,18 @@ import { randomUUID } from 'node:crypto';
 import { isUuid } from '../accountRules.js';
 import { generateToken, hashToken } from '../auth.js';
 import {
+  AI_INTERRUPTED,
+  aiLimitReached,
   DEFAULT_SETTINGS,
+  type AiRunEnd,
+  type AiRunProgress,
+  type AiRunRow,
+  type AiRunStart,
+  type AiRunStartResult,
+  type AiRunSummary,
+  type AiRunWindow,
+  type AiToolCall,
+  type AiUsage,
   type Assignment,
   type AssignmentDetail,
   type CepInfo,
@@ -1234,6 +1245,189 @@ export class PostgresStore implements Store {
     });
   }
 
+  async startAiRun(projectId: string, start: AiRunStart, w: AiRunWindow): Promise<AiRunStartResult> {
+    return this.withProject(projectId, async (client) => {
+      // Two requests (or two instances) at once: the second waits here until the first
+      // has stored its run, then sees it running.
+      await client.query("SELECT pg_advisory_xact_lock(hashtext('collect-earth-cloud:ai-run:' || $1))", [projectId]);
+      await failStaleRuns(client, projectId, w.staleBefore, AI_INTERRUPTED.code, AI_INTERRUPTED.message, w.now);
+      const res = await client.query(
+        `SELECT COALESCE(bool_or(status = 'running'), false) AS running,
+                count(*) FILTER (WHERE kind = 'report' AND status = 'done' AND started_at >= $2)::int AS reports,
+                count(*) FILTER (WHERE kind <> 'report' AND status IN ('done', 'refused') AND started_at >= $2)::int AS answers,
+                COALESCE(sum(input_tokens + output_tokens) FILTER (WHERE started_at >= $3), 0)::bigint AS tokens
+           FROM ai_runs WHERE project_id = $1 AND (status = 'running' OR started_at >= LEAST($2::timestamptz, $3::timestamptz))`,
+        [projectId, new Date(w.dayStart), new Date(w.monthStart)],
+      );
+      const r = res.rows[0];
+      const limit = aiLimitReached(
+        start.kind,
+        { running: r.running === true, reportsToday: r.reports, answersToday: r.answers, tokensThisMonth: Number(r.tokens) },
+        w,
+      );
+      if (limit) {
+        return { ok: false, limit } as const;
+      }
+      const ins = await client.query(
+        `WITH a AS (
+           INSERT INTO ai_runs (project_id, kind, started_by, started_at, model, parent_run, finding_index, action, question)
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+           RETURNING *)
+         SELECT a.*, u.username FROM a LEFT JOIN users u ON u.id = a.started_by`,
+        [
+          projectId,
+          start.kind,
+          start.startedBy,
+          new Date(w.now),
+          start.model,
+          start.parentRun ?? null,
+          start.findingIndex ?? null,
+          start.action ?? null,
+          start.question ?? null,
+        ],
+      );
+      return { ok: true, run: mapAiRun(ins.rows[0]) } as const;
+    });
+  }
+
+  async updateAiRun(projectId: string, runId: string, progress: AiRunProgress): Promise<void> {
+    if (!isUuid(runId)) {
+      return;
+    }
+    await this.withProject(projectId, async (client) => {
+      await client.query(
+        `UPDATE ai_runs SET input_tokens = $3, output_tokens = $4, tool_calls = $5
+          WHERE project_id = $1 AND id = $2 AND status = 'running'`,
+        [projectId, runId, progress.inputTokens, progress.outputTokens, JSON.stringify(progress.toolCalls)],
+      );
+    });
+  }
+
+  async finishAiRun(projectId: string, runId: string, end: AiRunEnd): Promise<boolean> {
+    if (!isUuid(runId)) {
+      return false;
+    }
+    return this.withProject(projectId, async (client) => {
+      const res = await client.query(
+        `UPDATE ai_runs SET status = $3, finished_at = $4, input_tokens = $5, output_tokens = $6, tool_calls = $7,
+                result = $8, error = $9, error_code = $10
+          WHERE project_id = $1 AND id = $2 AND status = 'running'`,
+        [
+          projectId,
+          runId,
+          end.status,
+          new Date(end.finishedAt),
+          end.inputTokens,
+          end.outputTokens,
+          JSON.stringify(end.toolCalls),
+          end.result === null ? null : JSON.stringify(end.result),
+          end.error,
+          end.errorCode,
+        ],
+      );
+      return (res.rowCount ?? 0) > 0;
+    });
+  }
+
+  async failStaleAiRuns(projectId: string | null, before: number, code: string, message: string, now: number): Promise<number> {
+    if (projectId !== null) {
+      return this.withProject(projectId, (client) => failStaleRuns(client, projectId, before, code, message, now));
+    }
+    // Every project: the app role sees one project's runs at a time (RLS), so each is
+    // updated under its own project setting, in one transaction.
+    const counts = await this.eachProject(false, (client, id) => failStaleRuns(client, id, before, code, message, now));
+    return counts.reduce((a, b) => a + b, 0);
+  }
+
+  async listAiRuns(projectId: string, limit: number): Promise<AiRunSummary[]> {
+    return this.withProject(projectId, async (client) => {
+      const res = await client.query(
+        `SELECT a.id, a.kind, a.status, a.started_at, a.finished_at, a.model, a.input_tokens, a.output_tokens,
+                a.parent_run, a.finding_index, a.action, a.error_code, u.username
+           FROM ai_runs a LEFT JOIN users u ON u.id = a.started_by
+          WHERE a.project_id = $1
+          ORDER BY a.started_at DESC, a.id DESC
+          LIMIT $2`,
+        [projectId, limit],
+      );
+      return res.rows.map(mapAiRunSummary);
+    });
+  }
+
+  async getAiRun(projectId: string, runId: string): Promise<AiRunRow | null> {
+    if (!isUuid(runId)) {
+      return null;
+    }
+    return this.withProject(projectId, async (client) => {
+      const res = await client.query(
+        'SELECT a.*, u.username FROM ai_runs a LEFT JOIN users u ON u.id = a.started_by WHERE a.project_id = $1 AND a.id = $2',
+        [projectId, runId],
+      );
+      return res.rowCount === 0 ? null : mapAiRun(res.rows[0]);
+    });
+  }
+
+  async aiUsageSince(from: number): Promise<AiUsage[]> {
+    // Totals across projects for the server owner. The app role sees one project's
+    // runs at a time (RLS), so each project is read under its own setting, in one
+    // read-only transaction, as listMemberships does: nothing bypasses RLS.
+    const rows = await this.eachProject(true, async (client, projectId) => {
+      const res = await client.query(
+        `SELECT count(*)::int AS runs,
+                count(*) FILTER (WHERE kind = 'report')::int AS reports,
+                count(*) FILTER (WHERE kind = 'follow_up')::int AS follow_ups,
+                count(*) FILTER (WHERE kind = 'question')::int AS questions,
+                count(*) FILTER (WHERE status = 'failed')::int AS failed,
+                count(*) FILTER (WHERE status = 'refused')::int AS refused,
+                COALESCE(sum(input_tokens), 0)::bigint AS input_tokens,
+                COALESCE(sum(output_tokens), 0)::bigint AS output_tokens
+           FROM ai_runs WHERE project_id = $1 AND started_at >= $2`,
+        [projectId, new Date(from)],
+      );
+      const r = res.rows[0];
+      return r.runs === 0
+        ? null
+        : {
+            projectId,
+            runs: r.runs as number,
+            reports: r.reports as number,
+            followUps: r.follow_ups as number,
+            questions: r.questions as number,
+            failed: r.failed as number,
+            refused: r.refused as number,
+            inputTokens: Number(r.input_tokens),
+            outputTokens: Number(r.output_tokens),
+          };
+    });
+    return rows.filter((r): r is AiUsage => r !== null);
+  }
+
+  /**
+   * Runs `fn` for every project, each under its own `app.current_project`, in one
+   * transaction (read-only when asked), in id order. The ids come from project_tokens,
+   * which is not under RLS (the auth index): every project has its two tokens from
+   * createProject until deleteProject.
+   */
+  private async eachProject<T>(readOnly: boolean, fn: (client: pg.PoolClient, projectId: string) => Promise<T>): Promise<T[]> {
+    const client = await this.pool.connect();
+    try {
+      await client.query(readOnly ? 'BEGIN READ ONLY' : 'BEGIN');
+      const ids = await client.query('SELECT DISTINCT project_id FROM project_tokens ORDER BY project_id');
+      const out: T[] = [];
+      for (const { project_id: projectId } of ids.rows as { project_id: string }[]) {
+        await client.query('SELECT set_config($1, $2, true)', ['app.current_project', projectId]);
+        out.push(await fn(client, projectId));
+      }
+      await client.query('COMMIT');
+      return out;
+    } catch (err) {
+      await client.query('ROLLBACK');
+      throw err;
+    } finally {
+      client.release();
+    }
+  }
+
   /**
    * Whether Row-Level Security binds the role this store connects as: not when it is a
    * superuser, may bypass RLS, or owns the tables (or is a member of their owner).
@@ -1252,6 +1446,44 @@ export class PostgresStore implements Store {
   async close(): Promise<void> {
     await this.pool.end();
   }
+}
+
+/** Fails one project's runs still running that started before `before`; how many. */
+async function failStaleRuns(client: pg.PoolClient, projectId: string, before: number, code: string, message: string, now: number): Promise<number> {
+  const res = await client.query(
+    `UPDATE ai_runs SET status = 'failed', error_code = $3, error = $4, finished_at = $5
+      WHERE project_id = $1 AND status = 'running' AND started_at < $2`,
+    [projectId, new Date(before), code, message, new Date(now)],
+  );
+  return res.rowCount ?? 0;
+}
+
+function mapAiRunSummary(r: Record<string, unknown>): AiRunSummary {
+  return {
+    id: r.id as string,
+    kind: r.kind as AiRunSummary['kind'],
+    status: r.status as AiRunSummary['status'],
+    startedBy: (r.username as string | null) ?? null,
+    startedAt: (r.started_at as Date).getTime(),
+    finishedAt: r.finished_at ? (r.finished_at as Date).getTime() : null,
+    model: r.model as string,
+    inputTokens: Number(r.input_tokens),
+    outputTokens: Number(r.output_tokens),
+    parentRun: (r.parent_run as string | null) ?? null,
+    findingIndex: (r.finding_index as number | null) ?? null,
+    action: (r.action as string | null) ?? null,
+    errorCode: (r.error_code as string | null) ?? null,
+  };
+}
+
+function mapAiRun(r: Record<string, unknown>): AiRunRow {
+  return {
+    ...mapAiRunSummary(r),
+    toolCalls: (r.tool_calls as AiToolCall[] | null) ?? [],
+    result: r.result ?? null,
+    error: (r.error as string | null) ?? null,
+    question: (r.question as string | null) ?? null,
+  };
 }
 
 function mapDecision(r: Record<string, unknown>): QualityDecision {

@@ -25,6 +25,14 @@ CREATE TABLE IF NOT EXISTS ai_runs (
   finding_index  INT CHECK (finding_index IS NULL OR finding_index >= 0)
 );
 CREATE INDEX IF NOT EXISTS idx_ai_runs_project_started ON ai_runs(project_id, started_at);
+-- Task 15: why a run failed (a code for the dashboard to say in its language; error
+-- holds the plain English text, or the refusal shown), a follow-up's action and a free
+-- question's text. Added here too for a database that ran this file before them.
+ALTER TABLE ai_runs ADD COLUMN IF NOT EXISTS error_code TEXT;
+ALTER TABLE ai_runs ADD COLUMN IF NOT EXISTS action TEXT CHECK (action IS NULL OR action IN ('explain', 'draft_note', 'recheck'));
+ALTER TABLE ai_runs ADD COLUMN IF NOT EXISTS question TEXT CHECK (question IS NULL OR char_length(question) <= 300);
+-- One running run per project, whatever the server does (it also checks under a lock).
+CREATE UNIQUE INDEX IF NOT EXISTS idx_ai_runs_one_running ON ai_runs(project_id) WHERE status = 'running';
 
 ALTER TABLE ai_runs ENABLE ROW LEVEL SECURITY;
 

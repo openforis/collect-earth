@@ -1,5 +1,6 @@
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import { aiAvailable } from '../ai/available.js';
+import { limitWindows } from '../ai/service.js';
 import { checkCredentials, checkPassword, isUuid, publicBaseUrl, setupCodesMatch } from '../accountRules.js';
 import type { Config } from '../config.js';
 import { hashPassword } from '../password.js';
@@ -80,6 +81,8 @@ export interface AdminRouteOptions {
   /** The setup code in force (SETUP_CODE, or the one generated at boot). */
   setupCode: string;
   version: string;
+  /** The clock of the AI usage month; Date.now by default. */
+  now?: () => number;
 }
 
 /**
@@ -272,6 +275,39 @@ export async function registerAdminRoutes(
     '/v1/admin/users',
     { preHandler: requirePlatformAdmin(store) },
     async (_request: FastifyRequest, reply: FastifyReply) => reply.send({ users: await store.listUsers() }),
+  );
+
+  // The AI assistant's use this calendar month (UTC), per project: counts and tokens by
+  // project id only, never a name, a question, a result or who asked (§4b).
+  app.get(
+    '/v1/admin/ai-usage',
+    { preHandler: requirePlatformAdmin(store) },
+    async (_request: FastifyRequest, reply: FastifyReply) => {
+      const w = limitWindows((options.now ?? Date.now)());
+      const usage = await store.aiUsageSince(w.monthStart);
+      const projects = usage
+        .map((u) => ({ ...u, tokens: u.inputTokens + u.outputTokens }))
+        .sort((a, b) => b.tokens - a.tokens || (a.projectId < b.projectId ? -1 : 1));
+      const sum = (k: 'runs' | 'reports' | 'followUps' | 'questions' | 'failed' | 'refused' | 'inputTokens' | 'outputTokens' | 'tokens') =>
+        projects.reduce((n, p) => n + p[k], 0);
+      return reply.send({
+        month: new Date(w.monthStart).toISOString().slice(0, 7),
+        from: w.monthStart,
+        until: w.nextMonth,
+        projects,
+        totals: {
+          runs: sum('runs'),
+          reports: sum('reports'),
+          followUps: sum('followUps'),
+          questions: sum('questions'),
+          failed: sum('failed'),
+          refused: sum('refused'),
+          inputTokens: sum('inputTokens'),
+          outputTokens: sum('outputTokens'),
+          tokens: sum('tokens'),
+        },
+      });
+    },
   );
 
   // Issue a reset link. Platform admin only: a project admin resetting a user who

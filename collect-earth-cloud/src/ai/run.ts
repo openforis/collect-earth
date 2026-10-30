@@ -27,6 +27,7 @@ import {
   type AiLanguage,
   type FollowUpAction,
 } from './prompts.js';
+import { AI_INTERRUPTED } from '../types.js';
 import { PlotNames, Pseudonyms, ToolBox, TOOL_NAMES, TOOLS, usernamesOf, type ToolData } from './tools.js';
 
 export interface AiRunLimits {
@@ -149,7 +150,9 @@ export type FailureCode =
   | 'server_error'
   | 'no_finding'
   | 'bad_action'
-  | 'bad_question';
+  | 'bad_question'
+  /** Still running when the server stopped, or past the run's time limit (Task 15). */
+  | 'interrupted';
 
 export const FAILURE_MESSAGES: Record<FailureCode, string> = {
   blocked: 'The AI model stopped without a usable answer.',
@@ -161,6 +164,7 @@ export const FAILURE_MESSAGES: Record<FailureCode, string> = {
   no_finding: 'The report has no such finding.',
   bad_action: 'Unknown follow-up.',
   bad_question: `The question must have 1 to ${MAX_QUESTION_CHARS} characters.`,
+  interrupted: AI_INTERRUPTED.message,
 };
 
 export type RunOutcome<T> = RunProgress &

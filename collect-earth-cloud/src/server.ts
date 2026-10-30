@@ -5,7 +5,11 @@ import { createGunzip } from 'node:zlib';
 import fastifyStatic from '@fastify/static';
 import Fastify, { type FastifyInstance, type FastifyReply, type FastifyRequest } from 'fastify';
 import { generateSetupCode } from './accountRules.js';
-import type { Config } from './config.js';
+import type { AiClient } from './ai/client.js';
+import { createFakeClient } from './ai/fake.js';
+import { createGeminiClient } from './ai/gemini.js';
+import { AiRunService, type AiRunServiceOptions } from './ai/service.js';
+import { DEFAULT_AI_MODEL, type Config } from './config.js';
 import { QualityService, QualityWorker } from './qualityService.js';
 import { RateLimiter } from './rateLimit.js';
 import type { Store } from './store/store.js';
@@ -28,6 +32,19 @@ export interface BuildServerOptions {
    * directory that does not exist is skipped (API-only server).
    */
   webDir?: string | null;
+  /** For tests: the AI assistant's client (null = none) instead of the configured one, and the clock of its limits. */
+  ai?: { client?: AiClient | null; now?: () => number; runs?: Partial<AiRunServiceOptions> };
+}
+
+/** How long the development fake (AI_FAKE=1) waits before each answer, so the panel's progress shows. */
+const FAKE_AI_DELAY_MS = 700;
+
+/** The AI client of this server: the development fake, Gemini on Vertex AI, or none. */
+function aiClientOf(config: Config): AiClient | null {
+  if (config.aiFake) {
+    return createFakeClient({ delayMs: FAKE_AI_DELAY_MS });
+  }
+  return createGeminiClient(config) ?? null;
 }
 
 const PACKAGE_ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
@@ -89,13 +106,22 @@ export async function buildServer(options: BuildServerOptions): Promise<FastifyI
   const setupCode = config.setupCode ?? generateSetupCode();
 
   await registerAuthRoutes(app, store, limiter, loginFailures);
-  await registerAdminRoutes(app, store, config, limiter, { setupCode, version: VERSION });
+  const now = options.ai?.now ?? Date.now;
+  await registerAdminRoutes(app, store, config, limiter, { setupCode, version: VERSION, now });
   await registerProjectRoutes(app, store, config);
   await registerPlatformRoutes(app, store, config);
   await registerAssignmentRoutes(app, store, config);
-  await registerQualityRoutes(app, store, new QualityService(store, new QualityWorker({ maxOldGenerationSizeMb: config.qualityWorkerMaxMb })));
+  const quality = new QualityService(store, new QualityWorker({ maxOldGenerationSizeMb: config.qualityWorkerMaxMb }));
+  await registerQualityRoutes(app, store, quality);
   await registerRecordRoutes(app, store);
-  await registerAiRoutes(app, store, config);
+  const runs = new AiRunService(store, quality, app.log, {
+    client: options.ai?.client !== undefined ? options.ai.client : aiClientOf(config),
+    model: config.aiFake ? 'fake' : (config.aiModel ?? DEFAULT_AI_MODEL),
+    now,
+    ...options.ai?.runs,
+  });
+  app.decorate('aiRuns', runs);
+  await registerAiRoutes(app, store, config, { runs });
 
   await registerDashboard(app, options.webDir === undefined ? DEFAULT_WEB_DIR : options.webDir);
 

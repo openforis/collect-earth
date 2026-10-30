@@ -2,7 +2,17 @@ import { randomUUID } from 'node:crypto';
 import { generateToken, hashToken } from '../auth.js';
 import { checksumOf, plotCountOf } from '../csv.js';
 import {
+  AI_INTERRUPTED,
+  aiLimitReached,
   DEFAULT_SETTINGS,
+  type AiRunEnd,
+  type AiRunProgress,
+  type AiRunRow,
+  type AiRunStart,
+  type AiRunStartResult,
+  type AiRunSummary,
+  type AiRunWindow,
+  type AiUsage,
   type Assignment,
   type AssignmentDetail,
   type CepInfo,
@@ -50,6 +60,8 @@ interface ProjectEntry {
   holdingsGeneration: number;
   qualitySettings: QualitySettings | null;
   aiEnabled: boolean;
+  /** Oldest first; `startedBy` holds the user id (the username is read when listed). */
+  aiRuns: AiRunRow[];
   decisions: Map<string, StoredDecision>; // key = plot
   notes: Map<string, StoredNote>; // key = id
 }
@@ -134,6 +146,7 @@ export class InMemoryStore implements Store {
       holdingsGeneration: 0,
       qualitySettings: null,
       aiEnabled: false,
+      aiRuns: [],
       decisions: new Map(),
       notes: new Map(),
     });
@@ -910,6 +923,124 @@ export class InMemoryStore implements Store {
 
   private static noteInput(n: GuidanceNoteInput): GuidanceNoteInput {
     return { questionKey: n.questionKey, firstValue: n.firstValue, checkValue: n.checkValue, text: n.text };
+  }
+
+  async startAiRun(projectId: string, start: AiRunStart, w: AiRunWindow): Promise<AiRunStartResult> {
+    const entry = this.requireProject(projectId);
+    this.requireUserOrNull(start.startedBy);
+    // One thread: nothing runs between the checks and the insert, as the lock does in Postgres.
+    InMemoryStore.failStale(entry, w.staleBefore, AI_INTERRUPTED.code, AI_INTERRUPTED.message, w.now);
+    const runs = entry.aiRuns;
+    const limit = aiLimitReached(
+      start.kind,
+      {
+        running: runs.some((r) => r.status === 'running'),
+        reportsToday: runs.filter((r) => r.kind === 'report' && r.status === 'done' && r.startedAt >= w.dayStart).length,
+        answersToday: runs.filter((r) => r.kind !== 'report' && (r.status === 'done' || r.status === 'refused') && r.startedAt >= w.dayStart).length,
+        tokensThisMonth: runs.filter((r) => r.startedAt >= w.monthStart).reduce((n, r) => n + r.inputTokens + r.outputTokens, 0),
+      },
+      w,
+    );
+    if (limit) {
+      return { ok: false, limit };
+    }
+    const run: AiRunRow = {
+      id: randomUUID(),
+      kind: start.kind,
+      status: 'running',
+      startedBy: start.startedBy,
+      startedAt: w.now,
+      finishedAt: null,
+      model: start.model,
+      inputTokens: 0,
+      outputTokens: 0,
+      parentRun: start.parentRun ?? null,
+      findingIndex: start.findingIndex ?? null,
+      action: start.action ?? null,
+      errorCode: null,
+      toolCalls: [],
+      result: null,
+      error: null,
+      question: start.question ?? null,
+    };
+    runs.push(run);
+    return { ok: true, run: this.aiRunOf(run) };
+  }
+
+  async updateAiRun(projectId: string, runId: string, progress: AiRunProgress): Promise<void> {
+    const run = this.projects.get(projectId)?.aiRuns.find((r) => r.id === runId);
+    if (run?.status === 'running') {
+      Object.assign(run, structuredClone({ inputTokens: progress.inputTokens, outputTokens: progress.outputTokens, toolCalls: progress.toolCalls }));
+    }
+  }
+
+  async finishAiRun(projectId: string, runId: string, end: AiRunEnd): Promise<boolean> {
+    const run = this.projects.get(projectId)?.aiRuns.find((r) => r.id === runId);
+    if (run?.status !== 'running') {
+      return false;
+    }
+    Object.assign(run, structuredClone(end));
+    return true;
+  }
+
+  async failStaleAiRuns(projectId: string | null, before: number, code: string, message: string, now: number): Promise<number> {
+    const entries = projectId === null ? [...this.projects.values()] : [this.projects.get(projectId)].filter((e) => e !== undefined);
+    return entries.reduce((n, e) => n + InMemoryStore.failStale(e, before, code, message, now), 0);
+  }
+
+  async listAiRuns(projectId: string, limit: number): Promise<AiRunSummary[]> {
+    const runs = this.projects.get(projectId)?.aiRuns ?? [];
+    return runs
+      .slice()
+      .reverse()
+      .slice(0, limit)
+      .map((r) => {
+        const { toolCalls: _t, result: _r, error: _e, question: _q, ...summary } = this.aiRunOf(r);
+        return summary;
+      });
+  }
+
+  async getAiRun(projectId: string, runId: string): Promise<AiRunRow | null> {
+    const run = this.projects.get(projectId)?.aiRuns.find((r) => r.id === runId);
+    return run ? this.aiRunOf(run) : null;
+  }
+
+  async aiUsageSince(from: number): Promise<AiUsage[]> {
+    const out: AiUsage[] = [];
+    for (const [projectId, entry] of this.projects) {
+      const runs = entry.aiRuns.filter((r) => r.startedAt >= from);
+      if (runs.length === 0) {
+        continue;
+      }
+      out.push({
+        projectId,
+        runs: runs.length,
+        reports: runs.filter((r) => r.kind === 'report').length,
+        followUps: runs.filter((r) => r.kind === 'follow_up').length,
+        questions: runs.filter((r) => r.kind === 'question').length,
+        failed: runs.filter((r) => r.status === 'failed').length,
+        refused: runs.filter((r) => r.status === 'refused').length,
+        inputTokens: runs.reduce((n, r) => n + r.inputTokens, 0),
+        outputTokens: runs.reduce((n, r) => n + r.outputTokens, 0),
+      });
+    }
+    return out.sort((a, b) => (a.projectId < b.projectId ? -1 : a.projectId > b.projectId ? 1 : 0));
+  }
+
+  private static failStale(entry: ProjectEntry, before: number, code: string, message: string, now: number): number {
+    let n = 0;
+    for (const r of entry.aiRuns) {
+      if (r.status === 'running' && r.startedAt < before) {
+        Object.assign(r, { status: 'failed', errorCode: code, error: message, finishedAt: now });
+        n++;
+      }
+    }
+    return n;
+  }
+
+  /** A copy, with the username of who started it. */
+  private aiRunOf(r: AiRunRow): AiRunRow {
+    return { ...structuredClone(r), startedBy: this.usernameOf(r.startedBy) };
   }
 
   private decisionOf(plot: string, d: StoredDecision): QualityDecision {

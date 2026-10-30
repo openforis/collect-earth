@@ -48,6 +48,13 @@ export interface Config {
   aiModel?: string;
   /** True when the assistant can reach Vertex AI: an API key, or a project (and region). */
   aiConfigured?: boolean;
+  /**
+   * Development only (AI_FAKE=1): the assistant answers with a scripted fake that calls
+   * the real tools and writes a report from their results, so the dashboard's panel can
+   * be tried without Vertex AI. Accepted only with the memory store; it makes
+   * `aiConfigured` true and is used instead of Vertex even when a key is set.
+   */
+  aiFake?: boolean;
 }
 
 /**
@@ -81,20 +88,32 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
     rateLimitPerMinute: rateLimitOf(env.RATE_LIMIT_PER_MINUTE),
     trustProxyHops: trustProxyHopsOf(env.TRUST_PROXY_HOPS),
     qualityWorkerMaxMb: qualityWorkerMaxMbOf(env.QUALITY_WORKER_MAX_MB),
-    ...aiConfigOf(env),
+    ...aiConfigOf(env, storeBackend),
   };
 }
 
-function aiConfigOf(env: NodeJS.ProcessEnv): Pick<Config, 'aiVertexApiKey' | 'aiVertexProject' | 'aiVertexRegion' | 'aiModel' | 'aiConfigured'> {
+function aiConfigOf(
+  env: NodeJS.ProcessEnv,
+  storeBackend: Config['storeBackend'],
+): Pick<Config, 'aiVertexApiKey' | 'aiVertexProject' | 'aiVertexRegion' | 'aiModel' | 'aiConfigured' | 'aiFake'> {
   const aiVertexApiKey = nonEmpty(env.AI_VERTEX_API_KEY?.trim());
   const aiVertexProject = nonEmpty(env.AI_VERTEX_PROJECT?.trim());
   const aiVertexRegion = nonEmpty(env.AI_VERTEX_REGION?.trim()) ?? DEFAULT_AI_REGION;
+  const fake = env.AI_FAKE?.trim() ?? '';
+  if (fake !== '' && fake !== '0' && fake !== '1') {
+    throw new Error(`Invalid AI_FAKE "${env.AI_FAKE}" (expected 1, or 0 / unset)`);
+  }
+  const aiFake = fake === '1';
+  if (aiFake && storeBackend !== 'memory') {
+    throw new Error('AI_FAKE=1 is for development only and needs STORE_BACKEND=memory');
+  }
   return {
     aiVertexApiKey,
     aiVertexProject,
     aiVertexRegion,
     aiModel: nonEmpty(env.AI_MODEL?.trim()) ?? DEFAULT_AI_MODEL,
-    aiConfigured: aiVertexApiKey !== undefined || aiVertexProject !== undefined,
+    aiConfigured: aiFake || aiVertexApiKey !== undefined || aiVertexProject !== undefined,
+    ...(aiFake ? { aiFake } : {}),
   };
 }
 

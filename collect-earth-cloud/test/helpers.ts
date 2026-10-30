@@ -1,7 +1,7 @@
 import { gzipSync } from 'node:zlib';
 import type { FastifyInstance } from 'fastify';
 import type { Config } from '../src/config.js';
-import { buildServer } from '../src/server.js';
+import { buildServer, type BuildServerOptions } from '../src/server.js';
 import { InMemoryStore } from '../src/store/memory.js';
 import type { CreateProjectResult } from '../src/store/store.js';
 import type { RecordEnvelope } from '../src/types.js';
@@ -19,7 +19,7 @@ export const TEST_SETUP_CODE = 'TEST-CODE-1234';
  */
 export async function makeContext(
   overrides: Partial<Config> = {},
-  options: { webDir?: string | null } = {},
+  options: { webDir?: string | null; ai?: BuildServerOptions['ai'] } = {},
 ): Promise<TestContext> {
   const store = new InMemoryStore();
   const config: Config = {
@@ -30,7 +30,7 @@ export async function makeContext(
     rateLimitPerMinute: 0,
     ...overrides,
   };
-  const app = await buildServer({ store, config, webDir: options.webDir ?? null });
+  const app = await buildServer({ store, config, webDir: options.webDir ?? null, ...(options.ai ? { ai: options.ai } : {}) });
   return { app, store };
 }
 

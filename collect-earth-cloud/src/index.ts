@@ -42,6 +42,9 @@ async function main(): Promise<void> {
   if (config.storeBackend === 'memory') {
     app.log.warn('STORE_BACKEND=memory: data is not persisted across restarts');
   }
+  if (config.aiFake) {
+    app.log.warn('AI_FAKE=1: the AI assistant is a scripted fake for development, not Gemini; it never calls Vertex AI');
+  }
   if (store instanceof PostgresStore) {
     const rls = await store.rowLevelSecurity();
     if (rls.enforced) {

@@ -1865,6 +1865,141 @@ gets 403; another project gets 404; admin usage has no names or content.
 
 Commit: "Collect Earth Cloud: the assistant runs in the background, one at a time, within daily and monthly limits".
 
+**As built**
+- **Files:** `src/routes/ai.ts` (the switch and the runs), `src/ai/service.ts` (`AiRunService`:
+  limits, background runs, progress, recovery), `src/ai/fake.ts` (the development fake),
+  `routes/admin.ts` (`/admin/ai-usage`), the store methods below, `aiLimitReached` and the run
+  types in `src/types.ts`. One `QualityService` is now shared by the quality routes and the
+  runs (`server.ts`). `buildServer({ ai: { client, now, runs } })` lets tests inject a client
+  and a clock; `app.aiRuns.idle()` waits for the runs in flight.
+- **Who** (`POST /v1/projects/:pid/ai/runs`), checked in this order:
+  - no token 401; another project (or none) 404; an operator 403 `forbidden`;
+  - a project token (admin too) 403 `user_session_required`: runs are kept under the person;
+  - the server's assistant not available (`aiAvailable`), or no client: 409 `ai_unavailable`;
+  - the project's switch off: 409 `ai_not_enabled`;
+  - the body (400 `bad_request`, or 404 `not_found` for a parent that is not a finished report
+    of this project); then the limits.
+  - `GET` takes the project's admin token too, and works when the assistant is switched off
+    (past reports stay readable). Collectors 403.
+- **Bodies** (`language` optional, `en|es|fr|pt`, default `en`; the answer is written in it):
+  - `{ kind: 'report' }`;
+  - `{ kind: 'follow_up', parentRunId, findingIndex, action: 'explain'|'draft_note'|'recheck' }`:
+    `findingIndex` a whole number within the parent's findings;
+  - `{ kind: 'question', parentRunId, question }`: 1-300 characters after removing control and
+    format characters and trimming (as `runQuestion`).
+  - → `202 { runId }`.
+- **Refusals before starting:**
+  - `409 { error: 'busy', reason }`;
+  - `429 { error: 'ai_daily_limit', limit: 'reports'|'follow_ups', resetsAt, reason }`;
+  - `429 { error: 'ai_monthly_limit', resetsAt, reason }`.
+  - `resetsAt` is ms since the epoch: the next UTC midnight, or the first day of the next UTC
+    month (`limitWindows`). The web says it in local time.
+- **The limits** (`aiLimitReached`, the same in both stores), checked under a per-project lock
+  so two requests (or two instances) cannot both pass:
+  1. **Busy:** a row `running`. First, running rows that started more than 10 minutes ago
+     (`RUN_STALE_MS`) become `failed`, `errorCode: 'interrupted'`.
+  2. **Per UTC day**, by `started_at`: a report against `aiReportsPerDay` counts reports `done`;
+     a follow-up or question against `aiFollowUpsPerDay` counts follow-ups and questions
+     `done` **or `refused`** (refused questions count, as planned). **Failed runs do not count.**
+  3. **Per UTC month:** the input + output tokens of **every** run this month, **failed ones
+     too**: their tokens were spent and billed, so counting them is the safe choice for the
+     owner's bill. A failed run does not use up a daily report, but it does use the budget.
+  - `0` allows none for each (0 ≥ 0). The order is busy, then daily, then monthly.
+  - **Accepted:** the budget is checked before a run starts, so the last run of the month can
+    go past it by at most one run (≤ 200k input tokens, the run's own cap, plus its output).
+- **Running:** the row is inserted `running` (`started_at` = the clock), then `setImmediate`
+  runs it in this process. It loads the cached `QualityReport` (waiting 5 s and trying again
+  while the worker is busy with other projects), the served CEP's outline
+  (`QualityService.outline`, already public), the notes, the members and `loadPlotContext`;
+  `plotRecords` reads `listRecordSummaries` once, on the first `get_plot`. Each `onProgress`
+  writes the tokens and tool calls (`{ name, args (validated, pseudonymous), ok }`) to the row;
+  a failed progress write is logged and the run goes on. The end is written only while the
+  row is still `running`:
+  - `done`: `result` = `StoredResult` `{ result (pseudonymous), pseudonyms, plots }`;
+  - `refused`: `error` = the refusal text in the run's language, `errorCode: 'off_topic'`;
+  - `failed`: `error` = `FAILURE_MESSAGES[code]`, `errorCode` = the code; the cause (block
+    reason, `AiError`, exception) goes to the server log only. A context that cannot load is
+    `server_error`.
+- **Time limit and crashes:**
+  - a run has 9 minutes (`RUN_DEADLINE_MS`): its client wrapper starts no call after that,
+    caps each call's `timeoutMs` to what is left and races it, so a live run is always younger
+    than the 10-minute stale rule (then `ai_timeout`);
+  - `app.close()` (SIGTERM) fails this process's runs in flight as `interrupted`; a late end
+    changes nothing;
+  - **at boot** (`onReady`, in the background; `onClose` waits for it) every project's running
+    rows **older than 10 minutes** become `interrupted`. Newer ones are left alone: with up to
+    4 Cloud Run instances, another instance may still be running them. So a run of a crashed
+    process shows `running`, and the project is busy, for up to 10 minutes after it started;
+    then the next start, list or read of that project (each runs the same cleanup) fails it.
+- **Reading** (both run the stale cleanup first):
+  - `GET /v1/projects/:pid/ai/runs?limit=` (1-200, default 50), newest first →
+    `{ runs: [{ id, kind, status, startedAt, finishedAt, startedBy (username, null once the
+    account is deleted), inputTokens, outputTokens, tokens, parentRunId, findingIndex, action,
+    errorCode }] }`. No result, no question, no tool arguments.
+  - `GET /v1/projects/:pid/ai/runs/:id` → the same fields plus
+    `question` (null but for questions), `progress: { tools: [tool names so far] }`,
+    `result` (`withRealNames` of the stored result when `done`, else null: usernames and plot
+    ids; drafts get plot ids only), `error: { code, message } | null` (failed), and
+    `refusal: string | null` (refused). 404 for a run of another project or a bad id.
+  - `ai_runs` keeps the pseudonymous result: real names exist only in the response.
+- **Migration 011, edited in place** (branch only; `ADD COLUMN IF NOT EXISTS` for databases
+  that ran it before): `error_code TEXT`, `action` (CHECK the three actions), `question`
+  (CHECK ≤ 300 characters), and a unique partial index `(project_id) WHERE status =
+  'running'`: one running run per project in the database too.
+- **Store** (both): `startAiRun(projectId, start, window)` (lock: `pg_advisory_xact_lock` on
+  the project inside `withProject`; stale cleanup, counts, insert), `updateAiRun`,
+  `finishAiRun` (false when no longer running), `failStaleAiRuns(projectId | null, …)`,
+  `listAiRuns`, `getAiRun`, `aiUsageSince(from)`.
+- **Across projects under RLS** (boot cleanup and the usage route): the app role sees one
+  project's runs at a time, so `eachProject` opens one transaction (read-only for the usage),
+  reads the project ids from `project_tokens` (not under RLS; every project has its two tokens
+  from `createProject` until `deleteProject`), and for each sets `app.current_project` and runs
+  its query, as `listMemberships` does. Nothing bypasses RLS (no SECURITY DEFINER, no owner
+  connection). Cost: two small queries per project; the usage page is rare and the boot
+  cleanup does not hold up the boot.
+- **Platform admin** `GET /v1/admin/ai-usage` (platform admin session; others 403, no session
+  or a project token 401) → `{ month: 'YYYY-MM', from, until, projects: [{ projectId, runs,
+  reports, followUps, questions, failed, refused, inputTokens, outputTokens, tokens }],
+  totals: { the same counts } }`, this UTC month by `started_at`, projects without runs left
+  out, most tokens first. Project ids only: no names, questions, results, usernames or tools.
+- **`AI_FAKE=1`** (`config.aiFake`): accepted only with `STORE_BACKEND=memory` (`loadConfig`
+  throws otherwise; any other value than `1`/`0` too). It makes `aiConfigured` true and wires
+  `createFakeClient({ delayMs: 700 })` (model `fake`) instead of Vertex, even with a key; the
+  boot log warns. The owner still switches the assistant on in Server settings, then the
+  project. The fake plays the model with the real tools: a report calls `get_agreement` and
+  `get_differences`, then writes one finding on the question that agrees least (its differing
+  plots, the first assessors as pseudonyms, "n of N checks …" from the tool figures, a draft
+  note, a survey change), which the run's validator and number check accept; with no checks
+  the report has no findings. Follow-ups call `get_confusions` and answer by action; a
+  question passes its topic check unless it asks for poems, code, jokes, translations… Texts
+  start "Test assistant (no AI model):" and are in English only.
+- **Not done here, for Task 19 (DEPLOY.md):** on Cloud Run with request-based billing, CPU is
+  throttled between requests, and a run works between them. The dashboard's polling (every
+  2 s) gives it some CPU, but a run can be slow or reach its 9 minutes; instance-based billing
+  (`--no-cpu-throttling`) avoids that. To decide with the owner.
+- **Tests:** `test/ai.runs.test.ts` (16): the fake end to end through the routes (report,
+  follow-ups, a draft note in Spanish, off-topic questions refused in two languages, an
+  on-topic question, the list); real names in responses and pseudonyms in `ai_runs` (results
+  and tool arguments); who (operator, collector, project tokens, another project, switches,
+  no client, not configured); the body; busy (also before the daily limit, and another
+  project not held up); stale cleanup on start, on read and at boot (only past the limit); a
+  stopping server; a failed run's code and tokens; each limit with its `resetsAt` (UTC
+  midnight, next month, `0`), failed runs not counted daily but counted monthly, refused
+  questions counted; the usage route (no names or content, last month left out, admins only);
+  `limitWindows`; `AI_FAKE` parsing and a server with it.
+- **Postgres** (postgres:16, owner without superuser, server as the app role):
+  - `pgtask15.mts`, 30 checks: the columns; a report, a refused question, the list and the
+    stored JSONB as the app role; two starts at once (one 202, one 409); the unique index;
+    stale cleanup on start and at boot across projects (an old row failed, a recent one left
+    running and busy); the daily, monthly and follow-up limits; the usage across two projects
+    with no names or content; RLS on `ai_runs` with a forged project id (another project's runs
+    not seen, updated, deleted or written; none with no project set); `deleteProject`.
+  - The whole server suite with `PostgresStore` as the app role: the 9 known memory-store
+    failures, plus one of the new tests that makes two servers on the one shared database (the
+    second setup is `already_set_up`), the same kind as the known `aiAvailable` one. The boot
+    cleanup first ran in the background past `app.close()`, and a test's TRUNCATE deadlocked
+    with it; `onClose` now waits for it.
+
 ---
 
 ## Part E: the dashboard

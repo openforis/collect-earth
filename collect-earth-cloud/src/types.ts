@@ -255,3 +255,120 @@ export interface GuidanceNote extends GuidanceNoteInput {
   updatedBy: string | null;
   updatedAt: number;
 }
+
+// --- The AI assistant's runs (ai_runs, migration 011) ---
+
+export type AiRunKind = 'report' | 'follow_up' | 'question';
+export type AiRunStatus = 'running' | 'done' | 'failed' | 'refused';
+
+/** One tool call of a run as stored: our tool's name (or "unknown"), the arguments as validated (pseudonymous), and whether it worked. */
+export interface AiToolCall {
+  name: string;
+  args: Record<string, unknown> | null;
+  ok: boolean;
+}
+
+/** A run as listed: no result, no question, no tool arguments. */
+export interface AiRunSummary {
+  id: string;
+  kind: AiRunKind;
+  status: AiRunStatus;
+  /** Username of who started it; null once the account is deleted. */
+  startedBy: string | null;
+  startedAt: number;
+  finishedAt: number | null;
+  model: string;
+  inputTokens: number;
+  outputTokens: number;
+  parentRun: string | null;
+  findingIndex: number | null;
+  action: string | null;
+  /** Why it failed (a FailureCode of src/ai/run.ts, or `interrupted`); `off_topic` when refused. */
+  errorCode: string | null;
+}
+
+/** A run as stored. `result` is pseudonymous: `{ result, pseudonyms, plots }` (StoredResult). */
+export interface AiRunRow extends AiRunSummary {
+  toolCalls: AiToolCall[];
+  result: unknown | null;
+  /** The failure's plain English text, or the refusal shown to the coordinator. */
+  error: string | null;
+  question: string | null;
+}
+
+export interface AiRunStart {
+  kind: AiRunKind;
+  /** The user who started it (a person: runs need a signed-in coordinator). */
+  startedBy: string;
+  model: string;
+  parentRun?: string | null;
+  findingIndex?: number | null;
+  action?: string | null;
+  question?: string | null;
+}
+
+/**
+ * The limits a new run is checked against, in this order: one running run per project
+ * (rows still running that started before `staleBefore` are failed first, as
+ * `interrupted`), the day's runs of its kind, then the month's tokens. Times in ms.
+ */
+export interface AiRunWindow {
+  now: number;
+  staleBefore: number;
+  dayStart: number;
+  monthStart: number;
+  reportsPerDay: number;
+  followUpsPerDay: number;
+  monthlyTokens: number;
+}
+
+/** What counts toward the limits, as a store reads it under its lock. */
+export interface AiRunCounts {
+  running: boolean;
+  /** Reports done today (UTC). Failed ones do not count. */
+  reportsToday: number;
+  /** Follow-ups and questions done or refused today (UTC). Failed ones do not count. */
+  answersToday: number;
+  /** Input and output tokens of every run this month (UTC), failed ones too. */
+  tokensThisMonth: number;
+}
+
+export type AiRunStartResult = { ok: true; run: AiRunRow } | { ok: false; limit: 'busy' | 'daily' | 'monthly' };
+
+export interface AiRunProgress {
+  inputTokens: number;
+  outputTokens: number;
+  toolCalls: AiToolCall[];
+}
+
+export interface AiRunEnd extends AiRunProgress {
+  status: 'done' | 'failed' | 'refused';
+  result: unknown | null;
+  error: string | null;
+  errorCode: string | null;
+  finishedAt: number;
+}
+
+/** One project's AI use since a time, for the server owner: counts only, never names or content (§4b). */
+export interface AiUsage {
+  projectId: string;
+  runs: number;
+  reports: number;
+  followUps: number;
+  questions: number;
+  failed: number;
+  refused: number;
+  inputTokens: number;
+  outputTokens: number;
+}
+
+/** Which limit a new run would pass first, or null when it may start (AiRunWindow's order). */
+export function aiLimitReached(kind: AiRunKind, counts: AiRunCounts, w: AiRunWindow): 'busy' | 'daily' | 'monthly' | null {
+  if (counts.running) return 'busy';
+  if (kind === 'report' ? counts.reportsToday >= w.reportsPerDay : counts.answersToday >= w.followUpsPerDay) return 'daily';
+  if (counts.tokensThisMonth >= w.monthlyTokens) return 'monthly';
+  return null;
+}
+
+/** The failure of a run that was still running when its server stopped, or long past its time limit. */
+export const AI_INTERRUPTED = { code: 'interrupted', message: 'The assistant stopped before it finished: the server restarted, or the run took too long.' } as const;

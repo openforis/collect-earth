@@ -1,4 +1,12 @@
 import type {
+  AiRunEnd,
+  AiRunProgress,
+  AiRunRow,
+  AiRunStart,
+  AiRunStartResult,
+  AiRunSummary,
+  AiRunWindow,
+  AiUsage,
   Assignment,
   AssignmentDetail,
   CepInfo,
@@ -245,6 +253,31 @@ export interface Store {
   updateGuidanceNote(projectId: string, id: string, note: GuidanceNoteInput, userId: string | null): Promise<GuidanceNote | null>;
   /** False when the project has no note with that id. */
   deleteGuidanceNote(projectId: string, id: string): Promise<boolean>;
+
+  // --- The AI assistant's runs (ai_runs) ---
+
+  /**
+   * Starts a run if the limits allow it, atomically per project (two requests at once
+   * cannot both pass): rows still running that started before `window.staleBefore` are
+   * failed as `interrupted` first, then the limits are checked in AiRunWindow's order
+   * (aiLimitReached), then the run is stored as running with `startedAt = window.now`.
+   */
+  startAiRun(projectId: string, start: AiRunStart, window: AiRunWindow): Promise<AiRunStartResult>;
+  /** Stores a running run's progress (tokens, tool calls); nothing when it is no longer running. */
+  updateAiRun(projectId: string, runId: string, progress: AiRunProgress): Promise<void>;
+  /** Ends a running run; false (and nothing changed) when it is no longer running. */
+  finishAiRun(projectId: string, runId: string, end: AiRunEnd): Promise<boolean>;
+  /**
+   * Fails the runs still running that started before `before` (crashed or cut off) with
+   * `code` and `message`: of one project, or of every project with null. How many.
+   */
+  failStaleAiRuns(projectId: string | null, before: number, code: string, message: string, now: number): Promise<number>;
+  /** The project's runs, newest first, at most `limit`. */
+  listAiRuns(projectId: string, limit: number): Promise<AiRunSummary[]>;
+  /** Null when the project has no run with that id. */
+  getAiRun(projectId: string, runId: string): Promise<AiRunRow | null>;
+  /** Every project's AI use for runs started at or after `from`, by project id only; projects without runs are left out. */
+  aiUsageSince(from: number): Promise<AiUsage[]>;
 
   close(): Promise<void>;
 }
