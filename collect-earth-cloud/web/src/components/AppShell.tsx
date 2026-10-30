@@ -3,6 +3,7 @@ import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
 import Container from "@mui/material/Container";
 import Divider from "@mui/material/Divider";
+import GlobalStyles from "@mui/material/GlobalStyles";
 import IconButton from "@mui/material/IconButton";
 import Link from "@mui/material/Link";
 import ListItemIcon from "@mui/material/ListItemIcon";
@@ -135,12 +136,23 @@ function Footer() {
   );
 }
 
+/** Printed pages (the reports): no app bar, footer or buttons, on white. */
+const PRINT_STYLES = {
+  "@media print": {
+    ".MuiAppBar-root, footer, .MuiButton-root, .MuiIconButton-root, .no-print": { display: "none !important" },
+    "body, .app-page": { background: "#fff !important" },
+    "main.MuiContainer-root": { maxWidth: "none !important", padding: "0 !important" },
+    "a[href]": { color: "inherit", textDecoration: "none" },
+  },
+} as const;
+
 /** The app bar (name, language, account), the page column and the footer. */
 export function AppShell({ children, narrow }: { children: ReactNode; narrow?: boolean }) {
   const t = useT();
   const { info } = useApp();
   return (
-    <Box sx={{ minHeight: "100vh", bgcolor: "background.default", display: "flex", flexDirection: "column" }}>
+    <Box className="app-page" sx={{ minHeight: "100vh", bgcolor: "background.default", display: "flex", flexDirection: "column" }}>
+      <GlobalStyles styles={PRINT_STYLES} />
       <AppBar position="sticky" color="primary">
         <Toolbar sx={{ gap: 1 }}>
           <Button color="inherit" {...linkProps("/")} startIcon={<Public />} sx={{ fontSize: "1.1rem", px: 1, mr: "auto", minWidth: 0 }}>

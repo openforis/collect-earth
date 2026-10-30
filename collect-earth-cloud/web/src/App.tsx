@@ -15,6 +15,7 @@ import { LoginPage } from "./pages/LoginPage";
 import { NotFoundPage } from "./pages/NotFoundPage";
 import { ProjectPage } from "./pages/ProjectPage";
 import { ProjectsPage } from "./pages/ProjectsPage";
+import { MyQualityPage, TeamReportPage } from "./pages/ReportPages";
 import { ResetPage } from "./pages/ResetPage";
 import { ServerPage } from "./pages/ServerPage";
 import { SetupPage } from "./pages/SetupPage";
@@ -30,6 +31,10 @@ function RoutePage({ route }: { route: Route }) {
       return <ProjectPage key={route.projectId} projectId={route.projectId} tab={route.tab} />;
     case "plotFile":
       return <ProjectPage key={route.projectId} projectId={route.projectId} tab="plots" fileId={route.fileId} />;
+    case "myQuality":
+      return <MyQualityPage key={route.projectId} projectId={route.projectId} />;
+    case "teamReport":
+      return <TeamReportPage key={route.projectId} projectId={route.projectId} />;
     case "join":
       return <JoinPage token={route.token} />;
     case "reset":

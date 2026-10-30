@@ -1,3 +1,4 @@
+import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
 import Paper from "@mui/material/Paper";
 import Tab from "@mui/material/Tab";
@@ -74,6 +75,11 @@ export function ProjectPage({ projectId, tab, fileId }: { projectId: string; tab
             <span style={{ display: "block", marginBottom: 12 }}>{t("member.text", { role: t(`role.${info.role}`) })}</span>
             <span style={{ display: "block" }}>{t("member.notThere")}</span>
           </EmptyState>
+          <Box sx={{ textAlign: "center", pb: 4 }}>
+            <Button variant="contained" {...linkProps(pathFor({ name: "myQuality", projectId }))}>
+              {t("myQuality.link")}
+            </Button>
+          </Box>
         </Paper>
       </AppShell>
     );

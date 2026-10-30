@@ -20,12 +20,15 @@ describe("matchRoute", () => {
     ["/join/AbC_123", { name: "join", token: "AbC_123" }],
     ["/join/a%2Bb", { name: "join", token: "a+b" }],
     ["/reset/tok", { name: "reset", token: "tok" }],
+    ["/projects/p-1/my-quality", { name: "myQuality", projectId: "p-1" }],
+    ["/projects/p%201/my-quality", { name: "myQuality", projectId: "p 1" }],
+    ["/projects/p-1/quality/team-report", { name: "teamReport", projectId: "p-1" }],
   ])("%s", (path, route) => {
     expect(matchRoute(path)).toEqual(route);
   });
 
   it("anything else is not found", () => {
-    for (const path of ["/projects/p/nope", "/projects/p/people/x", "/projects/p/plots/f/x", "/join", "/join/a/b", "/whatever", "/reset/%E0%A4%A"]) {
+    for (const path of ["/projects/p/nope", "/projects/p/people/x", "/projects/p/plots/f/x", "/projects/p/my-quality/x", "/projects/p/quality/other", "/projects/p/quality/team-report/x", "/join", "/join/a/b", "/whatever", "/reset/%E0%A4%A"]) {
       expect(matchRoute(path).name, path).toBe("notFound");
     }
   });
@@ -41,10 +44,14 @@ describe("matchRoute", () => {
       { name: "join", token: "t/ok en" },
       { name: "reset", token: "r" },
       { name: "plotFile", projectId: "p 1", fileId: "f/2" },
+      { name: "myQuality", projectId: "p/1" },
+      { name: "teamReport", projectId: "p?1" },
       ...PROJECT_TABS.map((tab) => ({ name: "project" as const, projectId: "id with space", tab })),
     ];
     for (const route of routes) expect(matchRoute(pathFor(route))).toEqual(route);
     expect(pathFor({ name: "project", projectId: "p", tab: "overview" })).toBe("/projects/p");
+    expect(pathFor({ name: "myQuality", projectId: "p" })).toBe("/projects/p/my-quality");
+    expect(pathFor({ name: "teamReport", projectId: "p" })).toBe("/projects/p/quality/team-report");
   });
 });
 

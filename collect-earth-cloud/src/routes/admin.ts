@@ -207,7 +207,8 @@ export async function registerAdminRoutes(
   app.get(
     '/v1/admin/settings',
     { preHandler: requirePlatformAdmin(store) },
-    async (_request: FastifyRequest, reply: FastifyReply) => reply.send(await store.getSettings()),
+    // aiConfigured: only whether the AI configuration is there (never the key or the Vertex settings).
+    async (_request: FastifyRequest, reply: FastifyReply) => reply.send({ ...(await store.getSettings()), aiConfigured: config.aiConfigured === true }),
   );
 
   app.put(
@@ -266,7 +267,7 @@ export async function registerAdminRoutes(
           patch[key] = r.value;
         }
       }
-      return reply.send(await store.updateSettings(patch));
+      return reply.send({ ...(await store.updateSettings(patch)), aiConfigured: config.aiConfigured === true });
     },
   );
 

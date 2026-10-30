@@ -15,6 +15,10 @@ export type Route =
   | { name: "project"; projectId: string; tab: ProjectTab }
   /** One plot file of a project, where its plots are divided between people (under the Plot files tab). */
   | { name: "plotFile"; projectId: string; fileId: string }
+  /** A member's own quality report (any member with an account), printable. */
+  | { name: "myQuality"; projectId: string }
+  /** The coordinators' printable team report, for training (no names). */
+  | { name: "teamReport"; projectId: string }
   | { name: "join"; token: string }
   | { name: "reset"; token: string }
   | { name: "account" }
@@ -59,6 +63,14 @@ export function matchRoute(pathname: string): Route {
     const token = decode(second);
     if (token) return { name: "reset", token };
   }
+  if (first === "projects" && parts.length === 3 && third === "my-quality") {
+    const projectId = decode(second);
+    if (projectId) return { name: "myQuality", projectId };
+  }
+  if (first === "projects" && parts.length === 4 && third === "quality" && fourth === "team-report") {
+    const projectId = decode(second);
+    if (projectId) return { name: "teamReport", projectId };
+  }
   if (first === "projects" && (parts.length === 2 || parts.length === 3)) {
     const projectId = decode(second);
     const tab = (third ?? "overview") as ProjectTab;
@@ -81,6 +93,10 @@ export function pathFor(route: Route): string {
       return `/projects/${encodeURIComponent(route.projectId)}${route.tab === "overview" ? "" : `/${route.tab}`}`;
     case "plotFile":
       return `/projects/${encodeURIComponent(route.projectId)}/plots/${encodeURIComponent(route.fileId)}`;
+    case "myQuality":
+      return `/projects/${encodeURIComponent(route.projectId)}/my-quality`;
+    case "teamReport":
+      return `/projects/${encodeURIComponent(route.projectId)}/quality/team-report`;
     case "join":
       return `/join/${encodeURIComponent(route.token)}`;
     case "reset":

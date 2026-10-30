@@ -39,6 +39,12 @@ export const DIFFERENCES_PAGE = 10;
 /** The most differences the server lists (MAX_DIFFERENCES). */
 const MAX_LISTED = 500;
 
+/** A plot to bring into view (a link of the AI assistant); `at` tells two clicks on the same plot apart. */
+export interface PlotFocus {
+  plot: string;
+  at: number;
+}
+
 const DECISIONS: { kind: DecisionKind; label: MessageKey }[] = [
   { kind: "first", label: "quality.decision.first" },
   { kind: "check", label: "quality.decision.check" },
@@ -133,7 +139,14 @@ function PlotDifferences({
     });
 
   return (
-    <Paper variant="outlined" component="article" sx={{ p: { xs: 1.5, sm: 2 } }}>
+    <Paper
+      variant="outlined"
+      component="article"
+      data-plot={plot}
+      tabIndex={-1}
+      aria-labelledby={headingId}
+      sx={{ p: { xs: 1.5, sm: 2 }, scrollMarginTop: 72, "&:focus-visible": { outline: "2px solid", outlineColor: "primary.main" } }}
+    >
       <Stack spacing={1.5}>
         <Stack direction="row" spacing={2} useFlexGap sx={{ alignItems: "center", flexWrap: "wrap" }}>
           <Typography variant="h3" id={headingId} sx={{ wordBreak: "break-word" }}>
@@ -200,10 +213,13 @@ function PlotDifferences({
 export function QualityDifferences({
   projectId,
   data,
+  focus,
   onDecision,
 }: {
   projectId: string;
   data: QualityData;
+  /** A plot to show: its page is opened and it is scrolled into view. */
+  focus?: PlotFocus | null;
   /** A plot's decision was made (or undone, with null). */
   onDecision: (plot: string, decision: QualityDecision | null) => void;
 }) {
@@ -226,6 +242,32 @@ export function QualityDifferences({
   const shown = listed.slice((current - 1) * DIFFERENCES_PAGE, current * DIFFERENCES_PAGE);
   const missing = unsupportedSrs === null ? shown.map((g) => g.plot).filter((plot) => !places.has(plot)) : [];
   const missingKey = missing.join("\u0000");
+  /** The plot to scroll to once its page is shown. */
+  const [scrollTo, setScrollTo] = useState<string | null>(null);
+
+  // A plot asked for from elsewhere: open its page (showing decided plots again if it is one).
+  useEffect(() => {
+    if (!focus) return;
+    let index = listed.findIndex((g) => g.plot === focus.plot);
+    if (index < 0 && hideDecided) {
+      index = groups.findIndex((g) => g.plot === focus.plot);
+      if (index >= 0) setHideDecided(false);
+    }
+    if (index < 0) return;
+    setPage(Math.floor(index / DIFFERENCES_PAGE) + 1);
+    setScrollTo(focus.plot);
+    // Only a new focus moves the page; the list changing under it does not.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [focus]);
+
+  useEffect(() => {
+    if (scrollTo === null) return;
+    const card = top.current?.querySelector<HTMLElement>(`[data-plot="${CSS.escape(scrollTo)}"]`);
+    if (!card) return;
+    card.scrollIntoView?.({ block: "start" });
+    card.focus({ preventScroll: true });
+    setScrollTo(null);
+  }, [scrollTo, current, hideDecided]);
 
   // Where the plots of this page are, for their Google Earth links (no link when that fails).
   useEffect(() => {

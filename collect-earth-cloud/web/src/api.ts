@@ -20,6 +20,8 @@ export interface ServerInfo {
   contactEmail: string | null;
   /** Shown in the app bar instead of "Collect Earth Cloud". */
   serverName: string | null;
+  /** The AI assistant can be switched on for a project (set up and switched on by the server owner). */
+  aiAvailable: boolean;
 }
 
 export interface Session {
@@ -289,6 +291,16 @@ export interface ServerSettings {
   termsUrl: string | null;
   contactEmail: string | null;
   serverName: string | null;
+  /** The AI assistant may be used on this server (it also needs the server's AI configuration). */
+  aiEnabled: boolean;
+  /** AI reports per project per UTC day; 0 = none allowed. */
+  aiReportsPerDay: number;
+  /** AI follow-ups and questions per project per UTC day; 0 = none allowed. */
+  aiFollowUpsPerDay: number;
+  /** AI tokens per project per calendar month (UTC); 0 = none allowed. */
+  aiMonthlyTokens: number;
+  /** Read only: whether the server has its AI configuration (Vertex AI). */
+  aiConfigured: boolean;
 }
 
 export interface AdminUser {
@@ -403,6 +415,10 @@ const CODE_MESSAGES: Record<string, MessageKey> = {
   // The quality figures (GET /quality and the reports).
   busy: "quality.busy",
   quality_failed: "quality.failed",
+  // The AI assistant (its limits and "busy" are told by the assistant's panel).
+  user_session_required: "ai.sessionRequired",
+  ai_unavailable: "ai.unavailable",
+  ai_not_enabled: "ai.notEnabled",
 };
 
 /** The sentence (message key) to show a person for any error thrown by this module. */
@@ -580,6 +596,7 @@ export async function getServerInfo(): Promise<ServerInfo> {
       termsUrl: safeUrl(info?.termsUrl),
       contactEmail: optionalText(info?.contactEmail),
       serverName: optionalText(info?.serverName),
+      aiAvailable: info?.aiAvailable === true,
     };
   } catch (error) {
     // A server from before the dashboard existed: no setup, no sign-up.
@@ -592,6 +609,7 @@ export async function getServerInfo(): Promise<ServerInfo> {
         termsUrl: null,
         contactEmail: null,
         serverName: null,
+        aiAvailable: false,
       };
     }
     throw error;
@@ -1076,6 +1094,306 @@ export async function getPlotPlaces(projectId: string, plots: string[]): Promise
   return { places, unsupportedSrs: typeof body?.unsupportedSrs === "string" && body.unsupportedSrs !== "" ? body.unsupportedSrs : null };
 }
 
+// --- the AI assistant -------------------------------------------------------------------
+
+export type AiRunKind = "report" | "follow_up" | "question";
+export type AiRunStatus = "running" | "done" | "failed" | "refused";
+export type FollowUpAction = "explain" | "draft_note" | "recheck";
+export type FindingCause = "unclear_question" | "overlapping_options" | "person_habit" | "number_typing" | "other";
+const CAUSES: FindingCause[] = ["unclear_question", "overlapping_options", "person_habit", "number_typing", "other"];
+
+/** The assistant in a project: switched on here, and available on the server. */
+export interface ProjectAi {
+  enabled: boolean;
+  available: boolean;
+}
+
+/** A run as listed: who, when and what, never its result. */
+export interface AiRunSummary {
+  id: string;
+  kind: AiRunKind;
+  status: AiRunStatus;
+  startedAt: number | null;
+  finishedAt: number | null;
+  /** The username, null once the account is deleted. */
+  startedBy: string | null;
+  tokens: number;
+  parentRunId: string | null;
+  findingIndex: number | null;
+  action: FollowUpAction | null;
+  /** Why it failed (blocked, ai_timeout...) or off_topic for a refused question. */
+  errorCode: string | null;
+}
+
+/** A finding of a report, with real names and plot ids (the model's text, shown as plain text only). */
+export interface AiFinding {
+  title: string;
+  explanation: string;
+  cause: FindingCause;
+  /** Question keys, as in the quality figures. */
+  questions: string[];
+  persons: string[];
+  plots: string[];
+  suggestedNote: string | null;
+}
+
+export interface AiReport {
+  summary: string;
+  findings: AiFinding[];
+  recheckPlots: string[];
+  surveyChanges: { question: string; suggestion: string }[];
+}
+
+/** The answer of a follow-up or a question. */
+export interface AiAnswer {
+  text: string;
+  plots: string[];
+  note: string | null;
+}
+
+export interface AiRun extends AiRunSummary {
+  /** The free question asked (questions only). */
+  question: string | null;
+  /** The tools used so far, in order. */
+  tools: string[];
+  report: AiReport | null;
+  answer: AiAnswer | null;
+  /** The server's refusal text, in the run's language (refused runs). */
+  refusal: string | null;
+}
+
+export type AiStart =
+  | { kind: "report" }
+  | { kind: "follow_up"; parentRunId: string; findingIndex: number; action: FollowUpAction }
+  | { kind: "question"; parentRunId: string; question: string };
+
+const RUN_KINDS: AiRunKind[] = ["report", "follow_up", "question"];
+const RUN_STATUSES: AiRunStatus[] = ["running", "done", "failed", "refused"];
+const ACTIONS: FollowUpAction[] = ["explain", "draft_note", "recheck"];
+
+function toRunSummary(value: unknown): AiRunSummary {
+  const r = obj(value);
+  return {
+    id: text(r.id),
+    kind: RUN_KINDS.includes(r.kind as AiRunKind) ? (r.kind as AiRunKind) : "report",
+    status: RUN_STATUSES.includes(r.status as AiRunStatus) ? (r.status as AiRunStatus) : "failed",
+    startedAt: toMillis(r.startedAt),
+    finishedAt: toMillis(r.finishedAt),
+    startedBy: nullableText(r.startedBy),
+    tokens: toCount(r.tokens),
+    parentRunId: nullableText(r.parentRunId),
+    findingIndex: typeof r.findingIndex === "number" && Number.isInteger(r.findingIndex) ? r.findingIndex : null,
+    action: ACTIONS.includes(r.action as FollowUpAction) ? (r.action as FollowUpAction) : null,
+    errorCode: nullableText(r.errorCode),
+  };
+}
+
+function toFinding(value: unknown): AiFinding {
+  const f = obj(value);
+  return {
+    title: text(f.title),
+    explanation: text(f.explanation),
+    cause: CAUSES.includes(f.cause as FindingCause) ? (f.cause as FindingCause) : "other",
+    questions: strings(f.questions),
+    persons: strings(f.persons),
+    plots: strings(f.plots),
+    suggestedNote: nullableText(f.suggestedNote),
+  };
+}
+
+/** One run with its result: a report for a report, an answer for a follow-up or a question. */
+export function toAiRun(body: unknown): AiRun {
+  const b = obj(body);
+  const summary = toRunSummary(b);
+  const result = b.result && typeof b.result === "object" ? obj(b.result) : null;
+  const done = summary.status === "done" && result !== null;
+  return {
+    ...summary,
+    question: nullableText(b.question),
+    tools: strings(obj(b.progress).tools),
+    report:
+      done && summary.kind === "report"
+        ? {
+            summary: text(result.summary),
+            findings: list(result.findings).map(toFinding),
+            recheckPlots: strings(result.recheckPlots),
+            surveyChanges: list(result.surveyChanges).map((c) => ({ question: text(c.question), suggestion: text(c.suggestion) })),
+          }
+        : null,
+    answer: done && summary.kind !== "report" ? { text: text(result.text), plots: strings(result.plots), note: nullableText(result.note) } : null,
+    refusal: nullableText(b.refusal),
+  };
+}
+
+export async function getProjectAi(projectId: string): Promise<ProjectAi> {
+  const body = obj(await request<unknown>("GET", `${p(projectId)}/ai`));
+  return { enabled: body.enabled === true, available: body.available === true };
+}
+
+/** Switches the assistant on or off for a project (a person's session only: a project key gets 403 user_session_required). */
+export async function setProjectAi(projectId: string, enabled: boolean): Promise<ProjectAi> {
+  const body = obj(await request<unknown>("PUT", `${p(projectId)}/ai`, { json: { enabled } }));
+  return { enabled: body.enabled === true, available: body.available === true };
+}
+
+/**
+ * Starts a run in the dashboard's language; returns its id. Refusals: 409 busy, 429
+ * ai_daily_limit / ai_monthly_limit with `resetsAt` (ms, or null for a limit of 0) in details.
+ */
+export async function startAiRun(projectId: string, start: AiStart, language: string): Promise<string> {
+  const body = obj(await request<unknown>("POST", `${p(projectId)}/ai/runs`, { json: { ...start, language } }));
+  return text(body.runId);
+}
+
+/** The project's runs, newest first, without their results. */
+export async function listAiRuns(projectId: string): Promise<AiRunSummary[]> {
+  const body = obj(await request<unknown>("GET", `${p(projectId)}/ai/runs`));
+  return list(body.runs).map(toRunSummary);
+}
+
+export async function getAiRun(projectId: string, runId: string): Promise<AiRun> {
+  return toAiRun(await request<unknown>("GET", `${p(projectId)}/ai/runs/${encodeURIComponent(runId)}`));
+}
+
+export interface AiUsageCounts {
+  runs: number;
+  reports: number;
+  followUps: number;
+  questions: number;
+  failed: number;
+  refused: number;
+  tokens: number;
+}
+
+/** The assistant's use this UTC month, per project id (never names or content). */
+export interface AiUsage {
+  month: string;
+  projects: (AiUsageCounts & { projectId: string })[];
+  totals: AiUsageCounts;
+}
+
+function toUsageCounts(value: unknown): AiUsageCounts {
+  const c = obj(value);
+  return {
+    runs: toCount(c.runs),
+    reports: toCount(c.reports),
+    followUps: toCount(c.followUps),
+    questions: toCount(c.questions),
+    failed: toCount(c.failed),
+    refused: toCount(c.refused),
+    tokens: toCount(c.tokens),
+  };
+}
+
+export async function getAiUsage(): Promise<AiUsage> {
+  const body = obj(await request<unknown>("GET", "/v1/admin/ai-usage"));
+  return {
+    month: text(body.month),
+    projects: list(body.projects).map((row) => ({ projectId: text(row.projectId), ...toUsageCounts(row) })),
+    totals: toUsageCounts(body.totals),
+  };
+}
+
+// --- the printable reports ----------------------------------------------------------------
+
+/** A guidance note as the reports show it (no author, no date). */
+export interface ReportNote {
+  id: string;
+  questionKey: string;
+  firstValue: string | null;
+  checkValue: string | null;
+  text: string;
+}
+
+/** A mix-up in a report: counts are checks; a few example plots and the notes about it. */
+export interface ReportConfusion {
+  key: string;
+  label: string;
+  first: string;
+  check: string;
+  checks: number;
+  plots: string[];
+  notes: ReportNote[];
+}
+
+/** A member's own figures (GET /my-quality): their plots checked by someone else, never who checked. */
+export interface MyQuality {
+  username: string;
+  minChecks: number;
+  asFirst: Rate;
+  confusions: ReportConfusion[];
+  computedAt: number | null;
+  stale: boolean;
+}
+
+/** The team report for training (GET /quality/team-report): no names. */
+export interface TeamReport {
+  minChecks: number;
+  plotsChecked: number;
+  plotsDiffering: number;
+  questions: QuestionAgreement[];
+  confusions: ReportConfusion[];
+  notes: ReportNote[];
+  computedAt: number | null;
+  stale: boolean;
+}
+
+function toReportNote(value: unknown): ReportNote {
+  const n = obj(value);
+  return { id: text(n.id), questionKey: text(n.questionKey), firstValue: nullableText(n.firstValue), checkValue: nullableText(n.checkValue), text: text(n.text) };
+}
+
+/** A report's rate ({ checks, agreeing, rate }) as the dashboard's Rate. */
+function toReportRate(value: unknown): Rate {
+  const r = obj(value);
+  return { compared: toCount(r.checks), agreeing: toCount(r.agreeing), rate: typeof r.rate === "number" && Number.isFinite(r.rate) ? r.rate : null };
+}
+
+function toReportConfusion(value: unknown): ReportConfusion {
+  const c = obj(value);
+  return {
+    key: text(c.key),
+    label: text(c.label) || text(c.key),
+    first: text(c.first),
+    check: text(c.check),
+    checks: toCount(c.checks),
+    plots: strings(c.plots),
+    notes: list(c.notes).map(toReportNote),
+  };
+}
+
+export async function getMyQuality(projectId: string): Promise<MyQuality> {
+  const b = obj(await request<unknown>("GET", `${p(projectId)}/my-quality`));
+  return {
+    username: text(b.username),
+    minChecks: toCount(b.minChecks),
+    asFirst: toReportRate(b.asFirst),
+    confusions: list(b.confusions).map(toReportConfusion),
+    computedAt: toMillis(b.computedAt),
+    stale: b.stale === true,
+  };
+}
+
+export async function getTeamReport(projectId: string): Promise<TeamReport> {
+  const b = obj(await request<unknown>("GET", `${p(projectId)}/quality/team-report`));
+  return {
+    minChecks: toCount(b.minChecks),
+    plotsChecked: toCount(b.plotsChecked),
+    plotsDiffering: toCount(b.plotsDiffering),
+    questions: list(b.questions).map((q) => ({
+      ...toReportRate(q),
+      key: text(q.key),
+      label: text(q.label) || text(q.key),
+      kind: q.kind === "number" ? "number" : "choice",
+      margin: typeof q.margin === "number" && Number.isFinite(q.margin) ? q.margin : null,
+    })),
+    confusions: list(b.confusions).map(toReportConfusion),
+    notes: list(b.notes).map(toReportNote),
+    computedAt: toMillis(b.computedAt),
+    stale: b.stale === true,
+  };
+}
+
 // --- data ------------------------------------------------------------------------------------
 
 /** The collected data as a CSV file (fetched with the session, then saved by the page). */
@@ -1105,6 +1423,11 @@ export const DEFAULT_SERVER_SETTINGS: ServerSettings = {
   termsUrl: null,
   contactEmail: null,
   serverName: null,
+  aiEnabled: false,
+  aiReportsPerDay: 5,
+  aiFollowUpsPerDay: 30,
+  aiMonthlyTokens: 2_000_000,
+  aiConfigured: false,
 };
 
 /** Settings from a server answer, keeping `fallback` for anything missing (older servers). */
@@ -1120,6 +1443,11 @@ export function toServerSettings(body: unknown, fallback: ServerSettings = DEFAU
     termsUrl: text("termsUrl", fallback.termsUrl),
     contactEmail: text("contactEmail", fallback.contactEmail),
     serverName: text("serverName", fallback.serverName),
+    aiEnabled: typeof b.aiEnabled === "boolean" ? b.aiEnabled : fallback.aiEnabled,
+    aiReportsPerDay: limit(b.aiReportsPerDay, fallback.aiReportsPerDay),
+    aiFollowUpsPerDay: limit(b.aiFollowUpsPerDay, fallback.aiFollowUpsPerDay),
+    aiMonthlyTokens: limit(b.aiMonthlyTokens, fallback.aiMonthlyTokens),
+    aiConfigured: typeof b.aiConfigured === "boolean" ? b.aiConfigured : fallback.aiConfigured,
   };
 }
 

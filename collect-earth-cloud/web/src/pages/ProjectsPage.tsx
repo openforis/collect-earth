@@ -1,6 +1,7 @@
 import Button from "@mui/material/Button";
 import Card from "@mui/material/Card";
 import CardActionArea from "@mui/material/CardActionArea";
+import CardActions from "@mui/material/CardActions";
 import CardContent from "@mui/material/CardContent";
 import Chip from "@mui/material/Chip";
 import Dialog from "@mui/material/Dialog";
@@ -115,8 +116,8 @@ export function ProjectsPage() {
         <Grid container spacing={2}>
           {projects.data?.map((p) => (
             <Grid key={p.projectId} size={{ xs: 12, sm: 6 }}>
-              <Card variant="outlined" sx={{ height: "100%" }}>
-                <CardActionArea {...linkProps(pathFor({ name: "project", projectId: p.projectId, tab: "overview" }))} sx={{ height: "100%" }}>
+              <Card variant="outlined" sx={{ height: "100%", display: "flex", flexDirection: "column" }}>
+                <CardActionArea {...linkProps(pathFor({ name: "project", projectId: p.projectId, tab: "overview" }))} sx={{ flex: 1 }}>
                   <CardContent>
                     <Typography variant="h3" component="h2" gutterBottom sx={{ wordBreak: "break-word" }}>
                       {p.projectName}
@@ -124,6 +125,12 @@ export function ProjectsPage() {
                     <Chip size="small" label={t(`role.${p.role}`)} color={p.role === "admin" ? "primary" : "default"} />
                   </CardContent>
                 </CardActionArea>
+                {/* Every member can see how their own plots fared in the checks. */}
+                <CardActions sx={{ pt: 0 }}>
+                  <Button size="small" {...linkProps(pathFor({ name: "myQuality", projectId: p.projectId }))}>
+                    {t("myQuality.link")}
+                  </Button>
+                </CardActions>
               </Card>
             </Grid>
           ))}

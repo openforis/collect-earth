@@ -18,27 +18,36 @@ import Radio from "@mui/material/Radio";
 import RadioGroup from "@mui/material/RadioGroup";
 import Stack from "@mui/material/Stack";
 import Switch from "@mui/material/Switch";
+import Table from "@mui/material/Table";
+import TableBody from "@mui/material/TableBody";
+import TableCell from "@mui/material/TableCell";
+import TableContainer from "@mui/material/TableContainer";
+import TableHead from "@mui/material/TableHead";
+import TableRow from "@mui/material/TableRow";
 import TextField from "@mui/material/TextField";
 import Typography from "@mui/material/Typography";
 import Key from "@mui/icons-material/Key";
 import { useState, type FormEvent } from "react";
 import {
+  getAiUsage,
   getServerSettings,
   listUsers,
   makeResetLink,
   saveServerSettings,
   type AdminUser,
+  type AiUsageCounts,
   type ProjectCreation,
   type ResetLink,
   type ServerSettings,
 } from "../api";
+import { AI_LIMIT_MAX, parseLimit } from "../aiView";
 import { useApp } from "../appContext";
 import { AppShell } from "../components/AppShell";
 import { CopyField } from "../components/CopyField";
 import { EmptyState } from "../components/EmptyState";
 import { ErrorAlert } from "../components/ErrorAlert";
 import { Loading } from "../components/Loading";
-import { formatDate } from "../format";
+import { formatDate, formatNumber } from "../format";
 import { useT, type MessageKey } from "../i18n";
 import { draftOf, readDraft, type DraftProblems, type SettingsDraft } from "../settingsForm";
 import { useLoad } from "../useLoad";
@@ -110,6 +119,169 @@ function DetailsForm({ settings, onSave }: { settings: ServerSettings; onSave: (
   );
 }
 
+type AiLimitKey = keyof typeof AI_LIMIT_MAX;
+const AI_LIMIT_FIELDS: { key: AiLimitKey; label: MessageKey; help: MessageKey }[] = [
+  { key: "aiReportsPerDay", label: "server.aiReports", help: "server.aiReportsHelp" },
+  { key: "aiFollowUpsPerDay", label: "server.aiFollowUps", help: "server.aiFollowUpsHelp" },
+  { key: "aiMonthlyTokens", label: "server.aiTokens", help: "server.aiTokensHelp" },
+];
+
+/**
+ * The AI assistant on this server: its switch (only once the server has its Vertex AI
+ * settings) and its three limits, each counted per project.
+ */
+function AiSettings({ settings, onSave }: { settings: ServerSettings; onSave: (changes: Partial<ServerSettings>) => Promise<void> }) {
+  const t = useT();
+  const { language } = useApp();
+  const [texts, setTexts] = useState<Record<AiLimitKey, string>>(() => ({
+    aiReportsPerDay: String(settings.aiReportsPerDay),
+    aiFollowUpsPerDay: String(settings.aiFollowUpsPerDay),
+    aiMonthlyTokens: String(settings.aiMonthlyTokens),
+  }));
+  const [busy, setBusy] = useState(false);
+  const values = Object.fromEntries(AI_LIMIT_FIELDS.map(({ key }) => [key, parseLimit(texts[key], AI_LIMIT_MAX[key])])) as Record<AiLimitKey, number | null>;
+  const invalid = AI_LIMIT_FIELDS.some(({ key }) => values[key] === null);
+  const changed = AI_LIMIT_FIELDS.some(({ key }) => values[key] !== null && values[key] !== settings[key]);
+
+  const submit = async (event: FormEvent) => {
+    event.preventDefault();
+    if (invalid || !changed) return;
+    setBusy(true);
+    try {
+      await onSave(Object.fromEntries(AI_LIMIT_FIELDS.map(({ key }) => [key, values[key]])) as Partial<ServerSettings>);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <Stack component="form" spacing={2} onSubmit={submit} noValidate aria-labelledby="server-ai">
+      <div>
+        <Typography variant="h3" component="h3" id="server-ai" sx={{ fontSize: "1.1rem", fontWeight: 600 }}>
+          {t("server.aiTitle")}
+        </Typography>
+        <Typography variant="body2" color="text.secondary">
+          {t("server.aiIntro")}
+        </Typography>
+      </div>
+      <FormControl>
+        <FormControlLabel
+          control={
+            <Switch
+              checked={settings.aiEnabled && settings.aiConfigured}
+              disabled={!settings.aiConfigured}
+              onChange={(e) => void onSave({ aiEnabled: e.target.checked })}
+            />
+          }
+          label={t("server.aiEnabled")}
+        />
+        <FormHelperText sx={{ ml: 0 }}>
+          {settings.aiConfigured ? t("server.aiEnabledHelp") : `${t("server.aiNotSetUp")} ${t("server.aiNotSetUpHelp")}`}
+        </FormHelperText>
+      </FormControl>
+      <Typography variant="body2" color="text.secondary">
+        {t("server.aiLimitsIntro")}
+      </Typography>
+      {AI_LIMIT_FIELDS.map(({ key, label, help }) => {
+        const max = formatNumber(AI_LIMIT_MAX[key], language);
+        return (
+          <TextField
+            key={key}
+            label={t(label)}
+            value={texts[key]}
+            onChange={(e) => setTexts({ ...texts, [key]: e.target.value })}
+            error={values[key] === null}
+            helperText={values[key] === null ? t("server.aiLimitInvalid", { max }) : t(help, { max })}
+            slotProps={{ htmlInput: { inputMode: "numeric" } }}
+          />
+        );
+      })}
+      <div>
+        <Button type="submit" variant="contained" disabled={busy || invalid || !changed}>
+          {t("common.save")}
+        </Button>
+      </div>
+    </Stack>
+  );
+}
+
+/** The assistant's use this month, by project id only (no names, questions or answers). */
+function AiUsageCard() {
+  const t = useT();
+  const { language } = useApp();
+  const usage = useLoad(getAiUsage, []);
+  const n = (value: number) => formatNumber(value, language);
+  const columns: { key: keyof AiUsageCounts; label: MessageKey }[] = [
+    { key: "runs", label: "server.aiRuns" },
+    { key: "reports", label: "server.aiReportsCol" },
+    { key: "followUps", label: "server.aiFollowUpsCol" },
+    { key: "questions", label: "server.aiQuestionsCol" },
+    { key: "failed", label: "server.aiFailedCol" },
+    { key: "refused", label: "server.aiRefusedCol" },
+    { key: "tokens", label: "server.aiTokensCol" },
+  ];
+  return (
+    <Paper variant="outlined" sx={{ p: { xs: 2, sm: 3 } }} component="section" aria-labelledby="server-ai-usage">
+      <Typography variant="h2" gutterBottom id="server-ai-usage">
+        {t("server.aiUsageTitle")}
+      </Typography>
+      {usage.loading && !usage.data ? (
+        <Loading />
+      ) : usage.error || !usage.data ? (
+        <ErrorAlert error={usage.error} onRetry={usage.reload} />
+      ) : (
+        <Stack spacing={2}>
+          <Typography color="text.secondary" variant="body2">
+            {t("server.aiUsageIntro", { month: usage.data.month })}
+          </Typography>
+          {usage.data.projects.length === 0 ? (
+            <Typography>{t("server.aiUsageEmpty")}</Typography>
+          ) : (
+            <TableContainer sx={{ border: 1, borderColor: "divider", borderRadius: 1, overflowX: "auto" }}>
+              <Table size="small" sx={{ minWidth: 720 }}>
+                <TableHead>
+                  <TableRow>
+                    <TableCell>{t("server.aiProject")}</TableCell>
+                    {columns.map((c) => (
+                      <TableCell key={c.key} align="right">
+                        {t(c.label)}
+                      </TableCell>
+                    ))}
+                  </TableRow>
+                </TableHead>
+                <TableBody>
+                  {usage.data.projects.map((row) => (
+                    <TableRow key={row.projectId}>
+                      <TableCell component="th" scope="row" sx={{ fontFamily: "monospace", fontSize: "0.8rem", wordBreak: "break-all", minWidth: 140 }}>
+                        {row.projectId}
+                      </TableCell>
+                      {columns.map((c) => (
+                        <TableCell key={c.key} align="right" sx={{ fontVariantNumeric: "tabular-nums" }}>
+                          {n(row[c.key])}
+                        </TableCell>
+                      ))}
+                    </TableRow>
+                  ))}
+                  <TableRow>
+                    <TableCell component="th" scope="row" sx={{ fontWeight: 600 }}>
+                      {t("server.aiTotal")}
+                    </TableCell>
+                    {columns.map((c) => (
+                      <TableCell key={c.key} align="right" sx={{ fontWeight: 600, fontVariantNumeric: "tabular-nums" }}>
+                        {n(usage.data!.totals[c.key])}
+                      </TableCell>
+                    ))}
+                  </TableRow>
+                </TableBody>
+              </Table>
+            </TableContainer>
+          )}
+        </Stack>
+      )}
+    </Paper>
+  );
+}
+
 function SettingsCard() {
   const t = useT();
   const { refreshInfo } = useApp();
@@ -163,6 +335,7 @@ function SettingsCard() {
             </RadioGroup>
           </FormControl>
           <DetailsForm settings={settings.data} onSave={save} />
+          <AiSettings settings={settings.data} onSave={save} />
           {saved && (
             <Alert severity="success" role="status">
               {t("server.saved")}
@@ -278,6 +451,7 @@ export function ServerPage() {
           <Typography color="text.secondary">{t("server.intro")}</Typography>
         </div>
         <SettingsCard />
+        <AiUsageCard />
         <UsersCard />
         {info.version && (
           <Typography variant="body2" color="text.secondary">

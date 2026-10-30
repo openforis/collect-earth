@@ -39,6 +39,14 @@ import {
   setReassessmentCode,
   toRoundInfo,
   uploadCep,
+  getProjectAi,
+  setProjectAi,
+  startAiRun,
+  listAiRuns,
+  getAiRun,
+  getAiUsage,
+  getMyQuality,
+  getTeamReport,
 } from "./api";
 import { CATALOGUES } from "./i18n";
 import { setToken } from "./storage";
@@ -173,6 +181,7 @@ describe("normalising responses", () => {
       termsUrl: null,
       contactEmail: null,
       serverName: null,
+      aiAvailable: false,
     });
   });
 
@@ -186,6 +195,7 @@ describe("normalising responses", () => {
       termsUrl: null,
       contactEmail: null,
       serverName: null,
+      aiAvailable: false,
     });
   });
 
@@ -553,5 +563,176 @@ describe("the project file and round", () => {
     fetchMock.mockResolvedValueOnce(jsonResponse(403, { error: "forbidden" }));
     await expect(downloadOriginalCep("p1")).rejects.toMatchObject({ status: 403 });
     expect(fetchMock).toHaveBeenCalledTimes(4);
+  });
+});
+
+describe("the AI assistant and the reports", () => {
+  const call = (i = 0) => {
+    const [url, init] = fetchMock.mock.calls[i];
+    return { url, method: init?.method ?? "GET", body: init?.body ? JSON.parse(init.body as string) : undefined };
+  };
+
+  it("reads and sets the project's switch", async () => {
+    fetchMock.mockResolvedValueOnce(jsonResponse(200, { enabled: false, available: true }));
+    expect(await getProjectAi("p1")).toEqual({ enabled: false, available: true });
+    fetchMock.mockResolvedValueOnce(jsonResponse(200, { enabled: true, available: true }));
+    expect(await setProjectAi("p1", true)).toEqual({ enabled: true, available: true });
+    expect(call(1)).toEqual({ url: "/v1/projects/p1/ai", method: "PUT", body: { enabled: true } });
+    fetchMock.mockResolvedValueOnce(jsonResponse(403, { error: "user_session_required", reason: "Sign in" }));
+    const err = await setProjectAi("p1", true).catch((e: unknown) => e);
+    expect(errorMessageKey(err)).toBe("ai.sessionRequired");
+  });
+
+  it("starts runs with the dashboard's language", async () => {
+    fetchMock.mockImplementation(async () => jsonResponse(202, { runId: "r1" }));
+    expect(await startAiRun("p1", { kind: "report" }, "es")).toBe("r1");
+    await startAiRun("p1", { kind: "follow_up", parentRunId: "r1", findingIndex: 2, action: "draft_note" }, "fr");
+    await startAiRun("p1", { kind: "question", parentRunId: "r1", question: "Why?" }, "pt");
+    expect(call(0)).toEqual({ url: "/v1/projects/p1/ai/runs", method: "POST", body: { kind: "report", language: "es" } });
+    expect(call(1).body).toEqual({ kind: "follow_up", parentRunId: "r1", findingIndex: 2, action: "draft_note", language: "fr" });
+    expect(call(2).body).toEqual({ kind: "question", parentRunId: "r1", question: "Why?", language: "pt" });
+  });
+
+  it("keeps a limit's details on the error", async () => {
+    fetchMock.mockResolvedValue(jsonResponse(429, { error: "ai_daily_limit", limit: "reports", resetsAt: null, reason: "x" }));
+    const err = await startAiRun("p1", { kind: "report" }, "en").catch((e: unknown) => e);
+    expect(err).toBeInstanceOf(ApiError);
+    expect((err as ApiError).details).toMatchObject({ limit: "reports", resetsAt: null });
+  });
+
+  it("lists runs newest first as the server gives them", async () => {
+    fetchMock.mockResolvedValue(
+      jsonResponse(200, {
+        runs: [
+          { id: "r2", kind: "follow_up", status: "running", startedAt: 2000, finishedAt: null, startedBy: "boss", tokens: 5, parentRunId: "r1", findingIndex: 0, action: "explain", errorCode: null },
+          { id: "r1", kind: "report", status: "done", startedAt: "1970-01-01T00:00:01.000Z", startedBy: null, tokens: "12" },
+        ],
+      }),
+    );
+    const runs = await listAiRuns("p1");
+    expect(call().url).toBe("/v1/projects/p1/ai/runs");
+    expect(runs[0]).toEqual({
+      id: "r2",
+      kind: "follow_up",
+      status: "running",
+      startedAt: 2000,
+      finishedAt: null,
+      startedBy: "boss",
+      tokens: 5,
+      parentRunId: "r1",
+      findingIndex: 0,
+      action: "explain",
+      errorCode: null,
+    });
+    expect(runs[1]).toMatchObject({ id: "r1", kind: "report", status: "done", startedAt: 1000, startedBy: null, tokens: 12, parentRunId: null, action: null });
+  });
+
+  it("reads a report run, its progress and a failed or refused run", async () => {
+    fetchMock.mockResolvedValueOnce(
+      jsonResponse(200, {
+        id: "r1",
+        kind: "report",
+        status: "done",
+        startedAt: 1000,
+        progress: { tools: ["get_agreement", 7] },
+        result: {
+          summary: "Land use is mixed up.",
+          findings: [{ title: "T", explanation: "E", cause: "weird", questions: ["q1"], persons: ["ana"], plots: ["21"], suggestedNote: null }, "junk"],
+          recheckPlots: ["21"],
+          surveyChanges: [{ question: "q1", suggestion: "Reword" }],
+        },
+        error: null,
+        refusal: null,
+      }),
+    );
+    const run = await getAiRun("p1", "r1");
+    expect(call().url).toBe("/v1/projects/p1/ai/runs/r1");
+    expect(run.tools).toEqual(["get_agreement", "7"]);
+    expect(run.report).toEqual({
+      summary: "Land use is mixed up.",
+      findings: [{ title: "T", explanation: "E", cause: "other", questions: ["q1"], persons: ["ana"], plots: ["21"], suggestedNote: null }],
+      recheckPlots: ["21"],
+      surveyChanges: [{ question: "q1", suggestion: "Reword" }],
+    });
+    expect(run.answer).toBeNull();
+
+    fetchMock.mockResolvedValueOnce(
+      jsonResponse(200, { id: "r3", kind: "question", status: "done", question: "Why ana?", result: { text: "Because", plots: ["21"], note: "Look" } }),
+    );
+    const answer = await getAiRun("p1", "r3");
+    expect(answer).toMatchObject({ question: "Why ana?", report: null, answer: { text: "Because", plots: ["21"], note: "Look" } });
+
+    fetchMock.mockResolvedValueOnce(jsonResponse(200, { id: "r4", kind: "report", status: "failed", errorCode: "ai_timeout", error: { code: "ai_timeout", message: "x" } }));
+    expect(await getAiRun("p1", "r4")).toMatchObject({ status: "failed", errorCode: "ai_timeout", report: null });
+    fetchMock.mockResolvedValueOnce(jsonResponse(200, { id: "r5", kind: "question", status: "refused", errorCode: "off_topic", refusal: "Only quality" }));
+    expect(await getAiRun("p1", "r5")).toMatchObject({ status: "refused", errorCode: "off_topic", refusal: "Only quality" });
+  });
+
+  it("reads the server's AI settings and its use this month, by project id", async () => {
+    expect(toServerSettings({ aiEnabled: true, aiReportsPerDay: 0, aiMonthlyTokens: 9, aiConfigured: true })).toMatchObject({
+      aiEnabled: true,
+      aiReportsPerDay: 0,
+      aiFollowUpsPerDay: DEFAULT_SERVER_SETTINGS.aiFollowUpsPerDay,
+      aiMonthlyTokens: 9,
+      aiConfigured: true,
+    });
+    fetchMock.mockResolvedValue(
+      jsonResponse(200, {
+        month: "2026-10",
+        projects: [{ projectId: "p1", runs: 3, reports: 1, followUps: 1, questions: 1, failed: 0, refused: 1, inputTokens: 10, outputTokens: 5, tokens: 15 }],
+        totals: { runs: 3, reports: 1, followUps: 1, questions: 1, failed: 0, refused: 1, inputTokens: 10, outputTokens: 5, tokens: 15 },
+      }),
+    );
+    const usage = await getAiUsage();
+    expect(call().url).toBe("/v1/admin/ai-usage");
+    expect(usage.month).toBe("2026-10");
+    expect(usage.projects[0]).toEqual({ projectId: "p1", runs: 3, reports: 1, followUps: 1, questions: 1, failed: 0, refused: 1, tokens: 15 });
+    expect(usage.totals.tokens).toBe(15);
+  });
+
+  it("reads a member's own report and the team report", async () => {
+    fetchMock.mockResolvedValueOnce(
+      jsonResponse(200, {
+        username: "ana",
+        minChecks: 20,
+        asFirst: { checks: 30, agreeing: 24, rate: 0.8 },
+        confusions: [{ key: "q1", label: "Land use", first: "F", check: "G", checks: 3, plots: ["1", 2], notes: [{ id: "n1", questionKey: "q1", firstValue: "F", checkValue: null, text: "Look" }] }],
+        computedAt: 5000,
+        stale: false,
+      }),
+    );
+    const mine = await getMyQuality("p1");
+    expect(call(0).url).toBe("/v1/projects/p1/my-quality");
+    expect(mine.asFirst).toEqual({ compared: 30, agreeing: 24, rate: 0.8 });
+    expect(mine.confusions[0]).toEqual({
+      key: "q1",
+      label: "Land use",
+      first: "F",
+      check: "G",
+      checks: 3,
+      plots: ["1", "2"],
+      notes: [{ id: "n1", questionKey: "q1", firstValue: "F", checkValue: null, text: "Look" }],
+    });
+
+    fetchMock.mockResolvedValueOnce(
+      jsonResponse(200, {
+        minChecks: 20,
+        plotsChecked: 40,
+        plotsDiffering: 6,
+        questions: [
+          { key: "q1", label: "Land use", kind: "choice", checks: 40, agreeing: 34, rate: 0.85 },
+          { key: "q2", label: "", kind: "number", checks: 3, agreeing: 3, rate: null, margin: 5 },
+        ],
+        confusions: [],
+        notes: [{ id: "n1", questionKey: "q1", firstValue: null, checkValue: null, text: "Look" }],
+        computedAt: 5000,
+        stale: true,
+      }),
+    );
+    const team = await getTeamReport("p1");
+    expect(call(1).url).toBe("/v1/projects/p1/quality/team-report");
+    expect(team.questions[1]).toEqual({ key: "q2", label: "q2", kind: "number", compared: 3, agreeing: 3, rate: null, margin: 5 });
+    expect(team).toMatchObject({ plotsChecked: 40, plotsDiffering: 6, stale: true, computedAt: 5000 });
+    expect(team.notes).toHaveLength(1);
   });
 });

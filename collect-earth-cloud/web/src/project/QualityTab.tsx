@@ -48,8 +48,10 @@ import {
   withNote,
   type WeekPoint,
 } from "../qualityView";
+import { linkProps, pathFor } from "../router";
 import { useLoad } from "../useLoad";
-import { QualityDifferences } from "./QualityDifferences";
+import { QualityAssistant } from "./QualityAssistant";
+import { QualityDifferences, type PlotFocus } from "./QualityDifferences";
 import { NoteDialog, QualityNotes, type NoteDraft } from "./QualityNotes";
 
 /**
@@ -654,6 +656,8 @@ export function QualityTab({ projectId }: { projectId: string }) {
   const quality = useLoad(() => getQuality(projectId), [projectId], { merge: keepLocalChanges });
   const { data, error, loading, reload, setData } = quality;
   const [note, setNote] = useState<NoteDraft | null>(null);
+  /** A plot to show in the differences list (from the assistant's links); `at` makes each click a new one. */
+  const [focus, setFocus] = useState<PlotFocus | null>(null);
   const busy = error instanceof ApiError && error.code === "busy";
   const [hidden, setHidden] = useState(() => typeof document !== "undefined" && document.visibilityState === "hidden");
   /** Answers in a row that were stale or busy: the wait before asking again grows with them. */
@@ -716,6 +720,14 @@ export function QualityTab({ projectId }: { projectId: string }) {
 
   return (
     <Stack spacing={3}>
+      <Stack direction="row" spacing={1} useFlexGap sx={{ flexWrap: "wrap" }}>
+        <Button variant="outlined" size="small" {...linkProps(pathFor({ name: "teamReport", projectId }))}>
+          {t("teamReport.link")}
+        </Button>
+        <Button variant="outlined" size="small" {...linkProps(pathFor({ name: "myQuality", projectId }))}>
+          {t("myQuality.link")}
+        </Button>
+      </Stack>
       <Counts data={data} stillWorking={busy} />
       {error !== null && !busy && <ErrorAlert error={error} onRetry={reload} />}
       {data.plotsChecked > 0 && (
@@ -727,6 +739,7 @@ export function QualityTab({ projectId }: { projectId: string }) {
           <QualityDifferences
             projectId={projectId}
             data={data}
+            focus={focus}
             onDecision={(plot, decision) => update((prev) => ({ decisions: withDecision(prev.decisions, plot, decision) }))}
           />
         </>
@@ -738,7 +751,7 @@ export function QualityTab({ projectId }: { projectId: string }) {
         onDeleted={(id) => update((prev) => ({ notes: prev.notes.filter((n) => n.id !== id) }))}
       />
       <Problems data={data} />
-      {/* Task 18: the AI assistant's section goes here. */}
+      <QualityAssistant projectId={projectId} data={data} onWriteNote={setNote} onShowPlot={(plot) => setFocus({ plot, at: Date.now() })} />
       {note && (
         <NoteDialog projectId={projectId} data={data} draft={note} onClose={() => setNote(null)} onSaved={(saved) => (savedNote(saved), setNote(null))} />
       )}

@@ -99,6 +99,30 @@ describe('AI server settings', () => {
   });
 });
 
+describe('aiConfigured in the server settings', () => {
+  const contexts: TestContext[] = [];
+  afterEach(async () => {
+    await Promise.all(contexts.splice(0).map((c) => c.app.close()));
+  });
+
+  it('tells the server owner whether the AI configuration is there, never what it is', async () => {
+    for (const [config, configured] of [
+      [{}, false],
+      [aiConfig({ AI_VERTEX_API_KEY: SECRET }), true],
+    ] as const) {
+      const ctx = await makeContext(config);
+      contexts.push(ctx);
+      const owner = await setupPlatformAdmin(ctx.app);
+      const read = await ctx.app.inject({ method: 'GET', url: '/v1/admin/settings', headers: bearer(owner.token) });
+      expect(read.json().aiConfigured).toBe(configured);
+      const saved = await putSettings(ctx.app, owner.token, { aiReportsPerDay: 3 });
+      expect(saved.json()).toMatchObject({ aiConfigured: configured, aiReportsPerDay: 3 });
+      expect(read.body).not.toContain(SECRET);
+      expect(saved.body).not.toContain(SECRET);
+    }
+  });
+});
+
 describe('aiAvailable in server-info', () => {
   const contexts: TestContext[] = [];
   afterEach(async () => {

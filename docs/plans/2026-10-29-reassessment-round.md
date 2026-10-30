@@ -2329,6 +2329,90 @@ paths.
 
 Commit: "Collect Earth Cloud dashboard: the AI assistant panel, printable reports for collectors and the team, and its settings".
 
+**As built**
+- **Files.** `web/src/project/QualityAssistant.tsx` (section 9 of the Quality tab), pure helpers in
+  `web/src/aiView.ts` (tested in `aiView.test.ts`), `web/src/pages/ReportPages.tsx` (`MyQualityPage`,
+  `TeamReportPage`), and changes to `QualityTab.tsx`, `QualityDifferences.tsx`, `SettingsTab.tsx`,
+  `ServerPage.tsx`, `ProjectsPage.tsx`, `ProjectPage.tsx`, `AppShell.tsx`, `App.tsx`, `router.ts`. API
+  (`api.ts`): `getProjectAi`, `setProjectAi`, `startAiRun` (sends the dashboard's language), `listAiRuns`,
+  `getAiRun` (`toAiRun`: `report` for a report, `answer` for a follow-up or question, `tools` from
+  `progress.tools`, an unknown cause read as `other`), `getAiUsage`, `getMyQuality`, `getTeamReport` (their
+  `checks` read as the dashboard's `Rate.compared`); `ServerInfo.aiAvailable`; the AI fields of
+  `ServerSettings`. `user_session_required`, `ai_unavailable` and `ai_not_enabled` have their own sentences
+  in `errorMessageKey`.
+- **One server change: `aiConfigured`.** No route said whether the server has its AI configuration, so
+  `GET`/`PUT /v1/admin/settings` (platform admin only) now add `aiConfigured: boolean` (never the key, the
+  project or the region; `test/ai.setup.test.ts`, and `dashboard.test.ts`'s exact settings shape).
+- **The panel.** Without the server's assistant: "The AI assistant is not set up on this server…"; switched
+  off here: a line with "Open Settings". Otherwise "Review with the AI assistant" (later "New review…").
+  - **Progress:** "The assistant is working: <the last tool in words>" (`toolMessageKey`: "Reading the
+    survey…", "Looking at mixed-up answers…", …; "Getting started…" before any tool) and "Keep this page
+    open until it has finished: the server works on it only while this page is open. A review takes a few
+    minutes." (request-based billing, Task 19). While the page is hidden: "Paused while this page is
+    hidden…". `GET /ai/runs/:id` every 2 s (`RUN_POLL_MS`) only while a run runs and the page is visible
+    (`shouldPollRun`); a run already running when the tab opens (another tab, a reload) is followed too.
+  - **A review:** its date and who started it, "Written by an AI model: check it against the figures before
+    acting on it.", the summary, then each finding: title, "Likely cause: …", explanation, a box "Figures
+    from this page" with the Quality figures of its questions (`findingFigures`, `rateText`), never the
+    model's numbers; "People: …" (real names, coordinators only); plots as links to the Differences list
+    only for plots in it (`plotLinks`): the list opens the plot's page (showing decided plots again if
+    needed), scrolls to its card and focuses it (`PlotFocus`, `data-plot`). Then "Plots to check again",
+    "For the next version of the survey", the questions asked and the question box.
+  - **Model text is plain text**: React text nodes with `white-space: pre-line`; no
+    `dangerouslySetInnerHTML`, no Markdown, no link made from it.
+  - **Buttons:** "Explain in more detail" and "Which plots should be checked again?" start follow-ups,
+    shown under their finding, oldest first (`followUpsOf`). "Draft a guidance note" opens the note editor
+    at once with the finding's `suggestedNote` (question: the finding's first question the figures know);
+    a finding without one starts a `draft_note` follow-up whose note opens the editor when it is done. Any
+    answer's note has "Make it a guidance note". Saving makes a real note (`POST /quality/notes`).
+  - **Question box:** at most 300 characters as the server counts them (code points, `questionCounter`),
+    a "n/300" counter, too long shown as an error. A refused question shows "The assistant only answers
+    questions about this project's data quality." (the dashboard's own text, in its language).
+  - **Refusals before starting** (`startErrorText`): busy → "The assistant is already working for this
+    project…"; the limits with the local reset time ("This project has used all its AI reviews for today.
+    You can start another one after <date, time>."; follow-ups and questions; the month) or, with
+    `resetsAt: null`, "… are not allowed on this server. The server owner can change this in Server
+    settings." Other errors go to the error box.
+  - **Failed runs** show their code in words (`failureMessageKey`: the 10 failure codes and `off_topic`,
+    a general sentence for any other), never the server's English text.
+  - **Past reviews:** every report by date, with who, its state, and "Show".
+- **Settings tab:** an "AI assistant" card: what it does, then "What is sent: answers to choice and number
+  questions, the survey's questions and help texts, and your guidance notes, with people's names replaced by
+  'Person A', 'Person B'. Coordinates, comments and other text answers are never sent." The switch is off by
+  default; it can be switched on only while the server has the assistant (off always). A 403
+  `user_session_required` says "Sign in to the dashboard with your own account to do this: a project key
+  cannot switch the AI assistant on or off, or use it." (the dashboard itself always uses a session).
+- **Server settings:** "Allow the AI assistant on this server", disabled with "Not set up on this server."
+  (and where to look, DEPLOY.md) when `aiConfigured` is false; "AI reviews per project per day", "Follow-ups
+  and questions per project per day", "AI tokens per project per month" ("the server's total can be this
+  times the number of projects"), each a whole number from 0 to the server's maximum (`parseLimit`), saved
+  together. A card "AI assistant use this month": project ids only (no names), uses, reviews, follow-ups,
+  questions, did not finish, refused, tokens, and a total row; it scrolls inside its frame on a phone.
+- **"My quality"** (`/projects/:pid/my-quality`, any member with a session): the share of their checked
+  plots that agreed, their mix-ups ("You answered C; the check said S (4 times)", "(once)"), plots and the
+  coordinator's notes; nobody else's name. Linked from every project card on "My projects" and from the
+  collector's project page (and from the Quality tab for coordinators).
+- **Team report** (`/projects/:pid/quality/team-report`, coordinators; linked from the Quality tab):
+  counts, agreement by question, the most mixed-up answers with example plots and their notes, all notes.
+- **Both reports** have "Back to the project" and "Print", show when the figures are from, and ask again
+  after 10 s while stale and visible. **Print CSS** (`AppShell`, `GlobalStyles`): no app bar, footer,
+  buttons or `.no-print`, on white, full width.
+- **Texts** in en/es/fr/pt (`ai.*`, `settings.ai*`, `server.ai*`, `myQuality.*`, `teamReport.*`,
+  `report.*`, `common.print`).
+- **Tests:** web 189 (was 165): `aiView.test.ts` (tool words, failure codes in four languages, causes,
+  limit and reset messages with `resetsAt` null, busy, polling, plot links, the server's figures, the
+  counter, follow-ups by finding, limits), `api.test.ts` (the AI and report calls), `router.test.ts` (the
+  two paths). Server 555 (one new test).
+- **Checked in Chrome** (memory store, `AI_FAKE=1`, the Task 17 seed; desktop 1280 px and 390 px): the
+  owner switched the assistant on, the coordinator switched it on in Settings; a review with its progress
+  and the keep-open line; a plot link opening its card; "Draft a guidance note" saved as a real note; an
+  explanation follow-up; an on-topic question and "Write me a poem about forests" refused; reviews at a
+  limit of 0 ("not allowed on this server") and follow-ups at their limit (reset at 1:00 AM local, CET);
+  the usage table; "My quality" as a collector (no other name on the page), the team report with the
+  print rules applied (no app bar or buttons); no page-wide horizontal scroll; no console errors. Not
+  seen in the browser (the fake always gives a draft note, and the server ran with the fake): the
+  `draft_note` follow-up opening the editor, and the "Not set up on this server" state.
+
 ---
 
 ## Part F: docs and checks
