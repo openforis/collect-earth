@@ -29,7 +29,29 @@ export interface Config {
   trustProxyHops?: number;
   /** The quality worker's heap in MB (QUALITY_WORKER_MAX_MB); undefined = the default (512). */
   qualityWorkerMaxMb?: number;
+  /**
+   * A Vertex AI API key for the AI assistant (AI_VERTEX_API_KEY). A secret: it is
+   * never sent in a response nor written to the log.
+   */
+  aiVertexApiKey?: string;
+  /** The Google Cloud project for Vertex AI when the server logs in as its service account (AI_VERTEX_PROJECT). */
+  aiVertexProject?: string;
+  /** The Vertex AI location (AI_VERTEX_REGION); undefined = `global`. */
+  aiVertexRegion?: string;
+  /** The Gemini model id on Vertex AI (AI_MODEL); undefined = DEFAULT_AI_MODEL. */
+  aiModel?: string;
+  /** True when the assistant can reach Vertex AI: an API key, or a project (and region). */
+  aiConfigured?: boolean;
 }
+
+/**
+ * Gemini 3.8 Flash, as Vertex AI names it: "Model ID: gemini-3.8-flash", GA since
+ * 2 September 2026, on the global endpoint, with function calling, structured output
+ * and system instructions (docs.cloud.google.com/gemini-enterprise-agent-platform/
+ * models/gemini/3-8-flash, checked 30 October 2026). The only Gemini 3.8 text model.
+ */
+export const DEFAULT_AI_MODEL = 'gemini-3.8-flash';
+export const DEFAULT_AI_REGION = 'global';
 
 export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
   const storeBackend = (env.STORE_BACKEND ?? 'memory') as Config['storeBackend'];
@@ -52,6 +74,20 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
     rateLimitPerMinute: rateLimitOf(env.RATE_LIMIT_PER_MINUTE),
     trustProxyHops: trustProxyHopsOf(env.TRUST_PROXY_HOPS),
     qualityWorkerMaxMb: qualityWorkerMaxMbOf(env.QUALITY_WORKER_MAX_MB),
+    ...aiConfigOf(env),
+  };
+}
+
+function aiConfigOf(env: NodeJS.ProcessEnv): Pick<Config, 'aiVertexApiKey' | 'aiVertexProject' | 'aiVertexRegion' | 'aiModel' | 'aiConfigured'> {
+  const aiVertexApiKey = nonEmpty(env.AI_VERTEX_API_KEY?.trim());
+  const aiVertexProject = nonEmpty(env.AI_VERTEX_PROJECT?.trim());
+  const aiVertexRegion = nonEmpty(env.AI_VERTEX_REGION?.trim()) ?? DEFAULT_AI_REGION;
+  return {
+    aiVertexApiKey,
+    aiVertexProject,
+    aiVertexRegion,
+    aiModel: nonEmpty(env.AI_MODEL?.trim()) ?? DEFAULT_AI_MODEL,
+    aiConfigured: aiVertexApiKey !== undefined || aiVertexProject !== undefined,
   };
 }
 

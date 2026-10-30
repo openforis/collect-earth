@@ -1280,6 +1280,48 @@ info route never shows the key.
 
 Commit: "Collect Earth Cloud: the AI assistant can be set up and switched on, by the server owner then by each project".
 
+**As built**
+- **The model:** `DEFAULT_AI_MODEL = 'gemini-3.8-flash'` (`src/config.ts`). Vertex AI's
+  model page for Gemini 3.8 Flash states "Model ID: `gemini-3.8-flash`", GA, released
+  2 September 2026, on `global` (and `us`, `eu`), with function calling, structured
+  output and system instructions
+  (https://docs.cloud.google.com/gemini-enterprise-agent-platform/models/gemini/3-8-flash,
+  checked 30 October 2026). The Google models list has no plain "Gemini 3.8" and no 3.8
+  Pro: the other 3.8 models are Live, Flash Cyber and the two TTS models, none of them a
+  text model for this job. So "Gemini 3.8" here is 3.8 Flash. `AI_MODEL` overrides it.
+- **Config:** blank values count as unset (trimmed). `aiVertexRegion` is always set
+  (default `global`), so `aiConfigured` = a key, or a project. The Config fields are
+  optional, so test configs without them mean "not configured".
+- **Settings:** the three limits allow 0 (= none) up to 1,000 reports a day, 10,000
+  follow-ups a day and 10,000,000,000 tokens a month (`AI_LIMITS` in
+  `routes/admin.ts`; the other limits' 1,000,000 cap was too low for tokens). The
+  Postgres store falls back to the default for a stored value that is not a whole
+  number.
+- **`aiAvailable`** is in `GET /v1/server-info` (the route the dashboard reads), from
+  `src/ai/available.ts`. Nothing else about the AI configuration is sent anywhere.
+- **The project switch** is `src/routes/ai.ts` (Task 15 adds the runs there):
+  `GET /v1/projects/:pid/ai` → `{ enabled, available }` (admin, for the Quality tab),
+  and `PUT` `{ enabled }` → the same. Switching on while not available is 409
+  `ai_unavailable`; **switching off is always allowed**. When the owner switches the
+  server off, each project keeps its choice but `available` is false. Store:
+  `isAiEnabled` / `setAiEnabled` (Postgres through `withProject`).
+- **Migration 011** (`011_ai.sql`): `projects.ai_enabled` and `ai_runs` as above, with
+  `status` defaulting to `running`, tokens `BIGINT` default 0, `tool_calls` default
+  `[]`, `model` NOT NULL, `started_by` `ON DELETE SET NULL`, `parent_run` referencing
+  `ai_runs(id)` `ON DELETE CASCADE`, checks on `kind`, `status`, tokens and
+  `finding_index`, and the `app.current_project` policy. `deleteProject` deletes the
+  runs first, like the other children.
+- **Postgres check** (postgres:16, as a NOSUPERUSER NOBYPASSRLS role): migrations twice;
+  the settings and the switch through the routes; a run of another project can't be
+  written, read or updated; a deleted account leaves its runs with `started_by` NULL;
+  `deleteProject` removes only that project's runs.
+- **Found, not fixed (older than this task):** as a non-superuser, `deleteUser` of an
+  account in **no** project fails with `invalid input syntax for type uuid: ""` on a
+  pooled connection that served a project before (`app.current_project` is then `''`).
+  Deleting `users` cascades to `plot_assignments`, whose statement-level trigger (009)
+  runs `UPDATE projects` even for zero rows, and the projects policy casts `''`. Fine
+  as a superuser and on a fresh connection.
+
 ### Task 13: the AI client interface and the Gemini implementation
 
 **Files:**

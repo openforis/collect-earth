@@ -225,6 +225,9 @@ export interface Store {
   /** The settings, `{ margins: {} }` when none were saved. */
   getQualitySettings(projectId: string): Promise<QualitySettings>;
   setQualitySettings(projectId: string, settings: QualitySettings): Promise<void>;
+  /** The project's AI assistant switch (off by default; false for an unknown project). */
+  isAiEnabled(projectId: string): Promise<boolean>;
+  setAiEnabled(projectId: string, enabled: boolean): Promise<void>;
   listQualityDecisions(projectId: string): Promise<QualityDecision[]>;
   /** Sets (or replaces) the decision on a plot unit. `userId` null for a project token. */
   setQualityDecision(projectId: string, plot: string, decision: DecisionKind, comment: string | null, userId: string | null): Promise<QualityDecision>;

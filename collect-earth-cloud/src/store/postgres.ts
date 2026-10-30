@@ -175,6 +175,7 @@ export class PostgresStore implements Store {
       // migration 009) after locking its records, and taking the locks the other way
       // round deadlocked. Now the sync mostly waits for the deletion, or the deletion for it.
       await client.query('SELECT 1 FROM projects WHERE id = $1 FOR UPDATE', [projectId]);
+      await client.query('DELETE FROM ai_runs WHERE project_id = $1', [projectId]);
       await client.query('DELETE FROM quality_decisions WHERE project_id = $1', [projectId]);
       await client.query('DELETE FROM guidance_notes WHERE project_id = $1', [projectId]);
       await client.query('DELETE FROM plot_assignments WHERE project_id = $1', [projectId]);
@@ -559,6 +560,12 @@ export class PostgresStore implements Store {
       } else if (r.key === 'maxProjectsPerUser' || r.key === 'maxProjectStorageMb') {
         const n = Number(r.value);
         settings[r.key as 'maxProjectsPerUser' | 'maxProjectStorageMb'] = Number.isInteger(n) && n >= 0 ? n : 0;
+      } else if (r.key === 'aiEnabled') {
+        settings.aiEnabled = r.value === 'true';
+      } else if (r.key === 'aiReportsPerDay' || r.key === 'aiFollowUpsPerDay' || r.key === 'aiMonthlyTokens') {
+        const n = Number(r.value);
+        const key = r.key as 'aiReportsPerDay' | 'aiFollowUpsPerDay' | 'aiMonthlyTokens';
+        settings[key] = Number.isInteger(n) && n >= 0 ? n : DEFAULT_SETTINGS[key];
       } else if (r.key === 'termsUrl' || r.key === 'contactEmail' || r.key === 'serverName') {
         settings[r.key as 'termsUrl' | 'contactEmail' | 'serverName'] = r.value.length > 0 ? r.value : null;
       }
@@ -1036,6 +1043,19 @@ export class PostgresStore implements Store {
   async setQualitySettings(projectId: string, settings: QualitySettings): Promise<void> {
     await this.withProject(projectId, async (client) => {
       await client.query('UPDATE projects SET quality_settings = $2 WHERE id = $1', [projectId, JSON.stringify(settings)]);
+    });
+  }
+
+  async isAiEnabled(projectId: string): Promise<boolean> {
+    return this.withProject(projectId, async (client) => {
+      const res = await client.query('SELECT ai_enabled FROM projects WHERE id = $1', [projectId]);
+      return res.rows[0]?.ai_enabled === true;
+    });
+  }
+
+  async setAiEnabled(projectId: string, enabled: boolean): Promise<void> {
+    await this.withProject(projectId, async (client) => {
+      await client.query('UPDATE projects SET ai_enabled = $2 WHERE id = $1', [projectId, enabled]);
     });
   }
 

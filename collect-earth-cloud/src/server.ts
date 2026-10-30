@@ -10,6 +10,7 @@ import { QualityService, QualityWorker } from './qualityService.js';
 import { RateLimiter } from './rateLimit.js';
 import type { Store } from './store/store.js';
 import { registerAdminRoutes } from './routes/admin.js';
+import { registerAiRoutes } from './routes/ai.js';
 import { registerAssignmentRoutes } from './routes/assignments.js';
 import { registerAuthRoutes } from './routes/auth.js';
 import { registerPlatformRoutes } from './routes/platform.js';
@@ -94,6 +95,7 @@ export async function buildServer(options: BuildServerOptions): Promise<FastifyI
   await registerAssignmentRoutes(app, store, config);
   await registerQualityRoutes(app, store, new QualityService(store, new QualityWorker({ maxOldGenerationSizeMb: config.qualityWorkerMaxMb })));
   await registerRecordRoutes(app, store);
+  await registerAiRoutes(app, store, config);
 
   await registerDashboard(app, options.webDir === undefined ? DEFAULT_WEB_DIR : options.webDir);
 

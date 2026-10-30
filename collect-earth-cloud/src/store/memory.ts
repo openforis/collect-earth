@@ -49,6 +49,7 @@ interface ProjectEntry {
   recordsGeneration: number;
   holdingsGeneration: number;
   qualitySettings: QualitySettings | null;
+  aiEnabled: boolean;
   decisions: Map<string, StoredDecision>; // key = plot
   notes: Map<string, StoredNote>; // key = id
 }
@@ -132,6 +133,7 @@ export class InMemoryStore implements Store {
       recordsGeneration: 0,
       holdingsGeneration: 0,
       qualitySettings: null,
+      aiEnabled: false,
       decisions: new Map(),
       notes: new Map(),
     });
@@ -820,6 +822,14 @@ export class InMemoryStore implements Store {
 
   async setQualitySettings(projectId: string, settings: QualitySettings): Promise<void> {
     this.requireProject(projectId).qualitySettings = structuredClone(settings);
+  }
+
+  async isAiEnabled(projectId: string): Promise<boolean> {
+    return this.projects.get(projectId)?.aiEnabled ?? false;
+  }
+
+  async setAiEnabled(projectId: string, enabled: boolean): Promise<void> {
+    this.requireProject(projectId).aiEnabled = enabled;
   }
 
   async listQualityDecisions(projectId: string): Promise<QualityDecision[]> {

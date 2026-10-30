@@ -64,6 +64,14 @@ export interface ServerSettings {
   contactEmail: string | null;
   /** Shown in the app bar instead of "Collect Earth Cloud". */
   serverName: string | null;
+  /** The AI assistant may be used on this server (it also needs the AI_VERTEX_* configuration). */
+  aiEnabled: boolean;
+  /** AI reports per project per UTC day; 0 = none allowed. */
+  aiReportsPerDay: number;
+  /** AI follow-ups and questions per project per UTC day; 0 = none allowed. */
+  aiFollowUpsPerDay: number;
+  /** AI tokens (input + output) per project per calendar month; 0 = none allowed. */
+  aiMonthlyTokens: number;
 }
 
 export const DEFAULT_SETTINGS: ServerSettings = {
@@ -74,6 +82,10 @@ export const DEFAULT_SETTINGS: ServerSettings = {
   termsUrl: null,
   contactEmail: null,
   serverName: null,
+  aiEnabled: false,
+  aiReportsPerDay: 5,
+  aiFollowUpsPerDay: 30,
+  aiMonthlyTokens: 2_000_000,
 };
 
 /** One account in the platform admin's user list: a project COUNT only, never names (§4b). */

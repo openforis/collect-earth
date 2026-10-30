@@ -1,4 +1,5 @@
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
+import { aiAvailable } from '../ai/available.js';
 import { checkCredentials, checkPassword, isUuid, publicBaseUrl, setupCodesMatch } from '../accountRules.js';
 import type { Config } from '../config.js';
 import { hashPassword } from '../password.js';
@@ -52,6 +53,17 @@ function limitSetting(name: string, value: unknown): SettingResult<number> {
   return { ok: true, value };
 }
 
+/** The AI limits and their largest value; 0 = none allowed. */
+const AI_LIMITS = { aiReportsPerDay: 1000, aiFollowUpsPerDay: 10_000, aiMonthlyTokens: 10_000_000_000 } as const;
+
+/** A whole number 0..max, where 0 allows none (the AI limits). */
+function quotaSetting(name: string, value: unknown, max: number): SettingResult<number> {
+  if (typeof value !== 'number' || !Number.isInteger(value) || value < 0 || value > max) {
+    return { ok: false, reason: `${name} must be a whole number from 0 (none allowed) to ${max}` };
+  }
+  return { ok: true, value };
+}
+
 /** Optional text: null or "" clears it; otherwise checked by `check`, which returns the value to store or null. */
 function textSetting(name: string, value: unknown, check: (v: string) => string | null, what: string): SettingResult<string | null> {
   if (value === null || (typeof value === 'string' && value.trim() === '')) {
@@ -94,6 +106,8 @@ export async function registerAdminRoutes(
       termsUrl: settings.termsUrl,
       contactEmail: settings.contactEmail,
       serverName: settings.serverName,
+      // Whether the AI assistant can be switched on for a project. Never the key or the Vertex settings.
+      aiAvailable: aiAvailable(config, settings),
     });
   });
 
@@ -204,6 +218,21 @@ export async function registerAdminRoutes(
           return reply.code(400).send({ error: 'bad_request', reason: 'signupOpen must be true or false' });
         }
         patch.signupOpen = body.signupOpen;
+      }
+      if (body.aiEnabled !== undefined) {
+        if (typeof body.aiEnabled !== 'boolean') {
+          return reply.code(400).send({ error: 'bad_request', reason: 'aiEnabled must be true or false' });
+        }
+        patch.aiEnabled = body.aiEnabled;
+      }
+      for (const [key, max] of Object.entries(AI_LIMITS) as [keyof typeof AI_LIMITS, number][]) {
+        if (body[key] !== undefined) {
+          const r = quotaSetting(key, body[key], max);
+          if (!r.ok) {
+            return reply.code(400).send({ error: 'bad_request', reason: r.reason });
+          }
+          patch[key] = r.value;
+        }
       }
       if (body.projectCreation !== undefined) {
         if (!PROJECT_CREATION_VALUES.includes(body.projectCreation as ProjectCreation)) {

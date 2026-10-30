@@ -360,6 +360,10 @@ describe('password change and reset', () => {
       termsUrl: null,
       contactEmail: null,
       serverName: null,
+      aiEnabled: false,
+      aiReportsPerDay: 5,
+      aiFollowUpsPerDay: 30,
+      aiMonthlyTokens: 2_000_000,
     });
 
     for (const uid of ['00000000-0000-0000-0000-000000000000', 'not-a-uuid']) {
