@@ -109,6 +109,32 @@ public class PlotGeoJsonBuilderTest {
 	}
 
 	@Test
+	public void csvColumnNamedVisibleIdCannotOverrideTheVisibleId() throws Exception {
+		SimplePlacemarkObject p = squarePlot();
+		p.setPlacemarkId("105,2");
+		p.setVisiblePlacemarkId("105");
+		Map<String, String> values = new LinkedHashMap<>();
+		values.put("visibleId", "105,2");
+		p.setValuesByColumn(values);
+		JsonNode props = new ObjectMapper().readTree(new PlotGeoJsonBuilder().toFeature(p)).get("properties");
+		// The map shows the visible id: a plot file column of that name must not put the hidden round back on screen
+		assertEquals("105", props.get("visibleId").asText());
+		// The column still reaches the form, as $[EXTRA_visibleId]
+		assertEquals("105,2", props.get("EXTRA_visibleId").asText());
+	}
+
+	@Test
+	public void everyKeyHiddenGivesAnEmptyVisibleId() throws Exception {
+		SimplePlacemarkObject p = squarePlot();
+		p.setPlacemarkId("105,2");
+		p.setVisiblePlacemarkId("");
+		JsonNode props = new ObjectMapper().readTree(new PlotGeoJsonBuilder().toFeature(p)).get("properties");
+		// Nothing of the keys is shown; the map names such a plot by its place in the file
+		assertEquals("", props.get("visibleId").asText());
+		assertEquals("105,2", props.get("id").asText());
+	}
+
+	@Test
 	public void openRingIsClosed() throws Exception {
 		SimplePlacemarkObject p = new SimplePlacemarkObject();
 		p.setPlacemarkId("plot_open");

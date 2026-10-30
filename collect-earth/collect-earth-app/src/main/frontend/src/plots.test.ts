@@ -49,6 +49,20 @@ describe("the label a plot is shown by", () => {
     expect(visibleIds(order, statuses, "all", "10", labels)).toEqual(order);
   });
 
+  it("is the plot's place in the file when every key is hidden, never the hidden keys", () => {
+    const hidden = indexPlots([
+      { properties: { id: "7,1", visibleId: "" } },
+      { properties: { id: "9,2", visibleId: "" } },
+      { properties: { id: "7,1", visibleId: "" } },
+      { properties: { id: "11,1", visibleId: "11" } },
+    ], (f) => f);
+    expect(hidden.order).toEqual(["7,1", "9,2", "11,1"]);
+    expect(plotLabel(hidden.labels, "7,1")).toBe("#1");
+    expect(plotLabel(hidden.labels, "9,2")).toBe("#2");
+    expect(plotLabel(hidden.labels, "11,1")).toBe("11");
+    expect(visibleIds(hidden.order, byId<PlotStatus>(), "all", ",2", hidden.labels)).toEqual([]);
+  });
+
   it("may be shared by two plots, which the list still tells apart by id", () => {
     const twice = indexPlots([{ properties: { id: "5,1", visibleId: "5" } }, { properties: { id: "5,2", visibleId: "5" } }],
       (f) => f.properties.id);

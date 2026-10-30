@@ -85,7 +85,6 @@ public class PlotGeoJsonBuilder {
 		// "105" ), as in the KML ( KmlGenerator.getVisiblePlacemarkId ). Hidden key columns such as round stay among the
 		// properties, as the balloon form needs them ( $[EXTRA_round] ), but the map never shows them
 		props.put("id", plot.getPlacemarkId());
-		props.put("visibleId", plot.getVisiblePlacemarkId() != null ? plot.getVisiblePlacemarkId() : plot.getPlacemarkId());
 		if (plot.getCoord() != null) {
 			props.put("latitude", plot.getCoord().getLatitude());
 			props.put("longitude", plot.getCoord().getLongitude());
@@ -109,6 +108,13 @@ public class PlotGeoJsonBuilder {
 					props.putIfAbsent("EXTRA_" + entry.getKey(), entry.getValue()); //$NON-NLS-1$
 				}
 			}
+		}
+		// Written last, so that no plot file column can replace it; a column of that name still reaches the form as
+		// $[EXTRA_visibleId]. "" when every key is hidden: the map then names the plot by its place in the file
+		String visibleId = plot.getVisiblePlacemarkId() != null ? plot.getVisiblePlacemarkId() : plot.getPlacemarkId();
+		Object csvValue = props.put("visibleId", visibleId);
+		if (csvValue != null) {
+			props.putIfAbsent("EXTRA_visibleId", csvValue); //$NON-NLS-1$
 		}
 		return props;
 	}

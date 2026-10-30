@@ -20,11 +20,18 @@ export function indexPlots<F extends { properties: { id: string; visibleId?: str
   const plots = byId<P>();
   const labels = byId<string>();
   const order: string[] = [];
+  const place = byId<number>();
   for (const feature of features) {
     const id = feature.properties.id;
-    if (!(id in plots)) order.push(id);
+    if (!(id in plots)) {
+      order.push(id);
+      place[id] = order.length;
+    }
     plots[id] = toPlot(feature);
-    labels[id] = labelOfFeature(feature.properties);
+    const label = labelOfFeature(feature.properties);
+    // Every key hidden (an empty visible id): the plot is called by its place in the file, "#3", which tells nothing
+    // of the hidden keys.
+    labels[id] = label !== "" ? label : `#${place[id]}`;
   }
   return { order, plots, labels };
 }
