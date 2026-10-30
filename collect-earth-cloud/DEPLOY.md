@@ -304,6 +304,51 @@ must be the address people really use.
 
 ---
 
+## Upgrading from master
+
+The new migrations run at boot as usual. Three things to know about the data a
+server from master already holds:
+
+- **Records synced before the summary fix have empty answers on the server.**
+  Until commit 13a388db, a record that had any empty attribute (in practice every
+  record Collect Earth sends) was stored with an empty summary: its XML is complete,
+  but the Quality tab, the answer columns of the data download and the AI
+  assistant see none of its answers. A record gets them back when Collect Earth
+  sends it again, which it does only when the record is saved again. To make one
+  collector's Collect Earth send all of its records at once:
+  1. Close Collect Earth.
+  2. In the collector's local database (`collectEarthDatabase.db` in the Collect
+     Earth folder, or the PostgreSQL database set in its settings), delete the
+     reconciliation watermark of the sync queue:
+
+     ```sql
+     DELETE FROM ce_cloud_sync_queue WHERE record_key = '__reconciliation_watermark__';
+     ```
+
+     (add `AND survey_uri = '<the survey's URI>'` to do it for one survey only).
+  3. Start Collect Earth and leave it open. Its reconciliation runs 10 minutes
+     after start: with no watermark it puts every record of the survey in the sync
+     queue, and the sync sends them.
+
+  The server accepts the records sent again: it keeps the newest copy of a record
+  and takes one with the same modification time as an update, so the answers are
+  filled in and nothing else changes.
+- **Records under Collect Earth's operator name move to the username.** Records a
+  signed-in collector synced before records went by the username were stored under
+  the operator name set in Collect Earth (for example "Juan Perez" for the account
+  `juan`). When such a record is sent again (saved again, or resent as above), the
+  server moves it to the username, so it is not counted twice. A row whose name is
+  another member's username is never moved. Records sent with a project token keep
+  their operator.
+- **Round is worked out by itself.** Projects created on master have no stored
+  round information. The first time it is needed (the Project file page, the data
+  download, the Quality tab, dividing plots), the server reads it from the project
+  file it already serves and keeps it: "own" when the survey has a `round` key
+  (for example the demo survey, keys `id` and `round`), otherwise "none". It never
+  adds `round` to a file collectors already have. When the survey has its own
+  round, the plot files are counted again with their round column. Nothing needs
+  to be done.
+
 ## What "round" means for coordinators
 
 - Every record now has a **plot** and a **round**: round 1 is the main assessment
@@ -437,8 +482,12 @@ container's memory: the whole container would run out first and restart.
   its records are listed as "plot in no file". Save plot files as UTF-8.
 - **A header row whose names all look like numbers** (for example "2020") is taken
   for a data row, as Collect Earth itself does.
-- **Blind checks depend on Collect Earth hiding the `round` key** from collectors;
-  it is checked with the desktop app, not by the server.
+- **Blind checks need the next Collect Earth release after 1.23.19.** That release
+  hides the `round` key everywhere a collector looks. Collect Earth 1.23.19 and
+  older show the plot's round (a check copy as "105,2") in Earth Map, the Google
+  Earth Engine app and the plots map, so a collector using them can tell a check
+  apart. The server cannot see which version a collector uses: ask collectors to
+  update before quality checks start.
 - **"Open in Google Earth" links** on the Quality tab only work for plot files in
   latitude/longitude (WGS 84); for other coordinate systems the tab says they are
   not available.

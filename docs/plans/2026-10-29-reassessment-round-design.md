@@ -12,6 +12,11 @@ they collect.
 
 **Constraints**
 - **No Java / Swing changes.** Everything works with the desktop client as it is.
+  *Amended 2026-10-30:* the owner approved small desktop changes outside Swing to make
+  checks blind (`KmlGenerator`, `BrowserService`, `PlacemarkBrowserServlet`,
+  `GoogleEarthWebService`, `PlotGeoJsonBuilder`, the Google Earth Web `.fmt` template, the
+  desktop map frontend). Checks are blind only with the next desktop release after
+  1.23.19; older versions show the round in Earth Map, the Earth Engine app and the plots map.
 - Re-assessments are **blind**: a collector doing a check doesn't see that the plot
   was already assessed, or by whom.
 - The server changes a survey **only before collection** (no records yet).
@@ -79,7 +84,8 @@ The CSV export always has the same columns `plot`, `round` and `operator`, so a
 spreadsheet can filter `round = 1` on any project. With `round` in the key,
 importing both assessments into Collect Earth gives no conflicts, and Collect
 Earth's own exports (IPCC, uncertainty, Saiku) already count only `round = 1`.
-For `id`-only surveys the download page explains that imports show conflicts.
+For `id`-only surveys the Project file page explains that imports show conflicts
+(`file.round.noneLate` and `file.round.carryOn`, in the four languages).
 
 ## Part 3: quality tools and reports
 

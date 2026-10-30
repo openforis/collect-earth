@@ -35,6 +35,10 @@ it gives the why behind every rule below.
 
 **Rules for every task**
 - **No Java / Swing changes.** Nothing under `collect-earth/` changes.
+  - *Amended 2026-10-30:* the owner approved small desktop changes outside Swing to make
+    checks blind: `KmlGenerator`, `BrowserService`, `PlacemarkBrowserServlet`,
+    `GoogleEarthWebService`, `PlotGeoJsonBuilder`, the Google Earth Web `.fmt` template and
+    the desktop map frontend (Task 21). Swing classes still do not change.
 - **Line endings:** keep each file's own line endings.
   - CRLF: `src/server.ts`, `web/src/i18n.ts`, `web/src/api.ts`,
     `web/src/api.test.ts`, `web/src/App.tsx`.
@@ -468,8 +472,8 @@ Commit: "Collect Earth Cloud: every record has a plot and a round, from its key 
   copies) and gives check submitters an overlap copy; only a plot with no main
   submitter among the people falls back to the check submitters. `summarize`'s
   `submitted`, the whole-file summary and `moveUnfinished` take either
-  (`hasSubmitted`). The division routes build `copyHolders` from the file's own
-  holdings.
+  (`hasSubmitted`). The division routes build `copyHolders` from every divided file (`loadPlotContext`, as the
+  export and the quality figures; until the final review, from the file's own holdings).
 - **Plot counts:** both stores count a csv file's plots from the `plotKeys` the
   route passes (parsed with the key count); `recountPlots` recounts them when the
   project file changes the key count (Task 4).
@@ -1049,9 +1053,9 @@ Commit: "Collect Earth Cloud: coordinators decide which answer is right and writ
       - at most `MAX_WORKER_JOBS` (2) jobs at a time; another is refused with
         `WorkerBusyError`;
       - the heap is `resourceLimits.maxOldGenerationSizeMb`, from
-        `QUALITY_WORKER_MAX_MB` (config `qualityWorkerMaxMb`, default 512, at
+        `QUALITY_WORKER_MAX_MB` (config `qualityWorkerMaxMb`, default 256, at
         least 64). Running out fails the job with "the quality figures needed more
-        memory than the 512 MB allowed (QUALITY_WORKER_MAX_MB)", and the next job
+        memory than the 256 MB allowed (QUALITY_WORKER_MAX_MB)", and the next job
         gets a new worker;
       - `close()` fails the jobs still running;
       - the worker's pool: `{ max: 2, connectionTimeoutMillis: 10_000 }`, and every
@@ -2498,7 +2502,7 @@ Commit: "Collect Earth Cloud dashboard: the AI assistant panel, printable report
      (`getBaseUrl` in `@google/genai` reads them).
 - **DEPLOY.md:** what "round" means for coordinators, in a few lines.
 - **`.env.example`:** the four `AI_*` variables, commented out, and
-  `QUALITY_WORKER_MAX_MB` (default 512, already there since Task 10), commented out.
+  `QUALITY_WORKER_MAX_MB` (default 256, already there since Task 10), commented out.
 - **Postgres smoke** (Docker, as before, container name `ce-pg-round`):
   1. Run the migrations on a fresh database and on one at 006.
   2. Upload `idOnlyCep` and two plot files, divide one with 20 % copies, and post
@@ -2531,9 +2535,9 @@ Commit: "Collect Earth Cloud: how to set up the AI assistant, and what round mea
   - "Going back" says what an older version does with the new data (the columns and tables
     are only added; its migrations put the older policies back until a newer boot).
 - **Found while writing it, not fixed (deploy.sh is not changed):** `deploy.sh` gives the
-  service 512 MiB in all, and `QUALITY_WORKER_MAX_MB` defaults to 512, so on a very large
-  project the container can run out of memory before the worker's own limit. DEPLOY.md
-  says to set the variable lower (e.g. 256) or give the service `--memory=1Gi`.
+  service 512 MiB in all, and `QUALITY_WORKER_MAX_MB` defaulted to 512, so on a very large
+  project the container could run out of memory before the worker's own limit. The default
+  is now 256; DEPLOY.md says to raise it only with more memory (`--memory=1Gi`).
 - **README:** the CEP, round, quality, report, AI and AI-usage routes; the new fields of
   `/v1/server-info`, `/v1/admin/settings` and the export; the layout and migrations lists.
 - **`.env.example`:** the `AI_*` variables and `QUALITY_WORKER_MAX_MB` were already there,
@@ -2809,6 +2813,32 @@ server's quality figures.**
   in any survey with relevance like this; the working record stays wrong until it is reloaded.
   Likely fix (not done here): revalidate the whole record (`recordUpdater.validate(record)`) before
   `isComplete` in both save paths of `AbstractEarthSurveyService`.
+
+**Fixed after the final review (2026-10-30):**
+- **Projects from master read their round.** A CEP stored on master has `round_info` NULL, so a
+  project with the demo survey (`[id, round]`) was read as id-only after the upgrade (wrong export,
+  every record `two_main`/`extra_key_parts`, `PUT /round` 400). Both stores' `getRoundInfo` now
+  read such a project's stored CEP once (`legacyRoundInfo` = `roundInfoOf`: own or none, never
+  added), save it and recount the plot files when `fileKeyCount` is not 1. In Postgres it is done
+  lazily, inside the project's transaction as the app role (a boot pass would need to see every
+  project, which RLS forbids the app role): `UPDATE ... WHERE round_info IS NULL`, so of two
+  concurrent first readers (or an upload) only the first writes and the recount runs with it.
+  Checked on a throwaway `postgres:16` (`ce-pg-final`, removed): master's 001-003 with a
+  demo-survey project, records "17,1"/"17,2" and a plot file, then this branch booted with the app
+  role: five concurrent `GET /round` all `own`, the plot file recounted (2 → 3), the export
+  `17,1 main` / `17,2 check`, `/quality` one plot checked and no data problems, `PUT /round`
+  200; the same script against the code before the fix failed six of its checks.
+- **`GET /overlap` removed** (with `overlapShape`, its README row and tests): the Quality tab
+  replaced it and nothing calls it.
+- The division routes use every divided file's holdings for `copyHolders` (Task 5 "As built").
+- DEPLOY.md: "Upgrading from master" (resending the records with empty summaries by deleting the
+  `__reconciliation_watermark__` row of `ce_cloud_sync_queue`; legacy operator names; round filled
+  in by itself), and blind checks need the next desktop release after 1.23.19 (also on the Project
+  file page, in the four languages, with the import-conflicts sentence for surveys without round).
+- The plots map: `visibleId` is written after the plot file's columns; a plot whose keys are all
+  hidden keeps `visibleId` "" and the map calls it by its place in the file ("#3").
+- "In 1 project" in the four languages; the isolation test covers the reports, places and AI
+  routes; the timing assertions of `cep.test.ts` and `plots.test.ts` only catch hangs (5 s).
 
 ### Task 22: one real Gemini run (only after the owner has set up Vertex)
 
