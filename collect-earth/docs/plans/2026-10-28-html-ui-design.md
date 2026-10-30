@@ -142,7 +142,7 @@ All under `/earth/api`, JSON in and out:
    in the plots map and the home page; tray icon and Quit. `EarthApp` opens the page instead of the Swing window.
 2. **Settings** (done, `2026-10-30-html-ui-stage-2.md`): section descriptions, server-side validation, the new
    settings page with plot preview and sample file check.
-3. **Data:** export dialog, imports, job panel.
+3. **Data** (done, `2026-10-30-html-ui-stage-3.md`): export dialog, imports, job panel.
 4. **Tools and Utilities:** Saiku, IPCC, KML load, divide CSV, delete plots, missing plots report.
 5. **Project, Help and notices:** CEP import, cloud join and sync, help items, announcements, updates.
 6. **Removal:** delete `view/*` and the other Swing classes, FlatLaf and Swing-only dependencies; update `CLAUDE.md`,
@@ -172,3 +172,11 @@ merged:
   with the job panel of stage 3 it can run as a job, so the page shows a KML that could not be generated.
 - **The connection tests** still answer the English texts of `CollectEarthUtils.testPostgreSQLConnection` and
   `testCloudConnection`, as the dialogs did.
+
+### Left by stage 3 for the later stages
+
+- **The reload of the plots after an import or after applying the settings** still runs as a thread of the server that
+  only logs a failure (`EarthApp.reloadPlots`); as a job of the panel it would show a KML that could not be generated.
+- **The KML export** reports no progress: `KmlGeneratorService.exportToKml` is one call.
+- **Client mode:** the Swing menu hid the Data Import/Export submenu when Collect Earth acts as a client of another
+  instance (`serverMenuItems`); the app bar does not yet, nor do the tools and utilities of stage 4.

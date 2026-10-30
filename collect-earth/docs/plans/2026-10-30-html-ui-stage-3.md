@@ -10,7 +10,8 @@ long action's progress, log, Cancel and result, with Open file / Open folder.
 `JobService` jobs through a small adapter (`ProcessJobs`) that turns their status into job progress and their
 cancellation into the job's. `ExportService` and `ImportService` (`org.openforis.collect.earth.app.service.data`)
 hold what `ExportActionListener`, `ImportActionListener` and the monitor dialogs did, without Swing; `DataController`
-and the new POSTs of `JobsController` put them behind `/api`. The XML import asks about the conflicting records as the
+puts them behind `/api`, the job starts included (`POST /api/jobs/export`...), so `JobsController` stays the generic
+reader and canceller of jobs. The XML import asks about the conflicting records as the
 dialog did, in two steps: a summary job, the page's question, an import job. The page gets `JobPanel`, the export
 dialog, the two import dialogs, and their pure logic in `jobs.ts`, `exportDialog.ts` and `importDialog.ts`.
 
@@ -139,7 +140,7 @@ Commit `Import: the ZIP import, with its conflicts, and the CSV update as servic
 
 ### Task 4: `DataController`, the job POSTs, several files, open and reveal
 
-**Files:** `$C/DataController.java` (+test), `$C/JobsController.java` (+test: the three POSTs answer `{id}` and 409
+**Files:** `$C/DataController.java` (+test: the options, the file name, the four job POSTs answer `{id}` and 409
 `job.running`), `$C/FilesController.java` (+test: `multiple`, `/files/open`, `/files/reveal`),
 `$S/NativeFileChooser.java` + `SwingNativeFileChooser.java` (`chooseMany`).
 

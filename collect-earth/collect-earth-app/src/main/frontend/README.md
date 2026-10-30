@@ -30,6 +30,13 @@ which restarts Collect Earth when a setting needs it. `src/settings.ts` holds th
 visibility conditions, the changes, the search), `src/plotPreview.ts` the drawing of the plot, and
 `src/settingsApi.ts` the calls.
 
+The Data menu (`src/components/data/`) has the export dialog (one dialog for the formats and the records
+filters of the nine Swing entries), Import new data from ZIP and Update records from CSV. The long actions
+run as jobs of the server (`POST /earth/api/jobs/export`, `importSummary`, `import`, `updateCsv`), which
+`JobPanel.tsx` follows through `GET /earth/api/jobs/{id}` (`src/jobs.ts`), with Cancel and, at the end,
+Open file / Open folder (`POST /earth/api/files/open`, `reveal`). The ZIP import reads the files first and
+asks about the records already in the database before importing (`src/importDialog.ts`).
+
 ## Build
 
 The Maven build of `collect-earth-app` builds it automatically (`frontend-maven-plugin`
@@ -59,6 +66,8 @@ npm run build      # rebuilds target/classes/leafletmap (refresh the map window 
   `src/home.ts` - the API client, the Swing texts, `/api/app`, the menus and their pure logic
 - `src/settings.ts`, `src/settingsApi.ts`, `src/plotPreview.ts`, `src/components/settings/` - the
   settings page: its model, its calls, the plot preview and its components
+- `src/jobs.ts`, `src/dataApi.ts`, `src/exportDialog.ts`, `src/importDialog.ts`, `src/components/data/` -
+  the jobs, the Data menu's calls and dialogs, and the job panel
 - `src/form/` - the generated data entry form: `model.ts` (pure protocol logic: value
   formats, response merges, hierarchical codes, errors), `store.ts` (server traffic, serialized
   autosave, submit), `FormApp.tsx` / `fields.tsx` (UI)
