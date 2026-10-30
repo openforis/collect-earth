@@ -151,6 +151,13 @@ public class LocalPropertiesService extends Observable {
 		}
 	}
 
+	/**
+	 * With the properties given, for the tests : earth.properties of the user is not read
+	 */
+	LocalPropertiesService(Properties properties) {
+		this.properties = properties;
+	}
+
 	public String convertToOSPath(String path) {
 		String pathSeparator = File.separator;
 		path = path.replace("/", pathSeparator);
