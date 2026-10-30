@@ -5,7 +5,8 @@ export type ListFilter = "all" | "pending" | "saved";
 export interface PlotFeature {
   type: "Feature";
   geometry: { type: "GeometryCollection"; geometries: { type: string; coordinates: number[][][] }[] };
-  properties: Record<string, string | null> & { id: string; latitude: string; longitude: string };
+  /** id: every key joined by "," (what the records use); visibleId: the keys the collector may see (what is shown) */
+  properties: Record<string, string | null> & { id: string; visibleId?: string | null; latitude: string; longitude: string };
 }
 
 export interface MapConfig {

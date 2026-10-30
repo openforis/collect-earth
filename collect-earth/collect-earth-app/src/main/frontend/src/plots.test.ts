@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { byId, countStatuses, footprintCorners, indexPlots, heightForZoom, matchesFilter, neighbour, nextUnfinished, normalizeStatus, plotParam, plotsNear,
-  plotToRestore, plotsGone, sameView, surveyView, withoutPlotParam,
+import { byId, countStatuses, footprintCorners, indexPlots, heightForZoom, labelOfFeature, matchesFilter, neighbour, nextUnfinished, normalizeStatus, plotParam, plotsNear,
+  plotLabel, plotToRestore, plotsGone, sameView, surveyView, withoutPlotParam,
   visibleIds, zoomForHeight } from "./plots";
 import type { PlotStatus } from "./types";
 
@@ -9,11 +9,53 @@ const statuses: Record<string, PlotStatus> = { p1: "saved", p2: "partial", p3: "
 
 describe("filtering", () => {
   it("applies the status chip and a case-insensitive id search", () => {
-    expect(visibleIds(order, statuses, "all", "")).toEqual(order);
-    expect(visibleIds(order, statuses, "pending", "")).toEqual(["p2", "p4"]);
-    expect(visibleIds(order, statuses, "saved", "")).toEqual(["p1", "p3", "p10"]);
-    expect(visibleIds(order, statuses, "all", " P1 ")).toEqual(["p1", "p10"]);
+    expect(visibleIds(order, statuses, "all", "", byId())).toEqual(order);
+    expect(visibleIds(order, statuses, "pending", "", byId())).toEqual(["p2", "p4"]);
+    expect(visibleIds(order, statuses, "saved", "", byId())).toEqual(["p1", "p3", "p10"]);
+    expect(visibleIds(order, statuses, "all", " P1 ", byId())).toEqual(["p1", "p10"]);
     expect(matchesFilter("x", "empty", "saved", "")).toBe(false);
+  });
+});
+
+describe("the label a plot is shown by", () => {
+  // A survey whose round key is hidden from the collector: a quality control copy must look like a main plot
+  const features = [
+    { properties: { id: "101,1", visibleId: "101" } },
+    { properties: { id: "105,2", visibleId: "105" } },
+    { properties: { id: "107,2", visibleId: "107" } },
+  ];
+  const { order, labels } = indexPlots(features, (f) => f);
+
+  it("is the visible id, while the plots stay keyed by their whole id", () => {
+    expect(order).toEqual(["101,1", "105,2", "107,2"]);
+    expect(plotLabel(labels, "105,2")).toBe("105");
+    expect(Object.values(labels).some((label) => label.includes(","))).toBe(false);
+  });
+
+  it("is the id for a plot file without visible ids, or a plot not loaded, and nothing for no plot", () => {
+    expect(labelOfFeature({ id: "p1" })).toBe("p1");
+    expect(labelOfFeature({ id: "p1", visibleId: null })).toBe("p1");
+    expect(labelOfFeature({ id: "1,2", visibleId: "" })).toBe("");
+    expect(plotLabel(labels, "999,1")).toBe("999,1");
+    expect(plotLabel(labels, null)).toBe("");
+    expect(plotLabel(labels, "constructor")).toBe("constructor");
+  });
+
+  it("is what the search looks in, never the hidden keys", () => {
+    const statuses = byId<PlotStatus>();
+    expect(visibleIds(order, statuses, "all", "105", labels)).toEqual(["105,2"]);
+    expect(visibleIds(order, statuses, "all", ",2", labels)).toEqual([]);
+    expect(visibleIds(order, statuses, "all", ",1", labels)).toEqual([]);
+    expect(visibleIds(order, statuses, "all", "10", labels)).toEqual(order);
+  });
+
+  it("may be shared by two plots, which the list still tells apart by id", () => {
+    const twice = indexPlots([{ properties: { id: "5,1", visibleId: "5" } }, { properties: { id: "5,2", visibleId: "5" } }],
+      (f) => f.properties.id);
+    expect(twice.order).toEqual(["5,1", "5,2"]);
+    expect(twice.plots["5,2"]).toBe("5,2");
+    expect(visibleIds(twice.order, byId<PlotStatus>(), "all", "5", twice.labels)).toEqual(["5,1", "5,2"]);
+    expect(nextUnfinished(twice.order, { "5,1": "saved" }, "5,1")).toBe("5,2");
   });
 });
 
@@ -160,7 +202,7 @@ describe("the plots of a load", () => {
     expect(statuses.constructor).toBeUndefined();
     statuses["__proto__"] = "saved";
     expect(Object.keys(statuses)).toEqual(["__proto__"]);
-    expect(visibleIds(["__proto__", "constructor"], statuses, "pending", "")).toEqual(["constructor"]);
+    expect(visibleIds(["__proto__", "constructor"], statuses, "pending", "", byId())).toEqual(["constructor"]);
   });
 });
 

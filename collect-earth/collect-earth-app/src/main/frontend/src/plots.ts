@@ -11,19 +11,37 @@ export function byId<T>(): Record<string, T> {
 }
 
 /**
- * The plots of a load keyed by id (see {@link byId}), and their ids in the order of the file: an id repeated keeps the
- * place it first had, with its last data. Built from this load alone, so that loading again replaces the plots.
+ * The plots of a load keyed by id (see {@link byId}), their ids in the order of the file, and the label each is shown
+ * by: an id repeated keeps the place it first had, with its last data. Built from this load alone, so that loading
+ * again replaces the plots.
  */
-export function indexPlots<F extends { properties: { id: string } }, P>(features: F[], toPlot: (feature: F) => P):
-    { order: string[]; plots: Record<string, P> } {
+export function indexPlots<F extends { properties: { id: string; visibleId?: string | null } }, P>(features: F[],
+    toPlot: (feature: F) => P): { order: string[]; plots: Record<string, P>; labels: Record<string, string> } {
   const plots = byId<P>();
+  const labels = byId<string>();
   const order: string[] = [];
   for (const feature of features) {
     const id = feature.properties.id;
     if (!(id in plots)) order.push(id);
     plots[id] = toPlot(feature);
+    labels[id] = labelOfFeature(feature.properties);
   }
-  return { order, plots };
+  return { order, plots, labels };
+}
+
+/**
+ * What a plot is called on the screen: its visible id, the keys without those hidden from the collector (a blind quality
+ * control copy "105,2" is called "105", like the main plot "101,1" is called "101"). The id itself stays the key of
+ * everything else (the map, the form, the records). A plot file from before the visible id is called by its id.
+ */
+export function labelOfFeature(properties: { id: string; visibleId?: string | null }): string {
+  return properties.visibleId != null ? properties.visibleId : properties.id;
+}
+
+/** The label of the plot `id` (see {@link labelOfFeature}); its id when it is not among `labels`, "" for no plot. */
+export function plotLabel(labels: Record<string, string>, id: string | null | undefined): string {
+  if (id == null) return "";
+  return Object.prototype.hasOwnProperty.call(labels, id) ? labels[id] : id;
 }
 
 /**
@@ -34,16 +52,18 @@ export function plotsGone(before: Record<string, unknown>, now: Record<string, u
   return Object.keys(before).filter((id) => !(id in now));
 }
 
-export function matchesFilter(id: string, status: PlotStatus, filter: ListFilter, query: string): boolean {
+/** Whether a plot shown as `label` is in the list: the search looks in the label, never in the keys hidden from it. */
+export function matchesFilter(label: string, status: PlotStatus, filter: ListFilter, query: string): boolean {
   if (filter === "pending" && status === "saved") return false;
   if (filter === "saved" && status !== "saved") return false;
   const q = query.trim().toLowerCase();
-  return !q || id.toLowerCase().includes(q);
+  return !q || label.toLowerCase().includes(q);
 }
 
+/** The ids of the plots in the list, searched by their labels (see {@link plotLabel}). */
 export function visibleIds(order: string[], statuses: Record<string, PlotStatus>,
-    filter: ListFilter, query: string): string[] {
-  return order.filter((id) => matchesFilter(id, statuses[id] ?? "empty", filter, query));
+    filter: ListFilter, query: string, labels: Record<string, string>): string[] {
+  return order.filter((id) => matchesFilter(plotLabel(labels, id), statuses[id] ?? "empty", filter, query));
 }
 
 /** First plot after `fromId` (wrapping around, CSV order) that is not completed. */

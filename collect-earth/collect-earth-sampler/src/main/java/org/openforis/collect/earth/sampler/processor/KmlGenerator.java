@@ -171,6 +171,52 @@ public abstract class KmlGenerator extends AbstractCoordinateCalculation {
 		}
 	}
 
+	/**
+	 * The id of a plot as the collector sees it: its key values ( the first values of {@code keyValues} ) without the keys
+	 * hidden from the record list, joined by ",". Hidden keys make blind quality control plots: a check copy "105,2" is
+	 * shown as "105", like the main plot "101,1" is shown as "101". Empty when every key is hidden.
+	 */
+	public static String getVisiblePlacemarkId(String[] keyValues, CollectSurvey collectSurvey) {
+		return getVisiblePlacemarkId(keyValues,
+				collectSurvey.getSchema().getRootEntityDefinitions().get(0).getKeyAttributeDefinitions(),
+				collectSurvey.getAnnotations());
+	}
+
+	/**
+	 * {@link #getVisiblePlacemarkId(String[], CollectSurvey)} of a placemark id, its key values joined by ",". An id that
+	 * does not split into as many values as the survey has keys ( a key value with a comma ) is given whole when no key is
+	 * hidden, and as "" otherwise, so that a hidden key is never shown.
+	 */
+	public static String getVisiblePlacemarkIdOf(String placemarkId, CollectSurvey collectSurvey) {
+		if (placemarkId == null) {
+			return null;
+		}
+		List<AttributeDefinition> keyAttributeDefinitions = collectSurvey.getSchema().getRootEntityDefinitions().get(0)
+				.getKeyAttributeDefinitions();
+		CollectAnnotations annotations = collectSurvey.getAnnotations();
+		String[] keyValues = placemarkId.split(",", -1);
+		if (keyValues.length != keyAttributeDefinitions.size()) {
+			boolean anyHidden = keyAttributeDefinitions.stream().anyMatch(annotations::isHideKeyInCollectEarthRecordList);
+			return anyHidden ? "" : placemarkId;
+		}
+		return getVisiblePlacemarkId(keyValues, keyAttributeDefinitions, annotations);
+	}
+
+	private static String getVisiblePlacemarkId(String[] keyValues, List<AttributeDefinition> keyAttributeDefinitions,
+			CollectAnnotations annotations) {
+		StringBuilder visibleKeys = new StringBuilder("");
+		for (int i = 0; i < keyAttributeDefinitions.size() && i < keyValues.length; i++) {
+			// Check that the Key attribute should not be hidden to user...
+			// This is helpful to have blind Quality Control plots
+			if (!annotations.isHideKeyInCollectEarthRecordList(keyAttributeDefinitions.get(i))) {
+				visibleKeys = visibleKeys.append(keyValues[i]).append(",");
+			}
+		}
+		// Remove the trailing comma. The visible keys are empty when every key is hidden ( blind quality control plots ), and
+		// substring(0, -1) used to throw there
+		return StringUtils.removeEnd(visibleKeys.toString(), ",");
+	}
+
 	public SimplePlacemarkObject getPlotObject(String[] csvValuesInLine, String[] possibleColumnNames,
 			CollectSurvey collectSurvey, boolean kmlExport) throws KmlGenerationException, TransformException, FactoryException {
 
@@ -185,22 +231,13 @@ public abstract class KmlGenerator extends AbstractCoordinateCalculation {
 		SimplePlacemarkObject plotProperties = new SimplePlacemarkObject();
 
 		StringBuilder keys = new StringBuilder("");
-		StringBuilder visibleKeys = new StringBuilder("");
 		for (int i = 0; i < numberOfKeyAttributes; i++) {
 			keys = keys.append(csvValuesInLine[i]).append(",");
-			boolean isKeyHiddenInGoogleEarth = annotations
-					.isHideKeyInCollectEarthRecordList(keyAttributeDefinitions.get(i));
-			// Check that the Key attribute should not be hidden to user...
-			// This is helpful to have blind Quality Control plots
-			if (!isKeyHiddenInGoogleEarth) {
-				visibleKeys = visibleKeys.append(csvValuesInLine[i]).append(",");
-			}
 		}
 
-		// Remove the trailing comma. The visible keys are empty when every key is hidden ( blind quality control plots ), and
-		// substring(0, -1) used to throw there
+		// Remove the trailing comma
 		plotProperties.setPlacemarkId(StringUtils.removeEnd(keys.toString(), ","));
-		plotProperties.setVisiblePlacemarkId(StringUtils.removeEnd(visibleKeys.toString(), ","));
+		plotProperties.setVisiblePlacemarkId(getVisiblePlacemarkId(csvValuesInLine, keyAttributeDefinitions, annotations));
 
 		int leadingColumns = 0;
 

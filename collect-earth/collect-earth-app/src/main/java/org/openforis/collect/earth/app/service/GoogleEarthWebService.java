@@ -588,6 +588,17 @@ public class GoogleEarthWebService {
 	}
 
 	/**
+	 * The name the outline gives the plot: its id without the keys hidden from the record list, so that a blind quality
+	 * control copy ( "105,2" ) is named like a main plot ( "105" ). The whole id when the visible one is not known.
+	 */
+	static String plotLabel(SimplePlacemarkObject plot) {
+		if (plot.getVisiblePlacemarkId() != null) {
+			return plot.getVisiblePlacemarkId();
+		}
+		return plot.getPlacemarkId() == null ? "" : plot.getPlacemarkId();
+	}
+
+	/**
 	 * Injects the outline only into a document that has a body: Google Earth Web redirects on its way to the app, so a
 	 * page that just loaded may be a new document still being built, and the outline would have nowhere to go. That
 	 * is waited for a few seconds (with a script that cannot throw), and the template checks it again itself, as the
@@ -605,6 +616,7 @@ public class GoogleEarthWebService {
 			}
 			Map<String, Object> data = geolocalizeMapService.getPlacemarkData(plot);
 			data.put("plotId", plot.getPlacemarkId() == null ? "" : plot.getPlacemarkId());
+			data.put("plotLabel", plotLabel(plot));
 			data.put("plotUrl", topDownUrl(plot));
 			data.put("inPageNavigation", String.valueOf(inPageNavigation));
 			data.put("flightUrl", flightUrl == null ? "" : flightUrl);

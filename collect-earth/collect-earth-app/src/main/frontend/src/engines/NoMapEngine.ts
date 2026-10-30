@@ -8,7 +8,7 @@ import type { EngineCallbacks, EngineConfig, MapEngine } from "./MapEngine";
 export class NoMapEngine implements MapEngine {
   readonly name = "none" as const;
   init(_container: HTMLElement | null, _config: EngineConfig, _callbacks: EngineCallbacks): void {}
-  addPlot(_id: string, _rings: LatLng[][], _center: LatLng): void {}
+  addPlot(_id: string, _label: string, _rings: LatLng[][], _center: LatLng): void {}
   removePlot(_id: string): void {}
   setPlotColor(_id: string, _color: string): void {}
   flyTo(_center: LatLng, _minZoom: number): void {}

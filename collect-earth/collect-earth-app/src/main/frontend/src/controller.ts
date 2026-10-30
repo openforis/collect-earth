@@ -6,7 +6,7 @@ import { LeafletEngine } from "./engines/LeafletEngine";
 import { NoMapEngine } from "./engines/NoMapEngine";
 import { IN_PANEL } from "./panel";
 import type { EngineConfig, MapEngine } from "./engines/MapEngine";
-import { byId, footprintCorners, indexPlots, neighbour, nextUnfinished, normalizeStatus, plotParam, plotsGone, plotsNear, plotToRestore, surveyView,
+import { byId, footprintCorners, indexPlots, neighbour, nextUnfinished, normalizeStatus, plotLabel, plotParam, plotsGone, plotsNear, plotToRestore, surveyView,
   sameView, visibleIds, withoutPlotParam } from "./plots";
 import type { MessageKey } from "./i18n";
 import { reconcileImagery, sameImageryStatus, type ImageryExpectation } from "./imagery";
@@ -44,6 +44,11 @@ export interface Banner {
 
 export interface UiState {
   order: string[];
+  /**
+   * What each plot is called on the screen, by id: the keys the collector may see (see plotLabel). Everything shown names
+   * a plot by its label, everything else (the map, the form, the records, the statuses) by its id.
+   */
+  labels: Record<string, string>;
   statuses: Record<string, PlotStatus>;
   loaded: boolean;
   activeId: string | null;
@@ -100,7 +105,7 @@ export class MapController {
 
   constructor() {
     this.state = {
-      order: [], statuses: byId(), loaded: false, activeId: null, formUrl: null,
+      order: [], labels: byId(), statuses: byId(), loaded: false, activeId: null, formUrl: null,
       filter: this.prefs.filter ?? "all", query: "",
       sidebarCollapsed: !!this.prefs.sidebarCollapsed, formWidth: this.prefs.formWidth ?? 560,
       banner: null, viewerType: "", language: "en", baseLayers: [], baseLayer: "", gew: null,
@@ -211,7 +216,7 @@ export class MapController {
       }
       // From this answer alone, and put in place at once: a load tried again after one that failed half-way (below)
       // would otherwise find its plots there already, and leave them out of the list
-      const { order, plots } = indexPlots(fc.features, (feature) => ({
+      const { order, plots, labels } = indexPlots(fc.features, (feature) => ({
         feature, rings: ringsOf(feature),
         center: [parseFloat(feature.properties.latitude), parseFloat(feature.properties.longitude)] as LatLng,
       }));
@@ -226,7 +231,7 @@ export class MapController {
       const banner = this.state.banner?.dismissible ? this.state.banner : null;
       // The plot open, if it is gone, is closed: nothing could be done with it
       const activeGone = this.state.activeId !== null && !(this.state.activeId in plots);
-      this.set({ order, statuses, loaded: true, banner, ...(activeGone ? { activeId: null, formUrl: null } : {}) });
+      this.set({ order, labels, statuses, loaded: true, banner, ...(activeGone ? { activeId: null, formUrl: null } : {}) });
       // The engines replace a plot added again
       order.forEach((id) => this.addToEngine(id));
       engine.fitAll(this.allCenters());
@@ -256,7 +261,7 @@ export class MapController {
 
   private addToEngine(id: string): void {
     const plot = this.plots[id];
-    this.engine!.addPlot(id, plot.rings, plot.center);
+    this.engine!.addPlot(id, plotLabel(this.state.labels, id), plot.rings, plot.center);
     this.engine!.setPlotColor(id, id === this.state.activeId ? ACTIVE_COLOR : STATUS_COLORS[this.state.statuses[id] ?? "empty"]);
   }
 
@@ -343,8 +348,8 @@ export class MapController {
 
   /** Previous/next plot among those currently shown in the list (all plots if none). */
   neighbourOf(id: string | null, step: 1 | -1): string | null {
-    const { order, statuses, filter, query } = this.state;
-    const visible = visibleIds(order, statuses, filter, query);
+    const { order, labels, statuses, filter, query } = this.state;
+    const visible = visibleIds(order, statuses, filter, query, labels);
     return neighbour(visible.length ? visible : order, id, step);
   }
 

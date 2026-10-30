@@ -124,6 +124,7 @@ public class PlacemarkBrowserServlet {
 				// The coordinates-only constructor leaves placemarkId null; integrations
 				// like the GEE App URL require it (see BrowserService.openGEEAppURL).
 				placemarkObject.setPlacemarkId(plotId);
+				placemarkObject.setVisiblePlacemarkId(visiblePlacemarkId(plotId));
 			}
 			plotImageryService.plotSelected(plotId);
 			OpenBrowserThread browserThread = new OpenBrowserThread("Open auxiliary windows " + latLongCoordinates, placemarkObject);
@@ -132,6 +133,19 @@ public class PlacemarkBrowserServlet {
 		} catch (Exception e) {
 			logger.error("Error loading browsers", e);
 			response.setStatus(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
+		}
+	}
+
+	/**
+	 * The plot id the collector is shown, without the keys hidden from the record list ( blind quality control copies ):
+	 * Google Earth Web names the plot it shows with it. The whole id if the survey cannot be read.
+	 */
+	private String visiblePlacemarkId(String plotId) {
+		try {
+			return KmlGenerator.getVisiblePlacemarkIdOf(plotId, earthSurveyService.getCollectSurvey());
+		} catch (RuntimeException e) {
+			logger.warn("Could not tell the visible keys of plot {}", plotId, e);
+			return plotId;
 		}
 	}
 
@@ -158,6 +172,7 @@ public class PlacemarkBrowserServlet {
 			kmlGenerator = generator;
 			SimplePlacemarkObject placemarkObject = new SimplePlacemarkObject(latLongCoordinates.split(","));
 			placemarkObject.setPlacemarkId(plotId);
+			placemarkObject.setVisiblePlacemarkId(visiblePlacemarkId(plotId));
 			// Numbered like a plot selection, so that it never shows over a plot selected after it, nor under one before
 			plotImageryService.showInGoogleEarthWeb(placemarkObject, generator);
 			response.setStatus(HttpServletResponse.SC_OK);

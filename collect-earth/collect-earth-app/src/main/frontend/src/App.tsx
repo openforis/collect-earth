@@ -4,6 +4,7 @@ import GlobalStyles from "@mui/material/GlobalStyles";
 import Snackbar from "@mui/material/Snackbar";
 import Alert from "@mui/material/Alert";
 import type { MapController } from "./controller";
+import { plotLabel } from "./plots";
 import { I18nContext, translator } from "./i18n";
 import { FormPanel } from "./components/FormPanel";
 import { MapArea } from "./components/MapArea";
@@ -64,8 +65,9 @@ export function App({ controller }: { controller: MapController }) {
           <Alert severity="success" variant="filled" onClose={controller.dismissSubmitted} data-testid="submitted-toast"
             sx={{ position: "relative", overflow: "hidden" }}>
             {state.submitted.next
-              ? t("toast.submitted", { id: state.submitted.plotId, next: state.submitted.next })
-              : t("toast.submittedLast", { id: state.submitted.plotId })}
+              ? t("toast.submitted", { id: plotLabel(state.labels, state.submitted.plotId),
+                next: plotLabel(state.labels, state.submitted.next) })
+              : t("toast.submittedLast", { id: plotLabel(state.labels, state.submitted.plotId) })}
             {/* The time left before it goes, shrinking to nothing */}
             <Box aria-hidden sx={{
               position: "absolute", left: 0, bottom: 0, height: 3, width: "100%", bgcolor: "common.white", opacity: 0.7,

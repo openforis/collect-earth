@@ -14,7 +14,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
  * Serializes a plot (SimplePlacemarkObject) into a GeoJSON Feature consumed by
  * the Leaflet map page. Geometry is a GeometryCollection: first the plot
  * boundary/buffers (Polygons from multiShape), then one Polygon per sample
- * square. Properties carry the id, center, elevation/aspect/slope and every
+ * square. Properties carry the id, the visible id shown to the collector, center, elevation/aspect/slope and every
  * CSV extra column so the page can build the /balloon form URL.
  */
 public class PlotGeoJsonBuilder {
@@ -80,7 +80,12 @@ public class PlotGeoJsonBuilder {
 
 	private Map<String, Object> properties(SimplePlacemarkObject plot) {
 		Map<String, Object> props = new LinkedHashMap<>();
+		// The id joins every key and is what the map, the form and the records use. The visible id is what the collector is
+		// shown: the keys hidden from the record list are left out ( blind quality control copies, "105,2" is shown as
+		// "105" ), as in the KML ( KmlGenerator.getVisiblePlacemarkId ). Hidden key columns such as round stay among the
+		// properties, as the balloon form needs them ( $[EXTRA_round] ), but the map never shows them
 		props.put("id", plot.getPlacemarkId());
+		props.put("visibleId", plot.getVisiblePlacemarkId() != null ? plot.getVisiblePlacemarkId() : plot.getPlacemarkId());
 		if (plot.getCoord() != null) {
 			props.put("latitude", plot.getCoord().getLatitude());
 			props.put("longitude", plot.getCoord().getLongitude());

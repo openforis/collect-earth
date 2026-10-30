@@ -11,6 +11,7 @@ import PublicOffIcon from "@mui/icons-material/PublicOff";
 import SyncIcon from "@mui/icons-material/Sync";
 import ViewQuiltIcon from "@mui/icons-material/ViewQuilt";
 import type { MapController, UiState } from "../controller";
+import { plotLabel } from "../plots";
 import { isMessageKey, useT, type Translate } from "../i18n";
 
 /**
@@ -22,7 +23,7 @@ export function GewChip({ controller, state }: { controller: MapController; stat
   const [anchor, setAnchor] = useState<HTMLElement | null>(null);
   const gew = state.gew;
   const active = state.activeId;
-  const { label, icon, color, attention } = describe(gew, active, t);
+  const { label, icon, color, attention } = describe(gew, active, state.labels, t);
 
   return (
     <>
@@ -40,7 +41,7 @@ export function GewChip({ controller, state }: { controller: MapController; stat
         <MenuItem disabled={!active} data-testid="gew-show"
           onClick={() => { controller.showActiveInGoogleEarthWeb(); setAnchor(null); }}>
           <ListItemIcon><SyncIcon fontSize="small" /></ListItemIcon>
-          <ListItemText primary={active ? t("gew.show", { id: active }) : t("gew.selectFirst")}
+          <ListItemText primary={active ? t("gew.show", { id: plotLabel(state.labels, active) }) : t("gew.selectFirst")}
             secondary={gew?.state === "CLOSED" ? t("gew.reopens") : undefined} />
         </MenuItem>
         <MenuItem data-testid="gew-arrange" disabled={!gew || gew.state === "CLOSED"}
@@ -53,7 +54,8 @@ export function GewChip({ controller, state }: { controller: MapController; stat
   );
 }
 
-function describe(gew: UiState["gew"], activeId: string | null, t: Translate): {
+/** The plots are named by their labels (see plotLabel): their ids may hold keys hidden from the collector. */
+function describe(gew: UiState["gew"], activeId: string | null, labels: Record<string, string>, t: Translate): {
   label: string; icon: ReactElement; color: "default" | "warning" | "error"; attention: boolean;
 } {
   const busy = <CircularProgress size={14} sx={{ ml: "8px !important" }} />;
@@ -62,7 +64,7 @@ function describe(gew: UiState["gew"], activeId: string | null, t: Translate): {
     case "OPENING":
       return { label: t("gew.opening"), icon: busy, color: "default", attention: false };
     case "MOVING":
-      return { label: gew.plotId ? t("gew.moving", { id: gew.plotId }) : t("gew.movingNoPlot"), icon: busy, color: "default", attention: false };
+      return { label: gew.plotId ? t("gew.moving", { id: plotLabel(labels, gew.plotId) }) : t("gew.movingNoPlot"), icon: busy, color: "default", attention: false };
     case "WAITING":
       return { label: t("gew.waiting"), icon: <PublicOffIcon />, color: "warning", attention: true };
     case "ERROR": {
@@ -78,8 +80,8 @@ function describe(gew: UiState["gew"], activeId: string | null, t: Translate): {
     default:
       if (!gew.plotId) return { label: t("gew.readyNoPlot"), icon: <PublicIcon />, color: "default", attention: false };
       if (activeId && gew.plotId !== activeId) {
-        return { label: t("gew.otherPlot", { shown: gew.plotId, active: activeId }), icon: <SyncIcon />, color: "warning", attention: true };
+        return { label: t("gew.otherPlot", { shown: plotLabel(labels, gew.plotId), active: plotLabel(labels, activeId) }), icon: <SyncIcon />, color: "warning", attention: true };
       }
-      return { label: t("gew.plot", { id: gew.plotId }), icon: <PublicIcon />, color: "default", attention: false };
+      return { label: t("gew.plot", { id: plotLabel(labels, gew.plotId) }), icon: <PublicIcon />, color: "default", attention: false };
   }
 }
