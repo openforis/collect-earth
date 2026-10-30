@@ -12,9 +12,9 @@ import org.openforis.collect.earth.app.service.LocalPropertiesService.EarthPrope
 
 /**
  * One setting of the settings page: the property it is stored in, its type, its texts (keys of Messages.properties),
- * when it is shown, whether changing it restarts Collect Earth, and its rules. The page draws the field from the JSON
- * of toJson() (the Field of settings.ts); the server validates and saves from the same description. Built with the
- * static factories and the chained setters, as the sections of SettingsModel do.
+ * when it is shown and whether changing it restarts Collect Earth. The page draws the field from the JSON of toJson()
+ * (the Field of settings.ts); the server validates (SettingsValidator) and saves from the same description. Built with
+ * the static factories and the chained setters, as the sections of SettingsModel do.
  */
 public final class Setting {
 
@@ -24,11 +24,6 @@ public final class Setting {
 		String json() {
 			return name().toLowerCase(Locale.ENGLISH);
 		}
-	}
-
-	/** A rule of a setting: the message (in the UI language) when the value breaks it, null when it does not. */
-	public interface Rule {
-		String check(String value, Map<String, String> values);
 	}
 
 	/**
@@ -101,8 +96,6 @@ public final class Setting {
 	private List<String> extensions = Collections.emptyList();
 	private Integer min;
 	private Integer max;
-	private final List<Rule> errors = new ArrayList<>();
-	private final List<Rule> warnings = new ArrayList<>();
 
 	private Setting(EarthProperty property, Type type, String label) {
 		this.property = property;
@@ -217,18 +210,6 @@ public final class Setting {
 		return this;
 	}
 
-	/** A rule whose breach is an error: the setting cannot be saved until it holds. */
-	public Setting error(Rule rule) {
-		errors.add(rule);
-		return this;
-	}
-
-	/** A rule whose breach is only shown. */
-	public Setting warn(Rule rule) {
-		warnings.add(rule);
-		return this;
-	}
-
 	public EarthProperty getProperty() {
 		return property;
 	}
@@ -276,14 +257,6 @@ public final class Setting {
 
 	public Integer getMax() {
 		return max;
-	}
-
-	public List<Rule> getErrorRules() {
-		return Collections.unmodifiableList(errors);
-	}
-
-	public List<Rule> getWarningRules() {
-		return Collections.unmodifiableList(warnings);
 	}
 
 	/** The keys of the labels this setting may show: its own and the conditional ones. */

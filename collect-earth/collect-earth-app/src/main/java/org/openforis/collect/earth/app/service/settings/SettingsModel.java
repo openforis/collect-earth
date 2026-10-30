@@ -25,7 +25,7 @@ import org.openforis.collect.earth.app.service.settings.PlanetMonths.Month;
 /**
  * The settings of the settings page, by section, from the inventory of the Swing properties dialog
  * (docs/plans/2026-10-30-settings-inventory.md): what each is, when it is shown, what Restore defaults sets, and
- * which restart Collect Earth. The rules are attached by SettingsRules. A new setting is a line here, and its field,
+ * which restart Collect Earth. Their rules are in SettingsValidator. A new setting is a line here, and its field,
  * visibility and texts follow on the page.
  */
 public final class SettingsModel {
