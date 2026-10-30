@@ -8,6 +8,7 @@ import java.io.IOException;
 import java.util.Collections;
 import java.util.Date;
 import java.util.Enumeration;
+import java.util.Map;
 import java.util.Observable;
 import java.util.Properties;
 import java.util.TreeSet;
@@ -825,6 +826,19 @@ public class LocalPropertiesService extends Observable {
 		properties.setProperty(key.toString(), value);
 		this.setChanged();
 		this.notifyObservers(key);
+		storeProperties();
+	}
+
+	/**
+	 * Several values in one write of earth.properties: the settings page saves its changes together, where the Swing
+	 * dialog wrote the file once per property. The observers are told of each key, by its name.
+	 */
+	public void setValues(Map<String, String> values) {
+		for (Map.Entry<String, String> value : values.entrySet()) {
+			properties.setProperty(value.getKey(), value.getValue());
+			this.setChanged();
+			this.notifyObservers(value.getKey());
+		}
 		storeProperties();
 	}
 
