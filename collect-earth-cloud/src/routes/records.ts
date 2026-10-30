@@ -116,15 +116,46 @@ function normalizeEnvelope(raw: unknown): RecordEnvelope | null {
     activelySaved: o.activelySaved === true,
     step: typeof o.step === 'number' ? o.step : 0,
     xml: typeof o.xml === 'string' ? o.xml : null,
-    summary: isStringMap(o.summary) ? (o.summary as Record<string, string>) : {},
+    summary: summaryOf(o.summary),
     deleted,
     payloadVersion: typeof o.payloadVersion === 'number' ? o.payloadVersion : 1,
   };
 }
 
-function isStringMap(value: unknown): boolean {
-  if (typeof value !== 'object' || value === null) {
-    return false;
+/**
+ * At most this many answers are kept from a record's summary. A Collect Earth survey has
+ * one per attribute (a few hundred in a large one); the rest of an oversized summary is
+ * left out, the record is kept.
+ */
+export const MAX_SUMMARY_KEYS = 2000;
+/** Longer keys are left out: a summary key is an attribute's HTML parameter name. */
+export const MAX_SUMMARY_KEY_CHARS = 200;
+/** Longer values are left out (not cut, so a cut answer is never compared as an answer). */
+export const MAX_SUMMARY_VALUE_CHARS = 10_000;
+
+/**
+ * The summary's answers: its string values only. Collect Earth sends
+ * `BalloonInputFieldsUtils.getValuesByHtmlParameters`, a Map<String, String> that holds
+ * null for every empty attribute, so a null is no answer and is left out. Anything else
+ * that is not a string (Collect Earth sends none) is left out the same way, key by key,
+ * and the rest of the summary is kept: refusing the whole summary for one empty
+ * attribute lost every answer of the desktop's records.
+ */
+function summaryOf(value: unknown): Record<string, string> {
+  const out: Record<string, string> = {};
+  if (typeof value !== 'object' || value === null || Array.isArray(value)) {
+    return out;
   }
-  return Object.values(value as Record<string, unknown>).every((v) => typeof v === 'string');
+  let kept = 0;
+  for (const [key, v] of Object.entries(value as Record<string, unknown>)) {
+    if (kept >= MAX_SUMMARY_KEYS) {
+      break;
+    }
+    if (typeof v !== 'string' || key === '' || key === '__proto__' || key.length > MAX_SUMMARY_KEY_CHARS || v.length > MAX_SUMMARY_VALUE_CHARS) {
+      continue;
+    }
+    out[key] = v;
+    kept++;
+  }
+  return out;
 }

@@ -83,6 +83,18 @@ describe('quality routes', () => {
     });
   });
 
+  it('GET /quality compares the answers of records sent with null for their empty attributes, as Collect Earth sends them', async () => {
+    const res = await batchRequest(ctx.app, pid, project.projectToken, [
+      envelope({ recordKey: '1,1', operator: 'ana', summary: { [LAND_USE]: 'F', [FOREST]: null, collect_text_comments: null } as never }),
+      envelope({ recordKey: '1,2', operator: 'ben', summary: { [LAND_USE]: 'G', [FOREST]: null, collect_text_comments: null } as never }),
+    ]);
+    expect(res.statusCode, res.body).toBe(200);
+    const body = await fresh();
+    expect(body).toMatchObject({ plotsChecked: 1, plotsDiffering: 1 });
+    expect(body.questions).toEqual([{ key: LAND_USE, label: 'Land Use 2025', kind: 'choice', compared: 1, agreeing: 0, rate: null }]);
+    expect(body.differences[0].fields).toEqual([{ key: LAND_USE, first: 'F', check: 'G' }]);
+  });
+
   it('GET /quality says when the figures were computed, and that they are not stale', async () => {
     await collect(2, 1);
     const before = Date.now();

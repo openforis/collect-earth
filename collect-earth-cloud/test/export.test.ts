@@ -238,4 +238,18 @@ describe('GET export.csv', () => {
       '"17,2",17,2,check,,maria,true,1970-01-01T00:00:01.000Z',
     ]);
   });
+
+  it('has the answer columns of records sent with null for their empty attributes, as Collect Earth sends them', async () => {
+    const maria = await join('maria');
+    await uploadPlots('id,lat,lon\n1,0,0\n2,0,0\n');
+    await batchRequest(ctx.app, pid, maria.token, [
+      envelope({ recordKey: '1', operator: 'maria', summary: { collect_code_land_use_category: 'F', collect_text_comments: null } as never }),
+      envelope({ recordKey: '2', operator: 'maria', summary: { collect_code_land_use_category: null, collect_text_comments: 'cloudy' } as never }),
+    ]);
+    expect(await exported()).toEqual([
+      'record_key,plot,round,assessment,final,operator,actively_saved,modified_on,collect_code_land_use_category,collect_text_comments',
+      '1,1,1,main,,maria,true,1970-01-01T00:00:01.000Z,F,',
+      '2,2,1,main,,maria,true,1970-01-01T00:00:01.000Z,,cloudy',
+    ]);
+  });
 });

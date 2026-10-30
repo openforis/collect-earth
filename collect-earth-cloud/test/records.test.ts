@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { batchRequest, bearer, createProject, envelope, makeContext, type TestContext } from './helpers.js';
+import { MAX_SUMMARY_KEY_CHARS, MAX_SUMMARY_KEYS, MAX_SUMMARY_VALUE_CHARS } from '../src/routes/records.js';
 
 interface BatchResponse {
   results: { recordKey: string; status: string; reason?: string }[];
@@ -88,6 +89,54 @@ describe('records:batch — gzip, LWW and tombstones', () => {
     const body = res.json() as BatchResponse;
     expect(body.results[0].status).toBe('error');
     expect(body.results[1].status).toBe('stored');
+  });
+
+  it('keeps the answers of a summary with empty attributes: a null is no answer, the strings stay', async () => {
+    // Collect Earth's getValuesByHtmlParameters gives null for every empty attribute.
+    const res = await batchRequest(ctx.app, project.projectId, project.projectToken, [
+      envelope({
+        recordKey: '1',
+        summary: { collect_code_land_use_category: 'F', collect_text_comments: null, collect_code_subdivision: 'EB' } as never,
+      }),
+      envelope({ recordKey: '2', summary: { collect_code_land_use_category: null } as never }),
+    ]);
+    expect((res.json() as BatchResponse).results.map((r) => r.status)).toEqual(['stored', 'stored']);
+    const stored = await ctx.store.listRecords(project.projectId);
+    expect(stored.find((r) => r.recordKey === '1')!.summary).toEqual({ collect_code_land_use_category: 'F', collect_code_subdivision: 'EB' });
+    expect(stored.find((r) => r.recordKey === '2')!.summary).toEqual({});
+  });
+
+  it('a summary value that is not a string is left out, the rest of the summary is kept', async () => {
+    await batchRequest(ctx.app, project.projectId, project.projectToken, [
+      envelope({ summary: { a: 'x', b: 3, c: true, d: { e: 'f' }, g: ['h'] } as never }),
+    ]);
+    expect((await ctx.store.listRecords(project.projectId))[0].summary).toEqual({ a: 'x' });
+  });
+
+  it('a summary that is not an object is stored empty, and the record is kept', async () => {
+    await batchRequest(ctx.app, project.projectId, project.projectToken, [envelope({ summary: ['a'] as never }), envelope({ recordKey: '2', summary: 'a' as never })]);
+    const stored = await ctx.store.listRecords(project.projectId);
+    expect(stored.map((r) => r.summary)).toEqual([{}, {}]);
+  });
+
+  it('caps the summary: too long a key or value is left out, and keys past the limit too', async () => {
+    const many: Record<string, string> = {};
+    for (let i = 0; i < MAX_SUMMARY_KEYS + 5; i++) many[`k${String(i).padStart(5, '0')}`] = 'v';
+    const fits = 'x'.repeat(MAX_SUMMARY_VALUE_CHARS);
+    const keyFits = 'k'.repeat(MAX_SUMMARY_KEY_CHARS);
+    await batchRequest(ctx.app, project.projectId, project.projectToken, [
+      envelope({ summary: many }),
+      envelope({
+        recordKey: '2',
+        summary: { fits, too_long: `${fits}x`, [keyFits]: 'v', [`${keyFits}k`]: 'v', '': 'v' },
+      }),
+    ]);
+    const stored = await ctx.store.listRecords(project.projectId);
+    const first = stored.find((r) => r.recordKey === '1')!.summary;
+    expect(Object.keys(first)).toHaveLength(MAX_SUMMARY_KEYS);
+    expect(first.k00000).toBe('v');
+    expect(first[`k${String(MAX_SUMMARY_KEYS).padStart(5, '0')}`]).toBeUndefined();
+    expect(stored.find((r) => r.recordKey === '2')!.summary).toEqual({ fits, [keyFits]: 'v' });
   });
 
   it('with a user session, records are stored under its username whatever operator they name', async () => {
