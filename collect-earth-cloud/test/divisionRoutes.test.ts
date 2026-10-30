@@ -371,6 +371,27 @@ describe('dividing plots between people', () => {
     return res.json().round as { state: string };
   };
 
+  it('someone holding a plot as main in one file and as a copy in another did its main assessment, as the export says', async () => {
+    // Plot 1: maria's main plot in this file; in b.csv jose holds it as main and maria as a copy.
+    await ctx.store.setDivision(pid, fileId, { mode: 'manual' }, [{ plotKey: '1', userId: maria.userId, overlap: false }]);
+    const fileB = (await upload('id,lat,lon\n1,0,0\n2,0,0\n', 'b.csv')).json().id as string;
+    await ctx.store.setDivision(pid, fileB, { mode: 'manual' }, [
+      { plotKey: '1', userId: jose.userId, overlap: false },
+      { plotKey: '1', userId: maria.userId, overlap: true },
+      { plotKey: '2', userId: jose.userId, overlap: false },
+    ]);
+    await batchRequest(ctx.app, pid, maria.token, [envelope({ recordKey: '1', operator: 'maria' })]);
+    const exported = await ctx.app.inject({ method: 'GET', url: `/v1/projects/${pid}/export.csv`, headers: bearer(admin) });
+    expect(exported.body).toContain('\r\n1,1,1,main,,maria,');
+    // Dividing b.csv again between jose and ana: maria did the main assessment of plot 1,
+    // so it stays hers (she is not among the people) and only plot 2 is dealt.
+    const res = await divideFile({ mode: 'even', people: [jose.userId, ana.userId], order: 'file', dryRun: true }, fileB);
+    expect(res.statusCode, res.body).toBe(200);
+    expect(share(res.json(), 'maria')).toMatchObject({ plots: 1, overlap: 0, submitted: 1 });
+    const people = res.json().people as { username: string; plots: number }[];
+    expect(people.filter((p) => p.username !== 'maria').reduce((n, p) => n + p.plots, 0)).toBe(1);
+  });
+
   it('with the round the server added, a check record counts as submitted by the person who made it', async () => {
     expect((await putCep(idOnlyCep())).state).toBe('added');
     await batchRequest(ctx.app, pid, jose.token, [

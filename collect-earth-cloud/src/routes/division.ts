@@ -2,7 +2,6 @@ import { randomInt } from 'node:crypto';
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import { isUuid } from '../accountRules.js';
 import {
-  copyHoldersOf,
   divide,
   hasSubmitted,
   moveUnfinished,
@@ -12,6 +11,7 @@ import {
   type DistributionSummary,
 } from '../division.js';
 import { plotFileOf } from '../plotFileCache.js';
+import { loadPlotContext, type Log } from '../qualityService.js';
 import type { PlotFile } from '../plots.js';
 import { fileKeyCount, keyShape, splitKey } from '../rounds.js';
 import { requireProjectMembership } from '../plugins/projectAuth.js';
@@ -33,23 +33,24 @@ function columnValues(file: PlotFile, column: number): string[] {
 }
 
 /** Everything a division route needs about one file and the people of the project. */
-async function loadFile(store: Store, projectId: string, csvFileId: string) {
+async function loadFile(store: Store, projectId: string, csvFileId: string, log: Log) {
   const file = isUuid(csvFileId) ? await store.getCsvFile(projectId, csvFileId) : null;
   if (!file) {
     return null;
   }
-  const [members, records, info, holdings] = await Promise.all([
+  const [members, records, info] = await Promise.all([
     store.listMembers(projectId),
     store.listRecordSummaries(projectId),
     store.getRoundInfo(projectId),
-    file.distribution ? store.listPlotAssignments(projectId, file.id) : Promise.resolve([]),
   ]);
   const plotFile = plotFileOf(file, fileKeyCount(info));
   const usernames = new Map(members.map((m) => [m.userId, m.username]));
   const userIdByUsername = new Map(members.map((m) => [m.username, m.userId]));
   // Who holds a plot as a quality-check copy tells the check from the main
-  // assessment when the key has no round (and picks the unit of a check record).
-  const copyHolders = copyHoldersOf(holdings, usernames);
+  // assessment when the key has no round (and picks the unit of a check record):
+  // from every divided file, as the export and the quality figures read it, so
+  // someone holding a plot as main in another file is not taken for its checker.
+  const { copyHolders } = await loadPlotContext(store, projectId, log, { info, members });
   const submitted = submittedByPlot(records, new Set(plotFile.plotIds), userIdByUsername, info, copyHolders);
   // A survey with its own round may have several units (rounds) of one plot.
   const shape = keyShape(info);
@@ -154,7 +155,7 @@ export async function registerDivisionRoutes(app: FastifyInstance, store: Store)
 
   app.get('/v1/projects/:pid/csv-files/:id/distribution', admin, async (request: FastifyRequest, reply: FastifyReply) => {
     const projectId = request.membership!.projectId;
-    const loaded = await loadFile(store, projectId, csvFileId(request));
+    const loaded = await loadFile(store, projectId, csvFileId(request), request.log);
     if (!loaded) {
       return reply.code(404).send({ error: 'not_found' });
     }
@@ -165,7 +166,7 @@ export async function registerDivisionRoutes(app: FastifyInstance, store: Store)
   // dryRun: true (nothing saved). Answers what GET /distribution would afterwards.
   app.put('/v1/projects/:pid/csv-files/:id/distribution', admin, async (request: FastifyRequest, reply: FastifyReply) => {
     const projectId = request.membership!.projectId;
-    const loaded = await loadFile(store, projectId, csvFileId(request));
+    const loaded = await loadFile(store, projectId, csvFileId(request), request.log);
     if (!loaded) {
       return reply.code(404).send({ error: 'not_found' });
     }
@@ -196,7 +197,7 @@ export async function registerDivisionRoutes(app: FastifyInstance, store: Store)
   // Body: {fromUserId, toUserId}. Gives the plots `from` has not submitted to `to`.
   app.post('/v1/projects/:pid/csv-files/:id/move-unfinished', admin, async (request: FastifyRequest, reply: FastifyReply) => {
     const projectId = request.membership!.projectId;
-    const loaded = await loadFile(store, projectId, csvFileId(request));
+    const loaded = await loadFile(store, projectId, csvFileId(request), request.log);
     if (!loaded) {
       return reply.code(404).send({ error: 'not_found' });
     }
