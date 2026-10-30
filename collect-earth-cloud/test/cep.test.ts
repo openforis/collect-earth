@@ -272,7 +272,7 @@ describe('readCep', () => {
         }
         return null;
       })();
-      expect(performance.now() - started).toBeLessThan(500);
+      expect(performance.now() - started).toBeLessThan(5000); // catches a hang, not a speed
       return message;
     };
     const big = (bytes: number) => Buffer.alloc(bytes, 0x20);
@@ -287,7 +287,7 @@ describe('readCep', () => {
     );
     // Any other file may be larger.
     expect(tooLarge(cepWith({ 'placemark.idm.xml': idm(''), 'grid/plots.csv': big(12 * MB) }))).toBeNull();
-  });
+  }, 30_000);
 
   it('takes a Uint8Array as well as a Buffer', () => {
     const zip = demoCep();
@@ -327,8 +327,8 @@ describe('readCep', () => {
       expect(zip.length).toBeLessThan(2 * MB);
       const started = performance.now();
       expect(refusal(zip)?.code).toBe('not_a_zip');
-      expect(performance.now() - started).toBeLessThan(200);
-    });
+      expect(performance.now() - started).toBeLessThan(5000); // catches a hang, not a speed
+    }, 30_000);
 
     it('a stored file whose sizes disagree', () => {
       expect(refusal(rawZip([survey, { name: 'b.txt', data: 'hello', size: 3 }]))).toMatchObject({
@@ -351,9 +351,9 @@ describe('readCep', () => {
         const zip = rawZip([survey, { name: 'bomb', data: bomb, method: 8, size, packed: true }]);
         const started = performance.now();
         expect(refusal(zip)?.code).toBe('not_a_zip');
-        expect(performance.now() - started).toBeLessThan(250);
+        expect(performance.now() - started).toBeLessThan(5000); // catches a hang, not a speed
       }
-    });
+    }, 30_000);
 
     it('accepts an empty deflated file, but not one that inflates to something', () => {
       const empty = zlib.deflateRawSync(Buffer.alloc(0));

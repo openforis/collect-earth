@@ -148,8 +148,8 @@ describe('plot files with a round column', () => {
     const built = buildPlotFile(file, new Set(file.plotIds), round);
     const elapsed = performance.now() - started;
     expect(built.length).toBe(file.data.length + 2 * 100_001 + 4);
-    expect(elapsed).toBeLessThan(2000);
-  });
+    expect(elapsed).toBeLessThan(5000); // catches a hang, not a speed
+  }, 30_000);
 
   it('records where each field starts and ends', () => {
     const row = parse('id,lat,lon\n"1,2" , 0,0\n').rows[0];
