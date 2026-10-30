@@ -28,7 +28,7 @@ managed Postgres (Option B).
 | `MIGRATE_ON_BOOT` | optional | `true` | Apply pending migrations on startup (see below) |
 | `PORT` | no | `8080` | Listen port (Cloud Run injects `8080`) |
 | `HOST` | no | `0.0.0.0` | Bind address |
-| `QUALITY_WORKER_MAX_MB` | no | `512` | Memory (MB, at least 64) the thread that works out the quality figures may use on Postgres. A project too big for it gets a plain error instead of the figures. Keep it below the container's memory (see "Quality figures and memory") |
+| `QUALITY_WORKER_MAX_MB` | no | `256` | Memory (MB, at least 64) the thread that works out the quality figures may use on Postgres. A project too big for it gets a plain error instead of the figures. Keep it below the container's memory (see "Quality figures and memory") |
 | `AI_VERTEX_API_KEY` | no | (secret) | Optional AI assistant: a Vertex AI API key, restricted to the Vertex AI API. Wins over `AI_VERTEX_PROJECT` when both are set. See "AI assistant (optional)" |
 | `AI_VERTEX_PROJECT` | no | `my-project` | Optional AI assistant without a key: the Google Cloud project whose Vertex AI the server's service account calls |
 | `AI_VERTEX_REGION` | no | `global` | Vertex AI location, used with `AI_VERTEX_PROJECT` (default `global`) |
@@ -422,11 +422,13 @@ not change this setting. A later option is to hand AI runs to Cloud Tasks, so th
 each runs inside a request of its own.
 
 **Quality figures and memory.** On Postgres the figures are worked out in a
-separate thread of the server, with at most `QUALITY_WORKER_MAX_MB` (default 512)
-of memory. `deploy.sh` gives each instance 512 MiB in all, so for large projects
-(tens of thousands of records) set `QUALITY_WORKER_MAX_MB` lower (e.g. 256) or give
-the service more memory (`gcloud run services update ... --memory=1Gi`); otherwise
-the container itself may run out of memory before the thread's limit is reached.
+separate thread of the server, with at most `QUALITY_WORKER_MAX_MB` (default 256)
+of memory, which leaves room for the rest of the server in the 512 MiB that
+`deploy.sh` gives each instance. A project too big for that (tens of thousands of
+records) gets a plain "needed more memory" message instead of the figures; then give
+the service more memory (`gcloud run services update ... --memory=1Gi`) and raise
+`QUALITY_WORKER_MAX_MB` to about half of it (e.g. 512). Never set it close to the
+container's memory: the whole container would run out first and restart.
 
 ## Known limitations
 

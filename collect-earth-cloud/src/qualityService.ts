@@ -121,7 +121,7 @@ export const WORKER_JOB_TIMEOUT_MS = 120_000;
 /** Jobs the worker takes at once; one more is refused with WorkerBusyError. */
 export const MAX_WORKER_JOBS = 2;
 /** The worker's heap, in MB, unless QUALITY_WORKER_MAX_MB says otherwise. */
-export const DEFAULT_WORKER_MAX_MB = 512;
+export const DEFAULT_WORKER_MAX_MB = 256;
 
 /** Thrown by QualityWorker.run when it already has MAX_WORKER_JOBS jobs (the job never ran). */
 export class WorkerBusyError extends Error {

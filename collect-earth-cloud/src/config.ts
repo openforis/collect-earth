@@ -33,7 +33,7 @@ export interface Config {
    * address the client writes itself never counts.
    */
   trustProxyHops?: number;
-  /** The quality worker's heap in MB (QUALITY_WORKER_MAX_MB); undefined = the default (512). */
+  /** The quality worker's heap in MB (QUALITY_WORKER_MAX_MB); undefined = the default (256). */
   qualityWorkerMaxMb?: number;
   /**
    * The shortest time between two computations of a project's quality figures, in ms;
